@@ -33,7 +33,7 @@ function getShortcutSections( isApple: boolean ): ShortcutSection[] {
 	const navModifierKey = isApple ? '⌘' : 'Alt';
 	return [
 		{
-			title: __( 'General' ),
+			title: __( 'Global' ),
 			shortcuts: [ { label: __( 'Open settings' ), keys: [ modifierKey, ',' ] } ],
 		},
 		{
@@ -46,9 +46,9 @@ function getShortcutSections( isApple: boolean ): ShortcutSection[] {
 			],
 		},
 		{
-			title: __( 'Site preview' ),
+			title: __( 'Preview' ),
 			shortcuts: [
-				{ label: __( 'Toggle site preview' ), keys: [ modifierKey, 'Shift', 'B' ] },
+				{ label: __( 'Toggle preview' ), keys: [ modifierKey, 'Shift', 'B' ] },
 				{ label: __( 'Reload preview' ), keys: [ modifierKey, 'R' ] },
 				{ label: __( 'Go back in preview' ), keys: [ navModifierKey, '←' ] },
 				{ label: __( 'Go forward in preview' ), keys: [ navModifierKey, '→' ] },
@@ -72,22 +72,39 @@ function ShortcutKeys( { keys }: { keys: string[] } ) {
 	);
 }
 
-export function KeyboardPanel() {
+function ShortcutGroup( { section }: { section: ShortcutSection } ) {
 	return (
-		<div className={ styles.preferencesPanel }>
-			{ getShortcutSections( isAppleOS() ).map( ( section ) => (
-				<section key={ section.title } className={ styles.preferenceSectionGroup }>
-					<h2 className={ styles.preferenceSectionHeading }>{ section.title }</h2>
-					<ul className={ styles.shortcutList }>
-						{ section.shortcuts.map( ( shortcut ) => (
-							<li key={ shortcut.label } className={ styles.shortcutRow }>
-								<span className={ styles.shortcutName }>{ shortcut.label }</span>
-								<ShortcutKeys keys={ shortcut.keys } />
-							</li>
-						) ) }
-					</ul>
-				</section>
-			) ) }
+		<div className={ styles.shortcutGroup }>
+			<h3 className={ styles.shortcutGroupTitle }>{ section.title }</h3>
+			<ul className={ styles.list }>
+				{ section.shortcuts.map( ( shortcut ) => (
+					<li key={ shortcut.label } className={ styles.field }>
+						<div className={ styles.fieldText }>
+							<span className={ styles.fieldLabel }>{ shortcut.label }</span>
+						</div>
+						<ShortcutKeys keys={ shortcut.keys } />
+					</li>
+				) ) }
+			</ul>
 		</div>
+	);
+}
+
+export function KeyboardPanel() {
+	const [ globalSection, ...columnSections ] = getShortcutSections( isAppleOS() );
+	return (
+		<section className={ styles.card }>
+			<div className={ styles.cardHeader }>
+				<div className={ styles.cardHeaderText }>
+					<h2 className={ styles.cardTitle }>{ __( 'Keyboard' ) }</h2>
+				</div>
+			</div>
+			<ShortcutGroup section={ globalSection } />
+			<div className={ styles.shortcutColumns }>
+				{ columnSections.map( ( section ) => (
+					<ShortcutGroup key={ section.title } section={ section } />
+				) ) }
+			</div>
+		</section>
 	);
 }

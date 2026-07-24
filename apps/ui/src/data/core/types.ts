@@ -232,6 +232,10 @@ export interface ConnectorCapabilities {
 	// (~/.studio/knowledge/instructions.md). False when hosted remotely, which
 	// hides the Studio Code settings tab.
 	agentInstructions: boolean;
+	// The host can switch this window back to the classic Studio UI
+	// (`disableAgenticUi`). Only the desktop app ships the classic renderer;
+	// in a browser there is nothing to switch to.
+	switchToClassicUi: boolean;
 }
 
 export interface Connector {

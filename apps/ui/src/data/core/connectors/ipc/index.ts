@@ -317,6 +317,7 @@ export function createIpcConnector(): Connector {
 			siteCheckpoints: true,
 			readLocalMedia: true,
 			agentInstructions: true,
+			switchToClassicUi: true,
 		},
 
 		// Auth — optional in Electron, delegated to main process

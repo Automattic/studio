@@ -1,101 +1,53 @@
-import { AI_MODELS, type AiModelId } from '@studio/common/ai/models';
-import { type AiResponseLength } from '@studio/common/ai/response-length';
-import {
-	GATED_TOOL_NAMES,
-	supportsAlwaysAllow,
-	type GatedToolName,
-	type ToolPermissionLevel,
-	type ToolPermissionOverrides,
-} from '@studio/common/ai/tool-permissions';
-import {
-	ACTIVITY_SOUND_EVENTS,
-	type ActivitySoundEvent,
-	type ActivitySoundId,
-	type ActivitySoundPreferences,
-} from '@studio/common/lib/activity-sounds';
 import { supportedLocaleNames } from '@studio/common/lib/locale';
-import { getMcpServerConfigJson } from '@studio/common/lib/mcp-config';
-import {
-	clampQuotaFraction,
-	formatQuotaPercentage,
-	formatQuotaResetDate,
-} from '@studio/common/lib/studio-assistant-quota';
 import { SUPPORTED_EDITORS, supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { SUPPORTED_TERMINALS, terminalConfig } from '@studio/common/lib/user-settings/terminal';
-import { FormToggle } from '@wordpress/components';
-import { __, _n, sprintf } from '@wordpress/i18n';
-import { audio, check, close, copy, file, Icon, moreHorizontal } from '@wordpress/icons';
-import {
-	Button,
-	IconButton,
-	InputControl,
-	InputLayout,
-	SelectControl,
-	Tooltip,
-} from '@wordpress/ui';
+import { CheckboxControl } from '@wordpress/components';
+import { __, sprintf } from '@wordpress/i18n';
+import { close, file, Icon } from '@wordpress/icons';
+import { Button, IconButton, SelectControl } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Gravatar } from '@/components/gravatar';
-import { LearnMoreLink } from '@/components/learn-more';
-import * as Menu from '@/components/menu';
+import { useCallback, useEffect, useState } from 'react';
 import * as Tabs from '@/components/tabs';
-import { WporgLoginDialog } from '@/components/wporg-login-dialog';
 import { useConnector } from '@/data/core';
 import { persister } from '@/data/core/query-client';
-import { useAppGlobals } from '@/data/queries/use-app-globals';
-import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
-import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
-import {
-	useDeleteAllSnapshots,
-	useSnapshotUsage,
-	useSnapshots,
-} from '@/data/queries/use-snapshots';
-import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
-import {
-	useInstallWordPressSkill,
-	useRemoveWordPressSkill,
-	useWordPressSkills,
-} from '@/data/queries/use-wordpress-skills';
-import { useOffline } from '@/hooks/use-offline';
-import { usePrefersColorScheme } from '@/hooks/use-prefers-color-scheme';
 import { useSettingsClose } from '@/hooks/use-settings-close';
-import { playActivitySound } from '@/lib/activity-sounds';
+import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
+import { AccountSection } from './account-section';
+import { AiPanel } from './ai-panel';
+import { KeyboardPanel } from './keyboard-panel';
+import { McpSection } from './mcp-panel';
+import { UNSET, toPreferencesFormData, toPreferencesPatch } from './preferences';
 import {
-	SIMULATED_WPORG_USERNAME,
-	setWporgConnected,
-	useWporgConnected,
-} from '@/lib/wporg-connection';
-import {
-	UNSET,
-	toPreferencesFormData,
-	toPreferencesPatch,
-	type PreferencesFormData,
-} from './preferences';
+	SettingsPreviewPanel,
+	SettingsPreviewProvider,
+	SHOW_PREVIEW_CONTROLS,
+} from './settings-preview';
 import { StudioCliSection } from './studio-cli-section';
-import { StudioCodePanel } from './studio-code-panel';
 import styles from './style.module.css';
-import { WapuuScore } from './wapuu-score';
+import type { PreferencesFormData } from './preferences';
 import type {
 	ColorScheme,
 	InstalledApps,
 	QuitSitesBehaviorSetting,
-	SkillStatus,
 	SupportedEditor,
 	SupportedLocale,
 	SupportedTerminal,
 } from '@/data/core';
-import type { KeyboardEvent, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
-const SETTINGS_TABS = [ 'preferences', 'ai', 'usage', 'keyboard', 'skills', 'mcp' ] as const;
+const SETTINGS_TABS = [ 'preferences', 'ai' ] as const;
 
 type TabId = ( typeof SETTINGS_TABS )[ number ];
 
 export function isSettingsTab( value: string ): value is TabId {
-	return SETTINGS_TABS.includes( value as TabId );
+	return SETTINGS_TABS.some( ( tab ) => tab === value );
 }
 
+// Deep links and settings events can carry tab ids that no longer exist after
+// the two-tab redesign (e.g. `usage`, `keyboard`, `mcp`); fall back to the
+// Settings tab so the route always resolves.
 export function normalizeSettingsTab( value: string | undefined ): TabId {
 	if ( value && isSettingsTab( value ) ) {
 		return value;
@@ -105,10 +57,9 @@ export function normalizeSettingsTab( value: string | undefined ): TabId {
 
 export type SettingsTabId = TabId;
 
-const DEFAULT_PREVIEW_SITE_LIMIT = 10;
-const DOCS_URL = 'https://developer.wordpress.com/docs/developer-tools/studio/';
-const REPORT_ISSUE_URL = 'https://github.com/Automattic/studio/issues/new/choose';
-
+// No "unset" option: the main process resolves a fallback for never-chosen
+// editor/terminal prefs (matching the legacy UI), so an explicit clear can't
+// round-trip. The select shows its placeholder when nothing is installed.
 function editorElements( installedApps: InstalledApps | undefined ) {
 	return SUPPORTED_EDITORS.filter( ( editor ) => ! installedApps || installedApps[ editor ] ).map(
 		( editor ) => ( {
@@ -127,58 +78,59 @@ function terminalElements( installedApps: InstalledApps | undefined ) {
 	} ) );
 }
 
-function colorSchemeElements(): { value: ColorScheme; label: string }[] {
-	return [
-		{ value: 'system', label: __( 'System' ) },
-		{ value: 'light', label: __( 'Light' ) },
-		{ value: 'dark', label: __( 'Dark' ) },
-	];
-}
+const COLOR_SCHEME_ELEMENTS: { value: ColorScheme; label: string }[] = [
+	{ value: 'system', label: __( 'System' ) },
+	{ value: 'light', label: __( 'Light' ) },
+	{ value: 'dark', label: __( 'Dark' ) },
+];
 
 function isColorScheme( value: unknown ): value is ColorScheme {
 	return value === 'system' || value === 'light' || value === 'dark';
 }
 
-function quitSitesBehaviorElements(): { value: QuitSitesBehaviorSetting; label: string }[] {
-	return [
-		{ value: 'ask', label: __( 'Ask every time' ) },
-		{ value: 'leave-running', label: __( 'Keep sites running' ) },
-		{ value: 'stop-and-auto-start', label: __( 'Stop, restart on next launch' ) },
-		{ value: 'stop', label: __( 'Stop sites' ) },
-	];
-}
+const QUIT_SITES_BEHAVIOR_ELEMENTS: {
+	value: QuitSitesBehaviorSetting;
+	label: string;
+}[] = [
+	{ value: 'ask', label: __( 'Ask every time' ) },
+	{ value: 'leave-running', label: __( 'Keep sites running' ) },
+	{ value: 'stop-and-auto-start', label: __( 'Stop, restart on next launch' ) },
+	{ value: 'stop', label: __( 'Stop sites' ) },
+];
 
 const LOCALE_ELEMENTS: { value: SupportedLocale; label: string }[] = Object.entries(
 	supportedLocaleNames
 ).map( ( [ value, label ] ) => ( { value: value as SupportedLocale, label } ) );
 
 function SettingsHeader() {
-	// Fullscreen settings has no sidebar, so the tab bar is centered in the
-	// window. The header is not a window-drag region — that would sit over the
-	// close button and swallow its clicks; dragging happens on the fullscreen
-	// chrome's edges instead. The close button is anchored to the toolbar's
-	// right edge; the tabs stay centered on the window regardless of its width.
+	// Settings renders fullscreen, so the sidebar (and its floating toggle) is
+	// covered — only the macOS traffic lights still need clearing.
+	const reserveTrafficLightSpace = useTrafficLightSpace();
 	const onClose = useSettingsClose();
 	return (
 		<div className={ styles.header }>
-			<Tabs.List className={ styles.headerTabList }>
-				<Tabs.Tab tabId="preferences">{ __( 'Settings' ) }</Tabs.Tab>
-				<Tabs.Tab tabId="ai">{ __( 'AI' ) }</Tabs.Tab>
-				<Tabs.Tab tabId="usage">{ __( 'Usage' ) }</Tabs.Tab>
-				<Tabs.Tab tabId="keyboard">{ __( 'Keyboard' ) }</Tabs.Tab>
-				<Tabs.Tab tabId="skills">{ __( 'Skills' ) }</Tabs.Tab>
-				<Tabs.Tab tabId="mcp">{ __( 'MCP' ) }</Tabs.Tab>
-			</Tabs.List>
+			{ reserveTrafficLightSpace ? (
+				<div className={ styles.headerStart }>
+					<span className={ styles.toggleSpacer } aria-hidden="true" />
+				</div>
+			) : null }
+			<div className={ styles.headerTabs }>
+				<Tabs.List className={ styles.headerTabList }>
+					<Tabs.Tab tabId="preferences">{ __( 'Settings' ) }</Tabs.Tab>
+					<Tabs.Tab tabId="ai">{ __( 'Agent' ) }</Tabs.Tab>
+				</Tabs.List>
+			</div>
 			{ onClose ? (
-				<IconButton
-					className={ styles.closeButton }
-					variant="minimal"
-					tone="neutral"
-					size="small"
-					icon={ close }
-					label={ __( 'Close settings' ) }
-					onClick={ onClose }
-				/>
+				<div className={ styles.headerEnd }>
+					<IconButton
+						variant="minimal"
+						tone="neutral"
+						size="small"
+						icon={ close }
+						label={ __( 'Close settings' ) }
+						onClick={ onClose }
+					/>
+				</div>
 			) : null }
 		</div>
 	);
@@ -194,13 +146,13 @@ function PreferenceRow( {
 	children: ReactNode;
 } ) {
 	return (
-		<section className={ styles.preferenceRow }>
-			<div className={ styles.preferenceText }>
-				<h2>{ title }</h2>
-				{ description ? <p>{ description }</p> : null }
+		<div className={ styles.field }>
+			<div className={ styles.fieldText }>
+				<span className={ styles.fieldLabel }>{ title }</span>
+				{ description ? <span className={ styles.fieldDescription }>{ description }</span> : null }
 			</div>
-			<div className={ styles.preferenceControl }>{ children }</div>
-		</section>
+			<div className={ styles.fieldControl }>{ children }</div>
+		</div>
 	);
 }
 
@@ -211,10 +163,9 @@ function AppearancePicker( {
 	value: ColorScheme;
 	onChange: ( value: ColorScheme ) => void;
 } ) {
-	const options = colorSchemeElements();
 	const activeIndex = Math.max(
 		0,
-		options.findIndex( ( option ) => option.value === value )
+		COLOR_SCHEME_ELEMENTS.findIndex( ( option ) => option.value === value )
 	);
 
 	return (
@@ -225,7 +176,7 @@ function AppearancePicker( {
 				aria-label={ __( 'Appearance' ) }
 				data-active-index={ activeIndex }
 			>
-				{ options.map( ( option ) => (
+				{ COLOR_SCHEME_ELEMENTS.map( ( option ) => (
 					<button
 						key={ option.value }
 						type="button"
@@ -276,545 +227,100 @@ function PreferenceSelect< TValue extends string >( {
 }
 
 function DefaultSiteDirectoryField( { value, onSelect }: { value: string; onSelect: () => void } ) {
-	const chooseLabel = value
-		? sprintf( __( 'Default site directory: %s. Choose a different folder.' ), value )
-		: __( 'Choose a default site directory' );
-
-	const handleKeyDown = ( event: KeyboardEvent< HTMLInputElement > ) => {
-		if ( event.key === 'Enter' || event.key === ' ' ) {
-			event.preventDefault();
-			onSelect();
-		}
-	};
-
 	return (
 		<PreferenceRow title={ __( 'Default site directory' ) }>
-			<InputControl
-				hideLabelFromVision
-				className={ styles.pathInputControl }
-				label={ __( 'Default site directory' ) }
-				placeholder={ __( 'Choose a folder...' ) }
-				readOnly
-				value={ value }
-				onClick={ onSelect }
-				onKeyDown={ handleKeyDown }
-				suffix={
-					<InputLayout.Slot padding="minimal">
-						<IconButton
-							type="button"
-							variant="minimal"
-							tone="neutral"
-							size="small"
-							icon={ file }
-							label={ chooseLabel }
-							onClick={ ( event ) => {
-								event.preventDefault();
-								event.stopPropagation();
-								onSelect();
-							} }
-						/>
-					</InputLayout.Slot>
+			<button
+				type="button"
+				className={ styles.pathPickerButton }
+				aria-label={
+					value
+						? sprintf( __( 'Default site directory: %s. Choose a different folder.' ), value )
+						: __( 'Choose a default site directory' )
 				}
-			/>
+				onClick={ onSelect }
+			>
+				<span className={ value ? styles.pathPickerValue : styles.pathPickerPlaceholder }>
+					{ value || __( 'Choose a folder…' ) }
+				</span>
+				<Icon icon={ file } className={ styles.pathPickerIcon } />
+			</button>
 		</PreferenceRow>
 	);
 }
 
-// The agentic UI ships behind a beta flag — this is the way back to the
-// classic experience.
-function SwitchExperienceSection() {
+// Leaving the agentic UI entirely is a separate, heavier action than the AI
+// tab's chat toggle: it reloads the window into the classic Studio interface.
+// Only hosts that ship the classic renderer can switch (see capabilities).
+function StudioExperienceSection() {
 	const connector = useConnector();
-	if ( ! connector.supportsAgenticOptOut ) {
+	if ( ! connector.capabilities.switchToClassicUi ) {
 		return null;
 	}
 	return (
-		<div className={ styles.switchUiField }>
-			<div className={ styles.switchUiText }>
-				<span className={ styles.switchUiLabel }>{ __( 'Studio experience' ) }</span>
-				<span className={ styles.switchUiDescription }>
-					{ __( 'You are using the new Studio experience.' ) }
-				</span>
-			</div>
-			<Button
-				variant="outline"
-				tone="neutral"
-				size="compact"
-				onClick={ () => void connector.disableAgenticUi() }
-			>
-				{ __( 'Switch to classic' ) }
-			</Button>
-		</div>
-	);
-}
-
-function AgenticFeaturesSection( {
-	checked,
-	onChange,
-}: {
-	checked: boolean;
-	onChange: ( checked: boolean ) => void;
-} ) {
-	return (
-		<section className={ styles.preferenceSectionGroup }>
-			<div className={ styles.cliHeader }>
-				<h2 className={ clsx( styles.preferenceSectionHeading, styles.cliHeading ) }>
-					{ __( 'Agentic features' ) }
-				</h2>
-				<FormToggle
-					id="agentic-features-toggle"
-					aria-label={ __( 'Agentic features' ) }
-					checked={ checked }
-					onChange={ ( event ) => onChange( event.target.checked ) }
-				/>
-			</div>
-			<p className={ styles.cliDescription }>
-				{ __(
-					'Chat with an agent that builds and edits your sites. Turning this off hides chat — your existing conversations are kept.'
-				) }
-			</p>
-		</section>
-	);
-}
-
-// site_delete is intentionally absent: it always asks and cannot be relaxed.
-const CONFIGURABLE_PERMISSION_TOOLS = GATED_TOOL_NAMES.filter( supportsAlwaysAllow );
-
-function AgentPermissionsSection( {
-	toolPermissions,
-	onToolPermissionChange,
-}: {
-	toolPermissions: ToolPermissionOverrides;
-	onToolPermissionChange: ( toolName: GatedToolName, level: ToolPermissionLevel ) => void;
-} ) {
-	const toolLabels: Record< string, string > = {
-		preview_delete: __( 'Delete preview sites' ),
-		site_push: __( 'Push sites to WordPress.com' ),
-		site_pull: __( 'Pull sites from WordPress.com' ),
-		site_import: __( 'Import backups into sites' ),
-		wp_cli: __( 'Destructive WP-CLI commands' ),
-	};
-	const levels: Array< { value: ToolPermissionLevel; label: string } > = [
-		{ value: 'ask', label: __( 'Ask' ) },
-		{ value: 'allow', label: __( 'Always allow' ) },
-	];
-
-	return (
-		<section className={ styles.preferenceSectionGroup }>
-			<h2 className={ styles.preferenceSectionHeading }>{ __( 'Permissions' ) }</h2>
-			<p className={ styles.permissionsDescription }>
-				{ __(
-					'Risky agent actions ask for your approval before running. Deleting a site always asks and cannot be changed here.'
-				) }
-			</p>
-			<div className={ styles.permissionRows }>
-				{ CONFIGURABLE_PERMISSION_TOOLS.map( ( toolName ) => {
-					const label = toolLabels[ toolName ] ?? toolName;
-					const current: ToolPermissionLevel =
-						toolPermissions[ toolName ] === 'allow' ? 'allow' : 'ask';
-					const activeIndex = current === 'ask' ? 0 : 1;
-					return (
-						<div key={ toolName } className={ styles.permissionRow }>
-							<span className={ styles.permissionRowLabel }>{ label }</span>
-							<div
-								className={ clsx( styles.appearancePicker, styles.permissionPicker ) }
-								role="group"
-								aria-label={ label }
-								data-active-index={ activeIndex }
-							>
-								{ levels.map( ( level ) => (
-									<button
-										key={ level.value }
-										type="button"
-										className={ clsx(
-											styles.appearanceButton,
-											level.value === current && styles.appearanceButtonActive
-										) }
-										aria-pressed={ level.value === current }
-										onClick={ () => onToolPermissionChange( toolName, level.value ) }
-									>
-										{ level.label }
-									</button>
-								) ) }
-							</div>
-						</div>
-					);
-				} ) }
-			</div>
-		</section>
-	);
-}
-
-function AgentSection( {
-	value,
-	onChange,
-	model,
-	onModelChange,
-}: {
-	value: AiResponseLength;
-	onChange: ( value: AiResponseLength ) => void;
-	model: AiModelId;
-	onModelChange: ( value: AiModelId ) => void;
-} ) {
-	const options: Array< { value: AiResponseLength; label: string } > = [
-		{ value: 'compact', label: __( 'Compact' ) },
-		{ value: 'normal', label: __( 'Normal' ) },
-		{ value: 'verbose', label: __( 'Verbose' ) },
-	];
-	const activeIndex = Math.max(
-		0,
-		options.findIndex( ( option ) => option.value === value )
-	);
-	const modelOptions: Array< { value: AiModelId; label: string } > = AI_MODELS.map(
-		( { id, label } ) => ( { value: id, label } )
-	);
-
-	return (
-		<section className={ styles.preferenceSectionGroup }>
-			<h2 className={ styles.preferenceSectionHeading }>{ __( 'Agent' ) }</h2>
-			<PreferenceRow
-				title={ __( 'Default model' ) }
-				description={ __(
-					'The model new conversations start with. You can still switch models per conversation from the chat.'
-				) }
-			>
-				<PreferenceSelect< AiModelId >
-					label={ __( 'Default model' ) }
-					value={ model }
-					options={ modelOptions }
-					onChange={ onModelChange }
-				/>
-			</PreferenceRow>
-			<PreferenceRow
-				title={ __( 'Response length' ) }
-				description={ __(
-					'How long the agent’s replies should be. Compact leads with the answer; Verbose explains the reasoning. Applies to all conversations from your next message.'
-				) }
-			>
-				<div
-					className={ styles.appearancePicker }
-					role="group"
-					aria-label={ __( 'Response length' ) }
-					data-active-index={ activeIndex }
-				>
-					{ options.map( ( option ) => (
-						<button
-							key={ option.value }
-							type="button"
-							className={ clsx(
-								styles.appearanceButton,
-								option.value === value && styles.appearanceButtonActive
-							) }
-							aria-pressed={ option.value === value }
-							onClick={ () => onChange( option.value ) }
-						>
-							{ option.label }
-						</button>
-					) ) }
+		<section className={ styles.card }>
+			<div className={ clsx( styles.cardHeader, styles.cardHeaderCentered ) }>
+				<div className={ styles.cardHeaderText }>
+					<h2 className={ styles.cardTitle }>{ __( 'Studio Beta' ) }</h2>
+					<p className={ styles.cardDescription }>
+						{ __( 'You’re using the new Studio with AI chat and a built-in site preview.' ) }
+					</p>
 				</div>
-			</PreferenceRow>
-		</section>
-	);
-}
-
-function ChatNotificationsSection( {
-	checked,
-	onChange,
-}: {
-	checked: boolean;
-	onChange: ( checked: boolean ) => void;
-} ) {
-	return (
-		<section className={ styles.preferenceSectionGroup }>
-			<div className={ styles.cliHeader }>
-				<h2 className={ clsx( styles.preferenceSectionHeading, styles.cliHeading ) }>
-					{ __( 'Chat notifications' ) }
-				</h2>
-				<FormToggle
-					id="chat-notifications-toggle"
-					aria-label={ __( 'Chat notifications' ) }
-					checked={ checked }
-					onChange={ ( event ) => onChange( event.target.checked ) }
-				/>
-			</div>
-			<p className={ styles.cliDescription }>
-				{ __(
-					'Get notified when the agent finishes or needs your input in a conversation you are not looking at.'
-				) }
-			</p>
-		</section>
-	);
-}
-
-function activitySoundOptions(): Array< { value: ActivitySoundId | 'none'; label: string } > {
-	return [
-		{ value: 'none', label: __( 'None' ) },
-		{ value: 'soft-chime', label: __( 'Soft chime' ) },
-		{ value: 'bright-chime', label: __( 'Bright chime' ) },
-		{ value: 'pop', label: __( 'Pop' ) },
-		{ value: 'pulse', label: __( 'Pulse' ) },
-	];
-}
-
-function activitySoundEventLabel( event: ActivitySoundEvent ): string {
-	switch ( event ) {
-		case 'attention-required':
-			return __( 'Needs your input' );
-		case 'agent-complete':
-			return __( 'Agent finished' );
-		case 'sync-started':
-			return __( 'Sync started' );
-		case 'sync-complete':
-			return __( 'Sync finished' );
-		case 'sync-failed':
-			return __( 'Sync failed' );
-	}
-}
-
-function ActivitySoundsSection( {
-	value,
-	onChange,
-}: {
-	value: ActivitySoundPreferences;
-	onChange: ( value: ActivitySoundPreferences ) => void;
-} ) {
-	const options = activitySoundOptions();
-
-	return (
-		<section className={ styles.preferenceSectionGroup }>
-			<div className={ styles.cliHeader }>
-				<h2 className={ clsx( styles.preferenceSectionHeading, styles.cliHeading ) }>
-					{ __( 'Activity sounds' ) }
-				</h2>
-				<FormToggle
-					id="activity-sounds-toggle"
-					aria-label={ __( 'Activity sounds' ) }
-					checked={ value.enabled }
-					onChange={ ( event ) => onChange( { ...value, enabled: event.target.checked } ) }
-				/>
-			</div>
-			<p className={ styles.cliDescription }>
-				{ __( 'Choose the sounds Studio plays for agent and live-site activity.' ) }
-			</p>
-			{ ACTIVITY_SOUND_EVENTS.map( ( event ) => {
-				const selectedSound = value.events[ event ];
-				const label = activitySoundEventLabel( event );
-				return (
-					<PreferenceRow key={ event } title={ label }>
-						<div className={ styles.soundControl }>
-							<PreferenceSelect< ActivitySoundId | 'none' >
-								label={ label }
-								value={ selectedSound ?? 'none' }
-								options={ options }
-								onChange={ ( soundId ) =>
-									onChange( {
-										...value,
-										events: {
-											...value.events,
-											[ event ]: soundId === 'none' ? null : soundId,
-										},
-									} )
-								}
-							/>
-							<IconButton
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								icon={ audio }
-								label={ sprintf( __( 'Preview sound for %s' ), label ) }
-								disabled={ ! selectedSound }
-								onClick={ () => {
-									if ( selectedSound ) {
-										void playActivitySound( selectedSound );
-									}
-								} }
-							/>
-						</div>
-					</PreferenceRow>
-				);
-			} ) }
-		</section>
-	);
-}
-
-function AccountInformationSection() {
-	const { data: user, isLoading } = useAuthUser();
-	const { data: preferences } = useUserPreferences();
-	const login = useLogin();
-	const logout = useLogout();
-	const effectiveScheme = usePrefersColorScheme();
-	const savedScheme = preferences?.colorScheme;
-	const themeIsDark =
-		savedScheme === 'dark' || ( savedScheme !== 'light' && effectiveScheme === 'dark' );
-
-	return (
-		<section className={ styles.preferenceSectionGroup }>
-			<div className={ styles.accountSectionHeader }>
-				<h2 className={ clsx( styles.preferenceSectionHeading, styles.accountHeading ) }>
-					{ __( 'Account' ) }
-				</h2>
-				<AccountHelpActions />
-			</div>
-			<div className={ styles.accountSummaryHeader }>
-				<div className={ styles.accountSummaryIdentity }>
-					{ user ? (
-						<Gravatar
-							email={ user.email }
-							isDark={ themeIsDark }
-							className={ styles.accountSummaryAvatar }
-						/>
-					) : (
-						<div className={ styles.accountSummaryAvatarPlaceholder } aria-hidden="true" />
-					) }
-					<div className={ styles.accountSummaryDetails }>
-						<h2>{ user ? user.displayName : __( 'WordPress.com account' ) }</h2>
-						<p>
-							{ user
-								? user.email
-								: __( 'Log in to connect Studio with your WordPress.com account.' ) }
-						</p>
-					</div>
-				</div>
-				{ user ? (
+				<div className={ styles.cardHeaderActions }>
 					<Button
 						type="button"
 						variant="outline"
 						tone="neutral"
-						loading={ logout.isPending }
-						loadingAnnouncement={ __( 'Logging out' ) }
-						onClick={ () => logout.mutate() }
+						size="compact"
+						onClick={ () => void connector.disableAgenticUi() }
 					>
-						{ __( 'Log out' ) }
+						{ __( 'Switch to classic' ) }
 					</Button>
-				) : (
-					<Button
-						type="button"
-						variant="outline"
-						tone="neutral"
-						size="small"
-						disabled={ isLoading }
-						loading={ login.isPending }
-						loadingAnnouncement={ __( 'Logging in' ) }
-						onClick={ () => login.mutate() }
-					>
-						{ __( 'Log in' ) }
-					</Button>
-				) }
-			</div>
-		</section>
-	);
-}
-
-// WordPress.org uses its own account, separate from WordPress.com — it's
-// what plugin submissions, review state, and SVN releases run through.
-// Simulated: WordPress.org has no OAuth and its login is reCAPTCHA + 2FA
-// guarded, so "Log in" pops a dialog explaining the simulation (shared with
-// the plugin connect screen) rather than a real login.
-function WordPressOrgAccountSection() {
-	const connected = useWporgConnected();
-	const [ loginDialogOpen, setLoginDialogOpen ] = useState( false );
-
-	return (
-		<section className={ styles.preferenceSectionGroup }>
-			<h2 className={ styles.preferenceSectionHeading }>{ __( 'WordPress.org account' ) }</h2>
-			<div className={ styles.accountSummaryHeader }>
-				<div className={ styles.accountSummaryIdentity }>
-					<div className={ styles.accountSummaryDetails }>
-						<h2>
-							{ connected
-								? sprintf(
-										// translators: %s is a WordPress.org username.
-										__( 'Connected as %s' ),
-										SIMULATED_WPORG_USERNAME
-								  )
-								: __( 'Not connected' ) }
-						</h2>
-						<p>
-							{ __(
-								'WordPress.org is a separate account, used for plugin development and submissions.'
-							) }
-						</p>
-					</div>
 				</div>
-				<Button
-					type="button"
-					variant="outline"
-					tone="neutral"
-					size={ connected ? undefined : 'small' }
-					onClick={ () => ( connected ? setWporgConnected( false ) : setLoginDialogOpen( true ) ) }
-				>
-					{ connected ? __( 'Log out' ) : __( 'Log in' ) }
-				</Button>
 			</div>
-			<WporgLoginDialog open={ loginDialogOpen } onOpenChange={ setLoginDialogOpen } />
 		</section>
-	);
-}
-
-function AccountHelpActions() {
-	const connector = useConnector();
-
-	const openLink = ( url: string ) => {
-		void connector.openExternalUrl( url );
-	};
-
-	return (
-		<div className={ styles.accountActions }>
-			<Button
-				type="button"
-				variant="minimal"
-				tone="neutral"
-				size="small"
-				className={ styles.accountActionButton }
-				onClick={ () => openLink( DOCS_URL ) }
-			>
-				{ __( 'Docs' ) }
-			</Button>
-			<Button
-				type="button"
-				variant="minimal"
-				tone="neutral"
-				size="small"
-				className={ styles.accountActionButton }
-				onClick={ () => openLink( REPORT_ISSUE_URL ) }
-			>
-				{ __( 'Report an issue' ) }
-			</Button>
-		</div>
 	);
 }
 
 function PreferencesPanel( {
 	data,
 	installedApps,
-	showStudioCliToggle,
-	showNativePreferences,
+	saveError,
 	onColorSchemeChange,
 	onDefaultSiteDirectorySelect,
 	onChange,
 }: {
 	data: PreferencesFormData;
 	installedApps: InstalledApps | undefined;
-	showStudioCliToggle: boolean;
-	showNativePreferences: boolean;
+	saveError: boolean;
 	onColorSchemeChange: ( value: ColorScheme ) => void;
 	onDefaultSiteDirectorySelect: () => void;
 	onChange: ( update: Partial< PreferencesFormData > ) => void;
 } ) {
 	return (
-		<div className={ styles.preferencesPanel }>
-			<section className={ styles.preferenceSectionGroup }>
-				<h2 className={ styles.preferenceSectionHeading }>{ __( 'General' ) }</h2>
-				<AppearancePicker value={ data.colorScheme } onChange={ onColorSchemeChange } />
-				<PreferenceRow title={ __( 'Language' ) }>
-					<PreferenceSelect
-						label={ __( 'Language' ) }
-						value={ data.locale }
-						options={ LOCALE_ELEMENTS }
-						onChange={ ( locale ) => onChange( { locale } ) }
-					/>
-				</PreferenceRow>
-				{ showNativePreferences ? (
-					<>
+		<div className={ styles.settingsLayout }>
+			<AccountSection />
+			<div className={ styles.settingsMain }>
+				<section className={ styles.card }>
+					<div className={ styles.cardHeader }>
+						<div className={ styles.cardHeaderText }>
+							<h2 className={ styles.cardTitle }>{ __( 'General' ) }</h2>
+						</div>
+					</div>
+					{ saveError ? (
+						<div className={ styles.errorMessage }>
+							{ __( 'An error occurred while saving settings. Please try again.' ) }
+						</div>
+					) : null }
+					<div className={ styles.fieldList }>
+						<AppearancePicker value={ data.colorScheme } onChange={ onColorSchemeChange } />
+						<PreferenceRow title={ __( 'Language' ) }>
+							<PreferenceSelect
+								label={ __( 'Language' ) }
+								value={ data.locale }
+								options={ LOCALE_ELEMENTS }
+								onChange={ ( locale ) => onChange( { locale } ) }
+							/>
+						</PreferenceRow>
 						<PreferenceRow title={ __( 'Preferred editor' ) }>
 							<PreferenceSelect< SupportedEditor | typeof UNSET >
 								label={ __( 'Preferred editor' ) }
@@ -840,624 +346,25 @@ function PreferencesPanel( {
 								label={ __( 'When quitting with running sites' ) }
 								className={ styles.selectControlWide }
 								value={ data.quitSitesBehavior }
-								options={ quitSitesBehaviorElements() }
+								options={ QUIT_SITES_BEHAVIOR_ELEMENTS }
 								onChange={ ( quitSitesBehavior ) => onChange( { quitSitesBehavior } ) }
 							/>
 						</PreferenceRow>
-					</>
-				) : null }
-				<PreferenceRow
-					title={ __( 'Usage statistics' ) }
-					description={ __( 'Help improve Studio by sharing anonymous usage statistics.' ) }
-				>
-					<FormToggle
-						aria-label={ __( 'Usage statistics' ) }
-						checked={ data.analyticsEnabled }
-						onChange={ ( event ) => onChange( { analyticsEnabled: event.target.checked } ) }
-					/>
-				</PreferenceRow>
-			</section>
-			<AccountInformationSection />
-			<WordPressOrgAccountSection />
-			<WapuuScore />
-			{ showStudioCliToggle ? <StudioCliSection /> : null }
-			<SwitchExperienceSection />
-		</div>
-	);
-}
-
-function AiSettingsPanel( {
-	data,
-	showNativePreferences,
-	onChange,
-}: {
-	data: PreferencesFormData;
-	showNativePreferences: boolean;
-	onChange: ( update: Partial< PreferencesFormData > ) => void;
-} ) {
-	const connector = useConnector();
-	return (
-		<div className={ styles.preferencesPanel }>
-			{ connector.capabilities.agentInstructions ? <StudioCodePanel /> : null }
-			<AgenticFeaturesSection
-				checked={ data.agenticFeaturesEnabled }
-				onChange={ ( agenticFeaturesEnabled ) => onChange( { agenticFeaturesEnabled } ) }
-			/>
-			{ showNativePreferences ? (
-				<AgentSection
-					value={ data.agentResponseLength }
-					onChange={ ( agentResponseLength ) => onChange( { agentResponseLength } ) }
-					model={ data.defaultAiModel }
-					onModelChange={ ( defaultAiModel ) => onChange( { defaultAiModel } ) }
-				/>
-			) : null }
-			<ActivitySoundsSection
-				value={ data.activitySoundPreferences }
-				onChange={ ( activitySoundPreferences ) => onChange( { activitySoundPreferences } ) }
-			/>
-			{ showNativePreferences ? (
-				<AgentPermissionsSection
-					toolPermissions={ data.toolPermissions }
-					onToolPermissionChange={ ( toolName, level ) =>
-						onChange( { toolPermissions: { ...data.toolPermissions, [ toolName ]: level } } )
-					}
-				/>
-			) : null }
-			{ showNativePreferences ? (
-				<ChatNotificationsSection
-					checked={ data.chatNotificationsEnabled }
-					onChange={ ( chatNotificationsEnabled ) => onChange( { chatNotificationsEnabled } ) }
-				/>
-			) : null }
-		</div>
-	);
-}
-
-function AiCreditsSummary() {
-	const locale = useUserLocale();
-	const { data: quota, isLoading, isError } = useStudioAssistantQuota();
-
-	let content;
-	if ( isLoading ) {
-		content = <div className={ styles.previewUsageText }>{ __( 'Loading...' ) }</div>;
-	} else if ( isError ) {
-		content = (
-			<div className={ styles.previewUsageText }>
-				{ __( 'Studio Code limits are temporarily unavailable.' ) }
-			</div>
-		);
-	} else if ( quota && quota.costCap > 0 ) {
-		const fraction = clampQuotaFraction( quota.costUsage, quota.costCap );
-		content = (
-			<>
-				<div className={ styles.previewUsageText }>
-					{ sprintf(
-						/* translators: %1$s: percentage of monthly limit used. %2$s: reset date. */
-						__( '%1$s of monthly limit used (resets on %2$s)' ),
-						formatQuotaPercentage( fraction, locale ),
-						formatQuotaResetDate( quota.costResetDate, locale )
-					) }
-				</div>
-				<div className={ styles.progressTrack } aria-hidden="true">
-					<div
-						className={ styles.progressValue }
-						style={ { inlineSize: `${ fraction * 100 }%` } }
-					/>
-				</div>
-			</>
-		);
-	} else {
-		content = (
-			<>
-				<p>
-					{ __(
-						'AI credits are currently free while Studio Code is in Alpha. Build, iterate, and experiment, but know that credits will eventually have a cost.'
-					) }
-				</p>
-				<div className={ clsx( styles.progressTrack, styles.aiCreditsTrack ) } aria-hidden="true">
-					<div className={ styles.aiCreditsMeterValue } />
-				</div>
-			</>
-		);
-	}
-
-	return (
-		<section className={ styles.usageSection }>
-			<div className={ styles.usageSectionHeader }>
-				<h2>{ __( 'AI credits' ) }</h2>
-			</div>
-			{ content }
-		</section>
-	);
-}
-
-function PreviewSitesSummary( { userId }: { userId: number } ) {
-	const connector = useConnector();
-	const isOffline = useOffline();
-	const { data: snapshots, isLoading } = useSnapshots( userId );
-	const { data: snapshotUsage, isLoading: isLoadingSnapshotUsage } = useSnapshotUsage( userId );
-	const deleteAllSnapshots = useDeleteAllSnapshots( userId );
-	const siteCount = snapshotUsage?.siteCount ?? snapshots?.length ?? 0;
-	const siteLimit = snapshotUsage?.siteLimit ?? DEFAULT_PREVIEW_SITE_LIMIT;
-	const progressMax = Math.max( siteLimit, 1 );
-	const snapshotCreationBlocked = snapshotUsage?.siteCreationBlocked ?? false;
-	const isLoadingPreviewUsage = isLoading || isLoadingSnapshotUsage || deleteAllSnapshots.isPending;
-	const isDisabled =
-		siteCount === 0 || snapshotCreationBlocked || isLoadingPreviewUsage || isOffline;
-	const progress = Math.min( siteCount / progressMax, 1 ) * 100;
-	const deletePreviewSitesLabel = isOffline
-		? __( 'Deleting preview sites requires an internet connection.' )
-		: deleteAllSnapshots.isPending
-		? __( 'Deleting preview sites...' )
-		: __( 'Delete all preview sites' );
-
-	const handleDelete = async () => {
-		if ( isDisabled ) {
-			return;
-		}
-		const confirmed = await connector.confirmDeleteAllPreviewSites();
-		if ( confirmed ) {
-			deleteAllSnapshots.mutate();
-		}
-	};
-
-	return (
-		<section className={ styles.usageSection }>
-			<div className={ styles.usageSectionHeader }>
-				<h2>{ __( 'Preview sites' ) }</h2>
-				{ ! snapshotCreationBlocked ? (
-					<Menu.Root modal={ false }>
-						<Menu.Trigger
-							render={
-								<IconButton
-									variant="minimal"
-									tone="neutral"
-									size="small"
-									icon={ moreHorizontal }
-									label={ __( 'Preview site actions' ) }
-									className={ styles.previewActionsButton }
-									disabled={ isDisabled }
-								/>
-							}
-						/>
-						<Menu.Popup side="bottom" align="end">
-							<Menu.Item disabled={ isDisabled } onClick={ () => void handleDelete() }>
-								{ deletePreviewSitesLabel }
-							</Menu.Item>
-						</Menu.Popup>
-					</Menu.Root>
-				) : null }
-			</div>
-			{ snapshotCreationBlocked ? (
-				<div className={ styles.previewUsageText }>
-					{ __( 'Preview sites are not available for your account.' ) }
-				</div>
-			) : (
-				<>
-					<div className={ styles.previewUsageText }>
-						{ isLoadingPreviewUsage
-							? __( 'Loading...' )
-							: sprintf(
-									/* translators: 1: number of active preview sites, 2: maximum allowed */
-									_n(
-										'%1$d of %2$d active preview site',
-										'%1$d of %2$d active preview sites',
-										siteCount
-									),
-									siteCount,
-									siteLimit
-							  ) }
+						<PreferenceRow title={ __( 'Usage statistics' ) }>
+							<CheckboxControl
+								__nextHasNoMarginBottom
+								label={ __( 'Help improve Studio by sharing anonymous usage statistics' ) }
+								checked={ data.analyticsEnabled }
+								onChange={ ( analyticsEnabled ) => onChange( { analyticsEnabled } ) }
+							/>
+						</PreferenceRow>
 					</div>
-					<div className={ styles.progressTrack } aria-hidden="true">
-						<div className={ styles.progressValue } style={ { inlineSize: `${ progress }%` } } />
-					</div>
-				</>
-			) }
-			{ deleteAllSnapshots.error ? (
-				<div className={ styles.errorMessage }>
-					{ __( 'An error occurred while deleting preview sites. Please try again.' ) }
-				</div>
-			) : null }
-		</section>
-	);
-}
-
-function UsageSettingsPanel() {
-	const { data: user, isLoading } = useAuthUser();
-	const login = useLogin();
-
-	return (
-		<div className={ styles.usagePanel }>
-			<section className={ styles.settingsPanelSection }>
-				<div className={ styles.settingsPanelHeader }>
-					<h2>{ __( 'Usage' ) }</h2>
-					<p>{ __( 'Track your preview site usage and Studio Code beta credits.' ) }</p>
-				</div>
-				<AiCreditsSummary />
-				{ user ? (
-					<PreviewSitesSummary userId={ user.id } />
-				) : (
-					<section className={ styles.usageSection }>
-						<div className={ styles.usageSectionHeader }>
-							<h2>{ __( 'Preview sites' ) }</h2>
-						</div>
-						<p>
-							{ isLoading
-								? __( 'Loading...' )
-								: __( 'Log in to view preview site usage for your account.' ) }
-						</p>
-						{ ! isLoading ? (
-							<Button
-								type="button"
-								variant="outline"
-								tone="neutral"
-								size="small"
-								className={ styles.usageSectionAction }
-								loading={ login.isPending }
-								loadingAnnouncement={ __( 'Logging in' ) }
-								onClick={ () => login.mutate() }
-							>
-								{ __( 'Log in' ) }
-							</Button>
-						) : null }
-					</section>
-				) }
-			</section>
-		</div>
-	);
-}
-
-function getErrorMessage( error: unknown ): string | null {
-	return error instanceof Error ? error.message : error ? String( error ) : null;
-}
-
-function getPlatformModifierKeyLabel(): string {
-	if ( typeof navigator === 'undefined' ) {
-		return 'Ctrl';
-	}
-	return /mac|iphone|ipad|ipod/i.test( navigator.platform || navigator.userAgent ) ? '⌘' : 'Ctrl';
-}
-
-function getShortcutKeyAriaLabel( key: string ): string {
-	switch ( key ) {
-		case '⌘':
-			return __( 'Command' );
-		case '↩':
-			return __( 'Return' );
-		case ',':
-			return __( 'Comma' );
-		case '[':
-			return __( 'Left bracket' );
-		case ']':
-			return __( 'Right bracket' );
-		default:
-			return key;
-	}
-}
-
-type KeyboardShortcut = {
-	label: string;
-	keys: string[];
-};
-
-type KeyboardShortcutSection = {
-	title: string;
-	shortcuts: KeyboardShortcut[];
-};
-
-function getKeyboardShortcutSections( modifierKey: string ): KeyboardShortcutSection[] {
-	return [
-		{
-			title: __( 'General' ),
-			shortcuts: [
-				{ label: __( 'Open settings' ), keys: [ modifierKey, ',' ] },
-				{ label: __( 'Add site' ), keys: [ modifierKey, 'N' ] },
-				{ label: __( 'Toggle sidebar' ), keys: [ modifierKey, 'B' ] },
-			],
-		},
-		{
-			title: __( 'Composer' ),
-			shortcuts: [
-				{ label: __( 'Send message' ), keys: [ '↩' ] },
-				{ label: __( 'Insert newline' ), keys: [ 'Shift', '↩' ] },
-				{ label: __( 'Stop response' ), keys: [ 'Esc' ] },
-			],
-		},
-		{
-			title: __( 'Site preview' ),
-			shortcuts: [
-				{ label: __( 'Toggle site preview' ), keys: [ modifierKey, 'Shift', 'B' ] },
-				{ label: __( 'Reload preview' ), keys: [ modifierKey, 'R' ] },
-				{ label: __( 'Go back in preview' ), keys: [ modifierKey, '[' ] },
-				{ label: __( 'Go forward in preview' ), keys: [ modifierKey, ']' ] },
-			],
-		},
-	];
-}
-
-function ShortcutKeys( { keys }: { keys: string[] } ) {
-	return (
-		<span
-			className={ styles.shortcutKeys }
-			aria-label={ keys.map( getShortcutKeyAriaLabel ).join( ' + ' ) }
-		>
-			{ keys.map( ( key, index ) => (
-				<kbd key={ `${ key }-${ index }` } className={ styles.shortcutKey } aria-hidden="true">
-					{ key }
-				</kbd>
-			) ) }
-		</span>
-	);
-}
-
-function KeyboardShortcutGroup( { title, shortcuts }: KeyboardShortcutSection ) {
-	return (
-		<section className={ styles.shortcutSection }>
-			<div className={ styles.shortcutSectionHeader }>
-				<h2>{ title }</h2>
+				</section>
+				<KeyboardPanel />
+				<StudioCliSection />
+				<McpSection />
+				<StudioExperienceSection />
 			</div>
-			<ul className={ styles.shortcutList }>
-				{ shortcuts.map( ( shortcut ) => (
-					<li key={ shortcut.label } className={ styles.shortcutRow }>
-						<span className={ styles.shortcutName }>{ shortcut.label }</span>
-						<ShortcutKeys keys={ shortcut.keys } />
-					</li>
-				) ) }
-			</ul>
-		</section>
-	);
-}
-
-function KeyboardSettingsPanel() {
-	const shortcutSections = getKeyboardShortcutSections( getPlatformModifierKeyLabel() );
-
-	return (
-		<div className={ styles.keyboardPanel }>
-			<section className={ styles.settingsPanelSection }>
-				<div className={ styles.settingsPanelHeader }>
-					<h2>{ __( 'Keyboard shortcuts' ) }</h2>
-					<p>{ __( 'Use these keyboard shortcuts to move faster around Studio.' ) }</p>
-				</div>
-				{ shortcutSections.map( ( section ) => (
-					<KeyboardShortcutGroup
-						key={ section.title }
-						title={ section.title }
-						shortcuts={ section.shortcuts }
-					/>
-				) ) }
-			</section>
-		</div>
-	);
-}
-
-function SkillRow( {
-	skill,
-	actionLabel,
-	busy,
-	disabled,
-	onAction,
-}: {
-	skill: SkillStatus;
-	actionLabel: string;
-	busy: boolean;
-	disabled: boolean;
-	onAction: () => void;
-} ) {
-	return (
-		<li className={ styles.skillRow }>
-			<div className={ styles.skillDetails }>
-				<span className={ styles.skillName }>{ skill.displayName }</span>
-				<span className={ styles.skillDescription }>{ skill.description }</span>
-			</div>
-			<Button
-				type="button"
-				variant="minimal"
-				tone="neutral"
-				size="small"
-				disabled={ disabled }
-				loading={ busy }
-				loadingAnnouncement={ actionLabel }
-				onClick={ onAction }
-			>
-				{ actionLabel }
-			</Button>
-		</li>
-	);
-}
-
-function SkillSection( {
-	title,
-	headerAction,
-	children,
-}: {
-	title: string;
-	headerAction?: ReactNode;
-	children: ReactNode;
-} ) {
-	return (
-		<section className={ styles.skillSection }>
-			<div className={ styles.skillSectionHeader }>
-				<h2>{ title }</h2>
-				{ headerAction ? (
-					<div className={ styles.skillSectionAction }>{ headerAction }</div>
-				) : null }
-			</div>
-			<ul className={ styles.skillList }>{ children }</ul>
-		</section>
-	);
-}
-
-function SkillsSettingsPanel() {
-	const { data: skills, isLoading, error } = useWordPressSkills();
-	const installSkill = useInstallWordPressSkill();
-	const removeSkill = useRemoveWordPressSkill();
-	const [ installingAll, setInstallingAll ] = useState( false );
-	const installedSkills = useMemo(
-		() => ( skills ?? [] ).filter( ( skill ) => skill.installed ),
-		[ skills ]
-	);
-	const availableSkills = useMemo(
-		() => ( skills ?? [] ).filter( ( skill ) => ! skill.installed ),
-		[ skills ]
-	);
-	const isBusy = installSkill.isPending || removeSkill.isPending || installingAll;
-	const visibleError =
-		getErrorMessage( error ) ??
-		getErrorMessage( installSkill.error ) ??
-		getErrorMessage( removeSkill.error );
-
-	const handleInstallAll = async () => {
-		if ( availableSkills.length === 0 ) {
-			return;
-		}
-		setInstallingAll( true );
-		try {
-			for ( const skill of availableSkills ) {
-				await installSkill.mutateAsync( skill.id );
-			}
-		} finally {
-			setInstallingAll( false );
-		}
-	};
-
-	return (
-		<div className={ styles.skillsPanel }>
-			<section className={ styles.settingsPanelSection }>
-				<div className={ styles.settingsPanelHeader }>
-					<h2>{ __( 'Skills' ) }</h2>
-					<p>
-						{ __(
-							'Skills are reusable instructions that teach agents how to complete specialized WordPress tasks. Enable the ones you want Studio to add to sites so agents have the right context before they start working.'
-						) }{ ' ' }
-						<LearnMoreLink docsLinksKey="docsSkills" />
-					</p>
-				</div>
-				{ visibleError ? <div className={ styles.errorMessage }>{ visibleError }</div> : null }
-				{ isLoading ? <div className={ styles.state }>{ __( 'Loading skills...' ) }</div> : null }
-				{ ! isLoading && installedSkills.length === 0 && availableSkills.length === 0 ? (
-					<div className={ styles.state }>{ __( 'No skills are available.' ) }</div>
-				) : null }
-				{ installedSkills.length > 0 ? (
-					<SkillSection title={ __( 'Installed' ) }>
-						{ installedSkills.map( ( skill ) => (
-							<SkillRow
-								key={ skill.id }
-								skill={ skill }
-								actionLabel={ __( 'Remove' ) }
-								busy={ removeSkill.isPending && removeSkill.variables === skill.id }
-								disabled={ isBusy }
-								onAction={ () => removeSkill.mutate( skill.id ) }
-							/>
-						) ) }
-					</SkillSection>
-				) : null }
-				{ availableSkills.length > 0 ? (
-					<SkillSection
-						title={ __( 'Available' ) }
-						headerAction={
-							<Button
-								type="button"
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								disabled={ isBusy }
-								loading={ installingAll }
-								loadingAnnouncement={ __( 'Installing all skills' ) }
-								onClick={ () => void handleInstallAll() }
-							>
-								{ __( 'Install all' ) }
-							</Button>
-						}
-					>
-						{ availableSkills.map( ( skill ) => (
-							<SkillRow
-								key={ skill.id }
-								skill={ skill }
-								actionLabel={ __( 'Install' ) }
-								busy={ installSkill.isPending && installSkill.variables === skill.id }
-								disabled={ isBusy }
-								onAction={ () => installSkill.mutate( skill.id ) }
-							/>
-						) ) }
-					</SkillSection>
-				) : null }
-			</section>
-		</div>
-	);
-}
-
-function McpCopyButton( { text }: { text: string } ) {
-	const connector = useConnector();
-	const [ copied, setCopied ] = useState( false );
-
-	useEffect( () => {
-		if ( ! copied ) {
-			return;
-		}
-		const timeoutId = window.setTimeout( () => setCopied( false ), 2000 );
-		return () => window.clearTimeout( timeoutId );
-	}, [ copied ] );
-
-	const copyLabel = __( 'Copy MCP configuration' );
-	const copiedLabel = __( 'Copied' );
-	const tooltipLabel = copied ? copiedLabel : copyLabel;
-
-	const handleCopy = useCallback( () => {
-		void connector.copyText( text );
-		setCopied( true );
-	}, [ connector, text ] );
-
-	return (
-		<div className={ styles.mcpCopyButtonContainer }>
-			<Tooltip.Root>
-				<Tooltip.Trigger
-					render={
-						<button
-							type="button"
-							className={ styles.mcpCopyButton }
-							onClick={ handleCopy }
-							aria-label={ copyLabel }
-						>
-							<Icon
-								icon={ copied ? check : copy }
-								size={ 16 }
-								fill="currentColor"
-								aria-hidden="true"
-							/>
-						</button>
-					}
-				/>
-				<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-					{ tooltipLabel }
-				</Tooltip.Popup>
-			</Tooltip.Root>
-			<span className={ styles.visuallyHidden } role="status" aria-live="polite" aria-atomic="true">
-				{ copied ? copiedLabel : '' }
-			</span>
-		</div>
-	);
-}
-
-function McpSettingsPanel() {
-	const configJson = getMcpServerConfigJson();
-
-	return (
-		<div className={ styles.mcpPanel }>
-			<section className={ styles.settingsPanelSection }>
-				<div className={ styles.settingsPanelHeader }>
-					<h2>{ __( 'MCP' ) }</h2>
-					<p>
-						{ __(
-							'MCP lets other AI tools talk to Studio. Use it when you want an assistant outside Studio to create, configure, or inspect your local WordPress sites through the same site controls.'
-						) }{ ' ' }
-						<LearnMoreLink docsLinksKey="docsMcp" />
-					</p>
-				</div>
-				<div className={ styles.codeBlockWrap }>
-					<pre className={ styles.codeBlock }>{ configJson }</pre>
-					<McpCopyButton text={ configJson } />
-				</div>
-			</section>
 		</div>
 	);
 }
@@ -1472,7 +379,6 @@ export function SettingsView( {
 	const connector = useConnector();
 	const { data: saved, isLoading } = useUserPreferences();
 	const { data: installedApps } = useInstalledApps();
-	const { data: appGlobals } = useAppGlobals();
 	const savePreferences = useSaveUserPreferences();
 
 	const [ data, setData ] = useState< PreferencesFormData | null >( null );
@@ -1503,7 +409,10 @@ export function SettingsView( {
 						// next mount then refetches preferences from the main
 						// process, which has the newly saved locale.
 						await persister.removeClient();
-						window.location.reload();
+						// Give the select popup a beat to finish closing — an
+						// immediate reload freezes its exit animation mid-flight
+						// and reads as lag.
+						window.setTimeout( () => window.location.reload(), 250 );
 					}
 				},
 			} );
@@ -1522,11 +431,8 @@ export function SettingsView( {
 	);
 
 	if ( isLoading || ! data || ! saved ) {
-		return <div className={ styles.state }>{ __( 'Loading...' ) }</div>;
+		return <div className={ styles.state }>{ __( 'Loading…' ) }</div>;
 	}
-
-	const showNativePreferences = appGlobals?.platform !== 'browser';
-	const showStudioCliToggle = showNativePreferences && appGlobals?.isWindowsStore === false;
 
 	const handleSelectDefaultDirectory = async () => {
 		const directory = await connector.selectDefaultSiteDirectory( data.defaultSiteDirectory );
@@ -1536,54 +442,38 @@ export function SettingsView( {
 	};
 
 	return (
-		<div className={ styles.root }>
-			<Tabs.Root
-				selectedTabId={ activeTab }
-				onSelect={ ( tabId ) => {
-					if ( tabId && isSettingsTab( tabId ) ) {
-						onTabChange( tabId );
-					}
-				} }
-			>
-				<SettingsHeader />
+		<SettingsPreviewProvider>
+			<div className={ styles.root }>
+				<Tabs.Root
+					selectedTabId={ activeTab }
+					onSelect={ ( tabId ) => {
+						if ( tabId && isSettingsTab( tabId ) ) {
+							onTabChange( tabId );
+						}
+					} }
+				>
+					<SettingsHeader />
 
-				<div className={ styles.scroll }>
-					<div className={ styles.contentBlock }>
-						<div className={ styles.form }>
+					<div className={ styles.scroll }>
+						<div className={ styles.contentBlock }>
 							<Tabs.Panel tabId="preferences">
 								<PreferencesPanel
 									data={ data }
 									installedApps={ installedApps }
-									showStudioCliToggle={ showStudioCliToggle }
-									showNativePreferences={ showNativePreferences }
+									saveError={ savePreferences.isError }
 									onColorSchemeChange={ handleColorSchemeChange }
 									onDefaultSiteDirectorySelect={ () => void handleSelectDefaultDirectory() }
 									onChange={ handleChange }
 								/>
 							</Tabs.Panel>
 							<Tabs.Panel tabId="ai">
-								<AiSettingsPanel
-									data={ data }
-									showNativePreferences={ showNativePreferences }
-									onChange={ handleChange }
-								/>
-							</Tabs.Panel>
-							<Tabs.Panel tabId="usage">
-								<UsageSettingsPanel />
-							</Tabs.Panel>
-							<Tabs.Panel tabId="keyboard">
-								<KeyboardSettingsPanel />
-							</Tabs.Panel>
-							<Tabs.Panel tabId="skills">
-								<SkillsSettingsPanel />
-							</Tabs.Panel>
-							<Tabs.Panel tabId="mcp">
-								<McpSettingsPanel />
+								<AiPanel />
 							</Tabs.Panel>
 						</div>
 					</div>
-				</div>
-			</Tabs.Root>
-		</div>
+				</Tabs.Root>
+			</div>
+			{ SHOW_PREVIEW_CONTROLS ? <SettingsPreviewPanel /> : null }
+		</SettingsPreviewProvider>
 	);
 }

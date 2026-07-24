@@ -109,6 +109,7 @@ describe( 'CreateSiteForm', () => {
 				annotatePreview: false,
 				readLocalMedia: false,
 				agentInstructions: false,
+				switchToClassicUi: false,
 			},
 		} );
 		useSitesMock.mockReturnValue( { data: [] } );
@@ -381,6 +382,7 @@ describe( 'CreateSiteForm', () => {
 				annotatePreview: false,
 				readLocalMedia: false,
 				agentInstructions: false,
+				switchToClassicUi: false,
 			},
 		} );
 		usePathValidatorMock.mockReturnValue( {

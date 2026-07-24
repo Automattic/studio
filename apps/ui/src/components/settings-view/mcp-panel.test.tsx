@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Tooltip } from '@wordpress/ui';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
-import { McpPanel } from './mcp-panel';
+import { McpSection } from './mcp-panel';
 import type { ReactNode } from 'react';
 
 vi.mock( '@/components/learn-more', () => ( {
@@ -20,7 +20,7 @@ function Providers( { children }: { children: ReactNode } ) {
 	return <Tooltip.Provider>{ children }</Tooltip.Provider>;
 }
 
-describe( 'McpPanel', () => {
+describe( 'McpSection', () => {
 	const copyText = vi.fn();
 
 	beforeEach( () => {
@@ -30,7 +30,7 @@ describe( 'McpPanel', () => {
 	} );
 
 	it( 'copies the MCP configuration and shows copied feedback once the copy resolves', async () => {
-		render( <McpPanel />, { wrapper: Providers } );
+		render( <McpSection />, { wrapper: Providers } );
 
 		expect( screen.getByRole( 'heading', { name: 'MCP' } ) ).toBeInTheDocument();
 		expect( screen.getByText( /MCP lets other AI tools talk to Studio/ ) ).toBeInTheDocument();
@@ -48,7 +48,7 @@ describe( 'McpPanel', () => {
 		copyText.mockRejectedValueOnce( error );
 
 		try {
-			render( <McpPanel />, { wrapper: Providers } );
+			render( <McpSection />, { wrapper: Providers } );
 
 			fireEvent.click( screen.getByRole( 'button', { name: 'Copy MCP configuration' } ) );
 

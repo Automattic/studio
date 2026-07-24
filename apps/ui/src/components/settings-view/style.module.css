@@ -1,6 +1,28 @@
+/* ==========================================================================
+   Settings design system
+   --------------------------------------------------------------------------
+   Every settings tab is built from the same primitives:
+
+     .panel   — a tab's centered column of cards
+     .card    — a bordered section: a header followed by body content
+                (.cardHeader, .cardHeaderText, .cardTitle, .cardDescription,
+                 .cardHeaderActions for a trailing control)
+     .field   — a labelled control row inside a card
+                (.fieldText, .fieldLabel, .fieldDescription, .fieldControl)
+     .listRow — a rich list item inside a card
+                (.listItemText, .listItemTitle, .listItemDescription)
+     .meter   — a usage readout inside a card
+                (.meterHeader, .meterTitle, .meterText + progress bars)
+
+   Card titles are always lg/600. Field/list/meter titles are the smaller
+   in-card level. Rows share one divider (--settings-divider-border) and one
+   vertical rhythm (--settings-row-padding-block).
+   ========================================================================== */
+
 .root {
-	--settings-content-width: 760px;
 	--settings-form-width: 560px;
+	--settings-wide-width: 880px;
+	--settings-aside-width: 260px;
 	--settings-divider-border: 1px dotted
 		color-mix(in srgb, var(--wpds-color-stroke-surface-neutral) 72%, transparent);
 	--settings-row-padding-block: calc(var(--wpds-dimension-padding-md) + 2px);
@@ -17,6 +39,8 @@
 	font-size: var(--wpds-typography-font-size-sm);
 	line-height: var(--wpds-typography-line-height-md);
 }
+
+/* ---- Shell: fullscreen header with centered tab strip -------------------- */
 
 .header {
 	display: grid;
@@ -107,22 +131,404 @@
 	overflow-y: auto;
 }
 
+/* Full-width scroll padding; each panel sets its own max-width and centers,
+   so the two-column Settings layout can be wider than the single-column tabs. */
 .contentBlock {
 	box-sizing: border-box;
 	width: 100%;
-	max-width: var(--settings-content-width);
-	margin: 0 auto;
 	padding: var(--wpds-dimension-padding-2xl) var(--wpds-dimension-padding-xl)
 		var(--wpds-dimension-padding-2xl);
 }
 
-.preferencesPanel {
-	display: flex;
-	flex-direction: column;
+/* ---- Layout: one centered column that becomes two when there's room — a
+   narrow Account aside beside the wider main column (both Settings and Agent). */
+.settingsLayout {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr);
 	gap: var(--wpds-dimension-padding-xl);
 	width: 100%;
 	max-width: var(--settings-form-width);
 	margin: 0 auto;
+}
+
+.settingsMain {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-xl);
+	min-width: 0;
+}
+
+@media (min-width: 900px) {
+	.settingsLayout {
+		grid-template-columns: var(--settings-aside-width) minmax(0, 1fr);
+		align-items: start;
+		max-width: var(--settings-wide-width);
+	}
+}
+
+/* ---- Card ---------------------------------------------------------------- */
+
+.card {
+	box-sizing: border-box;
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-lg);
+	padding: var(--wpds-dimension-padding-lg) var(--wpds-dimension-padding-xl)
+		var(--wpds-dimension-padding-xl);
+	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: 8px;
+	background: color-mix(in srgb, var(--wpds-color-bg-surface-neutral-weak) 56%, transparent);
+}
+
+/* A card header: a title/description block on the left, an optional trailing
+   control (toggle, buttons) on the right. The text block grows so long
+   descriptions wrap instead of pushing the control off the row. */
+.cardHeader {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: var(--wpds-dimension-padding-xl);
+}
+
+.cardHeaderText {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-xs);
+	min-width: 0;
+}
+
+.cardTitle {
+	margin: 0;
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-lg);
+	font-weight: 600;
+	line-height: var(--wpds-typography-line-height-md);
+}
+
+.cardDescription {
+	margin: 0;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	/* Pair sm text with the sm line-height (20px). line-height-md (24px) is the
+	   md pairing and double-spaces 12px text. */
+	line-height: var(--wpds-typography-line-height-sm);
+}
+
+/* A card whose setting is unavailable (e.g. agentic features while signed out):
+   mute the heading text to match its disabled control. */
+.cardDisabled .cardTitle,
+.cardDisabled .cardDescription {
+	color: var(--wpds-color-fg-interactive-neutral-disabled);
+}
+
+/* Trailing control(s) in a card header. Reserves a compact-button height so a
+   header doesn't jump when an optional action (e.g. Skills' "Install all")
+   appears or disappears. */
+.cardHeaderActions {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-md);
+	flex-shrink: 0;
+	flex-wrap: wrap;
+	min-block-size: 32px;
+}
+
+/* ---- Field: a labelled control row inside a card ------------------------- */
+
+.fieldList {
+	display: flex;
+	flex-direction: column;
+}
+
+.list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.field {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) max-content;
+	align-items: center;
+	column-gap: var(--wpds-dimension-padding-xl);
+	padding-block: var(--settings-row-padding-block);
+	border-bottom: var(--settings-divider-border);
+}
+
+.field:first-child {
+	padding-block-start: 0;
+}
+
+.field:last-child {
+	padding-block-end: 0;
+	border-bottom: 0;
+}
+
+.fieldText {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-xs);
+	min-width: 0;
+}
+
+.fieldLabel {
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-md);
+	font-weight: 400;
+	line-height: var(--wpds-typography-line-height-sm);
+	white-space: nowrap;
+}
+
+.fieldDescription {
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+}
+
+.fieldControl {
+	display: flex;
+	justify-content: flex-end;
+	min-width: 0;
+	inline-size: 100%;
+}
+
+/* ---- List row: a rich list item inside a card --------------------------- */
+
+.listRow {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	align-items: center;
+	column-gap: var(--wpds-dimension-padding-xl);
+	padding-block: var(--wpds-dimension-padding-lg);
+	border-bottom: var(--settings-divider-border);
+}
+
+.listRow:first-child {
+	padding-block-start: 0;
+}
+
+.listRow:last-child {
+	padding-block-end: 0;
+	border-bottom: 0;
+}
+
+.listItemText {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.listItemTitle {
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-sm);
+	font-weight: 600;
+	line-height: var(--wpds-typography-line-height-sm);
+}
+
+.listItemDescription {
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+}
+
+/* ---- Meter: a usage readout inside a card -------------------------------- */
+
+.meter {
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	gap: var(--wpds-dimension-padding-md);
+}
+
+/* Title (+ inline meta) on the left, figure (+ optional menu) on the right. */
+.meterHeader {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--wpds-dimension-padding-md);
+	min-width: 0;
+}
+
+.meterHeaderEnd {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-xs);
+	flex-shrink: 0;
+}
+
+.meterTitle {
+	margin: 0;
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-md);
+	font-weight: 600;
+	line-height: var(--wpds-typography-line-height-sm);
+	white-space: nowrap;
+}
+
+.meterMeta {
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	white-space: nowrap;
+}
+
+.meterText {
+	margin: 0;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+}
+
+.meterActionsButton {
+	flex-shrink: 0;
+}
+
+/* Thin pill bar: bright brand fill on a neutral track. */
+.progressTrack {
+	overflow: hidden;
+	inline-size: 100%;
+	block-size: 6px;
+	border-radius: 999px;
+	background: var(--wpds-color-stroke-surface-neutral);
+}
+
+.progressValue {
+	block-size: 100%;
+	border-radius: inherit;
+	background: var(--wpds-color-fg-interactive-brand);
+}
+
+/* Bar with its value at the trailing end: the bar flexes to fill, the figure
+   sits after it. */
+.gauge {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-md);
+}
+
+.gauge .progressTrack {
+	flex: 1;
+	min-inline-size: 0;
+}
+
+.gaugeValue {
+	flex-shrink: 0;
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-md);
+	line-height: var(--wpds-typography-line-height-sm);
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+/* Hatched stand-in for a meter with no figure behind it — same 135deg stripe
+   idiom as the AI credits placeholder, in neutral disabled colors. */
+.unavailableBar {
+	inline-size: 100%;
+	block-size: 6px;
+	border-radius: 999px;
+	background:
+		repeating-linear-gradient(
+			135deg,
+			color-mix(in srgb, var(--wpds-color-fg-interactive-neutral-disabled) 22%, transparent) 0 3px,
+			transparent 3px 8px
+		),
+		var(--wpds-color-bg-interactive-neutral-weak-disabled);
+}
+
+/* Signed out or offline: grey the readout, since none of it is live. */
+.usageDisabled .meterTitle,
+.usageDisabled .meterMeta,
+.usageDisabled .meterText,
+.usageDisabled .gaugeValue {
+	color: var(--wpds-color-fg-interactive-neutral-disabled);
+}
+
+.usageDisabled .progressTrack {
+	background: var(--wpds-color-bg-interactive-neutral-weak-disabled);
+}
+
+.usageDisabled .progressValue {
+	background: var(--wpds-color-fg-interactive-neutral-disabled);
+}
+
+.aiCreditsTrack {
+	position: relative;
+	background: color-mix(
+		in srgb,
+		var(--wpds-color-fg-interactive-brand) 14%,
+		var(--wpds-color-stroke-surface-neutral)
+	);
+}
+
+.aiCreditsMeterValue {
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	background: linear-gradient(
+			90deg,
+			color-mix(in srgb, var(--wpds-color-fg-interactive-brand) 32%, transparent),
+			color-mix(in srgb, var(--wpds-color-fg-interactive-brand) 14%, transparent)
+		),
+		repeating-linear-gradient(
+			135deg,
+			color-mix(in srgb, var(--wpds-color-fg-interactive-brand) 18%, transparent) 0 8px,
+			transparent 8px 16px
+		);
+}
+
+/* ---- Inline messages ----------------------------------------------------- */
+
+.errorMessage {
+	margin: 0;
+	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md);
+	border: 1px solid color-mix(in srgb, var(--wpds-color-fg-content-error) 35%, transparent);
+	border-radius: 6px;
+	background: color-mix(
+		in srgb,
+		var(--wpds-color-fg-content-error) 8%,
+		var(--wpds-color-bg-surface-neutral-strong)
+	);
+	color: var(--wpds-color-fg-content-error);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+}
+
+.instructionsError {
+	margin: 0;
+	font-size: var(--wpds-typography-font-size-sm);
+	color: var(--wpds-color-fg-content-error);
+}
+
+/* Prose entry styled like the MCP config block — same border, radius and
+   surface — but in the body font since it holds instructions, not code. */
+.instructionsTextarea {
+	box-sizing: border-box;
+	inline-size: 100%;
+	padding: var(--wpds-dimension-padding-md);
+	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: 6px;
+	background: var(--wpds-color-bg-surface-neutral);
+	color: var(--wpds-color-fg-content-neutral);
+	font-family: var(--wpds-typography-font-family-body);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-md);
+	resize: vertical;
+}
+
+.instructionsTextarea::placeholder {
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.instructionsTextarea:hover {
+	border-color: var(--wpds-color-stroke-interactive-neutral-active);
+}
+
+.instructionsTextarea:focus-visible {
+	border-color: var(--wpds-color-stroke-interactive-neutral-active);
+	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus-brand);
+	outline-offset: 2px;
 }
 
 .actions {
@@ -137,75 +543,143 @@
 	color: var(--wpds-color-fg-content-neutral-weak);
 }
 
-.instructionsError {
-	margin: 0;
-	font-size: var(--wpds-typography-font-size-sm);
-	color: var(--wpds-color-fg-content-error);
-}
+/* ---- Account aside ------------------------------------------------------- */
 
-.preferenceSectionGroup {
-	box-sizing: border-box;
+/* The Account column isn't a card — its sections sit directly on the settings
+   surface: Account identity, Preview sites usage, Help links, then Log out. */
+.accountAside {
 	display: flex;
 	flex-direction: column;
-	gap: 0;
-	padding: var(--wpds-dimension-padding-lg) var(--wpds-dimension-padding-xl)
-		var(--wpds-dimension-padding-xl);
-	border: 1px solid var(--wpds-color-stroke-surface-neutral);
-	border-radius: 8px;
-	background: color-mix(in srgb, var(--wpds-color-bg-surface-neutral-weak) 56%, transparent);
+	gap: var(--wpds-dimension-padding-xl);
 }
 
-.preferenceSectionHeading {
-	margin: 0 0 var(--wpds-dimension-padding-md);
-	color: var(--wpds-color-fg-content-neutral);
-	font-size: var(--wpds-typography-font-size-lg);
-	font-weight: 600;
-	line-height: var(--wpds-typography-line-height-md);
-}
-
-.preferenceRow {
-	display: grid;
-	grid-template-columns: minmax(0, 1fr) max-content;
-	align-items: center;
-	column-gap: var(--wpds-dimension-padding-xl);
-	padding-block: var(--settings-row-padding-block);
-	border-bottom: var(--settings-divider-border);
-}
-
-.preferenceRow:last-child {
-	padding-block-end: 0;
-	border-bottom: 0;
-}
-
-.preferenceText {
+.asideSection {
 	display: flex;
 	flex-direction: column;
-	gap: var(--wpds-dimension-padding-xs);
-	min-width: 0;
+	gap: var(--wpds-dimension-padding-md);
 }
 
-.preferenceText h2 {
+.asideHeading {
 	margin: 0;
 	color: var(--wpds-color-fg-content-neutral);
 	font-size: var(--wpds-typography-font-size-md);
-	font-weight: 400;
+	font-weight: 600;
 	line-height: var(--wpds-typography-line-height-sm);
-	white-space: nowrap;
 }
 
-.preferenceText p {
+.helpLinks {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: var(--wpds-dimension-padding-xs);
+}
+
+.helpLink {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-sm);
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: var(--wpds-color-fg-content-neutral);
+	font-family: var(--wpds-typography-font-family-body);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-md);
+	text-align: start;
+	cursor: pointer;
+}
+
+.helpLinkIcon {
+	flex-shrink: 0;
+	fill: currentColor;
+}
+
+.helpLinkLabel {
+	text-underline-offset: 2px;
+}
+
+.helpLink:hover .helpLinkLabel {
+	text-decoration: underline;
+}
+
+.helpLink:focus-visible {
+	border-radius: 2px;
+	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus-brand);
+	outline-offset: 2px;
+}
+
+/* Signed-out pitch, matching the overview sign-in band's copy (title +
+   paragraph) but stacked to fit the bare Account column. */
+.signinCopy {
 	margin: 0;
 	color: var(--wpds-color-fg-content-neutral-weak);
 	font-size: var(--wpds-typography-font-size-sm);
 	line-height: var(--wpds-typography-line-height-sm);
 }
 
-.preferenceControl {
-	display: flex;
-	justify-content: flex-end;
-	min-width: 0;
-	inline-size: 100%;
+.signinButton {
+	align-self: flex-start;
 }
+
+/* Log out reads as a destructive action. wpds Button has no error tone, so
+   recolor its internal vars: a subtle translucent red fill with a vivid red
+   label (the error-strong red, deepening its fill on hover/active). A small
+   button, set apart with extra space above. */
+.logoutButton {
+	align-self: flex-start;
+	margin-block-start: var(--wpds-dimension-padding-xl);
+	--wp-ui-button-background-color: color-mix(
+		in srgb,
+		var(--wpds-color-bg-interactive-error-strong) 14%,
+		transparent
+	);
+	--wp-ui-button-background-color-active: color-mix(
+		in srgb,
+		var(--wpds-color-bg-interactive-error-strong) 24%,
+		transparent
+	);
+	--wp-ui-button-foreground-color: var(--wpds-color-bg-interactive-error-strong);
+	--wp-ui-button-foreground-color-active: var(--wpds-color-bg-interactive-error-strong);
+}
+
+.accountIdentity {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-md);
+	min-width: 0;
+}
+
+.accountAvatar {
+	flex: 0 0 44px;
+	inline-size: 44px;
+	block-size: 44px;
+	border-radius: 50%;
+	object-fit: cover;
+}
+
+.accountDetails {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.accountName {
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-md);
+	font-weight: 600;
+	line-height: var(--wpds-typography-line-height-sm);
+}
+
+.accountEmail {
+	margin: 0;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	overflow-wrap: anywhere;
+}
+
+/* ---- Appearance segmented control ---------------------------------------- */
 
 .appearancePicker {
 	position: relative;
@@ -306,69 +780,7 @@
 	inline-size: 240px;
 }
 
-.accountSectionHeader {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: var(--wpds-dimension-padding-xl);
-	margin-block-end: var(--wpds-dimension-padding-xl);
-}
-
-.accountHeading {
-	margin-block-end: 0;
-}
-
-.accountActions {
-	display: flex;
-	gap: var(--wpds-dimension-padding-md);
-	flex-wrap: wrap;
-}
-
-.accountSummary {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: var(--wpds-dimension-padding-xl);
-	min-width: 0;
-}
-
-.accountIdentity {
-	display: flex;
-	align-items: center;
-	gap: var(--wpds-dimension-padding-md);
-	min-width: 0;
-}
-
-.accountAvatar {
-	flex: 0 0 44px;
-	inline-size: 44px;
-	block-size: 44px;
-	border-radius: 50%;
-	object-fit: cover;
-}
-
-.accountDetails {
-	display: flex;
-	flex-direction: column;
-	gap: 2px;
-	min-width: 0;
-}
-
-.accountDetails h2 {
-	margin: 0;
-	color: var(--wpds-color-fg-content-neutral);
-	font-size: var(--wpds-typography-font-size-md);
-	font-weight: 600;
-	line-height: var(--wpds-typography-line-height-sm);
-}
-
-.accountDetails p {
-	margin: 0;
-	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-sm);
-	line-height: var(--wpds-typography-line-height-sm);
-	overflow-wrap: anywhere;
-}
+/* ---- Default site directory picker --------------------------------------- */
 
 .pathPickerButton {
 	box-sizing: border-box;
@@ -419,42 +831,7 @@
 	fill: currentColor;
 }
 
-.cliHeader {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: var(--wpds-dimension-padding-xl);
-}
-
-.cliHeading {
-	margin-block-end: 0;
-}
-
-.cliHeader :global(.components-form-toggle .components-form-toggle__track) {
-	background-color: var(--wpds-color-bg-track-neutral-weak);
-	border-color: var(--wpds-color-stroke-interactive-neutral);
-}
-
-.cliHeader :global(.components-form-toggle .components-form-toggle__thumb) {
-	background-color: var(--wpds-color-bg-thumb-neutral-weak);
-}
-
-.cliHeader :global(.components-form-toggle.is-checked .components-form-toggle__track) {
-	background-color: var(--wpds-color-bg-interactive-brand-strong);
-	border-color: var(--wpds-color-stroke-interactive-brand);
-}
-
-.cliHeader :global(.components-form-toggle.is-checked .components-form-toggle__thumb) {
-	background-color: var(--wpds-color-fg-interactive-brand-strong);
-}
-
-.cliHeader
-	:global(.components-form-toggle .components-form-toggle__input:focus
-		+ .components-form-toggle__track) {
-	box-shadow:
-		0 0 0 var(--wpds-border-width-focus) var(--wpds-color-bg-surface-neutral),
-		0 0 0 calc(2 * var(--wpds-border-width-focus)) var(--wpds-color-stroke-focus-brand);
-}
+/* ---- Studio CLI toggle (read-only tooltip variant) ----------------------- */
 
 .cliToggleTrigger {
 	display: inline-flex;
@@ -471,38 +848,31 @@
 	line-height: var(--wpds-typography-line-height-sm);
 }
 
-.cliDescription {
-	max-inline-size: 460px;
+/* ---- Keyboard shortcuts -------------------------------------------------- */
+
+/* Each context (Global, Composer, Site preview) is a labelled group inside the
+   single Keyboard card. */
+.shortcutGroup {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-sm);
+}
+
+/* Separate groups with a rule that spans the full card width — negative inline
+   margins reach past the card padding to the border, then padding restores the
+   content indent. */
+.shortcutGroup + .shortcutGroup {
+	margin-inline: calc(-1 * var(--wpds-dimension-padding-xl));
+	padding-inline: var(--wpds-dimension-padding-xl);
+	padding-block-start: var(--wpds-dimension-padding-lg);
+	border-block-start: 1px solid var(--wpds-color-stroke-surface-neutral);
+}
+
+.shortcutGroupTitle {
 	margin: 0;
-	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-sm);
-	line-height: var(--wpds-typography-line-height-sm);
-}
-
-.shortcutList {
-	list-style: none;
-	margin: 0;
-	padding: 0;
-}
-
-.shortcutRow {
-	display: grid;
-	grid-template-columns: minmax(0, 1fr) auto;
-	align-items: center;
-	column-gap: var(--wpds-dimension-padding-xl);
-	padding-block: var(--settings-row-padding-block);
-	border-bottom: var(--settings-divider-border);
-}
-
-.shortcutRow:last-child {
-	padding-block-end: 0;
-	border-bottom: 0;
-}
-
-.shortcutName {
 	color: var(--wpds-color-fg-content-neutral);
 	font-size: var(--wpds-typography-font-size-md);
-	font-weight: 400;
+	font-weight: 600;
 	line-height: var(--wpds-typography-line-height-sm);
 }
 
@@ -532,121 +902,7 @@
 	line-height: 1;
 }
 
-.errorMessage {
-	margin-block-end: var(--wpds-dimension-padding-md);
-	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md);
-	border: 1px solid color-mix(in srgb, var(--wpds-color-fg-content-error) 35%, transparent);
-	border-radius: 6px;
-	background: color-mix(
-		in srgb,
-		var(--wpds-color-fg-content-error) 8%,
-		var(--wpds-color-bg-surface-neutral-strong)
-	);
-	color: var(--wpds-color-fg-content-error);
-	font-size: var(--wpds-typography-font-size-sm);
-	line-height: var(--wpds-typography-line-height-sm);
-}
-
-.skillsPanel,
-.usagePanel {
-	display: flex;
-	flex-direction: column;
-	gap: var(--wpds-dimension-padding-xl);
-	width: 100%;
-	max-width: var(--settings-form-width);
-	margin: 0 auto;
-}
-
-.settingsPanelSection {
-	box-sizing: border-box;
-	display: flex;
-	flex-direction: column;
-	align-items: stretch;
-	gap: var(--wpds-dimension-padding-lg);
-	padding: var(--wpds-dimension-padding-lg) var(--wpds-dimension-padding-xl)
-		var(--wpds-dimension-padding-xl);
-	border: 1px solid var(--wpds-color-stroke-surface-neutral);
-	border-radius: 8px;
-	background: color-mix(in srgb, var(--wpds-color-bg-surface-neutral-weak) 56%, transparent);
-}
-
-.settingsPanelHeader {
-	display: flex;
-	flex-direction: column;
-	gap: var(--wpds-dimension-padding-xs);
-}
-
-.settingsPanelHeader h2 {
-	margin: 0;
-	color: var(--wpds-color-fg-content-neutral);
-	font-size: var(--wpds-typography-font-size-lg);
-	font-weight: 600;
-	line-height: var(--wpds-typography-line-height-md);
-}
-
-.settingsPanelHeader p {
-	margin: 0;
-	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-sm);
-	line-height: var(--wpds-typography-line-height-md);
-}
-
-.skillsHeaderRow {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: var(--wpds-dimension-padding-md);
-	/* Compact wpds Button height, reserved so the header doesn't jump when
-	   the Install all button appears or disappears. */
-	min-block-size: 32px;
-}
-
-.skillList {
-	list-style: none;
-	margin: 0;
-	padding: 0;
-	border-top: 1px solid var(--wpds-color-stroke-surface-neutral);
-}
-
-.skillRow {
-	display: grid;
-	grid-template-columns: minmax(0, 1fr) auto;
-	align-items: center;
-	gap: var(--wpds-dimension-padding-xl);
-	padding-block: var(--wpds-dimension-padding-lg);
-	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
-}
-
-.skillRow:last-child {
-	border-bottom: 0;
-}
-
-.skillDetails {
-	display: flex;
-	flex-direction: column;
-	gap: 2px;
-	min-width: 0;
-}
-
-.skillName {
-	color: var(--wpds-color-fg-content-neutral);
-	font-size: var(--wpds-typography-font-size-sm);
-	font-weight: 600;
-	line-height: var(--wpds-typography-line-height-sm);
-}
-
-.skillDescription {
-	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-sm);
-	line-height: var(--wpds-typography-line-height-sm);
-}
-
-.sectionIntro {
-	margin: 0 0 var(--wpds-dimension-padding-lg);
-	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-sm);
-	line-height: var(--wpds-typography-line-height-md);
-}
+/* ---- MCP config block ---------------------------------------------------- */
 
 .codeBlockWrap {
 	position: relative;
@@ -680,6 +936,8 @@
 	z-index: 1;
 }
 
+/* ---- Toggle recoloring (wpds FormToggle) --------------------------------- */
+
 .toggleControl :global(.components-form-toggle .components-form-toggle__track) {
 	background-color: var(--wpds-color-bg-track-neutral-weak);
 	border-color: var(--wpds-color-stroke-interactive-neutral);
@@ -705,147 +963,24 @@
 		0 0 0 calc(2 * var(--wpds-border-width-focus)) var(--wpds-color-stroke-focus-brand);
 }
 
+/* ---- Narrow layout ------------------------------------------------------- */
+
+/* Narrow window: the whole surface is cramped, so stack every card's header
+   control and rows under their labels. */
 @media (max-width: 640px) {
-	.preferenceRow {
+	.cardHeader {
+		align-items: flex-start;
+		flex-direction: column;
+	}
+
+	.field,
+	.listRow {
 		align-items: stretch;
 		grid-template-columns: 1fr;
 		row-gap: var(--wpds-dimension-padding-sm);
 	}
 
-	.accountSectionHeader,
-	.accountSummary {
-		align-items: flex-start;
-		flex-direction: column;
-	}
-
-	.preferenceText h2 {
+	.fieldLabel {
 		white-space: normal;
 	}
-
-	.skillRow {
-		align-items: stretch;
-		grid-template-columns: 1fr;
-	}
-}
-
-
-/* Signed out or offline: grey the whole card, since none of it is live. */
-.usageDisabled .settingsPanelHeader h2,
-.usageDisabled .settingsPanelHeader p,
-.usageDisabled .usageSectionHeader h2,
-.usageDisabled .previewUsageText,
-.usageDisabled .usageSection p {
-	color: var(--wpds-color-fg-interactive-neutral-disabled);
-}
-
-.usageDisabled .progressTrack {
-	background: var(--wpds-color-bg-interactive-neutral-weak-disabled);
-}
-
-.usageDisabled .progressValue {
-	background: var(--wpds-color-fg-interactive-neutral-disabled);
-}
-
-/* Hatched stand-in for a meter with no figure behind it — same 135deg stripe
-   idiom as the AI credits placeholder, in neutral disabled colors. */
-.unavailableBar {
-	inline-size: 100%;
-	block-size: 6px;
-	border-radius: 999px;
-	background:
-		repeating-linear-gradient(
-			135deg,
-			color-mix(in srgb, var(--wpds-color-fg-interactive-neutral-disabled) 22%, transparent) 0 3px,
-			transparent 3px 8px
-		),
-		var(--wpds-color-bg-interactive-neutral-weak-disabled);
-}
-
-.usageSection {
-	display: flex;
-	flex-direction: column;
-	align-items: stretch;
-	gap: var(--wpds-dimension-padding-md);
-	padding-block: var(--wpds-dimension-padding-lg);
-	border-top: 1px solid var(--wpds-color-stroke-surface-neutral);
-}
-
-.usageSection:last-child {
-	padding-block-end: 0;
-}
-
-.usageSectionHeader {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: var(--wpds-dimension-padding-md);
-	min-width: 0;
-}
-
-.usageSectionHeader h2 {
-	margin: 0;
-	color: var(--wpds-color-fg-content-neutral);
-	font-size: var(--wpds-typography-font-size-md);
-	font-weight: 600;
-	line-height: var(--wpds-typography-line-height-sm);
-}
-
-.usageSection p {
-	margin: 0;
-	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-sm);
-	line-height: var(--wpds-typography-line-height-sm);
-}
-
-.previewUsageText {
-	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-sm);
-	line-height: var(--wpds-typography-line-height-sm);
-}
-
-.progressTrack {
-	overflow: hidden;
-	inline-size: 100%;
-	block-size: 6px;
-	border-radius: 999px;
-	background: var(--wpds-color-stroke-surface-neutral);
-}
-
-.progressValue {
-	block-size: 100%;
-	border-radius: inherit;
-	background: var(--wpds-color-fg-interactive-brand);
-}
-
-.previewActionsButton {
-	flex-shrink: 0;
-}
-
-.usageSectionAction {
-	align-self: flex-start;
-}
-
-.aiCreditsTrack {
-	position: relative;
-	background: color-mix(
-		in srgb,
-		var(--wpds-color-fg-interactive-brand) 14%,
-		var(--wpds-color-stroke-surface-neutral)
-	);
-}
-
-.aiCreditsMeterValue {
-	position: absolute;
-	inset: 0;
-	border-radius: inherit;
-	background: linear-gradient(
-			90deg,
-			color-mix(in srgb, var(--wpds-color-fg-interactive-brand) 32%, transparent),
-			color-mix(in srgb, var(--wpds-color-fg-interactive-brand) 14%, transparent)
-		),
-		repeating-linear-gradient(
-			135deg,
-			color-mix(in srgb, var(--wpds-color-fg-interactive-brand) 18%, transparent) 0 8px,
-			transparent 8px 16px
-		);
 }

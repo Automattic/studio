@@ -35,3 +35,12 @@ export function formatQuotaResetDate( date: string, locale?: string ): string {
 		year: 'numeric',
 	} ).format( new Date( date ) );
 }
+
+// Compact reset date (e.g. "Jul 31") for the settings usage meter, where the
+// figure sits inline next to the title rather than in a full sentence.
+export function formatQuotaResetDateShort( date: string, locale?: string ): string {
+	return new Intl.DateTimeFormat( locale, {
+		day: 'numeric',
+		month: 'short',
+	} ).format( new Date( date ) );
+}

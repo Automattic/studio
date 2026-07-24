@@ -16,16 +16,18 @@ import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { AccountSection } from './account-section';
 import { AiPanel } from './ai-panel';
 import { KeyboardPanel } from './keyboard-panel';
-import { McpPanel } from './mcp-panel';
+import { McpSection } from './mcp-panel';
 import { UNSET, toPreferencesFormData, toPreferencesPatch } from './preferences';
-import { SkillsPanel } from './skills-panel';
+import {
+	SettingsPreviewPanel,
+	SettingsPreviewProvider,
+	SHOW_PREVIEW_CONTROLS,
+} from './settings-preview';
 import { StudioCliSection } from './studio-cli-section';
 import styles from './style.module.css';
-import { UsagePanel } from './usage-panel';
 import type { PreferencesFormData } from './preferences';
 import type {
 	ColorScheme,
-	Connector,
 	InstalledApps,
 	QuitSitesBehavior,
 	SupportedEditor,
@@ -34,7 +36,7 @@ import type {
 } from '@/data/core';
 import type { ReactNode } from 'react';
 
-const SETTINGS_TABS = [ 'preferences', 'ai', 'usage', 'keyboard', 'skills', 'mcp' ] as const;
+const SETTINGS_TABS = [ 'preferences', 'ai' ] as const;
 
 type TabId = ( typeof SETTINGS_TABS )[ number ];
 
@@ -43,12 +45,6 @@ export function isSettingsTab( value: string ): value is TabId {
 }
 
 export type SettingsTabId = TabId;
-
-// The AI tab holds the agentic-features toggle and the agent's global
-// instructions; hosts that offer neither (the hosted browser) don't get the tab.
-function hasAiSettings( capabilities: Connector[ 'capabilities' ] ): boolean {
-	return capabilities.switchToClassicUi || capabilities.agentInstructions;
-}
 
 // No "unset" option: the main process resolves a fallback for never-chosen
 // editor/terminal prefs (matching the legacy UI), so an explicit clear can't
@@ -98,7 +94,6 @@ const LOCALE_ELEMENTS: { value: SupportedLocale; label: string }[] = Object.entr
 function SettingsHeader() {
 	// Settings renders fullscreen, so the sidebar (and its floating toggle) is
 	// covered — only the macOS traffic lights still need clearing.
-	const connector = useConnector();
 	const reserveTrafficLightSpace = useTrafficLightSpace();
 	const onClose = useSettingsClose();
 	return (
@@ -111,13 +106,7 @@ function SettingsHeader() {
 			<div className={ styles.headerTabs }>
 				<Tabs.List className={ styles.headerTabList }>
 					<Tabs.Tab tabId="preferences">{ __( 'Settings' ) }</Tabs.Tab>
-					{ hasAiSettings( connector.capabilities ) && (
-						<Tabs.Tab tabId="ai">{ __( 'AI' ) }</Tabs.Tab>
-					) }
-					<Tabs.Tab tabId="usage">{ __( 'Usage' ) }</Tabs.Tab>
-					<Tabs.Tab tabId="keyboard">{ __( 'Keyboard' ) }</Tabs.Tab>
-					<Tabs.Tab tabId="skills">{ __( 'Skills' ) }</Tabs.Tab>
-					<Tabs.Tab tabId="mcp">{ __( 'MCP' ) }</Tabs.Tab>
+					<Tabs.Tab tabId="ai">{ __( 'Agent' ) }</Tabs.Tab>
 				</Tabs.List>
 			</div>
 			{ onClose ? (
@@ -146,13 +135,13 @@ function PreferenceRow( {
 	children: ReactNode;
 } ) {
 	return (
-		<section className={ styles.preferenceRow }>
-			<div className={ styles.preferenceText }>
-				<h2>{ title }</h2>
-				{ description ? <p>{ description }</p> : null }
+		<div className={ styles.field }>
+			<div className={ styles.fieldText }>
+				<span className={ styles.fieldLabel }>{ title }</span>
+				{ description ? <span className={ styles.fieldDescription }>{ description }</span> : null }
 			</div>
-			<div className={ styles.preferenceControl }>{ children }</div>
-		</section>
+			<div className={ styles.fieldControl }>{ children }</div>
+		</div>
 	);
 }
 
@@ -264,55 +253,65 @@ function PreferencesPanel( {
 	onChange: ( update: Partial< PreferencesFormData > ) => void;
 } ) {
 	return (
-		<div className={ styles.preferencesPanel }>
-			<section className={ styles.preferenceSectionGroup }>
-				<h2 className={ styles.preferenceSectionHeading }>{ __( 'General' ) }</h2>
-				{ saveError ? (
-					<div className={ styles.errorMessage }>
-						{ __( 'An error occurred while saving settings. Please try again.' ) }
-					</div>
-				) : null }
-				<AppearancePicker value={ data.colorScheme } onChange={ onColorSchemeChange } />
-				<PreferenceRow title={ __( 'Language' ) }>
-					<PreferenceSelect
-						label={ __( 'Language' ) }
-						value={ data.locale }
-						options={ LOCALE_ELEMENTS }
-						onChange={ ( locale ) => onChange( { locale } ) }
-					/>
-				</PreferenceRow>
-				<PreferenceRow title={ __( 'Preferred editor' ) }>
-					<PreferenceSelect< SupportedEditor | typeof UNSET >
-						label={ __( 'Preferred editor' ) }
-						value={ data.editor }
-						options={ editorElements( installedApps ) }
-						onChange={ ( editor ) => onChange( { editor } ) }
-					/>
-				</PreferenceRow>
-				<PreferenceRow title={ __( 'Preferred terminal' ) }>
-					<PreferenceSelect< SupportedTerminal | typeof UNSET >
-						label={ __( 'Preferred terminal' ) }
-						value={ data.terminal }
-						options={ terminalElements( installedApps ) }
-						onChange={ ( terminal ) => onChange( { terminal } ) }
-					/>
-				</PreferenceRow>
-				<DefaultSiteDirectoryField
-					value={ data.defaultSiteDirectory }
-					onSelect={ onDefaultSiteDirectorySelect }
-				/>
-				<PreferenceRow title={ __( 'When quitting with running sites' ) }>
-					<PreferenceSelect< QuitSitesBehavior | typeof UNSET >
-						label={ __( 'When quitting with running sites' ) }
-						className={ styles.selectControlWide }
-						value={ data.quitSitesBehavior }
-						options={ QUIT_SITES_BEHAVIOR_ELEMENTS }
-						onChange={ ( quitSitesBehavior ) => onChange( { quitSitesBehavior } ) }
-					/>
-				</PreferenceRow>
-			</section>
+		<div className={ styles.settingsLayout }>
 			<AccountSection />
-			<StudioCliSection />
+			<div className={ styles.settingsMain }>
+				<section className={ styles.card }>
+					<div className={ styles.cardHeader }>
+						<div className={ styles.cardHeaderText }>
+							<h2 className={ styles.cardTitle }>{ __( 'General' ) }</h2>
+						</div>
+					</div>
+					{ saveError ? (
+						<div className={ styles.errorMessage }>
+							{ __( 'An error occurred while saving settings. Please try again.' ) }
+						</div>
+					) : null }
+					<div className={ styles.fieldList }>
+						<AppearancePicker value={ data.colorScheme } onChange={ onColorSchemeChange } />
+						<PreferenceRow title={ __( 'Language' ) }>
+							<PreferenceSelect
+								label={ __( 'Language' ) }
+								value={ data.locale }
+								options={ LOCALE_ELEMENTS }
+								onChange={ ( locale ) => onChange( { locale } ) }
+							/>
+						</PreferenceRow>
+						<PreferenceRow title={ __( 'Preferred editor' ) }>
+							<PreferenceSelect< SupportedEditor | typeof UNSET >
+								label={ __( 'Preferred editor' ) }
+								value={ data.editor }
+								options={ editorElements( installedApps ) }
+								onChange={ ( editor ) => onChange( { editor } ) }
+							/>
+						</PreferenceRow>
+						<PreferenceRow title={ __( 'Preferred terminal' ) }>
+							<PreferenceSelect< SupportedTerminal | typeof UNSET >
+								label={ __( 'Preferred terminal' ) }
+								value={ data.terminal }
+								options={ terminalElements( installedApps ) }
+								onChange={ ( terminal ) => onChange( { terminal } ) }
+							/>
+						</PreferenceRow>
+						<DefaultSiteDirectoryField
+							value={ data.defaultSiteDirectory }
+							onSelect={ onDefaultSiteDirectorySelect }
+						/>
+						<PreferenceRow title={ __( 'When quitting with running sites' ) }>
+							<PreferenceSelect< QuitSitesBehavior | typeof UNSET >
+								label={ __( 'When quitting with running sites' ) }
+								className={ styles.selectControlWide }
+								value={ data.quitSitesBehavior }
+								options={ QUIT_SITES_BEHAVIOR_ELEMENTS }
+								onChange={ ( quitSitesBehavior ) => onChange( { quitSitesBehavior } ) }
+							/>
+						</PreferenceRow>
+					</div>
+				</section>
+				<StudioCliSection />
+				<KeyboardPanel />
+				<McpSection />
+			</div>
 		</div>
 	);
 }
@@ -390,49 +389,38 @@ export function SettingsView( {
 	};
 
 	return (
-		<div className={ styles.root }>
-			<Tabs.Root
-				selectedTabId={ activeTab }
-				onSelect={ ( tabId ) => {
-					if ( tabId && isSettingsTab( tabId ) ) {
-						onTabChange( tabId );
-					}
-				} }
-			>
-				<SettingsHeader />
+		<SettingsPreviewProvider>
+			<div className={ styles.root }>
+				<Tabs.Root
+					selectedTabId={ activeTab }
+					onSelect={ ( tabId ) => {
+						if ( tabId && isSettingsTab( tabId ) ) {
+							onTabChange( tabId );
+						}
+					} }
+				>
+					<SettingsHeader />
 
-				<div className={ styles.scroll }>
-					<div className={ styles.contentBlock }>
-						<Tabs.Panel tabId="preferences">
-							<PreferencesPanel
-								data={ data }
-								installedApps={ installedApps }
-								saveError={ savePreferences.isError }
-								onColorSchemeChange={ handleColorSchemeChange }
-								onDefaultSiteDirectorySelect={ () => void handleSelectDefaultDirectory() }
-								onChange={ handleChange }
-							/>
-						</Tabs.Panel>
-						{ hasAiSettings( connector.capabilities ) && (
+					<div className={ styles.scroll }>
+						<div className={ styles.contentBlock }>
+							<Tabs.Panel tabId="preferences">
+								<PreferencesPanel
+									data={ data }
+									installedApps={ installedApps }
+									saveError={ savePreferences.isError }
+									onColorSchemeChange={ handleColorSchemeChange }
+									onDefaultSiteDirectorySelect={ () => void handleSelectDefaultDirectory() }
+									onChange={ handleChange }
+								/>
+							</Tabs.Panel>
 							<Tabs.Panel tabId="ai">
 								<AiPanel />
 							</Tabs.Panel>
-						) }
-						<Tabs.Panel tabId="usage">
-							<UsagePanel />
-						</Tabs.Panel>
-						<Tabs.Panel tabId="keyboard">
-							<KeyboardPanel />
-						</Tabs.Panel>
-						<Tabs.Panel tabId="skills">
-							<SkillsPanel />
-						</Tabs.Panel>
-						<Tabs.Panel tabId="mcp">
-							<McpPanel />
-						</Tabs.Panel>
+						</div>
 					</div>
-				</div>
-			</Tabs.Root>
-		</div>
+				</Tabs.Root>
+			</div>
+			{ SHOW_PREVIEW_CONTROLS ? <SettingsPreviewPanel /> : null }
+		</SettingsPreviewProvider>
 	);
 }

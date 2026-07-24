@@ -9,7 +9,7 @@ import { SUPPORTED_EDITORS, supportedEditorConfig } from '@studio/common/lib/use
 import { SUPPORTED_TERMINALS, terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { CheckboxControl, FormToggle } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
-import { audio, close, file, Icon } from '@wordpress/icons';
+import { audio, close } from '@wordpress/icons';
 import { Button, IconButton, SelectControl } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useState } from 'react';
@@ -244,7 +244,6 @@ function DefaultSiteDirectoryField( { value, onSelect }: { value: string; onSele
 				<span className={ value ? styles.pathPickerValue : styles.pathPickerPlaceholder }>
 					{ value || __( 'Choose a folder…' ) }
 				</span>
-				<Icon icon={ file } className={ styles.pathPickerIcon } />
 			</button>
 		</PreferenceRow>
 	);

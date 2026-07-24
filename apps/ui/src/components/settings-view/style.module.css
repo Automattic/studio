@@ -923,6 +923,16 @@
 	inline-size: 240px;
 }
 
+/* Sizes to its widest option instead of a fixed width, so a short option list
+   fits its text without truncating or reserving empty space. */
+.selectControlAuto {
+	inline-size: fit-content;
+}
+
+.selectControlAuto > *:not([data-visually-hidden]) {
+	inline-size: auto;
+}
+
 /* ---- Default site directory picker --------------------------------------- */
 
 .pathPickerButton {

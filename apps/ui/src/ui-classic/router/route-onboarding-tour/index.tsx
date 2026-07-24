@@ -92,6 +92,9 @@ export function OnboardingTourPage() {
 
 	const step = STEPS[ stepIndex ];
 	const isLastStep = stepIndex === STEPS.length - 1;
+	// The last step doubles as the login prompt; when the user is signed out the
+	// primary action skips it rather than simply continuing.
+	const isLoginStep = isLastStep && ! authUser;
 
 	const finishTour = useCallback( async () => {
 		await connector.setOnboardingCompleted( true );
@@ -111,7 +114,7 @@ export function OnboardingTourPage() {
 				}
 			} }
 			primaryAction={ {
-				label: __( 'Continue' ),
+				label: isLoginStep ? __( 'Skip log in' ) : __( 'Continue' ),
 				onClick: () => {
 					if ( isLastStep ) {
 						void finishTour();
@@ -154,7 +157,7 @@ export function OnboardingTourPage() {
 						</Button>
 						<Button
 							type="button"
-							variant="solid"
+							variant="outline"
 							tone="brand"
 							disabled={ isOffline }
 							title={ isOffline ? offlineMessage : undefined }

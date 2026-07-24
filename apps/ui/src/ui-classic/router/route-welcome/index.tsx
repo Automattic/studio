@@ -125,6 +125,15 @@ export function WelcomePage() {
 				</div>
 			</div>
 
+			<div className={ styles.analyticsPreference }>
+				<CheckboxControl
+					__nextHasNoMarginBottom
+					label={ __( 'Help improve Studio by sharing anonymous usage statistics' ) }
+					checked={ preferences?.analyticsEnabled ?? true }
+					onChange={ ( analyticsEnabled ) => saveUserPreferences.mutate( { analyticsEnabled } ) }
+				/>
+			</div>
+
 			<p className={ styles.legal }>
 				{ __( 'By continuing, you agree to our' ) }{ ' ' }
 				<button
@@ -146,15 +155,6 @@ export function WelcomePage() {
 					.
 				</span>
 			</p>
-
-			<div className={ styles.analyticsPreference }>
-				<CheckboxControl
-					__nextHasNoMarginBottom
-					label={ __( 'Help improve Studio by sharing anonymous usage statistics' ) }
-					checked={ preferences?.analyticsEnabled ?? true }
-					onChange={ ( analyticsEnabled ) => saveUserPreferences.mutate( { analyticsEnabled } ) }
-				/>
-			</div>
 
 			<div className={ styles.footerActions }>
 				{ authUser ? (

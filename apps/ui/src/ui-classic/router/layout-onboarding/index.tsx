@@ -77,11 +77,12 @@ export function OnboardingShellView( {
 		}
 	}, [ pathname ] );
 
-	// The dot grid backs every step of the flow; it stays mounted across
-	// navigations so its intro sweep plays once per visit, not per step.
+	// The dot grid backs every step of the flow. It's already on screen from
+	// the welcome screen (rendered statically there), so skip the intro sweep
+	// to avoid replaying an entrance the user has effectively already seen.
 	const dotGrid = (
 		<div aria-hidden="true" className={ styles.dotGridLayer }>
-			<DotGrid spacing={ 32 } crossSize={ 5 } opacity={ 0.2 } />
+			<DotGrid spacing={ 32 } crossSize={ 5 } opacity={ 0.2 } intro={ false } />
 		</div>
 	);
 

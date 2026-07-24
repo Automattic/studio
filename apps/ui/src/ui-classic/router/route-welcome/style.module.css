@@ -249,13 +249,15 @@
 	white-space: nowrap;
 }
 
+/* Sits just below the benefits card, centered in the content column.
+   Positioned so it paints above the content scrim (a positioned element
+   with backdrop-filter) instead of being washed out behind it. */
 .analyticsPreference {
-	position: absolute;
-	bottom: 20px;
-	left: 50%;
-	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-sm);
-	transform: translateX(-50%);
+	position: relative;
+	z-index: 1;
+	margin-top: 20px;
+	color: var( --wpds-color-fg-content-neutral-weak );
+	font-size: var( --wpds-typography-font-size-sm );
 }
 
 /* Signed-in identity shown in place of the auth buttons. */

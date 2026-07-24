@@ -215,13 +215,6 @@
 	line-height: var(--wpds-typography-line-height-sm);
 }
 
-/* A card whose setting is unavailable (e.g. agentic features while signed out):
-   mute the heading text to match its disabled control. */
-.cardDisabled .cardTitle,
-.cardDisabled .cardDescription {
-	color: var(--wpds-color-fg-interactive-neutral-disabled);
-}
-
 /* Trailing control(s) in a card header. Reserves a compact-button height so a
    header doesn't jump when an optional action (e.g. Skills' "Install all")
    appears or disappears. */

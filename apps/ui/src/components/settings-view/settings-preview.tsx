@@ -90,11 +90,11 @@ export function usePreviewAgenticFeatures(): AgenticFeatures & { isReady: boolea
 	const real = useAgenticFeatures();
 
 	if ( overrides.auth === 'out' ) {
-		return { enabled: false, reason: 'signed-out', isReady: true };
+		return { ...real, enabled: false, chatEnabled: false, reason: 'signed-out', isReady: true };
 	}
 	// Forcing signed-in only clears a signed-out reason — offline still wins.
 	if ( overrides.auth === 'in' && real.reason === 'signed-out' ) {
-		return { enabled: true, reason: null, isReady: true };
+		return { ...real, enabled: true, reason: null, isReady: true };
 	}
 	return real;
 }

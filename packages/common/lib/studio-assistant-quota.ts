@@ -1,3 +1,4 @@
+import { __, sprintf } from '@wordpress/i18n';
 import { z } from 'zod';
 
 export const STUDIO_ASSISTANT_QUOTA_URL =
@@ -16,6 +17,27 @@ export const studioAssistantQuotaSchema = z
 	} ) );
 
 export type StudioAssistantQuota = z.infer< typeof studioAssistantQuotaSchema >;
+
+/**
+ * Fetch the account's Studio AI quota from WordPress.com. Resolves `null` on
+ * any failure (network, auth, unexpected shape) so callers can fall back to
+ * static copy.
+ */
+export async function fetchStudioAssistantQuota(
+	accessToken: string
+): Promise< StudioAssistantQuota | null > {
+	try {
+		const response = await fetch( STUDIO_ASSISTANT_QUOTA_URL, {
+			headers: { Authorization: `Bearer ${ accessToken }` },
+		} );
+		if ( ! response.ok ) {
+			return null;
+		}
+		return studioAssistantQuotaSchema.parse( await response.json() );
+	} catch {
+		return null;
+	}
+}
 
 export function clampQuotaFraction( value: number, maxValue: number ): number {
 	return maxValue > 0 ? Math.max( 0, Math.min( 1, value / maxValue ) ) : 0;
@@ -43,4 +65,20 @@ export function formatQuotaResetDateShort( date: string, locale?: string ): stri
 		day: 'numeric',
 		month: 'short',
 	} ).format( new Date( date ) );
+}
+
+/**
+ * User-facing copy for hitting the monthly AI usage cap. Shared by every
+ * surface (CLI, desktop, browser UI) so the wording stays consistent. Pass
+ * the quota's reset date when known to make the copy actionable.
+ */
+export function formatUsageCapNotice( resetDate?: string | null, locale?: string ): string {
+	if ( resetDate ) {
+		return sprintf(
+			/* translators: %s: date the monthly AI usage limit resets (e.g. August 1, 2026). */
+			__( 'You’ve reached your monthly AI usage limit. It resets on %s.' ),
+			formatQuotaResetDate( resetDate, locale )
+		);
+	}
+	return __( 'You’ve reached your monthly AI usage limit. Try again later.' );
 }

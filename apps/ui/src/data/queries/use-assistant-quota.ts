@@ -4,7 +4,7 @@ import { useAuthUser } from '@/data/queries/use-auth-user';
 
 export const ASSISTANT_QUOTA_QUERY_KEY = [ 'assistant-quota' ] as const;
 
-export function useStudioAssistantQuota() {
+export function useStudioAssistantQuota( { enabled = true }: { enabled?: boolean } = {} ) {
 	const connector = useConnector();
 	const { data: authUser } = useAuthUser();
 	const query = useQuery( {
@@ -12,7 +12,7 @@ export function useStudioAssistantQuota() {
 		// account's cached quota within the stale window.
 		queryKey: [ ...ASSISTANT_QUOTA_QUERY_KEY, authUser?.id ],
 		queryFn: () => connector.getStudioAssistantQuota(),
-		enabled: !! authUser,
+		enabled: enabled && !! authUser,
 		// Quota moves slowly; avoid refetching on every panel mount and
 		// window focus.
 		staleTime: 5 * 60 * 1000,

@@ -91,6 +91,8 @@ const api: IpcApi = {
 	disableAgenticUi: () => ipcRendererInvoke( 'disableAgenticUi' ),
 	dismissAgenticUiBanner: () => ipcRendererInvoke( 'dismissAgenticUiBanner' ),
 	isAgenticUiBannerDismissed: () => ipcRendererInvoke( 'isAgenticUiBannerDismissed' ),
+	getAppUpdateStatus: () => ipcRendererInvoke( 'getAppUpdateStatus' ),
+	installAppUpdate: () => ipcRendererInvoke( 'installAppUpdate' ),
 	getWpVersion: ( id ) => ipcRendererInvoke( 'getWpVersion', id ),
 	getIsMultisite: ( id ) => ipcRendererInvoke( 'getIsMultisite', id ),
 	generateProposedSitePath: ( siteName ) =>
@@ -168,6 +170,9 @@ const api: IpcApi = {
 	saveQuitSitesBehavior: ( quitSitesBehavior ) =>
 		ipcRendererInvoke( 'saveQuitSitesBehavior', quitSitesBehavior ),
 	getQuitSitesBehavior: () => ipcRendererInvoke( 'getQuitSitesBehavior' ),
+	saveAgenticFeaturesEnabled: ( enabled ) =>
+		ipcRendererInvoke( 'saveAgenticFeaturesEnabled', enabled ),
+	getAgenticFeaturesEnabled: () => ipcRendererInvoke( 'getAgenticFeaturesEnabled' ),
 	saveWapuuScore: ( score ) => ipcRendererInvoke( 'saveWapuuScore', score ),
 	getWapuuScore: () => ipcRendererInvoke( 'getWapuuScore' ),
 	getUserEditor: () => ipcRendererInvoke( 'getUserEditor' ),

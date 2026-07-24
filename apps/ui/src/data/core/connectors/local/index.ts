@@ -22,6 +22,7 @@ import type {
 	SiteDetails,
 	Snapshot,
 	SnapshotUsage,
+	StudioAssistantQuota,
 	SupportedEditor,
 	SupportedTerminal,
 	SyncSite,
@@ -38,6 +39,7 @@ const COLOR_SCHEME_STORAGE_KEY = 'studio-local-color-scheme';
 const EDITOR_STORAGE_KEY = 'studio-local-editor';
 const TERMINAL_STORAGE_KEY = 'studio-local-terminal';
 const QUIT_SITES_BEHAVIOR_STORAGE_KEY = 'studio-local-quit-sites-behavior';
+const AGENTIC_FEATURES_STORAGE_KEY = 'studio-local-agentic-features-enabled';
 
 function parseQuitSitesBehavior( value: string | null ): QuitSitesBehavior | undefined {
 	return value === 'leave-running' || value === 'stop-and-auto-start' || value === 'stop'
@@ -495,9 +497,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			return null;
 		},
 		async getStudioAssistantQuota() {
-			// No quota endpoint on the local server; callers fall back to
-			// static copy.
-			return null;
+			// The server proxies the WordPress.com quota endpoint and returns
+			// the already-parsed shape (or null when signed out).
+			return api< StudioAssistantQuota | null >( '/quota' );
 		},
 		async deleteAllSnapshots() {
 			// No-op: the local server has no delete-all route yet.
@@ -644,6 +646,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				defaultSiteDirectory: '',
 				studioCliInstalled: false,
 				studioCliExternallyManaged: false,
+				agenticFeaturesEnabled:
+					window.localStorage.getItem( AGENTIC_FEATURES_STORAGE_KEY ) !== 'false',
 			};
 		},
 		async setUserPreferences( partial ) {
@@ -670,6 +674,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				} else {
 					window.localStorage.removeItem( QUIT_SITES_BEHAVIOR_STORAGE_KEY );
 				}
+			}
+			if ( typeof partial.agenticFeaturesEnabled === 'boolean' ) {
+				window.localStorage.setItem(
+					AGENTIC_FEATURES_STORAGE_KEY,
+					String( partial.agenticFeaturesEnabled )
+				);
 			}
 		},
 		// Detected on the machine the server runs on (the desktop's installed-app
@@ -780,6 +790,15 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		async disableAgenticUi() {
 			// No-op in the browser.
+		},
+		async getAppUpdateStatus() {
+			return { readyToInstall: false, version: null };
+		},
+		async installAppUpdate() {
+			// No-op.
+		},
+		onAppUpdateStatusChanged() {
+			return () => {};
 		},
 	};
 }

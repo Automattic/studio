@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
+import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { AiPanel } from './ai-panel';
 
 vi.mock( '@wordpress/components', () => ( {
@@ -30,6 +31,11 @@ vi.mock( '@/data/queries/use-agentic-features', () => ( {
 	useAgenticFeatures: vi.fn(),
 } ) );
 
+vi.mock( '@/data/queries/use-user-preferences', () => ( {
+	useUserPreferences: vi.fn(),
+	useSaveUserPreferences: vi.fn(),
+} ) );
+
 vi.mock( './account-section', () => ( {
 	AccountSection: () => <div data-testid="account-section" />,
 } ) );
@@ -42,30 +48,46 @@ vi.mock( './skills-panel', () => ( {
 	SkillsPanel: () => <div data-testid="skills-panel" />,
 } ) );
 
+vi.mock( '@/components/agentic-signin-banner', () => ( {
+	SigninNotice: () => <div aria-label="Sign in to Studio" />,
+} ) );
+
 vi.mock( '@/components/offline-banner', () => ( {
 	OfflineNotice: () => <div role="status">You&apos;re offline</div>,
 } ) );
 
 const useConnectorMock = vi.mocked( useConnector );
 const useAgenticFeaturesMock = vi.mocked( useAgenticFeatures );
+const useUserPreferencesMock = vi.mocked( useUserPreferences );
+const useSaveUserPreferencesMock = vi.mocked( useSaveUserPreferences );
 
 describe( 'AiPanel', () => {
 	const disableAgenticUi = vi.fn( () => Promise.resolve() );
+	const mutate = vi.fn();
 
-	function mockConnector( switchToClassicUi: boolean, agentInstructions = true ) {
+	function mockConnector( agentInstructions = true ) {
 		useConnectorMock.mockReturnValue( {
-			capabilities: { switchToClassicUi, agentInstructions },
+			capabilities: { agentInstructions },
 			disableAgenticUi,
+		} as never );
+	}
+
+	function mockPreferences( agenticFeaturesEnabled: boolean, isLoading = false ) {
+		useUserPreferencesMock.mockReturnValue( {
+			data: { agenticFeaturesEnabled },
+			isLoading,
 		} as never );
 	}
 
 	beforeEach( () => {
 		vi.clearAllMocks();
 		useAgenticFeaturesMock.mockReturnValue( { reason: null } as never );
+		useSaveUserPreferencesMock.mockReturnValue( { mutate } as never );
+		mockPreferences( true );
 	} );
 
-	it( 'switches back to the classic UI when agentic features are toggled off', () => {
-		mockConnector( true );
+	it( 'turns agentic features off without leaving the new UI', () => {
+		mockConnector();
 		render( <AiPanel /> );
 
 		const toggle = screen.getByRole( 'checkbox', { name: 'Agentic features' } );
@@ -73,23 +95,25 @@ describe( 'AiPanel', () => {
 
 		fireEvent.click( toggle );
 
-		expect( disableAgenticUi ).toHaveBeenCalled();
-		expect( toggle ).not.toBeChecked();
-		expect( toggle ).toBeDisabled();
+		expect( mutate ).toHaveBeenCalledWith( { agenticFeaturesEnabled: false } );
+		expect( disableAgenticUi ).not.toHaveBeenCalled();
 	} );
 
-	it( 'hides the toggle but keeps the card when the host cannot switch UIs', () => {
-		mockConnector( false );
+	it( 'turns agentic features back on', () => {
+		mockConnector();
+		mockPreferences( false );
 		render( <AiPanel /> );
 
-		expect( screen.queryByRole( 'checkbox' ) ).not.toBeInTheDocument();
-		expect( disableAgenticUi ).not.toHaveBeenCalled();
-		// The card still renders its heading, just without the toggle.
-		expect( screen.getByRole( 'heading', { name: 'Agentic features' } ) ).toBeInTheDocument();
+		const toggle = screen.getByRole( 'checkbox', { name: 'Agentic features' } );
+		expect( toggle ).not.toBeChecked();
+
+		fireEvent.click( toggle );
+
+		expect( mutate ).toHaveBeenCalledWith( { agenticFeaturesEnabled: true } );
 	} );
 
 	it( 'shows the global instructions editor alongside the agentic features toggle', () => {
-		mockConnector( true );
+		mockConnector();
 		render( <AiPanel /> );
 
 		expect( screen.getByRole( 'checkbox', { name: 'Agentic features' } ) ).toBeInTheDocument();
@@ -97,14 +121,14 @@ describe( 'AiPanel', () => {
 	} );
 
 	it( 'hides the global instructions editor when the host cannot reach the instructions file', () => {
-		mockConnector( true, false );
+		mockConnector( false );
 		render( <AiPanel /> );
 
 		expect( screen.queryByTestId( 'studio-code-panel' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'shows no sign-in banner when signed out — the pitch lives in the account sidebar', () => {
-		mockConnector( true );
+		mockConnector();
 		useAgenticFeaturesMock.mockReturnValue( { reason: 'signed-out' } as never );
 		render( <AiPanel /> );
 
@@ -112,18 +136,8 @@ describe( 'AiPanel', () => {
 		expect( screen.queryByRole( 'status' ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'disables the agentic features toggle when signed out', () => {
-		mockConnector( true );
-		useAgenticFeaturesMock.mockReturnValue( { reason: 'signed-out' } as never );
-		render( <AiPanel /> );
-
-		const toggle = screen.getByRole( 'checkbox', { name: 'Agentic features' } );
-		expect( toggle ).toBeDisabled();
-		expect( toggle ).not.toBeChecked();
-	} );
-
 	it( 'shows the offline notice when offline', () => {
-		mockConnector( true );
+		mockConnector();
 		useAgenticFeaturesMock.mockReturnValue( { reason: 'offline' } as never );
 		render( <AiPanel /> );
 
@@ -132,7 +146,7 @@ describe( 'AiPanel', () => {
 	} );
 
 	it( 'shows neither banner when signed in and online', () => {
-		mockConnector( true );
+		mockConnector();
 		render( <AiPanel /> );
 
 		expect( screen.queryByLabelText( 'Sign in to Studio' ) ).not.toBeInTheDocument();

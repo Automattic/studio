@@ -2,10 +2,12 @@ import { app, autoUpdater, clipboard, dialog } from 'electron';
 import * as Sentry from '@sentry/electron/main';
 import { sprintf, __ } from '@wordpress/i18n';
 import { AUTO_UPDATE_INTERVAL_MS, NIGHTLY_UPDATE_TTL_MS } from 'src/constants';
+import { sendIpcEventToRenderer, type AppUpdateStatus } from 'src/ipc-utils';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { isDevRelease } from 'src/lib/version-utils';
 import { getMainWindow } from 'src/main-window';
 import { loadUserData, updateAppdata } from 'src/storage/user-data';
+import type { IpcMainInvokeEvent } from 'electron';
 
 type UpdpaterState =
 	| 'init'
@@ -16,6 +18,7 @@ type UpdpaterState =
 	| 'waiting-for-restart'; // download is complete, app will update after restart
 
 let updaterState: UpdpaterState = 'init';
+let downloadedVersion: string | null = null;
 
 let timeout: NodeJS.Timeout | null = null;
 
@@ -132,9 +135,11 @@ export function setupUpdates() {
 		console.log( 'Update available' );
 	} );
 
-	autoUpdater.on( 'update-downloaded', async () => {
+	autoUpdater.on( 'update-downloaded', async ( _event, releaseNotes, releaseName ) => {
 		updaterState = 'waiting-for-restart';
-		console.log( 'Update has been downloaded' );
+		downloadedVersion = typeof releaseName === 'string' ? releaseName : null;
+		console.log( 'Update has been downloaded', { version: downloadedVersion } );
+		void sendIpcEventToRenderer( 'app-update-status', buildAppUpdateStatus() );
 		await showUpdateReadyToInstallNotice();
 	} );
 
@@ -442,4 +447,21 @@ async function showReadOnlyVolumeError( err: Error ) {
 		message: __( 'Error updating Studio' ),
 		detail: `${ detailMessage }\n\n${ detailPath }`,
 	} );
+}
+
+function buildAppUpdateStatus(): AppUpdateStatus {
+	return {
+		readyToInstall: updaterState === 'waiting-for-restart',
+		version: downloadedVersion,
+	};
+}
+
+export async function getAppUpdateStatus( _event: IpcMainInvokeEvent ): Promise< AppUpdateStatus > {
+	return buildAppUpdateStatus();
+}
+
+export async function installAppUpdate( _event: IpcMainInvokeEvent ): Promise< void > {
+	if ( updaterState === 'waiting-for-restart' ) {
+		autoUpdater.quitAndInstall();
+	}
 }

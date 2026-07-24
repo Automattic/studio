@@ -3,6 +3,7 @@ import { privateApis } from '@wordpress/theme';
 import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useState } from 'react';
+import { AppMessageCards, AppMessageCardsDot } from '@/components/app-message-cards';
 import { AppToasts } from '@/components/app-toasts';
 import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { SidebarHeader } from '@/components/sidebar-header';
@@ -67,7 +68,11 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 							<SidebarHeader />
 							<SiteList />
 							<div className={ styles.sidebarFooter }>
+								{ /* Toasts sit above the persistent cards: the footer is
+								     bottom-anchored, so a transient toast arriving below a card
+								     would shove it up and drop it back on expiry. */ }
 								{ ! collapsed ? <AppToasts className={ styles.sidebarToasts } /> : null }
+								{ ! collapsed ? <AppMessageCards className={ styles.sidebarCards } /> : null }
 								<UserMenu onToggleSidebar={ toggleSidebar } />
 							</div>
 						</div>
@@ -97,14 +102,17 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 								! reserveTrafficLightSpace && styles.floatingToggleFlush
 							) }
 						>
-							<IconButton
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								icon={ drawerIcon }
-								label={ __( 'Show sidebar' ) }
-								onClick={ toggleSidebar }
-							/>
+							<span className={ styles.floatingToggleButton }>
+								<IconButton
+									variant="minimal"
+									tone="neutral"
+									size="small"
+									icon={ drawerIcon }
+									label={ __( 'Show sidebar' ) }
+									onClick={ toggleSidebar }
+								/>
+								<AppMessageCardsDot />
+							</span>
 						</div>
 					) : null }
 					{ children }

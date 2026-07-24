@@ -19,6 +19,8 @@ import type {
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 
+const AGENTIC_FEATURES_STORAGE_KEY = 'studio-hosted-agentic-features-enabled';
+
 export interface HostedConnectorOptions {
 	// Base URL of the Studio hosted backend (`apps/hosted`), e.g. http://localhost:8088.
 	apiBaseUrl: string;
@@ -332,10 +334,19 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 				defaultSiteDirectory: '',
 				studioCliInstalled: false,
 				studioCliExternallyManaged: false,
+				agenticFeaturesEnabled:
+					window.localStorage.getItem( AGENTIC_FEATURES_STORAGE_KEY ) !== 'false',
 			};
 		},
-		async setUserPreferences() {
-			// No-op: preferences aren't persisted in the browser yet.
+		async setUserPreferences( partial ) {
+			// The rest aren't persisted in the browser yet; this one has to
+			// stick or the AI settings toggle would silently snap back.
+			if ( typeof partial.agenticFeaturesEnabled === 'boolean' ) {
+				window.localStorage.setItem(
+					AGENTIC_FEATURES_STORAGE_KEY,
+					String( partial.agenticFeaturesEnabled )
+				);
+			}
 		},
 		async getAppGlobals(): Promise< AppGlobals > {
 			return { platform: 'browser', isWindowsStore: false };
@@ -429,6 +440,15 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		},
 		async disableAgenticUi() {
 			// No-op in the browser.
+		},
+		async getAppUpdateStatus() {
+			return { readyToInstall: false, version: null };
+		},
+		async installAppUpdate() {
+			// No-op.
+		},
+		onAppUpdateStatusChanged() {
+			return () => {};
 		},
 	};
 }

@@ -3,7 +3,7 @@ import { SUPPORTED_EDITORS, supportedEditorConfig } from '@studio/common/lib/use
 import { SUPPORTED_TERMINALS, terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { __, sprintf } from '@wordpress/i18n';
 import { close, file, Icon } from '@wordpress/icons';
-import { IconButton, SelectControl } from '@wordpress/ui';
+import { Button, IconButton, SelectControl } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useState } from 'react';
 import * as Tabs from '@/components/tabs';
@@ -237,6 +237,39 @@ function DefaultSiteDirectoryField( { value, onSelect }: { value: string; onSele
 	);
 }
 
+// Leaving the agentic UI entirely is a separate, heavier action than the AI
+// tab's chat toggle: it reloads the window into the classic Studio interface.
+// Only hosts that ship the classic renderer can switch (see capabilities).
+function StudioExperienceSection() {
+	const connector = useConnector();
+	if ( ! connector.capabilities.switchToClassicUi ) {
+		return null;
+	}
+	return (
+		<section className={ styles.card }>
+			<div className={ styles.cardHeader }>
+				<div className={ styles.cardHeaderText }>
+					<h2 className={ styles.cardTitle }>{ __( 'Studio experience' ) }</h2>
+					<p className={ styles.cardDescription }>
+						{ __( 'You are using the new Studio experience.' ) }
+					</p>
+				</div>
+				<div className={ styles.cardHeaderActions }>
+					<Button
+						type="button"
+						variant="outline"
+						tone="neutral"
+						size="compact"
+						onClick={ () => void connector.disableAgenticUi() }
+					>
+						{ __( 'Switch to classic' ) }
+					</Button>
+				</div>
+			</div>
+		</section>
+	);
+}
+
 function PreferencesPanel( {
 	data,
 	installedApps,
@@ -308,6 +341,7 @@ function PreferencesPanel( {
 						</PreferenceRow>
 					</div>
 				</section>
+				<StudioExperienceSection />
 				<StudioCliSection />
 				<KeyboardPanel />
 				<McpSection />

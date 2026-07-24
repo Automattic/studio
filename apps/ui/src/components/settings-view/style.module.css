@@ -177,6 +177,17 @@
 	border-bottom: 0;
 }
 
+/* A lone row (a headingless single-row card) has no divider to space against,
+   so its own block padding just doubles the top gap against the group's. Drop
+   it and square the group's top padding so the card is evenly inset all around. */
+.preferenceRow:only-child {
+	padding-block: 0;
+}
+
+.preferenceSectionGroup:has(> .preferenceRow:only-child) {
+	padding-block-start: var(--wpds-dimension-padding-xl);
+}
+
 .preferenceText {
 	display: flex;
 	flex-direction: column;

@@ -229,6 +229,7 @@ export {
 } from 'src/modules/preview-site/lib/ipc-handlers';
 
 export {
+	getAgenticFeaturesEnabled,
 	getColorScheme,
 	getGlobalAgentInstructions,
 	getInstalledAppsAndTerminals,
@@ -238,6 +239,7 @@ export {
 	getUserTerminal,
 	getWapuuScore,
 	previewColorScheme,
+	saveAgenticFeaturesEnabled,
 	saveColorScheme,
 	saveGlobalAgentInstructions,
 	saveQuitSitesBehavior,
@@ -1521,6 +1523,8 @@ export async function isAgenticUiBannerDismissed( _event: IpcMainInvokeEvent ): 
 	const userData = await loadUserData();
 	return userData.agenticUiBannerDismissed === true;
 }
+
+export { getAppUpdateStatus, installAppUpdate } from 'src/updates';
 
 export async function executeWPCLiInline(
 	_event: IpcMainInvokeEvent,

@@ -672,6 +672,19 @@
 	text-align: center;
 }
 
+.errorMarker {
+	align-self: center;
+	max-width: 100%;
+	margin: var(--wpds-dimension-padding-sm) 0;
+	padding: 4px 12px;
+	border-radius: var(--wpds-dimension-radius-md, 8px);
+	background-color: color-mix(in srgb, var(--wpds-color-fg-content-error) 8%, transparent);
+	color: var(--wpds-color-fg-content-error);
+	font-size: var(--wpds-typography-font-size-xs);
+	text-align: center;
+	overflow-wrap: anywhere;
+}
+
 /* Assistant response wrapper: the copy button stays hidden until the turn is
    hovered (or a control inside it is focused). */
 .assistantTurn {

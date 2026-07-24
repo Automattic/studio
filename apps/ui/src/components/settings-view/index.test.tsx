@@ -229,7 +229,26 @@ describe( 'SettingsView', () => {
 		expect( screen.getByTestId( 'ai-panel' ) ).toBeInTheDocument();
 	} );
 
-	it( 'hides the AI tab when the host has no AI settings to offer', () => {
+	it( 'offers the AI tab on every host, since chat can be toggled anywhere', () => {
+		useConnectorMock.mockReturnValue( {
+			selectDefaultSiteDirectory,
+			capabilities: { agentInstructions: false, switchToClassicUi: false },
+		} as never );
+
+		render( <SettingsView activeTab="ai" onTabChange={ vi.fn() } /> );
+
+		expect( screen.getByRole( 'button', { name: 'AI' } ) ).toBeInTheDocument();
+		expect( screen.getByTestId( 'ai-panel' ) ).toBeInTheDocument();
+	} );
+
+	it( 'offers Switch to classic in the Settings tab when the host ships the classic UI', () => {
+		render( <SettingsView activeTab="preferences" onTabChange={ vi.fn() } /> );
+
+		expect( screen.getByRole( 'heading', { name: 'Studio experience' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Switch to classic' } ) ).toBeInTheDocument();
+	} );
+
+	it( 'hides Switch to classic when there is no classic UI to switch to', () => {
 		useConnectorMock.mockReturnValue( {
 			selectDefaultSiteDirectory,
 			capabilities: { agentInstructions: false, switchToClassicUi: false },
@@ -237,8 +256,7 @@ describe( 'SettingsView', () => {
 
 		render( <SettingsView activeTab="preferences" onTabChange={ vi.fn() } /> );
 
-		expect( screen.queryByRole( 'button', { name: 'AI' } ) ).not.toBeInTheDocument();
-		expect( screen.queryByTestId( 'ai-panel' ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'Switch to classic' } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'recognizes the keyboard tab id', () => {

@@ -114,6 +114,35 @@
 	padding-inline: 2px;
 }
 
+.sections {
+	display: flex;
+	flex-direction: column;
+	gap: 40px;
+	text-align: start;
+}
+
+.section {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+
+.sectionHeader {
+	text-align: center;
+}
+
+.sectionHeader h2 {
+	margin: 0 0 4px;
+	font-size: var(--wpds-typography-font-size-lg);
+	font-weight: 500;
+}
+
+.sectionHeader p {
+	margin: 0;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+}
+
 .siteGrid {
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
@@ -209,6 +238,13 @@
 	white-space: nowrap;
 }
 
+.siteStatus {
+	margin-top: 4px;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: 1.4;
+}
+
 .badges {
 	position: absolute;
 	inset-inline-end: 8px;
@@ -216,19 +252,6 @@
 	display: flex;
 	flex-wrap: wrap;
 	gap: 6px;
-}
-
-.siteInfo {
-	position: absolute;
-	inset-block-start: 12px;
-	inset-inline-end: 12px;
-	z-index: 1;
-	background: color-mix(
-		in srgb,
-		var(--wpds-color-bg-surface-neutral-strong) 88%,
-		transparent
-	);
-	box-shadow: var(--wpds-elevation-sm);
 }
 
 .siteAction {

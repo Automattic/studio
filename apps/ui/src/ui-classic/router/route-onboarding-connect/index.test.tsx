@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OnboardingConnectPage } from './index';
 import type { SiteDetails, SyncSite } from '@/data/core';
@@ -147,7 +147,7 @@ describe( 'OnboardingConnectPage', () => {
 		expect( mocks.navigate ).not.toHaveBeenCalled();
 	} );
 
-	it( 'shows provider and environment while keeping previously connected sites selectable', () => {
+	it( 'separates unavailable sites and keeps previously connected sites selectable', () => {
 		mocks.user = { id: 1, email: 'user@example.com', displayName: 'User' };
 		mocks.remoteSites = [
 			site( 1, { name: 'Pressable store', isPressable: true, environmentType: 'staging' } ),
@@ -159,8 +159,24 @@ describe( 'OnboardingConnectPage', () => {
 
 		expect( screen.getByText( 'Pressable' ) ).toBeInTheDocument();
 		expect( screen.getByText( 'Staging' ) ).toBeInTheDocument();
-		expect( screen.getByText( 'Already local' ).closest( 'button' ) ).toBeEnabled();
-		expect( screen.getByText( 'Free site' ).closest( 'button' ) ).toBeDisabled();
+		const availableSection = screen
+			.getByRole( 'heading', { name: 'Available to connect' } )
+			.closest( 'section' )!;
+		const unavailableSection = screen
+			.getByRole( 'heading', { name: 'Unavailable' } )
+			.closest( 'section' )!;
+		expect(
+			within( availableSection ).getByText( 'Already local' ).closest( 'button' )
+		).toBeEnabled();
+		expect(
+			within( unavailableSection ).getByText( 'Free site' ).closest( 'button' )
+		).toBeDisabled();
+		expect(
+			within( unavailableSection ).getByText(
+				'Upgrade this site to a supported plan before connecting it.'
+			)
+		).toBeVisible();
+		expect( screen.queryByRole( 'button', { name: /About / } ) ).not.toBeInTheDocument();
 
 		fireEvent.change( screen.getByRole( 'searchbox', { name: 'Search sites' } ), {
 			target: { value: 'Pressable' },

@@ -1,10 +1,10 @@
 import { createRoute, useNavigate } from '@tanstack/react-router';
 import { Spinner, VisuallyHidden } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
-import { check, chevronLeft, external, info, search } from '@wordpress/icons';
-import { Badge, Button, Icon, IconButton } from '@wordpress/ui';
+import { check, chevronLeft, external, search } from '@wordpress/icons';
+import { Badge, Button, Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useCallback, useEffect, useId, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { OnboardingFooter } from '@/components/onboarding-footer';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
@@ -74,19 +74,11 @@ function RemoteSiteCard( {
 	onSelect: ( id: number ) => void;
 } ) {
 	const connector = useConnector();
-	const statusId = useId();
 	const isAvailable = group === 'available';
 	const siteName = getSiteName( site );
 	const providerLabel = site.isPressable ? __( 'Pressable' ) : __( 'WP.com' );
 	const environmentLabel = getEnvironmentLabel( site );
-	const siteStatus = isAvailable
-		? sprintf(
-				// translators: 1: hosting provider, 2: site environment.
-				__( '%1$s, %2$s' ),
-				providerLabel,
-				environmentLabel
-		  )
-		: getSiteStatus( site, group );
+	const siteStatus = isAvailable ? '' : getSiteStatus( site, group );
 	const className = clsx(
 		styles.siteCard,
 		isSelected && styles.siteCardSelected,
@@ -99,7 +91,6 @@ function RemoteSiteCard( {
 				type="button"
 				className={ className }
 				aria-pressed={ isAvailable ? isSelected : undefined }
-				aria-describedby={ statusId }
 				disabled={ ! isAvailable }
 				onClick={ () => isAvailable && onSelect( site.id ) }
 			>
@@ -117,25 +108,9 @@ function RemoteSiteCard( {
 				<span className={ styles.siteText }>
 					<span className={ styles.siteName }>{ siteName }</span>
 					<span className={ styles.siteUrl }>{ site.url.replace( /^https?:\/\//, '' ) }</span>
+					{ siteStatus && <span className={ styles.siteStatus }>{ siteStatus }</span> }
 				</span>
-				<VisuallyHidden as="span" id={ statusId }>
-					{ siteStatus }
-				</VisuallyHidden>
 			</button>
-			<IconButton
-				type="button"
-				variant="minimal"
-				tone="neutral"
-				size="small"
-				icon={ info }
-				label={ sprintf(
-					// translators: %s is a site name.
-					__( 'About %s' ),
-					siteName
-				) }
-				title={ siteStatus }
-				className={ styles.siteInfo }
-			/>
 			{ group === 'needs-transfer' && (
 				<Button
 					type="button"
@@ -262,6 +237,20 @@ export function OnboardingConnectPage() {
 	)?.site;
 	const isLoadingSites = remoteSites.isLoading;
 	const loadError = remoteSites.error;
+	const sections = [
+		{
+			key: 'available',
+			title: __( 'Available to connect' ),
+			description: __( 'Select a site to create its local copy.' ),
+			sites: filteredSites.filter( ( entry ) => entry.group === 'available' ),
+		},
+		{
+			key: 'unavailable',
+			title: __( 'Unavailable' ),
+			description: __( 'These sites cannot currently be connected to Studio.' ),
+			sites: filteredSites.filter( ( entry ) => entry.group !== 'available' ),
+		},
+	];
 
 	useEffect( () => {
 		if ( isSingleSite && presentedSites[ 0 ]?.group === 'available' ) {
@@ -479,17 +468,38 @@ export function OnboardingConnectPage() {
 								) }
 							</p>
 						</div>
-					) : (
-						<ul className={ clsx( styles.siteGrid, isSingleSite && styles.singleSiteGrid ) }>
-							{ filteredSites.map( ( entry ) => (
-								<RemoteSiteCard
-									key={ entry.site.id }
-									{ ...entry }
-									isSelected={ selectedId === entry.site.id }
-									onSelect={ setSelectedId }
-								/>
-							) ) }
+					) : isSingleSite ? (
+						<ul className={ `${ styles.siteGrid } ${ styles.singleSiteGrid }` }>
+							<RemoteSiteCard
+								{ ...filteredSites[ 0 ] }
+								isSelected={ selectedId === filteredSites[ 0 ].site.id }
+								onSelect={ setSelectedId }
+							/>
 						</ul>
+					) : (
+						<div className={ styles.sections }>
+							{ sections.map(
+								( section ) =>
+									section.sites.length > 0 && (
+										<section key={ section.key } className={ styles.section }>
+											<div className={ styles.sectionHeader }>
+												<h2>{ section.title }</h2>
+												<p>{ section.description }</p>
+											</div>
+											<ul className={ styles.siteGrid }>
+												{ section.sites.map( ( entry ) => (
+													<RemoteSiteCard
+														key={ entry.site.id }
+														{ ...entry }
+														isSelected={ selectedId === entry.site.id }
+														onSelect={ setSelectedId }
+													/>
+												) ) }
+											</ul>
+										</section>
+									)
+							) }
+						</div>
 					) }
 				</>
 			) }

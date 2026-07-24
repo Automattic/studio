@@ -109,6 +109,7 @@ export default defineConfig(
 				},
 			],
 			'react-hooks/set-state-in-effect': 'off',
+			'studio/no-module-level-translations': 'error',
 			'studio/no-redundant-cx': 'error',
 			'studio/require-lock-before-save': [
 				'error',
@@ -177,6 +178,15 @@ export default defineConfig(
 					message: 'Use import.meta.filename in ESM modules.',
 				},
 			],
+		},
+	},
+	{
+		// The CLI is a one-shot process that loads the locale before importing
+		// modules, so module-level translations are safe there. The rule only
+		// matters for the long-lived renderer where the language can change at runtime.
+		files: [ 'apps/cli/**' ],
+		rules: {
+			'studio/no-module-level-translations': 'off',
 		},
 	}
 );

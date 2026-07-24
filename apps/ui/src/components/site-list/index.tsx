@@ -365,9 +365,9 @@ function SiteActionsMenu( {
 	};
 
 	const editor = userPreferences?.editor;
-	const editorLabel = editor ? supportedEditorConfig[ editor ].label : null;
+	const editorLabel = editor ? supportedEditorConfig[ editor ].label() : null;
 	const terminal = userPreferences?.terminal;
-	const terminalLabel = terminal ? terminalConfig[ terminal ].name : null;
+	const terminalLabel = terminal ? terminalConfig[ terminal ].name() : null;
 
 	const handleOpenInEditor = () => {
 		void connector.openSiteInEditor( site.id ).catch( ( error ) => {

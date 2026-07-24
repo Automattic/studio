@@ -191,7 +191,7 @@ function SiteItem( {
 		const isAnySiteAdding = sites.some( ( s ) => s.isAddingSite );
 		const finderLabel = getFileManagerLabel();
 		const editorLabel =
-			editor && supportedEditorConfig[ editor ] ? supportedEditorConfig[ editor ].label : null;
+			editor && supportedEditorConfig[ editor ] ? supportedEditorConfig[ editor ].label() : null;
 		const terminalLabel = getTerminalName( terminal );
 
 		ipcApi.showSiteContextMenu( {

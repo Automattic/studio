@@ -192,7 +192,7 @@ export const selectInstalledTerminals = createSelector(
 			.filter( ( terminal ) => installedApps && installedApps[ terminal ] )
 			.map(
 				( terminal ) =>
-					[ terminal, terminalConfig[ terminal ].name ] as [ SupportedTerminal, string ]
+					[ terminal, terminalConfig[ terminal ].name() ] as [ SupportedTerminal, string ]
 			);
 	}
 );
@@ -205,7 +205,7 @@ export const selectUninstalledTerminals = createSelector(
 			.filter( ( terminal ) => ! installedApps || ! installedApps[ terminal ] )
 			.map(
 				( terminal ) =>
-					[ terminal, terminalConfig[ terminal ].name ] as [ SupportedTerminal, string ]
+					[ terminal, terminalConfig[ terminal ].name() ] as [ SupportedTerminal, string ]
 			);
 	}
 );

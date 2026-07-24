@@ -13,7 +13,7 @@ interface FormData {
 	content: string;
 }
 
-const FIELDS: Field< FormData >[] = [
+const getFields = (): Field< FormData >[] => [
 	{
 		id: 'content',
 		type: 'text',
@@ -77,7 +77,7 @@ export function StudioCodePanel() {
 		<div className={ styles.preferencesPanel }>
 			<DataForm< FormData >
 				data={ { content } }
-				fields={ FIELDS }
+				fields={ getFields() }
 				form={ FORM }
 				onChange={ ( update ) =>
 					setEdits(

@@ -54,12 +54,26 @@ export interface UserData {
 	lastNightlyUpdateCheck?: number;
 	nightlyPromptResult?: NightlyPromptResult;
 	agenticUiBannerDismissed?: boolean;
+	/** Agentic UI onboarding state (orientation tour, getting-started checklist). Opaque blob owned by the renderer. */
+	onboardingHints?: OnboardingHintsState;
 }
 
 export interface PromptWindowsSpeedUpResult {
 	response: 'yes' | 'no';
 	appVersion: string;
 	dontAskAgain: boolean;
+}
+
+// Mirror of the renderer's OnboardingHintsState (apps/ui/src/data/core/types.ts).
+// Persisted verbatim; the desktop never inspects it, so a structural shape keeps
+// the two sides decoupled.
+export interface OnboardingHintsState {
+	tourCompletedVersion?: number;
+	tourDismissedVersion?: number;
+	checklistDismissed?: boolean;
+	checklistMinimized?: boolean;
+	completedItems?: Record< string, string >;
+	publishCoachmarkShown?: boolean;
 }
 
 export const EMPTY_USER_DATA: UserData = {

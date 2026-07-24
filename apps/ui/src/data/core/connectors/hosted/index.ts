@@ -11,6 +11,7 @@ import type {
 	Connector,
 	InstalledApps,
 	LoadedAiSession,
+	OnboardingHintsState,
 	SiteDetails,
 	Snapshot,
 	SnapshotUsage,
@@ -22,6 +23,29 @@ import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 export interface HostedConnectorOptions {
 	// Base URL of the Studio hosted backend (`apps/hosted`), e.g. http://localhost:8088.
 	apiBaseUrl: string;
+}
+
+// Workbench onboarding state persists per origin in the browser surface.
+const ONBOARDING_HINTS_STORAGE_KEY = 'studio-onboarding-hints';
+
+function readOnboardingHints(): OnboardingHintsState {
+	try {
+		const raw = window.localStorage.getItem( ONBOARDING_HINTS_STORAGE_KEY );
+		const parsed: unknown = raw ? JSON.parse( raw ) : {};
+		return parsed && typeof parsed === 'object' ? ( parsed as OnboardingHintsState ) : {};
+	} catch {
+		return {};
+	}
+}
+
+function writeOnboardingHints( partial: Partial< OnboardingHintsState > ): void {
+	const current = readOnboardingHints();
+	const merged: OnboardingHintsState = {
+		...current,
+		...partial,
+		completedItems: { ...( current.completedItems ?? {} ), ...( partial.completedItems ?? {} ) },
+	};
+	window.localStorage.setItem( ONBOARDING_HINTS_STORAGE_KEY, JSON.stringify( merged ) );
 }
 
 // Envelope used by the backend's `/events` SSE stream so a single connection
@@ -429,6 +453,16 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		},
 		async disableAgenticUi() {
 			// No-op in the browser.
+		},
+		async getOnboardingHints() {
+			return readOnboardingHints();
+		},
+		async setOnboardingHints( partial ) {
+			writeOnboardingHints( partial );
+		},
+		onShowGettingStarted() {
+			// No application menu on the hosted surface.
+			return () => {};
 		},
 		async getAppUpdateStatus() {
 			return { readyToInstall: false, version: null };

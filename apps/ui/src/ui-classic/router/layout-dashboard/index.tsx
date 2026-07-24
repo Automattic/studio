@@ -7,6 +7,8 @@ import {
 } from '@/components/preview-split-frame';
 import { SidebarLayout } from '@/components/sidebar-layout';
 import { SitePreview } from '@/components/site-preview';
+import { useOrientationAutostart } from '@/data/onboarding/use-orientation-autostart';
+import { useOrientationReplay } from '@/data/onboarding/use-orientation-replay';
 import { useSession, useSessionEffectiveEnvironment } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
 import {
@@ -58,6 +60,10 @@ function DashboardLayoutContent() {
 	const { sessionId, overviewSiteId, newSessionSiteId } = routePreviewContext;
 	const { data: sites } = useSites();
 	const { data: sessionData } = useSession( sessionId );
+	// Open the orientation guide on first workbench arrival, and let Help ▸
+	// Getting Started replay it.
+	useOrientationAutostart();
+	useOrientationReplay();
 	const preview = useSessionPreviewUI();
 	const onAnnotationsDone = useSessionPreviewAnnotationsHandler();
 	const sessionSite = findAiSessionOwnerSite( sites, sessionData?.summary );

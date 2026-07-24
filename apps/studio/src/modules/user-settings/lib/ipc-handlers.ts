@@ -12,6 +12,7 @@ import { SUPPORTED_EDITORS, SupportedEditor } from 'src/modules/user-settings/li
 import { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 import { UserSettingsTabName } from 'src/modules/user-settings/user-settings-types';
 import { defaultSitePath, ensureWritableDirectory } from 'src/storage/paths';
+import { OnboardingHintsState } from 'src/storage/storage-types';
 import {
 	loadUserData,
 	lockAppdata,
@@ -144,6 +145,40 @@ export async function saveWapuuScore( _event: IpcMainInvokeEvent, score: number 
 export async function getWapuuScore(): Promise< number | undefined > {
 	const userData = await loadUserData();
 	return userData.wapuuScore;
+}
+
+// Agentic UI onboarding state (orientation tour, getting-started checklist).
+// The blob is opaque to the desktop; the renderer owns its meaning.
+export async function getOnboardingHints(): Promise< OnboardingHintsState > {
+	const userData = await loadUserData();
+	return userData.onboardingHints ?? {};
+}
+
+export async function saveOnboardingHints(
+	_event: IpcMainInvokeEvent,
+	partial: Partial< OnboardingHintsState >
+): Promise< void > {
+	if ( ! partial || typeof partial !== 'object' ) {
+		return;
+	}
+	await lockAppdata();
+	try {
+		const userData = await loadUserData();
+		const current = userData.onboardingHints ?? {};
+		// Shallow-merge, but merge completedItems by key so concurrent item
+		// completions never clobber one another.
+		const merged: OnboardingHintsState = {
+			...current,
+			...partial,
+			completedItems: {
+				...( current.completedItems ?? {} ),
+				...( partial.completedItems ?? {} ),
+			},
+		};
+		await saveUserData( { ...userData, onboardingHints: merged } );
+	} finally {
+		await unlockAppdata();
+	}
 }
 
 export async function getGlobalAgentInstructions(): Promise< string > {

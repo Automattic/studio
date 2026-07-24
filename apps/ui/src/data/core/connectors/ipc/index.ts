@@ -851,6 +851,20 @@ export function createIpcConnector(): Connector {
 			await ipcApi.disableAgenticUi();
 		},
 
+		async getOnboardingHints() {
+			return ipcApi.getOnboardingHints();
+		},
+
+		async setOnboardingHints( partial ) {
+			await ipcApi.saveOnboardingHints( partial );
+		},
+
+		onShowGettingStarted( listener ) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const ipcListener = ( window as any ).ipcListener;
+			return ipcListener.subscribe( 'show-getting-started', () => listener() );
+		},
+
 		async getAppUpdateStatus() {
 			return ipcApi.getAppUpdateStatus();
 		},

@@ -44,6 +44,7 @@ export interface IpcEvents {
 	'snapshot-key-value': [ { operationId: crypto.UUID; data: SnapshotKeyValueEventData } ];
 	'snapshot-success': [ { operationId: crypto.UUID } ];
 	'show-whats-new': [ void ];
+	'show-getting-started': [ void ];
 	'sync-connect-site': [
 		{
 			remoteSiteId: number;

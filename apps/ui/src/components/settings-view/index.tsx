@@ -76,6 +76,7 @@ import {
 import { StudioCliSection } from './studio-cli-section';
 import { StudioCodePanel } from './studio-code-panel';
 import styles from './style.module.css';
+import { WapuuScore } from './wapuu-score';
 import type {
 	ColorScheme,
 	InstalledApps,
@@ -323,6 +324,9 @@ function DefaultSiteDirectoryField( { value, onSelect }: { value: string; onSele
 // classic experience.
 function SwitchExperienceSection() {
 	const connector = useConnector();
+	if ( ! connector.supportsAgenticOptOut ) {
+		return null;
+	}
 	return (
 		<div className={ styles.switchUiField }>
 			<div className={ styles.switchUiText }>
@@ -350,16 +354,6 @@ function AgenticFeaturesSection( {
 	checked: boolean;
 	onChange: ( checked: boolean ) => void;
 } ) {
-	const connector = useConnector();
-	const { data: user } = useAuthUser();
-
-	// Signed-out users are gated by the sign-in state itself, and hosted mode
-	// can't gate at all — the toggle only makes sense for signed-in desktop
-	// users.
-	if ( ! connector.supportsAgenticOptOut || ! user ) {
-		return null;
-	}
-
 	return (
 		<section className={ styles.preferenceSectionGroup }>
 			<div className={ styles.cliHeader }>
@@ -852,9 +846,20 @@ function PreferencesPanel( {
 						</PreferenceRow>
 					</>
 				) : null }
+				<PreferenceRow
+					title={ __( 'Usage statistics' ) }
+					description={ __( 'Help improve Studio by sharing anonymous usage statistics.' ) }
+				>
+					<FormToggle
+						aria-label={ __( 'Usage statistics' ) }
+						checked={ data.analyticsEnabled }
+						onChange={ ( event ) => onChange( { analyticsEnabled: event.target.checked } ) }
+					/>
+				</PreferenceRow>
 			</section>
 			<AccountInformationSection />
 			<WordPressOrgAccountSection />
+			<WapuuScore />
 			{ showStudioCliToggle ? <StudioCliSection /> : null }
 			<SwitchExperienceSection />
 		</div>

@@ -85,7 +85,12 @@ describe( 'SiteList', () => {
 		paramsMock = {};
 		pathnameMock = '/';
 
-		useAgenticFeaturesMock.mockReturnValue( { enabled: true, reason: null, isReady: true } );
+		useAgenticFeaturesMock.mockReturnValue( {
+			enabled: true,
+			chatEnabled: true,
+			reason: null,
+			isReady: true,
+		} );
 		useIsSiteStartingMock.mockReturnValue( false );
 		useIsSiteStoppingMock.mockReturnValue( false );
 		useSiteAgentActivityMock.mockReturnValue( 'idle' );
@@ -705,6 +710,7 @@ describe( 'SiteList', () => {
 	it( 'opens the site overview from the site row when agentic features are gated', () => {
 		useAgenticFeaturesMock.mockReturnValue( {
 			enabled: false,
+			chatEnabled: false,
 			reason: 'signed-out',
 			isReady: true,
 		} );
@@ -731,6 +737,7 @@ describe( 'SiteList', () => {
 	it( 'uses the primary selected state for the overview row when agentic features are gated', () => {
 		useAgenticFeaturesMock.mockReturnValue( {
 			enabled: false,
+			chatEnabled: false,
 			reason: 'signed-out',
 			isReady: true,
 		} );
@@ -752,8 +759,9 @@ describe( 'SiteList', () => {
 
 	it( 'hides the site overview action button when agentic features are gated', () => {
 		useAgenticFeaturesMock.mockReturnValue( {
-			enabled: false,
-			reason: 'preference',
+			enabled: true,
+			chatEnabled: false,
+			reason: null,
 			isReady: true,
 		} );
 

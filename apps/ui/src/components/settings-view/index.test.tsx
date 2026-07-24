@@ -224,6 +224,10 @@ vi.mock( '@/data/queries/use-user-preferences', () => ( {
 	useUserPreferences: vi.fn(),
 } ) );
 
+vi.mock( '@/data/queries/use-wapuu-score', () => ( {
+	useWapuuScore: () => ( { data: null } ),
+} ) );
+
 vi.mock( '@/data/queries/use-wordpress-skills', () => ( {
 	useInstallWordPressSkill: vi.fn(),
 	useRemoveWordPressSkill: vi.fn(),
@@ -323,6 +327,7 @@ describe( 'SettingsView', () => {
 				terminal: 'terminal',
 				colorScheme: 'system',
 				locale: 'en',
+				analyticsEnabled: true,
 				defaultSiteDirectory: '/Users/example/Studio',
 				studioCliInstalled: false,
 				studioCliExternallyManaged: false,
@@ -404,12 +409,20 @@ describe( 'SettingsView', () => {
 		);
 	} );
 
-	it( 'hides the agentic features toggle for signed-out users', () => {
+	it( 'keeps the agentic features toggle available for signed-out users', () => {
 		useAuthUserMock.mockReturnValue( { data: null, isLoading: false } as never );
 
 		render( <SettingsView activeTab="preferences" onTabChange={ vi.fn() } /> );
 
-		expect( screen.queryByLabelText( 'Agentic features' ) ).not.toBeInTheDocument();
+		expect( screen.getByLabelText( 'Agentic features' ) ).toBeInTheDocument();
+	} );
+
+	it( 'saves the anonymous usage preference', () => {
+		render( <SettingsView activeTab="preferences" onTabChange={ vi.fn() } /> );
+
+		fireEvent.click( screen.getByLabelText( 'Usage statistics' ) );
+
+		expect( mutate ).toHaveBeenCalledWith( { analyticsEnabled: false }, expect.any( Object ) );
 	} );
 
 	it( 'renders usage and confirms preview-site deletion through the connector', async () => {

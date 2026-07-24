@@ -12,6 +12,7 @@ import type { ActivitySoundPreferences } from '@studio/common/lib/activity-sound
 import type { SiteEvent } from '@studio/common/lib/cli-events';
 import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 import type { SupportedLocale } from '@studio/common/lib/locale';
+import type { TracksEventName, TracksProps } from '@studio/common/lib/record-tracks-event';
 import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
 import type { SiteRuntime } from '@studio/common/lib/site-runtime';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
@@ -577,8 +578,13 @@ export interface Connector {
 	openSiteInEditor( siteId: string ): Promise< void >;
 	openSiteInTerminal( siteId: string ): Promise< void >;
 
+	trackEvent( eventName: TracksEventName, props?: TracksProps ): Promise< void >;
+
 	// External links
 	openExternalUrl( url: string ): Promise< void >;
+
+	getWapuuScore(): Promise< number | undefined >;
+	saveWapuuScore( score: number ): Promise< void >;
 
 	popupAppMenu( position: { x: number; y: number } ): Promise< void >;
 
@@ -740,6 +746,7 @@ export interface UserPreferences {
 	studioCliInstalled: boolean;
 	studioCliExternallyManaged: boolean;
 	agenticFeaturesEnabled: boolean;
+	analyticsEnabled: boolean;
 	chatNotificationsEnabled: boolean;
 	activitySoundPreferences: ActivitySoundPreferences;
 	quitSitesBehavior: QuitSitesBehaviorSetting;

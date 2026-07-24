@@ -21,8 +21,8 @@ export const newSessionRoute = createRoute( {
 		// settings) the site overview takes chat's place — bail before a
 		// session gets created. All chat entry points (site rows, onboarding
 		// flows, index redirects) funnel through here.
-		const { enabled } = await resolveAgenticFeatures( context );
-		if ( ! enabled ) {
+		const { chatEnabled } = await resolveAgenticFeatures( context );
+		if ( ! chatEnabled ) {
 			throw redirect( { to: '/sites/$siteId/overview', params: { siteId: params.siteId } } );
 		}
 

@@ -474,8 +474,8 @@ function SiteSection( {
 	isPlugin?: boolean;
 	// In the mixed "All" view a small leading glyph tells the types apart.
 	showTypeIcon?: boolean;
-	// When agentic features are unavailable the row opens the overview
-	// directly, making the dedicated overview button redundant.
+	// When chat is unavailable the row opens the overview directly, making
+	// the dedicated overview button redundant.
 	agenticGated?: boolean;
 	// Marks this row's gear as the "view site overview" coachmark target.
 	isOverviewAnchor?: boolean;
@@ -707,7 +707,7 @@ export function SiteList() {
 	const updateSitesSortOrder = useUpdateSitesSortOrder();
 	// One subscription for the whole list; rows receive the resolved flag.
 	const agenticFeatures = useAgenticFeatures();
-	const agenticGated = agenticFeatures.isReady && ! agenticFeatures.enabled;
+	const agenticGated = agenticFeatures.isReady && ! agenticFeatures.chatEnabled;
 	// Prototype: plugin-tagged sites (see plugin-prototype.ts). Plugins are
 	// just sites; tags only change where and how their rows render.
 	const pluginTags = usePluginSiteTags();

@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, useIsMutating } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MainView } from './main-view';
@@ -33,7 +33,12 @@ vi.mock( '@/data/queries/use-connected-wpcom-sites', () => ( {
 } ) );
 
 vi.mock( '@/data/queries/use-agentic-features', () => ( {
-	useAgenticFeatures: vi.fn( () => ( { enabled: true, reason: null, isReady: true } ) ),
+	useAgenticFeatures: vi.fn( () => ( {
+		enabled: true,
+		chatEnabled: true,
+		reason: null,
+		isReady: true,
+	} ) ),
 } ) );
 
 vi.mock( '@/data/queries/use-auth-user', () => ( {
@@ -90,6 +95,7 @@ function renderMainView(
 
 describe( 'MainView', () => {
 	beforeEach( () => {
+		vi.mocked( useIsMutating ).mockImplementation( () => 0 );
 		connector.copyText.mockReset();
 		connector.openExternalUrl.mockReset();
 		connector.getLiveSyncItems.mockReset();
@@ -191,5 +197,17 @@ describe( 'MainView', () => {
 			} ),
 			expect.anything()
 		);
+	} );
+
+	it( 'labels the preview action while another sync is in progress', () => {
+		vi.mocked( useIsMutating ).mockImplementation( ( filters ) =>
+			filters?.mutationKey?.[ 0 ] === 'pull-site-from-live' ? 1 : 0
+		);
+
+		renderMainView();
+
+		expect(
+			screen.getByRole( 'button', { name: 'Update preview site (sync in progress)' } )
+		).toHaveAttribute( 'aria-disabled', 'true' );
 	} );
 } );

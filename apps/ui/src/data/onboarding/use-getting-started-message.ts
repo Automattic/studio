@@ -79,11 +79,11 @@ export function useGettingStartedMessage(): ChecklistMessage | null {
 		return null;
 	}
 
-	const defs = getChecklistItems( agentic.enabled );
+	const defs = getChecklistItems( agentic.chatEnabled );
 	const items = deriveChecklistItems( defs, hints );
 	const allComplete = isChecklistComplete( items );
 	const completedCount = items.filter( ( item ) => item.completed ).length;
-	const variant = agentic.enabled ? 'agentic' : 'overview';
+	const variant = agentic.chatEnabled ? 'agentic' : 'overview';
 
 	return {
 		kind: 'checklist',

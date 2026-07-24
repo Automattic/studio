@@ -249,6 +249,15 @@
 	white-space: nowrap;
 }
 
+.analyticsPreference {
+	position: absolute;
+	bottom: 20px;
+	left: 50%;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	transform: translateX(-50%);
+}
+
 /* Signed-in identity shown in place of the auth buttons. */
 .identity {
 	display: inline-flex;
@@ -270,4 +279,10 @@
 
 [dir='rtl'] .arrow {
 	transform: scaleX( -1 );
+}
+
+.footer {
+	margin-top: 32px;
+	display: flex;
+	justify-content: center;
 }

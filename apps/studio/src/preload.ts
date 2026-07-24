@@ -200,6 +200,8 @@ const api: IpcApi = {
 	previewColorScheme: ( colorScheme ) => ipcRendererInvoke( 'previewColorScheme', colorScheme ),
 	saveColorScheme: ( colorScheme ) => ipcRendererInvoke( 'saveColorScheme', colorScheme ),
 	getColorScheme: () => ipcRendererInvoke( 'getColorScheme' ),
+	getAnalyticsEnabled: () => ipcRendererInvoke( 'getAnalyticsEnabled' ),
+	saveAnalyticsEnabled: ( enabled ) => ipcRendererInvoke( 'saveAnalyticsEnabled', enabled ),
 	saveAgenticFeaturesEnabled: ( enabled ) =>
 		ipcRendererInvoke( 'saveAgenticFeaturesEnabled', enabled ),
 	getAgenticFeaturesEnabled: () => ipcRendererInvoke( 'getAgenticFeaturesEnabled' ),
@@ -269,6 +271,8 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'installWordPressSkillsToAllSites', options ),
 	removeWordPressSkillFromAllSites: ( skillId ) =>
 		ipcRendererInvoke( 'removeWordPressSkillFromAllSites', skillId ),
+	recordAnalyticsEvent: ( eventName, props ) =>
+		ipcRendererInvoke( 'recordAnalyticsEvent', eventName, props ),
 	listAiSessions: () => ipcRendererInvoke( 'listAiSessions' ),
 	loadAiSession: ( sessionIdOrPrefix ) => ipcRendererInvoke( 'loadAiSession', sessionIdOrPrefix ),
 	deleteAiSession: ( sessionIdOrPrefix ) =>

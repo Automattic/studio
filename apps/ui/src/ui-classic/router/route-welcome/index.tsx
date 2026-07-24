@@ -1,4 +1,5 @@
 import { createRoute, redirect, useNavigate } from '@tanstack/react-router';
+import { CheckboxControl } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { check, chevronRight, Icon } from '@wordpress/icons';
 import { Button } from '@wordpress/ui';
@@ -9,6 +10,7 @@ import { useConnector } from '@/data/core';
 import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
 import { useUserLocale } from '@/data/queries/use-user-locale';
+import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useOffline } from '@/hooks/use-offline';
 import { usePrefersColorScheme } from '@/hooks/use-prefers-color-scheme';
 import { getLocalizedLink } from '@/lib/docs-links';
@@ -48,6 +50,8 @@ export function WelcomePage() {
 	const { data: authUser } = useAuthUser();
 	const isOffline = useOffline();
 	const locale = useUserLocale();
+	const { data: preferences } = useUserPreferences();
+	const saveUserPreferences = useSaveUserPreferences();
 	const isDark = usePrefersColorScheme() === 'dark';
 	const offlineMessage = __( "You're currently offline." );
 
@@ -142,6 +146,15 @@ export function WelcomePage() {
 					.
 				</span>
 			</p>
+
+			<div className={ styles.analyticsPreference }>
+				<CheckboxControl
+					__nextHasNoMarginBottom
+					label={ __( 'Help improve Studio by sharing anonymous usage statistics' ) }
+					checked={ preferences?.analyticsEnabled ?? true }
+					onChange={ ( analyticsEnabled ) => saveUserPreferences.mutate( { analyticsEnabled } ) }
+				/>
+			</div>
 
 			<div className={ styles.footerActions }>
 				{ authUser ? (

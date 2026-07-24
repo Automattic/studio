@@ -145,6 +145,7 @@ describe( 'OpenInMenu', () => {
 				terminal: 'terminal',
 				colorScheme: 'system',
 				locale: undefined,
+				analyticsEnabled: true,
 				defaultSiteDirectory: '/Users/example/Studio',
 				studioCliInstalled: false,
 				studioCliExternallyManaged: false,

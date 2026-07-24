@@ -73,6 +73,7 @@ import { checkMaintenanceFile } from '@studio/common/lib/maintenance-file';
 import { getLocalMediaMimeType } from '@studio/common/lib/media-mime';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { decodePassword, encodePassword } from '@studio/common/lib/passwords';
+import { isTracksEventName } from '@studio/common/lib/record-tracks-event';
 import {
 	getDaemonStatus,
 	DaemonStartTimeoutError,
@@ -135,6 +136,7 @@ import * as oauthClient from 'src/lib/oauth';
 import { scaffoldPluginInSite, type PluginScaffoldMeta } from 'src/lib/scaffold-plugin';
 import { getAiInstructionsPath } from 'src/lib/server-files-paths';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
+import { recordTracksEvent, type TracksChannel, type TracksUiVersion } from 'src/lib/tracks';
 import { updateSiteUrl } from 'src/lib/update-site-url';
 import { expandWindowForWorkbench as expandMainWindowForWorkbench } from 'src/lib/window-expansion';
 import * as windowsHelpers from 'src/lib/windows-helpers';
@@ -246,6 +248,7 @@ export {
 export {
 	dismissMessage,
 	getAgenticFeaturesEnabled,
+	getAnalyticsEnabled,
 	getAgentResponseLength,
 	getActivitySoundPreferences,
 	getChatNotificationsEnabled,
@@ -263,6 +266,7 @@ export {
 	getWapuuScore,
 	previewColorScheme,
 	saveAgenticFeaturesEnabled,
+	saveAnalyticsEnabled,
 	saveAgentResponseLength,
 	saveActivitySoundPreferences,
 	saveChatNotificationsEnabled,
@@ -290,6 +294,21 @@ export {
 } from 'src/modules/checkpoints/lib/ipc-handlers';
 
 export { fetchSiteRest as fetchSiteRestApi } from 'src/lib/wordpress-rest-api';
+
+export async function recordAnalyticsEvent(
+	_event: IpcMainInvokeEvent,
+	eventName: string,
+	props: Record< string, string | number | boolean | undefined > & {
+		channel?: TracksChannel;
+		ui_version?: TracksUiVersion;
+	} = {}
+): Promise< void > {
+	if ( ! isTracksEventName( eventName ) ) {
+		console.warn( `Ignoring unknown analytics event name: ${ eventName }` );
+		return;
+	}
+	await recordTracksEvent( eventName, props );
+}
 
 export async function listAiSessions( _event: IpcMainInvokeEvent ): Promise< AiSessionSummary[] > {
 	return listHydratedAiSessions( getSessionsDirectory() );

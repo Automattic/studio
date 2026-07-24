@@ -9,6 +9,7 @@ import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
 import { useAddSiteListener } from '@/hooks/use-add-site-listener';
 import { useMouseNavigation } from '@/hooks/use-mouse-navigation';
+import { WapuuWorldMount } from '@/ui-classic/components/wapuu-world';
 import type { AiSessionSummary, Connector, SiteDetails, UserSettingsEventTab } from '@/data/core';
 import type { QueryClient } from '@tanstack/react-query';
 
@@ -40,6 +41,7 @@ function RootLayout() {
 	return (
 		<>
 			<DeletedSiteRedirect />
+			<WapuuWorldMount />
 			<Outlet />
 		</>
 	);

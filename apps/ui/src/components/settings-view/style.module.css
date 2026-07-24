@@ -479,6 +479,35 @@
 	background: var(--wpds-color-fg-interactive-brand);
 }
 
+.wapuuScoreHeading {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-xs);
+}
+
+.wapuuScoreIcon {
+	image-rendering: pixelated;
+}
+
+.wapuuScoreBody {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-xl);
+}
+
+.wapuuScoreMeter {
+	display: flex;
+	flex: 1;
+	min-width: 0;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-sm);
+}
+
+.wapuuScoreValue {
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+}
+
 .previewActionsButton {
 	flex-shrink: 0;
 }

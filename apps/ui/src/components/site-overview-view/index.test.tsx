@@ -172,7 +172,12 @@ describe( 'SiteOverviewView', () => {
 			openSiteInEditor,
 			openSiteInTerminal,
 		} );
-		useAgenticFeaturesMock.mockReturnValue( { enabled: true, reason: null, isReady: true } );
+		useAgenticFeaturesMock.mockReturnValue( {
+			enabled: true,
+			chatEnabled: true,
+			reason: null,
+			isReady: true,
+		} );
 		useLoginMock.mockReturnValue( { isPending: false, mutate: vi.fn() } );
 		useSitesMock.mockReturnValue( {
 			data: [ createSite( { running: true } ) ],
@@ -232,6 +237,7 @@ describe( 'SiteOverviewView', () => {
 				terminal: 'terminal',
 				colorScheme: 'system',
 				locale: undefined,
+				analyticsEnabled: true,
 				defaultSiteDirectory: '/Users/example/Studio',
 				studioCliInstalled: false,
 				studioCliExternallyManaged: false,
@@ -307,6 +313,7 @@ describe( 'SiteOverviewView', () => {
 		const loginMutate = vi.fn();
 		useAgenticFeaturesMock.mockReturnValue( {
 			enabled: false,
+			chatEnabled: false,
 			reason: 'signed-out',
 			isReady: true,
 		} );
@@ -325,8 +332,9 @@ describe( 'SiteOverviewView', () => {
 
 	it( 'hides the sign-in banner when agentic features are disabled by preference', () => {
 		useAgenticFeaturesMock.mockReturnValue( {
-			enabled: false,
-			reason: 'preference',
+			enabled: true,
+			chatEnabled: false,
+			reason: null,
 			isReady: true,
 		} );
 

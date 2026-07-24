@@ -9,6 +9,7 @@ import { __ } from '@wordpress/i18n';
 import { applyStoredSiteOrder, storeSiteOrder } from '../browser-site-order';
 import { buildPublishCheckoutUrl } from '../publish-checkout-url';
 import { UnsupportedError } from '../unsupported-error';
+import { readWapuuScore, writeWapuuScore } from '../wapuu-score-storage';
 import type {
 	ActiveAgentRun,
 	AiSessionPlacementUpdatedEvent,
@@ -48,6 +49,8 @@ const EDITOR_STORAGE_KEY = 'studio-local-editor';
 const TERMINAL_STORAGE_KEY = 'studio-local-terminal';
 const QUIT_SITES_BEHAVIOR_STORAGE_KEY = 'studio-local-quit-sites-behavior';
 const ACTIVITY_SOUND_PREFERENCES_STORAGE_KEY = 'studio-activity-sound-preferences';
+const AGENTIC_FEATURES_STORAGE_KEY = 'studio-local-agentic-features-enabled';
+const WAPUU_SCORE_STORAGE_KEY = 'studio-local-wapuu-score';
 
 function readActivitySoundPreferences() {
 	try {
@@ -722,6 +725,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					null,
 				colorScheme,
 				locale: undefined,
+				analyticsEnabled: true,
 				// The rest are desktop-managed preferences with sensible defaults
 				// here; the settings screens hide their controls in the browser
 				// (`showNativePreferences`).
@@ -729,7 +733,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				// `studio ui` is served by the CLI itself.
 				studioCliInstalled: true,
 				studioCliExternallyManaged: false,
-				agenticFeaturesEnabled: true,
+				agenticFeaturesEnabled:
+					window.localStorage.getItem( AGENTIC_FEATURES_STORAGE_KEY ) !== 'false',
 				chatNotificationsEnabled: true,
 				activitySoundPreferences: readActivitySoundPreferences(),
 				quitSitesBehavior: quitSitesBehavior ?? 'ask',
@@ -768,6 +773,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				} else {
 					window.localStorage.removeItem( QUIT_SITES_BEHAVIOR_STORAGE_KEY );
 				}
+			}
+			if ( typeof partial.agenticFeaturesEnabled === 'boolean' ) {
+				window.localStorage.setItem(
+					AGENTIC_FEATURES_STORAGE_KEY,
+					String( partial.agenticFeaturesEnabled )
+				);
 			}
 		},
 		// Detected on the machine the server runs on (the desktop's installed-app
@@ -818,9 +829,17 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			} );
 		},
 
+		async trackEvent() {},
+
 		// External links work natively in the browser.
 		async openExternalUrl( url ) {
 			window.open( url, '_blank', 'noopener,noreferrer' );
+		},
+		async getWapuuScore() {
+			return readWapuuScore( WAPUU_SCORE_STORAGE_KEY );
+		},
+		async saveWapuuScore( score ) {
+			writeWapuuScore( WAPUU_SCORE_STORAGE_KEY, score );
 		},
 		async popupAppMenu() {},
 		showsAppMenuButton: false,

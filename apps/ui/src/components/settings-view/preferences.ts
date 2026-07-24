@@ -25,6 +25,7 @@ export interface PreferencesFormData {
 	terminal: SupportedTerminal | typeof UNSET;
 	colorScheme: ColorScheme;
 	locale: SupportedLocale;
+	analyticsEnabled: boolean;
 	defaultSiteDirectory: string;
 	studioCliInstalled: boolean;
 	agenticFeaturesEnabled: boolean;
@@ -49,6 +50,9 @@ export function toPreferencesFormData( prefs: UserPreferences ): PreferencesForm
 		terminal: prefs.terminal ?? UNSET,
 		colorScheme: prefs.colorScheme,
 		locale: resolveFormLocale( prefs.locale ),
+		// Default to opted-in if absent (e.g. a persisted preferences cache from
+		// before this field existed) so the toggle never renders a false negative.
+		analyticsEnabled: prefs.analyticsEnabled ?? true,
 		defaultSiteDirectory: prefs.defaultSiteDirectory,
 		studioCliInstalled: prefs.studioCliInstalled,
 		agenticFeaturesEnabled: prefs.agenticFeaturesEnabled,
@@ -80,6 +84,7 @@ export function toPreferencesPatch(
 	}
 	if ( update.colorScheme !== undefined ) patch.colorScheme = update.colorScheme;
 	if ( update.locale !== undefined ) patch.locale = update.locale;
+	if ( update.analyticsEnabled !== undefined ) patch.analyticsEnabled = update.analyticsEnabled;
 	if ( update.defaultSiteDirectory !== undefined ) {
 		patch.defaultSiteDirectory = update.defaultSiteDirectory;
 	}

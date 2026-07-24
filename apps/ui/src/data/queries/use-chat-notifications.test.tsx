@@ -31,6 +31,7 @@ const PREFERENCES: UserPreferences = {
 	terminal: null,
 	colorScheme: 'system',
 	locale: undefined,
+	analyticsEnabled: true,
 	defaultSiteDirectory: '',
 	studioCliInstalled: false,
 	studioCliExternallyManaged: false,

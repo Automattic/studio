@@ -32,8 +32,16 @@ interface PreviewUIState {
 	// Full preview: the preview fills the window (sidebar and chat hidden).
 	// Only meaningful while `open`; closing the panel always clears it.
 	fullscreen: boolean;
-	path: string;
 	reloadNonce: number;
+	siteId: string | null;
+	pathsBySiteId: Record< string, string >;
+}
+
+export function pathForSite(
+	pathsBySiteId: Record< string, string >,
+	siteId: string | null | undefined
+): string {
+	return siteId ? pathsBySiteId[ siteId ] ?? '/' : '/';
 }
 
 interface PreviewConsoleUIState {
@@ -60,11 +68,18 @@ export type SessionUIAction =
 	| { type: 'preview/navigate'; path: string }
 	| { type: 'preview/reload' }
 	| { type: 'preview/update-path'; path: string }
+	| { type: 'preview/set-site'; siteId: string }
 	| { type: 'preview-console/set-entries'; entries: PreviewConsoleEntry[] }
 	| { type: 'preview-clips/set-markers'; markers: ClipMarker[] };
 
 const INITIAL_STATE: SessionUIState = {
-	preview: { open: true, fullscreen: false, path: '/', reloadNonce: 0 },
+	preview: {
+		open: true,
+		fullscreen: false,
+		reloadNonce: 0,
+		siteId: null,
+		pathsBySiteId: {},
+	},
 	previewConsole: { entries: [] },
 	previewClips: { markers: [] },
 };
@@ -118,7 +133,7 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 				...state,
 				preview: {
 					...state.preview,
-					path: action.path,
+					pathsBySiteId: rememberPath( state.preview, action.path ),
 					reloadNonce: state.preview.reloadNonce + 1,
 					open: true,
 				},
@@ -134,10 +149,16 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 					open: true,
 				},
 			};
-		case 'preview/update-path':
-			return state.preview.path === action.path
+		case 'preview/update-path': {
+			const pathsBySiteId = rememberPath( state.preview, action.path );
+			return pathsBySiteId === state.preview.pathsBySiteId
 				? state
-				: { ...state, preview: { ...state.preview, path: action.path } };
+				: { ...state, preview: { ...state.preview, pathsBySiteId } };
+		}
+		case 'preview/set-site':
+			return state.preview.siteId === action.siteId
+				? state
+				: { ...state, preview: { ...state.preview, siteId: action.siteId } };
 		case 'preview-console/set-entries':
 			return state.previewConsole.entries === action.entries
 				? state
@@ -147,6 +168,13 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 				? state
 				: { ...state, previewClips: { markers: action.markers } };
 	}
+}
+
+function rememberPath( preview: PreviewUIState, path: string ): Record< string, string > {
+	if ( ! preview.siteId || preview.pathsBySiteId[ preview.siteId ] === path ) {
+		return preview.pathsBySiteId;
+	}
+	return { ...preview.pathsBySiteId, [ preview.siteId ]: path };
 }
 
 // Split contexts so that hooks which only need to dispatch (like
@@ -224,11 +252,14 @@ export interface SessionPreviewUI {
 	readonly fullscreen: boolean;
 	readonly path: string;
 	readonly reloadNonce: number;
+	readonly siteId: string | null;
+	readonly pathsBySiteId: Record< string, string >;
 	setOpen: ( value: boolean ) => void;
 	toggle: () => void;
 	setFullscreen: ( value: boolean ) => void;
 	toggleFullscreen: () => void;
 	updatePath: ( path: string ) => void;
+	setSite: ( siteId: string ) => void;
 }
 
 /**
@@ -256,6 +287,10 @@ export function useOptionalSessionPreviewUI(): SessionPreviewUI | null {
 		( path: string ) => dispatch?.( { type: 'preview/update-path', path } ),
 		[ dispatch ]
 	);
+	const setSite = useCallback(
+		( siteId: string ) => dispatch?.( { type: 'preview/set-site', siteId } ),
+		[ dispatch ]
+	);
 	return useMemo( () => {
 		if ( ! state || ! dispatch ) {
 			return null;
@@ -263,15 +298,18 @@ export function useOptionalSessionPreviewUI(): SessionPreviewUI | null {
 		return {
 			open: state.preview.open,
 			fullscreen: state.preview.fullscreen,
-			path: state.preview.path,
+			path: pathForSite( state.preview.pathsBySiteId, state.preview.siteId ),
 			reloadNonce: state.preview.reloadNonce,
+			siteId: state.preview.siteId,
+			pathsBySiteId: state.preview.pathsBySiteId,
 			setOpen,
 			toggle,
 			setFullscreen,
 			toggleFullscreen,
 			updatePath,
+			setSite,
 		};
-	}, [ state, dispatch, setOpen, toggle, setFullscreen, toggleFullscreen, updatePath ] );
+	}, [ state, dispatch, setOpen, toggle, setFullscreen, toggleFullscreen, updatePath, setSite ] );
 }
 
 export function useSessionPreviewUI(): SessionPreviewUI {
@@ -294,28 +332,37 @@ export function useSessionPreviewUI(): SessionPreviewUI {
 		( path: string ) => dispatch( { type: 'preview/update-path', path } ),
 		[ dispatch ]
 	);
+	const setSite = useCallback(
+		( siteId: string ) => dispatch( { type: 'preview/set-site', siteId } ),
+		[ dispatch ]
+	);
 	return useMemo(
 		() => ( {
 			open: state.preview.open,
 			fullscreen: state.preview.fullscreen,
-			path: state.preview.path,
+			path: pathForSite( state.preview.pathsBySiteId, state.preview.siteId ),
 			reloadNonce: state.preview.reloadNonce,
+			siteId: state.preview.siteId,
+			pathsBySiteId: state.preview.pathsBySiteId,
 			setOpen,
 			toggle,
 			setFullscreen,
 			toggleFullscreen,
 			updatePath,
+			setSite,
 		} ),
 		[
 			state.preview.open,
 			state.preview.fullscreen,
-			state.preview.path,
+			state.preview.siteId,
+			state.preview.pathsBySiteId,
 			state.preview.reloadNonce,
 			setOpen,
 			toggle,
 			setFullscreen,
 			toggleFullscreen,
 			updatePath,
+			setSite,
 		]
 	);
 }

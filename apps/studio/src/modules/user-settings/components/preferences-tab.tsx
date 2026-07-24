@@ -10,6 +10,7 @@ import { useBetaFeatures } from 'src/hooks/use-beta-features';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { isWindowsStore } from 'src/lib/app-globals';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { AnalyticsToggle } from 'src/modules/user-settings/components/analytics-toggle';
 import { ColorSchemePicker } from 'src/modules/user-settings/components/color-scheme-picker';
 import { DefaultModelPicker } from 'src/modules/user-settings/components/default-model-picker';
 import { EditorPicker } from 'src/modules/user-settings/components/editor-picker';
@@ -34,6 +35,8 @@ import {
 	useSaveStudioCliIsInstalledMutation,
 	useGetDefaultSiteDirectoryQuery,
 	useSaveDefaultSiteDirectoryMutation,
+	useGetAnalyticsEnabledQuery,
+	useSaveAnalyticsEnabledMutation,
 	useGetAgentResponseLengthQuery,
 	useSaveAgentResponseLengthMutation,
 	useGetDefaultAiModelQuery,
@@ -102,6 +105,7 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const { data: agentResponseLength } = useGetAgentResponseLengthQuery();
 	const { data: defaultAiModel } = useGetDefaultAiModelQuery();
 	const { data: toolPermissions } = useGetToolPermissionsQuery();
+	const { data: analyticsEnabled } = useGetAnalyticsEnabledQuery();
 
 	const [ saveColorSchemePreference ] = useSaveColorSchemeMutation();
 	const [ saveEditor ] = useSaveUserEditorMutation();
@@ -111,6 +115,7 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const [ saveAgentResponseLength ] = useSaveAgentResponseLengthMutation();
 	const [ saveDefaultAiModel ] = useSaveDefaultAiModelMutation();
 	const [ saveToolPermission ] = useSaveToolPermissionMutation();
+	const [ saveAnalyticsEnabled ] = useSaveAnalyticsEnabledMutation();
 	const [ saveQuitSitesBehavior ] = useSaveQuitSitesBehaviorMutation();
 
 	const [ dirtyColorScheme, setDirtyColorScheme ] = useState< 'system' | 'light' | 'dark' >();
@@ -124,6 +129,7 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const [ dirtyToolPermissions, setDirtyToolPermissions ] = useState< ToolPermissionOverrides >(
 		{}
 	);
+	const [ dirtyAnalyticsEnabled, setDirtyAnalyticsEnabled ] = useState< boolean >();
 	const [ dirtyQuitSitesBehavior, setDirtyQuitSitesBehavior ] = useState<
 		QuitSitesBehavior | undefined
 	>();
@@ -186,6 +192,9 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 				await saveToolPermission( { toolName: toolName as GatedToolName, level } );
 			}
 		}
+		if ( dirtyAnalyticsEnabled !== undefined ) {
+			await saveAnalyticsEnabled( dirtyAnalyticsEnabled );
+		}
 		if ( isQuitSitesBehaviorDirty ) {
 			await saveQuitSitesBehavior( dirtyQuitSitesBehavior );
 		}
@@ -204,6 +213,7 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 		...toolPermissions,
 		...dirtyToolPermissions,
 	};
+	const analyticsEnabledSelection = dirtyAnalyticsEnabled ?? analyticsEnabled ?? true;
 	const quitSitesBehaviorSelection = isQuitSitesBehaviorDirty
 		? dirtyQuitSitesBehavior
 		: quitSitesBehavior;
@@ -224,6 +234,7 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 			[ dirtyDefaultSiteDirectory, defaultSiteDirectory ],
 			[ dirtyAgentResponseLength, agentResponseLength ],
 			[ dirtyDefaultAiModel, defaultAiModel ],
+			[ dirtyAnalyticsEnabled, analyticsEnabled ],
 		].some( ( [ a, b ] ) => a !== undefined && a !== b );
 	const hasQuitSitesBehaviorChanges =
 		isQuitSitesBehaviorDirty && dirtyQuitSitesBehavior !== quitSitesBehavior;
@@ -279,6 +290,7 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 			{ ! isWindowsStore() && (
 				<StudioCliToggle value={ isCliInstalledSelection } onChange={ setDirtyIsCliInstalled } />
 			) }
+			<AnalyticsToggle value={ analyticsEnabledSelection } onChange={ setDirtyAnalyticsEnabled } />
 			<div className="mt-auto pt-2 flex justify-end gap-3">
 				<Button
 					variant="tertiary"

@@ -19,6 +19,7 @@ import {
 	type ActivitySoundPreferences,
 } from '@studio/common/lib/activity-sounds';
 import {
+	isAnalyticsOptedOut,
 	lockSharedConfig,
 	readSharedConfig,
 	saveSharedConfig,
@@ -250,6 +251,17 @@ export async function getColorScheme(): Promise< 'system' | 'light' | 'dark' > {
 	const colorScheme = userData.colorScheme ?? 'system';
 	nativeTheme.themeSource = colorScheme;
 	return colorScheme;
+}
+
+export async function getAnalyticsEnabled(): Promise< boolean > {
+	return ! ( await isAnalyticsOptedOut() );
+}
+
+export async function saveAnalyticsEnabled(
+	_event: IpcMainInvokeEvent,
+	enabled: boolean
+): Promise< void > {
+	await updateSharedConfig( { analyticsOptOut: ! enabled } );
 }
 
 export async function saveQuitSitesBehavior(

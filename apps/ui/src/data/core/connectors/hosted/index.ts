@@ -6,6 +6,7 @@ import {
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { applyStoredSiteOrder, storeSiteOrder } from '../browser-site-order';
 import { UnsupportedError } from '../unsupported-error';
+import { readWapuuScore, writeWapuuScore } from '../wapuu-score-storage';
 import type {
 	ActiveAgentRun,
 	AiSessionPlacementUpdatedEvent,
@@ -34,6 +35,8 @@ export interface HostedConnectorOptions {
 const DISMISSED_MESSAGES_STORAGE_KEY = 'studio-dismissed-messages';
 const ONBOARDING_HINTS_STORAGE_KEY = 'studio-onboarding-hints';
 const ACTIVITY_SOUND_PREFERENCES_STORAGE_KEY = 'studio-activity-sound-preferences';
+const AGENTIC_FEATURES_STORAGE_KEY = 'studio-hosted-agentic-features-enabled';
+const WAPUU_SCORE_STORAGE_KEY = 'studio-hosted-wapuu-score';
 
 function readActivitySoundPreferences() {
 	try {
@@ -515,10 +518,12 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 				terminal: null,
 				colorScheme: 'system',
 				locale: undefined,
+				analyticsEnabled: true,
 				defaultSiteDirectory: '',
 				studioCliInstalled: false,
 				studioCliExternallyManaged: false,
-				agenticFeaturesEnabled: true,
+				agenticFeaturesEnabled:
+					window.localStorage.getItem( AGENTIC_FEATURES_STORAGE_KEY ) !== 'false',
 				chatNotificationsEnabled: true,
 				activitySoundPreferences: readActivitySoundPreferences(),
 				quitSitesBehavior: 'ask',
@@ -532,6 +537,12 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 				window.localStorage.setItem(
 					ACTIVITY_SOUND_PREFERENCES_STORAGE_KEY,
 					JSON.stringify( partial.activitySoundPreferences )
+				);
+			}
+			if ( typeof partial.agenticFeaturesEnabled === 'boolean' ) {
+				window.localStorage.setItem(
+					AGENTIC_FEATURES_STORAGE_KEY,
+					String( partial.agenticFeaturesEnabled )
 				);
 			}
 		},
@@ -579,9 +590,17 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			throw new UnsupportedError( 'openSiteInTerminal' );
 		},
 
+		async trackEvent() {},
+
 		// External links work natively in the browser.
 		async openExternalUrl( url ) {
 			window.open( url, '_blank', 'noopener,noreferrer' );
+		},
+		async getWapuuScore() {
+			return readWapuuScore( WAPUU_SCORE_STORAGE_KEY );
+		},
+		async saveWapuuScore( score ) {
+			writeWapuuScore( WAPUU_SCORE_STORAGE_KEY, score );
 		},
 		async popupAppMenu() {},
 		showsAppMenuButton: false,

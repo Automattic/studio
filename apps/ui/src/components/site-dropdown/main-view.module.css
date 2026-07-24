@@ -304,12 +304,16 @@
 .rowActionButton,
 .rowViewButton {
 	height: 28px;
-	color: var(--wpds-color-fg-interactive-neutral);
 }
 
 .rowActionButton {
 	width: 28px;
 	padding: 0;
+}
+
+.rowViewButton,
+.rowActionButton:not([data-disabled]) {
+	color: var(--wpds-color-fg-interactive-neutral);
 }
 
 .rowActionButton svg {

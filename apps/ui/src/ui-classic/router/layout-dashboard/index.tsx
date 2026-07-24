@@ -1,6 +1,6 @@
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
 import { createRoute, Outlet, useRouterState } from '@tanstack/react-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
 	PreviewSplitFrame,
 	type PreviewSplitFramePreviewProps,
@@ -12,6 +12,7 @@ import { useOrientationAutostart } from '@/data/onboarding/use-orientation-autos
 import { useSession, useSessionEffectiveEnvironment } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
 import {
+	pathForSite,
 	SessionUIProvider,
 	useSessionPreviewClipActions,
 	useSessionPreviewClipMarkers,
@@ -81,6 +82,7 @@ function DashboardLayoutContent() {
 	useOrientationAutostart();
 	useOnboardingRouteEvents();
 	const setPreviewFullscreen = preview.setFullscreen;
+	const setPreviewSite = preview.setSite;
 	const updatePreviewPath = preview.updatePath;
 	const clipActions = useSessionPreviewClipActions();
 	const clipMarkers = useSessionPreviewClipMarkers();
@@ -136,29 +138,8 @@ function DashboardLayoutContent() {
 	useEffect( () => {
 		if ( overviewRouteSiteId ) {
 			setPreviewOpen( true );
-			updatePreviewPath( '/' );
 		}
-	}, [ overviewRouteSiteId, setPreviewOpen, updatePreviewPath ] );
-	// The preview path is shared dashboard state; without a reset, switching
-	// to another site would ask it for the previous site's path (a 404).
-	// Runs before the plugin-landing effect below so that still wins for
-	// plugin sites.
-	const routeSiteId = routeSite?.id;
-	const lastRouteSiteIdRef = useRef< string | undefined >( undefined );
-	useEffect( () => {
-		if ( ! routeSiteId ) {
-			// Non-preview routes keep the last site (and its path) warm.
-			return;
-		}
-		if ( lastRouteSiteIdRef.current === routeSiteId ) {
-			return;
-		}
-		const isFirstSite = lastRouteSiteIdRef.current === undefined;
-		lastRouteSiteIdRef.current = routeSiteId;
-		if ( ! isFirstSite ) {
-			updatePreviewPath( '/' );
-		}
-	}, [ routeSiteId, updatePreviewPath ] );
+	}, [ overviewRouteSiteId, setPreviewOpen ] );
 	// Prototype: a plugin site's new-session route lands the preview on the
 	// Plugins screen (via auto-login) instead of the site's front end.
 	const newSessionPluginTag = usePluginSiteTag( newSessionSite?.id );
@@ -181,15 +162,29 @@ function DashboardLayoutContent() {
 		if ( ! newSessionPluginSiteId || ! newSessionPluginPreviewPath ) {
 			return;
 		}
+		setPreviewSite( newSessionPluginSiteId );
 		setPreviewOpen( true );
 		updatePreviewPath( newSessionPluginPreviewPath );
 		// Keyed on the site id — the path only changes with the site's URL, and
 		// re-running then (fresh port) is the desired refresh.
-	}, [ newSessionPluginSiteId, newSessionPluginPreviewPath, setPreviewOpen, updatePreviewPath ] );
+	}, [
+		newSessionPluginSiteId,
+		newSessionPluginPreviewPath,
+		setPreviewOpen,
+		setPreviewSite,
+		updatePreviewPath,
+	] );
 	const lastPreviewSite = lastPreviewSiteId
 		? sites?.find( ( site ) => site.id === lastPreviewSiteId )
 		: undefined;
 	const previewSite = routeSite ?? lastPreviewSite;
+	const previewSiteId = previewSite?.id;
+	useEffect( () => {
+		if ( previewSiteId ) {
+			setPreviewSite( previewSiteId );
+		}
+	}, [ previewSiteId, setPreviewSite ] );
+	const previewPath = pathForSite( preview.pathsBySiteId, previewSiteId );
 	const showPreview = preview.open && supportsPreview && !! previewSite;
 	const previewFullscreen = preview.fullscreen && showPreview;
 	// Leave full preview when the route stops supporting a preview (settings,
@@ -208,7 +203,7 @@ function DashboardLayoutContent() {
 			previewSite ? (
 				<SitePreview
 					site={ previewSite }
-					path={ preview.path }
+					path={ previewPath }
 					reloadNonce={ preview.reloadNonce }
 					onClip={ canClipToSession ? clipActions.addClip : undefined }
 					onClipUpdate={ canClipToSession ? clipActions.updateClipComment : undefined }
@@ -226,7 +221,7 @@ function DashboardLayoutContent() {
 			clipActions,
 			clipMarkers,
 			canClipToSession,
-			preview.path,
+			previewPath,
 			preview.reloadNonce,
 			preview.updatePath,
 			preview.toggleFullscreen,

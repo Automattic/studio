@@ -27,11 +27,10 @@ export const indexRoute = createRoute( {
 		// sessions/sites fall through to the defaults.
 		const lastVisited = readLastVisited();
 
-		// Without agentic features (signed out, or disabled in settings) the
-		// site overview is the home for a site — never restore or create chat
-		// sessions.
-		const { enabled: agenticEnabled } = await resolveAgenticFeatures( context );
-		if ( ! agenticEnabled ) {
+		// Without chat (signed out, offline, or disabled in settings), the site
+		// overview is the home — never restore or create chat sessions.
+		const { chatEnabled } = await resolveAgenticFeatures( context );
+		if ( ! chatEnabled ) {
 			const targetSite =
 				( lastVisited.siteId && sites.find( ( site ) => site.id === lastVisited.siteId ) ) ||
 				sites[ 0 ];

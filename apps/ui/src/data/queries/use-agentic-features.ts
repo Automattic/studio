@@ -5,19 +5,20 @@ import { USER_PREFERENCES_QUERY_KEY, useUserPreferences } from './use-user-prefe
 import type { AuthUser, Connector, UserPreferences } from '@/data/core';
 import type { QueryClient } from '@tanstack/react-query';
 
-export type AgenticGateReason = 'signed-out' | 'offline' | 'preference' | null;
+export type AgenticGateReason = 'signed-out' | 'offline' | null;
 export type AgenticFeatureReason = AgenticGateReason;
 
 export interface AgenticFeatures {
+	// Network/auth availability for previews, sync, publishing, and chat.
 	enabled: boolean;
+	// Chat availability additionally honors the user's agentic-features preference.
+	chatEnabled: boolean;
 	reason: AgenticGateReason;
 }
 
 /**
- * Single source of truth for whether agentic features (chat/sessions) are
- * available. Connectors without opt-out support (hosted/web) are always-on;
- * otherwise features require a signed-in user who hasn't disabled them in
- * settings. The preference defaults to enabled when unset.
+ * Single source of truth for agentic backend availability and chat visibility.
+ * Turning chat off does not disable previews, sync, or publishing.
  */
 export function deriveAgenticFeatures(
 	connector: Pick< Connector, 'supportsAgenticOptOut' >,
@@ -26,18 +27,16 @@ export function deriveAgenticFeatures(
 	isOffline = false
 ): AgenticFeatures {
 	if ( isOffline ) {
-		return { enabled: false, reason: 'offline' };
+		return { enabled: false, chatEnabled: false, reason: 'offline' };
 	}
-	if ( ! connector.supportsAgenticOptOut ) {
-		return { enabled: true, reason: null };
+	if ( connector.supportsAgenticOptOut && ! user ) {
+		return { enabled: false, chatEnabled: false, reason: 'signed-out' };
 	}
-	if ( ! user ) {
-		return { enabled: false, reason: 'signed-out' };
-	}
-	if ( preferences?.agenticFeaturesEnabled === false ) {
-		return { enabled: false, reason: 'preference' };
-	}
-	return { enabled: true, reason: null };
+	return {
+		enabled: true,
+		chatEnabled: preferences?.agenticFeaturesEnabled !== false,
+		reason: null,
+	};
 }
 
 /**
@@ -52,14 +51,10 @@ export function useAgenticFeatures(): AgenticFeatures & { isReady: boolean } {
 	const user = useAuthUser();
 	const preferences = useUserPreferences();
 
-	if ( ! connector.supportsAgenticOptOut ) {
-		return isOffline
-			? { enabled: false, reason: 'offline', isReady: true }
-			: { enabled: true, reason: null, isReady: true };
-	}
-	const isReady = ! user.isPending && ! preferences.isPending;
+	const isReady =
+		! preferences.isPending && ( ! connector.supportsAgenticOptOut || ! user.isPending );
 	if ( ! isReady ) {
-		return { enabled: true, reason: null, isReady };
+		return { enabled: true, chatEnabled: true, reason: null, isReady };
 	}
 	return {
 		...deriveAgenticFeatures( connector, user.data, preferences.data, isOffline ),
@@ -82,19 +77,17 @@ export async function resolveAgenticFeatures( {
 	if ( ! navigator.onLine ) {
 		return deriveAgenticFeatures( connector, undefined, undefined, true );
 	}
-	if ( ! connector.supportsAgenticOptOut ) {
-		return { enabled: true, reason: null };
-	}
-	const [ user, preferences ] = await Promise.all( [
-		queryClient.fetchQuery( {
-			queryKey: AUTH_USER_QUERY_KEY,
-			queryFn: () => connector.getAuthUser(),
-		} ),
-		queryClient.fetchQuery( {
-			queryKey: USER_PREFERENCES_QUERY_KEY,
-			queryFn: () => connector.getUserPreferences(),
-			staleTime: Infinity,
-		} ),
-	] );
+	const preferencesPromise = queryClient.fetchQuery( {
+		queryKey: USER_PREFERENCES_QUERY_KEY,
+		queryFn: () => connector.getUserPreferences(),
+		staleTime: Infinity,
+	} );
+	const userPromise = connector.supportsAgenticOptOut
+		? queryClient.fetchQuery( {
+				queryKey: AUTH_USER_QUERY_KEY,
+				queryFn: () => connector.getAuthUser(),
+		  } )
+		: Promise.resolve( null );
+	const [ user, preferences ] = await Promise.all( [ userPromise, preferencesPromise ] );
 	return deriveAgenticFeatures( connector, user, preferences );
 }

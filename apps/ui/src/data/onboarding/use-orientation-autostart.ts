@@ -90,7 +90,7 @@ export function useOrientationAutostart(): void {
 		const variant = deriveOrientationAutostart( {
 			onboardingCompleted,
 			siteCount: sites?.length ?? 0,
-			agentic: { enabled: agentic.enabled, isReady: agentic.isReady },
+			agentic: { enabled: agentic.chatEnabled, isReady: agentic.isReady },
 			hints,
 			guideOpen: isOpen,
 			alreadyStarted: startedRef.current,
@@ -134,7 +134,7 @@ export function useOrientationAutostart(): void {
 	}, [
 		onboardingCompleted,
 		sites?.length,
-		agentic.enabled,
+		agentic.chatEnabled,
 		agentic.isReady,
 		hints,
 		isOpen,

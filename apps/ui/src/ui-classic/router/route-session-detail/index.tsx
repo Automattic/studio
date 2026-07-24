@@ -8,7 +8,7 @@ import { dashboardLayoutRoute } from '../layout-dashboard';
 function SessionDetail() {
 	const { sessionId } = sessionDetailRoute.useParams();
 	const navigate = useNavigate();
-	const { enabled, isReady } = useAgenticFeatures();
+	const { chatEnabled, isReady } = useAgenticFeatures();
 
 	// Lets the chat-notifications watcher suppress notifications for the
 	// conversation the user is already looking at.
@@ -22,10 +22,10 @@ function SessionDetail() {
 	// features off in settings). The index route re-resolves to the right
 	// site overview.
 	useEffect( () => {
-		if ( isReady && ! enabled ) {
+		if ( isReady && ! chatEnabled ) {
 			void navigate( { to: '/' } );
 		}
-	}, [ isReady, enabled, navigate ] );
+	}, [ isReady, chatEnabled, navigate ] );
 
 	return <SessionView sessionId={ sessionId } />;
 }
@@ -34,8 +34,8 @@ export const sessionDetailRoute = createRoute( {
 	getParentRoute: () => dashboardLayoutRoute,
 	path: '/sessions/$sessionId',
 	beforeLoad: async ( { context } ) => {
-		const { enabled } = await resolveAgenticFeatures( context );
-		if ( ! enabled ) {
+		const { chatEnabled } = await resolveAgenticFeatures( context );
+		if ( ! chatEnabled ) {
 			// The index route owns the "where should a gated user land"
 			// decision, so defer to it rather than duplicating the
 			// session-to-site lookup here.

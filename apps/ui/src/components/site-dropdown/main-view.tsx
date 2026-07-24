@@ -673,6 +673,21 @@ export function MainView( {
 	const localSiteUrl = getSiteUrl( site );
 	const canOpenLocalSite = site.running && ! isStopping;
 
+	const getSyncActionLabel = ( idle: string, pending: string, isPending: boolean ): string => {
+		if ( isPending ) {
+			return pending;
+		}
+		if ( isSyncing ) {
+			return sprintf( __( '%s (sync in progress)' ), idle );
+		}
+		if ( ! agenticEnabled ) {
+			return isOffline
+				? sprintf( __( '%s (offline)' ), idle )
+				: sprintf( __( '%s (sign in required)' ), idle );
+		}
+		return idle;
+	};
+
 	// Checkpoints run on the user's machine, so the affordance only exists
 	// where the connector can reach the CLI checkpoint engine.
 	const supportsCheckpoints = connector.capabilities?.siteCheckpoints ?? false;
@@ -883,7 +898,11 @@ export function MainView( {
 								tone="neutral"
 								size="small"
 								icon={ arrowUp }
-								label={ isPreviewPending ? __( 'Updating preview' ) : __( 'Update preview site' ) }
+								label={ getSyncActionLabel(
+									__( 'Update preview site' ),
+									__( 'Updating preview…' ),
+									isPreviewPending
+								) }
 								className={ styles.rowActionButton }
 								loading={ isPreviewPending }
 								loadingAnnouncement={ __( 'Updating preview' ) }

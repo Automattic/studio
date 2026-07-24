@@ -57,18 +57,18 @@ export function useOnboardingEvents(): void {
 
 	// Kept in refs so the subscriptions below survive re-renders without
 	// resubscribing, while still reading the latest gate/hints/active values.
-	const agenticEnabledRef = useRef( agentic.enabled );
+	const agenticEnabledRef = useRef( agentic.chatEnabled );
 	const hintsRef = useRef< OnboardingHintsState | undefined >( hints );
 	const hasActiveRef = useRef( active !== null );
 	const showCoachmarkRef = useRef( showCoachmark );
 	const openGuideRef = useRef< OpenGuide >( openGuide );
 	useEffect( () => {
-		agenticEnabledRef.current = agentic.enabled;
+		agenticEnabledRef.current = agentic.chatEnabled;
 		hintsRef.current = hints;
 		hasActiveRef.current = active !== null;
 		showCoachmarkRef.current = showCoachmark;
 		openGuideRef.current = openGuide;
-	}, [ agentic.enabled, hints, active, showCoachmark, openGuide ] );
+	}, [ agentic.chatEnabled, hints, active, showCoachmark, openGuide ] );
 
 	// First successful agent run → complete the checklist item, and (agentic
 	// only) fire the publish coachmark once.

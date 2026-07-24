@@ -155,9 +155,15 @@ Every event also carries the common props `channel`, `is_a11n`, `platform`, `arc
    `apps/cli/lib/tracks.ts`, or the `recordAnalyticsEvent` IPC handler / `Connector.trackEvent` from a
    renderer). Prefer a standardized property name from the vocabulary above; only add a custom prop when
    none fits, and flag it.
-3. **Register the event and its properties server-side** in the Tracks event schema. Events still flow
-   without this, but registration is what makes them and their props formally defined and reliably
-   queryable in the dashboards.
+3. **Register the event and its custom eventprops** via the Tracks Registration tool (the Tracks Events
+   Registration repo on GitHub). Registration is a metadata/documentation layer — it does **not** gate
+   data collection or queryability. An event with a valid name is already recorded and fully queryable in
+   Superset (`tracks.prod_events`) without registration. What registration adds: a description, owner, and
+   code/P2 links; a documented type + description for each custom eventprop; and CI checks that the
+   collected data matches the spec. It also unlocks the Tracks tools — and per the Tracks docs those tools
+   will eventually require registration — so it's worth doing even though raw querying doesn't need it.
+   Register each event together with its own custom eventprops; the default/common props (and the wrapper
+   props) come for free and are not registered per-event.
 4. Add a row to the event catalog above.
 
 ## Testing
@@ -197,7 +203,8 @@ What fires depends on the build, so pick the right method:
     `STUDIO_TRACKS_ORIGIN` is set — as the desktop injects when it spawns the CLI (e.g.
     `STUDIO_TRACKS_ORIGIN=studio-ui:v2`).
 - **Live pixel to `pixel.wp.com`.** Only a shipped npm/prod build sends the real request (dev/E2E always
-  no-ops). Best confirmed server-side once the events are registered.
+  no-ops). Confirm server-side by querying `tracks.prod_events` in Superset — collection doesn't require
+  registration, so a validly-named event shows up there whether or not it's registered.
 
 ## Privacy / GDPR
 

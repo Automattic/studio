@@ -7,7 +7,7 @@ import {
 	useAgentInstructions,
 	useSaveAgentInstructions,
 } from '@/data/queries/use-agent-instructions';
-import { usePreviewAgenticFeatures } from './settings-preview';
+import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import styles from './style.module.css';
 
 // Long enough that a normal typing burst lands as one write, short enough that
@@ -15,7 +15,7 @@ import styles from './style.module.css';
 const SAVE_DEBOUNCE_MS = 800;
 
 export function StudioCodePanel() {
-	const { reason } = usePreviewAgenticFeatures();
+	const { reason } = useAgenticFeatures();
 	const { data: saved } = useAgentInstructions();
 	const { mutate: save, isError } = useSaveAgentInstructions();
 	const [ edits, setEdits ] = useState< string | null >( null );

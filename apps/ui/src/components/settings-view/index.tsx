@@ -1,9 +1,15 @@
+import {
+	ACTIVITY_SOUND_EVENTS,
+	type ActivitySoundEvent,
+	type ActivitySoundId,
+	type ActivitySoundPreferences,
+} from '@studio/common/lib/activity-sounds';
 import { supportedLocaleNames } from '@studio/common/lib/locale';
 import { SUPPORTED_EDITORS, supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { SUPPORTED_TERMINALS, terminalConfig } from '@studio/common/lib/user-settings/terminal';
-import { CheckboxControl } from '@wordpress/components';
+import { CheckboxControl, FormToggle } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
-import { close, file, Icon } from '@wordpress/icons';
+import { audio, close, file, Icon } from '@wordpress/icons';
 import { Button, IconButton, SelectControl } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useState } from 'react';
@@ -14,16 +20,12 @@ import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSettingsClose } from '@/hooks/use-settings-close';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
+import { playActivitySound } from '@/lib/activity-sounds';
 import { AccountSection } from './account-section';
 import { AiPanel } from './ai-panel';
 import { KeyboardPanel } from './keyboard-panel';
 import { McpSection } from './mcp-panel';
 import { UNSET, toPreferencesFormData, toPreferencesPatch } from './preferences';
-import {
-	SettingsPreviewPanel,
-	SettingsPreviewProvider,
-	SHOW_PREVIEW_CONTROLS,
-} from './settings-preview';
 import { StudioCliSection } from './studio-cli-section';
 import styles from './style.module.css';
 import type { PreferencesFormData } from './preferences';
@@ -281,6 +283,106 @@ function StudioExperienceSection() {
 	);
 }
 
+function activitySoundOptions(): Array< { value: ActivitySoundId | 'none'; label: string } > {
+	return [
+		{ value: 'none', label: __( 'None' ) },
+		{ value: 'soft-chime', label: __( 'Soft chime' ) },
+		{ value: 'bright-chime', label: __( 'Bright chime' ) },
+		{ value: 'pop', label: __( 'Pop' ) },
+		{ value: 'pulse', label: __( 'Pulse' ) },
+	];
+}
+
+function activitySoundEventLabel( event: ActivitySoundEvent ): string {
+	switch ( event ) {
+		case 'attention-required':
+			return __( 'Needs your input' );
+		case 'agent-complete':
+			return __( 'Agent finished' );
+		case 'sync-started':
+			return __( 'Sync started' );
+		case 'sync-complete':
+			return __( 'Sync finished' );
+		case 'sync-failed':
+			return __( 'Sync failed' );
+	}
+}
+
+function ActivitySoundsSection( {
+	value,
+	onChange,
+}: {
+	value: ActivitySoundPreferences;
+	onChange: ( value: ActivitySoundPreferences ) => void;
+} ) {
+	const options = activitySoundOptions();
+
+	return (
+		<section className={ clsx( styles.card, ! value.enabled && styles.cardDisabled ) }>
+			<div className={ styles.cardHeader }>
+				<div className={ styles.cardHeaderText }>
+					<h2 className={ styles.cardTitle }>{ __( 'Activity sounds' ) }</h2>
+					<p className={ styles.cardDescription }>
+						{ __( 'Choose the sounds Studio plays for agent and live-site activity.' ) }
+					</p>
+				</div>
+				<div className={ clsx( styles.cardHeaderActions, styles.toggleControl ) }>
+					<FormToggle
+						aria-label={ __( 'Activity sounds' ) }
+						checked={ value.enabled }
+						onChange={ ( event ) => onChange( { ...value, enabled: event.target.checked } ) }
+					/>
+				</div>
+			</div>
+			{ value.enabled ? (
+				<div className={ styles.fieldList }>
+					{ ACTIVITY_SOUND_EVENTS.map( ( event ) => {
+						const selectedSound = value.events[ event ];
+						const label = activitySoundEventLabel( event );
+						return (
+							<PreferenceRow key={ event } title={ label }>
+								<div className={ styles.soundControl }>
+									<PreferenceSelect< ActivitySoundId | 'none' >
+										label={ label }
+										value={ selectedSound ?? 'none' }
+										options={ options }
+										onChange={ ( soundId ) =>
+											onChange( {
+												...value,
+												events: {
+													...value.events,
+													[ event ]: soundId === 'none' ? null : soundId,
+												},
+											} )
+										}
+									/>
+									<IconButton
+										variant="minimal"
+										tone="neutral"
+										size="small"
+										icon={ audio }
+										label={ sprintf(
+											/* translators: %s: the activity that plays the sound, e.g. "Agent finished". */
+											__( 'Preview sound for %s' ),
+											label
+										) }
+										disabled={ ! selectedSound }
+										onClick={ () => {
+											if ( selectedSound ) {
+												void playActivitySound( selectedSound );
+											}
+										} }
+									/>
+								</div>
+							</PreferenceRow>
+						);
+					} ) }
+				</div>
+			) : null }
+		</section>
+	);
+}
+
 function PreferencesPanel( {
 	data,
 	installedApps,
@@ -360,6 +462,10 @@ function PreferencesPanel( {
 						</PreferenceRow>
 					</div>
 				</section>
+				<ActivitySoundsSection
+					value={ data.activitySoundPreferences }
+					onChange={ ( activitySoundPreferences ) => onChange( { activitySoundPreferences } ) }
+				/>
 				<KeyboardPanel />
 				<StudioCliSection />
 				<McpSection />
@@ -442,38 +548,35 @@ export function SettingsView( {
 	};
 
 	return (
-		<SettingsPreviewProvider>
-			<div className={ styles.root }>
-				<Tabs.Root
-					selectedTabId={ activeTab }
-					onSelect={ ( tabId ) => {
-						if ( tabId && isSettingsTab( tabId ) ) {
-							onTabChange( tabId );
-						}
-					} }
-				>
-					<SettingsHeader />
+		<div className={ styles.root }>
+			<Tabs.Root
+				selectedTabId={ activeTab }
+				onSelect={ ( tabId ) => {
+					if ( tabId && isSettingsTab( tabId ) ) {
+						onTabChange( tabId );
+					}
+				} }
+			>
+				<SettingsHeader />
 
-					<div className={ styles.scroll }>
-						<div className={ styles.contentBlock }>
-							<Tabs.Panel tabId="preferences">
-								<PreferencesPanel
-									data={ data }
-									installedApps={ installedApps }
-									saveError={ savePreferences.isError }
-									onColorSchemeChange={ handleColorSchemeChange }
-									onDefaultSiteDirectorySelect={ () => void handleSelectDefaultDirectory() }
-									onChange={ handleChange }
-								/>
-							</Tabs.Panel>
-							<Tabs.Panel tabId="ai">
-								<AiPanel />
-							</Tabs.Panel>
-						</div>
+				<div className={ styles.scroll }>
+					<div className={ styles.contentBlock }>
+						<Tabs.Panel tabId="preferences">
+							<PreferencesPanel
+								data={ data }
+								installedApps={ installedApps }
+								saveError={ savePreferences.isError }
+								onColorSchemeChange={ handleColorSchemeChange }
+								onDefaultSiteDirectorySelect={ () => void handleSelectDefaultDirectory() }
+								onChange={ handleChange }
+							/>
+						</Tabs.Panel>
+						<Tabs.Panel tabId="ai">
+							<AiPanel />
+						</Tabs.Panel>
 					</div>
-				</Tabs.Root>
-			</div>
-			{ SHOW_PREVIEW_CONTROLS ? <SettingsPreviewPanel /> : null }
-		</SettingsPreviewProvider>
+				</div>
+			</Tabs.Root>
+		</div>
 	);
 }

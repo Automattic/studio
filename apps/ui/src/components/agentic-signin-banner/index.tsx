@@ -65,7 +65,7 @@ export function AgenticSigninBanner() {
 					<Button
 						type="button"
 						variant="solid"
-						tone="brand"
+						tone="neutral"
 						size="small"
 						loading={ login.isPending }
 						onClick={ () => login.mutate() }

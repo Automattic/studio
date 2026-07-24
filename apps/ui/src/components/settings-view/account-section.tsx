@@ -4,11 +4,10 @@ import { Button } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { Gravatar } from '@/components/gravatar';
 import { useConnector } from '@/data/core';
-import { useLogin, useLogout } from '@/data/queries/use-auth-user';
+import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { getLocalizedLink, REPORT_ISSUE_URL } from '@/lib/docs-links';
-import { usePreviewAuthUser } from './settings-preview';
 import styles from './style.module.css';
 import { AiCreditsSection, PreviewUsageSection } from './usage-panel';
 
@@ -55,7 +54,7 @@ function AccountHelpLinks() {
 }
 
 export function AccountSection() {
-	const { data: user, isLoading } = usePreviewAuthUser();
+	const { data: user, isLoading } = useAuthUser();
 	const login = useLogin();
 	const logout = useLogout();
 	const themeIsDark = useColorScheme() === 'dark';
@@ -98,7 +97,7 @@ export function AccountSection() {
 						type="button"
 						className={ styles.signinButton }
 						variant="solid"
-						tone="brand"
+						tone="neutral"
 						size="small"
 						disabled={ isLoading }
 						loading={ login.isPending }

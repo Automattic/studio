@@ -3,9 +3,9 @@ import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { OfflineNotice } from '@/components/offline-banner';
 import { useConnector } from '@/data/core';
+import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { AccountSection } from './account-section';
-import { usePreviewAgenticFeatures } from './settings-preview';
 import { SkillsPanel } from './skills-panel';
 import { StudioCodePanel } from './studio-code-panel';
 import styles from './style.module.css';
@@ -16,7 +16,7 @@ import styles from './style.module.css';
 // Agentic features need a WordPress.com account, so the toggle is locked (and
 // reads off) until the user signs in.
 function AgenticFeaturesSection() {
-	const { reason } = usePreviewAgenticFeatures();
+	const { reason } = useAgenticFeatures();
 	const { data: preferences, isLoading } = useUserPreferences();
 	const savePreferences = useSaveUserPreferences();
 	const enabled = preferences?.agenticFeaturesEnabled ?? true;
@@ -54,7 +54,7 @@ export function AiPanel() {
 	// Offline is the one whole-tab state worth a banner here; the signed-out
 	// sign-in pitch and the usage meters (AI credits, preview sites) live in the
 	// account sidebar.
-	const { reason } = usePreviewAgenticFeatures();
+	const { reason } = useAgenticFeatures();
 
 	return (
 		<div className={ styles.settingsLayout }>

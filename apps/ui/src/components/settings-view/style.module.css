@@ -923,6 +923,17 @@
 	inline-size: 240px;
 }
 
+/* Per-event activity-sound row: the sound select plus its preview button. */
+.soundControl {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-gap-sm);
+}
+
+.soundControl .selectControl {
+	inline-size: 180px;
+}
+
 /* ---- Default site directory picker --------------------------------------- */
 
 .pathPickerButton {

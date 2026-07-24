@@ -7,6 +7,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { Button, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useConnector } from '@/data/core';
+import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import {
 	useDeleteAllSnapshots,
@@ -14,7 +15,6 @@ import {
 	useSnapshots,
 } from '@/data/queries/use-snapshots';
 import { useUserLocale } from '@/data/queries/use-user-locale';
-import { usePreviewAgenticFeatures } from './settings-preview';
 import styles from './style.module.css';
 import type { ReactNode } from 'react';
 
@@ -75,7 +75,7 @@ function Meter( {
 // read (offline or signed out) rather than presenting a stale number as current.
 export function AiCreditsSection() {
 	const locale = useUserLocale();
-	const { reason } = usePreviewAgenticFeatures();
+	const { reason } = useAgenticFeatures();
 	const { data: quota, isLoading, isError } = useStudioAssistantQuota();
 	const unavailable = reason !== null;
 
@@ -224,7 +224,7 @@ function PreviewSitesSummary( { userId }: { userId: number } ) {
 // renders it for a signed-in user, so the sole unreadable state that reaches
 // here is offline — swap in a hatched placeholder rather than a stale count.
 export function PreviewUsageSection( { userId }: { userId: number } ) {
-	const { reason } = usePreviewAgenticFeatures();
+	const { reason } = useAgenticFeatures();
 
 	if ( reason === 'offline' ) {
 		return (

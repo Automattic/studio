@@ -10,7 +10,6 @@ import { vol } from 'memfs';
 import { vi } from 'vitest';
 import {
 	createSite,
-	deleteSite,
 	getFileSize,
 	getXdebugEnabledSite,
 	isFullscreen,
@@ -146,27 +145,6 @@ describe( 'createSite', () => {
 				noStart: true,
 			} ),
 			expect.any( Object )
-		);
-	} );
-} );
-
-describe( 'deleteSite', () => {
-	it( 'delegates deletion to the site server CLI cascade', async () => {
-		const deleteServer = vi.fn().mockResolvedValue( undefined );
-		vi.mocked( SiteServer.get ).mockReturnValue( { delete: deleteServer } as never );
-
-		await deleteSite( mockIpcMainInvokeEvent, 'site-1', true );
-
-		expect( deleteServer ).toHaveBeenCalledWith( true );
-	} );
-
-	it( 'reports site deletion failures', async () => {
-		vi.mocked( SiteServer.get ).mockReturnValue( {
-			delete: vi.fn().mockRejectedValue( new Error( 'delete failed' ) ),
-		} as never );
-
-		await expect( deleteSite( mockIpcMainInvokeEvent, 'site-1', true ) ).rejects.toThrow(
-			'delete failed'
 		);
 	} );
 } );

@@ -62,12 +62,19 @@
 	font-weight: 500;
 }
 
+.siteControls {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 32px;
+}
+
 .search {
 	display: flex;
 	align-items: center;
 	gap: 8px;
 	width: min(100%, 520px);
-	margin: 0 auto 28px;
 	padding: 0 12px;
 	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
 	border-radius: 6px;
@@ -95,38 +102,21 @@
 	color: var(--wpds-color-fg-content-neutral-weak);
 }
 
-.sections {
+.helperLinks {
 	display: flex;
-	flex-direction: column;
-	gap: 40px;
-	text-align: start;
-}
-
-.section {
-	display: flex;
-	flex-direction: column;
-	gap: 16px;
-}
-
-.sectionHeader {
-	text-align: center;
-}
-
-.sectionHeader h2 {
-	margin: 0 0 4px;
-	font-size: var(--wpds-typography-font-size-lg);
-	font-weight: 500;
-}
-
-.sectionHeader p {
+	align-items: center;
+	gap: 2px;
 	margin: 0;
 	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-sm);
+}
+
+.helperLinks button {
+	padding-inline: 2px;
 }
 
 .siteGrid {
 	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+	grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
 	gap: 20px;
 	margin: 0;
 	padding: 0;
@@ -151,18 +141,16 @@
 	flex-direction: column;
 	width: 100%;
 	padding: 6px;
-	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
+	border: 0;
 	border-radius: 12px;
-	background: var(--wpds-color-bg-surface-neutral);
+	background: transparent;
 	color: var(--wpds-color-fg-content-neutral);
 	cursor: pointer;
 	text-align: start;
-	transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.siteCard:hover,
-.siteCardSelected {
-	border-color: var(--wpds-color-stroke-interactive-brand);
+.siteCard:not(:disabled):hover .siteThumb,
+.siteCardSelected .siteThumb {
 	box-shadow: 0 0 0 1px var(--wpds-color-stroke-interactive-brand);
 }
 
@@ -173,18 +161,19 @@
 
 .siteCardUnavailable,
 .siteCardUnavailable:hover {
-	border-color: var(--wpds-color-stroke-surface-neutral-weak);
-	box-shadow: none;
 	cursor: default;
 }
 
 .siteThumb {
+	position: relative;
 	display: block;
 	width: 100%;
 	aspect-ratio: 3 / 2;
 	overflow: hidden;
 	border-radius: 8px;
 	background: var(--wpds-color-bg-surface-neutral-strong);
+	box-shadow: 0 0 0 var(--wpds-border-width-xs) var(--wpds-color-stroke-surface-neutral);
+	transition: box-shadow 0.15s ease;
 }
 
 .siteThumb img {
@@ -221,17 +210,25 @@
 }
 
 .badges {
+	position: absolute;
+	inset-inline-end: 8px;
+	inset-block-end: 8px;
 	display: flex;
 	flex-wrap: wrap;
 	gap: 6px;
-	margin-top: 4px;
 }
 
-.siteStatus {
-	margin-top: 4px;
-	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-sm);
-	line-height: 1.4;
+.siteInfo {
+	position: absolute;
+	inset-block-start: 12px;
+	inset-inline-end: 12px;
+	z-index: 1;
+	background: color-mix(
+		in srgb,
+		var(--wpds-color-bg-surface-neutral-strong) 88%,
+		transparent
+	);
+	box-shadow: var(--wpds-elevation-sm);
 }
 
 .siteAction {

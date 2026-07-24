@@ -198,26 +198,6 @@ export async function removeConnectedWpcomSite(
 	}
 }
 
-export async function removeAllConnectedWpcomSitesForLocalSite(
-	localSiteId: string
-): Promise< void > {
-	try {
-		await lockSharedConfig();
-		const config = await readSharedConfig();
-		// A deleted local site cannot be recovered by signing into a different account.
-		for ( const userKey of Object.keys( config.connectedWpcomSites ?? {} ) ) {
-			const connections = getConnectionsForUser( config, userKey );
-			config.connectedWpcomSites![ userKey ] = connections.filter(
-				( connection ) => connection.localSiteId !== localSiteId
-			);
-			pruneEmptyConnectionsForUser( config, userKey );
-		}
-		await saveSharedConfig( config );
-	} finally {
-		await unlockSharedConfig();
-	}
-}
-
 /**
  * Updates specific connection entries in place (matched by remote site id and
  * local site id) for the current user. Entries that don't match an existing

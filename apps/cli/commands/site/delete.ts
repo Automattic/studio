@@ -1,7 +1,6 @@
 import fs from 'fs';
 import { deleteAiSessionsForSite } from '@studio/common/ai/sessions/manage';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
-import { removeAllConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
 import { readAuthToken, type StoredAuthToken } from '@studio/common/lib/shared-config';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
@@ -117,18 +116,6 @@ export async function runCommand(
 			await saveCliConfig( cliConfig );
 		} finally {
 			await unlockCliConfig();
-		}
-
-		try {
-			await removeAllConnectedWpcomSitesForLocalSite( site.id );
-		} catch ( error ) {
-			logger.reportError(
-				new LoggerError(
-					__( 'Failed to remove WordPress.com connections. Proceeding anyway…' ),
-					error
-				),
-				false
-			);
 		}
 
 		try {

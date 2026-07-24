@@ -1156,11 +1156,7 @@ export async function getSentryUserId( _event: IpcMainInvokeEvent ) {
 	return userData.sentryUserId;
 }
 
-export async function deleteSite(
-	_event: IpcMainInvokeEvent,
-	id: string,
-	deleteFiles = false
-): Promise< void > {
+export async function deleteSite( event: IpcMainInvokeEvent, id: string, deleteFiles = false ) {
 	const server = SiteServer.get( id );
 	console.log( 'Deleting site', id );
 	if ( ! server ) {

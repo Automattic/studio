@@ -9,17 +9,14 @@ const mocks = vi.hoisted( () => ( {
 	login: vi.fn(),
 	signup: vi.fn(),
 	remoteRefetch: vi.fn(),
-	connectionsRefetch: vi.fn(),
+	openExternalUrl: vi.fn(),
 	user: null as { id: number; email: string; displayName: string } | null,
 	authLoading: false,
 	isOffline: false,
 	remoteSites: [] as SyncSite[],
-	connections: [] as SyncSite[],
 	localSites: [] as SiteDetails[],
 	remoteLoading: false,
-	connectionsLoading: false,
 	remoteError: null as Error | null,
-	connectionsError: null as Error | null,
 	generateNumberedSiteName: vi.fn(),
 	generateProposedSitePath: vi.fn(),
 	connectWpcomSite: vi.fn(),
@@ -45,7 +42,7 @@ vi.mock( '@/data/core', () => ( {
 		generateNumberedSiteName: mocks.generateNumberedSiteName,
 		generateProposedSitePath: mocks.generateProposedSitePath,
 		connectWpcomSite: mocks.connectWpcomSite,
-		openExternalUrl: vi.fn(),
+		openExternalUrl: mocks.openExternalUrl,
 	} ),
 } ) );
 
@@ -69,6 +66,10 @@ vi.mock( '@/data/queries/use-sync-site', () => ( {
 	usePullSiteFromLive: () => ( { mutateAsync: mocks.pullSite } ),
 } ) );
 
+vi.mock( '@/data/queries/use-user-locale', () => ( {
+	useUserLocale: () => undefined,
+} ) );
+
 vi.mock( '@/data/queries/use-wpcom-sites', () => ( {
 	useSyncableWpcomSites: () => ( {
 		data: mocks.remoteSites,
@@ -76,13 +77,6 @@ vi.mock( '@/data/queries/use-wpcom-sites', () => ( {
 		isFetching: false,
 		error: mocks.remoteError,
 		refetch: mocks.remoteRefetch,
-	} ),
-	useAllConnectedWpcomSites: () => ( {
-		data: mocks.connections,
-		isLoading: mocks.connectionsLoading,
-		isFetching: false,
-		error: mocks.connectionsError,
-		refetch: mocks.connectionsRefetch,
 	} ),
 } ) );
 
@@ -116,12 +110,9 @@ describe( 'OnboardingConnectPage', () => {
 		mocks.authLoading = false;
 		mocks.isOffline = false;
 		mocks.remoteSites = [];
-		mocks.connections = [];
 		mocks.localSites = [];
 		mocks.remoteLoading = false;
-		mocks.connectionsLoading = false;
 		mocks.remoteError = null;
-		mocks.connectionsError = null;
 		mocks.generateNumberedSiteName.mockResolvedValue( 'Remote site' );
 		mocks.generateProposedSitePath.mockResolvedValue( {
 			path: '/sites/remote-site',
@@ -156,22 +147,20 @@ describe( 'OnboardingConnectPage', () => {
 		expect( mocks.navigate ).not.toHaveBeenCalled();
 	} );
 
-	it( 'shows provider, environment, syncability, and local connection information', () => {
+	it( 'shows provider and environment while keeping previously connected sites selectable', () => {
 		mocks.user = { id: 1, email: 'user@example.com', displayName: 'User' };
 		mocks.remoteSites = [
 			site( 1, { name: 'Pressable store', isPressable: true, environmentType: 'staging' } ),
-			site( 2, { name: 'Already local' } ),
+			site( 2, { name: 'Already local', syncSupport: 'already-connected' } ),
 			site( 3, { name: 'Free site', syncSupport: 'needs-upgrade', planName: 'Free' } ),
 		];
-		mocks.connections = [ site( 2, { localSiteId: 'local-2' } ) ];
-		mocks.localSites = [ { id: 'local-2', name: 'Local copy' } as SiteDetails ];
 
 		render( <OnboardingConnectPage /> );
 
 		expect( screen.getByText( 'Pressable' ) ).toBeInTheDocument();
 		expect( screen.getByText( 'Staging' ) ).toBeInTheDocument();
-		expect( screen.getByText( 'Connected to: Local copy' ) ).toBeInTheDocument();
-		expect( screen.getByText( 'Plan upgrade required' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Already local' ).closest( 'button' ) ).toBeEnabled();
+		expect( screen.getByText( 'Free site' ).closest( 'button' ) ).toBeDisabled();
 
 		fireEvent.change( screen.getByRole( 'searchbox', { name: 'Search sites' } ), {
 			target: { value: 'Pressable' },
@@ -221,7 +210,7 @@ describe( 'OnboardingConnectPage', () => {
 		);
 	} );
 
-	it( 'retries both the remote site and connection requests after an error', () => {
+	it( 'refreshes the remote site list after an error', () => {
 		mocks.user = { id: 1, email: 'user@example.com', displayName: 'User' };
 		mocks.remoteError = new Error( 'network failed' );
 
@@ -229,7 +218,20 @@ describe( 'OnboardingConnectPage', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'Retry' } ) );
 
 		expect( mocks.remoteRefetch ).toHaveBeenCalledOnce();
-		expect( mocks.connectionsRefetch ).toHaveBeenCalledOnce();
+	} );
+
+	it( 'offers refresh and supported-site helpers above the site grid', () => {
+		mocks.user = { id: 1, email: 'user@example.com', displayName: 'User' };
+		mocks.remoteSites = [ site( 1 ), site( 2 ) ];
+
+		render( <OnboardingConnectPage /> );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Refresh list' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: /Supported sites/ } ) );
+
+		expect( mocks.remoteRefetch ).toHaveBeenCalledOnce();
+		expect( mocks.openExternalUrl ).toHaveBeenCalledWith(
+			'https://developer.wordpress.com/docs/developer-tools/studio/sync/#supported-sites'
+		);
 	} );
 
 	it( 'opens the local site while pull and start continue in the background', async () => {

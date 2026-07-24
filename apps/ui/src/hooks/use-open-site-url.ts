@@ -45,6 +45,7 @@ export function useOpenSiteUrl( site: SiteDetails ) {
 		try {
 			const redirectTo = new URL( relativeUrl || '/', getSiteUrl( currentSite ) ).toString();
 			preview.setOpen( true );
+			preview.setSite( site.id );
 			preview.updatePath( `/studio-auto-login?redirect_to=${ encodeURIComponent( redirectTo ) }` );
 		} catch ( error ) {
 			// Malformed URL (shouldn't happen) — fall back to the browser so

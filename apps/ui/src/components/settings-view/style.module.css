@@ -2,8 +2,8 @@
 	--settings-content-width: 760px;
 	--settings-form-width: 560px;
 	--settings-divider-border: 1px dotted
-		color-mix(in srgb, var(--wpds-color-stroke-surface-neutral) 72%, transparent);
-	--settings-row-padding-block: calc(var(--wpds-dimension-padding-md) + 2px);
+		color-mix( in srgb, var( --wpds-color-stroke-surface-neutral ) 72%, transparent );
+	--settings-row-padding-block: calc( var( --wpds-dimension-padding-md ) + 2px );
 
 	display: flex;
 	flex-direction: column;
@@ -12,20 +12,20 @@
 }
 
 .state {
-	padding: var(--wpds-dimension-padding-xl);
-	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-sm);
-	line-height: var(--wpds-typography-line-height-md);
+	padding: var( --wpds-dimension-padding-xl );
+	color: var( --wpds-color-fg-content-neutral-weak );
+	font-size: var( --wpds-typography-font-size-sm );
+	line-height: var( --wpds-typography-line-height-md );
 }
 
 .header {
 	display: grid;
-	grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+	grid-template-columns: minmax( 0, 1fr ) auto minmax( 0, 1fr );
 	align-items: center;
-	gap: var(--wpds-dimension-padding-sm);
+	gap: var( --wpds-dimension-padding-sm );
 	min-height: 54px;
-	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
-	color: var(--wpds-color-fg-content-neutral);
+	border-bottom: 1px solid var( --wpds-color-stroke-surface-neutral );
+	color: var( --wpds-color-fg-content-neutral );
 	-webkit-app-region: drag;
 }
 
@@ -59,29 +59,29 @@
 	-webkit-app-region: no-drag;
 }
 
-.headerTabList :global([role='tab']) {
+.headerTabList :global( [role='tab'] ) {
 	box-sizing: border-box;
 	display: inline-flex !important;
 	align-items: center;
 	justify-content: center;
 	height: 40px !important;
 	padding-block: 0 !important;
-	padding-inline: var(--wpds-dimension-padding-lg) !important;
-	border-radius: var(--wpds-border-radius-sm);
+	padding-inline: var( --wpds-dimension-padding-lg ) !important;
+	border-radius: var( --wpds-border-radius-sm );
 	font-weight: 500 !important;
 	outline: 0 solid transparent;
 	outline-offset: 2px;
 	-webkit-app-region: no-drag;
 }
 
-.headerTabList :global([role='tab'])::after {
+.headerTabList :global( [role='tab'] )::after {
 	content: none !important;
 }
 
 .headerTabList
-	:global([role='tab']:not([aria-disabled='true']):is(:focus-visible, [data-focus-visible])) {
+	:global( [role='tab']:not( [aria-disabled='true'] ):is( :focus-visible, [data-focus-visible] ) ) {
 	box-shadow: none !important;
-	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus-brand) !important;
+	outline: var( --wpds-border-width-focus ) solid var( --wpds-color-stroke-focus-brand ) !important;
 	outline-offset: 2px !important;
 }
 
@@ -98,7 +98,7 @@
 	display: flex;
 	align-items: center;
 	justify-self: end;
-	padding-inline-end: var(--wpds-dimension-padding-lg);
+	padding-inline-end: var( --wpds-dimension-padding-lg );
 }
 
 .scroll {
@@ -110,18 +110,18 @@
 .contentBlock {
 	box-sizing: border-box;
 	width: 100%;
-	max-width: var(--settings-content-width);
+	max-width: var( --settings-content-width );
 	margin: 0 auto;
-	padding: var(--wpds-dimension-padding-2xl) var(--wpds-dimension-padding-xl)
-		var(--wpds-dimension-padding-2xl);
+	padding: var( --wpds-dimension-padding-2xl ) var( --wpds-dimension-padding-xl )
+		var( --wpds-dimension-padding-2xl );
 }
 
 .preferencesPanel {
 	display: flex;
 	flex-direction: column;
-	gap: var(--wpds-dimension-padding-xl);
+	gap: var( --wpds-dimension-padding-xl );
 	width: 100%;
-	max-width: var(--settings-form-width);
+	max-width: var( --settings-form-width );
 	margin: 0 auto;
 }
 
@@ -129,18 +129,18 @@
 	display: flex;
 	align-items: center;
 	justify-content: flex-end;
-	gap: var(--wpds-dimension-padding-md);
+	gap: var( --wpds-dimension-padding-md );
 }
 
 .instructionsCounter {
-	font-size: var(--wpds-typography-font-size-sm);
-	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var( --wpds-typography-font-size-sm );
+	color: var( --wpds-color-fg-content-neutral-weak );
 }
 
 .instructionsError {
 	margin: 0;
-	font-size: var(--wpds-typography-font-size-sm);
-	color: var(--wpds-color-fg-content-error);
+	font-size: var( --wpds-typography-font-size-sm );
+	color: var( --wpds-color-fg-content-error );
 }
 
 .preferenceSectionGroup {
@@ -148,28 +148,28 @@
 	display: flex;
 	flex-direction: column;
 	gap: 0;
-	padding: var(--wpds-dimension-padding-lg) var(--wpds-dimension-padding-xl)
-		var(--wpds-dimension-padding-xl);
-	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	padding: var( --wpds-dimension-padding-lg ) var( --wpds-dimension-padding-xl )
+		var( --wpds-dimension-padding-xl );
+	border: 1px solid var( --wpds-color-stroke-surface-neutral );
 	border-radius: 8px;
-	background: color-mix(in srgb, var(--wpds-color-bg-surface-neutral-weak) 56%, transparent);
+	background: color-mix( in srgb, var( --wpds-color-bg-surface-neutral-weak ) 56%, transparent );
 }
 
 .preferenceSectionHeading {
-	margin: 0 0 var(--wpds-dimension-padding-md);
-	color: var(--wpds-color-fg-content-neutral);
-	font-size: var(--wpds-typography-font-size-lg);
+	margin: 0 0 var( --wpds-dimension-padding-md );
+	color: var( --wpds-color-fg-content-neutral );
+	font-size: var( --wpds-typography-font-size-lg );
 	font-weight: 600;
-	line-height: var(--wpds-typography-line-height-md);
+	line-height: var( --wpds-typography-line-height-md );
 }
 
 .preferenceRow {
 	display: grid;
-	grid-template-columns: minmax(0, 1fr) max-content;
+	grid-template-columns: minmax( 0, 1fr ) max-content;
 	align-items: center;
-	column-gap: var(--wpds-dimension-padding-xl);
-	padding-block: var(--settings-row-padding-block);
-	border-bottom: var(--settings-divider-border);
+	column-gap: var( --wpds-dimension-padding-xl );
+	padding-block: var( --settings-row-padding-block );
+	border-bottom: var( --settings-divider-border );
 }
 
 .preferenceRow:last-child {
@@ -191,24 +191,24 @@
 .preferenceText {
 	display: flex;
 	flex-direction: column;
-	gap: var(--wpds-dimension-padding-xs);
+	gap: var( --wpds-dimension-padding-xs );
 	min-width: 0;
 }
 
 .preferenceText h2 {
 	margin: 0;
-	color: var(--wpds-color-fg-content-neutral);
-	font-size: var(--wpds-typography-font-size-md);
+	color: var( --wpds-color-fg-content-neutral );
+	font-size: var( --wpds-typography-font-size-md );
 	font-weight: 400;
-	line-height: var(--wpds-typography-line-height-sm);
+	line-height: var( --wpds-typography-line-height-sm );
 	white-space: nowrap;
 }
 
 .preferenceText p {
 	margin: 0;
-	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-sm);
-	line-height: var(--wpds-typography-line-height-sm);
+	color: var( --wpds-color-fg-content-neutral-weak );
+	font-size: var( --wpds-typography-font-size-sm );
+	line-height: var( --wpds-typography-line-height-sm );
 }
 
 .preferenceControl {
@@ -221,37 +221,37 @@
 .appearancePicker {
 	position: relative;
 	display: grid;
-	grid-template-columns: repeat(3, minmax(72px, 1fr));
+	grid-template-columns: repeat( 3, minmax( 72px, 1fr ) );
 	align-items: center;
 	gap: 0;
-	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
-	border-radius: var(--wpds-border-radius-sm);
-	background: var(--wpds-color-bg-interactive-neutral-weak);
-	color: var(--wpds-color-fg-interactive-neutral);
-	font-family: var(--wpds-typography-font-family-body);
-	font-size: var(--wpds-typography-font-size-md);
+	border: var( --wpds-border-width-xs ) solid var( --wpds-color-stroke-surface-neutral );
+	border-radius: var( --wpds-border-radius-sm );
+	background: var( --wpds-color-bg-interactive-neutral-weak );
+	color: var( --wpds-color-fg-interactive-neutral );
+	font-family: var( --wpds-typography-font-family-body );
+	font-size: var( --wpds-typography-font-size-md );
 	line-height: 1;
 }
 
 .appearancePicker::before {
 	content: '';
 	position: absolute;
-	inset-block: calc(var(--wpds-border-width-xs) * -1);
+	inset-block: calc( var( --wpds-border-width-xs ) * -1 );
 	inset-inline-start: 0;
 	box-sizing: border-box;
-	inline-size: calc(100% / 3);
-	border: 1px solid var(--wpds-color-stroke-interactive-neutral);
-	border-radius: var(--wpds-border-radius-sm);
-	background: var(--wpds-color-bg-interactive-neutral-weak);
+	inline-size: calc( 100% / 3 );
+	border: 1px solid var( --wpds-color-stroke-interactive-neutral );
+	border-radius: var( --wpds-border-radius-sm );
+	background: var( --wpds-color-bg-interactive-neutral-weak );
 	pointer-events: none;
-	transform: translateX(calc(var(--appearance-active-index, 0) * 100%));
+	transform: translateX( calc( var( --appearance-active-index, 0 ) * 100% ) );
 }
 
 /* The indicator is positioned with a logical inset but animated with a
    physical translateX, so RTL needs the sign flipped to slide toward the
    selected option instead of away from it. */
-.appearancePicker:dir(rtl)::before {
-	transform: translateX(calc(var(--appearance-active-index, 0) * -100%));
+.appearancePicker:dir( rtl )::before {
+	transform: translateX( calc( var( --appearance-active-index, 0 ) * -100% ) );
 }
 
 .appearancePicker[data-active-index='0'] {
@@ -266,9 +266,9 @@
 	--appearance-active-index: 2;
 }
 
-@media not (prefers-reduced-motion) {
+@media not ( prefers-reduced-motion ) {
 	.appearancePicker::before {
-		transition: transform 180ms cubic-bezier(0.2, 0, 0, 1);
+		transition: transform 180ms cubic-bezier( 0.2, 0, 0, 1 );
 	}
 }
 
@@ -276,27 +276,27 @@
 	position: relative;
 	z-index: 1;
 	min-height: 32px;
-	padding: 0 var(--wpds-dimension-padding-lg);
+	padding: 0 var( --wpds-dimension-padding-lg );
 	border: 0;
-	border-radius: var(--wpds-border-radius-sm);
+	border-radius: var( --wpds-border-radius-sm );
 	background: transparent;
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var( --wpds-color-fg-content-neutral-weak );
 	font: inherit;
 	/* Match SelectControl's trigger text so all controls in a card read the
 	   same size. */
-	font-size: var(--wpds-typography-font-size-md);
-	line-height: var(--wpds-typography-line-height-sm);
+	font-size: var( --wpds-typography-font-size-md );
+	line-height: var( --wpds-typography-line-height-sm );
 	cursor: pointer;
 }
 
 .appearanceButton:hover,
 .appearanceButtonActive {
-	color: var(--wpds-color-fg-content-neutral);
+	color: var( --wpds-color-fg-content-neutral );
 }
 
 .appearanceButton:focus-visible,
 .selectControl:focus-visible {
-	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus-brand);
+	outline: var( --wpds-border-width-focus ) solid var( --wpds-color-stroke-focus-brand );
 	outline-offset: 2px;
 }
 
@@ -309,7 +309,7 @@
    label `hideLabelFromVision` renders: it's absolutely positioned, so
    stretching it makes it hang past the layout and create horizontal
    overflow. */
-.selectControl > *:not([data-visually-hidden]) {
+.selectControl > *:not( [data-visually-hidden] ) {
 	inline-size: 100%;
 }
 
@@ -321,8 +321,8 @@
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	gap: var(--wpds-dimension-padding-xl);
-	margin-block-end: var(--wpds-dimension-padding-xl);
+	gap: var( --wpds-dimension-padding-xl );
+	margin-block-end: var( --wpds-dimension-padding-xl );
 }
 
 .accountHeading {
@@ -331,7 +331,7 @@
 
 .accountActions {
 	display: flex;
-	gap: var(--wpds-dimension-padding-md);
+	gap: var( --wpds-dimension-padding-md );
 	flex-wrap: wrap;
 }
 
@@ -339,14 +339,14 @@
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	gap: var(--wpds-dimension-padding-xl);
+	gap: var( --wpds-dimension-padding-xl );
 	min-width: 0;
 }
 
 .accountIdentity {
 	display: flex;
 	align-items: center;
-	gap: var(--wpds-dimension-padding-md);
+	gap: var( --wpds-dimension-padding-md );
 	min-width: 0;
 }
 
@@ -367,17 +367,17 @@
 
 .accountDetails h2 {
 	margin: 0;
-	color: var(--wpds-color-fg-content-neutral);
-	font-size: var(--wpds-typography-font-size-md);
+	color: var( --wpds-color-fg-content-neutral );
+	font-size: var( --wpds-typography-font-size-md );
 	font-weight: 600;
-	line-height: var(--wpds-typography-line-height-sm);
+	line-height: var( --wpds-typography-line-height-sm );
 }
 
 .accountDetails p {
 	margin: 0;
-	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-sm);
-	line-height: var(--wpds-typography-line-height-sm);
+	color: var( --wpds-color-fg-content-neutral-weak );
+	font-size: var( --wpds-typography-font-size-sm );
+	line-height: var( --wpds-typography-line-height-sm );
 	overflow-wrap: anywhere;
 }
 
@@ -386,30 +386,30 @@
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	gap: var(--wpds-dimension-padding-lg);
+	gap: var( --wpds-dimension-padding-lg );
 	inline-size: 240px;
 	max-inline-size: 100%;
 	min-block-size: 36px;
-	padding: 0 var(--wpds-dimension-padding-lg);
-	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-interactive-neutral);
-	border-radius: var(--wpds-border-radius-sm);
-	background: var(--wpds-color-bg-surface-neutral);
-	color: var(--wpds-color-fg-content-neutral);
-	font-family: var(--wpds-typography-font-family-body);
+	padding: 0 var( --wpds-dimension-padding-lg );
+	border: var( --wpds-border-width-xs ) solid var( --wpds-color-stroke-interactive-neutral );
+	border-radius: var( --wpds-border-radius-sm );
+	background: var( --wpds-color-bg-surface-neutral );
+	color: var( --wpds-color-fg-content-neutral );
+	font-family: var( --wpds-typography-font-family-body );
 	/* Match SelectControl's trigger text so all controls in a card read the
 	   same size. */
-	font-size: var(--wpds-typography-font-size-md);
-	line-height: var(--wpds-typography-line-height-sm);
+	font-size: var( --wpds-typography-font-size-md );
+	line-height: var( --wpds-typography-line-height-sm );
 	text-align: start;
 	cursor: pointer;
 }
 
 .pathPickerButton:hover {
-	border-color: var(--wpds-color-stroke-interactive-neutral-active);
+	border-color: var( --wpds-color-stroke-interactive-neutral-active );
 }
 
 .pathPickerButton:focus-visible {
-	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus-brand);
+	outline: var( --wpds-border-width-focus ) solid var( --wpds-color-stroke-focus-brand );
 	outline-offset: 2px;
 }
 
@@ -422,7 +422,7 @@
 }
 
 .pathPickerPlaceholder {
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var( --wpds-color-fg-content-neutral-weak );
 }
 
 .pathPickerIcon {
@@ -434,37 +434,38 @@
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	gap: var(--wpds-dimension-padding-xl);
+	gap: var( --wpds-dimension-padding-xl );
 }
 
 .cliHeading {
 	margin-block-end: 0;
 }
 
-.cliHeader :global(.components-form-toggle .components-form-toggle__track) {
-	background-color: var(--wpds-color-bg-track-neutral-weak);
-	border-color: var(--wpds-color-stroke-interactive-neutral);
+.cliHeader :global( .components-form-toggle .components-form-toggle__track ) {
+	background-color: var( --wpds-color-bg-track-neutral-weak );
+	border-color: var( --wpds-color-stroke-interactive-neutral );
 }
 
-.cliHeader :global(.components-form-toggle .components-form-toggle__thumb) {
-	background-color: var(--wpds-color-bg-thumb-neutral-weak);
+.cliHeader :global( .components-form-toggle .components-form-toggle__thumb ) {
+	background-color: var( --wpds-color-bg-thumb-neutral-weak );
 }
 
-.cliHeader :global(.components-form-toggle.is-checked .components-form-toggle__track) {
-	background-color: var(--wpds-color-bg-interactive-brand-strong);
-	border-color: var(--wpds-color-stroke-interactive-brand);
+.cliHeader :global( .components-form-toggle.is-checked .components-form-toggle__track ) {
+	background-color: var( --wpds-color-bg-interactive-brand-strong );
+	border-color: var( --wpds-color-stroke-interactive-brand );
 }
 
-.cliHeader :global(.components-form-toggle.is-checked .components-form-toggle__thumb) {
-	background-color: var(--wpds-color-fg-interactive-brand-strong);
+.cliHeader :global( .components-form-toggle.is-checked .components-form-toggle__thumb ) {
+	background-color: var( --wpds-color-fg-interactive-brand-strong );
 }
 
 .cliHeader
-	:global(.components-form-toggle .components-form-toggle__input:focus
-		+ .components-form-toggle__track) {
+	:global(
+		.components-form-toggle .components-form-toggle__input:focus + .components-form-toggle__track
+	) {
 	box-shadow:
-		0 0 0 var(--wpds-border-width-focus) var(--wpds-color-bg-surface-neutral),
-		0 0 0 calc(2 * var(--wpds-border-width-focus)) var(--wpds-color-stroke-focus-brand);
+		0 0 0 var( --wpds-border-width-focus ) var( --wpds-color-bg-surface-neutral ),
+		0 0 0 calc( 2 * var( --wpds-border-width-focus ) ) var( --wpds-color-stroke-focus-brand );
 }
 
 .cliToggleTrigger {
@@ -473,21 +474,21 @@
 
 /* Disabled form controls swallow hover events, which would keep the wrapper's
    tooltip from ever opening. */
-.cliToggleTrigger :global(input:disabled) {
+.cliToggleTrigger :global( input:disabled ) {
 	pointer-events: none;
 }
 
 .cliTooltip {
 	max-inline-size: 280px;
-	line-height: var(--wpds-typography-line-height-sm);
+	line-height: var( --wpds-typography-line-height-sm );
 }
 
 .cliDescription {
 	max-inline-size: 460px;
 	margin: 0;
-	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-sm);
-	line-height: var(--wpds-typography-line-height-sm);
+	color: var( --wpds-color-fg-content-neutral-weak );
+	font-size: var( --wpds-typography-font-size-sm );
+	line-height: var( --wpds-typography-line-height-sm );
 }
 
 .shortcutList {
@@ -498,11 +499,11 @@
 
 .shortcutRow {
 	display: grid;
-	grid-template-columns: minmax(0, 1fr) auto;
+	grid-template-columns: minmax( 0, 1fr ) auto;
 	align-items: center;
-	column-gap: var(--wpds-dimension-padding-xl);
-	padding-block: var(--settings-row-padding-block);
-	border-bottom: var(--settings-divider-border);
+	column-gap: var( --wpds-dimension-padding-xl );
+	padding-block: var( --settings-row-padding-block );
+	border-bottom: var( --settings-divider-border );
 }
 
 .shortcutRow:last-child {
@@ -511,17 +512,17 @@
 }
 
 .shortcutName {
-	color: var(--wpds-color-fg-content-neutral);
-	font-size: var(--wpds-typography-font-size-md);
+	color: var( --wpds-color-fg-content-neutral );
+	font-size: var( --wpds-typography-font-size-md );
 	font-weight: 400;
-	line-height: var(--wpds-typography-line-height-sm);
+	line-height: var( --wpds-typography-line-height-sm );
 }
 
 .shortcutKeys {
 	display: flex;
 	align-items: center;
 	justify-content: flex-end;
-	gap: var(--wpds-dimension-padding-xs);
+	gap: var( --wpds-dimension-padding-xs );
 	flex-wrap: wrap;
 }
 
@@ -532,39 +533,39 @@
 	justify-content: center;
 	min-inline-size: 26px;
 	min-block-size: 26px;
-	padding: 0 var(--wpds-dimension-padding-xs);
-	border: 1px solid var(--wpds-color-stroke-surface-neutral);
-	border-radius: var(--wpds-border-radius-sm);
-	background: var(--wpds-color-bg-surface-neutral);
-	color: var(--wpds-color-fg-content-neutral);
-	font-family: var(--wpds-typography-font-family-body);
-	font-size: var(--wpds-typography-font-size-xs);
+	padding: 0 var( --wpds-dimension-padding-xs );
+	border: 1px solid var( --wpds-color-stroke-surface-neutral );
+	border-radius: var( --wpds-border-radius-sm );
+	background: var( --wpds-color-bg-surface-neutral );
+	color: var( --wpds-color-fg-content-neutral );
+	font-family: var( --wpds-typography-font-family-body );
+	font-size: var( --wpds-typography-font-size-xs );
 	font-weight: 500;
 	line-height: 1;
 }
 
 .errorMessage {
-	margin-block-end: var(--wpds-dimension-padding-md);
-	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md);
-	border: 1px solid color-mix(in srgb, var(--wpds-color-fg-content-error) 35%, transparent);
+	margin-block-end: var( --wpds-dimension-padding-md );
+	padding: var( --wpds-dimension-padding-sm ) var( --wpds-dimension-padding-md );
+	border: 1px solid color-mix( in srgb, var( --wpds-color-fg-content-error ) 35%, transparent );
 	border-radius: 6px;
 	background: color-mix(
 		in srgb,
-		var(--wpds-color-fg-content-error) 8%,
-		var(--wpds-color-bg-surface-neutral-strong)
+		var( --wpds-color-fg-content-error ) 8%,
+		var( --wpds-color-bg-surface-neutral-strong )
 	);
-	color: var(--wpds-color-fg-content-error);
-	font-size: var(--wpds-typography-font-size-sm);
-	line-height: var(--wpds-typography-line-height-sm);
+	color: var( --wpds-color-fg-content-error );
+	font-size: var( --wpds-typography-font-size-sm );
+	line-height: var( --wpds-typography-line-height-sm );
 }
 
 .skillsPanel,
 .usagePanel {
 	display: flex;
 	flex-direction: column;
-	gap: var(--wpds-dimension-padding-xl);
+	gap: var( --wpds-dimension-padding-xl );
 	width: 100%;
-	max-width: var(--settings-form-width);
+	max-width: var( --settings-form-width );
 	margin: 0 auto;
 }
 
@@ -573,40 +574,40 @@
 	display: flex;
 	flex-direction: column;
 	align-items: stretch;
-	gap: var(--wpds-dimension-padding-lg);
-	padding: var(--wpds-dimension-padding-lg) var(--wpds-dimension-padding-xl)
-		var(--wpds-dimension-padding-xl);
-	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	gap: var( --wpds-dimension-padding-lg );
+	padding: var( --wpds-dimension-padding-lg ) var( --wpds-dimension-padding-xl )
+		var( --wpds-dimension-padding-xl );
+	border: 1px solid var( --wpds-color-stroke-surface-neutral );
 	border-radius: 8px;
-	background: color-mix(in srgb, var(--wpds-color-bg-surface-neutral-weak) 56%, transparent);
+	background: color-mix( in srgb, var( --wpds-color-bg-surface-neutral-weak ) 56%, transparent );
 }
 
 .settingsPanelHeader {
 	display: flex;
 	flex-direction: column;
-	gap: var(--wpds-dimension-padding-xs);
+	gap: var( --wpds-dimension-padding-xs );
 }
 
 .settingsPanelHeader h2 {
 	margin: 0;
-	color: var(--wpds-color-fg-content-neutral);
-	font-size: var(--wpds-typography-font-size-lg);
+	color: var( --wpds-color-fg-content-neutral );
+	font-size: var( --wpds-typography-font-size-lg );
 	font-weight: 600;
-	line-height: var(--wpds-typography-line-height-md);
+	line-height: var( --wpds-typography-line-height-md );
 }
 
 .settingsPanelHeader p {
 	margin: 0;
-	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-sm);
-	line-height: var(--wpds-typography-line-height-md);
+	color: var( --wpds-color-fg-content-neutral-weak );
+	font-size: var( --wpds-typography-font-size-sm );
+	line-height: var( --wpds-typography-line-height-md );
 }
 
 .skillsHeaderRow {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	gap: var(--wpds-dimension-padding-md);
+	gap: var( --wpds-dimension-padding-md );
 	/* Compact wpds Button height, reserved so the header doesn't jump when
 	   the Install all button appears or disappears. */
 	min-block-size: 32px;
@@ -616,16 +617,16 @@
 	list-style: none;
 	margin: 0;
 	padding: 0;
-	border-top: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border-top: 1px solid var( --wpds-color-stroke-surface-neutral );
 }
 
 .skillRow {
 	display: grid;
-	grid-template-columns: minmax(0, 1fr) auto;
+	grid-template-columns: minmax( 0, 1fr ) auto;
 	align-items: center;
-	gap: var(--wpds-dimension-padding-xl);
-	padding-block: var(--wpds-dimension-padding-lg);
-	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
+	gap: var( --wpds-dimension-padding-xl );
+	padding-block: var( --wpds-dimension-padding-lg );
+	border-bottom: 1px solid var( --wpds-color-stroke-surface-neutral );
 }
 
 .skillRow:last-child {
@@ -640,23 +641,23 @@
 }
 
 .skillName {
-	color: var(--wpds-color-fg-content-neutral);
-	font-size: var(--wpds-typography-font-size-sm);
+	color: var( --wpds-color-fg-content-neutral );
+	font-size: var( --wpds-typography-font-size-sm );
 	font-weight: 600;
-	line-height: var(--wpds-typography-line-height-sm);
+	line-height: var( --wpds-typography-line-height-sm );
 }
 
 .skillDescription {
-	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-sm);
-	line-height: var(--wpds-typography-line-height-sm);
+	color: var( --wpds-color-fg-content-neutral-weak );
+	font-size: var( --wpds-typography-font-size-sm );
+	line-height: var( --wpds-typography-line-height-sm );
 }
 
 .sectionIntro {
-	margin: 0 0 var(--wpds-dimension-padding-lg);
-	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-sm);
-	line-height: var(--wpds-typography-line-height-md);
+	margin: 0 0 var( --wpds-dimension-padding-lg );
+	color: var( --wpds-color-fg-content-neutral-weak );
+	font-size: var( --wpds-typography-font-size-sm );
+	line-height: var( --wpds-typography-line-height-md );
 }
 
 .codeBlockWrap {
@@ -665,12 +666,12 @@
 
 .codeBlock {
 	margin: 0;
-	padding: var(--wpds-dimension-padding-md);
-	padding-inline-end: calc(var(--wpds-dimension-padding-xl) + 32px);
-	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	padding: var( --wpds-dimension-padding-md );
+	padding-inline-end: calc( var( --wpds-dimension-padding-xl ) + 32px );
+	border: 1px solid var( --wpds-color-stroke-surface-neutral );
 	border-radius: 6px;
-	background: var(--wpds-color-bg-surface-neutral);
-	color: var(--wpds-color-fg-content-neutral);
+	background: var( --wpds-color-bg-surface-neutral );
+	color: var( --wpds-color-fg-content-neutral );
 	font-family: var(
 		--wpds-typography-font-family-mono,
 		ui-monospace,
@@ -678,49 +679,51 @@
 		Menlo,
 		monospace
 	);
-	font-size: var(--wpds-typography-font-size-sm);
-	line-height: var(--wpds-typography-line-height-md);
+	font-size: var( --wpds-typography-font-size-sm );
+	line-height: var( --wpds-typography-line-height-md );
 	overflow-x: auto;
 	white-space: pre;
 }
 
 .codeBlockCopyButton {
 	position: absolute;
-	inset-block-start: var(--wpds-dimension-padding-sm);
-	inset-inline-end: var(--wpds-dimension-padding-sm);
+	inset-block-start: var( --wpds-dimension-padding-sm );
+	inset-inline-end: var( --wpds-dimension-padding-sm );
 	z-index: 1;
 }
 
-.toggleControl :global(.components-form-toggle .components-form-toggle__track) {
-	background-color: var(--wpds-color-bg-track-neutral-weak);
-	border-color: var(--wpds-color-stroke-interactive-neutral);
+.toggleControl :global( .components-form-toggle .components-form-toggle__track ) {
+	background-color: var( --wpds-color-bg-track-neutral-weak );
+	border-color: var( --wpds-color-stroke-interactive-neutral );
 }
 
-.toggleControl :global(.components-form-toggle .components-form-toggle__thumb) {
-	background-color: var(--wpds-color-bg-thumb-neutral-weak);
+.toggleControl :global( .components-form-toggle .components-form-toggle__thumb ) {
+	background-color: var( --wpds-color-bg-thumb-neutral-weak );
 }
 
-.toggleControl :global(.components-form-toggle.is-checked .components-form-toggle__track) {
-	background-color: var(--wpds-color-bg-interactive-brand-strong);
-	border-color: var(--wpds-color-stroke-interactive-brand);
+.toggleControl :global( .components-form-toggle.is-checked .components-form-toggle__track ) {
+	background-color: var( --wpds-color-bg-interactive-brand-strong );
+	border-color: var( --wpds-color-stroke-interactive-brand );
 }
 
-.toggleControl :global(.components-form-toggle.is-checked .components-form-toggle__thumb) {
-	background-color: var(--wpds-color-fg-interactive-brand-strong);
+.toggleControl :global( .components-form-toggle.is-checked .components-form-toggle__thumb ) {
+	background-color: var( --wpds-color-fg-interactive-brand-strong );
 }
 
 .toggleControl
-	:global(.components-form-toggle .components-form-toggle__input:focus + .components-form-toggle__track) {
+	:global(
+		.components-form-toggle .components-form-toggle__input:focus + .components-form-toggle__track
+	) {
 	box-shadow:
-		0 0 0 var(--wpds-border-width-focus) var(--wpds-color-bg-surface-neutral),
-		0 0 0 calc(2 * var(--wpds-border-width-focus)) var(--wpds-color-stroke-focus-brand);
+		0 0 0 var( --wpds-border-width-focus ) var( --wpds-color-bg-surface-neutral ),
+		0 0 0 calc( 2 * var( --wpds-border-width-focus ) ) var( --wpds-color-stroke-focus-brand );
 }
 
-@media (max-width: 640px) {
+@media ( max-width: 640px ) {
 	.preferenceRow {
 		align-items: stretch;
 		grid-template-columns: 1fr;
-		row-gap: var(--wpds-dimension-padding-sm);
+		row-gap: var( --wpds-dimension-padding-sm );
 	}
 
 	.accountSectionHeader,
@@ -739,6 +742,34 @@
 	}
 }
 
+.wapuuScoreHeading {
+	display: inline-flex;
+	align-items: center;
+	gap: var( --wpds-dimension-padding-xs );
+}
+
+.wapuuScoreIcon {
+	image-rendering: pixelated;
+}
+
+.wapuuScoreBody {
+	display: flex;
+	align-items: center;
+	gap: var( --wpds-dimension-padding-xl );
+}
+
+.wapuuScoreMeter {
+	display: flex;
+	flex: 1;
+	min-width: 0;
+	flex-direction: column;
+	gap: var( --wpds-dimension-padding-sm );
+}
+
+.wapuuScoreValue {
+	color: var( --wpds-color-fg-content-neutral-weak );
+	font-size: var( --wpds-typography-font-size-sm );
+}
 
 /* Signed out or offline: grey the whole card, since none of it is live. */
 .usageDisabled .settingsPanelHeader h2,
@@ -746,15 +777,15 @@
 .usageDisabled .usageSectionHeader h2,
 .usageDisabled .previewUsageText,
 .usageDisabled .usageSection p {
-	color: var(--wpds-color-fg-interactive-neutral-disabled);
+	color: var( --wpds-color-fg-interactive-neutral-disabled );
 }
 
 .usageDisabled .progressTrack {
-	background: var(--wpds-color-bg-interactive-neutral-weak-disabled);
+	background: var( --wpds-color-bg-interactive-neutral-weak-disabled );
 }
 
 .usageDisabled .progressValue {
-	background: var(--wpds-color-fg-interactive-neutral-disabled);
+	background: var( --wpds-color-fg-interactive-neutral-disabled );
 }
 
 /* Hatched stand-in for a meter with no figure behind it — same 135deg stripe
@@ -763,22 +794,22 @@
 	inline-size: 100%;
 	block-size: 6px;
 	border-radius: 999px;
-	background:
-		repeating-linear-gradient(
+	background: repeating-linear-gradient(
 			135deg,
-			color-mix(in srgb, var(--wpds-color-fg-interactive-neutral-disabled) 22%, transparent) 0 3px,
+			color-mix( in srgb, var( --wpds-color-fg-interactive-neutral-disabled ) 22%, transparent ) 0
+				3px,
 			transparent 3px 8px
 		),
-		var(--wpds-color-bg-interactive-neutral-weak-disabled);
+		var( --wpds-color-bg-interactive-neutral-weak-disabled );
 }
 
 .usageSection {
 	display: flex;
 	flex-direction: column;
 	align-items: stretch;
-	gap: var(--wpds-dimension-padding-md);
-	padding-block: var(--wpds-dimension-padding-lg);
-	border-top: 1px solid var(--wpds-color-stroke-surface-neutral);
+	gap: var( --wpds-dimension-padding-md );
+	padding-block: var( --wpds-dimension-padding-lg );
+	border-top: 1px solid var( --wpds-color-stroke-surface-neutral );
 }
 
 .usageSection:last-child {
@@ -789,29 +820,29 @@
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	gap: var(--wpds-dimension-padding-md);
+	gap: var( --wpds-dimension-padding-md );
 	min-width: 0;
 }
 
 .usageSectionHeader h2 {
 	margin: 0;
-	color: var(--wpds-color-fg-content-neutral);
-	font-size: var(--wpds-typography-font-size-md);
+	color: var( --wpds-color-fg-content-neutral );
+	font-size: var( --wpds-typography-font-size-md );
 	font-weight: 600;
-	line-height: var(--wpds-typography-line-height-sm);
+	line-height: var( --wpds-typography-line-height-sm );
 }
 
 .usageSection p {
 	margin: 0;
-	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-sm);
-	line-height: var(--wpds-typography-line-height-sm);
+	color: var( --wpds-color-fg-content-neutral-weak );
+	font-size: var( --wpds-typography-font-size-sm );
+	line-height: var( --wpds-typography-line-height-sm );
 }
 
 .previewUsageText {
-	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-sm);
-	line-height: var(--wpds-typography-line-height-sm);
+	color: var( --wpds-color-fg-content-neutral-weak );
+	font-size: var( --wpds-typography-font-size-sm );
+	line-height: var( --wpds-typography-line-height-sm );
 }
 
 .progressTrack {
@@ -819,13 +850,13 @@
 	inline-size: 100%;
 	block-size: 6px;
 	border-radius: 999px;
-	background: var(--wpds-color-stroke-surface-neutral);
+	background: var( --wpds-color-stroke-surface-neutral );
 }
 
 .progressValue {
 	block-size: 100%;
 	border-radius: inherit;
-	background: var(--wpds-color-fg-interactive-brand);
+	background: var( --wpds-color-fg-interactive-brand );
 }
 
 .previewActionsButton {
@@ -840,8 +871,8 @@
 	position: relative;
 	background: color-mix(
 		in srgb,
-		var(--wpds-color-fg-interactive-brand) 14%,
-		var(--wpds-color-stroke-surface-neutral)
+		var( --wpds-color-fg-interactive-brand ) 14%,
+		var( --wpds-color-stroke-surface-neutral )
 	);
 }
 
@@ -851,12 +882,12 @@
 	border-radius: inherit;
 	background: linear-gradient(
 			90deg,
-			color-mix(in srgb, var(--wpds-color-fg-interactive-brand) 32%, transparent),
-			color-mix(in srgb, var(--wpds-color-fg-interactive-brand) 14%, transparent)
+			color-mix( in srgb, var( --wpds-color-fg-interactive-brand ) 32%, transparent ),
+			color-mix( in srgb, var( --wpds-color-fg-interactive-brand ) 14%, transparent )
 		),
 		repeating-linear-gradient(
 			135deg,
-			color-mix(in srgb, var(--wpds-color-fg-interactive-brand) 18%, transparent) 0 8px,
+			color-mix( in srgb, var( --wpds-color-fg-interactive-brand ) 18%, transparent ) 0 8px,
 			transparent 8px 16px
 		);
 }

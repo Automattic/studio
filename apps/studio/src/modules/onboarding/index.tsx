@@ -1,10 +1,11 @@
 import { useI18n } from '@wordpress/react-i18n';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { StudioLogo } from 'src/components/studio-logo';
 import { useAuth } from 'src/hooks/use-auth';
 import { OnboardingConnectToWpcom } from 'src/modules/onboarding/components/connect-to-wpcom';
 import { useAppDispatch } from 'src/stores';
 import { useSaveLastSeenVersionMutation } from 'src/stores/app-version-api';
+import { useSaveAnalyticsEnabledMutation } from 'src/stores/installed-apps-api';
 import { saveOnboardingStatus } from 'src/stores/onboarding-slice';
 
 const GradientBox = () => {
@@ -33,6 +34,18 @@ export function Onboarding() {
 	const dispatch = useAppDispatch();
 	const { isAuthenticated } = useAuth();
 	const [ saveLastSeenVersion ] = useSaveLastSeenVersionMutation();
+	const [ saveAnalyticsEnabled ] = useSaveAnalyticsEnabledMutation();
+
+	// Analytics is opt-out (default ON). Persist the choice as soon as the user flips the toggle, so it
+	// sticks however onboarding ends — Skip, login (auto-skip), or just closing the window.
+	const [ analyticsEnabled, setAnalyticsEnabled ] = useState( true );
+	const handleAnalyticsEnabledChange = useCallback(
+		( enabled: boolean ) => {
+			setAnalyticsEnabled( enabled );
+			void saveAnalyticsEnabled( enabled );
+		},
+		[ saveAnalyticsEnabled ]
+	);
 
 	const handleSkip = useCallback( async () => {
 		// Save current app version to prevent What's New from showing for new users
@@ -56,9 +69,13 @@ export function Onboarding() {
 				<GradientBox />
 			</div>
 
-			<div className="w-1/2 bg-frame text-frame-text p-[50px] flex flex-col relative overflow-y-auto app-no-drag-region">
+			<div className="w-1/2 bg-frame text-frame-text p-[50px] pb-[20px] flex flex-col relative overflow-y-auto app-no-drag-region">
 				<div className="flex flex-col justify-center items-center flex-[1_0_0%] gap-8">
-					<OnboardingConnectToWpcom onSkip={ handleSkip } />
+					<OnboardingConnectToWpcom
+						onSkip={ handleSkip }
+						analyticsEnabled={ analyticsEnabled }
+						onAnalyticsEnabledChange={ handleAnalyticsEnabledChange }
+					/>
 				</div>
 			</div>
 		</div>

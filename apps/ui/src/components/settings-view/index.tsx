@@ -1,6 +1,7 @@
 import { supportedLocaleNames } from '@studio/common/lib/locale';
 import { SUPPORTED_EDITORS, supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { SUPPORTED_TERMINALS, terminalConfig } from '@studio/common/lib/user-settings/terminal';
+import { CheckboxControl } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
 import { close, file, Icon } from '@wordpress/icons';
 import { Button, IconButton, SelectControl } from '@wordpress/ui';
@@ -22,6 +23,7 @@ import { SkillsPanel } from './skills-panel';
 import { StudioCliSection } from './studio-cli-section';
 import styles from './style.module.css';
 import { UsagePanel } from './usage-panel';
+import { WapuuScore } from './wapuu-score';
 import type { PreferencesFormData } from './preferences';
 import type {
 	ColorScheme,
@@ -324,8 +326,17 @@ function PreferencesPanel( {
 						onChange={ ( quitSitesBehavior ) => onChange( { quitSitesBehavior } ) }
 					/>
 				</PreferenceRow>
+				<PreferenceRow title={ __( 'Usage statistics' ) }>
+					<CheckboxControl
+						__nextHasNoMarginBottom
+						label={ __( 'Help improve Studio by sharing anonymous usage statistics' ) }
+						checked={ data.analyticsEnabled }
+						onChange={ ( analyticsEnabled ) => onChange( { analyticsEnabled } ) }
+					/>
+				</PreferenceRow>
 			</section>
 			<AccountSection />
+			<WapuuScore />
 			<StudioCliSection />
 			<StudioExperienceSection />
 		</div>

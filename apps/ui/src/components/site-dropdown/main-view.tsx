@@ -1,6 +1,6 @@
 import { isSnapshotExpired } from '@studio/common/lib/snapshots';
 import { useIsMutating } from '@tanstack/react-query';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { arrowDown, arrowUp, copy, external, Icon, moreHorizontal } from '@wordpress/icons';
 import { Button, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
@@ -136,6 +136,24 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 
 	const openExternal = ( url: string ) => {
 		void connector.openExternalUrl( url );
+	};
+
+	const getSyncActionLabel = ( idle: string, pending: string, isPending: boolean ): string => {
+		if ( isPending ) {
+			return pending;
+		}
+		if ( isSyncing ) {
+			// translators: %s: a sync action, e.g. "Pull from live".
+			return sprintf( __( '%s (sync in progress)' ), idle );
+		}
+		if ( ! agenticEnabled ) {
+			return isOffline
+				? // translators: %s: a sync action, e.g. "Pull from live".
+				  sprintf( __( '%s (offline)' ), idle )
+				: // translators: %s: a sync action, e.g. "Pull from live".
+				  sprintf( __( '%s (sign in required)' ), idle );
+		}
+		return idle;
 	};
 
 	const handlePreviewClick = () => {
@@ -286,7 +304,11 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 								tone="neutral"
 								size="small"
 								icon={ arrowUp }
-								label={ isPreviewPending ? __( 'Updating preview' ) : __( 'Update preview site' ) }
+								label={ getSyncActionLabel(
+									__( 'Update preview site' ),
+									__( 'Updating preview…' ),
+									isPreviewPending
+								) }
 								className={ styles.rowActionButton }
 								loading={ isPreviewPending }
 								loadingAnnouncement={ __( 'Updating preview' ) }
@@ -326,8 +348,14 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 								tone="neutral"
 								size="small"
 								icon={ arrowDown }
-								label={ isPullPending ? __( 'Pulling from live' ) : __( 'Pull from live' ) }
+								label={ getSyncActionLabel(
+									__( 'Pull from live' ),
+									__( 'Pulling from live…' ),
+									isPullPending
+								) }
 								className={ styles.rowActionButton }
+								loading={ isPullPending }
+								loadingAnnouncement={ __( 'Pulling from live' ) }
 								disabled={ isSyncing || ! agenticEnabled }
 								focusableWhenDisabled
 								onClick={ handlePullClick }
@@ -337,8 +365,14 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 								tone="neutral"
 								size="small"
 								icon={ arrowUp }
-								label={ isPushPending ? __( 'Pushing to live' ) : __( 'Push to live' ) }
+								label={ getSyncActionLabel(
+									__( 'Push to live' ),
+									__( 'Pushing to live…' ),
+									isPushPending
+								) }
 								className={ styles.rowActionButton }
+								loading={ isPushPending }
+								loadingAnnouncement={ __( 'Pushing to live' ) }
 								disabled={ isSyncing || ! agenticEnabled }
 								focusableWhenDisabled
 								onClick={ handlePushClick }

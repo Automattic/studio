@@ -70,6 +70,7 @@ import { checkMaintenanceFile } from '@studio/common/lib/maintenance-file';
 import { getLocalMediaMimeType } from '@studio/common/lib/media-mime';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { decodePassword, encodePassword } from '@studio/common/lib/passwords';
+import { isTracksEventName } from '@studio/common/lib/record-tracks-event';
 import {
 	getDaemonStatus,
 	DaemonStartTimeoutError,
@@ -127,6 +128,7 @@ import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import * as oauthClient from 'src/lib/oauth';
 import { getAiInstructionsPath } from 'src/lib/server-files-paths';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
+import { recordTracksEvent, type TracksChannel, type TracksUiVersion } from 'src/lib/tracks';
 import { updateSiteUrl } from 'src/lib/update-site-url';
 import * as windowsHelpers from 'src/lib/windows-helpers';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
@@ -230,6 +232,7 @@ export {
 
 export {
 	getAgenticFeaturesEnabled,
+	getAnalyticsEnabled,
 	getColorScheme,
 	getGlobalAgentInstructions,
 	getInstalledAppsAndTerminals,
@@ -240,6 +243,7 @@ export {
 	getWapuuScore,
 	previewColorScheme,
 	saveAgenticFeaturesEnabled,
+	saveAnalyticsEnabled,
 	saveColorScheme,
 	saveGlobalAgentInstructions,
 	saveQuitSitesBehavior,
@@ -252,6 +256,23 @@ export {
 export { getDefaultSiteDirectory, saveDefaultSiteDirectory };
 
 export { importSite, exportSite } from 'src/modules/import-export/lib/ipc-handlers';
+
+export async function recordAnalyticsEvent(
+	_event: IpcMainInvokeEvent,
+	// Typed `string` because this crosses the IPC boundary from the (untrusted) renderer; validated
+	// against the known event names below before recording.
+	eventName: string,
+	props: Record< string, string | number | boolean | undefined > & {
+		channel?: TracksChannel;
+		ui_version?: TracksUiVersion;
+	} = {}
+): Promise< void > {
+	if ( ! isTracksEventName( eventName ) ) {
+		console.warn( `Ignoring unknown analytics event name: ${ eventName }` );
+		return;
+	}
+	await recordTracksEvent( eventName, props );
+}
 
 export async function listAiSessions( _event: IpcMainInvokeEvent ): Promise< AiSessionSummary[] > {
 	return listHydratedAiSessions( getSessionsDirectory() );

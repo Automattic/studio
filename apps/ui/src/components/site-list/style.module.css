@@ -271,6 +271,7 @@
 
 .siteAction {
 	flex-shrink: 0;
+	outline-offset: -2px;
 }
 
 /* Collapsed, only the trailing status button shows; hover/focus/active

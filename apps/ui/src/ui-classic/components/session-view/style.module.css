@@ -41,22 +41,20 @@
 	display: flex;
 	align-items: center;
 	gap: var(--wpds-dimension-padding-sm);
-	padding-block: var(--wpds-dimension-padding-lg) var(--wpds-dimension-padding-sm);
-	padding-inline: var(--wpds-dimension-padding-lg) var(--wpds-dimension-padding-2xl);
+	padding-block: var(--wpds-dimension-padding-sm);
+	padding-inline: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-2xl);
 	min-height: 46px;
 	font-size: var(--wpds-typography-font-size-sm);
 	color: var(--wpds-color-fg-content-neutral);
 	-webkit-app-region: drag;
 }
 
-/* Clears the macOS traffic lights when the collapsed sidebar puts this
-   header at the window's left edge, matching the sidebar header's
-   reservation. */
-.toggleSpacer {
-	display: block;
-	flex-shrink: 0;
-	width: calc(94px - var(--wpds-dimension-padding-lg) - var(--wpds-dimension-padding-sm));
-	align-self: stretch;
+.headerSidebarCollapsed {
+	padding-top: calc(
+		var(--wpds-dimension-padding-xl) + var(--wpds-dimension-padding-2xl) +
+			var(--wpds-dimension-padding-lg)
+	);
+	padding-inline-start: var(--wpds-dimension-padding-xl);
 }
 
 .headerSite {

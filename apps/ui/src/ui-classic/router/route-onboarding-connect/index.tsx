@@ -1,8 +1,8 @@
 import { createRoute, useNavigate } from '@tanstack/react-router';
 import { Spinner, VisuallyHidden } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
-import { chevronLeft, external, search, wordpress } from '@wordpress/icons';
-import { Button, Icon } from '@wordpress/ui';
+import { check, chevronLeft, external, search } from '@wordpress/icons';
+import { Badge, Button, Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { OnboardingFooter } from '@/components/onboarding-footer';
@@ -20,14 +20,23 @@ import { presentRemoteSites, searchRemoteSites, type ConnectSiteGroup } from './
 import styles from './style.module.css';
 import type { SyncSite } from '@/data/core';
 
-const CREATE_WPCOM_SITE_URL =
-	'https://wordpress.com/setup/new-hosted-site?ref=studio&section=studio-sync&showDomainStep=true';
+const createWpcomSiteUrl = new URL( 'https://wordpress.com/setup/new-hosted-site' );
+createWpcomSiteUrl.searchParams.set( 'ref', 'studio' );
+createWpcomSiteUrl.searchParams.set( 'section', 'studio-sync' );
+createWpcomSiteUrl.searchParams.set( 'showDomainStep', 'true' );
 
 function getEnvironmentLabel( site: SyncSite ): string {
 	if ( site.isPressable && site.environmentType === 'development' ) return __( 'Development' );
 	if ( site.isPressable && site.environmentType === 'staging' ) return __( 'Staging' );
 	if ( site.isStaging ) return __( 'Staging' );
 	return __( 'Production' );
+}
+
+function getEnvironmentIntent( site: SyncSite ) {
+	if ( site.isPressable && site.environmentType === 'development' ) return 'informational';
+	if ( site.isStaging || ( site.isPressable && site.environmentType === 'staging' ) )
+		return 'medium';
+	return 'stable';
 }
 
 function getSiteStatus( site: SyncSite, group: ConnectSiteGroup, localNames: string[] ): string {
@@ -102,10 +111,10 @@ function RemoteSiteCard( {
 					<span className={ styles.siteName }>{ getSiteName( site ) }</span>
 					<span className={ styles.siteUrl }>{ site.url.replace( /^https?:\/\//, '' ) }</span>
 					<span className={ styles.badges }>
-						<span className={ styles.badge }>
+						<Badge intent="draft">
 							{ site.isPressable ? __( 'Pressable' ) : __( 'WordPress.com' ) }
-						</span>
-						<span className={ styles.badge }>{ getEnvironmentLabel( site ) }</span>
+						</Badge>
+						<Badge intent={ getEnvironmentIntent( site ) }>{ getEnvironmentLabel( site ) }</Badge>
 					</span>
 					{ siteStatus && (
 						<span id={ statusId } className={ styles.siteStatus }>
@@ -155,11 +164,31 @@ function SignedOutView() {
 	return (
 		<div className={ styles.signedOut }>
 			<ul className={ styles.benefits }>
-				<li>{ __( 'Pull content, themes, plugins, and media into a local site.' ) }</li>
-				<li>{ __( 'Connect WordPress.com and Pressable production or staging sites.' ) }</li>
-				<li>{ __( 'Keep the local and live relationship available for future syncs.' ) }</li>
+				<li>
+					<Icon icon={ check } size={ 16 } aria-hidden="true" />
+					<span>{ __( 'Work on your site locally.' ) }</span>
+				</li>
+				<li>
+					<Icon icon={ check } size={ 16 } aria-hidden="true" />
+					<span>{ __( 'Sync content, themes, and plugins.' ) }</span>
+				</li>
+				<li>
+					<Icon icon={ check } size={ 16 } aria-hidden="true" />
+					<span>{ __( 'Supports staging and production sites.' ) }</span>
+				</li>
 			</ul>
 			<div className={ styles.authActions }>
+				<Button
+					type="button"
+					variant="minimal"
+					tone="neutral"
+					disabled={ isOffline || login.isPending }
+					loading={ signup.isPending }
+					onClick={ () => signup.mutate() }
+				>
+					<span>{ __( 'Sign up' ) }</span>
+					<Icon icon={ external } size={ 14 } aria-hidden="true" />
+				</Button>
 				<Button
 					type="button"
 					variant="solid"
@@ -168,18 +197,8 @@ function SignedOutView() {
 					loading={ login.isPending }
 					onClick={ () => login.mutate() }
 				>
-					<Icon icon={ wordpress } />
 					<span>{ __( 'Log in with WordPress.com' ) }</span>
-				</Button>
-				<Button
-					type="button"
-					variant="outline"
-					tone="neutral"
-					disabled={ isOffline || login.isPending }
-					loading={ signup.isPending }
-					onClick={ () => signup.mutate() }
-				>
-					{ __( 'Create a free account' ) }
+					<Icon icon={ external } size={ 14 } aria-hidden="true" />
 				</Button>
 			</div>
 			{ isOffline && (
@@ -205,7 +224,6 @@ export function OnboardingConnectPage() {
 	const isOffline = useOffline();
 	const remoteSites = useSyncableWpcomSites( {
 		enabled: !! user && ! isOffline,
-		allPages: true,
 	} );
 	const connections = useAllConnectedWpcomSites( { enabled: !! user && ! isOffline } );
 	const createSite = useCreateSite();
@@ -367,7 +385,7 @@ export function OnboardingConnectPage() {
 			<p className={ sharedStyles.subtitle }>
 				{ user
 					? __( 'Choose a WordPress.com or Pressable site to pull into Studio.' )
-					: __( 'Sign in to find a live site and create its local copy.' ) }
+					: __( 'Log in with your WordPress.com account to see your sites.' ) }
 			</p>
 
 			{ isAuthLoading && (
@@ -388,7 +406,7 @@ export function OnboardingConnectPage() {
 			{ user && ! isOffline && isLoadingSites && (
 				<div className={ styles.state } role="status">
 					<Spinner />
-					<p>{ __( 'Loading all your sites…' ) }</p>
+					<p>{ __( 'Loading your sites…' ) }</p>
 				</div>
 			) }
 
@@ -416,7 +434,7 @@ export function OnboardingConnectPage() {
 						type="button"
 						variant="minimal"
 						tone="brand"
-						onClick={ () => void connector.openExternalUrl( CREATE_WPCOM_SITE_URL ) }
+						onClick={ () => void connector.openExternalUrl( createWpcomSiteUrl.toString() ) }
 					>
 						<span>{ __( 'Create a WordPress.com site' ) }</span>
 						<Icon icon={ external } size={ 14 } />

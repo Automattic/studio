@@ -116,7 +116,6 @@ export function OnboardingHomePage() {
 						</p>
 					</div>
 				</Link>
-				<ImportBackupCard />
 				<Link
 					to="/onboarding/connect"
 					className={ `${ cardClass } ${ isOffline ? styles.cardDisabled : '' }` }
@@ -132,6 +131,7 @@ export function OnboardingHomePage() {
 						{ isOffline && <span className={ styles.cardHint }>{ __( 'Available online' ) }</span> }
 					</div>
 				</Link>
+				<ImportBackupCard />
 			</div>
 			{ ( sites?.length ?? 0 ) > 0 && (
 				<OnboardingFooter>

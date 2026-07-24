@@ -106,10 +106,10 @@ describe( 'createIpcConnector Connect contracts', () => {
 		const connector = createIpcConnector();
 
 		await expect( connector.getConnectedWpcomSites() ).resolves.toEqual( [ { id: 1 } ] );
-		await expect( connector.fetchSyncableWpcomSites( true ) ).resolves.toEqual( [ { id: 2 } ] );
+		await expect( connector.fetchSyncableWpcomSites() ).resolves.toEqual( [ { id: 2 } ] );
 
 		expect( getConnectedWpcomSites ).toHaveBeenCalledWith( undefined );
-		expect( fetchSyncableWpcomSites ).toHaveBeenCalledWith( true );
+		expect( fetchSyncableWpcomSites ).toHaveBeenCalledWith();
 	} );
 
 	it( 'generates a numbered name in one IPC call', async () => {

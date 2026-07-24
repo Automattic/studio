@@ -1002,15 +1002,13 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	// shared auth token (the user logs in via `studio auth login`).
 	api.get(
 		'/wpcom/syncable-sites',
-		asyncHandler( async ( req: Request, res: Response ) => {
+		asyncHandler( async ( _req: Request, res: Response ) => {
 			const token = await readAuthToken();
 			if ( ! token?.accessToken ) {
 				res.json( [] );
 				return;
 			}
-			res.json(
-				await fetchSyncableSites( token.accessToken, { allPages: req.query.all === '1' } )
-			);
+			res.json( await fetchSyncableSites( token.accessToken ) );
 		} )
 	);
 

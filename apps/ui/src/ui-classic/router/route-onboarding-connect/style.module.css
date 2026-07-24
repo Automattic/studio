@@ -13,16 +13,31 @@
 
 .benefits {
 	display: grid;
-	gap: 10px;
+	gap: 12px;
 	margin: 0;
-	padding-inline-start: 20px;
+	padding: 0;
 	color: var(--wpds-color-fg-content-neutral-weak);
+	list-style: none;
+}
+
+.benefits li {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
+.benefits svg {
+	flex: 0 0 auto;
+	fill: currentColor;
+	color: var(--wpds-color-fg-interactive-brand);
 }
 
 .authActions {
 	display: flex;
 	align-items: center;
 	gap: 12px;
+	padding-top: 16px;
+	border-top: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
 }
 
 .hint,
@@ -210,14 +225,6 @@
 	flex-wrap: wrap;
 	gap: 6px;
 	margin-top: 4px;
-}
-
-.badge {
-	padding: 3px 6px;
-	border-radius: 4px;
-	background: var(--wpds-color-bg-interactive-neutral-weak);
-	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-xs);
 }
 
 .siteStatus {

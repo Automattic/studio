@@ -595,15 +595,12 @@ export async function pushSiteToLive(
 // The desktop renderer builds this list itself via its own WPCOM client
 // (see wpcomSitesApi.getWpComSites); apps/ui doesn't own a wpcom client
 // yet, so we expose a thin IPC wrapper that reuses the stored auth token.
-export async function fetchSyncableWpcomSites(
-	_event: IpcMainInvokeEvent,
-	allPages = false
-): Promise< SyncSite[] > {
+export async function fetchSyncableWpcomSites( _event: IpcMainInvokeEvent ): Promise< SyncSite[] > {
 	const token = await getAuthenticationToken();
 	if ( ! token?.accessToken ) {
 		throw new Error( 'Authentication required to fetch WordPress.com sites.' );
 	}
-	return fetchSyncableSites( token.accessToken, { allPages } );
+	return fetchSyncableSites( token.accessToken );
 }
 
 export async function getConnectedWpcomSites(

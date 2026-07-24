@@ -94,10 +94,12 @@ export function usePullSiteFromLive() {
 			void queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
 			toast.success( __( 'Pull complete' ) );
 		},
-		onError: ( error, { siteId } ) => {
-			const message = error instanceof Error ? error.message : String( error );
+		onError: ( _error, { siteId } ) => {
+			const message = __(
+				"Studio couldn't copy the live site. Try again. If the problem continues, check Studio Logs for details."
+			);
 			reportSyncError( siteId, 'pull', message );
-			toast.error( __( "Pull didn't complete" ) );
+			toast.error( __( "Pull didn't complete" ), { description: message } );
 		},
 	} );
 }

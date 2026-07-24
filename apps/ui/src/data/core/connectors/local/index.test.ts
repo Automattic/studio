@@ -14,7 +14,7 @@ describe( 'createLocalConnector Connect contracts', () => {
 		vi.unstubAllGlobals();
 	} );
 
-	it( 'forwards skipStart and requests complete site and connection sets', async () => {
+	it( 'forwards skipStart and requests site and connection sets', async () => {
 		fetchMock.mockImplementation( async ( input: string | URL | Request ) => {
 			const url = String( input );
 			if ( url.endsWith( '/api/sites' ) ) {
@@ -32,7 +32,7 @@ describe( 'createLocalConnector Connect contracts', () => {
 			path: '/sites/remote-site',
 			skipStart: true,
 		} );
-		await connector.fetchSyncableWpcomSites( true );
+		await connector.fetchSyncableWpcomSites();
 		await connector.getConnectedWpcomSites();
 		await expect( connector.generateNumberedSiteName( 'Remote site', [] ) ).resolves.toBe(
 			'Remote site 2'
@@ -41,7 +41,7 @@ describe( 'createLocalConnector Connect contracts', () => {
 		const createCall = fetchMock.mock.calls[ 0 ];
 		expect( JSON.parse( String( createCall[ 1 ]?.body ) ) ).toMatchObject( { skipStart: true } );
 		expect( fetchMock ).toHaveBeenCalledWith(
-			'http://localhost:8081/api/wpcom/syncable-sites?all=1',
+			'http://localhost:8081/api/wpcom/syncable-sites',
 			expect.any( Object )
 		);
 		expect( fetchMock ).toHaveBeenCalledWith(

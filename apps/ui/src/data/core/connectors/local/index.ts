@@ -538,8 +538,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					: '/wpcom/connected-sites'
 			);
 		},
-		async fetchSyncableWpcomSites( allPages ): Promise< SyncSite[] > {
-			return api< SyncSite[] >( `/wpcom/syncable-sites${ allPages ? '?all=1' : '' }` );
+		async fetchSyncableWpcomSites(): Promise< SyncSite[] > {
+			return api< SyncSite[] >( '/wpcom/syncable-sites' );
 		},
 		async connectWpcomSite( localSiteId, site ) {
 			await api( `/sites/${ encodeURIComponent( localSiteId ) }/connected-sites`, {

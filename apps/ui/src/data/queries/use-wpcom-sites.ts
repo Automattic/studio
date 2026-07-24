@@ -7,13 +7,12 @@ import type { SyncSite } from '@/data/core';
 const SYNCABLE_WPCOM_SITES_QUERY_KEY = [ 'syncable-wpcom-sites' ] as const;
 const ALL_CONNECTED_WPCOM_SITES_QUERY_KEY = [ 'all-connected-wpcom-sites' ] as const;
 
-export function useSyncableWpcomSites( options: { enabled?: boolean; allPages?: boolean } = {} ) {
+export function useSyncableWpcomSites( options: { enabled?: boolean } = {} ) {
 	const connector = useConnector();
 	const { data: authUser } = useAuthUser();
-	const allPages = options.allPages ?? false;
 	return useQuery( {
-		queryKey: [ ...SYNCABLE_WPCOM_SITES_QUERY_KEY, { allPages } ],
-		queryFn: () => connector.fetchSyncableWpcomSites( allPages ),
+		queryKey: SYNCABLE_WPCOM_SITES_QUERY_KEY,
+		queryFn: () => connector.fetchSyncableWpcomSites(),
 		enabled: ( options.enabled ?? true ) && !! authUser,
 		// This query hits the network and the data doesn't change often.
 		// Keep it fresh for a few minutes so opening/closing the picker

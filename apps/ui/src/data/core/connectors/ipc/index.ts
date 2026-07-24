@@ -517,8 +517,8 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.getConnectedWpcomSites( localSiteId ) ) as SyncSite[];
 		},
 
-		async fetchSyncableWpcomSites( allPages ): Promise< SyncSite[] > {
-			return ( await ipcApi.fetchSyncableWpcomSites( allPages ) ) as SyncSite[];
+		async fetchSyncableWpcomSites(): Promise< SyncSite[] > {
+			return ( await ipcApi.fetchSyncableWpcomSites() ) as SyncSite[];
 		},
 
 		async connectWpcomSite( localSiteId, site ): Promise< void > {

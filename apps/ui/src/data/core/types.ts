@@ -252,7 +252,7 @@ export interface Connector {
 	// All WordPress.com sites the authenticated user can sync with, regardless
 	// of which (if any) local site they're already connected to. The publish
 	// picker filters this list to sites that aren't connected anywhere yet.
-	fetchSyncableWpcomSites( allPages?: boolean ): Promise< SyncSite[] >;
+	fetchSyncableWpcomSites(): Promise< SyncSite[] >;
 	// Persists a new local↔live connection so the dropdown picks it up via
 	// `getConnectedWpcomSites`. Safe to call with the minimal `SyncSite` we
 	// receive from a sync-connect-site deep link — later fetches backfill the

@@ -141,8 +141,15 @@ describe( 'OnboardingConnectPage', () => {
 	it( 'offers login and signup without leaving the Connect flow', () => {
 		render( <OnboardingConnectPage /> );
 
+		expect(
+			screen.getByText( 'Log in with your WordPress.com account to see your sites.' )
+		).toBeInTheDocument();
+		expect( screen.getByText( 'Work on your site locally.' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Sync content, themes, and plugins.' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Supports staging and production sites.' ) ).toBeInTheDocument();
+
 		fireEvent.click( screen.getByRole( 'button', { name: /Log in with WordPress.com/ } ) );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Create a free account' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Sign up' } ) );
 
 		expect( mocks.login ).toHaveBeenCalledOnce();
 		expect( mocks.signup ).toHaveBeenCalledOnce();
@@ -191,7 +198,7 @@ describe( 'OnboardingConnectPage', () => {
 		mocks.remoteLoading = true;
 		const { rerender } = render( <OnboardingConnectPage /> );
 
-		expect( screen.getByRole( 'status' ) ).toHaveTextContent( 'Loading all your sites…' );
+		expect( screen.getByRole( 'status' ) ).toHaveTextContent( 'Loading your sites…' );
 
 		mocks.remoteLoading = false;
 		rerender( <OnboardingConnectPage /> );

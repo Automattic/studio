@@ -30,62 +30,20 @@ const SITE_FIELDS = [
 	'environment_type',
 ].join( ',' );
 
-const ALL_SITES_PAGE_SIZE = 100;
-
-const SYNCABLE_SITES_QUERY = {
-	fields: SITE_FIELDS,
-	filter: 'atomic,wpcom',
-	options: 'created_at,wpcom_staging_blog_ids',
-	site_activity: 'active',
-} as const;
-
-export async function fetchSyncableSites(
-	token: string,
-	{ allPages = false }: { allPages?: boolean } = {}
-): Promise< SyncSite[] > {
+export async function fetchSyncableSites( token: string ): Promise< SyncSite[] > {
 	const wpcom = wpcomFactory( token, wpcomXhrRequest );
-
-	if ( allPages ) {
-		const sites: unknown[] = [];
-		let page = 1;
-		let batch: unknown[];
-		let total: number | undefined;
-		let previousBatch: string | undefined;
-
-		do {
-			const rawResponse = await wpcom.req.get(
-				{
-					apiNamespace: 'rest/v1.2',
-					path: '/me/sites',
-				},
-				{
-					...SYNCABLE_SITES_QUERY,
-					page,
-					per_page: ALL_SITES_PAGE_SIZE,
-				}
-			);
-			const parsed = sitesEndpointResponseSchema.parse( rawResponse );
-			batch = parsed.sites;
-			total = parsed.total;
-			const batchSignature = JSON.stringify( batch );
-			if ( previousBatch === batchSignature ) {
-				console.warn( 'WordPress.com returned a repeated page while fetching all sites.' );
-				throw new Error( 'WordPress.com returned an incomplete site list.' );
-			}
-			previousBatch = batchSignature;
-			sites.push( ...batch );
-			page = ( parsed.page ?? page ) + 1;
-		} while ( sites.length < ( total ?? Infinity ) && batch.length === ALL_SITES_PAGE_SIZE );
-
-		return transformSitesResponse( sites );
-	}
 
 	const rawResponse = await wpcom.req.get(
 		{
 			apiNamespace: 'rest/v1.2',
 			path: '/me/sites',
 		},
-		SYNCABLE_SITES_QUERY
+		{
+			fields: SITE_FIELDS,
+			filter: 'atomic,wpcom',
+			options: 'created_at,wpcom_staging_blog_ids',
+			site_activity: 'active',
+		}
 	);
 
 	const parsed = sitesEndpointResponseSchema.parse( rawResponse );

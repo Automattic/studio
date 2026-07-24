@@ -103,13 +103,3 @@
 	outline-offset: 2px;
 	border-radius: var(--wpds-border-radius-xs);
 }
-
-/* Destructive confirm action: repaint the solid Button with the error
-   palette (same override pattern as @wordpress/ui AlertDialog's
-   irreversible intent) — replacing a draft discards user content. */
-.replaceAction {
-	--wp-ui-button-background-color: var(--wpds-color-bg-interactive-error-strong);
-	--wp-ui-button-background-color-active: var(--wpds-color-bg-interactive-error-strong-active);
-	--wp-ui-button-foreground-color: var(--wpds-color-fg-interactive-error-strong);
-	--wp-ui-button-foreground-color-active: var(--wpds-color-fg-interactive-error-strong-active);
-}

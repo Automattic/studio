@@ -89,7 +89,7 @@ export function SuggestedPrompts( { siteName, onPick, getDraft }: SuggestedPromp
 						</Dialog.Action>
 						<Button
 							variant="solid"
-							className={ styles.replaceAction }
+							tone="brand"
 							onClick={ () => {
 								if ( pendingPrompt ) {
 									apply( pendingPrompt );

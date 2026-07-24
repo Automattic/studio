@@ -6,6 +6,7 @@ import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessio
 import type { SiteEvent } from '@studio/common/lib/cli-events';
 import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 import type { SupportedLocale } from '@studio/common/lib/locale';
+import type { TracksEventName, TracksProps } from '@studio/common/lib/record-tracks-event';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
@@ -363,6 +364,10 @@ export interface Connector {
 	openSiteInEditor( siteId: string ): Promise< void >;
 	openSiteInTerminal( siteId: string ): Promise< void >;
 
+	// Analytics — record a Tracks event. The connector attaches the surface
+	// params (channel/ui_version); see `docs/design-docs/analytics-tracks.md`.
+	trackEvent( eventName: TracksEventName, props?: TracksProps ): Promise< void >;
+
 	// External links
 	openExternalUrl( url: string ): Promise< void >;
 
@@ -462,6 +467,9 @@ export interface UserPreferences {
 	colorScheme: ColorScheme;
 	quitSitesBehavior?: QuitSitesBehavior;
 	locale: string | undefined;
+	// Whether the user shares anonymous usage statistics (Tracks). Default true.
+	// See `docs/design-docs/analytics-tracks.md`.
+	analyticsEnabled: boolean;
 	defaultSiteDirectory: string;
 	studioCliInstalled: boolean;
 	// True when the `studio` command on PATH is a standalone (curl) install the

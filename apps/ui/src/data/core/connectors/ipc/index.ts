@@ -635,6 +635,7 @@ export function createIpcConnector(): Connector {
 				colorScheme,
 				quitSitesBehavior,
 				locale,
+				analyticsEnabled,
 				defaultSiteDirectory,
 				studioCliInstalled,
 				studioCliExternallyManaged,
@@ -645,6 +646,7 @@ export function createIpcConnector(): Connector {
 				ipcApi.getColorScheme(),
 				ipcApi.getQuitSitesBehavior(),
 				ipcApi.getUserLocale(),
+				ipcApi.getAnalyticsEnabled(),
 				ipcApi.getDefaultSiteDirectory(),
 				ipcApi.isStudioCliInstalled(),
 				ipcApi.isStudioCliExternallyManaged(),
@@ -655,6 +657,7 @@ export function createIpcConnector(): Connector {
 				ColorScheme,
 				QuitSitesBehavior | undefined,
 				string | undefined,
+				boolean,
 				string,
 				boolean,
 				boolean,
@@ -666,6 +669,7 @@ export function createIpcConnector(): Connector {
 				colorScheme,
 				quitSitesBehavior,
 				locale,
+				analyticsEnabled,
 				defaultSiteDirectory,
 				studioCliInstalled,
 				studioCliExternallyManaged,
@@ -689,6 +693,9 @@ export function createIpcConnector(): Connector {
 			}
 			if ( 'locale' in partial && partial.locale ) {
 				writes.push( ipcApi.saveUserLocale( partial.locale ) );
+			}
+			if ( 'analyticsEnabled' in partial ) {
+				writes.push( ipcApi.saveAnalyticsEnabled( partial.analyticsEnabled ) );
 			}
 			if ( 'defaultSiteDirectory' in partial && partial.defaultSiteDirectory ) {
 				writes.push( ipcApi.saveDefaultSiteDirectory( partial.defaultSiteDirectory ) );
@@ -747,6 +754,15 @@ export function createIpcConnector(): Connector {
 		async openSiteInTerminal( siteId ): Promise< void > {
 			const sitePath = await resolveSiteFolder( siteId );
 			await ipcApi.openTerminalAtPath( sitePath );
+		},
+
+		// Analytics
+		async trackEvent( eventName, props = {} ): Promise< void > {
+			await ipcApi.recordAnalyticsEvent( eventName, {
+				channel: 'studio-ui',
+				ui_version: 'v2',
+				...props,
+			} );
 		},
 
 		// External links

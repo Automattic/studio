@@ -22,6 +22,7 @@ const PREFERENCES: UserPreferences = {
 	colorScheme: 'system',
 	quitSitesBehavior: undefined,
 	locale: 'en',
+	analyticsEnabled: true,
 	defaultSiteDirectory: '',
 	studioCliInstalled: true,
 	agenticFeaturesEnabled: true,

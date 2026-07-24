@@ -623,15 +623,15 @@ const CLIP_ACTION_STORAGE_KEY = 'studio:preview-clip-menu:last-used';
 
 // Whether the address bar shows the Database (phpMyAdmin) segment. A global
 // preference (like the clip/open-in defaults), remembered across sessions;
-// defaults to shown.
+// defaults to hidden.
 const PREVIEW_SHOW_DATABASE_TAB_STORAGE_KEY = 'studio:preview-show-database-tab';
 
 function getStoredShowDatabaseTab(): boolean {
 	try {
-		// Only an explicit "false" hides the tab; anything else shows it.
-		return window.localStorage.getItem( PREVIEW_SHOW_DATABASE_TAB_STORAGE_KEY ) !== 'false';
+		// Only an explicit "true" shows the tab; anything else hides it.
+		return window.localStorage.getItem( PREVIEW_SHOW_DATABASE_TAB_STORAGE_KEY ) === 'true';
 	} catch {
-		return true;
+		return false;
 	}
 }
 

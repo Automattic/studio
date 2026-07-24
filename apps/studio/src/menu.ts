@@ -45,6 +45,7 @@ import {
 	setAgenticUiEnabled,
 } from 'src/main-window';
 import { getRunningSiteCount, getRunningSiteNames } from 'src/site-server';
+import { updateAppdata } from 'src/storage/user-data';
 import { isUpdateReadyToInstall, manualCheckForUpdates } from 'src/updates';
 
 export async function setupMenu( config: {
@@ -348,6 +349,22 @@ async function getAppMenu(
 										}
 									}
 									await toggleNewUserSimulation( carriedEnv );
+								},
+							},
+							{
+								label: __( 'Reset New UI Onboarding (dev only)' ),
+								click: async () => {
+									// Replay the whole new-UI intro on the real profile: bring back the
+									// old-UI announcement banner, and clear the welcome/concept-tour
+									// flag and the workbench coachmark/checklist hints so opting in
+									// shows the tour again. The new UI re-reads these on load, so the
+									// reset lands when the banner's "Try it" switches modes.
+									await updateAppdata( {
+										agenticUiBannerDismissed: false,
+										onboardingCompleted: false,
+										onboardingHints: {},
+									} );
+									void sendIpcEventToRenderer( 'show-agentic-ui-banner' );
 								},
 							},
 							{

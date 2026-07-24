@@ -45,6 +45,7 @@ export interface IpcEvents {
 	'snapshot-success': [ { operationId: crypto.UUID } ];
 	'show-whats-new': [ void ];
 	'show-getting-started': [ void ];
+	'show-agentic-ui-banner': [ void ];
 	'sync-connect-site': [
 		{
 			remoteSiteId: number;

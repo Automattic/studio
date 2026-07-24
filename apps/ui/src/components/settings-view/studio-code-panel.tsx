@@ -28,17 +28,6 @@ export function StudioCodePanel() {
 	const enabled = userEnabled ?? ( saved?.length ?? 0 ) > 0;
 
 	const pending = useRef< string | null >( null );
-	const textareaRef = useRef< HTMLTextAreaElement >( null );
-
-	// Grow the editor to fit its content, from a compact starting height.
-	useEffect( () => {
-		const el = textareaRef.current;
-		if ( ! el ) {
-			return;
-		}
-		el.style.height = 'auto';
-		el.style.height = `${ el.scrollHeight }px`;
-	}, [ content, enabled, reason ] );
 
 	useEffect( () => {
 		pending.current = isDirty ? content : null;
@@ -106,7 +95,6 @@ export function StudioCodePanel() {
 			{ ! signedOut && enabled && (
 				<>
 					<textarea
-						ref={ textareaRef }
 						className={ styles.instructionsTextarea }
 						aria-label={ __( 'Instructions' ) }
 						rows={ 3 }

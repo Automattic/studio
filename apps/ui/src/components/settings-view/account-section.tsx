@@ -25,10 +25,22 @@ function AccountHelpLinks() {
 			<button
 				type="button"
 				className={ styles.helpLink }
+				aria-label={ __( 'Documentation' ) }
 				onClick={ () => openLink( getLocalizedLink( locale, 'docsStudio' ) ) }
 			>
 				<Icon icon={ page } size={ 20 } className={ styles.helpLinkIcon } />
-				<span className={ styles.helpLinkLabel }>{ __( 'Documentation' ) }</span>
+				<span
+					className={ clsx( styles.helpLinkLabel, styles.helpLinkLabelFull ) }
+					aria-hidden="true"
+				>
+					{ __( 'Documentation' ) }
+				</span>
+				<span
+					className={ clsx( styles.helpLinkLabel, styles.helpLinkLabelShort ) }
+					aria-hidden="true"
+				>
+					{ __( 'Docs' ) }
+				</span>
 			</button>
 			<button
 				type="button"
@@ -49,11 +61,13 @@ export function AccountSection() {
 	const themeIsDark = useColorScheme() === 'dark';
 
 	return (
-		<div className={ styles.accountAside }>
+		<div className={ clsx( styles.accountAside, user && styles.accountAsideGrid ) }>
 			{ user ? (
 				<>
-					<section className={ styles.asideSection }>
-						<h2 className={ styles.asideHeading }>{ __( 'Account' ) }</h2>
+					<section className={ clsx( styles.asideSection, styles.accountBlock ) }>
+						<h2 className={ clsx( styles.asideHeading, styles.visuallyHidden ) }>
+							{ __( 'Account' ) }
+						</h2>
 						<div className={ styles.accountIdentity }>
 							<Gravatar
 								email={ user.email }

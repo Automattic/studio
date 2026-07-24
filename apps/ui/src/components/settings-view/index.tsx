@@ -247,11 +247,11 @@ function StudioExperienceSection() {
 	}
 	return (
 		<section className={ styles.card }>
-			<div className={ styles.cardHeader }>
+			<div className={ clsx( styles.cardHeader, styles.cardHeaderCentered ) }>
 				<div className={ styles.cardHeaderText }>
-					<h2 className={ styles.cardTitle }>{ __( 'Studio experience' ) }</h2>
+					<h2 className={ styles.cardTitle }>{ __( 'Studio Beta' ) }</h2>
 					<p className={ styles.cardDescription }>
-						{ __( 'You are using the new Studio experience.' ) }
+						{ __( 'You’re using the new Studio with AI chat and a built-in site preview.' ) }
 					</p>
 				</div>
 				<div className={ styles.cardHeaderActions }>
@@ -341,10 +341,10 @@ function PreferencesPanel( {
 						</PreferenceRow>
 					</div>
 				</section>
-				<StudioExperienceSection />
+				<KeyboardPanel />
 				<StudioCliSection />
 				<McpSection />
-				<KeyboardPanel />
+				<StudioExperienceSection />
 			</div>
 		</div>
 	);

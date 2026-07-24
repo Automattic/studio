@@ -240,7 +240,7 @@ describe( 'SettingsView', () => {
 		render( <SettingsView activeTab="preferences" onTabChange={ vi.fn() } /> );
 
 		expect( screen.getByRole( 'heading', { name: 'Composer' } ) ).toBeInTheDocument();
-		expect( screen.getByRole( 'heading', { name: 'Site preview' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'heading', { name: 'Preview' } ) ).toBeInTheDocument();
 		expect( screen.getByText( 'New chat' ) ).toBeInTheDocument();
 		expect( screen.getByText( 'Send message' ) ).toBeInTheDocument();
 		expect( screen.getByLabelText( 'Control + Comma' ) ).toBeInTheDocument();

@@ -54,12 +54,13 @@ function SessionHeader( { summary }: SessionHeaderProps ) {
 		return null;
 	}
 
-	const toggleSpacerClass =
-		sidebarCollapsed && reserveTrafficLightSpace ? styles.toggleSpacer : null;
-
 	return (
-		<div className={ styles.header }>
-			{ toggleSpacerClass ? <span className={ toggleSpacerClass } aria-hidden="true" /> : null }
+		<div
+			className={ clsx(
+				styles.header,
+				sidebarCollapsed && reserveTrafficLightSpace && styles.headerSidebarCollapsed
+			) }
+		>
 			{ site ? (
 				<SiteDropdown
 					site={ site }

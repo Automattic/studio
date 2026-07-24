@@ -1058,143 +1058,151 @@ export function SiteList() {
 			view === 'plugins' ? pluginRowsBlock : view === 'sites' ? siteRowsBlock : allRowsBlock;
 	}
 
+	// The project-type tabs, search, and sort controls only earn their space
+	// once there's more than one site to switch between, search, or sort.
+	const showListControls = ( sites?.length ?? 0 ) > 1;
+
 	return (
 		<div className={ styles.root } ref={ listAnchorRef }>
-			<div className={ styles.viewSwitcherBar }>
-				<SegmentedControl
-					aria-label={ __( 'Project type' ) }
-					value={ view }
-					onChange={ selectView }
-					options={ [
-						{
-							value: 'all',
-							label: <Icon icon={ category } size={ 16 } />,
-							tooltip: __( 'All' ),
-						},
-						{
-							value: 'sites',
-							label: <Icon icon={ wordpress } size={ 16 } />,
-							tooltip: __( 'Sites' ),
-						},
-						{
-							value: 'plugins',
-							label: <Icon icon={ pluginsIcon } size={ 16 } />,
-							tooltip: __( 'Plugins' ),
-						},
-					] }
-				/>
-				<div className={ styles.searchRow }>
-					<div className={ styles.searchField }>
-						<input
-							type="search"
-							className={ styles.searchInput }
-							placeholder={ searchLabel }
-							aria-label={ searchLabel }
-							value={ searchQuery }
-							onChange={ ( event ) => setSearchQuery( event.target.value ) }
-						/>
-						<Menu.Root modal={ false }>
-							<Menu.Trigger
-								render={
-									<IconButton
-										variant="minimal"
-										tone={ sort === 'custom' ? 'neutral' : 'brand' }
-										size="small"
-										icon={ funnel }
-										label={ __( 'Sort' ) }
-									/>
-								}
+			{ showListControls && (
+				<div className={ styles.viewSwitcherBar }>
+					<SegmentedControl
+						aria-label={ __( 'Project type' ) }
+						value={ view }
+						onChange={ selectView }
+						options={ [
+							{
+								value: 'all',
+								label: <Icon icon={ category } size={ 16 } />,
+								tooltip: __( 'All' ),
+							},
+							{
+								value: 'sites',
+								label: <Icon icon={ wordpress } size={ 16 } />,
+								tooltip: __( 'Sites' ),
+							},
+							{
+								value: 'plugins',
+								label: <Icon icon={ pluginsIcon } size={ 16 } />,
+								tooltip: __( 'Plugins' ),
+							},
+						] }
+					/>
+					<div className={ styles.searchRow }>
+						<div className={ styles.searchField }>
+							<input
+								type="search"
+								className={ styles.searchInput }
+								placeholder={ searchLabel }
+								aria-label={ searchLabel }
+								value={ searchQuery }
+								onChange={ ( event ) => setSearchQuery( event.target.value ) }
 							/>
-							<Menu.Popup side="bottom" align="end">
-								<Menu.Group>
-									<Menu.GroupLabel>{ __( 'Sort by' ) }</Menu.GroupLabel>
-									<Menu.RadioGroup
-										value={ sort }
-										onValueChange={ ( next ) => selectSort( next as SidebarSort ) }
-									>
-										<Menu.RadioItem value="custom">{ __( 'Custom order' ) }</Menu.RadioItem>
-										<Menu.RadioItem value="name-asc">{ __( 'Name, A to Z' ) }</Menu.RadioItem>
-										<Menu.RadioItem value="name-desc">{ __( 'Name, Z to A' ) }</Menu.RadioItem>
-										<Menu.RadioItem value="running-first">{ __( 'Running first' ) }</Menu.RadioItem>
-										<Menu.RadioItem value="created-desc">{ __( 'Newest first' ) }</Menu.RadioItem>
-										<Menu.RadioItem value="created-asc">{ __( 'Oldest first' ) }</Menu.RadioItem>
-									</Menu.RadioGroup>
-								</Menu.Group>
-								{ view === 'sites' ? (
-									<>
-										<Menu.Separator />
-										<Menu.Item onClick={ () => setSelectModeOn( true ) }>
-											{ __( 'Select sites to group' ) }
-										</Menu.Item>
-									</>
-								) : null }
-							</Menu.Popup>
-						</Menu.Root>
-					</div>
-				</div>
-				{ selecting ? (
-					<div className={ styles.selectionBar }>
-						{ groupNaming ? (
-							<>
-								{ /* The input appears on explicit user action; moving focus
-								     into it follows the intent. */ }
-								<input
-									className={ styles.groupNameInput }
-									autoFocus
-									placeholder={ __( 'Group name' ) }
-									aria-label={ __( 'Group name' ) }
-									value={ groupName }
-									onChange={ ( event ) => setGroupName( event.target.value ) }
-									onKeyDown={ ( event ) => {
-										if ( event.key === 'Enter' ) {
-											submitGroup();
-										} else if ( event.key === 'Escape' ) {
-											setGroupNaming( false );
-											setGroupName( '' );
-										}
-									} }
+							<Menu.Root modal={ false }>
+								<Menu.Trigger
+									render={
+										<IconButton
+											variant="minimal"
+											tone={ sort === 'custom' ? 'neutral' : 'brand' }
+											size="small"
+											icon={ funnel }
+											label={ __( 'Sort' ) }
+										/>
+									}
 								/>
-								<Button
-									size="small"
-									variant="solid"
-									tone="brand"
-									disabled={ ! groupName.trim() }
-									onClick={ submitGroup }
-								>
-									{ __( 'Save' ) }
-								</Button>
-							</>
-						) : (
-							<>
-								<span className={ styles.selectionCount }>
-									{ sprintf(
-										/* translators: %d: number of selected sites */
-										__( '%d selected' ),
-										selectedSiteIds.size
-									) }
-								</span>
-								<Button
-									size="small"
-									variant="solid"
-									tone="brand"
-									disabled={ selectedSiteIds.size === 0 }
-									onClick={ () => setGroupNaming( true ) }
-								>
-									{ __( 'Create group' ) }
-								</Button>
-							</>
-						) }
-						<IconButton
-							variant="minimal"
-							tone="neutral"
-							size="small"
-							icon={ closeSmall }
-							label={ __( 'Cancel selection' ) }
-							onClick={ clearSelection }
-						/>
+								<Menu.Popup side="bottom" align="end">
+									<Menu.Group>
+										<Menu.GroupLabel>{ __( 'Sort by' ) }</Menu.GroupLabel>
+										<Menu.RadioGroup
+											value={ sort }
+											onValueChange={ ( next ) => selectSort( next as SidebarSort ) }
+										>
+											<Menu.RadioItem value="custom">{ __( 'Custom order' ) }</Menu.RadioItem>
+											<Menu.RadioItem value="name-asc">{ __( 'Name, A to Z' ) }</Menu.RadioItem>
+											<Menu.RadioItem value="name-desc">{ __( 'Name, Z to A' ) }</Menu.RadioItem>
+											<Menu.RadioItem value="running-first">
+												{ __( 'Running first' ) }
+											</Menu.RadioItem>
+											<Menu.RadioItem value="created-desc">{ __( 'Newest first' ) }</Menu.RadioItem>
+											<Menu.RadioItem value="created-asc">{ __( 'Oldest first' ) }</Menu.RadioItem>
+										</Menu.RadioGroup>
+									</Menu.Group>
+									{ view === 'sites' ? (
+										<>
+											<Menu.Separator />
+											<Menu.Item onClick={ () => setSelectModeOn( true ) }>
+												{ __( 'Select sites to group' ) }
+											</Menu.Item>
+										</>
+									) : null }
+								</Menu.Popup>
+							</Menu.Root>
+						</div>
 					</div>
-				) : null }
-			</div>
+					{ selecting ? (
+						<div className={ styles.selectionBar }>
+							{ groupNaming ? (
+								<>
+									{ /* The input appears on explicit user action; moving focus
+								     into it follows the intent. */ }
+									<input
+										className={ styles.groupNameInput }
+										autoFocus
+										placeholder={ __( 'Group name' ) }
+										aria-label={ __( 'Group name' ) }
+										value={ groupName }
+										onChange={ ( event ) => setGroupName( event.target.value ) }
+										onKeyDown={ ( event ) => {
+											if ( event.key === 'Enter' ) {
+												submitGroup();
+											} else if ( event.key === 'Escape' ) {
+												setGroupNaming( false );
+												setGroupName( '' );
+											}
+										} }
+									/>
+									<Button
+										size="small"
+										variant="solid"
+										tone="brand"
+										disabled={ ! groupName.trim() }
+										onClick={ submitGroup }
+									>
+										{ __( 'Save' ) }
+									</Button>
+								</>
+							) : (
+								<>
+									<span className={ styles.selectionCount }>
+										{ sprintf(
+											/* translators: %d: number of selected sites */
+											__( '%d selected' ),
+											selectedSiteIds.size
+										) }
+									</span>
+									<Button
+										size="small"
+										variant="solid"
+										tone="brand"
+										disabled={ selectedSiteIds.size === 0 }
+										onClick={ () => setGroupNaming( true ) }
+									>
+										{ __( 'Create group' ) }
+									</Button>
+								</>
+							) }
+							<IconButton
+								variant="minimal"
+								tone="neutral"
+								size="small"
+								icon={ closeSmall }
+								label={ __( 'Cancel selection' ) }
+								onClick={ clearSelection }
+							/>
+						</div>
+					) : null }
+				</div>
+			) }
 			{ listContent }
 		</div>
 	);

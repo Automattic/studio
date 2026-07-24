@@ -63,8 +63,12 @@ export function useGettingStartedMessage(): ChecklistMessage | null {
 		return () => clearTimeout( timer );
 	}, [ guideSeen, revealed ] );
 
+	// Returning users skip the pre-workbench welcome (they already had sites), so
+	// treat their returning flag as satisfying that precondition.
+	const welcomeDone = onboardingCompleted === true || hints?.returningUser === true;
+
 	const ready =
-		onboardingCompleted === true &&
+		welcomeDone &&
 		( sites?.length ?? 0 ) >= 1 &&
 		agentic.isReady &&
 		hints !== undefined &&
@@ -79,7 +83,7 @@ export function useGettingStartedMessage(): ChecklistMessage | null {
 		return null;
 	}
 
-	const defs = getChecklistItems( agentic.chatEnabled );
+	const defs = getChecklistItems( agentic.chatEnabled, hints.returningUser === true );
 	const items = deriveChecklistItems( defs, hints );
 	const allComplete = isChecklistComplete( items );
 	const completedCount = items.filter( ( item ) => item.completed ).length;

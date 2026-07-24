@@ -15,6 +15,20 @@ export const indexRoute = createRoute( {
 			queryKey: SITES_QUERY_KEY,
 			queryFn: () => context.connector.getSites(),
 		} );
+
+		// Capture new-vs-returning once, at the only moment they differ: a
+		// brand-new user reaches here with no sites (then goes to /welcome), a
+		// returning user arrives with sites already. Never overwrite once set,
+		// and never let this block or break the redirect below.
+		try {
+			const hints = await context.connector.getOnboardingHints();
+			if ( hints.returningUser === undefined ) {
+				await context.connector.setOnboardingHints( { returningUser: sites.length > 0 } );
+			}
+		} catch {
+			// Non-fatal: the checklist just falls back to the new-user set.
+		}
+
 		if ( sites.length === 0 ) {
 			// Brand-new users see the first-run welcome (log in or skip) before
 			// the add-a-site flow.

@@ -1,6 +1,10 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
+import { useTourAnchor } from '@/components/coachmarks/anchor-registry';
 import * as Menu from '@/components/menu';
+import { useConnector } from '@/data/core';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
+import { markChecklistItemComplete } from '@/data/queries/use-onboarding-hints';
 import { useIsSiteStarting, useIsSiteStopping } from '@/data/queries/use-sites';
 import { useSnapshots } from '@/data/queries/use-snapshots';
 import { useSiteLastSyncLog, useSiteSyncActivity } from '@/data/sync-activity';
@@ -37,6 +41,10 @@ export function SiteDropdown( {
 	const [ view, setView ] = useState< 'main' | 'picker' >( 'main' );
 	const [ menuOpen, setMenuOpen ] = useState( false );
 	const [ disconnectOpen, setDisconnectOpen ] = useState( false );
+	const connector = useConnector();
+	const queryClient = useQueryClient();
+	// Anchors the "find your sync controls" onboarding coachmark for returning users.
+	const menuAnchorRef = useTourAnchor( 'site-menu-button' );
 
 	// The trigger needs the site status for its running/stopped/transitioning
 	// dot — everything else about status lives inside MainView.
@@ -72,15 +80,19 @@ export function SiteDropdown( {
 	};
 
 	return (
-		<div className={ styles.root }>
+		<div className={ styles.root } ref={ menuAnchorRef }>
 			<Menu.Root
 				modal={ false }
 				open={ menuOpen }
 				onOpenChange={ ( open ) => {
 					setMenuOpen( open );
-					// Reset to the main view whenever the dropdown closes so the
-					// next opening doesn't unexpectedly land in the picker state.
-					if ( ! open ) {
+					// Opening the site menu is where a returning user discovers the
+					// sync controls, so it checks that getting-started item off.
+					if ( open ) {
+						void markChecklistItemComplete( connector, queryClient, 'find-sync-controls' );
+					} else {
+						// Reset to the main view whenever the dropdown closes so the
+						// next opening doesn't unexpectedly land in the picker state.
 						setView( 'main' );
 					}
 				} }

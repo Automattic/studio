@@ -292,6 +292,7 @@ export function SiteOverviewView( { siteId }: SiteOverviewViewProps ) {
 function SiteOverviewBody( { site }: { site: SiteDetails } ) {
 	const navigate = useNavigate();
 	const overviewAnchorRef = useTourAnchor( 'site-overview-content' );
+	const settingsTabAnchorRef = useTourAnchor( 'site-settings-tab' );
 	const isStarting = useIsSiteStarting( site.id );
 	const isStopping = useIsSiteStopping( site.id );
 	const overviewDetails = useSiteOverviewDetails( site.id );
@@ -328,7 +329,9 @@ function SiteOverviewBody( { site }: { site: SiteDetails } ) {
 						<div className={ styles.tabsBarInner }>
 							<Tabs.List>
 								<Tabs.Tab tabId="overview">{ __( 'Overview' ) }</Tabs.Tab>
-								<Tabs.Tab tabId="settings">{ __( 'Settings' ) }</Tabs.Tab>
+								<Tabs.Tab tabId="settings" ref={ settingsTabAnchorRef }>
+									{ __( 'Settings' ) }
+								</Tabs.Tab>
 								<Tabs.Tab tabId="agent">{ __( 'Agent' ) }</Tabs.Tab>
 								{ supportsCheckpoints ? (
 									<Tabs.Tab tabId="checkpoints">{ __( 'Checkpoints' ) }</Tabs.Tab>

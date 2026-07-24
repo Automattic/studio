@@ -29,14 +29,54 @@ const CREATE_SITE_ITEM: ChecklistItemDef = {
 	preCompleted: true,
 };
 
-const VISIT_APP_SETTINGS_ITEM: ChecklistItemDef = {
-	id: 'visit-app-settings',
-	label: () => __( 'Explore settings' ),
+const FIRST_AGENT_EDIT_ITEM: ChecklistItemDef = {
+	id: 'first-agent-edit',
+	label: () => __( 'Make a change with chat' ),
 	coachmark: {
-		anchor: 'sidebar-user-menu',
-		title: () => __( 'Settings' ),
-		description: () => __( 'Your editor, theme, AI model, and more live in Settings, down here.' ),
-		placement: { side: 'top', align: 'start' },
+		anchor: 'composer',
+		title: () => __( 'Ask the agent' ),
+		description: () =>
+			__( 'Describe a change here and the agent makes it. Try "Add an About page."' ),
+		placement: { side: 'top', align: 'center' },
+	},
+};
+
+const VISIT_OVERVIEW_AGENTIC_ITEM: ChecklistItemDef = {
+	id: 'visit-overview',
+	label: () => __( 'Open your site overview' ),
+	coachmark: {
+		anchor: 'sidebar-site-row-overview',
+		title: () => __( 'Site overview' ),
+		description: () =>
+			createInterpolateElement(
+				__( 'The <icon/> button opens the overview — editor, styles, admin tools, and more.' ),
+				{ icon: <Icon icon={ settings } size={ 16 } /> }
+			),
+		placement: { side: 'right', align: 'center' },
+	},
+};
+
+const VISIT_OVERVIEW_OVERVIEW_ITEM: ChecklistItemDef = {
+	id: 'visit-overview',
+	label: () => __( 'Explore your site overview' ),
+	coachmark: {
+		anchor: 'site-overview-content',
+		title: () => __( 'Site overview' ),
+		description: () =>
+			__( 'Open the editor and admin tools, or duplicate and export your site from here.' ),
+		placement: { side: 'right', align: 'center' },
+	},
+};
+
+const VISIT_SITE_SETTINGS_ITEM: ChecklistItemDef = {
+	id: 'visit-site-settings',
+	label: () => __( 'Adjust your site settings' ),
+	coachmark: {
+		anchor: 'site-settings-tab',
+		title: () => __( 'Site settings' ),
+		description: () =>
+			__( 'PHP version, web server, and debugging tools live in the Settings tab.' ),
+		placement: { side: 'bottom', align: 'start' },
 	},
 };
 
@@ -51,67 +91,71 @@ const PUBLISH_ITEM: ChecklistItemDef = {
 	},
 };
 
+// Returning users have likely published before; point them at where sync lives
+// instead — the site menu button, which holds push/pull to WordPress.com.
+const FIND_SYNC_CONTROLS_ITEM: ChecklistItemDef = {
+	id: 'find-sync-controls',
+	label: () => __( 'Find your sync controls' ),
+	coachmark: {
+		anchor: 'site-menu-button',
+		title: () => __( 'Push and pull changes' ),
+		description: () =>
+			__( 'Sync with your live WordPress.com or Pressable site from the site menu, up here.' ),
+		placement: { side: 'bottom', align: 'start' },
+	},
+};
+
+const VISIT_APP_SETTINGS_ITEM: ChecklistItemDef = {
+	id: 'visit-app-settings',
+	label: () => __( 'Explore settings' ),
+	coachmark: {
+		anchor: 'sidebar-user-menu',
+		title: () => __( 'Settings' ),
+		description: () => __( 'Your editor, theme, AI model, and more live in Settings, down here.' ),
+		placement: { side: 'top', align: 'start' },
+	},
+};
+
 export const AGENTIC_CHECKLIST_ITEMS: ChecklistItemDef[] = [
 	CREATE_SITE_ITEM,
-	{
-		id: 'first-agent-edit',
-		label: () => __( 'Make a change with chat' ),
-		coachmark: {
-			anchor: 'composer',
-			title: () => __( 'Ask the agent' ),
-			description: () =>
-				__( 'Describe a change here and the agent makes it. Try "Add an About page."' ),
-			placement: { side: 'top', align: 'center' },
-		},
-	},
-	{
-		id: 'visit-overview',
-		label: () => __( 'Open your site overview' ),
-		coachmark: {
-			anchor: 'sidebar-site-row-overview',
-			title: () => __( 'Site overview' ),
-			description: () =>
-				createInterpolateElement(
-					__( 'The <icon/> button opens the overview — editor, styles, admin tools, and more.' ),
-					{ icon: <Icon icon={ settings } size={ 16 } /> }
-				),
-			placement: { side: 'right', align: 'center' },
-		},
-	},
+	FIRST_AGENT_EDIT_ITEM,
+	VISIT_OVERVIEW_AGENTIC_ITEM,
 	PUBLISH_ITEM,
 	VISIT_APP_SETTINGS_ITEM,
 ];
 
 export const OVERVIEW_CHECKLIST_ITEMS: ChecklistItemDef[] = [
 	CREATE_SITE_ITEM,
-	{
-		id: 'visit-overview',
-		label: () => __( 'Explore your site overview' ),
-		coachmark: {
-			anchor: 'site-overview-content',
-			title: () => __( 'Site overview' ),
-			description: () =>
-				__( 'Open the editor and admin tools, or duplicate and export your site from here.' ),
-			placement: { side: 'right', align: 'center' },
-		},
-	},
-	{
-		id: 'visit-site-settings',
-		label: () => __( 'Adjust your site settings' ),
-		coachmark: {
-			anchor: 'site-overview-content',
-			title: () => __( 'Site settings' ),
-			description: () =>
-				__( 'PHP version, web server, and debugging tools live in the tabs here.' ),
-			placement: { side: 'right', align: 'center' },
-		},
-	},
+	VISIT_OVERVIEW_OVERVIEW_ITEM,
+	VISIT_SITE_SETTINGS_ITEM,
 	PUBLISH_ITEM,
 	VISIT_APP_SETTINGS_ITEM,
 ];
 
-export function getChecklistItems( agenticEnabled: boolean ): ChecklistItemDef[] {
-	return agenticEnabled ? AGENTIC_CHECKLIST_ITEMS : OVERVIEW_CHECKLIST_ITEMS;
+// Returning users (sites already existed at first launch): drop "create your
+// first site", and swap the publish prompt for finding the sync controls.
+export const AGENTIC_RETURNING_CHECKLIST_ITEMS: ChecklistItemDef[] = [
+	FIRST_AGENT_EDIT_ITEM,
+	VISIT_OVERVIEW_AGENTIC_ITEM,
+	FIND_SYNC_CONTROLS_ITEM,
+	VISIT_APP_SETTINGS_ITEM,
+];
+
+export const OVERVIEW_RETURNING_CHECKLIST_ITEMS: ChecklistItemDef[] = [
+	VISIT_OVERVIEW_OVERVIEW_ITEM,
+	VISIT_SITE_SETTINGS_ITEM,
+	FIND_SYNC_CONTROLS_ITEM,
+	VISIT_APP_SETTINGS_ITEM,
+];
+
+export function getChecklistItems(
+	agenticEnabled: boolean,
+	returningUser = false
+): ChecklistItemDef[] {
+	if ( agenticEnabled ) {
+		return returningUser ? AGENTIC_RETURNING_CHECKLIST_ITEMS : AGENTIC_CHECKLIST_ITEMS;
+	}
+	return returningUser ? OVERVIEW_RETURNING_CHECKLIST_ITEMS : OVERVIEW_CHECKLIST_ITEMS;
 }
 
 // Pure: resolve each definition to its completed state from persisted hints.

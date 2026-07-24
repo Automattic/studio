@@ -699,6 +699,7 @@ export type ChecklistItemId =
 	| 'first-agent-edit'
 	| 'visit-overview'
 	| 'publish-site'
+	| 'find-sync-controls'
 	| 'visit-app-settings'
 	| 'visit-site-settings';
 
@@ -719,6 +720,10 @@ export interface OnboardingHintsState {
 	completedItems?: Partial< Record< ChecklistItemId, string > >;
 	// True once the one-shot publish coachmark has been shown (never re-fires).
 	publishCoachmarkShown?: boolean;
+	// Captured once, the first time we can tell new from returning: true if the
+	// user already had sites when they first reached the app (so the checklist
+	// drops "create your first site" and swaps publish for finding sync controls).
+	returningUser?: boolean;
 }
 
 export interface SkillStatus {

@@ -38,7 +38,10 @@ export function deriveOrientationAutostart( {
 	if ( alreadyStarted || guideOpen ) {
 		return null;
 	}
-	if ( onboardingCompleted !== true || siteCount < 1 || ! agentic.isReady ) {
+	// Returning users skip the pre-workbench welcome (sites already existed), so
+	// their returning flag stands in for onboardingCompleted here.
+	const welcomeDone = onboardingCompleted === true || hints?.returningUser === true;
+	if ( ! welcomeDone || siteCount < 1 || ! agentic.isReady ) {
 		return null;
 	}
 	if ( hints === undefined ) {

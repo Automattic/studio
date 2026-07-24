@@ -83,6 +83,7 @@ export interface OnboardingHintsState {
 	checklistMinimized?: boolean;
 	completedItems?: Record< string, string >;
 	publishCoachmarkShown?: boolean;
+	returningUser?: boolean;
 }
 
 export const EMPTY_USER_DATA: UserData = {

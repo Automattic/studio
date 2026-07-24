@@ -28,6 +28,16 @@ describe( 'deriveOrientationAutostart', () => {
 		expect( deriveOrientationAutostart( { ...base, onboardingCompleted: undefined } ) ).toBeNull();
 	} );
 
+	it( 'opens for a returning user even without the pre-workbench welcome', () => {
+		expect(
+			deriveOrientationAutostart( {
+				...base,
+				onboardingCompleted: false,
+				hints: { returningUser: true },
+			} )
+		).toBe( 'agentic' );
+	} );
+
 	it( 'waits until there is at least one site', () => {
 		expect( deriveOrientationAutostart( { ...base, siteCount: 0 } ) ).toBeNull();
 	} );

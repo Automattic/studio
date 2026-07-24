@@ -686,22 +686,33 @@
 }
 
 /* Assistant response wrapper: the copy button stays hidden until the turn is
-   hovered (or a control inside it is focused). */
+   hovered (or a control inside it is focused). It is absolutely positioned in
+   the spacing below the message so it takes no layout space and leaves no gap
+   between conversation blocks. */
 .assistantTurn {
+	position: relative;
 	display: flex;
 	flex-direction: column;
-	gap: var(--wpds-dimension-padding-xs);
 }
 
 .messageActions {
+	position: absolute;
+	/* Flush with the turn's bottom edge, with the visual offset as padding so
+	   the pointer never crosses a dead zone that would drop :hover en route to
+	   the button. */
+	inset-block-start: 100%;
+	padding-block-start: var(--wpds-dimension-padding-xs);
+	inset-inline-start: calc((16px - 1.75rem) / 2);
+	inset-inline-end: 0;
 	display: flex;
 	align-items: center;
-	margin-inline-start: calc((16px - 1.75rem) / 2);
 	opacity: 0;
+	pointer-events: none;
 	transition: opacity 0.12s ease;
 }
 
 .assistantTurn:hover .messageActions,
 .assistantTurn:focus-within .messageActions {
 	opacity: 1;
+	pointer-events: auto;
 }

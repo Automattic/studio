@@ -22,6 +22,7 @@ const PREFERENCES: UserPreferences = {
 	editor: null,
 	terminal: null,
 	colorScheme: 'system',
+	frameColor: null,
 	quitSitesBehavior: 'ask',
 	locale: 'en',
 	analyticsEnabled: true,

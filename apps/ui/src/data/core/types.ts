@@ -750,6 +750,9 @@ export interface UserPreferences {
 	editor: SupportedEditor | null;
 	terminal: SupportedTerminal | null;
 	colorScheme: ColorScheme;
+	// Window-chrome ("frame") color override. `null` uses the scheme-aware
+	// default; any CSS color string is applied as a single color for both schemes.
+	frameColor: string | null;
 	locale: string | undefined;
 	defaultSiteDirectory: string;
 	studioCliInstalled: boolean;

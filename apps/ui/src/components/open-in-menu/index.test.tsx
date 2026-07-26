@@ -144,6 +144,7 @@ describe( 'OpenInMenu', () => {
 				editor: 'zed',
 				terminal: 'terminal',
 				colorScheme: 'system',
+				frameColor: null,
 				locale: undefined,
 				analyticsEnabled: true,
 				defaultSiteDirectory: '/Users/example/Studio',

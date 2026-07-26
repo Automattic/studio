@@ -942,6 +942,7 @@ export function createIpcConnector(): Connector {
 				editor,
 				terminal,
 				colorScheme,
+				frameColor,
 				locale,
 				analyticsEnabled,
 				defaultSiteDirectory,
@@ -958,6 +959,7 @@ export function createIpcConnector(): Connector {
 				ipcApi.getUserEditor(),
 				ipcApi.getUserTerminal(),
 				ipcApi.getColorScheme(),
+				ipcApi.getFrameColor(),
 				ipcApi.getUserLocale(),
 				ipcApi.getAnalyticsEnabled(),
 				ipcApi.getDefaultSiteDirectory(),
@@ -974,6 +976,7 @@ export function createIpcConnector(): Connector {
 				SupportedEditor | null,
 				SupportedTerminal | null,
 				ColorScheme,
+				string | null,
 				string | undefined,
 				boolean,
 				string,
@@ -991,6 +994,7 @@ export function createIpcConnector(): Connector {
 				editor,
 				terminal,
 				colorScheme,
+				frameColor,
 				locale,
 				analyticsEnabled,
 				defaultSiteDirectory,
@@ -1018,6 +1022,9 @@ export function createIpcConnector(): Connector {
 			}
 			if ( 'colorScheme' in partial && partial.colorScheme ) {
 				writes.push( ipcApi.saveColorScheme( partial.colorScheme ) );
+			}
+			if ( 'frameColor' in partial ) {
+				writes.push( ipcApi.saveFrameColor( partial.frameColor ?? null ) );
 			}
 			if ( 'locale' in partial && partial.locale ) {
 				writes.push( ipcApi.saveUserLocale( partial.locale ) );

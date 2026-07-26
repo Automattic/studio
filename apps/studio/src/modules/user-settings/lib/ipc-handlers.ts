@@ -253,6 +253,19 @@ export async function getColorScheme(): Promise< 'system' | 'light' | 'dark' > {
 	return colorScheme;
 }
 
+export async function getFrameColor(): Promise< string | null > {
+	const userData = await loadUserData();
+	return userData.frameColor ?? null;
+}
+
+// `null` clears the override, restoring the scheme-aware default chrome.
+export async function saveFrameColor(
+	_event: IpcMainInvokeEvent,
+	frameColor: string | null
+): Promise< void > {
+	await updateAppdata( { frameColor: frameColor ?? undefined } );
+}
+
 export async function getAnalyticsEnabled(): Promise< boolean > {
 	return ! ( await isAnalyticsOptedOut() );
 }

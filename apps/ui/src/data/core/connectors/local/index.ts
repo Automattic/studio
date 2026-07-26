@@ -43,6 +43,7 @@ import type { SiteRestResponse } from '@studio/common/types/wordpress-rest';
 // The in-app dark/light/system choice, persisted in the browser (there's no
 // Electron `nativeTheme` to mirror it) so it sticks across reloads.
 const COLOR_SCHEME_STORAGE_KEY = 'studio-local-color-scheme';
+const FRAME_COLOR_STORAGE_KEY = 'studio-local-frame-color';
 // Editor/terminal choices live in the browser too (no Electron user-settings
 // store); the server reads them back from each open request.
 const EDITOR_STORAGE_KEY = 'studio-local-editor';
@@ -725,6 +726,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					( window.localStorage.getItem( TERMINAL_STORAGE_KEY ) as SupportedTerminal | null ) ||
 					null,
 				colorScheme,
+				frameColor: window.localStorage.getItem( FRAME_COLOR_STORAGE_KEY ) || null,
 				locale: undefined,
 				analyticsEnabled: true,
 				// The rest are desktop-managed preferences with sensible defaults
@@ -753,6 +755,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			}
 			if ( partial.colorScheme ) {
 				window.localStorage.setItem( COLOR_SCHEME_STORAGE_KEY, partial.colorScheme );
+			}
+			if ( 'frameColor' in partial ) {
+				if ( partial.frameColor ) {
+					window.localStorage.setItem( FRAME_COLOR_STORAGE_KEY, partial.frameColor );
+				} else {
+					window.localStorage.removeItem( FRAME_COLOR_STORAGE_KEY );
+				}
 			}
 			if ( partial.editor !== undefined ) {
 				if ( partial.editor ) {

@@ -887,6 +887,66 @@
 	}
 }
 
+/* ---- Frame-color swatch picker ------------------------------------------ */
+
+.framePicker {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	flex-wrap: wrap;
+	gap: var(--wpds-dimension-gap-sm);
+}
+
+.frameSwatch {
+	inline-size: 20px;
+	block-size: 20px;
+	flex-shrink: 0;
+	padding: 0;
+	border-radius: 50%;
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
+	background: var(--frame-swatch-color);
+	cursor: var(--wpds-cursor-control);
+}
+
+.frameSwatchActive,
+.frameSwatch:focus-visible,
+.frameSwatchCustom:has(:focus-visible) {
+	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus-brand);
+	outline-offset: 2px;
+}
+
+/* A hue wheel invites picking a color; when a custom color is active the inline
+   --frame-swatch-color overrides it with the chosen color. The hidden native
+   color input fills the swatch so clicking anywhere opens the OS picker. */
+.frameSwatchCustom {
+	position: relative;
+	overflow: hidden;
+	--frame-swatch-color: conic-gradient(
+		from 0deg,
+		#ff4d4d,
+		#ffb84d,
+		#ffee4d,
+		#4dff88,
+		#4dd2ff,
+		#4d4dff,
+		#b84dff,
+		#ff4dd2,
+		#ff4d4d
+	);
+}
+
+.frameSwatchInput {
+	position: absolute;
+	inset: 0;
+	inline-size: 100%;
+	block-size: 100%;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	opacity: 0;
+	cursor: var(--wpds-cursor-control);
+}
+
 .appearanceButton {
 	position: relative;
 	z-index: 1;

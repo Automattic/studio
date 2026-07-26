@@ -44,6 +44,8 @@ export interface UserData {
 	preferredTerminal?: SupportedTerminal;
 	preferredEditor?: SupportedEditor;
 	colorScheme?: 'system' | 'light' | 'dark';
+	/** Agentic UI window-chrome ("frame") color. Absent means the scheme-aware default. */
+	frameColor?: string;
 	betaFeatures?: BetaFeatures;
 	quitSitesBehavior?: QuitSitesBehavior;
 	defaultSiteDirectory?: string;

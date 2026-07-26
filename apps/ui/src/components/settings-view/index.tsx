@@ -37,7 +37,7 @@ import type {
 	SupportedLocale,
 	SupportedTerminal,
 } from '@/data/core';
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 
 const SETTINGS_TABS = [ 'preferences', 'ai' ] as const;
 
@@ -89,6 +89,21 @@ const COLOR_SCHEME_ELEMENTS: { value: ColorScheme; label: string }[] = [
 function isColorScheme( value: unknown ): value is ColorScheme {
 	return value === 'system' || value === 'light' || value === 'dark';
 }
+
+// The swatch shown for the scheme-aware default (its value is `null`, which
+// clears the override). Matches CHROME_BG_LIGHT in sidebar-layout.
+const FRAME_COLOR_DEFAULT_SWATCH = '#1e1e1e';
+
+// Preset window-chrome ("frame") colors — dark, rich tones so the chrome keeps
+// its inset look. Custom lets the user pick any single color of their own.
+const FRAME_COLOR_PRESETS: { value: string; label: string }[] = [
+	{ value: '#1c2431', label: __( 'Ink' ) },
+	{ value: '#123138', label: __( 'Ocean' ) },
+	{ value: '#1b3125', label: __( 'Forest' ) },
+	{ value: '#2b1f38', label: __( 'Plum' ) },
+	{ value: '#331d26', label: __( 'Wine' ) },
+	{ value: '#2b2118', label: __( 'Espresso' ) },
+];
 
 const QUIT_SITES_BEHAVIOR_ELEMENTS: {
 	value: QuitSitesBehaviorSetting;
@@ -199,6 +214,72 @@ function AppearancePicker( {
 						{ option.label }
 					</button>
 				) ) }
+			</div>
+		</PreferenceRow>
+	);
+}
+
+function FrameColorPicker( {
+	value,
+	onChange,
+}: {
+	value: string | null;
+	onChange: ( value: string | null ) => void;
+} ) {
+	const normalized = value?.toLowerCase() ?? null;
+	const isDefault = normalized === null;
+	const isPreset = FRAME_COLOR_PRESETS.some( ( preset ) => preset.value === normalized );
+	const isCustom = ! isDefault && ! isPreset;
+	// The native picker opens on the active custom color, or on the default
+	// swatch as a starting point when a preset/default is currently selected.
+	const customColor = isCustom ? ( normalized as string ) : FRAME_COLOR_DEFAULT_SWATCH;
+
+	return (
+		<PreferenceRow title={ __( 'Frame color' ) }>
+			<div className={ styles.framePicker } role="group" aria-label={ __( 'Frame color' ) }>
+				<button
+					type="button"
+					className={ clsx( styles.frameSwatch, isDefault && styles.frameSwatchActive ) }
+					style={ { '--frame-swatch-color': FRAME_COLOR_DEFAULT_SWATCH } as CSSProperties }
+					aria-pressed={ isDefault }
+					aria-label={ __( 'Default' ) }
+					title={ __( 'Default' ) }
+					onClick={ () => onChange( null ) }
+				/>
+				{ FRAME_COLOR_PRESETS.map( ( preset ) => (
+					<button
+						key={ preset.value }
+						type="button"
+						className={ clsx(
+							styles.frameSwatch,
+							normalized === preset.value && styles.frameSwatchActive
+						) }
+						style={ { '--frame-swatch-color': preset.value } as CSSProperties }
+						aria-pressed={ normalized === preset.value }
+						aria-label={ preset.label }
+						title={ preset.label }
+						onClick={ () => onChange( preset.value ) }
+					/>
+				) ) }
+				<label
+					className={ clsx(
+						styles.frameSwatch,
+						styles.frameSwatchCustom,
+						isCustom && styles.frameSwatchActive
+					) }
+					style={
+						isCustom ? ( { '--frame-swatch-color': customColor } as CSSProperties ) : undefined
+					}
+					title={ __( 'Custom color' ) }
+				>
+					<input
+						type="color"
+						className={ styles.frameSwatchInput }
+						value={ customColor }
+						aria-label={ __( 'Custom color' ) }
+						onChange={ ( event ) => onChange( event.target.value ) }
+					/>
+				</label>
 			</div>
 		</PreferenceRow>
 	);
@@ -421,6 +502,10 @@ function PreferencesPanel( {
 					) : null }
 					<div className={ styles.fieldList }>
 						<AppearancePicker value={ data.colorScheme } onChange={ onColorSchemeChange } />
+						<FrameColorPicker
+							value={ data.frameColor }
+							onChange={ ( frameColor ) => onChange( { frameColor } ) }
+						/>
 						<PreferenceRow title={ __( 'Language' ) }>
 							<PreferenceSelect
 								label={ __( 'Language' ) }

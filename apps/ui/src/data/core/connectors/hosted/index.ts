@@ -518,6 +518,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 				editor: null,
 				terminal: null,
 				colorScheme: 'system',
+				frameColor: null,
 				locale: undefined,
 				analyticsEnabled: true,
 				defaultSiteDirectory: '',

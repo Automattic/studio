@@ -12,6 +12,7 @@ import { SiteList } from '@/components/site-list';
 import { UserMenu } from '@/components/user-menu';
 import { useConnector } from '@/data/core';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useFrameColor } from '@/hooks/use-frame-color';
 import { useResizablePanel } from '@/hooks/use-resizable-panel';
 import { SidebarCollapsedContext } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
@@ -26,7 +27,8 @@ const { ThemeProvider } = unlock( privateApis );
 // Dark window chrome behind the sidebar and the content frame, mimicking the
 // legacy renderer's `bg-chrome` (rgba(30,30,30,1)). Dark mode goes a step
 // deeper so the chrome still contrasts with #1e1e1e content surfaces. Keep in
-// sync with --app-chrome-bg in style.module.css.
+// sync with --app-chrome-bg in style.module.css. The user's Frame color setting
+// overrides both with a single color.
 const CHROME_BG_LIGHT = '#1e1e1e';
 const CHROME_BG_DARK = '#161616';
 
@@ -53,7 +55,8 @@ export function SidebarLayout( {
 	const connector = useConnector();
 	const reserveTrafficLightSpace = useTrafficLightSpace();
 	const colorScheme = useColorScheme();
-	const chromeBg = colorScheme === 'dark' ? CHROME_BG_DARK : CHROME_BG_LIGHT;
+	const frameColor = useFrameColor();
+	const chromeBg = frameColor ?? ( colorScheme === 'dark' ? CHROME_BG_DARK : CHROME_BG_LIGHT );
 	const sidebarResize = useResizablePanel( {
 		config: SIDEBAR_PANEL_CONFIG,
 		edge: 'right',
@@ -75,7 +78,10 @@ export function SidebarLayout( {
 
 	return (
 		<SidebarCollapsedContext.Provider value={ effectiveCollapsed }>
-			<div className={ styles.root }>
+			<div
+				className={ styles.root }
+				style={ frameColor ? ( { '--app-chrome-bg': frameColor } as CSSProperties ) : undefined }
+			>
 				<aside
 					className={ clsx(
 						styles.sidebar,

@@ -24,6 +24,7 @@ export interface PreferencesFormData {
 	editor: SupportedEditor | typeof UNSET;
 	terminal: SupportedTerminal | typeof UNSET;
 	colorScheme: ColorScheme;
+	frameColor: string | null;
 	locale: SupportedLocale;
 	analyticsEnabled: boolean;
 	defaultSiteDirectory: string;
@@ -49,6 +50,7 @@ export function toPreferencesFormData( prefs: UserPreferences ): PreferencesForm
 		editor: prefs.editor ?? UNSET,
 		terminal: prefs.terminal ?? UNSET,
 		colorScheme: prefs.colorScheme,
+		frameColor: prefs.frameColor ?? null,
 		locale: resolveFormLocale( prefs.locale ),
 		// Default to opted-in if absent (e.g. a persisted preferences cache from
 		// before this field existed) so the toggle never renders a false negative.
@@ -83,6 +85,7 @@ export function toPreferencesPatch(
 		patch.terminal = update.terminal === UNSET ? null : update.terminal;
 	}
 	if ( update.colorScheme !== undefined ) patch.colorScheme = update.colorScheme;
+	if ( update.frameColor !== undefined ) patch.frameColor = update.frameColor;
 	if ( update.locale !== undefined ) patch.locale = update.locale;
 	if ( update.analyticsEnabled !== undefined ) patch.analyticsEnabled = update.analyticsEnabled;
 	if ( update.defaultSiteDirectory !== undefined ) {

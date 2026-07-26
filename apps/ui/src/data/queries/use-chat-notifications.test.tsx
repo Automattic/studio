@@ -30,6 +30,7 @@ const PREFERENCES: UserPreferences = {
 	editor: null,
 	terminal: null,
 	colorScheme: 'system',
+	frameColor: null,
 	locale: undefined,
 	analyticsEnabled: true,
 	defaultSiteDirectory: '',

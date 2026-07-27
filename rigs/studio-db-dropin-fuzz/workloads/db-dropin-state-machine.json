@@ -7,6 +7,6 @@
 		"path": "scripts/fuzz-sqlite-dropin.ts"
 	},
 	"default_seed": "3692",
-	"tracker": "https://github.com/Automattic/studio/pull/3692",
+	"tracker": "https://github.com/Automattic/studio/issues/4355",
 	"artifact_destination": "artifacts/db-dropin-fuzz/"
 }

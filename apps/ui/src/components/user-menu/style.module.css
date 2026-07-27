@@ -41,6 +41,20 @@
 	color: var(--wpds-color-fg-content-neutral);
 }
 
+/* Selected treatment for the settings route, mirroring the site rows: the
+   descendant selector clears SidebarButton's transparent background (declared
+   at the same specificity on the button itself). */
+.rowActive .userTrigger,
+.rowActive .userTrigger:hover,
+.rowActive .userTrigger:focus-visible {
+	background-color: var(--user-menu-row-background-active);
+}
+
+.rowActive .userName {
+	color: var(--wpds-color-fg-content-neutral);
+	font-weight: var(--wpds-typography-font-weight-medium);
+}
+
 .userTrigger {
 	--wp-ui-button-height: var(--user-menu-row-height);
 	--user-menu-avatar-offset: 2px;

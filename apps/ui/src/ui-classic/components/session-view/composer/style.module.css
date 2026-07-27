@@ -26,7 +26,6 @@
 	background-color: var(--composer-resting-fill);
 	background-image: linear-gradient(var(--composer-resting-tint), var(--composer-resting-tint));
 	backdrop-filter: blur(20px) saturate(115%);
-	-webkit-backdrop-filter: blur(20px) saturate(115%);
 	padding: 0;
 	outline: 0 solid transparent;
 	transition: outline-color 80ms ease, outline-width 80ms ease;
@@ -36,7 +35,6 @@
 	background-color: var(--wpds-color-bg-surface-neutral-strong);
 	background-image: none;
 	backdrop-filter: none;
-	-webkit-backdrop-filter: none;
 	outline: 2px solid var(--composer-focus-ring);
 }
 

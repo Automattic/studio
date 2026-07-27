@@ -34,6 +34,11 @@ vi.mock( '@/hooks/use-color-scheme', () => ( {
 	useColorScheme: () => 'light',
 } ) );
 
+// Same again: the frame-color override comes from useUserPreferences too.
+vi.mock( '@/hooks/use-frame-color', () => ( {
+	useFrameColor: () => null,
+} ) );
+
 vi.mock( '@/data/core', () => ( {
 	useConnector: vi.fn(),
 } ) );

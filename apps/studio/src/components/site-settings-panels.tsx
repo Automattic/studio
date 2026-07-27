@@ -393,7 +393,7 @@ export function WordPressSkillsPanel( { siteId }: { siteId: string } ) {
 			) }
 
 			{ statuses.length === 0 && ! error && (
-				<div className="text-sm text-gray-500 text-center py-4">{ __( 'Loading skills...' ) }</div>
+				<div className="text-sm text-gray-500 text-center py-4">{ __( 'Loading skills…' ) }</div>
 			) }
 		</div>
 	);

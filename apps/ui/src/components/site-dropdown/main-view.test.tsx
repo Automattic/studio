@@ -1,5 +1,7 @@
+import { useIsMutating } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import * as Menu from '@/components/menu';
 import { MainView } from './main-view';
 import type { SiteDetails, Snapshot, SyncSite } from '@/data/core';
 
@@ -59,6 +61,18 @@ vi.mock( '@/data/queries/use-sync-site', () => ( {
 	usePushSiteToLive: () => ( { mutate: vi.fn() } ),
 } ) );
 
+const liveSite: SyncSite = {
+	id: 123,
+	localSiteId: 'site-1',
+	name: 'Live Site',
+	url: 'example.com',
+	isStaging: false,
+	isPressable: false,
+	syncSupport: 'already-connected',
+	lastPullTimestamp: null,
+	lastPushTimestamp: null,
+};
+
 const site: SiteDetails = {
 	id: 'site-1',
 	name: 'Demo Site',
@@ -69,18 +83,25 @@ const site: SiteDetails = {
 };
 
 function renderMainView( siteOverrides: Partial< SiteDetails > = {} ) {
+	// The live row's "more" submenu needs the Menu.Root + Popup contexts the
+	// dropdown provides around MainView in the real app.
 	return render(
-		<MainView
-			site={ { ...site, ...siteOverrides } }
-			activity={ null }
-			onSetupClick={ vi.fn() }
-			onDisconnectClick={ vi.fn() }
-		/>
+		<Menu.Root open>
+			<Menu.Popup>
+				<MainView
+					site={ { ...site, ...siteOverrides } }
+					activity={ null }
+					onSetupClick={ vi.fn() }
+					onDisconnectClick={ vi.fn() }
+				/>
+			</Menu.Popup>
+		</Menu.Root>
 	);
 }
 
 describe( 'MainView', () => {
 	beforeEach( () => {
+		vi.mocked( useIsMutating ).mockImplementation( () => 0 );
 		connector.copyText.mockReset();
 		connector.openExternalUrl.mockReset();
 		publishPreviewMutate.mockReset();
@@ -152,5 +173,34 @@ describe( 'MainView', () => {
 			} ),
 			expect.anything()
 		);
+	} );
+
+	it( 'labels the live sync controls with plain actions while idle', () => {
+		connectedSites.splice( 0, connectedSites.length, liveSite );
+
+		renderMainView();
+
+		const pullButton = screen.getByRole( 'button', { name: 'Pull from live' } );
+		expect( pullButton.getAttribute( 'aria-disabled' ) ).not.toBe( 'true' );
+		expect( screen.getByRole( 'button', { name: 'Push to live' } ) ).toBeInTheDocument();
+	} );
+
+	it( 'reflects an in-flight pull on both live sync controls', () => {
+		vi.mocked( useIsMutating ).mockImplementation( ( filters ) =>
+			filters?.mutationKey?.[ 0 ] === 'pull-site-from-live' ? 1 : 0
+		);
+		connectedSites.splice( 0, connectedSites.length, liveSite );
+
+		renderMainView();
+
+		const pullButton = screen.getByRole( 'button', { name: 'Pulling from live…' } );
+		expect( pullButton ).toHaveAttribute( 'aria-disabled', 'true' );
+
+		const pushButton = screen.getByRole( 'button', { name: 'Push to live (sync in progress)' } );
+		expect( pushButton ).toHaveAttribute( 'aria-disabled', 'true' );
+
+		expect(
+			screen.getByRole( 'button', { name: 'Update preview site (sync in progress)' } )
+		).toBeInTheDocument();
 	} );
 } );

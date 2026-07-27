@@ -43,7 +43,7 @@
 	line-height: var(--wpds-typography-line-height-md);
 }
 
-/* ---- Shell: fullscreen header with centered tab strip -------------------- */
+/* ---- Shell: header with centered tab strip ------------------------------- */
 
 .header {
 	display: grid;
@@ -53,24 +53,14 @@
 	min-height: var(--settings-header-height);
 	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
 	color: var(--wpds-color-fg-content-neutral);
+	/* Same as the other views' toolbars: the empty stretches of the bar drag
+	   the window, the controls inside opt back out. */
 	-webkit-app-region: drag;
 }
 
-.headerStart,
 .headerTabs {
 	display: flex;
-	align-items: center;
 	min-width: 0;
-}
-
-.headerStart {
-	grid-column: 1;
-	justify-self: start;
-	align-self: stretch;
-	pointer-events: none;
-}
-
-.headerTabs {
 	grid-column: 2;
 	align-self: stretch;
 	align-items: stretch;
@@ -110,14 +100,6 @@
 	box-shadow: none !important;
 	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus-brand) !important;
 	outline-offset: 2px !important;
-}
-
-.toggleSpacer {
-	display: block;
-	flex-shrink: 0;
-	width: 118px;
-	align-self: stretch;
-	-webkit-app-region: no-drag;
 }
 
 .headerEnd {
@@ -174,13 +156,17 @@
 	}
 
 	/* Keep the account column in view while the main column scrolls, filling the
-	   viewport so its Help links pin to the bottom (min-height, so it still grows
-	   if its own content is taller than the window). */
+	   visible panel so its Help links pin to the bottom (min-height, so it still
+	   grows if its own content is taller than the panel). The panel is the
+	   dashboard's inset content frame, so its height is the window minus the
+	   frame gaps above and below (--panel-frame-gap comes from
+	   preview-split-frame; the fallback covers the frameless full-bleed state). */
 	.accountAside {
 		position: sticky;
 		top: var(--wpds-dimension-padding-2xl);
 		min-height: calc(
-			100dvh - var(--settings-header-height) - 2 * var(--wpds-dimension-padding-2xl)
+			100dvh - var(--settings-header-height) - 2 * var(--wpds-dimension-padding-2xl) - 2 *
+				var(--panel-frame-gap, 0px)
 		);
 	}
 

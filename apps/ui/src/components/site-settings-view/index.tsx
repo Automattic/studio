@@ -54,7 +54,7 @@ import { useSites, useUpdateSite, useXdebugEnabledSite } from '@/data/queries/us
 import { useWordPressVersions, useWpVersion } from '@/data/queries/use-wordpress-versions';
 import { useOffline } from '@/hooks/use-offline';
 import { useSettingsClose } from '@/hooks/use-settings-close';
-import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
+import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
@@ -144,18 +144,16 @@ function getRestartChanges( initial: FormData, data: FormData, site: SiteDetails
 }
 
 function SettingsHeader( { site }: { site: SiteDetails } ) {
-	// Site settings is a fullscreen view with no sidebar, so the header sits
-	// alone at the top: the site dropdown on the left, the close button on the
-	// right. On macOS it drops below the traffic lights that overlay the
-	// top-left corner.
-	const reserveTrafficLightSpace = useTrafficLightSpace();
+	// A toolbar across the top of the view: the site dropdown on the left, the
+	// close button on the right. With the sidebar hidden the panel goes
+	// full-bleed and the dropdown drops below the macOS traffic lights, exactly
+	// as the overview header does.
+	const sidebarCollapsed = useSidebarCollapsed();
 	const onClose = useSettingsClose();
 	return (
 		<div
 			className={
-				reserveTrafficLightSpace
-					? `${ styles.header } ${ styles.headerTrafficLights }`
-					: styles.header
+				sidebarCollapsed ? `${ styles.header } ${ styles.headerSidebarCollapsed }` : styles.header
 			}
 		>
 			<SiteDropdown site={ site } showSiteIcon showStatus />

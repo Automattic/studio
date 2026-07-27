@@ -19,7 +19,6 @@ import { persister } from '@/data/core/query-client';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSettingsClose } from '@/hooks/use-settings-close';
-import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { playActivitySound } from '@/lib/activity-sounds';
 import { AccountSection } from './account-section';
 import { AiPanel } from './ai-panel';
@@ -127,17 +126,9 @@ const LOCALE_ELEMENTS: { value: SupportedLocale; label: string }[] = Object.entr
 ).map( ( [ value, label ] ) => ( { value: value as SupportedLocale, label } ) );
 
 function SettingsHeader() {
-	// Settings renders fullscreen, so the sidebar (and its floating toggle) is
-	// covered — only the macOS traffic lights still need clearing.
-	const reserveTrafficLightSpace = useTrafficLightSpace();
 	const onClose = useSettingsClose();
 	return (
 		<div className={ styles.header }>
-			{ reserveTrafficLightSpace ? (
-				<div className={ styles.headerStart }>
-					<span className={ styles.toggleSpacer } aria-hidden="true" />
-				</div>
-			) : null }
 			<div className={ styles.headerTabs }>
 				<Tabs.List className={ styles.headerTabList }>
 					<Tabs.Tab tabId="preferences">{ __( 'Settings' ) }</Tabs.Tab>

@@ -21,13 +21,14 @@
 	color: var(--wpds-color-fg-content-neutral);
 }
 
-/* macOS overlays the window traffic lights on the top-left; drop the header
-   below them so the site dropdown clears the controls. */
-.headerTrafficLights {
+/* Keep in sync with .headerSidebarCollapsed in site-overview-view so the site
+   menu sits in the same spot when switching between overview and settings. */
+.headerSidebarCollapsed {
 	padding-top: calc(
 		var(--wpds-dimension-padding-xl) + var(--wpds-dimension-padding-2xl) +
-			var(--wpds-dimension-padding-2xl)
+			var(--wpds-dimension-padding-lg)
 	);
+	padding-inline-start: var(--wpds-dimension-padding-xl);
 }
 
 /* Pushed to the toolbar's right edge, opposite the site dropdown. */

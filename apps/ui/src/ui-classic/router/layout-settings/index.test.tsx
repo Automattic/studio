@@ -64,7 +64,7 @@ function renderSettings( initialEntries: string[] ) {
 }
 
 describe( 'SettingsLayout', () => {
-	it( 'renders the settings route as an overlay portaled to body', async () => {
+	it( 'renders the settings route in place', async () => {
 		renderSettings( [ '/settings' ] );
 		expect( await screen.findByText( 'Settings screen' ) ).toBeInTheDocument();
 	} );

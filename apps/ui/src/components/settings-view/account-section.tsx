@@ -6,8 +6,11 @@ import { useConnector } from '@/data/core';
 import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useOffline } from '@/hooks/use-offline';
 import { getLocalizedLink, REPORT_ISSUE_URL } from '@/lib/docs-links';
 import styles from './style.module.css';
+
+const WPCOM_PROFILE_URL = 'https://wordpress.com/me';
 
 function AccountHelpActions() {
 	const connector = useConnector();
@@ -60,10 +63,12 @@ function AccountHelpActions() {
 }
 
 export function AccountSection() {
+	const connector = useConnector();
 	const { data: user, isLoading } = useAuthUser();
 	const login = useLogin();
 	const logout = useLogout();
 	const themeIsDark = useColorScheme() === 'dark';
+	const isOffline = useOffline();
 
 	return (
 		<section className={ styles.preferenceSectionGroup }>
@@ -92,22 +97,33 @@ export function AccountSection() {
 					</div>
 				</div>
 				{ user ? (
-					<Button
-						type="button"
-						variant="outline"
-						tone="neutral"
-						loading={ logout.isPending }
-						loadingAnnouncement={ __( 'Logging out' ) }
-						onClick={ () => logout.mutate() }
-					>
-						{ __( 'Log out' ) }
-					</Button>
+					<div className={ styles.accountButtons }>
+						<Button
+							type="button"
+							variant="minimal"
+							tone="neutral"
+							disabled={ isOffline }
+							onClick={ () => void connector.openExternalUrl( WPCOM_PROFILE_URL ) }
+						>
+							{ __( 'Edit WordPress.com profile' ) }
+						</Button>
+						<Button
+							type="button"
+							variant="outline"
+							tone="neutral"
+							loading={ logout.isPending }
+							loadingAnnouncement={ __( 'Logging out' ) }
+							onClick={ () => logout.mutate() }
+						>
+							{ __( 'Log out' ) }
+						</Button>
+					</div>
 				) : (
 					<Button
 						type="button"
 						variant="outline"
 						tone="neutral"
-						disabled={ isLoading }
+						disabled={ isLoading || isOffline }
 						loading={ login.isPending }
 						loadingAnnouncement={ __( 'Logging in' ) }
 						onClick={ () => login.mutate() }

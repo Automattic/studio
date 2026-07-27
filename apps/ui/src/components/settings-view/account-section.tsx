@@ -1,5 +1,5 @@
 import { __ } from '@wordpress/i18n';
-import { Button } from '@wordpress/ui';
+import { Button, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { Gravatar } from '@/components/gravatar';
 import { useConnector } from '@/data/core';
@@ -19,24 +19,42 @@ function AccountHelpActions() {
 
 	return (
 		<div className={ styles.accountActions }>
-			<Button
-				type="button"
-				variant="minimal"
-				tone="neutral"
-				size="small"
-				onClick={ () => openLink( getLocalizedLink( locale, 'docsStudio' ) ) }
-			>
-				{ __( 'Docs' ) }
-			</Button>
-			<Button
-				type="button"
-				variant="minimal"
-				tone="neutral"
-				size="small"
-				onClick={ () => openLink( REPORT_ISSUE_URL ) }
-			>
-				{ __( 'Report an issue' ) }
-			</Button>
+			<Tooltip.Root>
+				<Tooltip.Trigger
+					render={
+						<Button
+							type="button"
+							variant="minimal"
+							tone="neutral"
+							size="small"
+							onClick={ () => openLink( getLocalizedLink( locale, 'docsStudio' ) ) }
+						>
+							{ __( 'Docs' ) }
+						</Button>
+					}
+				/>
+				<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+					{ __( 'Documentation' ) }
+				</Tooltip.Popup>
+			</Tooltip.Root>
+			<Tooltip.Root>
+				<Tooltip.Trigger
+					render={
+						<Button
+							type="button"
+							variant="minimal"
+							tone="neutral"
+							size="small"
+							onClick={ () => openLink( REPORT_ISSUE_URL ) }
+						>
+							{ __( 'Report an issue' ) }
+						</Button>
+					}
+				/>
+				<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+					{ __( 'Report an issue or request a feature' ) }
+				</Tooltip.Popup>
+			</Tooltip.Root>
 		</div>
 	);
 }

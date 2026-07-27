@@ -1,6 +1,0 @@
-{
-	"id": "studio",
-	"scripts": {
-		"fuzz": [ "node --experimental-strip-types scripts/fuzz-sqlite-dropin.ts" ]
-	}
-}

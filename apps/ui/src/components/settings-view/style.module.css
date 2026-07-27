@@ -381,23 +381,22 @@
 	overflow-wrap: anywhere;
 }
 
+/* Mirror the InputLayout recipe SelectControl triggers use (height, surface,
+   border, inline padding) so the picker reads as one of the standard Settings
+   controls. */
 .pathPickerButton {
 	box-sizing: border-box;
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
-	gap: var( --wpds-dimension-padding-lg );
 	inline-size: 240px;
 	max-inline-size: 100%;
-	min-block-size: 36px;
-	padding: 0 var( --wpds-dimension-padding-lg );
+	block-size: 40px;
+	padding: 0 var( --wpds-dimension-padding-md );
 	border: var( --wpds-border-width-xs ) solid var( --wpds-color-stroke-interactive-neutral );
 	border-radius: var( --wpds-border-radius-sm );
-	background: var( --wpds-color-bg-surface-neutral );
-	color: var( --wpds-color-fg-content-neutral );
+	background: var( --wpds-color-bg-interactive-neutral-weak );
+	color: var( --wpds-color-fg-interactive-neutral );
 	font-family: var( --wpds-typography-font-family-body );
-	/* Match SelectControl's trigger text so all controls in a card read the
-	   same size. */
 	font-size: var( --wpds-typography-font-size-md );
 	line-height: var( --wpds-typography-line-height-sm );
 	text-align: start;
@@ -422,12 +421,7 @@
 }
 
 .pathPickerPlaceholder {
-	color: var( --wpds-color-fg-content-neutral-weak );
-}
-
-.pathPickerIcon {
-	flex-shrink: 0;
-	fill: currentColor;
+	color: var( --wpds-color-fg-interactive-neutral-disabled );
 }
 
 .cliHeader {

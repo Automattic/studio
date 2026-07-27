@@ -334,6 +334,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 				colorScheme: 'system',
 				quitSitesBehavior: undefined,
 				locale: undefined,
+				analyticsEnabled: true,
 				defaultSiteDirectory: '',
 				studioCliInstalled: false,
 				studioCliExternallyManaged: false,
@@ -378,6 +379,12 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		},
 		async openSiteInTerminal() {
 			throw new UnsupportedError( 'openSiteInTerminal' );
+		},
+
+		// Analytics — no-op here. Tracks currently flows through the desktop IPC connector; the
+		// hosted (browser) target has no Main-process choke point yet. See the design doc.
+		async trackEvent() {
+			// intentionally empty
 		},
 
 		// External links work natively in the browser.

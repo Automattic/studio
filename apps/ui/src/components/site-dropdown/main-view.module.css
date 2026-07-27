@@ -293,12 +293,22 @@
 .rowActionButton,
 .rowViewButton {
 	height: 28px;
+}
+
+.rowViewButton {
 	color: var(--wpds-color-fg-interactive-neutral);
 }
 
 .rowActionButton {
 	width: 28px;
 	padding: 0;
+}
+
+/* Only recolor enabled buttons — an unconditional `color` here sits outside
+   the wp-ui layers and would override the design system's disabled dimming
+   and the loading spinner's transparent-text state. */
+.rowActionButton:not([data-disabled]) {
+	color: var(--wpds-color-fg-interactive-neutral);
 }
 
 .rowActionButton svg {
@@ -320,6 +330,10 @@
 	padding: 0;
 	justify-content: center;
 	color: var(--wpds-color-fg-interactive-neutral);
+}
+
+.moreMenuTrigger:is([data-disabled], :disabled) {
+	color: var(--wpds-color-fg-interactive-neutral-disabled);
 }
 
 .moreMenuTrigger svg {

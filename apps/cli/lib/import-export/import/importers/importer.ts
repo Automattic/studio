@@ -17,7 +17,7 @@ import semver from 'semver';
 import trash from 'trash';
 import { SiteData } from 'cli/lib/cli-config/core';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
-import { installSqliteIntegration } from 'cli/lib/sqlite-integration';
+import { installSqliteIntegration, needsSqliteSetup } from 'cli/lib/sqlite-integration';
 import { ImportExportEventEmitter } from '../../events';
 import { BackupContents, MetaFileData } from '../types';
 import { updateSiteUrl } from '../update-site-url';
@@ -67,11 +67,22 @@ abstract class BaseImporter extends ImportExportEventEmitter implements Importer
 
 	abstract import( site: SiteData ): Promise< ImporterResult >;
 
+	protected async assertSqliteDatabaseImportSupported( site: SiteData ): Promise< void > {
+		if ( ! ( await needsSqliteSetup( site.path ) ) ) {
+			throw new Error(
+				__(
+					'Database import requires SQLite, but this site is configured to use an external database.'
+				)
+			);
+		}
+	}
+
 	protected async importDatabase( site: SiteData, sqlFiles: string[] ): Promise< void > {
 		if ( ! sqlFiles.length ) {
 			return;
 		}
 
+		await this.assertSqliteDatabaseImportSupported( site );
 		this.emit( ImportEvents.IMPORT_DATABASE_START );
 
 		const sortedSqlFiles = sqlFiles.sort( ( a, b ) => a.localeCompare( b ) );
@@ -149,6 +160,10 @@ abstract class BaseBackupImporter extends BaseImporter {
 
 	async import( site: SiteData ): Promise< ImporterResult > {
 		try {
+			if ( this.backup.sqlFiles.length ) {
+				// Classify the destination before restored files can make MySQL look like SQLite.
+				await this.assertSqliteDatabaseImportSupported( site );
+			}
 			if ( this.shouldCleanUpBeforeImport ) {
 				await this.moveExistingWpContentToTrash( site.path );
 			}

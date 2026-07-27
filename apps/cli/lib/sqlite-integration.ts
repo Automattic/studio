@@ -24,6 +24,10 @@ export async function installSqliteIntegration( sitePath: string ) {
 	return provider.installSqliteIntegration( sitePath );
 }
 
+export async function needsSqliteSetup( sitePath: string ) {
+	return provider.needsSqliteSetup( sitePath );
+}
+
 export async function keepSqliteIntegrationUpdated( sitePath: string ) {
 	return provider.keepSqliteIntegrationUpdated( sitePath );
 }

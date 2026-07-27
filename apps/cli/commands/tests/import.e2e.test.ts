@@ -229,4 +229,46 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio import', () => {
 			expect( await getBlogname( env, sitePath ) ).toBe( FIXTURE_BLOGNAME );
 		}
 	);
+
+	it(
+		'rejects a database backup before mutating a site configured for MySQL',
+		{ tags: [ 'e2e' ], timeout: 300_000 },
+		async () => {
+			if ( ! env ) {
+				throw new Error( 'CLI e2e env was not initialised' );
+			}
+
+			const sitePath = await createStoppedSite( env, 'MySQL Import E2E Site', 'import-mysql' );
+			const sqlitePaths = [
+				path.join( sitePath, 'wp-content', 'db.php' ),
+				path.join( sitePath, 'wp-content', 'database', '.ht.sqlite' ),
+				path.join( sitePath, 'wp-content', 'mu-plugins', 'sqlite-database-integration' ),
+			];
+			fs.copyFileSync(
+				path.join( sitePath, 'wp-config-sample.php' ),
+				path.join( sitePath, 'wp-config.php' )
+			);
+
+			for ( const sqlitePath of sqlitePaths ) {
+				fs.rmSync( sqlitePath, { recursive: true, force: true } );
+			}
+			expect( fs.existsSync( path.join( sitePath, 'wp-config.php' ) ) ).toBe( true );
+
+			const result = await runCli(
+				[ 'import', path.join( FIXTURES_DIR, 'jetpack-backup.tar.gz' ), '--path', sitePath ],
+				env
+			);
+			expect( result.code ).not.toBe( 0 );
+			expect( result.stderr ).toContain(
+				'Database import requires SQLite, but this site is configured to use an external database.'
+			);
+
+			for ( const sqlitePath of sqlitePaths ) {
+				expect( fs.existsSync( sqlitePath ) ).toBe( false );
+			}
+			expect( fs.existsSync( path.join( sitePath, 'wp-content', 'themes', 'mypet-theme' ) ) ).toBe(
+				false
+			);
+		}
+	);
 } );

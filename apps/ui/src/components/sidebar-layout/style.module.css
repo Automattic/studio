@@ -127,6 +127,12 @@
 	display: inline-flex;
 }
 
+/* The drawer icon depicts the sidebar edge; mirror it when the sidebar sits
+   on the right. */
+.floatingToggleButton:dir(rtl) svg {
+	transform: scaleX(-1);
+}
+
 .sidebarToasts {
 	padding: var(--wpds-dimension-padding-sm) calc(var(--wpds-dimension-padding-lg) - var(--wpds-dimension-padding-sm)) 0;
 }

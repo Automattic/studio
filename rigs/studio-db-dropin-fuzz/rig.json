@@ -1,0 +1,18 @@
+{
+	"id": "studio-db-dropin-fuzz",
+	"description": "Adversarial filesystem state-machine coverage for Studio SQLite db.php classification and installation.",
+	"components": {
+		"studio": {
+			"path": "${package.root}/../.."
+		}
+	},
+	"fuzz": {
+		"default_component": "studio",
+		"schema": "homeboy/fuzz-workload/v1",
+		"manifest": "${package.root}/workloads/db-dropin-state-machine.json"
+	},
+	"pipeline": {
+		"check": [],
+		"down": []
+	}
+}

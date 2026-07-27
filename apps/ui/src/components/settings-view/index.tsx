@@ -2,7 +2,7 @@ import { supportedLocaleNames } from '@studio/common/lib/locale';
 import { SUPPORTED_EDITORS, supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { SUPPORTED_TERMINALS, terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { CheckboxControl } from '@wordpress/components';
-import { __, isRTL, sprintf } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { close, file, Icon } from '@wordpress/icons';
 import { Button, IconButton, SelectControl } from '@wordpress/ui';
 import { clsx } from 'clsx';
@@ -13,7 +13,7 @@ import { persister } from '@/data/core/query-client';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSettingsClose } from '@/hooks/use-settings-close';
-import { useTrafficLightSpace, useTrafficLightsVisible } from '@/hooks/use-traffic-light-space';
+import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { AccountSection } from './account-section';
 import { AiPanel } from './ai-panel';
 import { KeyboardPanel } from './keyboard-panel';
@@ -91,16 +91,14 @@ const LOCALE_ELEMENTS: { value: SupportedLocale; label: string }[] = Object.entr
 ).map( ( [ value, label ] ) => ( { value: value as SupportedLocale, label } ) );
 
 function SettingsHeader() {
-	// Settings renders fullscreen, so the sidebar (and its floating toggle) is
-	// covered — only the macOS traffic lights still need clearing. In RTL the
-	// close button flips to the physical left, under the lights (which never
-	// move), so the clearance moves to the header's end side instead.
-	const reserveTrafficLightSpace = useTrafficLightSpace();
-	const reserveTrafficLightSpaceEnd = useTrafficLightsVisible() && isRTL();
+	// Settings renders fullscreen, so only the macOS traffic lights need
+	// clearing: at the header's start edge in LTR, at its end edge (next to
+	// the close button) in RTL.
+	const trafficLightSpace = useTrafficLightSpace();
 	const onClose = useSettingsClose();
 	return (
 		<div className={ styles.header }>
-			{ reserveTrafficLightSpace ? (
+			{ trafficLightSpace.start ? (
 				<div className={ styles.headerStart }>
 					<span className={ styles.toggleSpacer } aria-hidden="true" />
 				</div>
@@ -125,7 +123,7 @@ function SettingsHeader() {
 						label={ __( 'Close settings' ) }
 						onClick={ onClose }
 					/>
-					{ reserveTrafficLightSpaceEnd ? (
+					{ trafficLightSpace.end ? (
 						<span className={ styles.toggleSpacer } aria-hidden="true" />
 					) : null }
 				</div>

@@ -128,7 +128,7 @@ describe( 'SiteOverviewView', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		useSidebarCollapsedMock.mockReturnValue( false );
-		useTrafficLightSpaceMock.mockReturnValue( false );
+		useTrafficLightSpaceMock.mockReturnValue( { start: false, end: false } );
 		vi.stubGlobal( 'ResizeObserver', ResizeObserverMock );
 		Object.defineProperty( window, 'matchMedia', {
 			writable: true,
@@ -206,7 +206,7 @@ describe( 'SiteOverviewView', () => {
 
 	it( 'offsets the site menu below macOS traffic lights when the sidebar is collapsed', () => {
 		useSidebarCollapsedMock.mockReturnValue( true );
-		useTrafficLightSpaceMock.mockReturnValue( true );
+		useTrafficLightSpaceMock.mockReturnValue( { start: true, end: false } );
 
 		renderView();
 

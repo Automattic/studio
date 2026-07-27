@@ -3,28 +3,20 @@ import { useConnector } from '@/data/core';
 import { useFullscreen } from '@/hooks/use-fullscreen';
 
 /**
- * Whether the macOS window controls ("traffic lights") overlay the UI at all:
- * the host overlays them (the macOS desktop app — never the browser) AND the
- * window isn't fullscreen (macOS hides them in fullscreen). They are anchored
- * to the window's physical LEFT edge (fixed `trafficLightPosition`) regardless
- * of text direction — use this directly for elements that end up at the
- * physical left in RTL (e.g. the settings close button).
+ * Which inline edge should leave a gap for the macOS window controls
+ * ("traffic lights").
+ *
+ * The lights always sit at the window's physical top-left, so the gap belongs
+ * at inline-start in LTR and inline-end in RTL. Both are false when the host
+ * doesn't overlay them (browser, Windows/Linux) or the window is fullscreen
+ * (macOS hides them there).
  */
-export function useTrafficLightsVisible(): boolean {
+export function useTrafficLightSpace(): { start: boolean; end: boolean } {
 	const connector = useConnector();
 	const isFullscreen = useFullscreen();
-	return connector.reservesTrafficLightSpace && ! isFullscreen;
-}
-
-/**
- * Whether the UI should reserve the inline-start gap for the traffic lights.
- *
- * True only when they're visible AND the UI is LTR: an RTL locale flips the
- * sidebar (and other inline-start consumers) to the right, away from the
- * lights, so no gap is needed. On Windows/Linux and in `studio ui` / hosted,
- * this is always false, so the sidebar header and the collapsed-sidebar
- * toggle sit flush against the edge instead of leaving an empty gap.
- */
-export function useTrafficLightSpace(): boolean {
-	return useTrafficLightsVisible() && ! isRTL();
+	const visible = connector.reservesTrafficLightSpace && ! isFullscreen;
+	return {
+		start: visible && ! isRTL(),
+		end: visible && isRTL(),
+	};
 }

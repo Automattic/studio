@@ -58,6 +58,15 @@ export function formatQuotaResetDate( date: string, locale?: string ): string {
 	} ).format( new Date( date ) );
 }
 
+// Compact reset date (e.g. "Jul 31") for the settings usage meter, where the
+// figure sits inline next to the title rather than in a full sentence.
+export function formatQuotaResetDateShort( date: string, locale?: string ): string {
+	return new Intl.DateTimeFormat( locale, {
+		day: 'numeric',
+		month: 'short',
+	} ).format( new Date( date ) );
+}
+
 /**
  * User-facing copy for hitting the monthly AI usage cap. Shared by every
  * surface (CLI, desktop, browser UI) so the wording stays consistent. Pass

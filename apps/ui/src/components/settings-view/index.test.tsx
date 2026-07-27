@@ -82,10 +82,6 @@ vi.mock( './ai-panel', () => ( {
 	AiPanel: () => <div data-testid="ai-panel" />,
 } ) );
 
-vi.mock( './skills-panel', () => ( {
-	SkillsPanel: () => null,
-} ) );
-
 vi.mock( './studio-cli-section', () => ( {
 	StudioCliSection: () => null,
 } ) );
@@ -101,7 +97,7 @@ vi.mock( '@/hooks/use-color-scheme', () => ( {
 } ) );
 
 vi.mock( './mcp-panel', () => ( {
-	McpPanel: () => <div data-testid="mcp-panel" />,
+	McpSection: () => <div data-testid="mcp-panel" />,
 } ) );
 
 vi.mock( '@/data/core/query-client', () => ( {
@@ -115,16 +111,6 @@ vi.mock( '@/data/queries/use-installed-apps', () => ( {
 vi.mock( '@/data/queries/use-user-preferences', () => ( {
 	useSaveUserPreferences: vi.fn(),
 	useUserPreferences: vi.fn(),
-} ) );
-
-vi.mock( '@/data/queries/use-wapuu-score', () => ( {
-	useWapuuScore: () => ( { data: null } ),
-} ) );
-
-// The mocked Tabs render every panel unconditionally; the usage panel has its
-// own test file.
-vi.mock( './usage-panel', () => ( {
-	UsagePanel: () => null,
 } ) );
 
 vi.mock( '@/hooks/use-traffic-light-space', () => ( {
@@ -225,30 +211,13 @@ describe( 'SettingsView', () => {
 	it( 'renders the AI tab with its panel', () => {
 		render( <SettingsView activeTab="ai" onTabChange={ vi.fn() } /> );
 
-		expect( screen.getByRole( 'button', { name: 'AI' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Agent' } ) ).toBeInTheDocument();
 		expect( screen.getByTestId( 'ai-panel' ) ).toBeInTheDocument();
 	} );
 
-	it( 'offers the AI tab on every host, since chat can be toggled anywhere', () => {
-		useConnectorMock.mockReturnValue( {
-			selectDefaultSiteDirectory,
-			capabilities: { agentInstructions: false, switchToClassicUi: false },
-		} as never );
-
-		render( <SettingsView activeTab="ai" onTabChange={ vi.fn() } /> );
-
-		expect( screen.getByRole( 'button', { name: 'AI' } ) ).toBeInTheDocument();
-		expect( screen.getByTestId( 'ai-panel' ) ).toBeInTheDocument();
-	} );
-
-	it( 'offers Switch to classic in the Settings tab when the host ships the classic UI', () => {
-		render( <SettingsView activeTab="preferences" onTabChange={ vi.fn() } /> );
-
-		expect( screen.getByRole( 'heading', { name: 'Studio experience' } ) ).toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: 'Switch to classic' } ) ).toBeInTheDocument();
-	} );
-
-	it( 'hides Switch to classic when there is no classic UI to switch to', () => {
+	it( 'always shows the AI tab, even when the host has no AI settings to offer', () => {
+		// The AI tab now also holds Usage, which is shown for every host, so the
+		// tab is always present — the AI-specific sections gate themselves inside.
 		useConnectorMock.mockReturnValue( {
 			selectDefaultSiteDirectory,
 			capabilities: { agentInstructions: false, switchToClassicUi: false },
@@ -256,20 +225,22 @@ describe( 'SettingsView', () => {
 
 		render( <SettingsView activeTab="preferences" onTabChange={ vi.fn() } /> );
 
-		expect( screen.queryByRole( 'button', { name: 'Switch to classic' } ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Agent' } ) ).toBeInTheDocument();
+		expect( screen.getByTestId( 'ai-panel' ) ).toBeInTheDocument();
 	} );
 
-	it( 'recognizes the keyboard tab id', () => {
-		expect( isSettingsTab( 'keyboard' ) ).toBe( true );
+	it( 'recognizes valid settings tab ids', () => {
+		expect( isSettingsTab( 'preferences' ) ).toBe( true );
+		expect( isSettingsTab( 'ai' ) ).toBe( true );
+		expect( isSettingsTab( 'keyboard' ) ).toBe( false );
 		expect( isSettingsTab( 'unknown' ) ).toBe( false );
 	} );
 
-	it( 'renders keyboard shortcut sections', () => {
-		render( <SettingsView activeTab="keyboard" onTabChange={ vi.fn() } /> );
+	it( 'renders keyboard shortcut sections inside Settings', () => {
+		render( <SettingsView activeTab="preferences" onTabChange={ vi.fn() } /> );
 
-		expect( screen.getByRole( 'button', { name: 'Keyboard' } ) ).toBeInTheDocument();
 		expect( screen.getByRole( 'heading', { name: 'Composer' } ) ).toBeInTheDocument();
-		expect( screen.getByRole( 'heading', { name: 'Site preview' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'heading', { name: 'Preview' } ) ).toBeInTheDocument();
 		expect( screen.getByText( 'New chat' ) ).toBeInTheDocument();
 		expect( screen.getByText( 'Send message' ) ).toBeInTheDocument();
 		expect( screen.getByLabelText( 'Control + Comma' ) ).toBeInTheDocument();

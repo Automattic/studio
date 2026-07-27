@@ -5,20 +5,22 @@ import {
 	useAgentInstructions,
 	useSaveAgentInstructions,
 } from '@/data/queries/use-agent-instructions';
+import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { StudioCodePanel } from './studio-code-panel';
 
-vi.mock( '@wordpress/dataviews', () => ( {
-	DataForm: ( {
-		data,
-		onChange,
-	}: {
-		data: { content: string };
-		onChange: ( update: { content: string } ) => void;
+vi.mock( '@wordpress/components', () => ( {
+	FormToggle: ( props: {
+		checked: boolean;
+		disabled?: boolean;
+		'aria-label'?: string;
+		onChange: () => void;
 	} ) => (
-		<textarea
-			aria-label="Instructions"
-			value={ data.content }
-			onChange={ ( event ) => onChange( { content: event.target.value } ) }
+		<input
+			type="checkbox"
+			aria-label={ props[ 'aria-label' ] }
+			checked={ props.checked }
+			disabled={ props.disabled }
+			onChange={ props.onChange }
 		/>
 	),
 } ) );
@@ -28,8 +30,13 @@ vi.mock( '@/data/queries/use-agent-instructions', () => ( {
 	useSaveAgentInstructions: vi.fn(),
 } ) );
 
+vi.mock( '@/data/queries/use-agentic-features', () => ( {
+	useAgenticFeatures: vi.fn(),
+} ) );
+
 const useAgentInstructionsMock = vi.mocked( useAgentInstructions );
 const useSaveAgentInstructionsMock = vi.mocked( useSaveAgentInstructions );
+const useAgenticFeaturesMock = vi.mocked( useAgenticFeatures );
 
 describe( 'StudioCodePanel', () => {
 	const save = vi.fn();
@@ -39,6 +46,7 @@ describe( 'StudioCodePanel', () => {
 		vi.useFakeTimers();
 		useAgentInstructionsMock.mockReturnValue( { data: 'Answer in French.' } as never );
 		useSaveAgentInstructionsMock.mockReturnValue( { mutate: save, isError: false } as never );
+		useAgenticFeaturesMock.mockReturnValue( { reason: null } as never );
 	} );
 
 	afterEach( () => {
@@ -90,5 +98,42 @@ describe( 'StudioCodePanel', () => {
 		expect(
 			screen.getByText( 'Saving the instructions failed. Please try again.' )
 		).toBeInTheDocument();
+	} );
+
+	it( 'keeps the editor hidden until the switch is enabled', () => {
+		useAgentInstructionsMock.mockReturnValue( { data: '' } as never );
+
+		render( <StudioCodePanel /> );
+
+		const toggle = screen.getByRole( 'checkbox', { name: 'Enable instructions' } );
+		expect( toggle ).not.toBeChecked();
+		expect( screen.queryByLabelText( 'Instructions' ) ).not.toBeInTheDocument();
+
+		fireEvent.click( toggle );
+
+		expect( screen.getByLabelText( 'Instructions' ) ).toBeInTheDocument();
+	} );
+
+	it( 'clears the saved instructions when the switch is turned off', () => {
+		render( <StudioCodePanel /> );
+
+		// Existing instructions default the switch on, so the first click turns it off.
+		fireEvent.click( screen.getByRole( 'checkbox', { name: 'Enable instructions' } ) );
+
+		expect( screen.queryByLabelText( 'Instructions' ) ).not.toBeInTheDocument();
+
+		act( () => void vi.advanceTimersByTime( 800 ) );
+
+		expect( save ).toHaveBeenCalledWith( '' );
+	} );
+
+	it( 'locks the editor and prompts sign-in when signed out', () => {
+		useAgenticFeaturesMock.mockReturnValue( { reason: 'signed-out' } as never );
+
+		render( <StudioCodePanel /> );
+
+		expect( screen.getByText( 'You must log in for agent instructions.' ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'checkbox', { name: 'Enable instructions' } ) ).toBeDisabled();
+		expect( screen.queryByLabelText( 'Instructions' ) ).not.toBeInTheDocument();
 	} );
 } );

@@ -47,42 +47,44 @@ export function StudioCliSection() {
 	);
 
 	return (
-		<section className={ styles.preferenceSectionGroup }>
-			<div className={ styles.cliHeader }>
-				<h2 className={ clsx( styles.preferenceSectionHeading, styles.cliHeading ) }>
-					{ __( 'Studio CLI' ) }
-				</h2>
-				{ externallyManaged ? (
-					// The default open delay reads as unresponsive on a disabled
-					// control, so this tooltip gets its own faster provider.
-					<Tooltip.Provider delay={ 200 }>
-						<Tooltip.Root>
-							<Tooltip.Trigger
-								render={ <span className={ styles.cliToggleTrigger }>{ toggle }</span> }
-							/>
-							<Tooltip.Popup
-								className={ styles.cliTooltip }
-								positioner={ <Tooltip.Positioner side="top" /> }
-							>
-								{ __(
-									'This studio command was installed with the standalone CLI installer, so Studio can’t manage it. Run studio uninstall in a terminal to remove it.'
-								) }
-							</Tooltip.Popup>
-						</Tooltip.Root>
-					</Tooltip.Provider>
-				) : (
-					toggle
-				) }
+		<section className={ styles.card }>
+			<div className={ styles.cardHeader }>
+				<div className={ styles.cardHeaderText }>
+					<h2 className={ styles.cardTitle }>{ __( 'Studio CLI' ) }</h2>
+					<p className={ styles.cardDescription }>
+						{ __( 'Use the studio command in any terminal to manage sites and run WP-CLI.' ) }{ ' ' }
+						<LearnMoreLink docsLinksKey="docsCli" />
+					</p>
+				</div>
+				<div className={ clsx( styles.cardHeaderActions, styles.toggleControl ) }>
+					{ externallyManaged ? (
+						// The default open delay reads as unresponsive on a disabled
+						// control, so this tooltip gets its own faster provider.
+						<Tooltip.Provider delay={ 200 }>
+							<Tooltip.Root>
+								<Tooltip.Trigger
+									render={ <span className={ styles.cliToggleTrigger }>{ toggle }</span> }
+								/>
+								<Tooltip.Popup
+									className={ styles.cliTooltip }
+									positioner={ <Tooltip.Positioner side="top" /> }
+								>
+									{ __(
+										'This studio command was installed with the standalone CLI installer, so Studio can’t manage it. Run studio uninstall in a terminal to remove it.'
+									) }
+								</Tooltip.Popup>
+							</Tooltip.Root>
+						</Tooltip.Provider>
+					) : (
+						toggle
+					) }
+				</div>
 			</div>
 			{ savePreferences.isError ? (
 				<div className={ styles.errorMessage }>
 					{ __( 'An error occurred while updating the Studio CLI. Please try again.' ) }
 				</div>
 			) : null }
-			<p className={ styles.cliDescription }>
-				{ __( 'Use the studio command in any terminal to manage sites and run WP-CLI.' ) }{ ' ' }
-				<LearnMoreLink docsLinksKey="docsCli" />
-			</p>
 		</section>
 	);
 }

@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
-import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
+import { useAuthUser } from '@/data/queries/use-auth-user';
 import {
 	useDeleteAllSnapshots,
 	useSnapshotUsage,
@@ -11,53 +11,33 @@ import {
 } from '@/data/queries/use-snapshots';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useOffline } from '@/hooks/use-offline';
-import { UsagePanel } from './usage-panel';
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import { AiCreditsSection, PreviewUsageSection } from './usage-panel';
+import type { ReactNode } from 'react';
 
 vi.mock( '@wordpress/ui', () => ( {
 	Button: ( {
 		children,
-		loading,
-		loadingAnnouncement,
-		tone,
-		variant,
-		size,
-		...props
-	}: ButtonHTMLAttributes< HTMLButtonElement > & {
-		children?: ReactNode;
-		loading?: boolean;
-		loadingAnnouncement?: string;
-		tone?: string;
-		variant?: string;
-		size?: string;
-	} ) => {
-		void tone;
-		void variant;
-		void size;
-		return <button { ...props }>{ loading ? loadingAnnouncement : children }</button>;
-	},
-	IconButton: ( { label, disabled }: { label: string; disabled?: boolean } ) => (
-		<button type="button" aria-label={ label } disabled={ disabled } />
-	),
-} ) );
-
-vi.mock( '@/components/menu', () => ( {
-	Root: ( { children }: { children: ReactNode } ) => <div>{ children }</div>,
-	Trigger: ( { render: trigger }: { render: ReactNode } ) => trigger,
-	Popup: ( { children }: { children: ReactNode } ) => <div>{ children }</div>,
-	Item: ( {
-		children,
 		disabled,
 		onClick,
+		loading,
+		loadingAnnouncement,
 	}: {
-		children: ReactNode;
+		children?: ReactNode;
 		disabled?: boolean;
 		onClick?: () => void;
+		loading?: boolean;
+		loadingAnnouncement?: string;
 	} ) => (
 		<button type="button" disabled={ disabled } onClick={ onClick }>
-			{ children }
+			{ loading ? loadingAnnouncement : children }
 		</button>
 	),
+	Tooltip: {
+		Root: ( { children }: { children: ReactNode } ) => <>{ children }</>,
+		Trigger: ( { render: trigger }: { render: ReactNode } ) => trigger,
+		Popup: ( { children }: { children: ReactNode } ) => <div>{ children }</div>,
+		Positioner: () => null,
+	},
 } ) );
 
 vi.mock( '@/data/core', () => ( {
@@ -66,7 +46,6 @@ vi.mock( '@/data/core', () => ( {
 
 vi.mock( '@/data/queries/use-auth-user', () => ( {
 	useAuthUser: vi.fn(),
-	useLogin: vi.fn(),
 } ) );
 
 vi.mock( '@/data/queries/use-snapshots', () => ( {
@@ -96,7 +75,6 @@ vi.mock( '@/data/queries/use-user-preferences', () => ( {
 
 const useConnectorMock = vi.mocked( useConnector );
 const useAuthUserMock = vi.mocked( useAuthUser );
-const useLoginMock = vi.mocked( useLogin );
 const useDeleteAllSnapshotsMock = vi.mocked( useDeleteAllSnapshots );
 const useSnapshotUsageMock = vi.mocked( useSnapshotUsage );
 const useSnapshotsMock = vi.mocked( useSnapshots );
@@ -104,8 +82,9 @@ const useOfflineMock = vi.mocked( useOffline );
 const useStudioAssistantQuotaMock = vi.mocked( useStudioAssistantQuota );
 const useUserLocaleMock = vi.mocked( useUserLocale );
 
-describe( 'UsagePanel', () => {
-	const loginMutate = vi.fn();
+const ALPHA_META = 'Free during Alpha';
+
+describe( 'usage sections', () => {
 	const deleteSnapshotsMutate = vi.fn();
 	const confirmDeleteAllPreviewSites = vi.fn();
 
@@ -129,7 +108,6 @@ describe( 'UsagePanel', () => {
 			data: { id: 1, displayName: 'Ada Lovelace', email: 'ada@example.com' },
 			isLoading: false,
 		} as never );
-		useLoginMock.mockReturnValue( { mutate: loginMutate, isPending: false } as never );
 		useSnapshotsMock.mockReturnValue( { data: [], isLoading: false } as never );
 		useSnapshotUsageMock.mockReturnValue( {
 			data: { siteCount: 2, siteLimit: 10, siteCreationBlocked: false },
@@ -142,164 +120,135 @@ describe( 'UsagePanel', () => {
 		} as never );
 	} );
 
-	it( 'renders AI credits and preview site usage for the signed-in user', () => {
-		render( <UsagePanel /> );
+	describe( 'AiCreditsSection', () => {
+		it( 'falls back to a compact Alpha note when the quota has no cost cap', () => {
+			render( <AiCreditsSection /> );
 
-		expect( screen.getByRole( 'heading', { name: 'Usage' } ) ).toBeInTheDocument();
-		expect(
-			screen.getByText(
-				'AI credits are currently free while Studio Code is in Alpha. Build, iterate, and experiment, but know that credits will eventually have a cost.'
-			)
-		).toBeInTheDocument();
-		expect( screen.getByText( '2 of 10 active preview sites' ) ).toBeInTheDocument();
-		expect( useSnapshotsMock ).toHaveBeenCalledWith( 1 );
-		expect( useSnapshotUsageMock ).toHaveBeenCalledWith( 1 );
-		expect( useDeleteAllSnapshotsMock ).toHaveBeenCalledWith( 1 );
+			expect( screen.getByRole( 'heading', { name: 'AI credits' } ) ).toBeInTheDocument();
+			expect( screen.getByText( ALPHA_META ) ).toBeInTheDocument();
+		} );
+
+		it( 'renders a compact percentage and reset date when a cost cap is available', () => {
+			useStudioAssistantQuotaMock.mockReturnValue( {
+				data: { costUsage: 25, costCap: 100, costResetDate: '2026-08-01T12:00:00' },
+				isLoading: false,
+			} as never );
+
+			render( <AiCreditsSection /> );
+
+			expect( screen.getByText( '25%' ) ).toBeInTheDocument();
+			expect( screen.getByText( 'Resets Aug 1' ) ).toBeInTheDocument();
+			expect( screen.queryByText( ALPHA_META ) ).not.toBeInTheDocument();
+		} );
+
+		it( 'shows an unavailable message when the quota fetch fails', () => {
+			useStudioAssistantQuotaMock.mockReturnValue( {
+				data: undefined,
+				isLoading: false,
+				isError: true,
+			} as never );
+
+			render( <AiCreditsSection /> );
+
+			expect(
+				screen.getByText( 'Studio Code limits are temporarily unavailable.' )
+			).toBeInTheDocument();
+			expect( screen.queryByText( ALPHA_META ) ).not.toBeInTheDocument();
+		} );
+
+		it( 'replaces the meter with a hatched placeholder when offline', () => {
+			useOfflineMock.mockReturnValue( true );
+			useStudioAssistantQuotaMock.mockReturnValue( {
+				data: { costUsage: 25, costCap: 100, costResetDate: '2026-08-01T12:00:00' },
+				isLoading: false,
+			} as never );
+
+			render( <AiCreditsSection /> );
+
+			expect( screen.getByRole( 'img', { name: 'Unavailable' } ) ).toBeInTheDocument();
+			expect( screen.queryByText( /of monthly limit used/ ) ).not.toBeInTheDocument();
+			expect( screen.queryByTestId( 'usage-progress-bar' ) ).not.toBeInTheDocument();
+		} );
+
+		it( 'greys out with a hatched placeholder when signed out', () => {
+			useAuthUserMock.mockReturnValue( { data: null, isLoading: false } as never );
+
+			render( <AiCreditsSection /> );
+
+			expect( screen.getByRole( 'img', { name: 'Unavailable' } ) ).toBeInTheDocument();
+			expect( screen.queryByText( ALPHA_META ) ).not.toBeInTheDocument();
+		} );
 	} );
 
-	it( 'renders AI usage when a quota with a cost cap is available', () => {
-		useStudioAssistantQuotaMock.mockReturnValue( {
-			data: { costUsage: 25, costCap: 100, costResetDate: '2026-08-01T12:00:00' },
-			isLoading: false,
-		} as never );
+	describe( 'PreviewUsageSection', () => {
+		it( 'renders preview site usage for the signed-in user', () => {
+			render( <PreviewUsageSection userId={ 1 } /> );
 
-		render( <UsagePanel /> );
+			expect( screen.getByRole( 'heading', { name: 'Preview sites' } ) ).toBeInTheDocument();
+			expect( screen.getByText( '2/10' ) ).toBeInTheDocument();
+			expect( useSnapshotsMock ).toHaveBeenCalledWith( 1 );
+			expect( useSnapshotUsageMock ).toHaveBeenCalledWith( 1 );
+			expect( useDeleteAllSnapshotsMock ).toHaveBeenCalledWith( 1 );
+		} );
 
-		expect(
-			screen.getByText( '25% of monthly limit used (resets on August 1, 2026)' )
-		).toBeInTheDocument();
-		expect(
-			screen.queryByText(
-				'AI credits are currently free while Studio Code is in Alpha. Build, iterate, and experiment, but know that credits will eventually have a cost.'
-			)
-		).not.toBeInTheDocument();
-	} );
+		it( 'confirms through the connector before deleting all preview sites', async () => {
+			render( <PreviewUsageSection userId={ 1 } /> );
 
-	it( 'shows an unavailable message when the quota fetch fails', () => {
-		useStudioAssistantQuotaMock.mockReturnValue( {
-			data: undefined,
-			isLoading: false,
-			isError: true,
-		} as never );
+			fireEvent.click( screen.getByRole( 'button', { name: 'Reset' } ) );
 
-		render( <UsagePanel /> );
+			await waitFor( () => expect( confirmDeleteAllPreviewSites ).toHaveBeenCalledTimes( 1 ) );
+			expect( deleteSnapshotsMutate ).toHaveBeenCalledTimes( 1 );
+		} );
 
-		expect(
-			screen.getByText( 'Studio Code limits are temporarily unavailable.' )
-		).toBeInTheDocument();
-		expect(
-			screen.queryByText(
-				'AI credits are currently free while Studio Code is in Alpha. Build, iterate, and experiment, but know that credits will eventually have a cost.'
-			)
-		).not.toBeInTheDocument();
-	} );
+		it( 'does not delete when the confirmation is declined', async () => {
+			confirmDeleteAllPreviewSites.mockResolvedValue( false );
 
-	it( 'falls back to the Alpha copy when the quota has no cost cap', () => {
-		useStudioAssistantQuotaMock.mockReturnValue( {
-			data: { costUsage: 0, costCap: 0 },
-			isLoading: false,
-		} as never );
+			render( <PreviewUsageSection userId={ 1 } /> );
 
-		render( <UsagePanel /> );
+			fireEvent.click( screen.getByRole( 'button', { name: 'Reset' } ) );
 
-		expect(
-			screen.getByText(
-				'AI credits are currently free while Studio Code is in Alpha. Build, iterate, and experiment, but know that credits will eventually have a cost.'
-			)
-		).toBeInTheDocument();
-	} );
+			await waitFor( () => expect( confirmDeleteAllPreviewSites ).toHaveBeenCalledTimes( 1 ) );
+			expect( deleteSnapshotsMutate ).not.toHaveBeenCalled();
+		} );
 
-	it( 'confirms through the connector before deleting all preview sites', async () => {
-		render( <UsagePanel /> );
+		it( 'surfaces a deletion error inline', () => {
+			useDeleteAllSnapshotsMock.mockReturnValue( {
+				mutate: deleteSnapshotsMutate,
+				isPending: false,
+				error: new Error( 'delete failed' ),
+			} as never );
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Delete all preview sites' } ) );
+			render( <PreviewUsageSection userId={ 1 } /> );
 
-		await waitFor( () => expect( confirmDeleteAllPreviewSites ).toHaveBeenCalledTimes( 1 ) );
-		expect( deleteSnapshotsMutate ).toHaveBeenCalledTimes( 1 );
-	} );
+			expect(
+				screen.getByText( 'An error occurred while deleting preview sites. Please try again.' )
+			).toBeInTheDocument();
+		} );
 
-	it( 'does not delete when the confirmation is declined', async () => {
-		confirmDeleteAllPreviewSites.mockResolvedValue( false );
+		it( 'shows a loading row with an empty progress bar', () => {
+			// Preview usage is still cached from before the delete, so the bar would
+			// otherwise keep its old fill next to a "Loading..." row.
+			useDeleteAllSnapshotsMock.mockReturnValue( {
+				mutate: deleteSnapshotsMutate,
+				isPending: true,
+				error: null,
+			} as never );
 
-		render( <UsagePanel /> );
+			render( <PreviewUsageSection userId={ 1 } /> );
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Delete all preview sites' } ) );
-
-		await waitFor( () => expect( confirmDeleteAllPreviewSites ).toHaveBeenCalledTimes( 1 ) );
-		expect( deleteSnapshotsMutate ).not.toHaveBeenCalled();
-	} );
-
-	it( 'shows a loading row with an empty progress bar in both sections', () => {
-		useStudioAssistantQuotaMock.mockReturnValue( { data: undefined, isLoading: true } as never );
-		// Preview usage is still cached from before the delete, so the bar would
-		// otherwise keep its old fill next to a "Loading..." row.
-		useDeleteAllSnapshotsMock.mockReturnValue( {
-			mutate: deleteSnapshotsMutate,
-			isPending: true,
-			error: null,
-		} as never );
-
-		render( <UsagePanel /> );
-
-		expect( screen.getAllByText( 'Loading...' ) ).toHaveLength( 2 );
-		const bars = screen.getAllByTestId( 'usage-progress-bar' );
-		expect( bars ).toHaveLength( 2 );
-		for ( const bar of bars ) {
+			expect( screen.getByText( 'Loading...' ) ).toBeInTheDocument();
+			const bar = screen.getByTestId( 'usage-progress-bar' );
 			expect( bar.firstElementChild ).toHaveStyle( { inlineSize: '0%' } );
-		}
-	} );
+		} );
 
-	it( 'replaces figures and actions with the offline notice while offline', () => {
-		useOfflineMock.mockReturnValue( true );
-		useStudioAssistantQuotaMock.mockReturnValue( {
-			data: { costUsage: 25, costCap: 100, costResetDate: '2026-08-01T12:00:00' },
-			isLoading: false,
-		} as never );
+		it( 'replaces the figures with a hatched placeholder while offline', () => {
+			useOfflineMock.mockReturnValue( true );
 
-		render( <UsagePanel /> );
+			render( <PreviewUsageSection userId={ 1 } /> );
 
-		expect( screen.getByRole( 'status' ) ).toHaveTextContent( "You're offline" );
-		// Cached figures are stale and can't be refreshed, so they stay hidden.
-		expect( screen.queryByText( /of monthly limit used/ ) ).not.toBeInTheDocument();
-		expect( screen.queryByText( /active preview site/ ) ).not.toBeInTheDocument();
-		expect( screen.getAllByRole( 'img', { name: 'Unavailable' } ) ).toHaveLength( 2 );
-		expect(
-			screen.queryByRole( 'button', { name: 'Delete all preview sites' } )
-		).not.toBeInTheDocument();
-		expect( screen.queryByLabelText( 'Sign in to Studio' ) ).not.toBeInTheDocument();
-	} );
-
-	it( 'surfaces a deletion error inline', () => {
-		useDeleteAllSnapshotsMock.mockReturnValue( {
-			mutate: deleteSnapshotsMutate,
-			isPending: false,
-			error: new Error( 'delete failed' ),
-		} as never );
-
-		render( <UsagePanel /> );
-
-		expect(
-			screen.getByText( 'An error occurred while deleting preview sites. Please try again.' )
-		).toBeInTheDocument();
-	} );
-
-	it( 'shows the sign-in banner and no credits copy when signed out', () => {
-		useAuthUserMock.mockReturnValue( { data: null, isLoading: false } as never );
-
-		render( <UsagePanel /> );
-
-		expect( screen.getByLabelText( 'Sign in to Studio' ) ).toBeInTheDocument();
-		expect( screen.queryByText( /active preview site/ ) ).not.toBeInTheDocument();
-		expect( screen.getAllByRole( 'img', { name: 'Unavailable' } ) ).toHaveLength( 2 );
-		// Studio Code needs an account, so the Alpha pricing copy stays hidden.
-		expect(
-			screen.queryByText(
-				'AI credits are currently free while Studio Code is in Alpha. Build, iterate, and experiment, but know that credits will eventually have a cost.'
-			)
-		).not.toBeInTheDocument();
-
-		fireEvent.click( screen.getByRole( 'button', { name: 'Log in with WordPress.com' } ) );
-
-		expect( loginMutate ).toHaveBeenCalled();
+			expect( screen.getByRole( 'img', { name: 'Unavailable' } ) ).toBeInTheDocument();
+			expect( screen.queryByText( /active preview site/ ) ).not.toBeInTheDocument();
+			expect( screen.queryByRole( 'button', { name: 'Reset' } ) ).not.toBeInTheDocument();
+		} );
 	} );
 } );

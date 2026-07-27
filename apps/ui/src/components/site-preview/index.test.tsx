@@ -16,6 +16,10 @@ vi.mock( '@/data/core', () => ( {
 	useConnector: vi.fn(),
 } ) );
 
+vi.mock( '@/hooks/use-traffic-light-space', () => ( {
+	useTrafficLightSpace: () => ( { start: false, end: false } ),
+} ) );
+
 const useConnectorMock = vi.mocked( useConnector );
 
 // Browser-style capabilities (no native dialogs, no preview annotation) — the

@@ -464,7 +464,6 @@ export function SitePreview( {
 								site={ site }
 								siteUrl={ siteUrl }
 								path={ getSafePath( path ) }
-								searchEnabled={ canUseWebview }
 								anchorRef={ locationRef }
 								showDatabaseTab={ showDatabaseTab }
 								onNavigate={ ( nextPath ) => onPathChange?.( nextPath ) }

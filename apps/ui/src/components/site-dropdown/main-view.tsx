@@ -439,6 +439,24 @@ function SyncActivityError( {
 	);
 }
 
+function getLocalServerStatusName( {
+	running,
+	starting,
+	stopping,
+}: {
+	running: boolean;
+	starting: boolean;
+	stopping: boolean;
+} ) {
+	if ( stopping ) {
+		return __( 'Stopping' );
+	}
+	if ( starting ) {
+		return __( 'Starting' );
+	}
+	return running ? __( 'Running' ) : __( 'Stopped' );
+}
+
 function LocalServerControl( {
 	running,
 	starting,
@@ -460,14 +478,10 @@ function LocalServerControl( {
 	// the pointer events the tooltip listens for, hiding the status exactly
 	// while the site is transitioning.
 	const inert = disabled || pending;
-	const statusName = pending
-		? stopping
-			? __( 'Stopping' )
-			: __( 'Starting' )
-		: running
-		? __( 'Running' )
-		: __( 'Stopped' );
-	const statusLabel = sprintf( __( 'Site status: %s' ), statusName );
+	const statusLabel = sprintf(
+		__( 'Site status: %s' ),
+		getLocalServerStatusName( { running, starting, stopping } )
+	);
 	const actionLabel = running ? __( 'Stop site' ) : __( 'Start site' );
 
 	return (

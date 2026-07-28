@@ -183,6 +183,9 @@ export interface Connector {
 	// Refreshes the cached WordPress Site Icon path after a site-level icon
 	// change. The renderer receives image bytes through getSites().
 	refreshSiteIcon( siteId: string ): Promise< void >;
+	// Cached screenshot thumbnail captured by the desktop app while the site
+	// was running. Returns null when the site has not produced a thumbnail yet.
+	getSiteThumbnail( siteId: string ): Promise< string | null >;
 
 	// Exports a site as a full backup archive (files + database). Prompts the
 	// user for a destination via a save-as dialog; resolves with the chosen

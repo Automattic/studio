@@ -29,7 +29,6 @@
 	inset: calc(-1 * var(--wpds-dimension-padding-xl));
 	pointer-events: none;
 	backdrop-filter: blur(var(--frost-radius));
-	-webkit-backdrop-filter: blur(var(--frost-radius));
 	mask-image: radial-gradient(
 		70% 90% at 50% 50%,
 		black var(--frost-hold),

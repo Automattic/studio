@@ -142,7 +142,7 @@ describe( 'AI runCommand — resume by id restores session model', () => {
 				id: 'e1',
 				parentId: null,
 				timestamp: '2024-01-01T00:00:00Z',
-				modelId: 'claude-opus-4-8',
+				modelId: 'claude-opus-5',
 			},
 		];
 		const mockSm = {
@@ -162,7 +162,7 @@ describe( 'AI runCommand — resume by id restores session model', () => {
 
 		expect( runStudioAgentTurn ).toHaveBeenCalledTimes( 1 );
 		const callArgs = ( runStudioAgentTurn as Mock ).mock.calls[ 0 ][ 0 ] as { model: string };
-		expect( callArgs.model ).toBe( 'claude-opus-4-8' );
+		expect( callArgs.model ).toBe( 'claude-opus-5' );
 	} );
 } );
 

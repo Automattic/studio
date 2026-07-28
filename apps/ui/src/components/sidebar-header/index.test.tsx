@@ -15,7 +15,7 @@ vi.mock( '@/data/core', () => ( {
 } ) );
 
 vi.mock( '@/hooks/use-traffic-light-space', () => ( {
-	useTrafficLightSpace: () => false,
+	useTrafficLightSpace: () => ( { start: false, end: false } ),
 } ) );
 
 const useConnectorMock = vi.mocked( useConnector, { partial: true } );

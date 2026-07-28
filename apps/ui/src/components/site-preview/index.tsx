@@ -11,11 +11,6 @@ import { useWindowControlsOverlay } from '@/hooks/use-window-controls-overlay';
 import { getSiteUrl } from '@/lib/get-site-url';
 import { playIcon, refreshIcon } from '@/lib/icons';
 import {
-	INSPECTOR_BRIDGE_PREFIX,
-	INSPECTOR_COMMAND_EVENT,
-	INSPECTOR_PAGE_SCRIPT,
-} from './inspector-script';
-import {
 	DATABASE_HOME_PATH,
 	getPathFromPreviewUrl,
 	getPreviewRealm,
@@ -24,6 +19,11 @@ import {
 	REALM_SHORTCUT_KEYS,
 	type PreviewRealm,
 } from './address-bar';
+import {
+	INSPECTOR_BRIDGE_PREFIX,
+	INSPECTOR_COMMAND_EVENT,
+	INSPECTOR_PAGE_SCRIPT,
+} from './inspector-script';
 import styles from './style.module.css';
 import type { Annotation } from './types';
 import type { SiteDetails } from '@/data/core';
@@ -292,6 +292,7 @@ export function SitePreview( {
 	// the setting UI ships with the preview's view-settings menu).
 	const [ showDatabaseTab ] = useState( getStoredShowDatabaseTab );
 	const rootRef = useRef< HTMLElement | null >( null );
+	const locationRef = useRef< HTMLDivElement | null >( null );
 	const commandIdRef = useRef( 0 );
 	const canAnnotate = canPreview && inspectorState.ready;
 	const progress = browserState.loading
@@ -445,8 +446,8 @@ export function SitePreview( {
 				</div>
 				{ /* Back/forward flank the address segments so history controls sit
 					with the place they navigate; symmetric widths keep the segments
-					centered. */ }
-				<div className={ styles.browserLocation }>
+					(and the omnibox popup anchored to this element) centered. */ }
+				<div ref={ locationRef } className={ styles.browserLocation }>
 					{ canPreview ? (
 						<>
 							<IconButton
@@ -461,8 +462,12 @@ export function SitePreview( {
 							/>
 							<PreviewAddressBar
 								site={ site }
+								siteUrl={ siteUrl }
 								path={ getSafePath( path ) }
+								searchEnabled={ canUseWebview }
+								anchorRef={ locationRef }
 								showDatabaseTab={ showDatabaseTab }
+								onNavigate={ ( nextPath ) => onPathChange?.( nextPath ) }
 								onSwitchRealm={ handleSwitchRealm }
 							/>
 							<IconButton

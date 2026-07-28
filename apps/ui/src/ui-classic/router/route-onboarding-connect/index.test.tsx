@@ -266,6 +266,21 @@ describe( 'OnboardingConnectPage', () => {
 		);
 	} );
 
+	it( 'shows a pre-persistence failure in a floating alert', async () => {
+		mocks.user = { id: 1, email: 'user@example.com', displayName: 'User' };
+		mocks.remoteSites = [ site( 1 ) ];
+		mocks.connectWpcomSite.mockRejectedValue( new Error( 'Connection failed' ) );
+
+		render( <OnboardingConnectPage /> );
+		const connectButton = screen.getByRole( 'button', { name: 'Connect site' } );
+		await waitFor( () => expect( connectButton ).toHaveAttribute( 'aria-disabled', 'false' ) );
+		fireEvent.click( connectButton );
+
+		expect( await screen.findByRole( 'alert' ) ).toHaveTextContent( 'Connection failed' );
+		expect( mocks.deleteSite ).toHaveBeenCalledWith( { id: 'local-1', deleteFiles: true } );
+		expect( mocks.toastError ).not.toHaveBeenCalled();
+	} );
+
 	it( 'opens the local site while pull and start continue in the background', async () => {
 		mocks.user = { id: 1, email: 'user@example.com', displayName: 'User' };
 		mocks.remoteSites = [ site( 1, { name: 'Remote site' } ) ];

@@ -259,6 +259,12 @@
 	margin-top: 4px;
 }
 
+.connectError {
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-error);
+	background: var(--wpds-color-bg-surface-error-weak);
+	color: var(--wpds-color-fg-content-error);
+}
+
 .error {
 	max-width: 680px;
 	margin: 24px auto 0;

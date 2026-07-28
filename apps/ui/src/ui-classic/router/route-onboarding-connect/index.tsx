@@ -360,6 +360,11 @@ export function OnboardingConnectPage() {
 					? __( 'Select a WordPress.com or Pressable site to bring into your Studio.' )
 					: __( 'Log in with your WordPress.com account to see your sites.' ) }
 			</p>
+			{ submitError && (
+				<p role="alert" className={ `${ sharedStyles.progress } ${ styles.connectError }` }>
+					{ submitError }
+				</p>
+			) }
 
 			{ isAuthLoading && (
 				<div className={ styles.state } role="status">
@@ -503,12 +508,6 @@ export function OnboardingConnectPage() {
 						</div>
 					) }
 				</>
-			) }
-
-			{ submitError && (
-				<p role="alert" className={ styles.error }>
-					{ submitError }
-				</p>
 			) }
 
 			<OnboardingFooter>

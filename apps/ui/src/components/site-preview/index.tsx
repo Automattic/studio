@@ -292,7 +292,6 @@ export function SitePreview( {
 	// the setting UI ships with the preview's view-settings menu).
 	const [ showDatabaseTab ] = useState( getStoredShowDatabaseTab );
 	const rootRef = useRef< HTMLElement | null >( null );
-	const locationRef = useRef< HTMLDivElement | null >( null );
 	const commandIdRef = useRef( 0 );
 	const canAnnotate = canPreview && inspectorState.ready;
 	const progress = browserState.loading
@@ -447,7 +446,7 @@ export function SitePreview( {
 				{ /* Back/forward flank the address segments so history controls sit
 					with the place they navigate; symmetric widths keep the segments
 					(and the omnibox popup anchored to this element) centered. */ }
-				<div ref={ locationRef } className={ styles.browserLocation }>
+				<div className={ styles.browserLocation }>
 					{ canPreview ? (
 						<>
 							<IconButton
@@ -464,7 +463,6 @@ export function SitePreview( {
 								site={ site }
 								siteUrl={ siteUrl }
 								path={ getSafePath( path ) }
-								anchorRef={ locationRef }
 								showDatabaseTab={ showDatabaseTab }
 								onNavigate={ ( nextPath ) => onPathChange?.( nextPath ) }
 								onSwitchRealm={ handleSwitchRealm }

@@ -1,9 +1,11 @@
-import { __ } from '@wordpress/i18n';
-import { chevronLeft, chevronRight, pencil } from '@wordpress/icons';
+import { __, sprintf } from '@wordpress/i18n';
+import { chevronLeft, chevronRight, moreVertical, pencil } from '@wordpress/icons';
 import { ariaKeyShortcut, displayShortcut, isAppleOS, isKeyboardEvent } from '@wordpress/keycodes';
 import { Button, IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { DotGrid } from '@/components/dot-grid';
+import * as Menu from '@/components/menu';
 import { OpenInMenu } from '@/components/open-in-menu';
 import { useConnector } from '@/data/core';
 import { useIsSiteStarting, useStartSite } from '@/data/queries/use-sites';
@@ -28,6 +30,7 @@ import {
 import styles from './style.module.css';
 import type { Annotation } from './types';
 import type { SiteDetails } from '@/data/core';
+import type { CSSProperties } from 'react';
 
 export type { Annotation } from './types';
 export { getPathFromPreviewUrl } from './address-bar';
@@ -93,6 +96,7 @@ interface WebviewTag extends HTMLElement {
 	executeJavaScript( code: string, userGesture?: boolean ): Promise< unknown >;
 	canGoBack?(): boolean;
 	canGoForward?(): boolean;
+	getWebContentsId?(): number;
 	goBack?(): void;
 	goForward?(): void;
 	reload?(): void;
@@ -115,6 +119,107 @@ const isElectron = (): boolean => {
 	if ( typeof navigator === 'undefined' ) return false;
 	return /\bElectron\//.test( navigator.userAgent );
 };
+
+interface ViewportPreset {
+	id: 'mobile' | 'tablet' | 'desktop';
+	// Emulated CSS dimensions; the frame keeps this exact size and scales
+	// down to fit the pane.
+	width: number;
+	height: number;
+	// Report the emulated viewport to the page as a mobile device.
+	mobile?: boolean;
+}
+
+// Simulated-viewport presets, rendered as fixed-size device frames scaled
+// to fit the pane: an iPhone-class phone, an iPad-class tablet, and a
+// 16:10 laptop.
+const VIEWPORT_PRESETS: readonly ViewportPreset[] = [
+	{ id: 'mobile', width: 390, height: 844, mobile: true },
+	{ id: 'tablet', width: 768, height: 1024 },
+	{ id: 'desktop', width: 1440, height: 900 },
+];
+
+// The preview's viewport mode: natural pane size, one simulated preset, or
+// the side-by-side comparison of the desktop and mobile presets.
+type ViewportMode = 'fit' | ViewportPreset[ 'id' ] | 'split';
+
+// The split view reuses the desktop and mobile presets for its two panes.
+const MOBILE_PRESET = VIEWPORT_PRESETS[ 0 ];
+const DESKTOP_PRESET = VIEWPORT_PRESETS[ 2 ];
+
+// The phone frame's orientation, shared by the mobile preset and the split
+// view. Landscape rotates the frame a quarter turn (844×390).
+type MobileOrientation = 'portrait' | 'landscape';
+
+const MOBILE_PRESET_LANDSCAPE: ViewportPreset = {
+	...MOBILE_PRESET,
+	width: MOBILE_PRESET.height,
+	height: MOBILE_PRESET.width,
+};
+
+function getMobilePreset( orientation: MobileOrientation ): ViewportPreset {
+	return orientation === 'landscape' ? MOBILE_PRESET_LANDSCAPE : MOBILE_PRESET;
+}
+
+// Breathing room around the split view's phone frame (matches the pane's
+// CSS padding, subtracted before computing the frame's fit-to-height scale).
+const SPLIT_MOBILE_PANE_PADDING = 16;
+
+// A simulated guest viewport: the page lays out at `width`×`height` CSS px
+// and its rendering is scaled by `scale` to fit the preview pane. `mobile`
+// makes the emulation report a mobile device, so meta-viewport handling and
+// responsive behavior match a real phone.
+export interface PreviewViewport {
+	width: number;
+	height: number;
+	scale: number;
+	mobile?: boolean;
+}
+
+/**
+ * The viewport to simulate for a preset inside a pane of the given size:
+ * the preset's exact dimensions, scaled down (never up) to fit both axes,
+ * like a device frame.
+ */
+export function getSimulatedViewport(
+	preset: { width: number; height: number; mobile?: boolean } | null,
+	pane: { width: number; height: number } | null
+): PreviewViewport | null {
+	if ( ! preset || ! pane || pane.width <= 0 || pane.height <= 0 ) {
+		return null;
+	}
+	return {
+		width: preset.width,
+		height: preset.height,
+		scale: Math.min( 1, pane.width / preset.width, pane.height / preset.height ),
+		mobile: Boolean( preset.mobile ),
+	};
+}
+
+interface PreviewWindow extends Window {
+	ipcApi?: {
+		setWebviewViewport?: (
+			webContentsId: number,
+			viewport: PreviewViewport | null
+		) => Promise< void >;
+	};
+}
+
+function getWebviewContentsId( webview: WebviewTag ): number {
+	const webContentsId = webview.getWebContentsId?.();
+	if ( ! webContentsId ) {
+		throw new Error( 'Preview webview is not ready.' );
+	}
+	return webContentsId;
+}
+
+async function applyWebviewViewport(
+	webview: WebviewTag,
+	viewport: PreviewViewport | null
+): Promise< void > {
+	const { ipcApi } = window as PreviewWindow;
+	await ipcApi?.setWebviewViewport?.( getWebviewContentsId( webview ), viewport );
+}
 
 const EMPTY_BROWSER_STATE: BrowserNavigationState = {
 	canGoBack: false,
@@ -257,6 +362,89 @@ function isBrowserShortcutCommand( command: unknown ): command is BrowserShortcu
 	return command === 'back' || command === 'forward' || command === 'reload';
 }
 
+// Trailing "•••" menu holding the preview's environment controls. For now
+// that's the responsive viewport controls; other view options join it as
+// they land.
+function PreviewOverflowMenu( {
+	viewportMode,
+	onViewportModeChange,
+	mobileOrientation,
+	onMobileOrientationChange,
+}: {
+	viewportMode: ViewportMode;
+	onViewportModeChange: ( mode: ViewportMode ) => void;
+	mobileOrientation: MobileOrientation;
+	onMobileOrientationChange: ( orientation: MobileOrientation ) => void;
+} ) {
+	const viewportLabels: Record< ViewportPreset[ 'id' ], string > = {
+		mobile: __( 'Mobile' ),
+		tablet: __( 'Tablet' ),
+		desktop: __( 'Desktop' ),
+	};
+	const getPresetLabel = ( preset: ViewportPreset ) =>
+		sprintf(
+			/* translators: 1: device name (e.g. Mobile), 2: viewport width, 3: viewport height in pixels */
+			__( '%1$s · %2$d×%3$d' ),
+			viewportLabels[ preset.id ],
+			preset.width,
+			preset.height
+		);
+	return (
+		// Unlike the app's other (non-modal) menus, this one floats over the
+		// webview, which swallows outside clicks before they reach the host
+		// document. Modal mode mounts a backdrop that catches them, so
+		// clicking the preview dismisses the menu like clicking anywhere else.
+		<Menu.Root>
+			<Menu.Trigger
+				render={
+					<IconButton
+						variant="minimal"
+						tone="neutral"
+						size="small"
+						icon={ moreVertical }
+						label={ __( 'More options' ) }
+					/>
+				}
+			/>
+			<Menu.Popup side="bottom" align="end">
+				<Menu.Group>
+					<Menu.GroupLabel>{ __( 'Responsive mode' ) }</Menu.GroupLabel>
+					<Menu.RadioGroup
+						value={ viewportMode }
+						onValueChange={ ( next ) => onViewportModeChange( next as ViewportMode ) }
+					>
+						<Menu.RadioItem value="fit">{ __( 'Fit pane' ) }</Menu.RadioItem>
+						{ VIEWPORT_PRESETS.map( ( preset ) => (
+							<Menu.RadioItem key={ preset.id } value={ preset.id }>
+								{ getPresetLabel(
+									// Keep the advertised dimensions honest in landscape.
+									preset.id === 'mobile' ? getMobilePreset( mobileOrientation ) : preset
+								) }
+							</Menu.RadioItem>
+						) ) }
+						<Menu.RadioItem value="split">{ __( 'Desktop + Mobile' ) }</Menu.RadioItem>
+					</Menu.RadioGroup>
+				</Menu.Group>
+				{ viewportMode === 'mobile' || viewportMode === 'split' ? (
+					<>
+						<Menu.Separator />
+						<Menu.Group>
+							<Menu.GroupLabel>{ __( 'Mobile orientation' ) }</Menu.GroupLabel>
+							<Menu.RadioGroup
+								value={ mobileOrientation }
+								onValueChange={ ( next ) => onMobileOrientationChange( next as MobileOrientation ) }
+							>
+								<Menu.RadioItem value="portrait">{ __( 'Portrait' ) }</Menu.RadioItem>
+								<Menu.RadioItem value="landscape">{ __( 'Landscape' ) }</Menu.RadioItem>
+							</Menu.RadioGroup>
+						</Menu.Group>
+					</>
+				) : null }
+			</Menu.Popup>
+		</Menu.Root>
+	);
+}
+
 function areBrowserStatesEqual( a: BrowserNavigationState, b: BrowserNavigationState ) {
 	return (
 		a.canGoBack === b.canGoBack &&
@@ -289,10 +477,18 @@ export function SitePreview( {
 	const [ browserCommand, setBrowserCommand ] = useState< BrowserCommand | null >( null );
 	const [ inspectorState, setInspectorState ] = useState< InspectorState >( EMPTY_INSPECTOR_STATE );
 	const [ inspectorCommand, setInspectorCommand ] = useState< InspectorCommand | null >( null );
+	// 'fit' renders at the pane's natural size; a preset id simulates that
+	// viewport; 'split' shows the desktop and mobile presets together.
+	const [ viewportMode, setViewportMode ] = useState< ViewportMode >( 'fit' );
+	// Orientation of the phone frame, wherever it shows (mobile preset and
+	// the split view's phone pane).
+	const [ mobileOrientation, setMobileOrientation ] = useState< MobileOrientation >( 'portrait' );
+	const [ paneSize, setPaneSize ] = useState< { width: number; height: number } | null >( null );
 	// Whether the address bar shows the Database segment (global preference;
 	// the setting UI ships with the preview's view-settings menu).
 	const [ showDatabaseTab ] = useState( getStoredShowDatabaseTab );
 	const rootRef = useRef< HTMLElement | null >( null );
+	const paneRef = useRef< HTMLDivElement | null >( null );
 	const locationRef = useRef< HTMLDivElement | null >( null );
 	const commandIdRef = useRef( 0 );
 	const canAnnotate = canPreview && inspectorState.ready;
@@ -300,6 +496,73 @@ export function SitePreview( {
 		? Math.max( browserState.progress, 0.12 )
 		: browserState.progress;
 	const showLoadingProgress = canPreview && progress > 0;
+	// Presets are module constants, so this stays referentially stable per
+	// mode + orientation.
+	const activePreset =
+		viewportMode === 'mobile'
+			? getMobilePreset( mobileOrientation )
+			: viewportMode === 'split'
+			? DESKTOP_PRESET
+			: VIEWPORT_PRESETS.find( ( preset ) => preset.id === viewportMode ) ?? null;
+	const splitPreview = viewportMode === 'split';
+	// The split view's phone pane: the mobile preset (in its current
+	// orientation) scaled to fit the pane height, and capped at half the
+	// pane's width so a landscape frame can't crowd out the primary view.
+	const splitMobileViewport = useMemo( () => {
+		if ( ! splitPreview || ! paneSize ) {
+			return null;
+		}
+		const preset = getMobilePreset( mobileOrientation );
+		return getSimulatedViewport( preset, {
+			width: Math.max( 160, Math.min( preset.width, Math.round( paneSize.width / 2 ) ) ),
+			height: Math.max( 120, paneSize.height - SPLIT_MOBILE_PANE_PADDING * 2 ),
+		} );
+	}, [ mobileOrientation, paneSize, splitPreview ] );
+	// In split mode the desktop simulation fits the space left beside the
+	// rendered mobile frame, including its pane padding. This keeps the page
+	// at the desktop breakpoint even when the comparison itself is narrow.
+	const primaryPaneSize = useMemo( () => {
+		if ( ! splitPreview || ! paneSize || ! splitMobileViewport ) {
+			return paneSize;
+		}
+		const mobilePaneWidth =
+			splitMobileViewport.width * splitMobileViewport.scale + SPLIT_MOBILE_PANE_PADDING * 2;
+		return {
+			width: Math.max( 1, paneSize.width - mobilePaneWidth ),
+			height: paneSize.height,
+		};
+	}, [ paneSize, splitMobileViewport, splitPreview ] );
+	// No emulation while the site is stopped: the empty state renders in the
+	// plain pane, and the chosen mode re-applies on start.
+	const previewViewport = useMemo(
+		() => ( canPreview ? getSimulatedViewport( activePreset, primaryPaneSize ) : null ),
+		[ activePreset, canPreview, primaryPaneSize ]
+	);
+	// Sizing for the frame around the primary surface: the preset's exact
+	// scaled box (the emulation paints it edge to edge).
+	const frameStyle = useMemo< CSSProperties | undefined >( () => {
+		if ( ! previewViewport ) {
+			return undefined;
+		}
+		return {
+			flex: '0 0 auto',
+			width: previewViewport.width * previewViewport.scale,
+			height: previewViewport.height * previewViewport.scale,
+		};
+	}, [ previewViewport ] );
+	// The iframe fallback has no device emulation, so scaling is a CSS
+	// transform instead: lay out at full size, scale down to fit; the frame
+	// clips the transform's leftover layout box.
+	const iframeStyle: CSSProperties | undefined =
+		previewViewport && previewViewport.scale !== 1
+			? {
+					flex: '0 0 auto',
+					width: previewViewport.width,
+					height: previewViewport.height,
+					transform: `scale(${ previewViewport.scale })`,
+					transformOrigin: 'top left',
+			  }
+			: undefined;
 
 	const handlePreviewNavigation = useCallback(
 		( url: string ) => {
@@ -375,7 +638,32 @@ export function SitePreview( {
 	useEffect( () => {
 		setBrowserState( EMPTY_BROWSER_STATE );
 		setInspectorState( EMPTY_INSPECTOR_STATE );
+		setViewportMode( 'fit' );
+		setMobileOrientation( 'portrait' );
 	}, [ site.id ] );
+
+	// The simulated viewport is derived from the pane's size, so it has to
+	// follow pane resizes live. Rounded to whole px so subpixel resize
+	// reports don't churn re-renders and emulation calls.
+	useEffect( () => {
+		const pane = paneRef.current;
+		if ( ! pane || typeof ResizeObserver === 'undefined' ) {
+			return;
+		}
+		const observer = new ResizeObserver( ( entries ) => {
+			const rect = entries[ entries.length - 1 ]?.contentRect;
+			if ( ! rect ) {
+				return;
+			}
+			const width = Math.round( rect.width );
+			const height = Math.round( rect.height );
+			setPaneSize( ( current ) =>
+				current?.width === width && current?.height === height ? current : { width, height }
+			);
+		} );
+		observer.observe( pane );
+		return () => observer.disconnect();
+	}, [] );
 
 	// Browser shortcuts (⌘R / ⌘[ / ⌘] / ⌘←/⌘→) and the ⌘1/⌘2/⌘3 realm switches
 	// pressed while focus is in the host document. Shortcuts pressed inside the
@@ -512,6 +800,14 @@ export function SitePreview( {
 						</div>
 					) : null }
 					<OpenInMenu site={ site } browserUrl={ previewUrl } />
+					{ canPreview ? (
+						<PreviewOverflowMenu
+							viewportMode={ viewportMode }
+							onViewportModeChange={ setViewportMode }
+							mobileOrientation={ mobileOrientation }
+							onMobileOrientationChange={ setMobileOrientation }
+						/>
+					) : null }
 				</div>
 				{ showLoadingProgress ? (
 					<div className={ styles.loadingProgress } aria-hidden="true">
@@ -520,61 +816,139 @@ export function SitePreview( {
 				) : null }
 			</div>
 			<div className={ styles.body }>
-				{ canPreview ? (
-					canUseWebview ? (
-						<WebviewSurface
-							key={ site.id }
-							url={ previewUrl }
-							reloadNonce={ reloadNonce }
-							onAnnotationsDone={ onAnnotationsDone }
-							onInspectorState={ handleInspectorState }
-							inspectorCommand={ inspectorCommand }
-							browserCommand={ browserCommand }
-							onBrowserStateChange={ handleBrowserStateChange }
-							onBrowserCommand={ sendBrowserCommand }
-							onNavigate={ handlePreviewNavigation }
-						/>
+				<div
+					ref={ paneRef }
+					className={ clsx(
+						styles.previewViewport,
+						previewViewport && styles.previewViewportSimulated
+					) }
+				>
+					{ canPreview ? (
+						<>
+							{ previewViewport ? (
+								<div className={ styles.viewportGrid } aria-hidden="true">
+									<DotGrid
+										spacing={ 32 }
+										crossSize={ 5 }
+										crossThickness={ 0.75 }
+										opacity={ 0.16 }
+										intro={ false }
+									/>
+								</div>
+							) : null }
+							<div
+								className={ clsx( styles.surfaceFrame, previewViewport && styles.deviceFrame ) }
+								style={ frameStyle }
+							>
+								{ canUseWebview ? (
+									<WebviewSurface
+										key={ site.id }
+										url={ previewUrl }
+										reloadNonce={ reloadNonce }
+										onAnnotationsDone={ onAnnotationsDone }
+										onInspectorState={ handleInspectorState }
+										inspectorCommand={ inspectorCommand }
+										browserCommand={ browserCommand }
+										onBrowserStateChange={ handleBrowserStateChange }
+										onBrowserCommand={ sendBrowserCommand }
+										onNavigate={ handlePreviewNavigation }
+										viewport={ previewViewport }
+									/>
+								) : (
+									// Non-Electron fallback: plain iframe, no inspector. Reloads
+									// by remounting; back/forward aren't reachable from the host.
+									<iframe
+										key={ `${ previewUrl }#${ reloadNonce }#${
+											browserCommand?.type === 'reload' ? browserCommand.id : 0
+										}` }
+										className={ styles.iframe }
+										style={ iframeStyle }
+										src={ previewUrl }
+										title={ site.name }
+										onLoad={ ( event ) => {
+											handlePreviewNavigation( event.currentTarget.src );
+											setBrowserState( ( current ) => {
+												const next = {
+													...current,
+													loading: false,
+													progress: 0,
+													title: getIframeTitle( event.currentTarget ),
+												};
+												return areBrowserStatesEqual( current, next ) ? current : next;
+											} );
+										} }
+									/>
+								) }
+							</div>
+							{ splitPreview && splitMobileViewport ? (
+								// The comparison's phone pane: a lean companion surface that
+								// follows the primary's navigation (shared `path`) but keeps
+								// annotations and history on the primary pane.
+								<div className={ styles.splitMobilePane }>
+									<div
+										className={ clsx( styles.surfaceFrame, styles.deviceFrame ) }
+										style={ {
+											flex: '0 0 auto',
+											width: splitMobileViewport.width * splitMobileViewport.scale,
+											height: splitMobileViewport.height * splitMobileViewport.scale,
+										} }
+									>
+										{ canUseWebview ? (
+											<WebviewSurface
+												key={ `${ site.id }-mobile` }
+												url={ previewUrl }
+												reloadNonce={ reloadNonce }
+												viewport={ splitMobileViewport }
+												browserCommand={ browserCommand?.type === 'reload' ? browserCommand : null }
+												onNavigate={ handlePreviewNavigation }
+											/>
+										) : (
+											<iframe
+												key={ `${ previewUrl }#${ reloadNonce }` }
+												className={ styles.iframe }
+												style={
+													splitMobileViewport.scale !== 1
+														? {
+																flex: '0 0 auto',
+																width: splitMobileViewport.width,
+																height: splitMobileViewport.height,
+																transform: `scale(${ splitMobileViewport.scale })`,
+																transformOrigin: 'top left',
+														  }
+														: undefined
+												}
+												src={ previewUrl }
+												title={ sprintf(
+													/* translators: %s: site name */
+													__( '%s (mobile)' ),
+													site.name
+												) }
+											/>
+										) }
+									</div>
+								</div>
+							) : null }
+						</>
 					) : (
-						// Non-Electron fallback: plain iframe, no inspector. Reloads
-						// by remounting; back/forward aren't reachable from the host.
-						<iframe
-							key={ `${ previewUrl }#${ reloadNonce }#${
-								browserCommand?.type === 'reload' ? browserCommand.id : 0
-							}` }
-							className={ styles.iframe }
-							src={ previewUrl }
-							title={ site.name }
-							onLoad={ ( event ) => {
-								handlePreviewNavigation( event.currentTarget.src );
-								setBrowserState( ( current ) => {
-									const next = {
-										...current,
-										loading: false,
-										progress: 0,
-										title: getIframeTitle( event.currentTarget ),
-									};
-									return areBrowserStatesEqual( current, next ) ? current : next;
-								} );
-							} }
-						/>
-					)
-				) : (
-					<div className={ styles.empty }>
-						<p className={ styles.emptyText }>{ __( 'Start the site to see a live preview.' ) }</p>
-						<Button
-							variant="solid"
-							tone="brand"
-							loading={ isStarting }
-							loadingAnnouncement={ __( 'Starting site' ) }
-							onClick={ () => startSite.mutate( site.id ) }
-						>
-							<span className={ styles.startIcon } aria-hidden="true">
-								{ playIcon }
-							</span>
-							{ __( 'Start site' ) }
-						</Button>
-					</div>
-				) }
+						<div className={ styles.empty }>
+							<p className={ styles.emptyText }>
+								{ __( 'Start the site to see a live preview.' ) }
+							</p>
+							<Button
+								variant="solid"
+								tone="brand"
+								loading={ isStarting }
+								loadingAnnouncement={ __( 'Starting site' ) }
+								onClick={ () => startSite.mutate( site.id ) }
+							>
+								<span className={ styles.startIcon } aria-hidden="true">
+									{ playIcon }
+								</span>
+								{ __( 'Start site' ) }
+							</Button>
+						</div>
+					) }
+				</div>
 			</div>
 		</aside>
 	);
@@ -594,6 +968,8 @@ interface WebviewSurfaceProps {
 	onBrowserStateChange?: ( state: BrowserNavigationState ) => void;
 	onBrowserCommand?: ( type: BrowserShortcutCommandType ) => void;
 	onNavigate?: ( url: string ) => void;
+	// Simulated guest viewport, or null for the webview's natural size.
+	viewport?: PreviewViewport | null;
 }
 
 /**
@@ -614,6 +990,7 @@ function WebviewSurface( {
 	onBrowserStateChange,
 	onBrowserCommand,
 	onNavigate,
+	viewport = null,
 }: WebviewSurfaceProps ) {
 	const ref = useRef< HTMLElement | null >( null );
 	const [ ready, setReady ] = useState( false );
@@ -882,6 +1259,20 @@ function WebviewSurface( {
 			publishBrowserState();
 		}
 	}, [ browserCommand, publishBrowserState, ready ] );
+
+	// The CDP metrics override persists across navigations, so it only needs
+	// applying when the simulated viewport changes (or on the first dom-ready
+	// after one was requested). The `applied` ref skips the initial clear so
+	// plain previews don't pay for an emulation round-trip.
+	const appliedViewportRef = useRef( false );
+	useEffect( () => {
+		if ( ! ready ) return;
+		if ( ! viewport && ! appliedViewportRef.current ) return;
+		const webview = ref.current as WebviewTag | null;
+		if ( ! webview ) return;
+		appliedViewportRef.current = Boolean( viewport );
+		void applyWebviewViewport( webview, viewport ).catch( () => undefined );
+	}, [ viewport, ready ] );
 
 	return (
 		<>

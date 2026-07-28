@@ -1,10 +1,15 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { displayShortcut } from '@wordpress/keycodes';
 import { Tooltip } from '@wordpress/ui';
 import { describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
-import { getBrowserShortcutCommand, getPathFromPreviewUrl, SitePreview } from './index';
+import {
+	getBrowserShortcutCommand,
+	getPathFromPreviewUrl,
+	getSimulatedViewport,
+	SitePreview,
+} from './index';
 import type { SiteDetails } from '@/data/core';
 import type { ReactNode } from 'react';
 
@@ -281,6 +286,50 @@ describe( 'SitePreview', () => {
 
 		expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeInTheDocument();
 	} );
+
+	it( 'offers responsive modes from the More options menu while running', async () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+
+		renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'More options' } ) );
+
+		expect( await screen.findByText( 'Responsive mode' ) ).toBeVisible();
+		expect( screen.getByRole( 'menuitemradio', { name: 'Fit pane' } ) ).toBeChecked();
+		// The orientation group only accompanies the phone frame.
+		expect( screen.queryByText( 'Mobile orientation' ) ).not.toBeInTheDocument();
+
+		// Radio items keep the menu open, so the orientation group appears in place.
+		fireEvent.click( screen.getByRole( 'menuitemradio', { name: 'Mobile · 390×844' } ) );
+
+		expect( await screen.findByText( 'Mobile orientation' ) ).toBeVisible();
+		expect( screen.getByRole( 'menuitemradio', { name: 'Portrait' } ) ).toBeChecked();
+
+		// The menu is modal: its backdrop covers the webview, so clicks over
+		// the preview dismiss the menu instead of vanishing into the guest.
+		const backdrop = document.querySelector( '[role="presentation"][data-base-ui-inert]' );
+		expect( backdrop ).toBeInTheDocument();
+		fireEvent.pointerDown( backdrop as Element );
+		await waitFor( () =>
+			expect( screen.queryByText( 'Responsive mode' ) ).not.toBeInTheDocument()
+		);
+	} );
+
+	it( 'hides the More options menu when the site is not running', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+
+		renderPreview( <SitePreview site={ createSite() } path="/" reloadNonce={ 0 } /> );
+
+		expect( screen.queryByRole( 'button', { name: 'More options' } ) ).not.toBeInTheDocument();
+	} );
 } );
 
 describe( 'getBrowserShortcutCommand', () => {
@@ -335,6 +384,48 @@ describe( 'getBrowserShortcutCommand', () => {
 				} )
 			)
 		).toBe( null );
+	} );
+} );
+
+describe( 'getSimulatedViewport', () => {
+	it( 'returns null without a preset or a measured pane', () => {
+		expect( getSimulatedViewport( null, { width: 520, height: 700 } ) ).toBe( null );
+		expect( getSimulatedViewport( { width: 390, height: 844 }, null ) ).toBe( null );
+		expect( getSimulatedViewport( { width: 390, height: 844 }, { width: 0, height: 700 } ) ).toBe(
+			null
+		);
+	} );
+
+	it( 'keeps presets at their exact dimensions, scaled down to fit both axes', () => {
+		// The height binds: 700 / 844 is smaller than 520 / 390.
+		expect(
+			getSimulatedViewport( { width: 390, height: 844, mobile: true }, { width: 520, height: 700 } )
+		).toEqual( {
+			width: 390,
+			height: 844,
+			scale: 700 / 844,
+			mobile: true,
+		} );
+		// The width binds for a desktop frame in a narrow pane.
+		expect(
+			getSimulatedViewport( { width: 1440, height: 900 }, { width: 720, height: 800 } )
+		).toEqual( {
+			width: 1440,
+			height: 900,
+			scale: 0.5,
+			mobile: false,
+		} );
+	} );
+
+	it( 'never scales up in a larger pane', () => {
+		expect(
+			getSimulatedViewport( { width: 390, height: 844 }, { width: 600, height: 1000 } )
+		).toEqual( {
+			width: 390,
+			height: 844,
+			scale: 1,
+			mobile: false,
+		} );
 	} );
 } );
 

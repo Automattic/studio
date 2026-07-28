@@ -140,7 +140,7 @@
 	--local-server-thumb-shadow: color-mix(in srgb, #0d5f2c 22%, transparent);
 }
 
-.localServerControl:not(:disabled):hover {
+.localServerControl:not([aria-disabled='true']):hover {
 	background-color: var(--local-server-track-bg-hover);
 	box-shadow:
 		inset 0 0 0 var(--wpds-border-width-xs) var(--local-server-track-border-hover),
@@ -157,7 +157,7 @@
 	outline-offset: 2px;
 }
 
-.localServerControl:disabled {
+.localServerControl[aria-disabled='true'] {
 	cursor: not-allowed;
 	opacity: 0.72;
 }

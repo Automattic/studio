@@ -109,7 +109,12 @@ interface PreviewAddressBarProps {
  * while clicking an inactive segment flips the preview to that realm's
  * last visited path.
  */
-export function PreviewAddressBar( { site, path, showDatabaseTab, onSwitchRealm }: PreviewAddressBarProps ) {
+export function PreviewAddressBar( {
+	site,
+	path,
+	showDatabaseTab,
+	onSwitchRealm,
+}: PreviewAddressBarProps ) {
 	const realm = getPreviewRealm( path );
 	// The database segment is optional; everything else always shows.
 	const segments = useMemo(

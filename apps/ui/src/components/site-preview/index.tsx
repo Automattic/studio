@@ -11,11 +11,6 @@ import { useWindowControlsOverlay } from '@/hooks/use-window-controls-overlay';
 import { getSiteUrl } from '@/lib/get-site-url';
 import { playIcon, refreshIcon } from '@/lib/icons';
 import {
-	INSPECTOR_BRIDGE_PREFIX,
-	INSPECTOR_COMMAND_EVENT,
-	INSPECTOR_PAGE_SCRIPT,
-} from './inspector-script';
-import {
 	DATABASE_HOME_PATH,
 	getPathFromPreviewUrl,
 	getPreviewRealm,
@@ -24,6 +19,11 @@ import {
 	REALM_SHORTCUT_KEYS,
 	type PreviewRealm,
 } from './address-bar';
+import {
+	INSPECTOR_BRIDGE_PREFIX,
+	INSPECTOR_COMMAND_EVENT,
+	INSPECTOR_PAGE_SCRIPT,
+} from './inspector-script';
 import styles from './style.module.css';
 import type { Annotation } from './types';
 import type { SiteDetails } from '@/data/core';

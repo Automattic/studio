@@ -964,6 +964,10 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 		throw new Error( 'MAINTENANCE_MODE' );
 	}
 
+	// Release the port held by any active PHP-error recovery before (re)starting the real server,
+	// otherwise the recovery error server still bound to the site's port causes EADDRINUSE.
+	await stopErrorRecovery( id );
+
 	try {
 		await server.start();
 	} catch ( error ) {
@@ -1083,7 +1087,7 @@ export async function stopServer( event: IpcMainInvokeEvent, id: string ): Promi
 		return;
 	}
 
-	stopErrorRecovery( id );
+	await stopErrorRecovery( id );
 	await server.stop();
 	// Stopping a single site by hand clears its auto-start. SiteServer.stop() pre-empts the running
 	// transition the events subscriber relies on, so persist it explicitly here.

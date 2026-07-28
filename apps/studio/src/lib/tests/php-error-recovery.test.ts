@@ -1,4 +1,34 @@
-import { isPhpUserError, parsePhpError } from 'src/lib/php-error-recovery';
+import fs from 'fs';
+import http from 'http';
+import os from 'os';
+import nodePath from 'path';
+import {
+	isInErrorRecovery,
+	isPhpUserError,
+	parsePhpError,
+	startErrorRecovery,
+	stopErrorRecovery,
+} from 'src/lib/php-error-recovery';
+
+function getFreePort(): Promise< number > {
+	return new Promise( ( resolve, reject ) => {
+		const srv = http.createServer();
+		srv.once( 'error', reject );
+		srv.listen( 0, () => {
+			const address = srv.address();
+			const port = typeof address === 'object' && address ? address.port : 0;
+			srv.close( () => resolve( port ) );
+		} );
+	} );
+}
+
+function canBind( port: number ): Promise< boolean > {
+	return new Promise( ( resolve ) => {
+		const srv = http.createServer();
+		srv.once( 'error', () => resolve( false ) );
+		srv.listen( port, () => srv.close( () => resolve( true ) ) );
+	} );
+}
 
 describe( 'isPhpUserError', () => {
 	test( 'returns false for non-Error values', () => {
@@ -59,5 +89,40 @@ describe( 'parsePhpError', () => {
 
 	test( 'falls back to a generic message when nothing matches', () => {
 		expect( parsePhpError( 'nothing useful here' ) ).toBe( 'PHP error during startup' );
+	} );
+} );
+
+describe( 'error recovery port lifecycle', () => {
+	test( 'holds the port and marks the site running, then releases both on stop', async () => {
+		const port = await getFreePort();
+		const dir = fs.mkdtempSync( nodePath.join( os.tmpdir(), 'php-recovery-test-' ) );
+		const siteServer = {
+			details: { id: 'test-site', port, path: dir } as {
+				id: string;
+				port: number;
+				path: string;
+				running?: boolean;
+				url?: string;
+			},
+			server: {} as { url?: string },
+			start: async () => {},
+		};
+
+		try {
+			await startErrorRecovery( siteServer as never, 'Fatal error: boom', () => ( {} ) );
+			expect( isInErrorRecovery( 'test-site' ) ).toBe( true );
+			// The recovery error server holds the port, and the site shows as running.
+			expect( await canBind( port ) ).toBe( false );
+			expect( siteServer.details.running ).toBe( true );
+
+			await stopErrorRecovery( 'test-site' );
+			expect( isInErrorRecovery( 'test-site' ) ).toBe( false );
+			// The port is released and the running state cleared, so a real restart can proceed.
+			expect( await canBind( port ) ).toBe( true );
+			expect( siteServer.details.running ).toBe( false );
+		} finally {
+			await stopErrorRecovery( 'test-site' );
+			fs.rmSync( dir, { recursive: true, force: true } );
+		}
 	} );
 } );

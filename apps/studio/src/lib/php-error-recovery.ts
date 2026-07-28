@@ -5,6 +5,7 @@ import type { SiteServer } from 'src/site-server';
 const activeRecoveries = new Map<
 	string,
 	{
+		siteServer: SiteServer;
 		errorServer: http.Server;
 		watcher: fs.FSWatcher;
 		debounceTimer?: ReturnType< typeof setTimeout >;
@@ -92,7 +93,7 @@ export async function startErrorRecovery(
 ): Promise< void > {
 	const { id, port, path } = siteServer.details;
 
-	stopErrorRecovery( id );
+	await stopErrorRecovery( id );
 
 	const errorServer = http.createServer( ( _req, res ) => {
 		res.writeHead( 500, { 'Content-Type': 'text/html; charset=utf-8' } );
@@ -120,35 +121,20 @@ export async function startErrorRecovery(
 				void ( async () => {
 					retrying = true;
 					console.log( `[PHP Recovery - ${ id }] PHP file change detected, retrying...` );
+					// Tear down this recovery (frees the port, clears the fake running state,
+					// closes this watcher) before attempting the real start.
+					await stopErrorRecovery( id );
 					try {
-						errorServer.close();
 						await siteServer.start();
-
-						// Success - clean up recovery
-						stopErrorRecovery( id );
 						console.log( `[PHP Recovery - ${ id }] Site recovered successfully` );
-					} catch ( retryError ) {
-						// Still failing - restart error server with updated error
+					} catch {
+						// Still failing - re-serve the error page with the latest error and keep watching.
 						console.log( `[PHP Recovery - ${ id }] Retry failed, still watching...` );
 						const pm2Logs = readPm2Logs( id );
 						const logContent = [ ...( pm2Logs.stdout ?? [] ), ...( pm2Logs.stderr ?? [] ) ].join(
 							'\n'
 						);
-						const newErrorMessage = parsePhpError( logContent );
-						const newHtml = generateErrorPageHtml( newErrorMessage );
-
-						const newErrorServer = http.createServer( ( _req, res ) => {
-							res.writeHead( 500, { 'Content-Type': 'text/html; charset=utf-8' } );
-							res.end( newHtml );
-						} );
-						await new Promise< void >( ( resolve ) => {
-							newErrorServer.listen( port, () => resolve() );
-						} );
-
-						const currentRecovery = activeRecoveries.get( id );
-						if ( currentRecovery ) {
-							currentRecovery.errorServer = newErrorServer;
-						}
+						await startErrorRecovery( siteServer, parsePhpError( logContent ), readPm2Logs );
 					} finally {
 						retrying = false;
 					}
@@ -157,9 +143,10 @@ export async function startErrorRecovery(
 		}
 	} );
 
-	activeRecoveries.set( id, { errorServer, watcher } );
+	activeRecoveries.set( id, { siteServer, errorServer, watcher } );
 
-	// Mark site as running so the UI shows it
+	// Mark the site running (serving the error page) so the UI shows it as reachable. Nothing
+	// else sets this because the real WordPress server never booted. stopErrorRecovery clears it.
 	const url = `http://localhost:${ port }`;
 	siteServer.details = {
 		...siteServer.details,
@@ -170,20 +157,32 @@ export async function startErrorRecovery(
 }
 
 /**
- * Stop error recovery for a site (clean up error server and file watcher).
+ * Stop error recovery for a site: close the error server and file watcher, and clear the
+ * "serving error page" running state. Awaits the error server close so the site's port is
+ * released — and clears `running` so SiteServer.start()'s guard doesn't skip a real restart —
+ * before returning.
  */
-export function stopErrorRecovery( siteId: string ): void {
+export async function stopErrorRecovery( siteId: string ): Promise< void > {
 	const recovery = activeRecoveries.get( siteId );
 	if ( ! recovery ) {
 		return;
 	}
 
+	activeRecoveries.delete( siteId );
 	if ( recovery.debounceTimer ) {
 		clearTimeout( recovery.debounceTimer );
 	}
 	recovery.watcher.close();
-	recovery.errorServer.close();
-	activeRecoveries.delete( siteId );
+
+	const { running, ...rest } = recovery.siteServer.details;
+	if ( 'url' in rest ) {
+		const { url, ...stopped } = rest;
+		recovery.siteServer.details = { running: false, ...stopped };
+	} else {
+		recovery.siteServer.details = { running: false, ...rest };
+	}
+
+	await new Promise< void >( ( resolve ) => recovery.errorServer.close( () => resolve() ) );
 }
 
 /**

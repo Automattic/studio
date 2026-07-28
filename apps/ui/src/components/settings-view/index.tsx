@@ -91,13 +91,14 @@ const LOCALE_ELEMENTS: { value: SupportedLocale; label: string }[] = Object.entr
 ).map( ( [ value, label ] ) => ( { value: value as SupportedLocale, label } ) );
 
 function SettingsHeader() {
-	// Settings renders fullscreen, so the sidebar (and its floating toggle) is
-	// covered — only the macOS traffic lights still need clearing.
-	const reserveTrafficLightSpace = useTrafficLightSpace();
+	// Settings renders fullscreen, so only the macOS traffic lights need
+	// clearing: at the header's start edge in LTR, at its end edge (next to
+	// the close button) in RTL.
+	const trafficLightSpace = useTrafficLightSpace();
 	const onClose = useSettingsClose();
 	return (
 		<div className={ styles.header }>
-			{ reserveTrafficLightSpace ? (
+			{ trafficLightSpace.start ? (
 				<div className={ styles.headerStart }>
 					<span className={ styles.toggleSpacer } aria-hidden="true" />
 				</div>
@@ -122,6 +123,9 @@ function SettingsHeader() {
 						label={ __( 'Close settings' ) }
 						onClick={ onClose }
 					/>
+					{ trafficLightSpace.end ? (
+						<span className={ styles.toggleSpacer } aria-hidden="true" />
+					) : null }
 				</div>
 			) : null }
 		</div>

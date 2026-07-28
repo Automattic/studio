@@ -50,7 +50,7 @@ interface OverviewButtonProps {
 
 function OverviewHeader( { site }: { site: SiteDetails } ) {
 	const sidebarCollapsed = useSidebarCollapsed();
-	const reserveTrafficLightSpace = useTrafficLightSpace();
+	const reserveTrafficLightSpace = useTrafficLightSpace().start;
 
 	return (
 		<div

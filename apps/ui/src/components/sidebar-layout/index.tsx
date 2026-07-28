@@ -32,7 +32,7 @@ const CHROME_BG_DARK = '#161616';
 export function SidebarLayout( { children }: { children: ReactNode } ) {
 	const [ collapsed, setCollapsed ] = useState( false );
 	const connector = useConnector();
-	const reserveTrafficLightSpace = useTrafficLightSpace();
+	const reserveTrafficLightSpace = useTrafficLightSpace().start;
 	const colorScheme = useColorScheme();
 	const chromeBg = colorScheme === 'dark' ? CHROME_BG_DARK : CHROME_BG_LIGHT;
 	const sidebarResize = useResizablePanel( {

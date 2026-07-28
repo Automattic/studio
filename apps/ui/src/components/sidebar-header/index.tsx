@@ -11,7 +11,7 @@ import styles from './style.module.css';
 import type { MouseEvent } from 'react';
 
 export function SidebarHeader() {
-	const reserveTrafficLightSpace = useTrafficLightSpace();
+	const reserveTrafficLightSpace = useTrafficLightSpace().start;
 	const navigate = useNavigate();
 	const connector = useConnector();
 	const createAnchorRef = useTourAnchor( 'sidebar-create-site' );

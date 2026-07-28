@@ -58,12 +58,22 @@
 	-webkit-app-region: drag;
 }
 
+.headerStart,
 .headerTabs {
 	display: flex;
 	min-width: 0;
+	align-items: center;
+}
+
+.headerStart {
+	grid-column: 1;
+	justify-self: start;
+	align-self: stretch;
+}
+
+.headerTabs {
 	grid-column: 2;
 	align-self: stretch;
-	align-items: stretch;
 	justify-self: center;
 }
 
@@ -100,6 +110,14 @@
 	box-shadow: none !important;
 	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus-brand) !important;
 	outline-offset: 2px !important;
+}
+
+.toggleSpacer {
+	display: block;
+	flex-shrink: 0;
+	width: 118px;
+	align-self: stretch;
+	-webkit-app-region: no-drag;
 }
 
 .headerEnd {

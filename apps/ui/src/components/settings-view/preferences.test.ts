@@ -67,7 +67,7 @@ describe( 'settings preference helpers', () => {
 				agenticFeaturesEnabled: false,
 				chatNotificationsEnabled: false,
 				agentResponseLength: 'compact',
-				defaultAiModel: 'claude-opus-4-8',
+				defaultAiModel: 'claude-opus-5',
 			} )
 		).toEqual( {
 			editor: null,
@@ -80,7 +80,7 @@ describe( 'settings preference helpers', () => {
 			agenticFeaturesEnabled: false,
 			chatNotificationsEnabled: false,
 			agentResponseLength: 'compact',
-			defaultAiModel: 'claude-opus-4-8',
+			defaultAiModel: 'claude-opus-5',
 		} );
 	} );
 

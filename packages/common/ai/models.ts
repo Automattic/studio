@@ -8,7 +8,7 @@ export type AiModelFamily = 'anthropic' | 'openai';
  *
  * - `adaptive`: only `thinking: {type: "adaptive"}` — budget-based requests
  *   (`type: "enabled"` + `budget_tokens`) are rejected with a 400. Applies to
- *   Sonnet 5 / Opus 4.8 and later Anthropic models.
+ *   Sonnet 5 / Opus 5 and later Anthropic models.
  * - `budget`: budget-based thinking (older Anthropic models).
  * - `none`: never request thinking.
  */
@@ -32,7 +32,7 @@ export interface AiModel {
 // and function tools.)
 export const AI_MODELS = [
 	{ id: 'claude-sonnet-5', label: 'Sonnet 5', family: 'anthropic', thinking: 'adaptive' },
-	{ id: 'claude-opus-4-8', label: 'Opus 4.8', family: 'anthropic', thinking: 'adaptive' },
+	{ id: 'claude-opus-5', label: 'Opus 5', family: 'anthropic', thinking: 'adaptive' },
 	{ id: 'claude-fable-5', label: 'Fable 5', family: 'anthropic', thinking: 'adaptive' },
 	{ id: 'gpt-5.6-sol', label: 'GPT 5.6 Sol', family: 'openai', thinking: 'none' },
 ] as const satisfies readonly AiModel[];

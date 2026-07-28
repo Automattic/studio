@@ -57,7 +57,7 @@ vi.mock( '@/data/core', () => ( {
 
 // Reaches react-query; the header test has no providers.
 vi.mock( '@/hooks/use-traffic-light-space', () => ( {
-	useTrafficLightSpace: () => true,
+	useTrafficLightSpace: () => ( { start: true, end: false } ),
 } ) );
 
 const useConnectorMock = vi.mocked( useConnector, { partial: true } );

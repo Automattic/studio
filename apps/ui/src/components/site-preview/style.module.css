@@ -9,14 +9,14 @@
 	min-width: 0;
 	min-height: 0;
 	background-color: var(--wpds-color-bg-surface-neutral);
-	border-left: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border-inline-start: 1px solid var(--wpds-color-stroke-surface-neutral);
 	overflow: hidden;
 }
 
 /* Fullscreen (full preview): the panel sits flush against the window's left
    edge, where the content/preview separator would read as a stray line. */
 .rootFullscreen {
-	border-left: none;
+	border-inline-start: none;
 }
 
 .header {
@@ -49,7 +49,7 @@
    overlay this toolbar's left edge; clear them the same way the sidebar
    header does (94px). */
 .headerTrafficLights {
-	padding-left: 94px;
+	padding-inline-start: 94px;
 }
 
 /* The toolbar doubles as a window drag region; the controls (including the
@@ -129,6 +129,10 @@
 	background-color: var(--wpds-color-fg-interactive-brand, #2563eb);
 	transform-origin: left center;
 	transition: transform 160ms ease-out;
+}
+
+.loadingProgress span:dir(rtl) {
+	transform-origin: right center;
 }
 
 .body {

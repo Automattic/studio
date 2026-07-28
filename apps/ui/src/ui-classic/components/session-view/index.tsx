@@ -40,6 +40,7 @@ import {
 	type SessionPreviewClipActions,
 } from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
+import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { pendingSessionPromptSlot, type PendingSessionPrompt } from '@/lib/pending-session-prompt';
 import { Composer, ComposerSkeleton, type ComposerHandle } from './composer';
 import { Conversation } from './conversation';
@@ -66,6 +67,7 @@ interface SessionHeaderProps {
 function SessionHeader( { summary }: SessionHeaderProps ) {
 	const siteName = summary.ownerSiteName;
 	const sidebarCollapsed = useSidebarCollapsed();
+	const reserveTrafficLightSpace = useTrafficLightSpace().start;
 	const { data: sites } = useSites();
 	const site = findAiSessionOwnerSite( sites, summary );
 	const effectiveEnvironment = useSessionEffectiveEnvironment( summary, site?.id );
@@ -74,7 +76,12 @@ function SessionHeader( { summary }: SessionHeaderProps ) {
 	}
 
 	return (
-		<div className={ clsx( styles.header, sidebarCollapsed && styles.headerSidebarCollapsed ) }>
+		<div
+			className={ clsx(
+				styles.header,
+				sidebarCollapsed && reserveTrafficLightSpace && styles.headerSidebarCollapsed
+			) }
+		>
 			{ site ? (
 				<SiteDropdown
 					site={ site }
@@ -533,7 +540,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						composerRef.current?.replaceDraft( prompt );
 						composerRef.current?.focus();
 					} }
-					hasExistingDraft={ () => composerRef.current?.hasDraft() ?? false }
+					getDraft={ () => composerRef.current?.getDraft() ?? { text: '', hasAttachments: false } }
 				/>
 			) : null }
 			<div

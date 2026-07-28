@@ -230,6 +230,20 @@ select option {
 	color: var( --wpds-color-fg-content-neutral );
 }
 
+/* @wordpress/components ships its RTL fixups in a separate style-rtl.css
+   that this app doesn't load, so its physical checkbox margins put the
+   label gap on the wrong side in RTL and shift the input over the label.
+   Mirror them here. */
+.components-checkbox-control__input-container:dir( rtl ) {
+	margin-right: 0;
+	margin-left: var( --checkbox-input-margin );
+}
+
+.components-checkbox-control__input[type='checkbox']:dir( rtl ) {
+	margin-right: 0;
+	margin-left: 4px;
+}
+
 /* Honor the user's reduced-motion preference across the entire app. Class-
    scoped transitions out-specify a `*`-targeted rule, so `!important` is
    needed to clamp them. Components that genuinely need to keep motion can

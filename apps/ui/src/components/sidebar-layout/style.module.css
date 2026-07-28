@@ -130,7 +130,7 @@
 	position: relative;
 	z-index: 20;
 	flex-shrink: 0;
-	margin-right: -8px;
+	margin-inline-end: -8px;
 	justify-content: flex-start;
 }
 
@@ -159,7 +159,7 @@
 .floatingToggle {
 	position: absolute;
 	bottom: calc(-1 * var(--wpds-dimension-padding-sm));
-	left: var(--wpds-dimension-padding-xl);
+	inset-inline-start: var(--wpds-dimension-padding-xl);
 	display: flex;
 	align-items: center;
 	padding: var(--wpds-dimension-padding-sm) 0;
@@ -177,7 +177,7 @@
    fullscreen (which hides them) — the toggle sits near the main area's left
    edge instead of leaving an empty gap. */
 .floatingToggleFlush {
-	left: var(--wpds-dimension-padding-xl);
+	inset-inline-start: var(--wpds-dimension-padding-xl);
 }
 
 /* Anchor for the pending-cards dot: hugs the icon button itself rather than
@@ -185,6 +185,10 @@
 .floatingToggleButton {
 	position: relative;
 	display: inline-flex;
+}
+
+.floatingToggleButton:dir(rtl) svg {
+	transform: scaleX(-1);
 }
 
 /* Collapsed-sidebar toast shelf, floating bottom-left of the main area just
@@ -196,7 +200,7 @@
 .floatingToasts {
 	position: absolute;
 	bottom: calc(52px + var(--app-main-composer-height, 0px));
-	left: var(--wpds-dimension-padding-xl);
+	inset-inline-start: var(--wpds-dimension-padding-xl);
 	z-index: 110;
 	/* Definite width on purpose: the shelf is an invisible container (the
 	   inner stack hugs the toasts via the `content` fit), and an abspos

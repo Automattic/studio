@@ -34,6 +34,10 @@
 	margin-inline-end: calc(-1 * var(--wpds-dimension-padding-sm));
 }
 
+.sidebarToggle:dir(rtl) svg {
+	transform: scaleX(-1);
+}
+
 .row:hover .userName,
 .row:hover .sidebarToggle,
 .row:focus-within .userName,

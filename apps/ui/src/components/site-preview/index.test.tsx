@@ -723,6 +723,7 @@ describe( 'SitePreview', () => {
 	} );
 
 	it( 'switches realms on primary-modifier number shortcuts', () => {
+		window.localStorage.setItem( 'studio:preview-show-database-tab', 'true' );
 		useConnectorMock.mockReturnValue( {
 			...baseConnector(),
 			startSite: vi.fn().mockResolvedValue( undefined ),
@@ -754,6 +755,7 @@ describe( 'SitePreview', () => {
 		onPathChange.mockClear();
 		fireEvent.keyDown( document.body, { key: '1', ctrlKey: true } );
 		expect( onPathChange ).not.toHaveBeenCalled();
+		window.localStorage.removeItem( 'studio:preview-show-database-tab' );
 	} );
 
 	it( 'hides the Clip split button when the host cannot annotate the preview', () => {

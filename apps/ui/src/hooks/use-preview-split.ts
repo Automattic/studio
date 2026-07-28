@@ -1,3 +1,4 @@
+import { isRTL } from '@wordpress/i18n';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { usePointerDrag } from '@/hooks/use-pointer-drag';
 import {
@@ -136,7 +137,9 @@ export function usePreviewSplit( { showPreview }: UsePreviewSplitOptions ): UseP
 			const container = Math.round(
 				rootRef.current?.getBoundingClientRect().width ?? containerWidth ?? 0
 			);
-			const layout = getPreviewSplitLayout( container, start + deltaX );
+			// The content column is anchored to the inline-start edge, so in RTL a
+			// rightward drag shrinks it instead of growing it.
+			const layout = getPreviewSplitLayout( container, start + ( isRTL() ? -deltaX : deltaX ) );
 			setPreferred( layout.contentWidth );
 			return layout.contentWidth;
 		},
@@ -173,7 +176,8 @@ export function usePreviewSplit( { showPreview }: UsePreviewSplitOptions ): UseP
 			} else if ( event.key === 'End' ) {
 				nextContentWidth = container - current.previewMaxWidth;
 			} else {
-				nextContentWidth += event.key === 'ArrowRight' ? step : -step;
+				const grow = event.key === 'ArrowRight' ? step : -step;
+				nextContentWidth += isRTL() ? -grow : grow;
 			}
 			persistContentWidth( getPreviewSplitLayout( container, nextContentWidth ).contentWidth );
 		},

@@ -221,13 +221,13 @@ describe( 'usage sections', () => {
 			render( <PreviewUsageSection userId={ 1 } /> );
 
 			expect(
-				screen.getByText( 'An error occurred while deleting preview sites. Please try again.' )
+				screen.getByText( 'An error occurred while deleting all preview sites. Please try again.' )
 			).toBeInTheDocument();
 		} );
 
 		it( 'shows a loading row with an empty progress bar', () => {
 			// Preview usage is still cached from before the delete, so the bar would
-			// otherwise keep its old fill next to a "Loading..." row.
+			// otherwise keep its old fill next to a "Loading…" row.
 			useDeleteAllSnapshotsMock.mockReturnValue( {
 				mutate: deleteSnapshotsMutate,
 				isPending: true,
@@ -236,7 +236,7 @@ describe( 'usage sections', () => {
 
 			render( <PreviewUsageSection userId={ 1 } /> );
 
-			expect( screen.getByText( 'Loading...' ) ).toBeInTheDocument();
+			expect( screen.getByText( 'Loading…' ) ).toBeInTheDocument();
 			const bar = screen.getByTestId( 'usage-progress-bar' );
 			expect( bar.firstElementChild ).toHaveStyle( { inlineSize: '0%' } );
 		} );

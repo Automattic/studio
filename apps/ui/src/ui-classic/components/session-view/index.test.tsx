@@ -54,6 +54,19 @@ vi.mock( '@/hooks/use-session-ui', () => ( {
 	useSessionPreviewConsoleEntries: () => [],
 } ) );
 
+vi.mock( '@/hooks/use-traffic-light-space', () => ( {
+	useTrafficLightSpace: () => ( { start: false, end: false } ),
+} ) );
+
+vi.mock( './composer', () => ( {
+	Composer: () => <div />,
+	ComposerSkeleton: () => <div />,
+} ) );
+
+vi.mock( './conversation', () => ( {
+	Conversation: () => <div />,
+} ) );
+
 const useSessionMock = vi.mocked( useSession, { partial: true } );
 
 describe( 'SessionView', () => {

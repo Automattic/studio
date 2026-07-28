@@ -967,7 +967,7 @@ export function SitePreview( {
 	// In full preview the sidebar is gone, so the macOS traffic lights sit
 	// on top of this toolbar; reserve their corner (the hook is false on
 	// other platforms, in the browser, and in OS fullscreen).
-	const reserveTrafficLightSpace = useTrafficLightSpace();
+	const trafficLightSpace = useTrafficLightSpace();
 	const windowControls = useWindowControlsOverlay();
 	// Prototype: plugin sites get plugin-flavored copy in the stopped state.
 	const pluginTag = usePluginSiteTag( site.id );
@@ -1555,7 +1555,7 @@ export function SitePreview( {
 				className={ clsx(
 					styles.header,
 					sidebarCollapsed && styles.headerSidebarCollapsed,
-					fullscreen && reserveTrafficLightSpace && styles.headerTrafficLights
+					fullscreen && trafficLightSpace.start && styles.headerTrafficLights
 				) }
 				style={
 					windowControls
@@ -1563,6 +1563,8 @@ export function SitePreview( {
 								minHeight: windowControls.height,
 								paddingInlineEnd: windowControls.controlsWidth + 12,
 						  }
+						: trafficLightSpace.end
+						? { paddingInlineEnd: 96 }
 						: undefined
 				}
 			>

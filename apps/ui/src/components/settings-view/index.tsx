@@ -19,6 +19,7 @@ import { persister } from '@/data/core/query-client';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSettingsClose } from '@/hooks/use-settings-close';
+import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { playActivitySound } from '@/lib/activity-sounds';
 import { AccountSection } from './account-section';
 import { AiPanel } from './ai-panel';
@@ -126,9 +127,15 @@ const LOCALE_ELEMENTS: { value: SupportedLocale; label: string }[] = Object.entr
 ).map( ( [ value, label ] ) => ( { value: value as SupportedLocale, label } ) );
 
 function SettingsHeader() {
+	const trafficLightSpace = useTrafficLightSpace();
 	const onClose = useSettingsClose();
 	return (
 		<div className={ styles.header }>
+			{ trafficLightSpace.start ? (
+				<div className={ styles.headerStart }>
+					<span className={ styles.toggleSpacer } aria-hidden="true" />
+				</div>
+			) : null }
 			<div className={ styles.headerTabs }>
 				<Tabs.List className={ styles.headerTabList }>
 					<Tabs.Tab tabId="preferences">{ __( 'Settings' ) }</Tabs.Tab>
@@ -145,6 +152,9 @@ function SettingsHeader() {
 						label={ __( 'Close settings' ) }
 						onClick={ onClose }
 					/>
+					{ trafficLightSpace.end ? (
+						<span className={ styles.toggleSpacer } aria-hidden="true" />
+					) : null }
 				</div>
 			) : null }
 		</div>

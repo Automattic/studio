@@ -23,12 +23,15 @@ import {
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useWordPressVersions, useWpVersion } from '@/data/queries/use-wordpress-versions';
 import { useOffline } from '@/hooks/use-offline';
+import styles from './style.module.css';
 import { SiteOverviewView } from './index';
 import type { SiteDetails } from '@/data/core';
 
 const navigateMock = vi.fn();
 const siteDropdownMock = vi.hoisted( () => vi.fn() );
 const headerActionsMock = vi.hoisted( () => vi.fn() );
+const useSidebarCollapsedMock = vi.hoisted( () => vi.fn() );
+const useTrafficLightSpaceMock = vi.hoisted( () => vi.fn() );
 
 class ResizeObserverMock {
 	observe = vi.fn();
@@ -122,7 +125,11 @@ vi.mock( '@/hooks/use-fullscreen', () => ( {
 } ) );
 
 vi.mock( '@/hooks/use-sidebar-collapsed', () => ( {
-	useSidebarCollapsed: () => false,
+	useSidebarCollapsed: useSidebarCollapsedMock,
+} ) );
+
+vi.mock( '@/hooks/use-traffic-light-space', () => ( {
+	useTrafficLightSpace: useTrafficLightSpaceMock,
 } ) );
 
 const useConnectorMock = vi.mocked( useConnector, { partial: true } );
@@ -162,6 +169,8 @@ describe( 'SiteOverviewView', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		siteDropdownMock.mockClear();
+		useSidebarCollapsedMock.mockReturnValue( false );
+		useTrafficLightSpaceMock.mockReturnValue( { start: false, end: false } );
 		vi.stubGlobal( 'ResizeObserver', ResizeObserverMock );
 		Object.defineProperty( window, 'matchMedia', {
 			writable: true,
@@ -311,6 +320,17 @@ describe( 'SiteOverviewView', () => {
 
 		expect( screen.getByDisplayValue( 'Demo Site' ) ).toBeVisible();
 		expect( screen.queryByText( 'Site settings' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'offsets the site menu below macOS traffic lights when the sidebar is collapsed', () => {
+		useSidebarCollapsedMock.mockReturnValue( true );
+		useTrafficLightSpaceMock.mockReturnValue( { start: true, end: false } );
+
+		render( <SiteOverviewView siteId="site-1" /> );
+
+		expect( screen.getByText( 'Demo Site' ).parentElement ).toHaveClass(
+			styles.headerSidebarCollapsed
+		);
 	} );
 
 	it( 'hides the sign-in banner while agentic features are available', () => {

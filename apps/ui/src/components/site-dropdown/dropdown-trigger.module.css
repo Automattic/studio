@@ -19,7 +19,6 @@
 	min-width: 0;
 	align-items: center;
 	backdrop-filter: blur(20px) saturate(115%);
-	-webkit-backdrop-filter: blur(20px) saturate(115%);
 	border-width: 0;
 	border-radius: var(--site-dropdown-radius);
 	box-shadow: 0 8px 18px rgb(0 0 0 / 18%);

@@ -53,7 +53,7 @@ export function SidebarLayout( {
 	const [ collapsed, setCollapsed ] = useState( false );
 	const effectiveCollapsed = collapsed || forceCollapsed;
 	const connector = useConnector();
-	const reserveTrafficLightSpace = useTrafficLightSpace();
+	const reserveTrafficLightSpace = useTrafficLightSpace().start;
 	const colorScheme = useColorScheme();
 	const frameColor = useFrameColor();
 	const chromeBg = frameColor ?? ( colorScheme === 'dark' ? CHROME_BG_DARK : CHROME_BG_LIGHT );

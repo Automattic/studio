@@ -61,6 +61,12 @@ vi.mock( '@wordpress/ui', () => ( {
 			</select>
 		</label>
 	),
+	Tooltip: {
+		Root: ( { children }: { children?: ReactNode } ) => <>{ children }</>,
+		Trigger: ( { render }: { render?: ReactNode } ) => <>{ render }</>,
+		Popup: () => null,
+		Positioner: () => null,
+	},
 } ) );
 
 vi.mock( '@/components/tabs', () => ( {
@@ -114,7 +120,7 @@ vi.mock( '@/data/queries/use-user-preferences', () => ( {
 } ) );
 
 vi.mock( '@/hooks/use-traffic-light-space', () => ( {
-	useTrafficLightSpace: () => false,
+	useTrafficLightSpace: () => ( { start: false, end: false } ),
 } ) );
 
 const useConnectorMock = vi.mocked( useConnector );

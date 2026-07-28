@@ -1,12 +1,14 @@
 import { Autocomplete } from '@base-ui/react/autocomplete';
 import { __ } from '@wordpress/i18n';
-import { globe, help, home, wordpress } from '@wordpress/icons';
+import { globe, help, home, page as pageIcon, post as postIcon, wordpress } from '@wordpress/icons';
 import { ariaKeyShortcut, displayShortcut } from '@wordpress/keycodes';
 import { privateApis } from '@wordpress/theme';
 import { Icon, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import motionStyles from '@/components/floating-surface-motion/style.module.css';
+import { useSiteFrontLinks } from '@/data/queries/use-site-front-links';
+import { useSiteSearch } from '@/data/queries/use-site-search';
 import { useCustomizeLinks } from '@/hooks/use-customize-links';
 import { databaseIcon } from '@/lib/icons';
 import { unlock } from '@/lock-unlock';
@@ -106,6 +108,15 @@ export function parseOmniboxInput( raw: string, siteUrl: string ): OmniboxIntent
 	return { type: 'search', term: value };
 }
 
+function useDebouncedValue< T >( value: T, delayMs: number ): T {
+	const [ debounced, setDebounced ] = useState( value );
+	useEffect( () => {
+		const timer = setTimeout( () => setDebounced( value ), delayMs );
+		return () => clearTimeout( timer );
+	}, [ value, delayMs ] );
+	return debounced;
+}
+
 // The element type `Icon` accepts (React 19 defaults ReactElement props to
 // `unknown`, which it rejects).
 type IconElement = ReactElement< SVGProps< SVGSVGElement > >;
@@ -149,24 +160,15 @@ const REALM_SEGMENTS: {
 	{ realm: 'database', icon: databaseIcon, title: __( 'Database' ), label: __( 'View database' ) },
 ];
 
-// Front-end destinations for the zero state: the home page and a 404 preview.
-const FRONTEND_ITEMS: AddressItem[] = [
-	{ kind: 'destination', id: 'home', icon: home, title: __( 'Home' ), path: '/' },
-	{
-		kind: 'destination',
-		id: 'not-found',
-		icon: help,
-		title: __( '404 page' ),
-		path: FRONT_END_NOT_FOUND_PATH,
-	},
-];
-
 interface PreviewAddressBarProps {
 	site: SiteDetails;
 	siteUrl: string;
 	// Current preview path; determines the active segment and prefills the
 	// input on open.
 	path: string;
+	// Content search needs the site REST API, which is unavailable in the
+	// non-Electron iframe fallback; plain path navigation still works there.
+	searchEnabled: boolean;
 	// The popup anchors to this element (the toolbar's location slot) so it
 	// opens wide and centered like a browser address bar.
 	anchorRef: RefObject< HTMLElement | null >;
@@ -190,6 +192,7 @@ export function PreviewAddressBar( {
 	site,
 	siteUrl,
 	path,
+	searchEnabled,
 	anchorRef,
 	showDatabaseTab,
 	onNavigate,
@@ -268,16 +271,56 @@ export function PreviewAddressBar( {
 
 	const intent = parseOmniboxInput( inputValue, siteUrl );
 	const searchTerm = intent?.type === 'search' ? intent.term : '';
+	const debouncedTerm = useDebouncedValue( searchTerm, 250 );
+	const search = useSiteSearch( site.id, debouncedTerm, searchEnabled && open );
+	// Real front-end permalinks (latest post + a page) for the zero state; only
+	// worth fetching while the popup is open and the REST transport is available.
+	const frontLinks = useSiteFrontLinks( site.id, searchEnabled && open );
+
+	// Front-end destinations: the home page and a 404 preview always, plus the
+	// latest post and a page once their permalinks resolve.
+	const frontendItems = useMemo< AddressItem[] >( () => {
+		const items: AddressItem[] = [
+			{ kind: 'destination', id: 'home', icon: home, title: __( 'Home' ), path: '/' },
+			{
+				kind: 'destination',
+				id: 'not-found',
+				icon: help,
+				title: __( '404 page' ),
+				path: FRONT_END_NOT_FOUND_PATH,
+			},
+		];
+		if ( frontLinks.data?.post ) {
+			items.push( {
+				kind: 'destination',
+				id: 'latest-post',
+				icon: postIcon,
+				title: frontLinks.data.post.title,
+				path: frontLinks.data.post.path,
+			} );
+		}
+		if ( frontLinks.data?.page ) {
+			items.push( {
+				kind: 'destination',
+				id: 'published-page',
+				icon: pageIcon,
+				title: frontLinks.data.page.title,
+				path: frontLinks.data.page.path,
+			} );
+		}
+		return items;
+	}, [ frontLinks.data ] );
 
 	// Untouched (prefilled) or cleared input rests on the grouped destinations
-	// (Front end / WordPress); search terms filter the destinations into a
-	// single unlabeled group; typed paths suppress the list entirely so Enter
-	// always navigates the path instead of a stale highlighted result.
+	// (Front end / WordPress); search terms blend destination matches with
+	// content results into a single unlabeled group; typed paths suppress the
+	// list entirely so Enter always navigates the path instead of a stale
+	// highlighted result.
 	const isZeroState = ! inputValue.trim() || inputValue === path;
 	const groups = useMemo< AddressGroup[] >( () => {
 		if ( isZeroState ) {
 			return [
-				{ value: __( 'Front end' ), items: FRONTEND_ITEMS },
+				{ value: __( 'Front end' ), items: frontendItems },
 				{ value: __( 'WordPress' ), items: wordpressItems },
 			].filter( ( group ) => group.items.length > 0 );
 		}
@@ -285,11 +328,21 @@ export function PreviewAddressBar( {
 			return [];
 		}
 		const term = searchTerm.toLowerCase();
-		const matches = [ ...FRONTEND_ITEMS, ...wordpressItems ].filter( ( destination ) =>
+		const destinationMatches = [ ...frontendItems, ...wordpressItems ].filter( ( destination ) =>
 			destination.title.toLowerCase().includes( term )
 		);
+		const contentMatches = debouncedTerm
+			? ( search.data ?? [] ).map( ( result ) => ( {
+					kind: 'content' as const,
+					id: `content-${ result.id }`,
+					icon: result.subtype === 'page' ? pageIcon : postIcon,
+					title: result.title,
+					path: result.path,
+			  } ) )
+			: [];
+		const matches = [ ...destinationMatches, ...contentMatches ];
 		return matches.length > 0 ? [ { value: '', items: matches } ] : [];
-	}, [ isZeroState, wordpressItems, searchTerm ] );
+	}, [ isZeroState, frontendItems, wordpressItems, searchTerm, debouncedTerm, search.data ] );
 	const flatItems = useMemo( () => groups.flatMap( ( group ) => group.items ), [ groups ] );
 
 	const navigateTo = useCallback(
@@ -335,6 +388,21 @@ export function PreviewAddressBar( {
 		// No result to pick — fall through to the site's own search page.
 		navigateTo( `/?s=${ encodeURIComponent( intent.term ) }` );
 	};
+
+	const showsSearchUi = searchEnabled && ! isZeroState && intent?.type === 'search';
+	const isSearching =
+		showsSearchUi &&
+		flatItems.length === 0 &&
+		( search.isFetching || debouncedTerm !== searchTerm );
+	const status = ! showsSearchUi
+		? null
+		: search.isError
+		? __( 'Search unavailable' )
+		: isSearching
+		? __( 'Searching…' )
+		: flatItems.length === 0 && debouncedTerm
+		? __( 'No matches' )
+		: null;
 
 	return (
 		<Autocomplete.Root
@@ -438,7 +506,11 @@ export function PreviewAddressBar( {
 							<Autocomplete.Input
 								ref={ selectOnMount }
 								className={ styles.input }
-								placeholder={ __( 'Type a path, or search pages and posts' ) }
+								placeholder={
+									searchEnabled
+										? __( 'Type a path, or search pages and posts' )
+										: __( 'Type a path' )
+								}
 								aria-label={ __( 'Address and search' ) }
 								onKeyDown={ handleInputKeyDown }
 							/>
@@ -480,6 +552,11 @@ export function PreviewAddressBar( {
 										</Autocomplete.Group>
 									) }
 								</Autocomplete.List>
+							) : null }
+							{ status ? (
+								<div className={ styles.status } role="status">
+									{ status }
+								</div>
 							) : null }
 						</Autocomplete.Popup>
 					</ThemeProvider>

@@ -1,6 +1,8 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { Tooltip } from '@wordpress/ui';
 import { describe, expect, it, vi } from 'vitest';
+import { useConnector } from '@/data/core';
 import {
 	getPreviewRealm,
 	getRealmNavigationPath,
@@ -9,6 +11,12 @@ import {
 } from './address-bar';
 import type { SiteDetails } from '@/data/core';
 import type { Mock } from 'vitest';
+
+vi.mock( '@/data/core', () => ( {
+	useConnector: vi.fn(),
+} ) );
+
+const useConnectorMock = vi.mocked( useConnector );
 
 const SITE_URL = 'http://localhost:8881';
 
@@ -25,31 +33,52 @@ function autoLoginPath( target: string ) {
 	return `/studio-auto-login?redirect_to=${ encodeURIComponent( `${ SITE_URL }${ target }` ) }`;
 }
 
+function createSearchResponse( results: unknown[] ) {
+	return {
+		status: 200,
+		statusText: 'OK',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify( results ),
+		url: '',
+	};
+}
+
 function renderAddressBar( {
+	fetchSiteRest = vi.fn().mockResolvedValue( createSearchResponse( [] ) ),
 	onNavigate = vi.fn(),
 	onSwitchRealm = vi.fn(),
 	path = '/',
+	searchEnabled = true,
 	showDatabaseTab = true,
 }: {
+	fetchSiteRest?: Mock;
 	onNavigate?: Mock;
 	onSwitchRealm?: Mock;
 	path?: string;
+	searchEnabled?: boolean;
 	showDatabaseTab?: boolean;
 } = {} ) {
+	useConnectorMock.mockReturnValue( { fetchSiteRest } as never );
+	const queryClient = new QueryClient( {
+		defaultOptions: { queries: { retry: false } },
+	} );
 	render(
-		<Tooltip.Provider>
-			<PreviewAddressBar
-				site={ SITE }
-				siteUrl={ SITE_URL }
-				path={ path }
-				anchorRef={ { current: document.body } }
-				showDatabaseTab={ showDatabaseTab }
-				onNavigate={ onNavigate }
-				onSwitchRealm={ onSwitchRealm }
-			/>
-		</Tooltip.Provider>
+		<QueryClientProvider client={ queryClient }>
+			<Tooltip.Provider>
+				<PreviewAddressBar
+					site={ SITE }
+					siteUrl={ SITE_URL }
+					path={ path }
+					searchEnabled={ searchEnabled }
+					anchorRef={ { current: document.body } }
+					showDatabaseTab={ showDatabaseTab }
+					onNavigate={ onNavigate }
+					onSwitchRealm={ onSwitchRealm }
+				/>
+			</Tooltip.Provider>
+		</QueryClientProvider>
 	);
-	return { onNavigate, onSwitchRealm };
+	return { fetchSiteRest, onNavigate, onSwitchRealm };
 }
 
 async function openOmnibox( activeRealmTitle = 'Example Site' ) {
@@ -159,7 +188,7 @@ describe( 'PreviewAddressBar', () => {
 	it( 'shows one segment per realm and switches realms from inactive segments', () => {
 		const { onSwitchRealm } = renderAddressBar( { path: '/' } );
 
-		// The front end is active (it carries the site name); the other two
+		// The front end is active (it carries the page title); the other two
 		// realms render as labelled icon segments.
 		fireEvent.click( screen.getByRole( 'button', { name: 'View WP Admin' } ) );
 		expect( onSwitchRealm ).toHaveBeenCalledWith( 'admin' );
@@ -213,6 +242,38 @@ describe( 'PreviewAddressBar', () => {
 		expect( within( list ).getByText( '404 page' ) ).toBeInTheDocument();
 	} );
 
+	it( 'offers the latest post and a page as real front-end permalinks', async () => {
+		const fetchSiteRest = vi
+			.fn()
+			.mockImplementation( ( _siteId: string, request: { path: string } ) => {
+				if ( request.path.includes( '/wp/v2/posts' ) ) {
+					return Promise.resolve(
+						createSearchResponse( [
+							{
+								id: 5,
+								link: 'http://127.0.0.1:8881/hello-world/',
+								title: { rendered: 'Hello World' },
+							},
+						] )
+					);
+				}
+				if ( request.path.includes( '/wp/v2/pages' ) ) {
+					return Promise.resolve(
+						createSearchResponse( [
+							{ id: 2, link: 'http://127.0.0.1:8881/about/', title: { rendered: 'About' } },
+						] )
+					);
+				}
+				return Promise.resolve( createSearchResponse( [] ) );
+			} );
+		const { onNavigate } = renderAddressBar( { fetchSiteRest, path: '/' } );
+
+		await openOmnibox();
+		fireEvent.click( await screen.findByText( 'Hello World' ) );
+
+		expect( onNavigate ).toHaveBeenCalledWith( '/hello-world/' );
+	} );
+
 	it( 'navigates destination-free paths directly from the zero state', async () => {
 		const { onNavigate } = renderAddressBar( { path: '/' } );
 
@@ -226,14 +287,20 @@ describe( 'PreviewAddressBar', () => {
 		);
 	} );
 
-	it( 'navigates to a typed path on Enter', async () => {
-		const { onNavigate } = renderAddressBar();
+	it( 'navigates to a typed path on Enter without querying search', async () => {
+		const { fetchSiteRest, onNavigate } = renderAddressBar();
 
 		const input = await openOmnibox();
 		fireEvent.change( input, { target: { value: '/sample-page' } } );
 		fireEvent.keyDown( input, { key: 'Enter' } );
 
 		expect( onNavigate ).toHaveBeenCalledWith( '/sample-page' );
+		// Opening the omnibox fetches front-end links, but typing a path must
+		// not trigger the content search endpoint.
+		expect( fetchSiteRest ).not.toHaveBeenCalledWith(
+			'site-1',
+			expect.objectContaining( { path: expect.stringContaining( '/wp/v2/search' ) } )
+		);
 	} );
 
 	it( 'routes typed wp-admin paths through auto-login', async () => {
@@ -246,7 +313,7 @@ describe( 'PreviewAddressBar', () => {
 		expect( onNavigate ).toHaveBeenCalledWith( autoLoginPath( '/wp-admin/plugins.php' ) );
 	} );
 
-	it( 'matches destinations while typing', async () => {
+	it( 'matches destinations while typing alongside content results', async () => {
 		const { onNavigate } = renderAddressBar();
 
 		const input = await openOmnibox();
@@ -257,13 +324,66 @@ describe( 'PreviewAddressBar', () => {
 		expect( onNavigate ).toHaveBeenCalledWith( autoLoginPath( '/wp-admin/upload.php' ) );
 	} );
 
-	it( 'falls back to the site search page on Enter when nothing is picked', async () => {
+	it( 'searches the site for typed terms and navigates to a clicked result', async () => {
+		const fetchSiteRest = vi
+			.fn()
+			.mockImplementation( ( _siteId: string, request: { path: string } ) => {
+				// Only the content-search endpoint returns a match; front-end link
+				// lookups stay empty so they don't blend into the search results.
+				if ( request.path.includes( '/wp/v2/search' ) ) {
+					return Promise.resolve(
+						createSearchResponse( [
+							{
+								id: 12,
+								title: 'About &amp; Team',
+								url: 'http://127.0.0.1:8881/about/',
+								type: 'post',
+								subtype: 'page',
+							},
+						] )
+					);
+				}
+				return Promise.resolve( createSearchResponse( [] ) );
+			} );
+		const { onNavigate } = renderAddressBar( { fetchSiteRest } );
+
+		const input = await openOmnibox();
+		fireEvent.change( input, { target: { value: 'about' } } );
+
+		const result = await screen.findByText( 'About & Team', {}, { timeout: 2000 } );
+		expect( fetchSiteRest ).toHaveBeenCalledWith(
+			'site-1',
+			expect.objectContaining( {
+				path: expect.stringContaining( '/wp/v2/search?search=about' ),
+			} )
+		);
+
+		fireEvent.click( result );
+
+		expect( onNavigate ).toHaveBeenCalledWith( '/about/' );
+	} );
+
+	it( 'falls back to the site search page on Enter when there are no results', async () => {
 		const { onNavigate } = renderAddressBar();
 
 		const input = await openOmnibox();
 		fireEvent.change( input, { target: { value: 'nothing' } } );
+
+		await screen.findByText( 'No matches', {}, { timeout: 2000 } );
 		fireEvent.keyDown( input, { key: 'Enter' } );
 
 		expect( onNavigate ).toHaveBeenCalledWith( '/?s=nothing' );
+	} );
+
+	it( 'hides search entirely when disabled but still navigates typed paths', async () => {
+		const { fetchSiteRest, onNavigate } = renderAddressBar( { searchEnabled: false } );
+
+		const input = await openOmnibox();
+		fireEvent.change( input, { target: { value: 'pricing' } } );
+
+		fireEvent.keyDown( input, { key: 'Enter' } );
+		expect( onNavigate ).toHaveBeenCalledWith( '/?s=pricing' );
+		expect( fetchSiteRest ).not.toHaveBeenCalled();
+		expect( screen.queryByText( 'No matches' ) ).not.toBeInTheDocument();
 	} );
 } );

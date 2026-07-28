@@ -330,6 +330,7 @@ end
 # - Creates a `release/<version>` branch from trunk
 # - Extracts translatable strings and commits them to the release branch (for GlotPress import)
 # - Generates draft release notes from merged PRs and commits them to the release branch
+# - Copies trunk's branch protection settings onto the release branch
 # - Creates a backmerge PR from the release branch to trunk (so wpcom cron can import strings to GlotPress)
 #
 # The first beta is triggered separately via {new_beta_release}.
@@ -346,6 +347,7 @@ lane :code_freeze do |version:, skip_confirm: false, github_username: nil|
     - Create a new `#{branch_name}` branch from `#{MAIN_BRANCH}`
     - Extract translatable strings and commit to `#{branch_name}`
     - Generate draft release notes from merged PRs
+    - Protect `#{branch_name}` with the same settings as `#{MAIN_BRANCH}`
     - Create a backmerge PR from `#{branch_name}` to `#{MAIN_BRANCH}`
   PROMPT
   next unless skip_confirm || UI.confirm('Continue?')
@@ -370,6 +372,13 @@ lane :code_freeze do |version:, skip_confirm: false, github_username: nil|
   )
 
   push_to_git_remote(set_upstream: true)
+
+  # Copy GitHub branch protection settings (CI required checks etc) from `trunk` on the new `release/*` branch.
+  copy_branch_protection(
+    repository: GITHUB_REPO,
+    from_branch: MAIN_BRANCH,
+    to_branch: branch_name
+  )
 
   # Create backmerge PR so that the .pot strings file reaches trunk for GlotPress import
   create_backmerge_pr(source_branch: branch_name, github_username: github_username)
@@ -475,6 +484,7 @@ end
 #
 # - Publishes the draft GitHub release created by {distribute_release_build}
 # - Creates a backmerge PR from the release branch to trunk (with intermediate branch for conflicts)
+# - Unprotects and deletes the release branch
 #
 # @param version [String] The version to publish (e.g., '1.7.4')
 # @param skip_confirm [Boolean] Skip interactive confirmation prompts (default: false)
@@ -490,7 +500,7 @@ lane :publish_release do |version:, skip_confirm: false, github_username: nil|
     - Make CDN builds public (change visibility from Internal to External)
     - Publish the draft GitHub release for v#{version}
     - Create a backmerge PR from `#{release_branch}` into `#{MAIN_BRANCH}`
-    - Delete the `#{release_branch}` branch after creating the backmerge PR
+    - Remove the branch protection from `#{release_branch}` and delete it
   PROMPT
   next unless skip_confirm || UI.confirm('Continue?')
 
@@ -508,6 +518,9 @@ lane :publish_release do |version:, skip_confirm: false, github_username: nil|
 
   create_backmerge_pr(source_branch: release_branch, github_username: github_username)
 
+  # The release is out, so the branch is no longer worth protecting — and it has to be unprotected
+  # before it can be deleted, as the protection copied during code freeze disallows deletions.
+  remove_branch_protection(repository: GITHUB_REPO, branch: release_branch)
   Fastlane::Helper::GitHelper.delete_remote_branch_if_exists!(release_branch)
   Fastlane::Helper::GitHelper.checkout_and_pull(MAIN_BRANCH)
   Fastlane::Helper::GitHelper.delete_local_branch_if_exists!(release_branch)

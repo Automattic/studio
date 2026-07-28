@@ -9,7 +9,7 @@
 	min-width: 0;
 	min-height: 0;
 	background-color: var(--wpds-color-bg-surface-neutral);
-	border-left: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border-inline-start: 1px solid var(--wpds-color-stroke-surface-neutral);
 	overflow: hidden;
 }
 
@@ -92,6 +92,11 @@
 	background-color: var(--wpds-color-fg-interactive-brand, #2563eb);
 	transform-origin: left center;
 	transition: transform 160ms ease-out;
+}
+
+/* Page-load progress grows from the reading start. */
+.loadingProgress span:dir(rtl) {
+	transform-origin: right center;
 }
 
 .separator {

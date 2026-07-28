@@ -257,13 +257,13 @@ describe( 'PreviewAddressBar', () => {
 		expect( onNavigate ).toHaveBeenCalledWith( autoLoginPath( '/wp-admin/upload.php' ) );
 	} );
 
-	it( 'falls back to the site search page on Enter when nothing is picked', async () => {
+	it( 'does not navigate on Enter for plain words with nothing picked', async () => {
 		const { onNavigate } = renderAddressBar();
 
 		const input = await openOmnibox();
 		fireEvent.change( input, { target: { value: 'nothing' } } );
 		fireEvent.keyDown( input, { key: 'Enter' } );
 
-		expect( onNavigate ).toHaveBeenCalledWith( '/?s=nothing' );
+		expect( onNavigate ).not.toHaveBeenCalled();
 	} );
 } );

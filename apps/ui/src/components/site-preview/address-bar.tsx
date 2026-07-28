@@ -182,9 +182,9 @@ interface PreviewAddressBarProps {
 /**
  * Segmented browser-style address control. One segment per realm (front
  * end, WP Admin, database): the active segment wears the realm's name and
- * opens an omnibox popover showing the current path — type a path, search
- * pages and posts, or pick a WordPress destination — while clicking an
- * inactive segment flips the preview to that realm's last visited path.
+ * opens an omnibox popover showing the current path — type a path or pick
+ * a WordPress destination — while clicking an inactive segment flips the
+ * preview to that realm's last visited path.
  */
 export function PreviewAddressBar( {
 	site,
@@ -324,16 +324,12 @@ export function PreviewAddressBar( {
 			navigateTo( highlightedItem.path );
 			return;
 		}
-		if ( ! intent ) {
+		// Search terms have nowhere to go yet — site search ships separately.
+		if ( intent?.type !== 'path' ) {
 			return;
 		}
 		event.preventDefault();
-		if ( intent.type === 'path' ) {
-			navigateTo( intent.path );
-			return;
-		}
-		// No result to pick — fall through to the site's own search page.
-		navigateTo( `/?s=${ encodeURIComponent( intent.term ) }` );
+		navigateTo( intent.path );
 	};
 
 	return (
@@ -438,7 +434,7 @@ export function PreviewAddressBar( {
 							<Autocomplete.Input
 								ref={ selectOnMount }
 								className={ styles.input }
-								placeholder={ __( 'Type a path, or search pages and posts' ) }
+								placeholder={ __( 'Type a path' ) }
 								aria-label={ __( 'Address and search' ) }
 								onKeyDown={ handleInputKeyDown }
 							/>

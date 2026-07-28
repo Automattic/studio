@@ -181,10 +181,11 @@ export default defineConfig(
 		},
 	},
 	{
-		// The CLI is a one-shot process that loads the locale before importing
-		// modules, so module-level translations are safe there. The rule only
-		// matters for the long-lived renderer where the language can change at runtime.
-		files: [ 'apps/cli/**' ],
+		// Module-level translations can't go stale in these apps: the CLI is a
+		// one-shot process that loads the locale before importing modules, and the
+		// agentic UI reloads the window on language change. The rule only matters
+		// for the legacy renderer, which swaps locale data live without a reload.
+		files: [ 'apps/cli/**', 'apps/ui/**' ],
 		rules: {
 			'studio/no-module-level-translations': 'off',
 		},

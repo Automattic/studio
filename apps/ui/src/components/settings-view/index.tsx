@@ -66,29 +66,25 @@ function terminalElements( installedApps: InstalledApps | undefined ) {
 	} ) );
 }
 
-function colorSchemeElements(): { value: ColorScheme; label: string }[] {
-	return [
-		{ value: 'system', label: __( 'System' ) },
-		{ value: 'light', label: __( 'Light' ) },
-		{ value: 'dark', label: __( 'Dark' ) },
-	];
-}
+const COLOR_SCHEME_ELEMENTS: { value: ColorScheme; label: string }[] = [
+	{ value: 'system', label: __( 'System' ) },
+	{ value: 'light', label: __( 'Light' ) },
+	{ value: 'dark', label: __( 'Dark' ) },
+];
 
 function isColorScheme( value: unknown ): value is ColorScheme {
 	return value === 'system' || value === 'light' || value === 'dark';
 }
 
-function quitSitesBehaviorElements(): {
+const QUIT_SITES_BEHAVIOR_ELEMENTS: {
 	value: QuitSitesBehavior | typeof UNSET;
 	label: string;
-}[] {
-	return [
-		{ value: UNSET, label: __( 'Ask every time' ) },
-		{ value: 'leave-running', label: __( 'Keep sites running' ) },
-		{ value: 'stop-and-auto-start', label: __( 'Stop, restart on next launch' ) },
-		{ value: 'stop', label: __( 'Stop sites' ) },
-	];
-}
+}[] = [
+	{ value: UNSET, label: __( 'Ask every time' ) },
+	{ value: 'leave-running', label: __( 'Keep sites running' ) },
+	{ value: 'stop-and-auto-start', label: __( 'Stop, restart on next launch' ) },
+	{ value: 'stop', label: __( 'Stop sites' ) },
+];
 
 const LOCALE_ELEMENTS: { value: SupportedLocale; label: string }[] = Object.entries(
 	supportedLocaleNames
@@ -159,10 +155,9 @@ function AppearancePicker( {
 	value: ColorScheme;
 	onChange: ( value: ColorScheme ) => void;
 } ) {
-	const elements = colorSchemeElements();
 	const activeIndex = Math.max(
 		0,
-		elements.findIndex( ( option ) => option.value === value )
+		COLOR_SCHEME_ELEMENTS.findIndex( ( option ) => option.value === value )
 	);
 
 	return (
@@ -173,7 +168,7 @@ function AppearancePicker( {
 				aria-label={ __( 'Appearance' ) }
 				data-active-index={ activeIndex }
 			>
-				{ elements.map( ( option ) => (
+				{ COLOR_SCHEME_ELEMENTS.map( ( option ) => (
 					<button
 						key={ option.value }
 						type="button"
@@ -327,7 +322,7 @@ function PreferencesPanel( {
 						label={ __( 'When quitting with running sites' ) }
 						className={ styles.selectControlWide }
 						value={ data.quitSitesBehavior }
-						options={ quitSitesBehaviorElements() }
+						options={ QUIT_SITES_BEHAVIOR_ELEMENTS }
 						onChange={ ( quitSitesBehavior ) => onChange( { quitSitesBehavior } ) }
 					/>
 				</PreferenceRow>

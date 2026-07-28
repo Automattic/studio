@@ -2,11 +2,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { vi } from 'vitest';
-import {
-	calculateDirectorySizeForArchive,
-	confineToRoot,
-	isPathWithin,
-} from '@studio/common/lib/fs-utils';
+import { calculateDirectorySizeForArchive, confineToRoot } from '@studio/common/lib/fs-utils';
 
 describe( 'calculateDirectorySizeForArchive', () => {
 	let tempDir: string;
@@ -41,26 +37,6 @@ describe( 'calculateDirectorySizeForArchive', () => {
 		expect( warnSpy ).toHaveBeenCalledWith( expect.stringContaining( 'advanced-cache.php' ) );
 
 		warnSpy.mockRestore();
-	} );
-} );
-
-describe( 'isPathWithin', () => {
-	const root = path.join( os.tmpdir(), 'studio-sites' );
-
-	it( 'accepts the root itself and its descendants', () => {
-		expect( isPathWithin( root, root ) ).toBe( true );
-		expect( isPathWithin( root, path.join( root, 'my-site' ) ) ).toBe( true );
-		expect( isPathWithin( root, path.join( root, 'my-site', 'wp-content' ) ) ).toBe( true );
-	} );
-
-	it( 'rejects traversal escapes and unrelated paths', () => {
-		expect( isPathWithin( root, path.join( root, '..', 'secret' ) ) ).toBe( false );
-		expect( isPathWithin( root, path.join( root, '..', '..', 'etc', 'passwd' ) ) ).toBe( false );
-		expect( isPathWithin( root, '/etc/passwd' ) ).toBe( false );
-	} );
-
-	it( 'rejects a sibling directory sharing the root as a name prefix', () => {
-		expect( isPathWithin( root, `${ root }-other` ) ).toBe( false );
 	} );
 } );
 

@@ -87,12 +87,6 @@ export function confineToRoot( root: string, candidate: string ): string | null 
 	return null;
 }
 
-// True when `candidate` resolves to `root` or a descendant. Used to confine
-// untrusted paths to a safe root, guarding against `../` traversal escapes.
-export function isPathWithin( root: string, candidate: string ): boolean {
-	return confineToRoot( root, candidate ) !== null;
-}
-
 // Compare paths, preferring inode comparison when both paths exist on disk.
 // `fs.Stats.dev` signifies the device ID, and `fs.Stats.ino` signifies the inode number
 // that uniquely identifies the file or directory. This approach respects the current file

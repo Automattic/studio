@@ -141,7 +141,7 @@ export function PreviewAddressBar( {
 	onSwitchRealm,
 }: PreviewAddressBarProps ) {
 	const realm = getPreviewRealm( path );
-	const { allLinks } = useCustomizeLinks( site );
+	const { customizeLinks, contentLinks } = useCustomizeLinks( site );
 	// The database segment is optional; everything else always shows.
 	const segments = useMemo(
 		() => REALM_SEGMENTS.filter( ( segment ) => segment.realm !== 'database' || showDatabaseTab ),
@@ -180,30 +180,18 @@ export function PreviewAddressBar( {
 		return () => observer.disconnect();
 	}, [ measureIndicator ] );
 
-	// The WordPress (WP Admin) destinations — the former "Open WordPress…"
-	// menu, folded into the address bar — plus the optional database link.
+	// The WordPress destinations — the former "Open WordPress…" menu, folded
+	// into the address bar. WP Admin and the database are deliberately absent:
+	// their segments sit right next to this menu.
 	const wordpressItems = useMemo< AddressItem[] >(
-		() => [
-			...allLinks.map( ( link ) => ( {
+		() =>
+			[ ...customizeLinks, ...contentLinks ].map( ( link ) => ( {
 				id: link.id,
 				icon: link.icon,
 				title: link.label,
 				path: link.url,
 			} ) ),
-			// The database destination follows the tab's visibility, so turning
-			// the tab off removes it from the menu too.
-			...( showDatabaseTab
-				? [
-						{
-							id: 'database',
-							icon: databaseIcon,
-							title: __( 'Database' ),
-							path: DATABASE_HOME_PATH,
-						},
-				  ]
-				: [] ),
-		],
-		[ allLinks, showDatabaseTab ]
+		[ contentLinks, customizeLinks ]
 	);
 
 	const navigateTo = useCallback(

@@ -137,27 +137,19 @@ describe( 'PreviewAddressBar', () => {
 		const { onNavigate } = renderAddressBar( { path: '/' } );
 
 		const menu = await openDestinationsMenu();
-		fireEvent.click( within( menu ).getByRole( 'menuitem', { name: /WP Admin/ } ) );
+		fireEvent.click( within( menu ).getByRole( 'menuitem', { name: /Media Library/ } ) );
 
-		expect( onNavigate ).toHaveBeenCalledWith( autoLoginPath( '/wp-admin/' ) );
+		expect( onNavigate ).toHaveBeenCalledWith( autoLoginPath( '/wp-admin/upload.php' ) );
 	} );
 
-	it( 'navigates the database destination directly', async () => {
-		const { onNavigate } = renderAddressBar( { path: '/' } );
-
-		const menu = await openDestinationsMenu();
-		fireEvent.click( within( menu ).getByRole( 'menuitem', { name: /Database/ } ) );
-
-		expect( onNavigate ).toHaveBeenCalledWith(
-			'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
-		);
-	} );
-
-	it( 'omits the database destination when the database tab is turned off', async () => {
-		renderAddressBar( { path: '/', showDatabaseTab: false } );
+	it( 'offers no WP Admin or Database rows — their segments cover those realms', async () => {
+		renderAddressBar( { path: '/' } );
 
 		const menu = await openDestinationsMenu();
 
+		expect(
+			within( menu ).queryByRole( 'menuitem', { name: /WP Admin/ } )
+		).not.toBeInTheDocument();
 		expect(
 			within( menu ).queryByRole( 'menuitem', { name: /Database/ } )
 		).not.toBeInTheDocument();

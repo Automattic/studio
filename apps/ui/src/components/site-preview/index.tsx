@@ -23,13 +23,13 @@ import {
 	PreviewAddressBar,
 	REALM_SHORTCUT_KEYS,
 	type PreviewRealm,
-} from './location-omnibox';
+} from './address-bar';
 import styles from './style.module.css';
 import type { Annotation } from './types';
 import type { SiteDetails } from '@/data/core';
 
 export type { Annotation } from './types';
-export { getPathFromPreviewUrl } from './location-omnibox';
+export { getPathFromPreviewUrl } from './address-bar';
 
 interface SitePreviewProps {
 	site: SiteDetails;
@@ -292,7 +292,6 @@ export function SitePreview( {
 	// the setting UI ships with the preview's view-settings menu).
 	const [ showDatabaseTab ] = useState( getStoredShowDatabaseTab );
 	const rootRef = useRef< HTMLElement | null >( null );
-	const locationRef = useRef< HTMLDivElement | null >( null );
 	const commandIdRef = useRef( 0 );
 	const canAnnotate = canPreview && inspectorState.ready;
 	const progress = browserState.loading
@@ -446,8 +445,8 @@ export function SitePreview( {
 				</div>
 				{ /* Back/forward flank the address segments so history controls sit
 					with the place they navigate; symmetric widths keep the segments
-					(and the omnibox popup anchored to this element) centered. */ }
-				<div ref={ locationRef } className={ styles.browserLocation }>
+					centered. */ }
+				<div className={ styles.browserLocation }>
 					{ canPreview ? (
 						<>
 							<IconButton
@@ -462,12 +461,8 @@ export function SitePreview( {
 							/>
 							<PreviewAddressBar
 								site={ site }
-								siteUrl={ siteUrl }
 								path={ getSafePath( path ) }
-								searchEnabled={ canUseWebview }
-								anchorRef={ locationRef }
 								showDatabaseTab={ showDatabaseTab }
-								onNavigate={ ( nextPath ) => onPathChange?.( nextPath ) }
 								onSwitchRealm={ handleSwitchRealm }
 							/>
 							<IconButton

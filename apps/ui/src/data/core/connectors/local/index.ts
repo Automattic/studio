@@ -707,12 +707,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			} );
 		},
 
-		// The local server has no REST-proxy route yet; the preview omnibox
-		// only offers search where the webview connector serves it.
-		async fetchSiteRest() {
-			throw new UnsupportedError( 'fetchSiteRest' );
-		},
-
 		// The server runs on the user's machine, so it opens paths in OS apps on
 		// the browser's behalf (the editor/terminal choice comes from prefs above).
 		async openSiteFolder( siteId ) {

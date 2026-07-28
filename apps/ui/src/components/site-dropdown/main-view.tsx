@@ -485,7 +485,7 @@ function LocalServerControl( {
 				<span
 					className={ clsx(
 						styles.localServerGlyph,
-						targetRunning ? styles.playIcon : styles.pauseIcon
+						targetRunning ? styles.pauseIcon : styles.playIcon
 					) }
 				/>
 			</span>

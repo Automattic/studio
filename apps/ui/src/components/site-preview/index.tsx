@@ -1,9 +1,10 @@
 import { __ } from '@wordpress/i18n';
-import { chevronLeft, chevronRight, external, pencil } from '@wordpress/icons';
+import { chevronLeft, chevronRight, pencil } from '@wordpress/icons';
 import { ariaKeyShortcut, displayShortcut, isAppleOS, isKeyboardEvent } from '@wordpress/keycodes';
 import { Button, IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { OpenInMenu } from '@/components/open-in-menu';
 import { useConnector } from '@/data/core';
 import { useIsSiteStarting, useStartSite } from '@/data/queries/use-sites';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
@@ -484,44 +485,33 @@ export function SitePreview( {
 					) : null }
 				</div>
 				<div className={ clsx( styles.headerSide, styles.headerSideEnd ) }>
-					{ canPreview ? (
-						<>
-							{ connector.capabilities.annotatePreview ? (
-								<div className={ styles.annotationControls }>
-									<IconButton
-										variant="minimal"
-										tone="neutral"
-										size="small"
-										icon={ pencil }
-										label={ inspectorState.isPicking ? __( 'Stop annotating' ) : __( 'Annotate' ) }
-										disabled={ ! canAnnotate }
-										aria-pressed={ inspectorState.isPicking }
-										onClick={ () => sendInspectorCommand( 'toggle-picking' ) }
-									/>
-									{ inspectorState.annotationCount > 0 ? (
-										<Button
-											variant="solid"
-											tone="brand"
-											size="small"
-											disabled={ ! canAnnotate }
-											aria-label={ __( 'Submit annotations' ) }
-											onClick={ () => sendInspectorCommand( 'submit' ) }
-										>
-											{ __( 'Submit' ) }
-										</Button>
-									) : null }
-								</div>
-							) : null }
+					{ canPreview && connector.capabilities.annotatePreview ? (
+						<div className={ styles.annotationControls }>
 							<IconButton
 								variant="minimal"
 								tone="neutral"
 								size="small"
-								icon={ external }
-								label={ __( 'Open site in browser' ) }
-								onClick={ () => void connector.openExternalUrl( previewUrl ) }
+								icon={ pencil }
+								label={ inspectorState.isPicking ? __( 'Stop annotating' ) : __( 'Annotate' ) }
+								disabled={ ! canAnnotate }
+								aria-pressed={ inspectorState.isPicking }
+								onClick={ () => sendInspectorCommand( 'toggle-picking' ) }
 							/>
-						</>
+							{ inspectorState.annotationCount > 0 ? (
+								<Button
+									variant="solid"
+									tone="brand"
+									size="small"
+									disabled={ ! canAnnotate }
+									aria-label={ __( 'Submit annotations' ) }
+									onClick={ () => sendInspectorCommand( 'submit' ) }
+								>
+									{ __( 'Submit' ) }
+								</Button>
+							) : null }
+						</div>
 					) : null }
+					<OpenInMenu site={ site } browserUrl={ previewUrl } />
 				</div>
 				{ showLoadingProgress ? (
 					<div className={ styles.loadingProgress } aria-hidden="true">

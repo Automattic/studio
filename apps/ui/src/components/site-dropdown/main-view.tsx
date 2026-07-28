@@ -87,7 +87,7 @@ function getPreviewPanelCopy(
 	if ( isOffline ) {
 		return __( 'Go online to share a review link.' );
 	}
-	return __( 'Sign in to share a review link.' );
+	return __( 'Log in to share a review link.' );
 }
 
 function getLivePanelCopy( agenticEnabled: boolean, isOffline: boolean ): string {
@@ -97,7 +97,7 @@ function getLivePanelCopy( agenticEnabled: boolean, isOffline: boolean ): string
 	if ( isOffline ) {
 		return __( 'Go online to publish your site.' );
 	}
-	return __( 'Sign in to publish your site.' );
+	return __( 'Log in to publish your site.' );
 }
 
 export function MainView( { site, activity, onSetupClick, onDisconnectClick }: Props ) {

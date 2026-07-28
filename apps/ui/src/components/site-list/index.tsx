@@ -505,6 +505,11 @@ function SiteSection( {
 	const navigate = useNavigate();
 	const sectionRef = useRef< HTMLElement >( null );
 	const isActive = isChatActive || isContextActive;
+	// Signed out, a site's home is its overview, so the context-active row is
+	// simply "the selected site" — show it solid-selected (no dashed outline,
+	// no overview shortcut), matching how chat-active looks when signed in.
+	const showSelected = isChatActive || ( isContextActive && ! agenticEnabled );
+	const showContextOutline = isContextActive && agenticEnabled;
 	// Keep the active site visible — e.g. when launch restores a site that
 	// sits below the sidebar's fold. `nearest` no-ops when already visible.
 	useEffect( () => {
@@ -555,8 +560,8 @@ function SiteSection( {
 			ref={ sectionRef }
 			className={ clsx(
 				styles.site,
-				isChatActive && styles.siteActive,
-				isContextActive && styles.siteContextActive
+				showSelected && styles.siteActive,
+				showContextOutline && styles.siteContextActive
 			) }
 		>
 			<SiteActionsMenu
@@ -574,7 +579,7 @@ function SiteSection( {
 									event.stopPropagation();
 									handleOpenSite();
 								} }
-								aria-current={ isChatActive ? 'page' : undefined }
+								aria-current={ showSelected ? 'page' : undefined }
 							>
 								<span
 									className={ clsx(
@@ -588,7 +593,7 @@ function SiteSection( {
 							</SidebarButton>
 						</div>
 						<div className={ styles.siteActions } data-reorder-exclude>
-							<SiteOverviewButton site={ site } />
+							{ agenticEnabled ? <SiteOverviewButton site={ site } /> : null }
 							<SiteStatusButton site={ site } isStarting={ isStarting } isStopping={ isStopping } />
 						</div>
 					</header>

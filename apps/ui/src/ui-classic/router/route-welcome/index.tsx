@@ -40,7 +40,7 @@ function WelcomePage() {
 		<div className={ styles.root }>
 			<h1 className={ styles.heading }>{ __( 'Welcome to Studio' ) }</h1>
 			<p className={ styles.subtitle }>
-				{ __( 'Sign in with a free WordPress.com account to unlock everything Studio offers.' ) }
+				{ __( 'Log in with a free WordPress.com account to unlock everything Studio offers.' ) }
 			</p>
 			<ul className={ styles.features }>
 				<li>{ __( 'Chat with a WordPress expert that builds and edits your site' ) }</li>

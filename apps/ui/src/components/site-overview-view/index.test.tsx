@@ -48,6 +48,16 @@ vi.mock( '@/components/delete-site-dialog', () => ( {
 		open ? <div role="dialog">Delete dialog</div> : null,
 } ) );
 
+// Canvas-backed W background; jsdom has no 2D context, so stub it out.
+vi.mock( '@/ui-classic/components/session-view/empty-background', () => ( {
+	EmptyBackground: () => null,
+} ) );
+
+// Canvas-backed dot-grid backdrop; jsdom has no 2D context, so stub it out.
+vi.mock( '@/components/dot-grid', () => ( {
+	DotGrid: () => null,
+} ) );
+
 vi.mock( '@/components/site-dropdown', () => ( {
 	SiteDropdown: ( props: { site: SiteDetails; showSiteIcon?: boolean; showStatus?: boolean } ) => {
 		siteDropdownMock( props );
@@ -492,9 +502,7 @@ describe( 'SiteOverviewView', () => {
 
 		renderView();
 
-		expect(
-			screen.getByRole( 'heading', { name: 'Sign in to do more with Studio' } )
-		).toBeVisible();
+		expect( screen.getByRole( 'heading', { name: 'Let Studio code it for you' } ) ).toBeVisible();
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Log in with WordPress.com' } ) );
 
@@ -505,7 +513,7 @@ describe( 'SiteOverviewView', () => {
 		renderView();
 
 		expect(
-			screen.queryByRole( 'heading', { name: 'Sign in to do more with Studio' } )
+			screen.queryByRole( 'heading', { name: 'Let Studio code it for you' } )
 		).not.toBeInTheDocument();
 	} );
 

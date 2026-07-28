@@ -8,7 +8,7 @@
 		var(--wpds-dimension-padding-2xl) - var(--wpds-dimension-padding-xs)
 	);
 
-	/* SidebarButton adds `sm` inline padding; this offset puts the gravatar's
+	/* SidebarButton adds `sm` inline padding; this offset puts the avatar's
 	   left edge on the same column as the site icons. */
 	padding: var(--wpds-dimension-padding-sm) var(--user-menu-trailing-offset)
 		var(--wpds-dimension-padding-xl) var(--user-menu-leading-offset);
@@ -20,13 +20,16 @@
 	gap: var(--wpds-dimension-padding-xs);
 }
 
-.userName,
-.sidebarToggle,
-.settingsButton {
+.userName {
 	color: var(--wpds-color-fg-content-neutral-weak);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	min-width: 0;
 }
 
 .sidebarToggle {
+	color: var(--wpds-color-fg-content-neutral-weak);
 	margin-inline-end: calc(-1 * var(--wpds-dimension-padding-sm));
 }
 
@@ -38,10 +41,8 @@
 
 .row:hover .userName,
 .row:hover .sidebarToggle,
-.row:hover .settingsButton,
 .row:focus-within .userName,
-.row:focus-within .sidebarToggle,
-.row:focus-within .settingsButton {
+.row:focus-within .sidebarToggle {
 	color: var(--wpds-color-fg-content-neutral);
 }
 
@@ -54,27 +55,22 @@
 	padding-inline-start: calc(var(--wpds-dimension-padding-sm) - var(--user-menu-avatar-offset));
 }
 
-.userName {
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-	min-width: 0;
-}
-
-.loginButton {
-	flex: 1;
-	text-align: left;
-}
-
-.popup {
-	min-width: 220px;
-}
-
-.email {
-	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm);
-	font-size: var(--wpds-typography-font-size-xs);
+/* Signed-out avatar: a circle with the settings (sliders) icon, sized/shaped to
+   match the gravatar it stands in for. */
+.settingsAvatar {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 20px;
+	height: 20px;
+	border-radius: 50%;
+	flex-shrink: 0;
+	background-color: var(--wpds-color-bg-surface-neutral);
 	color: var(--wpds-color-fg-content-neutral-weak);
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
+}
+
+.settingsAvatar svg {
+	width: 14px;
+	height: 14px;
+	fill: currentColor;
 }

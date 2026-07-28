@@ -573,13 +573,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				method: 'POST',
 			} );
 		},
-		async pushSiteToLive( siteId, remoteSiteId ) {
+		async pushSiteToLive( siteId, remoteSiteId, options ) {
 			await api( `/sites/${ encodeURIComponent( siteId ) }/push`, {
 				method: 'POST',
-				body: JSON.stringify( { remoteSiteId } ),
+				body: JSON.stringify( { remoteSiteId, options } ),
 			} );
 		},
-		async pullSiteFromLive( siteId, remoteSiteId, onProgress ) {
+		async pullSiteFromLive( siteId, remoteSiteId, onProgress, options ) {
 			const listener = ( output: PullProgressSseOutput ) => {
 				if ( output.siteId === siteId ) {
 					onProgress?.( {
@@ -594,11 +594,27 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			try {
 				await api( `/sites/${ encodeURIComponent( siteId ) }/pull`, {
 					method: 'POST',
-					body: JSON.stringify( { remoteSiteId } ),
+					body: JSON.stringify( { remoteSiteId, options } ),
 				} );
 			} finally {
 				pullProgressListeners.delete( listener );
 			}
+		},
+		async getLatestRewindId( remoteSiteId ) {
+			return api< string | null >( `/wpcom/sites/${ remoteSiteId }/latest-rewind-id` );
+		},
+		async listRemoteFileTree( remoteSiteId, rewindId, path ) {
+			return api< Record< string, unknown > >(
+				`/wpcom/sites/${ remoteSiteId }/remote-file-tree?rewindId=${ encodeURIComponent(
+					rewindId
+				) }&path=${ encodeURIComponent( path ) }`
+			);
+		},
+		async getHostingPhpVersion( remoteSiteId ) {
+			const version = await api< string | null >(
+				`/wpcom/sites/${ remoteSiteId }/hosting-php-version`
+			);
+			return version ?? undefined;
 		},
 		getPublishCheckoutUrl( site ): string {
 			// The post-checkout auto-connect relies on the deep-link listener, which

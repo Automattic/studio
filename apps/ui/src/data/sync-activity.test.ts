@@ -1,31 +1,42 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, renderHook } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
-	reportSyncError,
 	reportSyncPending,
+	reportSyncProgress,
 	reportSyncSuccess,
-	subscribeToSyncActivityEvents,
+	useSiteSyncActivity,
 } from './sync-activity';
 
-describe( 'sync activity events', () => {
-	beforeEach( () => vi.useFakeTimers() );
-	afterEach( () => vi.useRealTimers() );
+describe( 'sync activity pull progress', () => {
+	afterEach( () => {
+		vi.useRealTimers();
+	} );
 
-	it( 'emits one sound event for each meaningful state transition', () => {
-		const listener = vi.fn();
-		const unsubscribe = subscribeToSyncActivityEvents( listener );
+	it( 'keeps live pull details available across consumers', () => {
+		vi.useFakeTimers();
+		const siteId = 'background-pull-site';
+		const { result } = renderHook( () => useSiteSyncActivity( siteId ) );
 
-		reportSyncPending( 'sound-test-site', 'push' );
-		reportSyncPending( 'sound-test-site', 'push', { progress: 50 } );
-		reportSyncSuccess( 'sound-test-site', 'push' );
-		reportSyncSuccess( 'sound-test-site', 'push' );
-		reportSyncError( 'sound-test-site', 'push', 'Failed' );
-		reportSyncError( 'sound-test-site', 'push', 'Failed again' );
+		act( () => reportSyncPending( siteId, 'pull' ) );
+		expect( result.current ).toMatchObject( { kind: 'pending', direction: 'pull' } );
 
-		expect( listener.mock.calls ).toEqual( [
-			[ 'sync-started' ],
-			[ 'sync-complete' ],
-			[ 'sync-failed' ],
-		] );
-		unsubscribe();
+		act( () =>
+			reportSyncProgress( siteId, 'pull', {
+				message: 'Downloading backup… (50%)',
+				progress: 50,
+			} )
+		);
+		expect( result.current ).toMatchObject( {
+			kind: 'pending',
+			direction: 'pull',
+			message: 'Downloading backup… (50%)',
+			progress: 50,
+		} );
+
+		act( () => {
+			reportSyncSuccess( siteId, 'pull' );
+			vi.advanceTimersByTime( 30_000 );
+		} );
+		expect( result.current ).toBeNull();
 	} );
 } );

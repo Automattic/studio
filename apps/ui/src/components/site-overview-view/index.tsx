@@ -42,6 +42,7 @@ import type { ReactNode } from 'react';
 
 interface SiteOverviewViewProps {
 	siteId: string;
+	openSiteDropdown?: boolean;
 }
 
 interface OverviewButtonProps {
@@ -83,7 +84,13 @@ function isSettingsTab( value: SiteOverviewTabId ): value is SiteSettingsTabId {
 	return value === 'settings' || value === 'agent' || value === 'checkpoints';
 }
 
-function OverviewHeader( { site }: { site: SiteDetails } ) {
+function OverviewHeader( {
+	site,
+	openSiteDropdown,
+}: {
+	site: SiteDetails;
+	openSiteDropdown: boolean;
+} ) {
 	const sidebarCollapsed = useSidebarCollapsed();
 	const reserveTrafficLightSpace = useTrafficLightSpace().start;
 
@@ -95,7 +102,13 @@ function OverviewHeader( { site }: { site: SiteDetails } ) {
 					: styles.header
 			}
 		>
-			<SiteDropdown site={ site } showSiteIcon showStatus={ sidebarCollapsed } floating={ false } />
+			<SiteDropdown
+				site={ site }
+				showSiteIcon
+				showStatus={ sidebarCollapsed }
+				floating={ false }
+				defaultOpen={ openSiteDropdown }
+			/>
 			<SiteHeaderActions site={ site } />
 		</div>
 	);
@@ -273,7 +286,7 @@ function getExtensionStatusLabel( status: SiteOverviewExtension[ 'status' ] ) {
 	return status ? status.replace( /-/g, ' ' ) : null;
 }
 
-export function SiteOverviewView( { siteId }: SiteOverviewViewProps ) {
+export function SiteOverviewView( { siteId, openSiteDropdown = false }: SiteOverviewViewProps ) {
 	const { data: sites, isLoading: sitesLoading } = useSites();
 	const site = sites?.find( ( candidate ) => candidate.id === siteId );
 
@@ -290,10 +303,16 @@ export function SiteOverviewView( { siteId }: SiteOverviewViewProps ) {
 		);
 	}
 
-	return <SiteOverviewBody site={ site } />;
+	return <SiteOverviewBody site={ site } openSiteDropdown={ openSiteDropdown } />;
 }
 
-function SiteOverviewBody( { site }: { site: SiteDetails } ) {
+function SiteOverviewBody( {
+	site,
+	openSiteDropdown,
+}: {
+	site: SiteDetails;
+	openSiteDropdown: boolean;
+} ) {
 	const navigate = useNavigate();
 	const overviewAnchorRef = useTourAnchor( 'site-overview-content' );
 	const settingsTabAnchorRef = useTourAnchor( 'site-settings-tab' );
@@ -319,7 +338,7 @@ function SiteOverviewBody( { site }: { site: SiteDetails } ) {
 
 	return (
 		<div className={ styles.root }>
-			<OverviewHeader site={ site } />
+			<OverviewHeader site={ site } openSiteDropdown={ openSiteDropdown } />
 			<div className={ styles.tabsFrame }>
 				<Tabs.Root
 					selectedTabId={ activeTab }

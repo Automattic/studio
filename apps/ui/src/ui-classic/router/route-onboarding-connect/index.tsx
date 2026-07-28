@@ -9,10 +9,11 @@ import { Button, Icon, IconButton, Input, InputLayout } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { BusyOverlay } from '@/components/busy-overlay';
 import { OnboardingFooter } from '@/components/onboarding-footer';
+import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useFindAvailableSiteName } from '@/data/queries/use-create-site-helpers';
-import { useCreateSite, useDeleteSite, useSites } from '@/data/queries/use-sites';
+import { useCreateSite, useDeleteSite, useSites, useStartSite } from '@/data/queries/use-sites';
 import { usePullSiteFromLive } from '@/data/queries/use-sync-site';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import {
@@ -22,11 +23,12 @@ import {
 import { useGridArrowNavigation } from '@/hooks/use-grid-arrow-navigation';
 import { useOffline } from '@/hooks/use-offline';
 import { getLocalizedLink } from '@/lib/docs-links';
-import { onboardingLayoutRoute } from '../layout-onboarding';
+import { onboardingLayoutRoute, useOnboardingProgress } from '../layout-onboarding';
 import sharedStyles from '../layout-onboarding/style.module.css';
 // The external-link arrow on the auth buttons is shared with the welcome
 // screen so the two auth prompts stay visually identical.
 import welcomeStyles from '../route-welcome/style.module.css';
+import { ConnectSiteLifecycleError, runConnectSiteLifecycle } from './connect-site';
 import styles from './style.module.css';
 import type { SyncSite } from '@/data/core';
 
@@ -41,8 +43,6 @@ const CREATE_WPCOM_SITE_URL =
 // needs-transfer groups get overlay CTAs instead.
 function getSyncStatusLabel( site: SyncSite ): string | null {
 	switch ( site.syncSupport ) {
-		case 'already-connected':
-			return __( 'Already connected' );
 		case 'missing-permissions':
 			return __( 'Missing permissions' );
 		case 'deleted':
@@ -64,8 +64,9 @@ interface SiteSection {
 // Groups sites the way the desktop renderer's picker does: syncable sites
 // lead (no heading), followed by explained groups for everything else.
 function groupSites( sites: SyncSite[] ): SiteSection[] {
-	const syncable = sites.filter( ( s ) => s.syncSupport === 'syncable' );
-	const alreadyConnected = sites.filter( ( s ) => s.syncSupport === 'already-connected' );
+	const syncable = sites.filter(
+		( site ) => site.syncSupport === 'syncable' || site.syncSupport === 'already-connected'
+	);
 	const needsTransfer = sites.filter( ( s ) => s.syncSupport === 'needs-transfer' );
 	const needsUpgrade = sites.filter( ( s ) => s.syncSupport === 'needs-upgrade' );
 	const other = sites.filter(
@@ -78,14 +79,6 @@ function groupSites( sites: SyncSite[] ): SiteSection[] {
 	const sections: SiteSection[] = [];
 	if ( syncable.length > 0 ) {
 		sections.push( { key: 'syncable', sites: syncable } );
-	}
-	if ( alreadyConnected.length > 0 ) {
-		sections.push( {
-			key: 'already-connected',
-			title: __( 'Already connected' ),
-			description: __( 'These sites are already linked to a local site.' ),
-			sites: alreadyConnected,
-		} );
 	}
 	if ( needsTransfer.length > 0 ) {
 		sections.push( {
@@ -270,7 +263,7 @@ function RemoteSiteCard( {
 	onSelect: ( id: number ) => void;
 	connectedLocalSiteNames?: string[];
 } ) {
-	const isSyncable = site.syncSupport === 'syncable';
+	const isSyncable = site.syncSupport === 'syncable' || site.syncSupport === 'already-connected';
 	const isDimmed =
 		site.syncSupport === 'deleted' ||
 		site.syncSupport === 'unsupported' ||
@@ -332,6 +325,7 @@ function RemoteSiteCard( {
 export function OnboardingConnectPage() {
 	const navigate = useNavigate();
 	const connector = useConnector();
+	const { setProgress } = useOnboardingProgress();
 	const locale = useUserLocale();
 	const { data: user, isLoading: isAuthLoading } = useAuthUser();
 	const { data: localSites = [] } = useSites();
@@ -339,6 +333,7 @@ export function OnboardingConnectPage() {
 	const createSite = useCreateSite();
 	const deleteSite = useDeleteSite();
 	const pullSiteFromLive = usePullSiteFromLive();
+	const startSite = useStartSite();
 	const findAvailableSiteName = useFindAvailableSiteName();
 
 	const isOffline = useOffline();
@@ -350,7 +345,7 @@ export function OnboardingConnectPage() {
 	const [ debouncedSearchQuery, setDebouncedSearchQuery ] = useState( '' );
 	const isSearching = searchQuery.trim().length > 0;
 	const syncable = useSyncableWpcomSitesPage( {
-		enabled: !! user,
+		enabled: !! user && ! isOffline,
 		perPage: 100,
 		search: debouncedSearchQuery,
 	} );
@@ -376,6 +371,9 @@ export function OnboardingConnectPage() {
 	}, [ connectedWpcomSites, localSites ] );
 	const totalSites = syncable.data?.total ?? sites.length;
 	const isSingleSite = ! isSearching && totalSites === 1 && sites.length === 1;
+	const isSingleAvailableSite =
+		isSingleSite &&
+		( sites[ 0 ].syncSupport === 'syncable' || sites[ 0 ].syncSupport === 'already-connected' );
 	const isLoadingSites = syncable.isLoading || ( syncable.isFetching && sites.length === 0 );
 
 	useEffect( () => {
@@ -388,16 +386,18 @@ export function OnboardingConnectPage() {
 	// With exactly one site on the account, pre-select it so the user can
 	// proceed straight to Add site — mirrors the desktop renderer.
 	useEffect( () => {
-		if ( isSingleSite && sites[ 0 ].syncSupport === 'syncable' ) {
+		if ( isSingleAvailableSite ) {
 			setSelectedId( sites[ 0 ].id );
 		}
-	}, [ isSingleSite, sites ] );
+	}, [ isSingleAvailableSite, sites ] );
 
 	useEffect( () => {
 		if ( selectedId && ! sites.some( ( site ) => site.id === selectedId ) ) {
 			setSelectedId( null );
 		}
 	}, [ selectedId, sites ] );
+
+	useEffect( () => () => setProgress( null ), [ setProgress ] );
 
 	const sections = useMemo( () => groupSites( sites ), [ sites ] );
 	const shouldGrowSection = useCallback(
@@ -428,34 +428,52 @@ export function OnboardingConnectPage() {
 	const showSearch = searchQuery.length > 0 || totalSites > SEARCH_VISIBILITY_THRESHOLD;
 
 	const handleConnect = useCallback( async () => {
-		if ( ! selectedSite || isConnecting ) {
+		if ( ! selectedSite || isConnecting || isOffline ) {
 			return;
 		}
 		setSubmitError( '' );
 		setIsConnecting( true );
-		let createdSiteId: string | null = null;
 		try {
-			// Create the local shell first (skipping server start — the pull
-			// restarts it once the remote content lands), then persist the
-			// connection and kick off the pull. Mirrors the desktop renderer's
-			// pull-remote flow.
 			const { name: availableName, path } = await findAvailableSiteName(
 				selectedSite.name || selectedSite.url
 			);
-			const site = await createSite.mutateAsync( {
-				name: availableName,
-				path,
-				skipStart: true,
+			await runConnectSiteLifecycle( {
+				createLocalSite: () =>
+					createSite.mutateAsync( {
+						name: availableName,
+						path,
+						skipStart: true,
+					} ),
+				persistConnection: ( localSiteId ) =>
+					connector.connectWpcomSite( localSiteId, {
+						...selectedSite,
+						localSiteId,
+						syncSupport: 'already-connected',
+					} ),
+				pullRemoteSite: ( localSiteId ) =>
+					pullSiteFromLive.mutateAsync( {
+						siteId: localSiteId,
+						remoteSiteId: selectedSite.id,
+					} ),
+				startLocalSite: ( localSiteId ) => startSite.mutateAsync( localSiteId ),
+				openLocalSite: ( localSiteId ) =>
+					navigate( {
+						to: '/sites/$siteId/overview',
+						params: { siteId: localSiteId },
+						search: { sync: 'pull' },
+					} ),
+				deleteLocalSite: ( localSiteId ) =>
+					deleteSite.mutateAsync( { id: localSiteId, deleteFiles: true } ),
+				onStage: ( stage ) => {
+					const messages = {
+						create: __( 'Creating the local site…' ),
+						connect: __( 'Saving the WordPress.com connection…' ),
+						pull: __( 'Pulling the live site into Studio…' ),
+						open: __( 'Opening the local site…' ),
+					};
+					setProgress( messages[ stage ] );
+				},
 			} );
-			createdSiteId = site.id;
-			await connector.connectWpcomSite( site.id, {
-				...selectedSite,
-				localSiteId: site.id,
-				syncSupport: 'already-connected',
-			} );
-			// Fire-and-forget: the pull reports progress through the shared
-			// sync-activity channel, which the site view surfaces.
-			pullSiteFromLive.mutate( { siteId: site.id, remoteSiteId: selectedSite.id } );
 			speak(
 				sprintf(
 					// translators: %s is the site name.
@@ -463,31 +481,40 @@ export function OnboardingConnectPage() {
 					availableName
 				)
 			);
-			await navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
 		} catch ( error ) {
-			// Roll back the never-connected shell so a retry doesn't leave an
-			// orphaned local site behind (and pick "Name 2" next time around).
-			if ( createdSiteId ) {
-				try {
-					await deleteSite.mutateAsync( { id: createdSiteId } );
-				} catch {
-					// Keep the original connect error as the user-facing message.
-				}
+			if (
+				error instanceof ConnectSiteLifecycleError &&
+				error.connectionPersisted &&
+				error.localSiteId
+			) {
+				toast.error(
+					__( 'Setup did not finish. The local site and WordPress.com connection were kept.' )
+				);
+				await navigate( {
+					to: '/sites/$siteId/overview',
+					params: { siteId: error.localSiteId },
+				} );
+			} else {
+				setSubmitError(
+					error instanceof Error ? error.message : __( 'Failed to connect site. Please try again.' )
+				);
 			}
+		} finally {
+			setProgress( null );
 			setIsConnecting( false );
-			setSubmitError(
-				error instanceof Error ? error.message : __( 'Failed to connect site. Please try again.' )
-			);
 		}
 	}, [
 		selectedSite,
 		isConnecting,
+		isOffline,
 		findAvailableSiteName,
 		connector,
 		createSite,
 		deleteSite,
 		pullSiteFromLive,
+		startSite,
 		navigate,
+		setProgress,
 	] );
 
 	const isSignedIn = !! user;
@@ -526,24 +553,55 @@ export function OnboardingConnectPage() {
 			     shield the window so stray clicks can't interrupt mid-flight. */ }
 			<BusyOverlay active={ isConnecting } />
 			<h1 className={ sharedStyles.title }>
-				{ isSignedIn && isSingleSite ? __( 'Connect your site' ) : __( 'Connect a site' ) }
+				{ isSignedIn && isSingleAvailableSite ? __( 'Connect your site' ) : __( 'Connect a site' ) }
 			</h1>
 			<p className={ sharedStyles.subtitle }>
 				{ ! isSignedIn && __( 'Log in with your WordPress.com account to see your sites.' ) }
 				{ isSignedIn &&
-					( isSingleSite
+					( isSingleAvailableSite
 						? __( 'Ready to bring into your Studio.' )
 						: __( 'Select a WordPress.com or Pressable site to bring into your Studio.' ) ) }
 			</p>
 
+			{ isAuthLoading && (
+				<div className={ styles.loadingState } role="status">
+					<Spinner />
+					<p className={ styles.listHint }>{ __( 'Checking your account…' ) }</p>
+				</div>
+			) }
 			{ ! isSignedIn && ! isAuthLoading && <SignedOutView /> }
 
-			{ isSignedIn && (
+			{ isSignedIn && isOffline && (
+				<div className={ styles.emptyState } role="status">
+					<p className={ styles.listHint }>
+						{ __( 'Reconnect to load your WordPress.com and Pressable sites.' ) }
+					</p>
+				</div>
+			) }
+
+			{ isSignedIn && ! isOffline && ! isLoadingSites && syncable.error && (
+				<div className={ styles.emptyState }>
+					<p className={ styles.listHint }>
+						{ __( "We couldn't load your sites. Check your connection and try again." ) }
+					</p>
+					<Button
+						type="button"
+						variant="outline"
+						tone="neutral"
+						loading={ syncable.isFetching }
+						onClick={ () => void syncable.refetch() }
+					>
+						{ __( 'Retry' ) }
+					</Button>
+				</div>
+			) }
+
+			{ isSignedIn && ! isOffline && ! syncable.error && (
 				<>
 					{ /* The helper links read "Refreshing…" during the initial
 					     load; hide the whole row until the list exists and let
 					     the loading state below carry the message. */ }
-					{ ! isSingleSite && ! isLoadingSites && (
+					{ ! isSingleAvailableSite && ! isLoadingSites && (
 						<div className={ styles.searchHeader }>
 							{ showSearch && (
 								<Input
@@ -564,7 +622,7 @@ export function OnboardingConnectPage() {
 					) }
 
 					{ isLoadingSites && (
-						<div className={ styles.loadingState }>
+						<div className={ styles.loadingState } role="status">
 							<Spinner />
 							<p className={ styles.listHint }>{ __( 'Loading your sites…' ) }</p>
 						</div>
@@ -596,7 +654,7 @@ export function OnboardingConnectPage() {
 						</p>
 					) }
 
-					{ ! isLoadingSites && isSingleSite ? (
+					{ ! isLoadingSites && isSingleAvailableSite ? (
 						<div className={ styles.singleSite }>
 							<ul
 								className={ `${ styles.siteGrid } ${ styles.siteGridSingle }` }
@@ -676,7 +734,7 @@ export function OnboardingConnectPage() {
 						type="button"
 						variant="solid"
 						tone="brand"
-						disabled={ ! selectedSite || isConnecting }
+						disabled={ ! selectedSite || isConnecting || isOffline || !! syncable.error }
 						loading={ isConnecting }
 						loadingAnnouncement={ __( 'Connecting site' ) }
 						onClick={ () => void handleConnect() }

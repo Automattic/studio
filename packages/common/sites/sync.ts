@@ -5,6 +5,7 @@ import path from 'node:path';
 import { initiateImport } from '@studio/common/lib/sync/sync-api';
 import { createTusUpload } from '@studio/common/lib/sync/tus-upload';
 import type { ExecuteCliCommand } from '@studio/common/lib/cli-process';
+import type { PullSiteProgress, SyncOption } from '@studio/common/types/sync';
 
 /**
  * WordPress.com sync operations. Pull is delegated to the Studio CLI; push uses
@@ -81,13 +82,44 @@ export async function pushSite(
 export function pullSite(
 	executeCliCommand: ExecuteCliCommand,
 	siteFolder: string,
-	remoteSiteId: number
+	remoteSiteId: number,
+	optionsOrEmit:
+		| {
+				optionsToSync?: SyncOption[];
+				includePathList?: string[];
+		  }
+		| ( ( output: PullSiteProgress ) => void ) = {},
+	emit?: ( output: PullSiteProgress ) => void
 ): Promise< void > {
+	const options = typeof optionsOrEmit === 'function' ? {} : optionsOrEmit;
+	const progressEmitter = typeof optionsOrEmit === 'function' ? optionsOrEmit : emit;
+	const command = [
+		'pull',
+		'--path',
+		siteFolder,
+		'--remote-site',
+		String( remoteSiteId ),
+		'--options',
+		( options.optionsToSync ?? [ 'all' ] ).join( ',' ),
+	];
+	if ( options.includePathList?.length ) {
+		command.push( '--include-path-list', JSON.stringify( options.includePathList ) );
+	}
+
 	return new Promise( ( resolve, reject ) => {
-		const [ emitter ] = executeCliCommand(
-			[ 'pull', '--path', siteFolder, '--remote-site', String( remoteSiteId ), '--options', 'all' ],
-			{ output: 'capture' }
-		);
+		const [ emitter ] = executeCliCommand( command, { output: 'capture' } );
+		emitter.on( 'data', ( { data } ) => {
+			const progress = data as { status?: unknown; message?: unknown } | null;
+			if ( progress?.status !== 'inprogress' || typeof progress.message !== 'string' ) {
+				return;
+			}
+
+			const percent = /\((\d+)%\)/.exec( progress.message )?.[ 1 ];
+			progressEmitter?.( {
+				message: progress.message,
+				...( percent ? { progress: Math.min( 100, Number( percent ) ) } : {} ),
+			} );
+		} );
 		emitter.on( 'success', () => resolve() );
 		emitter.on( 'failure', ( { error } ) => reject( error ) );
 		emitter.on( 'error', ( { error } ) => reject( error ) );

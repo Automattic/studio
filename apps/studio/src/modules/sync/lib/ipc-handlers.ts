@@ -1,4 +1,4 @@
-import { app, IpcMainInvokeEvent } from 'electron';
+import { app, BrowserWindow, IpcMainInvokeEvent } from 'electron';
 import fs from 'fs';
 import fsPromises from 'fs/promises';
 import { randomUUID } from 'node:crypto';
@@ -23,7 +23,7 @@ import {
 import { shouldRetryTusStatus } from '@studio/common/lib/sync/tus-upload';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
-import { pushSite } from '@studio/common/sites/sync';
+import { pullSite, pushSite } from '@studio/common/sites/sync';
 import { SyncSite } from '@studio/common/types/sync';
 import { __, sprintf } from '@wordpress/i18n';
 import { Upload } from 'tus-js-client';
@@ -32,7 +32,7 @@ import {
 	PullStateProgressInfo,
 	PushStateProgressInfo,
 } from 'src/hooks/use-sync-states-progress-info';
-import { sendIpcEventToRenderer } from 'src/ipc-utils';
+import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
 import { download } from 'src/lib/download';
 import { getSyncBackupTempPath } from 'src/lib/get-sync-backup-temp-path';
@@ -657,33 +657,29 @@ export async function getLiveSyncLatestBackupTime(
 // the CLI instead keeps apps/ui free of wpcom-client setup and mirrors the
 // simpler flow used by `push`.
 export async function pullSiteFromLive(
-	_event: IpcMainInvokeEvent,
-	siteFolder: string,
+	event: IpcMainInvokeEvent,
+	siteId: string,
 	remoteSiteId: number,
 	optionsToSync: SyncOption[] = [ 'all' ],
 	includePathList?: string[]
 ): Promise< void > {
-	const command = [
-		'pull',
-		'--path',
-		siteFolder,
-		'--remote-site',
-		String( remoteSiteId ),
-		'--options',
-		optionsToSync.join( ',' ),
-	];
-
-	if ( includePathList?.length ) {
-		command.push( '--include-path-list', JSON.stringify( includePathList ) );
+	const site = SiteServer.get( siteId );
+	if ( ! site ) {
+		throw new Error( 'Site not found.' );
 	}
-
-	return new Promise< void >( ( resolve, reject ) => {
-		const [ emitter ] = executeCliCommand( command, { output: 'capture' } );
-
-		emitter.on( 'success', () => resolve() );
-		emitter.on( 'failure', ( { error } ) => reject( error ) );
-		emitter.on( 'error', ( { error } ) => reject( error ) );
-	} );
+	const window = BrowserWindow.fromWebContents( event.sender );
+	return pullSite(
+		executeCliCommand,
+		site.details.path,
+		remoteSiteId,
+		{ optionsToSync, includePathList },
+		( progress ) => {
+			sendIpcEventToRendererWithWindow( window, 'sync-pull-progress', {
+				siteId,
+				...progress,
+			} );
+		}
+	);
 }
 
 // Push for the agentic UI (apps/ui): the same shared `pushSite` the `studio ui`

@@ -7,6 +7,7 @@ import type { ComponentProps } from 'react';
 const mocks = vi.hoisted( () => ( {
 	navigate: vi.fn(),
 	hasSites: false,
+	isOffline: false,
 } ) );
 
 vi.mock( '@tanstack/react-router', async ( importOriginal ) => {
@@ -26,11 +27,47 @@ vi.mock( '@/data/queries/use-sites', () => ( {
 	useSites: () => ( { data: mocks.hasSites ? [ { id: 'site-1' } ] : [] } ),
 } ) );
 
+vi.mock( '@/hooks/use-offline', () => ( {
+	useOffline: () => mocks.isOffline,
+} ) );
+
 describe( 'OnboardingHomePage', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		mocks.hasSites = false;
+		mocks.isOffline = false;
 		clearPendingBackup();
+	} );
+
+	it( 'shows Create, Connect, and Import in that order', () => {
+		render( <OnboardingHomePage /> );
+
+		expect( screen.getByRole( 'heading', { name: 'Add a site' } ) ).toBeInTheDocument();
+		expect(
+			screen.getByText( 'Start fresh or bring an existing site into your Studio.' )
+		).toBeInTheDocument();
+		const create = screen.getByRole( 'link', { name: /Create a new site/ } );
+		const connect = screen.getByRole( 'link', { name: /Connect a site/ } );
+		const importBackup = screen.getByRole( 'button', { name: /Import from a backup/ } );
+
+		expect( create ).toHaveAttribute( 'href', '/onboarding/create' );
+		expect( connect ).toHaveAttribute( 'href', '/onboarding/connect' );
+		expect( importBackup ).toBeEnabled();
+		expect( create.compareDocumentPosition( connect ) ).toBe( Node.DOCUMENT_POSITION_FOLLOWING );
+		expect( connect.compareDocumentPosition( importBackup ) ).toBe(
+			Node.DOCUMENT_POSITION_FOLLOWING
+		);
+	} );
+
+	it( 'marks Connect unavailable while offline', () => {
+		mocks.isOffline = true;
+		render( <OnboardingHomePage /> );
+
+		expect( screen.getByRole( 'link', { name: /Connect a site/ } ) ).toHaveAttribute(
+			'aria-disabled',
+			'true'
+		);
+		expect( screen.getByText( 'Available online' ) ).toBeInTheDocument();
 	} );
 
 	it( 'opens the file picker from the Import card', () => {

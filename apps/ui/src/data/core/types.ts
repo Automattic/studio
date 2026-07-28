@@ -21,7 +21,12 @@ import type { SupportedTerminal } from '@studio/common/lib/user-settings/termina
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
-import type { ImportResponse, SyncOption, SyncSite } from '@studio/common/types/sync';
+import type {
+	ImportResponse,
+	PullSiteProgress,
+	SyncOption,
+	SyncSite,
+} from '@studio/common/types/sync';
 import type { SiteRestRequest, SiteRestResponse } from '@studio/common/types/wordpress-rest';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
@@ -49,7 +54,7 @@ export type {
 } from '@studio/common/ai/tool-permissions';
 export type { AiModelId } from '@studio/common/ai/models';
 export type { Snapshot } from '@studio/common/types/snapshot';
-export type { SyncOption, SyncSite } from '@studio/common/types/sync';
+export type { PullSiteProgress, SyncOption, SyncSite } from '@studio/common/types/sync';
 export type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 export type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 export type { SupportedLocale } from '@studio/common/lib/locale';
@@ -345,6 +350,7 @@ export interface Connector {
 	// it with its proposed directory. The collision search runs in the main
 	// process so callers pay a constant number of IPC round-trips.
 	findAvailableSitePath( baseName: string ): Promise< AvailableSitePath >;
+	generateNumberedSiteName( baseName: string, usedSites: SiteDetails[] ): Promise< string >;
 	selectSiteFolder( defaultPath: string ): Promise< SelectedSiteFolder | null >;
 	comparePaths( path1: string, path2: string ): Promise< boolean >;
 
@@ -418,7 +424,7 @@ export interface Connector {
 	publishPreviewSite( siteId: string, existingHostname?: string ): Promise< { url: string } >;
 
 	// Connected WordPress.com live sites for a given local site
-	getConnectedWpcomSites( localSiteId: string ): Promise< SyncSite[] >;
+	getConnectedWpcomSites( localSiteId?: string ): Promise< SyncSite[] >;
 	// All WordPress.com sites the authenticated user can sync with, regardless
 	// of which (if any) local site they're already connected to. The publish
 	// picker filters this list to sites that aren't connected anywhere yet.
@@ -449,7 +455,8 @@ export interface Connector {
 	pullSiteFromLive(
 		siteId: string,
 		remoteSiteId: number,
-		options?: LiveSyncOptions
+		options?: LiveSyncOptions | ( ( progress: PullSiteProgress ) => void ),
+		onProgress?: ( progress: PullSiteProgress ) => void
 	): Promise< void >;
 	// Lists syncable theme/plugin items from the direction's source side:
 	// local files for push, remote backup files for pull.

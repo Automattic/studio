@@ -39,6 +39,7 @@ const routeTree = rootRoute.addChildren( [
 		onboardingTourRoute,
 		onboardingAiRoute,
 		onboardingHomeRoute,
+		onboardingConnectRoute,
 		onboardingCreateRoute,
 		onboardingBlueprintRoute,
 		onboardingConnectRoute,

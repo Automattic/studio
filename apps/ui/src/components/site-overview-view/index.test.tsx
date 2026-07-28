@@ -66,7 +66,12 @@ vi.mock( '@/components/site-header-actions', () => ( {
 } ) );
 
 vi.mock( '@/components/site-dropdown', () => ( {
-	SiteDropdown: ( props: { site: SiteDetails; showSiteIcon?: boolean; showStatus?: boolean } ) => {
+	SiteDropdown: ( props: {
+		site: SiteDetails;
+		showSiteIcon?: boolean;
+		showStatus?: boolean;
+		defaultOpen?: boolean;
+	} ) => {
 		siteDropdownMock( props );
 		return <div>{ props.site.name }</div>;
 	},
@@ -330,6 +335,14 @@ describe( 'SiteOverviewView', () => {
 
 		expect( screen.getByText( 'Demo Site' ).parentElement ).toHaveClass(
 			styles.headerSidebarCollapsed
+		);
+	} );
+
+	it( 'opens site status when requested by the route', () => {
+		render( <SiteOverviewView siteId="site-1" openSiteDropdown /> );
+
+		expect( siteDropdownMock ).toHaveBeenCalledWith(
+			expect.objectContaining( { defaultOpen: true } )
 		);
 	} );
 

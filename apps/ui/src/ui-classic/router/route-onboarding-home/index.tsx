@@ -44,6 +44,7 @@ function ConnectSiteCard() {
 				<p className={ styles.cardBody }>
 					{ __( 'Edit a WordPress.com or Pressable site locally, then push or pull changes.' ) }
 				</p>
+				{ isOffline && <span className={ styles.cardHint }>{ __( 'Available online' ) }</span> }
 			</div>
 		</Link>
 	);

@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MainView } from './main-view';
 import type { SiteDetails, Snapshot, SyncSite } from '@/data/core';
+import type { SyncActivity } from '@/data/sync-activity';
 
 const { connector, snapshots, connectedSites, publishPreviewMutate } = vi.hoisted( () => ( {
 	connector: {
@@ -77,14 +78,18 @@ const site: SiteDetails = {
 };
 
 function renderMainView(
-	props: { onDisconnectClick?: () => void; siteOverrides?: Partial< SiteDetails > } = {}
+	props: {
+		onDisconnectClick?: () => void;
+		siteOverrides?: Partial< SiteDetails >;
+		activity?: SyncActivity | null;
+	} = {}
 ) {
 	const queryClient = new QueryClient();
 	return render(
 		<QueryClientProvider client={ queryClient }>
 			<MainView
 				site={ { ...site, ...props.siteOverrides } }
-				activity={ null }
+				activity={ props.activity ?? null }
 				lastSyncLog={ null }
 				onSetupClick={ vi.fn() }
 				onDisconnectClick={ props.onDisconnectClick ?? vi.fn() }
@@ -164,6 +169,20 @@ describe( 'MainView', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'Disconnect' } ) );
 
 		expect( onDisconnectClick ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	it( 'shows detailed pull progress in the open site status', () => {
+		renderMainView( {
+			activity: {
+				kind: 'pending',
+				direction: 'pull',
+				message: 'Creating remote backup… (24%)',
+				progress: 24,
+			},
+		} );
+
+		expect( screen.getByRole( 'status' ) ).toHaveTextContent( 'Pulling from live…' );
+		expect( screen.getByRole( 'status' ) ).toHaveTextContent( 'Creating remote backup… (24%)' );
 	} );
 
 	it( 'updates the existing preview site while the snapshot is fresh', () => {

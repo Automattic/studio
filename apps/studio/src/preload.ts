@@ -153,14 +153,8 @@ const api: IpcApi = {
 	fetchSyncableWpcomSites: () => ipcRendererInvoke( 'fetchSyncableWpcomSites' ),
 	fetchSyncableWpcomSitesPage: ( options ) =>
 		ipcRendererInvoke( 'fetchSyncableWpcomSitesPage', options ),
-	pullSiteFromLive: ( siteFolder, remoteSiteId, optionsToSync, includePathList ) =>
-		ipcRendererInvoke(
-			'pullSiteFromLive',
-			siteFolder,
-			remoteSiteId,
-			optionsToSync,
-			includePathList
-		),
+	pullSiteFromLive: ( siteId, remoteSiteId, optionsToSync, includePathList ) =>
+		ipcRendererInvoke( 'pullSiteFromLive', siteId, remoteSiteId, optionsToSync, includePathList ),
 	getLiveSyncItems: ( localSiteId, remoteSiteId, direction ) =>
 		ipcRendererInvoke( 'getLiveSyncItems', localSiteId, remoteSiteId, direction ),
 	getLiveSyncImportStatus: ( remoteSiteId ) =>

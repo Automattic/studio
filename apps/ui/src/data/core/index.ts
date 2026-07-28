@@ -28,6 +28,7 @@ export type {
 	LiveSyncItems,
 	LiveSyncOptions,
 	ProposedSitePath,
+	PullSiteProgress,
 	QuitSitesBehavior,
 	QuitSitesBehaviorSetting,
 	SelectedSiteFolder,

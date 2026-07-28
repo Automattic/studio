@@ -421,6 +421,10 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.generateSiteNameFromList( usedSites ) ) as string;
 		},
 
+		async generateNumberedSiteName( baseName, usedSites ): Promise< string > {
+			return ( await ipcApi.generateNumberedNameFromList( baseName, usedSites ) ) as string;
+		},
+
 		async findAvailableSitePath( baseName ): Promise< AvailableSitePath > {
 			// The main process resolves the numbered-name collision search in a
 			// single call (checking both existing site names and non-empty site
@@ -812,14 +816,40 @@ export function createIpcConnector(): Connector {
 			await markConnectedWpcomSiteSynced( siteId, remoteSiteId, 'push' );
 		},
 
-		async pullSiteFromLive( siteId, remoteSiteId, options ): Promise< void > {
-			const siteFolder = await resolveSiteFolder( siteId );
-			await ipcApi.pullSiteFromLive(
-				siteFolder,
-				remoteSiteId,
-				options?.optionsToSync,
-				options?.includePathList
-			);
+		async pullSiteFromLive( siteId, remoteSiteId, optionsOrProgress, onProgress ): Promise< void > {
+			const options = typeof optionsOrProgress === 'function' ? undefined : optionsOrProgress;
+			const progressCallback =
+				typeof optionsOrProgress === 'function' ? optionsOrProgress : onProgress;
+			const unsubscribe = progressCallback
+				? ipcListener.subscribe(
+						'sync-pull-progress',
+						(
+							_event: unknown,
+							payload: { siteId: string; message: string; progress?: number }
+						) => {
+							if ( payload.siteId === siteId ) {
+								progressCallback( {
+									message: payload.message,
+									...( payload.progress === undefined ? {} : { progress: payload.progress } ),
+								} );
+							}
+						}
+				  )
+				: undefined;
+			try {
+				if ( options ) {
+					await ipcApi.pullSiteFromLive(
+						siteId,
+						remoteSiteId,
+						options.optionsToSync,
+						options.includePathList
+					);
+				} else {
+					await ipcApi.pullSiteFromLive( siteId, remoteSiteId );
+				}
+			} finally {
+				unsubscribe?.();
+			}
 			await markConnectedWpcomSiteSynced( siteId, remoteSiteId, 'pull' );
 		},
 

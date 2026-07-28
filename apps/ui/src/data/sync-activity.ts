@@ -1,5 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { useSyncExternalStore } from 'react';
+import type { PullSiteProgress } from '@/data/core';
 
 // Tracks in-flight and recently completed live-site sync operations so the
 // Site Details header can surface a cross-page indicator. Uses a module-
@@ -18,6 +19,7 @@ export type SyncPendingDetails = {
 	phase?: SyncPhase;
 	progress?: number | null;
 	remoteSiteId?: number;
+	message?: string;
 };
 
 export type SyncLogEntry = {
@@ -140,6 +142,18 @@ export function updateSyncPending( siteId: string, details: SyncPendingUpdate ):
 
 	entries.set( siteId, { ...current, ...pendingDetails, log } );
 	emit();
+}
+
+export function reportSyncProgress(
+	siteId: string,
+	direction: Extract< SyncDirection, 'pull' >,
+	progress: PullSiteProgress
+): void {
+	updateSyncPending( siteId, {
+		progress: progress.progress,
+		message: progress.message,
+		logMessage: progress.message,
+	} );
 }
 
 export function reportSyncSuccess( siteId: string, direction: SyncDirection ): void {

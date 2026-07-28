@@ -8,8 +8,13 @@ import {
 	monitorLiveSyncImport,
 } from '@/data/queries/use-live-sync-monitor';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
-import { reportSyncError, reportSyncPending, reportSyncSuccess } from '@/data/sync-activity';
-import type { LiveSyncOptions } from '@/data/core';
+import {
+	reportSyncError,
+	reportSyncPending,
+	reportSyncProgress,
+	reportSyncSuccess,
+} from '@/data/sync-activity';
+import type { LiveSyncOptions, PullSiteProgress } from '@/data/core';
 
 // Mutation keys are exported so downstream consumers (e.g. a cross-page
 // activity indicator or future bulk-sync UI) can filter the react-query
@@ -102,6 +107,7 @@ type PullFromLiveVariables = {
 	siteId: string;
 	remoteSiteId: number;
 	options?: LiveSyncOptions;
+	onProgress?: ( progress: PullSiteProgress ) => void;
 };
 
 export function usePullSiteFromLive() {
@@ -109,8 +115,11 @@ export function usePullSiteFromLive() {
 	const queryClient = useQueryClient();
 	return useMutation( {
 		mutationKey: PULL_FROM_LIVE_MUTATION_KEY,
-		mutationFn: ( { siteId, remoteSiteId, options }: PullFromLiveVariables ) =>
-			connector.pullSiteFromLive( siteId, remoteSiteId, options ),
+		mutationFn: ( { siteId, remoteSiteId, options, onProgress }: PullFromLiveVariables ) =>
+			connector.pullSiteFromLive( siteId, remoteSiteId, options, ( progress ) => {
+				reportSyncProgress( siteId, 'pull', progress );
+				onProgress?.( progress );
+			} ),
 		onMutate: ( { siteId } ) => {
 			reportSyncPending( siteId, 'pull', {
 				logMessage: __( 'Pulling selected live-site changes into Studio.' ),
@@ -123,12 +132,13 @@ export function usePullSiteFromLive() {
 			// and the site's database + themes just changed — refresh the
 			// site list so any downstream consumers see the new state.
 			void queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
-			toast.success( __( 'Pull complete' ) );
 		},
-		onError: ( error, { siteId } ) => {
-			const message = error instanceof Error ? error.message : String( error );
+		onError: ( _error, { siteId } ) => {
+			const message = __(
+				"Studio couldn't copy the live site. Try again. If the problem continues, check Studio Logs for details."
+			);
 			reportSyncError( siteId, 'pull', message );
-			toast.error( __( 'Pull didn’t complete' ), { description: message } );
+			toast.error( __( "Pull didn't complete" ), { description: message } );
 		},
 	} );
 }

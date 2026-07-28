@@ -29,6 +29,7 @@ type Props = {
 	// The trigger casts a shadow when it floats over panel content (the chat
 	// header). Pass false where it sits in a regular header row instead.
 	floating?: boolean;
+	defaultOpen?: boolean;
 };
 
 export function SiteDropdown( {
@@ -37,9 +38,10 @@ export function SiteDropdown( {
 	showSiteIcon = false,
 	showStatus = true,
 	floating = true,
+	defaultOpen = false,
 }: Props ) {
 	const [ view, setView ] = useState< 'main' | 'picker' >( 'main' );
-	const [ menuOpen, setMenuOpen ] = useState( false );
+	const [ menuOpen, setMenuOpen ] = useState( defaultOpen );
 	const [ disconnectOpen, setDisconnectOpen ] = useState( false );
 	const connector = useConnector();
 	const queryClient = useQueryClient();

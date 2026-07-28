@@ -36,12 +36,12 @@ export function getPathFromPreviewUrl( url: string, baseUrl: string ) {
 // address bar renders one segment per realm.
 export type PreviewRealm = 'frontend' | 'admin' | 'database';
 
-// The phpMyAdmin landing the database segment opens by default (same deep
-// link the "Open in…" menu uses: straight to the WordPress database).
+// The phpMyAdmin landing the database segment opens by default: straight to
+// the WordPress database.
 export const DATABASE_HOME_PATH = '/phpmyadmin/index.php?route=/database/structure&db=wordpress';
 
-// A deliberately nonexistent front-end path, so the omnibox can offer a way to
-// preview the theme's 404 template.
+// A deliberately nonexistent front-end path, offering a way to preview the
+// theme's 404 template.
 const FRONT_END_NOT_FOUND_PATH = '/this-page-does-not-exist';
 
 /**
@@ -173,7 +173,7 @@ interface PreviewAddressBarProps {
 	// opens wide and centered like a browser address bar.
 	anchorRef: RefObject< HTMLElement | null >;
 	// The database (phpMyAdmin) segment is optional — hidden when the user
-	// turns it off in the preview's "•••" menu.
+	// turns it off.
 	showDatabaseTab: boolean;
 	onNavigate: ( path: string ) => void;
 	// Called when the user clicks an inactive segment; the host navigates to
@@ -202,7 +202,7 @@ export function PreviewAddressBar( {
 	const [ inputValue, setInputValue ] = useState( '' );
 	const [ highlightedItem, setHighlightedItem ] = useState< AddressItem | undefined >( undefined );
 	const realm = getPreviewRealm( path );
-	const { allLinks } = useCustomizeLinks( site );
+	const { customizeLinks, contentLinks } = useCustomizeLinks( site );
 	// The database segment is optional; everything else always shows.
 	const segments = useMemo(
 		() => REALM_SEGMENTS.filter( ( segment ) => segment.realm !== 'database' || showDatabaseTab ),
@@ -241,32 +241,19 @@ export function PreviewAddressBar( {
 		return () => observer.disconnect();
 	}, [ measureIndicator ] );
 
-	// The WordPress (WP Admin) destinations — the former "Open WordPress…" menu,
-	// folded into the address bar — plus the optional database link.
+	// The WordPress destinations — the former "Open WordPress…" menu, folded
+	// into the address bar. WP Admin and the database are deliberately absent:
+	// their segments sit right next to the omnibox.
 	const wordpressItems = useMemo< AddressItem[] >(
-		() => [
-			...allLinks.map( ( link ) => ( {
+		() =>
+			[ ...customizeLinks, ...contentLinks ].map( ( link ) => ( {
 				kind: 'destination' as const,
 				id: link.id,
 				icon: link.icon,
 				title: link.label,
 				path: link.url,
 			} ) ),
-			// The database destination follows the tab's visibility, so turning
-			// the tab off removes it from the omnibox list too.
-			...( showDatabaseTab
-				? [
-						{
-							kind: 'destination' as const,
-							id: 'database',
-							icon: databaseIcon,
-							title: __( 'Database' ),
-							path: DATABASE_HOME_PATH,
-						},
-				  ]
-				: [] ),
-		],
-		[ allLinks, showDatabaseTab ]
+		[ contentLinks, customizeLinks ]
 	);
 
 	const intent = parseOmniboxInput( inputValue, siteUrl );
@@ -448,37 +435,20 @@ export function PreviewAddressBar( {
 					const tooltip = `${ segment.label } ${ displayShortcut.primary(
 						REALM_SHORTCUT_KEYS[ segment.realm ]
 					) }`;
-					return isActive ? (
-						<Tooltip.Root key={ segment.realm }>
-							<Autocomplete.Trigger
-								render={
-									<Tooltip.Trigger
-										render={
-											<button type="button" className={ styles.segment } data-active="true" />
-										}
-									>
-										{ content }
-									</Tooltip.Trigger>
-								}
-							/>
-							<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
-								{ tooltip }
-							</Tooltip.Popup>
-						</Tooltip.Root>
-					) : (
+					const button = (
+						<button
+							type="button"
+							className={ styles.segment }
+							data-active={ isActive || undefined }
+							aria-label={ isActive ? undefined : segment.label }
+							aria-keyshortcuts={ ariaKeyShortcut.primary( REALM_SHORTCUT_KEYS[ segment.realm ] ) }
+							onClick={ isActive ? undefined : () => onSwitchRealm( segment.realm ) }
+						/>
+					);
+					return (
 						<Tooltip.Root key={ segment.realm }>
 							<Tooltip.Trigger
-								render={
-									<button
-										type="button"
-										className={ styles.segment }
-										aria-label={ segment.label }
-										aria-keyshortcuts={ ariaKeyShortcut.primary(
-											REALM_SHORTCUT_KEYS[ segment.realm ]
-										) }
-										onClick={ () => onSwitchRealm( segment.realm ) }
-									/>
-								}
+								render={ isActive ? <Autocomplete.Trigger render={ button } /> : button }
 							>
 								{ content }
 							</Tooltip.Trigger>

@@ -221,11 +221,11 @@ describe( 'PreviewAddressBar', () => {
 
 		await openOmnibox();
 
-		// Non-block-theme destinations: Customizer group, content group, WP
-		// Admin, and the database.
-		fireEvent.click( await screen.findByText( 'WP Admin' ) );
+		// Non-block-theme destinations: the Customizer group and the content
+		// group (WP Admin and the database live in the segments, not the list).
+		fireEvent.click( await screen.findByText( 'Customizer' ) );
 
-		expect( onNavigate ).toHaveBeenCalledWith( autoLoginPath( '/wp-admin/' ) );
+		expect( onNavigate ).toHaveBeenCalledWith( autoLoginPath( '/wp-admin/customize.php' ) );
 	} );
 
 	it( 'groups the zero state into Front end and WordPress destinations', async () => {
@@ -272,19 +272,6 @@ describe( 'PreviewAddressBar', () => {
 		fireEvent.click( await screen.findByText( 'Hello World' ) );
 
 		expect( onNavigate ).toHaveBeenCalledWith( '/hello-world/' );
-	} );
-
-	it( 'navigates destination-free paths directly from the zero state', async () => {
-		const { onNavigate } = renderAddressBar( { path: '/' } );
-
-		await openOmnibox();
-		// "Database" also appears as a (collapsed) segment title; target the
-		// destination row in the popover list.
-		fireEvent.click( await screen.findByRole( 'option', { name: /Database/ } ) );
-
-		expect( onNavigate ).toHaveBeenCalledWith(
-			'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
-		);
 	} );
 
 	it( 'navigates to a typed path on Enter without querying search', async () => {

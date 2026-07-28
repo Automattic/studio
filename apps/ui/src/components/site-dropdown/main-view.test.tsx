@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as Menu from '@/components/menu';
 import { MainView } from './main-view';
 import type { SiteDetails, Snapshot, SyncSite } from '@/data/core';
+import type { SyncActivity } from '@/data/sync-activity';
 
 const { connector, snapshots, connectedSites, publishPreviewMutate } = vi.hoisted( () => ( {
 	connector: {
@@ -82,7 +83,13 @@ const site: SiteDetails = {
 	phpVersion: '8.3',
 };
 
-function renderMainView( siteOverrides: Partial< SiteDetails > = {} ) {
+function renderMainView( {
+	siteOverrides = {},
+	activity = null,
+}: {
+	siteOverrides?: Partial< SiteDetails >;
+	activity?: SyncActivity | null;
+} = {} ) {
 	// The live row's "more" submenu needs the Menu.Root + Popup contexts the
 	// dropdown provides around MainView in the real app.
 	return render(
@@ -90,7 +97,7 @@ function renderMainView( siteOverrides: Partial< SiteDetails > = {} ) {
 			<Menu.Popup>
 				<MainView
 					site={ { ...site, ...siteOverrides } }
-					activity={ null }
+					activity={ activity }
 					onSetupClick={ vi.fn() }
 					onDisconnectClick={ vi.fn() }
 				/>
@@ -115,7 +122,7 @@ describe( 'MainView', () => {
 	} );
 
 	it( 'shows an Xdebug badge on the Studio row only when Xdebug is enabled', () => {
-		const { unmount } = renderMainView( { enableXdebug: true } );
+		const { unmount } = renderMainView( { siteOverrides: { enableXdebug: true } } );
 
 		expect( screen.getByRole( 'img', { name: 'Xdebug enabled' } ) ).toBeInTheDocument();
 
@@ -140,6 +147,20 @@ describe( 'MainView', () => {
 		} );
 
 		consoleError.mockRestore();
+	} );
+
+	it( 'shows detailed pull progress in the open site status', () => {
+		renderMainView( {
+			activity: {
+				kind: 'pending',
+				direction: 'pull',
+				message: 'Creating remote backup… (24%)',
+				progress: 24,
+			},
+		} );
+
+		expect( screen.getByRole( 'status' ) ).toHaveTextContent( 'Pulling from live…' );
+		expect( screen.getByRole( 'status' ) ).toHaveTextContent( 'Creating remote backup… (24%)' );
 	} );
 
 	it( 'updates the existing preview site while the snapshot is fresh', () => {

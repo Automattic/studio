@@ -6,7 +6,7 @@
 
 .cards {
 	display: grid;
-	grid-template-columns: repeat(2, minmax(0, 300px));
+	grid-template-columns: repeat(auto-fit, minmax(240px, 300px));
 	gap: 20px;
 	justify-content: center;
 }
@@ -46,6 +46,14 @@
 	border-color: var(--wpds-color-stroke-interactive-brand);
 }
 
+.cardDisabled,
+.cardDisabled:hover {
+	opacity: 0.55;
+	border-color: var(--wpds-color-stroke-surface-neutral);
+	box-shadow: none;
+	cursor: not-allowed;
+}
+
 .cardText {
 	display: flex;
 	flex-direction: column;
@@ -68,6 +76,11 @@
 	color: var(--wpds-color-fg-content-neutral-weak);
 	font-size: var(--wpds-typography-font-size-md);
 	line-height: 1.4;
+}
+
+.cardHint {
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
 }
 
 .cardError {

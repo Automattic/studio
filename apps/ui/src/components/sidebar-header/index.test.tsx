@@ -15,7 +15,7 @@ vi.mock( '@/data/core', () => ( {
 } ) );
 
 vi.mock( '@/hooks/use-traffic-light-space', () => ( {
-	useTrafficLightSpace: () => false,
+	useTrafficLightSpace: () => ( { start: false, end: false } ),
 } ) );
 
 const useConnectorMock = vi.mocked( useConnector, { partial: true } );
@@ -27,7 +27,7 @@ describe( 'SidebarHeader', () => {
 	} );
 
 	it( 'starts the add-site workflow from the plus button', () => {
-		render( <SidebarHeader onToggleSidebar={ vi.fn() } /> );
+		render( <SidebarHeader /> );
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 
@@ -36,17 +36,14 @@ describe( 'SidebarHeader', () => {
 		expect( screen.queryByText( 'Import from…' ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'hides the sidebar from the header toggle', () => {
-		const onToggleSidebar = vi.fn();
-		render( <SidebarHeader onToggleSidebar={ onToggleSidebar } /> );
+	it( 'has no sidebar toggle — it lives in the sidebar footer', () => {
+		render( <SidebarHeader /> );
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Hide sidebar' } ) );
-
-		expect( onToggleSidebar ).toHaveBeenCalledTimes( 1 );
+		expect( screen.queryByRole( 'button', { name: 'Hide sidebar' } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'opens the app menu when the host has no native menu bar', () => {
-		render( <SidebarHeader onToggleSidebar={ vi.fn() } /> );
+		render( <SidebarHeader /> );
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Menu' } ) );
 
@@ -56,7 +53,7 @@ describe( 'SidebarHeader', () => {
 	it( 'hides the app menu button when the host has a native menu bar', () => {
 		useConnectorMock.mockReturnValue( { showsAppMenuButton: false } );
 
-		render( <SidebarHeader onToggleSidebar={ vi.fn() } /> );
+		render( <SidebarHeader /> );
 
 		expect( screen.queryByRole( 'button', { name: 'Menu' } ) ).not.toBeInTheDocument();
 	} );

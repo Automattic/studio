@@ -35,6 +35,7 @@ import {
 } from 'cli/lib/daemon-client';
 import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
 import { recordSiteRuntimeUsage } from 'cli/lib/site-runtime-stats';
+import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import {
 	ServerConfig,
@@ -310,6 +311,16 @@ export async function startWordPressServer(
 		);
 
 		await recordSiteRuntimeUsage( site );
+
+		// Tracks: the CLI is the sole emitter of site-start, whether started standalone or by the
+		// desktop app (which passes its origin via STUDIO_TRACKS_ORIGIN). Awaited (not fire-and-forget)
+		// so a short-lived `studio start` process doesn't exit before the event is sent, but wrapped in
+		// try/catch so best-effort telemetry can never block or fail the site start.
+		try {
+			await recordTracksEvent( TRACKS_EVENTS.SITE_START, { ...getTracksOrigin() } );
+		} catch {
+			// Best-effort telemetry — never block or fail a site start.
+		}
 
 		const runningProcess = withSiteRuntime( processDesc );
 		if ( runningProcess.status === 'online' ) {

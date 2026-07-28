@@ -1,10 +1,12 @@
 import { createRoute, redirect, useNavigate } from '@tanstack/react-router';
+import { CheckboxControl } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { Button } from '@wordpress/ui';
 import { useCallback, useEffect, useRef } from 'react';
 import { useConnector } from '@/data/core';
 import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
+import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { rootRoute } from '../layout-root';
 import styles from './style.module.css';
 
@@ -14,6 +16,8 @@ function WelcomePage() {
 	const { data: authUser } = useAuthUser();
 	const login = useLogin();
 	const signup = useLogin( { signup: true } );
+	const { data: preferences } = useUserPreferences();
+	const saveUserPreferences = useSaveUserPreferences();
 
 	const continueToOnboarding = useCallback( async () => {
 		await connector.setOnboardingCompleted( true );
@@ -72,6 +76,14 @@ function WelcomePage() {
 			>
 				{ __( 'Skip for now' ) }
 			</Button>
+			<div className={ styles.footer }>
+				<CheckboxControl
+					__nextHasNoMarginBottom
+					label={ __( 'Help improve Studio by sharing anonymous usage statistics' ) }
+					checked={ preferences?.analyticsEnabled ?? true }
+					onChange={ ( analyticsEnabled ) => saveUserPreferences.mutate( { analyticsEnabled } ) }
+				/>
+			</div>
 		</div>
 	);
 }

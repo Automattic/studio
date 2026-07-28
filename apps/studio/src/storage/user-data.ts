@@ -85,7 +85,8 @@ type UserDataSafeKeys =
 	| 'wapuuScore'
 	| 'lastNightlyUpdateCheck'
 	| 'nightlyPromptResult'
-	| 'agenticUiBannerDismissed';
+	| 'agenticUiBannerDismissed'
+	| 'agenticFeaturesEnabled';
 
 type PartialUserDataWithSafeKeysToUpdate = Partial< Pick< UserData, UserDataSafeKeys > >;
 

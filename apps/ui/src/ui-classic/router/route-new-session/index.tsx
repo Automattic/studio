@@ -17,10 +17,10 @@ export const newSessionRoute = createRoute( {
 	getParentRoute: () => dashboardLayoutRoute,
 	path: '/sites/$siteId/new',
 	beforeLoad: async ( { params, context } ) => {
-		const { enabled } = await resolveAgenticFeatures( context );
-		if ( ! enabled ) {
+		const { chatEnabled } = await resolveAgenticFeatures( context );
+		if ( ! chatEnabled ) {
 			throw redirect( {
-				to: '/sites/$siteId/settings',
+				to: '/sites/$siteId/overview',
 				params: { siteId: params.siteId },
 			} );
 		}

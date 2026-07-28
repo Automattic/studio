@@ -455,6 +455,12 @@ div:has( > progress ) > div:first-child {
 	border: 1px solid var( --color-frame-theme );
 }
 
+.onboarding-analytics-checkbox .components-checkbox-control__label {
+	color: var( --color-frame-text-secondary );
+	font-size: 0.8125rem;
+	line-height: 1rem;
+}
+
 /* Dark mode: override WP component colors.
    .components-* classes only exist in content areas, not the sidebar chrome.
    Element cascade uses :is() to cover all three render contexts (content frame,

@@ -21,13 +21,26 @@
 }
 
 .userName,
+.sidebarToggle,
 .settingsButton {
 	color: var(--wpds-color-fg-content-neutral-weak);
 }
 
+.sidebarToggle {
+	margin-inline-end: calc(-1 * var(--wpds-dimension-padding-sm));
+}
+
+/* The drawer icon depicts the sidebar edge; mirror it when the sidebar sits
+   on the right. */
+.sidebarToggle:dir(rtl) svg {
+	transform: scaleX(-1);
+}
+
 .row:hover .userName,
+.row:hover .sidebarToggle,
 .row:hover .settingsButton,
 .row:focus-within .userName,
+.row:focus-within .sidebarToggle,
 .row:focus-within .settingsButton {
 	color: var(--wpds-color-fg-content-neutral);
 }

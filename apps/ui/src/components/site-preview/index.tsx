@@ -1,10 +1,11 @@
 import { __ } from '@wordpress/i18n';
 import { chevronLeft, chevronRight, external, pencil } from '@wordpress/icons';
-import { ariaKeyShortcut, displayShortcut, isKeyboardEvent } from '@wordpress/keycodes';
+import { ariaKeyShortcut, displayShortcut, isAppleOS, isKeyboardEvent } from '@wordpress/keycodes';
 import { Button, IconButton, Tooltip } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useConnector } from '@/data/core';
 import { useIsSiteStarting, useStartSite } from '@/data/queries/use-sites';
+import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { useWindowControlsOverlay } from '@/hooks/use-window-controls-overlay';
 import { getSiteUrl } from '@/lib/get-site-url';
 import { playIcon, refreshIcon } from '@/lib/icons';
@@ -153,7 +154,30 @@ function getBrowserShortcutDescriptor( key: string ) {
 	};
 }
 
-function getBrowserShortcutCommand(
+function getNavigationShortcutDescriptor( direction: 'back' | 'forward' ) {
+	const isApple = isAppleOS();
+	const arrow = direction === 'back' ? '←' : '→';
+	const arrowKey = direction === 'back' ? 'ArrowLeft' : 'ArrowRight';
+	const bracket = direction === 'back' ? '[' : ']';
+	return {
+		displayShortcut: isApple ? `⌘${ arrow }` : `Alt+${ arrow }`,
+		ariaKeyShortcut: `${ isApple ? 'Meta' : 'Alt' }+${ arrowKey } ${ ariaKeyShortcut.primary(
+			bracket
+		) }`,
+	};
+}
+
+function isTextEntryTarget( target: EventTarget | null ) {
+	return (
+		target instanceof HTMLElement &&
+		( target.isContentEditable ||
+			target instanceof HTMLInputElement ||
+			target instanceof HTMLTextAreaElement ||
+			target instanceof HTMLSelectElement )
+	);
+}
+
+export function getBrowserShortcutCommand(
 	event: globalThis.KeyboardEvent
 ): BrowserShortcutCommandType | null {
 	if ( event.defaultPrevented || event.repeat ) {
@@ -166,6 +190,19 @@ function getBrowserShortcutCommand(
 		return 'back';
 	}
 	if ( isKeyboardEvent.primary( event, ']' ) ) {
+		return 'forward';
+	}
+	// Layout-independent back/forward aliases (⌘←/⌘→ on macOS, Alt+←/→
+	// elsewhere): the bracket chords need Option/AltGr on many European
+	// layouts. Skipped while editing text to keep native caret movement.
+	if ( isTextEntryTarget( event.target ) ) {
+		return null;
+	}
+	const isNavigationChord = isAppleOS() ? isKeyboardEvent.primary : isKeyboardEvent.alt;
+	if ( isNavigationChord( event, 'ArrowLeft' ) ) {
+		return 'back';
+	}
+	if ( isNavigationChord( event, 'ArrowRight' ) ) {
 		return 'forward';
 	}
 	return null;
@@ -214,6 +251,7 @@ export function SitePreview( {
 	const siteUrl = getSiteUrl( site );
 	const canPreview = site.running;
 	const windowControls = useWindowControlsOverlay();
+	const trafficLightSpace = useTrafficLightSpace();
 	const previewUrl = `${ siteUrl }${ getSafePath( path ) }`;
 	const [ browserState, setBrowserState ] =
 		useState< BrowserNavigationState >( EMPTY_BROWSER_STATE );
@@ -256,8 +294,8 @@ export function SitePreview( {
 
 	const browserShortcuts = useMemo(
 		() => ( {
-			back: getBrowserShortcutDescriptor( '[' ),
-			forward: getBrowserShortcutDescriptor( ']' ),
+			back: getNavigationShortcutDescriptor( 'back' ),
+			forward: getNavigationShortcutDescriptor( 'forward' ),
 			reload: getBrowserShortcutDescriptor( 'r' ),
 		} ),
 		[]
@@ -268,7 +306,7 @@ export function SitePreview( {
 		setInspectorState( EMPTY_INSPECTOR_STATE );
 	}, [ site.id ] );
 
-	// Browser shortcuts (⌘R / ⌘[ / ⌘]) pressed while focus is in the host
+	// Browser shortcuts (⌘R / ⌘[ / ⌘] / ⌘←/⌘→) pressed while focus is in the host
 	// document. Shortcuts pressed inside the guest page are forwarded by the
 	// inspector script through the console bridge instead.
 	useEffect( () => {
@@ -307,6 +345,11 @@ export function SitePreview( {
 								minHeight: windowControls.height,
 								paddingInlineEnd: windowControls.controlsWidth + 12,
 						  }
+						: // In RTL the preview pane sits at the physical left, so the
+						// header's end-side controls land under the macOS traffic
+						// lights — pad past them.
+						trafficLightSpace.end
+						? { paddingInlineEnd: 96 }
 						: undefined
 				}
 			>

@@ -11,11 +11,16 @@ import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useOffline } from '@/hooks/use-offline';
 import { getLocalizedLink, REPORT_ISSUE_URL } from '@/lib/docs-links';
+import { drawerIcon } from '@/lib/icons';
 import styles from './style.module.css';
 
 const WPCOM_PROFILE_URL = 'https://wordpress.com/me';
 
-export function UserMenu() {
+type Props = {
+	onToggleSidebar: () => void;
+};
+
+export function UserMenu( { onToggleSidebar }: Props ) {
 	const connector = useConnector();
 	const { data: user } = useAuthUser();
 	const login = useLogin();
@@ -88,6 +93,15 @@ export function UserMenu() {
 						onClick={ () => void navigate( { to: '/settings' } ) }
 					/>
 				) : null }
+				<IconButton
+					variant="minimal"
+					tone="neutral"
+					size="small"
+					className={ styles.sidebarToggle }
+					icon={ drawerIcon }
+					label={ __( 'Hide sidebar' ) }
+					onClick={ onToggleSidebar }
+				/>
 			</div>
 		</div>
 	);

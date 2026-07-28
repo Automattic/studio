@@ -3,6 +3,10 @@ import { createWriteStream, existsSync, mkdtempSync, rm } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
+import {
+	readGlobalInstructionsFile,
+	writeGlobalInstructions,
+} from '@studio/common/ai/global-instructions';
 import { isAiModelId } from '@studio/common/ai/models';
 import { createAgentRunManager } from '@studio/common/ai/run-manager';
 import {
@@ -30,10 +34,13 @@ import {
 import {
 	arePathsEqual,
 	isEmptyDir,
+	isPathWithin,
 	isWordPressDirectory,
 	recursiveCopyDirectory,
 } from '@studio/common/lib/fs-utils';
 import { generateNumberedName, generateSiteName } from '@studio/common/lib/generate-site-name';
+import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
+import { importIpcEventSchema } from '@studio/common/lib/import-export-events';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { decodePassword } from '@studio/common/lib/passwords';
@@ -44,6 +51,7 @@ import {
 	updateSharedConfig,
 	updateSharedSession,
 } from '@studio/common/lib/shared-config';
+import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import { detectInstalledApps } from '@studio/common/lib/user-settings/installed-apps';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
@@ -180,10 +188,9 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 
 	const cliRunner = createCliRunner( { cliBinary, nodeBinary } );
 	const execute = cliRunner.executeCliCommand;
+	const uploads = new Map< string, { path: string; directory: string } >();
 
-	// --- Server-Sent Events: one stream carries every run's output ------------
-	// The web connector expects the same envelope on both channels: agent run
-	// events on `agent`, session-placement updates on `placement`.
+	// --- Server-Sent Events: one stream carries live UI updates ----------------
 	const sseClients = new Set< Response >();
 	function sseSend( message: { channel: string; payload: unknown } ): void {
 		if ( sseClients.size === 0 ) {
@@ -423,6 +430,27 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
+	// --- Agent instructions — the shared ~/.studio/knowledge/instructions.md --
+	api.get(
+		'/agent-instructions',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			res.json( { content: ( await readGlobalInstructionsFile() ) ?? '' } );
+		} )
+	);
+
+	api.post(
+		'/agent-instructions',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const content = req.body?.content;
+			if ( typeof content !== 'string' ) {
+				res.status( 400 ).json( { error: 'content required' } );
+				return;
+			}
+			await writeGlobalInstructions( content );
+			res.status( 204 ).end();
+		} )
+	);
+
 	// --- Sites — the local machine's real Studio sites, via the CLI -----------
 	api.get(
 		'/sites',
@@ -457,6 +485,19 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			}
 			await stopSite( execute, site.path );
 			res.sendStatus( 204 );
+		} )
+	);
+
+	api.get(
+		'/sites/:id/wp-version',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const sites = await listSites( execute );
+			const site = sites.find( ( candidate ) => candidate.id === req.params.id );
+			if ( ! site ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			res.json( { wpVersion: getWordPressVersion( site.path ) } );
 		} )
 	);
 
@@ -501,7 +542,15 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 
 	api.post( '/paths/compare', ( req: Request, res: Response ) => {
 		const { path1, path2 } = req.body as { path1?: string; path2?: string };
-		res.json( { equal: !! path1 && !! path2 && arePathsEqual( path1, path2 ) } );
+		// Confine both operands to `sitesRoot`: nothing outside it can be a site, and
+		// this keeps untrusted input from reaching statSync (in arePathsEqual).
+		const equal =
+			!! path1 &&
+			!! path2 &&
+			isPathWithin( sitesRoot, path1 ) &&
+			isPathWithin( sitesRoot, path2 ) &&
+			arePathsEqual( path1, path2 );
+		res.json( { equal } );
 	} );
 
 	api.post(
@@ -790,6 +839,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				rm( dir, { recursive: true, force: true }, () => undefined );
 				throw error;
 			}
+			uploads.set( dest, { path: dest, directory: dir } );
 			res.json( { path: dest } );
 		} )
 	);
@@ -812,14 +862,13 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
-	// Import a backup archive into an already-created site — the same CLI `import`
-	// the desktop forks. The archive path is normally an upload from `/uploads`,
-	// which is cleaned up afterwards.
+	// Import a backup into an already-created site. Uploaded files are cleaned up
+	// after each attempt, so a retry must upload the selected File again.
 	api.post(
 		'/sites/:id/import',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const archivePath = req.body?.path;
-			if ( typeof archivePath !== 'string' || ! archivePath ) {
+			const requestedPath = req.body?.path;
+			if ( typeof requestedPath !== 'string' ) {
 				res.status( 400 ).json( { error: 'Missing backup path' } );
 				return;
 			}
@@ -828,26 +877,35 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
+			const upload = uploads.get( requestedPath );
+			if ( ! upload ) {
+				res.status( 400 ).json( { error: 'Unknown backup path' } );
+				return;
+			}
+			uploads.delete( requestedPath );
 			try {
 				await new Promise< void >( ( resolve, reject ) => {
-					const [ emitter ] = execute( [ 'import', '--path', site.path, archivePath ], {
-						output: 'capture',
+					const [ emitter ] = execute(
+						[ 'import', '--path', site.path, upload.path, '--start-server' ],
+						{ output: 'capture' }
+					);
+					emitter.on( 'data', ( { data } ) => {
+						const parsed = importIpcEventSchema.safeParse( data );
+						if ( parsed.success ) {
+							sseSend( {
+								channel: 'import',
+								payload: { siteId: site.id, event: parsed.data.event },
+							} );
+						}
 					} );
 					emitter.on( 'success', () => resolve() );
 					emitter.on( 'failure', ( { error } ) => reject( error ) );
 					emitter.on( 'error', ( { error } ) => reject( error ) );
 				} );
 			} finally {
-				// Drop the uploaded temp copy — but only a temp dir we created: a
-				// direct child of the OS temp dir. Resolve first so `..` in the
-				// supplied path can't escape the temp root and delete elsewhere.
-				const uploadDir = path.dirname( path.resolve( archivePath ) );
-				if ( path.dirname( uploadDir ) === path.resolve( os.tmpdir() ) ) {
-					rm( uploadDir, { recursive: true, force: true }, () => undefined );
-				}
+				rm( upload.directory, { recursive: true, force: true }, () => undefined );
 			}
-			const imported = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
-			res.json( toSiteDetails( imported ?? site ) );
+			res.status( 204 ).end();
 		} )
 	);
 
@@ -916,6 +974,18 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			}
 			await openInTerminal( terminal, site.path );
 			res.status( 204 ).end();
+		} )
+	);
+
+	// Studio Code AI quota for the signed-in account, proxied through the
+	// server so the browser UI can show usage-cap messaging (e.g. the reset
+	// date) without holding the wpcom token. `null` when signed out or the
+	// quota can't be fetched — callers fall back to static copy.
+	api.get(
+		'/quota',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			const token = await readAuthToken();
+			res.json( token?.accessToken ? await fetchStudioAssistantQuota( token.accessToken ) : null );
 		} )
 	);
 

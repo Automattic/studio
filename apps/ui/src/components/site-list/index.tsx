@@ -23,6 +23,7 @@ import * as Menu from '@/components/menu';
 import { ReorderableList } from '@/components/reorderable-list';
 import { SidebarButton } from '@/components/sidebar-button';
 import { deriveSiteStatus } from '@/components/site-dropdown/utils';
+import { XdebugIcon } from '@/components/xdebug-icon';
 import { useConnector } from '@/data/core';
 import { useSiteAgentActivity, type SiteAgentActivity } from '@/data/queries/use-agent-run';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
@@ -245,7 +246,10 @@ function SiteStatusButton( {
 				? __( 'Stopping' )
 				: __( 'Starting' )
 			: __( 'Stopped' );
-	const tooltipLabel = sprintf( __( 'Site status: %s' ), statusName );
+	const xdebug = Boolean( site.enableXdebug );
+	const tooltipLabel = xdebug
+		? sprintf( __( 'Site status: %s. Xdebug enabled' ), statusName )
+		: sprintf( __( 'Site status: %s' ), statusName );
 	const actionLabel = site.running ? __( 'Stop site' ) : __( 'Start site' );
 	const label = busy ? tooltipLabel : sprintf( __( '%1$s. %2$s' ), tooltipLabel, actionLabel );
 	const handleClick = ( event: MouseEvent< HTMLButtonElement > ) => {
@@ -271,20 +275,27 @@ function SiteStatusButton( {
 						aria-busy={ busy || undefined }
 						aria-disabled={ busy || undefined }
 						data-state={ status }
+						data-xdebug={ xdebug || undefined }
 						onClick={ handleClick }
 					>
-						<svg
-							className={ styles.siteStatusGlyph }
-							viewBox={ status === 'stopped' ? '0 0 10 10' : '0 0 8 8' }
-							aria-hidden="true"
-							focusable="false"
-						>
-							{ status === 'stopped' ? (
-								<path className={ styles.siteStatusPlayShape } d="M2.5 1 L9 5 L2.5 9 Z" />
-							) : (
-								<rect className={ styles.siteStatusShape } x="0" y="0" width="8" height="8" />
-							) }
-						</svg>
+						{ xdebug ? (
+							<XdebugIcon
+								className={ clsx( styles.siteStatusGlyph, styles.siteStatusXdebugGlyph ) }
+							/>
+						) : (
+							<svg
+								className={ styles.siteStatusGlyph }
+								viewBox={ status === 'stopped' ? '0 0 10 10' : '0 0 8 8' }
+								aria-hidden="true"
+								focusable="false"
+							>
+								{ status === 'stopped' ? (
+									<path className={ styles.siteStatusPlayShape } d="M2.5 1 L9 5 L2.5 9 Z" />
+								) : (
+									<rect className={ styles.siteStatusShape } x="0" y="0" width="8" height="8" />
+								) }
+							</svg>
+						) }
 						{ ! busy ? (
 							site.running ? (
 								<span className={ styles.siteStatusActionGlyph } aria-hidden="true">
@@ -482,13 +493,13 @@ function SiteSection( {
 	isChatActive,
 	isContextActive,
 	hasUnreadUpdate,
-	agenticEnabled,
+	chatEnabled,
 }: {
 	row: SiteRow;
 	isChatActive: boolean;
 	isContextActive: boolean;
 	hasUnreadUpdate: boolean;
-	agenticEnabled: boolean;
+	chatEnabled: boolean;
 } ) {
 	const { site, latestSession } = row;
 	const navigate = useNavigate();
@@ -517,9 +528,9 @@ function SiteSection( {
 		? 'new-message'
 		: 'idle';
 	const handleOpenSite = () => {
-		// Without agentic features (e.g. signed out) there's no chat to open;
-		// the site overview is the site's home instead.
-		if ( ! agenticEnabled ) {
+		// Without chat (signed out, offline, or switched off in Settings →
+		// AI) there's no session to open; the overview is the site's home.
+		if ( ! chatEnabled ) {
 			void navigate( {
 				to: '/sites/$siteId/overview',
 				params: { siteId: site.id },
@@ -600,7 +611,7 @@ function findSessionSiteKey(
 export function SiteList() {
 	const { data: sites, isLoading: sitesLoading } = useSites();
 	const { data: sessions, isLoading: sessionsLoading } = useSessions();
-	const { enabled: agenticEnabled } = useAgenticFeatures();
+	const { chatEnabled } = useAgenticFeatures();
 	const params = useParams( { strict: false } ) as { sessionId?: string; siteId?: string };
 	const pathname = useRouterState( { select: ( state ) => state.location.pathname } );
 	const activeSessionId = params.sessionId;
@@ -698,7 +709,7 @@ export function SiteList() {
 			isChatActive={ row.site.id === activeChatSiteKey }
 			isContextActive={ row.site.id === activeContextSiteKey }
 			hasUnreadUpdate={ unreadSiteIds.has( row.site.id ) }
-			agenticEnabled={ agenticEnabled }
+			chatEnabled={ chatEnabled }
 		/>
 	);
 

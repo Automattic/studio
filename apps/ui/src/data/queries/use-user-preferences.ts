@@ -29,6 +29,13 @@ export function useSaveUserPreferences() {
 			queryClient.setQueryData< UserPreferences >( USER_PREFERENCES_QUERY_KEY, ( prev ) =>
 				prev ? { ...prev, ...partial } : prev
 			);
+			// Except the CLI toggle: install/uninstall can be declined or fail
+			// behind a native main-process dialog while the IPC call still
+			// resolves. Refetch so the cache reflects the real installed state;
+			// returning the promise keeps the mutation pending until it lands.
+			if ( 'studioCliInstalled' in partial ) {
+				return queryClient.invalidateQueries( { queryKey: USER_PREFERENCES_QUERY_KEY } );
+			}
 		},
 	} );
 }

@@ -7,13 +7,13 @@ import { dashboardLayoutRoute } from '../layout-dashboard';
 function SessionDetail() {
 	const { sessionId } = sessionDetailRoute.useParams();
 	const navigate = useNavigate();
-	const { isReady, enabled } = useAgenticFeatures();
+	const { isReady, chatEnabled } = useAgenticFeatures();
 
 	useEffect( () => {
-		if ( isReady && ! enabled ) {
+		if ( isReady && ! chatEnabled ) {
 			void navigate( { to: '/' } );
 		}
-	}, [ isReady, enabled, navigate ] );
+	}, [ isReady, chatEnabled, navigate ] );
 
 	return <SessionView sessionId={ sessionId } />;
 }
@@ -23,8 +23,8 @@ export const sessionDetailRoute = createRoute( {
 	path: '/sessions/$sessionId',
 	component: SessionDetail,
 	beforeLoad: async ( { context } ) => {
-		const { enabled } = await resolveAgenticFeatures( context );
-		if ( ! enabled ) {
+		const { chatEnabled } = await resolveAgenticFeatures( context );
+		if ( ! chatEnabled ) {
 			throw redirect( { to: '/' } );
 		}
 	},

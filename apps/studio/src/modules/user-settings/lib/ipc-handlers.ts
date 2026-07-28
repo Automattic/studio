@@ -1,5 +1,9 @@
 import { BrowserWindow, IpcMainInvokeEvent, nativeTheme } from 'electron';
-import { updateSharedConfig } from '@studio/common/lib/shared-config';
+import {
+	readGlobalInstructionsFile,
+	writeGlobalInstructions,
+} from '@studio/common/ai/global-instructions';
+import { isAnalyticsOptedOut, updateSharedConfig } from '@studio/common/lib/shared-config';
 import { DEFAULT_TERMINAL } from 'src/constants';
 import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { isInstalled } from 'src/lib/is-installed';
@@ -109,6 +113,19 @@ export async function getColorScheme(): Promise< 'system' | 'light' | 'dark' > {
 	return colorScheme;
 }
 
+// Analytics opt-out. Stored in shared.json so both Studio and the Studio CLI honor it. Default is
+// opted IN (analytics ON). See `docs/design-docs/analytics-tracks.md`.
+export async function getAnalyticsEnabled(): Promise< boolean > {
+	return ! ( await isAnalyticsOptedOut() );
+}
+
+export async function saveAnalyticsEnabled(
+	_event: IpcMainInvokeEvent,
+	enabled: boolean
+): Promise< void > {
+	await updateSharedConfig( { analyticsOptOut: ! enabled } );
+}
+
 export async function saveQuitSitesBehavior(
 	_event: IpcMainInvokeEvent,
 	quitSitesBehavior: QuitSitesBehavior | undefined
@@ -119,6 +136,18 @@ export async function saveQuitSitesBehavior(
 export async function getQuitSitesBehavior(): Promise< QuitSitesBehavior | undefined > {
 	const userData = await loadUserData();
 	return userData.quitSitesBehavior;
+}
+
+export async function saveAgenticFeaturesEnabled(
+	_event: IpcMainInvokeEvent,
+	enabled: boolean
+): Promise< void > {
+	await updateAppdata( { agenticFeaturesEnabled: enabled } );
+}
+
+export async function getAgenticFeaturesEnabled(): Promise< boolean > {
+	const userData = await loadUserData();
+	return userData.agenticFeaturesEnabled ?? true;
 }
 
 export async function saveWapuuScore( _event: IpcMainInvokeEvent, score: number ): Promise< void > {
@@ -140,6 +169,17 @@ export async function saveWapuuScore( _event: IpcMainInvokeEvent, score: number 
 export async function getWapuuScore(): Promise< number | undefined > {
 	const userData = await loadUserData();
 	return userData.wapuuScore;
+}
+
+export async function getGlobalAgentInstructions(): Promise< string > {
+	return ( await readGlobalInstructionsFile() ) ?? '';
+}
+
+export async function saveGlobalAgentInstructions(
+	_event: IpcMainInvokeEvent,
+	content: string
+): Promise< void > {
+	await writeGlobalInstructions( content );
 }
 
 export function showUserSettings( event: IpcMainInvokeEvent, tabName?: UserSettingsTabName ) {

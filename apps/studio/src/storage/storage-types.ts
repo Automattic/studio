@@ -54,6 +54,9 @@ export interface UserData {
 	lastNightlyUpdateCheck?: number;
 	nightlyPromptResult?: NightlyPromptResult;
 	agenticUiBannerDismissed?: boolean;
+	// Whether chat/agent features are offered inside the new UI. Distinct from
+	// `betaFeatures.enableAgenticUi`, which picks the renderer (new vs classic).
+	agenticFeaturesEnabled?: boolean;
 }
 
 export interface PromptWindowsSpeedUpResult {

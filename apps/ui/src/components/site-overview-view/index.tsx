@@ -26,6 +26,7 @@ import { useIsSiteStarting, useIsSiteStopping, useSites } from '@/data/queries/u
 import { useOpenSiteUrl } from '@/hooks/use-open-site-url';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useSiteManagementActions } from '@/hooks/use-site-management-actions';
+import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import styles from './style.module.css';
 import type { SiteSettingsTabId } from '@/components/site-settings-view';
 import type { SiteDetails } from '@/data/core';
@@ -49,11 +50,14 @@ interface OverviewButtonProps {
 
 function OverviewHeader( { site }: { site: SiteDetails } ) {
 	const sidebarCollapsed = useSidebarCollapsed();
+	const reserveTrafficLightSpace = useTrafficLightSpace().start;
 
 	return (
 		<div
 			className={
-				sidebarCollapsed ? `${ styles.header } ${ styles.headerSidebarCollapsed }` : styles.header
+				sidebarCollapsed && reserveTrafficLightSpace
+					? `${ styles.header } ${ styles.headerSidebarCollapsed }`
+					: styles.header
 			}
 		>
 			<SiteDropdown site={ site } showSiteIcon showStatus={ sidebarCollapsed } floating={ false } />

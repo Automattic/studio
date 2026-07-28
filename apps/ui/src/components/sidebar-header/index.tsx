@@ -4,16 +4,11 @@ import { menu, plus } from '@wordpress/icons';
 import { IconButton } from '@wordpress/ui';
 import { useConnector } from '@/data/core';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
-import { drawerIcon } from '@/lib/icons';
 import styles from './style.module.css';
 import type { MouseEvent } from 'react';
 
-type Props = {
-	onToggleSidebar: () => void;
-};
-
-export function SidebarHeader( { onToggleSidebar }: Props ) {
-	const reserveTrafficLightSpace = useTrafficLightSpace();
+export function SidebarHeader() {
+	const reserveTrafficLightSpace = useTrafficLightSpace().start;
 	const navigate = useNavigate();
 	const connector = useConnector();
 	const handleOpenAppMenu = ( event: MouseEvent< HTMLButtonElement > ) => {
@@ -41,14 +36,6 @@ export function SidebarHeader( { onToggleSidebar }: Props ) {
 					icon={ plus }
 					label={ __( 'Add site' ) }
 					onClick={ () => void navigate( { to: '/onboarding' } ) }
-				/>
-				<IconButton
-					variant="minimal"
-					tone="neutral"
-					size="small"
-					icon={ drawerIcon }
-					label={ __( 'Hide sidebar' ) }
-					onClick={ onToggleSidebar }
 				/>
 			</div>
 		</div>

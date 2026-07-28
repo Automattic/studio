@@ -19,7 +19,7 @@ export interface AiModel {
 // and function tools.)
 export const AI_MODELS = [
 	{ id: 'claude-sonnet-5', label: 'Sonnet 5', family: 'anthropic' },
-	{ id: 'claude-opus-4-8', label: 'Opus 4.8', family: 'anthropic' },
+	{ id: 'claude-opus-5', label: 'Opus 5', family: 'anthropic' },
 	{ id: 'gpt-5.6-sol', label: 'GPT 5.6 Sol', family: 'openai' },
 ] as const satisfies readonly AiModel[];
 

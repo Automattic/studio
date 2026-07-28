@@ -1,13 +1,19 @@
 import fs from 'fs';
 import Anthropic from '@anthropic-ai/sdk';
 import { type AgentTool } from '@earendil-works/pi-agent-core';
-import { type Model, type SimpleStreamOptions } from '@earendil-works/pi-ai';
+import {
+	type Credential,
+	type CredentialInfo,
+	type CredentialStore,
+	type Model,
+	type SimpleStreamOptions,
+} from '@earendil-works/pi-ai';
 import {
 	stream as streamAnthropic,
 	type AnthropicOptions,
 } from '@earendil-works/pi-ai/api/anthropic-messages';
+import { streamSimple as streamOpenAiResponses } from '@earendil-works/pi-ai/api/openai-responses';
 import {
-	AuthStorage,
 	createAgentSession,
 	createBashTool,
 	createEditTool,
@@ -17,13 +23,14 @@ import {
 	createReadTool,
 	createWriteTool,
 	DefaultResourceLoader,
-	ModelRegistry,
+	ModelRuntime,
 	SettingsManager,
 	type AgentSession,
 	type AgentSessionEvent,
 	type SessionManager,
 	type ToolDefinition,
 } from '@earendil-works/pi-coding-agent';
+import { readGlobalInstructions } from '@studio/common/ai/global-instructions';
 import {
 	DEFAULT_MODEL,
 	getAiModelFamily,
@@ -54,15 +61,17 @@ import {
 	type StudioToolPayloadGuardState,
 	updateStudioToolPayloadGuardState,
 } from './tool-safety';
+import { withUsageCapErrorRewrite } from './usage-cap';
 import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { AskUserHandler, SiteInfo } from 'cli/ai/types';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AgentToolAny = AgentTool< any >;
 type StudioModel = Model< 'openai-responses' > | Model< 'anthropic-messages' >;
-type ProviderConfigInput = Parameters< ModelRegistry[ 'registerProvider' ] >[ 1 ];
+type ProviderConfigInput = Parameters< ModelRuntime[ 'registerProvider' ] >[ 1 ];
 
 const STUDIO_WPCOM_ANTHROPIC_PROVIDER = 'studio-wpcom-anthropic';
+const STUDIO_WPCOM_OPENAI_PROVIDER = 'studio-wpcom-openai';
 const STUDIO_AGENT_DIR = STUDIO_SITES_ROOT;
 const STUDIO_WPCOM_BODY_FILES_ROOT = getConfigDirectory();
 const STUDIO_WPCOM_BODY_FILES_DIR = getAiPayloadsPath();
@@ -293,6 +302,10 @@ async function createStudioAgentSession(
 	const isRemoteSite = Boolean( config.activeSite?.remote && config.activeSite?.wpcomSiteId );
 	const remoteSession = config.env.STUDIO_REMOTE_SESSION === '1';
 	const chatArtifactsEnabled = typeof process.send === 'function';
+	const [ userInstructions, runtime ] = await Promise.all( [
+		readGlobalInstructions(),
+		isRemoteSite ? undefined : resolveActiveSiteRuntime( config.activeSite ),
+	] );
 
 	const systemPrompt = buildSystemPrompt(
 		isRemoteSite
@@ -303,17 +316,19 @@ async function createStudioAgentSession(
 						id: config.activeSite!.wpcomSiteId!,
 					},
 					remoteSession,
+					userInstructions,
 			  }
 			: {
 					chatArtifactsEnabled,
 					remoteSession,
-					runtime: await resolveActiveSiteRuntime( config.activeSite ),
+					runtime,
+					userInstructions,
 			  }
 	);
 
 	const tools = buildAgentTools( config, chatArtifactsEnabled, remoteSession );
 	const toolDefinitions = tools.map( ( tool ) => toToolDefinition( tool, payloadGuardState ) );
-	const { authStorage, modelRegistry } = createModelRegistry( model, family, creds );
+	const modelRuntime = await createModelRuntime( model, family, creds );
 	const settingsManager = createSettingsManager( config.env );
 	const resourceLoader = new DefaultResourceLoader( {
 		cwd: STUDIO_SITES_ROOT,
@@ -332,8 +347,7 @@ async function createStudioAgentSession(
 	const result = await createAgentSession( {
 		cwd: STUDIO_SITES_ROOT,
 		agentDir: STUDIO_AGENT_DIR,
-		authStorage,
-		modelRegistry,
+		modelRuntime,
 		model,
 		thinkingLevel: 'medium',
 		sessionManager: config.session,
@@ -372,10 +386,12 @@ function buildModel(
 		// the declared window minus its (post-compaction, sometimes stale)
 		// context estimate, and a too-small window can clamp all the way down
 		// to 1, which the API rejects with a 400.
+		// The openai family always rides the wpcom proxy (Studio has no
+		// direct-OpenAI provider), so it always uses the custom provider.
 		return {
 			...common,
 			api: 'openai-responses',
-			provider: 'openai',
+			provider: STUDIO_WPCOM_OPENAI_PROVIDER,
 			reasoning: true,
 			contextWindow: 272_000,
 			maxTokens: 32_000,
@@ -394,24 +410,68 @@ function buildModel(
 	};
 }
 
-function createModelRegistry(
+// In-memory credential store so the runtime never reads or writes an auth.json
+// on disk. Studio resolves credentials from the environment on every turn and
+// injects them via runtime API keys or registered provider configs, so nothing
+// needs to be persisted.
+class InMemoryCredentialStore implements CredentialStore {
+	private readonly credentials = new Map< string, Credential >();
+
+	async read( providerId: string ): Promise< Credential | undefined > {
+		return this.credentials.get( providerId );
+	}
+
+	async list(): Promise< readonly CredentialInfo[] > {
+		return [ ...this.credentials.entries() ].map( ( [ providerId, credential ] ) => ( {
+			providerId,
+			type: credential.type,
+		} ) );
+	}
+
+	async modify(
+		providerId: string,
+		fn: ( current: Credential | undefined ) => Promise< Credential | undefined >
+	): Promise< Credential | undefined > {
+		const next = await fn( this.credentials.get( providerId ) );
+		if ( next ) {
+			this.credentials.set( providerId, next );
+		}
+		return next;
+	}
+
+	async delete( providerId: string ): Promise< void > {
+		this.credentials.delete( providerId );
+	}
+}
+
+async function createModelRuntime(
 	model: StudioModel,
 	family: AiModelFamily,
 	creds: ResolvedCredentials
-): { authStorage: AuthStorage; modelRegistry: ModelRegistry } {
-	const authStorage = AuthStorage.inMemory();
-	const modelRegistry = ModelRegistry.inMemory( authStorage );
+): Promise< ModelRuntime > {
+	const modelRuntime = await ModelRuntime.create( {
+		credentials: new InMemoryCredentialStore(),
+		modelsPath: null,
+	} );
 
 	if ( family === 'anthropic' && creds.useBearerAuth ) {
-		modelRegistry.registerProvider(
+		modelRuntime.registerProvider(
 			STUDIO_WPCOM_ANTHROPIC_PROVIDER,
 			createWpcomAnthropicProviderConfig( model as Model< 'anthropic-messages' >, creds )
 		);
-		return { authStorage, modelRegistry };
+		return modelRuntime;
 	}
 
-	authStorage.setRuntimeApiKey( family, creds.apiKey );
-	return { authStorage, modelRegistry };
+	if ( family === 'openai' ) {
+		modelRuntime.registerProvider(
+			STUDIO_WPCOM_OPENAI_PROVIDER,
+			createWpcomOpenAiProviderConfig( model as Model< 'openai-responses' >, creds )
+		);
+		return modelRuntime;
+	}
+
+	await modelRuntime.setRuntimeApiKey( family, creds.apiKey );
+	return modelRuntime;
 }
 
 // pi (>= 0.78) parses `registerProvider` config values (apiKey, headers) as
@@ -444,13 +504,11 @@ function createWpcomAnthropicProviderConfig(
 				defaultHeaders: options?.headers,
 			} );
 			const clientForPi = client as unknown as AnthropicOptions[ 'client' ];
-			return streamAnthropic(
-				m as Model< 'anthropic-messages' >,
-				stripStaleImagesFromContext( ctx ),
-				{
+			return withUsageCapErrorRewrite(
+				streamAnthropic( m as Model< 'anthropic-messages' >, stripStaleImagesFromContext( ctx ), {
 					...( options as AnthropicOptions | undefined ),
 					client: clientForPi,
-				}
+				} )
 			);
 		},
 		models: [
@@ -458,6 +516,39 @@ function createWpcomAnthropicProviderConfig(
 				id: model.id,
 				name: model.name,
 				api: 'anthropic-messages',
+				baseUrl: model.baseUrl,
+				reasoning: model.reasoning,
+				input: model.input,
+				cost: model.cost,
+				contextWindow: model.contextWindow,
+				maxTokens: model.maxTokens,
+				headers: creds.extraHeaders,
+				compat: model.compat,
+			},
+		],
+	};
+}
+
+// The wpcom OpenAI path only needs pi's stock Responses streaming; the custom
+// provider exists to wrap the stream with the usage-cap 429 rewrite.
+function createWpcomOpenAiProviderConfig(
+	model: Model< 'openai-responses' >,
+	creds: ResolvedCredentials
+): ProviderConfigInput {
+	return {
+		baseUrl: creds.baseURL,
+		apiKey: escapePiConfigValue( creds.apiKey ),
+		api: 'openai-responses',
+		headers: creds.extraHeaders,
+		streamSimple: ( m, ctx, options?: SimpleStreamOptions ) =>
+			withUsageCapErrorRewrite(
+				streamOpenAiResponses( m as Model< 'openai-responses' >, ctx, options )
+			),
+		models: [
+			{
+				id: model.id,
+				name: model.name,
+				api: 'openai-responses',
 				baseUrl: model.baseUrl,
 				reasoning: model.reasoning,
 				input: model.input,

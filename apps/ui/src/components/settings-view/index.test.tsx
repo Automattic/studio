@@ -5,6 +5,7 @@ import { useConnector } from '@/data/core';
 import { persister } from '@/data/core/query-client';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
+import { SettingsCloseContext } from '@/hooks/use-settings-close';
 import { SettingsView, isSettingsTab } from './index';
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
@@ -30,6 +31,9 @@ vi.mock( '@wordpress/ui', () => ( {
 		void size;
 		return <button { ...props }>{ loading ? loadingAnnouncement : children }</button>;
 	},
+	IconButton: ( { label, onClick }: { label: string; onClick?: () => void } ) => (
+		<button type="button" aria-label={ label } onClick={ onClick } />
+	),
 	SelectControl: ( {
 		items = [],
 		label,
@@ -57,6 +61,12 @@ vi.mock( '@wordpress/ui', () => ( {
 			</select>
 		</label>
 	),
+	Tooltip: {
+		Root: ( { children }: { children?: ReactNode } ) => <>{ children }</>,
+		Trigger: ( { render }: { render?: ReactNode } ) => <>{ render }</>,
+		Popup: () => null,
+		Positioner: () => null,
+	},
 } ) );
 
 vi.mock( '@/components/tabs', () => ( {
@@ -74,8 +84,16 @@ vi.mock( '@/data/core', () => ( {
 	useConnector: vi.fn(),
 } ) );
 
+vi.mock( './ai-panel', () => ( {
+	AiPanel: () => <div data-testid="ai-panel" />,
+} ) );
+
 vi.mock( './skills-panel', () => ( {
 	SkillsPanel: () => null,
+} ) );
+
+vi.mock( './studio-cli-section', () => ( {
+	StudioCliSection: () => null,
 } ) );
 
 vi.mock( '@/data/queries/use-auth-user', () => ( {
@@ -105,12 +123,18 @@ vi.mock( '@/data/queries/use-user-preferences', () => ( {
 	useUserPreferences: vi.fn(),
 } ) );
 
-vi.mock( '@/hooks/use-sidebar-collapsed', () => ( {
-	useSidebarCollapsed: () => false,
+vi.mock( '@/data/queries/use-wapuu-score', () => ( {
+	useWapuuScore: () => ( { data: null } ),
+} ) );
+
+// The mocked Tabs render every panel unconditionally; the usage panel has its
+// own test file.
+vi.mock( './usage-panel', () => ( {
+	UsagePanel: () => null,
 } ) );
 
 vi.mock( '@/hooks/use-traffic-light-space', () => ( {
-	useTrafficLightSpace: () => false,
+	useTrafficLightSpace: () => ( { start: false, end: false } ),
 } ) );
 
 const useConnectorMock = vi.mocked( useConnector );
@@ -122,7 +146,6 @@ const removeClientMock = vi.mocked( persister.removeClient );
 describe( 'SettingsView', () => {
 	const mutate = vi.fn();
 	const reload = vi.fn();
-	const disableAgenticUi = vi.fn( () => Promise.resolve() );
 	const selectDefaultSiteDirectory = vi.fn( () => Promise.resolve< string | null >( null ) );
 
 	beforeEach( () => {
@@ -134,7 +157,10 @@ describe( 'SettingsView', () => {
 			configurable: true,
 		} );
 
-		useConnectorMock.mockReturnValue( { disableAgenticUi, selectDefaultSiteDirectory } as never );
+		useConnectorMock.mockReturnValue( {
+			selectDefaultSiteDirectory,
+			capabilities: { agentInstructions: false, switchToClassicUi: true },
+		} as never );
 		useInstalledAppsMock.mockReturnValue( {
 			data: { vscode: true, terminal: true, iterm: true },
 		} as never );
@@ -151,6 +177,8 @@ describe( 'SettingsView', () => {
 				quitSitesBehavior: undefined,
 				locale: 'en',
 				defaultSiteDirectory: '/Users/example/Studio',
+				studioCliInstalled: false,
+				studioCliExternallyManaged: false,
 			},
 			isLoading: false,
 		} as never );
@@ -200,13 +228,41 @@ describe( 'SettingsView', () => {
 		expect( mutate ).toHaveBeenCalledWith( { quitSitesBehavior: 'stop' }, expect.any( Object ) );
 	} );
 
-	it( 'switches back to the classic UI through the connector', () => {
+	it( 'renders the AI tab with its panel', () => {
+		render( <SettingsView activeTab="ai" onTabChange={ vi.fn() } /> );
+
+		expect( screen.getByRole( 'button', { name: 'AI' } ) ).toBeInTheDocument();
+		expect( screen.getByTestId( 'ai-panel' ) ).toBeInTheDocument();
+	} );
+
+	it( 'offers the AI tab on every host, since chat can be toggled anywhere', () => {
+		useConnectorMock.mockReturnValue( {
+			selectDefaultSiteDirectory,
+			capabilities: { agentInstructions: false, switchToClassicUi: false },
+		} as never );
+
+		render( <SettingsView activeTab="ai" onTabChange={ vi.fn() } /> );
+
+		expect( screen.getByRole( 'button', { name: 'AI' } ) ).toBeInTheDocument();
+		expect( screen.getByTestId( 'ai-panel' ) ).toBeInTheDocument();
+	} );
+
+	it( 'offers Switch to classic in the Settings tab when the host ships the classic UI', () => {
 		render( <SettingsView activeTab="preferences" onTabChange={ vi.fn() } /> );
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Switch to classic' } ) );
+		expect( screen.getByRole( 'heading', { name: 'Studio experience' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Switch to classic' } ) ).toBeInTheDocument();
+	} );
 
-		expect( disableAgenticUi ).toHaveBeenCalled();
-		expect( mutate ).not.toHaveBeenCalled();
+	it( 'hides Switch to classic when there is no classic UI to switch to', () => {
+		useConnectorMock.mockReturnValue( {
+			selectDefaultSiteDirectory,
+			capabilities: { agentInstructions: false, switchToClassicUi: false },
+		} as never );
+
+		render( <SettingsView activeTab="preferences" onTabChange={ vi.fn() } /> );
+
+		expect( screen.queryByRole( 'button', { name: 'Switch to classic' } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'recognizes the keyboard tab id', () => {
@@ -266,5 +322,21 @@ describe( 'SettingsView', () => {
 		expect(
 			screen.getByText( 'An error occurred while saving settings. Please try again.' )
 		).toBeInTheDocument();
+	} );
+
+	it( 'shows a close button only inside the settings overlay', () => {
+		const onClose = vi.fn();
+		const { rerender } = render( <SettingsView activeTab="preferences" onTabChange={ vi.fn() } /> );
+
+		expect( screen.queryByRole( 'button', { name: 'Close settings' } ) ).not.toBeInTheDocument();
+
+		rerender(
+			<SettingsCloseContext.Provider value={ onClose }>
+				<SettingsView activeTab="preferences" onTabChange={ vi.fn() } />
+			</SettingsCloseContext.Provider>
+		);
+		fireEvent.click( screen.getByRole( 'button', { name: 'Close settings' } ) );
+
+		expect( onClose ).toHaveBeenCalled();
 	} );
 } );

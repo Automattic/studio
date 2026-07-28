@@ -1,6 +1,24 @@
 Unreleased
 ==========
 
+1.17.0
+=====
+* Added support for importing WordPress export (WXR/.xml) files #4046
+* Agentic UI: Redesigned application settings as an auto-saving fullscreen overlay with new tabs — Account, AI, MCP, Skills, Usage, Keyboard shortcuts, Studio CLI — plus a default site directory preference #4297, #4219, #4270, #4295, #4264, #4271, #4286, #4277, #4302, #4275, #4278
+* Agentic UI: Added a site overview view, site creation from imports, suggested starter prompts, persistent update notifications, and an Xdebug indicator for Xdebug-enabled sites #4258, #4249, #4225, #4204, #4285
+* Agentic UI: Improved continuity between sessions — returning to the last visited site, remembering the preview path per site — and defined the signed-out and offline experiences #4130, #4281, #4183, #4232
+* Agentic UI: Separated the agentic features toggle from the classic UI switcher, and removed the theme toggle from the sidebar user menu #4312, #4263
+* Agentic UI: Fixed expired previews, chat input resizing, preview button sizing, the collapsed sidebar overlapping the chat history icon, and made the WordPress version field a dropdown in site settings #4298, #4301, #4303, #4280, #4284
+* Agentic UI: Brought over the Wapuu World easter egg #4299
+* Studio Code: Added a global instructions config for the agent #4255
+* Studio Code: Surfaced monthly AI usage limit errors across all surfaces #4310
+* Studio Code: Made the agent aware of theme asset bundling #4262
+* Deleted AI chat sessions when their site is deleted, continuing cleanup even if one session fails #4132, #4292
+* CLI: Added aliases for the help, version and path commands, and made `studio ui` work in release builds #4276, #4257
+* Hardened security: fixed path injection in path comparison, ReDoS in the mu-plugins loader, and HTML sanitization in AI tool result previews; restricted local imports to registered uploads and scoped CLI preview listings to the authenticated user #4267, #4254, #4260, #4308, #4252
+* Updated multiple dependencies, including Electron, Sentry, tar and shell-quote, resolving security alerts for esbuild and brace-expansion #4319, #4241, #4242, #4266, #4268, #4294
+* Misc and maintenance improvements #4272, #4293, #4279, #4289, #4300, #4234, #4282, #4229
+
 1.16.0
 =====
 * Introduced Agentic UI, a new beta interface for the app, available behind a feature flag #4163, #4200, #4191, #4134, #4092, #4133, #4203, #4166, #4148, #4156, #4155, #4157, #4145, #4174, #4159, #4172, #4207

@@ -1,0 +1,78 @@
+/* Cells own their spacing (no gap); the container's negative margin cancels
+   the first cell's share. Mirrors the toast stack (see
+   app-toasts/style.module.css). */
+.stack {
+	display: flex;
+	flex-direction: column;
+	margin-top: calc(-1 * var(--wpds-dimension-gap-sm));
+}
+
+/* Collapsible row, same treatment as the toasts: @starting-style animates
+   0fr→1fr on mount so an arriving card pushes its neighbors instead of
+   making them jump. */
+.cell {
+	display: grid;
+	grid-template-rows: 1fr;
+	margin-top: var(--wpds-dimension-gap-sm);
+	transition:
+		grid-template-rows 180ms ease,
+		margin-top 180ms ease;
+}
+
+@starting-style {
+	.cell {
+		grid-template-rows: 0fr;
+		margin-top: 0;
+	}
+}
+
+/* The grid item must be shrinkable for 0fr to collapse it; `clip` with a
+   margin keeps ring/elevation shadows visible in steady state. */
+.cell > * {
+	min-height: 0;
+	overflow: clip;
+	overflow-clip-margin: 12px;
+}
+
+/* Layered on top of the toasts' `notice` class (applied together in the
+   component); a touch more block padding since cards carry a title +
+   description + action. */
+.card {
+	padding-block: var(--wpds-dimension-padding-sm);
+	/* Same entrance the ephemeral toasts use (toast-enter in app-toasts) so
+	   cards and toasts read as one system. */
+	animation: card-enter 160ms ease-out;
+}
+
+@keyframes card-enter {
+	from {
+		opacity: 0;
+		transform: translateY(6px);
+	}
+
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.card,
+	.cell {
+		animation: none;
+		transition: none;
+	}
+}
+
+/* Sits inside the floating sidebar toggle's button wrapper, pinned to the
+   icon button's top-right corner. */
+.dot {
+	position: absolute;
+	top: -1px;
+	right: -1px;
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background-color: var(--wpds-color-fg-interactive-brand);
+	pointer-events: none;
+}

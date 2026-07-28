@@ -2,41 +2,85 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { SuggestedPrompts } from '.';
 
-function renderPrompts( hasExistingDraft: () => boolean ) {
-	const onPick = vi.fn();
-	render(
-		<SuggestedPrompts
-			siteName="Test Site"
-			onPick={ onPick }
-			hasExistingDraft={ hasExistingDraft }
-		/>
-	);
-	return { onPick };
+function renderPrompts( initialDraft = { text: '', hasAttachments: false } ) {
+	// Mirrors the composer: onPick replaces the draft with the picked prompt.
+	const draft = { ...initialDraft };
+	const onPick = vi.fn( ( prompt: string ) => {
+		draft.text = prompt;
+		draft.hasAttachments = false;
+	} );
+	render( <SuggestedPrompts siteName="Test Site" onPick={ onPick } getDraft={ () => draft } /> );
+	return { onPick, draft };
+}
+
+function pickSuggestion( index: number ) {
+	fireEvent.click( screen.getAllByRole( 'listitem' )[ index ].querySelector( 'button' )! );
 }
 
 describe( 'SuggestedPrompts', () => {
 	it( 'picks straight through when the composer is empty', () => {
-		const { onPick } = renderPrompts( () => false );
-		fireEvent.click( screen.getAllByRole( 'button' )[ 0 ] );
+		const { onPick } = renderPrompts();
+		pickSuggestion( 0 );
 		expect( onPick ).toHaveBeenCalledTimes( 1 );
 		expect( onPick.mock.calls[ 0 ][ 0 ] ).toBeTruthy();
 		expect( screen.queryByText( 'Replace your draft?' ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'asks before replacing an existing draft', () => {
-		const { onPick } = renderPrompts( () => true );
-		fireEvent.click( screen.getAllByRole( 'button' )[ 0 ] );
+	it( 'replaces an untouched suggestion without asking', () => {
+		const { onPick } = renderPrompts();
+		pickSuggestion( 0 );
+		pickSuggestion( 1 );
+		expect( onPick ).toHaveBeenCalledTimes( 2 );
+		expect( screen.queryByText( 'Replace your draft?' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'asks before replacing a user-written draft', () => {
+		const { onPick } = renderPrompts( { text: 'my own words', hasAttachments: false } );
+		pickSuggestion( 0 );
 		expect( onPick ).not.toHaveBeenCalled();
 		expect( screen.getByText( 'Replace your draft?' ) ).toBeInTheDocument();
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Use suggestion' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Replace draft' } ) );
 		expect( onPick ).toHaveBeenCalledTimes( 1 );
 		expect( screen.queryByText( 'Replace your draft?' ) ).not.toBeInTheDocument();
 	} );
 
+	it( 'asks again once the user edits the inserted suggestion', () => {
+		const { onPick, draft } = renderPrompts();
+		pickSuggestion( 0 );
+		draft.text += ' plus my edits';
+		pickSuggestion( 1 );
+		expect( onPick ).toHaveBeenCalledTimes( 1 );
+		expect( screen.getByText( 'Replace your draft?' ) ).toBeInTheDocument();
+	} );
+
+	it( 'asks when attachments were added after inserting a suggestion', () => {
+		const { onPick, draft } = renderPrompts();
+		pickSuggestion( 0 );
+		draft.hasAttachments = true;
+		pickSuggestion( 1 );
+		expect( onPick ).toHaveBeenCalledTimes( 1 );
+		expect( screen.getByText( 'Replace your draft?' ) ).toBeInTheDocument();
+	} );
+
+	it( 'resets the baseline after a confirmed replacement', () => {
+		const { onPick, draft } = renderPrompts();
+		pickSuggestion( 0 );
+		draft.text = 'edited by hand';
+		pickSuggestion( 1 );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Replace draft' } ) );
+		expect( onPick ).toHaveBeenCalledTimes( 2 );
+
+		// The confirmed suggestion is the new baseline: picking another one
+		// goes straight through again.
+		pickSuggestion( 2 );
+		expect( onPick ).toHaveBeenCalledTimes( 3 );
+		expect( screen.queryByText( 'Replace your draft?' ) ).not.toBeInTheDocument();
+	} );
+
 	it( 'keeps the draft on cancel', () => {
-		const { onPick } = renderPrompts( () => true );
-		fireEvent.click( screen.getAllByRole( 'button' )[ 0 ] );
+		const { onPick } = renderPrompts( { text: 'my own words', hasAttachments: false } );
+		pickSuggestion( 0 );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Cancel' } ) );
 		expect( onPick ).not.toHaveBeenCalled();
 		expect( screen.queryByText( 'Replace your draft?' ) ).not.toBeInTheDocument();

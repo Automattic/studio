@@ -856,13 +856,6 @@ export function MainView( {
 							starting={ isStarting }
 							stopping={ isStopping }
 							disabled={ isSyncing }
-							busyLabel={
-								isLocalTransitioning
-									? isStopping
-										? __( 'Stopping Studio site' )
-										: __( 'Starting Studio site' )
-									: undefined
-							}
 							onStart={ handleStartLocalClick }
 							onStop={ handleStopLocalClick }
 						/>
@@ -1648,12 +1641,29 @@ function SyncActivityDetails( {
 	);
 }
 
+function getLocalServerStatusName( {
+	running,
+	starting,
+	stopping,
+}: {
+	running: boolean;
+	starting: boolean;
+	stopping: boolean;
+} ) {
+	if ( stopping ) {
+		return __( 'Stopping' );
+	}
+	if ( starting ) {
+		return __( 'Starting' );
+	}
+	return running ? __( 'Running' ) : __( 'Stopped' );
+}
+
 function LocalServerControl( {
 	running,
 	starting,
 	stopping,
 	disabled,
-	busyLabel,
 	onStart,
 	onStop,
 }: {
@@ -1661,37 +1671,65 @@ function LocalServerControl( {
 	starting: boolean;
 	stopping: boolean;
 	disabled: boolean;
-	busyLabel?: string;
 	onStart: () => void;
 	onStop: () => void;
 } ) {
 	const pending = starting || stopping;
 	const targetRunning = starting ? true : stopping ? false : running;
+	// aria-disabled rather than disabled: a natively disabled button suppresses
+	// the pointer events the tooltip listens for, hiding the status exactly
+	// while the site is transitioning.
+	const inert = disabled || pending;
+	const statusLabel = sprintf(
+		__( 'Site status: %s' ),
+		getLocalServerStatusName( { running, starting, stopping } )
+	);
+	const actionLabel = running ? __( 'Stop site' ) : __( 'Start site' );
 
 	return (
-		<button
-			type="button"
-			className={ clsx(
-				styles.localServerControl,
-				targetRunning && styles.localServerControl_running,
-				pending && styles.localServerControl_pending
-			) }
-			aria-label={ busyLabel ?? __( 'Studio site status' ) }
-			role="switch"
-			aria-checked={ targetRunning }
-			aria-busy={ pending || undefined }
-			disabled={ disabled || pending }
-			onClick={ targetRunning ? onStop : onStart }
-		>
-			<span className={ styles.localServerThumb } aria-hidden="true">
-				<span
-					className={ clsx(
-						styles.localServerGlyph,
-						targetRunning ? styles.pauseIcon : styles.playIcon
-					) }
-				/>
-			</span>
-		</button>
+		<Tooltip.Root>
+			<Tooltip.Trigger
+				render={
+					<button
+						type="button"
+						className={ clsx(
+							styles.localServerControl,
+							targetRunning && styles.localServerControl_running,
+							pending && styles.localServerControl_pending
+						) }
+						aria-label={
+							inert ? statusLabel : sprintf( __( '%1$s. %2$s' ), statusLabel, actionLabel )
+						}
+						role="switch"
+						aria-checked={ targetRunning }
+						aria-busy={ pending || undefined }
+						aria-disabled={ inert || undefined }
+						onClick={ () => {
+							if ( inert ) {
+								return;
+							}
+							if ( targetRunning ) {
+								onStop();
+							} else {
+								onStart();
+							}
+						} }
+					>
+						<span className={ styles.localServerThumb } aria-hidden="true">
+							<span
+								className={ clsx(
+									styles.localServerGlyph,
+									targetRunning ? styles.pauseIcon : styles.playIcon
+								) }
+							/>
+						</span>
+					</button>
+				}
+			/>
+			<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+				{ statusLabel }
+			</Tooltip.Popup>
+		</Tooltip.Root>
 	);
 }
 

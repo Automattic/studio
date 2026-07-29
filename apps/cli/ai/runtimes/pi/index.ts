@@ -46,6 +46,7 @@ import {
 	type SiteRuntime,
 } from '@studio/common/lib/site-runtime';
 import { getAiPayloadsPath, getConfigDirectory } from '@studio/common/lib/well-known-paths';
+import { type TSchema } from 'typebox';
 import { createResponseLengthExtension } from 'cli/ai/extensions/response-length';
 import {
 	createToolPermissionsExtension,
@@ -709,7 +710,10 @@ function buildAgentTools(
 	const skillToolDef = createSkillTool();
 	const skillTool: AgentToolAny[] = skillToolDef ? [ skillToolDef ] : [];
 
-	const renameTool = ( tool: AgentToolAny, name: string ): AgentToolAny => ( {
+	const renameTool = < S extends TSchema >(
+		tool: AgentTool< S >,
+		name: string
+	): AgentTool< S > => ( {
 		...tool,
 		name,
 		label: name,

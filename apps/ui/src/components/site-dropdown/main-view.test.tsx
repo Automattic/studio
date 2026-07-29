@@ -5,7 +5,15 @@ import { MainView } from './main-view';
 import type { SiteDetails, Snapshot, SyncSite } from '@/data/core';
 import type { SyncActivity } from '@/data/sync-activity';
 
-const { connector, snapshots, connectedSites, publishPreviewMutate } = vi.hoisted( () => ( {
+const {
+	connector,
+	snapshots,
+	connectedSites,
+	publishPreviewMutate,
+	transitions,
+	startSiteMutate,
+	stopSiteMutate,
+} = vi.hoisted( () => ( {
 	connector: {
 		copyText: vi.fn(),
 		openExternalUrl: vi.fn(),
@@ -15,6 +23,9 @@ const { connector, snapshots, connectedSites, publishPreviewMutate } = vi.hoiste
 	snapshots: [] as Snapshot[],
 	connectedSites: [] as SyncSite[],
 	publishPreviewMutate: vi.fn(),
+	transitions: { starting: false, stopping: false },
+	startSiteMutate: vi.fn(),
+	stopSiteMutate: vi.fn(),
 } ) );
 
 vi.mock( '@tanstack/react-query', async ( importOriginal ) => {
@@ -51,10 +62,10 @@ vi.mock( '@/data/queries/use-preview-site', () => ( {
 } ) );
 
 vi.mock( '@/data/queries/use-sites', () => ( {
-	useIsSiteStarting: () => false,
-	useIsSiteStopping: () => false,
-	useStartSite: () => ( { mutate: vi.fn() } ),
-	useStopSite: () => ( { mutate: vi.fn() } ),
+	useIsSiteStarting: () => transitions.starting,
+	useIsSiteStopping: () => transitions.stopping,
+	useStartSite: () => ( { mutate: startSiteMutate } ),
+	useStopSite: () => ( { mutate: stopSiteMutate } ),
 } ) );
 
 vi.mock( '@/data/queries/use-snapshots', () => ( {
@@ -108,6 +119,10 @@ describe( 'MainView', () => {
 		connector.getLiveSyncLatestBackupTime.mockReset();
 		connector.getLiveSyncLatestBackupTime.mockResolvedValue( null );
 		publishPreviewMutate.mockReset();
+		startSiteMutate.mockReset();
+		stopSiteMutate.mockReset();
+		transitions.starting = false;
+		transitions.stopping = false;
 		snapshots.splice( 0, snapshots.length, {
 			url: 'preview.example.com',
 			atomicSiteId: 123,
@@ -126,6 +141,45 @@ describe( 'MainView', () => {
 		renderMainView();
 
 		expect( screen.queryByRole( 'img', { name: 'Xdebug enabled' } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'labels the site status toggle with the status and the action it performs', () => {
+		const { unmount } = renderMainView();
+
+		const running = screen.getByRole( 'switch', { name: 'Site status: Running. Stop site' } );
+		expect( running ).toBeChecked();
+		fireEvent.click( running );
+		expect( stopSiteMutate ).toHaveBeenCalledWith( site.id );
+
+		unmount();
+		renderMainView( { siteOverrides: { running: false } } );
+
+		const stopped = screen.getByRole( 'switch', { name: 'Site status: Stopped. Start site' } );
+		expect( stopped ).not.toBeChecked();
+		fireEvent.click( stopped );
+		expect( startSiteMutate ).toHaveBeenCalledWith( site.id );
+	} );
+
+	it( 'reports the pending status on the site status toggle without acting on clicks', () => {
+		transitions.starting = true;
+
+		const { unmount } = renderMainView( { siteOverrides: { running: false } } );
+
+		const starting = screen.getByRole( 'switch', { name: 'Site status: Starting' } );
+		expect( starting ).toHaveAttribute( 'aria-disabled', 'true' );
+		expect( starting ).toBeChecked();
+		fireEvent.click( starting );
+		expect( startSiteMutate ).not.toHaveBeenCalled();
+
+		unmount();
+		transitions.starting = false;
+		transitions.stopping = true;
+		renderMainView();
+
+		const stopping = screen.getByRole( 'switch', { name: 'Site status: Stopping' } );
+		expect( stopping ).not.toBeChecked();
+		fireEvent.click( stopping );
+		expect( stopSiteMutate ).not.toHaveBeenCalled();
 	} );
 
 	it( 'handles preview URL copy failures', async () => {

@@ -1,9 +1,9 @@
 import {
 	clipboard,
 	Menu,
+	type ContextMenuParams,
 	type MenuItemConstructorOptions,
 	type WebContents,
-	ContextMenuParams,
 } from 'electron';
 import { __, sprintf } from '@wordpress/i18n';
 
@@ -196,6 +196,12 @@ export function registerPreviewContextMenu(
 				openLinkExternally,
 				copyToClipboard: ( text ) => clipboard.writeText( text ),
 				copyImage: () => contents.copyImageAt( params.x, params.y ),
+				// Known cosmetic quirk: macOS anchors the dictionary panel to a
+				// selection rect the guest reports in its own coordinate space,
+				// and nothing translates it by the <webview>'s offset in the
+				// window — so the panel and its floating text land together in
+				// the wrong place. The definition itself is correct, and the
+				// placement isn't ours to fix (the API takes no position).
 				lookUpSelection: () => contents.showDefinitionForSelection(),
 				inspectElement: () => contents.inspectElement( params.x, params.y ),
 			},

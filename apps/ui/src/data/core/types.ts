@@ -405,6 +405,7 @@ export interface Connector {
 	// can leave the item out rather than offer one that does nothing.
 	setPreviewAnnotationReady?( ready: boolean ): void;
 	onPreviewAnnotateElement?( listener: () => void ): () => void;
+
 	openSiteUrl(
 		siteId: string,
 		relativeUrl?: string,

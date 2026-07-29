@@ -32,12 +32,10 @@ export interface IpcEvents {
 	'on-export': [ ExportIpcEvent[ 'event' ], string ];
 	'on-import': [ ImportEventTuple, string ];
 	'on-site-create-progress': [ { siteId: string; message: string } ];
-	// The user picked "Annotate Element" or "Add to Chat" in the site preview's
-	// context menu. Only the guest page knows which element that was, so the
-	// renderer hands the request straight to the inspector rather than the
-	// event carrying a target.
+	// The user picked "Annotate Element" in the site preview's context menu.
+	// Only the guest page knows which element that was, so the renderer hands
+	// the request straight to the inspector rather than carrying a target.
 	'preview-annotate-element': [ void ];
-	'preview-add-element-to-chat': [ void ];
 	'site-context-menu-action': [ { action: string; siteId: string } ];
 	'site-event': [ SiteEvent ];
 	'snapshot-event': [ SnapshotEvent ];

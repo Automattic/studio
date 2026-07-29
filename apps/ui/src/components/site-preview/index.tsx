@@ -15,11 +15,11 @@ import {
 	INSPECTOR_PAGE_SCRIPT,
 } from './inspector-script';
 import styles from './style.module.css';
-import type { Annotation, PreviewElementReference } from './types';
+import type { Annotation } from './types';
 import type { SiteDetails } from '@/data/core';
 import type { ReactElement } from 'react';
 
-export type { Annotation, PreviewElementReference } from './types';
+export type { Annotation } from './types';
 
 interface SitePreviewProps {
 	site: SiteDetails;
@@ -32,8 +32,6 @@ interface SitePreviewProps {
 	// Called when the user clicks "Submit" in the annotation controls. Receives
 	// the full annotation payload assembled inside the webview's guest page.
 	onAnnotationsDone?: ( annotations: Annotation[] ) => void;
-	// Called when the user picks "Add to Chat" from the preview's context menu.
-	onAddElementToChat?: ( element: PreviewElementReference ) => void;
 	// Called when the user navigates within the preview (link clicks,
 	// back/forward) so the parent can keep its `path` in sync without
 	// forcing a reload.
@@ -44,9 +42,8 @@ interface SitePreviewProps {
 }
 
 interface InspectorEvent {
-	type: 'browser-command' | 'done' | 'state' | 'add-to-chat';
+	type: 'browser-command' | 'done' | 'state';
 	annotations?: Annotation[];
-	target?: PreviewElementReference;
 	isPicking?: boolean;
 	annotationCount?: number;
 	command?: BrowserShortcutCommandType;
@@ -60,7 +57,7 @@ interface InspectorState {
 
 interface InspectorCommand {
 	id: number;
-	type: 'toggle-picking' | 'submit' | 'annotate-context-target' | 'add-context-target-to-chat';
+	type: 'toggle-picking' | 'submit' | 'annotate-context-target';
 }
 
 interface BrowserNavigationState {
@@ -245,7 +242,6 @@ export function SitePreview( {
 	path,
 	reloadNonce,
 	onAnnotationsDone,
-	onAddElementToChat,
 	onPathChange,
 	collapsed = false,
 }: SitePreviewProps ) {
@@ -307,12 +303,6 @@ export function SitePreview( {
 	useEffect( () => {
 		return connector.onPreviewAnnotateElement?.( () =>
 			sendInspectorCommand( 'annotate-context-target' )
-		);
-	}, [ connector, sendInspectorCommand ] );
-
-	useEffect( () => {
-		return connector.onPreviewAddElementToChat?.( () =>
-			sendInspectorCommand( 'add-context-target-to-chat' )
 		);
 	}, [ connector, sendInspectorCommand ] );
 
@@ -469,7 +459,6 @@ export function SitePreview( {
 							url={ previewUrl }
 							reloadNonce={ reloadNonce }
 							onAnnotationsDone={ onAnnotationsDone }
-							onAddElementToChat={ onAddElementToChat }
 							onInspectorState={ handleInspectorState }
 							inspectorCommand={ inspectorCommand }
 							browserCommand={ browserCommand }
@@ -556,7 +545,6 @@ interface WebviewSurfaceProps {
 	url: string;
 	reloadNonce: number;
 	onAnnotationsDone?: ( annotations: Annotation[] ) => void;
-	onAddElementToChat?: ( element: PreviewElementReference ) => void;
 	onInspectorState?: ( state: InspectorState ) => void;
 	inspectorCommand?: InspectorCommand | null;
 	browserCommand?: BrowserCommand | null;
@@ -577,7 +565,6 @@ function WebviewSurface( {
 	url,
 	reloadNonce,
 	onAnnotationsDone,
-	onAddElementToChat,
 	onInspectorState,
 	inspectorCommand,
 	browserCommand,
@@ -588,7 +575,6 @@ function WebviewSurface( {
 	const ref = useRef< HTMLElement | null >( null );
 	const [ ready, setReady ] = useState( false );
 	const onAnnotationsDoneRef = useRef( onAnnotationsDone );
-	const onAddElementToChatRef = useRef( onAddElementToChat );
 	const onInspectorStateRef = useRef( onInspectorState );
 	const onBrowserStateChangeRef = useRef( onBrowserStateChange );
 	const onBrowserCommandRef = useRef( onBrowserCommand );
@@ -602,9 +588,6 @@ function WebviewSurface( {
 	useEffect( () => {
 		onAnnotationsDoneRef.current = onAnnotationsDone;
 	}, [ onAnnotationsDone ] );
-	useEffect( () => {
-		onAddElementToChatRef.current = onAddElementToChat;
-	}, [ onAddElementToChat ] );
 	useEffect( () => {
 		onInspectorStateRef.current = onInspectorState;
 	}, [ onInspectorState ] );
@@ -749,12 +732,6 @@ function WebviewSurface( {
 					isPicking: Boolean( parsed.isPicking ),
 					annotationCount: typeof parsed.annotationCount === 'number' ? parsed.annotationCount : 0,
 				} );
-				return;
-			}
-			if ( parsed.type === 'add-to-chat' ) {
-				if ( parsed.target ) {
-					onAddElementToChatRef.current?.( parsed.target );
-				}
 				return;
 			}
 			if ( parsed.type !== 'done' || ! parsed.annotations ) return;

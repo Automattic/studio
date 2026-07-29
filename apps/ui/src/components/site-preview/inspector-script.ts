@@ -18,7 +18,7 @@
  * drive the inspector by dispatching `INSPECTOR_COMMAND_EVENT` custom events
  * on the guest `window` via `webview.executeJavaScript()`:
  *   host -> guest: `{ "type": "toggle-picking" | "submit" | "report-state"
- *                     | "annotate-context-target" | "add-context-target-to-chat" }`
+ *                     | "annotate-context-target" }`
  *
  * Layout strategy: markers and the picking highlight use `position: absolute`
  * anchored at *document* coordinates (viewport rect + scroll offset). They
@@ -357,16 +357,9 @@ export const INSPECTOR_PAGE_SCRIPT =
 		}
 		if ( command.type === 'annotate-context-target' ) {
 			/* The page can navigate or re-render between the right-click and
-			 * the menu choice, so only act on a target still in the document. */
+			 * the menu choice, so only annotate a target still in the document. */
 			if ( contextTarget && contextTarget.isConnected ) {
 				openPopupForElement( contextTarget );
-			}
-			contextTarget = null;
-			return;
-		}
-		if ( command.type === 'add-context-target-to-chat' ) {
-			if ( contextTarget && contextTarget.isConnected ) {
-				send( { type: 'add-to-chat', target: describeElement( contextTarget ) } );
 			}
 			contextTarget = null;
 			return;
@@ -522,18 +515,6 @@ export const INSPECTOR_PAGE_SCRIPT =
 		};
 		persistAnnotations();
 		render();
-	}
-
-	/* Page-local description of an element, shared by the annotation popup and
-	 * the "Add to Chat" hand-off so both refer to a target the same way. */
-	function describeElement( el ) {
-		return {
-			selector: buildSelector( el ),
-			tag: el.tagName.toLowerCase(),
-			nearbyText: nearbyText( el ),
-			url: location.href,
-			pathname: location.pathname,
-		};
 	}
 
 	function openPopupForElement( el ) {

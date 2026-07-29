@@ -399,13 +399,12 @@ export interface Connector {
 	// `navigator.clipboard` is unavailable (e.g. Electron permission denial).
 	copyText( text: string ): Promise< void >;
 
-	// Site preview element actions, driven from the host's native context menu.
-	// Absent in the browser builds, which have no such menu to hang them off.
+	// Site preview annotation, driven from the host's native context menu.
+	// Absent in the browser builds, which have no such menu to hang it off.
 	// The host needs to know whether the inspector is currently attached so it
-	// can leave the items out rather than offer ones that do nothing.
+	// can leave the item out rather than offer one that does nothing.
 	setPreviewInspectorReady?( ready: boolean ): void;
 	onPreviewAnnotateElement?( listener: () => void ): () => void;
-	onPreviewAddElementToChat?( listener: () => void ): () => void;
 
 	openSiteUrl(
 		siteId: string,

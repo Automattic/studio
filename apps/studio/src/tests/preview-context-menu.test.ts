@@ -48,7 +48,6 @@ function makeEnvironment(
 function makeActions(): PreviewContextMenuActions {
 	return {
 		annotateElement: vi.fn(),
-		addElementToChat: vi.fn(),
 		openExternally: vi.fn(),
 		copyToClipboard: vi.fn(),
 		copyImage: vi.fn(),
@@ -62,7 +61,7 @@ function labelsOf( template: ReturnType< typeof buildPreviewContextMenuTemplate 
 }
 
 describe( 'buildPreviewContextMenuTemplate', () => {
-	it( 'offers only the element actions and Inspect on plain page text', () => {
+	it( 'offers only Annotate and Inspect on plain page text', () => {
 		const template = buildPreviewContextMenuTemplate(
 			makeParams(),
 			makeState(),
@@ -72,13 +71,12 @@ describe( 'buildPreviewContextMenuTemplate', () => {
 
 		expect( labelsOf( template ) ).toEqual( [
 			'Annotate Element',
-			'Add to Chat',
 			'separator',
 			'Inspect Element',
 		] );
 	} );
 
-	it( 'leaves the element actions out while the inspector is not attached', () => {
+	it( 'leaves Annotate out while the inspector is not attached', () => {
 		const template = buildPreviewContextMenuTemplate(
 			makeParams(),
 			makeState( { inspectorReady: false } ),
@@ -89,7 +87,7 @@ describe( 'buildPreviewContextMenuTemplate', () => {
 		expect( labelsOf( template ) ).toEqual( [ 'Inspect Element' ] );
 	} );
 
-	it( 'hands the element actions straight to the guest page', () => {
+	it( 'hands the annotation request straight to the guest page', () => {
 		const actions = makeActions();
 		const template = buildPreviewContextMenuTemplate(
 			makeParams(),
@@ -99,10 +97,8 @@ describe( 'buildPreviewContextMenuTemplate', () => {
 		);
 
 		( template[ 0 ].click as () => void )();
-		( template[ 1 ].click as () => void )();
 
 		expect( actions.annotateElement ).toHaveBeenCalledOnce();
-		expect( actions.addElementToChat ).toHaveBeenCalledOnce();
 	} );
 
 	it( 'offers link actions that leave the preview', () => {
@@ -256,7 +252,6 @@ describe( 'buildPreviewContextMenuTemplate', () => {
 		expect( template.at( -1 )?.type ).not.toBe( 'separator' );
 		expect( labelsOf( template ) ).toEqual( [
 			'Annotate Element',
-			'Add to Chat',
 			'separator',
 			'Open Link in Browser',
 			'Copy Link Address',

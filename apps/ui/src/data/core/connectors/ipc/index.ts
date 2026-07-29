@@ -822,10 +822,6 @@ export function createIpcConnector(): Connector {
 			return ipcListener.subscribe( 'preview-annotate-element', () => listener() );
 		},
 
-		onPreviewAddElementToChat( listener: () => void ): () => void {
-			return ipcListener.subscribe( 'preview-add-element-to-chat', () => listener() );
-		},
-
 		async confirmDeleteAllPreviewSites(): Promise< boolean > {
 			const CANCEL_BUTTON_INDEX = 0;
 			const DELETE_BUTTON_INDEX = 1;

@@ -32,14 +32,13 @@ export function isPreviewInspectorReady(): boolean {
 export interface PreviewContextMenuState {
 	// False while the annotation inspector isn't injected into the guest page
 	// (during a load, or on a page it couldn't attach to). Only it knows which
-	// element was clicked, so the element actions are left out rather than
-	// offered and doing nothing.
+	// element was clicked, so Annotate is left out rather than offered and
+	// doing nothing.
 	inspectorReady: boolean;
 }
 
 export interface PreviewContextMenuActions {
 	annotateElement: () => void;
-	addElementToChat: () => void;
 	openExternally: ( url: string ) => void;
 	copyToClipboard: ( text: string ) => void;
 	copyImage: () => void;
@@ -75,9 +74,9 @@ function toLookUpLabel( selection: string ): string {
 /**
  * Context menu for the previewed site.
  *
- * Studio's own element actions come first — they're why you'd right-click here
- * — followed by whatever the pointer is actually on. Every item is conditional
- * on doing something, so nothing is offered greyed out or inert.
+ * Annotating comes first — it's why you'd right-click here — followed by
+ * whatever the pointer is actually on. Every item is conditional on doing
+ * something, so nothing is offered greyed out or inert.
  */
 export function buildPreviewContextMenuTemplate(
 	params: PreviewContextMenuParams,
@@ -94,10 +93,7 @@ export function buildPreviewContextMenuTemplate(
 	const sections: MenuItemConstructorOptions[][] = [];
 
 	if ( state.inspectorReady ) {
-		sections.push( [
-			{ label: __( 'Annotate Element' ), click: actions.annotateElement },
-			{ label: __( 'Add to Chat' ), click: actions.addElementToChat },
-		] );
+		sections.push( [ { label: __( 'Annotate Element' ), click: actions.annotateElement } ] );
 	}
 
 	if ( linkUrl ) {
@@ -156,11 +152,9 @@ export function registerPreviewContextMenu(
 	{
 		openExternally,
 		annotateElement,
-		addElementToChat,
 	}: {
 		openExternally: ( url: string ) => void;
 		annotateElement: () => void;
-		addElementToChat: () => void;
 	}
 ): void {
 	contents.on( 'context-menu', ( _event, params ) => {
@@ -169,7 +163,6 @@ export function registerPreviewContextMenu(
 			{ inspectorReady: isPreviewInspectorReady() },
 			{
 				annotateElement,
-				addElementToChat,
 				openExternally,
 				copyToClipboard: ( text ) => clipboard.writeText( text ),
 				copyImage: () => contents.copyImageAt( params.x, params.y ),

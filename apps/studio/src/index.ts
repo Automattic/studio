@@ -217,7 +217,6 @@ async function appBoot() {
 				// The guest page remembers which element was right-clicked, so
 				// the renderer only needs the go-ahead.
 				annotateElement: () => void sendIpcEventToRenderer( 'preview-annotate-element' ),
-				addElementToChat: () => void sendIpcEventToRenderer( 'preview-add-element-to-chat' ),
 			} );
 		}
 

@@ -7,6 +7,17 @@ export const MESSAGE_TEXT_ATTRIBUTE = 'data-message-text';
 
 const EDITABLE_SELECTOR = 'input, textarea, [contenteditable]:not([contenteditable="false"])';
 
+// Only a selection the pointer is actually inside counts. A highlight left
+// behind elsewhere in the app must not put Copy on an unrelated right-click,
+// where choosing it would copy something the user can't even see.
+function getSelectionTextAt( target: Element ): string {
+	const selection = window.getSelection();
+	if ( ! selection || selection.isCollapsed || selection.rangeCount === 0 ) {
+		return '';
+	}
+	return selection.getRangeAt( 0 ).intersectsNode( target ) ? selection.toString() : '';
+}
+
 /**
  * Routes right-clicks to the host's native text context menu.
  *
@@ -33,10 +44,13 @@ export function useTextContextMenu(): void {
 
 			const messageHost = target.closest( `[${ MESSAGE_TEXT_ATTRIBUTE }]` );
 			const messageText = messageHost?.getAttribute( MESSAGE_TEXT_ATTRIBUTE ) || undefined;
-			const selectionText = window.getSelection()?.toString() ?? '';
 			const isEditable = Boolean( target.closest( EDITABLE_SELECTOR ) );
+			const selectionText = getSelectionTextAt( target );
 
-			if ( ! messageText && ! selectionText.trim() && ! isEditable ) {
+			// Right-clicking something that isn't text — a menu, a button, the
+			// sidebar, empty canvas — has nothing to offer, so stay out of the
+			// way entirely rather than opening a menu of unrelated actions.
+			if ( ! messageText && ! isEditable && ! selectionText.trim() ) {
 				return;
 			}
 

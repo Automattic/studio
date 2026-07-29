@@ -8,10 +8,12 @@ import { useCallback, useRef, useState } from 'react';
 import { OnboardingFooter } from '@/components/onboarding-footer';
 import {
 	BuildNewSiteIllustration,
+	ConnectSiteIllustration,
 	DropBackupIllustration,
 	illustrationHostClass,
 } from '@/components/onboarding-illustrations';
 import { useSites } from '@/data/queries/use-sites';
+import { useOffline } from '@/hooks/use-offline';
 import { setPendingBackup } from '@/lib/pending-backup';
 import { onboardingLayoutRoute } from '../layout-onboarding';
 import sharedStyles from '../layout-onboarding/style.module.css';
@@ -94,6 +96,7 @@ function ImportBackupCard() {
 export function OnboardingHomePage() {
 	const navigate = useNavigate();
 	const { data: sites } = useSites();
+	const isOffline = useOffline();
 
 	return (
 		<div className={ styles.page }>
@@ -111,6 +114,21 @@ export function OnboardingHomePage() {
 								'Start from scratch or use a Blueprint. Perfect for theme and plugin development.'
 							) }
 						</p>
+					</div>
+				</Link>
+				<Link
+					to="/onboarding/connect"
+					className={ `${ cardClass } ${ isOffline ? styles.cardDisabled : '' }` }
+					aria-disabled={ isOffline || undefined }
+					onClick={ ( event ) => isOffline && event.preventDefault() }
+				>
+					<ConnectSiteIllustration />
+					<div className={ styles.cardText }>
+						<h3 className={ styles.cardTitle }>{ __( 'Connect a site' ) }</h3>
+						<p className={ styles.cardBody }>
+							{ __( 'Pull a WordPress.com or Pressable site into a new local Studio site.' ) }
+						</p>
+						{ isOffline && <span className={ styles.cardHint }>{ __( 'Available online' ) }</span> }
 					</div>
 				</Link>
 				<ImportBackupCard />

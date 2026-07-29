@@ -53,7 +53,7 @@ function AiCreditsSummary() {
 	if ( isLoading ) {
 		content = (
 			<>
-				<div className={ styles.previewUsageText }>{ __( 'Loading...' ) }</div>
+				<div className={ styles.previewUsageText }>{ __( 'Loading…' ) }</div>
 				<UsageProgressBar fraction={ 0 } />
 			</>
 		);
@@ -114,10 +114,10 @@ function PreviewSitesSummary( { userId }: { userId: number } ) {
 	const isLoadingPreviewUsage = isLoading || isLoadingSnapshotUsage || deleteAllSnapshots.isPending;
 	const isDisabled = siteCount === 0 || snapshotCreationBlocked || isLoadingPreviewUsage;
 	// Empty while loading: a bar still filled from the previous figure would
-	// contradict the "Loading..." row next to it.
+	// contradict the "Loading…" row next to it.
 	const fraction = isLoadingPreviewUsage ? 0 : clampQuotaFraction( siteCount, siteLimit );
 	const deletePreviewSitesLabel = deleteAllSnapshots.isPending
-		? __( 'Deleting preview sites...' )
+		? __( 'Deleting all preview sites…' )
 		: __( 'Delete all preview sites' );
 
 	const handleDelete = async () => {
@@ -165,7 +165,7 @@ function PreviewSitesSummary( { userId }: { userId: number } ) {
 				<>
 					<div className={ styles.previewUsageText }>
 						{ isLoadingPreviewUsage
-							? __( 'Loading...' )
+							? __( 'Loading…' )
 							: sprintf(
 									/* translators: 1: number of active preview sites, 2: maximum allowed */
 									_n(
@@ -182,7 +182,7 @@ function PreviewSitesSummary( { userId }: { userId: number } ) {
 			) }
 			{ deleteAllSnapshots.error ? (
 				<div className={ styles.errorMessage }>
-					{ __( 'An error occurred while deleting preview sites. Please try again.' ) }
+					{ __( 'An error occurred while deleting all preview sites. Please try again.' ) }
 				</div>
 			) : null }
 		</section>

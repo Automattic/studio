@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createIpcConnector } from './index';
+import type { SiteDetails } from '@/data/core';
 
 // Guards the renderer ↔ main IPC call shape: `exportSite` must be invoked as
 // ( siteId, destinationPath, options ) to match the main-process handler in
@@ -54,5 +55,99 @@ describe( 'createIpcConnector exports', () => {
 
 		expect( exportSite ).not.toHaveBeenCalled();
 		expect( result ).toBeNull();
+	} );
+} );
+
+describe( 'createIpcConnector Connect contracts', () => {
+	const createSite = vi.fn();
+	const fetchSyncableWpcomSites = vi.fn();
+	const generateNumberedNameFromList = vi.fn();
+	const getSiteDetails = vi.fn();
+	const getConnectedWpcomSites = vi.fn();
+	const pullSiteFromLive = vi.fn();
+	const subscribe = vi.fn();
+	const unsubscribe = vi.fn();
+
+	beforeEach( () => {
+		vi.clearAllMocks();
+		vi.stubGlobal( 'ipcApi', {
+			createSite,
+			fetchSyncableWpcomSites,
+			generateNumberedNameFromList,
+			getSiteDetails,
+			getConnectedWpcomSites,
+			pullSiteFromLive,
+		} );
+		vi.stubGlobal( 'ipcListener', { subscribe } );
+	} );
+
+	afterEach( () => {
+		vi.unstubAllGlobals();
+	} );
+
+	it( 'creates the local shell without starting it', async () => {
+		createSite.mockResolvedValue( { id: 'site-1' } );
+
+		await createIpcConnector().createSite( {
+			name: 'Remote site',
+			path: '/sites/remote-site',
+			skipStart: true,
+		} );
+
+		expect( createSite ).toHaveBeenCalledWith(
+			'/sites/remote-site',
+			expect.objectContaining( { siteName: 'Remote site', noStart: true } )
+		);
+	} );
+
+	it( 'uses explicit IPC calls for all remote sites and all local connections', async () => {
+		getConnectedWpcomSites.mockResolvedValue( [ { id: 1 } ] );
+		fetchSyncableWpcomSites.mockResolvedValue( [ { id: 2 } ] );
+		const connector = createIpcConnector();
+
+		await expect( connector.getConnectedWpcomSites() ).resolves.toEqual( [ { id: 1 } ] );
+		await expect( connector.fetchSyncableWpcomSites() ).resolves.toEqual( [ { id: 2 } ] );
+
+		expect( getConnectedWpcomSites ).toHaveBeenCalledWith( undefined );
+		expect( fetchSyncableWpcomSites ).toHaveBeenCalledWith();
+	} );
+
+	it( 'generates a numbered name in one IPC call', async () => {
+		generateNumberedNameFromList.mockReturnValue( 'Remote Site 3' );
+		const sites = [
+			{ id: '1', name: 'Remote Site' },
+			{ id: '2', name: 'Remote Site 2' },
+		] as SiteDetails[];
+
+		await expect(
+			createIpcConnector().generateNumberedSiteName( 'Remote Site', sites )
+		).resolves.toBe( 'Remote Site 3' );
+
+		expect( generateNumberedNameFromList ).toHaveBeenCalledWith( 'Remote Site', sites );
+	} );
+
+	it( 'forwards matching CLI pull progress and unsubscribes when the pull finishes', async () => {
+		getConnectedWpcomSites.mockResolvedValue( [] );
+		let progressListener: ( event: unknown, payload: unknown ) => void = () => {};
+		subscribe.mockImplementation( ( channel, listener ) => {
+			expect( channel ).toBe( 'sync-pull-progress' );
+			progressListener = listener;
+			return unsubscribe;
+		} );
+		pullSiteFromLive.mockImplementation( async ( siteId ) => {
+			progressListener( {}, { siteId: 'other', message: 'Ignore me' } );
+			progressListener( {}, { siteId, message: 'Downloading backup… (50%)', progress: 50 } );
+		} );
+		const onProgress = vi.fn();
+
+		await createIpcConnector().pullSiteFromLive( 'site-1', 42, onProgress );
+
+		expect( pullSiteFromLive ).toHaveBeenCalledWith( 'site-1', 42 );
+		expect( onProgress ).toHaveBeenCalledOnce();
+		expect( onProgress ).toHaveBeenCalledWith( {
+			message: 'Downloading backup… (50%)',
+			progress: 50,
+		} );
+		expect( unsubscribe ).toHaveBeenCalledOnce();
 	} );
 } );

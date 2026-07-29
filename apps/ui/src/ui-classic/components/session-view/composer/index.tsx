@@ -46,7 +46,6 @@ import {
 	reconcilePrimedSessionQueryData,
 	SESSIONS_QUERY_KEY,
 } from '@/data/queries/use-sessions';
-import { AnimatedPlaceholder } from './animated-placeholder';
 import { FamilySwitchConfirmDialog } from './family-switch-confirm-dialog';
 import styles from './style.module.css';
 import {
@@ -376,20 +375,6 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		};
 	}, [ setComposerManualTextareaHeight ] );
 
-	useEffect( () => {
-		if ( value.length > 0 ) {
-			return;
-		}
-		const interval = window.setInterval( () => {
-			setPlaceholderIndex( ( current ) => current + 1 );
-		}, 5000 );
-		return () => window.clearInterval( interval );
-	}, [ value ] );
-
-	useEffect( () => {
-		setPlaceholderIndex( 0 );
-	}, [ busy ] );
-
 	useImperativeHandle(
 		ref,
 		() => ( {
@@ -437,6 +422,9 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		const sentAttachments = attachments;
 		setValue( '' );
 		clearAttachments();
+		// A send is the only thing that swaps the suggestion; it is static
+		// otherwise, so the empty composer never changes under the user.
+		setPlaceholderIndex( ( current ) => current + 1 );
 		try {
 			await onSend( prompt, toComposerSendAttachments( sentAttachments ) );
 		} catch {
@@ -660,7 +648,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 				__( 'What are we tuning now?' ),
 		  ];
 	const placeholder = placeholderOptions[ placeholderIndex % placeholderOptions.length ];
-	const showAnimatedPlaceholder = value.length === 0;
+	const showPlaceholderText = value.length === 0;
 	const composerResizeMaxHeight = getComposerTextareaMaxHeight( true );
 	const sendAriaLabel = busy ? __( 'Queue' ) : __( 'Send' );
 	const sendShortcutLabel = __( 'Return to send' );
@@ -856,9 +844,9 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 							hasAttachments && styles.inputAreaWithAttachments
 						) }
 					>
-						{ showAnimatedPlaceholder ? (
+						{ showPlaceholderText ? (
 							<div className={ styles.placeholderText } aria-hidden="true">
-								<AnimatedPlaceholder text={ placeholder } />
+								{ placeholder }
 							</div>
 						) : null }
 						<textarea

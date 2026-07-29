@@ -384,26 +384,6 @@
 	top: var(--wpds-dimension-padding-xs);
 }
 
-.placeholderFadeOut {
-	animation: placeholder-fade-out 120ms var(--wpds-motion-easing-subtle) both;
-}
-
-.placeholderFadeIn {
-	animation: placeholder-fade-in 120ms var(--wpds-motion-easing-subtle) both;
-}
-
-@keyframes placeholder-fade-out {
-	to {
-		opacity: 0;
-	}
-}
-
-@keyframes placeholder-fade-in {
-	from {
-		opacity: 0;
-	}
-}
-
 .toolbar {
 	display: flex;
 	align-items: flex-end;

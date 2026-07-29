@@ -80,6 +80,7 @@ import { refreshIcon } from '@/lib/icons';
 import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
+import type { MouseEvent as ReactMouseEvent } from 'react';
 
 interface AgentQuestionRenderItem {
 	key: string;
@@ -436,18 +437,51 @@ function UserTurn( {
 	);
 }
 
-function AssistantText( { text, copyText }: { text: string; copyText?: string } ) {
+function AssistantText( {
+	text,
+	copyText,
+	showActions,
+	onToggleSelect,
+}: {
+	text: string;
+	copyText?: string;
+	showActions: boolean;
+	onToggleSelect: () => void;
+} ) {
+	const handleClick = ( event: ReactMouseEvent< HTMLDivElement > ) => {
+		// Links and the buttons inside code blocks or the action row own their
+		// clicks; only bare message content toggles the actions.
+		if ( ( event.target as HTMLElement | null )?.closest( 'a, button' ) ) {
+			return;
+		}
+		// A click that ends a text drag is a selection, not a tap.
+		const selection = window.getSelection();
+		if ( selection && ! selection.isCollapsed && selection.toString().trim() ) {
+			return;
+		}
+		onToggleSelect();
+	};
+
 	return (
-		// The attribute carries the whole message so a right-click anywhere
-		// inside it can offer Copy All, not just the selection.
-		<div className={ styles.assistantTurn } { ...{ [ MESSAGE_TEXT_ATTRIBUTE ]: copyText ?? text } }>
+		// Clicking the message is a mouse convenience for revealing its actions;
+		// keyboard users reach the same buttons by tabbing to them, which opens
+		// the row via :focus-within. Deliberately no button role — the message
+		// holds links, and nesting them inside a control would be invalid.
+		<div
+			className={ styles.assistantTurn }
+			data-actions-open={ showActions ? 'true' : undefined }
+			{ ...{ [ MESSAGE_TEXT_ATTRIBUTE ]: copyText ?? text } }
+			onClick={ copyText ? handleClick : undefined }
+		>
 			<Markdown>{ text }</Markdown>
 			{ copyText ? (
-				<CopyButton
-					text={ copyText }
-					label={ __( 'Copy message' ) }
-					className={ styles.messageActions }
-				/>
+				<div className={ styles.messageActions }>
+					<div className={ styles.messageActionsClip }>
+						<div className={ styles.messageActionsRow }>
+							<CopyButton text={ copyText } label={ __( 'Copy message' ) } />
+						</div>
+					</div>
+				</div>
 			) : null }
 		</div>
 	);
@@ -1195,6 +1229,30 @@ export function Conversation( {
 		[ entries, isRunning ]
 	);
 
+	// One selected message at a time, so picking a new one closes the last.
+	const [ selectedKey, setSelectedKey ] = useState< string | null >( null );
+	const sessionId = data.summary.id;
+	useEffect( () => {
+		setSelectedKey( null );
+	}, [ sessionId ] );
+
+	// The newest reply keeps its actions open, so copying the answer you just
+	// got never depends on discovering that messages can be clicked. Held back
+	// until the turn settles — mid-run the last text block keeps moving as new
+	// blocks stream in, and the row would hop down the transcript with it.
+	const latestActionableKey = useMemo( () => {
+		if ( isRunning ) {
+			return null;
+		}
+		for ( let index = items.length - 1; index >= 0; index -= 1 ) {
+			const item = items[ index ];
+			if ( item.kind === 'assistant-text' && item.copyText ) {
+				return item.key;
+			}
+		}
+		return null;
+	}, [ isRunning, items ] );
+
 	return (
 		<div className={ styles.root }>
 			{ items.map( ( item ) => {
@@ -1204,7 +1262,17 @@ export function Conversation( {
 							<UserTurn key={ item.key } text={ item.text } attachments={ item.attachments } />
 						);
 					case 'assistant-text':
-						return <AssistantText key={ item.key } text={ item.text } copyText={ item.copyText } />;
+						return (
+							<AssistantText
+								key={ item.key }
+								text={ item.text }
+								copyText={ item.copyText }
+								showActions={ selectedKey === item.key || item.key === latestActionableKey }
+								onToggleSelect={ () =>
+									setSelectedKey( ( current ) => ( current === item.key ? null : item.key ) )
+								}
+							/>
+						);
 					case 'tool-use':
 						return (
 							<ToolUseRow

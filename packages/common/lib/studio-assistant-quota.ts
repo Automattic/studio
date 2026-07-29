@@ -9,11 +9,14 @@ export const studioAssistantQuotaSchema = z
 		cost_usage: z.number(),
 		cost_cap: z.number(),
 		cost_reset_date: z.string(),
+		// Per-user kill switch (STU-2143); older servers omit the field.
+		is_studio_code_ai_blocked: z.boolean().optional(),
 	} )
 	.transform( ( data ) => ( {
 		costUsage: data.cost_usage,
 		costCap: data.cost_cap,
 		costResetDate: data.cost_reset_date,
+		isStudioCodeAiBlocked: data.is_studio_code_ai_blocked ?? false,
 	} ) );
 
 export type StudioAssistantQuota = z.infer< typeof studioAssistantQuotaSchema >;
@@ -56,6 +59,16 @@ export function formatQuotaResetDate( date: string, locale?: string ): string {
 		month: 'long',
 		year: 'numeric',
 	} ).format( new Date( date ) );
+}
+
+/**
+ * User-facing copy for the per-account Studio Code AI kill switch (STU-2143).
+ * Shared by every surface so the wording stays consistent.
+ */
+export function formatAiBlockedNotice(): string {
+	return __(
+		'Studio Code AI is unavailable for this WordPress.com account. If you believe this is a mistake, contact WordPress.com support.'
+	);
 }
 
 /**

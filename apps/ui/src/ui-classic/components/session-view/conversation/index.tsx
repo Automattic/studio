@@ -7,7 +7,7 @@ import {
 	stripMediaWidgetPayloadLines,
 	type StudioChatArtifactWidgetDraft,
 } from '@studio/common/ai/chat-artifacts';
-import { isUsageCapError } from '@studio/common/ai/json-events';
+import { isAiBlockedError, isUsageCapError } from '@studio/common/ai/json-events';
 import {
 	isStudioCustomEntryOfType,
 	type StudioChatAttachmentSummary,
@@ -21,7 +21,10 @@ import {
 	splitCommandArgs,
 	type NormalizedToolResult,
 } from '@studio/common/ai/tools';
-import { formatUsageCapNotice } from '@studio/common/lib/studio-assistant-quota';
+import {
+	formatAiBlockedNotice,
+	formatUsageCapNotice,
+} from '@studio/common/lib/studio-assistant-quota';
 import { __, sprintf } from '@wordpress/i18n';
 import {
 	blockDefault,
@@ -1149,7 +1152,9 @@ function TurnErrorMarker( { message }: { message: string } ) {
 	const isUsageCap = isUsageCapError( message );
 	const { data: quota } = useStudioAssistantQuota( { enabled: isUsageCap } );
 	let text: string;
-	if ( isUsageCap ) {
+	if ( isAiBlockedError( message ) ) {
+		text = formatAiBlockedNotice();
+	} else if ( isUsageCap ) {
 		text = formatUsageCapNotice( quota?.costResetDate );
 	} else {
 		text = message || __( 'Something went wrong and this turn was stopped. Please try again.' );

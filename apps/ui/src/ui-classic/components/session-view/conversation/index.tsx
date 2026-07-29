@@ -75,6 +75,7 @@ import { Markdown } from '@/components/markdown';
 import { useConnector, type LoadedAiSession } from '@/data/core';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useLocalMediaDataUrl } from '@/data/queries/use-local-media';
+import { MESSAGE_TEXT_ATTRIBUTE } from '@/hooks/use-text-context-menu';
 import { refreshIcon } from '@/lib/icons';
 import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
@@ -403,7 +404,7 @@ function UserTurn( {
 	attachments?: StudioChatAttachmentSummary[];
 } ) {
 	return (
-		<div className={ styles.userTurn }>
+		<div className={ styles.userTurn } { ...{ [ MESSAGE_TEXT_ATTRIBUTE ]: text } }>
 			<div className={ styles.userText }>{ text }</div>
 			{ attachments && attachments.length > 0 ? (
 				<ul className={ styles.userAttachments }>
@@ -437,7 +438,9 @@ function UserTurn( {
 
 function AssistantText( { text, copyText }: { text: string; copyText?: string } ) {
 	return (
-		<div className={ styles.assistantTurn }>
+		// The attribute carries the whole message so a right-click anywhere
+		// inside it can offer Copy All, not just the selection.
+		<div className={ styles.assistantTurn } { ...{ [ MESSAGE_TEXT_ATTRIBUTE ]: copyText ?? text } }>
 			<Markdown>{ text }</Markdown>
 			{ copyText ? (
 				<CopyButton

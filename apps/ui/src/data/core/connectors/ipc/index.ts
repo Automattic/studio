@@ -814,6 +814,10 @@ export function createIpcConnector(): Connector {
 			await ipcApi.copyText( text );
 		},
 
+		showTextContextMenu( context ): void {
+			ipcApi.showTextContextMenu( context );
+		},
+
 		async confirmDeleteAllPreviewSites(): Promise< boolean > {
 			const CANCEL_BUTTON_INDEX = 0;
 			const DELETE_BUTTON_INDEX = 1;

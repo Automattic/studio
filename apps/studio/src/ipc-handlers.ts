@@ -2456,3 +2456,5 @@ export async function stopRemoteSessionDaemon(
 		emitter.on( 'error', ( { error } ) => reject( error ) );
 	} );
 }
+
+export { showTextContextMenu } from 'src/text-context-menu';

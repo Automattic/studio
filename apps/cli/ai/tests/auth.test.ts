@@ -1,5 +1,5 @@
 import { password } from '@inquirer/prompts';
-import { readAuthToken } from '@studio/common/lib/shared-config';
+import { getOrCreateAnalyticsInstallId, readAuthToken } from '@studio/common/lib/shared-config';
 import { vi } from 'vitest';
 import {
 	getAvailableAiProviders,
@@ -18,6 +18,7 @@ vi.mock( '@inquirer/prompts', () => ( {
 
 vi.mock( '@studio/common/lib/shared-config', () => ( {
 	readAuthToken: vi.fn(),
+	getOrCreateAnalyticsInstallId: vi.fn(),
 } ) );
 
 vi.mock( 'cli/lib/cli-config/core', () => ( {
@@ -29,6 +30,7 @@ describe( 'AI auth helpers', () => {
 	beforeEach( () => {
 		vi.resetAllMocks();
 		vi.mocked( readCliConfig ).mockResolvedValue( { version: 1, sites: [], snapshots: [] } );
+		vi.mocked( getOrCreateAnalyticsInstallId ).mockResolvedValue( 'install-uuid' );
 		delete process.env.WPCOM_AI_PROXY_BASE_URL;
 	} );
 
@@ -104,8 +106,33 @@ describe( 'AI auth helpers', () => {
 			'https://public-api.wordpress.com/wpcom/v2/ai-api-proxy'
 		);
 		expect( env.ANTHROPIC_AUTH_TOKEN ).toBe( 'wpcom-token' );
-		expect( env.ANTHROPIC_CUSTOM_HEADERS ).toBe( 'X-WPCOM-AI-Feature: studio-assistant-anthropic' );
+		expect( env.ANTHROPIC_CUSTOM_HEADERS ).toBe(
+			'X-WPCOM-AI-Feature: studio-assistant-anthropic\nX-WPCOM-AI-Install-Id: install-uuid'
+		);
+		expect( JSON.parse( env.STUDIO_OPENAI_DEFAULT_HEADERS ) ).toEqual( {
+			'X-WPCOM-AI-Feature': 'studio-assistant',
+			'X-WPCOM-AI-Install-Id': 'install-uuid',
+		} );
 		expect( env.ANTHROPIC_API_KEY ).toBeUndefined();
+	} );
+
+	it( 'omits the install id header when the shared install id is unavailable', async () => {
+		vi.mocked( readAuthToken ).mockResolvedValue( {
+			accessToken: 'wpcom-token',
+			displayName: 'User',
+			email: 'user@example.com',
+			expiresIn: 3600,
+			expirationTime: Date.now() + 3600_000,
+			id: 1,
+		} );
+		vi.mocked( getOrCreateAnalyticsInstallId ).mockRejectedValue( new Error( 'config locked' ) );
+
+		const env = await resolveAiEnvironment( 'wpcom' );
+
+		expect( env.ANTHROPIC_CUSTOM_HEADERS ).toBe( 'X-WPCOM-AI-Feature: studio-assistant-anthropic' );
+		expect( JSON.parse( env.STUDIO_OPENAI_DEFAULT_HEADERS ) ).toEqual( {
+			'X-WPCOM-AI-Feature': 'studio-assistant',
+		} );
 	} );
 
 	it( 'includes the Studio AI session ID header when provided', async () => {
@@ -121,7 +148,7 @@ describe( 'AI auth helpers', () => {
 		const env = await resolveAiEnvironment( 'wpcom', { sessionId: 'session-abc' } );
 
 		expect( env.ANTHROPIC_CUSTOM_HEADERS ).toBe(
-			'X-WPCOM-AI-Feature: studio-assistant-anthropic\nX-WPCOM-Session-ID: session-abc'
+			'X-WPCOM-AI-Feature: studio-assistant-anthropic\nX-WPCOM-AI-Install-Id: install-uuid\nX-WPCOM-Session-ID: session-abc'
 		);
 	} );
 

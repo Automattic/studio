@@ -5,7 +5,7 @@ import {
 	type AiModelFamily,
 	type AiModelId,
 } from '@studio/common/ai/models';
-import { readAuthToken } from '@studio/common/lib/shared-config';
+import { getOrCreateAnalyticsInstallId, readAuthToken } from '@studio/common/lib/shared-config';
 import { __ } from '@wordpress/i18n';
 import { readCliConfig, updateCliConfigWithPartial } from 'cli/lib/cli-config/core';
 import { LoggerError } from 'cli/logger';
@@ -27,6 +27,9 @@ const DEFAULT_WPCOM_AI_GATEWAY_BASE_URL = 'https://public-api.wordpress.com/wpco
 // the existing slugs so no server-side allowlist change is required.
 const WPCOM_AI_FEATURE_HEADER_ANTHROPIC = 'studio-assistant-anthropic';
 const WPCOM_AI_FEATURE_HEADER_OPENAI = 'studio-assistant';
+// Per-install identity the wpcom AI proxy uses to enforce a per-installation burst cap.
+// Generic (proxy-scoped, not Studio-scoped) like the other X-WPCOM-AI-* headers.
+const WPCOM_AI_INSTALL_ID_HEADER = 'X-WPCOM-AI-Install-Id';
 
 export interface ResolveAiEnvironmentOptions {
 	sessionId?: string;
@@ -102,6 +105,17 @@ function buildAnthropicCustomHeaders( headers: Record< string, string > ): strin
 		.join( '\n' );
 }
 
+// The per-install id is the anonymous Tracks install UUID (random, stable per install, shared by
+// Studio and the CLI). The server treats an absent header as "no per-install cap", so a shared-config
+// hiccup must never fail an AI request — fall back to omitting the header.
+async function resolveInstallId(): Promise< string | undefined > {
+	try {
+		return await getOrCreateAnalyticsInstallId();
+	} catch {
+		return undefined;
+	}
+}
+
 function getWpcomAiGatewayBaseUrl(): string {
 	const customBaseUrl = process.env.WPCOM_AI_PROXY_BASE_URL?.trim();
 	return customBaseUrl || DEFAULT_WPCOM_AI_GATEWAY_BASE_URL;
@@ -156,6 +170,7 @@ const AI_PROVIDER_DEFINITIONS: Record< AiProviderId, AiProviderDefinition > = {
 			}
 			const env = createBaseEnvironment();
 			const gatewayBaseUrl = getWpcomAiGatewayBaseUrl();
+			const installId = await resolveInstallId();
 
 			// Anthropic messages path through the WP.com AI gateway.
 			env.ANTHROPIC_BASE_URL = gatewayBaseUrl;
@@ -163,6 +178,9 @@ const AI_PROVIDER_DEFINITIONS: Record< AiProviderId, AiProviderDefinition > = {
 			const anthropicHeaders: Record< string, string > = {
 				'X-WPCOM-AI-Feature': WPCOM_AI_FEATURE_HEADER_ANTHROPIC,
 			};
+			if ( installId ) {
+				anthropicHeaders[ WPCOM_AI_INSTALL_ID_HEADER ] = installId;
+			}
 			if ( options?.sessionId ) {
 				anthropicHeaders[ 'X-WPCOM-Session-ID' ] = options.sessionId;
 			}
@@ -178,6 +196,9 @@ const AI_PROVIDER_DEFINITIONS: Record< AiProviderId, AiProviderDefinition > = {
 			const openaiHeaders: Record< string, string > = {
 				'X-WPCOM-AI-Feature': WPCOM_AI_FEATURE_HEADER_OPENAI,
 			};
+			if ( installId ) {
+				openaiHeaders[ WPCOM_AI_INSTALL_ID_HEADER ] = installId;
+			}
 			if ( options?.sessionId ) {
 				openaiHeaders[ 'X-WPCOM-Session-ID' ] = options.sessionId;
 			}

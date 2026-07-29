@@ -32,14 +32,10 @@ import {
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
+import { getPreferredStudioUiMode, setAgenticUiEnabled } from 'src/lib/studio-ui-mode';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { getLogsFilePath } from 'src/logging';
-import {
-	getMainWindow,
-	getPreferredStudioUiMode,
-	loadMainWindowRenderer,
-	setAgenticUiEnabled,
-} from 'src/main-window';
+import { getMainWindow, loadMainWindowRenderer } from 'src/main-window';
 import { isUpdateReadyToInstall, manualCheckForUpdates } from 'src/updates';
 
 export async function setupMenu( config: {
@@ -76,14 +72,8 @@ export async function popupMenu( position?: { x: number; y: number } ) {
 
 async function buildBetaFeaturesMenu(): Promise< MenuItemConstructorOptions[] > {
 	const currentBetaFeatures = await getBetaFeatures();
-	return Object.entries< BetaFeatureDefinition >( getBetaFeaturesDefinition() )
-		.filter( ( [ key ] ) => {
-			if ( key === 'enableAgenticUi' ) {
-				return getFeatureFlagFromEnv( 'enableAgenticUi' );
-			}
-			return true;
-		} )
-		.map( ( [ key, definition ] ) => {
+	return Object.entries< BetaFeatureDefinition >( getBetaFeaturesDefinition() ).map(
+		( [ key, definition ] ) => {
 			// On Windows, use the description as the label for a more compact display
 			const label =
 				process.platform === 'win32' && definition.description
@@ -121,7 +111,8 @@ async function buildBetaFeaturesMenu(): Promise< MenuItemConstructorOptions[] > 
 					void sendIpcEventToRenderer( 'beta-features-updated' );
 				},
 			};
-		} );
+		}
+	);
 }
 
 export function buildViewMenuItems( {
@@ -311,6 +302,7 @@ async function getAppMenu(
 							{
 								label: __( 'Feature Flags' ),
 								submenu: featureFlagsMenu,
+								enabled: featureFlagsMenu.length > 0,
 							},
 					  ]
 					: [] ),
@@ -326,9 +318,7 @@ async function getAppMenu(
 					label: __( 'Add Site…' ),
 					// The agentic UI binds Cmd/Ctrl+N to "New chat" in the renderer;
 					// a menu accelerator would consume the key before it reaches the DOM.
-					accelerator: getFeatureFlagFromEnv( 'enableAgenticUi' )
-						? undefined
-						: 'CommandOrControl+N',
+					accelerator: getPreferredStudioUiMode() === 'agentic' ? undefined : 'CommandOrControl+N',
 					click: async () => {
 						void sendIpcEventToRenderer( 'add-site' );
 					},

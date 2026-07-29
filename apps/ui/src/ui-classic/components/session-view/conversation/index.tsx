@@ -111,6 +111,7 @@ import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
 import type { ActiveToolState } from '@/data/queries/use-agent-run';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
+import type { MouseEvent as ReactMouseEvent } from 'react';
 
 interface AgentQuestionRenderItem {
 	key: string;
@@ -706,8 +707,32 @@ function UserTurn( {
 	);
 }
 
-function AssistantText( { text, copyText }: { text: string; copyText?: string } ) {
+function AssistantText( {
+	text,
+	copyText,
+	showActions,
+	onToggleSelect,
+}: {
+	text: string;
+	copyText?: string;
+	showActions: boolean;
+	onToggleSelect: () => void;
+} ) {
 	const connector = useConnector();
+
+	const handleClick = ( event: ReactMouseEvent< HTMLDivElement > ) => {
+		// Links and the buttons inside code blocks or the action row own their
+		// clicks; only bare message content toggles the actions.
+		if ( ( event.target as HTMLElement | null )?.closest( 'a, button' ) ) {
+			return;
+		}
+		// A click that ends a text drag is a selection, not a tap.
+		const selection = window.getSelection();
+		if ( selection && ! selection.isCollapsed && selection.toString().trim() ) {
+			return;
+		}
+		onToggleSelect();
+	};
 
 	// Double-click anywhere in the reply copies it (the whole message when
 	// this is its last text block, otherwise this fragment). Native word
@@ -719,14 +744,25 @@ function AssistantText( { text, copyText }: { text: string; copyText?: string } 
 	}, [ connector, copyText, text ] );
 
 	return (
-		<div className={ styles.assistantTurn } onDoubleClick={ handleDoubleClick }>
+		// Clicking the message is a mouse convenience for revealing its actions;
+		// keyboard users reach the same buttons by tabbing to them, which opens
+		// the row via :focus-within. Deliberately no button role — the message
+		// holds links, and nesting them inside a control would be invalid.
+		<div
+			className={ styles.assistantTurn }
+			data-actions-open={ showActions ? 'true' : undefined }
+			onClick={ copyText ? handleClick : undefined }
+			onDoubleClick={ handleDoubleClick }
+		>
 			<Markdown>{ text }</Markdown>
 			{ copyText ? (
-				<CopyButton
-					text={ copyText }
-					label={ __( 'Copy message' ) }
-					className={ styles.messageActions }
-				/>
+				<div className={ styles.messageActions }>
+					<div className={ styles.messageActionsClip }>
+						<div className={ styles.messageActionsRow }>
+							<CopyButton text={ copyText } label={ __( 'Copy message' ) } />
+						</div>
+					</div>
+				</div>
 			) : null }
 		</div>
 	);
@@ -1983,6 +2019,30 @@ export function Conversation( {
 		[]
 	);
 
+	// One selected message at a time, so picking a new one closes the last.
+	const [ selectedKey, setSelectedKey ] = useState< string | null >( null );
+	const sessionId = data.summary.id;
+	useEffect( () => {
+		setSelectedKey( null );
+	}, [ sessionId ] );
+
+	// The newest reply keeps its actions open, so copying the answer you just
+	// got never depends on discovering that messages can be clicked. Held back
+	// until the turn settles — mid-run the last text block keeps moving as new
+	// blocks stream in, and the row would hop down the transcript with it.
+	const latestActionableKey = useMemo( () => {
+		if ( isRunning ) {
+			return null;
+		}
+		for ( let index = items.length - 1; index >= 0; index -= 1 ) {
+			const item = items[ index ];
+			if ( item.kind === 'assistant-text' && item.copyText ) {
+				return item.key;
+			}
+		}
+		return null;
+	}, [ isRunning, items ] );
+
 	return (
 		<ConversationGalleryContext.Provider value={ gallery }>
 			{ activeGallery ? (
@@ -2001,7 +2061,15 @@ export function Conversation( {
 							);
 						case 'assistant-text':
 							return (
-								<AssistantText key={ item.key } text={ item.text } copyText={ item.copyText } />
+								<AssistantText
+									key={ item.key }
+									text={ item.text }
+									copyText={ item.copyText }
+									showActions={ selectedKey === item.key || item.key === latestActionableKey }
+									onToggleSelect={ () =>
+										setSelectedKey( ( current ) => ( current === item.key ? null : item.key ) )
+									}
+								/>
 							);
 						case 'work-phase':
 							return (

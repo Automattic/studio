@@ -208,7 +208,8 @@
 	position: absolute;
 	inset-inline-start: var(--classic-panel-footer-left);
 	/* Span to the composer card's right edge so end-aligned controls (the
-	   preview toggle) line up with it. */
+	   preview toggle) line up with it. Sit the strip low in its reserved band;
+	   its bottom padding keeps focus rings clear of .root's clipped edge. */
 	inset-inline-end: var(--classic-panel-footer-right);
 	bottom: calc(-1 * var(--wpds-dimension-padding-sm));
 	z-index: 3;

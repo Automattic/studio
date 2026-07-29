@@ -155,7 +155,8 @@
    The button carries its own `padding-sm` top/bottom for its hit area; the
    matching negative `bottom` cancels that lower padding so the glyph sits flush
    with the main area's bottom edge instead of floating a padding's-worth above
-   it. */
+   it. The min-height and bottom offset match the session view's
+   `panelFooterControls` so the controls stay vertically aligned. */
 .floatingToggle {
 	position: absolute;
 	bottom: calc(-1 * var(--wpds-dimension-padding-sm));

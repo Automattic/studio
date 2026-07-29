@@ -106,6 +106,32 @@ describe( 'Composer menu', () => {
 		).toBeInTheDocument();
 	} );
 
+	it( 'keeps the placeholder suggestion steady while the composer sits idle', () => {
+		vi.useFakeTimers();
+		try {
+			renderComposer();
+
+			act( () => {
+				vi.advanceTimersByTime( 30000 );
+			} );
+
+			expect( screen.getByText( 'What should we make better?' ) ).toBeInTheDocument();
+		} finally {
+			vi.useRealTimers();
+		}
+	} );
+
+	it( 'advances the placeholder suggestion after each send', async () => {
+		renderComposer();
+
+		fireEvent.change( screen.getByPlaceholderText( 'What should we make better?' ), {
+			target: { value: 'ship it' },
+		} );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Send' } ) );
+
+		expect( await screen.findByText( 'What’s the next move?' ) ).toBeInTheDocument();
+	} );
+
 	it( 'shows a flyout affordance and skill descriptions', async () => {
 		renderComposer();
 

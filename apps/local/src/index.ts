@@ -28,6 +28,7 @@ import { DEFAULT_TOKEN_LIFETIME_MS } from '@studio/common/constants';
 import { createCliRunner } from '@studio/common/lib/cli-process';
 import {
 	addConnectedWpcomSite,
+	getAllConnectedWpcomSitesForCurrentUser,
 	getConnectedWpcomSitesForLocalSite,
 	removeConnectedWpcomSite,
 } from '@studio/common/lib/connected-sites';
@@ -42,7 +43,7 @@ import { generateNumberedName, generateSiteName } from '@studio/common/lib/gener
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { importIpcEventSchema } from '@studio/common/lib/import-export-events';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
-import { getAuthenticationUrl } from '@studio/common/lib/oauth';
+import { getAuthenticationUrl, getSignUpUrl } from '@studio/common/lib/oauth';
 import { decodePassword } from '@studio/common/lib/passwords';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import {
@@ -368,7 +369,12 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			res.json( { url: null } );
 			return;
 		}
-		res.json( { url: getAuthenticationUrl( 'en', redirectUri ) } );
+		res.json( {
+			url:
+				req.query.signup === '1'
+					? getSignUpUrl( 'en', redirectUri )
+					: getAuthenticationUrl( 'en', redirectUri ),
+		} );
 	} );
 
 	// Log in by storing a token from the redirect callback (or pasted from
@@ -507,14 +513,14 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	// proposes/edits the path as text (see capabilities.nativeFolderPicker).
 	api.get(
 		'/site-defaults/name',
-		asyncHandler( async ( _req: Request, res: Response ) => {
+		asyncHandler( async ( req: Request, res: Response ) => {
 			const sites = await listSites( execute );
-			res.json( {
-				name: await generateSiteName(
-					sites.map( ( s ) => s.name ),
-					sitesRoot
-				),
-			} );
+			const baseName = typeof req.query.base === 'string' ? req.query.base : undefined;
+			const usedNames = sites.map( ( site ) => site.name );
+			const name = baseName
+				? await generateNumberedName( baseName, usedNames, sitesRoot )
+				: await generateSiteName( usedNames, sitesRoot );
+			res.json( { name } );
 		} )
 	);
 
@@ -563,6 +569,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				adminUsername?: string;
 				adminPassword?: string;
 				adminEmail?: string;
+				skipStart?: boolean;
 				// Optional Blueprint to apply on creation: `blueprint` is the parsed
 				// blueprint JSON; `filePath` (set for uploaded ZIP bundles) lets the
 				// CLI resolve relative assets.
@@ -592,6 +599,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 					adminUsername: body.adminUsername,
 					adminPassword: body.adminPassword,
 					adminEmail: body.adminEmail,
+					noStart: body.skipStart,
 					blueprint: body.blueprint?.blueprint,
 					originalBlueprintPath: body.blueprint?.filePath,
 				} );
@@ -1002,6 +1010,13 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	);
 
 	api.get(
+		'/wpcom/connected-sites',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			res.json( await getAllConnectedWpcomSitesForCurrentUser() );
+		} )
+	);
+
+	api.get(
 		'/sites/:id/connected-sites',
 		asyncHandler( async ( req: Request, res: Response ) => {
 			res.json( await getConnectedWpcomSitesForLocalSite( req.params.id ) );
@@ -1070,7 +1085,12 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
-			await pullSite( execute, site.path, remoteSiteId );
+			await pullSite( execute, site.path, remoteSiteId, ( progress ) => {
+				sseSend( {
+					channel: 'sync-pull',
+					payload: { ...progress, siteId: req.params.id, remoteSiteId },
+				} );
+			} );
 			res.sendStatus( 204 );
 		} )
 	);
@@ -1268,11 +1288,13 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		const listening = app.listen( port, host, () => resolve( listening ) );
 	} );
 
-	const url = `http://localhost:${ port }`;
+	const address = server.address();
+	const listeningPort = typeof address === 'object' && address ? address.port : port;
+	const url = `http://localhost:${ listeningPort }`;
 
 	return {
 		url,
-		port,
+		port: listeningPort,
 		async close() {
 			cliRunner.killAll();
 			for ( const watch of publishWatches.values() ) {

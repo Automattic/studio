@@ -94,6 +94,11 @@ export const syncSiteSchema = z.object( {
 
 export type SyncSite = z.infer< typeof syncSiteSchema >;
 
+export type PullSiteProgress = {
+	message: string;
+	progress?: number;
+};
+
 // Pull backup API schemas
 export const pullSiteResponseSchema = z.object( {
 	success: z.boolean(),

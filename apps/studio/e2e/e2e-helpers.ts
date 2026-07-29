@@ -48,6 +48,9 @@ export class E2ESession {
 			snapshots: [],
 			betaFeatures: {
 				studioSitesCli: true,
+				// These specs drive the classic renderer. Setting this explicitly opts the run
+				// out of the agentic default that fresh installs otherwise get seeded with.
+				enableAgenticUi: false,
 			},
 		};
 

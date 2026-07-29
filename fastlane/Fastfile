@@ -518,8 +518,8 @@ lane :publish_release do |version:, skip_confirm: false, github_username: nil|
 
   create_backmerge_pr(source_branch: release_branch, github_username: github_username)
 
-  # The release is out, so the branch is no longer worth protecting — and it has to be unprotected
-  # before it can be deleted, as the protection copied during code freeze disallows deletions.
+  # The release is out, so the release branch is no longer necessary. Remove the branch protection
+  # to delete the release branch.
   remove_branch_protection(repository: GITHUB_REPO, branch: release_branch)
   Fastlane::Helper::GitHelper.delete_remote_branch_if_exists!(release_branch)
   Fastlane::Helper::GitHelper.checkout_and_pull(MAIN_BRANCH)

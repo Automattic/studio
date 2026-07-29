@@ -59,7 +59,7 @@ import { autoInstallLinuxCliIfNeeded } from 'src/modules/cli/lib/linux-installat
 import { autoInstallMacOSCliIfNeeded } from 'src/modules/cli/lib/macos-installation-manager';
 import { autoInstallWindowsCliIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
 import { startRemoteSessionStatusPolling } from 'src/modules/remote-session/daemon-status-poller';
-import { isPreviewAnnotationAvailable, registerPreviewContextMenu } from 'src/preview-context-menu';
+import { registerPreviewContextMenu } from 'src/preview-context-menu';
 import {
 	getRunningSiteCount,
 	persistAutoStartForRunningSites,
@@ -213,11 +213,11 @@ async function appBoot() {
 
 		if ( isSitePreviewWebview ) {
 			registerPreviewContextMenu( contents, {
-				openLinkExternally: openExternalWebUrl,
-				canAnnotate: isPreviewAnnotationAvailable,
+				openExternally: openExternalWebUrl,
 				// The guest page remembers which element was right-clicked, so
 				// the renderer only needs the go-ahead.
 				annotateElement: () => void sendIpcEventToRenderer( 'preview-annotate-element' ),
+				addElementToChat: () => void sendIpcEventToRenderer( 'preview-add-element-to-chat' ),
 			} );
 		}
 

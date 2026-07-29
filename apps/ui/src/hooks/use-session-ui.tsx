@@ -11,7 +11,7 @@ import {
 	type ReactNode,
 } from 'react';
 import { useConnector } from '@/data/core';
-import type { Annotation } from '@/components/site-preview/types';
+import type { Annotation, PreviewElementReference } from '@/components/site-preview/types';
 
 // Dashboard-scoped UI store (mounted once in the dashboard layout, shared by
 // every route under it). Holds the slices of UI state that the chat agent
@@ -116,6 +116,9 @@ const SessionUIDispatchContext = createContext< Dispatch< SessionUIAction > | nu
 const SessionUIPreviewAnnotationsContext = createContext< MutableRefObject<
 	( ( annotations: Annotation[] ) => void ) | undefined
 > | null >( null );
+const SessionUIPreviewAddToChatContext = createContext< MutableRefObject<
+	( ( element: PreviewElementReference ) => void ) | undefined
+> | null >( null );
 
 export function SessionUIProvider( { children }: { children: ReactNode } ) {
 	// Views mount their own provider so they stay usable standalone (e.g. in
@@ -134,6 +137,9 @@ function SessionUIProviderRoot( { children }: { children: ReactNode } ) {
 	const previewAnnotationsRef = useRef< ( ( annotations: Annotation[] ) => void ) | undefined >(
 		undefined
 	);
+	const previewAddToChatRef = useRef<
+		( ( element: PreviewElementReference ) => void ) | undefined
+	>( undefined );
 	const connector = useConnector();
 	useEffect( () => {
 		return connector.onToggleSitePreview( () => {
@@ -143,9 +149,11 @@ function SessionUIProviderRoot( { children }: { children: ReactNode } ) {
 	return (
 		<SessionUIDispatchContext.Provider value={ dispatch }>
 			<SessionUIPreviewAnnotationsContext.Provider value={ previewAnnotationsRef }>
-				<SessionUIStateContext.Provider value={ state }>
-					{ children }
-				</SessionUIStateContext.Provider>
+				<SessionUIPreviewAddToChatContext.Provider value={ previewAddToChatRef }>
+					<SessionUIStateContext.Provider value={ state }>
+						{ children }
+					</SessionUIStateContext.Provider>
+				</SessionUIPreviewAddToChatContext.Provider>
 			</SessionUIPreviewAnnotationsContext.Provider>
 		</SessionUIDispatchContext.Provider>
 	);
@@ -248,4 +256,36 @@ export function useSessionPreviewAnnotationsHandler(): ( annotations: Annotation
 		);
 	}
 	return useCallback( ( annotations: Annotation[] ) => ref.current?.( annotations ), [ ref ] );
+}
+
+// "Add to Chat" from the preview's context menu, routed to whichever session is
+// on screen — the same indirection the annotation submissions use, because the
+// preview panel is owned by the dashboard layout rather than the session.
+export function useSessionPreviewAddToChat(
+	onAddElementToChat: ( element: PreviewElementReference ) => void,
+	enabled: boolean
+): void {
+	const ref = useContext( SessionUIPreviewAddToChatContext );
+	if ( ! ref ) {
+		throw new Error( 'useSessionPreviewAddToChat must be used within a SessionUIProvider' );
+	}
+	useEffect( () => {
+		if ( ! enabled ) {
+			return;
+		}
+		ref.current = onAddElementToChat;
+		return () => {
+			if ( ref.current === onAddElementToChat ) {
+				ref.current = undefined;
+			}
+		};
+	}, [ enabled, onAddElementToChat, ref ] );
+}
+
+export function useSessionPreviewAddToChatHandler(): ( element: PreviewElementReference ) => void {
+	const ref = useContext( SessionUIPreviewAddToChatContext );
+	if ( ! ref ) {
+		throw new Error( 'useSessionPreviewAddToChatHandler must be used within a SessionUIProvider' );
+	}
+	return useCallback( ( element: PreviewElementReference ) => ref.current?.( element ), [ ref ] );
 }

@@ -36,22 +36,20 @@ function makeParams( overrides: Partial< Params > = {} ): Params {
 }
 
 function makeState( overrides: Partial< PreviewContextMenuState > = {} ): PreviewContextMenuState {
-	return { canGoBack: true, canGoForward: false, canAnnotate: false, ...overrides };
+	return { inspectorReady: true, ...overrides };
 }
 
 function makeEnvironment(
 	overrides: Partial< PreviewContextMenuEnvironment > = {}
 ): PreviewContextMenuEnvironment {
-	return { platform: 'darwin', isDevelopment: false, ...overrides };
+	return { platform: 'darwin', ...overrides };
 }
 
 function makeActions(): PreviewContextMenuActions {
 	return {
 		annotateElement: vi.fn(),
-		goBack: vi.fn(),
-		goForward: vi.fn(),
-		reload: vi.fn(),
-		openLinkExternally: vi.fn(),
+		addElementToChat: vi.fn(),
+		openExternally: vi.fn(),
 		copyToClipboard: vi.fn(),
 		copyImage: vi.fn(),
 		lookUpSelection: vi.fn(),
@@ -64,7 +62,7 @@ function labelsOf( template: ReturnType< typeof buildPreviewContextMenuTemplate 
 }
 
 describe( 'buildPreviewContextMenuTemplate', () => {
-	it( 'offers page navigation when the click lands on nothing in particular', () => {
+	it( 'offers only the element actions and Inspect on plain page text', () => {
 		const template = buildPreviewContextMenuTemplate(
 			makeParams(),
 			makeState(),
@@ -73,46 +71,28 @@ describe( 'buildPreviewContextMenuTemplate', () => {
 		);
 
 		expect( labelsOf( template ) ).toEqual( [
-			'selectAll',
+			'Annotate Element',
+			'Add to Chat',
 			'separator',
-			'Back',
-			'Forward',
-			'Reload',
+			'Inspect Element',
 		] );
 	} );
 
-	it( 'disables Back and Forward at the ends of history', () => {
+	it( 'leaves the element actions out while the inspector is not attached', () => {
 		const template = buildPreviewContextMenuTemplate(
 			makeParams(),
-			makeState( { canGoBack: false, canGoForward: true } ),
+			makeState( { inspectorReady: false } ),
 			makeActions(),
 			makeEnvironment()
 		);
 
-		expect( template.find( ( item ) => item.label === 'Back' )?.enabled ).toBe( false );
-		expect( template.find( ( item ) => item.label === 'Forward' )?.enabled ).toBe( true );
+		expect( labelsOf( template ) ).toEqual( [ 'Inspect Element' ] );
 	} );
 
-	it( 'drops navigation when the pointer is on something specific, as Chrome does', () => {
-		const template = buildPreviewContextMenuTemplate(
-			makeParams( { linkURL: 'https://example.com/about' } ),
-			makeState(),
-			makeActions(),
-			makeEnvironment()
-		);
-
-		expect( labelsOf( template ) ).toEqual( [
-			'Open Link in Browser',
-			'Copy Link Address',
-			'separator',
-			'selectAll',
-		] );
-	} );
-
-	it( 'opens a link in the real browser rather than inside the preview', () => {
+	it( 'hands the element actions straight to the guest page', () => {
 		const actions = makeActions();
 		const template = buildPreviewContextMenuTemplate(
-			makeParams( { linkURL: 'https://example.com/about' } ),
+			makeParams(),
 			makeState(),
 			actions,
 			makeEnvironment()
@@ -121,32 +101,59 @@ describe( 'buildPreviewContextMenuTemplate', () => {
 		( template[ 0 ].click as () => void )();
 		( template[ 1 ].click as () => void )();
 
-		expect( actions.openLinkExternally ).toHaveBeenCalledWith( 'https://example.com/about' );
+		expect( actions.annotateElement ).toHaveBeenCalledOnce();
+		expect( actions.addElementToChat ).toHaveBeenCalledOnce();
+	} );
+
+	it( 'offers link actions that leave the preview', () => {
+		const actions = makeActions();
+		const template = buildPreviewContextMenuTemplate(
+			makeParams( { linkURL: 'https://example.com/about' } ),
+			makeState( { inspectorReady: false } ),
+			actions,
+			makeEnvironment()
+		);
+
+		expect( labelsOf( template ) ).toEqual( [
+			'Open Link in Browser',
+			'Copy Link Address',
+			'separator',
+			'Inspect Element',
+		] );
+
+		( template[ 0 ].click as () => void )();
+		( template[ 1 ].click as () => void )();
+		expect( actions.openExternally ).toHaveBeenCalledWith( 'https://example.com/about' );
 		expect( actions.copyToClipboard ).toHaveBeenCalledWith( 'https://example.com/about' );
 	} );
 
 	it( 'offers image actions only for an image with real contents', () => {
+		const actions = makeActions();
 		const withImage = buildPreviewContextMenuTemplate(
 			makeParams( {
 				mediaType: 'image',
 				hasImageContents: true,
 				srcURL: 'https://example.com/logo.png',
 			} ),
-			makeState(),
-			makeActions(),
+			makeState( { inspectorReady: false } ),
+			actions,
 			makeEnvironment()
 		);
 		expect( labelsOf( withImage ) ).toEqual( [
 			'Copy Image',
 			'Copy Image Address',
+			'Open Image in Browser',
 			'separator',
-			'selectAll',
+			'Inspect Element',
 		] );
 
-		// A broken image reports the type but has nothing to copy.
+		( withImage[ 2 ].click as () => void )();
+		expect( actions.openExternally ).toHaveBeenCalledWith( 'https://example.com/logo.png' );
+
+		// A broken image reports the type but has nothing to copy or open.
 		const brokenImage = buildPreviewContextMenuTemplate(
 			makeParams( { mediaType: 'image', hasImageContents: false } ),
-			makeState(),
+			makeState( { inspectorReady: false } ),
 			makeActions(),
 			makeEnvironment()
 		);
@@ -158,133 +165,74 @@ describe( 'buildPreviewContextMenuTemplate', () => {
 			selectionText: 'permalink',
 			editFlags: { canCopy: true, canSelectAll: true } as ContextMenuParams[ 'editFlags' ],
 		} );
+		const state = makeState( { inspectorReady: false } );
 
 		expect(
-			labelsOf(
-				buildPreviewContextMenuTemplate( params, makeState(), makeActions(), makeEnvironment() )
-			)
-		).toEqual( [ 'Look Up “permalink”', 'separator', 'copy', 'selectAll' ] );
+			labelsOf( buildPreviewContextMenuTemplate( params, state, makeActions(), makeEnvironment() ) )
+		).toEqual( [ 'Look Up “permalink”', 'separator', 'copy', 'separator', 'Inspect Element' ] );
 
 		expect(
 			labelsOf(
 				buildPreviewContextMenuTemplate(
 					params,
-					makeState(),
+					state,
 					makeActions(),
 					makeEnvironment( { platform: 'win32' } )
 				)
 			)
-		).toEqual( [ 'copy', 'selectAll' ] );
+		).toEqual( [ 'copy', 'separator', 'Inspect Element' ] );
 	} );
 
-	it( 'offers Cut and Paste only inside an editable field', () => {
-		// A selection is what makes canCopy/canCut true in the first place, so
-		// the params have to carry one for this to be a real-world state.
-		const params = makeParams( {
-			selectionText: 'permalink',
-			editFlags: {
-				canCut: true,
-				canCopy: true,
-				canPaste: true,
-				canSelectAll: true,
-			} as ContextMenuParams[ 'editFlags' ],
-		} );
+	it( 'keeps Cut, Paste and Select All to fields the user can type in', () => {
+		const editFlags = {
+			canCut: true,
+			canCopy: true,
+			canPaste: true,
+			canSelectAll: true,
+		} as ContextMenuParams[ 'editFlags' ];
+		const state = makeState( { inspectorReady: false } );
 		const onWindows = makeEnvironment( { platform: 'win32' } );
 
 		expect(
 			labelsOf(
 				buildPreviewContextMenuTemplate(
-					{ ...params, isEditable: true },
-					makeState(),
+					makeParams( { isEditable: true, selectionText: 'permalink', editFlags } ),
+					state,
 					makeActions(),
 					onWindows
 				)
 			)
-		).toEqual( [ 'cut', 'copy', 'paste', 'selectAll' ] );
+		).toEqual( [ 'cut', 'copy', 'paste', 'selectAll', 'separator', 'Inspect Element' ] );
 
+		// Page text gets Copy and nothing else — Select All would highlight the
+		// whole document, which is never what was wanted here.
 		expect(
 			labelsOf(
 				buildPreviewContextMenuTemplate(
-					{ ...params, isEditable: false },
-					makeState(),
+					makeParams( { isEditable: false, selectionText: 'permalink', editFlags } ),
+					state,
 					makeActions(),
 					onWindows
 				)
 			)
-		).toEqual( [ 'copy', 'selectAll' ] );
+		).toEqual( [ 'copy', 'separator', 'Inspect Element' ] );
 	} );
 
-	it( 'offers Annotate Element first, ahead of the familiar browser items', () => {
+	it( 'offers Inspect Element in production too', () => {
 		const template = buildPreviewContextMenuTemplate(
-			makeParams( { linkURL: 'https://example.com/about' } ),
-			makeState( { canAnnotate: true } ),
+			makeParams(),
+			makeState( { inspectorReady: false } ),
 			makeActions(),
 			makeEnvironment()
 		);
 
-		expect( labelsOf( template ) ).toEqual( [
-			'Annotate Element',
-			'separator',
-			'Open Link in Browser',
-			'Copy Link Address',
-			'separator',
-			'selectAll',
-		] );
-	} );
-
-	it( 'leaves Annotate Element out while the inspector is not attached', () => {
-		const template = buildPreviewContextMenuTemplate(
-			makeParams(),
-			makeState( { canAnnotate: false } ),
-			makeActions(),
-			makeEnvironment()
-		);
-
-		expect( labelsOf( template ) ).not.toContain( 'Annotate Element' );
-	} );
-
-	it( 'hands the annotation request straight to the guest page', () => {
-		const actions = makeActions();
-		const template = buildPreviewContextMenuTemplate(
-			makeParams(),
-			makeState( { canAnnotate: true } ),
-			actions,
-			makeEnvironment()
-		);
-
-		( template[ 0 ].click as () => void )();
-
-		expect( actions.annotateElement ).toHaveBeenCalledOnce();
-	} );
-
-	it( 'keeps Inspect Element out of production builds', () => {
-		expect(
-			labelsOf(
-				buildPreviewContextMenuTemplate(
-					makeParams(),
-					makeState(),
-					makeActions(),
-					makeEnvironment( { isDevelopment: true } )
-				)
-			)
-		).toContain( 'Inspect Element' );
-
-		expect(
-			labelsOf(
-				buildPreviewContextMenuTemplate(
-					makeParams(),
-					makeState(),
-					makeActions(),
-					makeEnvironment()
-				)
-			)
-		).not.toContain( 'Inspect Element' );
+		expect( labelsOf( template ) ).toContain( 'Inspect Element' );
 	} );
 
 	it( 'collapses and truncates a long selection in the Look Up label', () => {
 		const template = buildPreviewContextMenuTemplate(
 			makeParams( { selectionText: '  the quick\n brown fox jumps over the dog  ' } ),
-			makeState(),
+			makeState( { inspectorReady: false } ),
 			makeActions(),
 			makeEnvironment()
 		);
@@ -301,19 +249,21 @@ describe( 'buildPreviewContextMenuTemplate', () => {
 			} ),
 			makeState(),
 			makeActions(),
-			makeEnvironment( { isDevelopment: true } )
+			makeEnvironment()
 		);
 
 		expect( template[ 0 ].type ).not.toBe( 'separator' );
 		expect( template.at( -1 )?.type ).not.toBe( 'separator' );
 		expect( labelsOf( template ) ).toEqual( [
+			'Annotate Element',
+			'Add to Chat',
+			'separator',
 			'Open Link in Browser',
 			'Copy Link Address',
 			'separator',
 			'Look Up “about”',
 			'separator',
 			'copy',
-			'selectAll',
 			'separator',
 			'Inspect Element',
 		] );

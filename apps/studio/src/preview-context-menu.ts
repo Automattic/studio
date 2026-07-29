@@ -19,31 +19,28 @@ const LOOK_UP_LABEL_MAX_LENGTH = 24;
 // Pushed by the renderer as the inspector attaches and detaches. It is plain
 // state rather than something asked for at right-click time, so reading it
 // while building the menu can't race the click that opened it.
-let previewAnnotationAvailable = false;
+let previewInspectorReady = false;
 
-export function setPreviewAnnotationAvailable( available: boolean ): void {
-	previewAnnotationAvailable = available;
+export function setPreviewInspectorReady( ready: boolean ): void {
+	previewInspectorReady = ready;
 }
 
-export function isPreviewAnnotationAvailable(): boolean {
-	return previewAnnotationAvailable;
+export function isPreviewInspectorReady(): boolean {
+	return previewInspectorReady;
 }
 
 export interface PreviewContextMenuState {
-	canGoBack: boolean;
-	canGoForward: boolean;
 	// False while the annotation inspector isn't injected into the guest page
-	// (during a load, or on a page it couldn't attach to), so the item is left
-	// out rather than offered and doing nothing.
-	canAnnotate: boolean;
+	// (during a load, or on a page it couldn't attach to). Only it knows which
+	// element was clicked, so the element actions are left out rather than
+	// offered and doing nothing.
+	inspectorReady: boolean;
 }
 
 export interface PreviewContextMenuActions {
 	annotateElement: () => void;
-	goBack: () => void;
-	goForward: () => void;
-	reload: () => void;
-	openLinkExternally: ( url: string ) => void;
+	addElementToChat: () => void;
+	openExternally: ( url: string ) => void;
 	copyToClipboard: ( text: string ) => void;
 	copyImage: () => void;
 	lookUpSelection: () => void;
@@ -52,7 +49,6 @@ export interface PreviewContextMenuActions {
 
 export interface PreviewContextMenuEnvironment {
 	platform: NodeJS.Platform;
-	isDevelopment: boolean;
 }
 
 type PreviewContextMenuParams = Pick<
@@ -77,12 +73,11 @@ function toLookUpLabel( selection: string ): string {
 }
 
 /**
- * Browser-style context menu for the previewed site.
+ * Context menu for the previewed site.
  *
- * Follows Chrome's shape: whatever the pointer is actually on comes first, and
- * the page-level navigation items only appear when the click landed on nothing
- * in particular — otherwise every right-click grows a Back/Forward tail the
- * preview's own toolbar buttons already cover.
+ * Studio's own element actions come first — they're why you'd right-click here
+ * — followed by whatever the pointer is actually on. Every item is conditional
+ * on doing something, so nothing is offered greyed out or inert.
  */
 export function buildPreviewContextMenuTemplate(
 	params: PreviewContextMenuParams,
@@ -92,44 +87,40 @@ export function buildPreviewContextMenuTemplate(
 ): MenuItemConstructorOptions[] {
 	const selection = params.selectionText.trim();
 	const linkUrl = params.linkURL;
-	const isImage = params.mediaType === 'image' && params.hasImageContents;
+	const imageUrl = params.mediaType === 'image' && params.hasImageContents ? params.srcURL : '';
 
 	// Built as sections and joined with separators, so an inapplicable section
 	// can't leave a stray divider behind.
 	const sections: MenuItemConstructorOptions[][] = [];
 
-	// First, because annotating the thing under the pointer is the reason a
-	// Studio user reaches for this menu — the browser items below are the
-	// familiar ones they can already find by muscle memory.
-	if ( state.canAnnotate ) {
-		sections.push( [ { label: __( 'Annotate Element' ), click: actions.annotateElement } ] );
+	if ( state.inspectorReady ) {
+		sections.push( [
+			{ label: __( 'Annotate Element' ), click: actions.annotateElement },
+			{ label: __( 'Add to Chat' ), click: actions.addElementToChat },
+		] );
 	}
 
 	if ( linkUrl ) {
 		sections.push( [
-			{ label: __( 'Open Link in Browser' ), click: () => actions.openLinkExternally( linkUrl ) },
+			{ label: __( 'Open Link in Browser' ), click: () => actions.openExternally( linkUrl ) },
 			{ label: __( 'Copy Link Address' ), click: () => actions.copyToClipboard( linkUrl ) },
 		] );
 	}
 
-	if ( isImage ) {
-		const imageItems: MenuItemConstructorOptions[] = [
+	if ( imageUrl ) {
+		sections.push( [
 			{ label: __( 'Copy Image' ), click: actions.copyImage },
-		];
-		if ( params.srcURL ) {
-			const srcUrl = params.srcURL;
-			imageItems.push( {
-				label: __( 'Copy Image Address' ),
-				click: () => actions.copyToClipboard( srcUrl ),
-			} );
-		}
-		sections.push( imageItems );
+			{ label: __( 'Copy Image Address' ), click: () => actions.copyToClipboard( imageUrl ) },
+			{ label: __( 'Open Image in Browser' ), click: () => actions.openExternally( imageUrl ) },
+		] );
 	}
 
 	if ( environment.platform === 'darwin' && selection ) {
 		sections.push( [ { label: toLookUpLabel( selection ), click: actions.lookUpSelection } ] );
 	}
 
+	// Cut, Paste and Select All only mean anything in a field the user can type
+	// in; on page text, Copy is the only one worth offering.
 	const editItems: MenuItemConstructorOptions[] = [];
 	if ( params.isEditable && params.editFlags.canCut ) {
 		editItems.push( { role: 'cut' } );
@@ -140,25 +131,17 @@ export function buildPreviewContextMenuTemplate(
 	if ( params.isEditable && params.editFlags.canPaste ) {
 		editItems.push( { role: 'paste' } );
 	}
-	if ( params.editFlags.canSelectAll ) {
+	if ( params.isEditable && params.editFlags.canSelectAll ) {
 		editItems.push( { role: 'selectAll' } );
 	}
 	if ( editItems.length > 0 ) {
 		sections.push( editItems );
 	}
 
-	const isPlainPageClick = ! linkUrl && ! isImage && ! selection && ! params.isEditable;
-	if ( isPlainPageClick ) {
-		sections.push( [
-			{ label: __( 'Back' ), enabled: state.canGoBack, click: actions.goBack },
-			{ label: __( 'Forward' ), enabled: state.canGoForward, click: actions.goForward },
-			{ label: __( 'Reload' ), click: actions.reload },
-		] );
-	}
-
-	if ( environment.isDevelopment ) {
-		sections.push( [ { label: __( 'Inspect Element' ), click: actions.inspectElement } ] );
-	}
+	// Not gated to development builds: inspecting the page you're building is
+	// the point of the preview, and Electron keeps DevTools available when
+	// packaged.
+	sections.push( [ { label: __( 'Inspect Element' ), click: actions.inspectElement } ] );
 
 	return sections.flatMap( ( section, index ) =>
 		index === 0 ? section : [ { type: 'separator' }, ...section ]
@@ -166,34 +149,28 @@ export function buildPreviewContextMenuTemplate(
 }
 
 /**
- * Attaches the browser-style context menu to a site-preview <webview>.
+ * Attaches the context menu to a site-preview <webview>.
  */
 export function registerPreviewContextMenu(
 	contents: WebContents,
 	{
-		openLinkExternally,
+		openExternally,
 		annotateElement,
-		canAnnotate,
+		addElementToChat,
 	}: {
-		openLinkExternally: ( url: string ) => void;
+		openExternally: ( url: string ) => void;
 		annotateElement: () => void;
-		canAnnotate: () => boolean;
+		addElementToChat: () => void;
 	}
 ): void {
 	contents.on( 'context-menu', ( _event, params ) => {
 		const template = buildPreviewContextMenuTemplate(
 			params,
-			{
-				canGoBack: contents.navigationHistory.canGoBack(),
-				canGoForward: contents.navigationHistory.canGoForward(),
-				canAnnotate: canAnnotate(),
-			},
+			{ inspectorReady: isPreviewInspectorReady() },
 			{
 				annotateElement,
-				goBack: () => contents.navigationHistory.goBack(),
-				goForward: () => contents.navigationHistory.goForward(),
-				reload: () => contents.reload(),
-				openLinkExternally,
+				addElementToChat,
+				openExternally,
 				copyToClipboard: ( text ) => clipboard.writeText( text ),
 				copyImage: () => contents.copyImageAt( params.x, params.y ),
 				// Known cosmetic quirk: macOS anchors the dictionary panel to a
@@ -205,12 +182,8 @@ export function registerPreviewContextMenu(
 				lookUpSelection: () => contents.showDefinitionForSelection(),
 				inspectElement: () => contents.inspectElement( params.x, params.y ),
 			},
-			{ platform: process.platform, isDevelopment: process.env.NODE_ENV === 'development' }
+			{ platform: process.platform }
 		);
-
-		if ( template.length === 0 ) {
-			return;
-		}
 
 		Menu.buildFromTemplate( template ).popup();
 	} );

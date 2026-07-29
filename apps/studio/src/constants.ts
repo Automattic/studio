@@ -61,7 +61,7 @@ export const IPC_VOID_HANDLERS = [
 	'setWindowButtonVisibility',
 	'showErrorMessageBox',
 	'showSiteContextMenu',
-	'setPreviewAnnotationReady',
+	'setPreviewInspectorReady',
 	'showItemInFolder',
 	'showNotification',
 	'authenticate',

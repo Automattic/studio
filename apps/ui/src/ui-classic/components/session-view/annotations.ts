@@ -1,5 +1,5 @@
 import { _n, sprintf } from '@wordpress/i18n';
-import type { Annotation } from '@/components/site-preview/types';
+import type { Annotation, PreviewElementReference } from '@/components/site-preview/types';
 
 function describeCount( count: number ): string {
 	return count === 1 ? '1 visual annotation' : `${ count } visual annotations`;
@@ -58,4 +58,21 @@ export function formatAnnotationsAsPrompt( annotations: Annotation[] ): string {
 	} );
 
 	return lines.join( '\n' ).trimEnd();
+}
+
+/**
+ * Short reference to an element the user pulled out of the preview, appended to
+ * the composer so they can type their request around it. Deliberately terse —
+ * this lands in a draft the user is about to edit, not in a prompt being sent.
+ */
+export function formatElementForComposer( element: PreviewElementReference ): string {
+	const tag = element.tag ? `<${ element.tag }>` : 'element';
+	const nearbyText = element.nearbyText?.trim()
+		? ` — "${ truncateText( element.nearbyText.trim(), 120 ) }"`
+		: '';
+	const lines = [ `The ${ tag }${ nearbyText } on ${ element.pathname || '/' }` ];
+	if ( element.selector ) {
+		lines.push( `Selector: \`${ element.selector }\`` );
+	}
+	return lines.join( '\n' );
 }

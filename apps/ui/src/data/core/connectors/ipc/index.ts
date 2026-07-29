@@ -814,12 +814,16 @@ export function createIpcConnector(): Connector {
 			await ipcApi.copyText( text );
 		},
 
-		setPreviewAnnotationReady( ready: boolean ): void {
-			ipcApi.setPreviewAnnotationReady( ready );
+		setPreviewInspectorReady( ready: boolean ): void {
+			ipcApi.setPreviewInspectorReady( ready );
 		},
 
 		onPreviewAnnotateElement( listener: () => void ): () => void {
 			return ipcListener.subscribe( 'preview-annotate-element', () => listener() );
+		},
+
+		onPreviewAddElementToChat( listener: () => void ): () => void {
+			return ipcListener.subscribe( 'preview-add-element-to-chat', () => listener() );
 		},
 
 		async confirmDeleteAllPreviewSites(): Promise< boolean > {

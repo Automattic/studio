@@ -19,7 +19,7 @@ import { PreviewToggleButton } from '@/components/preview-toggle-button';
 import { ProgressiveBlur } from '@/components/progressive-blur';
 import { SiteDropdown } from '@/components/site-dropdown';
 import { SiteIcon } from '@/components/site-icon';
-import { type Annotation } from '@/components/site-preview/types';
+import { type Annotation, PreviewElementReference } from '@/components/site-preview/types';
 import { useAgentRun } from '@/data/queries/use-agent-run';
 import {
 	useCreateSession,
@@ -29,10 +29,18 @@ import {
 } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
 import { useSessionCommands } from '@/hooks/use-session-commands';
-import { SessionUIProvider, useSessionPreviewAnnotations } from '@/hooks/use-session-ui';
+import {
+	SessionUIProvider,
+	useSessionPreviewAddToChat,
+	useSessionPreviewAnnotations,
+} from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
-import { formatAnnotationsAsPrompt, formatAnnotationsSubmittedMessage } from './annotations';
+import {
+	formatAnnotationsAsPrompt,
+	formatAnnotationsSubmittedMessage,
+	formatElementForComposer,
+} from './annotations';
 import { Composer, ComposerSkeleton, type ComposerHandle } from './composer';
 import { Conversation } from './conversation';
 import { EmptyBackground } from './empty-background';
@@ -308,6 +316,13 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	// The preview panel itself is hosted by the dashboard layout; route its
 	// annotation submissions to this session while it is on screen.
 	useSessionPreviewAnnotations( handleAnnotationsDone, canTogglePreview );
+	// "Add to Chat" drops a reference into the draft and focuses the composer,
+	// leaving the user to say what they want done — unlike a submitted
+	// annotation, which carries its own comment and is sent straight away.
+	const handleAddElementToChat = useCallback( ( element: PreviewElementReference ) => {
+		composerRef.current?.appendDraft( formatElementForComposer( element ) );
+	}, [] );
+	useSessionPreviewAddToChat( handleAddElementToChat, canTogglePreview );
 
 	const reopenQueuedPrompt = useCallback(
 		( queuedPrompt: ( typeof queuedPrompts )[ number ] ) => {

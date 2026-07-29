@@ -176,7 +176,7 @@ import { linuxFindEditorPath } from 'src/modules/user-settings/lib/linux-editor-
 import { linuxFindTerminalPath } from 'src/modules/user-settings/lib/linux-terminal-path';
 import { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
-import { setPreviewAnnotationAvailable } from 'src/preview-context-menu';
+import { setPreviewInspectorReady as storePreviewInspectorReady } from 'src/preview-context-menu';
 import { SiteServer, stopAllServers as triggerStopAllServers } from 'src/site-server';
 import { getSiteThumbnailPath } from 'src/storage/paths';
 import {
@@ -2461,7 +2461,7 @@ export async function stopRemoteSessionDaemon(
 // The site preview's annotation inspector lives in the guest page and is
 // re-injected on every load, so only the renderer knows whether it is
 // currently attached. It pushes that state here for the preview's context
-// menu, which would otherwise have to offer "Annotate Element" blind.
-export function setPreviewAnnotationReady( _event: IpcMainInvokeEvent, ready: boolean ) {
-	setPreviewAnnotationAvailable( ready );
+// menu, which would otherwise have to offer its element actions blind.
+export function setPreviewInspectorReady( _event: IpcMainInvokeEvent, ready: boolean ) {
+	storePreviewInspectorReady( ready );
 }

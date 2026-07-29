@@ -12,6 +12,7 @@ import { useSites } from '@/data/queries/use-sites';
 import {
 	pathForSite,
 	SessionUIProvider,
+	useSessionPreviewAddToChatHandler,
 	useSessionPreviewAnnotationsHandler,
 	useSessionPreviewUI,
 } from '@/hooks/use-session-ui';
@@ -61,6 +62,7 @@ function DashboardLayoutContent() {
 	const { data: sessionData } = useSession( sessionId );
 	const preview = useSessionPreviewUI();
 	const onAnnotationsDone = useSessionPreviewAnnotationsHandler();
+	const onAddElementToChat = useSessionPreviewAddToChatHandler();
 	const sessionSite = findAiSessionOwnerSite( sites, sessionData?.summary );
 	const effectiveEnvironment = useSessionEffectiveEnvironment(
 		sessionData?.summary,
@@ -124,11 +126,19 @@ function DashboardLayoutContent() {
 					path={ previewPath }
 					reloadNonce={ preview.reloadNonce }
 					onAnnotationsDone={ onAnnotationsDone }
+					onAddElementToChat={ onAddElementToChat }
 					onPathChange={ preview.updatePath }
 					collapsed={ collapsed }
 				/>
 			) : null,
-		[ onAnnotationsDone, previewPath, preview.reloadNonce, preview.updatePath, previewSite ]
+		[
+			onAddElementToChat,
+			onAnnotationsDone,
+			previewPath,
+			preview.reloadNonce,
+			preview.updatePath,
+			previewSite,
+		]
 	);
 
 	return (

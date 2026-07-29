@@ -1,5 +1,6 @@
 import {
 	clampQuotaFraction,
+	formatAiBlockedNotice,
 	formatQuotaPercentage,
 	formatQuotaResetDateShort,
 } from '@studio/common/lib/studio-assistant-quota';
@@ -101,6 +102,14 @@ export function AiCreditsSection() {
 				<p className={ styles.meterText }>
 					{ __( 'Studio Code limits are temporarily unavailable.' ) }
 				</p>
+			</Meter>
+		);
+	}
+
+	if ( quota?.isStudioCodeAiBlocked ) {
+		return (
+			<Meter title={ __( 'AI credits' ) }>
+				<p className={ styles.meterText }>{ formatAiBlockedNotice() }</p>
 			</Meter>
 		);
 	}

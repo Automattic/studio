@@ -156,6 +156,27 @@ describe( 'usage sections', () => {
 			expect( screen.queryByText( ALPHA_META ) ).not.toBeInTheDocument();
 		} );
 
+		it( 'shows the account-level AI blocked notice instead of usage', () => {
+			useStudioAssistantQuotaMock.mockReturnValue( {
+				data: {
+					costUsage: 25,
+					costCap: 100,
+					costResetDate: '2026-08-01T12:00:00',
+					isStudioCodeAiBlocked: true,
+				},
+				isLoading: false,
+			} as never );
+
+			render( <AiCreditsSection /> );
+
+			expect(
+				screen.getByText(
+					'Studio Code AI is unavailable for this WordPress.com account. If you believe this is a mistake, contact WordPress.com support.'
+				)
+			).toBeInTheDocument();
+			expect( screen.queryByTestId( 'usage-progress-bar' ) ).not.toBeInTheDocument();
+		} );
+
 		it( 'replaces the meter with a hatched placeholder when offline', () => {
 			useOfflineMock.mockReturnValue( true );
 			useStudioAssistantQuotaMock.mockReturnValue( {

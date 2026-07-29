@@ -45,7 +45,7 @@ export function FamilySwitchConfirmDialog( {
 							? sprintf(
 									/* translators: 1: current model name, 2: new model name */
 									__(
-										'Switching from %1$s to %2$s starts a fresh conversation — the two model families don\u2019t share memory. Your current chat stays in the sidebar.'
+										'Switching from %1$s to %2$s starts a fresh conversation — the two model families don\u2019t share memory. Your current chat remains available from the Chat history button below the chat box.'
 									),
 									getAiModelLabel( currentModel ),
 									getAiModelLabel( pendingModel )

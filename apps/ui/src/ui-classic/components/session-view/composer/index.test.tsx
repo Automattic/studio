@@ -324,6 +324,11 @@ describe( 'Composer menu', () => {
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Select model' } ) );
 		fireEvent.click( await screen.findByText( 'GPT 5.6 Sol' ) );
+		const dialog = await screen.findByRole( 'dialog' );
+		expect( dialog ).toHaveTextContent(
+			'Your current chat remains available from the Chat history button below the chat box.'
+		);
+		expect( dialog ).not.toHaveTextContent( 'sidebar' );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Start new conversation' } ) );
 
 		await waitFor( () => {

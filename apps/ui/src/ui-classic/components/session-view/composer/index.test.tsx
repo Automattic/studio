@@ -329,6 +329,7 @@ describe( 'Composer menu', () => {
 		expect( dialog ).toHaveTextContent(
 			'Switching from Sonnet 5 to GPT 5.6 Sol starts a fresh chat; the two models don’t share memory. You can always find previous chats in the Chat history button below the chat box.'
 		);
+		expect( within( dialog ).getByText( 'Chat history' ).tagName ).toBe( 'STRONG' );
 		expect( dialog ).not.toHaveTextContent( 'sidebar' );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Start new conversation' } ) );
 

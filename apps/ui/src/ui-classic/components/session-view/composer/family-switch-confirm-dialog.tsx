@@ -1,4 +1,5 @@
 import { getAiModelLabel } from '@studio/common/ai/models';
+import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 import { Button, Dialog } from '@wordpress/ui';
 import type { AiModelId } from '@/data/core';
@@ -42,13 +43,16 @@ export function FamilySwitchConfirmDialog( {
 				<Dialog.Content>
 					<Dialog.Description>
 						{ pendingModel
-							? sprintf(
-									/* translators: 1: current model name, 2: new model name */
-									__(
-										'Switching from %1$s to %2$s starts a fresh chat; the two models don\u2019t share memory. You can always find previous chats in the Chat history button below the chat box.'
+							? createInterpolateElement(
+									sprintf(
+										/* translators: 1: current model name, 2: new model name */
+										__(
+											'Switching from %1$s to %2$s starts a fresh chat; the two models don\u2019t share memory. You can always find previous chats in the <history>Chat history</history> button below the chat box.'
+										),
+										getAiModelLabel( currentModel ),
+										getAiModelLabel( pendingModel )
 									),
-									getAiModelLabel( currentModel ),
-									getAiModelLabel( pendingModel )
+									{ history: <strong /> }
 							  )
 							: '' }
 					</Dialog.Description>

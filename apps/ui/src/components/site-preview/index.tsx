@@ -57,7 +57,7 @@ interface InspectorState {
 
 interface InspectorCommand {
 	id: number;
-	type: 'toggle-picking' | 'submit';
+	type: 'toggle-picking' | 'submit' | 'annotate-context-target';
 }
 
 interface BrowserNavigationState {
@@ -291,6 +291,20 @@ export function SitePreview( {
 		commandIdRef.current += 1;
 		setInspectorCommand( { id: commandIdRef.current, type } );
 	}, [] );
+
+	// Keep the host's preview context menu in step with the inspector, which is
+	// re-injected on every page load — otherwise it would offer element actions
+	// on pages where nothing is listening.
+	useEffect( () => {
+		connector.setPreviewInspectorReady?.( canAnnotate );
+		return () => connector.setPreviewInspectorReady?.( false );
+	}, [ canAnnotate, connector ] );
+
+	useEffect( () => {
+		return connector.onPreviewAnnotateElement?.( () =>
+			sendInspectorCommand( 'annotate-context-target' )
+		);
+	}, [ connector, sendInspectorCommand ] );
 
 	const browserShortcuts = useMemo(
 		() => ( {

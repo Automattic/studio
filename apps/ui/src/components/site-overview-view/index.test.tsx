@@ -49,7 +49,12 @@ vi.mock( '@/components/delete-site-dialog', () => ( {
 } ) );
 
 vi.mock( '@/components/site-dropdown', () => ( {
-	SiteDropdown: ( props: { site: SiteDetails; showSiteIcon?: boolean; showStatus?: boolean } ) => {
+	SiteDropdown: ( props: {
+		site: SiteDetails;
+		showSiteIcon?: boolean;
+		showStatus?: boolean;
+		defaultOpen?: boolean;
+	} ) => {
 		siteDropdownMock( props );
 		return <div>{ props.site.name }</div>;
 	},
@@ -174,10 +179,18 @@ describe( 'SiteOverviewView', () => {
 		useXdebugEnabledSiteMock.mockReturnValue( null );
 	} );
 
-	function renderView( activeTab: 'overview' | 'general' | 'debugging' = 'overview' ) {
+	function renderView(
+		activeTab: 'overview' | 'general' | 'debugging' = 'overview',
+		openSiteDropdown = false
+	) {
 		return render(
 			<Tooltip.Provider>
-				<SiteOverviewView siteId="site-1" activeTab={ activeTab } onTabChange={ onTabChange } />
+				<SiteOverviewView
+					siteId="site-1"
+					activeTab={ activeTab }
+					openSiteDropdown={ openSiteDropdown }
+					onTabChange={ onTabChange }
+				/>
 			</Tooltip.Provider>
 		);
 	}
@@ -221,6 +234,14 @@ describe( 'SiteOverviewView', () => {
 		fireEvent.click( screen.getByRole( 'tab', { name: 'Settings' } ) );
 
 		expect( onTabChange ).toHaveBeenCalledWith( 'general' );
+	} );
+
+	it( 'opens site status when requested by the route', () => {
+		renderView( 'overview', true );
+
+		expect( siteDropdownMock ).toHaveBeenCalledWith(
+			expect.objectContaining( { defaultOpen: true } )
+		);
 	} );
 
 	it( 'renders the settings form with save actions on the general tab', () => {

@@ -42,7 +42,6 @@ const routeTree = rootRoute.addChildren( [
 		onboardingConnectRoute,
 		onboardingCreateRoute,
 		onboardingBlueprintRoute,
-		onboardingConnectRoute,
 		onboardingImportRoute,
 		onboardingPluginRoute,
 		onboardingPluginCreateRoute,

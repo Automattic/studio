@@ -10,7 +10,7 @@ import {
 	type ComposerAttachmentHoverPreviewState,
 } from '@studio/common/ai/composer-attachment-preview';
 import { watchComposerFilePaste } from '@studio/common/ai/composer-attachments';
-import { AI_MODELS, getAiModelFamily, getAiModelLabel } from '@studio/common/ai/models';
+import { AI_MODELS, getAiModelFamily } from '@studio/common/ai/models';
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
 import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
 import { useQueryClient } from '@tanstack/react-query';
@@ -29,6 +29,7 @@ import {
 	forwardRef,
 	useCallback,
 	useEffect,
+	useId,
 	useImperativeHandle,
 	useLayoutEffect,
 	useRef,
@@ -46,6 +47,7 @@ import {
 	reconcilePrimedSessionQueryData,
 	SESSIONS_QUERY_KEY,
 } from '@/data/queries/use-sessions';
+import { AiDisclosure } from './ai-disclosure';
 import { FamilySwitchConfirmDialog } from './family-switch-confirm-dialog';
 import styles from './style.module.css';
 import {
@@ -192,7 +194,7 @@ export function ComposerSkeleton() {
 			<div className={ styles.shell }>
 				<textarea className={ styles.input } rows={ 2 } disabled tabIndex={ -1 } />
 				<div className={ styles.toolbar }>
-					<span className={ styles.pill } />
+					<span className={ styles.iconButton } />
 				</div>
 			</div>
 		</div>
@@ -387,6 +389,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const [ isResizingComposer, setIsResizingComposer ] = useState( false );
 	const textareaRef = useRef< HTMLTextAreaElement | null >( null );
 	const fileInputRef = useRef< HTMLInputElement | null >( null );
+	const aiDisclosureId = useId();
 	const manualTextareaHeightRef = useRef< number | null >( null );
 	const resizeDragRef = useRef< { startY: number; startHeight: number } | null >( null );
 	const connector = useConnector();
@@ -946,6 +949,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 							ref={ textareaRef }
 							className={ styles.input }
 							placeholder={ placeholder }
+							aria-describedby={ aiDisclosureId }
 							value={ value }
 							onChange={ ( event ) => setValue( event.target.value ) }
 							onPaste={ pasteHandlers.onPaste }
@@ -1057,7 +1061,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 													/>
 												}
 											>
-												<span>{ getAiModelLabel( model ) }</span>
+												<AiDisclosure id={ aiDisclosureId } model={ model } />
 												<Icon icon={ chevronDownSmall } size={ 16 } />
 											</Tooltip.Trigger>
 										}

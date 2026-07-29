@@ -323,7 +323,7 @@ describe( 'Composer menu', () => {
 		);
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Select model' } ) );
-		fireEvent.click( await screen.findByText( 'GPT 5.6 Sol' ) );
+		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: 'GPT 5.6 Sol' } ) );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Start new conversation' } ) );
 
 		await waitFor( () => {
@@ -342,6 +342,38 @@ describe( 'Composer menu', () => {
 				modelId: 'gpt-5.6-sol',
 			} ),
 		] );
+	} );
+} );
+
+describe( 'Composer AI disclosure', () => {
+	it( 'renders the disclosure as text and describes the prompt field with it', () => {
+		renderComposer();
+
+		const disclosure = screen.getByText( 'Chatting with Sonnet AI' );
+		const textarea = screen.getByRole( 'textbox' );
+
+		expect( disclosure.id ).toBeTruthy();
+		expect( textarea ).toHaveAttribute( 'aria-describedby', disclosure.id );
+	} );
+
+	it( 'stays visible once the user starts typing', () => {
+		renderComposer();
+
+		fireEvent.change( screen.getByRole( 'textbox' ), { target: { value: 'Hello' } } );
+
+		expect( screen.getByText( 'Chatting with Sonnet AI' ) ).toBeInTheDocument();
+	} );
+
+	it( 'names whichever model the session is on', () => {
+		renderComposer( { model: 'gpt-5.6-sol' } );
+
+		expect( screen.getByText( 'Chatting with Sol AI' ) ).toBeInTheDocument();
+	} );
+
+	it( 'stays visible while a turn is running', () => {
+		renderComposer( { busy: true } );
+
+		expect( screen.getByText( 'Chatting with Sonnet AI' ) ).toBeInTheDocument();
 	} );
 } );
 

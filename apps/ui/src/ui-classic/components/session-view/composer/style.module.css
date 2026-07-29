@@ -388,6 +388,9 @@
 	display: flex;
 	align-items: flex-end;
 	justify-content: space-between;
+	/* Release valve for the narrowest panel width: wrap rather than push the send
+	   button out of the shell or clip the AI disclosure. */
+	flex-wrap: wrap;
 	gap: var(--wpds-dimension-padding-sm);
 	min-width: 0;
 	padding: 0 calc(var(--composer-inline-padding) - var(--wpds-dimension-padding-xs))
@@ -402,12 +405,15 @@
 }
 
 .leftActions {
-	flex: 1 1 auto;
-	min-width: 0;
+	flex: 0 0 auto;
 }
 
+/* Holds the AI disclosure, which must stay whole — see .aiDisclosure. */
 .rightActions {
 	flex: 0 0 auto;
+	/* Keeps these anchored to the inline end on their own line once the toolbar
+	   wraps, where `space-between` no longer applies. */
+	margin-inline-start: auto;
 }
 
 .iconButton {
@@ -442,12 +448,13 @@
 	color: var(--wpds-color-fg-content-neutral-weak);
 }
 
+/* Model picker. Its label is also the AI disclosure, so it is sized to show
+   that line whole rather than clipped to the model name's width. */
 .pill {
 	display: inline-flex;
 	flex: 0 0 auto;
 	align-items: center;
 	gap: 6px;
-	max-width: min(42vw, 160px);
 	height: 28px;
 	padding: 0 var(--wpds-dimension-padding-sm);
 	border: 0;
@@ -455,15 +462,8 @@
 	background-color: transparent;
 	color: var(--wpds-color-fg-content-neutral-weak);
 	font: inherit;
-	font-size: var(--wpds-typography-font-size-sm);
+	font-size: var(--wpds-typography-font-size-xs);
 	cursor: pointer;
-	white-space: nowrap;
-}
-
-.pill span {
-	min-width: 0;
-	overflow: hidden;
-	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
@@ -597,4 +597,13 @@
 .error {
 	color: var(--wpds-color-fg-content-error, #dc2626);
 	font-size: var(--wpds-typography-font-size-xs);
+}
+
+/* Label of the model picker (.pill). Never shrinks: a half-rendered disclosure
+   ("Chatting with Sonn…") would not be the clear notice it exists to be, so the
+   toolbar wraps instead. */
+.aiDisclosure {
+	flex: 0 0 auto;
+	line-height: var(--wpds-typography-line-height-xs);
+	white-space: nowrap;
 }

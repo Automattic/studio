@@ -8,6 +8,13 @@ export interface AiModel {
 	id: string;
 	/** Human-readable label shown in the model picker. */
 	label: string;
+	/**
+	 * Bare model name, for prose that already supplies the context — e.g. the
+	 * composer's "Chatting with Sonnet AI". Not derivable from `label`: the
+	 * distinguishing word is the last one for OpenAI and the first for
+	 * Anthropic.
+	 */
+	shortLabel: string;
 	/** Which runtime serves this model. Drives `pickRuntime` in agent.ts. */
 	family: AiModelFamily;
 }
@@ -18,9 +25,9 @@ export interface AiModel {
 // through the proxy's `/v1/responses` path, which supports reasoning models
 // and function tools.)
 export const AI_MODELS = [
-	{ id: 'claude-sonnet-5', label: 'Sonnet 5', family: 'anthropic' },
-	{ id: 'claude-opus-5', label: 'Opus 5', family: 'anthropic' },
-	{ id: 'gpt-5.6-sol', label: 'GPT 5.6 Sol', family: 'openai' },
+	{ id: 'claude-sonnet-5', label: 'Sonnet 5', shortLabel: 'Sonnet', family: 'anthropic' },
+	{ id: 'claude-opus-5', label: 'Opus 5', shortLabel: 'Opus', family: 'anthropic' },
+	{ id: 'gpt-5.6-sol', label: 'GPT 5.6 Sol', shortLabel: 'Sol', family: 'openai' },
 ] as const satisfies readonly AiModel[];
 
 export type AiModelId = ( typeof AI_MODELS )[ number ][ 'id' ];
@@ -54,6 +61,10 @@ export function getAiModelFamily( id: AiModelId ): AiModelFamily {
 
 export function getAiModelLabel( id: AiModelId ): string {
 	return getAiModel( id ).label;
+}
+
+export function getAiModelShortLabel( id: AiModelId ): string {
+	return getAiModel( id ).shortLabel;
 }
 
 /**

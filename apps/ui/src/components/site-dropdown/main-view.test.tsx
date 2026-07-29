@@ -156,7 +156,7 @@ describe( 'MainView', () => {
 		expect( stopSiteMutate ).toHaveBeenCalledWith( site.id );
 
 		unmount();
-		renderMainView( { running: false } );
+		renderMainView( { siteOverrides: { running: false } } );
 
 		const stopped = screen.getByRole( 'switch', { name: 'Site status: Stopped. Start site' } );
 		expect( stopped ).not.toBeChecked();
@@ -167,7 +167,7 @@ describe( 'MainView', () => {
 	it( 'reports the pending status on the site status toggle without acting on clicks', () => {
 		transitions.starting = true;
 
-		const { unmount } = renderMainView( { running: false } );
+		const { unmount } = renderMainView( { siteOverrides: { running: false } } );
 
 		const starting = screen.getByRole( 'switch', { name: 'Site status: Starting' } );
 		expect( starting ).toHaveAttribute( 'aria-disabled', 'true' );

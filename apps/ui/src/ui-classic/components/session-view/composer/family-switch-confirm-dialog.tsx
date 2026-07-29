@@ -37,7 +37,7 @@ export function FamilySwitchConfirmDialog( {
 		>
 			<Dialog.Popup size="small">
 				<Dialog.Header>
-					<Dialog.Title>{ __( 'Start a new conversation?' ) }</Dialog.Title>
+					<Dialog.Title>{ __( 'Start a new chat?' ) }</Dialog.Title>
 				</Dialog.Header>
 				<Dialog.Content>
 					<Dialog.Description>
@@ -45,7 +45,7 @@ export function FamilySwitchConfirmDialog( {
 							? sprintf(
 									/* translators: 1: current model name, 2: new model name */
 									__(
-										'Switching from %1$s to %2$s starts a fresh conversation — the two model families don\u2019t share memory. Your current chat remains available from the Chat history button below the chat box.'
+										'Switching from %1$s to %2$s starts a fresh chat; the two models don\u2019t share memory. You can always find previous chats in the Chat history button below the chat box.'
 									),
 									getAiModelLabel( currentModel ),
 									getAiModelLabel( pendingModel )

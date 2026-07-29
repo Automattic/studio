@@ -36,6 +36,7 @@ import { getPreferredStudioUiMode, setAgenticUiEnabled } from 'src/lib/studio-ui
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { getLogsFilePath } from 'src/logging';
 import { getMainWindow, loadMainWindowRenderer } from 'src/main-window';
+import { getAgenticFeaturesEnabled } from 'src/modules/user-settings/lib/ipc-handlers';
 import { isUpdateReadyToInstall, manualCheckForUpdates } from 'src/updates';
 
 export async function setupMenu( config: {
@@ -222,6 +223,12 @@ async function getAppMenu(
 
 	const betaFeaturesMenu = await buildBetaFeaturesMenu();
 
+	// The agentic UI binds Cmd/Ctrl+N to "New chat" in the renderer, so the menu must leave the
+	// key alone there — a menu accelerator would consume it before it reaches the DOM. With chat
+	// switched off nothing binds it, so the shortcut falls back to "Add Site…" as in classic.
+	const rendererOwnsNewShortcut =
+		getPreferredStudioUiMode() === 'agentic' && ( await getAgenticFeaturesEnabled() );
+
 	return Menu.buildFromTemplate( [
 		{
 			label: app.name, // macOS ignores this name and uses the name from the .plist
@@ -316,9 +323,7 @@ async function getAppMenu(
 			submenu: [
 				{
 					label: __( 'Add Site…' ),
-					// The agentic UI binds Cmd/Ctrl+N to "New chat" in the renderer;
-					// a menu accelerator would consume the key before it reaches the DOM.
-					accelerator: getPreferredStudioUiMode() === 'agentic' ? undefined : 'CommandOrControl+N',
+					accelerator: rendererOwnsNewShortcut ? undefined : 'CommandOrControl+N',
 					click: async () => {
 						void sendIpcEventToRenderer( 'add-site' );
 					},

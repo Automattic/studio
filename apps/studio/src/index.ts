@@ -59,6 +59,7 @@ import { autoInstallLinuxCliIfNeeded } from 'src/modules/cli/lib/linux-installat
 import { autoInstallMacOSCliIfNeeded } from 'src/modules/cli/lib/macos-installation-manager';
 import { autoInstallWindowsCliIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
 import { startRemoteSessionStatusPolling } from 'src/modules/remote-session/daemon-status-poller';
+import { registerPreviewContextMenu } from 'src/preview-context-menu';
 import {
 	getRunningSiteCount,
 	persistAutoStartForRunningSites,
@@ -209,6 +210,10 @@ async function appBoot() {
 	// and exempted from the renderer-origin restriction below.
 	app.on( 'web-contents-created', ( _event, contents ) => {
 		const isSitePreviewWebview = contents.getType() === 'webview';
+
+		if ( isSitePreviewWebview ) {
+			registerPreviewContextMenu( contents, openExternalWebUrl );
+		}
 
 		contents.on( 'will-navigate', ( event, navigationUrl ) => {
 			if ( isSitePreviewWebview ) {

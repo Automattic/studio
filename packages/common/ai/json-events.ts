@@ -89,6 +89,15 @@ export function isUsageCapError( message: string | undefined | null ): boolean {
 }
 
 /**
+ * Returns true when an error message reports the per-account Studio Code AI
+ * kill switch (HTTP 403 with the `studio_ai_disabled` code from the
+ * WordPress.com proxy, STU-2143).
+ */
+export function isAiBlockedError( message: string | undefined | null ): boolean {
+	return /studio_ai_disabled/i.test( message ?? '' );
+}
+
+/**
  * Extract the failure of a completed turn from its final `agent_end` event.
  * The error text lives on the last assistant message's `errorMessage`
  * (streamed API failures) or its text blocks (synthetic pre-flight errors).

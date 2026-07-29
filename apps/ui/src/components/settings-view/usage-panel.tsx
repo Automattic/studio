@@ -2,6 +2,7 @@ import {
 	clampQuotaFraction,
 	formatQuotaPercentage,
 	formatQuotaResetDate,
+	formatAiBlockedNotice,
 } from '@studio/common/lib/studio-assistant-quota';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { moreHorizontal } from '@wordpress/icons';
@@ -63,6 +64,8 @@ function AiCreditsSummary() {
 				{ __( 'Studio Code limits are temporarily unavailable.' ) }
 			</div>
 		);
+	} else if ( quota?.isStudioCodeAiBlocked ) {
+		content = <div className={ styles.previewUsageText }>{ formatAiBlockedNotice() }</div>;
 	} else if ( quota && quota.costCap > 0 ) {
 		const fraction = clampQuotaFraction( quota.costUsage, quota.costCap );
 		content = (

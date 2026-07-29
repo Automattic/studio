@@ -90,11 +90,13 @@ export function isUsageCapError( message: string | undefined | null ): boolean {
 
 /**
  * Returns true when an error message reports the per-account Studio Code AI
- * kill switch (HTTP 403 with the `studio_ai_disabled` code from the
- * WordPress.com proxy, STU-2143).
+ * kill switch (STU-2143). The WordPress.com proxy's 403 must carry the
+ * `studio_code_ai_disabled` code inside its `message` text — the AI SDKs
+ * surface only the message string, so the token is load-bearing there, same
+ * as `USAGE_CAP_ERROR_PREFIX` for 429s.
  */
 export function isAiBlockedError( message: string | undefined | null ): boolean {
-	return /studio_ai_disabled/i.test( message ?? '' );
+	return /studio_code_ai_disabled/i.test( message ?? '' );
 }
 
 /**

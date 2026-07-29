@@ -36,7 +36,7 @@ function makeParams( overrides: Partial< Params > = {} ): Params {
 }
 
 function makeState( overrides: Partial< PreviewContextMenuState > = {} ): PreviewContextMenuState {
-	return { canGoBack: true, canGoForward: false, ...overrides };
+	return { canGoBack: true, canGoForward: false, canAnnotate: false, ...overrides };
 }
 
 function makeEnvironment(
@@ -47,6 +47,7 @@ function makeEnvironment(
 
 function makeActions(): PreviewContextMenuActions {
 	return {
+		annotateElement: vi.fn(),
 		goBack: vi.fn(),
 		goForward: vi.fn(),
 		reload: vi.fn(),
@@ -211,6 +212,49 @@ describe( 'buildPreviewContextMenuTemplate', () => {
 				)
 			)
 		).toEqual( [ 'copy', 'selectAll' ] );
+	} );
+
+	it( 'offers Annotate Element first, ahead of the familiar browser items', () => {
+		const template = buildPreviewContextMenuTemplate(
+			makeParams( { linkURL: 'https://example.com/about' } ),
+			makeState( { canAnnotate: true } ),
+			makeActions(),
+			makeEnvironment()
+		);
+
+		expect( labelsOf( template ) ).toEqual( [
+			'Annotate Element',
+			'separator',
+			'Open Link in Browser',
+			'Copy Link Address',
+			'separator',
+			'selectAll',
+		] );
+	} );
+
+	it( 'leaves Annotate Element out while the inspector is not attached', () => {
+		const template = buildPreviewContextMenuTemplate(
+			makeParams(),
+			makeState( { canAnnotate: false } ),
+			makeActions(),
+			makeEnvironment()
+		);
+
+		expect( labelsOf( template ) ).not.toContain( 'Annotate Element' );
+	} );
+
+	it( 'hands the annotation request straight to the guest page', () => {
+		const actions = makeActions();
+		const template = buildPreviewContextMenuTemplate(
+			makeParams(),
+			makeState( { canAnnotate: true } ),
+			actions,
+			makeEnvironment()
+		);
+
+		( template[ 0 ].click as () => void )();
+
+		expect( actions.annotateElement ).toHaveBeenCalledOnce();
 	} );
 
 	it( 'keeps Inspect Element out of production builds', () => {

@@ -17,7 +17,8 @@
  * The annotation controls live in the host toolbar (not in the page), and
  * drive the inspector by dispatching `INSPECTOR_COMMAND_EVENT` custom events
  * on the guest `window` via `webview.executeJavaScript()`:
- *   host -> guest: `{ "type": "toggle-picking" | "submit" | "report-state" }`
+ *   host -> guest: `{ "type": "toggle-picking" | "submit" | "report-state"
+ *                     | "annotate-context-target" }`
  *
  * Layout strategy: markers and the picking highlight use `position: absolute`
  * anchored at *document* coordinates (viewport rect + scroll offset). They
@@ -236,6 +237,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 	 * State + DOM
 	 * ---------------------------------------------------------------- */
 	let isPicking = false;
+	let contextTarget = null;
 	let hoveredEl = null;
 	let activePopup = null; /* { id?, target, comment, fromPicker? } */
 	let annotations = Array.isArray( window.__studioInspectorState )
@@ -351,6 +353,15 @@ export const INSPECTOR_PAGE_SCRIPT =
 		const command = event.detail || {};
 		if ( command.type === 'toggle-picking' ) {
 			togglePicking();
+			return;
+		}
+		if ( command.type === 'annotate-context-target' ) {
+			/* The page can navigate or re-render between the right-click and
+			 * the menu choice, so only annotate a target still in the document. */
+			if ( contextTarget && contextTarget.isConnected ) {
+				openPopupForElement( contextTarget );
+			}
+			contextTarget = null;
 			return;
 		}
 		if ( command.type === 'submit' ) {
@@ -562,6 +573,18 @@ export const INSPECTOR_PAGE_SCRIPT =
 			e.preventDefault();
 			e.stopPropagation();
 			openPopupForElement( e.target );
+		},
+		true
+	);
+
+	/* The host's native context menu can annotate whatever was right-clicked.
+	 * Remembering the target here means no coordinates have to survive the trip
+	 * out to the main process and back — this listener always runs before the
+	 * menu is even requested. */
+	document.addEventListener(
+		'contextmenu',
+		( e ) => {
+			contextTarget = isOurElement( e.target ) ? null : e.target;
 		},
 		true
 	);

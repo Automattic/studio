@@ -24,7 +24,7 @@ import {
 } from 'electron-devtools-installer';
 import { IPC_VOID_HANDLERS } from 'src/constants';
 import * as ipcHandlers from 'src/ipc-handlers';
-import { markAppQuitting } from 'src/ipc-utils';
+import { markAppQuitting, sendIpcEventToRenderer } from 'src/ipc-utils';
 import {
 	hasActiveSyncOperations,
 	hasUploadingPushOperations,
@@ -59,7 +59,7 @@ import { autoInstallLinuxCliIfNeeded } from 'src/modules/cli/lib/linux-installat
 import { autoInstallMacOSCliIfNeeded } from 'src/modules/cli/lib/macos-installation-manager';
 import { autoInstallWindowsCliIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
 import { startRemoteSessionStatusPolling } from 'src/modules/remote-session/daemon-status-poller';
-import { registerPreviewContextMenu } from 'src/preview-context-menu';
+import { isPreviewAnnotationAvailable, registerPreviewContextMenu } from 'src/preview-context-menu';
 import {
 	getRunningSiteCount,
 	persistAutoStartForRunningSites,
@@ -212,7 +212,13 @@ async function appBoot() {
 		const isSitePreviewWebview = contents.getType() === 'webview';
 
 		if ( isSitePreviewWebview ) {
-			registerPreviewContextMenu( contents, openExternalWebUrl );
+			registerPreviewContextMenu( contents, {
+				openLinkExternally: openExternalWebUrl,
+				canAnnotate: isPreviewAnnotationAvailable,
+				// The guest page remembers which element was right-clicked, so
+				// the renderer only needs the go-ahead.
+				annotateElement: () => void sendIpcEventToRenderer( 'preview-annotate-element' ),
+			} );
 		}
 
 		contents.on( 'will-navigate', ( event, navigationUrl ) => {

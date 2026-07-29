@@ -188,6 +188,7 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'extractBlueprintBundle', zipFilePath ),
 	cleanupBlueprintTempDir: ( tempDir ) => ipcRendererInvoke( 'cleanupBlueprintTempDir', tempDir ),
 	showSiteContextMenu: ( context ) => ipcRendererSend( 'showSiteContextMenu', context ),
+	setPreviewAnnotationReady: ( ready ) => ipcRendererSend( 'setPreviewAnnotationReady', ready ),
 	setWindowControlVisibility: ( visible ) =>
 		ipcRendererInvoke( 'setWindowControlVisibility', visible ),
 	setTitleBarBackdropEffect: ( enabled ) =>

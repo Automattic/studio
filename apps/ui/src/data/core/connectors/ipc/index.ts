@@ -814,6 +814,14 @@ export function createIpcConnector(): Connector {
 			await ipcApi.copyText( text );
 		},
 
+		setPreviewAnnotationReady( ready: boolean ): void {
+			ipcApi.setPreviewAnnotationReady( ready );
+		},
+
+		onPreviewAnnotateElement( listener: () => void ): () => void {
+			return ipcListener.subscribe( 'preview-annotate-element', () => listener() );
+		},
+
 		async confirmDeleteAllPreviewSites(): Promise< boolean > {
 			const CANCEL_BUTTON_INDEX = 0;
 			const DELETE_BUTTON_INDEX = 1;

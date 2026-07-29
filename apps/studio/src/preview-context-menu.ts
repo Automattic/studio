@@ -16,12 +16,30 @@ import { __, sprintf } from '@wordpress/i18n';
 // stretch across the screen. macOS truncates its own Look Up label similarly.
 const LOOK_UP_LABEL_MAX_LENGTH = 24;
 
+// Pushed by the renderer as the inspector attaches and detaches. It is plain
+// state rather than something asked for at right-click time, so reading it
+// while building the menu can't race the click that opened it.
+let previewAnnotationAvailable = false;
+
+export function setPreviewAnnotationAvailable( available: boolean ): void {
+	previewAnnotationAvailable = available;
+}
+
+export function isPreviewAnnotationAvailable(): boolean {
+	return previewAnnotationAvailable;
+}
+
 export interface PreviewContextMenuState {
 	canGoBack: boolean;
 	canGoForward: boolean;
+	// False while the annotation inspector isn't injected into the guest page
+	// (during a load, or on a page it couldn't attach to), so the item is left
+	// out rather than offered and doing nothing.
+	canAnnotate: boolean;
 }
 
 export interface PreviewContextMenuActions {
+	annotateElement: () => void;
 	goBack: () => void;
 	goForward: () => void;
 	reload: () => void;
@@ -79,6 +97,13 @@ export function buildPreviewContextMenuTemplate(
 	// Built as sections and joined with separators, so an inapplicable section
 	// can't leave a stray divider behind.
 	const sections: MenuItemConstructorOptions[][] = [];
+
+	// First, because annotating the thing under the pointer is the reason a
+	// Studio user reaches for this menu — the browser items below are the
+	// familiar ones they can already find by muscle memory.
+	if ( state.canAnnotate ) {
+		sections.push( [ { label: __( 'Annotate Element' ), click: actions.annotateElement } ] );
+	}
 
 	if ( linkUrl ) {
 		sections.push( [
@@ -145,7 +170,15 @@ export function buildPreviewContextMenuTemplate(
  */
 export function registerPreviewContextMenu(
 	contents: WebContents,
-	openLinkExternally: ( url: string ) => void
+	{
+		openLinkExternally,
+		annotateElement,
+		canAnnotate,
+	}: {
+		openLinkExternally: ( url: string ) => void;
+		annotateElement: () => void;
+		canAnnotate: () => boolean;
+	}
 ): void {
 	contents.on( 'context-menu', ( _event, params ) => {
 		const template = buildPreviewContextMenuTemplate(
@@ -153,8 +186,10 @@ export function registerPreviewContextMenu(
 			{
 				canGoBack: contents.navigationHistory.canGoBack(),
 				canGoForward: contents.navigationHistory.canGoForward(),
+				canAnnotate: canAnnotate(),
 			},
 			{
+				annotateElement,
 				goBack: () => contents.navigationHistory.goBack(),
 				goForward: () => contents.navigationHistory.goForward(),
 				reload: () => contents.reload(),

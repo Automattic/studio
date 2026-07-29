@@ -1,5 +1,6 @@
 import {
 	clampQuotaFraction,
+	formatAiBlockedNotice,
 	formatQuotaPercentage,
 	formatQuotaResetDate,
 } from '@studio/common/lib/studio-assistant-quota';
@@ -21,8 +22,9 @@ export function PromptInfo() {
 	} = useGetStudioAssistantQuota( undefined, {
 		refetchOnMountOrArgChange: true,
 	} );
+	const isBlocked = Boolean( assistantQuota?.isStudioCodeAiBlocked ) && ! isOffline && ! isError;
 	const assistantQuotaWithCostCap =
-		assistantQuota && assistantQuota.costCap > 0 && ! isOffline && ! isError
+		assistantQuota && assistantQuota.costCap > 0 && ! isOffline && ! isError && ! isBlocked
 			? assistantQuota
 			: undefined;
 
@@ -35,7 +37,8 @@ export function PromptInfo() {
 						<div className="flex flex-row items-center text-right">
 							<span className="text-frame-text-secondary">
 								{ isOffline && __( "You're currently offline" ) }
-								{ ! isOffline && isLoading && __( 'Loading Studio Code limits…' ) }
+								{ isBlocked && formatAiBlockedNotice() }
+								{ ! isOffline && ! isBlocked && isLoading && __( 'Loading Studio Code limits…' ) }
 								{ assistantQuotaWithCostCap &&
 									sprintf(
 										/* translators: %1$s: percentage of monthly limit used (e.g. 7.5%). %2$s: date the limit resets (e.g. July 1, 2026). */
@@ -51,6 +54,7 @@ export function PromptInfo() {
 									) }
 								{ ! isLoading &&
 									! isOffline &&
+									! isBlocked &&
 									! assistantQuotaWithCostCap &&
 									__( 'Studio Code limits are temporarily unavailable.' ) }
 							</span>

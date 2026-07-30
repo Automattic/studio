@@ -102,6 +102,23 @@ describe( 'fetchSiteRest', () => {
 		] );
 	} );
 
+	it( 'returns a 502 response when the site does not respond', async () => {
+		mockRunningSite();
+		vi.stubGlobal(
+			'fetch',
+			vi.fn( async () => {
+				throw new TypeError( 'fetch failed' );
+			} )
+		);
+
+		const response = await fetchSiteRest( mockIpcMainInvokeEvent, 'site-id', {
+			path: '/wp/v2/search?search=as',
+		} );
+
+		expect( response.status ).toBe( 502 );
+		expect( response.body ).toContain( 'studio_site_unreachable' );
+	} );
+
 	it( 'rejects paths that escape the site REST API', async () => {
 		mockRunningSite();
 		const fetchMock = mockRestFetch();

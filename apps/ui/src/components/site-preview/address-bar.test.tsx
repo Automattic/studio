@@ -361,6 +361,22 @@ describe( 'PreviewAddressBar', () => {
 		expect( within( list ).queryByRole( 'option', { name: /Database/ } ) ).not.toBeInTheDocument();
 	} );
 
+	it( 'keeps typing focus in the input through the empty-results window', async () => {
+		renderAddressBar();
+
+		const input = await openOmnibox();
+		// jsdom doesn't move focus on click-open the way the browser does.
+		input.focus();
+		expect( document.activeElement ).toBe( input );
+		fireEvent.change( input, { target: { value: 'a' } } );
+		expect( document.activeElement ).toBe( input );
+		fireEvent.change( input, { target: { value: 'as' } } );
+		expect( document.activeElement ).toBe( input );
+		// Let the debounced search fire and settle with zero results.
+		await screen.findByText( 'No matches' );
+		expect( document.activeElement ).toBe( input );
+	} );
+
 	it( 'navigates to a typed path on Enter without querying search', async () => {
 		const { fetchSiteRest, onNavigate } = renderAddressBar();
 

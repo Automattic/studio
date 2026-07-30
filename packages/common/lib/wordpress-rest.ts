@@ -65,10 +65,24 @@ async function fetchSiteRestWithAuth(
 	allowAuthRefresh: boolean
 ): Promise< SiteRestResponse > {
 	const headers = await getRequestHeaders( target, target.baseUrl );
-	const response = await fetch( url, {
-		headers,
-		redirect: 'follow',
-	} );
+	let response: Response;
+	try {
+		response = await fetch( url, {
+			headers,
+			redirect: 'follow',
+		} );
+	} catch ( error ) {
+		// A site can be marked running while nothing listens on its port
+		// (stale state, crashed server). Degrade to a response instead of
+		// rejecting through the IPC handler.
+		return createJsonResponse(
+			502,
+			'studio_site_unreachable',
+			`Site ${ target.siteId } did not respond: ${
+				error instanceof Error ? error.message : String( error )
+			}`
+		);
+	}
 
 	if ( allowAuthRefresh && ( response.status === 401 || response.status === 403 ) ) {
 		siteRestAuthCache.delete( target.siteId );

@@ -65,10 +65,10 @@ export function FamilySwitchConfirmDialog( {
 						variant="solid"
 						tone="brand"
 						loading={ inFlight }
-						loadingAnnouncement={ __( 'Starting new conversation' ) }
+						loadingAnnouncement={ __( 'Starting new chat' ) }
 						onClick={ onConfirm }
 					>
-						{ __( 'Start new conversation' ) }
+						{ __( 'Start a new chat' ) }
 					</Button>
 				</Dialog.Footer>
 			</Dialog.Popup>

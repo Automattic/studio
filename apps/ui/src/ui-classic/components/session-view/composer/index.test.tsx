@@ -331,7 +331,7 @@ describe( 'Composer menu', () => {
 		);
 		expect( within( dialog ).getByText( 'Chat history' ).tagName ).toBe( 'STRONG' );
 		expect( dialog ).not.toHaveTextContent( 'sidebar' );
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Start new conversation' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Start a new chat' } ) );
 
 		await waitFor( () => {
 			expect( onSwitchSession ).toHaveBeenCalledWith( 'fresh-session' );

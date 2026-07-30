@@ -155,7 +155,7 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 			await saveDefaultSiteDirectory( dirtyDefaultSiteDirectory );
 		}
 		if ( dirtyAnalyticsEnabled !== undefined ) {
-			await saveAnalyticsEnabled( dirtyAnalyticsEnabled );
+			await saveAnalyticsEnabled( { enabled: dirtyAnalyticsEnabled, surface: 'settings' } );
 		}
 		if ( isQuitSitesBehaviorDirty ) {
 			await saveQuitSitesBehavior( dirtyQuitSitesBehavior );

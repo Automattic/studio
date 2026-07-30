@@ -169,7 +169,8 @@ const api: IpcApi = {
 	saveColorScheme: ( colorScheme ) => ipcRendererInvoke( 'saveColorScheme', colorScheme ),
 	getColorScheme: () => ipcRendererInvoke( 'getColorScheme' ),
 	getAnalyticsEnabled: () => ipcRendererInvoke( 'getAnalyticsEnabled' ),
-	saveAnalyticsEnabled: ( enabled ) => ipcRendererInvoke( 'saveAnalyticsEnabled', enabled ),
+	saveAnalyticsEnabled: ( enabled, source ) =>
+		ipcRendererInvoke( 'saveAnalyticsEnabled', enabled, source ),
 	saveQuitSitesBehavior: ( quitSitesBehavior ) =>
 		ipcRendererInvoke( 'saveQuitSitesBehavior', quitSitesBehavior ),
 	getQuitSitesBehavior: () => ipcRendererInvoke( 'getQuitSitesBehavior' ),

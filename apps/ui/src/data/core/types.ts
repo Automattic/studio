@@ -341,7 +341,10 @@ export interface Connector {
 	// the granular main-process handlers inside the connector so the UI has a
 	// single query + mutation to work with.
 	getUserPreferences(): Promise< UserPreferences >;
-	setUserPreferences( partial: Partial< WritableUserPreferences > ): Promise< void >;
+	setUserPreferences(
+		partial: Partial< WritableUserPreferences >,
+		source?: PreferenceChangeSource
+	): Promise< void >;
 
 	// Opens a native folder picker for the default-site-directory preference.
 	// Resolves with the chosen path, or `null` when the user cancels (or the
@@ -501,6 +504,12 @@ export type WritableUserPreferences = Omit<
 > & {
 	locale: SupportedLocale;
 };
+
+// Attributes a preference write to an in-app surface for settings-change Tracks
+// events. `ui_version` is fixed per renderer, so connectors set it — not callers.
+export interface PreferenceChangeSource {
+	surface: 'onboarding' | 'settings';
+}
 
 export interface CreateSiteParams {
 	name: string;

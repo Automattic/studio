@@ -29,7 +29,7 @@ export function useAllConnectedWpcomSites( options: { enabled?: boolean } = {} )
 	const { data: authUser } = useAuthUser();
 	return useQuery( {
 		queryKey: ALL_CONNECTED_WPCOM_SITES_QUERY_KEY,
-		queryFn: () => connector.getConnectedWpcomSites( '' ),
+		queryFn: () => connector.getConnectedWpcomSites(),
 		enabled: ( options.enabled ?? true ) && !! authUser,
 	} );
 }

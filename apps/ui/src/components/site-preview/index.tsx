@@ -445,7 +445,7 @@ export function SitePreview( {
 				</div>
 				{ /* Back/forward flank the address segments so history controls sit
 					with the place they navigate; symmetric widths keep the segments
-					(and the omnibox popup anchored to this element) centered. */ }
+					centered. */ }
 				<div className={ styles.browserLocation }>
 					{ canPreview ? (
 						<>

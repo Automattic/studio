@@ -98,7 +98,7 @@ export function PublishPickerView( { site, onClose }: Props ) {
 			) : null }
 			<button type="button" className={ styles.create } onClick={ handleCreateNew }>
 				<Icon icon={ plus } size={ 16 } />
-				<span>{ __( 'Create a new WordPress.com site…' ) }</span>
+				<span>{ __( 'Create a new WordPress.com site' ) }</span>
 			</button>
 		</div>
 	);

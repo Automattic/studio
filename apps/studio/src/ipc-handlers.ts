@@ -71,6 +71,7 @@ import { checkMaintenanceFile } from '@studio/common/lib/maintenance-file';
 import { getLocalMediaMimeType } from '@studio/common/lib/media-mime';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { decodePassword, encodePassword } from '@studio/common/lib/passwords';
+import { isTracksEventName } from '@studio/common/lib/record-tracks-event';
 import {
 	getDaemonStatus,
 	DaemonStartTimeoutError,
@@ -134,6 +135,7 @@ import {
 } from 'src/lib/php-error-recovery';
 import { getAiInstructionsPath } from 'src/lib/server-files-paths';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
+import { recordTracksEvent, type TracksChannel, type TracksUiVersion } from 'src/lib/tracks';
 import { updateSiteUrl } from 'src/lib/update-site-url';
 import * as windowsHelpers from 'src/lib/windows-helpers';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
@@ -181,7 +183,11 @@ import { linuxFindEditorPath } from 'src/modules/user-settings/lib/linux-editor-
 import { linuxFindTerminalPath } from 'src/modules/user-settings/lib/linux-terminal-path';
 import { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
-import { SiteServer, stopAllServers as triggerStopAllServers } from 'src/site-server';
+import {
+	SiteServer,
+	reconcileSitesRunningState,
+	stopAllServers as triggerStopAllServers,
+} from 'src/site-server';
 import { getSiteThumbnailPath } from 'src/storage/paths';
 import {
 	updateAppdata,
@@ -202,6 +208,7 @@ import type { WpCliResult } from 'src/site-server';
 
 export {
 	isStudioCliInstalled,
+	isStudioCliExternallyManaged,
 	installStudioCli,
 	uninstallStudioCli,
 } from 'src/modules/cli/lib/ipc-handlers';
@@ -235,7 +242,10 @@ export {
 } from 'src/modules/preview-site/lib/ipc-handlers';
 
 export {
+	getAgenticFeaturesEnabled,
+	getAnalyticsEnabled,
 	getColorScheme,
+	getGlobalAgentInstructions,
 	getInstalledAppsAndTerminals,
 	getQuitSitesBehavior,
 	getUserEditor,
@@ -243,7 +253,10 @@ export {
 	getUserTerminal,
 	getWapuuScore,
 	previewColorScheme,
+	saveAgenticFeaturesEnabled,
+	saveAnalyticsEnabled,
 	saveColorScheme,
+	saveGlobalAgentInstructions,
 	saveQuitSitesBehavior,
 	saveUserEditor,
 	saveUserLocale,
@@ -254,6 +267,23 @@ export {
 export { getDefaultSiteDirectory, saveDefaultSiteDirectory };
 
 export { importSite, exportSite } from 'src/modules/import-export/lib/ipc-handlers';
+
+export async function recordAnalyticsEvent(
+	_event: IpcMainInvokeEvent,
+	// Typed `string` because this crosses the IPC boundary from the (untrusted) renderer; validated
+	// against the known event names below before recording.
+	eventName: string,
+	props: Record< string, string | number | boolean | undefined > & {
+		channel?: TracksChannel;
+		ui_version?: TracksUiVersion;
+	} = {}
+): Promise< void > {
+	if ( ! isTracksEventName( eventName ) ) {
+		console.warn( `Ignoring unknown analytics event name: ${ eventName }` );
+		return;
+	}
+	await recordTracksEvent( eventName, props );
+}
 
 export async function listAiSessions( _event: IpcMainInvokeEvent ): Promise< AiSessionSummary[] > {
 	return listHydratedAiSessions( getSessionsDirectory() );
@@ -722,6 +752,12 @@ export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< Sit
 	);
 
 	return sites;
+}
+
+// Re-query running state before returning details, so the renderer can self-correct a missed event.
+export async function reconcileSites( event: IpcMainInvokeEvent ): Promise< SiteDetails[] > {
+	await reconcileSitesRunningState();
+	return getSiteDetails( event );
 }
 
 export async function getXdebugEnabledSite(
@@ -1568,6 +1604,8 @@ export async function isAgenticUiBannerDismissed( _event: IpcMainInvokeEvent ): 
 	const userData = await loadUserData();
 	return userData.agenticUiBannerDismissed === true;
 }
+
+export { getAppUpdateStatus, installAppUpdate } from 'src/updates';
 
 export async function executeWPCLiInline(
 	_event: IpcMainInvokeEvent,

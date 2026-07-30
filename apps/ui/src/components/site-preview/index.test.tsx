@@ -3,12 +3,21 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { Tooltip } from '@wordpress/ui';
 import { describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
-import { getPathFromPreviewUrl, getToolbarPageTitle, SitePreview } from './index';
+import {
+	getBrowserShortcutCommand,
+	getPathFromPreviewUrl,
+	getToolbarPageTitle,
+	SitePreview,
+} from './index';
 import type { SiteDetails } from '@/data/core';
 import type { ReactNode } from 'react';
 
 vi.mock( '@/data/core', () => ( {
 	useConnector: vi.fn(),
+} ) );
+
+vi.mock( '@/hooks/use-traffic-light-space', () => ( {
+	useTrafficLightSpace: () => ( { start: false, end: false } ),
 } ) );
 
 const useConnectorMock = vi.mocked( useConnector );
@@ -129,6 +138,17 @@ describe( 'SitePreview', () => {
 		expect( refreshButton ).toBeEnabled();
 		expect( refreshButton ).toHaveAttribute( 'aria-keyshortcuts', expect.stringMatching( /\+R$/ ) );
 
+		// jsdom reports a non-Apple platform: the navigation alias is Alt+arrow,
+		// with the bracket chord kept as a secondary shortcut.
+		expect( screen.getByRole( 'button', { name: 'Back' } ) ).toHaveAttribute(
+			'aria-keyshortcuts',
+			'Alt+ArrowLeft Control+['
+		);
+		expect( screen.getByRole( 'button', { name: 'Forward' } ) ).toHaveAttribute(
+			'aria-keyshortcuts',
+			'Alt+ArrowRight Control+]'
+		);
+
 		const initialIframe = container.querySelector( 'iframe' );
 		expect( initialIframe ).toBeInTheDocument();
 
@@ -186,6 +206,61 @@ describe( 'SitePreview', () => {
 		);
 
 		expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeInTheDocument();
+	} );
+} );
+
+describe( 'getBrowserShortcutCommand', () => {
+	// jsdom reports a non-Apple platform: primary modifier is Ctrl and the
+	// navigation-arrow alias uses Alt.
+	function makeEvent( overrides: Record< string, unknown > ) {
+		return {
+			defaultPrevented: false,
+			repeat: false,
+			key: '',
+			altKey: false,
+			ctrlKey: false,
+			metaKey: false,
+			shiftKey: false,
+			target: null,
+			...overrides,
+		} as unknown as KeyboardEvent;
+	}
+
+	it( 'maps the primary-modifier chords to commands', () => {
+		expect( getBrowserShortcutCommand( makeEvent( { key: 'r', ctrlKey: true } ) ) ).toBe(
+			'reload'
+		);
+		expect( getBrowserShortcutCommand( makeEvent( { key: '[', ctrlKey: true } ) ) ).toBe( 'back' );
+		expect( getBrowserShortcutCommand( makeEvent( { key: ']', ctrlKey: true } ) ) ).toBe(
+			'forward'
+		);
+	} );
+
+	it( 'maps the Alt+arrow aliases to back/forward', () => {
+		expect( getBrowserShortcutCommand( makeEvent( { key: 'ArrowLeft', altKey: true } ) ) ).toBe(
+			'back'
+		);
+		expect( getBrowserShortcutCommand( makeEvent( { key: 'ArrowRight', altKey: true } ) ) ).toBe(
+			'forward'
+		);
+	} );
+
+	it( 'ignores arrows with the wrong modifier, extra modifiers, or while editing text', () => {
+		expect( getBrowserShortcutCommand( makeEvent( { key: 'ArrowLeft', ctrlKey: true } ) ) ).toBe(
+			null
+		);
+		expect(
+			getBrowserShortcutCommand( makeEvent( { key: 'ArrowLeft', altKey: true, shiftKey: true } ) )
+		).toBe( null );
+		expect(
+			getBrowserShortcutCommand(
+				makeEvent( {
+					key: 'ArrowLeft',
+					altKey: true,
+					target: document.createElement( 'textarea' ),
+				} )
+			)
+		).toBe( null );
 	} );
 } );
 

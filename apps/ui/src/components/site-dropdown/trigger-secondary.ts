@@ -1,10 +1,10 @@
+import { isSnapshotExpired } from '@studio/common/lib/snapshots';
 import { __, sprintf } from '@wordpress/i18n';
 import { formatRelativeTime } from '@/lib/format-relative-time';
 import type { Snapshot, SyncSite } from '@/data/core';
 import type { SyncActivity } from '@/data/sync-activity';
 
 const MINUTE_MS = 60_000;
-const UNIX_SECONDS_CUTOFF = 10_000_000_000;
 
 export type TriggerSecondaryTone = 'neutral' | 'pending' | 'success' | 'error';
 
@@ -25,21 +25,21 @@ export function getSyncActivityLabel( activity: SyncActivity ): string {
 		if ( activity.direction === 'preview' ) {
 			return __( 'Publishing preview…' );
 		}
-		return activity.direction === 'push' ? __( 'Publishing to live…' ) : __( 'Pulling from live…' );
+		return activity.direction === 'push' ? __( 'Pushing to live…' ) : __( 'Pulling from live…' );
 	}
 
 	if ( activity.kind === 'success' ) {
 		if ( activity.direction === 'preview' ) {
 			return __( 'Preview published' );
 		}
-		return activity.direction === 'push' ? __( 'Published to live' ) : __( 'Pulled from live' );
+		return activity.direction === 'push' ? __( 'Pushed to live' ) : __( 'Pulled from live' );
 	}
 
 	if ( activity.direction === 'preview' ) {
 		return __( 'Publishing preview failed' );
 	}
 	return activity.direction === 'push'
-		? __( 'Publishing to live failed' )
+		? __( 'Pushing to live failed' )
 		: __( 'Pulling from live failed' );
 }
 
@@ -48,10 +48,6 @@ function getSyncActivityTone( activity: SyncActivity ): TriggerSecondaryTone {
 		return 'pending';
 	}
 	return activity.kind === 'success' ? 'success' : 'error';
-}
-
-function normalizeSnapshotTimestamp( timestamp: number ): number {
-	return timestamp < UNIX_SECONDS_CUTOFF ? timestamp * 1000 : timestamp;
 }
 
 function formatTimestampPhrase(
@@ -92,8 +88,12 @@ function getPreviewLabel( previewSnapshot: Snapshot | undefined ): string | null
 		return null;
 	}
 
+	if ( isSnapshotExpired( previewSnapshot ) ) {
+		return __( 'Preview expired' );
+	}
+
 	return formatTimestampPhrase(
-		normalizeSnapshotTimestamp( previewSnapshot.date ),
+		previewSnapshot.date,
 		__( 'Preview updated now' ),
 		( relativeTime ) =>
 			sprintf(

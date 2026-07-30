@@ -1,93 +1,48 @@
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { cog } from '@wordpress/icons';
+import { Icon, settings } from '@wordpress/icons';
 import { IconButton } from '@wordpress/ui';
 import { Gravatar } from '@/components/gravatar';
-import * as Menu from '@/components/menu';
 import { SidebarButton } from '@/components/sidebar-button';
-import { useConnector } from '@/data/core';
-import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
-import { useUserLocale } from '@/data/queries/use-user-locale';
+import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { useOffline } from '@/hooks/use-offline';
-import { getLocalizedLink, REPORT_ISSUE_URL } from '@/lib/docs-links';
+import { drawerIcon } from '@/lib/icons';
 import styles from './style.module.css';
 
-const WPCOM_PROFILE_URL = 'https://wordpress.com/me';
+type Props = {
+	onToggleSidebar: () => void;
+};
 
-export function UserMenu() {
-	const connector = useConnector();
+export function UserMenu( { onToggleSidebar }: Props ) {
 	const { data: user } = useAuthUser();
-	const login = useLogin();
-	const logout = useLogout();
 	const navigate = useNavigate();
-
-	const isOffline = useOffline();
-	const locale = useUserLocale();
 	const themeIsDark = useColorScheme() === 'dark';
-
-	const openLink = ( url: string ) => {
-		void connector.openExternalUrl( url );
-	};
 
 	return (
 		<div className={ styles.root }>
 			<div className={ styles.row }>
-				{ user ? (
-					<Menu.Root modal={ false }>
-						<Menu.Trigger
-							render={
-								<SidebarButton className={ styles.userTrigger }>
-									<Gravatar email={ user.email } isDark={ themeIsDark } />
-									<span className={ styles.userName }>{ user.displayName }</span>
-								</SidebarButton>
-							}
-						/>
-						<Menu.Popup side="top" align="start" className={ styles.popup }>
-							<div className={ styles.email } title={ user.email }>
-								{ user.email }
-							</div>
-							<Menu.Item onClick={ () => void navigate( { to: '/settings' } ) }>
-								{ __( 'Settings' ) }
-							</Menu.Item>
-							<Menu.Item disabled={ isOffline } onClick={ () => openLink( WPCOM_PROFILE_URL ) }>
-								{ __( 'Edit WordPress.com profile' ) }
-							</Menu.Item>
-							<Menu.Item
-								disabled={ isOffline }
-								onClick={ () => openLink( getLocalizedLink( locale, 'docsStudio' ) ) }
-							>
-								{ __( 'Documentation' ) }
-							</Menu.Item>
-							<Menu.Item disabled={ isOffline } onClick={ () => openLink( REPORT_ISSUE_URL ) }>
-								{ __( 'Report an issue' ) }
-							</Menu.Item>
-							<Menu.Separator />
-							<Menu.Item onClick={ () => logout.mutate() }>{ __( 'Log out' ) }</Menu.Item>
-						</Menu.Popup>
-					</Menu.Root>
-				) : (
-					<SidebarButton
-						className={ styles.loginButton }
-						disabled={ isOffline }
-						onClick={ () => login.mutate() }
-					>
-						{ __( 'Log in with WordPress.com' ) }
-					</SidebarButton>
-				) }
-				{ ! user ? (
-					// Logged in, Settings lives in the user menu; logged out
-					// there is no menu, so keep the page reachable here.
-					<IconButton
-						variant="minimal"
-						tone="neutral"
-						size="small"
-						className={ styles.settingsButton }
-						icon={ cog }
-						label={ __( 'Settings' ) }
-						onClick={ () => void navigate( { to: '/settings' } ) }
-					/>
-				) : null }
+				<SidebarButton
+					className={ styles.userTrigger }
+					onClick={ () => void navigate( { to: '/settings' } ) }
+				>
+					{ user ? (
+						<Gravatar email={ user.email } isDark={ themeIsDark } />
+					) : (
+						<span className={ styles.settingsAvatar } aria-hidden="true">
+							<Icon icon={ settings } size={ 14 } />
+						</span>
+					) }
+					<span className={ styles.userName }>{ __( 'Settings' ) }</span>
+				</SidebarButton>
+				<IconButton
+					variant="minimal"
+					tone="neutral"
+					size="small"
+					className={ styles.sidebarToggle }
+					icon={ drawerIcon }
+					label={ __( 'Hide sidebar' ) }
+					onClick={ onToggleSidebar }
+				/>
 			</div>
 		</div>
 	);

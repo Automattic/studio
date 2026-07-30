@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getToolDetail, getToolDisplayName } from '../tools';
+import { getToolDetail, getToolDisplayName, getToolResultPreview } from '../tools';
 
 describe( 'tool display helpers', () => {
 	it( 'summarizes common WP-CLI commands from their input', () => {
@@ -113,5 +113,16 @@ describe( 'tool display helpers', () => {
 				],
 			} )
 		).toBe( 'What kind of visual direction should this site use?' );
+	} );
+
+	it( 'fully strips rendered HTML tags that recombine after a single pass', () => {
+		const preview = getToolResultPreview(
+			'wpcom_request',
+			{ method: 'GET', path: '/sites/1/posts/1' },
+			JSON.stringify( { title: { rendered: '<scr<script>ipt>alert(1)</scr</script>ipt>' } } )
+		);
+
+		expect( preview?.summaryLines[ 0 ] ).not.toContain( '<script' );
+		expect( preview?.summaryLines[ 0 ] ).not.toContain( '<' );
 	} );
 } );

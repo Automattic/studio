@@ -30,7 +30,11 @@ function createSession( overrides: Partial< AiSessionSummary > = {} ): AiSession
 	};
 }
 
-async function runBeforeLoad( sites: SiteDetails[], sessions: AiSessionSummary[] ) {
+async function runBeforeLoad(
+	sites: SiteDetails[],
+	sessions: AiSessionSummary[],
+	agenticFeaturesEnabled = true
+) {
 	const context = {
 		queryClient: {
 			fetchQuery: ( { queryFn }: { queryFn: () => unknown } ) => queryFn(),
@@ -40,6 +44,7 @@ async function runBeforeLoad( sites: SiteDetails[], sessions: AiSessionSummary[]
 			getSessions: async () => sessions,
 			getAuthUser: async () => null,
 			getOnboardingCompleted: async () => true,
+			getUserPreferences: async () => ( { agenticFeaturesEnabled } ),
 		},
 	};
 	try {
@@ -97,6 +102,17 @@ describe( 'indexRoute.beforeLoad', () => {
 		);
 		expect( redirect.to ).toBe( '/sessions/$sessionId' );
 		expect( redirect.params ).toEqual( { sessionId: 'session-2' } );
+	} );
+
+	it( "opens the target site's overview when agentic features are switched off", async () => {
+		writeLastVisited( { siteId: 'site-2' } );
+		const redirect = await runBeforeLoad(
+			[ createSite(), createSite( { id: 'site-2', path: '/Users/example/Studio/site-two' } ) ],
+			[ createSession(), createSession( { id: 'session-2', ownerSiteId: 'site-2' } ) ],
+			false
+		);
+		expect( redirect.to ).toBe( '/sites/$siteId/overview' );
+		expect( redirect.params ).toEqual( { siteId: 'site-2' } );
 	} );
 
 	it( 'redirects to a new session when the target site has no active sessions', async () => {

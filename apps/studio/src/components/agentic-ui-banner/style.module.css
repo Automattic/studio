@@ -27,7 +27,6 @@
 	inset: 0;
 	border-radius: inherit;
 	backdrop-filter: blur( var( --progressive-blur-radius ) );
-	-webkit-backdrop-filter: blur( var( --progressive-blur-radius ) );
 	mask-image: linear-gradient(
 		to bottom,
 		transparent 0%,

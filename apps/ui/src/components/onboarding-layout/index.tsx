@@ -1,6 +1,5 @@
-import { __ } from '@wordpress/i18n';
-import { close } from '@wordpress/icons';
-import { IconButton, Stack } from '@wordpress/ui';
+import { Stack } from '@wordpress/ui';
+import { FullscreenChrome } from '@/components/fullscreen-chrome';
 import styles from './style.module.css';
 import type { ReactNode, Ref } from 'react';
 
@@ -29,23 +28,7 @@ export function OnboardingLayout( {
 	return (
 		<Stack align="flex-start" justify="center" className={ styles.root }>
 			{ background }
-			<div aria-hidden="true">
-				<div className={ `${ styles.dragEdge } ${ styles.dragEdgeTop }` } />
-				<div className={ `${ styles.dragEdge } ${ styles.dragEdgeLeft }` } />
-				<div className={ `${ styles.dragEdge } ${ styles.dragEdgeBottom }` } />
-			</div>
-			{ onClose && (
-				<IconButton
-					className={ styles.close }
-					variant="minimal"
-					tone="neutral"
-					size="default"
-					icon={ close }
-					label={ __( 'Close' ) }
-					onClick={ onClose }
-					disabled={ closeDisabled }
-				/>
-			) }
+			<FullscreenChrome onClose={ onClose } closeDisabled={ closeDisabled } />
 			<div
 				ref={ contentRef }
 				className={ `${ styles.content } ${ width === 'wide' ? styles.contentWide : '' } ${

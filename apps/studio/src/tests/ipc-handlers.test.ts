@@ -121,6 +121,7 @@ describe( 'createSite', () => {
 		const userData = await createSite( mockIpcMainInvokeEvent, '/test', {
 			siteName: 'Test',
 			wpVersion: '6.4',
+			noStart: true,
 		} );
 
 		expect( userData ).toEqual( {
@@ -141,6 +142,7 @@ describe( 'createSite', () => {
 				path: '/test',
 				name: 'Test',
 				wpVersion: '6.4',
+				noStart: true,
 			} ),
 			expect.any( Object )
 		);

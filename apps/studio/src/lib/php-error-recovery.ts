@@ -145,8 +145,10 @@ export async function startErrorRecovery(
 
 	activeRecoveries.set( id, { siteServer, errorServer, watcher } );
 
-	// Mark the site running (serving the error page) so the UI shows it as reachable. Nothing
-	// else sets this because the real WordPress server never booted. stopErrorRecovery clears it.
+	// Mark the site running (serving the error page) so the UI shows it as reachable. The CLI
+	// reports it stopped, so `inErrorRecovery` keeps running-state adoption (the events subscriber
+	// and the reconciler) from overwriting this. stopErrorRecovery clears both.
+	siteServer.inErrorRecovery = true;
 	const url = `http://localhost:${ port }`;
 	siteServer.details = {
 		...siteServer.details,
@@ -174,6 +176,7 @@ export async function stopErrorRecovery( siteId: string ): Promise< void > {
 	}
 	recovery.watcher.close();
 
+	recovery.siteServer.inErrorRecovery = false;
 	const { running, ...rest } = recovery.siteServer.details;
 	if ( 'url' in rest ) {
 		const { url, ...stopped } = rest;

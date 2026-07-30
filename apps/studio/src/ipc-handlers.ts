@@ -1054,6 +1054,8 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 					},
 					running: true,
 				} );
+				// Refresh the thumbnail so it shows the error page instead of a stale capture.
+				void captureSiteThumbnail( id, true );
 				return;
 			} catch ( recoveryError ) {
 				console.error( `[PHP Recovery - ${ id }] Failed to start recovery:`, recoveryError );

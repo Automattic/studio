@@ -12,8 +12,6 @@ vi.mock( 'src/modules/cli/lib/cli-site-creator', () => ( {
 	createSiteViaCli: vi.fn(),
 } ) );
 
-// Mock the WordPress setup
-
 // Mock the WordPress provider
 const mockStartServer = vi.fn().mockResolvedValue( {
 	url: 'http://localhost:1234',

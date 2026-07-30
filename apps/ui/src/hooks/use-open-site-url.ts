@@ -1,7 +1,6 @@
 import { useConnector } from '@/data/core';
 import { useStartSite } from '@/data/queries/use-sites';
 import { useOptionalSessionPreviewUI } from '@/hooks/use-session-ui';
-import { getSiteUrl } from '@/lib/get-site-url';
 import type { SiteDetails } from '@/data/core';
 
 /**
@@ -19,39 +18,38 @@ export function useOpenSiteUrl( site: SiteDetails ) {
 	const startSite = useStartSite();
 
 	return async ( relativeUrl: string ) => {
-		let currentSite = site;
-		if ( ! site.running ) {
-			try {
-				await startSite.mutateAsync( site.id );
-			} catch {
-				return;
-			}
-			// Ports are allocated dynamically on start; re-read the started
-			// site so the auto-login redirect doesn't embed a stale URL.
-			try {
-				const sites = await connector.getSites();
-				currentSite = sites.find( ( candidate ) => candidate.id === site.id ) ?? site;
-			} catch {
-				// Keep the closure's site; worst case the redirect misses and
-				// the preview still shows the site root.
-			}
-		}
 		if ( ! preview ) {
+			if ( ! site.running ) {
+				try {
+					await startSite.mutateAsync( site.id );
+				} catch {
+					return;
+				}
+			}
 			void connector.openSiteUrl( site.id, relativeUrl ).catch( ( error ) => {
 				console.error( 'Failed to open site URL:', error );
 			} );
 			return;
 		}
-		try {
-			const redirectTo = new URL( relativeUrl || '/', getSiteUrl( currentSite ) ).toString();
-			preview.setOpen( true );
-			preview.setSite( site.id );
-			preview.updatePath( `/studio-auto-login?redirect_to=${ encodeURIComponent( redirectTo ) }` );
-		} catch ( error ) {
-			// Malformed URL (shouldn't happen) — fall back to the browser so
-			// the click still does something.
-			console.error( 'Failed to open site URL in preview:', error );
-			void connector.openSiteUrl( site.id, relativeUrl ).catch( () => undefined );
+
+		// Point the panel at the destination *before* starting the site. The
+		// preview only mounts its webview once the site is running, so it then
+		// loads the destination directly. Starting first would mount the
+		// webview on the previous path, and the load it reports back would
+		// overwrite the destination we set afterwards.
+		preview.setOpen( true );
+		preview.setSite( site.id );
+		preview.updatePath(
+			`/studio-auto-login?redirect_to=${ encodeURIComponent( relativeUrl || '/' ) }`
+		);
+
+		if ( ! site.running ) {
+			try {
+				await startSite.mutateAsync( site.id );
+			} catch {
+				// The panel already points at the destination; it loads if and
+				// when the site comes up.
+			}
 		}
 	};
 }

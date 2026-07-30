@@ -85,7 +85,20 @@ describe( 'AI auth helpers', () => {
 	} );
 
 	it( 'lists available providers', async () => {
-		await expect( getAvailableAiProviders() ).resolves.toEqual( [ 'wpcom', 'anthropic-api-key' ] );
+		await expect( getAvailableAiProviders() ).resolves.toEqual( [
+			'wpcom',
+			'anthropic-api-key',
+			'claude-code',
+		] );
+	} );
+
+	it( 'never auto-selects the claude-code provider', async () => {
+		// No wpcom token and no API key: even if Claude Code credentials exist
+		// on the machine, the opt-in-only claude-code provider must not be
+		// picked for the user — the scan falls back to the default.
+		vi.mocked( readAuthToken ).mockResolvedValue( null );
+
+		await expect( resolveInitialAiProvider() ).resolves.toBe( 'wpcom' );
 	} );
 
 	it( 'configures the WP.com gateway environment', async () => {

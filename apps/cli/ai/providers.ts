@@ -1,3 +1,8 @@
+import { execFile } from 'child_process';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
+import { promisify } from 'util';
 import { password } from '@inquirer/prompts';
 import {
 	AI_MODELS,
@@ -10,15 +15,18 @@ import { __ } from '@wordpress/i18n';
 import { readCliConfig, updateCliConfigWithPartial } from 'cli/lib/cli-config/core';
 import { LoggerError } from 'cli/logger';
 
+const execFileAsync = promisify( execFile );
+
 export const AI_PROVIDERS = {
 	wpcom: 'WordPress.com',
 	'anthropic-api-key': 'Anthropic · API key',
+	'claude-code': 'Claude Code · subscription',
 } as const;
 
 export type AiProviderId = keyof typeof AI_PROVIDERS;
 
 export const DEFAULT_AI_PROVIDER: AiProviderId = 'wpcom';
-export const AI_PROVIDER_PRIORITY: AiProviderId[] = [ 'wpcom', 'anthropic-api-key' ];
+export const AI_PROVIDER_PRIORITY: AiProviderId[] = [ 'wpcom', 'anthropic-api-key', 'claude-code' ];
 
 const DEFAULT_WPCOM_AI_GATEWAY_BASE_URL = 'https://public-api.wordpress.com/wpcom/v2/ai-api-proxy';
 // The wpcom AI proxy maps feature slugs to upstream providers. Historically
@@ -43,6 +51,13 @@ export interface AiProviderDefinition {
 	 * callers don't have to filter AI_MODELS themselves.
 	 */
 	readonly supportedModelFamilies: readonly AiModelFamily[];
+	/**
+	 * Whether the provider may be picked automatically (first-run scan,
+	 * unavailable-provider fallback). Opt-in-only providers — e.g. billing the
+	 * user's Claude subscription — stay selectable but are never chosen for
+	 * the user.
+	 */
+	readonly autoSelectable: boolean;
 	readonly availableModels: readonly AiModelId[];
 	readonly defaultModel: AiModelId;
 	supportsModel( model: AiModelId ): boolean;
@@ -102,6 +117,29 @@ function buildAnthropicCustomHeaders( headers: Record< string, string > ): strin
 		.join( '\n' );
 }
 
+// Claude Code stores subscription credentials in the macOS keychain, or in
+// ~/.claude/.credentials.json elsewhere. The Agent SDK spawned by the ACP
+// adapter reads them itself; Studio only probes for their presence so the
+// provider can report readiness without touching the secrets.
+async function hasClaudeCodeCredentials(): Promise< boolean > {
+	if ( fs.existsSync( path.join( os.homedir(), '.claude', '.credentials.json' ) ) ) {
+		return true;
+	}
+	if ( process.platform === 'darwin' ) {
+		try {
+			await execFileAsync( 'security', [
+				'find-generic-password',
+				'-s',
+				'Claude Code-credentials',
+			] );
+			return true;
+		} catch {
+			return false;
+		}
+	}
+	return false;
+}
+
 function getWpcomAiGatewayBaseUrl(): string {
 	const customBaseUrl = process.env.WPCOM_AI_PROXY_BASE_URL?.trim();
 	return customBaseUrl || DEFAULT_WPCOM_AI_GATEWAY_BASE_URL;
@@ -138,6 +176,7 @@ const AI_PROVIDER_DEFINITIONS: Record< AiProviderId, AiProviderDefinition > = {
 	wpcom: defineProvider( {
 		id: 'wpcom',
 		autoFallbackWhenUnavailable: true,
+		autoSelectable: true,
 		supportedModelFamilies: [ 'anthropic', 'openai' ],
 		isVisible: async () => true,
 		isReady: async () => hasInlineWpcomAuth() || ( await hasValidWpcomAuth() ),
@@ -189,6 +228,7 @@ const AI_PROVIDER_DEFINITIONS: Record< AiProviderId, AiProviderDefinition > = {
 	'anthropic-api-key': defineProvider( {
 		id: 'anthropic-api-key',
 		autoFallbackWhenUnavailable: false,
+		autoSelectable: true,
 		supportedModelFamilies: [ 'anthropic' ],
 		isVisible: async () => true,
 		isReady: async () => {
@@ -211,6 +251,40 @@ const AI_PROVIDER_DEFINITIONS: Record< AiProviderId, AiProviderDefinition > = {
 			const env = createBaseEnvironment();
 			env.ANTHROPIC_API_KEY = apiKey;
 			return env;
+		},
+	} ),
+	// Turns run through the official Claude Code harness via the ACP adapter
+	// (see cli/ai/runtimes/acp) and bill against the user's Claude Pro/Max
+	// subscription. Studio never handles the credentials — the Agent SDK reads
+	// the user's own Claude Code login.
+	'claude-code': defineProvider( {
+		id: 'claude-code',
+		autoFallbackWhenUnavailable: false,
+		autoSelectable: false,
+		supportedModelFamilies: [ 'anthropic' ],
+		isVisible: async () => true,
+		isReady: async () => hasClaudeCodeCredentials(),
+		prepare: async () => {
+			if ( await hasClaudeCodeCredentials() ) {
+				return;
+			}
+			throw new LoggerError(
+				__(
+					'Claude Code login required. Install Claude Code and run `claude` then `/login` to sign in with your Claude subscription.'
+				)
+			);
+		},
+		resolveEnv: async () => {
+			if ( ! ( await hasClaudeCodeCredentials() ) ) {
+				throw new LoggerError(
+					__(
+						'Claude Code login required. Install Claude Code and run `claude` then `/login` to sign in with your Claude subscription.'
+					)
+				);
+			}
+			// Strip any Studio-managed AI credentials so the Agent SDK falls
+			// back to the user's own Claude Code subscription login.
+			return createBaseEnvironment();
 		},
 	} ),
 };

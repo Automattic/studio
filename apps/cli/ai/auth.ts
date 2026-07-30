@@ -17,7 +17,11 @@ async function getPreferredReadyProvider(
 		}
 
 		const definition = getAiProviderDefinition( provider );
-		if ( ( await definition.isVisible() ) && ( await definition.isReady() ) ) {
+		if (
+			definition.autoSelectable &&
+			( await definition.isVisible() ) &&
+			( await definition.isReady() )
+		) {
 			return provider;
 		}
 	}

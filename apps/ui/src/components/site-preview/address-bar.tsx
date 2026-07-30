@@ -558,49 +558,47 @@ export function PreviewAddressBar( {
 								aria-label={ __( 'Address and search' ) }
 								onKeyDown={ handleInputKeyDown }
 							/>
-							{ groups.length > 0 ? (
-								<Autocomplete.List className={ styles.list }>
-									{ ( group: AddressGroup ) => (
-										<Autocomplete.Group
-											key={ group.value || 'results' }
-											items={ group.items }
-											className={ styles.group }
-										>
-											{ group.value ? (
-												<Autocomplete.GroupLabel className={ styles.groupLabel }>
-													{ group.value }
-												</Autocomplete.GroupLabel>
-											) : null }
-											<Autocomplete.Collection>
-												{ ( item: AddressItem ) => (
-													<Autocomplete.Item
-														key={ item.id }
-														value={ item }
+							<Autocomplete.List className={ styles.list }>
+								{ ( group: AddressGroup ) => (
+									<Autocomplete.Group
+										key={ group.value || 'results' }
+										items={ group.items }
+										className={ styles.group }
+									>
+										{ group.value ? (
+											<Autocomplete.GroupLabel className={ styles.groupLabel }>
+												{ group.value }
+											</Autocomplete.GroupLabel>
+										) : null }
+										<Autocomplete.Collection>
+											{ ( item: AddressItem ) => (
+												<Autocomplete.Item
+													key={ item.id }
+													value={ item }
+													className={ clsx(
+														styles.item,
+														item.id === currentDestinationId && styles.itemCurrent
+													) }
+													aria-current={ item.id === currentDestinationId ? 'page' : undefined }
+													onClick={ () => navigateTo( item.path ) }
+												>
+													<span
 														className={ clsx(
-															styles.item,
-															item.id === currentDestinationId && styles.itemCurrent
+															styles.itemIcon,
+															item.kind === 'destination' && styles.itemIconDestination
 														) }
-														aria-current={ item.id === currentDestinationId ? 'page' : undefined }
-														onClick={ () => navigateTo( item.path ) }
+														aria-hidden="true"
 													>
-														<span
-															className={ clsx(
-																styles.itemIcon,
-																item.kind === 'destination' && styles.itemIconDestination
-															) }
-															aria-hidden="true"
-														>
-															<Icon icon={ item.icon } size={ 16 } />
-														</span>
-														<span className={ styles.itemTitle }>{ item.title }</span>
-														<span className={ styles.itemPath }>{ item.path }</span>
-													</Autocomplete.Item>
-												) }
-											</Autocomplete.Collection>
-										</Autocomplete.Group>
-									) }
-								</Autocomplete.List>
-							) : null }
+														<Icon icon={ item.icon } size={ 16 } />
+													</span>
+													<span className={ styles.itemTitle }>{ item.title }</span>
+													<span className={ styles.itemPath }>{ item.path }</span>
+												</Autocomplete.Item>
+											) }
+										</Autocomplete.Collection>
+									</Autocomplete.Group>
+								) }
+							</Autocomplete.List>
 							{ status ? (
 								<div className={ styles.status } role="status">
 									{ status }

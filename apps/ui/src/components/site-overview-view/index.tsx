@@ -198,7 +198,7 @@ function SiteOverviewBody( {
 						<main className={ styles.content }>
 							<Tabs.Panel tabId="overview" className={ styles.panel }>
 								<OfflineBanner />
-								<AgenticSigninBanner />
+								<AgenticSigninBanner terminalSiteId={ site.id } />
 								<div className={ styles.actionsColumn }>
 									<ButtonSection title={ __( 'Customize' ) }>
 										{ isBlockTheme ? (

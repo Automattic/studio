@@ -437,6 +437,16 @@ function SiteActionsMenu( {
 						{ copySite.isPending ? __( 'Duplicating…' ) : __( 'Duplicate site' ) }
 					</Menu.Item>
 					<Menu.Separator />
+					<Menu.Item
+						onClick={ () =>
+							void navigate( {
+								to: '/sites/$siteId/terminal',
+								params: { siteId: site.id },
+							} )
+						}
+					>
+						{ __( 'Open Claude Code terminal' ) }
+					</Menu.Item>
 					<Menu.Item onClick={ handleOpenFolder }>{ __( 'Open folder' ) }</Menu.Item>
 					{ editorLabel ? (
 						<Menu.Item onClick={ handleOpenInEditor }>

@@ -15,6 +15,7 @@ import { sessionDetailRoute } from './route-session-detail';
 import { settingsRoute } from './route-settings';
 import { siteOverviewRoute } from './route-site-overview';
 import { siteSettingsRoute } from './route-site-settings';
+import { siteTerminalRoute } from './route-site-terminal';
 import { welcomeRoute } from './route-welcome';
 import type { RouterContext } from './layout-root';
 
@@ -26,6 +27,7 @@ const routeTree = rootRoute.addChildren( [
 		sessionDetailRoute,
 		siteOverviewRoute,
 		siteSettingsRoute,
+		siteTerminalRoute,
 		settingsLayoutRoute.addChildren( [ settingsRoute ] ),
 	] ),
 	onboardingLayoutRoute.addChildren( [

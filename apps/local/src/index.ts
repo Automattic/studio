@@ -69,6 +69,7 @@ import { pullSite, pushSite } from '@studio/common/sites/sync';
 import express from 'express';
 import { rateLimit } from 'express-rate-limit';
 import { isEditor, isTerminal, openInEditor, openInTerminal, openPath } from './open-in-os';
+import { createTerminalManager } from './terminal';
 import type { SiteListItem } from '@studio/common/lib/cli-events';
 import type { EditSiteOptions } from '@studio/common/sites/edit';
 import type { SyncSite } from '@studio/common/types/sync';
@@ -190,6 +191,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	const cliRunner = createCliRunner( { cliBinary, nodeBinary } );
 	const execute = cliRunner.executeCliCommand;
 	const uploads = new Map< string, { path: string; directory: string } >();
+	const resolvedNodeBinary = nodeBinary ?? process.execPath;
 
 	// --- Server-Sent Events: one stream carries live UI updates ----------------
 	const sseClients = new Set< Response >();
@@ -329,6 +331,19 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	);
 
 	app.use( express.json() );
+
+	// --- Embedded Claude Code terminal ---------------------------------------
+	const terminalManager = createTerminalManager( {
+		cliBinary,
+		nodeBinary: resolvedNodeBinary,
+		sseSend,
+		resolveSite: async ( siteId: string ) => {
+			const site = ( await listSites( execute ) ).find( ( s ) => s.id === siteId );
+			return site ? { id: site.id, name: site.name, path: site.path } : undefined;
+		},
+		allowedOrigins,
+	} );
+	terminalManager.registerRoutes( api );
 
 	api.get( '/events', ( req: Request, res: Response ) => {
 		res.setHeader( 'Content-Type', 'text/event-stream' );
@@ -1288,6 +1303,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		const listening = app.listen( port, host, () => resolve( listening ) );
 	} );
 
+	terminalManager.handleUpgrade( server );
+
 	const address = server.address();
 	const listeningPort = typeof address === 'object' && address ? address.port : port;
 	const url = `http://localhost:${ listeningPort }`;
@@ -1296,6 +1313,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		url,
 		port: listeningPort,
 		async close() {
+			await terminalManager.closeAll();
 			cliRunner.killAll();
 			for ( const watch of publishWatches.values() ) {
 				watch.cancelled = true;

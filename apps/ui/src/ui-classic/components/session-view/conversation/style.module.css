@@ -729,3 +729,9 @@
 		transition: none;
 	}
 }
+
+.errorMarkerAction {
+	margin-top: var(--wpds-dimension-padding-sm);
+	display: flex;
+	justify-content: center;
+}

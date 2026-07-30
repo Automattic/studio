@@ -1,4 +1,4 @@
-import { SessionManager } from '@earendil-works/pi-coding-agent';
+import { ModelRegistry, SessionManager } from '@earendil-works/pi-coding-agent';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { runStudioAgentTurn, type StudioAgentTurnConfig } from 'cli/ai/runtimes/pi';
 import type { AgentSessionEvent, CreateAgentSessionOptions } from '@earendil-works/pi-coding-agent';
@@ -422,7 +422,8 @@ describe( 'pi runtime', () => {
 		expect( options.model?.api ).toBe( 'anthropic-messages' );
 		expect( options.model?.maxTokens ).toBe( 32_000 );
 		expect( options.model?.input ).toEqual( [ 'text', 'image' ] );
-		const auth = await options.modelRegistry!.getApiKeyAndHeaders( options.model! );
+		const modelRegistry = new ModelRegistry( options.modelRuntime! );
+		const auth = await modelRegistry.getApiKeyAndHeaders( options.model! );
 		expect( auth ).toMatchObject( {
 			ok: true,
 			apiKey: 'wpcom-token',
@@ -452,8 +453,9 @@ describe( 'pi runtime', () => {
 		} );
 
 		const options = mocks.createdSessions[ 0 ].options;
-		expect( options.modelRegistry!.hasConfiguredAuth( options.model! ) ).toBe( true );
-		const auth = await options.modelRegistry!.getApiKeyAndHeaders( options.model! );
+		const modelRegistry = new ModelRegistry( options.modelRuntime! );
+		expect( modelRegistry.hasConfiguredAuth( options.model! ) ).toBe( true );
+		const auth = await modelRegistry.getApiKeyAndHeaders( options.model! );
 		expect( auth ).toMatchObject( { ok: true, apiKey: tokenWithDollar } );
 	} );
 

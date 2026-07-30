@@ -45,7 +45,9 @@ vi.mock( '@/hooks/use-session-ui', () => ( {
 	useSessionPreviewAnnotations: vi.fn(),
 } ) );
 
-vi.mock( '@/hooks/use-traffic-light-space', () => ( { useTrafficLightSpace: () => false } ) );
+vi.mock( '@/hooks/use-traffic-light-space', () => ( {
+	useTrafficLightSpace: () => ( { start: false, end: false } ),
+} ) );
 
 vi.mock( './composer', () => ( {
 	Composer: () => <div />,

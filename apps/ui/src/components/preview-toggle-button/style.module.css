@@ -27,3 +27,9 @@
 	   preview panel on the right. */
 	transform: rotate(180deg);
 }
+
+/* In RTL the preview panel sits on the left — the plain icon already points
+   there. */
+.icon:dir(rtl) {
+	transform: none;
+}

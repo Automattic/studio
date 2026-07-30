@@ -305,7 +305,6 @@ export async function runCommand(
 			handleImportEvents( importer );
 		}
 		const importResult = await importer.import( site );
-
 		const importedPhpVersion = importResult.meta?.phpVersion;
 		if ( importedPhpVersion && importedPhpVersion !== site.phpVersion ) {
 			await updateSitePhpVersion( site.id, importedPhpVersion );

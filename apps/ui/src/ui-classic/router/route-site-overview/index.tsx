@@ -11,11 +11,12 @@ interface SiteOverviewSearch {
 	// Tab selection is a `search` param so opening the route defaults to
 	// Overview and deep-links like `?tab=debugging` stay human-readable.
 	tab?: SiteSettingsTabId;
+	sync?: 'pull';
 }
 
 function SiteOverviewPage() {
 	const { siteId } = siteOverviewRoute.useParams();
-	const { tab } = siteOverviewRoute.useSearch();
+	const { tab, sync } = siteOverviewRoute.useSearch();
 	const navigate = useNavigate();
 	const { data: sites } = useSites();
 	const activeTab: SiteSettingsTabId = tab ?? 'overview';
@@ -35,6 +36,7 @@ function SiteOverviewPage() {
 		<SiteOverviewView
 			siteId={ siteId }
 			activeTab={ activeTab }
+			openSiteDropdown={ sync === 'pull' }
 			onTabChange={ ( next ) =>
 				void navigate( {
 					to: '/sites/$siteId/overview',
@@ -51,11 +53,15 @@ export const siteOverviewRoute = createRoute( {
 	getParentRoute: () => dashboardLayoutRoute,
 	path: '/sites/$siteId/overview',
 	validateSearch: ( search: Record< string, unknown > ): SiteOverviewSearch => {
+		const validated: SiteOverviewSearch = {};
 		const value = search.tab;
 		if ( typeof value === 'string' && isSiteSettingsTab( value ) ) {
-			return { tab: value };
+			validated.tab = value;
 		}
-		return {};
+		if ( search.sync === 'pull' ) {
+			validated.sync = 'pull';
+		}
+		return validated;
 	},
 	beforeLoad: async ( { params, context } ) => {
 		const sites = await context.queryClient.fetchQuery( {

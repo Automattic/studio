@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import type { PullSiteProgress } from '@/data/core';
 
 // Tracks in-flight and recently completed live-site sync operations so the
 // Site Details header can surface a cross-page indicator. Uses a module-
@@ -12,7 +13,7 @@ import { useSyncExternalStore } from 'react';
 export type SyncDirection = 'push' | 'pull' | 'preview';
 
 export type SyncActivity =
-	| { kind: 'pending'; direction: SyncDirection }
+	| { kind: 'pending'; direction: SyncDirection; message?: string; progress?: number }
 	| { kind: 'success'; direction: SyncDirection }
 	| { kind: 'error'; direction: SyncDirection; message: string };
 
@@ -56,6 +57,16 @@ function scheduleExpiry( siteId: string ) {
 export function reportSyncPending( siteId: string, direction: SyncDirection ): void {
 	clearExpiryTimer( siteId );
 	entries.set( siteId, { kind: 'pending', direction } );
+	emit();
+}
+
+export function reportSyncProgress(
+	siteId: string,
+	direction: Extract< SyncDirection, 'pull' >,
+	progress: PullSiteProgress
+): void {
+	clearExpiryTimer( siteId );
+	entries.set( siteId, { kind: 'pending', direction, ...progress } );
 	emit();
 }
 

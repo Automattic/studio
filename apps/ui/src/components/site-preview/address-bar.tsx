@@ -160,6 +160,63 @@ const REALM_SEGMENTS: {
 	{ realm: 'database', icon: databaseIcon, title: __( 'Database' ), label: __( 'View database' ) },
 ];
 
+// The site editor renamed its route slugs alongside the `path`→`p` param
+// rename (`/wp_template` became `/template`, and so on); fold each family
+// into one canonical route so destinations match on every WP version.
+const SITE_EDITOR_ROUTE_ALIASES: Record< string, string > = {
+	'/wp_template': '/template',
+	'/wp_template_part': '/pattern',
+	'/patterns': '/pattern',
+	'/wp_global_styles': '/styles',
+	'/wp_navigation': '/navigation',
+};
+
+function canonicalSiteEditorRoute( value: string ): string {
+	return SITE_EDITOR_ROUTE_ALIASES[ value ] ?? value;
+}
+
+/**
+ * How well a destination matches the preview's current path: -1 for no
+ * match, otherwise the number of query params the destination pins down —
+ * more params is more specific, so Pages beats Posts on their shared
+ * edit.php pathname. WP Admin rewrites its URLs after navigation (the site
+ * editor renamed its `path` param to `p`, renamed the route slugs, and
+ * appends extras like `canvas`), so declared params match under either
+ * name and canonical route, and extra current params are ignored.
+ */
+function destinationMatchScore( destinationPath: string, currentPath: string ): number {
+	let destination: URL;
+	let current: URL;
+	try {
+		destination = new URL( destinationPath, 'http://preview.invalid' );
+		current = new URL( currentPath, 'http://preview.invalid' );
+	} catch {
+		return -1;
+	}
+	if ( destination.pathname !== current.pathname ) {
+		return -1;
+	}
+	let score = 0;
+	for ( const [ key, value ] of destination.searchParams ) {
+		const isRouteParam = key === 'path' || key === 'p';
+		const aliases = isRouteParam ? [ 'path', 'p' ] : [ key ];
+		const matches = aliases.some( ( alias ) => {
+			const currentValue = current.searchParams.get( alias );
+			if ( currentValue === null ) {
+				return false;
+			}
+			return isRouteParam
+				? canonicalSiteEditorRoute( currentValue ) === canonicalSiteEditorRoute( value )
+				: currentValue === value;
+		} );
+		if ( ! matches ) {
+			return -1;
+		}
+		score += 1;
+	}
+	return score;
+}
+
 interface PreviewAddressBarProps {
 	site: SiteDetails;
 	siteUrl: string;
@@ -297,6 +354,23 @@ export function PreviewAddressBar( {
 		}
 		return items;
 	}, [ frontLinks.data ] );
+
+	// The destination the preview is currently showing, so the zero state
+	// answers "where am I" at a glance. Best-scoring match wins: destinations
+	// sharing a pathname (Posts and Pages both live on edit.php) resolve to
+	// the more specific one.
+	const currentDestinationId = useMemo( () => {
+		let bestId: string | null = null;
+		let bestScore = -1;
+		for ( const item of [ ...frontendItems, ...wordpressItems ] ) {
+			const score = destinationMatchScore( item.path, path );
+			if ( score > bestScore ) {
+				bestScore = score;
+				bestId = item.id;
+			}
+		}
+		return bestScore >= 0 ? bestId : null;
+	}, [ frontendItems, wordpressItems, path ] );
 
 	// Untouched (prefilled) or cleared input rests on the grouped destinations
 	// (Front end / WordPress); search terms blend destination matches with
@@ -502,7 +576,11 @@ export function PreviewAddressBar( {
 													<Autocomplete.Item
 														key={ item.id }
 														value={ item }
-														className={ styles.item }
+														className={ clsx(
+															styles.item,
+															item.id === currentDestinationId && styles.itemCurrent
+														) }
+														aria-current={ item.id === currentDestinationId ? 'page' : undefined }
 														onClick={ () => navigateTo( item.path ) }
 													>
 														<span

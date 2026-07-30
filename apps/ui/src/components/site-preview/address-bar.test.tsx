@@ -25,16 +25,18 @@ function renderAddressBar( {
 	onSwitchRealm = vi.fn(),
 	path = '/',
 	showDatabaseTab = true,
+	site = SITE,
 }: {
 	onNavigate?: Mock;
 	onSwitchRealm?: Mock;
 	path?: string;
 	showDatabaseTab?: boolean;
+	site?: SiteDetails;
 } = {} ) {
 	render(
 		<Tooltip.Provider>
 			<PreviewAddressBar
-				site={ SITE }
+				site={ site }
 				siteUrl={ SITE_URL }
 				path={ path }
 				showDatabaseTab={ showDatabaseTab }
@@ -152,6 +154,39 @@ describe( 'PreviewAddressBar', () => {
 			'page'
 		);
 		expect( within( menu ).getByRole( 'menuitem', { name: /Home/ } ) ).not.toHaveAttribute(
+			'aria-current'
+		);
+	} );
+
+	it( 'marks only the most specific destination when pathnames collide', async () => {
+		// Posts and Pages both live on edit.php; only Pages pins post_type.
+		renderAddressBar( { path: '/wp-admin/edit.php?post_type=page' } );
+
+		const menu = await openDestinationsMenu( 'WordPress' );
+
+		expect( within( menu ).getByRole( 'menuitem', { name: /Pages/ } ) ).toHaveAttribute(
+			'aria-current',
+			'page'
+		);
+		expect( within( menu ).getByRole( 'menuitem', { name: /Posts/ } ) ).not.toHaveAttribute(
+			'aria-current'
+		);
+	} );
+
+	it( 'matches site-editor destinations after WP Admin rewrites their URLs', async () => {
+		// The site editor renames its `path` param to `p` and appends extras.
+		renderAddressBar( {
+			path: '/wp-admin/site-editor.php?p=%2Fnavigation&canvas=edit',
+			site: { ...SITE, themeDetails: { isBlockTheme: true } } as SiteDetails,
+		} );
+
+		const menu = await openDestinationsMenu( 'WordPress' );
+
+		expect( within( menu ).getByRole( 'menuitem', { name: /Navigation/ } ) ).toHaveAttribute(
+			'aria-current',
+			'page'
+		);
+		expect( within( menu ).getByRole( 'menuitem', { name: /Site Editor/ } ) ).not.toHaveAttribute(
 			'aria-current'
 		);
 	} );

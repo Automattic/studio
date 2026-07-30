@@ -173,8 +173,9 @@
 	text-align: right;
 }
 
-.itemCheck {
-	display: inline-flex;
-	flex-shrink: 0;
-	color: var(--wpds-color-fg-content-neutral);
+/* The destination the preview is currently on — same fill language as the
+   active segment's indicator, held through hover. */
+.itemCurrent,
+.itemCurrent:hover {
+	background: color-mix(in srgb, var(--wpds-color-fg-content-neutral) 14%, transparent);
 }

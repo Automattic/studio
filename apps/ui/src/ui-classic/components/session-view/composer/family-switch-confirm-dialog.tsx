@@ -2,6 +2,7 @@ import { getAiModelLabel } from '@studio/common/ai/models';
 import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 import { Button, Dialog } from '@wordpress/ui';
+import styles from './style.module.css';
 import type { AiModelId } from '@/data/core';
 
 /**
@@ -41,7 +42,7 @@ export function FamilySwitchConfirmDialog( {
 					<Dialog.Title>{ __( 'Start a new chat?' ) }</Dialog.Title>
 				</Dialog.Header>
 				<Dialog.Content>
-					<Dialog.Description>
+					<Dialog.Description className={ styles.dialogDescription }>
 						{ pendingModel
 							? createInterpolateElement(
 									sprintf(

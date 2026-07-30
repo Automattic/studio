@@ -1,7 +1,15 @@
 import { DEFAULT_MODEL } from '@studio/common/ai/models';
 import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { createEvent, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import {
+	act,
+	createEvent,
+	fireEvent,
+	render,
+	screen,
+	waitFor,
+	within,
+} from '@testing-library/react';
 import { Tooltip } from '@wordpress/ui';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
@@ -95,6 +103,32 @@ describe( 'Composer menu', () => {
 		expect(
 			screen.getByPlaceholderText( 'Queue the next message while I work…' )
 		).toBeInTheDocument();
+	} );
+
+	it( 'keeps the placeholder suggestion steady while the composer sits idle', () => {
+		vi.useFakeTimers();
+		try {
+			renderComposer();
+
+			act( () => {
+				vi.advanceTimersByTime( 30000 );
+			} );
+
+			expect( screen.getByText( 'What should we make better?' ) ).toBeInTheDocument();
+		} finally {
+			vi.useRealTimers();
+		}
+	} );
+
+	it( 'advances the placeholder suggestion after each send', async () => {
+		renderComposer();
+
+		fireEvent.change( screen.getByPlaceholderText( 'What should we make better?' ), {
+			target: { value: 'ship it' },
+		} );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Send' } ) );
+
+		expect( await screen.findByText( 'What’s the next move?' ) ).toBeInTheDocument();
 	} );
 
 	it( 'shows a flyout affordance and skill descriptions', async () => {

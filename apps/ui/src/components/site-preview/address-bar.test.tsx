@@ -50,6 +50,7 @@ function renderAddressBar( {
 	path = '/',
 	searchEnabled = true,
 	showDatabaseTab = true,
+	site = SITE,
 }: {
 	fetchSiteRest?: Mock;
 	onNavigate?: Mock;
@@ -57,6 +58,7 @@ function renderAddressBar( {
 	path?: string;
 	searchEnabled?: boolean;
 	showDatabaseTab?: boolean;
+	site?: SiteDetails;
 } = {} ) {
 	useConnectorMock.mockReturnValue( { fetchSiteRest } as never );
 	const queryClient = new QueryClient( {
@@ -66,7 +68,7 @@ function renderAddressBar( {
 		<QueryClientProvider client={ queryClient }>
 			<Tooltip.Provider>
 				<PreviewAddressBar
-					site={ SITE }
+					site={ site }
 					siteUrl={ SITE_URL }
 					path={ path }
 					searchEnabled={ searchEnabled }
@@ -272,6 +274,91 @@ describe( 'PreviewAddressBar', () => {
 		fireEvent.click( await screen.findByText( 'Hello World' ) );
 
 		expect( onNavigate ).toHaveBeenCalledWith( '/hello-world/' );
+	} );
+
+	it( 'marks the destination matching the current path as current', async () => {
+		renderAddressBar( { path: '/wp-admin/upload.php' } );
+
+		await openOmnibox( 'WordPress' );
+
+		const list = await screen.findByRole( 'listbox' );
+		expect( within( list ).getByRole( 'option', { name: /Media Library/ } ) ).toHaveAttribute(
+			'aria-current',
+			'page'
+		);
+		expect( within( list ).getByRole( 'option', { name: /Home/ } ) ).not.toHaveAttribute(
+			'aria-current'
+		);
+	} );
+
+	it( 'marks only the most specific destination when pathnames collide', async () => {
+		// Posts and Pages both live on edit.php; only Pages pins post_type.
+		renderAddressBar( { path: '/wp-admin/edit.php?post_type=page' } );
+
+		await openOmnibox( 'WordPress' );
+
+		const list = await screen.findByRole( 'listbox' );
+		expect( within( list ).getByRole( 'option', { name: /Pages/ } ) ).toHaveAttribute(
+			'aria-current',
+			'page'
+		);
+		expect( within( list ).getByRole( 'option', { name: /Posts/ } ) ).not.toHaveAttribute(
+			'aria-current'
+		);
+	} );
+
+	it( 'matches site-editor destinations after WP Admin rewrites their URLs', async () => {
+		// The site editor renames its `path` param to `p` and appends extras.
+		renderAddressBar( {
+			path: '/wp-admin/site-editor.php?p=%2Fnavigation&canvas=edit',
+			site: { ...SITE, themeDetails: { isBlockTheme: true } } as SiteDetails,
+		} );
+
+		await openOmnibox( 'WordPress' );
+
+		const list = await screen.findByRole( 'listbox' );
+		expect( within( list ).getByRole( 'option', { name: /Navigation/ } ) ).toHaveAttribute(
+			'aria-current',
+			'page'
+		);
+		expect( within( list ).getByRole( 'option', { name: /Site Editor/ } ) ).not.toHaveAttribute(
+			'aria-current'
+		);
+	} );
+
+	it.each( [
+		[ '/wp-admin/site-editor.php?p=%2Ftemplate', /Templates/ ],
+		[ '/wp-admin/site-editor.php?p=%2Fpattern', /Patterns/ ],
+		[ '/wp-admin/site-editor.php?p=%2Fstyles&canvas=edit', /Styles/ ],
+	] )(
+		'matches renamed site-editor route slugs (%s)',
+		async ( currentPath: string, rowName: RegExp ) => {
+			renderAddressBar( {
+				path: currentPath,
+				site: { ...SITE, themeDetails: { isBlockTheme: true } } as SiteDetails,
+			} );
+
+			await openOmnibox( 'WordPress' );
+
+			const list = await screen.findByRole( 'listbox' );
+			expect( within( list ).getByRole( 'option', { name: rowName } ) ).toHaveAttribute(
+				'aria-current',
+				'page'
+			);
+			expect( within( list ).getByRole( 'option', { name: /Site Editor/ } ) ).not.toHaveAttribute(
+				'aria-current'
+			);
+		}
+	);
+
+	it( 'offers no WP Admin or Database rows — their segments cover those realms', async () => {
+		renderAddressBar( { path: '/' } );
+
+		await openOmnibox();
+
+		const list = await screen.findByRole( 'listbox' );
+		expect( within( list ).queryByRole( 'option', { name: /WP Admin/ } ) ).not.toBeInTheDocument();
+		expect( within( list ).queryByRole( 'option', { name: /Database/ } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'navigates to a typed path on Enter without querying search', async () => {

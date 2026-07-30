@@ -176,7 +176,11 @@ import { linuxFindEditorPath } from 'src/modules/user-settings/lib/linux-editor-
 import { linuxFindTerminalPath } from 'src/modules/user-settings/lib/linux-terminal-path';
 import { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
-import { SiteServer, stopAllServers as triggerStopAllServers } from 'src/site-server';
+import {
+	SiteServer,
+	reconcileSitesRunningState,
+	stopAllServers as triggerStopAllServers,
+} from 'src/site-server';
 import { getSiteThumbnailPath } from 'src/storage/paths';
 import {
 	updateAppdata,
@@ -743,6 +747,12 @@ export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< Sit
 	);
 
 	return sites;
+}
+
+// Re-query running state before returning details, so the renderer can self-correct a missed event.
+export async function reconcileSites( event: IpcMainInvokeEvent ): Promise< SiteDetails[] > {
+	await reconcileSitesRunningState();
+	return getSiteDetails( event );
 }
 
 export async function getXdebugEnabledSite(

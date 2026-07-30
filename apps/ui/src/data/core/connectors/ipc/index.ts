@@ -272,6 +272,7 @@ export function createIpcConnector(): Connector {
 				adminUsername,
 				adminPassword,
 				adminEmail,
+				skipStart,
 				blueprint,
 			} = params;
 			return ( await ipcApi.createSite( path, {
@@ -283,6 +284,7 @@ export function createIpcConnector(): Connector {
 				adminUsername,
 				adminPassword,
 				adminEmail,
+				noStart: skipStart,
 				blueprint,
 			} ) ) as SiteDetails;
 		},
@@ -308,6 +310,10 @@ export function createIpcConnector(): Connector {
 
 		async generateProposedSiteName( usedSites ): Promise< string > {
 			return ( await ipcApi.generateSiteNameFromList( usedSites ) ) as string;
+		},
+
+		async generateNumberedSiteName( baseName, usedSites ): Promise< string > {
+			return ( await ipcApi.generateNumberedNameFromList( baseName, usedSites ) ) as string;
 		},
 
 		async generateProposedSitePath( siteName ): Promise< ProposedSitePath > {
@@ -511,7 +517,7 @@ export function createIpcConnector(): Connector {
 		},
 
 		// Connected WPCom sites
-		async getConnectedWpcomSites( localSiteId: string ): Promise< SyncSite[] > {
+		async getConnectedWpcomSites( localSiteId?: string ): Promise< SyncSite[] > {
 			return ( await ipcApi.getConnectedWpcomSites( localSiteId ) ) as SyncSite[];
 		},
 
@@ -546,9 +552,28 @@ export function createIpcConnector(): Connector {
 			await markConnectedWpcomSiteSynced( siteId, remoteSiteId, 'push' );
 		},
 
-		async pullSiteFromLive( siteId, remoteSiteId ): Promise< void > {
-			const siteFolder = await resolveSiteFolder( siteId );
-			await ipcApi.pullSiteFromLive( siteFolder, remoteSiteId );
+		async pullSiteFromLive( siteId, remoteSiteId, onProgress ): Promise< void > {
+			const unsubscribe = onProgress
+				? ipcListener.subscribe(
+						'sync-pull-progress',
+						(
+							_event: unknown,
+							payload: { siteId: string; message: string; progress?: number }
+						) => {
+							if ( payload.siteId === siteId ) {
+								onProgress( {
+									message: payload.message,
+									...( payload.progress === undefined ? {} : { progress: payload.progress } ),
+								} );
+							}
+						}
+				  )
+				: undefined;
+			try {
+				await ipcApi.pullSiteFromLive( siteId, remoteSiteId );
+			} finally {
+				unsubscribe?.();
+			}
 			await markConnectedWpcomSiteSynced( siteId, remoteSiteId, 'pull' );
 		},
 

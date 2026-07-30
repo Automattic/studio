@@ -61,6 +61,12 @@ vi.mock( '@wordpress/ui', () => ( {
 			</select>
 		</label>
 	),
+	Tooltip: {
+		Root: ( { children }: { children?: ReactNode } ) => <>{ children }</>,
+		Trigger: ( { render }: { render?: ReactNode } ) => <>{ render }</>,
+		Popup: () => null,
+		Positioner: () => null,
+	},
 } ) );
 
 vi.mock( '@/components/tabs', () => ( {

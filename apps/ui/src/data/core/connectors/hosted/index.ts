@@ -192,6 +192,9 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async generateProposedSiteName(): Promise< string > {
 			throw new UnsupportedError( 'generateProposedSiteName' );
 		},
+		async generateNumberedSiteName() {
+			throw new UnsupportedError( 'generateNumberedSiteName' );
+		},
 		async generateProposedSitePath() {
 			throw new UnsupportedError( 'generateProposedSitePath' );
 		},

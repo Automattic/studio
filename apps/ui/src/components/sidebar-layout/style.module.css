@@ -95,12 +95,13 @@
 	background-color: var(--wpds-color-fg-interactive-brand);
 }
 
-/* Bottom-left of the main area. The 46px min-height matches the session
-   view's `panelFooterControls` so the toggle lines up vertically with the
-   chat-history/new-chat buttons. */
+/* Bottom-left of the main area. The 46px min-height and the negative bottom
+   offset both match the session view's `panelFooterControls` so the toggle
+   lines up vertically with the chat-history/new-chat buttons — keep the two
+   in sync. */
 .floatingToggle {
 	position: absolute;
-	bottom: 0;
+	bottom: calc(-1 * var(--wpds-dimension-padding-sm));
 	inset-inline-start: var(--wpds-dimension-padding-xl);
 	display: flex;
 	align-items: center;

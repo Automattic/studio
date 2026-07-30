@@ -169,9 +169,11 @@
 .panelFooterControls {
 	position: absolute;
 	inset-inline-start: var(--classic-panel-footer-left);
-	/* Keep the controls fully inside .root (overflow: hidden) so focus
-	   rings aren't clipped at the window edge. */
-	bottom: 0;
+	/* Sit the strip low in its reserved band so the controls read as anchored
+	   to the panel's bottom edge rather than floating under the composer. The
+	   strip's own bottom padding keeps the buttons and their focus rings clear
+	   of .root's overflow: hidden edge. */
+	bottom: calc(-1 * var(--wpds-dimension-padding-sm));
 	z-index: 3;
 	display: flex;
 	align-items: center;

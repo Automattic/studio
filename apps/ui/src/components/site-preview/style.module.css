@@ -24,43 +24,39 @@
 	background-color: var(--wpds-color-bg-surface-neutral-strong, #fff);
 	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
 	-webkit-app-region: drag;
+	/* Sizes the address segments' narrow-width behavior (the title collapse
+	   in location-omnibox.module.css queries this container). */
+	container: studio-preview-toolbar / inline-size;
 }
 
-/* The toolbar doubles as a window drag region; the controls and the
-   tooltip-bearing title opt back out so they keep receiving mouse events. */
-.header button,
-.browserTitle {
+/* The toolbar doubles as a window drag region; the controls (including the
+   omnibox trigger button) opt back out so they keep receiving mouse events. */
+.header button {
 	-webkit-app-region: no-drag;
 }
 
-.browserControls {
+/* Matching flexible side tracks: because both flex from the same 0 basis,
+   the address control between them sits at the toolbar's true center no
+   matter how many controls each side holds. */
+.headerSide {
 	display: flex;
+	flex: 1 1 0;
+	min-width: 0;
 	align-items: center;
-	gap: 0;
-	flex-shrink: 0;
+	gap: var(--wpds-dimension-padding-md);
+}
+
+.headerSideEnd {
+	justify-content: flex-end;
 }
 
 .browserLocation {
 	display: flex;
-	flex: 1 1 auto;
+	flex: 0 1 auto;
 	align-items: center;
 	justify-content: center;
+	gap: var(--wpds-dimension-padding-xs);
 	min-width: 0;
-	padding: 0 var(--wpds-dimension-padding-md);
-	text-align: center;
-}
-
-.browserTitle {
-	display: inline-block;
-	min-width: 0;
-	max-width: min(420px, 100%);
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-	color: var(--wpds-color-fg-content-neutral);
-	font-size: var(--wpds-typography-font-size-xs);
-	font-weight: 600;
-	line-height: 16px;
 }
 
 .annotationControls {
@@ -97,17 +93,6 @@
 /* Page-load progress grows from the reading start. */
 .loadingProgress span:dir(rtl) {
 	transform-origin: right center;
-}
-
-.separator {
-	width: 1px;
-	height: 14px;
-	background-color: var(--wpds-color-stroke-surface-neutral);
-	opacity: 0.6;
-}
-
-.headerSpacer {
-	flex: 1;
 }
 
 .body {

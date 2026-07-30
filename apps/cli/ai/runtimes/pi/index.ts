@@ -43,6 +43,7 @@ import {
 	type SiteRuntime,
 } from '@studio/common/lib/site-runtime';
 import { getAiPayloadsPath, getConfigDirectory } from '@studio/common/lib/well-known-paths';
+import { type TSchema } from 'typebox';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions, withChatArtifactEmission } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
@@ -613,7 +614,10 @@ function buildAgentTools(
 	const skillToolDef = createSkillTool();
 	const skillTool: AgentToolAny[] = skillToolDef ? [ skillToolDef ] : [];
 
-	const renameTool = ( tool: AgentToolAny, name: string ): AgentToolAny => ( {
+	const renameTool = < S extends TSchema >(
+		tool: AgentTool< S >,
+		name: string
+	): AgentTool< S > => ( {
 		...tool,
 		name,
 		label: name,

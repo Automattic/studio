@@ -1,13 +1,16 @@
 import { __ } from '@wordpress/i18n';
-import { Button } from '@wordpress/ui';
+import { Button, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { Gravatar } from '@/components/gravatar';
 import { useConnector } from '@/data/core';
 import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useOffline } from '@/hooks/use-offline';
 import { getLocalizedLink, REPORT_ISSUE_URL } from '@/lib/docs-links';
 import styles from './style.module.css';
+
+const WPCOM_PROFILE_URL = 'https://wordpress.com/me';
 
 function AccountHelpActions() {
 	const connector = useConnector();
@@ -19,33 +22,53 @@ function AccountHelpActions() {
 
 	return (
 		<div className={ styles.accountActions }>
-			<Button
-				type="button"
-				variant="minimal"
-				tone="neutral"
-				size="small"
-				onClick={ () => openLink( getLocalizedLink( locale, 'docsStudio' ) ) }
-			>
-				{ __( 'Docs' ) }
-			</Button>
-			<Button
-				type="button"
-				variant="minimal"
-				tone="neutral"
-				size="small"
-				onClick={ () => openLink( REPORT_ISSUE_URL ) }
-			>
-				{ __( 'Report an issue' ) }
-			</Button>
+			<Tooltip.Root>
+				<Tooltip.Trigger
+					render={
+						<Button
+							type="button"
+							variant="minimal"
+							tone="neutral"
+							size="small"
+							onClick={ () => openLink( getLocalizedLink( locale, 'docsStudio' ) ) }
+						>
+							{ __( 'Docs' ) }
+						</Button>
+					}
+				/>
+				<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+					{ __( 'Documentation' ) }
+				</Tooltip.Popup>
+			</Tooltip.Root>
+			<Tooltip.Root>
+				<Tooltip.Trigger
+					render={
+						<Button
+							type="button"
+							variant="minimal"
+							tone="neutral"
+							size="small"
+							onClick={ () => openLink( REPORT_ISSUE_URL ) }
+						>
+							{ __( 'Report an issue' ) }
+						</Button>
+					}
+				/>
+				<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+					{ __( 'Report an issue or request a feature' ) }
+				</Tooltip.Popup>
+			</Tooltip.Root>
 		</div>
 	);
 }
 
 export function AccountSection() {
+	const connector = useConnector();
 	const { data: user, isLoading } = useAuthUser();
 	const login = useLogin();
 	const logout = useLogout();
 	const themeIsDark = useColorScheme() === 'dark';
+	const isOffline = useOffline();
 
 	return (
 		<section className={ styles.preferenceSectionGroup }>
@@ -74,22 +97,33 @@ export function AccountSection() {
 					</div>
 				</div>
 				{ user ? (
-					<Button
-						type="button"
-						variant="outline"
-						tone="neutral"
-						loading={ logout.isPending }
-						loadingAnnouncement={ __( 'Logging out' ) }
-						onClick={ () => logout.mutate() }
-					>
-						{ __( 'Log out' ) }
-					</Button>
+					<div className={ styles.accountButtons }>
+						<Button
+							type="button"
+							variant="minimal"
+							tone="neutral"
+							disabled={ isOffline }
+							onClick={ () => void connector.openExternalUrl( WPCOM_PROFILE_URL ) }
+						>
+							{ __( 'Edit WordPress.com profile' ) }
+						</Button>
+						<Button
+							type="button"
+							variant="outline"
+							tone="neutral"
+							loading={ logout.isPending }
+							loadingAnnouncement={ __( 'Logging out' ) }
+							onClick={ () => logout.mutate() }
+						>
+							{ __( 'Log out' ) }
+						</Button>
+					</div>
 				) : (
 					<Button
 						type="button"
 						variant="outline"
 						tone="neutral"
-						disabled={ isLoading }
+						disabled={ isLoading || isOffline }
 						loading={ login.isPending }
 						loadingAnnouncement={ __( 'Logging in' ) }
 						onClick={ () => login.mutate() }

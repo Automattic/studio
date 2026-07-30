@@ -1,7 +1,8 @@
 import { __ } from '@wordpress/i18n';
 import { chevronLeft, chevronRight, external, pencil } from '@wordpress/icons';
 import { ariaKeyShortcut, displayShortcut, isAppleOS, isKeyboardEvent } from '@wordpress/keycodes';
-import { Button, IconButton, Tooltip } from '@wordpress/ui';
+import { Button, IconButton } from '@wordpress/ui';
+import { clsx } from 'clsx';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useConnector } from '@/data/core';
 import { useIsSiteStarting, useStartSite } from '@/data/queries/use-sites';
@@ -10,6 +11,15 @@ import { useWindowControlsOverlay } from '@/hooks/use-window-controls-overlay';
 import { getSiteUrl } from '@/lib/get-site-url';
 import { playIcon, refreshIcon } from '@/lib/icons';
 import {
+	DATABASE_HOME_PATH,
+	getPathFromPreviewUrl,
+	getPreviewRealm,
+	getRealmNavigationPath,
+	PreviewAddressBar,
+	REALM_SHORTCUT_KEYS,
+	type PreviewRealm,
+} from './address-bar';
+import {
 	INSPECTOR_BRIDGE_PREFIX,
 	INSPECTOR_COMMAND_EVENT,
 	INSPECTOR_PAGE_SCRIPT,
@@ -17,9 +27,9 @@ import {
 import styles from './style.module.css';
 import type { Annotation } from './types';
 import type { SiteDetails } from '@/data/core';
-import type { ReactElement } from 'react';
 
 export type { Annotation } from './types';
+export { getPathFromPreviewUrl } from './address-bar';
 
 interface SitePreviewProps {
 	site: SiteDetails;
@@ -119,6 +129,27 @@ const EMPTY_INSPECTOR_STATE: InspectorState = {
 	annotationCount: 0,
 };
 
+// Where each realm segment lands before its per-realm memory has anything
+// better: site root, WP Admin dashboard, and phpMyAdmin's WordPress database.
+const DEFAULT_REALM_PATHS: Record< PreviewRealm, string > = {
+	frontend: '/',
+	admin: '/wp-admin/',
+	database: DATABASE_HOME_PATH,
+};
+
+// Whether the address bar shows the Database segment. Off unless explicitly
+// enabled — the phpMyAdmin companion isn't available for every site.
+const PREVIEW_SHOW_DATABASE_TAB_STORAGE_KEY = 'studio:preview-show-database-tab';
+
+function getStoredShowDatabaseTab(): boolean {
+	try {
+		// Only an explicit "true" shows the tab; anything else hides it.
+		return window.localStorage.getItem( PREVIEW_SHOW_DATABASE_TAB_STORAGE_KEY ) === 'true';
+	} catch {
+		return false;
+	}
+}
+
 function safeWebviewBoolean( webview: WebviewTag | null, method: 'canGoBack' | 'canGoForward' ) {
 	try {
 		return typeof webview?.[ method ] === 'function' ? Boolean( webview[ method ]() ) : false;
@@ -208,23 +239,21 @@ export function getBrowserShortcutCommand(
 	return null;
 }
 
-function isBrowserShortcutCommand( command: unknown ): command is BrowserShortcutCommandType {
-	return command === 'back' || command === 'forward' || command === 'reload';
+// ⌘1/⌘2/⌘3 (Ctrl elsewhere) select the address bar's realm segments.
+function getRealmShortcut( event: globalThis.KeyboardEvent ): PreviewRealm | null {
+	if ( event.defaultPrevented || event.repeat ) {
+		return null;
+	}
+	for ( const realm of Object.keys( REALM_SHORTCUT_KEYS ) as PreviewRealm[] ) {
+		if ( isKeyboardEvent.primary( event, REALM_SHORTCUT_KEYS[ realm ] ) ) {
+			return realm;
+		}
+	}
+	return null;
 }
 
-function ToolbarTooltip( {
-	label,
-	children,
-}: {
-	label: string;
-	children: ReactElement< Record< string, unknown > >;
-} ) {
-	return (
-		<Tooltip.Root>
-			<Tooltip.Trigger render={ children } />
-			<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>{ label }</Tooltip.Popup>
-		</Tooltip.Root>
-	);
+function isBrowserShortcutCommand( command: unknown ): command is BrowserShortcutCommandType {
+	return command === 'back' || command === 'forward' || command === 'reload';
 }
 
 function areBrowserStatesEqual( a: BrowserNavigationState, b: BrowserNavigationState ) {
@@ -250,6 +279,7 @@ export function SitePreview( {
 	const isStarting = useIsSiteStarting( site.id );
 	const siteUrl = getSiteUrl( site );
 	const canPreview = site.running;
+	const canUseWebview = isElectron();
 	const windowControls = useWindowControlsOverlay();
 	const trafficLightSpace = useTrafficLightSpace();
 	const previewUrl = `${ siteUrl }${ getSafePath( path ) }`;
@@ -258,10 +288,12 @@ export function SitePreview( {
 	const [ browserCommand, setBrowserCommand ] = useState< BrowserCommand | null >( null );
 	const [ inspectorState, setInspectorState ] = useState< InspectorState >( EMPTY_INSPECTOR_STATE );
 	const [ inspectorCommand, setInspectorCommand ] = useState< InspectorCommand | null >( null );
+	// Whether the address bar shows the Database segment (global preference;
+	// the setting UI ships with the preview's view-settings menu).
+	const [ showDatabaseTab ] = useState( getStoredShowDatabaseTab );
 	const rootRef = useRef< HTMLElement | null >( null );
 	const commandIdRef = useRef( 0 );
 	const canAnnotate = canPreview && inspectorState.ready;
-	const pageTitle = getToolbarPageTitle( browserState.title, site.name );
 	const progress = browserState.loading
 		? Math.max( browserState.progress, 0.12 )
 		: browserState.progress;
@@ -292,6 +324,43 @@ export function SitePreview( {
 		setInspectorCommand( { id: commandIdRef.current, type } );
 	}, [] );
 
+	// Realm segments (front end / WP Admin / database). Each realm remembers
+	// where you last were: flipping to WP Admin and back returns to the exact
+	// front-end page, and vice versa. Admin targets go through the site's
+	// /studio-auto-login endpoint so they never land on the login form.
+	const lastRealmPathsRef = useRef< Record< PreviewRealm, string > >( {
+		...DEFAULT_REALM_PATHS,
+	} );
+	useEffect( () => {
+		// Reset the per-realm memory when the preview moves to another site.
+		lastRealmPathsRef.current = { ...DEFAULT_REALM_PATHS };
+	}, [ site.id ] );
+	useEffect( () => {
+		const safePath = getSafePath( path );
+		// Auto-login is a transient hop, not a place to return to.
+		if ( safePath.startsWith( '/studio-auto-login' ) ) {
+			return;
+		}
+		lastRealmPathsRef.current[ getPreviewRealm( safePath ) ] = safePath;
+	}, [ path ] );
+	const handleSwitchRealm = useCallback(
+		( realm: PreviewRealm ) => {
+			// The database realm is unreachable while its tab is hidden — ignore
+			// clicks (there is none) and the ⌘3 shortcut.
+			if ( realm === 'database' && ! showDatabaseTab ) {
+				return;
+			}
+			// Re-selecting the active realm (e.g. via its shortcut) is a no-op —
+			// don't bounce the current page through another auto-login hop.
+			if ( getPreviewRealm( getSafePath( path ) ) === realm ) {
+				return;
+			}
+			const target = lastRealmPathsRef.current[ realm ];
+			onPathChange?.( getRealmNavigationPath( target, siteUrl ) );
+		},
+		[ onPathChange, path, showDatabaseTab, siteUrl ]
+	);
+
 	const browserShortcuts = useMemo(
 		() => ( {
 			back: getNavigationShortcutDescriptor( 'back' ),
@@ -306,16 +375,18 @@ export function SitePreview( {
 		setInspectorState( EMPTY_INSPECTOR_STATE );
 	}, [ site.id ] );
 
-	// Browser shortcuts (⌘R / ⌘[ / ⌘] / ⌘←/⌘→) pressed while focus is in the host
-	// document. Shortcuts pressed inside the guest page are forwarded by the
-	// inspector script through the console bridge instead.
+	// Browser shortcuts (⌘R / ⌘[ / ⌘] / ⌘←/⌘→) and the ⌘1/⌘2/⌘3 realm switches
+	// pressed while focus is in the host document. Shortcuts pressed inside the
+	// guest page are forwarded by the inspector script through the console
+	// bridge instead.
 	useEffect( () => {
 		if ( ! canPreview || collapsed ) {
 			return;
 		}
 		const handleKeyDown = ( event: globalThis.KeyboardEvent ) => {
 			const command = getBrowserShortcutCommand( event );
-			if ( ! command ) {
+			const realm = command ? null : getRealmShortcut( event );
+			if ( ! command && ! realm ) {
 				return;
 			}
 			const activeElement = document.activeElement;
@@ -328,12 +399,16 @@ export function SitePreview( {
 			}
 			event.preventDefault();
 			event.stopPropagation();
-			sendBrowserCommand( command );
+			if ( command ) {
+				sendBrowserCommand( command );
+			} else if ( realm ) {
+				handleSwitchRealm( realm );
+			}
 		};
 
 		document.addEventListener( 'keydown', handleKeyDown, { capture: true } );
 		return () => document.removeEventListener( 'keydown', handleKeyDown, { capture: true } );
-	}, [ canPreview, collapsed, sendBrowserCommand ] );
+	}, [ canPreview, collapsed, handleSwitchRealm, sendBrowserCommand ] );
 
 	return (
 		<aside ref={ rootRef } className={ styles.root } aria-label={ __( 'Site preview' ) }>
@@ -353,9 +428,27 @@ export function SitePreview( {
 						: undefined
 				}
 			>
-				{ canPreview ? (
-					<>
-						<div className={ styles.browserControls } aria-label={ __( 'Browser navigation' ) }>
+				{ /* Equal-flex side tracks keep the address control truly centered
+					in the toolbar regardless of what each side holds. */ }
+				<div className={ styles.headerSide }>
+					{ canPreview ? (
+						<IconButton
+							variant="minimal"
+							tone="neutral"
+							size="small"
+							icon={ refreshIcon }
+							label={ __( 'Refresh' ) }
+							shortcut={ browserShortcuts.reload }
+							onClick={ () => sendBrowserCommand( 'reload' ) }
+						/>
+					) : null }
+				</div>
+				{ /* Back/forward flank the address segments so history controls sit
+					with the place they navigate; symmetric widths keep the segments
+					centered. */ }
+				<div className={ styles.browserLocation }>
+					{ canPreview ? (
+						<>
 							<IconButton
 								variant="minimal"
 								tone="neutral"
@@ -365,6 +458,12 @@ export function SitePreview( {
 								shortcut={ browserShortcuts.back }
 								disabled={ ! browserState.canGoBack }
 								onClick={ () => sendBrowserCommand( 'back' ) }
+							/>
+							<PreviewAddressBar
+								site={ site }
+								path={ getSafePath( path ) }
+								showDatabaseTab={ showDatabaseTab }
+								onSwitchRealm={ handleSwitchRealm }
 							/>
 							<IconButton
 								variant="minimal"
@@ -376,61 +475,49 @@ export function SitePreview( {
 								disabled={ ! browserState.canGoForward }
 								onClick={ () => sendBrowserCommand( 'forward' ) }
 							/>
+						</>
+					) : null }
+				</div>
+				<div className={ clsx( styles.headerSide, styles.headerSideEnd ) }>
+					{ canPreview ? (
+						<>
+							{ connector.capabilities.annotatePreview ? (
+								<div className={ styles.annotationControls }>
+									<IconButton
+										variant="minimal"
+										tone="neutral"
+										size="small"
+										icon={ pencil }
+										label={ inspectorState.isPicking ? __( 'Stop annotating' ) : __( 'Annotate' ) }
+										disabled={ ! canAnnotate }
+										aria-pressed={ inspectorState.isPicking }
+										onClick={ () => sendInspectorCommand( 'toggle-picking' ) }
+									/>
+									{ inspectorState.annotationCount > 0 ? (
+										<Button
+											variant="solid"
+											tone="brand"
+											size="small"
+											disabled={ ! canAnnotate }
+											aria-label={ __( 'Submit annotations' ) }
+											onClick={ () => sendInspectorCommand( 'submit' ) }
+										>
+											{ __( 'Submit' ) }
+										</Button>
+									) : null }
+								</div>
+							) : null }
 							<IconButton
 								variant="minimal"
 								tone="neutral"
 								size="small"
-								icon={ refreshIcon }
-								label={ __( 'Refresh' ) }
-								shortcut={ browserShortcuts.reload }
-								onClick={ () => sendBrowserCommand( 'reload' ) }
+								icon={ external }
+								label={ __( 'Open site in browser' ) }
+								onClick={ () => void connector.openExternalUrl( previewUrl ) }
 							/>
-						</div>
-						<div className={ styles.browserLocation }>
-							<ToolbarTooltip label={ previewUrl }>
-								<span className={ styles.browserTitle }>{ pageTitle }</span>
-							</ToolbarTooltip>
-						</div>
-						{ connector.capabilities.annotatePreview ? (
-							<div className={ styles.annotationControls }>
-								<IconButton
-									variant="minimal"
-									tone="neutral"
-									size="small"
-									icon={ pencil }
-									label={ inspectorState.isPicking ? __( 'Stop annotating' ) : __( 'Annotate' ) }
-									disabled={ ! canAnnotate }
-									aria-pressed={ inspectorState.isPicking }
-									onClick={ () => sendInspectorCommand( 'toggle-picking' ) }
-								/>
-								{ inspectorState.annotationCount > 0 ? (
-									<Button
-										variant="solid"
-										tone="brand"
-										size="small"
-										disabled={ ! canAnnotate }
-										aria-label={ __( 'Submit annotations' ) }
-										onClick={ () => sendInspectorCommand( 'submit' ) }
-									>
-										{ __( 'Submit' ) }
-									</Button>
-								) : null }
-							</div>
-						) : null }
-					</>
-				) : (
-					<span className={ styles.headerSpacer } aria-hidden="true" />
-				) }
-				<span className={ styles.separator } aria-hidden="true" />
-				<IconButton
-					variant="minimal"
-					tone="neutral"
-					size="small"
-					icon={ external }
-					label={ __( 'Open site in browser' ) }
-					disabled={ ! canPreview }
-					onClick={ () => void connector.openExternalUrl( previewUrl ) }
-				/>
+						</>
+					) : null }
+				</div>
 				{ showLoadingProgress ? (
 					<div className={ styles.loadingProgress } aria-hidden="true">
 						<span style={ { transform: `scaleX(${ Math.min( progress, 1 ) })` } } />
@@ -439,7 +526,7 @@ export function SitePreview( {
 			</div>
 			<div className={ styles.body }>
 				{ canPreview ? (
-					isElectron() ? (
+					canUseWebview ? (
 						<WebviewSurface
 							key={ site.id }
 							url={ previewUrl }
@@ -500,31 +587,6 @@ export function SitePreview( {
 
 function getSafePath( path: unknown ) {
 	return typeof path === 'string' && path.trim() ? path : '/';
-}
-
-export function getToolbarPageTitle( title: string | null, siteName: string ) {
-	const trimmedTitle = normalizeDocumentTitle( title );
-	if ( trimmedTitle ) {
-		const [ wordPressAdminTitle ] = trimmedTitle.split( /\s+‹\s+/ );
-		const withoutWordPressSuffix = wordPressAdminTitle
-			.replace( /\s+[–—-]\s+WordPress$/i, '' )
-			.trim();
-		return withoutWordPressSuffix || trimmedTitle;
-	}
-	return siteName || __( 'Site preview' );
-}
-
-export function getPathFromPreviewUrl( url: string, baseUrl: string ) {
-	try {
-		const parsedUrl = new URL( url );
-		const parsedBaseUrl = new URL( baseUrl );
-		if ( parsedUrl.origin !== parsedBaseUrl.origin ) {
-			return null;
-		}
-		return `${ parsedUrl.pathname }${ parsedUrl.search }${ parsedUrl.hash }`;
-	} catch {
-		return null;
-	}
 }
 
 interface WebviewSurfaceProps {
@@ -645,12 +707,10 @@ function WebviewSurface( {
 		}, 180 );
 	}, [ clearProgressTimers, publishBrowserState ] );
 
-	// The initial url+nonce are loaded by the `src` attribute on the
-	// `<webview>` itself; calling `loadURL` before `dom-ready` throws
-	// "WebView must be attached to the DOM and the dom-ready event emitted".
-	// We capture the mount-time values once and skip the navigation effect
-	// while it still matches them.
-	const [ initialNav ] = useState( () => ( { url, reloadNonce } ) );
+	// The mount-time url is loaded via the `src` attribute (calling `loadURL`
+	// before `dom-ready` throws); it must stay stable so later navigation
+	// goes through `loadURL` instead of remounting the webview.
+	const [ initialSrc ] = useState( () => url );
 
 	// Wire DOM events on the underlying custom element. We use refs + native
 	// event listeners because React doesn't recognise `<webview>`'s
@@ -779,20 +839,22 @@ function WebviewSurface( {
 	}, [ clearProgressTimers, finishProgress, publishBrowserState, startProgress ] );
 
 	// Navigation effect — gated on `ready` so the first call happens after
-	// `dom-ready`. If url/nonce changed while loading, the latest values are
-	// flushed when `ready` flips to true. In-preview navigation reported via
-	// `onNavigate` round-trips through the parent's `path` state, so skip the
-	// reload when the webview is already showing the requested url.
+	// `dom-ready` (the initial url is loaded by the `src` attribute on the
+	// `<webview>`, tracked by `currentUrlRef`'s initial value; calling
+	// `loadURL` before `dom-ready` throws). In-preview navigation reported
+	// via `onNavigate` round-trips through the parent's `path` state, so skip
+	// the reload when the webview is already showing the requested url —
+	// this also covers the initial render, and unlike a mount-time snapshot
+	// it doesn't block navigating *back* to the starting url later.
 	useEffect( () => {
 		if ( ! ready ) return;
-		if ( url === initialNav.url && reloadNonce === initialNav.reloadNonce ) return;
 		if ( url === currentUrlRef.current && reloadNonce === lastReloadNonceRef.current ) return;
 		const webview = ref.current as WebviewTag | null;
 		if ( ! webview ) return;
 		currentUrlRef.current = url;
 		lastReloadNonceRef.current = reloadNonce;
 		webview.loadURL( url ).catch( () => undefined );
-	}, [ url, reloadNonce, ready, initialNav.url, initialNav.reloadNonce ] );
+	}, [ url, reloadNonce, ready ] );
 
 	useEffect( () => {
 		if ( ! ready || ! inspectorCommand ) return;
@@ -830,7 +892,7 @@ function WebviewSurface( {
 		<>
 			<webview
 				ref={ ref }
-				src={ initialNav.url }
+				src={ initialSrc }
 				className={ styles.iframe }
 				allowpopups={ true }
 				partition="persist:site-preview"

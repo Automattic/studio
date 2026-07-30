@@ -4,7 +4,7 @@ import type { SiteRestRequest, SiteRestResponse } from '@studio/common/types/wor
 export interface SiteRestTarget {
 	siteId: string;
 	running: boolean;
-	// Loopback base the request is actually sent to, e.g. http://127.0.0.1:<port>.
+	// Loopback base the request is actually sent to, e.g. http://localhost:<port>.
 	baseUrl: string;
 }
 

@@ -96,9 +96,9 @@ describe( 'fetchSiteRest', () => {
 
 		expect( response.status ).toBe( 200 );
 		expect( getRequestedUrls( fetchMock ) ).toEqual( [
-			'http://127.0.0.1:8903/studio-auto-login?redirect_to=%2Fwp-admin%2F',
-			'http://127.0.0.1:8903/wp-admin/admin-ajax.php?action=rest-nonce',
-			'http://127.0.0.1:8903/wp-json/wp/v2/pages?per_page=100',
+			'http://localhost:8903/studio-auto-login?redirect_to=%2Fwp-admin%2F',
+			'http://localhost:8903/wp-admin/admin-ajax.php?action=rest-nonce',
+			'http://localhost:8903/wp-json/wp/v2/pages?per_page=100',
 		] );
 	} );
 

@@ -16,9 +16,12 @@ export async function fetchSiteRest(
 		return createJsonResponse( 404, 'studio_site_not_found', `Site ${ siteId } not found.` );
 	}
 
+	// Dial `localhost`, not `127.0.0.1`: native-PHP site servers bind
+	// `localhost`, which may resolve to IPv6 `::1` only — fetch negotiates
+	// whichever address family actually listens.
 	const baseUrl =
 		server.details.port > 0
-			? `http://127.0.0.1:${ server.details.port }`
+			? `http://localhost:${ server.details.port }`
 			: server.server.url.replace( /\/+$/, '' );
 
 	return fetchSiteRestShared(

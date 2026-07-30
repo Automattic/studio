@@ -6,6 +6,7 @@
 import os from 'os';
 import path from 'path';
 import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
+import { getCliPath } from 'src/storage/paths';
 
 // SQLite integration folder name
 const SQLITE_FILENAME = 'sqlite-database-integration';
@@ -49,8 +50,25 @@ export function getSqlitePath(): string {
 }
 
 /**
- * The path where bundled AI instructions and skills are stored.
+ * The path to the bundled `wp-files/` directory that ships with the CLI.
+ */
+function getBundledWpFilesPath(): string {
+	return path.join( path.dirname( getCliPath() ), 'wp-files' );
+}
+
+/**
+ * The path where bundled AI instructions and skills live inside the CLI bundle.
+ * These are installed into each site's `.agents/skills/` directory, so the source
+ * is read-only and does not need a writable cache.
  */
 export function getAiInstructionsPath(): string {
-	return path.join( getBasePath(), 'skills' );
+	return path.join( getBundledWpFilesPath(), 'skills' );
+}
+
+/**
+ * The path to the bundled SQLite database integration plugin that ships with the
+ * CLI. Installed into each site's `wp-content/mu-plugins/` directory.
+ */
+export function getBundledSqlitePluginPath(): string {
+	return path.join( getBundledWpFilesPath(), SQLITE_FILENAME );
 }

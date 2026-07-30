@@ -1,3 +1,6 @@
+# Standalone CLI bundles
+standalone-bundles/
+
 # Logs
 logs
 *.log
@@ -95,7 +98,8 @@ typings/
 out/
 
 # The latest WordPress files downloaded from the web
-wp-files/
+wp-files/*
+!wp-files/blueprints/
 
 # Release Tooling
 vendor/*
@@ -108,14 +112,18 @@ cli/vendor/
 
 # Build output
 dist
+dist-hosted
+dist-local
+# …except the data-liberation plugin's committed MCP server bundle (the plugin
+# installer copies the package without running npm install or a build). The
+# package-level .gitignore keeps everything else in its dist/ ignored.
+!packages/data-liberation-agent/dist
 
 # Playwright traces
 test-results
 
-# E2E test import files (not versioned)
-apps/studio/e2e/imports/*.tar.gz
-apps/studio/e2e/imports/*.zip
-apps/studio/e2e/imports/*.wpress
+# Data-heavy e2e fixtures downloaded by `npm run e2e:fixtures` (see test-fixtures/readme.md)
+test-fixtures/downloads/
 
 # Metrics traces
 artifacts
@@ -131,5 +139,16 @@ CLAUDE.md
 apps/studio/bin/node
 apps/studio/bin/node.exe
 
+# Bundled PHP binary (downloaded during packaging)
+apps/studio/php-bin/
+
 # CLI launcher executable (built during packaging via @yao-pkg/pkg)
 bin/studio-cli.exe
+
+# PromptFoo evaluation outputs
+scripts/eval/output/
+scripts/eval/test-sites/
+.promptfoo/
+
+# Codex
+.codex/

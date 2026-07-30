@@ -1,0 +1,171 @@
+/* Fills the preview slot of the session frame's split layout; the slot owns
+   the panel's width, this panel just provides the border separator. */
+.root {
+	display: flex;
+	flex-direction: column;
+	position: relative;
+	width: 100%;
+	height: 100%;
+	min-width: 0;
+	min-height: 0;
+	background-color: var(--wpds-color-bg-surface-neutral);
+	border-inline-start: 1px solid var(--wpds-color-stroke-surface-neutral);
+	overflow: hidden;
+}
+
+.header {
+	position: relative;
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-md);
+	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-lg);
+	min-height: 32px;
+	flex-shrink: 0;
+	background-color: var(--wpds-color-bg-surface-neutral-strong, #fff);
+	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
+	-webkit-app-region: drag;
+	/* Sizes the address segments' narrow-width behavior (the title collapse
+	   in location-omnibox.module.css queries this container). */
+	container: studio-preview-toolbar / inline-size;
+}
+
+/* The toolbar doubles as a window drag region; the controls (including the
+   omnibox trigger button) opt back out so they keep receiving mouse events. */
+.header button {
+	-webkit-app-region: no-drag;
+}
+
+/* Matching flexible side tracks: because both flex from the same 0 basis,
+   the address control between them sits at the toolbar's true center no
+   matter how many controls each side holds. */
+.headerSide {
+	display: flex;
+	flex: 1 1 0;
+	min-width: 0;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-md);
+}
+
+.headerSideEnd {
+	justify-content: flex-end;
+}
+
+.browserLocation {
+	display: flex;
+	flex: 0 1 auto;
+	align-items: center;
+	justify-content: center;
+	gap: var(--wpds-dimension-padding-xs);
+	min-width: 0;
+}
+
+.annotationControls {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-xs);
+	flex-shrink: 0;
+}
+
+/* 2px bar overlapping the header's bottom border, like a browser's page-load
+   indicator. The inner span is scaled by inline style as progress advances. */
+.loadingProgress {
+	position: absolute;
+	bottom: -1px;
+	left: 0;
+	right: 0;
+	z-index: 1;
+	height: 2px;
+	overflow: hidden;
+	pointer-events: none;
+	background-color: transparent;
+}
+
+.loadingProgress span {
+	position: absolute;
+	inset: 0;
+	display: block;
+	width: 100%;
+	background-color: var(--wpds-color-fg-interactive-brand, #2563eb);
+	transform-origin: left center;
+	transition: transform 160ms ease-out;
+}
+
+/* Page-load progress grows from the reading start. */
+.loadingProgress span:dir(rtl) {
+	transform-origin: right center;
+}
+
+.body {
+	flex: 1;
+	min-height: 0;
+	display: flex;
+	position: relative;
+	background-color: var(--wpds-color-bg-surface-neutral-strong, #fff);
+	overflow: hidden;
+}
+
+.spinnerOverlay {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	pointer-events: none;
+	background-color: color-mix(
+		in srgb,
+		var(--wpds-color-bg-surface-neutral-strong, #fff) 60%,
+		transparent
+	);
+}
+
+.spinner {
+	width: 20px;
+	height: 20px;
+	border-radius: 50%;
+	border: 2px solid var(--wpds-color-stroke-surface-neutral);
+	border-top-color: var(--wpds-color-fg-interactive-brand, #2563eb);
+	animation: sitePreviewSpin 0.8s linear infinite;
+}
+
+@keyframes sitePreviewSpin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+.iframe {
+	flex: 1;
+	width: 100%;
+	height: 100%;
+	border: 0;
+	background-color: var(--wpds-color-bg-surface-neutral-strong, #fff);
+}
+
+.empty {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-md);
+	align-items: center;
+	justify-content: center;
+	padding: var(--wpds-dimension-padding-xl);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	text-align: center;
+}
+
+.emptyText {
+	margin: 0;
+}
+
+.startIcon {
+	display: inline-flex;
+	width: 16px;
+	height: 16px;
+	margin-right: 4px;
+}
+
+.startIcon svg {
+	width: 100%;
+	height: 100%;
+}

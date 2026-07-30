@@ -1,0 +1,35 @@
+.resizeHandle {
+	width: 8px;
+	z-index: 20;
+	display: flex;
+	align-items: stretch;
+	justify-content: center;
+	box-sizing: border-box;
+	cursor: col-resize;
+	outline: none;
+	-webkit-app-region: no-drag;
+}
+
+/* Thin full-height line that lights up the panel border on hover/drag. */
+.resizeHandleIndicator {
+	width: 2px;
+	align-self: stretch;
+	background-color: var(--wpds-color-stroke-interactive-brand, #2563eb);
+	opacity: 0;
+	transition: opacity 120ms ease;
+}
+
+.resizeHandle:hover .resizeHandleIndicator,
+.resizeHandle:focus-visible .resizeHandleIndicator,
+.resizing .resizeHandleIndicator {
+	opacity: 1;
+}
+
+.resizeOverlay {
+	position: fixed;
+	inset: 0;
+	z-index: 1000;
+	cursor: col-resize;
+	user-select: none;
+	-webkit-app-region: no-drag;
+}

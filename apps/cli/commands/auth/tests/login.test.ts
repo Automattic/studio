@@ -147,6 +147,17 @@ describe( 'Auth Login Command', () => {
 		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
 	} );
 
+	it( 'should print the URL even when the browser opens', async () => {
+		const logSpy = vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+
+		await runCommand();
+
+		expect( openBrowser ).toHaveBeenCalledWith( mockAuthUrl );
+		expect( logSpy ).toHaveBeenCalledWith( mockAuthUrl );
+
+		logSpy.mockRestore();
+	} );
+
 	it( 'should use provided locale', async () => {
 		vi.mocked( getAppLocale ).mockResolvedValue( 'fr' );
 

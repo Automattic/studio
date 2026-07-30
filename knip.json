@@ -1,0 +1,58 @@
+{
+	"$schema": "https://unpkg.com/knip@5/schema.json",
+	"workspaces": {
+		".": {
+			"entry": ["scripts/**/*.{ts,mjs,cjs}"],
+			"project": "scripts/**/*.{ts,mjs,cjs}"
+		},
+		"apps/studio": {
+			"entry": [
+				"src/index.ts",
+				"src/preload.ts",
+				"src/migrations/index.ts",
+				"src/additional-phrases.ts",
+				"forge.config.ts",
+				"e2e/global-setup.ts",
+				"e2e/**/*.test.ts"
+			],
+			"project": "{src,e2e}/**/*.{ts,tsx}"
+		},
+		"apps/cli": {
+			"entry": [
+				"index.ts",
+				"php-server-child.ts",
+				"playground-server-child.ts",
+				"process-manager-daemon.ts",
+				"proxy-daemon.ts",
+				"reprint-child.ts",
+				"logger.ts",
+				"ai/eval-runner.ts",
+				"commands/**/*.ts",
+				"vite.config.*.ts"
+			],
+			"project": "**/*.ts"
+		},
+		"apps/ui": {
+			"entry": ["src/main.hosted.tsx", "src/main.local.tsx"],
+			"project": "src/**/*.{ts,tsx}"
+		},
+		"apps/hosted": {
+			"entry": ["src/index.ts"],
+			"project": "src/**/*.{ts,tsx}"
+		},
+		"apps/local": {
+			"entry": ["src/index.ts"],
+			"project": "src/**/*.{ts,tsx}"
+		},
+		"packages/common": {
+			"entry": ["translations/index.ts", "globals.ts"],
+			"project": "**/*.ts"
+		},
+		"packages/data-liberation-agent": {
+			"project": "src/**/*.ts"
+		},
+		"tools/eslint-plugin-studio": {
+			"project": "**/*.{js,ts}"
+		}
+	}
+}

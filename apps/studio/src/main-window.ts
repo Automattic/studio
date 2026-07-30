@@ -5,9 +5,12 @@ import {
 	app,
 	nativeTheme,
 } from 'electron';
+import fs from 'fs';
 import * as path from 'path';
+import { pathToFileURL } from 'url';
 import { portFinder } from '@studio/common/lib/port-finder';
 import {
+	DEFAULT_HEIGHT,
 	DEFAULT_WIDTH,
 	MACOS_TRAFFIC_LIGHT_POSITION,
 	MAIN_MIN_HEIGHT,
@@ -27,11 +30,115 @@ import {
 import type { WindowBounds } from 'src/storage/storage-types';
 
 let mainWindow: BrowserWindow | null;
+let currentRendererUrl: string | undefined;
+type StudioUiMode = 'default' | 'agentic';
+
+interface RendererLocation {
+	url: string;
+	filePath?: string;
+}
+
+let agenticUiEnabled = false;
+
+export function setAgenticUiEnabled( enabled: boolean ): void {
+	agenticUiEnabled = enabled;
+}
+
+export function getPreferredStudioUiMode(): StudioUiMode {
+	return agenticUiEnabled ? 'agentic' : 'default';
+}
+
+function getRendererFilePath( mode: StudioUiMode ) {
+	return path.join(
+		__dirname,
+		mode === 'default' ? '../renderer/index.html' : '../renderer-ui/index.html'
+	);
+}
+
+function getRendererLocation( preferredMode: StudioUiMode ): RendererLocation {
+	if (
+		! app.isPackaged &&
+		preferredMode === 'agentic' &&
+		process.env[ 'ELECTRON_UI_RENDERER_URL' ]
+	) {
+		return {
+			url: process.env[ 'ELECTRON_UI_RENDERER_URL' ],
+		};
+	}
+
+	if ( ! app.isPackaged && process.env[ 'ELECTRON_RENDERER_URL' ] ) {
+		return {
+			url: process.env[ 'ELECTRON_RENDERER_URL' ],
+		};
+	}
+
+	let mode = preferredMode;
+	let filePath = getRendererFilePath( mode );
+	if ( mode !== 'default' && ! fs.existsSync( filePath ) ) {
+		mode = 'default';
+		filePath = getRendererFilePath( mode );
+	}
+
+	return {
+		filePath,
+		url: pathToFileURL( filePath ).href,
+	};
+}
+
+function rememberRendererLocation( location: RendererLocation ) {
+	currentRendererUrl = location.url;
+}
+
+async function loadRendererLocation( window: BrowserWindow, location: RendererLocation ) {
+	rememberRendererLocation( location );
+	if ( location.filePath ) {
+		await window.loadFile( location.filePath );
+		return;
+	}
+	await window.loadURL( location.url );
+}
+
+export async function loadMainWindowRenderer( window: BrowserWindow ): Promise< void > {
+	await loadRendererLocation( window, getRendererLocation( getPreferredStudioUiMode() ) );
+	if ( process.platform === 'win32' || process.platform === 'linux' ) {
+		window.setTitleBarOverlay( getTitleBarOverlayOptions() );
+	}
+}
+
+export function getCurrentRendererUrl(): string {
+	if ( currentRendererUrl ) {
+		return currentRendererUrl;
+	}
+
+	return getRendererLocation( 'default' ).url;
+}
 
 function setupDevTools( mainWindow: BrowserWindow | null, devToolsOpen?: boolean ) {
 	if ( devToolsOpen || ( process.env.NODE_ENV === 'development' && devToolsOpen === undefined ) ) {
 		mainWindow?.webContents.openDevTools();
 	}
+}
+
+export function isToggleSidebarShortcut(
+	input: Electron.Input,
+	platform: NodeJS.Platform = process.platform
+): boolean {
+	if (
+		input.type !== 'keyDown' ||
+		input.isAutoRepeat ||
+		input.isComposing ||
+		input.shift ||
+		input.alt ||
+		input.key.toLowerCase() !== 'b'
+	) {
+		return false;
+	}
+
+	if ( platform === 'darwin' ) {
+		return input.meta && ! input.control;
+	}
+
+	return input.control && ! input.meta;
 }
 
 function initializePortFinder( sites: SiteDetails[] ) {
@@ -69,7 +176,7 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 
 	const savedBounds = await loadWindowBounds();
 	let windowOptions: BrowserWindowConstructorOptions = {
-		height: MAIN_MIN_HEIGHT,
+		height: DEFAULT_HEIGHT,
 		width: DEFAULT_WIDTH,
 		backgroundColor: 'rgba(30, 30, 30, 1)',
 		minHeight: MAIN_MIN_HEIGHT,
@@ -77,6 +184,9 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 		webPreferences: {
 			preload: path.join( __dirname, '../preload/preload.js' ),
 			webSecurity: process.env.NODE_ENV !== 'development',
+			// Enables the `<webview>` tag used by the site-preview surface to
+			// host running WordPress sites.
+			webviewTag: true,
 		},
 		...getOSWindowOptions(),
 	};
@@ -93,16 +203,29 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 
 	mainWindow = new BrowserWindow( windowOptions );
 
+	if ( process.platform === 'win32' || process.platform === 'linux' ) {
+		const updateTitleBarOverlay = () => {
+			if ( mainWindow && ! mainWindow.isDestroyed() ) {
+				mainWindow.setTitleBarOverlay( getTitleBarOverlayOptions() );
+			}
+		};
+		nativeTheme.on( 'updated', updateTitleBarOverlay );
+		mainWindow.on( 'closed', () => nativeTheme.removeListener( 'updated', updateTitleBarOverlay ) );
+	}
+
+	mainWindow.webContents.on( 'before-input-event', ( event, input ) => {
+		if ( isToggleSidebarShortcut( input ) ) {
+			event.preventDefault();
+			sendIpcEventToRendererWithWindow( mainWindow, 'toggle-sidebar' );
+		}
+	} );
+
 	// Restore fullscreen state if it was saved
 	if ( savedBounds?.isFullScreen ) {
 		mainWindow.setFullScreen( true );
 	}
 
-	if ( ! app.isPackaged && process.env[ 'ELECTRON_RENDERER_URL' ] ) {
-		void mainWindow.loadURL( process.env[ 'ELECTRON_RENDERER_URL' ] );
-	} else {
-		void mainWindow.loadFile( path.join( __dirname, '../renderer/index.html' ) );
-	}
+	void loadRendererLocation( mainWindow, getRendererLocation( getPreferredStudioUiMode() ) );
 
 	// Open the DevTools if the user had it open last time they used the app.
 	// During development the dev tools default to open.
@@ -165,6 +288,28 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 	return mainWindow;
 }
 
+// Matches the renderer's `--color-frame-bg`, so window controls blend into a fullscreen modal.
+export function getFrameTitleBarOverlayOptions() {
+	const isDark = nativeTheme.shouldUseDarkColors;
+	return {
+		color: isDark ? '#2f2f2f' : '#fff',
+		symbolColor: isDark ? '#e0e0e0' : '#1e1e1e',
+		height: WINDOWS_TITLEBAR_HEIGHT,
+	};
+}
+
+export function getTitleBarOverlayOptions() {
+	if ( getPreferredStudioUiMode() !== 'agentic' ) {
+		return { color: 'rgba(30, 30, 30, 1)', symbolColor: 'white', height: WINDOWS_TITLEBAR_HEIGHT };
+	}
+	const isDark = nativeTheme.shouldUseDarkColors;
+	return {
+		color: isDark ? '#242424' : '#fff',
+		symbolColor: isDark ? '#e0e0e0' : '#1e1e1e',
+		height: WINDOWS_TITLEBAR_HEIGHT,
+	};
+}
+
 function getOSWindowOptions(): Partial< BrowserWindowConstructorOptions > {
 	switch ( process.platform ) {
 		case 'darwin':
@@ -175,13 +320,10 @@ function getOSWindowOptions(): Partial< BrowserWindowConstructorOptions > {
 			};
 
 		case 'win32':
+		case 'linux':
 			return {
 				titleBarStyle: 'hidden',
-				titleBarOverlay: {
-					color: 'rgba(30, 30, 30, 1)',
-					symbolColor: 'white',
-					height: WINDOWS_TITLEBAR_HEIGHT,
-				},
+				titleBarOverlay: getTitleBarOverlayOptions(),
 				minHeight: MAIN_MIN_HEIGHT + WINDOWS_TITLEBAR_HEIGHT,
 			};
 

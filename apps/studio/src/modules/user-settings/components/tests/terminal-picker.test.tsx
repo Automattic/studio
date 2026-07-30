@@ -19,6 +19,7 @@ vi.mock( 'src/lib/app-globals', () => ( {
 		platform: 'darwin',
 	} ) ),
 	isWindows: vi.fn( () => false ),
+	isLinux: vi.fn( () => false ),
 } ) );
 
 store.replaceReducer( testReducer );

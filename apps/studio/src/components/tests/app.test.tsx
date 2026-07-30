@@ -16,6 +16,9 @@ import { wordpressVersionsApi } from 'src/stores/wordpress-versions-api';
 import { wpcomApi, wpcomPublicApi } from 'src/stores/wpcom-api';
 
 vi.mock( 'src/index.css', () => ( {} ) );
+vi.mock( 'src/components/dot-grid', () => ( {
+	DotGrid: () => null,
+} ) );
 vi.mock( 'src/stores/onboarding-slice', async () => {
 	const actual = await vi.importActual( 'src/stores/onboarding-slice' );
 	return {

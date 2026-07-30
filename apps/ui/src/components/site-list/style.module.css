@@ -1,0 +1,544 @@
+.root {
+	--site-list-row-height: 34px;
+	--site-list-row-leading-inset: var(--wpds-dimension-padding-sm);
+	--site-list-row-outer-inset: calc(
+		var(--wpds-dimension-padding-lg) - var(--site-list-row-leading-inset)
+	);
+	--site-list-chat-status-size: 14px;
+	--site-list-chat-status-start-offset: 4px;
+	--site-list-chat-status-gap: 3px;
+	--site-list-label-inline-offset: 4px;
+	/* The sidebar sits on the dark window chrome in both color schemes, so
+	   the pending indicator is always the vivid on-dark value. */
+	--site-list-pending-indicator-bg: var(--studio-color-status-attention);
+	--site-list-sync-indicator-bg: var(--studio-color-status-sync);
+
+	/* Pull the row shape slightly left, then add the inset back inside rows so
+	   labels keep their column while selected rows have breathing room. */
+	padding: 0 var(--site-list-row-outer-inset) var(--wpds-dimension-padding-xl)
+		var(--site-list-row-outer-inset);
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-sm);
+	user-select: none;
+}
+
+.sites {
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+}
+
+/* Structural drag styles (touch-action, fixed preview positioning,
+   will-change) live in the shared reorderable-list module; these classes
+   carry only the site rows' visual treatment. */
+
+.siteDragWrapper {
+	border-radius: 6px;
+}
+
+.siteDropPlaceholder {
+	block-size: var(--site-list-row-height);
+	border-radius: 6px;
+	background-color: var(--sidebar-row-background);
+	box-shadow: inset 0 0 0 1px
+		color-mix(in srgb, var(--wpds-color-stroke-interactive-brand) 45%, transparent);
+	transition: background-color 120ms ease, box-shadow 120ms ease;
+}
+
+.siteDragPreview {
+	opacity: 0.95;
+	filter: drop-shadow(0 6px 14px rgb(0 0 0 / 14%));
+}
+
+.siteDragPreview .siteHeader {
+	background-color: var(--sidebar-row-background);
+}
+
+.site {
+	display: flex;
+	flex-direction: column;
+	/* Keep scrollIntoView targets clear of the sidebar's sticky header and
+	   footer, which paint over the scrollport's edges. */
+	scroll-margin-block: 64px;
+}
+
+.siteHeader {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-xs);
+	min-width: 0;
+	box-sizing: border-box;
+	height: var(--site-list-row-height);
+	/* The row shape extends left of the content column; this padding keeps the
+	   title column aligned while giving selected rows breathing room. */
+	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm)
+		var(--wpds-dimension-padding-xs) var(--site-list-row-leading-inset);
+	border-radius: 6px;
+	cursor: var(--wpds-cursor-control);
+	transition: background-color 80ms ease;
+}
+
+.siteHeader:hover,
+.siteHeader:focus-within {
+	background-color: var(--sidebar-row-background);
+}
+
+.siteActive .siteHeader,
+.siteActive .siteHeader:hover,
+.siteActive .siteHeader:focus-within {
+	background-color: var(--sidebar-row-background);
+}
+
+.siteContextActive .siteHeader {
+	outline: 1px dashed color-mix(in srgb, var(--wpds-color-stroke-surface-neutral) 78%, transparent);
+	outline-offset: -2px;
+}
+
+.siteContextActive .siteHeader:hover,
+.siteContextActive .siteHeader:focus-within {
+	background-color: transparent;
+}
+
+.siteText {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	align-items: center;
+}
+
+.siteToggle {
+	flex: 1 1 auto;
+	min-width: 0;
+	max-width: 100%;
+	height: auto;
+	gap: 0;
+	/* Keep a little breathing room between the selected row shape and the label. */
+	padding-inline-start: var(--site-list-label-inline-offset);
+}
+
+.siteToggle:focus-visible {
+	outline: 2px solid var(--wpds-color-stroke-interactive-brand, #3858e9);
+	outline-offset: -2px;
+}
+
+.siteAgentActivitySlot {
+	display: inline-grid;
+	place-items: center;
+	flex: 0 0 0;
+	inline-size: 0;
+	block-size: var(--site-list-chat-status-size);
+	margin-inline-start: 0;
+	margin-inline-end: 0;
+	opacity: 0;
+	overflow: visible;
+	pointer-events: none;
+	transform: scale(0.75);
+	transition: inline-size 160ms ease, flex-basis 160ms ease, margin-inline-start 160ms ease,
+		margin-inline-end 160ms ease, opacity 120ms ease, transform 160ms ease;
+}
+
+.siteAgentActivitySlotVisible {
+	flex-basis: var(--site-list-chat-status-size);
+	inline-size: var(--site-list-chat-status-size);
+	margin-inline-start: var(--site-list-chat-status-start-offset);
+	margin-inline-end: var(--site-list-chat-status-gap);
+	opacity: 1;
+	pointer-events: auto;
+	transform: scale(1);
+}
+
+.siteAgentActivity {
+	grid-row-start: 1;
+	grid-column-start: 1;
+	position: relative;
+	block-size: var(--site-list-chat-status-size);
+	inline-size: var(--site-list-chat-status-size);
+	box-sizing: border-box;
+}
+
+.siteAgentActivityTooltipTrigger {
+	display: inline-grid;
+	place-items: center;
+}
+
+.siteAgentActivityPixels {
+	/* Slightly tighter than the chat indicator so the 3×2 grid sits inside
+	   the 14px activity slot. */
+	--agent-pixel-size: 2.5px;
+	--agent-pixel-gap: 2px;
+}
+
+.siteAgentActivityQuestion {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	isolation: isolate;
+}
+
+.siteAgentActivityQuestion::before {
+	content: '';
+	position: absolute;
+	inset-block-start: calc((var(--site-list-chat-status-size) - 8.5px) / 2);
+	inset-inline-start: calc((var(--site-list-chat-status-size) - 10px) / 2);
+	inline-size: 10px;
+	block-size: 8.5px;
+	z-index: -1;
+	clip-path: path(
+		'M 5 8.4 C 5.45 8.4 5.85 8.15 6.05 7.75 L 9.45 1.35 C 9.75 0.75 9.35 0.35 8.7 0.35 L 1.3 0.35 C 0.65 0.35 0.25 0.75 0.55 1.35 L 3.95 7.75 C 4.15 8.15 4.55 8.4 5 8.4 Z'
+	);
+	background-color: var(--site-list-pending-indicator-bg);
+}
+
+.siteAgentActivityMessage {
+	display: block;
+	inline-size: 8px;
+	block-size: 6px;
+	border-radius: 3px 3px 3px 1px;
+	background-color: var(--wpds-color-fg-interactive-brand);
+}
+
+.siteAgentActivitySync {
+	display: inline-grid;
+	place-items: center;
+	color: var(--site-list-sync-indicator-bg);
+}
+
+.siteAgentActivitySyncDots {
+	display: inline-flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 1px;
+	inline-size: 8px;
+	block-size: 13px;
+	transform-origin: center;
+	animation: siteAgentSyncHalfTurn 5.2s ease-in-out infinite;
+}
+
+.siteAgentActivitySyncDot {
+	inline-size: 3px;
+	block-size: 3px;
+	border-radius: 999px;
+	background-color: currentColor;
+	animation-name: siteAgentSyncDotBounce;
+	animation-duration: 760ms;
+	animation-iteration-count: infinite;
+	animation-timing-function: ease-in-out;
+}
+
+.siteAgentActivitySyncDot:nth-child(2) {
+	animation-delay: 90ms;
+}
+
+.siteAgentActivitySyncDot:nth-child(3) {
+	animation-delay: 180ms;
+}
+
+.siteName {
+	font-size: var(--wpds-typography-font-size-md);
+	line-height: 1.2;
+	font-weight: var(--wpds-typography-font-weight-regular);
+	color: var(--wpds-color-fg-content-neutral);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	max-width: 100%;
+}
+
+.siteNameStopped {
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.siteNameStarting {
+	animation: siteNameStartingPulse 1s ease-in-out infinite;
+}
+
+.siteActive .siteName {
+	font-weight: var(--wpds-typography-font-weight-medium);
+}
+
+.siteActions {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	flex-shrink: 0;
+	gap: 0;
+	max-width: 24px;
+	overflow: hidden;
+	transition: max-width 100ms ease;
+}
+
+.siteAction {
+	flex-shrink: 0;
+	outline-offset: -2px;
+}
+
+/* Collapsed, only the trailing status button shows; hover/focus/active
+   reveals the overview button next to it. The header carries
+   `data-popup-open` while its right-click menu is open (Base UI sets it on
+   the context-menu trigger), keeping the row's controls visible. */
+.siteActive .siteActions,
+.siteContextActive .siteActions,
+.siteHeader:hover .siteActions,
+.siteHeader:focus-within .siteActions,
+.siteHeader[data-popup-open] .siteActions {
+	max-width: 48px;
+}
+
+.siteStatus {
+	display: inline-grid;
+	place-items: center;
+	flex: 0 0 24px;
+	inline-size: 24px;
+	block-size: 24px;
+	padding: 0;
+	border: 0;
+	border-radius: 4px;
+	background: transparent;
+	color: inherit;
+	cursor: var(--wpds-cursor-control);
+	transition: background-color 100ms ease, opacity 100ms ease;
+}
+
+/* A stopped site carries no signal worth surfacing, so its play affordance
+   stays hidden until the row is hovered, focused, has an open menu, or is the
+   active site; running/transitioning dots remain always visible. */
+.siteStatus[data-state='stopped'] {
+	opacity: 0;
+}
+
+.siteActive .siteStatus[data-state='stopped'],
+.siteContextActive .siteStatus[data-state='stopped'],
+.siteHeader:hover .siteStatus[data-state='stopped'],
+.siteHeader:focus-within .siteStatus[data-state='stopped'],
+.siteHeader[data-popup-open] .siteStatus[data-state='stopped'] {
+	opacity: 1;
+}
+
+/* Xdebug is a persistent single-site setting worth spotting at a glance, so
+   its (greyed) glyph stays visible even while the site is stopped. */
+.siteStatus[data-xdebug][data-state='stopped'] {
+	opacity: 1;
+}
+
+.siteStatus:not([aria-disabled='true']):is(:hover, :focus-visible) {
+	background-color: var(--wpds-color-bg-interactive-neutral-weak-active);
+}
+
+.siteStatus:focus-visible {
+	outline: 2px solid var(--wpds-color-stroke-interactive-brand, #3858e9);
+	outline-offset: -2px;
+}
+
+.siteStatus[aria-disabled='true'] {
+	cursor: default;
+}
+
+.siteStatus .siteStatusGlyph.siteStatusGlyph {
+	grid-row-start: 1;
+	grid-column-start: 1;
+	inline-size: 8px;
+	block-size: 8px;
+	width: 8px;
+	height: 8px;
+	flex-shrink: 0;
+	overflow: visible;
+	transition: opacity 100ms ease;
+}
+
+/* Classic's Xdebug bug replaces the status dot; its color tracks the same
+   state palette the dot uses. */
+.siteStatus .siteStatusXdebugGlyph.siteStatusXdebugGlyph {
+	inline-size: 20px;
+	block-size: 20px;
+	width: 20px;
+	height: 20px;
+}
+
+.siteStatus[data-state='running'] .siteStatusXdebugGlyph {
+	color: var(--studio-color-status-running);
+}
+
+.siteStatus[data-state='transitioning'] .siteStatusXdebugGlyph {
+	color: var(--studio-color-status-transitioning);
+	animation: siteStatusBlink 1s ease-in-out infinite;
+}
+
+.siteStatus[data-state='stopped'] .siteStatusXdebugGlyph {
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+/* Hovering the status button itself (not the row) crossfades the status dot
+   into the action it triggers: play when stopped, stop when running. The
+   transitioning state keeps the blinking dot — there's no action to take. */
+.siteStatus .siteStatusActionGlyph.siteStatusActionGlyph {
+	grid-row-start: 1;
+	grid-column-start: 1;
+	display: inline-grid;
+	place-items: center;
+	inline-size: 10px;
+	block-size: 10px;
+	width: 10px;
+	height: 10px;
+	color: var(--wpds-color-fg-content-neutral);
+	opacity: 0;
+	transition: opacity 100ms ease;
+}
+
+.siteStatus:not([data-state='transitioning']):is(:hover, :focus-visible) .siteStatusGlyph {
+	opacity: 0;
+}
+
+.siteStatus:not([data-state='transitioning']):is(:hover, :focus-visible) .siteStatusActionGlyph {
+	opacity: 1;
+}
+
+.siteStatusPauseMark,
+.siteStatusPauseMark::before,
+.siteStatusPauseMark::after {
+	display: block;
+	height: 8px;
+	border-radius: 1px;
+	background: currentColor;
+}
+
+.siteStatusPauseMark {
+	position: relative;
+	width: 8px;
+	background: transparent;
+}
+
+.siteStatusPauseMark::before,
+.siteStatusPauseMark::after {
+	position: absolute;
+	top: 0;
+	width: 2px;
+	content: '';
+}
+
+.siteStatusPauseMark::before {
+	left: 1px;
+}
+
+.siteStatusPauseMark::after {
+	right: 1px;
+}
+
+.siteStatusShape {
+	x: 0;
+	y: 0;
+	width: 8px;
+	height: 8px;
+	rx: 4px;
+	fill: var(--studio-color-status-running);
+	transition: fill 160ms ease, rx 160ms ease;
+}
+
+.siteStatusPlayShape {
+	fill: var(--wpds-color-fg-content-neutral);
+}
+
+.siteStatus[data-state='running'] .siteStatusShape {
+	fill: var(--studio-color-status-running);
+	rx: 4px;
+}
+
+.siteStatus[data-state='transitioning'] .siteStatusShape {
+	fill: var(--studio-color-status-transitioning);
+	rx: 4px;
+	animation: siteStatusBlink 1s ease-in-out infinite;
+}
+
+@keyframes siteStatusBlink {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.25;
+	}
+}
+
+@keyframes siteNameStartingPulse {
+	0%,
+	100% {
+		color: var(--wpds-color-fg-content-neutral);
+	}
+	50% {
+		color: var(--wpds-color-fg-content-neutral-weak);
+	}
+}
+
+@keyframes siteAgentSyncHalfTurn {
+	0%,
+	38% {
+		transform: rotate(0deg);
+	}
+
+	48%,
+	88% {
+		transform: rotate(180deg);
+	}
+
+	98%,
+	100% {
+		transform: rotate(360deg);
+	}
+}
+
+@keyframes siteAgentSyncDotBounce {
+	0%,
+	100% {
+		opacity: 0.42;
+		transform: translateY(1px) scale(0.72);
+	}
+
+	45% {
+		opacity: 1;
+		transform: translateY(-2px) scale(1);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.siteStatusShape {
+		transition: none;
+		animation: none;
+	}
+
+	.siteStatusGlyph,
+	.siteStatusActionGlyph {
+		transition: none;
+	}
+
+	.siteStatusXdebugGlyph {
+		animation: none;
+	}
+
+	.siteAgentActivitySlot {
+		transition: none;
+	}
+
+	.siteNameStarting {
+		animation: none;
+	}
+
+	.siteAgentActivitySyncDot {
+		animation: none;
+	}
+
+	.siteAgentActivitySyncDots {
+		animation: none;
+	}
+
+	.siteDragPreview {
+		filter: none;
+	}
+}
+
+.empty {
+	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	margin: 0;
+}

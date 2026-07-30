@@ -22,6 +22,7 @@ import {
 	getBetaFeaturesDefinition,
 	updateBetaFeature,
 } from 'src/lib/beta-features';
+import { bumpStat, getPlatformMetric, StatsGroup } from 'src/lib/bump-stats';
 import {
 	FEATURE_FLAGS,
 	FeatureFlagDefinition,
@@ -33,7 +34,12 @@ import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { getLogsFilePath } from 'src/logging';
-import { getMainWindow } from 'src/main-window';
+import {
+	getMainWindow,
+	getPreferredStudioUiMode,
+	loadMainWindowRenderer,
+	setAgenticUiEnabled,
+} from 'src/main-window';
 import { isUpdateReadyToInstall, manualCheckForUpdates } from 'src/updates';
 
 export async function setupMenu( config: {
@@ -70,8 +76,14 @@ export async function popupMenu( position?: { x: number; y: number } ) {
 
 async function buildBetaFeaturesMenu(): Promise< MenuItemConstructorOptions[] > {
 	const currentBetaFeatures = await getBetaFeatures();
-	return Object.entries< BetaFeatureDefinition >( getBetaFeaturesDefinition() ).map(
-		( [ key, definition ] ) => {
+	return Object.entries< BetaFeatureDefinition >( getBetaFeaturesDefinition() )
+		.filter( ( [ key ] ) => {
+			if ( key === 'enableAgenticUi' ) {
+				return getFeatureFlagFromEnv( 'enableAgenticUi' );
+			}
+			return true;
+		} )
+		.map( ( [ key, definition ] ) => {
 			// On Windows, use the description as the label for a more compact display
 			const label =
 				process.platform === 'win32' && definition.description
@@ -86,11 +98,94 @@ async function buildBetaFeaturesMenu(): Promise< MenuItemConstructorOptions[] > 
 				sublabel: process.platform === 'darwin' ? definition.description : undefined,
 				click: async ( menuItem: MenuItem ) => {
 					await updateBetaFeature( key as keyof BetaFeatures, menuItem.checked );
+					if ( key === 'remoteSession' ) {
+						bumpStat(
+							menuItem.checked
+								? StatsGroup.STUDIO_APP_DOLLY_ENABLE
+								: StatsGroup.STUDIO_APP_DOLLY_DISABLE,
+							getPlatformMetric()
+						);
+					}
+					if ( key === 'enableAgenticUi' ) {
+						setAgenticUiEnabled( menuItem.checked );
+						const mainWindow = await getMainWindow();
+						if ( mainWindow && ! mainWindow.isDestroyed() ) {
+							// The renderer is being replaced; it fetches fresh state on boot,
+							// and messaging the dying page fails IPC sender validation.
+							setTimeout( () => {
+								void loadMainWindowRenderer( mainWindow );
+							}, 0 );
+							return;
+						}
+					}
 					void sendIpcEventToRenderer( 'beta-features-updated' );
 				},
 			};
-		}
-	);
+		} );
+}
+
+export function buildViewMenuItems( {
+	needsOnboarding,
+	isDevelopment,
+	isAlwaysOnTop,
+	devTools,
+	onToggleSidebar,
+	onToggleSitePreview,
+}: {
+	needsOnboarding: boolean;
+	isDevelopment: boolean;
+	isAlwaysOnTop?: boolean;
+	devTools: MenuItemConstructorOptions[];
+	onToggleSidebar: () => void;
+	onToggleSitePreview: () => void;
+} ): MenuItemConstructorOptions[] {
+	return [
+		{
+			label: __( 'Toggle Sidebar' ),
+			accelerator: 'CommandOrControl+B',
+			enabled: ! needsOnboarding,
+			click: onToggleSidebar,
+		},
+		...( getPreferredStudioUiMode() === 'agentic'
+			? [
+					{
+						label: __( 'Toggle Site Preview' ),
+						accelerator: 'CommandOrControl+Shift+B',
+						enabled: ! needsOnboarding,
+						click: onToggleSitePreview,
+					} as MenuItemConstructorOptions,
+			  ]
+			: [] ),
+		...( isDevelopment ? devTools : [] ),
+		{
+			label: __( 'Actual Size' ),
+			role: 'resetZoom',
+		},
+		{
+			label: __( 'Zoom In' ),
+			role: 'zoomIn',
+		},
+		{
+			label: __( 'Zoom Out' ),
+			role: 'zoomOut',
+		},
+		{ type: 'separator' },
+		{
+			label: __( 'Toggle Fullscreen' ),
+			role: 'togglefullscreen',
+		},
+		{ type: 'separator' },
+		{
+			label: __( 'Float on Top of All Other Windows' ),
+			type: 'checkbox',
+			checked: isAlwaysOnTop,
+			click: ( _menuItem, browserWindow ) => {
+				if ( browserWindow ) {
+					browserWindow.setAlwaysOnTop( ! browserWindow.isAlwaysOnTop(), 'floating' );
+				}
+			},
+		},
+	];
 }
 
 async function getAppMenu(
@@ -164,7 +259,7 @@ async function getAppMenu(
 				{
 					label: __( 'Beta Features' ),
 					submenu: betaFeaturesMenu,
-					enabled: false,
+					enabled: betaFeaturesMenu.length > 0,
 				},
 				{ type: 'separator' },
 				...( process.platform === 'win32'
@@ -229,7 +324,11 @@ async function getAppMenu(
 			submenu: [
 				{
 					label: __( 'Add Site…' ),
-					accelerator: 'CommandOrControl+N',
+					// The agentic UI binds Cmd/Ctrl+N to "New chat" in the renderer;
+					// a menu accelerator would consume the key before it reaches the DOM.
+					accelerator: getFeatureFlagFromEnv( 'enableAgenticUi' )
+						? undefined
+						: 'CommandOrControl+N',
 					click: async () => {
 						void sendIpcEventToRenderer( 'add-site' );
 					},
@@ -284,39 +383,18 @@ async function getAppMenu(
 		{
 			label: __( 'View' ),
 			role: 'viewMenu',
-			submenu: [
-				{ label: __( 'Show Tab Bar' ), role: 'toggleTabBar' },
-				{ label: __( 'Show All Tabs' ), role: 'showAllTabs' },
-				...( process.env.NODE_ENV === 'development' ? devTools : [] ),
-				{
-					label: __( 'Actual Size' ),
-					role: 'resetZoom',
+			submenu: buildViewMenuItems( {
+				needsOnboarding,
+				isDevelopment: process.env.NODE_ENV === 'development',
+				isAlwaysOnTop: mainWindow?.isAlwaysOnTop(),
+				devTools,
+				onToggleSidebar: () => {
+					void sendIpcEventToRenderer( 'toggle-sidebar' );
 				},
-				{
-					label: __( 'Zoom In' ),
-					role: 'zoomIn',
+				onToggleSitePreview: () => {
+					void sendIpcEventToRenderer( 'toggle-site-preview' );
 				},
-				{
-					label: __( 'Zoom Out' ),
-					role: 'zoomOut',
-				},
-				{ type: 'separator' },
-				{
-					label: __( 'Toggle Fullscreen' ),
-					role: 'togglefullscreen',
-				},
-				{ type: 'separator' },
-				{
-					label: __( 'Float on Top of All Other Windows' ),
-					type: 'checkbox',
-					checked: mainWindow?.isAlwaysOnTop(),
-					click: ( _menuItem, browserWindow ) => {
-						if ( browserWindow ) {
-							browserWindow.setAlwaysOnTop( ! browserWindow.isAlwaysOnTop(), 'floating' );
-						}
-					},
-				},
-			],
+			} ),
 		},
 		...( process.platform === 'win32'
 			? []
@@ -330,11 +408,6 @@ async function getAppMenu(
 						submenu: [
 							{ label: __( 'Minimize' ), role: 'minimize' },
 							{ label: __( 'Zoom' ), role: 'zoom' },
-							{ type: 'separator' },
-							{ label: __( 'Show Previous Tab' ), role: 'selectPreviousTab' },
-							{ label: __( 'Show Next Tab' ), role: 'selectNextTab' },
-							{ label: __( 'Move Tab to New Window' ), role: 'moveTabToNewWindow' },
-							{ label: __( 'Merge All Windows' ), role: 'mergeAllWindows' },
 						],
 					} as MenuItemConstructorOptions,
 			  ] ),

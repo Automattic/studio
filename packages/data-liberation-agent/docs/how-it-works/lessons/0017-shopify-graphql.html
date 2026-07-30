@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>17 · The Shopify GraphQL Product Path</title>
+<link rel="stylesheet" href="../assets/course.css">
+<script src="../assets/quiz.js"></script>
+</head>
+<body>
+<div class="masthead">
+  <span><a href="../index.html">Data Liberation</a> · Part V — Advanced</span>
+  <span>Lesson 17 / 17</span>
+</div>
+
+<div class="wide">
+<div class="lesson-num">Lesson 17 · Advanced capability</div>
+<h1>The Shopify GraphQL Product Path</h1>
+<p class="subtitle">The richest single adapter behavior in the codebase — and the best worked example of the patterns from the whole course: a privileged fast path, a resumable cursor, idempotent output, and a graceful fallback. If you understand this, you understand how an adapter does something hard <em>well</em>.</p>
+
+<h2>Two ways to get products</h2>
+<p>The Shopify adapter has a public JSON path and a privileged GraphQL path. When an
+<code>adminToken</code> is present, <code>shopifyAdapter.extract</code> fetches products via the
+<strong>Shopify Admin GraphQL API</strong> (pinned to <code>2025-04</code>) instead of the
+public JSON API. The token unlocks completeness the public API can't give.</p>
+
+<table>
+  <thead><tr><th>Concern</th><th>How the GraphQL path handles it</th></tr></thead>
+  <tbody>
+    <tr><td>Hostname</td><td>Requires a <code>*.myshopify.com</code> host — throws if a custom storefront domain is derived and <code>shopDomain</code> wasn't passed explicitly.</td></tr>
+    <tr><td>Pagination</td><td>Walks <code>endCursor</code>, stored in <code>session.cursors['shopify:products:endCursor']</code> — <strong>resumable</strong> across crashes.</td></tr>
+    <tr><td>Idempotent output</td><td>Tracks already-emitted handles in <code>session.cursors['shopify:products:emittedHandles']</code> — no duplicate CSV rows across a resume.</td></tr>
+    <tr><td>Safety rails</td><td><code>MAX_PAGES = 10000</code> + a non-advancing-cursor guard to prevent infinite loops.</td></tr>
+    <tr><td>Fallback</td><td>Any GraphQL failure falls back to the JSON API + URL loop — the run never dies on a token/API problem.</td></tr>
+  </tbody>
+</table>
+
+<h2>Every course pattern, in one feature</h2>
+<p>This path is a microcosm. Spot them:</p>
+<ul>
+  <li><strong>Resume-state contract (L6):</strong> the cursor and emitted-handles live in
+  <code>session.cursors</code> — the same single-writer session store, so a crash mid-pagination
+  resumes exactly where it stopped <em>without</em> re-emitting products.</li>
+  <li><strong>Degrade loudly / fail safe (L12):</strong> GraphQL failure doesn't abort — it falls
+  back. But a <em>misconfiguration</em> (custom domain without <code>shopDomain</code>) throws
+  loudly rather than silently producing wrong data.</li>
+  <li><strong>Platform knowledge at the edge (L4):</strong> all of this lives in the Shopify
+  adapter; the shared extraction loop and product CSV writer know nothing about GraphQL.</li>
+</ul>
+
+<div class="callout key">
+  <span class="label">Idempotency is the hard part, not pagination</span>
+  Plenty of code paginates. The subtle achievement here is <em>idempotent</em> streaming output
+  across crashes: <code>products.jsonl</code> appends (L11), and the emitted-handles set ensures
+  a resumed run doesn't double-write a product it already streamed. Pagination cursor +
+  emitted-set together are what make "crash on page 40 of 200, resume cleanly" actually work.
+</div>
+
+<h2>Product modeling specifics worth carrying</h2>
+<ul>
+  <li>Variant weights normalize to <strong>kilograms</strong> regardless of source unit (<code>normalizeWeightToKg</code>).</li>
+  <li>Simple-product sale price uses <code>compareAtPrice &gt; price</code> semantics — when set, <code>compareAtPrice</code> → <code>regularPrice</code> and <code>price</code> → <code>salePrice</code>.</li>
+  <li>Output flows to <code>products.jsonl</code> → Woo CSV with first-class SEO + cost-of-goods meta columns (L11).</li>
+</ul>
+
+<div class="quiz" data-answer="3">
+  <div class="q">What makes the GraphQL product stream safe to resume after a mid-pagination crash?</div>
+  <ul class="opts">
+    <li><button class="opt">It re-fetches all pages from the start and overwrites the output file</button></li>
+    <li><button class="opt">It holds every product in memory until the final page completes</button></li>
+    <li><button class="opt">It falls back to the JSON API, which is inherently idempotent</button></li>
+    <li><button class="opt">The <code>endCursor</code> and emitted-handles set both persist in <code>session.cursors</code></button></li>
+  </ul>
+  <div class="feedback"
+    data-correct="Right — the resumable cursor says where to continue and the emitted-handles set prevents double-writing products already streamed. Both live in the session store."
+    data-wrong="Resume safety comes from persisting both the endCursor (where to continue) and the emitted-handles set (what's already written) in session.cursors — not re-fetching, buffering, or the fallback.">
+  </div>
+</div>
+
+<div class="recall">
+  <span class="label">Retrieval practice</span>
+  Name the two values stored in <code>session.cursors</code> and what each prevents. Then map
+  three earlier course concepts onto this one feature.
+  <details><summary>Check yourself</summary>
+  <code>endCursor</code> (where to resume pagination) + <code>emittedHandles</code> (prevents
+  duplicate output). Concepts: resume-state contract (L6, the session store), degrade-loudly /
+  fallback (L12), platform-knowledge-at-the-edge (L4). Plus idempotent append output (L11).
+  </details>
+</div>
+
+<div class="source-cite">
+  <span class="label">Primary source</span><br>
+  Read <span class="path">src/adapters/shopify/products.ts</span> and
+  <span class="path">…/shopify/extract.ts</span> for the GraphQL path, cursor handling, and the
+  JSON fallback. <code>normalizeWeightToKg</code> and the sale-price semantics live alongside.
+</div>
+
+<p class="ask">That completes the course — all seventeen lessons. Ask me to quiz you across the
+whole thing, drill any lesson, or tie it to a live architecture decision. As your teacher, I'm
+here for the follow-ups.</p>
+
+<div class="lesson-nav">
+  <a href="0016-variation-hoisting.html">← Lesson 16</a>
+  <a href="../index.html">Course home →</a>
+</div>
+</div>
+</body>
+</html>

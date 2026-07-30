@@ -37,14 +37,14 @@ function useTabs() {
 			{
 				order: 5,
 				name: 'settings',
-				title: __( 'Settings' ),
+				title: __( 'Site settings' ),
 			}
 		);
 
 		tabs.push( {
 			order: 6,
 			name: 'assistant',
-			title: __( 'Assistant' ),
+			title: __( 'Studio Code' ),
 			className: 'components-tab-panel__tabs--assistant ltr:pl-8 rtl:pr-8 ltr:ml-auto rtl:mr-auto',
 		} );
 

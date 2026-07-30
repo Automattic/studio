@@ -52,7 +52,6 @@ export async function runCommand( mode: Mode, host: string | undefined ): Promis
 					)
 				);
 			}
-			logger.reportSuccess( __( 'Validation successful' ), true );
 
 			logger.reportStart( LoggerAction.DELETE, __( 'Deleting…' ) );
 			if ( ! isSnapshotExpired( snapshotToDelete ) ) {

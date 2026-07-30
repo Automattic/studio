@@ -1,0 +1,107 @@
+.root {
+	/* Inset frame around the whole content+preview container: margin on the
+	   block edges and the outer inline edge (the sidebar edge stays flush),
+	   with the border and radius on this container — the panels inside stay
+	   plain. */
+	--panel-frame-gap: 12px;
+	--panel-frame-radius: 10px;
+
+	box-sizing: border-box;
+	height: calc(100% - 2 * var(--panel-frame-gap));
+	margin-block: var(--panel-frame-gap);
+	margin-inline: 0 var(--panel-frame-gap);
+	min-height: 0;
+	position: relative;
+	overflow: hidden;
+	background-color: var(--wpds-color-bg-surface-neutral);
+	/* The chrome behind (sidebar-layout's .main) is a window drag region;
+	   the content frame itself must stay interactive. */
+	-webkit-app-region: no-drag;
+	/* Without this, the container's own (light) background paints under the
+	   border and shows through any transparent border color, so the edge
+	   always reads as a solid light line no matter the border alpha. */
+	background-clip: padding-box;
+	/* The frame always sits on the dark window chrome (both OS schemes), so
+	   a soft translucent white reads as a gentle edge highlight instead of a
+	   hard stroke — especially against dark page content in the preview. */
+	border: 1px solid rgb(255 255 255 / 18%);
+	border-radius: var(--panel-frame-radius);
+	transition: height 150ms ease, margin 150ms ease, border-radius 150ms ease;
+}
+
+/* Full-bleed when the sidebar is hidden — the frame reads as chrome that
+   belongs with the sidebar. The border must drop to zero WIDTH (not just
+   transparent): the chrome background shows through a transparent border
+   ring via background-clip, leaving stray dark lines at the edges. */
+.rootFrameless {
+	height: 100%;
+	margin: 0;
+	border-width: 0;
+	border-radius: 0;
+}
+
+/* Opaque and above the preview slot so it fully covers the (still mounted)
+   preview while the panel is toggled off. Scrolls itself so routes taller
+   than the viewport (e.g. settings) keep working under the fixed-height
+   frame. */
+.contentColumn {
+	display: flex;
+	flex-direction: column;
+	position: absolute;
+	inset-block: 0;
+	inset-inline: 0 auto;
+	width: 100%;
+	min-width: 0;
+	min-height: 0;
+	z-index: 1;
+	overflow: auto;
+	background-color: var(--wpds-color-bg-surface-neutral);
+}
+
+.rootPreviewOpen .contentColumn {
+	width: var(--preview-frame-content-width);
+}
+
+.rootPreviewAnimating .contentColumn {
+	transition: width 150ms ease;
+}
+
+.rootPreviewResizing .contentColumn {
+	user-select: none;
+	transition: none;
+}
+
+.previewSlot {
+	position: absolute;
+	inset-block: 0;
+	inset-inline-end: 0;
+	z-index: 0;
+	width: calc(100% - var(--preview-frame-content-width));
+	min-width: 0;
+	pointer-events: none;
+	visibility: hidden;
+}
+
+.previewSlotVisible {
+	visibility: visible;
+}
+
+.previewSlotInteractive {
+	pointer-events: auto;
+}
+
+/* Centers the 8px hit area on the content/preview boundary. */
+.previewResizeHandle {
+	position: absolute;
+	inset-block: 0;
+	inset-inline-start: var(--preview-frame-content-width);
+	z-index: 3;
+	transform: translateX(-4px);
+	justify-content: center;
+}
+
+/* In RTL the handle is offset from the right edge, so the centering nudge
+   flips too. */
+.previewResizeHandle:dir(rtl) {
+	transform: translateX(4px);
+}

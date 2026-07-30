@@ -1,0 +1,92 @@
+.root {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-lg);
+	min-width: 0;
+}
+
+/* The menu renders on the same inverted surface as the trigger, so the two
+   read as one connected control. Remapping the wpds tokens locally lets the
+   existing token-based row styles adapt without per-element overrides. */
+.popup {
+	--site-dropdown-radius: var(--wpds-border-radius-lg);
+	--site-dropdown-menu-surface: var(--wpds-color-bg-interactive-neutral-strong-active);
+	--site-dropdown-menu-surface-subtle: color-mix(
+		in srgb,
+		var(--site-dropdown-menu-foreground) 7%,
+		var(--site-dropdown-menu-surface)
+	);
+	--site-dropdown-menu-surface-active: color-mix(
+		in srgb,
+		var(--site-dropdown-menu-foreground) 13%,
+		var(--site-dropdown-menu-surface)
+	);
+	--site-dropdown-menu-foreground: var(--wpds-color-fg-interactive-neutral-strong);
+	--site-dropdown-menu-foreground-weak: color-mix(
+		in srgb,
+		var(--site-dropdown-menu-foreground) 72%,
+		transparent
+	);
+	--site-dropdown-menu-foreground-disabled: color-mix(
+		in srgb,
+		var(--site-dropdown-menu-foreground) 38%,
+		transparent
+	);
+	--site-dropdown-menu-divider: color-mix(
+		in srgb,
+		var(--site-dropdown-menu-foreground) 16%,
+		transparent
+	);
+	--site-dropdown-menu-border: color-mix(
+		in srgb,
+		var(--site-dropdown-menu-foreground) 11%,
+		transparent
+	);
+	--site-dropdown-menu-control-border: color-mix(
+		in srgb,
+		var(--site-dropdown-menu-foreground) 48%,
+		transparent
+	);
+	--site-dropdown-menu-control-border-active: color-mix(
+		in srgb,
+		var(--site-dropdown-menu-foreground) 68%,
+		transparent
+	);
+	--site-dropdown-menu-hover: var(--site-dropdown-menu-surface-active);
+	/* Brand fg flips with the theme while this surface is theme-inverted, so
+	   derive a link blue from the constant brand fill instead: periwinkle on
+	   the dark surface, royal navy on the light one. */
+	--site-dropdown-menu-brand: color-mix(
+		in srgb,
+		var(--wpds-color-bg-interactive-brand-strong, #3858e9) 65%,
+		var(--site-dropdown-menu-foreground)
+	);
+	--wpds-color-bg-surface-neutral: var(--site-dropdown-menu-surface-subtle);
+	--wpds-color-bg-surface-neutral-strong: var(--site-dropdown-menu-surface);
+	--wpds-color-bg-interactive-neutral-weak: transparent;
+	--wpds-color-bg-interactive-neutral-weak-active: var(--site-dropdown-menu-hover);
+	--wpds-color-bg-interactive-brand-weak-active: var(--site-dropdown-menu-hover);
+	--wpds-color-fg-interactive-brand: var(--site-dropdown-menu-brand);
+	--wpds-color-fg-content-neutral: var(--site-dropdown-menu-foreground);
+	--wpds-color-fg-content-neutral-weak: var(--site-dropdown-menu-foreground-weak);
+	--wpds-color-fg-interactive-neutral: var(--site-dropdown-menu-foreground);
+	--wpds-color-fg-interactive-neutral-active: var(--site-dropdown-menu-foreground);
+	--wpds-color-fg-interactive-neutral-disabled: var(--site-dropdown-menu-foreground-disabled);
+	--wpds-color-stroke-focus-brand: var(--site-dropdown-menu-control-border-active);
+	--wpds-color-stroke-interactive-neutral: var(--site-dropdown-menu-control-border);
+	--wpds-color-stroke-interactive-neutral-active: var(
+		--site-dropdown-menu-control-border-active
+	);
+	--wpds-color-stroke-surface-neutral: var(--site-dropdown-menu-divider);
+	--wpds-color-stroke-surface-neutral-weak: var(--site-dropdown-menu-border);
+
+	width: min(336px, calc(100vw - 32px));
+	padding: 0;
+	border: var(--wpds-border-width-xs) solid var(--site-dropdown-menu-border);
+	border-radius: var(--site-dropdown-radius);
+	background: var(--site-dropdown-menu-surface);
+	color: var(--site-dropdown-menu-foreground);
+	gap: 0;
+	overflow: visible;
+	box-shadow: 0 18px 44px rgb(0 0 0 / 24%);
+}

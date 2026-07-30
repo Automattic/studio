@@ -45,10 +45,10 @@ function buildTreeFromRemote( entries: RemoteFileEntry[], depth: number = 1 ): T
 	);
 }
 
-function buildRootTree( wpContentChildren: TreeNode[] ): TreeNode[] {
+export function buildRootTree( wpContentChildren: TreeNode[] ): TreeNode[] {
 	return [
 		{
-			name: __( 'Database (SQL)' ),
+			name: __( 'Database' ),
 			value: 'database',
 			isDirectory: false,
 			checked: true,

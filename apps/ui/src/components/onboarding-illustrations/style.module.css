@@ -1,0 +1,78 @@
+.spin,
+.hoverSpinReverse {
+	transform-box: fill-box;
+	transform-origin: center;
+}
+
+.spin {
+	animation: spin 20s linear infinite;
+}
+
+.host:hover .hoverSpinReverse {
+	animation: spin 24s linear infinite reverse;
+}
+
+.themeStroke {
+	transition: stroke 0.15s ease;
+}
+
+.themeFill {
+	transition: fill 0.15s ease;
+}
+
+.host:hover .themeStroke {
+	stroke: var(--wpds-color-stroke-interactive-brand);
+}
+
+.host:hover .themeFill {
+	fill: var(--wpds-color-fg-interactive-brand);
+}
+
+.host:hover .arrowNudge {
+	animation: arrow-nudge 1.2s ease-in-out infinite;
+}
+
+.host:hover .cardShift {
+	animation: card-shift 3s ease-in-out infinite;
+}
+
+@keyframes spin {
+	from {
+		transform: rotate(0deg);
+	}
+
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+@keyframes arrow-nudge {
+	0%,
+	100% {
+		transform: translateY(0);
+	}
+
+	50% {
+		transform: translateY(2px);
+	}
+}
+
+@keyframes card-shift {
+	0%,
+	100% {
+		transform: translate(0, 0);
+	}
+
+	50% {
+		transform: translate(-3px, -3px);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.spin,
+	.host:hover .hoverSpinReverse,
+	.host:hover .arrowNudge,
+	.host:hover .cardShift {
+		animation: none;
+	}
+}

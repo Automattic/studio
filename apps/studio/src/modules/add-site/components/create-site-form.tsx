@@ -8,20 +8,36 @@ import {
 	validateAdminEmail,
 	validateAdminUsername,
 } from '@studio/common/lib/passwords';
-import { SupportedPHPVersion, SupportedPHPVersions } from '@studio/common/types/php-versions';
+import {
+	SITE_FILE_ACCESS_ALL_FILES,
+	SITE_FILE_ACCESS_SITE_DIRECTORY,
+	type SiteFileAccess,
+} from '@studio/common/lib/site-file-access';
+import {
+	SITE_RUNTIME_NATIVE_PHP,
+	SITE_RUNTIME_PLAYGROUND,
+	type SiteRuntime,
+} from '@studio/common/lib/site-runtime';
+import {
+	RecommendedPHPVersion,
+	SupportedPHPVersion,
+	SupportedPHPVersions,
+} from '@studio/common/types/php-versions';
 import { Icon, SelectControl, Notice } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf, _n } from '@wordpress/i18n';
-import { tip, cautionFilled, chevronRight, chevronDown, chevronLeft } from '@wordpress/icons';
+import { cautionFilled, chevronRight, chevronDown, chevronLeft } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useState, useEffect, useCallback, useMemo, useRef, RefObject } from 'react';
 import Button from 'src/components/button';
-import FolderIcon from 'src/components/folder-icon';
+import { FormPathInputComponent } from 'src/components/form-path-input';
 import { LearnMoreLink, LearnHowLink } from 'src/components/learn-more';
 import PasswordControl from 'src/components/password-control';
+import { SiteFormError } from 'src/components/site-form-error';
 import TextControlComponent from 'src/components/text-control';
 import { WPVersionSelector } from 'src/components/wp-version-selector';
 import { cx } from 'src/lib/cx';
+import { FileAccessDescription, RuntimeDescription } from 'src/lib/site-runtime-copy';
 import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
 import type { BlueprintPreferredVersions } from '@studio/common/lib/blueprint-validation';
 import type { CreateSiteFormValues, PathValidationResult } from 'src/hooks/use-add-site';
@@ -55,108 +71,7 @@ interface CreateSiteFormProps {
 	/** Called when form validity changes */
 	onValidityChange?: ( isValid: boolean ) => void;
 	/** Ref to form element for programmatic submission */
-	formRef?: RefObject< HTMLFormElement >;
-}
-
-interface FormPathInputComponentProps {
-	value: string;
-	onClick: () => void;
-	error?: string;
-	doesPathContainWordPress: boolean;
-	id?: string;
-}
-
-interface SiteFormErrorProps {
-	error?: string;
-	tipMessage?: string;
-	className?: string;
-}
-
-const SiteFormError = ( { error, tipMessage = '', className = '' }: SiteFormErrorProps ) => {
-	return (
-		( error || tipMessage ) && (
-			<div
-				id={ error ? 'error-message' : 'tip-message' }
-				role="alert"
-				aria-atomic="true"
-				className={ cx(
-					'flex items-start gap-1 text-xs',
-					error ? 'text-red-500' : 'text-frame-text-secondary',
-					className
-				) }
-			>
-				<Icon
-					className={ cx(
-						'shrink-0 basis-4',
-						error ? 'fill-red-500' : 'fill-frame-text-secondary'
-					) }
-					icon={ error ? cautionFilled : tip }
-					width={ 16 }
-					height={ 16 }
-				/>
-				<p>{ error ? error : __( tipMessage ) }</p>
-			</div>
-		)
-	);
-};
-
-function FormPathInputComponent( {
-	value,
-	onClick,
-	error,
-	doesPathContainWordPress,
-	id,
-}: FormPathInputComponentProps ) {
-	const { __ } = useI18n();
-	return (
-		<div className="flex flex-col gap-2">
-			<button
-				aria-invalid={ !! error }
-				/**
-				 * The below `aria-describedby` presumes the error message always
-				 * relates to the local path input, which is true currently as it is the
-				 * only data validation in place. If we ever introduce additional data
-				 * validation we need to expand the robustness of this
-				 * `aria-describedby` attribute so that it only targets relevant error
-				 * messages.
-				 */
-				aria-describedby={ error ? 'site-path-error' : undefined }
-				type="button"
-				aria-label={ `${ value }, ${ __( 'Select different local path' ) }` }
-				className={ cx(
-					'flex flex-row items-stretch rounded-sm border border-frame-border focus:border-frame-theme focus:shadow-[0_0_0_0.5px] focus:shadow-frame-theme outline-none transition-shadow transition-linear duration-100 [&_.local-path-icon]:focus:border-l-frame-theme [&:disabled]:cursor-not-allowed',
-					error && 'border-red-500 [&_.local-path-icon]:border-l-red-500'
-				) }
-				data-testid="select-path-button"
-				onClick={ onClick }
-				id={ id }
-			>
-				<div
-					aria-hidden="true"
-					tabIndex={ -1 }
-					className="w-full text-left pl-3 py-3 min-h-10"
-					onChange={ () => {} }
-				>
-					{ value }
-				</div>
-				<div
-					aria-hidden="true"
-					className="local-path-icon flex items-center py-[9px] px-2.5 self-center"
-				>
-					<FolderIcon className="text-frame-text-secondary" />
-				</div>
-			</button>
-			<SiteFormError
-				error={ error }
-				tipMessage={
-					doesPathContainWordPress
-						? __( 'The existing WordPress site at this path will be added.' )
-						: ''
-				}
-			/>
-			<input type="hidden" data-testid="local-path-input" value={ value } />
-		</div>
-	);
+	formRef?: RefObject< HTMLFormElement | null >;
 }
 
 export const CreateSiteForm = ( {
@@ -178,11 +93,25 @@ export const CreateSiteForm = ( {
 	const [ siteName, setSiteName ] = useState( defaultValues.siteName ?? '' );
 	const [ sitePath, setSitePath ] = useState( defaultValues.sitePath ?? '' );
 	const [ phpVersion, setPhpVersion ] = useState< SupportedPHPVersion >(
-		defaultValues.phpVersion ?? SupportedPHPVersions[ 0 ] ?? '8.2'
+		defaultValues.phpVersion && SupportedPHPVersions.includes( defaultValues.phpVersion )
+			? defaultValues.phpVersion
+			: RecommendedPHPVersion
 	);
 	const [ wpVersion, setWpVersion ] = useState(
 		defaultValues.wpVersion ?? DEFAULT_WORDPRESS_VERSION
 	);
+	// New sites default to the native PHP runtime.
+	const [ selectedRuntime, setSelectedRuntime ] =
+		useState< SiteRuntime >( SITE_RUNTIME_NATIVE_PHP );
+	const [ selectedFileAccess, setSelectedFileAccess ] = useState< SiteFileAccess >(
+		SITE_FILE_ACCESS_SITE_DIRECTORY
+	);
+	// The sandbox only has access to the site directory, so "all files" is
+	// forced back to "site directory" when the sandbox mode is selected.
+	const usedFileAccess =
+		selectedRuntime === SITE_RUNTIME_PLAYGROUND
+			? SITE_FILE_ACCESS_SITE_DIRECTORY
+			: selectedFileAccess;
 	const [ useCustomDomain, setUseCustomDomain ] = useState( false );
 	const [ customDomain, setCustomDomain ] = useState< string | null >( null );
 	const [ enableHttps, setEnableHttps ] = useState( false );
@@ -205,6 +134,11 @@ export const CreateSiteForm = ( {
 	const hasUserInteracted = useRef( false );
 	const hasUserEditedCredentials = useRef( false );
 
+	const shouldShowCustomDomainError = useCustomDomain && customDomainError;
+	const adminUsernameError = validateAdminUsername( adminUsername );
+	const adminPasswordError = ! adminPassword.trim() ? __( 'Admin password is required' ) : '';
+	const adminEmailError = validateAdminEmail( adminEmail );
+
 	// Sync name/path only before user interaction (allows async loading)
 	useEffect( () => {
 		if ( hasUserInteracted.current ) {
@@ -222,7 +156,11 @@ export const CreateSiteForm = ( {
 	// Sync versions from defaultValues (initial load and deeplink flows)
 	useEffect( () => {
 		if ( defaultValues.phpVersion !== undefined ) {
-			setPhpVersion( defaultValues.phpVersion );
+			setPhpVersion(
+				SupportedPHPVersions.includes( defaultValues.phpVersion )
+					? defaultValues.phpVersion
+					: RecommendedPHPVersion
+			);
 		}
 		if ( defaultValues.wpVersion !== undefined ) {
 			setWpVersion( defaultValues.wpVersion );
@@ -334,7 +272,14 @@ export const CreateSiteForm = ( {
 				setSitePath( result.path );
 			}
 		},
-		[ onSiteNameChange, hasCustomPath ]
+		[
+			onSiteNameChange,
+			hasCustomPath,
+			setDoesPathContainWordPress,
+			setPathError,
+			setSiteName,
+			setSitePath,
+		]
 	);
 
 	const handleSelectPath = useCallback( async () => {
@@ -368,7 +313,18 @@ export const CreateSiteForm = ( {
 		if ( result.name && ! siteName ) {
 			setSiteName( result.name );
 		}
-	}, [ onSelectPath, onSiteNameChange, sitePath, siteName, hasCustomPath ] );
+	}, [
+		onSelectPath,
+		onSiteNameChange,
+		sitePath,
+		siteName,
+		hasCustomPath,
+		setDoesPathContainWordPress,
+		setHasCustomPath,
+		setPathError,
+		setSiteName,
+		setSitePath,
+	] );
 
 	const handleCustomDomainChange = useCallback(
 		( value: string ) => {
@@ -386,6 +342,8 @@ export const CreateSiteForm = ( {
 			sitePath,
 			phpVersion,
 			wpVersion,
+			runtime: selectedRuntime,
+			fileAccess: usedFileAccess,
 			useCustomDomain,
 			customDomain,
 			enableHttps,
@@ -398,6 +356,8 @@ export const CreateSiteForm = ( {
 			sitePath,
 			phpVersion,
 			wpVersion,
+			selectedRuntime,
+			usedFileAccess,
 			useCustomDomain,
 			customDomain,
 			enableHttps,
@@ -415,10 +375,6 @@ export const CreateSiteForm = ( {
 		[ onSubmit, formValues ]
 	);
 
-	const shouldShowCustomDomainError = useCustomDomain && customDomainError;
-	const adminUsernameError = validateAdminUsername( adminUsername );
-	const adminPasswordError = ! adminPassword.trim() ? __( 'Admin password is required' ) : '';
-	const adminEmailError = validateAdminEmail( adminEmail );
 	const errorCount = [
 		pathError,
 		shouldShowCustomDomainError,
@@ -515,7 +471,7 @@ export const CreateSiteForm = ( {
 								isAdvancedSettingsVisible ? 'h-auto opacity-100' : 'h-0 opacity-0'
 							) }
 						>
-							<div className={ cx( 'flex flex-col gap-1.5 leading-4 py-4' ) }>
+							<div className="flex flex-col gap-1.5 leading-4 py-4">
 								<label className="font-semibold" htmlFor="local-path">
 									{ __( 'Local path' ) }
 								</label>
@@ -530,7 +486,11 @@ export const CreateSiteForm = ( {
 									) }
 								</span>
 								<FormPathInputComponent
-									doesPathContainWordPress={ doesPathContainWordPress }
+									tipMessage={
+										doesPathContainWordPress
+											? __( 'The existing WordPress site at this path will be added.' )
+											: ''
+									}
 									error={ pathError }
 									value={ sitePath }
 									onClick={ handleSelectPath }
@@ -564,6 +524,57 @@ export const CreateSiteForm = ( {
 											'You are currently offline so your site will be created with the latest version. Selecting a different WordPress version requires an internet connection.'
 										) }
 									/>
+								</div>
+
+								<div className="grid grid-cols-2 gap-4 mt-4">
+									<div className="flex flex-col gap-1.5 leading-4">
+										<label className="font-semibold" htmlFor="php-runtime-select">
+											{ __( 'PHP runtime' ) }
+										</label>
+										<SelectControl< SiteRuntime >
+											id="php-runtime-select"
+											value={ selectedRuntime }
+											options={ [
+												/* translators: PHP runtime option, paired with "Sandbox". The compiled PHP binary that Studio bundles and runs natively on the machine. */
+												{ label: __( 'Native' ), value: SITE_RUNTIME_NATIVE_PHP },
+												/* translators: PHP runtime option, paired with "Native". Runs the site in an isolated WordPress Playground sandbox. */
+												{ label: __( 'Sandbox' ), value: SITE_RUNTIME_PLAYGROUND },
+											] }
+											onChange={ ( value ) => setSelectedRuntime( value ) }
+											__next40pxDefaultSize
+											__nextHasNoMarginBottom
+										/>
+										<span className="text-frame-text-secondary text-xs">
+											<RuntimeDescription runtime={ selectedRuntime } learnMoreLink />
+										</span>
+									</div>
+
+									<div className="flex flex-col gap-1.5 leading-4">
+										<label className="font-semibold" htmlFor="file-access-select">
+											{ __( 'File access' ) }
+										</label>
+										<SelectControl< SiteFileAccess >
+											id="file-access-select"
+											disabled={ selectedRuntime === SITE_RUNTIME_PLAYGROUND }
+											value={ usedFileAccess }
+											options={ [
+												{
+													label: __( 'Site directory' ),
+													value: SITE_FILE_ACCESS_SITE_DIRECTORY,
+												},
+												{ label: __( 'All files' ), value: SITE_FILE_ACCESS_ALL_FILES },
+											] }
+											onChange={ ( value ) => setSelectedFileAccess( value ) }
+											__next40pxDefaultSize
+											__nextHasNoMarginBottom
+										/>
+										<span className="text-frame-text-secondary text-xs">
+											<FileAccessDescription
+												runtime={ selectedRuntime }
+												fileAccess={ usedFileAccess }
+											/>
+										</span>
+									</div>
 								</div>
 
 								<div className="flex flex-col gap-2 mt-4">

@@ -11,6 +11,7 @@ import {
 	unlockCliConfig,
 } from 'cli/lib/cli-config/core';
 import { StatsGroup, StatsMetric } from 'cli/lib/types/bump-stats';
+import { getCliInstallKind } from 'cli/lib/update-notifier';
 
 const lastBumpStatsProvider: LastBumpStatsProvider = {
 	load: async () => {
@@ -52,4 +53,41 @@ export function getPlatformMetric(): StatsMetric {
 		default:
 			return StatsMetric.UNKNOWN_PLATFORM;
 	}
+}
+
+type InstallTypeLaunchStatGroups = {
+	weeklyUnique: StatsGroup;
+	monthlyUnique: StatsGroup;
+	firstLaunch: StatsGroup;
+	totalLaunches: StatsGroup;
+};
+
+export function getInstallTypeLaunchStatGroups(): InstallTypeLaunchStatGroups {
+	const installKind = getCliInstallKind();
+
+	if ( installKind === 'npm' ) {
+		return {
+			weeklyUnique: StatsGroup.STUDIO_CLI_WEEKLY_UNIQUE_NPM,
+			monthlyUnique: StatsGroup.STUDIO_CLI_MONTHLY_UNIQUE_NPM,
+			firstLaunch: StatsGroup.STUDIO_CLI_FIRST_LAUNCH_NPM,
+			totalLaunches: StatsGroup.STUDIO_CLI_TOTAL_LAUNCHES_NPM,
+		};
+	}
+
+	if ( installKind === 'standalone' ) {
+		return {
+			weeklyUnique: StatsGroup.STUDIO_CLI_WEEKLY_UNIQUE_STANDALONE,
+			monthlyUnique: StatsGroup.STUDIO_CLI_MONTHLY_UNIQUE_STANDALONE,
+			firstLaunch: StatsGroup.STUDIO_CLI_FIRST_LAUNCH_STANDALONE,
+			totalLaunches: StatsGroup.STUDIO_CLI_TOTAL_LAUNCHES_STANDALONE,
+		};
+	}
+
+	// Desktop-embedded CLI (and dev builds) bucket under the "app" groups.
+	return {
+		weeklyUnique: StatsGroup.STUDIO_CLI_WEEKLY_UNIQUE_APP,
+		monthlyUnique: StatsGroup.STUDIO_CLI_MONTHLY_UNIQUE_APP,
+		firstLaunch: StatsGroup.STUDIO_CLI_FIRST_LAUNCH_APP,
+		totalLaunches: StatsGroup.STUDIO_CLI_TOTAL_LAUNCHES_APP,
+	};
 }

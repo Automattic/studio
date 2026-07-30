@@ -13,7 +13,7 @@ const selectedSite: SiteDetails = {
 	running: false,
 	path: '/test-site',
 	port: 8881,
-	phpVersion: '8.3',
+	phpVersion: '8.4',
 };
 
 vi.mock( 'src/hooks/use-site-details' );
@@ -36,6 +36,7 @@ vi.mock( 'src/lib/get-ipc-api', async () => ( {
 		getUserTerminal: vi.fn().mockResolvedValue( 'terminal' ),
 		getUserEditor: vi.fn().mockResolvedValue( 'vscode' ),
 		setWindowControlVisibility: vi.fn(),
+		isAgenticUiBannerDismissed: vi.fn().mockResolvedValue( true ),
 	} ),
 } ) );
 
@@ -86,7 +87,7 @@ describe( 'SiteContentTabs', () => {
 			loadingServer: {},
 		} );
 		await act( async () => renderWithProvider( <SiteContentTabs /> ) );
-		expect( screen.getByRole( 'tab', { name: 'Settings' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'tab', { name: 'Site settings' } ) ).toBeInTheDocument();
 		expect( screen.getByRole( 'tab', { name: 'Sync' } ) ).toBeInTheDocument();
 		expect( screen.getByRole( 'tab', { name: 'Previews' } ) ).toBeInTheDocument();
 		expect( screen.getByRole( 'tab', { name: 'Import / Export' } ) ).toBeInTheDocument();
@@ -104,8 +105,8 @@ describe( 'SiteContentTabs', () => {
 		expect( screen.queryByRole( 'tab', { name: 'Overview', selected: true } ) ).toBeVisible();
 		expect( screen.queryByRole( 'tab', { name: 'Sync', selected: false } ) ).toBeVisible();
 		expect( screen.queryByRole( 'tab', { name: 'Previews', selected: false } ) ).toBeVisible();
-		expect( screen.queryByRole( 'tab', { name: 'Settings', selected: false } ) ).toBeVisible();
-		expect( screen.queryByRole( 'tab', { name: 'Assistant', selected: false } ) ).toBeVisible();
+		expect( screen.queryByRole( 'tab', { name: 'Site settings', selected: false } ) ).toBeVisible();
+		expect( screen.queryByRole( 'tab', { name: 'Studio Code', selected: false } ) ).toBeVisible();
 		expect(
 			screen.queryByRole( 'tab', { name: 'Backup', selected: false } )
 		).not.toBeInTheDocument();

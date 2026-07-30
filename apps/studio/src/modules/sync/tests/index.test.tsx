@@ -6,7 +6,6 @@ import { vi } from 'vitest';
 import { SYNC_OPTIONS } from 'src/constants';
 import { useAuth } from 'src/hooks/use-auth';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ContentTabSync } from 'src/modules/sync';
 import { useSelectedItemsPushSize } from 'src/modules/sync/hooks/use-selected-items-push-size';
@@ -20,6 +19,7 @@ store.replaceReducer( testReducer );
 const mockPullSiteThunk = vi.hoisted( () => vi.fn() );
 const mockPushSiteThunk = vi.hoisted( () => vi.fn() );
 
+vi.mock( 'src/components/dot-grid', () => ( { DotGrid: () => null } ) );
 vi.mock( 'src/lib/get-ipc-api' );
 vi.mock( 'src/hooks/use-auth' );
 vi.mock( 'src/stores/sync/wpcom-sites', async () => {
@@ -31,7 +31,6 @@ vi.mock( 'src/stores/sync/wpcom-sites', async () => {
 		useGetWpComSitesQuery: vi.fn(),
 	};
 } );
-vi.mock( 'src/hooks/use-feature-flags' );
 
 vi.mock( 'src/stores/sync', async () => {
 	const actual = await vi.importActual< typeof import('src/stores/sync') >( 'src/stores/sync' );
@@ -43,21 +42,6 @@ vi.mock( 'src/stores/sync', async () => {
 			error: null,
 			isLoading: false,
 		} ),
-		connectedSitesSelectors: {
-			selectIsModalOpen: vi.fn(),
-			selectModalMode: vi.fn(),
-		},
-		connectedSitesActions: {
-			openModal: vi.fn().mockImplementation( () => {
-				return { type: 'connectedSites/openModal' };
-			} ),
-			setModalMode: vi.fn().mockImplementation( () => {
-				return { type: 'connectedSites/setModalMode' };
-			} ),
-			closeModal: vi.fn().mockImplementation( () => {
-				return { type: 'connectedSites/closeModal' };
-			} ),
-		},
 		syncOperationsThunks: {
 			...actual.syncOperationsThunks,
 			pullSite: mockPullSiteThunk,
@@ -98,7 +82,7 @@ const selectedSite: SiteDetails = {
 	path: '/path/to/site',
 	adminPassword: btoa( 'test-password' ),
 	running: false,
-	phpVersion: '8.3',
+	phpVersion: '8.4',
 	id: 'site-id',
 };
 
@@ -126,7 +110,11 @@ describe( 'ContentTabSync', () => {
 		);
 
 		vi.mocked( useGetWpComSitesQuery, { partial: true } ).mockReturnValue( {
-			data: syncSites,
+			data: { sites: syncSites, total: syncSites.length, page: 1, perPage: 100 },
+			isLoading: false,
+			isFetching: false,
+			isSuccess: true,
+			refetch: vi.fn(),
 		} );
 	};
 
@@ -143,9 +131,6 @@ describe( 'ContentTabSync', () => {
 		store.dispatch( testActions.resetState() );
 		store.dispatch( { type: 'connectedSitesApi/resetApiState' } );
 		vi.mocked( useAuth, { partial: true } ).mockReturnValue( createAuthMock( false ) );
-		vi.mocked( useFeatureFlags, { partial: true } ).mockReturnValue( {
-			enableBlueprints: true,
-		} );
 		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
 			authenticate: vi.fn(),
 			generateProposedSitePath: vi.fn(),
@@ -197,7 +182,11 @@ describe( 'ContentTabSync', () => {
 		} );
 
 		vi.mocked( useGetWpComSitesQuery, { partial: true } ).mockReturnValue( {
-			data: [],
+			data: { sites: [], total: 0, page: 1, perPage: 100 },
+			isLoading: false,
+			isFetching: false,
+			isSuccess: true,
+			refetch: vi.fn(),
 		} );
 
 		vi.mocked( useRemoteFileTree, { partial: true } ).mockReturnValue( {

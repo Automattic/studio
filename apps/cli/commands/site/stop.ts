@@ -7,11 +7,7 @@ import {
 	unlockCliConfig,
 	type SiteData,
 } from 'cli/lib/cli-config/core';
-import {
-	clearSiteLatestCliPid,
-	getSiteByFolder,
-	updateSiteAutoStart,
-} from 'cli/lib/cli-config/sites';
+import { clearSiteLatestCliPid, getSiteByFolder } from 'cli/lib/cli-config/sites';
 import {
 	connectToDaemon,
 	disconnectFromDaemon,
@@ -31,24 +27,19 @@ export enum Mode {
 
 export async function runCommand(
 	target: Mode.STOP_SINGLE_SITE,
-	siteFolder: string,
-	autoStart: boolean
+	siteFolder: string
 ): Promise< void >;
 export async function runCommand(
 	target: Mode.STOP_ALL_SITES,
-	siteFolder: undefined,
-	autoStart: boolean
+	siteFolder: undefined
 ): Promise< void >;
-export async function runCommand(
-	target: Mode,
-	siteFolder: string | undefined,
-	autoStart: boolean
-): Promise< void > {
+export async function runCommand( target: Mode, siteFolder: string | undefined ): Promise< void > {
 	try {
 		await connectToDaemon();
 
 		if ( target === Mode.STOP_SINGLE_SITE && siteFolder ) {
 			const site = await getSiteByFolder( siteFolder );
+
 			const runningProcess = await isServerRunning( site.id );
 			if ( ! runningProcess ) {
 				logger.reportSuccess( __( 'WordPress server is not running' ) );
@@ -60,7 +51,6 @@ export async function runCommand(
 			try {
 				await stopWordPressServer( site.id );
 				await clearSiteLatestCliPid( site.id );
-				await updateSiteAutoStart( site.id, autoStart );
 				logger.reportSuccess( __( 'WordPress server stopped' ) );
 				await stopProxyIfNoSitesNeedIt( site.id, logger );
 			} catch ( error ) {
@@ -88,7 +78,6 @@ export async function runCommand(
 					for ( const site of cliConfig.sites ) {
 						if ( runningSites.find( ( r ) => r.id === site.id ) ) {
 							delete site.latestCliPid;
-							site.autoStart = autoStart;
 						}
 					}
 					await saveCliConfig( cliConfig );
@@ -121,25 +110,18 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		command: 'stop',
 		describe: __( 'Stop site(s)' ),
 		builder: ( yargs ) => {
-			return yargs
-				.option( 'all', {
-					type: 'boolean',
-					describe: __( 'Stop all sites' ),
-					default: false,
-				} )
-				.option( 'auto-start', {
-					type: 'boolean',
-					describe: __( 'Set auto-start flag for the site(s)' ),
-					default: false,
-					hidden: true,
-				} );
+			return yargs.option( 'all', {
+				type: 'boolean',
+				describe: __( 'Stop all sites' ),
+				default: false,
+			} );
 		},
 		handler: async ( argv ) => {
 			try {
 				if ( argv.all ) {
-					await runCommand( Mode.STOP_ALL_SITES, undefined, argv.autoStart );
+					await runCommand( Mode.STOP_ALL_SITES, undefined );
 				} else {
-					await runCommand( Mode.STOP_SINGLE_SITE, argv.path, argv.autoStart );
+					await runCommand( Mode.STOP_SINGLE_SITE, argv.path );
 				}
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {

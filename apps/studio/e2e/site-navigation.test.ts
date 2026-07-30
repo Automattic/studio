@@ -52,7 +52,7 @@ test.describe( 'Site Navigation', () => {
 		await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 120_000 } );
 
 		// Get site URLs for tests
-		const settingsTab = await siteContent.navigateToTab( 'Settings' );
+		const settingsTab = await siteContent.navigateToTab( 'settings' );
 		wpAdminUrl = await settingsTab.copyWPAdminUrlToClipboard( session.electronApp );
 		frontendUrl = await settingsTab.copySiteUrlToClipboard( session.electronApp );
 	} );

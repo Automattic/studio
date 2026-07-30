@@ -1,7 +1,8 @@
 import { dialog } from 'electron';
 import { __ } from '@wordpress/i18n';
 import { getMainWindow } from 'src/main-window';
-import { MacOSCliInstallationManager } from 'src/modules/cli/lib/macos-installation-manager';
+import { createLinuxCliInstallationManager } from 'src/modules/cli/lib/linux-installation-manager';
+import { createMacOSCliInstallationManager } from 'src/modules/cli/lib/macos-installation-manager';
 import { WindowsCliInstallationManager } from 'src/modules/cli/lib/windows-installation-manager';
 
 /**
@@ -9,6 +10,7 @@ import { WindowsCliInstallationManager } from 'src/modules/cli/lib/windows-insta
  */
 export interface StudioCliInstallationManager {
 	isCliInstalled(): Promise< boolean >;
+	isCliExternallyManaged(): Promise< boolean >;
 	installCliWithConfirmation(): Promise< void >;
 	uninstallCliWithConfirmation(): Promise< void >;
 }
@@ -16,24 +18,24 @@ export interface StudioCliInstallationManager {
 function getCliInstallationManager(): StudioCliInstallationManager {
 	switch ( process.platform ) {
 		case 'darwin':
-			return new MacOSCliInstallationManager();
+			return createMacOSCliInstallationManager();
 		case 'win32':
 			return new WindowsCliInstallationManager();
+		case 'linux':
+			return createLinuxCliInstallationManager();
 		default:
 			throw new Error( 'Studio CLI is not available on this platform.' );
 	}
 }
 
-function isPlatformSupported(): boolean {
-	return process.platform === 'darwin' || process.platform === 'win32';
+export async function isStudioCliInstalled(): Promise< boolean > {
+	const manager = getCliInstallationManager();
+	return await manager.isCliInstalled();
 }
 
-export async function isStudioCliInstalled(): Promise< boolean > {
-	if ( isPlatformSupported() ) {
-		const manager = getCliInstallationManager();
-		return await manager.isCliInstalled();
-	}
-	return false;
+export async function isStudioCliExternallyManaged(): Promise< boolean > {
+	const manager = getCliInstallationManager();
+	return await manager.isCliExternallyManaged();
 }
 
 export async function installStudioCli(): Promise< void > {
@@ -52,10 +54,8 @@ export async function installStudioCli(): Promise< void > {
 		}
 	}
 
-	if ( isPlatformSupported() ) {
-		const manager = getCliInstallationManager();
-		await manager.installCliWithConfirmation();
-	}
+	const manager = getCliInstallationManager();
+	await manager.installCliWithConfirmation();
 }
 
 export async function uninstallStudioCli(): Promise< void > {
@@ -74,8 +74,6 @@ export async function uninstallStudioCli(): Promise< void > {
 		}
 	}
 
-	if ( isPlatformSupported() ) {
-		const manager = getCliInstallationManager();
-		await manager.uninstallCliWithConfirmation();
-	}
+	const manager = getCliInstallationManager();
+	await manager.uninstallCliWithConfirmation();
 }

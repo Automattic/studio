@@ -1,28 +1,38 @@
-import { app, IpcMainInvokeEvent } from 'electron';
+import { app, BrowserWindow, IpcMainInvokeEvent } from 'electron';
 import fs from 'fs';
 import fsPromises from 'fs/promises';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
+import {
+	addConnectedWpcomSite,
+	getAllConnectedWpcomSitesForCurrentUser as getAllConnectedWpcomSitesForCurrentUserShared,
+	getConnectedWpcomSitesForLocalSite,
+	removeConnectedWpcomSite,
+	updateConnectedWpcomSites as updateConnectedWpcomSitesShared,
+} from '@studio/common/lib/connected-sites';
+import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { getCurrentUserId } from '@studio/common/lib/shared-config';
+import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
+import { shouldRetryTusStatus } from '@studio/common/lib/sync/tus-upload';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
+import { pullSite, pushSite } from '@studio/common/sites/sync';
 import { SyncSite } from '@studio/common/types/sync';
+import { __, sprintf } from '@wordpress/i18n';
 import { Upload } from 'tus-js-client';
 import { z } from 'zod';
 import {
 	PullStateProgressInfo,
 	PushStateProgressInfo,
 } from 'src/hooks/use-sync-states-progress-info';
-import { sendIpcEventToRenderer } from 'src/ipc-utils';
+import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
 import { download } from 'src/lib/download';
 import { getSyncBackupTempPath } from 'src/lib/get-sync-backup-temp-path';
-import { exportBackup } from 'src/lib/import-export/export/export-manager';
-import { ExportOptions } from 'src/lib/import-export/export/types';
 import { getAuthenticationToken } from 'src/lib/oauth';
-import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
+import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
+import { exportSite } from 'src/modules/import-export/lib/ipc-handlers';
 import { SiteServer } from 'src/site-server';
-import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
 import { SyncOption } from 'src/types';
 
 /**
@@ -161,8 +171,6 @@ export async function exportSiteForPush(
 			throw new Error( 'Export aborted' );
 		}
 
-		await keepSqliteIntegrationUpdated( site.details.path );
-
 		const shouldIncludeSyncOption = (
 			optionsToSync: SyncOption[] | undefined,
 			option: SyncOption
@@ -179,17 +187,22 @@ export async function exportSiteForPush(
 			),
 		};
 
-		const exportOptions: ExportOptions = {
-			site: site.details,
-			backupFile: archivePath,
-			includes,
-			phpVersion: site.details.phpVersion,
+		let mode: 'full' | 'content' | 'db';
+		if ( includes.database && includes.wpContent ) {
+			mode = 'full';
+		} else if ( includes.wpContent ) {
+			mode = 'content';
+		} else {
+			mode = 'db';
+		}
+
+		await exportSite( event, site.details.id, archivePath, {
+			mode,
 			splitDatabaseDumpByTable: true,
 			specificSelectionPaths: configuration?.specificSelectionPaths,
-		};
-
-		const onEvent = () => {};
-		await exportBackup( exportOptions, onEvent );
+			applyDeployIgnore: true,
+			abortSignal: abortController.signal,
+		} );
 
 		if ( abortController.signal.aborted ) {
 			await fsPromises.unlink( archivePath ).catch( () => {
@@ -309,12 +322,7 @@ export async function pushArchive(
 				}
 
 				const status = error.originalResponse ? error.originalResponse.getStatus() : 0;
-				// Stop retrying if the upload failed because of a 403 error.
-				if ( status === 403 ) {
-					return false;
-				}
-
-				return true;
+				return shouldRetryTusStatus( status );
 			},
 		} );
 
@@ -378,8 +386,38 @@ export async function pushArchive(
 			return { success: false, error: parseResult.data.error };
 		}
 
-		return { success: false, error: 'Unknown error' };
+		// A bare upload failure (e.g. a 413) has no `{ error: string }` body, so
+		// fall back to the HTTP status for a meaningful message.
+		const status = getTusErrorStatus( error );
+		if ( status === 413 ) {
+			return {
+				success: false,
+				error: __( 'The site archive is too large to upload right now. Please try again later.' ),
+			};
+		}
+		if ( status ) {
+			return {
+				success: false,
+				// translators: %d is the HTTP status code of the failed upload, e.g. 500.
+				error: sprintf( __( 'Upload failed with HTTP status %d.' ), status ),
+			};
+		}
+
+		return { success: false, error: __( 'Unknown error' ) };
 	}
+}
+
+function getTusErrorStatus( error: unknown ): number {
+	if (
+		typeof error === 'object' &&
+		error !== null &&
+		'originalResponse' in error &&
+		error.originalResponse &&
+		typeof ( error.originalResponse as { getStatus?: unknown } ).getStatus === 'function'
+	) {
+		return ( error.originalResponse as { getStatus: () => number } ).getStatus();
+	}
+	return 0;
 }
 
 export async function downloadSyncBackup(
@@ -400,11 +438,13 @@ export async function downloadSyncBackup(
 		await download( downloadUrl, filePath, false, '', abortController.signal );
 		return filePath;
 	} catch ( error ) {
-		if ( error instanceof Error && error.name === 'AbortError' ) {
-			// Download was cancelled, throw the error
-		} else {
-			console.error( `[Download] Download failed for operation: ${ operationId }`, error );
+		// A cancelled operation (user cancel or logout cleanup) aborts this signal. That's an
+		// intentional stop, not a failure — return without logging or throwing so it doesn't
+		// surface as an error, and let the caller treat the missing path as "stopped".
+		if ( abortController.signal.aborted ) {
+			return undefined;
 		}
+		console.error( `[Download] Download failed for operation: ${ operationId }`, error );
 		throw error;
 	} finally {
 		SYNC_ABORT_CONTROLLERS.delete( operationId );
@@ -413,48 +453,30 @@ export async function downloadSyncBackup(
 
 export async function removeSyncBackup( event: IpcMainInvokeEvent, remoteSiteId: number ) {
 	const filePath = getSyncBackupTempPath( remoteSiteId );
-	await fsPromises.unlink( filePath );
+	try {
+		await fsPromises.unlink( filePath );
+	} catch ( error ) {
+		// The backup file may never have been created — e.g. cancelling a pull that was still
+		// initializing the remote backup, before anything was downloaded. A missing file is
+		// not an error here, so only rethrow unexpected failures.
+		if ( ! isErrnoException( error ) || error.code !== 'ENOENT' ) {
+			throw error;
+		}
+	}
 }
 
 type WpcomSitesToConnect = { sites: SyncSite[]; localSiteId: string }[];
 
 export async function connectWpcomSites( event: IpcMainInvokeEvent, list: WpcomSitesToConnect ) {
-	try {
-		await lockAppdata();
-		const currentUserId = await getCurrentUserId();
+	const currentUserId = await getCurrentUserId();
+	if ( ! currentUserId ) {
+		throw new Error( 'User not authenticated' );
+	}
 
-		if ( ! currentUserId ) {
-			throw new Error( 'User not authenticated' );
+	for ( const { sites, localSiteId } of list ) {
+		for ( const siteToAdd of sites ) {
+			await addConnectedWpcomSite( localSiteId, siteToAdd );
 		}
-
-		const userData = await loadUserData();
-
-		userData.connectedWpcomSites = userData.connectedWpcomSites || {};
-		userData.connectedWpcomSites[ currentUserId ] =
-			userData.connectedWpcomSites[ currentUserId ] || [];
-
-		const connections = userData.connectedWpcomSites[ currentUserId ];
-
-		list.forEach( ( { sites, localSiteId } ) => {
-			sites.forEach( ( siteToAdd ) => {
-				const isAlreadyConnected = connections.some(
-					( conn ) => conn.id === siteToAdd.id && conn.localSiteId === localSiteId
-				);
-
-				// Add the site if it's not already connected
-				if ( ! isAlreadyConnected ) {
-					connections.push( {
-						...siteToAdd,
-						localSiteId,
-						syncSupport: 'already-connected',
-					} );
-				}
-			} );
-		} );
-
-		await saveUserData( userData );
-	} finally {
-		await unlockAppdata();
 	}
 }
 
@@ -464,36 +486,15 @@ export async function disconnectWpcomSites(
 	event: IpcMainInvokeEvent,
 	list: WpcomSitesToDisconnect
 ) {
-	try {
-		await lockAppdata();
-		const currentUserId = await getCurrentUserId();
+	const currentUserId = await getCurrentUserId();
+	if ( ! currentUserId ) {
+		throw new Error( 'User not authenticated' );
+	}
 
-		if ( ! currentUserId ) {
-			throw new Error( 'User not authenticated' );
+	for ( const { siteIds, localSiteId } of list ) {
+		for ( const id of siteIds ) {
+			await removeConnectedWpcomSite( localSiteId, id );
 		}
-
-		const userData = await loadUserData();
-
-		const connectedWpcomSites = userData.connectedWpcomSites;
-
-		// Totally unreal case, added it to help TS parse the code below. And if this error happens, we definitely have something wrong.
-		if ( ! Array.isArray( connectedWpcomSites?.[ currentUserId ] ) ) {
-			throw new Error(
-				'Something went wrong, since you are trying to disconnect something, but there are no stored connections yet'
-			);
-		}
-
-		list.forEach( ( { siteIds, localSiteId } ) => {
-			const updatedConnections = connectedWpcomSites[ currentUserId ].filter(
-				( conn ) => ! ( siteIds.includes( conn.id ) && conn.localSiteId === localSiteId )
-			);
-
-			connectedWpcomSites[ currentUserId ] = updatedConnections;
-		} );
-
-		await saveUserData( userData );
-	} finally {
-		await unlockAppdata();
 	}
 }
 
@@ -501,55 +502,113 @@ export async function updateConnectedWpcomSites(
 	event: IpcMainInvokeEvent,
 	updatedSites: SyncSite[]
 ) {
-	try {
-		await lockAppdata();
-		const currentUserId = await getCurrentUserId();
+	const currentUserId = await getCurrentUserId();
+	if ( ! currentUserId ) {
+		throw new Error( 'User not authenticated' );
+	}
 
-		if ( ! currentUserId ) {
-			throw new Error( 'User not authenticated' );
-		}
+	// Group the updates by their local site since our storage is now per-site.
+	const byLocalSite = new Map< string, SyncSite[] >();
+	for ( const site of updatedSites ) {
+		const list = byLocalSite.get( site.localSiteId ) ?? [];
+		list.push( site );
+		byLocalSite.set( site.localSiteId, list );
+	}
 
-		const userData = await loadUserData();
-
-		const connections = userData.connectedWpcomSites?.[ currentUserId ] || [];
-
-		if ( ! connections.length ) {
-			return;
-		}
-
-		updatedSites.forEach( ( updatedSite ) => {
-			const index = connections.findIndex(
-				( conn ) => conn.id === updatedSite.id && conn.localSiteId === updatedSite.localSiteId
-			);
-
-			if ( index !== -1 ) {
-				connections[ index ] = updatedSite;
-			}
-		} );
-
-		await saveUserData( userData );
-	} finally {
-		await unlockAppdata();
+	for ( const [ localSiteId, sites ] of byLocalSite ) {
+		await updateConnectedWpcomSitesShared( localSiteId, sites );
 	}
 }
 
-export async function getConnectedWpcomSites(
+// Wraps the CLI `pull` command for apps/ui. The desktop renderer handles
+// pull via `pullSiteThunk` + `pollPullBackupThunk` using its own WPCOM
+// client to initiate + poll + download — that polling lives in the
+// renderer sync slice with no end-to-end IPC equivalent to reuse. Calling
+// the CLI instead keeps apps/ui free of wpcom-client setup and mirrors the
+// simpler flow used by `push`. Exchanges everything (`--options all`).
+export async function pullSiteFromLive(
 	event: IpcMainInvokeEvent,
+	siteId: string,
+	remoteSiteId: number
+): Promise< void > {
+	const site = SiteServer.get( siteId );
+	if ( ! site ) {
+		throw new Error( 'Site not found.' );
+	}
+	const window = BrowserWindow.fromWebContents( event.sender );
+	return pullSite( executeCliCommand, site.details.path, remoteSiteId, ( progress ) => {
+		sendIpcEventToRendererWithWindow( window, 'sync-pull-progress', {
+			siteId,
+			...progress,
+		} );
+	} );
+}
+
+// Push for the agentic UI (apps/ui): the same shared `pushSite` the `studio ui`
+// server uses, so the agentic UI pushes identically in the desktop and the
+// browser (export → TUS upload → import). Progress is forwarded over the
+// existing `sync-upload-*` channels. The legacy renderer keeps its own
+// `exportSiteForPush` + `pushArchive` (with manual pause/resume) untouched.
+export async function pushSiteToLive(
+	_event: IpcMainInvokeEvent,
+	selectedSiteId: string,
+	remoteSiteId: number
+): Promise< void > {
+	const site = SiteServer.get( selectedSiteId );
+	if ( ! site ) {
+		throw new Error( 'Site not found.' );
+	}
+	const token = await getAuthenticationToken();
+	if ( ! token?.accessToken ) {
+		throw new Error( 'No token found' );
+	}
+	await pushSite(
+		{
+			executeCliCommand,
+			accessToken: token.accessToken,
+			emit: ( output ) => {
+				if ( output.kind === 'upload-progress' ) {
+					void sendIpcEventToRenderer( 'sync-upload-progress', {
+						selectedSiteId,
+						remoteSiteId,
+						progress: output.progress,
+					} );
+				} else if ( output.kind === 'network-paused' ) {
+					void sendIpcEventToRenderer( 'sync-upload-network-paused', {
+						selectedSiteId,
+						remoteSiteId,
+						error: output.error,
+					} );
+				} else if ( output.kind === 'resumed' ) {
+					void sendIpcEventToRenderer( 'sync-upload-resumed', {
+						selectedSiteId,
+						remoteSiteId,
+					} );
+				}
+			},
+		},
+		{ sitePath: site.details.path, remoteSiteId }
+	);
+}
+
+// Fetches every WordPress.com site the authenticated user can sync to.
+// The desktop renderer builds this list itself via its own WPCOM client
+// (see wpcomSitesApi.getWpComSites); apps/ui doesn't own a wpcom client
+// yet, so we expose a thin IPC wrapper that reuses the stored auth token.
+export async function fetchSyncableWpcomSites( _event: IpcMainInvokeEvent ): Promise< SyncSite[] > {
+	const token = await getAuthenticationToken();
+	if ( ! token?.accessToken ) {
+		throw new Error( 'Authentication required to fetch WordPress.com sites.' );
+	}
+	return fetchSyncableSites( token.accessToken );
+}
+
+export async function getConnectedWpcomSites(
+	_event: IpcMainInvokeEvent,
 	localSiteId?: string
 ): Promise< SyncSite[] > {
-	const currentUserId = await getCurrentUserId();
-
-	if ( ! currentUserId ) {
-		return [];
-	}
-
-	const userData = await loadUserData();
-
-	const allConnected = userData.connectedWpcomSites?.[ currentUserId ] || [];
-
 	if ( localSiteId ) {
-		return allConnected.filter( ( site ) => site.localSiteId === localSiteId );
-	} else {
-		return allConnected;
+		return getConnectedWpcomSitesForLocalSite( localSiteId );
 	}
+	return getAllConnectedWpcomSitesForCurrentUserShared();
 }

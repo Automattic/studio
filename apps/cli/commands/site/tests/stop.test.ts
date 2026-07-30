@@ -1,10 +1,7 @@
+import { SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
 import { vi } from 'vitest';
 import { SiteData, readCliConfig, saveCliConfig } from 'cli/lib/cli-config/core';
-import {
-	clearSiteLatestCliPid,
-	getSiteByFolder,
-	updateSiteAutoStart,
-} from 'cli/lib/cli-config/sites';
+import { clearSiteLatestCliPid, getSiteByFolder } from 'cli/lib/cli-config/sites';
 import {
 	connectToDaemon,
 	disconnectFromDaemon,
@@ -29,7 +26,6 @@ vi.mock( 'cli/lib/cli-config/sites', async () => {
 		...actual,
 		getSiteByFolder: vi.fn(),
 		clearSiteLatestCliPid: vi.fn(),
-		updateSiteAutoStart: vi.fn().mockResolvedValue( undefined ),
 	};
 } );
 vi.mock( 'cli/lib/daemon-client' );
@@ -53,6 +49,7 @@ describe( 'CLI: studio site stop', () => {
 		pmId: 0,
 		pid: 12345,
 		status: 'online',
+		runtime: SITE_RUNTIME_PLAYGROUND,
 	};
 
 	beforeEach( () => {
@@ -76,7 +73,7 @@ describe( 'CLI: studio site stop', () => {
 		it( 'should throw when site not found', async () => {
 			vi.mocked( getSiteByFolder ).mockRejectedValue( new Error( 'Site not found' ) );
 
-			await expect( runCommand( Mode.STOP_SINGLE_SITE, '/invalid/path', false ) ).rejects.toThrow(
+			await expect( runCommand( Mode.STOP_SINGLE_SITE, '/invalid/path' ) ).rejects.toThrow(
 				'Site not found'
 			);
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
@@ -87,7 +84,7 @@ describe( 'CLI: studio site stop', () => {
 				new Error( 'process manager connection failed' )
 			);
 
-			await expect( runCommand( Mode.STOP_SINGLE_SITE, '/test/site', false ) ).rejects.toThrow(
+			await expect( runCommand( Mode.STOP_SINGLE_SITE, '/test/site' ) ).rejects.toThrow(
 				'process manager connection failed'
 			);
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
@@ -97,7 +94,7 @@ describe( 'CLI: studio site stop', () => {
 			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
 			vi.mocked( stopWordPressServer ).mockRejectedValue( new Error( 'Server stop failed' ) );
 
-			await expect( runCommand( Mode.STOP_SINGLE_SITE, '/test/site', false ) ).rejects.toThrow(
+			await expect( runCommand( Mode.STOP_SINGLE_SITE, '/test/site' ) ).rejects.toThrow(
 				'Failed to stop WordPress server'
 			);
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
@@ -106,7 +103,7 @@ describe( 'CLI: studio site stop', () => {
 
 	describe( 'Success Cases', () => {
 		it( 'should skip stop if server is not running', async () => {
-			await runCommand( Mode.STOP_SINGLE_SITE, '/test/site', false );
+			await runCommand( Mode.STOP_SINGLE_SITE, '/test/site' );
 
 			expect( stopWordPressServer ).not.toHaveBeenCalled();
 			expect( clearSiteLatestCliPid ).not.toHaveBeenCalled();
@@ -117,7 +114,7 @@ describe( 'CLI: studio site stop', () => {
 		it( 'should stop a running site', async () => {
 			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
 
-			await runCommand( Mode.STOP_SINGLE_SITE, '/test/site', false );
+			await runCommand( Mode.STOP_SINGLE_SITE, '/test/site' );
 
 			expect( getSiteByFolder ).toHaveBeenCalledWith( '/test/site' );
 			expect( connectToDaemon ).toHaveBeenCalled();
@@ -129,32 +126,16 @@ describe( 'CLI: studio site stop', () => {
 		} );
 
 		it( 'should not call stopProxyIfNoSitesNeedIt if site is not running', async () => {
-			await runCommand( Mode.STOP_SINGLE_SITE, '/test/site', false );
+			await runCommand( Mode.STOP_SINGLE_SITE, '/test/site' );
 
 			expect( stopProxyIfNoSitesNeedIt ).not.toHaveBeenCalled();
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
-		} );
-
-		it( 'should set autoStart to true when flag is passed', async () => {
-			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
-
-			await runCommand( Mode.STOP_SINGLE_SITE, '/test/site', true );
-
-			expect( updateSiteAutoStart ).toHaveBeenCalledWith( testSite.id, true );
-		} );
-
-		it( 'should set autoStart to false when flag is not passed', async () => {
-			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
-
-			await runCommand( Mode.STOP_SINGLE_SITE, '/test/site', false );
-
-			expect( updateSiteAutoStart ).toHaveBeenCalledWith( testSite.id, false );
 		} );
 	} );
 
 	describe( 'Cleanup', () => {
 		it( 'should always disconnect from process manager on success', async () => {
-			await runCommand( Mode.STOP_SINGLE_SITE, '/test/site', false );
+			await runCommand( Mode.STOP_SINGLE_SITE, '/test/site' );
 
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
@@ -163,7 +144,7 @@ describe( 'CLI: studio site stop', () => {
 			vi.mocked( getSiteByFolder ).mockRejectedValue( new Error( 'Error' ) );
 
 			try {
-				await runCommand( Mode.STOP_SINGLE_SITE, '/test/site', false );
+				await runCommand( Mode.STOP_SINGLE_SITE, '/test/site' );
 			} catch {
 				// Expected
 			}
@@ -172,7 +153,7 @@ describe( 'CLI: studio site stop', () => {
 		} );
 
 		it( 'should always disconnect when site is not running', async () => {
-			await runCommand( Mode.STOP_SINGLE_SITE, '/test/site', false );
+			await runCommand( Mode.STOP_SINGLE_SITE, '/test/site' );
 
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
@@ -215,6 +196,7 @@ describe( 'CLI: studio site stop --all', () => {
 		pmId: 0,
 		pid: 12345,
 		status: 'online',
+		runtime: SITE_RUNTIME_PLAYGROUND,
 	};
 
 	beforeEach( () => {
@@ -235,7 +217,7 @@ describe( 'CLI: studio site stop --all', () => {
 		it( 'should throw when appdata cannot be read', async () => {
 			vi.mocked( readCliConfig ).mockRejectedValue( new Error( 'Failed to read appdata' ) );
 
-			await expect( runCommand( Mode.STOP_ALL_SITES, undefined, false ) ).rejects.toThrow(
+			await expect( runCommand( Mode.STOP_ALL_SITES, undefined ) ).rejects.toThrow(
 				'Failed to read appdata'
 			);
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
@@ -251,7 +233,7 @@ describe( 'CLI: studio site stop --all', () => {
 				new Error( 'process manager connection failed' )
 			);
 
-			await expect( runCommand( Mode.STOP_ALL_SITES, undefined, false ) ).rejects.toThrow(
+			await expect( runCommand( Mode.STOP_ALL_SITES, undefined ) ).rejects.toThrow(
 				'process manager connection failed'
 			);
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
@@ -266,7 +248,7 @@ describe( 'CLI: studio site stop --all', () => {
 			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
 			vi.mocked( killDaemonAndChildren ).mockRejectedValue( new Error( 'Failed to kill daemon' ) );
 
-			await expect( runCommand( Mode.STOP_ALL_SITES, undefined, false ) ).rejects.toThrow(
+			await expect( runCommand( Mode.STOP_ALL_SITES, undefined ) ).rejects.toThrow(
 				'Failed to kill daemon'
 			);
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
@@ -277,7 +259,7 @@ describe( 'CLI: studio site stop --all', () => {
 		it( 'should kill daemon even with empty sites list', async () => {
 			vi.mocked( readCliConfig ).mockResolvedValue( { version: 1, sites: [], snapshots: [] } );
 
-			await runCommand( Mode.STOP_ALL_SITES, undefined, false );
+			await runCommand( Mode.STOP_ALL_SITES, undefined );
 
 			expect( connectToDaemon ).toHaveBeenCalled();
 			expect( killDaemonAndChildren ).toHaveBeenCalledTimes( 1 );
@@ -292,7 +274,7 @@ describe( 'CLI: studio site stop --all', () => {
 
 			vi.mocked( isServerRunning ).mockResolvedValue( undefined );
 
-			await runCommand( Mode.STOP_ALL_SITES, undefined, false );
+			await runCommand( Mode.STOP_ALL_SITES, undefined );
 
 			expect( connectToDaemon ).toHaveBeenCalled();
 			expect( isServerRunning ).toHaveBeenCalledTimes( 3 );
@@ -308,7 +290,7 @@ describe( 'CLI: studio site stop --all', () => {
 			} );
 			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
 
-			await runCommand( Mode.STOP_ALL_SITES, undefined, false );
+			await runCommand( Mode.STOP_ALL_SITES, undefined );
 
 			expect( killDaemonAndChildren ).toHaveBeenCalledTimes( 1 );
 			expect( saveCliConfig ).toHaveBeenCalledTimes( 1 );
@@ -317,7 +299,6 @@ describe( 'CLI: studio site stop --all', () => {
 					sites: expect.arrayContaining( [
 						expect.objectContaining( {
 							id: 'site-1',
-							autoStart: false,
 						} ),
 					] ),
 				} )
@@ -332,7 +313,7 @@ describe( 'CLI: studio site stop --all', () => {
 			} );
 			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
 
-			await runCommand( Mode.STOP_ALL_SITES, undefined, false );
+			await runCommand( Mode.STOP_ALL_SITES, undefined );
 
 			expect( readCliConfig ).toHaveBeenCalled();
 			expect( connectToDaemon ).toHaveBeenCalled();
@@ -349,15 +330,12 @@ describe( 'CLI: studio site stop --all', () => {
 					sites: expect.arrayContaining( [
 						expect.objectContaining( {
 							id: 'site-1',
-							autoStart: false,
 						} ),
 						expect.objectContaining( {
 							id: 'site-2',
-							autoStart: false,
 						} ),
 						expect.objectContaining( {
 							id: 'site-3',
-							autoStart: false,
 						} ),
 					] ),
 				} )
@@ -376,7 +354,7 @@ describe( 'CLI: studio site stop --all', () => {
 				.mockResolvedValueOnce( undefined ) // site-2 not running
 				.mockResolvedValueOnce( testProcessDescription ); // site-3 running
 
-			await runCommand( Mode.STOP_ALL_SITES, undefined, true );
+			await runCommand( Mode.STOP_ALL_SITES, undefined );
 
 			expect( isServerRunning ).toHaveBeenCalledTimes( 3 );
 
@@ -388,21 +366,9 @@ describe( 'CLI: studio site stop --all', () => {
 					sites: expect.arrayContaining( [
 						expect.objectContaining( {
 							id: 'site-1',
-							autoStart: true,
 						} ),
 						expect.objectContaining( {
 							id: 'site-3',
-							autoStart: true,
-						} ),
-					] ),
-				} )
-			);
-			expect( saveCliConfig ).toHaveBeenCalledWith(
-				expect.objectContaining( {
-					sites: expect.not.arrayContaining( [
-						expect.objectContaining( {
-							id: 'site-2',
-							autoStart: true,
 						} ),
 					] ),
 				} )

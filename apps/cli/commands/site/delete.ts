@@ -1,7 +1,10 @@
 import fs from 'fs';
+import { deleteAiSessionsForSite } from '@studio/common/ai/sessions/manage';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
+import { removeAllConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
 import { readAuthToken, type StoredAuthToken } from '@studio/common/lib/shared-config';
+import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import trash from 'trash';
@@ -64,7 +67,7 @@ async function deletePreviewSites( authToken: StoredAuthToken, siteFolder: strin
 
 export async function runCommand(
 	siteFolder: string,
-	deleteFiles: boolean = false
+	deleteFiles: boolean = true
 ): Promise< void > {
 	try {
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
@@ -116,10 +119,41 @@ export async function runCommand(
 			await unlockCliConfig();
 		}
 
+		try {
+			await removeAllConnectedWpcomSitesForLocalSite( site.id );
+		} catch ( error ) {
+			logger.reportError(
+				new LoggerError(
+					__( 'Failed to remove WordPress.com connections. Proceeding anyway…' ),
+					error
+				),
+				false
+			);
+		}
+
+		try {
+			await deleteAiSessionsForSite( getSessionsDirectory(), {
+				id: site.id,
+				path: site.path,
+			} );
+		} catch ( error ) {
+			logger.reportError(
+				new LoggerError( __( 'Failed to delete chat sessions. Proceeding anyway…' ), error ),
+				false
+			);
+		}
+
 		if ( deleteFiles ) {
-			if ( fs.existsSync( siteFolder ) ) {
+			// Imported sites have both a visible site directory and a
+			// hidden technical directory under ~/.studio/imports; delete
+			// both if they exist.
+			const deleteTargets = [ siteFolder, site.technicalSiteDirectory ].filter(
+				( value ): value is string => typeof value === 'string' && fs.existsSync( value )
+			);
+
+			if ( deleteTargets.length > 0 ) {
 				logger.reportStart( LoggerAction.DELETE_FILES, __( 'Moving site files to trash…' ) );
-				await trash( siteFolder );
+				await trash( deleteTargets );
 				logger.reportSuccess( __( 'Site files moved to trash' ) );
 			} else {
 				logger.reportSuccess( __( 'Site files already removed' ) );
@@ -139,8 +173,8 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		builder: ( yargs ) => {
 			return yargs.option( 'files', {
 				type: 'boolean',
-				description: __( 'Also move site files to trash' ),
-				default: false,
+				description: __( 'Move site files to trash (use --no-files to keep files)' ),
+				default: true,
 			} );
 		},
 		handler: async ( argv ) => {

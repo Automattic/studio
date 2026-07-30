@@ -68,6 +68,9 @@ export const ThemeDetailsProvider: React.FC< ThemeDetailsProviderProps > = ( { c
 
 	useIpcListener( 'thumbnail-loaded', ( _evt, { id, imageData } ) => {
 		setThumbnails( ( thumbnails ) => {
+			if ( imageData === thumbnails[ id ] ) {
+				return thumbnails;
+			}
 			return { ...thumbnails, [ id ]: imageData ?? undefined };
 		} );
 		setLoadingThumbnails( ( loadingThumbnails ) => {

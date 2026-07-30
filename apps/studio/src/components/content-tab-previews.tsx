@@ -1,3 +1,4 @@
+import { DEMO_SITE_EXPIRATION_DAYS } from '@studio/common/constants';
 import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 import { check, Icon } from '@wordpress/icons';
@@ -5,6 +6,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
+import { IllustrationGrid } from 'src/components/illustration-grid';
 import offlineIcon from 'src/components/offline-icon';
 import { ScreenshotDemoSite } from 'src/components/screenshot-demo-site';
 import { Tooltip } from 'src/components/tooltip';
@@ -32,7 +34,7 @@ function EmptyGeneric( {
 }: PropsWithChildren< { selectedSite: SiteDetails } > ) {
 	const { __ } = useI18n();
 	return (
-		<div className="p-8 flex justify-between max-w-3xl gap-4">
+		<div className="p-8 flex justify-between max-w-3xl gap-4 overflow-hidden">
 			<div className="flex flex-col">
 				<div className="a8c-subtitle mb-1">{ __( 'Share a preview of your Studio site' ) }</div>
 				<div className="w-[40ch] text-frame-text-secondary a8c-body">
@@ -43,7 +45,11 @@ function EmptyGeneric( {
 				<div className="mt-6">
 					{ [
 						sprintf( __( 'Create up to %d preview sites for free.' ), LIMIT_OF_ZIP_SITES_PER_USER ),
-						__( 'Preview sites expire 7 days after the last update.' ),
+						/* translators: %d is the number of days before a preview site expires */
+						sprintf(
+							__( 'Preview sites expire %d days after the last update.' ),
+							DEMO_SITE_EXPIRATION_DAYS
+						),
 						createInterpolateElement( __( 'Powered by <a> WordPress.com</a>.' ), {
 							a: (
 								<Button
@@ -69,9 +75,9 @@ function EmptyGeneric( {
 				</div>
 				{ children }
 			</div>
-			<div className="flex flex-col shrink-0 items-end">
+			<IllustrationGrid>
 				<ScreenshotDemoSite site={ selectedSite } />
-			</div>
+			</IllustrationGrid>
 		</div>
 	);
 }

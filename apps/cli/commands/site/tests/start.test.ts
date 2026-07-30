@@ -1,10 +1,7 @@
+import { SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
 import { vi } from 'vitest';
 import { SiteData } from 'cli/lib/cli-config/core';
-import {
-	getSiteByFolder,
-	updateSiteAutoStart,
-	updateSiteLatestCliPid,
-} from 'cli/lib/cli-config/sites';
+import { getSiteByFolder, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
@@ -17,7 +14,6 @@ vi.mock( 'cli/lib/cli-config/sites', async () => ( {
 	...( await vi.importActual( 'cli/lib/cli-config/sites' ) ),
 	getSiteByFolder: vi.fn(),
 	updateSiteLatestCliPid: vi.fn(),
-	updateSiteAutoStart: vi.fn().mockResolvedValue( undefined ),
 } ) );
 vi.mock( 'cli/lib/daemon-client' );
 vi.mock( 'cli/lib/site-utils' );
@@ -34,6 +30,7 @@ describe( 'CLI: studio site start', () => {
 		phpVersion: '8.0',
 		adminUsername: 'admin',
 		adminPassword: 'password123',
+		status: 'ready',
 	};
 
 	const testSiteWithDomain: SiteData = {
@@ -46,6 +43,7 @@ describe( 'CLI: studio site start', () => {
 		pmId: 0,
 		pid: 12345,
 		status: 'online',
+		runtime: SITE_RUNTIME_PLAYGROUND,
 	};
 
 	beforeEach( () => {
@@ -56,7 +54,7 @@ describe( 'CLI: studio site start', () => {
 		vi.mocked( disconnectFromDaemon ).mockResolvedValue( undefined );
 		vi.mocked( isServerRunning ).mockResolvedValue( undefined );
 		vi.mocked( setupCustomDomain ).mockResolvedValue( undefined );
-		vi.mocked( keepSqliteIntegrationUpdated ).mockResolvedValue( false );
+		vi.mocked( keepSqliteIntegrationUpdated ).mockResolvedValue( undefined );
 		vi.mocked( startWordPressServer ).mockResolvedValue( testProcessDescription );
 		vi.mocked( updateSiteLatestCliPid ).mockResolvedValue( undefined );
 		vi.mocked( logSiteDetails ).mockImplementation( () => {} );
@@ -72,6 +70,23 @@ describe( 'CLI: studio site start', () => {
 			vi.mocked( getSiteByFolder ).mockRejectedValue( new Error( 'Site not found' ) );
 
 			await expect( runCommand( '/invalid/path' ) ).rejects.toThrow( 'Site not found' );
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
+		} );
+
+		it( 'should refuse to start a site whose pull is still in progress', async () => {
+			vi.mocked( getSiteByFolder ).mockResolvedValue( { ...testSite, status: 'pulling' } );
+
+			await expect( runCommand( '/test/site' ) ).rejects.toThrow( /not ready to start/ );
+			// It bails before touching the server.
+			expect( startWordPressServer ).not.toHaveBeenCalled();
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
+		} );
+
+		it( 'should refuse to start a site whose last pull failed', async () => {
+			vi.mocked( getSiteByFolder ).mockResolvedValue( { ...testSite, status: 'pull-failed' } );
+
+			await expect( runCommand( '/test/site' ) ).rejects.toThrow( /not ready to start/ );
+			expect( startWordPressServer ).not.toHaveBeenCalled();
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
@@ -140,11 +155,6 @@ describe( 'CLI: studio site start', () => {
 			expect( setupCustomDomain ).toHaveBeenCalledWith( testSite, expect.any( Logger ) );
 			expect( keepSqliteIntegrationUpdated ).toHaveBeenCalledWith( '/test/site' );
 			expect( startWordPressServer ).toHaveBeenCalledWith( testSite, expect.any( Logger ) );
-			expect( updateSiteLatestCliPid ).toHaveBeenCalledWith(
-				testSite.id,
-				testProcessDescription.pid
-			);
-			expect( updateSiteAutoStart ).toHaveBeenCalledWith( testSite.id, true );
 			expect( logSiteDetails ).toHaveBeenCalledWith( testSite );
 			expect( openSiteInBrowser ).toHaveBeenCalledWith( testSite );
 			expect( disconnectFromDaemon ).toHaveBeenCalled();

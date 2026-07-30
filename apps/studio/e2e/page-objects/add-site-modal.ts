@@ -1,5 +1,6 @@
 import { type Page } from '@playwright/test';
-import { ACCEPTED_IMPORT_FILE_TYPES } from '@studio/common/constants';
+import { ACCEPTED_ADD_SITE_FILE_TYPES } from '@studio/common/constants';
+import { type SiteRuntime } from '@studio/common/lib/site-runtime';
 import SiteForm from './site-form';
 
 export default class AddSiteModal {
@@ -14,11 +15,11 @@ export default class AddSiteModal {
 	}
 
 	get blueprintButton() {
-		return this.page.locator( 'button:has-text("Start from a Blueprint")' ).first();
+		return this.page.getByTestId( 'create-site-option-button' );
 	}
 
 	get importButton() {
-		return this.page.locator( 'button:has-text("Import from a backup")' ).first();
+		return this.page.getByText( 'Import from a backup' ).first();
 	}
 
 	get continueButton() {
@@ -26,11 +27,13 @@ export default class AddSiteModal {
 	}
 
 	get fileInput() {
-		return this.page.locator( 'input[type="file"][accept=".json,application/json"]' );
+		return this.page.locator(
+			'input[type="file"][accept=".json,.zip,application/json,application/zip"]'
+		);
 	}
 
 	get backupFileInput() {
-		const fileTypes = ACCEPTED_IMPORT_FILE_TYPES.join( ',' );
+		const fileTypes = ACCEPTED_ADD_SITE_FILE_TYPES.join( ',' );
 		return this.page.locator( `input[type="file"][accept="${ fileTypes }"]` );
 	}
 
@@ -52,6 +55,10 @@ export default class AddSiteModal {
 
 	async selectLocalPathForTesting( partialExpectedPath: string ) {
 		await this.siteForm.clickLocalPathButtonAndSelectFromEnv( partialExpectedPath );
+	}
+
+	async selectRuntime( runtime: SiteRuntime ) {
+		await this.siteForm.selectRuntime( runtime );
 	}
 
 	async selectBlueprintFile( filePath: string ) {

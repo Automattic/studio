@@ -1,10 +1,10 @@
-import { EventEmitter } from 'events';
 import * as fs from 'fs';
 import { constants } from 'fs';
 import * as path from 'path';
+import { ImportEvents } from '@studio/common/lib/import-export-events';
 import { __, sprintf } from '@wordpress/i18n';
 import * as fse from 'fs-extra';
-import { ImportEvents } from '../events';
+import { ImportExportEventEmitter } from '../../events';
 import { BackupArchiveInfo } from '../types';
 import { BackupHandler } from './backup-handler-factory';
 
@@ -77,6 +77,12 @@ async function readHeader( fd: fs.promises.FileHandle ): Promise< Header | null 
 	};
 }
 
+function isPathWithinDirectory( filePath: string, directory: string ): boolean {
+	const resolvedFile = path.resolve( filePath );
+	const resolvedDir = path.resolve( directory );
+	return resolvedFile.startsWith( resolvedDir + path.sep ) || resolvedFile === resolvedDir;
+}
+
 /**
  * Reads a block of data from a .wpress file and writes it to a file.
  *
@@ -86,8 +92,23 @@ async function readHeader( fd: fs.promises.FileHandle ): Promise< Header | null 
  */
 async function readBlockToFile( fd: fs.promises.FileHandle, header: Header, outputPath: string ) {
 	const outputFilePath = path.join( outputPath, header.prefix, header.name );
+
+	if ( ! isPathWithinDirectory( outputFilePath, outputPath ) ) {
+		await fd.read( Buffer.alloc( header.size ), 0, header.size, null );
+		return;
+	}
+
 	await fse.ensureDir( path.dirname( outputFilePath ) );
 	const outputStream = fs.createWriteStream( outputFilePath );
+
+	// Resolve once the underlying fd is closed — either after end() flushes or
+	// after an error destroys the stream. Awaiting this before returning prevents
+	// the writeStream's lazy open + flush from racing with synchronous existence
+	// checks in the caller (manifested as a Windows-only test flake; libuv's
+	// worker happens to flush fast enough on Linux/macOS to mask it).
+	const closed = new Promise< void >( ( resolve ) => {
+		outputStream.once( 'close', () => resolve() );
+	} );
 
 	let totalBytesToRead = header.size;
 	let errored = false;
@@ -127,10 +148,11 @@ async function readBlockToFile( fd: fs.promises.FileHandle, header: Header, outp
 		errorHandler();
 	} finally {
 		endStream();
+		await closed;
 	}
 }
 
-export class BackupHandlerWpress extends EventEmitter implements BackupHandler {
+export class BackupHandlerWpress extends ImportExportEventEmitter implements BackupHandler {
 	private bytesRead: number;
 	private eof: Buffer;
 	private totalFiles: number = 0;
@@ -174,7 +196,10 @@ export class BackupHandlerWpress extends EventEmitter implements BackupHandler {
 			do {
 				header = await readHeader( inputFile );
 				if ( header ) {
-					fileNames.push( path.join( header.prefix, header.name ) );
+					const filePath = path.join( header.prefix, header.name );
+					if ( ! filePath.split( path.sep ).includes( '..' ) ) {
+						fileNames.push( filePath );
+					}
 					await inputFile.read( Buffer.alloc( header.size ), 0, header.size, null );
 				}
 			} while ( header );
@@ -208,11 +233,7 @@ export class BackupHandlerWpress extends EventEmitter implements BackupHandler {
 		this.totalFiles = fileNames.length;
 		this.processedFiles = 0;
 
-		this.emit( ImportEvents.BACKUP_EXTRACT_START, {
-			progress: 0,
-			totalFiles: this.totalFiles,
-			processedFiles: 0,
-		} );
+		this.emit( ImportEvents.BACKUP_EXTRACT_START );
 
 		const inputFile = await fs.promises.open( file.path, 'r' );
 

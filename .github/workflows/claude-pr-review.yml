@@ -14,22 +14,61 @@ jobs:
         github.event.pull_request != null ||
         github.event.issue.pull_request != null
       ) &&
-      contains(github.event.comment.body, '@claude')
+      contains(github.event.comment.body, '@claude') &&
+      (
+        github.event.comment.author_association == 'OWNER' ||
+        github.event.comment.author_association == 'MEMBER' ||
+        github.event.comment.author_association == 'COLLABORATOR'
+      )
 
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: write
-      id-token: write
-
+      id-token: write # Required by claude-code-action for GitHub App token exchange.
     steps:
+      # issue_comment payloads identify PR comments, but do not include the PR
+      # head repo. Query the PR before allowing Claude to run on fork PRs.
+      - name: Check PR origin
+        id: pr-origin
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_PULL_REQUEST_URL: ${{ github.event.issue.pull_request.url }}
+          PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "issue_comment" ] && [ -z "$ISSUE_PULL_REQUEST_URL" ]; then
+            echo "is_internal=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          pr_number="${PULL_REQUEST_NUMBER:-$ISSUE_NUMBER}"
+          if ! head_repo="$(gh api "repos/${REPOSITORY}/pulls/${pr_number}" --jq '.head.repo.full_name')"; then
+            echo "Unable to determine PR head repository for #${pr_number}; skipping Claude."
+            echo "is_internal=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "$head_repo" = "$REPOSITORY" ]; then
+            echo "is_internal=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_internal=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping Claude for external PR from ${head_repo:-unknown}."
+          fi
+
       - name: Checkout repository
-        uses: actions/checkout@v6
+        if: steps.pr-origin.outputs.is_internal == 'true'
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 1
+          persist-credentials: false
 
       - name: Comprehensive PR Review
-        uses: anthropics/claude-code-action@v1
+        if: steps.pr-origin.outputs.is_internal == 'true'
+        uses: anthropics/claude-code-action@44423bdec74b97d67543eb16c110546762c110b2 # v1.0.181
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           track_progress: true
@@ -49,7 +88,7 @@ jobs:
             2. **Simplicity** (most common review feedback)
                - Push back on unnecessary abstractions, helpers, or wrappers for one-time operations
                - Flag over-engineering: extra configurability, barrel files, generic solutions when specific ones suffice
-               - Check if `tools/common/lib/` already has what's being written (e.g., `sequential.ts`, `fs-utils.ts`, shared Zod schemas)
+               - Check if `packages/common/lib/` already has what's being written (e.g., `sequential.ts`, `fs-utils.ts`, shared Zod schemas)
                - Flag over-defensive code: excessive try/catch blocks where error handling is disproportionate to risk
                - Ask: "Can this be simpler while still solving the problem?"
 
@@ -62,13 +101,13 @@ jobs:
 
             4. **Naming & Clarity**
                - Names should be specific and self-documenting
-               - Prefer `removeSiteFromConfig` over `remove`, `filterUnsupportedBlueprintFeatures` over `filterFeatures`
+               - Prefer `removeSiteFromConfig` over `remove`, `extractFormValuesFromBlueprint` over `extractValues`
                - Constants should include context: `DEFAULT_SKILLS_REPO_BRANCH` not `DEFAULT_BRANCH`
 
             5. **Type Safety & Schemas**
                - Prefer union types over optionals when data has clear states (e.g., a running process always has a PID)
                - Zod schemas should use `z.literal()` for version fields so parsing fails clearly on mismatches
-               - Don't duplicate schemas — check `tools/common/lib/` for existing definitions
+               - Don't duplicate schemas — check `packages/common/lib/` for existing definitions
                - Avoid `unknown` with type assertions — use proper typing or Zod's `safeParse()`
 
             6. **Error Handling & Logging**
@@ -80,7 +119,7 @@ jobs:
                - Electron: Node integration disabled, context isolation enabled, IPC sender validation in place
                - CSP: no `unsafe-eval` or `unsafe-inline` additions without justification
                - Input validation at system boundaries using Zod schemas (IPC messages, config files, API responses)
-               - No hardcoded secrets or tokens; auth through `tools/common/lib/oauth.ts`
+               - No hardcoded secrets or tokens; auth through `packages/common/lib/oauth.ts`
                - Credentials must not appear in logs or error messages
                - URLs via `shell.openExternal()` must be validated
                - Flag new dependencies that expand attack surface
@@ -94,7 +133,7 @@ jobs:
                - Code should live where it belongs: storage schemas in storage files, security logic in security files
                - IPC handlers must be async, return Promises, and have names in `constants.ts`
                - Renderer cannot access Node.js APIs directly — must use `window.ipcApi.*`
-               - Shared code between CLI and Studio belongs in `tools/common/`, not duplicated
+               - Shared code between CLI and Studio belongs in `packages/common/`, not duplicated
                - Follow module structure: `apps/studio/src/modules/<feature>/` with `components/`, `hooks/`, `lib/`
 
             10. **Cross-Platform Compatibility (macOS & Windows)**
@@ -131,8 +170,7 @@ jobs:
 
             Only provide noteworthy feedback. Keep feedback concise.
             Provide feedback using inline comments for specific issues.
-            Use top-level comments for general observations.
             Do not add positive reinforcement comments.
 
           claude_args: |
-            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr diff:*),Bash(gh pr view:*)"

@@ -20,7 +20,6 @@ describe( 'useBlueprintDeeplink', () => {
 	const mockSetPhpVersion = vi.fn();
 	const mockSetWpVersion = vi.fn();
 	const mockSetBlueprintPreferredVersions = vi.fn();
-	const mockSetBlueprintWarnings = vi.fn();
 	const mockSetBlueprintSuggestedDomain = vi.fn();
 	const mockSetBlueprintSuggestedHttps = vi.fn();
 	const mockSetBlueprintSuggestedSiteName = vi.fn();
@@ -37,7 +36,6 @@ describe( 'useBlueprintDeeplink', () => {
 					setPhpVersion: mockSetPhpVersion,
 					setWpVersion: mockSetWpVersion,
 					setBlueprintPreferredVersions: mockSetBlueprintPreferredVersions,
-					setBlueprintWarnings: mockSetBlueprintWarnings,
 					setBlueprintSuggestedDomain: mockSetBlueprintSuggestedDomain,
 					setBlueprintSuggestedHttps: mockSetBlueprintSuggestedHttps,
 					setBlueprintSuggestedSiteName: mockSetBlueprintSuggestedSiteName,
@@ -85,7 +83,6 @@ describe( 'useBlueprintDeeplink', () => {
 		await act( async () => {
 			await ipcCallback!( createMock< IpcRendererEvent >( {} ), {
 				blueprintPath: '/path/to/blueprint.json',
-				warnings: [],
 			} );
 		} );
 
@@ -98,7 +95,6 @@ describe( 'useBlueprintDeeplink', () => {
 				blueprint: mockBlueprintData,
 			} )
 		);
-		expect( mockSetBlueprintWarnings ).toHaveBeenCalledWith( [] );
 		expect( mockSetIsDeeplinkFlow ).toHaveBeenCalledWith( true );
 	} );
 
@@ -106,7 +102,7 @@ describe( 'useBlueprintDeeplink', () => {
 		const mockBlueprintData = {
 			steps: [],
 			preferredVersions: {
-				php: '8.0',
+				php: '8.2',
 				wp: '6.4',
 			},
 		};
@@ -121,15 +117,14 @@ describe( 'useBlueprintDeeplink', () => {
 		await act( async () => {
 			await ipcCallback!( createMock< IpcRendererEvent >( {} ), {
 				blueprintPath: '/path/to/blueprint.json',
-				warnings: [],
 			} );
 		} );
 
 		expect( mockSetBlueprintPreferredVersions ).toHaveBeenCalledWith( {
-			php: '8.0',
+			php: '8.2',
 			wp: '6.4',
 		} );
-		expect( mockSetPhpVersion ).toHaveBeenCalledWith( '8.0' );
+		expect( mockSetPhpVersion ).toHaveBeenCalledWith( '8.2' );
 		expect( mockSetWpVersion ).toHaveBeenCalledWith( '6.4' );
 	} );
 
@@ -152,7 +147,6 @@ describe( 'useBlueprintDeeplink', () => {
 		await act( async () => {
 			await ipcCallback!( createMock< IpcRendererEvent >( {} ), {
 				blueprintPath: '/path/to/blueprint.json',
-				warnings: [],
 			} );
 		} );
 
@@ -179,7 +173,6 @@ describe( 'useBlueprintDeeplink', () => {
 		await act( async () => {
 			await ipcCallback!( createMock< IpcRendererEvent >( {} ), {
 				blueprintPath: '/path/to/blueprint.json',
-				warnings: [],
 			} );
 		} );
 
@@ -202,7 +195,6 @@ describe( 'useBlueprintDeeplink', () => {
 		await act( async () => {
 			await ipcCallback!( createMock< IpcRendererEvent >( {} ), {
 				blueprintPath: '/path/to/blueprint.json',
-				warnings: [],
 			} );
 		} );
 
@@ -225,7 +217,6 @@ describe( 'useBlueprintDeeplink', () => {
 		await act( async () => {
 			await ipcCallback!( createMock< IpcRendererEvent >( {} ), {
 				blueprintPath: '/path/to/blueprint.json',
-				warnings: [],
 			} );
 		} );
 
@@ -248,7 +239,6 @@ describe( 'useBlueprintDeeplink', () => {
 		await act( async () => {
 			await ipcCallback!( createMock< IpcRendererEvent >( {} ), {
 				blueprintPath: '/path/to/blueprint.json',
-				warnings: [],
 			} );
 		} );
 
@@ -266,7 +256,6 @@ describe( 'useBlueprintDeeplink', () => {
 		await act( async () => {
 			await ipcCallback!( createMock< IpcRendererEvent >( {} ), {
 				blueprintPath: '/path/to/blueprint.json',
-				warnings: [],
 			} );
 		} );
 

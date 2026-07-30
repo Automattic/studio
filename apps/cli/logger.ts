@@ -1,8 +1,9 @@
-import ora, { Ora } from 'ora';
+import 'cli/lib/picospinner-stderr-patch';
+import { Spinner } from 'picospinner';
 
 const isIpcMode = Boolean( process.send );
 
-type ProgressCallback = ( message: string ) => void;
+type ProgressCallback = ( message: string, update?: boolean ) => void;
 let progressCallback: ProgressCallback | null = null;
 
 export function setProgressCallback( callback: ProgressCallback | null ): void {
@@ -45,11 +46,11 @@ export class LoggerError extends Error {
 }
 
 export class Logger< T extends string > {
-	public spinner: Ora;
+	public spinner: Spinner;
 	private currentAction: T | 'keyValuePair' | null = null;
 
 	constructor() {
-		this.spinner = ora();
+		this.spinner = new Spinner();
 	}
 
 	public reportStart( action: T, message: string ) {
@@ -57,43 +58,38 @@ export class Logger< T extends string > {
 
 		if ( canSend() ) {
 			process.send!( { action, status: 'inprogress', message } );
-			return;
+		} else if ( progressCallback ) {
+			progressCallback( message );
+		} else {
+			this.spinner.setText( message );
+			if ( ! this.spinner.running ) {
+				this.spinner.start();
+			}
 		}
-		if ( progressCallback ) {
-			progressCallback!( message );
-			return;
-		}
-		this.spinner.start( message );
 	}
 
 	public reportProgress( message: string ) {
 		if ( canSend() ) {
 			process.send!( { action: this.currentAction, status: 'inprogress', message } );
-			return;
-		}
-
-		if ( progressCallback ) {
-			progressCallback!( message );
-			return;
-		}
-
-		// Update the spinner text and force render
-		this.spinner.text = message;
-		if ( ! this.spinner.isSpinning ) {
-			this.spinner.start( message );
+		} else if ( progressCallback ) {
+			progressCallback( message, true );
 		} else {
-			this.spinner.render();
+			if ( ! this.spinner.running ) {
+				this.spinner.start();
+			}
+			this.spinner.setText( message );
 		}
 	}
 
-	public reportSuccess( message: string, shouldClearSpinner = false ) {
+	public reportSuccess( message: string ) {
 		if ( canSend() ) {
 			process.send!( { action: this.currentAction, status: 'success', message } );
 		} else if ( progressCallback ) {
-			progressCallback!( message );
-		} else if ( shouldClearSpinner ) {
-			this.spinner.clear();
+			progressCallback( message );
 		} else {
+			if ( ! this.spinner.running ) {
+				this.spinner.start();
+			}
 			this.spinner.succeed( message );
 		}
 
@@ -103,13 +99,14 @@ export class Logger< T extends string > {
 	public reportWarning( message: string ) {
 		if ( canSend() ) {
 			process.send!( { action: this.currentAction, status: 'warning', message } );
-			return;
+		} else if ( progressCallback ) {
+			progressCallback( message );
+		} else {
+			if ( ! this.spinner.running ) {
+				this.spinner.start();
+			}
+			this.spinner.warn( message );
 		}
-		if ( progressCallback ) {
-			progressCallback!( message );
-			return;
-		}
-		this.spinner.warn( message );
 	}
 
 	public reportError( error: LoggerError, isFatal = true ) {
@@ -120,8 +117,11 @@ export class Logger< T extends string > {
 		if ( canSend() ) {
 			process.send!( { action: this.currentAction, status: 'fail', message: error.message } );
 		} else if ( progressCallback ) {
-			progressCallback!( error.message );
+			progressCallback( error.message );
 		} else {
+			if ( ! this.spinner.running ) {
+				this.spinner.start();
+			}
 			this.spinner.fail( error.message );
 		}
 

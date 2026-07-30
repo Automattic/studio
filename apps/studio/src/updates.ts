@@ -1,9 +1,13 @@
-import { app, autoUpdater, dialog } from 'electron';
+import { app, autoUpdater, clipboard, dialog } from 'electron';
 import * as Sentry from '@sentry/electron/main';
 import { sprintf, __ } from '@wordpress/i18n';
-import { AUTO_UPDATE_INTERVAL_MS } from 'src/constants';
+import { AUTO_UPDATE_INTERVAL_MS, NIGHTLY_UPDATE_TTL_MS } from 'src/constants';
+import { sendIpcEventToRenderer, type AppUpdateStatus } from 'src/ipc-utils';
+import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { isDevRelease } from 'src/lib/version-utils';
 import { getMainWindow } from 'src/main-window';
+import { loadUserData, updateAppdata } from 'src/storage/user-data';
+import type { IpcMainInvokeEvent } from 'electron';
 
 type UpdpaterState =
 	| 'init'
@@ -14,16 +18,45 @@ type UpdpaterState =
 	| 'waiting-for-restart'; // download is complete, app will update after restart
 
 let updaterState: UpdpaterState = 'init';
+let downloadedVersion: string | null = null;
 
 let timeout: NodeJS.Timeout | null = null;
 
 let showManualCheckDialogs = false;
 
-const shouldPoll =
-	process.env.NODE_ENV === 'production' && app.isPackaged && ! isDevRelease( app.getVersion() );
+const shouldPoll = process.env.NODE_ENV === 'production' && app.isPackaged;
+
+const STUDIO_UPDATES_ENDPOINT = 'https://public-api.wordpress.com/wpcom/v2/studio-app/updates';
+
+function buildUpdateFeedUrl( { channel }: { channel?: 'nightly' } = {} ): string {
+	const url = new URL( STUDIO_UPDATES_ENDPOINT );
+	url.searchParams.append( 'platform', process.platform );
+	url.searchParams.append( 'studioArch', process.arch );
+	url.searchParams.append( 'version', app.getVersion() );
+	if ( channel ) {
+		url.searchParams.append( 'channel', channel );
+	}
+	return url.toString();
+}
 
 export function getAutoUpdaterState() {
 	return updaterState;
+}
+
+/**
+ * Switches the autoUpdater feed to the nightly channel and immediately checks for an update.
+ * On Linux, triggers a nightly poll directly since Electron's autoUpdater is not available.
+ */
+export function switchToNightlyAndUpdate(): void {
+	if ( process.platform === 'linux' ) {
+		console.log( 'Switching to nightly channel and polling for update (Linux)' );
+		void pollLinuxUpdates( { channel: 'nightly' } );
+		return;
+	}
+	const feedUrl = buildUpdateFeedUrl( { channel: 'nightly' } );
+	console.log( `Switching to nightly channel and checking for update: ${ feedUrl }` );
+	autoUpdater.setFeedURL( { url: feedUrl } );
+	autoUpdater.checkForUpdates();
 }
 
 export function setupUpdates() {
@@ -33,12 +66,15 @@ export function setupUpdates() {
 		return;
 	}
 
-	const url = new URL( 'https://public-api.wordpress.com/wpcom/v2/studio-app/updates' );
-	url.searchParams.append( 'platform', process.platform );
-	url.searchParams.append( 'studioArch', process.arch );
-	url.searchParams.append( 'version', app.getVersion() );
+	if ( process.platform === 'linux' ) {
+		// Electron's built-in autoUpdater is macOS/Windows only. On Linux we
+		// poll the same WPCOM endpoint ourselves and show a dialog pointing
+		// the user at the .deb to install manually.
+		setupLinuxUpdates();
+		return;
+	}
 
-	autoUpdater.setFeedURL( { url: url.toString() } );
+	autoUpdater.setFeedURL( { url: buildUpdateFeedUrl() } );
 
 	autoUpdater.on( 'checking-for-update', () => {
 		updaterState = 'checking-for-update';
@@ -47,6 +83,10 @@ export function setupUpdates() {
 	autoUpdater.on( 'update-available', async () => {
 		console.log( 'Update available' );
 		updaterState = 'downloading';
+
+		if ( isDevRelease( app.getVersion() ) ) {
+			await updateAppdata( { lastNightlyUpdateCheck: Date.now() } );
+		}
 
 		if ( showManualCheckDialogs ) {
 			await showUpdateAvailableNotice();
@@ -61,6 +101,10 @@ export function setupUpdates() {
 		if ( ! shouldPoll ) {
 			updaterState = 'done';
 			return;
+		}
+
+		if ( isDevRelease( app.getVersion() ) ) {
+			await updateAppdata( { lastNightlyUpdateCheck: Date.now() } );
 		}
 
 		queueUpdateCheck();
@@ -91,9 +135,11 @@ export function setupUpdates() {
 		console.log( 'Update available' );
 	} );
 
-	autoUpdater.on( 'update-downloaded', async () => {
+	autoUpdater.on( 'update-downloaded', async ( _event, releaseNotes, releaseName ) => {
 		updaterState = 'waiting-for-restart';
-		console.log( 'Update has been downloaded' );
+		downloadedVersion = typeof releaseName === 'string' ? releaseName : null;
+		console.log( 'Update has been downloaded', { version: downloadedVersion } );
+		void sendIpcEventToRenderer( 'app-update-status', buildAppUpdateStatus() );
 		await showUpdateReadyToInstallNotice();
 	} );
 
@@ -103,6 +149,31 @@ export function setupUpdates() {
 			isPackaged: app.isPackaged,
 			version: app.getVersion(),
 		} );
+		return;
+	}
+
+	if ( isDevRelease( app.getVersion() ) ) {
+		// For nightly builds, respect a 24-hour TTL to avoid checking on every launch.
+		// If the TTL hasn't elapsed, schedule the next check for the remaining time.
+		void ( async () => {
+			const userData = await loadUserData();
+			const lastCheck = userData.lastNightlyUpdateCheck ?? 0;
+			const elapsed = Date.now() - lastCheck;
+			if ( elapsed < NIGHTLY_UPDATE_TTL_MS ) {
+				const remaining = NIGHTLY_UPDATE_TTL_MS - elapsed;
+				console.log(
+					`Nightly update check skipped, next check in ${ Math.round( remaining / 60000 ) } minutes`
+				);
+				updaterState = 'polling';
+				timeout = setTimeout( () => {
+					console.log( `Automatically checking for nightly update: ${ autoUpdater.getFeedURL() }` );
+					autoUpdater.checkForUpdates();
+				}, remaining );
+				return;
+			}
+			console.log( `Checking for nightly update on app launch: ${ autoUpdater.getFeedURL() }` );
+			autoUpdater.checkForUpdates();
+		} )();
 		return;
 	}
 
@@ -134,6 +205,16 @@ export async function manualCheckForUpdates() {
 	// update, so we re-use the same event handlers for manual checks. This boolean signals
 	// to the event handler that it should show a dialog.
 	showManualCheckDialogs = true;
+
+	if ( process.platform === 'linux' ) {
+		if ( updaterState === 'checking-for-update' ) {
+			console.log( 'Manually polling for Linux update, but a check is already in progress' );
+			return;
+		}
+		console.log( 'Manually polling for Linux update' );
+		void pollLinuxUpdates();
+		return;
+	}
 
 	if ( updaterState === 'checking-for-update' ) {
 		console.log( 'Manually checking for update, but discovered an check is already in progress' );
@@ -202,6 +283,129 @@ async function showUpdateReadyToInstallNotice() {
 	}
 }
 
+function setupLinuxUpdates() {
+	if ( ! shouldPoll ) {
+		console.log( 'Skipping Linux update checks', {
+			env: process.env.NODE_ENV,
+			isPackaged: app.isPackaged,
+			version: app.getVersion(),
+		} );
+		return;
+	}
+
+	console.log( 'Polling for Linux update on app launch' );
+	void pollLinuxUpdates();
+}
+
+async function pollLinuxUpdates( { channel }: { channel?: 'nightly' } = {} ) {
+	updaterState = 'checking-for-update';
+
+	try {
+		const response = await fetch( buildUpdateFeedUrl( { channel } ) );
+
+		if ( response.status === 204 ) {
+			if ( showManualCheckDialogs ) {
+				await showUpdateUnavailableNotice();
+			}
+			return;
+		}
+
+		if ( response.status === 404 ) {
+			Sentry.captureException(
+				new Error( `Linux updates endpoint returned 404 (arch=${ process.arch })` )
+			);
+			return;
+		}
+
+		if ( ! response.ok ) {
+			Sentry.captureException(
+				new Error( `Linux updates endpoint returned HTTP ${ response.status }` )
+			);
+			return;
+		}
+
+		const data = ( await response.json() ) as { version?: string; downloadUrl?: string };
+
+		if ( ! data?.version || ! data?.downloadUrl ) {
+			Sentry.captureException( new Error( 'Linux updates endpoint returned malformed response' ) );
+			return;
+		}
+
+		await showLinuxUpdateAvailableNotice( data.version, data.downloadUrl );
+	} catch ( err ) {
+		console.error( err );
+		Sentry.captureException( err );
+	} finally {
+		showManualCheckDialogs = false;
+		rescheduleLinuxOrFinish();
+	}
+}
+
+function rescheduleLinuxOrFinish() {
+	if ( ! shouldPoll ) {
+		updaterState = 'done';
+		return;
+	}
+	updaterState = 'polling';
+	timeout = setTimeout( () => {
+		console.log( 'Automatically polling for Linux update' );
+		void pollLinuxUpdates();
+	}, AUTO_UPDATE_INTERVAL_MS );
+}
+
+async function showLinuxUpdateAvailableNotice( version: string, downloadUrl: string ) {
+	const mainWindow = await getMainWindow();
+
+	const command = `sudo apt install ~/Downloads/${ debFilenameFromUrl( downloadUrl ) }`;
+	const actionDescription = __(
+		'Clicking the button below will download the new package and copy the install command to your clipboard.'
+	);
+	const followUpInstruction = __(
+		'Once the download finishes, quit Studio, open a terminal, and paste the command to install:'
+	);
+
+	const { response } = await dialog.showMessageBox( mainWindow, {
+		type: 'info',
+		buttons: [ __( 'Download & copy command' ), __( 'Later' ) ],
+		title: __( 'New Version Available' ),
+		// translators: %s is the version number, e.g. "1.9.0".
+		message: sprintf( __( 'Studio %s is available' ), version ),
+		detail: `${ actionDescription }\n\n${ followUpInstruction }\n\n${ command }`,
+		defaultId: 0,
+		cancelId: 1,
+	} );
+
+	if ( response !== 0 ) {
+		return;
+	}
+
+	try {
+		const parsedUrl = new URL( downloadUrl );
+		if ( ! [ 'http:', 'https:' ].includes( parsedUrl.protocol ) ) {
+			Sentry.captureException(
+				new Error( `Unexpected protocol in downloadUrl: ${ parsedUrl.protocol }` )
+			);
+			return;
+		}
+		clipboard.writeText( command );
+		void shellOpenExternalWrapper( parsedUrl.toString() );
+	} catch {
+		Sentry.captureException( new Error( `Malformed downloadUrl: ${ downloadUrl }` ) );
+	}
+}
+
+function debFilenameFromUrl( downloadUrl: string ): string {
+	try {
+		const filename = new URL( downloadUrl ).pathname.split( '/' ).pop() ?? '';
+		if ( /^[A-Za-z0-9._~+-]+\.deb$/.test( filename ) ) {
+			return filename;
+		}
+	} catch {
+		// ignore
+	}
+	return 'studio.deb';
+}
+
 function isAppRunningFromDMG(): boolean {
 	if ( process.platform !== 'darwin' ) {
 		return false;
@@ -243,4 +447,21 @@ async function showReadOnlyVolumeError( err: Error ) {
 		message: __( 'Error updating Studio' ),
 		detail: `${ detailMessage }\n\n${ detailPath }`,
 	} );
+}
+
+function buildAppUpdateStatus(): AppUpdateStatus {
+	return {
+		readyToInstall: updaterState === 'waiting-for-restart',
+		version: downloadedVersion,
+	};
+}
+
+export async function getAppUpdateStatus( _event: IpcMainInvokeEvent ): Promise< AppUpdateStatus > {
+	return buildAppUpdateStatus();
+}
+
+export async function installAppUpdate( _event: IpcMainInvokeEvent ): Promise< void > {
+	if ( updaterState === 'waiting-for-restart' ) {
+		autoUpdater.quitAndInstall();
+	}
 }

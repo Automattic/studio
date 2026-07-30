@@ -28,9 +28,13 @@ if ($Architecture -notin $VALID_ARCHITECTURES) {
     Exit 1
 }
 
-# setup_windows_code_signing.ps1 comes from CI Toolkit Plugin
-& "setup_windows_code_signing.ps1"
-If ($LastExitCode -ne 0) { Exit $LastExitCode }
+$signWindows = "$($env:SIGN_WINDOWS_BUILD)".Trim().ToLower()
+If (@('1', 'true') -contains $signWindows) {
+    Write-Host "--- :lock: Setting up Azure Trusted Signing"
+    $setupScript = (Get-Command setup_azure_trusted_signing.ps1 -ErrorAction Stop).Source
+    & $setupScript
+    If ($LastExitCode -ne 0) { Exit $LastExitCode }
+}
 
 Write-Host "--- :npm: Installing Node dependencies"
 bash .buildkite/commands/install-node-dependencies.sh
@@ -62,4 +66,8 @@ If ($LastExitCode -ne 0) { Exit $LastExitCode }
 
 Write-Host "--- :package: Building AppX package"
 node scripts/package-appx.mjs
+If ($LastExitCode -ne 0) { Exit $LastExitCode }
+
+Write-Host "--- :package: Building standalone CLI bundle"
+npm run cli:bundle -- win32 $Architecture
 If ($LastExitCode -ne 0) { Exit $LastExitCode }

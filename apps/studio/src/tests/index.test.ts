@@ -26,6 +26,7 @@ vi.mock( import( 'src/lib/bump-stats' ), async ( importOriginal ) => {
 		bumpAggregatedUniqueStat: vi.fn().mockResolvedValue( undefined ),
 	};
 } );
+vi.mock( 'src/lib/user-data-watcher' );
 vi.mock( 'src/setup-wp-server-files', () => ( {
 	setupWPServerFiles: vi.fn().mockResolvedValue( undefined ),
 	updateWPServerFiles: vi.fn().mockResolvedValue( undefined ),
@@ -60,6 +61,20 @@ vi.mock( 'src/modules/cli/lib/execute-command', () => {
 vi.mock( 'src/modules/cli/lib/windows-installation-manager', () => ( {
 	autoInstallWindowsCliIfNeeded: vi.fn().mockResolvedValue( undefined ),
 } ) );
+vi.mock( 'src/modules/cli/lib/macos-installation-manager', () => ( {
+	autoInstallMacOSCliIfNeeded: vi.fn().mockResolvedValue( undefined ),
+} ) );
+vi.mock( 'src/modules/cli/lib/linux-installation-manager', () => ( {
+	autoInstallLinuxCliIfNeeded: vi.fn().mockResolvedValue( undefined ),
+} ) );
+vi.mock( 'src/modules/remote-session/daemon-status-poller', () => ( {
+	// Started during `appBoot()`; its initial tick calls `sendIpcEventToRenderer`,
+	// which races the partial `getMainWindow()` mock used in these tests. The
+	// poller itself is covered by its own unit-test file, so stubbing it here
+	// keeps this suite focused on app-boot bookkeeping.
+	startRemoteSessionStatusPolling: vi.fn().mockReturnValue( () => undefined ),
+} ) );
+vi.mock( 'electron-squirrel-startup', () => ( { default: false } ) );
 vi.mock( 'electron-devtools-installer', () => ( {
 	installExtension: vi.fn().mockResolvedValue( { id: 'test-extension' } ),
 	REACT_DEVELOPER_TOOLS: { id: 'fmkadmapgofadopljbjfkapdkoienihi' },
@@ -72,6 +87,11 @@ const mockWatcher = {
 	close: vi.fn(),
 };
 vi.mocked( fs.watch, { partial: true } ).mockReturnValue( mockWatcher );
+
+type OnBeforeSendHeadersListener = (
+	details: { requestHeaders: Record< string, string > },
+	callback: ( response: { requestHeaders: Record< string, string > } ) => void
+) => void;
 
 function mockElectron() {
 	const mockedEvents: Record< string, ( ...args: any[] ) => Promise< void > > = {};
@@ -120,6 +140,7 @@ function mockElectron() {
 					},
 					setPermissionRequestHandler: vi.fn(),
 					webRequest: {
+						onBeforeSendHeaders: vi.fn(),
 						onHeadersReceived: vi.fn(),
 					},
 				},
@@ -169,6 +190,48 @@ describe( 'App initialization', () => {
 		await expect( import( '../index' ) ).resolves.toBeDefined();
 	} );
 
+	it( 'should identify YouTube embed requests with the Studio referrer', async () => {
+		const { mockedEvents } = mockElectron();
+		vi.resetModules();
+		const { session } = await import( 'electron' );
+		await import( '../index' );
+
+		await mockedEvents.ready();
+		const onBeforeSendHeaders = session.defaultSession.webRequest
+			.onBeforeSendHeaders as unknown as ReturnType< typeof vi.fn >;
+
+		expect( onBeforeSendHeaders ).toHaveBeenCalledWith(
+			{
+				urls: [
+					'https://*.youtube.com/embed/*',
+					'https://youtube.com/embed/*',
+					'https://*.youtube-nocookie.com/embed/*',
+					'https://youtube-nocookie.com/embed/*',
+				],
+			},
+			expect.any( Function )
+		);
+
+		const listener = onBeforeSendHeaders.mock.calls[ 0 ][ 1 ] as OnBeforeSendHeadersListener;
+		const callback = vi.fn();
+		listener(
+			{
+				requestHeaders: {
+					Accept: 'text/html',
+					referer: 'http://localhost:5173/',
+				},
+			},
+			callback
+		);
+
+		expect( callback ).toHaveBeenCalledWith( {
+			requestHeaders: {
+				Accept: 'text/html',
+				Referer: 'https://developer.wordpress.com/studio/',
+			},
+		} );
+	} );
+
 	it( 'should handle authentication deep links', async () => {
 		const originalProcessPlatform = process.platform;
 		Object.defineProperty( process, 'platform', { value: 'darwin' } );
@@ -203,6 +266,49 @@ describe( 'App initialization', () => {
 		expect( createMainWindow ).toHaveBeenCalled();
 
 		await mockedEvents[ 'will-quit' ]( { preventDefault: vi.fn() } );
+	} );
+
+	it( 'should show the quit-sites dialog with keep-running choices', async () => {
+		vi.doMock( 'src/site-server', () => ( {
+			getRunningSiteCount: vi.fn().mockReturnValue( 1 ),
+			persistAutoStartForRunningSites: vi.fn().mockResolvedValue( undefined ),
+			SiteServer: {
+				fetchAll: vi.fn().mockResolvedValue( undefined ),
+			},
+			stopAllServers: vi.fn().mockResolvedValue( undefined ),
+		} ) );
+		const { mockedEvents } = mockElectron();
+
+		vi.resetModules();
+		await import( '../index' );
+		const { app, dialog } = await import( 'electron' );
+		const { persistAutoStartForRunningSites } = await import( 'src/site-server' );
+		vi.mocked( dialog.showMessageBox ).mockResolvedValue( {
+			response: 0,
+			checkboxChecked: true,
+		} );
+		const event = { preventDefault: vi.fn() };
+
+		void mockedEvents[ 'before-quit' ]( event );
+
+		await vi.waitFor( () => {
+			expect( dialog.showMessageBox ).toHaveBeenCalledWith( {
+				type: 'question',
+				message: 'Keep the site running?',
+				detail: 'Your site can stay available in the background after Studio quits.',
+				buttons: [ 'Stop site', 'Keep site running', 'Cancel' ],
+				checkboxLabel: 'Remember my choice',
+				cancelId: 2,
+				defaultId: 0,
+			} );
+			expect( app.quit ).toHaveBeenCalled();
+		} );
+		expect( event.preventDefault ).toHaveBeenCalled();
+
+		// "Stop site" must stop and stay stopped, so autoStart is cleared rather than preserved.
+		const willQuitEvent = { preventDefault: vi.fn() };
+		await mockedEvents[ 'will-quit' ]( willQuitEvent );
+		expect( vi.mocked( persistAutoStartForRunningSites ) ).toHaveBeenCalledWith( false );
 	} );
 
 	it( 'should wait app initialization before creating main window via second-instance event', async () => {

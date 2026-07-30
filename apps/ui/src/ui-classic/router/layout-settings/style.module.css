@@ -1,0 +1,19 @@
+/* Opaque overlay portaled to <body>, painted over the still-mounted dashboard.
+   No layout reflow or animation — settings just appears on top.
+
+   z-index sits above the dashboard chrome (the sidebar layout isolates its own
+   stacking context, and the floating toggle tops out at z-index 30) but below
+   the popups the settings view itself relies on — menus (100), dialogs (700),
+   selects (750), tooltips (800) — so those still open on top of settings. */
+.root {
+	position: fixed;
+	inset: 0;
+	z-index: 90;
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+	background: var(--wpds-color-bg-surface-neutral);
+	/* Own stacking context so the settings content and the drag edges keep a
+	   predictable paint order. */
+	isolation: isolate;
+}

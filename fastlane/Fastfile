@@ -5,7 +5,11 @@ fastlane_require 'zip'
 fastlane_require 'aws-sdk-cloudfront'
 fastlane_require 'json'
 fastlane_require 'net/http'
+fastlane_require 'octokit'
 fastlane_require 'uri'
+
+require_relative 'lib/studio_release_git'
+require_relative 'lib/studio_release_version'
 
 UI.user_error!('Please run fastlane via `bundle exec`') unless FastlaneCore::Helper.bundler?
 
@@ -13,14 +17,14 @@ UI.user_error!('Please run fastlane via `bundle exec`') unless FastlaneCore::Hel
 # Constants and Environment Variables
 ########################################################################
 PROJECT_ROOT_FOLDER = File.dirname(File.expand_path(__dir__))
-SECRETS_FOLDER = File.join(Dir.home, '.configure', 'studio', 'secrets')
 BUILDS_FOLDER = File.join(PROJECT_ROOT_FOLDER, 'apps', 'studio', 'out')
+PHP_CLI_BUILDS_FOLDER = File.join(PROJECT_ROOT_FOLDER, 'out', 'php-binaries')
+# Standalone Studio CLI bundles (studio-cli-<platform>-<arch>.tgz) from `npm run cli:bundle`
+STANDALONE_BUNDLES_FOLDER = File.join(PROJECT_ROOT_FOLDER, 'standalone-bundles')
 
 # Enable dry run mode through environment variable
 DRY_RUN = ENV['DRY_RUN'] == 'true'
 
-# Make sure the WPCOM API token is set
-UI.user_error!('Environment variable WPCOM_API_TOKEN is not set') if ENV['WPCOM_API_TOKEN'].nil? && !DRY_RUN
 UI.message("Running in #{DRY_RUN ? 'DRY RUN' : 'NORMAL'} mode")
 
 # Path to the Studio app's package.json (monorepo workspace)
@@ -31,14 +35,15 @@ POT_FILE_PATH = File.join(PROJECT_ROOT_FOLDER, 'i18n', 'bundle-strings.pot')
 
 # GlotPress project URL and output directory for Studio UI translations (Jed 1.x JSON)
 GLOTPRESS_PROJECT_URL = 'https://translate.wordpress.com/projects/studio'
-TRANSLATIONS_DIR = File.join(PROJECT_ROOT_FOLDER, 'tools', 'common', 'translations')
+TRANSLATIONS_DIR = File.join(PROJECT_ROOT_FOLDER, 'packages', 'common', 'translations')
 
 APPLE_TEAM_ID = 'PZYM8XX95Q'
 APPLE_BUNDLE_IDENTIFIER = 'com.automattic.studio'
-APPLE_API_KEY_PATH = File.join(SECRETS_FOLDER, 'app_store_connect_fastlane_api_key.json')
 
 # Site ID for WordPress.com Studio in the Apps CDN
 WPCOM_STUDIO_SITE_ID = '239164481'
+WPCOM_STUDIO_PHP_CLI_PRODUCT = 'WordPress.com Studio PHP CLI'
+WPCOM_STUDIO_CLI_PRODUCT = 'WordPress.com Studio CLI'
 
 GITHUB_REPO = 'Automattic/studio'
 MAIN_BRANCH = 'trunk'
@@ -57,7 +62,7 @@ before_all do |_lane|
 end
 
 desc 'Download the development signing certificates to this machine'
-lane :set_up_signing do |_options|
+lane :set_up_signing do |readonly: true|
   sync_code_signing(
     platform: 'macos',
     app_identifier: APPLE_BUNDLE_IDENTIFIER,
@@ -65,8 +70,8 @@ lane :set_up_signing do |_options|
     type: 'developer_id',
     storage_mode: 's3',
     s3_bucket: 'a8c-fastlane-match',
-    api_key_path: APPLE_API_KEY_PATH,
-    readonly: true
+    readonly: readonly,
+    api_key: readonly ? nil : app_store_connect_api_key
   )
 end
 
@@ -75,7 +80,7 @@ lane :notarize_binary do
   Dir[File.join(BUILDS_FOLDER, '**', 'Studio.app')].each do |path|
     notarize(
       package: path,
-      api_key_path: APPLE_API_KEY_PATH,
+      api_key: app_store_connect_api_key,
       print_log: true
     )
   end
@@ -84,7 +89,7 @@ lane :notarize_binary do
     notarize(
       bundle_id: APPLE_BUNDLE_IDENTIFIER,
       package: path,
-      api_key_path: APPLE_API_KEY_PATH,
+      api_key: app_store_connect_api_key,
       print_log: true
     )
   end
@@ -103,7 +108,7 @@ lane :generate_pot_file do |commit_message: nil, skip_confirm: false|
   sh('mkdir', '-p', File.dirname(POT_FILE_PATH))
   sh(
     'npx', 'wp-babel-makepot',
-    "#{PROJECT_ROOT_FOLDER}/{apps/studio/src,apps/cli,tools/common}/**/*.{js,jsx,ts,tsx}",
+    "#{PROJECT_ROOT_FOLDER}/{apps/studio/src,apps/cli,apps/ui/src,packages/common}/**/*.{js,jsx,ts,tsx}",
     '--ignore', "#{PROJECT_ROOT_FOLDER}/apps/cli/node_modules/**/*,**/*.d.ts",
     '--base', PROJECT_ROOT_FOLDER,
     '--dir', pot_dir,
@@ -121,7 +126,7 @@ lane :generate_pot_file do |commit_message: nil, skip_confirm: false|
 end
 
 desc 'Ship the binary to internal testers'
-lane :distribute_dev_build do |_options|
+lane :distribute_dev_build do
   distribute_builds
 end
 
@@ -141,7 +146,7 @@ lane :distribute_release_build do |version: read_package_json_version|
 
   # Create the tag or draft GitHub release only after the build succeeds.
   # This avoids orphan tags or draft releases if the build fails.
-  if version.include?('beta')
+  if StudioReleaseVersion.prerelease?(version)
     add_git_tag(tag: release_tag)
     push_git_tags(tag: release_tag)
 
@@ -155,13 +160,164 @@ lane :distribute_release_build do |version: read_package_json_version|
     username: 'CI Bot',
     icon_url: 'https://octodex.github.com/images/jenktocat.jpg',
     message: ":tada: #{release_tag} is now available! :tada:",
-    channel: '#dotcom-studio',
+    channel: '#studio',
     success: true,
     slack_url: get_required_env('SLACK_WEBHOOK'),
     payload: {
-      ':studio-app-icon-mac: Release available for': builds.each_value.map { |b| "[#{b[:name]}](#{b[:cdn_url]})" }.join(', ')
+      # Link only the installers users download: "Full Install" builds plus the Linux .debs
+      # (tagged "Update" but the sole Linux installer). Skip the Mac/Windows "Update" payloads,
+      # and the unsigned Appx builds (grabbed from Buildkite for the Microsoft Store publish).
+      ':studio-app-icon-mac: Release available for': builds.each_value
+        .reject { |b| b[:install_type] == 'Update' && !b[:platform].to_s.start_with?('Linux') }
+        .reject { |b| b[:platform].to_s.start_with?('Microsoft Store') }
+        .map { |b| "[#{b[:name]}](#{b[:cdn_url]})" }.join(', ')
     },
     default_payloads: []
+  )
+end
+
+# Prepare a standalone wp-studio npm release: bump version on a release branch and open a PR.
+#
+# Use this lane (followed by {publish_npm_package}) when you want to publish a new `wp-studio`
+# version to npm independently of the regular Studio app release flow — for example, to ship a
+# CLI-only patch. Both `studio-app` and `wp-studio` packages are bumped to keep them in lockstep
+# (the app pins `wp-studio` exactly).
+#
+# This lane:
+# - Creates a `npm-release/<version>` branch from `trunk`
+# - Bumps `apps/studio/package.json` and `apps/cli/package.json` to <version>
+# - Commits, pushes, and opens a PR against `trunk`
+#
+# After the PR is reviewed and merged, run {publish_npm_package} to tag the version-bump commit
+# and trigger the GitHub Actions workflow that publishes to npm.
+#
+# @param version [String, nil] The release version (e.g., '1.7.4' or '1.7.4-beta1'). When omitted,
+#   defaults to the next patch version after `trunk`'s current version (any `-betaN` suffix is
+#   stripped before bumping). Beta versions must always be passed explicitly.
+# @param skip_confirm [Boolean] Skip interactive confirmation prompts (default: false)
+#
+lane :prepare_npm_release do |version: nil, skip_confirm: false|
+  fetch_main_branch
+  main_branch_version = read_main_branch_package_json_version
+  version ||= StudioReleaseVersion.next_patch_version!(main_branch_version)
+  validate_npm_release_version!(version)
+
+  branch_name = "npm-release/#{version}"
+  release_tag = "v#{version}"
+
+  if git_tag_exists(tag: release_tag, remote: true, remote_name: 'origin')
+    UI.user_error!("Tag #{release_tag} already exists on the remote — pick a different version.")
+  end
+
+  UI.important <<~PROMPT
+    Preparing wp-studio npm release #{version} (`#{MAIN_BRANCH}` is on #{main_branch_version}). This will:
+    - Create branch `#{branch_name}` from `#{MAIN_BRANCH}`
+    - Bump `studio-app` and `wp-studio` packages to #{version}
+    - Commit, push, and open a PR against `#{MAIN_BRANCH}`
+
+    After the PR is reviewed and merged, run:
+      bundle exec fastlane publish_npm_package version:"#{version}"
+  PROMPT
+  next unless skip_confirm || UI.confirm('Continue?')
+
+  Fastlane::Helper::GitHelper.checkout_and_pull(MAIN_BRANCH)
+  Fastlane::Helper::GitHelper.create_branch(branch_name)
+
+  bump_version_commit_and_push(version: version, set_upstream: true)
+
+  pr_url = create_npm_release_pr(version: version, branch: branch_name)
+
+  UI.success("Prepared npm release #{version}")
+  UI.important <<~NEXT
+    Next steps:
+    1. Get the PR reviewed and merged: #{pr_url || branch_name}
+    2. Run: bundle exec fastlane publish_npm_package version:"#{version}"
+  NEXT
+end
+
+# Publish wp-studio to npm by tagging the version-bump commit and triggering the GitHub Actions
+# workflow.
+#
+# Run this after the {prepare_npm_release} PR has merged into `trunk`. The lane:
+# - Locates the commit on `trunk` where both `apps/studio/package.json` and
+#   `apps/cli/package.json` declare the target version. The search walks history newest-to-oldest
+#   so a later commit that bumped *past* the version (deleting its line) is correctly skipped in
+#   favor of the introduction commit. A half-applied prep PR (only one workspace bumped) leaves
+#   no candidate where both match, so the lane errors out before tagging. Tagging that specific
+#   commit (rather than trunk's HEAD) means PRs that land on trunk between the prep merge and
+#   the publish run are not silently included in the published artifact.
+# - Tags the bump commit as `v<version>` and pushes the tag. Idempotent: if the tag already
+#   exists at the expected commit, the lane logs and reuses it (this is the recovery path for a
+#   workflow dispatch that succeeded at tagging but failed afterwards).
+# - Dispatches `publish-npm-package.yml` to build and publish to npm with provenance via OIDC
+#   trusted publishing. Versions ending in `-betaN` publish with the `next` dist-tag; everything
+#   else publishes as `latest`.
+#
+# @param version [String, nil] The release version (e.g., '1.7.4' or '1.7.4-beta1'). When omitted,
+#   defaults to `trunk`'s current `package.json` version — i.e. whatever the prepare_npm_release
+#   PR set it to.
+# @param skip_confirm [Boolean] Skip interactive confirmation prompts (default: false)
+#
+lane :publish_npm_package do |version: nil, skip_confirm: false|
+  fetch_main_branch
+  version ||= read_main_branch_package_json_version
+  validate_npm_release_version!(version)
+
+  release_tag = "v#{version}"
+  npm_tag = StudioReleaseVersion.npm_dist_tag_for!(version)
+  tag_label = npm_tag || 'latest'
+
+  bump_commit = StudioReleaseGit.find_npm_release_bump_commit!(
+    branch: "origin/#{MAIN_BRANCH}", version: version
+  )
+  UI.user_error!(
+    "Could not find a commit on `#{MAIN_BRANCH}` where both `apps/studio/package.json` and " \
+    "`apps/cli/package.json` declare version #{version}. Did the prepare_npm_release PR " \
+    'merge into trunk with both workspaces bumped?'
+  ) if bump_commit.nil?
+
+  short_sha = bump_commit[0..8]
+
+  UI.important <<~PROMPT
+    Publishing wp-studio #{version} to npm. This will:
+    - Tag the version-bump commit #{short_sha} on `#{MAIN_BRANCH}` as `#{release_tag}`
+      (reused if it already exists at that commit, e.g. recovery from a failed dispatch)
+    - Push the tag to `origin`
+    - Dispatch the `publish-npm-package.yml` GitHub Actions workflow
+    - Publish `wp-studio` to npm with the `#{tag_label}` dist-tag
+
+    Reminder: after publishing, update the public changelog at
+      https://developer.wordpress.com/docs/developer-tools/studio/changelog/
+  PROMPT
+  next unless skip_confirm || UI.confirm('Continue?')
+
+  ensure_release_tag(release_tag: release_tag, commit: bump_commit)
+
+  trigger_npm_publish(ref: release_tag, npm_tag: npm_tag)
+end
+
+desc 'Upload immutable Studio PHP CLI packages to Apps CDN'
+lane :publish_php_cli_binaries do |version:, package_version:, artifacts_dir: PHP_CLI_BUILDS_FOLDER,
+                                   visibility: 'internal', output_file: nil|
+  upload_php_cli_binaries_to_apps_cdn(
+    version:,
+    package_version:,
+    artifacts_dir:,
+    visibility:,
+    output_file:
+  )
+end
+
+desc 'Upload or update Studio CLI standalone bundles on Apps CDN'
+# version defaults to the app's `v`-prefixed form so a manual publish lands at the same CDN
+# path the release flow uses (distribute_builds passes the same v-prefixed version).
+lane :publish_studio_cli_binaries do |version: "v#{read_package_json_version}", artifacts_dir: STANDALONE_BUNDLES_FOLDER, build_type: 'Production', visibility: 'external', error_on_duplicate: false|
+  upload_studio_cli_binaries_to_apps_cdn(
+    version:,
+    artifacts_dir:,
+    build_type:,
+    visibility:,
+    error_on_duplicate: error_on_duplicate.to_s != 'false'
   )
 end
 
@@ -174,6 +330,7 @@ end
 # - Creates a `release/<version>` branch from trunk
 # - Extracts translatable strings and commits them to the release branch (for GlotPress import)
 # - Generates draft release notes from merged PRs and commits them to the release branch
+# - Copies trunk's branch protection settings onto the release branch
 # - Creates a backmerge PR from the release branch to trunk (so wpcom cron can import strings to GlotPress)
 #
 # The first beta is triggered separately via {new_beta_release}.
@@ -190,6 +347,7 @@ lane :code_freeze do |version:, skip_confirm: false, github_username: nil|
     - Create a new `#{branch_name}` branch from `#{MAIN_BRANCH}`
     - Extract translatable strings and commit to `#{branch_name}`
     - Generate draft release notes from merged PRs
+    - Protect `#{branch_name}` with the same settings as `#{MAIN_BRANCH}`
     - Create a backmerge PR from `#{branch_name}` to `#{MAIN_BRANCH}`
   PROMPT
   next unless skip_confirm || UI.confirm('Continue?')
@@ -215,6 +373,13 @@ lane :code_freeze do |version:, skip_confirm: false, github_username: nil|
 
   push_to_git_remote(set_upstream: true)
 
+  # Copy GitHub branch protection settings (CI required checks etc) from `trunk` on the new `release/*` branch.
+  copy_branch_protection(
+    repository: GITHUB_REPO,
+    from_branch: MAIN_BRANCH,
+    to_branch: branch_name
+  )
+
   # Create backmerge PR so that the .pot strings file reaches trunk for GlotPress import
   create_backmerge_pr(source_branch: branch_name, github_username: github_username)
 
@@ -234,12 +399,12 @@ end
 #
 lane :new_beta_release do |version:, skip_confirm: false, github_username: nil|
   current_version = read_package_json_version
-  current_beta = current_version[/beta(\d+)$/, 1].to_i
+  current_beta = StudioReleaseVersion.beta_number(current_version) || 0
 
   # Guard against version mismatch (e.g. package.json has 1.7.4-beta3 but version param is 1.8.0)
   # Skip the check when current_beta is 0, meaning this is the first beta (before any bump).
   if current_beta.positive?
-    base_version = current_version.sub(/-beta\d+$/, '')
+    base_version = StudioReleaseVersion.base_version(current_version)
     UI.user_error!("Version mismatch: package.json has #{current_version} but expected #{version}-betaN") unless base_version == version
   end
 
@@ -252,7 +417,7 @@ lane :new_beta_release do |version:, skip_confirm: false, github_username: nil|
     - Trigger a release build for all platforms (macOS, Windows), which will then:
       - Upload build artifacts to the Apps CDN
       - Tag v#{new_version}
-      - Notify #dotcom-studio on Slack
+      - Notify #studio on Slack
     - Create a backmerge PR from the release branch to `#{MAIN_BRANCH}`
   PROMPT
   next unless skip_confirm || UI.confirm('Continue?')
@@ -293,9 +458,9 @@ lane :finalize_release do |version:, skip_confirm: false|
     - Download latest translations from GlotPress
     - Bump version to #{version} (remove beta suffix)
     - Trigger a release build for all platforms (macOS, Windows), which will then:
-      - Upload build artifacts to the Apps CDN
+      - Upload build artifacts to the Apps CDN (as Internal, visible only to Automatticians)
       - Create a draft GitHub release with release notes and download links
-      - Notify #dotcom-studio on Slack
+      - Notify #studio on Slack
   PROMPT
   next unless skip_confirm || UI.confirm('Continue?')
 
@@ -319,20 +484,28 @@ end
 #
 # - Publishes the draft GitHub release created by {distribute_release_build}
 # - Creates a backmerge PR from the release branch to trunk (with intermediate branch for conflicts)
+# - Unprotects and deletes the release branch
 #
 # @param version [String] The version to publish (e.g., '1.7.4')
 # @param skip_confirm [Boolean] Skip interactive confirmation prompts (default: false)
 #
 lane :publish_release do |version:, skip_confirm: false, github_username: nil|
+  # Required by update_apps_cdn_build_metadata to flip CDN visibility; check early for a clear failure
+  get_required_env('WPCOM_API_TOKEN')
+
   release_branch = "release/#{version}"
 
   UI.important <<~PROMPT
     Publishing release #{version}. This will:
+    - Make CDN builds public (change visibility from Internal to External)
     - Publish the draft GitHub release for v#{version}
     - Create a backmerge PR from `#{release_branch}` into `#{MAIN_BRANCH}`
-    - Delete the `#{release_branch}` branch after creating the backmerge PR
+    - Remove the branch protection from `#{release_branch}` and delete it
   PROMPT
   next unless skip_confirm || UI.confirm('Continue?')
+
+  # Update CDN build visibility from Internal to External
+  make_cdn_builds_public(version: version)
 
   # Publish the draft GitHub release — this creates the release tag (e.g., v1.7.4)
   publish_github_release(
@@ -345,6 +518,9 @@ lane :publish_release do |version:, skip_confirm: false, github_username: nil|
 
   create_backmerge_pr(source_branch: release_branch, github_username: github_username)
 
+  # The release is out, so the release branch is no longer necessary. Remove the branch protection
+  # to delete the release branch.
+  remove_branch_protection(repository: GITHUB_REPO, branch: release_branch)
   Fastlane::Helper::GitHelper.delete_remote_branch_if_exists!(release_branch)
   Fastlane::Helper::GitHelper.checkout_and_pull(MAIN_BRANCH)
   Fastlane::Helper::GitHelper.delete_local_branch_if_exists!(release_branch)
@@ -372,7 +548,7 @@ lane :new_hotfix_release do |version:, skip_confirm: false|
 
   # Determine the base for the hotfix branch: either a tag or a release branch
   previous_release_branch = "release/#{short_version}"
-  base_ref = if previous_tag && !previous_tag.include?('beta')
+  base_ref = if previous_tag && !StudioReleaseVersion.prerelease?(previous_tag)
                previous_tag
              elsif Fastlane::Helper::GitHelper.branch_exists_on_remote?(branch_name: previous_release_branch)
                UI.message("Tag for version '#{short_version}' not found. Using release branch '#{previous_release_branch}' as the base for the hotfix.")
@@ -395,7 +571,7 @@ lane :new_hotfix_release do |version:, skip_confirm: false|
   UI.success("Hotfix branch #{branch_name} created from #{base_ref}")
 end
 
-# Download Studio UI translations from GlotPress (Jed 1.x JSON) into tools/common/translations/.
+# Download Studio UI translations from GlotPress (Jed 1.x JSON) into packages/common/translations/.
 # Discovers locales from existing files in TRANSLATIONS_DIR (e.g. studio-es.jed.json → "es").
 #
 lane :fetch_glotpress_translations do
@@ -438,14 +614,37 @@ def get_windows_update_release_sha(arch: 'x64')
   sha1
 end
 
+# `electron-installer-debian` writes one .deb per arch directory with the
+# version baked into the filename (e.g. `studio_1.8.2~dev16_amd64.deb`).
+# Renaming it to a clean `studio.deb` stem before upload lets
+# `create_versioned_file` produce a Mac-style `studio-<arch>-v<version>.deb`
+# filename — without the rename, it would mash the original arch+version
+# stamp with its own, yielding the unwieldy
+# `studio_1.8.2~dev16_amd64-x64-v1.8.2-dev16.deb`.
+# Idempotent so retries pick up the already-renamed file.
+def linux_deb_path(arch:)
+  deb_arch = arch == 'x64' ? 'amd64' : arch
+  dir = File.join(BUILDS_FOLDER, 'make', 'deb', arch)
+  clean_path = File.join(dir, 'studio.deb')
+  return clean_path if File.exist?(clean_path)
+
+  matches = Dir.glob(File.join(dir, "studio_*_#{deb_arch}.deb"))
+  UI.user_error!("Expected exactly 1 Linux #{arch} .deb in #{dir}, found #{matches.length}: #{matches.join(', ')}") unless matches.length == 1
+  File.rename(matches.first, clean_path)
+  clean_path
+end
+
 def distribute_builds(
   commit_hash: last_git_commit[:abbreviated_commit_hash],
   build_number: get_required_env('BUILDKITE_BUILD_NUMBER'),
   release_tag: nil
 )
+  # The CDN upload (and therefore the token) is skipped entirely in dry-run mode.
+  get_required_env('WPCOM_API_TOKEN') unless DRY_RUN
+
   build_type = if release_tag.nil?
                  'Nightly'
-               elsif release_tag.downcase.include?('beta')
+               elsif StudioReleaseVersion.prerelease?(release_tag)
                  'Beta'
                else
                  'Production'
@@ -453,6 +652,11 @@ def distribute_builds(
   version = release_tag.nil? ? "v#{read_package_json_version}" : release_tag
   appx_version = "#{version[/\d+\.\d+\.\d+/]}.0"
   release_notes = release_tag.nil? ? "Development build #{version}-#{build_number}" : "Release #{release_tag}"
+
+  # Only Production builds go through the finalize → publish flow where {make_cdn_builds_public}
+  # flips them to External. Nightlies and Betas have no publish step, so uploading them as
+  # Internal would leave them invisible to users (the updates endpoint only serves External builds).
+  visibility = build_type == 'Production' ? :internal : :external
 
   update_builds = {
     x64: {
@@ -487,6 +691,27 @@ def distribute_builds(
       install_type: 'Update',
       sha: get_windows_update_release_sha(arch: 'arm64')
     }
+  }
+
+  # On Linux the .deb is the only artifact — it serves as both the update
+  # payload and the full installer — so the same entry covers dev and release
+  # builds. `install_type: 'Update'` matches the URL convention the WPCOM
+  # updates endpoint emits for the in-app updater's polling path.
+  update_builds[:linux_x64_deb] = {
+    binary_path: linux_deb_path(arch: 'x64'),
+    name: 'Linux - x64 (DEB)',
+    platform: 'Linux - x64',
+    arch: 'x64',
+    install_type: 'Update',
+    sha: commit_hash
+  }
+  update_builds[:linux_arm64_deb] = {
+    binary_path: linux_deb_path(arch: 'arm64'),
+    name: 'Linux - ARM64 (DEB)',
+    platform: 'Linux - ARM64',
+    arch: 'arm64',
+    install_type: 'Update',
+    sha: commit_hash
   }
 
   full_install_builds = {
@@ -534,9 +759,9 @@ def distribute_builds(
     }
   }
 
-  builds_to_upload = release_tag.nil? ? update_builds : { **update_builds, **full_install_builds }
+  builds_to_upload = { **update_builds, **full_install_builds }
 
-  UI.message("Uploading #{builds_to_upload.count} builds (#{release_tag.nil? ? 'dev: updates only' : 'release: all builds'})")
+  UI.message("Uploading #{builds_to_upload.count} builds (#{build_type})")
 
   # Upload to Apps CDN
   builds_to_upload.each_value do |build|
@@ -548,16 +773,32 @@ def distribute_builds(
       arch: build[:arch],
       build_type: build_type,
       install_type: build[:install_type],
-      visibility: 'external',
+      visibility: visibility,
       version: version,
       build_number: build_number,
       release_notes: release_notes,
       sha: build[:sha],
       error_on_duplicate: false
     )
-    # Store the download URL for later use
+    # Store the download URL and post ID for later use
     build[:cdn_url] = result[:media_url]
+    build[:post_id] = result[:post_id]
   end
+
+  # Upload the standalone Studio CLI bundles alongside the app so the curl installers
+  # track every Studio build (nightly/dev, beta, stable). Merging them into
+  # builds_to_upload routes their post IDs through create_draft_github_release, so
+  # publish_release flips them to External exactly like the app builds. A real run
+  # hard-fails if a bundle is missing — we don't want to silently publish a release
+  # without the CLI — while a dry run still previews the planned uploads.
+  cli_builds = upload_studio_cli_binaries_to_apps_cdn(
+    version: version,
+    artifacts_dir: STANDALONE_BUNDLES_FOLDER,
+    build_type: build_type,
+    visibility: visibility,
+    error_on_duplicate: false
+  )
+  builds_to_upload = builds_to_upload.merge(cli_builds)
 
   unless DRY_RUN
     buildkite_annotate(
@@ -621,7 +862,8 @@ def upload_file_to_apps_cdn(site_id:, product:, file_path:, platform:, arch:, bu
     UI.message("           error on duplicate: #{error_on_duplicate}")
 
     return {
-      media_url: media_url
+      media_url: media_url,
+      post_id: 0
     }
   end
 
@@ -648,6 +890,224 @@ def upload_file_to_apps_cdn(site_id:, product:, file_path:, platform:, arch:, bu
   result
 end
 
+def php_cli_cdn_builds(version:)
+  [
+    {
+      file_name: "php-#{version}-cli-macos-aarch64.zip",
+      name: 'macOS arm64',
+      platform: 'Mac - Silicon'
+    },
+    {
+      file_name: "php-#{version}-cli-macos-x86_64.zip",
+      name: 'macOS x64',
+      platform: 'Mac - Intel'
+    },
+    {
+      file_name: "php-#{version}-cli-windows-x86_64.zip",
+      name: 'Windows x64',
+      platform: 'Windows - x64'
+    },
+    {
+      file_name: "php-#{version}-cli-linux-x86_64.zip",
+      name: 'Linux x64',
+      platform: 'Linux - x64'
+    },
+    {
+      file_name: "php-#{version}-cli-linux-aarch64.zip",
+      name: 'Linux arm64',
+      platform: 'Linux - ARM64'
+    }
+  ]
+end
+
+def read_sha256_sidecar(file_path:)
+  sidecar_path = "#{file_path}.sha256"
+  UI.user_error!("SHA-256 sidecar #{sidecar_path} does not exist") unless File.exist?(sidecar_path)
+
+  sha = File.read(sidecar_path).split(/\s+/).first.to_s.downcase
+  unless sha.match?(/\A[a-f0-9]{64}\z/)
+    UI.user_error!("SHA-256 sidecar #{sidecar_path} does not contain a valid SHA-256 hash")
+  end
+
+  actual_sha = Digest::SHA256.file(file_path).hexdigest
+  unless sha == actual_sha
+    UI.user_error!("SHA-256 sidecar #{sidecar_path} does not match #{file_path}")
+  end
+
+  sha
+end
+
+def upload_php_cli_binaries_to_apps_cdn(version:, package_version:, artifacts_dir:, visibility:,
+                                        output_file: nil, dry_run: DRY_RUN)
+  normalized_visibility = visibility.to_s.downcase
+  unless %w[internal external].include?(normalized_visibility)
+    UI.user_error!("visibility must be 'internal' or 'external'")
+  end
+  unless package_version.match?(/\A[a-z0-9][a-z0-9._-]{0,63}\z/)
+    UI.user_error!('package_version must be a 1-64 character lowercase package identifier')
+  end
+  package_id = "#{version}-#{package_version}"
+
+  builds = {}
+  php_cli_cdn_builds(version:).each do |build|
+    file_path = File.join(artifacts_dir, build[:file_name])
+    UI.user_error!("File #{file_path} does not exist") unless File.exist?(file_path)
+
+    sha = read_sha256_sidecar(file_path:)
+    release_notes = "PHP #{version} CLI package #{package_id} for #{build[:name]}"
+    UI.message("Uploading immutable PHP CLI package: #{build[:file_name]} as #{package_id}")
+    media_url = nil
+
+    if dry_run
+      UI.message('[DRY RUN] Upload step skipped due to dry run mode.')
+      UI.message("           File exists at: #{file_path}")
+      UI.message("           file size: #{File.size(file_path) / 1024 / 1024} MB")
+      UI.message("           product: #{WPCOM_STUDIO_PHP_CLI_PRODUCT}")
+      UI.message("           platform: #{build[:platform]}")
+      UI.message('           build type: Production')
+      UI.message('           install type: Full Install')
+      UI.message("           visibility: #{normalized_visibility.capitalize}")
+      UI.message("           PHP version: #{version}")
+      UI.message("           package version: #{package_version}")
+      UI.message("           package/CDN ID: #{package_id}")
+      UI.message("           release notes: #{release_notes}")
+      UI.message("           sha: #{sha}")
+      UI.message('           error on duplicate: true')
+    else
+      result = upload_build_to_apps_cdn(
+        site_id: WPCOM_STUDIO_SITE_ID,
+        product: WPCOM_STUDIO_PHP_CLI_PRODUCT,
+        platform: build[:platform],
+        build_type: 'Production',
+        install_type: 'Full Install',
+        visibility: normalized_visibility.capitalize,
+        version: package_id,
+        build_number: nil,
+        release_notes:,
+        sha:,
+        file_path:,
+        error_on_duplicate: true
+      )
+      media_url = result[:media_url] || result['media_url']
+      UI.user_error!('Apps CDN upload response did not include media_url') if media_url.to_s.empty?
+
+      UI.message('--------------------------------')
+      UI.message("✅ Uploaded PHP CLI package: #{file_path} to #{media_url}")
+    end
+
+    builds[build[:file_name]] = {
+      name: build[:name],
+      platform: build[:platform],
+      cdn_url: media_url,
+      sha:
+    }
+  end
+
+  unless output_file.to_s.empty?
+    FileUtils.mkdir_p(File.dirname(output_file))
+    File.write(output_file, JSON.pretty_generate(builds))
+    UI.message("Wrote PHP CLI Apps CDN upload results to #{output_file}")
+  end
+
+  builds
+end
+
+# The standalone Studio CLI bundles to publish, one per platform/arch. File names are
+# versionless (the curl installers fetch them by this exact name); the CDN path's version
+# comes from the upload's `version:`. `platform` maps to the Apps CDN platform label, the
+# same labels the desktop app and PHP CLI uploads use.
+def studio_cli_cdn_builds
+  [
+    { key: :cli_mac_arm64,     file_name: 'studio-cli-darwin-arm64.tgz', name: 'macOS arm64',   platform: 'Mac - Silicon' },
+    { key: :cli_mac_x64,       file_name: 'studio-cli-darwin-x64.tgz',   name: 'macOS x64',     platform: 'Mac - Intel' },
+    { key: :cli_windows_x64,   file_name: 'studio-cli-win32-x64.tgz',    name: 'Windows x64',   platform: 'Windows - x64' },
+    { key: :cli_windows_arm64, file_name: 'studio-cli-win32-arm64.tgz',  name: 'Windows arm64', platform: 'Windows - ARM64' },
+    { key: :cli_linux_x64,     file_name: 'studio-cli-linux-x64.tgz',    name: 'Linux x64',     platform: 'Linux - x64' },
+    { key: :cli_linux_arm64,   file_name: 'studio-cli-linux-arm64.tgz',  name: 'Linux arm64',   platform: 'Linux - ARM64' }
+  ]
+end
+
+# Upload (or update) the standalone Studio CLI bundles on the Apps CDN.
+#
+# Mirrors {upload_php_cli_binaries_to_apps_cdn} but targets the `WordPress.com Studio CLI`
+# product. Each bundle is verified against its `.sha256` sidecar before upload. `build_type`
+# and `visibility` are passed through from the caller so the CLI tracks the app exactly
+# (External for nightly/beta, Internal-then-flipped-public for stable). `build_number` is nil
+# so the CDN URL ends in `/full-install` (the path the curl installers expect). Returns a hash
+# keyed per build including each upload's `post_id`, so the caller can fold it into the release
+# builds and let publish_release flip visibility to External.
+def upload_studio_cli_binaries_to_apps_cdn(version:, artifacts_dir:, build_type:, visibility:, error_on_duplicate:, dry_run: DRY_RUN)
+  normalized_visibility = visibility.to_s.downcase.to_sym
+  unless %i[internal external].include?(normalized_visibility)
+    UI.user_error!('visibility must be :internal or :external')
+  end
+
+  builds = {}
+  studio_cli_cdn_builds.each do |build|
+    file_path = File.join(artifacts_dir, build[:file_name])
+
+    # A real upload requires every bundle; a dry run still previews the rest, so you
+    # can sanity-check the lane after building only your current platform locally.
+    unless File.exist?(file_path)
+      UI.user_error!("File #{file_path} does not exist") unless dry_run
+      UI.important("[DRY RUN] #{build[:file_name]} not found in #{artifacts_dir} — skipping (would upload to '#{WPCOM_STUDIO_CLI_PRODUCT}' / #{build[:platform]} / #{version}).")
+      next
+    end
+
+    sha = read_sha256_sidecar(file_path:)
+    release_notes = "Studio CLI #{version} for #{build[:name]}"
+    UI.message("Uploading Studio CLI bundle: #{build[:file_name]}")
+    media_url = nil
+    post_id = nil
+
+    if dry_run
+      UI.message('[DRY RUN] Upload step skipped due to dry run mode.')
+      UI.message("           File exists at: #{file_path}")
+      UI.message("           file size: #{File.size(file_path) / 1024 / 1024} MB")
+      UI.message("           product: #{WPCOM_STUDIO_CLI_PRODUCT}")
+      UI.message("           platform: #{build[:platform]}")
+      UI.message("           build type: #{build_type}")
+      UI.message('           install type: Full Install')
+      UI.message("           visibility: #{normalized_visibility}")
+      UI.message("           version: #{version}")
+      UI.message("           release notes: #{release_notes}")
+      UI.message("           sha: #{sha}")
+      UI.message("           error on duplicate: #{error_on_duplicate}")
+    else
+      result = upload_build_to_apps_cdn(
+        site_id: WPCOM_STUDIO_SITE_ID,
+        product: WPCOM_STUDIO_CLI_PRODUCT,
+        platform: build[:platform],
+        build_type: build_type,
+        install_type: 'Full Install',
+        visibility: normalized_visibility,
+        version: version,
+        build_number: nil,
+        release_notes: release_notes,
+        sha: sha,
+        file_path: file_path,
+        error_on_duplicate: error_on_duplicate
+      )
+      media_url = result[:media_url] || result['media_url']
+      post_id = result[:post_id] || result['post_id']
+      UI.user_error!('Apps CDN upload response did not include media_url') if media_url.to_s.empty?
+
+      UI.message('--------------------------------')
+      UI.message("✅ Uploaded Studio CLI bundle: #{file_path} to #{media_url}")
+    end
+
+    builds[build[:key]] = {
+      name: build[:name],
+      platform: build[:platform],
+      cdn_url: media_url,
+      post_id: post_id,
+      sha: sha
+    }
+  end
+
+  builds
+end
+
 ########################################################################
 # Release Management Helper Methods
 ########################################################################
@@ -658,8 +1118,115 @@ def github_release_name(version:)
   "Version #{version}"
 end
 
+# Validate that a version string matches the expected wp-studio release format.
+# Accepts `X.Y.Z` and `X.Y.Z-betaN`. Surfaces a fastlane user error on rejection.
+def validate_npm_release_version!(version)
+  return if StudioReleaseVersion.valid_version?(version)
+
+  UI.user_error!("Invalid version #{version.inspect}. Expected `X.Y.Z` or `X.Y.Z-betaN`.")
+end
+
+# Update the local origin/MAIN_BRANCH ref so subsequent reads of `origin/<MAIN_BRANCH>` are fresh.
+def fetch_main_branch
+  sh('git', 'fetch', '--quiet', 'origin', MAIN_BRANCH, log: false)
+end
+
+# Read the current version recorded on the main branch's package.json without changing the
+# working tree. Used to compute defaults for the npm release lanes. Caller must call
+# {fetch_main_branch} first.
+def read_main_branch_package_json_version
+  json = sh('git', 'show', "origin/#{MAIN_BRANCH}:apps/studio/package.json", log: false)
+  JSON.parse(json)['version']
+end
+
+# Ensure `release_tag` exists on `origin` and points at `commit`.
+#
+# Idempotent across partial-failure scenarios. Re-running picks up wherever the previous run
+# stopped:
+# - Tag already on origin at the expected commit → log and return (skip re-create + workflow
+#   dispatch resumes downstream).
+# - Tag already on origin at a *different* commit → raise so the operator can investigate
+#   before publishing the wrong code.
+# - Tag absent on origin but present locally at the expected commit (previous run created the
+#   tag but `push_git_tags` failed) → push the existing local tag.
+# - Tag absent on origin and stale local tag at the wrong commit → raise with a cleanup hint.
+# - Tag absent everywhere → create and push.
+def ensure_release_tag(release_tag:, commit:)
+  remote_sha = StudioReleaseGit.remote_tag_commit_sha(release_tag)
+  if remote_sha
+    if remote_sha == commit
+      UI.message("Tag #{release_tag} already exists on origin at #{commit[0..8]}; reusing it.")
+      return
+    end
+
+    UI.user_error!(
+      "Tag #{release_tag} already exists on origin at #{remote_sha[0..8]}, but expected " \
+      "#{commit[0..8]}. Inspect the tag and the commit before continuing."
+    )
+  end
+
+  if git_tag_exists(tag: release_tag)
+    local_sha = sh('git', 'rev-list', '-n', '1', release_tag, log: false).strip
+    unless local_sha == commit
+      UI.user_error!(
+        "Local tag #{release_tag} points at #{local_sha[0..8]}, but expected #{commit[0..8]}. " \
+        "Delete it (`git tag -d #{release_tag}`) and rerun."
+      )
+    end
+    if DRY_RUN
+      UI.message("Local tag #{release_tag} already exists at #{commit[0..8]}; push will be skipped in dry run.")
+    else
+      UI.message("Local tag #{release_tag} already exists at #{commit[0..8]}; pushing it.")
+    end
+  elsif DRY_RUN
+    UI.message("[DRY RUN] Would tag #{commit[0..8]} as #{release_tag} and push it to origin")
+    return
+  else
+    add_git_tag(tag: release_tag, commit: commit)
+  end
+
+  if DRY_RUN
+    UI.message("[DRY RUN] Would push tag #{release_tag} to origin")
+    return
+  end
+
+  push_git_tags(tag: release_tag)
+end
+
+# Open a PR against trunk for an npm release version bump from {prepare_npm_release}.
+# Returns the PR's html_url, or nil if DRY_RUN is set or the API response had no html_url.
+def create_npm_release_pr(version:, branch:)
+  body = <<~BODY
+    Bumps the `studio-app` and `wp-studio` packages to `#{version}` in preparation for a standalone npm release of the Studio CLI (`wp-studio`).
+
+    After this PR is merged, complete the release by running:
+
+    ```sh
+    bundle exec fastlane publish_npm_package version:"#{version}"
+    ```
+
+    See the [release process docs](docs/release-process.md#standalone-wp-studio-npm-release) for details.
+  BODY
+
+  if DRY_RUN
+    UI.message("[DRY RUN] Would open PR `#{branch}` -> `#{MAIN_BRANCH}` titled \"Bump npm package version to #{version}\"")
+    return nil
+  end
+
+  github_helper = Fastlane::Helper::GithubHelper.new(github_token: get_required_env('GITHUB_TOKEN'))
+  pr = github_helper.client.create_pull_request(
+    GITHUB_REPO,
+    MAIN_BRANCH,
+    branch,
+    "Bump npm package version to #{version}",
+    body
+  )
+  pr&.html_url
+end
+
 # Bump version in package.json, commit, and push.
 # Used by new_beta_release, finalize_release, and new_hotfix_release.
+# Honors DRY_RUN by performing the local bump+commit but skipping the push.
 def bump_version_commit_and_push(version:, set_upstream: false)
   set_package_json_version(version: version)
   git_add(path: ['apps/studio/package.json', 'apps/cli/package.json', 'package-lock.json'])
@@ -667,7 +1234,11 @@ def bump_version_commit_and_push(version:, set_upstream: false)
     path: ['apps/studio/package.json', 'apps/cli/package.json', 'package-lock.json'],
     message: "[skip ci] Bump version to #{version}"
   )
-  push_to_git_remote(set_upstream: set_upstream)
+  if DRY_RUN
+    UI.message("[DRY RUN] Would push current branch to origin (set_upstream: #{set_upstream})")
+  else
+    push_to_git_remote(set_upstream: set_upstream)
+  end
 end
 
 # Read the current version from package.json
@@ -697,11 +1268,35 @@ def extract_release_notes(version:)
   end
 end
 
+# Find the latest stable release tag lower than the target version, regardless of reachability from HEAD.
+def find_previous_stable_release_tag(version:)
+  sh('git', 'fetch', '--tags', '--force')
+
+  target_version = Gem::Version.new(version)
+  matching_tags = sh('git', 'tag', '--list', 'v*').lines.filter_map do |tag|
+    tag = tag.strip
+    match = tag.match(/^v(\d+\.\d+\.\d+)$/)
+    next if match.nil?
+
+    tag_version = Gem::Version.new(match[1])
+    next unless tag_version < target_version
+
+    [tag, tag_version]
+  end
+
+  previous_tag = matching_tags.max_by(&:last)&.first
+
+  UI.important("No previous stable tag found before #{version}") if previous_tag.nil?
+
+  previous_tag
+end
+
 # Generate a draft release notes section from merged PRs and prepend it to RELEASE-NOTES.txt.
 # Uses GitHub's generate-notes API to list PRs since the last published release.
 def update_release_notes_draft(version:)
-  # Find the latest stable (non-beta) release tag reachable from HEAD.
-  previous_tag = find_previous_tag(pattern: 'v*', exclude: '*beta*')
+  # Find the latest stable release tag lower than the target version.
+  # The latest published release tag is not always reachable from trunk before its backmerge PR lands.
+  previous_tag = find_previous_stable_release_tag(version: version)
 
   changelog = get_prs_between_tags(
     repository: GITHUB_REPO,
@@ -761,7 +1356,7 @@ def create_draft_github_release(version:, release_tag:, builds:)
   notes = extract_release_notes(version: version)
 
   # Format download links from CDN URLs
-  download_link_keys = %i[x64_dmg arm64_dmg windows windows_arm64]
+  download_link_keys = %i[x64_dmg arm64_dmg windows windows_arm64 linux_x64_deb linux_arm64_deb]
   links = download_link_keys.filter_map do |key|
     build = builds[key]
     next unless build&.dig(:cdn_url)
@@ -775,11 +1370,23 @@ def create_draft_github_release(version:, release_tag:, builds:)
             'The latest version is always available on the [WordPress Studio](https://developer.wordpress.com/studio/) site.'
   end
 
+  # Embed CDN post IDs so publish_release can update their visibility later.
+  # Coerce to Integer defensively: the CDN API returns integer post IDs, but the
+  # update action requires Integers, so don't rely on the API's serialization.
+  cdn_post_ids = builds.values.filter_map { |b| b[:post_id]&.to_i }.select(&:positive?)
+
+  # Every build must have a post ID: builds missing from the embedded list would
+  # silently stay Internal after publish_release and never reach users.
+  missing = builds.values.reject { |b| b[:post_id]&.to_i&.positive? }.map { |b| b[:name] }
+  UI.user_error!("Missing CDN post IDs for: #{missing.join(', ')}. publish_release needs every build's post ID to flip its visibility to External.") unless missing.empty?
+
+  body += "\n<!-- CDN_POST_IDS:#{cdn_post_ids.join(',')} -->"
+
   release_name = github_release_name(version:)
   release_notes_path = File.join(PROJECT_ROOT_FOLDER, 'fastlane', 'github_release_notes.txt')
   File.write(release_notes_path, body)
 
-  base_version = version.sub(/-beta\d+$/, '')
+  base_version = StudioReleaseVersion.base_version(version)
   create_github_release(
     repository: GITHUB_REPO,
     version: release_tag,
@@ -794,12 +1401,77 @@ def create_draft_github_release(version:, release_tag:, builds:)
   UI.success("Created draft GitHub release '#{release_name}' with download links")
 end
 
+# Make CDN builds public by updating their visibility from Internal to External.
+#
+# Reads CDN post IDs embedded in the draft GitHub release body by {create_draft_github_release},
+# then calls {update_apps_cdn_build_metadata} for each to set visibility to External.
+#
+# @param version [String] The version to publish (e.g., '1.7.5')
+#
+def make_cdn_builds_public(version:)
+  release_name = github_release_name(version:)
+  post_ids = extract_cdn_post_ids_from_draft_release(release_name: release_name)
+
+  if post_ids.empty?
+    UI.user_error! <<~ERROR
+      No CDN post IDs found in draft release #{release_name}. Cannot publish without updating CDN visibility.
+      To recover manually, an Automattician can find the post IDs by running this from a proxied machine:
+        curl -H "Authorization: Bearer $WPCOM_API_TOKEN" \\
+          "https://public-api.wordpress.com/wp/v2/sites/#{WPCOM_STUDIO_SITE_ID}/a8c_cdn_build?search=#{version}&per_page=50" \\
+          | jq '[.[] | select(.class_list | index("visibility-internal")) | {id, slug}]'
+        (the class_list filter selects builds that are still Internal)
+      Then edit the draft GitHub release body to add a comment like:
+        <!-- CDN_POST_IDS:123,456,789 -->
+      and retry the publish_release lane or release tool task.
+    ERROR
+  end
+
+  UI.message("Updating CDN build visibility to External for #{post_ids.size} builds...")
+
+  update_apps_cdn_build_metadata(
+    site_id: WPCOM_STUDIO_SITE_ID,
+    post_ids: post_ids,
+    visibility: :external
+  )
+
+  UI.success('All CDN builds are now public (External visibility)')
+end
+
+# Extract CDN post IDs from the draft GitHub release body.
+#
+# The post IDs are embedded as an HTML comment by {create_draft_github_release}:
+#   <!-- CDN_POST_IDS:123,456,789 -->
+#
+# @param release_name [String] The release name as created by {create_draft_github_release},
+#   i.e. {github_release_name} (e.g., 'Version 1.7.5')
+# @return [Array<Integer>] An array of post IDs, or empty array if not found
+#
+def extract_cdn_post_ids_from_draft_release(release_name:)
+  client = Octokit::Client.new(access_token: get_required_env('GITHUB_TOKEN'), auto_paginate: true)
+  releases = client.releases(GITHUB_REPO)
+  release = releases.find { |r| r.draft && r.name == release_name }
+
+  unless release
+    UI.important("No draft release found with name #{release_name}.")
+    return []
+  end
+
+  body = release.body || ''
+  match = body.match(/<!-- CDN_POST_IDS:([0-9,]+) -->/)
+  unless match
+    UI.important("Draft release #{release_name} found but no CDN post IDs embedded in the body.")
+    return []
+  end
+
+  match[1].split(',').map(&:to_i)
+end
+
 # Trigger a release build in Buildkite for the given version.
 #
 # Uses `buildkite_add_trigger_step` on CI (to create a separate build with proper Git mirroring)
 # and `buildkite_trigger_build` when running locally.
 def trigger_release_build(version:)
-  base_version = version.sub(/-beta\d+$/, '')
+  base_version = StudioReleaseVersion.base_version(version)
   branch = "release/#{base_version}"
 
   environment = {

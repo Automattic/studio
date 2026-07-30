@@ -1,66 +1,97 @@
-import { AiChatUI } from 'cli/ai/ui';
-import type { AiSessionEvent } from './types';
+// Rehydrate the terminal UI from a session's JSONL on resume. Walks
+// `SessionEntry[]` and dispatches each entry to the live `ui.handleEvent()`
+// path (for assistant messages) or directly to `ui.*` (for Studio's
+// `custom` markers — site selections, progress, agent questions — which
+// don't appear in pi's flat `buildSessionContext()` output).
 
-export function replaySessionHistory( ui: AiChatUI, events: AiSessionEvent[] ): void {
+import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
+import { AiChatUI } from 'cli/ai/ui';
+import type { ToolResultMessage } from '@earendil-works/pi-ai';
+import type { SessionEntry } from '@earendil-works/pi-coding-agent';
+
+export function replaySessionHistory( ui: AiChatUI, entries: SessionEntry[] ): void {
 	ui.prepareForReplay();
+
 	let isTurnOpen = false;
+	let pendingResults: ToolResultMessage[] = [];
+	const flushPendingResults = () => {
+		if ( pendingResults.length === 0 ) return;
+		ui.renderToolResults( pendingResults );
+		pendingResults = [];
+	};
 
 	try {
-		for ( const event of events ) {
-			ui.setReplayTimestamp( event.timestamp );
+		for ( const entry of entries ) {
+			ui.setReplayTimestamp( entry.timestamp );
 
-			if ( event.type === 'site.selected' ) {
-				ui.setActiveSite(
-					{
-						name: event.siteName,
-						path: event.sitePath,
-						running: false,
-						remote: event.remote === true,
-						url: typeof event.url === 'string' ? event.url : undefined,
-					},
-					{ announce: true, emitEvent: false }
-				);
+			if ( isStudioCustomEntryOfType( entry, 'studio.site_selected' ) ) {
+				const data = entry.data;
+				if ( data ) {
+					ui.setActiveSite(
+						{
+							id: data.siteId,
+							name: data.siteName,
+							path: data.sitePath,
+							// Placeholder — turn dispatch resolves the live state before each prompt.
+							running: false,
+							remote: data.remote === true,
+							url: data.url,
+							wpcomSiteId: data.wpcomSiteId,
+						},
+						{ announce: true, emitEvent: false }
+					);
+				}
 				continue;
 			}
 
-			if ( event.type === 'user.message' ) {
-				if ( event.source === 'ask_user' ) {
-					continue;
-				}
-
-				// Defensive close if the previous turn never emitted turn.closed.
+			if ( isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) ) {
+				const data = entry.data;
+				if ( ! data || data.source !== 'prompt' ) continue;
 				if ( isTurnOpen ) {
+					flushPendingResults();
 					ui.endAgentTurn();
 				}
-
 				ui.beginAgentTurn();
 				isTurnOpen = true;
-				ui.addUserMessage( event.text );
+				ui.addUserMessage( data.text );
 				continue;
 			}
 
-			if ( event.type === 'sdk.message' ) {
-				ui.handleMessage( event.message );
+			if ( isStudioCustomEntryOfType( entry, 'studio.tool_progress' ) ) {
+				// Tool progress is ephemeral UI state (loader text) with no value
+				// when rehydrating history: `finishReplay()` clears the loader at
+				// the end anyway. Replaying it one entry at a time is the bottleneck
+				// behind the "Resuming session…" hang on sessions that persisted
+				// tens of thousands of progress ticks, so skip it during replay.
+				// See https://github.com/Automattic/studio/issues/3865
 				continue;
 			}
 
-			if ( event.type === 'tool.progress' ) {
-				ui.setLoaderMessage( event.message );
+			if ( isStudioCustomEntryOfType( entry, 'studio.agent_question' ) ) {
+				if ( entry.data ) ui.showAgentQuestion( entry.data.question, entry.data.options );
 				continue;
 			}
 
-			if ( event.type === 'agent.question' ) {
-				ui.showAgentQuestion( event.question, event.options );
-				continue;
-			}
-
-			if ( event.type === 'turn.closed' ) {
+			if ( isStudioCustomEntryOfType( entry, 'studio.turn_closed' ) ) {
+				flushPendingResults();
 				if ( isTurnOpen ) {
 					ui.endAgentTurn();
 					isTurnOpen = false;
 				}
+				continue;
+			}
+
+			if ( entry.type === 'message' ) {
+				const message = entry.message;
+				if ( message.role === 'assistant' ) {
+					flushPendingResults();
+					ui.handleEvent( { type: 'message_end', message } );
+				} else if ( message.role === 'toolResult' ) {
+					pendingResults.push( message );
+				}
 			}
 		}
+		flushPendingResults();
 	} finally {
 		if ( isTurnOpen ) {
 			ui.endAgentTurn();

@@ -1,33 +1,73 @@
+import {
+	clampQuotaFraction,
+	formatAiBlockedNotice,
+	formatQuotaPercentage,
+	formatQuotaResetDate,
+} from '@studio/common/lib/studio-assistant-quota';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import ProgressBar from 'src/components/progress-bar';
-import { LIMIT_OF_PROMPTS_PER_USER } from 'src/constants';
 import { useOffline } from 'src/hooks/use-offline';
-import { useGetAssistantQuota } from 'src/stores/wpcom-api';
+import { cx } from 'src/lib/cx';
+import { useI18nLocale } from 'src/stores';
+import { useGetStudioAssistantQuota } from 'src/stores/wpcom-api';
 
 export function PromptInfo() {
 	const { __ } = useI18n();
+	const locale = useI18nLocale();
 	const isOffline = useOffline();
-
-	const { data: assistantQuota } = useGetAssistantQuota();
-	const promptCount = assistantQuota?.promptCount ?? 0;
-	const promptLimit = assistantQuota?.promptLimit ?? LIMIT_OF_PROMPTS_PER_USER;
+	const {
+		data: assistantQuota,
+		isError,
+		isLoading,
+	} = useGetStudioAssistantQuota( undefined, {
+		refetchOnMountOrArgChange: true,
+	} );
+	const isBlocked = Boolean( assistantQuota?.isStudioCodeAiBlocked ) && ! isOffline && ! isError;
+	const assistantQuotaWithCostCap =
+		assistantQuota && assistantQuota.costCap > 0 && ! isOffline && ! isError && ! isBlocked
+			? assistantQuota
+			: undefined;
 
 	return (
 		<div className="flex gap-3 flex-col">
-			<h2 className="a8c-label-semibold">{ __( 'AI assistant' ) }</h2>
+			<h2 className="a8c-label-semibold">{ __( 'Studio Code' ) }</h2>
 			<div className="flex gap-3 flex-row items-center w-full">
 				<div className="flex w-full flex-col gap-2">
 					<div className="flex w-full flex-row justify-between gap-8 ">
-						<div className="flex flex-row items-center text-right">
+						<div className={ cx( 'flex flex-row items-center', ! isBlocked && 'text-right' ) }>
 							<span className="text-frame-text-secondary">
-								{ isOffline
-									? __( "You're currently offline" )
-									: sprintf( __( '%1$d of %2$d monthly prompts used' ), promptCount, promptLimit ) }
+								{ isOffline && __( "You're currently offline" ) }
+								{ isBlocked && formatAiBlockedNotice() }
+								{ ! isOffline && ! isBlocked && isLoading && __( 'Loading Studio Code limits…' ) }
+								{ assistantQuotaWithCostCap &&
+									sprintf(
+										/* translators: %1$s: percentage of monthly limit used (e.g. 7.5%). %2$s: date the limit resets (e.g. July 1, 2026). */
+										__( '%1$s of monthly limit used (resets on %2$s)' ),
+										formatQuotaPercentage(
+											clampQuotaFraction(
+												assistantQuotaWithCostCap.costUsage,
+												assistantQuotaWithCostCap.costCap
+											),
+											locale
+										),
+										formatQuotaResetDate( assistantQuotaWithCostCap.costResetDate, locale )
+									) }
+								{ ! isLoading &&
+									! isOffline &&
+									! isBlocked &&
+									! assistantQuotaWithCostCap &&
+									__( 'Studio Code limits are temporarily unavailable.' ) }
 							</span>
 						</div>
 					</div>
-					<ProgressBar value={ promptCount } maxValue={ promptLimit } />
+					{ ! isOffline && isLoading && <ProgressBar /> }
+					{ assistantQuotaWithCostCap && (
+						<ProgressBar
+							value={ assistantQuotaWithCostCap.costUsage }
+							maxValue={ assistantQuotaWithCostCap.costCap }
+						/>
+					) }
 				</div>
 				<div className="h-6 w-6"></div>
 			</div>

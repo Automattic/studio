@@ -120,11 +120,10 @@ describe( 'Preview Create Command', () => {
 
 		expect( getSiteByFolder ).toHaveBeenCalledWith( mockFolder );
 		expect( mockReportStart.mock.calls[ 0 ] ).toEqual( [ 'validate', 'Validating…' ] );
-		expect( mockReportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Validation successful', true ] );
 
 		expect( archiveSiteContent ).toHaveBeenCalledWith( mockFolder, mockArchivePath );
 		expect( mockReportStart.mock.calls[ 1 ] ).toEqual( [ 'archive', 'Creating archive…' ] );
-		expect( mockReportSuccess.mock.calls[ 1 ] ).toEqual( [ 'Archive created' ] );
+		expect( mockReportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Archive created' ] );
 
 		expect( uploadArchive ).toHaveBeenCalledWith(
 			mockArchivePath,
@@ -132,11 +131,11 @@ describe( 'Preview Create Command', () => {
 			'6.8.1'
 		);
 		expect( mockReportStart.mock.calls[ 2 ] ).toEqual( [ 'upload', 'Uploading archive…' ] );
-		expect( mockReportSuccess.mock.calls[ 2 ] ).toEqual( [ 'Archive uploaded' ] );
+		expect( mockReportSuccess.mock.calls[ 1 ] ).toEqual( [ 'Archive uploaded' ] );
 
 		expect( waitForSiteReady ).toHaveBeenCalledWith( mockAtomicSiteId, mockAuthToken.accessToken );
 		expect( mockReportStart.mock.calls[ 3 ] ).toEqual( [ 'ready', 'Creating preview site…' ] );
-		expect( mockReportSuccess.mock.calls[ 3 ] ).toEqual( [
+		expect( mockReportSuccess.mock.calls[ 2 ] ).toEqual( [
 			`Preview site available at: https://${ mockSiteUrl }`,
 		] );
 
@@ -151,7 +150,7 @@ describe( 'Preview Create Command', () => {
 			'appdata',
 			'Saving preview site to Studio…',
 		] );
-		expect( mockReportSuccess.mock.calls[ 4 ] ).toEqual( [ 'Preview site saved to Studio' ] );
+		expect( mockReportSuccess.mock.calls[ 3 ] ).toEqual( [ 'Preview site saved to Studio' ] );
 
 		expect( cleanup ).toHaveBeenCalledWith( mockArchivePath );
 	} );

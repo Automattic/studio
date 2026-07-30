@@ -10,6 +10,9 @@ updates:
     schedule:
       interval: "weekly"
 
+    cooldown:
+      default-days: 2
+
     allow:
       # Automattic packages
       - dependency-name: "@automattic/*"
@@ -24,10 +27,6 @@ updates:
       - dependency-name: "@wordpress/*"
       - dependency-name: "wpcom"
       - dependency-name: "wpcom-*"
-
-      # WordPress Playground & PHP WASM
-      - dependency-name: "@wp-playground/*"
-      - dependency-name: "@php-wasm/*"
 
       # TypeScript ecosystem
       - dependency-name: "typescript"
@@ -165,11 +164,6 @@ updates:
           - "electron-playwright-helpers"
           - "electron-devtools-installer"
 
-      wp-playground-php-wasm:
-        patterns:
-          - "@wp-playground/*"
-          - "@php-wasm/*"
-
       wordpress:
         patterns:
           - "@wordpress/*"
@@ -279,6 +273,8 @@ updates:
       - dependency-name: "eslint-plugin-studio"
       - dependency-name: "winreg" # v1.2.5 has a known issue: https://github.com/fresc81/node-winreg/issues/65
       - dependency-name: "@types/glob" # glob@7 (transitive) has no bundled types; @types/glob@9 is a stub for glob@9+ only
+      - dependency-name: "@wp-playground/*" # must be pinned exactly and bumped manually in lockstep — version mismatches cause runtime failures and ~450 MB bundle bloat
+      - dependency-name: "@php-wasm/*" # must be pinned exactly and bumped manually in lockstep — version mismatches cause runtime failures and ~450 MB bundle bloat
 
   # Enable version updates for GitHub Actions
   - package-ecosystem: "github-actions"
@@ -287,3 +283,13 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+
+  # Enable version updates for Ruby gems
+  - package-ecosystem: "bundler"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    groups:
+      ruby-minor-and-patch:
+        update-types: [minor, patch]
+    open-pull-requests-limit: 5

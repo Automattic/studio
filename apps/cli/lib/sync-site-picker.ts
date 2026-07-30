@@ -1,25 +1,90 @@
 import { search } from '@inquirer/prompts';
+import chalk from '@studio/common/lib/chalk';
 import { __, sprintf } from '@wordpress/i18n';
-import chalk from 'chalk';
 import { normalizeHostname } from 'cli/lib/utils';
 import { LoggerError } from 'cli/logger';
 import type { SyncSite } from '@studio/common/types/sync';
 
-function throwSyncSupportError( site: SyncSite ): never {
-	if ( site.syncSupport === 'needs-transfer' ) {
-		throw new LoggerError(
-			sprintf(
-				__(
-					'Site %1$s requires hosting features to be enabled. Please visit https://wordpress.com/hosting-features/%2$d to activate them, then try again.'
-				),
-				site.name,
-				site.id
-			)
-		);
+/**
+ * Maps a site's `syncSupport` state to a clear, actionable error explaining
+ * why it can't be synced. Shared by every CLI sync command (push, pull,
+ * pull-reprint) so a Business-plan site awaiting Atomic transfer, a site that
+ * needs a plan upgrade, and so on each report the specific condition and next
+ * step instead of a generic failure or a raw internal state identifier.
+ */
+export function getSyncSupportError( site: SyncSite ): LoggerError {
+	switch ( site.syncSupport ) {
+		case 'needs-transfer':
+			return new LoggerError(
+				sprintf(
+					// translators: %1$s: site name. %2$d: WordPress.com site ID.
+					__(
+						'Site %1$s requires hosting features to be enabled. Please visit https://wordpress.com/hosting-features/%2$d to activate them, then try again.'
+					),
+					site.name,
+					site.id
+				)
+			);
+		case 'needs-upgrade':
+			return new LoggerError(
+				sprintf(
+					// translators: %1$s: site name. %2$d: WordPress.com site ID.
+					__(
+						'Site %1$s requires a plan with hosting features to sync. Please upgrade at https://wordpress.com/plans/%2$d, then try again.'
+					),
+					site.name,
+					site.id
+				)
+			);
+		case 'missing-permissions':
+			return new LoggerError(
+				sprintf(
+					// translators: %s: site name.
+					__(
+						'You do not have permission to sync site %s. Please ask a site administrator for access, then try again.'
+					),
+					site.name
+				)
+			);
+		case 'unsupported':
+			return new LoggerError(
+				sprintf(
+					// translators: %s: site name.
+					__(
+						'Site %s is hosted somewhere Studio cannot sync with. Only WordPress.com and Pressable sites are supported.'
+					),
+					site.name
+				)
+			);
+		case 'deleted':
+			return new LoggerError(
+				sprintf(
+					// translators: %s: site name.
+					__( 'Site %s has been deleted and can no longer be synced.' ),
+					site.name
+				)
+			);
+		case 'already-connected':
+			return new LoggerError(
+				sprintf(
+					// translators: %s: site name.
+					__( 'Site %s is already connected to another local site.' ),
+					site.name
+				)
+			);
+		default:
+			return new LoggerError(
+				sprintf(
+					// translators: %s: site name.
+					__( 'Site %s cannot be synced.' ),
+					site.name
+				)
+			);
 	}
-	throw new LoggerError(
-		sprintf( __( 'Site %s is not syncable (%s)' ), site.name, site.syncSupport )
-	);
+}
+
+function throwSyncSupportError( site: SyncSite ): never {
+	throw getSyncSupportError( site );
 }
 
 export function findSyncSiteByIdentifier( sites: SyncSite[], identifier: string ): SyncSite {
@@ -46,7 +111,7 @@ export function findSyncSiteByIdentifier( sites: SyncSite[], identifier: string 
 	if ( matched.length > 1 ) {
 		throw new LoggerError(
 			sprintf(
-				__( 'Multiple sites match "%s". Use the site ID instead: %s' ),
+				__( 'Multiple sites match "%1$s". Use the site ID instead: %2$s' ),
 				identifier,
 				matched.map( ( s ) => `${ s.name } (ID: ${ s.id })` ).join( ', ' )
 			)
@@ -73,8 +138,10 @@ function getSyncSupportLabel( syncSupport: SyncSite[ 'syncSupport' ] ): string {
 			return __( 'Deleted' );
 		case 'missing-permissions':
 			return __( 'Missing permissions' );
+		case 'already-connected':
+			return __( 'Already connected' );
 		default:
-			return syncSupport;
+			return __( 'Not syncable' );
 	}
 }
 

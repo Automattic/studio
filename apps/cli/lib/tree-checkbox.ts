@@ -12,8 +12,8 @@ import {
 	isEnterKey,
 } from '@inquirer/core';
 import figures from '@inquirer/figures';
+import chalk from '@studio/common/lib/chalk';
 import { __, sprintf } from '@wordpress/i18n';
-import chalk from 'chalk';
 
 export type TreeNode = {
 	name: string;

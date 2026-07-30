@@ -16,7 +16,7 @@ export async function getSiteByFolder( siteFolder: string ): Promise< SiteData >
 	if ( ! site ) {
 		if ( isWordPressDirectory( siteFolder ) ) {
 			throw new LoggerError(
-				__( 'The specified directory is not added to Studio. Use `studio site create` to add it.' )
+				__( 'The specified directory is not added to Studio. Use `studio create` to add it.' )
 			);
 		}
 
@@ -24,6 +24,16 @@ export async function getSiteByFolder( siteFolder: string ): Promise< SiteData >
 	}
 
 	return site;
+}
+
+export async function findSiteByFolder( siteFolder: string ): Promise< SiteData | undefined > {
+	const config = await readCliConfig();
+	return config.sites.find( ( site ) => arePathsEqual( site.path, siteFolder ) );
+}
+
+export async function findSiteById( siteId: string ): Promise< SiteData | undefined > {
+	const config = await readCliConfig();
+	return config.sites.find( ( site ) => site.id === siteId );
 }
 
 export function getSiteUrl( site: SiteData ): string {
@@ -73,7 +83,7 @@ export async function clearSiteLatestCliPid( siteId: string ): Promise< void > {
 	}
 }
 
-export async function updateSiteAutoStart( siteId: string, autoStart: boolean ): Promise< void > {
+export async function updateSitePhpVersion( siteId: string, phpVersion: string ): Promise< void > {
 	try {
 		await lockCliConfig();
 		const config = await readCliConfig();
@@ -83,7 +93,7 @@ export async function updateSiteAutoStart( siteId: string, autoStart: boolean ):
 			throw new LoggerError( __( 'Site not found' ) );
 		}
 
-		site.autoStart = autoStart;
+		site.phpVersion = phpVersion;
 		await saveCliConfig( config );
 	} finally {
 		await unlockCliConfig();

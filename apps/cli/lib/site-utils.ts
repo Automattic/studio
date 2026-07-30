@@ -1,4 +1,9 @@
 import { decodePassword } from '@studio/common/lib/passwords';
+import {
+	getSiteRuntime,
+	SITE_RUNTIME_NATIVE_PHP,
+	type SiteRuntime,
+} from '@studio/common/lib/site-runtime';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
 import { openBrowser } from 'cli/lib/browser';
@@ -30,15 +35,40 @@ export async function startProxyIfNeeded( logger: Logger< LoggerAction > ): Prom
 }
 
 /**
- * Opens the site in the browser with auto-login to WordPress admin
+ * Builds a `/studio-auto-login` URL for `siteUrl` that lands on
+ * `redirectTo` (absolute site URL, or omitted for a bare auto-login).
+ * Centralised here so every caller agrees on the query-param shape
+ * the studio-auto-login mu-plugin expects.
+ */
+export function buildAutoLoginUrl(
+	runtime: SiteRuntime,
+	siteUrl: string,
+	redirectTo?: string
+): string {
+	if ( runtime === SITE_RUNTIME_NATIVE_PHP ) {
+		return `${ siteUrl }/`;
+	}
+
+	const base = `${ siteUrl }/studio-auto-login`;
+	if ( ! redirectTo ) {
+		return base;
+	}
+	return `${ base }?redirect_to=${ encodeURIComponent( redirectTo ) }`;
+}
+
+/**
+ * Opens the site in the browser with auto-login.
+ *
+ * If the site was created from a Blueprint with a `landingPage`, that path is
+ * used as the redirect target. Otherwise the CLI falls back to `/wp-admin/`,
+ * preserving the historical behavior for sites created without one.
  */
 export async function openSiteInBrowser( site: SiteData ): Promise< void > {
 	const siteUrl = getSiteUrl( site );
 	try {
-		const autoLoginUrl = `${ siteUrl }/studio-auto-login?redirect_to=${ encodeURIComponent(
-			`${ siteUrl }/wp-admin/`
-		) }`;
-		await openBrowser( autoLoginUrl );
+		const targetPath = site.landingPage || '/wp-admin/';
+		const target = new URL( targetPath, siteUrl ).toString();
+		await openBrowser( buildAutoLoginUrl( getSiteRuntime( site ), siteUrl, target ) );
 	} catch ( error ) {
 		// Silently fail if browser can't be opened
 	}

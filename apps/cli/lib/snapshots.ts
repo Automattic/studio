@@ -1,5 +1,4 @@
 import { HOUR_MS, DAY_MS, DEMO_SITE_EXPIRATION_DAYS } from '@studio/common/constants';
-import { Snapshot } from '@studio/common/types/snapshot';
 import { __ } from '@wordpress/i18n';
 import { addDays, addHours, DurationUnit, formatDuration, intervalToDuration } from 'date-fns';
 
@@ -8,13 +7,10 @@ export {
 	saveSnapshotToConfig,
 	updateSnapshotInConfig,
 	deleteSnapshotFromConfig,
+	pruneExpiredOrphanedSnapshots,
 } from 'cli/lib/cli-config/snapshots';
 
-export function isSnapshotExpired( snapshot: Snapshot ) {
-	const now = new Date();
-	const endDate = addDays( snapshot.date, DEMO_SITE_EXPIRATION_DAYS );
-	return endDate < now;
-}
+export { isSnapshotExpired } from '@studio/common/lib/snapshots';
 
 export function formatDurationUntilExpiry( lastUpdatedAt: number ) {
 	const now = new Date();

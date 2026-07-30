@@ -1,10 +1,9 @@
-import { EventEmitter } from 'events';
 import path from 'path';
-import { ImportEvents } from '../events';
+import { ImportExportEventEmitter } from '../../events';
 import { BackupContents } from '../types';
 import { Validator } from './validator';
 
-export class PlaygroundValidator extends EventEmitter implements Validator {
+export class PlaygroundValidator extends ImportExportEventEmitter implements Validator {
 	canHandle( fileList: string[] ): boolean {
 		const requiredDirs = [
 			'wp-content/database',
@@ -12,16 +11,18 @@ export class PlaygroundValidator extends EventEmitter implements Validator {
 			'wp-content/plugins',
 			'wp-content/themes',
 		];
-		return (
+		const hasSqliteDatabase =
 			requiredDirs.some( ( dir ) => fileList.some( ( file ) => file.startsWith( dir + '/' ) ) ) &&
 			fileList.some(
 				( file ) => file.startsWith( 'wp-content/database' ) && file.endsWith( '.ht.sqlite' )
-			)
-		);
+			);
+
+		const hasSqlDumps = fileList.some( ( file ) => file.startsWith( 'sql/' ) );
+
+		return hasSqliteDatabase && ! hasSqlDumps;
 	}
 
 	parseBackupContents( fileList: string[], extractionDirectory: string ): BackupContents {
-		this.emit( ImportEvents.IMPORT_VALIDATION_START );
 		const extractedBackup: BackupContents = {
 			extractionDirectory: extractionDirectory,
 			sqlFiles: [],
@@ -49,7 +50,6 @@ export class PlaygroundValidator extends EventEmitter implements Validator {
 				extractedBackup.wpContentFiles.push( fullPath );
 			}
 		}
-		this.emit( ImportEvents.IMPORT_VALIDATION_COMPLETE );
 		return extractedBackup;
 	}
 }

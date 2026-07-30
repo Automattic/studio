@@ -25,7 +25,7 @@ export function ClearAction( {
 				{ isError ? <ErrorIcon /> : <CheckIcon /> }
 				{ children }
 			</span>
-			<Button variant="link" className="ms-3" onClick={ onClick }>
+			<Button variant="link" className="ms-3 whitespace-nowrap" onClick={ onClick }>
 				{ __( 'Clear' ) }
 			</Button>
 		</div>

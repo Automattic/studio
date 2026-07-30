@@ -5,6 +5,9 @@ interface ShowNotificationOptions extends Electron.NotificationConstructorOption
 	showIcon: boolean;
 }
 
+type SiteRuntime = 'playground' | 'native-php';
+type SiteFileAccess = 'site-directory' | 'all-files';
+
 interface StoppedSiteDetails {
 	running: false;
 
@@ -29,6 +32,13 @@ interface StoppedSiteDetails {
 		supportsWidgets: boolean;
 		supportsMenus: boolean;
 	};
+	// Absolute filesystem path of the configured WordPress Site Icon.
+	// `null` means we've checked and the site has no icon configured;
+	// `undefined` means we've never fetched.
+	siteIconPath?: string | null;
+	// Data URL produced from `siteIconPath` for the renderer to display.
+	// Computed at the IPC boundary in `getSiteDetails`, never persisted.
+	siteIcon?: string | null;
 	isAddingSite?: boolean;
 	autoStart?: boolean;
 	latestCliPid?: number;
@@ -36,6 +46,9 @@ interface StoppedSiteDetails {
 	enableDebugLog?: boolean;
 	enableDebugDisplay?: boolean;
 	sortOrder?: number;
+	landingPage?: string;
+	runtime?: SiteRuntime;
+	fileAccess?: SiteFileAccess;
 }
 
 interface StartedSiteDetails extends StoppedSiteDetails {
@@ -87,11 +100,13 @@ type IpcApi = {
 };
 
 interface FeatureFlags {
-	enableBlueprints: boolean;
+	enableAgenticUi: boolean;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-interface BetaFeatures {}
+interface BetaFeatures {
+	remoteSession: boolean;
+	enableAgenticUi: boolean;
+}
 
 interface AppGlobals extends FeatureFlags {
 	platform: NodeJS.Platform;

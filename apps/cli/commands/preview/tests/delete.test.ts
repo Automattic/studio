@@ -92,9 +92,8 @@ describe( 'Preview Delete Command', () => {
 		} );
 
 		expect( mockReportStart.mock.calls[ 0 ] ).toEqual( [ 'validate', 'Validating…' ] );
-		expect( mockReportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Validation successful', true ] );
 		expect( mockReportStart.mock.calls[ 1 ] ).toEqual( [ 'delete', 'Deleting…' ] );
-		expect( mockReportSuccess.mock.calls[ 1 ] ).toEqual( [ 'Deletion successful' ] );
+		expect( mockReportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Deletion successful' ] );
 	} );
 
 	it( 'should handle authentication errors', async () => {
@@ -128,7 +127,7 @@ describe( 'Preview Delete Command', () => {
 			event: SNAPSHOT_EVENTS.DELETED,
 			data: { snapshotUrl: mockSiteUrl },
 		} );
-		expect( mockReportSuccess.mock.calls[ 1 ] ).toEqual( [ 'Deletion successful' ] );
+		expect( mockReportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Deletion successful' ] );
 	} );
 
 	it( 'should handle delete preview site errors', async () => {

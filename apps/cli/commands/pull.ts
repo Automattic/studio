@@ -2,6 +2,10 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { confirm } from '@inquirer/prompts';
+import {
+	addConnectedWpcomSite,
+	markConnectedWpcomSiteSynced,
+} from '@studio/common/lib/connected-sites';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import {
 	SYNC_MAX_STALLED_ATTEMPTS,
@@ -14,11 +18,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { SiteData } from 'cli/lib/cli-config/core';
 import { clearSiteLatestCliPid, getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
-import {
-	DEFAULT_IMPORTER_OPTIONS,
-	importBackup,
-} from 'cli/lib/import-export/import/import-manager';
-import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
+import { DEFAULT_IMPORTER_OPTIONS, getImporter } from 'cli/lib/import-export/import/import-manager';
 import {
 	checkBackupSize,
 	fetchSyncableSites,
@@ -36,7 +36,7 @@ import {
 } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
-import { importEventHandler } from './import';
+import { handleImportEvents } from './import';
 import type { SyncOption } from '@studio/common/types/sync';
 
 const logger = new Logger< LoggerAction >();
@@ -70,7 +70,6 @@ export async function runCommand(
 		logger.reportStart( LoggerAction.FETCH_REMOTE_SITES, __( 'Fetching WordPress.com sites…' ) );
 		const remoteSites = await fetchSyncableSites( token.accessToken );
 		logger.spinner.stop();
-		logger.reportSuccess( sprintf( __( 'Found %d sites' ), remoteSites.length ), true );
 
 		let remoteSite;
 		if ( siteIdentifier ) {
@@ -136,7 +135,7 @@ export async function runCommand(
 
 			// Backup phase: 0-50%
 			const backupProgress = Math.round( status.percent * 0.5 );
-			logger.spinner.text = sprintf( __( 'Creating remote backup… (%d%%)' ), backupProgress );
+			logger.reportProgress( sprintf( __( 'Creating remote backup… (%d%%)' ), backupProgress ) );
 
 			await new Promise( ( resolve ) => setTimeout( resolve, SYNC_POLL_INTERVAL_MS ) );
 		}
@@ -181,20 +180,29 @@ export async function runCommand(
 				logger.reportSuccess( __( 'WordPress server stopped' ) );
 			}
 
-			await importBackup(
+			const importer = getImporter(
 				{ path: destPath, type: 'application/gzip' },
-				site,
-				importEventHandler,
 				DEFAULT_IMPORTER_OPTIONS
 			);
+			handleImportEvents( importer );
+			await importer.import( site );
 
 			// Something in Playground makes it so the front-end of the site sometimes returns an error page
 			// on the first request. Send that first request from here to hide the error from the user.
 			const siteUrl = getSiteUrl( site );
 			await fetch( siteUrl ).catch( () => {} );
 
+			// Remember this connection so future push/pull runs (and the Desktop UI)
+			// can surface it without re-selecting from the full site list.
+			try {
+				await addConnectedWpcomSite( site.id, { ...remoteSite, localSiteId: site.id } );
+				await markConnectedWpcomSiteSynced( site.id, remoteSite.id, 'pull' );
+			} catch ( error ) {
+				logger.reportError( new LoggerError( 'Failed to save connected site', error ), false );
+			}
+
 			logger.reportSuccess(
-				sprintf( __( 'Pulled from %s (%s)' ), remoteSite.name, remoteSite.url )
+				sprintf( __( 'Pulled from %1$s (%2$s)' ), remoteSite.name, remoteSite.url )
 			);
 		} finally {
 			fs.rmSync( tempDir, { recursive: true, force: true } );
@@ -204,13 +212,6 @@ export async function runCommand(
 	} finally {
 		try {
 			if ( site && wasServerRunning ) {
-				logger.reportStart(
-					LoggerAction.INSTALL_SQLITE,
-					__( 'Setting up SQLite integration, if needed…' )
-				);
-				await keepSqliteIntegrationUpdated( siteFolder );
-				logger.reportSuccess( __( 'SQLite integration configured as needed' ) );
-
 				logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress server…' ) );
 				await startWordPressServer( site, logger );
 				logger.reportSuccess( __( 'WordPress server started' ) );

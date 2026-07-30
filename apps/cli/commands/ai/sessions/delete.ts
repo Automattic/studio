@@ -1,5 +1,6 @@
+import { deleteAiSession, listAiSessions } from '@studio/common/ai/sessions/store';
+import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { __ } from '@wordpress/i18n';
-import { deleteAiSession, listAiSessions } from 'cli/ai/sessions/store';
 import { chooseSessionForAction } from 'cli/commands/ai/sessions/helpers';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
@@ -22,7 +23,7 @@ export async function runCommand( sessionIdOrPrefix?: string ): Promise< void > 
 	}
 
 	if ( resolvedSessionIdOrPrefix.toLowerCase() === 'latest' ) {
-		const sessions = await listAiSessions();
+		const sessions = await listAiSessions( getSessionsDirectory() );
 		if ( sessions.length === 0 ) {
 			throw new Error( __( 'No code sessions found' ) );
 		}
@@ -30,7 +31,7 @@ export async function runCommand( sessionIdOrPrefix?: string ): Promise< void > 
 		resolvedSessionIdOrPrefix = sessions[ 0 ].id;
 	}
 
-	const deletedSession = await deleteAiSession( resolvedSessionIdOrPrefix );
+	const deletedSession = await deleteAiSession( getSessionsDirectory(), resolvedSessionIdOrPrefix );
 	console.log( `${ __( 'Deleted code session' ) }: ${ deletedSession.id }` );
 }
 

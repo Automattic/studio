@@ -1,0 +1,81 @@
+.root {
+	position: absolute;
+	pointer-events: none;
+	overflow: hidden;
+	contain: paint;
+	--progressive-blur-surface-color: var(--wpds-color-bg-surface-neutral, Canvas);
+	--progressive-blur-surface-strength: 78%;
+	--progressive-blur-surface-hold-stop: 58%;
+	--progressive-blur-surface-fade-stop: 100%;
+}
+
+.down {
+	--progressive-blur-direction: to bottom;
+}
+
+.up {
+	--progressive-blur-direction: to top;
+}
+
+.layer {
+	position: absolute;
+	inset: 0;
+	backdrop-filter: blur(var(--progressive-blur-radius));
+	mask-image: linear-gradient(
+		var(--progressive-blur-direction),
+		black 0%,
+		black var(--progressive-blur-solid-stop),
+		transparent var(--progressive-blur-fade-stop)
+	);
+	-webkit-mask-image: linear-gradient(
+		var(--progressive-blur-direction),
+		black 0%,
+		black var(--progressive-blur-solid-stop),
+		transparent var(--progressive-blur-fade-stop)
+	);
+}
+
+.surfaceFade {
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(
+		var(--progressive-blur-direction),
+		color-mix(
+				in srgb,
+				var(--progressive-blur-surface-color) var(--progressive-blur-surface-strength),
+				transparent
+			)
+			0%,
+		color-mix(
+				in srgb,
+				var(--progressive-blur-surface-color) var(--progressive-blur-surface-strength),
+				transparent
+			)
+			var(--progressive-blur-surface-hold-stop),
+		transparent var(--progressive-blur-surface-fade-stop)
+	);
+}
+
+.layerSoft {
+	--progressive-blur-radius: 1.5px;
+	--progressive-blur-solid-stop: 0%;
+	--progressive-blur-fade-stop: 100%;
+}
+
+.layerMedium {
+	--progressive-blur-radius: 3px;
+	--progressive-blur-solid-stop: 0%;
+	--progressive-blur-fade-stop: 72%;
+}
+
+.layerStrong {
+	--progressive-blur-radius: 6px;
+	--progressive-blur-solid-stop: 0%;
+	--progressive-blur-fade-stop: 48%;
+}
+
+.layerIntense {
+	--progressive-blur-radius: 12px;
+	--progressive-blur-solid-stop: 0%;
+	--progressive-blur-fade-stop: 28%;
+}

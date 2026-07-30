@@ -114,15 +114,6 @@ vi.mock( 'src/hooks/use-offline', () => ( {
 	useOffline: vi.fn().mockReturnValue( false ),
 } ) );
 
-vi.mock( 'src/hooks/use-ai-icon', () => ( {
-	__esModule: true,
-	default: () => ( {
-		rive: null,
-		RiveComponent: () => null,
-		setInputState: vi.fn(),
-	} ),
-} ) );
-
 global.ResizeObserver = require( 'resize-observer-polyfill' );
 
 vi.mock( '@sentry/electron/main', () => ( {
@@ -171,6 +162,7 @@ vi.mock( import( './src/storage/paths' ), () => ( {
 	getResourcesPath: vi.fn().mockReturnValue( '/mock/resources' ),
 	getUserDataFilePath: vi.fn().mockReturnValue( '/mock/userdata.json' ),
 	getUserDataLockFilePath: vi.fn().mockReturnValue( '/mock/userdata.json.lock' ),
+	getOldAppdataFilePath: vi.fn().mockReturnValue( '/mock/appdata-v1.json' ),
 	getOldUserDataCertificatesPath: vi.fn().mockReturnValue( '/mock/certificates' ),
 	getOldServerFilesPath: vi.fn().mockReturnValue( '/mock/server/files' ),
 	getCliPath: vi.fn().mockReturnValue( '/mock/cli/path' ),
@@ -197,18 +189,19 @@ vi.mock( 'atomically', () => ( {
 	writeFile: vi.fn(),
 } ) );
 
-vi.mock( 'ora', () => {
-	const mockOra = () => ( {
-		start: vi.fn().mockReturnThis(),
-		stop: vi.fn().mockReturnThis(),
-		succeed: vi.fn().mockReturnThis(),
-		fail: vi.fn().mockReturnThis(),
-		warn: vi.fn().mockReturnThis(),
-		info: vi.fn().mockReturnThis(),
-		text: '',
-		isSpinning: false,
-	} );
+vi.mock( 'picospinner', () => {
+	class MockSpinner {
+		start = vi.fn().mockReturnThis();
+		stop = vi.fn().mockReturnThis();
+		succeed = vi.fn().mockReturnThis();
+		fail = vi.fn().mockReturnThis();
+		warn = vi.fn().mockReturnThis();
+		info = vi.fn().mockReturnThis();
+		setText = vi.fn().mockReturnThis();
+		refresh = vi.fn().mockReturnThis();
+		running = false;
+	}
 	return {
-		default: mockOra,
+		Spinner: MockSpinner,
 	};
 } );

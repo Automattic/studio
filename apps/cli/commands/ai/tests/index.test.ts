@@ -1,0 +1,283 @@
+import { readAuthToken } from '@studio/common/lib/shared-config';
+import { vi, type Mock } from 'vitest';
+import { resolveInitialAiProvider, saveSelectedAiProvider } from 'cli/ai/auth';
+import { JsonAdapter } from 'cli/ai/output-adapter';
+import { runStudioAgentTurn } from 'cli/ai/runtimes/pi';
+import {
+	createStudioSession,
+	listStudioSessionFiles,
+	openStudioSession,
+} from 'cli/ai/sessions/pi-session';
+import { readCliConfig } from 'cli/lib/cli-config/core';
+import { findSiteByFolder } from 'cli/lib/cli-config/sites';
+import { disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { isSiteRunning } from 'cli/lib/site-utils';
+import { runCommand } from '../index';
+
+vi.mock( '@studio/common/lib/shared-config', () => ( {
+	readAuthToken: vi.fn(),
+} ) );
+vi.mock( 'cli/ai/auth', () => ( {
+	resolveInitialAiProvider: vi.fn(),
+	saveSelectedAiProvider: vi.fn(),
+	getAvailableAiProviders: vi.fn( () => [ 'wpcom' ] ),
+	isAiProviderReady: vi.fn(),
+	prepareAiProvider: vi.fn(),
+	resolveAiEnvironment: vi.fn(),
+	resolveUnavailableAiProvider: vi.fn(),
+} ) );
+vi.mock( 'cli/ai/providers', () => ( {
+	AI_PROVIDERS: { wpcom: 'WordPress.com', 'anthropic-api-key': 'Anthropic · API key' },
+	getAiProviderDefinition: () => ( {
+		supportsModel: () => true,
+		defaultModel: 'claude-default',
+	} ),
+} ) );
+vi.mock( 'cli/lib/cli-config/core', () => ( {
+	readCliConfig: vi.fn(),
+} ) );
+vi.mock( 'cli/lib/cli-config/sites', () => ( {
+	findSiteByFolder: vi.fn(),
+} ) );
+vi.mock( 'cli/lib/site-utils', () => ( {
+	isSiteRunning: vi.fn(),
+} ) );
+vi.mock( 'cli/lib/daemon-client', () => ( {
+	disconnectFromDaemon: vi.fn().mockResolvedValue( undefined ),
+} ) );
+vi.mock( 'cli/ai/sessions/context', () => ( {
+	resolveResumeSessionContext: () => ( { provider: undefined, model: undefined } ),
+} ) );
+vi.mock( 'cli/ai/sessions/pi-session', () => ( {
+	createStudioSession: vi.fn(),
+	openStudioSession: vi.fn(),
+	listStudioSessionFiles: vi.fn(),
+} ) );
+vi.mock( 'cli/ai/sessions/replay', () => ( { replaySessionHistory: vi.fn() } ) );
+vi.mock( '@studio/common/lib/well-known-paths', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@studio/common/lib/well-known-paths') >() ),
+	getSessionsDirectory: vi.fn(),
+} ) );
+vi.mock( 'cli/ai/runtimes/pi', () => ( {
+	// A completed turn so the JSON single-turn path returns instead of looping.
+	runStudioAgentTurn: vi.fn( () => ( { result: Promise.resolve(), interrupt: vi.fn() } ) ),
+} ) );
+vi.mock( 'cli/ai/slash-commands', () => ( { getActiveSlashCommands: vi.fn( () => [] ) } ) );
+vi.mock( 'cli/ai/browser-utils', () => ( { closeSharedBrowser: vi.fn() } ) );
+vi.mock( 'cli/ai/chat-artifacts', () => ( { setChatArtifactCallback: vi.fn() } ) );
+vi.mock( 'cli/ai/site-selection', () => ( { setLocalSiteSelectedCallback: vi.fn() } ) );
+vi.mock( 'cli/ai/daemon-status-poll', () => ( {
+	startDaemonStatusPolling: vi.fn( () => vi.fn() ),
+} ) );
+vi.mock( 'cli/commands/auth/login', () => ( { runCommand: vi.fn() } ) );
+vi.mock( 'cli/ai/ui', () => ( { AiChatUI: class AiChatUI {} } ) );
+vi.mock( 'cli/logger', () => ( {
+	Logger: class {},
+	LoggerError: class LoggerError extends Error {},
+	setProgressCallback: vi.fn(),
+} ) );
+
+describe( 'AI runCommand — Desktop (JSON mode) provider default', () => {
+	let stdoutSpy: ReturnType< typeof vi.spyOn >;
+
+	beforeEach( () => {
+		vi.clearAllMocks();
+		( createStudioSession as Mock ).mockResolvedValue( {
+			appendCustomEntry: vi.fn( () => 'entry-id' ),
+			getSessionId: () => 'session-id',
+			getEntries: () => [],
+		} );
+		( readAuthToken as Mock ).mockResolvedValue( null );
+		// Silence the NDJSON the adapter writes to stdout.
+		stdoutSpy = vi.spyOn( process.stdout, 'write' ).mockImplementation( () => true );
+	} );
+
+	afterEach( () => {
+		stdoutSpy.mockRestore();
+	} );
+
+	it( 'defaults to the wpcom provider on first run when none is configured', async () => {
+		( readCliConfig as Mock ).mockResolvedValue( { aiProvider: undefined } );
+		( resolveInitialAiProvider as Mock ).mockResolvedValue( 'wpcom' );
+
+		await runCommand( { adapter: new JsonAdapter(), initialMessage: 'hello' } );
+
+		expect( runStudioAgentTurn ).toHaveBeenCalled();
+		expect( saveSelectedAiProvider ).toHaveBeenCalledTimes( 1 );
+		expect( saveSelectedAiProvider ).toHaveBeenCalledWith( 'wpcom' );
+	} );
+
+	it( 'does not override an already-configured provider', async () => {
+		( readCliConfig as Mock ).mockResolvedValue( { aiProvider: 'anthropic-api-key' } );
+		( resolveInitialAiProvider as Mock ).mockResolvedValue( 'anthropic-api-key' );
+
+		await runCommand( { adapter: new JsonAdapter(), initialMessage: 'hello' } );
+
+		expect( runStudioAgentTurn ).toHaveBeenCalled();
+		expect( saveSelectedAiProvider ).not.toHaveBeenCalled();
+	} );
+} );
+
+describe( 'AI runCommand — resume by id restores session model', () => {
+	let stdoutSpy: ReturnType< typeof vi.spyOn >;
+
+	beforeEach( () => {
+		vi.clearAllMocks();
+		( readAuthToken as Mock ).mockResolvedValue( null );
+		( readCliConfig as Mock ).mockResolvedValue( { aiProvider: 'wpcom' } );
+		( resolveInitialAiProvider as Mock ).mockResolvedValue( 'wpcom' );
+		stdoutSpy = vi.spyOn( process.stdout, 'write' ).mockImplementation( () => true );
+	} );
+
+	afterEach( () => {
+		stdoutSpy.mockRestore();
+	} );
+
+	it( 'uses the model recorded in the session rather than DEFAULT_MODEL', async () => {
+		// Build a minimal session whose entries record a model_change to a
+		// non-default model — the same shape that `resolveSessionModel` reads.
+		const sessionEntries = [
+			{
+				type: 'model_change',
+				id: 'e1',
+				parentId: null,
+				timestamp: '2024-01-01T00:00:00Z',
+				modelId: 'claude-opus-5',
+			},
+		];
+		const mockSm = {
+			appendCustomEntry: vi.fn( () => 'entry-id' ),
+			getSessionId: () => 'resume-id-123',
+			getEntries: () => sessionEntries,
+		};
+
+		( listStudioSessionFiles as Mock ).mockResolvedValue( [ '/sessions/session-1.jsonl' ] );
+		( openStudioSession as Mock ).mockResolvedValue( mockSm );
+
+		await runCommand( {
+			adapter: new JsonAdapter(),
+			initialMessage: 'hello',
+			resumeSessionId: 'resume-id-123',
+		} );
+
+		expect( runStudioAgentTurn ).toHaveBeenCalledTimes( 1 );
+		const callArgs = ( runStudioAgentTurn as Mock ).mock.calls[ 0 ][ 0 ] as { model: string };
+		expect( callArgs.model ).toBe( 'claude-opus-5' );
+	} );
+} );
+
+describe( 'AI runCommand — active site banner running state', () => {
+	let stdoutSpy: ReturnType< typeof vi.spyOn >;
+
+	const dispatchedPrompt = () =>
+		( ( runStudioAgentTurn as Mock ).mock.calls[ 0 ][ 0 ] as { prompt: string } ).prompt;
+
+	beforeEach( () => {
+		vi.clearAllMocks();
+		( createStudioSession as Mock ).mockResolvedValue( {
+			appendCustomEntry: vi.fn( () => 'entry-id' ),
+			getSessionId: () => 'session-id',
+			getEntries: () => [],
+		} );
+		( readAuthToken as Mock ).mockResolvedValue( null );
+		( readCliConfig as Mock ).mockResolvedValue( { aiProvider: 'wpcom' } );
+		( resolveInitialAiProvider as Mock ).mockResolvedValue( 'wpcom' );
+		stdoutSpy = vi.spyOn( process.stdout, 'write' ).mockImplementation( () => true );
+	} );
+
+	afterEach( () => {
+		stdoutSpy.mockRestore();
+	} );
+
+	it( 'reports the site as running when the daemon says it is', async () => {
+		( findSiteByFolder as Mock ).mockResolvedValue( {
+			id: 'site-1',
+			name: 'My Site',
+			path: '/sites/my-site',
+		} );
+		( isSiteRunning as Mock ).mockResolvedValue( true );
+
+		await runCommand( {
+			adapter: new JsonAdapter(),
+			initialMessage: 'hello',
+			activeSite: { name: 'My Site', path: '/sites/my-site' },
+		} );
+
+		expect( dispatchedPrompt() ).toContain(
+			'[Active site: "My Site" at /sites/my-site (running)]'
+		);
+	} );
+
+	// STU-2040 regression guard: the per-turn isSiteRunning check opens a
+	// DaemonBus socket; without a disconnect the headless (--json) process
+	// never exits after the turn, and the desktop UI hangs in "working".
+	it( 'closes the daemon socket after the per-turn running check so headless runs can exit', async () => {
+		( findSiteByFolder as Mock ).mockResolvedValue( {
+			id: 'site-1',
+			name: 'My Site',
+			path: '/sites/my-site',
+		} );
+		( isSiteRunning as Mock ).mockResolvedValue( true );
+
+		await runCommand( {
+			adapter: new JsonAdapter(),
+			initialMessage: 'hello',
+			activeSite: { name: 'My Site', path: '/sites/my-site' },
+		} );
+
+		expect( disconnectFromDaemon ).toHaveBeenCalled();
+		const checkOrder = ( isSiteRunning as Mock ).mock.invocationCallOrder[ 0 ];
+		const disconnectOrder = ( disconnectFromDaemon as Mock ).mock.invocationCallOrder[ 0 ];
+		expect( disconnectOrder ).toBeGreaterThan( checkOrder );
+	} );
+
+	it( 'reports the site as stopped when the daemon says it is not running', async () => {
+		( findSiteByFolder as Mock ).mockResolvedValue( {
+			id: 'site-1',
+			name: 'My Site',
+			path: '/sites/my-site',
+		} );
+		( isSiteRunning as Mock ).mockResolvedValue( false );
+
+		await runCommand( {
+			adapter: new JsonAdapter(),
+			initialMessage: 'hello',
+			activeSite: { name: 'My Site', path: '/sites/my-site' },
+		} );
+
+		expect( dispatchedPrompt() ).toContain( '(stopped)' );
+	} );
+
+	it( 'treats a site missing from the CLI config as stopped', async () => {
+		( findSiteByFolder as Mock ).mockResolvedValue( undefined );
+
+		await runCommand( {
+			adapter: new JsonAdapter(),
+			initialMessage: 'hello',
+			activeSite: { name: 'Gone', path: '/sites/gone' },
+		} );
+
+		expect( isSiteRunning ).not.toHaveBeenCalled();
+		expect( dispatchedPrompt() ).toContain( '(stopped)' );
+	} );
+
+	it( 'skips the daemon check for remote sites', async () => {
+		await runCommand( {
+			adapter: new JsonAdapter(),
+			initialMessage: 'hello',
+			activeSite: {
+				name: 'Live',
+				path: '',
+				remote: true,
+				url: 'https://example.wordpress.com',
+				wpcomSiteId: 123,
+			},
+		} );
+
+		expect( findSiteByFolder ).not.toHaveBeenCalled();
+		expect( isSiteRunning ).not.toHaveBeenCalled();
+		expect( dispatchedPrompt() ).toContain(
+			'[Active site: "Live" (ID: 123) at https://example.wordpress.com (WordPress.com)]'
+		);
+	} );
+} );

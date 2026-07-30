@@ -38,7 +38,7 @@ const snapshotTestActions = {
 let testStore = createTestStore( {
 	preloadedState: {
 		betaFeatures: {
-			features: {},
+			features: { remoteSession: false, enableAgenticUi: false },
 			loading: false,
 		},
 	},
@@ -49,7 +49,7 @@ function createCustomTestStore() {
 	const store = createTestStore( {
 		preloadedState: {
 			betaFeatures: {
-				features: {},
+				features: { remoteSession: false, enableAgenticUi: false },
 				loading: false,
 			},
 		},
@@ -63,6 +63,7 @@ vi.mock( 'src/hooks/use-site-details' );
 vi.mock( 'src/lib/get-ipc-api' );
 vi.mock( 'src/lib/app-globals', () => ( {
 	isWindows: () => false,
+	isLinux: () => false,
 } ) );
 
 vi.mock( 'src/stores/wordpress-versions-api', async () => {
@@ -70,7 +71,7 @@ vi.mock( 'src/stores/wordpress-versions-api', async () => {
 	return {
 		...actual,
 		useGetWordPressVersions: vi.fn( () => ( {
-			sites: [
+			data: [
 				{ label: 'Latest', value: 'latest', isBeta: false, isDevelopment: false },
 				{ label: '6.4', value: '6.4', isBeta: false, isDevelopment: false },
 				{ label: '6.3', value: '6.3', isBeta: false, isDevelopment: false },
@@ -86,7 +87,7 @@ const selectedSite: SiteDetails = {
 	path: '/path/to/site',
 	adminPassword: btoa( 'test-password' ),
 	running: false,
-	phpVersion: '8.3',
+	phpVersion: '8.4',
 	id: 'site-id',
 };
 
@@ -290,6 +291,27 @@ describe( 'ContentTabSettings', () => {
 	} );
 
 	describe( 'PHP version', () => {
+		it( 'shows a native PHP fallback warning for unsupported stored PHP versions', async () => {
+			const user = userEvent.setup();
+
+			renderWithProvider(
+				<ContentTabSettings
+					selectedSite={ { ...selectedSite, runtime: 'native-php', phpVersion: '7.4' } }
+				/>
+			);
+
+			await waitFor( () => {
+				expect( getAllCustomDomains ).toHaveBeenCalled();
+			} );
+			await user.hover( screen.getByRole( 'img', { name: 'PHP version warning' } ) );
+
+			expect(
+				await screen.findByText(
+					'Native PHP does not support PHP 7.4. This site will run with PHP 8.2 instead.'
+				)
+			).toBeVisible();
+		} );
+
 		it( 'changes PHP version when site is not running', async () => {
 			const user = userEvent.setup();
 
@@ -314,7 +336,7 @@ describe( 'ContentTabSettings', () => {
 			const { rerender } = renderWithProvider(
 				<ContentTabSettings selectedSite={ selectedSite } />
 			);
-			expect( screen.getByText( '8.3' ) ).toBeVisible();
+			expect( screen.getByText( '8.4' ) ).toBeVisible();
 			await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );
 			vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
 				selectedSite: { ...selectedSite, running: false } as SiteDetails,
@@ -392,7 +414,7 @@ describe( 'ContentTabSettings', () => {
 			const { rerender } = renderWithProvider(
 				<ContentTabSettings selectedSite={ selectedSite } />
 			);
-			expect( screen.getByText( '8.3' ) ).toBeVisible();
+			expect( screen.getByText( '8.4' ) ).toBeVisible();
 			await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );
 			vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
 				selectedSite: { ...selectedSite, running: true } as SiteDetails,

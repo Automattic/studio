@@ -111,14 +111,29 @@ const FRONTEND_ITEMS: AddressItem[] = [
 	{ id: 'not-found', icon: help, title: __( '404 page' ), path: FRONT_END_NOT_FOUND_PATH },
 ];
 
+// The site editor renamed its route slugs alongside the `path`→`p` param
+// rename (`/wp_template` became `/template`, and so on); fold each family
+// into one canonical route so destinations match on every WP version.
+const SITE_EDITOR_ROUTE_ALIASES: Record< string, string > = {
+	'/wp_template': '/template',
+	'/wp_template_part': '/pattern',
+	'/patterns': '/pattern',
+	'/wp_global_styles': '/styles',
+	'/wp_navigation': '/navigation',
+};
+
+function canonicalSiteEditorRoute( value: string ): string {
+	return SITE_EDITOR_ROUTE_ALIASES[ value ] ?? value;
+}
+
 /**
  * How well a destination matches the preview's current path: -1 for no
  * match, otherwise the number of query params the destination pins down —
  * more params is more specific, so Pages beats Posts on their shared
  * edit.php pathname. WP Admin rewrites its URLs after navigation (the site
- * editor renamed its `path` param to `p` and appends extras like `canvas`),
- * so declared params match under either name and extra current params are
- * ignored.
+ * editor renamed its `path` param to `p`, renamed the route slugs, and
+ * appends extras like `canvas`), so declared params match under either
+ * name and canonical route, and extra current params are ignored.
  */
 function destinationMatchScore( destinationPath: string, currentPath: string ): number {
 	let destination: URL;
@@ -134,8 +149,18 @@ function destinationMatchScore( destinationPath: string, currentPath: string ): 
 	}
 	let score = 0;
 	for ( const [ key, value ] of destination.searchParams ) {
-		const aliases = key === 'path' || key === 'p' ? [ 'path', 'p' ] : [ key ];
-		if ( ! aliases.some( ( alias ) => current.searchParams.get( alias ) === value ) ) {
+		const isRouteParam = key === 'path' || key === 'p';
+		const aliases = isRouteParam ? [ 'path', 'p' ] : [ key ];
+		const matches = aliases.some( ( alias ) => {
+			const currentValue = current.searchParams.get( alias );
+			if ( currentValue === null ) {
+				return false;
+			}
+			return isRouteParam
+				? canonicalSiteEditorRoute( currentValue ) === canonicalSiteEditorRoute( value )
+				: currentValue === value;
+		} );
+		if ( ! matches ) {
 			return -1;
 		}
 		score += 1;

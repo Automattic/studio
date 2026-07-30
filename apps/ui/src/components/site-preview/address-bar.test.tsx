@@ -191,6 +191,30 @@ describe( 'PreviewAddressBar', () => {
 		);
 	} );
 
+	it.each( [
+		[ '/wp-admin/site-editor.php?p=%2Ftemplate', /Templates/ ],
+		[ '/wp-admin/site-editor.php?p=%2Fpattern', /Patterns/ ],
+		[ '/wp-admin/site-editor.php?p=%2Fstyles&canvas=edit', /Styles/ ],
+	] )(
+		'matches renamed site-editor route slugs (%s)',
+		async ( currentPath: string, rowName: RegExp ) => {
+			renderAddressBar( {
+				path: currentPath,
+				site: { ...SITE, themeDetails: { isBlockTheme: true } } as SiteDetails,
+			} );
+
+			const menu = await openDestinationsMenu( 'WordPress' );
+
+			expect( within( menu ).getByRole( 'menuitem', { name: rowName } ) ).toHaveAttribute(
+				'aria-current',
+				'page'
+			);
+			expect( within( menu ).getByRole( 'menuitem', { name: /Site Editor/ } ) ).not.toHaveAttribute(
+				'aria-current'
+			);
+		}
+	);
+
 	it( 'offers no WP Admin or Database rows — their segments cover those realms', async () => {
 		renderAddressBar( { path: '/' } );
 

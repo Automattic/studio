@@ -6,7 +6,12 @@ import { Tooltip } from '@wordpress/ui';
 import { describe, expect, it, vi } from 'vitest';
 import { getVisibleToasts, resetAppMessagesForTests } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
-import { getPathFromPreviewUrl, getSimulatedViewport, SitePreview } from './index';
+import {
+	getBrowserShortcutCommand,
+	getPathFromPreviewUrl,
+	getSimulatedViewport,
+	SitePreview,
+} from './index';
 import type { SiteDetails } from '@/data/core';
 import type { ReactNode } from 'react';
 
@@ -723,7 +728,6 @@ describe( 'SitePreview', () => {
 	} );
 
 	it( 'switches realms on primary-modifier number shortcuts', () => {
-		window.localStorage.setItem( 'studio:preview-show-database-tab', 'true' );
 		useConnectorMock.mockReturnValue( {
 			...baseConnector(),
 			startSite: vi.fn().mockResolvedValue( undefined ),
@@ -746,16 +750,42 @@ describe( 'SitePreview', () => {
 			`/studio-auto-login?redirect_to=${ encodeURIComponent( 'http://localhost:8881/wp-admin/' ) }`
 		);
 
+		// The database tab is off by default, so Ctrl+3 is inert.
+		onPathChange.mockClear();
 		fireEvent.keyDown( document.body, { key: '3', ctrlKey: true } );
-		expect( onPathChange ).toHaveBeenCalledWith(
-			'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
-		);
+		expect( onPathChange ).not.toHaveBeenCalled();
 
 		// Re-selecting the already-active realm is a no-op.
-		onPathChange.mockClear();
 		fireEvent.keyDown( document.body, { key: '1', ctrlKey: true } );
 		expect( onPathChange ).not.toHaveBeenCalled();
-		window.localStorage.removeItem( 'studio:preview-show-database-tab' );
+	} );
+
+	it( 'switches to the database realm on its shortcut when the tab is enabled', () => {
+		window.localStorage.setItem( 'studio:preview-show-database-tab', 'true' );
+		try {
+			useConnectorMock.mockReturnValue( {
+				...baseConnector(),
+				startSite: vi.fn().mockResolvedValue( undefined ),
+				capabilities: CAPABILITIES,
+			} as never );
+			const onPathChange = vi.fn();
+
+			renderPreview(
+				<SitePreview
+					site={ createSite( { running: true } ) }
+					path="/"
+					reloadNonce={ 0 }
+					onPathChange={ onPathChange }
+				/>
+			);
+
+			fireEvent.keyDown( document.body, { key: '3', ctrlKey: true } );
+			expect( onPathChange ).toHaveBeenCalledWith(
+				'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
+			);
+		} finally {
+			window.localStorage.removeItem( 'studio:preview-show-database-tab' );
+		}
 	} );
 
 	it( 'hides the Clip split button when the host cannot annotate the preview', () => {
@@ -903,6 +933,61 @@ describe( 'SitePreview', () => {
 		} );
 		// Nothing claimed the keystroke, so default handling continues.
 		expect( keydown ).toBe( true );
+	} );
+} );
+
+describe( 'getBrowserShortcutCommand', () => {
+	// jsdom reports a non-Apple platform: primary modifier is Ctrl and the
+	// navigation-arrow alias uses Alt.
+	function makeEvent( overrides: Record< string, unknown > ) {
+		return {
+			defaultPrevented: false,
+			repeat: false,
+			key: '',
+			altKey: false,
+			ctrlKey: false,
+			metaKey: false,
+			shiftKey: false,
+			target: null,
+			...overrides,
+		} as unknown as KeyboardEvent;
+	}
+
+	it( 'maps the primary-modifier chords to commands', () => {
+		expect( getBrowserShortcutCommand( makeEvent( { key: 'r', ctrlKey: true } ) ) ).toBe(
+			'reload'
+		);
+		expect( getBrowserShortcutCommand( makeEvent( { key: '[', ctrlKey: true } ) ) ).toBe( 'back' );
+		expect( getBrowserShortcutCommand( makeEvent( { key: ']', ctrlKey: true } ) ) ).toBe(
+			'forward'
+		);
+	} );
+
+	it( 'maps the Alt+arrow aliases to back/forward', () => {
+		expect( getBrowserShortcutCommand( makeEvent( { key: 'ArrowLeft', altKey: true } ) ) ).toBe(
+			'back'
+		);
+		expect( getBrowserShortcutCommand( makeEvent( { key: 'ArrowRight', altKey: true } ) ) ).toBe(
+			'forward'
+		);
+	} );
+
+	it( 'ignores arrows with the wrong modifier, extra modifiers, or while editing text', () => {
+		expect( getBrowserShortcutCommand( makeEvent( { key: 'ArrowLeft', ctrlKey: true } ) ) ).toBe(
+			null
+		);
+		expect(
+			getBrowserShortcutCommand( makeEvent( { key: 'ArrowLeft', altKey: true, shiftKey: true } ) )
+		).toBe( null );
+		expect(
+			getBrowserShortcutCommand(
+				makeEvent( {
+					key: 'ArrowLeft',
+					altKey: true,
+					target: document.createElement( 'textarea' ),
+				} )
+			)
+		).toBe( null );
 	} );
 } );
 

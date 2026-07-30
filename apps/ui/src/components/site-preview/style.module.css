@@ -30,6 +30,7 @@
 	background-color: var(--wpds-color-bg-surface-neutral-strong, #fff);
 	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
 	-webkit-app-region: drag;
+	container: studio-preview-toolbar / inline-size;
 	/* Ease in/out of the sidebar-collapsed padding alongside the split
 	   frame's 150ms full-bleed transition. */
 	transition: padding 150ms ease;

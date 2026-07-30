@@ -47,7 +47,7 @@ export function FamilySwitchConfirmDialog( {
 									sprintf(
 										/* translators: 1: current model name, 2: new model name */
 										__(
-											'Switching from %1$s to %2$s starts a fresh chat; the two models don\u2019t share memory. You can always find previous chats in the <history>Chat history</history> button below the chat box.'
+											'Switching from %1$s to %2$s starts a fresh chat because the models don\u2019t share memory. You can find previous chats using <history>Chat history</history> below the chat box.'
 										),
 										getAiModelLabel( currentModel ),
 										getAiModelLabel( pendingModel )
@@ -68,7 +68,7 @@ export function FamilySwitchConfirmDialog( {
 						loadingAnnouncement={ __( 'Starting new chat' ) }
 						onClick={ onConfirm }
 					>
-						{ __( 'Start a new chat' ) }
+						{ __( 'Yes, new chat' ) }
 					</Button>
 				</Dialog.Footer>
 			</Dialog.Popup>

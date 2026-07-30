@@ -232,7 +232,7 @@ describe( 'UsagePanel', () => {
 	it( 'shows a loading row with an empty progress bar in both sections', () => {
 		useStudioAssistantQuotaMock.mockReturnValue( { data: undefined, isLoading: true } as never );
 		// Preview usage is still cached from before the delete, so the bar would
-		// otherwise keep its old fill next to a "Loading..." row.
+		// otherwise keep its old fill next to a "Loading…" row.
 		useDeleteAllSnapshotsMock.mockReturnValue( {
 			mutate: deleteSnapshotsMutate,
 			isPending: true,
@@ -241,7 +241,7 @@ describe( 'UsagePanel', () => {
 
 		render( <UsagePanel /> );
 
-		expect( screen.getAllByText( 'Loading...' ) ).toHaveLength( 2 );
+		expect( screen.getAllByText( 'Loading…' ) ).toHaveLength( 2 );
 		const bars = screen.getAllByTestId( 'usage-progress-bar' );
 		expect( bars ).toHaveLength( 2 );
 		for ( const bar of bars ) {
@@ -279,7 +279,7 @@ describe( 'UsagePanel', () => {
 		render( <UsagePanel /> );
 
 		expect(
-			screen.getByText( 'An error occurred while deleting preview sites. Please try again.' )
+			screen.getByText( 'An error occurred while deleting all preview sites. Please try again.' )
 		).toBeInTheDocument();
 	} );
 

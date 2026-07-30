@@ -29,6 +29,10 @@ const DOCS_LINKS = {
 		en: 'https://developer.wordpress.com/docs/developer-tools/studio/',
 		es: 'https://developer.wordpress.com/es/docs/herramientas-para-desarrolladores/studio/',
 	},
+	docsSyncSupportedSites: {
+		en: 'https://developer.wordpress.com/docs/developer-tools/studio/sync/#supported-sites',
+		es: 'https://developer.wordpress.com/es/docs/herramientas-para-desarrolladores/studio/sync/#sitios-compatibles',
+	},
 } as const satisfies Record< string, TranslatedLink >;
 
 export const REPORT_ISSUE_URL = 'https://github.com/Automattic/studio/issues/new/choose';

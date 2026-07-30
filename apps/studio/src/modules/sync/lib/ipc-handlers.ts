@@ -1,11 +1,11 @@
-import { app, IpcMainInvokeEvent } from 'electron';
+import { app, BrowserWindow, IpcMainInvokeEvent } from 'electron';
 import fs from 'fs';
 import fsPromises from 'fs/promises';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import {
 	addConnectedWpcomSite,
-	getAllConnectedWpcomSitesForCurrentUser,
+	getAllConnectedWpcomSitesForCurrentUser as getAllConnectedWpcomSitesForCurrentUserShared,
 	getConnectedWpcomSitesForLocalSite,
 	removeConnectedWpcomSite,
 	updateConnectedWpcomSites as updateConnectedWpcomSitesShared,
@@ -25,7 +25,7 @@ import {
 	PullStateProgressInfo,
 	PushStateProgressInfo,
 } from 'src/hooks/use-sync-states-progress-info';
-import { sendIpcEventToRenderer } from 'src/ipc-utils';
+import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
 import { download } from 'src/lib/download';
 import { getSyncBackupTempPath } from 'src/lib/get-sync-backup-temp-path';
@@ -527,11 +527,21 @@ export async function updateConnectedWpcomSites(
 // the CLI instead keeps apps/ui free of wpcom-client setup and mirrors the
 // simpler flow used by `push`. Exchanges everything (`--options all`).
 export async function pullSiteFromLive(
-	_event: IpcMainInvokeEvent,
-	siteFolder: string,
+	event: IpcMainInvokeEvent,
+	siteId: string,
 	remoteSiteId: number
 ): Promise< void > {
-	return pullSite( executeCliCommand, siteFolder, remoteSiteId );
+	const site = SiteServer.get( siteId );
+	if ( ! site ) {
+		throw new Error( 'Site not found.' );
+	}
+	const window = BrowserWindow.fromWebContents( event.sender );
+	return pullSite( executeCliCommand, site.details.path, remoteSiteId, ( progress ) => {
+		sendIpcEventToRendererWithWindow( window, 'sync-pull-progress', {
+			siteId,
+			...progress,
+		} );
+	} );
 }
 
 // Push for the agentic UI (apps/ui): the same shared `pushSite` the `studio ui`
@@ -594,11 +604,11 @@ export async function fetchSyncableWpcomSites( _event: IpcMainInvokeEvent ): Pro
 }
 
 export async function getConnectedWpcomSites(
-	event: IpcMainInvokeEvent,
+	_event: IpcMainInvokeEvent,
 	localSiteId?: string
 ): Promise< SyncSite[] > {
 	if ( localSiteId ) {
 		return getConnectedWpcomSitesForLocalSite( localSiteId );
 	}
-	return getAllConnectedWpcomSitesForCurrentUser();
+	return getAllConnectedWpcomSitesForCurrentUserShared();
 }

@@ -13,9 +13,6 @@ vi.mock( 'src/modules/cli/lib/cli-site-creator', () => ( {
 } ) );
 
 // Mock the WordPress setup
-vi.mock( 'src/lib/wordpress-setup', () => ( {
-	setupWordPressFilesOnly: vi.fn().mockResolvedValue( undefined ),
-} ) );
 
 // Mock the WordPress provider
 const mockStartServer = vi.fn().mockResolvedValue( {

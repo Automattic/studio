@@ -7,6 +7,12 @@
 	--progressive-blur-surface-strength: 78%;
 	--progressive-blur-surface-hold-stop: 58%;
 	--progressive-blur-surface-fade-stop: 100%;
+	/* Multiplies every layer's radius at once, so a caller can make the whole
+	   stack heavier without restating the four radii. */
+	--progressive-blur-scale: 1;
+	/* Pushes every layer's fade deeper into the area, for callers that need the
+	   blur to still be doing work further from the edge. */
+	--progressive-blur-reach: 1;
 }
 
 .down {
@@ -20,18 +26,18 @@
 .layer {
 	position: absolute;
 	inset: 0;
-	backdrop-filter: blur(var(--progressive-blur-radius));
+	backdrop-filter: blur(calc(var(--progressive-blur-radius) * var(--progressive-blur-scale)));
 	mask-image: linear-gradient(
 		var(--progressive-blur-direction),
 		black 0%,
 		black var(--progressive-blur-solid-stop),
-		transparent var(--progressive-blur-fade-stop)
+		transparent calc(var(--progressive-blur-fade-stop) * var(--progressive-blur-reach))
 	);
 	-webkit-mask-image: linear-gradient(
 		var(--progressive-blur-direction),
 		black 0%,
 		black var(--progressive-blur-solid-stop),
-		transparent var(--progressive-blur-fade-stop)
+		transparent calc(var(--progressive-blur-fade-stop) * var(--progressive-blur-reach))
 	);
 }
 

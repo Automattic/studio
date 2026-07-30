@@ -5,9 +5,10 @@ import { useConnector } from '@/data/core';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
 import {
+	reportPullProgress,
+	reportPushProgress,
 	reportSyncError,
 	reportSyncPending,
-	reportSyncProgress,
 	reportSyncSuccess,
 } from '@/data/sync-activity';
 import type { PullSiteProgress } from '@/data/core';
@@ -29,7 +30,9 @@ export function usePushSiteToLive() {
 	return useMutation( {
 		mutationKey: PUSH_TO_LIVE_MUTATION_KEY,
 		mutationFn: ( { siteId, remoteSiteId }: PushToLiveVariables ) =>
-			connector.pushSiteToLive( siteId, remoteSiteId ),
+			connector.pushSiteToLive( siteId, remoteSiteId, ( progress ) =>
+				reportPushProgress( siteId, progress )
+			),
 		onMutate: ( { siteId } ) => {
 			reportSyncPending( siteId, 'push' );
 		},
@@ -80,7 +83,7 @@ export function usePullSiteFromLive() {
 		mutationKey: PULL_FROM_LIVE_MUTATION_KEY,
 		mutationFn: ( { siteId, remoteSiteId, onProgress }: PullFromLiveVariables ) =>
 			connector.pullSiteFromLive( siteId, remoteSiteId, ( progress ) => {
-				reportSyncProgress( siteId, 'pull', progress );
+				reportPullProgress( siteId, progress );
 				onProgress?.( progress );
 			} ),
 		onMutate: ( { siteId } ) => {

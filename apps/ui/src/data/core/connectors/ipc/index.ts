@@ -20,6 +20,7 @@ import type {
 	LoadedAiSession,
 	AppUpdateStatus,
 	ProposedSitePath,
+	PushSiteProgress,
 	QuitSitesBehavior,
 	SelectedSiteFolder,
 	SiteDetails,
@@ -543,12 +544,29 @@ export function createIpcConnector(): Connector {
 			);
 		},
 
-		async pushSiteToLive( siteId, remoteSiteId ): Promise< void > {
+		async pushSiteToLive( siteId, remoteSiteId, onProgress ): Promise< void > {
 			// The agentic UI pushes via the shared `pushSite` (export → TUS
 			// upload → import) in both desktop and `studio ui`; the desktop runs
 			// it behind this single IPC handler. Resolves once the import is
 			// initiated (the remote import may still be running).
-			await ipcApi.pushSiteToLive( siteId, remoteSiteId );
+			const unsubscribe = onProgress
+				? ipcListener.subscribe(
+						'sync-push-progress',
+						( _event: unknown, payload: PushSiteProgress & { siteId: string } ) => {
+							if ( payload.siteId === siteId ) {
+								onProgress( {
+									phase: payload.phase,
+									...( payload.progress === undefined ? {} : { progress: payload.progress } ),
+								} );
+							}
+						}
+				  )
+				: undefined;
+			try {
+				await ipcApi.pushSiteToLive( siteId, remoteSiteId );
+			} finally {
+				unsubscribe?.();
+			}
 			await markConnectedWpcomSiteSynced( siteId, remoteSiteId, 'push' );
 		},
 

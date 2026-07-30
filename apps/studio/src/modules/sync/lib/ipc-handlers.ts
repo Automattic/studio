@@ -17,7 +17,7 @@ import { shouldRetryTusStatus } from '@studio/common/lib/sync/tus-upload';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import { pullSite, pushSite } from '@studio/common/sites/sync';
-import { SyncSite } from '@studio/common/types/sync';
+import { PushSiteProgress, SyncSite } from '@studio/common/types/sync';
 import { __, sprintf } from '@wordpress/i18n';
 import { Upload } from 'tus-js-client';
 import { z } from 'zod';
@@ -562,24 +562,37 @@ export async function pushSiteToLive(
 	if ( ! token?.accessToken ) {
 		throw new Error( 'No token found' );
 	}
+	// The upload percentage is the only number a push produces, so it's carried
+	// forward across pause/resume rather than resetting the phase to zero.
+	let uploadProgress: number | undefined;
+	const emitPushProgress = ( progress: PushSiteProgress ) => {
+		void sendIpcEventToRenderer( 'sync-push-progress', { siteId: selectedSiteId, ...progress } );
+	};
+
 	await pushSite(
 		{
 			executeCliCommand,
 			accessToken: token.accessToken,
 			emit: ( output ) => {
-				if ( output.kind === 'upload-progress' ) {
+				if ( output.kind === 'phase' ) {
+					emitPushProgress( { phase: output.phase, progress: uploadProgress } );
+				} else if ( output.kind === 'upload-progress' ) {
+					uploadProgress = output.progress;
+					emitPushProgress( { phase: 'uploading', progress: output.progress } );
 					void sendIpcEventToRenderer( 'sync-upload-progress', {
 						selectedSiteId,
 						remoteSiteId,
 						progress: output.progress,
 					} );
 				} else if ( output.kind === 'network-paused' ) {
+					emitPushProgress( { phase: 'paused', progress: uploadProgress } );
 					void sendIpcEventToRenderer( 'sync-upload-network-paused', {
 						selectedSiteId,
 						remoteSiteId,
 						error: output.error,
 					} );
 				} else if ( output.kind === 'resumed' ) {
+					emitPushProgress( { phase: 'uploading', progress: uploadProgress } );
 					void sendIpcEventToRenderer( 'sync-upload-resumed', {
 						selectedSiteId,
 						remoteSiteId,

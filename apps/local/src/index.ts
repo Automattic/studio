@@ -71,7 +71,7 @@ import { rateLimit } from 'express-rate-limit';
 import { isEditor, isTerminal, openInEditor, openInTerminal, openPath } from './open-in-os';
 import type { SiteListItem } from '@studio/common/lib/cli-events';
 import type { EditSiteOptions } from '@studio/common/sites/edit';
-import type { SyncSite } from '@studio/common/types/sync';
+import type { PushSiteProgress, SyncSite } from '@studio/common/types/sync';
 import type { Request, Response } from 'express';
 
 /**
@@ -1096,8 +1096,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	);
 
 	// Push the local site to its connected WordPress.com live site. Long-running
-	// (export → upload → import); progress streams on the SSE `sync` channel.
-	// Resolves once the import is initiated.
+	// (export → upload → import); progress streams on the SSE `sync-push`
+	// channel. Resolves once the import is initiated.
 	api.post(
 		'/sites/:id/push',
 		asyncHandler( async ( req: Request, res: Response ) => {
@@ -1116,15 +1116,31 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
+			// The upload percentage is the only number a push produces, so it's
+			// carried across pause/resume rather than resetting to zero.
+			let uploadProgress: number | undefined;
+			const sendPushProgress = ( progress: PushSiteProgress ) =>
+				sseSend( {
+					channel: 'sync-push',
+					payload: { ...progress, siteId: req.params.id, remoteSiteId },
+				} );
+
 			await pushSite(
 				{
 					executeCliCommand: execute,
 					accessToken: token.accessToken,
-					emit: ( output ) =>
-						sseSend( {
-							channel: 'sync',
-							payload: { ...output, siteId: req.params.id, remoteSiteId },
-						} ),
+					emit: ( output ) => {
+						if ( output.kind === 'phase' ) {
+							sendPushProgress( { phase: output.phase, progress: uploadProgress } );
+						} else if ( output.kind === 'upload-progress' ) {
+							uploadProgress = output.progress;
+							sendPushProgress( { phase: 'uploading', progress: output.progress } );
+						} else if ( output.kind === 'network-paused' ) {
+							sendPushProgress( { phase: 'paused', progress: uploadProgress } );
+						} else if ( output.kind === 'resumed' ) {
+							sendPushProgress( { phase: 'uploading', progress: uploadProgress } );
+						}
+					},
 				},
 				{ sitePath: site.path, remoteSiteId }
 			);

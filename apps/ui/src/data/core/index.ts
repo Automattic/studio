@@ -15,6 +15,8 @@ export type {
 	LoadedAiSession,
 	ProposedSitePath,
 	PullSiteProgress,
+	PushSitePhase,
+	PushSiteProgress,
 	QuitSitesBehavior,
 	SelectedSiteFolder,
 	SessionEntry,

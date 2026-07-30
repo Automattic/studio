@@ -2,7 +2,7 @@ import { act, renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	reportSyncPending,
-	reportSyncProgress,
+	reportPullProgress,
 	reportSyncSuccess,
 	useSiteSyncActivity,
 } from './sync-activity';
@@ -21,7 +21,7 @@ describe( 'sync activity progress', () => {
 		expect( result.current ).toEqual( { kind: 'pending', direction: 'pull' } );
 
 		act( () =>
-			reportSyncProgress( siteId, 'pull', {
+			reportPullProgress( siteId, {
 				message: 'Downloading backup… (50%)',
 				progress: 50,
 			} )

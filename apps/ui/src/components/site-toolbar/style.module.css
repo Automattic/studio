@@ -1,0 +1,268 @@
+.toolbar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--wpds-dimension-gap-md);
+	padding-inline: var(--wpds-dimension-padding-lg);
+	/* Fills whatever header row hosts it, so the action stays pinned to the
+	   panel's right edge. */
+	flex: 1;
+	min-width: 0;
+	/* The window drags by the toolbar's empty space; its controls opt back out
+	   below so clicks reach them. */
+	-webkit-app-region: drag;
+}
+
+.identity {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-gap-md);
+	min-width: 0;
+}
+
+.siteIcon {
+	flex: 0 0 auto;
+	inline-size: 32px;
+	block-size: 32px;
+	border-radius: var(--wpds-border-radius-sm);
+}
+
+.identityText {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.siteName {
+	font-size: var(--wpds-typography-font-size-md);
+	font-weight: 600;
+	line-height: 1.25;
+	color: var(--wpds-color-fg-content-neutral);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.siteStatusRow {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	min-width: 0;
+	line-height: 1.25;
+}
+
+/* Pull the status target back so its dot optically aligns with the site name
+   above rather than with the button's padded edge. Only when the button is
+   there — without it the URL would hang past the name. */
+.siteStatusRowWithButton {
+	margin-inline-start: -4px;
+}
+
+/* Doubled for specificity over the shared button's own 24px sizing: the
+   toolbar sits the control inside a line of text, where a 24px hit area
+   would overlap the site icon on hover. */
+.siteStatusButton.siteStatusButton {
+	flex-basis: 16px;
+	inline-size: 16px;
+	block-size: 16px;
+	-webkit-app-region: no-drag;
+}
+
+.siteUrl,
+.siteUrlStatic {
+	display: inline-flex;
+	align-items: center;
+	gap: 2px;
+	min-width: 0;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	font-size: var(--wpds-typography-font-size-xs);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.siteUrl {
+	-webkit-app-region: no-drag;
+	cursor: var(--wpds-cursor-control);
+	border-radius: 2px;
+	transition: color 100ms ease;
+}
+
+.siteUrl:hover {
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.siteUrl:focus-visible {
+	outline: 2px solid var(--wpds-color-stroke-interactive-brand);
+	outline-offset: 2px;
+}
+
+.siteUrlIcon {
+	opacity: 0;
+	transition: opacity 100ms ease;
+}
+
+.siteUrl:is(:hover, :focus-visible) .siteUrlIcon {
+	opacity: 1;
+}
+
+.actions {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-gap-xs);
+	flex: 0 0 auto;
+	-webkit-app-region: no-drag;
+}
+
+/* Dev only: the tweaks panel is driving this toolbar, so nothing in it reflects
+   the real site. Marked because a synthetic status is otherwise indistinguishable
+   from a real one — see components/site-toolbar/dev-tweaks. */
+.toolbarPreviewing {
+	outline: 1px dashed var(--wpds-color-fg-content-warning);
+	outline-offset: 2px;
+}
+
+/* --- Status text --------------------------------------------------------- */
+
+/* Two steps down from the action button beside it: the status reports, the
+   button acts, and the type scale should say so. */
+.status {
+	display: inline-flex;
+	align-items: baseline;
+	gap: 4px;
+	min-width: 0;
+	padding-inline-end: var(--wpds-dimension-padding-xs);
+	font-size: var(--wpds-typography-font-size-xs);
+	color: var(--wpds-color-fg-content-neutral);
+	transition: color 200ms ease;
+}
+
+.status_pending {
+	color: var(--wpds-color-fg-content-info);
+}
+
+.status_success {
+	color: var(--wpds-color-fg-content-success);
+}
+
+.status_warning {
+	color: var(--wpds-color-fg-content-warning);
+}
+
+.status_error {
+	color: var(--wpds-color-fg-content-error);
+}
+
+.statusLabel {
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.statusMeta {
+	white-space: nowrap;
+	opacity: 0.7;
+}
+
+/* --- Primary action ------------------------------------------------------ */
+
+/* The action and its menu read as one control: a hairline of the toolbar's own
+   background separates the halves, and only the outer corners round. */
+.split {
+	display: inline-flex;
+	align-items: stretch;
+	gap: 1px;
+}
+
+.splitMain.splitMain {
+	border-start-end-radius: 0;
+	border-end-end-radius: 0;
+}
+
+.splitToggle.splitToggle {
+	border-start-start-radius: 0;
+	border-end-start-radius: 0;
+	min-width: 0;
+	padding-inline: var(--wpds-dimension-padding-xs);
+}
+
+.action {
+	/* A stable floor so the label can change without the toolbar reflowing
+	   around it. */
+	min-width: 84px;
+	justify-content: center;
+	transition: min-width 200ms ease;
+}
+
+.actionLabel {
+	display: inline-flex;
+	align-items: center;
+	animation: actionLabelIn 200ms ease both;
+}
+
+@keyframes actionLabelIn {
+	from {
+		opacity: 0;
+		transform: translateY(3px);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+
+/* --- Details menu -------------------------------------------------------- */
+
+.menu {
+	min-width: 240px;
+	max-width: 320px;
+}
+
+.menuDetail {
+	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: 1.5;
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.menuDetailError {
+	color: var(--wpds-color-fg-content-error);
+}
+
+/* Names the radio group that picks which connection everything below acts on.
+   Aligned with the menu items' text rather than their indicator column. */
+.menuGroupLabel {
+	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md)
+		var(--wpds-dimension-padding-xs);
+	font-size: var(--wpds-typography-font-size-xs);
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.menuItemMeta {
+	margin-inline-start: auto;
+	padding-inline-start: var(--wpds-dimension-padding-md);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.pickerPopup {
+	min-width: 280px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.action,
+	.status,
+	.siteUrl,
+	.siteUrlIcon {
+		transition: none;
+	}
+
+	.actionLabel {
+		animation: none;
+	}
+}

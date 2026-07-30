@@ -22,8 +22,7 @@ import { DeleteSiteDialog } from '@/components/delete-site-dialog';
 import * as Menu from '@/components/menu';
 import { ReorderableList } from '@/components/reorderable-list';
 import { SidebarButton } from '@/components/sidebar-button';
-import { deriveSiteStatus } from '@/components/site-dropdown/utils';
-import { XdebugIcon } from '@/components/xdebug-icon';
+import { deriveSiteRunStatus, SiteStatusButton } from '@/components/site-status-button';
 import { useConnector } from '@/data/core';
 import { useSiteAgentActivity, type SiteAgentActivity } from '@/data/queries/use-agent-run';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
@@ -225,103 +224,6 @@ function SiteOverviewButton( { site }: { site: SiteDetails } ) {
 	);
 }
 
-function SiteStatusButton( {
-	site,
-	isStarting,
-	isStopping,
-}: {
-	site: SiteDetails;
-	isStarting: boolean;
-	isStopping: boolean;
-} ) {
-	const startSite = useStartSite();
-	const stopSite = useStopSite();
-	const { status } = deriveSiteStatus( site, isStarting, isStopping );
-	const busy = isStarting || isStopping;
-	const statusName =
-		status === 'running'
-			? __( 'Running' )
-			: status === 'transitioning'
-			? isStopping
-				? __( 'Stopping' )
-				: __( 'Starting' )
-			: __( 'Stopped' );
-	const xdebug = Boolean( site.enableXdebug );
-	const tooltipLabel = xdebug
-		? sprintf( __( 'Site status: %s. Xdebug enabled' ), statusName )
-		: sprintf( __( 'Site status: %s' ), statusName );
-	const actionLabel = site.running ? __( 'Stop site' ) : __( 'Start site' );
-	const label = busy ? tooltipLabel : sprintf( __( '%1$s. %2$s' ), tooltipLabel, actionLabel );
-	const handleClick = ( event: MouseEvent< HTMLButtonElement > ) => {
-		event.stopPropagation();
-		if ( busy ) {
-			return;
-		}
-		if ( site.running ) {
-			stopSite.mutate( site.id );
-		} else {
-			startSite.mutate( site.id );
-		}
-	};
-
-	return (
-		<Tooltip.Root>
-			<Tooltip.Trigger
-				render={
-					<button
-						type="button"
-						className={ styles.siteStatus }
-						aria-label={ label }
-						aria-busy={ busy || undefined }
-						aria-disabled={ busy || undefined }
-						data-state={ status }
-						data-xdebug={ xdebug || undefined }
-						onClick={ handleClick }
-					>
-						{ xdebug ? (
-							<XdebugIcon
-								className={ clsx( styles.siteStatusGlyph, styles.siteStatusXdebugGlyph ) }
-							/>
-						) : (
-							<svg
-								className={ styles.siteStatusGlyph }
-								viewBox={ status === 'stopped' ? '0 0 10 10' : '0 0 8 8' }
-								aria-hidden="true"
-								focusable="false"
-							>
-								{ status === 'stopped' ? (
-									<path className={ styles.siteStatusPlayShape } d="M2.5 1 L9 5 L2.5 9 Z" />
-								) : (
-									<rect className={ styles.siteStatusShape } x="0" y="0" width="8" height="8" />
-								) }
-							</svg>
-						) }
-						{ ! busy ? (
-							site.running ? (
-								<span className={ styles.siteStatusActionGlyph } aria-hidden="true">
-									<span className={ styles.siteStatusPauseMark } />
-								</span>
-							) : (
-								<svg
-									className={ styles.siteStatusActionGlyph }
-									viewBox="0 0 10 10"
-									aria-hidden="true"
-									focusable="false"
-								>
-									<path d="M2.5 1 L9 5 L2.5 9 Z" fill="currentColor" />
-								</svg>
-							)
-						) : null }
-					</button>
-				}
-			/>
-			<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-				{ tooltipLabel }
-			</Tooltip.Popup>
-		</Tooltip.Root>
-	);
-}
-
 // Right-click quick actions for a sidebar site row. The row element itself is
 // passed as `trigger` and rendered via the context-menu trigger's render prop,
 // so no wrapper DOM is added around it (the sidebar's drag-reorder CSS and
@@ -519,7 +421,7 @@ function SiteSection( {
 	}, [ isActive ] );
 	const isStarting = useIsSiteStarting( site.id );
 	const isStopping = useIsSiteStopping( site.id );
-	const { status } = deriveSiteStatus( site, isStarting, isStopping );
+	const status = deriveSiteRunStatus( { site, isStarting, isStopping } );
 	const agentActivity = useSiteAgentActivity( row.sessionIds );
 	const syncActivity = useSiteSyncActivity( site.id );
 	const isLiveSyncPending =
@@ -594,7 +496,12 @@ function SiteSection( {
 						</div>
 						<div className={ styles.siteActions } data-reorder-exclude>
 							{ chatEnabled ? <SiteOverviewButton site={ site } /> : null }
-							<SiteStatusButton site={ site } isStarting={ isStarting } isStopping={ isStopping } />
+							<SiteStatusButton
+								site={ site }
+								isStarting={ isStarting }
+								isStopping={ isStopping }
+								className={ styles.siteStatus }
+							/>
 						</div>
 					</header>
 				}

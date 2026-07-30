@@ -215,13 +215,26 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 		mainWindow.setFullScreen( true );
 	}
 
-	void loadRendererLocation( mainWindow, getRendererLocation( getPreferredStudioUiMode() ) );
+	const rendererLoaded = loadRendererLocation(
+		mainWindow,
+		getRendererLocation( getPreferredStudioUiMode() )
+	);
 
+	// DO NOT COMMIT — local fix for STU-2171, kept out of the STU-2162 branch.
+	// It belongs in its own PR; drop it from any commit made here.
+	//
 	// Open the DevTools if the user had it open last time they used the app.
 	// During development the dev tools default to open.
+	//
+	// This waits for the renderer to finish loading. Electron 43 delivers the
+	// sandboxed preload's startup data as part of the initial page load;
+	// attaching DevTools while that is still in flight leaves
+	// `binding.startupData` null, so the preload never runs and the renderer
+	// comes up with no `window.ipcApi` — a blank window whose only symptom is
+	// an "IPC API not available" error.
 	void loadUserData().then( ( userData ) => {
-		setupDevTools( mainWindow, userData.devToolsOpen );
 		initializePortFinder( SiteServer.getAllDetails() );
+		void rendererLoaded.then( () => setupDevTools( mainWindow, userData.devToolsOpen ) );
 	} );
 
 	mainWindow.webContents.on( 'devtools-opened', async () => {

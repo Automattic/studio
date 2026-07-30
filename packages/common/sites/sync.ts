@@ -5,7 +5,7 @@ import path from 'node:path';
 import { initiateImport } from '@studio/common/lib/sync/sync-api';
 import { createTusUpload } from '@studio/common/lib/sync/tus-upload';
 import type { ExecuteCliCommand } from '@studio/common/lib/cli-process';
-import type { PullSiteProgress } from '@studio/common/types/sync';
+import type { PullSiteProgress, PushSitePhase } from '@studio/common/types/sync';
 
 /**
  * WordPress.com sync operations. Pull is delegated to the Studio CLI; push uses
@@ -15,6 +15,7 @@ import type { PullSiteProgress } from '@studio/common/types/sync';
 // Progress a push reports for the UI (the desktop also exposes manual
 // pause/resume; that lives in its own registry on top of these signals).
 export type PushOutput =
+	| { kind: 'phase'; phase: PushSitePhase }
 	| { kind: 'upload-progress'; progress: number }
 	| { kind: 'network-paused'; error: string }
 	| { kind: 'resumed' };
@@ -39,6 +40,7 @@ export async function pushSite(
 	const archivePath = path.join( dir, `site_${ crypto.randomUUID() }.tar.gz` );
 
 	try {
+		ctx.emit?.( { kind: 'phase', phase: 'exporting' } );
 		await new Promise< void >( ( resolve, reject ) => {
 			const [ emitter ] = ctx.executeCliCommand(
 				[
@@ -58,6 +60,7 @@ export async function pushSite(
 			emitter.on( 'error', ( { error } ) => reject( error ) );
 		} );
 
+		ctx.emit?.( { kind: 'phase', phase: 'uploading' } );
 		const { promise } = createTusUpload( {
 			token: ctx.accessToken,
 			remoteSiteId: params.remoteSiteId,
@@ -68,6 +71,7 @@ export async function pushSite(
 		} );
 		const attachmentId = await promise;
 
+		ctx.emit?.( { kind: 'phase', phase: 'importing' } );
 		await initiateImport( ctx.accessToken, params.remoteSiteId, attachmentId );
 	} finally {
 		await fs.promises.rm( dir, { recursive: true, force: true } ).catch( () => undefined );

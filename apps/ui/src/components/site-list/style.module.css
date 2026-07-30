@@ -286,21 +286,6 @@
 	max-width: 48px;
 }
 
-.siteStatus {
-	display: inline-grid;
-	place-items: center;
-	flex: 0 0 24px;
-	inline-size: 24px;
-	block-size: 24px;
-	padding: 0;
-	border: 0;
-	border-radius: 4px;
-	background: transparent;
-	color: inherit;
-	cursor: var(--wpds-cursor-control);
-	transition: background-color 100ms ease, opacity 100ms ease;
-}
-
 /* A stopped site carries no signal worth surfacing, so its play affordance
    stays hidden until the row is hovered, focused, has an open menu, or is the
    active site; running/transitioning dots remain always visible. */
@@ -320,144 +305,6 @@
    its (greyed) glyph stays visible even while the site is stopped. */
 .siteStatus[data-xdebug][data-state='stopped'] {
 	opacity: 1;
-}
-
-.siteStatus:not([aria-disabled='true']):is(:hover, :focus-visible) {
-	background-color: var(--wpds-color-bg-interactive-neutral-weak-active);
-}
-
-.siteStatus:focus-visible {
-	outline: 2px solid var(--wpds-color-stroke-interactive-brand, #3858e9);
-	outline-offset: -2px;
-}
-
-.siteStatus[aria-disabled='true'] {
-	cursor: default;
-}
-
-.siteStatus .siteStatusGlyph.siteStatusGlyph {
-	grid-row-start: 1;
-	grid-column-start: 1;
-	inline-size: 8px;
-	block-size: 8px;
-	width: 8px;
-	height: 8px;
-	flex-shrink: 0;
-	overflow: visible;
-	transition: opacity 100ms ease;
-}
-
-/* Classic's Xdebug bug replaces the status dot; its color tracks the same
-   state palette the dot uses. */
-.siteStatus .siteStatusXdebugGlyph.siteStatusXdebugGlyph {
-	inline-size: 20px;
-	block-size: 20px;
-	width: 20px;
-	height: 20px;
-}
-
-.siteStatus[data-state='running'] .siteStatusXdebugGlyph {
-	color: var(--studio-color-status-running);
-}
-
-.siteStatus[data-state='transitioning'] .siteStatusXdebugGlyph {
-	color: var(--studio-color-status-transitioning);
-	animation: siteStatusBlink 1s ease-in-out infinite;
-}
-
-.siteStatus[data-state='stopped'] .siteStatusXdebugGlyph {
-	color: var(--wpds-color-fg-content-neutral-weak);
-}
-
-/* Hovering the status button itself (not the row) crossfades the status dot
-   into the action it triggers: play when stopped, stop when running. The
-   transitioning state keeps the blinking dot — there's no action to take. */
-.siteStatus .siteStatusActionGlyph.siteStatusActionGlyph {
-	grid-row-start: 1;
-	grid-column-start: 1;
-	display: inline-grid;
-	place-items: center;
-	inline-size: 10px;
-	block-size: 10px;
-	width: 10px;
-	height: 10px;
-	color: var(--wpds-color-fg-content-neutral);
-	opacity: 0;
-	transition: opacity 100ms ease;
-}
-
-.siteStatus:not([data-state='transitioning']):is(:hover, :focus-visible) .siteStatusGlyph {
-	opacity: 0;
-}
-
-.siteStatus:not([data-state='transitioning']):is(:hover, :focus-visible) .siteStatusActionGlyph {
-	opacity: 1;
-}
-
-.siteStatusPauseMark,
-.siteStatusPauseMark::before,
-.siteStatusPauseMark::after {
-	display: block;
-	height: 8px;
-	border-radius: 1px;
-	background: currentColor;
-}
-
-.siteStatusPauseMark {
-	position: relative;
-	width: 8px;
-	background: transparent;
-}
-
-.siteStatusPauseMark::before,
-.siteStatusPauseMark::after {
-	position: absolute;
-	top: 0;
-	width: 2px;
-	content: '';
-}
-
-.siteStatusPauseMark::before {
-	left: 1px;
-}
-
-.siteStatusPauseMark::after {
-	right: 1px;
-}
-
-.siteStatusShape {
-	x: 0;
-	y: 0;
-	width: 8px;
-	height: 8px;
-	rx: 4px;
-	fill: var(--studio-color-status-running);
-	transition: fill 160ms ease, rx 160ms ease;
-}
-
-.siteStatusPlayShape {
-	fill: var(--wpds-color-fg-content-neutral);
-}
-
-.siteStatus[data-state='running'] .siteStatusShape {
-	fill: var(--studio-color-status-running);
-	rx: 4px;
-}
-
-.siteStatus[data-state='transitioning'] .siteStatusShape {
-	fill: var(--studio-color-status-transitioning);
-	rx: 4px;
-	animation: siteStatusBlink 1s ease-in-out infinite;
-}
-
-@keyframes siteStatusBlink {
-	0%,
-	100% {
-		opacity: 1;
-	}
-	50% {
-		opacity: 0.25;
-	}
 }
 
 @keyframes siteNameStartingPulse {
@@ -501,20 +348,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-	.siteStatusShape {
-		transition: none;
-		animation: none;
-	}
-
-	.siteStatusGlyph,
-	.siteStatusActionGlyph {
-		transition: none;
-	}
-
-	.siteStatusXdebugGlyph {
-		animation: none;
-	}
-
 	.siteAgentActivitySlot {
 		transition: none;
 	}

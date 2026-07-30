@@ -19,8 +19,8 @@ import { DeleteSiteDialog } from '@/components/delete-site-dialog';
 import { OfflineBanner } from '@/components/offline-banner';
 import { PreviewToggleButton } from '@/components/preview-toggle-button';
 import { ProgressiveBlur } from '@/components/progressive-blur';
-import { SiteDropdown } from '@/components/site-dropdown';
 import { isSiteSettingsTab, SiteSettingsForm } from '@/components/site-settings-view';
+import { SiteToolbar } from '@/components/site-toolbar';
 import * as Tabs from '@/components/tabs';
 import { useIsSiteStarting, useIsSiteStopping, useSites } from '@/data/queries/use-sites';
 import { useOpenSiteUrl } from '@/hooks/use-open-site-url';
@@ -67,13 +67,7 @@ function OverviewHeader( {
 					: styles.header
 			}
 		>
-			<SiteDropdown
-				site={ site }
-				showSiteIcon
-				showStatus={ sidebarCollapsed }
-				floating={ false }
-				defaultOpen={ openSiteDropdown }
-			/>
+			<SiteToolbar site={ site } defaultMenuOpen={ openSiteDropdown } />
 		</div>
 	);
 }

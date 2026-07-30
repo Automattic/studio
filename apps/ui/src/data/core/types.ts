@@ -13,7 +13,7 @@ import type { SupportedTerminal } from '@studio/common/lib/user-settings/termina
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
-import type { PullSiteProgress, SyncSite } from '@studio/common/types/sync';
+import type { PullSiteProgress, PushSiteProgress, SyncSite } from '@studio/common/types/sync';
 import type { SiteRestRequest, SiteRestResponse } from '@studio/common/types/wordpress-rest';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
@@ -35,7 +35,12 @@ export type {
 } from '@studio/common/ai/sessions/entry-types';
 export type { AiModelId } from '@studio/common/ai/models';
 export type { Snapshot } from '@studio/common/types/snapshot';
-export type { PullSiteProgress, SyncSite } from '@studio/common/types/sync';
+export type {
+	PullSiteProgress,
+	PushSitePhase,
+	PushSiteProgress,
+	SyncSite,
+} from '@studio/common/types/sync';
 export type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 export type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 export type { SupportedLocale } from '@studio/common/lib/locale';
@@ -269,7 +274,11 @@ export interface Connector {
 	disconnectWpcomSite( localSiteId: string, remoteSiteId: number ): Promise< void >;
 	// Pushes the local site to a previously connected WordPress.com site.
 	// Replaces the remote contents with the local database and wp-content.
-	pushSiteToLive( siteId: string, remoteSiteId: number ): Promise< void >;
+	pushSiteToLive(
+		siteId: string,
+		remoteSiteId: number,
+		onProgress?: ( progress: PushSiteProgress ) => void
+	): Promise< void >;
 	// Pulls the connected WordPress.com site's database + wp-content back
 	// into the local Studio site. Stops the local server while the backup
 	// imports and restarts it on completion.

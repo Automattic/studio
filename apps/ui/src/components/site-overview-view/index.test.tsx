@@ -23,7 +23,7 @@ import { SiteOverviewView } from './index';
 import type { SiteDetails } from '@/data/core';
 
 const navigateMock = vi.fn();
-const siteDropdownMock = vi.hoisted( () => vi.fn() );
+const siteToolbarMock = vi.hoisted( () => vi.fn() );
 const useSidebarCollapsedMock = vi.hoisted( () => vi.fn() );
 const useTrafficLightSpaceMock = vi.hoisted( () => vi.fn() );
 
@@ -48,14 +48,9 @@ vi.mock( '@/components/delete-site-dialog', () => ( {
 		open ? <div role="dialog">Delete dialog</div> : null,
 } ) );
 
-vi.mock( '@/components/site-dropdown', () => ( {
-	SiteDropdown: ( props: {
-		site: SiteDetails;
-		showSiteIcon?: boolean;
-		showStatus?: boolean;
-		defaultOpen?: boolean;
-	} ) => {
-		siteDropdownMock( props );
+vi.mock( '@/components/site-toolbar', () => ( {
+	SiteToolbar: ( props: { site: SiteDetails; defaultMenuOpen?: boolean } ) => {
+		siteToolbarMock( props );
 		return <div>{ props.site.name }</div>;
 	},
 } ) );
@@ -198,8 +193,8 @@ describe( 'SiteOverviewView', () => {
 	it( 'renders the tab strip with the customize and manage sections', () => {
 		renderView();
 
-		expect( siteDropdownMock ).toHaveBeenCalledWith(
-			expect.objectContaining( { showSiteIcon: true, showStatus: false } )
+		expect( siteToolbarMock ).toHaveBeenCalledWith(
+			expect.objectContaining( { site: expect.objectContaining( { name: 'Demo Site' } ) } )
 		);
 		expect( screen.getByRole( 'tab', { name: 'Overview' } ) ).toBeVisible();
 		expect( screen.getByRole( 'tab', { name: 'Settings' } ) ).toBeVisible();
@@ -239,8 +234,8 @@ describe( 'SiteOverviewView', () => {
 	it( 'opens site status when requested by the route', () => {
 		renderView( 'overview', true );
 
-		expect( siteDropdownMock ).toHaveBeenCalledWith(
-			expect.objectContaining( { defaultOpen: true } )
+		expect( siteToolbarMock ).toHaveBeenCalledWith(
+			expect.objectContaining( { defaultMenuOpen: true } )
 		);
 	} );
 

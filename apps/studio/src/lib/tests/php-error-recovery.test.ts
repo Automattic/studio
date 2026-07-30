@@ -2,6 +2,7 @@ import fs from 'fs';
 import http from 'http';
 import os from 'os';
 import nodePath from 'path';
+import nock from 'nock';
 import {
 	isInErrorRecovery,
 	isPhpUserError,
@@ -27,6 +28,18 @@ function canBind( port: number ): Promise< boolean > {
 		const srv = http.createServer();
 		srv.once( 'error', () => resolve( false ) );
 		srv.listen( port, () => srv.close( () => resolve( true ) ) );
+	} );
+}
+
+function httpGet( port: number ): Promise< { status?: number; body: string } > {
+	return new Promise( ( resolve, reject ) => {
+		http
+			.get( { host: '127.0.0.1', port }, ( res ) => {
+				let body = '';
+				res.on( 'data', ( chunk ) => ( body += chunk ) );
+				res.on( 'end', () => resolve( { status: res.statusCode, body } ) );
+			} )
+			.on( 'error', reject );
 	} );
 }
 
@@ -116,6 +129,17 @@ describe( 'error recovery port lifecycle', () => {
 			expect( await canBind( port ) ).toBe( false );
 			expect( siteServer.details.running ).toBe( true );
 			expect( siteServer.inErrorRecovery ).toBe( true );
+			// The error page is served with status 200 so the thumbnail screenshot can capture it
+			// (the screenshot window rejects responses with status >= 500).
+			nock.enableNetConnect( '127.0.0.1' );
+			try {
+				const response = await httpGet( port );
+				expect( response.status ).toBe( 200 );
+				expect( response.body ).toContain( 'Fatal error: boom' );
+			} finally {
+				nock.disableNetConnect();
+				nock.enableNetConnect( 'raw.githubusercontent.com' );
+			}
 
 			await stopErrorRecovery( 'test-site' );
 			expect( isInErrorRecovery( 'test-site' ) ).toBe( false );

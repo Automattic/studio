@@ -96,7 +96,10 @@ export async function startErrorRecovery(
 	await stopErrorRecovery( id );
 
 	const errorServer = http.createServer( ( _req, res ) => {
-		res.writeHead( 500, { 'Content-Type': 'text/html; charset=utf-8' } );
+		// Serve 200, not 500: this is Studio's own status page (the error is in the content), and the
+		// thumbnail screenshot window rejects responses with status >= 500, which would keep a stale
+		// capture instead of showing the error page.
+		res.writeHead( 200, { 'Content-Type': 'text/html; charset=utf-8' } );
 		res.end( generateErrorPageHtml( errorMessage ) );
 	} );
 

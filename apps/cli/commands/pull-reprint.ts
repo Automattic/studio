@@ -304,7 +304,7 @@ export async function runCommand(
 	const studioMetadata = getPullSession( site );
 	// `resolveSourceSite` already probed the exporter and enabled it; the
 	// detected surface decides the importer query var (v1 `?reprint-api` vs v2
-	// `?reprint-api-v2`) just as it decided the rotate route for the secret.
+	// `?reprint-api-jetpack`) just as it decided the rotate route for the secret.
 	const apiUrl = getReprintApiUrlForSite( normalizedRemoteUrl, sourceSite.surface );
 
 	// "Full pull vs. delta" is derived from the durable site flag, not a
@@ -1217,7 +1217,7 @@ export function normalizeSiteUrl( url: string ): string {
 	normalized.hash = '';
 	normalized.pathname = normalized.pathname.replace( /\/+$/, '' ) || '/';
 	normalized.searchParams.delete( 'reprint-api' );
-	normalized.searchParams.delete( 'reprint-api-v2' );
+	normalized.searchParams.delete( 'reprint-api-jetpack' );
 	return normalized.toString();
 }
 
@@ -1389,12 +1389,12 @@ export function getPullSession( site: SiteData ): PullSession {
  * Returns the export endpoint URL on a remote site for the given normalized
  * site URL.  The reprint exporter mounts its API on a query-arg marker instead
  * of a REST route so it intercepts requests before WordPress's full bootstrap
- * runs.  The marker depends on the export surface: v2 uses `?reprint-api-v2`,
- * v1 `?reprint-api`.
+ * runs.  The marker depends on the export surface: v2 (the Jetpack surface)
+ * uses `?reprint-api-jetpack`, v1 `?reprint-api`.
  */
 export function getReprintApiUrlForSite( siteUrl: string, surface: ReprintSurface = 'v1' ): string {
 	const apiUrl = new URL( siteUrl );
-	apiUrl.search = surface === 'v2' ? '?reprint-api-v2' : '?reprint-api';
+	apiUrl.search = surface === 'v2' ? '?reprint-api-jetpack' : '?reprint-api';
 	return apiUrl.toString();
 }
 

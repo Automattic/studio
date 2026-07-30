@@ -187,7 +187,7 @@ export interface WpComSiteInfo {
 
 /**
  * Which export surface a WordPress.com/Pressable site exposes. v2 (`jetpack/v4`
- * + `?reprint-api-v2`) is available on Pressable and current Atomic; v1
+ * + `?reprint-api-jetpack`) is available on Pressable and current Atomic; v1
  * (wpcomsh + `?reprint-api`) is the legacy Atomic surface. The surface is
  * decided once by {@link enableReprintExporter}'s probe and then drives both
  * the rotate route and the importer query var.

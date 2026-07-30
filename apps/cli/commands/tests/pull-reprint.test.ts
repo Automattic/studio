@@ -121,7 +121,7 @@ describe( 'CLI: studio pull-reprint helpers', () => {
 	} );
 
 	it( 'strips the v2 site export API marker from the canonical site URL', () => {
-		expect( normalizeSiteUrl( 'https://example.com/?reprint-api-v2' ) ).toBe(
+		expect( normalizeSiteUrl( 'https://example.com/?reprint-api-jetpack' ) ).toBe(
 			'https://example.com/'
 		);
 	} );
@@ -132,10 +132,10 @@ describe( 'CLI: studio pull-reprint helpers', () => {
 		).toBe( 'https://example.com/?reprint-api' );
 	} );
 
-	it( 'emits the v2 marker for a v2 surface', () => {
+	it( 'emits the Jetpack marker for a v2 surface', () => {
 		expect(
 			getReprintApiUrlForSite( normalizeSiteUrl( 'https://example.com/?reprint-api' ), 'v2' )
-		).toBe( 'https://example.com/?reprint-api-v2' );
+		).toBe( 'https://example.com/?reprint-api-jetpack' );
 	} );
 
 	it( 'matches WordPress.com sites by normalized URL or host', () => {

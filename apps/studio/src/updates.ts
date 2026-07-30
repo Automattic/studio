@@ -3,8 +3,8 @@ import * as Sentry from '@sentry/electron/main';
 import { sprintf, __ } from '@wordpress/i18n';
 import { AUTO_UPDATE_INTERVAL_MS, NIGHTLY_UPDATE_TTL_MS } from 'src/constants';
 import { sendIpcEventToRenderer, type AppUpdateStatus } from 'src/ipc-utils';
-import { getFeatureFlagFromEnv } from 'src/lib/feature-flags';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
+import { getPreferredStudioUiMode } from 'src/lib/studio-ui-mode';
 import { isDevRelease } from 'src/lib/version-utils';
 import { getMainWindow } from 'src/main-window';
 import { loadUserData, updateAppdata } from 'src/storage/user-data';
@@ -144,7 +144,7 @@ export function setupUpdates() {
 		void sendIpcEventToRenderer( 'app-update-status', buildAppUpdateStatus() );
 		// The agentic UI surfaces this as a persistent card instead of the
 		// legacy blocking dialog.
-		if ( ! getFeatureFlagFromEnv( 'enableAgenticUi' ) ) {
+		if ( getPreferredStudioUiMode() !== 'agentic' ) {
 			await showUpdateReadyToInstallNotice();
 		}
 	} );

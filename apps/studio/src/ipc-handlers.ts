@@ -136,6 +136,7 @@ import * as oauthClient from 'src/lib/oauth';
 import { scaffoldPluginInSite, type PluginScaffoldMeta } from 'src/lib/scaffold-plugin';
 import { getAiInstructionsPath } from 'src/lib/server-files-paths';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
+import { setAgenticUiEnabled } from 'src/lib/studio-ui-mode';
 import { recordTracksEvent, type TracksChannel, type TracksUiVersion } from 'src/lib/tracks';
 import { updateSiteUrl } from 'src/lib/update-site-url';
 import { expandWindowForWorkbench as expandMainWindowForWorkbench } from 'src/lib/window-expansion';
@@ -146,7 +147,6 @@ import {
 	getMainWindow,
 	getTitleBarOverlayOptions,
 	loadMainWindowRenderer,
-	setAgenticUiEnabled,
 } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
 import { type InstructionFileType } from 'src/modules/agent-instructions/constants';

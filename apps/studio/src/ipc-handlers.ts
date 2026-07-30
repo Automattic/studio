@@ -128,6 +128,7 @@ import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import * as oauthClient from 'src/lib/oauth';
 import { getAiInstructionsPath } from 'src/lib/server-files-paths';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
+import { setAgenticUiEnabled } from 'src/lib/studio-ui-mode';
 import { recordTracksEvent, type TracksChannel, type TracksUiVersion } from 'src/lib/tracks';
 import { updateSiteUrl } from 'src/lib/update-site-url';
 import * as windowsHelpers from 'src/lib/windows-helpers';
@@ -137,7 +138,6 @@ import {
 	getMainWindow,
 	getTitleBarOverlayOptions,
 	loadMainWindowRenderer,
-	setAgenticUiEnabled,
 } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
 import { type InstructionFileType } from 'src/modules/agent-instructions/constants';

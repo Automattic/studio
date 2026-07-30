@@ -738,6 +738,11 @@ export function createIpcConnector(): Connector {
 				writes.push( ipcApi.saveAgenticFeaturesEnabled( partial.agenticFeaturesEnabled ) );
 			}
 			await Promise.all( writes );
+			if ( typeof partial.agenticFeaturesEnabled === 'boolean' ) {
+				// Cmd/Ctrl+N belongs to "New chat" only while chat is on, so the
+				// menu has to be rebuilt for the accelerator to change hands.
+				await ipcApi.setupAppMenu( { needsOnboarding: false } );
+			}
 		},
 
 		async selectDefaultSiteDirectory( defaultPath ): Promise< string | null > {

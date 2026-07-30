@@ -7,31 +7,41 @@
 	border-top: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
 }
 
-.activityError {
+.activityStatus {
 	display: flex;
 	flex-direction: column;
 	gap: 4px;
 	padding: var(--wpds-dimension-padding-md) var(--wpds-dimension-padding-lg);
-	background: color-mix(
-		in srgb,
-		var(--wpds-color-fg-content-error, var(--wpds-color-fg-content-neutral)) 8%,
-		transparent
-	);
 	color: var(--wpds-color-fg-content-neutral);
 	font-size: var(--wpds-typography-font-size-sm);
 	line-height: var(--wpds-typography-line-height-sm);
 }
 
-.activityErrorTitle {
+.activityStatusPending {
+	background: var(--wpds-color-bg-surface-neutral);
+}
+
+.activityStatusError {
+	background: color-mix(
+		in srgb,
+		var(--wpds-color-fg-content-error, var(--wpds-color-fg-content-neutral)) 8%,
+		transparent
+	);
+}
+
+.activityStatusTitle {
+	font-weight: 600;
+}
+
+.activityStatusError .activityStatusTitle {
 	color: color-mix(
 		in srgb,
 		var(--site-dropdown-menu-foreground, var(--wpds-color-fg-content-neutral)) 72%,
 		var(--wpds-color-fg-content-error, var(--wpds-color-fg-content-neutral))
 	);
-	font-weight: 600;
 }
 
-.activityErrorMessage {
+.activityStatusMessage {
 	color: var(--wpds-color-fg-content-neutral-weak);
 	white-space: pre-wrap;
 	word-break: break-word;
@@ -130,7 +140,7 @@
 	--local-server-thumb-shadow: color-mix(in srgb, #0d5f2c 22%, transparent);
 }
 
-.localServerControl:not(:disabled):hover {
+.localServerControl:not([aria-disabled='true']):hover {
 	background-color: var(--local-server-track-bg-hover);
 	box-shadow:
 		inset 0 0 0 var(--wpds-border-width-xs) var(--local-server-track-border-hover),
@@ -147,7 +157,7 @@
 	outline-offset: 2px;
 }
 
-.localServerControl:disabled {
+.localServerControl[aria-disabled='true'] {
 	cursor: not-allowed;
 	opacity: 0.72;
 }

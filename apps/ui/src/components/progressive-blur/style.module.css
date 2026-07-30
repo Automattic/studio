@@ -21,7 +21,6 @@
 	position: absolute;
 	inset: 0;
 	backdrop-filter: blur(var(--progressive-blur-radius));
-	-webkit-backdrop-filter: blur(var(--progressive-blur-radius));
 	mask-image: linear-gradient(
 		var(--progressive-blur-direction),
 		black 0%,

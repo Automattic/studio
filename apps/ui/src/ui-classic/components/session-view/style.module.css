@@ -168,10 +168,12 @@
 
 .panelFooterControls {
 	position: absolute;
-	left: var(--classic-panel-footer-left);
-	/* Keep the controls fully inside .root (overflow: hidden) so focus
-	   rings aren't clipped at the window edge. */
-	bottom: 0;
+	inset-inline-start: var(--classic-panel-footer-left);
+	/* Sit the strip low in its reserved band so the controls read as anchored
+	   to the panel's bottom edge rather than floating under the composer. The
+	   strip's own bottom padding keeps the buttons and their focus rings clear
+	   of .root's overflow: hidden edge. */
+	bottom: calc(-1 * var(--wpds-dimension-padding-sm));
 	z-index: 3;
 	display: flex;
 	align-items: center;
@@ -182,16 +184,16 @@
 }
 
 .panelFooterControlsCollapsed {
-	left: calc(
+	inset-inline-start: calc(
 		var(--wpds-dimension-padding-xl) + 24px + var(--classic-panel-control-gap)
 	);
 }
 
-/* Applied on top of .panelFooterControls to anchor the strip to the right
+/* Applied on top of .panelFooterControls to anchor the strip to the inline-end
    edge instead (hosts the preview panel toggle). */
 .panelFooterControlsEnd {
-	left: auto;
-	right: var(--classic-panel-control-left);
+	inset-inline-start: auto;
+	inset-inline-end: var(--classic-panel-control-left);
 }
 
 /* Anchors the scroll-to-latest button to the composer column, floating it

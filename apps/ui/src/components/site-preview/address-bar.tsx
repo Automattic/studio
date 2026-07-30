@@ -1,5 +1,5 @@
 import { __ } from '@wordpress/i18n';
-import { globe, help, home, wordpress } from '@wordpress/icons';
+import { check, globe, help, home, wordpress } from '@wordpress/icons';
 import { ariaKeyShortcut, displayShortcut } from '@wordpress/keycodes';
 import { Icon, Tooltip } from '@wordpress/ui';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -202,15 +202,29 @@ export function PreviewAddressBar( {
 	);
 
 	const renderItems = ( items: AddressItem[] ) =>
-		items.map( ( item ) => (
-			<Menu.Item key={ item.id } onClick={ () => navigateTo( item.path ) }>
-				<span className={ styles.itemIcon } aria-hidden="true">
-					<Icon icon={ item.icon } size={ 16 } />
-				</span>
-				<span className={ styles.itemTitle }>{ item.title }</span>
-				<span className={ styles.itemPath }>{ item.path }</span>
-			</Menu.Item>
-		) );
+		items.map( ( item ) => {
+			// Mark the destination the preview is currently showing, so the
+			// menu answers "where am I" at a glance.
+			const isCurrent = item.path === path;
+			return (
+				<Menu.Item
+					key={ item.id }
+					aria-current={ isCurrent ? 'page' : undefined }
+					onClick={ () => navigateTo( item.path ) }
+				>
+					<span className={ styles.itemIcon } aria-hidden="true">
+						<Icon icon={ item.icon } size={ 16 } />
+					</span>
+					<span className={ styles.itemTitle }>{ item.title }</span>
+					<span className={ styles.itemPath }>{ item.path }</span>
+					{ isCurrent ? (
+						<span className={ styles.itemCheck } aria-hidden="true">
+							<Icon icon={ check } size={ 16 } />
+						</span>
+					) : null }
+				</Menu.Item>
+			);
+		} );
 
 	return (
 		<Menu.Root>

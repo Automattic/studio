@@ -142,6 +142,20 @@ describe( 'PreviewAddressBar', () => {
 		expect( onNavigate ).toHaveBeenCalledWith( autoLoginPath( '/wp-admin/upload.php' ) );
 	} );
 
+	it( 'marks the destination matching the current path as current', async () => {
+		renderAddressBar( { path: '/wp-admin/upload.php' } );
+
+		const menu = await openDestinationsMenu( 'WordPress' );
+
+		expect( within( menu ).getByRole( 'menuitem', { name: /Media Library/ } ) ).toHaveAttribute(
+			'aria-current',
+			'page'
+		);
+		expect( within( menu ).getByRole( 'menuitem', { name: /Home/ } ) ).not.toHaveAttribute(
+			'aria-current'
+		);
+	} );
+
 	it( 'offers no WP Admin or Database rows — their segments cover those realms', async () => {
 		renderAddressBar( { path: '/' } );
 

@@ -172,3 +172,9 @@
 	white-space: nowrap;
 	text-align: right;
 }
+
+.itemCheck {
+	display: inline-flex;
+	flex-shrink: 0;
+	color: var(--wpds-color-fg-content-neutral);
+}

@@ -142,20 +142,56 @@
 }
 
 .empty {
+	position: relative;
 	flex: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: var(--wpds-dimension-padding-xl);
+	background-color: var(--wpds-color-bg-surface-neutral);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	text-align: center;
+	overflow: hidden;
+}
+
+.emptyGrid {
+	position: absolute;
+	inset: -64px;
+	color: var(--wpds-color-fg-content-neutral);
+	mask-image: radial-gradient(ellipse at center, black 0%, black 32%, transparent 72%);
+	-webkit-mask-image: radial-gradient(ellipse at center, black 0%, black 32%, transparent 72%);
+}
+
+.emptyContent {
+	position: relative;
+	z-index: 1;
 	display: flex;
 	flex-direction: column;
 	gap: var(--wpds-dimension-padding-md);
 	align-items: center;
-	justify-content: center;
-	padding: var(--wpds-dimension-padding-xl);
-	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-sm);
-	text-align: center;
+	width: min(100%, 420px);
 }
 
 .emptyText {
 	margin: 0;
+}
+
+.emptyThumbnail {
+	width: min(300px, 76%);
+	aspect-ratio: 4 / 3;
+	overflow: hidden;
+	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: 6px;
+	background-color: var(--wpds-color-bg-surface-neutral-strong);
+	box-shadow: var(--wpds-elevation-md);
+}
+
+.emptyThumbnail img {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
 }
 
 .startIcon {

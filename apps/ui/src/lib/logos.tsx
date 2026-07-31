@@ -2,13 +2,14 @@ import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 import type { ReactElement } from 'react';
 
-/* Brand marks for the "Open in…" menu, rendered with `currentColor` so they
-   follow the theme-aware foreground tokens in light and dark mode. Third-party
-   path data comes from Simple Icons (CC0) except VS Code, which comes from
-   Devicon (MIT) because Simple Icons no longer ships it. Finder, Terminal, and
-   the generic folder are drawn in-house in the same stroke style as
-   `@/lib/icons`. Each root svg declares its own `fill` so the stroke-drawn
-   marks are not affected by the menu's fill mapping for @wordpress/icons. */
+/* Brand marks for the apps a site can be opened in, rendered with
+   `currentColor` so they follow the theme-aware foreground tokens in light and
+   dark mode. Third-party path data comes from Simple Icons (CC0) except VS
+   Code, which comes from Devicon (MIT) because Simple Icons no longer ships
+   it. Finder, Terminal, and the generic folder are drawn in-house in the same
+   stroke style as `./icons`. Each root svg declares its own `fill` so the
+   stroke-drawn marks are not affected by a consumer's fill mapping for
+   @wordpress/icons. */
 
 const vscodeLogo = (
 	<svg xmlns="http://www.w3.org/2000/svg" viewBox="-16 -16 160 160" fill="currentColor">

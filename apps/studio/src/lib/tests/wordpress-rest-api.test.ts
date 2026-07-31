@@ -103,7 +103,8 @@ describe( 'fetchSiteRest', () => {
 	} );
 
 	it( 'skips the nonce request when auto-login returns no login cookie', async () => {
-		mockRunningSite();
+		// A port the earlier tests have not auth-cached, so auth prep really runs.
+		mockRunningSite( { port: 8911 } );
 		const fetchMock = vi.fn( async ( input: Parameters< typeof fetch >[ 0 ] ) => {
 			const url = String( input );
 			if ( url.includes( '/studio-auto-login' ) ) {
@@ -126,7 +127,36 @@ describe( 'fetchSiteRest', () => {
 
 		expect( response.status ).toBe( 200 );
 		const urls = fetchMock.mock.calls.map( ( [ input ] ) => String( input ) );
+		expect( urls.filter( ( url ) => url.includes( '/studio-auto-login' ) ) ).toHaveLength( 1 );
 		expect( urls.some( ( url ) => url.includes( 'admin-ajax.php' ) ) ).toBe( false );
+	} );
+
+	it( 'attempts auth once per site while it keeps failing', async () => {
+		mockRunningSite( { port: 8912 } );
+		const fetchMock = vi.fn( async ( input: Parameters< typeof fetch >[ 0 ] ) => {
+			const url = String( input );
+			if ( url.includes( '/studio-auto-login' ) ) {
+				return new Response( '', { status: 302 } );
+			}
+			return new Response( JSON.stringify( [] ), {
+				status: 200,
+				statusText: 'OK',
+				headers: { 'content-type': 'application/json' },
+			} );
+		} );
+		vi.stubGlobal( 'fetch', fetchMock );
+
+		const first = await fetchSiteRest( mockIpcMainInvokeEvent, 'site-id', {
+			path: '/wp/v2/search?search=rpg',
+		} );
+		const second = await fetchSiteRest( mockIpcMainInvokeEvent, 'site-id', {
+			path: '/wp/v2/search?search=rpgs',
+		} );
+
+		expect( first.status ).toBe( 200 );
+		expect( second.status ).toBe( 200 );
+		const urls = fetchMock.mock.calls.map( ( [ input ] ) => String( input ) );
+		expect( urls.filter( ( url ) => url.includes( '/studio-auto-login' ) ) ).toHaveLength( 1 );
 	} );
 
 	it( 'returns a 502 response when the site does not respond', async () => {

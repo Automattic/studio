@@ -15,6 +15,9 @@ interface SiteRestAuth {
 }
 
 const siteRestAuthCache = new Map< string, SiteRestAuth >();
+// Base URLs whose auth prep failed, per site — retried only when the base
+// changes (port move), so a broken site logs one warn, not one per keystroke.
+const siteRestAuthFailures = new Map< string, string >();
 
 /** Proxy a WordPress REST request to a running local site. */
 export async function fetchSiteRest(
@@ -129,6 +132,9 @@ async function getSiteRestAuth( target: SiteRestTarget, baseUrl: string ) {
 	if ( cached?.baseUrl === baseUrl ) {
 		return cached;
 	}
+	if ( siteRestAuthFailures.get( target.siteId ) === baseUrl ) {
+		return null;
+	}
 
 	try {
 		const cookie = await getAutoLoginCookie( baseUrl );
@@ -138,9 +144,11 @@ async function getSiteRestAuth( target: SiteRestTarget, baseUrl: string ) {
 			cookie,
 			nonce,
 		};
+		siteRestAuthFailures.delete( target.siteId );
 		siteRestAuthCache.set( target.siteId, auth );
 		return auth;
 	} catch ( error ) {
+		siteRestAuthFailures.set( target.siteId, baseUrl );
 		console.warn( `Failed to prepare REST auth for site ${ target.siteId }:`, error );
 		return null;
 	}

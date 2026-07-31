@@ -170,3 +170,15 @@ export const syncOptionSchema = z.enum( [
 	'contents',
 ] );
 export type SyncOption = z.infer< typeof syncOptionSchema >;
+
+// Selective-sync selections carried from the UI down to the CLI/export layer.
+// Push selects local paths (relative, e.g. "wp-content/plugins/foo"); pull
+// selects remote backup node ids returned by the rewind backup `ls` endpoint.
+export type PushSyncOptions = {
+	optionsToSync?: SyncOption[];
+	specificSelectionPaths?: string[];
+};
+export type PullSyncOptions = {
+	optionsToSync?: SyncOption[];
+	includePathList?: string[];
+};

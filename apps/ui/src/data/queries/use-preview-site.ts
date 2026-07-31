@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
+import { showToast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { SNAPSHOTS_QUERY_KEY } from '@/data/queries/use-snapshots';
 import { reportSyncError, reportSyncPending, reportSyncSuccess } from '@/data/sync-activity';
@@ -41,6 +42,26 @@ export function usePublishPreviewSite() {
 				intent: 'error',
 				title: __( 'Failed to publish preview site' ),
 				description: message,
+			} );
+		},
+	} );
+}
+
+// Deletes one preview site on WordPress.com. Confirmation lives with the
+// caller; by the time this runs the user has already agreed to lose the link.
+export function useDeletePreviewSite() {
+	const connector = useConnector();
+	const queryClient = useQueryClient();
+	return useMutation( {
+		mutationFn: ( { hostname }: { hostname: string } ) => connector.deletePreviewSite( hostname ),
+		onSuccess: () => {
+			void queryClient.invalidateQueries( { queryKey: SNAPSHOTS_QUERY_KEY } );
+		},
+		onError: ( error ) => {
+			showToast( {
+				intent: 'error',
+				title: __( 'Failed to delete preview link' ),
+				description: error instanceof Error ? error.message : String( error ),
 			} );
 		},
 	} );

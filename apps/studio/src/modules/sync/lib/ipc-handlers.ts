@@ -12,12 +12,17 @@ import {
 } from '@studio/common/lib/connected-sites';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { getCurrentUserId } from '@studio/common/lib/shared-config';
-import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
+import { fetchLatestRewindId, fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import { shouldRetryTusStatus } from '@studio/common/lib/sync/tus-upload';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import { pullSite, pushSite } from '@studio/common/sites/sync';
-import { PushSiteProgress, SyncSite } from '@studio/common/types/sync';
+import {
+	PullSyncOptions,
+	PushSiteProgress,
+	PushSyncOptions,
+	SyncSite,
+} from '@studio/common/types/sync';
 import { __, sprintf } from '@wordpress/i18n';
 import { Upload } from 'tus-js-client';
 import { z } from 'zod';
@@ -529,19 +534,26 @@ export async function updateConnectedWpcomSites(
 export async function pullSiteFromLive(
 	event: IpcMainInvokeEvent,
 	siteId: string,
-	remoteSiteId: number
+	remoteSiteId: number,
+	options?: PullSyncOptions
 ): Promise< void > {
 	const site = SiteServer.get( siteId );
 	if ( ! site ) {
 		throw new Error( 'Site not found.' );
 	}
 	const window = BrowserWindow.fromWebContents( event.sender );
-	return pullSite( executeCliCommand, site.details.path, remoteSiteId, ( progress ) => {
-		sendIpcEventToRendererWithWindow( window, 'sync-pull-progress', {
-			siteId,
-			...progress,
-		} );
-	} );
+	return pullSite(
+		executeCliCommand,
+		site.details.path,
+		remoteSiteId,
+		( progress ) => {
+			sendIpcEventToRendererWithWindow( window, 'sync-pull-progress', {
+				siteId,
+				...progress,
+			} );
+		},
+		options
+	);
 }
 
 // Push for the agentic UI (apps/ui): the same shared `pushSite` the `studio ui`
@@ -552,7 +564,8 @@ export async function pullSiteFromLive(
 export async function pushSiteToLive(
 	_event: IpcMainInvokeEvent,
 	selectedSiteId: string,
-	remoteSiteId: number
+	remoteSiteId: number,
+	options?: PushSyncOptions
 ): Promise< void > {
 	const site = SiteServer.get( selectedSiteId );
 	if ( ! site ) {
@@ -600,7 +613,7 @@ export async function pushSiteToLive(
 				}
 			},
 		},
-		{ sitePath: site.details.path, remoteSiteId }
+		{ sitePath: site.details.path, remoteSiteId, options }
 	);
 }
 
@@ -624,4 +637,82 @@ export async function getConnectedWpcomSites(
 		return getConnectedWpcomSitesForLocalSite( localSiteId );
 	}
 	return getAllConnectedWpcomSitesForCurrentUserShared();
+}
+
+/**
+ * Latest rewind (backup) id for a remote site — used by the agentic UI's
+ * selective pull to browse the remote backup file tree. Returns `null` when
+ * the site has no backup yet.
+ */
+export async function getLatestRewindId(
+	_event: IpcMainInvokeEvent,
+	remoteSiteId: number
+): Promise< string | null > {
+	const token = await getAuthenticationToken();
+	if ( ! token?.accessToken ) {
+		throw new Error( 'No token found' );
+	}
+	try {
+		return await fetchLatestRewindId( token.accessToken, remoteSiteId );
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Raw contents of a remote backup directory (rewind backup `ls`), keyed by
+ * entry name. The renderer maps entries to tree nodes; returning the raw
+ * items preserves `has_children`/`type` used for plugin/theme classification.
+ */
+export async function listRemoteFileTree(
+	_event: IpcMainInvokeEvent,
+	remoteSiteId: number,
+	rewindId: string,
+	treePath: string
+): Promise< Record< string, unknown > > {
+	const token = await getAuthenticationToken();
+	if ( ! token?.accessToken ) {
+		throw new Error( 'No token found' );
+	}
+	const wpcom = wpcomFactory( token.accessToken, wpcomXhrRequest );
+	const rawResponse = await wpcom.req.post( {
+		path: `/sites/${ remoteSiteId }/rewind/backup/ls`,
+		apiNamespace: 'wpcom/v2',
+		body: { backup_id: rewindId, path: treePath },
+	} );
+	const parsed = z
+		.object( {
+			ok: z.boolean(),
+			error: z.string().optional(),
+			contents: z.record( z.string(), z.unknown() ).optional(),
+		} )
+		.parse( rawResponse );
+	if ( ! parsed.ok ) {
+		throw new Error( parsed.error || 'Failed to fetch remote file tree' );
+	}
+	return parsed.contents ?? {};
+}
+
+/**
+ * PHP version of the remote site's hosting environment — used by the agentic
+ * UI's sync dialog to warn about version mismatches before pushing.
+ */
+export async function getHostingPhpVersion(
+	_event: IpcMainInvokeEvent,
+	remoteSiteId: number
+): Promise< string | undefined > {
+	const token = await getAuthenticationToken();
+	if ( ! token?.accessToken ) {
+		throw new Error( 'No token found' );
+	}
+	try {
+		const wpcom = wpcomFactory( token.accessToken, wpcomXhrRequest );
+		const response = await wpcom.req.get( {
+			apiNamespace: 'wpcom/v2',
+			path: `/sites/${ remoteSiteId }/hosting/php-version`,
+		} );
+		return z.string().parse( response );
+	} catch {
+		return undefined;
+	}
 }

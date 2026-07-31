@@ -16,7 +16,7 @@ import {
 	updatePullToast,
 	updatePushToast,
 } from '@/data/sync-toasts';
-import type { PullSiteProgress } from '@/data/core';
+import type { PullSiteProgress, PullSyncOptions, PushSyncOptions } from '@/data/core';
 
 // Mutation keys are exported so downstream consumers (e.g. a cross-page
 // activity indicator or future bulk-sync UI) can filter the react-query
@@ -27,6 +27,7 @@ export const PULL_FROM_LIVE_MUTATION_KEY = [ 'pullSiteFromLive' ] as const;
 type PushToLiveVariables = {
 	siteId: string;
 	remoteSiteId: number;
+	options?: PushSyncOptions;
 };
 
 export function usePushSiteToLive() {
@@ -34,11 +35,16 @@ export function usePushSiteToLive() {
 	const queryClient = useQueryClient();
 	return useMutation( {
 		mutationKey: PUSH_TO_LIVE_MUTATION_KEY,
-		mutationFn: ( { siteId, remoteSiteId }: PushToLiveVariables ) =>
-			connector.pushSiteToLive( siteId, remoteSiteId, ( progress ) => {
-				reportPushProgress( siteId, progress );
-				updatePushToast( siteId, progress );
-			} ),
+		mutationFn: ( { siteId, remoteSiteId, options }: PushToLiveVariables ) =>
+			connector.pushSiteToLive(
+				siteId,
+				remoteSiteId,
+				( progress ) => {
+					reportPushProgress( siteId, progress );
+					updatePushToast( siteId, progress );
+				},
+				options
+			),
 		onMutate: ( { siteId } ) => {
 			reportSyncPending( siteId, 'push' );
 			startSyncToast( siteId, 'push' );
@@ -85,6 +91,7 @@ type PullFromLiveVariables = {
 	siteId: string;
 	remoteSiteId: number;
 	onProgress?: ( progress: PullSiteProgress ) => void;
+	options?: PullSyncOptions;
 };
 
 export function usePullSiteFromLive() {
@@ -92,12 +99,17 @@ export function usePullSiteFromLive() {
 	const queryClient = useQueryClient();
 	return useMutation( {
 		mutationKey: PULL_FROM_LIVE_MUTATION_KEY,
-		mutationFn: ( { siteId, remoteSiteId, onProgress }: PullFromLiveVariables ) =>
-			connector.pullSiteFromLive( siteId, remoteSiteId, ( progress ) => {
-				reportPullProgress( siteId, progress );
-				updatePullToast( siteId, progress );
-				onProgress?.( progress );
-			} ),
+		mutationFn: ( { siteId, remoteSiteId, onProgress, options }: PullFromLiveVariables ) =>
+			connector.pullSiteFromLive(
+				siteId,
+				remoteSiteId,
+				( progress ) => {
+					reportPullProgress( siteId, progress );
+					updatePullToast( siteId, progress );
+					onProgress?.( progress );
+				},
+				options
+			),
 		onMutate: ( { siteId } ) => {
 			reportSyncPending( siteId, 'pull' );
 			startSyncToast( siteId, 'pull' );

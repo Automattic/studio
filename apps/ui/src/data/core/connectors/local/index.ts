@@ -213,6 +213,25 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		} );
 	}
 
+	// Same correlation, for commands that report no URL (deleting a preview).
+	function awaitSnapshotCompletion( operationId: string ): Promise< void > {
+		return new Promise( ( resolve, reject ) => {
+			const listener = ( output: SnapshotSseOutput ) => {
+				if ( output.operationId !== operationId ) {
+					return;
+				}
+				if ( output.kind === 'success' ) {
+					snapshotListeners.delete( listener );
+					resolve();
+				} else if ( output.kind === 'fatal-error' ) {
+					snapshotListeners.delete( listener );
+					reject( new Error( output.data.message ) );
+				}
+			};
+			snapshotListeners.add( listener );
+		} );
+	}
+
 	return {
 		async init() {
 			// The browser's EventSource reconnects automatically.
@@ -545,6 +564,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			);
 			return awaitSnapshotOperation( operationId );
 		},
+		async deletePreviewSite( hostname ): Promise< void > {
+			const { operationId } = await api< { operationId: string } >(
+				`/snapshots/${ encodeURIComponent( hostname ) }`,
+				{ method: 'DELETE' }
+			);
+			await awaitSnapshotCompletion( operationId );
+		},
 		async getConnectedWpcomSites( localSiteId ): Promise< SyncSite[] > {
 			return api< SyncSite[] >(
 				localSiteId
@@ -582,7 +608,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				method: 'POST',
 			} );
 		},
-		async pushSiteToLive( siteId, remoteSiteId, onProgress ) {
+		async pushSiteToLive( siteId, remoteSiteId, onProgress, options ) {
 			const listener = ( output: PushProgressSseOutput ) => {
 				if ( output.siteId === siteId ) {
 					onProgress?.( {
@@ -597,13 +623,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			try {
 				await api( `/sites/${ encodeURIComponent( siteId ) }/push`, {
 					method: 'POST',
-					body: JSON.stringify( { remoteSiteId } ),
+					body: JSON.stringify( { remoteSiteId, options } ),
 				} );
 			} finally {
 				pushProgressListeners.delete( listener );
 			}
 		},
-		async pullSiteFromLive( siteId, remoteSiteId, onProgress ) {
+		async pullSiteFromLive( siteId, remoteSiteId, onProgress, options ) {
 			const listener = ( output: PullProgressSseOutput ) => {
 				if ( output.siteId === siteId ) {
 					onProgress?.( {
@@ -618,11 +644,43 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			try {
 				await api( `/sites/${ encodeURIComponent( siteId ) }/pull`, {
 					method: 'POST',
-					body: JSON.stringify( { remoteSiteId } ),
+					body: JSON.stringify( { remoteSiteId, options } ),
 				} );
 			} finally {
 				pullProgressListeners.delete( listener );
 			}
+		},
+		async getLatestRewindId( remoteSiteId ) {
+			return api< string | null >( `/wpcom/sites/${ remoteSiteId }/latest-rewind-id` );
+		},
+		async listRemoteFileTree( remoteSiteId, rewindId, path ) {
+			return api< Record< string, unknown > >(
+				`/wpcom/sites/${ remoteSiteId }/remote-file-tree?rewindId=${ encodeURIComponent(
+					rewindId
+				) }&path=${ encodeURIComponent( path ) }`
+			);
+		},
+		// Selective-sync local lookups: the server has no per-file endpoints yet,
+		// so degrade the same way the dialog does elsewhere without this data —
+		// category-level selection works; file trees, size estimates, and
+		// version warnings are simply absent.
+		async listLocalFileTree() {
+			return [];
+		},
+		async getDirectorySize() {
+			return 0;
+		},
+		async getFileSize() {
+			return 0;
+		},
+		async getIsMultisite() {
+			return undefined;
+		},
+		async getHostingPhpVersion( remoteSiteId ) {
+			const version = await api< string | null >(
+				`/wpcom/sites/${ remoteSiteId }/hosting-php-version`
+			);
+			return version ?? undefined;
 		},
 		getPublishCheckoutUrl( site ): string {
 			// The post-checkout auto-connect relies on the deep-link listener, which

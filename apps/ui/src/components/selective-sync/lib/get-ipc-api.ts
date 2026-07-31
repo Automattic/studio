@@ -14,8 +14,8 @@ import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 type SelectiveSyncIpcApi = {
 	openURL: ( url: string ) => Promise< void >;
 	setTitleBarBackdropEffect: ( enabled: boolean ) => Promise< void >;
-	getWpVersion: ( siteId: string ) => Promise< string | undefined >;
-	getIsMultisite: ( siteId: string ) => Promise< boolean | undefined >;
+	getWpVersion: ( siteId: string ) => Promise< string >;
+	getIsMultisite: ( siteId: string ) => Promise< boolean >;
 	getDirectorySize: ( siteId: string, path: string[] ) => Promise< number >;
 	getFileSize: ( siteId: string, path: string[] ) => Promise< number >;
 	listLocalFileTree: (
@@ -50,14 +50,18 @@ export function getIpcApi(): SelectiveSyncIpcApi {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			await ( window as any ).ipcApi?.setTitleBarBackdropEffect?.( enabled );
 		},
+		// Resolve legacy-shaped values (never undefined) so the copied hooks
+		// stay byte-identical to their apps/studio sources.
 		getWpVersion: ( siteId ) =>
 			requireConnector()
 				.getWpVersion( siteId )
-				.catch( () => undefined ),
+				.then( ( version ) => version ?? '-' )
+				.catch( () => '-' ),
 		getIsMultisite: ( siteId ) =>
 			requireConnector()
 				.getIsMultisite( siteId )
-				.catch( () => undefined ),
+				.then( ( value ) => value ?? false )
+				.catch( () => false ),
 		getDirectorySize: ( siteId, path ) =>
 			requireConnector()
 				.getDirectorySize( siteId, path )

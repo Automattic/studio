@@ -8,7 +8,6 @@ import path from 'path';
 import { loadNodeRuntime } from '@php-wasm/node';
 import { PHP, ProcessIdAllocator } from '@php-wasm/universal';
 import { LatestSupportedPHPVersion } from '@studio/common/types/php-versions';
-import { getContentDirFromState } from 'cli/lib/pull/reprint-state';
 import { installSqliteIntegration } from 'cli/lib/sqlite-integration';
 import { LoggerError } from 'cli/logger';
 import type { Blueprint } from '@wp-playground/blueprints';
@@ -136,17 +135,18 @@ function mergeBlueprintConstants(
  * The flattened site directory may contain a wp-content symlink that uses
  * VFS-relative paths (e.g. ../fs-root/srv/htdocs/wp-content) which don't
  * resolve on the host filesystem.  Instead of traversing that symlink, we
- * derive the real path from the import's raw directory and the content_dir
- * recorded in the reprint preflight state.
+ * derive the real path from the import's raw directory and the content
+ * directory reported by Reprint.
  */
-function resolveImportedWpContentPath( runtimeBlueprintPath: string ): string {
+function resolveImportedWpContentPath(
+	runtimeBlueprintPath: string,
+	contentDirectory: string | null
+): string {
 	const importRoot = path.dirname( path.dirname( runtimeBlueprintPath ) );
 	const rawDirectory = path.join( importRoot, 'raw' );
-	const stateDirectory = path.join( importRoot, 'state' );
 
-	const contentDir = getContentDirFromState( stateDirectory );
-	if ( contentDir ) {
-		const resolved = path.join( rawDirectory, contentDir.replace( /^\//, '' ) );
+	if ( contentDirectory ) {
+		const resolved = path.join( rawDirectory, contentDirectory.replace( /^\//, '' ) );
 		if ( fs.existsSync( resolved ) ) {
 			return resolved;
 		}
@@ -156,9 +156,10 @@ function resolveImportedWpContentPath( runtimeBlueprintPath: string ): string {
 }
 
 export async function ensureImportedSiteSqliteReady(
-	runtimeBlueprintPath: string
+	runtimeBlueprintPath: string,
+	contentDirectory: string | null
 ): Promise< string > {
-	const wpContentPath = resolveImportedWpContentPath( runtimeBlueprintPath );
+	const wpContentPath = resolveImportedWpContentPath( runtimeBlueprintPath, contentDirectory );
 	const databaseDirectory = path.join( wpContentPath, 'database' );
 	const sqlitePath = path.join( databaseDirectory, '.ht.sqlite' );
 	const sqlitePhpPath = path.join( databaseDirectory, '.ht.sqlite.php' );
@@ -216,7 +217,8 @@ export function loadRuntimeBlueprint( runtimeBlueprintPath: string ): Blueprint 
 }
 
 export async function loadImportedRuntimeStartOptions(
-	runtimeBlueprintPath: string
+	runtimeBlueprintPath: string,
+	extraDirectories: string[]
 ): Promise< StartServerOptions > {
 	const runtimeDirectory = path.dirname( runtimeBlueprintPath );
 	const startJsonPath = path.join( runtimeDirectory, 'start.json' );
@@ -304,10 +306,10 @@ export async function loadImportedRuntimeStartOptions(
 
 	// On wp.com Atomic, auto_prepend_file points to /scripts/env.php —
 	// a directory outside the WordPress roots that the importer's
-	// apply-runtime doesn't mount.  Detect it from the importer state
-	// and add the mount so absolute paths like
+	// apply-runtime doesn't mount. Add Reprint's extra directories so
+	// absolute paths like
 	// require_once('/scripts/object-cache.memcache.php') resolve.
-	const extraDirMounts = getExtraDirectoryMountsFromImporterState( runtimeDirectory );
+	const extraDirMounts = getExtraDirectoryMounts( runtimeDirectory, extraDirectories );
 	if ( extraDirMounts.length > 0 ) {
 		startOptions.mountsBeforeInstall = [
 			...( startOptions.mountsBeforeInstall ?? [] ),
@@ -346,61 +348,31 @@ export async function loadImportedRuntimeStartOptions(
 }
 
 /**
- * Reads the importer state to find directories that need mounting at their
- * original absolute paths (e.g. /scripts from auto_prepend_file).  These
- * directories are downloaded into the raw/ tree but aren't in the flattened
- * site path or the generated start.json.
+ * Mount directories Reprint reports at their original absolute paths.
+ * These directories are downloaded into the raw/ tree but aren't in the
+ * flattened site path or the generated start.json.
  */
-export function getExtraDirectoryMountsFromImporterState(
-	runtimeDirectory: string
+export function getExtraDirectoryMounts(
+	runtimeDirectory: string,
+	extraDirectories: string[]
 ): Array< { hostPath: string; vfsPath: string } > {
 	const importRoot = path.dirname( runtimeDirectory );
-	const statePath = path.join( importRoot, 'state', '.import-state.json' );
 	const rawDirectory = path.join( importRoot, 'raw' );
 
-	let raw: string;
-	try {
-		raw = fs.readFileSync( statePath, 'utf-8' );
-	} catch {
-		// State file may not exist yet.
-		return [];
-	}
-
-	let state: Record< string, unknown >;
-	try {
-		state = JSON.parse( raw ) as Record< string, unknown >;
-	} catch {
-		// Malformed state file — skip extra mounts rather than crashing.
-		return [];
-	}
-
-	const preflight = ( state.preflight as Record< string, unknown > | undefined )?.data as
-		| Record< string, unknown >
-		| undefined;
-	const runtime = preflight?.runtime as Record< string, unknown > | undefined;
-	const iniGetAll = runtime?.ini_get_all as Record< string, unknown > | undefined;
-	const autoPrepend = iniGetAll?.auto_prepend_file;
-
-	if ( typeof autoPrepend !== 'string' || ! autoPrepend.startsWith( '/' ) ) {
-		return [];
-	}
-
-	const dir = path.posix.dirname( autoPrepend );
-	if ( ! dir || dir === '/' ) {
-		return [];
-	}
-
-	// The raw download preserves full remote paths, so /scripts
-	// becomes raw/scripts on the host filesystem.
-	const hostPath = path.join( rawDirectory, dir.slice( 1 ) );
-	const resolvedHostPath = path.resolve( hostPath );
 	const resolvedRawDirectory = path.resolve( rawDirectory );
-	if ( ! resolvedHostPath.startsWith( resolvedRawDirectory + path.sep ) ) {
-		return [];
-	}
-	if ( ! fs.existsSync( hostPath ) ) {
-		return [];
-	}
+	return extraDirectories.flatMap( ( directory ) => {
+		// The raw download preserves full remote paths, so /scripts
+		// becomes raw/scripts on the host filesystem.
+		const hostPath = path.join( rawDirectory, directory.replace( /^\/+/, '' ) );
+		const resolvedHostPath = path.resolve( hostPath );
+		if (
+			directory === '/' ||
+			! resolvedHostPath.startsWith( resolvedRawDirectory + path.sep ) ||
+			! fs.existsSync( hostPath )
+		) {
+			return [];
+		}
 
-	return [ { hostPath, vfsPath: dir } ];
+		return [ { hostPath, vfsPath: directory } ];
+	} );
 }

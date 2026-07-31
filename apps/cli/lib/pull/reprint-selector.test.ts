@@ -37,7 +37,7 @@ describe( 'buildReprintTreeFromIndex', () => {
 
 	beforeEach( () => {
 		dir = fs.mkdtempSync( path.join( os.tmpdir(), 'reprint-selector-' ) );
-		indexPath = path.join( dir, '.import-remote-index.jsonl' );
+		indexPath = path.join( dir, 'remote-index.jsonl' );
 	} );
 
 	afterEach( () => {

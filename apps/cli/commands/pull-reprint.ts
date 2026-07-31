@@ -41,6 +41,10 @@ import {
 } from 'cli/lib/pull/migration-client';
 import { preserveUnselectedLocalContent } from 'cli/lib/pull/preserve-local-content';
 import {
+	readReprintImportMetadata,
+	type ReprintImportMetadata,
+} from 'cli/lib/pull/reprint-metadata';
+import {
 	fetchReprintPullTree,
 	mapCliOnlyToReprint,
 	resolveOnlyPathsToAbsolute,
@@ -49,12 +53,6 @@ import {
 	type SelectedSymlink,
 } from 'cli/lib/pull/reprint-selector';
 import {
-	getAbspathFromState,
-	getContentDirFromState,
-	getCoreRootsFromState,
-	hasLocalFilesIndex,
-	getTablePrefixFromState,
-	hasSkippedFiles,
 	markSkippedFilesPending,
 	resetEssentialFilesState,
 	setSqliteRuntimeTarget,
@@ -145,7 +143,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 
 /**
  * Where Studio stores the raw filesystem scratch space for each pulled
- * site — reprint's `.import-state.json`, the preflight cache, and the
+ * site — Reprint's `pull/state.json`, the preflight cache, and the
  * raw/runtime working dirs.  Each site's pull lives in a subdirectory
  * keyed by its `siteId` (see {@link getPullTechnicalDirectory}); there is
  * no Studio-owned progress file. `studio delete` removes this scratch.
@@ -156,7 +154,7 @@ const PULLS_ROOT = path.join( os.homedir(), '.studio', 'pulls' );
  * The on-disk scratch layout for a site's pull, all derived from the
  * site's identity (`siteId`) and layout (`SiteData`).  There is no
  * Studio-owned progress file: "where do I continue from?" is computed
- * from observable state (reprint's own `.import-state.json` cursor,
+ * from observable state (Reprint's own `pull/state.json` cursor,
  * whether the server is running, whether skipped files remain) and the
  * durable {@link SiteData} flags (`status`, `importComplete`), not from
  * a written stage cursor.
@@ -268,8 +266,8 @@ class PullError extends LoggerError {
  * creates or deletes a site.  There is no Studio-owned progress file:
  * the site is marked `status: 'pulling'` up front and every phase is
  * idempotent, so a crash (or `Ctrl-C`) just leaves the site `pulling`
- * and re-running resumes by derivation — reprint resumes its own
- * pipeline from `.import-state.json`, the server-start phase keys off
+ * and re-running resumes by derivation — Reprint resumes its own
+ * pipeline from `pull/state.json`, the server-start phase keys off
  * whether the process is already running, and the skipped-files phase
  * keys off `hasSkippedFiles`.  A pull that errors or is killed lands the
  * site in `status: 'pull-failed'`; success returns it to `status:
@@ -378,6 +376,10 @@ export async function runCommand(
 			secret,
 			verbose
 		);
+		const importMetadata = await readReprintImportMetadata(
+			studioMetadata.stateDirectory,
+			studioMetadata.rawDirectory
+		);
 		// Selective sync: apply `--only`/`--skip-*` flags, or prompt
 		// interactively with the wp-content folder tree + database toggle.
 		// A partial first-pull selection gets the core roots added and the
@@ -386,7 +388,8 @@ export async function runCommand(
 		// marked `pulling` so a cancel is a clean no-op.
 		const selection = await applySelection( {
 			session: studioMetadata,
-			isFirstPull: ! site.importComplete || ! hasLocalFilesIndex( studioMetadata.stateDirectory ),
+			sourceSite: importMetadata.sourceSite,
+			isFirstPull: ! site.importComplete || ! importMetadata.hasLocalIndex,
 			cli: cliSelection,
 			apiUrl,
 			secret,
@@ -421,8 +424,8 @@ export async function runCommand(
 		// The pull pipeline runs as separate reprint commands (pull-files →
 		// pull-db → flat-docroot → apply-runtime) so the selection can skip
 		// the database step entirely; see runFullPull. Always re-invoked:
-		// every command is idempotent and reprint resumes its own pipeline
-		// from `.import-state.json`, so there is no Studio-side guard.
+		// every command is idempotent and Reprint resumes its own pipeline
+		// from `pull/state.json`, so there is no Studio-side guard.
 		await runFullPull(
 			SITE_RUNTIME_NATIVE_PHP,
 			studioMetadata,
@@ -430,6 +433,7 @@ export async function runCommand(
 			secret,
 			verbose,
 			! isRepull,
+			importMetadata,
 			selection
 		);
 
@@ -468,9 +472,13 @@ export async function runCommand(
 			}
 			runtimeStartOptions = nativeStartOptions;
 		} else {
-			await ensureImportedSiteSqliteReady( studioMetadata.runtimeBlueprintPath );
+			await ensureImportedSiteSqliteReady(
+				studioMetadata.runtimeBlueprintPath,
+				importMetadata.sourceSite.contentDirectory
+			);
 			runtimeStartOptions = await loadImportedRuntimeStartOptions(
-				studioMetadata.runtimeBlueprintPath
+				studioMetadata.runtimeBlueprintPath,
+				importMetadata.sourceSite.extraDirectories
 			);
 		}
 
@@ -544,15 +552,21 @@ export async function runCommand(
 		// any remain — unless the user excluded the media library. Keyed off
 		// observable state (`hasSkippedFiles`), not a stage cursor, so it
 		// runs exactly when there's a tail outstanding.
-		if ( ! selection.skipUploads && hasSkippedFiles( studioMetadata.stateDirectory ) ) {
-			await downloadSkippedFiles(
-				getSiteRuntime( site ),
-				studioMetadata,
-				apiUrl,
-				secret,
-				verbose,
-				selection
+		if ( ! selection.skipUploads ) {
+			const completedPullMetadata = await readReprintImportMetadata(
+				studioMetadata.stateDirectory,
+				studioMetadata.rawDirectory
 			);
+			if ( completedPullMetadata.hasSkippedFiles ) {
+				await downloadSkippedFiles(
+					getSiteRuntime( site ),
+					studioMetadata,
+					apiUrl,
+					secret,
+					verbose,
+					selection
+				);
+			}
 		}
 
 		// The pull is done: drop the selection sidecar so the next pull asks
@@ -619,13 +633,14 @@ export async function runCommand(
  */
 async function applySelection( params: {
 	session: PullSession;
+	sourceSite: ReprintImportMetadata[ 'sourceSite' ];
 	isFirstPull: boolean;
 	cli: CliSelectionOptions;
 	apiUrl: string;
 	secret: string;
 	verbose: boolean;
 } ): Promise< PullSelection | null > {
-	const { session, isFirstPull, cli, apiUrl, secret, verbose } = params;
+	const { session, sourceSite, isFirstPull, cli, apiUrl, secret, verbose } = params;
 
 	// A partial first-pull `--only` set must include the core roots. When
 	// preflight did not expose them, fall back to a full file pull rather
@@ -635,7 +650,12 @@ async function applySelection( params: {
 		if ( ! isFirstPull || ( fileOnlyPaths.length === 0 && ! databaseOnly ) ) {
 			return fileOnlyPaths;
 		}
-		const coreRoots = getCoreRootsFromState( session.stateDirectory );
+		const coreRoots = sourceSite.wordpressRoots.filter(
+			( rootPath ) =>
+				! sourceSite.wordpressRoots.some(
+					( other ) => other !== rootPath && other.startsWith( `${ rootPath }/` )
+				)
+		);
 		if ( coreRoots.length === 0 ) {
 			console.log(
 				__(
@@ -672,7 +692,7 @@ async function applySelection( params: {
 		if ( ! selection.skipDatabase ) {
 			return;
 		}
-		const contentDir = getContentDirFromState( session.stateDirectory ) ?? '';
+		const contentDir = sourceSite.contentDirectory ?? '';
 		const candidates = [
 			path.join( session.sitePath, 'wp-content', 'database', '.ht.sqlite' ),
 			path.join(
@@ -700,7 +720,7 @@ async function applySelection( params: {
 			skipUploads: !! cli.skipUploads,
 		};
 		if ( cliOnly.length > 0 ) {
-			const contentDir = getContentDirFromState( session.stateDirectory );
+			const contentDir = sourceSite.contentDirectory;
 			if ( ! contentDir ) {
 				throw new LoggerError(
 					__(
@@ -715,6 +735,7 @@ async function applySelection( params: {
 			const { linkTargets } = await fetchReprintPullTree( {
 				stateDirectory: session.stateDirectory,
 				rawDirectory: session.rawDirectory,
+				contentDirectory: contentDir,
 				apiUrl,
 				secret,
 				runtime: SITE_RUNTIME_NATIVE_PHP,
@@ -755,6 +776,7 @@ async function applySelection( params: {
 	const { tree, contentDir, linkTargets } = await fetchReprintPullTree( {
 		stateDirectory: session.stateDirectory,
 		rawDirectory: session.rawDirectory,
+		contentDirectory: sourceSite.contentDirectory,
 		apiUrl,
 		secret,
 		runtime: SITE_RUNTIME_NATIVE_PHP,
@@ -908,8 +930,11 @@ function getPullTechnicalDirectory( siteId: string ): string {
  * generated runtime prepend defines the database constants, so only the
  * table prefix and the wp-settings handoff are needed.
  */
-export function ensureScopedPullWpConfig( metadata: PullSession ): void {
-	const abspath = getAbspathFromState( metadata.stateDirectory );
+export function ensureScopedPullWpConfig(
+	metadata: PullSession,
+	sourceSite: ReprintImportMetadata[ 'sourceSite' ]
+): void {
+	const abspath = sourceSite.wordpressAbsolutePath;
 	if ( ! abspath ) {
 		return;
 	}
@@ -933,7 +958,7 @@ export function ensureScopedPullWpConfig( metadata: PullSession ): void {
 		}
 	}
 
-	const tablePrefix = getTablePrefixFromState( metadata.stateDirectory ) ?? 'wp_';
+	const tablePrefix = sourceSite.tablePrefix ?? 'wp_';
 	// Escape for a PHP single-quoted string: backslashes first, then single
 	// quotes (both are the only special characters there).
 	const escapedTablePrefix = tablePrefix.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" );
@@ -1021,9 +1046,10 @@ export async function runFullPull(
 	secret: string,
 	verbose: boolean,
 	force: boolean,
+	importMetadata: ReprintImportMetadata,
 	selection: PullSelection = {}
 ): Promise< void > {
-	const contentDir = getContentDirFromState( metadata.stateDirectory );
+	const contentDir = importMetadata.sourceSite.contentDirectory;
 	const sqlitePath = contentDir
 		? path.join(
 				metadata.rawDirectory,
@@ -1063,7 +1089,7 @@ export async function runFullPull(
 	const rawEntries = fs.existsSync( metadata.rawDirectory )
 		? fs.readdirSync( metadata.rawDirectory )
 		: [];
-	if ( rawEntries.length > 0 && ! hasLocalFilesIndex( metadata.stateDirectory ) ) {
+	if ( rawEntries.length > 0 && ! importMetadata.hasLocalIndex ) {
 		fs.rmSync( metadata.rawDirectory, { recursive: true, force: true } );
 		fs.mkdirSync( metadata.rawDirectory, { recursive: true } );
 		resetEssentialFilesState( metadata.stateDirectory );
@@ -1124,7 +1150,7 @@ export async function runFullPull(
 	// wp-content selection — reachable only through a symlink under the
 	// core root. Synthesize a minimal one so WordPress can boot.
 	if ( ( selection.fileOnlyPaths ?? [] ).length > 0 ) {
-		ensureScopedPullWpConfig( metadata );
+		ensureScopedPullWpConfig( metadata, importMetadata.sourceSite );
 	}
 
 	// Recreate the selected entries that are symlinks on the remote (wp.com

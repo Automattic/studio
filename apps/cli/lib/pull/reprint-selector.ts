@@ -18,7 +18,7 @@ import { SiteRuntime } from '@studio/common/lib/site-runtime';
 import { shouldLimitDepth } from '@studio/common/lib/sync/tree-utils';
 import { __ } from '@wordpress/i18n';
 import { runReprintCommandUntilComplete } from 'cli/lib/pull/migration-client';
-import { getContentDirFromState, getRemoteIndexPath } from 'cli/lib/pull/reprint-state';
+import { getRemoteIndexPath, getReprintStatePath } from 'cli/lib/pull/reprint-state';
 import { buildRootTree } from 'cli/lib/sync-selector';
 import treeCheckbox from 'cli/lib/tree-checkbox';
 import type { TreeNode } from 'cli/lib/tree-checkbox';
@@ -344,6 +344,7 @@ export function mapCheckedNodesToSelection(
 interface FetchReprintPullTreeParams {
 	stateDirectory: string;
 	rawDirectory: string;
+	contentDirectory: string | null;
 	apiUrl: string;
 	secret: string;
 	runtime: SiteRuntime;
@@ -352,9 +353,9 @@ interface FetchReprintPullTreeParams {
 
 /**
  * Run `reprint files-index` (requires a prior preflight) and build the
- * selector tree from the resulting `.import-remote-index.jsonl`.
+ * selector tree from the resulting remote index.
  *
- * The index runs against a throwaway copy of the state directory: the
+ * The index runs against a throwaway copy of the pull state: the
  * shared one must stay pristine, or the leftover remote index and
  * `files-index` checkpoint would derail the pull that follows — an
  * *initial* `pull-files` appends its scoped index to any existing file
@@ -365,20 +366,20 @@ export async function fetchReprintPullTree( params: FetchReprintPullTreeParams )
 	contentDir: string | null;
 	linkTargets: Record< string, string >;
 } > {
-	const { stateDirectory, rawDirectory, apiUrl, secret, runtime, verbose } = params;
+	const { stateDirectory, rawDirectory, contentDirectory, apiUrl, secret, runtime, verbose } =
+		params;
 
-	const contentDir = getContentDirFromState( stateDirectory );
-	if ( ! contentDir ) {
+	if ( ! contentDirectory ) {
 		return { tree: [], contentDir: null, linkTargets: {} };
 	}
 
 	const indexStateDirectory = `${ stateDirectory.replace( /\/+$/, '' ) }-tree`;
 	fs.rmSync( indexStateDirectory, { recursive: true, force: true } );
-	fs.mkdirSync( indexStateDirectory, { recursive: true } );
+	fs.mkdirSync( path.dirname( getReprintStatePath( indexStateDirectory ) ), { recursive: true } );
 	// files-index requires preflight data; hand it the session's copy.
 	fs.copyFileSync(
-		path.join( stateDirectory, '.import-state.json' ),
-		path.join( indexStateDirectory, '.import-state.json' )
+		getReprintStatePath( stateDirectory ),
+		getReprintStatePath( indexStateDirectory )
 	);
 
 	try {
@@ -403,9 +404,9 @@ export async function fetchReprintPullTree( params: FetchReprintPullTreeParams )
 
 		const { tree, linkTargets } = await buildReprintTreeFromIndex(
 			getRemoteIndexPath( indexStateDirectory ),
-			contentDir
+			contentDirectory
 		);
-		return { tree, contentDir, linkTargets };
+		return { tree, contentDir: contentDirectory, linkTargets };
 	} finally {
 		fs.rmSync( indexStateDirectory, { recursive: true, force: true } );
 	}

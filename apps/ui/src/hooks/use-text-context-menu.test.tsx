@@ -1,7 +1,7 @@
 import { fireEvent, render, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { MESSAGE_TEXT_ATTRIBUTE, useTextContextMenu } from './use-text-context-menu';
 import { watchComposerTextQuote } from '@/lib/composer-text-quote';
+import { MESSAGE_TEXT_ATTRIBUTE, useTextContextMenu } from './use-text-context-menu';
 
 const showTextContextMenu = vi.fn().mockResolvedValue( undefined );
 
@@ -123,9 +123,7 @@ describe( 'useTextContextMenu', () => {
 
 		fireEvent.contextMenu( toolOutput );
 
-		await waitFor( () =>
-			expect( quoteListener ).toHaveBeenCalledWith( 'The selected reply.' )
-		);
+		await waitFor( () => expect( quoteListener ).toHaveBeenCalledWith( 'The selected reply.' ) );
 		stopWatching();
 	} );
 } );

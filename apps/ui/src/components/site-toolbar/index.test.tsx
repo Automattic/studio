@@ -185,14 +185,21 @@ describe( 'SiteToolbar', () => {
 			} as never );
 		} );
 
-		it( 'lists both connections inside the sync dialog', async () => {
+		it( 'identifies each connection by URL, not by its Production/Staging label', async () => {
 			const user = userEvent.setup();
 			renderToolbar();
 
 			await user.click( screen.getByRole( 'button', { name: 'Sync' } ) );
+			await user.click( await screen.findByRole( 'button', { name: /riff/ } ) );
 
-			expect( await screen.findByRole( 'radio', { name: /Production/ } ) ).toBeInTheDocument();
-			expect( screen.getByRole( 'radio', { name: /Staging/ } ) ).toBeInTheDocument();
+			// Each entry leads with its URL, and carries its kind and staleness
+			// underneath.
+			expect(
+				await screen.findByRole( 'menuitem', { name: /riff\.com.*Production/ } )
+			).toBeInTheDocument();
+			expect(
+				screen.getByRole( 'menuitem', { name: /riff-staging\.wpcomstaging\.com/ } )
+			).toBeInTheDocument();
 		} );
 	} );
 
@@ -204,10 +211,53 @@ describe( 'SiteToolbar', () => {
 		renderToolbar();
 
 		await user.click( screen.getByRole( 'button', { name: 'Sync' } ) );
-		await user.click( await screen.findByRole( 'button', { name: /Pull/ } ) );
-		await user.click( screen.getByRole( 'button', { name: 'Pull' } ) );
+		// The direction starts on Push, so the only "Pull" is the segment; once
+		// switched, the footer's run button reads "Pull" too and is the last.
+		await user.click( await screen.findByRole( 'button', { name: 'Pull' } ) );
+		const pullButtons = screen.getAllByRole( 'button', { name: 'Pull' } );
+		await user.click( pullButtons[ pullButtons.length - 1 ] );
 
-		expect( pull ).toHaveBeenCalledWith( { siteId: 'riff', remoteSiteId: 42 } );
+		expect( pull ).toHaveBeenCalledWith( {
+			siteId: 'riff',
+			remoteSiteId: 42,
+			options: undefined,
+		} );
+	} );
+
+	it( 'sends no options when everything is selected', async () => {
+		const push = vi.fn();
+		vi.mocked( usePushSiteToLive ).mockReturnValue( { mutate: push } as never );
+		vi.mocked( useConnectedWpcomSites ).mockReturnValue( { data: [ liveSite() ] } as never );
+		const user = userEvent.setup();
+		renderToolbar();
+
+		await user.click( screen.getByRole( 'button', { name: 'Sync' } ) );
+		// The direction segment and the footer's run button both read "Push".
+		const pushButtons = await screen.findAllByRole( 'button', { name: 'Push' } );
+		await user.click( pushButtons[ pushButtons.length - 1 ] );
+
+		expect( push ).toHaveBeenCalledWith(
+			{ siteId: 'riff', remoteSiteId: 42, options: undefined },
+			expect.anything()
+		);
+	} );
+
+	it( 'narrows a push to the database when files are unchecked', async () => {
+		const push = vi.fn();
+		vi.mocked( usePushSiteToLive ).mockReturnValue( { mutate: push } as never );
+		vi.mocked( useConnectedWpcomSites ).mockReturnValue( { data: [ liveSite() ] } as never );
+		const user = userEvent.setup();
+		renderToolbar();
+
+		await user.click( screen.getByRole( 'button', { name: 'Sync' } ) );
+		await user.click( await screen.findByRole( 'checkbox', { name: 'Files and folders' } ) );
+		const pushButtons = screen.getAllByRole( 'button', { name: 'Push' } );
+		await user.click( pushButtons[ pushButtons.length - 1 ] );
+
+		expect( push ).toHaveBeenCalledWith(
+			{ siteId: 'riff', remoteSiteId: 42, options: { optionsToSync: [ 'sqls' ] } },
+			expect.anything()
+		);
 	} );
 
 	it( 'leaves a failed sync pressable again, and says nothing in the header', () => {

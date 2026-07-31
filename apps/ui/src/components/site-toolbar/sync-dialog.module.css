@@ -1,144 +1,201 @@
-.field {
-	margin: 0 0 var(--wpds-dimension-padding-lg);
-	padding: 0;
-	border: 0;
+/* 480px: wider than wpds `small` (400) and narrower than `medium` (560).
+   Unlayered, so it beats the size rule in wpds's `wp-ui-components` layer. */
+.popup {
+	max-width: 480px;
 }
 
-.field:last-child {
-	margin-block-end: 0;
-}
-
-.legend {
-	padding: 0 0 var(--wpds-dimension-padding-sm);
-	font-size: var(--wpds-typography-font-size-xs);
-	font-weight: 600;
-	text-transform: uppercase;
-	letter-spacing: 0.04em;
-	color: var(--wpds-color-fg-content-neutral-weak);
-}
-
-/* --- Direction ----------------------------------------------------------- */
-
-.directions {
+/* Segmented control, matching Settings' appearance picker: a sliding
+   indicator behind two equal segments. */
+.directionPicker {
+	position: relative;
 	display: grid;
-	grid-template-columns: 1fr 1fr;
-	gap: var(--wpds-dimension-gap-sm);
+	grid-template-columns: repeat(2, 1fr);
+	align-items: center;
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: var(--wpds-border-radius-sm);
+	background: var(--wpds-color-bg-interactive-neutral-weak);
+	line-height: 1;
 }
 
-.direction {
-	display: flex;
-	flex-direction: column;
-	gap: 2px;
-	padding: var(--wpds-dimension-padding-md);
-	text-align: start;
-	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
-	border-radius: var(--wpds-border-radius-md);
+.directionPicker::before {
+	content: '';
+	position: absolute;
+	inset-block: calc(var(--wpds-border-width-xs) * -1);
+	inset-inline-start: 0;
+	box-sizing: border-box;
+	inline-size: 50%;
+	border: 1px solid var(--wpds-color-stroke-interactive-neutral);
+	border-radius: var(--wpds-border-radius-sm);
+	background: var(--wpds-color-bg-interactive-neutral-weak);
+	pointer-events: none;
+	transform: translateX(
+		calc(var(--direction-active-index, 0) * 100% + var(--direction-edge-shift, 0px))
+	);
+}
+
+/* Physical translateX against a logical inset — flip the sign in RTL. */
+.directionPicker:dir(rtl)::before {
+	transform: translateX(
+		calc(var(--direction-active-index, 0) * -100% - var(--direction-edge-shift, 0px))
+	);
+}
+
+/* At either end, slide the indicator one border-width outward so its border
+   overlays the container's rather than doubling it. */
+.directionPicker[data-active-index='0'] {
+	--direction-active-index: 0;
+	--direction-edge-shift: calc(var(--wpds-border-width-xs) * -1);
+}
+
+.directionPicker[data-active-index='1'] {
+	--direction-active-index: 1;
+	--direction-edge-shift: var(--wpds-border-width-xs);
+}
+
+@media not (prefers-reduced-motion) {
+	.directionPicker::before {
+		transition: transform 180ms cubic-bezier(0.2, 0, 0, 1);
+	}
+}
+
+.directionButton {
+	position: relative;
+	z-index: 1;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--wpds-dimension-gap-xs);
+	min-height: 32px;
+	padding: 0 var(--wpds-dimension-padding-md);
+	border: 0;
+	border-radius: var(--wpds-border-radius-sm);
 	background: transparent;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font: inherit;
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
 	cursor: var(--wpds-cursor-control);
 }
 
-.direction:hover {
-	border-color: var(--wpds-color-stroke-interactive-neutral);
-}
-
-.directionSelected {
-	border-color: var(--wpds-color-stroke-interactive-brand);
-	background: var(--wpds-color-bg-surface-info-weak);
-}
-
-.directionTitle {
-	font-size: var(--wpds-typography-font-size-sm);
-	font-weight: 600;
+.directionButton:hover,
+.directionButtonActive {
 	color: var(--wpds-color-fg-content-neutral);
 }
 
-.directionRoute {
-	font-size: var(--wpds-typography-font-size-xs);
-	color: var(--wpds-color-fg-content-neutral);
+.directionButton:focus-visible {
+	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus-brand);
+	outline-offset: 2px;
 }
 
-.directionWarning {
-	font-size: var(--wpds-typography-font-size-xs);
-	color: var(--wpds-color-fg-content-neutral-weak);
+.directionIcon {
+	flex: 0 0 auto;
+	fill: currentColor;
+	width: 16px;
+	height: 16px;
 }
 
-/* --- Target -------------------------------------------------------------- */
-
-.targets {
-	display: flex;
-	flex-direction: column;
-	gap: var(--wpds-dimension-gap-xs);
+/* The URL identifies the connection; Production/Staging is a hint under it,
+   because that flag isn't always known when a connection is stored. */
+.destination {
+	min-width: 0;
+	margin-block-end: var(--wpds-dimension-padding-md);
 }
 
-.target {
+.destinationTrigger {
 	display: flex;
 	align-items: center;
 	gap: var(--wpds-dimension-gap-sm);
+	inline-size: 100%;
+	min-width: 0;
 	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md);
-	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
+	border: 1px solid var(--wpds-color-stroke-surface-neutral);
 	border-radius: var(--wpds-border-radius-md);
+	background: transparent;
+	text-align: start;
 	cursor: var(--wpds-cursor-control);
 }
 
-.targetSelected {
-	border-color: var(--wpds-color-stroke-interactive-brand);
+.destinationTrigger:hover {
+	background: var(--wpds-color-bg-surface-neutral);
 }
 
-.target input {
-	accent-color: var(--wpds-color-fg-interactive-brand);
+.destinationTrigger:focus-visible {
+	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus-brand);
+	outline-offset: 2px;
 }
 
-.targetText {
+.destinationTriggerText {
 	display: flex;
 	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+	flex: 1;
+}
+
+.destinationChevron {
+	flex: 0 0 auto;
+	fill: var(--wpds-color-fg-content-neutral-weak);
+	width: 16px;
+	height: 16px;
+}
+
+.destinationStatic {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
 	min-width: 0;
 }
 
-.targetTitle {
-	font-size: var(--wpds-typography-font-size-sm);
-	color: var(--wpds-color-fg-content-neutral);
+/* Wide enough that a connection's URL isn't the thing that wraps. */
+.menu {
+	min-width: 280px;
+	max-width: 420px;
 }
 
-.targetMeta {
-	font-size: var(--wpds-typography-font-size-xs);
-	color: var(--wpds-color-fg-content-neutral-weak);
+.menuItem {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.destinationUrl {
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	color: var(--wpds-color-fg-content-neutral);
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
 }
 
-/* --- What to sync -------------------------------------------------------- */
-
-.check {
-	display: flex;
-	align-items: flex-start;
-	gap: var(--wpds-dimension-gap-sm);
-	padding-block: var(--wpds-dimension-padding-xs);
-	cursor: var(--wpds-cursor-control);
-}
-
-.check input {
-	margin-block-start: 2px;
-	accent-color: var(--wpds-color-fg-interactive-brand);
-}
-
-.checkText {
-	display: flex;
-	flex-direction: column;
-	font-size: var(--wpds-typography-font-size-sm);
-	color: var(--wpds-color-fg-content-neutral);
-}
-
-.checkMeta {
+.destinationMeta {
 	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-xs);
 	color: var(--wpds-color-fg-content-neutral-weak);
 }
 
-.notice {
-	margin: var(--wpds-dimension-padding-sm) 0 0;
-	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md);
-	border-radius: var(--wpds-border-radius-md);
-	background: var(--wpds-color-bg-surface-warning-weak);
-	color: var(--wpds-color-fg-content-warning);
+.consequence {
+	margin: var(--wpds-dimension-gap-sm) 0 var(--wpds-dimension-padding-lg);
 	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-xs);
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.whatToSync {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-gap-xs);
+}
+
+.legend {
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-xs);
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+/* A stable floor so Push and Pull are the same width and the footer doesn't
+   reflow when the direction changes. */
+.run {
+	min-width: 88px;
+	justify-content: center;
 }

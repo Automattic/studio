@@ -22,13 +22,14 @@ import { useSiteSyncActivity } from '@/data/sync-activity';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { getSiteDisplayUrl, getSiteUrl } from '@/lib/get-site-url';
 import { ActionButton } from './action-button';
-import { ToolbarTweaksPanel, useToolbarPreview } from './dev-tweaks';
+import { deriveToolbarState } from './derive-toolbar-state';
 import { PublishSiteDialog } from './publish-site-dialog';
 import { ShareDialog } from './share-dialog';
 import styles from './style.module.css';
 import { SyncDialog } from './sync-dialog';
 import { ensureProtocol, sortConnections } from './utils';
 import type { SiteDetails, SyncSite } from '@/data/core';
+import type { PullSyncOptions, PushSyncOptions } from '@studio/common/types/sync';
 
 interface SiteToolbarProps {
 	site: SiteDetails;
@@ -87,58 +88,47 @@ export function SiteToolbar( { site, className }: SiteToolbarProps ) {
 	// concurrently would wedge the site runtime.
 	const isSyncing = isPreviewPending || isPushPending || isPullPending;
 
-	// The preview hook returns the real derived state unless the dev tweaks
-	// panel is driving. Temporary — see `./dev-tweaks`.
-	const preview = useToolbarPreview(
-		{
-			activity,
-			agenticEnabled,
-			agenticReason,
-			connections: targets,
-			isSyncing,
-			siteRunning: site.running,
-		},
-		{ running: site.running, isStarting, isStopping }
-	);
-	const { actions } = preview.state;
-	const previewSite =
-		preview.run.running === site.running ? site : { ...site, running: preview.run.running };
-	// While the panel drives, its synthetic connections stand in for the real
-	// set so the buttons don't offer targets the fake state doesn't have.
-	const syncTargets = preview.active ? preview.connections : targets;
+	const { actions } = deriveToolbarState( {
+		activity,
+		agenticEnabled,
+		agenticReason,
+		connections: targets,
+		isSyncing,
+		siteRunning: site.running,
+	} );
 
 	const openExternal = ( url: string ) => {
 		void connector.openExternalUrl( url );
 	};
 
-	const runSync = ( direction: 'push' | 'pull', target: SyncSite ) => {
-		// While the tweaks panel drives the toolbar, the state on screen is a
-		// picture — don't start real work from it.
-		if ( isSyncing || preview.active ) {
+	const runSync = (
+		direction: 'push' | 'pull',
+		target: SyncSite,
+		options: PushSyncOptions | PullSyncOptions | undefined
+	) => {
+		if ( isSyncing ) {
 			return;
 		}
 		if ( direction === 'pull' ) {
-			pullSiteFromLive.mutate( { siteId: site.id, remoteSiteId: target.id } );
+			pullSiteFromLive.mutate( { siteId: site.id, remoteSiteId: target.id, options } );
 			return;
 		}
 		pushSiteToLive.mutate(
-			{ siteId: site.id, remoteSiteId: target.id },
+			{ siteId: site.id, remoteSiteId: target.id, options },
 			{ onSuccess: () => openExternal( ensureProtocol( target.url ) ) }
 		);
 	};
 
 	const localSiteUrl = getSiteUrl( site );
-	const localSiteLabel = preview.run.isStopping
+	const localSiteLabel = isStopping
 		? __( 'Stopping…' )
-		: preview.run.isStarting
+		: isStarting
 		? __( 'Starting…' )
 		: getSiteDisplayUrl( site );
-	const canOpenLocalSite = preview.run.running && ! preview.run.isStopping;
+	const canOpenLocalSite = site.running && ! isStopping;
 
 	return (
-		<div
-			className={ clsx( styles.toolbar, preview.active && styles.toolbarPreviewing, className ) }
-		>
+		<div className={ clsx( styles.toolbar, className ) }>
 			<div className={ styles.identity }>
 				<SiteIcon
 					className={ styles.siteIcon }
@@ -155,9 +145,9 @@ export function SiteToolbar( { site, className }: SiteToolbarProps ) {
 					>
 						{ showRunState ? (
 							<SiteStatusButton
-								site={ previewSite }
-								isStarting={ preview.run.isStarting }
-								isStopping={ preview.run.isStopping }
+								site={ site }
+								isStarting={ isStarting }
+								isStopping={ isStopping }
 								className={ styles.siteStatusButton }
 							/>
 						) : null }
@@ -193,7 +183,7 @@ export function SiteToolbar( { site, className }: SiteToolbarProps ) {
 
 			<div className={ styles.actions }>
 				{ /* Sharing isn't a sync: it publishes a throwaway copy, so it sits
-				     outside the primary action rather than inside its dialog. */ }
+				     outside the primary action rather than inside its panel. */ }
 				<Tooltip.Root>
 					<Tooltip.Trigger
 						render={
@@ -201,8 +191,9 @@ export function SiteToolbar( { site, className }: SiteToolbarProps ) {
 								variant="minimal"
 								tone="neutral"
 								size="small"
+								className={ styles.action }
 								disabled={ ! agenticEnabled }
-								onClick={ () => ! preview.active && setShareOpen( true ) }
+								onClick={ () => setShareOpen( true ) }
 							>
 								{ __( 'Share' ) }
 							</Button>
@@ -215,50 +206,41 @@ export function SiteToolbar( { site, className }: SiteToolbarProps ) {
 					</Tooltip.Popup>
 				</Tooltip.Root>
 
-				{ /* Both directions are on screen at once, so neither is a mode that
-				     can be left pointing the wrong way. Each button names its own
-				     target when the site has more than one connection. */ }
 				{ actions.map( ( action ) =>
 					action.id === 'publish' ? (
 						<ActionButton
 							key={ action.id }
 							action={ action }
-							onClick={ () => ! preview.active && setPublishOpen( true ) }
+							onClick={ () => setPublishOpen( true ) }
 						/>
 					) : action.id === 'login' ? (
-						<ActionButton
-							key={ action.id }
-							action={ action }
-							onClick={ () => ! preview.active && login.mutate() }
-						/>
+						<ActionButton key={ action.id } action={ action } onClick={ () => login.mutate() } />
 					) : (
 						<ActionButton
 							key={ action.id }
 							action={ action }
-							onClick={ () => ! preview.active && setSyncOpen( true ) }
+							onClick={ () => targets.length > 0 && setSyncOpen( true ) }
 						/>
 					)
 				) }
 			</div>
 
-			{ syncTargets.length > 0 ? (
+			{ shareOpen ? <ShareDialog site={ site } open onOpenChange={ setShareOpen } /> : null }
+
+			{ targets.length > 0 ? (
 				<SyncDialog
-					site={ site }
-					connections={ syncTargets }
+					siteId={ site.id }
+					connections={ targets }
 					open={ syncOpen }
 					onOpenChange={ setSyncOpen }
 					onRun={ runSync }
 				/>
 			) : null }
 
-			{ shareOpen ? <ShareDialog site={ site } open onOpenChange={ setShareOpen } /> : null }
-
 			{ /* Mounted only while open: it loads the account's sites on mount. */ }
 			{ publishOpen ? (
 				<PublishSiteDialog site={ site } open onOpenChange={ setPublishOpen } />
 			) : null }
-
-			<ToolbarTweaksPanel />
 		</div>
 	);
 }

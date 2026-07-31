@@ -131,14 +131,6 @@
 	-webkit-app-region: no-drag;
 }
 
-/* Dev only: the tweaks panel is driving this toolbar, so nothing in it reflects
-   the real site. Marked because a synthetic status is otherwise indistinguishable
-   from a real one — see components/site-toolbar/dev-tweaks. */
-.toolbarPreviewing {
-	outline: 1px dashed var(--wpds-color-fg-content-warning);
-	outline-offset: 2px;
-}
-
 /* --- Primary action ------------------------------------------------------ */
 
 .action {
@@ -243,3 +235,4 @@
 		animation: none;
 	}
 }
+

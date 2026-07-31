@@ -1,5 +1,6 @@
 import { resolveSessionModel } from '@studio/common/ai/models';
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
+import { isSnapshotExpired } from '@studio/common/lib/snapshots';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { arrowDown } from '@wordpress/icons';
@@ -18,9 +19,11 @@ import {
 import { PreviewToggleButton } from '@/components/preview-toggle-button';
 import { ProgressiveBlur } from '@/components/progressive-blur';
 import { SiteDropdown } from '@/components/site-dropdown';
+import { pickLatestSnapshot } from '@/components/site-dropdown/utils';
 import { SiteIcon } from '@/components/site-icon';
 import { type Annotation } from '@/components/site-preview/types';
 import { useAgentRun } from '@/data/queries/use-agent-run';
+import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import {
 	useCreateSession,
 	useSession,
@@ -28,6 +31,7 @@ import {
 	useSessions,
 } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
+import { useSnapshots } from '@/data/queries/use-snapshots';
 import { useSessionCommands } from '@/hooks/use-session-commands';
 import { SessionUIProvider, useSessionPreviewAnnotations } from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
@@ -210,6 +214,8 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const { data: sessions } = useSessions();
 	const { mutateAsync: createSession, isPending: isCreatingSession } = useCreateSession();
 	const ownerSite = findAiSessionOwnerSite( sites, data?.summary );
+	const { data: snapshots } = useSnapshots();
+	const { data: connectedSites } = useConnectedWpcomSites( ownerSite?.id );
 	const effectiveEnvironment = useSessionEffectiveEnvironment( data?.summary, ownerSite?.id );
 	const {
 		isRunning,
@@ -244,6 +250,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const scrollRef = useRef< HTMLDivElement >( null );
 	const composerRef = useRef< ComposerHandle >( null );
 	const [ isScrolledAway, setIsScrolledAway ] = useState( false );
+	const [ suggestionNow ] = useState( () => Date.now() );
 	const hasSession = !! data;
 
 	const updateIsScrolledAway = useCallback( () => {
@@ -280,21 +287,86 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	}, [] );
 	useSessionCommands( sessionId );
 	const canTogglePreview = !! ownerSite && effectiveEnvironment === 'local';
-	const siteSessionHistory = data
-		? getSiteSessionHistory( {
-				currentSession: data.summary,
-				ownerSite,
-				sessions,
-		  } )
-		: [];
-	const archivedSiteSessionHistory = data
-		? getSiteSessionHistory( {
-				currentSession: data.summary,
-				ownerSite,
-				sessions,
-				archived: true,
-		  } )
-		: [];
+	const siteSessionHistory = useMemo(
+		() =>
+			data
+				? getSiteSessionHistory( {
+						currentSession: data.summary,
+						ownerSite,
+						sessions,
+				  } )
+				: [],
+		[ data, ownerSite, sessions ]
+	);
+	const archivedSiteSessionHistory = useMemo(
+		() =>
+			data
+				? getSiteSessionHistory( {
+						currentSession: data.summary,
+						ownerSite,
+						sessions,
+						archived: true,
+				  } )
+				: [],
+		[ data, ownerSite, sessions ]
+	);
+	const suggestionContext = useMemo( () => {
+		if ( ! ownerSite ) {
+			return undefined;
+		}
+
+		const previousPrompts = siteSessionHistory
+			.filter( ( session ) => session.id !== sessionId )
+			.flatMap( ( session ) => ( session.firstPrompt ? [ session.firstPrompt ] : [] ) )
+			.slice( 0, 5 );
+		const latestSnapshot = pickLatestSnapshot( snapshots, ownerSite.id );
+		const knownActivityDates = [
+			...siteSessionHistory
+				.filter( ( session ) => session.id !== sessionId )
+				.map( ( session ) => Date.parse( session.createdAt ) ),
+			...( connectedSites ?? [] ).map( ( site ) => Date.parse( site.createdAt ?? '' ) ),
+			...( latestSnapshot ? [ latestSnapshot.date ] : [] ),
+		].filter( ( timestamp ) => Number.isFinite( timestamp ) && timestamp > 0 );
+		const earliestKnownActivity =
+			knownActivityDates.length > 0 ? Math.min( ...knownActivityDates ) : undefined;
+		const syncDates = ( connectedSites ?? [] )
+			.flatMap( ( site ) => [ site.lastPullTimestamp, site.lastPushTimestamp ] )
+			.flatMap( ( timestamp ) => ( timestamp ? [ Date.parse( timestamp ) ] : [] ) )
+			.filter( ( timestamp ) => Number.isFinite( timestamp ) );
+		const latestSync = syncDates.length > 0 ? Math.max( ...syncDates ) : undefined;
+
+		return {
+			theme: ownerSite.themeDetails
+				? {
+						slug: ownerSite.themeDetails.slug,
+						isBlockTheme: ownerSite.themeDetails.isBlockTheme,
+						supportsMenus: ownerSite.themeDetails.supportsMenus,
+						supportsWidgets: ownerSite.themeDetails.supportsWidgets,
+				  }
+				: undefined,
+			previousPrompts,
+			preview: {
+				exists: !! latestSnapshot,
+				expired: latestSnapshot ? isSnapshotExpired( latestSnapshot ) : false,
+			},
+			connection: {
+				count: connectedSites?.length ?? 0,
+				hasProduction: connectedSites?.some( ( site ) => ! site.isStaging ) ?? false,
+				hasStaging: connectedSites?.some( ( site ) => site.isStaging ) ?? false,
+				daysSinceLastSync:
+					latestSync === undefined
+						? undefined
+						: Math.max( 0, Math.floor( ( suggestionNow - latestSync ) / ( 24 * 60 * 60 * 1000 ) ) ),
+			},
+			knownActivityAgeDays:
+				earliestKnownActivity === undefined
+					? undefined
+					: Math.max(
+							0,
+							Math.floor( ( suggestionNow - earliestKnownActivity ) / ( 24 * 60 * 60 * 1000 ) )
+					  ),
+		};
+	}, [ connectedSites, ownerSite, sessionId, siteSessionHistory, snapshots, suggestionNow ] );
 
 	const handleAnnotationsDone = useCallback(
 		( annotations: Annotation[] ) => {
@@ -442,6 +514,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			{ isEmpty && ownerSite ? (
 				<SuggestedPrompts
 					siteName={ ownerSite.name }
+					context={ suggestionContext }
 					onPick={ ( prompt ) => composerRef.current?.replaceDraft( prompt ) }
 					getDraft={ () => composerRef.current?.getDraft() ?? { text: '', hasAttachments: false } }
 				/>

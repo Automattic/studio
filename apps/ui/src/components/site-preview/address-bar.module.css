@@ -1,9 +1,9 @@
 /* Segmented address pill: one segment per realm (front end / WP Admin /
-   database). The active segment carries the realm name; inactive segments
-   collapse to icon tabs that flip realms. A filled indicator slides
-   underneath the selected segment (positioned by the component from
-   measurements). The toolbar's `.header button` rule opts the buttons out
-   of the window drag region. */
+   database). The active segment carries the realm name and opens the
+   omnibox; inactive segments collapse to icon tabs that flip realms. A
+   filled indicator slides underneath the selected segment (positioned by
+   the component from measurements). The toolbar's `.header button` rule
+   opts the buttons out of the window drag region. */
 .segments {
 	position: relative;
 	box-sizing: border-box;
@@ -131,4 +131,51 @@
 	.segmentTitle {
 		transition: none;
 	}
+}
+
+/* Destination rows want room for the muted path on the right. */
+.menuPopup {
+	min-width: 260px;
+}
+
+/* Section heading over a group of destinations (e.g. "Front end",
+   "WordPress"), matching the shared menu's group-label treatment. */
+.groupLabel {
+	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm) 0;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-sm);
+	font-weight: var(--wpds-typography-font-weight-medium);
+}
+
+.itemIcon {
+	display: inline-flex;
+	flex-shrink: 0;
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.itemTitle {
+	flex: 0 1 auto;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.itemPath {
+	flex: 1 1 auto;
+	min-width: 0;
+	overflow: hidden;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	text-align: right;
+}
+
+/* The destination the preview is currently on — same fill language as the
+   active segment's indicator, held through hover. */
+.itemCurrent,
+.itemCurrent:hover {
+	background: color-mix(in srgb, var(--wpds-color-fg-content-neutral) 14%, transparent);
 }

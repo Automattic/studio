@@ -471,8 +471,10 @@ export function SitePreview( {
 							/>
 							<PreviewAddressBar
 								site={ site }
+								siteUrl={ siteUrl }
 								path={ getSafePath( path ) }
 								showDatabaseTab={ showDatabaseTab }
+								onNavigate={ ( nextPath ) => onPathChange?.( nextPath ) }
 								onSwitchRealm={ handleSwitchRealm }
 							/>
 							<IconButton

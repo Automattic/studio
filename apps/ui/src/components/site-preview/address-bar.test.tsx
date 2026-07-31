@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { Tooltip } from '@wordpress/ui';
 import { describe, expect, it, vi } from 'vitest';
 import { getPreviewRealm, getRealmNavigationPath, PreviewAddressBar } from './address-bar';
@@ -21,25 +21,36 @@ function autoLoginPath( target: string ) {
 }
 
 function renderAddressBar( {
+	onNavigate = vi.fn(),
 	onSwitchRealm = vi.fn(),
 	path = '/',
 	showDatabaseTab = true,
+	site = SITE,
 }: {
+	onNavigate?: Mock;
 	onSwitchRealm?: Mock;
 	path?: string;
 	showDatabaseTab?: boolean;
+	site?: SiteDetails;
 } = {} ) {
 	render(
 		<Tooltip.Provider>
 			<PreviewAddressBar
-				site={ SITE }
+				site={ site }
+				siteUrl={ SITE_URL }
 				path={ path }
 				showDatabaseTab={ showDatabaseTab }
+				onNavigate={ onNavigate }
 				onSwitchRealm={ onSwitchRealm }
 			/>
 		</Tooltip.Provider>
 	);
-	return { onSwitchRealm };
+	return { onNavigate, onSwitchRealm };
+}
+
+async function openDestinationsMenu( activeRealmTitle = 'Example Site' ) {
+	fireEvent.click( screen.getByText( activeRealmTitle ) );
+	return await screen.findByRole( 'menu' );
 }
 
 describe( 'getPreviewRealm', () => {
@@ -98,13 +109,6 @@ describe( 'PreviewAddressBar', () => {
 		).not.toBeInTheDocument();
 	} );
 
-	it( 'does not switch realms from the active segment', () => {
-		const { onSwitchRealm } = renderAddressBar( { path: '/' } );
-
-		fireEvent.click( screen.getByText( 'Example Site' ) );
-		expect( onSwitchRealm ).not.toHaveBeenCalled();
-	} );
-
 	it( 'hides the database segment when the database tab is turned off', () => {
 		renderAddressBar( { path: '/', showDatabaseTab: false } );
 
@@ -118,5 +122,109 @@ describe( 'PreviewAddressBar', () => {
 		expect( screen.getByRole( 'button', { name: 'View site front end' } ) ).toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'View database' } ) ).toBeInTheDocument();
 		expect( screen.queryByRole( 'button', { name: 'View WP Admin' } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'groups the destinations menu into Front end and WordPress', async () => {
+		renderAddressBar( { path: '/' } );
+
+		const menu = await openDestinationsMenu();
+
+		expect( within( menu ).getByText( 'Front end' ) ).toBeInTheDocument();
+		expect( within( menu ).getByText( 'WordPress' ) ).toBeInTheDocument();
+		expect( within( menu ).getByRole( 'menuitem', { name: /Home/ } ) ).toBeInTheDocument();
+		expect( within( menu ).getByRole( 'menuitem', { name: /404 page/ } ) ).toBeInTheDocument();
+	} );
+
+	it( 'navigates a picked WordPress destination via auto-login', async () => {
+		const { onNavigate } = renderAddressBar( { path: '/' } );
+
+		const menu = await openDestinationsMenu();
+		fireEvent.click( within( menu ).getByRole( 'menuitem', { name: /Media Library/ } ) );
+
+		expect( onNavigate ).toHaveBeenCalledWith( autoLoginPath( '/wp-admin/upload.php' ) );
+	} );
+
+	it( 'marks the destination matching the current path as current', async () => {
+		renderAddressBar( { path: '/wp-admin/upload.php' } );
+
+		const menu = await openDestinationsMenu( 'WordPress' );
+
+		expect( within( menu ).getByRole( 'menuitem', { name: /Media Library/ } ) ).toHaveAttribute(
+			'aria-current',
+			'page'
+		);
+		expect( within( menu ).getByRole( 'menuitem', { name: /Home/ } ) ).not.toHaveAttribute(
+			'aria-current'
+		);
+	} );
+
+	it( 'marks only the most specific destination when pathnames collide', async () => {
+		// Posts and Pages both live on edit.php; only Pages pins post_type.
+		renderAddressBar( { path: '/wp-admin/edit.php?post_type=page' } );
+
+		const menu = await openDestinationsMenu( 'WordPress' );
+
+		expect( within( menu ).getByRole( 'menuitem', { name: /Pages/ } ) ).toHaveAttribute(
+			'aria-current',
+			'page'
+		);
+		expect( within( menu ).getByRole( 'menuitem', { name: /Posts/ } ) ).not.toHaveAttribute(
+			'aria-current'
+		);
+	} );
+
+	it( 'matches site-editor destinations after WP Admin rewrites their URLs', async () => {
+		// The site editor renames its `path` param to `p` and appends extras.
+		renderAddressBar( {
+			path: '/wp-admin/site-editor.php?p=%2Fnavigation&canvas=edit',
+			site: { ...SITE, themeDetails: { isBlockTheme: true } } as SiteDetails,
+		} );
+
+		const menu = await openDestinationsMenu( 'WordPress' );
+
+		expect( within( menu ).getByRole( 'menuitem', { name: /Navigation/ } ) ).toHaveAttribute(
+			'aria-current',
+			'page'
+		);
+		expect( within( menu ).getByRole( 'menuitem', { name: /Site Editor/ } ) ).not.toHaveAttribute(
+			'aria-current'
+		);
+	} );
+
+	it.each( [
+		[ '/wp-admin/site-editor.php?p=%2Ftemplate', /Templates/ ],
+		[ '/wp-admin/site-editor.php?p=%2Fpattern', /Patterns/ ],
+		[ '/wp-admin/site-editor.php?p=%2Fstyles&canvas=edit', /Styles/ ],
+	] )(
+		'matches renamed site-editor route slugs (%s)',
+		async ( currentPath: string, rowName: RegExp ) => {
+			renderAddressBar( {
+				path: currentPath,
+				site: { ...SITE, themeDetails: { isBlockTheme: true } } as SiteDetails,
+			} );
+
+			const menu = await openDestinationsMenu( 'WordPress' );
+
+			expect( within( menu ).getByRole( 'menuitem', { name: rowName } ) ).toHaveAttribute(
+				'aria-current',
+				'page'
+			);
+			expect( within( menu ).getByRole( 'menuitem', { name: /Site Editor/ } ) ).not.toHaveAttribute(
+				'aria-current'
+			);
+		}
+	);
+
+	it( 'offers no WP Admin or Database rows — their segments cover those realms', async () => {
+		renderAddressBar( { path: '/' } );
+
+		const menu = await openDestinationsMenu();
+
+		expect(
+			within( menu ).queryByRole( 'menuitem', { name: /WP Admin/ } )
+		).not.toBeInTheDocument();
+		expect(
+			within( menu ).queryByRole( 'menuitem', { name: /Database/ } )
+		).not.toBeInTheDocument();
 	} );
 } );

@@ -1,74 +1,147 @@
-.root {
-	display: flex;
-	flex-direction: column;
-	align-items: flex-start;
-	max-width: 720px;
+/* 480px: wider than wpds `small` (400) and narrower than `medium` (560).
+   Unlayered, so it beats the size rule in wpds's `wp-ui-components` layer. */
+.popup {
+	max-width: 480px;
+}
+
+/* Block padding only — `Dialog.Content` supplies the inline gutter. */
+.section {
+	padding-block: var(--wpds-dimension-padding-md);
+}
+
+.section:first-child {
+	padding-block-start: 0;
+}
+
+.section:last-child {
+	padding-block-end: 0;
+}
+
+.section + .section {
+	border-block-start: 1px solid var(--wpds-color-stroke-surface-neutral);
+}
+
+.heading {
+	margin: 0;
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	font-weight: 600;
+	color: var(--wpds-color-fg-content-neutral);
 }
 
 .intro {
-	margin: 0 0 var(--wpds-dimension-padding-md);
-	font-size: var(--wpds-typography-font-size-sm);
+	margin: 2px 0 0;
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-xs);
 	color: var(--wpds-color-fg-content-neutral-weak);
 }
 
 .empty {
-	margin: 0;
-	padding: var(--wpds-dimension-padding-lg) 0;
+	margin: var(--wpds-dimension-gap-sm) 0 0;
 	font-size: var(--wpds-typography-font-size-sm);
 	color: var(--wpds-color-fg-content-neutral-weak);
-	text-align: center;
 }
 
-.list {
-	align-self: stretch;
+.cards {
 	display: flex;
 	flex-direction: column;
 	gap: var(--wpds-dimension-gap-xs);
-	margin: 0;
+	margin: var(--wpds-dimension-gap-sm) 0 0;
 	padding: 0;
 	list-style: none;
 }
 
-.row {
-	display: flex;
-	align-items: center;
-	gap: var(--wpds-dimension-gap-sm);
-	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md);
-	border: 1px solid var(--wpds-color-stroke-surface-neutral);
-	border-radius: var(--wpds-border-radius-md);
-}
-
-.rowText {
+/* Two lines: the hostname in full, then its expiry paired with the controls.
+   Nothing competes with the hostname for width. The surface collects the two
+   lines into one object rather than leaving them floating in the panel. */
+.card {
 	display: flex;
 	flex-direction: column;
 	gap: 2px;
-	min-width: 0;
-	flex: 1;
+	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md);
+	border-radius: var(--wpds-border-radius-md);
+	background: var(--wpds-color-bg-surface-neutral);
 }
 
-.rowTitle {
+.rowSecond {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--wpds-dimension-gap-sm);
+}
+
+/* Wraps rather than truncates: the tail of a preview hostname is what tells
+   two of them apart. */
+.rowLink {
+	padding: 0;
+	border: 0;
+	background: transparent;
+	font: inherit;
 	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
 	color: var(--wpds-color-fg-content-neutral);
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
+	text-decoration: underline;
+	text-underline-offset: 2px;
+	text-align: start;
+	overflow-wrap: anywhere;
+	cursor: var(--wpds-cursor-control);
+}
+
+.rowLink:hover {
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.rowLink:focus-visible {
+	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus-brand);
+	outline-offset: 2px;
+	border-radius: 2px;
 }
 
 .rowMeta {
 	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-xs);
 	color: var(--wpds-color-fg-content-neutral-weak);
 }
 
-.rowActions {
+.actions {
 	display: flex;
 	align-items: center;
 	gap: var(--wpds-dimension-gap-xs);
 	flex: 0 0 auto;
 }
 
+/* A plain Button standing in for an IconButton (which can't be a menu
+   trigger): square it off so it lines up with its icon-button neighbour. */
+.overflowButton {
+	--wp-ui-button-aspect-ratio: 1;
+	--wp-ui-button-padding-inline: 0;
+	--wp-ui-button-min-width: unset;
+}
+
+/* `Dialog.Footer` right-aligns its children; the quota reads as a status for
+   the panel, so it stays on the leading edge. */
+.footer {
+	justify-content: space-between;
+}
+
+.quotaLabel {
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-xs);
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+
+
 /* Icon SVGs carry no fill of their own; without this they paint black in both
-   colour schemes. */
-.rowActions svg,
-.addButton svg {
+   colour schemes.
+
+   The 16px is not a style choice — it's what the rest of the app renders. The
+   compact-density rule in `index.css` is scoped
+   `[data-wpds-density='compact'] [data-ui-mode='classic'] svg`, and the popover
+   portals into `document.body`, outside both wrappers. @wordpress/icons then
+   draws at its native 24px. Restated here for the surfaces that escape. */
+.actions svg {
 	fill: currentColor;
+	width: 16px;
+	height: 16px;
 }

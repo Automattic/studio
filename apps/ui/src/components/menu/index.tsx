@@ -1,6 +1,7 @@
 import { ContextMenu as BaseContextMenu } from '@base-ui/react/context-menu';
 import { Menu as BaseMenu } from '@base-ui/react/menu';
 import { privateApis } from '@wordpress/theme';
+import { clsx } from 'clsx';
 import { forwardRef } from 'react';
 import motionStyles from '@/components/floating-surface-motion/style.module.css';
 import { unlock } from '@/lock-unlock';
@@ -30,6 +31,8 @@ type PopupProps = {
 	align?: 'start' | 'center' | 'end';
 	sideOffset?: number;
 	alignOffset?: number;
+	/** Raises the menu above modal surfaces. Set when the trigger is inside a dialog. */
+	aboveOverlays?: boolean;
 	className?: string;
 	onClick?: MouseEventHandler< HTMLElement >;
 	onPointerDown?: PointerEventHandler< HTMLElement >;
@@ -46,6 +49,7 @@ export function Popup( {
 	align = 'start',
 	sideOffset = 4,
 	alignOffset,
+	aboveOverlays,
 	className,
 	onClick,
 	onPointerDown,
@@ -57,7 +61,7 @@ export function Popup( {
 				align={ align }
 				sideOffset={ sideOffset }
 				alignOffset={ alignOffset }
-				className={ styles.positioner }
+				className={ clsx( styles.positioner, aboveOverlays && styles.positionerAboveOverlays ) }
 			>
 				{ /* Portals mount into document.body, escaping the app-root
 					ThemeProvider's `data-wpds-density='compact'` wrapper and

@@ -2,7 +2,7 @@ import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
-import { useIsSiteStarting, useIsSiteStopping, useStartSite } from '@/data/queries/use-sites';
+import { useStartSite } from '@/data/queries/use-sites';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { OpenInMenu } from './index';
 import type { SiteDetails } from '@/data/core';
@@ -73,8 +73,6 @@ vi.mock( '@/data/core', () => ( {
 } ) );
 
 vi.mock( '@/data/queries/use-sites', () => ( {
-	useIsSiteStarting: vi.fn(),
-	useIsSiteStopping: vi.fn(),
 	useStartSite: vi.fn(),
 } ) );
 
@@ -83,8 +81,6 @@ vi.mock( '@/data/queries/use-user-preferences', () => ( {
 } ) );
 
 const useConnectorMock = vi.mocked( useConnector, { partial: true } );
-const useIsSiteStartingMock = vi.mocked( useIsSiteStarting );
-const useIsSiteStoppingMock = vi.mocked( useIsSiteStopping );
 const useStartSiteMock = vi.mocked( useStartSite, { partial: true } );
 const useUserPreferencesMock = vi.mocked( useUserPreferences, { partial: true } );
 
@@ -109,8 +105,6 @@ describe( 'OpenInMenu', () => {
 			openSiteInTerminal,
 			getSites: vi.fn().mockResolvedValue( [] ),
 		} );
-		useIsSiteStartingMock.mockReturnValue( false );
-		useIsSiteStoppingMock.mockReturnValue( false );
 		useStartSiteMock.mockReturnValue( {
 			isPending: false,
 			mutate: startSite,

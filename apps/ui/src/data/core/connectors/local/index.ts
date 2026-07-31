@@ -360,6 +360,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async refreshSiteIcon() {
 			// No-op: icons come back with getSites().
 		},
+		async getSiteThumbnail(): Promise< string | null > {
+			return null;
+		},
 
 		// Site creation — delegated to the CLI `create` on the local machine.
 		async createSite( params ): Promise< SiteDetails > {

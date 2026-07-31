@@ -179,10 +179,14 @@ What fires depends on the build, so pick the right method:
   `__ENABLE_CLI_TELEMETRY__` gate, so a plain `npm start` logs `Would have recorded… studio_app_launch`
   in the **Main-process terminal** (the shared core no-ops the network send in dev/E2E). Add
   `enableAgenticUi` to see `ui_version: v2`.
-- **`studio_site_start` — NOT emitted in a plain dev run.** It fires from the CLI, gated by
-  `__ENABLE_CLI_TELEMETRY__`, which is compiled to `false` in dev builds — so `npm start` and a normal
-  `npm run cli:build` emit nothing, by design. To exercise it against a dev build **without** rebuilding,
-  set the runtime override `STUDIO_FORCE_CLI_TELEMETRY=1`, and run the CLI directly in a terminal:
+- **`studio_site_start` in a dev run.** It fires from the CLI, whose build-time
+  `__ENABLE_CLI_TELEMETRY__` gate is compiled to `false` in dev builds. The CLI wrapper treats
+  `NODE_ENV === 'development'` as an escape hatch, though, so during a plain `npm start` a UI-triggered
+  site start logs `Would have recorded… studio_site_start` in the **`npm start` terminal** (echoed as
+  `[CLI - <siteId>] …`), the same way the desktop logs `studio_app_launch` — the shared core still
+  no-ops the network send. To exercise it against a dev build **outside** a dev run (e.g. a standalone
+  CLI invocation) **without** rebuilding, set the runtime override `STUDIO_FORCE_CLI_TELEMETRY=1`, and
+  run the CLI directly in a terminal:
 
   ```
   # pick a site that is OFFLINE in `studio list` — `start` no-ops on an already-running site

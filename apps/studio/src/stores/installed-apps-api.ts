@@ -24,6 +24,7 @@ export const installedAppsApi = createApi( {
 		'ColorScheme',
 		'QuitSitesBehavior',
 		'DefaultSiteDirectory',
+		'AnalyticsEnabled',
 	],
 	endpoints: ( builder ) => ( {
 		getStudioCliIsInstalled: builder.query< boolean, void >( {
@@ -124,6 +125,23 @@ export const installedAppsApi = createApi( {
 			},
 			invalidatesTags: [ 'DefaultSiteDirectory' ],
 		} ),
+		getAnalyticsEnabled: builder.query< boolean, void >( {
+			queryFn: async () => {
+				const enabled = await getIpcApi().getAnalyticsEnabled();
+				return { data: enabled };
+			},
+			providesTags: [ 'AnalyticsEnabled' ],
+		} ),
+		saveAnalyticsEnabled: builder.mutation<
+			boolean,
+			{ enabled: boolean; surface: 'onboarding' | 'settings' }
+		>( {
+			queryFn: async ( { enabled, surface } ) => {
+				await getIpcApi().saveAnalyticsEnabled( enabled, { surface, uiVersion: 'v1' } );
+				return { data: enabled };
+			},
+			invalidatesTags: [ 'AnalyticsEnabled' ],
+		} ),
 	} ),
 } );
 
@@ -141,6 +159,8 @@ export const {
 	useSaveQuitSitesBehaviorMutation,
 	useGetDefaultSiteDirectoryQuery,
 	useSaveDefaultSiteDirectoryMutation,
+	useGetAnalyticsEnabledQuery,
+	useSaveAnalyticsEnabledMutation,
 } = installedAppsApi;
 
 export const selectInstalledEditors = createSelector(

@@ -1,9 +1,10 @@
 import { supportedLocaleNames } from '@studio/common/lib/locale';
 import { SUPPORTED_EDITORS, supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { SUPPORTED_TERMINALS, terminalConfig } from '@studio/common/lib/user-settings/terminal';
+import { CheckboxControl } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
-import { file, Icon } from '@wordpress/icons';
-import { Button, SelectControl } from '@wordpress/ui';
+import { close } from '@wordpress/icons';
+import { Button, IconButton, SelectControl } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useState } from 'react';
 import * as Tabs from '@/components/tabs';
@@ -11,13 +12,18 @@ import { useConnector } from '@/data/core';
 import { persister } from '@/data/core/query-client';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
-import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
+import { useSettingsClose } from '@/hooks/use-settings-close';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { AccountSection } from './account-section';
+import { AiPanel } from './ai-panel';
+import { KeyboardPanel } from './keyboard-panel';
 import { McpPanel } from './mcp-panel';
 import { UNSET, toPreferencesFormData, toPreferencesPatch } from './preferences';
 import { SkillsPanel } from './skills-panel';
+import { StudioCliSection } from './studio-cli-section';
 import styles from './style.module.css';
+import { UsagePanel } from './usage-panel';
+import { WapuuScore } from './wapuu-score';
 import type { PreferencesFormData } from './preferences';
 import type {
 	ColorScheme,
@@ -29,10 +35,12 @@ import type {
 } from '@/data/core';
 import type { ReactNode } from 'react';
 
-type TabId = 'preferences' | 'skills' | 'mcp';
+const SETTINGS_TABS = [ 'preferences', 'ai', 'usage', 'keyboard', 'skills', 'mcp' ] as const;
+
+type TabId = ( typeof SETTINGS_TABS )[ number ];
 
 export function isSettingsTab( value: string ): value is TabId {
-	return value === 'preferences' || value === 'skills' || value === 'mcp';
+	return SETTINGS_TABS.some( ( tab ) => tab === value );
 }
 
 export type SettingsTabId = TabId;
@@ -83,27 +91,43 @@ const LOCALE_ELEMENTS: { value: SupportedLocale; label: string }[] = Object.entr
 ).map( ( [ value, label ] ) => ( { value: value as SupportedLocale, label } ) );
 
 function SettingsHeader() {
-	const sidebarCollapsed = useSidebarCollapsed();
-	const reserveTrafficLightSpace = useTrafficLightSpace();
-	const toggleSpacerClass = sidebarCollapsed
-		? reserveTrafficLightSpace
-			? styles.toggleSpacer
-			: styles.toggleSpacerFlush
-		: null;
+	// Settings renders fullscreen, so only the macOS traffic lights need
+	// clearing: at the header's start edge in LTR, at its end edge (next to
+	// the close button) in RTL.
+	const trafficLightSpace = useTrafficLightSpace();
+	const onClose = useSettingsClose();
 	return (
 		<div className={ styles.header }>
-			{ toggleSpacerClass ? (
+			{ trafficLightSpace.start ? (
 				<div className={ styles.headerStart }>
-					<span className={ toggleSpacerClass } aria-hidden="true" />
+					<span className={ styles.toggleSpacer } aria-hidden="true" />
 				</div>
 			) : null }
 			<div className={ styles.headerTabs }>
 				<Tabs.List className={ styles.headerTabList }>
 					<Tabs.Tab tabId="preferences">{ __( 'Settings' ) }</Tabs.Tab>
+					<Tabs.Tab tabId="ai">{ __( 'AI' ) }</Tabs.Tab>
+					<Tabs.Tab tabId="usage">{ __( 'Usage' ) }</Tabs.Tab>
+					<Tabs.Tab tabId="keyboard">{ __( 'Keyboard' ) }</Tabs.Tab>
 					<Tabs.Tab tabId="skills">{ __( 'Skills' ) }</Tabs.Tab>
 					<Tabs.Tab tabId="mcp">{ __( 'MCP' ) }</Tabs.Tab>
 				</Tabs.List>
 			</div>
+			{ onClose ? (
+				<div className={ styles.headerEnd }>
+					<IconButton
+						variant="minimal"
+						tone="neutral"
+						size="small"
+						icon={ close }
+						label={ __( 'Close settings' ) }
+						onClick={ onClose }
+					/>
+					{ trafficLightSpace.end ? (
+						<span className={ styles.toggleSpacer } aria-hidden="true" />
+					) : null }
+				</div>
+			) : null }
 		</div>
 	);
 }
@@ -214,7 +238,6 @@ function DefaultSiteDirectoryField( { value, onSelect }: { value: string; onSele
 				<span className={ value ? styles.pathPickerValue : styles.pathPickerPlaceholder }>
 					{ value || __( 'Choose a folder…' ) }
 				</span>
-				<Icon icon={ file } className={ styles.pathPickerIcon } />
 			</button>
 		</PreferenceRow>
 	);
@@ -222,6 +245,9 @@ function DefaultSiteDirectoryField( { value, onSelect }: { value: string; onSele
 
 function StudioExperienceSection() {
 	const connector = useConnector();
+	if ( ! connector.capabilities.switchToClassicUi ) {
+		return null;
+	}
 	return (
 		<section className={ styles.preferenceSectionGroup }>
 			<PreferenceRow
@@ -303,8 +329,18 @@ function PreferencesPanel( {
 						onChange={ ( quitSitesBehavior ) => onChange( { quitSitesBehavior } ) }
 					/>
 				</PreferenceRow>
+				<PreferenceRow title={ __( 'Usage statistics' ) }>
+					<CheckboxControl
+						__nextHasNoMarginBottom
+						label={ __( 'Help improve Studio by sharing anonymous usage statistics' ) }
+						checked={ data.analyticsEnabled }
+						onChange={ ( analyticsEnabled ) => onChange( { analyticsEnabled } ) }
+					/>
+				</PreferenceRow>
 			</section>
 			<AccountSection />
+			<WapuuScore />
+			<StudioCliSection />
 			<StudioExperienceSection />
 		</div>
 	);
@@ -339,7 +375,12 @@ export function SettingsView( {
 			if ( Object.keys( patch ).length === 0 ) {
 				return;
 			}
-			savePreferences.mutate( patch, {
+			// Tag only the analytics toggle with its surface for Tracks.
+			const withSource =
+				'analyticsEnabled' in patch
+					? { ...patch, source: { surface: 'settings' } as const }
+					: patch;
+			savePreferences.mutate( withSource, {
 				onSuccess: async () => {
 					if ( 'locale' in patch ) {
 						// Translations are loaded once at bootstrap; the rest of the
@@ -405,6 +446,15 @@ export function SettingsView( {
 								onDefaultSiteDirectorySelect={ () => void handleSelectDefaultDirectory() }
 								onChange={ handleChange }
 							/>
+						</Tabs.Panel>
+						<Tabs.Panel tabId="ai">
+							<AiPanel />
+						</Tabs.Panel>
+						<Tabs.Panel tabId="usage">
+							<UsagePanel />
+						</Tabs.Panel>
+						<Tabs.Panel tabId="keyboard">
+							<KeyboardPanel />
 						</Tabs.Panel>
 						<Tabs.Panel tabId="skills">
 							<SkillsPanel />

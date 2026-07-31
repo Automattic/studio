@@ -21,19 +21,6 @@ export const indexRoute = createRoute( {
 			throw redirect( { to: onboardingCompleted ? '/onboarding' : '/welcome' } );
 		}
 
-		const { enabled: agenticEnabled } = await resolveAgenticFeatures( context );
-		if ( ! agenticEnabled ) {
-			throw redirect( {
-				to: '/sites/$siteId/settings',
-				params: { siteId: firstSite.id },
-			} );
-		}
-
-		const sessions = await context.queryClient.fetchQuery( {
-			queryKey: SESSIONS_QUERY_KEY,
-			queryFn: () => context.connector.getSessions(),
-		} );
-
 		// Return the user to their last visited site (recorded by the dashboard
 		// layout), validating against live data so a stale id from a deleted
 		// site falls through to the sidebar's top site — not the raw fetch
@@ -42,6 +29,21 @@ export const indexRoute = createRoute( {
 		const targetSite =
 			( lastVisited.siteId && sites.find( ( site ) => site.id === lastVisited.siteId ) ) ||
 			sortSites( [ ...sites ] )[ 0 ];
+
+		// Without chat there is nothing to open a session for; the site
+		// overview is the site's home instead (matching the sidebar).
+		const { chatEnabled } = await resolveAgenticFeatures( context );
+		if ( ! chatEnabled ) {
+			throw redirect( {
+				to: '/sites/$siteId/overview',
+				params: { siteId: targetSite.id },
+			} );
+		}
+
+		const sessions = await context.queryClient.fetchQuery( {
+			queryKey: SESSIONS_QUERY_KEY,
+			queryFn: () => context.connector.getSessions(),
+		} );
 
 		// Sessions arrive sorted newest-first, so the first session owned by
 		// the site is its most recently updated active one.

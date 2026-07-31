@@ -44,6 +44,7 @@ export default defineConfig(
 						'apps/studio/windowsSign.ts',
 						'apps/studio/tailwind.config.js',
 						'apps/ui/vite.config.ts',
+						'apps/ui/vitest.setup.ts',
 						'eslint.config.mjs',
 						'vitest.config.ts',
 						'tools/eslint-plugin-studio/vitest.config.ts',
@@ -71,6 +72,10 @@ export default defineConfig(
 			},
 		},
 		rules: {
+			// Temporarily disabled after the ESLint 10 upgrade, which promoted these to `recommended`.
+			// Enabling them and fixing the existing violations is tracked in STU-2175.
+			'no-useless-assignment': 'off',
+			'preserve-caught-error': 'off',
 			'@typescript-eslint/no-floating-promises': 'error',
 			'@typescript-eslint/no-explicit-any': [ 'error', { ignoreRestArgs: true } ],
 			'@typescript-eslint/no-unused-vars': [

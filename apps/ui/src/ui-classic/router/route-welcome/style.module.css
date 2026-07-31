@@ -57,3 +57,9 @@
 .skip {
 	margin-top: 16px;
 }
+
+.footer {
+	margin-top: 32px;
+	display: flex;
+	justify-content: center;
+}

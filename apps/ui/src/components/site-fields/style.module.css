@@ -1,0 +1,11 @@
+.offlineTooltip {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-sm);
+	max-width: 320px;
+}
+
+.offlineTooltip svg {
+	flex-shrink: 0;
+	fill: currentColor;
+}

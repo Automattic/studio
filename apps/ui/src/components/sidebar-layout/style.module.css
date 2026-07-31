@@ -67,14 +67,19 @@
 
 /* The negative margin cancels the handle's width so it adds no space to the
    flex row — the main content butts straight against the sidebar's border and
-   the hit area overlays main's left edge. position/z-index lift it above main
-   (a later flex sibling) so the full-height indicator sits on the border. */
+   the hit area overlays main's sidebar-side edge. position/z-index lift it
+   above main (a later flex sibling) so the full-height indicator sits on the
+   border. */
 .resizeHandle {
 	position: relative;
 	z-index: 20;
 	flex-shrink: 0;
-	margin-right: -8px;
+	margin-inline-end: -8px;
 	justify-content: flex-start;
+}
+
+.sidebarCards {
+	padding: var(--wpds-dimension-padding-sm) calc(var(--wpds-dimension-padding-lg) - var(--wpds-dimension-padding-sm)) 0;
 }
 
 /* Sidebar-specific indicator treatment: match the content card's vertical
@@ -90,15 +95,14 @@
 	background-color: var(--wpds-color-fg-interactive-brand);
 }
 
-/* Pinned to the bottom-left of the main area, mirroring the sidebar footer.
-   The button carries its own `padding-sm` top/bottom for its hit area; the
-   matching negative `bottom` cancels that lower padding so the glyph sits flush
-   with the main area's bottom edge instead of floating a padding's-worth above
-   it. */
+/* Bottom-left of the main area. The 46px min-height and the negative bottom
+   offset both match the session view's `panelFooterControls` so the toggle
+   lines up vertically with the chat-history/new-chat buttons — keep the two
+   in sync. */
 .floatingToggle {
 	position: absolute;
 	bottom: calc(-1 * var(--wpds-dimension-padding-sm));
-	left: var(--wpds-dimension-padding-xl);
+	inset-inline-start: var(--wpds-dimension-padding-xl);
 	display: flex;
 	align-items: center;
 	padding: var(--wpds-dimension-padding-sm) 0;
@@ -116,7 +120,18 @@
    fullscreen (which hides them) — the toggle sits near the main area's left
    edge instead of leaving an empty gap. */
 .floatingToggleFlush {
-	left: var(--wpds-dimension-padding-xl);
+	inset-inline-start: var(--wpds-dimension-padding-xl);
+}
+
+.floatingToggleButton {
+	position: relative;
+	display: inline-flex;
+}
+
+/* The drawer icon depicts the sidebar edge; mirror it when the sidebar sits
+   on the right. */
+.floatingToggleButton:dir(rtl) svg {
+	transform: scaleX(-1);
 }
 
 .sidebarToasts {
@@ -126,7 +141,7 @@
 .floatingToasts {
 	position: absolute;
 	bottom: calc(52px + var(--app-main-composer-height, 0px));
-	left: var(--wpds-dimension-padding-xl);
+	inset-inline-start: var(--wpds-dimension-padding-xl);
 	width: min(320px, calc(100% - 2 * var(--wpds-dimension-padding-xl)));
 	z-index: 110;
 	pointer-events: auto;

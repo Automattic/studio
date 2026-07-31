@@ -62,7 +62,12 @@ vi.mock( '@/data/queries/use-sites', () => ( {
 } ) );
 
 vi.mock( '@/data/queries/use-agentic-features', () => ( {
-	useAgenticFeatures: vi.fn( () => ( { enabled: true, reason: null, isReady: true } ) ),
+	useAgenticFeatures: vi.fn( () => ( {
+		enabled: true,
+		chatEnabled: true,
+		reason: null,
+		isReady: true,
+	} ) ),
 } ) );
 
 vi.mock( '@/data/queries/use-user-preferences', () => ( {
@@ -100,6 +105,7 @@ describe( 'SiteList', () => {
 
 		vi.mocked( useAgenticFeatures ).mockReturnValue( {
 			enabled: true,
+			chatEnabled: true,
 			reason: null,
 			isReady: true,
 		} );
@@ -130,7 +136,11 @@ describe( 'SiteList', () => {
 				terminal: null,
 				colorScheme: 'system',
 				locale: 'en',
+				analyticsEnabled: true,
 				defaultSiteDirectory: '',
+				studioCliInstalled: false,
+				studioCliExternallyManaged: false,
+				agenticFeaturesEnabled: true,
 			},
 		} );
 		useSitesMock.mockReturnValue( {
@@ -215,6 +225,7 @@ describe( 'SiteList', () => {
 	it( 'opens the site overview when clicking a site while agentic features are unavailable', () => {
 		vi.mocked( useAgenticFeatures ).mockReturnValue( {
 			enabled: false,
+			chatEnabled: false,
 			reason: 'signed-out',
 			isReady: true,
 		} );
@@ -228,6 +239,28 @@ describe( 'SiteList', () => {
 			to: '/sites/$siteId/overview',
 			params: { siteId: 'stopped-site' },
 		} );
+	} );
+
+	it( 'shows the selected site solid without the overview shortcut when signed out', () => {
+		vi.mocked( useAgenticFeatures ).mockReturnValue( {
+			enabled: false,
+			chatEnabled: false,
+			reason: 'signed-out',
+			isReady: true,
+		} );
+		paramsMock = { siteId: 'stopped-site' };
+		pathnameMock = '/sites/stopped-site/overview';
+
+		render( <SiteList /> );
+
+		const stoppedRow = screen.getByText( 'Stopped Site' ).closest( 'section' )!;
+		const className = stoppedRow.getAttribute( 'class' ) ?? '';
+		const siteButton = within( stoppedRow ).getByRole( 'button', { name: 'Stopped Site' } );
+
+		expect( className ).toContain( 'siteActive' );
+		expect( className ).not.toContain( 'siteContextActive' );
+		expect( siteButton ).toHaveAttribute( 'aria-current', 'page' );
+		expect( screen.queryByRole( 'button', { name: 'Site overview' } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'opens the site overview from the row gear without opening the latest chat', () => {
@@ -250,6 +283,72 @@ describe( 'SiteList', () => {
 
 		expect( stoppedSiteClassName ).toContain( 'siteNameStopped' );
 		expect( runningSiteClassName ).not.toContain( 'siteNameStopped' );
+	} );
+
+	it( 'replaces the status dot with the Xdebug glyph on the Xdebug-enabled site', () => {
+		useSitesMock.mockReturnValue( {
+			data: [
+				createSite( {
+					id: 'xdebug-site',
+					name: 'Xdebug Site',
+					path: '/Users/example/Studio/xdebug-site',
+					running: true,
+					enableXdebug: true,
+				} ),
+				createSite( {
+					id: 'plain-site',
+					name: 'Plain Site',
+					path: '/Users/example/Studio/plain-site',
+					running: true,
+				} ),
+			],
+			isLoading: false,
+		} );
+
+		render( <SiteList /> );
+
+		const xdebugButton = screen.getByRole( 'button', {
+			name: 'Site status: Running. Xdebug enabled. Stop site',
+		} );
+		const xdebugGlyph = xdebugButton.querySelector( 'svg:first-of-type' );
+		const plainButton = screen.getByRole( 'button', {
+			name: 'Site status: Running. Stop site',
+		} );
+
+		expect( xdebugGlyph ).toHaveAttribute( 'viewBox', '0 0 24 24' );
+		expect( xdebugGlyph?.querySelector( 'rect' ) ).not.toBeInTheDocument();
+		expect( plainButton ).not.toHaveAttribute( 'data-xdebug' );
+		expect( plainButton.querySelector( 'svg:first-of-type rect' ) ).toBeInTheDocument();
+
+		fireEvent.click( xdebugButton );
+		expect( stopSite ).toHaveBeenCalledWith( 'xdebug-site' );
+	} );
+
+	it( 'keeps the greyed Xdebug glyph visible while the site is stopped', () => {
+		useSitesMock.mockReturnValue( {
+			data: [
+				createSite( {
+					id: 'xdebug-site',
+					name: 'Xdebug Site',
+					path: '/Users/example/Studio/xdebug-site',
+					running: false,
+					enableXdebug: true,
+				} ),
+			],
+			isLoading: false,
+		} );
+
+		render( <SiteList /> );
+
+		const button = screen.getByRole( 'button', {
+			name: 'Site status: Stopped. Xdebug enabled. Start site',
+		} );
+
+		// The stopped-row CSS hides the status button unless `data-xdebug` is
+		// set alongside `data-state`; assert that DOM contract.
+		expect( button ).toHaveAttribute( 'data-state', 'stopped' );
+		expect( button ).toHaveAttribute( 'data-xdebug' );
+		expect( button.querySelector( 'svg:first-of-type' ) ).toHaveAttribute( 'viewBox', '0 0 24 24' );
 	} );
 
 	it( 'marks the site row as current for the active chat', () => {
@@ -676,7 +775,11 @@ describe( 'SiteList', () => {
 				terminal: 'terminal',
 				colorScheme: 'system',
 				locale: 'en',
+				analyticsEnabled: true,
 				defaultSiteDirectory: '',
+				studioCliInstalled: false,
+				studioCliExternallyManaged: false,
+				agenticFeaturesEnabled: true,
 			},
 		} );
 
@@ -698,7 +801,11 @@ describe( 'SiteList', () => {
 				terminal: null,
 				colorScheme: 'system',
 				locale: undefined,
+				analyticsEnabled: true,
 				defaultSiteDirectory: '',
+				studioCliInstalled: false,
+				studioCliExternallyManaged: false,
+				agenticFeaturesEnabled: true,
 			},
 		} );
 

@@ -41,6 +41,7 @@ import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
+import { runWpCliCommandWithMessaging } from 'cli/lib/run-wp-cli-command';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
@@ -92,6 +93,7 @@ vi.mock( 'cli/lib/site-language' );
 vi.mock( 'cli/lib/site-utils' );
 vi.mock( '@studio/common/lib/agent-skills' );
 vi.mock( 'cli/lib/sqlite-integration' );
+vi.mock( 'cli/lib/run-wp-cli-command' );
 vi.mock( 'cli/lib/wordpress-server-manager' );
 vi.mock( 'cli/lib/tracks', async ( importActual ) => {
 	const actual = await importActual< typeof import('cli/lib/tracks') >();
@@ -185,6 +187,14 @@ describe( 'CLI: studio site create', () => {
 		vi.mocked( setupCustomDomain ).mockResolvedValue( undefined );
 		vi.mocked( startWordPressServer ).mockResolvedValue( mockProcessDescription );
 		vi.mocked( runBlueprint ).mockResolvedValue( undefined );
+		vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue( {
+			response: {
+				exitCode: Promise.resolve( 0 ),
+				stdoutText: Promise.resolve( '' ),
+				stderrText: Promise.resolve( '' ),
+			},
+			[ Symbol.dispose ]: vi.fn(),
+		} as never );
 		vi.mocked( logSiteDetails ).mockImplementation( () => {} );
 		vi.mocked( openSiteInBrowser ).mockResolvedValue( undefined );
 		vi.mocked( validateBlueprintData ).mockResolvedValue( { valid: true } );
@@ -297,6 +307,23 @@ describe( 'CLI: studio site create', () => {
 	} );
 
 	describe( 'Success Cases', () => {
+		it( 'should collect a complete static site when importing a URL', () => {
+			const blueprint = buildCreateFromSourceBlueprint(
+				'https://example.com/',
+				'Imported URL',
+				'https://example.com/static-site-importer.zip'
+			);
+			expect( blueprint.contents.steps ).not.toEqual(
+				expect.arrayContaining( [ expect.objectContaining( { step: 'runPHP' } ) ] )
+			);
+			expect( blueprint.staticSiteImport.code ).toContain(
+				"$input['provider_args'] = array( 'collect_site' => true );"
+			);
+			expect( blueprint.staticSiteImport.code ).toContain(
+				"$input['require_proven_dynamic_client_assets'] = false;"
+			);
+		} );
+
 		it( 'should build a Blueprint that imports a static site artifact through Static Site Importer', () => {
 			const artifactDir = fs.mkdtempSync( path.join( '/tmp', 'studio-artifact-test-' ) );
 			const artifactPath = path.join( artifactDir, 'artifact.json' );
@@ -330,24 +357,16 @@ describe( 'CLI: studio site create', () => {
 							url: 'https://example.com/static-site-importer.zip',
 						} ),
 					} ),
-					expect.objectContaining( {
-						step: 'runPHP',
-						code: expect.stringContaining( 'static_site_importer_ability_import_website_artifact' ),
-					} ),
 				] )
 			);
-			const importStep = blueprint.contents.steps?.find(
-				( step ) => !! step && typeof step === 'object' && 'step' in step && step.step === 'runPHP'
+			expect( blueprint.staticSiteImport.code ).toContain(
+				'static_site_importer_ability_import_website_artifact'
 			);
-			expect( importStep ).toEqual(
-				expect.objectContaining( {
-					code: expect.stringContaining( 'delete_plugins( array( $temporary_plugin ) )' ),
-				} )
+			expect( blueprint.staticSiteImport.code ).toContain(
+				'delete_plugins( array( $temporary_plugin ) )'
 			);
-			expect( importStep ).toEqual(
-				expect.objectContaining( {
-					code: expect.not.stringContaining( 'studio_create_from_import_result' ),
-				} )
+			expect( blueprint.staticSiteImport.code ).not.toContain(
+				'studio_create_from_import_result'
 			);
 		} );
 
@@ -362,14 +381,8 @@ describe( 'CLI: studio site create', () => {
 				undefined,
 				true
 			);
-			const importStep = blueprint.contents.steps?.find(
-				( step ) => !! step && typeof step === 'object' && 'step' in step && step.step === 'runPHP'
-			);
-
-			expect( importStep ).toEqual(
-				expect.objectContaining( {
-					code: expect.stringContaining( 'studio_create_from_import_result' ),
-				} )
+			expect( blueprint.staticSiteImport.code ).toContain(
+				'studio_create_from_import_result'
 			);
 		} );
 
@@ -384,19 +397,10 @@ describe( 'CLI: studio site create', () => {
 				'https://example.com/static-site-importer.zip'
 			);
 
-			const importStep = blueprint.contents.steps?.find(
-				( step ) => !! step && typeof step === 'object' && 'step' in step && step.step === 'runPHP'
+			expect( blueprint.staticSiteImport.code ).toContain(
+				'static_site_importer_rest_source_artifact'
 			);
-			expect( importStep ).toEqual(
-				expect.objectContaining( {
-					code: expect.stringContaining( 'static_site_importer_rest_source_artifact' ),
-				} )
-			);
-			expect( importStep ).toEqual(
-				expect.objectContaining( {
-					code: expect.stringContaining( sourceDir ),
-				} )
-			);
+			expect( blueprint.staticSiteImport.code ).toContain( sourceDir );
 		} );
 
 		it( 'should stage Figma files without embedding their bytes in Blueprint PHP', async () => {
@@ -409,13 +413,7 @@ describe( 'CLI: studio site create', () => {
 				'https://example.com/static-site-importer.zip',
 				mockSitePath
 			);
-			const importStep = blueprint.contents.steps?.find(
-				( step ) => !! step && typeof step === 'object' && 'step' in step && step.step === 'runPHP'
-			);
-			const code =
-				importStep && 'code' in importStep && typeof importStep.code === 'string'
-					? importStep.code
-					: '';
+			const code = blueprint.staticSiteImport.code;
 
 			expect( blueprint.stagedSource ).toEqual( {
 				sourcePath,
@@ -426,18 +424,27 @@ describe( 'CLI: studio site create', () => {
 			expect( JSON.parse( Buffer.from( encodedSource!, 'base64' ).toString( 'utf8' ) ) ).toEqual( {
 				figma_file: {
 					name: 'design.fig',
-					staged_path: path.join( mockSitePath, '.studio-import', 'source.fig' ),
+					staged_path: path.join( '.studio-import', 'source.fig' ),
 				},
 			} );
 			expect( code ).not.toContain( Buffer.from( 'figma-source-bytes' ).toString( 'base64' ) );
 
 			const copySpy = vi.spyOn( fs, 'copyFileSync' ).mockImplementation( () => {} );
+			const writeSpy = vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
 			const removeSpy = vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
 			await runCommand( mockSitePath, { ...defaultTestOptions, blueprint } );
 
 			expect( copySpy ).toHaveBeenCalledWith(
 				sourcePath,
 				path.join( mockSitePath, '.studio-import', 'source.fig' )
+			);
+			expect( writeSpy ).toHaveBeenCalledWith(
+				path.join( mockSitePath, '.studio-import', 'import.php' ),
+				code
+			);
+			expect( runWpCliCommandWithMessaging ).toHaveBeenCalledWith(
+				expect.objectContaining( { path: mockSitePath } ),
+				[ 'eval-file', '.studio-import/import.php' ]
 			);
 			expect( removeSpy ).toHaveBeenCalledWith( path.join( mockSitePath, '.studio-import' ), {
 				recursive: true,
@@ -822,6 +829,31 @@ describe( 'CLI: studio site create', () => {
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
+		it( 'should import a static site after applying its dependency Blueprint', async () => {
+			const blueprint = buildCreateFromSourceBlueprint(
+				'https://example.com/',
+				'Imported URL',
+				'https://example.com/static-site-importer.zip'
+			);
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
+
+			await runCommand( mockSitePath, {
+				...defaultTestOptions,
+				blueprint,
+				noStart: true,
+			} );
+
+			expect( runBlueprint ).toHaveBeenCalledOnce();
+			expect( runWpCliCommandWithMessaging ).toHaveBeenCalledWith(
+				expect.objectContaining( { path: mockSitePath } ),
+				[ 'eval-file', '.studio-import/import.php' ]
+			);
+			expect( vi.mocked( runBlueprint ).mock.invocationCallOrder[ 0 ] ).toBeLessThan(
+				vi.mocked( runWpCliCommandWithMessaging ).mock.invocationCallOrder[ 0 ]
+			);
+		} );
+
 		it( 'should create site with siteLanguage when preferred language is configured but no Blueprint given', async () => {
 			vi.mocked( getPreferredSiteLanguage ).mockResolvedValue( 'es_ES' );
 
@@ -922,6 +954,36 @@ describe( 'CLI: studio site create', () => {
 			).rejects.toThrow( 'Failed to apply Blueprint' );
 
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
+		} );
+
+		it( 'should roll back a new site when the out-of-band static import fails', async () => {
+			const blueprint = buildCreateFromSourceBlueprint(
+				'https://example.com/',
+				'Imported URL',
+				'https://example.com/static-site-importer.zip'
+			);
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
+			const fsRmSpy = vi.spyOn( fs.promises, 'rm' ).mockResolvedValue( undefined );
+			vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue( {
+				response: {
+					exitCode: Promise.resolve( 1 ),
+					stdoutText: Promise.resolve( '' ),
+					stderrText: Promise.resolve( 'import failed' ),
+				},
+				[ Symbol.dispose ]: vi.fn(),
+			} as never );
+
+			await expect(
+				runCommand( mockSitePath, {
+					...defaultTestOptions,
+					blueprint,
+					noStart: true,
+				} )
+			).rejects.toThrow( 'Failed to import static site' );
+
+			expect( removeSiteFromConfig ).toHaveBeenCalled();
+			expect( fsRmSpy ).toHaveBeenCalledWith( mockSitePath, { recursive: true, force: true } );
 		} );
 
 		it( 'should handle SQLite setup failure', async () => {

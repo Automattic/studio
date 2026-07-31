@@ -50,6 +50,7 @@ function renderAddressBar( {
 	path = '/',
 	searchEnabled = true,
 	showDatabaseTab = true,
+	site = SITE,
 }: {
 	fetchSiteRest?: Mock;
 	onNavigate?: Mock;
@@ -57,6 +58,7 @@ function renderAddressBar( {
 	path?: string;
 	searchEnabled?: boolean;
 	showDatabaseTab?: boolean;
+	site?: SiteDetails;
 } = {} ) {
 	useConnectorMock.mockReturnValue( { fetchSiteRest } as never );
 	const queryClient = new QueryClient( {
@@ -66,7 +68,7 @@ function renderAddressBar( {
 		<QueryClientProvider client={ queryClient }>
 			<Tooltip.Provider>
 				<PreviewAddressBar
-					site={ SITE }
+					site={ site }
 					siteUrl={ SITE_URL }
 					path={ path }
 					searchEnabled={ searchEnabled }
@@ -240,6 +242,36 @@ describe( 'PreviewAddressBar', () => {
 		// The static front-end rows are always offered.
 		expect( within( list ).getByText( 'Home' ) ).toBeInTheDocument();
 		expect( within( list ).getByText( '404 page' ) ).toBeInTheDocument();
+	} );
+
+	it( 'marks only the most specific destination for the current path', async () => {
+		renderAddressBar( { path: '/wp-admin/edit.php?post_type=page' } );
+
+		await openOmnibox( 'WordPress' );
+		const list = await screen.findByRole( 'listbox' );
+
+		expect( within( list ).getByRole( 'option', { name: /Pages/ } ) ).toHaveAttribute(
+			'aria-current',
+			'page'
+		);
+		expect( within( list ).getByRole( 'option', { name: /Posts/ } ) ).not.toHaveAttribute(
+			'aria-current'
+		);
+	} );
+
+	it( 'matches site-editor destinations after WordPress rewrites their routes', async () => {
+		renderAddressBar( {
+			path: '/wp-admin/site-editor.php?p=%2Fstyles&canvas=edit',
+			site: { ...SITE, themeDetails: { isBlockTheme: true } } as SiteDetails,
+		} );
+
+		await openOmnibox( 'WordPress' );
+		const list = await screen.findByRole( 'listbox' );
+
+		expect( within( list ).getByRole( 'option', { name: /Styles/ } ) ).toHaveAttribute(
+			'aria-current',
+			'page'
+		);
 	} );
 
 	it( 'offers the latest post and a page as real front-end permalinks', async () => {

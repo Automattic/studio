@@ -368,7 +368,14 @@ describe( 'Composer menu', () => {
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Select model' } ) );
 		fireEvent.click( await screen.findByText( 'GPT 5.6 Sol' ) );
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Start new conversation' } ) );
+		const dialog = await screen.findByRole( 'dialog' );
+		expect( dialog ).toHaveTextContent( 'Start a new chat?' );
+		expect( dialog ).toHaveTextContent(
+			'Switching from Sonnet 5 to GPT 5.6 Sol starts a fresh chat because the models don\u2019t share memory. You can find previous chats using Chat history below the chat box.'
+		);
+		expect( within( dialog ).getByText( 'Chat history' ).tagName ).toBe( 'STRONG' );
+		expect( dialog ).not.toHaveTextContent( 'sidebar' );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Yes, new chat' } ) );
 
 		await waitFor( () => {
 			expect( onSwitchSession ).toHaveBeenCalledWith( 'fresh-session' );

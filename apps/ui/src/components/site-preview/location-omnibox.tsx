@@ -44,6 +44,51 @@ export const DATABASE_HOME_PATH = '/phpmyadmin/index.php?route=/database/structu
 // preview the theme's 404 template.
 const FRONT_END_NOT_FOUND_PATH = '/this-page-does-not-exist';
 
+const SITE_EDITOR_ROUTE_ALIASES: Record< string, string > = {
+	'/wp_template': '/template',
+	'/wp_template_part': '/pattern',
+	'/patterns': '/pattern',
+	'/wp_global_styles': '/styles',
+	'/wp_navigation': '/navigation',
+};
+
+function canonicalSiteEditorRoute( value: string ): string {
+	return SITE_EDITOR_ROUTE_ALIASES[ value ] ?? value;
+}
+
+function destinationMatchScore( destinationPath: string, currentPath: string ): number {
+	let destination: URL;
+	let current: URL;
+	try {
+		destination = new URL( destinationPath, 'http://preview.invalid' );
+		current = new URL( currentPath, 'http://preview.invalid' );
+	} catch {
+		return -1;
+	}
+	if ( destination.pathname !== current.pathname ) {
+		return -1;
+	}
+	let score = 0;
+	for ( const [ key, value ] of destination.searchParams ) {
+		const isRouteParam = key === 'path' || key === 'p';
+		const aliases = isRouteParam ? [ 'path', 'p' ] : [ key ];
+		const matches = aliases.some( ( alias ) => {
+			const currentValue = current.searchParams.get( alias );
+			if ( currentValue === null ) {
+				return false;
+			}
+			return isRouteParam
+				? canonicalSiteEditorRoute( currentValue ) === canonicalSiteEditorRoute( value )
+				: currentValue === value;
+		} );
+		if ( ! matches ) {
+			return -1;
+		}
+		score += 1;
+	}
+	return score;
+}
+
 /**
  * Which realm a preview path shows. Auto-login hops classify as their
  * redirect target so the active segment doesn't flicker to "front end"
@@ -311,6 +356,19 @@ export function PreviewAddressBar( {
 		return items;
 	}, [ frontLinks.data ] );
 
+	const currentDestinationId = useMemo( () => {
+		let bestId: string | null = null;
+		let bestScore = -1;
+		for ( const item of [ ...frontendItems, ...wordpressItems ] ) {
+			const score = destinationMatchScore( item.path, path );
+			if ( score > bestScore ) {
+				bestScore = score;
+				bestId = item.id;
+			}
+		}
+		return bestScore >= 0 ? bestId : null;
+	}, [ frontendItems, wordpressItems, path ] );
+
 	// Untouched (prefilled) or cleared input rests on the grouped destinations
 	// (Front end / WordPress); search terms blend destination matches with
 	// content results into a single unlabeled group; typed paths suppress the
@@ -528,26 +586,30 @@ export function PreviewAddressBar( {
 												</Autocomplete.GroupLabel>
 											) : null }
 											<Autocomplete.Collection>
-												{ ( item: AddressItem ) => (
-													<Autocomplete.Item
-														key={ item.id }
-														value={ item }
-														className={ styles.item }
-														onClick={ () => navigateTo( item.path ) }
-													>
-														<span
-															className={ clsx(
-																styles.itemIcon,
-																item.kind === 'destination' && styles.itemIconDestination
-															) }
-															aria-hidden="true"
+												{ ( item: AddressItem ) => {
+													const isCurrent = item.id === currentDestinationId;
+													return (
+														<Autocomplete.Item
+															key={ item.id }
+															value={ item }
+															className={ clsx( styles.item, isCurrent && styles.itemCurrent ) }
+															aria-current={ isCurrent ? 'page' : undefined }
+															onClick={ () => navigateTo( item.path ) }
 														>
-															<Icon icon={ item.icon } size={ 16 } />
-														</span>
-														<span className={ styles.itemTitle }>{ item.title }</span>
-														<span className={ styles.itemPath }>{ item.path }</span>
-													</Autocomplete.Item>
-												) }
+															<span
+																className={ clsx(
+																	styles.itemIcon,
+																	item.kind === 'destination' && styles.itemIconDestination
+																) }
+																aria-hidden="true"
+															>
+																<Icon icon={ item.icon } size={ 16 } />
+															</span>
+															<span className={ styles.itemTitle }>{ item.title }</span>
+															<span className={ styles.itemPath }>{ item.path }</span>
+														</Autocomplete.Item>
+													);
+												} }
 											</Autocomplete.Collection>
 										</Autocomplete.Group>
 									) }

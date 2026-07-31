@@ -198,7 +198,8 @@ const api: IpcApi = {
 	saveFrameColor: ( frameColor ) => ipcRendererInvoke( 'saveFrameColor', frameColor ),
 	getFrameColor: () => ipcRendererInvoke( 'getFrameColor' ),
 	getAnalyticsEnabled: () => ipcRendererInvoke( 'getAnalyticsEnabled' ),
-	saveAnalyticsEnabled: ( enabled ) => ipcRendererInvoke( 'saveAnalyticsEnabled', enabled ),
+	saveAnalyticsEnabled: ( enabled, source ) =>
+		ipcRendererInvoke( 'saveAnalyticsEnabled', enabled, source ),
 	saveAgenticFeaturesEnabled: ( enabled ) =>
 		ipcRendererInvoke( 'saveAgenticFeaturesEnabled', enabled ),
 	getAgenticFeaturesEnabled: () => ipcRendererInvoke( 'getAgenticFeaturesEnabled' ),

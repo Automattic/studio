@@ -219,6 +219,11 @@
 	background: var(--wpds-color-bg-surface-neutral);
 }
 
+.itemCurrent,
+.itemCurrent:hover {
+	background: color-mix(in srgb, var(--wpds-color-fg-content-neutral) 14%, transparent);
+}
+
 .itemIcon {
 	display: inline-flex;
 	flex-shrink: 0;

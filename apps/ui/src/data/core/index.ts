@@ -62,6 +62,7 @@ export type {
 	SyncableWpcomSitesPage,
 	SyncableWpcomSitesPageOptions,
 	SyncSite,
+	PreferenceChangeSource,
 	ToolPermissionOverrides,
 	UserSettingsEventTab,
 	UserPreferences,

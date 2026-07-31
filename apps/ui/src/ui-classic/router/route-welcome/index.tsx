@@ -130,7 +130,12 @@ export function WelcomePage() {
 					__nextHasNoMarginBottom
 					label={ __( 'Help improve Studio by sharing anonymous usage statistics' ) }
 					checked={ preferences?.analyticsEnabled ?? true }
-					onChange={ ( analyticsEnabled ) => saveUserPreferences.mutate( { analyticsEnabled } ) }
+					onChange={ ( analyticsEnabled ) =>
+						saveUserPreferences.mutate( {
+							analyticsEnabled,
+							source: { surface: 'onboarding' },
+						} )
+					}
 				/>
 			</div>
 

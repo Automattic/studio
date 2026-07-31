@@ -597,7 +597,12 @@ export function SettingsView( {
 			if ( Object.keys( patch ).length === 0 ) {
 				return;
 			}
-			savePreferences.mutate( patch, {
+			// Tag only the analytics toggle with its surface for Tracks.
+			const withSource =
+				'analyticsEnabled' in patch
+					? { ...patch, source: { surface: 'settings' } as const }
+					: patch;
+			savePreferences.mutate( withSource, {
 				onSuccess: async () => {
 					if ( 'locale' in patch ) {
 						// Translations are loaded once at bootstrap; the rest of the

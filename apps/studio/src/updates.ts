@@ -142,8 +142,8 @@ export function setupUpdates() {
 		downloadedVersion = typeof releaseName === 'string' && releaseName ? releaseName : null;
 		console.log( 'Update has been downloaded', { version: downloadedVersion } );
 		void sendIpcEventToRenderer( 'app-update-status', buildAppUpdateStatus() );
-		// The agentic UI surfaces this as a persistent card instead of the
-		// legacy blocking dialog.
+		// The agentic UI surfaces this as a persistent sidebar card. Classic has
+		// no equivalent affordance and still needs the blocking dialog.
 		if ( getPreferredStudioUiMode() !== 'agentic' ) {
 			await showUpdateReadyToInstallNotice();
 		}

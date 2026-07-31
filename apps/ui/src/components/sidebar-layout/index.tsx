@@ -141,10 +141,12 @@ export function SidebarLayout( {
 						</div>
 					) : null }
 					{ children }
-					{ effectiveCollapsed ? (
-						<AppToasts className={ styles.floatingToasts } fit="content" />
-					) : null }
 				</main>
+				{ /* Outside `main`, whose `isolation: isolate` would trap the shelf
+				     below the dialog layer. */ }
+				{ effectiveCollapsed ? (
+					<AppToasts className={ styles.floatingToasts } fit="content" />
+				) : null }
 				{ sidebarResize.isResizing ? <ResizeOverlay /> : null }
 			</div>
 		</SidebarCollapsedContext.Provider>

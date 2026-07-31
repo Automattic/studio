@@ -17,8 +17,16 @@
 	   toggle z-index: 30). Menus stay below modal surfaces; tooltips live
 	   above dialogs so help text on controls inside a modal still surfaces
 	   above the containing overlay. */
+	/* Anchored to app chrome rather than centred over it, so it only has to
+	   clear the chrome's own stacking contexts (sidebar header 1, floating
+	   toggle 30, sidebar footer/menus 100). */
+	--wp-ui-popover-z-index: 650;
 	--wp-ui-dialog-z-index: 700;
 	--wp-ui-select-z-index: 750;
+	/* Toasts report work the user started — a push, a copied link — and that
+	   work doesn't pause because a dialog is open, so the report can't hide
+	   behind the scrim. Above dialogs, below tooltips. */
+	--app-toast-z-index: 780;
 	--wp-ui-tooltip-z-index: 800;
 
 	/* Vivid status colors the wpds palette lacks: --wpds-color-fg-content-success

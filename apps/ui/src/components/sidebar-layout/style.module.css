@@ -42,12 +42,16 @@
 
 /* Stay pinned at the bottom as the sidebar scrolls; `margin-top: auto`
    pushes the footer to the bottom in the flex column when content is
-   shorter than the viewport. */
+   shorter than the viewport.
+
+   Deliberately no `z-index`: a sticky element with one becomes a stacking
+   context, which would trap the toast shelf below it (see `.sidebarToasts`).
+   The footer is the last positioned sibling in the column, so it already
+   paints above the site list without one. */
 .sidebarFooter {
 	margin-top: auto;
 	position: sticky;
 	bottom: 0;
-	z-index: 1;
 	background-color: var(--app-chrome-bg);
 }
 
@@ -134,16 +138,25 @@
 	transform: scaleX(-1);
 }
 
+/* Positioned so the z-index applies. Neither `.sidebar` nor `.sidebarFooter`
+   creates a stacking context, so this competes directly with the dialog layer
+   and stays legible over the scrim. */
 .sidebarToasts {
+	position: relative;
+	z-index: var(--app-toast-z-index, 780);
 	padding: var(--wpds-dimension-padding-sm) calc(var(--wpds-dimension-padding-lg) - var(--wpds-dimension-padding-sm)) 0;
 }
 
+/* Fixed rather than absolute, and rendered as a child of `.root` rather than
+   `.main` — `.main` is `isolation: isolate`, which would trap any z-index
+   below the dialog layer. With the sidebar collapsed `.main` fills the window,
+   so viewport offsets land in the same place the absolute ones did. */
 .floatingToasts {
-	position: absolute;
+	position: fixed;
 	bottom: calc(52px + var(--app-main-composer-height, 0px));
 	inset-inline-start: var(--wpds-dimension-padding-xl);
 	width: min(320px, calc(100% - 2 * var(--wpds-dimension-padding-xl)));
-	z-index: 110;
+	z-index: var(--app-toast-z-index, 780);
 	pointer-events: auto;
 	-webkit-app-region: no-drag;
 }

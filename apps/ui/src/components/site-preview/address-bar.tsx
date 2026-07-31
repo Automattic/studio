@@ -394,14 +394,19 @@ export function PreviewAddressBar( {
 		const destinationMatches = [ ...frontendItems, ...wordpressItems ].filter( ( destination ) =>
 			destination.title.toLowerCase().includes( term )
 		);
+		// The latest-post/page permalink rows can also come back as content
+		// results — keep the instant destination row, drop the duplicate.
+		const destinationPaths = new Set( destinationMatches.map( ( match ) => match.path ) );
 		const contentMatches = debouncedTerm
-			? ( search.data ?? [] ).map( ( result ) => ( {
-					kind: 'content' as const,
-					id: `content-${ result.id }`,
-					icon: result.subtype === 'page' ? pageIcon : postIcon,
-					title: result.title,
-					path: result.path,
-			  } ) )
+			? ( search.data ?? [] )
+					.filter( ( result ) => ! destinationPaths.has( result.path ) )
+					.map( ( result ) => ( {
+						kind: 'content' as const,
+						id: `content-${ result.id }`,
+						icon: result.subtype === 'page' ? pageIcon : postIcon,
+						title: result.title,
+						path: result.path,
+					} ) )
 			: [];
 		const matches = [ ...destinationMatches, ...contentMatches ];
 		return matches.length > 0 ? [ { value: '', items: matches } ] : [];

@@ -63,6 +63,7 @@ describe( 'recordTracksEvent', () => {
 	it( 'does not send when the build-time telemetry flag is off', async () => {
 		vi.stubGlobal( '__ENABLE_CLI_TELEMETRY__', false );
 		delete process.env.STUDIO_FORCE_CLI_TELEMETRY;
+		process.env.NODE_ENV = 'production';
 
 		await recordTracksEvent( TRACKS_EVENTS.SITE_START, { channel: 'studio-cli' } );
 
@@ -77,6 +78,27 @@ describe( 'recordTracksEvent', () => {
 		await recordTracksEvent( TRACKS_EVENTS.SITE_START, { channel: 'studio-cli' } );
 
 		expect( mockRecord ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	it( 'proceeds in development so CLI events log during npm start', async () => {
+		vi.stubGlobal( '__ENABLE_CLI_TELEMETRY__', false );
+		delete process.env.STUDIO_FORCE_CLI_TELEMETRY;
+		process.env.NODE_ENV = 'development';
+
+		await recordTracksEvent( TRACKS_EVENTS.SITE_START, { channel: 'studio-cli' } );
+
+		expect( mockRecord ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	it( 'opt-out still wins in development', async () => {
+		vi.stubGlobal( '__ENABLE_CLI_TELEMETRY__', false );
+		delete process.env.STUDIO_FORCE_CLI_TELEMETRY;
+		process.env.NODE_ENV = 'development';
+		mockOptedOut.mockResolvedValue( true );
+
+		await recordTracksEvent( TRACKS_EVENTS.SITE_START, { channel: 'studio-cli' } );
+
+		expect( mockRecord ).not.toHaveBeenCalled();
 	} );
 
 	it( 'does not send when opted out', async () => {

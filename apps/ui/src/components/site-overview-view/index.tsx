@@ -28,7 +28,6 @@ import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useSiteManagementActions } from '@/hooks/use-site-management-actions';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { ConnectionsTab } from './connections-tab';
-import { PreviewsTab } from './previews-tab';
 import styles from './style.module.css';
 import type { SiteSettingsTabId } from '@/components/site-settings-view';
 import type { SiteDetails } from '@/data/core';
@@ -165,7 +164,6 @@ function SiteOverviewBody( {
 							<Tabs.List>
 								<Tabs.Tab tabId="overview">{ __( 'Overview' ) }</Tabs.Tab>
 								<Tabs.Tab tabId="connections">{ __( 'Connections' ) }</Tabs.Tab>
-								<Tabs.Tab tabId="previews">{ __( 'Previews' ) }</Tabs.Tab>
 								<Tabs.Tab tabId="general">{ __( 'Settings' ) }</Tabs.Tab>
 								<Tabs.Tab tabId="debugging">{ __( 'Debugging' ) }</Tabs.Tab>
 							</Tabs.List>
@@ -277,12 +275,9 @@ function SiteOverviewBody( {
 									</ButtonSection>
 								</div>
 							</Tabs.Panel>
-							{ /* Both tabs fetch on mount, so they're built only once opened. */ }
+							{ /* Fetches on mount, so it's built only once opened. */ }
 							<Tabs.Panel tabId="connections" className={ styles.panel }>
 								{ activeTab === 'connections' ? <ConnectionsTab site={ site } /> : null }
-							</Tabs.Panel>
-							<Tabs.Panel tabId="previews" className={ styles.panel }>
-								{ activeTab === 'previews' ? <PreviewsTab site={ site } /> : null }
 							</Tabs.Panel>
 							<SiteSettingsForm site={ site } activeTab={ activeTab } />
 						</main>

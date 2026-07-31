@@ -1,7 +1,7 @@
 import { useIsMutating } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
 import { external, Icon } from '@wordpress/icons';
-import { Tooltip } from '@wordpress/ui';
+import { Button, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useMemo, useState } from 'react';
 import { SiteIcon } from '@/components/site-icon';
@@ -24,6 +24,7 @@ import { getSiteDisplayUrl, getSiteUrl } from '@/lib/get-site-url';
 import { ActionButton } from './action-button';
 import { ToolbarTweaksPanel, useToolbarPreview } from './dev-tweaks';
 import { PublishSiteDialog } from './publish-site-dialog';
+import { ShareDialog } from './share-dialog';
 import styles from './style.module.css';
 import { SyncDialog } from './sync-dialog';
 import { ensureProtocol, sortConnections } from './utils';
@@ -68,6 +69,7 @@ export function SiteToolbar( { site, className }: SiteToolbarProps ) {
 	const login = useLogin();
 	const [ publishOpen, setPublishOpen ] = useState( false );
 	const [ syncOpen, setSyncOpen ] = useState( false );
+	const [ shareOpen, setShareOpen ] = useState( false );
 
 	const isStarting = useIsSiteStarting( site.id );
 	const isStopping = useIsSiteStopping( site.id );
@@ -190,6 +192,29 @@ export function SiteToolbar( { site, className }: SiteToolbarProps ) {
 			</div>
 
 			<div className={ styles.actions }>
+				{ /* Sharing isn't a sync: it publishes a throwaway copy, so it sits
+				     outside the primary action rather than inside its dialog. */ }
+				<Tooltip.Root>
+					<Tooltip.Trigger
+						render={
+							<Button
+								variant="minimal"
+								tone="neutral"
+								size="small"
+								disabled={ ! agenticEnabled }
+								onClick={ () => ! preview.active && setShareOpen( true ) }
+							>
+								{ __( 'Share' ) }
+							</Button>
+						}
+					/>
+					<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
+						{ agenticEnabled
+							? __( 'Publish a preview link' )
+							: __( 'Go online to share a preview.' ) }
+					</Tooltip.Popup>
+				</Tooltip.Root>
+
 				{ /* Both directions are on screen at once, so neither is a mode that
 				     can be left pointing the wrong way. Each button names its own
 				     target when the site has more than one connection. */ }
@@ -225,6 +250,8 @@ export function SiteToolbar( { site, className }: SiteToolbarProps ) {
 					onRun={ runSync }
 				/>
 			) : null }
+
+			{ shareOpen ? <ShareDialog site={ site } open onOpenChange={ setShareOpen } /> : null }
 
 			{ /* Mounted only while open: it loads the account's sites on mount. */ }
 			{ publishOpen ? (

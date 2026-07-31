@@ -224,11 +224,11 @@ describe( 'SiteOverviewView', () => {
 		expect( onTabChange ).toHaveBeenCalledWith( 'general' );
 	} );
 
-	it( 'gives connections and previews their own tabs', () => {
+	it( 'gives connections its own tab, and leaves sharing to the header', () => {
 		renderView();
 
 		expect( screen.getByRole( 'tab', { name: 'Connections' } ) ).toBeVisible();
-		expect( screen.getByRole( 'tab', { name: 'Previews' } ) ).toBeVisible();
+		expect( screen.queryByRole( 'tab', { name: 'Previews' } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'renders the settings form with save actions on the general tab', () => {

@@ -3,7 +3,7 @@ import { __ } from '@wordpress/i18n';
 import { external, Icon } from '@wordpress/icons';
 import { Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import * as Menu from '@/components/menu';
 import { SiteIcon } from '@/components/site-icon';
 import { SiteStatusButton } from '@/components/site-status-button';
@@ -25,10 +25,9 @@ import { getSiteDisplayUrl, getSiteUrl } from '@/lib/get-site-url';
 import { ActionButton } from './action-button';
 import { ToolbarTweaksPanel, useToolbarPreview } from './dev-tweaks';
 import { PublishPickerView } from './publish-picker-view';
-import { StatusText } from './status-text';
 import styles from './style.module.css';
 import { SyncButton } from './sync-button';
-import { ensureProtocol, pickStatusConnection, sortConnections } from './utils';
+import { ensureProtocol, sortConnections } from './utils';
 import type { ToolbarActionId } from './derive-toolbar-state';
 import type { SiteDetails, SyncSite } from '@/data/core';
 
@@ -55,31 +54,6 @@ function useIsSiteSyncing( siteId: string ): { push: boolean; pull: boolean } {
 	return { push, pull };
 }
 
-// The pill counts a fresh sync in seconds, so it has to re-render to stay
-// truthful. Runs only while something recent is on screen.
-function useSecondsTick( active: boolean ): void {
-	const [ , setTick ] = useState( 0 );
-	useEffect( () => {
-		if ( ! active ) {
-			return;
-		}
-		const timer = setInterval( () => setTick( ( count ) => count + 1 ), 1000 );
-		return () => clearInterval( timer );
-	}, [ active ] );
-}
-
-// How long after a sync the pill keeps ticking. Past this the meta reads in
-// minutes, where a per-second re-render buys nothing.
-const TICKING_WINDOW_MS = 90_000;
-
-function isRecent( isoTimestamp: string | null | undefined ): boolean {
-	if ( ! isoTimestamp ) {
-		return false;
-	}
-	const timestampMs = Date.parse( isoTimestamp );
-	return Number.isFinite( timestampMs ) && Date.now() - timestampMs < TICKING_WINDOW_MS;
-}
-
 /**
  * The site's permanent header: who you're working on and what state it's in on
  * the left, one status pill and one primary action on the right. Replaces the
@@ -101,9 +75,6 @@ export function SiteToolbar( { site, className }: SiteToolbarProps ) {
 	const activity = useSiteSyncActivity( site.id );
 	const { data: connectedSites } = useConnectedWpcomSites( site.id );
 	const targets = useMemo( () => sortConnections( connectedSites ), [ connectedSites ] );
-	// Only for the status line: with no stored selection, it reports on whatever
-	// connection was synced most recently.
-	const liveSite = useMemo( () => pickStatusConnection( targets ), [ targets ] );
 
 	const pushSiteToLive = usePushSiteToLive();
 	const pullSiteFromLive = usePullSiteFromLive();
@@ -115,12 +86,6 @@ export function SiteToolbar( { site, className }: SiteToolbarProps ) {
 	// concurrently would wedge the site runtime.
 	const isSyncing = isPreviewPending || isPushPending || isPullPending;
 
-	useSecondsTick(
-		activity !== null ||
-			isRecent( liveSite?.lastPushTimestamp ) ||
-			isRecent( liveSite?.lastPullTimestamp )
-	);
-
 	// The preview hook returns the real derived state unless the dev tweaks
 	// panel is driving. Temporary — see `./dev-tweaks`.
 	const preview = useToolbarPreview(
@@ -128,18 +93,18 @@ export function SiteToolbar( { site, className }: SiteToolbarProps ) {
 			activity,
 			agenticEnabled,
 			agenticReason,
-			liveSite,
+			connections: targets,
 			isSyncing,
 			siteRunning: site.running,
 		},
 		{ running: site.running, isStarting, isStopping }
 	);
-	const { status, actions } = preview.state;
+	const { actions } = preview.state;
 	const previewSite =
 		preview.run.running === site.running ? site : { ...site, running: preview.run.running };
-	// While the panel drives, its single synthetic connection stands in for the
-	// real set so the buttons don't offer targets the fake state doesn't have.
-	const syncTargets = preview.active ? ( preview.liveSite ? [ preview.liveSite ] : [] ) : targets;
+	// While the panel drives, its synthetic connections stand in for the real
+	// set so the buttons don't offer targets the fake state doesn't have.
+	const syncTargets = preview.active ? preview.connections : targets;
 
 	const openExternal = ( url: string ) => {
 		void connector.openExternalUrl( url );
@@ -226,8 +191,6 @@ export function SiteToolbar( { site, className }: SiteToolbarProps ) {
 			</div>
 
 			<div className={ styles.actions }>
-				{ status ? <StatusText status={ status } /> : null }
-
 				{ /* Both directions are on screen at once, so neither is a mode that
 				     can be left pointing the wrong way. Each button names its own
 				     target when the site has more than one connection. */ }

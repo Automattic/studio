@@ -125,56 +125,47 @@
 	outline-offset: 2px;
 }
 
-/* --- Status text --------------------------------------------------------- */
-
-/* Two steps down from the action button beside it: the status reports, the
-   button acts, and the type scale should say so. */
-.status {
-	display: inline-flex;
-	align-items: baseline;
-	gap: 4px;
-	min-width: 0;
-	padding-inline-end: var(--wpds-dimension-padding-xs);
-	font-size: var(--wpds-typography-font-size-xs);
-	color: var(--wpds-color-fg-content-neutral);
-	transition: color 200ms ease;
-}
-
-.status_pending {
-	color: var(--wpds-color-fg-content-info);
-}
-
-.status_success {
-	color: var(--wpds-color-fg-content-success);
-}
-
-.status_warning {
-	color: var(--wpds-color-fg-content-warning);
-}
-
-.status_error {
-	color: var(--wpds-color-fg-content-error);
-}
-
-.statusLabel {
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-}
-
-.statusMeta {
-	white-space: nowrap;
-	opacity: 0.7;
-}
-
 /* --- Primary action ------------------------------------------------------ */
 
 .action {
+	position: relative;
 	/* A stable floor so the label can change without the toolbar reflowing
 	   around it. */
 	min-width: 84px;
 	justify-content: center;
+	/* Keeps the progress fill inside the button's rounded edge. */
+	overflow: hidden;
 	transition: min-width 200ms ease;
+}
+
+/* Push and pull are square: an arrow out, an arrow in. */
+.actionIcon.actionIcon {
+	--wp-ui-button-aspect-ratio: 1;
+	--wp-ui-button-min-width: unset;
+	--wp-ui-button-padding-inline: 0;
+	min-width: 0;
+}
+
+/* Fills from the leading edge as the sync advances. Drawn from the button's
+   own foreground so it works on the solid and the outline button alike. */
+.actionProgress {
+	position: absolute;
+	inset-block: 0;
+	inset-inline-start: 0;
+	inline-size: var(--action-progress, 0%);
+	background: color-mix(in srgb, currentColor 22%, transparent);
+	transition: inline-size 400ms ease;
+	pointer-events: none;
+}
+
+.tipTitle {
+	display: block;
+	font-weight: 600;
+}
+
+.tipHint {
+	display: block;
+	opacity: 0.75;
 }
 
 .actionLabel {
@@ -250,7 +241,7 @@
 
 @media (prefers-reduced-motion: reduce) {
 	.action,
-	.status,
+	.actionProgress,
 	.siteUrl,
 	.siteUrlIcon {
 		transition: none;

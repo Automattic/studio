@@ -6,40 +6,26 @@ import type { SyncActivity } from '@/data/sync-activity';
 
 const MINUTE_MS = 60_000;
 
-export type ToolbarStatusTone = 'neutral' | 'pending' | 'success' | 'error' | 'warning';
-
-export type ToolbarStatus = {
-	tone: ToolbarStatusTone;
-	label: string;
-	// Trailing muted fragment after a middot — a relative timestamp, mostly.
-	meta?: string;
-	// 0–100. Present only while an upload reports real byte progress, so the
-	// pill can fill rather than pretending to know how long a phase will take.
-	progress?: number;
-	// Longer explanation for the pill's menu: an error message, or what the
-	// current phase is actually doing.
-	detail?: string;
-};
-
 export type ToolbarActionId = 'publish' | 'push' | 'pull' | 'login';
 
 export type ToolbarAction = {
 	id: ToolbarActionId;
+	// The action's name, and its accessible name: push and pull are icon-only.
 	label: string;
 	variant: 'solid' | 'outline';
 	tone: 'brand' | 'neutral';
-	// Spinner in place of the label: this action's own work is running.
+	// Spinner in place of the icon: this action's own work is running.
 	busy: boolean;
+	// 0–100. Present only while this action reports real byte progress, so the
+	// button can fill rather than pretending to know how long a phase takes.
+	progress?: number;
+	// Second line of the tooltip: when this action last ran, or — when it can't
+	// run — why not, so a dead button never goes quiet without saying something.
+	hint?: string;
 	disabled: boolean;
-	// Tooltip explaining a disabled action, so the button never goes quiet
-	// without saying why.
-	disabledReason?: string;
 };
 
 export type ToolbarState = {
-	// Null when there is nothing worth saying: an unconnected site has no sync
-	// history to report, and naming that state only restates the button.
-	status: ToolbarStatus | null;
 	// Everything the site can do right now, in the order it should be shown.
 	// A connected site offers both directions at once, so neither is a mode
 	// that can be left pointing the wrong way.
@@ -50,7 +36,8 @@ export type DeriveToolbarStateOptions = {
 	activity: SyncActivity | null;
 	agenticEnabled: boolean;
 	agenticReason: AgenticFeatureReason;
-	liveSite: SyncSite | undefined;
+	// Every WordPress.com site this local site is connected to.
+	connections: SyncSite[];
 	// True while any push/pull/preview mutation for this site is in flight;
 	// they all mutate the same runtime, so one blocks the others.
 	isSyncing: boolean;
@@ -58,19 +45,9 @@ export type DeriveToolbarStateOptions = {
 };
 
 /**
- * The live site's name in running prose: staging environments are worth
- * naming (pushing to staging and pushing to production are very different
- * acts), everything else is just "live".
- */
-function getTargetName( liveSite: SyncSite | undefined ): string {
-	return liveSite?.isStaging ? __( 'Staging' ) : __( 'live' );
-}
-
-/**
- * The shortest readable age for the pill's trailing meta: "3s", "4m", "2h",
- * "6d". Seconds matter here — the pill is often read moments after a push, and
- * "just now" holds for a whole minute. Returns null for timestamps we can't
- * read, so the caller drops the fragment rather than rendering an empty one.
+ * The shortest readable age: "3s", "4m", "2h", "6d". Seconds matter here — a
+ * sync is often checked moments after it lands, and "just now" holds for a
+ * whole minute. Returns null for timestamps we can't read.
  */
 export function formatSyncTimestamp( isoTimestamp: string | null | undefined ): string | null {
 	if ( ! isoTimestamp ) {
@@ -91,156 +68,41 @@ export function formatSyncTimestamp( isoTimestamp: string | null | undefined ): 
 	return formatRelativeTime( new Date( timestampMs ).toISOString() ) || null;
 }
 
-/** The same, for the moment an activity reported in. */
-function formatActivityAge( at: number | undefined ): string | undefined {
-	return formatSyncTimestamp( new Date( at ?? Date.now() ).toISOString() ) ?? undefined;
-}
-
-function getPendingStatus( activity: Extract< SyncActivity, { kind: 'pending' } > ): ToolbarStatus {
-	if ( activity.direction === 'preview' ) {
-		return { tone: 'pending', label: __( 'Publishing preview…' ) };
+/** The newest of one timestamp across every connection. */
+function newestTimestamp(
+	connections: SyncSite[],
+	read: ( site: SyncSite ) => string | null
+): string | null {
+	let newest: { iso: string; ms: number } | null = null;
+	for ( const connection of connections ) {
+		const iso = read( connection );
+		const ms = Date.parse( iso ?? '' );
+		if ( iso && Number.isFinite( ms ) && ( ! newest || ms > newest.ms ) ) {
+			newest = { iso, ms };
+		}
 	}
-
-	if ( activity.direction === 'pull' ) {
-		return {
-			tone: 'pending',
-			label: __( 'Pulling from live…' ),
-			progress: activity.progress,
-			detail: activity.message,
-		};
-	}
-
-	// Push labels itself from the phase rather than a backend string, so the
-	// copy stays translatable and consistent with the rest of the toolbar.
-	if ( activity.phase === 'uploading' && activity.progress !== undefined ) {
-		return {
-			tone: 'pending',
-			label: sprintf(
-				// translators: %d: upload progress percentage.
-				__( 'Uploading… %d%%' ),
-				Math.round( activity.progress )
-			),
-			progress: activity.progress,
-			detail: __( 'Uploading your site to WordPress.com.' ),
-		};
-	}
-
-	if ( activity.phase === 'paused' ) {
-		return {
-			tone: 'warning',
-			label: __( 'Upload paused' ),
-			progress: activity.progress,
-			detail: __( 'Waiting for the network. The upload resumes on its own.' ),
-		};
-	}
-
-	if ( activity.phase === 'importing' ) {
-		return {
-			tone: 'pending',
-			label: __( 'Applying changes…' ),
-			detail: __( 'WordPress.com is unpacking the upload.' ),
-		};
-	}
-
-	return {
-		tone: 'pending',
-		label: activity.phase === 'uploading' ? __( 'Uploading…' ) : __( 'Preparing…' ),
-		detail: __( 'Packaging your site.' ),
-	};
-}
-
-function getSuccessStatus(
-	activity: Extract< SyncActivity, { kind: 'success' } >,
-	liveSite: SyncSite | undefined
-): ToolbarStatus {
-	const meta = formatActivityAge( activity.at );
-
-	if ( activity.direction === 'preview' ) {
-		return { tone: 'success', label: __( 'Preview published' ), meta };
-	}
-	if ( activity.direction === 'pull' ) {
-		return {
-			tone: 'success',
-			// translators: %s: the live site's name, e.g. "live" or "Staging".
-			label: sprintf( __( 'Pulled from %s' ), getTargetName( liveSite ) ),
-			meta,
-		};
-	}
-	return {
-		tone: 'success',
-		// translators: %s: the live site's name, e.g. "live" or "Staging".
-		label: sprintf( __( 'Pushed to %s' ), getTargetName( liveSite ) ),
-		meta,
-	};
-}
-
-function getErrorStatus( activity: Extract< SyncActivity, { kind: 'error' } > ): ToolbarStatus {
-	const label =
-		activity.direction === 'preview'
-			? __( 'Preview failed' )
-			: activity.direction === 'pull'
-			? __( 'Pull failed' )
-			: __( 'Push failed' );
-
-	return {
-		tone: 'error',
-		label,
-		meta: formatActivityAge( activity.at ),
-		detail: activity.message,
-	};
+	return newest?.iso ?? null;
 }
 
 /**
- * The steady-state pill: what happened last, and when. Falls back through
- * push history, then pull history, then "never pushed" for a freshly
- * connected site.
- */
-function getIdleStatus( liveSite: SyncSite | undefined ): ToolbarStatus | null {
-	if ( ! liveSite ) {
-		return null;
-	}
-
-	const target = getTargetName( liveSite );
-	const pushedAt = formatSyncTimestamp( liveSite.lastPushTimestamp );
-	if ( pushedAt ) {
-		return {
-			tone: 'neutral',
-			// translators: %s: the live site's name, e.g. "live" or "Staging".
-			label: sprintf( __( 'Pushed to %s' ), target ),
-			meta: pushedAt,
-		};
-	}
-
-	const pulledAt = formatSyncTimestamp( liveSite.lastPullTimestamp );
-	if ( pulledAt ) {
-		return {
-			tone: 'neutral',
-			// translators: %s: the live site's name, e.g. "live" or "Staging".
-			label: sprintf( __( 'Pulled from %s' ), target ),
-			meta: pulledAt,
-		};
-	}
-
-	return { tone: 'neutral', label: __( 'Never pushed' ) };
-}
-
-/**
- * Maps everything the toolbar knows about a site onto exactly two things: a
- * status pill and a single primary action. Kept free of hooks and rendering
- * so the whole state table can be asserted in tests.
+ * Maps everything the toolbar knows about a site onto the buttons it can
+ * offer. Kept free of hooks and rendering so the whole table can be asserted
+ * in tests.
+ *
+ * There is no status line: progress lives in the buttons' own fill, and
+ * results are announced as app toasts.
  */
 export function deriveToolbarState( {
 	activity,
 	agenticEnabled,
 	agenticReason,
-	liveSite,
+	connections,
 	isSyncing,
 	siteRunning,
 }: DeriveToolbarStateOptions ): ToolbarState {
 	// Signed out, nothing remote is reachable and the fix is a single click.
 	if ( agenticReason === 'signed-out' ) {
 		return {
-			status: null,
 			actions: [
 				{
 					id: 'login',
@@ -254,28 +116,26 @@ export function deriveToolbarState( {
 		};
 	}
 
-	const status: ToolbarStatus | null = ( () => {
-		if ( activity?.kind === 'pending' ) {
-			return getPendingStatus( activity );
-		}
-		if ( activity?.kind === 'error' ) {
-			return getErrorStatus( activity );
-		}
-		if ( activity?.kind === 'success' ) {
-			return getSuccessStatus( activity, liveSite );
-		}
-		// Offline only shows once nothing is in flight — a push that started
-		// online keeps reporting its own progress — and only for a site that has
-		// somewhere to sync to.
-		if ( agenticReason === 'offline' ) {
-			return liveSite ? { tone: 'neutral' as const, label: __( 'Offline' ) } : null;
-		}
-		return getIdleStatus( liveSite );
-	} )();
+	if ( connections.length === 0 ) {
+		return {
+			actions: [
+				// Publish only opens the site picker, so the gates below — which are
+				// about moving files off a local server — don't apply to it.
+				{
+					id: 'publish',
+					label: __( 'Publish' ),
+					variant: 'solid',
+					tone: 'brand',
+					busy: false,
+					disabled: false,
+				},
+			],
+		};
+	}
 
 	// Gating is shared: push and pull move the same files over the same
 	// connection, so whatever stops one stops the other.
-	const disabledReason = ( () => {
+	const blockedReason = ( () => {
 		if ( agenticReason === 'offline' ) {
 			return __( 'Go online to sync this site.' );
 		}
@@ -291,53 +151,40 @@ export function deriveToolbarState( {
 		return undefined;
 	} )();
 
-	const gate = ( action: Omit< ToolbarAction, 'disabled' > ): ToolbarAction => ( {
-		...action,
-		// A running action isn't blocked by its own run.
-		disabled: ! action.busy && disabledReason !== undefined,
-		...( action.busy || disabledReason === undefined ? {} : { disabledReason } ),
-	} );
+	const lastPush = formatSyncTimestamp(
+		newestTimestamp( connections, ( site ) => site.lastPushTimestamp )
+	);
+	const lastPull = formatSyncTimestamp(
+		newestTimestamp( connections, ( site ) => site.lastPullTimestamp )
+	);
 
-	if ( ! liveSite ) {
+	const build = ( id: 'push' | 'pull' ): ToolbarAction => {
+		const running = activity?.kind === 'pending' && activity.direction === id;
+		const lastRun = id === 'push' ? lastPush : lastPull;
+		const history = lastRun
+			? sprintf(
+					// translators: %s: compact relative time, e.g. "6d".
+					id === 'push' ? __( 'Last pushed %s ago' ) : __( 'Last pulled %s ago' ),
+					lastRun
+			  )
+			: id === 'push'
+			? __( 'Never pushed' )
+			: __( 'Never pulled' );
+
 		return {
-			status,
-			actions: [
-				// Publish only opens the site picker, so the gates above — which are
-				// about moving files off a local server — don't apply to it.
-				{
-					id: 'publish',
-					label: __( 'Publish' ),
-					variant: 'solid',
-					tone: 'brand',
-					busy: false,
-					disabled: false,
-				},
-			],
+			id,
+			label: id === 'push' ? __( 'Push' ) : __( 'Pull' ),
+			// Pull stays quiet: it overwrites local work, so it shouldn't be the
+			// button the eye lands on first.
+			variant: id === 'push' ? 'solid' : 'outline',
+			tone: id === 'push' ? 'brand' : 'neutral',
+			busy: running,
+			// A running action isn't blocked by its own run.
+			disabled: ! running && blockedReason !== undefined,
+			...( running && activity.progress !== undefined ? { progress: activity.progress } : {} ),
+			hint: ! running && blockedReason ? blockedReason : history,
 		};
-	}
-
-	const isPushing = activity?.kind === 'pending' && activity.direction === 'push';
-	const isPulling = activity?.kind === 'pending' && activity.direction === 'pull';
-
-	// Pull sits on the left and stays quiet: it overwrites local work, so it
-	// shouldn't be the button the eye lands on first.
-	return {
-		status,
-		actions: [
-			gate( {
-				id: 'pull',
-				label: __( 'Pull' ),
-				variant: 'outline',
-				tone: 'neutral',
-				busy: isPulling,
-			} ),
-			gate( {
-				id: 'push',
-				label: __( 'Push' ),
-				variant: 'solid',
-				tone: 'brand',
-				busy: isPushing,
-			} ),
-		],
 	};
+
+	return { actions: [ build( 'pull' ), build( 'push' ) ] };
 }

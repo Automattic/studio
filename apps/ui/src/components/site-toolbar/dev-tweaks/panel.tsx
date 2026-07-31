@@ -1,8 +1,9 @@
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import styles from './panel.module.css';
-import { PUSH_SEQUENCE, SCENARIOS } from './preview-state';
+import { PULL_SEQUENCE, PUSH_SEQUENCE, SCENARIOS } from './preview-state';
 import { getTweaks, resetTweaks, setTweaks, useTweaks } from './store';
+import type { SyncSequence } from './preview-state';
 import type { ToolbarTweaks } from './store';
 import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react';
 
@@ -157,10 +158,10 @@ function Body( { tweaks }: { tweaks: ToolbarTweaks } ) {
 		timers.current = [];
 	};
 
-	const playPush = () => {
+	const play = ( sequence: SyncSequence ) => {
 		stopSequence();
 		setTweaks( { enabled: true } );
-		for ( const step of PUSH_SEQUENCE ) {
+		for ( const step of sequence ) {
 			timers.current.push( setTimeout( () => setTweaks( step.tweaks ), step.at ) );
 		}
 	};
@@ -184,8 +185,19 @@ function Body( { tweaks }: { tweaks: ToolbarTweaks } ) {
 					) ) }
 				</div>
 				<div className={ styles.rowButtons }>
-					<button type="button" className={ styles.rowButton } onClick={ playPush }>
-						▶ Play a push
+					<button
+						type="button"
+						className={ styles.rowButton }
+						onClick={ () => play( PUSH_SEQUENCE ) }
+					>
+						▶ Push run
+					</button>
+					<button
+						type="button"
+						className={ styles.rowButton }
+						onClick={ () => play( PULL_SEQUENCE ) }
+					>
+						▶ Pull run
 					</button>
 					<button
 						type="button"
@@ -212,7 +224,7 @@ function Body( { tweaks }: { tweaks: ToolbarTweaks } ) {
 						] }
 					/>
 				</Field>
-				<Field label="Last push">
+				<Field label="Last sync">
 					<Segmented
 						value={ tweaks.history }
 						onChange={ ( history ) => setTweaks( { history } ) }
@@ -221,6 +233,16 @@ function Body( { tweaks }: { tweaks: ToolbarTweaks } ) {
 							{ value: 'just-now', label: 'Now' },
 							{ value: 'hours', label: '3h' },
 							{ value: 'days', label: '6d' },
+						] }
+					/>
+				</Field>
+				<Field label="…was a">
+					<Segmented
+						value={ tweaks.historyDirection }
+						onChange={ ( historyDirection ) => setTweaks( { historyDirection } ) }
+						options={ [
+							{ value: 'push', label: 'Push' },
+							{ value: 'pull', label: 'Pull' },
 						] }
 					/>
 				</Field>
@@ -303,23 +325,6 @@ function Body( { tweaks }: { tweaks: ToolbarTweaks } ) {
 							{ value: 'ok', label: 'Signed in' },
 							{ value: 'signed-out', label: 'Signed out' },
 							{ value: 'offline', label: 'Offline' },
-						] }
-					/>
-				</Field>
-			</Group>
-
-			<Group title="Status text">
-				<Field label="Tone">
-					<Choice
-						value={ tweaks.statusTone }
-						onChange={ ( statusTone ) => setTweaks( { statusTone } ) }
-						options={ [
-							{ value: 'auto', label: 'Auto' },
-							{ value: 'neutral', label: 'Neutral' },
-							{ value: 'pending', label: 'Pending' },
-							{ value: 'success', label: 'Success' },
-							{ value: 'warning', label: 'Warning' },
-							{ value: 'error', label: 'Error' },
 						] }
 					/>
 				</Field>

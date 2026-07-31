@@ -29,23 +29,26 @@ function historyTimestamp( history: ToolbarTweaks[ 'history' ] ): string | null 
 	}
 }
 
-function buildLiveSite( tweaks: ToolbarTweaks ): SyncSite | undefined {
+function buildConnections( tweaks: ToolbarTweaks ): SyncSite[] {
 	if ( tweaks.connection === 'none' ) {
-		return undefined;
+		return [];
 	}
 	const isStaging = tweaks.connection === 'staging';
 	const timestamp = historyTimestamp( tweaks.history );
-	return {
-		id: 123456,
-		localSiteId: 'preview',
-		name: isStaging ? 'My Site (staging)' : 'My Site',
-		url: isStaging ? 'staging-mysite.wpcomstaging.com' : 'mysite.com',
-		isStaging,
-		isPressable: false,
-		syncSupport: 'already-connected',
-		lastPushTimestamp: timestamp,
-		lastPullTimestamp: tweaks.activity === 'pull-success' ? timestamp : null,
-	};
+	const pulledLast = tweaks.historyDirection === 'pull';
+	return [
+		{
+			id: 123456,
+			localSiteId: 'preview',
+			name: isStaging ? 'My Site (staging)' : 'My Site',
+			url: isStaging ? 'staging-mysite.wpcomstaging.com' : 'mysite.com',
+			isStaging,
+			isPressable: false,
+			syncSupport: 'already-connected',
+			lastPushTimestamp: pulledLast ? null : timestamp,
+			lastPullTimestamp: pulledLast ? timestamp : null,
+		},
+	];
 }
 
 function buildActivity( tweaks: ToolbarTweaks ): SyncActivity | null {
@@ -99,18 +102,15 @@ function buildOptions( tweaks: ToolbarTweaks ): DeriveToolbarStateOptions {
 		activity: buildActivity( tweaks ),
 		agenticEnabled: tweaks.auth === 'ok',
 		agenticReason: tweaks.auth === 'ok' ? null : tweaks.auth,
-		liveSite: buildLiveSite( tweaks ),
+		connections: buildConnections( tweaks ),
 		isSyncing: tweaks.isSyncing,
 		siteRunning: tweaks.run === 'running' || tweaks.run === 'stopping',
 	};
 }
 
 function applyOverrides( state: ToolbarState, tweaks: ToolbarTweaks ): ToolbarState {
-	const { status, actions } = state;
 	return {
-		status:
-			status && tweaks.statusTone !== 'auto' ? { ...status, tone: tweaks.statusTone } : status,
-		actions: actions.map( ( action ) => ( {
+		actions: state.actions.map( ( action ) => ( {
 			...action,
 			...( tweaks.actionVariant === 'auto' ? {} : { variant: tweaks.actionVariant } ),
 			...( tweaks.actionTone === 'auto' ? {} : { tone: tweaks.actionTone } ),
@@ -136,9 +136,9 @@ export type ToolbarRunState = {
 export type ToolbarPreview = {
 	state: ToolbarState;
 	run: ToolbarRunState;
-	// The connection the pill's menu should describe: synthetic while the panel
-	// drives, so the menu matches the state shown beside it.
-	liveSite: SyncSite | undefined;
+	// The connections the buttons should offer: synthetic while the panel
+	// drives, so a target list can't name sites the fake state doesn't have.
+	connections: SyncSite[];
 	// True while the panel is driving; the toolbar uses it to keep real
 	// mutations from firing against a state the user is only looking at.
 	active: boolean;
@@ -158,7 +158,7 @@ export function useToolbarPreview(
 		return {
 			state: deriveToolbarState( realOptions ),
 			run: realRun,
-			liveSite: realOptions.liveSite,
+			connections: realOptions.connections,
 			active: false,
 		};
 	}
@@ -167,7 +167,7 @@ export function useToolbarPreview(
 
 	return {
 		state: applyOverrides( deriveToolbarState( options ), tweaks ),
-		liveSite: options.liveSite,
+		connections: options.connections,
 		run: {
 			running: tweaks.run === 'running' || tweaks.run === 'stopping',
 			isStarting: tweaks.run === 'starting',
@@ -256,11 +256,14 @@ export const SCENARIOS: { id: string; label: string; tweaks: TweakScenario }[] =
 	},
 ];
 
+export type SyncSequence = { at: number; tweaks: TweakScenario }[];
+
 /**
- * A scripted push, so the transitions between phases — and the progress fill —
- * can be watched rather than stepped through by hand.
+ * A scripted push, so the transitions between phases can be watched rather
+ * than stepped through by hand. Ends by settling into the idle state the run
+ * would really leave behind.
  */
-export const PUSH_SEQUENCE: { at: number; tweaks: TweakScenario }[] = [
+export const PUSH_SEQUENCE: SyncSequence = [
 	{
 		at: 0,
 		tweaks: { connection: 'live', history: 'days', activity: 'push-exporting', isSyncing: true },
@@ -274,5 +277,32 @@ export const PUSH_SEQUENCE: { at: number; tweaks: TweakScenario }[] = [
 	{ at: 5400, tweaks: { progress: 100 } },
 	{ at: 6100, tweaks: { activity: 'push-importing' } },
 	{ at: 8200, tweaks: { activity: 'push-success', isSyncing: false } },
-	{ at: 13_200, tweaks: { activity: 'none', history: 'just-now' } },
+	{ at: 13_200, tweaks: { activity: 'none', history: 'just-now', historyDirection: 'push' } },
+];
+
+/**
+ * The same for a pull. It has no phases of its own — the CLI describes itself
+ * with a message and a percentage — so this is one long determinate run.
+ */
+export const PULL_SEQUENCE: SyncSequence = [
+	{
+		at: 0,
+		tweaks: {
+			connection: 'live',
+			history: 'days',
+			historyDirection: 'push',
+			activity: 'pull-pending',
+			determinate: false,
+			isSyncing: true,
+		},
+	},
+	{ at: 1400, tweaks: { determinate: true, progress: 9 } },
+	{ at: 2100, tweaks: { progress: 26 } },
+	{ at: 2800, tweaks: { progress: 44 } },
+	{ at: 3500, tweaks: { progress: 61 } },
+	{ at: 4200, tweaks: { progress: 78 } },
+	{ at: 4900, tweaks: { progress: 94 } },
+	{ at: 5600, tweaks: { progress: 100 } },
+	{ at: 6300, tweaks: { activity: 'pull-success', isSyncing: false } },
+	{ at: 11_300, tweaks: { activity: 'none', history: 'just-now', historyDirection: 'pull' } },
 ];

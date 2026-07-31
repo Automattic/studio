@@ -9,33 +9,6 @@ export function ensureProtocol( url: string ): string {
 	return /^https?:\/\//.test( url ) ? url : `https://${ url }`;
 }
 
-function lastSyncedAt( site: SyncSite ): number {
-	const push = Date.parse( site.lastPushTimestamp ?? '' );
-	const pull = Date.parse( site.lastPullTimestamp ?? '' );
-	return Math.max( Number.isFinite( push ) ? push : 0, Number.isFinite( pull ) ? pull : 0 );
-}
-
-/**
- * The connection the toolbar's status reports on. Nothing is "selected" any
- * more — push and pull each name their own target — so the status speaks for
- * whichever connection was touched most recently, falling back to production
- * for a site that has never synced anywhere.
- */
-export function pickStatusConnection(
-	connectedSites: SyncSite[] | undefined
-): SyncSite | undefined {
-	if ( ! connectedSites || connectedSites.length === 0 ) {
-		return undefined;
-	}
-	const [ mostRecent ] = [ ...connectedSites ].sort(
-		( a, b ) => lastSyncedAt( b ) - lastSyncedAt( a )
-	);
-	if ( mostRecent && lastSyncedAt( mostRecent ) > 0 ) {
-		return mostRecent;
-	}
-	return connectedSites.find( ( site ) => ! site.isStaging ) ?? connectedSites[ 0 ];
-}
-
 /**
  * Connections in the order a picker should list them: production first, then
  * staging, each group alphabetical so the list doesn't reshuffle between

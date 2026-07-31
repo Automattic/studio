@@ -1,5 +1,4 @@
 import { useSyncExternalStore } from 'react';
-import type { ToolbarStatusTone } from '../derive-toolbar-state';
 
 /**
  * TEMPORARY design scaffolding (STU-2162). Dev-only state backing the floating
@@ -14,6 +13,9 @@ const STORAGE_KEY = 'studio.dev.toolbar-tweaks';
 
 export type TweakConnection = 'none' | 'live' | 'staging';
 export type TweakHistory = 'never' | 'just-now' | 'hours' | 'days';
+// Which way the last completed sync went — the idle status reports push
+// history before pull history, so a pull-only site is otherwise unreachable.
+export type TweakHistoryDirection = 'push' | 'pull';
 export type TweakActivity =
 	| 'none'
 	| 'push-exporting'
@@ -42,6 +44,7 @@ export type ToolbarTweaks = {
 	// Inputs to `deriveToolbarState` — the real state table, driven by hand.
 	connection: TweakConnection;
 	history: TweakHistory;
+	historyDirection: TweakHistoryDirection;
 	activity: TweakActivity;
 	progress: number;
 	determinate: boolean;
@@ -51,7 +54,6 @@ export type ToolbarTweaks = {
 
 	// Presentation overrides applied on top of the derived result, for trying
 	// treatments the state table doesn't currently produce.
-	statusTone: 'auto' | ToolbarStatusTone;
 	actionVariant: 'auto' | 'solid' | 'outline';
 	actionTone: 'auto' | 'brand' | 'neutral';
 	actionBusy: TweakToggle;
@@ -66,6 +68,7 @@ export const DEFAULT_TWEAKS: ToolbarTweaks = {
 
 	connection: 'live',
 	history: 'days',
+	historyDirection: 'push',
 	activity: 'none',
 	progress: 42,
 	determinate: true,
@@ -73,7 +76,6 @@ export const DEFAULT_TWEAKS: ToolbarTweaks = {
 	run: 'running',
 	isSyncing: false,
 
-	statusTone: 'auto',
 	actionVariant: 'auto',
 	actionTone: 'auto',
 	actionBusy: 'auto',

@@ -151,12 +151,12 @@ describe( 'SiteToolbar', () => {
 		vi.mocked( useConnectedWpcomSites ).mockReturnValue( { data: [ liveSite() ] } as never );
 		renderToolbar();
 
+		// Icon-only, so the accessible name is all there is to go on.
 		expect( screen.getByRole( 'button', { name: 'Pull' } ) ).toBeVisible();
 		expect( screen.getByRole( 'button', { name: 'Push' } ) ).toBeVisible();
-		expect( screen.getByText( 'Never pushed' ) ).toBeVisible();
 	} );
 
-	it( 'keeps the action visible while a push is uploading', () => {
+	it( 'keeps the action in place while a push is uploading, and fills it', () => {
 		vi.mocked( useConnectedWpcomSites ).mockReturnValue( { data: [ liveSite() ] } as never );
 		vi.mocked( useSiteSyncActivity ).mockReturnValue( {
 			kind: 'pending',
@@ -166,8 +166,9 @@ describe( 'SiteToolbar', () => {
 		} );
 		renderToolbar();
 
-		expect( screen.getByText( 'Uploading… 62%' ) ).toBeVisible();
-		expect( screen.getByRole( 'button', { name: 'Push' } ) ).toBeVisible();
+		const push = screen.getByRole( 'button', { name: 'Push' } );
+		expect( push ).toBeVisible();
+		expect( push.querySelector( '[style*="62%"]' ) ).not.toBeNull();
 	} );
 
 	describe( 'with both a production and a staging connection', () => {
@@ -184,14 +185,6 @@ describe( 'SiteToolbar', () => {
 			vi.mocked( useConnectedWpcomSites ).mockReturnValue( {
 				data: [ staging, production ],
 			} as never );
-		} );
-
-		it( 'reports on whichever connection was synced most recently', () => {
-			renderToolbar();
-
-			// Production has never been pushed; staging has. The status speaks
-			// for the connection that actually did something.
-			expect( screen.getByText( 'Pushed to Staging' ) ).toBeVisible();
 		} );
 
 		it( 'shows both directions rather than a mode to set', () => {
@@ -214,7 +207,7 @@ describe( 'SiteToolbar', () => {
 		expect( pull ).toHaveBeenCalledWith( { siteId: 'riff', remoteSiteId: 42 } );
 	} );
 
-	it( 'keeps the failure in the status rather than relabelling the button', () => {
+	it( 'leaves a failed push pressable again, and says nothing in the header', () => {
 		vi.mocked( useConnectedWpcomSites ).mockReturnValue( { data: [ liveSite() ] } as never );
 		vi.mocked( useSiteSyncActivity ).mockReturnValue( {
 			kind: 'error',
@@ -223,7 +216,8 @@ describe( 'SiteToolbar', () => {
 		} );
 		renderToolbar();
 
-		expect( screen.getByRole( 'button', { name: 'Push' } ) ).toBeVisible();
-		expect( screen.getByText( 'Push failed' ) ).toBeVisible();
+		// The failure is a toast; the header just offers the move again.
+		expect( screen.getByRole( 'button', { name: 'Push' } ) ).toBeEnabled();
+		expect( screen.queryByText( 'Push failed' ) ).not.toBeInTheDocument();
 	} );
 } );

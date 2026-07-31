@@ -25,9 +25,8 @@ import { ActionButton } from './action-button';
 import { ToolbarTweaksPanel, useToolbarPreview } from './dev-tweaks';
 import { PublishSiteDialog } from './publish-site-dialog';
 import styles from './style.module.css';
-import { SyncButton } from './sync-button';
+import { SyncDialog } from './sync-dialog';
 import { ensureProtocol, sortConnections } from './utils';
-import type { ToolbarActionId } from './derive-toolbar-state';
 import type { SiteDetails, SyncSite } from '@/data/core';
 
 interface SiteToolbarProps {
@@ -68,6 +67,7 @@ export function SiteToolbar( { site, className }: SiteToolbarProps ) {
 	const showRunState = useSidebarCollapsed();
 	const login = useLogin();
 	const [ publishOpen, setPublishOpen ] = useState( false );
+	const [ syncOpen, setSyncOpen ] = useState( false );
 
 	const isStarting = useIsSiteStarting( site.id );
 	const isStopping = useIsSiteStopping( site.id );
@@ -109,13 +109,13 @@ export function SiteToolbar( { site, className }: SiteToolbarProps ) {
 		void connector.openExternalUrl( url );
 	};
 
-	const runSync = ( action: ToolbarActionId, target: SyncSite ) => {
+	const runSync = ( direction: 'push' | 'pull', target: SyncSite ) => {
 		// While the tweaks panel drives the toolbar, the state on screen is a
 		// picture — don't start real work from it.
 		if ( isSyncing || preview.active ) {
 			return;
 		}
-		if ( action === 'pull' ) {
+		if ( direction === 'pull' ) {
 			pullSiteFromLive.mutate( { siteId: site.id, remoteSiteId: target.id } );
 			return;
 		}
@@ -207,15 +207,24 @@ export function SiteToolbar( { site, className }: SiteToolbarProps ) {
 							onClick={ () => ! preview.active && login.mutate() }
 						/>
 					) : (
-						<SyncButton
+						<ActionButton
 							key={ action.id }
 							action={ action }
-							targets={ syncTargets }
-							onRun={ ( target ) => runSync( action.id, target ) }
+							onClick={ () => ! preview.active && setSyncOpen( true ) }
 						/>
 					)
 				) }
 			</div>
+
+			{ syncTargets.length > 0 ? (
+				<SyncDialog
+					site={ site }
+					connections={ syncTargets }
+					open={ syncOpen }
+					onOpenChange={ setSyncOpen }
+					onRun={ runSync }
+				/>
+			) : null }
 
 			{ /* Mounted only while open: it loads the account's sites on mount. */ }
 			{ publishOpen ? (

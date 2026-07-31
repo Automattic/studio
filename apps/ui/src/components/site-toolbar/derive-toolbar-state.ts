@@ -6,7 +6,7 @@ import type { SyncActivity } from '@/data/sync-activity';
 
 const MINUTE_MS = 60_000;
 
-export type ToolbarActionId = 'publish' | 'push' | 'pull' | 'login';
+export type ToolbarActionId = 'publish' | 'sync' | 'login';
 
 export type ToolbarAction = {
 	id: ToolbarActionId;
@@ -135,17 +135,14 @@ export function deriveToolbarState( {
 		};
 	}
 
-	// Gating is shared: push and pull move the same files over the same
-	// connection, so whatever stops one stops the other.
+	// One gate: push and pull move the same files over the same connection, so
+	// whatever stops one stops the other, and they now share a button.
 	const blockedReason = ( () => {
 		if ( agenticReason === 'offline' ) {
 			return __( 'Go online to sync this site.' );
 		}
 		if ( ! agenticEnabled ) {
 			return __( 'Unavailable right now.' );
-		}
-		if ( isSyncing ) {
-			return __( 'Another sync is already running.' );
 		}
 		if ( ! siteRunning ) {
 			return __( 'Start the site to sync it.' );
@@ -160,33 +157,36 @@ export function deriveToolbarState( {
 		newestTimestamp( connections, ( site ) => site.lastPullTimestamp )
 	);
 
-	const build = ( id: 'push' | 'pull' ): ToolbarAction => {
-		const running = activity?.kind === 'pending' && activity.direction === id;
-		const lastRun = id === 'push' ? lastPush : lastPull;
-		const history = lastRun
-			? sprintf(
-					// translators: %s: compact relative time, e.g. "6d".
-					id === 'push' ? __( 'Pushed %s ago' ) : __( 'Pulled %s ago' ),
-					lastRun
-			  )
-			: id === 'push'
-			? __( 'Never pushed' )
-			: __( 'Never pulled' );
+	// The button reports the site's freshest sync in either direction: which way
+	// it went last is more useful than two separate never-ran states.
+	const history = ( () => {
+		if ( lastPush ) {
+			// translators: %s: compact relative time, e.g. "6d".
+			return sprintf( __( 'Pushed %s ago' ), lastPush );
+		}
+		if ( lastPull ) {
+			// translators: %s: compact relative time, e.g. "6d".
+			return sprintf( __( 'Pulled %s ago' ), lastPull );
+		}
+		return __( 'Never synced' );
+	} )();
 
-		return {
-			id,
-			label: id === 'push' ? __( 'Push' ) : __( 'Pull' ),
-			// Pull stays quiet: it overwrites local work, so it shouldn't be the
-			// button the eye lands on first.
-			variant: id === 'push' ? 'solid' : 'outline',
-			tone: id === 'push' ? 'brand' : 'neutral',
-			busy: running,
-			// A running action isn't blocked by its own run.
-			disabled: ! running && blockedReason !== undefined,
-			...( running && activity.progress !== undefined ? { progress: activity.progress } : {} ),
-			hint: ! running && blockedReason ? blockedReason : history,
-		};
+	const running = activity?.kind === 'pending' && activity.direction !== 'preview';
+
+	return {
+		actions: [
+			{
+				id: 'sync',
+				label: __( 'Sync' ),
+				variant: 'solid',
+				tone: 'brand',
+				busy: running,
+				disabled: ! running && ( blockedReason !== undefined || isSyncing ),
+				...( running && activity.progress !== undefined ? { progress: activity.progress } : {} ),
+				hint: running
+					? undefined
+					: blockedReason ?? ( isSyncing ? __( 'Another sync is already running.' ) : history ),
+			},
+		],
 	};
-
-	return { actions: [ build( 'pull' ), build( 'push' ) ] };
 }

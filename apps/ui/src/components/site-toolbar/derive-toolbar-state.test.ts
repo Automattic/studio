@@ -57,14 +57,18 @@ describe( 'deriveToolbarState', () => {
 			} );
 		} );
 
-		it( '02 · offers both directions at once on a connected site', () => {
+		it( '02 · offers one Sync action on a connected site', () => {
 			const state = derive( { connections: [ liveSite() ] } );
 
-			// Pull first and quiet, Push second and primary: pull overwrites
-			// local work, so it shouldn't be where the eye lands.
-			expect( state.actions.map( ( candidate ) => candidate.id ) ).toEqual( [ 'pull', 'push' ] );
-			expect( state.actions[ 0 ] ).toMatchObject( { variant: 'outline', tone: 'neutral' } );
-			expect( state.actions[ 1 ] ).toMatchObject( { variant: 'solid', tone: 'brand' } );
+			// Direction is chosen in the dialog, not in the header, so there is
+			// nothing here that can point the wrong way.
+			expect( state.actions ).toHaveLength( 1 );
+			expect( state.actions[ 0 ] ).toMatchObject( {
+				id: 'sync',
+				label: 'Sync',
+				variant: 'solid',
+				tone: 'brand',
+			} );
 		} );
 
 		it( '03 · falls back to a single log-in button without an account', () => {
@@ -76,17 +80,24 @@ describe( 'deriveToolbarState', () => {
 	} );
 
 	describe( 'what each button says about itself', () => {
-		it( '04 · tells each direction when it last ran', () => {
+		it( '04 · reports the last push in its tooltip', () => {
 			vi.useFakeTimers();
 			vi.setSystemTime( NOW );
 			const state = derive( {
-				connections: [
-					liveSite( { lastPushTimestamp: SIX_DAYS_AGO, lastPullTimestamp: TWO_HOURS_AGO } ),
-				],
+				connections: [ liveSite( { lastPushTimestamp: SIX_DAYS_AGO } ) ],
 			} );
 
-			expect( action( state, 'push' ) ).toMatchObject( { hint: 'Pushed 6d ago' } );
-			expect( action( state, 'pull' ) ).toMatchObject( { hint: 'Pulled 2h ago' } );
+			expect( action( state, 'sync' ) ).toMatchObject( { hint: 'Pushed 6d ago' } );
+		} );
+
+		it( '04b · falls back to the last pull when nothing has been pushed', () => {
+			vi.useFakeTimers();
+			vi.setSystemTime( NOW );
+			const state = derive( {
+				connections: [ liveSite( { lastPullTimestamp: TWO_HOURS_AGO } ) ],
+			} );
+
+			expect( action( state, 'sync' ) ).toMatchObject( { hint: 'Pulled 2h ago' } );
 		} );
 
 		it( '05 · reads the freshest time across every connection', () => {
@@ -99,14 +110,13 @@ describe( 'deriveToolbarState', () => {
 				],
 			} );
 
-			expect( action( state, 'push' ) ).toMatchObject( { hint: 'Pushed 2h ago' } );
+			expect( action( state, 'sync' ) ).toMatchObject( { hint: 'Pushed 2h ago' } );
 		} );
 
-		it( '06 · says so plainly when a direction has never run', () => {
+		it( '06 · says so plainly when a site has never synced', () => {
 			const state = derive( { connections: [ liveSite() ] } );
 
-			expect( action( state, 'push' ) ).toMatchObject( { hint: 'Never pushed' } );
-			expect( action( state, 'pull' ) ).toMatchObject( { hint: 'Never pulled' } );
+			expect( action( state, 'sync' ) ).toMatchObject( { hint: 'Never synced' } );
 		} );
 
 		it( '07 · replaces the history with the reason it cannot run', () => {
@@ -127,7 +137,7 @@ describe( 'deriveToolbarState', () => {
 				connections: [ liveSite() ],
 			} );
 
-			expect( action( state, 'push' ) ).toMatchObject( {
+			expect( action( state, 'sync' ) ).toMatchObject( {
 				disabled: true,
 				hint: 'Go online to sync this site.',
 			} );
@@ -148,16 +158,11 @@ describe( 'deriveToolbarState', () => {
 				isSyncing: true,
 			} );
 
-			expect( action( state, 'push' ) ).toMatchObject( {
+			expect( action( state, 'sync' ) ).toMatchObject( {
 				busy: true,
 				progress: 62,
 				// Its own run doesn't block it.
 				disabled: false,
-			} );
-			// The other direction can't start while this one holds the runtime.
-			expect( action( state, 'pull' ) ).toMatchObject( {
-				disabled: true,
-				hint: 'Another sync is already running.',
 			} );
 		} );
 
@@ -168,8 +173,8 @@ describe( 'deriveToolbarState', () => {
 				isSyncing: true,
 			} );
 
-			expect( action( state, 'push' ) ).toMatchObject( { busy: true } );
-			expect( action( state, 'push' )?.progress ).toBeUndefined();
+			expect( action( state, 'sync' ) ).toMatchObject( { busy: true } );
+			expect( action( state, 'sync' )?.progress ).toBeUndefined();
 		} );
 
 		it( '12 · spins neither button for work that is not theirs', () => {
@@ -184,7 +189,7 @@ describe( 'deriveToolbarState', () => {
 			}
 		} );
 
-		it( '13 · leaves a failed direction pressable again, and says nothing about it', () => {
+		it( '13 · leaves a failed sync pressable again, and says nothing about it', () => {
 			const state = derive( {
 				connections: [ liveSite( { lastPushTimestamp: TWO_HOURS_AGO } ) ],
 				activity: { kind: 'error', direction: 'push', message: 'Backup timed out' },
@@ -192,8 +197,8 @@ describe( 'deriveToolbarState', () => {
 
 			// Failures are announced as toasts; the button just goes back to
 			// offering the same move.
-			expect( action( state, 'push' ) ).toMatchObject( {
-				label: 'Push',
+			expect( action( state, 'sync' ) ).toMatchObject( {
+				label: 'Sync',
 				busy: false,
 				disabled: false,
 			} );

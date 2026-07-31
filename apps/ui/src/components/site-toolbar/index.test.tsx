@@ -147,13 +147,11 @@ describe( 'SiteToolbar', () => {
 		expect( screen.queryByText( 'No live site' ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'offers both push and pull once a live site is connected', () => {
+	it( 'offers a single Sync action once a live site is connected', () => {
 		vi.mocked( useConnectedWpcomSites ).mockReturnValue( { data: [ liveSite() ] } as never );
 		renderToolbar();
 
-		// Icon-only, so the accessible name is all there is to go on.
-		expect( screen.getByRole( 'button', { name: 'Pull' } ) ).toBeVisible();
-		expect( screen.getByRole( 'button', { name: 'Push' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Sync' } ) ).toBeVisible();
 	} );
 
 	it( 'keeps the action in place while a push is uploading, and fills it', () => {
@@ -166,9 +164,9 @@ describe( 'SiteToolbar', () => {
 		} );
 		renderToolbar();
 
-		const push = screen.getByRole( 'button', { name: 'Push' } );
-		expect( push ).toBeVisible();
-		expect( push.querySelector( '[style*="62%"]' ) ).not.toBeNull();
+		const sync = screen.getByRole( 'button', { name: 'Sync' } );
+		expect( sync ).toBeVisible();
+		expect( sync.querySelector( '[style*="62%"]' ) ).not.toBeNull();
 	} );
 
 	describe( 'with both a production and a staging connection', () => {
@@ -187,27 +185,32 @@ describe( 'SiteToolbar', () => {
 			} as never );
 		} );
 
-		it( 'shows both directions rather than a mode to set', () => {
+		it( 'lists both connections inside the sync dialog', async () => {
+			const user = userEvent.setup();
 			renderToolbar();
 
-			expect( screen.getByRole( 'button', { name: 'Pull' } ) ).toBeVisible();
-			expect( screen.getByRole( 'button', { name: 'Push' } ) ).toBeVisible();
+			await user.click( screen.getByRole( 'button', { name: 'Sync' } ) );
+
+			expect( await screen.findByRole( 'radio', { name: /Production/ } ) ).toBeInTheDocument();
+			expect( screen.getByRole( 'radio', { name: /Staging/ } ) ).toBeInTheDocument();
 		} );
 	} );
 
-	it( 'pulls straight away when there is only one connection to pull from', async () => {
+	it( 'runs the direction chosen in the sync dialog', async () => {
 		const pull = vi.fn();
 		vi.mocked( usePullSiteFromLive ).mockReturnValue( { mutate: pull } as never );
 		vi.mocked( useConnectedWpcomSites ).mockReturnValue( { data: [ liveSite() ] } as never );
 		const user = userEvent.setup();
 		renderToolbar();
 
+		await user.click( screen.getByRole( 'button', { name: 'Sync' } ) );
+		await user.click( await screen.findByRole( 'button', { name: /Pull/ } ) );
 		await user.click( screen.getByRole( 'button', { name: 'Pull' } ) );
 
 		expect( pull ).toHaveBeenCalledWith( { siteId: 'riff', remoteSiteId: 42 } );
 	} );
 
-	it( 'leaves a failed push pressable again, and says nothing in the header', () => {
+	it( 'leaves a failed sync pressable again, and says nothing in the header', () => {
 		vi.mocked( useConnectedWpcomSites ).mockReturnValue( { data: [ liveSite() ] } as never );
 		vi.mocked( useSiteSyncActivity ).mockReturnValue( {
 			kind: 'error',
@@ -217,7 +220,7 @@ describe( 'SiteToolbar', () => {
 		renderToolbar();
 
 		// The failure is a toast; the header just offers the move again.
-		expect( screen.getByRole( 'button', { name: 'Push' } ) ).toBeEnabled();
+		expect( screen.getByRole( 'button', { name: 'Sync' } ) ).toBeEnabled();
 		expect( screen.queryByText( 'Push failed' ) ).not.toBeInTheDocument();
 	} );
 } );

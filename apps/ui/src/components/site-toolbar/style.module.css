@@ -5,8 +5,10 @@
 	gap: var(--wpds-dimension-gap-md);
 	padding-inline: var(--wpds-dimension-padding-lg);
 	/* Fills whatever header row hosts it, so the action stays pinned to the
-	   panel's right edge. */
+	   panel's right edge, and takes the row's full height so the actions have a
+	   top to align to. */
 	flex: 1;
+	align-self: stretch;
 	min-width: 0;
 	/* The window drags by the toolbar's empty space; its controls opt back out
 	   below so clicks reach them. */
@@ -107,8 +109,7 @@
 
 /* The icon SVGs carry no fill of their own, so they paint black in both colour
    schemes unless told to follow the text. */
-.siteUrlIcon,
-.action svg {
+.siteUrlIcon {
 	fill: currentColor;
 }
 
@@ -121,6 +122,12 @@
 	align-items: center;
 	gap: var(--wpds-dimension-gap-xs);
 	flex: 0 0 auto;
+	/* Pinned to the top of the header rather than centred against the site's
+	   two-line identity block, and inset to line up with the preview pane's
+	   toolbar buttons. Both panels start at the split frame's top edge; the
+	   preview header pads 4px and then centres its controls in a 32px row. */
+	align-self: flex-start;
+	padding-block-start: var(--wpds-dimension-padding-md);
 	-webkit-app-region: no-drag;
 }
 
@@ -138,19 +145,11 @@
 	position: relative;
 	/* A stable floor so the label can change without the toolbar reflowing
 	   around it. */
-	min-width: 84px;
+	min-width: 64px;
 	justify-content: center;
 	/* Keeps the progress fill inside the button's rounded edge. */
 	overflow: hidden;
 	transition: min-width 200ms ease;
-}
-
-/* Push and pull are square: an arrow out, an arrow in. */
-.actionIcon.actionIcon {
-	--wp-ui-button-aspect-ratio: 1;
-	--wp-ui-button-min-width: unset;
-	--wp-ui-button-padding-inline: 0;
-	min-width: 0;
 }
 
 /* Fills from the leading edge as the sync advances. Drawn from the button's

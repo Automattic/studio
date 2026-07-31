@@ -1,4 +1,3 @@
-import { arrowDown, arrowUp, Icon } from '@wordpress/icons';
 import { Button, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { forwardRef } from 'react';
@@ -10,12 +9,9 @@ type Props = Omit< ComponentProps< typeof Button >, 'children' > & {
 	action: ToolbarAction;
 };
 
-const ICONS = { push: arrowUp, pull: arrowDown };
-
 /**
- * One of the toolbar's actions. Push and pull are icon-only — an arrow out and
- * an arrow in — because the toolbar states what it can do, not what it did;
- * the tooltip carries the name and the last run, and results arrive as toasts.
+ * One of the toolbar's actions. The label says what the button does; its
+ * tooltip says when it last did it, and results arrive as toasts.
  *
  * While work runs, the button fills from the leading edge with whatever
  * progress the sync actually reports. Phases that can't report leave it flat
@@ -29,17 +25,14 @@ export const ActionButton = forwardRef< ElementRef< typeof Button >, Props >( fu
 	{ action, className, onClick, ...props },
 	ref
 ) {
-	const icon = action.id === 'push' || action.id === 'pull' ? ICONS[ action.id ] : undefined;
-
 	const button = (
 		<Button
 			ref={ ref }
 			variant={ action.variant }
 			tone={ action.tone }
-			size="compact"
-			className={ clsx( styles.action, icon && styles.actionIcon, className ) }
+			size="small"
+			className={ clsx( styles.action, className ) }
 			data-action={ action.id }
-			aria-label={ icon ? action.label : undefined }
 			loading={ action.busy }
 			loadingAnnouncement={ action.label }
 			disabled={ action.disabled }
@@ -59,15 +52,11 @@ export const ActionButton = forwardRef< ElementRef< typeof Button >, Props >( fu
 					aria-hidden="true"
 				/>
 			) }
-			{ icon ? (
-				<Icon icon={ icon } size={ 20 } aria-hidden="true" />
-			) : (
-				// Keyed on the action so a lifecycle change animates the swap
-				// rather than silently relabelling the button in place.
-				<span key={ action.id } className={ styles.actionLabel }>
-					{ action.label }
-				</span>
-			) }
+			{ /* Keyed on the action so a lifecycle change animates the swap
+				  rather than silently relabelling the button in place. */ }
+			<span key={ action.id } className={ styles.actionLabel }>
+				{ action.label }
+			</span>
 		</Button>
 	);
 

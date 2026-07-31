@@ -7,6 +7,7 @@ import { useConnector } from '@/data/core';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { WP_VERSION_QUERY_KEY } from '@/data/queries/use-wordpress-versions';
 import type { CreateSiteParams, SiteDetails } from '@/data/core';
+import type { QueryClient } from '@tanstack/react-query';
 
 export const SITES_QUERY_KEY = [ 'sites' ] as const;
 
@@ -96,11 +97,24 @@ export function useStartSite() {
 	const queryClient = useQueryClient();
 	return useMutation( {
 		mutationKey: START_SITE_MUTATION_KEY,
-		mutationFn: async ( id: string ) => {
+		// Returns false when the start was skipped, so the caller's toast (and
+		// anything else keyed off success) doesn't claim a site came up.
+		mutationFn: async ( id: string ): Promise< boolean > => {
+			// Racing an in-flight stop leaves the site down — the stop lands
+			// last — while the UI believes it started. Every "not running, so
+			// start it" caller then tries again, which loops.
+			if ( isSiteMutating( queryClient, STOP_SITE_MUTATION_KEY, id ) ) {
+				return false;
+			}
 			await connector.startSite( id );
 			await queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
+			return true;
 		},
-		onSuccess: () => toast.success( __( 'Site started' ) ),
+		onSuccess: ( started ) => {
+			if ( started ) {
+				toast.success( __( 'Site started' ) );
+			}
+		},
 		onError: () => toast.error( __( 'Failed to start site' ) ),
 	} );
 }
@@ -206,6 +220,21 @@ function useIsSiteMutating( siteId: string | undefined, mutationKey: readonly st
 		predicate: ( mutation ) => mutation.state.variables === siteId,
 	} );
 	return count > 0;
+}
+
+// Imperative twin of `useIsSiteMutating`, for reading the same state from
+// inside a `mutationFn` where hooks aren't available.
+function isSiteMutating(
+	queryClient: QueryClient,
+	mutationKey: readonly string[],
+	siteId: string
+): boolean {
+	return (
+		queryClient.isMutating( {
+			mutationKey,
+			predicate: ( mutation ) => mutation.state.variables === siteId,
+		} ) > 0
+	);
 }
 
 export function useIsSiteStarting( siteId: string | undefined ): boolean {

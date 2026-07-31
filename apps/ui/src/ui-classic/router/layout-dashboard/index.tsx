@@ -31,6 +31,11 @@ function getRouteOverviewSiteId( pathname: string ): string | undefined {
 	return match ? decodeURIComponent( match[ 1 ] ) : undefined;
 }
 
+function getRouteTerminalSiteId( pathname: string ): string | undefined {
+	const match = /^\/sites\/([^/]+)\/terminal\/?$/.exec( pathname );
+	return match ? decodeURIComponent( match[ 1 ] ) : undefined;
+}
+
 function getNewSessionSiteId( pathname: string ): string | undefined {
 	const match = /^\/sites\/([^/]+)\/new\/?$/.exec( pathname );
 	return match ? decodeURIComponent( match[ 1 ] ) : undefined;
@@ -54,9 +59,10 @@ function DashboardLayoutContent() {
 			sessionId: getRouteSessionId( state.location.pathname ),
 			overviewSiteId: getRouteOverviewSiteId( state.location.pathname ),
 			newSessionSiteId: getNewSessionSiteId( state.location.pathname ),
+			terminalSiteId: getRouteTerminalSiteId( state.location.pathname ),
 		} ),
 	} );
-	const { sessionId, overviewSiteId, newSessionSiteId } = routePreviewContext;
+	const { sessionId, overviewSiteId, newSessionSiteId, terminalSiteId } = routePreviewContext;
 	const { data: sites } = useSites();
 	const { data: sessionData } = useSession( sessionId );
 	const preview = useSessionPreviewUI();
@@ -72,9 +78,13 @@ function DashboardLayoutContent() {
 	const newSessionSite = newSessionSiteId
 		? sites?.find( ( site ) => site.id === newSessionSiteId )
 		: undefined;
+	const terminalSite = terminalSiteId
+		? sites?.find( ( site ) => site.id === terminalSiteId )
+		: undefined;
 	const routeSite =
 		overviewSite ??
 		newSessionSite ??
+		terminalSite ??
 		( effectiveEnvironment === 'local' ? sessionSite : undefined );
 	// While session or site data is still loading, preview-capable routes stay
 	// preview-capable so navigation doesn't close and reopen the panel around
@@ -82,6 +92,7 @@ function DashboardLayoutContent() {
 	const supportsPreview =
 		overviewSiteId !== undefined ||
 		newSessionSiteId !== undefined ||
+		terminalSiteId !== undefined ||
 		( sessionId !== undefined && ( sessionData === undefined || !! routeSite ) );
 	// Remember the last previewed site by id (looked up fresh each render so
 	// `running` and friends don't go stale) to keep its webview warm across

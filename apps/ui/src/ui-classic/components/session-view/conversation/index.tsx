@@ -13,6 +13,7 @@ import {
 	type StudioChatAttachmentSummary,
 	type StudioCustomEntry,
 } from '@studio/common/ai/sessions/entry-types';
+import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
 import {
 	getInputString,
 	getToolDetail,
@@ -25,6 +26,7 @@ import {
 	formatAiBlockedNotice,
 	formatUsageCapNotice,
 } from '@studio/common/lib/studio-assistant-quota';
+import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import {
 	blockDefault,
@@ -67,7 +69,7 @@ import {
 	update,
 	upload,
 } from '@wordpress/icons';
-import { Icon } from '@wordpress/ui';
+import { Button, Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { CopyButton } from '@/components/copy-button';
@@ -75,6 +77,7 @@ import { Markdown } from '@/components/markdown';
 import { useConnector, type LoadedAiSession } from '@/data/core';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useLocalMediaDataUrl } from '@/data/queries/use-local-media';
+import { useSites } from '@/data/queries/use-sites';
 import { refreshIcon } from '@/lib/icons';
 import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
@@ -1183,9 +1186,16 @@ function AgentQuestionBatch( {
 // In-flow marker for a turn that ended in an error. The monthly usage cap
 // gets dedicated copy — with the reset date once the quota query resolves —
 // instead of the raw provider message.
-function TurnErrorMarker( { message }: { message: string } ) {
+function TurnErrorMarker( {
+	message,
+	terminalSiteId,
+}: {
+	message: string;
+	terminalSiteId?: string;
+} ) {
 	const isUsageCap = isUsageCapError( message );
 	const { data: quota } = useStudioAssistantQuota( { enabled: isUsageCap } );
+	const navigate = useNavigate();
 	let text: string;
 	if ( isAiBlockedError( message ) ) {
 		text = formatAiBlockedNotice();
@@ -1194,9 +1204,33 @@ function TurnErrorMarker( { message }: { message: string } ) {
 	} else {
 		text = message || __( 'Something went wrong and this turn was stopped. Please try again.' );
 	}
+	// When the WPcom assistant is capped, disabled, or wants a login, offer the
+	// Claude Code terminal — it runs on the user's own Claude subscription.
+	// The login-required match keys on the English CLI error; localized CLIs
+	// fall back to the plain error text without the shortcut.
+	const isLoginRequired = /login required|use \/login/i.test( message );
+	const offerTerminal =
+		terminalSiteId && ( isUsageCap || isAiBlockedError( message ) || isLoginRequired );
 	return (
 		<div className={ styles.errorMarker } role="alert">
 			{ text }
+			{ offerTerminal ? (
+				<div className={ styles.errorMarkerAction }>
+					<Button
+						type="button"
+						variant="outline"
+						size="small"
+						onClick={ () =>
+							void navigate( {
+								to: '/sites/$siteId/terminal',
+								params: { siteId: terminalSiteId },
+							} )
+						}
+					>
+						{ __( 'Continue in the Claude Code terminal' ) }
+					</Button>
+				</div>
+			) : null }
 		</div>
 	);
 }
@@ -1218,6 +1252,8 @@ export function Conversation( {
 } ) {
 	const entries = data.entries;
 	const canReadLocalMedia = useConnector().capabilities.readLocalMedia;
+	const { data: sites } = useSites();
+	const ownerSite = findAiSessionOwnerSite( sites, data.summary );
 	const items = useMemo(
 		() => entriesToRenderItems( entries, { canReadLocalMedia } ),
 		[ entries, canReadLocalMedia ]
@@ -1299,7 +1335,13 @@ export function Conversation( {
 							</div>
 						);
 					case 'error-marker':
-						return <TurnErrorMarker key={ item.key } message={ item.message } />;
+						return (
+							<TurnErrorMarker
+								key={ item.key }
+								message={ item.message }
+								terminalSiteId={ ownerSite?.id }
+							/>
+						);
 					default:
 						return null;
 				}

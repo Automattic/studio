@@ -1,0 +1,22 @@
+.terminal {
+	height: 100%;
+	width: 100%;
+	padding: var( --wpds-dimension-padding-md );
+	box-sizing: border-box;
+	background: var( --wpds-color-bg-surface-neutral );
+}
+
+.terminal :global( .xterm ),
+.terminal :global( .xterm-viewport ),
+.terminal :global( .xterm-screen ) {
+	height: 100%;
+	width: 100%;
+}
+
+.error {
+	padding: var( --wpds-dimension-padding-lg );
+	color: var( --wpds-color-fg-content-error );
+	font-size: 13px;
+	line-height: 1.5;
+	max-width: 60ch;
+}

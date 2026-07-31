@@ -1,5 +1,6 @@
 import {
 	AI_PROVIDER_PRIORITY,
+	AI_PROVIDERS,
 	DEFAULT_AI_PROVIDER,
 	getAiProviderDefinition,
 	hasInlineWpcomAuth,
@@ -55,7 +56,14 @@ export async function resolveInitialAiProvider(): Promise< AiProviderId > {
 		return 'wpcom';
 	}
 
-	const { aiProvider: savedProvider } = await readCliConfig();
+	// The config schema accepts provider ids from other Studio builds (e.g.
+	// `claude-code` from the ACP experiment) so a shared cli.json never breaks
+	// parsing; ids this build doesn't implement are ignored here.
+	const { aiProvider: savedConfigProvider } = await readCliConfig();
+	const savedProvider =
+		savedConfigProvider && savedConfigProvider in AI_PROVIDERS
+			? ( savedConfigProvider as AiProviderId )
+			: undefined;
 	if ( savedProvider ) {
 		const definition = getAiProviderDefinition( savedProvider );
 		if (

@@ -7,7 +7,7 @@ import { useLogin } from '@/data/queries/use-auth-user';
 import styles from './style.module.css';
 import type { AgenticFeatureReason } from '@/data/queries/use-agentic-features';
 
-export function AgenticSigninBanner() {
+export function AgenticSigninBanner( { terminalSiteId }: { terminalSiteId?: string } = {} ) {
 	const { enabled, reason } = useAgenticFeatures();
 	const navigate = useNavigate();
 
@@ -27,13 +27,14 @@ export function AgenticSigninBanner() {
 		return null;
 	}
 
-	return <SigninNotice />;
+	return <SigninNotice terminalSiteId={ terminalSiteId } />;
 }
 
 // The banner without the route-aware behaviour, for surfaces that must stay
 // put once the user signs in (e.g. Settings).
-export function SigninNotice() {
+export function SigninNotice( { terminalSiteId }: { terminalSiteId?: string } = {} ) {
 	const login = useLogin();
+	const navigate = useNavigate();
 
 	return (
 		<section className={ styles.root } aria-label={ __( 'Sign in to Studio' ) }>
@@ -55,6 +56,20 @@ export function SigninNotice() {
 				>
 					{ __( 'Log in with WordPress.com' ) }
 				</Button>
+				{ terminalSiteId ? (
+					<Button
+						type="button"
+						variant="outline"
+						onClick={ () =>
+							void navigate( {
+								to: '/sites/$siteId/terminal',
+								params: { siteId: terminalSiteId },
+							} )
+						}
+					>
+						{ __( 'Use Claude Code terminal instead' ) }
+					</Button>
+				) : null }
 			</div>
 		</section>
 	);

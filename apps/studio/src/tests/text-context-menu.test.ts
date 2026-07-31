@@ -1,9 +1,11 @@
 /**
  * @vitest-environment node
  */
+import { BrowserWindow, clipboard, Menu, type IpcMainInvokeEvent } from 'electron';
 import { vi } from 'vitest';
 import {
 	buildTextContextMenuTemplate,
+	showTextContextMenu,
 	type TextContextMenuContext,
 	type TextContextMenuEnvironment,
 } from 'src/text-context-menu';
@@ -24,7 +26,7 @@ function makeEnvironment(
 	return { platform: 'darwin', canPaste: false, ...overrides };
 }
 
-const actions = { lookUpSelection: vi.fn(), copyMessage: vi.fn() };
+const actions = { lookUpSelection: vi.fn(), copyMessage: vi.fn(), quoteSelection: vi.fn() };
 
 function labelsOf( template: ReturnType< typeof buildTextContextMenuTemplate > ) {
 	return template.map( ( item ) => item.role ?? item.label ?? item.type );
@@ -43,6 +45,8 @@ describe( 'buildTextContextMenuTemplate', () => {
 			'separator',
 			'copy',
 			'Copy All',
+			'separator',
+			'Quote in composer',
 		] );
 	} );
 
@@ -54,7 +58,12 @@ describe( 'buildTextContextMenuTemplate', () => {
 				makeEnvironment( { platform } )
 			);
 
-			expect( labelsOf( template ) ).toEqual( [ 'copy', 'Copy All' ] );
+			expect( labelsOf( template ) ).toEqual( [
+				'copy',
+				'Copy All',
+				'separator',
+				'Quote in composer',
+			] );
 		}
 	} );
 
@@ -83,6 +92,31 @@ describe( 'buildTextContextMenuTemplate', () => {
 		( copyAll?.click as () => void )();
 
 		expect( copyMessage ).toHaveBeenCalledWith( 'Dark mode and core coexist.' );
+	} );
+
+	it( 'offers a translated label for role-based clipboard actions', () => {
+		const template = buildTextContextMenuTemplate(
+			makeContext( { selectionText: 'coexist', isEditable: true } ),
+			actions,
+			makeEnvironment( { platform: 'linux', canPaste: true } )
+		);
+
+		expect( template.find( ( item ) => item.role === 'copy' )?.label ).toBe( 'Copy' );
+		expect( template.find( ( item ) => item.role === 'paste' )?.label ).toBe( 'Paste' );
+	} );
+
+	it( 'offers quoting for a read-only selection and runs its action', () => {
+		const quoteSelection = vi.fn();
+		const template = buildTextContextMenuTemplate(
+			makeContext( { selectionText: 'coexist' } ),
+			{ ...actions, quoteSelection },
+			makeEnvironment( { platform: 'linux' } )
+		);
+		const quote = template.find( ( item ) => item.label === 'Quote in composer' );
+
+		( quote?.click as () => void )();
+
+		expect( quoteSelection ).toHaveBeenCalledOnce();
 	} );
 
 	it( 'collapses and truncates a long selection in the Look Up label', () => {
@@ -136,14 +170,20 @@ describe( 'buildTextContextMenuTemplate', () => {
 			makeEnvironment()
 		);
 
-		expect( labelsOf( template ) ).toEqual( [ 'Look Up “coexist”', 'separator', 'copy' ] );
+		expect( labelsOf( template ) ).toEqual( [
+			'Look Up “coexist”',
+			'separator',
+			'copy',
+			'separator',
+			'Quote in composer',
+		] );
 		expect( template[ 0 ].type ).not.toBe( 'separator' );
 		expect( template.at( -1 )?.type ).not.toBe( 'separator' );
 	} );
 
 	it( 'drops the divider when only the clipboard section applies', () => {
 		const template = buildTextContextMenuTemplate(
-			makeContext( { selectionText: 'coexist' } ),
+			makeContext( { selectionText: 'coexist', isEditable: true } ),
 			actions,
 			makeEnvironment( { platform: 'win32' } )
 		);
@@ -159,5 +199,32 @@ describe( 'buildTextContextMenuTemplate', () => {
 		);
 
 		expect( template ).toEqual( [] );
+	} );
+} );
+
+describe( 'showTextContextMenu', () => {
+	it( 'returns the selected text when Quote in composer is chosen', async () => {
+		const popup = vi.fn();
+		vi.mocked( BrowserWindow.fromWebContents ).mockReturnValue( null );
+		vi.mocked( clipboard.readText ).mockReturnValue( '' );
+		vi.mocked( Menu.buildFromTemplate ).mockReturnValue( { popup } as unknown as Menu );
+		const event = {
+			sender: { showDefinitionForSelection: vi.fn() },
+		} as unknown as IpcMainInvokeEvent;
+
+		const resultPromise = showTextContextMenu(
+			event,
+			makeContext( { selectionText: 'Selected reply' } )
+		);
+		const template = vi.mocked( Menu.buildFromTemplate ).mock.calls[ 0 ][ 0 ];
+		const quote = template.find( ( item ) => item.label === 'Quote in composer' );
+		( quote?.click as () => void )();
+		const popupOptions = popup.mock.calls[ 0 ][ 0 ];
+		popupOptions.callback();
+
+		await expect( resultPromise ).resolves.toEqual( {
+			action: 'quote-selection',
+			selectionText: 'Selected reply',
+		} );
 	} );
 } );

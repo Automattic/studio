@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useConnector } from '@/data/core';
+import { emitComposerTextQuote } from '@/lib/composer-text-quote';
 
 // Elements carrying a message's full text opt in with this attribute, so a
 // right-click anywhere inside one can offer to copy the whole thing.
@@ -11,6 +12,13 @@ const EDITABLE_SELECTOR = 'input, textarea, [contenteditable]:not([contenteditab
 // behind elsewhere in the app must not put Copy on an unrelated right-click,
 // where choosing it would copy something the user can't even see.
 function getSelectionTextAt( target: Element ): string {
+	const editable = target.closest( EDITABLE_SELECTOR );
+	if ( editable instanceof HTMLInputElement || editable instanceof HTMLTextAreaElement ) {
+		const start = editable.selectionStart;
+		const end = editable.selectionEnd;
+		return start === null || end === null ? '' : editable.value.slice( start, end );
+	}
+
 	const selection = window.getSelection();
 	if ( ! selection || selection.isCollapsed || selection.rangeCount === 0 ) {
 		return '';
@@ -57,7 +65,11 @@ export function useTextContextMenu(): void {
 			// Nothing else would handle it, but claiming the event keeps a host
 			// menu from ever stacking on top of ours.
 			event.preventDefault();
-			showTextContextMenu( { selectionText, isEditable, messageText } );
+			void showTextContextMenu( { selectionText, isEditable, messageText } ).then( ( result ) => {
+				if ( result?.action === 'quote-selection' ) {
+					emitComposerTextQuote( result.selectionText );
+				}
+			} );
 		};
 
 		document.addEventListener( 'contextmenu', handleContextMenu );

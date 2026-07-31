@@ -1,8 +1,9 @@
-import { fireEvent, render } from '@testing-library/react';
+import { fireEvent, render, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MESSAGE_TEXT_ATTRIBUTE, useTextContextMenu } from './use-text-context-menu';
+import { watchComposerTextQuote } from '@/lib/composer-text-quote';
 
-const showTextContextMenu = vi.fn();
+const showTextContextMenu = vi.fn().mockResolvedValue( undefined );
 
 vi.mock( '@/data/core', () => ( {
 	useConnector: () => ( { showTextContextMenu } ),
@@ -35,7 +36,7 @@ function selectWithin( selected: Node | null, text = 'whole' ) {
 describe( 'useTextContextMenu', () => {
 	beforeEach( () => {
 		vi.restoreAllMocks();
-		showTextContextMenu.mockClear();
+		showTextContextMenu.mockReset().mockResolvedValue( undefined );
 		selectWithin( null );
 	} );
 
@@ -92,5 +93,39 @@ describe( 'useTextContextMenu', () => {
 			isEditable: true,
 			messageText: undefined,
 		} );
+	} );
+
+	it( 'reports selected text inside an editable field so the host can offer Copy', () => {
+		const { getByTestId } = render( <Harness /> );
+		const field = getByTestId( 'field' ) as HTMLInputElement;
+		field.value = 'Copy this text';
+		field.setSelectionRange( 5, 9 );
+
+		fireEvent.contextMenu( field );
+
+		expect( showTextContextMenu ).toHaveBeenCalledWith( {
+			selectionText: 'this',
+			isEditable: true,
+			messageText: undefined,
+		} );
+	} );
+
+	it( 'routes a native Quote action back to the composer', async () => {
+		const quoteListener = vi.fn();
+		const stopWatching = watchComposerTextQuote( quoteListener );
+		showTextContextMenu.mockResolvedValueOnce( {
+			action: 'quote-selection',
+			selectionText: 'The selected reply.',
+		} );
+		const { getByTestId } = render( <Harness /> );
+		const toolOutput = getByTestId( 'tool-output' );
+		selectWithin( toolOutput, 'The selected reply.' );
+
+		fireEvent.contextMenu( toolOutput );
+
+		await waitFor( () =>
+			expect( quoteListener ).toHaveBeenCalledWith( 'The selected reply.' )
+		);
+		stopWatching();
 	} );
 } );

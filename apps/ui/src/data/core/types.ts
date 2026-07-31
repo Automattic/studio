@@ -405,7 +405,7 @@ export interface Connector {
 		selectionText: string;
 		isEditable: boolean;
 		messageText?: string;
-	} ): void;
+	} ): Promise< { action: 'quote-selection'; selectionText: string } | undefined >;
 
 	openSiteUrl(
 		siteId: string,

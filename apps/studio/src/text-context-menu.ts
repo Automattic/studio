@@ -31,12 +31,17 @@ export interface TextContextMenuContext {
 export interface TextContextMenuActions {
 	lookUpSelection: () => void;
 	copyMessage: ( text: string ) => void;
+	quoteSelection: () => void;
 }
 
 export interface TextContextMenuEnvironment {
 	platform: NodeJS.Platform;
 	canPaste: boolean;
 }
+
+export type TextContextMenuResult =
+	| { action: 'quote-selection'; selectionText: string }
+	| undefined;
 
 function toLookUpLabel( selection: string ): string {
 	const collapsed = selection.replace( /\s+/g, ' ' ).trim();
@@ -72,7 +77,7 @@ export function buildTextContextMenuTemplate(
 
 	const clipboardItems: MenuItemConstructorOptions[] = [];
 	if ( selection ) {
-		clipboardItems.push( { role: 'copy' } );
+		clipboardItems.push( { label: __( 'Copy' ), role: 'copy' } );
 	}
 	if ( messageText ) {
 		clipboardItems.push( {
@@ -81,10 +86,13 @@ export function buildTextContextMenuTemplate(
 		} );
 	}
 	if ( context.isEditable && environment.canPaste ) {
-		clipboardItems.push( { role: 'paste' } );
+		clipboardItems.push( { label: __( 'Paste' ), role: 'paste' } );
 	}
 	if ( clipboardItems.length > 0 ) {
 		sections.push( clipboardItems );
+	}
+	if ( selection && ! context.isEditable ) {
+		sections.push( [ { label: __( 'Quote in composer' ), click: actions.quoteSelection } ] );
 	}
 
 	return sections.flatMap( ( section, index ) =>
@@ -92,23 +100,32 @@ export function buildTextContextMenuTemplate(
 	);
 }
 
-export function showTextContextMenu(
+export async function showTextContextMenu(
 	event: IpcMainInvokeEvent,
 	context: TextContextMenuContext
-): void {
+): Promise< TextContextMenuResult > {
+	let result: TextContextMenuResult;
 	const template = buildTextContextMenuTemplate(
 		context,
 		{
 			lookUpSelection: () => event.sender.showDefinitionForSelection(),
 			copyMessage: ( text ) => clipboard.writeText( text ),
+			quoteSelection: () => {
+				result = { action: 'quote-selection', selectionText: context.selectionText.trim() };
+			},
 		},
 		{ platform: process.platform, canPaste: clipboard.readText().length > 0 }
 	);
 
 	if ( template.length === 0 ) {
-		return;
+		return undefined;
 	}
 
 	const window = BrowserWindow.fromWebContents( event.sender );
-	Menu.buildFromTemplate( template ).popup( window ? { window } : undefined );
+	return new Promise( ( resolve ) => {
+		Menu.buildFromTemplate( template ).popup( {
+			...( window ? { window } : {} ),
+			callback: () => resolve( result ),
+		} );
+	} );
 }

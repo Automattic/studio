@@ -814,8 +814,8 @@ export function createIpcConnector(): Connector {
 			await ipcApi.copyText( text );
 		},
 
-		showTextContextMenu( context ): void {
-			ipcApi.showTextContextMenu( context );
+		async showTextContextMenu( context ) {
+			return ipcApi.showTextContextMenu( context );
 		},
 
 		async confirmDeleteAllPreviewSites(): Promise< boolean > {

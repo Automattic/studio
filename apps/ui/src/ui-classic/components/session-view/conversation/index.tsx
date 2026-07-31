@@ -96,7 +96,7 @@ type RenderItem =
 			text: string;
 			attachments?: StudioChatAttachmentSummary[];
 	  }
-	| { kind: 'assistant-text'; key: string; text: string; copyText?: string }
+	| { kind: 'assistant-text'; key: string; text: string; messageText: string; copyText?: string }
 	| {
 			kind: 'tool-use';
 			key: string;
@@ -278,6 +278,7 @@ export function entriesToRenderItems(
 							kind: 'assistant-text',
 							key: `${ entryIndex }:${ blockIndex }:text`,
 							text,
+							messageText: fullMessageText,
 							copyText: block === lastTextBlock ? fullMessageText : undefined,
 						} );
 					}
@@ -439,11 +440,13 @@ function UserTurn( {
 
 function AssistantText( {
 	text,
+	messageText,
 	copyText,
 	showActions,
 	onToggleSelect,
 }: {
 	text: string;
+	messageText: string;
 	copyText?: string;
 	showActions: boolean;
 	onToggleSelect: () => void;
@@ -470,7 +473,7 @@ function AssistantText( {
 		<div
 			className={ styles.assistantTurn }
 			data-actions-open={ showActions ? 'true' : undefined }
-			{ ...{ [ MESSAGE_TEXT_ATTRIBUTE ]: copyText ?? text } }
+			{ ...{ [ MESSAGE_TEXT_ATTRIBUTE ]: messageText } }
 			onClick={ copyText ? handleClick : undefined }
 		>
 			<Markdown>{ text }</Markdown>
@@ -1266,6 +1269,7 @@ export function Conversation( {
 							<AssistantText
 								key={ item.key }
 								text={ item.text }
+								messageText={ item.messageText }
 								copyText={ item.copyText }
 								showActions={ selectedKey === item.key || item.key === latestActionableKey }
 								onToggleSelect={ () =>

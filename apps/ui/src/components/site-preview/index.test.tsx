@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { displayShortcut } from '@wordpress/keycodes';
 import { Tooltip } from '@wordpress/ui';
 import { describe, expect, it, vi } from 'vitest';
@@ -10,6 +10,11 @@ import type { ReactNode } from 'react';
 
 vi.mock( '@/data/core', () => ( {
 	useConnector: vi.fn(),
+} ) );
+
+// jsdom has no 2D canvas context, so swap the animated grid for a bare canvas.
+vi.mock( '@/components/dot-grid', () => ( {
+	DotGrid: () => <canvas data-testid="dot-grid" />,
 } ) );
 
 vi.mock( '@/hooks/use-traffic-light-space', () => ( {
@@ -114,18 +119,28 @@ describe( 'SitePreview', () => {
 		expect( refreshTooltip ).toHaveAttribute( 'data-instant', 'delay' );
 	} );
 
-	it( 'hides the browser controls when the site is not running', () => {
+	it( 'hides the browser controls and shows the stopped preview treatment when the site is not running', async () => {
+		const getSiteThumbnail = vi.fn().mockResolvedValue( 'data:image/png;base64,thumbnail' );
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
+			getSiteThumbnail,
 			capabilities: CAPABILITIES,
 		} as never );
 
-		renderPreview( <SitePreview site={ createSite() } path="/wp-admin/" reloadNonce={ 0 } /> );
+		const { container } = renderPreview(
+			<SitePreview site={ createSite() } path="/wp-admin/" reloadNonce={ 0 } />
+		);
 
 		expect( screen.queryByRole( 'button', { name: 'Refresh' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'button', { name: 'Annotate' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByText( 'WordPress' ) ).not.toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Start site' } ) ).toBeVisible();
+		expect( container.querySelector( 'canvas' ) ).toBeInTheDocument();
+		await waitFor( () => expect( getSiteThumbnail ).toHaveBeenCalledWith( 'site-1' ) );
+
+		expect(
+			await screen.findByRole( 'img', { name: 'Screenshot of Example Site' } )
+		).toHaveAttribute( 'src', 'data:image/png;base64,thumbnail' );
 	} );
 
 	it( 'keeps the Open in… control in the toolbar while the site is stopped', () => {

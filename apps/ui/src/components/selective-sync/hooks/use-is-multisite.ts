@@ -5,9 +5,7 @@ import type { SiteDetails } from '@/data/core';
 export function useIsMultisite( site: SiteDetails ) {
 	const [ isMultisite, setIsMultisite ] = useState( false );
 	const refresh = useCallback( () => {
-		void getIpcApi()
-			.getIsMultisite( site.id )
-			.then( ( value ) => setIsMultisite( value ?? false ) );
+		void getIpcApi().getIsMultisite( site.id ).then( setIsMultisite );
 	}, [ site.id ] );
 	useEffect( () => {
 		refresh();

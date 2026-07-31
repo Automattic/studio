@@ -1,9 +1,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useSiteSyncActivity } from '@/data/sync-activity';
+import { finishSyncToast } from '@/data/sync-toasts';
 import { usePullSiteFromLive } from './use-sync-site';
 import type { Connector } from '@/data/core';
 
@@ -12,8 +12,11 @@ vi.mock( '@/data/core', async ( importOriginal ) => {
 	return { ...actual, useConnector: vi.fn() };
 } );
 
-vi.mock( '@/data/app-messages', () => ( {
-	toast: { success: vi.fn(), error: vi.fn() },
+vi.mock( '@/data/sync-toasts', () => ( {
+	startSyncToast: vi.fn(),
+	updatePullToast: vi.fn(),
+	updatePushToast: vi.fn(),
+	finishSyncToast: vi.fn(),
 } ) );
 
 const useConnectorMock = vi.mocked( useConnector );
@@ -95,7 +98,9 @@ describe( 'usePullSiteFromLive', () => {
 			"Studio couldn't copy the live site. Try again. If the problem continues, check Studio Logs for details.";
 		await waitFor( () => expect( screen.getByText( message ) ).toBeVisible() );
 		expect( screen.queryByText( /Error invoking remote method/ ) ).not.toBeInTheDocument();
-		expect( toast.error ).toHaveBeenCalledWith( "Pull didn't complete", {
+		expect( finishSyncToast ).toHaveBeenCalledWith( 'site-1', {
+			intent: 'error',
+			title: "Pull didn't complete",
 			description: message,
 		} );
 	} );

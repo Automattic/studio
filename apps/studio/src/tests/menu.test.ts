@@ -2,7 +2,7 @@
  * @vitest-environment node
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { setAgenticUiEnabled } from 'src/main-window';
+import { setAgenticUiEnabled } from 'src/lib/studio-ui-mode';
 import { buildViewMenuItems } from 'src/menu';
 
 function buildTestViewMenuItems(

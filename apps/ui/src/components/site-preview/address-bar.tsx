@@ -188,6 +188,8 @@ function destinationMatchScore( destinationPath: string, currentPath: string ): 
 	let destination: URL;
 	let current: URL;
 	try {
+		// Dummy base (`.invalid` is RFC 2606-reserved): URL() needs an absolute
+		// base to parse path-only inputs; the host is never requested.
 		destination = new URL( destinationPath, 'http://preview.invalid' );
 		current = new URL( currentPath, 'http://preview.invalid' );
 	} catch {

@@ -38,26 +38,34 @@ function historyTimestamp( history: ToolbarTweaks[ 'history' ] ): string | null 
 	}
 }
 
-function buildConnections( tweaks: ToolbarTweaks ): SyncSite[] {
-	if ( tweaks.connection === 'none' ) {
-		return [];
-	}
-	const isStaging = tweaks.connection === 'staging';
+function buildConnection( tweaks: ToolbarTweaks, isStaging: boolean ): SyncSite {
 	const timestamp = historyTimestamp( tweaks.history );
 	const pulledLast = tweaks.historyDirection === 'pull';
-	return [
-		{
-			id: 123456,
-			localSiteId: 'preview',
-			name: isStaging ? 'My Site (staging)' : 'My Site',
-			url: isStaging ? 'staging-mysite.wpcomstaging.com' : 'mysite.com',
-			isStaging,
-			isPressable: false,
-			syncSupport: 'already-connected',
-			lastPushTimestamp: pulledLast ? null : timestamp,
-			lastPullTimestamp: pulledLast ? timestamp : null,
-		},
-	];
+	return {
+		id: isStaging ? 123457 : 123456,
+		localSiteId: 'preview',
+		name: isStaging ? 'My Site (staging)' : 'My Site',
+		url: isStaging ? 'staging-mysite.wpcomstaging.com' : 'mysite.com',
+		isStaging,
+		isPressable: false,
+		syncSupport: 'already-connected',
+		lastPushTimestamp: pulledLast ? null : timestamp,
+		lastPullTimestamp: pulledLast ? timestamp : null,
+	};
+}
+
+function buildConnections( tweaks: ToolbarTweaks ): SyncSite[] {
+	switch ( tweaks.connection ) {
+		case 'none':
+			return [];
+		case 'staging':
+			return [ buildConnection( tweaks, true ) ];
+		case 'both':
+			// Two connections is what makes push and pull ask which one to use.
+			return [ buildConnection( tweaks, false ), buildConnection( tweaks, true ) ];
+		default:
+			return [ buildConnection( tweaks, false ) ];
+	}
 }
 
 function buildActivity( tweaks: ToolbarTweaks ): SyncActivity | null {
@@ -186,95 +194,82 @@ export function useToolbarPreview(
 	};
 }
 
-/** One-click jumps to the states worth comparing side by side. */
+/**
+ * One-click jumps to the states worth comparing. Each one sets every knob it
+ * depends on, so scenarios can be clicked in any order without a leftover from
+ * the last one leaking through.
+ */
+const IDLE: TweakScenario = {
+	connection: 'live',
+	history: 'days',
+	historyDirection: 'push',
+	activity: 'none',
+	determinate: true,
+	isSyncing: false,
+	auth: 'ok',
+	run: 'running',
+};
+
 export const SCENARIOS: { id: string; label: string; tweaks: TweakScenario }[] = [
+	{ id: 'not-connected', label: 'Not connected', tweaks: { ...IDLE, connection: 'none' } },
+	{ id: 'never-synced', label: 'Never synced', tweaks: { ...IDLE, history: 'never' } },
+	{ id: 'synced', label: 'Synced 6d ago', tweaks: IDLE },
+	{ id: 'pulled-last', label: 'Pulled last', tweaks: { ...IDLE, historyDirection: 'pull' } },
+	{ id: 'two-connections', label: 'Two connections', tweaks: { ...IDLE, connection: 'both' } },
+	{ id: 'staging', label: 'Staging only', tweaks: { ...IDLE, connection: 'staging' } },
 	{
-		id: 'idle',
-		label: 'Pushed 6d',
-		tweaks: { connection: 'live', history: 'days', activity: 'none' },
-	},
-	{
-		id: 'first-push',
-		label: 'Never pushed',
-		tweaks: { connection: 'live', history: 'never', activity: 'none' },
-	},
-	{
-		id: 'no-live',
-		label: 'No live site',
-		tweaks: { connection: 'none', activity: 'none' },
-	},
-	{
-		id: 'staging',
-		label: 'Staging',
-		tweaks: { connection: 'staging', history: 'hours', activity: 'none' },
-	},
-	{
-		id: 'exporting',
-		label: 'Preparing',
-		tweaks: { connection: 'live', activity: 'push-exporting', isSyncing: true },
-	},
-	{
-		id: 'uploading',
-		label: 'Uploading %',
-		tweaks: { connection: 'live', activity: 'push-uploading', determinate: true, isSyncing: true },
+		id: 'pushing',
+		label: 'Pushing 62%',
+		tweaks: { ...IDLE, activity: 'push-uploading', progress: 62, isSyncing: true },
 	},
 	{
 		id: 'paused',
 		label: 'Upload paused',
-		tweaks: { connection: 'live', activity: 'push-paused', determinate: true, isSyncing: true },
+		tweaks: { ...IDLE, activity: 'push-paused', progress: 62, isSyncing: true },
 	},
 	{
-		id: 'importing',
+		id: 'applying',
 		label: 'Applying',
-		tweaks: { connection: 'live', activity: 'push-importing', isSyncing: true },
-	},
-	{
-		id: 'pushed',
-		label: 'Pushed ✓',
-		tweaks: { connection: 'live', activity: 'push-success', isSyncing: false },
-	},
-	{
-		id: 'push-failed',
-		label: 'Push failed',
-		tweaks: { connection: 'live', activity: 'push-error', isSyncing: false },
+		tweaks: { ...IDLE, activity: 'push-importing', isSyncing: true },
 	},
 	{
 		id: 'pulling',
-		label: 'Pulling',
-		tweaks: { connection: 'live', activity: 'pull-pending', determinate: true, isSyncing: true },
+		label: 'Pulling 40%',
+		tweaks: { ...IDLE, activity: 'pull-pending', progress: 40, isSyncing: true },
 	},
 	{
 		id: 'preview',
 		label: 'Publishing preview',
-		tweaks: { connection: 'live', activity: 'preview-pending', isSyncing: true },
+		tweaks: { ...IDLE, activity: 'preview-pending', isSyncing: true },
 	},
-	{
-		id: 'stopped',
-		label: 'Site stopped',
-		tweaks: { connection: 'live', activity: 'none', run: 'stopped' },
-	},
-	{
-		id: 'offline',
-		label: 'Offline',
-		tweaks: { connection: 'live', activity: 'none', auth: 'offline' },
-	},
-	{
-		id: 'signed-out',
-		label: 'Signed out',
-		tweaks: { connection: 'none', activity: 'none', auth: 'signed-out' },
-	},
+	{ id: 'push-done', label: 'Push complete', tweaks: { ...IDLE, activity: 'push-success' } },
+	{ id: 'push-failed', label: 'Push failed', tweaks: { ...IDLE, activity: 'push-error' } },
+	{ id: 'pull-failed', label: 'Pull failed', tweaks: { ...IDLE, activity: 'pull-error' } },
+	{ id: 'stopped', label: 'Site stopped', tweaks: { ...IDLE, run: 'stopped' } },
+	{ id: 'offline', label: 'Offline', tweaks: { ...IDLE, auth: 'offline' } },
+	{ id: 'signed-out', label: 'Signed out', tweaks: { ...IDLE, auth: 'signed-out' } },
 ];
 
-// The scripted runs drive the real toast store too. Without this they'd only
-// exercise half the design — the buttons fill and spin, but the place the
+// Scenarios and scripted runs drive the real toast store. Without it they'd
+// only exercise half the design — the buttons fill and spin, but the place the
 // status actually lives would stay empty.
 const SEQUENCE_SITE_ID = 'tweaks-preview';
 
+/** Drops a pinned running toast when a run is cut short. */
+export function clearSequenceToast(): void {
+	dismissToast( SEQUENCE_SITE_ID );
+}
+
 /** Fires whatever toast the panel's current state would produce for real. */
-export function emitSequenceToast( tweaks: ToolbarTweaks ): void {
+export function emitTweaksToast( tweaks: ToolbarTweaks ): void {
 	const progress = tweaks.determinate ? tweaks.progress : undefined;
 
 	switch ( tweaks.activity ) {
+		case 'none':
+			// Idle has nothing to announce, and a pinned running toast from an
+			// earlier scenario would otherwise sit there forever.
+			clearSequenceToast();
+			return;
 		case 'push-exporting':
 		case 'push-uploading':
 		case 'push-paused':
@@ -328,11 +323,6 @@ export function emitSequenceToast( tweaks: ToolbarTweaks ): void {
 	}
 }
 
-/** Drops a pinned running toast when a run is cut short. */
-export function clearSequenceToast(): void {
-	dismissToast( SEQUENCE_SITE_ID );
-}
-
 export type SyncSequence = { at: number; tweaks: TweakScenario }[];
 
 /**
@@ -362,17 +352,7 @@ export const PUSH_SEQUENCE: SyncSequence = [
  * with a message and a percentage — so this is one long determinate run.
  */
 export const PULL_SEQUENCE: SyncSequence = [
-	{
-		at: 0,
-		tweaks: {
-			connection: 'live',
-			history: 'days',
-			historyDirection: 'push',
-			activity: 'pull-pending',
-			determinate: false,
-			isSyncing: true,
-		},
-	},
+	{ at: 0, tweaks: { ...IDLE, activity: 'pull-pending', determinate: false, isSyncing: true } },
 	{ at: 1400, tweaks: { determinate: true, progress: 9 } },
 	{ at: 2100, tweaks: { progress: 26 } },
 	{ at: 2800, tweaks: { progress: 44 } },

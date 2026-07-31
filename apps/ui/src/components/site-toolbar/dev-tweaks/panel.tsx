@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import styles from './panel.module.css';
 import {
 	clearSequenceToast,
-	emitSequenceToast,
+	emitTweaksToast,
 	PULL_SEQUENCE,
 	PUSH_SEQUENCE,
 	SCENARIOS,
@@ -166,6 +166,14 @@ function Body( { tweaks }: { tweaks: ToolbarTweaks } ) {
 		clearSequenceToast();
 	};
 
+	// Anything that changes what the site is *doing* also says so, the way the
+	// real operation would — the header only spins, so the toast is where the
+	// simulation has to land.
+	const announce = ( patch: Partial< ToolbarTweaks > ) => {
+		setTweaks( patch );
+		emitTweaksToast( getTweaks() );
+	};
+
 	const play = ( sequence: SyncSequence ) => {
 		stopSequence();
 		setTweaks( { enabled: true } );
@@ -173,7 +181,7 @@ function Body( { tweaks }: { tweaks: ToolbarTweaks } ) {
 			timers.current.push(
 				setTimeout( () => {
 					setTweaks( step.tweaks );
-					emitSequenceToast( getTweaks() );
+					emitTweaksToast( getTweaks() );
 				}, step.at )
 			);
 		}
@@ -190,7 +198,7 @@ function Body( { tweaks }: { tweaks: ToolbarTweaks } ) {
 							className={ styles.preset }
 							onClick={ () => {
 								stopSequence();
-								setTweaks( { enabled: true, ...scenario.tweaks } );
+								announce( { enabled: true, ...scenario.tweaks } );
 							} }
 						>
 							{ scenario.label }
@@ -233,7 +241,8 @@ function Body( { tweaks }: { tweaks: ToolbarTweaks } ) {
 						options={ [
 							{ value: 'none', label: 'None' },
 							{ value: 'live', label: 'Live' },
-							{ value: 'staging', label: 'Staging' },
+							{ value: 'staging', label: 'Stg' },
+							{ value: 'both', label: 'Both' },
 						] }
 					/>
 				</Field>
@@ -277,7 +286,7 @@ function Body( { tweaks }: { tweaks: ToolbarTweaks } ) {
 				<Field label="State">
 					<Choice
 						value={ tweaks.activity }
-						onChange={ ( activity ) => setTweaks( { activity } ) }
+						onChange={ ( activity ) => announce( { activity } ) }
 						options={ [
 							{ value: 'none', label: 'Idle' },
 							{ value: 'push-exporting', label: 'Push · preparing' },
@@ -298,7 +307,7 @@ function Body( { tweaks }: { tweaks: ToolbarTweaks } ) {
 				<Field label="Progress">
 					<Segmented
 						value={ tweaks.determinate ? 'on' : 'off' }
-						onChange={ ( value ) => setTweaks( { determinate: value === 'on' } ) }
+						onChange={ ( value ) => announce( { determinate: value === 'on' } ) }
 						options={ [
 							{ value: 'on', label: '%' },
 							{ value: 'off', label: 'Indeterminate' },
@@ -314,7 +323,7 @@ function Body( { tweaks }: { tweaks: ToolbarTweaks } ) {
 						step={ 1 }
 						disabled={ ! tweaks.determinate }
 						value={ tweaks.progress }
-						onChange={ ( event ) => setTweaks( { progress: Number( event.target.value ) } ) }
+						onChange={ ( event ) => announce( { progress: Number( event.target.value ) } ) }
 					/>
 				</Field>
 				<Field label="Sync lock">

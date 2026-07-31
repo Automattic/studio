@@ -11,7 +11,7 @@ import { useSyncExternalStore } from 'react';
 
 const STORAGE_KEY = 'studio.dev.toolbar-tweaks';
 
-export type TweakConnection = 'none' | 'live' | 'staging';
+export type TweakConnection = 'none' | 'live' | 'staging' | 'both';
 export type TweakHistory = 'never' | 'just-now' | 'hours' | 'days';
 // Which way the last completed sync went — the idle status reports push
 // history before pull history, so a pull-only site is otherwise unreachable.

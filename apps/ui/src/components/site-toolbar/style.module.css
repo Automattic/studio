@@ -232,10 +232,6 @@
 	text-overflow: ellipsis;
 }
 
-.pickerPopup {
-	min-width: 280px;
-}
-
 @media (prefers-reduced-motion: reduce) {
 	.action,
 	.actionProgress,

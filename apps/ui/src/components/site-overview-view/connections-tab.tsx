@@ -4,7 +4,7 @@ import { Button } from '@wordpress/ui';
 import { useMemo, useState } from 'react';
 import { formatSyncTimestamp } from '@/components/site-toolbar/derive-toolbar-state';
 import { DisconnectSiteDialog } from '@/components/site-toolbar/disconnect-site-dialog';
-import { PublishPickerView } from '@/components/site-toolbar/publish-picker-view';
+import { PublishSiteDialog } from '@/components/site-toolbar/publish-site-dialog';
 import {
 	ensureProtocol,
 	getConnectionLabel,
@@ -42,14 +42,6 @@ export function ConnectionsTab( { site }: { site: SiteDetails } ) {
 	const connections = useMemo( () => sortConnections( connectedSites ), [ connectedSites ] );
 	const [ picking, setPicking ] = useState( false );
 	const [ disconnecting, setDisconnecting ] = useState< SyncSite | null >( null );
-
-	if ( picking ) {
-		return (
-			<div className={ styles.picker }>
-				<PublishPickerView site={ site } onClose={ () => setPicking( false ) } />
-			</div>
-		);
-	}
 
 	return (
 		<div className={ styles.root }>
@@ -105,6 +97,8 @@ export function ConnectionsTab( { site }: { site: SiteDetails } ) {
 				<Icon icon={ plus } size={ 16 } aria-hidden="true" />
 				{ __( 'Connect another site' ) }
 			</Button>
+
+			{ picking ? <PublishSiteDialog site={ site } open onOpenChange={ setPicking } /> : null }
 
 			{ disconnecting ? (
 				<DisconnectSiteDialog

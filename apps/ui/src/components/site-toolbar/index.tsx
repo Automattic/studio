@@ -4,7 +4,6 @@ import { external, Icon } from '@wordpress/icons';
 import { Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useMemo, useState } from 'react';
-import * as Menu from '@/components/menu';
 import { SiteIcon } from '@/components/site-icon';
 import { SiteStatusButton } from '@/components/site-status-button';
 import { useConnector } from '@/data/core';
@@ -24,7 +23,7 @@ import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { getSiteDisplayUrl, getSiteUrl } from '@/lib/get-site-url';
 import { ActionButton } from './action-button';
 import { ToolbarTweaksPanel, useToolbarPreview } from './dev-tweaks';
-import { PublishPickerView } from './publish-picker-view';
+import { PublishSiteDialog } from './publish-site-dialog';
 import styles from './style.module.css';
 import { SyncButton } from './sync-button';
 import { ensureProtocol, sortConnections } from './utils';
@@ -68,7 +67,7 @@ export function SiteToolbar( { site, className }: SiteToolbarProps ) {
 	// place once the sidebar is out of view.
 	const showRunState = useSidebarCollapsed();
 	const login = useLogin();
-	const [ pickerOpen, setPickerOpen ] = useState( false );
+	const [ publishOpen, setPublishOpen ] = useState( false );
 
 	const isStarting = useIsSiteStarting( site.id );
 	const isStopping = useIsSiteStopping( site.id );
@@ -196,19 +195,11 @@ export function SiteToolbar( { site, className }: SiteToolbarProps ) {
 				     target when the site has more than one connection. */ }
 				{ actions.map( ( action ) =>
 					action.id === 'publish' ? (
-						// Publish opens the site picker anchored to its own button, so
-						// the flow starts where the user clicked.
-						<Menu.Root
+						<ActionButton
 							key={ action.id }
-							modal={ false }
-							open={ pickerOpen }
-							onOpenChange={ setPickerOpen }
-						>
-							<Menu.Trigger render={ <ActionButton action={ action } /> } />
-							<Menu.Popup side="bottom" align="end" className={ styles.pickerPopup }>
-								<PublishPickerView site={ site } onClose={ () => setPickerOpen( false ) } />
-							</Menu.Popup>
-						</Menu.Root>
+							action={ action }
+							onClick={ () => ! preview.active && setPublishOpen( true ) }
+						/>
 					) : action.id === 'login' ? (
 						<ActionButton
 							key={ action.id }
@@ -225,6 +216,11 @@ export function SiteToolbar( { site, className }: SiteToolbarProps ) {
 					)
 				) }
 			</div>
+
+			{ /* Mounted only while open: it loads the account's sites on mount. */ }
+			{ publishOpen ? (
+				<PublishSiteDialog site={ site } open onOpenChange={ setPublishOpen } />
+			) : null }
 
 			<ToolbarTweaksPanel />
 		</div>

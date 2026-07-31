@@ -129,6 +129,7 @@ export function deriveToolbarState( {
 					tone: 'brand',
 					busy: false,
 					disabled: false,
+					hint: __( 'Connect to WordPress.com or Pressable' ),
 				},
 			],
 		};

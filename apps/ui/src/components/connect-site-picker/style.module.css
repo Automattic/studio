@@ -1,0 +1,226 @@
+/* The site cards, search, and list states shared by onboarding and the
+   publish flow. */
+
+.state p {
+	margin: 0;
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.state {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 12px;
+	max-width: 520px;
+	margin-inline: auto;
+	padding: 0 20px 32px;
+}
+
+.state h2 {
+	margin: 0;
+	font-size: var(--wpds-typography-font-size-lg);
+	font-weight: 500;
+}
+
+.siteControls {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 32px;
+}
+
+.search {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	width: min(100%, 520px);
+	padding: 0 12px;
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: 6px;
+	background: var(--wpds-color-bg-surface-neutral);
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.search:focus-within {
+	border-color: var(--wpds-color-stroke-focus-brand);
+	box-shadow: 0 0 0 1px var(--wpds-color-stroke-focus-brand);
+}
+
+.search input {
+	width: 100%;
+	height: 40px;
+	padding: 0;
+	border: 0;
+	outline: 0;
+	background: transparent;
+	color: var(--wpds-color-fg-content-neutral);
+	font: inherit;
+}
+
+.search input::placeholder {
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.helperLinks {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	margin: 0;
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.helperLinks button {
+	padding-inline: 2px;
+}
+
+.sections {
+	display: flex;
+	flex-direction: column;
+	gap: 40px;
+	text-align: start;
+}
+
+.section {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+
+.sectionHeader {
+	text-align: center;
+}
+
+.sectionHeader h2 {
+	margin: 0 0 4px;
+	font-size: var(--wpds-typography-font-size-lg);
+	font-weight: 500;
+}
+
+.sectionHeader p {
+	margin: 0;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+}
+
+.siteGrid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+	gap: 20px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.singleSiteGrid {
+	grid-template-columns: minmax(0, 440px);
+	justify-content: center;
+}
+
+.siteCardWrapper {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.siteCard {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	width: 100%;
+	padding: 6px;
+	border: 0;
+	border-radius: 12px;
+	background: transparent;
+	color: var(--wpds-color-fg-content-neutral);
+	cursor: pointer;
+	text-align: start;
+}
+
+.siteCardUnavailable,
+.siteCardUnavailable:hover {
+	cursor: default;
+}
+
+.siteCardSelected .siteThumb {
+	box-shadow: 0 0 0 1px var(--wpds-color-stroke-interactive-brand);
+}
+
+.siteCard:focus-visible {
+	outline: 2px solid var(--wpds-color-stroke-focus-brand);
+	outline-offset: 2px;
+}
+
+.siteThumb {
+	position: relative;
+	display: block;
+	width: 100%;
+	aspect-ratio: 3 / 2;
+	overflow: hidden;
+	border-radius: 8px;
+	background: var(--wpds-color-bg-surface-neutral-strong);
+	box-shadow: 0 0 0 var(--wpds-border-width-xs) var(--wpds-color-stroke-surface-neutral);
+	transition: box-shadow 0.15s ease;
+}
+
+.siteThumb img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+.siteCardUnavailable .siteThumb {
+	opacity: 0.65;
+}
+
+.siteText {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	min-width: 0;
+	padding: 10px 8px 8px;
+}
+
+.siteName {
+	overflow: hidden;
+	font-weight: 500;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.siteUrl {
+	overflow: hidden;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.siteStatus {
+	margin-top: 4px;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: 1.4;
+}
+
+.badges {
+	position: absolute;
+	inset-inline-end: 8px;
+	inset-block-end: 8px;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+.siteAction {
+	align-self: center;
+	margin-top: 4px;
+}
+
+
+@media (max-width: 600px) {
+	.siteGrid {
+		grid-template-columns: minmax(0, 1fr);
+	}
+}

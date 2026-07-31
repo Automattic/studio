@@ -1,0 +1,25 @@
+.intro {
+	margin: 0 0 var(--wpds-dimension-padding-lg);
+	font-size: var(--wpds-typography-font-size-sm);
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.error {
+	margin: 0 0 var(--wpds-dimension-padding-md);
+	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md);
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-error);
+	border-radius: var(--wpds-border-radius-md);
+	background: var(--wpds-color-bg-surface-error-weak);
+	color: var(--wpds-color-fg-content-error);
+	font-size: var(--wpds-typography-font-size-sm);
+}
+
+/* Sits opposite Cancel and Connect: making a new site is a way out of this
+   list, not a step in it. */
+.createButton {
+	margin-inline-end: auto;
+}
+
+.createButton svg {
+	fill: currentColor;
+}

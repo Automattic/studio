@@ -28,6 +28,7 @@ import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { AccessRequirementPrototype } from './access-requirement-prototype';
 import { clearSessionDraft, Composer, ComposerSkeleton } from './composer';
 import { Conversation, wasLastTurnInterrupted } from './conversation';
 import { unlock } from './lock-unlock';
@@ -476,12 +477,20 @@ function SessionGate( { selectedSite }: { selectedSite: SiteDetails } ) {
 }
 
 export function StudioCodeSession( { selectedSite }: { selectedSite: SiteDetails } ) {
+	const content = (
+		<AgentRunProvider>
+			<SessionGate selectedSite={ selectedSite } />
+		</AgentRunProvider>
+	);
+
 	return (
 		<QueryClientProvider client={ queryClient }>
 			<ThemeProvider density="compact">
-				<AgentRunProvider>
-					<SessionGate selectedSite={ selectedSite } />
-				</AgentRunProvider>
+				{ process.env.NODE_ENV === 'development' ? (
+					<AccessRequirementPrototype>{ content }</AccessRequirementPrototype>
+				) : (
+					content
+				) }
 			</ThemeProvider>
 		</QueryClientProvider>
 	);

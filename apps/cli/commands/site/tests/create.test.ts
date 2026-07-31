@@ -309,8 +309,10 @@ describe( 'CLI: studio site create', () => {
 				expect.arrayContaining( [ expect.objectContaining( { step: 'runPHP' } ) ] )
 			);
 			expect( blueprint.staticSiteImport.code ).toContain(
-				"$input['provider_args'] = array( 'collect_site' => true );"
+				"'require_complete_collection' => true"
 			);
+			expect( blueprint.staticSiteImport.code ).toContain( "'max_pages'                  => 250" );
+			expect( blueprint.staticSiteImport.code ).toContain( "'max_assets'                 => 2000" );
 			expect( blueprint.staticSiteImport.code ).toContain(
 				"$input['require_proven_dynamic_client_assets'] = false;"
 			);

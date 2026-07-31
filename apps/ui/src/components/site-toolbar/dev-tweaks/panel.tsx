@@ -1,7 +1,13 @@
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import styles from './panel.module.css';
-import { PULL_SEQUENCE, PUSH_SEQUENCE, SCENARIOS } from './preview-state';
+import {
+	clearSequenceToast,
+	emitSequenceToast,
+	PULL_SEQUENCE,
+	PUSH_SEQUENCE,
+	SCENARIOS,
+} from './preview-state';
 import { getTweaks, resetTweaks, setTweaks, useTweaks } from './store';
 import type { SyncSequence } from './preview-state';
 import type { ToolbarTweaks } from './store';
@@ -156,13 +162,20 @@ function Body( { tweaks }: { tweaks: ToolbarTweaks } ) {
 	const stopSequence = () => {
 		timers.current.forEach( clearTimeout );
 		timers.current = [];
+		// A cut-short run would otherwise leave its running toast pinned open.
+		clearSequenceToast();
 	};
 
 	const play = ( sequence: SyncSequence ) => {
 		stopSequence();
 		setTweaks( { enabled: true } );
 		for ( const step of sequence ) {
-			timers.current.push( setTimeout( () => setTweaks( step.tweaks ), step.at ) );
+			timers.current.push(
+				setTimeout( () => {
+					setTweaks( step.tweaks );
+					emitSequenceToast( getTweaks() );
+				}, step.at )
+			);
 		}
 	};
 

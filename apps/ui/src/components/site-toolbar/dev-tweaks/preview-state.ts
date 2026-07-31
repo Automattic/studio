@@ -1,9 +1,18 @@
+import { __ } from '@wordpress/i18n';
+import { dismissToast } from '@/data/app-messages';
+import {
+	finishSyncToast,
+	startSyncToast,
+	updatePullToast,
+	updatePushToast,
+} from '@/data/sync-toasts';
 import { deriveToolbarState } from '../derive-toolbar-state';
 import { useTweaks } from './store';
 import type { DeriveToolbarStateOptions, ToolbarState } from '../derive-toolbar-state';
 import type { ToolbarTweaks, TweakScenario } from './store';
 import type { SyncSite } from '@/data/core';
 import type { SyncActivity } from '@/data/sync-activity';
+import type { PushSitePhase } from '@studio/common/types/sync';
 
 /**
  * TEMPORARY design scaffolding (STU-2162). Turns the panel's knobs into the
@@ -255,6 +264,74 @@ export const SCENARIOS: { id: string; label: string; tweaks: TweakScenario }[] =
 		tweaks: { connection: 'none', activity: 'none', auth: 'signed-out' },
 	},
 ];
+
+// The scripted runs drive the real toast store too. Without this they'd only
+// exercise half the design — the buttons fill and spin, but the place the
+// status actually lives would stay empty.
+const SEQUENCE_SITE_ID = 'tweaks-preview';
+
+/** Fires whatever toast the panel's current state would produce for real. */
+export function emitSequenceToast( tweaks: ToolbarTweaks ): void {
+	const progress = tweaks.determinate ? tweaks.progress : undefined;
+
+	switch ( tweaks.activity ) {
+		case 'push-exporting':
+		case 'push-uploading':
+		case 'push-paused':
+		case 'push-importing':
+			updatePushToast( SEQUENCE_SITE_ID, {
+				phase: tweaks.activity.replace( 'push-', '' ) as PushSitePhase,
+				progress,
+			} );
+			return;
+		case 'pull-pending':
+			updatePullToast( SEQUENCE_SITE_ID, {
+				message: __( 'Downloading the backup from WordPress.com' ),
+				progress,
+			} );
+			return;
+		case 'preview-pending':
+			startSyncToast( SEQUENCE_SITE_ID, 'preview' );
+			return;
+		case 'push-success':
+			finishSyncToast( SEQUENCE_SITE_ID, { intent: 'success', title: __( 'Push complete' ) } );
+			return;
+		case 'pull-success':
+			finishSyncToast( SEQUENCE_SITE_ID, { intent: 'success', title: __( 'Pull complete' ) } );
+			return;
+		case 'preview-success':
+			finishSyncToast( SEQUENCE_SITE_ID, {
+				intent: 'success',
+				title: __( 'Preview site published' ),
+			} );
+			return;
+		case 'push-error':
+			finishSyncToast( SEQUENCE_SITE_ID, {
+				intent: 'error',
+				title: __( "Push didn't complete" ),
+				description: __( 'The upload was rejected by WordPress.com (413: payload too large).' ),
+			} );
+			return;
+		case 'pull-error':
+			finishSyncToast( SEQUENCE_SITE_ID, {
+				intent: 'error',
+				title: __( "Pull didn't complete" ),
+				description: __( 'Could not reach WordPress.com.' ),
+			} );
+			return;
+		case 'preview-error':
+			finishSyncToast( SEQUENCE_SITE_ID, {
+				intent: 'error',
+				title: __( 'Failed to publish preview site' ),
+				description: __( 'The preview site could not be created.' ),
+			} );
+	}
+}
+
+/** Drops a pinned running toast when a run is cut short. */
+export function clearSequenceToast(): void {
+	dismissToast( SEQUENCE_SITE_ID );
+}
 
 export type SyncSequence = { at: number; tweaks: TweakScenario }[];
 

@@ -85,6 +85,7 @@ import { getDefaultSitePath } from 'cli/lib/site-paths';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
+import { runWpCliCommandWithMessaging } from 'cli/lib/run-wp-cli-command';
 import { StatsGroup } from 'cli/lib/types/bump-stats';
 import { untildify } from 'cli/lib/utils';
 import { ValidationError } from 'cli/lib/validation-error';
@@ -129,6 +130,9 @@ export type CreateCommandOptions = {
 		stagedSource?: {
 			sourcePath: string;
 			targetPath: string;
+		};
+		staticSiteImport?: {
+			code: string;
 		};
 	};
 	adminUsername?: string;
@@ -323,6 +327,8 @@ $input = array(
 
 if ( isset( $source['url'] ) && function_exists( 'static_site_importer_ability_import_url' ) ) {
 	$input['url'] = $source['url'];
+	$input['provider_args'] = array( 'collect_site' => true );
+	$input['require_proven_dynamic_client_assets'] = false;
 	$result = static_site_importer_ability_import_url( $input );
 } else {
 	if ( isset( $source['artifact'] ) && is_array( $source['artifact'] ) ) {
@@ -397,12 +403,17 @@ export function buildCreateFromSourceBlueprint(
 	contents: BlueprintV1Declaration;
 	uri: string;
 	stagedSource?: { sourcePath: string; targetPath: string };
+	staticSiteImport: { code: string };
 } {
+	const stagedFigmaRelativePath =
+		path.extname( sourcePath ).toLowerCase() === '.fig'
+			? path.join( '.studio-import', 'source.fig' )
+			: undefined;
 	const stagedFigmaPath =
 		path.extname( sourcePath ).toLowerCase() === '.fig' && sitePath
 			? path.join( sitePath, '.studio-import', 'source.fig' )
 			: undefined;
-	const source = resolveStaticSiteImporterSource( sourcePath, stagedFigmaPath );
+	const source = resolveStaticSiteImporterSource( sourcePath, stagedFigmaRelativePath );
 	const tempDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-create-from-' ) );
 	const blueprintPath = path.join( tempDir, 'blueprint.json' );
 	const blueprint: BlueprintV1Declaration = {
@@ -422,10 +433,6 @@ export function buildCreateFromSourceBlueprint(
 					targetFolderName: 'static-site-importer',
 				},
 			},
-			{
-				step: 'runPHP',
-				code: buildStaticSiteImporterPhp( source, siteName, storeImportResult ),
-			},
 		],
 	};
 
@@ -434,7 +441,36 @@ export function buildCreateFromSourceBlueprint(
 		contents: blueprint,
 		uri: blueprintPath,
 		...( stagedFigmaPath ? { stagedSource: { sourcePath, targetPath: stagedFigmaPath } } : {} ),
+		staticSiteImport: {
+			code: buildStaticSiteImporterPhp( source, siteName, storeImportResult ),
+		},
 	};
+}
+
+async function runStaticSiteImport( site: SiteData, code: string ): Promise< void > {
+	const stagingDir = path.join( site.path, '.studio-import' );
+	const scriptName = 'import.php';
+	const scriptPath = path.join( stagingDir, scriptName );
+	fs.mkdirSync( stagingDir, { recursive: true } );
+	fs.writeFileSync( scriptPath, code );
+
+	logger.reportStart( LoggerAction.IMPORT_SITE, __( 'Importing static site…' ) );
+	await using command = await runWpCliCommandWithMessaging( site, [
+		'eval-file',
+		`${ path.basename( stagingDir ) }/${ scriptName }`,
+	] );
+	const [ exitCode, stdout, stderr ] = await Promise.all( [
+		command.response.exitCode,
+		command.response.stdoutText,
+		command.response.stderrText,
+	] );
+	if ( exitCode !== 0 ) {
+		throw new LoggerError(
+			__( 'Static site import failed.' ),
+			new Error( stderr.trim() || stdout.trim() || sprintf( __( 'WP-CLI exited with code %d.' ), exitCode ) )
+		);
+	}
+	logger.reportSuccess( __( 'Static site imported successfully' ) );
 }
 
 export async function runCommand(
@@ -452,6 +488,7 @@ export async function runCommand(
 	const phpVersion = validateSupportedPhpVersion( options.phpVersion );
 	const isOnlineStatus = await isOnline();
 	const stagedSource = options.blueprint?.stagedSource;
+	const staticSiteImport = options.blueprint?.staticSiteImport;
 
 	try {
 		if ( isOnlineStatus ) {
@@ -712,6 +749,10 @@ export async function runCommand(
 					? `${ siteDetails.enableHttps ? 'https' : 'http' }://${ siteDetails.customDomain }`
 					: `http://localhost:${ siteDetails.port }`;
 
+				if ( staticSiteImport ) {
+					await runStaticSiteImport( siteDetails, staticSiteImport.code );
+				}
+
 				if ( ! options.skipLogDetails ) {
 					logSiteDetails( siteDetails );
 				}
@@ -723,7 +764,10 @@ export async function runCommand(
 				if ( ! isWordPressDirResult ) {
 					await fs.promises.rm( sitePath, { recursive: true, force: true } );
 				}
-				throw new LoggerError( __( 'Failed to start WordPress server' ), error );
+				throw new LoggerError(
+					staticSiteImport ? __( 'Failed to import static site' ) : __( 'Failed to start WordPress server' ),
+					error
+				);
 			}
 		} else {
 			if ( blueprint ) {
@@ -745,12 +789,18 @@ export async function runCommand(
 					logger.reportSuccess( __( 'Blueprint applied successfully' ) );
 
 					stripWpConfigDbConstants( sitePath );
+					if ( staticSiteImport ) {
+						await runStaticSiteImport( siteDetails, staticSiteImport.code );
+					}
 				} catch ( error ) {
 					await removeSiteFromConfig( siteDetails.id );
 					if ( ! isWordPressDirResult ) {
 						await fs.promises.rm( sitePath, { recursive: true, force: true } );
 					}
-					throw new LoggerError( __( 'Failed to apply Blueprint' ), error );
+					throw new LoggerError(
+						staticSiteImport ? __( 'Failed to import static site' ) : __( 'Failed to apply Blueprint' ),
+						error
+					);
 				}
 			}
 			console.log( '' );
@@ -785,8 +835,8 @@ export async function runCommand(
 
 		await emitCliEvent( { event: SITE_EVENTS.CREATED, data: { siteId: siteDetails.id } } );
 	} finally {
-		if ( stagedSource ) {
-			fs.rmSync( path.dirname( stagedSource.targetPath ), { recursive: true, force: true } );
+		if ( stagedSource || staticSiteImport ) {
+			fs.rmSync( path.join( sitePath, '.studio-import' ), { recursive: true, force: true } );
 		}
 		await disconnectFromDaemon();
 	}

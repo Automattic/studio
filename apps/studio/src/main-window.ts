@@ -18,6 +18,7 @@ import {
 	WINDOWS_TITLEBAR_HEIGHT,
 } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
+import { getPreferredStudioUiMode, type StudioUiMode } from 'src/lib/studio-ui-mode';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { removeMenu } from 'src/menu';
 import { SiteServer } from 'src/site-server';
@@ -31,21 +32,10 @@ import type { WindowBounds } from 'src/storage/storage-types';
 
 let mainWindow: BrowserWindow | null;
 let currentRendererUrl: string | undefined;
-type StudioUiMode = 'default' | 'agentic';
 
 interface RendererLocation {
 	url: string;
 	filePath?: string;
-}
-
-let agenticUiEnabled = false;
-
-export function setAgenticUiEnabled( enabled: boolean ): void {
-	agenticUiEnabled = enabled;
-}
-
-export function getPreferredStudioUiMode(): StudioUiMode {
-	return agenticUiEnabled ? 'agentic' : 'default';
 }
 
 function getRendererFilePath( mode: StudioUiMode ) {

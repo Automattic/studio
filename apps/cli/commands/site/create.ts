@@ -327,7 +327,13 @@ $input = array(
 
 if ( isset( $source['url'] ) && function_exists( 'static_site_importer_ability_import_url' ) ) {
 	$input['url'] = $source['url'];
-	$input['provider_args'] = array( 'collect_site' => true );
+	$input['provider_args'] = array(
+		'collect_site'                => true,
+		'require_complete_collection' => true,
+		'max_pages'                  => 250,
+		'max_assets'                 => 2000,
+		'max_total_bytes'            => 268435456,
+	);
 	$input['require_proven_dynamic_client_assets'] = false;
 	$result = static_site_importer_ability_import_url( $input );
 } else {

@@ -135,8 +135,9 @@ Common props (`platform`, `arch`, `app_version`, `is_a11n`, and `channel`/`ui_ve
 wrappers/renderers — pass only event-specific props. (Centralizing `channel`/`ui_version` on the desktop
 side is STU-2122; until it lands, `studio_app_launch` still sets them at the call site.)
 
-Reserved for later phases (documented so future events conform): `surface` (in-app area, e.g.
-`onboarding`/`settings`), `outcome` (`success`/`error`).
+`surface` (in-app area, e.g. `onboarding`/`settings`) is live on `studio_telemetry`; the renderer
+supplies it per change (Main can't infer it) and it is meant to generalize to other settings-change
+events. Reserved for later phases (documented so future events conform): `outcome` (`success`/`error`).
 
 **AI / assistant events (Phase 2+).** Studio Code assistant usage events must use the data team's
 AI-event vocabulary: `ai_session_id`, `agent_name`, `agent_version`, `ability_name`, `outcome`,
@@ -151,6 +152,7 @@ Every event also carries the common props `channel`, `is_a11n`, `platform`, `arc
 |---|---|---|
 | `studio_app_launch` | Desktop Main (`appBoot`) | `ui_version`, `is_first_launch` |
 | `studio_site_start` | CLI site-start funnel | `ui_version` (only when `channel=studio-ui`) |
+| `studio_telemetry` | Desktop Main (`saveAnalyticsEnabled`) | `status` (`on`/`off`), `surface` (`onboarding`/`settings`) — recorded while analytics is still ON (before the write when turning off, after it when turning on) so the opt-out gate never self-suppresses it. `ui_version` set at the call site from the originating renderer. |
 
 ### How to add a new event
 

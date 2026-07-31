@@ -706,7 +706,7 @@ export function createIpcConnector(): Connector {
 			};
 		},
 
-		async setUserPreferences( partial ): Promise< void > {
+		async setUserPreferences( partial, source ): Promise< void > {
 			const writes: Array< Promise< unknown > > = [];
 			if ( 'editor' in partial ) {
 				writes.push( ipcApi.saveUserEditor( partial.editor ) );
@@ -724,7 +724,12 @@ export function createIpcConnector(): Connector {
 				writes.push( ipcApi.saveUserLocale( partial.locale ) );
 			}
 			if ( 'analyticsEnabled' in partial ) {
-				writes.push( ipcApi.saveAnalyticsEnabled( partial.analyticsEnabled ) );
+				writes.push(
+					ipcApi.saveAnalyticsEnabled( partial.analyticsEnabled, {
+						surface: source?.surface ?? 'settings',
+						uiVersion: 'v2',
+					} )
+				);
 			}
 			if ( 'defaultSiteDirectory' in partial && partial.defaultSiteDirectory ) {
 				writes.push( ipcApi.saveDefaultSiteDirectory( partial.defaultSiteDirectory ) );

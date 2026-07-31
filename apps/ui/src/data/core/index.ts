@@ -38,6 +38,7 @@ export type {
 	SupportedLocale,
 	SupportedTerminal,
 	SyncSite,
+	PreferenceChangeSource,
 	UserPreferences,
 	WritableUserPreferences,
 } from './types';

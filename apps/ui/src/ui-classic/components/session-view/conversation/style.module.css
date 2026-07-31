@@ -147,7 +147,7 @@
 }
 
 .toolRowButton:focus-visible {
-	outline: 2px solid var(--wpds-color-stroke-interactive-focus, #2563eb);
+	outline: 2px solid var(--wpds-color-stroke-focus-brand);
 	outline-offset: 2px;
 }
 
@@ -453,7 +453,7 @@
 }
 
 .questionSummary:focus-visible {
-	outline: 2px solid var(--wpds-color-stroke-interactive-focus, #2563eb);
+	outline: 2px solid var(--wpds-color-stroke-focus-brand);
 	outline-offset: 2px;
 }
 
@@ -564,7 +564,7 @@
 
 .questionOption:focus-visible:not(:disabled) {
 	outline: none;
-	box-shadow: 0 0 0 2px var(--wpds-color-stroke-interactive-focus, #2563eb);
+	box-shadow: 0 0 0 2px var(--wpds-color-stroke-focus-brand);
 }
 
 .questionOption:hover:not(:disabled) .questionOptionLabel,
@@ -677,7 +677,7 @@
 	max-width: 100%;
 	margin: var(--wpds-dimension-padding-sm) 0;
 	padding: 4px 12px;
-	border-radius: var(--wpds-dimension-radius-md, 8px);
+	border-radius: var(--wpds-border-radius-md);
 	background-color: color-mix(in srgb, var(--wpds-color-fg-content-error) 8%, transparent);
 	color: var(--wpds-color-fg-content-error);
 	font-size: var(--wpds-typography-font-size-xs);

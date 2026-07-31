@@ -276,6 +276,54 @@ describe( 'PreviewAddressBar', () => {
 		expect( onNavigate ).toHaveBeenCalledWith( '/hello-world/' );
 	} );
 
+	it( 'dedupes content results that already appear as permalink rows', async () => {
+		const fetchSiteRest = vi
+			.fn()
+			.mockImplementation( ( _siteId: string, request: { path: string } ) => {
+				if ( request.path.includes( '/wp/v2/posts' ) ) {
+					return Promise.resolve(
+						createSearchResponse( [
+							{
+								id: 5,
+								link: 'http://127.0.0.1:8881/hello-world/',
+								title: { rendered: 'Hello World' },
+							},
+						] )
+					);
+				}
+				if ( request.path.includes( '/wp/v2/search' ) ) {
+					return Promise.resolve(
+						createSearchResponse( [
+							{
+								id: 5,
+								title: 'Hello World',
+								url: 'http://127.0.0.1:8881/hello-world/',
+								type: 'post',
+								subtype: 'post',
+							},
+							{
+								id: 6,
+								title: 'Hello Again',
+								url: 'http://127.0.0.1:8881/hello-again/',
+								type: 'post',
+								subtype: 'post',
+							},
+						] )
+					);
+				}
+				return Promise.resolve( createSearchResponse( [] ) );
+			} );
+		renderAddressBar( { fetchSiteRest, path: '/' } );
+
+		const input = await openOmnibox();
+		fireEvent.change( input, { target: { value: 'hello' } } );
+
+		// The latest post matches both as a permalink row and a search result.
+		await screen.findByText( 'Hello Again' );
+		const list = await screen.findByRole( 'listbox' );
+		expect( within( list ).getAllByRole( 'option', { name: /Hello World/ } ) ).toHaveLength( 1 );
+	} );
+
 	it( 'marks the destination matching the current path as current', async () => {
 		renderAddressBar( { path: '/wp-admin/upload.php' } );
 
@@ -367,14 +415,14 @@ describe( 'PreviewAddressBar', () => {
 		const input = await openOmnibox();
 		// jsdom doesn't move focus on click-open the way the browser does.
 		input.focus();
-		expect( document.activeElement ).toBe( input );
+		expect( input ).toHaveFocus();
 		fireEvent.change( input, { target: { value: 'a' } } );
-		expect( document.activeElement ).toBe( input );
+		expect( input ).toHaveFocus();
 		fireEvent.change( input, { target: { value: 'as' } } );
-		expect( document.activeElement ).toBe( input );
+		expect( input ).toHaveFocus();
 		// Let the debounced search fire and settle with zero results.
 		await screen.findByText( 'No matches' );
-		expect( document.activeElement ).toBe( input );
+		expect( input ).toHaveFocus();
 	} );
 
 	it( 'navigates to a typed path on Enter without querying search', async () => {

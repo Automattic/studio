@@ -90,6 +90,7 @@
 		"eslint-plugin-studio": "file:tools/eslint-plugin-studio",
 		"fs-extra": "^11.3.3",
 		"glob": "^13.0.6",
+		"globals": "^17.8.0",
 		"isomorphic-fetch": "^3.0.0",
 		"jsdom": "^24.0.0",
 		"knip": "^5.88.1",

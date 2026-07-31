@@ -12,6 +12,7 @@ import { portFinder } from '@studio/common/lib/port-finder';
 import {
 	DEFAULT_HEIGHT,
 	DEFAULT_WIDTH,
+	AGENTIC_MIN_WIDTH,
 	MACOS_TRAFFIC_LIGHT_POSITION,
 	MAIN_MIN_HEIGHT,
 	MAIN_MIN_WIDTH,
@@ -90,6 +91,14 @@ async function loadRendererLocation( window: BrowserWindow, location: RendererLo
 
 export async function loadMainWindowRenderer( window: BrowserWindow ): Promise< void > {
 	await loadRendererLocation( window, getRendererLocation( getPreferredStudioUiMode() ) );
+	// Switching renderers changes the floor. Growing it (agentic → default)
+	// also widens a window that is already below the new minimum.
+	const minWidth = getMinWindowWidth();
+	window.setMinimumSize( minWidth, MAIN_MIN_HEIGHT );
+	const [ width, height ] = window.getSize();
+	if ( width < minWidth ) {
+		window.setSize( minWidth, height, true );
+	}
 	if ( process.platform === 'win32' || process.platform === 'linux' ) {
 		window.setTitleBarOverlay( getTitleBarOverlayOptions() );
 	}
@@ -139,8 +148,14 @@ function initializePortFinder( sites: SiteDetails[] ) {
 	} );
 }
 
+// Each renderer has its own floor, so the window can't be dragged narrower
+// than whichever one is on screen.
+function getMinWindowWidth(): number {
+	return getPreferredStudioUiMode() === 'agentic' ? AGENTIC_MIN_WIDTH : MAIN_MIN_WIDTH;
+}
+
 function isValidWindowBounds( bounds: WindowBounds ): boolean {
-	if ( bounds.width < MAIN_MIN_WIDTH || bounds.height < MAIN_MIN_HEIGHT ) {
+	if ( bounds.width < getMinWindowWidth() || bounds.height < MAIN_MIN_HEIGHT ) {
 		return false;
 	}
 
@@ -170,7 +185,7 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 		width: DEFAULT_WIDTH,
 		backgroundColor: 'rgba(30, 30, 30, 1)',
 		minHeight: MAIN_MIN_HEIGHT,
-		minWidth: MAIN_MIN_WIDTH,
+		minWidth: getMinWindowWidth(),
 		webPreferences: {
 			preload: path.join( __dirname, '../preload/preload.js' ),
 			webSecurity: process.env.NODE_ENV !== 'development',

@@ -4,10 +4,12 @@ import { clsx } from 'clsx';
 import { useMemo, useRef, useState } from 'react';
 import { getSuggestedPrompts } from './prompts';
 import styles from './style.module.css';
+import type { SuggestedPromptContext } from './prompts';
 import type { CSSProperties } from 'react';
 
 interface SuggestedPromptsProps {
 	siteName: string;
+	context?: SuggestedPromptContext;
 	// Drops the prompt into the composer (focused) — the user sends it.
 	onPick: ( prompt: string ) => void;
 	// Checked at click time; confirmation is only asked when the draft
@@ -31,8 +33,8 @@ interface PromptTransfer {
 // Plain-text starter prompts floating under the empty-state logo. One action:
 // click to load the prompt into the composer, ready to tweak or send. A fresh
 // sample rotates in per mount (memo keeps it stable across re-renders).
-export function SuggestedPrompts( { siteName, onPick, getDraft }: SuggestedPromptsProps ) {
-	const prompts = useMemo( () => getSuggestedPrompts( siteName ), [ siteName ] );
+export function SuggestedPrompts( { siteName, context, onPick, getDraft }: SuggestedPromptsProps ) {
+	const prompts = useMemo( () => getSuggestedPrompts( siteName, context ), [ siteName, context ] );
 	const tooltipLabels = [
 		__( 'Start with this idea' ),
 		__( 'Try this one' ),
@@ -124,7 +126,7 @@ export function SuggestedPrompts( { siteName, onPick, getDraft }: SuggestedPromp
 									{ item.label }
 								</Tooltip.Trigger>
 								<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-									{ tooltipLabels[ index % tooltipLabels.length ] }
+									{ item.reason ?? tooltipLabels[ index % tooltipLabels.length ] }
 								</Tooltip.Popup>
 							</Tooltip.Root>
 						</li>

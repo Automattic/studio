@@ -79,8 +79,7 @@ export const ActionButton = forwardRef< ElementRef< typeof Button >, Props >( fu
 		<Tooltip.Root>
 			<Tooltip.Trigger render={ button } />
 			<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
-				<span className={ styles.tipTitle }>{ action.label }</span>
-				<span className={ styles.tipHint }>{ action.hint }</span>
+				{ action.hint }
 			</Tooltip.Popup>
 		</Tooltip.Root>
 	);

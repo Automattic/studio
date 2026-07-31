@@ -165,16 +165,6 @@
 	pointer-events: none;
 }
 
-.tipTitle {
-	display: block;
-	font-weight: 600;
-}
-
-.tipHint {
-	display: block;
-	opacity: 0.75;
-}
-
 .actionLabel {
 	display: inline-flex;
 	align-items: center;

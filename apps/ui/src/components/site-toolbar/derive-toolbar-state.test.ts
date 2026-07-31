@@ -85,8 +85,8 @@ describe( 'deriveToolbarState', () => {
 				],
 			} );
 
-			expect( action( state, 'push' ) ).toMatchObject( { hint: 'Last pushed 6d ago' } );
-			expect( action( state, 'pull' ) ).toMatchObject( { hint: 'Last pulled 2h ago' } );
+			expect( action( state, 'push' ) ).toMatchObject( { hint: 'Pushed 6d ago' } );
+			expect( action( state, 'pull' ) ).toMatchObject( { hint: 'Pulled 2h ago' } );
 		} );
 
 		it( '05 · reads the freshest time across every connection', () => {
@@ -99,7 +99,7 @@ describe( 'deriveToolbarState', () => {
 				],
 			} );
 
-			expect( action( state, 'push' ) ).toMatchObject( { hint: 'Last pushed 2h ago' } );
+			expect( action( state, 'push' ) ).toMatchObject( { hint: 'Pushed 2h ago' } );
 		} );
 
 		it( '06 · says so plainly when a direction has never run', () => {

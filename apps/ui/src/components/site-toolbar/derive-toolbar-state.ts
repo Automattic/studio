@@ -19,8 +19,9 @@ export type ToolbarAction = {
 	// 0–100. Present only while this action reports real byte progress, so the
 	// button can fill rather than pretending to know how long a phase takes.
 	progress?: number;
-	// Second line of the tooltip: when this action last ran, or — when it can't
-	// run — why not, so a dead button never goes quiet without saying something.
+	// The tooltip: when this action last ran, or — when it can't run — why not,
+	// so a dead button never goes quiet without saying something. The button's
+	// own name lives in its accessible label.
 	hint?: string;
 	disabled: boolean;
 };
@@ -164,7 +165,7 @@ export function deriveToolbarState( {
 		const history = lastRun
 			? sprintf(
 					// translators: %s: compact relative time, e.g. "6d".
-					id === 'push' ? __( 'Last pushed %s ago' ) : __( 'Last pulled %s ago' ),
+					id === 'push' ? __( 'Pushed %s ago' ) : __( 'Pulled %s ago' ),
 					lastRun
 			  )
 			: id === 'push'

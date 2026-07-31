@@ -82,3 +82,10 @@
 .picker {
 	max-width: 420px;
 }
+
+/* Icon SVGs carry no fill of their own; without this they paint black in both
+   colour schemes. */
+.rowActions svg,
+.addButton svg {
+	fill: currentColor;
+}

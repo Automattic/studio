@@ -105,6 +105,13 @@
 	transition: opacity 100ms ease;
 }
 
+/* The icon SVGs carry no fill of their own, so they paint black in both colour
+   schemes unless told to follow the text. */
+.siteUrlIcon,
+.action svg {
+	fill: currentColor;
+}
+
 .siteUrl:is(:hover, :focus-visible) .siteUrlIcon {
 	opacity: 1;
 }

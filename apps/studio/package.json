@@ -35,6 +35,7 @@
 		"@vscode/sudo-prompt": "^9.3.1",
 		"@wordpress/i18n": "^6.20.0",
 		"atomically": "^2.1.0",
+		"chokidar": "^5.0.0",
 		"compressible": "2.0.18",
 		"compression": "^1.8.1",
 		"electron-squirrel-startup": "^1.0.1",

@@ -1,5 +1,5 @@
-import fs from 'fs';
 import http from 'http';
+import { watch as watchPaths, FSWatcher } from 'chokidar';
 import type { SiteServer } from 'src/site-server';
 
 const activeRecoveries = new Map<
@@ -7,7 +7,7 @@ const activeRecoveries = new Map<
 	{
 		siteServer: SiteServer;
 		errorServer: http.Server;
-		watcher: fs.FSWatcher;
+		watcher: FSWatcher;
 		debounceTimer?: ReturnType< typeof setTimeout >;
 	}
 >();
@@ -109,8 +109,19 @@ export async function startErrorRecovery(
 	} );
 
 	let retrying = false;
-	const watcher = fs.watch( path, { recursive: true }, ( _event, filename ) => {
-		if ( ! filename?.endsWith( '.php' ) || retrying ) {
+	// chokidar instead of fs.watch({ recursive: true }), which is not reliably supported on Linux
+	// (Studio ships a Linux build). chokidar v4+ dropped globs, so filter for `.php` on the path.
+	const watcher = watchPaths( path, {
+		ignoreInitial: true,
+		persistent: true,
+		ignorePermissionErrors: true,
+		ignored: ( entryPath: string ) => /[\\/](node_modules|\.git)([\\/]|$)/.test( entryPath ),
+	} );
+	watcher.on( 'error', ( error ) => {
+		console.error( `[PHP Recovery - ${ id }] File watcher error:`, error );
+	} );
+	watcher.on( 'all', ( _event, filename ) => {
+		if ( ! filename.endsWith( '.php' ) || retrying ) {
 			return;
 		}
 
@@ -177,7 +188,7 @@ export async function stopErrorRecovery( siteId: string ): Promise< void > {
 	if ( recovery.debounceTimer ) {
 		clearTimeout( recovery.debounceTimer );
 	}
-	recovery.watcher.close();
+	await recovery.watcher.close();
 
 	recovery.siteServer.inErrorRecovery = false;
 	const { running, ...rest } = recovery.siteServer.details;

@@ -317,6 +317,7 @@ if ( isset( $source['url'] ) && function_exists( 'static_site_importer_ability_i
 		'max_pages'                  => 250,
 		'max_assets'                 => 2000,
 		'max_total_bytes'            => 268435456,
+		'max_bytes'                  => 10485760,
 	);
 	$input['require_proven_dynamic_client_assets'] = false;
 	$result = static_site_importer_ability_import_url( $input );

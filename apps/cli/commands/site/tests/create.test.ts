@@ -313,6 +313,7 @@ describe( 'CLI: studio site create', () => {
 			);
 			expect( blueprint.staticSiteImport.code ).toContain( "'max_pages'                  => 250" );
 			expect( blueprint.staticSiteImport.code ).toContain( "'max_assets'                 => 2000" );
+			expect( blueprint.staticSiteImport.code ).toContain( "'max_bytes'                  => 10485760" );
 			expect( blueprint.staticSiteImport.code ).toContain(
 				"$input['require_proven_dynamic_client_assets'] = false;"
 			);

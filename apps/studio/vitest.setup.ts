@@ -144,6 +144,13 @@ vi.mock( 'electron', () => {
 		dialog: {
 			showMessageBox: vi.fn(),
 		},
+		autoUpdater: {
+			setFeedURL: vi.fn(),
+			getFeedURL: vi.fn(),
+			checkForUpdates: vi.fn(),
+			quitAndInstall: vi.fn(),
+			on: vi.fn(),
+		},
 		BrowserWindow: MockBrowserWindow,
 		shell: {
 			openPath: vi.fn( async () => '' ),

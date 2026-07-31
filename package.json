@@ -78,6 +78,7 @@
 		"@types/fs-extra": "^11.0.4",
 		"@vitest/ui": "^4.1.8",
 		"@yao-pkg/pkg": "^6.21.0",
+		"electron2appx": "2.1.3",
 		"electron-playwright-helpers": "^2.1.0",
 		"eslint": "^9.39.4",
 		"eslint-config-prettier": "^9.1.2",

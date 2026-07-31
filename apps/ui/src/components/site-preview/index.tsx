@@ -1,3 +1,4 @@
+import { useQuery } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import { chevronLeft, chevronRight, moreVertical, pencil } from '@wordpress/icons';
 import { ariaKeyShortcut, displayShortcut, isAppleOS, isKeyboardEvent } from '@wordpress/keycodes';
@@ -234,6 +235,8 @@ const EMPTY_INSPECTOR_STATE: InspectorState = {
 	isPicking: false,
 	annotationCount: 0,
 };
+
+const SITE_THUMBNAIL_QUERY_KEY = [ 'site-preview-thumbnail' ] as const;
 
 // Where each realm segment lands before its per-realm memory has anything
 // better: site root, WP Admin dashboard, and phpMyAdmin's WordPress database.
@@ -472,6 +475,12 @@ export function SitePreview( {
 	const windowControls = useWindowControlsOverlay();
 	const trafficLightSpace = useTrafficLightSpace();
 	const previewUrl = `${ siteUrl }${ getSafePath( path ) }`;
+	const siteThumbnail = useQuery( {
+		queryKey: [ ...SITE_THUMBNAIL_QUERY_KEY, site.id ],
+		queryFn: () => connector.getSiteThumbnail( site.id ),
+		enabled: ! canPreview,
+		meta: { persist: false },
+	} );
 	const [ browserState, setBrowserState ] =
 		useState< BrowserNavigationState >( EMPTY_BROWSER_STATE );
 	const [ browserCommand, setBrowserCommand ] = useState< BrowserCommand | null >( null );
@@ -931,21 +940,44 @@ export function SitePreview( {
 						</>
 					) : (
 						<div className={ styles.empty }>
-							<p className={ styles.emptyText }>
-								{ __( 'Start the site to see a live preview.' ) }
-							</p>
-							<Button
-								variant="solid"
-								tone="brand"
-								loading={ isStarting }
-								loadingAnnouncement={ __( 'Starting site' ) }
-								onClick={ () => startSite.mutate( site.id ) }
-							>
-								<span className={ styles.startIcon } aria-hidden="true">
-									{ playIcon }
-								</span>
-								{ __( 'Start site' ) }
-							</Button>
+							<div className={ styles.emptyGrid } aria-hidden="true">
+								<DotGrid
+									spacing={ 32 }
+									crossSize={ 5 }
+									crossThickness={ 0.75 }
+									opacity={ 0.16 }
+									intro={ false }
+								/>
+							</div>
+							<div className={ styles.emptyContent }>
+								{ siteThumbnail.data ? (
+									<div className={ styles.emptyThumbnail }>
+										<img
+											src={ siteThumbnail.data }
+											alt={ sprintf(
+												/* translators: %s: site name */
+												__( 'Screenshot of %s' ),
+												site.name
+											) }
+										/>
+									</div>
+								) : null }
+								<p className={ styles.emptyText }>
+									{ __( 'Start the site to see a live preview.' ) }
+								</p>
+								<Button
+									variant="solid"
+									tone="brand"
+									loading={ isStarting }
+									loadingAnnouncement={ __( 'Starting site' ) }
+									onClick={ () => startSite.mutate( site.id ) }
+								>
+									<span className={ styles.startIcon } aria-hidden="true">
+										{ playIcon }
+									</span>
+									{ __( 'Start site' ) }
+								</Button>
+							</div>
 						</div>
 					) }
 				</div>

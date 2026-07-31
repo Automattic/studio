@@ -13,7 +13,6 @@ import { MIN_WIDTH_CLASS_TO_MEASURE } from 'src/constants';
 import { useBetaFeatures } from 'src/hooks/use-beta-features';
 import { TabName } from 'src/hooks/use-content-tabs';
 import { useEffectiveTab } from 'src/hooks/use-effective-tab';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -24,7 +23,6 @@ export function SiteContentTabs() {
 	const { importState } = useImportExport();
 	const { effectiveTab, selectedTab, setSelectedTab, tabs } = useEffectiveTab();
 	const { __ } = useI18n();
-	const { enableAgenticUi } = useFeatureFlags();
 	const betaFeatures = useBetaFeatures();
 	const [ bannerDismissed, setBannerDismissed ] = useState( true );
 
@@ -95,7 +93,7 @@ export function SiteContentTabs() {
 		);
 	}
 
-	const showBanner = enableAgenticUi && ! betaFeatures.enableAgenticUi && ! bannerDismissed;
+	const showBanner = ! betaFeatures.enableAgenticUi && ! bannerDismissed;
 
 	return (
 		<div className="relative w-full h-full">

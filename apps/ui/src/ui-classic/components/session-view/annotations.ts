@@ -1,12 +1,9 @@
 import { _n, sprintf } from '@wordpress/i18n';
 import type { Annotation } from '@/components/site-preview/types';
+import type { StudioVisualAnnotationSummary } from '@studio/common/ai/visual-annotations';
 
 function describeCount( count: number ): string {
 	return count === 1 ? '1 visual annotation' : `${ count } visual annotations`;
-}
-
-export function formatAnnotationsSubmittedMessage( count: number ): string {
-	return sprintf( _n( '%d annotation submitted', '%d annotations submitted', count ), count );
 }
 
 function truncateText( text: string, maxLength: number ): string {
@@ -14,6 +11,25 @@ function truncateText( text: string, maxLength: number ): string {
 		return text;
 	}
 	return `${ text.slice( 0, maxLength - 1 ) }...`;
+}
+
+export function toVisualAnnotationSummaries(
+	annotations: Annotation[]
+): StudioVisualAnnotationSummary[] {
+	return annotations.map( ( annotation ) => ( {
+		comment: annotation.comment,
+		tag: annotation.tag,
+		elementLabel: annotation.elementLabel
+			? truncateText( annotation.elementLabel, 240 )
+			: undefined,
+		nearbyText: annotation.nearbyText?.trim()
+			? truncateText( annotation.nearbyText.trim(), 120 )
+			: undefined,
+	} ) );
+}
+
+export function formatAnnotationsSubmittedMessage( count: number ): string {
+	return sprintf( _n( '%d annotation submitted', '%d annotations submitted', count ), count );
 }
 
 function stringifyAnnotation( annotation: Annotation ): string {

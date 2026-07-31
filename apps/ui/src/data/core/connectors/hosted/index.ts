@@ -298,7 +298,11 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async continueSession( sessionId, prompt, options ): Promise< { runId: string } > {
 			return api< { runId: string } >( `/sessions/${ encodeURIComponent( sessionId ) }/messages`, {
 				method: 'POST',
-				body: JSON.stringify( { prompt, displayMessage: options?.displayMessage } ),
+				body: JSON.stringify( {
+					prompt,
+					displayMessage: options?.displayMessage,
+					visualAnnotations: options?.visualAnnotations,
+				} ),
 			} );
 		},
 		async getActiveAgentRuns(): Promise< ActiveAgentRun[] > {

@@ -66,6 +66,15 @@
 	flex-shrink: 0;
 }
 
+.annotateButton {
+	padding-inline: 14px;
+	border-color: var(--wpds-color-stroke-surface-neutral);
+}
+
+.sendAnnotations {
+	padding-inline: 14px;
+}
+
 /* 2px bar overlapping the header's bottom border, like a browser's page-load
    indicator. The inner span is scaled by inline style as progress advances. */
 .loadingProgress {

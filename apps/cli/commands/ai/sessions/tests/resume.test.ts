@@ -1,3 +1,6 @@
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import { loadAiSession } from '@studio/common/ai/sessions/store';
 import { vi, type Mock } from 'vitest';
 import { runCommand as runAiCommand } from 'cli/commands/ai';
@@ -82,6 +85,43 @@ describe( 'sessions resume — active site hydration (JSON mode)', () => {
 
 		expect( runAiCommand ).toHaveBeenCalledWith(
 			expect.objectContaining( { activeSite: undefined } )
+		);
+	} );
+
+	it( 'passes validated visual annotations from an input payload', async () => {
+		( loadAiSession as Mock ).mockResolvedValue( { entries: [] } );
+		const directory = await fs.mkdtemp( path.join( os.tmpdir(), 'studio-annotations-' ) );
+		const inputPayloadPath = path.join( directory, 'input.json' );
+		await fs.writeFile(
+			inputPayloadPath,
+			JSON.stringify( {
+				prompt: 'Update the selected heading',
+				displayMessage: '1 annotation submitted',
+				visualAnnotations: [
+					{ comment: '  Make it smaller  ', tag: ' h1 ', nearbyText: 'Welcome' },
+				],
+			} )
+		);
+
+		try {
+			await runCommand( 'session-1', { json: true, inputPayloadPath } );
+		} finally {
+			await fs.rm( directory, { recursive: true, force: true } );
+		}
+
+		expect( runAiCommand ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				initialMessage: 'Update the selected heading',
+				initialDisplayMessage: '1 annotation submitted',
+				initialVisualAnnotations: [
+					{
+						comment: 'Make it smaller',
+						tag: 'h1',
+						elementLabel: undefined,
+						nearbyText: 'Welcome',
+					},
+				],
+			} )
 		);
 	} );
 } );

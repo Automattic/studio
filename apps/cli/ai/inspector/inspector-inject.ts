@@ -9,6 +9,10 @@
  */
 
 import { launchChromiumWithInstall } from 'cli/ai/browser-utils';
+import {
+	validateAnnotationDoneResult,
+	type AnnotationDoneResult,
+} from 'cli/ai/inspector/annotation-result';
 import { INSPECTOR_PAGE_SCRIPT } from 'cli/ai/inspector/page-script';
 
 type Browser = Awaited< ReturnType< ( typeof import('playwright') )[ 'chromium' ][ 'launch' ] > >;
@@ -65,12 +69,6 @@ async function injectInspector( page: Page ): Promise< void > {
 	} );
 }
 
-export interface AnnotationDoneResult {
-	capturedAt: number;
-	url: string;
-	annotations: unknown[];
-}
-
 /**
  * Block until the user clicks "Done" in the inspector toolbar, then return
  * the annotations. Reads from `window.__studioAnnotateDone` which the page
@@ -96,10 +94,11 @@ export async function waitForAnnotationsDone(
 		{ timeout: timeoutMs, polling: 500 }
 	);
 
-	const value = ( await handle.jsonValue() ) as AnnotationDoneResult | null;
+	const value = await handle.jsonValue();
 	if ( ! value ) {
 		throw new Error( 'Annotation submission was cleared before it could be read.' );
 	}
+	const result = validateAnnotationDoneResult( value );
 
 	// Auto-close the browser once we've captured the annotations. This
 	// makes the lifecycle unambiguous from the user's point of view —
@@ -121,7 +120,7 @@ export async function waitForAnnotationsDone(
 		}, 10_000 );
 	}
 
-	return value;
+	return result;
 }
 
 export async function openAnnotationBrowser( siteUrl: string ): Promise< string > {

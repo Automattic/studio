@@ -60,6 +60,33 @@
 	object-fit: cover;
 }
 
+.annotationAttachment {
+	align-self: flex-end;
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-xs);
+	max-width: 80%;
+	margin-top: var(--wpds-dimension-padding-xs);
+	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md);
+	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: var(--wpds-border-radius-md, 8px);
+	background-color: var(--wpds-color-bg-surface-neutral);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+}
+
+.annotationElementTag {
+	flex: none;
+	font-family: var(--wpds-typography-font-family-mono);
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.annotationElementText {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
 .userText {
 	align-self: flex-end;
 	padding: var(--wpds-dimension-padding-md) calc(var(--wpds-dimension-padding-lg) + 8px);

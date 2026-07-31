@@ -1,11 +1,32 @@
 import { describe, expect, it } from 'vitest';
-import { formatAnnotationsAsPrompt, formatAnnotationsSubmittedMessage } from './annotations';
+import {
+	formatAnnotationsAsPrompt,
+	formatAnnotationsSubmittedMessage,
+	toVisualAnnotationSummaries,
+} from './annotations';
 import type { Annotation } from '@/components/site-preview/types';
 
 describe( 'formatAnnotationsAsPrompt', () => {
 	it( 'formats a compact submitted message for the visible transcript', () => {
-		expect( formatAnnotationsSubmittedMessage( 1 ) ).toBe( '1 annotation submitted' );
-		expect( formatAnnotationsSubmittedMessage( 2 ) ).toBe( '2 annotations submitted' );
+		const annotations: Annotation[] = [
+			{
+				id: 'a_1',
+				comment: 'Make this heading smaller',
+				tag: 'h1',
+				nearbyText: 'Welcome to Studio',
+			},
+		];
+
+		expect( formatAnnotationsSubmittedMessage( annotations.length ) ).toBe(
+			'1 annotation submitted'
+		);
+		expect( toVisualAnnotationSummaries( annotations ) ).toEqual( [
+			{
+				comment: 'Make this heading smaller',
+				tag: 'h1',
+				nearbyText: 'Welcome to Studio',
+			},
+		] );
 	} );
 
 	it( 'asks the agent to make the changes directly without a confirmation gate', () => {

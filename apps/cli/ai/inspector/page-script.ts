@@ -24,6 +24,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 
 	const STORAGE_KEY = 'studio-inspector-annotations-v1';
 	const HOST_ID = '__studio-inspector-host';
+	const MAX_ANNOTATIONS = 100;
 
 	/* --------------------------------------------------------------------
 	 * Storage
@@ -32,7 +33,17 @@ export const INSPECTOR_PAGE_SCRIPT =
 		try {
 			const raw = localStorage.getItem( STORAGE_KEY );
 			const parsed = raw ? JSON.parse( raw ) : [];
-			return Array.isArray( parsed ) ? parsed : [];
+			return Array.isArray( parsed )
+				? parsed
+						.filter(
+							( annotation ) =>
+								typeof annotation === 'object' &&
+								annotation !== null &&
+								typeof annotation.comment === 'string' &&
+								annotation.comment.trim()
+						)
+						.slice( 0, MAX_ANNOTATIONS )
+				: [];
 		} catch {
 			return [];
 		}
@@ -419,6 +430,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 
 		const ta = document.createElement( 'textarea' );
 		ta.placeholder = 'What should change about this element?';
+		ta.maxLength = 10000;
 		ta.value = state.comment || '';
 		ta.addEventListener( 'input', () => {
 			state.comment = ta.value;
@@ -473,6 +485,10 @@ export const INSPECTOR_PAGE_SCRIPT =
 		save.addEventListener( 'click', () => {
 			const trimmed = ( state.comment || '' ).trim();
 			if ( ! trimmed ) return;
+			if ( ! state.id && annotations.length >= MAX_ANNOTATIONS ) {
+				showToast( 'You can add up to 100 annotations.' );
+				return;
+			}
 			if ( state.id ) {
 				annotations = annotations.map( ( a ) =>
 					a.id === state.id ? { ...a, comment: trimmed, updatedAt: Date.now() } : a

@@ -1,8 +1,9 @@
+import { validateStudioInspectorAnnotations } from '@studio/common/ai/inspector-annotations';
 import { useQuery } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
-import { chevronLeft, chevronRight, external, pencil } from '@wordpress/icons';
+import { chevronLeft, chevronRight, external } from '@wordpress/icons';
 import { ariaKeyShortcut, displayShortcut, isAppleOS, isKeyboardEvent } from '@wordpress/keycodes';
-import { Button, IconButton } from '@wordpress/ui';
+import { Button, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DotGrid } from '@/components/dot-grid';
@@ -24,7 +25,7 @@ import {
 import {
 	INSPECTOR_BRIDGE_PREFIX,
 	INSPECTOR_COMMAND_EVENT,
-	INSPECTOR_PAGE_SCRIPT,
+	createInspectorPageScript,
 } from './inspector-script';
 import styles from './style.module.css';
 import type { Annotation } from './types';
@@ -55,6 +56,7 @@ interface SitePreviewProps {
 
 interface InspectorEvent {
 	type: 'browser-command' | 'done' | 'state';
+	bridgeToken?: string;
 	annotations?: Annotation[];
 	isPicking?: boolean;
 	annotationCount?: number;
@@ -69,7 +71,7 @@ interface InspectorState {
 
 interface InspectorCommand {
 	id: number;
-	type: 'toggle-picking' | 'submit';
+	type: 'toggle-picking' | 'cancel' | 'submit';
 }
 
 interface BrowserNavigationState {
@@ -493,28 +495,50 @@ export function SitePreview( {
 						<>
 							{ connector.capabilities.annotatePreview ? (
 								<div className={ styles.annotationControls }>
-									<IconButton
-										variant="minimal"
-										tone="neutral"
-										size="small"
-										icon={ pencil }
-										label={ inspectorState.isPicking ? __( 'Stop annotating' ) : __( 'Annotate' ) }
-										disabled={ ! canAnnotate }
-										aria-pressed={ inspectorState.isPicking }
-										onClick={ () => sendInspectorCommand( 'toggle-picking' ) }
-									/>
-									{ inspectorState.annotationCount > 0 ? (
-										<Button
-											variant="solid"
-											tone="brand"
-											size="small"
-											disabled={ ! canAnnotate }
-											aria-label={ __( 'Submit annotations' ) }
-											onClick={ () => sendInspectorCommand( 'submit' ) }
-										>
-											{ __( 'Submit' ) }
-										</Button>
-									) : null }
+									{ inspectorState.isPicking ? (
+										<>
+											<Button
+												variant="minimal"
+												tone="neutral"
+												size="small"
+												disabled={ ! canAnnotate }
+												onClick={ () => sendInspectorCommand( 'cancel' ) }
+											>
+												{ __( 'Cancel' ) }
+											</Button>
+											<Button
+												variant="solid"
+												tone="brand"
+												size="small"
+												className={ styles.sendAnnotations }
+												disabled={ ! canAnnotate || inspectorState.annotationCount === 0 }
+												aria-label={ __( 'Send annotations to chat' ) }
+												onClick={ () => sendInspectorCommand( 'submit' ) }
+											>
+												{ __( 'Send to chat' ) }
+											</Button>
+										</>
+									) : (
+										<Tooltip.Root>
+											<Tooltip.Trigger
+												render={
+													<Button
+														variant="outline"
+														tone="neutral"
+														size="small"
+														className={ styles.annotateButton }
+														disabled={ ! canAnnotate }
+														onClick={ () => sendInspectorCommand( 'toggle-picking' ) }
+													/>
+												}
+											>
+												{ __( 'Annotate' ) }
+											</Tooltip.Trigger>
+											<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
+												{ __( 'Add notes for the agent' ) }
+											</Tooltip.Popup>
+										</Tooltip.Root>
+									) }
 								</div>
 							) : null }
 							<IconButton
@@ -668,6 +692,7 @@ function WebviewSurface( {
 	const lastReloadNonceRef = useRef( reloadNonce );
 	const progressTimerRef = useRef< ReturnType< typeof setInterval > | null >( null );
 	const progressResetTimerRef = useRef< ReturnType< typeof setTimeout > | null >( null );
+	const inspectorBridgeTokenRef = useRef( globalThis.crypto.randomUUID() );
 	useEffect( () => {
 		onAnnotationsDoneRef.current = onAnnotationsDone;
 	}, [ onAnnotationsDone ] );
@@ -773,7 +798,7 @@ function WebviewSurface( {
 			setReady( true );
 			publishDocumentTitle();
 			webview
-				.executeJavaScript( INSPECTOR_PAGE_SCRIPT, false )
+				.executeJavaScript( createInspectorPageScript( inspectorBridgeTokenRef.current ), false )
 				.then( () => {
 					// The injected script reports the real picking/count state
 					// through the console bridge; this just flips `ready` so the
@@ -801,6 +826,7 @@ function WebviewSurface( {
 				return;
 			}
 			if ( ! parsed ) return;
+			if ( parsed.bridgeToken !== inspectorBridgeTokenRef.current ) return;
 			if ( parsed.type === 'browser-command' ) {
 				if ( isBrowserShortcutCommand( parsed.command ) ) {
 					onBrowserCommandRef.current?.( parsed.command );
@@ -816,7 +842,11 @@ function WebviewSurface( {
 				return;
 			}
 			if ( parsed.type !== 'done' || ! parsed.annotations ) return;
-			onAnnotationsDoneRef.current?.( parsed.annotations );
+			try {
+				onAnnotationsDoneRef.current?.( validateStudioInspectorAnnotations( parsed.annotations ) );
+			} catch {
+				return;
+			}
 		};
 		const handlePageTitleUpdated = ( event: Event ) => {
 			publishDocumentTitle( ( event as WebviewPageTitleUpdatedEvent ).title );
@@ -895,7 +925,10 @@ function WebviewSurface( {
 		if ( ! ready || ! inspectorCommand ) return;
 		const webview = ref.current as WebviewTag | null;
 		if ( ! webview ) return;
-		const detail = JSON.stringify( { type: inspectorCommand.type } );
+		const detail = JSON.stringify( {
+			type: inspectorCommand.type,
+			bridgeToken: inspectorBridgeTokenRef.current,
+		} );
 		webview
 			.executeJavaScript(
 				`window.dispatchEvent(new CustomEvent(${ JSON.stringify(

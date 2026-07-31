@@ -622,6 +622,52 @@ describe( 'Conversation turn-closed markers', () => {
 	} );
 } );
 
+describe( 'Conversation visual annotations', () => {
+	it( 'renders each submitted annotation as its own user turn', () => {
+		const items = entriesToRenderItems( [
+			visualAnnotationsEntry( [
+				{ comment: 'Make this smaller', tag: 'h1', nearbyText: 'Welcome' },
+				{ comment: 'Use a different image', elementLabel: 'img#hero' },
+			] ),
+		] );
+
+		expect( items ).toMatchObject( [
+			{
+				kind: 'user-text',
+				text: 'Make this smaller',
+				annotation: { tag: 'h1', nearbyText: 'Welcome' },
+			},
+			{
+				kind: 'user-text',
+				text: 'Use a different image',
+				annotation: { elementLabel: 'img#hero' },
+			},
+		] );
+	} );
+} );
+
+function visualAnnotationsEntry(
+	visualAnnotations: Array< {
+		comment: string;
+		tag?: string;
+		elementLabel?: string;
+		nearbyText?: string;
+	} >
+): SessionEntry {
+	return {
+		type: 'custom',
+		id: 'visual-annotations',
+		parentId: null,
+		timestamp: '2026-06-05T12:00:03.000Z',
+		customType: 'studio.user_prompt',
+		data: {
+			text: `${ visualAnnotations.length } annotations submitted`,
+			source: 'prompt',
+			visualAnnotations,
+		},
+	} as SessionEntry;
+}
+
 function turnClosedEntry( status: string, errorMessage?: string ): SessionEntry {
 	return {
 		type: 'custom',

@@ -3,6 +3,7 @@ import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
 import type { ActiveAgentRun } from '@studio/common/ai/agent-events';
 import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
 import type { StudioChatImage } from '@studio/common/ai/chat-images';
+import type { StudioVisualAnnotationSummary } from '@studio/common/ai/visual-annotations';
 import type { WebContents } from 'electron';
 
 /**
@@ -46,17 +47,26 @@ export interface StartAgentRunOptions {
 	displayMessage?: string;
 	images?: StudioChatImage[];
 	files?: StudioChatFileAttachment[];
+	visualAnnotations?: StudioVisualAnnotationSummary[];
 	webContents: WebContents;
 }
 
 export function startAgentRun( options: StartAgentRunOptions ): { runId: string } {
-	const { sessionId, prompt, displayMessage, images, files, webContents } = options;
+	const { sessionId, prompt, displayMessage, images, files, visualAnnotations, webContents } =
+		options;
 	// `startAgentRun` forks the child and returns its id synchronously; the
 	// child's first event arrives async (next tick), so registering the route
 	// after a successful start — keyed by the unique runId — is in time, and a
 	// rejected start (e.g. a concurrent run on the same session) never touches
 	// another run's routing.
-	const result = runManager.startAgentRun( { sessionId, prompt, displayMessage, images, files } );
+	const result = runManager.startAgentRun( {
+		sessionId,
+		prompt,
+		displayMessage,
+		images,
+		files,
+		visualAnnotations,
+	} );
 	runWebContents.set( result.runId, webContents );
 	// Abort the run if the window that started it goes away.
 	webContents.once( 'destroyed', () => runManager.interruptAgentRun( result.runId ) );

@@ -1,9 +1,9 @@
 import { useIsMutating } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
-import { chevronDown, external, Icon } from '@wordpress/icons';
-import { IconButton, Tooltip } from '@wordpress/ui';
+import { external, Icon } from '@wordpress/icons';
+import { Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import * as Menu from '@/components/menu';
 import { SiteIcon } from '@/components/site-icon';
 import { SiteStatusButton } from '@/components/site-status-button';
@@ -19,27 +19,21 @@ import {
 	usePullSiteFromLive,
 	usePushSiteToLive,
 } from '@/data/queries/use-sync-site';
-import { clearSyncActivity, useSiteSyncActivity } from '@/data/sync-activity';
+import { useSiteSyncActivity } from '@/data/sync-activity';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { getSiteDisplayUrl, getSiteUrl } from '@/lib/get-site-url';
 import { ActionButton } from './action-button';
-import { ConnectionsDialog } from './connections-dialog';
 import { ToolbarTweaksPanel, useToolbarPreview } from './dev-tweaks';
-import { DisconnectSiteDialog } from './disconnect-site-dialog';
-import { PreviewSitesDialog } from './preview-sites-dialog';
 import { PublishPickerView } from './publish-picker-view';
 import { StatusText } from './status-text';
 import styles from './style.module.css';
-import { useSyncMode } from './use-sync-mode';
-import { ensureProtocol, getConnectionLabel, stripProtocol } from './utils';
-import type { SyncModeDirection } from './use-sync-mode';
+import { SyncButton } from './sync-button';
+import { ensureProtocol, pickStatusConnection, sortConnections } from './utils';
+import type { ToolbarActionId } from './derive-toolbar-state';
 import type { SiteDetails, SyncSite } from '@/data/core';
 
 interface SiteToolbarProps {
 	site: SiteDetails;
-	// Opens the status menu on mount. Used by the post-checkout `?sync=pull`
-	// deep link, which lands the user here specifically to pull.
-	defaultMenuOpen?: boolean;
 	className?: string;
 }
 
@@ -92,7 +86,7 @@ function isRecent( isoTimestamp: string | null | undefined ): boolean {
  * old site dropdown, whose actions were hidden behind a trigger that read as a
  * status indicator.
  */
-export function SiteToolbar( { site, defaultMenuOpen = false, className }: SiteToolbarProps ) {
+export function SiteToolbar( { site, className }: SiteToolbarProps ) {
 	const connector = useConnector();
 	const { enabled: agenticEnabled, reason: agenticReason } = useAgenticFeatures();
 	// The sidebar's site rows already carry a run-state dot for every site,
@@ -100,29 +94,22 @@ export function SiteToolbar( { site, defaultMenuOpen = false, className }: SiteT
 	// place once the sidebar is out of view.
 	const showRunState = useSidebarCollapsed();
 	const login = useLogin();
-	const [ menuOpen, setMenuOpen ] = useState( defaultMenuOpen );
 	const [ pickerOpen, setPickerOpen ] = useState( false );
-	const [ previewsOpen, setPreviewsOpen ] = useState( false );
-	const [ connectionsOpen, setConnectionsOpen ] = useState( false );
-	const [ disconnecting, setDisconnecting ] = useState< SyncSite | null >( null );
 
 	const isStarting = useIsSiteStarting( site.id );
 	const isStopping = useIsSiteStopping( site.id );
 	const activity = useSiteSyncActivity( site.id );
 	const { data: connectedSites } = useConnectedWpcomSites( site.id );
-	const {
-		direction,
-		setDirection,
-		targets,
-		target: liveSite,
-		selectTarget,
-	} = useSyncMode( site.id, connectedSites );
+	const targets = useMemo( () => sortConnections( connectedSites ), [ connectedSites ] );
+	// Only for the status line: with no stored selection, it reports on whatever
+	// connection was synced most recently.
+	const liveSite = useMemo( () => pickStatusConnection( targets ), [ targets ] );
 
 	const pushSiteToLive = usePushSiteToLive();
 	const pullSiteFromLive = usePullSiteFromLive();
 	const { push: isPushPending, pull: isPullPending } = useIsSiteSyncing( site.id );
 	// Counted rather than read off a local mutation: previews are published
-	// from the dialog, which owns its own hook instance.
+	// from the site's own Previews tab, which owns its hook instance.
 	const isPreviewPending = useIsMutating( { mutationKey: PUBLISH_PREVIEW_MUTATION_KEY } ) > 0;
 	// Preview / push / pull all mutate the same local site; running them
 	// concurrently would wedge the site runtime.
@@ -139,7 +126,6 @@ export function SiteToolbar( { site, defaultMenuOpen = false, className }: SiteT
 	const preview = useToolbarPreview(
 		{
 			activity,
-			direction,
 			agenticEnabled,
 			agenticReason,
 			liveSite,
@@ -148,43 +134,31 @@ export function SiteToolbar( { site, defaultMenuOpen = false, className }: SiteT
 		},
 		{ running: site.running, isStarting, isStopping }
 	);
-	const { status, action } = preview.state;
+	const { status, actions } = preview.state;
 	const previewSite =
 		preview.run.running === site.running ? site : { ...site, running: preview.run.running };
+	// While the panel drives, its single synthetic connection stands in for the
+	// real set so the buttons don't offer targets the fake state doesn't have.
+	const syncTargets = preview.active ? ( preview.liveSite ? [ preview.liveSite ] : [] ) : targets;
 
 	const openExternal = ( url: string ) => {
 		void connector.openExternalUrl( url );
 	};
 
-	const runSync = () => {
+	const runSync = ( action: ToolbarActionId, target: SyncSite ) => {
 		// While the tweaks panel drives the toolbar, the state on screen is a
 		// picture — don't start real work from it.
-		if ( ! liveSite || isSyncing || preview.active ) {
+		if ( isSyncing || preview.active ) {
 			return;
 		}
-		if ( direction === 'pull' ) {
-			pullSiteFromLive.mutate( { siteId: site.id, remoteSiteId: liveSite.id } );
+		if ( action === 'pull' ) {
+			pullSiteFromLive.mutate( { siteId: site.id, remoteSiteId: target.id } );
 			return;
 		}
 		pushSiteToLive.mutate(
-			{ siteId: site.id, remoteSiteId: liveSite.id },
-			{ onSuccess: () => openExternal( ensureProtocol( liveSite.url ) ) }
+			{ siteId: site.id, remoteSiteId: target.id },
+			{ onSuccess: () => openExternal( ensureProtocol( target.url ) ) }
 		);
-	};
-
-	const handleAction = () => {
-		if ( preview.active ) {
-			return;
-		}
-		switch ( action.id ) {
-			case 'login':
-				login.mutate();
-				return;
-			case 'retry':
-			case 'push':
-			case 'pull':
-				runSync();
-		}
 	};
 
 	const localSiteUrl = getSiteUrl( site );
@@ -254,135 +228,40 @@ export function SiteToolbar( { site, defaultMenuOpen = false, className }: SiteT
 			<div className={ styles.actions }>
 				{ status ? <StatusText status={ status } /> : null }
 
-				{ /* One control, two halves: the action the button is set to, and the
-				     menu that sets it. Everything that used to hide behind the status
-				     indicator now hangs off the thing it acts on. */ }
-				<div className={ styles.split }>
-					{ action.id === 'publish' ? (
+				{ /* Both directions are on screen at once, so neither is a mode that
+				     can be left pointing the wrong way. Each button names its own
+				     target when the site has more than one connection. */ }
+				{ actions.map( ( action ) =>
+					action.id === 'publish' ? (
 						// Publish opens the site picker anchored to its own button, so
 						// the flow starts where the user clicked.
-						<Menu.Root modal={ false } open={ pickerOpen } onOpenChange={ setPickerOpen }>
-							<Menu.Trigger
-								render={ <ActionButton action={ action } className={ styles.splitMain } /> }
-							/>
+						<Menu.Root
+							key={ action.id }
+							modal={ false }
+							open={ pickerOpen }
+							onOpenChange={ setPickerOpen }
+						>
+							<Menu.Trigger render={ <ActionButton action={ action } /> } />
 							<Menu.Popup side="bottom" align="end" className={ styles.pickerPopup }>
 								<PublishPickerView site={ site } onClose={ () => setPickerOpen( false ) } />
 							</Menu.Popup>
 						</Menu.Root>
-					) : (
+					) : action.id === 'login' ? (
 						<ActionButton
+							key={ action.id }
 							action={ action }
-							className={ styles.splitMain }
-							onClick={ handleAction }
+							onClick={ () => ! preview.active && login.mutate() }
 						/>
-					) }
-
-					<Menu.Root
-						modal={ false }
-						open={ menuOpen }
-						onOpenChange={ ( open ) => {
-							setMenuOpen( open );
-							// Opening the menu is the acknowledgement a persistent failure
-							// was waiting for.
-							if ( open && activity?.kind === 'error' ) {
-								clearSyncActivity( site.id );
-							}
-						} }
-					>
-						<Menu.Trigger
-							render={
-								<IconButton
-									variant="solid"
-									tone="brand"
-									size="compact"
-									icon={ chevronDown }
-									label={ __( 'Sync options' ) }
-									className={ styles.splitToggle }
-								/>
-							}
+					) : (
+						<SyncButton
+							key={ action.id }
+							action={ action }
+							targets={ syncTargets }
+							onRun={ ( target ) => runSync( action.id, target ) }
 						/>
-						<Menu.Popup side="bottom" align="end" className={ styles.menu }>
-							{ targets.length > 0 ? (
-								<>
-									<div className={ styles.menuGroupLabel }>{ __( 'Direction' ) }</div>
-									<Menu.RadioGroup
-										value={ direction }
-										onValueChange={ ( value ) => setDirection( value as SyncModeDirection ) }
-									>
-										<Menu.RadioItem value="push" disabled={ isSyncing }>
-											{ __( 'Push' ) }
-											<span className={ styles.menuItemMeta }>{ __( 'Studio → live' ) }</span>
-										</Menu.RadioItem>
-										<Menu.RadioItem value="pull" disabled={ isSyncing }>
-											{ __( 'Pull' ) }
-											<span className={ styles.menuItemMeta }>{ __( 'live → Studio' ) }</span>
-										</Menu.RadioItem>
-									</Menu.RadioGroup>
-								</>
-							) : null }
-							{ /* Sites connected to both a production and a staging site pick
-							     which one the action — and the status beside it — refers to. */ }
-							{ targets.length > 1 ? (
-								<>
-									<Menu.Separator />
-									<div className={ styles.menuGroupLabel }>{ __( 'Site' ) }</div>
-									<Menu.RadioGroup
-										value={ liveSite?.id }
-										onValueChange={ ( value ) => selectTarget( Number( value ) ) }
-									>
-										{ targets.map( ( target ) => (
-											<Menu.RadioItem key={ target.id } value={ target.id } disabled={ isSyncing }>
-												{ getConnectionLabel( target ) }
-												<span className={ styles.menuItemMeta }>
-													{ stripProtocol( target.url ) }
-												</span>
-											</Menu.RadioItem>
-										) ) }
-									</Menu.RadioGroup>
-								</>
-							) : null }
-							{ targets.length > 0 ? <Menu.Separator /> : null }
-							<Menu.Item onClick={ () => setPreviewsOpen( true ) }>
-								{ __( 'Preview sites…' ) }
-							</Menu.Item>
-							<Menu.Item onClick={ () => setConnectionsOpen( true ) }>
-								{ __( 'Connections…' ) }
-							</Menu.Item>
-						</Menu.Popup>
-					</Menu.Root>
-				</div>
+					)
+				) }
 			</div>
-
-			<PreviewSitesDialog
-				site={ site }
-				busy={ isPushPending || isPullPending }
-				open={ previewsOpen }
-				onOpenChange={ setPreviewsOpen }
-			/>
-			<ConnectionsDialog
-				site={ site }
-				connections={ targets }
-				activeId={ liveSite?.id }
-				open={ connectionsOpen }
-				onOpenChange={ setConnectionsOpen }
-				onSelect={ selectTarget }
-				onDisconnect={ ( connection ) => {
-					setConnectionsOpen( false );
-					setDisconnecting( connection );
-				} }
-			/>
-			{ disconnecting ? (
-				<DisconnectSiteDialog
-					localSiteId={ site.id }
-					liveSite={ disconnecting }
-					open
-					onOpenChange={ ( next ) => {
-						if ( ! next ) {
-							setDisconnecting( null );
-						}
-					} }
-				/>
-			) : null }
 
 			<ToolbarTweaksPanel />
 		</div>

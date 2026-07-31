@@ -16,7 +16,7 @@ interface SiteOverviewSearch {
 
 function SiteOverviewPage() {
 	const { siteId } = siteOverviewRoute.useParams();
-	const { tab, sync } = siteOverviewRoute.useSearch();
+	const { tab } = siteOverviewRoute.useSearch();
 	const navigate = useNavigate();
 	const { data: sites } = useSites();
 	const activeTab: SiteSettingsTabId = tab ?? 'overview';
@@ -36,7 +36,6 @@ function SiteOverviewPage() {
 		<SiteOverviewView
 			siteId={ siteId }
 			activeTab={ activeTab }
-			openSiteDropdown={ sync === 'pull' }
 			onTabChange={ ( next ) =>
 				void navigate( {
 					to: '/sites/$siteId/overview',

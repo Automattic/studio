@@ -43,7 +43,6 @@ export type ToolbarTweaks = {
 	connection: TweakConnection;
 	history: TweakHistory;
 	activity: TweakActivity;
-	direction: 'push' | 'pull';
 	progress: number;
 	determinate: boolean;
 	auth: TweakAuth;
@@ -68,7 +67,6 @@ export const DEFAULT_TWEAKS: ToolbarTweaks = {
 	connection: 'live',
 	history: 'days',
 	activity: 'none',
-	direction: 'push',
 	progress: 42,
 	determinate: true,
 	auth: 'ok',

@@ -20,6 +20,7 @@ import { useWordPressVersions, useWpVersion } from '@/data/queries/use-wordpress
 import { useOffline } from '@/hooks/use-offline';
 import styles from './style.module.css';
 import { SiteOverviewView } from './index';
+import type { SiteSettingsTabId } from '@/components/site-settings-view';
 import type { SiteDetails } from '@/data/core';
 
 const navigateMock = vi.fn();
@@ -49,7 +50,7 @@ vi.mock( '@/components/delete-site-dialog', () => ( {
 } ) );
 
 vi.mock( '@/components/site-toolbar', () => ( {
-	SiteToolbar: ( props: { site: SiteDetails; defaultMenuOpen?: boolean } ) => {
+	SiteToolbar: ( props: { site: SiteDetails } ) => {
 		siteToolbarMock( props );
 		return <div>{ props.site.name }</div>;
 	},
@@ -174,18 +175,10 @@ describe( 'SiteOverviewView', () => {
 		useXdebugEnabledSiteMock.mockReturnValue( null );
 	} );
 
-	function renderView(
-		activeTab: 'overview' | 'general' | 'debugging' = 'overview',
-		openSiteDropdown = false
-	) {
+	function renderView( activeTab: SiteSettingsTabId = 'overview' ) {
 		return render(
 			<Tooltip.Provider>
-				<SiteOverviewView
-					siteId="site-1"
-					activeTab={ activeTab }
-					openSiteDropdown={ openSiteDropdown }
-					onTabChange={ onTabChange }
-				/>
+				<SiteOverviewView siteId="site-1" activeTab={ activeTab } onTabChange={ onTabChange } />
 			</Tooltip.Provider>
 		);
 	}
@@ -231,12 +224,11 @@ describe( 'SiteOverviewView', () => {
 		expect( onTabChange ).toHaveBeenCalledWith( 'general' );
 	} );
 
-	it( 'opens site status when requested by the route', () => {
-		renderView( 'overview', true );
+	it( 'gives connections and previews their own tabs', () => {
+		renderView();
 
-		expect( siteToolbarMock ).toHaveBeenCalledWith(
-			expect.objectContaining( { defaultMenuOpen: true } )
-		);
+		expect( screen.getByRole( 'tab', { name: 'Connections' } ) ).toBeVisible();
+		expect( screen.getByRole( 'tab', { name: 'Previews' } ) ).toBeVisible();
 	} );
 
 	it( 'renders the settings form with save actions on the general tab', () => {

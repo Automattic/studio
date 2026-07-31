@@ -169,26 +169,6 @@
 
 /* --- Primary action ------------------------------------------------------ */
 
-/* The action and its menu read as one control: a hairline of the toolbar's own
-   background separates the halves, and only the outer corners round. */
-.split {
-	display: inline-flex;
-	align-items: stretch;
-	gap: 1px;
-}
-
-.splitMain.splitMain {
-	border-start-end-radius: 0;
-	border-end-end-radius: 0;
-}
-
-.splitToggle.splitToggle {
-	border-start-start-radius: 0;
-	border-end-start-radius: 0;
-	min-width: 0;
-	padding-inline: var(--wpds-dimension-padding-xs);
-}
-
 .action {
 	/* A stable floor so the label can change without the toolbar reflowing
 	   around it. */
@@ -232,13 +212,27 @@
 	color: var(--wpds-color-fg-content-error);
 }
 
-/* Names the radio group that picks which connection everything below acts on.
-   Aligned with the menu items' text rather than their indicator column. */
+/* Names the list of connections a push or pull could run against. */
 .menuGroupLabel {
 	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md)
 		var(--wpds-dimension-padding-xs);
 	font-size: var(--wpds-typography-font-size-xs);
 	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.menuItemStack {
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+	min-width: 0;
+}
+
+.menuItemSub {
+	font-size: var(--wpds-typography-font-size-xs);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 .menuItemMeta {

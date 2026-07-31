@@ -97,7 +97,6 @@ function buildActivity( tweaks: ToolbarTweaks ): SyncActivity | null {
 function buildOptions( tweaks: ToolbarTweaks ): DeriveToolbarStateOptions {
 	return {
 		activity: buildActivity( tweaks ),
-		direction: tweaks.direction,
 		agenticEnabled: tweaks.auth === 'ok',
 		agenticReason: tweaks.auth === 'ok' ? null : tweaks.auth,
 		liveSite: buildLiveSite( tweaks ),
@@ -107,11 +106,11 @@ function buildOptions( tweaks: ToolbarTweaks ): DeriveToolbarStateOptions {
 }
 
 function applyOverrides( state: ToolbarState, tweaks: ToolbarTweaks ): ToolbarState {
-	const { status, action } = state;
+	const { status, actions } = state;
 	return {
 		status:
 			status && tweaks.statusTone !== 'auto' ? { ...status, tone: tweaks.statusTone } : status,
-		action: {
+		actions: actions.map( ( action ) => ( {
 			...action,
 			...( tweaks.actionVariant === 'auto' ? {} : { variant: tweaks.actionVariant } ),
 			...( tweaks.actionTone === 'auto' ? {} : { tone: tweaks.actionTone } ),
@@ -124,7 +123,7 @@ function applyOverrides( state: ToolbarState, tweaks: ToolbarTweaks ): ToolbarSt
 							? { disabledReason: 'Forced by the tweaks panel.' }
 							: { disabledReason: undefined } ),
 				  } ),
-		},
+		} ) ),
 	};
 }
 

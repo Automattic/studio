@@ -1,6 +1,5 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { formatRelativeTime } from '@/lib/format-relative-time';
-import type { SyncModeDirection } from './use-sync-mode';
 import type { SyncSite } from '@/data/core';
 import type { AgenticFeatureReason } from '@/data/queries/use-agentic-features';
 import type { SyncActivity } from '@/data/sync-activity';
@@ -22,7 +21,7 @@ export type ToolbarStatus = {
 	detail?: string;
 };
 
-export type ToolbarActionId = 'publish' | 'push' | 'pull' | 'retry' | 'login';
+export type ToolbarActionId = 'publish' | 'push' | 'pull' | 'login';
 
 export type ToolbarAction = {
 	id: ToolbarActionId;
@@ -39,16 +38,16 @@ export type ToolbarAction = {
 
 export type ToolbarState = {
 	// Null when there is nothing worth saying: an unconnected site has no sync
-	// history to report, and "No live site" only restates the Publish button.
+	// history to report, and naming that state only restates the button.
 	status: ToolbarStatus | null;
-	action: ToolbarAction;
+	// Everything the site can do right now, in the order it should be shown.
+	// A connected site offers both directions at once, so neither is a mode
+	// that can be left pointing the wrong way.
+	actions: ToolbarAction[];
 };
 
 export type DeriveToolbarStateOptions = {
 	activity: SyncActivity | null;
-	// Which way the action moves content. A mode the user sets from the action
-	// button's own menu, not something the app infers.
-	direction: SyncModeDirection;
 	agenticEnabled: boolean;
 	agenticReason: AgenticFeatureReason;
 	liveSite: SyncSite | undefined;
@@ -232,31 +231,26 @@ function getIdleStatus( liveSite: SyncSite | undefined ): ToolbarStatus | null {
  */
 export function deriveToolbarState( {
 	activity,
-	direction,
 	agenticEnabled,
 	agenticReason,
 	liveSite,
 	isSyncing,
 	siteRunning,
 }: DeriveToolbarStateOptions ): ToolbarState {
-	// Only the direction the button is set to counts: a failed pull shouldn't
-	// turn a Push button into Retry, and vice versa.
-	const isRunningNow = activity?.kind === 'pending' && activity.direction === direction;
-	const hasFailed = activity?.kind === 'error' && activity.direction === direction;
-
-	// Signed out: nothing remote is reachable and the fix is a single click,
-	// so it outranks every other story the pill could tell.
+	// Signed out, nothing remote is reachable and the fix is a single click.
 	if ( agenticReason === 'signed-out' ) {
 		return {
-			status: { tone: 'neutral', label: __( 'Sign in to publish' ) },
-			action: {
-				id: 'login',
-				label: __( 'Log in' ),
-				variant: 'solid',
-				tone: 'brand',
-				busy: false,
-				disabled: false,
-			},
+			status: null,
+			actions: [
+				{
+					id: 'login',
+					label: __( 'Log in' ),
+					variant: 'solid',
+					tone: 'brand',
+					busy: false,
+					disabled: false,
+				},
+			],
 		};
 	}
 
@@ -271,54 +265,17 @@ export function deriveToolbarState( {
 			return getSuccessStatus( activity, liveSite );
 		}
 		// Offline only shows once nothing is in flight — a push that started
-		// online keeps reporting its own progress.
+		// online keeps reporting its own progress — and only for a site that has
+		// somewhere to sync to.
 		if ( agenticReason === 'offline' ) {
-			return { tone: 'neutral' as const, label: __( 'Offline' ) };
+			return liveSite ? { tone: 'neutral' as const, label: __( 'Offline' ) } : null;
 		}
 		return getIdleStatus( liveSite );
 	} )();
 
-	const action: ToolbarAction = ( () => {
-		if ( ! liveSite ) {
-			return {
-				id: 'publish' as const,
-				label: __( 'Publish' ),
-				variant: 'solid' as const,
-				tone: 'brand' as const,
-				busy: false,
-				disabled: false,
-			};
-		}
-
-		// A failure keeps its recovery in the same slot the action lived in, so
-		// the fix is exactly where the user was already looking.
-		if ( hasFailed ) {
-			return {
-				id: 'retry' as const,
-				label: __( 'Retry' ),
-				variant: 'solid' as const,
-				tone: 'brand' as const,
-				busy: false,
-				disabled: false,
-			};
-		}
-
-		return {
-			id: direction,
-			label: direction === 'pull' ? __( 'Pull' ) : __( 'Push' ),
-			variant: 'solid' as const,
-			tone: 'brand' as const,
-			busy: isRunningNow,
-			disabled: false,
-		};
-	} )();
-
-	// Gating runs last so every branch above states its intent and this one
-	// decides, in one place, whether it can actually happen.
+	// Gating is shared: push and pull move the same files over the same
+	// connection, so whatever stops one stops the other.
 	const disabledReason = ( () => {
-		if ( action.busy ) {
-			return undefined;
-		}
 		if ( agenticReason === 'offline' ) {
 			return __( 'Go online to sync this site.' );
 		}
@@ -328,23 +285,59 @@ export function deriveToolbarState( {
 		if ( isSyncing ) {
 			return __( 'Another sync is already running.' );
 		}
-		// Publish only opens the site picker, so the gates below — which are
-		// about moving files off a local server — don't apply to it.
-		if ( action.id === 'publish' ) {
-			return undefined;
-		}
 		if ( ! siteRunning ) {
 			return __( 'Start the site to sync it.' );
 		}
 		return undefined;
 	} )();
 
+	const gate = ( action: Omit< ToolbarAction, 'disabled' > ): ToolbarAction => ( {
+		...action,
+		// A running action isn't blocked by its own run.
+		disabled: ! action.busy && disabledReason !== undefined,
+		...( action.busy || disabledReason === undefined ? {} : { disabledReason } ),
+	} );
+
+	if ( ! liveSite ) {
+		return {
+			status,
+			actions: [
+				// Publish only opens the site picker, so the gates above — which are
+				// about moving files off a local server — don't apply to it.
+				{
+					id: 'publish',
+					label: __( 'Publish' ),
+					variant: 'solid',
+					tone: 'brand',
+					busy: false,
+					disabled: false,
+				},
+			],
+		};
+	}
+
+	const isPushing = activity?.kind === 'pending' && activity.direction === 'push';
+	const isPulling = activity?.kind === 'pending' && activity.direction === 'pull';
+
+	// Pull sits on the left and stays quiet: it overwrites local work, so it
+	// shouldn't be the button the eye lands on first.
 	return {
 		status,
-		action: {
-			...action,
-			disabled: disabledReason !== undefined,
-			...( disabledReason === undefined ? {} : { disabledReason } ),
-		},
+		actions: [
+			gate( {
+				id: 'pull',
+				label: __( 'Pull' ),
+				variant: 'outline',
+				tone: 'neutral',
+				busy: isPulling,
+			} ),
+			gate( {
+				id: 'push',
+				label: __( 'Push' ),
+				variant: 'solid',
+				tone: 'brand',
+				busy: isPushing,
+			} ),
+		],
 	};
 }

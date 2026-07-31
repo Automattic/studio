@@ -147,10 +147,11 @@ describe( 'SiteToolbar', () => {
 		expect( screen.queryByText( 'No live site' ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'promotes Push once a live site is connected', () => {
+	it( 'offers both push and pull once a live site is connected', () => {
 		vi.mocked( useConnectedWpcomSites ).mockReturnValue( { data: [ liveSite() ] } as never );
 		renderToolbar();
 
+		expect( screen.getByRole( 'button', { name: 'Pull' } ) ).toBeVisible();
 		expect( screen.getByRole( 'button', { name: 'Push' } ) ).toBeVisible();
 		expect( screen.getByText( 'Never pushed' ) ).toBeVisible();
 	} );
@@ -185,52 +186,35 @@ describe( 'SiteToolbar', () => {
 			} as never );
 		} );
 
-		it( 'targets production until told otherwise', () => {
+		it( 'reports on whichever connection was synced most recently', () => {
 			renderToolbar();
 
-			expect( screen.getByText( 'Never pushed' ) ).toBeVisible();
-		} );
-
-		it( 'lets the menu switch which connection the toolbar acts on', async () => {
-			const user = userEvent.setup();
-			renderToolbar( { defaultMenuOpen: true } );
-
-			await user.click( await screen.findByRole( 'menuitemradio', { name: /Staging/ } ) );
-
-			// The pill reports the newly selected connection's own history.
+			// Production has never been pushed; staging has. The status speaks
+			// for the connection that actually did something.
 			expect( screen.getByText( 'Pushed to Staging' ) ).toBeVisible();
 		} );
 
-		it( 'pushes to the selected connection', async () => {
-			const mutate = vi.fn();
-			vi.mocked( usePushSiteToLive ).mockReturnValue( { mutate } as never );
-			const user = userEvent.setup();
-			renderToolbar( { defaultMenuOpen: true } );
+		it( 'shows both directions rather than a mode to set', () => {
+			renderToolbar();
 
-			await user.click( await screen.findByRole( 'menuitemradio', { name: /Staging/ } ) );
-			await user.click( screen.getByRole( 'button', { name: 'Push' } ) );
-
-			expect( mutate ).toHaveBeenCalledWith(
-				{ siteId: 'riff', remoteSiteId: staging.id },
-				expect.anything()
-			);
+			expect( screen.getByRole( 'button', { name: 'Pull' } ) ).toBeVisible();
+			expect( screen.getByRole( 'button', { name: 'Push' } ) ).toBeVisible();
 		} );
 	} );
 
-	it( 'switches the action between push and pull from its own menu', async () => {
+	it( 'pulls straight away when there is only one connection to pull from', async () => {
 		const pull = vi.fn();
 		vi.mocked( usePullSiteFromLive ).mockReturnValue( { mutate: pull } as never );
 		vi.mocked( useConnectedWpcomSites ).mockReturnValue( { data: [ liveSite() ] } as never );
 		const user = userEvent.setup();
-		renderToolbar( { defaultMenuOpen: true } );
+		renderToolbar();
 
-		await user.click( await screen.findByRole( 'menuitemradio', { name: /Pull/ } ) );
 		await user.click( screen.getByRole( 'button', { name: 'Pull' } ) );
 
 		expect( pull ).toHaveBeenCalledWith( { siteId: 'riff', remoteSiteId: 42 } );
 	} );
 
-	it( 'swaps the action to Retry when the last push failed', () => {
+	it( 'keeps the failure in the status rather than relabelling the button', () => {
 		vi.mocked( useConnectedWpcomSites ).mockReturnValue( { data: [ liveSite() ] } as never );
 		vi.mocked( useSiteSyncActivity ).mockReturnValue( {
 			kind: 'error',
@@ -239,7 +223,7 @@ describe( 'SiteToolbar', () => {
 		} );
 		renderToolbar();
 
-		expect( screen.getByRole( 'button', { name: 'Retry' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Push' } ) ).toBeVisible();
 		expect( screen.getByText( 'Push failed' ) ).toBeVisible();
 	} );
 } );

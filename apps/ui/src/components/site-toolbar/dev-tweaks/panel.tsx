@@ -239,16 +239,6 @@ function Body( { tweaks }: { tweaks: ToolbarTweaks } ) {
 			</Group>
 
 			<Group title="Activity">
-				<Field label="Direction">
-					<Segmented
-						value={ tweaks.direction }
-						onChange={ ( direction ) => setTweaks( { direction } ) }
-						options={ [
-							{ value: 'push', label: 'Push' },
-							{ value: 'pull', label: 'Pull' },
-						] }
-					/>
-				</Field>
 				<Field label="State">
 					<Choice
 						value={ tweaks.activity }

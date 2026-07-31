@@ -183,6 +183,9 @@ export interface Connector {
 	// Refreshes the cached WordPress Site Icon path after a site-level icon
 	// change. The renderer receives image bytes through getSites().
 	refreshSiteIcon( siteId: string ): Promise< void >;
+	// Cached screenshot thumbnail captured by the desktop app while the site
+	// was running. Returns null when the site has not produced a thumbnail yet.
+	getSiteThumbnail( siteId: string ): Promise< string | null >;
 
 	// Exports a site as a full backup archive (files + database). Prompts the
 	// user for a destination via a save-as dialog; resolves with the chosen
@@ -341,7 +344,10 @@ export interface Connector {
 	// the granular main-process handlers inside the connector so the UI has a
 	// single query + mutation to work with.
 	getUserPreferences(): Promise< UserPreferences >;
-	setUserPreferences( partial: Partial< WritableUserPreferences > ): Promise< void >;
+	setUserPreferences(
+		partial: Partial< WritableUserPreferences >,
+		source?: PreferenceChangeSource
+	): Promise< void >;
 
 	// Opens a native folder picker for the default-site-directory preference.
 	// Resolves with the chosen path, or `null` when the user cancels (or the
@@ -510,6 +516,12 @@ export type WritableUserPreferences = Omit<
 > & {
 	locale: SupportedLocale;
 };
+
+// Attributes a preference write to an in-app surface for settings-change Tracks
+// events. `ui_version` is fixed per renderer, so connectors set it — not callers.
+export interface PreferenceChangeSource {
+	surface: 'onboarding' | 'settings';
+}
 
 export interface CreateSiteParams {
 	name: string;

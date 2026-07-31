@@ -135,8 +135,9 @@ Common props (`platform`, `arch`, `app_version`, `is_a11n`, and `channel`/`ui_ve
 wrappers/renderers — pass only event-specific props. (Centralizing `channel`/`ui_version` on the desktop
 side is STU-2122; until it lands, `studio_app_launch` still sets them at the call site.)
 
-Reserved for later phases (documented so future events conform): `surface` (in-app area, e.g.
-`onboarding`/`settings`), `outcome` (`success`/`error`).
+`surface` (in-app area, e.g. `onboarding`/`settings`) is live on `studio_telemetry`; the renderer
+supplies it per change (Main can't infer it) and it is meant to generalize to other settings-change
+events. Reserved for later phases (documented so future events conform): `outcome` (`success`/`error`).
 
 **AI / assistant events (Phase 2+).** Studio Code assistant usage events must use the data team's
 AI-event vocabulary: `ai_session_id`, `agent_name`, `agent_version`, `ability_name`, `outcome`,
@@ -151,6 +152,7 @@ Every event also carries the common props `channel`, `is_a11n`, `platform`, `arc
 |---|---|---|
 | `studio_app_launch` | Desktop Main (`appBoot`) | `ui_version`, `is_first_launch` |
 | `studio_site_start` | CLI site-start funnel | `ui_version` (only when `channel=studio-ui`) |
+| `studio_telemetry` | Desktop Main (`saveAnalyticsEnabled`) | `status` (`on`/`off`), `surface` (`onboarding`/`settings`) — recorded while analytics is still ON (before the write when turning off, after it when turning on) so the opt-out gate never self-suppresses it. `ui_version` set at the call site from the originating renderer. |
 
 ### How to add a new event
 
@@ -179,10 +181,14 @@ What fires depends on the build, so pick the right method:
   `__ENABLE_CLI_TELEMETRY__` gate, so a plain `npm start` logs `Would have recorded… studio_app_launch`
   in the **Main-process terminal** (the shared core no-ops the network send in dev/E2E). Add
   `enableAgenticUi` to see `ui_version: v2`.
-- **`studio_site_start` — NOT emitted in a plain dev run.** It fires from the CLI, gated by
-  `__ENABLE_CLI_TELEMETRY__`, which is compiled to `false` in dev builds — so `npm start` and a normal
-  `npm run cli:build` emit nothing, by design. To exercise it against a dev build **without** rebuilding,
-  set the runtime override `STUDIO_FORCE_CLI_TELEMETRY=1`, and run the CLI directly in a terminal:
+- **`studio_site_start` in a dev run.** It fires from the CLI, whose build-time
+  `__ENABLE_CLI_TELEMETRY__` gate is compiled to `false` in dev builds. The CLI wrapper treats
+  `NODE_ENV === 'development'` as an escape hatch, though, so during a plain `npm start` a UI-triggered
+  site start logs `Would have recorded… studio_site_start` in the **`npm start` terminal** (echoed as
+  `[CLI - <siteId>] …`), the same way the desktop logs `studio_app_launch` — the shared core still
+  no-ops the network send. To exercise it against a dev build **outside** a dev run (e.g. a standalone
+  CLI invocation) **without** rebuilding, set the runtime override `STUDIO_FORCE_CLI_TELEMETRY=1`, and
+  run the CLI directly in a terminal:
 
   ```
   # pick a site that is OFFLINE in `studio list` — `start` no-ops on an already-running site

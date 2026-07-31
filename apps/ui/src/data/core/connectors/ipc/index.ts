@@ -419,6 +419,10 @@ export function createIpcConnector(): Connector {
 			await ipcApi.loadSiteIcon( siteId );
 		},
 
+		async getSiteThumbnail( siteId ): Promise< string | null > {
+			return ( await ipcApi.getThumbnailData( siteId ) ) as string | null;
+		},
+
 		async exportFullSite( siteId ): Promise< string | null > {
 			const sites = ( await ipcApi.getSiteDetails() ) as SiteDetails[];
 			const site = sites.find( ( candidate ) => candidate.id === siteId );
@@ -702,7 +706,7 @@ export function createIpcConnector(): Connector {
 			};
 		},
 
-		async setUserPreferences( partial ): Promise< void > {
+		async setUserPreferences( partial, source ): Promise< void > {
 			const writes: Array< Promise< unknown > > = [];
 			if ( 'editor' in partial ) {
 				writes.push( ipcApi.saveUserEditor( partial.editor ) );
@@ -720,7 +724,12 @@ export function createIpcConnector(): Connector {
 				writes.push( ipcApi.saveUserLocale( partial.locale ) );
 			}
 			if ( 'analyticsEnabled' in partial ) {
-				writes.push( ipcApi.saveAnalyticsEnabled( partial.analyticsEnabled ) );
+				writes.push(
+					ipcApi.saveAnalyticsEnabled( partial.analyticsEnabled, {
+						surface: source?.surface ?? 'settings',
+						uiVersion: 'v2',
+					} )
+				);
 			}
 			if ( 'defaultSiteDirectory' in partial && partial.defaultSiteDirectory ) {
 				writes.push( ipcApi.saveDefaultSiteDirectory( partial.defaultSiteDirectory ) );
@@ -734,6 +743,11 @@ export function createIpcConnector(): Connector {
 				writes.push( ipcApi.saveAgenticFeaturesEnabled( partial.agenticFeaturesEnabled ) );
 			}
 			await Promise.all( writes );
+			if ( typeof partial.agenticFeaturesEnabled === 'boolean' ) {
+				// Cmd/Ctrl+N belongs to "New chat" only while chat is on, so the
+				// menu has to be rebuilt for the accelerator to change hands.
+				await ipcApi.setupAppMenu( { needsOnboarding: false } );
+			}
 		},
 
 		async selectDefaultSiteDirectory( defaultPath ): Promise< string | null > {

@@ -429,12 +429,6 @@ const startServer = wrapWithStartingPromise(
 
 			const args = await getBaseRunCLIArgs( 'server', config );
 
-			// Playground CLI's runCLI() has a top-level .catch() that calls
-			// process.exit(1) instead of re-throwing. If a non-fatal error
-			// happens (e.g. a background worker exit race), this kills the
-			// entire child process. The daemon will restart it, but the
-			// error message is lost. Filed upstream:
-			// https://github.com/WordPress/wordpress-playground/issues/3520
 			server = await runCLI( args );
 
 			stopSignal.throwIfAborted();

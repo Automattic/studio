@@ -1,10 +1,11 @@
 /**
  * @vitest-environment node
  */
-import { app, clipboard, dialog, shell, type MessageBoxOptions } from 'electron';
+import { app, autoUpdater, clipboard, dialog, shell, type MessageBoxOptions } from 'electron';
 import * as Sentry from '@sentry/electron/main';
 import { vi } from 'vitest';
-import { manualCheckForUpdates } from 'src/updates';
+import { setAgenticUiEnabled } from 'src/lib/studio-ui-mode';
+import { manualCheckForUpdates, setupUpdates } from 'src/updates';
 
 function getLastDialogOptions(): MessageBoxOptions {
 	const lastCall = vi.mocked( dialog.showMessageBox ).mock.lastCall as unknown as [
@@ -15,7 +16,10 @@ function getLastDialogOptions(): MessageBoxOptions {
 }
 
 vi.mock( 'src/main-window', () => ( {
-	getMainWindow: vi.fn().mockResolvedValue( {} ),
+	getMainWindow: vi.fn().mockResolvedValue( {
+		isDestroyed: () => false,
+		webContents: { isDestroyed: () => false, send: vi.fn() },
+	} ),
 } ) );
 
 const originalFetch = global.fetch;
@@ -152,5 +156,36 @@ describe( 'Linux updater', () => {
 
 		expect( dialog.showMessageBox ).not.toHaveBeenCalled();
 		expect( shell.openExternal ).not.toHaveBeenCalled();
+	} );
+} );
+
+describe( 'update ready to install', () => {
+	async function emitUpdateDownloaded() {
+		Object.defineProperty( process, 'platform', { value: 'darwin', configurable: true } );
+		setupUpdates();
+		const calls = vi.mocked( autoUpdater.on ).mock.calls as unknown as [
+			string,
+			( ...args: unknown[] ) => Promise< void >,
+		][];
+		const handler = calls.find( ( [ event ] ) => event === 'update-downloaded' )?.[ 1 ];
+		await handler?.( {}, 'notes', '1.9.0' );
+	}
+
+	afterEach( () => {
+		setAgenticUiEnabled( false );
+	} );
+
+	it( 'shows the restart dialog in the classic UI', async () => {
+		await emitUpdateDownloaded();
+
+		expect( getLastDialogOptions().message ).toBe( 'Update ready to install' );
+	} );
+
+	it( 'leaves the restart prompt to the sidebar card in the agentic UI', async () => {
+		setAgenticUiEnabled( true );
+
+		await emitUpdateDownloaded();
+
+		expect( dialog.showMessageBox ).not.toHaveBeenCalled();
 	} );
 } );

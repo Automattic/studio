@@ -155,8 +155,10 @@ async function getAutoLoginCookie( baseUrl: string ) {
 		.map( ( cookie ) => cookie.split( ';' )[ 0 ] )
 		.filter( Boolean );
 
-	if ( cookies.length === 0 ) {
-		throw new Error( 'Auto-login did not return authentication cookies.' );
+	// Without a real login cookie the nonce endpoint 400s (admin-ajax has no
+	// logged-out `rest-nonce` handler) — fail here so we skip that request.
+	if ( ! cookies.some( ( cookie ) => cookie.startsWith( 'wordpress_logged_in_' ) ) ) {
+		throw new Error( 'Auto-login did not return a login cookie.' );
 	}
 
 	return cookies.join( '; ' );

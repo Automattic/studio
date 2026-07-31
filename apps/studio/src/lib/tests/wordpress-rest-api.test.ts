@@ -102,6 +102,33 @@ describe( 'fetchSiteRest', () => {
 		] );
 	} );
 
+	it( 'skips the nonce request when auto-login returns no login cookie', async () => {
+		mockRunningSite();
+		const fetchMock = vi.fn( async ( input: Parameters< typeof fetch >[ 0 ] ) => {
+			const url = String( input );
+			if ( url.includes( '/studio-auto-login' ) ) {
+				return new Response( '', {
+					status: 302,
+					headers: { 'set-cookie': 'wordpress_test_cookie=1; Path=/' },
+				} );
+			}
+			return new Response( JSON.stringify( [] ), {
+				status: 200,
+				statusText: 'OK',
+				headers: { 'content-type': 'application/json' },
+			} );
+		} );
+		vi.stubGlobal( 'fetch', fetchMock );
+
+		const response = await fetchSiteRest( mockIpcMainInvokeEvent, 'site-id', {
+			path: '/wp/v2/search?search=rpg',
+		} );
+
+		expect( response.status ).toBe( 200 );
+		const urls = fetchMock.mock.calls.map( ( [ input ] ) => String( input ) );
+		expect( urls.some( ( url ) => url.includes( 'admin-ajax.php' ) ) ).toBe( false );
+	} );
+
 	it( 'returns a 502 response when the site does not respond', async () => {
 		mockRunningSite();
 		vi.stubGlobal(

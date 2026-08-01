@@ -77,12 +77,12 @@ import { updateServerFiles } from 'cli/lib/dependency-management/setup';
 import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
 import { validateSupportedPhpVersion } from 'cli/lib/php-versions';
+import { runWpCliCommandWithMessaging } from 'cli/lib/run-wp-cli-command';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { generateSiteName } from 'cli/lib/site-name';
 import { getDefaultSitePath } from 'cli/lib/site-paths';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
-import { runWpCliCommandWithMessaging } from 'cli/lib/run-wp-cli-command';
 import { StatsGroup } from 'cli/lib/types/bump-stats';
 import { untildify } from 'cli/lib/utils';
 import { ValidationError } from 'cli/lib/validation-error';
@@ -93,6 +93,9 @@ import { StudioArgv } from 'cli/types';
 const logger = new Logger< LoggerAction >();
 const DEFAULT_STATIC_SITE_IMPORTER_PLUGIN_URL =
 	'https://github.com/Automattic/static-site-importer/releases/latest/download/static-site-importer.zip';
+const STATIC_SITE_IMPORT_CONTRACT = 'ssi-url-import-v1-batch-pages-25';
+const STATIC_SITE_IMPORT_IDENTITY_FILE = 'static-site-importer.json';
+type StaticSiteImportIdentity = { url: string; contract: string; phase?: 'cleanup_pending' };
 
 type StaticSiteImporterSource =
 	| {
@@ -130,6 +133,7 @@ export type CreateCommandOptions = {
 		};
 		staticSiteImport?: {
 			code: string;
+			identity?: StaticSiteImportIdentity;
 		};
 	};
 	adminUsername?: string;
@@ -311,12 +315,11 @@ $input = array(
 
 if ( isset( $source['url'] ) && function_exists( 'static_site_importer_ability_import_url' ) ) {
 	$input['url'] = $source['url'];
+	$input['work_dir'] = ABSPATH . '.studio-import/static-site-importer';
 	$input['provider_args'] = array(
 		'collect_site'                => true,
 		'require_complete_collection' => true,
-		'max_pages'                  => 250,
-		'max_assets'                 => 2000,
-		'max_total_bytes'            => 268435456,
+		'batch_pages'                 => 25,
 		'max_bytes'                  => 10485760,
 	);
 	$input['require_proven_dynamic_client_assets'] = false;
@@ -347,18 +350,6 @@ ${ storeImportResult ? "update_option( 'studio_create_from_import_result', $resu
 
 if ( ! is_array( $result ) || empty( $result['success'] ) ) {
 	throw new RuntimeException( 'Static Site Importer import failed: ' . wp_json_encode( $result ) );
-}
-
-$temporary_plugin = 'static-site-importer/static-site-importer.php';
-if ( is_plugin_active( $temporary_plugin ) ) {
-	deactivate_plugins( $temporary_plugin, true );
-}
-
-if ( file_exists( WP_PLUGIN_DIR . '/' . $temporary_plugin ) ) {
-	$delete_result = delete_plugins( array( $temporary_plugin ) );
-	if ( is_wp_error( $delete_result ) ) {
-		throw new RuntimeException( 'Static Site Importer cleanup failed: ' . $delete_result->get_error_message() );
-	}
 }
 ?>`;
 }
@@ -394,7 +385,7 @@ export function buildCreateFromSourceBlueprint(
 	contents: BlueprintV1Declaration;
 	uri: string;
 	stagedSource?: { sourcePath: string; targetPath: string };
-	staticSiteImport: { code: string };
+	staticSiteImport: { code: string; identity?: StaticSiteImportIdentity };
 } {
 	const stagedFigmaRelativePath =
 		path.extname( sourcePath ).toLowerCase() === '.fig'
@@ -434,15 +425,34 @@ export function buildCreateFromSourceBlueprint(
 		...( stagedFigmaPath ? { stagedSource: { sourcePath, targetPath: stagedFigmaPath } } : {} ),
 		staticSiteImport: {
 			code: buildStaticSiteImporterPhp( source, siteName, storeImportResult ),
+			...( source.type === 'url'
+				? { identity: { url: source.path, contract: STATIC_SITE_IMPORT_CONTRACT } }
+				: {} ),
 		},
 	};
 }
 
-async function runStaticSiteImport( site: SiteData, code: string ): Promise< void > {
+function staticSiteImportIdentityPath( sitePath: string ): string {
+	return path.join( sitePath, '.studio-import', STATIC_SITE_IMPORT_IDENTITY_FILE );
+}
+
+function cleanupSuccessfulStaticSiteImport( sitePath: string ): void {
+	fs.rmSync( path.join( sitePath, '.studio-import', 'import.php' ), { force: true } );
+	fs.rmSync( staticSiteImportIdentityPath( sitePath ), { force: true } );
+}
+
+async function runStaticSiteImport(
+	site: SiteData,
+	code: string,
+	identity?: StaticSiteImportIdentity
+): Promise< boolean > {
 	const stagingDir = path.join( site.path, '.studio-import' );
 	const scriptName = 'import.php';
 	const scriptPath = path.join( stagingDir, scriptName );
 	fs.mkdirSync( stagingDir, { recursive: true } );
+	if ( identity ) {
+		fs.writeFileSync( staticSiteImportIdentityPath( site.path ), JSON.stringify( identity ) );
+	}
 	fs.writeFileSync( scriptPath, code );
 
 	logger.reportStart( LoggerAction.IMPORT_SITE, __( 'Importing static site…' ) );
@@ -458,10 +468,89 @@ async function runStaticSiteImport( site: SiteData, code: string ): Promise< voi
 	if ( exitCode !== 0 ) {
 		throw new LoggerError(
 			__( 'Static site import failed.' ),
-			new Error( stderr.trim() || stdout.trim() || sprintf( __( 'WP-CLI exited with code %d.' ), exitCode ) )
+			new Error(
+				stderr.trim() || stdout.trim() || sprintf( __( 'WP-CLI exited with code %d.' ), exitCode )
+			)
 		);
 	}
 	logger.reportSuccess( __( 'Static site imported successfully' ) );
+	if ( identity ) {
+		fs.writeFileSync(
+			staticSiteImportIdentityPath( site.path ),
+			JSON.stringify( { ...identity, phase: 'cleanup_pending' } )
+		);
+	}
+	return cleanupStaticSiteImporterPlugin( site );
+}
+
+async function cleanupStaticSiteImporterPlugin( site: SiteData ): Promise< boolean > {
+	try {
+		await using command = await runWpCliCommandWithMessaging( site, [
+			'eval',
+			`require_once ABSPATH . 'wp-admin/includes/plugin.php';
+require_once ABSPATH . 'wp-admin/includes/file.php';
+$plugin = 'static-site-importer/static-site-importer.php';
+if ( is_plugin_active( $plugin ) ) {
+	deactivate_plugins( $plugin, true );
+}
+if ( file_exists( WP_PLUGIN_DIR . '/' . $plugin ) ) {
+	$result = delete_plugins( array( $plugin ) );
+	if ( is_wp_error( $result ) ) {
+		throw new RuntimeException( $result->get_error_message() );
+	}
+}`,
+		] );
+		const [ exitCode, stdout, stderr ] = await Promise.all( [
+			command.response.exitCode,
+			command.response.stdoutText,
+			command.response.stderrText,
+		] );
+		if ( exitCode !== 0 ) {
+			throw new Error(
+				stderr.trim() || stdout.trim() || sprintf( __( 'WP-CLI exited with code %d.' ), exitCode )
+			);
+		}
+		return true;
+	} catch ( error ) {
+		logger.reportError(
+			new LoggerError(
+				__(
+					'Static Site Importer cleanup failed. The imported site and resumable import state were preserved.'
+				),
+				error
+			),
+			false
+		);
+		return false;
+	}
+}
+
+function resumableStaticSiteImportPhase(
+	sitePath: string,
+	code: string,
+	identity: StaticSiteImportIdentity | undefined
+): 'import' | 'cleanup_pending' | null {
+	if ( ! identity ) {
+		return null;
+	}
+	const scriptPath = path.join( sitePath, '.studio-import', 'import.php' );
+	const identityPath = staticSiteImportIdentityPath( sitePath );
+	if ( ! fs.existsSync( scriptPath ) || ! fs.existsSync( identityPath ) ) {
+		return null;
+	}
+	try {
+		const persistedIdentity = JSON.parse( fs.readFileSync( identityPath, 'utf-8' ) );
+		if (
+			persistedIdentity?.url !== identity.url ||
+			persistedIdentity?.contract !== identity.contract ||
+			fs.readFileSync( scriptPath, 'utf-8' ) !== code
+		) {
+			return null;
+		}
+		return persistedIdentity.phase === 'cleanup_pending' ? 'cleanup_pending' : 'import';
+	} catch {
+		return null;
+	}
 }
 
 export async function runCommand(
@@ -480,6 +569,10 @@ export async function runCommand(
 	const isOnlineStatus = await isOnline();
 	const stagedSource = options.blueprint?.stagedSource;
 	const staticSiteImport = options.blueprint?.staticSiteImport;
+	let resumedStaticSiteImport = false;
+	let staticSiteImportSucceeded = false;
+	let staticSiteImportResultObserved = false;
+	let registeredSite = false;
 
 	try {
 		if ( isOnlineStatus ) {
@@ -549,7 +642,37 @@ export async function runCommand(
 		}
 
 		const cliConfig = await readCliConfig();
-		if ( cliConfig.sites.some( ( site ) => arePathsEqual( site.path, sitePath ) ) ) {
+		const existingSite = cliConfig.sites.find( ( site ) => arePathsEqual( site.path, sitePath ) );
+		registeredSite = Boolean( existingSite );
+		const resumePhase =
+			existingSite && staticSiteImport
+				? resumableStaticSiteImportPhase(
+						sitePath,
+						staticSiteImport.code,
+						staticSiteImport.identity
+				  )
+				: null;
+		if ( existingSite && staticSiteImport && resumePhase ) {
+			resumedStaticSiteImport = true;
+			try {
+				staticSiteImportSucceeded =
+					resumePhase === 'cleanup_pending'
+						? await cleanupStaticSiteImporterPlugin( existingSite )
+						: await runStaticSiteImport(
+								existingSite,
+								staticSiteImport.code,
+								staticSiteImport.identity
+						  );
+				staticSiteImportResultObserved = true;
+			} catch ( error ) {
+				throw new LoggerError( __( 'Failed to import static site' ), error );
+			}
+			if ( staticSiteImportSucceeded ) {
+				cleanupSuccessfulStaticSiteImport( sitePath );
+			}
+			return;
+		}
+		if ( existingSite ) {
 			throw new LoggerError( __( 'The selected directory is already in use.' ) );
 		}
 
@@ -739,7 +862,12 @@ export async function runCommand(
 					: `http://localhost:${ siteDetails.port }`;
 
 				if ( staticSiteImport ) {
-					await runStaticSiteImport( siteDetails, staticSiteImport.code );
+					staticSiteImportSucceeded = await runStaticSiteImport(
+						siteDetails,
+						staticSiteImport.code,
+						staticSiteImport.identity
+					);
+					staticSiteImportResultObserved = true;
 				}
 
 				if ( ! options.skipLogDetails ) {
@@ -754,7 +882,9 @@ export async function runCommand(
 					await fs.promises.rm( sitePath, { recursive: true, force: true } );
 				}
 				throw new LoggerError(
-					staticSiteImport ? __( 'Failed to import static site' ) : __( 'Failed to start WordPress server' ),
+					staticSiteImport
+						? __( 'Failed to import static site' )
+						: __( 'Failed to start WordPress server' ),
 					error
 				);
 			}
@@ -779,7 +909,12 @@ export async function runCommand(
 
 					stripWpConfigDbConstants( sitePath );
 					if ( staticSiteImport ) {
-						await runStaticSiteImport( siteDetails, staticSiteImport.code );
+						staticSiteImportSucceeded = await runStaticSiteImport(
+							siteDetails,
+							staticSiteImport.code,
+							staticSiteImport.identity
+						);
+						staticSiteImportResultObserved = true;
 					}
 				} catch ( error ) {
 					await removeSiteFromConfig( siteDetails.id );
@@ -787,7 +922,9 @@ export async function runCommand(
 						await fs.promises.rm( sitePath, { recursive: true, force: true } );
 					}
 					throw new LoggerError(
-						staticSiteImport ? __( 'Failed to import static site' ) : __( 'Failed to apply Blueprint' ),
+						staticSiteImport
+							? __( 'Failed to import static site' )
+							: __( 'Failed to apply Blueprint' ),
 						error
 					);
 				}
@@ -806,7 +943,16 @@ export async function runCommand(
 		logger.reportKeyValuePair( 'running', String( siteDetails.running ) );
 		await emitCliEvent( { event: SITE_EVENTS.CREATED, data: { siteId: siteDetails.id } } );
 	} finally {
-		if ( stagedSource || staticSiteImport ) {
+		if ( stagedSource ) {
+			fs.rmSync( path.join( sitePath, '.studio-import' ), { recursive: true, force: true } );
+		} else if ( staticSiteImport && staticSiteImportSucceeded ) {
+			cleanupSuccessfulStaticSiteImport( sitePath );
+		} else if (
+			staticSiteImport &&
+			! resumedStaticSiteImport &&
+			! registeredSite &&
+			! staticSiteImportResultObserved
+		) {
 			fs.rmSync( path.join( sitePath, '.studio-import' ), { recursive: true, force: true } );
 		}
 		await disconnectFromDaemon();

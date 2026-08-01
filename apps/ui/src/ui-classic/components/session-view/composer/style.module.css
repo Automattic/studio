@@ -26,7 +26,6 @@
 	background-color: var(--composer-resting-fill);
 	background-image: linear-gradient(var(--composer-resting-tint), var(--composer-resting-tint));
 	backdrop-filter: blur(20px) saturate(115%);
-	-webkit-backdrop-filter: blur(20px) saturate(115%);
 	padding: 0;
 	outline: 0 solid transparent;
 	transition: outline-color 80ms ease, outline-width 80ms ease;
@@ -36,7 +35,6 @@
 	background-color: var(--wpds-color-bg-surface-neutral-strong);
 	background-image: none;
 	backdrop-filter: none;
-	-webkit-backdrop-filter: none;
 	outline: 2px solid var(--composer-focus-ring);
 }
 
@@ -52,6 +50,8 @@
 	user-select: none;
 }
 
+/* Invisible hit strip along the shell's top edge; the ns-resize cursor is the
+   pointer affordance. The indicator line only appears on keyboard focus. */
 .resizeHandle {
 	position: absolute;
 	top: -5px;
@@ -68,18 +68,16 @@
 	-webkit-app-region: no-drag;
 }
 
-/* Thin full-width line that lights up on hover, keyboard focus, and while dragging. */
 .resizeHandleIndicator {
 	width: 100%;
 	height: 2px;
+	border-radius: 999px;
 	background-color: var(--wpds-color-stroke-interactive-brand, #2563eb);
 	opacity: 0;
 	transition: opacity 120ms ease;
 }
 
-.resizeHandle:hover .resizeHandleIndicator,
-.resizeHandle:focus-visible .resizeHandleIndicator,
-.shellResizing .resizeHandleIndicator {
+.resizeHandle:focus-visible .resizeHandleIndicator {
 	opacity: 1;
 }
 
@@ -536,7 +534,7 @@
 	width: 28px;
 	height: 28px;
 	padding: 0;
-	margin-left: 4px;
+	margin-inline-start: 4px;
 	border: 0;
 	border-radius: 50%;
 	cursor: pointer;
@@ -599,4 +597,8 @@
 .error {
 	color: var(--wpds-color-fg-content-error, #dc2626);
 	font-size: var(--wpds-typography-font-size-xs);
+}
+
+.dialogDescription {
+	text-wrap: pretty;
 }

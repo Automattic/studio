@@ -12,6 +12,7 @@ import { useOrientationReplay } from '@/data/onboarding/use-orientation-replay';
 import { useSession, useSessionEffectiveEnvironment } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
 import {
+	pathForSite,
 	SessionUIProvider,
 	useSessionPreviewAnnotationsHandler,
 	useSessionPreviewUI,
@@ -110,20 +111,30 @@ function DashboardLayoutContent() {
 		? sites?.find( ( site ) => site.id === lastPreviewSiteId )
 		: undefined;
 	const previewSite = routeSite ?? lastPreviewSite;
+	const previewSiteId = previewSite?.id;
+	const { setSite: setPreviewSite } = preview;
+	useEffect( () => {
+		if ( previewSiteId ) {
+			setPreviewSite( previewSiteId );
+		}
+	}, [ previewSiteId, setPreviewSite ] );
+	// Look up by the route's site so the path is right even before the
+	// `setPreviewSite` effect lands.
+	const previewPath = pathForSite( preview.pathsBySiteId, previewSiteId );
 	const showPreview = preview.open && supportsPreview && !! previewSite;
 	const renderPreview = useCallback(
 		( { collapsed }: PreviewSplitFramePreviewProps ) =>
 			previewSite ? (
 				<SitePreview
 					site={ previewSite }
-					path={ preview.path }
+					path={ previewPath }
 					reloadNonce={ preview.reloadNonce }
 					onAnnotationsDone={ onAnnotationsDone }
 					onPathChange={ preview.updatePath }
 					collapsed={ collapsed }
 				/>
 			) : null,
-		[ onAnnotationsDone, preview.path, preview.reloadNonce, preview.updatePath, previewSite ]
+		[ onAnnotationsDone, previewPath, preview.reloadNonce, preview.updatePath, previewSite ]
 	);
 
 	return (

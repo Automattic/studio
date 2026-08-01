@@ -8,9 +8,11 @@ const SAVED_PREFERENCES: UserPreferences = {
 	colorScheme: 'system',
 	quitSitesBehavior: 'stop',
 	locale: 'en',
+	analyticsEnabled: true,
 	defaultSiteDirectory: '/Users/example/Studio',
 	studioCliInstalled: false,
 	studioCliExternallyManaged: false,
+	agenticFeaturesEnabled: true,
 };
 
 describe( 'settings preference helpers', () => {
@@ -29,6 +31,7 @@ describe( 'settings preference helpers', () => {
 			colorScheme: 'system',
 			quitSitesBehavior: UNSET,
 			locale: 'en',
+			analyticsEnabled: true,
 			defaultSiteDirectory: '/Users/example/Studio',
 		} );
 	} );

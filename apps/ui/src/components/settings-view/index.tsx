@@ -1,9 +1,10 @@
 import { supportedLocaleNames } from '@studio/common/lib/locale';
 import { SUPPORTED_EDITORS, supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { SUPPORTED_TERMINALS, terminalConfig } from '@studio/common/lib/user-settings/terminal';
+import { CheckboxControl } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
-import { close, file, Icon } from '@wordpress/icons';
-import { IconButton, SelectControl } from '@wordpress/ui';
+import { close } from '@wordpress/icons';
+import { Button, IconButton, SelectControl } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useState } from 'react';
 import * as Tabs from '@/components/tabs';
@@ -22,10 +23,10 @@ import { SkillsPanel } from './skills-panel';
 import { StudioCliSection } from './studio-cli-section';
 import styles from './style.module.css';
 import { UsagePanel } from './usage-panel';
+import { WapuuScore } from './wapuu-score';
 import type { PreferencesFormData } from './preferences';
 import type {
 	ColorScheme,
-	Connector,
 	InstalledApps,
 	QuitSitesBehavior,
 	SupportedEditor,
@@ -43,12 +44,6 @@ export function isSettingsTab( value: string ): value is TabId {
 }
 
 export type SettingsTabId = TabId;
-
-// The AI tab holds the agentic-features toggle and the agent's global
-// instructions; hosts that offer neither (the hosted browser) don't get the tab.
-function hasAiSettings( capabilities: Connector[ 'capabilities' ] ): boolean {
-	return capabilities.switchToClassicUi || capabilities.agentInstructions;
-}
 
 // No "unset" option: the main process resolves a fallback for never-chosen
 // editor/terminal prefs (matching the legacy UI), so an explicit clear can't
@@ -96,14 +91,14 @@ const LOCALE_ELEMENTS: { value: SupportedLocale; label: string }[] = Object.entr
 ).map( ( [ value, label ] ) => ( { value: value as SupportedLocale, label } ) );
 
 function SettingsHeader() {
-	// Settings renders fullscreen, so the sidebar (and its floating toggle) is
-	// covered — only the macOS traffic lights still need clearing.
-	const connector = useConnector();
-	const reserveTrafficLightSpace = useTrafficLightSpace();
+	// Settings renders fullscreen, so only the macOS traffic lights need
+	// clearing: at the header's start edge in LTR, at its end edge (next to
+	// the close button) in RTL.
+	const trafficLightSpace = useTrafficLightSpace();
 	const onClose = useSettingsClose();
 	return (
 		<div className={ styles.header }>
-			{ reserveTrafficLightSpace ? (
+			{ trafficLightSpace.start ? (
 				<div className={ styles.headerStart }>
 					<span className={ styles.toggleSpacer } aria-hidden="true" />
 				</div>
@@ -111,9 +106,7 @@ function SettingsHeader() {
 			<div className={ styles.headerTabs }>
 				<Tabs.List className={ styles.headerTabList }>
 					<Tabs.Tab tabId="preferences">{ __( 'Settings' ) }</Tabs.Tab>
-					{ hasAiSettings( connector.capabilities ) && (
-						<Tabs.Tab tabId="ai">{ __( 'AI' ) }</Tabs.Tab>
-					) }
+					<Tabs.Tab tabId="ai">{ __( 'AI' ) }</Tabs.Tab>
 					<Tabs.Tab tabId="usage">{ __( 'Usage' ) }</Tabs.Tab>
 					<Tabs.Tab tabId="keyboard">{ __( 'Keyboard' ) }</Tabs.Tab>
 					<Tabs.Tab tabId="skills">{ __( 'Skills' ) }</Tabs.Tab>
@@ -130,6 +123,9 @@ function SettingsHeader() {
 						label={ __( 'Close settings' ) }
 						onClick={ onClose }
 					/>
+					{ trafficLightSpace.end ? (
+						<span className={ styles.toggleSpacer } aria-hidden="true" />
+					) : null }
 				</div>
 			) : null }
 		</div>
@@ -242,9 +238,32 @@ function DefaultSiteDirectoryField( { value, onSelect }: { value: string; onSele
 				<span className={ value ? styles.pathPickerValue : styles.pathPickerPlaceholder }>
 					{ value || __( 'Choose a folder…' ) }
 				</span>
-				<Icon icon={ file } className={ styles.pathPickerIcon } />
 			</button>
 		</PreferenceRow>
+	);
+}
+
+function StudioExperienceSection() {
+	const connector = useConnector();
+	if ( ! connector.capabilities.switchToClassicUi ) {
+		return null;
+	}
+	return (
+		<section className={ styles.preferenceSectionGroup }>
+			<PreferenceRow
+				title={ __( 'Studio experience' ) }
+				description={ __( 'You are using the new Studio experience.' ) }
+			>
+				<Button
+					type="button"
+					variant="outline"
+					tone="neutral"
+					onClick={ () => void connector.disableAgenticUi() }
+				>
+					{ __( 'Switch to classic' ) }
+				</Button>
+			</PreferenceRow>
+		</section>
 	);
 }
 
@@ -310,9 +329,19 @@ function PreferencesPanel( {
 						onChange={ ( quitSitesBehavior ) => onChange( { quitSitesBehavior } ) }
 					/>
 				</PreferenceRow>
+				<PreferenceRow title={ __( 'Usage statistics' ) }>
+					<CheckboxControl
+						__nextHasNoMarginBottom
+						label={ __( 'Help improve Studio by sharing anonymous usage statistics' ) }
+						checked={ data.analyticsEnabled }
+						onChange={ ( analyticsEnabled ) => onChange( { analyticsEnabled } ) }
+					/>
+				</PreferenceRow>
 			</section>
 			<AccountSection />
+			<WapuuScore />
 			<StudioCliSection />
+			<StudioExperienceSection />
 		</div>
 	);
 }
@@ -346,7 +375,12 @@ export function SettingsView( {
 			if ( Object.keys( patch ).length === 0 ) {
 				return;
 			}
-			savePreferences.mutate( patch, {
+			// Tag only the analytics toggle with its surface for Tracks.
+			const withSource =
+				'analyticsEnabled' in patch
+					? { ...patch, source: { surface: 'settings' } as const }
+					: patch;
+			savePreferences.mutate( withSource, {
 				onSuccess: async () => {
 					if ( 'locale' in patch ) {
 						// Translations are loaded once at bootstrap; the rest of the
@@ -413,11 +447,9 @@ export function SettingsView( {
 								onChange={ handleChange }
 							/>
 						</Tabs.Panel>
-						{ hasAiSettings( connector.capabilities ) && (
-							<Tabs.Panel tabId="ai">
-								<AiPanel />
-							</Tabs.Panel>
-						) }
+						<Tabs.Panel tabId="ai">
+							<AiPanel />
+						</Tabs.Panel>
 						<Tabs.Panel tabId="usage">
 							<UsagePanel />
 						</Tabs.Panel>

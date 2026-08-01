@@ -62,7 +62,12 @@ vi.mock( '@/data/queries/use-sites', () => ( {
 } ) );
 
 vi.mock( '@/data/queries/use-agentic-features', () => ( {
-	useAgenticFeatures: vi.fn( () => ( { enabled: true, reason: null, isReady: true } ) ),
+	useAgenticFeatures: vi.fn( () => ( {
+		enabled: true,
+		chatEnabled: true,
+		reason: null,
+		isReady: true,
+	} ) ),
 } ) );
 
 vi.mock( '@/data/queries/use-user-preferences', () => ( {
@@ -100,6 +105,7 @@ describe( 'SiteList', () => {
 
 		vi.mocked( useAgenticFeatures ).mockReturnValue( {
 			enabled: true,
+			chatEnabled: true,
 			reason: null,
 			isReady: true,
 		} );
@@ -130,9 +136,11 @@ describe( 'SiteList', () => {
 				terminal: null,
 				colorScheme: 'system',
 				locale: 'en',
+				analyticsEnabled: true,
 				defaultSiteDirectory: '',
 				studioCliInstalled: false,
 				studioCliExternallyManaged: false,
+				agenticFeaturesEnabled: true,
 			},
 		} );
 		useSitesMock.mockReturnValue( {
@@ -217,6 +225,7 @@ describe( 'SiteList', () => {
 	it( 'opens the site overview when clicking a site while agentic features are unavailable', () => {
 		vi.mocked( useAgenticFeatures ).mockReturnValue( {
 			enabled: false,
+			chatEnabled: false,
 			reason: 'signed-out',
 			isReady: true,
 		} );
@@ -230,6 +239,28 @@ describe( 'SiteList', () => {
 			to: '/sites/$siteId/overview',
 			params: { siteId: 'stopped-site' },
 		} );
+	} );
+
+	it( 'shows the selected site solid without the overview shortcut when signed out', () => {
+		vi.mocked( useAgenticFeatures ).mockReturnValue( {
+			enabled: false,
+			chatEnabled: false,
+			reason: 'signed-out',
+			isReady: true,
+		} );
+		paramsMock = { siteId: 'stopped-site' };
+		pathnameMock = '/sites/stopped-site/overview';
+
+		render( <SiteList /> );
+
+		const stoppedRow = screen.getByText( 'Stopped Site' ).closest( 'section' )!;
+		const className = stoppedRow.getAttribute( 'class' ) ?? '';
+		const siteButton = within( stoppedRow ).getByRole( 'button', { name: 'Stopped Site' } );
+
+		expect( className ).toContain( 'siteActive' );
+		expect( className ).not.toContain( 'siteContextActive' );
+		expect( siteButton ).toHaveAttribute( 'aria-current', 'page' );
+		expect( screen.queryByRole( 'button', { name: 'Site overview' } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'opens the site overview from the row gear without opening the latest chat', () => {
@@ -744,9 +775,11 @@ describe( 'SiteList', () => {
 				terminal: 'terminal',
 				colorScheme: 'system',
 				locale: 'en',
+				analyticsEnabled: true,
 				defaultSiteDirectory: '',
 				studioCliInstalled: false,
 				studioCliExternallyManaged: false,
+				agenticFeaturesEnabled: true,
 			},
 		} );
 
@@ -768,9 +801,11 @@ describe( 'SiteList', () => {
 				terminal: null,
 				colorScheme: 'system',
 				locale: undefined,
+				analyticsEnabled: true,
 				defaultSiteDirectory: '',
 				studioCliInstalled: false,
 				studioCliExternallyManaged: false,
+				agenticFeaturesEnabled: true,
 			},
 		} );
 

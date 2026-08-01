@@ -5,14 +5,10 @@ export interface FeatureFlagDefinition {
 	default: boolean;
 }
 
-export const FEATURE_FLAGS: Record< keyof FeatureFlags, FeatureFlagDefinition > = {
-	enableAgenticUi: {
-		label: 'Enable Agentic UI',
-		env: 'ENABLE_AGENTIC_UI',
-		flag: 'enableAgenticUi',
-		default: false,
-	},
-} as const;
+// No flags are in flight right now. Add entries here (and to the `FeatureFlags` interface in
+// `ipc-types.d.ts`) to expose one via `ENABLE_*` env vars, the dev Feature Flags menu, and the
+// wpcom `/studio-app/feature-flags` override.
+export const FEATURE_FLAGS: Record< keyof FeatureFlags, FeatureFlagDefinition > = {} as const;
 
 export function getFeatureFlagFromEnv( flag: keyof FeatureFlags ): boolean {
 	const flagDefinition = FEATURE_FLAGS[ flag ] as FeatureFlagDefinition | undefined;

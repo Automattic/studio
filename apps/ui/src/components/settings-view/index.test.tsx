@@ -61,6 +61,12 @@ vi.mock( '@wordpress/ui', () => ( {
 			</select>
 		</label>
 	),
+	Tooltip: {
+		Root: ( { children }: { children?: ReactNode } ) => <>{ children }</>,
+		Trigger: ( { render }: { render?: ReactNode } ) => <>{ render }</>,
+		Popup: () => null,
+		Positioner: () => null,
+	},
 } ) );
 
 vi.mock( '@/components/tabs', () => ( {
@@ -117,6 +123,10 @@ vi.mock( '@/data/queries/use-user-preferences', () => ( {
 	useUserPreferences: vi.fn(),
 } ) );
 
+vi.mock( '@/data/queries/use-wapuu-score', () => ( {
+	useWapuuScore: () => ( { data: null } ),
+} ) );
+
 // The mocked Tabs render every panel unconditionally; the usage panel has its
 // own test file.
 vi.mock( './usage-panel', () => ( {
@@ -124,7 +134,7 @@ vi.mock( './usage-panel', () => ( {
 } ) );
 
 vi.mock( '@/hooks/use-traffic-light-space', () => ( {
-	useTrafficLightSpace: () => false,
+	useTrafficLightSpace: () => ( { start: false, end: false } ),
 } ) );
 
 const useConnectorMock = vi.mocked( useConnector );
@@ -225,7 +235,26 @@ describe( 'SettingsView', () => {
 		expect( screen.getByTestId( 'ai-panel' ) ).toBeInTheDocument();
 	} );
 
-	it( 'hides the AI tab when the host has no AI settings to offer', () => {
+	it( 'offers the AI tab on every host, since chat can be toggled anywhere', () => {
+		useConnectorMock.mockReturnValue( {
+			selectDefaultSiteDirectory,
+			capabilities: { agentInstructions: false, switchToClassicUi: false },
+		} as never );
+
+		render( <SettingsView activeTab="ai" onTabChange={ vi.fn() } /> );
+
+		expect( screen.getByRole( 'button', { name: 'AI' } ) ).toBeInTheDocument();
+		expect( screen.getByTestId( 'ai-panel' ) ).toBeInTheDocument();
+	} );
+
+	it( 'offers Switch to classic in the Settings tab when the host ships the classic UI', () => {
+		render( <SettingsView activeTab="preferences" onTabChange={ vi.fn() } /> );
+
+		expect( screen.getByRole( 'heading', { name: 'Studio experience' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Switch to classic' } ) ).toBeInTheDocument();
+	} );
+
+	it( 'hides Switch to classic when there is no classic UI to switch to', () => {
 		useConnectorMock.mockReturnValue( {
 			selectDefaultSiteDirectory,
 			capabilities: { agentInstructions: false, switchToClassicUi: false },
@@ -233,8 +262,7 @@ describe( 'SettingsView', () => {
 
 		render( <SettingsView activeTab="preferences" onTabChange={ vi.fn() } /> );
 
-		expect( screen.queryByRole( 'button', { name: 'AI' } ) ).not.toBeInTheDocument();
-		expect( screen.queryByTestId( 'ai-panel' ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'Switch to classic' } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'recognizes the keyboard tab id', () => {

@@ -6,13 +6,14 @@ import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessio
 import type { SiteEvent } from '@studio/common/lib/cli-events';
 import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 import type { SupportedLocale } from '@studio/common/lib/locale';
+import type { TracksEventName, TracksProps } from '@studio/common/lib/record-tracks-event';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
-import type { SyncSite } from '@studio/common/types/sync';
+import type { PullSiteProgress, SyncSite } from '@studio/common/types/sync';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 export type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
@@ -33,7 +34,7 @@ export type {
 } from '@studio/common/ai/sessions/entry-types';
 export type { AiModelId } from '@studio/common/ai/models';
 export type { Snapshot } from '@studio/common/types/snapshot';
-export type { SyncSite } from '@studio/common/types/sync';
+export type { PullSiteProgress, SyncSite } from '@studio/common/types/sync';
 export type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 export type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 export type { SupportedLocale } from '@studio/common/lib/locale';
@@ -182,6 +183,9 @@ export interface Connector {
 	// Refreshes the cached WordPress Site Icon path after a site-level icon
 	// change. The renderer receives image bytes through getSites().
 	refreshSiteIcon( siteId: string ): Promise< void >;
+	// Cached screenshot thumbnail captured by the desktop app while the site
+	// was running. Returns null when the site has not produced a thumbnail yet.
+	getSiteThumbnail( siteId: string ): Promise< string | null >;
 
 	// Exports a site as a full backup archive (files + database). Prompts the
 	// user for a destination via a save-as dialog; resolves with the chosen
@@ -195,6 +199,7 @@ export interface Connector {
 	// desktop app's add-site flow relies on (folder pickers and path validation).
 	generateProposedSitePath( siteName: string ): Promise< ProposedSitePath >;
 	generateProposedSiteName( usedSites: SiteDetails[] ): Promise< string >;
+	generateNumberedSiteName( baseName: string, usedSites: SiteDetails[] ): Promise< string >;
 	selectSiteFolder( defaultPath: string ): Promise< SelectedSiteFolder | null >;
 	comparePaths( path1: string, path2: string ): Promise< boolean >;
 
@@ -245,8 +250,9 @@ export interface Connector {
 	// final preview URL when the CLI command completes.
 	publishPreviewSite( siteId: string, existingHostname?: string ): Promise< { url: string } >;
 
-	// Connected WordPress.com live sites for a given local site
-	getConnectedWpcomSites( localSiteId: string ): Promise< SyncSite[] >;
+	// Connected WordPress.com live sites for a local site, or every persisted
+	// connection for the current user when no local site is supplied.
+	getConnectedWpcomSites( localSiteId?: string ): Promise< SyncSite[] >;
 	// All WordPress.com sites the authenticated user can sync with, regardless
 	// of which (if any) local site they're already connected to. The publish
 	// picker filters this list to sites that aren't connected anywhere yet.
@@ -266,7 +272,11 @@ export interface Connector {
 	// Pulls the connected WordPress.com site's database + wp-content back
 	// into the local Studio site. Stops the local server while the backup
 	// imports and restarts it on completion.
-	pullSiteFromLive( siteId: string, remoteSiteId: number ): Promise< void >;
+	pullSiteFromLive(
+		siteId: string,
+		remoteSiteId: number,
+		onProgress?: ( progress: PullSiteProgress ) => void
+	): Promise< void >;
 	// URL to open in the browser when the user wants to publish a site that
 	// isn't connected to WordPress.com yet (checkout + deep-link back to the
 	// desktop app). Returns `undefined` when the connector can't provide one.
@@ -334,7 +344,10 @@ export interface Connector {
 	// the granular main-process handlers inside the connector so the UI has a
 	// single query + mutation to work with.
 	getUserPreferences(): Promise< UserPreferences >;
-	setUserPreferences( partial: Partial< WritableUserPreferences > ): Promise< void >;
+	setUserPreferences(
+		partial: Partial< WritableUserPreferences >,
+		source?: PreferenceChangeSource
+	): Promise< void >;
 
 	// Opens a native folder picker for the default-site-directory preference.
 	// Resolves with the chosen path, or `null` when the user cancels (or the
@@ -363,8 +376,17 @@ export interface Connector {
 	openSiteInEditor( siteId: string ): Promise< void >;
 	openSiteInTerminal( siteId: string ): Promise< void >;
 
+	// Analytics — record a Tracks event. The connector attaches the surface
+	// params (channel/ui_version); see `docs/design-docs/analytics-tracks.md`.
+	trackEvent( eventName: TracksEventName, props?: TracksProps ): Promise< void >;
+
 	// External links
 	openExternalUrl( url: string ): Promise< void >;
+
+	// Wapuu World easter-egg high score. Returns undefined when no score has
+	// been recorded yet; saving keeps only the highest score seen.
+	getWapuuScore(): Promise< number | undefined >;
+	saveWapuuScore( score: number ): Promise< void >;
 
 	popupAppMenu( position: { x: number; y: number } ): Promise< void >;
 
@@ -476,12 +498,18 @@ export interface UserPreferences {
 	colorScheme: ColorScheme;
 	quitSitesBehavior?: QuitSitesBehavior;
 	locale: string | undefined;
+	// Whether the user shares anonymous usage statistics (Tracks). Default true.
+	// See `docs/design-docs/analytics-tracks.md`.
+	analyticsEnabled: boolean;
 	defaultSiteDirectory: string;
 	studioCliInstalled: boolean;
 	// True when the `studio` command on PATH is a standalone (curl) install the
 	// app never installs over or uninstalls — the settings toggle disables
 	// itself in that case.
 	studioCliExternallyManaged: boolean;
+	// Whether chat/agent features are offered at all. Unrelated to which
+	// renderer is running — switching to the classic UI is `disableAgenticUi`.
+	agenticFeaturesEnabled: boolean;
 }
 
 export interface AppGlobals {
@@ -499,6 +527,12 @@ export type WritableUserPreferences = Omit<
 	locale: SupportedLocale;
 };
 
+// Attributes a preference write to an in-app surface for settings-change Tracks
+// events. `ui_version` is fixed per renderer, so connectors set it — not callers.
+export interface PreferenceChangeSource {
+	surface: 'onboarding' | 'settings';
+}
+
 export interface CreateSiteParams {
 	name: string;
 	path: string;
@@ -509,6 +543,9 @@ export interface CreateSiteParams {
 	adminUsername?: string;
 	adminPassword?: string;
 	adminEmail?: string;
+	// Creates the local shell without starting its server. Connect onboarding
+	// uses this so remote content lands before the first local start.
+	skipStart?: boolean;
 	// Optional blueprint payload. `filePath` points at the extracted
 	// `blueprint.json` inside a ZIP bundle so the CLI can resolve relative assets.
 	blueprint?: {

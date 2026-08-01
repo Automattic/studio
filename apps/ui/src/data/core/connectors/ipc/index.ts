@@ -272,6 +272,7 @@ export function createIpcConnector(): Connector {
 				adminUsername,
 				adminPassword,
 				adminEmail,
+				skipStart,
 				blueprint,
 			} = params;
 			return ( await ipcApi.createSite( path, {
@@ -283,6 +284,7 @@ export function createIpcConnector(): Connector {
 				adminUsername,
 				adminPassword,
 				adminEmail,
+				noStart: skipStart,
 				blueprint,
 			} ) ) as SiteDetails;
 		},
@@ -308,6 +310,10 @@ export function createIpcConnector(): Connector {
 
 		async generateProposedSiteName( usedSites ): Promise< string > {
 			return ( await ipcApi.generateSiteNameFromList( usedSites ) ) as string;
+		},
+
+		async generateNumberedSiteName( baseName, usedSites ): Promise< string > {
+			return ( await ipcApi.generateNumberedNameFromList( baseName, usedSites ) ) as string;
 		},
 
 		async generateProposedSitePath( siteName ): Promise< ProposedSitePath > {
@@ -413,6 +419,10 @@ export function createIpcConnector(): Connector {
 			await ipcApi.loadSiteIcon( siteId );
 		},
 
+		async getSiteThumbnail( siteId ): Promise< string | null > {
+			return ( await ipcApi.getThumbnailData( siteId ) ) as string | null;
+		},
+
 		async exportFullSite( siteId ): Promise< string | null > {
 			const sites = ( await ipcApi.getSiteDetails() ) as SiteDetails[];
 			const site = sites.find( ( candidate ) => candidate.id === siteId );
@@ -507,7 +517,7 @@ export function createIpcConnector(): Connector {
 		},
 
 		// Connected WPCom sites
-		async getConnectedWpcomSites( localSiteId: string ): Promise< SyncSite[] > {
+		async getConnectedWpcomSites( localSiteId?: string ): Promise< SyncSite[] > {
 			return ( await ipcApi.getConnectedWpcomSites( localSiteId ) ) as SyncSite[];
 		},
 
@@ -542,9 +552,28 @@ export function createIpcConnector(): Connector {
 			await markConnectedWpcomSiteSynced( siteId, remoteSiteId, 'push' );
 		},
 
-		async pullSiteFromLive( siteId, remoteSiteId ): Promise< void > {
-			const siteFolder = await resolveSiteFolder( siteId );
-			await ipcApi.pullSiteFromLive( siteFolder, remoteSiteId );
+		async pullSiteFromLive( siteId, remoteSiteId, onProgress ): Promise< void > {
+			const unsubscribe = onProgress
+				? ipcListener.subscribe(
+						'sync-pull-progress',
+						(
+							_event: unknown,
+							payload: { siteId: string; message: string; progress?: number }
+						) => {
+							if ( payload.siteId === siteId ) {
+								onProgress( {
+									message: payload.message,
+									...( payload.progress === undefined ? {} : { progress: payload.progress } ),
+								} );
+							}
+						}
+				  )
+				: undefined;
+			try {
+				await ipcApi.pullSiteFromLive( siteId, remoteSiteId );
+			} finally {
+				unsubscribe?.();
+			}
 			await markConnectedWpcomSiteSynced( siteId, remoteSiteId, 'pull' );
 		},
 
@@ -635,25 +664,31 @@ export function createIpcConnector(): Connector {
 				colorScheme,
 				quitSitesBehavior,
 				locale,
+				analyticsEnabled,
 				defaultSiteDirectory,
 				studioCliInstalled,
 				studioCliExternallyManaged,
+				agenticFeaturesEnabled,
 			] = ( await Promise.all( [
 				ipcApi.getUserEditor(),
 				ipcApi.getUserTerminal(),
 				ipcApi.getColorScheme(),
 				ipcApi.getQuitSitesBehavior(),
 				ipcApi.getUserLocale(),
+				ipcApi.getAnalyticsEnabled(),
 				ipcApi.getDefaultSiteDirectory(),
 				ipcApi.isStudioCliInstalled(),
 				ipcApi.isStudioCliExternallyManaged(),
+				ipcApi.getAgenticFeaturesEnabled(),
 			] ) ) as [
 				SupportedEditor | null,
 				SupportedTerminal | null,
 				ColorScheme,
 				QuitSitesBehavior | undefined,
 				string | undefined,
+				boolean,
 				string,
+				boolean,
 				boolean,
 				boolean,
 			];
@@ -663,13 +698,15 @@ export function createIpcConnector(): Connector {
 				colorScheme,
 				quitSitesBehavior,
 				locale,
+				analyticsEnabled,
 				defaultSiteDirectory,
 				studioCliInstalled,
 				studioCliExternallyManaged,
+				agenticFeaturesEnabled,
 			};
 		},
 
-		async setUserPreferences( partial ): Promise< void > {
+		async setUserPreferences( partial, source ): Promise< void > {
 			const writes: Array< Promise< unknown > > = [];
 			if ( 'editor' in partial ) {
 				writes.push( ipcApi.saveUserEditor( partial.editor ) );
@@ -686,6 +723,14 @@ export function createIpcConnector(): Connector {
 			if ( 'locale' in partial && partial.locale ) {
 				writes.push( ipcApi.saveUserLocale( partial.locale ) );
 			}
+			if ( 'analyticsEnabled' in partial ) {
+				writes.push(
+					ipcApi.saveAnalyticsEnabled( partial.analyticsEnabled, {
+						surface: source?.surface ?? 'settings',
+						uiVersion: 'v2',
+					} )
+				);
+			}
 			if ( 'defaultSiteDirectory' in partial && partial.defaultSiteDirectory ) {
 				writes.push( ipcApi.saveDefaultSiteDirectory( partial.defaultSiteDirectory ) );
 			}
@@ -694,7 +739,15 @@ export function createIpcConnector(): Connector {
 					partial.studioCliInstalled ? ipcApi.installStudioCli() : ipcApi.uninstallStudioCli()
 				);
 			}
+			if ( typeof partial.agenticFeaturesEnabled === 'boolean' ) {
+				writes.push( ipcApi.saveAgenticFeaturesEnabled( partial.agenticFeaturesEnabled ) );
+			}
 			await Promise.all( writes );
+			if ( typeof partial.agenticFeaturesEnabled === 'boolean' ) {
+				// Cmd/Ctrl+N belongs to "New chat" only while chat is on, so the
+				// menu has to be rebuilt for the accelerator to change hands.
+				await ipcApi.setupAppMenu( { needsOnboarding: false } );
+			}
 		},
 
 		async selectDefaultSiteDirectory( defaultPath ): Promise< string | null > {
@@ -742,9 +795,25 @@ export function createIpcConnector(): Connector {
 			await ipcApi.openTerminalAtPath( sitePath );
 		},
 
+		// Analytics
+		async trackEvent( eventName, props = {} ): Promise< void > {
+			await ipcApi.recordAnalyticsEvent( eventName, {
+				channel: 'studio-ui',
+				ui_version: 'v2',
+				...props,
+			} );
+		},
+
 		// External links
 		async openExternalUrl( url: string ): Promise< void > {
 			ipcApi.openURL( url );
+		},
+
+		async getWapuuScore(): Promise< number | undefined > {
+			return ( await ipcApi.getWapuuScore() ) as number | undefined;
+		},
+		async saveWapuuScore( score: number ): Promise< void > {
+			await ipcApi.saveWapuuScore( score );
 		},
 
 		async popupAppMenu( position: { x: number; y: number } ): Promise< void > {

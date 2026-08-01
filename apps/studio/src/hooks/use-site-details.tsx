@@ -17,6 +17,9 @@ import { simplifyErrorForDisplay, simplifyErrorToFirstSentence } from 'src/lib/e
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import type { Blueprint } from 'src/stores/wpcom-api';
 
+// Safety-net poll interval; `site-event`s are the primary signal for running state.
+const RUNNING_STATE_POLL_INTERVAL_MS = 10_000;
+
 interface SiteDetailsContext {
 	selectedSite: SiteDetails | null;
 	updateSite: ( site: SiteDetails, wpVersion?: string ) => Promise< void >;
@@ -212,6 +215,29 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			const { [ siteId ]: _, ...rest } = prev;
 			return rest;
 		} );
+	}, [] );
+
+	// Re-query authoritative running state and adopt it for sites we already know about. Membership
+	// stays owned by `site-event`s, so this never adds/removes (e.g. drops a mid-creation site).
+	const reconcileRunningState = useCallback( async () => {
+		try {
+			const data = await getIpcApi().reconcileSites();
+			setSites( ( prev ) => {
+				const authoritativeById = new Map( data.map( ( site ) => [ site.id, site ] ) );
+				let changed = false;
+				const next = prev.map( ( site ) => {
+					const authoritative = authoritativeById.get( site.id );
+					if ( ! authoritative || authoritative.running === site.running ) {
+						return site;
+					}
+					changed = true;
+					return authoritative;
+				} );
+				return changed ? next : prev;
+			} );
+		} catch ( error ) {
+			console.error( 'Error reconciling site running state:', error );
+		}
 	}, [] );
 
 	const onDeleteSite = useCallback(
@@ -514,12 +540,14 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					}
 					await getIpcApi().stopServer( id );
 				}
+				// Adopt the resulting state now rather than waiting on a `site-event` that may not arrive.
+				await reconcileRunningState();
 			} finally {
 				clearLoadingForSite( id );
 			}
 			return { capacityLimitReached };
 		},
-		[ startLoadingForSite, clearLoadingForSite ]
+		[ startLoadingForSite, clearLoadingForSite, reconcileRunningState ]
 	);
 
 	const startServers = useCallback(
@@ -656,16 +684,36 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [] );
 
+	// Safety net for missed/dropped `site-event`s: reconcile on an interval while visible, and
+	// immediately on regaining focus, so the UI self-corrects with no user action.
+	useEffect( () => {
+		const reconcileIfVisible = () => {
+			if ( document.visibilityState === 'visible' ) {
+				void reconcileRunningState();
+			}
+		};
+
+		const interval = setInterval( reconcileIfVisible, RUNNING_STATE_POLL_INTERVAL_MS );
+		document.addEventListener( 'visibilitychange', reconcileIfVisible );
+
+		return () => {
+			clearInterval( interval );
+			document.removeEventListener( 'visibilitychange', reconcileIfVisible );
+		};
+	}, [ reconcileRunningState ] );
+
 	const stopServer = useCallback(
 		async ( id: string ) => {
 			startLoadingForSite( id );
 			try {
 				await getIpcApi().stopServer( id );
+				// Flip the button immediately instead of waiting on a `site-event` that may be missed.
+				await reconcileRunningState();
 			} finally {
 				clearLoadingForSite( id );
 			}
 		},
-		[ startLoadingForSite, clearLoadingForSite ]
+		[ startLoadingForSite, clearLoadingForSite, reconcileRunningState ]
 	);
 
 	const stopAllRunningSites = useCallback( async () => {

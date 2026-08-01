@@ -15,6 +15,7 @@ export type {
 	LoadedAiSession,
 	OnboardingHintsState,
 	ProposedSitePath,
+	PullSiteProgress,
 	QuitSitesBehavior,
 	SelectedSiteFolder,
 	SessionEntry,
@@ -38,6 +39,7 @@ export type {
 	SupportedLocale,
 	SupportedTerminal,
 	SyncSite,
+	PreferenceChangeSource,
 	UserPreferences,
 	WritableUserPreferences,
 } from './types';

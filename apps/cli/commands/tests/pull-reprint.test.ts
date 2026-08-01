@@ -84,7 +84,7 @@ function mockWpComPullSource( url = 'https://example.com' ): SyncSite {
 	vi.mocked( readAuthToken ).mockResolvedValue( token );
 	vi.mocked( fetchSyncableSites ).mockResolvedValue( [ site ] );
 	vi.mocked( rotateReprintSecret ).mockResolvedValue( 'hmac-secret' );
-	vi.mocked( enableReprintExporter ).mockResolvedValue( undefined );
+	vi.mocked( enableReprintExporter ).mockResolvedValue( 'v1' );
 
 	return site;
 }
@@ -120,10 +120,22 @@ describe( 'CLI: studio pull-reprint helpers', () => {
 		expect( normalizeSiteUrl( 'https://example.com/?reprint-api' ) ).toBe( 'https://example.com/' );
 	} );
 
+	it( 'strips the v2 site export API marker from the canonical site URL', () => {
+		expect( normalizeSiteUrl( 'https://example.com/?reprint-api-jetpack' ) ).toBe(
+			'https://example.com/'
+		);
+	} );
+
 	it( 'adds the site export API marker exactly once to the importer URL', () => {
 		expect(
 			getReprintApiUrlForSite( normalizeSiteUrl( 'https://example.com/?reprint-api' ) )
 		).toBe( 'https://example.com/?reprint-api' );
+	} );
+
+	it( 'emits the Jetpack marker for a v2 surface', () => {
+		expect(
+			getReprintApiUrlForSite( normalizeSiteUrl( 'https://example.com/?reprint-api' ), 'v2' )
+		).toBe( 'https://example.com/?reprint-api-jetpack' );
 	} );
 
 	it( 'matches WordPress.com sites by normalized URL or host', () => {
@@ -827,6 +839,7 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 		vi.clearAllMocks();
 		vi.mocked( readAuthToken ).mockResolvedValue( token );
 		vi.mocked( rotateReprintSecret ).mockResolvedValue( 'fresh-secret' );
+		vi.mocked( enableReprintExporter ).mockResolvedValue( 'v1' );
 	} );
 
 	afterEach( () => {
@@ -845,13 +858,26 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 		expect( source ).toMatchObject( {
 			url: 'https://two.wordpress.com',
 			secret: 'fresh-secret',
+			surface: 'v1',
 			wpComSite: sites[ 1 ],
 		} );
-		// A fresh secret is rotated for the picked site only.
-		expect( rotateReprintSecret ).toHaveBeenCalledWith( 22, token.accessToken );
+		// A fresh secret is rotated for the picked site only, keyed to its surface.
+		expect( rotateReprintSecret ).toHaveBeenCalledWith( 22, token.accessToken, 'v1' );
 	} );
 
-	it( 'returns null without rotating a secret when the user cancels the picker', async () => {
+	it( 'threads a v2 surface into the rotate call and the resolved source', async () => {
+		setTTY( true );
+		vi.mocked( fetchSyncableSites ).mockResolvedValue( sites );
+		vi.mocked( enableReprintExporter ).mockResolvedValue( 'v2' );
+
+		const source = await resolveSourceSite( 'https://two.wordpress.com' );
+
+		expect( source ).toMatchObject( { surface: 'v2' } );
+		expect( enableReprintExporter ).toHaveBeenCalledWith( 22, token.accessToken, false );
+		expect( rotateReprintSecret ).toHaveBeenCalledWith( 22, token.accessToken, 'v2' );
+	} );
+
+	it( 'returns null without provisioning when the user cancels the picker', async () => {
 		setTTY( true );
 		vi.mocked( fetchSyncableSites ).mockResolvedValue( sites );
 		vi.mocked( pickSyncSite ).mockResolvedValue( undefined );
@@ -859,6 +885,7 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 		const source = await resolveSourceSite();
 
 		expect( source ).toBeNull();
+		expect( enableReprintExporter ).not.toHaveBeenCalled();
 		expect( rotateReprintSecret ).not.toHaveBeenCalled();
 	} );
 
@@ -942,7 +969,7 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 			secret: 'fresh-secret',
 			wpComSite: sites[ 1 ],
 		} );
-		expect( rotateReprintSecret ).toHaveBeenCalledWith( 22, token.accessToken );
+		expect( rotateReprintSecret ).toHaveBeenCalledWith( 22, token.accessToken, 'v1' );
 		expect( pickSyncSite ).not.toHaveBeenCalled();
 	} );
 

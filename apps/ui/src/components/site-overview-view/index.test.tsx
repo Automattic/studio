@@ -18,11 +18,14 @@ import {
 } from '@/data/queries/use-sites';
 import { useWordPressVersions, useWpVersion } from '@/data/queries/use-wordpress-versions';
 import { useOffline } from '@/hooks/use-offline';
+import styles from './style.module.css';
 import { SiteOverviewView } from './index';
 import type { SiteDetails } from '@/data/core';
 
 const navigateMock = vi.fn();
 const siteDropdownMock = vi.hoisted( () => vi.fn() );
+const useSidebarCollapsedMock = vi.hoisted( () => vi.fn() );
+const useTrafficLightSpaceMock = vi.hoisted( () => vi.fn() );
 
 const WP_VERSIONS = [
 	{ label: '6.8', value: 'latest', isBeta: false, isDevelopment: false },
@@ -46,7 +49,12 @@ vi.mock( '@/components/delete-site-dialog', () => ( {
 } ) );
 
 vi.mock( '@/components/site-dropdown', () => ( {
-	SiteDropdown: ( props: { site: SiteDetails; showSiteIcon?: boolean; showStatus?: boolean } ) => {
+	SiteDropdown: ( props: {
+		site: SiteDetails;
+		showSiteIcon?: boolean;
+		showStatus?: boolean;
+		defaultOpen?: boolean;
+	} ) => {
 		siteDropdownMock( props );
 		return <div>{ props.site.name }</div>;
 	},
@@ -90,7 +98,11 @@ vi.mock( '@/hooks/use-offline', () => ( {
 } ) );
 
 vi.mock( '@/hooks/use-sidebar-collapsed', () => ( {
-	useSidebarCollapsed: () => false,
+	useSidebarCollapsed: useSidebarCollapsedMock,
+} ) );
+
+vi.mock( '@/hooks/use-traffic-light-space', () => ( {
+	useTrafficLightSpace: useTrafficLightSpaceMock,
 } ) );
 
 const useConnectorMock = vi.mocked( useConnector, { partial: true } );
@@ -120,6 +132,8 @@ describe( 'SiteOverviewView', () => {
 
 	beforeEach( () => {
 		vi.clearAllMocks();
+		useSidebarCollapsedMock.mockReturnValue( false );
+		useTrafficLightSpaceMock.mockReturnValue( { start: false, end: false } );
 		vi.stubGlobal( 'ResizeObserver', ResizeObserverMock );
 		Object.defineProperty( window, 'matchMedia', {
 			writable: true,
@@ -136,7 +150,12 @@ describe( 'SiteOverviewView', () => {
 		} );
 
 		useConnectorMock.mockReturnValue( { openSiteUrl } );
-		useAgenticFeaturesMock.mockReturnValue( { enabled: true, reason: null, isReady: true } );
+		useAgenticFeaturesMock.mockReturnValue( {
+			enabled: true,
+			chatEnabled: true,
+			reason: null,
+			isReady: true,
+		} );
 		useLoginMock.mockReturnValue( { isPending: false, mutate: vi.fn() } );
 		useExistingCustomDomainsMock.mockReturnValue( [] );
 		useSitesMock.mockReturnValue( {
@@ -160,10 +179,18 @@ describe( 'SiteOverviewView', () => {
 		useXdebugEnabledSiteMock.mockReturnValue( null );
 	} );
 
-	function renderView( activeTab: 'overview' | 'general' | 'debugging' = 'overview' ) {
+	function renderView(
+		activeTab: 'overview' | 'general' | 'debugging' = 'overview',
+		openSiteDropdown = false
+	) {
 		return render(
 			<Tooltip.Provider>
-				<SiteOverviewView siteId="site-1" activeTab={ activeTab } onTabChange={ onTabChange } />
+				<SiteOverviewView
+					siteId="site-1"
+					activeTab={ activeTab }
+					openSiteDropdown={ openSiteDropdown }
+					onTabChange={ onTabChange }
+				/>
 			</Tooltip.Provider>
 		);
 	}
@@ -190,12 +217,31 @@ describe( 'SiteOverviewView', () => {
 		expect( screen.queryByDisplayValue( 'Demo Site' ) ).not.toBeInTheDocument();
 	} );
 
+	it( 'offsets the site menu below macOS traffic lights when the sidebar is collapsed', () => {
+		useSidebarCollapsedMock.mockReturnValue( true );
+		useTrafficLightSpaceMock.mockReturnValue( { start: true, end: false } );
+
+		renderView();
+
+		expect( screen.getByText( 'Demo Site' ).parentElement ).toHaveClass(
+			styles.headerSidebarCollapsed
+		);
+	} );
+
 	it( 'reports tab selection to the route', () => {
 		renderView();
 
 		fireEvent.click( screen.getByRole( 'tab', { name: 'Settings' } ) );
 
 		expect( onTabChange ).toHaveBeenCalledWith( 'general' );
+	} );
+
+	it( 'opens site status when requested by the route', () => {
+		renderView( 'overview', true );
+
+		expect( siteDropdownMock ).toHaveBeenCalledWith(
+			expect.objectContaining( { defaultOpen: true } )
+		);
 	} );
 
 	it( 'renders the settings form with save actions on the general tab', () => {
@@ -459,6 +505,7 @@ describe( 'SiteOverviewView', () => {
 		const loginMutate = vi.fn();
 		useAgenticFeaturesMock.mockReturnValue( {
 			enabled: false,
+			chatEnabled: false,
 			reason: 'signed-out',
 			isReady: true,
 		} );

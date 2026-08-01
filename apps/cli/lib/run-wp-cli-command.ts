@@ -1,6 +1,6 @@
 import { ChildProcess, spawn } from 'node:child_process';
 import path from 'node:path';
-import { PassThrough, Readable } from 'node:stream';
+import { PassThrough, Readable, Writable } from 'node:stream';
 import { buffer, text } from 'node:stream/consumers';
 import { rootCertificates } from 'node:tls';
 import { loadNodeRuntime, createNodeFsMountHandler } from '@php-wasm/node';
@@ -47,15 +47,16 @@ import type { ReadableStream as WebReadableStream } from 'node:stream/web';
 
 const processIdAllocator = new ProcessIdAllocator();
 const PLAYGROUND_INTERNAL_SHARED_FOLDER = '/internal/shared';
+const OUTPUT_TAIL_BYTES = 64 * 1024;
 
 /**
  * Runtime-agnostic WP-CLI invocation result. Both the native PHP runtime and
  * the Playground runtime produce instances of this class, so callers stay
  * decoupled from Playground's `StreamedPHPResponse`.
  *
- * `stdout`/`stderr` are always in-memory streams (Playground produces them in
- * memory; the native runtime pre-drains its OS pipes via `drainToMemory`), so
- * the text getters are safe to read in any order relative to `exitCode`.
+ * `stdout`/`stderr` are always in-memory streams. Playground produces complete
+ * output in memory; native live output retains only a bounded tail. The text
+ * getters are safe to read in any order relative to `exitCode`.
  *
  * For Playground-produced stdout the leading shebang line is already stripped at
  * construction (see `stripLeadingShebang`), so consumers get clean output.
@@ -88,8 +89,8 @@ export class WpCliResponse {
 }
 
 /**
- * Eagerly drain a child process's OS-pipe `stdout`/`stderr` into an in-memory
- * stream.
+ * Eagerly drain a child process's OS-pipe `stdout`/`stderr`, optionally writing
+ * each chunk to the terminal, while retaining only its final bounded tail.
  *
  * Once the OS pipe's buffer fills up and nothing is reading the other end, the
  * child process can't write any more and stalls — so a caller that awaits
@@ -97,17 +98,77 @@ export class WpCliResponse {
  * until we read, and we don't read until it exits. Draining now keeps the pipe
  * flowing no matter when, or whether, a consumer reads.
  */
-function drainToMemory( source: Readable ): Readable {
+export function teeToBoundedTail(
+	source: Readable,
+	destination?: Writable,
+	onOutput?: () => void
+): Readable {
 	const sink = new PassThrough();
+	let tail = Buffer.alloc( 0 );
+	let outputStarted = false;
+	let paused = false;
 
-	// `buffer()` reads `source` right away; replay it once drained, or forward
-	// a read error to whoever consumes `sink`.
-	buffer( source )
-		.then( ( data ) => sink.end( data ) )
-		.catch( ( error ) => sink.destroy( error ) );
+	const cleanupDestination = () => {
+		destination?.off( 'drain', onDrain );
+		destination?.off( 'error', onDestinationError );
+	};
+	const finish = () => {
+		cleanupDestination();
+		sink.end( tail );
+	};
+	const fail = ( error: Error ) => {
+		cleanupDestination();
+		source.destroy( error );
+		sink.destroy( error );
+	};
+	const onDrain = () => {
+		if ( paused ) {
+			paused = false;
+			source.resume();
+		}
+	};
+	const onDestinationError = ( error: Error ) => fail( error );
+
+	// Flow immediately so the child cannot block on a full OS pipe. The retained
+	// tail is enough to diagnose a failed long-running command without retaining
+	// all of its output.
+	source.on( 'data', ( chunk: Buffer | string ) => {
+		const data = Buffer.isBuffer( chunk ) ? chunk : Buffer.from( chunk );
+		tail = Buffer.concat( [ tail, data ] ).subarray( -OUTPUT_TAIL_BYTES );
+		if ( ! outputStarted ) {
+			outputStarted = true;
+			onOutput?.();
+		}
+		try {
+			if ( destination && ! destination.write( data ) ) {
+				paused = true;
+				source.pause();
+			}
+		} catch ( error ) {
+			fail( error instanceof Error ? error : new Error( String( error ) ) );
+		}
+	} );
+	source.once( 'end', finish );
+	source.once( 'error', ( error ) => {
+		cleanupDestination();
+		sink.destroy( error );
+	} );
+	destination?.on( 'drain', onDrain );
+	destination?.on( 'error', onDestinationError );
 
 	// `sink` may go unread (a caller may only await `exitCode`), so swallow the
 	// error to avoid an uncaught exception; a consumer still sees it via its read.
+	sink.on( 'error', () => {} );
+
+	return sink;
+}
+
+function drainToMemory( source: Readable ): Readable {
+	const sink = new PassThrough();
+
+	buffer( source )
+		.then( ( data ) => sink.end( data ) )
+		.catch( ( error ) => sink.destroy( error ) );
 	sink.on( 'error', () => {} );
 
 	return sink;
@@ -118,6 +179,10 @@ type RunWpCliCommandOptions = {
 	requireSqliteCliCommand?: boolean;
 	siteUrl?: string;
 	stdio?: 'inherit' | 'pipe';
+	/** Stream native child output to the terminal while retaining a bounded failure tail. */
+	liveOutput?: boolean;
+	/** Runs once immediately before the first native live output is written. */
+	onLiveOutput?: () => void;
 };
 
 const WASM_SQLITE_COMMAND_PATH = '/tmp/sqlite-command/command.php';
@@ -227,12 +292,23 @@ async function runNativeWpCliCommand(
 			[ Symbol.dispose ]: dispose,
 		};
 	}
+	let liveOutputStarted = false;
+	const onLiveOutput = () => {
+		if ( ! liveOutputStarted ) {
+			liveOutputStarted = true;
+			options.onLiveOutput?.();
+		}
+	};
 
 	return {
 		response: new WpCliResponse(
 			// Non-null: the 'pipe' stdio mode always provides stdout/stderr streams.
-			drainToMemory( child.stdout! ),
-			drainToMemory( child.stderr! ),
+			options.liveOutput
+				? teeToBoundedTail( child.stdout!, process.stdout, onLiveOutput )
+				: drainToMemory( child.stdout! ),
+			options.liveOutput
+				? teeToBoundedTail( child.stderr!, process.stderr, onLiveOutput )
+				: drainToMemory( child.stderr! ),
 			exitCode
 		),
 		[ Symbol.dispose ]: dispose,

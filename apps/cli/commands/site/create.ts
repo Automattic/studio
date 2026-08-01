@@ -40,6 +40,7 @@ import {
 	type SiteFileAccess,
 } from '@studio/common/lib/site-file-access';
 import {
+	getSiteRuntime,
 	SITE_MODE_NATIVE,
 	SITE_MODE_SANDBOX,
 	SITE_RUNTIME_NATIVE_PHP,
@@ -472,10 +473,12 @@ async function runStaticSiteImport(
 	fs.writeFileSync( scriptPath, code );
 
 	logger.reportStart( LoggerAction.IMPORT_SITE, __( 'Importing static site…' ) );
-	await using command = await runWpCliCommandWithMessaging( site, [
-		'eval-file',
-		`${ path.basename( stagingDir ) }/${ scriptName }`,
-	] );
+	const liveOutput = getSiteRuntime( site ) === SITE_RUNTIME_NATIVE_PHP;
+	await using command = await runWpCliCommandWithMessaging(
+		site,
+		[ 'eval-file', `${ path.basename( stagingDir ) }/${ scriptName }` ],
+		liveOutput ? { liveOutput, onLiveOutput: () => logger.spinner.stop() } : {}
+	);
 	const [ exitCode, stdout, stderr ] = await Promise.all( [
 		command.response.exitCode,
 		command.response.stdoutText,

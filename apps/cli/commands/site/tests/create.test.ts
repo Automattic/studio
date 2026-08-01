@@ -454,7 +454,8 @@ describe( 'CLI: studio site create', () => {
 			);
 			expect( runWpCliCommandWithMessaging ).toHaveBeenCalledWith(
 				expect.objectContaining( { path: mockSitePath } ),
-				[ 'eval-file', '.studio-import/import.php' ]
+				[ 'eval-file', '.studio-import/import.php' ],
+				{}
 			);
 			expect( removeSpy ).toHaveBeenCalledWith( path.join( mockSitePath, '.studio-import' ), {
 				recursive: true,
@@ -478,7 +479,7 @@ describe( 'CLI: studio site create', () => {
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
-		it( 'should resume an interrupted matching URL import without reprovisioning the site', async () => {
+		it( 'should resume a legacy native import with live output without reprovisioning the site', async () => {
 			const blueprint = buildCreateFromSourceBlueprint(
 				'https://example.com/',
 				'Imported URL',
@@ -502,10 +503,11 @@ describe( 'CLI: studio site create', () => {
 
 			await runCommand( mockSitePath, { ...defaultTestOptions, blueprint } );
 
-			expect( runWpCliCommandWithMessaging ).toHaveBeenCalledWith( existingSite, [
-				'eval-file',
-				'.studio-import/import.php',
-			] );
+			expect( runWpCliCommandWithMessaging ).toHaveBeenCalledWith(
+				existingSite,
+				[ 'eval-file', '.studio-import/import.php' ],
+				expect.objectContaining( { liveOutput: true, onLiveOutput: expect.any( Function ) } )
+			);
 			expect( startWordPressServer ).not.toHaveBeenCalled();
 			expect( runBlueprint ).not.toHaveBeenCalled();
 			expect( saveCliConfig ).not.toHaveBeenCalled();
@@ -970,7 +972,8 @@ describe( 'CLI: studio site create', () => {
 			expect( runWpCliCommandWithMessaging ).toHaveBeenNthCalledWith(
 				1,
 				expect.objectContaining( { path: mockSitePath } ),
-				[ 'eval-file', '.studio-import/import.php' ]
+				[ 'eval-file', '.studio-import/import.php' ],
+				{}
 			);
 			expect( runWpCliCommandWithMessaging ).toHaveBeenNthCalledWith(
 				2,
@@ -991,6 +994,30 @@ describe( 'CLI: studio site create', () => {
 				recursive: true,
 				force: true,
 			} );
+		} );
+
+		it( 'should enable live import output only for native PHP sites', async () => {
+			const blueprint = buildCreateFromSourceBlueprint(
+				'https://example.com/',
+				'Imported URL',
+				'https://example.com/static-site-importer.zip'
+			);
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
+
+			await runCommand( mockSitePath, {
+				...defaultTestOptions,
+				blueprint,
+				noStart: true,
+				runtime: SITE_RUNTIME_NATIVE_PHP,
+			} );
+
+			expect( runWpCliCommandWithMessaging ).toHaveBeenNthCalledWith(
+				1,
+				expect.objectContaining( { runtime: SITE_RUNTIME_NATIVE_PHP } ),
+				[ 'eval-file', '.studio-import/import.php' ],
+				expect.objectContaining( { liveOutput: true, onLiveOutput: expect.any( Function ) } )
+			);
 		} );
 
 		it( 'should preserve retry state when post-import plugin cleanup fails', async () => {

@@ -638,6 +638,12 @@ export function EmptyBackground() {
 		const resizeObserver =
 			typeof ResizeObserver !== 'undefined' ? new ResizeObserver( () => updateBounds() ) : null;
 		resizeObserver?.observe( canvasElement );
+		// The canvas holds its fixed size while the column resizes around it, so it
+		// only ever moves — observe the wrapper, which does resize, or bounds go
+		// stale when the preview panel, sidebar, or window changes width.
+		if ( canvasElement.parentElement ) {
+			resizeObserver?.observe( canvasElement.parentElement );
+		}
 
 		const intersectionObserver =
 			typeof IntersectionObserver !== 'undefined'

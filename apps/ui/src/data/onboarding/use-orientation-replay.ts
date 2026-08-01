@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useOnboardingGuide } from '@/components/onboarding-guide/use-onboarding-guide';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
-import { useSetOnboardingHints } from '@/data/queries/use-onboarding-hints';
+import { useOnboardingHints, useSetOnboardingHints } from '@/data/queries/use-onboarding-hints';
 import { ORIENTATION_GUIDE_VERSION } from './orientation-guide';
 
 /**
@@ -15,19 +15,23 @@ import { ORIENTATION_GUIDE_VERSION } from './orientation-guide';
 export function useOrientationReplay(): void {
 	const connector = useConnector();
 	const agentic = useAgenticFeatures();
+	const { data: hints } = useOnboardingHints();
 	const setHints = useSetOnboardingHints();
 	const { openGuide } = useOnboardingGuide();
 
-	// The menu event fires outside React's data flow, so read the latest gate
-	// through a ref instead of resubscribing every time it changes.
-	const enabledRef = useRef( agentic.enabled );
+	// The menu event fires outside React's data flow, so read the latest variant
+	// inputs through a ref instead of resubscribing every time they change.
+	const variantRef = useRef( { migrating: false, chatEnabled: agentic.chatEnabled } );
 	useEffect( () => {
-		enabledRef.current = agentic.enabled;
-	}, [ agentic.enabled ] );
+		variantRef.current = {
+			migrating: hints?.migratedFromClassic ?? false,
+			chatEnabled: agentic.chatEnabled,
+		};
+	}, [ agentic.chatEnabled, hints?.migratedFromClassic ] );
 
 	useEffect( () => {
 		return connector.onShowGettingStarted( () => {
-			openGuide( enabledRef.current ? 'agentic' : 'overview', {
+			openGuide( variantRef.current, {
 				onEnd: ( reason ) => {
 					setHints.mutate(
 						reason === 'completed'

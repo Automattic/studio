@@ -14,7 +14,7 @@ import type { OnboardingHintsState } from '@/data/core';
 interface AutostartInputs {
 	onboardingCompleted: boolean | undefined;
 	siteCount: number;
-	agentic: { enabled: boolean; isReady: boolean };
+	agentic: { chatEnabled: boolean; isReady: boolean };
 	hints: OnboardingHintsState | undefined;
 	guideOpen: boolean;
 	alreadyStarted: boolean;
@@ -49,7 +49,7 @@ export function deriveOrientationAutostart( {
 	if ( seen ) {
 		return null;
 	}
-	return agentic.enabled ? 'agentic' : 'overview';
+	return { migrating: hints.migratedFromClassic ?? false, chatEnabled: agentic.chatEnabled };
 }
 
 // Let the workbench render and settle before the guide appears, so it reads as
@@ -76,7 +76,7 @@ export function useOrientationAutostart(): void {
 		const variant = deriveOrientationAutostart( {
 			onboardingCompleted,
 			siteCount: sites?.length ?? 0,
-			agentic: { enabled: agentic.enabled, isReady: agentic.isReady },
+			agentic: { chatEnabled: agentic.chatEnabled, isReady: agentic.isReady },
 			hints,
 			guideOpen: isOpen,
 			alreadyStarted: startedRef.current,
@@ -104,7 +104,7 @@ export function useOrientationAutostart(): void {
 	}, [
 		onboardingCompleted,
 		sites?.length,
-		agentic.enabled,
+		agentic.chatEnabled,
 		agentic.isReady,
 		hints,
 		isOpen,

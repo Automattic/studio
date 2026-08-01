@@ -73,6 +73,7 @@ export interface PromptWindowsSpeedUpResult {
 export interface OnboardingHintsState {
 	tourCompletedVersion?: number;
 	tourDismissedVersion?: number;
+	migratedFromClassic?: boolean;
 }
 
 export const EMPTY_USER_DATA: UserData = {

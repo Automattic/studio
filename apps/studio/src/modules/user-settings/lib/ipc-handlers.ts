@@ -196,17 +196,14 @@ export async function getWapuuScore(): Promise< number | undefined > {
 	return userData.wapuuScore;
 }
 
-// Agentic UI onboarding state (orientation tour, getting-started checklist).
+// Agentic UI onboarding state (orientation guide seen-state, migration marker).
 // The blob is opaque to the desktop; the renderer owns its meaning.
 export async function getOnboardingHints(): Promise< OnboardingHintsState > {
 	const userData = await loadUserData();
 	return userData.onboardingHints ?? {};
 }
 
-export async function saveOnboardingHints(
-	_event: IpcMainInvokeEvent,
-	partial: Partial< OnboardingHintsState >
-): Promise< void > {
+async function persistOnboardingHints( partial: Partial< OnboardingHintsState > ): Promise< void > {
 	if ( ! partial || typeof partial !== 'object' ) {
 		return;
 	}
@@ -218,6 +215,21 @@ export async function saveOnboardingHints(
 	} finally {
 		await unlockAppdata();
 	}
+}
+
+export async function saveOnboardingHints(
+	_event: IpcMainInvokeEvent,
+	partial: Partial< OnboardingHintsState >
+): Promise< void > {
+	await persistOnboardingHints( partial );
+}
+
+// Marks that the user reached the agentic workbench by opting in from classic
+// Studio, so the orientation guide can greet them as a migrating user. Fresh
+// installs get the agentic UI seeded on by default (migration 09) and never
+// hit this path, so they stay "new".
+export async function recordAgenticUiMigration(): Promise< void > {
+	await persistOnboardingHints( { migratedFromClassic: true } );
 }
 
 export async function getGlobalAgentInstructions(): Promise< string > {

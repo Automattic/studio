@@ -167,6 +167,7 @@ import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
 import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import {
+	recordAgenticUiMigration,
 	getUserEditor,
 	getUserTerminal,
 	getDefaultSiteDirectory,
@@ -1533,6 +1534,10 @@ export async function getBetaFeatures( _event: IpcMainInvokeEvent ): Promise< Be
 export async function enableAgenticUi( _event: IpcMainInvokeEvent ): Promise< void > {
 	await updateBetaFeatureInLib( 'enableAgenticUi', true );
 	setAgenticUiEnabled( true );
+	// Opting in from classic Studio is the sole way an existing user reaches the
+	// agentic workbench, so record it here for the orientation guide's migrating
+	// copy. Must land before the renderer reloads below so the guide sees it.
+	await recordAgenticUiMigration();
 	const mainWindow = await getMainWindow();
 	if ( mainWindow && ! mainWindow.isDestroyed() ) {
 		await loadMainWindowRenderer( mainWindow );

@@ -474,6 +474,10 @@ export interface OnboardingHintsState {
 	tourCompletedVersion?: number;
 	// Version of the orientation guide the user closed early (Esc / Skip).
 	tourDismissedVersion?: number;
+	// True when the user reached the agentic workbench by opting in from classic
+	// Studio (vs a fresh install that starts here). Drives the guide's first-page
+	// "Welcome to WordPress Studio 2.0" migrating copy.
+	migratedFromClassic?: boolean;
 }
 
 export interface SnapshotUsage {

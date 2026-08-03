@@ -608,6 +608,18 @@ jobs:
         with:
           bundler-cache: true
 
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install dependencies
+        # The metadata script and the formatting it runs afterwards need the repo's dev dependencies.
+        # `--ignore-scripts` skips the postinstall downloads (WordPress files, PHP binaries), which
+        # this job never uses.
+        run: npm ci --ignore-scripts
+
       - name: Download PHP CLI artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8
         with:

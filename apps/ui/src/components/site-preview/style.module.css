@@ -156,19 +156,6 @@
 	background-color: var(--wpds-color-bg-surface-neutral-strong, #fff);
 }
 
-/* The split view's phone pane, beside the desktop frame on the shared
-   letterbox. Shrinkable so a narrow panel never crushes the primary view. */
-.splitMobilePane {
-	position: relative;
-	display: flex;
-	flex: 0 1 auto;
-	min-width: 0;
-	align-items: safe center;
-	justify-content: safe center;
-	padding: 16px;
-	overflow: hidden;
-}
-
 .spinnerOverlay {
 	position: absolute;
 	inset: 0;

@@ -140,16 +140,13 @@ const VIEWPORT_PRESETS: readonly ViewportPreset[] = [
 	{ id: 'desktop', width: 1440, height: 900 },
 ];
 
-// The preview's viewport mode: natural pane size, one simulated preset, or
-// the side-by-side comparison of the desktop and mobile presets.
-type ViewportMode = 'fit' | ViewportPreset[ 'id' ] | 'split';
+// The preview's viewport mode: natural pane size or one simulated preset.
+type ViewportMode = 'fit' | ViewportPreset[ 'id' ];
 
-// The split view reuses the desktop and mobile presets for its two panes.
 const MOBILE_PRESET = VIEWPORT_PRESETS[ 0 ];
-const DESKTOP_PRESET = VIEWPORT_PRESETS[ 2 ];
 
-// The phone frame's orientation, shared by the mobile preset and the split
-// view. Landscape rotates the frame a quarter turn (844×390).
+// The phone frame's orientation. Landscape rotates the frame a quarter
+// turn (844×390).
 type MobileOrientation = 'portrait' | 'landscape';
 
 const MOBILE_PRESET_LANDSCAPE: ViewportPreset = {
@@ -161,10 +158,6 @@ const MOBILE_PRESET_LANDSCAPE: ViewportPreset = {
 function getMobilePreset( orientation: MobileOrientation ): ViewportPreset {
 	return orientation === 'landscape' ? MOBILE_PRESET_LANDSCAPE : MOBILE_PRESET;
 }
-
-// Breathing room around the split view's phone frame (matches the pane's
-// CSS padding, subtracted before computing the frame's fit-to-height scale).
-const SPLIT_MOBILE_PANE_PADDING = 16;
 
 // A simulated guest viewport: the page lays out at `width`×`height` CSS px
 // and its rendering is scaled by `scale` to fit the preview pane. `mobile`
@@ -425,10 +418,9 @@ function PreviewOverflowMenu( {
 								) }
 							</Menu.RadioItem>
 						) ) }
-						<Menu.RadioItem value="split">{ __( 'Desktop + Mobile' ) }</Menu.RadioItem>
 					</Menu.RadioGroup>
 				</Menu.Group>
-				{ viewportMode === 'mobile' || viewportMode === 'split' ? (
+				{ viewportMode === 'mobile' ? (
 					<>
 						<Menu.Separator />
 						<Menu.Group>
@@ -487,10 +479,9 @@ export function SitePreview( {
 	const [ inspectorState, setInspectorState ] = useState< InspectorState >( EMPTY_INSPECTOR_STATE );
 	const [ inspectorCommand, setInspectorCommand ] = useState< InspectorCommand | null >( null );
 	// 'fit' renders at the pane's natural size; a preset id simulates that
-	// viewport; 'split' shows the desktop and mobile presets together.
+	// viewport.
 	const [ viewportMode, setViewportMode ] = useState< ViewportMode >( 'fit' );
-	// Orientation of the phone frame, wherever it shows (mobile preset and
-	// the split view's phone pane).
+	// Orientation of the phone frame while the mobile preset is active.
 	const [ mobileOrientation, setMobileOrientation ] = useState< MobileOrientation >( 'portrait' );
 	const [ paneSize, setPaneSize ] = useState< { width: number; height: number } | null >( null );
 	// Whether the address bar shows the Database segment (global preference;
@@ -510,42 +501,12 @@ export function SitePreview( {
 	const activePreset =
 		viewportMode === 'mobile'
 			? getMobilePreset( mobileOrientation )
-			: viewportMode === 'split'
-			? DESKTOP_PRESET
 			: VIEWPORT_PRESETS.find( ( preset ) => preset.id === viewportMode ) ?? null;
-	const splitPreview = viewportMode === 'split';
-	// The split view's phone pane: the mobile preset (in its current
-	// orientation) scaled to fit the pane height, and capped at half the
-	// pane's width so a landscape frame can't crowd out the primary view.
-	const splitMobileViewport = useMemo( () => {
-		if ( ! splitPreview || ! paneSize ) {
-			return null;
-		}
-		const preset = getMobilePreset( mobileOrientation );
-		return getSimulatedViewport( preset, {
-			width: Math.max( 160, Math.min( preset.width, Math.round( paneSize.width / 2 ) ) ),
-			height: Math.max( 120, paneSize.height - SPLIT_MOBILE_PANE_PADDING * 2 ),
-		} );
-	}, [ mobileOrientation, paneSize, splitPreview ] );
-	// In split mode the desktop simulation fits the space left beside the
-	// rendered mobile frame, including its pane padding. This keeps the page
-	// at the desktop breakpoint even when the comparison itself is narrow.
-	const primaryPaneSize = useMemo( () => {
-		if ( ! splitPreview || ! paneSize || ! splitMobileViewport ) {
-			return paneSize;
-		}
-		const mobilePaneWidth =
-			splitMobileViewport.width * splitMobileViewport.scale + SPLIT_MOBILE_PANE_PADDING * 2;
-		return {
-			width: Math.max( 1, paneSize.width - mobilePaneWidth ),
-			height: paneSize.height,
-		};
-	}, [ paneSize, splitMobileViewport, splitPreview ] );
 	// No emulation while the site is stopped: the empty state renders in the
 	// plain pane, and the chosen mode re-applies on start.
 	const previewViewport = useMemo(
-		() => ( canPreview ? getSimulatedViewport( activePreset, primaryPaneSize ) : null ),
-		[ activePreset, canPreview, primaryPaneSize ]
+		() => ( canPreview ? getSimulatedViewport( activePreset, paneSize ) : null ),
+		[ activePreset, canPreview, paneSize ]
 	);
 	// Sizing for the frame around the primary surface: the preset's exact
 	// scaled box (the emulation paints it edge to edge).
@@ -644,11 +605,35 @@ export function SitePreview( {
 		[]
 	);
 
+	// Per-site viewport memory (session-lived, like the parent's per-site
+	// path memory): returning to a site restores its last responsive mode.
+	const viewportBySiteRef = useRef<
+		Record< string, { mode?: ViewportMode; orientation?: MobileOrientation } >
+	>( {} );
+	const handleViewportModeChange = useCallback(
+		( mode: ViewportMode ) => {
+			setViewportMode( mode );
+			viewportBySiteRef.current[ site.id ] = { ...viewportBySiteRef.current[ site.id ], mode };
+		},
+		[ site.id ]
+	);
+	const handleMobileOrientationChange = useCallback(
+		( orientation: MobileOrientation ) => {
+			setMobileOrientation( orientation );
+			viewportBySiteRef.current[ site.id ] = {
+				...viewportBySiteRef.current[ site.id ],
+				orientation,
+			};
+		},
+		[ site.id ]
+	);
+
 	useEffect( () => {
 		setBrowserState( EMPTY_BROWSER_STATE );
 		setInspectorState( EMPTY_INSPECTOR_STATE );
-		setViewportMode( 'fit' );
-		setMobileOrientation( 'portrait' );
+		const remembered = viewportBySiteRef.current[ site.id ];
+		setViewportMode( remembered?.mode ?? 'fit' );
+		setMobileOrientation( remembered?.orientation ?? 'portrait' );
 	}, [ site.id ] );
 
 	// The simulated viewport is derived from the pane's size, so it has to
@@ -812,9 +797,9 @@ export function SitePreview( {
 					{ canPreview ? (
 						<PreviewOverflowMenu
 							viewportMode={ viewportMode }
-							onViewportModeChange={ setViewportMode }
+							onViewportModeChange={ handleViewportModeChange }
 							mobileOrientation={ mobileOrientation }
-							onMobileOrientationChange={ setMobileOrientation }
+							onMobileOrientationChange={ handleMobileOrientationChange }
 						/>
 					) : null }
 				</div>
@@ -889,54 +874,6 @@ export function SitePreview( {
 									/>
 								) }
 							</div>
-							{ splitPreview && splitMobileViewport ? (
-								// The comparison's phone pane: a lean companion surface that
-								// follows the primary's navigation (shared `path`) but keeps
-								// annotations and history on the primary pane.
-								<div className={ styles.splitMobilePane }>
-									<div
-										className={ clsx( styles.surfaceFrame, styles.deviceFrame ) }
-										style={ {
-											flex: '0 0 auto',
-											width: splitMobileViewport.width * splitMobileViewport.scale,
-											height: splitMobileViewport.height * splitMobileViewport.scale,
-										} }
-									>
-										{ canUseWebview ? (
-											<WebviewSurface
-												key={ `${ site.id }-mobile` }
-												url={ previewUrl }
-												reloadNonce={ reloadNonce }
-												viewport={ splitMobileViewport }
-												browserCommand={ browserCommand?.type === 'reload' ? browserCommand : null }
-												onNavigate={ handlePreviewNavigation }
-											/>
-										) : (
-											<iframe
-												key={ `${ previewUrl }#${ reloadNonce }` }
-												className={ styles.iframe }
-												style={
-													splitMobileViewport.scale !== 1
-														? {
-																flex: '0 0 auto',
-																width: splitMobileViewport.width,
-																height: splitMobileViewport.height,
-																transform: `scale(${ splitMobileViewport.scale })`,
-																transformOrigin: 'top left',
-														  }
-														: undefined
-												}
-												src={ previewUrl }
-												title={ sprintf(
-													/* translators: %s: site name */
-													__( '%s (mobile)' ),
-													site.name
-												) }
-											/>
-										) }
-									</div>
-								</div>
-							) : null }
 						</>
 					) : (
 						<div className={ styles.empty }>

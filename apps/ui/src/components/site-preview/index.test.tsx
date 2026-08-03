@@ -345,6 +345,40 @@ describe( 'SitePreview', () => {
 
 		expect( screen.queryByRole( 'button', { name: 'More options' } ) ).not.toBeInTheDocument();
 	} );
+
+	it( 'remembers the responsive mode per site during the session', async () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+
+		const queryClient = new QueryClient( {
+			defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+		} );
+		const ui = ( site: SiteDetails ) => (
+			<QueryClientProvider client={ queryClient }>
+				<Tooltip.Provider>
+					<SitePreview site={ site } path="/" reloadNonce={ 0 } />
+				</Tooltip.Provider>
+			</QueryClientProvider>
+		);
+		const siteA = createSite( { id: 'site-a', running: true } );
+		const siteB = createSite( { id: 'site-b', running: true } );
+
+		const { rerender } = render( ui( siteA ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'More options' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: 'Mobile · 390×844' } ) );
+
+		// A site without a remembered mode starts from the default…
+		rerender( ui( siteB ) );
+		expect( await screen.findByRole( 'menuitemradio', { name: 'Fit pane' } ) ).toBeChecked();
+
+		// …and returning to the first site restores its mode.
+		rerender( ui( siteA ) );
+		expect(
+			await screen.findByRole( 'menuitemradio', { name: 'Mobile · 390×844' } )
+		).toBeChecked();
+	} );
 } );
 
 describe( 'getBrowserShortcutCommand', () => {

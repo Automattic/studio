@@ -3,8 +3,8 @@ import { terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { code, globe } from '@wordpress/icons';
+import { DATABASE_HOME_PATH } from '@/components/site-preview/address-bar';
 import { useConnector } from '@/data/core';
-import { useIsSiteStarting, useIsSiteStopping } from '@/data/queries/use-sites';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useOpenSiteUrl } from '@/hooks/use-open-site-url';
 import {
@@ -14,7 +14,7 @@ import {
 	folderLogo,
 	phpMyAdminLogo,
 	terminalLogos,
-} from './logos';
+} from '@/lib/logos';
 import type { SiteDetails } from '@/data/core';
 import type { ReactElement } from 'react';
 
@@ -47,6 +47,9 @@ export function getFileManager(): { label: string; logo: ReactElement } {
  * preview's current page, not the site root. `onOpen` fires only when a
  * destination actually opens: picking the editor without a configured
  * preference navigates to settings instead and reports nothing.
+ *
+ * Browser is the only destination that needs a running site; the rest work
+ * stopped, and phpMyAdmin starts the site itself.
  */
 export function useOpenInDestinations(
 	site: SiteDetails,
@@ -57,10 +60,7 @@ export function useOpenInDestinations(
 	const navigate = useNavigate();
 	const { data: userPreferences } = useUserPreferences();
 	const openSiteUrl = useOpenSiteUrl( site );
-	const isStarting = useIsSiteStarting( site.id );
-	const isStopping = useIsSiteStopping( site.id );
 
-	const busy = isStarting || isStopping;
 	const fileManager = getFileManager();
 	const editorLabel = userPreferences?.editor
 		? supportedEditorConfig[ userPreferences.editor ].label
@@ -130,10 +130,11 @@ export function useOpenInDestinations(
 			id: 'phpmyadmin',
 			label: __( 'phpMyAdmin' ),
 			logo: phpMyAdminLogo,
-			disabled: busy,
+			// Not gated on `running`: it starts the site on the way in.
+			disabled: false,
 			open: () => {
 				onOpen?.( 'phpmyadmin' );
-				void openSiteUrl( '/phpmyadmin/index.php?route=/database/structure&db=wordpress' );
+				void openSiteUrl( DATABASE_HOME_PATH );
 			},
 		},
 	];

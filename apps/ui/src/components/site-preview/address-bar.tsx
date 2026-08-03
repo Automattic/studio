@@ -259,6 +259,10 @@ export function PreviewAddressBar( {
 }: PreviewAddressBarProps ) {
 	const [ open, setOpen ] = useState( false );
 	const [ inputValue, setInputValue ] = useState( '' );
+	// Whether the user edited the input since opening — the prefilled path
+	// alone must not count as typing, and string equality can't tell a
+	// prefill from a manually retyped current path.
+	const [ hasTyped, setHasTyped ] = useState( false );
 	const [ highlightedItem, setHighlightedItem ] = useState< AddressItem | undefined >( undefined );
 	const realm = getPreviewRealm( path );
 	const { customizeLinks, contentLinks } = useCustomizeLinks( site );
@@ -317,6 +321,7 @@ export function PreviewAddressBar( {
 
 	const intent = parseOmniboxInput( inputValue, siteUrl );
 	const searchTerm = intent?.type === 'search' ? intent.term : '';
+	const pathQuery = intent?.type === 'path' ? intent.path : '';
 	const debouncedTerm = useDebouncedValue( searchTerm, 250 );
 	const search = useSiteSearch( site.id, debouncedTerm, searchEnabled && open );
 	// Real front-end permalinks (latest post + a page) for the zero state; only
@@ -374,18 +379,25 @@ export function PreviewAddressBar( {
 		return bestScore >= 0 ? bestId : null;
 	}, [ frontendItems, wordpressItems, path ] );
 
-	// Untouched (prefilled) or cleared input rests on the grouped destinations
-	// (Front end / WordPress); search terms blend destination matches with
-	// content results into a single unlabeled group; typed paths suppress the
-	// list entirely so Enter always navigates the path instead of a stale
-	// highlighted result.
-	const isZeroState = ! inputValue.trim() || inputValue === path;
+	// Until the user types (or after clearing), the input rests on the grouped
+	// destinations (Front end / WordPress); search terms blend destination
+	// matches with content results into a single unlabeled group; typed paths
+	// suggest destinations matching by path, while Enter keeps navigating the
+	// literal input (no auto-highlight in path mode).
+	const isZeroState = ! inputValue.trim() || ! hasTyped;
 	const groups = useMemo< AddressGroup[] >( () => {
 		if ( isZeroState ) {
 			return [
 				{ value: __( 'Front end' ), items: frontendItems },
 				{ value: __( 'WordPress' ), items: wordpressItems },
 			].filter( ( group ) => group.items.length > 0 );
+		}
+		if ( pathQuery ) {
+			const query = pathQuery.toLowerCase();
+			const matches = [ ...frontendItems, ...wordpressItems ].filter( ( destination ) =>
+				destination.path.toLowerCase().includes( query )
+			);
+			return matches.length > 0 ? [ { value: '', items: matches } ] : [];
 		}
 		if ( ! searchTerm ) {
 			return [];
@@ -410,7 +422,15 @@ export function PreviewAddressBar( {
 			: [];
 		const matches = [ ...destinationMatches, ...contentMatches ];
 		return matches.length > 0 ? [ { value: '', items: matches } ] : [];
-	}, [ isZeroState, frontendItems, wordpressItems, searchTerm, debouncedTerm, search.data ] );
+	}, [
+		isZeroState,
+		frontendItems,
+		wordpressItems,
+		pathQuery,
+		searchTerm,
+		debouncedTerm,
+		search.data,
+	] );
 	const flatItems = useMemo( () => groups.flatMap( ( group ) => group.items ), [ groups ] );
 
 	const navigateTo = useCallback(
@@ -426,9 +446,15 @@ export function PreviewAddressBar( {
 	const handleOpenChange = ( nextOpen: boolean ) => {
 		if ( nextOpen ) {
 			setInputValue( path );
+			setHasTyped( false );
 			setHighlightedItem( undefined );
 		}
 		setOpen( nextOpen );
+	};
+
+	const handleInputValueChange = ( value: string ) => {
+		setInputValue( value );
+		setHasTyped( true );
 	};
 
 	// The popup (and input) unmount when closed, so this runs once per open.
@@ -476,11 +502,12 @@ export function PreviewAddressBar( {
 		<Autocomplete.Root
 			items={ groups }
 			mode="none"
-			// In the zero state Enter should re-navigate the prefilled path,
-			// not the first destination — highlight only follows typing.
-			autoHighlight={ ! isZeroState }
+			// In the zero state Enter should re-navigate the prefilled path, and
+			// for typed paths it must navigate the literal input — highlight only
+			// follows typed search terms.
+			autoHighlight={ ! isZeroState && ! pathQuery }
 			value={ inputValue }
-			onValueChange={ setInputValue }
+			onValueChange={ handleInputValueChange }
 			open={ open }
 			onOpenChange={ handleOpenChange }
 			onItemHighlighted={ setHighlightedItem }

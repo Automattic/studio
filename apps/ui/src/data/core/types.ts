@@ -376,7 +376,7 @@ export interface Connector {
 	openSiteInEditor( siteId: string ): Promise< void >;
 	openSiteInTerminal( siteId: string ): Promise< void >;
 
-	// Analytics — record a Tracks event. The connector attaches the surface
+	// Analytics — record a Tracks event. The desktop wrapper attaches the surface
 	// params (channel/ui_version); see `docs/design-docs/analytics-tracks.md`.
 	trackEvent( eventName: TracksEventName, props?: TracksProps ): Promise< void >;
 
@@ -509,7 +509,7 @@ export type WritableUserPreferences = Omit<
 };
 
 // Attributes a preference write to an in-app surface for settings-change Tracks
-// events. `ui_version` is fixed per renderer, so connectors set it — not callers.
+// events. `channel`/`ui_version` are attached by the desktop wrapper — not here.
 export interface PreferenceChangeSource {
 	surface: 'onboarding' | 'settings';
 }

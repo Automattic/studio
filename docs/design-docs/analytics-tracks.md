@@ -38,7 +38,7 @@ The pieces mirror the MC Stats layering:
 | Layer | File | Responsibility                                                                                                                                              |
 |---|---|-------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Shared core | `packages/common/lib/record-tracks-event.ts` | Pure, environment-agnostic URL builder + fire-and-forget pixel sender. No config/opt-out logic. No-ops in E2E/dev.                                          |
-| Desktop wrapper | `apps/studio/src/lib/tracks.ts` | Single entry point for the desktop (Main process). Enforces the opt-out, attaches common props.                                                             |
+| Desktop wrapper | `apps/studio/src/lib/tracks.ts` | Single entry point for the desktop (Main process). Enforces the opt-out, attaches common props including `channel` and `ui_version` (derived from the active renderer).                                                             |
 | CLI wrapper | `apps/cli/lib/tracks.ts` | Single entry point for the CLI. Enforces the opt-out **and** the build-time `__ENABLE_CLI_TELEMETRY__` switch. Resolves origin from `STUDIO_TRACKS_ORIGIN`. |
 | Identity + opt-out | `packages/common/lib/shared-config.ts` | `getOrCreateAnalyticsInstallId()`, `isAnalyticsOptedOut()`, `isAutomatticianFromToken()`. Persisted in `shared.json`.                                       |
 
@@ -111,10 +111,11 @@ where the sender actually runs — see Testing below for what fires in which bui
   spawned CLI via the `STUDIO_TRACKS_ORIGIN` env var (`studio-ui:v1` / `studio-ui:v2`), injected in
   `apps/studio/src/modules/cli/lib/execute-command.ts`.
 - **Renderer-originated events** (future) go through the `recordAnalyticsEvent` IPC handler
-  (`apps/studio/src/ipc-handlers.ts`). Both renderers share the same Main single entry point: the legacy
-  `apps/studio` renderer tags `ui_version: v1`; the agentic `apps/ui` renderer routes through its
-  `Connector.trackEvent` (IPC connector), tagging `ui_version: v2`. The `apps/ui` browser
-  (`local`/`hosted`) connectors have no Main process and currently no-op `trackEvent`.
+  (`apps/studio/src/ipc-handlers.ts`). Both renderers share the same Main single entry point, and the
+  desktop wrapper's `commonProps()` attaches `channel`/`ui_version` centrally — the `ui_version` is
+  derived from the active renderer via `getPreferredUiVersion()`, so callers pass only event-specific
+  props. The agentic `apps/ui` renderer routes through its `Connector.trackEvent` (IPC connector); the
+  `apps/ui` browser (`local`/`hosted`) connectors have no Main process and currently no-op `trackEvent`.
 
 ## Property vocabulary
 
@@ -132,8 +133,9 @@ none fits, and flag it for registration.
 | `ui_version` | **Custom (Studio-only):** which desktop renderer | `v1` (legacy), `v2` (agentic). No standard slot — must be registered as a Studio-custom property. |
 
 Common props (`platform`, `arch`, `app_version`, `is_a11n`, and `channel`/`ui_version`) are attached by the
-wrappers/renderers — pass only event-specific props. (Centralizing `channel`/`ui_version` on the desktop
-side is STU-2122; until it lands, `studio_app_launch` still sets them at the call site.)
+wrappers — pass only event-specific props. On the desktop the wrapper's `commonProps()` attaches
+`channel: studio-ui` and `ui_version` (derived from the active renderer via `getPreferredUiVersion()`); the
+CLI wrapper resolves `channel`/`ui_version` from `STUDIO_TRACKS_ORIGIN`.
 
 `surface` (in-app area, e.g. `onboarding`/`settings`) is live on `studio_telemetry`; the renderer
 supplies it per change (Main can't infer it) and it is meant to generalize to other settings-change
@@ -145,14 +147,15 @@ AI-event vocabulary: `ai_session_id`, `agent_name`, `agent_version`, `ability_na
 
 ## Event catalog
 
-Every event also carries the common props `channel`, `is_a11n`, `platform`, `arch`, `app_version`
-(attached by the wrappers). The table lists the event-specific props.
+Every event also carries the common props `channel`, `ui_version`, `is_a11n`, `platform`, `arch`,
+`app_version` (attached by the wrappers; `ui_version` is absent for pure-CLI `channel=studio-cli`
+events). The table lists the event-specific props.
 
 | Event | Emitted from | Event-specific props |
 |---|---|---|
-| `studio_app_launch` | Desktop Main (`appBoot`) | `ui_version`, `is_first_launch` |
-| `studio_site_start` | CLI site-start funnel | `ui_version` (only when `channel=studio-ui`) |
-| `studio_telemetry` | Desktop Main (`saveAnalyticsEnabled`) | `status` (`on`/`off`), `surface` (`onboarding`/`settings`) — recorded while analytics is still ON (before the write when turning off, after it when turning on) so the opt-out gate never self-suppresses it. `ui_version` set at the call site from the originating renderer. |
+| `studio_app_launch` | Desktop Main (`appBoot`) | `is_first_launch` |
+| `studio_site_start` | CLI site-start funnel | (none — `ui_version` comes from the wrapper via `STUDIO_TRACKS_ORIGIN`, only when `channel=studio-ui`) |
+| `studio_telemetry` | Desktop Main (`saveAnalyticsEnabled`) | `status` (`on`/`off`), `surface` (`onboarding`/`settings`) — recorded while analytics is still ON (before the write when turning off, after it when turning on) so the opt-out gate never self-suppresses it. |
 
 ### How to add a new event
 

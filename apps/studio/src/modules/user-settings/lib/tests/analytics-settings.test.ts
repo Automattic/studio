@@ -25,11 +25,9 @@ beforeEach( () => {
 } );
 
 it( 'emits studio_telemetry with status "on" and the source when enabling analytics', async () => {
-	await saveAnalyticsEnabled( event, true, { surface: 'settings', uiVersion: 'v2' } );
+	await saveAnalyticsEnabled( event, true, { surface: 'settings' } );
 
 	expect( mockRecord ).toHaveBeenCalledWith( TRACKS_EVENTS.TELEMETRY, {
-		channel: 'studio-ui',
-		ui_version: 'v2',
 		surface: 'settings',
 		status: 'on',
 	} );
@@ -37,11 +35,9 @@ it( 'emits studio_telemetry with status "on" and the source when enabling analyt
 } );
 
 it( 'emits studio_telemetry with status "off" and the source when disabling analytics', async () => {
-	await saveAnalyticsEnabled( event, false, { surface: 'onboarding', uiVersion: 'v1' } );
+	await saveAnalyticsEnabled( event, false, { surface: 'onboarding' } );
 
 	expect( mockRecord ).toHaveBeenCalledWith( TRACKS_EVENTS.TELEMETRY, {
-		channel: 'studio-ui',
-		ui_version: 'v1',
 		surface: 'onboarding',
 		status: 'off',
 	} );
@@ -64,7 +60,7 @@ function trackOrder() {
 it( 'records the off-transition before the opt-out gate is written', async () => {
 	const calls = trackOrder();
 
-	await saveAnalyticsEnabled( event, false, { surface: 'settings', uiVersion: 'v1' } );
+	await saveAnalyticsEnabled( event, false, { surface: 'settings' } );
 
 	expect( calls ).toEqual( [ 'record', 'update' ] );
 } );
@@ -72,7 +68,7 @@ it( 'records the off-transition before the opt-out gate is written', async () =>
 it( 'records the on-transition after the opt-out gate is cleared', async () => {
 	const calls = trackOrder();
 
-	await saveAnalyticsEnabled( event, true, { surface: 'settings', uiVersion: 'v1' } );
+	await saveAnalyticsEnabled( event, true, { surface: 'settings' } );
 
 	expect( calls ).toEqual( [ 'update', 'record' ] );
 } );

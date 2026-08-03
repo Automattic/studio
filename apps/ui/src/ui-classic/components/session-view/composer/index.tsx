@@ -675,6 +675,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		<>
 			<div className={ styles.root }>
 				<div
+					data-session-composer
 					className={ clsx(
 						styles.shell,
 						isDraggingOver && styles.shellDragging,

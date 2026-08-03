@@ -1,4 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { Tooltip } from '@wordpress/ui';
 import { describe, expect, it, vi } from 'vitest';
 import { SuggestedPrompts } from '.';
 
@@ -9,7 +11,12 @@ function renderPrompts( initialDraft = { text: '', hasAttachments: false } ) {
 		draft.text = prompt;
 		draft.hasAttachments = false;
 	} );
-	render( <SuggestedPrompts siteName="Test Site" onPick={ onPick } getDraft={ () => draft } /> );
+	render(
+		<Tooltip.Provider delay={ 0 }>
+			<div data-session-composer />
+			<SuggestedPrompts siteName="Test Site" onPick={ onPick } getDraft={ () => draft } />
+		</Tooltip.Provider>
+	);
 	return { onPick, draft };
 }
 
@@ -24,6 +31,38 @@ describe( 'SuggestedPrompts', () => {
 		expect( onPick ).toHaveBeenCalledTimes( 1 );
 		expect( onPick.mock.calls[ 0 ][ 0 ] ).toBeTruthy();
 		expect( screen.queryByText( 'Replace your draft?' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'animates the picked suggestion toward the composer', () => {
+		renderPrompts();
+		pickSuggestion( 0 );
+
+		const transfer = screen.getByTestId( 'prompt-transfer' );
+		expect( transfer ).toBeInTheDocument();
+		fireEvent.animationEnd( transfer );
+		expect( screen.queryByTestId( 'prompt-transfer' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'varies suggestion explanations without calling them prompts', async () => {
+		renderPrompts();
+		const user = userEvent.setup();
+		const suggestions = screen.getAllByRole( 'listitem' );
+		const tooltipLabels = [
+			'Start with this idea',
+			'Try this one',
+			'Maybe this one',
+			'Give this a go',
+			'How about this',
+			'Build from here',
+			'Take this for a spin',
+		];
+
+		for ( const [ index, label ] of tooltipLabels.entries() ) {
+			const button = suggestions[ index ].querySelector( 'button' )!;
+			await user.hover( button );
+			expect( await screen.findByText( label ) ).toBeVisible();
+			await user.unhover( button );
+		}
 	} );
 
 	it( 'replaces an untouched suggestion without asking', () => {

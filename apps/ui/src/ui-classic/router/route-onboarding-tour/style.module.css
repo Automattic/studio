@@ -1,3 +1,11 @@
+/* `layout-onboarding`'s .page reserves 72px at the bottom to clear the fixed
+   footer, but the layout centres the whole content box (`margin-block: auto`)
+   — so padding on one side only lifts the visible content half that distance.
+   Matching it at the top restores true centring while keeping the clearance. */
+.tourPage {
+	padding-top: 72px;
+}
+
 /* The shared feature columns are centered by a flex parent on the welcome
    screen; inside the onboarding page they need to center themselves. The
    glass surface matches the flow-picker cards. */

@@ -1,14 +1,10 @@
 import { check } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
+import { clsx } from 'clsx';
 import styles from './style.module.css';
 
-export interface Feature {
-	title: string;
-	body: string;
-}
-
 interface FeatureListProps {
-	features: Feature[];
+	features: { title: string; body: string }[];
 	className?: string;
 }
 
@@ -16,7 +12,7 @@ interface FeatureListProps {
 // screen and the tour steps so the two can't drift apart.
 export function FeatureList( { features, className }: FeatureListProps ) {
 	return (
-		<ul className={ className ? `${ styles.features } ${ className }` : styles.features }>
+		<ul className={ clsx( styles.features, className ) }>
 			{ features.map( ( { title, body } ) => (
 				<li key={ title }>
 					<h3 className={ styles.featureTitle }>

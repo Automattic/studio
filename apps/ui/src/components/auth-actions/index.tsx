@@ -1,5 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { Button } from '@wordpress/ui';
+import { clsx } from 'clsx';
 import { useLogin } from '@/data/queries/use-auth-user';
 import { useOffline } from '@/hooks/use-offline';
 import styles from './style.module.css';
@@ -8,7 +9,7 @@ interface AuthActionsProps {
 	className?: string;
 }
 
-// Shared by the welcome and connect screens so the two sign-in prompts
+// Shared by the welcome, tour and connect screens so the sign-in prompts
 // can't drift apart.
 export function AuthActions( { className }: AuthActionsProps ) {
 	const isOffline = useOffline();
@@ -16,9 +17,14 @@ export function AuthActions( { className }: AuthActionsProps ) {
 	const signup = useLogin( { signup: true } );
 	const authError = login.error ?? signup.error;
 	const offlineMessage = __( "You're currently offline." );
+	const arrow = (
+		<span aria-hidden className={ styles.arrow }>
+			{ '↗' }
+		</span>
+	);
 
 	return (
-		<div className={ className ? `${ styles.root } ${ className }` : styles.root }>
+		<div className={ clsx( styles.root, className ) }>
 			<div className={ styles.actions }>
 				<Button
 					type="button"
@@ -30,9 +36,7 @@ export function AuthActions( { className }: AuthActionsProps ) {
 					onClick={ () => signup.mutate() }
 				>
 					{ __( 'Sign up' ) }
-					<span aria-hidden className={ styles.arrow }>
-						{ '↗' }
-					</span>
+					{ arrow }
 				</Button>
 				<Button
 					type="button"
@@ -44,9 +48,7 @@ export function AuthActions( { className }: AuthActionsProps ) {
 					onClick={ () => login.mutate() }
 				>
 					{ __( 'Log in with WordPress.com' ) }
-					<span aria-hidden className={ styles.arrow }>
-						{ '↗' }
-					</span>
+					{ arrow }
 				</Button>
 			</div>
 			{ authError && (

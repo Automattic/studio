@@ -1,14 +1,18 @@
 import { createRoute, useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
+import { chevronLeft } from '@wordpress/icons';
+import { Button, Icon } from '@wordpress/ui';
+import { clsx } from 'clsx';
 import { useCallback } from 'react';
 import { AuthActions } from '@/components/auth-actions';
 import { FeatureList } from '@/components/feature-list';
+import { OnboardingFooter } from '@/components/onboarding-footer';
 import { SiteListIllustration } from '@/components/onboarding-illustrations';
 import { AgentPixelField } from '@/components/onboarding-illustrations/agent-pixel-field';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
-import { WizardPage } from '../../components/wizard-page';
 import { onboardingLayoutRoute } from '../layout-onboarding';
+import sharedStyles from '../layout-onboarding/style.module.css';
 import styles from './style.module.css';
 
 function useSteps() {
@@ -95,28 +99,10 @@ export function OnboardingTourPage() {
 	}, [ connector, navigate ] );
 
 	return (
-		<WizardPage
-			title={ step.title }
-			subtitle={ step.subtitle }
-			illustration={ step.illustration }
-			onBack={ () => {
-				if ( stepIndex === 0 ) {
-					void navigate( { to: '/welcome' } );
-				} else {
-					void navigate( { to: '/onboarding/tour', search: {} } );
-				}
-			} }
-			primaryAction={ {
-				label: isLoginStep ? __( 'Skip log in' ) : __( 'Continue' ),
-				onClick: () => {
-					if ( isLastStep ) {
-						void finishTour();
-					} else {
-						void navigate( { to: '/onboarding/tour', search: { step: 'agent' } } );
-					}
-				},
-			} }
-		>
+		<div className={ clsx( sharedStyles.page, styles.tourPage ) }>
+			{ step.illustration }
+			<h1 className={ sharedStyles.title }>{ step.title }</h1>
+			<p className={ sharedStyles.subtitle }>{ step.subtitle }</p>
 			<FeatureList features={ step.points } className={ styles.tourFeatures } />
 			{ isLoginStep && (
 				<div className={ styles.tourAuth }>
@@ -126,7 +112,36 @@ export function OnboardingTourPage() {
 					<AuthActions />
 				</div>
 			) }
-		</WizardPage>
+			<OnboardingFooter>
+				<Button
+					type="button"
+					variant="minimal"
+					tone="neutral"
+					onClick={ () =>
+						void navigate(
+							stepIndex === 0 ? { to: '/welcome' } : { to: '/onboarding/tour', search: {} }
+						)
+					}
+				>
+					<Icon icon={ chevronLeft } size={ 16 } />
+					<span>{ __( 'Back' ) }</span>
+				</Button>
+				<Button
+					type="button"
+					variant="solid"
+					tone="brand"
+					onClick={ () => {
+						if ( isLastStep ) {
+							void finishTour();
+						} else {
+							void navigate( { to: '/onboarding/tour', search: { step: 'agent' } } );
+						}
+					} }
+				>
+					{ isLoginStep ? __( 'Skip log in' ) : __( 'Continue' ) }
+				</Button>
+			</OnboardingFooter>
+		</div>
 	);
 }
 

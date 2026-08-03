@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
 import { useStartSite } from '@/data/queries/use-sites';
@@ -84,7 +84,7 @@ const useConnectorMock = vi.mocked( useConnector, { partial: true } );
 const useStartSiteMock = vi.mocked( useStartSite, { partial: true } );
 const useUserPreferencesMock = vi.mocked( useUserPreferences, { partial: true } );
 
-const BROWSER_URL = 'http://localhost:8881/about/';
+const BROWSER_PATH = '/about/';
 
 describe( 'OpenInMenu', () => {
 	const openSiteUrl = vi.fn().mockResolvedValue( undefined );
@@ -132,19 +132,22 @@ describe( 'OpenInMenu', () => {
 		fireEvent.click( destination( /^(Finder|File Explorer|File manager)$/ ) );
 		fireEvent.click( destination( 'Zed' ) );
 		fireEvent.click( destination( 'Terminal' ) );
-		fireEvent.click( destination( 'phpMyAdmin' ) );
 
-		expect( openExternalUrl ).toHaveBeenCalledWith( BROWSER_URL );
+		// The browser goes through the host's openSiteUrl, which wraps the path
+		// in /studio-auto-login — opening it raw would hit the login form.
+		expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', BROWSER_PATH );
+		expect( openExternalUrl ).not.toHaveBeenCalled();
 		expect( openSiteFolder ).toHaveBeenCalledWith( 'site-1' );
 		expect( openSiteInEditor ).toHaveBeenCalledWith( 'site-1' );
 		expect( openSiteInTerminal ).toHaveBeenCalledWith( 'site-1' );
-		await waitFor( () =>
-			expect( openSiteUrl ).toHaveBeenCalledWith(
-				'site-1',
-				'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
-			)
-		);
-		expect( startSite ).not.toHaveBeenCalled();
+	} );
+
+	it( 'offers no phpMyAdmin destination', () => {
+		// The preview's address bar owns the database realm; navigating there
+		// from here strands it with no segment to represent it.
+		renderMenu( { running: true } );
+
+		expect( screen.queryByText( 'phpMyAdmin' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'defaults the split action to the browser', () => {
@@ -152,7 +155,7 @@ describe( 'OpenInMenu', () => {
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Open in Browser' } ) );
 
-		expect( openExternalUrl ).toHaveBeenCalledWith( BROWSER_URL );
+		expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', BROWSER_PATH );
 	} );
 
 	it( 'stays available while the site is stopped, minus the browser', () => {
@@ -163,21 +166,6 @@ describe( 'OpenInMenu', () => {
 
 		fireEvent.click( destination( /^(Finder|File Explorer|File manager)$/ ) );
 		expect( openSiteFolder ).toHaveBeenCalledWith( 'site-1' );
-	} );
-
-	it( 'starts a stopped site before opening phpMyAdmin', async () => {
-		renderMenu( { running: false } );
-
-		expect( destination( 'phpMyAdmin' ) ).toBeEnabled();
-		fireEvent.click( destination( 'phpMyAdmin' ) );
-
-		await waitFor( () => expect( startSite ).toHaveBeenCalledWith( 'site-1' ) );
-		await waitFor( () =>
-			expect( openSiteUrl ).toHaveBeenCalledWith(
-				'site-1',
-				'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
-			)
-		);
 	} );
 
 	it( 'sends the user to settings when no editor is configured', () => {
@@ -216,7 +204,7 @@ describe( 'OpenInMenu', () => {
 } );
 
 function renderMenu( overrides: Partial< SiteDetails > = {} ) {
-	return render( <OpenInMenu site={ createSite( overrides ) } browserUrl={ BROWSER_URL } /> );
+	return render( <OpenInMenu site={ createSite( overrides ) } browserPath={ BROWSER_PATH } /> );
 }
 
 function destination( label: string | RegExp ): HTMLElement {

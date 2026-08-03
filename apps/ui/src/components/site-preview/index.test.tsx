@@ -237,41 +237,32 @@ describe( 'SitePreview', () => {
 			`/studio-auto-login?redirect_to=${ encodeURIComponent( 'http://localhost:8881/wp-admin/' ) }`
 		);
 
-		// The database tab is off by default, so ⌘3 is inert.
-		onPathChange.mockClear();
-		fireEvent.keyDown( document.body, { key: '3', ctrlKey: true } );
-		expect( onPathChange ).not.toHaveBeenCalled();
-
 		// Re-selecting the already-active realm is a no-op.
+		onPathChange.mockClear();
 		fireEvent.keyDown( document.body, { key: '1', ctrlKey: true } );
 		expect( onPathChange ).not.toHaveBeenCalled();
 	} );
 
-	it( 'switches to the database realm on its shortcut when the tab is enabled', () => {
-		window.localStorage.setItem( 'studio:preview-show-database-tab', 'true' );
-		try {
-			useConnectorMock.mockReturnValue( {
-				startSite: vi.fn().mockResolvedValue( undefined ),
-				capabilities: CAPABILITIES,
-			} as never );
-			const onPathChange = vi.fn();
+	it( 'switches to the database realm on its shortcut', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+		const onPathChange = vi.fn();
 
-			renderPreview(
-				<SitePreview
-					site={ createSite( { running: true } ) }
-					path="/"
-					reloadNonce={ 0 }
-					onPathChange={ onPathChange }
-				/>
-			);
+		renderPreview(
+			<SitePreview
+				site={ createSite( { running: true } ) }
+				path="/"
+				reloadNonce={ 0 }
+				onPathChange={ onPathChange }
+			/>
+		);
 
-			fireEvent.keyDown( document.body, { key: '3', ctrlKey: true } );
-			expect( onPathChange ).toHaveBeenCalledWith(
-				'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
-			);
-		} finally {
-			window.localStorage.removeItem( 'studio:preview-show-database-tab' );
-		}
+		fireEvent.keyDown( document.body, { key: '3', ctrlKey: true } );
+		expect( onPathChange ).toHaveBeenCalledWith(
+			'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
+		);
 	} );
 
 	it( 'hides the Annotate control when the host cannot annotate the preview', () => {

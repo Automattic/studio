@@ -131,6 +131,10 @@ none fits, and flag it for registration.
 | `app_version` | Product version | e.g. `1.15.0` |
 | `ui_version` | **Custom (Studio-only):** which desktop renderer | `v1` (legacy), `v2` (agentic). No standard slot — must be registered as a Studio-custom property. |
 
+Common props (`platform`, `arch`, `app_version`, `is_a11n`, and `channel`/`ui_version`) are attached by the
+wrappers/renderers — pass only event-specific props. (Centralizing `channel`/`ui_version` on the desktop
+side is STU-2122; until it lands, `studio_app_launch` still sets them at the call site.)
+
 Reserved for later phases (documented so future events conform): `surface` (in-app area, e.g.
 `onboarding`/`settings`), `outcome` (`success`/`error`).
 
@@ -155,9 +159,11 @@ Every event also carries the common props `channel`, `is_a11n`, `platform`, `arc
    `apps/cli/lib/tracks.ts`, or the `recordAnalyticsEvent` IPC handler / `Connector.trackEvent` from a
    renderer). Prefer a standardized property name from the vocabulary above; only add a custom prop when
    none fits, and flag it.
-3. **Register the event and its properties server-side** in the Tracks event schema. Events still flow
-   without this, but registration is what makes them and their props formally defined and reliably
-   queryable in the dashboards.
+3. **Register the event and all its eventprops** via the Tracks Registration tool. Registration adds
+   documentation and CI integrity checks — it does not gate collection or queryability (a validly-named
+   event is already queryable in Superset without it). Register every prop the event carries, including the
+   wrapper-attached common props (`channel`, `is_a11n`, `platform`, `arch`, `app_version`, `ui_version`);
+   only the reserved Tracks defaults (timestamp, etc.) come for free.
 4. Add a row to the event catalog above.
 
 ## Testing
@@ -197,7 +203,7 @@ What fires depends on the build, so pick the right method:
     `STUDIO_TRACKS_ORIGIN` is set — as the desktop injects when it spawns the CLI (e.g.
     `STUDIO_TRACKS_ORIGIN=studio-ui:v2`).
 - **Live pixel to `pixel.wp.com`.** Only a shipped npm/prod build sends the real request (dev/E2E always
-  no-ops). Best confirmed server-side once the events are registered.
+  no-ops). Confirm server-side by querying `tracks.prod_events` in Superset.
 
 ## Privacy / GDPR
 

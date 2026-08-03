@@ -1,14 +1,19 @@
 import fs from 'fs';
 import Anthropic from '@anthropic-ai/sdk';
 import { type AgentTool } from '@earendil-works/pi-agent-core';
-import { type Model, type SimpleStreamOptions } from '@earendil-works/pi-ai';
+import {
+	type Credential,
+	type CredentialInfo,
+	type CredentialStore,
+	type Model,
+	type SimpleStreamOptions,
+} from '@earendil-works/pi-ai';
 import {
 	stream as streamAnthropic,
 	type AnthropicOptions,
 } from '@earendil-works/pi-ai/api/anthropic-messages';
 import { streamSimple as streamOpenAiResponses } from '@earendil-works/pi-ai/api/openai-responses';
 import {
-	AuthStorage,
 	createAgentSession,
 	createBashTool,
 	createEditTool,
@@ -18,7 +23,7 @@ import {
 	createReadTool,
 	createWriteTool,
 	DefaultResourceLoader,
-	ModelRegistry,
+	ModelRuntime,
 	SettingsManager,
 	type AgentSession,
 	type AgentSessionEvent,
@@ -38,6 +43,7 @@ import {
 	type SiteRuntime,
 } from '@studio/common/lib/site-runtime';
 import { getAiPayloadsPath, getConfigDirectory } from '@studio/common/lib/well-known-paths';
+import { type TSchema } from 'typebox';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions, withChatArtifactEmission } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
@@ -63,7 +69,7 @@ import type { AskUserHandler, SiteInfo } from 'cli/ai/types';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AgentToolAny = AgentTool< any >;
 type StudioModel = Model< 'openai-responses' > | Model< 'anthropic-messages' >;
-type ProviderConfigInput = Parameters< ModelRegistry[ 'registerProvider' ] >[ 1 ];
+type ProviderConfigInput = Parameters< ModelRuntime[ 'registerProvider' ] >[ 1 ];
 
 const STUDIO_WPCOM_ANTHROPIC_PROVIDER = 'studio-wpcom-anthropic';
 const STUDIO_WPCOM_OPENAI_PROVIDER = 'studio-wpcom-openai';
@@ -323,7 +329,7 @@ async function createStudioAgentSession(
 
 	const tools = buildAgentTools( config, chatArtifactsEnabled, remoteSession );
 	const toolDefinitions = tools.map( ( tool ) => toToolDefinition( tool, payloadGuardState ) );
-	const { authStorage, modelRegistry } = createModelRegistry( model, family, creds );
+	const modelRuntime = await createModelRuntime( model, family, creds );
 	const settingsManager = createSettingsManager( config.env );
 	const resourceLoader = new DefaultResourceLoader( {
 		cwd: STUDIO_SITES_ROOT,
@@ -342,8 +348,7 @@ async function createStudioAgentSession(
 	const result = await createAgentSession( {
 		cwd: STUDIO_SITES_ROOT,
 		agentDir: STUDIO_AGENT_DIR,
-		authStorage,
-		modelRegistry,
+		modelRuntime,
 		model,
 		thinkingLevel: 'medium',
 		sessionManager: config.session,
@@ -406,32 +411,68 @@ function buildModel(
 	};
 }
 
-function createModelRegistry(
+// In-memory credential store so the runtime never reads or writes an auth.json
+// on disk. Studio resolves credentials from the environment on every turn and
+// injects them via runtime API keys or registered provider configs, so nothing
+// needs to be persisted.
+class InMemoryCredentialStore implements CredentialStore {
+	private readonly credentials = new Map< string, Credential >();
+
+	async read( providerId: string ): Promise< Credential | undefined > {
+		return this.credentials.get( providerId );
+	}
+
+	async list(): Promise< readonly CredentialInfo[] > {
+		return [ ...this.credentials.entries() ].map( ( [ providerId, credential ] ) => ( {
+			providerId,
+			type: credential.type,
+		} ) );
+	}
+
+	async modify(
+		providerId: string,
+		fn: ( current: Credential | undefined ) => Promise< Credential | undefined >
+	): Promise< Credential | undefined > {
+		const next = await fn( this.credentials.get( providerId ) );
+		if ( next ) {
+			this.credentials.set( providerId, next );
+		}
+		return next;
+	}
+
+	async delete( providerId: string ): Promise< void > {
+		this.credentials.delete( providerId );
+	}
+}
+
+async function createModelRuntime(
 	model: StudioModel,
 	family: AiModelFamily,
 	creds: ResolvedCredentials
-): { authStorage: AuthStorage; modelRegistry: ModelRegistry } {
-	const authStorage = AuthStorage.inMemory();
-	const modelRegistry = ModelRegistry.inMemory( authStorage );
+): Promise< ModelRuntime > {
+	const modelRuntime = await ModelRuntime.create( {
+		credentials: new InMemoryCredentialStore(),
+		modelsPath: null,
+	} );
 
 	if ( family === 'anthropic' && creds.useBearerAuth ) {
-		modelRegistry.registerProvider(
+		modelRuntime.registerProvider(
 			STUDIO_WPCOM_ANTHROPIC_PROVIDER,
 			createWpcomAnthropicProviderConfig( model as Model< 'anthropic-messages' >, creds )
 		);
-		return { authStorage, modelRegistry };
+		return modelRuntime;
 	}
 
 	if ( family === 'openai' ) {
-		modelRegistry.registerProvider(
+		modelRuntime.registerProvider(
 			STUDIO_WPCOM_OPENAI_PROVIDER,
 			createWpcomOpenAiProviderConfig( model as Model< 'openai-responses' >, creds )
 		);
-		return { authStorage, modelRegistry };
+		return modelRuntime;
 	}
 
-	authStorage.setRuntimeApiKey( family, creds.apiKey );
-	return { authStorage, modelRegistry };
+	await modelRuntime.setRuntimeApiKey( family, creds.apiKey );
+	return modelRuntime;
 }
 
 // pi (>= 0.78) parses `registerProvider` config values (apiKey, headers) as
@@ -573,7 +614,10 @@ function buildAgentTools(
 	const skillToolDef = createSkillTool();
 	const skillTool: AgentToolAny[] = skillToolDef ? [ skillToolDef ] : [];
 
-	const renameTool = ( tool: AgentToolAny, name: string ): AgentToolAny => ( {
+	const renameTool = < S extends TSchema >(
+		tool: AgentTool< S >,
+		name: string
+	): AgentTool< S > => ( {
 		...tool,
 		name,
 		label: name,

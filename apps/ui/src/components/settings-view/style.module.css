@@ -244,18 +244,26 @@
 	border-radius: var( --wpds-border-radius-sm );
 	background: var( --wpds-color-bg-interactive-neutral-weak );
 	pointer-events: none;
-	transform: translateX( calc( var( --appearance-active-index, 0 ) * 100% ) );
+	transform: translateX(
+		calc( var( --appearance-active-index, 0 ) * 100% + var( --appearance-edge-shift, 0px ) )
+	);
 }
 
 /* The indicator is positioned with a logical inset but animated with a
    physical translateX, so RTL needs the sign flipped to slide toward the
    selected option instead of away from it. */
 .appearancePicker:dir( rtl )::before {
-	transform: translateX( calc( var( --appearance-active-index, 0 ) * -100% ) );
+	transform: translateX(
+		calc( var( --appearance-active-index, 0 ) * -100% - var( --appearance-edge-shift, 0px ) )
+	);
 }
 
+/* At the first/last segment, slide the indicator one border-width outward so
+   its border overlays the container's, leaving a single continuous edge
+   instead of a double border. */
 .appearancePicker[data-active-index='0'] {
 	--appearance-active-index: 0;
+	--appearance-edge-shift: calc( var( --wpds-border-width-xs ) * -1 );
 }
 
 .appearancePicker[data-active-index='1'] {
@@ -264,6 +272,7 @@
 
 .appearancePicker[data-active-index='2'] {
 	--appearance-active-index: 2;
+	--appearance-edge-shift: var( --wpds-border-width-xs );
 }
 
 @media not ( prefers-reduced-motion ) {
@@ -343,6 +352,15 @@
 	min-width: 0;
 }
 
+.accountButtons {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: var( --wpds-dimension-padding-sm );
+	flex-wrap: wrap;
+	flex-shrink: 0;
+}
+
 .accountIdentity {
 	display: flex;
 	align-items: center;
@@ -381,23 +399,22 @@
 	overflow-wrap: anywhere;
 }
 
+/* Mirror the InputLayout recipe SelectControl triggers use (height, surface,
+   border, inline padding) so the picker reads as one of the standard Settings
+   controls. */
 .pathPickerButton {
 	box-sizing: border-box;
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
-	gap: var( --wpds-dimension-padding-lg );
 	inline-size: 240px;
 	max-inline-size: 100%;
-	min-block-size: 36px;
-	padding: 0 var( --wpds-dimension-padding-lg );
+	block-size: 40px;
+	padding: 0 var( --wpds-dimension-padding-md );
 	border: var( --wpds-border-width-xs ) solid var( --wpds-color-stroke-interactive-neutral );
 	border-radius: var( --wpds-border-radius-sm );
-	background: var( --wpds-color-bg-surface-neutral );
-	color: var( --wpds-color-fg-content-neutral );
+	background: var( --wpds-color-bg-interactive-neutral-weak );
+	color: var( --wpds-color-fg-interactive-neutral );
 	font-family: var( --wpds-typography-font-family-body );
-	/* Match SelectControl's trigger text so all controls in a card read the
-	   same size. */
 	font-size: var( --wpds-typography-font-size-md );
 	line-height: var( --wpds-typography-line-height-sm );
 	text-align: start;
@@ -422,12 +439,7 @@
 }
 
 .pathPickerPlaceholder {
-	color: var( --wpds-color-fg-content-neutral-weak );
-}
-
-.pathPickerIcon {
-	flex-shrink: 0;
-	fill: currentColor;
+	color: var( --wpds-color-fg-interactive-neutral-disabled );
 }
 
 .cliHeader {

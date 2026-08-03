@@ -134,7 +134,7 @@ export async function saveAnalyticsEnabled(
 	// `recordTracksEvent` is gated by the current opt-out state, so the event must be recorded while
 	// analytics is ON — before turning it off, after turning it on. Order the write around that.
 	const recordEvent = () =>
-		recordTracksEvent( TRACKS_EVENTS.TELEMETRY, {
+		recordTracksEvent( TRACKS_EVENTS.SETTING_TELEMETRY_CHANGE, {
 			channel: 'studio-ui',
 			ui_version: source.uiVersion,
 			surface: source.surface,

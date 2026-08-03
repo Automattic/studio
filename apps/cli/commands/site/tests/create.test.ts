@@ -187,14 +187,16 @@ describe( 'CLI: studio site create', () => {
 		vi.mocked( setupCustomDomain ).mockResolvedValue( undefined );
 		vi.mocked( startWordPressServer ).mockResolvedValue( mockProcessDescription );
 		vi.mocked( runBlueprint ).mockResolvedValue( undefined );
-		vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue( {
-			response: {
-				exitCode: Promise.resolve( 0 ),
-				stdoutText: Promise.resolve( '' ),
-				stderrText: Promise.resolve( '' ),
-			},
-			[ Symbol.dispose ]: vi.fn(),
-		} as never );
+		vi.mocked( runWpCliCommandWithMessaging )
+			.mockReset()
+			.mockResolvedValue( {
+				response: {
+					exitCode: Promise.resolve( 0 ),
+					stdoutText: Promise.resolve( '' ),
+					stderrText: Promise.resolve( '' ),
+				},
+				[ Symbol.dispose ]: vi.fn(),
+			} as never );
 		vi.mocked( logSiteDetails ).mockImplementation( () => {} );
 		vi.mocked( openSiteInBrowser ).mockResolvedValue( undefined );
 		vi.mocked( validateBlueprintData ).mockResolvedValue( { valid: true } );
@@ -324,6 +326,13 @@ describe( 'CLI: studio site create', () => {
 			);
 			expect( blueprint.staticSiteImport.code ).toContain( "'batch_pages'                 => 25" );
 			expect( blueprint.staticSiteImport.code ).toContain(
+				"'max_effective_batches_per_invocation' => 1"
+			);
+			expect( blueprint.staticSiteImport.code ).toContain( "'max_invocation_seconds'      => 180" );
+			expect( blueprint.staticSiteImport.code ).toContain(
+				"isset( $result['result'] ) && is_array( $result['result'] )"
+			);
+			expect( blueprint.staticSiteImport.code ).toContain(
 				"'max_bytes'                  => 10485760"
 			);
 			expect( blueprint.staticSiteImport.code ).toContain(
@@ -390,7 +399,6 @@ describe( 'CLI: studio site create', () => {
 				sourceDir,
 				'Imported Directory',
 				'https://example.com/static-site-importer.zip',
-				undefined,
 				true
 			);
 			expect( blueprint.staticSiteImport.code ).toContain( 'studio_create_from_import_result' );
@@ -411,56 +419,6 @@ describe( 'CLI: studio site create', () => {
 				'static_site_importer_rest_source_artifact'
 			);
 			expect( blueprint.staticSiteImport.code ).toContain( sourceDir );
-		} );
-
-		it( 'should stage Figma files without embedding their bytes in Blueprint PHP', async () => {
-			const sourceDir = fs.mkdtempSync( path.join( '/tmp', 'studio-figma-source-test-' ) );
-			const sourcePath = path.join( sourceDir, 'design.fig' );
-			fs.writeFileSync( sourcePath, 'figma-source-bytes' );
-			const blueprint = buildCreateFromSourceBlueprint(
-				sourcePath,
-				'Imported Figma',
-				'https://example.com/static-site-importer.zip',
-				mockSitePath
-			);
-			const code = blueprint.staticSiteImport.code;
-
-			expect( blueprint.stagedSource ).toEqual( {
-				sourcePath,
-				targetPath: path.join( mockSitePath, '.studio-import', 'source.fig' ),
-			} );
-			const encodedSource = code.match( /base64_decode\( "([^"]+)" \)/ )?.[ 1 ];
-			expect( encodedSource ).toBeDefined();
-			expect( JSON.parse( Buffer.from( encodedSource!, 'base64' ).toString( 'utf8' ) ) ).toEqual( {
-				figma_file: {
-					name: 'design.fig',
-					staged_path: path.join( '.studio-import', 'source.fig' ),
-				},
-			} );
-			expect( code ).not.toContain( Buffer.from( 'figma-source-bytes' ).toString( 'base64' ) );
-
-			const copySpy = vi.spyOn( fs, 'copyFileSync' ).mockImplementation( () => {} );
-			const writeSpy = vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
-			const removeSpy = vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
-			await runCommand( mockSitePath, { ...defaultTestOptions, blueprint } );
-
-			expect( copySpy ).toHaveBeenCalledWith(
-				sourcePath,
-				path.join( mockSitePath, '.studio-import', 'source.fig' )
-			);
-			expect( writeSpy ).toHaveBeenCalledWith(
-				path.join( mockSitePath, '.studio-import', 'import.php' ),
-				code
-			);
-			expect( runWpCliCommandWithMessaging ).toHaveBeenCalledWith(
-				expect.objectContaining( { path: mockSitePath } ),
-				[ 'eval-file', '.studio-import/import.php' ],
-				{}
-			);
-			expect( removeSpy ).toHaveBeenCalledWith( path.join( mockSitePath, '.studio-import' ), {
-				recursive: true,
-				force: true,
-			} );
 		} );
 
 		it( 'should create a basic site successfully', async () => {
@@ -511,6 +469,64 @@ describe( 'CLI: studio site create', () => {
 			expect( startWordPressServer ).not.toHaveBeenCalled();
 			expect( runBlueprint ).not.toHaveBeenCalled();
 			expect( saveCliConfig ).not.toHaveBeenCalled();
+		} );
+
+		it( 'should continue bounded URL imports until SSI reports completion', async () => {
+			const blueprint = buildCreateFromSourceBlueprint(
+				'https://example.com/',
+				'Imported URL',
+				'https://example.com/static-site-importer.zip'
+			);
+			const results = [
+				{ continuation: true, completed_routes: 1, total_routes: 2 },
+				{ continuation: false, completed_routes: 2, total_routes: 2 },
+			];
+			vi.spyOn( fs, 'existsSync' ).mockImplementation( ( filePath ) =>
+				filePath.toString().endsWith( 'result.json' )
+			);
+			vi.spyOn( fs, 'readFileSync' ).mockImplementation( ( filePath ) => {
+				if ( filePath.toString().endsWith( 'result.json' ) ) {
+					return JSON.stringify( results.shift() );
+				}
+				return '';
+			} );
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
+			vi.mocked( runWpCliCommandWithMessaging )
+				.mockResolvedValueOnce( {
+					response: {
+						exitCode: Promise.resolve( 0 ),
+						stdoutText: Promise.resolve( '' ),
+						stderrText: Promise.resolve( '' ),
+					},
+					[ Symbol.dispose ]: vi.fn(),
+				} as never )
+				.mockResolvedValueOnce( {
+					response: {
+						exitCode: Promise.resolve( 0 ),
+						stdoutText: Promise.resolve( '' ),
+						stderrText: Promise.resolve( '' ),
+					},
+					[ Symbol.dispose ]: vi.fn(),
+				} as never )
+				.mockResolvedValueOnce( {
+					response: {
+						exitCode: Promise.resolve( 0 ),
+						stdoutText: Promise.resolve( '' ),
+						stderrText: Promise.resolve( '' ),
+					},
+					[ Symbol.dispose ]: vi.fn(),
+				} as never );
+
+			await runCommand( mockSitePath, { ...defaultTestOptions, blueprint } );
+
+			expect( runWpCliCommandWithMessaging ).toHaveBeenCalledTimes( 3 );
+			expect( runWpCliCommandWithMessaging ).toHaveBeenNthCalledWith(
+				2,
+				expect.objectContaining( { path: mockSitePath } ),
+				[ 'eval-file', '.studio-import/import.php' ],
+				{}
+			);
 		} );
 
 		it( 'should preserve a resumable site and its import state when resuming fails', async () => {

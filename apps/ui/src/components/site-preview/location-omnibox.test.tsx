@@ -306,6 +306,67 @@ describe( 'PreviewAddressBar', () => {
 		expect( onNavigate ).toHaveBeenCalledWith( '/hello-world/' );
 	} );
 
+	it( 'dedupes content results that already appear as permalink rows', async () => {
+		const fetchSiteRest = vi
+			.fn()
+			.mockImplementation( ( _siteId: string, request: { path: string } ) => {
+				if ( request.path.includes( '/wp/v2/posts' ) ) {
+					return Promise.resolve(
+						createSearchResponse( [
+							{
+								id: 5,
+								link: 'http://127.0.0.1:8881/hello-world/',
+								title: { rendered: 'Hello World' },
+							},
+						] )
+					);
+				}
+				if ( request.path.includes( '/wp/v2/search' ) ) {
+					return Promise.resolve(
+						createSearchResponse( [
+							{
+								id: 5,
+								title: 'Hello World',
+								url: 'http://127.0.0.1:8881/hello-world/',
+								type: 'post',
+								subtype: 'post',
+							},
+							{
+								id: 6,
+								title: 'Hello Again',
+								url: 'http://127.0.0.1:8881/hello-again/',
+								type: 'post',
+								subtype: 'post',
+							},
+						] )
+					);
+				}
+				return Promise.resolve( createSearchResponse( [] ) );
+			} );
+		renderAddressBar( { fetchSiteRest, path: '/' } );
+
+		const input = await openOmnibox();
+		fireEvent.change( input, { target: { value: 'hello' } } );
+
+		await screen.findByText( 'Hello Again' );
+		const list = await screen.findByRole( 'listbox' );
+		expect( within( list ).getAllByRole( 'option', { name: /Hello World/ } ) ).toHaveLength( 1 );
+	} );
+
+	it( 'keeps typing focus in the input through the empty-results window', async () => {
+		renderAddressBar();
+
+		const input = await openOmnibox();
+		input.focus();
+		expect( input ).toHaveFocus();
+		fireEvent.change( input, { target: { value: 'q' } } );
+		expect( input ).toHaveFocus();
+		fireEvent.change( input, { target: { value: 'qq' } } );
+		expect( input ).toHaveFocus();
+		await screen.findByText( 'No matches' );
+		expect( input ).toHaveFocus();
+	} );
+
 	it( 'navigates destination-free paths directly from the zero state', async () => {
 		const { onNavigate } = renderAddressBar( { path: '/' } );
 
@@ -329,6 +390,44 @@ describe( 'PreviewAddressBar', () => {
 		expect( onNavigate ).toHaveBeenCalledWith( '/sample-page' );
 		// Opening the omnibox fetches front-end links, but typing a path must
 		// not trigger the content search endpoint.
+		expect( fetchSiteRest ).not.toHaveBeenCalledWith(
+			'site-1',
+			expect.objectContaining( { path: expect.stringContaining( '/wp/v2/search' ) } )
+		);
+	} );
+
+	it( 'treats a retyped current path as a path, not the zero state', async () => {
+		const { onNavigate } = renderAddressBar( { path: '/sample-page/' } );
+
+		const input = await openOmnibox();
+		fireEvent.change( input, { target: { value: '/sample-page' } } );
+		fireEvent.change( input, { target: { value: '/sample-page/' } } );
+
+		expect( screen.queryByText( 'Front end' ) ).not.toBeInTheDocument();
+
+		fireEvent.keyDown( input, { key: 'Enter' } );
+		expect( onNavigate ).toHaveBeenCalledWith( '/sample-page/' );
+	} );
+
+	it( 'suggests destinations matching a typed path', async () => {
+		const { onNavigate } = renderAddressBar();
+
+		const input = await openOmnibox();
+		fireEvent.change( input, { target: { value: '/wp-admin/upl' } } );
+
+		fireEvent.click( await screen.findByRole( 'option', { name: /Media Library/ } ) );
+		expect( onNavigate ).toHaveBeenCalledWith( autoLoginPath( '/wp-admin/upload.php' ) );
+	} );
+
+	it( 'keeps Enter on the literal path while path suggestions are visible', async () => {
+		const { fetchSiteRest, onNavigate } = renderAddressBar();
+
+		const input = await openOmnibox();
+		fireEvent.change( input, { target: { value: '/wp-admin/upl' } } );
+		await screen.findByRole( 'option', { name: /Media Library/ } );
+
+		fireEvent.keyDown( input, { key: 'Enter' } );
+		expect( onNavigate ).toHaveBeenCalledWith( autoLoginPath( '/wp-admin/upl' ) );
 		expect( fetchSiteRest ).not.toHaveBeenCalledWith(
 			'site-1',
 			expect.objectContaining( { path: expect.stringContaining( '/wp/v2/search' ) } )

@@ -250,6 +250,7 @@
 	overflow: hidden;
 	color: var(--wpds-color-fg-content-neutral-weak);
 	font-size: var(--wpds-typography-font-size-xs);
+	text-align: right;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }

@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useConnector } from '@/data/core';
+import { decodeTitle, toPreviewPath } from './use-site-search';
 
 export interface FrontLink {
 	title: string;
@@ -11,24 +12,6 @@ interface RawContentItem {
 	id?: number;
 	link?: string;
 	title?: { rendered?: string } | string;
-}
-
-// REST titles arrive entity-encoded (e.g. `&amp;`); flatten to plain text.
-function decodeTitle( value: string ): string {
-	const doc = new DOMParser().parseFromString( value, 'text/html' );
-	return ( doc.body.textContent ?? '' ).trim();
-}
-
-// The permalink's origin may be spelled differently from the preview URL
-// (REST can advertise `127.0.0.1` while the preview uses `localhost`), so take
-// the path portion without comparing origins.
-function toPreviewPath( url: string ): string | null {
-	try {
-		const parsed = new URL( url );
-		return `${ parsed.pathname }${ parsed.search }${ parsed.hash }`;
-	} catch {
-		return null;
-	}
 }
 
 function toFrontLink( item: RawContentItem | undefined ): FrontLink | undefined {

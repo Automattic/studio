@@ -17,7 +17,7 @@ export async function fetchSiteRest(
 	}
 
 	const publicUrl = server.server.url.replace( /\/+$/, '' );
-	const baseUrl = server.details.port > 0 ? `http://127.0.0.1:${ server.details.port }` : publicUrl;
+	const baseUrl = server.details.port > 0 ? `http://localhost:${ server.details.port }` : publicUrl;
 
 	return fetchSiteRestShared(
 		{

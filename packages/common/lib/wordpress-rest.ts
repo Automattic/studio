@@ -4,7 +4,7 @@ import type { SiteRestRequest, SiteRestResponse } from '@studio/common/types/wor
 export interface SiteRestTarget {
 	siteId: string;
 	running: boolean;
-	// Loopback base the request is actually sent to, e.g. http://127.0.0.1:<port>.
+	// Loopback base the request is actually sent to, e.g. http://localhost:<port>.
 	baseUrl: string;
 	// The site's public base URL (custom domain / advertised url), used to
 	// recognise and translate REST URLs that target it.
@@ -18,6 +18,9 @@ interface SiteRestAuth {
 }
 
 const siteRestAuthCache = new Map< string, SiteRestAuth >();
+// Base URLs whose auth prep failed, per site — retried only when the base
+// changes (port move), so a broken site logs one warn, not one per keystroke.
+const siteRestAuthFailures = new Map< string, string >();
 
 /** Proxy a WordPress REST request to a running local site. */
 export async function fetchSiteRest(
@@ -72,12 +75,26 @@ async function fetchSiteRestWithAuth(
 	if ( request.data !== undefined && ! hasHeader( headers, 'content-type' ) ) {
 		headers[ 'Content-Type' ] = 'application/json';
 	}
-	const response = await fetch( url, {
-		method: request.method ?? 'GET',
-		headers,
-		body: getRequestBody( request ),
-		redirect: 'follow',
-	} );
+	let response: Response;
+	try {
+		response = await fetch( url, {
+			method: request.method ?? 'GET',
+			headers,
+			body: getRequestBody( request ),
+			redirect: 'follow',
+		} );
+	} catch ( error ) {
+		// A site can be marked running while nothing listens on its port
+		// (stale state, crashed server). Degrade to a response instead of
+		// rejecting through the IPC handler.
+		return createJsonResponse(
+			502,
+			'studio_site_unreachable',
+			`Site ${ target.siteId } did not respond: ${
+				error instanceof Error ? error.message : String( error )
+			}`
+		);
+	}
 
 	if ( allowAuthRefresh && ( response.status === 401 || response.status === 403 ) ) {
 		siteRestAuthCache.delete( target.siteId );
@@ -183,6 +200,9 @@ async function getSiteRestAuth( target: SiteRestTarget, baseUrl: string ) {
 	if ( cached?.baseUrl === baseUrl ) {
 		return cached;
 	}
+	if ( siteRestAuthFailures.get( target.siteId ) === baseUrl ) {
+		return null;
+	}
 
 	try {
 		const cookie = await getAutoLoginCookie( baseUrl );
@@ -192,9 +212,11 @@ async function getSiteRestAuth( target: SiteRestTarget, baseUrl: string ) {
 			cookie,
 			nonce,
 		};
+		siteRestAuthFailures.delete( target.siteId );
 		siteRestAuthCache.set( target.siteId, auth );
 		return auth;
 	} catch ( error ) {
+		siteRestAuthFailures.set( target.siteId, baseUrl );
 		console.warn( `Failed to prepare REST auth for site ${ target.siteId }:`, error );
 		return null;
 	}
@@ -209,8 +231,10 @@ async function getAutoLoginCookie( baseUrl: string ) {
 		.map( ( cookie ) => cookie.split( ';' )[ 0 ] )
 		.filter( Boolean );
 
-	if ( cookies.length === 0 ) {
-		throw new Error( 'Auto-login did not return authentication cookies.' );
+	// Without a real login cookie the nonce endpoint 400s (admin-ajax has no
+	// logged-out `rest-nonce` handler) — fail here so we skip that request.
+	if ( ! cookies.some( ( cookie ) => cookie.startsWith( 'wordpress_logged_in_' ) ) ) {
+		throw new Error( 'Auto-login did not return a login cookie.' );
 	}
 
 	return cookies.join( '; ' );

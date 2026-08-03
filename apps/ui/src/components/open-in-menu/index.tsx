@@ -63,7 +63,7 @@ export function OpenInMenu( {
 	);
 
 	return (
-		<Menu.Root modal={ false }>
+		<Menu.Root>
 			<div className={ styles.splitTrigger }>
 				<Tooltip.Root>
 					<Tooltip.Trigger

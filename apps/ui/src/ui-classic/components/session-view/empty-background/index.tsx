@@ -144,6 +144,8 @@ export function EmptyBackground( {
 		const bounds = {
 			left: 0,
 			top: 0,
+			right: 0,
+			bottom: 0,
 			scale: 1,
 		};
 
@@ -181,6 +183,8 @@ export function EmptyBackground( {
 			const rect = canvasElement.getBoundingClientRect();
 			bounds.left = rect.left;
 			bounds.top = rect.top;
+			bounds.right = rect.right;
+			bounds.bottom = rect.bottom;
 			bounds.scale = rect.width > 0 ? canvasSize / rect.width : 1;
 		}
 
@@ -590,22 +594,30 @@ export function EmptyBackground( {
 				mouseY = targetMouseY;
 			}
 		};
-		const onMove = ( event: MouseEvent ) => {
-			setPointerFromEvent( event );
-			ensureLoop();
-		};
-		const onEnter = ( event: MouseEvent ) => {
-			hover = true;
-			updateBounds();
-			setPointerFromEvent( event );
-			ensureLoop();
-		};
 		const onLeave = () => {
 			hover = false;
 			mouseX = -9999;
 			mouseY = -9999;
 			targetMouseX = -9999;
 			targetMouseY = -9999;
+			ensureLoop();
+		};
+		const onWindowMove = ( event: MouseEvent ) => {
+			const isOverCanvas =
+				event.clientX >= bounds.left &&
+				event.clientX <= bounds.right &&
+				event.clientY >= bounds.top &&
+				event.clientY <= bounds.bottom;
+
+			if ( ! isOverCanvas ) {
+				if ( hover ) {
+					onLeave();
+				}
+				return;
+			}
+
+			hover = true;
+			setPointerFromEvent( event );
 			ensureLoop();
 		};
 		const onClick = ( event: MouseEvent ) => {
@@ -634,9 +646,8 @@ export function EmptyBackground( {
 		};
 
 		updateBounds();
-		canvasElement.addEventListener( 'mousemove', onMove, { passive: true } );
-		canvasElement.addEventListener( 'mouseenter', onEnter, { passive: true } );
-		canvasElement.addEventListener( 'mouseleave', onLeave, { passive: true } );
+		window.addEventListener( 'mousemove', onWindowMove, { passive: true } );
+		window.addEventListener( 'blur', onLeave );
 		canvasElement.addEventListener( 'click', onClick );
 		document.addEventListener( 'visibilitychange', onVisibilityChange );
 		reducedMotionQuery?.addEventListener( 'change', onReducedMotionChange );
@@ -644,6 +655,12 @@ export function EmptyBackground( {
 		const resizeObserver =
 			typeof ResizeObserver !== 'undefined' ? new ResizeObserver( () => updateBounds() ) : null;
 		resizeObserver?.observe( canvasElement );
+		// The canvas holds its fixed size while the column resizes around it, so it
+		// only ever moves — observe the wrapper, which does resize, or bounds go
+		// stale when the preview panel, sidebar, or window changes width.
+		if ( canvasElement.parentElement ) {
+			resizeObserver?.observe( canvasElement.parentElement );
+		}
 
 		const intersectionObserver =
 			typeof IntersectionObserver !== 'undefined'
@@ -658,9 +675,8 @@ export function EmptyBackground( {
 			cancelled = true;
 			cancelLoop();
 			clearScheduledWave();
-			canvasElement.removeEventListener( 'mousemove', onMove );
-			canvasElement.removeEventListener( 'mouseenter', onEnter );
-			canvasElement.removeEventListener( 'mouseleave', onLeave );
+			window.removeEventListener( 'mousemove', onWindowMove );
+			window.removeEventListener( 'blur', onLeave );
 			canvasElement.removeEventListener( 'click', onClick );
 			document.removeEventListener( 'visibilitychange', onVisibilityChange );
 			reducedMotionQuery?.removeEventListener( 'change', onReducedMotionChange );

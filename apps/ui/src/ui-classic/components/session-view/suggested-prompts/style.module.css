@@ -7,62 +7,67 @@
 .root {
 	position: absolute;
 	inset: 0;
-	top: calc(50% + 72px);
-	bottom: auto;
-	display: flex;
-	justify-content: center;
+	overflow: hidden;
 	pointer-events: none;
 }
 
 .group {
-	position: relative;
+	position: absolute;
+	top: calc(50% + 72px);
+	left: 50%;
 	display: flex;
+	width: min(100%, 656px);
+	max-width: 100%;
+	transform: translateX(-50%);
 }
 
-/* Progressive frost behind the labels (see components/progressive-blur for
-   the directional original): four backdrop-blur layers, each stronger and
-   masked to a smaller radial area, so blur ramps up toward the center with
-   no visible seam where a single blur region would end. The negative inset
-   lets the softest ring dissolve past the label box. */
+/* Progressive frost behind the labels: each stronger layer begins farther
+   down the W, then remains fully active through the bottom of the canvas.
+   The generous bounds keep animated pixels inside the effect while they
+   drift away from their resting positions. */
 .frost {
 	position: absolute;
-	inset: calc(-1 * var(--wpds-dimension-padding-xl));
+	inset: -96px 0 -160px;
 	pointer-events: none;
 	backdrop-filter: blur(var(--frost-radius));
-	mask-image: radial-gradient(
-		70% 90% at 50% 50%,
-		black var(--frost-hold),
-		transparent var(--frost-fade)
+	mask-image: linear-gradient(
+		to bottom,
+		transparent 0%,
+		transparent var(--frost-start),
+		black var(--frost-end),
+		black 100%
 	);
-	-webkit-mask-image: radial-gradient(
-		70% 90% at 50% 50%,
-		black var(--frost-hold),
-		transparent var(--frost-fade)
+	-webkit-mask-image: linear-gradient(
+		to bottom,
+		transparent 0%,
+		transparent var(--frost-start),
+		black var(--frost-end),
+		black 100%
 	);
 }
 
 .frostSoft {
-	--frost-radius: 1.5px;
-	--frost-hold: 0%;
-	--frost-fade: 100%;
+	--frost-radius: 2px;
+	--frost-start: 10%;
+	--frost-end: 38%;
 }
 
 .frostMedium {
-	--frost-radius: 3px;
-	--frost-hold: 0%;
-	--frost-fade: 80%;
+	--frost-radius: 6px;
+	--frost-start: 18%;
+	--frost-end: 48%;
 }
 
 .frostStrong {
-	--frost-radius: 6px;
-	--frost-hold: 0%;
-	--frost-fade: 60%;
+	--frost-radius: 14px;
+	--frost-start: 32%;
+	--frost-end: 62%;
 }
 
 .frostIntense {
-	--frost-radius: 10px;
-	--frost-hold: 0%;
-	--frost-fade: 42%;
+	--frost-radius: 28px;
+	--frost-start: 46%;
+	--frost-end: 76%;
 }
 
 .list {
@@ -70,31 +75,105 @@
 	display: flex;
 	flex-wrap: wrap;
 	justify-content: center;
-	gap: 2px var(--wpds-dimension-gap-lg);
-	max-width: 560px;
+	gap: var(--wpds-dimension-gap-sm) var(--wpds-dimension-gap-md);
+	box-sizing: border-box;
+	width: 100%;
 	margin: 0;
 	padding: var(--wpds-dimension-padding-lg) var(--wpds-dimension-padding-2xl);
 	list-style: none;
-}
-
-.prompt {
-	padding: 2px 0;
-	border: 0;
-	background: transparent;
-	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-sm);
-	line-height: var(--wpds-typography-line-height-sm);
-	white-space: nowrap;
-	cursor: var(--wpds-cursor-control);
 	pointer-events: auto;
 }
 
-.prompt:hover {
-	color: var(--wpds-color-fg-content-neutral);
+.prompt {
+	--wp-ui-button-background-color: color-mix(
+		in srgb,
+		var(--wpds-color-bg-surface-neutral) 76%,
+		transparent
+	);
+	--wp-ui-button-background-color-active: color-mix(
+		in srgb,
+		var(--wpds-color-bg-surface-neutral-strong) 84%,
+		transparent
+	);
+	--wp-ui-button-border-color: var(--wpds-color-stroke-surface-neutral-weak);
+	--wp-ui-button-border-color-active: var(--wpds-color-stroke-interactive-brand);
+	--wp-ui-button-foreground-color: var(--wpds-color-fg-content-neutral);
+	--wp-ui-button-foreground-color-active: var(--wpds-color-fg-content-neutral);
+	--wp-ui-button-font-size: var(--wpds-typography-font-size-sm);
+	--wp-ui-button-font-weight: var(--wpds-typography-font-weight-regular);
+
+	-webkit-backdrop-filter: blur(12px);
+	backdrop-filter: blur(12px);
+	border-radius: 6px 6px 12px 6px;
+	white-space: nowrap;
 }
 
-.prompt:focus-visible {
-	outline: 2px solid var(--wpds-color-stroke-interactive-brand);
-	outline-offset: 2px;
-	border-radius: var(--wpds-border-radius-xs);
+.transfer {
+	position: fixed;
+	z-index: 30;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	padding-inline: var(--wpds-dimension-padding-md);
+	border: 1px solid var(--wpds-color-stroke-interactive-brand);
+	border-radius: 6px 6px 12px 6px;
+	background: color-mix(
+		in srgb,
+		var(--wpds-color-bg-surface-neutral-strong) 88%,
+		transparent
+	);
+	box-shadow: 0 0 16px
+		color-mix(in srgb, var(--wpds-color-stroke-interactive-brand) 24%, transparent);
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-sm);
+	font-weight: var(--wpds-typography-font-weight-regular);
+	line-height: var(--wpds-typography-line-height-sm);
+	white-space: nowrap;
+	pointer-events: none;
+	animation: prompt-transfer 280ms cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+@keyframes prompt-transfer {
+	0% {
+		transform: translate3d(0, 0, 0) scale(1);
+		opacity: 0.95;
+		filter: blur(0);
+	}
+
+	100% {
+		transform: translate3d(
+				var(--prompt-transfer-x),
+				var(--prompt-transfer-y),
+				0
+			)
+			scale(1.35);
+		opacity: 0;
+		filter: blur(2px);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.transfer {
+		display: none;
+	}
+}
+
+@media (prefers-reduced-transparency: reduce) {
+	.frost {
+		display: none;
+	}
+
+	.prompt {
+		--wp-ui-button-background-color: var(--wpds-color-bg-surface-neutral);
+		--wp-ui-button-background-color-active: var(--wpds-color-bg-surface-neutral-strong);
+
+		-webkit-backdrop-filter: none;
+		backdrop-filter: none;
+	}
+
+	.transfer {
+		background: var(--wpds-color-bg-surface-neutral-strong);
+		box-shadow: none;
+	}
 }

@@ -2,6 +2,7 @@ import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
 import { readOnboardingHints, writeOnboardingHints } from '../browser-onboarding-hints';
 import { applyStoredSiteOrder, storeSiteOrder } from '../browser-site-order';
+import { readLastSeenVersion, writeLastSeenVersion } from '../browser-whats-new';
 import { UnsupportedError } from '../unsupported-error';
 import { readWapuuScore, writeWapuuScore } from '../wapuu-score-storage';
 import type {
@@ -473,6 +474,16 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		onShowGettingStarted() {
 			// No application menu on the hosted surface.
 			return () => {};
+		},
+		onShowWhatsNew() {
+			// No application menu on the hosted surface.
+			return () => {};
+		},
+		async getLastSeenVersion() {
+			return readLastSeenVersion();
+		},
+		async saveLastSeenVersion( version ) {
+			writeLastSeenVersion( version );
 		},
 		async getAppUpdateStatus() {
 			return { readyToInstall: false, version: null };

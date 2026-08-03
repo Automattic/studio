@@ -3,7 +3,7 @@ import { useOnboardingGuide } from '@/components/onboarding-guide/use-onboarding
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useOnboardingHints, useSetOnboardingHints } from '@/data/queries/use-onboarding-hints';
-import { ORIENTATION_GUIDE_VERSION } from './orientation-guide';
+import { getOrientationGuide, ORIENTATION_GUIDE_VERSION } from './orientation-guide';
 
 /**
  * Reopens the orientation guide when the user picks Help ▸ Getting Started in
@@ -31,7 +31,7 @@ export function useOrientationReplay(): void {
 
 	useEffect( () => {
 		return connector.onShowGettingStarted( () => {
-			openGuide( variantRef.current, {
+			openGuide( getOrientationGuide( variantRef.current ), {
 				onEnd: ( reason ) => {
 					setHints.mutate(
 						reason === 'completed'

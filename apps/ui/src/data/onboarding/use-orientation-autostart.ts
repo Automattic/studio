@@ -7,7 +7,7 @@ import {
 	useSetOnboardingHints,
 } from '@/data/queries/use-onboarding-hints';
 import { useSites } from '@/data/queries/use-sites';
-import { ORIENTATION_GUIDE_VERSION } from './orientation-guide';
+import { getOrientationGuide, ORIENTATION_GUIDE_VERSION } from './orientation-guide';
 import type { OrientationVariant } from './orientation-guide';
 import type { OnboardingHintsState } from '@/data/core';
 
@@ -88,7 +88,7 @@ export function useOrientationAutostart(): void {
 		startedRef.current = true;
 		startTimerRef.current = setTimeout( () => {
 			startTimerRef.current = null;
-			openGuide( variant, {
+			openGuide( getOrientationGuide( variant ), {
 				onEnd: ( reason ) => {
 					if ( reason === 'completed' ) {
 						setHints.mutate( { tourCompletedVersion: ORIENTATION_GUIDE_VERSION } );

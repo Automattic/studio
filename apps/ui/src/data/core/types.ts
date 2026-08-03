@@ -456,6 +456,16 @@ export interface Connector {
 	// (desktop only). No-ops where there's no OS menu.
 	onShowGettingStarted( listener: () => void ): () => void;
 
+	// Fires when the user picks Help ▸ What's New in the application menu
+	// (desktop only). No-ops where there's no OS menu.
+	onShowWhatsNew( listener: () => void ): () => void;
+
+	// App version the user last dismissed the What's New announcements on. The
+	// same value the classic renderer reads, so the two UIs never show the same
+	// announcements twice.
+	getLastSeenVersion(): Promise< string | undefined >;
+	saveLastSeenVersion( version: string ): Promise< void >;
+
 	// Auto-updater status.
 	getAppUpdateStatus(): Promise< AppUpdateStatus >;
 	installAppUpdate(): Promise< void >;
@@ -519,6 +529,8 @@ export interface UserPreferences {
 export interface AppGlobals {
 	platform: string;
 	isWindowsStore: boolean;
+	// Desktop only — the browser connectors have no app to report a version for.
+	appVersion?: string;
 }
 
 // Subset of UserPreferences that callers can actually mutate. `locale` is

@@ -231,9 +231,6 @@ interface PreviewAddressBarProps {
 	// The popup anchors to this element (the toolbar's location slot) so it
 	// opens wide and centered like a browser address bar.
 	anchorRef: RefObject< HTMLElement | null >;
-	// The database (phpMyAdmin) segment is optional — hidden when the user
-	// turns it off.
-	showDatabaseTab: boolean;
 	onNavigate: ( path: string ) => void;
 	// Called when the user clicks an inactive segment; the host navigates to
 	// its remembered path for that realm.
@@ -253,7 +250,6 @@ export function PreviewAddressBar( {
 	path,
 	searchEnabled,
 	anchorRef,
-	showDatabaseTab,
 	onNavigate,
 	onSwitchRealm,
 }: PreviewAddressBarProps ) {
@@ -266,11 +262,6 @@ export function PreviewAddressBar( {
 	const [ highlightedItem, setHighlightedItem ] = useState< AddressItem | undefined >( undefined );
 	const realm = getPreviewRealm( path );
 	const { customizeLinks, contentLinks } = useCustomizeLinks( site );
-	// The database segment is optional; everything else always shows.
-	const segments = useMemo(
-		() => REALM_SEGMENTS.filter( ( segment ) => segment.realm !== 'database' || showDatabaseTab ),
-		[ showDatabaseTab ]
-	);
 
 	// The selected-segment fill is a separate element that slides between
 	// segments. Its position comes from measuring the active button; the
@@ -290,7 +281,7 @@ export function PreviewAddressBar( {
 			current && current.left === left && current.width === width ? current : { left, width }
 		);
 	}, [] );
-	useLayoutEffect( measureIndicator, [ measureIndicator, realm, site.name, showDatabaseTab ] );
+	useLayoutEffect( measureIndicator, [ measureIndicator, realm, site.name ] );
 	useEffect( () => {
 		const root = segmentsRef.current;
 		if ( ! root || typeof ResizeObserver === 'undefined' ) {
@@ -528,7 +519,7 @@ export function PreviewAddressBar( {
 							: { opacity: 0 }
 					}
 				/>
-				{ segments.map( ( segment ) => {
+				{ REALM_SEGMENTS.map( ( segment ) => {
 					const isActive = segment.realm === realm;
 					const content = (
 						<>

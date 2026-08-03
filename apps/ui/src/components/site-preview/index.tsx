@@ -142,19 +142,6 @@ const DEFAULT_REALM_PATHS: Record< PreviewRealm, string > = {
 	database: DATABASE_HOME_PATH,
 };
 
-// Whether the address bar shows the Database segment. Off unless explicitly
-// enabled — the phpMyAdmin companion isn't available for every site.
-const PREVIEW_SHOW_DATABASE_TAB_STORAGE_KEY = 'studio:preview-show-database-tab';
-
-function getStoredShowDatabaseTab(): boolean {
-	try {
-		// Only an explicit "true" shows the tab; anything else hides it.
-		return window.localStorage.getItem( PREVIEW_SHOW_DATABASE_TAB_STORAGE_KEY ) === 'true';
-	} catch {
-		return false;
-	}
-}
-
 function safeWebviewBoolean( webview: WebviewTag | null, method: 'canGoBack' | 'canGoForward' ) {
 	try {
 		return typeof webview?.[ method ] === 'function' ? Boolean( webview[ method ]() ) : false;
@@ -299,9 +286,6 @@ export function SitePreview( {
 	const [ browserCommand, setBrowserCommand ] = useState< BrowserCommand | null >( null );
 	const [ inspectorState, setInspectorState ] = useState< InspectorState >( EMPTY_INSPECTOR_STATE );
 	const [ inspectorCommand, setInspectorCommand ] = useState< InspectorCommand | null >( null );
-	// Whether the address bar shows the Database segment (global preference;
-	// the setting UI ships with the preview's view-settings menu).
-	const [ showDatabaseTab ] = useState( getStoredShowDatabaseTab );
 	const rootRef = useRef< HTMLElement | null >( null );
 	const locationRef = useRef< HTMLDivElement | null >( null );
 	const commandIdRef = useRef( 0 );
@@ -357,11 +341,6 @@ export function SitePreview( {
 	}, [ path ] );
 	const handleSwitchRealm = useCallback(
 		( realm: PreviewRealm ) => {
-			// The database realm is unreachable while its tab is hidden — ignore
-			// clicks (there is none) and the ⌘3 shortcut.
-			if ( realm === 'database' && ! showDatabaseTab ) {
-				return;
-			}
 			// Re-selecting the active realm (e.g. via its shortcut) is a no-op —
 			// don't bounce the current page through another auto-login hop.
 			if ( getPreviewRealm( getSafePath( path ) ) === realm ) {
@@ -370,7 +349,7 @@ export function SitePreview( {
 			const target = lastRealmPathsRef.current[ realm ];
 			onPathChange?.( getRealmNavigationPath( target, siteUrl ) );
 		},
-		[ onPathChange, path, showDatabaseTab, siteUrl ]
+		[ onPathChange, path, siteUrl ]
 	);
 
 	const browserShortcuts = useMemo(
@@ -477,7 +456,6 @@ export function SitePreview( {
 								path={ getSafePath( path ) }
 								searchEnabled={ canUseWebview }
 								anchorRef={ locationRef }
-								showDatabaseTab={ showDatabaseTab }
 								onNavigate={ ( nextPath ) => onPathChange?.( nextPath ) }
 								onSwitchRealm={ handleSwitchRealm }
 							/>
@@ -521,7 +499,7 @@ export function SitePreview( {
 							) : null }
 						</div>
 					) : null }
-					<OpenInMenu site={ site } browserUrl={ previewUrl } />
+					<OpenInMenu site={ site } browserPath={ getSafePath( path ) } />
 				</div>
 				{ showLoadingProgress ? (
 					<div className={ styles.loadingProgress } aria-hidden="true">

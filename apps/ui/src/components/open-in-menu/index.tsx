@@ -12,13 +12,7 @@ const LAST_USED_STORAGE_KEY = 'studio:open-in-menu:last-used';
 const DEFAULT_DESTINATION: OpenInDestination = 'browser';
 
 function isOpenInDestination( value: string | null ): value is OpenInDestination {
-	return (
-		value === 'browser' ||
-		value === 'files' ||
-		value === 'editor' ||
-		value === 'terminal' ||
-		value === 'phpmyadmin'
-	);
+	return value === 'browser' || value === 'files' || value === 'editor' || value === 'terminal';
 }
 
 function getStoredDestination(): OpenInDestination {
@@ -44,12 +38,12 @@ function storeLastUsedDestination( destination: OpenInDestination ): void {
  */
 export function OpenInMenu( {
 	site,
-	// The absolute URL the "Browser" destination opens — the preview's
+	// The site-relative path the "Browser" destination opens — the preview's
 	// current page.
-	browserUrl,
+	browserPath,
 }: {
 	site: SiteDetails;
-	browserUrl: string;
+	browserPath: string;
 } ) {
 	const [ lastUsed, setLastUsed ] = useState< OpenInDestination >( getStoredDestination );
 
@@ -58,7 +52,7 @@ export function OpenInMenu( {
 		storeLastUsedDestination( destination );
 	};
 
-	const destinations = useOpenInDestinations( site, browserUrl, rememberDestination );
+	const destinations = useOpenInDestinations( site, browserPath, rememberDestination );
 	const lastUsedDestination =
 		destinations.find( ( destination ) => destination.id === lastUsed ) ?? destinations[ 0 ];
 

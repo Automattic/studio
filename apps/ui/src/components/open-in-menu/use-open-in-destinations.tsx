@@ -3,22 +3,13 @@ import { terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { code, globe } from '@wordpress/icons';
-import { DATABASE_HOME_PATH } from '@/components/site-preview/address-bar';
 import { useConnector } from '@/data/core';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
-import { useOpenSiteUrl } from '@/hooks/use-open-site-url';
-import {
-	appleTerminalLogo,
-	editorLogos,
-	finderLogo,
-	folderLogo,
-	phpMyAdminLogo,
-	terminalLogos,
-} from '@/lib/logos';
+import { appleTerminalLogo, editorLogos, finderLogo, folderLogo, terminalLogos } from '@/lib/logos';
 import type { SiteDetails } from '@/data/core';
 import type { ReactElement } from 'react';
 
-export type OpenInDestination = 'browser' | 'files' | 'editor' | 'terminal' | 'phpmyadmin';
+export type OpenInDestination = 'browser' | 'files' | 'editor' | 'terminal';
 
 export interface OpenInDestinationEntry {
 	id: OpenInDestination;
@@ -41,25 +32,24 @@ export function getFileManager(): { label: string; logo: ReactElement } {
 
 /**
  * The "Open in…" destinations for a site (browser, file manager, editor,
- * terminal, phpMyAdmin) with their labels, logos, and open handlers.
+ * terminal) with their labels, logos, and open handlers.
  *
- * `browserUrl` is the absolute URL handed to the external browser — the
- * preview's current page, not the site root. `onOpen` fires only when a
- * destination actually opens: picking the editor without a configured
- * preference navigates to settings instead and reports nothing.
+ * `browserPath` is the site-relative path the browser opens — the preview's
+ * current page, not the site root. `onOpen` fires only when a destination
+ * actually opens: picking the editor without a configured preference
+ * navigates to settings instead and reports nothing.
  *
  * Browser is the only destination that needs a running site; the rest work
- * stopped, and phpMyAdmin starts the site itself.
+ * stopped.
  */
 export function useOpenInDestinations(
 	site: SiteDetails,
-	browserUrl: string,
+	browserPath: string,
 	onOpen?: ( destination: OpenInDestination ) => void
 ): OpenInDestinationEntry[] {
 	const connector = useConnector();
 	const navigate = useNavigate();
 	const { data: userPreferences } = useUserPreferences();
-	const openSiteUrl = useOpenSiteUrl( site );
 
 	const fileManager = getFileManager();
 	const editorLabel = userPreferences?.editor
@@ -81,7 +71,10 @@ export function useOpenInDestinations(
 			disabled: ! site.running,
 			open: () => {
 				onOpen?.( 'browser' );
-				void connector.openExternalUrl( browserUrl ).catch( ( error ) => {
+				// Routed through the host rather than `openExternalUrl` so the
+				// URL goes via /studio-auto-login; opening it raw drops the
+				// session and lands admin screens on the login form.
+				void connector.openSiteUrl( site.id, browserPath ).catch( ( error ) => {
 					console.error( 'Failed to open site in browser:', error );
 				} );
 			},
@@ -124,17 +117,6 @@ export function useOpenInDestinations(
 				void connector.openSiteInTerminal( site.id ).catch( ( error ) => {
 					console.error( 'Failed to open site in terminal:', error );
 				} );
-			},
-		},
-		{
-			id: 'phpmyadmin',
-			label: __( 'phpMyAdmin' ),
-			logo: phpMyAdminLogo,
-			// Not gated on `running`: it starts the site on the way in.
-			disabled: false,
-			open: () => {
-				onOpen?.( 'phpmyadmin' );
-				void openSiteUrl( DATABASE_HOME_PATH );
 			},
 		},
 	];

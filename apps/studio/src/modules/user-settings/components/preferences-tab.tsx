@@ -5,7 +5,6 @@ import Button from 'src/components/button';
 import { DotGrid } from 'src/components/dot-grid';
 import { FormPathInputComponent } from 'src/components/form-path-input';
 import { useBetaFeatures } from 'src/hooks/use-beta-features';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { isWindowsStore } from 'src/lib/app-globals';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { AnalyticsToggle } from 'src/modules/user-settings/components/analytics-toggle';
@@ -40,10 +39,9 @@ import type { QuitSitesBehavior } from 'src/storage/user-data';
 
 function AgenticUiCallout() {
 	const { __ } = useI18n();
-	const { enableAgenticUi } = useFeatureFlags();
 	const betaFeatures = useBetaFeatures();
 
-	if ( ! enableAgenticUi || betaFeatures.enableAgenticUi ) {
+	if ( betaFeatures.enableAgenticUi ) {
 		return null;
 	}
 
@@ -155,7 +153,7 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 			await saveDefaultSiteDirectory( dirtyDefaultSiteDirectory );
 		}
 		if ( dirtyAnalyticsEnabled !== undefined ) {
-			await saveAnalyticsEnabled( dirtyAnalyticsEnabled );
+			await saveAnalyticsEnabled( { enabled: dirtyAnalyticsEnabled, surface: 'settings' } );
 		}
 		if ( isQuitSitesBehaviorDirty ) {
 			await saveQuitSitesBehavior( dirtyQuitSitesBehavior );

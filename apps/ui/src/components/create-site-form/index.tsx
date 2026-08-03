@@ -24,6 +24,7 @@ import { useConnector } from '@/data/core';
 import { usePathValidator } from '@/data/queries/use-create-site-helpers';
 import { useSites } from '@/data/queries/use-sites';
 import { useWordPressVersions } from '@/data/queries/use-wordpress-versions';
+import { useOffline } from '@/hooks/use-offline';
 import styles from './style.module.css';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type {
@@ -433,14 +434,18 @@ export function CreateSiteForm( {
 	}, [ defaults, initialValues ] );
 
 	const { data: wpVersions } = useWordPressVersions();
+	const isOffline = useOffline();
+	// While offline, "latest" is the only version installable without a
+	// download, so it's forced — same as the legacy version selector.
 	useEffect( () => {
-		if ( ! wpVersions?.length ) return;
-		setData( ( prev ) =>
-			wpVersions.some( ( version ) => version.value === prev.wpVersion )
-				? prev
-				: { ...prev, wpVersion: DEFAULT_WORDPRESS_VERSION }
-		);
-	}, [ wpVersions, data.wpVersion ] );
+		if ( ! isOffline && ! wpVersions?.length ) return;
+		setData( ( prev ) => {
+			const keep =
+				prev.wpVersion === DEFAULT_WORDPRESS_VERSION ||
+				( ! isOffline && !! wpVersions?.some( ( version ) => version.value === prev.wpVersion ) );
+			return keep ? prev : { ...prev, wpVersion: DEFAULT_WORDPRESS_VERSION };
+		} );
+	}, [ wpVersions, isOffline, data.wpVersion ] );
 
 	const fields = useMemo< Field< FormData >[] >(
 		() => [
@@ -461,7 +466,9 @@ export function CreateSiteForm( {
 				},
 			},
 			phpVersionField< FormData >(),
-			wpVersionField< FormData >( DEFAULT_WORDPRESS_VERSION, wpVersions ),
+			wpVersionField< FormData >( DEFAULT_WORDPRESS_VERSION, wpVersions, {
+				offline: isOffline,
+			} ),
 			adminUsernameField< FormData >(),
 			adminPasswordField< FormData >(),
 			adminEmailField< FormData >(),
@@ -475,7 +482,7 @@ export function CreateSiteForm( {
 				Edit: EnableHttpsControl,
 			},
 		],
-		[ existingDomainNames, wpVersions ]
+		[ existingDomainNames, isOffline, wpVersions ]
 	);
 
 	const basicForm = useMemo< Form >(

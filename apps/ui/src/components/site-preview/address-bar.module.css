@@ -1,0 +1,181 @@
+/* Segmented address pill: one segment per realm (front end / WP Admin /
+   database). The active segment carries the realm name and opens the
+   omnibox; inactive segments collapse to icon tabs that flip realms. A
+   filled indicator slides underneath the selected segment (positioned by
+   the component from measurements). The toolbar's `.header button` rule
+   opts the buttons out of the window drag region. */
+.segments {
+	position: relative;
+	box-sizing: border-box;
+	display: inline-flex;
+	align-items: center;
+	gap: 2px;
+	min-width: 0;
+	max-width: min(420px, 100%);
+	height: 32px;
+	/* 2px + the 1px border = 3px visual inset around the selected fill. */
+	padding: 2px;
+	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: 999px;
+	background-color: var(--wpds-color-bg-interactive-neutral-weak);
+}
+
+/* The selected-segment fill: solid, sliding between segments and stretching
+   as the active title expands. `left: 0` + translateX keeps the motion on
+   the compositor where possible. */
+.indicator {
+	position: absolute;
+	top: 2px;
+	bottom: 2px;
+	left: 0;
+	border-radius: 999px;
+	/* Neutral mid-gray fill that adapts to both color schemes (a solid
+	   token here reads too heavy: near-black in light, near-white in dark). */
+	background: color-mix(in srgb, var(--wpds-color-fg-content-neutral) 14%, transparent);
+	transition:
+		transform 200ms ease,
+		width 200ms ease;
+}
+
+.segment {
+	position: relative;
+	z-index: 1;
+	box-sizing: border-box;
+	display: inline-flex;
+	flex: 0 1 auto;
+	min-width: 0;
+	align-items: center;
+	justify-content: center;
+	height: 26px;
+	margin: 0;
+	padding: 0 10px;
+	appearance: none;
+	border: 0;
+	border-radius: 999px;
+	background: transparent;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-family: inherit;
+	font-size: var(--wpds-typography-font-size-xs);
+	font-weight: 600;
+	line-height: 16px;
+	cursor: pointer;
+	transition: color 200ms ease;
+}
+
+.segment:not([data-active='true']):hover {
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+/* Text on the indicator fill. */
+.segment[data-active='true'] {
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.segment:focus-visible {
+	outline: 2px solid var(--wpds-color-stroke-focus-brand);
+	outline-offset: 1px;
+}
+
+.segmentIcon {
+	display: inline-flex;
+	width: 16px;
+	height: 16px;
+	flex-shrink: 0;
+	align-items: center;
+	justify-content: center;
+}
+
+.segmentIcon svg {
+	display: block;
+	width: 100%;
+	height: 100%;
+}
+
+/* Titles render in every segment but collapse when inactive, so selection
+   morphs the pill instead of popping between layouts. */
+.segmentTitle {
+	min-width: 0;
+	max-width: 0;
+	margin-inline: 0;
+	overflow: hidden;
+	opacity: 0;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	transition:
+		max-width 200ms ease,
+		margin 200ms ease,
+		opacity 150ms ease;
+}
+
+/* The extra inline-end margin pads the text away from the pill's rounded
+   right edge; living on the title, it collapses with it. */
+.segment[data-active='true'] .segmentTitle {
+	max-width: 200px;
+	margin-inline: 6px 3px;
+	opacity: 1;
+}
+
+/* Narrow toolbars: every segment goes icon-only (the active pill keeps its
+   fill, just not its name) so the tabs never crowd the toolbar's buttons. */
+@container studio-preview-toolbar (max-width: 680px) {
+	.segment[data-active='true'] .segmentTitle {
+		max-width: 0;
+		margin-inline: 0;
+		opacity: 0;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.indicator,
+	.segment,
+	.segmentTitle {
+		transition: none;
+	}
+}
+
+/* Destination rows want room for the muted path on the right. */
+.menuPopup {
+	min-width: 260px;
+}
+
+/* Section heading over a group of destinations (e.g. "Front end",
+   "WordPress"), matching the shared menu's group-label treatment. */
+.groupLabel {
+	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm) 0;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-sm);
+	font-weight: var(--wpds-typography-font-weight-medium);
+}
+
+.itemIcon {
+	display: inline-flex;
+	flex-shrink: 0;
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.itemTitle {
+	flex: 0 1 auto;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.itemPath {
+	flex: 1 1 auto;
+	min-width: 0;
+	overflow: hidden;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	text-align: right;
+}
+
+/* The destination the preview is currently on — same fill language as the
+   active segment's indicator, held through hover. */
+.itemCurrent,
+.itemCurrent:hover {
+	background: color-mix(in srgb, var(--wpds-color-fg-content-neutral) 14%, transparent);
+}

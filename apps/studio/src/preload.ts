@@ -66,6 +66,7 @@ const api: IpcApi = {
 	getLastSeenVersion: () => ipcRendererInvoke( 'getLastSeenVersion' ),
 	saveLastSeenVersion: ( version ) => ipcRendererInvoke( 'saveLastSeenVersion', version ),
 	getSiteDetails: () => ipcRendererInvoke( 'getSiteDetails' ),
+	reconcileSites: () => ipcRendererInvoke( 'reconcileSites' ),
 	getXdebugEnabledSite: () => ipcRendererInvoke( 'getXdebugEnabledSite' ),
 	openSiteURL: ( id, relativeURL = '', { autoLogin = true } = {} ) =>
 		ipcRendererSend( 'openSiteURL', id, relativeURL, { autoLogin } ),
@@ -168,7 +169,8 @@ const api: IpcApi = {
 	saveColorScheme: ( colorScheme ) => ipcRendererInvoke( 'saveColorScheme', colorScheme ),
 	getColorScheme: () => ipcRendererInvoke( 'getColorScheme' ),
 	getAnalyticsEnabled: () => ipcRendererInvoke( 'getAnalyticsEnabled' ),
-	saveAnalyticsEnabled: ( enabled ) => ipcRendererInvoke( 'saveAnalyticsEnabled', enabled ),
+	saveAnalyticsEnabled: ( enabled, source ) =>
+		ipcRendererInvoke( 'saveAnalyticsEnabled', enabled, source ),
 	saveQuitSitesBehavior: ( quitSitesBehavior ) =>
 		ipcRendererInvoke( 'saveQuitSitesBehavior', quitSitesBehavior ),
 	getQuitSitesBehavior: () => ipcRendererInvoke( 'getQuitSitesBehavior' ),

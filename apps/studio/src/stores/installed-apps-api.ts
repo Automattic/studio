@@ -132,9 +132,12 @@ export const installedAppsApi = createApi( {
 			},
 			providesTags: [ 'AnalyticsEnabled' ],
 		} ),
-		saveAnalyticsEnabled: builder.mutation< boolean, boolean >( {
-			queryFn: async ( enabled ) => {
-				await getIpcApi().saveAnalyticsEnabled( enabled );
+		saveAnalyticsEnabled: builder.mutation<
+			boolean,
+			{ enabled: boolean; surface: 'onboarding' | 'settings' }
+		>( {
+			queryFn: async ( { enabled, surface } ) => {
+				await getIpcApi().saveAnalyticsEnabled( enabled, { surface, uiVersion: 'v1' } );
 				return { data: enabled };
 			},
 			invalidatesTags: [ 'AnalyticsEnabled' ],

@@ -6,11 +6,11 @@ import { readFile } from 'atomically';
 import { vol } from 'memfs';
 import { vi } from 'vitest';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
+import { setAgenticUiEnabled } from 'src/lib/studio-ui-mode';
 import {
 	createMainWindow,
 	getMainWindow,
 	isToggleSidebarShortcut,
-	setAgenticUiEnabled,
 	__resetMainWindow,
 } from 'src/main-window';
 

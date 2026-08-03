@@ -451,6 +451,46 @@ describe( 'PreviewAddressBar', () => {
 		expect( onNavigate ).toHaveBeenCalledWith( autoLoginPath( '/wp-admin/plugins.php' ) );
 	} );
 
+	it( 'treats a retyped current path as a path, not the zero state', async () => {
+		const { onNavigate } = renderAddressBar( { path: '/sample-page/' } );
+
+		const input = await openOmnibox();
+		fireEvent.change( input, { target: { value: '/sample-page' } } );
+		fireEvent.change( input, { target: { value: '/sample-page/' } } );
+
+		// Typing the exact current path must not resurrect the destinations.
+		expect( screen.queryByText( 'Front end' ) ).not.toBeInTheDocument();
+
+		fireEvent.keyDown( input, { key: 'Enter' } );
+		expect( onNavigate ).toHaveBeenCalledWith( '/sample-page/' );
+	} );
+
+	it( 'suggests destinations matching a typed path', async () => {
+		const { onNavigate } = renderAddressBar();
+
+		const input = await openOmnibox();
+		fireEvent.change( input, { target: { value: '/wp-admin/upl' } } );
+
+		fireEvent.click( await screen.findByRole( 'option', { name: /Media Library/ } ) );
+		expect( onNavigate ).toHaveBeenCalledWith( autoLoginPath( '/wp-admin/upload.php' ) );
+	} );
+
+	it( 'keeps Enter on the literal path while path suggestions are visible', async () => {
+		const { fetchSiteRest, onNavigate } = renderAddressBar();
+
+		const input = await openOmnibox();
+		fireEvent.change( input, { target: { value: '/wp-admin/upl' } } );
+		await screen.findByRole( 'option', { name: /Media Library/ } );
+
+		fireEvent.keyDown( input, { key: 'Enter' } );
+		expect( onNavigate ).toHaveBeenCalledWith( autoLoginPath( '/wp-admin/upl' ) );
+		// Paths never hit the content search endpoint.
+		expect( fetchSiteRest ).not.toHaveBeenCalledWith(
+			'site-1',
+			expect.objectContaining( { path: expect.stringContaining( '/wp/v2/search' ) } )
+		);
+	} );
+
 	it( 'matches destinations while typing alongside content results', async () => {
 		const { onNavigate } = renderAddressBar();
 

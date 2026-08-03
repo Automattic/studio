@@ -21,6 +21,7 @@ import {
 	getRealmNavigationPath,
 	PreviewAddressBar,
 	REALM_SHORTCUT_KEYS,
+	useDebouncedValue,
 	type PreviewRealm,
 } from './address-bar';
 import {
@@ -1210,16 +1211,20 @@ function WebviewSurface( {
 	// The CDP metrics override persists across navigations, so it only needs
 	// applying when the simulated viewport changes (or on the first dom-ready
 	// after one was requested). The `applied` ref skips the initial clear so
-	// plain previews don't pay for an emulation round-trip.
+	// plain previews don't pay for an emulation round-trip. The value is
+	// debounced because pane resizes stream continuous viewport changes and
+	// each application is an IPC + CDP round-trip; the CSS frame tracks the
+	// drag live and the emulation settles right behind it.
+	const debouncedViewport = useDebouncedValue( viewport, 150 );
 	const appliedViewportRef = useRef( false );
 	useEffect( () => {
 		if ( ! ready ) return;
-		if ( ! viewport && ! appliedViewportRef.current ) return;
+		if ( ! debouncedViewport && ! appliedViewportRef.current ) return;
 		const webview = ref.current as WebviewTag | null;
 		if ( ! webview ) return;
-		appliedViewportRef.current = Boolean( viewport );
-		void applyWebviewViewport( webview, viewport ).catch( () => undefined );
-	}, [ viewport, ready ] );
+		appliedViewportRef.current = Boolean( debouncedViewport );
+		void applyWebviewViewport( webview, debouncedViewport ).catch( () => undefined );
+	}, [ debouncedViewport, ready ] );
 
 	return (
 		<>

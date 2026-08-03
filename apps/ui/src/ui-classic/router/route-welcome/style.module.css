@@ -177,10 +177,6 @@
 	text-wrap: pretty;
 }
 
-.noWrap {
-	white-space: nowrap;
-}
-
 /* Same treatment as the shared learn-more link (a button that opens an
    external URL through the connector). */
 .linkButton {

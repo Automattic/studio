@@ -1,5 +1,6 @@
 import { createRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { CheckboxControl } from '@wordpress/components';
+import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { chevronRight } from '@wordpress/icons';
 import { Button, Icon } from '@wordpress/ui';
@@ -126,25 +127,27 @@ export function WelcomePage() {
 
 			<div className={ styles.footer }>
 				<p className={ styles.legal }>
-					{ __( 'By continuing, you agree to our' ) }{ ' ' }
-					<button
-						type="button"
-						className={ styles.linkButton }
-						onClick={ () => openLegalLink( 'a8cTos' ) }
-					>
-						{ __( 'Terms of Service' ) }
-					</button>{ ' ' }
-					{ __( 'and have read our' ) }{ ' ' }
-					<span className={ styles.noWrap }>
-						<button
-							type="button"
-							className={ styles.linkButton }
-							onClick={ () => openLegalLink( 'a8cPrivacyPolicy' ) }
-						>
-							{ __( 'Privacy Policy' ) }
-						</button>
-						.
-					</span>
+					{ createInterpolateElement(
+						__(
+							'By continuing, you agree to our <tos_link>Terms of Service</tos_link> and have read our <privacy_link>Privacy Policy</privacy_link>.'
+						),
+						{
+							tos_link: (
+								<button
+									type="button"
+									className={ styles.linkButton }
+									onClick={ () => openLegalLink( 'a8cTos' ) }
+								/>
+							),
+							privacy_link: (
+								<button
+									type="button"
+									className={ styles.linkButton }
+									onClick={ () => openLegalLink( 'a8cPrivacyPolicy' ) }
+								/>
+							),
+						}
+					) }
 				</p>
 
 				<div className={ styles.footerActions }>

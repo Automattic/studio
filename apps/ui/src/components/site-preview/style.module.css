@@ -13,6 +13,12 @@
 	overflow: hidden;
 }
 
+/* Full preview: the panel spans the whole frame, so the content/preview
+   separator would read as a stray line down the window's edge. */
+.rootFullscreen {
+	border-inline-start: none;
+}
+
 .header {
 	position: relative;
 	display: flex;
@@ -27,6 +33,12 @@
 	/* Sizes the address segments' narrow-width behavior (the title collapse
 	   in location-omnibox.module.css queries this container). */
 	container: studio-preview-toolbar / inline-size;
+}
+
+/* Clears the macOS traffic lights, which always sit at the window's physical
+   top-left — hence the physical padding rather than an inline-start one. */
+.headerTrafficLights {
+	padding-left: 94px;
 }
 
 /* The toolbar doubles as a window drag region; the controls (including the
@@ -154,6 +166,19 @@
 		0 0 0 1px var(--wpds-color-stroke-surface-neutral),
 		var(--wpds-elevation-md);
 	background-color: var(--wpds-color-bg-surface-neutral-strong, #fff);
+}
+
+/* The split view's phone pane, beside the desktop frame on the shared
+   letterbox. Shrinkable so a narrow panel never crushes the primary view. */
+.splitMobilePane {
+	position: relative;
+	display: flex;
+	flex: 0 1 auto;
+	min-width: 0;
+	align-items: safe center;
+	justify-content: safe center;
+	padding: 16px;
+	overflow: hidden;
 }
 
 .spinnerOverlay {

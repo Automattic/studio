@@ -37,6 +37,7 @@ import { useConnector } from '@/data/core';
 import { usePathValidator } from '@/data/queries/use-create-site-helpers';
 import { useSites } from '@/data/queries/use-sites';
 import { useWordPressVersions } from '@/data/queries/use-wordpress-versions';
+import { useOffline } from '@/hooks/use-offline';
 import styles from './style.module.css';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type {
@@ -456,6 +457,7 @@ export function CreateSiteForm( {
 	}, [ defaults, initialValues ] );
 
 	const { data: wpVersions } = useWordPressVersions();
+	const isOffline = useOffline();
 
 	// Land keyboard focus in the Site name field on mount — it's the first
 	// thing every flow asks for. The onboarding layout's heading-focus
@@ -467,22 +469,17 @@ export function CreateSiteForm( {
 		input?.focus();
 	}, [] );
 
-	// Drop a wpVersion that isn't in the installable-versions list (e.g. a
-	// blueprint preferring a release below the minimum supported version) —
-	// mirrors the desktop renderer, which silently ignores unsupported
-	// preferred versions. Keyed on the current value as well as the list:
-	// initial values seed asynchronously, so with a warm versions cache the
-	// list alone would never change again and a late seed would slip through.
+	// While offline, "latest" is the only version installable without a
+	// download. Otherwise, discard unsupported preferred versions.
 	useEffect( () => {
-		if ( ! wpVersions?.length ) {
-			return;
-		}
-		setData( ( prev ) =>
-			wpVersions.some( ( version ) => version.value === prev.wpVersion )
-				? prev
-				: { ...prev, wpVersion: DEFAULT_WORDPRESS_VERSION }
-		);
-	}, [ wpVersions, data.wpVersion ] );
+		if ( ! isOffline && ! wpVersions?.length ) return;
+		setData( ( prev ) => {
+			const keep =
+				prev.wpVersion === DEFAULT_WORDPRESS_VERSION ||
+				( ! isOffline && !! wpVersions?.some( ( version ) => version.value === prev.wpVersion ) );
+			return keep ? prev : { ...prev, wpVersion: DEFAULT_WORDPRESS_VERSION };
+		} );
+	}, [ wpVersions, isOffline, data.wpVersion ] );
 
 	const fields = useMemo< Field< FormData >[] >(
 		() => [
@@ -505,7 +502,9 @@ export function CreateSiteForm( {
 			phpVersionField< FormData >(),
 			runtimeField< FormData >(),
 			fileAccessField< FormData >(),
-			wpVersionField< FormData >( DEFAULT_WORDPRESS_VERSION, wpVersions ),
+			wpVersionField< FormData >( DEFAULT_WORDPRESS_VERSION, wpVersions, {
+				offline: isOffline,
+			} ),
 			adminUsernameField< FormData >(),
 			adminPasswordField< FormData >(),
 			adminEmailField< FormData >(),
@@ -519,7 +518,7 @@ export function CreateSiteForm( {
 				Edit: EnableHttpsControl,
 			},
 		],
-		[ existingDomainNames, wpVersions ]
+		[ existingDomainNames, isOffline, wpVersions ]
 	);
 
 	const basicForm = useMemo< Form >(

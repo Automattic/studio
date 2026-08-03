@@ -28,6 +28,8 @@ import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useGetStudioAssistantQuota } from 'src/stores/wpcom-api';
+import { AccessRequirements, type AccessRequirement } from './access-requirements';
 import { clearSessionDraft, Composer, ComposerSkeleton } from './composer';
 import { Conversation, wasLastTurnInterrupted } from './conversation';
 import { unlock } from './lock-unlock';
@@ -82,6 +84,23 @@ function SessionFrame( {
 				</div>
 			</div>
 		</div>
+	);
+}
+
+function SessionLoadingFrame() {
+	return (
+		<SessionFrame
+			header={ <div className={ styles.header } /> }
+			composer={
+				<div className={ styles.classicColumn }>
+					<ComposerSkeleton />
+				</div>
+			}
+		>
+			<div className={ styles.loading } role="status" aria-live="polite">
+				<Spinner className={ styles.loadingSpinner } />
+			</div>
+		</SessionFrame>
 	);
 }
 
@@ -355,20 +374,7 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 	// disappearing and reappearing mid-prompt.
 	let body: ReactNode;
 	if ( ! sessionId || isLoading ) {
-		body = (
-			<SessionFrame
-				header={ <div className={ styles.header } /> }
-				composer={
-					<div className={ styles.classicColumn }>
-						<ComposerSkeleton />
-					</div>
-				}
-			>
-				<div className={ styles.loading } role="status" aria-live="polite">
-					<Spinner className={ styles.loadingSpinner } />
-				</div>
-			</SessionFrame>
-		);
+		body = <SessionLoadingFrame />;
 	} else if ( ! data ) {
 		body = (
 			<div className="p-8 flex flex-col max-w-3xl">
@@ -467,9 +473,39 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 
 function SessionGate( { selectedSite }: { selectedSite: SiteDetails } ) {
 	const { isAuthenticated } = useAuth();
+	const {
+		data: quota,
+		isLoading: isQuotaLoading,
+		isFetching: isQuotaFetching,
+		refetch: refetchQuota,
+	} = useGetStudioAssistantQuota( undefined, { skip: ! isAuthenticated } );
 
 	if ( ! isAuthenticated ) {
 		return <NoAuth />;
+	}
+
+	if ( isQuotaLoading ) {
+		return <SessionLoadingFrame />;
+	}
+
+	// Fail open when the quota is unavailable (offline, error, older server) —
+	// the WordPress.com proxy enforces the same gates server-side.
+	let requirement: AccessRequirement | null = null;
+	if ( quota && ! quota.hasPaymentMethod ) {
+		requirement = 'payment';
+	} else if ( quota && ! quota.emailVerified ) {
+		requirement = 'email';
+	}
+
+	if ( requirement ) {
+		return (
+			<AccessRequirements
+				key={ requirement }
+				requirement={ requirement }
+				isRechecking={ isQuotaFetching }
+				onRecheck={ refetchQuota }
+			/>
+		);
 	}
 
 	return <SessionContent selectedSite={ selectedSite } />;

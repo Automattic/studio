@@ -4,6 +4,8 @@ import { z } from 'zod';
 export const STUDIO_ASSISTANT_QUOTA_URL =
 	'https://public-api.wordpress.com/wpcom/v2/studio-app/ai-assistant/quota';
 
+export const ADD_PAYMENT_METHOD_URL = 'https://my.wordpress.com/me/billing/payment-methods/add';
+
 export const studioAssistantQuotaSchema = z
 	.object( {
 		cost_usage: z.number(),
@@ -11,12 +13,18 @@ export const studioAssistantQuotaSchema = z
 		cost_reset_date: z.string(),
 		// Per-user kill switch (STU-2143); older servers omit the field.
 		is_studio_code_ai_blocked: z.boolean().optional(),
+		// Entitlement gates (STU-2174); older servers omit both fields. Default to
+		// true so a stale server never locks the UI — the proxy still enforces.
+		email_verified: z.boolean().optional(),
+		has_payment_method: z.boolean().optional(),
 	} )
 	.transform( ( data ) => ( {
 		costUsage: data.cost_usage,
 		costCap: data.cost_cap,
 		costResetDate: data.cost_reset_date,
 		isStudioCodeAiBlocked: data.is_studio_code_ai_blocked ?? false,
+		emailVerified: data.email_verified ?? true,
+		hasPaymentMethod: data.has_payment_method ?? true,
 	} ) );
 
 export type StudioAssistantQuota = z.infer< typeof studioAssistantQuotaSchema >;

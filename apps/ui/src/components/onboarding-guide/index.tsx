@@ -2,7 +2,7 @@ import { __ } from '@wordpress/i18n';
 import { Button, Dialog } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useState } from 'react';
-import { OrientationIllustration } from './illustrations';
+import { OrientationIllustration, isDarkOrientationIllustration } from './illustrations';
 import styles from './style.module.css';
 import type { GuideDefinition } from '@/data/onboarding/orientation-guide';
 
@@ -49,7 +49,13 @@ export function OnboardingGuide( { guide, onComplete, onDismiss }: OnboardingGui
 		>
 			<Dialog.Popup size="small" className={ styles.popup }>
 				<OrientationIllustration id={ page.illustration } />
-				<Dialog.CloseIcon label={ __( 'Skip' ) } className={ styles.close } />
+				<Dialog.CloseIcon
+					label={ __( 'Skip' ) }
+					className={ clsx(
+						styles.close,
+						isDarkOrientationIllustration( page.illustration ) && styles.closeOnDark
+					) }
+				/>
 				<Dialog.Content className={ styles.content }>
 					<Dialog.Title className={ styles.title }>{ page.title() }</Dialog.Title>
 					<Dialog.Description className={ styles.description }>

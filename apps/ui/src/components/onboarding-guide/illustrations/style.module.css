@@ -1,0 +1,754 @@
+/* ---- Shared stage ---- */
+
+/* The full-bleed header slot. A fixed aspect ratio gives the popup header a
+   stable height that can't collapse while the dialog animates in; overflow
+   clipping lets scene elements (like the cursor) travel off-frame. */
+.stage {
+	position: relative;
+	display: grid;
+	place-items: center;
+	width: 100%;
+	aspect-ratio: 320 / 150;
+	flex-shrink: 0;
+	overflow: visible;
+	border-bottom: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral-weak);
+}
+
+/* Fallback for ids without a built scene yet. */
+.placeholder {
+	position: absolute;
+	inset: 0;
+	background: color-mix(in srgb, var(--wpds-color-fg-interactive-brand) 8%, transparent);
+}
+
+/* ---- Sites scene ----
+   Timings across the cursor, tooltips, and button highlights share one 9s
+   loop; the percentages line up so the tooltip for a button fades in only
+   while the cursor is resting on it. */
+
+.sitesScene {
+	position: absolute;
+	inset: 0;
+	display: grid;
+	place-items: center;
+	background: var(--sites-chrome-bg);
+}
+
+/* A stack of rows so the focus row reads as one entry in a real sidebar list.
+   No container mask here — a mask would clip the focus row's tooltips at the
+   list's edge; the neighbours recede via per-row opacity instead. */
+.list {
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+	width: 264px;
+}
+
+/* Quiet, non-interactive neighbours; the outer ones fade further back. */
+.rowGhost {
+	box-sizing: border-box;
+	display: flex;
+	align-items: center;
+	height: 34px;
+	padding: 0 var(--wpds-dimension-padding-sm) 0 var(--wpds-dimension-padding-md);
+	border-radius: 6px;
+	opacity: 0.7;
+}
+
+.rowGhostFar {
+	opacity: 0.4;
+}
+
+.rowGhostName {
+	overflow: hidden;
+	font-size: var(--wpds-typography-font-size-md);
+	line-height: 1.2;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+.row {
+	position: relative;
+	box-sizing: border-box;
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-xs);
+	width: 100%;
+	height: 34px;
+	padding: 0 var(--wpds-dimension-padding-sm) 0 var(--wpds-dimension-padding-md);
+	border-radius: 6px;
+	background: var(--wpds-color-bg-interactive-neutral-weak-active);
+}
+
+.rowName {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	font-size: var(--wpds-typography-font-size-md);
+	line-height: 1.2;
+	color: var(--wpds-color-fg-content-neutral);
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+.rowActions {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	flex-shrink: 0;
+}
+
+.btn {
+	position: relative;
+	display: grid;
+	place-items: center;
+	width: 24px;
+	height: 24px;
+	border-radius: 4px;
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.btnGlyph {
+	width: 18px;
+	height: 18px;
+	fill: currentColor;
+}
+
+/* The status glyphs stack in the button's single grid cell so they can
+   crossfade between states (play → starting dot → running dot). */
+.statusPlay,
+.statusDot {
+	grid-area: 1 / 1;
+}
+
+.statusPlay {
+	width: 9px;
+	height: 9px;
+	fill: var(--wpds-color-fg-content-neutral);
+}
+
+.statusDot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: transparent;
+	opacity: 0;
+}
+
+/* A white overlay reads as a hover on the always-dark row (the row already
+   uses the neutral-weak-active token, so a same-token highlight would be
+   invisible). */
+.btnOverview {
+	animation: sitesHoverOverview 11s ease-in-out infinite;
+}
+
+.btnStatus {
+	animation: sitesHoverStatus 11s ease-in-out infinite;
+}
+
+.tooltip {
+	position: absolute;
+	bottom: calc(100% + 7px);
+	left: 50%;
+	padding: 3px 8px;
+	border-radius: 4px;
+	background: #fff;
+	color: #1e1e1e;
+	font-size: 11px;
+	font-weight: var(--wpds-typography-font-weight-medium);
+	line-height: 1.4;
+	white-space: nowrap;
+	box-shadow: 0 2px 8px rgb(0 0 0 / 24%);
+	opacity: 0;
+	transform: translateX(-50%) translateY(3px);
+	pointer-events: none;
+}
+
+.tooltipOverview {
+	animation: sitesTooltipOverview 11s ease-in-out infinite;
+}
+
+/* The status tooltip stays put once shown; only its wording changes as the site
+   starts. Right-anchored so the widest phrase grows left, clear of the frame
+   edge. Its three phrases swap one at a time (display), so the box hugs the
+   current text instead of reserving the widest. */
+/* Each tooltip hugs its own text (no fixed widths — translation-safe) and is
+   centered on the button via the base .tooltip; they crossfade so they read as
+   one box whose wording changes in place. */
+.tipStart {
+	animation: sitesTipStart 11s ease-in-out infinite;
+}
+
+.tipStarting {
+	animation: sitesTipStarting 11s ease-in-out infinite;
+}
+
+.tipRunning {
+	animation: sitesTipRunning 11s ease-in-out infinite;
+}
+
+.cursor {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	opacity: 0;
+	transform: translate(168px, 96px);
+	transform-origin: 4px 3px;
+	filter: drop-shadow(0 2px 3px rgb(0 0 0 / 30%));
+	will-change: transform, opacity;
+	animation: sitesCursor 11s infinite;
+}
+
+/* Per-segment easing gives the pointer a human cadence: it eases out as it
+   arrives, dwells, eases in-and-out to the next target, dips on the click, then
+   accelerates away. */
+@keyframes sitesCursor {
+	0% {
+		opacity: 0;
+		transform: translate(168px, 96px) scale(1);
+		animation-timing-function: cubic-bezier(0.16, 0.8, 0.3, 1);
+	}
+	10% {
+		opacity: 1;
+		transform: translate(82px, 8px) scale(1);
+		animation-timing-function: linear;
+	}
+	28% {
+		opacity: 1;
+		transform: translate(82px, 8px) scale(1);
+		animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1);
+	}
+	37% {
+		opacity: 1;
+		transform: translate(108px, 8px) scale(1);
+		animation-timing-function: ease-in;
+	}
+	44% {
+		opacity: 1;
+		transform: translate(108px, 8px) scale(1);
+		animation-timing-function: ease-in;
+	}
+	45.5% {
+		opacity: 1;
+		transform: translate(108px, 9px) scale(0.86);
+		animation-timing-function: ease-out;
+	}
+	47% {
+		opacity: 1;
+		transform: translate(108px, 8px) scale(1);
+		animation-timing-function: linear;
+	}
+	77% {
+		opacity: 1;
+		transform: translate(108px, 8px) scale(1);
+		animation-timing-function: cubic-bezier(0.5, 0, 0.75, 0);
+	}
+	86% {
+		opacity: 0;
+		transform: translate(170px, 98px) scale(1);
+	}
+	100% {
+		opacity: 0;
+		transform: translate(170px, 98px) scale(1);
+	}
+}
+
+@keyframes sitesTooltipOverview {
+	0%,
+	7% {
+		opacity: 0;
+		transform: translateX(-50%) translateY(3px);
+	}
+	10%,
+	26% {
+		opacity: 1;
+		transform: translateX(-50%) translateY(0);
+	}
+	29%,
+	100% {
+		opacity: 0;
+		transform: translateX(-50%) translateY(3px);
+	}
+}
+
+/* The first phrase lifts in; later phrases crossfade in place (no lift); the
+   last drops out — so the box appears once, morphs, and leaves once. */
+@keyframes sitesTipStart {
+	0%,
+	34% {
+		opacity: 0;
+		transform: translateX(-50%) translateY(3px);
+	}
+	38%,
+	44% {
+		opacity: 1;
+		transform: translateX(-50%) translateY(0);
+	}
+	47%,
+	100% {
+		opacity: 0;
+		transform: translateX(-50%) translateY(0);
+	}
+}
+
+@keyframes sitesTipStarting {
+	0%,
+	44% {
+		opacity: 0;
+		transform: translateX(-50%) translateY(0);
+	}
+	47%,
+	62% {
+		opacity: 1;
+		transform: translateX(-50%) translateY(0);
+	}
+	65%,
+	100% {
+		opacity: 0;
+		transform: translateX(-50%) translateY(0);
+	}
+}
+
+@keyframes sitesTipRunning {
+	0%,
+	62% {
+		opacity: 0;
+		transform: translateX(-50%) translateY(0);
+	}
+	65%,
+	78% {
+		opacity: 1;
+		transform: translateX(-50%) translateY(0);
+	}
+	82%,
+	100% {
+		opacity: 0;
+		transform: translateX(-50%) translateY(3px);
+	}
+}
+
+/* Play triangle: shown while stopped, out once the site starts, back in during
+   the closing pause so the loop resets cleanly. */
+@keyframes sitesStatusPlay {
+	0%,
+	44% {
+		opacity: 1;
+	}
+	47%,
+	92% {
+		opacity: 0;
+	}
+	97%,
+	100% {
+		opacity: 1;
+	}
+}
+
+/* Status dot: fades in amber (starting, with a couple of pulses), switches to
+   green (running), then fades out for the reset. */
+@keyframes sitesStatusDot {
+	0%,
+	44% {
+		opacity: 0;
+		background-color: transparent;
+	}
+	47% {
+		opacity: 1;
+		background-color: var(--studio-color-status-transitioning);
+	}
+	51% {
+		opacity: 0.45;
+		background-color: var(--studio-color-status-transitioning);
+	}
+	55% {
+		opacity: 1;
+		background-color: var(--studio-color-status-transitioning);
+	}
+	59% {
+		opacity: 0.45;
+		background-color: var(--studio-color-status-transitioning);
+	}
+	62% {
+		opacity: 1;
+		background-color: var(--studio-color-status-transitioning);
+	}
+	64% {
+		opacity: 1;
+		background-color: var(--studio-color-status-running);
+	}
+	90% {
+		opacity: 1;
+		background-color: var(--studio-color-status-running);
+	}
+	95%,
+	100% {
+		opacity: 0;
+		background-color: var(--studio-color-status-running);
+	}
+}
+
+.statusPlay {
+	animation: sitesStatusPlay 11s ease-in-out infinite;
+}
+
+.statusDot {
+	animation: sitesStatusDot 11s linear infinite;
+}
+
+@keyframes sitesHoverOverview {
+	0%,
+	7% {
+		background: transparent;
+	}
+	11%,
+	27% {
+		background: color-mix(in srgb, #fff 9%, transparent);
+	}
+	31%,
+	100% {
+		background: transparent;
+	}
+}
+
+/* The status button stays hovered from arrival through watching it run. */
+@keyframes sitesHoverStatus {
+	0%,
+	34% {
+		background: transparent;
+	}
+	38%,
+	78% {
+		background: color-mix(in srgb, #fff 9%, transparent);
+	}
+	82%,
+	100% {
+		background: transparent;
+	}
+}
+
+/* Motion is decorative here: with reduced motion the scene settles on the
+   clean, legible resting row (stopped, play visible) and hides the pointer. */
+@media (prefers-reduced-motion: reduce) {
+	.cursor,
+	.tooltipOverview,
+	.tipStart,
+	.tipStarting,
+	.tipRunning,
+	.btnOverview,
+	.btnStatus,
+	.statusPlay,
+	.statusDot {
+		animation: none;
+	}
+
+	.cursor {
+		opacity: 0;
+	}
+
+	.statusPlay {
+		opacity: 1;
+	}
+
+	.statusDot {
+		opacity: 0;
+	}
+}
+
+/* ---- Chat scene ----
+   Theme-adaptive (the chat pane follows light/dark). A one-time playback driven
+   by the component's state machine; CSS here only styles the pieces and eases
+   the state transitions (composer slide, bubble fly-in, fades). */
+.chatScene {
+	position: absolute;
+	inset: 0;
+	box-sizing: border-box;
+	overflow: hidden;
+	background: var(--wpds-color-bg-surface-neutral-weak);
+}
+
+/* Above the resting composer, with room up top so the first bubble clears the
+   modal's Skip button. */
+.chatConversation {
+	position: absolute;
+	top: 46px;
+	right: 26px;
+	bottom: 20px;
+	left: 26px;
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	overflow: hidden;
+}
+
+.userBubble {
+	align-self: flex-end;
+	max-width: 82%;
+	padding: 5px 11px;
+	border-radius: 14px 14px 6px 14px;
+	background: color-mix(in srgb, var(--wpds-color-fg-interactive-brand, #2563eb) 12%, transparent);
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: 1.4;
+	opacity: 0;
+	transform: translateY(46px) scale(0.9);
+	transform-origin: bottom right;
+	transition: opacity 360ms ease, transform 520ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.userBubbleVisible {
+	opacity: 1;
+	transform: translateY(0) scale(1);
+}
+
+.assistantText {
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: 1.45;
+	opacity: 0;
+	transition: opacity 200ms ease;
+}
+
+.assistantVisible {
+	opacity: 1;
+}
+
+/* Blinking cursor at the end of the streaming reply. */
+.streamCaret {
+	display: inline-block;
+	width: 6px;
+	height: 13px;
+	margin-left: 2px;
+	vertical-align: -2px;
+	background: var(--wpds-color-fg-content-neutral-weak);
+	animation: chatCaretBlink 1s steps(1) infinite;
+}
+
+.toolChip {
+	align-self: flex-start;
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	opacity: 0;
+	transition: opacity 300ms ease;
+}
+
+.toolChipVisible {
+	opacity: 1;
+}
+
+.toolIcon {
+	width: 14px;
+	height: 14px;
+	flex-shrink: 0;
+}
+
+/* A light band sweeps across the label to signal the tool is working. */
+.toolShimmer {
+	background: linear-gradient(
+		100deg,
+		var(--wpds-color-fg-content-neutral-weak) 35%,
+		var(--wpds-color-fg-content-neutral) 50%,
+		var(--wpds-color-fg-content-neutral-weak) 65%
+	);
+	background-size: 220% 100%;
+	background-clip: text;
+	-webkit-background-clip: text;
+	-webkit-text-fill-color: transparent;
+	color: transparent;
+	animation: toolShimmer 1.6s linear infinite;
+}
+
+@keyframes toolShimmer {
+	from {
+		background-position: 200% 0;
+	}
+	to {
+		background-position: -200% 0;
+	}
+}
+
+/* Subtle text control at the modal's top-left, shown once the playback ends. */
+.replayButton {
+	position: absolute;
+	top: 10px;
+	left: 14px;
+	z-index: 2;
+	padding: 2px 4px;
+	border: 0;
+	background: transparent;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	font-weight: var(--wpds-typography-font-weight-medium);
+	opacity: 0;
+	pointer-events: none;
+	cursor: var(--wpds-cursor-control, pointer);
+	transition: opacity 300ms ease, color 120ms ease;
+}
+
+.replayVisible {
+	opacity: 1;
+	pointer-events: auto;
+}
+
+.replayButton:hover {
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.composer {
+	position: absolute;
+	right: 26px;
+	bottom: 12px;
+	left: 26px;
+	box-sizing: border-box;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	padding: 8px 10px 7px;
+	border-radius: 8px 8px 20px 8px;
+	background: var(--wpds-color-bg-surface-neutral-strong);
+	outline: 1.5px solid var(--wpds-color-fg-interactive-brand, #2563eb);
+	/* Starts vertically centered, then slides straight down and off-stage the
+	   moment the prompt is sent. */
+	transform: translateY(-54px);
+	transition: transform 800ms cubic-bezier(0.5, 0, 0.2, 1);
+}
+
+.composerGone {
+	transform: translateY(132px);
+}
+
+.composerInput {
+	position: relative;
+	min-height: 17px;
+}
+
+.composerPlaceholder {
+	position: absolute;
+	inset: 0;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: 17px;
+	white-space: nowrap;
+}
+
+.composerTyped {
+	position: absolute;
+	inset: 0;
+	display: inline-flex;
+	align-items: center;
+	overflow: hidden;
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: 17px;
+	white-space: nowrap;
+}
+
+.composerCaret {
+	flex-shrink: 0;
+	width: 1.5px;
+	height: 13px;
+	margin-left: 1px;
+	background: var(--wpds-color-fg-interactive-brand, #2563eb);
+	animation: chatCaretBlink 1s steps(1) infinite;
+}
+
+.composerBar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+
+.composerButtons {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+/* Black stop button (fg-content-neutral) with a light square, matching the
+   real composer's busy state; shown alongside the send button. */
+.stopButton {
+	display: grid;
+	place-items: center;
+	width: 22px;
+	height: 22px;
+	border-radius: 999px;
+	background: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-bg-surface-neutral-strong);
+}
+
+.stopGlyph {
+	width: 8px;
+	height: 8px;
+	border-radius: 1px;
+	background: currentColor;
+}
+
+.plusButton {
+	display: grid;
+	place-items: center;
+	width: 18px;
+	height: 18px;
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.plusButton svg {
+	width: 16px;
+	height: 16px;
+}
+
+.sendButton {
+	display: grid;
+	place-items: center;
+	width: 22px;
+	height: 22px;
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--wpds-color-fg-content-neutral) 14%, transparent);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	transition: background 150ms ease, color 150ms ease;
+}
+
+.sendButton svg {
+	width: 15px;
+	height: 15px;
+}
+
+.sendButtonActive {
+	background: var(--wpds-color-fg-interactive-brand, #2563eb);
+	color: #fff;
+}
+
+@keyframes chatCaretBlink {
+	0%,
+	49% {
+		opacity: 1;
+	}
+	50%,
+	100% {
+		opacity: 0;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.userBubble,
+	.assistantText,
+	.toolChip,
+	.replayButton,
+	.composer {
+		transition: none;
+	}
+
+	.streamCaret,
+	.composerCaret {
+		animation: none;
+	}
+
+	.toolShimmer {
+		animation: none;
+		background: none;
+		color: var(--wpds-color-fg-content-neutral-weak);
+		-webkit-text-fill-color: var(--wpds-color-fg-content-neutral-weak);
+	}
+}

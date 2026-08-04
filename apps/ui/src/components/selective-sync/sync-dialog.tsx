@@ -147,13 +147,16 @@ const useDynamicTreeState = (
 };
 
 export function SyncDialog( {
-	type,
+	type: initialType,
 	localSite,
 	remoteSite,
 	onPush,
 	onPull,
 	onRequestClose,
 }: SyncDialogProps ) {
+	// Direction is chosen inside the dialog now (the header opens one Sync
+	// action), so it lives in state rather than a fixed prop.
+	const [ type, setType ] = useState< 'push' | 'pull' >( initialType );
 	const locale = useI18nLocale();
 	const { __, _n } = useI18n();
 	const siteEnv = getSiteEnvironment( remoteSite );
@@ -162,6 +165,21 @@ export function SyncDialog( {
 
 	const [ showAllFiles, setShowAllFiles ] = useState( false );
 	const [ treeState, setTreeState ] = useState< TreeNode[] >( defaultTree );
+
+	const handleDirectionChange = useCallback(
+		( next: 'push' | 'pull' ) => {
+			if ( next === type ) {
+				return;
+			}
+			setType( next );
+			// Push browses the local site, pull the remote backup — different
+			// filesystems, so the current selection can't carry over.
+			setTreeState( defaultTree );
+			setShowAllFiles( false );
+		},
+		[ type, defaultTree ]
+	);
+
 	const isSubmitDisabled = treeState.every( ( node ) => ! node.checked && ! node.indeterminate );
 	const {
 		isPushSelectionOverLimit,
@@ -328,6 +346,50 @@ export function SyncDialog( {
 		>
 			<div style={ { paddingBottom: getBottomPadding() } }>
 				<div className="px-8 pb-6 pt-1">{ syncTexts.description }</div>
+				<div className="px-8 pb-6">
+					{ /* apps/ui has no Tailwind build (utilities here are generated
+					     statically from the copied classic sources), so this control
+					     styles itself inline from the frame tokens rather than relying
+					     on utility classes that may not exist. */ }
+					<div
+						role="group"
+						aria-label={ __( 'Sync direction' ) }
+						style={ {
+							display: 'inline-flex',
+							gap: '2px',
+							padding: '3px',
+							border: '1px solid var(--color-frame-border)',
+							borderRadius: '8px',
+							background: 'var(--color-frame-bg)',
+						} }
+					>
+						{ ( [ 'push', 'pull' ] as const ).map( ( dir ) => {
+							const active = type === dir;
+							return (
+								<button
+									key={ dir }
+									type="button"
+									onClick={ () => handleDirectionChange( dir ) }
+									aria-pressed={ active }
+									style={ {
+										padding: '4px 16px',
+										borderRadius: '5px',
+										border: 'none',
+										cursor: 'pointer',
+										fontSize: '13px',
+										lineHeight: '20px',
+										fontWeight: active ? 500 : 400,
+										background: active ? 'var(--color-frame-surface)' : 'transparent',
+										boxShadow: active ? '0 1px 2px rgba(0, 0, 0, 0.08)' : 'none',
+										color: active ? 'var(--color-frame-text)' : 'var(--color-frame-text-secondary)',
+									} }
+								>
+									{ dir === 'push' ? __( 'Push' ) : __( 'Pull' ) }
+								</button>
+							);
+						} ) }
+					</div>
+				</div>
 				<div className="px-8">
 					<span className="sr-only">
 						{ /* translators: %1$s is the source site name, %2$s is the destination site name */ }

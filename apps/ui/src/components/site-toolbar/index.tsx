@@ -1,6 +1,6 @@
 import { useIsMutating } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
-import { arrowDown, arrowUp, external, Icon, moreVertical } from '@wordpress/icons';
+import { external, Icon, moreVertical } from '@wordpress/icons';
 import { Button, Dialog, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -212,44 +212,19 @@ export function SiteToolbar( { site, className, openPullOnLoad = false }: SiteTo
 					</Button>
 				) : liveSite ? (
 					<>
-						<Tooltip.Root>
-							<Tooltip.Trigger
-								render={
-									<IconButton
-										variant="minimal"
-										tone="neutral"
-										size="small"
-										icon={ arrowDown }
-										label={ __( 'Pull from live' ) }
-										disabled={ syncDisabled }
-										focusableWhenDisabled
-										onClick={ () => setSyncDialogType( 'pull' ) }
-									/>
-								}
-							/>
-							<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
-								{ __( 'Pull from live' ) }
-							</Tooltip.Popup>
-						</Tooltip.Root>
-						<Tooltip.Root>
-							<Tooltip.Trigger
-								render={
-									<IconButton
-										variant="minimal"
-										tone="neutral"
-										size="small"
-										icon={ arrowUp }
-										label={ __( 'Push to live' ) }
-										disabled={ syncDisabled }
-										focusableWhenDisabled
-										onClick={ () => setSyncDialogType( 'push' ) }
-									/>
-								}
-							/>
-							<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
-								{ __( 'Push to live' ) }
-							</Tooltip.Popup>
-						</Tooltip.Root>
+						{ /* One Sync action. Direction (push/pull) is chosen inside the
+						     dialog, so the button opens it at its default. */ }
+						<Button
+							variant="solid"
+							tone="brand"
+							size="small"
+							className={ styles.action }
+							disabled={ syncDisabled }
+							focusableWhenDisabled
+							onClick={ () => setSyncDialogType( 'push' ) }
+						>
+							{ __( 'Sync' ) }
+						</Button>
 						<Menu.Root>
 							<Menu.Trigger
 								render={

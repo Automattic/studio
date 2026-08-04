@@ -15,7 +15,7 @@ on:
       xdebug_version:
         description: Xdebug version to package
         required: true
-        default: 3.5.1
+        default: 3.5.3
       spc_ref:
         # Pinned to PR #1204, which enables SQLITE_ENABLE_COLUMN_METADATA on
         # Unix builds so PDO populates getColumnMeta()['table'] (fixes

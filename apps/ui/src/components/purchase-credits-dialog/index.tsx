@@ -8,7 +8,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { unlock } from '@/lock-unlock';
 import styles from './style.module.css';
 
-const CREDIT_AMOUNTS = [ 10, 20, 50, 100 ];
+const CREDIT_AMOUNTS = [ 25, 50, 100 ];
 const { ThemeProvider } = unlock( privateApis );
 
 export function PurchaseCreditsDialog( {
@@ -18,18 +18,26 @@ export function PurchaseCreditsDialog( {
 	open: boolean;
 	onOpenChange: ( open: boolean ) => void;
 } ) {
-	const [ amount, setAmount ] = useState( 20 );
+	const [ amount, setAmount ] = useState< number | null >( 50 );
+	const [ customAmount, setCustomAmount ] = useState( '' );
 	const colorScheme = useColorScheme();
 	const dialogBackground = colorScheme === 'dark' ? '#1e1e1e' : '#ffffff';
+	const parsedCustomAmount = Number( customAmount );
+	const checkoutAmount = amount ?? parsedCustomAmount;
+	const hasValidAmount = Number.isInteger( checkoutAmount ) && checkoutAmount > 0;
 
 	const continueToCheckout = () => {
-		addExplorationCredits( amount );
+		if ( ! hasValidAmount ) {
+			return;
+		}
+
+		addExplorationCredits( checkoutAmount );
 		onOpenChange( false );
 		toast.success( __( 'Credits added' ), {
 			description: sprintf(
 				/* translators: %s: dollar amount of AI credits purchased. */
 				__( '$%s in AI credits is now available.' ),
-				String( amount )
+				String( checkoutAmount )
 			),
 		} );
 	};
@@ -60,7 +68,10 @@ export function PurchaseCreditsDialog( {
 									data-selected={ amount === option ? '' : undefined }
 									role="radio"
 									aria-checked={ amount === option }
-									onClick={ () => setAmount( option ) }
+									onClick={ () => {
+										setAmount( option );
+										setCustomAmount( '' );
+									} }
 								>
 									<span className={ styles.amountValue }>${ option }</span>
 									<span className={ styles.amountDetails }>
@@ -76,6 +87,42 @@ export function PurchaseCreditsDialog( {
 								</button>
 							) ) }
 						</div>
+						<label className={ styles.customAmount }>
+							<span className={ styles.customAmountLabel }>{ __( 'Custom amount' ) }</span>
+							<span
+								className={ styles.customAmountControl }
+								data-selected={ amount === null && customAmount ? '' : undefined }
+							>
+								<span className={ styles.customAmountPrefix } aria-hidden="true">
+									$
+								</span>
+								<input
+									className={ styles.customAmountInput }
+									type="number"
+									min="1"
+									step="1"
+									inputMode="numeric"
+									placeholder={ __( 'Enter amount' ) }
+									value={ customAmount }
+									onChange={ ( event ) => {
+										setCustomAmount( event.target.value );
+										setAmount( null );
+									} }
+								/>
+								<span className={ styles.amountDetails }>
+									<span className={ styles.amountLabel }>
+										{ customAmount && hasValidAmount
+											? sprintf(
+													/* translators: %s: custom number of AI credits. */
+													__( '%s credits' ),
+													String( checkoutAmount )
+											  )
+											: __( 'Credits' ) }
+									</span>
+									<span className={ styles.amountFrequency }>{ __( 'one time' ) }</span>
+								</span>
+							</span>
+						</label>
 					</Dialog.Content>
 					<Dialog.Footer>
 						<Dialog.Action variant="minimal" tone="neutral">
@@ -83,13 +130,22 @@ export function PurchaseCreditsDialog( {
 						</Dialog.Action>
 						<Tooltip.Root>
 							<Tooltip.Trigger
-								render={ <Button variant="solid" tone="brand" onClick={ continueToCheckout } /> }
+								render={
+									<Button
+										variant="solid"
+										tone="brand"
+										disabled={ ! hasValidAmount }
+										onClick={ continueToCheckout }
+									/>
+								}
 							>
-								{ sprintf(
-									/* translators: %s: dollar amount of AI credits selected. */
-									__( 'Continue with $%s' ),
-									String( amount )
-								) }
+								{ hasValidAmount
+									? sprintf(
+											/* translators: %s: dollar amount of AI credits selected. */
+											__( 'Continue with $%s' ),
+											String( checkoutAmount )
+									  )
+									: __( 'Continue' ) }
 							</Tooltip.Trigger>
 							<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
 								{ __( 'Checkout on WordPress.com' ) }

@@ -1,15 +1,16 @@
 .amounts {
 	display: grid;
-	grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+	grid-template-columns: repeat( 3, minmax( 0, 1fr ) );
 	gap: var( --wpds-dimension-gap-sm );
 	margin-block-start: var( --wpds-dimension-padding-lg );
 }
 
 .amount {
 	display: flex;
-	align-items: center;
+	align-items: flex-start;
+	flex-direction: column;
 	justify-content: space-between;
-	gap: var( --wpds-dimension-padding-sm );
+	gap: var( --wpds-dimension-gap-xs );
 	padding: var( --wpds-dimension-padding-md );
 	border: 1px solid var( --wpds-color-stroke-surface-neutral );
 	border-radius: 8px;
@@ -47,7 +48,7 @@
 
 .amountDetails {
 	display: flex;
-	align-items: flex-end;
+	align-items: flex-start;
 	flex-direction: column;
 	line-height: 1.25;
 }
@@ -60,4 +61,56 @@
 
 .amountFrequency {
 	font-size: 11px;
+}
+
+.customAmount {
+	display: flex;
+	flex-direction: column;
+	gap: var( --wpds-dimension-gap-xs );
+	margin-block-start: var( --wpds-dimension-padding-md );
+}
+
+.customAmountLabel {
+	color: var( --wpds-color-fg-content-neutral );
+	font-size: var( --wpds-typography-font-size-sm );
+	font-weight: 500;
+}
+
+.customAmountControl {
+	display: flex;
+	align-items: center;
+	gap: var( --wpds-dimension-gap-sm );
+	box-sizing: border-box;
+	min-block-size: 56px;
+	padding: var( --wpds-dimension-padding-sm ) var( --wpds-dimension-padding-md );
+	border: 1px solid var( --wpds-color-stroke-surface-neutral );
+	border-radius: 8px;
+	background: var( --wpds-color-bg-surface-neutral-weak );
+}
+
+.customAmountControl:focus-within,
+.customAmountControl[data-selected] {
+	border-color: transparent;
+	outline: 2px solid var( --wpds-color-stroke-interactive-brand );
+	outline-offset: -1px;
+}
+
+.customAmountPrefix {
+	color: var( --wpds-color-fg-content-neutral );
+	font-size: var( --wpds-typography-font-size-lg );
+	font-weight: 600;
+}
+
+.customAmountInput {
+	min-inline-size: 0;
+	flex: 1;
+	border: 0;
+	outline: 0;
+	background: transparent;
+	color: var( --wpds-color-fg-content-neutral );
+	font: inherit;
+}
+
+.customAmountInput::placeholder {
+	color: var( --wpds-color-fg-content-neutral-weak );
 }

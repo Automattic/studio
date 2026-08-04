@@ -18,6 +18,9 @@ const bundledPhpBinaryRoot = path.join( __dirname, 'php-bin' );
 const config: ForgeConfig = {
 	packagerConfig: {
 		asar: true,
+		extendInfo: {
+			MDItemKeywords: 'WordPress, WordPress Studio, WP, local WordPress development',
+		},
 		// prePackage installs the self-contained production dependency tree.
 		prune: false,
 		extraResource: [

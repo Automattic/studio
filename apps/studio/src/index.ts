@@ -41,7 +41,7 @@ import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import { maybePromptNightlySwitch, startNightlyPromptPoller } from 'src/lib/nightly-prompt';
 import { getSentryReleaseInfo } from 'src/lib/sentry-release';
-import { getPreferredStudioUiMode, setAgenticUiEnabled } from 'src/lib/studio-ui-mode';
+import { setAgenticUiEnabled } from 'src/lib/studio-ui-mode';
 import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
 import { setupLogging } from 'src/logging';
 import { createMainWindow, getCurrentRendererUrl, getMainWindow } from 'src/main-window';
@@ -418,8 +418,6 @@ async function appBoot() {
 		// ever removed, migrate this to another durable per-install marker (e.g. `sentryUserId`) or a
 		// dedicated flag, or it will silently report true on every launch. See the analytics design doc.
 		void recordTracksEvent( TRACKS_EVENTS.APP_LAUNCH, {
-			channel: 'studio-ui',
-			ui_version: getPreferredStudioUiMode() === 'agentic' ? 'v2' : 'v1',
 			is_first_launch: ! userData.lastBumpStats,
 		} ).catch( ( err ) => Sentry.captureException( err ) );
 

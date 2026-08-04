@@ -4,7 +4,12 @@ import { displayShortcut } from '@wordpress/keycodes';
 import { Tooltip } from '@wordpress/ui';
 import { describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
-import { getBrowserShortcutCommand, getPathFromPreviewUrl, SitePreview } from './index';
+import {
+	getBrowserShortcutCommand,
+	getPathFromPreviewUrl,
+	getSimulatedViewport,
+	SitePreview,
+} from './index';
 import type { SiteDetails } from '@/data/core';
 import type { ReactNode } from 'react';
 
@@ -143,6 +148,17 @@ describe( 'SitePreview', () => {
 		).toHaveAttribute( 'src', 'data:image/png;base64,thumbnail' );
 	} );
 
+	it( 'keeps the Open in… control in the toolbar while the site is stopped', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+
+		renderPreview( <SitePreview site={ createSite() } path="/" reloadNonce={ 0 } /> );
+
+		expect( screen.getByRole( 'button', { name: 'Open in…' } ) ).toBeVisible();
+	} );
+
 	it( 'shows a refresh button that reloads the active preview surface', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
@@ -221,41 +237,32 @@ describe( 'SitePreview', () => {
 			`/studio-auto-login?redirect_to=${ encodeURIComponent( 'http://localhost:8881/wp-admin/' ) }`
 		);
 
-		// The database tab is off by default, so ⌘3 is inert.
-		onPathChange.mockClear();
-		fireEvent.keyDown( document.body, { key: '3', ctrlKey: true } );
-		expect( onPathChange ).not.toHaveBeenCalled();
-
 		// Re-selecting the already-active realm is a no-op.
+		onPathChange.mockClear();
 		fireEvent.keyDown( document.body, { key: '1', ctrlKey: true } );
 		expect( onPathChange ).not.toHaveBeenCalled();
 	} );
 
-	it( 'switches to the database realm on its shortcut when the tab is enabled', () => {
-		window.localStorage.setItem( 'studio:preview-show-database-tab', 'true' );
-		try {
-			useConnectorMock.mockReturnValue( {
-				startSite: vi.fn().mockResolvedValue( undefined ),
-				capabilities: CAPABILITIES,
-			} as never );
-			const onPathChange = vi.fn();
+	it( 'switches to the database realm on its shortcut', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+		const onPathChange = vi.fn();
 
-			renderPreview(
-				<SitePreview
-					site={ createSite( { running: true } ) }
-					path="/"
-					reloadNonce={ 0 }
-					onPathChange={ onPathChange }
-				/>
-			);
+		renderPreview(
+			<SitePreview
+				site={ createSite( { running: true } ) }
+				path="/"
+				reloadNonce={ 0 }
+				onPathChange={ onPathChange }
+			/>
+		);
 
-			fireEvent.keyDown( document.body, { key: '3', ctrlKey: true } );
-			expect( onPathChange ).toHaveBeenCalledWith(
-				'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
-			);
-		} finally {
-			window.localStorage.removeItem( 'studio:preview-show-database-tab' );
-		}
+		fireEvent.keyDown( document.body, { key: '3', ctrlKey: true } );
+		expect( onPathChange ).toHaveBeenCalledWith(
+			'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
+		);
 	} );
 
 	it( 'hides the Annotate control when the host cannot annotate the preview', () => {
@@ -284,6 +291,84 @@ describe( 'SitePreview', () => {
 		);
 
 		expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeInTheDocument();
+	} );
+
+	it( 'offers responsive modes from the More options menu while running', async () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+
+		renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'More options' } ) );
+
+		expect( await screen.findByText( 'Responsive mode' ) ).toBeVisible();
+		expect( screen.getByRole( 'menuitemradio', { name: 'Fit pane' } ) ).toBeChecked();
+		// The orientation group only accompanies the phone frame.
+		expect( screen.queryByText( 'Mobile orientation' ) ).not.toBeInTheDocument();
+
+		// Radio items keep the menu open, so the orientation group appears in place.
+		fireEvent.click( screen.getByRole( 'menuitemradio', { name: 'Mobile · 390×844' } ) );
+
+		expect( await screen.findByText( 'Mobile orientation' ) ).toBeVisible();
+		expect( screen.getByRole( 'menuitemradio', { name: 'Portrait' } ) ).toBeChecked();
+
+		// The menu is modal: its backdrop covers the webview, so clicks over
+		// the preview dismiss the menu instead of vanishing into the guest.
+		const backdrop = document.querySelector( '[role="presentation"][data-base-ui-inert]' );
+		expect( backdrop ).toBeInTheDocument();
+		fireEvent.pointerDown( backdrop as Element );
+		await waitFor( () =>
+			expect( screen.queryByText( 'Responsive mode' ) ).not.toBeInTheDocument()
+		);
+	} );
+
+	it( 'hides the More options menu when the site is not running', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+
+		renderPreview( <SitePreview site={ createSite() } path="/" reloadNonce={ 0 } /> );
+
+		expect( screen.queryByRole( 'button', { name: 'More options' } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'remembers the responsive mode per site during the session', async () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+
+		const queryClient = new QueryClient( {
+			defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+		} );
+		const ui = ( site: SiteDetails ) => (
+			<QueryClientProvider client={ queryClient }>
+				<Tooltip.Provider>
+					<SitePreview site={ site } path="/" reloadNonce={ 0 } />
+				</Tooltip.Provider>
+			</QueryClientProvider>
+		);
+		const siteA = createSite( { id: 'site-a', running: true } );
+		const siteB = createSite( { id: 'site-b', running: true } );
+
+		const { rerender } = render( ui( siteA ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'More options' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: 'Mobile · 390×844' } ) );
+
+		// A site without a remembered mode starts from the default…
+		rerender( ui( siteB ) );
+		expect( await screen.findByRole( 'menuitemradio', { name: 'Fit pane' } ) ).toBeChecked();
+
+		// …and returning to the first site restores its mode.
+		rerender( ui( siteA ) );
+		expect(
+			await screen.findByRole( 'menuitemradio', { name: 'Mobile · 390×844' } )
+		).toBeChecked();
 	} );
 } );
 
@@ -339,6 +424,48 @@ describe( 'getBrowserShortcutCommand', () => {
 				} )
 			)
 		).toBe( null );
+	} );
+} );
+
+describe( 'getSimulatedViewport', () => {
+	it( 'returns null without a preset or a measured pane', () => {
+		expect( getSimulatedViewport( null, { width: 520, height: 700 } ) ).toBe( null );
+		expect( getSimulatedViewport( { width: 390, height: 844 }, null ) ).toBe( null );
+		expect( getSimulatedViewport( { width: 390, height: 844 }, { width: 0, height: 700 } ) ).toBe(
+			null
+		);
+	} );
+
+	it( 'keeps presets at their exact dimensions, scaled down to fit both axes', () => {
+		// The height binds: 700 / 844 is smaller than 520 / 390.
+		expect(
+			getSimulatedViewport( { width: 390, height: 844, mobile: true }, { width: 520, height: 700 } )
+		).toEqual( {
+			width: 390,
+			height: 844,
+			scale: 700 / 844,
+			mobile: true,
+		} );
+		// The width binds for a desktop frame in a narrow pane.
+		expect(
+			getSimulatedViewport( { width: 1440, height: 900 }, { width: 720, height: 800 } )
+		).toEqual( {
+			width: 1440,
+			height: 900,
+			scale: 0.5,
+			mobile: false,
+		} );
+	} );
+
+	it( 'never scales up in a larger pane', () => {
+		expect(
+			getSimulatedViewport( { width: 390, height: 844 }, { width: 600, height: 1000 } )
+		).toEqual( {
+			width: 390,
+			height: 844,
+			scale: 1,
+			mobile: false,
+		} );
 	} );
 } );
 

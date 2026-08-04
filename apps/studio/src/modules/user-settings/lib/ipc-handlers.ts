@@ -8,7 +8,7 @@ import { DEFAULT_TERMINAL } from 'src/constants';
 import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { isInstalled } from 'src/lib/is-installed';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
-import { recordTracksEvent, TRACKS_EVENTS, type TracksUiVersion } from 'src/lib/tracks';
+import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
 import { SUPPORTED_EDITORS, SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 import { UserSettingsTabName } from 'src/modules/user-settings/user-settings-types';
@@ -120,10 +120,9 @@ export async function getAnalyticsEnabled(): Promise< boolean > {
 	return ! ( await isAnalyticsOptedOut() );
 }
 
-// Where the toggle was flipped — the renderer supplies both; Main can't infer them.
+// Where the toggle was flipped — the renderer supplies the surface; Main can't infer it.
 export interface AnalyticsToggleSource {
 	surface: 'onboarding' | 'settings';
-	uiVersion: TracksUiVersion;
 }
 
 export async function saveAnalyticsEnabled(
@@ -134,9 +133,7 @@ export async function saveAnalyticsEnabled(
 	// `recordTracksEvent` is gated by the current opt-out state, so the event must be recorded while
 	// analytics is ON — before turning it off, after turning it on. Order the write around that.
 	const recordEvent = () =>
-		recordTracksEvent( TRACKS_EVENTS.TELEMETRY, {
-			channel: 'studio-ui',
-			ui_version: source.uiVersion,
+		recordTracksEvent( TRACKS_EVENTS.SETTING_TELEMETRY_CHANGE, {
 			surface: source.surface,
 			status: enabled ? 'on' : 'off',
 		} );

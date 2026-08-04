@@ -17,6 +17,7 @@ const { ThemeProvider } = unlock( privateApis );
 
 export const Root = BaseMenu.Root;
 export const Trigger = BaseMenu.Trigger;
+export const Group = BaseMenu.Group;
 export const RadioGroup = BaseMenu.RadioGroup;
 export const SubmenuRoot = BaseMenu.SubmenuRoot;
 export const ContextMenuRoot = BaseContextMenu.Root;
@@ -170,6 +171,10 @@ export const RadioItem = forwardRef< ElementRef< typeof BaseMenu.RadioItem >, Ra
 		);
 	}
 );
+
+export function GroupLabel( { children }: { children: ReactNode } ) {
+	return <BaseMenu.GroupLabel className={ styles.groupLabel }>{ children }</BaseMenu.GroupLabel>;
+}
 
 export function Separator( { className }: { className?: string } ) {
 	return <BaseMenu.Separator className={ `${ styles.separator } ${ className ?? '' }` } />;

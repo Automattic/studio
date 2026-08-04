@@ -104,6 +104,58 @@
 	overflow: hidden;
 }
 
+.previewViewport {
+	position: relative;
+	display: flex;
+	flex: 1 1 auto;
+	min-width: 0;
+	min-height: 120px;
+	overflow: hidden;
+}
+
+/* While simulating a viewport, the preset's frame floats centered with
+   breathing room; the padding is excluded from the measured pane, so the
+   frame's fit-to-pane scale accounts for it automatically. */
+.previewViewportSimulated {
+	align-items: safe center;
+	justify-content: safe center;
+	padding: 16px;
+	background-color: var(--wpds-color-bg-surface-neutral);
+}
+
+/* The letterbox behind simulated viewports carries a dot grid so it reads
+   as the preview panel's own surface. No radial mask here — the frame
+   covers the center, so the grid lives at the edges. */
+.viewportGrid {
+	position: absolute;
+	inset: 0;
+	color: var(--wpds-color-fg-content-neutral);
+	pointer-events: none;
+}
+
+/* Wraps each preview surface. Fills the pane by default; explicit sizes for
+   letterboxed and device modes come in via inline style. Anchors the
+   loading spinner overlay and clips the iframe fallback's scaled box. */
+.surfaceFrame {
+	position: relative;
+	display: flex;
+	flex: 1 1 auto;
+	min-width: 0;
+	min-height: 0;
+	overflow: hidden;
+}
+
+/* A device-sized frame, presented as a floating phone against the letterbox
+   background. The hairline ring is a shadow (not a border) so the frame's
+   content box stays exactly the scaled viewport size. */
+.deviceFrame {
+	border-radius: var(--wpds-border-radius-lg);
+	box-shadow:
+		0 0 0 1px var(--wpds-color-stroke-surface-neutral),
+		var(--wpds-elevation-md);
+	background-color: var(--wpds-color-bg-surface-neutral-strong, #fff);
+}
+
 .spinnerOverlay {
 	position: absolute;
 	inset: 0;

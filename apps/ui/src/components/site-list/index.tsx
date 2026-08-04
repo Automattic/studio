@@ -22,7 +22,7 @@ import { DeleteSiteDialog } from '@/components/delete-site-dialog';
 import * as Menu from '@/components/menu';
 import { ReorderableList } from '@/components/reorderable-list';
 import { SidebarButton } from '@/components/sidebar-button';
-import { deriveSiteStatus } from '@/components/site-dropdown/utils';
+import { deriveSiteRunStatus } from '@/components/site-status-button';
 import { XdebugIcon } from '@/components/xdebug-icon';
 import { useConnector } from '@/data/core';
 import { useSiteAgentActivity, type SiteAgentActivity } from '@/data/queries/use-agent-run';
@@ -236,7 +236,7 @@ function SiteStatusButton( {
 } ) {
 	const startSite = useStartSite();
 	const stopSite = useStopSite();
-	const { status } = deriveSiteStatus( site, isStarting, isStopping );
+	const status = deriveSiteRunStatus( { site, isStarting, isStopping } );
 	const busy = isStarting || isStopping;
 	const statusName =
 		status === 'running'
@@ -519,7 +519,7 @@ function SiteSection( {
 	}, [ isActive ] );
 	const isStarting = useIsSiteStarting( site.id );
 	const isStopping = useIsSiteStopping( site.id );
-	const { status } = deriveSiteStatus( site, isStarting, isStopping );
+	const status = deriveSiteRunStatus( { site, isStarting, isStopping } );
 	const agentActivity = useSiteAgentActivity( row.sessionIds );
 	const syncActivity = useSiteSyncActivity( site.id );
 	const isLiveSyncPending =

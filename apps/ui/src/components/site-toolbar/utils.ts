@@ -1,7 +1,5 @@
 import { __ } from '@wordpress/i18n';
-import { getSiteDisplayUrl } from '@/lib/get-site-url';
-import type { SiteStatus } from './dropdown-trigger';
-import type { SiteDetails, Snapshot, SyncSite } from '@/data/core';
+import type { Snapshot, SyncSite } from '@/data/core';
 
 export function stripProtocol( url: string ): string {
 	return url.replace( /^https?:\/\//, '' ).replace( /\/$/, '' );
@@ -11,6 +9,26 @@ export function ensureProtocol( url: string ): string {
 	return /^https?:\/\//.test( url ) ? url : `https://${ url }`;
 }
 
+/**
+ * Connections in the order a picker should list them: production first, then
+ * staging, each group alphabetical so the list doesn't reshuffle between
+ * fetches.
+ */
+export function sortConnections( connectedSites: SyncSite[] | undefined ): SyncSite[] {
+	return [ ...( connectedSites ?? [] ) ].sort( ( a, b ) => {
+		if ( a.isStaging !== b.isStaging ) {
+			return a.isStaging ? 1 : -1;
+		}
+		return a.name.localeCompare( b.name );
+	} );
+}
+
+/** What to call a connection in a list where its sibling is right beside it. */
+export function getConnectionLabel( connectedSite: SyncSite ): string {
+	return connectedSite.isStaging ? __( 'Staging' ) : __( 'Production' );
+}
+
+/** The single connection the header's sync and disconnect actions target. */
 export function pickLiveSite( connectedSites: SyncSite[] | undefined ): SyncSite | undefined {
 	if ( ! connectedSites || connectedSites.length === 0 ) {
 		return undefined;
@@ -44,34 +62,4 @@ export function pickLatestSnapshot(
 // an `https://…/` prefix would cause the command to spawn a new preview.
 export function getSnapshotHostname( snapshot: Snapshot ): string {
 	return stripProtocol( snapshot.url );
-}
-
-// Derives the running/transitioning/stopped status plus the user-visible
-// labels for the local-site row. Collapses three related but noisy branches
-// into a single helper the dropdown can consume in one line.
-export function deriveSiteStatus(
-	site: SiteDetails,
-	isStarting: boolean,
-	isStopping: boolean
-): { status: SiteStatus; statusLabel: string; localSublabel: string } {
-	const status: SiteStatus =
-		isStarting || isStopping ? 'transitioning' : site.running ? 'running' : 'stopped';
-
-	const statusLabel =
-		status === 'running'
-			? __( 'Site is running' )
-			: status === 'transitioning'
-			? isStopping
-				? __( 'Site is stopping' )
-				: __( 'Site is starting' )
-			: __( 'Site is stopped' );
-
-	const localSublabel =
-		status === 'transitioning'
-			? isStopping
-				? __( 'Stopping…' )
-				: __( 'Starting…' )
-			: getSiteDisplayUrl( site );
-
-	return { status, statusLabel, localSublabel };
 }

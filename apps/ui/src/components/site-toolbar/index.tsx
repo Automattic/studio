@@ -1,0 +1,318 @@
+import { useIsMutating } from '@tanstack/react-query';
+import { __ } from '@wordpress/i18n';
+import { arrowDown, arrowUp, external, Icon, moreVertical } from '@wordpress/icons';
+import { Button, Dialog, IconButton, Tooltip } from '@wordpress/ui';
+import { clsx } from 'clsx';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import * as Menu from '@/components/menu';
+import {
+	convertTreeToPullOptions,
+	convertTreeToPushOptions,
+} from '@/components/selective-sync/lib/convert-tree-to-sync-options';
+import { registerSelectiveSyncConnector } from '@/components/selective-sync/lib/get-ipc-api';
+import { SyncDialog } from '@/components/selective-sync/sync-dialog';
+import { SiteIcon } from '@/components/site-icon';
+import { SiteStatusButton } from '@/components/site-status-button';
+import { useConnector } from '@/data/core';
+import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
+import { useLogin } from '@/data/queries/use-auth-user';
+import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
+import { useIsSiteStarting, useIsSiteStopping } from '@/data/queries/use-sites';
+import {
+	PULL_FROM_LIVE_MUTATION_KEY,
+	PUSH_TO_LIVE_MUTATION_KEY,
+	usePullSiteFromLive,
+	usePushSiteToLive,
+} from '@/data/queries/use-sync-site';
+import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
+import { getSiteDisplayUrl, getSiteUrl } from '@/lib/get-site-url';
+import { DisconnectSiteDialog } from './disconnect-site-dialog';
+import { PublishPickerView } from './publish-picker-view';
+import styles from './style.module.css';
+import { ensureProtocol, pickLiveSite } from './utils';
+import '@/components/selective-sync/selective-sync.css';
+import type { TreeNode } from '@/components/selective-sync/tree-view';
+import type { SiteDetails } from '@/data/core';
+
+interface SiteToolbarProps {
+	site: SiteDetails;
+	className?: string;
+	// Opens the Pull dialog once the connection loads. Set by the deep link
+	// onboarding follows after connecting a site, to nudge the first pull.
+	openPullOnLoad?: boolean;
+}
+
+// Counts in-flight push / pull mutations for this site across hook instances.
+// They mutate the same local runtime, so a push started elsewhere (the publish
+// flow) must still read as busy here and block a concurrent pull that would
+// wedge the site.
+function useIsSiteBusy( siteId: string ): boolean {
+	const forSite = ( mutation: { state: { variables?: unknown } } ) =>
+		( mutation.state.variables as { siteId?: string } | undefined )?.siteId === siteId;
+	const push = useIsMutating( { mutationKey: PUSH_TO_LIVE_MUTATION_KEY, predicate: forSite } ) > 0;
+	const pull =
+		useIsMutating( { mutationKey: PULL_FROM_LIVE_MUTATION_KEY, predicate: forSite } ) > 0;
+	return push || pull;
+}
+
+/**
+ * The site's permanent header: who you're working on and what state it's in on
+ * the left, its actions on the right. Replaces the old site dropdown, whose
+ * actions were hidden behind a trigger that read as a status indicator.
+ *
+ * Pull and Push open the ported selective-sync dialog; Publish connects a
+ * WordPress.com site when none is. Preview sharing returns with the Share
+ * button in a follow-up.
+ */
+export function SiteToolbar( { site, className, openPullOnLoad = false }: SiteToolbarProps ) {
+	const connector = useConnector();
+	const { enabled: agenticEnabled, reason: agenticReason } = useAgenticFeatures();
+	// The sidebar's site rows already carry a run-state dot for every site,
+	// including this one. A second one in the header only earns its place once
+	// the sidebar is out of view.
+	const showRunState = useSidebarCollapsed();
+	const login = useLogin();
+	const pushSiteToLive = usePushSiteToLive();
+	const pullSiteFromLive = usePullSiteFromLive();
+
+	const [ syncDialogType, setSyncDialogType ] = useState< 'push' | 'pull' | null >( null );
+	const [ publishOpen, setPublishOpen ] = useState( false );
+	const [ disconnectOpen, setDisconnectOpen ] = useState( false );
+
+	const isStarting = useIsSiteStarting( site.id );
+	const isStopping = useIsSiteStopping( site.id );
+	const isBusy = useIsSiteBusy( site.id );
+
+	const { data: connectedSites } = useConnectedWpcomSites( site.id );
+	const liveSite = useMemo( () => pickLiveSite( connectedSites ), [ connectedSites ] );
+
+	// The ported selective-sync modules resolve their data calls through the
+	// active connector (see selective-sync/lib/get-ipc-api.ts).
+	useEffect( () => {
+		registerSelectiveSyncConnector( connector );
+	}, [ connector ] );
+
+	// Honour the onboarding deep link once the connection is known: open Pull so
+	// a freshly connected site can bring the live content down. Fires once.
+	const pullOpenedRef = useRef( false );
+	useEffect( () => {
+		if ( openPullOnLoad && liveSite && ! pullOpenedRef.current ) {
+			pullOpenedRef.current = true;
+			setSyncDialogType( 'pull' );
+		}
+	}, [ openPullOnLoad, liveSite ] );
+
+	const isSignedOut = agenticReason === 'signed-out';
+	const isOffline = agenticReason === 'offline';
+	const syncDisabled = ! agenticEnabled || isBusy;
+
+	const openExternal = ( url: string ) => {
+		void connector.openExternalUrl( url );
+	};
+
+	const handleDialogPush = ( tree: TreeNode[] ) => {
+		if ( ! liveSite ) {
+			return;
+		}
+		const options = convertTreeToPushOptions( tree );
+		pushSiteToLive.mutate(
+			{ siteId: site.id, remoteSiteId: liveSite.id, options },
+			{ onSuccess: () => openExternal( ensureProtocol( liveSite.url ) ) }
+		);
+		setSyncDialogType( null );
+	};
+
+	const handleDialogPull = ( tree: TreeNode[] ) => {
+		if ( ! liveSite ) {
+			return;
+		}
+		const { optionsToSync, include_path_list: includePathList } = convertTreeToPullOptions( tree );
+		pullSiteFromLive.mutate( {
+			siteId: site.id,
+			remoteSiteId: liveSite.id,
+			options: { optionsToSync, includePathList },
+		} );
+		setSyncDialogType( null );
+	};
+
+	const localSiteUrl = getSiteUrl( site );
+	const localSiteLabel = isStopping
+		? __( 'Stopping…' )
+		: isStarting
+		? __( 'Starting…' )
+		: getSiteDisplayUrl( site );
+	const canOpenLocalSite = site.running && ! isStopping;
+
+	return (
+		<div className={ clsx( styles.toolbar, className ) }>
+			<div className={ styles.identity }>
+				<SiteIcon
+					className={ styles.siteIcon }
+					seed={ `${ site.id }:${ site.name }:${ site.path }` }
+					imageSrc={ site.siteIcon }
+				/>
+				<div className={ styles.identityText }>
+					<span className={ styles.siteName }>{ site.name }</span>
+					<span
+						className={ clsx(
+							styles.siteStatusRow,
+							showRunState && styles.siteStatusRowWithButton
+						) }
+					>
+						{ showRunState ? (
+							<SiteStatusButton
+								site={ site }
+								isStarting={ isStarting }
+								isStopping={ isStopping }
+								className={ styles.siteStatusButton }
+							/>
+						) : null }
+						{ canOpenLocalSite ? (
+							<Tooltip.Root>
+								<Tooltip.Trigger
+									render={
+										<button
+											type="button"
+											className={ styles.siteUrl }
+											onClick={ () => openExternal( localSiteUrl ) }
+										>
+											<span>{ localSiteLabel }</span>
+											<Icon
+												className={ styles.siteUrlIcon }
+												icon={ external }
+												size={ 12 }
+												aria-hidden="true"
+											/>
+										</button>
+									}
+								/>
+								<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
+									{ __( 'Open Studio site in your browser' ) }
+								</Tooltip.Popup>
+							</Tooltip.Root>
+						) : (
+							<span className={ styles.siteUrlStatic }>{ localSiteLabel }</span>
+						) }
+					</span>
+				</div>
+			</div>
+
+			<div className={ styles.actions }>
+				{ isSignedOut ? (
+					<Button
+						variant="solid"
+						tone="brand"
+						size="small"
+						className={ styles.action }
+						loading={ login.isPending }
+						loadingAnnouncement={ __( 'Opening login page' ) }
+						onClick={ () => login.mutate() }
+					>
+						{ __( 'Log in' ) }
+					</Button>
+				) : liveSite ? (
+					<>
+						<Tooltip.Root>
+							<Tooltip.Trigger
+								render={
+									<IconButton
+										variant="minimal"
+										tone="neutral"
+										size="small"
+										icon={ arrowDown }
+										label={ __( 'Pull from live' ) }
+										disabled={ syncDisabled }
+										focusableWhenDisabled
+										onClick={ () => setSyncDialogType( 'pull' ) }
+									/>
+								}
+							/>
+							<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
+								{ __( 'Pull from live' ) }
+							</Tooltip.Popup>
+						</Tooltip.Root>
+						<Tooltip.Root>
+							<Tooltip.Trigger
+								render={
+									<IconButton
+										variant="minimal"
+										tone="neutral"
+										size="small"
+										icon={ arrowUp }
+										label={ __( 'Push to live' ) }
+										disabled={ syncDisabled }
+										focusableWhenDisabled
+										onClick={ () => setSyncDialogType( 'push' ) }
+									/>
+								}
+							/>
+							<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
+								{ __( 'Push to live' ) }
+							</Tooltip.Popup>
+						</Tooltip.Root>
+						<Menu.Root>
+							<Menu.Trigger
+								render={
+									<IconButton
+										variant="minimal"
+										tone="neutral"
+										size="small"
+										icon={ moreVertical }
+										label={ __( 'More live site actions' ) }
+										disabled={ isBusy }
+										focusableWhenDisabled
+									/>
+								}
+							/>
+							<Menu.Popup side="bottom" align="end">
+								<Menu.Item disabled={ isBusy } onClick={ () => setDisconnectOpen( true ) }>
+									{ __( 'Disconnect' ) }
+								</Menu.Item>
+							</Menu.Popup>
+						</Menu.Root>
+					</>
+				) : (
+					<Button
+						variant="solid"
+						tone="brand"
+						size="small"
+						className={ styles.action }
+						disabled={ isOffline || isBusy }
+						onClick={ () => setPublishOpen( true ) }
+					>
+						{ __( 'Publish' ) }
+					</Button>
+				) }
+			</div>
+
+			{ liveSite && syncDialogType ? (
+				<SyncDialog
+					type={ syncDialogType }
+					localSite={ site }
+					remoteSite={ liveSite }
+					onPush={ handleDialogPush }
+					onPull={ handleDialogPull }
+					onRequestClose={ () => setSyncDialogType( null ) }
+				/>
+			) : null }
+
+			{ liveSite ? (
+				<DisconnectSiteDialog
+					localSiteId={ site.id }
+					liveSite={ liveSite }
+					open={ disconnectOpen }
+					onOpenChange={ setDisconnectOpen }
+				/>
+			) : null }
+
+			{ /* Mounted only while open: it loads the account's sites on mount. */ }
+			{ publishOpen ? (
+				<Dialog.Root open onOpenChange={ setPublishOpen }>
+					<Dialog.Popup size="small">
+						<PublishPickerView site={ site } onClose={ () => setPublishOpen( false ) } />
+					</Dialog.Popup>
+				</Dialog.Root>
+			) : null }
+		</div>
+	);
+}

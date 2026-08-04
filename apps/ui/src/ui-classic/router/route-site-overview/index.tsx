@@ -36,7 +36,7 @@ function SiteOverviewPage() {
 		<SiteOverviewView
 			siteId={ siteId }
 			activeTab={ activeTab }
-			openSiteDropdown={ sync === 'pull' }
+			openPullOnLoad={ sync === 'pull' }
 			onTabChange={ ( next ) =>
 				void navigate( {
 					to: '/sites/$siteId/overview',

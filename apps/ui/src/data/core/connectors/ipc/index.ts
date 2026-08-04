@@ -775,6 +775,10 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.getAppGlobals() ) as AppGlobals;
 		},
 
+		async fetchSiteRest( siteId, request ) {
+			return await ipcApi.fetchSiteRestApi( siteId, request );
+		},
+
 		async openSiteFolder( siteId ): Promise< void > {
 			const sitePath = await resolveSiteFolder( siteId );
 			ipcApi.openLocalPath( sitePath );

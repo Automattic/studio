@@ -261,6 +261,8 @@ export { getDefaultSiteDirectory, saveDefaultSiteDirectory };
 
 export { importSite, exportSite } from 'src/modules/import-export/lib/ipc-handlers';
 
+export { fetchSiteRest as fetchSiteRestApi } from 'src/lib/wordpress-rest-api';
+
 export async function recordAnalyticsEvent(
 	_event: IpcMainInvokeEvent,
 	// Typed `string` because this crosses the IPC boundary from the (untrusted) renderer; validated

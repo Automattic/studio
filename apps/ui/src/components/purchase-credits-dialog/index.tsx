@@ -44,7 +44,7 @@ export function PurchaseCreditsDialog( {
 					<Dialog.Content>
 						<Dialog.Description>
 							{ __(
-								'Choose a one-time credit amount to check out securely on WordPress.com. Credits do not expire and are used after your monthly allowance.'
+								'Choose a one-time amount to check out securely on WordPress.com. $1 equals 1 AI credit. Credits do not expire and are used after your monthly allowance.'
 							) }
 						</Dialog.Description>
 						<div
@@ -63,7 +63,13 @@ export function PurchaseCreditsDialog( {
 									onClick={ () => setAmount( option ) }
 								>
 									<span className={ styles.amountValue }>${ option }</span>
-									<span className={ styles.amountLabel }>{ __( 'one time' ) }</span>
+									<span className={ styles.amountLabel }>
+										{ sprintf(
+											/* translators: %s: number of AI credits included. */
+											__( '%s credits' ),
+											String( option )
+										) }
+									</span>
 								</button>
 							) ) }
 						</div>

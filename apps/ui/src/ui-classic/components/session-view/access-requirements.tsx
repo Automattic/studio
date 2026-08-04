@@ -13,7 +13,7 @@ const requirementCopy = {
 	payment: {
 		title: __( 'Studio Code Beta' ),
 		description: __(
-			'To enroll in our free beta period, you must add a valid payment method to your WordPress.com account. You’ll get free credits during beta.'
+			'To enroll in our free beta period, you must add a valid payment method to your WordPress.com account.'
 		),
 		button: __( 'Add payment method' ),
 		url: ADD_PAYMENT_METHOD_URL,
@@ -93,7 +93,7 @@ export function AccessRequirements( {
 					{ copy.description }
 					{ requirement === 'payment' && (
 						<span className={ styles.reassuranceLine }>
-							{ __( 'You won’t be charged during the beta.' ) }
+							{ __( 'During the beta, you’ll get free credits and won’t be charged.' ) }
 						</span>
 					) }
 				</p>

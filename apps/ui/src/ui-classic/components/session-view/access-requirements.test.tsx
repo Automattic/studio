@@ -25,7 +25,9 @@ describe( 'AccessRequirements', () => {
 		);
 
 		expect( screen.getByText( 'Studio Code Beta' ) ).toBeInTheDocument();
-		expect( screen.getByText( 'You won’t be charged during the beta.' ) ).toBeInTheDocument();
+		expect(
+			screen.getByText( 'During the beta, you’ll get free credits and won’t be charged.' )
+		).toBeInTheDocument();
 
 		await user.click( screen.getByRole( 'button', { name: 'Add payment method' } ) );
 
@@ -42,7 +44,9 @@ describe( 'AccessRequirements', () => {
 		);
 
 		expect( screen.getByText( 'Verify your email' ) ).toBeInTheDocument();
-		expect( screen.queryByText( 'You won’t be charged during the beta.' ) ).not.toBeInTheDocument();
+		expect(
+			screen.queryByText( 'During the beta, you’ll get free credits and won’t be charged.' )
+		).not.toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Verify email' } ) ).toBeInTheDocument();
 	} );
 

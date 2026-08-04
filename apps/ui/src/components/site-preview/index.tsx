@@ -167,6 +167,22 @@ function getMobilePreset( orientation: MobileOrientation ): ViewportPreset {
 	return orientation === 'landscape' ? MOBILE_PRESET_LANDSCAPE : MOBILE_PRESET;
 }
 
+// The preset behind the primary preview surface, or null when the pane
+// renders at its natural size. The split view's primary frame is the desktop
+// preset; its phone companion is sized separately.
+function getActivePreset(
+	mode: ViewportMode,
+	orientation: MobileOrientation
+): ViewportPreset | null {
+	if ( mode === 'mobile' ) {
+		return getMobilePreset( orientation );
+	}
+	if ( mode === 'split' ) {
+		return DESKTOP_PRESET;
+	}
+	return VIEWPORT_PRESETS.find( ( preset ) => preset.id === mode ) ?? null;
+}
+
 // Breathing room around the split view's phone frame (matches the pane's
 // CSS padding, subtracted before computing the frame's fit-to-height scale).
 const SPLIT_MOBILE_PANE_PADDING = 16;
@@ -510,12 +526,7 @@ export function SitePreview( {
 	const showLoadingProgress = canPreview && progress > 0;
 	// Presets are module constants, so this stays referentially stable per
 	// mode + orientation.
-	const activePreset =
-		viewportMode === 'mobile'
-			? getMobilePreset( mobileOrientation )
-			: viewportMode === 'split'
-			? DESKTOP_PRESET
-			: VIEWPORT_PRESETS.find( ( preset ) => preset.id === viewportMode ) ?? null;
+	const activePreset = getActivePreset( viewportMode, mobileOrientation );
 	const splitPreview = viewportMode === 'split';
 	// The split view's phone pane: the mobile preset (in its current
 	// orientation) scaled to fit the pane height, and capped at half the

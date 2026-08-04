@@ -137,7 +137,7 @@ wrappers — pass only event-specific props. On the desktop the wrapper's `commo
 `channel: studio-ui` and `ui_version` (derived from the active renderer via `getPreferredUiVersion()`); the
 CLI wrapper resolves `channel`/`ui_version` from `STUDIO_TRACKS_ORIGIN`.
 
-`surface` (in-app area, e.g. `onboarding`/`settings`) is live on `studio_telemetry`; the renderer
+`surface` (in-app area, e.g. `onboarding`/`settings`) is live on `studio_setting_telemetry_change`; the renderer
 supplies it per change (Main can't infer it) and it is meant to generalize to other settings-change
 events. Reserved for later phases (documented so future events conform): `outcome` (`success`/`error`).
 
@@ -155,7 +155,7 @@ events). The table lists the event-specific props.
 |---|---|---|
 | `studio_app_launch` | Desktop Main (`appBoot`) | `is_first_launch` |
 | `studio_site_start` | CLI site-start funnel | (none — `ui_version` comes from the wrapper via `STUDIO_TRACKS_ORIGIN`, only when `channel=studio-ui`) |
-| `studio_telemetry` | Desktop Main (`saveAnalyticsEnabled`) | `status` (`on`/`off`), `surface` (`onboarding`/`settings`) — recorded while analytics is still ON (before the write when turning off, after it when turning on) so the opt-out gate never self-suppresses it. |
+| `studio_setting_telemetry_change` | Desktop Main (`saveAnalyticsEnabled`) | `status` (`on`/`off`), `surface` (`onboarding`/`settings`) — recorded while analytics is still ON (before the write when turning off, after it when turning on) so the opt-out gate never self-suppresses it. |
 
 ### How to add a new event
 
@@ -164,12 +164,19 @@ events). The table lists the event-specific props.
    `apps/cli/lib/tracks.ts`, or the `recordAnalyticsEvent` IPC handler / `Connector.trackEvent` from a
    renderer). Prefer a standardized property name from the vocabulary above; only add a custom prop when
    none fits, and flag it.
-3. **Register the event and all its eventprops** via the Tracks Registration tool. Registration adds
+3. **Name it per the Tracks convention** — `<source>_<context>_<optional subcontext>_<action>`, at least
+   three underscore-separated segments, matching `^[a-z_][a-z0-9_]*$` (lowercase, digits, underscores). A
+   name that violates this is silently routed to the `tracks_rejects` table and never appears in the normal
+   Live View — check the "Filter for only rejected events" box to spot it. This is separate from
+   registration below: it is a hard ingestion gate, not documentation. (`studio_telemetry` — source +
+   context with no action — was rejected this way until renamed to `studio_setting_telemetry_change`.) The
+   `TRACKS_EVENTS` naming guard test in `record-tracks-event.test.ts` enforces this at CI time.
+4. **Register the event and all its eventprops** via the Tracks Registration tool. Registration adds
    documentation and CI integrity checks — it does not gate collection or queryability (a validly-named
    event is already queryable in Superset without it). Register every prop the event carries, including the
    wrapper-attached common props (`channel`, `is_a11n`, `platform`, `arch`, `app_version`, `ui_version`);
    only the reserved Tracks defaults (timestamp, etc.) come for free.
-4. Add a row to the event catalog above.
+5. Add a row to the event catalog above.
 
 ## Testing
 

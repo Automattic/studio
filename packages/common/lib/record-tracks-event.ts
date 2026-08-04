@@ -10,7 +10,7 @@ const TRACKS_PIXEL_URL = 'https://pixel.wp.com/t.gif';
 export const TRACKS_EVENTS = {
 	APP_LAUNCH: 'studio_app_launch',
 	SITE_START: 'studio_site_start',
-	TELEMETRY: 'studio_telemetry',
+	SETTING_TELEMETRY_CHANGE: 'studio_setting_telemetry_change',
 } as const;
 
 export type TracksEventName = ( typeof TRACKS_EVENTS )[ keyof typeof TRACKS_EVENTS ];

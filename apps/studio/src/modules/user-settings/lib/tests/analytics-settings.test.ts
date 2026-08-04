@@ -24,20 +24,20 @@ beforeEach( () => {
 	vi.clearAllMocks();
 } );
 
-it( 'emits studio_telemetry with status "on" and the source when enabling analytics', async () => {
+it( 'emits studio_setting_telemetry_change with status "on" and the source when enabling analytics', async () => {
 	await saveAnalyticsEnabled( event, true, { surface: 'settings' } );
 
-	expect( mockRecord ).toHaveBeenCalledWith( TRACKS_EVENTS.TELEMETRY, {
+	expect( mockRecord ).toHaveBeenCalledWith( TRACKS_EVENTS.SETTING_TELEMETRY_CHANGE, {
 		surface: 'settings',
 		status: 'on',
 	} );
 	expect( mockUpdate ).toHaveBeenCalledWith( { analyticsOptOut: false } );
 } );
 
-it( 'emits studio_telemetry with status "off" and the source when disabling analytics', async () => {
+it( 'emits studio_setting_telemetry_change with status "off" and the source when disabling analytics', async () => {
 	await saveAnalyticsEnabled( event, false, { surface: 'onboarding' } );
 
-	expect( mockRecord ).toHaveBeenCalledWith( TRACKS_EVENTS.TELEMETRY, {
+	expect( mockRecord ).toHaveBeenCalledWith( TRACKS_EVENTS.SETTING_TELEMETRY_CHANGE, {
 		surface: 'onboarding',
 		status: 'off',
 	} );

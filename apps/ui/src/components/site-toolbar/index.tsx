@@ -5,12 +5,6 @@ import { Button, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as Menu from '@/components/menu';
-import {
-	convertTreeToPullOptions,
-	convertTreeToPushOptions,
-} from '@/components/selective-sync/lib/convert-tree-to-sync-options';
-import { registerSelectiveSyncConnector } from '@/components/selective-sync/lib/get-ipc-api';
-import { SyncDialog } from '@/components/selective-sync/sync-dialog';
 import { SiteIcon } from '@/components/site-icon';
 import { SiteStatusButton } from '@/components/site-status-button';
 import { useConnector } from '@/data/core';
@@ -30,10 +24,10 @@ import { DisconnectSiteDialog } from './disconnect-site-dialog';
 import { PublishSiteDialog } from './publish-site-dialog';
 import { ShareDialog } from './share-dialog';
 import styles from './style.module.css';
-import { ensureProtocol, pickLiveSite } from './utils';
-import '@/components/selective-sync/selective-sync.css';
-import type { TreeNode } from '@/components/selective-sync/tree-view';
-import type { SiteDetails } from '@/data/core';
+import { SyncDialog, type SyncDirection } from './sync-dialog';
+import { ensureProtocol, pickLiveSite, sortConnections } from './utils';
+import type { SiteDetails, SyncSite } from '@/data/core';
+import type { PullSyncOptions, PushSyncOptions } from '@studio/common/types/sync';
 
 interface SiteToolbarProps {
 	site: SiteDetails;
@@ -76,7 +70,7 @@ export function SiteToolbar( { site, className, openPullOnLoad = false }: SiteTo
 	const pushSiteToLive = usePushSiteToLive();
 	const pullSiteFromLive = usePullSiteFromLive();
 
-	const [ syncDialogType, setSyncDialogType ] = useState< 'push' | 'pull' | null >( null );
+	const [ syncOpen, setSyncOpen ] = useState( false );
 	const [ publishOpen, setPublishOpen ] = useState( false );
 	const [ disconnectOpen, setDisconnectOpen ] = useState( false );
 	const [ shareOpen, setShareOpen ] = useState( false );
@@ -86,23 +80,21 @@ export function SiteToolbar( { site, className, openPullOnLoad = false }: SiteTo
 	const isBusy = useIsSiteBusy( site.id );
 
 	const { data: connectedSites } = useConnectedWpcomSites( site.id );
+	// The dialog offers every connection; the header's connected/disconnect
+	// affordances key off whichever one is the primary (production) target.
+	const targets = useMemo( () => sortConnections( connectedSites ), [ connectedSites ] );
 	const liveSite = useMemo( () => pickLiveSite( connectedSites ), [ connectedSites ] );
 
-	// The ported selective-sync modules resolve their data calls through the
-	// active connector (see selective-sync/lib/get-ipc-api.ts).
+	// Honour the onboarding deep link once the connection is known: open the sync
+	// dialog (defaulting to Pull) so a freshly connected site can bring the live
+	// content down. Fires once.
+	const syncOpenedRef = useRef( false );
 	useEffect( () => {
-		registerSelectiveSyncConnector( connector );
-	}, [ connector ] );
-
-	// Honour the onboarding deep link once the connection is known: open Pull so
-	// a freshly connected site can bring the live content down. Fires once.
-	const pullOpenedRef = useRef( false );
-	useEffect( () => {
-		if ( openPullOnLoad && liveSite && ! pullOpenedRef.current ) {
-			pullOpenedRef.current = true;
-			setSyncDialogType( 'pull' );
+		if ( openPullOnLoad && targets.length > 0 && ! syncOpenedRef.current ) {
+			syncOpenedRef.current = true;
+			setSyncOpen( true );
 		}
-	}, [ openPullOnLoad, liveSite ] );
+	}, [ openPullOnLoad, targets ] );
 
 	const isSignedOut = agenticReason === 'signed-out';
 	const isOffline = agenticReason === 'offline';
@@ -112,29 +104,22 @@ export function SiteToolbar( { site, className, openPullOnLoad = false }: SiteTo
 		void connector.openExternalUrl( url );
 	};
 
-	const handleDialogPush = ( tree: TreeNode[] ) => {
-		if ( ! liveSite ) {
+	const runSync = (
+		direction: SyncDirection,
+		target: SyncSite,
+		options: PushSyncOptions | PullSyncOptions | undefined
+	) => {
+		if ( isBusy ) {
 			return;
 		}
-		const options = convertTreeToPushOptions( tree );
+		if ( direction === 'pull' ) {
+			pullSiteFromLive.mutate( { siteId: site.id, remoteSiteId: target.id, options } );
+			return;
+		}
 		pushSiteToLive.mutate(
-			{ siteId: site.id, remoteSiteId: liveSite.id, options },
-			{ onSuccess: () => openExternal( ensureProtocol( liveSite.url ) ) }
+			{ siteId: site.id, remoteSiteId: target.id, options },
+			{ onSuccess: () => openExternal( ensureProtocol( target.url ) ) }
 		);
-		setSyncDialogType( null );
-	};
-
-	const handleDialogPull = ( tree: TreeNode[] ) => {
-		if ( ! liveSite ) {
-			return;
-		}
-		const { optionsToSync, include_path_list: includePathList } = convertTreeToPullOptions( tree );
-		pullSiteFromLive.mutate( {
-			siteId: site.id,
-			remoteSiteId: liveSite.id,
-			options: { optionsToSync, includePathList },
-		} );
-		setSyncDialogType( null );
 	};
 
 	const localSiteUrl = getSiteUrl( site );
@@ -239,8 +224,8 @@ export function SiteToolbar( { site, className, openPullOnLoad = false }: SiteTo
 					</Button>
 				) : liveSite ? (
 					<>
-						{ /* One Sync action. Direction (push/pull) is chosen inside the
-						     dialog, so the button opens it at its default. */ }
+						{ /* One Sync action. Direction, destination, and selection are all
+						     chosen inside the dialog. */ }
 						<Button
 							variant="solid"
 							tone="brand"
@@ -248,7 +233,7 @@ export function SiteToolbar( { site, className, openPullOnLoad = false }: SiteTo
 							className={ styles.action }
 							disabled={ syncDisabled }
 							focusableWhenDisabled
-							onClick={ () => setSyncDialogType( 'push' ) }
+							onClick={ () => targets.length > 0 && setSyncOpen( true ) }
 						>
 							{ __( 'Sync' ) }
 						</Button>
@@ -287,14 +272,14 @@ export function SiteToolbar( { site, className, openPullOnLoad = false }: SiteTo
 				) }
 			</div>
 
-			{ liveSite && syncDialogType ? (
+			{ targets.length > 0 ? (
 				<SyncDialog
-					type={ syncDialogType }
-					localSite={ site }
-					remoteSite={ liveSite }
-					onPush={ handleDialogPush }
-					onPull={ handleDialogPull }
-					onRequestClose={ () => setSyncDialogType( null ) }
+					siteId={ site.id }
+					connections={ targets }
+					open={ syncOpen }
+					onOpenChange={ setSyncOpen }
+					onRun={ runSync }
+					initialDirection={ openPullOnLoad ? 'pull' : 'push' }
 				/>
 			) : null }
 

@@ -2,23 +2,14 @@ import { supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { code, globe } from '@wordpress/icons';
+import { code, external } from '@wordpress/icons';
 import { useConnector } from '@/data/core';
-import { useIsSiteStarting, useIsSiteStopping } from '@/data/queries/use-sites';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
-import { useOpenSiteUrl } from '@/hooks/use-open-site-url';
-import {
-	appleTerminalLogo,
-	editorLogos,
-	finderLogo,
-	folderLogo,
-	phpMyAdminLogo,
-	terminalLogos,
-} from './logos';
+import { editorLogos, finderLogo, folderLogo, terminalLogo, terminalLogos } from '@/lib/logos';
 import type { SiteDetails } from '@/data/core';
 import type { ReactElement } from 'react';
 
-export type OpenInDestination = 'browser' | 'files' | 'editor' | 'terminal' | 'phpmyadmin';
+export type OpenInDestination = 'browser' | 'files' | 'editor' | 'terminal';
 
 export interface OpenInDestinationEntry {
 	id: OpenInDestination;
@@ -41,27 +32,22 @@ export function getFileManager(): { label: string; logo: ReactElement } {
 
 /**
  * The "Open in…" destinations for a site (browser, file manager, editor,
- * terminal, phpMyAdmin) with their labels, logos, and open handlers. `onOpen`
- * fires only when a destination actually opens — picking the editor without a
- * configured preference navigates to settings instead and reports nothing.
+ * terminal) with their labels, logos, and open handlers. `onOpen` fires only
+ * when a destination actually opens — picking the editor without a configured
+ * preference navigates to settings instead and reports nothing.
  *
- * The browser destination only appears when the caller provides `browserUrl`
- * (the absolute URL to hand to the external browser, e.g. the preview's
- * current page).
+ * The browser destination only appears when the caller provides `browserPath`
+ * (the site-relative path to open through Studio's authenticated site URL).
  */
 export function useOpenInDestinations(
 	site: SiteDetails,
 	onOpen?: ( destination: OpenInDestination ) => void,
-	browserUrl?: string
+	browserPath?: string
 ): OpenInDestinationEntry[] {
 	const connector = useConnector();
 	const navigate = useNavigate();
 	const { data: userPreferences } = useUserPreferences();
-	const openSiteUrl = useOpenSiteUrl( site );
-	const isStarting = useIsSiteStarting( site.id );
-	const isStopping = useIsSiteStopping( site.id );
 
-	const busy = isStarting || isStopping;
 	const fileManager = getFileManager();
 	const editorLabel = userPreferences?.editor
 		? supportedEditorConfig[ userPreferences.editor ].label
@@ -70,20 +56,20 @@ export function useOpenInDestinations(
 	const terminalLabel = userPreferences?.terminal
 		? terminalConfig[ userPreferences.terminal ].name
 		: __( 'Terminal' );
-	const terminalLogo = userPreferences?.terminal
+	const configuredTerminalLogo = userPreferences?.terminal
 		? terminalLogos[ userPreferences.terminal ]
-		: appleTerminalLogo;
+		: terminalLogo;
 
-	const browserDestination: OpenInDestinationEntry[] = browserUrl
+	const browserDestination: OpenInDestinationEntry[] = browserPath
 		? [
 				{
 					id: 'browser',
 					label: __( 'Browser' ),
-					logo: globe,
+					logo: external,
 					disabled: ! site.running,
 					open: () => {
 						onOpen?.( 'browser' );
-						void connector.openExternalUrl( browserUrl ).catch( ( error ) => {
+						void connector.openSiteUrl( site.id, browserPath ).catch( ( error ) => {
 							console.error( 'Failed to open site in browser:', error );
 						} );
 					},
@@ -124,23 +110,13 @@ export function useOpenInDestinations(
 		{
 			id: 'terminal',
 			label: terminalLabel,
-			logo: terminalLogo,
+			logo: configuredTerminalLogo,
 			disabled: false,
 			open: () => {
 				onOpen?.( 'terminal' );
 				void connector.openSiteInTerminal( site.id ).catch( ( error ) => {
 					console.error( 'Failed to open site in terminal:', error );
 				} );
-			},
-		},
-		{
-			id: 'phpmyadmin',
-			label: __( 'phpMyAdmin' ),
-			logo: phpMyAdminLogo,
-			disabled: busy,
-			open: () => {
-				onOpen?.( 'phpmyadmin' );
-				void openSiteUrl( '/phpmyadmin/index.php?route=/database/structure&db=wordpress' );
 			},
 		},
 	];

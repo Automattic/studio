@@ -49,7 +49,6 @@ function renderAddressBar( {
 	onSwitchRealm = vi.fn(),
 	path = '/',
 	searchEnabled = true,
-	showDatabaseTab = true,
 	site = SITE,
 }: {
 	fetchSiteRest?: Mock;
@@ -57,7 +56,6 @@ function renderAddressBar( {
 	onSwitchRealm?: Mock;
 	path?: string;
 	searchEnabled?: boolean;
-	showDatabaseTab?: boolean;
 	site?: SiteDetails;
 } = {} ) {
 	useConnectorMock.mockReturnValue( { fetchSiteRest } as never );
@@ -72,8 +70,8 @@ function renderAddressBar( {
 					siteUrl={ SITE_URL }
 					path={ path }
 					searchEnabled={ searchEnabled }
+					showDatabaseTab
 					anchorRef={ { current: document.body } }
-					showDatabaseTab={ showDatabaseTab }
 					onNavigate={ onNavigate }
 					onSwitchRealm={ onSwitchRealm }
 				/>
@@ -203,11 +201,11 @@ describe( 'PreviewAddressBar', () => {
 		).not.toBeInTheDocument();
 	} );
 
-	it( 'hides the database segment when the database tab is turned off', () => {
-		renderAddressBar( { path: '/', showDatabaseTab: false } );
+	it( 'always offers the database segment', () => {
+		renderAddressBar( { path: '/' } );
 
 		expect( screen.getByRole( 'button', { name: 'View WP Admin' } ) ).toBeInTheDocument();
-		expect( screen.queryByRole( 'button', { name: 'View database' } ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'View database' } ) ).toBeInTheDocument();
 	} );
 
 	it( 'marks the segment matching the current path as active', () => {

@@ -423,7 +423,7 @@ function PreviewOverflowMenu( {
 			clipCount: number;
 			onClearClips?: () => void;
 		} | null;
-		openIn: { site: SiteDetails; browserUrl?: string };
+		openIn: { site: SiteDetails; browserPath?: string };
 	} | null;
 } ) {
 	const viewportLabels: Record< ViewportPreset[ 'id' ], string > = {
@@ -602,7 +602,7 @@ function PreviewOverflowMenu( {
 							<Menu.Popup side="left" align="start">
 								<OpenInDestinationItems
 									site={ collapsedTools.openIn.site }
-									browserUrl={ collapsedTools.openIn.browserUrl }
+									browserPath={ collapsedTools.openIn.browserPath }
 								/>
 							</Menu.Popup>
 						</Menu.SubmenuRoot>
@@ -1355,6 +1355,42 @@ export function SitePreview( {
 		[]
 	);
 	const refreshTooltipLabel = `${ __( 'Refresh' ) } ${ browserShortcuts.reload.displayShortcut }`;
+	const viewportBySiteRef = useRef<
+		Record< string, { mode?: ViewportMode; orientation?: MobileOrientation } >
+	>( {} );
+	const handleViewportModeChange = useCallback(
+		( mode: ViewportMode ) => {
+			setViewportMode( mode );
+			viewportBySiteRef.current[ site.id ] = { ...viewportBySiteRef.current[ site.id ], mode };
+			if ( mode === 'split' && ! fullscreen ) {
+				onToggleFullscreen?.();
+			}
+		},
+		[ fullscreen, onToggleFullscreen, site.id ]
+	);
+	const handleMobileOrientationChange = useCallback(
+		( orientation: MobileOrientation ) => {
+			setMobileOrientation( orientation );
+			viewportBySiteRef.current[ site.id ] = {
+				...viewportBySiteRef.current[ site.id ],
+				orientation,
+			};
+		},
+		[ site.id ]
+	);
+
+	const previousFullscreenRef = useRef( fullscreen );
+	const fullscreenRef = useRef( fullscreen );
+	const hasFullscreenToggleRef = useRef( Boolean( onToggleFullscreen ) );
+	useEffect( () => {
+		const wasFullscreen = previousFullscreenRef.current;
+		previousFullscreenRef.current = fullscreen;
+		fullscreenRef.current = fullscreen;
+		hasFullscreenToggleRef.current = Boolean( onToggleFullscreen );
+		if ( onToggleFullscreen && wasFullscreen && ! fullscreen && viewportMode === 'split' ) {
+			handleViewportModeChange( 'fit' );
+		}
+	}, [ fullscreen, handleViewportModeChange, onToggleFullscreen, viewportMode ] );
 
 	useEffect( () => {
 		setBrowserState( EMPTY_BROWSER_STATE );
@@ -1362,8 +1398,14 @@ export function SitePreview( {
 		setConsoleEntries( [] );
 		setConsoleOpen( false );
 		setConsoleHeight( DEFAULT_CONSOLE_HEIGHT );
-		setViewportMode( 'fit' );
-		setMobileOrientation( 'portrait' );
+		const rememberedViewport = viewportBySiteRef.current[ site.id ];
+		const rememberedMode = rememberedViewport?.mode ?? 'fit';
+		setViewportMode(
+			hasFullscreenToggleRef.current && ! fullscreenRef.current && rememberedMode === 'split'
+				? 'fit'
+				: rememberedMode
+		);
+		setMobileOrientation( rememberedViewport?.orientation ?? 'portrait' );
 		setPreviewLoggedIn( false );
 	}, [ site.id ] );
 
@@ -1645,14 +1687,16 @@ export function SitePreview( {
 							onClearClips={ onClipRemove ? clearClips : undefined }
 						/>
 					) : null }
-					{ ! isToolbarNarrow ? <OpenInMenu site={ site } browserUrl={ previewUrl } /> : null }
+					{ ! isToolbarNarrow ? (
+						<OpenInMenu site={ site } browserPath={ getSafePath( path ) } />
+					) : null }
 					<PreviewOverflowMenu
 						canPreview={ canPreview }
 						canUseWebview={ canUseWebview }
 						viewportMode={ viewportMode }
-						onViewportModeChange={ setViewportMode }
+						onViewportModeChange={ handleViewportModeChange }
 						mobileOrientation={ mobileOrientation }
-						onMobileOrientationChange={ setMobileOrientation }
+						onMobileOrientationChange={ handleMobileOrientationChange }
 						colorScheme={ previewColorScheme }
 						onColorSchemeChange={ setPreviewColorScheme }
 						fullscreen={ fullscreen }
@@ -1678,7 +1722,7 @@ export function SitePreview( {
 														onClearClips: onClipRemove ? clearClips : undefined,
 												  }
 												: null,
-										openIn: { site, browserUrl: previewUrl },
+										openIn: { site, browserPath: getSafePath( path ) },
 								  }
 								: null
 						}

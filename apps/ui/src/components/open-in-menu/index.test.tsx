@@ -110,7 +110,6 @@ const useUserPreferencesMock = vi.mocked( useUserPreferences, { partial: true } 
 
 describe( 'OpenInMenu', () => {
 	const openSiteUrl = vi.fn().mockResolvedValue( undefined );
-	const openExternalUrl = vi.fn().mockResolvedValue( undefined );
 	const openSiteFolder = vi.fn().mockResolvedValue( undefined );
 	const openSiteInEditor = vi.fn().mockResolvedValue( undefined );
 	const openSiteInTerminal = vi.fn().mockResolvedValue( undefined );
@@ -124,7 +123,6 @@ describe( 'OpenInMenu', () => {
 		window.localStorage.clear();
 		useConnectorMock.mockReturnValue( {
 			openSiteUrl,
-			openExternalUrl,
 			openSiteFolder,
 			openSiteInEditor,
 			openSiteInTerminal,
@@ -162,65 +160,47 @@ describe( 'OpenInMenu', () => {
 	} );
 
 	it( 'routes each destination through the connector', async () => {
-		render( <OpenInMenu site={ createSite( { running: true } ) } /> );
+		render( <OpenInMenu site={ createSite( { running: true } ) } browserPath="/about/" /> );
 
+		fireEvent.click( screen.getByText( 'Browser' ).closest( 'button' )! );
 		fireEvent.click(
 			screen.getByText( /^(Finder|File Explorer|File manager)$/ ).closest( 'button' )!
 		);
 		fireEvent.click( screen.getByText( 'Zed' ).closest( 'button' )! );
 		fireEvent.click( screen.getByText( 'Terminal' ).closest( 'button' )! );
-		fireEvent.click( screen.getByText( 'phpMyAdmin' ).closest( 'button' )! );
 
+		expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/about/' );
 		expect( openSiteFolder ).toHaveBeenCalledWith( 'site-1' );
 		expect( openSiteInEditor ).toHaveBeenCalledWith( 'site-1' );
 		expect( openSiteInTerminal ).toHaveBeenCalledWith( 'site-1' );
-		await waitFor( () =>
-			expect( openSiteUrl ).toHaveBeenCalledWith(
-				'site-1',
-				'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
-			)
-		);
 		expect( startSite ).not.toHaveBeenCalled();
 	} );
 
-	it( 'offers the browser destination only when a URL is provided', () => {
+	it( 'offers the browser destination only when a path is provided', () => {
 		const { rerender } = render( <OpenInMenu site={ createSite( { running: true } ) } /> );
 		expect( screen.queryByText( 'Browser' ) ).not.toBeInTheDocument();
 
-		rerender(
-			<OpenInMenu
-				site={ createSite( { running: true } ) }
-				browserUrl="http://localhost:8881/about/"
-			/>
-		);
+		rerender( <OpenInMenu site={ createSite( { running: true } ) } browserPath="/about/" /> );
 
 		fireEvent.click( screen.getByText( 'Browser' ).closest( 'button' )! );
 
-		expect( openExternalUrl ).toHaveBeenCalledWith( 'http://localhost:8881/about/' );
-		expect( window.localStorage.getItem( 'studio:open-in-menu:last-used' ) ).toBe( 'browser' );
+		expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/about/' );
+		expect( window.localStorage.getItem( 'studio:open-in-menu:last-used:site-1' ) ).toBe(
+			'browser'
+		);
 	} );
 
 	it( 'disables the browser destination while the site is stopped', () => {
-		render(
-			<OpenInMenu site={ createSite( { running: false } ) } browserUrl="http://localhost:8881/" />
-		);
+		render( <OpenInMenu site={ createSite( { running: false } ) } browserPath="/" /> );
 
 		const browserItem = screen.getByText( 'Browser' ).closest( 'button' )!;
 		expect( browserItem ).toBeDisabled();
 	} );
 
-	it( 'starts a stopped site before opening phpMyAdmin', async () => {
-		render( <OpenInMenu site={ createSite( { running: false } ) } /> );
+	it( 'offers no phpMyAdmin destination', () => {
+		render( <OpenInMenu site={ createSite( { running: true } ) } browserPath="/" /> );
 
-		fireEvent.click( screen.getByText( 'phpMyAdmin' ).closest( 'button' )! );
-
-		await waitFor( () => expect( startSite ).toHaveBeenCalledWith( 'site-1' ) );
-		await waitFor( () =>
-			expect( openSiteUrl ).toHaveBeenCalledWith(
-				'site-1',
-				'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
-			)
-		);
+		expect( screen.queryByText( 'phpMyAdmin' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'sends the user to settings when no editor is configured', () => {
@@ -233,7 +213,7 @@ describe( 'OpenInMenu', () => {
 		expect( navigateMock ).toHaveBeenCalledWith( { to: '/settings' } );
 		expect( openSiteInEditor ).not.toHaveBeenCalled();
 		// Nothing was opened, so the trigger's last-used destination stays put.
-		expect( window.localStorage.getItem( 'studio:open-in-menu:last-used' ) ).toBeNull();
+		expect( window.localStorage.getItem( 'studio:open-in-menu:last-used:site-1' ) ).toBeNull();
 	} );
 
 	it( 'remembers the last opened destination for the trigger icon', () => {
@@ -241,19 +221,40 @@ describe( 'OpenInMenu', () => {
 
 		fireEvent.click( screen.getByText( 'Terminal' ).closest( 'button' )! );
 
-		expect( window.localStorage.getItem( 'studio:open-in-menu:last-used' ) ).toBe( 'terminal' );
+		expect( window.localStorage.getItem( 'studio:open-in-menu:last-used:site-1' ) ).toBe(
+			'terminal'
+		);
 	} );
 
 	it( 'runs the last used destination from the split action button', () => {
-		render( <OpenInMenu site={ createSite( { running: true } ) } /> );
+		render( <OpenInMenu site={ createSite( { running: true } ) } browserPath="/" /> );
 
-		// Defaults to the file manager before anything has been opened.
+		// Defaults to the browser before anything has been opened.
 		fireEvent.click( screen.getByRole( 'button', { name: /^Open in / } ) );
-		expect( openSiteFolder ).toHaveBeenCalledWith( 'site-1' );
+		expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/' );
 
 		fireEvent.click( screen.getByText( 'Terminal' ).closest( 'button' )! );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Open in Terminal' } ) );
 		expect( openSiteInTerminal ).toHaveBeenCalledTimes( 2 );
+	} );
+
+	it( 'remembers destinations per site', async () => {
+		const { rerender } = render(
+			<OpenInMenu site={ createSite( { id: 'site-1', running: true } ) } browserPath="/" />
+		);
+		fireEvent.click( screen.getByText( 'Terminal' ).closest( 'button' )! );
+
+		rerender(
+			<OpenInMenu site={ createSite( { id: 'site-2', running: true } ) } browserPath="/" />
+		);
+		await waitFor( () =>
+			expect( screen.getByRole( 'button', { name: 'Open in Browser' } ) ).toBeVisible()
+		);
+
+		expect( window.localStorage.getItem( 'studio:open-in-menu:last-used:site-1' ) ).toBe(
+			'terminal'
+		);
+		expect( window.localStorage.getItem( 'studio:open-in-menu:last-used:site-2' ) ).toBeNull();
 	} );
 
 	it( 'routes the manage actions through existing APIs', () => {
@@ -267,7 +268,7 @@ describe( 'OpenInMenu', () => {
 		expect( exportFullSite ).toHaveBeenCalledWith( 'site-1' );
 		expect( exportDatabase ).toHaveBeenCalledWith( 'site-1' );
 		// Manage actions are not "open in" destinations; the trigger icon stays.
-		expect( window.localStorage.getItem( 'studio:open-in-menu:last-used' ) ).toBeNull();
+		expect( window.localStorage.getItem( 'studio:open-in-menu:last-used:site-1' ) ).toBeNull();
 
 		expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument();
 		fireEvent.click( screen.getByText( 'Delete' ).closest( 'button' )! );

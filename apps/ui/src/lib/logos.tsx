@@ -2,13 +2,14 @@ import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 import type { ReactElement } from 'react';
 
-/* Brand marks for the "Open in…" menu, rendered with `currentColor` so they
-   follow the theme-aware foreground tokens in light and dark mode. Third-party
-   path data comes from Simple Icons (CC0) except VS Code, which comes from
-   Devicon (MIT) because Simple Icons no longer ships it. Finder, Terminal, and
-   the generic folder are drawn in-house in the same stroke style as
-   `@/lib/icons`. Each root svg declares its own `fill` so the stroke-drawn
-   marks are not affected by the menu's fill mapping for @wordpress/icons. */
+/* Brand marks for the apps a site can be opened in, rendered with
+   `currentColor` so they follow the theme-aware foreground tokens in light and
+   dark mode. Third-party path data comes from Simple Icons (CC0) except VS
+   Code, which comes from Devicon (MIT) because Simple Icons no longer ships
+   it. Finder, Terminal, and the generic folder are drawn in-house in the same
+   stroke style as `./icons`. Each root svg declares its own `fill` so the
+   stroke-drawn marks are not affected by a consumer's fill mapping for
+   @wordpress/icons. */
 
 const vscodeLogo = (
 	<svg xmlns="http://www.w3.org/2000/svg" viewBox="-16 -16 160 160" fill="currentColor">
@@ -73,9 +74,9 @@ const ghosttyLogo = (
 	</svg>
 );
 
-export const phpMyAdminLogo = (
-	<svg xmlns="http://www.w3.org/2000/svg" viewBox="-3 -3 30 30" fill="currentColor">
-		<path d="M5.463 3.476C6.69 5.225 7.497 7.399 7.68 9.798a12.9 12.9 0 0 1-.672 5.254 4.29 4.29 0 0 1 2.969-1.523c.05-.004.099-.006.148-.008.08-.491.47-3.45-.977-6.68-1.068-2.386-3-3.16-3.685-3.365Zm1.777.037s2.406 1.066 3.326 5.547c.607 2.955.049 4.836-.402 5.773a7.347 7.347 0 0 1 4.506-1.994c.86-.065 1.695.02 2.482.233-.1-.741-.593-3.414-2.732-5.92-3.263-3.823-7.18-3.64-7.18-3.64Zm14.817 9.701-17.92 3.049a2.284 2.284 0 0 1 1.535 2.254 2.31 2.31 0 0 1-.106.61c.055-.027 2.689-1.275 6.342-2.034 3.238-.673 5.723-.36 6.285-.273a6.46 6.46 0 0 1 3.864-3.606zm-6.213 4.078c-2.318 0-4.641.495-6.614 1.166-2.868.976-2.951 1.348-5.55 1.043C1.844 19.286 0 18.386 0 18.386s2.406 1.97 4.914 2.127c1.986.125 3.505-.822 5.315-1.414 2.661-.871 4.511-.97 6.253-.975C19.361 18.116 24 19.353 24 19.353s-2.11-1.044-5.033-1.72a13.885 13.885 0 0 0-3.123-.34Z" />
+const antigravityLogo = (
+	<svg xmlns="http://www.w3.org/2000/svg" viewBox="-1.5 -2 19 19" fill="currentColor">
+		<path d="M14.0777 13.984C14.945 14.6345 16.2458 14.2008 15.0533 13.0084C11.476 9.53949 12.2349 0 7.79033 0C3.34579 0 4.10461 9.53949 0.527295 13.0084C-0.773543 14.3092 0.635692 14.6345 1.50293 13.984C4.86344 11.7076 4.64663 7.69664 7.79033 7.69664C10.934 7.69664 10.7172 11.7076 14.0777 13.984Z" />
 	</svg>
 );
 
@@ -109,7 +110,7 @@ export const folderLogo = (
 	</svg>
 );
 
-export const appleTerminalLogo = (
+export const terminalLogo = (
 	<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
 		<rect x="3" y="3.75" width="18" height="16.5" rx="3" stroke="currentColor" strokeWidth="1.5" />
 		<path
@@ -123,9 +124,8 @@ export const appleTerminalLogo = (
 	</svg>
 );
 
-/* Antigravity has no reliable vector mark yet; it falls back to the generic
-   code glyph in the menu. */
 export const editorLogos: Partial< Record< SupportedEditor, ReactElement > > = {
+	antigravity: antigravityLogo,
 	vscode: vscodeLogo,
 	cursor: cursorLogo,
 	phpstorm: phpstormLogo,
@@ -136,7 +136,7 @@ export const editorLogos: Partial< Record< SupportedEditor, ReactElement > > = {
 };
 
 export const terminalLogos: Record< SupportedTerminal, ReactElement > = {
-	terminal: appleTerminalLogo,
+	terminal: terminalLogo,
 	iterm: itermLogo,
 	warp: warpLogo,
 	ghostty: ghosttyLogo,

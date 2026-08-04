@@ -1063,7 +1063,6 @@ export function createIpcConnector(): Connector {
 				writes.push(
 					ipcApi.saveAnalyticsEnabled( partial.analyticsEnabled, {
 						surface: source?.surface ?? 'settings',
-						uiVersion: 'v2',
 					} )
 				);
 			}
@@ -1172,11 +1171,7 @@ export function createIpcConnector(): Connector {
 		},
 
 		async trackEvent( eventName, props = {} ): Promise< void > {
-			await ipcApi.recordAnalyticsEvent( eventName, {
-				channel: 'studio-ui',
-				ui_version: 'v2',
-				...props,
-			} );
+			await ipcApi.recordAnalyticsEvent( eventName, { ...props } );
 		},
 
 		// External links

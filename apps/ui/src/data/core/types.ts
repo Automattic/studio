@@ -798,7 +798,7 @@ export type WritableUserPreferences = Omit<
 };
 
 // Attributes a preference write to an in-app surface for settings-change Tracks
-// events. `ui_version` is fixed per renderer, so connectors set it — not callers.
+// events. `channel`/`ui_version` are attached by the desktop wrapper — not callers.
 export interface PreferenceChangeSource {
 	surface: 'onboarding' | 'settings';
 }

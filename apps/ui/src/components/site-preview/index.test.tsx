@@ -893,6 +893,79 @@ describe( 'SitePreview', () => {
 		expect( await screen.findByRole( 'menuitem', { name: /^Exit full preview/ } ) ).toBeVisible();
 	} );
 
+	it( 'uses full preview for the Desktop + Mobile comparison', async () => {
+		const onToggleFullscreen = vi.fn();
+		useConnectorMock.mockReturnValue( {
+			...baseConnector(),
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+
+		const site = createSite( { running: true } );
+		const { rerender } = renderPreview(
+			<SitePreview
+				site={ site }
+				path="/"
+				reloadNonce={ 0 }
+				onToggleFullscreen={ onToggleFullscreen }
+			/>
+		);
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'More options' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: 'Desktop + Mobile' } ) );
+		expect( onToggleFullscreen ).toHaveBeenCalledTimes( 1 );
+
+		rerender(
+			<SitePreview
+				site={ site }
+				path="/"
+				reloadNonce={ 0 }
+				fullscreen
+				onToggleFullscreen={ onToggleFullscreen }
+			/>
+		);
+		expect(
+			await screen.findByRole( 'menuitemradio', { name: 'Desktop + Mobile' } )
+		).toBeChecked();
+
+		rerender(
+			<SitePreview
+				site={ site }
+				path="/"
+				reloadNonce={ 0 }
+				onToggleFullscreen={ onToggleFullscreen }
+			/>
+		);
+		await waitFor( () =>
+			expect( screen.getByRole( 'menuitemradio', { name: 'Fit pane' } ) ).toBeChecked()
+		);
+	} );
+
+	it( 'remembers responsive modes per site', async () => {
+		useConnectorMock.mockReturnValue( {
+			...baseConnector(),
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+
+		const siteOne = createSite( { id: 'site-1', running: true } );
+		const siteTwo = createSite( { id: 'site-2', running: true } );
+		const { rerender } = renderPreview(
+			<SitePreview site={ siteOne } path="/" reloadNonce={ 0 } />
+		);
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'More options' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: /^Mobile/ } ) );
+
+		rerender( <SitePreview site={ siteTwo } path="/" reloadNonce={ 0 } /> );
+		expect( await screen.findByRole( 'menuitemradio', { name: 'Fit pane' } ) ).toBeChecked();
+
+		rerender( <SitePreview site={ siteOne } path="/" reloadNonce={ 0 } /> );
+		await waitFor( () =>
+			expect( screen.getByRole( 'menuitemradio', { name: /^Mobile/ } ) ).toBeChecked()
+		);
+	} );
+
 	it( 'toggles full preview on the primary-shift+F shortcut', () => {
 		const onToggleFullscreen = vi.fn();
 		useConnectorMock.mockReturnValue( {

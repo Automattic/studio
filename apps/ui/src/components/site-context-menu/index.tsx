@@ -15,7 +15,6 @@ import {
 import { useCustomizeLinks } from '@/hooks/use-customize-links';
 import { useOpenSiteUrl } from '@/hooks/use-open-site-url';
 import { useSiteManagementActions } from '@/hooks/use-site-management-actions';
-import { getSiteUrl } from '@/lib/get-site-url';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 import type { CustomizeLink } from '@/hooks/use-customize-links';
@@ -50,10 +49,8 @@ export function SiteContextMenu( { site, trigger }: { site: SiteDetails; trigger
 	const stopSite = useStopSite();
 	const openSiteUrl = useOpenSiteUrl( site );
 	const { customizeLinks, contentLinks, adminLink } = useCustomizeLinks( site );
-	// No `onOpen`: last-used tracking belongs to the split-button menus. Pass
-	// the site's home URL as `browserUrl` so "Open in" offers Browser here too,
-	// matching the preview's menu (it opens externally, disabled while stopped).
-	const destinations = useOpenInDestinations( site, undefined, getSiteUrl( site ) );
+	// No `onOpen`: last-used tracking belongs to the split-button menus.
+	const destinations = useOpenInDestinations( site, undefined, '/' );
 	const [ deleteOpen, setDeleteOpen ] = useState( false );
 	const managementActions = useSiteManagementActions( site, {
 		onDelete: () => setDeleteOpen( true ),

@@ -1,6 +1,6 @@
 import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { DeleteSiteDialog } from '@/components/delete-site-dialog';
 import * as Menu from '@/components/menu';
 import { QuickMenuItem, QuickMenuPopup, QuickMenuTrigger } from '@/components/site-quick-menu';
@@ -9,30 +9,24 @@ import { useOpenInDestinations } from './use-open-in-destinations';
 import type { OpenInDestination } from './use-open-in-destinations';
 import type { SiteDetails } from '@/data/core';
 
-const LAST_USED_STORAGE_KEY = 'studio:open-in-menu:last-used';
+const lastUsedStorageKey = ( siteId: string ) => `studio:open-in-menu:last-used:${ siteId }`;
 
 function isOpenInDestination( value: string | null ): value is OpenInDestination {
-	return (
-		value === 'browser' ||
-		value === 'files' ||
-		value === 'editor' ||
-		value === 'terminal' ||
-		value === 'phpmyadmin'
-	);
+	return value === 'browser' || value === 'files' || value === 'editor' || value === 'terminal';
 }
 
-function getStoredDestination(): OpenInDestination {
+function getStoredDestination( siteId: string ): OpenInDestination {
 	try {
-		const stored = window.localStorage.getItem( LAST_USED_STORAGE_KEY );
-		return isOpenInDestination( stored ) ? stored : 'files';
+		const stored = window.localStorage.getItem( lastUsedStorageKey( siteId ) );
+		return isOpenInDestination( stored ) ? stored : 'browser';
 	} catch {
-		return 'files';
+		return 'browser';
 	}
 }
 
-function storeLastUsedDestination( destination: OpenInDestination ): void {
+function storeLastUsedDestination( siteId: string, destination: OpenInDestination ): void {
 	try {
-		window.localStorage.setItem( LAST_USED_STORAGE_KEY, destination );
+		window.localStorage.setItem( lastUsedStorageKey( siteId ), destination );
 	} catch {
 		// Storage failures only mean the split trigger won't persist.
 	}
@@ -45,12 +39,16 @@ function storeLastUsedDestination( destination: OpenInDestination ): void {
  */
 export function OpenInDestinationItems( {
 	site,
-	browserUrl,
+	browserPath,
 }: {
 	site: SiteDetails;
-	browserUrl?: string;
+	browserPath?: string;
 } ) {
-	const destinations = useOpenInDestinations( site, storeLastUsedDestination, browserUrl );
+	const destinations = useOpenInDestinations(
+		site,
+		( destination ) => storeLastUsedDestination( site.id, destination ),
+		browserPath
+	);
 	return (
 		<>
 			{ destinations.map( ( destination ) => (
@@ -68,12 +66,11 @@ export function OpenInDestinationItems( {
 
 export function OpenInMenu( {
 	site,
-	browserUrl,
+	browserPath,
 }: {
 	site: SiteDetails;
-	// Enables the "Browser" destination: the absolute URL to open externally
-	// (e.g. the preview's current page).
-	browserUrl?: string;
+	// Enables the "Browser" destination at this site-relative path.
+	browserPath?: string;
 } ) {
 	const navigate = useNavigate();
 	const [ deleteOpen, setDeleteOpen ] = useState( false );
@@ -83,14 +80,17 @@ export function OpenInMenu( {
 
 	// The trigger reflects the destination the user opened last, like a
 	// split button's default action.
-	const [ lastUsed, setLastUsed ] = useState< OpenInDestination >( getStoredDestination );
+	const [ lastUsed, setLastUsed ] = useState< OpenInDestination >( () =>
+		getStoredDestination( site.id )
+	);
+	useEffect( () => setLastUsed( getStoredDestination( site.id ) ), [ site.id ] );
 
 	const rememberDestination = ( destination: OpenInDestination ) => {
 		setLastUsed( destination );
-		storeLastUsedDestination( destination );
+		storeLastUsedDestination( site.id, destination );
 	};
 
-	const destinations = useOpenInDestinations( site, rememberDestination, browserUrl );
+	const destinations = useOpenInDestinations( site, rememberDestination, browserPath );
 	const lastUsedDestination =
 		destinations.find( ( destination ) => destination.id === lastUsed ) ?? destinations[ 0 ];
 

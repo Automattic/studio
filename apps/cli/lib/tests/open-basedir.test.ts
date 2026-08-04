@@ -2,7 +2,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { containsPath, foldContainedPaths } from '../native-php/open-basedir';
+import { containsPath, dropCoveredPaths } from '../native-php/open-basedir';
 
 const p = ( ...segments: string[] ) => path.join( path.sep, ...segments );
 
@@ -30,10 +30,10 @@ describe( 'containsPath', () => {
 	} );
 } );
 
-describe( 'foldContainedPaths', () => {
+describe( 'dropCoveredPaths', () => {
 	it( 'drops entries nested inside another entry', () => {
 		expect(
-			foldContainedPaths( [
+			dropCoveredPaths( [
 				p( 'site' ),
 				p( 'site', 'wp-content', 'plugins', 'foo' ),
 				p( 'site', 'wp-content', 'themes', 'bar' ),
@@ -43,37 +43,37 @@ describe( 'foldContainedPaths', () => {
 
 	it( 'keeps entries outside the site directory', () => {
 		expect(
-			foldContainedPaths( [ p( 'site' ), p( 'site', 'wp-content' ), p( 'shared', 'plugin' ) ] )
+			dropCoveredPaths( [ p( 'site' ), p( 'site', 'wp-content' ), p( 'shared', 'plugin' ) ] )
 		).toEqual( [ p( 'site' ), p( 'shared', 'plugin' ) ] );
 	} );
 
 	it( 'deduplicates entries that differ only by trailing separator', () => {
-		expect( foldContainedPaths( [ p( 'tmp' ), `${ p( 'tmp' ) }${ path.sep }` ] ) ).toEqual( [
+		expect( dropCoveredPaths( [ p( 'tmp' ), `${ p( 'tmp' ) }${ path.sep }` ] ) ).toEqual( [
 			p( 'tmp' ),
 		] );
 	} );
 
-	it( 'folds a deep link farm down to the site directory', () => {
+	it( 'drops a deep link farm in favour of the site directory', () => {
 		const nested = Array.from( { length: 500 }, ( _, index ) =>
 			p( 'site', 'wp-content', 'themes', 'x', 'node_modules', '.pnpm', `pkg-${ index }` )
 		);
-		expect( foldContainedPaths( [ p( 'site' ), ...nested ] ) ).toEqual( [ p( 'site' ) ] );
+		expect( dropCoveredPaths( [ p( 'site' ), ...nested ] ) ).toEqual( [ p( 'site' ) ] );
 	} );
 
 	it( 'collapses redundant segments in the entries it emits', () => {
-		expect( foldContainedPaths( [ p( 'site', 'wp-content', '..', 'other' ) ] ) ).toEqual( [
+		expect( dropCoveredPaths( [ p( 'site', 'wp-content', '..', 'other' ) ] ) ).toEqual( [
 			p( 'site', 'other' ),
 		] );
 	} );
 
 	it( 'ignores empty entries', () => {
-		expect( foldContainedPaths( [ '', p( 'site' ) ] ) ).toEqual( [ p( 'site' ) ] );
+		expect( dropCoveredPaths( [ '', p( 'site' ) ] ) ).toEqual( [ p( 'site' ) ] );
 	} );
 
 	it( 'is order independent', () => {
 		const entries = [ p( 'site', 'wp-content' ), p( 'shared' ), p( 'site' ) ];
-		expect( foldContainedPaths( entries ).sort() ).toEqual(
-			foldContainedPaths( [ ...entries ].reverse() ).sort()
+		expect( dropCoveredPaths( entries ).sort() ).toEqual(
+			dropCoveredPaths( [ ...entries ].reverse() ).sort()
 		);
 	} );
 } );

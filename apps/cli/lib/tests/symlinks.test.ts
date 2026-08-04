@@ -1,7 +1,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { collectSymlinkAllowlistEntries } from '../symlinks';
 
 let root: string;
@@ -72,20 +72,13 @@ describe( 'collectSymlinkAllowlistEntries', () => {
 		] );
 	} );
 
-	it( 'finds symlinks nested deeper than four directory levels', () => {
-		const deep = makeDir( 'a', 'b', 'c', 'd' );
+	it( 'descends to any depth', () => {
+		const deep = makeDir( 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h' );
 		fs.symlinkSync( path.join( outside, 'shared-plugin' ), path.join( deep, 'link' ) );
 
 		return expect( collectSymlinkAllowlistEntries( sitePath ) ).resolves.toEqual( [
 			path.join( outside, 'shared-plugin' ),
 		] );
-	} );
-
-	it( 'stops descending past the default depth limit', () => {
-		const deep = makeDir( 'a', 'b', 'c', 'd', 'e', 'f' );
-		fs.symlinkSync( path.join( outside, 'shared-plugin' ), path.join( deep, 'link' ) );
-
-		return expect( collectSymlinkAllowlistEntries( sitePath ) ).resolves.toEqual( [] );
 	} );
 
 	it( 'finds symlinked Composer dependencies within a plugin', () => {
@@ -100,13 +93,6 @@ describe( 'collectSymlinkAllowlistEntries', () => {
 		] );
 	} );
 
-	it( 'honours an explicit depth limit', () => {
-		const nested = makeDir( 'wp-content', 'plugins' );
-		fs.symlinkSync( path.join( outside, 'shared-plugin' ), path.join( nested, 'shared-plugin' ) );
-
-		return expect( collectSymlinkAllowlistEntries( sitePath, 2 ) ).resolves.toEqual( [] );
-	} );
-
 	it( 'ignores dangling symlinks', () => {
 		const plugins = makeDir( 'wp-content', 'plugins' );
 		fs.symlinkSync( path.join( outside, 'missing' ), path.join( plugins, 'gone' ) );
@@ -118,6 +104,55 @@ describe( 'collectSymlinkAllowlistEntries', () => {
 		const plugins = makeDir( 'wp-content', 'plugins' );
 		fs.symlinkSync( path.join( outside, 'shared-plugin' ), path.join( plugins, 'one' ) );
 		fs.symlinkSync( path.join( outside, 'shared-plugin' ), path.join( plugins, 'two' ) );
+
+		return expect( collectSymlinkAllowlistEntries( sitePath ) ).resolves.toEqual( [
+			path.join( outside, 'shared-plugin' ),
+		] );
+	} );
+
+	it( 'returns an empty list for a missing directory', () => {
+		return expect(
+			collectSymlinkAllowlistEntries( path.join( root, 'does-not-exist' ) )
+		).resolves.toEqual( [] );
+	} );
+} );
+
+// The cases above run through `find` on macOS and Linux, so the Node walker would
+// otherwise only ever be exercised on Windows. Force that branch to keep the two
+// implementations in agreement.
+describe( 'collectSymlinkAllowlistEntries via the Node walker', () => {
+	const originalPlatform = process.platform;
+
+	beforeAll( () => {
+		Object.defineProperty( process, 'platform', { value: 'win32', configurable: true } );
+	} );
+
+	afterAll( () => {
+		Object.defineProperty( process, 'platform', {
+			value: originalPlatform,
+			configurable: true,
+		} );
+	} );
+
+	it( 'resolves a symlinked directory to its target', () => {
+		const plugins = makeDir( 'wp-content', 'plugins' );
+		fs.symlinkSync( path.join( outside, 'shared-plugin' ), path.join( plugins, 'shared-plugin' ) );
+
+		return expect( collectSymlinkAllowlistEntries( sitePath ) ).resolves.toEqual( [
+			path.join( outside, 'shared-plugin' ),
+		] );
+	} );
+
+	it( 'skips symlinks inside node_modules', () => {
+		const linkFarm = makeDir( 'wp-content', 'themes', 'node_modules' );
+		fs.symlinkSync( path.join( outside, 'shared-plugin' ), path.join( linkFarm, 'dep' ) );
+
+		return expect( collectSymlinkAllowlistEntries( sitePath ) ).resolves.toEqual( [] );
+	} );
+
+	it( 'descends to any depth', () => {
+		const deep = makeDir( 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h' );
+		fs.symlinkSync( path.join( outside, 'shared-plugin' ), path.join( deep, 'link' ) );
 
 		return expect( collectSymlinkAllowlistEntries( sitePath ) ).resolves.toEqual( [
 			path.join( outside, 'shared-plugin' ),

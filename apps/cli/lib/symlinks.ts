@@ -1,3 +1,4 @@
+import childProcess from 'child_process';
 import { EventEmitter } from 'events';
 import fs from 'fs';
 import path from 'path';
@@ -26,11 +27,6 @@ const RESTART_BUDGET_WINDOW_MS = 60_000;
 const IGNORED_SCAN_DIRECTORY_NAMES = new Set( [ 'node_modules', '.git', '.DS_Store' ] );
 // chokidar hands `ignored` a full path, so there the same names match per segment.
 const IGNORED_SCAN_PATH = /[\\/](node_modules|\.git|\.DS_Store)([\\/]|$)/;
-
-// Directory levels below the scan root to descend into. Six levels cover a
-// Composer path repository within a plugin or theme:
-// wp-content/<type>/<extension>/vendor/<vendor>/<package>.
-export const SYMLINK_SCAN_DEPTH = 6;
 
 export class SymlinkWatcher extends EventEmitter< SymlinkWatcherEvents > {
 	private watcher: FSWatcher | null = null;
@@ -191,17 +187,47 @@ export class SymlinkWatcher extends EventEmitter< SymlinkWatcherEvents > {
 	}
 }
 
-async function walkForSymlinks(
-	dir: string,
-	found: string[],
-	depth: number,
-	maxDepth: number
-): Promise< void > {
+// Builds `find <dir> \( -name a -o -name b \) -prune -o -type l -print0`, so the
+// prune list is generated from IGNORED_SCAN_DIRECTORY_NAMES rather than hand-kept
+// in sync with the walker below. -print0 because newlines are legal in POSIX
+// filenames and would otherwise split one path into two.
+function buildFindArgs( dir: string ): string[] {
+	const nameTests = [ ...IGNORED_SCAN_DIRECTORY_NAMES ].flatMap( ( name, index ) =>
+		index === 0 ? [ '-name', name ] : [ '-o', '-name', name ]
+	);
+	return [ dir, '(', ...nameTests, ')', '-prune', '-o', '-type', 'l', '-print0' ];
+}
+
+function nativeFindSymlinksInDir( dir: string ): Promise< string[] > {
+	return new Promise( ( resolve, reject ) => {
+		const child = childProcess.spawn( 'find', buildFindArgs( dir ) );
+		let output = '';
+		child.stdout.on( 'data', ( data ) => {
+			output += data.toString();
+		} );
+		child.on( 'close', ( code ) => {
+			if ( code !== 0 ) {
+				reject( new Error( `find exited with code ${ code }` ) );
+				return;
+			}
+			const absolutePaths = output
+				.split( '\0' )
+				.filter( Boolean )
+				.map( ( entryPath ) => path.resolve( dir, entryPath ) );
+			resolve( absolutePaths );
+		} );
+		child.on( 'error', ( error ) => {
+			reject( error );
+		} );
+	} );
+}
+
+async function walkForSymlinks( dir: string, found: string[] ): Promise< void > {
 	let entries: fs.Dirent[];
 	try {
 		entries = await fs.promises.readdir( dir, { withFileTypes: true } );
 	} catch {
-		// Missing dir or denied permissions — skip it rather than failing the scan.
+		// Missing dir or denied permissions — match `find`'s behavior of just skipping.
 		return;
 	}
 	for ( const entry of entries ) {
@@ -213,10 +239,24 @@ async function walkForSymlinks(
 			found.push( fullPath );
 			continue;
 		}
-		if ( entry.isDirectory() && depth < maxDepth ) {
-			await walkForSymlinks( fullPath, found, depth + 1, maxDepth );
+		if ( entry.isDirectory() ) {
+			await walkForSymlinks( fullPath, found );
 		}
 	}
+}
+
+async function findSymlinksInDir( dir: string ): Promise< string[] > {
+	if ( process.platform !== 'win32' ) {
+		try {
+			return await nativeFindSymlinksInDir( dir );
+		} catch {
+			// Fall back to the Node implementation if `find` is unavailable or fails.
+		}
+	}
+
+	const found: string[] = [];
+	await walkForSymlinks( dir, found );
+	return found;
 }
 
 // Resolve a symlink to the directory that needs to be granted in open_basedir.
@@ -234,12 +274,8 @@ export async function resolveSymlinkAllowlistEntry( linkPath: string ): Promise<
 	}
 }
 
-export async function collectSymlinkAllowlistEntries(
-	dir: string,
-	maxDepth: number = SYMLINK_SCAN_DEPTH
-): Promise< string[] > {
-	const symlinks: string[] = [];
-	await walkForSymlinks( dir, symlinks, 1, maxDepth );
+export async function collectSymlinkAllowlistEntries( dir: string ): Promise< string[] > {
+	const symlinks = await findSymlinksInDir( dir );
 	const resolved = await Promise.all( symlinks.map( resolveSymlinkAllowlistEntry ) );
 	return Array.from( new Set( resolved.filter( ( entry ): entry is string => entry !== null ) ) );
 }

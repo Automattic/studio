@@ -27,7 +27,7 @@ import {
 import { requestSetAdminCredentials, toUrlSearchParams } from './lib/admin-credentials';
 import { getPhpMyAdminPath } from './lib/dependency-management/paths';
 import { runBlueprint } from './lib/native-php/blueprints';
-import { containsPath, foldContainedPaths } from './lib/native-php/open-basedir';
+import { containsPath, dropCoveredPaths } from './lib/native-php/open-basedir';
 import {
 	killAllLivePhpProcesses,
 	spawnPhpProcess,
@@ -129,7 +129,7 @@ function isFileAccessRestricted( config: ServerConfig ): boolean {
 }
 
 function getEffectiveOpenBasedirAllowlist(): string[] {
-	return foldContainedPaths( [ ...staticOpenBasedirAllowlist, ...symlinkOpenBasedirAllowlist ] );
+	return dropCoveredPaths( [ ...staticOpenBasedirAllowlist, ...symlinkOpenBasedirAllowlist ] );
 }
 
 function isCoveredByOpenBasedirAllowlist( target: string ): boolean {

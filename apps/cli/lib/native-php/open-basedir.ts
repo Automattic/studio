@@ -24,7 +24,7 @@ export function containsPath( parent: string, child: string ): boolean {
 // open_basedir matches by path prefix, so an entry nested inside another grants
 // nothing extra. Dropping the redundant ones keeps the directive short, which
 // matters because it rides on the PHP command line and Windows caps that at 32k.
-export function foldContainedPaths( entries: string[] ): string[] {
+export function dropCoveredPaths( entries: string[] ): string[] {
 	const normalized = entries
 		.filter( Boolean )
 		.map( ( entry ) => path.normalize( entry ) )

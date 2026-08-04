@@ -1,0 +1,59 @@
+/* Overlays the EmptyBackground canvas like suggested-prompts: the layer never
+   takes pointer events; only the content does, so the canvas keeps its ripple
+   interactions. */
+.root {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	pointer-events: none;
+}
+
+.copy {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	max-width: 48ch;
+	padding: var(--wpds-dimension-padding-2xl);
+	text-align: center;
+	pointer-events: auto;
+	/* Frost the EmptyBackground dots behind the copy so it stays readable over
+	   the W (same treatment as suggested-prompts). */
+	border-radius: var(--wpds-border-radius-lg);
+	-webkit-backdrop-filter: blur(12px);
+	backdrop-filter: blur(12px);
+	background: color-mix(in srgb, var(--wpds-color-bg-surface-neutral) 70%, transparent);
+}
+
+.title {
+	margin: 0 0 var(--wpds-dimension-padding-xs);
+	font-size: var(--wpds-typography-font-size-lg);
+	font-weight: 600;
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.description {
+	margin: 0;
+	font-size: var(--wpds-typography-font-size-md);
+	line-height: var(--wpds-typography-line-height-md);
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.reassuranceLine {
+	display: block;
+	margin-top: var(--wpds-dimension-padding-sm);
+}
+
+.waitingIndicator {
+	margin: var(--wpds-dimension-padding-lg) 0 0;
+	font-size: var(--wpds-typography-font-size-sm);
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.actions {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-sm);
+	margin-top: var(--wpds-dimension-padding-xl);
+}

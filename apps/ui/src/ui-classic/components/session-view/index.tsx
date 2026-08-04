@@ -21,6 +21,7 @@ import { SiteDropdown } from '@/components/site-dropdown';
 import { SiteIcon } from '@/components/site-icon';
 import { type Annotation } from '@/components/site-preview/types';
 import { useAgentRun } from '@/data/queries/use-agent-run';
+import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import {
 	useCreateSession,
 	useSession,
@@ -32,6 +33,7 @@ import { useSessionCommands } from '@/hooks/use-session-commands';
 import { SessionUIProvider, useSessionPreviewAnnotations } from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
+import { AccessRequirements, type AccessRequirement } from './access-requirements';
 import { formatAnnotationsAsPrompt, formatAnnotationsSubmittedMessage } from './annotations';
 import { Composer, ComposerSkeleton, type ComposerHandle } from './composer';
 import { Conversation } from './conversation';
@@ -354,6 +356,12 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		return () => cancelAnimationFrame( id );
 	}, [ sessionId, data, isRunning, pendingQuestions.length, queuedPrompts.length ] );
 
+	const {
+		data: quota,
+		isFetching: isQuotaFetching,
+		refetch: refetchQuota,
+	} = useStudioAssistantQuota();
+
 	// The open session can vanish out from under this view — most commonly when
 	// its site is deleted, which removes the transcript from disk. Bounce to the
 	// root (the next available site) rather than flashing the dead-end "Session
@@ -381,6 +389,34 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 				footer={ <div aria-hidden /> }
 			>
 				<EmptyBackground />
+			</SessionFrame>
+		);
+	}
+
+	// Fail open when the quota is unavailable (offline, error, older server) —
+	// the WordPress.com proxy enforces the same gates server-side. Payment goes
+	// first when both are missing: adding a card already requires a verified
+	// email.
+	let accessRequirement: AccessRequirement | null = null;
+	if ( quota && ! quota.hasPaymentMethod ) {
+		accessRequirement = 'payment';
+	} else if ( quota && ! quota.emailVerified ) {
+		accessRequirement = 'email';
+	}
+
+	if ( accessRequirement ) {
+		return (
+			<SessionFrame
+				header={ <SessionHeader summary={ data.summary } /> }
+				composer={ <div aria-hidden /> }
+				footer={ <div aria-hidden /> }
+			>
+				<EmptyBackground />
+				<AccessRequirements
+					requirement={ accessRequirement }
+					isRechecking={ isQuotaFetching }
+					onRecheck={ () => void refetchQuota() }
+				/>
 			</SessionFrame>
 		);
 	}

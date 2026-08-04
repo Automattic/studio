@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useSession } from '@/data/queries/use-sessions';
 import { isScrolledAwayFromLatest, SessionView } from './index';
 import type { LoadedAiSession } from '@/data/core';
@@ -19,6 +20,15 @@ vi.mock( '@/data/queries/use-sessions', () => ( {
 
 vi.mock( '@/data/queries/use-sites', () => ( {
 	useSites: () => ( { data: [] } ),
+} ) );
+
+vi.mock( '@/data/queries/use-assistant-quota', () => ( {
+	useStudioAssistantQuota: vi.fn(),
+} ) );
+
+vi.mock( '@/data/core', async ( importOriginal ) => ( {
+	...( await importOriginal< object >() ),
+	useConnector: () => ( { openExternalUrl: vi.fn() } ),
 } ) );
 
 vi.mock( '@/data/queries/use-agent-run', () => ( {
@@ -59,6 +69,19 @@ vi.mock( './conversation', () => ( {
 } ) );
 
 const useSessionMock = vi.mocked( useSession, { partial: true } );
+const useStudioAssistantQuotaMock = vi.mocked( useStudioAssistantQuota, { partial: true } );
+
+function makeQuota( overrides: Partial< { hasPaymentMethod: boolean; emailVerified: boolean } > ) {
+	return {
+		costUsage: 0,
+		costCap: 500000,
+		costResetDate: '2026-09-01T00:00:00+00:00',
+		isStudioCodeAiBlocked: false,
+		emailVerified: true,
+		hasPaymentMethod: true,
+		...overrides,
+	};
+}
 
 const SCROLL_TO_LATEST_LABEL = 'Scroll to latest message';
 
@@ -81,6 +104,12 @@ function setScrollMetrics(
 describe( 'SessionView', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
+		// Entitled account by default; individual tests override.
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: makeQuota( {} ),
+			isFetching: false,
+			refetch: vi.fn(),
+		} );
 	} );
 
 	it( 'redirects to the root instead of flashing the error when the session is gone', async () => {
@@ -135,6 +164,77 @@ describe( 'SessionView', () => {
 				screen.queryByRole( 'button', { name: SCROLL_TO_LATEST_LABEL } )
 			).not.toBeInTheDocument()
 		);
+	} );
+
+	it( 'gates the chat behind the payment requirement when no payment method is saved', () => {
+		useSessionMock.mockReturnValue( {
+			data: makeLoadedSession(),
+			isLoading: false,
+			error: null,
+		} );
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: makeQuota( { hasPaymentMethod: false } ),
+			isFetching: false,
+			refetch: vi.fn(),
+		} );
+
+		render( <SessionView sessionId="session-1" /> );
+
+		expect( screen.getByText( 'Studio Code Beta' ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Add payment method' } ) ).toBeInTheDocument();
+	} );
+
+	it( 'asks for payment first when both payment and email are missing', () => {
+		useSessionMock.mockReturnValue( {
+			data: makeLoadedSession(),
+			isLoading: false,
+			error: null,
+		} );
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: makeQuota( { hasPaymentMethod: false, emailVerified: false } ),
+			isFetching: false,
+			refetch: vi.fn(),
+		} );
+
+		render( <SessionView sessionId="session-1" /> );
+
+		expect( screen.getByRole( 'button', { name: 'Add payment method' } ) ).toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'Verify email' } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'gates the chat behind email verification when only the email is unverified', () => {
+		useSessionMock.mockReturnValue( {
+			data: makeLoadedSession(),
+			isLoading: false,
+			error: null,
+		} );
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: makeQuota( { emailVerified: false } ),
+			isFetching: false,
+			refetch: vi.fn(),
+		} );
+
+		render( <SessionView sessionId="session-1" /> );
+
+		expect( screen.getByRole( 'button', { name: 'Verify email' } ) ).toBeInTheDocument();
+	} );
+
+	it( 'fails open when the quota is unavailable', () => {
+		useSessionMock.mockReturnValue( {
+			data: makeLoadedSession(),
+			isLoading: false,
+			error: null,
+		} );
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: undefined,
+			isFetching: false,
+			refetch: vi.fn(),
+		} );
+
+		render( <SessionView sessionId="session-1" /> );
+
+		expect( screen.queryByText( 'Studio Code Beta' ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'Verify email' } ) ).not.toBeInTheDocument();
 	} );
 } );
 

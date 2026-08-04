@@ -2,7 +2,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { collectSymlinkAllowlistEntries } from '../symlinks';
+import { collectSymlinkAllowlistEntries, isIgnoredScanPath } from '../symlinks';
 
 let root: string;
 let sitePath: string;
@@ -24,6 +24,40 @@ beforeEach( () => {
 
 afterEach( () => {
 	fs.rmSync( root, { recursive: true, force: true } );
+} );
+
+// Guards the rule the watcher and the scan share. Paths are built with path.join
+// so the assertions run against the platform's own separator.
+describe( 'isIgnoredScanPath', () => {
+	it( 'ignores a path ending in an ignored directory', () => {
+		expect( isIgnoredScanPath( path.join( 'site', 'wp-content', 'node_modules' ) ) ).toBe( true );
+	} );
+
+	it( 'ignores anything nested inside an ignored directory', () => {
+		expect(
+			isIgnoredScanPath( path.join( 'site', 'wp-content', 'node_modules', 'pkg', 'index.js' ) )
+		).toBe( true );
+	} );
+
+	it( 'ignores dot-prefixed names', () => {
+		expect( isIgnoredScanPath( path.join( 'site', '.git', 'HEAD' ) ) ).toBe( true );
+		expect( isIgnoredScanPath( path.join( 'site', '.DS_Store' ) ) ).toBe( true );
+	} );
+
+	it( 'keeps ordinary paths', () => {
+		expect( isIgnoredScanPath( path.join( 'site', 'wp-content', 'plugins', 'my-plugin' ) ) ).toBe(
+			false
+		);
+	} );
+
+	it( 'matches whole segments only', () => {
+		expect( isIgnoredScanPath( path.join( 'site', 'my-node_modules-backup' ) ) ).toBe( false );
+		expect( isIgnoredScanPath( path.join( 'site', 'node_modules-old' ) ) ).toBe( false );
+	} );
+
+	it( 'handles an absolute path', () => {
+		expect( isIgnoredScanPath( path.join( root, 'site', 'node_modules' ) ) ).toBe( true );
+	} );
 } );
 
 describe( 'collectSymlinkAllowlistEntries', () => {

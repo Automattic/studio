@@ -25,8 +25,12 @@ const RESTART_BUDGET_WINDOW_MS = 60_000;
 // Directories that never host plugin/theme symlinks but can hold thousands of
 // them (npm/pnpm link farms).
 const IGNORED_SCAN_DIRECTORY_NAMES = new Set( [ 'node_modules', '.git', '.DS_Store' ] );
-// chokidar hands `ignored` a full path, so there the same names match per segment.
-const IGNORED_SCAN_PATH = /[\\/](node_modules|\.git|\.DS_Store)([\\/]|$)/;
+
+export function isIgnoredScanPath( entryPath: string ): boolean {
+	return entryPath
+		.split( path.sep )
+		.some( ( segment ) => IGNORED_SCAN_DIRECTORY_NAMES.has( segment ) );
+}
 
 export class SymlinkWatcher extends EventEmitter< SymlinkWatcherEvents > {
 	private watcher: FSWatcher | null = null;
@@ -82,7 +86,7 @@ export class SymlinkWatcher extends EventEmitter< SymlinkWatcherEvents > {
 			ignorePermissionErrors: true,
 			// Skip directories that produce noise and never host plugin/theme symlinks.
 			// chokidar v4+ no longer accepts globs by default — match against the path.
-			ignored: ( entryPath: string ) => IGNORED_SCAN_PATH.test( entryPath ),
+			ignored: isIgnoredScanPath,
 		} );
 
 		const onMaybeSymlink = async ( entryPath: string ) => {

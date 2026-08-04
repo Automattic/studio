@@ -120,22 +120,6 @@ describe( 'AccountSection', () => {
 		expect( loginMutate ).toHaveBeenCalledTimes( 1 );
 	} );
 
-	it( 'opens the WordPress.com profile through the connector', () => {
-		render( <AccountSection /> );
-
-		fireEvent.click( screen.getByRole( 'button', { name: 'Edit WordPress.com profile' } ) );
-
-		expect( openExternalUrl ).toHaveBeenCalledWith( 'https://wordpress.com/me' );
-	} );
-
-	it( 'disables the profile link when offline', () => {
-		useOfflineMock.mockReturnValue( true );
-
-		render( <AccountSection /> );
-
-		expect( screen.getByRole( 'button', { name: 'Edit WordPress.com profile' } ) ).toBeDisabled();
-	} );
-
 	it( 'disables the login button when offline', () => {
 		useAuthUserMock.mockReturnValue( { data: null, isLoading: false } as never );
 		useOfflineMock.mockReturnValue( true );

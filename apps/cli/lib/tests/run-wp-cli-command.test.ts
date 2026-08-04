@@ -26,7 +26,7 @@ describe( 'teeToBoundedTail', () => {
 		const onOutput = vi.fn();
 		const tail = teeToBoundedTail( source, destination, onOutput ) as PassThrough;
 		const resumeSpy = vi.spyOn( source, 'resume' );
-		const output = Buffer.alloc( 3 * 1024 * 1024, 'x' );
+		const output = Buffer.alloc( 128 * 1024, 'x' );
 
 		source.write( output );
 		expect( source.isPaused() ).toBe( true );

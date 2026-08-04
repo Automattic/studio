@@ -1,7 +1,7 @@
 import { useIsMutating } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
 import { external, Icon, moreVertical } from '@wordpress/icons';
-import { Button, Dialog, IconButton, Tooltip } from '@wordpress/ui';
+import { Button, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as Menu from '@/components/menu';
@@ -27,7 +27,7 @@ import {
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { getSiteDisplayUrl, getSiteUrl } from '@/lib/get-site-url';
 import { DisconnectSiteDialog } from './disconnect-site-dialog';
-import { PublishPickerView } from './publish-picker-view';
+import { PublishSiteDialog } from './publish-site-dialog';
 import { ShareDialog } from './share-dialog';
 import styles from './style.module.css';
 import { ensureProtocol, pickLiveSite } from './utils';
@@ -309,11 +309,7 @@ export function SiteToolbar( { site, className, openPullOnLoad = false }: SiteTo
 
 			{ /* Mounted only while open: it loads the account's sites on mount. */ }
 			{ publishOpen ? (
-				<Dialog.Root open onOpenChange={ setPublishOpen }>
-					<Dialog.Popup size="small">
-						<PublishPickerView site={ site } onClose={ () => setPublishOpen( false ) } />
-					</Dialog.Popup>
-				</Dialog.Root>
+				<PublishSiteDialog site={ site } open onOpenChange={ setPublishOpen } />
 			) : null }
 
 			{ shareOpen ? <ShareDialog site={ site } open onOpenChange={ setShareOpen } /> : null }

@@ -8,6 +8,7 @@ import {
 	type StudioChatArtifactWidgetDraft,
 } from '@studio/common/ai/chat-artifacts';
 import { readBlobAsDataUrl } from '@studio/common/ai/composer-attachments';
+import { isAiBlockedError, isUsageCapError } from '@studio/common/ai/json-events';
 import {
 	isStudioCustomEntryOfType,
 	type StudioChatAttachmentSummary,
@@ -19,12 +20,18 @@ import {
 	getToolResultDiff,
 	type NormalizedToolResult,
 } from '@studio/common/ai/tools';
+import {
+	formatAiBlockedNotice,
+	formatUsageCapNotice,
+} from '@studio/common/lib/studio-assistant-quota';
 import { __ } from '@wordpress/i18n';
 import { image, page } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useGetStudioAssistantQuota } from 'src/stores/wpcom-api';
+import { CopyButton } from '../copy-button';
 import { Markdown } from '../markdown';
 import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
@@ -35,10 +42,11 @@ type RenderItem =
 	| {
 			kind: 'user-text';
 			key: string;
+			entryId: string;
 			text: string;
 			attachments?: StudioChatAttachmentSummary[];
 	  }
-	| { kind: 'assistant-text'; key: string; text: string }
+	| { kind: 'assistant-text'; key: string; text: string; copyText?: string }
 	| {
 			kind: 'tool-use';
 			key: string;
@@ -58,7 +66,8 @@ type RenderItem =
 			key: string;
 			widgets: StudioChatArtifactWidgetDraft[];
 	  }
-	| { kind: 'interrupted-marker'; key: string };
+	| { kind: 'interrupted-marker'; key: string }
+	| { kind: 'error-marker'; key: string; message: string };
 
 interface PiAssistantContentBlock {
 	type: 'text' | 'toolCall' | 'thinking';
@@ -125,14 +134,44 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 	// only if that case ever shows wrong highlights.
 	let questionOrdinal = 0;
 
+	// Pre-scan: find entries superseded by edits. For each edit marker, hide
+	// everything from the original entry through the marker itself.
+	const editMarkers = new Map< string, number >();
+	entries.forEach( ( entry, index ) => {
+		if ( isStudioCustomEntryOfType( entry, 'studio.message_edited' ) ) {
+			const data = ( entry as StudioCustomEntry< 'studio.message_edited' > ).data;
+			if ( data?.originalEntryId ) {
+				editMarkers.set( data.originalEntryId, index );
+			}
+		}
+	} );
+	const hiddenIndices = new Set< number >();
+	if ( editMarkers.size > 0 ) {
+		let hideUntilIndex = -1;
+		for ( let i = 0; i < entries.length; i += 1 ) {
+			const entryId = ( entries[ i ] as { id?: string } ).id;
+			if ( entryId && editMarkers.has( entryId ) ) {
+				hideUntilIndex = editMarkers.get( entryId )!;
+			}
+			if ( i <= hideUntilIndex ) {
+				hiddenIndices.add( i );
+			}
+		}
+	}
+
 	const items: RenderItem[] = [];
 	entries.forEach( ( entry, entryIndex ) => {
+		if ( hiddenIndices.has( entryIndex ) ) {
+			return;
+		}
+
 		if ( isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) ) {
 			const data = ( entry as StudioCustomEntry< 'studio.user_prompt' > ).data;
 			if ( ! data || data.source !== 'prompt' ) return;
 			items.push( {
 				kind: 'user-text',
 				key: `${ entryIndex }:user`,
+				entryId: ( entry as { id: string } ).id,
 				text: data.text,
 				attachments: data.attachments,
 			} );
@@ -146,6 +185,15 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 			if ( ! message || message.role !== 'assistant' || ! Array.isArray( message.content ) ) {
 				return;
 			}
+			// A single assistant message can hold several text blocks split by tool
+			// calls. Copy must yield the whole message, so join every text block and
+			// hang one copy button off the last one rather than one per fragment.
+			const textBlocks = message.content.filter(
+				( block ) => block.type === 'text' && typeof block.text === 'string' && block.text.trim()
+			);
+			const fullMessageText = textBlocks.map( ( block ) => block.text!.trim() ).join( '\n\n' );
+			const lastTextBlock = textBlocks[ textBlocks.length - 1 ];
+
 			message.content.forEach( ( block, blockIndex ) => {
 				if ( block.type === 'text' && typeof block.text === 'string' ) {
 					const text = block.text.trim();
@@ -154,6 +202,7 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 							kind: 'assistant-text',
 							key: `${ entryIndex }:${ blockIndex }:text`,
 							text,
+							copyText: block === lastTextBlock ? fullMessageText : undefined,
 						} );
 					}
 				} else if (
@@ -213,12 +262,32 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 					kind: 'interrupted-marker',
 					key: `${ entryIndex }:interrupted`,
 				} );
+			} else if ( data?.status === 'error' ) {
+				items.push( {
+					kind: 'error-marker',
+					key: `${ entryIndex }:error`,
+					message: data.errorMessage ?? '',
+				} );
 			}
 			return;
 		}
 	} );
 
 	return items;
+}
+
+export function wasLastTurnInterrupted( entries: SessionEntry[] ): boolean {
+	for ( let index = entries.length - 1; index >= 0; index -= 1 ) {
+		const entry = entries[ index ];
+		if ( isStudioCustomEntryOfType( entry, 'studio.turn_closed' ) ) {
+			const data = ( entry as StudioCustomEntry< 'studio.turn_closed' > ).data;
+			return data?.status === 'interrupted';
+		}
+		if ( isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) ) {
+			return false;
+		}
+	}
+	return false;
 }
 
 // Progress from earlier turns must not leak into the current indicator, so
@@ -243,10 +312,83 @@ function findLatestProgressMessage( entries: SessionEntry[] ): string | null {
 function UserTurn( {
 	text,
 	attachments,
+	editable = false,
+	onSubmitEdit,
 }: {
 	text: string;
 	attachments?: StudioChatAttachmentSummary[];
+	editable?: boolean;
+	onSubmitEdit?: ( newText: string ) => void;
 } ) {
+	const [ isEditing, setIsEditing ] = useState( false );
+	const [ editText, setEditText ] = useState( text );
+	const textareaRef = useRef< HTMLTextAreaElement >( null );
+
+	const startEditing = useCallback( () => {
+		setEditText( text );
+		setIsEditing( true );
+	}, [ text ] );
+
+	const cancelEditing = useCallback( () => {
+		setIsEditing( false );
+	}, [] );
+
+	const submitEdit = useCallback( () => {
+		const trimmed = editText.trim();
+		if ( trimmed && onSubmitEdit ) {
+			onSubmitEdit( trimmed );
+		}
+		setIsEditing( false );
+	}, [ editText, onSubmitEdit ] );
+
+	const handleKeyDown = useCallback(
+		( event: React.KeyboardEvent< HTMLTextAreaElement > ) => {
+			if ( event.key === 'Escape' ) {
+				cancelEditing();
+			} else if ( event.key === 'Enter' && ! event.shiftKey ) {
+				event.preventDefault();
+				submitEdit();
+			}
+		},
+		[ cancelEditing, submitEdit ]
+	);
+
+	useEffect( () => {
+		if ( isEditing && textareaRef.current ) {
+			const textarea = textareaRef.current;
+			textarea.focus();
+			textarea.selectionStart = textarea.value.length;
+		}
+	}, [ isEditing ] );
+
+	if ( isEditing ) {
+		return (
+			<div className={ styles.userTurn }>
+				<textarea
+					ref={ textareaRef }
+					className={ styles.userEditTextarea }
+					value={ editText }
+					onChange={ ( e ) => setEditText( e.target.value ) }
+					onKeyDown={ handleKeyDown }
+					rows={ 3 }
+				/>
+				<div className={ styles.userEditActions }>
+					<button type="button" className={ styles.userEditCancelButton } onClick={ cancelEditing }>
+						{ __( 'Cancel' ) }
+					</button>
+					<button
+						type="button"
+						className={ styles.userEditSendButton }
+						onClick={ submitEdit }
+						disabled={ ! editText.trim() }
+					>
+						{ __( 'Send' ) }
+					</button>
+				</div>
+			</div>
+		);
+	}
+
 	return (
 		<div className={ styles.userTurn }>
 			<div className={ styles.userText }>{ text }</div>
@@ -276,12 +418,35 @@ function UserTurn( {
 					) }
 				</ul>
 			) : null }
+			{ editable && onSubmitEdit ? (
+				<div className={ styles.userActions }>
+					<button
+						type="button"
+						className={ styles.userEditButton }
+						onClick={ startEditing }
+						aria-label={ __( 'Edit your last message' ) }
+					>
+						{ __( 'Edit' ) }
+					</button>
+				</div>
+			) : null }
 		</div>
 	);
 }
 
-function AssistantText( { text }: { text: string } ) {
-	return <Markdown>{ text }</Markdown>;
+function AssistantText( { text, copyText }: { text: string; copyText?: string } ) {
+	return (
+		<div className={ styles.assistantTurn }>
+			<Markdown>{ text }</Markdown>
+			{ copyText ? (
+				<CopyButton
+					text={ copyText }
+					label={ __( 'Copy message' ) }
+					className={ styles.messageActions }
+				/>
+			) : null }
+		</div>
+	);
 }
 
 const TOOL_RESULT_PREVIEW_MAX_LINES = 12;
@@ -484,6 +649,27 @@ function AgentQuestion( {
 	);
 }
 
+// In-flow marker for a turn that ended in an error. The monthly usage cap
+// gets dedicated copy — with the reset date once the quota query resolves —
+// instead of the raw provider message.
+function TurnErrorMarker( { message }: { message: string } ) {
+	const isUsageCap = isUsageCapError( message );
+	const { data: quota } = useGetStudioAssistantQuota( undefined, { skip: ! isUsageCap } );
+	let text: string;
+	if ( isAiBlockedError( message ) ) {
+		text = formatAiBlockedNotice();
+	} else if ( isUsageCap ) {
+		text = formatUsageCapNotice( quota?.costResetDate );
+	} else {
+		text = message || __( 'Something went wrong and this turn was stopped. Please try again.' );
+	}
+	return (
+		<div className={ styles.errorMarker } role="alert">
+			{ text }
+		</div>
+	);
+}
+
 export function Conversation( {
 	data,
 	isRunning,
@@ -492,6 +678,8 @@ export function Conversation( {
 	pendingAnswers,
 	answeredQuestions,
 	onAnswerQuestion,
+	canEditLastUserMessage = false,
+	onEditUserMessage,
 }: {
 	data: LoadedAiSession;
 	isRunning: boolean;
@@ -500,6 +688,8 @@ export function Conversation( {
 	pendingAnswers: Record< string, string >;
 	answeredQuestions: Record< string, string >;
 	onAnswerQuestion: ( question: string, label: string ) => void;
+	canEditLastUserMessage?: boolean;
+	onEditUserMessage?: ( entryId: string, text: string ) => void;
 } ) {
 	const entries = data.entries;
 	const items = useMemo( () => entriesToRenderItems( entries ), [ entries ] );
@@ -507,17 +697,67 @@ export function Conversation( {
 		() => ( isRunning ? findLatestProgressMessage( entries ) : null ),
 		[ entries, isRunning ]
 	);
+	// Only the most recent user prompt is offered for editing, and only once
+	// the run behind it has been stopped.
+	const lastUserTextKey = useMemo( () => {
+		for ( let index = items.length - 1; index >= 0; index -= 1 ) {
+			if ( items[ index ].kind === 'user-text' ) {
+				return items[ index ].key;
+			}
+		}
+		return null;
+	}, [ items ] );
+
+	// Optimistic hide: the persisted `studio.message_edited` marker only takes
+	// effect once the cache refreshes from disk. This local set hides the old
+	// turn immediately so the user sees the replacement right away.
+	const [ optimisticHiddenKeys, setOptimisticHiddenKeys ] = useState< Set< string > >(
+		() => new Set()
+	);
+	const handleEditSubmit = useCallback(
+		( entryId: string, newText: string ) => {
+			const keysToHide = new Set< string >();
+			let lastUserIdx = -1;
+			for ( let i = items.length - 1; i >= 0; i -= 1 ) {
+				if ( items[ i ].kind === 'user-text' ) {
+					lastUserIdx = i;
+					break;
+				}
+			}
+			if ( lastUserIdx >= 0 ) {
+				for ( let i = lastUserIdx; i < items.length; i += 1 ) {
+					keysToHide.add( items[ i ].key );
+				}
+				setOptimisticHiddenKeys( keysToHide );
+			}
+			onEditUserMessage?.( entryId, newText );
+		},
+		[ items, onEditUserMessage ]
+	);
 
 	return (
 		<div className={ styles.root }>
 			{ items.map( ( item ) => {
+				if ( optimisticHiddenKeys.has( item.key ) ) {
+					return null;
+				}
 				switch ( item.kind ) {
-					case 'user-text':
+					case 'user-text': {
+						const editable = canEditLastUserMessage && item.key === lastUserTextKey;
 						return (
-							<UserTurn key={ item.key } text={ item.text } attachments={ item.attachments } />
+							<UserTurn
+								key={ item.key }
+								text={ item.text }
+								attachments={ item.attachments }
+								editable={ editable }
+								onSubmitEdit={
+									editable ? ( newText ) => handleEditSubmit( item.entryId, newText ) : undefined
+								}
+							/>
 						);
+					}
 					case 'assistant-text':
-						return <AssistantText key={ item.key } text={ item.text } />;
+						return <AssistantText key={ item.key } text={ item.text } copyText={ item.copyText } />;
 					case 'tool-use':
 						return (
 							<ToolUseRow
@@ -550,6 +790,8 @@ export function Conversation( {
 								{ __( 'Interrupted by you' ) }
 							</div>
 						);
+					case 'error-marker':
+						return <TurnErrorMarker key={ item.key } message={ item.message } />;
 					default:
 						return null;
 				}

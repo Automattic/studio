@@ -24,8 +24,8 @@ This repo improves through real-world migration experience. Every migration surf
 
 ```bash
 # Fork via GitHub UI or gh CLI, then:
-git clone https://github.com/YOUR-USERNAME/data-liberation-agent.git
-cd data-liberation-agent
+git clone https://github.com/YOUR-USERNAME/studio.git
+cd studio/packages/data-liberation-agent
 git checkout -b improvement/short-description-of-what-you-found
 ```
 
@@ -54,7 +54,7 @@ If you can't test against a real site, note that in the PR and explain what you 
 
 ### 3. Add to DISCOVERIES.md
 
-This is required. Add a new entry at the top of [DISCOVERIES.md](./DISCOVERIES.md) in this format:
+This is required. DISCOVERIES.md is a local, untracked log (gitignored — it is not committed to the repo); create it at the package root if it doesn't exist yet. Add a new entry at the top in this format:
 
 ```markdown
 ## YYYY-MM-DD — Short title

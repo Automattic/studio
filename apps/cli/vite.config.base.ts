@@ -1,6 +1,6 @@
 import { execSync } from 'child_process';
-import { cpSync, existsSync, mkdirSync, writeFileSync } from 'fs';
-import { relative, resolve, sep } from 'path';
+import { copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, writeFileSync } from 'fs';
+import { resolve } from 'path';
 import semver from 'semver';
 import { defineConfig } from 'vite';
 import packageJson from './package.json';
@@ -45,8 +45,90 @@ const repoRoot = resolve( __dirname, '..', '..' );
 // The `studio ui` command serves the built browser UI (apps/ui `dist-local`)
 // from `<chunk dir>/ui`, so it must sit next to the built chunks too. Built
 // separately (`npm run build:local --workspace=apps/ui`); absent in API-only
-// or dev-server setups, which is fine.
+// or dev-server setups, which is fine — for dev builds. Release configs must
+// include `buildLocalUiPlugin` so the shipped CLI never lacks the UI.
 const localUiDistPath = resolve( __dirname, '../ui/dist-local' );
+
+// Builds the browser UI so the copy in `write-dist-extras` always has it.
+// Release configs (npm, prod, standalone) include this plugin; without it a
+// missing `dist-local` is silently skipped and `studio ui` ships broken
+// ("Cannot GET /", as happened with wp-studio@1.15.0 on npm).
+export function buildLocalUiPlugin() {
+	return {
+		name: 'build-local-ui',
+		apply: 'build' as const,
+		buildStart() {
+			// Equivalent to apps/ui's `build:local` script, but with the target set
+			// via the environment: the script's inline `STUDIO_TARGET=local` prefix
+			// is POSIX-only and fails under cmd.exe on Windows CI.
+			execSync( 'npx vite build', {
+				cwd: resolve( __dirname, '../ui' ),
+				stdio: 'inherit',
+				env: { ...process.env, STUDIO_TARGET: 'local' },
+			} );
+			if ( ! existsSync( localUiDistPath ) ) {
+				throw new Error(
+					`The browser UI build did not produce ${ localUiDistPath }; refusing to ship a CLI without the \`studio ui\` assets.`
+				);
+			}
+		},
+	};
+}
+
+// Ship only the self-contained engine bundle — its deps are inlined. Shipping
+// the tsc output + node_modules instead added ~10k files to the installer and
+// ~8 min to the Windows CI build (STU-2027).
+function copyDataLiberationEngine( outDir: string ) {
+	execSync( 'npm -w data-liberation run build:mcp-bundle', {
+		cwd: repoRoot,
+		stdio: 'inherit',
+	} );
+	const engineOutDir = resolve( outDir, 'data-liberation-agent' );
+	mkdirSync( resolve( engineOutDir, 'dist' ), { recursive: true } );
+	copyFileSync(
+		resolve( dataLiberationSourcePath, 'dist', 'mcp-server.bundle.mjs' ),
+		resolve( engineOutDir, 'dist', 'mcp-server.bundle.mjs' )
+	);
+	cpSync( resolve( dataLiberationSourcePath, 'skills' ), resolve( engineOutDir, 'skills' ), {
+		recursive: true,
+	} );
+
+	// The skills also invoke pipeline drivers via `node scripts/run.mjs <name>`.
+	// Ship the launcher plus the self-contained driver bundles it falls back to
+	// when no dev dependencies resolve next to it (dist/scripts/, emitted by the
+	// same build:mcp-bundle run as the server bundle).
+	cpSync(
+		resolve( dataLiberationSourcePath, 'dist', 'scripts' ),
+		resolve( engineOutDir, 'dist', 'scripts' ),
+		{ recursive: true }
+	);
+	mkdirSync( resolve( engineOutDir, 'scripts' ), { recursive: true } );
+	copyFileSync(
+		resolve( dataLiberationSourcePath, 'scripts', 'run.mjs' ),
+		resolve( engineOutDir, 'scripts', 'run.mjs' )
+	);
+
+	// The bundle resolves vendored runtime assets (.php helpers run via
+	// `wp eval-file`, .json data like core-block-attrs.json) relative to the
+	// engine's original src/ module paths — see the import.meta.url rewrite in
+	// packages/data-liberation-agent/scripts/build-mcp-bundle.mjs — so mirror
+	// those files (and nothing else) under src/.
+	const copyRuntimeAssets = ( srcDir: string, destDir: string ) => {
+		for ( const entry of readdirSync( srcDir, { withFileTypes: true } ) ) {
+			const from = resolve( srcDir, entry.name );
+			if ( entry.isDirectory() ) {
+				if ( /^__(tests|fixtures|snapshots)__$/.test( entry.name ) ) {
+					continue;
+				}
+				copyRuntimeAssets( from, resolve( destDir, entry.name ) );
+			} else if ( /\.(php|json)$/.test( entry.name ) ) {
+				mkdirSync( destDir, { recursive: true } );
+				copyFileSync( from, resolve( destDir, entry.name ) );
+			}
+		}
+	};
+	copyRuntimeAssets( resolve( dataLiberationSourcePath, 'src' ), resolve( engineOutDir, 'src' ) );
+}
 
 export const baseConfig = defineConfig( {
 	oxc: {
@@ -73,23 +155,7 @@ export const baseConfig = defineConfig( {
 					cpSync( skillsSourcePath, resolve( outDir, 'skills' ), { recursive: true } );
 				}
 
-				execSync( 'npm -w data-liberation run build', { cwd: repoRoot, stdio: 'inherit' } );
-				cpSync( dataLiberationSourcePath, resolve( outDir, 'data-liberation-agent' ), {
-					recursive: true,
-					filter: ( src ) => {
-						const rel = relative( dataLiberationSourcePath, src );
-						if ( rel === '' ) {
-							return true;
-						}
-
-						const top = rel.split( sep )[ 0 ];
-						if ( top !== 'dist' && top !== 'package.json' && top !== 'skills' ) {
-							return false;
-						}
-						// Within dist/, drop build-only artifacts (types, tests, cache, maps).
-						return ! /\.(d\.ts|test\.js|js\.map|tsbuildinfo)$/.test( rel );
-					},
-				} );
+				copyDataLiberationEngine( outDir );
 
 				if ( existsSync( localUiDistPath ) ) {
 					cpSync( localUiDistPath, resolve( outDir, 'ui' ), { recursive: true } );

@@ -46,8 +46,15 @@ export class E2ESession {
 			version: 1,
 			sites: [],
 			snapshots: [],
+			// The opt-in banner is a floating card over the bottom-right of the site content, so
+			// leaving it up intercepts clicks on whatever sits underneath (e.g. the overview's
+			// customize shortcuts). Start dismissed so specs see the classic UI unobstructed.
+			agenticUiBannerDismissed: true,
 			betaFeatures: {
 				studioSitesCli: true,
+				// These specs drive the classic renderer. Setting this explicitly opts the run
+				// out of the agentic default that fresh installs otherwise get seeded with.
+				enableAgenticUi: false,
 			},
 		};
 
@@ -57,6 +64,36 @@ export class E2ESession {
 		);
 
 		await this.launchFirstWindow( testEnv );
+	}
+
+	/**
+	 * Stub native message boxes to auto-answer with the given response index,
+	 * recording each dialog's text for `getRecordedDialogs`.
+	 */
+	async stubMessageBox( response = 0 ) {
+		await this.electronApp.evaluate( ( { dialog }, autoResponse ) => {
+			const dialogGlobal = globalThis as typeof globalThis & { __e2eDialogs: string[] };
+			dialogGlobal.__e2eDialogs = [];
+			dialog.showMessageBox = ( async ( ...args: unknown[] ) => {
+				// Options are the last arg: showMessageBox( [parentWindow,] options ).
+				const options = ( args.length > 1 ? args[ 1 ] : args[ 0 ] ) as {
+					title?: string;
+					message?: string;
+					detail?: string;
+				};
+				dialogGlobal.__e2eDialogs.push(
+					[ options?.title, options?.message, options?.detail ].filter( Boolean ).join( ' — ' )
+				);
+				return { response: autoResponse, checkboxChecked: false };
+			} ) as typeof dialog.showMessageBox;
+		}, response );
+	}
+
+	/** Dialog texts recorded by the `stubMessageBox` stub, oldest first. */
+	async getRecordedDialogs(): Promise< string[] > {
+		return this.electronApp.evaluate(
+			() => ( globalThis as typeof globalThis & { __e2eDialogs?: string[] } ).__e2eDialogs ?? []
+		);
 	}
 
 	async closeApp() {

@@ -162,6 +162,7 @@ export function getNativePhpIniContents( phpVersion: NativePhpSupportedVersion )
 	);
 	const directives: string[] = [
 		'memory_limit=512M',
+		'max_execution_time=0',
 		'post_max_size=2G',
 		'upload_max_filesize=2G',
 		'display_errors=1',
@@ -271,7 +272,12 @@ export function getDefaultPhpArgs(
 			'-d',
 			`zend_extension="${ path.join( getExtensionDir( phpVersion ), getXdebugFilename() ) }"`,
 			'-d',
-			'xdebug.mode=debug'
+			'xdebug.mode=debug',
+			// Override Xdebug's default `trigger` mode
+			// (https://xdebug.org/docs/all_settings#start_with_request):
+			// enabling Xdebug for a site means every request starts debugging.
+			'-d',
+			'xdebug.start_with_request=yes'
 		);
 	}
 

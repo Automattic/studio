@@ -1,35 +1,14 @@
-import { createRoute, useNavigate } from '@tanstack/react-router';
-import { isSiteSettingsTab, SiteSettingsView } from '@/components/site-settings-view';
+import { createRoute, redirect } from '@tanstack/react-router';
+import { isSiteSettingsTab } from '@/components/site-settings-view';
 import { dashboardLayoutRoute } from '../layout-dashboard';
 import type { SiteSettingsTabId } from '@/components/site-settings-view';
 
 interface SiteSettingsSearch {
-	// Tab selection is a `search` param so opening the route defaults to
-	// General and deep-links like `?tab=debugging` stay human-readable.
 	tab?: SiteSettingsTabId;
 }
 
-function SiteSettingsPage() {
-	const { siteId } = siteSettingsRoute.useParams();
-	const { tab } = siteSettingsRoute.useSearch();
-	const navigate = useNavigate();
-	const activeTab: SiteSettingsTabId = tab ?? 'general';
-	return (
-		<SiteSettingsView
-			siteId={ siteId }
-			activeTab={ activeTab }
-			onTabChange={ ( next ) =>
-				void navigate( {
-					to: '/sites/$siteId/settings',
-					params: { siteId },
-					search: { tab: next },
-					replace: true,
-				} )
-			}
-		/>
-	);
-}
-
+// The settings screen moved into the site overview (same tab ids); this route
+// only keeps old deep links working.
 export const siteSettingsRoute = createRoute( {
 	getParentRoute: () => dashboardLayoutRoute,
 	path: '/sites/$siteId/settings',
@@ -40,5 +19,12 @@ export const siteSettingsRoute = createRoute( {
 		}
 		return {};
 	},
-	component: SiteSettingsPage,
+	beforeLoad: ( { params, search } ) => {
+		throw redirect( {
+			to: '/sites/$siteId/overview',
+			params,
+			search,
+			replace: true,
+		} );
+	},
 } );

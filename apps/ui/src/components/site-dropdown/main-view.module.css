@@ -7,30 +7,59 @@
 	border-top: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
 }
 
-.activityError {
+.activityStatus {
 	display: flex;
 	flex-direction: column;
 	gap: 4px;
 	padding: var(--wpds-dimension-padding-md) var(--wpds-dimension-padding-lg);
-	background: color-mix(
-		in srgb,
-		var(--wpds-color-fg-content-error, var(--wpds-color-fg-content-neutral)) 8%,
-		transparent
-	);
 	color: var(--wpds-color-fg-content-neutral);
 	font-size: var(--wpds-typography-font-size-sm);
 	line-height: var(--wpds-typography-line-height-sm);
 }
 
-.activityErrorTitle {
-	color: var(--wpds-color-fg-content-error, var(--wpds-color-fg-content-neutral));
+.activityStatusPending {
+	background: var(--wpds-color-bg-surface-neutral);
+}
+
+.activityStatusError {
+	background: color-mix(
+		in srgb,
+		var(--wpds-color-fg-content-error, var(--wpds-color-fg-content-neutral)) 8%,
+		transparent
+	);
+}
+
+.activityStatusTitle {
 	font-weight: 600;
 }
 
-.activityErrorMessage {
+.activityStatusError .activityStatusTitle {
+	color: color-mix(
+		in srgb,
+		var(--site-dropdown-menu-foreground, var(--wpds-color-fg-content-neutral)) 72%,
+		var(--wpds-color-fg-content-error, var(--wpds-color-fg-content-neutral))
+	);
+}
+
+.activityStatusMessage {
 	color: var(--wpds-color-fg-content-neutral-weak);
 	white-space: pre-wrap;
 	word-break: break-word;
+}
+
+.xdebugBadge {
+	display: inline-flex;
+	align-items: center;
+	color: var(--studio-color-status-running);
+}
+
+.xdebugBadge_stopped {
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.xdebugGlyph {
+	width: 16px;
+	height: 16px;
 }
 
 .rowActions {
@@ -39,9 +68,20 @@
 	gap: 2px;
 }
 
+/* Derived from the popup's remapped tokens so the control tracks the
+   inverted menu surface in both color schemes; scheme media queries
+   would key off the OS instead and land backwards here. */
 .localServerControl {
-	--local-server-track-bg: var(--wpds-color-bg-track-neutral-weak);
-	--local-server-track-bg-hover: var(--wpds-color-bg-track-neutral);
+	--local-server-track-bg: color-mix(
+		in srgb,
+		var(--wpds-color-fg-content-neutral) 14%,
+		transparent
+	);
+	--local-server-track-bg-hover: color-mix(
+		in srgb,
+		var(--wpds-color-fg-content-neutral) 22%,
+		transparent
+	);
 	--local-server-track-border: color-mix(
 		in srgb,
 		var(--wpds-color-stroke-surface-neutral) 72%,
@@ -53,8 +93,8 @@
 		var(--wpds-color-fg-content-neutral) 6%,
 		transparent
 	);
-	--local-server-thumb-bg: var(--wpds-color-bg-surface-neutral-strong);
-	--local-server-thumb-color: var(--wpds-color-fg-content-neutral-weak);
+	--local-server-thumb-bg: var(--wpds-color-fg-content-neutral);
+	--local-server-thumb-color: var(--wpds-color-bg-surface-neutral-strong);
 	--local-server-thumb-ring: color-mix(
 		in srgb,
 		var(--wpds-color-stroke-surface-neutral) 52%,
@@ -89,7 +129,7 @@
 }
 
 .localServerControl_running {
-	--local-server-track-bg: #16a34a;
+	--local-server-track-bg: var(--studio-color-status-running);
 	--local-server-track-bg-hover: #15803d;
 	--local-server-track-border: #148a42;
 	--local-server-track-border-hover: #137a3d;
@@ -100,7 +140,7 @@
 	--local-server-thumb-shadow: color-mix(in srgb, #0d5f2c 22%, transparent);
 }
 
-.localServerControl:not(:disabled):hover {
+.localServerControl:not([aria-disabled='true']):hover {
 	background-color: var(--local-server-track-bg-hover);
 	box-shadow:
 		inset 0 0 0 var(--wpds-border-width-xs) var(--local-server-track-border-hover),
@@ -117,7 +157,7 @@
 	outline-offset: 2px;
 }
 
-.localServerControl:disabled {
+.localServerControl[aria-disabled='true'] {
 	cursor: not-allowed;
 	opacity: 0.72;
 }
@@ -183,40 +223,6 @@
 	transform: translateX(1px);
 	background: currentColor;
 	clip-path: polygon(28% 18%, 28% 82%, 82% 50%);
-}
-
-@media (prefers-color-scheme: dark) {
-	.localServerControl:not(.localServerControl_running) {
-		--local-server-track-bg: var(--wpds-color-bg-track-neutral-weak);
-		--local-server-track-bg-hover: var(--wpds-color-bg-track-neutral);
-		--local-server-track-border: color-mix(
-			in srgb,
-			var(--wpds-color-fg-content-neutral) 10%,
-			transparent
-		);
-		--local-server-track-border-hover: color-mix(
-			in srgb,
-			var(--wpds-color-fg-content-neutral) 14%,
-			transparent
-		);
-		--local-server-track-shadow: color-mix(in srgb, black 26%, transparent);
-		--local-server-thumb-bg: color-mix(
-			in srgb,
-			var(--wpds-color-bg-track-neutral) 88%,
-			var(--wpds-color-fg-content-neutral) 12%
-		);
-		--local-server-thumb-color: color-mix(
-			in srgb,
-			var(--wpds-color-fg-content-neutral) 76%,
-			transparent
-		);
-		--local-server-thumb-ring: color-mix(
-			in srgb,
-			var(--wpds-color-fg-content-neutral) 10%,
-			transparent
-		);
-		--local-server-thumb-shadow: color-mix(in srgb, black 38%, transparent);
-	}
 }
 
 .urlLink {
@@ -289,14 +295,29 @@
 }
 
 .rowActionButton,
+.rowViewButton,
 .environmentActionButton_outline {
 	border-radius: var(--wpds-border-radius-md);
 }
 
+.rowActionButton,
+.rowViewButton {
+	height: 28px;
+}
+
+.rowViewButton {
+	color: var(--wpds-color-fg-interactive-neutral);
+}
+
 .rowActionButton {
 	width: 28px;
-	height: 28px;
 	padding: 0;
+}
+
+/* Only recolor enabled buttons — an unconditional `color` here sits outside
+   the wp-ui layers and would override the design system's disabled dimming
+   and the loading spinner's transparent-text state. */
+.rowActionButton:not([data-disabled]) {
 	color: var(--wpds-color-fg-interactive-neutral);
 }
 
@@ -319,6 +340,10 @@
 	padding: 0;
 	justify-content: center;
 	color: var(--wpds-color-fg-interactive-neutral);
+}
+
+.moreMenuTrigger:is([data-disabled], :disabled) {
+	color: var(--wpds-color-fg-interactive-neutral-disabled);
 }
 
 .moreMenuTrigger svg {

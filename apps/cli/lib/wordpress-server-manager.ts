@@ -24,6 +24,7 @@ import { SiteCommandLoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
 import { SiteData } from 'cli/lib/cli-config/core';
+import { updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
 import {
 	isProcessRunning,
 	startProcess,
@@ -34,6 +35,7 @@ import {
 } from 'cli/lib/daemon-client';
 import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
 import { recordSiteRuntimeUsage } from 'cli/lib/site-runtime-stats';
+import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import {
 	ServerConfig,
@@ -250,6 +252,7 @@ function dropStaleReprintStateMounts( options: StartServerOptions ): StartServer
  * 2. Wait for 'ready' message
  * 3. Send 'start-server' message with config
  * 4. Wait for response before resolving
+ * 5. Persist the process PID so running-status checks match the live process
  */
 export async function startWordPressServer(
 	site: SiteData,
@@ -309,7 +312,21 @@ export async function startWordPressServer(
 
 		await recordSiteRuntimeUsage( site );
 
-		return withSiteRuntime( processDesc );
+		// Tracks: the CLI is the sole emitter of site-start, whether started standalone or by the
+		// desktop app (which passes its origin via STUDIO_TRACKS_ORIGIN). Awaited (not fire-and-forget)
+		// so a short-lived `studio start` process doesn't exit before the event is sent, but wrapped in
+		// try/catch so best-effort telemetry can never block or fail the site start.
+		try {
+			await recordTracksEvent( TRACKS_EVENTS.SITE_START, { ...getTracksOrigin() } );
+		} catch {
+			// Best-effort telemetry — never block or fail a site start.
+		}
+
+		const runningProcess = withSiteRuntime( processDesc );
+		if ( runningProcess.status === 'online' ) {
+			await updateSiteLatestCliPid( site.id, runningProcess.pid );
+		}
+		return runningProcess;
 	} catch ( error ) {
 		throw await withCapturedPhpErrors( error, phpErrorLogPath, phpErrorLogSizeAtStart );
 	} finally {

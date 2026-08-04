@@ -22,6 +22,9 @@ type Props = Omit< ComponentProps< typeof Button >, 'children' > & {
 	showStatus?: boolean;
 	siteIconSeed?: string;
 	siteIconImage?: string | null;
+	// The floating-card shadow suits placements where the trigger overlays
+	// panel content (the chat header); regular header rows pass false.
+	floating?: boolean;
 };
 
 export const DropdownTrigger = forwardRef< ElementRef< typeof Button >, Props >(
@@ -38,6 +41,7 @@ export const DropdownTrigger = forwardRef< ElementRef< typeof Button >, Props >(
 			showStatus = true,
 			siteIconSeed,
 			siteIconImage,
+			floating = true,
 			className,
 			...props
 		},
@@ -74,42 +78,38 @@ export const DropdownTrigger = forwardRef< ElementRef< typeof Button >, Props >(
 		) : null;
 
 		return (
-			<Tooltip.Provider delay={ 0 }>
-				<Tooltip.Root>
-					<Tooltip.Trigger
-						ref={ ref }
-						render={ <Button variant="minimal" tone="neutral" { ...props } /> }
-						className={ clsx( styles.trigger, className ) }
-					>
-						{ showSiteIcon ? (
-							<span className={ styles.siteIconWrap }>
-								<SiteIcon
-									className={ clsx(
-										styles.siteIcon,
-										status === 'stopped' && ! isLive && styles.siteIcon_stopped
-									) }
-									seed={ siteIconSeed ?? `${ siteName }:${ siteUrl }` }
-									imageSrc={ siteIconImage }
-								/>
-								{ statusBadge }
-							</span>
-						) : null }
-						<span className={ styles.identity }>
-							<span className={ styles.site }>{ siteName }</span>
-							<span
-								className={ clsx( styles.secondary, styles[ `secondary_${ secondaryTone }` ] ) }
-							>
-								<span className={ styles.secondaryLabel }>{ secondaryLabel }</span>
-							</span>
+			<Tooltip.Root>
+				<Tooltip.Trigger
+					ref={ ref }
+					render={ <Button variant="minimal" tone="neutral" { ...props } /> }
+					className={ clsx( styles.trigger, ! floating && styles.triggerFlat, className ) }
+				>
+					{ showSiteIcon ? (
+						<span className={ styles.siteIconWrap }>
+							<SiteIcon
+								className={ clsx(
+									styles.siteIcon,
+									status === 'stopped' && ! isLive && styles.siteIcon_stopped
+								) }
+								seed={ siteIconSeed ?? `${ siteName }:${ siteUrl }` }
+								imageSrc={ siteIconImage }
+							/>
+							{ statusBadge }
 						</span>
-						{ showSiteIcon ? null : statusBadge }
-						<Icon className={ styles.chevron } icon={ chevronDownSmall } />
-					</Tooltip.Trigger>
-					<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
-						{ __( 'Publish, preview, and more' ) }
-					</Tooltip.Popup>
-				</Tooltip.Root>
-			</Tooltip.Provider>
+					) : null }
+					<span className={ styles.identity }>
+						<span className={ styles.site }>{ siteName }</span>
+						<span className={ clsx( styles.secondary, styles[ `secondary_${ secondaryTone }` ] ) }>
+							<span className={ styles.secondaryLabel }>{ secondaryLabel }</span>
+						</span>
+					</span>
+					{ showSiteIcon ? null : statusBadge }
+					<Icon className={ styles.chevron } icon={ chevronDownSmall } />
+				</Tooltip.Trigger>
+				<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
+					{ __( 'Publish, preview, and more' ) }
+				</Tooltip.Popup>
+			</Tooltip.Root>
 		);
 	}
 );

@@ -60,6 +60,18 @@ export const ActionButton = ( {
 	const [ resizeListener, sizes ] = useResizeObserver();
 	const minSize = useRef( { width: MIN_WIDTH, height: 0 } );
 
+	// Keep the loading label tied to the state the action started from, so a running-state update that
+	// lands mid-flight (e.g. reconciliation right after Stop) doesn't flip "Stopping…" to "Starting…".
+	// Captured during render (not an effect) so there's no frame where the wrong label shows.
+	const [ wasRunningAtLoadStart, setWasRunningAtLoadStart ] = useState( isRunning );
+	const [ prevIsLoading, setPrevIsLoading ] = useState( isLoading );
+	if ( isLoading !== prevIsLoading ) {
+		setPrevIsLoading( isLoading );
+		if ( isLoading ) {
+			setWasRunningAtLoadStart( isRunning );
+		}
+	}
+
 	let state: ActionButtonState = 'idle';
 	if ( disabled ) {
 		state = 'disabled';
@@ -117,7 +129,7 @@ export const ActionButton = ( {
 			};
 			break;
 		case 'loading':
-			buttonLabel = isRunning ? __( 'Stopping…' ) : __( 'Starting…' );
+			buttonLabel = wasRunningAtLoadStart ? __( 'Stopping…' ) : __( 'Starting…' );
 			buttonProps = {
 				// `aria-disabled` used rather than `disabled` to prevent losing button
 				// focus while the button's asynchronous action is pending.

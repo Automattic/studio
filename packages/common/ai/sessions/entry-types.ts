@@ -13,11 +13,15 @@ export type StudioCustomEntryType =
 	| 'studio.agent_question'
 	| 'studio.turn_closed'
 	| 'studio.session_context'
-	| 'studio.user_prompt';
+	| 'studio.user_prompt'
+	| 'studio.message_edited';
 
 export interface StudioSiteSelectedData {
 	siteName: string;
 	sitePath: string;
+	// Local site id. Optional: events written before it existed carry only the
+	// path, and consumers fall back to path resolution for those.
+	siteId?: string;
 	remote?: boolean;
 	url?: string;
 	wpcomSiteId?: number;
@@ -37,6 +41,9 @@ export type StudioTurnStatus = 'success' | 'error' | 'max_turns' | 'interrupted'
 
 export interface StudioTurnClosedData {
 	status: StudioTurnStatus;
+	// Raw error text for `status: 'error'` turns, so the transcript can
+	// render an in-flow failure marker after reload. Absent on older entries.
+	errorMessage?: string;
 }
 
 export interface StudioSessionContextData {
@@ -74,6 +81,10 @@ export interface StudioUserPromptData {
 	attachments?: StudioChatAttachmentSummary[];
 }
 
+export interface StudioMessageEditedData {
+	originalEntryId: string;
+}
+
 export interface StudioCustomEntryDataMap {
 	'studio.site_selected': StudioSiteSelectedData;
 	'studio.tool_progress': StudioToolProgressData;
@@ -82,6 +93,7 @@ export interface StudioCustomEntryDataMap {
 	'studio.turn_closed': StudioTurnClosedData;
 	'studio.session_context': StudioSessionContextData;
 	'studio.user_prompt': StudioUserPromptData;
+	'studio.message_edited': StudioMessageEditedData;
 }
 
 export type StudioCustomEntry< T extends StudioCustomEntryType = StudioCustomEntryType > = Omit<

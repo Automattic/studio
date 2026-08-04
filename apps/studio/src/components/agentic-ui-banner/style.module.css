@@ -1,0 +1,165 @@
+.card {
+	position: relative;
+	overflow: hidden;
+	isolation: isolate;
+}
+
+.hero {
+	position: absolute;
+	inset-inline: 0;
+	display: flex;
+	justify-content: center;
+	z-index: 1;
+}
+
+.blur {
+	position: absolute;
+	inset: 0;
+	z-index: 2;
+	pointer-events: none;
+	overflow: hidden;
+	contain: paint;
+	border-radius: inherit;
+}
+
+.blurLayer {
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	backdrop-filter: blur( var( --progressive-blur-radius ) );
+	mask-image: linear-gradient(
+		to bottom,
+		transparent 0%,
+		transparent var( --progressive-blur-clear-stop ),
+		black var( --progressive-blur-full-stop ),
+		black 100%
+	);
+	-webkit-mask-image: linear-gradient(
+		to bottom,
+		transparent 0%,
+		transparent var( --progressive-blur-clear-stop ),
+		black var( --progressive-blur-full-stop ),
+		black 100%
+	);
+}
+
+.blurSoft {
+	--progressive-blur-radius: 2px;
+	--progressive-blur-clear-stop: 34%;
+	--progressive-blur-full-stop: 48%;
+}
+
+.blurMedium {
+	--progressive-blur-radius: 4px;
+	--progressive-blur-clear-stop: 39%;
+	--progressive-blur-full-stop: 54%;
+}
+
+.blurStrong {
+	--progressive-blur-radius: 7px;
+	--progressive-blur-clear-stop: 44%;
+	--progressive-blur-full-stop: 60%;
+}
+
+.blurIntense {
+	--progressive-blur-radius: 12px;
+	--progressive-blur-clear-stop: 49%;
+	--progressive-blur-full-stop: 66%;
+}
+
+.content {
+	position: relative;
+	z-index: 3;
+}
+
+/*
+ * Entrance/exit choreography. The card itself only animates opacity, and the
+ * wrapper rises via margin (layout, not transform) — a transform on any ancestor
+ * of the backdrop-filter layers stops the blur from rendering mid-animation.
+ * The inner scale for depth goes on .hero/.content, which are siblings of the
+ * blur, where transforms are safe.
+ */
+/* The entrance holds for a beat after mount before the card comes in. */
+.enter {
+	animation: banner-fade-in 320ms cubic-bezier( 0.16, 1, 0.3, 1 ) 600ms both;
+}
+
+.enter .hero,
+.enter .content {
+	animation: banner-zoom-in 320ms cubic-bezier( 0.16, 1, 0.3, 1 ) 600ms both;
+	transform-origin: 50% 80%;
+}
+
+.rise {
+	animation: banner-rise 320ms cubic-bezier( 0.16, 1, 0.3, 1 ) 600ms both;
+}
+
+.exit {
+	animation: banner-fade-out 140ms ease-in both;
+}
+
+.sink {
+	animation: banner-sink 140ms ease-in both;
+}
+
+@keyframes banner-fade-in {
+	from {
+		opacity: 0;
+	}
+
+	to {
+		opacity: 1;
+	}
+}
+
+@keyframes banner-zoom-in {
+	from {
+		transform: scale( 0.95 );
+	}
+
+	to {
+		transform: scale( 1 );
+	}
+}
+
+@keyframes banner-rise {
+	from {
+		margin-bottom: -24px;
+	}
+
+	to {
+		margin-bottom: 0;
+	}
+}
+
+@keyframes banner-fade-out {
+	from {
+		opacity: 1;
+	}
+
+	to {
+		opacity: 0;
+	}
+}
+
+@keyframes banner-sink {
+	from {
+		margin-bottom: 0;
+	}
+
+	to {
+		margin-bottom: -16px;
+	}
+}
+
+@media ( prefers-reduced-motion: reduce ) {
+	.enter,
+	.enter .hero,
+	.enter .content,
+	.rise,
+	.exit,
+	.sink {
+		animation-duration: 0.01ms;
+		animation-delay: 0ms;
+	}
+}

@@ -173,6 +173,32 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).not.toContain( 'Do not respond as though the user is looking at the capture' );
 	} );
 
+	it( 'appends the user global instructions for local and remote sessions', () => {
+		const variants = [ { chatArtifactsEnabled: true }, { remoteSite } ];
+		for ( const variant of variants ) {
+			const prompt = buildSystemPrompt( {
+				...variant,
+				userInstructions: 'Always answer in French.',
+			} );
+			expect( prompt ).toContain( "## User's global instructions" );
+			expect( prompt ).toContain( 'Always answer in French.' );
+		}
+	} );
+
+	it( 'omits the global instructions section when none are set', () => {
+		const prompts = [ buildSystemPrompt( {} ), buildSystemPrompt( { remoteSite } ) ];
+		for ( const prompt of prompts ) {
+			expect( prompt ).not.toContain( "## User's global instructions" );
+		}
+	} );
+
+	it( 'truncates oversized global instructions with a visible notice', () => {
+		const prompt = buildSystemPrompt( { userInstructions: 'a'.repeat( 20_000 ) } );
+
+		expect( prompt ).toContain( 'was truncated here' );
+		expect( prompt ).not.toContain( 'a'.repeat( 17_000 ) );
+	} );
+
 	it( 'omits the terminal screenshot caveat for remote-bridge sessions', () => {
 		// The Telegram user cannot open local file paths; delivery is covered
 		// by the remote-session share_screenshot guidance instead.

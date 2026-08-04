@@ -2,14 +2,12 @@
  * Accessors for reprint.phar's on-disk state files.
  *
  * reprint.phar writes a JSON progress file (`.import-state.json`) and a
- * JSONL index (`.import-remote-index.jsonl`) under each pull's state
- * directory.  Studio reads those files to decide whether to resume or
- * restart a phase, detect stale layouts, etc.
+ * skipped-download list under each pull's state directory. Studio reads
+ * only the fields it needs to wire the imported runtime and decide
+ * whether to invoke the follow-up skipped-files sync.
  *
- * This module is the single seam where Studio couples to reprint's
- * internal schema.  When reprint renames a field or moves data around,
- * the fix is scoped to this file — every other caller goes through
- * these accessors.
+ * This module is the single place where Studio couples to reprint's
+ * on-disk output. Reprint owns its own state machine.
  */
 import fs from 'fs';
 import path from 'path';
@@ -18,21 +16,32 @@ import { z } from 'zod';
 
 const STATE_FILE = '.import-state.json';
 const REMOTE_INDEX_FILE = '.import-remote-index.jsonl';
-export const SKIPPED_DOWNLOAD_LIST = '.import-download-list-skipped.jsonl';
+const LOCAL_INDEX_FILE = '.import-index.jsonl';
+const SKIPPED_DOWNLOAD_LIST = '.import-download-list-skipped.jsonl';
 
-export const reprintStateSnapshotSchema = z.looseObject( {
-	command: z.string().nullish(),
-	status: z.string().nullish(),
-	cursor: z.unknown().optional(),
-	stage: z.string().nullish(),
-	filter: z.string().nullish(),
+const reprintStateSnapshotSchema = z.looseObject( {
 	preflight: z
 		.looseObject( {
 			data: z
 				.looseObject( {
-					runtime: z
+					database: z
 						.looseObject( {
-							document_root: z.string().nullish(),
+							wp: z
+								.looseObject( {
+									table_prefix: z.string().nullish(),
+									paths_urls: z
+										.looseObject( {
+											content_dir: z.string().nullish(),
+											abspath: z.string().nullish(),
+										} )
+										.optional(),
+								} )
+								.optional(),
+						} )
+						.optional(),
+					wp_detect: z
+						.looseObject( {
+							roots: z.array( z.looseObject( { path: z.string().nullish() } ) ).optional(),
 						} )
 						.optional(),
 				} )
@@ -41,9 +50,9 @@ export const reprintStateSnapshotSchema = z.looseObject( {
 		.optional(),
 } );
 
-export type ReprintStateSnapshot = z.infer< typeof reprintStateSnapshotSchema >;
+type ReprintStateSnapshot = z.infer< typeof reprintStateSnapshotSchema >;
 
-export function getReprintStatePath( stateDirectory: string ): string {
+function getReprintStatePath( stateDirectory: string ): string {
 	return path.join( stateDirectory, STATE_FILE );
 }
 
@@ -51,7 +60,7 @@ export function getRemoteIndexPath( stateDirectory: string ): string {
 	return path.join( stateDirectory, REMOTE_INDEX_FILE );
 }
 
-export function readReprintState( stateDirectory: string ): ReprintStateSnapshot | null {
+function readReprintState( stateDirectory: string ): ReprintStateSnapshot | null {
 	let raw: string;
 	try {
 		raw = fs.readFileSync( getReprintStatePath( stateDirectory ), 'utf-8' );
@@ -67,14 +76,6 @@ export function readReprintState( stateDirectory: string ): ReprintStateSnapshot
 	return parsed.success ? parsed.data : null;
 }
 
-export function writeReprintState( stateDirectory: string, state: ReprintStateSnapshot ): void {
-	const parsedState = reprintStateSnapshotSchema.parse( state );
-	fs.writeFileSync(
-		getReprintStatePath( stateDirectory ),
-		JSON.stringify( parsedState, null, 2 ) + '\n'
-	);
-}
-
 /**
  * Read the remote WP_CONTENT_DIR path from the reprint state's
  * preflight data.  This is the absolute path on the source server
@@ -83,55 +84,134 @@ export function writeReprintState( stateDirectory: string, state: ReprintStateSn
  */
 export function getContentDirFromState( stateDirectory: string ): string | null {
 	const state = readReprintState( stateDirectory );
-	const preflight = state?.preflight?.data as Record< string, unknown > | undefined;
-	const database = preflight?.database as Record< string, unknown > | undefined;
-	const wp = database?.wp as Record< string, unknown > | undefined;
-	const pathsUrls = wp?.paths_urls as Record< string, unknown > | undefined;
-	const contentDir = pathsUrls?.content_dir;
+	const contentDir = state?.preflight?.data?.database?.wp?.paths_urls?.content_dir;
 	return typeof contentDir === 'string' ? contentDir : null;
 }
 
 /**
- * True when the reprint state says files-sync indexing started but
- * didn't get far enough to checkpoint a cursor — in that case the
- * next run must restart indexing from scratch rather than trying to
- * resume from a non-existent cursor.
- *
- * This handles a real crash-recovery scenario: the user kills the
- * process (Ctrl-C, laptop sleep, OOM) during the first indexing
- * pass before reprint writes its first cursor checkpoint. Reprint
- * itself doesn't auto-detect this — it needs the caller to send
- * `files-sync --abort` first to clear the broken state. Studio
- * detects the condition here so pull-reprint can issue that abort
- * automatically before retrying.
+ * Read the remote WordPress ABSPATH from the reprint state's preflight
+ * data (e.g. "/wordpress/core/7.0" on WP Cloud).
  */
-export function shouldRestartFilesSyncIndex( stateDirectory: string ): boolean {
+export function getAbspathFromState( stateDirectory: string ): string | null {
 	const state = readReprintState( stateDirectory );
-	if ( ! state ) {
-		return false;
-	}
+	const abspath = state?.preflight?.data?.database?.wp?.paths_urls?.abspath;
+	return typeof abspath === 'string' && abspath !== '' ? decodeStatePath( abspath ) : null;
+}
 
-	// reprint canonicalizes the legacy 'files-sync' command name to
-	// 'files-pull' when it saves state; accept both so this check keeps
-	// working across reprint versions.
-	if (
-		( state.command !== 'files-sync' && state.command !== 'files-pull' ) ||
-		state.status === 'complete'
-	) {
-		return false;
-	}
+/**
+ * Read the remote site's database table prefix from the reprint state's
+ * preflight data.
+ */
+export function getTablePrefixFromState( stateDirectory: string ): string | null {
+	const state = readReprintState( stateDirectory );
+	const tablePrefix = state?.preflight?.data?.database?.wp?.table_prefix;
+	return typeof tablePrefix === 'string' && tablePrefix !== '' ? tablePrefix : null;
+}
 
-	if ( state.stage !== 'index' || state.cursor !== null ) {
-		return false;
+/**
+ * reprint base64-encodes some path fields when persisting its state
+ * (`wp_detect` roots among them), marked with a `base64:` prefix; plain
+ * values pass through for backward compatibility.
+ */
+function decodeStatePath( value: string ): string {
+	const prefix = 'base64:';
+	if ( ! value.startsWith( prefix ) ) {
+		return value;
 	}
+	return Buffer.from( value.slice( prefix.length ), 'base64' ).toString( 'utf-8' );
+}
 
-	const remoteIndexPath = getRemoteIndexPath( stateDirectory );
-	return fs.existsSync( remoteIndexPath ) && fs.statSync( remoteIndexPath ).size > 0;
+/**
+ * Read the WordPress core roots the remote preflight detected (e.g.
+ * `/wordpress/core/7.0` on WP Cloud). A `--only`-scoped pull must pass
+ * these explicitly: `--only` *replaces* reprint's default export roots,
+ * so without them a partial selection would drop WordPress core and the
+ * site could not be assembled.
+ *
+ * Roots that are ancestors of another root are dropped: on WP Cloud the
+ * detected roots are `/wordpress/core/7.0` (the live install) and
+ * `/wordpress/core` (its parent, which also holds every *other* core
+ * version) — pulling the parent would download them all.
+ */
+export function getCoreRootsFromState( stateDirectory: string ): string[] {
+	const state = readReprintState( stateDirectory );
+	const roots = ( state?.preflight?.data?.wp_detect?.roots ?? [] )
+		.map( ( root ) => root.path )
+		.filter( ( rootPath ): rootPath is string => typeof rootPath === 'string' && rootPath !== '' )
+		.map( decodeStatePath );
+	return roots.filter(
+		( rootPath ) =>
+			! roots.some( ( other ) => other !== rootPath && other.startsWith( `${ rootPath }/` ) )
+	);
 }
 
 export function hasSkippedFiles( stateDirectory: string ): boolean {
 	const skippedListPath = path.join( stateDirectory, SKIPPED_DOWNLOAD_LIST );
 	return fs.existsSync( skippedListPath ) && fs.statSync( skippedListPath ).size > 0;
+}
+
+/**
+ * Restore reprint's `pull_pipeline.skipped_pending` flag before the
+ * standalone skipped-earlier tail. `pull-files` sets the flag when it
+ * defers the media library, but Studio runs `pull-db` as a separate
+ * composite command (so the database can be skipped), and its
+ * prepare_repull() resets the flag along with the rest of the pipeline
+ * checkpoint. `files-sync --filter=skipped-earlier` keys its recovery
+ * on that flag; without it the tail is rejected with "no completed sync
+ * with skipped files". Unnecessary once reprint folds the tail into
+ * `pull-files` itself.
+ */
+export function markSkippedFilesPending( stateDirectory: string ): void {
+	mergeReprintStateFields( stateDirectory, ( state ) => {
+		state.pull_pipeline = { ...( state.pull_pipeline ?? {} ), skipped_pending: true };
+	} );
+}
+
+/**
+ * Record the SQLite target in reprint's state when the database pull is
+ * skipped. `apply-runtime` generates the SQLite runtime section only
+ * from the target that `db-apply` persisted; without it the generated
+ * runtime has no database configuration and WordPress dies on a
+ * database-connection error. Point it at the kept local database.
+ */
+export function setSqliteRuntimeTarget( stateDirectory: string, sqlitePath: string ): void {
+	mergeReprintStateFields( stateDirectory, ( state ) => {
+		state.apply = {
+			...( state.apply ?? {} ),
+			target_engine: 'sqlite',
+			target_sqlite_path: sqlitePath,
+		};
+	} );
+}
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+function mergeReprintStateFields( stateDirectory: string, mutate: ( state: any ) => void ): void {
+	/* eslint-enable @typescript-eslint/no-explicit-any */
+	const statePath = getReprintStatePath( stateDirectory );
+	let raw: string;
+	try {
+		raw = fs.readFileSync( statePath, 'utf-8' );
+	} catch ( error ) {
+		if ( isErrnoException( error ) && error.code === 'ENOENT' ) {
+			return;
+		}
+		throw error;
+	}
+
+	const state = JSON.parse( raw );
+	mutate( state );
+	fs.writeFileSync( statePath, JSON.stringify( state, null, 2 ) + '\n' );
+}
+
+/**
+ * True when reprint's local file index says a file sync completed, so the
+ * raw fs-root holds the site (WordPress core included) and a
+ * `--only`-restricted delta pull is safe. Unlike the durable
+ * `site.importComplete` flag, this reflects the actual scratch contents.
+ */
+export function hasLocalFilesIndex( stateDirectory: string ): boolean {
+	const localIndexPath = path.join( stateDirectory, LOCAL_INDEX_FILE );
+	return fs.existsSync( localIndexPath ) && fs.statSync( localIndexPath ).size > 0;
 }
 
 /**
@@ -155,7 +235,7 @@ export function resetEssentialFilesState( stateDirectory: string ): void {
 
 	const statePath = getReprintStatePath( stateDirectory );
 	if ( preflight ) {
-		writeReprintState( stateDirectory, { preflight } );
+		fs.writeFileSync( statePath, JSON.stringify( { preflight }, null, 2 ) + '\n' );
 	} else {
 		fs.rmSync( statePath, { force: true } );
 	}

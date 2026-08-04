@@ -11,6 +11,7 @@ import {
 	terminalConfig,
 	getTerminalsSupportedOnPlatform,
 } from 'src/modules/user-settings/lib/terminal';
+import type { QuitSitesBehavior } from 'src/storage/user-data';
 
 export const installedAppsApi = createApi( {
 	reducerPath: 'installedAppsApi',
@@ -21,7 +22,9 @@ export const installedAppsApi = createApi( {
 		'UserEditor',
 		'UserTerminal',
 		'ColorScheme',
+		'QuitSitesBehavior',
 		'DefaultSiteDirectory',
+		'AnalyticsEnabled',
 	],
 	endpoints: ( builder ) => ( {
 		getStudioCliIsInstalled: builder.query< boolean, void >( {
@@ -91,6 +94,23 @@ export const installedAppsApi = createApi( {
 			},
 			invalidatesTags: [ 'ColorScheme' ],
 		} ),
+		getQuitSitesBehavior: builder.query< QuitSitesBehavior | undefined, void >( {
+			queryFn: async () => {
+				const quitSitesBehavior = await getIpcApi().getQuitSitesBehavior();
+				return { data: quitSitesBehavior };
+			},
+			providesTags: [ 'QuitSitesBehavior' ],
+		} ),
+		saveQuitSitesBehavior: builder.mutation<
+			QuitSitesBehavior | undefined,
+			QuitSitesBehavior | undefined
+		>( {
+			queryFn: async ( quitSitesBehavior ) => {
+				await getIpcApi().saveQuitSitesBehavior( quitSitesBehavior );
+				return { data: quitSitesBehavior };
+			},
+			invalidatesTags: [ 'QuitSitesBehavior' ],
+		} ),
 		getDefaultSiteDirectory: builder.query< string, void >( {
 			queryFn: async () => {
 				const directory = await getIpcApi().getDefaultSiteDirectory();
@@ -105,6 +125,23 @@ export const installedAppsApi = createApi( {
 			},
 			invalidatesTags: [ 'DefaultSiteDirectory' ],
 		} ),
+		getAnalyticsEnabled: builder.query< boolean, void >( {
+			queryFn: async () => {
+				const enabled = await getIpcApi().getAnalyticsEnabled();
+				return { data: enabled };
+			},
+			providesTags: [ 'AnalyticsEnabled' ],
+		} ),
+		saveAnalyticsEnabled: builder.mutation<
+			boolean,
+			{ enabled: boolean; surface: 'onboarding' | 'settings' }
+		>( {
+			queryFn: async ( { enabled, surface } ) => {
+				await getIpcApi().saveAnalyticsEnabled( enabled, { surface } );
+				return { data: enabled };
+			},
+			invalidatesTags: [ 'AnalyticsEnabled' ],
+		} ),
 	} ),
 } );
 
@@ -118,8 +155,12 @@ export const {
 	useSaveStudioCliIsInstalledMutation,
 	useGetColorSchemeQuery,
 	useSaveColorSchemeMutation,
+	useGetQuitSitesBehaviorQuery,
+	useSaveQuitSitesBehaviorMutation,
 	useGetDefaultSiteDirectoryQuery,
 	useSaveDefaultSiteDirectoryMutation,
+	useGetAnalyticsEnabledQuery,
+	useSaveAnalyticsEnabledMutation,
 } = installedAppsApi;
 
 export const selectInstalledEditors = createSelector(

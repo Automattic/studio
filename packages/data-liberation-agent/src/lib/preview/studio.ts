@@ -1,5 +1,3 @@
-import { execFile, execFileSync } from 'node:child_process';
-import { promisify } from 'node:util';
 import { resolve, basename, join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { cpSync, existsSync, mkdirSync, copyFileSync, rmSync } from 'node:fs';
@@ -13,9 +11,8 @@ import {
 } from './site-options.js';
 import type { ReplicaFile, ReplicaBlockPlugin, StartPreviewResult } from './types.js';
 import { resolveStudioRoot } from '../paths.js';
+import { studioExecFileAsync, studioExecFile, studioExecFileSync } from '../studio-cli.js';
 import { expandTilde, studioWpRoot } from './studio-site.js';
-
-const execFileAsync = promisify(execFile);
 
 const UPLOADS_SUBDIR = 'wp-content/uploads/liberation';
 /**
@@ -75,7 +72,7 @@ export interface StudioSite {
  */
 export function isStudioAvailable(): boolean {
   try {
-    execFileSync('studio', ['--version'], { stdio: 'ignore', timeout: 3000 });
+    studioExecFileSync(['--version'], { stdio: 'ignore', timeout: 3000 });
     return true;
   } catch {
     return false;
@@ -131,7 +128,7 @@ export function resolveStudioWpRoot(sitePath: string): string {
 }
 
 async function listStudioSites(): Promise<StudioSite[]> {
-  const { stdout } = await execFileAsync('studio', ['site', 'list', '--format', 'json'], {
+  const { stdout } = await studioExecFileAsync(['site', 'list', '--format', 'json'], {
     timeout: 15_000,
     maxBuffer: 10 * 1024 * 1024,
   });
@@ -142,7 +139,7 @@ async function listStudioSites(): Promise<StudioSite[]> {
 /**
  * Run `studio wp --path <sitePath> <args>` and return raw stdout. The single
  * Studio wp-cli exec wrapper — handlers import this instead of re-spelling the
- * `execFileAsync('studio', ['wp', '--path', …])` boilerplate. Timeout/buffer
+ * `studioExecFileAsync(['wp', '--path', …])` boilerplate. Timeout/buffer
  * default to the long-running 5min/50MB envelope; callers running short or
  * large-output commands override via opts.
  */
@@ -151,8 +148,7 @@ export async function studioWp(
   args: string[],
   opts: { timeout?: number; maxBuffer?: number } = {},
 ): Promise<string> {
-  const { stdout } = await execFileAsync(
-    'studio',
+  const { stdout } = await studioExecFileAsync(
     ['wp', '--path', sitePath, ...args],
     { timeout: opts.timeout ?? 300_000, maxBuffer: opts.maxBuffer ?? 50 * 1024 * 1024 },
   );
@@ -221,8 +217,7 @@ export async function deleteDefaultWpContent(
  */
 async function removeStudioSite(sitePath: string): Promise<void> {
   try {
-    const child = execFile(
-      'studio',
+    const child = studioExecFile(
       ['site', 'delete', '--path', sitePath],
       { timeout: 60_000, maxBuffer: 10 * 1024 * 1024 },
     );
@@ -400,13 +395,16 @@ export async function startStudioPreview(opts: StartStudioOpts): Promise<StartPr
   }
 
   try {
-    await execFileAsync(
-      'studio',
+    await studioExecFileAsync(
       [
         'site', 'create',
         '--name', name,
         '--path', sitePath,
         '--blueprint', blueprintPath,
+        // Studio 1.12+ defaults to the native runtime, which drops the
+        // `/wordpress` VFS mount our `wp eval-file` script paths rely on;
+        // pin the sandbox runtime until those callers are runtime-aware.
+        '--runtime', 'sandbox',
         '--skip-browser',
         '--skip-log-details',
         '--start',

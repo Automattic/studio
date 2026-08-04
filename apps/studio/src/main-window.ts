@@ -18,7 +18,7 @@ import {
 	WINDOWS_TITLEBAR_HEIGHT,
 } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
-import { getFeatureFlagFromEnv } from 'src/lib/feature-flags';
+import { getPreferredStudioUiMode, type StudioUiMode } from 'src/lib/studio-ui-mode';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { removeMenu } from 'src/menu';
 import { SiteServer } from 'src/site-server';
@@ -32,18 +32,10 @@ import type { WindowBounds } from 'src/storage/storage-types';
 
 let mainWindow: BrowserWindow | null;
 let currentRendererUrl: string | undefined;
-type StudioUiMode = 'default' | 'agentic';
 
 interface RendererLocation {
 	url: string;
 	filePath?: string;
-}
-
-export function getPreferredStudioUiMode(): StudioUiMode {
-	if ( getFeatureFlagFromEnv( 'enableAgenticUi' ) ) {
-		return 'agentic';
-	}
-	return 'default';
 }
 
 function getRendererFilePath( mode: StudioUiMode ) {
@@ -98,6 +90,9 @@ async function loadRendererLocation( window: BrowserWindow, location: RendererLo
 
 export async function loadMainWindowRenderer( window: BrowserWindow ): Promise< void > {
 	await loadRendererLocation( window, getRendererLocation( getPreferredStudioUiMode() ) );
+	if ( process.platform === 'win32' || process.platform === 'linux' ) {
+		window.setTitleBarOverlay( getTitleBarOverlayOptions() );
+	}
 }
 
 export function getCurrentRendererUrl(): string {
@@ -198,6 +193,16 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 
 	mainWindow = new BrowserWindow( windowOptions );
 
+	if ( process.platform === 'win32' || process.platform === 'linux' ) {
+		const updateTitleBarOverlay = () => {
+			if ( mainWindow && ! mainWindow.isDestroyed() ) {
+				mainWindow.setTitleBarOverlay( getTitleBarOverlayOptions() );
+			}
+		};
+		nativeTheme.on( 'updated', updateTitleBarOverlay );
+		mainWindow.on( 'closed', () => nativeTheme.removeListener( 'updated', updateTitleBarOverlay ) );
+	}
+
 	mainWindow.webContents.on( 'before-input-event', ( event, input ) => {
 		if ( isToggleSidebarShortcut( input ) ) {
 			event.preventDefault();
@@ -273,6 +278,28 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 	return mainWindow;
 }
 
+// Matches the renderer's `--color-frame-bg`, so window controls blend into a fullscreen modal.
+export function getFrameTitleBarOverlayOptions() {
+	const isDark = nativeTheme.shouldUseDarkColors;
+	return {
+		color: isDark ? '#2f2f2f' : '#fff',
+		symbolColor: isDark ? '#e0e0e0' : '#1e1e1e',
+		height: WINDOWS_TITLEBAR_HEIGHT,
+	};
+}
+
+export function getTitleBarOverlayOptions() {
+	if ( getPreferredStudioUiMode() !== 'agentic' ) {
+		return { color: 'rgba(30, 30, 30, 1)', symbolColor: 'white', height: WINDOWS_TITLEBAR_HEIGHT };
+	}
+	const isDark = nativeTheme.shouldUseDarkColors;
+	return {
+		color: isDark ? '#242424' : '#fff',
+		symbolColor: isDark ? '#e0e0e0' : '#1e1e1e',
+		height: WINDOWS_TITLEBAR_HEIGHT,
+	};
+}
+
 function getOSWindowOptions(): Partial< BrowserWindowConstructorOptions > {
 	switch ( process.platform ) {
 		case 'darwin':
@@ -286,11 +313,7 @@ function getOSWindowOptions(): Partial< BrowserWindowConstructorOptions > {
 		case 'linux':
 			return {
 				titleBarStyle: 'hidden',
-				titleBarOverlay: {
-					color: 'rgba(30, 30, 30, 1)',
-					symbolColor: 'white',
-					height: WINDOWS_TITLEBAR_HEIGHT,
-				},
+				titleBarOverlay: getTitleBarOverlayOptions(),
 				minHeight: MAIN_MIN_HEIGHT + WINDOWS_TITLEBAR_HEIGHT,
 			};
 

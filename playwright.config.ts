@@ -4,6 +4,10 @@ export default defineConfig( {
 	testDir: './apps/studio/e2e',
 	snapshotPathTemplate: '{testDir}/__screenshots__/{testFilePath}/{arg}{ext}',
 
+	// Downloads the data-heavy import fixtures declared in
+	// test-fixtures/manifest.json before the suite runs.
+	globalSetup: './apps/studio/e2e/global-setup.ts',
+
 	// The app only allows a single instance to be running at a time, so we can
 	// only run one test at a time.
 	workers: 1,

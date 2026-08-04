@@ -1,5 +1,8 @@
 import { buildChatAttachmentSummaries } from '@studio/common/ai/chat-attachments';
+import { getAgentEndFailure, isUsageCapError } from '@studio/common/ai/json-events';
+import { formatUsageCapNotice } from '@studio/common/lib/studio-assistant-quota';
 import { useQueryClient } from '@tanstack/react-query';
+import { __ } from '@wordpress/i18n';
 import {
 	createContext,
 	useCallback,
@@ -64,6 +67,7 @@ export interface LiveAgentEvents {
 	isInterrupting: boolean;
 	startedAt: number | null;
 	error: string | null;
+	usageCapReached: boolean;
 	pendingQuestions: PendingQuestion[];
 	// Accumulated answers for the current batch, keyed by question text.
 	// The user can re-click an option to change their pick until every
@@ -95,6 +99,7 @@ interface State {
 	runId: string | null;
 	startedAt: number | null;
 	error: string | null;
+	usageCapReached: boolean;
 	isInterrupting: boolean;
 	pendingQuestions: PendingQuestion[];
 	pendingAnswers: Record< string, string >;
@@ -107,6 +112,7 @@ const initialState: State = {
 	runId: null,
 	startedAt: null,
 	error: null,
+	usageCapReached: false,
 	isInterrupting: false,
 	pendingQuestions: [],
 	pendingAnswers: {},
@@ -118,7 +124,7 @@ type Action =
 	| { type: 'hydrate_active_run'; runId: string; startedAt: number; interrupting: boolean }
 	| { type: 'send_pending'; startedAt: number }
 	| { type: 'send_start'; runId: string; startedAt: number }
-	| { type: 'error_set'; message: string | null }
+	| { type: 'error_set'; message: string | null; usageCapReached?: boolean }
 	| { type: 'turn_completed' }
 	| { type: 'run_ended' }
 	| { type: 'interrupt_requested' }
@@ -160,7 +166,7 @@ function reducer( state: State, action: Action ): State {
 				isInterrupting: false,
 			};
 		case 'error_set':
-			return { ...state, error: action.message };
+			return { ...state, error: action.message, usageCapReached: action.usageCapReached ?? false };
 		case 'turn_completed':
 			return {
 				...state,
@@ -170,12 +176,16 @@ function reducer( state: State, action: Action ): State {
 			};
 		case 'run_ended':
 			// Preserve the queue across run boundaries so staged follow-ups
-			// survive the transition, and the answered-question map so picked
-			// options stay highlighted in history. Everything else resets.
+			// survive the transition, the answered-question map so picked
+			// options stay highlighted in history, and any turn error —
+			// `run.exited` lags the error event and must not wipe the banner
+			// before the user can read it. Everything else resets.
 			return {
 				...initialState,
 				queuedPrompts: state.queuedPrompts,
 				answeredQuestions: state.answeredQuestions,
+				error: state.error,
+				usageCapReached: state.usageCapReached,
 			};
 		case 'interrupt_requested':
 			return {
@@ -342,9 +352,16 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 						interrupting: false,
 					} );
 					return;
-				case 'error':
-					dispatchSession( payload.sessionId, { type: 'error_set', message: event.message } );
+				case 'error': {
+					const isUsageCap = isUsageCapError( event.message );
+					const message = isUsageCap ? formatUsageCapNotice() : event.message;
+					dispatchSession( payload.sessionId, {
+						type: 'error_set',
+						message,
+						usageCapReached: isUsageCap,
+					} );
 					return;
+				}
 				case 'turn.completed':
 					dispatchSession( payload.sessionId, { type: 'turn_completed' } );
 					return;
@@ -376,8 +393,29 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					} );
 					return;
 				case 'message': {
-					// Only message-bearing pi event variants need optimistic entries.
 					const inner = event.message;
+					// A failed turn only surfaces through its final `agent_end` —
+					// the errored assistant message usually has no text content and
+					// no `error` transport event is emitted. Synthesize the
+					// `studio.turn_closed` error entry for immediate in-flow
+					// rendering; the CLI also writes a real one that replaces this
+					// on the post-run refetch.
+					const failure = getAgentEndFailure( inner );
+					if ( failure ) {
+						updateCache( payload.sessionId, ( entries ) => [
+							...entries,
+							{
+								type: 'custom',
+								id: shortEntryId(),
+								parentId: null,
+								timestamp: event.timestamp,
+								customType: 'studio.turn_closed',
+								data: { status: 'error', errorMessage: failure.message },
+							} as SessionEntry,
+						] );
+						return;
+					}
+					// Only message-bearing pi event variants need optimistic entries.
 					if (
 						inner.type === 'message_end' &&
 						( inner.message as { role?: string } ).role === 'assistant'
@@ -518,8 +556,10 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					if ( idx === -1 ) return entries;
 					return [ ...entries.slice( 0, idx ), ...entries.slice( idx + 1 ) ];
 				} );
-				const message = err instanceof Error ? err.message : String( err );
-				dispatchSession( sessionId, { type: 'error_set', message } );
+				const rawMessage = err instanceof Error ? err.message : String( err );
+				const isUsageCap = isUsageCapError( rawMessage );
+				const message = isUsageCap ? formatUsageCapNotice() : rawMessage;
+				dispatchSession( sessionId, { type: 'error_set', message, usageCapReached: isUsageCap } );
 				throw err;
 			}
 		},
@@ -622,6 +662,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 		phase,
 		startedAt,
 		error,
+		usageCapReached,
 		isInterrupting,
 		pendingQuestions,
 		pendingAnswers,
@@ -722,6 +763,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 		isInterrupting,
 		startedAt,
 		error,
+		usageCapReached,
 		pendingQuestions,
 		pendingAnswers,
 		answeredQuestions,

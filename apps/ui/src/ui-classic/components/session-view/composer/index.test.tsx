@@ -1,7 +1,16 @@
 import { DEFAULT_MODEL } from '@studio/common/ai/models';
 import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { createEvent, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import {
+	act,
+	createEvent,
+	fireEvent,
+	render,
+	screen,
+	waitFor,
+	within,
+} from '@testing-library/react';
+import { Tooltip } from '@wordpress/ui';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { Composer } from '.';
@@ -35,7 +44,9 @@ function renderComposer(
 	return {
 		...render(
 			<QueryClientProvider client={ queryClient }>
-				<Composer { ...defaultProps } sessionId="session-1" { ...props } />
+				<Tooltip.Provider delay={ 0 }>
+					<Composer { ...defaultProps } sessionId="session-1" { ...props } />
+				</Tooltip.Provider>
 			</QueryClientProvider>
 		),
 		queryClient,
@@ -92,6 +103,32 @@ describe( 'Composer menu', () => {
 		expect(
 			screen.getByPlaceholderText( 'Queue the next message while I work…' )
 		).toBeInTheDocument();
+	} );
+
+	it( 'keeps the placeholder suggestion steady while the composer sits idle', () => {
+		vi.useFakeTimers();
+		try {
+			renderComposer();
+
+			act( () => {
+				vi.advanceTimersByTime( 30000 );
+			} );
+
+			expect( screen.getByText( 'What should we make better?' ) ).toBeInTheDocument();
+		} finally {
+			vi.useRealTimers();
+		}
+	} );
+
+	it( 'advances the placeholder suggestion after each send', async () => {
+		renderComposer();
+
+		fireEvent.change( screen.getByPlaceholderText( 'What should we make better?' ), {
+			target: { value: 'ship it' },
+		} );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Send' } ) );
+
+		expect( await screen.findByText( 'What’s the next move?' ) ).toBeInTheDocument();
 	} );
 
 	it( 'shows a flyout affordance and skill descriptions', async () => {
@@ -266,6 +303,43 @@ describe( 'Composer menu', () => {
 		firePointerEventWithClientY( resizeHandle, 'pointerup', 620 );
 	} );
 
+	it( 'attaches images pasted outside the textarea and focuses the composer', async () => {
+		renderComposer();
+
+		const image = new File( [ 'image-bytes' ], '', { type: 'image/png' } );
+		const pasteEvent = new Event( 'paste', { bubbles: true, cancelable: true } );
+		Object.defineProperty( pasteEvent, 'clipboardData', {
+			value: { files: [ image ], items: [] },
+		} );
+		fireEvent( document.body, pasteEvent );
+
+		expect( pasteEvent.defaultPrevented ).toBe( true );
+		expect(
+			await screen.findByRole( 'button', { name: 'Remove attachment: pasted-image.png' } )
+		).toBeInTheDocument();
+		expect( screen.getByRole( 'textbox' ) ).toHaveFocus();
+	} );
+
+	it( 'ignores pastes inside open dialogs', () => {
+		renderComposer();
+
+		const dialog = document.createElement( 'div' );
+		dialog.setAttribute( 'role', 'dialog' );
+		document.body.appendChild( dialog );
+
+		const image = new File( [ 'image-bytes' ], '', { type: 'image/png' } );
+		const pasteEvent = new Event( 'paste', { bubbles: true, cancelable: true } );
+		Object.defineProperty( pasteEvent, 'clipboardData', {
+			value: { files: [ image ], items: [] },
+		} );
+		fireEvent( dialog, pasteEvent );
+
+		expect( pasteEvent.defaultPrevented ).toBe( false );
+		expect( screen.queryByRole( 'button', { name: /Remove attachment/ } ) ).not.toBeInTheDocument();
+
+		dialog.remove();
+	} );
+
 	it( 'keeps the picked model in the fresh session cache after a family switch', async () => {
 		const queryClient = new QueryClient();
 		const onSwitchSession = vi.fn();
@@ -283,13 +357,20 @@ describe( 'Composer menu', () => {
 		);
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Select model' } ) );
-		fireEvent.click( await screen.findByText( 'GPT 5.5' ) );
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Start new conversation' } ) );
+		fireEvent.click( await screen.findByText( 'GPT 5.6 Sol' ) );
+		const dialog = await screen.findByRole( 'dialog' );
+		expect( dialog ).toHaveTextContent( 'Start a new chat?' );
+		expect( dialog ).toHaveTextContent(
+			'Switching from Sonnet 5 to GPT 5.6 Sol starts a fresh chat because the models don\u2019t share memory. You can find previous chats using Chat history below the chat box.'
+		);
+		expect( within( dialog ).getByText( 'Chat history' ).tagName ).toBe( 'STRONG' );
+		expect( dialog ).not.toHaveTextContent( 'sidebar' );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Yes, new chat' } ) );
 
 		await waitFor( () => {
 			expect( onSwitchSession ).toHaveBeenCalledWith( 'fresh-session' );
 		} );
-		expect( connectorMocks.setSessionModel ).toHaveBeenCalledWith( 'fresh-session', 'gpt-5.5' );
+		expect( connectorMocks.setSessionModel ).toHaveBeenCalledWith( 'fresh-session', 'gpt-5.6-sol' );
 
 		const loadedSession = queryClient.getQueryData< LoadedAiSession >( [
 			...SESSIONS_QUERY_KEY,
@@ -299,7 +380,7 @@ describe( 'Composer menu', () => {
 		expect( loadedSession?.entries ).toEqual( [
 			expect.objectContaining( {
 				type: 'model_change',
-				modelId: 'gpt-5.5',
+				modelId: 'gpt-5.6-sol',
 			} ),
 		] );
 	} );

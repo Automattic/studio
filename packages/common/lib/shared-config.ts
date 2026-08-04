@@ -27,7 +27,6 @@ const SHARED_CONFIG_VERSION = 1;
 
 export const sharedSessionMetadataSchema = z
 	.object( {
-		starred: z.boolean().optional(),
 		archived: z.boolean().optional(),
 	} )
 	.loose();
@@ -45,6 +44,12 @@ export const sharedConfigSchema = z
 		// Both Studio and the Studio CLI read and write this field through
 		// the helpers in `./connected-sites.ts`.
 		connectedWpcomSites: z.record( z.string(), z.array( syncSiteSchema ) ).optional(),
+		// Anonymous install identifier for Tracks analytics, shared by Studio and the Studio CLI.
+		// See `docs/design-docs/analytics-tracks.md`.
+		analyticsInstallId: z.string().optional(),
+		// When true, the user has opted out of Tracks analytics. Absent/false means opted in
+		// (analytics default ON). Does not affect MC Stats or Sentry.
+		analyticsOptOut: z.boolean().optional(),
 	} )
 	.loose();
 
@@ -120,9 +125,6 @@ export async function updateSharedConfig( update: Partial< SharedConfig > ): Pro
 }
 
 function pruneSharedSessionMetadata( metadata: SharedSessionMetadata ): void {
-	if ( ! metadata.starred ) {
-		delete metadata.starred;
-	}
 	if ( ! metadata.archived ) {
 		delete metadata.archived;
 	}
@@ -212,4 +214,44 @@ export async function readAuthToken(): Promise< StoredAuthToken | null > {
 export async function getCurrentUserId(): Promise< number | null > {
 	const token = await readAuthToken();
 	return token?.id ?? null;
+}
+
+// Returns the anonymous Tracks install id, minting and persisting one on first use. Shared by Studio
+// and the Studio CLI (both read the same `shared.json`). See `docs/design-docs/analytics-tracks.md`.
+export async function getOrCreateAnalyticsInstallId(): Promise< string > {
+	// Fast path: already minted. Avoids taking the lock on every launch.
+	const existing = ( await readSharedConfig() ).analyticsInstallId;
+	if ( existing ) {
+		return existing;
+	}
+
+	// Mint under lock. The desktop app and the CLI it spawns can both reach this on first launch;
+	// re-read inside the critical section so we don't clobber an id another process just minted.
+	try {
+		await lockSharedConfig();
+		const config = await readSharedConfig();
+		if ( config.analyticsInstallId ) {
+			return config.analyticsInstallId;
+		}
+		const id = crypto.randomUUID();
+		await saveSharedConfig( { ...config, analyticsInstallId: id } );
+		return id;
+	} finally {
+		await unlockSharedConfig();
+	}
+}
+
+// True when the user has opted out of Tracks analytics. Default is opted IN (analytics ON).
+export async function isAnalyticsOptedOut(): Promise< boolean > {
+	const config = await readSharedConfig();
+	return config.analyticsOptOut === true;
+}
+
+// Best-effort Automattician flag for the shared `is_a11n` Tracks property, derived from the stored
+// auth token's email domain. Returns false when logged out. Kept synchronous-friendly (no network
+// call) so it can run on every event; the authoritative team-membership check lives elsewhere.
+export async function isAutomatticianFromToken(): Promise< boolean > {
+	const token = await readAuthToken();
+	const email = token?.email?.toLowerCase() ?? '';
+	return email.endsWith( '@a8c.com' ) || email.endsWith( '@automattic.com' );
 }

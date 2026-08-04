@@ -9,6 +9,9 @@ export type AskUserHandler = (
 ) => Promise< Record< string, string > >;
 
 export interface SiteInfo {
+	// Local site id from the registry. Optional: sites replayed from events
+	// written before siteId existed only carry the path.
+	id?: string;
 	name: string;
 	path: string;
 	running: boolean;

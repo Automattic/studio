@@ -1,27 +1,42 @@
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
+import {
+	STUDIO_ASSISTANT_QUOTA_URL,
+	studioAssistantQuotaSchema,
+} from '@studio/common/lib/studio-assistant-quota';
+import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
+import { buildPublishCheckoutUrl } from '../publish-checkout-url';
 import type {
 	ActiveAgentRun,
 	AiSessionSummary,
 	AiSessionPlacementUpdatedEvent,
+	AppGlobals,
 	AuthUser,
 	ColorScheme,
 	Connector,
 	ExtractedBlueprintBundle,
-	FeaturedBlueprint,
 	InstalledApps,
 	LocalMediaFile,
 	LoadedAiSession,
+	AppUpdateStatus,
 	ProposedSitePath,
+	QuitSitesBehavior,
 	SelectedSiteFolder,
 	SiteDetails,
+	SkillStatus,
 	Snapshot,
+	SnapshotUsage,
+	StudioAssistantQuota,
 	SupportedEditor,
 	SupportedTerminal,
 	SyncSite,
 	UserPreferences,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
+import type { StoredAuthToken } from '@studio/common/lib/auth-token-schema';
+import type { SiteEvent } from '@studio/common/lib/cli-events';
+import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
+import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 function generateBackupFilename( siteName: string ): string {
 	const now = new Date();
@@ -32,49 +47,21 @@ function generateBackupFilename( siteName: string ): string {
 	return sanitizeFolderName( `studio-backup-${ siteName }-${ timestamp }` );
 }
 
-type ExportRequest = {
-	site: SiteDetails;
-	backupFile: string;
-	includes: { database: boolean; wpContent: boolean };
-	phpVersion: string;
-};
-
-// Runs an export IPC call and surfaces the outcome through the same
-// main-process notification channels the legacy renderer uses: a native
-// success notification on completion, or the error message box (with a
-// "Show logs" affordance) on any failure.
-async function runExport(
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	ipcApi: any,
-	request: ExportRequest
-): Promise< string > {
-	const handleError = ( error?: unknown ) => {
-		ipcApi.showErrorMessageBox( {
-			title: __( 'Failed exporting site' ),
-			message: __(
-				'An error occurred while exporting the site. If this problem persists, please contact support.'
-			),
-			error,
-			showOpenLogs: true,
-		} );
+function parseSnapshotUsage( response: unknown ): SnapshotUsage {
+	const record = response as Record< string, unknown > | null;
+	if (
+		! record ||
+		typeof record.site_count !== 'number' ||
+		typeof record.site_limit !== 'number' ||
+		typeof record.site_creation_blocked !== 'boolean'
+	) {
+		throw new Error( 'Invalid snapshot usage response.' );
+	}
+	return {
+		siteCount: record.site_count,
+		siteLimit: record.site_limit,
+		siteCreationBlocked: record.site_creation_blocked,
 	};
-
-	let success = false;
-	try {
-		success = ( await ipcApi.exportSite( request ) ) as boolean;
-	} catch ( error ) {
-		handleError( error );
-		throw error;
-	}
-	if ( ! success ) {
-		handleError();
-		throw new Error( 'Export failed' );
-	}
-	ipcApi.showNotification( {
-		title: request.site.name,
-		body: __( 'Export completed' ),
-	} );
-	return request.backupFile;
 }
 
 /**
@@ -91,6 +78,26 @@ export function createIpcConnector(): Connector {
 		throw new Error(
 			'IPC API not available. Are you running inside Electron with the preload script?'
 		);
+	}
+
+	// The IPC connector only runs in Electron, so `navigator` reflects the
+	// desktop OS.
+	const isMacOS = /mac/i.test( navigator.platform || navigator.userAgent );
+
+	// Fetches an authenticated WordPress.com endpoint with the stored OAuth
+	// token. Resolves `null` when signed out so callers can degrade gracefully.
+	async function fetchWpcomJson( url: string, errorLabel: string ): Promise< unknown > {
+		const token = ( await ipcApi.getAuthenticationToken() ) as StoredAuthToken | null;
+		if ( ! token ) {
+			return null;
+		}
+		const response = await fetch( url, {
+			headers: { Authorization: `Bearer ${ token.accessToken }` },
+		} );
+		if ( ! response.ok ) {
+			throw new Error( `Failed to fetch ${ errorLabel }: ${ response.status }` );
+		}
+		return response.json();
 	}
 
 	// Preview CLI commands are path-based, not id-based. Look up the matching
@@ -205,10 +212,13 @@ export function createIpcConnector(): Connector {
 			openInOS: true,
 			annotatePreview: true,
 			readLocalMedia: true,
+			agentInstructions: true,
+			switchToClassicUi: true,
 		},
 
 		// Auth — optional in Electron, delegated to main process
 		requiresAuth: false,
+		agenticRequiresAuth: true,
 
 		async isAuthenticated(): Promise< boolean > {
 			return ipcApi.isAuthenticated();
@@ -226,8 +236,8 @@ export function createIpcConnector(): Connector {
 			};
 		},
 
-		async authenticate(): Promise< void > {
-			await ipcApi.authenticate( false );
+		async authenticate( signup = false ): Promise< void > {
+			await ipcApi.authenticate( signup );
 		},
 
 		async logout(): Promise< void > {
@@ -236,6 +246,14 @@ export function createIpcConnector(): Connector {
 
 		onAuthStateChanged( listener ) {
 			return ipcListener.subscribe( 'auth-updated', () => listener() );
+		},
+
+		async getOnboardingCompleted(): Promise< boolean > {
+			return ipcApi.getOnboardingData();
+		},
+
+		async setOnboardingCompleted( completed: boolean ): Promise< void > {
+			await ipcApi.saveOnboarding( completed );
 		},
 
 		// Sites
@@ -254,6 +272,7 @@ export function createIpcConnector(): Connector {
 				adminUsername,
 				adminPassword,
 				adminEmail,
+				skipStart,
 				blueprint,
 			} = params;
 			return ( await ipcApi.createSite( path, {
@@ -265,6 +284,7 @@ export function createIpcConnector(): Connector {
 				adminUsername,
 				adminPassword,
 				adminEmail,
+				noStart: skipStart,
 				blueprint,
 			} ) ) as SiteDetails;
 		},
@@ -290,6 +310,10 @@ export function createIpcConnector(): Connector {
 
 		async generateProposedSiteName( usedSites ): Promise< string > {
 			return ( await ipcApi.generateSiteNameFromList( usedSites ) ) as string;
+		},
+
+		async generateNumberedSiteName( baseName, usedSites ): Promise< string > {
+			return ( await ipcApi.generateNumberedNameFromList( baseName, usedSites ) ) as string;
 		},
 
 		async generateProposedSitePath( siteName ): Promise< ProposedSitePath > {
@@ -319,51 +343,10 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.comparePaths( path1, path2 ) ) as boolean;
 		},
 
-		async getFeaturedBlueprints( locale ) {
-			const url = new URL( 'https://public-api.wordpress.com/wpcom/v2/studio-app/blueprints' );
-			if ( locale ) {
-				url.searchParams.set( 'locale', locale );
-			}
-			const response = await fetch( url.toString() );
-			if ( ! response.ok ) {
-				throw new Error( `Failed to fetch blueprints: ${ response.status }` );
-			}
-			const body = ( await response.json() ) as {
-				blueprints?: Array< {
-					slug?: string;
-					title?: string;
-					excerpt?: string;
-					image?: string;
-					playground_url?: string;
-					blueprint?: unknown;
-				} >;
-			};
-			// Drop any blueprint missing the fields the UI relies on rather
-			// than failing the whole request — matches the desktop app's
-			// tolerant `transformResponse` behaviour.
-			const list: FeaturedBlueprint[] = [];
-			for ( const item of body.blueprints ?? [] ) {
-				if (
-					typeof item.slug !== 'string' ||
-					typeof item.title !== 'string' ||
-					typeof item.excerpt !== 'string' ||
-					typeof item.image !== 'string' ||
-					typeof item.playground_url !== 'string' ||
-					! item.blueprint ||
-					typeof item.blueprint !== 'object'
-				) {
-					continue;
-				}
-				list.push( {
-					slug: item.slug,
-					title: item.title,
-					excerpt: item.excerpt,
-					image: item.image,
-					playgroundUrl: item.playground_url,
-					blueprint: item.blueprint as FeaturedBlueprint[ 'blueprint' ],
-				} );
-			}
-			return list;
+		getWordPressVersions: fetchWordPressVersions,
+
+		async getWpVersion( siteId ) {
+			return ( await ipcApi.getWpVersion( siteId ) ) as string;
 		},
 
 		async getFilePath( file ) {
@@ -378,7 +361,13 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.readLocalMediaFile( path ) ) as LocalMediaFile;
 		},
 
-		async extractBlueprintBundle( zipFilePath ): Promise< ExtractedBlueprintBundle > {
+		async extractBlueprintBundle( file ): Promise< ExtractedBlueprintBundle > {
+			const zipFilePath = ( ipcApi.getPathForFile( file ) as string ) ?? '';
+			if ( ! zipFilePath ) {
+				throw new Error(
+					__( 'Unable to resolve the ZIP file path. Try choosing the file via the button.' )
+				);
+			}
 			return ( await ipcApi.extractBlueprintBundle( zipFilePath ) ) as ExtractedBlueprintBundle;
 		},
 
@@ -386,11 +375,28 @@ export function createIpcConnector(): Connector {
 			await ipcApi.cleanupBlueprintTempDir( tempDir );
 		},
 
-		async importSiteFromBackup( siteId, backup ): Promise< SiteDetails > {
-			return ( await ipcApi.importSite( {
-				id: siteId,
-				backupFile: backup,
-			} ) ) as SiteDetails;
+		async readBlueprintFile( filePath ) {
+			return ipcApi.readBlueprintFile( filePath ) as Promise< BlueprintV1Declaration >;
+		},
+
+		async importSiteFromBackup( siteId, backupPath, onProgress ): Promise< void > {
+			const unsubscribe = onProgress
+				? ipcListener.subscribe(
+						'on-import',
+						( _event: unknown, importEvent: ImportEventTuple, importSiteId: string ) => {
+							if ( importSiteId === siteId ) onProgress( importEvent );
+						}
+				  )
+				: undefined;
+			try {
+				await ipcApi.importSite( siteId, backupPath, {
+					alwaysStartServer: true,
+					showErrorModal: false,
+					showNotification: false,
+				} );
+			} finally {
+				unsubscribe?.();
+			}
 		},
 
 		async startSite( id ) {
@@ -405,8 +411,16 @@ export function createIpcConnector(): Connector {
 			await ipcApi.updateSite( site, wpVersion );
 		},
 
+		async updateSitesSortOrder( updates ) {
+			await ipcApi.updateSitesSortOrder( updates );
+		},
+
 		async refreshSiteIcon( siteId ) {
 			await ipcApi.loadSiteIcon( siteId );
+		},
+
+		async getSiteThumbnail( siteId ): Promise< string | null > {
+			return ( await ipcApi.getThumbnailData( siteId ) ) as string | null;
 		},
 
 		async exportFullSite( siteId ): Promise< string | null > {
@@ -429,12 +443,14 @@ export function createIpcConnector(): Connector {
 			if ( ! backupFile ) {
 				return null;
 			}
-			return runExport( ipcApi, {
-				site,
-				backupFile,
-				includes: { database: true, wpContent: true },
-				phpVersion: site.phpVersion,
+			// Success notification and error modal are shown by the main-process
+			// handler, mirroring the legacy renderer's export flow.
+			await ipcApi.exportSite( site.id, backupFile, {
+				mode: 'full',
+				showItemInFolder: true,
+				showNotification: true,
 			} );
+			return backupFile;
 		},
 
 		async exportDatabase( siteId ): Promise< string | null > {
@@ -457,17 +473,34 @@ export function createIpcConnector(): Connector {
 			if ( ! backupFile ) {
 				return null;
 			}
-			return runExport( ipcApi, {
-				site,
-				backupFile,
-				includes: { database: true, wpContent: false },
-				phpVersion: site.phpVersion,
+			await ipcApi.exportSite( site.id, backupFile, {
+				mode: 'db',
+				showItemInFolder: true,
+				showNotification: true,
 			} );
+			return backupFile;
 		},
 
 		// Preview snapshots
 		async getSnapshots(): Promise< Snapshot[] > {
 			return ( await ipcApi.fetchSnapshots() ) as Snapshot[];
+		},
+
+		async getSnapshotUsage(): Promise< SnapshotUsage | null > {
+			const data = await fetchWpcomJson(
+				'https://public-api.wordpress.com/wpcom/v2/jurassic-ninja/usage',
+				'snapshot usage'
+			);
+			return data === null ? null : parseSnapshotUsage( data );
+		},
+
+		async getStudioAssistantQuota(): Promise< StudioAssistantQuota | null > {
+			const data = await fetchWpcomJson( STUDIO_ASSISTANT_QUOTA_URL, 'Studio assistant quota' );
+			return data === null ? null : studioAssistantQuotaSchema.parse( data );
+		},
+
+		async deleteAllSnapshots(): Promise< void > {
+			await ipcApi.deleteAllSnapshots();
 		},
 
 		async publishPreviewSite( siteId, existingHostname ): Promise< { url: string } > {
@@ -484,7 +517,7 @@ export function createIpcConnector(): Connector {
 		},
 
 		// Connected WPCom sites
-		async getConnectedWpcomSites( localSiteId: string ): Promise< SyncSite[] > {
+		async getConnectedWpcomSites( localSiteId?: string ): Promise< SyncSite[] > {
 			return ( await ipcApi.getConnectedWpcomSites( localSiteId ) ) as SyncSite[];
 		},
 
@@ -519,21 +552,33 @@ export function createIpcConnector(): Connector {
 			await markConnectedWpcomSiteSynced( siteId, remoteSiteId, 'push' );
 		},
 
-		async pullSiteFromLive( siteId, remoteSiteId ): Promise< void > {
-			const siteFolder = await resolveSiteFolder( siteId );
-			await ipcApi.pullSiteFromLive( siteFolder, remoteSiteId );
+		async pullSiteFromLive( siteId, remoteSiteId, onProgress ): Promise< void > {
+			const unsubscribe = onProgress
+				? ipcListener.subscribe(
+						'sync-pull-progress',
+						(
+							_event: unknown,
+							payload: { siteId: string; message: string; progress?: number }
+						) => {
+							if ( payload.siteId === siteId ) {
+								onProgress( {
+									message: payload.message,
+									...( payload.progress === undefined ? {} : { progress: payload.progress } ),
+								} );
+							}
+						}
+				  )
+				: undefined;
+			try {
+				await ipcApi.pullSiteFromLive( siteId, remoteSiteId );
+			} finally {
+				unsubscribe?.();
+			}
 			await markConnectedWpcomSiteSynced( siteId, remoteSiteId, 'pull' );
 		},
 
 		getPublishCheckoutUrl( site ): string {
-			const url = new URL( 'https://wordpress.com/setup/new-hosted-site' );
-			url.searchParams.set( 'ref', 'studio' );
-			url.searchParams.set( 'section', 'publish-site' );
-			url.searchParams.set( 'showDomainStep', 'true' );
-			url.searchParams.set( 'studioSiteId', site.id );
-			url.searchParams.set( 'new', site.customDomain ?? site.name );
-			url.searchParams.set( 'autoOpenPush', 'true' );
-			return url.toString();
+			return buildPublishCheckoutUrl( site );
 		},
 
 		// AI sessions
@@ -613,21 +658,55 @@ export function createIpcConnector(): Connector {
 		// per field; we fan out in parallel here so the UI can work with a
 		// single query/mutation pair.
 		async getUserPreferences(): Promise< UserPreferences > {
-			const [ editor, terminal, colorScheme, locale ] = ( await Promise.all( [
+			const [
+				editor,
+				terminal,
+				colorScheme,
+				quitSitesBehavior,
+				locale,
+				analyticsEnabled,
+				defaultSiteDirectory,
+				studioCliInstalled,
+				studioCliExternallyManaged,
+				agenticFeaturesEnabled,
+			] = ( await Promise.all( [
 				ipcApi.getUserEditor(),
 				ipcApi.getUserTerminal(),
 				ipcApi.getColorScheme(),
+				ipcApi.getQuitSitesBehavior(),
 				ipcApi.getUserLocale(),
+				ipcApi.getAnalyticsEnabled(),
+				ipcApi.getDefaultSiteDirectory(),
+				ipcApi.isStudioCliInstalled(),
+				ipcApi.isStudioCliExternallyManaged(),
+				ipcApi.getAgenticFeaturesEnabled(),
 			] ) ) as [
 				SupportedEditor | null,
 				SupportedTerminal | null,
 				ColorScheme,
+				QuitSitesBehavior | undefined,
 				string | undefined,
+				boolean,
+				string,
+				boolean,
+				boolean,
+				boolean,
 			];
-			return { editor, terminal, colorScheme, locale };
+			return {
+				editor,
+				terminal,
+				colorScheme,
+				quitSitesBehavior,
+				locale,
+				analyticsEnabled,
+				defaultSiteDirectory,
+				studioCliInstalled,
+				studioCliExternallyManaged,
+				agenticFeaturesEnabled,
+			};
 		},
 
-		async setUserPreferences( partial ): Promise< void > {
+		async setUserPreferences( partial, source ): Promise< void > {
 			const writes: Array< Promise< unknown > > = [];
 			if ( 'editor' in partial ) {
 				writes.push( ipcApi.saveUserEditor( partial.editor ) );
@@ -638,14 +717,62 @@ export function createIpcConnector(): Connector {
 			if ( 'colorScheme' in partial && partial.colorScheme ) {
 				writes.push( ipcApi.saveColorScheme( partial.colorScheme ) );
 			}
+			if ( 'quitSitesBehavior' in partial ) {
+				writes.push( ipcApi.saveQuitSitesBehavior( partial.quitSitesBehavior ) );
+			}
 			if ( 'locale' in partial && partial.locale ) {
 				writes.push( ipcApi.saveUserLocale( partial.locale ) );
 			}
+			if ( 'analyticsEnabled' in partial ) {
+				writes.push(
+					ipcApi.saveAnalyticsEnabled( partial.analyticsEnabled, {
+						surface: source?.surface ?? 'settings',
+					} )
+				);
+			}
+			if ( 'defaultSiteDirectory' in partial && partial.defaultSiteDirectory ) {
+				writes.push( ipcApi.saveDefaultSiteDirectory( partial.defaultSiteDirectory ) );
+			}
+			if ( 'studioCliInstalled' in partial && typeof partial.studioCliInstalled === 'boolean' ) {
+				writes.push(
+					partial.studioCliInstalled ? ipcApi.installStudioCli() : ipcApi.uninstallStudioCli()
+				);
+			}
+			if ( typeof partial.agenticFeaturesEnabled === 'boolean' ) {
+				writes.push( ipcApi.saveAgenticFeaturesEnabled( partial.agenticFeaturesEnabled ) );
+			}
 			await Promise.all( writes );
+			if ( typeof partial.agenticFeaturesEnabled === 'boolean' ) {
+				// Cmd/Ctrl+N belongs to "New chat" only while chat is on, so the
+				// menu has to be rebuilt for the accelerator to change hands.
+				await ipcApi.setupAppMenu( { needsOnboarding: false } );
+			}
+		},
+
+		async selectDefaultSiteDirectory( defaultPath ): Promise< string | null > {
+			const response = ( await ipcApi.showOpenFolderDialog(
+				__( 'Select default site directory' ),
+				defaultPath
+			) ) as { path?: string } | string | null;
+			if ( typeof response === 'string' ) {
+				return response || null;
+			}
+			return response?.path ?? null;
+		},
+
+		async getAgentInstructions(): Promise< string > {
+			return ( await ipcApi.getGlobalAgentInstructions() ) as string;
+		},
+		async saveAgentInstructions( content: string ): Promise< void > {
+			await ipcApi.saveGlobalAgentInstructions( content );
 		},
 
 		async getInstalledApps(): Promise< InstalledApps > {
 			return ( await ipcApi.getInstalledAppsAndTerminals() ) as InstalledApps;
+		},
+
+		async getAppGlobals(): Promise< AppGlobals > {
+			return ( await ipcApi.getAppGlobals() ) as AppGlobals;
 		},
 
 		async fetchSiteRest( siteId, request ) {
@@ -671,24 +798,71 @@ export function createIpcConnector(): Connector {
 			await ipcApi.openTerminalAtPath( sitePath );
 		},
 
+		// Analytics. `channel` and `ui_version` are attached by the desktop Tracks wrapper's
+		// `commonProps()` in Main, so callers pass only event-specific props here.
+		async trackEvent( eventName, props = {} ): Promise< void > {
+			await ipcApi.recordAnalyticsEvent( eventName, { ...props } );
+		},
+
 		// External links
 		async openExternalUrl( url: string ): Promise< void > {
 			ipcApi.openURL( url );
 		},
 
+		async getWapuuScore(): Promise< number | undefined > {
+			return ( await ipcApi.getWapuuScore() ) as number | undefined;
+		},
+		async saveWapuuScore( score: number ): Promise< void > {
+			await ipcApi.saveWapuuScore( score );
+		},
+
+		async popupAppMenu( position: { x: number; y: number } ): Promise< void > {
+			ipcApi.popupAppMenu( position );
+		},
+
+		// Windows/Linux have no native menu bar, so the UI provides the entry
+		// point; macOS keeps the native application menu.
+		showsAppMenuButton: ! isMacOS,
+
 		async copyText( text: string ): Promise< void > {
 			await ipcApi.copyText( text );
+		},
+
+		async confirmDeleteAllPreviewSites(): Promise< boolean > {
+			const CANCEL_BUTTON_INDEX = 0;
+			const DELETE_BUTTON_INDEX = 1;
+			const { response } = ( await ipcApi.showMessageBox( {
+				type: 'warning',
+				message: __( 'Delete all preview sites' ),
+				detail: __(
+					'All preview sites that exist for your WordPress.com account, along with all posts, pages, comments, and media, will be lost.'
+				),
+				buttons: [ __( 'Cancel' ), __( 'Delete all' ) ],
+				cancelId: CANCEL_BUTTON_INDEX,
+			} ) ) as { response: number };
+			return response === DELETE_BUTTON_INDEX;
 		},
 
 		async openSiteUrl( siteId, relativeUrl = '', options ): Promise< void > {
 			await ipcApi.openSiteURL( siteId, relativeUrl, options );
 		},
 
+		async getWordPressSkillsStatusAllSites(): Promise< SkillStatus[] > {
+			return ( await ipcApi.getWordPressSkillsStatusAllSites() ) as SkillStatus[];
+		},
+
+		async installWordPressSkillToAllSites( skillId: string ): Promise< void > {
+			await ipcApi.installWordPressSkillsToAllSites( { skillId } );
+		},
+
+		async removeWordPressSkillFromAllSites( skillId: string ): Promise< void > {
+			await ipcApi.removeWordPressSkillFromAllSites( skillId );
+		},
+
 		// Window state
-		// The IPC connector only runs in Electron, so `navigator` reflects the
-		// desktop OS. macOS overlays the traffic lights on the content (so we
-		// reserve space for them); Windows and Linux don't.
-		reservesTrafficLightSpace: /mac/i.test( navigator.platform || navigator.userAgent ),
+		// macOS overlays the traffic lights on the content (so we reserve
+		// space for them); Windows and Linux don't.
+		reservesTrafficLightSpace: isMacOS,
 
 		async isFullscreen(): Promise< boolean > {
 			return ipcApi.isFullscreen();
@@ -706,7 +880,9 @@ export function createIpcConnector(): Connector {
 		onSiteEvent( listener ) {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const ipcListener = ( window as any ).ipcListener;
-			return ipcListener.subscribe( 'site-event', () => listener() );
+			return ipcListener.subscribe( 'site-event', ( _event: unknown, siteEvent: SiteEvent ) =>
+				listener( siteEvent )
+			);
 		},
 
 		onToggleSitePreview( listener ) {
@@ -719,6 +895,43 @@ export function createIpcConnector(): Connector {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const ipcListener = ( window as any ).ipcListener;
 			return ipcListener.subscribe( 'toggle-sidebar', () => listener() );
+		},
+
+		onAddSite( listener ) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const ipcListener = ( window as any ).ipcListener;
+			return ipcListener.subscribe( 'add-site', () => listener() );
+		},
+
+		onAddSiteWithBlueprint( listener ) {
+			return ipcListener.subscribe(
+				'add-site-with-blueprint',
+				( _event: unknown, payload: { blueprintPath: string } ) => listener( payload )
+			);
+		},
+
+		onOpenSettings( listener ) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const ipcListener = ( window as any ).ipcListener;
+			return ipcListener.subscribe( 'user-settings', () => listener() );
+		},
+
+		async disableAgenticUi(): Promise< void > {
+			await ipcApi.disableAgenticUi();
+		},
+
+		async getAppUpdateStatus() {
+			return ipcApi.getAppUpdateStatus();
+		},
+
+		async installAppUpdate(): Promise< void > {
+			await ipcApi.installAppUpdate();
+		},
+
+		onAppUpdateStatusChanged( listener ) {
+			return ipcListener.subscribe( 'app-update-status', ( _event: unknown, status: unknown ) =>
+				listener( status as AppUpdateStatus )
+			);
 		},
 	};
 }

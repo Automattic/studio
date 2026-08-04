@@ -5,14 +5,14 @@
   "author": {
     "name": "Automattic"
   },
-  "homepage": "https://github.com/Automattic/data-liberation-agent",
+  "homepage": "https://github.com/Automattic/studio/tree/trunk/packages/data-liberation-agent",
   "license": "GPL-2.0-or-later",
   "contextFileName": "GEMINI.md",
   "skills": "./skills/",
   "mcpServers": {
     "data-liberation": {
-      "command": "npx",
-      "args": ["tsx", "${extensionPath}${/}src${/}mcp-server.ts"],
+      "command": "node",
+      "args": ["${extensionPath}${/}scripts${/}mcp-launcher.mjs"],
       "cwd": "${extensionPath}"
     }
   }

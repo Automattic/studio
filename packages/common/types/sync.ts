@@ -24,7 +24,11 @@ export const sitesEndpointSiteSchema = z.object( {
 		.object( {
 			created_at: z.string(),
 			wpcom_staging_blog_ids: z.array( z.number() ),
-			software_version: z.string(),
+			// WordPress.com only returns software_version for Atomic/Jetpack
+			// sites; Simple sites (e.g. Business plans not yet transferred to
+			// Atomic, or Free/Personal plans) omit it. Requiring it here would
+			// silently drop every Simple site from the synced-sites list.
+			software_version: z.string().optional(),
 		} )
 		.optional(),
 	capabilities: z
@@ -89,6 +93,11 @@ export const syncSiteSchema = z.object( {
 } );
 
 export type SyncSite = z.infer< typeof syncSiteSchema >;
+
+export type PullSiteProgress = {
+	message: string;
+	progress?: number;
+};
 
 // Pull backup API schemas
 export const pullSiteResponseSchema = z.object( {

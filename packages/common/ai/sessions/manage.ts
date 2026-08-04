@@ -1,17 +1,29 @@
+import { aiSessionBelongsToSite } from '@studio/common/ai/sessions/owner-site';
 import {
+	deleteAiSessionPlacement,
 	hydrateAiSessionSummaryWithPlacement,
 	readAiSessionPlacement,
 	readAiSessionPlacements,
 	setAiSessionSitePlacement,
 	type AiSessionSitePlacement,
 } from '@studio/common/ai/sessions/placement';
-import { createAiSession, listAiSessions, loadAiSession } from '@studio/common/ai/sessions/store';
-import { readSharedSession, readSharedSessions } from '@studio/common/lib/shared-config';
+import {
+	createAiSession,
+	deleteAiSession,
+	listAiSessions,
+	loadAiSession,
+} from '@studio/common/ai/sessions/store';
+import { arePathsEqual } from '@studio/common/lib/fs-utils';
+import {
+	deleteSharedSession,
+	readSharedSession,
+	readSharedSessions,
+} from '@studio/common/lib/shared-config';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
 
 /**
  * Session listing + creation, hydrated with the metadata that lives outside the
- * session JSONL: star/archive flags (shared config) and site placement
+ * session JSONL: the archived flag (shared config) and site placement
  * (app.json).
  */
 
@@ -24,11 +36,11 @@ export interface SessionSite {
 
 export function hydrateAiSessionSummary(
 	summary: AiSessionSummary,
-	metadata?: Pick< AiSessionSummary, 'starred' | 'archived' >,
+	metadata?: Pick< AiSessionSummary, 'archived' >,
 	placement?: AiSessionSitePlacement
 ): AiSessionSummary {
 	return hydrateAiSessionSummaryWithPlacement(
-		{ ...summary, starred: metadata?.starred, archived: metadata?.archived },
+		{ ...summary, archived: metadata?.archived },
 		placement
 	);
 }
@@ -61,6 +73,38 @@ export async function loadHydratedAiSession(
 	};
 }
 
+// Match by id OR path: placements may hold either a stale path (site moved) or
+// a stale id, and sidebar grouping is transitioning from path- to id-keyed —
+// matching both ensures no session is left orphaned by a site deletion.
+export async function deleteAiSessionsForSite(
+	rootDirectory: string,
+	site: Pick< SessionSite, 'id' | 'path' >
+): Promise< string[] > {
+	const placements = await readAiSessionPlacements();
+	const sessionIds = Object.entries( placements )
+		.filter(
+			( [ , placement ] ) =>
+				placement.siteId === site.id || arePathsEqual( placement.sitePath, site.path )
+		)
+		.map( ( [ sessionId ] ) => sessionId );
+
+	for ( const sessionId of sessionIds ) {
+		try {
+			await deleteAiSession( rootDirectory, sessionId );
+		} catch {
+			// A placement can outlive its session file; still drop the metadata.
+		}
+		try {
+			await deleteSharedSession( sessionId );
+			await deleteAiSessionPlacement( sessionId );
+		} catch {
+			// Per-session best effort: one failed config write shouldn't
+			// abandon cleanup of the remaining sessions.
+		}
+	}
+	return sessionIds;
+}
+
 function newestFirst( a: AiSessionSummary, b: AiSessionSummary ): number {
 	return Date.parse( b.updatedAt ) - Date.parse( a.updatedAt );
 }
@@ -82,7 +126,11 @@ export async function createOrReuseAiSession(
 	if ( ! site ) {
 		const reusable = existing
 			.filter(
-				( session ) => ! session.ownerSitePath && ! session.firstPrompt && ! session.archived
+				( session ) =>
+					! session.ownerSiteId &&
+					! session.ownerSitePath &&
+					! session.firstPrompt &&
+					! session.archived
 			)
 			.sort( newestFirst )[ 0 ];
 		if ( reusable ) {
@@ -94,7 +142,7 @@ export async function createOrReuseAiSession(
 	const reusable = existing
 		.filter(
 			( session ) =>
-				session.ownerSitePath === site.path && ! session.firstPrompt && ! session.archived
+				! session.firstPrompt && ! session.archived && aiSessionBelongsToSite( session, site )
 		)
 		.sort( newestFirst )[ 0 ];
 	if ( reusable ) {
@@ -102,7 +150,7 @@ export async function createOrReuseAiSession(
 	}
 
 	const created = await createAiSession( rootDirectory, {
-		site: { name: site.name, path: site.path },
+		site: { id: site.id, name: site.name, path: site.path },
 	} );
 	const placement = await setAiSessionSitePlacement( created.id, {
 		siteId: site.id,

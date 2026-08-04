@@ -8,6 +8,7 @@ import type { StudioChatArtifactWidgetDraft } from '@studio/common/ai/chat-artif
 
 const connectorMocks = vi.hoisted( () => ( {
 	readLocalMediaFile: vi.fn(),
+	copyText: vi.fn( () => Promise.resolve() ),
 	capabilities: { readLocalMedia: true },
 } ) );
 
@@ -21,6 +22,12 @@ vi.mock( '@/data/core', () => ( {
 
 vi.mock( '@wordpress/ui', () => ( {
 	Icon: () => null,
+	Tooltip: {
+		Root: ( { children }: { children?: unknown } ) => children,
+		Trigger: ( { render: trigger }: { render?: unknown } ) => trigger,
+		Popup: () => null,
+		Positioner: () => null,
+	},
 } ) );
 
 vi.mock( '../thinking-indicator', () => ( {
@@ -29,7 +36,54 @@ vi.mock( '../thinking-indicator', () => ( {
 
 beforeEach( () => {
 	connectorMocks.readLocalMediaFile.mockReset();
+	connectorMocks.copyText.mockReset();
 	connectorMocks.capabilities.readLocalMedia = true;
+} );
+
+describe( 'Assistant message copy button', () => {
+	it( 'copies the full message when text blocks are split by tool calls', () => {
+		const data = loadedSession( [
+			{
+				type: 'message',
+				id: 'assistant-multi-block',
+				parentId: null,
+				timestamp: '2026-06-05T12:00:00.000Z',
+				message: {
+					role: 'assistant',
+					content: [
+						{ type: 'text', text: 'First part.' },
+						{ type: 'toolCall', id: 'tool-call-1', name: 'Bash', arguments: {} },
+						{ type: 'text', text: 'Second part.' },
+					],
+				},
+			} as unknown as SessionEntry,
+		] );
+		renderConversation( data );
+
+		const buttons = screen.getAllByRole( 'button', { name: 'Copy message' } );
+		expect( buttons ).toHaveLength( 1 );
+
+		fireEvent.click( buttons[ 0 ] );
+		expect( connectorMocks.copyText ).toHaveBeenCalledWith( 'First part.\n\nSecond part.' );
+	} );
+
+	it( 'does not add a copy button to user messages', () => {
+		const data = loadedSession( [
+			{
+				type: 'message',
+				id: 'user-1',
+				parentId: null,
+				timestamp: '2026-06-05T12:00:00.000Z',
+				message: {
+					role: 'user',
+					content: [ { type: 'text', text: 'Hello there' } ],
+				},
+			} as unknown as SessionEntry,
+		] );
+		renderConversation( data );
+
+		expect( screen.queryByRole( 'button', { name: 'Copy message' } ) ).not.toBeInTheDocument();
+	} );
 } );
 
 describe( 'Conversation tool rows', () => {
@@ -551,6 +605,33 @@ describe( 'Conversation Ask User questions', () => {
 		] );
 	} );
 } );
+
+describe( 'Conversation turn-closed markers', () => {
+	it( 'renders an error marker with the persisted message for errored turns', () => {
+		const items = entriesToRenderItems( [
+			turnClosedEntry( 'error', 'Monthly usage limit reached: 429 {"type":"error"}' ),
+		] );
+
+		expect( items ).toMatchObject( [
+			{ kind: 'error-marker', message: 'Monthly usage limit reached: 429 {"type":"error"}' },
+		] );
+	} );
+
+	it( 'renders no marker for successful turns', () => {
+		expect( entriesToRenderItems( [ turnClosedEntry( 'success' ) ] ) ).toEqual( [] );
+	} );
+} );
+
+function turnClosedEntry( status: string, errorMessage?: string ): SessionEntry {
+	return {
+		type: 'custom',
+		id: `turn-closed-${ status }`,
+		parentId: null,
+		timestamp: '2026-06-05T12:00:03.000Z',
+		customType: 'studio.turn_closed',
+		data: { status, ...( errorMessage !== undefined ? { errorMessage } : {} ) },
+	} as SessionEntry;
+}
 
 interface RenderConversationOptions {
 	isRunning?: boolean;

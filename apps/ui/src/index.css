@@ -18,7 +18,16 @@
 	   above dialogs so help text on controls inside a modal still surfaces
 	   above the containing overlay. */
 	--wp-ui-dialog-z-index: 700;
+	--wp-ui-select-z-index: 750;
 	--wp-ui-tooltip-z-index: 800;
+
+	/* Vivid status colors the wpds palette lacks: --wpds-color-fg-content-success
+	   resolves to #002900 (reads black at dot size) and there are no
+	   caution/accent equivalents. */
+	--studio-color-status-running: #16a34a;
+	--studio-color-status-transitioning: #a16207;
+	--studio-color-status-attention: #facc15;
+	--studio-color-status-sync: #a855f7;
 }
 
 body {
@@ -58,6 +67,15 @@ body:lang( ckb ) [class*='components-'] {
 		--wp-ui-tooltip-background-color: #fff;
 		--wp-ui-tooltip-color: #000;
 	}
+}
+
+/* @wordpress/components and @wordpress/dataviews render help text and field
+   descriptions with hardcoded light-mode colors that don't adapt to the
+   ThemeProvider's dark palette. Force them to the design-system's weak
+   foreground so they match the surrounding UI in both schemes. */
+.components-base-control__help,
+[class*='dataforms-layouts'] [class*='description'] {
+	color: var( --wpds-color-fg-content-neutral-weak ) !important;
 }
 
 /* Universal heading styles derived from the design system's font-size /
@@ -150,6 +168,22 @@ a:focus:not( :focus-visible ),
 	height: 16px;
 }
 
+[data-wpds-density='compact'] [data-ui-mode='classic'] svg[data-keep-size] {
+	width: auto;
+	height: auto;
+}
+
+/* @wordpress/ui SelectControl and Autocomplete popup items use the brand
+   weak-active fill for highlighted rows. In Studio's dark chrome that reads
+   too saturated; the selected item is already indicated with a checkmark, so
+   use the neutral interactive highlight instead. */
+[data-wpds-theme-provider-id] [role='listbox'] [role='option'][data-highlighted]:not(
+		[aria-disabled='true']
+	) {
+	background-color: var( --wpds-color-bg-interactive-neutral-weak-active );
+	color: var( --wpds-color-fg-interactive-neutral );
+}
+
 /* @wordpress/components' ComboboxControl (used by DataForm's adaptive
    picker once a field has 10+ elements) leaves its wrapper without a
    background, so the body surface bleeds through around the inner input
@@ -158,6 +192,30 @@ a:focus:not( :focus-visible ),
 .components-combobox-control__suggestions-container,
 .components-form-token-field__suggestions-list {
 	background-color: var( --wp-components-color-background, #fff );
+}
+
+.components-input-control__prefix svg,
+.components-input-control__suffix svg {
+	fill: var( --wpds-color-fg-content-neutral-weak );
+}
+
+select option {
+	background-color: var( --wpds-color-bg-surface-neutral );
+	color: var( --wpds-color-fg-content-neutral );
+}
+
+/* @wordpress/components ships its RTL fixups in a separate style-rtl.css
+   that this app doesn't load, so its physical checkbox margins put the
+   label gap on the wrong side in RTL and shift the input over the label.
+   Mirror them here. */
+.components-checkbox-control__input-container:dir( rtl ) {
+	margin-right: 0;
+	margin-left: var( --checkbox-input-margin );
+}
+
+.components-checkbox-control__input[type='checkbox']:dir( rtl ) {
+	margin-right: 0;
+	margin-left: 4px;
 }
 
 /* Honor the user's reduced-motion preference across the entire app. Class-

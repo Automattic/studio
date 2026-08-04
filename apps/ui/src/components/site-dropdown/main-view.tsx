@@ -1,11 +1,15 @@
+import { isSnapshotExpired } from '@studio/common/lib/snapshots';
 import { useIsMutating } from '@tanstack/react-query';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { arrowDown, arrowUp, copy, external, Icon, moreHorizontal } from '@wordpress/icons';
 import { Button, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useMemo } from 'react';
 import * as Menu from '@/components/menu';
+import { XdebugIcon } from '@/components/xdebug-icon';
 import { useConnector } from '@/data/core';
+import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
+import { useLogin } from '@/data/queries/use-auth-user';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import { usePublishPreviewSite } from '@/data/queries/use-preview-site';
 import {
@@ -70,8 +74,37 @@ function useIsSiteSyncing( siteId: string ): { push: boolean; pull: boolean } {
 	return { push, pull };
 }
 
+function getPreviewPanelCopy(
+	agenticEnabled: boolean,
+	isOffline: boolean,
+	isPreviewExpired: boolean
+): string {
+	if ( agenticEnabled ) {
+		return isPreviewExpired
+			? __( 'The previous preview has expired.' )
+			: __( 'Share a review link for this version.' );
+	}
+	if ( isOffline ) {
+		return __( 'Go online to share a review link.' );
+	}
+	return __( 'Sign in to share a review link.' );
+}
+
+function getLivePanelCopy( agenticEnabled: boolean, isOffline: boolean ): string {
+	if ( agenticEnabled ) {
+		return __( 'No connected site.' );
+	}
+	if ( isOffline ) {
+		return __( 'Go online to publish your site.' );
+	}
+	return __( 'Sign in to publish your site.' );
+}
+
 export function MainView( { site, activity, onSetupClick, onDisconnectClick }: Props ) {
 	const connector = useConnector();
+	const { enabled: agenticEnabled, reason: agenticReason } = useAgenticFeatures();
+	const isOffline = agenticReason === 'offline';
+	const login = useLogin();
 	const { data: snapshots } = useSnapshots();
 	const { data: connectedSites } = useConnectedWpcomSites( site.id );
 
@@ -79,6 +112,7 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 		() => pickLatestSnapshot( snapshots, site.id ),
 		[ snapshots, site.id ]
 	);
+	const isPreviewExpired = previewSnapshot !== undefined && isSnapshotExpired( previewSnapshot );
 	const liveSite = useMemo( () => pickLiveSite( connectedSites ), [ connectedSites ] );
 
 	const startSite = useStartSite();
@@ -104,12 +138,34 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 		void connector.openExternalUrl( url );
 	};
 
+	const getSyncActionLabel = ( idle: string, pending: string, isPending: boolean ): string => {
+		if ( isPending ) {
+			return pending;
+		}
+		if ( isSyncing ) {
+			// translators: %s: a sync action, e.g. "Pull from live".
+			return sprintf( __( '%s (sync in progress)' ), idle );
+		}
+		if ( ! agenticEnabled ) {
+			return isOffline
+				? // translators: %s: a sync action, e.g. "Pull from live".
+				  sprintf( __( '%s (offline)' ), idle )
+				: // translators: %s: a sync action, e.g. "Pull from live".
+				  sprintf( __( '%s (sign in required)' ), idle );
+		}
+		return idle;
+	};
+
 	const handlePreviewClick = () => {
 		if ( isPreviewPending ) return;
 		publishPreviewSite.mutate(
 			{
 				siteId: site.id,
-				existingHostname: previewSnapshot ? getSnapshotHostname( previewSnapshot ) : undefined,
+				// The CLI cannot update an expired preview site — create a new one.
+				existingHostname:
+					previewSnapshot && ! isPreviewExpired
+						? getSnapshotHostname( previewSnapshot )
+						: undefined,
 			},
 			{ onSuccess: ( { url } ) => openExternal( ensureProtocol( url ) ) }
 		);
@@ -176,10 +232,21 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 
 	return (
 		<div className={ styles.rows }>
-			{ activity?.kind === 'error' ? <SyncActivityError activity={ activity } /> : null }
+			{ activity?.kind === 'pending' || activity?.kind === 'error' ? (
+				<SyncActivityDetails activity={ activity } />
+			) : null }
 
 			<PopoverRow
-				label={ __( 'Studio' ) }
+				label={
+					site.enableXdebug ? (
+						<>
+							{ __( 'Studio' ) }
+							<XdebugBadge running={ site.running } />
+						</>
+					) : (
+						__( 'Studio' )
+					)
+				}
 				sublabel={
 					canOpenLocalSite
 						? renderUrlLink( {
@@ -195,20 +262,13 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 						starting={ isStarting }
 						stopping={ isStopping }
 						disabled={ isSyncing }
-						busyLabel={
-							isLocalTransitioning
-								? isStopping
-									? __( 'Stopping Studio site' )
-									: __( 'Starting Studio site' )
-								: undefined
-						}
 						onStart={ handleStartLocalClick }
 						onStop={ handleStopLocalClick }
 					/>
 				}
 			/>
 
-			{ previewSnapshot ? (
+			{ previewSnapshot && ! isPreviewExpired ? (
 				<PopoverRow
 					label={ __( 'Preview' ) }
 					sublabel={ __( 'Ready to share for feedback.' ) }
@@ -218,7 +278,8 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 								tooltip: __( 'Open preview site in your browser' ),
 								variant: 'minimal',
 								tone: 'neutral',
-								size: 'compact',
+								size: 'small',
+								className: styles.rowViewButton,
 								onClick: () => openExternal( ensureProtocol( previewSnapshot.url ) ),
 								children: __( 'View' ),
 							} ) }
@@ -236,11 +297,15 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 								tone="neutral"
 								size="small"
 								icon={ arrowUp }
-								label={ isPreviewPending ? __( 'Updating preview' ) : __( 'Update preview site' ) }
+								label={ getSyncActionLabel(
+									__( 'Update preview site' ),
+									__( 'Updating preview…' ),
+									isPreviewPending
+								) }
 								className={ styles.rowActionButton }
 								loading={ isPreviewPending }
 								loadingAnnouncement={ __( 'Updating preview' ) }
-								disabled={ isSyncing }
+								disabled={ isSyncing || ! agenticEnabled }
 								focusableWhenDisabled
 								onClick={ handlePreviewClick }
 							/>
@@ -250,13 +315,13 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 			) : (
 				<EnvironmentActionPanel
 					title={ __( 'Preview' ) }
-					copy={ __( 'Share a review link for this version.' ) }
-					buttonLabel={ __( 'Share' ) }
+					copy={ getPreviewPanelCopy( agenticEnabled, isOffline, isPreviewExpired ) }
+					buttonLabel={ isPreviewExpired ? __( 'Share a new one' ) : __( 'Share' ) }
 					variant="outline"
 					tone="neutral"
 					loading={ isPreviewPending }
 					loadingAnnouncement={ __( 'Creating preview' ) }
-					disabled={ isSyncing }
+					disabled={ isSyncing || ! agenticEnabled }
 					onClick={ handlePreviewClick }
 				/>
 			) }
@@ -276,9 +341,15 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 								tone="neutral"
 								size="small"
 								icon={ arrowDown }
-								label={ isPullPending ? __( 'Pulling from live' ) : __( 'Pull from live' ) }
+								label={ getSyncActionLabel(
+									__( 'Pull from live' ),
+									__( 'Pulling from live…' ),
+									isPullPending
+								) }
 								className={ styles.rowActionButton }
-								disabled={ isSyncing }
+								loading={ isPullPending }
+								loadingAnnouncement={ __( 'Pulling from live' ) }
+								disabled={ isSyncing || ! agenticEnabled }
 								focusableWhenDisabled
 								onClick={ handlePullClick }
 							/>
@@ -287,22 +358,31 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 								tone="neutral"
 								size="small"
 								icon={ arrowUp }
-								label={ isPushPending ? __( 'Pushing to live' ) : __( 'Push to live' ) }
+								label={ getSyncActionLabel(
+									__( 'Push to live' ),
+									__( 'Pushing to live…' ),
+									isPushPending
+								) }
 								className={ styles.rowActionButton }
-								disabled={ isSyncing }
+								loading={ isPushPending }
+								loadingAnnouncement={ __( 'Pushing to live' ) }
+								disabled={ isSyncing || ! agenticEnabled }
 								focusableWhenDisabled
 								onClick={ handlePushClick }
 							/>
 							<Menu.SubmenuRoot>
 								<Menu.SubmenuTrigger
 									className={ styles.moreMenuTrigger }
-									disabled={ isSyncing }
+									disabled={ isSyncing || ! agenticEnabled }
 									aria-label={ __( 'More live site actions' ) }
 								>
 									<Icon icon={ moreHorizontal } size={ 16 } aria-hidden="true" />
 								</Menu.SubmenuTrigger>
 								<Menu.Popup side="right" align="start" className={ styles.moreMenuPopup }>
-									<Menu.Item disabled={ isSyncing } onClick={ onDisconnectClick }>
+									<Menu.Item
+										disabled={ isSyncing || ! agenticEnabled }
+										onClick={ onDisconnectClick }
+									>
 										{ __( 'Disconnect' ) }
 									</Menu.Item>
 								</Menu.Popup>
@@ -313,29 +393,79 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 			) : (
 				<EnvironmentActionPanel
 					title={ __( 'Live' ) }
-					copy={ __( 'No connected site.' ) }
-					buttonLabel={ __( 'Publish' ) }
+					copy={ getLivePanelCopy( agenticEnabled, isOffline ) }
+					buttonLabel={ agenticEnabled || isOffline ? __( 'Publish' ) : __( 'Log in' ) }
 					variant="solid"
 					tone="brand"
-					disabled={ isSyncing }
-					onClick={ onSetupClick }
+					loading={ ! agenticEnabled && login.isPending }
+					loadingAnnouncement={ __( 'Opening login page' ) }
+					disabled={ isSyncing || isOffline }
+					onClick={ agenticEnabled ? onSetupClick : () => login.mutate() }
 				/>
 			) }
 		</div>
 	);
 }
 
-function SyncActivityError( {
+function XdebugBadge( { running }: { running: boolean } ) {
+	const label = __( 'Xdebug enabled' );
+
+	return (
+		<Tooltip.Root>
+			<Tooltip.Trigger
+				render={
+					<span
+						className={ clsx( styles.xdebugBadge, ! running && styles.xdebugBadge_stopped ) }
+						role="img"
+						aria-label={ label }
+					/>
+				}
+			>
+				<XdebugIcon className={ styles.xdebugGlyph } />
+			</Tooltip.Trigger>
+			<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>{ label }</Tooltip.Popup>
+		</Tooltip.Root>
+	);
+}
+
+function SyncActivityDetails( {
 	activity,
 }: {
-	activity: Extract< SyncActivity, { kind: 'error' } >;
+	activity: Extract< SyncActivity, { kind: 'pending' | 'error' } >;
 } ) {
 	return (
-		<div className={ styles.activityError } role="status">
-			<div className={ styles.activityErrorTitle }>{ getSyncActivityLabel( activity ) }</div>
-			<div className={ styles.activityErrorMessage }>{ activity.message }</div>
+		<div
+			className={ clsx(
+				styles.activityStatus,
+				activity.kind === 'error' ? styles.activityStatusError : styles.activityStatusPending
+			) }
+			role="status"
+			aria-live="polite"
+		>
+			<div className={ styles.activityStatusTitle }>{ getSyncActivityLabel( activity ) }</div>
+			<div className={ styles.activityStatusMessage }>
+				{ activity.message ?? __( 'Preparing the live site…' ) }
+			</div>
 		</div>
 	);
+}
+
+function getLocalServerStatusName( {
+	running,
+	starting,
+	stopping,
+}: {
+	running: boolean;
+	starting: boolean;
+	stopping: boolean;
+} ) {
+	if ( stopping ) {
+		return __( 'Stopping' );
+	}
+	if ( starting ) {
+		return __( 'Starting' );
+	}
+	return running ? __( 'Running' ) : __( 'Stopped' );
 }
 
 function LocalServerControl( {
@@ -343,7 +473,6 @@ function LocalServerControl( {
 	starting,
 	stopping,
 	disabled,
-	busyLabel,
 	onStart,
 	onStop,
 }: {
@@ -351,37 +480,65 @@ function LocalServerControl( {
 	starting: boolean;
 	stopping: boolean;
 	disabled: boolean;
-	busyLabel?: string;
 	onStart: () => void;
 	onStop: () => void;
 } ) {
 	const pending = starting || stopping;
 	const targetRunning = starting ? true : stopping ? false : running;
+	// aria-disabled rather than disabled: a natively disabled button suppresses
+	// the pointer events the tooltip listens for, hiding the status exactly
+	// while the site is transitioning.
+	const inert = disabled || pending;
+	const statusLabel = sprintf(
+		__( 'Site status: %s' ),
+		getLocalServerStatusName( { running, starting, stopping } )
+	);
+	const actionLabel = running ? __( 'Stop site' ) : __( 'Start site' );
 
 	return (
-		<button
-			type="button"
-			className={ clsx(
-				styles.localServerControl,
-				targetRunning && styles.localServerControl_running,
-				pending && styles.localServerControl_pending
-			) }
-			aria-label={ busyLabel ?? __( 'Studio site status' ) }
-			role="switch"
-			aria-checked={ targetRunning }
-			aria-busy={ pending || undefined }
-			disabled={ disabled || pending }
-			onClick={ targetRunning ? onStop : onStart }
-		>
-			<span className={ styles.localServerThumb } aria-hidden="true">
-				<span
-					className={ clsx(
-						styles.localServerGlyph,
-						targetRunning ? styles.playIcon : styles.pauseIcon
-					) }
-				/>
-			</span>
-		</button>
+		<Tooltip.Root>
+			<Tooltip.Trigger
+				render={
+					<button
+						type="button"
+						className={ clsx(
+							styles.localServerControl,
+							targetRunning && styles.localServerControl_running,
+							pending && styles.localServerControl_pending
+						) }
+						aria-label={
+							inert ? statusLabel : sprintf( __( '%1$s. %2$s' ), statusLabel, actionLabel )
+						}
+						role="switch"
+						aria-checked={ targetRunning }
+						aria-busy={ pending || undefined }
+						aria-disabled={ inert || undefined }
+						onClick={ () => {
+							if ( inert ) {
+								return;
+							}
+							if ( targetRunning ) {
+								onStop();
+							} else {
+								onStart();
+							}
+						} }
+					>
+						<span className={ styles.localServerThumb } aria-hidden="true">
+							<span
+								className={ clsx(
+									styles.localServerGlyph,
+									targetRunning ? styles.pauseIcon : styles.playIcon
+								) }
+							/>
+						</span>
+					</button>
+				}
+			/>
+			<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+				{ statusLabel }
+			</Tooltip.Popup>
+		</Tooltip.Root>
 	);
 }
 

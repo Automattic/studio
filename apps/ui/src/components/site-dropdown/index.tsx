@@ -22,6 +22,10 @@ type Props = {
 	activeEnvironment?: 'local' | 'live';
 	showSiteIcon?: boolean;
 	showStatus?: boolean;
+	// The trigger casts a shadow when it floats over panel content (the chat
+	// header). Pass false where it sits in a regular header row instead.
+	floating?: boolean;
+	defaultOpen?: boolean;
 };
 
 export function SiteDropdown( {
@@ -29,9 +33,11 @@ export function SiteDropdown( {
 	activeEnvironment = 'local',
 	showSiteIcon = false,
 	showStatus = true,
+	floating = true,
+	defaultOpen = false,
 }: Props ) {
 	const [ view, setView ] = useState< 'main' | 'picker' >( 'main' );
-	const [ menuOpen, setMenuOpen ] = useState( false );
+	const [ menuOpen, setMenuOpen ] = useState( defaultOpen );
 	const [ disconnectOpen, setDisconnectOpen ] = useState( false );
 
 	// The trigger needs the site status for its running/stopped/transitioning
@@ -85,6 +91,7 @@ export function SiteDropdown( {
 				<Menu.Trigger
 					render={
 						<DropdownTrigger
+							floating={ floating }
 							siteName={ site.name }
 							siteUrl={ getSiteDisplayUrl( site ) }
 							status={ status }

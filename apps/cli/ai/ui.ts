@@ -26,13 +26,24 @@ import {
 	Spacer,
 } from '@earendil-works/pi-tui';
 import { stripMediaWidgetPayloadLines } from '@studio/common/ai/chat-artifacts';
+import { isUsageCapError } from '@studio/common/ai/json-events';
 import { DEFAULT_MODEL, getAiModelLabel, type AiModelId } from '@studio/common/ai/models';
 import { findLastAssistant } from '@studio/common/ai/session-events';
 import { randomThinkingMessage } from '@studio/common/ai/thinking-messages';
 import { getToolDetail, getToolDisplayName, getToolResultPreview } from '@studio/common/ai/tools';
 import chalk from '@studio/common/lib/chalk';
 import { readAuthToken } from '@studio/common/lib/shared-config';
+import {
+	fetchStudioAssistantQuota,
+	formatQuotaResetDate,
+	formatUsageCapNotice,
+} from '@studio/common/lib/studio-assistant-quota';
 import { __, _n, sprintf } from '@wordpress/i18n';
+import {
+	DescriptionAwareAutocompleteProvider,
+	dimUnhighlighted,
+} from 'cli/ai/description-autocomplete';
+import { buildOptionPickerLines } from 'cli/ai/option-picker';
 import { type AiOutputAdapter } from 'cli/ai/output-adapter';
 import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, type AiProviderId } from 'cli/ai/providers';
 import { getActiveSlashCommands } from 'cli/ai/slash-commands';
@@ -251,7 +262,7 @@ const editorTheme: EditorTheme = {
 	selectList: {
 		selectedPrefix: ( text ) => chalk.cyan( text ),
 		selectedText: ( text ) => chalk.bold( text ),
-		description: ( text ) => chalk.dim( text ),
+		description: ( text ) => dimUnhighlighted( text ),
 		scrollInfo: ( text ) => chalk.dim( text ),
 		noMatch: ( text ) => chalk.dim( text ),
 	},
@@ -325,6 +336,7 @@ export class AiChatUI implements AiOutputAdapter {
 	private optionPickerHasFreeForm = false;
 	private optionPickerItemCount = 0;
 	private optionPickerInput: Input | null = null;
+	private optionPickerItems: SelectItem[] = [];
 	private static readonly OTHER_VALUE = '__other__';
 	private static readonly OPTION_PICKER_THEME: SelectListTheme = {
 		selectedPrefix: ( text: string ) => chalk.blue( text ),
@@ -470,7 +482,7 @@ export class AiChatUI implements AiOutputAdapter {
 		this.editor = new PromptEditor( this.tui, editorTheme );
 
 		this.editor.setAutocompleteProvider(
-			new CombinedAutocompleteProvider( getActiveSlashCommands(), process.cwd() )
+			new DescriptionAwareAutocompleteProvider( getActiveSlashCommands(), process.cwd() )
 		);
 
 		this.editor.onSubmit = ( text ) => {
@@ -638,6 +650,7 @@ export class AiChatUI implements AiOutputAdapter {
 		this.sitePickerSiteData = sites;
 		const runningStatus = await getSitesRunningStatus( sites );
 		this.sitePickerItems = sites.map( ( site ) => ( {
+			id: site.id,
 			name: site.name,
 			path: site.path,
 			running: runningStatus.get( site.id ) ?? false,
@@ -856,6 +869,7 @@ export class AiChatUI implements AiOutputAdapter {
 		// Keep _activeSiteData in sync for /browser command
 		this._activeSiteData = site;
 		return {
+			id: site.id,
 			name: site.name,
 			path: site.path,
 			running: await isSiteRunning( site ),
@@ -1031,9 +1045,16 @@ export class AiChatUI implements AiOutputAdapter {
 		this.optionPickerContainer.clear();
 
 		const width = ( process.stdout.columns ?? 80 ) - 1;
-		const lines = this.optionPickerSelectList.render( width );
+		// Custom multi-line rendering (full labels + wrapped descriptions);
+		// SelectList is kept only for keyboard navigation and selection state.
+		const lines = buildOptionPickerLines(
+			this.optionPickerItems,
+			this.optionPickerSelectList.getSelectedItem()?.value,
+			width
+		);
 
 		// When "Other" is active, replace the last line with the inline input
+		// ("Other" is always the last item and has no description lines).
 		if ( this.optionPickerOtherActive && this.optionPickerInput && lines.length > 0 ) {
 			const inputText = this.optionPickerInput.getValue();
 			const cursor = chalk.inverse( ' ' );
@@ -1078,6 +1099,7 @@ export class AiChatUI implements AiOutputAdapter {
 		this.optionPickerSelectList = null;
 		this.optionPickerHasFreeForm = false;
 		this.optionPickerItemCount = 0;
+		this.optionPickerItems = [];
 		this.deactivateOptionPickerOther();
 		this.tui.requestRender();
 	}
@@ -1399,6 +1421,28 @@ export class AiChatUI implements AiOutputAdapter {
 	 */
 	hasErrorBeenSurfaced(): boolean {
 		return this.usageCapReached;
+	}
+
+	// Follows the usage-cap notice with the date the monthly limit resets,
+	// fetched from the WordPress.com quota endpoint. Silently skips when
+	// signed out or the quota can't be fetched — the cap notice on its own is
+	// already actionable.
+	private async showUsageCapResetDate(): Promise< void > {
+		const token = await readAuthToken();
+		if ( ! token?.accessToken ) {
+			return;
+		}
+		const quota = await fetchStudioAssistantQuota( token.accessToken );
+		if ( ! quota?.costResetDate ) {
+			return;
+		}
+		this.showInfo(
+			sprintf(
+				/* translators: %s: date the monthly AI usage limit resets (e.g. August 1, 2026). */
+				__( 'It resets on %s.' ),
+				formatQuotaResetDate( quota.costResetDate )
+			)
+		);
 	}
 
 	showOnboarding(): void {
@@ -1981,6 +2025,7 @@ export class AiChatUI implements AiOutputAdapter {
 					} );
 				}
 
+				this.optionPickerItems = selectItems;
 				this.optionPickerItemCount = selectItems.length;
 				const selectList = new SelectList(
 					selectItems,
@@ -1992,8 +2037,7 @@ export class AiChatUI implements AiOutputAdapter {
 				this.optionPickerVisible = true;
 				this.optionPickerContainer = new Container();
 				this.tui.addChild( this.optionPickerContainer );
-				this.optionPickerContainer.addChild( this.optionPickerSelectList );
-				this.tui.requestRender();
+				this.renderOptionPicker();
 
 				const selected = await new Promise< string >( ( resolve ) => {
 					this.optionPickerResolve = resolve;
@@ -2065,18 +2109,14 @@ export class AiChatUI implements AiOutputAdapter {
 				if (
 					message.stopReason === 'error' &&
 					this.currentProvider === 'wpcom' &&
-					/API Error:\s*429|status code 429|"status":\s*429/i.test( message.errorMessage ?? '' )
+					isUsageCapError( message.errorMessage )
 				) {
 					this.hideLoader();
 					this.usageCapReached = true;
-					this.showError(
-						__(
-							'AI usage cap reached. You can continue using Studio Code by switching to your own Anthropic API key.'
-						)
-					);
-					this.showInfo(
-						__( 'Use /provider to switch to Anthropic · API key, or try again later.' )
-					);
+					this.showError( formatUsageCapNotice() );
+					// Async on purpose: the reset date needs a wpcom round trip and
+					// must not block rendering the cap notice.
+					void this.showUsageCapResetDate();
 					this.currentMarkdown = null;
 					this.currentResponseText = '';
 					return;
@@ -2127,7 +2167,28 @@ export class AiChatUI implements AiOutputAdapter {
 				this.renderToolResults( event.toolResults );
 				return;
 			}
+			case 'auto_retry_start': {
+				const reason = event.errorMessage.split( '\n' )[ 0 ].trim();
+				if ( reason ) {
+					this.showInfo( reason );
+				}
+				this.showLoader(
+					sprintf(
+						/* translators: 1: retry attempt number, 2: maximum retry attempts, 3: delay in seconds */
+						__( 'Temporary provider error — retrying in %3$ds (attempt %1$d of %2$d)…' ),
+						event.attempt,
+						event.maxAttempts,
+						Math.round( event.delayMs / 1000 )
+					)
+				);
+				return;
+			}
 			case 'agent_end': {
+				// Not final when willRetry: the session auto-retries the turn
+				// after a backoff (`auto_retry_start` follows).
+				if ( event.willRetry ) {
+					return;
+				}
 				this.hideLoader();
 
 				if ( this.usageCapReached ) {
@@ -2172,9 +2233,9 @@ export class AiChatUI implements AiOutputAdapter {
 			}
 			default:
 				// agent_start / turn_start / message_start / message_update /
-				// tool_execution_* — UI doesn't act on these directly; pi
-				// events drive incremental state but the visible transitions
-				// happen at message_end / turn_end / agent_end.
+				// tool_execution_* / auto_retry_end — UI doesn't act on these
+				// directly; pi events drive incremental state but the visible
+				// transitions happen at message_end / turn_end / agent_end.
 				return;
 		}
 	}

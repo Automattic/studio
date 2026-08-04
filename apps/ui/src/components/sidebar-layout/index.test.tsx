@@ -5,9 +5,12 @@ import { SidebarLayout } from './index';
 import type { ReactNode } from 'react';
 
 vi.mock( '@/components/sidebar-header', () => ( {
-	SidebarHeader: ( { onToggleSidebar }: { onToggleSidebar: () => void } ) => (
-		<button onClick={ onToggleSidebar }>Hide sidebar</button>
-	),
+	SidebarHeader: () => null,
+} ) );
+
+vi.mock( '@/components/app-message-cards', () => ( {
+	AppMessageCards: () => null,
+	AppMessageCardsDot: () => null,
 } ) );
 
 vi.mock( '@/components/site-list', () => ( {
@@ -15,7 +18,9 @@ vi.mock( '@/components/site-list', () => ( {
 } ) );
 
 vi.mock( '@/components/user-menu', () => ( {
-	UserMenu: () => null,
+	UserMenu: ( { onToggleSidebar }: { onToggleSidebar: () => void } ) => (
+		<button onClick={ onToggleSidebar }>Hide sidebar</button>
+	),
 } ) );
 
 vi.mock( '@/data/core', () => ( {
@@ -24,6 +29,10 @@ vi.mock( '@/data/core', () => ( {
 
 vi.mock( '@/hooks/use-fullscreen', () => ( {
 	useFullscreen: () => false,
+} ) );
+
+vi.mock( '@/hooks/use-color-scheme', () => ( {
+	useColorScheme: () => 'light',
 } ) );
 
 vi.mock( '@wordpress/ui', async () => {

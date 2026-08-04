@@ -1,9 +1,14 @@
 import { BrowserWindow, IpcMainInvokeEvent, nativeTheme } from 'electron';
-import { updateSharedConfig } from '@studio/common/lib/shared-config';
+import {
+	readGlobalInstructionsFile,
+	writeGlobalInstructions,
+} from '@studio/common/ai/global-instructions';
+import { isAnalyticsOptedOut, updateSharedConfig } from '@studio/common/lib/shared-config';
 import { DEFAULT_TERMINAL } from 'src/constants';
 import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { isInstalled } from 'src/lib/is-installed';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
+import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
 import { SUPPORTED_EDITORS, SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 import { UserSettingsTabName } from 'src/modules/user-settings/user-settings-types';
@@ -12,6 +17,7 @@ import {
 	loadUserData,
 	lockAppdata,
 	saveUserData,
+	type QuitSitesBehavior,
 	unlockAppdata,
 	updateAppdata,
 } from 'src/storage/user-data';
@@ -108,6 +114,63 @@ export async function getColorScheme(): Promise< 'system' | 'light' | 'dark' > {
 	return colorScheme;
 }
 
+// Analytics opt-out. Stored in shared.json so both Studio and the Studio CLI honor it. Default is
+// opted IN (analytics ON). See `docs/design-docs/analytics-tracks.md`.
+export async function getAnalyticsEnabled(): Promise< boolean > {
+	return ! ( await isAnalyticsOptedOut() );
+}
+
+// Where the toggle was flipped — the renderer supplies the surface; Main can't infer it.
+export interface AnalyticsToggleSource {
+	surface: 'onboarding' | 'settings';
+}
+
+export async function saveAnalyticsEnabled(
+	_event: IpcMainInvokeEvent,
+	enabled: boolean,
+	source: AnalyticsToggleSource
+): Promise< void > {
+	// `recordTracksEvent` is gated by the current opt-out state, so the event must be recorded while
+	// analytics is ON — before turning it off, after turning it on. Order the write around that.
+	const recordEvent = () =>
+		recordTracksEvent( TRACKS_EVENTS.SETTING_TELEMETRY_CHANGE, {
+			surface: source.surface,
+			status: enabled ? 'on' : 'off',
+		} );
+
+	if ( enabled ) {
+		await updateSharedConfig( { analyticsOptOut: false } );
+		await recordEvent();
+	} else {
+		await recordEvent();
+		await updateSharedConfig( { analyticsOptOut: true } );
+	}
+}
+
+export async function saveQuitSitesBehavior(
+	_event: IpcMainInvokeEvent,
+	quitSitesBehavior: QuitSitesBehavior | undefined
+) {
+	await updateAppdata( { quitSitesBehavior } );
+}
+
+export async function getQuitSitesBehavior(): Promise< QuitSitesBehavior | undefined > {
+	const userData = await loadUserData();
+	return userData.quitSitesBehavior;
+}
+
+export async function saveAgenticFeaturesEnabled(
+	_event: IpcMainInvokeEvent,
+	enabled: boolean
+): Promise< void > {
+	await updateAppdata( { agenticFeaturesEnabled: enabled } );
+}
+
+export async function getAgenticFeaturesEnabled(): Promise< boolean > {
+	const userData = await loadUserData();
+	return userData.agenticFeaturesEnabled ?? true;
+}
+
 export async function saveWapuuScore( _event: IpcMainInvokeEvent, score: number ): Promise< void > {
 	if ( ! Number.isFinite( score ) || score < 0 || score > 100_000 ) {
 		return;
@@ -127,6 +190,17 @@ export async function saveWapuuScore( _event: IpcMainInvokeEvent, score: number 
 export async function getWapuuScore(): Promise< number | undefined > {
 	const userData = await loadUserData();
 	return userData.wapuuScore;
+}
+
+export async function getGlobalAgentInstructions(): Promise< string > {
+	return ( await readGlobalInstructionsFile() ) ?? '';
+}
+
+export async function saveGlobalAgentInstructions(
+	_event: IpcMainInvokeEvent,
+	content: string
+): Promise< void > {
+	await writeGlobalInstructions( content );
 }
 
 export function showUserSettings( event: IpcMainInvokeEvent, tabName?: UserSettingsTabName ) {

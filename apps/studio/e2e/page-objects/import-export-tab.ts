@@ -19,6 +19,10 @@ export default class ImportExportTab {
 		return this.locator.getByRole( 'progressbar' );
 	}
 
+	get importCompleteBanner() {
+		return this.locator.getByText( 'Import complete!' );
+	}
+
 	get importStatusMessage() {
 		return this.locator.getByText( /Import/i );
 	}

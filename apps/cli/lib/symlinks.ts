@@ -1,4 +1,3 @@
-import childProcess from 'child_process';
 import { EventEmitter } from 'events';
 import fs from 'fs';
 import path from 'path';
@@ -21,6 +20,17 @@ const RESTART_BACKOFF_MS = [ 500, 1000, 2000, 4000, 8000 ];
 // looping forever against a permanently broken watch handle.
 const RESTART_BUDGET = 5;
 const RESTART_BUDGET_WINDOW_MS = 60_000;
+
+// Directories that never host plugin/theme symlinks but can hold thousands of
+// them (npm/pnpm link farms).
+const IGNORED_SCAN_DIRECTORY_NAMES = new Set( [ 'node_modules', '.git', '.DS_Store' ] );
+// chokidar hands `ignored` a full path, so there the same names match per segment.
+const IGNORED_SCAN_PATH = /[\\/](node_modules|\.git|\.DS_Store)([\\/]|$)/;
+
+// Directory levels below the scan root to descend into; an entry sitting directly
+// in the root has depth 1. Equivalent to the watcher's chokidar `depth: 2` rooted
+// at wp-content, i.e. site/wp-content/themes/my-theme/<entry>.
+export const SYMLINK_SCAN_DEPTH = 4;
 
 export class SymlinkWatcher extends EventEmitter< SymlinkWatcherEvents > {
 	private watcher: FSWatcher | null = null;
@@ -76,8 +86,7 @@ export class SymlinkWatcher extends EventEmitter< SymlinkWatcherEvents > {
 			ignorePermissionErrors: true,
 			// Skip directories that produce noise and never host plugin/theme symlinks.
 			// chokidar v4+ no longer accepts globs by default — match against the path.
-			ignored: ( entryPath: string ) =>
-				/[\\/](node_modules|\.git|\.DS_Store)([\\/]|$)/.test( entryPath ),
+			ignored: ( entryPath: string ) => IGNORED_SCAN_PATH.test( entryPath ),
 		} );
 
 		const onMaybeSymlink = async ( entryPath: string ) => {
@@ -182,63 +191,32 @@ export class SymlinkWatcher extends EventEmitter< SymlinkWatcherEvents > {
 	}
 }
 
-function nativeFindSymlinksInDir( dir: string ): Promise< string[] > {
-	return new Promise( ( resolve, reject ) => {
-		const child = childProcess.spawn( 'find', [ dir, '-type', 'l' ] );
-		let output = '';
-		child.stdout.on( 'data', ( data ) => {
-			output += data.toString();
-		} );
-		child.on( 'close', ( code ) => {
-			if ( code !== 0 ) {
-				reject( new Error( `find exited with code ${ code }` ) );
-			} else {
-				const absolutePaths = output
-					.toString()
-					.split( '\n' )
-					.filter( Boolean )
-					.map( ( relative ) => path.resolve( dir, relative ) );
-				resolve( absolutePaths );
-			}
-		} );
-		child.on( 'error', ( error ) => {
-			reject( error );
-		} );
-	} );
-}
-
-async function walkForSymlinks( dir: string, found: string[] ): Promise< void > {
+async function walkForSymlinks(
+	dir: string,
+	found: string[],
+	depth: number,
+	maxDepth: number
+): Promise< void > {
 	let entries: fs.Dirent[];
 	try {
 		entries = await fs.promises.readdir( dir, { withFileTypes: true } );
 	} catch {
-		// Missing dir or denied permissions — match `find`'s behavior of just skipping.
+		// Missing dir or denied permissions — skip it rather than failing the scan.
 		return;
 	}
 	for ( const entry of entries ) {
+		if ( IGNORED_SCAN_DIRECTORY_NAMES.has( entry.name ) ) {
+			continue;
+		}
 		const fullPath = path.join( dir, entry.name );
 		if ( entry.isSymbolicLink() ) {
 			found.push( fullPath );
 			continue;
 		}
-		if ( entry.isDirectory() ) {
-			await walkForSymlinks( fullPath, found );
+		if ( entry.isDirectory() && depth < maxDepth ) {
+			await walkForSymlinks( fullPath, found, depth + 1, maxDepth );
 		}
 	}
-}
-
-async function findSymlinksInDir( dir: string ): Promise< string[] > {
-	if ( process.platform !== 'win32' ) {
-		try {
-			return await nativeFindSymlinksInDir( dir );
-		} catch {
-			// Fall back to the Node implementation if `find` is unavailable or fails.
-		}
-	}
-
-	const found: string[] = [];
-	await walkForSymlinks( dir, found );
-	return found;
 }
 
 // Resolve a symlink to the directory that needs to be granted in open_basedir.
@@ -256,8 +234,12 @@ export async function resolveSymlinkAllowlistEntry( linkPath: string ): Promise<
 	}
 }
 
-export async function collectSymlinkAllowlistEntries( dir: string ): Promise< string[] > {
-	const symlinks = await findSymlinksInDir( dir );
+export async function collectSymlinkAllowlistEntries(
+	dir: string,
+	maxDepth: number = SYMLINK_SCAN_DEPTH
+): Promise< string[] > {
+	const symlinks: string[] = [];
+	await walkForSymlinks( dir, symlinks, 1, maxDepth );
 	const resolved = await Promise.all( symlinks.map( resolveSymlinkAllowlistEntry ) );
 	return Array.from( new Set( resolved.filter( ( entry ): entry is string => entry !== null ) ) );
 }

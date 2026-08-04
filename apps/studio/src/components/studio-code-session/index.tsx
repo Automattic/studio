@@ -29,7 +29,7 @@ import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useGetStudioAssistantQuota } from 'src/stores/wpcom-api';
-import { AccessRequirements, type AccessRequirement } from './access-requirements';
+import { AccessRequirements } from './access-requirements';
 import { clearSessionDraft, Composer, ComposerSkeleton } from './composer';
 import { Conversation, wasLastTurnInterrupted } from './conversation';
 import { unlock } from './lock-unlock';
@@ -489,23 +489,9 @@ function SessionGate( { selectedSite }: { selectedSite: SiteDetails } ) {
 	}
 
 	// Fail open when the quota is unavailable (offline, error, older server) —
-	// the WordPress.com proxy enforces the same gates server-side.
-	let requirement: AccessRequirement | null = null;
+	// the WordPress.com proxy enforces the same gate server-side.
 	if ( quota && ! quota.hasPaymentMethod ) {
-		requirement = 'payment';
-	} else if ( quota && ! quota.emailVerified ) {
-		requirement = 'email';
-	}
-
-	if ( requirement ) {
-		return (
-			<AccessRequirements
-				key={ requirement }
-				requirement={ requirement }
-				isRechecking={ isQuotaFetching }
-				onRecheck={ refetchQuota }
-			/>
-		);
+		return <AccessRequirements isRechecking={ isQuotaFetching } onRecheck={ refetchQuota } />;
 	}
 
 	return <SessionContent selectedSite={ selectedSite } />;

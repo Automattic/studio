@@ -33,7 +33,7 @@ import { useSessionCommands } from '@/hooks/use-session-commands';
 import { SessionUIProvider, useSessionPreviewAnnotations } from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
-import { AccessRequirements, type AccessRequirement } from './access-requirements';
+import { AccessRequirements } from './access-requirements';
 import { formatAnnotationsAsPrompt, formatAnnotationsSubmittedMessage } from './annotations';
 import { Composer, ComposerSkeleton, type ComposerHandle } from './composer';
 import { Conversation } from './conversation';
@@ -394,17 +394,8 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	}
 
 	// Fail open when the quota is unavailable (offline, error, older server) —
-	// the WordPress.com proxy enforces the same gates server-side. Payment goes
-	// first when both are missing: adding a card already requires a verified
-	// email.
-	let accessRequirement: AccessRequirement | null = null;
+	// the WordPress.com proxy enforces the same gate server-side.
 	if ( quota && ! quota.hasPaymentMethod ) {
-		accessRequirement = 'payment';
-	} else if ( quota && ! quota.emailVerified ) {
-		accessRequirement = 'email';
-	}
-
-	if ( accessRequirement ) {
 		return (
 			<SessionFrame
 				header={ <SessionHeader summary={ data.summary } /> }
@@ -413,7 +404,6 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			>
 				<EmptyBackground />
 				<AccessRequirements
-					requirement={ accessRequirement }
 					isRechecking={ isQuotaFetching }
 					onRecheck={ () => void refetchQuota() }
 				/>

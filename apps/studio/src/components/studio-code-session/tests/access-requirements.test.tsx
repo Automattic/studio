@@ -114,22 +114,21 @@ describe( 'StudioCodeSession access requirements gate', () => {
 		expect( screen.queryByTestId( 'composer' ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'prioritizes the payment requirement when both gates fail', async () => {
+	it( 'still shows the payment requirement when the email is also unverified', async () => {
 		setQuota( { hasPaymentMethod: false, emailVerified: false } );
 
 		render( <StudioCodeSession selectedSite={ selectedSite } /> );
 
 		await screen.findByText( 'Studio Code Beta' );
-		expect( screen.queryByText( 'Verify your email' ) ).not.toBeInTheDocument();
+		expect( screen.queryByTestId( 'composer' ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'shows the email requirement when only the email is unverified', async () => {
+	it( 'ignores an unverified email when a payment method exists', async () => {
 		setQuota( { hasPaymentMethod: true, emailVerified: false } );
 
 		render( <StudioCodeSession selectedSite={ selectedSite } /> );
 
-		await screen.findByText( 'Verify your email' );
-		expect( screen.queryByTestId( 'composer' ) ).not.toBeInTheDocument();
+		await screen.findByTestId( 'composer' );
 	} );
 
 	it( 'opens the browser and waits after choosing to add a payment method', async () => {

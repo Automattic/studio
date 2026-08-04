@@ -20,9 +20,7 @@ describe( 'AccessRequirements', () => {
 
 	it( 'shows the payment requirement and hands off to the browser', async () => {
 		const user = userEvent.setup();
-		render(
-			<AccessRequirements requirement="payment" isRechecking={ false } onRecheck={ vi.fn() } />
-		);
+		render( <AccessRequirements isRechecking={ false } onRecheck={ vi.fn() } /> );
 
 		expect( screen.getByText( 'Studio Code Beta' ) ).toBeInTheDocument();
 		expect(
@@ -38,24 +36,10 @@ describe( 'AccessRequirements', () => {
 		expect( screen.getByRole( 'button', { name: 'Check again' } ) ).toBeInTheDocument();
 	} );
 
-	it( 'shows the email requirement without the payment reassurance', () => {
-		render(
-			<AccessRequirements requirement="email" isRechecking={ false } onRecheck={ vi.fn() } />
-		);
-
-		expect( screen.getByText( 'Verify your email' ) ).toBeInTheDocument();
-		expect(
-			screen.queryByText( 'During the beta, you’ll get free credits and won’t be charged.' )
-		).not.toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: 'Verify email' } ) ).toBeInTheDocument();
-	} );
-
 	it( 'rechecks from the waiting state and can go back', async () => {
 		const user = userEvent.setup();
 		const onRecheck = vi.fn();
-		render(
-			<AccessRequirements requirement="payment" isRechecking={ false } onRecheck={ onRecheck } />
-		);
+		render( <AccessRequirements isRechecking={ false } onRecheck={ onRecheck } /> );
 
 		await user.click( screen.getByRole( 'button', { name: 'Add payment method' } ) );
 		await user.click( screen.getByRole( 'button', { name: 'Check again' } ) );
@@ -67,9 +51,7 @@ describe( 'AccessRequirements', () => {
 
 	it( 'labels the recheck button while a recheck is in flight', async () => {
 		const user = userEvent.setup();
-		render(
-			<AccessRequirements requirement="payment" isRechecking={ true } onRecheck={ vi.fn() } />
-		);
+		render( <AccessRequirements isRechecking={ true } onRecheck={ vi.fn() } /> );
 
 		await user.click( screen.getByRole( 'button', { name: 'Add payment method' } ) );
 		expect( screen.getByRole( 'button', { name: 'Checking…' } ) ).toBeInTheDocument();

@@ -184,25 +184,7 @@ describe( 'SessionView', () => {
 		expect( screen.getByRole( 'button', { name: 'Add payment method' } ) ).toBeInTheDocument();
 	} );
 
-	it( 'asks for payment first when both payment and email are missing', () => {
-		useSessionMock.mockReturnValue( {
-			data: makeLoadedSession(),
-			isLoading: false,
-			error: null,
-		} );
-		useStudioAssistantQuotaMock.mockReturnValue( {
-			data: makeQuota( { hasPaymentMethod: false, emailVerified: false } ),
-			isFetching: false,
-			refetch: vi.fn(),
-		} );
-
-		render( <SessionView sessionId="session-1" /> );
-
-		expect( screen.getByRole( 'button', { name: 'Add payment method' } ) ).toBeInTheDocument();
-		expect( screen.queryByRole( 'button', { name: 'Verify email' } ) ).not.toBeInTheDocument();
-	} );
-
-	it( 'gates the chat behind email verification when only the email is unverified', () => {
+	it( 'ignores an unverified email when a payment method exists', () => {
 		useSessionMock.mockReturnValue( {
 			data: makeLoadedSession(),
 			isLoading: false,
@@ -216,7 +198,7 @@ describe( 'SessionView', () => {
 
 		render( <SessionView sessionId="session-1" /> );
 
-		expect( screen.getByRole( 'button', { name: 'Verify email' } ) ).toBeInTheDocument();
+		expect( screen.queryByText( 'Studio Code Beta' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'fails open when the quota is unavailable', () => {
@@ -234,7 +216,6 @@ describe( 'SessionView', () => {
 		render( <SessionView sessionId="session-1" /> );
 
 		expect( screen.queryByText( 'Studio Code Beta' ) ).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'button', { name: 'Verify email' } ) ).not.toBeInTheDocument();
 	} );
 } );
 

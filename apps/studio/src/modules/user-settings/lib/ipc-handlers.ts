@@ -45,6 +45,10 @@ export async function saveUserTerminal(
 ) {
 	await sendIpcEventToRenderer( 'user-preference-changed' );
 	await updateAppdata( { preferredTerminal } );
+	await recordTracksEvent( TRACKS_EVENTS.SETTING_TERMINAL_CHANGE, {
+		terminal: preferredTerminal,
+		surface: 'settings',
+	} );
 }
 
 export async function getUserTerminal() {
@@ -54,6 +58,10 @@ export async function getUserTerminal() {
 
 export async function saveUserLocale( event: IpcMainInvokeEvent, locale: string ) {
 	await updateSharedConfig( { locale } );
+	await recordTracksEvent( TRACKS_EVENTS.SETTING_LANGUAGE_CHANGE, {
+		locale,
+		surface: 'settings',
+	} );
 }
 
 export async function saveUserEditor( event: IpcMainInvokeEvent, editor: SupportedEditor ) {
@@ -61,6 +69,10 @@ export async function saveUserEditor( event: IpcMainInvokeEvent, editor: Support
 	sendIpcEventToRendererWithWindow( parentWindow, 'user-preference-changed' );
 
 	await updateAppdata( { preferredEditor: editor } );
+	await recordTracksEvent( TRACKS_EVENTS.SETTING_CODE_EDITOR_CHANGE, {
+		editor,
+		surface: 'settings',
+	} );
 }
 
 export async function getDefaultSiteDirectory(): Promise< string > {
@@ -72,6 +84,10 @@ export async function saveDefaultSiteDirectory( event: IpcMainInvokeEvent, direc
 	await ensureWritableDirectory( directory );
 	await sendIpcEventToRenderer( 'user-preference-changed' );
 	await updateAppdata( { defaultSiteDirectory: directory } );
+	await recordTracksEvent( TRACKS_EVENTS.SETTING_DEFAULT_DIRECTORY_CHANGE, {
+		is_default: directory === defaultSitePath,
+		surface: 'settings',
+	} );
 }
 
 export async function getUserLocale() {
@@ -105,6 +121,10 @@ export async function saveColorScheme(
 ) {
 	nativeTheme.themeSource = colorScheme;
 	await updateAppdata( { colorScheme } );
+	await recordTracksEvent( TRACKS_EVENTS.SETTING_APPEARANCE_CHANGE, {
+		mode: colorScheme,
+		surface: 'settings',
+	} );
 }
 
 export async function getColorScheme(): Promise< 'system' | 'light' | 'dark' > {
@@ -152,6 +172,12 @@ export async function saveQuitSitesBehavior(
 	quitSitesBehavior: QuitSitesBehavior | undefined
 ) {
 	await updateAppdata( { quitSitesBehavior } );
+	if ( quitSitesBehavior ) {
+		await recordTracksEvent( TRACKS_EVENTS.SETTING_QUIT_ACTION_CHANGE, {
+			behavior: quitSitesBehavior,
+			surface: 'settings',
+		} );
+	}
 }
 
 export async function getQuitSitesBehavior(): Promise< QuitSitesBehavior | undefined > {
@@ -164,6 +190,10 @@ export async function saveAgenticFeaturesEnabled(
 	enabled: boolean
 ): Promise< void > {
 	await updateAppdata( { agenticFeaturesEnabled: enabled } );
+	await recordTracksEvent( TRACKS_EVENTS.SETTING_AGENTIC_FEATURES_CHANGE, {
+		enabled,
+		surface: 'settings',
+	} );
 }
 
 export async function getAgenticFeaturesEnabled(): Promise< boolean > {

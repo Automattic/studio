@@ -156,6 +156,15 @@ events). The table lists the event-specific props.
 | `studio_app_launch` | Desktop Main (`appBoot`) | `is_first_launch` |
 | `studio_site_start` | CLI site-start funnel | (none — `ui_version` comes from the wrapper via `STUDIO_TRACKS_ORIGIN`, only when `channel=studio-ui`) |
 | `studio_setting_telemetry_change` | Desktop Main (`saveAnalyticsEnabled`) | `status` (`on`/`off`), `surface` (`onboarding`/`settings`) — recorded while analytics is still ON (before the write when turning off, after it when turning on) so the opt-out gate never self-suppresses it. |
+| `studio_setting_appearance_change` | Desktop Main (`saveColorScheme`) | `mode` (`light`/`dark`/`system`), `surface` (`settings`) |
+| `studio_setting_language_change` | Desktop Main (`saveUserLocale`) | `locale`, `surface` (`settings`) |
+| `studio_setting_code_editor_change` | Desktop Main (`saveUserEditor`) | `editor`, `surface` (`settings`) |
+| `studio_setting_terminal_change` | Desktop Main (`saveUserTerminal`) | `terminal`, `surface` (`settings`) |
+| `studio_setting_default_directory_change` | Desktop Main (`saveDefaultSiteDirectory`) | `is_default` (boolean), `surface` (`settings`) — the directory path is **never** sent (it contains the user's home path). |
+| `studio_setting_quit_action_change` | Desktop Main (`saveQuitSitesBehavior`) | `behavior` (`stop`/`stop-and-auto-start`/`leave-running`), `surface` (`settings`) |
+| `studio_setting_cli_change` | Desktop Main (`installStudioCli`/`uninstallStudioCli`) | `installed` (boolean), `surface` (`settings`) |
+| `studio_setting_agentic_features_change` | Desktop Main (`saveAgenticFeaturesEnabled`) | `enabled` (boolean), `surface` (`settings`) |
+| `studio_setting_ui_change` | Desktop Main (`updateBetaFeature`, `enableAgenticUi` key) | `type` (`classic`/`agentic`), `surface` (`settings`) |
 
 ### How to add a new event
 

@@ -1,4 +1,5 @@
 import { __ } from '@wordpress/i18n';
+import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
 import { lockAppdata, unlockAppdata, loadUserData, saveUserData } from 'src/storage/user-data';
 
 export interface BetaFeatureDefinition {
@@ -66,5 +67,12 @@ export async function updateBetaFeature(
 		await saveUserData( userData );
 	} finally {
 		await unlockAppdata();
+	}
+
+	if ( key === 'enableAgenticUi' ) {
+		await recordTracksEvent( TRACKS_EVENTS.SETTING_UI_CHANGE, {
+			type: value ? 'agentic' : 'classic',
+			surface: 'settings',
+		} );
 	}
 }

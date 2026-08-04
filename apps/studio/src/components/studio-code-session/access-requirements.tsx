@@ -14,7 +14,7 @@ import { StudioCodeTabImage } from './studio-code-tab-image';
 const requirementCopy = {
 	title: __( 'Studio Code Beta' ),
 	description: __(
-		'To enroll in our free beta period, you must add a valid payment method to your WordPress.com account.'
+		'To enroll in our free beta you must add a valid payment method to your WordPress.com account.'
 	),
 	button: __( 'Add payment method' ),
 	url: ADD_PAYMENT_METHOD_URL,
@@ -84,7 +84,7 @@ export function AccessRequirements( {
 					<div className="max-w-[48ch] text-frame-text-secondary a8c-body">
 						<span>{ copy.description }</span>
 						<span className={ styles.reassuranceLine }>
-							{ __( 'During the beta, you’ll get free credits and won’t be charged.' ) }
+							{ __( 'You won’t be charged during the beta.' ) }
 						</span>
 					</div>
 					<div className="mt-8">

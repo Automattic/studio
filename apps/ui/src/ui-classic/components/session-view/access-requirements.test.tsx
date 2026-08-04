@@ -23,9 +23,7 @@ describe( 'AccessRequirements', () => {
 		render( <AccessRequirements isRechecking={ false } onRecheck={ vi.fn() } /> );
 
 		expect( screen.getByText( 'Studio Code Beta' ) ).toBeInTheDocument();
-		expect(
-			screen.getByText( 'During the beta, you’ll get free credits and won’t be charged.' )
-		).toBeInTheDocument();
+		expect( screen.getByText( 'You won’t be charged during the beta.' ) ).toBeInTheDocument();
 
 		await user.click( screen.getByRole( 'button', { name: 'Add payment method' } ) );
 

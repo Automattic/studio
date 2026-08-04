@@ -1,6 +1,7 @@
 import { ADD_PAYMENT_METHOD_URL } from '@studio/common/lib/studio-assistant-quota';
 import { __ } from '@wordpress/i18n';
 import { Button } from '@wordpress/ui';
+import { clsx } from 'clsx';
 import { useState } from 'react';
 import { useConnector } from '@/data/core';
 import styles from './access-requirements.module.css';
@@ -11,8 +12,9 @@ import styles from './access-requirements.module.css';
 const requirementCopy = {
 	title: __( 'Studio Code Beta' ),
 	description: __(
-		'To enroll in our free beta period, you must add a valid payment method to your WordPress.com account.'
+		'To enroll in our free beta you must add a valid payment method to your WordPress.com account.'
 	),
+	reassurance: __( 'You won’t be charged during the beta.' ),
 	button: __( 'Add payment method' ),
 	url: ADD_PAYMENT_METHOD_URL,
 	browserTitle: __( 'Finish adding your payment method' ),
@@ -21,11 +23,22 @@ const requirementCopy = {
 	),
 } as const;
 
+function Frost() {
+	return (
+		<>
+			<span className={ clsx( styles.frost, styles.frostSoft ) } aria-hidden="true" />
+			<span className={ clsx( styles.frost, styles.frostMedium ) } aria-hidden="true" />
+			<span className={ clsx( styles.frost, styles.frostStrong ) } aria-hidden="true" />
+			<span className={ clsx( styles.frost, styles.frostIntense ) } aria-hidden="true" />
+		</>
+	);
+}
+
 /**
  * Upfront gate for the agentic chat (STU-2178). The WordPress.com proxy denies
- * AI requests without a saved payment method or a verified email (STU-2174);
- * this surfaces that requirement before the first prompt instead of as an
- * error after it. The proxy remains the enforcement point.
+ * AI requests without a saved payment method (STU-2174); this surfaces that
+ * requirement before the first prompt instead of as an error after it. The
+ * proxy remains the enforcement point.
  */
 export function AccessRequirements( {
 	isRechecking,
@@ -41,6 +54,7 @@ export function AccessRequirements( {
 	if ( isWaitingForBrowser ) {
 		return (
 			<div className={ styles.root }>
+				<Frost />
 				<div className={ styles.copy }>
 					<h2 className={ styles.title }>{ copy.browserTitle }</h2>
 					<p className={ styles.description }>{ copy.browserDescription }</p>
@@ -49,6 +63,7 @@ export function AccessRequirements( {
 						<Button
 							type="button"
 							variant="solid"
+							className={ styles.cta }
 							aria-disabled={ isRechecking }
 							onClick={ onRecheck }
 						>
@@ -70,18 +85,16 @@ export function AccessRequirements( {
 
 	return (
 		<div className={ styles.root }>
+			<Frost />
 			<div className={ styles.copy }>
 				<h2 className={ styles.title }>{ copy.title }</h2>
-				<p className={ styles.description }>
-					{ copy.description }
-					<span className={ styles.reassuranceLine }>
-						{ __( 'During the beta, you’ll get free credits and won’t be charged.' ) }
-					</span>
-				</p>
+				<p className={ styles.description }>{ copy.description }</p>
+				<p className={ styles.description }>{ copy.reassurance }</p>
 				<div className={ styles.actions }>
 					<Button
 						type="button"
 						variant="solid"
+						className={ styles.cta }
 						onClick={ () => {
 							void connector.openExternalUrl( copy.url );
 							setIsWaitingForBrowser( true );

@@ -206,6 +206,26 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		} );
 	}
 
+	// Resolve when a snapshot command that reports no URL (delete) finishes,
+	// correlating the SSE stream by operationId.
+	function awaitSnapshotCompletion( operationId: string ): Promise< void > {
+		return new Promise( ( resolve, reject ) => {
+			const listener = ( output: SnapshotSseOutput ) => {
+				if ( output.operationId !== operationId ) {
+					return;
+				}
+				if ( output.kind === 'success' ) {
+					snapshotListeners.delete( listener );
+					resolve();
+				} else if ( output.kind === 'fatal-error' ) {
+					snapshotListeners.delete( listener );
+					reject( new Error( output.data.message ) );
+				}
+			};
+			snapshotListeners.add( listener );
+		} );
+	}
+
 	return {
 		async init() {
 			// The browser's EventSource reconnects automatically.
@@ -525,6 +545,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		async deleteAllSnapshots() {
 			// No-op: the local server has no delete-all route yet.
+		},
+		async deletePreviewSite( hostname ): Promise< void > {
+			const { operationId } = await api< { operationId: string } >(
+				`/snapshots/${ encodeURIComponent( hostname ) }`,
+				{ method: 'DELETE' }
+			);
+			await awaitSnapshotCompletion( operationId );
 		},
 		async publishPreviewSite( siteId, existingHostname ): Promise< { url: string } > {
 			// A hostname means "refresh this preview"; otherwise create a new one.

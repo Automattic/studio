@@ -28,6 +28,7 @@ import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { getSiteDisplayUrl, getSiteUrl } from '@/lib/get-site-url';
 import { DisconnectSiteDialog } from './disconnect-site-dialog';
 import { PublishPickerView } from './publish-picker-view';
+import { ShareDialog } from './share-dialog';
 import styles from './style.module.css';
 import { ensureProtocol, pickLiveSite } from './utils';
 import '@/components/selective-sync/selective-sync.css';
@@ -78,6 +79,7 @@ export function SiteToolbar( { site, className, openPullOnLoad = false }: SiteTo
 	const [ syncDialogType, setSyncDialogType ] = useState< 'push' | 'pull' | null >( null );
 	const [ publishOpen, setPublishOpen ] = useState( false );
 	const [ disconnectOpen, setDisconnectOpen ] = useState( false );
+	const [ shareOpen, setShareOpen ] = useState( false );
 
 	const isStarting = useIsSiteStarting( site.id );
 	const isStopping = useIsSiteStopping( site.id );
@@ -198,6 +200,31 @@ export function SiteToolbar( { site, className, openPullOnLoad = false }: SiteTo
 			</div>
 
 			<div className={ styles.actions }>
+				{ /* Sharing a preview isn't a sync — it publishes a throwaway copy —
+				     so it sits beside the primary action, not inside its dialog. */ }
+				{ ! isSignedOut ? (
+					<Tooltip.Root>
+						<Tooltip.Trigger
+							render={
+								<Button
+									variant="minimal"
+									tone="neutral"
+									size="small"
+									className={ styles.action }
+									disabled={ ! agenticEnabled }
+									onClick={ () => setShareOpen( true ) }
+								>
+									{ __( 'Share' ) }
+								</Button>
+							}
+						/>
+						<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
+							{ agenticEnabled
+								? __( 'Publish a preview link' )
+								: __( 'Go online to share a preview.' ) }
+						</Tooltip.Popup>
+					</Tooltip.Root>
+				) : null }
 				{ isSignedOut ? (
 					<Button
 						variant="solid"
@@ -288,6 +315,8 @@ export function SiteToolbar( { site, className, openPullOnLoad = false }: SiteTo
 					</Dialog.Popup>
 				</Dialog.Root>
 			) : null }
+
+			{ shareOpen ? <ShareDialog site={ site } open onOpenChange={ setShareOpen } /> : null }
 		</div>
 	);
 }

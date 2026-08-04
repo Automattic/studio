@@ -29,6 +29,8 @@ type PopupProps = {
 	align?: 'start' | 'center' | 'end';
 	sideOffset?: number;
 	alignOffset?: number;
+	/** Raises the menu above modal surfaces. Set when the trigger is inside a dialog. */
+	aboveOverlays?: boolean;
 	className?: string;
 	onClick?: MouseEventHandler< HTMLElement >;
 	onPointerDown?: PointerEventHandler< HTMLElement >;
@@ -45,6 +47,7 @@ export function Popup( {
 	align = 'start',
 	sideOffset = 4,
 	alignOffset,
+	aboveOverlays,
 	className,
 	onClick,
 	onPointerDown,
@@ -56,7 +59,9 @@ export function Popup( {
 				align={ align }
 				sideOffset={ sideOffset }
 				alignOffset={ alignOffset }
-				className={ styles.positioner }
+				className={ `${ styles.positioner }${
+					aboveOverlays ? ` ${ styles.positionerAboveOverlays }` : ''
+				}` }
 			>
 				{ /* Portals mount into document.body, escaping the app-root
 					ThemeProvider's `data-wpds-density='compact'` wrapper and

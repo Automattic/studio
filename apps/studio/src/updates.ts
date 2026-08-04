@@ -4,6 +4,7 @@ import { sprintf, __ } from '@wordpress/i18n';
 import { AUTO_UPDATE_INTERVAL_MS, NIGHTLY_UPDATE_TTL_MS } from 'src/constants';
 import { sendIpcEventToRenderer, type AppUpdateStatus } from 'src/ipc-utils';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
+import { getPreferredStudioUiMode } from 'src/lib/studio-ui-mode';
 import { isDevRelease } from 'src/lib/version-utils';
 import { getMainWindow } from 'src/main-window';
 import { loadUserData, updateAppdata } from 'src/storage/user-data';
@@ -140,7 +141,11 @@ export function setupUpdates() {
 		downloadedVersion = typeof releaseName === 'string' ? releaseName : null;
 		console.log( 'Update has been downloaded', { version: downloadedVersion } );
 		void sendIpcEventToRenderer( 'app-update-status', buildAppUpdateStatus() );
-		await showUpdateReadyToInstallNotice();
+		// The agentic UI surfaces this as a dismissable card in the sidebar, so a modal on top of
+		// it would be a duplicate interruption. Classic has no such affordance and still needs it.
+		if ( getPreferredStudioUiMode() !== 'agentic' ) {
+			await showUpdateReadyToInstallNotice();
+		}
 	} );
 
 	if ( ! shouldPoll ) {

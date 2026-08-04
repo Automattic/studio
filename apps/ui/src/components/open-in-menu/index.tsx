@@ -8,25 +8,27 @@ import { useOpenInDestinations } from './use-open-in-destinations';
 import type { OpenInDestination } from './use-open-in-destinations';
 import type { SiteDetails } from '@/data/core';
 
-const LAST_USED_STORAGE_KEY = 'studio:open-in-menu:last-used';
+// Scoped per site: which app you reach for depends on what you're doing with
+// that site, even though the apps themselves come from global preferences.
+const lastUsedStorageKey = ( siteId: string ) => `studio:open-in-menu:last-used:${ siteId }`;
 const DEFAULT_DESTINATION: OpenInDestination = 'browser';
 
 function isOpenInDestination( value: string | null ): value is OpenInDestination {
 	return value === 'browser' || value === 'files' || value === 'editor' || value === 'terminal';
 }
 
-function getStoredDestination(): OpenInDestination {
+function getStoredDestination( siteId: string ): OpenInDestination {
 	try {
-		const stored = window.localStorage.getItem( LAST_USED_STORAGE_KEY );
+		const stored = window.localStorage.getItem( lastUsedStorageKey( siteId ) );
 		return isOpenInDestination( stored ) ? stored : DEFAULT_DESTINATION;
 	} catch {
 		return DEFAULT_DESTINATION;
 	}
 }
 
-function storeLastUsedDestination( destination: OpenInDestination ): void {
+function storeLastUsedDestination( siteId: string, destination: OpenInDestination ): void {
 	try {
-		window.localStorage.setItem( LAST_USED_STORAGE_KEY, destination );
+		window.localStorage.setItem( lastUsedStorageKey( siteId ), destination );
 	} catch {
 		// Storage failures only mean the split trigger won't persist.
 	}
@@ -35,6 +37,9 @@ function storeLastUsedDestination( destination: OpenInDestination ): void {
 /**
  * Split button for the preview toolbar: the left half repeats the last
  * destination the user opened, the chevron half opens the full list.
+ *
+ * The caller keys this on the site id, so the remembered destination is read
+ * fresh when the preview switches sites.
  */
 export function OpenInMenu( {
 	site,
@@ -45,11 +50,13 @@ export function OpenInMenu( {
 	site: SiteDetails;
 	browserPath: string;
 } ) {
-	const [ lastUsed, setLastUsed ] = useState< OpenInDestination >( getStoredDestination );
+	const [ lastUsed, setLastUsed ] = useState< OpenInDestination >( () =>
+		getStoredDestination( site.id )
+	);
 
 	const rememberDestination = ( destination: OpenInDestination ) => {
 		setLastUsed( destination );
-		storeLastUsedDestination( destination );
+		storeLastUsedDestination( site.id, destination );
 	};
 
 	const destinations = useOpenInDestinations( site, browserPath, rememberDestination );
@@ -63,7 +70,7 @@ export function OpenInMenu( {
 	);
 
 	return (
-		<Menu.Root modal={ false }>
+		<Menu.Root>
 			<div className={ styles.splitTrigger }>
 				<Tooltip.Root>
 					<Tooltip.Trigger

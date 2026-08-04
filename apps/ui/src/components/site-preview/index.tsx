@@ -772,7 +772,7 @@ export function SitePreview( {
 							) : null }
 						</div>
 					) : null }
-					<OpenInMenu site={ site } browserPath={ getSafePath( path ) } />
+					<OpenInMenu key={ site.id } site={ site } browserPath={ getSafePath( path ) } />
 					{ canPreview ? (
 						<PreviewOverflowMenu
 							viewportMode={ viewportMode }

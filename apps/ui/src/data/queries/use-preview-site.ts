@@ -34,3 +34,20 @@ export function usePublishPreviewSite() {
 		},
 	} );
 }
+
+// Deletes a single WordPress.com-hosted preview by its hostname and refreshes
+// the snapshot list.
+export function useDeletePreviewSite() {
+	const connector = useConnector();
+	const queryClient = useQueryClient();
+	return useMutation( {
+		mutationFn: ( { hostname }: { hostname: string } ) => connector.deletePreviewSite( hostname ),
+		onSuccess: () => {
+			void queryClient.invalidateQueries( { queryKey: SNAPSHOTS_QUERY_KEY } );
+		},
+		onError: ( error ) => {
+			const message = error instanceof Error ? error.message : String( error );
+			toast.error( message || __( 'Failed to delete preview link' ) );
+		},
+	} );
+}

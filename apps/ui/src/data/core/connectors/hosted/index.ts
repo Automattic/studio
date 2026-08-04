@@ -244,6 +244,9 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async deleteAllSnapshots() {
 			// No-op: hosted mode does not create WordPress.com preview sites.
 		},
+		async deletePreviewSite(): Promise< void > {
+			throw new UnsupportedError( 'deletePreviewSite' );
+		},
 		async publishPreviewSite(): Promise< { url: string } > {
 			throw new UnsupportedError( 'publishPreviewSite' );
 		},

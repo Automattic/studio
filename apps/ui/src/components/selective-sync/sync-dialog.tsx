@@ -322,7 +322,10 @@ export function SyncDialog( {
 
 	return (
 		<Modal
-			className="w-3/5 min-w-[550px] max-h-[84vh] [&>div]:!p-0"
+			className="max-h-[84vh] [&>div]:!p-0"
+			// Match the Share dialog's 480px width. apps/ui has no Tailwind build,
+			// so an arbitrary w-[480px] utility wouldn't exist — set it inline.
+			style={ { width: '480px', minWidth: 0, maxWidth: '100%' } }
 			onRequestClose={ onRequestClose }
 			title={ syncTexts.title }
 		>

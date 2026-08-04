@@ -198,6 +198,44 @@ export function createIpcConnector(): Connector {
 		} );
 	}
 
+	// Like awaitSnapshotOperation, but for commands that report no URL (delete):
+	// resolves on the matching success event, rejects on a fatal error.
+	function awaitSnapshotCompletion( operationId: string ): Promise< void > {
+		return new Promise( ( resolve, reject ) => {
+			const unsubscribes: Array< () => void > = [];
+			const cleanup = () => {
+				for ( const unsubscribe of unsubscribes ) {
+					unsubscribe();
+				}
+			};
+
+			unsubscribes.push(
+				ipcListener.subscribe(
+					'snapshot-success',
+					( _event: unknown, payload: { operationId: string } ) => {
+						if ( payload.operationId !== operationId ) {
+							return;
+						}
+						cleanup();
+						resolve();
+					}
+				)
+			);
+			unsubscribes.push(
+				ipcListener.subscribe(
+					'snapshot-fatal-error',
+					( _event: unknown, payload: { operationId: string; data: { message: string } } ) => {
+						if ( payload.operationId !== operationId ) {
+							return;
+						}
+						cleanup();
+						reject( new Error( payload.data.message ) );
+					}
+				)
+			);
+		} );
+	}
+
 	return {
 		async init() {
 			// Install the application menu (View > Toggle DevTools, etc.).
@@ -502,6 +540,13 @@ export function createIpcConnector(): Connector {
 
 		async deleteAllSnapshots(): Promise< void > {
 			await ipcApi.deleteAllSnapshots();
+		},
+
+		async deletePreviewSite( hostname ): Promise< void > {
+			const { operationId } = ( await ipcApi.deleteSnapshot( hostname ) ) as {
+				operationId: string;
+			};
+			await awaitSnapshotCompletion( operationId );
 		},
 
 		async publishPreviewSite( siteId, existingHostname ): Promise< { url: string } > {

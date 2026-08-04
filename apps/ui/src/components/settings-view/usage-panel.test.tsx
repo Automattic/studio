@@ -2,7 +2,6 @@ import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
-import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
 import {
 	useDeleteAllSnapshots,
@@ -10,6 +9,7 @@ import {
 	useSnapshots,
 } from '@/data/queries/use-snapshots';
 import { useUserLocale } from '@/data/queries/use-user-locale';
+import { setUsageExplorationScenario } from '@/data/usage-exploration';
 import { useOffline } from '@/hooks/use-offline';
 import { UsagePanel } from './usage-panel';
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
@@ -79,12 +79,12 @@ vi.mock( '@/hooks/use-offline', () => ( {
 	useOffline: vi.fn(),
 } ) );
 
-vi.mock( '@/data/queries/use-assistant-quota', () => ( {
-	useStudioAssistantQuota: vi.fn(),
-} ) );
-
 vi.mock( '@/data/queries/use-user-locale', () => ( {
 	useUserLocale: vi.fn(),
+} ) );
+
+vi.mock( '@/components/purchase-credits-dialog', () => ( {
+	PurchaseCreditsDialog: () => null,
 } ) );
 
 // Reached through `useAgenticFeatures`, which reads the agentic-features
@@ -101,7 +101,6 @@ const useDeleteAllSnapshotsMock = vi.mocked( useDeleteAllSnapshots );
 const useSnapshotUsageMock = vi.mocked( useSnapshotUsage );
 const useSnapshotsMock = vi.mocked( useSnapshots );
 const useOfflineMock = vi.mocked( useOffline );
-const useStudioAssistantQuotaMock = vi.mocked( useStudioAssistantQuota );
 const useUserLocaleMock = vi.mocked( useUserLocale );
 
 describe( 'UsagePanel', () => {
@@ -111,6 +110,7 @@ describe( 'UsagePanel', () => {
 
 	beforeEach( () => {
 		vi.clearAllMocks();
+		setUsageExplorationScenario( 'warning' );
 
 		confirmDeleteAllPreviewSites.mockResolvedValue( true );
 		// `agenticRequiresAuth` lets the real useAgenticFeatures derive the
@@ -120,10 +120,6 @@ describe( 'UsagePanel', () => {
 			agenticRequiresAuth: true,
 		} as never );
 		useOfflineMock.mockReturnValue( false );
-		useStudioAssistantQuotaMock.mockReturnValue( {
-			data: undefined,
-			isLoading: false,
-		} as never );
 		useUserLocaleMock.mockReturnValue( 'en' );
 		useAuthUserMock.mockReturnValue( {
 			data: { id: 1, displayName: 'Ada Lovelace', email: 'ada@example.com' },
@@ -146,67 +142,58 @@ describe( 'UsagePanel', () => {
 		render( <UsagePanel /> );
 
 		expect( screen.getByRole( 'heading', { name: 'Usage' } ) ).toBeInTheDocument();
-		expect(
-			screen.getByText(
-				'AI credits are currently free while Studio Code is in Alpha. Build, iterate, and experiment, but know that credits will eventually have a cost.'
-			)
-		).toBeInTheDocument();
+		expect( screen.getByText( '40 / 50' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Extra AI credits' ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Add credits' } ) ).toBeInTheDocument();
 		expect( screen.getByText( '2 of 10 active preview sites' ) ).toBeInTheDocument();
 		expect( useSnapshotsMock ).toHaveBeenCalledWith( 1 );
 		expect( useSnapshotUsageMock ).toHaveBeenCalledWith( 1 );
 		expect( useDeleteAllSnapshotsMock ).toHaveBeenCalledWith( 1 );
 	} );
 
-	it( 'renders AI usage when a quota with a cost cap is available', () => {
-		useStudioAssistantQuotaMock.mockReturnValue( {
-			data: { costUsage: 25, costCap: 100, costResetDate: '2026-08-01T12:00:00' },
-			isLoading: false,
-		} as never );
-
+	it( 'switches between exploration states', () => {
 		render( <UsagePanel /> );
 
+		fireEvent.click( screen.getByRole( 'button', { name: 'Monthly allowance 100%' } ) );
+
+		expect( screen.getByText( '50 / 50' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Monthly allowance used' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Keep chatting with extra credits' ) ).toBeInTheDocument();
 		expect(
-			screen.getByText( '25% of monthly limit used (resets on August 1, 2026)' )
+			screen.getByText( 'Add credits to continue now. Extra credits do not expire.' )
 		).toBeInTheDocument();
-		expect(
-			screen.queryByText(
-				'AI credits are currently free while Studio Code is in Alpha. Build, iterate, and experiment, but know that credits will eventually have a cost.'
-			)
-		).not.toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Add credits' } ) ).toBeInTheDocument();
 	} );
 
-	it( 'shows an unavailable message when the quota fetch fails', () => {
-		useStudioAssistantQuotaMock.mockReturnValue( {
-			data: undefined,
-			isLoading: false,
-			isError: true,
-		} as never );
+	it( 'shows purchased credits as a second usage graph', () => {
+		setUsageExplorationScenario( 'extra-healthy' );
 
 		render( <UsagePanel /> );
 
-		expect(
-			screen.getByText( 'Studio Code limits are temporarily unavailable.' )
-		).toBeInTheDocument();
-		expect(
-			screen.queryByText(
-				'AI credits are currently free while Studio Code is in Alpha. Build, iterate, and experiment, but know that credits will eventually have a cost.'
-			)
-		).not.toBeInTheDocument();
+		expect( screen.getByText( '18 / 50 used' ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Add credits' } ) ).toBeInTheDocument();
+		expect( screen.getAllByTestId( 'usage-progress-bar' ) ).toHaveLength( 3 );
 	} );
 
-	it( 'falls back to the Alpha copy when the quota has no cost cap', () => {
-		useStudioAssistantQuotaMock.mockReturnValue( {
-			data: { costUsage: 0, costCap: 0 },
-			isLoading: false,
-		} as never );
-
+	it( 'offers prototype states for extra-credit usage', () => {
 		render( <UsagePanel /> );
 
-		expect(
-			screen.getByText(
-				'AI credits are currently free while Studio Code is in Alpha. Build, iterate, and experiment, but know that credits will eventually have a cost.'
-			)
-		).toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Extra credits 100%' } ) );
+
+		expect( screen.getByText( 'Extra AI credits used' ) ).toBeInTheDocument();
+		expect( screen.getByText( '50 / 50 used' ) ).toBeInTheDocument();
+		expect( screen.getAllByTestId( 'usage-progress-bar' ) ).toHaveLength( 3 );
+	} );
+
+	it( 'shows extra credits held in reserve before the monthly allowance is used', () => {
+		render( <UsagePanel /> );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Extra credits In reserve' } ) );
+
+		expect( screen.getByText( '18 / 50' ) ).toBeInTheDocument();
+		expect( screen.getByText( '0 / 50 used' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Extra AI credits' ) ).toBeInTheDocument();
+		expect( screen.getAllByTestId( 'usage-progress-bar' ) ).toHaveLength( 3 );
 	} );
 
 	it( 'confirms through the connector before deleting all preview sites', async () => {
@@ -229,8 +216,7 @@ describe( 'UsagePanel', () => {
 		expect( deleteSnapshotsMutate ).not.toHaveBeenCalled();
 	} );
 
-	it( 'shows a loading row with an empty progress bar in both sections', () => {
-		useStudioAssistantQuotaMock.mockReturnValue( { data: undefined, isLoading: true } as never );
+	it( 'keeps AI usage visible while preview usage loads', () => {
 		// Preview usage is still cached from before the delete, so the bar would
 		// otherwise keep its old fill next to a "Loading…" row.
 		useDeleteAllSnapshotsMock.mockReturnValue( {
@@ -241,21 +227,15 @@ describe( 'UsagePanel', () => {
 
 		render( <UsagePanel /> );
 
-		expect( screen.getAllByText( 'Loading…' ) ).toHaveLength( 2 );
+		expect( screen.getAllByText( 'Loading…' ) ).toHaveLength( 1 );
 		const bars = screen.getAllByTestId( 'usage-progress-bar' );
 		expect( bars ).toHaveLength( 2 );
-		for ( const bar of bars ) {
-			expect( bar.firstElementChild ).toHaveStyle( { inlineSize: '0%' } );
-		}
+		expect( bars[ 0 ].firstElementChild ).toHaveStyle( { inlineSize: '80%' } );
+		expect( bars[ 1 ].firstElementChild ).toHaveStyle( { inlineSize: '0%' } );
 	} );
 
 	it( 'replaces figures and actions with the offline notice while offline', () => {
 		useOfflineMock.mockReturnValue( true );
-		useStudioAssistantQuotaMock.mockReturnValue( {
-			data: { costUsage: 25, costCap: 100, costResetDate: '2026-08-01T12:00:00' },
-			isLoading: false,
-		} as never );
-
 		render( <UsagePanel /> );
 
 		expect( screen.getByRole( 'status' ) ).toHaveTextContent( "You're offline" );

@@ -37,6 +37,7 @@ import {
 	type KeyboardEvent,
 	type MouseEvent,
 	type PointerEvent,
+	type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
 import * as Menu from '@/components/menu';
@@ -211,6 +212,7 @@ interface ComposerProps {
 	ownerSiteId?: string;
 	onSwitchSession?: ( sessionId: string ) => void;
 	autoFocus?: boolean;
+	usageNotice?: ReactNode;
 }
 
 /**
@@ -293,6 +295,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		ownerSiteId,
 		onSwitchSession,
 		autoFocus = false,
+		usageNotice,
 	},
 	ref
 ) {
@@ -686,6 +689,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 					onDragLeave={ dragHandlers.onDragLeave }
 					onDrop={ dragHandlers.onDrop }
 				>
+					{ usageNotice }
 					<div
 						className={ styles.resizeHandle }
 						role="separator"

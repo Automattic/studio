@@ -15,7 +15,9 @@
 		transparent
 	);
 	--composer-focus-ring: var(--wpds-color-fg-interactive-brand, #2563eb);
-	--composer-border-radius: 8px 8px 20px 8px;
+	--composer-corner-radius: 8px;
+	--composer-border-radius: var( --composer-corner-radius ) var( --composer-corner-radius ) 20px
+		var( --composer-corner-radius );
 	--composer-block-padding: var(--wpds-dimension-padding-md);
 	--composer-inline-padding: var(--wpds-dimension-padding-lg);
 

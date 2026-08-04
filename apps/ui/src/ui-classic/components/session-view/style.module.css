@@ -166,6 +166,83 @@
 	padding: 0 var(--classic-composer-outer-inline-padding) 0;
 }
 
+.usageWarningStrip {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var( --wpds-dimension-padding-md );
+	box-sizing: border-box;
+	padding: var( --wpds-dimension-padding-xs )
+		var( --composer-inline-padding, var( --wpds-dimension-padding-lg ) );
+	padding-inline-end: var( --wpds-dimension-padding-xs );
+	border-block-end: 1px solid var( --wpds-color-stroke-surface-neutral );
+	border-start-start-radius: var( --composer-corner-radius );
+	border-start-end-radius: var( --composer-corner-radius );
+	background: color-mix(
+		in srgb,
+		var( --wpds-color-bg-surface-caution ) 38%,
+		var( --wpds-color-bg-surface-neutral-strong )
+	);
+	color: var( --wpds-color-fg-content-neutral );
+	font-size: var( --wpds-typography-font-size-xs );
+	font-weight: 400;
+	line-height: 1.25;
+}
+
+.usageWarningStripButton {
+	--wp-ui-button-font-size: 11px;
+	--wp-ui-button-padding-inline: 6px;
+
+	flex-shrink: 0;
+	min-block-size: 24px;
+	padding-block: 2px;
+	white-space: nowrap;
+}
+
+.usageLimitLock {
+	display: flex;
+	align-items: flex-start;
+	flex-direction: column;
+	gap: var( --wpds-dimension-padding-md );
+	box-sizing: border-box;
+	padding: var( --wpds-dimension-padding-md );
+	border: 1px solid color-mix(
+		in srgb,
+		var( --wpds-color-fg-content-error ) 20%,
+		var( --wpds-color-stroke-surface-neutral )
+	);
+	border-radius: 8px;
+	background: color-mix(
+		in srgb,
+		var( --wpds-color-fg-content-error ) 4%,
+		var( --wpds-color-bg-surface-neutral-strong )
+	);
+}
+
+.usageLimitLockText {
+	display: flex;
+	min-width: 0;
+	flex-direction: column;
+	gap: var( --wpds-dimension-padding-xs );
+}
+
+.usageLimitLockText strong {
+	color: var( --wpds-color-fg-content-neutral );
+	font-size: var( --wpds-typography-font-size-md );
+	line-height: 1.25;
+}
+
+.usageLimitLockText span {
+	color: var( --wpds-color-fg-content-neutral-weak );
+	font-size: var( --wpds-typography-font-size-sm );
+	line-height: var( --wpds-typography-line-height-sm );
+}
+
+.usageLimitLockButton {
+	flex-shrink: 0;
+	white-space: nowrap;
+}
+
 .panelFooterControls {
 	position: absolute;
 	inset-inline-start: var(--classic-panel-footer-left);

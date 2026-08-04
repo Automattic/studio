@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useSession } from '@/data/queries/use-sessions';
+import { setUsageExplorationScenario } from '@/data/usage-exploration';
 import { isScrolledAwayFromLatest, SessionView } from './index';
 import type { LoadedAiSession } from '@/data/core';
 
@@ -50,12 +51,18 @@ vi.mock( '@/hooks/use-traffic-light-space', () => ( {
 } ) );
 
 vi.mock( './composer', () => ( {
-	Composer: () => <div />,
+	Composer: ( { usageNotice }: { usageNotice?: React.ReactNode } ) => (
+		<div data-session-composer>{ usageNotice }</div>
+	),
 	ComposerSkeleton: () => <div />,
 } ) );
 
 vi.mock( './conversation', () => ( {
 	Conversation: () => <div />,
+} ) );
+
+vi.mock( '@/components/purchase-credits-dialog', () => ( {
+	PurchaseCreditsDialog: () => null,
 } ) );
 
 const useSessionMock = vi.mocked( useSession, { partial: true } );
@@ -81,6 +88,7 @@ function setScrollMetrics(
 describe( 'SessionView', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
+		setUsageExplorationScenario( 'warning' );
 	} );
 
 	it( 'redirects to the root instead of flashing the error when the session is gone', async () => {
@@ -102,6 +110,79 @@ describe( 'SessionView', () => {
 		render( <SessionView sessionId="loading-session" /> );
 
 		expect( navigateMock ).not.toHaveBeenCalled();
+	} );
+
+	it( 'replaces the composer when the account is out of credits', () => {
+		setUsageExplorationScenario( 'exhausted' );
+		useSessionMock.mockReturnValue( {
+			data: makeLoadedSession(),
+			isLoading: false,
+			error: null,
+		} );
+
+		render( <SessionView sessionId="session-1" /> );
+
+		expect( screen.getByRole( 'alert' ) ).toHaveTextContent( 'Monthly credits used' );
+		expect( screen.getByRole( 'alert' ) ).toHaveTextContent(
+			"You've used up your free $50 for the month."
+		);
+		expect( screen.getByRole( 'button', { name: 'Add credits' } ) ).toBeInTheDocument();
+	} );
+
+	it( 'explains when purchased credits are exhausted', () => {
+		setUsageExplorationScenario( 'extra-exhausted' );
+		useSessionMock.mockReturnValue( {
+			data: makeLoadedSession(),
+			isLoading: false,
+			error: null,
+		} );
+
+		render( <SessionView sessionId="session-1" /> );
+
+		expect( screen.getByRole( 'alert' ) ).toHaveTextContent( 'Extra AI credits used' );
+		expect( screen.getByRole( 'alert' ) ).toHaveTextContent(
+			"You've used all of your extra AI credits."
+		);
+	} );
+
+	it( 'shows a persistent composer strip at 90% usage', () => {
+		setUsageExplorationScenario( 'critical' );
+		useSessionMock.mockReturnValue( {
+			data: makeLoadedSession(),
+			isLoading: false,
+			error: null,
+		} );
+
+		render( <SessionView sessionId="session-1" /> );
+
+		expect( screen.getByRole( 'status' ) ).toHaveTextContent( 'At 90% usage' );
+		expect( screen.getByRole( 'status' ).closest( '[data-session-composer]' ) ).not.toBeNull();
+	} );
+
+	it( 'does not show the composer strip at 80% usage', () => {
+		setUsageExplorationScenario( 'warning' );
+		useSessionMock.mockReturnValue( {
+			data: makeLoadedSession(),
+			isLoading: false,
+			error: null,
+		} );
+
+		render( <SessionView sessionId="session-1" /> );
+
+		expect( screen.queryByRole( 'status' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'shows the composer strip while extra credits reach 90% usage', () => {
+		setUsageExplorationScenario( 'extra-critical' );
+		useSessionMock.mockReturnValue( {
+			data: makeLoadedSession(),
+			isLoading: false,
+			error: null,
+		} );
+
+		render( <SessionView sessionId="session-1" /> );
+
+		expect( screen.getByRole( 'status' ) ).toHaveTextContent( 'At 90% extra credit usage' );
 	} );
 
 	it( 'shows the scroll-to-latest button only while scrolled away and scrolls down on click', async () => {

@@ -157,6 +157,26 @@ describe( 'SessionChatActions', () => {
 		expect( onNewChat ).toHaveBeenCalledTimes( 1 );
 	} );
 
+	it( 'hides new chat at the usage limit while keeping chat history available', () => {
+		const onNewChat = vi.fn();
+
+		render(
+			<SessionChatActions
+				currentSessionId="current"
+				onNewChat={ onNewChat }
+				onSwitchSession={ vi.fn() }
+				sessions={ [ createSession( { id: 'current', firstPrompt: 'Current chat' } ) ] }
+				showNewChat={ false }
+			/>
+		);
+
+		expect( screen.getByRole( 'button', { name: 'Chat history' } ) ).toBeVisible();
+		expect( screen.queryByRole( 'button', { name: 'New chat' } ) ).not.toBeInTheDocument();
+
+		fireEvent.keyDown( document, { key: 'n', metaKey: true, ctrlKey: true } );
+		expect( onNewChat ).not.toHaveBeenCalled();
+	} );
+
 	it( 'shows tooltips for chat history and new chat', async () => {
 		render(
 			<SessionChatActions

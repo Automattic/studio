@@ -1,8 +1,10 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import { useMemo } from 'react';
+import { openPurchaseCreditsDialog } from '@/components/purchase-credits-dialog/events';
 import { useConnector } from '@/data/core';
 import { useAppUpdateStatus } from '@/data/queries/use-app-update';
+import { useUsageExploration } from '@/data/usage-exploration';
 
 export interface PersistentMessage {
 	id: string;
@@ -26,6 +28,7 @@ export function useActivePersistentMessages(): {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	const updateStatus = useAppUpdateStatus();
+	const usage = useUsageExploration();
 	const { data: dismissedIds = [] } = useQuery( {
 		queryKey: DISMISSED_MESSAGES_QUERY_KEY,
 		queryFn: () => [] as string[],
@@ -54,8 +57,35 @@ export function useActivePersistentMessages(): {
 			} );
 		}
 
+		const usingExtraCredits = usage.purchasedTotal > 0;
+		const activeUsageFraction = usingExtraCredits ? usage.purchasedFraction : usage.monthlyFraction;
+		const usagePercentage = Math.round( activeUsageFraction * 100 );
+		const usageTitle = sprintf(
+			/* translators: %s: percentage of the active AI credit pool used. */
+			usingExtraCredits ? __( 'At %s%% extra credit usage' ) : __( 'At %s%% usage' ),
+			String( usagePercentage )
+		);
+
+		if ( ! usage.isExhausted && activeUsageFraction >= 0.9 ) {
+			messages.push( {
+				id: 'ai-credits:critical',
+				intent: 'warning',
+				title: usageTitle,
+				description: __( 'Add credits to keep chatting without interruption.' ),
+				cta: { label: __( 'Add credits' ), onClick: openPurchaseCreditsDialog },
+			} );
+		} else if ( ! usage.isExhausted && activeUsageFraction >= 0.8 ) {
+			messages.push( {
+				id: 'ai-credits:warning',
+				intent: 'warning',
+				title: usageTitle,
+				description: __( 'Add credits to keep chatting without interruption.' ),
+				cta: { label: __( 'Add credits' ), onClick: openPurchaseCreditsDialog },
+			} );
+		}
+
 		return messages;
-	}, [ updateStatus.data, connector ] );
+	}, [ updateStatus.data, connector, usage ] );
 
 	const messages = useMemo(
 		() => sources.filter( ( message ) => ! dismissedIds.includes( message.id ) ),

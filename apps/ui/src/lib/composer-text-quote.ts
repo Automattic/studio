@@ -14,9 +14,10 @@ export function watchComposerTextQuote( listener: ComposerTextQuoteListener ): (
 }
 
 export function formatComposerTextQuote( text: string ): string {
-	return text
+	const quote = text
 		.trim()
 		.split( /\r?\n/ )
 		.map( ( line ) => `> ${ line }` )
 		.join( '\n' );
+	return `${ quote }\n\n`;
 }

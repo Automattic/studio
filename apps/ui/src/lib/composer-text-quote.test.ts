@@ -6,9 +6,9 @@ import {
 } from './composer-text-quote';
 
 describe( 'composer text quotes', () => {
-	it( 'formats every selected line as a Markdown blockquote', () => {
+	it( 'formats every selected line as a Markdown blockquote followed by a blank line', () => {
 		expect( formatComposerTextQuote( ' First line\nSecond line ' ) ).toBe(
-			'> First line\n> Second line'
+			'> First line\n> Second line\n\n'
 		);
 	} );
 

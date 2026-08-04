@@ -7,17 +7,51 @@ import { emitComposerTextQuote } from '@/lib/composer-text-quote';
 export const MESSAGE_TEXT_ATTRIBUTE = 'data-message-text';
 export const CODE_TEXT_ATTRIBUTE = 'data-code-text';
 
-const EDITABLE_SELECTOR = 'input, textarea, [contenteditable]:not([contenteditable="false"])';
+const TEXT_INPUT_TYPES = new Set( [
+	'email',
+	'number',
+	'password',
+	'search',
+	'tel',
+	'text',
+	'url',
+] );
+
+function getTextControlAt( target: Element ): HTMLInputElement | HTMLTextAreaElement | null {
+	const control = target.closest( 'input, textarea' );
+	if ( control instanceof HTMLTextAreaElement ) {
+		return control;
+	}
+	if ( control instanceof HTMLInputElement && TEXT_INPUT_TYPES.has( control.type ) ) {
+		return control;
+	}
+	return null;
+}
+
+function isEditableAt(
+	target: Element,
+	textControl: HTMLInputElement | HTMLTextAreaElement | null
+): boolean {
+	if ( textControl ) {
+		return ! textControl.disabled && ! textControl.readOnly;
+	}
+	const contentEditable = target.closest( '[contenteditable]' );
+	return Boolean(
+		contentEditable && contentEditable.getAttribute( 'contenteditable' ) !== 'false'
+	);
+}
 
 // Only a selection the pointer is actually inside counts. A highlight left
 // behind elsewhere in the app must not put Copy on an unrelated right-click,
 // where choosing it would copy something the user can't even see.
-function getSelectionTextAt( target: Element ): string {
-	const editable = target.closest( EDITABLE_SELECTOR );
-	if ( editable instanceof HTMLInputElement || editable instanceof HTMLTextAreaElement ) {
-		const start = editable.selectionStart;
-		const end = editable.selectionEnd;
-		return start === null || end === null ? '' : editable.value.slice( start, end );
+function getSelectionTextAt(
+	target: Element,
+	textControl: HTMLInputElement | HTMLTextAreaElement | null
+): string {
+	if ( textControl ) {
+		const start = textControl.selectionStart;
+		const end = textControl.selectionEnd;
+		return start === null || end === null ? '' : textControl.value.slice( start, end );
 	}
 
 	const selection = window.getSelection();
@@ -55,8 +89,9 @@ export function useTextContextMenu(): void {
 			const messageText = messageHost?.getAttribute( MESSAGE_TEXT_ATTRIBUTE ) || undefined;
 			const codeHost = target.closest( `[${ CODE_TEXT_ATTRIBUTE }]` );
 			const codeText = codeHost?.getAttribute( CODE_TEXT_ATTRIBUTE ) || undefined;
-			const isEditable = Boolean( target.closest( EDITABLE_SELECTOR ) );
-			const selectionText = getSelectionTextAt( target );
+			const textControl = getTextControlAt( target );
+			const isEditable = isEditableAt( target, textControl );
+			const selectionText = getSelectionTextAt( target, textControl );
 
 			// Right-clicking something that isn't text — a menu, a button, the
 			// sidebar, empty canvas — has nothing to offer, so stay out of the

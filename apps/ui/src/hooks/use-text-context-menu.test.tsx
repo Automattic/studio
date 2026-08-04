@@ -25,6 +25,9 @@ function Harness() {
 			</div>
 			<pre data-testid="tool-output">wp plugin list</pre>
 			<input data-testid="field" />
+			<input data-testid="readonly-field" readOnly />
+			<input data-testid="checkbox" type="checkbox" />
+			<div data-testid="editable" contentEditable />
 			<button data-testid="menu-item">Settings</button>
 		</div>
 	);
@@ -115,6 +118,18 @@ describe( 'useTextContextMenu', () => {
 		} );
 	} );
 
+	it( 'reports a contenteditable region so the host can offer Paste', () => {
+		const { getByTestId } = render( <Harness /> );
+
+		fireEvent.contextMenu( getByTestId( 'editable' ) );
+
+		expect( showTextContextMenu ).toHaveBeenCalledWith( {
+			selectionText: '',
+			isEditable: true,
+			messageText: undefined,
+		} );
+	} );
+
 	it( 'reports selected text inside an editable field so the host can offer Copy', () => {
 		const { getByTestId } = render( <Harness /> );
 		const field = getByTestId( 'field' ) as HTMLInputElement;
@@ -128,6 +143,29 @@ describe( 'useTextContextMenu', () => {
 			isEditable: true,
 			messageText: undefined,
 		} );
+	} );
+
+	it( 'allows Copy but not Paste for selected text in a read-only field', () => {
+		const { getByTestId } = render( <Harness /> );
+		const field = getByTestId( 'readonly-field' ) as HTMLInputElement;
+		field.value = 'Read-only text';
+		field.setSelectionRange( 0, 9 );
+
+		fireEvent.contextMenu( field );
+
+		expect( showTextContextMenu ).toHaveBeenCalledWith( {
+			selectionText: 'Read-only',
+			isEditable: false,
+			messageText: undefined,
+		} );
+	} );
+
+	it( 'stays out of the way on non-text inputs', () => {
+		const { getByTestId } = render( <Harness /> );
+
+		fireEvent.contextMenu( getByTestId( 'checkbox' ) );
+
+		expect( showTextContextMenu ).not.toHaveBeenCalled();
 	} );
 
 	it( 'routes a native Quote action back to the composer', async () => {

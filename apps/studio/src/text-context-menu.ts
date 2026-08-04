@@ -57,10 +57,9 @@ function toLookUpLabel( selection: string ): string {
 }
 
 /**
- * Text-only context menu: copy the selection, copy the whole message, and look
- * a word up. Look Up is macOS-only because Windows and Linux expose no system
- * dictionary to apps — their native text menus really are just the edit
- * commands, so gating on platform yields what each OS would natively show.
+ * Native actions for selections, editable fields, messages, and code blocks.
+ * Look Up is macOS-only because Windows and Linux expose no system dictionary
+ * to apps.
  */
 export function buildTextContextMenuTemplate(
 	context: TextContextMenuContext,
@@ -103,7 +102,8 @@ export function buildTextContextMenuTemplate(
 	}
 	if ( selection && ! context.isEditable ) {
 		/* translators: Context-menu action that inserts selected text into the message composer as a quote. */
-		sections.push( [ { label: __( 'Quote in composer' ), click: actions.quoteSelection } ] );
+		const quoteInComposerLabel = __( 'Quote in composer' );
+		sections.push( [ { label: quoteInComposerLabel, click: actions.quoteSelection } ] );
 	}
 
 	return sections.flatMap( ( section, index ) =>

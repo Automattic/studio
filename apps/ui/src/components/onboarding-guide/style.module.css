@@ -27,7 +27,7 @@
 .close {
 	position: absolute;
 	top: var(--wpds-dimension-padding-sm);
-	right: var(--wpds-dimension-padding-sm);
+	inset-inline-end: var(--wpds-dimension-padding-sm);
 	z-index: 1;
 }
 
@@ -41,7 +41,7 @@
 	box-sizing: border-box;
 	padding: var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-xl)
 		var(--wpds-dimension-padding-lg);
-	text-align: left;
+	text-align: start;
 }
 
 .title {

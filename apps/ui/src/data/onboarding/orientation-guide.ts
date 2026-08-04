@@ -47,6 +47,7 @@ function sitesPage( migrating: boolean ): GuidePage {
 		illustration: 'sites',
 		title: () => __( 'Welcome to WordPress Studio' ),
 		description: () =>
+			/* translators: "on the left" describes the sidebar in left-to-right layouts; in right-to-left languages it sits on the right — adapt the direction accordingly. */
 			__(
 				'Every site you build lives in the sidebar on the left. Switch between them anytime. The sidebar is where you’ll find site settings and a quick way to start and stop your site.'
 			),
@@ -87,6 +88,7 @@ function previewPage( chatEnabled: boolean ): GuidePage {
 			illustration: 'preview',
 			title: () => __( 'See your site update in realtime' ),
 			description: () =>
+				/* translators: "on the right" describes the preview in left-to-right layouts; in right-to-left languages it sits on the left — adapt the direction accordingly. */
 				__(
 					'Your site is shown on the right, automatically refreshing as you make changes with Studio Code. Switch between the front-end, wp-admin, and the database from the toolbar.'
 				),
@@ -97,6 +99,7 @@ function previewPage( chatEnabled: boolean ): GuidePage {
 		illustration: 'preview',
 		title: () => __( 'See your site inline' ),
 		description: () =>
+			/* translators: "on the right" describes the preview in left-to-right layouts; in right-to-left languages it sits on the left — adapt the direction accordingly. */
 			__(
 				'Your site is shown on the right. Switch between the front-end, wp-admin, and the database from the toolbar.'
 			),

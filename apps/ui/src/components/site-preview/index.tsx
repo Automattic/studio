@@ -499,7 +499,7 @@ export function SitePreview( {
 							) : null }
 						</div>
 					) : null }
-					<OpenInMenu site={ site } browserPath={ getSafePath( path ) } />
+					<OpenInMenu key={ site.id } site={ site } browserPath={ getSafePath( path ) } />
 				</div>
 				{ showLoadingProgress ? (
 					<div className={ styles.loadingProgress } aria-hidden="true">

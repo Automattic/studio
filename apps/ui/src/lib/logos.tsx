@@ -74,6 +74,12 @@ const ghosttyLogo = (
 	</svg>
 );
 
+const antigravityLogo = (
+	<svg xmlns="http://www.w3.org/2000/svg" viewBox="-1.5 -2 19 19" fill="currentColor">
+		<path d="M14.0777 13.984C14.945 14.6345 16.2458 14.2008 15.0533 13.0084C11.476 9.53949 12.2349 0 7.79033 0C3.34579 0 4.10461 9.53949 0.527295 13.0084C-0.773543 14.3092 0.635692 14.6345 1.50293 13.984C4.86344 11.7076 4.64663 7.69664 7.79033 7.69664C10.934 7.69664 10.7172 11.7076 14.0777 13.984Z" />
+	</svg>
+);
+
 export const finderLogo = (
 	<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
 		<rect x="3" y="3" width="18" height="18" rx="4.5" stroke="currentColor" strokeWidth="1.5" />
@@ -104,7 +110,7 @@ export const folderLogo = (
 	</svg>
 );
 
-export const appleTerminalLogo = (
+export const terminalLogo = (
 	<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
 		<rect x="3" y="3.75" width="18" height="16.5" rx="3" stroke="currentColor" strokeWidth="1.5" />
 		<path
@@ -118,9 +124,8 @@ export const appleTerminalLogo = (
 	</svg>
 );
 
-/* Antigravity has no reliable vector mark yet; it falls back to the generic
-   code glyph in the menu. */
 export const editorLogos: Partial< Record< SupportedEditor, ReactElement > > = {
+	antigravity: antigravityLogo,
 	vscode: vscodeLogo,
 	cursor: cursorLogo,
 	phpstorm: phpstormLogo,
@@ -131,7 +136,7 @@ export const editorLogos: Partial< Record< SupportedEditor, ReactElement > > = {
 };
 
 export const terminalLogos: Record< SupportedTerminal, ReactElement > = {
-	terminal: appleTerminalLogo,
+	terminal: terminalLogo,
 	iterm: itermLogo,
 	warp: warpLogo,
 	ghostty: ghosttyLogo,

@@ -178,26 +178,42 @@ describe( 'OpenInMenu', () => {
 		expect( navigateMock ).toHaveBeenCalledWith( { to: '/settings' } );
 		expect( openSiteInEditor ).not.toHaveBeenCalled();
 		// Nothing was opened, so the trigger's last-used destination stays put.
-		expect( window.localStorage.getItem( 'studio:open-in-menu:last-used' ) ).toBeNull();
+		expect( window.localStorage.getItem( 'studio:open-in-menu:last-used:site-1' ) ).toBeNull();
 	} );
 
 	it( 'repeats the last used destination from the split action', () => {
 		renderMenu( { running: true } );
 
 		fireEvent.click( destination( 'Terminal' ) );
-		expect( window.localStorage.getItem( 'studio:open-in-menu:last-used' ) ).toBe( 'terminal' );
+		expect( window.localStorage.getItem( 'studio:open-in-menu:last-used:site-1' ) ).toBe(
+			'terminal'
+		);
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Open in Terminal' } ) );
 		expect( openSiteInTerminal ).toHaveBeenCalledTimes( 2 );
 	} );
 
-	it( 'restores the persisted destination and ignores a corrupt one', () => {
-		window.localStorage.setItem( 'studio:open-in-menu:last-used', 'terminal' );
+	it( 'remembers the destination per site', () => {
+		window.localStorage.setItem( 'studio:open-in-menu:last-used:site-1', 'terminal' );
+		window.localStorage.setItem( 'studio:open-in-menu:last-used:site-2', 'files' );
+
 		const { unmount } = renderMenu( { running: true } );
 		expect( screen.getByRole( 'button', { name: 'Open in Terminal' } ) ).toBeInTheDocument();
 		unmount();
 
-		window.localStorage.setItem( 'studio:open-in-menu:last-used', 'nonsense' );
+		renderMenu( { id: 'site-2', running: true } );
+		expect(
+			screen.getByRole( 'button', { name: /^Open in (Finder|File Explorer|File manager)$/ } )
+		).toBeInTheDocument();
+	} );
+
+	it( 'restores the persisted destination and ignores a corrupt one', () => {
+		window.localStorage.setItem( 'studio:open-in-menu:last-used:site-1', 'terminal' );
+		const { unmount } = renderMenu( { running: true } );
+		expect( screen.getByRole( 'button', { name: 'Open in Terminal' } ) ).toBeInTheDocument();
+		unmount();
+
+		window.localStorage.setItem( 'studio:open-in-menu:last-used:site-1', 'nonsense' );
 		renderMenu( { running: true } );
 		expect( screen.getByRole( 'button', { name: 'Open in Browser' } ) ).toBeInTheDocument();
 	} );

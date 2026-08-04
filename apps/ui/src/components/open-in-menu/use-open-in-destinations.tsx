@@ -2,10 +2,10 @@ import { supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { code, globe } from '@wordpress/icons';
+import { code, external } from '@wordpress/icons';
 import { useConnector } from '@/data/core';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
-import { appleTerminalLogo, editorLogos, finderLogo, folderLogo, terminalLogos } from '@/lib/logos';
+import { editorLogos, finderLogo, folderLogo, terminalLogo, terminalLogos } from '@/lib/logos';
 import type { SiteDetails } from '@/data/core';
 import type { ReactElement } from 'react';
 
@@ -59,15 +59,17 @@ export function useOpenInDestinations(
 	const terminalLabel = userPreferences?.terminal
 		? terminalConfig[ userPreferences.terminal ].name
 		: __( 'Terminal' );
-	const terminalLogo = userPreferences?.terminal
+	const configuredTerminalLogo = userPreferences?.terminal
 		? terminalLogos[ userPreferences.terminal ]
-		: appleTerminalLogo;
+		: terminalLogo;
 
 	return [
 		{
 			id: 'browser',
 			label: __( 'Browser' ),
-			logo: globe,
+			// Not the globe: the address bar already uses that for the site's
+			// front end, and this one leaves Studio.
+			logo: external,
 			disabled: ! site.running,
 			open: () => {
 				onOpen?.( 'browser' );
@@ -110,7 +112,7 @@ export function useOpenInDestinations(
 		{
 			id: 'terminal',
 			label: terminalLabel,
-			logo: terminalLogo,
+			logo: configuredTerminalLogo,
 			disabled: false,
 			open: () => {
 				onOpen?.( 'terminal' );

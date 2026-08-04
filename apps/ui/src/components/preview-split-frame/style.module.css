@@ -66,6 +66,12 @@
 	transition: width 150ms ease;
 }
 
+/* Full preview: the column is width 0 once the slide finishes; visibility
+   keeps the mounted chat out of the focus order and the accessibility tree. */
+.contentColumnHidden {
+	visibility: hidden;
+}
+
 .rootPreviewResizing .contentColumn {
 	user-select: none;
 	transition: none;

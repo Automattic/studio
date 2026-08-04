@@ -23,6 +23,25 @@ describe( 'isTracksEventName', () => {
 	} );
 } );
 
+// Tracks rejects malformed names into a `tracks_rejects` table where they are invisible in the normal
+// Live View. Names must match `^[a-z_][a-z0-9_]*$` and follow `<source>_<context>_..._<action>` — at
+// least three underscore-separated segments. `studio_telemetry` (source + context, no action) was
+// silently rejected until renamed. This guard keeps every registered event well-formed.
+describe( 'TRACKS_EVENTS naming conventions', () => {
+	const names = Object.values( TRACKS_EVENTS );
+
+	it.each( names )( '"%s" uses only lowercase, digits, and underscores', ( name ) => {
+		expect( name ).toMatch( /^[a-z_][a-z0-9_]*$/ );
+	} );
+
+	it.each( names )( '"%s" is a studio-sourced <context>_<action> name', ( name ) => {
+		const segments = name.split( '_' );
+		expect( segments[ 0 ] ).toBe( 'studio' );
+		expect( segments.length ).toBeGreaterThanOrEqual( 3 );
+		expect( segments.every( Boolean ) ).toBe( true );
+	} );
+} );
+
 describe( '__buildTracksPixelUrl', () => {
 	it( 'targets the Tracks pixel endpoint with identity and timestamp params', () => {
 		const url = new URL(

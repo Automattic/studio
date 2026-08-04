@@ -100,6 +100,46 @@ describe( 'PreviewSplitFrame', () => {
 		expect( root ).toHaveStyle( '--preview-frame-content-width: 480px' );
 	} );
 
+	it( 'gives the whole frame to the preview in fullscreen', async () => {
+		const preview = () => <aside aria-label="Site preview" />;
+		const { rerender } = render(
+			<PreviewSplitFrame previewOpen preview={ preview }>
+				<span data-testid="content">Content</span>
+			</PreviewSplitFrame>
+		);
+		const root = getFrameRoot();
+		await waitFor( () => expect( root ).toHaveStyle( '--preview-frame-content-width: 480px' ) );
+
+		rerender(
+			<PreviewSplitFrame previewOpen previewFullscreen preview={ preview }>
+				<span data-testid="content">Content</span>
+			</PreviewSplitFrame>
+		);
+
+		expect( root ).toHaveStyle( '--preview-frame-content-width: 0px' );
+		// Nothing left to drag once the content column is gone.
+		await waitFor( () =>
+			expect(
+				screen.queryByRole( 'separator', { name: 'Resize site preview' } )
+			).not.toBeInTheDocument()
+		);
+		// The chat stays mounted but out of reach until the slide finishes.
+		await waitFor( () =>
+			expect( screen.getByTestId( 'content' ).parentElement ).toHaveAttribute(
+				'aria-hidden',
+				'true'
+			)
+		);
+
+		// Leaving fullscreen restores the split the user had before.
+		rerender(
+			<PreviewSplitFrame previewOpen preview={ preview }>
+				<span data-testid="content">Content</span>
+			</PreviewSplitFrame>
+		);
+		expect( root ).toHaveStyle( '--preview-frame-content-width: 480px' );
+	} );
+
 	it( 'keeps preview space reserved when the first mount measurement is zero', () => {
 		frameWidth = 0;
 

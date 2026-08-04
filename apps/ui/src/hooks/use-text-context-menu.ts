@@ -5,6 +5,7 @@ import { emitComposerTextQuote } from '@/lib/composer-text-quote';
 // Elements carrying a message's full text opt in with this attribute, so a
 // right-click anywhere inside one can offer to copy the whole thing.
 export const MESSAGE_TEXT_ATTRIBUTE = 'data-message-text';
+export const CODE_TEXT_ATTRIBUTE = 'data-code-text';
 
 const EDITABLE_SELECTOR = 'input, textarea, [contenteditable]:not([contenteditable="false"])';
 
@@ -52,20 +53,27 @@ export function useTextContextMenu(): void {
 
 			const messageHost = target.closest( `[${ MESSAGE_TEXT_ATTRIBUTE }]` );
 			const messageText = messageHost?.getAttribute( MESSAGE_TEXT_ATTRIBUTE ) || undefined;
+			const codeHost = target.closest( `[${ CODE_TEXT_ATTRIBUTE }]` );
+			const codeText = codeHost?.getAttribute( CODE_TEXT_ATTRIBUTE ) || undefined;
 			const isEditable = Boolean( target.closest( EDITABLE_SELECTOR ) );
 			const selectionText = getSelectionTextAt( target );
 
 			// Right-clicking something that isn't text — a menu, a button, the
 			// sidebar, empty canvas — has nothing to offer, so stay out of the
 			// way entirely rather than opening a menu of unrelated actions.
-			if ( ! messageText && ! isEditable && ! selectionText.trim() ) {
+			if ( ! messageText && ! codeText && ! isEditable && ! selectionText.trim() ) {
 				return;
 			}
 
 			// Nothing else would handle it, but claiming the event keeps a host
 			// menu from ever stacking on top of ours.
 			event.preventDefault();
-			void showTextContextMenu( { selectionText, isEditable, messageText } ).then( ( result ) => {
+			void showTextContextMenu( {
+				selectionText,
+				isEditable,
+				messageText,
+				...( codeText ? { codeText } : {} ),
+			} ).then( ( result ) => {
 				if ( result?.action === 'quote-selection' ) {
 					emitComposerTextQuote( result.selectionText );
 				}

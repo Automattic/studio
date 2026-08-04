@@ -417,6 +417,7 @@ export interface Connector {
 		selectionText: string;
 		isEditable: boolean;
 		messageText?: string;
+		codeText?: string;
 	} ): Promise< { action: 'quote-selection'; selectionText: string } | undefined >;
 
 	openSiteUrl(

@@ -26,7 +26,12 @@ function makeEnvironment(
 	return { platform: 'darwin', canPaste: false, ...overrides };
 }
 
-const actions = { lookUpSelection: vi.fn(), copyMessage: vi.fn(), quoteSelection: vi.fn() };
+const actions = {
+	lookUpSelection: vi.fn(),
+	copyMessage: vi.fn(),
+	copyCode: vi.fn(),
+	quoteSelection: vi.fn(),
+};
 
 function labelsOf( template: ReturnType< typeof buildTextContextMenuTemplate > ) {
 	return template.map( ( item ) => item.role ?? item.label ?? item.type );
@@ -92,6 +97,24 @@ describe( 'buildTextContextMenuTemplate', () => {
 		( copyAll?.click as () => void )();
 
 		expect( copyMessage ).toHaveBeenCalledWith( 'Dark mode and core coexist.' );
+	} );
+
+	it( 'offers Copy code within a code block and copies only that code', () => {
+		const copyCode = vi.fn();
+		const template = buildTextContextMenuTemplate(
+			makeContext( {
+				messageText: 'Before.\n\nconst answer = 42;\n\nAfter.',
+				codeText: 'const answer = 42;',
+			} ),
+			{ ...actions, copyCode },
+			makeEnvironment( { platform: 'linux' } )
+		);
+		const copyCodeItem = template.find( ( item ) => item.label === 'Copy code' );
+
+		( copyCodeItem?.click as () => void )();
+
+		expect( labelsOf( template ) ).toEqual( [ 'Copy code', 'Copy All' ] );
+		expect( copyCode ).toHaveBeenCalledWith( 'const answer = 42;' );
 	} );
 
 	it( 'offers a translated label for role-based clipboard actions', () => {

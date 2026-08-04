@@ -1,7 +1,11 @@
 import { fireEvent, render, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { watchComposerTextQuote } from '@/lib/composer-text-quote';
-import { MESSAGE_TEXT_ATTRIBUTE, useTextContextMenu } from './use-text-context-menu';
+import {
+	CODE_TEXT_ATTRIBUTE,
+	MESSAGE_TEXT_ATTRIBUTE,
+	useTextContextMenu,
+} from './use-text-context-menu';
 
 const showTextContextMenu = vi.fn().mockResolvedValue( undefined );
 
@@ -15,6 +19,9 @@ function Harness() {
 		<div>
 			<div data-testid="message" { ...{ [ MESSAGE_TEXT_ATTRIBUTE ]: 'The whole reply.' } }>
 				<p data-testid="message-paragraph">The whole reply.</p>
+				<div { ...{ [ CODE_TEXT_ATTRIBUTE ]: 'const answer = 42;' } }>
+					<pre data-testid="message-code">const answer = 42;</pre>
+				</div>
 			</div>
 			<pre data-testid="tool-output">wp plugin list</pre>
 			<input data-testid="field" />
@@ -58,6 +65,19 @@ describe( 'useTextContextMenu', () => {
 		fireEvent.contextMenu( getByTestId( 'menu-item' ) );
 
 		expect( showTextContextMenu ).not.toHaveBeenCalled();
+	} );
+
+	it( 'reports the code block and whole message when right-clicking rendered code', () => {
+		const { getByTestId } = render( <Harness /> );
+
+		fireEvent.contextMenu( getByTestId( 'message-code' ) );
+
+		expect( showTextContextMenu ).toHaveBeenCalledWith( {
+			selectionText: '',
+			isEditable: false,
+			messageText: 'The whole reply.',
+			codeText: 'const answer = 42;',
+		} );
 	} );
 
 	it( 'ignores a selection left behind somewhere else in the app', () => {

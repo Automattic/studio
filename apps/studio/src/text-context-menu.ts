@@ -26,11 +26,14 @@ export interface TextContextMenuContext {
 	isEditable: boolean;
 	// The full message the click landed on, when it landed on one at all.
 	messageText?: string;
+	// The code block the click landed on, when it landed on one at all.
+	codeText?: string;
 }
 
 export interface TextContextMenuActions {
 	lookUpSelection: () => void;
 	copyMessage: ( text: string ) => void;
+	copyCode: ( text: string ) => void;
 	quoteSelection: () => void;
 }
 
@@ -66,6 +69,7 @@ export function buildTextContextMenuTemplate(
 ): MenuItemConstructorOptions[] {
 	const selection = context.selectionText.trim();
 	const messageText = context.messageText;
+	const codeText = context.codeText;
 
 	// Built as sections and joined with separators, so an inapplicable section
 	// can't leave a stray divider behind.
@@ -78,6 +82,12 @@ export function buildTextContextMenuTemplate(
 	const clipboardItems: MenuItemConstructorOptions[] = [];
 	if ( selection ) {
 		clipboardItems.push( { label: __( 'Copy' ), role: 'copy' } );
+	}
+	if ( codeText ) {
+		clipboardItems.push( {
+			label: __( 'Copy code' ),
+			click: () => actions.copyCode( codeText ),
+		} );
 	}
 	if ( messageText ) {
 		clipboardItems.push( {
@@ -92,6 +102,7 @@ export function buildTextContextMenuTemplate(
 		sections.push( clipboardItems );
 	}
 	if ( selection && ! context.isEditable ) {
+		/* translators: Context-menu action that inserts selected text into the message composer as a quote. */
 		sections.push( [ { label: __( 'Quote in composer' ), click: actions.quoteSelection } ] );
 	}
 
@@ -110,6 +121,7 @@ export async function showTextContextMenu(
 		{
 			lookUpSelection: () => event.sender.showDefinitionForSelection(),
 			copyMessage: ( text ) => clipboard.writeText( text ),
+			copyCode: ( text ) => clipboard.writeText( text ),
 			quoteSelection: () => {
 				result = { action: 'quote-selection', selectionText: context.selectionText.trim() };
 			},

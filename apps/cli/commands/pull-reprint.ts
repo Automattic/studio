@@ -40,6 +40,7 @@ import {
 	runReprintCommandUntilComplete,
 } from 'cli/lib/pull/migration-client';
 import { preserveUnselectedLocalContent } from 'cli/lib/pull/preserve-local-content';
+import { overallPercent, PullStep, withPercent } from 'cli/lib/pull/pull-progress';
 import {
 	fetchReprintPullTree,
 	mapCliOnlyToReprint,
@@ -292,7 +293,10 @@ export async function runCommand(
 	verbose = false,
 	cliSelection: CliSelectionOptions = {}
 ): Promise< void > {
-	logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
+	logger.reportStart(
+		LoggerAction.LOAD_SITES,
+		withPercent( __( 'Loading site…' ), overallPercent( PullStep.SETUP ) )
+	);
 	const site = await getSiteByFolder( localPath );
 	logger.reportSuccess( __( 'Site loaded' ) );
 
@@ -442,7 +446,10 @@ export async function runCommand(
 		// wires the generated runtime Blueprint onto it so `studio start` and
 		// the daemon serve the imported runtime rather than the original blank
 		// install. Idempotent — re-writing the same value on a resume is harmless.
-		logger.reportStart( LoggerAction.CREATE_SITE, `Linking pulled files to "${ site.name }"…` );
+		logger.reportStart(
+			LoggerAction.CREATE_SITE,
+			withPercent( `Linking pulled files to "${ site.name }"…`, overallPercent( PullStep.LINK ) )
+		);
 		site.runtimeBlueprintPath = studioMetadata.runtimeBlueprintPath;
 		await updateSiteRecord( site.id, ( record ) => {
 			record.runtimeBlueprintPath = studioMetadata.runtimeBlueprintPath;
@@ -484,7 +491,10 @@ export async function runCommand(
 		const startOptionsPath = path.join( studioMetadata.runtimeDirectory, 'start-options.json' );
 		fs.writeFileSync( startOptionsPath, JSON.stringify( runtimeStartOptions, null, 2 ) + '\n' );
 
-		logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress server…' ) );
+		logger.reportStart(
+			LoggerAction.START_SITE,
+			withPercent( __( 'Starting WordPress server…' ), overallPercent( PullStep.START ) )
+		);
 
 		try {
 			await connectToDaemon();
@@ -562,6 +572,11 @@ export async function runCommand(
 		// The pull is done: drop the selection sidecar so the next pull asks
 		// again instead of silently reusing this run's choice.
 		clearPullSelection( studioMetadata );
+
+		// The skipped-files pass is the only step that reports 100%, and it is
+		// skipped whenever there's no tail outstanding — so close the progress
+		// out here instead of leaving a caller's bar parked mid-way.
+		logger.reportSuccess( withPercent( __( 'Site pulled' ), 100 ) );
 
 		site.importComplete = true;
 		site.status = 'ready';
@@ -819,7 +834,10 @@ async function runPreflight(
 		return JSON.parse( fs.readFileSync( preflightCachePath, 'utf-8' ) );
 	}
 
-	logger.reportStart( LoggerAction.PREFLIGHT, __( 'Initiating the migration…' ) );
+	logger.reportStart(
+		LoggerAction.PREFLIGHT,
+		withPercent( __( 'Initiating the migration…' ), overallPercent( PullStep.PREFLIGHT ) )
+	);
 
 	let preflightResult: ReprintProcessResult;
 	try {
@@ -1039,12 +1057,13 @@ export async function runFullPull(
 	const reprintRuntime = runtime === SITE_RUNTIME_NATIVE_PHP ? 'nginx-fpm' : 'playground-cli';
 	const onlyArgs = ( selection.fileOnlyPaths ?? [] ).map( ( onlyPath ) => `--only=${ onlyPath }` );
 
-	const runStep = ( progressLabel: string, args: string[] ) =>
+	const runStep = ( step: PullStep, progressLabel: string, args: string[] ) =>
 		runReprintCommandUntilComplete(
 			metadata.stateDirectory,
 			metadata.rawDirectory,
 			args,
-			( progress ) => logger.reportProgress( progress ),
+			( progress, fraction ) =>
+				logger.reportProgress( withPercent( progress, overallPercent( step, fraction ) ) ),
 			{
 				progressLabel,
 				mounts: [
@@ -1073,12 +1092,15 @@ export async function runFullPull(
 		resetEssentialFilesState( metadata.stateDirectory );
 	}
 
-	logger.reportStart( LoggerAction.DOWNLOAD_FILES, __( 'Pulling site…' ) );
+	logger.reportStart(
+		LoggerAction.DOWNLOAD_FILES,
+		withPercent( __( 'Pulling site…' ), overallPercent( PullStep.FILES ) )
+	);
 
 	// 1. Files. `--only` restricts the download to the selected wp-content
 	// folders; essential-files defers the media library to the post-start
 	// skipped-earlier pass.
-	await runStep( __( 'Pulling files' ), [
+	await runStep( PullStep.FILES, __( 'Pulling files' ), [
 		'pull-files',
 		apiUrl,
 		`--secret=${ secret }`,
@@ -1094,7 +1116,7 @@ export async function runFullPull(
 	// only from the target that db-apply persists — record it explicitly,
 	// pointing at the kept database.
 	if ( ! selection.skipDatabase ) {
-		await runStep( __( 'Pulling database' ), [
+		await runStep( PullStep.DATABASE, __( 'Pulling database' ), [
 			'pull-db',
 			apiUrl,
 			`--secret=${ secret }`,
@@ -1138,7 +1160,7 @@ export async function runFullPull(
 
 	// 4. Flatten the raw download into the site directory. `-` is the URL
 	// placeholder for local commands.
-	await runStep( __( 'Flattening layout' ), [
+	await runStep( PullStep.FLATTEN, __( 'Flattening layout' ), [
 		'flat-docroot',
 		'-',
 		`--flatten-to=${ metadata.sitePath }`,
@@ -1150,7 +1172,7 @@ export async function runFullPull(
 	// 5. Runtime config — last, so it reads the DB credentials pull-db wrote
 	// to state. apply-runtime takes no URL positional, and
 	// --flat-document-root replaces --fs-root (they are mutually exclusive).
-	await runStep( __( 'Preparing runtime' ), [
+	await runStep( PullStep.RUNTIME, __( 'Preparing runtime' ), [
 		'apply-runtime',
 		`--runtime=${ reprintRuntime }`,
 		`--output-dir=${ metadata.runtimeDirectory }`,
@@ -1180,7 +1202,10 @@ export async function downloadSkippedFiles(
 	verbose: boolean,
 	selection: PullSelection = {}
 ): Promise< void > {
-	logger.reportStart( LoggerAction.DOWNLOAD_FILES, __( 'Downloading remaining files…' ) );
+	logger.reportStart(
+		LoggerAction.DOWNLOAD_FILES,
+		withPercent( __( 'Downloading remaining files…' ), overallPercent( PullStep.REMAINING ) )
+	);
 
 	// Studio's split pipeline runs pull-db between pull-files and this
 	// tail, and pull-db's prepare_repull() resets the skipped_pending flag
@@ -1211,14 +1236,17 @@ export async function downloadSkippedFiles(
 			`--state-dir=${ metadata.stateDirectory }`,
 			`--fs-root=${ metadata.rawDirectory }`,
 		],
-		( progress ) => logger.reportProgress( progress ),
+		( progress, fraction ) =>
+			logger.reportProgress(
+				withPercent( progress, overallPercent( PullStep.REMAINING, fraction ) )
+			),
 		{
 			progressLabel: __( 'Remaining files' ),
 			verboseCommands: verbose,
 			runtime,
 		}
 	);
-	logger.reportSuccess( __( 'Remaining files downloaded' ) );
+	logger.reportSuccess( withPercent( __( 'Remaining files downloaded' ), 100 ) );
 }
 
 export function normalizeSiteUrl( url: string ): string {

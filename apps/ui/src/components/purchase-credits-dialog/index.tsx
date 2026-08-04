@@ -8,7 +8,9 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { unlock } from '@/lock-unlock';
 import styles from './style.module.css';
 
-const CREDIT_AMOUNTS = [ 25, 50, 100 ];
+const MIN_CREDIT_AMOUNT = 10;
+const MAX_CREDIT_AMOUNT = 200;
+const DEFAULT_CREDIT_AMOUNT = 50;
 const { ThemeProvider } = unlock( privateApis );
 
 export function PurchaseCreditsDialog( {
@@ -18,13 +20,20 @@ export function PurchaseCreditsDialog( {
 	open: boolean;
 	onOpenChange: ( open: boolean ) => void;
 } ) {
-	const [ amount, setAmount ] = useState< number | null >( 50 );
-	const [ customAmount, setCustomAmount ] = useState( '' );
+	const [ amount, setAmount ] = useState( String( DEFAULT_CREDIT_AMOUNT ) );
 	const colorScheme = useColorScheme();
 	const dialogBackground = colorScheme === 'dark' ? '#1e1e1e' : '#ffffff';
-	const parsedCustomAmount = Number( customAmount );
-	const checkoutAmount = amount ?? parsedCustomAmount;
-	const hasValidAmount = Number.isInteger( checkoutAmount ) && checkoutAmount > 0;
+	const checkoutAmount = Number( amount );
+	const hasValidAmount =
+		Number.isInteger( checkoutAmount ) &&
+		checkoutAmount >= MIN_CREDIT_AMOUNT &&
+		checkoutAmount <= MAX_CREDIT_AMOUNT;
+	const sliderAmount = hasValidAmount
+		? checkoutAmount
+		: Math.min(
+				MAX_CREDIT_AMOUNT,
+				Math.max( MIN_CREDIT_AMOUNT, Number( amount ) || DEFAULT_CREDIT_AMOUNT )
+		  );
 
 	const continueToCheckout = () => {
 		if ( ! hasValidAmount ) {
@@ -55,74 +64,58 @@ export function PurchaseCreditsDialog( {
 								'Choose a one-time amount to check out securely on WordPress.com. Credits do not expire and are used after your monthly allowance.'
 							) }
 						</Dialog.Description>
-						<div
-							className={ styles.amounts }
-							role="radiogroup"
-							aria-label={ __( 'Credit amount' ) }
-						>
-							{ CREDIT_AMOUNTS.map( ( option ) => (
-								<button
-									key={ option }
-									type="button"
-									className={ styles.amount }
-									data-selected={ amount === option ? '' : undefined }
-									role="radio"
-									aria-checked={ amount === option }
-									onClick={ () => {
-										setAmount( option );
-										setCustomAmount( '' );
-									} }
-								>
-									<span className={ styles.amountValue }>${ option }</span>
-									<span className={ styles.amountDetails }>
-										<span className={ styles.amountLabel }>
-											{ sprintf(
-												/* translators: %s: number of AI credits included. */
-												__( '%s credits' ),
-												String( option )
-											) }
-										</span>
-										<span className={ styles.amountFrequency }>{ __( 'one time' ) }</span>
-									</span>
-								</button>
-							) ) }
-						</div>
-						<label className={ styles.customAmount }>
-							<span className={ styles.customAmountLabel }>{ __( 'Custom amount' ) }</span>
-							<span
-								className={ styles.customAmountControl }
-								data-selected={ amount === null && customAmount ? '' : undefined }
-							>
+						<div className={ styles.amountPicker }>
+							<label className={ styles.amountInputLabel } htmlFor="credit-amount-input">
+								{ __( 'Credit amount' ) }
+							</label>
+							<span className={ styles.amountControl }>
 								<span className={ styles.customAmountPrefix } aria-hidden="true">
 									$
 								</span>
 								<input
-									className={ styles.customAmountInput }
+									id="credit-amount-input"
+									className={ styles.amountInput }
 									type="number"
-									min="1"
+									min={ MIN_CREDIT_AMOUNT }
+									max={ MAX_CREDIT_AMOUNT }
 									step="1"
 									inputMode="numeric"
-									placeholder={ __( 'Enter amount' ) }
-									value={ customAmount }
-									onChange={ ( event ) => {
-										setCustomAmount( event.target.value );
-										setAmount( null );
-									} }
+									value={ amount }
+									onChange={ ( event ) => setAmount( event.target.value ) }
 								/>
 								<span className={ styles.amountDetails }>
 									<span className={ styles.amountLabel }>
-										{ customAmount && hasValidAmount
+										{ hasValidAmount
 											? sprintf(
-													/* translators: %s: custom number of AI credits. */
+													/* translators: %s: number of AI credits. */
 													__( '%s credits' ),
 													String( checkoutAmount )
 											  )
-											: __( 'Credits' ) }
+											: sprintf(
+													/* translators: 1: minimum credits, 2: maximum credits. */
+													__( '%1$s–%2$s credits' ),
+													String( MIN_CREDIT_AMOUNT ),
+													String( MAX_CREDIT_AMOUNT )
+											  ) }
 									</span>
 									<span className={ styles.amountFrequency }>{ __( 'one time' ) }</span>
 								</span>
 							</span>
-						</label>
+							<input
+								className={ styles.amountRange }
+								type="range"
+								min={ MIN_CREDIT_AMOUNT }
+								max={ MAX_CREDIT_AMOUNT }
+								step="1"
+								value={ sliderAmount }
+								onChange={ ( event ) => setAmount( event.target.value ) }
+								aria-label={ __( 'Credit amount slider' ) }
+							/>
+							<div className={ styles.rangeLabels } aria-hidden="true">
+								<span>${ MIN_CREDIT_AMOUNT }</span>
+								<span>${ MAX_CREDIT_AMOUNT }</span>
+							</div>
+						</div>
 					</Dialog.Content>
 					<Dialog.Footer>
 						<Dialog.Action variant="minimal" tone="neutral">

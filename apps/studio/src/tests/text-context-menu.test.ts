@@ -5,6 +5,7 @@ import { BrowserWindow, clipboard, Menu, type IpcMainInvokeEvent } from 'electro
 import { vi } from 'vitest';
 import {
 	buildTextContextMenuTemplate,
+	hasTextClipboardFormat,
 	showTextContextMenu,
 	type TextContextMenuContext,
 	type TextContextMenuEnvironment,
@@ -13,7 +14,7 @@ import {
 vi.mock( 'electron', () => ( {
 	BrowserWindow: { fromWebContents: vi.fn() },
 	Menu: { buildFromTemplate: vi.fn() },
-	clipboard: { readText: vi.fn(), writeText: vi.fn() },
+	clipboard: { availableFormats: vi.fn(), writeText: vi.fn() },
 } ) );
 
 function makeContext( overrides: Partial< TextContextMenuContext > = {} ): TextContextMenuContext {
@@ -225,11 +226,20 @@ describe( 'buildTextContextMenuTemplate', () => {
 	} );
 } );
 
+describe( 'hasTextClipboardFormat', () => {
+	it( 'detects normalized and native plain-text formats without reading clipboard contents', () => {
+		expect( hasTextClipboardFormat( [ 'text/plain' ] ) ).toBe( true );
+		expect( hasTextClipboardFormat( [ 'text/plain;charset=utf-8' ] ) ).toBe( true );
+		expect( hasTextClipboardFormat( [ 'public.utf8-plain-text' ] ) ).toBe( true );
+		expect( hasTextClipboardFormat( [ 'image/png' ] ) ).toBe( false );
+	} );
+} );
+
 describe( 'showTextContextMenu', () => {
 	it( 'returns the selected text when Quote in composer is chosen', async () => {
 		const popup = vi.fn();
 		vi.mocked( BrowserWindow.fromWebContents ).mockReturnValue( null );
-		vi.mocked( clipboard.readText ).mockReturnValue( '' );
+		vi.mocked( clipboard.availableFormats ).mockReturnValue( [] );
 		vi.mocked( Menu.buildFromTemplate ).mockReturnValue( { popup } as unknown as Menu );
 		const event = {
 			sender: { showDefinitionForSelection: vi.fn() },

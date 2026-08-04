@@ -56,6 +56,13 @@ function toLookUpLabel( selection: string ): string {
 	return sprintf( __( 'Look Up “%s”' ), truncated );
 }
 
+export function hasTextClipboardFormat( formats: string[] ): boolean {
+	return formats.some( ( format ) => {
+		const normalized = format.toLowerCase();
+		return normalized.startsWith( 'text/plain' ) || normalized.includes( 'plain-text' );
+	} );
+}
+
 /**
  * Native actions for selections, editable fields, messages, and code blocks.
  * Look Up is macOS-only because Windows and Linux expose no system dictionary
@@ -126,7 +133,10 @@ export async function showTextContextMenu(
 				result = { action: 'quote-selection', selectionText: context.selectionText.trim() };
 			},
 		},
-		{ platform: process.platform, canPaste: clipboard.readText().length > 0 }
+		{
+			platform: process.platform,
+			canPaste: hasTextClipboardFormat( clipboard.availableFormats() ),
+		}
 	);
 
 	if ( template.length === 0 ) {

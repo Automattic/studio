@@ -25,26 +25,32 @@ beforeEach( () => {
 	mockLoadUserData.mockResolvedValue( {} as Awaited< ReturnType< typeof loadUserData > > );
 } );
 
-it( 'emits studio_setting_ui_change with type "agentic" when enabling the agentic UI', async () => {
-	await updateBetaFeature( 'enableAgenticUi', true );
+it( 'emits studio_setting_ui_change with type "agentic" and the given surface when enabling the agentic UI', async () => {
+	await updateBetaFeature( 'enableAgenticUi', true, 'banner' );
 
 	expect( mockRecord ).toHaveBeenCalledWith( TRACKS_EVENTS.SETTING_UI_CHANGE, {
 		type: 'agentic',
-		surface: 'settings',
+		surface: 'banner',
 	} );
 } );
 
-it( 'emits studio_setting_ui_change with type "classic" when disabling the agentic UI', async () => {
-	await updateBetaFeature( 'enableAgenticUi', false );
+it( 'emits studio_setting_ui_change with type "classic" and the given surface when disabling the agentic UI', async () => {
+	await updateBetaFeature( 'enableAgenticUi', false, 'menu' );
 
 	expect( mockRecord ).toHaveBeenCalledWith( TRACKS_EVENTS.SETTING_UI_CHANGE, {
 		type: 'classic',
-		surface: 'settings',
+		surface: 'menu',
 	} );
 } );
 
+it( 'does not emit when no surface is given (e.g. the boot-time migration)', async () => {
+	await updateBetaFeature( 'enableAgenticUi', true );
+
+	expect( mockRecord ).not.toHaveBeenCalled();
+} );
+
 it( 'does not emit for other beta feature keys', async () => {
-	await updateBetaFeature( 'remoteSession', true );
+	await updateBetaFeature( 'remoteSession', true, 'settings' );
 
 	expect( mockRecord ).not.toHaveBeenCalled();
 } );

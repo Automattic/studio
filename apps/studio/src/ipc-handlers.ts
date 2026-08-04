@@ -104,6 +104,7 @@ import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import {
 	getBetaFeatures as getBetaFeaturesFromLib,
 	updateBetaFeature as updateBetaFeatureInLib,
+	type AgenticUiSurface,
 } from 'src/lib/beta-features';
 import {
 	bumpAggregatedUniqueStat,
@@ -1530,8 +1531,11 @@ export async function getBetaFeatures( _event: IpcMainInvokeEvent ): Promise< Be
 	return await getBetaFeaturesFromLib();
 }
 
-export async function enableAgenticUi( _event: IpcMainInvokeEvent ): Promise< void > {
-	await updateBetaFeatureInLib( 'enableAgenticUi', true );
+export async function enableAgenticUi(
+	_event: IpcMainInvokeEvent,
+	surface: AgenticUiSurface = 'settings'
+): Promise< void > {
+	await updateBetaFeatureInLib( 'enableAgenticUi', true, surface );
 	setAgenticUiEnabled( true );
 	const mainWindow = await getMainWindow();
 	if ( mainWindow && ! mainWindow.isDestroyed() ) {
@@ -1539,8 +1543,11 @@ export async function enableAgenticUi( _event: IpcMainInvokeEvent ): Promise< vo
 	}
 }
 
-export async function disableAgenticUi( _event: IpcMainInvokeEvent ): Promise< void > {
-	await updateBetaFeatureInLib( 'enableAgenticUi', false );
+export async function disableAgenticUi(
+	_event: IpcMainInvokeEvent,
+	surface: AgenticUiSurface = 'settings'
+): Promise< void > {
+	await updateBetaFeatureInLib( 'enableAgenticUi', false, surface );
 	setAgenticUiEnabled( false );
 	const mainWindow = await getMainWindow();
 	if ( mainWindow && ! mainWindow.isDestroyed() ) {

@@ -164,7 +164,7 @@ events). The table lists the event-specific props.
 | `studio_setting_quit_action_change` | Desktop Main (`saveQuitSitesBehavior`) | `behavior` (`stop`/`stop-and-auto-start`/`leave-running`), `surface` (`settings`) |
 | `studio_setting_cli_change` | Desktop Main (`installStudioCli`/`uninstallStudioCli`) | `installed` (boolean), `surface` (`settings`) |
 | `studio_setting_agentic_features_change` | Desktop Main (`saveAgenticFeaturesEnabled`) | `enabled` (boolean), `surface` (`settings`) |
-| `studio_setting_ui_change` | Desktop Main (`updateBetaFeature`, `enableAgenticUi` key) | `type` (`classic`/`agentic`), `surface` (`settings`) |
+| `studio_setting_ui_change` | Desktop Main (`updateBetaFeature`, `enableAgenticUi` key) | `type` (`classic`/`agentic`), `surface` (`settings`/`banner`/`menu`) — the switch has several entry points; the caller supplies the surface. Not emitted for the boot-time seeding migration (no surface). |
 
 ### How to add a new event
 

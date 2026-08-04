@@ -16,7 +16,7 @@ const requirementCopy = {
 	payment: {
 		title: __( 'Studio Code Beta' ),
 		description: __(
-			'To enroll in our free beta period, you must add a valid payment method to your WordPress.com account. You’ll get up to 500 free credits per month.'
+			'To enroll in our free beta period, you must add a valid payment method to your WordPress.com account. You’ll get free credits during beta.'
 		),
 		button: __( 'Add payment method' ),
 		url: ADD_PAYMENT_METHOD_URL,

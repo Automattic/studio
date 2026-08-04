@@ -1012,6 +1012,10 @@
 .components-modal__frame.selective-sync-modal {
 	width: 60%;
 	min-width: 550px;
+	/* Cap the 60% width on large windows so line lengths stay readable
+	   (review feedback on #4377). Matches the design system's large surface
+	   width, i.e. Dialog size="large". */
+	max-width: var( --wpds-dimension-surface-width-2xl, 960px );
 	/* Restates the dialog's `max-h-[84vh]` utility at higher specificity:
 	   the components stylesheet caps frames at 70% above 960px and would
 	   otherwise win the order tie against the utility, unlike in the legacy

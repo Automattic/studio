@@ -72,11 +72,32 @@ describe( 'collectSymlinkAllowlistEntries', () => {
 		] );
 	} );
 
-	it( 'stops descending past the depth limit', () => {
+	it( 'finds symlinks nested deeper than four directory levels', () => {
 		const deep = makeDir( 'a', 'b', 'c', 'd' );
 		fs.symlinkSync( path.join( outside, 'shared-plugin' ), path.join( deep, 'link' ) );
 
+		return expect( collectSymlinkAllowlistEntries( sitePath ) ).resolves.toEqual( [
+			path.join( outside, 'shared-plugin' ),
+		] );
+	} );
+
+	it( 'stops descending past the default depth limit', () => {
+		const deep = makeDir( 'a', 'b', 'c', 'd', 'e', 'f' );
+		fs.symlinkSync( path.join( outside, 'shared-plugin' ), path.join( deep, 'link' ) );
+
 		return expect( collectSymlinkAllowlistEntries( sitePath ) ).resolves.toEqual( [] );
+	} );
+
+	it( 'finds symlinked Composer dependencies within a plugin', () => {
+		const composerVendor = makeDir( 'wp-content', 'plugins', 'my-plugin', 'vendor', 'acme' );
+		fs.symlinkSync(
+			path.join( outside, 'shared-plugin' ),
+			path.join( composerVendor, 'dependency' )
+		);
+
+		return expect( collectSymlinkAllowlistEntries( sitePath ) ).resolves.toEqual( [
+			path.join( outside, 'shared-plugin' ),
+		] );
 	} );
 
 	it( 'honours an explicit depth limit', () => {

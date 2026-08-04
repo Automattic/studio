@@ -27,10 +27,10 @@ const IGNORED_SCAN_DIRECTORY_NAMES = new Set( [ 'node_modules', '.git', '.DS_Sto
 // chokidar hands `ignored` a full path, so there the same names match per segment.
 const IGNORED_SCAN_PATH = /[\\/](node_modules|\.git|\.DS_Store)([\\/]|$)/;
 
-// Directory levels below the scan root to descend into; an entry sitting directly
-// in the root has depth 1. Equivalent to the watcher's chokidar `depth: 2` rooted
-// at wp-content, i.e. site/wp-content/themes/my-theme/<entry>.
-export const SYMLINK_SCAN_DEPTH = 4;
+// Directory levels below the scan root to descend into. Six levels cover a
+// Composer path repository within a plugin or theme:
+// wp-content/<type>/<extension>/vendor/<vendor>/<package>.
+export const SYMLINK_SCAN_DEPTH = 6;
 
 export class SymlinkWatcher extends EventEmitter< SymlinkWatcherEvents > {
 	private watcher: FSWatcher | null = null;

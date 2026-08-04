@@ -292,7 +292,7 @@ function startSymlinkWatcher( sitePath: string ): void {
 // Rescans the site and replaces the scanned half of the allowlist, so targets that
 // disappeared while the watcher was dead drop out instead of accumulating for the
 // life of the server. Safe as a wholesale replacement because the scan covers a
-// superset of what the watcher reports (see SYMLINK_SCAN_DEPTH).
+// superset of what the watcher reports.
 //
 // Only new grants justify a restart: without them PHP is being denied access it
 // should have. A list that merely shrank is an over-grant, and restarting to

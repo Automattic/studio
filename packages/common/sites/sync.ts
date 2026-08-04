@@ -5,7 +5,7 @@ import path from 'node:path';
 import { initiateImport } from '@studio/common/lib/sync/sync-api';
 import { createTusUpload } from '@studio/common/lib/sync/tus-upload';
 import type { ExecuteCliCommand } from '@studio/common/lib/cli-process';
-import type { PullSiteProgress } from '@studio/common/types/sync';
+import type { PullEngine, PullSiteProgress } from '@studio/common/types/sync';
 
 /**
  * WordPress.com sync operations. Pull is delegated to the Studio CLI; push uses
@@ -75,21 +75,34 @@ export async function pushSite(
 }
 
 /**
- * Pull a local site from its connected WordPress.com live site via the CLI
- * `pull` command, exchanging everything (`--options all`). Resolves on success,
- * rejects on failure.
+ * Pull a local site from its connected WordPress.com live site via the CLI.
+ * `jetpack` runs `pull`, exchanging everything (`--options all`); `reprint`
+ * runs `pull-reprint`, which has no equivalent option and always pulls
+ * everything when driven non-interactively. Both commands take the same
+ * `--remote-site` identifier. Resolves on success, rejects on failure.
  */
 export function pullSite(
 	executeCliCommand: ExecuteCliCommand,
 	siteFolder: string,
 	remoteSiteId: number,
-	emit?: ( output: PullSiteProgress ) => void
+	emit?: ( output: PullSiteProgress ) => void,
+	engine: PullEngine = 'jetpack'
 ): Promise< void > {
+	const args =
+		engine === 'reprint'
+			? [ 'pull-reprint', '--path', siteFolder, '--remote-site', String( remoteSiteId ) ]
+			: [
+					'pull',
+					'--path',
+					siteFolder,
+					'--remote-site',
+					String( remoteSiteId ),
+					'--options',
+					'all',
+			  ];
+
 	return new Promise( ( resolve, reject ) => {
-		const [ emitter ] = executeCliCommand(
-			[ 'pull', '--path', siteFolder, '--remote-site', String( remoteSiteId ), '--options', 'all' ],
-			{ output: 'capture' }
-		);
+		const [ emitter ] = executeCliCommand( args, { output: 'capture' } );
 		emitter.on( 'data', ( { data } ) => {
 			const progress = data as { status?: unknown; message?: unknown } | null;
 			if ( progress?.status !== 'inprogress' || typeof progress.message !== 'string' ) {

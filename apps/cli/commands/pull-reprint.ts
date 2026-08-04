@@ -66,7 +66,11 @@ import {
 } from 'cli/lib/pull/runtime-start-options';
 import { buildAutoLoginUrl } from 'cli/lib/site-utils';
 import { fetchSyncableSites } from 'cli/lib/sync-api';
-import { getSyncSupportError, pickSyncSite } from 'cli/lib/sync-site-picker';
+import {
+	findSyncSiteByIdentifier,
+	getSyncSupportError,
+	pickSyncSite,
+} from 'cli/lib/sync-site-picker';
 import {
 	startWordPressServer,
 	stopWordPressServer,
@@ -88,9 +92,9 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		),
 		builder: ( builderYargs ) => {
 			return builderYargs
-				.option( 'url', {
+				.option( 'remote-site', {
 					type: 'string',
-					describe: __( 'URL of the remote WordPress site to pull from (remote source)' ),
+					description: __( 'Remote site URL or ID' ),
 				} )
 				.option( 'only', {
 					type: 'string',
@@ -119,7 +123,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 			const verbose = argv.verbose;
 
 			try {
-				await runCommand( argv.path, argv.url, verbose, {
+				await runCommand( argv.path, argv.remoteSite, verbose, {
 					only: argv.only as string[] | undefined,
 					skipDatabase: argv[ 'skip-database' ] as boolean,
 					skipUploads: argv[ 'skip-uploads' ] as boolean,
@@ -284,7 +288,7 @@ class PullError extends LoggerError {
  */
 export async function runCommand(
 	localPath: string,
-	remoteUrl?: string,
+	remoteSite?: string,
 	verbose = false,
 	cliSelection: CliSelectionOptions = {}
 ): Promise< void > {
@@ -292,7 +296,7 @@ export async function runCommand(
 	const site = await getSiteByFolder( localPath );
 	logger.reportSuccess( __( 'Site loaded' ) );
 
-	const sourceSite = await resolveSourceSite( remoteUrl ?? site.reprintOrigin?.remoteUrl );
+	const sourceSite = await resolveSourceSite( remoteSite ?? site.reprintOrigin?.remoteUrl );
 	if ( ! sourceSite ) {
 		return;
 	}
@@ -1229,53 +1233,21 @@ export function normalizeSiteUrl( url: string ): string {
 }
 
 /**
- * Finds the WordPress.com site in the user's connected list whose
- * public URL best matches `url`.  Matches on the full normalized URL
- * first, then falls back to host-only matching so `example.com` and
- * `example.com/blog` both resolve to the same WP.com site record.
- *
- * No existing Studio helper does this today — `getSiteByFolder` /
- * `getHostnameFromUrl` operate on local sites or return a string, and
- * `findSite` variants all key on site id.  Keep this one local to
- * pull-reprint; if a second caller ever needs the same shape, the
- * natural home would be `cli/lib/wpcom-sites`.
- */
-export function findMatchingWpComSite< T extends { url: string } >(
-	sites: T[],
-	url: string
-): T | undefined {
-	const normalizedUrl = normalizeSiteUrl( url );
-	const target = new URL( normalizedUrl );
-
-	return sites.find( ( site ) => {
-		try {
-			const normalizedSiteUrl = normalizeSiteUrl( site.url );
-			if ( normalizedSiteUrl === normalizedUrl ) {
-				return true;
-			}
-
-			return new URL( normalizedSiteUrl ).host === target.host;
-		} catch {
-			return false;
-		}
-	} );
-}
-
-/**
  * Resolves the **remote source** to pull from. A valid source must be
  * present in the user's WordPress.com Jetpack API site list, which also
  * includes Pressable sites on the same platform. Handles two input
  * patterns:
  *
- *   1. URL provided — resolve it against the connected WordPress.com/
- *      Pressable sites and rotate a fresh secret.
- *   2. No URL — among pullable (`syncable`) sites only: if the user has
+ *   1. Identifier provided — a site URL or WordPress.com site ID, resolved
+ *      against the connected WordPress.com/Pressable sites through the same
+ *      helper `pull` and `push` use, then a fresh secret is rotated.
+ *   2. No identifier — among pullable (`syncable`) sites only: if the user has
  *      exactly one, pick it; with several, show an interactive picker in a
  *      TTY (returning `null` if the user cancels) or error out when run
  *      non-interactively. Non-pullable sites (Simple, or missing hosting
  *      features) are surfaced as disabled in the picker.
  */
-export async function resolveSourceSite( url?: string ): Promise< PullSource | null > {
+export async function resolveSourceSite( identifier?: string ): Promise< PullSource | null > {
 	const token = await readAuthToken();
 	if ( ! token ) {
 		throw new LoggerError(
@@ -1294,18 +1266,11 @@ export async function resolveSourceSite( url?: string ): Promise< PullSource | n
 	let resolvedUrl: string;
 	let wpComSite: SyncSite;
 
-	if ( url ) {
-		const matched = findMatchingWpComSite( sites, url );
-		if ( ! matched ) {
-			throw new LoggerError(
-				__( 'This URL is not a WordPress.com or Pressable site connected to your account.' )
-			);
-		}
-		if ( matched.syncSupport !== 'syncable' ) {
-			throw getSyncSupportError( matched );
-		}
-		resolvedUrl = matched.url;
-		wpComSite = matched;
+	if ( identifier ) {
+		// Throws when nothing matches, when several sites share the hostname,
+		// or when the match isn't syncable.
+		wpComSite = findSyncSiteByIdentifier( sites, identifier );
+		resolvedUrl = wpComSite.url;
 	} else {
 		// Only sites that can run the reprint exporter — those with hosting
 		// features enabled (`syncable`) — are pull candidates.
@@ -1328,11 +1293,13 @@ export async function resolveSourceSite( url?: string ): Promise< PullSource | n
 		if ( pullableSites.length > 1 ) {
 			// In a real terminal, let the user pick interactively. Outside a
 			// TTY (CI, or Studio driving the command) there's no way to
-			// prompt, so exit with guidance to pass `--url` — the realistic
+			// prompt, so exit with guidance to pass `--remote-site` — the realistic
 			// non-TTY caller already does.
 			if ( ! process.stdin.isTTY ) {
 				throw new LoggerError(
-					__( 'Multiple WordPress.com sites are available. Re-run with `--url <site-url>`.' )
+					__(
+						'Multiple WordPress.com sites are available. Re-run with `--remote-site <site-url-or-id>`.'
+					)
 				);
 			}
 

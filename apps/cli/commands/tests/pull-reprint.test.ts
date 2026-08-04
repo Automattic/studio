@@ -12,7 +12,6 @@ import {
 	runFullPull,
 	downloadSkippedFiles,
 	ensureScopedPullWpConfig,
-	findMatchingWpComSite,
 	getReprintApiUrlForSite,
 	normalizeSiteUrl,
 	resolveSourceSite,
@@ -124,15 +123,6 @@ describe( 'CLI: studio pull-reprint helpers', () => {
 		expect(
 			getReprintApiUrlForSite( normalizeSiteUrl( 'https://example.com/?reprint-api' ) )
 		).toBe( 'https://example.com/?reprint-api' );
-	} );
-
-	it( 'matches WordPress.com sites by normalized URL or host', () => {
-		expect(
-			findMatchingWpComSite(
-				[ { id: 1, name: 'Example', url: 'https://example.wordpress.com/' } ],
-				'https://example.wordpress.com'
-			)
-		).toEqual( { id: 1, name: 'Example', url: 'https://example.wordpress.com/' } );
 	} );
 
 	it( 'invokes reprint to download skipped-earlier files', async () => {
@@ -866,7 +856,7 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 		setTTY( false );
 		vi.mocked( fetchSyncableSites ).mockResolvedValue( sites );
 
-		await expect( resolveSourceSite() ).rejects.toThrow( /Re-run with `--url/ );
+		await expect( resolveSourceSite() ).rejects.toThrow( /Re-run with `--remote-site/ );
 		expect( pickSyncSite ).not.toHaveBeenCalled();
 		expect( rotateReprintSecret ).not.toHaveBeenCalled();
 	} );
@@ -931,7 +921,7 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 		expect( source ).toMatchObject( { url: 'https://one.wordpress.com', wpComSite: sites[ 0 ] } );
 	} );
 
-	it( 'rotates a secret for a syncable site matched by --url', async () => {
+	it( 'rotates a secret for a syncable site matched by --remote-site URL', async () => {
 		setTTY( true );
 		vi.mocked( fetchSyncableSites ).mockResolvedValue( sites );
 
@@ -946,7 +936,21 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 		expect( pickSyncSite ).not.toHaveBeenCalled();
 	} );
 
-	it( 'rejects a needs-transfer site passed via --url with the hosting-features message', async () => {
+	it( 'resolves a site passed to --remote-site as a numeric WordPress.com ID', async () => {
+		setTTY( true );
+		vi.mocked( fetchSyncableSites ).mockResolvedValue( sites );
+
+		const source = await resolveSourceSite( '22' );
+
+		expect( source ).toMatchObject( {
+			url: 'https://two.wordpress.com',
+			wpComSite: sites[ 1 ],
+		} );
+		expect( rotateReprintSecret ).toHaveBeenCalledWith( 22, token.accessToken );
+		expect( pickSyncSite ).not.toHaveBeenCalled();
+	} );
+
+	it( 'rejects a needs-transfer site passed via --remote-site with the hosting-features message', async () => {
 		setTTY( true );
 		vi.mocked( fetchSyncableSites ).mockResolvedValue( [
 			syncSite( {
@@ -963,7 +967,7 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 		expect( rotateReprintSecret ).not.toHaveBeenCalled();
 	} );
 
-	it( 'rejects a needs-upgrade site passed via --url with the plan-upgrade message', async () => {
+	it( 'rejects a needs-upgrade site passed via --remote-site with the plan-upgrade message', async () => {
 		setTTY( true );
 		vi.mocked( fetchSyncableSites ).mockResolvedValue( [
 			syncSite( {
@@ -980,7 +984,7 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 		expect( rotateReprintSecret ).not.toHaveBeenCalled();
 	} );
 
-	it( 'reports the specific reason when the only site is not pullable (no --url)', async () => {
+	it( 'reports the specific reason when the only site is not pullable (no --remote-site)', async () => {
 		setTTY( true );
 		vi.mocked( fetchSyncableSites ).mockResolvedValue( [
 			syncSite( {
@@ -998,12 +1002,12 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 		expect( rotateReprintSecret ).not.toHaveBeenCalled();
 	} );
 
-	it( 'rejects a URL that is not connected to the WordPress.com account', async () => {
+	it( 'rejects an identifier that is not connected to the WordPress.com account', async () => {
 		setTTY( true );
 		vi.mocked( fetchSyncableSites ).mockResolvedValue( sites );
 
 		await expect( resolveSourceSite( 'https://third-party.example' ) ).rejects.toThrow(
-			/not a WordPress\.com or Pressable site connected to your account/
+			/No site found matching "https:\/\/third-party\.example"/
 		);
 		expect( pickSyncSite ).not.toHaveBeenCalled();
 		expect( rotateReprintSecret ).not.toHaveBeenCalled();

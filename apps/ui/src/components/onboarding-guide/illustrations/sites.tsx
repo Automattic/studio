@@ -3,7 +3,8 @@ import { privateApis } from '@wordpress/theme';
 import { clsx } from 'clsx';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { unlock } from '@/lock-unlock';
-import { Cursor } from './stage';
+import { easings, envelope, sample, useTimeline, type Keyframe } from './choreography';
+import { Cursor, Tooltip } from './primitives';
 import styles from './style.module.css';
 import type { CSSProperties } from 'react';
 
@@ -14,6 +15,63 @@ const { ThemeProvider } = unlock( privateApis );
 // theme scope so the row's wpds tokens resolve against the dark ramp.
 const CHROME_BG_LIGHT = '#1e1e1e';
 const CHROME_BG_DARK = '#161616';
+
+const LOOP = 11000;
+
+// The pointer's path (offsets from the row centre): drift in → hover the
+// overview button → move to the status button → press → hold while it starts →
+// leave. Per-segment easing gives it a human cadence.
+const CURSOR_PATH: Keyframe[] = [
+	{ at: 0, x: 168, y: 96, scale: 1, opacity: 0, ease: easings.easeOut },
+	{ at: 1100, x: 82, y: 8, scale: 1, opacity: 1, ease: easings.linear },
+	{ at: 3080, x: 82, y: 8, scale: 1, opacity: 1, ease: easings.easeInOut },
+	{ at: 4070, x: 108, y: 8, scale: 1, opacity: 1, ease: easings.easeIn },
+	{ at: 4840, x: 108, y: 8, scale: 1, opacity: 1, ease: easings.easeIn },
+	{ at: 5005, x: 108, y: 9, scale: 0.86, opacity: 1, ease: easings.easeOut },
+	{ at: 5170, x: 108, y: 8, scale: 1, opacity: 1, ease: easings.linear },
+	{ at: 8470, x: 108, y: 8, scale: 1, opacity: 1, ease: easings.easeIn },
+	{ at: 9460, x: 170, y: 98, scale: 1, opacity: 0 },
+	{ at: LOOP, x: 170, y: 98, scale: 1, opacity: 0 },
+];
+
+// Play triangle: shown while stopped, gone once the site starts, back in during
+// the closing pause so the loop resets cleanly.
+function playOpacity( t: number ): number {
+	if ( t < 4840 ) {
+		return 1;
+	}
+	if ( t < 5170 ) {
+		return 1 - ( t - 4840 ) / 330;
+	}
+	if ( t < 10300 ) {
+		return 0;
+	}
+	if ( t < 10800 ) {
+		return ( t - 10300 ) / 500;
+	}
+	return 1;
+}
+
+// Status dot: fades in amber (starting, with a gentle pulse), switches to green
+// (running), then fades out for the reset.
+function statusDot( t: number ): { opacity: number; color: string } {
+	let opacity = envelope( t, 4840, 330, 9900, 550 );
+	if ( t > 5170 && t < 6820 ) {
+		const phase = ( ( t - 5170 ) / 900 ) % 1;
+		opacity *= 0.4 + 0.6 * Math.abs( 1 - 2 * phase );
+	}
+	const color =
+		t < 7040 ? 'var(--studio-color-status-transitioning)' : 'var(--studio-color-status-running)';
+	return { opacity, color };
+}
+
+function tooltipStyle( opacity: number ): CSSProperties {
+	return { opacity, transform: `translateX(-50%) translateY(${ ( 1 - opacity ) * 3 }px)` };
+}
+
+function hoverStyle( opacity: number ): CSSProperties {
+	return { backgroundColor: `rgba(255, 255, 255, ${ ( 0.09 * opacity ).toFixed( 3 ) })` };
+}
 
 function SettingsGlyph() {
 	return (
@@ -31,6 +89,14 @@ function SettingsGlyph() {
 export function SitesIllustration() {
 	const colorScheme = useColorScheme();
 	const chromeBg = colorScheme === 'dark' ? CHROME_BG_DARK : CHROME_BG_LIGHT;
+	const { t } = useTimeline( { duration: LOOP, loop: true } );
+
+	const cursor = sample( t, CURSOR_PATH );
+	const dot = statusDot( t );
+	const overviewTip = envelope( t, 770, 440, 2970, 440 );
+	const stoppedTip = envelope( t, 3740, 440, 4840, 330 );
+	const startingTip = envelope( t, 4840, 330, 6820, 330 );
+	const runningTip = envelope( t, 6820, 330, 8580, 440 );
 
 	return (
 		<ThemeProvider color={ { bg: chromeBg } }>
@@ -49,31 +115,47 @@ export function SitesIllustration() {
 					<div className={ styles.row }>
 						<span className={ styles.rowName }>My WordPress Website</span>
 						<div className={ styles.rowActions }>
-							<div className={ clsx( styles.btn, styles.btnOverview ) }>
+							<div
+								className={ styles.btn }
+								style={ hoverStyle( envelope( t, 770, 440, 2970, 440 ) ) }
+							>
 								<SettingsGlyph />
-								<span className={ clsx( styles.tooltip, styles.tooltipOverview ) }>
-									{ __( 'Site overview' ) }
-								</span>
+								<Tooltip style={ tooltipStyle( overviewTip ) }>{ __( 'Site overview' ) }</Tooltip>
 							</div>
-							<div className={ clsx( styles.btn, styles.btnStatus ) }>
-								<svg className={ styles.statusPlay } viewBox="0 0 10 10" aria-hidden="true">
+							<div
+								className={ styles.btn }
+								style={ hoverStyle( envelope( t, 3740, 440, 8580, 440 ) ) }
+							>
+								<svg
+									className={ styles.statusPlay }
+									viewBox="0 0 10 10"
+									aria-hidden="true"
+									style={ { opacity: playOpacity( t ) } }
+								>
 									<path d="M2.5 1 L9 5 L2.5 9 Z" />
 								</svg>
-								<span className={ styles.statusDot } />
-								{ /* Three right-anchored tooltips fade one into the next, reading as
-								     one box whose wording changes as the site starts. */ }
-								<span className={ clsx( styles.tooltip, styles.tipStart ) }>
+								<span
+									className={ styles.statusDot }
+									style={ { opacity: dot.opacity, backgroundColor: dot.color } }
+								/>
+								{ /* Three tooltips fade one into the next, reading as one box whose
+								     wording changes as the site starts. */ }
+								<Tooltip style={ tooltipStyle( stoppedTip ) }>
 									{ __( 'Site status: Stopped' ) }
-								</span>
-								<span className={ clsx( styles.tooltip, styles.tipStarting ) }>
-									{ __( 'Starting site…' ) }
-								</span>
-								<span className={ clsx( styles.tooltip, styles.tipRunning ) }>
+								</Tooltip>
+								<Tooltip style={ tooltipStyle( startingTip ) }>{ __( 'Starting site…' ) }</Tooltip>
+								<Tooltip style={ tooltipStyle( runningTip ) }>
 									{ __( 'Site status: Running' ) }
-								</span>
+								</Tooltip>
 							</div>
 						</div>
-						<Cursor className={ styles.cursor } />
+						<Cursor
+							className={ styles.cursor }
+							style={ {
+								transform: `translate(${ cursor.x }px, ${ cursor.y }px) scale(${ cursor.scale })`,
+								opacity: cursor.opacity,
+							} }
+						/>
 					</div>
 					<div className={ styles.rowGhost }>
 						<span className={ styles.rowGhostName }>Recipe Blog</span>

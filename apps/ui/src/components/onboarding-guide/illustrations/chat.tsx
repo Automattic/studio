@@ -1,6 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { at, easings, envelope, span, useTimeline } from './choreography';
+import { StreamingText } from './primitives';
 import styles from './style.module.css';
 
 function PlusGlyph() {
@@ -49,108 +50,82 @@ const TYPE_MS = 42;
 const STREAM_MS = 17;
 
 // Page 2 (signed in) — Studio Code. A one-time playback: type a prompt, send it
-// (composer drops to the bottom and flips to its busy state while the prompt
-// scales up into a user bubble), stream the reply, then show a tool call that
-// keeps "reading" and a subtle Replay control. Theme-adaptive.
+// (the composer slides off-stage and the prompt becomes a user bubble), stream
+// the reply, then show a tool call that keeps "reading" and a Replay control.
+// Everything derives from the timeline clock `t`; theme-adaptive.
 export function ChatIllustration() {
-	const [ promptLen, setPromptLen ] = useState( 0 );
-	const [ sent, setSent ] = useState( false );
-	const [ replyLen, setReplyLen ] = useState( 0 );
-	const [ showTool, setShowTool ] = useState( false );
-	const [ showReplay, setShowReplay ] = useState( false );
-	const timers = useRef< number[] >( [] );
-
 	const prompt = __( 'Add a contact form to the homepage' );
 	const reply = __(
 		'Good idea! I’ll open the homepage and check to see where the best place would be for a contact form.'
 	);
 
-	const clearTimers = useCallback( () => {
-		timers.current.forEach( ( id ) => window.clearTimeout( id ) );
-		timers.current = [];
-	}, [] );
+	// Cue marks (ms), derived from the copy lengths so translations stay in sync.
+	const typeEnd = 550 + prompt.length * TYPE_MS;
+	const sentAt = typeEnd + 480;
+	const streamStart = sentAt + 680;
+	const streamEnd = streamStart + reply.length * STREAM_MS;
+	const toolAt = streamEnd + 300;
+	const replayAt = streamEnd + 800;
 
-	const run = useCallback( () => {
-		clearTimers();
-		setPromptLen( 0 );
-		setSent( false );
-		setReplyLen( 0 );
-		setShowTool( false );
-		setShowReplay( false );
+	const { t, restart } = useTimeline( { duration: replayAt + 900, loop: false } );
 
-		const at = ( fn: () => void, delay: number ) => {
-			timers.current.push( window.setTimeout( fn, delay ) );
-		};
-
-		const reduce = window.matchMedia?.( '(prefers-reduced-motion: reduce)' ).matches;
-		if ( reduce ) {
-			setSent( true );
-			setReplyLen( reply.length );
-			setShowTool( true );
-			setShowReplay( true );
-			return;
-		}
-
-		const typeStart = 550;
-		for ( let i = 1; i <= prompt.length; i++ ) {
-			at( () => setPromptLen( i ), typeStart + i * TYPE_MS );
-		}
-		const sentAt = typeStart + prompt.length * TYPE_MS + 480;
-		at( () => setSent( true ), sentAt );
-
-		const streamStart = sentAt + 680;
-		for ( let j = 1; j <= reply.length; j++ ) {
-			at( () => setReplyLen( j ), streamStart + j * STREAM_MS );
-		}
-		const streamEnd = streamStart + reply.length * STREAM_MS;
-		at( () => setShowTool( true ), streamEnd + 300 );
-		at( () => setShowReplay( true ), streamEnd + 800 );
-	}, [ clearTimers, prompt, reply ] );
-
-	useEffect( () => {
-		run();
-		return clearTimers;
-	}, [ run, clearTimers ] );
-
+	const promptLen = Math.floor( span( t, 550, typeEnd, easings.linear ) * prompt.length );
+	const replyLen = Math.floor( span( t, streamStart, streamEnd, easings.linear ) * reply.length );
+	const sent = at( t, sentAt );
 	const typing = ! sent && promptLen > 0;
-	const streaming = sent && replyLen > 0 && replyLen < reply.length;
+	const showPlaceholder = sent || promptLen === 0;
 	const placeholder = sent
 		? __( 'Queue the next message while I work…' )
 		: __( 'What can Studio build today?' );
-	const showPlaceholder = sent || promptLen === 0;
+
+	// Composer: centered → slides down and off-stage on send.
+	const composerY = -54 + span( t, sentAt, sentAt + 800, easings.easeInOut ) * 186;
+	// Bubble: scales/fades up from the composer into place.
+	const bubbleP = span( t, sentAt, sentAt + 520, easings.easeOut );
+	const assistantOp = span( t, sentAt, sentAt + 300, easings.easeOut );
+	const toolOp = envelope( t, toolAt, 300 );
+	const replayOp = span( t, replayAt, replayAt + 300, easings.easeOut );
 
 	return (
 		<div className={ styles.chatScene }>
 			<button
 				type="button"
-				className={ clsx( styles.replayButton, showReplay && styles.replayVisible ) }
-				onClick={ run }
+				className={ styles.replayButton }
+				style={ { opacity: replayOp, pointerEvents: replayOp > 0.5 ? 'auto' : 'none' } }
+				onClick={ restart }
 			>
 				{ __( 'Replay' ) }
 			</button>
 			<div className={ styles.chatConversation }>
-				<div className={ clsx( styles.userBubble, sent && styles.userBubbleVisible ) }>
+				<div
+					className={ styles.userBubble }
+					style={ {
+						opacity: bubbleP,
+						transform: `translateY(${ ( 1 - bubbleP ) * 46 }px) scale(${ 0.9 + 0.1 * bubbleP })`,
+					} }
+				>
 					{ prompt }
 				</div>
-				<div className={ clsx( styles.assistantText, sent && styles.assistantVisible ) }>
-					{ reply.slice( 0, replyLen ) }
-					{ streaming ? <span className={ styles.streamCaret } /> : null }
+				<div className={ styles.assistantText } style={ { opacity: assistantOp } }>
+					<StreamingText text={ reply } count={ replyLen } caretClassName={ styles.streamCaret } />
 				</div>
-				<span className={ clsx( styles.toolChip, showTool && styles.toolChipVisible ) }>
+				<span className={ styles.toolChip } style={ { opacity: toolOp } }>
 					<FileGlyph />
 					<span className={ styles.toolShimmer }>{ __( 'Reading' ) } front-page.php</span>
 				</span>
 			</div>
-			<div className={ clsx( styles.composer, sent && styles.composerGone ) }>
+			<div className={ styles.composer } style={ { transform: `translateY(${ composerY }px)` } }>
 				<div className={ styles.composerInput }>
 					{ showPlaceholder ? (
 						<span className={ styles.composerPlaceholder }>{ placeholder }</span>
 					) : null }
 					{ typing ? (
-						<span className={ styles.composerTyped }>
-							{ prompt.slice( 0, promptLen ) }
-							<span className={ styles.composerCaret } />
-						</span>
+						<StreamingText
+							text={ prompt }
+							count={ promptLen }
+							className={ styles.composerTyped }
+							caretClassName={ styles.composerCaret }
+						/>
 					) : null }
 				</div>
 				<div className={ styles.composerBar }>

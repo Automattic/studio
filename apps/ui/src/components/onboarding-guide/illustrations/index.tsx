@@ -1,6 +1,6 @@
 import { ChatIllustration } from './chat';
+import { Stage } from './primitives';
 import { SitesIllustration } from './sites';
-import { Stage } from './stage';
 import styles from './style.module.css';
 import type { OrientationIllustrationId } from '@/data/onboarding/orientation-guide';
 import type { ComponentType } from 'react';

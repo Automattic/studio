@@ -11,7 +11,7 @@ import {
 	SitePreview,
 } from './index';
 import type { SiteDetails } from '@/data/core';
-import type { ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 
 vi.mock( '@/data/core', () => ( {
 	useConnector: vi.fn(),
@@ -433,6 +433,48 @@ describe( 'SitePreview', () => {
 		rerender( ui( false ) );
 
 		expect( await screen.findByRole( 'menuitemradio', { name: 'Fit pane' } ) ).toBeChecked();
+	} );
+
+	it( 'toggles full preview with the keyboard shortcut', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+		const onFullscreenChange = vi.fn();
+		const queryClient = new QueryClient( {
+			defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+		} );
+		const ui = ( props: Partial< ComponentProps< typeof SitePreview > > ) => (
+			<QueryClientProvider client={ queryClient }>
+				<Tooltip.Provider>
+					<SitePreview
+						site={ createSite( { running: true } ) }
+						path="/"
+						reloadNonce={ 0 }
+						{ ...props }
+					/>
+				</Tooltip.Provider>
+			</QueryClientProvider>
+		);
+		// jsdom reports a non-Apple platform, so the chord is Ctrl+Shift+F.
+		const pressShortcut = () =>
+			fireEvent.keyDown( document, { key: 'f', ctrlKey: true, shiftKey: true } );
+
+		const { rerender, unmount } = render( ui( { onFullscreenChange } ) );
+		pressShortcut();
+		expect( onFullscreenChange ).toHaveBeenLastCalledWith( true );
+
+		// It's a toggle, so it reads the current state on the way back out.
+		rerender( ui( { fullscreen: true, onFullscreenChange } ) );
+		pressShortcut();
+		expect( onFullscreenChange ).toHaveBeenLastCalledWith( false );
+
+		// Without a host toggle the chord stays with the page.
+		unmount();
+		render( ui( {} ) );
+		onFullscreenChange.mockClear();
+		pressShortcut();
+		expect( onFullscreenChange ).not.toHaveBeenCalled();
 	} );
 
 	it( 'hides the More options menu when the site is not running', () => {

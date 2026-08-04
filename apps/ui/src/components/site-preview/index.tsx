@@ -66,7 +66,7 @@ interface InspectorEvent {
 	annotations?: Annotation[];
 	isPicking?: boolean;
 	annotationCount?: number;
-	command?: BrowserShortcutCommandType;
+	command?: PreviewShortcutCommandType;
 }
 
 interface InspectorState {
@@ -89,6 +89,11 @@ interface BrowserNavigationState {
 }
 
 type BrowserShortcutCommandType = 'back' | 'forward' | 'reload';
+
+// What the guest page can forward over the console bridge: the browser
+// commands it swallows, plus the full-preview toggle (the webview covers most
+// of the window in full preview, so the host listener alone would miss it).
+type PreviewShortcutCommandType = BrowserShortcutCommandType | 'full-preview';
 
 interface BrowserCommand {
 	id: number;
@@ -369,8 +374,24 @@ function getRealmShortcut( event: globalThis.KeyboardEvent ): PreviewRealm | nul
 	return null;
 }
 
-function isBrowserShortcutCommand( command: unknown ): command is BrowserShortcutCommandType {
-	return command === 'back' || command === 'forward' || command === 'reload';
+// ⇧⌘F (Ctrl+Shift+F elsewhere) toggles full preview. Listed in Settings →
+// Keyboard alongside the other preview shortcuts.
+const FULL_PREVIEW_SHORTCUT_KEY = 'f';
+
+function isFullPreviewShortcut( event: globalThis.KeyboardEvent ): boolean {
+	if ( event.defaultPrevented || event.repeat ) {
+		return false;
+	}
+	return isKeyboardEvent.primaryShift( event, FULL_PREVIEW_SHORTCUT_KEY );
+}
+
+function isPreviewShortcutCommand( command: unknown ): command is PreviewShortcutCommandType {
+	return (
+		command === 'back' ||
+		command === 'forward' ||
+		command === 'reload' ||
+		command === 'full-preview'
+	);
 }
 
 // Trailing "•••" menu holding the preview's environment controls: the
@@ -611,6 +632,18 @@ export function SitePreview( {
 		commandIdRef.current += 1;
 		setInspectorCommand( { id: commandIdRef.current, type } );
 	}, [] );
+	// Shortcuts the guest page swallowed and forwarded back over the console
+	// bridge: browser commands go to the webview, full preview to the host.
+	const handleForwardedShortcut = useCallback(
+		( command: PreviewShortcutCommandType ) => {
+			if ( command === 'full-preview' ) {
+				onFullscreenChange?.( ! fullscreen );
+				return;
+			}
+			sendBrowserCommand( command );
+		},
+		[ fullscreen, onFullscreenChange, sendBrowserCommand ]
+	);
 
 	// Realm segments (front end / WP Admin / database). Each realm remembers
 	// where you last were: flipping to WP Admin and back returns to the exact
@@ -733,7 +766,11 @@ export function SitePreview( {
 		const handleKeyDown = ( event: globalThis.KeyboardEvent ) => {
 			const command = getBrowserShortcutCommand( event );
 			const realm = command ? null : getRealmShortcut( event );
-			if ( ! command && ! realm ) {
+			// Only claim the full-preview chord when the host actually offers
+			// the mode, so it stays available to the page otherwise.
+			const fullPreview =
+				! command && ! realm && !! onFullscreenChange && isFullPreviewShortcut( event );
+			if ( ! command && ! realm && ! fullPreview ) {
 				return;
 			}
 			const activeElement = document.activeElement;
@@ -750,12 +787,21 @@ export function SitePreview( {
 				sendBrowserCommand( command );
 			} else if ( realm ) {
 				handleSwitchRealm( realm );
+			} else {
+				onFullscreenChange?.( ! fullscreen );
 			}
 		};
 
 		document.addEventListener( 'keydown', handleKeyDown, { capture: true } );
 		return () => document.removeEventListener( 'keydown', handleKeyDown, { capture: true } );
-	}, [ canPreview, collapsed, handleSwitchRealm, sendBrowserCommand ] );
+	}, [
+		canPreview,
+		collapsed,
+		fullscreen,
+		handleSwitchRealm,
+		onFullscreenChange,
+		sendBrowserCommand,
+	] );
 
 	return (
 		<aside
@@ -917,7 +963,7 @@ export function SitePreview( {
 										inspectorCommand={ inspectorCommand }
 										browserCommand={ browserCommand }
 										onBrowserStateChange={ handleBrowserStateChange }
-										onBrowserCommand={ sendBrowserCommand }
+										onBrowserCommand={ handleForwardedShortcut }
 										onNavigate={ handlePreviewNavigation }
 										viewport={ previewViewport }
 									/>
@@ -1056,7 +1102,7 @@ interface WebviewSurfaceProps {
 	inspectorCommand?: InspectorCommand | null;
 	browserCommand?: BrowserCommand | null;
 	onBrowserStateChange?: ( state: BrowserNavigationState ) => void;
-	onBrowserCommand?: ( type: BrowserShortcutCommandType ) => void;
+	onBrowserCommand?: ( type: PreviewShortcutCommandType ) => void;
 	onNavigate?: ( url: string ) => void;
 	// Simulated guest viewport, or null for the webview's natural size.
 	viewport?: PreviewViewport | null;
@@ -1229,7 +1275,7 @@ function WebviewSurface( {
 			}
 			if ( ! parsed ) return;
 			if ( parsed.type === 'browser-command' ) {
-				if ( isBrowserShortcutCommand( parsed.command ) ) {
+				if ( isPreviewShortcutCommand( parsed.command ) ) {
 					onBrowserCommandRef.current?.( parsed.command );
 				}
 				return;

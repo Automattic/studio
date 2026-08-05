@@ -573,10 +573,12 @@ export async function runCommand(
 		// again instead of silently reusing this run's choice.
 		clearPullSelection( studioMetadata );
 
-		// The skipped-files pass is the only step that reports 100%, and it is
-		// skipped whenever there's no tail outstanding — so close the progress
-		// out here instead of leaving a caller's bar parked mid-way.
-		logger.reportSuccess( withPercent( __( 'Site pulled' ), 100 ) );
+		// Close the bar out here: the skipped-files pass is the only other step
+		// that reports 100%, and it is skipped whenever there's no tail
+		// outstanding. The percentage has to ride an in-progress message —
+		// `pullSite` only parses the token out of those.
+		logger.reportProgress( withPercent( __( 'Pull complete' ), 100 ) );
+		logger.reportSuccess( __( 'Pull complete' ) );
 
 		site.importComplete = true;
 		site.status = 'ready';
@@ -1246,7 +1248,8 @@ export async function downloadSkippedFiles(
 			runtime,
 		}
 	);
-	logger.reportSuccess( withPercent( __( 'Remaining files downloaded' ), 100 ) );
+	logger.reportProgress( withPercent( __( 'Remaining files downloaded' ), 100 ) );
+	logger.reportSuccess( __( 'Remaining files downloaded' ) );
 }
 
 export function normalizeSiteUrl( url: string ): string {

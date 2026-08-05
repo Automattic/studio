@@ -187,15 +187,17 @@ describe( 'site preview inspector', () => {
 		);
 
 		expect( root.querySelector( '.layer-count' )?.textContent ).toBe( '1/2' );
-		const initialPosition = ( root.querySelector( '.popup' ) as HTMLElement ).style.cssText;
+		const initialPopup = root.querySelector( '.popup' ) as HTMLElement;
+		const initialPosition = {
+			left: initialPopup.style.left,
+			top: initialPopup.style.top,
+		};
 		(
 			root.querySelector( '[aria-label="Select next element at this point"]' ) as HTMLElement
 		 ).click();
 		expect( root.querySelector( '.target' )?.textContent ).toBe( 'img#behind' );
 		expect( root.querySelector( '.layer-count' )?.textContent ).toBe( '2/2' );
-		expect( ( root.querySelector( '.popup' ) as HTMLElement ).style.cssText ).toBe(
-			initialPosition
-		);
+		expect( root.querySelector( '.popup' ) ).toHaveStyle( initialPosition );
 
 		const handle = root.querySelector( '.target-row' ) as HTMLElement;
 		const popup = root.querySelector( '.popup' ) as HTMLElement;

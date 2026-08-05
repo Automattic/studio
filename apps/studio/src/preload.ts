@@ -4,6 +4,7 @@
 import '@sentry/electron/preload';
 import { IpcRendererEvent, contextBridge, ipcRenderer, webUtils } from 'electron';
 import { IpcEvents } from 'src/ipc-utils';
+import type { AgenticUiSurface } from 'src/lib/beta-features';
 
 function ipcRendererInvoke< T extends keyof IpcHandlers >(
 	channel: T,
@@ -88,8 +89,10 @@ const api: IpcApi = {
 	stopAllServers: () => ipcRendererInvoke( 'stopAllServers' ),
 	copyText: ( text ) => ipcRendererInvoke( 'copyText', text ),
 	getAppGlobals: () => ipcRendererInvoke( 'getAppGlobals' ),
-	enableAgenticUi: () => ipcRendererInvoke( 'enableAgenticUi' ),
-	disableAgenticUi: () => ipcRendererInvoke( 'disableAgenticUi' ),
+	enableAgenticUi: ( surface?: AgenticUiSurface ) =>
+		ipcRendererInvoke( 'enableAgenticUi', surface ),
+	disableAgenticUi: ( surface?: AgenticUiSurface ) =>
+		ipcRendererInvoke( 'disableAgenticUi', surface ),
 	dismissAgenticUiBanner: () => ipcRendererInvoke( 'dismissAgenticUiBanner' ),
 	isAgenticUiBannerDismissed: () => ipcRendererInvoke( 'isAgenticUiBannerDismissed' ),
 	getAppUpdateStatus: () => ipcRendererInvoke( 'getAppUpdateStatus' ),

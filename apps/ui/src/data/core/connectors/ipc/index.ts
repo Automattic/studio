@@ -589,12 +589,27 @@ export function createIpcConnector(): Connector {
 			);
 		},
 
-		async pushSiteToLive( siteId, remoteSiteId, options ): Promise< void > {
+		async pushSiteToLive( siteId, remoteSiteId, options, onProgress ): Promise< void > {
 			// The agentic UI pushes via the shared `pushSite` (export → TUS
 			// upload → import) in both desktop and `studio ui`; the desktop runs
 			// it behind this single IPC handler. Resolves once the import is
 			// initiated (the remote import may still be running).
-			await ipcApi.pushSiteToLive( siteId, remoteSiteId, options );
+			// The only progress a push reports is the upload byte fraction.
+			const unsubscribe = onProgress
+				? ipcListener.subscribe(
+						'sync-upload-progress',
+						( _event: unknown, payload: { selectedSiteId: string; progress: number } ) => {
+							if ( payload.selectedSiteId === siteId ) {
+								onProgress( { phase: 'uploading', progress: payload.progress } );
+							}
+						}
+				  )
+				: undefined;
+			try {
+				await ipcApi.pushSiteToLive( siteId, remoteSiteId, options );
+			} finally {
+				unsubscribe?.();
+			}
 			await markConnectedWpcomSiteSynced( siteId, remoteSiteId, 'push' );
 		},
 

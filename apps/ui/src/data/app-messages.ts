@@ -73,6 +73,12 @@ function scheduleExpiry( toast: ToastMessage ) {
 	if ( ! rendererMounted ) {
 		return;
 	}
+	// A non-positive duration means the toast stays until it's explicitly
+	// replaced or dismissed — used by the running sync toasts, which live for
+	// the whole operation and are swapped for their result at the end.
+	if ( toast.durationMs <= 0 ) {
+		return;
+	}
 	const timer = setTimeout( () => {
 		timers.delete( toast.id );
 		beginToastExit( toast.id );

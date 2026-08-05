@@ -16,6 +16,7 @@ import type { Snapshot } from '@studio/common/types/snapshot';
 import type {
 	PullSiteProgress,
 	PullSyncOptions,
+	PushSiteProgress,
 	PushSyncOptions,
 	SyncSite,
 } from '@studio/common/types/sync';
@@ -43,6 +44,7 @@ export type { Snapshot } from '@studio/common/types/snapshot';
 export type {
 	PullSiteProgress,
 	PullSyncOptions,
+	PushSiteProgress,
 	PushSyncOptions,
 	SyncSite,
 } from '@studio/common/types/sync';
@@ -285,7 +287,8 @@ export interface Connector {
 	pushSiteToLive(
 		siteId: string,
 		remoteSiteId: number,
-		options?: PushSyncOptions
+		options?: PushSyncOptions,
+		onProgress?: ( progress: PushSiteProgress ) => void
 	): Promise< void >;
 	// Pulls the connected WordPress.com site's database + wp-content back
 	// into the local Studio site, or only the selection described by

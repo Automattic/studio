@@ -1,6 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
-import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
@@ -10,6 +9,12 @@ import {
 	reportSyncProgress,
 	reportSyncSuccess,
 } from '@/data/sync-activity';
+import {
+	finishSyncToast,
+	startSyncToast,
+	updatePullToast,
+	updatePushToast,
+} from '@/data/sync-toasts';
 import type { PullSiteProgress, PullSyncOptions, PushSyncOptions } from '@/data/core';
 
 // Mutation keys are exported so downstream consumers (e.g. a cross-page
@@ -30,21 +35,24 @@ export function usePushSiteToLive() {
 	return useMutation( {
 		mutationKey: PUSH_TO_LIVE_MUTATION_KEY,
 		mutationFn: ( { siteId, remoteSiteId, options }: PushToLiveVariables ) =>
-			connector.pushSiteToLive( siteId, remoteSiteId, options ),
+			connector.pushSiteToLive( siteId, remoteSiteId, options, ( progress ) =>
+				updatePushToast( siteId, progress )
+			),
 		onMutate: ( { siteId } ) => {
 			reportSyncPending( siteId, 'push' );
+			startSyncToast( siteId, 'push' );
 		},
 		onSuccess: ( _result, { siteId } ) => {
 			reportSyncSuccess( siteId, 'push' );
 			void queryClient.invalidateQueries( {
 				queryKey: connectedWpcomSitesQueryKey( siteId ),
 			} );
-			toast.success( __( 'Push complete' ) );
+			finishSyncToast( siteId, { intent: 'success', title: __( 'Push complete' ) } );
 		},
 		onError: ( error, { siteId } ) => {
 			const message = error instanceof Error ? error.message : String( error );
 			reportSyncError( siteId, 'push', message );
-			toast.error( __( "Push didn't complete" ) );
+			finishSyncToast( siteId, { intent: 'error', title: __( "Push didn't complete" ) } );
 		},
 	} );
 }
@@ -86,12 +94,14 @@ export function usePullSiteFromLive() {
 				remoteSiteId,
 				( progress ) => {
 					reportSyncProgress( siteId, 'pull', progress );
+					updatePullToast( siteId, progress );
 					onProgress?.( progress );
 				},
 				options
 			),
 		onMutate: ( { siteId } ) => {
 			reportSyncPending( siteId, 'pull' );
+			startSyncToast( siteId, 'pull' );
 		},
 		onSuccess: ( _result, { siteId } ) => {
 			reportSyncSuccess( siteId, 'pull' );
@@ -99,14 +109,18 @@ export function usePullSiteFromLive() {
 			// and the site's database + themes just changed — refresh the
 			// site list so any downstream consumers see the new state.
 			void queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
-			toast.success( __( 'Pull complete' ) );
+			finishSyncToast( siteId, { intent: 'success', title: __( 'Pull complete' ) } );
 		},
 		onError: ( _error, { siteId } ) => {
 			const message = __(
 				"Studio couldn't copy the live site. Try again. If the problem continues, check Studio Logs for details."
 			);
 			reportSyncError( siteId, 'pull', message );
-			toast.error( __( "Pull didn't complete" ), { description: message } );
+			finishSyncToast( siteId, {
+				intent: 'error',
+				title: __( "Pull didn't complete" ),
+				description: message,
+			} );
 		},
 	} );
 }

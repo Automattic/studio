@@ -99,6 +99,19 @@ export type PullSiteProgress = {
 	progress?: number;
 };
 
+// A push moves through fixed phases; unlike pull it has no server-reported
+// message, so the phase names the step. `progress` is the byte fraction of the
+// upload.
+export const pushSitePhases = [ 'exporting', 'uploading', 'paused', 'importing' ] as const;
+
+export type PushSitePhase = ( typeof pushSitePhases )[ number ];
+
+export type PushSiteProgress = {
+	phase: PushSitePhase;
+	// 0–100, present during `uploading` and `paused`.
+	progress?: number;
+};
+
 // Pull backup API schemas
 export const pullSiteResponseSchema = z.object( {
 	success: z.boolean(),

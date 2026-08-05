@@ -11,6 +11,7 @@ import styles from './style.module.css';
 const MIN_CREDIT_AMOUNT = 10;
 const MAX_CREDIT_AMOUNT = 200;
 const DEFAULT_CREDIT_AMOUNT = 50;
+const creditAmountFormatter = new Intl.NumberFormat();
 const { ThemeProvider } = unlock( privateApis );
 
 export function PurchaseCreditsDialog( {
@@ -24,16 +25,14 @@ export function PurchaseCreditsDialog( {
 	const colorScheme = useColorScheme();
 	const dialogBackground = colorScheme === 'dark' ? '#1e1e1e' : '#ffffff';
 	const checkoutAmount = Number( amount );
-	const hasValidAmount =
-		Number.isInteger( checkoutAmount ) &&
-		checkoutAmount >= MIN_CREDIT_AMOUNT &&
-		checkoutAmount <= MAX_CREDIT_AMOUNT;
-	const sliderAmount = hasValidAmount
-		? checkoutAmount
-		: Math.min(
-				MAX_CREDIT_AMOUNT,
-				Math.max( MIN_CREDIT_AMOUNT, Number( amount ) || DEFAULT_CREDIT_AMOUNT )
-		  );
+	const hasValidAmount = Number.isInteger( checkoutAmount ) && checkoutAmount >= MIN_CREDIT_AMOUNT;
+	const sliderAmount = Math.min(
+		MAX_CREDIT_AMOUNT,
+		Math.max( MIN_CREDIT_AMOUNT, checkoutAmount || DEFAULT_CREDIT_AMOUNT )
+	);
+	const isOffScale = checkoutAmount > MAX_CREDIT_AMOUNT;
+	const formattedAmount = amount ? creditAmountFormatter.format( checkoutAmount ) : '';
+	const formattedCheckoutAmount = creditAmountFormatter.format( checkoutAmount );
 
 	const continueToCheckout = () => {
 		if ( ! hasValidAmount ) {
@@ -46,7 +45,7 @@ export function PurchaseCreditsDialog( {
 			description: sprintf(
 				/* translators: %s: dollar amount of AI credits purchased. */
 				__( '$%s in AI credits is now available.' ),
-				String( checkoutAmount )
+				formattedCheckoutAmount
 			),
 		} );
 	};
@@ -75,13 +74,13 @@ export function PurchaseCreditsDialog( {
 								<input
 									id="credit-amount-input"
 									className={ styles.amountInput }
-									type="number"
-									min={ MIN_CREDIT_AMOUNT }
-									max={ MAX_CREDIT_AMOUNT }
-									step="1"
+									type="text"
 									inputMode="numeric"
-									value={ amount }
-									onChange={ ( event ) => setAmount( event.target.value ) }
+									value={ formattedAmount }
+									onChange={ ( event ) => {
+										const digits = event.target.value.replace( /\D/g, '' );
+										setAmount( digits.replace( /^0+(?=\d)/, '' ) );
+									} }
 								/>
 								<span className={ styles.amountDetails }>
 									<span className={ styles.amountLabel }>
@@ -89,13 +88,12 @@ export function PurchaseCreditsDialog( {
 											? sprintf(
 													/* translators: %s: number of AI credits. */
 													__( '%s credits' ),
-													String( checkoutAmount )
+													formattedCheckoutAmount
 											  )
 											: sprintf(
-													/* translators: 1: minimum credits, 2: maximum credits. */
-													__( '%1$s–%2$s credits' ),
-													String( MIN_CREDIT_AMOUNT ),
-													String( MAX_CREDIT_AMOUNT )
+													/* translators: %s: minimum number of AI credits. */
+													__( '%s or more credits' ),
+													String( MIN_CREDIT_AMOUNT )
 											  ) }
 									</span>
 									<span className={ styles.amountFrequency }>{ __( 'one time' ) }</span>
@@ -110,10 +108,15 @@ export function PurchaseCreditsDialog( {
 								value={ sliderAmount }
 								onChange={ ( event ) => setAmount( event.target.value ) }
 								aria-label={ __( 'Credit amount slider' ) }
+								data-overflow={ isOffScale ? '' : undefined }
 							/>
-							<div className={ styles.rangeLabels } aria-hidden="true">
+							<div
+								className={ styles.rangeLabels }
+								data-overflow={ isOffScale ? '' : undefined }
+								aria-hidden="true"
+							>
 								<span>${ MIN_CREDIT_AMOUNT }</span>
-								<span>${ MAX_CREDIT_AMOUNT }</span>
+								<span>{ isOffScale ? __( 'Off the chart →' ) : `$${ MAX_CREDIT_AMOUNT }` }</span>
 							</div>
 						</div>
 					</Dialog.Content>
@@ -136,7 +139,7 @@ export function PurchaseCreditsDialog( {
 									? sprintf(
 											/* translators: %s: dollar amount of AI credits selected. */
 											__( 'Continue with $%s' ),
-											String( checkoutAmount )
+											formattedCheckoutAmount
 									  )
 									: __( 'Continue' ) }
 							</Tooltip.Trigger>

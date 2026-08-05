@@ -70,6 +70,10 @@
 	cursor: pointer;
 }
 
+.amountRange[data-overflow] {
+	filter: drop-shadow( 3px 0 0 var( --wpds-color-fg-interactive-brand ) );
+}
+
 .amountRange:focus-visible {
 	outline: 2px solid var( --wpds-color-stroke-focus-brand );
 	outline-offset: 3px;
@@ -81,4 +85,9 @@
 	margin-block-start: var( --wpds-dimension-gap-xs );
 	color: var( --wpds-color-fg-content-neutral-weak );
 	font-size: var( --wpds-typography-font-size-xs );
+}
+
+.rangeLabels[data-overflow] span:last-child {
+	color: var( --wpds-color-fg-interactive-brand );
+	font-weight: 600;
 }

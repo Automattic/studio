@@ -11,6 +11,7 @@ import type { CSSProperties } from 'react';
 
 const MIN_CREDIT_AMOUNT = 10;
 const MAX_CREDIT_AMOUNT = 200;
+const MAX_TYPED_CREDIT_AMOUNT = 99_999;
 const DEFAULT_CREDIT_AMOUNT = 50;
 const CARD_AMOUNTS = [ 10, 20, 50, 100 ];
 const PRESET_AMOUNTS = [ 25, 50, 100 ];
@@ -80,7 +81,10 @@ export function PurchaseCreditsDialog( {
 	const colorScheme = useColorScheme();
 	const dialogBackground = colorScheme === 'dark' ? '#1e1e1e' : '#ffffff';
 	const checkoutAmount = Number( amount );
-	const hasValidAmount = Number.isInteger( checkoutAmount ) && checkoutAmount >= MIN_CREDIT_AMOUNT;
+	const hasValidAmount =
+		Number.isInteger( checkoutAmount ) &&
+		checkoutAmount >= MIN_CREDIT_AMOUNT &&
+		checkoutAmount <= MAX_TYPED_CREDIT_AMOUNT;
 	const sliderAmount = Math.min(
 		MAX_CREDIT_AMOUNT,
 		Math.max( MIN_CREDIT_AMOUNT, checkoutAmount || DEFAULT_CREDIT_AMOUNT )
@@ -95,7 +99,9 @@ export function PurchaseCreditsDialog( {
 	};
 	const updateTypedAmount = ( value: string ) => {
 		const digits = value.replace( /\D/g, '' );
-		const nextAmount = digits.replace( /^0+(?=\d)/, '' );
+		const normalizedAmount = digits.replace( /^0+(?=\d)/, '' );
+		const nextAmount =
+			normalizedAmount.length > 5 ? String( MAX_TYPED_CREDIT_AMOUNT ) : normalizedAmount;
 
 		if (
 			variant === 'slider' &&

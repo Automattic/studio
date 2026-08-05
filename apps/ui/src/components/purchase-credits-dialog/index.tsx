@@ -89,6 +89,10 @@ export function PurchaseCreditsDialog( {
 	const formattedAmount = amount ? creditAmountFormatter.format( checkoutAmount ) : '';
 	const formattedCheckoutAmount = creditAmountFormatter.format( checkoutAmount );
 	const hasSelectedPreset = PRESET_AMOUNTS.includes( checkoutAmount );
+	const moveCaretToEnd = ( input: HTMLInputElement ) => {
+		const end = input.value.length;
+		input.setSelectionRange( end, end );
+	};
 	const updateTypedAmount = ( value: string ) => {
 		const digits = value.replace( /\D/g, '' );
 		const nextAmount = digits.replace( /^0+(?=\d)/, '' );
@@ -96,7 +100,7 @@ export function PurchaseCreditsDialog( {
 		if (
 			variant === 'slider' &&
 			Number( nextAmount ) > MAX_CREDIT_AMOUNT &&
-			checkoutAmount <= MAX_CREDIT_AMOUNT
+			nextAmount !== amount
 		) {
 			setConfettiKey( ( key ) => key + 1 );
 		}
@@ -185,6 +189,11 @@ export function PurchaseCreditsDialog( {
 											placeholder={ __( 'Enter amount' ) }
 											value={ hasSelectedPreset ? '' : formattedAmount }
 											onChange={ ( event ) => updateTypedAmount( event.target.value ) }
+											onFocus={ ( event ) => moveCaretToEnd( event.currentTarget ) }
+											onMouseUp={ ( event ) => {
+												event.preventDefault();
+												moveCaretToEnd( event.currentTarget );
+											} }
 										/>
 										<span className={ styles.amountDetails }>
 											<span className={ styles.amountLabel }>
@@ -219,6 +228,11 @@ export function PurchaseCreditsDialog( {
 										inputMode="numeric"
 										value={ formattedAmount }
 										onChange={ ( event ) => updateTypedAmount( event.target.value ) }
+										onFocus={ ( event ) => moveCaretToEnd( event.currentTarget ) }
+										onMouseUp={ ( event ) => {
+											event.preventDefault();
+											moveCaretToEnd( event.currentTarget );
+										} }
 									/>
 									<span className={ styles.amountDetails }>
 										<span className={ styles.amountLabel }>

@@ -83,4 +83,22 @@ describe( 'SidebarLayout', () => {
 
 		expect( screen.queryByRole( 'button', { name: 'Show sidebar' } ) ).not.toBeInTheDocument();
 	} );
+
+	it( 'hands the sidebar shortcut to the forcing feature while force-collapsed', () => {
+		const onForceCollapsedToggle = vi.fn();
+		render(
+			<SidebarLayout forceCollapsed onForceCollapsedToggle={ onForceCollapsedToggle }>
+				<div>Content</div>
+			</SidebarLayout>
+		);
+
+		// Collapsed (no resize handle), but its own floating toggle stays away —
+		// the forcing feature (full preview) owns the exit affordance.
+		expect( screen.queryByRole( 'separator', { name: 'Resize sidebar' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'Show sidebar' } ) ).not.toBeInTheDocument();
+
+		act( () => toggleSidebarListener?.() );
+
+		expect( onForceCollapsedToggle ).toHaveBeenCalledTimes( 1 );
+	} );
 } );

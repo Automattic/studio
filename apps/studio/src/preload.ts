@@ -96,6 +96,7 @@ const api: IpcApi = {
 	installAppUpdate: () => ipcRendererInvoke( 'installAppUpdate' ),
 	getWpVersion: ( id ) => ipcRendererInvoke( 'getWpVersion', id ),
 	getIsMultisite: ( id ) => ipcRendererInvoke( 'getIsMultisite', id ),
+	fetchSiteRestApi: ( siteId, request ) => ipcRendererInvoke( 'fetchSiteRestApi', siteId, request ),
 	generateProposedSitePath: ( siteName ) =>
 		ipcRendererInvoke( 'generateProposedSitePath', siteName ),
 	generateSiteNameFromList: ( usedSites ) =>
@@ -157,6 +158,8 @@ const api: IpcApi = {
 	getFileSize: ( id, filePath ) => ipcRendererInvoke( 'getFileSize', id, filePath ),
 	getPathForFile: ( file ) => webUtils.getPathForFile( file ),
 	readLocalMediaFile: ( path ) => ipcRendererInvoke( 'readLocalMediaFile', path ),
+	setWebviewViewport: ( webContentsId, viewport ) =>
+		ipcRendererInvoke( 'setWebviewViewport', webContentsId, viewport ),
 	isFullscreen: () => ipcRendererInvoke( 'isFullscreen' ),
 	getAllCustomDomains: () => ipcRendererInvoke( 'getAllCustomDomains' ),
 	saveUserTerminal: ( preferredTerminal ) =>
@@ -169,7 +172,8 @@ const api: IpcApi = {
 	saveColorScheme: ( colorScheme ) => ipcRendererInvoke( 'saveColorScheme', colorScheme ),
 	getColorScheme: () => ipcRendererInvoke( 'getColorScheme' ),
 	getAnalyticsEnabled: () => ipcRendererInvoke( 'getAnalyticsEnabled' ),
-	saveAnalyticsEnabled: ( enabled ) => ipcRendererInvoke( 'saveAnalyticsEnabled', enabled ),
+	saveAnalyticsEnabled: ( enabled, source ) =>
+		ipcRendererInvoke( 'saveAnalyticsEnabled', enabled, source ),
 	saveQuitSitesBehavior: ( quitSitesBehavior ) =>
 		ipcRendererInvoke( 'saveQuitSitesBehavior', quitSitesBehavior ),
 	getQuitSitesBehavior: () => ipcRendererInvoke( 'getQuitSitesBehavior' ),

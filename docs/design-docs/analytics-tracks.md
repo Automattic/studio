@@ -38,7 +38,7 @@ The pieces mirror the MC Stats layering:
 | Layer | File | Responsibility                                                                                                                                              |
 |---|---|-------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Shared core | `packages/common/lib/record-tracks-event.ts` | Pure, environment-agnostic URL builder + fire-and-forget pixel sender. No config/opt-out logic. No-ops in E2E/dev.                                          |
-| Desktop wrapper | `apps/studio/src/lib/tracks.ts` | Single entry point for the desktop (Main process). Enforces the opt-out, attaches common props.                                                             |
+| Desktop wrapper | `apps/studio/src/lib/tracks.ts` | Single entry point for the desktop (Main process). Enforces the opt-out, attaches common props including `channel` and `ui_version` (derived from the active renderer).                                                             |
 | CLI wrapper | `apps/cli/lib/tracks.ts` | Single entry point for the CLI. Enforces the opt-out **and** the build-time `__ENABLE_CLI_TELEMETRY__` switch. Resolves origin from `STUDIO_TRACKS_ORIGIN`. |
 | Identity + opt-out | `packages/common/lib/shared-config.ts` | `getOrCreateAnalyticsInstallId()`, `isAnalyticsOptedOut()`, `isAutomatticianFromToken()`. Persisted in `shared.json`.                                       |
 
@@ -111,10 +111,11 @@ where the sender actually runs — see Testing below for what fires in which bui
   spawned CLI via the `STUDIO_TRACKS_ORIGIN` env var (`studio-ui:v1` / `studio-ui:v2`), injected in
   `apps/studio/src/modules/cli/lib/execute-command.ts`.
 - **Renderer-originated events** (future) go through the `recordAnalyticsEvent` IPC handler
-  (`apps/studio/src/ipc-handlers.ts`). Both renderers share the same Main single entry point: the legacy
-  `apps/studio` renderer tags `ui_version: v1`; the agentic `apps/ui` renderer routes through its
-  `Connector.trackEvent` (IPC connector), tagging `ui_version: v2`. The `apps/ui` browser
-  (`local`/`hosted`) connectors have no Main process and currently no-op `trackEvent`.
+  (`apps/studio/src/ipc-handlers.ts`). Both renderers share the same Main single entry point, and the
+  desktop wrapper's `commonProps()` attaches `channel`/`ui_version` centrally — the `ui_version` is
+  derived from the active renderer via `getPreferredUiVersion()`, so callers pass only event-specific
+  props. The agentic `apps/ui` renderer routes through its `Connector.trackEvent` (IPC connector); the
+  `apps/ui` browser (`local`/`hosted`) connectors have no Main process and currently no-op `trackEvent`.
 
 ## Property vocabulary
 
@@ -132,11 +133,13 @@ none fits, and flag it for registration.
 | `ui_version` | **Custom (Studio-only):** which desktop renderer | `v1` (legacy), `v2` (agentic). No standard slot — must be registered as a Studio-custom property. |
 
 Common props (`platform`, `arch`, `app_version`, `is_a11n`, and `channel`/`ui_version`) are attached by the
-wrappers/renderers — pass only event-specific props. (Centralizing `channel`/`ui_version` on the desktop
-side is STU-2122; until it lands, `studio_app_launch` still sets them at the call site.)
+wrappers — pass only event-specific props. On the desktop the wrapper's `commonProps()` attaches
+`channel: studio-ui` and `ui_version` (derived from the active renderer via `getPreferredUiVersion()`); the
+CLI wrapper resolves `channel`/`ui_version` from `STUDIO_TRACKS_ORIGIN`.
 
-Reserved for later phases (documented so future events conform): `surface` (in-app area, e.g.
-`onboarding`/`settings`), `outcome` (`success`/`error`).
+`surface` (in-app area, e.g. `onboarding`/`settings`) is live on `studio_setting_telemetry_change`; the renderer
+supplies it per change (Main can't infer it) and it is meant to generalize to other settings-change
+events. Reserved for later phases (documented so future events conform): `outcome` (`success`/`error`).
 
 **AI / assistant events (Phase 2+).** Studio Code assistant usage events must use the data team's
 AI-event vocabulary: `ai_session_id`, `agent_name`, `agent_version`, `ability_name`, `outcome`,
@@ -144,13 +147,15 @@ AI-event vocabulary: `ai_session_id`, `agent_name`, `agent_version`, `ability_na
 
 ## Event catalog
 
-Every event also carries the common props `channel`, `is_a11n`, `platform`, `arch`, `app_version`
-(attached by the wrappers). The table lists the event-specific props.
+Every event also carries the common props `channel`, `ui_version`, `is_a11n`, `platform`, `arch`,
+`app_version` (attached by the wrappers; `ui_version` is absent for pure-CLI `channel=studio-cli`
+events). The table lists the event-specific props.
 
 | Event | Emitted from | Event-specific props |
 |---|---|---|
-| `studio_app_launch` | Desktop Main (`appBoot`) | `ui_version`, `is_first_launch` |
-| `studio_site_start` | CLI site-start funnel | `ui_version` (only when `channel=studio-ui`) |
+| `studio_app_launch` | Desktop Main (`appBoot`) | `is_first_launch` |
+| `studio_site_start` | CLI site-start funnel | (none — `ui_version` comes from the wrapper via `STUDIO_TRACKS_ORIGIN`, only when `channel=studio-ui`) |
+| `studio_setting_telemetry_change` | Desktop Main (`saveAnalyticsEnabled`) | `status` (`on`/`off`), `surface` (`onboarding`/`settings`) — recorded while analytics is still ON (before the write when turning off, after it when turning on) so the opt-out gate never self-suppresses it. |
 
 ### How to add a new event
 
@@ -159,12 +164,19 @@ Every event also carries the common props `channel`, `is_a11n`, `platform`, `arc
    `apps/cli/lib/tracks.ts`, or the `recordAnalyticsEvent` IPC handler / `Connector.trackEvent` from a
    renderer). Prefer a standardized property name from the vocabulary above; only add a custom prop when
    none fits, and flag it.
-3. **Register the event and all its eventprops** via the Tracks Registration tool. Registration adds
+3. **Name it per the Tracks convention** — `<source>_<context>_<optional subcontext>_<action>`, at least
+   three underscore-separated segments, matching `^[a-z_][a-z0-9_]*$` (lowercase, digits, underscores). A
+   name that violates this is silently routed to the `tracks_rejects` table and never appears in the normal
+   Live View — check the "Filter for only rejected events" box to spot it. This is separate from
+   registration below: it is a hard ingestion gate, not documentation. (`studio_telemetry` — source +
+   context with no action — was rejected this way until renamed to `studio_setting_telemetry_change`.) The
+   `TRACKS_EVENTS` naming guard test in `record-tracks-event.test.ts` enforces this at CI time.
+4. **Register the event and all its eventprops** via the Tracks Registration tool. Registration adds
    documentation and CI integrity checks — it does not gate collection or queryability (a validly-named
    event is already queryable in Superset without it). Register every prop the event carries, including the
    wrapper-attached common props (`channel`, `is_a11n`, `platform`, `arch`, `app_version`, `ui_version`);
    only the reserved Tracks defaults (timestamp, etc.) come for free.
-4. Add a row to the event catalog above.
+5. Add a row to the event catalog above.
 
 ## Testing
 
@@ -179,10 +191,14 @@ What fires depends on the build, so pick the right method:
   `__ENABLE_CLI_TELEMETRY__` gate, so a plain `npm start` logs `Would have recorded… studio_app_launch`
   in the **Main-process terminal** (the shared core no-ops the network send in dev/E2E). Add
   `enableAgenticUi` to see `ui_version: v2`.
-- **`studio_site_start` — NOT emitted in a plain dev run.** It fires from the CLI, gated by
-  `__ENABLE_CLI_TELEMETRY__`, which is compiled to `false` in dev builds — so `npm start` and a normal
-  `npm run cli:build` emit nothing, by design. To exercise it against a dev build **without** rebuilding,
-  set the runtime override `STUDIO_FORCE_CLI_TELEMETRY=1`, and run the CLI directly in a terminal:
+- **`studio_site_start` in a dev run.** It fires from the CLI, whose build-time
+  `__ENABLE_CLI_TELEMETRY__` gate is compiled to `false` in dev builds. The CLI wrapper treats
+  `NODE_ENV === 'development'` as an escape hatch, though, so during a plain `npm start` a UI-triggered
+  site start logs `Would have recorded… studio_site_start` in the **`npm start` terminal** (echoed as
+  `[CLI - <siteId>] …`), the same way the desktop logs `studio_app_launch` — the shared core still
+  no-ops the network send. To exercise it against a dev build **outside** a dev run (e.g. a standalone
+  CLI invocation) **without** rebuilding, set the runtime override `STUDIO_FORCE_CLI_TELEMETRY=1`, and
+  run the CLI directly in a terminal:
 
   ```
   # pick a site that is OFFLINE in `studio list` — `start` no-ops on an already-running site

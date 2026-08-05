@@ -13,6 +13,12 @@
 	overflow: hidden;
 }
 
+/* Full preview: the panel spans the whole frame, so the content/preview
+   separator would read as a stray line down the window's edge. */
+.rootFullscreen {
+	border-inline-start: none;
+}
+
 .header {
 	position: relative;
 	display: flex;
@@ -27,6 +33,12 @@
 	/* Sizes the address segments' narrow-width behavior (the title collapse
 	   in location-omnibox.module.css queries this container). */
 	container: studio-preview-toolbar / inline-size;
+}
+
+/* Clears the macOS traffic lights, which always sit at the window's physical
+   top-left — hence the physical padding rather than an inline-start one. */
+.headerTrafficLights {
+	padding-left: 94px;
 }
 
 /* The toolbar doubles as a window drag region; the controls (including the
@@ -110,6 +122,71 @@
 	display: flex;
 	position: relative;
 	background-color: var(--wpds-color-bg-surface-neutral-strong, #fff);
+	overflow: hidden;
+}
+
+.previewViewport {
+	position: relative;
+	display: flex;
+	flex: 1 1 auto;
+	min-width: 0;
+	min-height: 120px;
+	overflow: hidden;
+}
+
+/* While simulating a viewport, the preset's frame floats centered with
+   breathing room; the padding is excluded from the measured pane, so the
+   frame's fit-to-pane scale accounts for it automatically. */
+.previewViewportSimulated {
+	align-items: safe center;
+	justify-content: safe center;
+	padding: 16px;
+	background-color: var(--wpds-color-bg-surface-neutral);
+}
+
+/* The letterbox behind simulated viewports carries a dot grid so it reads
+   as the preview panel's own surface. No radial mask here — the frame
+   covers the center, so the grid lives at the edges. */
+.viewportGrid {
+	position: absolute;
+	inset: 0;
+	color: var(--wpds-color-fg-content-neutral);
+	pointer-events: none;
+}
+
+/* Wraps each preview surface. Fills the pane by default; explicit sizes for
+   letterboxed and device modes come in via inline style. Anchors the
+   loading spinner overlay and clips the iframe fallback's scaled box. */
+.surfaceFrame {
+	position: relative;
+	display: flex;
+	flex: 1 1 auto;
+	min-width: 0;
+	min-height: 0;
+	overflow: hidden;
+}
+
+/* A device-sized frame, presented as a floating phone against the letterbox
+   background. The hairline ring is a shadow (not a border) so the frame's
+   content box stays exactly the scaled viewport size. */
+.deviceFrame {
+	border-radius: var(--wpds-border-radius-lg);
+	box-shadow:
+		0 0 0 1px var(--wpds-color-stroke-surface-neutral),
+		var(--wpds-elevation-md);
+	background-color: var(--wpds-color-bg-surface-neutral-strong, #fff);
+}
+
+/* The split view's phone pane, beside the desktop frame on the shared
+   letterbox. Shrinkable so a narrow panel never crushes the primary view. */
+.splitMobilePane {
+	position: relative;
+	display: flex;
+	flex: 0 1 auto;
+	min-width: 0;
+	align-items: safe center;
+	justify-content: safe center;
+	padding: 16px;
 	overflow: hidden;
 }
 

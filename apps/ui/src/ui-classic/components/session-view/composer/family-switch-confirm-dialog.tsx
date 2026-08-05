@@ -1,6 +1,8 @@
 import { getAiModelLabel } from '@studio/common/ai/models';
+import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 import { Button, Dialog } from '@wordpress/ui';
+import styles from './style.module.css';
 import type { AiModelId } from '@/data/core';
 
 /**
@@ -37,18 +39,21 @@ export function FamilySwitchConfirmDialog( {
 		>
 			<Dialog.Popup size="small">
 				<Dialog.Header>
-					<Dialog.Title>{ __( 'Start a new conversation?' ) }</Dialog.Title>
+					<Dialog.Title>{ __( 'Start a new chat?' ) }</Dialog.Title>
 				</Dialog.Header>
 				<Dialog.Content>
-					<Dialog.Description>
+					<Dialog.Description className={ styles.dialogDescription }>
 						{ pendingModel
-							? sprintf(
-									/* translators: 1: current model name, 2: new model name */
-									__(
-										'Switching from %1$s to %2$s starts a fresh conversation — the two model families don\u2019t share memory. Your current chat stays in the sidebar.'
+							? createInterpolateElement(
+									sprintf(
+										/* translators: 1: current model name, 2: new model name */
+										__(
+											'Switching from %1$s to %2$s starts a fresh chat because the models don\u2019t share memory. You can find previous chats using <history>Chat history</history> below the chat box.'
+										),
+										getAiModelLabel( currentModel ),
+										getAiModelLabel( pendingModel )
 									),
-									getAiModelLabel( currentModel ),
-									getAiModelLabel( pendingModel )
+									{ history: <strong /> }
 							  )
 							: '' }
 					</Dialog.Description>
@@ -61,10 +66,10 @@ export function FamilySwitchConfirmDialog( {
 						variant="solid"
 						tone="brand"
 						loading={ inFlight }
-						loadingAnnouncement={ __( 'Starting new conversation' ) }
+						loadingAnnouncement={ __( 'Starting new chat' ) }
 						onClick={ onConfirm }
 					>
-						{ __( 'Start new conversation' ) }
+						{ __( 'Yes, new chat' ) }
 					</Button>
 				</Dialog.Footer>
 			</Dialog.Popup>

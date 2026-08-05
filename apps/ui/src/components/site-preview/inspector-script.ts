@@ -83,10 +83,13 @@ export const INSPECTOR_PAGE_SCRIPT =
 			if ( ! hasNavModifier || event.shiftKey || isTextEntryTarget( event.target ) ) return null;
 			return event.key === 'ArrowLeft' ? 'back' : 'forward';
 		}
-		if ( event.shiftKey || event.altKey ) return null;
+		if ( event.altKey ) return null;
 		const hasPrimaryModifier = apple ? event.metaKey : event.ctrlKey;
 		if ( ! hasPrimaryModifier ) return null;
 		const key = event.key.toLowerCase();
+		/* The host owns full preview, but in that mode this page covers most of
+		 * the window — so the chord is caught here and forwarded back. */
+		if ( event.shiftKey ) return key === 'f' ? 'full-preview' : null;
 		if ( key === 'r' ) return 'reload';
 		if ( key === '[' ) return 'back';
 		if ( key === ']' ) return 'forward';

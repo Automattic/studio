@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
 import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
 import { useUserLocale } from '@/data/queries/use-user-locale';
+import { useOffline } from '@/hooks/use-offline';
 import { AccountSection } from './account-section';
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
@@ -59,6 +60,10 @@ vi.mock( '@/hooks/use-color-scheme', () => ( {
 	useColorScheme: () => 'light',
 } ) );
 
+vi.mock( '@/hooks/use-offline', () => ( {
+	useOffline: vi.fn(),
+} ) );
+
 vi.mock( './usage-panel', () => ( {
 	AiCreditsSection: () => <div data-testid="ai-credits-section" />,
 	PreviewUsageSection: () => <div data-testid="preview-usage-section" />,
@@ -69,6 +74,7 @@ const useAuthUserMock = vi.mocked( useAuthUser );
 const useLoginMock = vi.mocked( useLogin );
 const useLogoutMock = vi.mocked( useLogout );
 const useUserLocaleMock = vi.mocked( useUserLocale );
+const useOfflineMock = vi.mocked( useOffline );
 
 describe( 'AccountSection', () => {
 	const loginMutate = vi.fn();
@@ -80,6 +86,7 @@ describe( 'AccountSection', () => {
 
 		useConnectorMock.mockReturnValue( { openExternalUrl } as never );
 		useUserLocaleMock.mockReturnValue( undefined );
+		useOfflineMock.mockReturnValue( false );
 		useAuthUserMock.mockReturnValue( {
 			data: { id: 1, displayName: 'Ada Lovelace', email: 'ada@example.com' },
 			isLoading: false,
@@ -126,6 +133,15 @@ describe( 'AccountSection', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'Log in with WordPress.com' } ) );
 
 		expect( loginMutate ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	it( 'disables the login button when offline', () => {
+		useAuthUserMock.mockReturnValue( { data: null, isLoading: false } as never );
+		useOfflineMock.mockReturnValue( true );
+
+		render( <AccountSection /> );
+
+		expect( screen.getByRole( 'button', { name: 'Log in with WordPress.com' } ) ).toBeDisabled();
 	} );
 
 	it( 'opens docs and issue links through the connector', () => {

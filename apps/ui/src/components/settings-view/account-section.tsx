@@ -7,6 +7,7 @@ import { useConnector } from '@/data/core';
 import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useOffline } from '@/hooks/use-offline';
 import { getLocalizedLink, REPORT_ISSUE_URL } from '@/lib/docs-links';
 import styles from './style.module.css';
 import { AiCreditsSection, PreviewUsageSection } from './usage-panel';
@@ -58,6 +59,7 @@ export function AccountSection() {
 	const login = useLogin();
 	const logout = useLogout();
 	const themeIsDark = useColorScheme() === 'dark';
+	const isOffline = useOffline();
 
 	return (
 		<div className={ clsx( styles.accountAside, user && styles.accountAsideGrid ) }>
@@ -99,7 +101,7 @@ export function AccountSection() {
 						variant="solid"
 						tone="neutral"
 						size="small"
-						disabled={ isLoading }
+						disabled={ isLoading || isOffline }
 						loading={ login.isPending }
 						loadingAnnouncement={ __( 'Logging in' ) }
 						onClick={ () => login.mutate() }

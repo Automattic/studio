@@ -14,6 +14,7 @@ import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
 import type { PullSiteProgress, SyncSite } from '@studio/common/types/sync';
+import type { SiteRestRequest, SiteRestResponse } from '@studio/common/types/wordpress-rest';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 export type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
@@ -369,6 +370,11 @@ export interface Connector {
 	// platform 'browser'.
 	getAppGlobals(): Promise< AppGlobals >;
 
+	// Site WordPress REST API. Proxies requests to the selected site with its
+	// auth (auto-login cookie + REST nonce) attached, so renderer features
+	// like the preview omnibox search can query site content directly.
+	fetchSiteRest( siteId: string, request: SiteRestRequest ): Promise< SiteRestResponse >;
+
 	// Open the given site's folder in the system file manager, preferred
 	// editor, or preferred terminal. When no editor/terminal preference is
 	// set these reject — callers are expected to route the user to Settings.
@@ -376,7 +382,7 @@ export interface Connector {
 	openSiteInEditor( siteId: string ): Promise< void >;
 	openSiteInTerminal( siteId: string ): Promise< void >;
 
-	// Analytics — record a Tracks event. The connector attaches the surface
+	// Analytics — record a Tracks event. The desktop wrapper attaches the surface
 	// params (channel/ui_version); see `docs/design-docs/analytics-tracks.md`.
 	trackEvent( eventName: TracksEventName, props?: TracksProps ): Promise< void >;
 
@@ -509,7 +515,7 @@ export type WritableUserPreferences = Omit<
 };
 
 // Attributes a preference write to an in-app surface for settings-change Tracks
-// events. `ui_version` is fixed per renderer, so connectors set it — not callers.
+// events. `channel`/`ui_version` are attached by the desktop wrapper — not here.
 export interface PreferenceChangeSource {
 	surface: 'onboarding' | 'settings';
 }

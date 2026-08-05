@@ -82,6 +82,13 @@
 	white-space: nowrap;
 }
 
+.groupLabel {
+	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm) 0;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-sm);
+}
+
 .separator {
 	height: 1px;
 	margin: var(--wpds-dimension-padding-xs) 0;

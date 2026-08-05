@@ -72,6 +72,15 @@
 	margin-block-start: var( --wpds-dimension-padding-lg );
 }
 
+.amountPicker .amountControl {
+	position: relative;
+}
+
+.amountPicker .amountDetails {
+	align-items: flex-end;
+	text-align: end;
+}
+
 .customAmount {
 	display: flex;
 	flex-direction: column;
@@ -169,6 +178,40 @@
 .rangeLabels[data-overflow] span:last-child {
 	color: var( --wpds-color-fg-interactive-brand );
 	font-weight: 600;
+}
+
+.confetti {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+}
+
+.confettiPiece {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	border-radius: 1px;
+	opacity: 0;
+	animation: confetti-burst 900ms cubic-bezier( 0.16, 1, 0.3, 1 ) forwards;
+}
+
+@keyframes confetti-burst {
+	0% {
+		opacity: 1;
+		transform: rotate( var( --confetti-angle ) ) translateX( 8px ) rotate( 0deg );
+	}
+
+	100% {
+		opacity: 0;
+		transform: rotate( var( --confetti-angle ) ) translateX( var( --confetti-distance ) )
+			rotate( var( --confetti-spin ) );
+	}
+}
+
+@media ( prefers-reduced-motion: reduce ) {
+	.confettiPiece {
+		animation: none;
+	}
 }
 
 .variantSwitcher {

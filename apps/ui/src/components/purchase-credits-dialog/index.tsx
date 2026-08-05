@@ -1,21 +1,71 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { privateApis } from '@wordpress/theme';
 import { Button, Dialog, Tooltip } from '@wordpress/ui';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { toast } from '@/data/app-messages';
 import { addExplorationCredits } from '@/data/usage-exploration';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { unlock } from '@/lock-unlock';
 import styles from './style.module.css';
+import type { CSSProperties } from 'react';
 
 const MIN_CREDIT_AMOUNT = 10;
 const MAX_CREDIT_AMOUNT = 200;
 const DEFAULT_CREDIT_AMOUNT = 50;
 const CARD_AMOUNTS = [ 10, 20, 50, 100 ];
 const PRESET_AMOUNTS = [ 25, 50, 100 ];
+const CONFETTI_COLORS = [
+	'var(--wpds-color-fg-interactive-brand)',
+	'var(--wpds-color-fg-content-success)',
+	'var(--wpds-color-fg-content-warning)',
+	'var(--wpds-color-fg-content-error)',
+];
 const creditAmountFormatter = new Intl.NumberFormat();
 const { ThemeProvider } = unlock( privateApis );
 type PurchaseVariant = 'cards' | 'presets' | 'slider';
+
+function jitter( index: number, salt: number ): number {
+	const value = Math.sin( index * 127.1 + salt * 311.7 ) * 43758.5453;
+	return value - Math.floor( value );
+}
+
+function ConfettiBurst() {
+	const pieces = useMemo(
+		() =>
+			Array.from( { length: 22 }, ( _, index ) => ( {
+				angle: index * ( 360 / 22 ) + ( jitter( index, 1 ) * 24 - 12 ),
+				distance: 52 + jitter( index, 2 ) * 48,
+				spin: jitter( index, 3 ) * 540 - 270,
+				delay: jitter( index, 4 ) * 120,
+				color: CONFETTI_COLORS[ index % CONFETTI_COLORS.length ],
+				width: 4 + jitter( index, 5 ) * 3,
+				height: 6 + jitter( index, 6 ) * 4,
+			} ) ),
+		[]
+	);
+
+	return (
+		<div className={ styles.confetti } aria-hidden="true">
+			{ pieces.map( ( piece, index ) => (
+				<span
+					key={ index }
+					className={ styles.confettiPiece }
+					style={
+						{
+							'--confetti-angle': `${ piece.angle }deg`,
+							'--confetti-distance': `${ piece.distance }px`,
+							'--confetti-spin': `${ piece.spin }deg`,
+							backgroundColor: piece.color,
+							width: `${ piece.width }px`,
+							height: `${ piece.height }px`,
+							animationDelay: `${ piece.delay }ms`,
+						} as CSSProperties
+					}
+				/>
+			) ) }
+		</div>
+	);
+}
 
 export function PurchaseCreditsDialog( {
 	open,
@@ -26,6 +76,7 @@ export function PurchaseCreditsDialog( {
 } ) {
 	const [ amount, setAmount ] = useState( String( DEFAULT_CREDIT_AMOUNT ) );
 	const [ variant, setVariant ] = useState< PurchaseVariant >( 'slider' );
+	const [ confettiKey, setConfettiKey ] = useState( 0 );
 	const colorScheme = useColorScheme();
 	const dialogBackground = colorScheme === 'dark' ? '#1e1e1e' : '#ffffff';
 	const checkoutAmount = Number( amount );
@@ -40,7 +91,17 @@ export function PurchaseCreditsDialog( {
 	const hasSelectedPreset = PRESET_AMOUNTS.includes( checkoutAmount );
 	const updateTypedAmount = ( value: string ) => {
 		const digits = value.replace( /\D/g, '' );
-		setAmount( digits.replace( /^0+(?=\d)/, '' ) );
+		const nextAmount = digits.replace( /^0+(?=\d)/, '' );
+
+		if (
+			variant === 'slider' &&
+			Number( nextAmount ) > MAX_CREDIT_AMOUNT &&
+			checkoutAmount <= MAX_CREDIT_AMOUNT
+		) {
+			setConfettiKey( ( key ) => key + 1 );
+		}
+
+		setAmount( nextAmount );
 	};
 
 	const continueToCheckout = () => {
@@ -147,6 +208,7 @@ export function PurchaseCreditsDialog( {
 									{ __( 'Credit amount' ) }
 								</label>
 								<span className={ styles.amountControl }>
+									{ confettiKey > 0 && <ConfettiBurst key={ confettiKey } /> }
 									<span className={ styles.customAmountPrefix } aria-hidden="true">
 										$
 									</span>

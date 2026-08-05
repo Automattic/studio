@@ -80,7 +80,7 @@ function AgenticUiCallout() {
 						) }
 					</p>
 				</div>
-				<Button variant="primary" onClick={ () => getIpcApi().enableAgenticUi() }>
+				<Button variant="primary" onClick={ () => getIpcApi().enableAgenticUi( 'settings' ) }>
 					{ __( 'Try it' ) }
 				</Button>
 			</div>

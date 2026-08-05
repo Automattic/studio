@@ -66,8 +66,15 @@ export async function saveUserTerminal(
 	event: IpcMainInvokeEvent,
 	preferredTerminal: SupportedTerminal
 ) {
+	const previous = ( await loadUserData() ).preferredTerminal || DEFAULT_TERMINAL;
 	await sendIpcEventToRenderer( 'user-preference-changed' );
 	await updateAppdata( { preferredTerminal } );
+	if ( preferredTerminal !== previous ) {
+		await recordTracksEvent( TRACKS_EVENTS.SETTING_TERMINAL_CHANGE, {
+			terminal: preferredTerminal,
+			surface: 'settings',
+		} );
+	}
 }
 
 export async function getUserTerminal() {
@@ -76,14 +83,28 @@ export async function getUserTerminal() {
 }
 
 export async function saveUserLocale( event: IpcMainInvokeEvent, locale: string ) {
+	const previous = ( await readSharedConfig() ).locale;
 	await updateSharedConfig( { locale } );
+	if ( locale !== previous ) {
+		await recordTracksEvent( TRACKS_EVENTS.SETTING_LANGUAGE_CHANGE, {
+			locale,
+			surface: 'settings',
+		} );
+	}
 }
 
 export async function saveUserEditor( event: IpcMainInvokeEvent, editor: SupportedEditor ) {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	sendIpcEventToRendererWithWindow( parentWindow, 'user-preference-changed' );
 
+	const previous = ( await loadUserData() ).preferredEditor;
 	await updateAppdata( { preferredEditor: editor } );
+	if ( editor !== previous ) {
+		await recordTracksEvent( TRACKS_EVENTS.SETTING_CODE_EDITOR_CHANGE, {
+			editor,
+			surface: 'settings',
+		} );
+	}
 }
 
 export async function getDefaultSiteDirectory(): Promise< string > {
@@ -93,8 +114,15 @@ export async function getDefaultSiteDirectory(): Promise< string > {
 
 export async function saveDefaultSiteDirectory( event: IpcMainInvokeEvent, directory: string ) {
 	await ensureWritableDirectory( directory );
+	const previous = ( await loadUserData() ).defaultSiteDirectory || defaultSitePath;
 	await sendIpcEventToRenderer( 'user-preference-changed' );
 	await updateAppdata( { defaultSiteDirectory: directory } );
+	if ( directory !== previous ) {
+		await recordTracksEvent( TRACKS_EVENTS.SETTING_DEFAULT_DIRECTORY_CHANGE, {
+			is_default: directory === defaultSitePath,
+			surface: 'settings',
+		} );
+	}
 }
 
 export async function getUserLocale() {
@@ -126,8 +154,15 @@ export async function saveColorScheme(
 	event: IpcMainInvokeEvent,
 	colorScheme: 'system' | 'light' | 'dark'
 ) {
+	const previous = ( await loadUserData() ).colorScheme ?? 'system';
 	nativeTheme.themeSource = colorScheme;
 	await updateAppdata( { colorScheme } );
+	if ( colorScheme !== previous ) {
+		await recordTracksEvent( TRACKS_EVENTS.SETTING_APPEARANCE_CHANGE, {
+			mode: colorScheme,
+			surface: 'settings',
+		} );
+	}
 }
 
 export async function getAgenticFeaturesEnabled(): Promise< boolean > {
@@ -136,10 +171,17 @@ export async function getAgenticFeaturesEnabled(): Promise< boolean > {
 }
 
 export async function saveAgenticFeaturesEnabled(
-	event: IpcMainInvokeEvent,
+	_event: IpcMainInvokeEvent,
 	enabled: boolean
 ): Promise< void > {
+	const previous = ( await loadUserData() ).agenticFeaturesEnabled ?? true;
 	await updateAppdata( { agenticFeaturesEnabled: enabled } );
+	if ( enabled !== previous ) {
+		await recordTracksEvent( TRACKS_EVENTS.SETTING_AGENTIC_FEATURES_CHANGE, {
+			enabled,
+			surface: 'settings',
+		} );
+	}
 }
 
 // Lives in shared.json (not app.json) because the CLI reads it on every
@@ -302,7 +344,14 @@ export async function saveQuitSitesBehavior(
 	_event: IpcMainInvokeEvent,
 	quitSitesBehavior: QuitSitesBehavior | undefined
 ) {
+	const previous = ( await loadUserData() ).quitSitesBehavior;
 	await updateAppdata( { quitSitesBehavior } );
+	if ( quitSitesBehavior && quitSitesBehavior !== previous ) {
+		await recordTracksEvent( TRACKS_EVENTS.SETTING_QUIT_ACTION_CHANGE, {
+			behavior: quitSitesBehavior,
+			surface: 'settings',
+		} );
+	}
 }
 
 export async function getQuitSitesBehavior(): Promise< QuitSitesBehavior | undefined > {

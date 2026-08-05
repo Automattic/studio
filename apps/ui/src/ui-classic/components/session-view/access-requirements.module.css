@@ -20,6 +20,9 @@
 	left: 0;
 	pointer-events: none;
 	backdrop-filter: blur(var(--frost-radius));
+	/* Fade on the leaves, never an ancestor — ancestor opacity would form a
+	   backdrop root and disable this backdrop-filter. */
+	animation: gate-fade-in 180ms ease-out;
 	/* Fade back out before the panel's bottom edge: a layer that reaches the
 	   clipped edge smears the darker window chrome behind the panel into a
 	   gray band. */
@@ -60,6 +63,7 @@
 
 .copy {
 	position: absolute;
+	animation: gate-fade-in 180ms ease-out;
 	top: calc(50% + 72px);
 	left: 50%;
 	display: flex;
@@ -114,5 +118,15 @@
 @media (prefers-reduced-transparency: reduce) {
 	.frost {
 		display: none;
+	}
+}
+
+@keyframes gate-fade-in {
+	from {
+		opacity: 0;
+	}
+
+	to {
+		opacity: 1;
 	}
 }

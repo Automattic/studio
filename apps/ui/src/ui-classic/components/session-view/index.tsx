@@ -171,13 +171,17 @@ function SessionFrame( {
 				{ children }
 			</div>
 			<ProgressiveBlur direction="down" className={ styles.headerBlur } fadeToSurface />
-			<ProgressiveBlur direction="up" className={ styles.composerBlur } />
-			<div
-				ref={ composerRef }
-				className={ clsx( styles.composerOuter, styles.classicComposerOuter ) }
-			>
-				{ composer }
-			</div>
+			{ composer ? (
+				<>
+					<ProgressiveBlur direction="up" className={ styles.composerBlur } />
+					<div
+						ref={ composerRef }
+						className={ clsx( styles.composerOuter, styles.classicComposerOuter ) }
+					>
+						{ composer }
+					</div>
+				</>
+			) : null }
 			{ footer ? (
 				<div
 					className={ clsx(
@@ -358,9 +362,28 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 
 	const {
 		data: quota,
+		isLoading: isQuotaLoading,
 		isFetching: isQuotaFetching,
 		refetch: refetchQuota,
 	} = useStudioAssistantQuota();
+
+	// Fade the composer and prompts in only right after the entitlement check
+	// resolves; ordinary session loads and switches render instantly. The
+	// render-time latch has the class on from the first post-resolve frame;
+	// the timeout retires it so later remounts don't animate.
+	const [ sawQuotaLoading, setSawQuotaLoading ] = useState( false );
+	if ( isQuotaLoading && ! sawQuotaLoading ) {
+		setSawQuotaLoading( true );
+	}
+	const fadeAfterQuotaCheck = sawQuotaLoading && ! isQuotaLoading;
+	useEffect( () => {
+		if ( ! fadeAfterQuotaCheck ) {
+			return;
+		}
+		// Outlives the 180ms fade so a mid-animation re-render can't strip it.
+		const id = setTimeout( () => setSawQuotaLoading( false ), 300 );
+		return () => clearTimeout( id );
+	}, [ fadeAfterQuotaCheck ] );
 
 	// The open session can vanish out from under this view — most commonly when
 	// its site is deleted, which removes the transcript from disk. Bounce to the
@@ -373,7 +396,10 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		}
 	}, [ notFound, navigate ] );
 
-	if ( isLoading || notFound || ! data ) {
+	// isQuotaLoading holds the composer back until the entitlement check
+	// resolves, so the view settles once — gate or chat — with no composer
+	// flash. Signed-out and failed quota queries report isLoading false.
+	if ( isLoading || notFound || ! data || isQuotaLoading ) {
 		// Use the same SessionFrame with an empty header and a structural
 		// ComposerSkeleton so the scroll area has the exact same dimensions
 		// as the loaded view — otherwise the EmptyBackground canvas jumps
@@ -399,7 +425,6 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		return (
 			<SessionFrame
 				header={ <SessionHeader summary={ data.summary } /> }
-				composer={ <div aria-hidden /> }
 				footer={ <div aria-hidden /> }
 			>
 				<EmptyBackground />
@@ -416,7 +441,13 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			scrollRef={ scrollRef }
 			header={ <SessionHeader summary={ data.summary } /> }
 			composer={
-				<div className={ clsx( styles.classicColumn, styles.classicComposerColumn ) }>
+				<div
+					className={ clsx(
+						styles.classicColumn,
+						styles.classicComposerColumn,
+						fadeAfterQuotaCheck && styles.fadeInQuick
+					) }
+				>
 					{ isScrolledAway ? (
 						<div className={ styles.scrollToLatestWrap }>
 							<IconButton
@@ -467,6 +498,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			{ isEmpty ? <EmptyBackground /> : null }
 			{ isEmpty && ownerSite ? (
 				<SuggestedPrompts
+					fadeIn={ fadeAfterQuotaCheck }
 					siteName={ ownerSite.name }
 					onPick={ ( prompt ) => composerRef.current?.replaceDraft( prompt ) }
 					getDraft={ () => composerRef.current?.getDraft() ?? { text: '', hasAttachments: false } }

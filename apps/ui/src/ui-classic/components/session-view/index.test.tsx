@@ -60,8 +60,8 @@ vi.mock( '@/hooks/use-traffic-light-space', () => ( {
 } ) );
 
 vi.mock( './composer', () => ( {
-	Composer: () => <div />,
-	ComposerSkeleton: () => <div />,
+	Composer: () => <div data-testid="composer" />,
+	ComposerSkeleton: () => <div data-testid="composer-skeleton" />,
 } ) );
 
 vi.mock( './conversation', () => ( {
@@ -107,6 +107,7 @@ describe( 'SessionView', () => {
 		// Entitled account by default; individual tests override.
 		useStudioAssistantQuotaMock.mockReturnValue( {
 			data: makeQuota( {} ),
+			isLoading: false,
 			isFetching: false,
 			refetch: vi.fn(),
 		} );
@@ -182,6 +183,66 @@ describe( 'SessionView', () => {
 
 		expect( screen.getByText( 'Studio Code Beta' ) ).toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Add payment method' } ) ).toBeInTheDocument();
+	} );
+
+	it( 'keeps the composer hidden while the entitlement check is loading', () => {
+		useSessionMock.mockReturnValue( {
+			data: makeLoadedSession(),
+			isLoading: false,
+			error: null,
+		} );
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: undefined,
+			isLoading: true,
+			isFetching: true,
+			refetch: vi.fn(),
+		} );
+
+		render( <SessionView sessionId="session-1" /> );
+
+		expect( screen.queryByTestId( 'composer' ) ).not.toBeInTheDocument();
+		expect( screen.getByTestId( 'composer-skeleton' ) ).toBeInTheDocument();
+		expect( screen.queryByText( 'Studio Code Beta' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'fades the composer in only after the entitlement check resolves', () => {
+		useSessionMock.mockReturnValue( {
+			data: makeLoadedSession(),
+			isLoading: false,
+			error: null,
+		} );
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: undefined,
+			isLoading: true,
+			isFetching: true,
+			refetch: vi.fn(),
+		} );
+
+		const { container, rerender } = render( <SessionView sessionId="session-1" /> );
+		expect( container.querySelector( '[class*="fadeInQuick"]' ) ).toBeNull();
+
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: makeQuota( {} ),
+			isLoading: false,
+			isFetching: false,
+			refetch: vi.fn(),
+		} );
+		rerender( <SessionView sessionId="session-1" /> );
+
+		expect( container.querySelector( '[class*="fadeInQuick"]' ) ).not.toBeNull();
+	} );
+
+	it( 'does not fade the composer on a plain session load', () => {
+		useSessionMock.mockReturnValue( {
+			data: makeLoadedSession(),
+			isLoading: false,
+			error: null,
+		} );
+
+		const { container } = render( <SessionView sessionId="session-1" /> );
+
+		expect( screen.getByTestId( 'composer' ) ).toBeInTheDocument();
+		expect( container.querySelector( '[class*="fadeInQuick"]' ) ).toBeNull();
 	} );
 
 	it( 'ignores an unverified email when a payment method exists', () => {

@@ -16,20 +16,22 @@
 	position: absolute;
 	top: calc(50% + 56px);
 	right: 0;
-	bottom: -160px;
+	bottom: 0;
 	left: 0;
 	pointer-events: none;
 	backdrop-filter: blur(var(--frost-radius));
-	mask-image: linear-gradient(
+	/* Fade back out before the panel's bottom edge: a layer that reaches the
+	   clipped edge smears the darker window chrome behind the panel into a
+	   gray band. */
+	--frost-mask: linear-gradient(
 		to bottom,
 		transparent var(--frost-start),
-		black var(--frost-end)
+		black var(--frost-end),
+		black calc(100% - 96px),
+		transparent calc(100% - 16px)
 	);
-	-webkit-mask-image: linear-gradient(
-		to bottom,
-		transparent var(--frost-start),
-		black var(--frost-end)
-	);
+	mask-image: var(--frost-mask);
+	-webkit-mask-image: var(--frost-mask);
 }
 
 .frostSoft {

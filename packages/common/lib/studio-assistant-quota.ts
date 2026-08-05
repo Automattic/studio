@@ -108,6 +108,7 @@ export function formatQuotaResetDate( date: string, locale?: string ): string {
  */
 export function formatAiBlockedNotice(): string {
 	return __(
+		/* translators: <supportLink> and </supportLink> wrap the link to WordPress.com support and must be kept as-is. */
 		'Studio Code AI is blocked for this WordPress.com account. If you believe this is a mistake, <supportLink>contact WordPress.com support</supportLink>.'
 	);
 }
@@ -147,9 +148,13 @@ export function formatAiAccessRequiredNotice(
 	const applySentence =
 		quota && quota.costUsage > 0
 			? __(
+					/* translators: <applyLink> and </applyLink> wrap the beta application URL and must be kept as-is. */
 					'Apply to continue at <applyLink>developer.wordpress.com/studio/studio-code-beta</applyLink>.'
 			  )
-			: __( 'Apply at <applyLink>developer.wordpress.com/studio/studio-code-beta</applyLink>.' );
+			: __(
+					/* translators: <applyLink> and </applyLink> wrap the beta application URL and must be kept as-is. */
+					'Apply at <applyLink>developer.wordpress.com/studio/studio-code-beta</applyLink>.'
+			  );
 	return `${ formatAiAccessRequiredHeadline( quota ) } ${ applySentence }`;
 }
 

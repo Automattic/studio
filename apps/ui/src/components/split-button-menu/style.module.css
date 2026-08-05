@@ -4,16 +4,10 @@
 	gap: 1px;
 	flex: 0 0 auto;
 	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral-weak);
-	/* The buttons' own radius plus the border width, so the halves' rounded
-	   outer corners nest flush against the frame. */
 	border-radius: calc(var(--wpds-border-radius-sm) + var(--wpds-border-width-xs));
 	-webkit-app-region: no-drag;
 }
 
-/* Size the halves so the pair reads as one compact button: normal padding
-   on the outer edges, almost none along the shared seam, and a very narrow
-   chevron tab. Squaring off the shared corners makes the hover fills read
-   as one control split in two. */
 .splitAction {
 	--wp-ui-button-min-width: unset;
 
@@ -48,10 +42,6 @@
 	color: var(--wpds-color-fg-content-neutral-weak);
 }
 
-/* Map the foreground color onto @wordpress/icons SVGs, which ship without a
-   fill attribute and would otherwise render with the black SVG default. The
-   brand logos declare their own fill (`currentColor` or `none` for the
-   stroke-drawn ones), so scope the rule to leave them alone. */
 .splitAction svg:not([fill]),
 .itemIcon svg:not([fill]) {
 	fill: currentColor;

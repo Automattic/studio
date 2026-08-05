@@ -1,7 +1,25 @@
-.form {
+.settingsPanel {
 	display: flex;
 	flex-direction: column;
 	gap: var(--wpds-dimension-padding-xl);
+}
+
+.debuggingSection {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-lg);
+	margin-block-start: var(--wpds-dimension-padding-2xl);
+	padding-block-start: var(--wpds-dimension-padding-xl);
+	border-block-start: var(--wpds-border-width-xs) solid
+		var(--wpds-color-stroke-surface-neutral-weak);
+}
+
+.sectionTitle {
+	margin: 0;
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-lg);
+	font-weight: var(--wpds-typography-font-weight-medium);
+	line-height: var(--wpds-typography-line-height-lg);
 }
 
 .submitError {

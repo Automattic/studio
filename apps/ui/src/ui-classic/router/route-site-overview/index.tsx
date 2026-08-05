@@ -5,11 +5,11 @@ import { isSiteSettingsTab } from '@/components/site-settings-view';
 import { useSites, SITES_QUERY_KEY } from '@/data/queries/use-sites';
 import { dashboardLayoutRoute } from '../layout-dashboard';
 import type { SiteSettingsTabId } from '@/components/site-settings-view';
+import type { SiteWorkspaceTabId } from '@/components/site-workspace-shell';
 import type { SiteDetails } from '@/data/core';
 
 interface SiteOverviewSearch {
-	// Tab selection is a `search` param so opening the route defaults to
-	// Overview and deep-links like `?tab=debugging` stay human-readable.
+	// Tab selection remains a search param so site routes are directly linkable.
 	tab?: SiteSettingsTabId;
 	sync?: 'pull';
 }
@@ -19,7 +19,7 @@ function SiteOverviewPage() {
 	const { tab } = siteOverviewRoute.useSearch();
 	const navigate = useNavigate();
 	const { data: sites } = useSites();
-	const activeTab: SiteSettingsTabId = tab ?? 'overview';
+	const activeTab: Exclude< SiteWorkspaceTabId, 'chat' > = tab ?? 'overview';
 
 	const siteExists = sites?.some( ( site ) => site.id === siteId ) ?? true;
 	useEffect( () => {
@@ -32,20 +32,7 @@ function SiteOverviewPage() {
 		return null;
 	}
 
-	return (
-		<SiteOverviewView
-			siteId={ siteId }
-			activeTab={ activeTab }
-			onTabChange={ ( next ) =>
-				void navigate( {
-					to: '/sites/$siteId/overview',
-					params: { siteId },
-					search: { tab: next },
-					replace: true,
-				} )
-			}
-		/>
-	);
+	return <SiteOverviewView siteId={ siteId } activeTab={ activeTab } />;
 }
 
 export const siteOverviewRoute = createRoute( {
@@ -54,7 +41,11 @@ export const siteOverviewRoute = createRoute( {
 	validateSearch: ( search: Record< string, unknown > ): SiteOverviewSearch => {
 		const validated: SiteOverviewSearch = {};
 		const value = search.tab;
-		if ( typeof value === 'string' && isSiteSettingsTab( value ) ) {
+		// Preserve old Debugging deep links now that those controls live at the
+		// bottom of Settings.
+		if ( value === 'debugging' ) {
+			validated.tab = 'general';
+		} else if ( typeof value === 'string' && isSiteSettingsTab( value ) ) {
 			validated.tab = value;
 		}
 		if ( search.sync === 'pull' ) {

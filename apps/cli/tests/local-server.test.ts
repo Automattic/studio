@@ -107,6 +107,55 @@ describe( 'local web server Connect contracts', () => {
 		expect( response.status ).toBe( 500 );
 	} );
 
+	it( 'reads active theme details through WP-CLI', async () => {
+		vi.mocked( listSites ).mockResolvedValueOnce( [
+			{
+				id: 'local-a',
+				name: 'Local A',
+				path: '/sites/local-a',
+				port: 8881,
+				url: 'http://localhost:8881',
+				phpVersion: '8.4',
+				running: true,
+			},
+		] );
+		mocks.execute.mockImplementationOnce( () => {
+			const emitter = new EventEmitter();
+			queueMicrotask( () =>
+				emitter.emit( 'success', {
+					result: {
+						stdout: JSON.stringify( {
+							name: 'Twenty Twenty-Six',
+							path: '/wp-content/themes/twentytwentysix',
+							slug: 'twentytwentysix',
+							isBlockTheme: true,
+							supportsWidgets: false,
+							supportsMenus: false,
+						} ),
+						stderr: '',
+					},
+				} )
+			);
+			return [ emitter, {} ];
+		} );
+
+		const response = await fetch(
+			`${ server.url.replace( 'localhost', '127.0.0.1' ) }/api/sites/local-a/theme-details`
+		);
+
+		expect( response.status ).toBe( 200 );
+		expect( await response.json() ).toEqual( {
+			themeDetails: expect.objectContaining( {
+				name: 'Twenty Twenty-Six',
+				isBlockTheme: true,
+			} ),
+		} );
+		expect( mocks.execute ).toHaveBeenCalledWith(
+			[ 'wp', 'studio', 'get-theme-details', '--path', '/sites/local-a' ],
+			{ output: 'capture' }
+		);
+	} );
+
 	it( 'creates the Connect shell with --no-start', async () => {
 		const siteId = '00000000-0000-4000-8000-000000000001';
 		const randomUuid = vi.spyOn( crypto, 'randomUUID' ).mockReturnValue( siteId as never );

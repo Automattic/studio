@@ -3,6 +3,8 @@ import { useStartSite } from '@/data/queries/use-sites';
 import { useOptionalSessionPreviewUI } from '@/hooks/use-session-ui';
 import type { SiteDetails } from '@/data/core';
 
+export type SiteUrlTarget = 'studio' | 'browser';
+
 /**
  * Opens a relative URL on the site in the in-app preview panel, starting the
  * site first when it isn't running. Links go through the site's
@@ -12,13 +14,13 @@ import type { SiteDetails } from '@/data/core';
  * Outside the dashboard's SessionUIProvider (no preview panel to drive),
  * falls back to opening the external browser like it used to.
  */
-export function useOpenSiteUrl( site: SiteDetails ) {
+export function useOpenSiteUrl( site: SiteDetails, target: SiteUrlTarget = 'studio' ) {
 	const connector = useConnector();
 	const preview = useOptionalSessionPreviewUI();
 	const startSite = useStartSite();
 
 	return async ( relativeUrl: string ) => {
-		if ( ! preview ) {
+		if ( target === 'browser' || ! preview ) {
 			if ( ! site.running ) {
 				try {
 					await startSite.mutateAsync( site.id );

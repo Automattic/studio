@@ -148,17 +148,6 @@ describe( 'SitePreview', () => {
 		).toHaveAttribute( 'src', 'data:image/png;base64,thumbnail' );
 	} );
 
-	it( 'keeps the Open in… control in the toolbar while the site is stopped', () => {
-		useConnectorMock.mockReturnValue( {
-			startSite: vi.fn().mockResolvedValue( undefined ),
-			capabilities: CAPABILITIES,
-		} as never );
-
-		renderPreview( <SitePreview site={ createSite() } path="/" reloadNonce={ 0 } /> );
-
-		expect( screen.getByRole( 'button', { name: 'Open in…' } ) ).toBeVisible();
-	} );
-
 	it( 'shows a refresh button that reloads the active preview surface', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),

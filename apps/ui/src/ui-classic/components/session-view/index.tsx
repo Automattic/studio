@@ -17,9 +17,7 @@ import {
 } from 'react';
 import { PreviewToggleButton } from '@/components/preview-toggle-button';
 import { ProgressiveBlur } from '@/components/progressive-blur';
-import { SiteIcon } from '@/components/site-icon';
 import { type Annotation } from '@/components/site-preview/types';
-import { SiteToolbar } from '@/components/site-toolbar';
 import { useAgentRun } from '@/data/queries/use-agent-run';
 import {
 	useCreateSession,
@@ -31,7 +29,6 @@ import { useSites } from '@/data/queries/use-sites';
 import { useSessionCommands } from '@/hooks/use-session-commands';
 import { SessionUIProvider, useSessionPreviewAnnotations } from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
-import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { formatAnnotationsAsPrompt, formatAnnotationsSubmittedMessage } from './annotations';
 import { Composer, ComposerSkeleton, type ComposerHandle } from './composer';
 import { Conversation } from './conversation';
@@ -40,7 +37,6 @@ import { QueuedPrompts } from './queued-prompts';
 import { getSiteSessionHistory, SessionChatActions } from './session-chat-actions';
 import styles from './style.module.css';
 import { SuggestedPrompts } from './suggested-prompts';
-import type { AiSessionSummary } from '@/data/core';
 
 // Slack below the bottom edge that still counts as "at the latest message",
 // so sub-pixel rounding or a barely-started scroll doesn't flash the button.
@@ -56,47 +52,7 @@ export function isScrolledAwayFromLatest( node: {
 	);
 }
 
-interface SessionHeaderProps {
-	summary: AiSessionSummary;
-}
-
-function SessionHeader( { summary }: SessionHeaderProps ) {
-	const siteName = summary.ownerSiteName;
-	const sidebarCollapsed = useSidebarCollapsed();
-	const reserveTrafficLightSpace = useTrafficLightSpace().start;
-	const { data: sites } = useSites();
-	const site = findAiSessionOwnerSite( sites, summary );
-	const effectiveEnvironment = useSessionEffectiveEnvironment( summary, site?.id );
-	if ( ! siteName ) {
-		return null;
-	}
-
-	return (
-		<div
-			className={ clsx(
-				styles.header,
-				sidebarCollapsed && reserveTrafficLightSpace && styles.headerSidebarCollapsed
-			) }
-		>
-			{ site ? (
-				<SiteToolbar site={ site } />
-			) : (
-				<>
-					<SiteIcon className={ styles.headerSiteIcon } seed={ siteName } />
-					<span className={ styles.headerSite }>{ siteName }</span>
-					<span className={ styles.headerDot } aria-hidden="true" />
-					<span className={ styles.headerEnv }>
-						{ effectiveEnvironment === 'live' ? __( 'Live' ) : __( 'Local' ) }
-					</span>
-					<span className={ styles.headerSpacer } aria-hidden="true" />
-				</>
-			) }
-		</div>
-	);
-}
-
 interface SessionFrameProps {
-	header?: ReactNode;
 	composer?: ReactNode;
 	footer?: ReactNode;
 	footerEnd?: ReactNode;
@@ -107,16 +63,8 @@ interface SessionFrameProps {
 // Lays out the chat column as fixed chrome over a full-height conversation
 // scroller. The site preview panel lives in the dashboard layout's
 // PreviewSplitFrame, which keeps it mounted across routes.
-function SessionFrame( {
-	header,
-	composer,
-	footer,
-	footerEnd,
-	scrollRef,
-	children,
-}: SessionFrameProps ) {
+function SessionFrame( { composer, footer, footerEnd, scrollRef, children }: SessionFrameProps ) {
 	const rootRef = useRef< HTMLDivElement >( null );
-	const headerRef = useRef< HTMLDivElement >( null );
 	const composerRef = useRef< HTMLDivElement >( null );
 	const sidebarCollapsed = useSidebarCollapsed();
 
@@ -127,10 +75,6 @@ function SessionFrame( {
 		}
 
 		const updateChromeSize = () => {
-			root.style.setProperty(
-				'--classic-header-height',
-				`${ headerRef.current?.offsetHeight ?? 0 }px`
-			);
 			root.style.setProperty(
 				'--classic-composer-height',
 				`${ composerRef.current?.offsetHeight ?? 0 }px`
@@ -145,9 +89,6 @@ function SessionFrame( {
 		}
 
 		const resizeObserver = new ResizeObserver( updateChromeSize );
-		if ( headerRef.current ) {
-			resizeObserver.observe( headerRef.current );
-		}
 		if ( composerRef.current ) {
 			resizeObserver.observe( composerRef.current );
 		}
@@ -157,13 +98,9 @@ function SessionFrame( {
 
 	return (
 		<div ref={ rootRef } className={ clsx( styles.root, footer && styles.rootWithFooter ) }>
-			<div ref={ headerRef } className={ styles.headerLayer }>
-				{ header }
-			</div>
 			<div ref={ scrollRef } className={ clsx( styles.scroll, styles.classicScroll ) }>
 				{ children }
 			</div>
-			<ProgressiveBlur direction="down" className={ styles.headerBlur } fadeToSurface />
 			<ProgressiveBlur direction="up" className={ styles.composerBlur } fadeToSurface />
 			<div
 				ref={ composerRef }
@@ -367,7 +304,6 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		// mid-transition.
 		return (
 			<SessionFrame
-				header={ <div className={ styles.header } /> }
 				composer={
 					<div className={ clsx( styles.classicColumn, styles.classicComposerColumn ) }>
 						<ComposerSkeleton />
@@ -383,7 +319,6 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	return (
 		<SessionFrame
 			scrollRef={ scrollRef }
-			header={ <SessionHeader summary={ data.summary } /> }
 			composer={
 				<div className={ clsx( styles.classicColumn, styles.classicComposerColumn ) }>
 					{ isScrolledAway ? (

@@ -19,15 +19,14 @@
 			calc((100% - var(--classic-composer-column-max-width)) / 2)
 		)
 	);
-	--classic-header-height: 46px;
 	--classic-composer-height: 0px;
 	--classic-panel-footer-height: 0px;
-	--classic-header-blur-overhang: 10px;
 	--classic-composer-blur-overhang: 40px;
 	--classic-scrollbar-blur-safe-area: 14px;
 
 	position: relative;
-	height: 100%;
+	flex: 1;
+	height: auto;
 	min-height: 0;
 	overflow: hidden;
 	isolation: isolate;
@@ -37,53 +36,6 @@
 	--classic-panel-footer-height: 46px;
 }
 
-.header {
-	display: flex;
-	align-items: center;
-	height: 54px;
-	gap: var(--wpds-dimension-padding-sm);
-	font-size: var(--wpds-typography-font-size-sm);
-	color: var(--wpds-color-fg-content-neutral);
-	-webkit-app-region: drag;
-}
-
-.headerSidebarCollapsed {
-	/* padding-top: calc(
-		var(--wpds-dimension-padding-xl) + var(--wpds-dimension-padding-2xl) +
-			var(--wpds-dimension-padding-lg)
-	); */
-	padding-inline-start: 84px;
-}
-
-.headerSite {
-	font-weight: 600;
-}
-
-.headerSiteIcon {
-	margin-inline-end: calc(-1 * var(--wpds-dimension-padding-xs));
-}
-
-.headerDot {
-	width: 6px;
-	height: 6px;
-	border-radius: 50%;
-	background-color: var(--studio-color-status-running);
-	flex-shrink: 0;
-	/* Extra horizontal margin around the dot only — keeps the toggle-to-title
-	   gap at the header's base 8px while giving the site/dot/local grouping
-	   more breathing room. */
-	margin: 0 var(--wpds-dimension-padding-xs);
-}
-
-.headerEnv {
-	color: var(--wpds-color-fg-content-neutral-weak);
-}
-
-.headerSpacer {
-	flex: 1;
-}
-
-
 .scroll {
 	position: absolute;
 	inset: 0;
@@ -91,8 +43,7 @@
 	min-height: 0;
 	box-sizing: border-box;
 	overflow-y: auto;
-	padding-block: var(--classic-header-height)
-		calc(var(--classic-composer-height) + var(--classic-panel-footer-height));
+	padding-block: 0 calc(var(--classic-composer-height) + var(--classic-panel-footer-height));
 	z-index: 0;
 	/* Reserve scrollbar space symmetrically so the centered 760px column
 	   doesn't shift left when the scrollbar appears — keeping it aligned
@@ -100,25 +51,10 @@
 	scrollbar-gutter: stable both-edges;
 }
 
-.headerBlur,
 .composerBlur {
 	inset-inline-start: 0;
 	inset-inline-end: var(--classic-scrollbar-blur-safe-area);
 	z-index: 1;
-}
-
-.headerBlur {
-	top: 0;
-	/* The toolbar sits inside this area and has to stay readable over whatever
-	   scrolls under it. A heavy blur stack does that work, with a light surface
-	   tint that starts releasing partway up the header row — enough to drop the
-	   contrast under the toolbar without reading as a solid bar. */
-	height: calc(var(--classic-header-height) + var(--classic-header-blur-overhang));
-	--progressive-blur-scale: 5;
-	--progressive-blur-reach: 1.3;
-	--progressive-blur-surface-strength: 80%;
-	--progressive-blur-surface-hold-stop: calc(var(--classic-header-height) * 0.85);
-	--progressive-blur-surface-fade-stop: 100%;
 }
 
 .composerBlur {
@@ -127,14 +63,6 @@
 		var(--classic-composer-height) + var(--classic-panel-footer-height) +
 			var(--classic-composer-blur-overhang)
 	);
-}
-
-.headerLayer {
-	position: absolute;
-	top: 0;
-	left: 0;
-	right: 0;
-	z-index: 2;
 }
 
 .composerOuter {

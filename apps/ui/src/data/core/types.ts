@@ -79,6 +79,7 @@ export interface SiteDetails {
 	customDomain?: string;
 	enableHttps?: boolean;
 	phpVersion: string;
+	runtime?: 'playground' | 'native-php';
 	isWpAutoUpdating?: boolean;
 	adminUsername?: string;
 	// Base64-encoded. Use encodePassword/decodePassword from
@@ -96,10 +97,15 @@ export interface SiteDetails {
 		name: string;
 		path: string;
 		slug: string;
+		version?: string;
+		homepage?: string;
 		isBlockTheme: boolean;
 		// Only supplied by the desktop (IPC) connector.
 		supportsWidgets?: boolean;
 		supportsMenus?: boolean;
+		templateCount?: number;
+		patternCount?: number;
+		modifiedAt?: string | null;
 	};
 	siteIcon?: string | null;
 }
@@ -219,6 +225,9 @@ export interface Connector {
 	comparePaths( path1: string, path2: string ): Promise< boolean >;
 
 	getWordPressVersions(): Promise< WordPressVersion[] >;
+	// Reads the active theme metadata for a site. Returns undefined when the
+	// site is stopped or the host cannot inspect its WordPress installation.
+	getThemeDetails( siteId: string ): Promise< SiteDetails[ 'themeDetails' ] >;
 	// Reads the WordPress version installed at the site's path. Resolves to
 	// '-' when it can't be determined (missing files, site not found).
 	getWpVersion( siteId: string ): Promise< string >;

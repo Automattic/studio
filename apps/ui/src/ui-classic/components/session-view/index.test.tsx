@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useSession } from '@/data/queries/use-sessions';
+import { useSites } from '@/data/queries/use-sites';
 import { isScrolledAwayFromLatest, SessionView } from './index';
 import type { LoadedAiSession } from '@/data/core';
 
@@ -18,7 +19,11 @@ vi.mock( '@/data/queries/use-sessions', () => ( {
 } ) );
 
 vi.mock( '@/data/queries/use-sites', () => ( {
-	useSites: () => ( { data: [] } ),
+	useSites: vi.fn(),
+} ) );
+
+vi.mock( '@/components/preview-toggle-button', () => ( {
+	PreviewToggleButton: () => <div />,
 } ) );
 
 vi.mock( '@/data/queries/use-agent-run', () => ( {
@@ -58,7 +63,17 @@ vi.mock( './conversation', () => ( {
 	Conversation: () => <div />,
 } ) );
 
+vi.mock( './empty-background', () => ( {
+	EmptyBackground: () => <div />,
+} ) );
+
+vi.mock( './session-chat-actions', () => ( {
+	getSiteSessionHistory: () => [],
+	SessionChatActions: () => <div />,
+} ) );
+
 const useSessionMock = vi.mocked( useSession, { partial: true } );
+const useSitesMock = vi.mocked( useSites, { partial: true } );
 
 const SCROLL_TO_LATEST_LABEL = 'Scroll to latest message';
 
@@ -81,6 +96,15 @@ function setScrollMetrics(
 describe( 'SessionView', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
+		vi.stubGlobal(
+			'ResizeObserver',
+			class {
+				observe() {}
+				unobserve() {}
+				disconnect() {}
+			}
+		);
+		useSitesMock.mockReturnValue( { data: [] } );
 	} );
 
 	it( 'redirects to the root instead of flashing the error when the session is gone', async () => {

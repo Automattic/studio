@@ -485,13 +485,34 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 		 */
 		WP_CLI::add_command( 'studio get-theme-details', function() {
 			$theme = wp_get_theme();
+			$theme_path = $theme->get_stylesheet_directory();
+			$template_files = $theme->is_block_theme()
+				? glob( $theme_path . '/templates/*.html' )
+				: [];
+			$pattern_files = glob( $theme_path . '/patterns/*.php' );
+			$modified_at = filemtime( $theme_path );
+			try {
+				$files = new RecursiveIteratorIterator(
+					new RecursiveDirectoryIterator( $theme_path, FilesystemIterator::SKIP_DOTS )
+				);
+				foreach ( $files as $file ) {
+					$modified_at = max( $modified_at, $file->getMTime() );
+				}
+			} catch ( Exception $e ) {
+				// Keep the directory timestamp when an individual file cannot be read.
+			}
 			$result = [
 				'name' => $theme->get( 'Name' ),
-				'path' => $theme->get_stylesheet_directory(),
+				'path' => $theme_path,
 				'slug' => $theme->get_stylesheet(),
+				'version' => $theme->get( 'Version' ),
+				'homepage' => $theme->get( 'ThemeURI' ),
 				'isBlockTheme' => $theme->is_block_theme(),
 				'supportsWidgets' => current_theme_supports( 'widgets' ),
 				'supportsMenus' => (bool) ( get_registered_nav_menus() || current_theme_supports( 'menus' ) ),
+				'templateCount' => is_array( $template_files ) ? count( $template_files ) : 0,
+				'patternCount' => is_array( $pattern_files ) ? count( $pattern_files ) : 0,
+				'modifiedAt' => $modified_at ? gmdate( DATE_ATOM, $modified_at ) : null,
 			];
 			echo json_encode( $result );
 		} );

@@ -385,6 +385,11 @@ export function createIpcConnector(): Connector {
 
 		getWordPressVersions: fetchWordPressVersions,
 
+		async getThemeDetails( siteId ) {
+			const sites = ( await ipcApi.getSiteDetails() ) as SiteDetails[];
+			return sites.find( ( site ) => site.id === siteId )?.themeDetails;
+		},
+
 		async getWpVersion( siteId ) {
 			return ( await ipcApi.getWpVersion( siteId ) ) as string;
 		},

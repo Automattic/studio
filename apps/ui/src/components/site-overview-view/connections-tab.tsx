@@ -1,7 +1,10 @@
 import { __, sprintf } from '@wordpress/i18n';
-import { external, Icon, plus } from '@wordpress/icons';
-import { Button } from '@wordpress/ui';
+import { external, Icon, moreVertical, plus } from '@wordpress/icons';
+import { Button, IconButton } from '@wordpress/ui';
+import { clsx } from 'clsx';
 import { useMemo, useState } from 'react';
+import { CopyButton } from '@/components/copy-button';
+import * as Menu from '@/components/menu';
 import { formatSyncTimestamp } from '@/components/site-toolbar/derive-toolbar-state';
 import { DisconnectSiteDialog } from '@/components/site-toolbar/disconnect-site-dialog';
 import { PublishSiteDialog } from '@/components/site-toolbar/publish-site-dialog';
@@ -36,7 +39,13 @@ function lastSyncSummary( connection: SyncSite ): string {
  * target from the header, so nothing here is "selected" — this is the ledger,
  * not a mode switch.
  */
-export function ConnectionsTab( { site }: { site: SiteDetails } ) {
+export function ConnectionsTab( {
+	site,
+	compact = false,
+}: {
+	site: SiteDetails;
+	compact?: boolean;
+} ) {
 	const connector = useConnector();
 	const { data: connectedSites } = useConnectedWpcomSites( site.id );
 	const connections = useMemo( () => sortConnections( connectedSites ), [ connectedSites ] );
@@ -44,44 +53,67 @@ export function ConnectionsTab( { site }: { site: SiteDetails } ) {
 	const [ disconnecting, setDisconnecting ] = useState< SyncSite | null >( null );
 
 	return (
-		<div className={ styles.root }>
-			<p className={ styles.intro }>
-				{ __(
-					'A Studio site can be connected to more than one WordPress.com site — a production site and its staging sibling, for instance. Push and pull ask which one to use.'
-				) }
-			</p>
+		<div className={ clsx( styles.root, compact && styles.compact ) }>
+			{ ! compact ? (
+				<p className={ styles.intro }>
+					{ __(
+						'Add one or more remote sites, then choose where to push changes or where to pull them from.'
+					) }
+				</p>
+			) : null }
 			{ connections.length === 0 ? (
 				<p className={ styles.empty }>{ __( 'Not connected to WordPress.com yet.' ) }</p>
 			) : (
 				<ul className={ styles.list }>
 					{ connections.map( ( connection ) => (
 						<li key={ connection.id } className={ styles.row }>
-							<div className={ styles.rowText }>
-								<span className={ styles.rowTitle }>{ getConnectionLabel( connection ) }</span>
+							<div className={ styles.rowTop }>
 								<span className={ styles.rowUrl }>{ stripProtocol( connection.url ) }</span>
-								<span className={ styles.rowMeta }>{ lastSyncSummary( connection ) }</span>
+								<span className={ styles.rowDate }>{ lastSyncSummary( connection ) }</span>
 							</div>
-							<div className={ styles.rowActions }>
-								<Button
-									variant="minimal"
-									tone="neutral"
-									size="compact"
-									onClick={ () =>
-										void connector.openExternalUrl( ensureProtocol( connection.url ) )
-									}
-								>
-									{ __( 'Open' ) }
-									<Icon icon={ external } size={ 16 } aria-hidden="true" />
-								</Button>
-								<Button
-									variant="minimal"
-									tone="neutral"
-									size="compact"
-									className={ styles.disconnect }
-									onClick={ () => setDisconnecting( connection ) }
-								>
-									{ __( 'Disconnect' ) }
-								</Button>
+							<div className={ styles.rowBottom }>
+								<span className={ styles.environmentPill }>
+									{ getConnectionLabel( connection ) }
+								</span>
+								<div className={ styles.rowActions }>
+									<IconButton
+										variant="minimal"
+										tone="neutral"
+										size="small"
+										icon={ external }
+										label={ __( 'Open site' ) }
+										onClick={ () =>
+											void connector.openExternalUrl( ensureProtocol( connection.url ) )
+										}
+									/>
+									<CopyButton
+										text={ ensureProtocol( connection.url ) }
+										label={ __( 'Copy URL' ) }
+									/>
+									<Menu.Root>
+										<Menu.Trigger
+											render={
+												<Button
+													variant="minimal"
+													tone="neutral"
+													size="small"
+													className={ styles.overflowButton }
+													aria-label={ __( 'More options' ) }
+												/>
+											}
+										>
+											<Icon icon={ moreVertical } size={ 16 } aria-hidden="true" />
+										</Menu.Trigger>
+										<Menu.Popup side="bottom" align="end">
+											<Menu.Item
+												className={ styles.disconnectMenuItem }
+												onClick={ () => setDisconnecting( connection ) }
+											>
+												{ __( 'Disconnect' ) }
+											</Menu.Item>
+										</Menu.Popup>
+									</Menu.Root>
+								</div>
 							</div>
 						</li>
 					) ) }

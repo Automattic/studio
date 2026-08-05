@@ -28,9 +28,14 @@ interface StoppedSiteDetails {
 		name: string;
 		path: string;
 		slug: string;
+		version?: string;
+		homepage?: string;
 		isBlockTheme: boolean;
 		supportsWidgets: boolean;
 		supportsMenus: boolean;
+		templateCount?: number;
+		patternCount?: number;
+		modifiedAt?: string | null;
 	};
 	// Absolute filesystem path of the configured WordPress Site Icon.
 	// `null` means we've checked and the site has no icon configured;

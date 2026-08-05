@@ -4,8 +4,7 @@ import { supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { useNavigate, useParams, useRouterState } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
-import { settings } from '@wordpress/icons';
-import { IconButton, Tooltip } from '@wordpress/ui';
+import { Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import {
 	useEffect,
@@ -202,28 +201,6 @@ function sortSitesByManualOrder( sites: SiteDetails[], manualOrder: string[] ): 
 	);
 }
 
-function SiteOverviewButton( { site }: { site: SiteDetails } ) {
-	const navigate = useNavigate();
-
-	return (
-		<IconButton
-			variant="minimal"
-			tone="neutral"
-			size="small"
-			icon={ settings }
-			label={ __( 'Site overview' ) }
-			className={ styles.siteAction }
-			onClick={ ( event ) => {
-				event.stopPropagation();
-				void navigate( {
-					to: '/sites/$siteId/overview',
-					params: { siteId: site.id },
-				} );
-			} }
-		/>
-	);
-}
-
 // Right-click quick actions for a sidebar site row. The row element itself is
 // passed as `trigger` and rendered via the context-menu trigger's render prop,
 // so no wrapper DOM is added around it (the sidebar's drag-reorder CSS and
@@ -393,25 +370,20 @@ function SiteActionsMenu( {
 function SiteSection( {
 	row,
 	isChatActive,
-	isContextActive,
+	isSiteRouteActive,
 	hasUnreadUpdate,
 	chatEnabled,
 }: {
 	row: SiteRow;
 	isChatActive: boolean;
-	isContextActive: boolean;
+	isSiteRouteActive: boolean;
 	hasUnreadUpdate: boolean;
 	chatEnabled: boolean;
 } ) {
 	const { site, latestSession } = row;
 	const navigate = useNavigate();
 	const sectionRef = useRef< HTMLElement >( null );
-	const isActive = isChatActive || isContextActive;
-	// Without chat, a site's home is its overview, so the context-active row
-	// is simply "the selected site" — show it solid-selected (no dashed
-	// outline, no overview shortcut), matching how chat-active looks.
-	const isSelected = isChatActive || ( isContextActive && ! chatEnabled );
-	const showContextOutline = isContextActive && chatEnabled;
+	const isActive = isChatActive || isSiteRouteActive;
 	// Keep the active site visible — e.g. when launch restores a site that
 	// sits below the sidebar's fold. `nearest` no-ops when already visible.
 	useEffect( () => {
@@ -458,14 +430,7 @@ function SiteSection( {
 	};
 
 	return (
-		<section
-			ref={ sectionRef }
-			className={ clsx(
-				styles.site,
-				isSelected && styles.siteActive,
-				showContextOutline && styles.siteContextActive
-			) }
-		>
+		<section ref={ sectionRef } className={ clsx( styles.site, isActive && styles.siteActive ) }>
 			<SiteActionsMenu
 				site={ site }
 				sessionIds={ row.sessionIds }
@@ -481,7 +446,7 @@ function SiteSection( {
 									event.stopPropagation();
 									handleOpenSite();
 								} }
-								aria-current={ isSelected ? 'page' : undefined }
+								aria-current={ isActive ? 'page' : undefined }
 							>
 								<span
 									className={ clsx(
@@ -495,7 +460,6 @@ function SiteSection( {
 							</SidebarButton>
 						</div>
 						<div className={ styles.siteActions } data-reorder-exclude>
-							{ chatEnabled ? <SiteOverviewButton site={ site } /> : null }
 							<SiteStatusButton
 								site={ site }
 								isStarting={ isStarting }
@@ -549,7 +513,7 @@ export function SiteList() {
 		[ rows, activeSessionId ]
 	);
 	// Site ids are UUIDs, so no URL decoding is needed to compare the path.
-	const activeContextSiteKey =
+	const activeSiteRouteKey =
 		activeSiteId && pathname === `/sites/${ activeSiteId }/overview` ? activeSiteId : undefined;
 	useEffect( () => {
 		if ( sitesLoading || sessionsLoading || rows.length === 0 ) {
@@ -619,7 +583,7 @@ export function SiteList() {
 		<SiteSection
 			row={ row }
 			isChatActive={ row.site.id === activeChatSiteKey }
-			isContextActive={ row.site.id === activeContextSiteKey }
+			isSiteRouteActive={ row.site.id === activeSiteRouteKey }
 			hasUnreadUpdate={ unreadSiteIds.has( row.site.id ) }
 			chatEnabled={ chatEnabled }
 		/>

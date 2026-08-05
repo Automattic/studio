@@ -5,9 +5,26 @@
 	max-width: 720px;
 }
 
+.compact {
+	max-width: none;
+}
+
+.compact .row {
+	padding-inline: 0;
+	border: 0;
+	border-radius: 0;
+}
+
+.compact .row + .row {
+	border-block-start: var(--wpds-border-width-xs) solid
+		var(--wpds-color-stroke-surface-neutral-weak);
+	padding-block-start: var(--wpds-dimension-padding-md);
+}
+
 .intro {
-	margin: 0 0 var(--wpds-dimension-padding-md);
+	margin: 0 0 var(--wpds-dimension-padding-lg);
 	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
 	color: var(--wpds-color-fg-content-neutral-weak);
 }
 
@@ -31,37 +48,52 @@
 
 .row {
 	display: flex;
-	align-items: center;
-	gap: var(--wpds-dimension-gap-sm);
+	flex-direction: column;
+	gap: var(--wpds-dimension-gap-xs);
 	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md);
 	border: 1px solid var(--wpds-color-stroke-surface-neutral);
 	border-radius: var(--wpds-border-radius-md);
 }
 
-.rowText {
-	display: flex;
-	flex-direction: column;
-	gap: 2px;
-	min-width: 0;
-	flex: 1;
-}
-
-.rowTitle {
+.rowTop,
+.rowBottom {
 	display: flex;
 	align-items: center;
-	gap: var(--wpds-dimension-gap-xs);
-	font-size: var(--wpds-typography-font-size-sm);
-	font-weight: 600;
-	color: var(--wpds-color-fg-content-neutral);
+	justify-content: space-between;
+	gap: var(--wpds-dimension-gap-sm);
+	align-self: stretch;
 }
 
-.rowUrl,
-.rowMeta {
-	font-size: var(--wpds-typography-font-size-xs);
-	color: var(--wpds-color-fg-content-neutral-weak);
+.rowUrl {
+	min-width: 0;
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	font-weight: 600;
+	color: var(--wpds-color-fg-content-neutral);
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
+}
+
+.rowDate {
+	flex: 0 0 auto;
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-xs);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	white-space: nowrap;
+}
+
+.environmentPill {
+	display: inline-flex;
+	align-items: center;
+	min-height: 20px;
+	padding-inline: var(--wpds-dimension-padding-xs);
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral-weak);
+	border-radius: 999px;
+	background: var(--wpds-color-bg-surface-neutral-strong);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-xs);
 }
 
 .rowActions {
@@ -71,8 +103,12 @@
 	flex: 0 0 auto;
 }
 
-.disconnect {
+.disconnectMenuItem {
 	color: var(--wpds-color-fg-content-error);
+}
+
+.overflowButton {
+	--wp-ui-button-min-width: 28px;
 }
 
 .addButton {

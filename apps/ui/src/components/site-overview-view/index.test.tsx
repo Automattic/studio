@@ -1,32 +1,16 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { Tooltip } from '@wordpress/ui';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { useConnector } from '@/data/core';
-import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
-import { useLogin } from '@/data/queries/use-auth-user';
+import { SiteSettingsForm } from '@/components/site-settings-view';
+import * as Tabs from '@/components/tabs';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
-import {
-	useCopySite,
-	useExportDatabase,
-	useExportFullSite,
-	useIsSiteStarting,
-	useIsSiteStopping,
-	useSites,
-	useStartSite,
-	useUpdateSite,
-	useXdebugEnabledSite,
-} from '@/data/queries/use-sites';
+import { useSites, useUpdateSite, useXdebugEnabledSite } from '@/data/queries/use-sites';
+import { useThemeDetails } from '@/data/queries/use-theme-details';
 import { useWordPressVersions, useWpVersion } from '@/data/queries/use-wordpress-versions';
 import { useOffline } from '@/hooks/use-offline';
-import styles from './style.module.css';
 import { SiteOverviewView } from './index';
 import type { SiteSettingsTabId } from '@/components/site-settings-view';
 import type { SiteDetails } from '@/data/core';
-
-const navigateMock = vi.fn();
-const siteToolbarMock = vi.hoisted( () => vi.fn() );
-const useSidebarCollapsedMock = vi.hoisted( () => vi.fn() );
-const useTrafficLightSpaceMock = vi.hoisted( () => vi.fn() );
 
 const WP_VERSIONS = [
 	{ label: '6.8', value: 'latest', isBeta: false, isDevelopment: false },
@@ -40,32 +24,13 @@ class ResizeObserverMock {
 	disconnect = vi.fn();
 }
 
-vi.mock( '@tanstack/react-router', () => ( {
-	useNavigate: () => navigateMock,
-} ) );
-
-vi.mock( '@/components/delete-site-dialog', () => ( {
-	DeleteSiteDialog: ( { open }: { open: boolean } ) =>
-		open ? <div role="dialog">Delete dialog</div> : null,
-} ) );
-
-vi.mock( '@/components/site-toolbar', () => ( {
-	SiteToolbar: ( props: { site: SiteDetails } ) => {
-		siteToolbarMock( props );
-		return <div>{ props.site.name }</div>;
-	},
-} ) );
+const openSiteUrlMock = vi.hoisted( () => vi.fn() );
 
 vi.mock( '@/data/core', () => ( {
-	useConnector: vi.fn(),
-} ) );
-
-vi.mock( '@/data/queries/use-agentic-features', () => ( {
-	useAgenticFeatures: vi.fn(),
-} ) );
-
-vi.mock( '@/data/queries/use-auth-user', () => ( {
-	useLogin: vi.fn(),
+	useConnector: () => ( {
+		openExternalUrl: vi.fn(),
+		copyText: vi.fn(),
+	} ),
 } ) );
 
 vi.mock( '@/data/queries/use-create-site-helpers', () => ( {
@@ -73,15 +38,75 @@ vi.mock( '@/data/queries/use-create-site-helpers', () => ( {
 } ) );
 
 vi.mock( '@/data/queries/use-sites', () => ( {
-	useCopySite: vi.fn(),
-	useExportDatabase: vi.fn(),
-	useExportFullSite: vi.fn(),
-	useIsSiteStarting: vi.fn(),
-	useIsSiteStopping: vi.fn(),
 	useSites: vi.fn(),
-	useStartSite: vi.fn(),
 	useUpdateSite: vi.fn(),
 	useXdebugEnabledSite: vi.fn(),
+	useIsSiteStarting: () => false,
+	useIsSiteStopping: () => false,
+} ) );
+
+vi.mock( '@/components/agentic-signin-banner', () => ( {
+	AgenticSigninBanner: () => <div>Sign in to use Studio Assistant</div>,
+} ) );
+
+vi.mock( '@/components/offline-banner', () => ( {
+	OfflineBanner: () => null,
+} ) );
+
+vi.mock( '@/components/delete-site-dialog', () => ( {
+	DeleteSiteDialog: () => null,
+} ) );
+
+vi.mock( '@/components/site-toolbar/publish-site-dialog', () => ( {
+	PublishSiteDialog: () => null,
+} ) );
+
+vi.mock( '@/components/site-toolbar/sync-dialog', () => ( {
+	SyncDialog: () => null,
+} ) );
+
+vi.mock( '@/components/open-in-menu/use-open-in-destinations', () => ( {
+	useOpenInDestinations: () => [
+		{ id: 'browser', label: 'Browser', logo: <span />, disabled: false, open: vi.fn() },
+		{ id: 'files', label: 'Finder', logo: <span />, disabled: false, open: vi.fn() },
+		{ id: 'editor', label: 'Cursor', logo: <span />, disabled: false, open: vi.fn() },
+		{ id: 'terminal', label: 'Terminal', logo: <span />, disabled: false, open: vi.fn() },
+	],
+} ) );
+
+vi.mock( '@/hooks/use-open-site-url', () => ( {
+	useOpenSiteUrl: () => openSiteUrlMock,
+} ) );
+
+vi.mock( '@/hooks/use-site-management-actions', () => ( {
+	useSiteManagementActions: () => [],
+} ) );
+
+vi.mock( '@/data/queries/use-connected-wpcom-sites', () => ( {
+	useConnectedWpcomSites: () => ( {
+		data: [
+			{
+				id: 42,
+				localSiteId: 'site-1',
+				name: 'Demo Production',
+				url: 'https://example.com',
+				isStaging: false,
+				isPressable: false,
+				syncSupport: 'already-connected',
+				lastPushTimestamp: '2026-08-01T12:00:00.000Z',
+				lastPullTimestamp: null,
+			},
+		],
+	} ),
+} ) );
+
+vi.mock( '@/data/queries/use-sync-site', () => ( {
+	usePushSiteToLive: () => ( { isPending: false, mutate: vi.fn() } ),
+	usePullSiteFromLive: () => ( { isPending: false, mutate: vi.fn() } ),
+} ) );
+
+vi.mock( '@/data/sync-activity', () => ( {
+	useSiteSyncActivity: () => null,
 } ) );
 
 vi.mock( '@/data/queries/use-wordpress-versions', () => ( {
@@ -89,47 +114,26 @@ vi.mock( '@/data/queries/use-wordpress-versions', () => ( {
 	useWpVersion: vi.fn(),
 } ) );
 
+vi.mock( '@/data/queries/use-theme-details', () => ( {
+	useThemeDetails: vi.fn(),
+} ) );
+
 vi.mock( '@/hooks/use-offline', () => ( {
 	useOffline: vi.fn(),
 } ) );
 
-vi.mock( '@/hooks/use-sidebar-collapsed', () => ( {
-	useSidebarCollapsed: useSidebarCollapsedMock,
-} ) );
-
-vi.mock( '@/hooks/use-traffic-light-space', () => ( {
-	useTrafficLightSpace: useTrafficLightSpaceMock,
-} ) );
-
-const useConnectorMock = vi.mocked( useConnector, { partial: true } );
-const useAgenticFeaturesMock = vi.mocked( useAgenticFeatures );
-const useLoginMock = vi.mocked( useLogin, { partial: true } );
 const useExistingCustomDomainsMock = vi.mocked( useExistingCustomDomains, { partial: true } );
-const useCopySiteMock = vi.mocked( useCopySite, { partial: true } );
-const useExportDatabaseMock = vi.mocked( useExportDatabase, { partial: true } );
-const useExportFullSiteMock = vi.mocked( useExportFullSite, { partial: true } );
-const useIsSiteStartingMock = vi.mocked( useIsSiteStarting );
-const useIsSiteStoppingMock = vi.mocked( useIsSiteStopping );
 const useSitesMock = vi.mocked( useSites, { partial: true } );
-const useStartSiteMock = vi.mocked( useStartSite, { partial: true } );
 const useUpdateSiteMock = vi.mocked( useUpdateSite, { partial: true } );
 const useOfflineMock = vi.mocked( useOffline );
 const useWordPressVersionsMock = vi.mocked( useWordPressVersions, { partial: true } );
 const useWpVersionMock = vi.mocked( useWpVersion, { partial: true } );
+const useThemeDetailsMock = vi.mocked( useThemeDetails, { partial: true } );
 const useXdebugEnabledSiteMock = vi.mocked( useXdebugEnabledSite, { partial: true } );
 
 describe( 'SiteOverviewView', () => {
-	const openSiteUrl = vi.fn().mockResolvedValue( undefined );
-	const startSite = vi.fn().mockResolvedValue( undefined );
-	const copySite = vi.fn();
-	const exportFullSite = vi.fn();
-	const exportDatabase = vi.fn();
-	const onTabChange = vi.fn();
-
 	beforeEach( () => {
 		vi.clearAllMocks();
-		useSidebarCollapsedMock.mockReturnValue( false );
-		useTrafficLightSpaceMock.mockReturnValue( { start: false, end: false } );
 		vi.stubGlobal( 'ResizeObserver', ResizeObserverMock );
 		Object.defineProperty( window, 'matchMedia', {
 			writable: true,
@@ -145,97 +149,90 @@ describe( 'SiteOverviewView', () => {
 			} ) ),
 		} );
 
-		useConnectorMock.mockReturnValue( { openSiteUrl } );
-		useAgenticFeaturesMock.mockReturnValue( {
-			enabled: true,
-			chatEnabled: true,
-			reason: null,
-			isReady: true,
-		} );
-		useLoginMock.mockReturnValue( { isPending: false, mutate: vi.fn() } );
 		useExistingCustomDomainsMock.mockReturnValue( [] );
 		useSitesMock.mockReturnValue( {
 			data: [ createSite( { running: true } ) ],
 			isLoading: false,
 		} );
-		useIsSiteStartingMock.mockReturnValue( false );
-		useIsSiteStoppingMock.mockReturnValue( false );
-		useStartSiteMock.mockReturnValue( {
-			isPending: false,
-			mutate: startSite,
-			mutateAsync: startSite,
-		} );
-		useCopySiteMock.mockReturnValue( { isPending: false, mutate: copySite } );
-		useExportFullSiteMock.mockReturnValue( { isPending: false, mutate: exportFullSite } );
-		useExportDatabaseMock.mockReturnValue( { isPending: false, mutate: exportDatabase } );
 		useUpdateSiteMock.mockReturnValue( { isPending: false, mutate: vi.fn() } );
 		useOfflineMock.mockReturnValue( false );
 		useWordPressVersionsMock.mockReturnValue( { data: undefined } );
 		useWpVersionMock.mockReturnValue( { data: undefined } );
+		useThemeDetailsMock.mockImplementation( ( site ) => ( { data: site.themeDetails } ) );
 		useXdebugEnabledSiteMock.mockReturnValue( null );
 	} );
 
-	function renderView( activeTab: SiteSettingsTabId = 'overview' ) {
+	function renderView( activeTab: SiteSettingsTabId | 'overview' = 'general' ) {
 		return render(
 			<Tooltip.Provider>
-				<SiteOverviewView siteId="site-1" activeTab={ activeTab } onTabChange={ onTabChange } />
+				<Tabs.Root selectedTabId={ activeTab }>
+					<SiteOverviewView siteId="site-1" activeTab={ activeTab } />
+				</Tabs.Root>
 			</Tooltip.Provider>
 		);
 	}
 
-	it( 'renders the tab strip with the customize and manage sections', () => {
-		renderView();
+	it( 'restores the familiar site overview actions', () => {
+		useWpVersionMock.mockReturnValue( { data: '6.9' } );
+		renderView( 'overview' );
 
-		expect( siteToolbarMock ).toHaveBeenCalledWith(
-			expect.objectContaining( { site: expect.objectContaining( { name: 'Demo Site' } ) } )
-		);
-		expect( screen.getByRole( 'tab', { name: 'Overview' } ) ).toBeVisible();
-		expect( screen.getByRole( 'tab', { name: 'Settings' } ) ).toBeVisible();
-		expect( screen.getByRole( 'tab', { name: 'Debugging' } ) ).toBeVisible();
+		expect( screen.getByText( 'Sign in to use Studio Assistant' ) ).toBeVisible();
+		expect( screen.getByText( 'Twenty Twenty-Six' ) ).toBeVisible();
+		expect( screen.getByText( 'Block theme' ) ).toBeVisible();
+		expect( screen.getByText( '1.2.0' ) ).toBeVisible();
+		expect( screen.getByText( '12' ) ).toBeVisible();
+		expect( screen.getByText( '8' ) ).toBeVisible();
+		expect( screen.getByText( '6.9' ) ).toBeVisible();
+		expect( screen.getByText( 'example.com' ) ).toBeVisible();
+		expect( screen.getByRole( 'heading', { name: 'Theme' } ) ).toBeVisible();
+		expect( screen.getByRole( 'heading', { name: 'Environment' } ) ).toBeVisible();
+		expect( screen.getByRole( 'heading', { name: 'Connections' } ) ).toBeVisible();
+		expect( screen.getByText( 'Native PHP' ) ).toBeVisible();
+		expect( screen.getByText( 'SQLite' ) ).toBeVisible();
 		expect( screen.getByRole( 'heading', { name: 'Customize' } ) ).toBeVisible();
+		for ( const label of [
+			'Site Editor',
+			'Styles',
+			'Patterns',
+			'Navigation',
+			'Templates',
+			'Pages',
+		] ) {
+			expect( screen.getByRole( 'button', { name: label } ) ).toBeVisible();
+		}
+		expect( screen.getByRole( 'heading', { name: 'Open in…' } ) ).toBeVisible();
+		for ( const label of [ 'Browser', 'Finder', 'Cursor', 'Terminal', 'phpMyAdmin' ] ) {
+			expect( screen.getByRole( 'button', { name: label } ) ).toBeVisible();
+		}
 		expect( screen.getByRole( 'heading', { name: 'Manage' } ) ).toBeVisible();
-		expect( screen.getByText( 'Site Editor' ) ).toBeVisible();
-		expect( screen.getByText( 'Templates' ) ).toBeVisible();
-		expect( screen.getByText( 'Media Library' ) ).toBeVisible();
-		expect( screen.queryByText( 'Customizer' ) ).not.toBeInTheDocument();
-		expect( screen.getByText( 'Duplicate' ) ).toBeVisible();
-		expect( screen.getByText( 'Export' ) ).toBeVisible();
-		expect( screen.getByText( 'Export DB' ) ).toBeVisible();
-		expect( screen.getByText( 'Delete' ) ).toBeVisible();
-		expect( screen.queryByDisplayValue( 'Demo Site' ) ).not.toBeInTheDocument();
-	} );
 
-	it( 'offsets the site menu below macOS traffic lights when the sidebar is collapsed', () => {
-		useSidebarCollapsedMock.mockReturnValue( true );
-		useTrafficLightSpaceMock.mockReturnValue( { start: true, end: false } );
-
-		renderView();
-
-		expect( screen.getByText( 'Demo Site' ).parentElement ).toHaveClass(
-			styles.headerSidebarCollapsed
+		fireEvent.click( screen.getByRole( 'button', { name: 'phpMyAdmin' } ) );
+		expect( openSiteUrlMock ).toHaveBeenCalledWith(
+			'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
 		);
-	} );
-
-	it( 'reports tab selection to the route', () => {
-		renderView();
-
-		fireEvent.click( screen.getByRole( 'tab', { name: 'Settings' } ) );
-
-		expect( onTabChange ).toHaveBeenCalledWith( 'general' );
-	} );
-
-	it( 'gives connections its own tab, and leaves sharing to the header', () => {
-		renderView();
-
-		expect( screen.getByRole( 'tab', { name: 'Connections' } ) ).toBeVisible();
-		expect( screen.queryByRole( 'tab', { name: 'Previews' } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'renders the settings form with save actions on the general tab', () => {
 		renderView( 'general' );
 
 		expect( screen.getByDisplayValue( 'Demo Site' ) ).toBeVisible();
+		expect( screen.getByRole( 'heading', { name: 'Debugging' } ) ).toBeVisible();
+		expect( screen.getByRole( 'checkbox', { name: 'Enable Xdebug' } ) ).toBeVisible();
+		expect( screen.getByRole( 'checkbox', { name: 'Enable debug log' } ) ).toBeVisible();
+		expect( screen.getByRole( 'checkbox', { name: 'Show errors in browser' } ) ).toBeVisible();
 		expect( screen.getByRole( 'button', { name: 'Save settings' } ) ).toBeVisible();
+	} );
+
+	it( 'does not show Settings save actions on the Connections tab', () => {
+		render(
+			<Tooltip.Provider>
+				<Tabs.Root selectedTabId="connections">
+					<SiteSettingsForm site={ createSite() } />
+				</Tabs.Root>
+			</Tooltip.Provider>
+		);
+
+		expect( screen.queryByRole( 'button', { name: 'Save settings' } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'renders the WordPress version dropdown with latest preselected for auto-updating sites', () => {
@@ -338,7 +335,9 @@ describe( 'SiteOverviewView', () => {
 		} );
 		rerender(
 			<Tooltip.Provider>
-				<SiteOverviewView siteId="site-1" activeTab="general" onTabChange={ onTabChange } />
+				<Tabs.Root selectedTabId="general">
+					<SiteOverviewView siteId="site-1" activeTab="general" />
+				</Tabs.Root>
 			</Tooltip.Provider>
 		);
 
@@ -437,90 +436,8 @@ describe( 'SiteOverviewView', () => {
 		);
 	} );
 
-	it( 'shows classic-theme shortcuts based on theme support', () => {
-		useSitesMock.mockReturnValue( {
-			data: [
-				createSite( {
-					running: true,
-					themeDetails: {
-						name: 'Twenty Twenty-One',
-						path: '/wp-content/themes/twentytwentyone',
-						slug: 'twentytwentyone',
-						isBlockTheme: false,
-						supportsMenus: true,
-						supportsWidgets: false,
-					},
-				} ),
-			],
-			isLoading: false,
-		} );
-
-		renderView();
-
-		expect( screen.getByText( 'Customizer' ) ).toBeVisible();
-		expect( screen.getByText( 'Menus' ) ).toBeVisible();
-		expect( screen.queryByText( 'Widgets' ) ).not.toBeInTheDocument();
-		expect( screen.queryByText( 'Site Editor' ) ).not.toBeInTheDocument();
-	} );
-
-	// Rendered without a SessionUIProvider, so the open-site-url hook takes
-	// its browser fallback path; inside the app these open the preview panel.
-	it( 'routes shortcuts through the connector', async () => {
-		renderView();
-
-		fireEvent.click( screen.getByText( 'Site Editor' ).closest( 'button' )! );
-		fireEvent.click( screen.getByText( 'Media Library' ).closest( 'button' )! );
-
-		await waitFor( () =>
-			expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/wp-admin/site-editor.php' )
-		);
-		expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/wp-admin/upload.php' );
-	} );
-
-	it( 'runs manage actions and confirms deletion in a dialog', () => {
-		renderView();
-
-		fireEvent.click( screen.getByText( 'Duplicate' ).closest( 'button' )! );
-		expect( copySite ).toHaveBeenCalledWith( 'site-1' );
-
-		expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument();
-		fireEvent.click( screen.getByText( 'Delete' ).closest( 'button' )! );
-		expect( screen.getByRole( 'dialog' ) ).toBeVisible();
-	} );
-
-	it( 'shows a sign-in banner with a login action when signed out', () => {
-		const loginMutate = vi.fn();
-		useAgenticFeaturesMock.mockReturnValue( {
-			enabled: false,
-			chatEnabled: false,
-			reason: 'signed-out',
-			isReady: true,
-		} );
-		useLoginMock.mockReturnValue( { isPending: false, mutate: loginMutate } );
-
-		renderView();
-
-		expect(
-			screen.getByRole( 'heading', { name: 'Sign in to do more with Studio' } )
-		).toBeVisible();
-
-		fireEvent.click( screen.getByRole( 'button', { name: 'Log in with WordPress.com' } ) );
-
-		expect( loginMutate ).toHaveBeenCalled();
-	} );
-
-	it( 'hides the sign-in banner while agentic features are available', () => {
-		renderView();
-
-		expect(
-			screen.queryByRole( 'heading', { name: 'Sign in to do more with Studio' } )
-		).not.toBeInTheDocument();
-	} );
-
 	it( 'shows a not-found state for unknown sites', () => {
-		render(
-			<SiteOverviewView siteId="missing-site" activeTab="overview" onTabChange={ onTabChange } />
-		);
+		render( <SiteOverviewView siteId="missing-site" activeTab="general" /> );
 
 		expect( screen.getByRole( 'heading', { name: 'Site not found' } ) ).toBeVisible();
 	} );
@@ -541,7 +458,12 @@ function createSite( overrides: Partial< SiteDetails > = {} ): SiteDetails {
 			name: 'Twenty Twenty-Six',
 			path: '/wp-content/themes/twentytwentysix',
 			slug: 'twentytwentysix',
+			version: '1.2.0',
+			homepage: 'https://wordpress.org/themes/twentytwentysix/',
 			isBlockTheme: true,
+			templateCount: 12,
+			patternCount: 8,
+			modifiedAt: '2026-08-01T12:00:00Z',
 		},
 		...overrides,
 	};

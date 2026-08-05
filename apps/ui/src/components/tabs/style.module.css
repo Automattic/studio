@@ -46,6 +46,13 @@
 	color: var(--wpds-color-fg-content-neutral);
 }
 
+.list .tab:is(:focus-visible, [data-focus-visible]) {
+	outline: none !important;
+	box-shadow: none !important;
+	border-radius: var(--wpds-border-radius-sm);
+	background: var(--wpds-color-bg-interactive-neutral-weak-active);
+}
+
 .panel {
 	outline: none;
 }

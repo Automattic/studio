@@ -450,9 +450,14 @@ export class SiteServer {
 		name: z.string().catch( '' ),
 		path: z.string(),
 		slug: z.string(),
+		version: z.string().optional(),
+		homepage: z.string().optional(),
 		isBlockTheme: z.boolean(),
 		supportsWidgets: z.boolean(),
 		supportsMenus: z.boolean(),
+		templateCount: z.number().optional(),
+		patternCount: z.number().optional(),
+		modifiedAt: z.string().nullable().optional(),
 	} );
 
 	async getThemeDetails(): Promise< SiteDetails[ 'themeDetails' ] > {

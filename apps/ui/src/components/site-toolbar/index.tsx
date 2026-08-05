@@ -4,8 +4,10 @@ import { external, Icon } from '@wordpress/icons';
 import { Button, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useMemo, useState } from 'react';
+import { OpenInMenu } from '@/components/open-in-menu';
 import { SiteIcon } from '@/components/site-icon';
 import { SiteStatusButton } from '@/components/site-status-button';
+import { WordPressMenu } from '@/components/wordpress-menu';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useLogin } from '@/data/queries/use-auth-user';
@@ -33,6 +35,7 @@ import type { PullSyncOptions, PushSyncOptions } from '@studio/common/types/sync
 
 interface SiteToolbarProps {
 	site: SiteDetails;
+	browserPath?: string;
 	className?: string;
 }
 
@@ -60,7 +63,7 @@ function useIsSiteSyncing( siteId: string ): { push: boolean; pull: boolean } {
  * old site dropdown, whose actions were hidden behind a trigger that read as a
  * status indicator.
  */
-export function SiteToolbar( { site, className }: SiteToolbarProps ) {
+export function SiteToolbar( { site, browserPath, className }: SiteToolbarProps ) {
 	const connector = useConnector();
 	const { enabled: agenticEnabled, reason: agenticReason } = useAgenticFeatures();
 	// The sidebar's site rows already carry a run-state dot for every site,
@@ -205,6 +208,11 @@ export function SiteToolbar( { site, className }: SiteToolbarProps ) {
 							: __( 'Go online to share a preview.' ) }
 					</Tooltip.Popup>
 				</Tooltip.Root>
+
+				<WordPressMenu key={ `wordpress:${ site.id }` } site={ site } />
+				{ browserPath ? (
+					<OpenInMenu key={ `open-in:${ site.id }` } site={ site } browserPath={ browserPath } />
+				) : null }
 
 				{ actions.map( ( action ) =>
 					action.id === 'publish' ? (

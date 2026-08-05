@@ -67,6 +67,15 @@ describe( 'useOpenSiteUrl', () => {
 		);
 	} );
 
+	it( 'opens the default browser when explicitly selected inside the provider', async () => {
+		const { result } = renderPreviewHook( site, 'browser' );
+
+		await act( () => result.current.open( '/wp-admin/plugins.php' ) );
+
+		expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/wp-admin/plugins.php' );
+		expect( result.current.preview.path ).toBe( '/' );
+	} );
+
 	// The path has to be set before the start resolves, otherwise the preview
 	// mounts on the old path and the load it reports back overwrites this one.
 	// The redirect stays relative so it survives the port a restart hands out.
@@ -98,12 +107,15 @@ describe( 'useOpenSiteUrl', () => {
 	} );
 } );
 
-function renderPreviewHook( site: SiteDetails ) {
-	return renderHook( () => ( { open: useOpenSiteUrl( site ), preview: useSessionPreviewUI() } ), {
-		wrapper: ( { children }: { children: ReactNode } ) => (
-			<SessionUIProvider>{ children }</SessionUIProvider>
-		),
-	} );
+function renderPreviewHook( site: SiteDetails, target: 'studio' | 'browser' = 'studio' ) {
+	return renderHook(
+		() => ( { open: useOpenSiteUrl( site, target ), preview: useSessionPreviewUI() } ),
+		{
+			wrapper: ( { children }: { children: ReactNode } ) => (
+				<SessionUIProvider>{ children }</SessionUIProvider>
+			),
+		}
+	);
 }
 
 function createSite( overrides: Partial< SiteDetails > = {} ): SiteDetails {

@@ -15,6 +15,14 @@ import { SidebarCollapsedContext } from '@/hooks/use-sidebar-collapsed';
 import { SiteToolbar } from './index';
 import type { SiteDetails, SyncSite } from '@/data/core';
 
+vi.mock( '@/components/open-in-menu', () => ( {
+	OpenInMenu: () => <button type="button">Open in</button>,
+} ) );
+
+vi.mock( '@/components/wordpress-menu', () => ( {
+	WordPressMenu: () => <button type="button">WordPress</button>,
+} ) );
+
 vi.mock( '@tanstack/react-query', async ( importOriginal ) => ( {
 	...( await importOriginal< object >() ),
 	useIsMutating: () => 0,
@@ -83,7 +91,7 @@ function renderToolbar( {
 	return render(
 		<SidebarCollapsedContext.Provider value={ sidebarCollapsed }>
 			<Tooltip.Provider>
-				<SiteToolbar site={ SITE } { ...props } />
+				<SiteToolbar site={ SITE } browserPath="/" { ...props } />
 			</Tooltip.Provider>
 		</SidebarCollapsedContext.Provider>
 	);
@@ -145,6 +153,17 @@ describe( 'SiteToolbar', () => {
 
 		expect( screen.getByRole( 'button', { name: 'Publish' } ) ).toBeVisible();
 		expect( screen.queryByText( 'No live site' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'places WordPress and Open in immediately before the primary action', () => {
+		renderToolbar();
+
+		const wordpress = screen.getByRole( 'button', { name: 'WordPress' } );
+		const openIn = screen.getByRole( 'button', { name: 'Open in' } );
+		const publish = screen.getByRole( 'button', { name: 'Publish' } );
+
+		expect( wordpress.compareDocumentPosition( openIn ) ).toBe( Node.DOCUMENT_POSITION_FOLLOWING );
+		expect( openIn.compareDocumentPosition( publish ) ).toBe( Node.DOCUMENT_POSITION_FOLLOWING );
 	} );
 
 	it( 'offers a single Sync action once a live site is connected', () => {

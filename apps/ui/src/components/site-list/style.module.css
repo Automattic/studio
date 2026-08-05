@@ -90,16 +90,6 @@
 	background-color: var(--sidebar-row-background);
 }
 
-.siteContextActive .siteHeader {
-	outline: 1px dashed color-mix(in srgb, var(--wpds-color-stroke-surface-neutral) 78%, transparent);
-	outline-offset: -2px;
-}
-
-.siteContextActive .siteHeader:hover,
-.siteContextActive .siteHeader:focus-within {
-	background-color: transparent;
-}
-
 .siteText {
 	flex: 1;
 	min-width: 0;
@@ -269,23 +259,6 @@
 	transition: max-width 100ms ease;
 }
 
-.siteAction {
-	flex-shrink: 0;
-	outline-offset: -2px;
-}
-
-/* Collapsed, only the trailing status button shows; hover/focus/active
-   reveals the overview button next to it. The header carries
-   `data-popup-open` while its right-click menu is open (Base UI sets it on
-   the context-menu trigger), keeping the row's controls visible. */
-.siteActive .siteActions,
-.siteContextActive .siteActions,
-.siteHeader:hover .siteActions,
-.siteHeader:focus-within .siteActions,
-.siteHeader[data-popup-open] .siteActions {
-	max-width: 48px;
-}
-
 /* A stopped site carries no signal worth surfacing, so its play affordance
    stays hidden until the row is hovered, focused, has an open menu, or is the
    active site; running/transitioning dots remain always visible. */
@@ -294,7 +267,6 @@
 }
 
 .siteActive .siteStatus[data-state='stopped'],
-.siteContextActive .siteStatus[data-state='stopped'],
 .siteHeader:hover .siteStatus[data-state='stopped'],
 .siteHeader:focus-within .siteStatus[data-state='stopped'],
 .siteHeader[data-popup-open] .siteStatus[data-state='stopped'] {

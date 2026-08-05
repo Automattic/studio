@@ -45,6 +45,7 @@ import { importIpcEventSchema } from '@studio/common/lib/import-export-events';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { getAuthenticationUrl, getSignUpUrl } from '@studio/common/lib/oauth';
 import { decodePassword } from '@studio/common/lib/passwords';
+import { parseJsonFromPhpOutput } from '@studio/common/lib/php-output-parser';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import {
 	deleteSharedSession,
@@ -124,6 +125,20 @@ export interface LocalServer {
 
 const DEFAULT_PORT = 8081;
 
+const themeDetailsSchema = z.object( {
+	name: z.string().catch( '' ),
+	path: z.string(),
+	slug: z.string(),
+	version: z.string().optional(),
+	homepage: z.string().optional(),
+	isBlockTheme: z.boolean(),
+	supportsWidgets: z.boolean().optional(),
+	supportsMenus: z.boolean().optional(),
+	templateCount: z.number().optional(),
+	patternCount: z.number().optional(),
+	modifiedAt: z.string().nullable().optional(),
+} );
+
 // Served at <origin>/auth/callback — the OAuth redirect target for the browser
 // login flow. WordPress.com lands here with the token in the URL fragment
 // (implicit grant), which never reaches the server, so this page reads it
@@ -158,6 +173,7 @@ function toSiteDetails( site: SiteListItem ) {
 		running: site.running,
 		url: site.url,
 		phpVersion: site.phpVersion,
+		runtime: site.runtime,
 		customDomain: site.customDomain,
 		enableHttps: site.enableHttps,
 		adminUsername: site.adminUsername,
@@ -499,6 +515,42 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			}
 			await stopSite( execute, site.path );
 			res.sendStatus( 204 );
+		} )
+	);
+
+	api.get(
+		'/sites/:id/theme-details',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const sites = await listSites( execute );
+			const site = sites.find( ( candidate ) => candidate.id === req.params.id );
+			if ( ! site ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			if ( ! site.running ) {
+				res.json( {} );
+				return;
+			}
+
+			const themeDetails = await new Promise< z.infer< typeof themeDetailsSchema > | undefined >(
+				( resolve ) => {
+					const [ emitter ] = execute(
+						[ 'wp', 'studio', 'get-theme-details', '--path', site.path ],
+						{ output: 'capture' }
+					);
+					emitter.on( 'success', ( { result } ) => {
+						try {
+							resolve( themeDetailsSchema.parse( parseJsonFromPhpOutput( result?.stdout ?? '' ) ) );
+						} catch {
+							resolve( undefined );
+						}
+					} );
+					emitter.on( 'failure', () => resolve( undefined ) );
+					emitter.on( 'error', () => resolve( undefined ) );
+				}
+			);
+
+			res.json( themeDetails ? { themeDetails } : {} );
 		} )
 	);
 

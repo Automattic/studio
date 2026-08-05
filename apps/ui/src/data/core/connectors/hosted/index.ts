@@ -207,6 +207,10 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 
 		getWordPressVersions: fetchWordPressVersions,
 
+		async getThemeDetails(): Promise< undefined > {
+			return undefined;
+		},
+
 		async getWpVersion(): Promise< string > {
 			throw new UnsupportedError( 'getWpVersion' );
 		},

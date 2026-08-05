@@ -7,7 +7,14 @@ import {
 } from '@/components/preview-split-frame';
 import { SidebarLayout } from '@/components/sidebar-layout';
 import { SitePreview } from '@/components/site-preview';
-import { useSession, useSessionEffectiveEnvironment } from '@/data/queries/use-sessions';
+import { isSiteSettingsTab } from '@/components/site-settings-view';
+import { SiteWorkspaceShell, type SiteWorkspaceTabId } from '@/components/site-workspace-shell';
+import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
+import {
+	useSession,
+	useSessionEffectiveEnvironment,
+	useSessions,
+} from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
 import {
 	pathForSite,
@@ -36,6 +43,21 @@ function getNewSessionSiteId( pathname: string ): string | undefined {
 	return match ? decodeURIComponent( match[ 1 ] ) : undefined;
 }
 
+function getWorkspaceTab(
+	pathname: string,
+	search: Record< string, unknown >
+): SiteWorkspaceTabId | undefined {
+	if ( getRouteSessionId( pathname ) || getNewSessionSiteId( pathname ) ) {
+		return 'chat';
+	}
+	if ( getRouteOverviewSiteId( pathname ) ) {
+		return typeof search.tab === 'string' && isSiteSettingsTab( search.tab )
+			? search.tab
+			: 'overview';
+	}
+	return undefined;
+}
+
 function DashboardLayout() {
 	return (
 		<SessionUIProvider>
@@ -49,19 +71,27 @@ function DashboardLayout() {
 // previewed site follows the current session; routes without one keep the
 // last previewed site loaded behind a closed panel.
 function DashboardLayoutContent() {
+	const { chatEnabled } = useAgenticFeatures();
 	const routePreviewContext = useRouterState( {
 		select: ( state ) => ( {
 			sessionId: getRouteSessionId( state.location.pathname ),
 			overviewSiteId: getRouteOverviewSiteId( state.location.pathname ),
 			newSessionSiteId: getNewSessionSiteId( state.location.pathname ),
+			workspaceTab: getWorkspaceTab(
+				state.location.pathname,
+				state.location.search as Record< string, unknown >
+			),
 		} ),
 	} );
-	const { sessionId, overviewSiteId, newSessionSiteId } = routePreviewContext;
+	const { sessionId, overviewSiteId, newSessionSiteId, workspaceTab } = routePreviewContext;
 	const { data: sites } = useSites();
 	const { data: sessionData } = useSession( sessionId );
+	const { data: sessions } = useSessions();
 	const preview = useSessionPreviewUI();
 	const onAnnotationsDone = useSessionPreviewAnnotationsHandler();
-	const sessionSite = findAiSessionOwnerSite( sites, sessionData?.summary );
+	const sessionSummary =
+		sessionData?.summary ?? sessions?.find( ( session ) => session.id === sessionId );
+	const sessionSite = findAiSessionOwnerSite( sites, sessionSummary );
 	const effectiveEnvironment = useSessionEffectiveEnvironment(
 		sessionData?.summary,
 		sessionSite?.id
@@ -72,6 +102,7 @@ function DashboardLayoutContent() {
 	const newSessionSite = newSessionSiteId
 		? sites?.find( ( site ) => site.id === newSessionSiteId )
 		: undefined;
+	const workspaceSite = overviewSite ?? newSessionSite ?? sessionSite;
 	const routeSite =
 		overviewSite ??
 		newSessionSite ??
@@ -164,7 +195,17 @@ function DashboardLayoutContent() {
 				previewFullscreen={ previewFullscreen }
 				preview={ renderPreview }
 			>
-				<Outlet />
+				{ workspaceSite && workspaceTab ? (
+					<SiteWorkspaceShell
+						site={ workspaceSite }
+						activeTab={ workspaceTab }
+						showChat={ chatEnabled || workspaceTab === 'chat' }
+					>
+						<Outlet />
+					</SiteWorkspaceShell>
+				) : (
+					<Outlet />
+				) }
 			</PreviewSplitFrame>
 		</SidebarLayout>
 	);

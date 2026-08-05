@@ -32,7 +32,7 @@ import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { DataFormControlProps, Field, Form } from '@wordpress/dataviews';
 import type { FormEvent } from 'react';
 
-type TabId = 'overview' | 'connections' | 'general' | 'debugging';
+type TabId = 'connections' | 'general';
 
 interface FormData {
 	name: string;
@@ -99,11 +99,11 @@ function EnableHttpsControl( { data: item, field, onChange }: DataFormControlPro
 }
 
 /**
- * The site settings form (General + Debugging), rendered as tab panels inside
- * a `Tabs.Root` owned by the caller — the site overview view. One instance
- * spans both panels so unsaved edits survive tab switches.
+ * The site settings form, rendered inside the Settings panel owned by the
+ * caller. Debugging controls live at the bottom of the same form so all site
+ * configuration shares one save action.
  */
-export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; activeTab: TabId } ) {
+export function SiteSettingsForm( { site }: { site: SiteDetails } ) {
 	const allDomains = useExistingCustomDomains();
 	const existingDomainNames = useMemo(
 		() => allDomains.filter( ( domain ) => domain !== site.customDomain ),
@@ -283,7 +283,7 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 
 	return (
 		<form onSubmit={ handleSubmit } className={ styles.form }>
-			<Tabs.Panel tabId="general">
+			<Tabs.Panel tabId="general" className={ styles.settingsPanel }>
 				<DataForm< FormData >
 					data={ data }
 					fields={ fields }
@@ -291,21 +291,19 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 					onChange={ handleChange }
 					validity={ validity }
 				/>
-			</Tabs.Panel>
-			<Tabs.Panel tabId="debugging">
-				<DataForm< FormData >
-					data={ data }
-					fields={ fields }
-					form={ debuggingForm }
-					onChange={ handleChange }
-					validity={ validity }
-				/>
-			</Tabs.Panel>
+				<section className={ styles.debuggingSection }>
+					<h3 className={ styles.sectionTitle }>{ __( 'Debugging' ) }</h3>
+					<DataForm< FormData >
+						data={ data }
+						fields={ fields }
+						form={ debuggingForm }
+						onChange={ handleChange }
+						validity={ validity }
+					/>
+				</section>
 
-			{ submitError && <div className={ styles.submitError }>{ submitError }</div> }
+				{ submitError && <div className={ styles.submitError }>{ submitError }</div> }
 
-			{ /* The save actions apply to the form tabs only, not Overview. */ }
-			{ activeTab !== 'overview' && (
 				<div className={ styles.actions }>
 					<Button
 						type="submit"
@@ -318,12 +316,12 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 						{ __( 'Save settings' ) }
 					</Button>
 				</div>
-			) }
+			</Tabs.Panel>
 		</form>
 	);
 }
 
-const SITE_TABS: TabId[] = [ 'overview', 'connections', 'general', 'debugging' ];
+const SITE_TABS: TabId[] = [ 'connections', 'general' ];
 
 export function isSiteSettingsTab( value: string ): value is TabId {
 	return ( SITE_TABS as string[] ).includes( value );

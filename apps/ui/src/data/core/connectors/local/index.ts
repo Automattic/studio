@@ -480,6 +480,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 
 		getWordPressVersions: fetchWordPressVersions,
 
+		async getThemeDetails( siteId ) {
+			const { themeDetails } = await api< { themeDetails?: SiteDetails[ 'themeDetails' ] } >(
+				`/sites/${ encodeURIComponent( siteId ) }/theme-details`
+			);
+			return themeDetails;
+		},
+
 		async getWpVersion( siteId ) {
 			const { wpVersion } = await api< { wpVersion: string } >(
 				`/sites/${ encodeURIComponent( siteId ) }/wp-version`

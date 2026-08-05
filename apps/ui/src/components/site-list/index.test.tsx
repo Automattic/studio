@@ -241,7 +241,7 @@ describe( 'SiteList', () => {
 		} );
 	} );
 
-	it( 'shows the selected site solid without the overview shortcut when signed out', () => {
+	it( 'shows the selected site as the current page when signed out', () => {
 		vi.mocked( useAgenticFeatures ).mockReturnValue( {
 			enabled: false,
 			chatEnabled: false,
@@ -258,21 +258,7 @@ describe( 'SiteList', () => {
 		const siteButton = within( stoppedRow ).getByRole( 'button', { name: 'Stopped Site' } );
 
 		expect( className ).toContain( 'siteActive' );
-		expect( className ).not.toContain( 'siteContextActive' );
 		expect( siteButton ).toHaveAttribute( 'aria-current', 'page' );
-		expect( screen.queryByRole( 'button', { name: 'Site overview' } ) ).not.toBeInTheDocument();
-	} );
-
-	it( 'opens the site overview from the row gear without opening the latest chat', () => {
-		render( <SiteList /> );
-
-		fireEvent.click( screen.getAllByRole( 'button', { name: 'Site overview' } )[ 0 ] );
-
-		expect( navigateMock ).toHaveBeenCalledTimes( 1 );
-		expect( navigateMock ).toHaveBeenLastCalledWith( {
-			to: '/sites/$siteId/overview',
-			params: { siteId: 'stopped-site' },
-		} );
 	} );
 
 	it( 'dims stopped site titles without dimming running sites', () => {
@@ -372,7 +358,7 @@ describe( 'SiteList', () => {
 		expect( siteButton ).toHaveAttribute( 'aria-current', 'page' );
 	} );
 
-	it( 'marks the site row as contextual on the site overview route', () => {
+	it( 'marks the site row as current on the site overview route', () => {
 		paramsMock = { siteId: 'stopped-site' };
 		pathnameMock = '/sites/stopped-site/overview';
 
@@ -381,8 +367,8 @@ describe( 'SiteList', () => {
 		const stoppedRow = screen.getByText( 'Stopped Site' ).closest( 'section' )!;
 		const siteButton = within( stoppedRow ).getByRole( 'button', { name: 'Stopped Site' } );
 
-		expect( siteButton ).not.toHaveAttribute( 'aria-current' );
-		expect( stoppedRow.getAttribute( 'class' ) ?? '' ).toContain( 'siteContextActive' );
+		expect( siteButton ).toHaveAttribute( 'aria-current', 'page' );
+		expect( stoppedRow.getAttribute( 'class' ) ?? '' ).toContain( 'siteActive' );
 	} );
 
 	it( 'opens the latest active chat when a site is clicked', () => {

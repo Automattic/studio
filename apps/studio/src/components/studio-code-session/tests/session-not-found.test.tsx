@@ -23,6 +23,15 @@ vi.mock( 'src/hooks/use-auth', () => ( {
 	useAuth: () => ( { isAuthenticated: true, authenticate: vi.fn() } ),
 } ) );
 
+vi.mock( 'src/stores/wpcom-api', () => ( {
+	useGetStudioAssistantQuota: () => ( {
+		data: undefined,
+		isLoading: false,
+		isFetching: false,
+		refetch: vi.fn(),
+	} ),
+} ) );
+
 vi.mock( '../use-agent-run', () => ( {
 	AgentRunProvider: ( { children }: { children: React.ReactNode } ) => children,
 	useAgentRun: () => ( {

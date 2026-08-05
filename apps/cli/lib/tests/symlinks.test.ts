@@ -15,7 +15,7 @@ const makeDir = ( ...segments: string[] ) => {
 };
 
 beforeEach( () => {
-	root = fs.realpathSync( fs.mkdtempSync( path.join( os.tmpdir(), 'studio-symlinks-' ) ) );
+	root = fs.realpathSync.native( fs.mkdtempSync( path.join( os.tmpdir(), 'studio-symlinks-' ) ) );
 	sitePath = path.join( root, 'site' );
 	outside = path.join( root, 'outside' );
 	fs.mkdirSync( sitePath, { recursive: true } );

@@ -116,9 +116,10 @@ function SettingsHeader() {
 			{ onClose ? (
 				<div className={ styles.headerEnd }>
 					<IconButton
+						className={ styles.headerClose }
 						variant="minimal"
 						tone="neutral"
-						size="small"
+						size="default"
 						icon={ close }
 						label={ __( 'Close settings' ) }
 						onClick={ onClose }

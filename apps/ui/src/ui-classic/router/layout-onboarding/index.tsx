@@ -45,6 +45,22 @@ export function OnboardingShellView( {
 		heading.focus();
 	}, [ pathname ] );
 
+	// Escape closes the flow, matching settings. Menus, selects, and dialogs
+	// handle their own Escape and call preventDefault first, so honoring
+	// defaultPrevented keeps Escape from closing onboarding out from under an
+	// open popover. Mirrors the close button: hidden without sites, disabled
+	// while a submit is in flight.
+	useEffect( () => {
+		if ( ! hasSites ) return;
+		const handleKeyDown = ( event: KeyboardEvent ) => {
+			if ( event.key === 'Escape' && ! event.defaultPrevented && ! progress ) {
+				onClose();
+			}
+		};
+		document.addEventListener( 'keydown', handleKeyDown );
+		return () => document.removeEventListener( 'keydown', handleKeyDown );
+	}, [ hasSites, progress, onClose ] );
+
 	return (
 		<OnboardingProgressContext.Provider value={ progressContext }>
 			<OnboardingLayout

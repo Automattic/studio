@@ -241,6 +241,20 @@
    gets shorter (down to the app's 600px minimum). The canvas is sized by
    `min(100%, …)`, so shrinking the stage scales it down; the text block's
    overlap eases off with it. */
+/* Narrow windows leave the legal text and the account actions competing for
+   one row, with only the flex gap between them. Give the row more air and
+   let the legal wrap earlier so the two halves stay visually separate. */
+@media (max-width: 950px) {
+	.footer {
+		gap: 40px;
+		padding-top: 24px;
+	}
+
+	.legal {
+		max-width: 250px;
+	}
+}
+
 @media (max-height: 800px) {
 	.logoToy {
 		width: 620px;

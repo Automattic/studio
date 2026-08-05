@@ -7,6 +7,8 @@ export interface StudioVisualAnnotationSummary {
 
 const MAX_VISUAL_ANNOTATIONS = 100;
 const MAX_COMMENT_LENGTH = 10_000;
+const MAX_SERIALIZED_LENGTH = 1_000_000;
+const ALLOWED_FIELDS = new Set( [ 'comment', 'tag', 'elementLabel', 'nearbyText' ] );
 const FIELD_LIMITS = {
 	tag: 100,
 	elementLabel: 500,
@@ -22,6 +24,15 @@ export function validateStudioVisualAnnotations(
 	if ( ! Array.isArray( value ) || value.length === 0 || value.length > MAX_VISUAL_ANNOTATIONS ) {
 		throw new Error( 'Invalid visual annotations.' );
 	}
+	let serializedLength: number;
+	try {
+		serializedLength = JSON.stringify( value ).length;
+	} catch {
+		throw new Error( 'Invalid visual annotations.' );
+	}
+	if ( serializedLength > MAX_SERIALIZED_LENGTH ) {
+		throw new Error( 'Visual annotations contain too much data.' );
+	}
 	return value.map( ( annotation ) => {
 		if (
 			typeof annotation !== 'object' ||
@@ -30,6 +41,9 @@ export function validateStudioVisualAnnotations(
 			! ( annotation as StudioVisualAnnotationSummary ).comment.trim() ||
 			( annotation as StudioVisualAnnotationSummary ).comment.length > MAX_COMMENT_LENGTH
 		) {
+			throw new Error( 'Invalid visual annotation.' );
+		}
+		if ( Object.keys( annotation ).some( ( field ) => ! ALLOWED_FIELDS.has( field ) ) ) {
 			throw new Error( 'Invalid visual annotation.' );
 		}
 		const typed = annotation as StudioVisualAnnotationSummary;

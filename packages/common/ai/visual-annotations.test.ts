@@ -31,4 +31,13 @@ describe( 'validateStudioVisualAnnotations', () => {
 			expect( () => validateStudioVisualAnnotations( value ) ).toThrow();
 		}
 	);
+
+	it( 'rejects unexpected and oversized fields', () => {
+		expect( () =>
+			validateStudioVisualAnnotations( [ { comment: 'Valid', selector: '#private' } ] )
+		).toThrow( 'Invalid visual annotation' );
+		expect( () =>
+			validateStudioVisualAnnotations( [ { comment: 'x'.repeat( 1_000_001 ) } ] )
+		).toThrow( 'too much data' );
+	} );
 } );

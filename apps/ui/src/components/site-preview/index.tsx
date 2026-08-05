@@ -71,6 +71,8 @@ interface InspectorEvent {
 	command?: PreviewShortcutCommandType;
 }
 
+const MAX_INSPECTOR_BRIDGE_MESSAGE_LENGTH = 1_100_000;
+
 interface InspectorState {
 	ready: boolean;
 	isPicking: boolean;
@@ -1166,6 +1168,7 @@ function WebviewSurface( {
 	const progressTimerRef = useRef< ReturnType< typeof setInterval > | null >( null );
 	const progressResetTimerRef = useRef< ReturnType< typeof setTimeout > | null >( null );
 	const inspectorBridgeTokenRef = useRef( globalThis.crypto.randomUUID() );
+	const inspectorStateRef = useRef< InspectorState >( EMPTY_INSPECTOR_STATE );
 	useEffect( () => {
 		onAnnotationsDoneRef.current = onAnnotationsDone;
 	}, [ onAnnotationsDone ] );
@@ -1181,6 +1184,11 @@ function WebviewSurface( {
 	useEffect( () => {
 		onNavigateRef.current = onNavigate;
 	}, [ onNavigate ] );
+
+	const publishInspectorState = useCallback( ( state: InspectorState ) => {
+		inspectorStateRef.current = state;
+		onInspectorStateRef.current?.( state );
+	}, [] );
 
 	const publishBrowserState = useCallback( ( patch: Partial< BrowserNavigationState > = {} ) => {
 		const webview = ref.current as WebviewTag | null;
@@ -1273,14 +1281,7 @@ function WebviewSurface( {
 			webview
 				.executeJavaScript( createInspectorPageScript( inspectorBridgeTokenRef.current ), false )
 				.then( () => {
-					// The injected script reports the real picking/count state
-					// through the console bridge; this just flips `ready` so the
-					// host controls enable without waiting for that round-trip.
-					onInspectorStateRef.current?.( {
-						ready: true,
-						isPicking: false,
-						annotationCount: 0,
-					} );
+					publishInspectorState( { ...inspectorStateRef.current, ready: true } );
 				} )
 				.catch( () => {
 					// Transient injection failures (e.g. frame swapped mid-eval)
@@ -1292,6 +1293,7 @@ function WebviewSurface( {
 			const consoleEvent = event as WebviewConsoleEvent;
 			if ( typeof consoleEvent.message !== 'string' ) return;
 			if ( ! consoleEvent.message.startsWith( INSPECTOR_BRIDGE_PREFIX ) ) return;
+			if ( consoleEvent.message.length > MAX_INSPECTOR_BRIDGE_MESSAGE_LENGTH ) return;
 			let parsed: InspectorEvent | null = null;
 			try {
 				parsed = JSON.parse( consoleEvent.message.slice( INSPECTOR_BRIDGE_PREFIX.length ) );
@@ -1307,10 +1309,17 @@ function WebviewSurface( {
 				return;
 			}
 			if ( parsed.type === 'state' ) {
-				onInspectorStateRef.current?.( {
+				const annotationCount =
+					typeof parsed.annotationCount === 'number' &&
+					Number.isInteger( parsed.annotationCount ) &&
+					parsed.annotationCount >= 0 &&
+					parsed.annotationCount <= 100
+						? parsed.annotationCount
+						: 0;
+				publishInspectorState( {
 					ready: true,
-					isPicking: Boolean( parsed.isPicking ),
-					annotationCount: typeof parsed.annotationCount === 'number' ? parsed.annotationCount : 0,
+					isPicking: parsed.isPicking === true,
+					annotationCount,
 				} );
 				return;
 			}
@@ -1339,7 +1348,7 @@ function WebviewSurface( {
 		};
 		const handleStartLoading = () => {
 			didReadTitleAfterLoad = false;
-			onInspectorStateRef.current?.( EMPTY_INSPECTOR_STATE );
+			publishInspectorState( EMPTY_INSPECTOR_STATE );
 			publishBrowserState( { title: null } );
 			startProgress();
 		};
@@ -1374,7 +1383,13 @@ function WebviewSurface( {
 			webview.removeEventListener( 'did-fail-load', handleStopLoading );
 			webview.removeEventListener( 'did-finish-load', handleStopLoading );
 		};
-	}, [ clearProgressTimers, finishProgress, publishBrowserState, startProgress ] );
+	}, [
+		clearProgressTimers,
+		finishProgress,
+		publishBrowserState,
+		publishInspectorState,
+		startProgress,
+	] );
 
 	// Navigation effect — gated on `ready` so the first call happens after
 	// `dom-ready` (the initial url is loaded by the `src` attribute on the

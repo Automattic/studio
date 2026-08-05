@@ -39,8 +39,12 @@ export const INSPECTOR_PAGE_SCRIPT =
 							( annotation ) =>
 								typeof annotation === 'object' &&
 								annotation !== null &&
+								typeof annotation.id === 'string' &&
+								annotation.id.length > 0 &&
+								annotation.id.length <= 200 &&
 								typeof annotation.comment === 'string' &&
-								annotation.comment.trim()
+								annotation.comment.trim() &&
+								annotation.comment.length <= 10000
 						)
 						.slice( 0, MAX_ANNOTATIONS )
 				: [];

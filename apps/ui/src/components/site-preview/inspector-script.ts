@@ -949,10 +949,14 @@ export const INSPECTOR_PAGE_SCRIPT =
 	}
 
 	function elementsAtPoint( initial, clientX, clientY ) {
+		const MAX_CANDIDATES = 30;
+		const MAX_FALLBACK_ELEMENTS = 5000;
+		const MAX_FALLBACK_MS = 20;
 		const candidates = [];
 		const seen = new Set();
 		const add = ( el ) => {
-			if ( candidates.length >= 30 || ! el || seen.has( el ) || isOurElement( el ) ) return;
+			if ( candidates.length >= MAX_CANDIDATES || ! el || seen.has( el ) || isOurElement( el ) )
+				return;
 			if ( el === document.documentElement || el === document.body ) return;
 			const rect = el.getBoundingClientRect();
 			if ( rect.width <= 0 || rect.height <= 0 ) return;
@@ -967,7 +971,16 @@ export const INSPECTOR_PAGE_SCRIPT =
 			document.elementsFromPoint( clientX, clientY ).forEach( add );
 		}
 		const behind = [];
+		const scanStartedAt = performance.now();
+		let scannedElements = 0;
 		for ( const el of document.querySelectorAll( 'body *' ) ) {
+			scannedElements += 1;
+			if (
+				scannedElements > MAX_FALLBACK_ELEMENTS ||
+				( scannedElements % 50 === 0 && performance.now() - scanStartedAt > MAX_FALLBACK_MS )
+			) {
+				break;
+			}
 			if ( seen.has( el ) || isOurElement( el ) ) continue;
 			const rect = el.getBoundingClientRect();
 			if (

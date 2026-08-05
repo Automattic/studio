@@ -21,4 +21,22 @@ describe( 'validateStudioInspectorAnnotations', () => {
 			] )
 		).toThrow( 'too much data' );
 	} );
+
+	it.each( [
+		[ { id: 'a_1', comment: 'Valid', unexpected: true } ],
+		[ { id: 'a_1', comment: 'Valid', boundingBox: { width: '10', height: 20 } } ],
+		[ { id: 'a_1', comment: 'Valid', computedStyles: { color: 42 } } ],
+	] )( 'rejects unrecognized or malformed browser metadata', ( value ) => {
+		expect( () => validateStudioInspectorAnnotations( value ) ).toThrow(
+			'Invalid inspector annotation'
+		);
+	} );
+
+	it( 'rejects data that cannot be serialized', () => {
+		expect( () =>
+			validateStudioInspectorAnnotations( [
+				{ id: 'a_1', comment: 'Valid', timestamp: BigInt( 1 ) },
+			] )
+		).toThrow( 'Invalid inspector annotations' );
+	} );
 } );

@@ -22,9 +22,6 @@
 	flex-shrink: 0;
 	background: color-mix(in srgb, var(--wpds-color-fg-interactive-brand) 8%, transparent);
 	border-bottom: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral-weak);
-	/* The modal backdrop covers the window's usual drag region, so let the
-	   header act as a drag handle to keep the app window movable while it's open. */
-	-webkit-app-region: drag;
 }
 
 .close {
@@ -32,7 +29,18 @@
 	top: var(--wpds-dimension-padding-sm);
 	inset-inline-end: var(--wpds-dimension-padding-sm);
 	z-index: 1;
-	-webkit-app-region: no-drag;
+}
+
+/* The modal backdrop covers the window's usual drag region, so nothing is
+   movable while the tour is open. The popup itself can't be a drag handle —
+   it's centered with a CSS transform, and Chromium ignores -webkit-app-region
+   under a transformed ancestor — but the backdrop isn't transformed, so make it
+   the drag surface. Scoped to this guide's backdrop (the sibling preceding our
+   popup) so every other dialog keeps its click-outside-to-dismiss. */
+:global(
+	[data-testid='dialog-backdrop']:has(~ [data-orientation-guide], ~ * [data-orientation-guide])
+) {
+	-webkit-app-region: drag;
 }
 
 .content {

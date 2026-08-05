@@ -1,13 +1,12 @@
 import {
 	clampQuotaFraction,
-	formatAiBlockedNotice,
 	formatQuotaPercentage,
 	formatQuotaResetDate,
 	getStudioCodeAiAccessState,
 } from '@studio/common/lib/studio-assistant-quota';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
-import { AiAccessRequiredNotice } from 'src/components/ai-access-required-notice';
+import { AiAccessRequiredNotice, AiBlockedNotice } from 'src/components/ai-access-required-notice';
 import ProgressBar from 'src/components/progress-bar';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
@@ -44,7 +43,7 @@ export function PromptInfo() {
 						<div className={ cx( 'flex flex-row items-center', ! isDenied && 'text-right' ) }>
 							<span className="text-frame-text-secondary">
 								{ isOffline && __( "You're currently offline" ) }
-								{ accessState === 'blocked' && formatAiBlockedNotice() }
+								{ accessState === 'blocked' && <AiBlockedNotice /> }
 								{ accessState === 'not-enabled' && (
 									<AiAccessRequiredNotice quota={ assistantQuota } />
 								) }

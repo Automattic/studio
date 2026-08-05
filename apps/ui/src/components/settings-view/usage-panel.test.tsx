@@ -224,10 +224,12 @@ describe( 'UsagePanel', () => {
 		render( <UsagePanel /> );
 
 		expect(
-			screen.getByText(
-				'Studio Code AI is blocked for this WordPress.com account. If you believe this is a mistake, contact WordPress.com support.'
-			)
+			screen.getByText( /Studio Code AI is blocked for this WordPress.com account/ )
 		).toBeInTheDocument();
+		expect( screen.getByRole( 'link', { name: 'contact WordPress.com support' } ) ).toHaveAttribute(
+			'href',
+			'https://wordpress.com/support/contact/'
+		);
 	} );
 
 	it( 'shows the request-access copy, not the suspension copy, for an ungranted default account', () => {
@@ -251,9 +253,7 @@ describe( 'UsagePanel', () => {
 			screen.getByRole( 'link', { name: 'developer.wordpress.com/studio/studio-code-beta' } )
 		).toHaveAttribute( 'href', 'https://developer.wordpress.com/studio/studio-code-beta/' );
 		expect(
-			screen.queryByText(
-				'Studio Code AI is blocked for this WordPress.com account. If you believe this is a mistake, contact WordPress.com support.'
-			)
+			screen.queryByText( /Studio Code AI is blocked for this WordPress.com account/ )
 		).not.toBeInTheDocument();
 	} );
 

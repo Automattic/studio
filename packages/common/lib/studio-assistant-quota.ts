@@ -6,6 +6,8 @@ export const STUDIO_ASSISTANT_QUOTA_URL =
 
 export const ADD_PAYMENT_METHOD_URL = 'https://my.wordpress.com/me/billing/payment-methods/add';
 
+export const WPCOM_SUPPORT_CONTACT_URL = 'https://wordpress.com/support/contact/';
+
 export const studioAssistantQuotaSchema = z
 	.object( {
 		cost_usage: z.number(),
@@ -98,11 +100,15 @@ export function formatQuotaResetDate( date: string, locale?: string ): string {
 /**
  * User-facing copy for an account whose Studio Code AI access was explicitly
  * blocked (access === "blocked", STU-2143/STU-2146). Shared by every surface
- * so the wording stays consistent.
+ * so the wording stays consistent. The string wraps the support
+ * call-to-action in a `<supportLink>` token: render it with
+ * `createInterpolateElement`, pointing the token at
+ * `WPCOM_SUPPORT_CONTACT_URL` — or at a plain `<span />` on surfaces that
+ * show their own support button.
  */
 export function formatAiBlockedNotice(): string {
 	return __(
-		'Studio Code AI is blocked for this WordPress.com account. If you believe this is a mistake, contact WordPress.com support.'
+		'Studio Code AI is blocked for this WordPress.com account. If you believe this is a mistake, <supportLink>contact WordPress.com support</supportLink>.'
 	);
 }
 
@@ -110,30 +116,41 @@ export const STUDIO_CODE_AI_BETA_APPLY_URL =
 	'https://developer.wordpress.com/studio/studio-code-beta/';
 
 /**
- * User-facing copy for an account that hasn't been granted Studio Code AI
- * beta access yet (STU-2146). Deliberately distinct from the blocked notice:
- * nothing is wrong with the account — access just hasn't been enabled. Spend
- * on the quota means the account has demonstrably used Studio Code AI this
- * billing cycle (the backend keeps reporting the real month total after
- * access flips off), so those users read that the requirement is new rather
- * than that the feature never existed for them.
- *
- * The returned string wraps the application URL in an `<applyLink>` token:
- * render it with `createInterpolateElement`, pointing the token at
- * `STUDIO_CODE_AI_BETA_APPLY_URL`.
+ * Headline sentence for an account that hasn't been granted Studio Code AI
+ * beta access yet (STU-2146), without an apply CTA — for surfaces that render
+ * their own action button (e.g. the AccessRequirements gate). Spend on the
+ * quota means the account has demonstrably used Studio Code AI this billing
+ * cycle (the backend keeps reporting the real month total after access flips
+ * off), so those users read that the requirement is new rather than that the
+ * feature never existed for them.
+ */
+export function formatAiAccessRequiredHeadline(
+	quota?: Pick< StudioAssistantQuota, 'costUsage' > | null
+): string {
+	if ( quota && quota.costUsage > 0 ) {
+		return __( 'Thanks for participating in the Studio Code AI beta. Access is now limited.' );
+	}
+	return __( 'Studio Code AI is currently available through limited beta access.' );
+}
+
+/**
+ * Full inline notice for an account without Studio Code AI beta access:
+ * the headline above followed by an apply sentence. Deliberately distinct
+ * from the blocked notice — nothing is wrong with the account; access just
+ * hasn't been enabled. The apply sentence wraps the application URL in an
+ * `<applyLink>` token: render it with `createInterpolateElement`, pointing
+ * the token at `STUDIO_CODE_AI_BETA_APPLY_URL`.
  */
 export function formatAiAccessRequiredNotice(
 	quota?: Pick< StudioAssistantQuota, 'costUsage' > | null
 ): string {
-	if ( quota && quota.costUsage > 0 ) {
-		return __(
-			'Thanks for participating in the Studio Code AI beta. Access is now limited. Apply to continue at <applyLink>developer.wordpress.com/studio/studio-code-beta</applyLink>.'
-		);
-	}
-
-	return __(
-		'Studio Code AI is currently available through limited beta access. Apply at <applyLink>developer.wordpress.com/studio/studio-code-beta</applyLink>.'
-	);
+	const applySentence =
+		quota && quota.costUsage > 0
+			? __(
+					'Apply to continue at <applyLink>developer.wordpress.com/studio/studio-code-beta</applyLink>.'
+			  )
+			: __( 'Apply at <applyLink>developer.wordpress.com/studio/studio-code-beta</applyLink>.' );
+	return `${ formatAiAccessRequiredHeadline( quota ) } ${ applySentence }`;
 }
 
 /**

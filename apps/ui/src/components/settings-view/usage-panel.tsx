@@ -2,7 +2,6 @@ import {
 	clampQuotaFraction,
 	formatQuotaPercentage,
 	formatQuotaResetDate,
-	formatAiBlockedNotice,
 	getStudioCodeAiAccessState,
 } from '@studio/common/lib/studio-assistant-quota';
 import { __, _n, sprintf } from '@wordpress/i18n';
@@ -10,7 +9,7 @@ import { moreHorizontal } from '@wordpress/icons';
 import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { SigninNotice } from '@/components/agentic-signin-banner';
-import { AiAccessRequiredNotice } from '@/components/ai-access-required-notice';
+import { AiAccessRequiredNotice, AiBlockedNotice } from '@/components/ai-access-required-notice';
 import * as Menu from '@/components/menu';
 import { OfflineNotice } from '@/components/offline-banner';
 import { useConnector } from '@/data/core';
@@ -71,7 +70,7 @@ function AiCreditsSummary() {
 		content = (
 			<div className={ styles.previewUsageText }>
 				{ accessState === 'blocked' ? (
-					formatAiBlockedNotice()
+					<AiBlockedNotice />
 				) : (
 					<AiAccessRequiredNotice quota={ quota } />
 				) }

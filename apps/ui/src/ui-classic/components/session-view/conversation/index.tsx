@@ -25,10 +25,7 @@ import {
 	splitCommandArgs,
 	type NormalizedToolResult,
 } from '@studio/common/ai/tools';
-import {
-	formatAiBlockedNotice,
-	formatUsageCapNotice,
-} from '@studio/common/lib/studio-assistant-quota';
+import { formatUsageCapNotice } from '@studio/common/lib/studio-assistant-quota';
 import { __, sprintf } from '@wordpress/i18n';
 import {
 	blockDefault,
@@ -82,7 +79,7 @@ import {
 	type ReactNode,
 	MouseEvent as ReactMouseEvent,
 } from 'react';
-import { AiAccessRequiredNotice } from '@/components/ai-access-required-notice';
+import { AiAccessRequiredNotice, AiBlockedNotice } from '@/components/ai-access-required-notice';
 import { CopyButton } from '@/components/copy-button';
 import { Markdown } from '@/components/markdown';
 import { useConnector, type LoadedAiSession } from '@/data/core';
@@ -1201,7 +1198,7 @@ function TurnErrorMarker( { message }: { message: string } ) {
 	const { data: quota } = useStudioAssistantQuota( { enabled: isUsageCap || isAccessRequired } );
 	let text: ReactNode;
 	if ( isAiBlockedError( message ) ) {
-		text = formatAiBlockedNotice();
+		text = <AiBlockedNotice />;
 	} else if ( isAccessRequired ) {
 		text = <AiAccessRequiredNotice quota={ quota } />;
 	} else if ( isUsageCap ) {

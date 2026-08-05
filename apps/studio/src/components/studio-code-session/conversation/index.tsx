@@ -24,15 +24,12 @@ import {
 	getToolResultDiff,
 	type NormalizedToolResult,
 } from '@studio/common/ai/tools';
-import {
-	formatAiBlockedNotice,
-	formatUsageCapNotice,
-} from '@studio/common/lib/studio-assistant-quota';
+import { formatUsageCapNotice } from '@studio/common/lib/studio-assistant-quota';
 import { __ } from '@wordpress/i18n';
 import { image, page } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { AiAccessRequiredNotice } from 'src/components/ai-access-required-notice';
+import { AiAccessRequiredNotice, AiBlockedNotice } from 'src/components/ai-access-required-notice';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useGetStudioAssistantQuota } from 'src/stores/wpcom-api';
@@ -665,7 +662,7 @@ function TurnErrorMarker( { message }: { message: string } ) {
 	} );
 	let text: ReactNode;
 	if ( isAiBlockedError( message ) ) {
-		text = formatAiBlockedNotice();
+		text = <AiBlockedNotice />;
 	} else if ( isAccessRequired ) {
 		text = <AiAccessRequiredNotice quota={ quota } />;
 	} else if ( isUsageCap ) {

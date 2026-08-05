@@ -7,7 +7,9 @@ import {
 	clipboard,
 	dialog,
 	shell,
+	webContents,
 	type IpcMainInvokeEvent,
+	type WebContents,
 	Notification,
 	SaveDialogOptions,
 } from 'electron';
@@ -104,6 +106,7 @@ import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import {
 	getBetaFeatures as getBetaFeaturesFromLib,
 	updateBetaFeature as updateBetaFeatureInLib,
+	type AgenticUiSurface,
 } from 'src/lib/beta-features';
 import {
 	bumpAggregatedUniqueStat,
@@ -260,6 +263,8 @@ export {
 export { getDefaultSiteDirectory, saveDefaultSiteDirectory };
 
 export { importSite, exportSite } from 'src/modules/import-export/lib/ipc-handlers';
+
+export { fetchSiteRest as fetchSiteRestApi } from 'src/lib/wordpress-rest-api';
 
 export async function recordAnalyticsEvent(
 	_event: IpcMainInvokeEvent,
@@ -1528,8 +1533,11 @@ export async function getBetaFeatures( _event: IpcMainInvokeEvent ): Promise< Be
 	return await getBetaFeaturesFromLib();
 }
 
-export async function enableAgenticUi( _event: IpcMainInvokeEvent ): Promise< void > {
-	await updateBetaFeatureInLib( 'enableAgenticUi', true );
+export async function enableAgenticUi(
+	_event: IpcMainInvokeEvent,
+	surface: AgenticUiSurface = 'settings'
+): Promise< void > {
+	await updateBetaFeatureInLib( 'enableAgenticUi', true, surface );
 	setAgenticUiEnabled( true );
 	const mainWindow = await getMainWindow();
 	if ( mainWindow && ! mainWindow.isDestroyed() ) {
@@ -1537,8 +1545,11 @@ export async function enableAgenticUi( _event: IpcMainInvokeEvent ): Promise< vo
 	}
 }
 
-export async function disableAgenticUi( _event: IpcMainInvokeEvent ): Promise< void > {
-	await updateBetaFeatureInLib( 'enableAgenticUi', false );
+export async function disableAgenticUi(
+	_event: IpcMainInvokeEvent,
+	surface: AgenticUiSurface = 'settings'
+): Promise< void > {
+	await updateBetaFeatureInLib( 'enableAgenticUi', false, surface );
 	setAgenticUiEnabled( false );
 	const mainWindow = await getMainWindow();
 	if ( mainWindow && ! mainWindow.isDestroyed() ) {
@@ -2464,5 +2475,75 @@ export async function stopRemoteSessionDaemon(
 		} );
 		emitter.on( 'failure', ( { error } ) => reject( error ) );
 		emitter.on( 'error', ( { error } ) => reject( error ) );
+	} );
+}
+
+function getOwnedWebviewContents( event: IpcMainInvokeEvent, webContentsId: number ): WebContents {
+	if ( ! Number.isInteger( webContentsId ) || webContentsId <= 0 ) {
+		throw new Error( 'Invalid webview identifier.' );
+	}
+
+	const target = webContents.fromId( webContentsId );
+	if ( ! target || target.isDestroyed() ) {
+		throw new Error( 'Webview is no longer available.' );
+	}
+
+	if ( target.hostWebContents?.id !== event.sender.id ) {
+		throw new Error( 'Webview does not belong to the current window.' );
+	}
+
+	return target;
+}
+
+function attachDebuggerIfNeeded( target: WebContents ): boolean {
+	if ( target.debugger.isAttached() ) {
+		return false;
+	}
+
+	target.debugger.attach( '1.3' );
+	return true;
+}
+
+async function sendDebuggerCommand< T >(
+	target: WebContents,
+	method: string,
+	params?: Record< string, unknown >
+): Promise< T > {
+	return ( await target.debugger.sendCommand( method, params ) ) as T;
+}
+
+// Simulates a viewport for the preview webview via the CDP device-metrics
+// override that DevTools device mode is built on: the guest lays out at
+// `width`×`height` CSS px and Chromium scales the rendered result by `scale`
+// to fit the webview, remapping input coordinates to match. `null` returns
+// the guest to the webview's natural size.
+export async function setWebviewViewport(
+	event: IpcMainInvokeEvent,
+	webContentsId: number,
+	viewport: { width: number; height: number; scale: number; mobile?: boolean } | null
+): Promise< void > {
+	const target = getOwnedWebviewContents( event, webContentsId );
+	attachDebuggerIfNeeded( target );
+	if ( ! viewport ) {
+		await sendDebuggerCommand( target, 'Emulation.clearDeviceMetricsOverride' );
+		return;
+	}
+	const { width, height, scale, mobile } = viewport;
+	const isValidDimension = ( value: number ) =>
+		Number.isInteger( value ) && value > 0 && value <= 10000;
+	const isValidScale =
+		typeof scale === 'number' && Number.isFinite( scale ) && scale > 0 && scale <= 1;
+	if ( ! isValidDimension( width ) || ! isValidDimension( height ) || ! isValidScale ) {
+		throw new Error( 'Unsupported webview viewport.' );
+	}
+	await sendDebuggerCommand( target, 'Emulation.setDeviceMetricsOverride', {
+		width,
+		height,
+		// 0 keeps the display's real device pixel ratio.
+		deviceScaleFactor: 0,
+		// Mobile presets emulate a phone (meta-viewport handling and mobile UA
+		// hints), not just a narrow desktop window.
+		mobile: mobile === true,
+		scale,
 	} );
 }

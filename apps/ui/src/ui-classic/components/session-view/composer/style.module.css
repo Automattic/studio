@@ -598,3 +598,7 @@
 	color: var(--wpds-color-fg-content-error, #dc2626);
 	font-size: var(--wpds-typography-font-size-xs);
 }
+
+.dialogDescription {
+	text-wrap: pretty;
+}

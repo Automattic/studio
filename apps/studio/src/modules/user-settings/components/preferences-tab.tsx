@@ -64,7 +64,7 @@ function AgenticUiCallout() {
 						) }
 					</p>
 				</div>
-				<Button variant="primary" onClick={ () => getIpcApi().enableAgenticUi() }>
+				<Button variant="primary" onClick={ () => getIpcApi().enableAgenticUi( 'settings' ) }>
 					{ __( 'Try it' ) }
 				</Button>
 			</div>
@@ -153,7 +153,7 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 			await saveDefaultSiteDirectory( dirtyDefaultSiteDirectory );
 		}
 		if ( dirtyAnalyticsEnabled !== undefined ) {
-			await saveAnalyticsEnabled( dirtyAnalyticsEnabled );
+			await saveAnalyticsEnabled( { enabled: dirtyAnalyticsEnabled, surface: 'settings' } );
 		}
 		if ( isQuitSitesBehaviorDirty ) {
 			await saveQuitSitesBehavior( dirtyQuitSitesBehavior );

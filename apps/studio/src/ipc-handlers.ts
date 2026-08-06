@@ -2560,3 +2560,5 @@ export async function setWebviewViewport(
 		scale,
 	} );
 }
+
+export { showTextContextMenu } from 'src/text-context-menu';

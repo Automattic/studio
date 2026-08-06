@@ -34,6 +34,7 @@ import { useSessionCommands } from '@/hooks/use-session-commands';
 import { SessionUIProvider, useSessionPreviewAnnotations } from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
+import { formatComposerTextQuote, watchComposerTextQuote } from '@/lib/composer-text-quote';
 import { AccessRequirements } from './access-requirements';
 import { formatAnnotationsAsPrompt, formatAnnotationsSubmittedMessage } from './annotations';
 import { Composer, ComposerSkeleton, type ComposerHandle } from './composer';
@@ -250,6 +251,13 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	);
 	const scrollRef = useRef< HTMLDivElement >( null );
 	const composerRef = useRef< ComposerHandle >( null );
+	useEffect(
+		() =>
+			watchComposerTextQuote( ( text ) => {
+				composerRef.current?.appendDraft( formatComposerTextQuote( text ) );
+			} ),
+		[]
+	);
 	const [ isScrolledAway, setIsScrolledAway ] = useState( false );
 	const hasSession = !! data;
 

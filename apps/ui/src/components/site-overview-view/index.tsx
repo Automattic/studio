@@ -114,7 +114,9 @@ function OverviewButton( {
 			>
 				{ icon }
 			</span>
-			<span className={ styles.overviewButtonLabel }>{ label }</span>
+			<span className={ styles.overviewButtonLabel } title={ label }>
+				{ label }
+			</span>
 		</Button>
 	);
 }
@@ -122,7 +124,7 @@ function OverviewButton( {
 function ButtonSection( { title, children }: { title: string; children: ReactNode } ) {
 	return (
 		<section className={ styles.buttonSection }>
-			<h2>{ title }</h2>
+			<h2 className={ styles.columnHeading }>{ title }</h2>
 			<div className={ styles.buttonGrid }>{ children }</div>
 		</section>
 	);

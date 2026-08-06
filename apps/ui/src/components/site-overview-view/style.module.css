@@ -118,58 +118,61 @@
 		calc(var(--wpds-dimension-padding-2xl) + 46px);
 }
 
-.buttonSection h2 {
-	margin: 0 0 var(--wpds-dimension-padding-md);
+.columnHeading {
+	margin: 0;
 	font-size: var(--wpds-typography-font-size-sm);
 	line-height: var(--wpds-typography-line-height-sm);
 	font-weight: var(--wpds-typography-font-weight-medium);
 	color: var(--wpds-color-fg-content-neutral);
 }
 
-/* Each section is a full-width row (Customize, then Manage), stacked. */
+/* Each section is a full-width row (Customize, Open in…, Manage), stacked. */
 .actionsColumn {
 	display: flex;
 	flex-direction: column;
 	width: 100%;
 	min-width: 0;
-	gap: var(--wpds-dimension-padding-xl);
+	gap: var(--wpds-dimension-padding-3xl);
 }
 
 .buttonSection {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-md);
 	width: 100%;
 }
 
-/* Buttons flow across the row and wrap to the next line as the panel narrows. */
+/* Equal-width cells reflow as the panel narrows, keeping every section aligned. */
 .buttonGrid {
-	display: flex;
-	flex-wrap: wrap;
-	gap: var(--wpds-dimension-padding-xs);
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+	gap: var(--wpds-dimension-padding-md);
 }
 
 .overviewButton {
-	--wp-ui-button-height: 32px;
+	--wp-ui-button-height: 36px;
 
 	display: inline-flex;
 	align-items: center;
 	justify-content: flex-start;
-	/* Never squeeze a button until its label wraps — wrap the whole button to
-	   the next row instead. */
-	flex: 0 0 auto;
-	gap: var(--wpds-dimension-padding-xs);
+	width: 100%;
+	gap: var(--wpds-dimension-padding-sm);
 	min-width: 0;
-	padding: 0 var(--wpds-dimension-padding-sm);
-	border: 0;
-	border-radius: 4px;
+	padding: 0 var(--wpds-dimension-padding-md);
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: var(--wpds-border-radius-sm);
 	background: transparent;
 	color: var(--wpds-color-fg-content-neutral);
 	text-align: start;
 }
 
 .overviewButton:not([data-disabled]):is(:hover, :focus-visible) {
-	background: var(
-		--wpds-color-bg-interactive-neutral-weak-active,
-		var(--wpds-color-bg-surface-neutral-weak)
-	);
+	border-color: var(--wpds-color-stroke-interactive-neutral);
+	background: var(--wpds-color-bg-interactive-neutral-weak-active);
+}
+
+.overviewButton[data-disabled] {
+	border-color: var(--wpds-color-stroke-surface-neutral-weak);
 }
 
 .overviewButtonIcon {
@@ -191,7 +194,9 @@
 }
 
 .overviewButtonLabel {
+	overflow: hidden;
 	white-space: nowrap;
+	text-overflow: ellipsis;
 	font-size: var(--wpds-typography-font-size-sm);
 	line-height: var(--wpds-typography-line-height-sm);
 	color: var(--wpds-color-fg-content-neutral);
@@ -199,7 +204,7 @@
 
 .destructiveButton .overviewButtonIcon,
 .destructiveButton .overviewButtonLabel {
-	color: var(--wpds-color-fg-content-error, var(--wpds-color-fg-content-neutral));
+	color: var(--wpds-color-fg-content-error);
 }
 
 @media (max-width: 760px) {

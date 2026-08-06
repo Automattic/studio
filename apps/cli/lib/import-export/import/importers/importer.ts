@@ -19,10 +19,7 @@ import trash from 'trash';
 import { SiteData } from 'cli/lib/cli-config/core';
 import { ensureWpConfig } from 'cli/lib/native-php/site-setup';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
-import {
-	ensureSqliteIntegrationForImportedSite,
-	keepSqliteIntegrationUpdated,
-} from 'cli/lib/sqlite-integration';
+import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { ImportExportEventEmitter } from '../../events';
 import { BackupContents, MetaFileData } from '../types';
 import { updateSiteUrl } from '../update-site-url';
@@ -91,12 +88,6 @@ abstract class BaseImporter extends ImportExportEventEmitter implements Importer
 		if ( ! sqlFiles.length ) {
 			return;
 		}
-
-		// The `wp sqlite import` below runs without the reprint runtime.php that wires
-		// SQLite for imported sites, so the integration has to be discoverable in
-		// wp-content instead. `SQLImporter` reaches here without going through
-		// `importWpContent`, which is where the backup importers already install it.
-		await ensureSqliteIntegrationForImportedSite( site );
 
 		this.emit( ImportEvents.IMPORT_DATABASE_START );
 

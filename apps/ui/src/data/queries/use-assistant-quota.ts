@@ -13,9 +13,12 @@ export function useStudioAssistantQuota( { enabled = true }: { enabled?: boolean
 		queryKey: [ ...ASSISTANT_QUOTA_QUERY_KEY, authUser?.id ],
 		queryFn: () => connector.getStudioAssistantQuota(),
 		enabled: enabled && !! authUser,
-		// Quota moves slowly; avoid refetching on every panel mount and
-		// window focus.
+		// Quota moves slowly; avoid refetching on every panel mount. Focus is
+		// the exception: always recheck so the entitlement gate picks up a
+		// lifted block or newly granted access when the user comes back from
+		// resolving it in the browser.
 		staleTime: 5 * 60 * 1000,
+		refetchOnWindowFocus: 'always',
 		meta: { persist: false },
 	} );
 	// The quota belongs to the signed-in WordPress.com account; hide any

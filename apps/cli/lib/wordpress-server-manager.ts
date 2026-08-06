@@ -20,6 +20,7 @@ import {
 	SITE_RUNTIME_PLAYGROUND,
 	type SiteRuntime,
 } from '@studio/common/lib/site-runtime';
+import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import { SiteCommandLoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
@@ -197,6 +198,12 @@ function buildServerConfig(
 	if ( site.enableDebugDisplay ) {
 		serverConfig.enableDebugDisplay = true;
 	}
+
+	if ( site.enableScriptDebug ) {
+		serverConfig.enableScriptDebug = true;
+	}
+
+	serverConfig.environmentType = getWpEnvironmentType( site );
 
 	return serverConfig;
 }

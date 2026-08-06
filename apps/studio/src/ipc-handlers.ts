@@ -95,6 +95,7 @@ import { shouldExcludeFromSync } from '@studio/common/lib/sync/exclude-from-sync
 import { shouldLimitDepth } from '@studio/common/lib/sync/tree-utils';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
+import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import {
 	cleanupBlueprintTempDir as cleanupBlueprintTempDirShared,
 	extractBlueprintBundle as extractBlueprintBundleShared,
@@ -978,6 +979,14 @@ export async function updateSite(
 
 	if ( updatedSite.enableDebugDisplay !== currentSite.enableDebugDisplay ) {
 		options.debugDisplay = updatedSite.enableDebugDisplay ?? false;
+	}
+
+	if ( updatedSite.enableScriptDebug !== currentSite.enableScriptDebug ) {
+		options.scriptDebug = updatedSite.enableScriptDebug ?? false;
+	}
+
+	if ( getWpEnvironmentType( updatedSite ) !== getWpEnvironmentType( currentSite ) ) {
+		options.environmentType = getWpEnvironmentType( updatedSite );
 	}
 
 	const hasCliChanges = Object.keys( options ).length > 2;

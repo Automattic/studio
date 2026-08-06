@@ -109,7 +109,7 @@ describe( 'CLI: studio config set', () => {
 	describe( 'Validation', () => {
 		it( 'should throw when no options provided', async () => {
 			await expect( runCommand( testSitePath, {} ) ).rejects.toThrow(
-				'At least one option (--name, --domain, --https, --php, --wp, --runtime, --file-access, --xdebug, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display) is required.'
+				'At least one option (--name, --domain, --https, --php, --wp, --runtime, --file-access, --xdebug, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display, --script-debug, --environment-type) is required.'
 			);
 		} );
 

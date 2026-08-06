@@ -27,6 +27,7 @@ import {
 import { requestSetAdminCredentials, toUrlSearchParams } from './lib/admin-credentials';
 import { getPhpMyAdminPath } from './lib/dependency-management/paths';
 import { runBlueprint } from './lib/native-php/blueprints';
+import { containsPath, dropCoveredPaths } from './lib/native-php/open-basedir';
 import {
 	killAllLivePhpProcesses,
 	spawnPhpProcess,
@@ -104,7 +105,15 @@ let blueprintQueue: Promise< unknown > = Promise.resolve();
 // Symlink-aware open_basedir state. PHP's open_basedir cannot be extended at
 // runtime, so when a new symlink appears under the site directory we have to
 // restart the PHP server with an updated allowlist.
-const currentOpenBasedirAllowlist: Set< string > = new Set();
+//
+// Held as two sets so a rescan can replace the scanned half wholesale: static
+// entries are fixed for the life of the server, while symlink targets come and go
+// as plugins and themes are linked and unlinked.
+const staticOpenBasedirAllowlist: Set< string > = new Set();
+let symlinkOpenBasedirAllowlist: Set< string > = new Set();
+// The list the running workers were started with. A rescan diffs against it:
+// added entries need a restart, removed ones can wait.
+let appliedOpenBasedirAllowlist: string[] = [];
 let symlinkWatcher: SymlinkWatcher | null = null;
 let symlinkRestartTimer: NodeJS.Timeout | null = null;
 let runningConfig: ServerConfig | null = null;
@@ -117,6 +126,22 @@ const NATIVE_PHP_WORKER_POOL_SIZE = 4;
 // disable_functions list; "all files" runs PHP unrestricted.
 function isFileAccessRestricted( config: ServerConfig ): boolean {
 	return getSiteFileAccess( config ) === SITE_FILE_ACCESS_SITE_DIRECTORY;
+}
+
+function getEffectiveOpenBasedirAllowlist(): string[] {
+	return dropCoveredPaths( [ ...staticOpenBasedirAllowlist, ...symlinkOpenBasedirAllowlist ] );
+}
+
+function isCoveredByOpenBasedirAllowlist( target: string ): boolean {
+	return [ ...staticOpenBasedirAllowlist, ...symlinkOpenBasedirAllowlist ].some( ( entry ) =>
+		containsPath( entry, target )
+	);
+}
+
+function clearOpenBasedirAllowlist(): void {
+	staticOpenBasedirAllowlist.clear();
+	symlinkOpenBasedirAllowlist = new Set();
+	appliedOpenBasedirAllowlist = [];
 }
 
 function logToConsole( ...args: Parameters< typeof console.log > ) {
@@ -232,12 +257,15 @@ function startSymlinkWatcher( sitePath: string ): void {
 	const wpContentPath = path.join( sitePath, 'wp-content' );
 	const watcher = new SymlinkWatcher();
 	watcher.on( 'symlink', ( target, symlinkPath ) => {
-		if ( currentOpenBasedirAllowlist.has( target ) ) {
+		// Covered means an existing entry already grants the target — usually the
+		// site directory itself, since a site's own symlinks resolve back inside it.
+		// Restarting for those would cost a request drop and buy nothing.
+		if ( isCoveredByOpenBasedirAllowlist( target ) ) {
 			return;
 		}
 
 		logToConsole( `Detected new symlink at ${ symlinkPath } -> ${ target }` );
-		currentOpenBasedirAllowlist.add( target );
+		symlinkOpenBasedirAllowlist.add( target );
 		scheduleAllowlistRestart();
 	} );
 
@@ -253,9 +281,9 @@ function startSymlinkWatcher( sitePath: string ): void {
 	} );
 
 	watcher.on( 'restart', () => {
-		// Events fired while the watcher was dead are lost. Re-scan wp-content and
-		// fold any newly discovered symlink targets into the allowlist.
-		void reconcileSymlinkAllowlist( wpContentPath );
+		// Events fired while the watcher was dead are lost. Re-scan the site and
+		// rebuild the scanned half of the allowlist from what is actually on disk.
+		void reconcileSymlinkAllowlist( sitePath );
 	} );
 
 	// Watch wp-content and its subdirectories for symlinks
@@ -263,25 +291,31 @@ function startSymlinkWatcher( sitePath: string ): void {
 	symlinkWatcher = watcher;
 }
 
-async function reconcileSymlinkAllowlist( wpContentPath: string ): Promise< void > {
+// Rescans the site and replaces the scanned half of the allowlist, so targets that
+// disappeared while the watcher was dead drop out instead of accumulating for the
+// life of the server. Safe as a wholesale replacement because the scan covers a
+// superset of what the watcher reports.
+//
+// Only new grants justify a restart: without them PHP is being denied access it
+// should have. A list that merely shrank is an over-grant, and restarting to
+// narrow it would drop in-flight requests and reset opcache for nothing the user
+// can see — the narrower list lands on the next restart that happens anyway.
+async function reconcileSymlinkAllowlist( sitePath: string ): Promise< void > {
 	let entries: string[];
 	try {
-		entries = await collectSymlinkAllowlistEntries( wpContentPath );
+		entries = await collectSymlinkAllowlistEntries( sitePath );
 	} catch ( error ) {
 		errorToConsole( 'Failed to reconcile symlink allowlist after watcher restart:', error );
 		return;
 	}
 
-	let added = false;
-	for ( const target of entries ) {
-		if ( ! currentOpenBasedirAllowlist.has( target ) ) {
-			logToConsole( `Discovered symlink target after watcher restart: ${ target }` );
-			currentOpenBasedirAllowlist.add( target );
-			added = true;
-		}
-	}
+	symlinkOpenBasedirAllowlist = new Set( entries );
 
-	if ( added ) {
+	const added = getEffectiveOpenBasedirAllowlist().filter(
+		( entry ) => ! appliedOpenBasedirAllowlist.some( ( applied ) => containsPath( applied, entry ) )
+	);
+	if ( added.length ) {
+		logToConsole( `Discovered symlink target(s) after watcher restart: ${ added.join( ', ' ) }` );
 		scheduleAllowlistRestart();
 	}
 }
@@ -322,7 +356,7 @@ async function restartPhpServer(): Promise< void > {
 	await stopCurrentPhpServer();
 
 	try {
-		phpProcess = await doStartServer( runningConfig, currentOpenBasedirAllowlist );
+		phpProcess = await doStartServer( runningConfig );
 	} catch ( error ) {
 		errorToConsole( `Failed to restart PHP server:`, error );
 		process.exit( 1 );
@@ -500,29 +534,30 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 		// With "all files" access the allowlist stays empty, which disables
 		// open_basedir entirely (see getDefaultPhpArgs).
 		if ( isFileAccessRestricted( config ) ) {
+			staticOpenBasedirAllowlist.add( config.sitePath );
+			staticOpenBasedirAllowlist.add( ROUTER_PATH );
+			staticOpenBasedirAllowlist.add( getPhpMyAdminPath() );
+			staticOpenBasedirAllowlist.add( getNativePhpMyAdminWpEnvPath( config ) );
+			staticOpenBasedirAllowlist.add( getPhpMyAdminSessionPath( config ) );
+			staticOpenBasedirAllowlist.add( muPluginsPath );
+			staticOpenBasedirAllowlist.add( os.tmpdir() );
+			if ( config.autoPrependFile ) {
+				staticOpenBasedirAllowlist.add( path.dirname( config.autoPrependFile ) );
+			}
+			config.openBasedirAllowList?.forEach( ( entry ) => staticOpenBasedirAllowlist.add( entry ) );
+
 			// Snapshot existing symlink targets so open_basedir grants them upfront. New
 			// symlinks added while the server runs are picked up by startSymlinkWatcher
 			// below and trigger a debounced restart with an extended allowlist.
-			const symlinkAllowlistEntries = await collectSymlinkAllowlistEntries( config.sitePath );
+			symlinkOpenBasedirAllowlist = new Set(
+				await collectSymlinkAllowlistEntries( config.sitePath )
+			);
 			stopSignal.throwIfAborted();
-
-			currentOpenBasedirAllowlist.add( config.sitePath );
-			currentOpenBasedirAllowlist.add( ROUTER_PATH );
-			currentOpenBasedirAllowlist.add( getPhpMyAdminPath() );
-			currentOpenBasedirAllowlist.add( getNativePhpMyAdminWpEnvPath( config ) );
-			currentOpenBasedirAllowlist.add( getPhpMyAdminSessionPath( config ) );
-			currentOpenBasedirAllowlist.add( muPluginsPath );
-			currentOpenBasedirAllowlist.add( os.tmpdir() );
-			if ( config.autoPrependFile ) {
-				currentOpenBasedirAllowlist.add( path.dirname( config.autoPrependFile ) );
-			}
-			symlinkAllowlistEntries.forEach( ( entry ) => currentOpenBasedirAllowlist.add( entry ) );
-			config.openBasedirAllowList?.forEach( ( entry ) => currentOpenBasedirAllowlist.add( entry ) );
 		}
 
 		runningConfig = config;
 
-		phpProcess = await doStartServer( config, currentOpenBasedirAllowlist, stopSignal );
+		phpProcess = await doStartServer( config, stopSignal );
 		stopSignal.throwIfAborted();
 		await setAdminCredentials( config, stopSignal );
 		stopSignal.throwIfAborted();
@@ -531,7 +566,7 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 		phpProcess = null;
 		await stopSymlinkWatcher();
 		runningConfig = null;
-		currentOpenBasedirAllowlist.clear();
+		clearOpenBasedirAllowlist();
 
 		if ( stopSignal.aborted ) {
 			logToConsole( `Aborted start server operation:`, error );
@@ -547,12 +582,15 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 
 async function doStartServer(
 	config: ServerConfig,
-	openBasedirAllowlist: Set< string >,
 	stopSignal?: AbortSignal
 ): Promise< ChildProcess > {
 	const phpVersion = resolveNativePhpVersion( config.phpVersion ?? '' );
 	const spawnedChildren: ChildProcess[] = [];
 	let proxyServer: http.Server | null = null;
+	// Recorded before spawning so a later rescan can diff against what the workers
+	// were actually given, including on the failure paths that tear the pool down.
+	const openBasedirAllowlist = getEffectiveOpenBasedirAllowlist();
+	appliedOpenBasedirAllowlist = openBasedirAllowlist;
 
 	logToConsole(
 		`Spawning native PHP worker pool with ${ NATIVE_PHP_WORKER_POOL_SIZE } workers on public port ${ config.port }`
@@ -585,7 +623,7 @@ async function doStartServer(
 					STUDIO_NATIVE_PHPMYADMIN_WP_ENV_PATH: phpMyAdminWpEnvPath,
 					STUDIO_PHPMYADMIN_SESSION_PATH: getPhpMyAdminSessionPath( config ),
 				},
-				onlyPathsThatPhpCanAccess: Array.from( openBasedirAllowlist ),
+				onlyPathsThatPhpCanAccess: openBasedirAllowlist,
 				disallowRiskyFunctions: isFileAccessRestricted( config ),
 				enableXdebug: config.enableXdebug,
 				autoPrependFile,
@@ -673,7 +711,7 @@ async function stopServer(): Promise< StopServerResult > {
 
 	await stopSymlinkWatcher();
 	runningConfig = null;
-	currentOpenBasedirAllowlist.clear();
+	clearOpenBasedirAllowlist();
 
 	const children = getCurrentPhpProcesses();
 	if ( children.length === 0 && ! phpProxyServer ) {

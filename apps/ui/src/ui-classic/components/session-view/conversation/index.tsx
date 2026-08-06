@@ -7,7 +7,11 @@ import {
 	stripMediaWidgetPayloadLines,
 	type StudioChatArtifactWidgetDraft,
 } from '@studio/common/ai/chat-artifacts';
-import { isAiBlockedError, isUsageCapError } from '@studio/common/ai/json-events';
+import {
+	isAiAccessRequiredError,
+	isAiBlockedError,
+	isUsageCapError,
+} from '@studio/common/ai/json-events';
 import {
 	isStudioCustomEntryOfType,
 	type StudioChatAttachmentSummary,
@@ -21,10 +25,7 @@ import {
 	splitCommandArgs,
 	type NormalizedToolResult,
 } from '@studio/common/ai/tools';
-import {
-	formatAiBlockedNotice,
-	formatUsageCapNotice,
-} from '@studio/common/lib/studio-assistant-quota';
+import { formatUsageCapNotice } from '@studio/common/lib/studio-assistant-quota';
 import { __, sprintf } from '@wordpress/i18n';
 import {
 	blockDefault,
@@ -69,21 +70,26 @@ import {
 } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import {
+	useEffect,
+	useId,
+	useMemo,
+	useRef,
+	useState,
+	type ReactNode,
+	MouseEvent as ReactMouseEvent,
+} from 'react';
+import { AiAccessRequiredNotice, AiBlockedNotice } from '@/components/ai-access-required-notice';
 import { CopyButton } from '@/components/copy-button';
 import { Markdown } from '@/components/markdown';
 import { useConnector, type LoadedAiSession } from '@/data/core';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useLocalMediaDataUrl } from '@/data/queries/use-local-media';
-import {
-	MESSAGE_TEXT_ATTRIBUTE,
-	QUOTABLE_TEXT_ATTRIBUTE,
-} from '@/hooks/use-text-context-menu';
+import { MESSAGE_TEXT_ATTRIBUTE, QUOTABLE_TEXT_ATTRIBUTE } from '@/hooks/use-text-context-menu';
 import { refreshIcon } from '@/lib/icons';
 import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
-import type { MouseEvent as ReactMouseEvent } from 'react';
 
 interface AgentQuestionRenderItem {
 	key: string;
@@ -1196,10 +1202,13 @@ function AgentQuestionBatch( {
 // instead of the raw provider message.
 function TurnErrorMarker( { message }: { message: string } ) {
 	const isUsageCap = isUsageCapError( message );
-	const { data: quota } = useStudioAssistantQuota( { enabled: isUsageCap } );
-	let text: string;
+	const isAccessRequired = isAiAccessRequiredError( message );
+	const { data: quota } = useStudioAssistantQuota( { enabled: isUsageCap || isAccessRequired } );
+	let text: ReactNode;
 	if ( isAiBlockedError( message ) ) {
-		text = formatAiBlockedNotice();
+		text = <AiBlockedNotice />;
+	} else if ( isAccessRequired ) {
+		text = <AiAccessRequiredNotice quota={ quota } />;
 	} else if ( isUsageCap ) {
 		text = formatUsageCapNotice( quota?.costResetDate );
 	} else {

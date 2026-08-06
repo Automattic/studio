@@ -212,11 +212,7 @@ describe( 'buildTextContextMenuTemplate', () => {
 			makeEnvironment()
 		);
 
-		expect( labelsOf( template ) ).toEqual( [
-			'Look Up “coexist”',
-			'separator',
-			'copy',
-		] );
+		expect( labelsOf( template ) ).toEqual( [ 'Look Up “coexist”', 'separator', 'copy' ] );
 		expect( template[ 0 ].type ).not.toBe( 'separator' );
 		expect( template.at( -1 )?.type ).not.toBe( 'separator' );
 	} );

@@ -106,6 +106,7 @@ import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import {
 	getBetaFeatures as getBetaFeaturesFromLib,
 	updateBetaFeature as updateBetaFeatureInLib,
+	type AgenticUiSurface,
 } from 'src/lib/beta-features';
 import {
 	bumpAggregatedUniqueStat,
@@ -131,7 +132,12 @@ import * as oauthClient from 'src/lib/oauth';
 import { getAiInstructionsPath } from 'src/lib/server-files-paths';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { setAgenticUiEnabled } from 'src/lib/studio-ui-mode';
-import { recordTracksEvent, type TracksChannel, type TracksUiVersion } from 'src/lib/tracks';
+import {
+	recordTracksEvent,
+	type TracksChannel,
+	type TracksSiteCreateFlowType,
+	type TracksUiVersion,
+} from 'src/lib/tracks';
 import { updateSiteUrl } from 'src/lib/update-site-url';
 import * as windowsHelpers from 'src/lib/windows-helpers';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
@@ -782,6 +788,7 @@ export async function createSite(
 		adminPassword?: string;
 		adminEmail?: string;
 		noStart?: boolean;
+		flowType?: TracksSiteCreateFlowType;
 	} = {}
 ): Promise< SiteDetails > {
 	const {
@@ -798,6 +805,7 @@ export async function createSite(
 		adminPassword,
 		adminEmail,
 		noStart = false,
+		flowType,
 	} = config;
 
 	const siteId = providedSiteId || crypto.randomUUID();
@@ -833,6 +841,7 @@ export async function createSite(
 				adminPassword,
 				adminEmail,
 				noStart,
+				flowType,
 			},
 			{ wpVersion, blueprint: blueprint?.blueprint }
 		);
@@ -1225,6 +1234,7 @@ export async function copySite(
 			: undefined,
 		adminEmail: sourceSite.adminEmail,
 		noStart: true,
+		flowType: 'duplicate',
 	} );
 
 	// Playground sets the correct siteurl internally, but for the native-php runtime, we need to
@@ -1422,6 +1432,10 @@ export function showItemInFolder( _event: IpcMainInvokeEvent, path: string ) {
 	shell.showItemInFolder( path );
 }
 
+export async function openStudioLogs( _event: IpcMainInvokeEvent ) {
+	await shell.openPath( getLogsFilePath() );
+}
+
 export async function readLocalMediaFile(
 	_event: IpcMainInvokeEvent,
 	path: string
@@ -1532,8 +1546,11 @@ export async function getBetaFeatures( _event: IpcMainInvokeEvent ): Promise< Be
 	return await getBetaFeaturesFromLib();
 }
 
-export async function enableAgenticUi( _event: IpcMainInvokeEvent ): Promise< void > {
-	await updateBetaFeatureInLib( 'enableAgenticUi', true );
+export async function enableAgenticUi(
+	_event: IpcMainInvokeEvent,
+	surface: AgenticUiSurface = 'settings'
+): Promise< void > {
+	await updateBetaFeatureInLib( 'enableAgenticUi', true, surface );
 	setAgenticUiEnabled( true );
 	const mainWindow = await getMainWindow();
 	if ( mainWindow && ! mainWindow.isDestroyed() ) {
@@ -1541,8 +1558,11 @@ export async function enableAgenticUi( _event: IpcMainInvokeEvent ): Promise< vo
 	}
 }
 
-export async function disableAgenticUi( _event: IpcMainInvokeEvent ): Promise< void > {
-	await updateBetaFeatureInLib( 'enableAgenticUi', false );
+export async function disableAgenticUi(
+	_event: IpcMainInvokeEvent,
+	surface: AgenticUiSurface = 'settings'
+): Promise< void > {
+	await updateBetaFeatureInLib( 'enableAgenticUi', false, surface );
 	setAgenticUiEnabled( false );
 	const mainWindow = await getMainWindow();
 	if ( mainWindow && ! mainWindow.isDestroyed() ) {

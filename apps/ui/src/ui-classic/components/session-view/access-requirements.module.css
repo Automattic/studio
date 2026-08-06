@@ -1,0 +1,132 @@
+/* Overlays the empty-state canvas like suggested-prompts: the copy sits just
+   below the W's center so it only overlaps the logo's lower legs, and a
+   progressive frost blurs the dots more the farther down they go. The layer
+   itself never takes pointer events; only the content does. */
+.root {
+	position: absolute;
+	inset: 0;
+	overflow: hidden;
+	pointer-events: none;
+}
+
+/* Progressive frost behind the copy. The layers start a few pixels above the
+   title (the copy block sits at 50% + 72px) so everything above stays fully
+   crisp; each stronger layer fades in a bit farther down. */
+.frost {
+	position: absolute;
+	top: calc(50% + 56px);
+	right: 0;
+	bottom: 0;
+	left: 0;
+	pointer-events: none;
+	backdrop-filter: blur(var(--frost-radius));
+	/* Fade on the leaves, never an ancestor — ancestor opacity would form a
+	   backdrop root and disable this backdrop-filter. */
+	animation: gate-fade-in 180ms ease-out;
+	/* Fade back out before the panel's bottom edge: a layer that reaches the
+	   clipped edge smears the darker window chrome behind the panel into a
+	   gray band. */
+	--frost-mask: linear-gradient(
+		to bottom,
+		transparent var(--frost-start),
+		black var(--frost-end),
+		black calc(100% - 96px),
+		transparent calc(100% - 16px)
+	);
+	mask-image: var(--frost-mask);
+	-webkit-mask-image: var(--frost-mask);
+}
+
+.frostSoft {
+	--frost-radius: 2px;
+	--frost-start: 0px;
+	--frost-end: 32px;
+}
+
+.frostMedium {
+	--frost-radius: 6px;
+	--frost-start: 8px;
+	--frost-end: 56px;
+}
+
+.frostStrong {
+	--frost-radius: 14px;
+	--frost-start: 24px;
+	--frost-end: 96px;
+}
+
+.frostIntense {
+	--frost-radius: 28px;
+	--frost-start: 48px;
+	--frost-end: 144px;
+}
+
+.copy {
+	position: absolute;
+	animation: gate-fade-in 180ms ease-out;
+	top: calc(50% + 72px);
+	left: 50%;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	box-sizing: border-box;
+	width: min(100%, 52ch);
+	padding: var(--wpds-dimension-padding-lg) var(--wpds-dimension-padding-2xl);
+	transform: translateX(-50%);
+	text-align: center;
+	pointer-events: auto;
+}
+
+.title {
+	margin: 0 0 var(--wpds-dimension-padding-sm);
+	font-size: var(--wpds-typography-font-size-md);
+	font-weight: 600;
+	line-height: var(--wpds-typography-line-height-md);
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.description {
+	margin: 0;
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	text-wrap: balance;
+}
+
+.description + .description {
+	margin-top: var(--wpds-dimension-padding-xs);
+}
+
+.waitingIndicator {
+	margin: var(--wpds-dimension-padding-lg) 0 0;
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.actions {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-sm);
+	margin-top: var(--wpds-dimension-padding-lg);
+}
+
+.cta {
+	padding-inline: var(--wpds-dimension-padding-lg);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+	.frost {
+		display: none;
+	}
+}
+
+@keyframes gate-fade-in {
+	from {
+		opacity: 0;
+	}
+
+	to {
+		opacity: 1;
+	}
+}

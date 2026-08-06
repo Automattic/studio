@@ -183,6 +183,15 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async getSiteThumbnail(): Promise< string | null > {
 			return null;
 		},
+		async getThemeDetails(): Promise< undefined > {
+			// No local site to inspect: hosted sites report their theme through
+			// the site payload or not at all.
+			return undefined;
+		},
+		async getSiteStorageUsage(): Promise< null > {
+			// No site folder on this machine to measure.
+			return null;
+		},
 		async exportFullSite(): Promise< string | null > {
 			throw new UnsupportedError( 'exportFullSite' );
 		},

@@ -1,4 +1,10 @@
 .root {
+	/* The tab strip and the content below it share one measure, so the two
+	   stay aligned as the panel resizes. */
+	--overview-content-width: 1120px;
+	/* Wide enough for the disk legend to sit two-up without wrapping mid-label. */
+	--overview-card-column-width: 320px;
+
 	/* Anchor for the footer toolbar + its progressive blur. */
 	position: relative;
 	display: flex;
@@ -62,7 +68,7 @@
 
 .tabsBarInner {
 	min-width: 0;
-	max-width: 760px;
+	max-width: var(--overview-content-width);
 }
 
 .panel {
@@ -109,9 +115,15 @@
 }
 
 .content {
+	/* The layout below has to respond to the panel, not the window — with the
+	   preview open this can be 300px wide inside a 1400px window, which a media
+	   query cannot see. */
+	container-type: inline-size;
+	container-name: overview;
+
 	box-sizing: border-box;
 	width: 100%;
-	max-width: 760px;
+	max-width: var(--overview-content-width);
 	/* Extra bottom padding keeps the last content clear of the overlaid
 	   footer toolbar. */
 	padding: var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-xl)
@@ -126,50 +138,89 @@
 	color: var(--wpds-color-fg-content-neutral);
 }
 
-/* Each section is a full-width row (Customize, then Manage), stacked. */
+/* Summary cards down one side, the things you can do to the site down the
+   other. Collapses to a single column when the panel is too narrow to give the
+   button grid more than one column of its own. */
+.overviewLayout {
+	display: grid;
+	grid-template-columns: minmax(0, var(--overview-card-column-width)) minmax(0, 1fr);
+	align-items: start;
+	gap: var(--wpds-dimension-padding-3xl);
+	width: 100%;
+	min-width: 0;
+}
+
+.cardColumn {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-md);
+	min-width: 0;
+}
+
+/* Below this the two columns can't both hold their own: the card wants 320 and
+   the button grid wants two 200px cells. Stacked, the card would push every
+   shortcut below the fold — so the things you act on come first and the card
+   becomes the reference underneath. */
+@container overview (max-width: 760px) {
+	.overviewLayout {
+		grid-template-columns: minmax(0, 1fr);
+		gap: var(--wpds-dimension-padding-2xl);
+	}
+
+	.cardColumn {
+		order: 2;
+	}
+
+	.actionsColumn {
+		order: 1;
+	}
+}
+
+/* Each section is a full-width row (Customize, Open in…, Manage), stacked. */
 .actionsColumn {
 	display: flex;
 	flex-direction: column;
 	width: 100%;
 	min-width: 0;
-	gap: var(--wpds-dimension-padding-xl);
+	gap: var(--wpds-dimension-padding-3xl);
 }
 
 .buttonSection {
 	width: 100%;
 }
 
-/* Buttons flow across the row and wrap to the next line as the panel narrows. */
+/* Equal-width cells that reflow from three columns to one as the panel
+   narrows, so labels of different lengths still line up. */
 .buttonGrid {
-	display: flex;
-	flex-wrap: wrap;
-	gap: var(--wpds-dimension-padding-xs);
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+	gap: var(--wpds-dimension-padding-md);
 }
 
 .overviewButton {
-	--wp-ui-button-height: 32px;
+	--wp-ui-button-height: 36px;
 
 	display: inline-flex;
 	align-items: center;
 	justify-content: flex-start;
-	/* Never squeeze a button until its label wraps — wrap the whole button to
-	   the next row instead. */
-	flex: 0 0 auto;
-	gap: var(--wpds-dimension-padding-xs);
+	width: 100%;
+	gap: var(--wpds-dimension-padding-sm);
 	min-width: 0;
-	padding: 0 var(--wpds-dimension-padding-sm);
-	border: 0;
-	border-radius: 4px;
+	padding: 0 var(--wpds-dimension-padding-md);
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: var(--wpds-border-radius-sm);
 	background: transparent;
 	color: var(--wpds-color-fg-content-neutral);
 	text-align: start;
 }
 
 .overviewButton:not([data-disabled]):is(:hover, :focus-visible) {
-	background: var(
-		--wpds-color-bg-interactive-neutral-weak-active,
-		var(--wpds-color-bg-surface-neutral-weak)
-	);
+	border-color: var(--wpds-color-stroke-interactive-neutral);
+	background: var(--wpds-color-bg-interactive-neutral-weak-active);
+}
+
+.overviewButton[data-disabled] {
+	border-color: var(--wpds-color-stroke-surface-neutral-weak);
 }
 
 .overviewButtonIcon {
@@ -181,13 +232,22 @@
 	color: currentColor;
 }
 
-.overviewButtonIcon svg {
+/* @wordpress/icons paths need the fill mapping; the brand marks in
+   `lib/logos` set their own (the stroke-drawn ones are `fill="none"`, which
+   this would paint solid), so they opt out via `.brandIcon`. */
+.overviewButtonIcon:not(.brandIcon) svg {
 	color: currentColor;
 	fill: currentColor;
 }
 
+.brandIcon svg {
+	color: currentColor;
+}
+
 .overviewButtonLabel {
+	overflow: hidden;
 	white-space: nowrap;
+	text-overflow: ellipsis;
 	font-size: var(--wpds-typography-font-size-sm);
 	line-height: var(--wpds-typography-line-height-sm);
 	color: var(--wpds-color-fg-content-neutral);
@@ -195,7 +255,33 @@
 
 .destructiveButton .overviewButtonIcon,
 .destructiveButton .overviewButtonLabel {
-	color: var(--wpds-color-fg-content-error, var(--wpds-color-fg-content-neutral));
+	color: var(--wpds-color-fg-content-error);
+}
+
+/* Stand-ins for the Customize buttons while the site's theme is still being
+   resolved — the theme decides which buttons those are, so guessing means
+   swapping them out a moment later. */
+.buttonSkeleton {
+	height: 36px;
+	border-radius: var(--wpds-border-radius-sm);
+	background: var(--wpds-color-bg-surface-neutral-weak);
+	animation: buttonSkeletonPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes buttonSkeletonPulse {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.55;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.buttonSkeleton {
+		animation: none;
+	}
 }
 
 @media (max-width: 760px) {

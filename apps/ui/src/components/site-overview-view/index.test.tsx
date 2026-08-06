@@ -3,8 +3,10 @@ import { Tooltip } from '@wordpress/ui';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
-import { useLogin } from '@/data/queries/use-auth-user';
+import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
+import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
+import { usePublishPreviewSite } from '@/data/queries/use-preview-site';
 import {
 	useCopySite,
 	useExportDatabase,
@@ -16,11 +18,22 @@ import {
 	useUpdateSite,
 	useXdebugEnabledSite,
 } from '@/data/queries/use-sites';
+import { useSnapshots, useSnapshotUsage } from '@/data/queries/use-snapshots';
+import { usePullSiteFromLive, usePushSiteToLive } from '@/data/queries/use-sync-site';
+import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useWordPressVersions, useWpVersion } from '@/data/queries/use-wordpress-versions';
+import { useIsSiteSyncing } from '@/hooks/use-is-site-syncing';
 import { useOffline } from '@/hooks/use-offline';
+import { useSiteStorageUsage } from '@/hooks/use-site-storage-usage';
+import { useThemeDetails } from '@/hooks/use-theme-details';
 import styles from './style.module.css';
 import { SiteOverviewView } from './index';
-import type { SiteDetails } from '@/data/core';
+import type {
+	ConnectorCapabilities,
+	SiteDetails,
+	SupportedEditor,
+	UserPreferences,
+} from '@/data/core';
 
 const navigateMock = vi.fn();
 const siteDropdownMock = vi.hoisted( () => vi.fn() );
@@ -69,6 +82,7 @@ vi.mock( '@/data/queries/use-agentic-features', () => ( {
 } ) );
 
 vi.mock( '@/data/queries/use-auth-user', () => ( {
+	useAuthUser: vi.fn(),
 	useLogin: vi.fn(),
 } ) );
 
@@ -88,6 +102,38 @@ vi.mock( '@/data/queries/use-sites', () => ( {
 	useXdebugEnabledSite: vi.fn(),
 } ) );
 
+vi.mock( '@/data/queries/use-user-preferences', () => ( {
+	useUserPreferences: vi.fn(),
+} ) );
+
+// The summary cards each read their own slice of remote state; mocking the
+// hooks keeps this file free of a QueryClient and makes card states explicit.
+vi.mock( '@/data/queries/use-connected-wpcom-sites', () => ( {
+	useConnectedWpcomSites: vi.fn(),
+} ) );
+
+vi.mock( '@/data/queries/use-snapshots', () => ( {
+	useSnapshots: vi.fn(),
+	useSnapshotUsage: vi.fn(),
+} ) );
+
+vi.mock( '@/data/queries/use-preview-site', () => ( {
+	usePublishPreviewSite: vi.fn(),
+} ) );
+
+vi.mock( '@/data/queries/use-sync-site', () => ( {
+	usePushSiteToLive: vi.fn(),
+	usePullSiteFromLive: vi.fn(),
+} ) );
+
+vi.mock( '@/hooks/use-is-site-syncing', () => ( {
+	useIsSiteSyncing: vi.fn(),
+} ) );
+
+vi.mock( '@/hooks/use-site-storage-usage', () => ( {
+	useSiteStorageUsage: vi.fn(),
+} ) );
+
 vi.mock( '@/data/queries/use-wordpress-versions', () => ( {
 	useWordPressVersions: vi.fn(),
 	useWpVersion: vi.fn(),
@@ -95,6 +141,10 @@ vi.mock( '@/data/queries/use-wordpress-versions', () => ( {
 
 vi.mock( '@/hooks/use-offline', () => ( {
 	useOffline: vi.fn(),
+} ) );
+
+vi.mock( '@/hooks/use-theme-details', () => ( {
+	useThemeDetails: vi.fn(),
 } ) );
 
 vi.mock( '@/hooks/use-sidebar-collapsed', () => ( {
@@ -118,13 +168,44 @@ const useSitesMock = vi.mocked( useSites, { partial: true } );
 const useStartSiteMock = vi.mocked( useStartSite, { partial: true } );
 const useUpdateSiteMock = vi.mocked( useUpdateSite, { partial: true } );
 const useOfflineMock = vi.mocked( useOffline );
+const useUserPreferencesMock = vi.mocked( useUserPreferences, { partial: true } );
+const useThemeDetailsMock = vi.mocked( useThemeDetails );
+const useAuthUserMock = vi.mocked( useAuthUser, { partial: true } );
+const useConnectedWpcomSitesMock = vi.mocked( useConnectedWpcomSites, { partial: true } );
+const useSnapshotsMock = vi.mocked( useSnapshots, { partial: true } );
+const useSnapshotUsageMock = vi.mocked( useSnapshotUsage, { partial: true } );
+const usePublishPreviewSiteMock = vi.mocked( usePublishPreviewSite, { partial: true } );
+const usePushSiteToLiveMock = vi.mocked( usePushSiteToLive, { partial: true } );
+const usePullSiteFromLiveMock = vi.mocked( usePullSiteFromLive, { partial: true } );
+const useIsSiteSyncingMock = vi.mocked( useIsSiteSyncing );
+const useSiteStorageUsageMock = vi.mocked( useSiteStorageUsage, { partial: true } );
 const useWordPressVersionsMock = vi.mocked( useWordPressVersions, { partial: true } );
 const useWpVersionMock = vi.mocked( useWpVersion, { partial: true } );
 const useXdebugEnabledSiteMock = vi.mocked( useXdebugEnabledSite, { partial: true } );
 
 describe( 'SiteOverviewView', () => {
 	const openSiteUrl = vi.fn().mockResolvedValue( undefined );
+	const openExternalUrl = vi.fn().mockResolvedValue( undefined );
+	const openSiteFolder = vi.fn().mockResolvedValue( undefined );
+	const openSiteInEditor = vi.fn().mockResolvedValue( undefined );
+	const openSiteInTerminal = vi.fn().mockResolvedValue( undefined );
 	const startSite = vi.fn().mockResolvedValue( undefined );
+	const publishPreviewSite = vi.fn();
+	const pushToLive = vi.fn();
+	const pullFromLive = vi.fn();
+
+	// Only the pieces the overview reads; `openInOS` gates the Open in… section.
+	const connectorStub = ( openInOS = true ) => ( {
+		openSiteUrl,
+		openExternalUrl,
+		openSiteFolder,
+		openSiteInEditor,
+		openSiteInTerminal,
+		capabilities: { openInOS } as ConnectorCapabilities,
+	} );
+
+	const preferencesStub = ( editor: SupportedEditor | null ) =>
+		( { editor, terminal: 'terminal' } ) as UserPreferences;
 	const copySite = vi.fn();
 	const exportFullSite = vi.fn();
 	const exportDatabase = vi.fn();
@@ -149,7 +230,22 @@ describe( 'SiteOverviewView', () => {
 			} ) ),
 		} );
 
-		useConnectorMock.mockReturnValue( { openSiteUrl } );
+		useConnectorMock.mockReturnValue( connectorStub() );
+		useUserPreferencesMock.mockReturnValue( { data: preferencesStub( 'vscode' ) } );
+		useThemeDetailsMock.mockImplementation( ( site ) =>
+			site.themeDetails ? { state: 'ready', details: site.themeDetails } : { state: 'unknown' }
+		);
+		useAuthUserMock.mockReturnValue( {
+			data: { id: 7, email: 'user@example.com', displayName: 'Example' },
+		} );
+		useConnectedWpcomSitesMock.mockReturnValue( { data: [], isLoading: false } );
+		useSnapshotsMock.mockReturnValue( { data: [] } );
+		useSnapshotUsageMock.mockReturnValue( { data: undefined } );
+		usePublishPreviewSiteMock.mockReturnValue( { isPending: false, mutate: publishPreviewSite } );
+		usePushSiteToLiveMock.mockReturnValue( { isPending: false, mutate: pushToLive } );
+		usePullSiteFromLiveMock.mockReturnValue( { isPending: false, mutate: pullFromLive } );
+		useIsSiteSyncingMock.mockReturnValue( { push: false, pull: false } );
+		useSiteStorageUsageMock.mockReturnValue( { data: null, isPending: false } );
 		useAgenticFeaturesMock.mockReturnValue( {
 			enabled: true,
 			chatEnabled: true,
@@ -474,6 +570,180 @@ describe( 'SiteOverviewView', () => {
 		expect( screen.getByText( 'Menus' ) ).toBeVisible();
 		expect( screen.queryByText( 'Widgets' ) ).not.toBeInTheDocument();
 		expect( screen.queryByText( 'Site Editor' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'summarizes the site in the vitals card, including where the disk goes', () => {
+		useWpVersionMock.mockReturnValue( { data: '6.8.1' } );
+		useSiteStorageUsageMock.mockReturnValue( {
+			data: {
+				total: 200 * 1024 * 1024,
+				uploads: 100 * 1024 * 1024,
+				plugins: 50 * 1024 * 1024,
+				themes: 20 * 1024 * 1024,
+				database: 10 * 1024 * 1024,
+				other: 20 * 1024 * 1024,
+			},
+			isPending: false,
+		} );
+
+		renderView();
+
+		expect( screen.getByText( '6.8.1' ) ).toBeVisible();
+		expect( screen.getByText( '8.4' ) ).toBeVisible();
+		expect( screen.getByText( 'Twenty Twenty-Six' ) ).toBeVisible();
+		expect( screen.getByText( '200 MB' ) ).toBeVisible();
+		// The bar carries its own labels — each segment names its category and
+		// share, so the breakdown survives without a standing legend.
+		expect( screen.getByRole( 'img', { name: 'Media — 100 MB (50%)' } ) ).toBeVisible();
+		expect( screen.getByRole( 'img', { name: 'Database — 10 MB (5%)' } ) ).toBeVisible();
+	} );
+
+	it( 'reports connected sites with their sync recency and offers pull and push', async () => {
+		useConnectedWpcomSitesMock.mockReturnValue( {
+			data: [
+				{
+					id: 42,
+					localSiteId: 'site-1',
+					name: 'Demo Live',
+					url: 'https://demo.example.com',
+					isStaging: false,
+					isPressable: false,
+					syncSupport: 'already-connected',
+					lastPullTimestamp: new Date( Date.now() - 2 * 24 * 60 * 60 * 1000 ).toISOString(),
+					lastPushTimestamp: null,
+				},
+			],
+			isLoading: false,
+		} );
+
+		renderView();
+
+		// The URL leads the row, and it opens the real browser rather than the
+		// in-app preview.
+		expect( screen.getByText( 'Pulled 2d ago' ) ).toBeVisible();
+		fireEvent.click(
+			screen.getByRole( 'button', { name: 'Open demo.example.com in your browser' } )
+		);
+		expect( openExternalUrl ).toHaveBeenCalledWith( 'https://demo.example.com' );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Sync' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Pull from live' } ) );
+		expect( pullFromLive ).toHaveBeenCalledWith( { siteId: 'site-1', remoteSiteId: 42 } );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Sync' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Push to live' } ) );
+		expect( pushToLive ).toHaveBeenCalledWith( { siteId: 'site-1', remoteSiteId: 42 } );
+	} );
+
+	it( 'prompts to connect a site when none is linked', () => {
+		renderView();
+
+		expect(
+			screen.getByText( 'Not connected to a live site yet. Connect one to pull or push changes.' )
+		).toBeVisible();
+	} );
+
+	it( 'counts down a preview site to its expiry', () => {
+		useSnapshotsMock.mockReturnValue( {
+			data: [
+				{
+					url: 'demo-preview.wp.build',
+					atomicSiteId: 1,
+					localSiteId: 'site-1',
+					date: Date.now() - 5 * 24 * 60 * 60 * 1000,
+				},
+			],
+		} );
+		useSnapshotUsageMock.mockReturnValue( {
+			data: { siteCount: 2, siteLimit: 10, siteCreationBlocked: false },
+		} );
+
+		renderView();
+
+		expect( screen.getByText( 'demo-preview.wp.build' ) ).toBeVisible();
+		expect( screen.getByText( 'Expires in 2 days' ) ).toBeVisible();
+		// The quota sits beside the section's action, short enough not to crowd it.
+		expect( screen.getByText( '2 of 10' ) ).toBeVisible();
+	} );
+
+	it( 'offers to publish a preview site when there is none', () => {
+		renderView();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Publish a preview site' } ) );
+
+		expect( publishPreviewSite ).toHaveBeenCalledWith( { siteId: 'site-1' } );
+	} );
+
+	it( 'asks signed-out users to sign in before showing account-backed cards', () => {
+		useAuthUserMock.mockReturnValue( { data: null } );
+
+		renderView();
+
+		expect(
+			screen.getByText( 'Sign in to connect this site to WordPress.com and sync it.' )
+		).toBeVisible();
+		expect(
+			screen.getByText( 'Sign in to publish a preview site and share your work.' )
+		).toBeVisible();
+	} );
+
+	it( 'holds the customize shortcuts back while the theme is still resolving', () => {
+		useThemeDetailsMock.mockReturnValue( { state: 'loading' } );
+
+		const { container } = renderView();
+
+		expect( screen.queryByText( 'Site Editor' ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( 'Customizer' ) ).not.toBeInTheDocument();
+		expect( container.querySelectorAll( `.${ styles.buttonSkeleton }` ) ).toHaveLength( 7 );
+	} );
+
+	// Guessing "classic" for a theme nobody can report hides the Site Editor on
+	// what is almost always a block theme.
+	it( 'falls back to block-theme shortcuts when the theme cannot be resolved', () => {
+		useThemeDetailsMock.mockReturnValue( { state: 'unknown' } );
+
+		renderView();
+
+		expect( screen.getByText( 'Site Editor' ) ).toBeVisible();
+		expect( screen.queryByText( 'Customizer' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'offers the configured apps and phpMyAdmin under Open in…', () => {
+		renderView();
+
+		expect( screen.getByRole( 'heading', { name: 'Open in…' } ) ).toBeVisible();
+		expect( screen.getByText( 'Finder' ) ).toBeVisible();
+		expect( screen.getByText( 'Visual Studio Code' ) ).toBeVisible();
+		expect( screen.getByText( 'Terminal' ) ).toBeVisible();
+		// The preview panel is the browser here, so that destination is dropped.
+		expect( screen.queryByText( 'Browser' ) ).not.toBeInTheDocument();
+
+		fireEvent.click( screen.getByText( 'Finder' ).closest( 'button' )! );
+		expect( openSiteFolder ).toHaveBeenCalledWith( 'site-1' );
+
+		fireEvent.click( screen.getByText( 'phpMyAdmin' ).closest( 'button' )! );
+		expect( openSiteUrl ).toHaveBeenCalledWith(
+			'site-1',
+			'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
+		);
+	} );
+
+	it( 'hides the editor shortcut until an editor is configured', () => {
+		useUserPreferencesMock.mockReturnValue( { data: preferencesStub( null ) } );
+
+		renderView();
+
+		expect( screen.queryByText( 'Visual Studio Code' ) ).not.toBeInTheDocument();
+		expect( screen.getByText( 'Finder' ) ).toBeVisible();
+	} );
+
+	it( 'drops the Open in… section on hosts that cannot open local apps', () => {
+		useConnectorMock.mockReturnValue( connectorStub( false ) );
+
+		renderView();
+
+		expect( screen.queryByRole( 'heading', { name: 'Open in…' } ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'heading', { name: 'Customize' } ) ).toBeVisible();
 	} );
 
 	// Rendered without a SessionUIProvider, so the open-site-url hook takes

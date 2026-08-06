@@ -1,0 +1,317 @@
+/* Shared chrome for the overview's summary card. One surface, divided into
+   sections; the action sections beside it keep their own styles. */
+
+.card {
+	display: flex;
+	flex-direction: column;
+	box-sizing: border-box;
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: var(--wpds-border-radius-md);
+	background: var(--wpds-color-bg-surface-neutral);
+	min-width: 0;
+}
+
+.cardSection {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-md);
+	padding: var(--wpds-dimension-padding-lg);
+	min-width: 0;
+}
+
+/* Full-bleed, so the card reads as one surface with bands rather than three
+   boxes that happen to touch. */
+.sectionDivider {
+	height: var(--wpds-border-width-xs);
+	background: var(--wpds-color-stroke-surface-neutral);
+}
+
+.cardHeader {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--wpds-dimension-padding-sm);
+	min-height: 24px;
+}
+
+/* A section's header-right cluster: a quiet count sitting beside its action. */
+.headerActions {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-sm);
+}
+
+.headerMeta {
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-xs);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	white-space: nowrap;
+	cursor: default;
+}
+
+.cardTitle {
+	margin: 0;
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	font-weight: var(--wpds-typography-font-weight-medium);
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.empty {
+	margin: 0;
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+/* --- Rows (a connected site, a preview site) ------------------------------ */
+
+/* The divider is a sibling of the rows, not glued to the one below it, so the
+   gap opens on both sides of the rule. */
+.rowList {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-md);
+	min-width: 0;
+}
+
+.row {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-sm);
+	min-width: 0;
+}
+
+.rowText {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+	flex: 1;
+}
+
+.rowTitle {
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.rowTitleExpired {
+	color: var(--wpds-color-fg-content-neutral-weak);
+	text-decoration: line-through;
+}
+
+.rowMeta {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-xs);
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-xs);
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.rowActions {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-xs);
+	flex: 0 0 auto;
+}
+
+.rowDivider {
+	height: var(--wpds-border-width-xs);
+	background: var(--wpds-color-stroke-surface-neutral-weak);
+}
+
+/* A site's address: text until you point at it, then plainly a link. */
+.rowLink {
+	appearance: none;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	background: none;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	text-align: start;
+	font-family: inherit;
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	color: var(--wpds-color-fg-content-neutral);
+	cursor: var(--wpds-cursor-control);
+}
+
+.rowLink:hover,
+.rowLink:focus-visible {
+	color: var(--wpds-color-fg-interactive-brand);
+	text-decoration: underline;
+}
+
+/* Marks a value that's drifting out of date (a stale sync, a preview about to
+   expire). Paired with words, never color alone. */
+.stale {
+	color: var(--wpds-color-fg-content-caution);
+}
+
+.expired {
+	color: var(--wpds-color-fg-content-error);
+}
+
+/* A titled sub-section inside a card (the disk breakdown under About). */
+.section {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-sm);
+	min-width: 0;
+}
+
+.sectionHeader {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: var(--wpds-dimension-padding-sm);
+}
+
+.sectionValue {
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+/* Leading icon inside the cards' menu items. */
+.itemIcon {
+	display: grid;
+	place-items: center;
+	flex: 0 0 18px;
+	width: 18px;
+	height: 18px;
+}
+
+.itemIcon svg {
+	fill: currentColor;
+}
+
+/* --- Storage breakdown ---------------------------------------------------- */
+
+/* Categorical fills for the storage bar. Each mode gets its own steps rather
+   than an automatic flip: validated for lightness band, chroma, CVD separation
+   and contrast against that mode's surface. `light-dark()` resolves them from
+   the root `color-scheme`, which the theme provider sets from the resolved
+   (not just system) preference. "Other" stays neutral — it's the residual
+   bucket, not a category of its own. */
+.storage {
+	--storage-uploads: light-dark(#3858e9, #6d8bf0);
+	--storage-plugins: light-dark(#c7367f, #d75c90);
+	--storage-themes: light-dark(#b26b00, #bc8724);
+	--storage-database: light-dark(#00918e, #22a79f);
+	--storage-other: var(--wpds-color-fg-content-neutral-weak);
+
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-sm);
+}
+
+.storageBar {
+	display: flex;
+	/* The 2px gaps between segments are surface-colored, so the track shows
+	   through as the separator. */
+	gap: 2px;
+	height: 10px;
+	border-radius: 999px;
+	overflow: hidden;
+	background: var(--wpds-color-bg-surface-neutral-weak);
+}
+
+.storageSegment {
+	height: 100%;
+	min-width: 2px;
+	border-radius: 2px;
+	cursor: var(--wpds-cursor-control);
+}
+
+.storageSegment:hover,
+.storageSegment:focus-visible {
+	outline: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-interactive-neutral);
+	outline-offset: 1px;
+}
+
+/* Contents of a segment's tooltip: the swatch keeps the mark and the words
+   together, so identity never rests on colour alone. */
+.storageTip {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-xs);
+	white-space: nowrap;
+}
+
+.storageSwatch {
+	width: 8px;
+	height: 8px;
+	border-radius: 2px;
+	flex: 0 0 auto;
+}
+
+/* --- Stat tiles ----------------------------------------------------------- */
+
+.tiles {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+	gap: var(--wpds-dimension-padding-md);
+}
+
+.tile {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.tileLabel {
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-xs);
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.tileValue {
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.skeleton {
+	height: 10px;
+	border-radius: 999px;
+	background: var(--wpds-color-bg-surface-neutral-weak);
+	animation: cardSkeletonPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes cardSkeletonPulse {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.55;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.skeleton {
+		animation: none;
+	}
+}
+
+/* The connect flow reuses the site menu's publish picker, which expects a
+   popup-width container. */
+.pickerPopup {
+	width: 320px;
+	padding: 0;
+}

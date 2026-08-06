@@ -26,37 +26,43 @@ afterEach( () => {
 	fs.rmSync( root, { recursive: true, force: true } );
 } );
 
-// Guards the rule the watcher and the scan share. Paths are built with path.join
-// so the assertions run against the platform's own separator.
+// Guards the rule the watcher and the scan share. Paths are built with
+// path.posix.join to match the paths produced by chokidar.
 describe( 'isIgnoredScanPath', () => {
 	it( 'ignores a path ending in an ignored directory', () => {
-		expect( isIgnoredScanPath( path.join( 'site', 'wp-content', 'node_modules' ) ) ).toBe( true );
+		expect( isIgnoredScanPath( path.posix.join( 'site', 'wp-content', 'node_modules' ) ) ).toBe(
+			true
+		);
 	} );
 
 	it( 'ignores anything nested inside an ignored directory', () => {
 		expect(
-			isIgnoredScanPath( path.join( 'site', 'wp-content', 'node_modules', 'pkg', 'index.js' ) )
+			isIgnoredScanPath(
+				path.posix.join( 'site', 'wp-content', 'node_modules', 'pkg', 'index.js' )
+			)
 		).toBe( true );
 	} );
 
 	it( 'ignores dot-prefixed names', () => {
-		expect( isIgnoredScanPath( path.join( 'site', '.git', 'HEAD' ) ) ).toBe( true );
-		expect( isIgnoredScanPath( path.join( 'site', '.DS_Store' ) ) ).toBe( true );
+		expect( isIgnoredScanPath( path.posix.join( 'site', '.git', 'HEAD' ) ) ).toBe( true );
+		expect( isIgnoredScanPath( path.posix.join( 'site', '.DS_Store' ) ) ).toBe( true );
 	} );
 
 	it( 'keeps ordinary paths', () => {
-		expect( isIgnoredScanPath( path.join( 'site', 'wp-content', 'plugins', 'my-plugin' ) ) ).toBe(
-			false
-		);
+		expect(
+			isIgnoredScanPath( path.posix.join( 'site', 'wp-content', 'plugins', 'my-plugin' ) )
+		).toBe( false );
 	} );
 
 	it( 'matches whole segments only', () => {
-		expect( isIgnoredScanPath( path.join( 'site', 'my-node_modules-backup' ) ) ).toBe( false );
-		expect( isIgnoredScanPath( path.join( 'site', 'node_modules-old' ) ) ).toBe( false );
+		expect( isIgnoredScanPath( path.posix.join( 'site', 'my-node_modules-backup' ) ) ).toBe(
+			false
+		);
+		expect( isIgnoredScanPath( path.posix.join( 'site', 'node_modules-old' ) ) ).toBe( false );
 	} );
 
 	it( 'handles an absolute path', () => {
-		expect( isIgnoredScanPath( path.join( root, 'site', 'node_modules' ) ) ).toBe( true );
+		expect( isIgnoredScanPath( path.posix.join( root, 'site', 'node_modules' ) ) ).toBe( true );
 	} );
 } );
 

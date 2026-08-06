@@ -27,9 +27,12 @@ const RESTART_BUDGET_WINDOW_MS = 60_000;
 const IGNORED_SCAN_DIRECTORY_NAMES = new Set( [ 'node_modules', '.git', '.DS_Store' ] );
 
 export function isIgnoredScanPath( entryPath: string ): boolean {
-	return entryPath
-		.split( path.posix.sep )
-		.some( ( segment ) => IGNORED_SCAN_DIRECTORY_NAMES.has( segment ) );
+	return (
+		entryPath
+			// chokidar normalizes all paths to use Posix separators
+			.split( path.posix.sep )
+			.some( ( segment ) => IGNORED_SCAN_DIRECTORY_NAMES.has( segment ) )
+	);
 }
 
 export class SymlinkWatcher extends EventEmitter< SymlinkWatcherEvents > {

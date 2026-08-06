@@ -404,11 +404,6 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 							/>
 						</div>
 					) : null }
-					<QueuedPrompts
-						prompts={ queuedPrompts }
-						onRemove={ removeQueuedPrompt }
-						onEdit={ reopenQueuedPrompt }
-					/>
 					<Composer
 						ref={ composerRef }
 						busy={ composerBusy }
@@ -460,6 +455,11 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 					pendingQuestions={ pendingQuestionTexts }
 					pendingAnswers={ pendingAnswers }
 					onAnswerQuestion={ answerQuestion }
+				/>
+				<QueuedPrompts
+					prompts={ queuedPrompts }
+					onRemove={ removeQueuedPrompt }
+					onEdit={ reopenQueuedPrompt }
 				/>
 			</div>
 		</SessionFrame>

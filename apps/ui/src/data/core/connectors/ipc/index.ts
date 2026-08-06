@@ -935,8 +935,6 @@ export function createIpcConnector(): Connector {
 		},
 
 		onShowWhatsNew( listener ) {
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			const ipcListener = ( window as any ).ipcListener;
 			return ipcListener.subscribe( 'show-whats-new', () => listener() );
 		},
 

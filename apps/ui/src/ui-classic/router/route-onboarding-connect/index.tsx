@@ -7,6 +7,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { chevronLeft, check, external, info, search } from '@wordpress/icons';
 import { Button, Icon, IconButton, Input, InputLayout } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { AuthActions } from '@/components/auth-actions';
 import { BusyOverlay } from '@/components/busy-overlay';
 import { OnboardingFooter } from '@/components/onboarding-footer';
 import { toast } from '@/data/app-messages';
@@ -25,9 +26,6 @@ import { useOffline } from '@/hooks/use-offline';
 import { getLocalizedLink } from '@/lib/docs-links';
 import { onboardingLayoutRoute, useOnboardingProgress } from '../layout-onboarding';
 import sharedStyles from '../layout-onboarding/style.module.css';
-// The external-link arrow on the auth buttons is shared with the welcome
-// screen so the two auth prompts stay visually identical.
-import welcomeStyles from '../route-welcome/style.module.css';
 import { ConnectSiteLifecycleError, runConnectSiteLifecycle } from './connect-site';
 import styles from './style.module.css';
 import type { SyncSite } from '@/data/core';
@@ -114,9 +112,6 @@ function groupSites( sites: SyncSite[] ): SiteSection[] {
 }
 
 function SignedOutView() {
-	const connector = useConnector();
-	const isOffline = useOffline();
-
 	const benefits = [
 		__( 'Work on your site locally.' ),
 		__( 'Sync content, themes, and plugins.' ),
@@ -133,39 +128,7 @@ function SignedOutView() {
 					</li>
 				) ) }
 			</ul>
-			<div className={ styles.authActions }>
-				{ /* Same auth pair as the welcome screen so the two prompts
-				     can't drift apart. */ }
-				<div className={ styles.authButtons }>
-					<Button
-						type="button"
-						variant="minimal"
-						tone="neutral"
-						disabled={ isOffline }
-						onClick={ () => void connector.authenticate( true ) }
-					>
-						{ __( 'Sign up' ) }
-						<span aria-hidden className={ welcomeStyles.arrow }>
-							{ '↗' }
-						</span>
-					</Button>
-					<Button
-						type="button"
-						variant="solid"
-						tone="brand"
-						disabled={ isOffline }
-						onClick={ () => void connector.authenticate() }
-					>
-						{ __( 'Log in with WordPress.com' ) }
-						<span aria-hidden className={ welcomeStyles.arrow }>
-							{ '↗' }
-						</span>
-					</Button>
-				</div>
-				{ isOffline && (
-					<p className={ styles.offlineHint }>{ __( "You're currently offline." ) }</p>
-				) }
-			</div>
+			<AuthActions className={ styles.authActions } />
 		</div>
 	);
 }

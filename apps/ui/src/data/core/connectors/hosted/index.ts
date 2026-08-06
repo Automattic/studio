@@ -175,6 +175,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			siteCheckpoints: false,
 			readLocalMedia: false,
 			agentInstructions: false,
+			studioLogs: false,
 			switchToClassicUi: false,
 		},
 
@@ -593,6 +594,9 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		},
 		async openSiteInTerminal() {
 			throw new UnsupportedError( 'openSiteInTerminal' );
+		},
+		async openStudioLogs() {
+			throw new UnsupportedError( 'openStudioLogs' );
 		},
 
 		async trackEvent() {},

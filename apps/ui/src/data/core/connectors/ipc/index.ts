@@ -317,6 +317,7 @@ export function createIpcConnector(): Connector {
 			siteCheckpoints: true,
 			readLocalMedia: true,
 			agentInstructions: true,
+			studioLogs: true,
 			switchToClassicUi: true,
 		},
 
@@ -1172,6 +1173,12 @@ export function createIpcConnector(): Connector {
 			await ipcApi.openTerminalAtPath( sitePath );
 		},
 
+		async openStudioLogs(): Promise< void > {
+			ipcApi.openStudioLogs();
+		},
+
+		// Analytics. `channel` and `ui_version` are attached by the desktop Tracks wrapper's
+		// `commonProps()` in Main, so callers pass only event-specific props here.
 		async trackEvent( eventName, props = {} ): Promise< void > {
 			await ipcApi.recordAnalyticsEvent( eventName, { ...props } );
 		},

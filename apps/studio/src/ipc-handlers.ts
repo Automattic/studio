@@ -1511,6 +1511,10 @@ export async function createTemporaryTextFile(
 	return filePath;
 }
 
+export async function openStudioLogs( _event: IpcMainInvokeEvent ) {
+	await shell.openPath( getLogsFilePath() );
+}
+
 export async function readLocalMediaFile(
 	_event: IpcMainInvokeEvent,
 	path: string

@@ -1,67 +1,61 @@
 import { createRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { CheckboxControl } from '@wordpress/components';
+import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
-import { check, chevronRight, Icon } from '@wordpress/icons';
-import { Button } from '@wordpress/ui';
+import { chevronRight } from '@wordpress/icons';
+import { Button, Icon } from '@wordpress/ui';
 import { useCallback, useEffect, useRef } from 'react';
+import { AuthActions } from '@/components/auth-actions';
 import { DotGrid } from '@/components/dot-grid';
+import { FeatureList } from '@/components/feature-list';
 import { Gravatar } from '@/components/gravatar';
 import { useConnector } from '@/data/core';
-import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
+import { useAuthUser, useLogout } from '@/data/queries/use-auth-user';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
-import { useOffline } from '@/hooks/use-offline';
 import { usePrefersColorScheme } from '@/hooks/use-prefers-color-scheme';
 import { getLocalizedLink } from '@/lib/docs-links';
 import { EmptyBackground } from '../../components/session-view/empty-background';
 import { rootRoute } from '../layout-root';
 import styles from './style.module.css';
 
-// The welcome screen owns the account story: these are the features a
-// WordPress.com login unlocks. The purely-local story (real sites on your
-// machine) and the agent's own pitch live on the tour screens that follow.
-const FEATURES = [
-	{
-		title: __( 'Studio Code' ),
-		body: __( 'An AI collaborator that designs, writes code, and builds sites with you.' ),
-	},
-	{
-		title: __( 'Sync with live sites' ),
-		body: __( 'Push and pull changes to WordPress.com or Pressable anytime.' ),
-	},
-	{
-		title: __( 'Preview links' ),
-		body: __( 'Share a temporary copy of any site with anyone.' ),
-	},
-];
-
-/**
- * First-run welcome screen: connect a WordPress.com account or skip, then
- * continue to the concept tour (which marks onboarding complete before site
- * creation). Logging in advances automatically once the OAuth round-trip
- * lands; the flow picker offers a way back while no sites exist.
- */
 export function WelcomePage() {
 	const navigate = useNavigate();
 	const connector = useConnector();
-	const login = useLogin();
 	const logout = useLogout();
 	const { data: authUser } = useAuthUser();
-	const isOffline = useOffline();
 	const locale = useUserLocale();
 	const { data: preferences } = useUserPreferences();
 	const saveUserPreferences = useSaveUserPreferences();
 	const isDark = usePrefersColorScheme() === 'dark';
-	const offlineMessage = __( "You're currently offline." );
 
+	// The welcome screen owns the account story: these are the features a
+	// WordPress.com login unlocks.
+	const features = [
+		{
+			title: __( 'Studio Code' ),
+			body: __( 'An AI collaborator that designs, writes code, and builds sites with you.' ),
+		},
+		{
+			title: __( 'Sync with live sites' ),
+			body: __( 'Push and pull changes to WordPress.com or Pressable anytime.' ),
+		},
+		{
+			title: __( 'Preview links' ),
+			body: __( 'Share a temporary copy of any site with anyone.' ),
+		},
+	];
+
+	// The tour marks onboarding complete when it finishes; the welcome only
+	// hands off to it.
 	const continueToTour = useCallback( () => {
 		void navigate( { to: '/onboarding/tour' } );
 	}, [ navigate ] );
 
 	// Auto-advance only on a fresh login (signed-out → signed-in while this
 	// screen is up). An already-authenticated user can revisit the welcome
-	// without being bounced straight back to the tour.
+	// without being bounced straight onward.
 	const previousAuthRef = useRef< typeof authUser >( undefined );
 	useEffect( () => {
 		const previous = previousAuthRef.current;
@@ -98,121 +92,89 @@ export function WelcomePage() {
 				<Icon icon={ chevronRight } size={ 16 } />
 			</Button>
 
-			<div className={ styles.content }>
-				<div className={ styles.logoToy }>
-					<EmptyBackground logoSize={ 380 } padding={ 200 } contained={ false } />
-				</div>
-				{ /* Overlaps the lower part of the toy; the scrim blurs the
-				     particles behind the text with a soft top fade. */ }
-				<div className={ styles.contentBody }>
-					<div aria-hidden="true" className={ styles.contentScrim } />
-					<h1 className={ styles.title }>{ __( 'WordPress Studio' ) }</h1>
-					<p className={ styles.subtitle }>
-						{ __( 'Your local studio for building WordPress sites, plugins, and themes.' ) }
-					</p>
+			<div className={ styles.contentArea }>
+				<div className={ styles.content }>
+					<div className={ styles.logoToy }>
+						<EmptyBackground logoSize={ 380 } padding={ 200 } contained={ false } />
+					</div>
+					{ /* Overlaps the lower part of the toy; the scrim blurs the
+					     particles behind the text with a soft top fade. */ }
+					<div className={ styles.contentBody }>
+						<div aria-hidden="true" className={ styles.contentScrim } />
+						<h1 className={ styles.title }>{ __( 'WordPress Studio' ) }</h1>
+						<p className={ styles.subtitle }>
+							{ __( 'Your local studio for building WordPress sites, plugins, and themes.' ) }
+						</p>
 
-					<ul className={ styles.features }>
-						{ FEATURES.map( ( { title, body } ) => (
-							<li key={ title }>
-								<h3 className={ styles.featureTitle }>
-									<Icon className={ styles.featureCheck } icon={ check } size={ 16 } />
-									{ title }
-								</h3>
-								<p className={ styles.featureBody }>{ body }</p>
-							</li>
-						) ) }
-					</ul>
+						<FeatureList features={ features } />
+					</div>
+				</div>
+
+				<div className={ styles.analyticsPreference }>
+					<CheckboxControl
+						__nextHasNoMarginBottom
+						label={ __( 'Help improve Studio by sharing anonymous usage statistics' ) }
+						checked={ preferences?.analyticsEnabled ?? true }
+						onChange={ ( analyticsEnabled ) =>
+							saveUserPreferences.mutate( {
+								analyticsEnabled,
+								source: { surface: 'onboarding' },
+							} )
+						}
+					/>
 				</div>
 			</div>
 
-			<div className={ styles.analyticsPreference }>
-				<CheckboxControl
-					__nextHasNoMarginBottom
-					label={ __( 'Help improve Studio by sharing anonymous usage statistics' ) }
-					checked={ preferences?.analyticsEnabled ?? true }
-					onChange={ ( analyticsEnabled ) =>
-						saveUserPreferences.mutate( {
-							analyticsEnabled,
-							source: { surface: 'onboarding' },
-						} )
-					}
-				/>
-			</div>
+			<div className={ styles.footer }>
+				<p className={ styles.legal }>
+					{ createInterpolateElement(
+						__(
+							'By continuing, you agree to our <tos_link>Terms of Service</tos_link> and have read our <privacy_link>Privacy Policy</privacy_link>.'
+						),
+						{
+							tos_link: (
+								<button
+									type="button"
+									className={ styles.linkButton }
+									onClick={ () => openLegalLink( 'a8cTos' ) }
+								/>
+							),
+							privacy_link: (
+								<button
+									type="button"
+									className={ styles.linkButton }
+									onClick={ () => openLegalLink( 'a8cPrivacyPolicy' ) }
+								/>
+							),
+						}
+					) }
+				</p>
 
-			<p className={ styles.legal }>
-				{ __( 'By continuing, you agree to our' ) }{ ' ' }
-				<button
-					type="button"
-					className={ styles.linkButton }
-					onClick={ () => openLegalLink( 'a8cTos' ) }
-				>
-					{ __( 'Terms of Service' ) }
-				</button>{ ' ' }
-				{ __( 'and have read our' ) }{ ' ' }
-				<span className={ styles.noWrap }>
-					<button
-						type="button"
-						className={ styles.linkButton }
-						onClick={ () => openLegalLink( 'a8cPrivacyPolicy' ) }
-					>
-						{ __( 'Privacy Policy' ) }
-					</button>
-					.
-				</span>
-			</p>
-
-			<div className={ styles.footerActions }>
-				{ authUser ? (
-					<>
-						<span className={ styles.identity }>
-							<Gravatar
-								email={ authUser.email }
-								isDark={ isDark }
-								className={ styles.identityAvatar }
-							/>
-							{ authUser.displayName }
-						</span>
-						<Button
-							type="button"
-							variant="outline"
-							tone="neutral"
-							loading={ logout.isPending }
-							onClick={ () => logout.mutate() }
-						>
-							{ __( 'Log out' ) }
-						</Button>
-					</>
-				) : (
-					<>
-						<Button
-							type="button"
-							variant="minimal"
-							tone="neutral"
-							disabled={ isOffline }
-							title={ isOffline ? offlineMessage : undefined }
-							onClick={ () => void connector.authenticate( true ) }
-						>
-							{ __( 'Sign up' ) }
-							<span aria-hidden className={ styles.arrow }>
-								{ '↗' }
+				<div className={ styles.footerActions }>
+					{ authUser ? (
+						<>
+							<span className={ styles.identity }>
+								<Gravatar
+									email={ authUser.email }
+									isDark={ isDark }
+									className={ styles.identityAvatar }
+								/>
+								{ authUser.displayName }
 							</span>
-						</Button>
-						<Button
-							type="button"
-							variant="solid"
-							tone="brand"
-							disabled={ isOffline }
-							title={ isOffline ? offlineMessage : undefined }
-							loading={ login.isPending }
-							onClick={ () => login.mutate() }
-						>
-							{ __( 'Log in with WordPress.com' ) }
-							<span aria-hidden className={ styles.arrow }>
-								{ '↗' }
-							</span>
-						</Button>
-					</>
-				) }
+							<Button
+								type="button"
+								variant="outline"
+								tone="neutral"
+								loading={ logout.isPending }
+								onClick={ () => logout.mutate() }
+							>
+								{ __( 'Log out' ) }
+							</Button>
+						</>
+					) : (
+						<AuthActions />
+					) }
+				</div>
 			</div>
 		</div>
 	);
@@ -221,9 +183,7 @@ export function WelcomePage() {
 export const welcomeRoute = createRoute( {
 	getParentRoute: () => rootRoute,
 	path: '/welcome',
-	// The welcome is only for first-run: once sites exist, deep links bounce
-	// back to the app. Site-less users may revisit it via the flow picker's
-	// back button, even after skipping.
+	component: WelcomePage,
 	beforeLoad: async ( { context } ) => {
 		const sites = await context.queryClient.fetchQuery( {
 			queryKey: SITES_QUERY_KEY,
@@ -233,5 +193,4 @@ export const welcomeRoute = createRoute( {
 			throw redirect( { to: '/' } );
 		}
 	},
-	component: WelcomePage,
 } );

@@ -47,6 +47,11 @@ vi.mock( '@/data/core', () => ( {
 
 vi.mock( '@/data/queries/use-auth-user', () => ( {
 	useAuthUser: () => ( { data: mocks.user, isLoading: mocks.authLoading } ),
+	useLogin: ( options?: { signup?: boolean } ) => ( {
+		mutate: options?.signup ? mocks.signup : mocks.login,
+		isPending: false,
+		error: null,
+	} ),
 } ) );
 
 vi.mock( '@/data/queries/use-create-site-helpers', () => ( {

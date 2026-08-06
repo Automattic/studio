@@ -305,6 +305,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			siteCheckpoints: true,
 			readLocalMedia: false,
 			agentInstructions: true,
+			studioLogs: false,
 			switchToClassicUi: false,
 		},
 
@@ -881,7 +882,18 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			} );
 		},
 
-		async trackEvent() {},
+		// The CLI has no equivalent of the desktop's log file — site server output
+		// goes to `~/.studio/daemon/logs` and the rest to the terminal that ran
+		// `studio ui` — so there is nothing to open here.
+		async openStudioLogs() {
+			throw new UnsupportedError( 'openStudioLogs' );
+		},
+
+		// Analytics — no-op here. Tracks currently flows through the desktop IPC connector; the
+		// local (browser) target has no Main-process choke point yet. See the design doc.
+		async trackEvent() {
+			// intentionally empty
+		},
 
 		// External links work natively in the browser.
 		async openExternalUrl( url ) {

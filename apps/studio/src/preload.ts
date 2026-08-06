@@ -105,6 +105,7 @@ const api: IpcApi = {
 	generateNumberedNameFromList: ( baseName, usedSites ) =>
 		ipcRendererInvoke( 'generateNumberedNameFromList', baseName, usedSites ),
 	openLocalPath: ( path ) => ipcRendererSend( 'openLocalPath', path ),
+	openStudioLogs: () => ipcRendererSend( 'openStudioLogs' ),
 	showItemInFolder: ( path ) => ipcRendererSend( 'showItemInFolder', path ),
 	loadThemeDetails: ( id, emitLoadingEvent = true ) =>
 		ipcRendererInvoke( 'loadThemeDetails', id, emitLoadingEvent ),

@@ -126,6 +126,7 @@ describe( 'SiteSettingsForm', () => {
 				readLocalMedia: true,
 				siteCheckpoints: false,
 				agentInstructions: true,
+				studioLogs: true,
 				switchToClassicUi: true,
 			},
 			openSiteDebugLog: vi.fn(),

@@ -115,6 +115,7 @@ describe( 'CreateSiteForm', () => {
 				annotatePreview: false,
 				readLocalMedia: false,
 				agentInstructions: false,
+				studioLogs: false,
 				switchToClassicUi: false,
 			},
 		} );
@@ -389,6 +390,7 @@ describe( 'CreateSiteForm', () => {
 				annotatePreview: false,
 				readLocalMedia: false,
 				agentInstructions: false,
+				studioLogs: false,
 				switchToClassicUi: false,
 			},
 		} );

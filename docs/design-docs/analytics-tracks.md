@@ -110,6 +110,14 @@ where the sender actually runs — see Testing below for what fires in which bui
   counted exactly once whether it originated in a UI or standalone. The desktop passes its origin to the
   spawned CLI via the `STUDIO_TRACKS_ORIGIN` env var (`studio-ui:v1` / `studio-ui:v2`), injected in
   `apps/studio/src/modules/cli/lib/execute-command.ts`.
+- **`studio_site_created`** is likewise emitted **only** by the CLI, from the `site create` command
+  (`apps/cli/commands/site/create.ts`) on successful creation. Every path a site comes into existence
+  routes through it — new/blueprint (`createSite`), import and sync-pull (a blank site created via
+  `createSite`, then populated), and duplicate (`copySite` copies the files, then also creates via the
+  CLI). The CLI infers `flow_type=blueprint` from the blueprint arg; the callers thread the other
+  non-`new` values down as a `--flow-type` hint (built into the CLI args by `buildSiteCreateArgs` in
+  `packages/common/sites/create.ts`). `channel`/`ui_version` resolve from `STUDIO_TRACKS_ORIGIN` exactly
+  as for `studio_site_start`.
 - **Renderer-originated events** (future) go through the `recordAnalyticsEvent` IPC handler
   (`apps/studio/src/ipc-handlers.ts`). Both renderers share the same Main single entry point, and the
   desktop wrapper's `commonProps()` attaches `channel`/`ui_version` centrally — the `ui_version` is
@@ -155,6 +163,7 @@ events). The table lists the event-specific props.
 |---|---|---|
 | `studio_app_launch` | Desktop Main (`appBoot`) | `is_first_launch` |
 | `studio_site_start` | CLI site-start funnel | (none — `ui_version` comes from the wrapper via `STUDIO_TRACKS_ORIGIN`, only when `channel=studio-ui`) |
+| `studio_site_created` | CLI site-create funnel | `flow_type` (`new`/`blueprint`/`import`/`sync`/`duplicate`), `php_version`, `wp_version` (resolved from disk; `-` if unknown), `custom_domain` (boolean — the domain string is **never** sent), `ssl_enabled` (boolean), `time_ms` (creation duration). Emitted once per **successful** creation from the CLI, so app-spawned and standalone creates are counted once; filter by `channel` to separate UI from CLI. |
 | `studio_setting_telemetry_change` | Desktop Main (`saveAnalyticsEnabled`) | `status` (`on`/`off`), `surface` (`onboarding`/`settings`) — recorded while analytics is still ON (before the write when turning off, after it when turning on) so the opt-out gate never self-suppresses it. |
 | `studio_setting_appearance_change` | Desktop Main (`saveColorScheme`) | `mode` (`light`/`dark`/`system`), `surface` (`settings`) |
 | `studio_setting_language_change` | Desktop Main (`saveUserLocale`) | `locale`, `surface` (`settings`) |

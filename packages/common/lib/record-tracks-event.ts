@@ -10,6 +10,7 @@ const TRACKS_PIXEL_URL = 'https://pixel.wp.com/t.gif';
 export const TRACKS_EVENTS = {
 	APP_LAUNCH: 'studio_app_launch',
 	SITE_START: 'studio_site_start',
+	SITE_CREATE: 'studio_site_created',
 	SETTING_TELEMETRY_CHANGE: 'studio_setting_telemetry_change',
 	SETTING_APPEARANCE_CHANGE: 'studio_setting_appearance_change',
 	SETTING_LANGUAGE_CHANGE: 'studio_setting_language_change',
@@ -44,6 +45,11 @@ export type TracksProps = Record< string, string | number | boolean | undefined 
 // and CLI wrappers stay in sync. See `docs/design-docs/analytics-tracks.md`.
 export type TracksChannel = 'studio-ui' | 'studio-cli';
 export type TracksUiVersion = 'v1' | 'v2';
+
+// The path a site came into existence through, for `studio_site_created`. `blueprint` is inferred by
+// the CLI from the presence of a blueprint; the other non-`new` values are threaded down from the
+// caller (import/sync from a renderer, duplicate from the desktop Main `copySite` handler).
+export type TracksSiteCreateFlowType = 'new' | 'blueprint' | 'import' | 'sync' | 'duplicate';
 
 // Builds the Tracks pixel URL. Isolated so a param-name correction is a one-file change. These are
 // the reserved Tracks pixel params: `_en` event name, `_ut`/`_ui` identity, `_ts` timestamp (ms).

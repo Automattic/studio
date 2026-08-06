@@ -274,6 +274,7 @@ export function createIpcConnector(): Connector {
 				adminEmail,
 				skipStart,
 				blueprint,
+				flowType,
 			} = params;
 			return ( await ipcApi.createSite( path, {
 				siteName: name,
@@ -286,6 +287,7 @@ export function createIpcConnector(): Connector {
 				adminEmail,
 				noStart: skipStart,
 				blueprint,
+				flowType,
 			} ) ) as SiteDetails;
 		},
 

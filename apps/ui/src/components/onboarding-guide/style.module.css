@@ -127,7 +127,7 @@
 
 /* Matches the pager's timing so the two settle together. */
 .back {
-	transition: opacity 160ms ease;
+	transition: opacity 200ms ease-in-out;
 }
 
 .backHidden {
@@ -137,7 +137,7 @@
 	/* Hold the visibility flip until the fade finishes; coming back in uses
 	   `.back`'s transition, which has no visibility delay, so it reappears at
 	   once and fades up. */
-	transition: opacity 160ms ease, visibility 0s 160ms;
+	transition: opacity 200ms ease-in-out, visibility 0s 200ms;
 }
 
 .footerEnd {
@@ -158,8 +158,17 @@
 	   to a pill — a percentage radius warps mid-transition. At 6px this still
 	   renders a full circle. */
 	border-radius: 3px;
-	background: color-mix(in srgb, var(--wpds-color-fg-content-neutral) 22%, transparent);
-	transition: background 160ms ease, width 160ms ease;
+	/* Mixed into the surface rather than into `transparent`: an alpha of its own
+	   would animate 0.22 → 1 on the way to the opaque active colour, so the dot
+	   faded in instead of changing colour and the shift landed late enough to
+	   read as a pop. Opaque at both ends, only the hue moves. Same rendered
+	   colour, and both tokens follow the theme. */
+	background: color-mix(
+		in srgb,
+		var(--wpds-color-fg-content-neutral) 22%,
+		var(--wpds-color-bg-surface-neutral)
+	);
+	transition: background 200ms ease-in-out, width 200ms ease-in-out;
 }
 
 .dotActive {

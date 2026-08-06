@@ -19,7 +19,6 @@ import { SiteData } from 'cli/lib/cli-config/core';
 import { clearSiteLatestCliPid, getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { DEFAULT_IMPORTER_OPTIONS, getImporter } from 'cli/lib/import-export/import/import-manager';
-import { ensureSqliteIntegrationForImportedSite } from 'cli/lib/sqlite-integration';
 import {
 	checkBackupSize,
 	fetchSyncableSites,
@@ -180,14 +179,6 @@ export async function runCommand(
 				await clearSiteLatestCliPid( site.id );
 				logger.reportSuccess( __( 'WordPress server stopped' ) );
 			}
-
-			// A reprint-pulled site wires SQLite through runtime.php and ships no
-			// db.php drop-in, so the importer's `wp sqlite` call can't find the
-			// integration and the database import fails. `studio site start`
-			// installs it, but returns early when the server is already running —
-			// which it is straight after a reprint pull — so pulling onto such a
-			// site would otherwise never reach a working state. No-op elsewhere.
-			await ensureSqliteIntegrationForImportedSite( site );
 
 			const importer = getImporter(
 				{ path: destPath, type: 'application/gzip' },

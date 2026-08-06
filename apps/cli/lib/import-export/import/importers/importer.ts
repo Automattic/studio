@@ -17,6 +17,7 @@ import semver from 'semver';
 import trash from 'trash';
 import { SiteData } from 'cli/lib/cli-config/core';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
+import { ensureSqliteIntegrationForImportedSite } from 'cli/lib/sqlite-integration';
 import { ImportExportEventEmitter } from '../../events';
 import { BackupContents, MetaFileData } from '../types';
 import { updateSiteUrl } from '../update-site-url';
@@ -70,6 +71,11 @@ abstract class BaseImporter extends ImportExportEventEmitter implements Importer
 		if ( ! sqlFiles.length ) {
 			return;
 		}
+
+		// The `wp sqlite import` below runs without the reprint runtime.php that wires
+		// SQLite for imported sites, so the integration has to be discoverable in
+		// wp-content instead. Mirrors the export side; no-op for regular sites.
+		await ensureSqliteIntegrationForImportedSite( site );
 
 		this.emit( ImportEvents.IMPORT_DATABASE_START );
 

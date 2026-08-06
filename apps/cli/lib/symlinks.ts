@@ -28,7 +28,7 @@ const IGNORED_SCAN_DIRECTORY_NAMES = new Set( [ 'node_modules', '.git', '.DS_Sto
 
 export function isIgnoredScanPath( entryPath: string ): boolean {
 	return entryPath
-		.split( path.sep )
+		.split( path.posix.sep )
 		.some( ( segment ) => IGNORED_SCAN_DIRECTORY_NAMES.has( segment ) );
 }
 

@@ -133,7 +133,9 @@ function getEffectiveOpenBasedirAllowlist(): string[] {
 }
 
 function isCoveredByOpenBasedirAllowlist( target: string ): boolean {
-	return getEffectiveOpenBasedirAllowlist().some( ( entry ) => containsPath( entry, target ) );
+	return [ ...staticOpenBasedirAllowlist, ...symlinkOpenBasedirAllowlist ].some( ( entry ) =>
+		containsPath( entry, target )
+	);
 }
 
 function clearOpenBasedirAllowlist(): void {

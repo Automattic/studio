@@ -28,6 +28,8 @@ export interface TextContextMenuContext {
 	messageText?: string;
 	// The code block the click landed on, when it landed on one at all.
 	codeText?: string;
+	// Whether the selection belongs to an agent reply that can be quoted.
+	canQuoteSelection?: boolean;
 }
 
 export interface TextContextMenuActions {
@@ -107,7 +109,7 @@ export function buildTextContextMenuTemplate(
 	if ( clipboardItems.length > 0 ) {
 		sections.push( clipboardItems );
 	}
-	if ( selection && ! context.isEditable ) {
+	if ( selection && context.canQuoteSelection ) {
 		/* translators: Context-menu action that inserts selected text into the message composer as a quote. */
 		const quoteInComposerLabel = __( 'Quote in composer' );
 		sections.push( [ { label: quoteInComposerLabel, click: actions.quoteSelection } ] );

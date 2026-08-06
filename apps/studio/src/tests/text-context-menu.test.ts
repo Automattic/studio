@@ -41,7 +41,11 @@ function labelsOf( template: ReturnType< typeof buildTextContextMenuTemplate > )
 describe( 'buildTextContextMenuTemplate', () => {
 	it( 'offers Look Up, Copy and Copy All for a selection on a message on macOS', () => {
 		const template = buildTextContextMenuTemplate(
-			makeContext( { selectionText: 'coexist', messageText: 'Dark mode and core coexist.' } ),
+			makeContext( {
+				selectionText: 'coexist',
+				messageText: 'Dark mode and core coexist.',
+				canQuoteSelection: true,
+			} ),
 			actions,
 			makeEnvironment()
 		);
@@ -59,7 +63,11 @@ describe( 'buildTextContextMenuTemplate', () => {
 	it( 'omits Look Up on Windows and Linux, which have no system dictionary', () => {
 		for ( const platform of [ 'win32', 'linux' ] as const ) {
 			const template = buildTextContextMenuTemplate(
-				makeContext( { selectionText: 'coexist', messageText: 'Dark mode and core coexist.' } ),
+				makeContext( {
+					selectionText: 'coexist',
+					messageText: 'Dark mode and core coexist.',
+					canQuoteSelection: true,
+				} ),
 				actions,
 				makeEnvironment( { platform } )
 			);
@@ -129,10 +137,10 @@ describe( 'buildTextContextMenuTemplate', () => {
 		expect( template.find( ( item ) => item.role === 'paste' )?.label ).toBe( 'Paste' );
 	} );
 
-	it( 'offers quoting for a read-only selection and runs its action', () => {
+	it( 'offers quoting for a selection in an agent reply and runs its action', () => {
 		const quoteSelection = vi.fn();
 		const template = buildTextContextMenuTemplate(
-			makeContext( { selectionText: 'coexist' } ),
+			makeContext( { selectionText: 'coexist', canQuoteSelection: true } ),
 			{ ...actions, quoteSelection },
 			makeEnvironment( { platform: 'linux' } )
 		);
@@ -141,6 +149,16 @@ describe( 'buildTextContextMenuTemplate', () => {
 		( quote?.click as () => void )();
 
 		expect( quoteSelection ).toHaveBeenCalledOnce();
+	} );
+
+	it( 'does not offer quoting for selected text outside an agent reply', () => {
+		const template = buildTextContextMenuTemplate(
+			makeContext( { selectionText: 'wp plugin list' } ),
+			actions,
+			makeEnvironment( { platform: 'linux' } )
+		);
+
+		expect( labelsOf( template ) ).toEqual( [ 'copy' ] );
 	} );
 
 	it( 'collapses and truncates a long selection in the Look Up label', () => {
@@ -198,8 +216,6 @@ describe( 'buildTextContextMenuTemplate', () => {
 			'Look Up “coexist”',
 			'separator',
 			'copy',
-			'separator',
-			'Quote in composer',
 		] );
 		expect( template[ 0 ].type ).not.toBe( 'separator' );
 		expect( template.at( -1 )?.type ).not.toBe( 'separator' );
@@ -247,7 +263,7 @@ describe( 'showTextContextMenu', () => {
 
 		const resultPromise = showTextContextMenu(
 			event,
-			makeContext( { selectionText: 'Selected reply' } )
+			makeContext( { selectionText: 'Selected reply', canQuoteSelection: true } )
 		);
 		const template = vi.mocked( Menu.buildFromTemplate ).mock.calls[ 0 ][ 0 ];
 		const quote = template.find( ( item ) => item.label === 'Quote in composer' );

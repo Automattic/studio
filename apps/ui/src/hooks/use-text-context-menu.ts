@@ -6,6 +6,7 @@ import { emitComposerTextQuote } from '@/lib/composer-text-quote';
 // right-click anywhere inside one can offer to copy the whole thing.
 export const MESSAGE_TEXT_ATTRIBUTE = 'data-message-text';
 export const CODE_TEXT_ATTRIBUTE = 'data-code-text';
+export const QUOTABLE_TEXT_ATTRIBUTE = 'data-quotable-text';
 
 const TEXT_INPUT_TYPES = new Set( [
 	'email',
@@ -89,6 +90,7 @@ export function useTextContextMenu(): void {
 			const messageText = messageHost?.getAttribute( MESSAGE_TEXT_ATTRIBUTE ) || undefined;
 			const codeHost = target.closest( `[${ CODE_TEXT_ATTRIBUTE }]` );
 			const codeText = codeHost?.getAttribute( CODE_TEXT_ATTRIBUTE ) || undefined;
+			const quotableTextHost = target.closest( `[${ QUOTABLE_TEXT_ATTRIBUTE }]` );
 			const textControl = getTextControlAt( target );
 			const isEditable = isEditableAt( target, textControl );
 			const selectionText = getSelectionTextAt( target, textControl );
@@ -108,6 +110,7 @@ export function useTextContextMenu(): void {
 				isEditable,
 				messageText,
 				...( codeText ? { codeText } : {} ),
+				...( quotableTextHost && selectionText.trim() ? { canQuoteSelection: true } : {} ),
 			} ).then( ( result ) => {
 				if ( result?.action === 'quote-selection' ) {
 					emitComposerTextQuote( result.selectionText );

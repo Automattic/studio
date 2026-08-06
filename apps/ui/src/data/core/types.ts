@@ -418,6 +418,7 @@ export interface Connector {
 		isEditable: boolean;
 		messageText?: string;
 		codeText?: string;
+		canQuoteSelection?: boolean;
 	} ): Promise< { action: 'quote-selection'; selectionText: string } | undefined >;
 
 	openSiteUrl(

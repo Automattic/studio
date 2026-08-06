@@ -75,7 +75,10 @@ import { Markdown } from '@/components/markdown';
 import { useConnector, type LoadedAiSession } from '@/data/core';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useLocalMediaDataUrl } from '@/data/queries/use-local-media';
-import { MESSAGE_TEXT_ATTRIBUTE } from '@/hooks/use-text-context-menu';
+import {
+	MESSAGE_TEXT_ATTRIBUTE,
+	QUOTABLE_TEXT_ATTRIBUTE,
+} from '@/hooks/use-text-context-menu';
 import { refreshIcon } from '@/lib/icons';
 import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
@@ -473,7 +476,10 @@ function AssistantText( {
 		<div
 			className={ styles.assistantTurn }
 			data-actions-open={ showActions ? 'true' : undefined }
-			{ ...{ [ MESSAGE_TEXT_ATTRIBUTE ]: messageText } }
+			{ ...{
+				[ MESSAGE_TEXT_ATTRIBUTE ]: messageText,
+				[ QUOTABLE_TEXT_ATTRIBUTE ]: true,
+			} }
 			onClick={ copyText ? handleClick : undefined }
 		>
 			<Markdown>{ text }</Markdown>

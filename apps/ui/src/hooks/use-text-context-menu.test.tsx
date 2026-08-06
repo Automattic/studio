@@ -4,6 +4,7 @@ import { watchComposerTextQuote } from '@/lib/composer-text-quote';
 import {
 	CODE_TEXT_ATTRIBUTE,
 	MESSAGE_TEXT_ATTRIBUTE,
+	QUOTABLE_TEXT_ATTRIBUTE,
 	useTextContextMenu,
 } from './use-text-context-menu';
 
@@ -17,11 +18,20 @@ function Harness() {
 	useTextContextMenu();
 	return (
 		<div>
-			<div data-testid="message" { ...{ [ MESSAGE_TEXT_ATTRIBUTE ]: 'The whole reply.' } }>
+			<div
+				data-testid="message"
+				{ ...{
+					[ MESSAGE_TEXT_ATTRIBUTE ]: 'The whole reply.',
+					[ QUOTABLE_TEXT_ATTRIBUTE ]: true,
+				} }
+			>
 				<p data-testid="message-paragraph">The whole reply.</p>
 				<div { ...{ [ CODE_TEXT_ATTRIBUTE ]: 'const answer = 42;' } }>
 					<pre data-testid="message-code">const answer = 42;</pre>
 				</div>
+			</div>
+			<div data-testid="user-message" { ...{ [ MESSAGE_TEXT_ATTRIBUTE ]: 'My question.' } }>
+				My question.
 			</div>
 			<pre data-testid="tool-output">wp plugin list</pre>
 			<input data-testid="field" />
@@ -106,6 +116,35 @@ describe( 'useTextContextMenu', () => {
 		} );
 	} );
 
+	it( 'only offers quoting for a selection inside an assistant message', () => {
+		const { getByTestId } = render( <Harness /> );
+		const messageParagraph = getByTestId( 'message-paragraph' );
+		selectWithin( messageParagraph, 'The whole reply.' );
+
+		fireEvent.contextMenu( messageParagraph );
+
+		expect( showTextContextMenu ).toHaveBeenCalledWith( {
+			selectionText: 'The whole reply.',
+			isEditable: false,
+			messageText: 'The whole reply.',
+			canQuoteSelection: true,
+		} );
+	} );
+
+	it( 'does not offer quoting for a selection inside a user message', () => {
+		const { getByTestId } = render( <Harness /> );
+		const userMessage = getByTestId( 'user-message' );
+		selectWithin( userMessage, 'My question.' );
+
+		fireEvent.contextMenu( userMessage );
+
+		expect( showTextContextMenu ).toHaveBeenCalledWith( {
+			selectionText: 'My question.',
+			isEditable: false,
+			messageText: 'My question.',
+		} );
+	} );
+
 	it( 'reports an editable field so the host can offer Paste', () => {
 		const { getByTestId } = render( <Harness /> );
 
@@ -176,10 +215,10 @@ describe( 'useTextContextMenu', () => {
 			selectionText: 'The selected reply.',
 		} );
 		const { getByTestId } = render( <Harness /> );
-		const toolOutput = getByTestId( 'tool-output' );
-		selectWithin( toolOutput, 'The selected reply.' );
+		const messageParagraph = getByTestId( 'message-paragraph' );
+		selectWithin( messageParagraph, 'The selected reply.' );
 
-		fireEvent.contextMenu( toolOutput );
+		fireEvent.contextMenu( messageParagraph );
 
 		await waitFor( () => expect( quoteListener ).toHaveBeenCalledWith( 'The selected reply.' ) );
 		stopWatching();

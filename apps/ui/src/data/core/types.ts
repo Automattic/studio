@@ -196,11 +196,9 @@ export interface Connector {
 	// Cached screenshot thumbnail captured by the desktop app while the site
 	// was running. Returns null when the site has not produced a thumbnail yet.
 	getSiteThumbnail( siteId: string ): Promise< string | null >;
-	// Resolves the site's active theme (block vs classic, and what a classic
-	// theme supports), which decides the Customize shortcuts on offer. Only
-	// needed when `getSites()` didn't already carry them; resolves to undefined
-	// when the host can't work it out.
-	getThemeDetails( siteId: string ): Promise< SiteDetails[ 'themeDetails' ] >;
+	// Resolves active theme details when the host exposes that capability.
+	// Desktop reuses the same IPC flow as the Classic UI.
+	getThemeDetails?( siteId: string ): Promise< SiteDetails[ 'themeDetails' ] >;
 
 	// Exports a site as a full backup archive (files + database). Prompts the
 	// user for a destination via a save-as dialog; resolves with the chosen

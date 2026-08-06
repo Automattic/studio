@@ -427,8 +427,8 @@ export function createIpcConnector(): Connector {
 		},
 
 		async getThemeDetails( siteId ): Promise< SiteDetails[ 'themeDetails' ] > {
-			// `false` skips the loading event the classic renderer listens for —
-			// this UI tracks the request through its own query.
+			// `false` skips the loading event consumed by Classic; this UI tracks
+			// the same request through React Query.
 			return ( await ipcApi.loadThemeDetails( siteId, false ) ) as SiteDetails[ 'themeDetails' ];
 		},
 

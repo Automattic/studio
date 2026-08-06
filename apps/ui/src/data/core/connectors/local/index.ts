@@ -364,12 +364,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async getSiteThumbnail(): Promise< string | null > {
 			return null;
 		},
-		async getThemeDetails( id ): Promise< SiteDetails[ 'themeDetails' ] > {
-			const { themeDetails } = await api< { themeDetails: SiteDetails[ 'themeDetails' ] | null } >(
-				`/sites/${ encodeURIComponent( id ) }/theme-details`
-			);
-			return themeDetails ?? undefined;
-		},
 
 		// Site creation — delegated to the CLI `create` on the local machine.
 		async createSite( params ): Promise< SiteDetails > {

@@ -198,10 +198,8 @@
 	color: var(--wpds-color-fg-content-error, var(--wpds-color-fg-content-neutral));
 }
 
-/* Stand-ins for the Customize buttons while the site's theme is still being
-   resolved — the theme decides which buttons those are, so guessing means
-   swapping them out a moment later. */
 .buttonSkeleton {
+	width: 96px;
 	height: 32px;
 	border-radius: 4px;
 	background: var(--wpds-color-bg-surface-neutral-weak);

@@ -485,25 +485,24 @@ describe( 'SiteOverviewView', () => {
 		expect( screen.queryByText( 'Site Editor' ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'holds the customize shortcuts back while the theme is still resolving', () => {
+	it( 'holds theme-dependent shortcuts while theme details load', () => {
 		useThemeDetailsMock.mockReturnValue( { state: 'loading' } );
 
 		const { container } = renderView();
 
 		expect( screen.queryByText( 'Site Editor' ) ).not.toBeInTheDocument();
 		expect( screen.queryByText( 'Customizer' ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( 'Media Library' ) ).not.toBeInTheDocument();
 		expect( container.querySelectorAll( `.${ styles.buttonSkeleton }` ) ).toHaveLength( 7 );
 	} );
 
-	// Guessing "classic" for a theme nobody can report hides the Site Editor on
-	// what is almost always a block theme.
-	it( 'falls back to block-theme shortcuts when the theme cannot be resolved', () => {
+	it( 'retains the Classic fallback when theme details are unavailable', () => {
 		useThemeDetailsMock.mockReturnValue( { state: 'unknown' } );
 
 		renderView();
 
-		expect( screen.getByText( 'Site Editor' ) ).toBeVisible();
-		expect( screen.queryByText( 'Customizer' ) ).not.toBeInTheDocument();
+		expect( screen.getByText( 'Customizer' ) ).toBeVisible();
+		expect( screen.queryByText( 'Site Editor' ) ).not.toBeInTheDocument();
 	} );
 
 	// Rendered without a SessionUIProvider, so the open-site-url hook takes

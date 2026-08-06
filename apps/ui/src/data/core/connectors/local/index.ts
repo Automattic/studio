@@ -22,6 +22,7 @@ import type {
 	PullSiteProgress,
 	SelectedSiteFolder,
 	SiteDetails,
+	SiteStorageUsage,
 	Snapshot,
 	SnapshotUsage,
 	StudioAssistantQuota,
@@ -362,6 +363,15 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		async getSiteThumbnail(): Promise< string | null > {
 			return null;
+		},
+		async getThemeDetails( id ): Promise< SiteDetails[ 'themeDetails' ] > {
+			const { themeDetails } = await api< { themeDetails: SiteDetails[ 'themeDetails' ] | null } >(
+				`/sites/${ encodeURIComponent( id ) }/theme-details`
+			);
+			return themeDetails ?? undefined;
+		},
+		async getSiteStorageUsage( id ): Promise< SiteStorageUsage | null > {
+			return api< SiteStorageUsage >( `/sites/${ encodeURIComponent( id ) }/storage` );
 		},
 
 		// Site creation — delegated to the CLI `create` on the local machine.

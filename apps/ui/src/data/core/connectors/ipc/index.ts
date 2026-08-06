@@ -23,6 +23,7 @@ import type {
 	QuitSitesBehavior,
 	SelectedSiteFolder,
 	SiteDetails,
+	SiteStorageUsage,
 	SkillStatus,
 	Snapshot,
 	SnapshotUsage,
@@ -423,6 +424,16 @@ export function createIpcConnector(): Connector {
 
 		async getSiteThumbnail( siteId ): Promise< string | null > {
 			return ( await ipcApi.getThumbnailData( siteId ) ) as string | null;
+		},
+
+		async getThemeDetails( siteId ): Promise< SiteDetails[ 'themeDetails' ] > {
+			// `false` skips the loading event the classic renderer listens for —
+			// this UI tracks the request through its own query.
+			return ( await ipcApi.loadThemeDetails( siteId, false ) ) as SiteDetails[ 'themeDetails' ];
+		},
+
+		async getSiteStorageUsage( siteId ): Promise< SiteStorageUsage | null > {
+			return ( await ipcApi.getSiteStorageUsage( siteId ) ) as SiteStorageUsage | null;
 		},
 
 		async exportFullSite( siteId ): Promise< string | null > {

@@ -151,6 +151,8 @@
 
 .overviewButton {
 	--wp-ui-button-height: 36px;
+	--wp-ui-button-border-color: var(--wpds-color-stroke-surface-neutral);
+	--wp-ui-button-border-color-active: var(--wpds-color-stroke-interactive-neutral);
 
 	display: inline-flex;
 	align-items: center;
@@ -205,6 +207,17 @@
 .destructiveButton .overviewButtonIcon,
 .destructiveButton .overviewButtonLabel {
 	color: var(--wpds-color-fg-content-error);
+}
+
+.destructiveButton {
+	--wp-ui-button-background-color-active: var(--wpds-color-bg-surface-error-weak);
+	--wp-ui-button-border-color-active: var(--wpds-color-stroke-surface-error);
+	--wp-ui-button-foreground-color-active: var(--wpds-color-fg-content-error);
+}
+
+.destructiveButton:not([data-disabled]):is(:hover, :focus-visible, :active) {
+	border-color: var(--wpds-color-stroke-surface-error);
+	background: var(--wpds-color-bg-surface-error-weak);
 }
 
 @media (max-width: 760px) {

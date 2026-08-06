@@ -1,13 +1,12 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { external, Icon } from '@wordpress/icons';
-import { Tooltip } from '@wordpress/ui';
 import { useConnector } from '@/data/core';
 import { useSiteStorageUsage } from '@/data/queries/use-site-storage-usage';
 import { useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
 import { useIsSiteStarting, useStartSite } from '@/data/queries/use-sites';
 import styles from './cards.module.css';
 import { CardSection } from './overview-card';
-import type { SiteDetails } from '@/data/core';
+import type { SiteDetails, SiteStorageUsage } from '@/data/core';
 
 const STORAGE_PARTS = [
 	{ key: 'uploads', label: __( 'Media' ), className: styles.storageUploads },
@@ -109,42 +108,65 @@ export function AboutSection( { site, wpVersion }: { site: SiteDetails; wpVersio
 				{ storage.isPending ? (
 					<div className={ styles.storageSkeleton } aria-hidden="true" />
 				) : storage.data && storage.data.total > 0 ? (
-					<div className={ styles.storageBar } aria-label={ __( 'Disk usage breakdown' ) }>
-						{ STORAGE_PARTS.map( ( part ) => {
-							const bytes = storage.data?.[ part.key ] ?? 0;
-							if ( bytes === 0 ) {
-								return null;
-							}
-							const percent = ( bytes / ( storage.data?.total ?? bytes ) ) * 100;
-							const label = sprintf(
-								/* translators: 1: storage category, 2: formatted size, 3: percentage */
-								__( '%1$s — %2$s (%3$s%%)' ),
-								part.label,
-								formatBytes( bytes ),
-								percent < 1 ? '<1' : String( Math.round( percent ) )
-							);
-							return (
-								<Tooltip.Root key={ part.key }>
-									<Tooltip.Trigger
-										render={
-											<span
-												role="img"
-												tabIndex={ 0 }
-												aria-label={ label }
-												className={ `${ styles.storageSegment } ${ part.className }` }
-												style={ { flexGrow: bytes } }
-											/>
-										}
-									/>
-									<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-										{ label }
-									</Tooltip.Popup>
-								</Tooltip.Root>
-							);
-						} ) }
-					</div>
+					<StorageBar usage={ storage.data } />
 				) : null }
 			</div>
 		</CardSection>
+	);
+}
+
+function StorageBar( { usage }: { usage: SiteStorageUsage } ) {
+	const parts = STORAGE_PARTS.map( ( part ) => ( {
+		...part,
+		bytes: usage[ part.key ],
+		percent: ( usage[ part.key ] / usage.total ) * 100,
+	} ) )
+		.filter( ( part ) => part.bytes > 0 )
+		.map( ( part ) => ( {
+			...part,
+			percentLabel: `${ part.percent < 1 ? '<1' : Math.round( part.percent ) }%`,
+		} ) );
+	const descriptions = parts.map( ( part ) =>
+		sprintf(
+			/* translators: 1: storage category, 2: formatted size, 3: percentage */
+			__( '%1$s — %2$s (%3$s)' ),
+			part.label,
+			formatBytes( part.bytes ),
+			part.percentLabel
+		)
+	);
+	const accessibleLabel = sprintf(
+		/* translators: %s: comma-separated disk usage category descriptions */
+		__( 'Disk usage breakdown: %s' ),
+		descriptions.join( ', ' )
+	);
+
+	return (
+		<div
+			className={ styles.storageInteractive }
+			tabIndex={ 0 }
+			role="group"
+			aria-label={ accessibleLabel }
+		>
+			<div className={ styles.storageBar } aria-hidden="true">
+				{ parts.map( ( part ) => (
+					<span
+						key={ part.key }
+						className={ `${ styles.storageSegment } ${ part.className }` }
+						style={ { flexGrow: part.bytes } }
+					/>
+				) ) }
+			</div>
+			<div className={ styles.storageLegend } aria-hidden="true">
+				{ parts.map( ( part ) => (
+					<div className={ styles.storageLegendRow } key={ part.key }>
+						<span className={ `${ styles.storageLegendSwatch } ${ part.className }` } />
+						<span className={ styles.storageLegendLabel }>{ part.label }</span>
+						<span className={ styles.storageLegendValue }>{ formatBytes( part.bytes ) }</span>
+						<span className={ styles.storageLegendPercent }>{ part.percentLabel }</span>
+					</div>
+				) ) }
+			</div>
+		</div>
 	);
 }

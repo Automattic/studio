@@ -297,8 +297,13 @@ describe( 'SiteOverviewView', () => {
 
 		expect( screen.getByText( 'Disk' ) ).toBeVisible();
 		expect( screen.getByText( '800 B' ) ).toBeVisible();
-		expect( screen.getByRole( 'img', { name: 'Media — 400 B (50%)' } ) ).toBeVisible();
-		expect( screen.getByRole( 'img', { name: 'Plugins — 200 B (25%)' } ) ).toBeVisible();
+		expect(
+			screen.getByRole( 'group', {
+				name: 'Disk usage breakdown: Media — 400 B (50%), Plugins — 200 B (25%), Themes — 100 B (13%), Database — 50 B (6%), Other — 50 B (6%)',
+			} )
+		).toBeVisible();
+		expect( screen.getByText( 'Media' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Plugins' ) ).toBeInTheDocument();
 	} );
 
 	it( 'indicates when disk usage is still being measured', () => {

@@ -18,7 +18,6 @@ interface AutostartInputs {
 	alreadyStarted: boolean;
 }
 
-// 'show' opens the announcements; 'mark-seen' records them without showing.
 export type WhatsNewAutostart = 'show' | 'mark-seen' | null;
 
 /**
@@ -48,12 +47,11 @@ export function deriveWhatsNewAutostart( {
 	if ( ! hasUnseenWhatsNew( lastSeenVersion ?? undefined, currentVersion ) ) {
 		return null;
 	}
-	// Someone who hasn't been through the orientation guide is arriving in the
-	// workbench for the first time — every announcement here is news to them, and
-	// orientation owns that moment. Bank the current version so the announcements
-	// only interrupt on the *next* release that ships new content. This also keeps
-	// the two guides mutually exclusive: orientation autostarts exactly when this
-	// returns 'mark-seen'.
+	// A first arrival in the workbench belongs to the orientation guide, and none
+	// of this is news to someone seeing the app for the first time — bank the
+	// version so it only interrupts on the next release with new content. This
+	// also keeps the two exclusive: orientation autostarts on exactly the state
+	// that returns 'mark-seen'.
 	const orientationSeen =
 		( hints.tourCompletedVersion ?? 0 ) >= ORIENTATION_GUIDE_VERSION ||
 		( hints.tourDismissedVersion ?? 0 ) >= ORIENTATION_GUIDE_VERSION;
@@ -96,7 +94,6 @@ export function useWhatsNewAutostart(): void {
 		if ( ! decision ) {
 			return;
 		}
-		// Mark started immediately so a dependency change can't schedule twice.
 		startedRef.current = true;
 		if ( decision === 'mark-seen' ) {
 			saveLastSeenVersion.mutate( currentVersion );

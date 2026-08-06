@@ -49,14 +49,31 @@ const site: StartedSiteDetails = {
 	},
 };
 
-// Each block-theme Customize button and the URL it opens (content-tab-overview.tsx).
+// Each block-theme Customize button, the URL it opens, and the entry_point it
+// reports to Tracks (content-tab-overview.tsx).
 const CUSTOMIZE_LINKS = [
-	{ label: 'Site Editor', url: '/wp-admin/site-editor.php' },
-	{ label: 'Styles', url: '/wp-admin/site-editor.php?path=%2Fwp_global_styles' },
-	{ label: 'Patterns', url: '/wp-admin/site-editor.php?path=%2Fpatterns' },
-	{ label: 'Navigation', url: '/wp-admin/site-editor.php?path=%2Fnavigation' },
-	{ label: 'Templates', url: '/wp-admin/site-editor.php?path=%2Fwp_template' },
-	{ label: 'Pages', url: '/wp-admin/site-editor.php?path=%2Fpage' },
+	{ label: 'Site Editor', url: '/wp-admin/site-editor.php', entryPoint: 'editor' },
+	{
+		label: 'Styles',
+		url: '/wp-admin/site-editor.php?path=%2Fwp_global_styles',
+		entryPoint: 'editor_styles',
+	},
+	{
+		label: 'Patterns',
+		url: '/wp-admin/site-editor.php?path=%2Fpatterns',
+		entryPoint: 'editor_patterns',
+	},
+	{
+		label: 'Navigation',
+		url: '/wp-admin/site-editor.php?path=%2Fnavigation',
+		entryPoint: 'editor_navigation',
+	},
+	{
+		label: 'Templates',
+		url: '/wp-admin/site-editor.php?path=%2Fwp_template',
+		entryPoint: 'editor_templates',
+	},
+	{ label: 'Pages', url: '/wp-admin/site-editor.php?path=%2Fpage', entryPoint: 'editor_pages' },
 ];
 
 const wrapper = ( { children }: { children: ReactNode } ) => (
@@ -100,6 +117,7 @@ beforeEach( () => {
 		getUserTerminal: vi.fn().mockResolvedValue( undefined ),
 		startServer: vi.fn().mockResolvedValue( { ...site, running: true } ),
 		openSiteURL: vi.fn(),
+		recordAnalyticsEvent: vi.fn().mockResolvedValue( undefined ),
 	} );
 } );
 
@@ -114,6 +132,23 @@ describe( 'ContentTabOverview — Customize links (IPC command boundary)', () =>
 			expect( getIpcApi().openSiteURL ).toHaveBeenCalledWith( SITE_ID, url );
 		} );
 	} );
+
+	it.each( CUSTOMIZE_LINKS )(
+		'$label records a customize Tracks event with entry_point $entryPoint',
+		async ( { label, entryPoint } ) => {
+			const user = userEvent.setup();
+			renderOverview();
+
+			await user.click( await findEnabledButton( label ) );
+
+			await waitFor( () => {
+				expect( getIpcApi().recordAnalyticsEvent ).toHaveBeenCalledWith(
+					'studio_site_open_customize',
+					{ entry_point: entryPoint }
+				);
+			} );
+		}
+	);
 
 	it( 'starts the server before opening when the site is stopped', async () => {
 		const user = userEvent.setup();

@@ -9,10 +9,12 @@ import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useDeleteSite } from 'src/hooks/use-delete-site';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
+import { recordRendererTracksEvent } from 'src/lib/analytics';
 import { isMac } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { getFileManagerLabel } from 'src/lib/file-manager';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { TRACKS_EVENTS } from 'src/lib/tracks';
 import { supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
 import { getTerminalName } from 'src/modules/user-settings/lib/terminal';
 import { useRootSelector } from 'src/stores';
@@ -313,18 +315,21 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 						void stopServer( site.id );
 						break;
 					case 'open-site':
+						recordRendererTracksEvent( TRACKS_EVENTS.SITE_OPEN_IN_BROWSER );
 						if ( ! site.running ) {
 							await startServer( site );
 						}
 						ipcApi.openSiteURL( site.id, '', { autoLogin: false } );
 						break;
 					case 'open-admin':
+						recordRendererTracksEvent( TRACKS_EVENTS.SITE_OPEN_WP_ADMIN );
 						if ( ! site.running ) {
 							await startServer( site );
 						}
 						ipcApi.openSiteURL( site.id, '/wp-admin/' );
 						break;
 					case 'open-finder':
+						recordRendererTracksEvent( TRACKS_EVENTS.SITE_OPEN_FOLDER );
 						ipcApi.openLocalPath( site.path );
 						break;
 					case 'open-editor':

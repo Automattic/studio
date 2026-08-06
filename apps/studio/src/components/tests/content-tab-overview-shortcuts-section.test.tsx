@@ -177,6 +177,54 @@ describe( 'ShortcutsSection', () => {
 		} );
 	} );
 
+	it( 'records a Tracks event when opening the site folder', async () => {
+		const recordAnalyticsEventMock = vi.fn().mockResolvedValue( undefined );
+		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+			openLocalPath: vi.fn(),
+			recordAnalyticsEvent: recordAnalyticsEventMock,
+			getUserEditor: vi.fn().mockResolvedValue( null ),
+			getUserTerminal: vi.fn().mockResolvedValue( 'terminal' ),
+		} );
+
+		const { getByLabelText } = renderWithProvider(
+			<ContentTabOverview selectedSite={ selectedSite } />
+		);
+
+		const folderButton = await waitFor( () => getByLabelText( 'Finder' ) );
+		fireEvent.click( folderButton );
+
+		await waitFor( () => {
+			expect( recordAnalyticsEventMock ).toHaveBeenCalledWith(
+				'studio_site_open_folder',
+				expect.anything()
+			);
+		} );
+	} );
+
+	it( 'records a Tracks event when opening phpMyAdmin', async () => {
+		const recordAnalyticsEventMock = vi.fn().mockResolvedValue( undefined );
+		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+			openSiteURL: vi.fn(),
+			recordAnalyticsEvent: recordAnalyticsEventMock,
+			getUserEditor: vi.fn().mockResolvedValue( null ),
+			getUserTerminal: vi.fn().mockResolvedValue( 'terminal' ),
+		} );
+
+		const { getByLabelText } = renderWithProvider(
+			<ContentTabOverview selectedSite={ selectedSite } />
+		);
+
+		const phpMyAdminButton = await waitFor( () => getByLabelText( 'phpMyAdmin' ) );
+		fireEvent.click( phpMyAdminButton );
+
+		await waitFor( () => {
+			expect( recordAnalyticsEventMock ).toHaveBeenCalledWith(
+				'studio_site_open_phpmyadmin',
+				expect.anything()
+			);
+		} );
+	} );
+
 	it( 'shows users preferred editor', async () => {
 		// Mock the IPC API
 		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {

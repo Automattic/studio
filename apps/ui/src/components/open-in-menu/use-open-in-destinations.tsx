@@ -1,3 +1,4 @@
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { useNavigate } from '@tanstack/react-router';
@@ -73,6 +74,7 @@ export function useOpenInDestinations(
 			disabled: ! site.running,
 			open: () => {
 				onOpen?.( 'browser' );
+				void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_IN_BROWSER );
 				// Routed through the host rather than `openExternalUrl` so the
 				// URL goes via /studio-auto-login; opening it raw drops the
 				// session and lands admin screens on the login form.
@@ -88,6 +90,7 @@ export function useOpenInDestinations(
 			disabled: false,
 			open: () => {
 				onOpen?.( 'files' );
+				void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_FOLDER );
 				void connector.openSiteFolder( site.id ).catch( ( error ) => {
 					console.error( 'Failed to open site folder:', error );
 				} );

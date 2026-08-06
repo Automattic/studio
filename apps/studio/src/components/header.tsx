@@ -3,7 +3,9 @@ import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import { SiteManagementActions } from 'src/components/site-management-actions';
 import { useSiteDetails } from 'src/hooks/use-site-details';
+import { recordRendererTracksEvent } from 'src/lib/analytics';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { TRACKS_EVENTS } from 'src/lib/tracks';
 
 export default function Header() {
 	const { __ } = useI18n();
@@ -13,6 +15,7 @@ export default function Header() {
 	const handleWpAdminClick = async () => {
 		if ( ! site || isLoading ) return;
 
+		recordRendererTracksEvent( TRACKS_EVENTS.SITE_OPEN_WP_ADMIN );
 		if ( ! site.running ) {
 			await startServer( site );
 		}
@@ -22,6 +25,7 @@ export default function Header() {
 	const handleOpenSiteClick = async () => {
 		if ( ! site || isLoading ) return;
 
+		recordRendererTracksEvent( TRACKS_EVENTS.SITE_OPEN_IN_BROWSER );
 		if ( ! site.running ) {
 			await startServer( site );
 		}

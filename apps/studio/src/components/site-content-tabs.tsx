@@ -15,7 +15,9 @@ import { TabName } from 'src/hooks/use-content-tabs';
 import { useEffectiveTab } from 'src/hooks/use-effective-tab';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
+import { recordRendererTracksEvent } from 'src/lib/analytics';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { TRACKS_EVENTS } from 'src/lib/tracks';
 import { ContentTabSync } from 'src/modules/sync';
 
 export function SiteContentTabs() {
@@ -108,6 +110,7 @@ export function SiteContentTabs() {
 						// so the useEffect can detect it was user-initiated
 						if ( tabName !== effectiveTab ) {
 							lastChangeWasUser.current = true;
+							recordRendererTracksEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: tabName } );
 						}
 						setSelectedTab( tabName as TabName );
 					} }

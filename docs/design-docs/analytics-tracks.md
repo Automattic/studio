@@ -168,8 +168,31 @@ start / creation is counted once whether it originated in a UI or the standalone
 | Event | Emitted from | Event-specific props |
 |---|---|---|
 | `studio_app_launch` | Desktop Main (`appBoot`) | `is_first_launch` |
-| `studio_site_start` | CLI site-start funnel | (none — `ui_version` comes from the wrapper via `STUDIO_TRACKS_ORIGIN`, only when `channel=studio-ui`) |
+| `studio_site_start` | CLI site-start funnel | `success` (boolean), `time_ms` (start duration). On success also `running_site_count` (running Studio sites after this one comes up). On failure instead `failure_reason` (coarse, low-cardinality: `timeout`/`port_unavailable`/`php_error`/`process_exited`/`unknown` — the raw error is never sent). |
 | `studio_site_created` | CLI site-create funnel | `flow_type` (`new`/`blueprint`/`import`/`sync`/`duplicate`), `php_version`, `wp_version` (resolved from disk; `-` if unknown), `custom_domain` (boolean — the domain string is **never** sent), `ssl_enabled` (boolean), `time_ms` (creation duration). Emitted once per **successful** creation. |
+
+#### Site operation events
+
+Day-to-day site actions. **Stop and delete are emitted by the CLI** (the sole funnel — the desktop
+delegates both to the CLI, so standalone-CLI usage is counted too; filter by `channel`). The **open**
+actions are emitted where each affordance lives: `open_in_editor`/`open_in_terminal` from Desktop Main
+(a single funnel that also covers the agentic UI, whose connector routes through the same handlers);
+the rest from the renderer (the underlying `openSiteURL`/`openLocalPath` IPC is generic, so Main can't
+attribute them). `studio_panel_opened` is Desktop-Classic-only — the agentic UI navigates via routes,
+not a tab strip. No site names, paths, or URLs are ever sent — only the enumerated prop values below.
+
+| Event | Emitted from | Event-specific props |
+|---|---|---|
+| `studio_site_stop` | CLI site-stop funnel | `running_site_count` (running Studio sites remaining after this stop). A "stop all" emits one event per stopped site, counting down to 0. |
+| `studio_site_delete` | CLI site-delete funnel | `delete_files` (boolean — whether the site's files were moved to trash). Emitted once per **successful** delete. |
+| `studio_site_open_in_browser` | Renderer (Classic + agentic) | (none) |
+| `studio_site_open_in_editor` | Desktop Main (`openAppAtPath`) | `editor` (the resolved editor, e.g. `vscode`/`phpstorm`) |
+| `studio_site_open_in_terminal` | Desktop Main (`openTerminalAtPath`) | `terminal` (the resolved terminal, e.g. `terminal`/`iterm`/`ghostty`/`warp`) |
+| `studio_site_open_wp_admin` | Renderer (Classic) | (none) |
+| `studio_site_open_customize` | Renderer (Classic + agentic) | `entry_point` — the affordance clicked: `editor`, `editor_styles`, `editor_patterns`, `editor_navigation`, `editor_templates`, `editor_pages`, `media_library` (block themes) or `customizer`, `menus`, `widgets` (classic themes). |
+| `studio_site_open_phpmyadmin` | Renderer (Classic) | (none — a native-runtime affordance in practice) |
+| `studio_site_open_folder` | Renderer (Classic + agentic) | (none) |
+| `studio_panel_opened` | Renderer (Classic tab strip) | `panel` — the tab opened: `overview`/`sync`/`settings`/`assistant`/`import-export`/`previews`. Emitted only on a genuine user tab switch (not programmatic changes or re-selecting the current tab). |
 
 #### Settings-change events
 

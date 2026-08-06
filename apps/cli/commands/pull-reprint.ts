@@ -1062,13 +1062,16 @@ export async function runFullPull(
 		`--fs-root=${ metadata.rawDirectory }`,
 	] );
 
-	// 5. Runtime config — last, after files and database have been prepared.
+	// 5. Runtime config — last. Supply the database target explicitly so
+	// Reprint can generate runtime configuration when pull-db was skipped.
 	// Reprint uses the remote URL to locate that state; --flat-document-root
 	// replaces --fs-root (they are mutually exclusive).
 	await runStep( __( 'Preparing runtime' ), [
 		'apply-runtime',
 		apiUrl,
 		`--runtime=${ reprintRuntime }`,
+		'--target-engine=sqlite',
+		`--target-sqlite-path=${ sqlitePath }`,
 		`--output-dir=${ metadata.runtimeDirectory }`,
 		`--flat-document-root=${ metadata.sitePath }`,
 		`--state-dir=${ metadata.stateDirectory }`,

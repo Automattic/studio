@@ -62,6 +62,7 @@ export const IPC_VOID_HANDLERS = [
 	'openFileInIDE',
 	'openLocalPath',
 	'openSiteURL',
+	'openStudioLogs',
 	'openURL',
 	'popupAppMenu',
 	'setWindowButtonVisibility',

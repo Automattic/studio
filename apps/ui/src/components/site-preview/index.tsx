@@ -9,6 +9,7 @@ import { DotGrid } from '@/components/dot-grid';
 import * as Menu from '@/components/menu';
 import { OpenInMenu } from '@/components/open-in-menu';
 import { useConnector } from '@/data/core';
+import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useIsSiteStarting, useStartSite } from '@/data/queries/use-sites';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { useWindowControlsOverlay } from '@/hooks/use-window-controls-overlay';
@@ -510,6 +511,7 @@ export function SitePreview( {
 	onFullscreenChange,
 }: SitePreviewProps ) {
 	const connector = useConnector();
+	const { chatEnabled } = useAgenticFeatures();
 	const startSite = useStartSite();
 	const isStarting = useIsSiteStarting( site.id );
 	const siteUrl = getSiteUrl( site );
@@ -884,7 +886,7 @@ export function SitePreview( {
 					) : null }
 				</div>
 				<div className={ clsx( styles.headerSide, styles.headerSideEnd ) }>
-					{ canPreview && connector.capabilities.annotatePreview ? (
+					{ canPreview && chatEnabled && connector.capabilities.annotatePreview ? (
 						<div className={ styles.annotationControls }>
 							<IconButton
 								variant="minimal"

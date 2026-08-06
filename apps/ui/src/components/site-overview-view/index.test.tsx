@@ -18,6 +18,7 @@ import {
 } from '@/data/queries/use-sites';
 import { useWordPressVersions, useWpVersion } from '@/data/queries/use-wordpress-versions';
 import { useOffline } from '@/hooks/use-offline';
+import { useThemeDetails } from '@/hooks/use-theme-details';
 import styles from './style.module.css';
 import { SiteOverviewView } from './index';
 import type { SiteDetails } from '@/data/core';
@@ -97,6 +98,10 @@ vi.mock( '@/hooks/use-offline', () => ( {
 	useOffline: vi.fn(),
 } ) );
 
+vi.mock( '@/hooks/use-theme-details', () => ( {
+	useThemeDetails: vi.fn(),
+} ) );
+
 vi.mock( '@/hooks/use-sidebar-collapsed', () => ( {
 	useSidebarCollapsed: useSidebarCollapsedMock,
 } ) );
@@ -118,6 +123,7 @@ const useSitesMock = vi.mocked( useSites, { partial: true } );
 const useStartSiteMock = vi.mocked( useStartSite, { partial: true } );
 const useUpdateSiteMock = vi.mocked( useUpdateSite, { partial: true } );
 const useOfflineMock = vi.mocked( useOffline );
+const useThemeDetailsMock = vi.mocked( useThemeDetails );
 const useWordPressVersionsMock = vi.mocked( useWordPressVersions, { partial: true } );
 const useWpVersionMock = vi.mocked( useWpVersion, { partial: true } );
 const useXdebugEnabledSiteMock = vi.mocked( useXdebugEnabledSite, { partial: true } );
@@ -150,6 +156,9 @@ describe( 'SiteOverviewView', () => {
 		} );
 
 		useConnectorMock.mockReturnValue( { openSiteUrl } );
+		useThemeDetailsMock.mockImplementation( ( site ) =>
+			site.themeDetails ? { state: 'ready', details: site.themeDetails } : { state: 'unknown' }
+		);
 		useAgenticFeaturesMock.mockReturnValue( {
 			enabled: true,
 			chatEnabled: true,
@@ -474,6 +483,27 @@ describe( 'SiteOverviewView', () => {
 		expect( screen.getByText( 'Menus' ) ).toBeVisible();
 		expect( screen.queryByText( 'Widgets' ) ).not.toBeInTheDocument();
 		expect( screen.queryByText( 'Site Editor' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'holds the customize shortcuts back while the theme is still resolving', () => {
+		useThemeDetailsMock.mockReturnValue( { state: 'loading' } );
+
+		const { container } = renderView();
+
+		expect( screen.queryByText( 'Site Editor' ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( 'Customizer' ) ).not.toBeInTheDocument();
+		expect( container.querySelectorAll( `.${ styles.buttonSkeleton }` ) ).toHaveLength( 7 );
+	} );
+
+	// Guessing "classic" for a theme nobody can report hides the Site Editor on
+	// what is almost always a block theme.
+	it( 'falls back to block-theme shortcuts when the theme cannot be resolved', () => {
+		useThemeDetailsMock.mockReturnValue( { state: 'unknown' } );
+
+		renderView();
+
+		expect( screen.getByText( 'Site Editor' ) ).toBeVisible();
+		expect( screen.queryByText( 'Customizer' ) ).not.toBeInTheDocument();
 	} );
 
 	// Rendered without a SessionUIProvider, so the open-site-url hook takes

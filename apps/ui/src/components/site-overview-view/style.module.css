@@ -198,6 +198,32 @@
 	color: var(--wpds-color-fg-content-error, var(--wpds-color-fg-content-neutral));
 }
 
+/* Stand-ins for the Customize buttons while the site's theme is still being
+   resolved — the theme decides which buttons those are, so guessing means
+   swapping them out a moment later. */
+.buttonSkeleton {
+	height: 32px;
+	border-radius: 4px;
+	background: var(--wpds-color-bg-surface-neutral-weak);
+	animation: buttonSkeletonPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes buttonSkeletonPulse {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.55;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.buttonSkeleton {
+		animation: none;
+	}
+}
+
 @media (max-width: 760px) {
 	.content {
 		padding: var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-md)

@@ -26,11 +26,13 @@ import { useIsSiteStarting, useIsSiteStopping, useSites } from '@/data/queries/u
 import { useOpenSiteUrl } from '@/hooks/use-open-site-url';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useSiteManagementActions } from '@/hooks/use-site-management-actions';
+import { useThemeDetails } from '@/hooks/use-theme-details';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import styles from './style.module.css';
 import type { SiteSettingsTabId } from '@/components/site-settings-view';
 import type { SiteDetails } from '@/data/core';
-import type { ReactNode } from 'react';
+import type { ThemeDetailsStatus } from '@/hooks/use-theme-details';
+import type { ReactElement, ReactNode, SVGProps } from 'react';
 
 interface SiteOverviewViewProps {
 	siteId: string;
@@ -47,6 +49,13 @@ interface OverviewButtonProps {
 	loading?: boolean;
 	loadingAnnouncement?: string;
 	className?: string;
+}
+
+interface CustomizeShortcut {
+	id: string;
+	icon: ReactElement< SVGProps< SVGSVGElement > >;
+	label: string;
+	url: string;
 }
 
 function OverviewHeader( {
@@ -105,12 +114,134 @@ function OverviewButton( {
 	);
 }
 
-function ButtonSection( { title, children }: { title: string; children: ReactNode } ) {
+function ButtonSection( {
+	title,
+	busy,
+	children,
+}: {
+	title: string;
+	busy?: boolean;
+	children: ReactNode;
+} ) {
 	return (
 		<section className={ styles.buttonSection }>
 			<h2>{ title }</h2>
-			<div className={ styles.buttonGrid }>{ children }</div>
+			<div className={ styles.buttonGrid } aria-busy={ busy }>
+				{ children }
+			</div>
 		</section>
+	);
+}
+
+function ButtonPlaceholders( { count }: { count: number } ) {
+	return Array.from( { length: count }, ( _, index ) => (
+		<div key={ index } className={ styles.buttonSkeleton } />
+	) );
+}
+
+function customizeShortcuts( status: ThemeDetailsStatus ): CustomizeShortcut[] {
+	const details = status.state === 'ready' ? status.details : undefined;
+	// A theme the host can't report is treated as a block theme: every default
+	// WordPress theme since Twenty Twenty-Two is one, and guessing "classic"
+	// hides the Site Editor entirely.
+	const isBlockTheme = details ? details.isBlockTheme : true;
+
+	const themeShortcuts: CustomizeShortcut[] = isBlockTheme
+		? [
+				{
+					id: 'site-editor',
+					icon: desktop,
+					label: __( 'Site Editor' ),
+					url: '/wp-admin/site-editor.php',
+				},
+				{
+					id: 'styles',
+					icon: stylesIcon,
+					label: __( 'Styles' ),
+					url: '/wp-admin/site-editor.php?path=%2Fwp_global_styles',
+				},
+				{
+					id: 'patterns',
+					icon: symbolFilled,
+					label: __( 'Patterns' ),
+					url: '/wp-admin/site-editor.php?path=%2Fpatterns',
+				},
+				{
+					id: 'navigation',
+					icon: navigation,
+					label: __( 'Navigation' ),
+					url: '/wp-admin/site-editor.php?path=%2Fnavigation',
+				},
+				{
+					id: 'templates',
+					icon: layout,
+					label: __( 'Templates' ),
+					url: '/wp-admin/site-editor.php?path=%2Fwp_template',
+				},
+				{
+					id: 'pages',
+					icon: page,
+					label: __( 'Pages' ),
+					url: '/wp-admin/site-editor.php?path=%2Fpage',
+				},
+		  ]
+		: [
+				{
+					id: 'customizer',
+					icon: pencil,
+					label: __( 'Customizer' ),
+					url: '/wp-admin/customize.php',
+				},
+				...( details?.supportsMenus
+					? [
+							{
+								id: 'menus',
+								icon: navigation,
+								label: __( 'Menus' ),
+								url: '/wp-admin/nav-menus.php',
+							},
+					  ]
+					: [] ),
+				...( details?.supportsWidgets
+					? [
+							{ id: 'widgets', icon: widget, label: __( 'Widgets' ), url: '/wp-admin/widgets.php' },
+					  ]
+					: [] ),
+		  ];
+
+	return [
+		...themeShortcuts,
+		{ id: 'media', icon: media, label: __( 'Media Library' ), url: '/wp-admin/upload.php' },
+	];
+}
+
+function CustomizeSection( {
+	themeStatus,
+	busy,
+	openSiteUrl,
+}: {
+	themeStatus: ThemeDetailsStatus;
+	busy: boolean;
+	openSiteUrl: ( url: string ) => Promise< void >;
+} ) {
+	const loading = themeStatus.state === 'loading';
+
+	return (
+		<ButtonSection title={ __( 'Customize' ) } busy={ loading }>
+			{ loading ? (
+				<ButtonPlaceholders count={ 7 } />
+			) : (
+				customizeShortcuts( themeStatus ).map( ( shortcut ) => (
+					<OverviewButton
+						key={ shortcut.id }
+						icon={ <Icon icon={ shortcut.icon } size={ 18 } /> }
+						label={ shortcut.label }
+						disabled={ busy }
+						onClick={ () => void openSiteUrl( shortcut.url ) }
+					/>
+				) )
+			) }
+		</ButtonSection>
 	);
 }
 
@@ -166,8 +297,7 @@ function SiteOverviewBody( {
 	} );
 
 	const busy = isStarting || isStopping;
-	const themeDetails = site.themeDetails;
-	const isBlockTheme = themeDetails?.isBlockTheme === true;
+	const themeStatus = useThemeDetails( site );
 
 	// Opens WordPress screens in the in-app preview panel (starting the site
 	// first when needed) rather than the external browser.
@@ -200,90 +330,11 @@ function SiteOverviewBody( {
 								<OfflineBanner />
 								<AgenticSigninBanner />
 								<div className={ styles.actionsColumn }>
-									<ButtonSection title={ __( 'Customize' ) }>
-										{ isBlockTheme ? (
-											<>
-												<OverviewButton
-													icon={ <Icon icon={ desktop } size={ 18 } /> }
-													label={ __( 'Site Editor' ) }
-													disabled={ busy }
-													onClick={ () => void openSiteUrl( '/wp-admin/site-editor.php' ) }
-												/>
-												<OverviewButton
-													icon={ <Icon icon={ stylesIcon } size={ 18 } /> }
-													label={ __( 'Styles' ) }
-													disabled={ busy }
-													onClick={ () =>
-														void openSiteUrl( '/wp-admin/site-editor.php?path=%2Fwp_global_styles' )
-													}
-												/>
-												<OverviewButton
-													icon={ <Icon icon={ symbolFilled } size={ 18 } /> }
-													label={ __( 'Patterns' ) }
-													disabled={ busy }
-													onClick={ () =>
-														void openSiteUrl( '/wp-admin/site-editor.php?path=%2Fpatterns' )
-													}
-												/>
-												<OverviewButton
-													icon={ <Icon icon={ navigation } size={ 18 } /> }
-													label={ __( 'Navigation' ) }
-													disabled={ busy }
-													onClick={ () =>
-														void openSiteUrl( '/wp-admin/site-editor.php?path=%2Fnavigation' )
-													}
-												/>
-												<OverviewButton
-													icon={ <Icon icon={ layout } size={ 18 } /> }
-													label={ __( 'Templates' ) }
-													disabled={ busy }
-													onClick={ () =>
-														void openSiteUrl( '/wp-admin/site-editor.php?path=%2Fwp_template' )
-													}
-												/>
-												<OverviewButton
-													icon={ <Icon icon={ page } size={ 18 } /> }
-													label={ __( 'Pages' ) }
-													disabled={ busy }
-													onClick={ () =>
-														void openSiteUrl( '/wp-admin/site-editor.php?path=%2Fpage' )
-													}
-												/>
-											</>
-										) : (
-											<>
-												<OverviewButton
-													icon={ <Icon icon={ pencil } size={ 18 } /> }
-													label={ __( 'Customizer' ) }
-													disabled={ busy }
-													onClick={ () => void openSiteUrl( '/wp-admin/customize.php' ) }
-												/>
-												{ themeDetails?.supportsMenus ? (
-													<OverviewButton
-														icon={ <Icon icon={ navigation } size={ 18 } /> }
-														label={ __( 'Menus' ) }
-														disabled={ busy }
-														onClick={ () => void openSiteUrl( '/wp-admin/nav-menus.php' ) }
-													/>
-												) : null }
-												{ themeDetails?.supportsWidgets ? (
-													<OverviewButton
-														icon={ <Icon icon={ widget } size={ 18 } /> }
-														label={ __( 'Widgets' ) }
-														disabled={ busy }
-														onClick={ () => void openSiteUrl( '/wp-admin/widgets.php' ) }
-													/>
-												) : null }
-											</>
-										) }
-										<OverviewButton
-											icon={ <Icon icon={ media } size={ 18 } /> }
-											label={ __( 'Media Library' ) }
-											disabled={ busy }
-											onClick={ () => void openSiteUrl( '/wp-admin/upload.php' ) }
-										/>
-									</ButtonSection>
-
+									<CustomizeSection
+										themeStatus={ themeStatus }
+										busy={ busy }
+										openSiteUrl={ openSiteUrl }
+									/>
 									<ButtonSection title={ __( 'Manage' ) }>
 										{ managementActions.map( ( action ) => (
 											<OverviewButton

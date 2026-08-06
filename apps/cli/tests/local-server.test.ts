@@ -22,6 +22,12 @@ vi.mock( '@studio/common/lib/cli-process', () => ( {
 	} ) ),
 } ) );
 vi.mock( '@studio/common/sites/list', () => ( { listSites: vi.fn() } ) );
+// Only the desktop's persisted copy is stubbed out (it reads the real
+// `~/.studio/app.json`); resolving theme details through the CLI runs for real.
+vi.mock( '@studio/common/sites/theme-details', async ( importOriginal ) => ( {
+	...( await importOriginal< object >() ),
+	readPersistedThemeDetails: vi.fn( async () => ( {} ) ),
+} ) );
 vi.mock( '@studio/common/ai/run-manager', () => ( {
 	createAgentRunManager: vi.fn( () => ( {
 		startAgentRun: vi.fn(),
@@ -77,6 +83,50 @@ describe( 'local web server Connect contracts', () => {
 	afterEach( async () => {
 		await server.close();
 		nock.disableNetConnect();
+	} );
+
+	it( 'resolves theme details through the CLI and reuses them for the site list', async () => {
+		const themeDetails = {
+			name: 'Twenty Twenty-Six',
+			path: '/wp-content/themes/twentytwentysix',
+			slug: 'twentytwentysix',
+			isBlockTheme: true,
+			supportsWidgets: false,
+			supportsMenus: false,
+		};
+		mocks.execute.mockImplementationOnce( () => {
+			const emitter = new EventEmitter();
+			queueMicrotask( () =>
+				emitter.emit( 'success', {
+					result: { stdout: JSON.stringify( themeDetails ), stderr: '' },
+				} )
+			);
+			return [ emitter, { kill: vi.fn() } ];
+		} );
+		const origin = server.url.replace( 'localhost', '127.0.0.1' );
+
+		const response = await fetch( `${ origin }/api/sites/local-a/theme-details` );
+
+		expect( response.status ).toBe( 200 );
+		expect( await response.json() ).toEqual( { themeDetails } );
+		expect( mocks.execute ).toHaveBeenCalledWith(
+			[ 'wp', '--path', '/sites/local-a', 'studio', 'get-theme-details' ],
+			{ output: 'capture' }
+		);
+
+		mocks.execute.mockClear();
+		const sites = await ( await fetch( `${ origin }/api/sites` ) ).json();
+		expect( sites[ 0 ].themeDetails ).toEqual( themeDetails );
+		expect( mocks.execute ).not.toHaveBeenCalled();
+	} );
+
+	it( 'reports unknown theme details rather than failing the request', async () => {
+		const response = await fetch(
+			`${ server.url.replace( 'localhost', '127.0.0.1' ) }/api/sites/local-a/theme-details`
+		);
+
+		expect( response.status ).toBe( 200 );
+		expect( await response.json() ).toEqual( { themeDetails: null } );
 	} );
 
 	it( 'delegates deletion to the CLI cascade', async () => {

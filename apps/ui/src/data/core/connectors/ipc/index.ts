@@ -426,6 +426,12 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.getThumbnailData( siteId ) ) as string | null;
 		},
 
+		async getThemeDetails( siteId ): Promise< SiteDetails[ 'themeDetails' ] > {
+			// `false` skips the loading event the classic renderer listens for —
+			// this UI tracks the request through its own query.
+			return ( await ipcApi.loadThemeDetails( siteId, false ) ) as SiteDetails[ 'themeDetails' ];
+		},
+
 		async exportFullSite( siteId ): Promise< string | null > {
 			const sites = ( await ipcApi.getSiteDetails() ) as SiteDetails[];
 			const site = sites.find( ( candidate ) => candidate.id === siteId );

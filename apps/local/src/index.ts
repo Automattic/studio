@@ -66,11 +66,13 @@ import { startSite, stopSite } from '@studio/common/sites/lifecycle';
 import { listSites } from '@studio/common/sites/list';
 import { createSnapshotManager, fetchSnapshots } from '@studio/common/sites/snapshots';
 import { pullSite, pushSite } from '@studio/common/sites/sync';
+import { fetchThemeDetails, readPersistedThemeDetails } from '@studio/common/sites/theme-details';
 import express from 'express';
 import { rateLimit } from 'express-rate-limit';
 import { isEditor, isTerminal, openInEditor, openInTerminal, openPath } from './open-in-os';
 import type { SiteListItem } from '@studio/common/lib/cli-events';
 import type { EditSiteOptions } from '@studio/common/sites/edit';
+import type { ThemeDetails } from '@studio/common/sites/theme-details';
 import type { SyncSite } from '@studio/common/types/sync';
 import type { Request, Response } from 'express';
 
@@ -140,9 +142,11 @@ const AUTH_CALLBACK_HTML = `<!DOCTYPE html>
 </script></body></html>`;
 
 // The agentic UI's SiteDetails shape. The CLI's `site list` already reports
-// nearly all of it; thumbnails/theme details are desktop-only enrichments.
-function toSiteDetails( site: SiteListItem ) {
+// nearly all of it; thumbnails are a desktop-only enrichment, and theme details
+// are resolved separately (see `themeDetailsFor`).
+function toSiteDetails( site: SiteListItem, themeDetails?: ThemeDetails ) {
 	return {
+		themeDetails,
 		id: site.id,
 		name: site.name,
 		path: site.path,
@@ -190,6 +194,40 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	const cliRunner = createCliRunner( { cliBinary, nodeBinary } );
 	const execute = cliRunner.executeCliCommand;
 	const uploads = new Map< string, { path: string; directory: string } >();
+
+	// Resolving theme details costs a PHP run per site, so they're cached for the
+	// life of the server. A site whose theme changes mid-session keeps reporting
+	// the theme it had when first asked — the same staleness the desktop has
+	// between site restarts.
+	const themeDetails = new Map< string, ThemeDetails >();
+	// Concurrent askers for the same site share one resolution instead of each
+	// starting their own PHP run.
+	const themeDetailsInFlight = new Map< string, Promise< ThemeDetails | undefined > >();
+
+	function themeDetailsFor( site: SiteListItem ): Promise< ThemeDetails | undefined > {
+		const cached = themeDetails.get( site.id );
+		if ( cached ) {
+			return Promise.resolve( cached );
+		}
+		const pending = themeDetailsInFlight.get( site.id );
+		if ( pending ) {
+			return pending;
+		}
+
+		const resolution = ( async () => {
+			// The desktop persists what it has already resolved; reuse that before
+			// paying for a PHP run of our own.
+			const persisted = ( await readPersistedThemeDetails() )[ site.id ];
+			const resolved = persisted ?? ( await fetchThemeDetails( execute, site.path ) );
+			if ( resolved ) {
+				themeDetails.set( site.id, resolved );
+			}
+			return resolved;
+		} )().finally( () => themeDetailsInFlight.delete( site.id ) );
+
+		themeDetailsInFlight.set( site.id, resolution );
+		return resolution;
+	}
 
 	// --- Server-Sent Events: one stream carries live UI updates ----------------
 	const sseClients = new Set< Response >();
@@ -462,7 +500,23 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		'/sites',
 		asyncHandler( async ( _req: Request, res: Response ) => {
 			const sites = await listSites( execute );
-			res.json( sites.map( toSiteDetails ) );
+			// Only what's already resolved: the list is refetched often, and a
+			// cache miss must not turn it into a PHP run per site. The UI asks for
+			// the rest through /sites/:id/theme-details.
+			res.json( sites.map( ( site ) => toSiteDetails( site, themeDetails.get( site.id ) ) ) );
+		} )
+	);
+
+	api.get(
+		'/sites/:id/theme-details',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const sites = await listSites( execute );
+			const site = sites.find( ( candidate ) => candidate.id === req.params.id );
+			if ( ! site ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			res.json( { themeDetails: ( await themeDetailsFor( site ) ) ?? null } );
 		} )
 	);
 

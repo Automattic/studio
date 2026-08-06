@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { captureException } from '@studio/common/lib/error-reporting';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
 import { useStartSite } from '@/data/queries/use-sites';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
@@ -80,6 +81,10 @@ vi.mock( '@/data/queries/use-user-preferences', () => ( {
 	useUserPreferences: vi.fn(),
 } ) );
 
+vi.mock( '@studio/common/lib/error-reporting', () => ( {
+	captureException: vi.fn(),
+} ) );
+
 const useConnectorMock = vi.mocked( useConnector, { partial: true } );
 const useStartSiteMock = vi.mocked( useStartSite, { partial: true } );
 const useUserPreferencesMock = vi.mocked( useUserPreferences, { partial: true } );
@@ -125,6 +130,10 @@ describe( 'OpenInMenu', () => {
 		} );
 	} );
 
+	afterEach( () => {
+		vi.restoreAllMocks();
+	} );
+
 	it( 'routes each destination through the connector', async () => {
 		renderMenu( { running: true } );
 
@@ -140,6 +149,20 @@ describe( 'OpenInMenu', () => {
 		expect( openSiteFolder ).toHaveBeenCalledWith( 'site-1' );
 		expect( openSiteInEditor ).toHaveBeenCalledWith( 'site-1' );
 		expect( openSiteInTerminal ).toHaveBeenCalledWith( 'site-1' );
+	} );
+
+	it( 'reports terminal failures and tells the user', async () => {
+		const error = new Error( 'Terminal unavailable' );
+		openSiteInTerminal.mockRejectedValueOnce( error );
+		const alertMock = vi.spyOn( window, 'alert' ).mockImplementation( () => undefined );
+		const consoleErrorMock = vi.spyOn( console, 'error' ).mockImplementation( () => undefined );
+		renderMenu( { running: true } );
+
+		fireEvent.click( destination( 'Terminal' ) );
+
+		await waitFor( () => expect( captureException ).toHaveBeenCalledWith( error ) );
+		expect( consoleErrorMock ).toHaveBeenCalledWith( 'Failed to open site in terminal:', error );
+		expect( alertMock ).toHaveBeenCalledWith( 'Could not open the terminal.' );
 	} );
 
 	it( 'offers no phpMyAdmin destination', () => {

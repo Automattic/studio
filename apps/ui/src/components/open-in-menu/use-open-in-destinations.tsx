@@ -1,3 +1,4 @@
+import { captureException } from '@studio/common/lib/error-reporting';
 import { supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { useNavigate } from '@tanstack/react-router';
@@ -118,6 +119,8 @@ export function useOpenInDestinations(
 				onOpen?.( 'terminal' );
 				void connector.openSiteInTerminal( site.id ).catch( ( error ) => {
 					console.error( 'Failed to open site in terminal:', error );
+					captureException( error );
+					alert( __( 'Could not open the terminal.' ) );
 				} );
 			},
 		},

@@ -125,6 +125,21 @@
 	justify-self: start;
 }
 
+/* Matches the pager's timing so the two settle together. */
+.back {
+	transition: opacity 160ms ease;
+}
+
+.backHidden {
+	opacity: 0;
+	visibility: hidden;
+	pointer-events: none;
+	/* Hold the visibility flip until the fade finishes; coming back in uses
+	   `.back`'s transition, which has no visibility delay, so it reappears at
+	   once and fades up. */
+	transition: opacity 160ms ease, visibility 0s 160ms;
+}
+
 .footerEnd {
 	justify-self: end;
 }
@@ -153,7 +168,12 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-	.dot {
+	.dot,
+	.back {
+		transition: none;
+	}
+
+	.backHidden {
 		transition: none;
 	}
 }

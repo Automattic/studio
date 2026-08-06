@@ -102,11 +102,17 @@ export function OnboardingGuide( { guide, onComplete, onDismiss }: OnboardingGui
 				</Dialog.Content>
 				<Dialog.Footer className={ styles.footer }>
 					<div className={ styles.footerStart }>
-						{ ! isFirst ? (
-							<Button variant="minimal" tone="neutral" onClick={ goBack }>
-								{ __( 'Back' ) }
-							</Button>
-						) : null }
+						{ /* Kept mounted on the first page and faded out instead of unmounted,
+						     so it eases in alongside the pager rather than appearing from
+						     nothing. `visibility` keeps it out of the tab order while hidden. */ }
+						<Button
+							variant="minimal"
+							tone="neutral"
+							onClick={ goBack }
+							className={ clsx( styles.back, isFirst && styles.backHidden ) }
+						>
+							{ __( 'Back' ) }
+						</Button>
 					</div>
 					<div className={ styles.pager } aria-hidden="true">
 						{ guide.pages.map( ( _, index ) => (

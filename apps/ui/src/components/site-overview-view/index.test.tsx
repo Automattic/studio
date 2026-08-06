@@ -221,7 +221,7 @@ describe( 'SiteOverviewView', () => {
 		);
 	}
 
-	it( 'renders the tab strip with the customize and manage sections', () => {
+	it( 'renders the tab strip with the about, customize, and manage sections', () => {
 		renderView();
 
 		expect( siteDropdownMock ).toHaveBeenCalledWith(
@@ -230,6 +230,7 @@ describe( 'SiteOverviewView', () => {
 		expect( screen.getByRole( 'tab', { name: 'Overview' } ) ).toBeVisible();
 		expect( screen.getByRole( 'tab', { name: 'Settings' } ) ).toBeVisible();
 		expect( screen.getByRole( 'tab', { name: 'Debugging' } ) ).toBeVisible();
+		expect( screen.getByRole( 'heading', { name: 'About' } ) ).toBeVisible();
 		expect( screen.getByRole( 'heading', { name: 'Customize' } ) ).toBeVisible();
 		expect( screen.getByRole( 'heading', { name: 'Manage' } ) ).toBeVisible();
 		expect( screen.getByText( 'Site Editor' ) ).toBeVisible();
@@ -241,6 +242,19 @@ describe( 'SiteOverviewView', () => {
 		expect( screen.getByText( 'Export DB' ) ).toBeVisible();
 		expect( screen.getByText( 'Delete' ) ).toBeVisible();
 		expect( screen.queryByDisplayValue( 'Demo Site' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'summarizes the site theme and runtime versions', () => {
+		useWpVersionMock.mockReturnValue( { data: '6.8.2' } );
+
+		renderView();
+
+		expect( screen.getByText( 'Theme' ) ).toBeVisible();
+		expect( screen.getByText( 'Twenty Twenty-Six' ) ).toBeVisible();
+		expect( screen.getByText( 'WordPress' ) ).toBeVisible();
+		expect( screen.getByText( '6.8.2' ) ).toBeVisible();
+		expect( screen.getByText( 'PHP' ) ).toBeVisible();
+		expect( screen.getByText( '8.4' ) ).toBeVisible();
 	} );
 
 	it( 'offsets the site menu below macOS traffic lights when the sidebar is collapsed', () => {

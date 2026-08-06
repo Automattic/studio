@@ -1,0 +1,45 @@
+.card {
+	display: flex;
+	flex-direction: column;
+	box-sizing: border-box;
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: var(--wpds-border-radius-md);
+	background: var(--wpds-color-bg-surface-neutral);
+	min-width: 0;
+}
+
+.cardSection {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-md);
+	padding: var(--wpds-dimension-padding-lg);
+	min-width: 0;
+}
+
+.tiles {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
+	gap: var(--wpds-dimension-padding-md);
+}
+
+.tile {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.tileLabel {
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-xs);
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.tileValue {
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	color: var(--wpds-color-fg-content-neutral);
+}

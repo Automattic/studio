@@ -181,9 +181,13 @@
 	color: currentColor;
 }
 
-.overviewButtonIcon svg {
+.overviewButtonIcon:not(.brandIcon) svg {
 	color: currentColor;
 	fill: currentColor;
+}
+
+.brandIcon svg {
+	color: currentColor;
 }
 
 .overviewButtonLabel {

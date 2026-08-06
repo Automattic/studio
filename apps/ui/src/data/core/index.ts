@@ -8,6 +8,7 @@ export type {
 	AuthUser,
 	ColorScheme,
 	Connector,
+	ConnectorCapabilities,
 	CreateSiteParams,
 	ExtractedBlueprintBundle,
 	InstalledApps,

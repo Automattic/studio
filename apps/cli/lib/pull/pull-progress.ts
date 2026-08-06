@@ -13,7 +13,6 @@
  * non-stalling, not accurate.
  */
 
-/** A phase of the pull, in the order they run. */
 export enum PullStep {
 	SETUP = 'setup',
 	PREFLIGHT = 'preflight',
@@ -26,7 +25,6 @@ export enum PullStep {
 	REMAINING = 'remaining',
 }
 
-/** `[start, end]` of each step's slice of the overall 0–100 range. */
 const BANDS: Record< PullStep, readonly [ number, number ] > = {
 	[ PullStep.SETUP ]: [ 0, 3 ],
 	[ PullStep.PREFLIGHT ]: [ 3, 5 ],
@@ -40,8 +38,6 @@ const BANDS: Record< PullStep, readonly [ number, number ] > = {
 };
 
 /**
- * Maps a step and its own 0–1 completion onto the overall percentage.
- *
  * `fraction` is clamped, so a reprint counter that overshoots or resets
  * mid-transfer can't push the bar past its band or backwards out of it.
  * Omitting it parks the bar at the start of the band, which is what the

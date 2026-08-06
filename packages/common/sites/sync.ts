@@ -88,18 +88,11 @@ export function pullSite(
 	emit?: ( output: PullSiteProgress ) => void,
 	engine: PullEngine = 'jetpack'
 ): Promise< void > {
+	const target = [ '--path', siteFolder, '--remote-site', String( remoteSiteId ) ];
 	const args =
 		engine === 'reprint'
-			? [ 'pull-reprint', '--path', siteFolder, '--remote-site', String( remoteSiteId ) ]
-			: [
-					'pull',
-					'--path',
-					siteFolder,
-					'--remote-site',
-					String( remoteSiteId ),
-					'--options',
-					'all',
-			  ];
+			? [ 'pull-reprint', ...target ]
+			: [ 'pull', ...target, '--options', 'all' ];
 
 	return new Promise( ( resolve, reject ) => {
 		const [ emitter ] = executeCliCommand( args, { output: 'capture' } );

@@ -528,9 +528,8 @@ export async function updateConnectedWpcomSites(
 // the CLI instead keeps apps/ui free of wpcom-client setup and mirrors the
 // simpler flow used by `push`. Exchanges everything.
 //
-// The `reprintPull` beta feature swaps `pull` for `pull-reprint`. It is read
-// here, per pull, so toggling the menu item takes effect on the next pull
-// without reloading the renderer.
+// The `reprintPull` beta feature is read per pull, so toggling the menu item
+// takes effect on the next pull without reloading the renderer.
 export async function pullSiteFromLive(
 	event: IpcMainInvokeEvent,
 	siteId: string,

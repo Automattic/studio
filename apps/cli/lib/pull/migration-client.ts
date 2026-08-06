@@ -520,19 +520,14 @@ function updateSnapshot(
  * is being applied. Callers map this onto an overall percentage.
  */
 export function snapshotFraction( snapshot: ProgressSnapshot ): number | undefined {
-	const ratios: Array< [ number | undefined, number | undefined ] > = [
-		[ snapshot.downloadedFiles, snapshot.totalFiles ],
-		[ snapshot.downloadedBytes, snapshot.totalBytes ],
-		[ snapshot.statementsExecuted, snapshot.statementsTotal ],
-	];
+	const ratio = ( done?: number, total?: number ) =>
+		done !== undefined && total !== undefined && total > 0 ? done / total : undefined;
 
-	for ( const [ done, total ] of ratios ) {
-		if ( done !== undefined && total !== undefined && total > 0 ) {
-			return done / total;
-		}
-	}
-
-	return undefined;
+	return (
+		ratio( snapshot.downloadedFiles, snapshot.totalFiles ) ??
+		ratio( snapshot.downloadedBytes, snapshot.totalBytes ) ??
+		ratio( snapshot.statementsExecuted, snapshot.statementsTotal )
+	);
 }
 
 /**

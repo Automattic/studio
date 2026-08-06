@@ -131,8 +131,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				} );
 			} catch ( error ) {
 				if ( error instanceof PullError ) {
-					logger.spinner.fail( __( 'Pull failed' ) );
-					console.error( '\n' + chalk.bold.red( error.message ) );
+					logger.reportError( error );
 					if ( verbose && error.technicalDetails ) {
 						console.error( '\n' + chalk.dim( error.technicalDetails ) );
 					} else if ( error.technicalDetails ) {
@@ -568,10 +567,8 @@ export async function runCommand(
 		// again instead of silently reusing this run's choice.
 		clearPullSelection( studioMetadata );
 
-		// Close the bar out here: the skipped-files pass is the only other step
-		// that reports 100%, and it is skipped whenever there's no tail
-		// outstanding. The percentage has to ride an in-progress message —
-		// `pullSite` only parses the token out of those.
+		// The percentage has to ride an in-progress message — `pullSite` only
+		// parses the token out of those, so the success below can't close the bar.
 		logger.reportProgress( withPercent( __( 'Pull complete' ), 100 ) );
 		logger.reportSuccess( __( 'Pull complete' ) );
 
@@ -1243,7 +1240,6 @@ export async function downloadSkippedFiles(
 			runtime,
 		}
 	);
-	logger.reportProgress( withPercent( __( 'Remaining files downloaded' ), 100 ) );
 	logger.reportSuccess( __( 'Remaining files downloaded' ) );
 }
 

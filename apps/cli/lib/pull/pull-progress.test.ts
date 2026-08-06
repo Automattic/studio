@@ -50,8 +50,8 @@ describe( 'overallPercent', () => {
 
 describe( 'withPercent', () => {
 	it( 'appends the token pullSite parses out of the message', () => {
-		const message = withPercent( 'Pulling files · 42/1337 files', 30 );
-		expect( message ).toBe( 'Pulling files · 42/1337 files (30%)' );
-		expect( /\((\d+)%\)/.exec( message )?.[ 1 ] ).toBe( '30' );
+		expect( withPercent( 'Pulling files · 42/1337 files', 30 ) ).toBe(
+			'Pulling files · 42/1337 files (30%)'
+		);
 	} );
 } );

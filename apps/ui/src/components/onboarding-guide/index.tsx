@@ -55,7 +55,12 @@ export function OnboardingGuide( { guide, onComplete, onDismiss }: OnboardingGui
 				}
 			} }
 		>
-			<Dialog.Popup size="small" className={ styles.popup } initialFocus={ advanceRef }>
+			<Dialog.Popup
+				size="small"
+				className={ styles.popup }
+				initialFocus={ advanceRef }
+				data-orientation-guide
+			>
 				<GuideIllustration id={ page.illustration } title={ page.title() } />
 				<Dialog.CloseIcon
 					label={ __( 'Skip' ) }

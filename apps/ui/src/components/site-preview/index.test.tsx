@@ -4,6 +4,7 @@ import { displayShortcut } from '@wordpress/keycodes';
 import { Tooltip } from '@wordpress/ui';
 import { describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
+import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import {
 	getBrowserShortcutCommand,
 	getPathFromPreviewUrl,
@@ -15,6 +16,15 @@ import type { ComponentProps, ReactNode } from 'react';
 
 vi.mock( '@/data/core', () => ( {
 	useConnector: vi.fn(),
+} ) );
+
+vi.mock( '@/data/queries/use-agentic-features', () => ( {
+	useAgenticFeatures: vi.fn( () => ( {
+		enabled: true,
+		chatEnabled: true,
+		reason: null,
+		isReady: true,
+	} ) ),
 } ) );
 
 // jsdom has no 2D canvas context, so swap the animated grid for a bare canvas.
@@ -291,6 +301,33 @@ describe( 'SitePreview', () => {
 		);
 
 		expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeInTheDocument();
+	} );
+
+	it( 'hides the Annotate control when agentic features are off', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			capabilities: { ...CAPABILITIES, annotatePreview: true },
+		} as never );
+		vi.mocked( useAgenticFeatures ).mockReturnValue( {
+			enabled: true,
+			chatEnabled: false,
+			reason: null,
+			isReady: true,
+		} );
+
+		renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+
+		expect( screen.queryByRole( 'button', { name: 'Annotate' } ) ).not.toBeInTheDocument();
+
+		// Restore the default for subsequent tests.
+		vi.mocked( useAgenticFeatures ).mockReturnValue( {
+			enabled: true,
+			chatEnabled: true,
+			reason: null,
+			isReady: true,
+		} );
 	} );
 
 	it( 'offers responsive modes from the More options menu while running', async () => {

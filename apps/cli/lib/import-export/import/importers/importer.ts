@@ -19,7 +19,7 @@ import trash from 'trash';
 import { SiteData } from 'cli/lib/cli-config/core';
 import { ensureWpConfig } from 'cli/lib/native-php/site-setup';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
-import { installSqliteIntegration } from 'cli/lib/sqlite-integration';
+import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { ImportExportEventEmitter } from '../../events';
 import { BackupContents, MetaFileData } from '../types';
 import { updateSiteUrl } from '../update-site-url';
@@ -302,7 +302,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 			}
 		}
 
-		await installSqliteIntegration( site.path );
+		await keepSqliteIntegrationUpdated( site.path );
 		if ( getSiteRuntime( site ) === 'native-php' ) {
 			await writeStudioMuPluginsForNativePhpRuntime( site.path, site.isWpAutoUpdating );
 		}

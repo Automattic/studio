@@ -63,7 +63,14 @@ export function AppToasts( {
 							onMouseEnter={ () => pauseToastExpiry( item.id ) }
 							onMouseLeave={ () => resumeToastExpiry( item.id ) }
 						>
-							<Notice.Root intent={ item.intent } className={ styles.notice }>
+							{ /* Keyed on the notice's shape, not just its id: a toast that is
+							     replaced in place can gain or lose optional Notice children,
+							     which changes the component's internal hook layout. */ }
+							<Notice.Root
+								key={ `${ item.intent }:${ !! item.description }:${ !! item.action }` }
+								intent={ item.intent }
+								className={ styles.notice }
+							>
 								<Notice.Title>{ item.title }</Notice.Title>
 								{ item.description ? (
 									<Notice.Description>{ item.description }</Notice.Description>

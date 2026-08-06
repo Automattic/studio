@@ -9,12 +9,18 @@ export const PREVIEW_CONTENT_WIDTH_STORAGE_KEY = 'studio-ui-preview-content-widt
 export const PREVIEW_PANEL_DEFAULT_WIDTH = 520;
 export const PREVIEW_PANEL_MIN_WIDTH = 360;
 export const PREVIEW_PANEL_MIN_CONTENT_WIDTH = 280;
+export const PREVIEW_SPLIT_MIN_WIDTH =
+	PREVIEW_PANEL_MIN_WIDTH + PREVIEW_PANEL_MIN_CONTENT_WIDTH;
 
 export const SIDEBAR_PANEL_CONFIG: ResizablePanelConfig = {
 	defaultWidth: 320,
 	minWidth: 240,
 	maxWidthRatio: 0.25,
 };
+
+// Below this width, keeping the sidebar open would leave less than the
+// agentic window's compact 420px chat surface.
+export const SIDEBAR_AUTO_COLLAPSE_BREAKPOINT = SIDEBAR_PANEL_CONFIG.minWidth + 420;
 
 export function getResizablePanelMaxWidth(
 	viewportWidth: number,

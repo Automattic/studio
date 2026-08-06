@@ -436,6 +436,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 
 		// Window chrome — no traffic lights in a browser tab.
 		reservesTrafficLightSpace: false,
+		async ensureWindowWidth() {},
 		async isFullscreen() {
 			return false;
 		},

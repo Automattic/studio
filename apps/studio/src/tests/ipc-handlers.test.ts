@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node
  */
-import { IpcMainInvokeEvent } from 'electron';
+import { BrowserWindow, IpcMainInvokeEvent } from 'electron';
 import { existsSync } from 'fs';
 import { normalize } from 'path';
 import { resolveMigratedAiSessionsPath } from '@studio/common/ai/sessions/root-migration';
@@ -10,6 +10,7 @@ import { vol } from 'memfs';
 import { vi } from 'vitest';
 import {
 	createSite,
+	ensureMinWindowWidth,
 	getFileSize,
 	getXdebugEnabledSite,
 	isFullscreen,
@@ -185,6 +186,34 @@ describe( 'isFullscreen', () => {
 		const result = await isFullscreen( mockIpcMainInvokeEvent );
 
 		expect( result ).toBe( true );
+	} );
+} );
+
+describe( 'ensureMinWindowWidth', () => {
+	it( 'grows the sender window while preserving its height', async () => {
+		const setSize = vi.fn();
+		vi.mocked( BrowserWindow.fromWebContents ).mockReturnValueOnce( {
+			isDestroyed: () => false,
+			getSize: () => [ 420, 700 ],
+			setSize,
+		} as unknown as BrowserWindow );
+
+		await ensureMinWindowWidth( mockIpcMainInvokeEvent, 640 );
+
+		expect( setSize ).toHaveBeenCalledWith( 640, 700 );
+	} );
+
+	it( 'leaves an already-wide window unchanged', async () => {
+		const setSize = vi.fn();
+		vi.mocked( BrowserWindow.fromWebContents ).mockReturnValueOnce( {
+			isDestroyed: () => false,
+			getSize: () => [ 900, 700 ],
+			setSize,
+		} as unknown as BrowserWindow );
+
+		await ensureMinWindowWidth( mockIpcMainInvokeEvent, 640 );
+
+		expect( setSize ).not.toHaveBeenCalled();
 	} );
 } );
 

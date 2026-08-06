@@ -2,7 +2,7 @@ import { __ } from '@wordpress/i18n';
 import { privateApis } from '@wordpress/theme';
 import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppMessageCards, AppMessageCardsDot } from '@/components/app-message-cards';
 import { AppToasts } from '@/components/app-toasts';
 import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
@@ -15,7 +15,12 @@ import { useResizablePanel } from '@/hooks/use-resizable-panel';
 import { SidebarCollapsedContext } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { drawerIcon } from '@/lib/icons';
-import { SIDEBAR_PANEL_CONFIG, SIDEBAR_PANEL_STORAGE_KEY } from '@/lib/resizable-panels';
+import {
+	getViewportWidth,
+	SIDEBAR_AUTO_COLLAPSE_BREAKPOINT,
+	SIDEBAR_PANEL_CONFIG,
+	SIDEBAR_PANEL_STORAGE_KEY,
+} from '@/lib/resizable-panels';
 import { unlock } from '@/lock-unlock';
 import styles from './style.module.css';
 import type { CSSProperties, ReactNode } from 'react';
@@ -47,7 +52,10 @@ export function SidebarLayout( {
 	forceCollapsed = false,
 	onForceCollapsedToggle,
 }: SidebarLayoutProps ) {
-	const [ collapsed, setCollapsed ] = useState( false );
+	const [ collapsed, setCollapsed ] = useState(
+		() => getViewportWidth() < SIDEBAR_AUTO_COLLAPSE_BREAKPOINT
+	);
+	const wasCompactRef = useRef( getViewportWidth() < SIDEBAR_AUTO_COLLAPSE_BREAKPOINT );
 	const effectiveCollapsed = collapsed || forceCollapsed;
 	const connector = useConnector();
 	const reserveTrafficLightSpace = useTrafficLightSpace().start;
@@ -64,13 +72,27 @@ export function SidebarLayout( {
 			setCollapsed( false );
 			return;
 		}
+		if ( collapsed ) {
+			void connector.ensureWindowWidth( SIDEBAR_AUTO_COLLAPSE_BREAKPOINT );
+		}
 		setCollapsed( ( value ) => ! value );
-	}, [ forceCollapsed, onForceCollapsedToggle ] );
+	}, [ collapsed, connector, forceCollapsed, onForceCollapsedToggle ] );
 	const sidebarStyle = effectiveCollapsed
 		? undefined
 		: ( { '--sidebar-width': `${ sidebarResize.width }px` } as CSSProperties );
 
 	useEffect( () => connector.onToggleSidebar( toggleSidebar ), [ connector, toggleSidebar ] );
+	useEffect( () => {
+		const collapseWhenEnteringCompactWidth = () => {
+			const isCompact = getViewportWidth() < SIDEBAR_AUTO_COLLAPSE_BREAKPOINT;
+			if ( isCompact && ! wasCompactRef.current ) {
+				setCollapsed( true );
+			}
+			wasCompactRef.current = isCompact;
+		};
+		window.addEventListener( 'resize', collapseWhenEnteringCompactWidth );
+		return () => window.removeEventListener( 'resize', collapseWhenEnteringCompactWidth );
+	}, [] );
 
 	return (
 		<SidebarCollapsedContext.Provider value={ effectiveCollapsed }>

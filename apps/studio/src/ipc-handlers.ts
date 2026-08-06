@@ -1841,6 +1841,24 @@ export function toggleMinWindowWidth(
 	parentWindow.setSize( newWidth, currentHeight, true );
 }
 
+export async function ensureMinWindowWidth(
+	event: IpcMainInvokeEvent,
+	minimumWidth: number
+): Promise< void > {
+	if ( ! Number.isFinite( minimumWidth ) || minimumWidth <= 0 ) {
+		return;
+	}
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	if ( ! parentWindow || parentWindow.isDestroyed() || event.sender.isDestroyed() ) {
+		return;
+	}
+	const [ currentWidth, currentHeight ] = parentWindow.getSize();
+	const nextWidth = Math.ceil( minimumWidth );
+	if ( currentWidth < nextWidth ) {
+		parentWindow.setSize( nextWidth, currentHeight );
+	}
+}
+
 /**
  * Returns the absolute path of a file in the site's directory.
  * Returns null if the file does not exist.

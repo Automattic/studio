@@ -3,10 +3,12 @@ import { createRoute, Outlet, useRouterState } from '@tanstack/react-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
 	PreviewSplitFrame,
+	type PreviewSplitTooNarrowReason,
 	type PreviewSplitFramePreviewProps,
 } from '@/components/preview-split-frame';
 import { SidebarLayout } from '@/components/sidebar-layout';
 import { SitePreview } from '@/components/site-preview';
+import { useConnector } from '@/data/core';
 import { useSession, useSessionEffectiveEnvironment } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
 import {
@@ -16,6 +18,7 @@ import {
 	useSessionPreviewUI,
 } from '@/hooks/use-session-ui';
 import { writeLastVisited } from '@/lib/last-visited';
+import { getViewportWidth, PREVIEW_SPLIT_MIN_WIDTH } from '@/lib/resizable-panels';
 import { rootRoute } from '../layout-root';
 
 // Session detail routes and the site overview host the preview; on every
@@ -49,6 +52,7 @@ function DashboardLayout() {
 // previewed site follows the current session; routes without one keep the
 // last previewed site loaded behind a closed panel.
 function DashboardLayoutContent() {
+	const connector = useConnector();
 	const routePreviewContext = useRouterState( {
 		select: ( state ) => ( {
 			sessionId: getRouteSessionId( state.location.pathname ),
@@ -117,6 +121,19 @@ function DashboardLayoutContent() {
 	const previewPath = pathForSite( preview.pathsBySiteId, previewSiteId );
 	const showPreview = preview.open && supportsPreview && !! previewSite;
 	const previewFullscreen = preview.fullscreen && showPreview;
+	const { setOpen: setPreviewOpen } = preview;
+	const handleNarrowPreview = useCallback(
+		( containerWidth: number, reason: PreviewSplitTooNarrowReason ) => {
+			if ( reason === 'opened' ) {
+				void connector.ensureWindowWidth(
+					getViewportWidth() + PREVIEW_SPLIT_MIN_WIDTH - containerWidth
+				);
+				return;
+			}
+			setPreviewOpen( false );
+		},
+		[ connector, setPreviewOpen ]
+	);
 	// Leave full preview when the route stops supporting a preview (settings,
 	// site settings…) so the user is never left staring at a hidden layout.
 	const { setFullscreen: setPreviewFullscreen } = preview;
@@ -162,6 +179,7 @@ function DashboardLayoutContent() {
 			<PreviewSplitFrame
 				previewOpen={ showPreview }
 				previewFullscreen={ previewFullscreen }
+				onSplitTooNarrow={ handleNarrowPreview }
 				preview={ renderPreview }
 			>
 				<Outlet />

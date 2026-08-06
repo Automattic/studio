@@ -1,9 +1,17 @@
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import {
+	useEffect,
+	useLayoutEffect,
+	useRef,
+	useState,
+	type CSSProperties,
+	type ReactNode,
+} from 'react';
 import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { usePreviewSplit } from '@/hooks/use-preview-split';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
+import { PREVIEW_SPLIT_MIN_WIDTH } from '@/lib/resizable-panels';
 import styles from './style.module.css';
 
 // Keep in sync with the content-column transition duration in style.module.css.
@@ -12,6 +20,8 @@ const PREVIEW_TOGGLE_DURATION = 150;
 export interface PreviewSplitFramePreviewProps {
 	collapsed: boolean;
 }
+
+export type PreviewSplitTooNarrowReason = 'opened' | 'resized';
 
 interface PreviewSplitFrameProps {
 	// The preview panel content. Kept mounted while closed so the webview stays
@@ -22,6 +32,8 @@ interface PreviewSplitFrameProps {
 	// Full preview: the preview takes the whole frame and the content column
 	// collapses to zero width (kept mounted so chat state survives).
 	previewFullscreen?: boolean;
+	// Called when an open split can no longer preserve both panel minimums.
+	onSplitTooNarrow?: ( containerWidth: number, reason: PreviewSplitTooNarrowReason ) => void;
 	children?: ReactNode;
 }
 
@@ -29,12 +41,42 @@ export function PreviewSplitFrame( {
 	preview,
 	previewOpen = false,
 	previewFullscreen = false,
+	onSplitTooNarrow,
 	children,
 }: PreviewSplitFrameProps ) {
 	const showPreview = previewOpen && preview != null;
 	const showFullscreen = showPreview && previewFullscreen;
-	const { rootRef, contentWidthVar, isResizing, handleProps } = usePreviewSplit( { showPreview } );
+	const { rootRef, containerWidth, contentWidthVar, isResizing, handleProps } = usePreviewSplit( {
+		showPreview,
+	} );
 	const isSidebarCollapsed = useSidebarCollapsed();
+	const previousShowPreviewRef = useRef( showPreview );
+	const openedSinceMeasurementRef = useRef( false );
+	const reportedTooNarrowRef = useRef( false );
+	useLayoutEffect( () => {
+		openedSinceMeasurementRef.current = showPreview && ! previousShowPreviewRef.current;
+		previousShowPreviewRef.current = showPreview;
+	}, [ showPreview ] );
+
+	useEffect( () => {
+		if ( ! showPreview || showFullscreen || containerWidth === null ) {
+			reportedTooNarrowRef.current = false;
+			return;
+		}
+		const reason: PreviewSplitTooNarrowReason = openedSinceMeasurementRef.current
+			? 'opened'
+			: 'resized';
+		openedSinceMeasurementRef.current = false;
+		const tooNarrow = containerWidth < PREVIEW_SPLIT_MIN_WIDTH;
+		if ( ! tooNarrow ) {
+			reportedTooNarrowRef.current = false;
+			return;
+		}
+		if ( ! reportedTooNarrowRef.current ) {
+			reportedTooNarrowRef.current = true;
+			onSplitTooNarrow?.( containerWidth, reason );
+		}
+	}, [ containerWidth, onSplitTooNarrow, showFullscreen, showPreview ] );
 
 	// Animate only open/close/fullscreen toggles of an already-mounted preview —
 	// never the initial layout, so a route loading with the preview visible

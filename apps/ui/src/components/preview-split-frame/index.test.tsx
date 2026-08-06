@@ -154,6 +154,63 @@ describe( 'PreviewSplitFrame', () => {
 		expect( screen.getByLabelText( 'Site preview' ) ).toBeVisible();
 	} );
 
+	it( 'reports when an open split is too narrow for both panel minimums', async () => {
+		frameWidth = 639;
+		const onSplitTooNarrow = vi.fn();
+
+		render(
+			<PreviewSplitFrame
+				previewOpen
+				preview={ () => <aside aria-label="Site preview" /> }
+				onSplitTooNarrow={ onSplitTooNarrow }
+			>
+				<span data-testid="content">Content</span>
+			</PreviewSplitFrame>
+		);
+
+		await waitFor( () => expect( onSplitTooNarrow ).toHaveBeenCalledWith( 639, 'resized' ) );
+	} );
+
+	it( 'reports that a narrow split was explicitly opened', async () => {
+		frameWidth = 420;
+		const onSplitTooNarrow = vi.fn();
+		const preview = () => <aside aria-label="Site preview" />;
+		const { rerender } = render(
+			<PreviewSplitFrame previewOpen={ false } preview={ preview }>
+				<span data-testid="content">Content</span>
+			</PreviewSplitFrame>
+		);
+
+		rerender(
+			<PreviewSplitFrame previewOpen preview={ preview } onSplitTooNarrow={ onSplitTooNarrow }>
+				<span data-testid="content">Content</span>
+			</PreviewSplitFrame>
+		);
+
+		await waitFor( () => expect( onSplitTooNarrow ).toHaveBeenCalledWith( 420, 'opened' ) );
+	} );
+
+	it( 'allows a narrow preview when it is fullscreen', async () => {
+		frameWidth = 420;
+		const onSplitTooNarrow = vi.fn();
+
+		render(
+			<PreviewSplitFrame
+				previewOpen
+				previewFullscreen
+				preview={ () => <aside aria-label="Site preview" /> }
+				onSplitTooNarrow={ onSplitTooNarrow }
+			>
+				<span data-testid="content">Content</span>
+			</PreviewSplitFrame>
+		);
+
+		await waitFor( () =>
+			expect( getFrameRoot() ).toHaveStyle( '--preview-frame-content-width: 0px' )
+		);
+		expect( onSplitTooNarrow ).not.toHaveBeenCalled();
+	} );
+
 	describe( 'keyboard and pointer resizing', () => {
 		async function renderOpenAndSettle() {
 			render(

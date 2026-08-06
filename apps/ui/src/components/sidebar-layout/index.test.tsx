@@ -1,5 +1,5 @@
-import { act, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
 import { SidebarLayout } from './index';
 import type { ReactNode } from 'react';
@@ -54,15 +54,27 @@ const useConnectorMock = vi.mocked( useConnector, { partial: true } );
 
 describe( 'SidebarLayout', () => {
 	let toggleSidebarListener: ( () => void ) | undefined;
+	let originalInnerWidth: number;
+	const ensureWindowWidth = vi.fn().mockResolvedValue( undefined );
 
 	beforeEach( () => {
 		vi.clearAllMocks();
+		originalInnerWidth = window.innerWidth;
+		Object.defineProperty( window, 'innerWidth', { configurable: true, value: 1024 } );
 		toggleSidebarListener = undefined;
 		useConnectorMock.mockReturnValue( {
+			ensureWindowWidth,
 			onToggleSidebar: vi.fn( ( listener ) => {
 				toggleSidebarListener = listener;
 				return vi.fn();
 			} ),
+		} );
+	} );
+
+	afterEach( () => {
+		Object.defineProperty( window, 'innerWidth', {
+			configurable: true,
+			value: originalInnerWidth,
 		} );
 	} );
 
@@ -100,5 +112,43 @@ describe( 'SidebarLayout', () => {
 		act( () => toggleSidebarListener?.() );
 
 		expect( onForceCollapsedToggle ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	it( 'collapses when the window enters compact width', async () => {
+		render(
+			<SidebarLayout>
+				<div>Content</div>
+			</SidebarLayout>
+		);
+
+		Object.defineProperty( window, 'innerWidth', { configurable: true, value: 659 } );
+		await act( async () => window.dispatchEvent( new Event( 'resize' ) ) );
+
+		expect( screen.getByRole( 'button', { name: 'Show sidebar' } ) ).toBeInTheDocument();
+	} );
+
+	it( 'starts collapsed in a compact window', () => {
+		Object.defineProperty( window, 'innerWidth', { configurable: true, value: 420 } );
+
+		render(
+			<SidebarLayout>
+				<div>Content</div>
+			</SidebarLayout>
+		);
+
+		expect( screen.getByRole( 'button', { name: 'Show sidebar' } ) ).toBeInTheDocument();
+	} );
+
+	it( 'grows a compact window when reopening the sidebar', () => {
+		Object.defineProperty( window, 'innerWidth', { configurable: true, value: 420 } );
+		render(
+			<SidebarLayout>
+				<div>Content</div>
+			</SidebarLayout>
+		);
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Show sidebar' } ) );
+
+		expect( ensureWindowWidth ).toHaveBeenCalledWith( 660 );
 	} );
 } );

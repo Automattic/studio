@@ -1,5 +1,6 @@
 import { resolveSessionModel } from '@studio/common/ai/models';
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
+import { getStudioCodeAiAccessState } from '@studio/common/lib/studio-assistant-quota';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
@@ -526,7 +527,10 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 
 	// Fail open when the quota is unavailable (offline, error, older server) —
 	// the WordPress.com proxy enforces the same gate server-side.
-	if ( quota && ! quota.hasPaymentMethod ) {
+	if (
+		quota &&
+		( getStudioCodeAiAccessState( quota ) !== 'available' || ! quota.hasPaymentMethod )
+	) {
 		return (
 			<SessionFrame
 				header={ <SessionHeader summary={ data.summary } /> }
@@ -534,6 +538,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			>
 				<EmptyBackground />
 				<AccessRequirements
+					quota={ quota }
 					isRechecking={ isQuotaFetching }
 					onRecheck={ () => void refetchQuota() }
 				/>
@@ -553,11 +558,6 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						fadeAfterQuotaCheck && styles.fadeInQuick
 					) }
 				>
-					<QueuedPrompts
-						prompts={ queuedPrompts }
-						onRemove={ removeQueuedPrompt }
-						onEdit={ reopenQueuedPrompt }
-					/>
 					<Composer
 						ref={ composerRef }
 						busy={ composerBusy }
@@ -620,6 +620,11 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 					answeredPermissions={ answeredPermissions }
 					onAnswerQuestion={ answerQuestion }
 					onAnswerPermission={ answerPermissionAndRefocus }
+				/>
+				<QueuedPrompts
+					prompts={ queuedPrompts }
+					onRemove={ removeQueuedPrompt }
+					onEdit={ reopenQueuedPrompt }
 				/>
 			</div>
 		</SessionFrame>

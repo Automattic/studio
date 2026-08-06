@@ -1,12 +1,13 @@
 import {
 	clampQuotaFraction,
-	formatAiBlockedNotice,
 	formatQuotaPercentage,
 	formatQuotaResetDateShort,
+	getStudioCodeAiAccessState,
 } from '@studio/common/lib/studio-assistant-quota';
 import { __, sprintf } from '@wordpress/i18n';
 import { Button, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
+import { AiAccessRequiredNotice, AiBlockedNotice } from '@/components/ai-access-required-notice';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
@@ -106,10 +107,17 @@ export function AiCreditsSection() {
 		);
 	}
 
-	if ( quota?.isStudioCodeAiBlocked ) {
+	const accessState = quota ? getStudioCodeAiAccessState( quota ) : 'available';
+	if ( accessState !== 'available' ) {
 		return (
 			<Meter title={ __( 'AI credits' ) }>
-				<p className={ styles.meterText }>{ formatAiBlockedNotice() }</p>
+				<p className={ styles.meterText }>
+					{ accessState === 'blocked' ? (
+						<AiBlockedNotice />
+					) : (
+						<AiAccessRequiredNotice quota={ quota } />
+					) }
+				</p>
 			</Meter>
 		);
 	}

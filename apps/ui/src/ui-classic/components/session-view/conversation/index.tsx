@@ -10,7 +10,11 @@ import {
 	type CheckpointArtifactProps,
 	type StudioChatArtifactWidgetDraft,
 } from '@studio/common/ai/chat-artifacts';
-import { isAiBlockedError, isUsageCapError } from '@studio/common/ai/json-events';
+import {
+	isAiAccessRequiredError,
+	isAiBlockedError,
+	isUsageCapError,
+} from '@studio/common/ai/json-events';
 import {
 	isStudioCustomEntryOfType,
 	type StudioChatAttachmentSummary,
@@ -29,10 +33,7 @@ import {
 	type NormalizedToolResult,
 	type ToolGroupSummary,
 } from '@studio/common/ai/tools';
-import {
-	formatAiBlockedNotice,
-	formatUsageCapNotice,
-} from '@studio/common/lib/studio-assistant-quota';
+import { formatUsageCapNotice } from '@studio/common/lib/studio-assistant-quota';
 import { __, sprintf } from '@wordpress/i18n';
 import {
 	backup,
@@ -89,7 +90,10 @@ import {
 	useMemo,
 	useRef,
 	useState,
+	type ReactNode,
+	MouseEvent as ReactMouseEvent,
 } from 'react';
+import { AiAccessRequiredNotice, AiBlockedNotice } from '@/components/ai-access-required-notice';
 import { RestoreCheckpointDialog } from '@/components/checkpoint-timeline';
 import { CopyButton } from '@/components/copy-button';
 import { ImageContextMenu } from '@/components/image-context-menu';
@@ -111,7 +115,6 @@ import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
 import type { ActiveToolState } from '@/data/queries/use-agent-run';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
-import type { MouseEvent as ReactMouseEvent } from 'react';
 
 interface AgentQuestionRenderItem {
 	key: string;
@@ -1891,10 +1894,13 @@ function PermissionRequest( {
 // instead of the raw provider message.
 function TurnErrorMarker( { message }: { message: string } ) {
 	const isUsageCap = isUsageCapError( message );
-	const { data: quota } = useStudioAssistantQuota( { enabled: isUsageCap } );
-	let text: string;
+	const isAccessRequired = isAiAccessRequiredError( message );
+	const { data: quota } = useStudioAssistantQuota( { enabled: isUsageCap || isAccessRequired } );
+	let text: ReactNode;
 	if ( isAiBlockedError( message ) ) {
-		text = formatAiBlockedNotice();
+		text = <AiBlockedNotice />;
+	} else if ( isAccessRequired ) {
+		text = <AiAccessRequiredNotice quota={ quota } />;
 	} else if ( isUsageCap ) {
 		text = formatUsageCapNotice( quota?.costResetDate );
 	} else {

@@ -93,9 +93,10 @@ function makeQuota( overrides: Partial< { hasPaymentMethod: boolean; emailVerifi
 		costUsage: 0,
 		costCap: 500000,
 		costResetDate: '2026-09-01T00:00:00+00:00',
-		isStudioCodeAiBlocked: false,
 		emailVerified: true,
 		hasPaymentMethod: true,
+		studioCodeAiHasAccess: true,
+		studioCodeAiAccess: 'granted',
 		...overrides,
 	};
 }

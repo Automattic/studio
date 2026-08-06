@@ -6,6 +6,7 @@ import { Tooltip } from '@wordpress/ui';
 import { describe, expect, it, vi } from 'vitest';
 import { getVisibleToasts, resetAppMessagesForTests } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
+import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import {
 	getBrowserShortcutCommand,
 	getPathFromPreviewUrl,
@@ -23,6 +24,15 @@ vi.mock( '@/data/core', () => ( {
 // is covered by its own tests.
 vi.mock( '@/components/open-in-menu', () => ( {
 	OpenInMenu: () => <button type="button">Open in…</button>,
+} ) );
+
+vi.mock( '@/data/queries/use-agentic-features', () => ( {
+	useAgenticFeatures: vi.fn( () => ( {
+		enabled: true,
+		chatEnabled: true,
+		reason: null,
+		isReady: true,
+	} ) ),
 } ) );
 
 const useConnectorMock = vi.mocked( useConnector );
@@ -839,6 +849,42 @@ describe( 'SitePreview', () => {
 			expect( screen.getByRole( 'menuitem', { name: 'Clip the page' } ) ).toBeVisible();
 		} finally {
 			restoreUserAgent();
+		}
+	} );
+
+	it( 'hides the Clip control when agentic features are off', () => {
+		const restoreUserAgent = mockElectronUserAgent();
+		useConnectorMock.mockReturnValue( {
+			...baseConnector(),
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			capabilities: { ...CAPABILITIES, annotatePreview: true },
+		} as never );
+		vi.mocked( useAgenticFeatures ).mockReturnValue( {
+			enabled: true,
+			chatEnabled: false,
+			reason: null,
+			isReady: true,
+		} );
+
+		try {
+			renderPreview(
+				<SitePreview
+					site={ createSite( { running: true } ) }
+					path="/"
+					reloadNonce={ 0 }
+					onClip={ vi.fn() }
+				/>
+			);
+
+			expect( screen.queryByRole( 'button', { name: 'Clip an element' } ) ).not.toBeInTheDocument();
+		} finally {
+			restoreUserAgent();
+			vi.mocked( useAgenticFeatures ).mockReturnValue( {
+				enabled: true,
+				chatEnabled: true,
+				reason: null,
+				isReady: true,
+			} );
 		}
 	} );
 

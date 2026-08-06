@@ -138,7 +138,12 @@ import { scaffoldPluginInSite, type PluginScaffoldMeta } from 'src/lib/scaffold-
 import { getAiInstructionsPath } from 'src/lib/server-files-paths';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { setAgenticUiEnabled } from 'src/lib/studio-ui-mode';
-import { recordTracksEvent, type TracksChannel, type TracksUiVersion } from 'src/lib/tracks';
+import {
+	recordTracksEvent,
+	type TracksChannel,
+	type TracksSiteCreateFlowType,
+	type TracksUiVersion,
+} from 'src/lib/tracks';
 import { updateSiteUrl } from 'src/lib/update-site-url';
 import { expandWindowForWorkbench as expandMainWindowForWorkbench } from 'src/lib/window-expansion';
 import * as windowsHelpers from 'src/lib/windows-helpers';
@@ -826,6 +831,7 @@ export async function createSite(
 		adminPassword?: string;
 		adminEmail?: string;
 		noStart?: boolean;
+		flowType?: TracksSiteCreateFlowType;
 	} = {}
 ): Promise< SiteDetails > {
 	const {
@@ -842,6 +848,7 @@ export async function createSite(
 		adminPassword,
 		adminEmail,
 		noStart = false,
+		flowType,
 	} = config;
 
 	const siteId = providedSiteId || crypto.randomUUID();
@@ -877,6 +884,7 @@ export async function createSite(
 				adminPassword,
 				adminEmail,
 				noStart,
+				flowType,
 			},
 			{ wpVersion, blueprint: blueprint?.blueprint }
 		);
@@ -1269,6 +1277,7 @@ export async function copySite(
 			: undefined,
 		adminEmail: sourceSite.adminEmail,
 		noStart: true,
+		flowType: 'duplicate',
 	} );
 
 	// Playground sets the correct siteurl internally, but for the native-php runtime, we need to

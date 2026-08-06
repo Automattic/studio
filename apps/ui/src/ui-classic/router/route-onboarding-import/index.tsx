@@ -126,6 +126,7 @@ export function OnboardingImportPage() {
 				adminUsername: values.adminUsername || undefined,
 				adminPassword: values.adminPassword || undefined,
 				adminEmail: values.adminEmail || undefined,
+				flowType: 'import',
 			} );
 			createdSiteId = site.id;
 

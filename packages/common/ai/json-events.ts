@@ -109,6 +109,17 @@ export function isAiBlockedError( message: string | undefined | null ): boolean 
 }
 
 /**
+ * Returns true when an error message reports that Studio Code AI beta access
+ * hasn't been enabled for the account (STU-2146). Same mechanism as
+ * `isAiBlockedError`: the WordPress.com proxy stamps the
+ * `studio_code_ai_access_required` code into the message text, since the AI
+ * SDKs surface only the message string.
+ */
+export function isAiAccessRequiredError( message: string | undefined | null ): boolean {
+	return /studio_code_ai_access_required/i.test( message ?? '' );
+}
+
+/**
  * Extract the failure of a completed turn from its final `agent_end` event.
  * The error text lives on the last assistant message's `errorMessage`
  * (streamed API failures) or its text blocks (synthetic pre-flight errors).

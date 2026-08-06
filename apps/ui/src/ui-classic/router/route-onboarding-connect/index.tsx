@@ -443,6 +443,7 @@ export function OnboardingConnectPage() {
 						name: availableName,
 						path,
 						skipStart: true,
+						flowType: 'sync',
 					} ),
 				persistConnection: ( localSiteId ) =>
 					connector.connectWpcomSite( localSiteId, {

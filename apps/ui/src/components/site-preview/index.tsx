@@ -31,6 +31,7 @@ import {
 } from '@/components/site-quick-menu';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
+import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useIsSiteStarting, useStartSite } from '@/data/queries/use-sites';
 import { usePointerDrag } from '@/hooks/use-pointer-drag';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
@@ -959,6 +960,7 @@ export function SitePreview( {
 	onConsoleEntriesChange,
 }: SitePreviewProps ) {
 	const connector = useConnector();
+	const { chatEnabled } = useAgenticFeatures();
 	const startSite = useStartSite();
 	const isStarting = useIsSiteStarting( site.id );
 	// With the sidebar hidden the split frame goes full-bleed, so the toolbar
@@ -1673,6 +1675,7 @@ export function SitePreview( {
 				<div className={ clsx( styles.headerSide, styles.headerSideEnd ) }>
 					{ ! isToolbarNarrow &&
 					canPreview &&
+					chatEnabled &&
 					connector.capabilities.annotatePreview &&
 					onClip &&
 					canUseWebview ? (
@@ -1712,6 +1715,7 @@ export function SitePreview( {
 								? {
 										clip:
 											canPreview &&
+											chatEnabled &&
 											connector.capabilities.annotatePreview &&
 											onClip &&
 											canUseWebview

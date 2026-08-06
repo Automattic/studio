@@ -165,4 +165,77 @@ describe( 'StudioCodeSession access requirements gate', () => {
 
 		await screen.findByTestId( 'composer' );
 	} );
+
+	it( 'asks an ungranted account to apply for beta access', async () => {
+		setQuota( {
+			hasPaymentMethod: true,
+			emailVerified: true,
+			costUsage: 0,
+			studioCodeAiHasAccess: false,
+			studioCodeAiAccess: 'default',
+		} );
+
+		render( <StudioCodeSession selectedSite={ selectedSite } /> );
+
+		await screen.findByText( 'Studio Code AI is currently available through limited beta access.' );
+		expect( screen.queryByTestId( 'composer' ) ).not.toBeInTheDocument();
+
+		await userEvent.click( screen.getByRole( 'button', { name: /apply for access/i } ) );
+		expect( mockIpc.openURL ).toHaveBeenCalledWith(
+			'https://developer.wordpress.com/studio/studio-code-beta/'
+		);
+		await screen.findByText( 'Finish applying for access' );
+	} );
+
+	it( 'shows the apply gate before the payment gate when both are missing', async () => {
+		setQuota( {
+			hasPaymentMethod: false,
+			emailVerified: true,
+			costUsage: 0,
+			studioCodeAiHasAccess: false,
+			studioCodeAiAccess: 'default',
+		} );
+
+		render( <StudioCodeSession selectedSite={ selectedSite } /> );
+
+		await screen.findByRole( 'button', { name: /apply for access/i } );
+		expect(
+			screen.queryByRole( 'button', { name: /add payment method/i } )
+		).not.toBeInTheDocument();
+	} );
+
+	it( 'tells an ungranted account with spend this cycle that access is now limited', async () => {
+		setQuota( {
+			hasPaymentMethod: true,
+			emailVerified: true,
+			costUsage: 3,
+			studioCodeAiHasAccess: false,
+			studioCodeAiAccess: 'default',
+		} );
+
+		render( <StudioCodeSession selectedSite={ selectedSite } /> );
+
+		await screen.findByText(
+			'Thanks for participating in the Studio Code AI beta. Access is now limited.'
+		);
+	} );
+
+	it( 'shows the suspension copy with a support link for a blocked account', async () => {
+		setQuota( {
+			hasPaymentMethod: true,
+			emailVerified: true,
+			costUsage: 0,
+			studioCodeAiHasAccess: false,
+			studioCodeAiAccess: 'blocked',
+		} );
+
+		render( <StudioCodeSession selectedSite={ selectedSite } /> );
+
+		await screen.findByText( /Studio Code AI is blocked for this WordPress.com account/ );
+		expect( screen.queryByTestId( 'composer' ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: /apply for access/i } ) ).not.toBeInTheDocument();
+
+		await userEvent.click( screen.getByRole( 'button', { name: /contact support/i } ) );
+		expect( mockIpc.openURL ).toHaveBeenCalledWith( 'https://wordpress.com/support/contact/' );
+	} );
 } );

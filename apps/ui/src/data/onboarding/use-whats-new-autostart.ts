@@ -2,7 +2,7 @@ import { hasUnseenWhatsNew } from '@studio/common/lib/whats-new';
 import { useEffect, useRef } from 'react';
 import { useOnboardingGuide } from '@/components/onboarding-guide/use-onboarding-guide';
 import { useAppGlobals } from '@/data/queries/use-app-globals';
-import { useOnboardingCompleted, useOnboardingHints } from '@/data/queries/use-onboarding-hints';
+import { useOnboardingHints } from '@/data/queries/use-onboarding-hints';
 import { useSites } from '@/data/queries/use-sites';
 import { useLastSeenVersion, useSaveLastSeenVersion } from '@/data/queries/use-whats-new-seen';
 import { ORIENTATION_GUIDE_VERSION } from './orientation-guide';
@@ -10,7 +10,6 @@ import { getWhatsNewGuide } from './whats-new';
 import type { OnboardingHintsState } from '@/data/core';
 
 interface AutostartInputs {
-	onboardingCompleted: boolean | undefined;
 	siteCount: number;
 	hints: OnboardingHintsState | undefined;
 	lastSeenVersion: string | null | undefined;
@@ -24,12 +23,10 @@ export type WhatsNewAutostart = 'show' | 'mark-seen' | null;
 
 /**
  * Pure decision: whether to auto-open the announcements. Returns null unless the
- * user finished the pre-workbench welcome, has at least one site, the stored
- * marker has loaded, nothing is already showing, and this app session hasn't
- * opened the guide yet.
+ * user has at least one site, the stored marker has loaded, nothing is already
+ * showing, and this app session hasn't opened the guide yet.
  */
 export function deriveWhatsNewAutostart( {
-	onboardingCompleted,
 	siteCount,
 	hints,
 	lastSeenVersion,
@@ -40,7 +37,9 @@ export function deriveWhatsNewAutostart( {
 	if ( alreadyStarted || guideOpen ) {
 		return null;
 	}
-	if ( onboardingCompleted !== true || siteCount < 1 ) {
+	// Having a site is the real "past the NUX" signal — see the note in
+	// use-orientation-autostart.ts for why `onboardingCompleted` can't be used.
+	if ( siteCount < 1 ) {
 		return null;
 	}
 	if ( hints === undefined || lastSeenVersion === undefined ) {
@@ -76,7 +75,6 @@ const BROWSER_VERSION = 'browser';
 export function useWhatsNewAutostart(): void {
 	const { data: sites } = useSites();
 	const { data: hints } = useOnboardingHints();
-	const { data: onboardingCompleted } = useOnboardingCompleted();
 	const { data: appGlobals } = useAppGlobals();
 	const { data: lastSeenVersion } = useLastSeenVersion();
 	const saveLastSeenVersion = useSaveLastSeenVersion();
@@ -88,7 +86,6 @@ export function useWhatsNewAutostart(): void {
 
 	useEffect( () => {
 		const decision = deriveWhatsNewAutostart( {
-			onboardingCompleted,
 			siteCount: sites?.length ?? 0,
 			hints,
 			lastSeenVersion,
@@ -117,7 +114,6 @@ export function useWhatsNewAutostart(): void {
 		// returns early (startedRef guard); clearing on every re-run would
 		// cancel the pending open. The mount-scoped cleanup below handles it.
 	}, [
-		onboardingCompleted,
 		sites?.length,
 		hints,
 		lastSeenVersion,

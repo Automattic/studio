@@ -7,7 +7,6 @@ import type { OnboardingHintsState } from '@/data/core';
 // Everything ready, the user has been through orientation, and they have never
 // dismissed the announcements — the state in which they actually open.
 const base = {
-	onboardingCompleted: true,
 	siteCount: 1,
 	hints: { tourCompletedVersion: ORIENTATION_GUIDE_VERSION } as OnboardingHintsState,
 	lastSeenVersion: null,
@@ -43,11 +42,6 @@ describe( 'deriveWhatsNewAutostart', () => {
 				hints: { tourCompletedVersion: ORIENTATION_GUIDE_VERSION - 1 },
 			} )
 		).toBe( 'mark-seen' );
-	} );
-
-	it( 'waits until the pre-workbench welcome is done', () => {
-		expect( deriveWhatsNewAutostart( { ...base, onboardingCompleted: false } ) ).toBeNull();
-		expect( deriveWhatsNewAutostart( { ...base, onboardingCompleted: undefined } ) ).toBeNull();
 	} );
 
 	it( 'waits until there is at least one site', () => {

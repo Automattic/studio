@@ -142,7 +142,8 @@ describe( 'UsagePanel', () => {
 		render( <UsagePanel /> );
 
 		expect( screen.getByRole( 'heading', { name: 'Usage' } ) ).toBeInTheDocument();
-		expect( screen.getByText( '40 / 50' ) ).toBeInTheDocument();
+		expect( screen.getByText( '$10.00 left' ) ).toBeInTheDocument();
+		expect( screen.getByText( '4,000 of 5,000 credits used' ) ).toBeInTheDocument();
 		expect( screen.getByText( 'Extra AI credits' ) ).toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Add credits' } ) ).toBeInTheDocument();
 		expect( screen.getByText( '2 of 10 active preview sites' ) ).toBeInTheDocument();
@@ -156,8 +157,8 @@ describe( 'UsagePanel', () => {
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Monthly allowance 100%' } ) );
 
-		expect( screen.getByText( '50 / 50' ) ).toBeInTheDocument();
-		expect( screen.getByText( 'Monthly allowance used' ) ).toBeInTheDocument();
+		expect( screen.getByText( '$0.00 left' ) ).toBeInTheDocument();
+		expect( screen.getByText( '5,000 of 5,000 credits used' ) ).toBeInTheDocument();
 		expect( screen.getByText( 'Keep chatting with extra credits' ) ).toBeInTheDocument();
 		expect(
 			screen.getByText( 'Add credits to continue now. Extra credits do not expire.' )
@@ -170,7 +171,8 @@ describe( 'UsagePanel', () => {
 
 		render( <UsagePanel /> );
 
-		expect( screen.getByText( '18 / 50 used' ) ).toBeInTheDocument();
+		expect( screen.getByText( '$32.00 left' ) ).toBeInTheDocument();
+		expect( screen.getByText( '1,800 of 5,000 credits used' ) ).toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Add credits' } ) ).toBeInTheDocument();
 		expect( screen.getAllByTestId( 'usage-progress-bar' ) ).toHaveLength( 3 );
 	} );
@@ -180,8 +182,10 @@ describe( 'UsagePanel', () => {
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Extra credits 100%' } ) );
 
-		expect( screen.getByText( 'Extra AI credits used' ) ).toBeInTheDocument();
-		expect( screen.getByText( '50 / 50 used' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Extra AI credits' ) ).toBeInTheDocument();
+		// Both pools are spent, so the monthly and extra meters read identically.
+		expect( screen.getAllByText( '$0.00 left' ) ).toHaveLength( 2 );
+		expect( screen.getAllByText( '5,000 of 5,000 credits used' ) ).toHaveLength( 2 );
 		expect( screen.getAllByTestId( 'usage-progress-bar' ) ).toHaveLength( 3 );
 	} );
 
@@ -190,8 +194,10 @@ describe( 'UsagePanel', () => {
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Extra credits In reserve' } ) );
 
-		expect( screen.getByText( '18 / 50' ) ).toBeInTheDocument();
-		expect( screen.getByText( '0 / 50 used' ) ).toBeInTheDocument();
+		expect( screen.getByText( '$32.00 left' ) ).toBeInTheDocument();
+		expect( screen.getByText( '1,800 of 5,000 credits used' ) ).toBeInTheDocument();
+		expect( screen.getByText( '$50.00 left' ) ).toBeInTheDocument();
+		expect( screen.getByText( '0 of 5,000 credits used' ) ).toBeInTheDocument();
 		expect( screen.getByText( 'Extra AI credits' ) ).toBeInTheDocument();
 		expect( screen.getAllByTestId( 'usage-progress-bar' ) ).toHaveLength( 3 );
 	} );

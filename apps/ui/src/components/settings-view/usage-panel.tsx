@@ -18,6 +18,7 @@ import {
 } from '@/data/queries/use-snapshots';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import {
+	creditsFromDollars,
 	setUsageExplorationScenario,
 	useUsageExploration,
 	type UsageExplorationScenario,
@@ -69,63 +70,82 @@ function getMeterIntent( fraction: number ): string | undefined {
 	return undefined;
 }
 
-function AiCreditsSummary() {
+// Dollars lead because that is what the account is actually charged; the credit
+// count sits underneath as the unit the assistant spends.
+function CreditMeter( {
+	label,
+	remainingDollars,
+	usedDollars,
+	totalDollars,
+	fraction,
+	valueClassName,
+}: {
+	label: string;
+	remainingDollars: number;
+	usedDollars: number;
+	totalDollars: number;
+	fraction: number;
+	valueClassName?: string;
+} ) {
 	const locale = useUserLocale();
+	const currency = new Intl.NumberFormat( locale, { style: 'currency', currency: 'USD' } );
+	const credits = new Intl.NumberFormat( locale, { maximumFractionDigits: 0 } );
+
+	return (
+		<div className={ styles.creditMeter }>
+			<div className={ styles.creditMeterHeader }>
+				<span>{ label }</span>
+				<span className={ styles.creditMeterValue }>
+					{ sprintf(
+						/* translators: %s: dollar value of the AI credits still available. */
+						__( '%s left' ),
+						currency.format( remainingDollars )
+					) }
+				</span>
+			</div>
+			<UsageProgressBar fraction={ fraction } valueClassName={ valueClassName } />
+			<span className={ styles.creditMeterCredits }>
+				{ sprintf(
+					/* translators: 1: AI credits used, 2: total AI credits available. */
+					__( '%1$s of %2$s credits used' ),
+					credits.format( creditsFromDollars( usedDollars ) ),
+					credits.format( creditsFromDollars( totalDollars ) )
+				) }
+			</span>
+		</div>
+	);
+}
+
+function AiCreditsSummary() {
 	const usage = useUsageExploration();
 	const [ purchaseOpen, setPurchaseOpen ] = useState( false );
-	const number = new Intl.NumberFormat( locale, { maximumFractionDigits: 2 } );
 	const purchasedUsed = usage.purchasedTotal - usage.purchasedBalance;
-	const purchasedFraction = usage.purchasedFraction;
+	const monthlyRemaining = Math.max( 0, usage.monthlyLimit - usage.monthlyUsed );
 	const monthlyMeterIntent =
 		usage.purchasedTotal > 0 ? undefined : getMeterIntent( usage.monthlyFraction );
-	const purchasedMeterIntent = getMeterIntent( purchasedFraction );
 
 	return (
 		<section className={ styles.usageSection }>
 			<div className={ styles.usageSectionHeader }>
 				<h2>{ __( 'AI credits' ) }</h2>
 			</div>
-			<div className={ styles.creditMeterHeader }>
-				<span>
-					{ usage.monthlyFraction >= 1
-						? __( 'Monthly allowance used' )
-						: __( 'Monthly allowance' ) }
-				</span>
-				<span>
-					{ sprintf(
-						/* translators: 1: AI credits used, 2: monthly AI credit allowance. */
-						__( '%1$s / %2$s' ),
-						number.format( usage.monthlyUsed ),
-						number.format( usage.monthlyLimit )
-					) }
-				</span>
-			</div>
-			<div className={ styles.progressTrack } data-testid="usage-progress-bar" aria-hidden="true">
-				<div
-					className={ clsx( styles.progressValue, monthlyMeterIntent ) }
-					style={ { inlineSize: `${ usage.monthlyFraction * 100 }%` } }
-				/>
-			</div>
+			<CreditMeter
+				label={ __( 'Monthly allowance' ) }
+				remainingDollars={ monthlyRemaining }
+				usedDollars={ usage.monthlyUsed }
+				totalDollars={ usage.monthlyLimit }
+				fraction={ usage.monthlyFraction }
+				valueClassName={ monthlyMeterIntent }
+			/>
 			{ usage.purchasedTotal > 0 ? (
-				<>
-					<div className={ styles.creditMeterHeader }>
-						<span>
-							{ purchasedFraction >= 1 ? __( 'Extra AI credits used' ) : __( 'Extra AI credits' ) }
-						</span>
-						<span>
-							{ sprintf(
-								/* translators: 1: purchased AI credits used, 2: purchased AI credits total. */
-								__( '%1$s / %2$s used' ),
-								number.format( purchasedUsed ),
-								number.format( usage.purchasedTotal )
-							) }
-						</span>
-					</div>
-					<UsageProgressBar
-						fraction={ purchasedFraction }
-						valueClassName={ purchasedMeterIntent }
-					/>
-				</>
+				<CreditMeter
+					label={ __( 'Extra AI credits' ) }
+					remainingDollars={ usage.purchasedBalance }
+					usedDollars={ purchasedUsed }
+					totalDollars={ usage.purchasedTotal }
+					fraction={ usage.purchasedFraction }
+					valueClassName={ getMeterIntent( usage.purchasedFraction ) }
+				/>
 			) : (
 				<div className={ styles.creditTopUpText }>
 					<strong>

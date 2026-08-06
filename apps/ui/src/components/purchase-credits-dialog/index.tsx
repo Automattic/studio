@@ -3,7 +3,7 @@ import { privateApis } from '@wordpress/theme';
 import { Button, Dialog, Tooltip } from '@wordpress/ui';
 import { useMemo, useState } from 'react';
 import { toast } from '@/data/app-messages';
-import { addExplorationCredits } from '@/data/usage-exploration';
+import { addExplorationCredits, creditsFromDollars } from '@/data/usage-exploration';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { unlock } from '@/lock-unlock';
 import styles from './style.module.css';
@@ -92,6 +92,7 @@ export function PurchaseCreditsDialog( {
 	const isOffScale = checkoutAmount > MAX_CREDIT_AMOUNT;
 	const formattedAmount = amount ? creditAmountFormatter.format( checkoutAmount ) : '';
 	const formattedCheckoutAmount = creditAmountFormatter.format( checkoutAmount );
+	const formattedCreditCount = creditAmountFormatter.format( creditsFromDollars( checkoutAmount ) );
 	const hasSelectedPreset = PRESET_AMOUNTS.includes( checkoutAmount );
 	const moveCaretToEnd = ( input: HTMLInputElement ) => {
 		const end = input.value.length;
@@ -175,7 +176,7 @@ export function PurchaseCreditsDialog( {
 												{ sprintf(
 													/* translators: %s: number of AI credits. */
 													__( '%s credits' ),
-													String( option )
+													creditAmountFormatter.format( creditsFromDollars( option ) )
 												) }
 											</span>
 											<span className={ styles.optionFrequency }>{ __( 'one time' ) }</span>
@@ -207,7 +208,7 @@ export function PurchaseCreditsDialog( {
 													? sprintf(
 															/* translators: %s: number of AI credits. */
 															__( '%s credits' ),
-															formattedCheckoutAmount
+															formattedCreditCount
 													  )
 													: __( 'Credits' ) }
 											</span>
@@ -246,12 +247,12 @@ export function PurchaseCreditsDialog( {
 												? sprintf(
 														/* translators: %s: number of AI credits. */
 														__( '%s credits' ),
-														formattedCheckoutAmount
+														formattedCreditCount
 												  )
 												: sprintf(
 														/* translators: %s: minimum number of AI credits. */
 														__( '%s or more credits' ),
-														String( MIN_CREDIT_AMOUNT )
+														creditAmountFormatter.format( creditsFromDollars( MIN_CREDIT_AMOUNT ) )
 												  ) }
 										</span>
 										<span className={ styles.amountFrequency }>{ __( 'one time' ) }</span>

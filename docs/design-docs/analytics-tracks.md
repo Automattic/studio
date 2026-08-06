@@ -157,23 +157,38 @@ AI-event vocabulary: `ai_session_id`, `agent_name`, `agent_version`, `ability_na
 
 Every event also carries the common props `channel`, `ui_version`, `is_a11n`, `platform`, `arch`,
 `app_version` (attached by the wrappers; `ui_version` is absent for pure-CLI `channel=studio-cli`
-events). The table lists the event-specific props.
+events). The tables below list the event-specific props, grouped by kind.
+
+#### Lifecycle events
+
+App and site lifecycle. The two site events are emitted by the CLI (the sole emitter for each), so a
+start / creation is counted once whether it originated in a UI or the standalone CLI — filter by
+`channel` to separate them.
 
 | Event | Emitted from | Event-specific props |
 |---|---|---|
 | `studio_app_launch` | Desktop Main (`appBoot`) | `is_first_launch` |
 | `studio_site_start` | CLI site-start funnel | (none — `ui_version` comes from the wrapper via `STUDIO_TRACKS_ORIGIN`, only when `channel=studio-ui`) |
-| `studio_site_created` | CLI site-create funnel | `flow_type` (`new`/`blueprint`/`import`/`sync`/`duplicate`), `php_version`, `wp_version` (resolved from disk; `-` if unknown), `custom_domain` (boolean — the domain string is **never** sent), `ssl_enabled` (boolean), `time_ms` (creation duration). Emitted once per **successful** creation from the CLI, so app-spawned and standalone creates are counted once; filter by `channel` to separate UI from CLI. |
-| `studio_setting_telemetry_change` | Desktop Main (`saveAnalyticsEnabled`) | `status` (`on`/`off`), `surface` (`onboarding`/`settings`) — recorded while analytics is still ON (before the write when turning off, after it when turning on) so the opt-out gate never self-suppresses it. |
-| `studio_setting_appearance_change` | Desktop Main (`saveColorScheme`) | `mode` (`light`/`dark`/`system`), `surface` (`settings`) |
-| `studio_setting_language_change` | Desktop Main (`saveUserLocale`) | `locale`, `surface` (`settings`) |
-| `studio_setting_code_editor_change` | Desktop Main (`saveUserEditor`) | `editor`, `surface` (`settings`) |
-| `studio_setting_terminal_change` | Desktop Main (`saveUserTerminal`) | `terminal`, `surface` (`settings`) |
-| `studio_setting_default_directory_change` | Desktop Main (`saveDefaultSiteDirectory`) | `is_default` (boolean), `surface` (`settings`) — the directory path is **never** sent (it contains the user's home path). |
-| `studio_setting_quit_action_change` | Desktop Main (`saveQuitSitesBehavior`) | `behavior` (`stop`/`stop-and-auto-start`/`leave-running`), `surface` (`settings`) |
-| `studio_setting_cli_change` | Desktop Main (`installStudioCli`/`uninstallStudioCli`) | `installed` (boolean), `surface` (`settings`) |
-| `studio_setting_agentic_features_change` | Desktop Main (`saveAgenticFeaturesEnabled`) | `enabled` (boolean), `surface` (`settings`) |
-| `studio_setting_ui_change` | Desktop Main (`updateBetaFeature`, `enableAgenticUi` key) | `type` (`classic`/`agentic`), `surface` (`settings`/`banner`/`menu`) — the switch has several entry points; the caller supplies the surface. Not emitted for the boot-time seeding migration (no surface). |
+| `studio_site_created` | CLI site-create funnel | `flow_type` (`new`/`blueprint`/`import`/`sync`/`duplicate`), `php_version`, `wp_version` (resolved from disk; `-` if unknown), `custom_domain` (boolean — the domain string is **never** sent), `ssl_enabled` (boolean), `time_ms` (creation duration). Emitted once per **successful** creation. |
+
+#### Settings-change events
+
+All fire from Desktop Main **only on a real change** (the handler compares against the persisted value
+first), and all carry a `surface` prop identifying where the change was made — `settings` unless noted.
+Sensitive values are never sent as strings (see `is_default` and the directory note below).
+
+| Event | Emitted from | Event-specific props |
+|---|---|---|
+| `studio_setting_telemetry_change` | `saveAnalyticsEnabled` | `status` (`on`/`off`), `surface` (`onboarding`/`settings`) — recorded while analytics is still ON (before the write when turning off, after it when turning on) so the opt-out gate never self-suppresses it. |
+| `studio_setting_appearance_change` | `saveColorScheme` | `mode` (`light`/`dark`/`system`), `surface` (`settings`) |
+| `studio_setting_language_change` | `saveUserLocale` | `locale`, `surface` (`settings`) |
+| `studio_setting_code_editor_change` | `saveUserEditor` | `editor`, `surface` (`settings`) |
+| `studio_setting_terminal_change` | `saveUserTerminal` | `terminal`, `surface` (`settings`) |
+| `studio_setting_default_directory_change` | `saveDefaultSiteDirectory` | `is_default` (boolean), `surface` (`settings`) — the directory path is **never** sent (it contains the user's home path). |
+| `studio_setting_quit_action_change` | `saveQuitSitesBehavior` | `behavior` (`stop`/`stop-and-auto-start`/`leave-running`), `surface` (`settings`) |
+| `studio_setting_cli_change` | `installStudioCli`/`uninstallStudioCli` | `installed` (boolean), `surface` (`settings`) |
+| `studio_setting_agentic_features_change` | `saveAgenticFeaturesEnabled` | `enabled` (boolean), `surface` (`settings`) |
+| `studio_setting_ui_change` | `updateBetaFeature` (`enableAgenticUi` key) | `type` (`classic`/`agentic`), `surface` (`settings`/`banner`/`menu`) — the switch has several entry points; the caller supplies the surface. Not emitted for the boot-time seeding migration (no surface). |
 
 ### How to add a new event
 

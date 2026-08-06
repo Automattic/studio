@@ -5,6 +5,7 @@ import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useLogin } from '@/data/queries/use-auth-user';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
+import { useSiteStorageUsage } from '@/data/queries/use-site-storage-usage';
 import { useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
 import {
 	useCopySite,
@@ -99,6 +100,10 @@ vi.mock( '@/data/queries/use-site-thumbnail', () => ( {
 	useSiteThumbnail: vi.fn(),
 } ) );
 
+vi.mock( '@/data/queries/use-site-storage-usage', () => ( {
+	useSiteStorageUsage: vi.fn(),
+} ) );
+
 vi.mock( '@/data/queries/use-user-preferences', () => ( {
 	useUserPreferences: vi.fn(),
 } ) );
@@ -130,6 +135,7 @@ const useExportFullSiteMock = vi.mocked( useExportFullSite, { partial: true } );
 const useIsSiteStartingMock = vi.mocked( useIsSiteStarting );
 const useIsSiteStoppingMock = vi.mocked( useIsSiteStopping );
 const useSiteThumbnailMock = vi.mocked( useSiteThumbnail, { partial: true } );
+const useSiteStorageUsageMock = vi.mocked( useSiteStorageUsage, { partial: true } );
 const useSitesMock = vi.mocked( useSites, { partial: true } );
 const useStartSiteMock = vi.mocked( useStartSite, { partial: true } );
 const useUpdateSiteMock = vi.mocked( useUpdateSite, { partial: true } );
@@ -198,6 +204,17 @@ describe( 'SiteOverviewView', () => {
 		} );
 		useSiteThumbnailMock.mockReturnValue( {
 			data: 'data:image/png;base64,site-thumbnail',
+		} );
+		useSiteStorageUsageMock.mockReturnValue( {
+			data: {
+				total: 800,
+				uploads: 400,
+				plugins: 200,
+				themes: 100,
+				database: 50,
+				other: 50,
+			},
+			isPending: false,
 		} );
 		useIsSiteStartingMock.mockReturnValue( false );
 		useIsSiteStoppingMock.mockReturnValue( false );
@@ -273,6 +290,23 @@ describe( 'SiteOverviewView', () => {
 		await waitFor( () =>
 			expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/', { autoLogin: false } )
 		);
+	} );
+
+	it( 'shows the total disk usage and an accessible category breakdown', () => {
+		renderView();
+
+		expect( screen.getByText( 'Disk' ) ).toBeVisible();
+		expect( screen.getByText( '800 B' ) ).toBeVisible();
+		expect( screen.getByRole( 'img', { name: 'Media — 400 B (50%)' } ) ).toBeVisible();
+		expect( screen.getByRole( 'img', { name: 'Plugins — 200 B (25%)' } ) ).toBeVisible();
+	} );
+
+	it( 'indicates when disk usage is still being measured', () => {
+		useSiteStorageUsageMock.mockReturnValue( { data: undefined, isPending: true } );
+
+		renderView();
+
+		expect( screen.getByText( 'Measuring…' ) ).toBeVisible();
 	} );
 
 	it( 'keeps the browser action available without a cached thumbnail', () => {

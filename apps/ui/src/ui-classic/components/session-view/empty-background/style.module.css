@@ -8,6 +8,12 @@
 	contain: layout paint;
 }
 
+/* Uncontained hosts let the canvas paint beyond the box (see the
+   `contained` prop). */
+.spill {
+	contain: layout;
+}
+
 .canvas {
 	display: block;
 	width: min(100%, var(--empty-background-canvas-size, 580px));

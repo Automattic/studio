@@ -213,6 +213,7 @@ export function createIpcConnector(): Connector {
 			annotatePreview: true,
 			readLocalMedia: true,
 			agentInstructions: true,
+			studioLogs: true,
 			switchToClassicUi: true,
 		},
 
@@ -274,6 +275,7 @@ export function createIpcConnector(): Connector {
 				adminEmail,
 				skipStart,
 				blueprint,
+				flowType,
 			} = params;
 			return ( await ipcApi.createSite( path, {
 				siteName: name,
@@ -286,6 +288,7 @@ export function createIpcConnector(): Connector {
 				adminEmail,
 				noStart: skipStart,
 				blueprint,
+				flowType,
 			} ) ) as SiteDetails;
 		},
 
@@ -796,6 +799,10 @@ export function createIpcConnector(): Connector {
 		async openSiteInTerminal( siteId ): Promise< void > {
 			const sitePath = await resolveSiteFolder( siteId );
 			await ipcApi.openTerminalAtPath( sitePath );
+		},
+
+		async openStudioLogs(): Promise< void > {
+			ipcApi.openStudioLogs();
 		},
 
 		// Analytics. `channel` and `ui_version` are attached by the desktop Tracks wrapper's

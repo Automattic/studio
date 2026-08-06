@@ -88,7 +88,11 @@ async function buildBetaFeaturesMenu(): Promise< MenuItemConstructorOptions[] > 
 				// Only use sublabel on macOS where it displays nicely
 				sublabel: process.platform === 'darwin' ? definition.description : undefined,
 				click: async ( menuItem: MenuItem ) => {
-					await updateBetaFeature( key as keyof BetaFeatures, menuItem.checked );
+					await updateBetaFeature(
+						key as keyof BetaFeatures,
+						menuItem.checked,
+						key === 'enableAgenticUi' ? 'menu' : undefined
+					);
 					if ( key === 'remoteSession' ) {
 						bumpStat(
 							menuItem.checked

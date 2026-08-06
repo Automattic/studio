@@ -10,22 +10,27 @@ export function OverviewCard( { children }: { children: ReactNode } ) {
 	return <section className={ styles.card }>{ children }</section>;
 }
 
-/** A titled band inside the card — About, Connections, Preview sites. */
+/**
+ * A band inside the card — About, Connections, Preview sites. The first one is
+ * titled by the column heading above the card, so its `title` is omitted.
+ */
 export function CardSection( {
 	title,
 	action,
 	children,
 }: {
-	title: string;
+	title?: string;
 	action?: ReactNode;
 	children: ReactNode;
 } ) {
 	return (
 		<div className={ styles.cardSection }>
-			<div className={ styles.cardHeader }>
-				<h2 className={ styles.cardTitle }>{ title }</h2>
-				{ action }
-			</div>
+			{ ( title || action ) && (
+				<div className={ styles.cardHeader }>
+					{ title && <h3 className={ styles.cardTitle }>{ title }</h3> }
+					{ action }
+				</div>
+			) }
 			{ children }
 		</div>
 	);

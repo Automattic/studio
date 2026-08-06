@@ -148,7 +148,7 @@ function ButtonSection( {
 } ) {
 	return (
 		<section className={ styles.buttonSection }>
-			<h2>{ title }</h2>
+			<h2 className={ styles.columnHeading }>{ title }</h2>
 			<div className={ styles.buttonGrid } aria-busy={ busy }>
 				{ children }
 			</div>
@@ -412,6 +412,7 @@ function SiteOverviewBody( {
 								<AgenticSigninBanner />
 								<div className={ styles.overviewLayout }>
 									<div className={ styles.cardColumn }>
+										<h2 className={ styles.columnHeading }>{ __( 'About' ) }</h2>
 										<OverviewCard>
 											<AboutSection
 												site={ site }

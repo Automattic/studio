@@ -41,7 +41,7 @@ export function AboutSection( {
 	const total = storage ? formatBytes( storage.total ) : measuring ? __( 'Measuring…' ) : '—';
 
 	return (
-		<CardSection title={ __( 'About' ) }>
+		<CardSection>
 			<div className={ styles.tiles }>
 				<Tile label={ __( 'Theme' ) } value={ themeName } />
 				<Tile label={ __( 'WordPress' ) } value={ wpVersion || '—' } />

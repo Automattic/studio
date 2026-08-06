@@ -59,7 +59,8 @@
 	"ignoreDependencies": [
 		"@sentry/react",
 		"@wp-playground/cli",
-		"@automattic/wp-babel-makepot"
+		"@automattic/wp-babel-makepot",
+		"bootstrap"
 	],
 	"ignoreBinaries": ["scripts/eval/promptfoo.config.yaml"]
 }

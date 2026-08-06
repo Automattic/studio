@@ -8,6 +8,7 @@ import {
 import fs from 'fs-extra';
 import { z } from 'zod';
 import { extractZip } from '../packages/common/lib/extract-zip.ts';
+import { buildPhpMyAdminTheme } from './build-phpmyadmin-theme.ts';
 import { fetch, sharedDispatcher, throwForHttpStatus, withRetry } from './lib/with-retry.ts';
 
 const SQLITE_DATABASE_INTEGRATION_VERSION = 'v3.0.0-rc.8';
@@ -210,6 +211,9 @@ async function downloadFile( file: FileToDownload ): Promise< void > {
 				await fs.writeFile( destFile, patchData );
 			}
 		}
+
+		console.log( `[${ name }] Building Studio theme ...` );
+		await buildPhpMyAdminTheme( extractedPath );
 	} else {
 		console.log( `[${ name }] Extracting files from zip ...` );
 		await extractZip( zipPath, extractedPath );

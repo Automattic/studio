@@ -1,0 +1,44 @@
+// Studio — a minimalist phpMyAdmin theme built on the WordPress Design System
+// token set used by WordPress Studio.
+
+// Load order matters, and the ordering below is deliberate:
+//   1. variables   Sass configuration; must precede Bootstrap's `!default`s.
+//   2. bootstrap   the framework, compiled with those variables.
+//   3. tokens      the `--wpds-*` custom properties every rule below resolves
+//                  against. Ordering is irrelevant for custom properties, but
+//                  placing this after Bootstrap means our `:root` wins on any
+//                  name collision.
+//   4. base        document-wide type, colour, focus and scrollbar contract.
+//   5. structure   phpMyAdmin's own layout CSS, inherited from the `bootstrap`
+//                  theme. It carries a lot of `#id` selectors, so it comes
+//                  BEFORE the theme's own partials — otherwise a structural
+//                  `#page_nav_icons { top: 0 }` would silently beat the
+//                  theme's placement at equal specificity.
+//   6. chrome +    the theme's actual design decisions, which must have the
+//      components  last word over anything in step 5.
+//   7. print       last of all, so its overrides win everywhere.
+@import "variables";
+@import "bootstrap";
+@import "tokens";
+@import "base";
+
+// phpMyAdmin structure — see note 5 above.
+@import "common";
+@import "icons";
+@import "enum-editor";
+@import "designer";
+@import "codemirror";
+
+// Chrome
+@import "topbar";
+@import "navigation";
+
+// Components
+@import "controls";
+@import "surfaces";
+@import "tables";
+@import "jquery-ui";
+
+// Utilities, after the components they have to outrank.
+@import "utilities";
+@import "print";

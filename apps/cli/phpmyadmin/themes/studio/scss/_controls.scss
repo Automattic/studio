@@ -1,0 +1,217 @@
+// Buttons, inputs and other controls.
+
+// Sizes come from the `$input-btn-*` variables; this file covers the things
+// Bootstrap's variable API can't express — the outline-button treatment, the
+// disabled colours (wpds encodes these as tokens rather than an opacity), and
+// the phpMyAdmin-specific control shapes.
+
+// --- Buttons ---------------------------------------------------------------
+.btn {
+  // A single control height across the whole app, so mixed toolbars of
+  // buttons, selects and text inputs line up on both edges.
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--wpds-dimension-gap-xs);
+  white-space: nowrap;
+
+  .icon {
+    margin: 0;
+  }
+}
+
+// The primary action. `fg-interactive-brand-strong` is the wpds foreground
+// paired with the brand fill, rather than plain white.
+.btn-primary {
+  --#{$prefix}btn-bg: var(--wpds-color-bg-interactive-brand-strong);
+  --#{$prefix}btn-border-color: var(--wpds-color-bg-interactive-brand-strong);
+  --#{$prefix}btn-color: var(--wpds-color-fg-interactive-brand-strong);
+  --#{$prefix}btn-hover-bg: var(--wpds-color-bg-interactive-brand-strong-active);
+  --#{$prefix}btn-hover-border-color: var(--wpds-color-bg-interactive-brand-strong-active);
+  --#{$prefix}btn-hover-color: var(--wpds-color-fg-interactive-brand-strong-active);
+  --#{$prefix}btn-active-bg: var(--wpds-color-bg-interactive-brand-strong-active);
+  --#{$prefix}btn-active-border-color: var(--wpds-color-bg-interactive-brand-strong-active);
+  --#{$prefix}btn-active-color: var(--wpds-color-fg-interactive-brand-strong-active);
+  --#{$prefix}btn-disabled-bg: var(--wpds-color-bg-interactive-neutral-strong-disabled);
+  --#{$prefix}btn-disabled-border-color: var(--wpds-color-bg-interactive-neutral-strong-disabled);
+  --#{$prefix}btn-disabled-color: var(--wpds-color-fg-interactive-neutral-strong-disabled);
+}
+
+// Destructive actions — DROP, TRUNCATE, DELETE.
+.btn-danger {
+  --#{$prefix}btn-bg: var(--wpds-color-bg-interactive-error-strong);
+  --#{$prefix}btn-border-color: var(--wpds-color-bg-interactive-error-strong);
+  --#{$prefix}btn-color: var(--wpds-color-fg-interactive-error-strong);
+  --#{$prefix}btn-hover-bg: var(--wpds-color-bg-interactive-error-strong-active);
+  --#{$prefix}btn-hover-border-color: var(--wpds-color-bg-interactive-error-strong-active);
+  --#{$prefix}btn-hover-color: var(--wpds-color-fg-interactive-error-strong-active);
+  --#{$prefix}btn-active-bg: var(--wpds-color-bg-interactive-error-strong-active);
+  --#{$prefix}btn-active-border-color: var(--wpds-color-bg-interactive-error-strong-active);
+}
+
+// The default button in phpMyAdmin's toolbars. wpds has no filled neutral
+// button, so this is the bordered "secondary" shape: transparent until
+// hovered, hairline border, normal text colour.
+.btn-secondary,
+.btn-outline-secondary,
+.btn-light,
+.btn-outline-primary {
+  --#{$prefix}btn-bg: var(--wpds-color-bg-interactive-neutral-weak);
+  --#{$prefix}btn-border-color: var(--wpds-color-stroke-interactive-neutral);
+  --#{$prefix}btn-color: var(--wpds-color-fg-interactive-neutral);
+  --#{$prefix}btn-hover-bg: var(--wpds-color-bg-interactive-neutral-weak-active);
+  --#{$prefix}btn-hover-border-color: var(--wpds-color-stroke-interactive-neutral-active);
+  --#{$prefix}btn-hover-color: var(--wpds-color-fg-interactive-neutral-active);
+  --#{$prefix}btn-active-bg: var(--wpds-color-bg-interactive-neutral-weak-active);
+  --#{$prefix}btn-active-border-color: var(--wpds-color-stroke-interactive-neutral-active);
+  --#{$prefix}btn-active-color: var(--wpds-color-fg-interactive-neutral-active);
+  --#{$prefix}btn-disabled-bg: var(--wpds-color-bg-interactive-neutral-weak-disabled);
+  --#{$prefix}btn-disabled-border-color: var(--wpds-color-stroke-interactive-neutral-disabled);
+  --#{$prefix}btn-disabled-color: var(--wpds-color-fg-interactive-neutral-disabled);
+}
+
+.btn-outline-danger {
+  --#{$prefix}btn-bg: var(--wpds-color-bg-interactive-error);
+  --#{$prefix}btn-border-color: var(--wpds-color-stroke-interactive-error);
+  --#{$prefix}btn-color: var(--wpds-color-fg-interactive-error);
+  --#{$prefix}btn-hover-bg: var(--wpds-color-bg-interactive-error-active);
+  --#{$prefix}btn-hover-border-color: var(--wpds-color-stroke-interactive-error-active);
+  --#{$prefix}btn-hover-color: var(--wpds-color-fg-interactive-error-active);
+  --#{$prefix}btn-active-bg: var(--wpds-color-bg-interactive-error-weak-active);
+  --#{$prefix}btn-active-border-color: var(--wpds-color-stroke-interactive-error-active);
+  --#{$prefix}btn-active-color: var(--wpds-color-fg-interactive-error-active);
+}
+
+// The quietest tier: no border at all until hovered. Used for the icon-only
+// row actions (Edit / Copy / Delete) in result grids.
+.btn-link {
+  --#{$prefix}btn-color: var(--wpds-color-fg-interactive-brand);
+  --#{$prefix}btn-hover-color: var(--wpds-color-fg-interactive-brand-active);
+  --#{$prefix}btn-disabled-color: var(--wpds-color-fg-interactive-neutral-disabled);
+
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+// `$btn-disabled-opacity` is 1 because wpds gives disabled states their own
+// colours; without this the fade Bootstrap normally applies would be lost.
+.btn:disabled,
+.btn.disabled,
+fieldset:disabled .btn {
+  cursor: not-allowed;
+}
+
+// --- Inputs ----------------------------------------------------------------
+.form-control,
+.form-select {
+  min-height: 28px;
+}
+
+// phpMyAdmin renders a great many bare `<input>`/`<select>`/`<textarea>`
+// elements without Bootstrap's form classes — the query box, the column
+// editors, the export options. They need the same treatment or the theme looks
+// half-applied on exactly the screens people use most.
+input:not(
+  [type="checkbox"],
+  [type="radio"],
+  [type="submit"],
+  [type="button"],
+  [type="reset"],
+  [type="file"],
+  [type="image"],
+  [type="range"],
+  [type="color"]
+),
+select,
+textarea {
+  background-color: var(--wpds-color-bg-surface-neutral-strong);
+  color: var(--wpds-color-fg-content-neutral);
+  border: 1px solid var(--wpds-color-stroke-interactive-neutral);
+  border-radius: var(--wpds-border-radius-md);
+  padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm);
+  font-family: inherit;
+  font-size: var(--wpds-typography-font-size-md);
+  line-height: var(--wpds-typography-line-height-sm);
+  transition: border-color var(--wpds-motion-duration-sm) var(--wpds-motion-easing-subtle);
+
+  &:hover:not(:disabled) {
+    border-color: var(--wpds-color-stroke-interactive-neutral-active);
+  }
+
+  &:focus {
+    border-color: var(--wpds-color-stroke-focus-brand);
+  }
+
+  &:disabled {
+    background-color: var(--wpds-color-bg-surface-neutral-weak);
+    border-color: var(--wpds-color-stroke-interactive-neutral-disabled);
+    color: var(--wpds-color-fg-interactive-neutral-disabled);
+    cursor: not-allowed;
+  }
+
+  &::placeholder {
+    color: var(--wpds-color-fg-content-neutral-weak);
+  }
+}
+
+// Native dropdown lists don't inherit the control's colours in every engine.
+select option {
+  background-color: var(--wpds-color-bg-surface-neutral-strong);
+  color: var(--wpds-color-fg-content-neutral);
+}
+
+textarea {
+  line-height: var(--wpds-typography-line-height-md);
+}
+
+// Checkboxes and radios: 14px reads correctly beside 13px text — Bootstrap's
+// 1em default is a touch large at this scale.
+.form-check-input {
+  width: 14px;
+  height: 14px;
+  margin-top: 0.25em;
+  cursor: var(--wpds-cursor-control);
+
+  &:checked {
+    background-color: var(--wpds-color-bg-interactive-brand-strong);
+    border-color: var(--wpds-color-bg-interactive-brand-strong);
+  }
+
+  &:disabled {
+    background-color: var(--wpds-color-bg-interactive-neutral-weak-disabled);
+    border-color: var(--wpds-color-stroke-interactive-neutral-disabled);
+  }
+}
+
+.form-label,
+.col-form-label {
+  color: var(--wpds-color-fg-content-neutral);
+}
+
+.form-text {
+  color: var(--wpds-color-fg-content-neutral-weak);
+  font-size: var(--wpds-typography-font-size-sm);
+}
+
+// phpMyAdmin groups options in `<fieldset>`s across preferences, export and
+// import. Treated as a flat panel: hairline border, recessed legend.
+fieldset {
+  border: 1px solid var(--wpds-color-stroke-surface-neutral);
+  border-radius: var(--wpds-border-radius-md);
+  padding: var(--wpds-dimension-padding-lg);
+  margin-bottom: var(--wpds-dimension-gap-lg);
+
+  &.pma-fieldset {
+    background-color: var(--wpds-color-bg-surface-neutral-strong);
+  }
+}
+
+// --- Button groups ---------------------------------------------------------
+// Collapse the doubled border between adjacent buttons.
+.btn-group > .btn + .btn {
+  margin-left: -1px;
+}

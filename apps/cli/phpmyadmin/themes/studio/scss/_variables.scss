@@ -1,0 +1,395 @@
+// Bootstrap configuration
+
+// Bootstrap resolves these at compile time, so they cannot be `var(--wpds-*)`
+// references — Sass colour functions and the `$theme-colors` contrast maths
+// need real values. Every literal below therefore mirrors a token from
+// `_tokens.scss` and names it in a trailing comment; if a token changes there,
+// change it here too.
+
+// Outside this file the rule is absolute: reference `var(--wpds-*)`, never a
+// literal. Bootstrap 5.3 emits both a `:root` and a `[data-bs-theme="dark"]`
+// block from the `$x` / `$x-dark` pairs below, so setting both halves is what
+// makes the two colour modes work without a second stylesheet.
+
+// --- Toggles ---------------------------------------------------------------
+// A minimalist theme separates surfaces with hairline strokes and the
+// elevation ramp, never with gradients or default component shadows.
+$enable-gradients: false;
+$enable-shadows: false;
+// Bootstrap's own rounding is replaced wholesale by the wpds radius ramp.
+$enable-rounded: true;
+
+// --- Typography ------------------------------------------------------------
+$font-family-sans-serif: -apple-system, system-ui, "Segoe UI", roboto, "Oxygen-Sans", ubuntu, cantarell, "Helvetica Neue", sans-serif; // --wpds-typography-font-family-body
+$font-family-monospace: menlo, consolas, monaco, monospace; // --wpds-typography-font-family-mono
+
+// 13px on a 16px root. Bootstrap's ramp is relative, so every derived size
+// (`$h1-font-size` … `$small-font-size`) scales down with it.
+$font-size-base: 0.8125rem; // --wpds-typography-font-size-md
+$font-size-sm: 0.75rem; // --wpds-typography-font-size-sm
+$font-size-lg: 0.9375rem; // --wpds-typography-font-size-lg
+
+// 24px / 13px. wpds pairs each size with an absolute line height; this is the
+// `md` pair expressed as the unitless ratio Bootstrap expects.
+$line-height-base: 1.846;
+$line-height-sm: 1.667; // 20px / 12px
+$line-height-lg: 1.867; // 28px / 15px
+
+$font-weight-normal: 400; // --wpds-typography-font-weight-regular
+$font-weight-medium: 499; // --wpds-typography-font-weight-medium
+// wpds has no bold weight: headings step down the size ramp instead of
+// getting heavier, which is most of what makes the design read as quiet.
+$font-weight-bold: 499;
+$headings-font-weight: 499; // --wpds-typography-font-weight-medium
+
+// The wpds size ramp only defines xs…2xl, so the six heading levels step
+// through it rather than following Bootstrap's h1–h6 geometric scale.
+$h1-font-size: 2rem; // 32px, --wpds-typography-font-size-2xl
+$h2-font-size: 1.25rem; // 20px, --wpds-typography-font-size-xl
+$h3-font-size: 0.9375rem; // 15px, --wpds-typography-font-size-lg
+$h4-font-size: 0.8125rem; // 13px, --wpds-typography-font-size-md
+$h5-font-size: 0.75rem; // 12px, --wpds-typography-font-size-sm
+$h6-font-size: 0.6875rem; // 11px, --wpds-typography-font-size-xs
+$headings-margin-bottom: 0.5rem;
+$headings-line-height: 1.25;
+
+// --- Radii -----------------------------------------------------------------
+// wpds runs a flat radius scale, and Studio nudges `sm` from 2px to 4px. The
+// upshot is that nearly everything is 4px and only large surfaces get 8px —
+// Bootstrap's 0.375rem/1rem/2rem spread is collapsed accordingly.
+$border-radius: 4px; // --wpds-border-radius-md
+$border-radius-sm: 4px; // --wpds-border-radius-sm
+$border-radius-lg: 8px; // --wpds-border-radius-lg
+$border-radius-xl: 8px; // --wpds-border-radius-lg
+$border-radius-xxl: 8px; // --wpds-border-radius-lg
+$border-radius-pill: 50rem;
+
+$border-width: 1px; // --wpds-border-width-xs
+
+// --- Theme colours ---------------------------------------------------------
+// These are the seed colours @wordpress/theme feeds into its ramp builders,
+// so Bootstrap's semantic palette and the wpds surface/stroke/foreground
+// tokens are derived from the same five hues.
+$primary: #3858e9;
+$info: #0090ff;
+$success: #4ab866;
+$warning: #f0b849;
+$danger: #cc1818;
+$secondary: #707070; // --wpds-color-fg-content-neutral-weak
+$light: #f4f4f4; // --wpds-color-bg-surface-neutral-weak
+$dark: #1e1e1e; // --wpds-color-fg-content-neutral
+
+// --- Surfaces and text, light mode ----------------------------------------
+$body-bg: #fcfcfc; // --wpds-color-bg-surface-neutral
+$body-color: #1e1e1e; // --wpds-color-fg-content-neutral
+$body-secondary-color: #707070; // --wpds-color-fg-content-neutral-weak
+$body-secondary-bg: #f4f4f4; // --wpds-color-bg-surface-neutral-weak
+$body-tertiary-color: #707070; // --wpds-color-fg-content-neutral-weak
+$body-tertiary-bg: #ededed; // --wpds-color-bg-interactive-neutral-weak-active
+$body-emphasis-color: #1e1e1e; // --wpds-color-fg-content-neutral
+$border-color: #dbdbdb; // --wpds-color-stroke-surface-neutral
+$border-color-translucent: #dbdbdb; // --wpds-color-stroke-surface-neutral
+$link-color: #3858e9; // --wpds-color-fg-interactive-brand
+$link-hover-color: #3858e9; // --wpds-color-fg-interactive-brand-active
+
+// Subtle alert/badge fills, straight off the wpds surface + stroke ramps
+// (which are contrast-checked against them, unlike Bootstrap's generated
+// `shade-color()`/`tint-color()` pairs).
+$primary-bg-subtle: #ecf0fa; // --wpds-color-bg-surface-brand
+$info-bg-subtle: #deebfa; // --wpds-color-bg-surface-info
+$success-bg-subtle: #c6f7cd; // --wpds-color-bg-surface-success
+$warning-bg-subtle: #fde6be; // --wpds-color-bg-surface-warning
+$danger-bg-subtle: #f6e6e3; // --wpds-color-bg-surface-error
+$primary-border-subtle: #a3b1d4; // --wpds-color-stroke-surface-brand
+$info-border-subtle: #9fbcdc; // --wpds-color-stroke-surface-info
+$success-border-subtle: #8ac894; // --wpds-color-stroke-surface-success
+$warning-border-subtle: #d0b481; // --wpds-color-stroke-surface-warning
+$danger-border-subtle: #daa39b; // --wpds-color-stroke-surface-error
+$primary-text-emphasis: #001b4f; // --wpds-color-fg-content-info
+$info-text-emphasis: #001b4f; // --wpds-color-fg-content-info
+$success-text-emphasis: #002900; // --wpds-color-fg-content-success
+$warning-text-emphasis: #2e1900; // --wpds-color-fg-content-warning
+$danger-text-emphasis: #470000; // --wpds-color-fg-content-error
+
+// --- Surfaces and text, dark mode -----------------------------------------
+// Ramped from a `#1e1e1e` background seed, the value Studio's ThemeProvider
+// passes in dark mode.
+$body-bg-dark: #1e1e1e; // --wpds-color-bg-surface-neutral
+$body-color-dark: #f0f0f0; // --wpds-color-fg-content-neutral
+$body-secondary-color-dark: #b4b4b4; // --wpds-color-fg-content-neutral-weak
+$body-secondary-bg-dark: #171717; // --wpds-color-bg-surface-neutral-weak
+$body-tertiary-color-dark: #b4b4b4; // --wpds-color-fg-content-neutral-weak
+$body-tertiary-bg-dark: #282828; // --wpds-color-bg-interactive-neutral-weak-active
+$body-emphasis-color-dark: #f0f0f0; // --wpds-color-fg-content-neutral
+$border-color-dark: #343434; // --wpds-color-stroke-surface-neutral
+$border-color-translucent-dark: #343434; // --wpds-color-stroke-surface-neutral
+$link-color-dark: #8eb0ff; // --wpds-color-fg-interactive-brand
+$link-hover-color-dark: #8eb0ff; // --wpds-color-fg-interactive-brand-active
+
+$primary-bg-subtle-dark: #07113a; // --wpds-color-bg-surface-brand
+$info-bg-subtle-dark: #062a4c; // --wpds-color-bg-surface-info
+$success-bg-subtle-dark: #132f19; // --wpds-color-bg-surface-success
+$warning-bg-subtle-dark: #322713; // --wpds-color-bg-surface-warning
+$danger-bg-subtle-dark: #481713; // --wpds-color-bg-surface-error
+$primary-border-subtle-dark: #4b64ae; // --wpds-color-stroke-surface-brand
+$info-border-subtle-dark: #2c4e73; // --wpds-color-stroke-surface-info
+$success-border-subtle-dark: #426548; // --wpds-color-stroke-surface-success
+$warning-border-subtle-dark: #837151; // --wpds-color-stroke-surface-warning
+$danger-border-subtle-dark: #964d44; // --wpds-color-stroke-surface-error
+$primary-text-emphasis-dark: #dcf3ff; // --wpds-color-fg-content-info
+$info-text-emphasis-dark: #dcf3ff; // --wpds-color-fg-content-info
+$success-text-emphasis-dark: #b9ffc6; // --wpds-color-fg-content-success
+$warning-text-emphasis-dark: #ffebb0; // --wpds-color-fg-content-warning
+$danger-text-emphasis-dark: #ffe6e0; // --wpds-color-fg-content-error
+
+// --- Links -----------------------------------------------------------------
+// Underline only on hover: at 13px a permanently underlined link in a dense
+// table grid turns into visual noise.
+$link-decoration: none;
+$link-hover-decoration: underline;
+$link-shade-percentage: 0%; // wpds hover colours are explicit, not shaded
+
+// --- Focus ring ------------------------------------------------------------
+// wpds draws focus as a solid 2px stroke, not Bootstrap's 4px translucent
+// halo. `_focus.scss` re-implements it as an `outline`; these values keep the
+// `.focus-ring` utility consistent with that.
+$focus-ring-width: 2px; // --wpds-border-width-focus
+$focus-ring-opacity: 1;
+$focus-ring-color: #3858e9; // --wpds-color-stroke-focus-brand
+$focus-ring-blur: 0;
+
+// --- Components ------------------------------------------------------------
+// Padding comes off the compact density ramp: `sm` 4px, `md` 8px, `lg` 12px.
+
+// Colours below are `var(--wpds-*)` rather than literals. Bootstrap 5.3
+// defaults most component colours to `var(--bs-*)` and only re-emits the
+// handful of variables listed in `_variables-dark.scss` inside its
+// `[data-bs-theme="dark"]` block — a Sass literal here would compile the light
+// value once and stay light in dark mode. Anything that Bootstrap feeds
+// through a Sass colour function (`to-rgb()`, `shade-color()`, the
+// `$theme-colors` map) must stay a literal, which is why the seeds and link
+// colours above are not written this way.
+
+// Tables: this is where density matters most — phpMyAdmin result grids can run
+// to hundreds of rows, so cells get the 4px/8px pair.
+$table-cell-padding-y: 0.25rem; // 4px, --wpds-dimension-padding-xs
+$table-cell-padding-x: 0.5rem; // 8px, --wpds-dimension-padding-md
+$table-cell-padding-y-sm: 0.125rem; // 2px
+$table-cell-padding-x-sm: 0.25rem; // 4px, --wpds-dimension-padding-xs
+$table-border-color: var(--wpds-color-stroke-surface-neutral);
+$table-striped-bg: var(--wpds-color-bg-surface-neutral-weak);
+$table-hover-bg: var(--wpds-color-bg-interactive-neutral-weak-active);
+$table-active-bg: var(--wpds-color-bg-interactive-neutral-weak-active);
+$table-th-font-weight: 499; // --wpds-typography-font-weight-medium
+
+// Buttons and inputs share a 28px control height (24px line box + 2×1px
+// border + 2×4px padding), which is what makes toolbars line up.
+$input-btn-padding-y: 0.25rem; // 4px, --wpds-dimension-padding-xs
+$input-btn-padding-x: 0.5rem; // 8px, --wpds-dimension-padding-md
+$input-btn-padding-y-sm: 0.125rem; // 2px
+$input-btn-padding-x-sm: 0.25rem; // 4px, --wpds-dimension-padding-xs
+$input-btn-padding-y-lg: 0.5rem; // 8px, --wpds-dimension-padding-md
+$input-btn-padding-x-lg: 0.75rem; // 12px, --wpds-dimension-padding-lg
+$input-btn-font-size: 0.8125rem; // --wpds-typography-font-size-md
+$input-btn-line-height: 1.385; // 18px / 13px — a tighter box than body text
+$input-btn-focus-width: 2px; // --wpds-border-width-focus
+$input-btn-focus-color-opacity: 1;
+$input-btn-focus-box-shadow: none; // replaced by an outline in _focus.scss
+
+$btn-font-weight: 499; // --wpds-typography-font-weight-medium
+$btn-border-radius: 4px; // --wpds-border-radius-md
+$btn-border-radius-sm: 4px; // --wpds-border-radius-sm
+$btn-border-radius-lg: 4px; // --wpds-border-radius-md
+$btn-focus-box-shadow: none;
+$btn-active-box-shadow: none;
+$btn-disabled-opacity: 1; // wpds encodes disabled as its own colour tokens
+$btn-transition: background-color 100ms cubic-bezier(0.15, 0, 0.15, 1), border-color 100ms cubic-bezier(0.15, 0, 0.15, 1), color 100ms cubic-bezier(0.15, 0, 0.15, 1); // --wpds-motion-duration-sm / easing-subtle
+
+$input-bg: var(--wpds-color-bg-surface-neutral-strong);
+$input-color: var(--wpds-color-fg-content-neutral);
+$input-border-color: var(--wpds-color-stroke-interactive-neutral);
+$input-placeholder-color: var(--wpds-color-fg-content-neutral-weak);
+$input-disabled-bg: var(--wpds-color-bg-surface-neutral-weak);
+$input-disabled-border-color: var(--wpds-color-stroke-interactive-neutral-disabled);
+$input-disabled-color: var(--wpds-color-fg-interactive-neutral-disabled);
+$input-focus-border-color: var(--wpds-color-stroke-focus-brand);
+$input-focus-bg: var(--wpds-color-bg-surface-neutral-strong);
+$input-focus-color: var(--wpds-color-fg-content-neutral);
+$input-focus-box-shadow: none;
+$input-border-radius: 4px; // --wpds-border-radius-md
+$input-border-radius-sm: 4px;
+$input-border-radius-lg: 4px;
+$input-transition: border-color 100ms cubic-bezier(0.15, 0, 0.15, 1); // --wpds-motion-duration-sm
+
+$form-label-font-weight: 499; // --wpds-typography-font-weight-medium
+$form-label-margin-bottom: 0.25rem; // 4px, --wpds-dimension-gap-xs
+$form-text-color: var(--wpds-color-fg-content-neutral-weak);
+$form-check-input-bg: var(--wpds-color-bg-surface-neutral-strong);
+$form-check-input-border: 1px solid var(--wpds-color-stroke-interactive-neutral);
+$form-check-input-checked-bg-color: var(--wpds-color-bg-interactive-brand-strong);
+$form-check-input-checked-border-color: var(--wpds-color-bg-interactive-brand-strong);
+$form-check-input-focus-border: var(--wpds-color-stroke-focus-brand);
+$form-check-input-focus-box-shadow: none;
+$form-check-input-border-radius: 2px;
+// A literal, not a `var()`: Bootstrap interpolates this into the switch thumb's
+// `data:` URI SVG, and custom properties don't resolve inside a data URI.
+$form-switch-focus-color: #3858e9; // --wpds-color-stroke-focus-brand
+
+// Cards: the flat sheet that most phpMyAdmin panels sit on. No shadow by
+// default — a hairline stroke is enough separation on a #fcfcfc body.
+$card-bg: var(--wpds-color-bg-surface-neutral-strong);
+$card-border-color: var(--wpds-color-stroke-surface-neutral);
+$card-border-radius: 8px; // --wpds-border-radius-lg
+$card-inner-border-radius: 8px;
+$card-spacer-y: 0.75rem; // 12px, --wpds-dimension-padding-lg
+$card-spacer-x: 0.75rem; // 12px, --wpds-dimension-padding-lg
+$card-cap-bg: transparent;
+$card-cap-padding-y: 0.5rem; // 8px, --wpds-dimension-padding-md
+$card-cap-padding-x: 0.75rem; // 12px, --wpds-dimension-padding-lg
+$card-title-spacer-y: 0.25rem; // 4px, --wpds-dimension-gap-xs
+
+// Dropdowns and modals are the two places elevation is used, matching wpds
+// `md` (menus) and `lg` (modals).
+$dropdown-bg: var(--wpds-color-bg-surface-neutral-strong);
+$dropdown-border-color: var(--wpds-color-stroke-surface-neutral);
+$dropdown-border-radius: 4px; // --wpds-border-radius-md
+$dropdown-padding-y: 0.25rem; // 4px, --wpds-dimension-padding-xs
+$dropdown-item-padding-y: 0.25rem; // 4px, --wpds-dimension-padding-xs
+$dropdown-item-padding-x: 0.5rem; // 8px, --wpds-dimension-padding-md
+$dropdown-font-size: 0.8125rem; // --wpds-typography-font-size-md
+$dropdown-color: var(--wpds-color-fg-interactive-neutral);
+$dropdown-link-color: var(--wpds-color-fg-interactive-neutral);
+$dropdown-link-hover-color: var(--wpds-color-fg-interactive-neutral-active);
+$dropdown-link-hover-bg: var(--wpds-color-bg-interactive-neutral-weak-active);
+$dropdown-link-active-bg: var(--wpds-color-bg-interactive-neutral-weak-active);
+$dropdown-link-active-color: var(--wpds-color-fg-interactive-neutral);
+$dropdown-link-disabled-color: var(--wpds-color-fg-interactive-neutral-disabled);
+$dropdown-header-color: var(--wpds-color-fg-content-neutral-weak);
+$dropdown-divider-bg: var(--wpds-color-stroke-surface-neutral);
+$dropdown-box-shadow: null; // set from --wpds-elevation-md in _menus.scss
+
+$modal-content-bg: var(--wpds-color-bg-surface-neutral-strong);
+$modal-content-border-color: var(--wpds-color-stroke-surface-neutral);
+$modal-content-border-radius: 8px; // --wpds-border-radius-lg
+$modal-content-box-shadow-xs: null; // set from --wpds-elevation-lg in _menus.scss
+$modal-content-box-shadow-sm-up: null;
+$modal-inner-padding: 0.75rem; // 12px, --wpds-dimension-padding-lg
+$modal-header-padding-y: 0.75rem; // 12px, --wpds-dimension-padding-lg
+$modal-header-padding-x: 0.75rem; // 12px, --wpds-dimension-padding-lg
+$modal-backdrop-opacity: 0.3;
+
+$alert-padding-y: 0.5rem; // 8px, --wpds-dimension-padding-md
+$alert-padding-x: 0.75rem; // 12px, --wpds-dimension-padding-lg
+$alert-border-radius: 4px; // --wpds-border-radius-md
+$alert-margin-bottom: 0.75rem; // 12px, --wpds-dimension-gap-lg
+$alert-border-width: 1px; // --wpds-border-width-xs
+
+$badge-font-size: 0.6875rem; // --wpds-typography-font-size-xs
+$badge-font-weight: 499; // --wpds-typography-font-weight-medium
+$badge-padding-y: 0.125rem; // 2px
+$badge-padding-x: 0.25rem; // 4px, --wpds-dimension-padding-xs
+$badge-border-radius: 4px; // --wpds-border-radius-sm
+
+$nav-link-padding-y: 0.25rem; // 4px, --wpds-dimension-padding-xs
+$nav-link-padding-x: 0.5rem; // 8px, --wpds-dimension-padding-md
+$nav-link-font-size: 0.8125rem; // --wpds-typography-font-size-md
+$nav-link-color: var(--wpds-color-fg-interactive-neutral);
+$nav-link-hover-color: var(--wpds-color-fg-interactive-neutral-active);
+$nav-link-disabled-color: var(--wpds-color-fg-interactive-neutral-disabled);
+$nav-link-transition: color 100ms cubic-bezier(0.15, 0, 0.15, 1), background-color 100ms cubic-bezier(0.15, 0, 0.15, 1);
+$nav-tabs-border-color: var(--wpds-color-stroke-surface-neutral);
+$nav-tabs-link-active-color: var(--wpds-color-fg-interactive-neutral);
+$nav-tabs-border-radius: 0;
+$nav-tabs-link-active-bg: transparent;
+$nav-tabs-link-active-border-color: transparent;
+$nav-tabs-link-hover-border-color: transparent;
+
+$navbar-padding-y: 0;
+$navbar-padding-x: 0;
+$navbar-nav-link-padding-x: 0.5rem; // 8px, --wpds-dimension-padding-md
+$navbar-brand-font-size: 0.9375rem; // --wpds-typography-font-size-lg
+$navbar-toggler-focus-width: 0;
+$navbar-toggler-border-radius: 4px; // --wpds-border-radius-md
+
+$breadcrumb-font-size: 0.8125rem; // --wpds-typography-font-size-md
+$breadcrumb-padding-y: 0;
+$breadcrumb-padding-x: 0;
+$breadcrumb-item-padding-x: 0.5rem; // 8px, --wpds-dimension-padding-md
+$breadcrumb-margin-bottom: 0;
+$breadcrumb-bg: transparent;
+$breadcrumb-divider-color: var(--wpds-color-fg-content-neutral-weak);
+$breadcrumb-active-color: var(--wpds-color-fg-content-neutral);
+$breadcrumb-divider: quote("/");
+
+$list-group-bg: var(--wpds-color-bg-surface-neutral-strong);
+$list-group-color: var(--wpds-color-fg-content-neutral);
+$list-group-border-color: var(--wpds-color-stroke-surface-neutral);
+$list-group-border-radius: 4px; // --wpds-border-radius-md
+$list-group-item-padding-y: 0.5rem; // 8px, --wpds-dimension-padding-md
+$list-group-item-padding-x: 0.75rem; // 12px, --wpds-dimension-padding-lg
+$list-group-hover-bg: var(--wpds-color-bg-interactive-neutral-weak-active);
+$list-group-action-color: var(--wpds-color-fg-interactive-neutral);
+$list-group-action-hover-color: var(--wpds-color-fg-interactive-neutral-active);
+$list-group-action-active-bg: var(--wpds-color-bg-interactive-neutral-weak-active);
+$list-group-disabled-color: var(--wpds-color-fg-interactive-neutral-disabled);
+$list-group-active-bg: var(--wpds-color-bg-interactive-brand-strong);
+$list-group-active-color: var(--wpds-color-fg-interactive-brand-strong);
+$list-group-active-border-color: var(--wpds-color-bg-interactive-brand-strong);
+
+$pagination-padding-y: 0.25rem; // 4px, --wpds-dimension-padding-xs
+$pagination-padding-x: 0.5rem; // 8px, --wpds-dimension-padding-md
+$pagination-font-size: 0.8125rem; // --wpds-typography-font-size-md
+$pagination-bg: transparent;
+$pagination-color: var(--wpds-color-fg-interactive-neutral);
+$pagination-border-color: var(--wpds-color-stroke-surface-neutral);
+$pagination-border-radius: 4px; // --wpds-border-radius-md
+$pagination-hover-bg: var(--wpds-color-bg-interactive-neutral-weak-active);
+$pagination-hover-color: var(--wpds-color-fg-interactive-neutral-active);
+$pagination-hover-border-color: var(--wpds-color-stroke-surface-neutral);
+$pagination-focus-bg: var(--wpds-color-bg-interactive-neutral-weak-active);
+$pagination-disabled-color: var(--wpds-color-fg-interactive-neutral-disabled);
+$pagination-disabled-bg: transparent;
+$pagination-disabled-border-color: var(--wpds-color-stroke-surface-neutral);
+$pagination-active-bg: var(--wpds-color-bg-interactive-brand-strong);
+$pagination-active-color: var(--wpds-color-fg-interactive-brand-strong);
+$pagination-active-border-color: var(--wpds-color-bg-interactive-brand-strong);
+$pagination-focus-box-shadow: none;
+$pagination-transition: background-color 100ms cubic-bezier(0.15, 0, 0.15, 1);
+
+$accordion-bg: transparent;
+$accordion-color: var(--wpds-color-fg-content-neutral);
+$accordion-border-color: var(--wpds-color-stroke-surface-neutral);
+$accordion-border-radius: 4px; // --wpds-border-radius-md
+$accordion-padding-y: 0.5rem; // 8px, --wpds-dimension-padding-md
+$accordion-padding-x: 0.75rem; // 12px, --wpds-dimension-padding-lg
+$accordion-button-bg: transparent;
+$accordion-button-color: var(--wpds-color-fg-interactive-neutral);
+$accordion-button-active-bg: var(--wpds-color-bg-interactive-neutral-weak-active);
+$accordion-button-active-color: var(--wpds-color-fg-interactive-neutral);
+$accordion-button-focus-box-shadow: none;
+
+$tooltip-bg: var(--wpds-color-bg-interactive-neutral-strong);
+$tooltip-color: var(--wpds-color-fg-interactive-neutral-strong);
+$tooltip-opacity: 1;
+$tooltip-font-size: 0.75rem; // --wpds-typography-font-size-sm
+$tooltip-border-radius: 4px; // --wpds-border-radius-md
+$tooltip-padding-y: 0.25rem; // 4px, --wpds-dimension-padding-xs
+$tooltip-padding-x: 0.5rem; // 8px, --wpds-dimension-padding-md
+
+// Literals, not `var()`: Bootstrap derives `$code-color-dark` from this with
+// `tint-color()`, so it has to be a real colour. Both halves are set explicitly
+// instead, which also keeps the dark value on the ramp rather than a 40% tint.
+$code-color: #cc1818; // --wpds-color-fg-content-error-weak
+$code-color-dark: #ff8879; // --wpds-color-fg-content-error-weak
+$code-font-size: 0.9231em; // 12px against 13px body
+$hr-border-color: var(--wpds-color-stroke-surface-neutral);
+$hr-opacity: 1;
+
+// --- phpMyAdmin chrome -----------------------------------------------------
+// wpds `surface-width-xs`, which is also the width Studio's own sidebar uses.
+$navigation-width: 240px; // --wpds-dimension-surface-width-xs
+// Height of the fixed top bar; 40px keeps a 24px line box plus 8px either side.
+$topbar-height: 40px;
+// Height of the breadcrumb strip below the top bar.
+$breadcrumb-bar-height: 36px;
+$card-img-height: 16vh;

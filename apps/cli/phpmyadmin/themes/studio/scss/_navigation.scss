@@ -1,0 +1,427 @@
+// Navigation sidebar — the database/table tree pinned to the left edge.
+
+// Structure (from `resources/templates/navigation/`):
+
+//   #pma_navigation                    fixed, 240px, recessed surface
+//     #pmalogo
+//     #navipanellinks                  home / query / docs icon row
+//     #pma_navigation_tree
+//       .list_container                nested <ul>, one per level
+//         li > div.block > i, b        the ├ └ │ connector strokes
+//   #pma_navigation_resizer            drag handle
+//   #pma_navigation_collapser          collapse toggle
+
+// phpMyAdmin's JS sets `body { margin-left }` from this element's width, so the
+// width is declared once here and the offset follows automatically.
+
+#pma_navigation {
+  width: $navigation-width;
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  // Recessed relative to the content area — the sidebar reads as behind the
+  // page rather than floating over it, so no shadow is used.
+  background-color: var(--wpds-color-bg-surface-neutral-weak);
+  border-right: 1px solid var(--wpds-color-stroke-surface-neutral);
+  z-index: 800;
+  font-size: var(--wpds-typography-font-size-sm);
+
+  ul {
+    margin: 0;
+  }
+
+  form {
+    margin: 0;
+    padding: 0;
+    display: inline;
+  }
+
+  select {
+    &#select_server,
+    &#lightm_db {
+      width: 100%;
+    }
+  }
+
+  div.pageselector {
+    text-align: center;
+    margin: 0 0 0 var(--wpds-dimension-gap-md);
+    border-left: 1px solid var(--wpds-color-stroke-surface-neutral);
+  }
+
+  #pmalogo,
+  #serverChoice,
+  #navipanellinks,
+  #databaseList,
+  div.pageselector.dbselector {
+    text-align: center;
+    padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md) 0;
+    border: 0;
+  }
+
+  #pmalogo {
+    background-color: transparent;
+    padding: var(--wpds-dimension-padding-md);
+  }
+
+  // Icon row under the logo. Separated by hairlines above and below rather
+  // than a tinted band.
+  #navipanellinks {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--wpds-dimension-gap-xs);
+    padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md);
+    background-color: transparent;
+    border-top: 1px solid var(--wpds-color-stroke-surface-neutral-weak);
+    border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral-weak);
+
+    a {
+      display: inline-flex;
+      align-items: center;
+      padding: var(--wpds-dimension-padding-sm);
+      border-radius: var(--wpds-border-radius-md);
+      transition: background-color var(--wpds-motion-duration-sm) var(--wpds-motion-easing-subtle);
+
+      &:hover {
+        background-color: var(--wpds-color-bg-interactive-neutral-weak-active);
+      }
+    }
+
+    .icon {
+      margin: 0;
+    }
+  }
+}
+
+#pma_navigation_header {
+  overflow: hidden;
+}
+
+#pma_navigation_content {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 0;
+
+  > img.throbber {
+    display: none;
+    margin: 0.3em auto 0;
+  }
+}
+
+#pma_navigation_select_database {
+  text-align: left;
+  padding: 0;
+  border: 0;
+  margin: 0;
+}
+
+#pma_navigation_db_select {
+  margin-top: var(--wpds-dimension-gap-sm);
+  margin-left: var(--wpds-dimension-gap-md);
+
+  select {
+    background: var(--wpds-color-bg-surface-neutral-strong);
+    border-radius: var(--wpds-border-radius-md);
+    border: 1px solid var(--wpds-color-stroke-interactive-neutral);
+    color: var(--wpds-color-fg-content-neutral);
+    padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm);
+    margin: 0;
+    width: 92%;
+    font-size: var(--wpds-typography-font-size-sm);
+  }
+}
+
+#pma_navigation_tree_content {
+  width: 100%;
+  overflow: hidden;
+  overflow-y: auto;
+  position: absolute;
+  height: 100%;
+
+  a.hover_show_full {
+    position: relative;
+    z-index: 100;
+    vertical-align: sub;
+  }
+}
+
+#pma_navigation_tree {
+  margin: 0 0 0 var(--wpds-dimension-gap-xs);
+  overflow: hidden;
+  height: 74%;
+  position: relative;
+
+  a {
+    padding-left: 0;
+    color: var(--wpds-color-fg-interactive-neutral);
+  }
+
+  ul {
+    clear: both;
+    padding: 0;
+    list-style-type: none;
+    margin: 0;
+
+    ul {
+      position: relative;
+    }
+  }
+
+  li {
+    white-space: nowrap;
+    clear: both;
+    min-height: 16px;
+    margin-bottom: 0;
+
+    // Hovered and current rows share one quiet fill. The old theme swapped in
+    // black-on-#ddd, which at this density flashed on every pointer move.
+    &.activePointer,
+    &.selected {
+      color: var(--wpds-color-fg-interactive-neutral);
+      background-color: var(--wpds-color-bg-interactive-neutral-weak-active);
+      border-radius: var(--wpds-border-radius-sm);
+    }
+
+    &.fast_filter {
+      white-space: nowrap;
+      clear: both;
+      min-height: 16px;
+    }
+
+    .dbItemControls {
+      padding-right: var(--wpds-dimension-padding-xs);
+      float: right;
+    }
+
+    // Per-row action icons stay hidden until the row is hovered, which is
+    // what keeps a 240px column with hundreds of rows readable.
+    .navItemControls {
+      display: none;
+      padding-right: var(--wpds-dimension-padding-xs);
+      float: right;
+    }
+
+    &.activePointer .navItemControls {
+      display: block;
+      opacity: 0.6;
+
+      &:hover {
+        opacity: 1;
+      }
+    }
+
+    &.last > ul {
+      background: none;
+    }
+
+    > a,
+    > i {
+      line-height: 1.5em;
+      height: 1.5em;
+      padding-left: 0.3em;
+    }
+  }
+
+  img {
+    margin: 0;
+  }
+
+  i {
+    display: block;
+  }
+
+  div {
+    &.block {
+      position: relative;
+      width: 1.5em;
+      height: 1.5em;
+      min-width: 16px;
+      min-height: 16px;
+      float: left;
+
+      &.double {
+        width: 2.5em;
+      }
+
+      i,
+      b {
+        width: 1.5em;
+        height: 1.7em;
+        min-width: 16px;
+        min-height: 8px;
+        position: absolute;
+        bottom: 0.7em;
+        left: 0.75em;
+        z-index: 0;
+      }
+
+      // Top and right segments of the tree connector. Weak stroke: these are
+      // pure decoration and shouldn't compete with the labels.
+      i {
+        display: block;
+        border-left: 1px solid var(--wpds-color-stroke-surface-neutral);
+        border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
+        position: relative;
+        z-index: 0;
+
+        // Removes top segment
+        &.first {
+          border-left: 0;
+        }
+      }
+
+      // Bottom segment of the tree connector
+      b {
+        display: block;
+        height: 0.75em;
+        bottom: -0.5rem; // Compensate for vertical-align: sub; of hover_show_full
+        left: 0.75em;
+        border-left: 1px solid var(--wpds-color-stroke-surface-neutral);
+      }
+
+      a,
+      u {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        z-index: 10;
+      }
+
+      a + a {
+        left: 100%;
+      }
+
+      &.double {
+        a,
+        u {
+          left: 33%;
+        }
+
+        a + a {
+          left: 85%;
+        }
+      }
+
+      img {
+        position: relative;
+        top: -0.6em;
+        left: 0;
+        margin-left: -7px;
+      }
+    }
+
+    &.throbber img {
+      top: 2px;
+      left: 2px;
+    }
+  }
+
+  .list_container {
+    border-left: 1px solid var(--wpds-color-stroke-surface-neutral);
+    margin-left: var(--wpds-dimension-gap-md);
+    padding-left: var(--wpds-dimension-gap-md);
+
+    li.last.database {
+      // Revert the effect of the rule that is applied on all the tree
+      margin-bottom: 0 !important;
+    }
+  }
+
+  .last > .list_container {
+    border-left: 0;
+  }
+}
+
+// --- Fast filter -----------------------------------------------------------
+li.fast_filter {
+  padding-left: var(--wpds-dimension-padding-md);
+  margin-left: var(--wpds-dimension-gap-md);
+  padding-right: 35px;
+  border-left: 1px solid var(--wpds-color-stroke-surface-neutral);
+  list-style: none;
+
+  input {
+    font-size: var(--wpds-typography-font-size-xs);
+    background-color: var(--wpds-color-bg-surface-neutral-strong);
+    border: 1px solid var(--wpds-color-stroke-interactive-neutral);
+    border-radius: var(--wpds-border-radius-md);
+    color: var(--wpds-color-fg-content-neutral);
+    padding: 2px var(--wpds-dimension-padding-xs);
+  }
+
+  .searchClauseClear {
+    font-weight: var(--wpds-typography-font-weight-medium);
+    color: var(--wpds-color-fg-interactive-error);
+    font-size: var(--wpds-typography-font-size-xs);
+  }
+
+  &.db_fast_filter {
+    border: 0;
+    margin-left: 0;
+  }
+}
+
+#navigation_controls_outer {
+  min-height: 21px !important;
+
+  &.activePointer {
+    background-color: transparent !important;
+  }
+}
+
+#navigation_controls {
+  float: right;
+  padding-right: 23px;
+}
+
+// --- Resizer and collapser -------------------------------------------------
+// The drag handle sits on top of the sidebar's right border and is invisible
+// until hovered, when it takes the brand stroke.
+#pma_navigation_resizer {
+  width: 3px !important;
+  height: 100%;
+  background-color: transparent;
+  cursor: col-resize;
+  position: fixed;
+  top: 0;
+  left: $navigation-width;
+  z-index: 801;
+  transition: background-color var(--wpds-motion-duration-sm) var(--wpds-motion-easing-subtle);
+
+  &:hover {
+    background-color: var(--wpds-color-stroke-interactive-brand);
+  }
+}
+
+#pma_navigation_collapser {
+  width: 20px;
+  height: 32px;
+  line-height: 32px;
+  background-color: var(--wpds-color-bg-surface-neutral-weak);
+  color: var(--wpds-color-fg-content-neutral-weak);
+  font-weight: var(--wpds-typography-font-weight-medium);
+  position: fixed;
+  top: 0;
+  left: $navigation-width;
+  text-align: center;
+  cursor: pointer;
+  z-index: 800;
+  border: 1px solid var(--wpds-color-stroke-surface-neutral);
+  border-left: 0;
+  border-radius: 0 var(--wpds-border-radius-md) var(--wpds-border-radius-md) 0;
+  transition: background-color var(--wpds-motion-duration-sm) var(--wpds-motion-easing-subtle);
+
+  &:hover {
+    background-color: var(--wpds-color-bg-interactive-neutral-weak-active);
+    color: var(--wpds-color-fg-content-neutral);
+  }
+}
+
+#floating_menubar {
+  z-index: 99;
+}

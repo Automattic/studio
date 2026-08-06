@@ -1,0 +1,9 @@
+{
+    "name": "Studio",
+    "version": "6.0",
+    "description": "Minimalist theme using the WordPress Design System tokens from WordPress Studio",
+    "author": "phpMyAdmin developers",
+    "url": "https://www.phpmyadmin.net/",
+    "supports": ["5.2", "6.0"],
+    "colorModes": ["light", "dark"]
+}

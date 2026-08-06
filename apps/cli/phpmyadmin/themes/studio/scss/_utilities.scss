@@ -1,0 +1,14 @@
+// Utilities: single-purpose classes that must outrank the components above.
+
+// phpMyAdmin marks server-rendered elements it wants hidden with `.hide` and
+// reveals them from JS. It is defined once, early, in the inherited
+// `_common.scss`, so any later component rule setting `display` beats it at
+// equal specificity — `.alert` did, which left the "Your browser has phpMyAdmin
+// configuration for this domain" prompt on screen on every page.
+//
+// Restating it here — last, and deliberately WITHOUT `!important` — fixes the
+// order without breaking the reveal: jQuery's `.show()` writes an inline
+// `display`, which outranks this rule but would lose to an `!important` one.
+.hide {
+  display: none;
+}

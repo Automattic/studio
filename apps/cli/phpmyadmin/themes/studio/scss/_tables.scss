@@ -1,0 +1,130 @@
+// Tables — result grids, structure listings, status tables.
+
+// This is where phpMyAdmin spends most of its screen area, so density and
+// stroke weight matter more here than anywhere else. Cell padding comes from
+// the compact ramp (4px/8px, set in `_variables.scss`); this file handles the
+// grid lines, the sticky header and the row/cell state colours.
+
+.table {
+  // Horizontal rules only. Vertical lines in a wide result grid add a lot of
+  // ink for no information — column alignment already separates the cells.
+  --#{$prefix}table-border-color: var(--wpds-color-stroke-surface-neutral-weak);
+
+  margin-bottom: var(--wpds-dimension-gap-lg);
+  font-size: var(--wpds-typography-font-size-sm);
+  line-height: var(--wpds-typography-line-height-sm);
+
+  > :not(caption) > * > * {
+    border-bottom-width: 1px;
+    border-left-width: 0;
+    border-right-width: 0;
+  }
+
+  > thead {
+    th,
+    td {
+      // A slightly stronger rule under the header row than between body rows,
+      // so the header reads as a boundary without needing a fill.
+      border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
+      background-color: var(--wpds-color-bg-surface-neutral);
+      color: var(--wpds-color-fg-content-neutral);
+      font-weight: var(--wpds-typography-font-weight-medium);
+      white-space: nowrap;
+      vertical-align: middle;
+    }
+  }
+
+  th,
+  td {
+    vertical-align: middle;
+
+    // Keeps an empty cell from collapsing to zero height (zero-width space).
+    > span:empty::before {
+      content: "\200b";
+    }
+  }
+
+  caption {
+    color: var(--wpds-color-fg-content-neutral-weak);
+    font-size: var(--wpds-typography-font-size-sm);
+    padding-top: var(--wpds-dimension-padding-sm);
+    padding-bottom: var(--wpds-dimension-padding-sm);
+  }
+
+  // Cell picked out by the grid editor's selection.
+  .cell-selected {
+    outline: 1px solid var(--wpds-color-stroke-interactive-brand);
+    outline-offset: -1px;
+
+    &.with-bg-color {
+      background-color: var(--wpds-color-bg-interactive-brand-weak-active);
+    }
+  }
+}
+
+// phpMyAdmin's own result-grid class, used alongside `.table` in most views
+// and on its own in a few older ones.
+table.data {
+  border-collapse: collapse;
+  width: auto;
+
+  th,
+  td {
+    padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-md);
+    border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral-weak);
+  }
+
+  thead th {
+    border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
+    font-weight: var(--wpds-typography-font-weight-medium);
+    white-space: nowrap;
+  }
+}
+
+// Row hover. Applied to `.table` generally rather than only `.table-hover`,
+// because pointing at a row is how you read across a wide result set.
+.table > tbody > tr {
+  transition: background-color var(--wpds-motion-duration-xs) var(--wpds-motion-easing-subtle);
+
+  &:hover > * {
+    background-color: var(--wpds-color-bg-interactive-neutral-weak-active);
+  }
+}
+
+// Rows the user has ticked. Brand-tinted so it survives the hover fill.
+.table > tbody > tr.marked > *,
+tr.marked > td,
+tr.marked > th {
+  background-color: var(--wpds-color-bg-interactive-brand-weak-active) !important;
+  color: var(--wpds-color-fg-content-neutral);
+}
+
+// Sticky header used by the result grid on tall pages. The offset clears the
+// breadcrumb bar plus the tab strip.
+@media only screen and (width >= 768px) {
+  .table th.position-sticky {
+    top: $breadcrumb-bar-height + $topbar-height;
+    // Needs an opaque fill or rows show through as they scroll under it.
+    background-color: var(--wpds-color-bg-surface-neutral);
+  }
+}
+
+// Sortable column headers (tablesorter). The sort arrow is a background image
+// from the fallback theme, so only the label colour is set here.
+th.header {
+  user-select: none;
+}
+
+// --- Structure / index tables ---------------------------------------------
+// The primary-key and index markers in a table's Structure view.
+.table .marked_key,
+.pma_table .marked_key {
+  color: var(--wpds-color-fg-content-info-weak);
+}
+
+// Empty-result and informational rows.
+.table .no-rows,
+td.no-rows {
+  color: var(--wpds-color-fg-content-neutral-weak);
+  font-style: italic;
+}

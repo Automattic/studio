@@ -43,7 +43,7 @@ import { isUpdateReadyToInstall, manualCheckForUpdates } from 'src/updates';
 // Runs against the app window's own contents rather than whatever has focus.
 async function withAppWebContents( run: ( contents: WebContents ) => void ) {
 	const window = await getMainWindow();
-	if ( window && ! window.webContents.isDestroyed() ) {
+	if ( window && ! window.isDestroyed() && ! window.webContents.isDestroyed() ) {
 		run( window.webContents );
 	}
 }

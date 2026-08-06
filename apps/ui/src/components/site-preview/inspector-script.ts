@@ -251,6 +251,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 
 	function persistAnnotations() {
 		window.__studioInspectorState = annotations;
+		send( { type: 'annotations-updated', annotations: annotations.slice() } );
 	}
 
 	function sendState() {
@@ -262,6 +263,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 	}
 
 	function syncMarkers() {
+		const currentPath = window.location.pathname;
 		const ids = new Set( annotations.map( ( a ) => a.id ) );
 		for ( const [ id, marker ] of markerNodes ) {
 			if ( ! ids.has( id ) ) {
@@ -270,7 +272,18 @@ export const INSPECTOR_PAGE_SCRIPT =
 			}
 		}
 		annotations.forEach( ( ann, idx ) => {
+			/* Only render markers for annotations made on the current page.
+			 * Annotations from other pages are preserved for submission but
+			 * their document-coordinate positions would be meaningless here. */
+			const onCurrentPage = ! ann.pathname || ann.pathname === currentPath;
 			let marker = markerNodes.get( ann.id );
+			if ( ! onCurrentPage ) {
+				if ( marker ) {
+					marker.remove();
+					markerNodes.delete( ann.id );
+				}
+				return;
+			}
 			if ( ! marker ) {
 				marker = document.createElement( 'div' );
 				marker.className = 'marker';

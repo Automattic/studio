@@ -1432,6 +1432,10 @@ export function showItemInFolder( _event: IpcMainInvokeEvent, path: string ) {
 	shell.showItemInFolder( path );
 }
 
+export async function openStudioLogs( _event: IpcMainInvokeEvent ) {
+	await shell.openPath( getLogsFilePath() );
+}
+
 export async function readLocalMediaFile(
 	_event: IpcMainInvokeEvent,
 	path: string

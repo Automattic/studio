@@ -135,6 +135,11 @@ export interface ConnectorCapabilities {
 	// (~/.studio/knowledge/instructions.md). False when hosted remotely, which
 	// hides the Studio Code settings tab.
 	agentInstructions: boolean;
+	// The host keeps a Studio log file the user can open (`openStudioLogs`).
+	// Only the desktop app does — the CLI writes site server output to
+	// `~/.studio/daemon/logs` and everything else to the terminal that started
+	// it, so there is no single log to point a browser user at.
+	studioLogs: boolean;
 	// The host can switch this window back to the classic Studio UI
 	// (`disableAgenticUi`). Only the desktop app ships the classic renderer;
 	// in a browser there is nothing to switch to.
@@ -385,6 +390,9 @@ export interface Connector {
 	openSiteFolder( siteId: string ): Promise< void >;
 	openSiteInEditor( siteId: string ): Promise< void >;
 	openSiteInTerminal( siteId: string ): Promise< void >;
+
+	// Open Studio's own log file. Gated by `capabilities.studioLogs`.
+	openStudioLogs(): Promise< void >;
 
 	// Analytics — record a Tracks event. The desktop wrapper attaches the surface
 	// params (channel/ui_version); see `docs/design-docs/analytics-tracks.md`.

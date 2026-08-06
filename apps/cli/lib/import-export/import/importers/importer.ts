@@ -1,11 +1,12 @@
 import fs from 'fs';
 import path from 'path';
 import { createInterface } from 'readline';
-import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { generateBackupFilename } from '@studio/common/lib/generate-backup-filename';
 import { ImportEvents } from '@studio/common/lib/import-export-events';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
+import { writeStudioMuPluginsForNativePhpRuntime } from '@studio/common/lib/mu-plugins';
 import { serializePlugins } from '@studio/common/lib/serialize-plugins';
+import { getSiteRuntime } from '@studio/common/lib/site-runtime';
 import {
 	RecommendedPHPVersion,
 	SupportedPHPVersions,
@@ -16,8 +17,12 @@ import { move } from 'fs-extra';
 import semver from 'semver';
 import trash from 'trash';
 import { SiteData } from 'cli/lib/cli-config/core';
+import { ensureWpConfig } from 'cli/lib/native-php/site-setup';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
-import { ensureSqliteIntegrationForImportedSite } from 'cli/lib/sqlite-integration';
+import {
+	ensureSqliteIntegrationForImportedSite,
+	keepSqliteIntegrationUpdated,
+} from 'cli/lib/sqlite-integration';
 import { ImportExportEventEmitter } from '../../events';
 import { BackupContents, MetaFileData } from '../types';
 import { updateSiteUrl } from '../update-site-url';
@@ -67,6 +72,21 @@ abstract class BaseImporter extends ImportExportEventEmitter implements Importer
 
 	abstract import( site: SiteData ): Promise< ImporterResult >;
 
+	// Get a supported PHP version string based on a specific input string, the
+	// underlying meta.json file or the SiteData object.
+	protected resolvePhpVersion( site: SiteData, rawVersion?: string ): SupportedPHPVersion {
+		const version = semver.coerce( rawVersion ?? this.meta?.phpVersion ?? site.phpVersion );
+		if ( ! version ) {
+			return RecommendedPHPVersion;
+		}
+
+		const parsedVersion = `${ version.major }.${ version.minor }`;
+
+		return SupportedPHPVersions.includes( parsedVersion as SupportedPHPVersion )
+			? ( parsedVersion as SupportedPHPVersion )
+			: RecommendedPHPVersion;
+	}
+
 	protected async importDatabase( site: SiteData, sqlFiles: string[] ): Promise< void > {
 		if ( ! sqlFiles.length ) {
 			return;
@@ -74,7 +94,8 @@ abstract class BaseImporter extends ImportExportEventEmitter implements Importer
 
 		// The `wp sqlite import` below runs without the reprint runtime.php that wires
 		// SQLite for imported sites, so the integration has to be discoverable in
-		// wp-content instead. Mirrors the export side; no-op for regular sites.
+		// wp-content instead. `SQLImporter` reaches here without going through
+		// `importWpContent`, which is where the backup importers already install it.
 		await ensureSqliteIntegrationForImportedSite( site );
 
 		this.emit( ImportEvents.IMPORT_DATABASE_START );
@@ -110,7 +131,7 @@ abstract class BaseImporter extends ImportExportEventEmitter implements Importer
 					],
 					{
 						requireSqliteCliCommand: true,
-						phpVersion: DEFAULT_PHP_VERSION,
+						phpVersion: this.resolvePhpVersion( site ),
 					}
 				);
 
@@ -154,11 +175,11 @@ abstract class BaseBackupImporter extends BaseImporter {
 			if ( this.shouldCleanUpBeforeImport ) {
 				await this.moveExistingWpContentToTrash( site.path );
 			}
-			await this.importWpConfig( site.path );
-			await this.importWpContent( site.path );
 			if ( this.backup.metaFile ) {
-				this.meta = await this.parseMetaFile();
+				this.meta = await this.parseMetaFile( site );
 			}
+			await this.importWpConfig( site );
+			await this.importWpContent( site );
 			if ( this.backup.sqlFiles.length ) {
 				const databaseDir = path.join( site.path, 'wp-content', 'database' );
 				const dbPath = path.join( databaseDir, '.ht.sqlite' );
@@ -185,7 +206,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 		}
 	}
 
-	protected abstract parseMetaFile(): Promise< MetaFileData | undefined >;
+	protected abstract parseMetaFile( site: SiteData ): Promise< MetaFileData | undefined >;
 
 	protected async createEmptyDatabase( dbPath: string ): Promise< void > {
 		await fs.promises.writeFile( dbPath, '' );
@@ -226,22 +247,26 @@ abstract class BaseBackupImporter extends BaseImporter {
 		}
 	}
 
-	protected async importWpConfig( rootPath: string ): Promise< void > {
-		const wpConfigPath = path.join( rootPath, 'wp-config.php' );
-		const wpConfigSamplePath = path.join( rootPath, 'wp-config-sample.php' );
+	protected async importWpConfig( site: SiteData ): Promise< void > {
+		const wpConfigPath = path.join( site.path, 'wp-config.php' );
+		const wpConfigSamplePath = path.join( site.path, 'wp-config-sample.php' );
 
 		if ( this.backup.wpConfig ) {
 			await fs.promises.copyFile( this.backup.wpConfig, wpConfigPath );
 		} else if ( ! fs.existsSync( wpConfigPath ) && fs.existsSync( wpConfigSamplePath ) ) {
 			await fs.promises.copyFile( wpConfigSamplePath, wpConfigPath );
 		}
+
+		if ( getSiteRuntime( site ) === 'native-php' && ! site.runtimeBlueprintPath ) {
+			await ensureWpConfig( site.path, this.resolvePhpVersion( site ) );
+		}
 	}
 
-	protected async importWpContent( rootPath: string ): Promise< void > {
+	protected async importWpContent( site: SiteData ): Promise< void > {
 		this.emit( ImportEvents.IMPORT_WP_CONTENT_START );
 		const extractionDirectory = this.backup.extractionDirectory;
 		const wpContentSourceDir = this.backup.wpContentDirectory;
-		const wpContentDestDir = path.join( rootPath, 'wp-content' );
+		const wpContentDestDir = path.join( site.path, 'wp-content' );
 
 		// Group files by type
 		const filesByType = this.categorizeWpContentFiles( this.backup.wpContentFiles );
@@ -285,6 +310,12 @@ abstract class BaseBackupImporter extends BaseImporter {
 				} );
 			}
 		}
+
+		await keepSqliteIntegrationUpdated( site.path );
+		if ( getSiteRuntime( site ) === 'native-php' ) {
+			await writeStudioMuPluginsForNativePhpRuntime( site.path, site.isWpAutoUpdating );
+		}
+
 		this.emit( ImportEvents.IMPORT_WP_CONTENT_COMPLETE );
 	}
 
@@ -312,29 +343,13 @@ abstract class BaseBackupImporter extends BaseImporter {
 
 		return categorized;
 	}
-
-	protected parsePhpVersion( version: string | undefined ): string {
-		if ( ! version ) {
-			return RecommendedPHPVersion;
-		}
-		const phpVersion = semver.coerce( version );
-		if ( ! phpVersion ) {
-			return RecommendedPHPVersion;
-		}
-
-		const parsedVersion = `${ phpVersion.major }.${ phpVersion.minor }`;
-
-		return SupportedPHPVersions.includes( parsedVersion as SupportedPHPVersion )
-			? parsedVersion
-			: RecommendedPHPVersion;
-	}
 }
 
 export class JetpackImporter extends BaseBackupImporter {
 	// Jetpack importer follows merge strategy to support selective sync
 	protected shouldCleanUpBeforeImport = false;
 
-	protected async parseMetaFile(): Promise< MetaFileData | undefined > {
+	protected async parseMetaFile( site: SiteData ): Promise< MetaFileData | undefined > {
 		const metaFilePath = this.backup.metaFile;
 		if ( ! metaFilePath ) {
 			return;
@@ -344,7 +359,7 @@ export class JetpackImporter extends BaseBackupImporter {
 			const metaContent = await fs.promises.readFile( metaFilePath, 'utf-8' );
 			const meta = JSON.parse( metaContent );
 			return {
-				phpVersion: this.parsePhpVersion( meta?.phpVersion ),
+				phpVersion: this.resolvePhpVersion( site, meta?.phpVersion ),
 				wordpressVersion: meta?.wordpressVersion || '',
 			};
 		} catch ( e ) {
@@ -363,7 +378,7 @@ export class JetpackImporter extends BaseBackupImporter {
 }
 
 export class LocalImporter extends BaseBackupImporter {
-	protected async parseMetaFile(): Promise< MetaFileData | undefined > {
+	protected async parseMetaFile( site: SiteData ): Promise< MetaFileData | undefined > {
 		const metaFilePath = this.backup.metaFile;
 		if ( ! metaFilePath ) {
 			return;
@@ -373,7 +388,7 @@ export class LocalImporter extends BaseBackupImporter {
 			const metaContent = await fs.promises.readFile( metaFilePath, 'utf-8' );
 			const meta = JSON.parse( metaContent );
 			return {
-				phpVersion: this.parsePhpVersion( meta?.services?.php?.version ),
+				phpVersion: this.resolvePhpVersion( site, meta?.services?.php?.version ),
 				wordpressVersion: '',
 			};
 		} catch ( e ) {

@@ -280,6 +280,7 @@ export function OnboardingConnectPage() {
 						name,
 						path,
 						skipStart: true,
+						flowType: 'sync',
 					} ),
 				persistConnection: async ( localSiteId ) => {
 					await connector.connectWpcomSite( localSiteId, {

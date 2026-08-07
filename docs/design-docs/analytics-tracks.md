@@ -182,13 +182,17 @@ funnel that also covers the agentic UI, whose connector routes through the same 
 The site-content open events (`open_in_browser`, `open_wp_admin`, `open_customize`,
 `open_phpmyadmin`) carry a **`browser`** prop recording where the content opened: `external` (the OS
 browser) or `internal` (the agentic UI's in-app preview panel). Studio Classic always opens the OS
-browser, so it always sends `external`; the agentic UI sends `internal` when it navigates the preview
-panel (e.g. the overview Customize buttons) and `external` when the affordance explicitly leaves
-Studio (e.g. the site-list "Open phpMyAdmin"/"Open WP admin" menu items and the site header's "open in
-your browser" link). Navigation *within* the agentic preview panel (the address bar, switching preview
-tabs) is out of scope here and tracked separately. `studio_panel_opened` is Desktop-Classic-only — the
-agentic UI navigates via routes, not a tab strip. No site names, paths, or URLs are ever sent — only
-the enumerated prop values below.
+browser, so it always sends `external`. The agentic UI sends `internal` when it opens content in the
+preview panel — the overview Customize buttons, and switching the preview's realm tabs (front end →
+`open_in_browser`, WP Admin → `open_wp_admin`, database → `open_phpmyadmin`; re-selecting the active
+tab is a no-op and emits nothing) — and `external` when the affordance leaves Studio: the site-list
+"Open phpMyAdmin"/"Open WP admin" menu items, the site header's "open in your browser" link, and the
+preview's "Open in… → Browser" button. That last button fires the event matching whatever realm the
+preview is currently showing, so opening a WP Admin preview externally is an `open_wp_admin`
+(`external`), not an `open_in_browser`. Free-form navigation *within* the preview panel (typing in the
+address bar) is out of scope here and tracked separately. `studio_panel_opened` is Desktop-Classic-only
+— the agentic UI navigates via routes, not a tab strip. No site names, paths, or URLs are ever sent —
+only the enumerated prop values below.
 
 | Event | Emitted from | Event-specific props |
 |---|---|---|

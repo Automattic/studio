@@ -161,6 +161,16 @@ describe( 'OpenInMenu', () => {
 		expect( trackedEvents ).not.toContain( 'studio_site_open_in_terminal' );
 	} );
 
+	it( 'records the browser event matching the active preview realm', () => {
+		renderMenu( { running: true }, '/wp-admin/plugins.php' );
+
+		fireEvent.click( destination( 'Browser' ) );
+
+		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_wp_admin', {
+			browser: 'external',
+		} );
+	} );
+
 	it( 'offers no phpMyAdmin destination', () => {
 		// The preview's address bar owns the database realm; navigating there
 		// from here strands it with no segment to represent it.
@@ -238,8 +248,8 @@ describe( 'OpenInMenu', () => {
 	} );
 } );
 
-function renderMenu( overrides: Partial< SiteDetails > = {} ) {
-	return render( <OpenInMenu site={ createSite( overrides ) } browserPath={ BROWSER_PATH } /> );
+function renderMenu( overrides: Partial< SiteDetails > = {}, browserPath: string = BROWSER_PATH ) {
+	return render( <OpenInMenu site={ createSite( overrides ) } browserPath={ browserPath } /> );
 }
 
 function destination( label: string | RegExp ): HTMLElement {

@@ -10,25 +10,19 @@
 	max-width: calc(100vw - 32px);
 }
 
-/* Full-bleed illustration slot (placeholder until real art lands). A fixed
-   aspect ratio gives the header a stable height that doesn't depend on
-   content, so it can't collapse while the dialog animates in. */
-.illustration {
-	display: block;
-	width: 100%;
-	aspect-ratio: 320 / 150;
-	/* The popup is a flex column; never let the header art get squeezed when
-	   the viewport height constrains the popup. */
-	flex-shrink: 0;
-	background: color-mix(in srgb, var(--wpds-color-fg-interactive-brand) 8%, transparent);
-	border-bottom: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral-weak);
-}
-
 .close {
 	position: absolute;
 	top: var(--wpds-dimension-padding-sm);
 	inset-inline-end: var(--wpds-dimension-padding-sm);
 	z-index: 1;
+}
+
+/* Over a dark full-bleed illustration the default (dark) icon vanishes; force a
+   light icon so Skip stays legible. */
+.closeOnDark,
+.closeOnDark svg {
+	color: #fff;
+	fill: currentColor;
 }
 
 /* The modal backdrop covers the window's usual drag region, so nothing is

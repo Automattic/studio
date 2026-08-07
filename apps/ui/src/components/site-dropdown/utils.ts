@@ -48,9 +48,80 @@ export function getSnapshotHostname( snapshot: Snapshot ): string {
 	return stripProtocol( snapshot.url );
 }
 
+// Short status name for a site's toggle/tooltip: "Running", "Stopping",
+// "Exporting". Shared with the sidebar so the two can't word it differently.
+export function getSiteStatusName( {
+	running,
+	starting,
+	stopping,
+	operation,
+}: {
+	running: boolean;
+	starting: boolean;
+	stopping: boolean;
+	operation: SiteOperationKind | null;
+} ): string {
+	if ( operation ) {
+		return getSiteOperationLabel( operation );
+	}
+	if ( stopping ) {
+		return __( 'Stopping' );
+	}
+	if ( starting ) {
+		return __( 'Starting' );
+	}
+	return running ? __( 'Running' ) : __( 'Stopped' );
+}
+
+function getStatus(
+	site: SiteDetails,
+	isStarting: boolean,
+	isStopping: boolean,
+	operation: SiteOperationKind | null
+): SiteStatus {
+	if ( operation || isStarting || isStopping ) {
+		return 'transitioning';
+	}
+	return site.running ? 'running' : 'stopped';
+}
+
+// Sentence form, read out by the status dot's aria-label.
+function getStatusLabel(
+	status: SiteStatus,
+	isStopping: boolean,
+	operation: SiteOperationKind | null
+): string {
+	if ( operation ) {
+		return getSiteOperationLabel( operation );
+	}
+	if ( status === 'running' ) {
+		return __( 'Site is running' );
+	}
+	if ( status === 'stopped' ) {
+		return __( 'Site is stopped' );
+	}
+	return isStopping ? __( 'Site is stopping' ) : __( 'Site is starting' );
+}
+
+// The local-site row's second line: what's happening, or where the site lives.
+function getLocalSublabel(
+	site: SiteDetails,
+	status: SiteStatus,
+	isStopping: boolean,
+	operation: SiteOperationKind | null
+): string {
+	if ( operation ) {
+		// translators: %s: an operation in progress, e.g. "Exporting".
+		return sprintf( __( '%s…' ), getSiteOperationLabel( operation ) );
+	}
+	if ( status !== 'transitioning' ) {
+		return getSiteDisplayUrl( site );
+	}
+	return isStopping ? __( 'Stopping…' ) : __( 'Starting…' );
+}
+
 // Derives the running/transitioning/stopped status plus the user-visible
-// labels for the local-site row. Collapses three related but noisy branches
-// into a single helper the dropdown can consume in one line.
+// labels for the local-site row, so the dropdown consumes it in one line.
 export function deriveSiteStatus(
 	site: SiteDetails,
 	isStarting: boolean,
@@ -61,27 +132,11 @@ export function deriveSiteStatus(
 	// react-query state, and this stays a pure function.
 	operation: SiteOperationKind | null
 ): { status: SiteStatus; statusLabel: string; localSublabel: string } {
-	const status: SiteStatus =
-		operation || isStarting || isStopping ? 'transitioning' : site.running ? 'running' : 'stopped';
+	const status = getStatus( site, isStarting, isStopping, operation );
 
-	const statusLabel = operation
-		? getSiteOperationLabel( operation )
-		: status === 'running'
-		? __( 'Site is running' )
-		: status === 'transitioning'
-		? isStopping
-			? __( 'Site is stopping' )
-			: __( 'Site is starting' )
-		: __( 'Site is stopped' );
-
-	const localSublabel = operation
-		? // translators: %s: an operation in progress, e.g. "Exporting".
-		  sprintf( __( '%s…' ), getSiteOperationLabel( operation ) )
-		: status === 'transitioning'
-		? isStopping
-			? __( 'Stopping…' )
-			: __( 'Starting…' )
-		: getSiteDisplayUrl( site );
-
-	return { status, statusLabel, localSublabel };
+	return {
+		status,
+		statusLabel: getStatusLabel( status, isStopping, operation ),
+		localSublabel: getLocalSublabel( site, status, isStopping, operation ),
+	};
 }

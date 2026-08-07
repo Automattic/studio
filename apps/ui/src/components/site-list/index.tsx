@@ -1,6 +1,5 @@
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
-import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
 import { sortSites } from '@studio/common/lib/sort-sites';
 import { supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { terminalConfig } from '@studio/common/lib/user-settings/terminal';
@@ -24,7 +23,7 @@ import { DeleteSiteDialog } from '@/components/delete-site-dialog';
 import * as Menu from '@/components/menu';
 import { ReorderableList } from '@/components/reorderable-list';
 import { SidebarButton } from '@/components/sidebar-button';
-import { deriveSiteStatus } from '@/components/site-dropdown/utils';
+import { deriveSiteStatus, getSiteStatusName } from '@/components/site-dropdown/utils';
 import { XdebugIcon } from '@/components/xdebug-icon';
 import { useConnector } from '@/data/core';
 import { useSiteAgentActivity, type SiteAgentActivity } from '@/data/queries/use-agent-run';
@@ -249,15 +248,12 @@ function SiteStatusButton( {
 	const { status } = deriveSiteStatus( site, isStarting, isStopping, operation );
 	// The CLI's lease wins: it names work this window didn't start (an agent
 	// import, another Studio window), which the local start/stop state can't see.
-	const statusName = operation
-		? getSiteOperationLabel( operation )
-		: status === 'running'
-		? __( 'Running' )
-		: status === 'transitioning'
-		? isStopping
-			? __( 'Stopping' )
-			: __( 'Starting' )
-		: __( 'Stopped' );
+	const statusName = getSiteStatusName( {
+		running: site.running,
+		starting: isStarting,
+		stopping: isStopping,
+		operation,
+	} );
 	const xdebug = Boolean( site.enableXdebug );
 	const tooltipLabel = xdebug
 		? sprintf( __( 'Site status: %s. Xdebug enabled' ), statusName )

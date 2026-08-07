@@ -36,6 +36,7 @@ import { PopoverRow } from './popover-row';
 import { getSyncActivityLabel } from './trigger-secondary';
 import {
 	deriveSiteStatus,
+	getSiteStatusName,
 	ensureProtocol,
 	getSnapshotHostname,
 	pickLatestSnapshot,
@@ -486,24 +487,6 @@ function SyncActivityDetails( {
 	);
 }
 
-function getLocalServerStatusName( {
-	running,
-	starting,
-	stopping,
-}: {
-	running: boolean;
-	starting: boolean;
-	stopping: boolean;
-} ) {
-	if ( stopping ) {
-		return __( 'Stopping' );
-	}
-	if ( starting ) {
-		return __( 'Starting' );
-	}
-	return running ? __( 'Running' ) : __( 'Stopped' );
-}
-
 function LocalServerControl( {
 	running,
 	starting,
@@ -531,9 +514,7 @@ function LocalServerControl( {
 	const inert = disabled || pending;
 	const statusLabel = sprintf(
 		__( 'Site status: %s' ),
-		operation
-			? getSiteOperationLabel( operation )
-			: getLocalServerStatusName( { running, starting, stopping } )
+		getSiteStatusName( { running, starting, stopping, operation } )
 	);
 	const actionLabel = running ? __( 'Stop site' ) : __( 'Start site' );
 

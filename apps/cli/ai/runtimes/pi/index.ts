@@ -14,6 +14,7 @@ import {
 	type AnthropicOptions,
 } from '@earendil-works/pi-ai/api/anthropic-messages';
 import { streamSimple as streamOpenAiResponses } from '@earendil-works/pi-ai/api/openai-responses';
+import { ANTHROPIC_MODELS } from '@earendil-works/pi-ai/providers/anthropic.models';
 import {
 	createAgentSession,
 	createBashTool,
@@ -417,22 +418,35 @@ function buildModel(
 		};
 	}
 	const thinking = getAiModelThinking( modelId );
+	// Without `compat.forceAdaptiveThinking` pi-ai sends the legacy
+	// `thinking: { type: 'enabled', budget_tokens }` shape, which Sonnet 5 /
+	// Opus 5 reject with a 400 — copy the thinking fields from pi's catalog.
+	const catalogModel = (
+		ANTHROPIC_MODELS as Partial< Record< string, Model< 'anthropic-messages' > > >
+	 )[ modelId ];
 	return {
 		...common,
 		api: 'anthropic-messages',
 		provider: creds.useBearerAuth ? STUDIO_WPCOM_ANTHROPIC_PROVIDER : 'anthropic',
 		reasoning: thinking !== 'none',
-		// Adaptive-thinking models (Sonnet 5, Opus 4.8) reject budget-based
-		// thinking requests with a 400 — they only accept
-		// `thinking: {type: "adaptive"}`. This compat flag makes pi-ai (and our
-		// mirror in `resolveThinkingOptions`) emit the adaptive shape.
-		...( thinking === 'adaptive' ? { compat: { forceAdaptiveThinking: true } } : {} ),
+		// contextWindow/maxTokens intentionally stay below the catalog values.
 		contextWindow: 200_000,
 		// On budget-thinking models, thinkingLevel 'high' reserves ~16384 of this
 		// budget for extended thinking (see adjustMaxTokensForThinking in pi-ai);
 		// keep enough headroom for visible output so single tool calls can emit a
 		// full-page HTML payload. Adaptive thinking reserves no fixed budget.
 		maxTokens: 32_000,
+		...( catalogModel?.thinkingLevelMap
+			? { thinkingLevelMap: catalogModel.thinkingLevelMap }
+			: {} ),
+		...( catalogModel?.compat || thinking === 'adaptive'
+			? {
+					compat: {
+						...( thinking === 'adaptive' ? { forceAdaptiveThinking: true } : {} ),
+						...catalogModel?.compat,
+					},
+			  }
+			: {} ),
 	};
 }
 
@@ -496,7 +510,9 @@ async function createModelRuntime(
 		return modelRuntime;
 	}
 
-	await modelRuntime.setRuntimeApiKey( family, creds.apiKey );
+	// allowNetwork: false — the default refresh fetches remote model catalogs
+	// (unused here) with no timeout guard, blocking the turn on slow networks.
+	await modelRuntime.setRuntimeApiKey( family, creds.apiKey, { allowNetwork: false } );
 	return modelRuntime;
 }
 
@@ -621,6 +637,7 @@ function createWpcomAnthropicProviderConfig(
 				maxTokens: model.maxTokens,
 				headers: creds.extraHeaders,
 				compat: model.compat,
+				thinkingLevelMap: model.thinkingLevelMap,
 			},
 		],
 	};

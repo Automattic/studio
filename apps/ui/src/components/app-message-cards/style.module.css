@@ -44,6 +44,60 @@
 	animation: card-enter 160ms ease-out;
 }
 
+.betaCardButton {
+	--beta-bubble-bg: var(--wpds-color-bg-interactive-brand-strong);
+	--beta-bubble-border: color-mix(
+		in srgb,
+		var(--wpds-color-fg-content-neutral) 35%,
+		transparent
+	);
+	--wp-ui-button-background-color: var(--beta-bubble-bg);
+	--wp-ui-button-border-color: var(--beta-bubble-border);
+
+	display: flex;
+	align-items: center;
+	width: max-content;
+	max-width: 100%;
+	box-sizing: border-box;
+	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md);
+	appearance: none;
+	background-color: var(--beta-bubble-bg);
+	border: var(--wpds-border-width-xs) solid var(--beta-bubble-border);
+	border-radius: 14px 14px 14px 4px;
+	box-shadow: var(--wpds-elevation-md);
+	color: var(--wpds-color-fg-content-neutral);
+	font: inherit;
+	font-size: 11px;
+	line-height: var(--wpds-typography-line-height-xs);
+	cursor: var(--wpds-cursor-control);
+	outline: none;
+	animation: card-enter 160ms ease-out;
+}
+
+.betaCardButton:hover {
+	--beta-bubble-bg: color-mix(
+		in srgb,
+		var(--wpds-color-bg-interactive-brand-strong) 88%,
+		var(--wpds-color-fg-content-neutral) 12%
+	);
+}
+
+.betaCardButton:active,
+.betaCardButton[data-popup-open] {
+	background-color: var(--wpds-color-bg-interactive-brand-strong);
+	border-color: var(--beta-bubble-border);
+}
+
+.betaCardButton:focus-visible {
+	outline: var(--wpds-border-width-xs) solid var(--wpds-color-fg-content-neutral);
+	outline-offset: 2px;
+}
+
+.betaLabel {
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+
 @keyframes card-enter {
 	from {
 		opacity: 0;

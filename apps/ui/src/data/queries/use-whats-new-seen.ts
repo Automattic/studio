@@ -1,9 +1,23 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useConnector } from '@/data/core';
+import { useAppGlobals } from '@/data/queries/use-app-globals';
 
 // App version the announcements were last dismissed on — the same value the
 // classic renderer reads and writes, so dismissing in one UI settles both.
 export const LAST_SEEN_VERSION_QUERY_KEY = [ 'whats-new-last-seen-version' ] as const;
+
+// Browser targets (`studio ui`, hosted) have no app version to record, so they
+// record a fixed stand-in. Known trade-off: because a later release stores the
+// same value, a browser only ever sees the announcements once. Fixing that needs
+// a marker that tracks the content rather than the app version, which would also
+// replace FORCE_SHOW_WHATS_NEW — worth doing, but not in this PR.
+const BROWSER_VERSION = 'browser';
+
+// The version both the comparison and the write should use.
+export function useWhatsNewVersion(): string {
+	const { data: appGlobals } = useAppGlobals();
+	return appGlobals?.appVersion ?? BROWSER_VERSION;
+}
 
 export function useLastSeenVersion() {
 	const connector = useConnector();

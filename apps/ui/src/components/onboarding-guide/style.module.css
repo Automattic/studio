@@ -10,18 +10,13 @@
 	max-width: calc(100vw - 32px);
 }
 
-/* Full-bleed illustration slot (placeholder until real art lands). A fixed
-   aspect ratio gives the header a stable height that doesn't depend on
+/* A fixed aspect ratio gives the header a stable height that doesn't depend on
    content, so it can't collapse while the dialog animates in. */
 .illustration {
 	display: block;
 	width: 100%;
 	aspect-ratio: 320 / 150;
-	/* The artwork is wider than the slot on a narrow viewport; crop rather than
-	   letterbox so the header never shows bars. */
 	object-fit: cover;
-	/* The popup is a flex column; never let the header art get squeezed when
-	   the viewport height constrains the popup. */
 	flex-shrink: 0;
 	background: color-mix(in srgb, var(--wpds-color-fg-interactive-brand) 8%, transparent);
 	border-bottom: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral-weak);
@@ -101,17 +96,14 @@
 }
 
 /* Present on every page of a guide that links out anywhere, so a page without a
-   link still reserves the row. The sizer fills it with plain text, which is the
-   same single inherited line the link renders as. */
+   link still reserves the row. */
 .learnMoreRow {
 	display: flex;
 	min-height: 20px;
 	align-items: center;
 }
 
-/* Three zones: Back on the left, the pager centered, the primary action on the
-   right. The 1fr side columns keep the pager centered even when Back is absent
-   (first page). */
+/* The 1fr side columns keep the pager centered regardless of what flanks it. */
 .footer {
 	display: grid;
 	grid-template-columns: 1fr auto 1fr;

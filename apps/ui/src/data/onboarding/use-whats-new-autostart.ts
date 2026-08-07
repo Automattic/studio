@@ -1,10 +1,13 @@
 import { hasUnseenWhatsNew } from '@studio/common/lib/whats-new';
 import { useEffect, useRef } from 'react';
 import { useOnboardingGuide } from '@/components/onboarding-guide/use-onboarding-guide';
-import { useAppGlobals } from '@/data/queries/use-app-globals';
 import { useOnboardingHints } from '@/data/queries/use-onboarding-hints';
 import { useSites } from '@/data/queries/use-sites';
-import { useLastSeenVersion, useSaveLastSeenVersion } from '@/data/queries/use-whats-new-seen';
+import {
+	useLastSeenVersion,
+	useSaveLastSeenVersion,
+	useWhatsNewVersion,
+} from '@/data/queries/use-whats-new-seen';
 import { ORIENTATION_GUIDE_VERSION } from './orientation-guide';
 import { getWhatsNewGuide } from './whats-new';
 import type { OnboardingHintsState } from '@/data/core';
@@ -62,10 +65,6 @@ export function deriveWhatsNewAutostart( {
 // rather than as part of the initial paint.
 const GUIDE_START_DELAY_MS = 500;
 
-// Browser targets have no app version to record. A fixed stand-in keeps the
-// marker truthy so the announcements don't reappear on every load.
-const BROWSER_VERSION = 'browser';
-
 /**
  * Auto-opens the What's New guide when there are unseen announcements. Mounted
  * in the dashboard layout.
@@ -73,12 +72,11 @@ const BROWSER_VERSION = 'browser';
 export function useWhatsNewAutostart(): void {
 	const { data: sites } = useSites();
 	const { data: hints } = useOnboardingHints();
-	const { data: appGlobals } = useAppGlobals();
 	const { data: lastSeenVersion } = useLastSeenVersion();
 	const saveLastSeenVersion = useSaveLastSeenVersion();
 	const { isOpen, openGuide } = useOnboardingGuide();
 
-	const currentVersion = appGlobals?.appVersion ?? BROWSER_VERSION;
+	const currentVersion = useWhatsNewVersion();
 	const startedRef = useRef( false );
 	const startTimerRef = useRef< ReturnType< typeof setTimeout > | null >( null );
 

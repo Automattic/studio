@@ -1,8 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useOnboardingGuide } from '@/components/onboarding-guide/use-onboarding-guide';
 import { useConnector } from '@/data/core';
-import { useAppGlobals } from '@/data/queries/use-app-globals';
-import { useSaveLastSeenVersion } from '@/data/queries/use-whats-new-seen';
+import { useSaveLastSeenVersion, useWhatsNewVersion } from '@/data/queries/use-whats-new-seen';
 import { getWhatsNewGuide } from './whats-new';
 
 /**
@@ -13,21 +12,21 @@ import { getWhatsNewGuide } from './whats-new';
  */
 export function useWhatsNewReplay(): void {
 	const connector = useConnector();
-	const { data: appGlobals } = useAppGlobals();
+	const currentVersion = useWhatsNewVersion();
 	const saveLastSeenVersion = useSaveLastSeenVersion();
 	const { openGuide } = useOnboardingGuide();
 
 	// The menu event fires outside React's data flow, so read the current version
 	// through a ref instead of resubscribing when app globals resolve.
-	const versionRef = useRef( appGlobals?.appVersion );
+	const versionRef = useRef( currentVersion );
 	useEffect( () => {
-		versionRef.current = appGlobals?.appVersion;
-	}, [ appGlobals?.appVersion ] );
+		versionRef.current = currentVersion;
+	}, [ currentVersion ] );
 
 	useEffect( () => {
 		return connector.onShowWhatsNew( () => {
 			openGuide( getWhatsNewGuide(), {
-				onEnd: () => saveLastSeenVersion.mutate( versionRef.current ?? 'browser' ),
+				onEnd: () => saveLastSeenVersion.mutate( versionRef.current ),
 			} );
 		} );
 	}, [ connector, openGuide, saveLastSeenVersion ] );

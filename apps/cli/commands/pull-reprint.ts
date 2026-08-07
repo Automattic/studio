@@ -66,6 +66,7 @@ import {
 	loadImportedRuntimeStartOptionsNative,
 } from 'cli/lib/pull/runtime-start-options';
 import { buildAutoLoginUrl } from 'cli/lib/site-utils';
+import { ensureSqliteIntegrationForImportedSite } from 'cli/lib/sqlite-integration';
 import { fetchSyncableSites } from 'cli/lib/sync-api';
 import {
 	findSyncSiteByIdentifier,
@@ -462,6 +463,15 @@ export async function runCommand(
 				record.adminPassword = adminPassword;
 			} );
 		}
+
+		// `flat-docroot --force` replaces the local wp-content — and with it the
+		// SQLite drop-in and mu-plugin — with a symlink into the scratch, and a
+		// full pull carries nothing local across (see preserveUnselectedLocalContent).
+		// The site still boots, because runtime.php wires SQLite on its own, but
+		// tools that expect the integration under wp-content (phpMyAdmin, `wp sqlite`)
+		// don't. `studio site start` would reinstall it, except it returns early
+		// while the server is running — which it is right after a pull.
+		await ensureSqliteIntegrationForImportedSite( site );
 
 		let runtimeStartOptions: StartServerOptions;
 		if ( getSiteRuntime( site ) === SITE_RUNTIME_NATIVE_PHP ) {

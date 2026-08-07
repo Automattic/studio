@@ -107,6 +107,7 @@ const api: IpcApi = {
 	generateNumberedNameFromList: ( baseName, usedSites ) =>
 		ipcRendererInvoke( 'generateNumberedNameFromList', baseName, usedSites ),
 	openLocalPath: ( path ) => ipcRendererSend( 'openLocalPath', path ),
+	openStudioLogs: () => ipcRendererSend( 'openStudioLogs' ),
 	showItemInFolder: ( path ) => ipcRendererSend( 'showItemInFolder', path ),
 	loadThemeDetails: ( id, emitLoadingEvent = true ) =>
 		ipcRendererInvoke( 'loadThemeDetails', id, emitLoadingEvent ),
@@ -196,6 +197,7 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'extractBlueprintBundle', zipFilePath ),
 	cleanupBlueprintTempDir: ( tempDir ) => ipcRendererInvoke( 'cleanupBlueprintTempDir', tempDir ),
 	showSiteContextMenu: ( context ) => ipcRendererSend( 'showSiteContextMenu', context ),
+	showTextContextMenu: ( context ) => ipcRendererInvoke( 'showTextContextMenu', context ),
 	setWindowControlVisibility: ( visible ) =>
 		ipcRendererInvoke( 'setWindowControlVisibility', visible ),
 	setTitleBarBackdropEffect: ( enabled ) =>

@@ -78,6 +78,7 @@ describe( 'SitePreview', () => {
 	it( 'shows the active realm name with the same tooltip as when inactive', async () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
 
@@ -105,6 +106,7 @@ describe( 'SitePreview', () => {
 	it( 'shows adjacent toolbar tooltips immediately while the delay group is active', async () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
 
@@ -161,6 +163,7 @@ describe( 'SitePreview', () => {
 	it( 'keeps the Open in… control in the toolbar while the site is stopped', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
 
@@ -172,6 +175,7 @@ describe( 'SitePreview', () => {
 	it( 'shows a refresh button that reloads the active preview surface', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
 
@@ -205,6 +209,7 @@ describe( 'SitePreview', () => {
 	it( 'reloads the preview on the primary-modifier+R shortcut', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
 
@@ -228,6 +233,7 @@ describe( 'SitePreview', () => {
 	it( 'switches realms on primary-modifier number shortcuts', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
 		const onPathChange = vi.fn();
@@ -253,9 +259,55 @@ describe( 'SitePreview', () => {
 		expect( onPathChange ).not.toHaveBeenCalled();
 	} );
 
+	it( 'records an internal-browser Tracks event when switching realms', () => {
+		const trackEvent = vi.fn().mockResolvedValue( undefined );
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent,
+			capabilities: CAPABILITIES,
+		} as never );
+
+		renderPreview(
+			<SitePreview
+				site={ createSite( { running: true } ) }
+				path="/"
+				reloadNonce={ 0 }
+				onPathChange={ vi.fn() }
+			/>
+		);
+
+		fireEvent.keyDown( document.body, { key: '2', ctrlKey: true } );
+		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_wp_admin', {
+			browser: 'internal',
+		} );
+	} );
+
+	it( 'does not record a realm switch when re-selecting the active realm', () => {
+		const trackEvent = vi.fn().mockResolvedValue( undefined );
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent,
+			capabilities: CAPABILITIES,
+		} as never );
+
+		renderPreview(
+			<SitePreview
+				site={ createSite( { running: true } ) }
+				path="/wp-admin/"
+				reloadNonce={ 0 }
+				onPathChange={ vi.fn() }
+			/>
+		);
+
+		// Already on the admin realm; its shortcut is a no-op.
+		fireEvent.keyDown( document.body, { key: '2', ctrlKey: true } );
+		expect( trackEvent ).not.toHaveBeenCalled();
+	} );
+
 	it( 'switches to the database realm on its shortcut', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
 		const onPathChange = vi.fn();
@@ -278,6 +330,7 @@ describe( 'SitePreview', () => {
 	it( 'hides the Annotate control when the host cannot annotate the preview', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
 
@@ -333,6 +386,7 @@ describe( 'SitePreview', () => {
 	it( 'offers responsive modes from the More options menu while running', async () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
 
@@ -366,6 +420,7 @@ describe( 'SitePreview', () => {
 	it( 'toggles full preview from the More options menu', async () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
 		const onFullscreenChange = vi.fn();
@@ -403,6 +458,7 @@ describe( 'SitePreview', () => {
 	it( 'omits full preview when the host provides no toggle', async () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
 
@@ -419,6 +475,7 @@ describe( 'SitePreview', () => {
 	it( 'asks for full preview when the Desktop + Mobile comparison is picked', async () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
 		const onFullscreenChange = vi.fn();
@@ -441,6 +498,7 @@ describe( 'SitePreview', () => {
 	it( 'drops the comparison back to Fit pane when full preview ends', async () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
 		const queryClient = new QueryClient( {
@@ -475,6 +533,7 @@ describe( 'SitePreview', () => {
 	it( 'toggles full preview with the keyboard shortcut', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
 		const onFullscreenChange = vi.fn();
@@ -517,6 +576,7 @@ describe( 'SitePreview', () => {
 	it( 'hides the More options menu when the site is not running', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
 
@@ -528,6 +588,7 @@ describe( 'SitePreview', () => {
 	it( 'remembers the responsive mode per site during the session', async () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
 

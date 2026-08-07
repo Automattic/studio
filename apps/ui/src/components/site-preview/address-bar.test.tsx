@@ -6,6 +6,7 @@ import { useConnector } from '@/data/core';
 import {
 	getPreviewRealm,
 	getRealmNavigationPath,
+	getRealmOpenEvent,
 	parseOmniboxInput,
 	PreviewAddressBar,
 } from './address-bar';
@@ -155,6 +156,14 @@ describe( 'getPreviewRealm', () => {
 		expect( getPreviewRealm( autoLoginPath( '/wp-admin/plugins.php' ) ) ).toBe( 'admin' );
 		expect( getPreviewRealm( autoLoginPath( '/phpmyadmin/index.php' ) ) ).toBe( 'database' );
 		expect( getPreviewRealm( autoLoginPath( '/about/' ) ) ).toBe( 'frontend' );
+	} );
+} );
+
+describe( 'getRealmOpenEvent', () => {
+	it( 'maps each realm to its site-open Tracks event', () => {
+		expect( getRealmOpenEvent( 'frontend' ) ).toBe( 'studio_site_open_in_browser' );
+		expect( getRealmOpenEvent( 'admin' ) ).toBe( 'studio_site_open_wp_admin' );
+		expect( getRealmOpenEvent( 'database' ) ).toBe( 'studio_site_open_phpmyadmin' );
 	} );
 } );
 

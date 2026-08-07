@@ -263,7 +263,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 	}
 
 	function syncMarkers() {
-		const currentPath = window.location.pathname;
+		const currentPath = window.location.pathname + window.location.search;
 		const ids = new Set( annotations.map( ( a ) => a.id ) );
 		for ( const [ id, marker ] of markerNodes ) {
 			if ( ! ids.has( id ) ) {
@@ -485,7 +485,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 						boundingBox: state.target.boundingBox,
 						documentRect: state.target.documentRect,
 						computedStyles: state.target.computedStyles,
-						pathname: window.location.pathname,
+						pathname: window.location.pathname + window.location.search,
 						url: window.location.href,
 						timestamp: Date.now(),
 					},

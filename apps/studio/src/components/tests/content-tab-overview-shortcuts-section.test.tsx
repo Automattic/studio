@@ -75,9 +75,11 @@ describe( 'ShortcutsSection', () => {
 		// Mock the IPC API with getInstalledApps returning the installed apps
 		const openURLMock = vi.fn();
 		const openAppAtPathMock = vi.fn();
+		const recordAnalyticsEventMock = vi.fn().mockResolvedValue( undefined );
 		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
 			openURL: openURLMock,
 			openAppAtPath: openAppAtPathMock,
+			recordAnalyticsEvent: recordAnalyticsEventMock,
 			getUserEditor: vi.fn().mockResolvedValue( 'vscode' ),
 			getUserTerminal: vi.fn().mockResolvedValue( 'terminal' ),
 			getInstalledAppsAndTerminals: vi.fn().mockResolvedValue( {
@@ -106,6 +108,9 @@ describe( 'ShortcutsSection', () => {
 		await waitFor( () => {
 			expect( openAppAtPathMock ).toHaveBeenCalledWith( 'vscode', selectedSite.path );
 		} );
+		expect( recordAnalyticsEventMock ).toHaveBeenCalledWith( 'studio_site_open_in_editor', {
+			editor: 'vscode',
+		} );
 	} );
 
 	it( 'opens site in PhpStorm when PhpStorm is installed and the button is clicked, only available on MacOS', async () => {
@@ -115,6 +120,7 @@ describe( 'ShortcutsSection', () => {
 		const openAppAtPathMock = vi.fn();
 		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
 			openAppAtPath: openAppAtPathMock,
+			recordAnalyticsEvent: vi.fn().mockResolvedValue( undefined ),
 			getUserEditor: vi.fn().mockResolvedValue( 'phpstorm' ), // User prefers PhpStorm
 			getUserTerminal: vi.fn().mockResolvedValue( 'terminal' ),
 			getInstalledAppsAndTerminals: vi.fn().mockResolvedValue( {

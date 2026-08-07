@@ -115,6 +115,17 @@ describe( 'openFileInIDE', () => {
 		expect( calls[ 0 ] ).toContain( join( 'wp-content', 'plugins', 'hello.php' ) );
 	} );
 
+	it( 'does not record an open-in-editor Tracks event when opening a single file', async () => {
+		vi.mocked( getUserEditor ).mockResolvedValue( 'cursor' );
+
+		await openFileInIDE( mockIpcMainInvokeEvent, 'wp-content/plugins/hello.php', 'site-1' );
+
+		expect( recordTracksEvent ).not.toHaveBeenCalledWith(
+			TRACKS_EVENTS.SITE_OPEN_IN_EDITOR,
+			expect.anything()
+		);
+	} );
+
 	it( 'should fall back to first installed editor when no preference is set', async () => {
 		vi.mocked( isInstalled ).mockImplementation( ( key ) => key === 'phpstorm' );
 
@@ -195,14 +206,15 @@ describe( 'openAppAtPath on Linux', () => {
 		expect( calls[ 0 ] ).toContain( '"/sites/test-site/wp-content/plugins/hello.php"' );
 	} );
 
-	it( 'records an open-in-editor Tracks event with the resolved editor', async () => {
+	it( 'does not record an open-in-editor Tracks event (it is shared with single-file opens)', async () => {
 		vi.mocked( linuxFindEditorPath ).mockResolvedValue( '/usr/bin/code' );
 
 		await openAppAtPath( mockIpcMainInvokeEvent, 'vscode', '/sites/test-site' );
 
-		expect( recordTracksEvent ).toHaveBeenCalledWith( TRACKS_EVENTS.SITE_OPEN_IN_EDITOR, {
-			editor: 'vscode',
-		} );
+		expect( recordTracksEvent ).not.toHaveBeenCalledWith(
+			TRACKS_EVENTS.SITE_OPEN_IN_EDITOR,
+			expect.anything()
+		);
 	} );
 
 	it( 'falls back to the editor URL scheme when no binary is found', async () => {

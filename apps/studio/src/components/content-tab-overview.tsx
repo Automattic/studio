@@ -179,6 +179,7 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 			className: 'text-nowrap',
 			icon: code,
 			onClick: async () => {
+				recordRendererTracksEvent( TRACKS_EVENTS.SITE_OPEN_IN_EDITOR, { editor } );
 				await getIpcApi().openAppAtPath( editor, selectedSite.path );
 			},
 		} );

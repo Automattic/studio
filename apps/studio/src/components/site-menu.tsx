@@ -338,6 +338,7 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 						break;
 					case 'open-editor':
 						if ( editor ) {
+							recordRendererTracksEvent( TRACKS_EVENTS.SITE_OPEN_IN_EDITOR, { editor } );
 							void ipcApi.openAppAtPath( editor, site.path );
 						}
 						break;

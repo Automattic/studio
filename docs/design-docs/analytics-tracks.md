@@ -175,9 +175,12 @@ start / creation is counted once whether it originated in a UI or the standalone
 
 Day-to-day site actions. **Stop and delete are emitted by the CLI** (the sole funnel — the desktop
 delegates both to the CLI, so standalone-CLI usage is counted too; filter by `channel`). The **open**
-actions are emitted from the renderer (both Classic and agentic), except `open_in_editor` /
-`open_in_terminal`, which fire from Desktop Main (`openAppAtPath` / `openTerminalAtPath`) — a single
-funnel that also covers the agentic UI, whose connector routes through the same handlers.
+actions are emitted from the renderer (both Classic and agentic). `open_in_terminal` is the exception:
+it fires from Desktop Main (`openTerminalAtPath`) — a single funnel that also covers the agentic UI,
+whose connector routes through it. `open_in_editor` is *not* emitted in Main's `openAppAtPath`, because
+that handler is shared with single-file opens (AI skills, "Open <file>"); it fires at the three "open
+site in editor" affordances instead (Classic overview button + site-menu, and the agentic UI's
+`openSiteInEditor` connector method).
 
 The site-content open events (`open_in_browser`, `open_wp_admin`, `open_customize`,
 `open_phpmyadmin`) carry a **`browser`** prop recording where the content opened: `external` (the OS
@@ -203,7 +206,7 @@ enumerated prop values below.
 | `studio_site_stop` | CLI site-stop funnel | `running_site_count` (running Studio sites remaining after this stop). A "stop all" emits one event per stopped site, counting down to 0. |
 | `studio_site_delete` | CLI site-delete funnel | `delete_files` (boolean — whether the site's files were moved to trash). Emitted once per **successful** delete. |
 | `studio_site_open_in_browser` | Renderer (Classic + agentic) | `browser` (`external`/`internal`) |
-| `studio_site_open_in_editor` | Desktop Main (`openAppAtPath`) | `editor` (the resolved editor, e.g. `vscode`/`phpstorm`) |
+| `studio_site_open_in_editor` | Renderer (Classic + agentic) | `editor` (the resolved editor, e.g. `vscode`/`phpstorm`). Emitted at the "open site in editor" affordances, not in Main's `openAppAtPath` — that handler is shared with single-file opens (AI skills, "Open <file>"), which must not count as opening the site. |
 | `studio_site_open_in_terminal` | Desktop Main (`openTerminalAtPath`) | `terminal` (the resolved terminal, e.g. `terminal`/`iterm`/`ghostty`/`warp`) |
 | `studio_site_open_wp_admin` | Renderer (Classic + agentic) | `browser` (`external`/`internal`) |
 | `studio_site_open_customize` | Renderer (Classic + agentic) | `entry_point` — the affordance clicked: `editor`, `editor_styles`, `editor_patterns`, `editor_navigation`, `editor_templates`, `editor_pages`, `media_library` (block themes) or `customizer`, `menus`, `widgets` (classic themes). Plus `browser` (`external`/`internal`). |

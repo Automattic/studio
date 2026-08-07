@@ -27,35 +27,6 @@ e2e_config: &e2e_config
       - with: { platform: windows, arch: x64 }
 
 steps:
-  # 🚧 [TO REVERT] Proves a toolkit command is reachable from inside a `docker` plugin
-  # container, via the mount recipe documented in the toolkit's README.
-  - label: "🚧 [TO REVERT] a8c-ci-toolkit inside Docker"
-    key: toolkit_in_docker
-    agents:
-      queue: default
-    command: |
-      set -eu
-
-      echo "--- :file_folder: What got mounted"
-      ls -l /a8c-ci-toolkit/bin | head -5
-
-      export PATH="$$PATH:/a8c-ci-toolkit/bin"
-
-      echo "--- :mag: Resolve a toolkit command from inside the container"
-      command -v hash_file
-
-      echo "--- :abacus: Run it"
-      hash_file package-lock.json
-    plugins:
-      - $CI_TOOLKIT_PLUGIN
-      - $DOCKER_PLUGIN:
-          image: "$NODE_DOCKER_IMAGE"
-          propagate-environment: true
-          mount-buildkite-agent: true
-          expand-volume-vars: true
-          volumes:
-            - "$$A8C_CI_TOOLKIT_PLUGIN_DIR:/a8c-ci-toolkit:ro"
-
   - label: Lint
     agents:
       queue: mac

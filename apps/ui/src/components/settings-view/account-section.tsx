@@ -10,8 +10,6 @@ import { useOffline } from '@/hooks/use-offline';
 import { getLocalizedLink, REPORT_ISSUE_URL } from '@/lib/docs-links';
 import styles from './style.module.css';
 
-const WPCOM_PROFILE_URL = 'https://wordpress.com/me';
-
 function AccountHelpActions() {
 	const connector = useConnector();
 	const locale = useUserLocale();
@@ -63,7 +61,6 @@ function AccountHelpActions() {
 }
 
 export function AccountSection() {
-	const connector = useConnector();
 	const { data: user, isLoading } = useAuthUser();
 	const login = useLogin();
 	const logout = useLogout();
@@ -98,15 +95,6 @@ export function AccountSection() {
 				</div>
 				{ user ? (
 					<div className={ styles.accountButtons }>
-						<Button
-							type="button"
-							variant="minimal"
-							tone="neutral"
-							disabled={ isOffline }
-							onClick={ () => void connector.openExternalUrl( WPCOM_PROFILE_URL ) }
-						>
-							{ __( 'Edit WordPress.com profile' ) }
-						</Button>
 						<Button
 							type="button"
 							variant="outline"

@@ -1,3 +1,4 @@
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import {
 	STUDIO_ASSISTANT_QUOTA_URL,
@@ -213,6 +214,7 @@ export function createIpcConnector(): Connector {
 			annotatePreview: true,
 			readLocalMedia: true,
 			agentInstructions: true,
+			studioLogs: true,
 			switchToClassicUi: true,
 		},
 
@@ -274,6 +276,7 @@ export function createIpcConnector(): Connector {
 				adminEmail,
 				skipStart,
 				blueprint,
+				flowType,
 			} = params;
 			return ( await ipcApi.createSite( path, {
 				siteName: name,
@@ -286,6 +289,7 @@ export function createIpcConnector(): Connector {
 				adminEmail,
 				noStart: skipStart,
 				blueprint,
+				flowType,
 			} ) ) as SiteDetails;
 		},
 
@@ -790,12 +794,18 @@ export function createIpcConnector(): Connector {
 			if ( ! editor ) {
 				throw new Error( 'No preferred editor configured.' );
 			}
+			// Emit here rather than in Main's `openAppAtPath`, which is shared with single-file opens.
+			void ipcApi.recordAnalyticsEvent( TRACKS_EVENTS.SITE_OPEN_IN_EDITOR, { editor } );
 			await ipcApi.openAppAtPath( editor, sitePath );
 		},
 
 		async openSiteInTerminal( siteId ): Promise< void > {
 			const sitePath = await resolveSiteFolder( siteId );
 			await ipcApi.openTerminalAtPath( sitePath );
+		},
+
+		async openStudioLogs(): Promise< void > {
+			ipcApi.openStudioLogs();
 		},
 
 		// Analytics. `channel` and `ui_version` are attached by the desktop Tracks wrapper's
@@ -826,6 +836,10 @@ export function createIpcConnector(): Connector {
 
 		async copyText( text: string ): Promise< void > {
 			await ipcApi.copyText( text );
+		},
+
+		async showTextContextMenu( context ) {
+			return ipcApi.showTextContextMenu( context );
 		},
 
 		async confirmDeleteAllPreviewSites(): Promise< boolean > {

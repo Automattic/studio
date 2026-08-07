@@ -53,9 +53,11 @@ import {
 	updateSharedSession,
 } from '@studio/common/lib/shared-config';
 import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
-import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
+import { fetchLatestRewindId, fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import { detectInstalledApps } from '@studio/common/lib/user-settings/installed-apps';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
+import wpcomFactory from '@studio/common/lib/wpcom-factory';
+import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import {
 	cleanupBlueprintTempDir,
 	extractBlueprintUpload,
@@ -68,10 +70,11 @@ import { createSnapshotManager, fetchSnapshots } from '@studio/common/sites/snap
 import { pullSite, pushSite } from '@studio/common/sites/sync';
 import express from 'express';
 import { rateLimit } from 'express-rate-limit';
+import { z } from 'zod';
 import { isEditor, isTerminal, openInEditor, openInTerminal, openPath } from './open-in-os';
 import type { SiteListItem } from '@studio/common/lib/cli-events';
 import type { EditSiteOptions } from '@studio/common/sites/edit';
-import type { SyncSite } from '@studio/common/types/sync';
+import type { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
 import type { Request, Response } from 'express';
 
 /**
@@ -1075,7 +1078,10 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.post(
 		'/sites/:id/pull',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const { remoteSiteId } = req.body as { remoteSiteId?: number };
+			const { remoteSiteId, options } = req.body as {
+				remoteSiteId?: number;
+				options?: PullSyncOptions;
+			};
 			if ( ! remoteSiteId ) {
 				res.status( 400 ).json( { error: 'remoteSiteId is required' } );
 				return;
@@ -1085,13 +1091,95 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
-			await pullSite( execute, site.path, remoteSiteId, ( progress ) => {
-				sseSend( {
-					channel: 'sync-pull',
-					payload: { ...progress, siteId: req.params.id, remoteSiteId },
-				} );
-			} );
+			await pullSite(
+				execute,
+				site.path,
+				remoteSiteId,
+				( progress ) => {
+					sseSend( {
+						channel: 'sync-pull',
+						payload: { ...progress, siteId: req.params.id, remoteSiteId },
+					} );
+				},
+				options
+			);
 			res.sendStatus( 204 );
+		} )
+	);
+
+	// Selective-sync lookups for the agentic UI's sync dialog: the latest
+	// backup (rewind) id, the remote backup file tree under it, and the live
+	// site's hosting PHP version.
+	api.get(
+		'/wpcom/sites/:remoteSiteId/latest-rewind-id',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const token = await readAuthToken();
+			if ( ! token?.accessToken ) {
+				res.status( 401 ).json( { error: 'Authentication required.' } );
+				return;
+			}
+			try {
+				res.json(
+					await fetchLatestRewindId( token.accessToken, Number( req.params.remoteSiteId ) )
+				);
+			} catch {
+				res.json( null );
+			}
+		} )
+	);
+
+	api.get(
+		'/wpcom/sites/:remoteSiteId/remote-file-tree',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const token = await readAuthToken();
+			if ( ! token?.accessToken ) {
+				res.status( 401 ).json( { error: 'Authentication required.' } );
+				return;
+			}
+			const { rewindId, path: treePath } = req.query as { rewindId?: string; path?: string };
+			if ( ! rewindId || ! treePath ) {
+				res.status( 400 ).json( { error: 'rewindId and path are required' } );
+				return;
+			}
+			const wpcom = wpcomFactory( token.accessToken, wpcomXhrRequest );
+			const rawResponse = await wpcom.req.post( {
+				path: `/sites/${ Number( req.params.remoteSiteId ) }/rewind/backup/ls`,
+				apiNamespace: 'wpcom/v2',
+				body: { backup_id: rewindId, path: treePath },
+			} );
+			const parsed = z
+				.object( {
+					ok: z.boolean(),
+					error: z.string().optional(),
+					contents: z.record( z.string(), z.unknown() ).optional(),
+				} )
+				.parse( rawResponse );
+			if ( ! parsed.ok ) {
+				res.status( 502 ).json( { error: parsed.error || 'Failed to fetch remote file tree' } );
+				return;
+			}
+			res.json( parsed.contents ?? {} );
+		} )
+	);
+
+	api.get(
+		'/wpcom/sites/:remoteSiteId/hosting-php-version',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const token = await readAuthToken();
+			if ( ! token?.accessToken ) {
+				res.status( 401 ).json( { error: 'Authentication required.' } );
+				return;
+			}
+			try {
+				const wpcom = wpcomFactory( token.accessToken, wpcomXhrRequest );
+				const response = await wpcom.req.get( {
+					apiNamespace: 'wpcom/v2',
+					path: `/sites/${ Number( req.params.remoteSiteId ) }/hosting/php-version`,
+				} );
+				res.json( z.string().parse( response ) );
+			} catch {
+				res.json( null );
+			}
 		} )
 	);
 
@@ -1101,7 +1189,10 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.post(
 		'/sites/:id/push',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const { remoteSiteId } = req.body as { remoteSiteId?: number };
+			const { remoteSiteId, options } = req.body as {
+				remoteSiteId?: number;
+				options?: PushSyncOptions;
+			};
 			if ( ! remoteSiteId ) {
 				res.status( 400 ).json( { error: 'remoteSiteId is required' } );
 				return;
@@ -1126,7 +1217,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 							payload: { ...output, siteId: req.params.id, remoteSiteId },
 						} ),
 				},
-				{ sitePath: site.path, remoteSiteId }
+				{ sitePath: site.path, remoteSiteId, options }
 			);
 			res.sendStatus( 204 );
 		} )

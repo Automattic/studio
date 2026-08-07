@@ -271,6 +271,15 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async pullSiteFromLive() {
 			throw new UnsupportedError( 'pullSiteFromLive' );
 		},
+		async getLatestRewindId(): Promise< string | null > {
+			throw new UnsupportedError( 'getLatestRewindId' );
+		},
+		async listRemoteFileTree(): Promise< Record< string, unknown > > {
+			throw new UnsupportedError( 'listRemoteFileTree' );
+		},
+		async getHostingPhpVersion(): Promise< string | undefined > {
+			throw new UnsupportedError( 'getHostingPhpVersion' );
+		},
 		getPublishCheckoutUrl() {
 			return undefined;
 		},

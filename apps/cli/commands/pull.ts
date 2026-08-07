@@ -44,7 +44,8 @@ const logger = new Logger< LoggerAction >();
 export async function runCommand(
 	siteFolder: string,
 	syncOptions?: SyncOption[],
-	siteIdentifier?: string
+	siteIdentifier?: string,
+	syncIncludePathList?: string[]
 ): Promise< void > {
 	let site: SiteData | undefined;
 	let wasServerRunning = false;
@@ -86,6 +87,7 @@ export async function runCommand(
 
 		if ( syncOptions ) {
 			optionsToSync = syncOptions;
+			includePathList = syncIncludePathList;
 		} else {
 			logger.reportStart( LoggerAction.FETCH_REMOTE_SITES, __( 'Fetching file tree…' ) );
 			const { tree } = await fetchPullTree( token.accessToken, remoteSite.id );
@@ -253,11 +255,30 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				.option( 'remote-site', {
 					type: 'string',
 					description: __( 'Remote site URL or ID' ),
+				} )
+				.option( 'include-path-list', {
+					type: 'string',
+					description: __(
+						'Comma-separated backup node ids to pull when using the "paths" option'
+					),
+					hidden: true,
+					coerce: ( val: string | undefined ) =>
+						val !== undefined
+							? val
+									.split( ',' )
+									.map( ( item ) => item.trim() )
+									.filter( Boolean )
+							: undefined,
 				} );
 		},
 		handler: async ( argv ) => {
 			try {
-				await runCommand( argv.path, argv.options as SyncOption[] | undefined, argv.remoteSite );
+				await runCommand(
+					argv.path,
+					argv.options as SyncOption[] | undefined,
+					argv.remoteSite,
+					argv.includePathList as string[] | undefined
+				);
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {
 					logger.reportError( error );

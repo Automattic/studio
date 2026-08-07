@@ -1,8 +1,10 @@
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { code, external } from '@wordpress/icons';
+import { getPreviewRealm, getRealmOpenEvent } from '@/components/site-preview/address-bar';
 import { useConnector } from '@/data/core';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { editorLogos, finderLogo, folderLogo, terminalLogo, terminalLogos } from '@/lib/logos';
@@ -73,6 +75,12 @@ export function useOpenInDestinations(
 			disabled: ! site.running,
 			open: () => {
 				onOpen?.( 'browser' );
+				// This destination leaves Studio for the OS browser, carrying whatever the
+				// preview is currently showing — so the event matches the active realm
+				// (front end / WP Admin / phpMyAdmin) rather than always the front end.
+				void connector.trackEvent( getRealmOpenEvent( getPreviewRealm( browserPath ) ), {
+					browser: 'external',
+				} );
 				// Routed through the host rather than `openExternalUrl` so the
 				// URL goes via /studio-auto-login; opening it raw drops the
 				// session and lands admin screens on the login form.
@@ -88,6 +96,7 @@ export function useOpenInDestinations(
 			disabled: false,
 			open: () => {
 				onOpen?.( 'files' );
+				void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_FOLDER );
 				void connector.openSiteFolder( site.id ).catch( ( error ) => {
 					console.error( 'Failed to open site folder:', error );
 				} );

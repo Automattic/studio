@@ -20,6 +20,7 @@ import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { removeDomainFromHosts } from 'cli/lib/hosts-file';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { getSnapshotsFromConfig, deleteSnapshotFromConfig } from 'cli/lib/snapshots';
+import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { runCommand } from '../delete';
@@ -66,6 +67,10 @@ vi.mock( 'cli/lib/snapshots' );
 vi.mock( 'cli/lib/wordpress-server-manager' );
 vi.mock( '@studio/common/lib/fs-utils' );
 vi.mock( 'trash' );
+vi.mock( 'cli/lib/tracks', async ( importActual ) => {
+	const actual = await importActual< typeof import('cli/lib/tracks') >();
+	return { ...actual, recordTracksEvent: vi.fn() };
+} );
 
 describe( 'CLI: studio site delete', () => {
 	const testSiteFolder = '/test/site/path';
@@ -397,6 +402,24 @@ describe( 'CLI: studio site delete', () => {
 			expect( removeDomainFromHosts ).not.toHaveBeenCalled();
 			expect( deleteSiteCertificate ).not.toHaveBeenCalled();
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
+		} );
+
+		it( 'records a site-delete Tracks event with delete_files true when trashing files', async () => {
+			await runCommand( testSiteFolder, true );
+
+			expect( recordTracksEvent ).toHaveBeenCalledWith(
+				TRACKS_EVENTS.SITE_DELETE,
+				expect.objectContaining( { delete_files: true } )
+			);
+		} );
+
+		it( 'records a site-delete Tracks event with delete_files false when keeping files', async () => {
+			await runCommand( testSiteFolder, false );
+
+			expect( recordTracksEvent ).toHaveBeenCalledWith(
+				TRACKS_EVENTS.SITE_DELETE,
+				expect.objectContaining( { delete_files: false } )
+			);
 		} );
 	} );
 } );

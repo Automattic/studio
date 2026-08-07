@@ -92,6 +92,7 @@ describe( 'OpenInMenu', () => {
 	const openSiteFolder = vi.fn().mockResolvedValue( undefined );
 	const openSiteInEditor = vi.fn().mockResolvedValue( undefined );
 	const openSiteInTerminal = vi.fn().mockResolvedValue( undefined );
+	const trackEvent = vi.fn().mockResolvedValue( undefined );
 	const startSite = vi.fn().mockResolvedValue( undefined );
 
 	beforeEach( () => {
@@ -103,6 +104,7 @@ describe( 'OpenInMenu', () => {
 			openSiteFolder,
 			openSiteInEditor,
 			openSiteInTerminal,
+			trackEvent,
 			getSites: vi.fn().mockResolvedValue( [] ),
 		} );
 		useStartSiteMock.mockReturnValue( {
@@ -140,6 +142,33 @@ describe( 'OpenInMenu', () => {
 		expect( openSiteFolder ).toHaveBeenCalledWith( 'site-1' );
 		expect( openSiteInEditor ).toHaveBeenCalledWith( 'site-1' );
 		expect( openSiteInTerminal ).toHaveBeenCalledWith( 'site-1' );
+	} );
+
+	it( 'records Tracks events for browser and folder only (editor and terminal emit in Main)', () => {
+		renderMenu( { running: true } );
+
+		fireEvent.click( destination( 'Browser' ) );
+		fireEvent.click( destination( /^(Finder|File Explorer|File manager)$/ ) );
+		fireEvent.click( destination( 'Zed' ) );
+		fireEvent.click( destination( 'Terminal' ) );
+
+		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_in_browser', {
+			browser: 'external',
+		} );
+		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_folder' );
+		const trackedEvents = trackEvent.mock.calls.map( ( call ) => call[ 0 ] );
+		expect( trackedEvents ).not.toContain( 'studio_site_open_in_editor' );
+		expect( trackedEvents ).not.toContain( 'studio_site_open_in_terminal' );
+	} );
+
+	it( 'records the browser event matching the active preview realm', () => {
+		renderMenu( { running: true }, '/wp-admin/plugins.php' );
+
+		fireEvent.click( destination( 'Browser' ) );
+
+		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_wp_admin', {
+			browser: 'external',
+		} );
 	} );
 
 	it( 'offers no phpMyAdmin destination', () => {
@@ -219,8 +248,8 @@ describe( 'OpenInMenu', () => {
 	} );
 } );
 
-function renderMenu( overrides: Partial< SiteDetails > = {} ) {
-	return render( <OpenInMenu site={ createSite( overrides ) } browserPath={ BROWSER_PATH } /> );
+function renderMenu( overrides: Partial< SiteDetails > = {}, browserPath: string = BROWSER_PATH ) {
+	return render( <OpenInMenu site={ createSite( overrides ) } browserPath={ browserPath } /> );
 }
 
 function destination( label: string | RegExp ): HTMLElement {

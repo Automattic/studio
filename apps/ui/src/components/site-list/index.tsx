@@ -1,4 +1,5 @@
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { getSiteOperationLabel } from '@studio/common/lib/site-operation';
 import { sortSites } from '@studio/common/lib/sort-sites';
 import { supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
@@ -210,6 +211,7 @@ function sortSitesByManualOrder( sites: SiteDetails[], manualOrder: string[] ): 
 
 function SiteOverviewButton( { site }: { site: SiteDetails } ) {
 	const navigate = useNavigate();
+	const connector = useConnector();
 
 	return (
 		<IconButton
@@ -221,6 +223,7 @@ function SiteOverviewButton( { site }: { site: SiteDetails } ) {
 			className={ styles.siteAction }
 			onClick={ ( event ) => {
 				event.stopPropagation();
+				void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'overview' } );
 				void navigate( {
 					to: '/sites/$siteId/overview',
 					params: { siteId: site.id },
@@ -368,6 +371,7 @@ function SiteActionsMenu( {
 	};
 
 	const handleOpenFolder = () => {
+		void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_FOLDER );
 		void connector.openSiteFolder( site.id ).catch( ( error ) => {
 			console.error( 'Failed to open site folder:', error );
 		} );
@@ -391,12 +395,14 @@ function SiteActionsMenu( {
 	};
 
 	const handleOpenPhpMyAdmin = () => {
+		void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_PHPMYADMIN, { browser: 'external' } );
 		void connector.openExternalUrl(
 			`${ getSiteUrl( site ) }/phpmyadmin/index.php?route=/database/structure&db=wordpress`
 		);
 	};
 
 	const handleOpenWpAdmin = () => {
+		void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_WP_ADMIN, { browser: 'external' } );
 		const siteUrl = getSiteUrl( site );
 		const redirectTo = new URL( '/wp-admin/', siteUrl ).toString();
 		const autoLoginUrl = new URL( '/studio-auto-login', siteUrl );
@@ -432,13 +438,14 @@ function SiteActionsMenu( {
 					) }
 					<Menu.Separator />
 					<Menu.Item
-						onClick={ () =>
+						onClick={ () => {
+							void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'settings' } );
 							void navigate( {
 								to: '/sites/$siteId/overview',
 								params: { siteId: site.id },
 								search: { tab: 'general' },
-							} )
-						}
+							} );
+						} }
 					>
 						{ __( 'Site settings' ) }
 					</Menu.Item>
@@ -515,6 +522,7 @@ function SiteSection( {
 } ) {
 	const { site, latestSession } = row;
 	const navigate = useNavigate();
+	const connector = useConnector();
 	const sectionRef = useRef< HTMLElement >( null );
 	const isActive = isChatActive || isContextActive;
 	// Without chat, a site's home is its overview, so the context-active row
@@ -548,12 +556,14 @@ function SiteSection( {
 		// Without chat (signed out, offline, or switched off in Settings →
 		// AI) there's no session to open; the overview is the site's home.
 		if ( ! chatEnabled ) {
+			void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'overview' } );
 			void navigate( {
 				to: '/sites/$siteId/overview',
 				params: { siteId: site.id },
 			} );
 			return;
 		}
+		void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'assistant' } );
 		if ( latestSession ) {
 			void navigate( {
 				to: '/sessions/$sessionId',

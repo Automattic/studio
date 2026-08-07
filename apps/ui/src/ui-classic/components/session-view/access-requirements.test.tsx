@@ -132,4 +132,19 @@ describe( 'AccessRequirements', () => {
 		await user.click( screen.getByRole( 'button', { name: 'Contact support' } ) );
 		expect( openExternalUrl ).toHaveBeenCalledWith( 'https://wordpress.com/support/contact/' );
 	} );
+
+	it( 'lets a blocked account recheck access without restarting', async () => {
+		const user = userEvent.setup();
+		const onRecheck = vi.fn();
+		render(
+			<AccessRequirements
+				quota={ { ...notEnabledQuota, studioCodeAiAccess: 'blocked' } }
+				isRechecking={ false }
+				onRecheck={ onRecheck }
+			/>
+		);
+
+		await user.click( screen.getByRole( 'button', { name: 'Check again' } ) );
+		expect( onRecheck ).toHaveBeenCalledTimes( 1 );
+	} );
 } );

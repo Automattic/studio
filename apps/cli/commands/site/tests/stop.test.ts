@@ -8,8 +8,13 @@ import {
 	killDaemonAndChildren,
 } from 'cli/lib/daemon-client';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
+import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
-import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
+import {
+	getRunningSiteCount,
+	isServerRunning,
+	stopWordPressServer,
+} from 'cli/lib/wordpress-server-manager';
 import { Mode, runCommand } from '../stop';
 
 vi.mock( 'cli/lib/cli-config/core', async () => {
@@ -38,6 +43,10 @@ vi.mock( 'cli/lib/site-lock', async ( importOriginal ) => ( {
 } ) );
 vi.mock( 'cli/lib/site-utils' );
 vi.mock( 'cli/lib/wordpress-server-manager' );
+vi.mock( 'cli/lib/tracks', async ( importActual ) => {
+	const actual = await importActual< typeof import('cli/lib/tracks') >();
+	return { ...actual, recordTracksEvent: vi.fn() };
+} );
 
 describe( 'CLI: studio site stop', () => {
 	// Simple test data
@@ -70,6 +79,7 @@ describe( 'CLI: studio site stop', () => {
 		vi.mocked( clearSiteLatestCliPid ).mockResolvedValue( undefined );
 		vi.mocked( stopProxyIfNoSitesNeedIt ).mockResolvedValue( undefined );
 		vi.mocked( killDaemonAndChildren ).mockResolvedValue( undefined );
+		vi.mocked( getRunningSiteCount ).mockResolvedValue( 0 );
 	} );
 
 	afterEach( () => {
@@ -130,6 +140,24 @@ describe( 'CLI: studio site stop', () => {
 			expect( clearSiteLatestCliPid ).toHaveBeenCalledWith( testSite.id );
 			expect( stopProxyIfNoSitesNeedIt ).toHaveBeenCalledWith( testSite.id, expect.any( Object ) );
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
+		} );
+
+		it( 'records a site-stop Tracks event with the remaining running-site count', async () => {
+			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
+			vi.mocked( getRunningSiteCount ).mockResolvedValue( 2 );
+
+			await runCommand( Mode.STOP_SINGLE_SITE, '/test/site' );
+
+			expect( recordTracksEvent ).toHaveBeenCalledWith(
+				TRACKS_EVENTS.SITE_STOP,
+				expect.objectContaining( { running_site_count: 2 } )
+			);
+		} );
+
+		it( 'does not record a site-stop Tracks event when the site is not running', async () => {
+			await runCommand( Mode.STOP_SINGLE_SITE, '/test/site' );
+
+			expect( recordTracksEvent ).not.toHaveBeenCalled();
 		} );
 
 		it( 'should not call stopProxyIfNoSitesNeedIt if site is not running', async () => {
@@ -214,6 +242,7 @@ describe( 'CLI: studio site stop --all', () => {
 		vi.mocked( isServerRunning ).mockResolvedValue( undefined );
 		vi.mocked( killDaemonAndChildren ).mockResolvedValue( undefined );
 		vi.mocked( clearSiteLatestCliPid ).mockResolvedValue( undefined );
+		vi.mocked( getRunningSiteCount ).mockResolvedValue( 0 );
 	} );
 
 	afterEach( () => {
@@ -328,6 +357,24 @@ describe( 'CLI: studio site stop --all', () => {
 			expect( isServerRunning ).toHaveBeenCalledWith( 'site-1' );
 			expect( isServerRunning ).toHaveBeenCalledWith( 'site-2' );
 			expect( isServerRunning ).toHaveBeenCalledWith( 'site-3' );
+
+			// One event per stopped site, with the remaining count decrementing to 0.
+			expect( recordTracksEvent ).toHaveBeenCalledTimes( 3 );
+			expect( recordTracksEvent ).toHaveBeenNthCalledWith(
+				1,
+				TRACKS_EVENTS.SITE_STOP,
+				expect.objectContaining( { running_site_count: 2 } )
+			);
+			expect( recordTracksEvent ).toHaveBeenNthCalledWith(
+				2,
+				TRACKS_EVENTS.SITE_STOP,
+				expect.objectContaining( { running_site_count: 1 } )
+			);
+			expect( recordTracksEvent ).toHaveBeenNthCalledWith(
+				3,
+				TRACKS_EVENTS.SITE_STOP,
+				expect.objectContaining( { running_site_count: 0 } )
+			);
 
 			expect( killDaemonAndChildren ).toHaveBeenCalledTimes( 1 );
 

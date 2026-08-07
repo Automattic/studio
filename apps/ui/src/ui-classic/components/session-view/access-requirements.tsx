@@ -103,6 +103,15 @@ export function AccessRequirements( {
 						>
 							{ __( 'Contact support' ) }
 						</Button>
+						<Button
+							type="button"
+							variant="minimal"
+							tone="neutral"
+							aria-disabled={ isRechecking }
+							onClick={ onRecheck }
+						>
+							{ isRechecking ? __( 'Checking…' ) : __( 'Check again' ) }
+						</Button>
 					</div>
 				</div>
 			</div>

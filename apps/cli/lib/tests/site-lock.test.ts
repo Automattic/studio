@@ -1,3 +1,4 @@
+import os from 'os';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { SITE_OPERATION_MAX_AGE_MS } from '@studio/common/lib/site-operation';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
@@ -77,6 +78,25 @@ describe( 'getLiveSiteOperations', () => {
 
 	it( 'returns an empty list for a site with no leases', () => {
 		expect( getLiveSiteOperations( site ) ).toEqual( [] );
+	} );
+
+	// The common way a PID gets reused: reboot. The lease survives in cli.json,
+	// the process it named does not, and the PID may now belong to anything.
+	it( 'drops a lease written before the current boot', () => {
+		const preReboot = {
+			...site,
+			operations: [
+				{
+					id: 'pre-reboot',
+					pid: process.pid,
+					kind: 'export' as const,
+					// Comfortably before this machine booted.
+					startedAt: Date.now() - ( os.uptime() * 1000 + 60_000 ),
+				},
+			],
+		};
+
+		expect( getLiveSiteOperations( preReboot ) ).toEqual( [] );
 	} );
 
 	// PID liveness alone can't tell a reclaimed PID from the original owner, so

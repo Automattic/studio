@@ -56,8 +56,10 @@ export const siteOperationSchema = z.object( {
  *
  * PID liveness alone leaves one hole: if the owning process dies and the OS
  * later reuses its PID for something unrelated, the dead lease looks held and
- * the site is blocked with no way out but editing cli.json by hand. Nothing
- * Studio runs against a single site takes a day, so anything older is a leak.
+ * the site is blocked with no way out but editing cli.json by hand. Reboots are
+ * the common case and are caught precisely by comparing against boot time; this
+ * is the backstop for PID reuse within a single boot. Nothing Studio runs
+ * against one site takes a day, so anything older is a leak.
  */
 export const SITE_OPERATION_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 

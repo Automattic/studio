@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto';
+import os from 'os';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import {
 	conflictsWith,
@@ -51,9 +52,16 @@ function isProcessAlive( pid: number ): boolean {
  * site forever — including the operations whose acquire would have reclaimed it.
  */
 export function getLiveSiteOperations( site: SiteData, now = Date.now() ): SiteOperation[] {
+	// PIDs restart from scratch after a reboot, so a lease written before this
+	// boot can match an unrelated process and look held. `cli.json` outlives the
+	// machine; the processes in it don't.
+	const bootedAt = now - os.uptime() * 1000;
+
 	return ( site.operations ?? [] ).filter(
 		( operation ) =>
-			now - operation.startedAt < SITE_OPERATION_MAX_AGE_MS && isProcessAlive( operation.pid )
+			operation.startedAt >= bootedAt &&
+			now - operation.startedAt < SITE_OPERATION_MAX_AGE_MS &&
+			isProcessAlive( operation.pid )
 	);
 }
 

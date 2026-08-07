@@ -30,10 +30,14 @@ import { useSiteAgentActivity, type SiteAgentActivity } from '@/data/queries/use
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useSessions } from '@/data/queries/use-sessions';
 import {
+	COPY_SITE_MUTATION_KEY,
+	EXPORT_DATABASE_MUTATION_KEY,
+	EXPORT_FULL_SITE_MUTATION_KEY,
 	useCopySite,
 	useExportDatabase,
 	useExportFullSite,
 	useIsSiteBusy,
+	useIsSiteMutating,
 	useIsSiteStarting,
 	useIsSiteStopping,
 	useSiteOperation,
@@ -354,7 +358,12 @@ function SiteActionsMenu( {
 	const exportFullSite = useExportFullSite();
 	const exportDatabase = useExportDatabase();
 	const busy = useIsSiteBusy( site );
-	const isExporting = exportFullSite.isPending || exportDatabase.isPending;
+	// Cache-wide, not each mutation's own `isPending`: this menu unmounts when
+	// it closes, so a local observer would forget work that's still running.
+	const isDuplicating = useIsSiteMutating( site.id, COPY_SITE_MUTATION_KEY );
+	const isExportingFullSite = useIsSiteMutating( site.id, EXPORT_FULL_SITE_MUTATION_KEY );
+	const isExportingDatabase = useIsSiteMutating( site.id, EXPORT_DATABASE_MUTATION_KEY );
+	const isExporting = isExportingFullSite || isExportingDatabase;
 	const [ deleteOpen, setDeleteOpen ] = useState( false );
 
 	const stopMenuEventPropagation = (
@@ -438,11 +447,8 @@ function SiteActionsMenu( {
 					>
 						{ __( 'Site settings' ) }
 					</Menu.Item>
-					<Menu.Item
-						disabled={ busy || copySite.isPending }
-						onClick={ () => copySite.mutate( site.id ) }
-					>
-						{ copySite.isPending ? __( 'Duplicating…' ) : __( 'Duplicate site' ) }
+					<Menu.Item disabled={ busy } onClick={ () => copySite.mutate( site.id ) }>
+						{ isDuplicating ? __( 'Duplicating…' ) : __( 'Duplicate site' ) }
 					</Menu.Item>
 					<Menu.Separator />
 					<Menu.Item onClick={ handleOpenFolder }>{ __( 'Open folder' ) }</Menu.Item>
@@ -475,19 +481,16 @@ function SiteActionsMenu( {
 						disabled={ busy || isExporting }
 						onClick={ () => exportFullSite.mutate( site.id ) }
 					>
-						{ exportFullSite.isPending ? __( 'Exporting…' ) : __( 'Export entire site' ) }
+						{ isExportingFullSite ? __( 'Exporting…' ) : __( 'Export entire site' ) }
 					</Menu.Item>
 					<Menu.Item
 						disabled={ busy || isExporting }
 						onClick={ () => exportDatabase.mutate( site.id ) }
 					>
-						{ exportDatabase.isPending ? __( 'Exporting…' ) : __( 'Export database' ) }
+						{ isExportingDatabase ? __( 'Exporting…' ) : __( 'Export database' ) }
 					</Menu.Item>
 					<Menu.Separator />
-					<Menu.Item
-						onClick={ () => setDeleteOpen( true ) }
-						disabled={ busy || copySite.isPending || isExporting }
-					>
+					<Menu.Item onClick={ () => setDeleteOpen( true ) } disabled={ busy || isExporting }>
 						{ __( 'Delete site' ) }
 					</Menu.Item>
 				</Menu.ContextPopup>

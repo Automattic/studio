@@ -22,7 +22,13 @@ const KEEP_INFLIGHT_FETCH = { cancelRefetch: false } as const;
 
 const START_SITE_MUTATION_KEY = [ 'startSite' ] as const;
 const STOP_SITE_MUTATION_KEY = [ 'stopSite' ] as const;
-const COPY_SITE_MUTATION_KEY = [ 'copySite' ] as const;
+// Keyed so progress survives navigation: a `useMutation` observer dies with the
+// component that created it, so a remounted screen would report "idle" while
+// the work is still running. Counting the mutation cache instead is the same
+// trick `useIsSiteStarting` uses.
+export const COPY_SITE_MUTATION_KEY = [ 'copySite' ] as const;
+export const EXPORT_FULL_SITE_MUTATION_KEY = [ 'exportFullSite' ] as const;
+export const EXPORT_DATABASE_MUTATION_KEY = [ 'exportDatabase' ] as const;
 
 export function useSites() {
 	const connector = useConnector();
@@ -85,6 +91,7 @@ export function useCopySite() {
 export function useExportFullSite() {
 	const connector = useConnector();
 	return useMutation( {
+		mutationKey: EXPORT_FULL_SITE_MUTATION_KEY,
 		mutationFn: ( siteId: string ) => connector.exportFullSite( siteId ),
 	} );
 }
@@ -92,6 +99,7 @@ export function useExportFullSite() {
 export function useExportDatabase() {
 	const connector = useConnector();
 	return useMutation( {
+		mutationKey: EXPORT_DATABASE_MUTATION_KEY,
 		mutationFn: ( siteId: string ) => connector.exportDatabase( siteId ),
 	} );
 }
@@ -221,7 +229,10 @@ export function useXdebugEnabledSite(): SiteDetails | null {
 	return useMemo( () => sites?.find( ( site ) => site.enableXdebug ) ?? null, [ sites ] );
 }
 
-function useIsSiteMutating( siteId: string | undefined, mutationKey: readonly string[] ): boolean {
+export function useIsSiteMutating(
+	siteId: string | undefined,
+	mutationKey: readonly string[]
+): boolean {
 	const count = useIsMutating( {
 		mutationKey,
 		predicate: ( mutation ) => mutation.state.variables === siteId,

@@ -1,10 +1,14 @@
 import { __ } from '@wordpress/i18n';
 import { copy, download, grid, trash } from '@wordpress/icons';
 import {
+	COPY_SITE_MUTATION_KEY,
+	EXPORT_DATABASE_MUTATION_KEY,
+	EXPORT_FULL_SITE_MUTATION_KEY,
 	useCopySite,
 	useExportDatabase,
 	useExportFullSite,
 	useIsSiteBusy,
+	useIsSiteMutating,
 } from '@/data/queries/use-sites';
 import type { SiteDetails } from '@/data/core';
 import type { ReactElement, SVGProps } from 'react';
@@ -45,9 +49,16 @@ export function useSiteManagementActions(
 	const exportFullSite = useExportFullSite();
 	const exportDatabase = useExportDatabase();
 
+	// Read from the mutation cache rather than each mutation's own `isPending`,
+	// so progress survives navigating away and back — the observers these hooks
+	// create die with the screen, the cache entries don't.
+	const isDuplicating = useIsSiteMutating( site.id, COPY_SITE_MUTATION_KEY );
+	const isExportingFullSite = useIsSiteMutating( site.id, EXPORT_FULL_SITE_MUTATION_KEY );
+	const isExportingDatabase = useIsSiteMutating( site.id, EXPORT_DATABASE_MUTATION_KEY );
+
 	// Full-site and database exports share one backend queue, so either
 	// running disables both.
-	const isExporting = exportFullSite.isPending || exportDatabase.isPending;
+	const isExporting = isExportingFullSite || isExportingDatabase;
 
 	// Every one of these reads or rewrites the site tree, so none can run while
 	// the CLI holds the site — including for work started by the agent or
@@ -60,9 +71,9 @@ export function useSiteManagementActions(
 			id: 'duplicate',
 			icon: copy,
 			label: __( 'Duplicate' ),
-			loading: copySite.isPending,
+			loading: isDuplicating,
 			loadingAnnouncement: __( 'Duplicating site' ),
-			disabled: isBusy || copySite.isPending,
+			disabled: isBusy,
 			destructive: false,
 			run: () => copySite.mutate( site.id ),
 		},
@@ -70,7 +81,7 @@ export function useSiteManagementActions(
 			id: 'export',
 			icon: download,
 			label: __( 'Export' ),
-			loading: exportFullSite.isPending,
+			loading: isExportingFullSite,
 			loadingAnnouncement: __( 'Exporting site' ),
 			disabled: isBusy || isExporting,
 			destructive: false,
@@ -80,7 +91,7 @@ export function useSiteManagementActions(
 			id: 'export-db',
 			icon: grid,
 			label: __( 'Export DB' ),
-			loading: exportDatabase.isPending,
+			loading: isExportingDatabase,
 			loadingAnnouncement: __( 'Exporting database' ),
 			disabled: isBusy || isExporting,
 			destructive: false,

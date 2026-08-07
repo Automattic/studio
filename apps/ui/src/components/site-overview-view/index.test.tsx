@@ -78,10 +78,14 @@ vi.mock( '@/data/queries/use-create-site-helpers', () => ( {
 } ) );
 
 vi.mock( '@/data/queries/use-sites', () => ( {
+	COPY_SITE_MUTATION_KEY: [ 'copySite' ],
+	EXPORT_DATABASE_MUTATION_KEY: [ 'exportDatabase' ],
+	EXPORT_FULL_SITE_MUTATION_KEY: [ 'exportFullSite' ],
 	useCopySite: vi.fn(),
 	useExportDatabase: vi.fn(),
 	useExportFullSite: vi.fn(),
 	useIsSiteBusy: vi.fn(),
+	useIsSiteMutating: vi.fn(),
 	useIsSiteStarting: vi.fn(),
 	useIsSiteStopping: vi.fn(),
 	useSites: vi.fn(),

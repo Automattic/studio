@@ -44,6 +44,7 @@ import {
 } from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
+import { formatComposerTextQuote, watchComposerTextQuote } from '@/lib/composer-text-quote';
 import { pendingSessionPromptSlot, type PendingSessionPrompt } from '@/lib/pending-session-prompt';
 import { AccessRequirements } from './access-requirements';
 import { Composer, ComposerSkeleton, type ComposerHandle } from './composer';
@@ -292,6 +293,14 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		[ answerPermission ]
 	);
 	const { isAtBottom, isAtBottomRef, scrollToBottom } = useStickToBottom( scrollRef, sessionId );
+
+	useEffect(
+		() =>
+			watchComposerTextQuote( ( text ) => {
+				composerRef.current?.appendDraft( formatComposerTextQuote( text ) );
+			} ),
+		[]
+	);
 	useSessionCommands( sessionId );
 	const canTogglePreview = !! ownerSite && effectiveEnvironment === 'local';
 	const previewConsoleEntries = useSessionPreviewConsoleEntries();

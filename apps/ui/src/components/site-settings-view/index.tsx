@@ -57,6 +57,7 @@ import { useSettingsClose } from '@/hooks/use-settings-close';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
+import type { TracksPanel } from '@studio/common/lib/record-tracks-event';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { DataFormControlProps, Field, Form } from '@wordpress/dataviews';
 import type { FormEvent, ReactNode } from 'react';
@@ -626,3 +627,8 @@ export function isSiteSettingsTab( value: string ): value is TabId {
 }
 
 export type SiteSettingsTabId = TabId;
+
+// The `studio_panel_opened` value for the redesigned site's settings tabs.
+export function siteSettingsTabToPanel( tab: TabId ): TracksPanel {
+	return tab;
+}

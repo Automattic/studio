@@ -1,8 +1,10 @@
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { code, external } from '@wordpress/icons';
+import { getPreviewRealm, getRealmOpenEvent } from '@/components/site-preview/location-omnibox';
 import { useConnector } from '@/data/core';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { editorLogos, finderLogo, folderLogo, terminalLogo, terminalLogos } from '@/lib/logos';
@@ -69,6 +71,9 @@ export function useOpenInDestinations(
 					disabled: ! site.running,
 					open: () => {
 						onOpen?.( 'browser' );
+						void connector.trackEvent( getRealmOpenEvent( getPreviewRealm( browserPath ) ), {
+							browser: 'external',
+						} );
 						void connector.openSiteUrl( site.id, browserPath ).catch( ( error ) => {
 							console.error( 'Failed to open site in browser:', error );
 						} );
@@ -86,6 +91,7 @@ export function useOpenInDestinations(
 			disabled: false,
 			open: () => {
 				onOpen?.( 'files' );
+				void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_FOLDER );
 				void connector.openSiteFolder( site.id ).catch( ( error ) => {
 					console.error( 'Failed to open site folder:', error );
 				} );

@@ -12,7 +12,7 @@ import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers
 import { useSites, useUpdateSite, useXdebugEnabledSite } from '@/data/queries/use-sites';
 import { useWordPressVersions, useWpVersion } from '@/data/queries/use-wordpress-versions';
 import { useOffline } from '@/hooks/use-offline';
-import { isSiteSettingsTab, SiteSettingsForm } from './index';
+import { isSiteSettingsTab, SiteSettingsForm, siteSettingsTabToPanel } from './index';
 import type { SiteDetails } from '@/data/core';
 
 vi.mock( '@/data/core', () => ( {
@@ -95,6 +95,14 @@ describe( 'isSiteSettingsTab', () => {
 		expect( isSiteSettingsTab( 'debugging' ) ).toBe( false );
 		expect( isSiteSettingsTab( 'skills' ) ).toBe( false );
 		expect( isSiteSettingsTab( 'instructions' ) ).toBe( false );
+	} );
+} );
+
+describe( 'siteSettingsTabToPanel', () => {
+	it( 'uses the redesigned tab ids as panel values', () => {
+		expect( siteSettingsTabToPanel( 'settings' ) ).toBe( 'settings' );
+		expect( siteSettingsTabToPanel( 'agent' ) ).toBe( 'agent' );
+		expect( siteSettingsTabToPanel( 'checkpoints' ) ).toBe( 'checkpoints' );
 	} );
 } );
 

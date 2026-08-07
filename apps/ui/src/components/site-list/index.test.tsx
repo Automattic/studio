@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { useConnector } from '@/data/core';
 import { useSiteAgentActivity } from '@/data/queries/use-agent-run';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useSessions } from '@/data/queries/use-sessions';
@@ -50,6 +51,10 @@ vi.mock( '@/data/queries/use-agentic-features', () => ( {
 	useAgenticFeatures: vi.fn(),
 } ) );
 
+vi.mock( '@/data/core', () => ( {
+	useConnector: vi.fn(),
+} ) );
+
 vi.mock( '@/data/queries/use-sites', () => ( {
 	useIsSiteStarting: vi.fn(),
 	useIsSiteStopping: vi.fn(),
@@ -64,6 +69,7 @@ vi.mock( '@/data/sync-activity', () => ( {
 } ) );
 
 const useAgenticFeaturesMock = vi.mocked( useAgenticFeatures );
+const useConnectorMock = vi.mocked( useConnector, { partial: true } );
 const useIsSiteStartingMock = vi.mocked( useIsSiteStarting );
 const useIsSiteStoppingMock = vi.mocked( useIsSiteStopping );
 const useSiteAgentActivityMock = vi.mocked( useSiteAgentActivity );
@@ -77,6 +83,7 @@ const useSiteSyncActivityMock = vi.mocked( useSiteSyncActivity );
 describe( 'SiteList', () => {
 	const startSite = vi.fn();
 	const stopSite = vi.fn();
+	const trackEvent = vi.fn().mockResolvedValue( undefined );
 	const updateSitesSortOrder = vi.fn();
 
 	beforeEach( () => {
@@ -84,6 +91,7 @@ describe( 'SiteList', () => {
 		window.localStorage.clear();
 		paramsMock = {};
 		pathnameMock = '/';
+		useConnectorMock.mockReturnValue( { trackEvent } );
 
 		useAgenticFeaturesMock.mockReturnValue( {
 			enabled: true,
@@ -240,6 +248,9 @@ describe( 'SiteList', () => {
 			to: '/sites/$siteId/overview',
 			params: { siteId: 'stopped-site' },
 		} );
+		expect( trackEvent ).toHaveBeenCalledWith( 'studio_panel_opened', {
+			panel: 'overview',
+		} );
 	} );
 
 	it( 'marks the site row as current for the active chat', () => {
@@ -310,6 +321,9 @@ describe( 'SiteList', () => {
 		expect( navigateMock ).toHaveBeenCalledWith( {
 			to: '/sessions/$sessionId',
 			params: { sessionId: 'latest-chat' },
+		} );
+		expect( trackEvent ).toHaveBeenCalledWith( 'studio_panel_opened', {
+			panel: 'assistant',
 		} );
 	} );
 
@@ -731,6 +745,9 @@ describe( 'SiteList', () => {
 		expect( navigateMock ).toHaveBeenCalledWith( {
 			to: '/sites/$siteId/overview',
 			params: { siteId: 'stopped-site' },
+		} );
+		expect( trackEvent ).toHaveBeenCalledWith( 'studio_panel_opened', {
+			panel: 'overview',
 		} );
 	} );
 

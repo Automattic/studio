@@ -44,6 +44,7 @@ function baseConnector() {
 		reservesTrafficLightSpace: false,
 		isFullscreen: vi.fn().mockResolvedValue( false ),
 		onFullscreenChange: vi.fn( () => () => {} ),
+		trackEvent: vi.fn().mockResolvedValue( undefined ),
 	};
 }
 
@@ -768,6 +769,52 @@ describe( 'SitePreview', () => {
 		// Re-selecting the already-active realm is a no-op.
 		fireEvent.keyDown( document.body, { key: '1', ctrlKey: true } );
 		expect( onPathChange ).not.toHaveBeenCalled();
+	} );
+
+	it( 'records an internal-browser event when switching realms', () => {
+		const trackEvent = vi.fn().mockResolvedValue( undefined );
+		useConnectorMock.mockReturnValue( {
+			...baseConnector(),
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent,
+			capabilities: CAPABILITIES,
+		} as never );
+
+		renderPreview(
+			<SitePreview
+				site={ createSite( { running: true } ) }
+				path="/"
+				reloadNonce={ 0 }
+				onPathChange={ vi.fn() }
+			/>
+		);
+
+		fireEvent.keyDown( document.body, { key: '2', ctrlKey: true } );
+		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_wp_admin', {
+			browser: 'internal',
+		} );
+	} );
+
+	it( 'does not record an event when re-selecting the active realm', () => {
+		const trackEvent = vi.fn().mockResolvedValue( undefined );
+		useConnectorMock.mockReturnValue( {
+			...baseConnector(),
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent,
+			capabilities: CAPABILITIES,
+		} as never );
+
+		renderPreview(
+			<SitePreview
+				site={ createSite( { running: true } ) }
+				path="/wp-admin/"
+				reloadNonce={ 0 }
+				onPathChange={ vi.fn() }
+			/>
+		);
+
+		fireEvent.keyDown( document.body, { key: '2', ctrlKey: true } );
+		expect( trackEvent ).not.toHaveBeenCalled();
 	} );
 
 	it( 'switches to the database realm on its shortcut when the tab is enabled', () => {

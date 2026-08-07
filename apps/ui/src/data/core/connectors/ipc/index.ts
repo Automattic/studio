@@ -1,4 +1,5 @@
 import { resolveActivitySoundPreferences } from '@studio/common/lib/activity-sounds';
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import {
 	STUDIO_ASSISTANT_QUOTA_URL,
@@ -1165,6 +1166,8 @@ export function createIpcConnector(): Connector {
 			if ( ! editor ) {
 				throw new Error( 'No preferred editor configured.' );
 			}
+			// Emit here rather than in Main's `openAppAtPath`, which is shared with single-file opens.
+			void ipcApi.recordAnalyticsEvent( TRACKS_EVENTS.SITE_OPEN_IN_EDITOR, { editor } );
 			await ipcApi.openAppAtPath( editor, sitePath );
 		},
 
@@ -1209,6 +1212,10 @@ export function createIpcConnector(): Connector {
 
 		async copyImage( pngDataUrl: string ): Promise< void > {
 			await ipcApi.copyImage( pngDataUrl );
+		},
+
+		async showTextContextMenu( context ) {
+			return ipcApi.showTextContextMenu( context );
 		},
 
 		async openSiteUrl( siteId, relativeUrl = '', options ): Promise< void > {

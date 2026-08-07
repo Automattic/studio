@@ -1,3 +1,7 @@
+import {
+	TRACKS_EVENTS,
+	type TracksCustomizeEntryPoint,
+} from '@studio/common/lib/record-tracks-event';
 import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import {
@@ -43,6 +47,8 @@ import type { ReactNode } from 'react';
 interface SiteOverviewViewProps {
 	siteId: string;
 	openSiteDropdown?: boolean;
+	activeTab?: SiteOverviewTabId;
+	onTabChange?: ( tab: SiteOverviewTabId ) => void;
 }
 
 interface OverviewButtonProps {
@@ -71,9 +77,9 @@ interface DetailSectionProps {
 	children: ReactNode;
 }
 
-type SiteOverviewTabId = 'overview' | SiteSettingsTabId;
+export type SiteOverviewTabId = 'overview' | SiteSettingsTabId;
 
-function isSiteOverviewTab( value: string ): value is SiteOverviewTabId {
+export function isSiteOverviewTab( value: string ): value is SiteOverviewTabId {
 	return (
 		value === 'overview' || value === 'settings' || value === 'agent' || value === 'checkpoints'
 	);
@@ -286,7 +292,12 @@ function getExtensionStatusLabel( status: SiteOverviewExtension[ 'status' ] ) {
 	return status ? status.replace( /-/g, ' ' ) : null;
 }
 
-export function SiteOverviewView( { siteId, openSiteDropdown = false }: SiteOverviewViewProps ) {
+export function SiteOverviewView( {
+	siteId,
+	openSiteDropdown = false,
+	activeTab,
+	onTabChange,
+}: SiteOverviewViewProps ) {
 	const { data: sites, isLoading: sitesLoading } = useSites();
 	const site = sites?.find( ( candidate ) => candidate.id === siteId );
 
@@ -303,15 +314,26 @@ export function SiteOverviewView( { siteId, openSiteDropdown = false }: SiteOver
 		);
 	}
 
-	return <SiteOverviewBody site={ site } openSiteDropdown={ openSiteDropdown } />;
+	return (
+		<SiteOverviewBody
+			site={ site }
+			openSiteDropdown={ openSiteDropdown }
+			activeTab={ activeTab }
+			onTabChange={ onTabChange }
+		/>
+	);
 }
 
 function SiteOverviewBody( {
 	site,
 	openSiteDropdown,
+	activeTab: controlledActiveTab,
+	onTabChange,
 }: {
 	site: SiteDetails;
 	openSiteDropdown: boolean;
+	activeTab?: SiteOverviewTabId;
+	onTabChange?: ( tab: SiteOverviewTabId ) => void;
 } ) {
 	const navigate = useNavigate();
 	const overviewAnchorRef = useTourAnchor( 'site-overview-content' );
@@ -320,7 +342,8 @@ function SiteOverviewBody( {
 	const isStopping = useIsSiteStopping( site.id );
 	const overviewDetails = useSiteOverviewDetails( site.id );
 	const [ deleteOpen, setDeleteOpen ] = useState( false );
-	const [ activeTab, setActiveTab ] = useState< SiteOverviewTabId >( 'overview' );
+	const [ localActiveTab, setLocalActiveTab ] = useState< SiteOverviewTabId >( 'overview' );
+	const activeTab = controlledActiveTab ?? localActiveTab;
 	const managementActions = useSiteManagementActions( site, {
 		onDelete: () => setDeleteOpen( true ),
 	} );
@@ -328,13 +351,31 @@ function SiteOverviewBody( {
 	const busy = isStarting || isStopping;
 	// Checkpoints run on the user's machine (the CLI checkpoint engine), so the
 	// tab only exists where the connector can reach it.
-	const supportsCheckpoints = useConnector().capabilities?.siteCheckpoints ?? false;
+	const connector = useConnector();
+	const supportsCheckpoints = connector.capabilities?.siteCheckpoints ?? false;
 	const themeDetails = site.themeDetails;
 	const isBlockTheme = themeDetails?.isBlockTheme === true;
 
 	// Opens WordPress screens in the in-app preview panel (starting the site
 	// first when needed) rather than the external browser.
 	const openSiteUrl = useOpenSiteUrl( site );
+	const openCustomize = ( url: string, entryPoint: TracksCustomizeEntryPoint ) => {
+		void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_CUSTOMIZE, {
+			entry_point: entryPoint,
+			browser: 'internal',
+		} );
+		void openSiteUrl( url );
+	};
+	const selectTab = ( tab: SiteOverviewTabId ) => {
+		if ( tab === activeTab ) {
+			return;
+		}
+		void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: tab } );
+		if ( controlledActiveTab === undefined ) {
+			setLocalActiveTab( tab );
+		}
+		onTabChange?.( tab );
+	};
 
 	return (
 		<div className={ styles.root }>
@@ -344,7 +385,7 @@ function SiteOverviewBody( {
 					selectedTabId={ activeTab }
 					onSelect={ ( tabId ) => {
 						if ( tabId && isSiteOverviewTab( tabId ) ) {
-							setActiveTab( tabId );
+							selectTab( tabId );
 						}
 					} }
 				>
@@ -376,14 +417,17 @@ function SiteOverviewBody( {
 													disabled={ busy }
 													loading={ isStarting }
 													loadingAnnouncement={ __( 'Starting site' ) }
-													onClick={ () => void openSiteUrl( '/wp-admin/site-editor.php' ) }
+													onClick={ () => openCustomize( '/wp-admin/site-editor.php', 'editor' ) }
 												/>
 												<OverviewButton
 													icon={ <Icon icon={ stylesIcon } size={ 18 } /> }
 													label={ __( 'Styles' ) }
 													disabled={ busy }
 													onClick={ () =>
-														void openSiteUrl( '/wp-admin/site-editor.php?path=%2Fwp_global_styles' )
+														openCustomize(
+															'/wp-admin/site-editor.php?path=%2Fwp_global_styles',
+															'editor_styles'
+														)
 													}
 												/>
 												<OverviewButton
@@ -391,7 +435,10 @@ function SiteOverviewBody( {
 													label={ __( 'Patterns' ) }
 													disabled={ busy }
 													onClick={ () =>
-														void openSiteUrl( '/wp-admin/site-editor.php?path=%2Fpatterns' )
+														openCustomize(
+															'/wp-admin/site-editor.php?path=%2Fpatterns',
+															'editor_patterns'
+														)
 													}
 												/>
 												<OverviewButton
@@ -399,7 +446,10 @@ function SiteOverviewBody( {
 													label={ __( 'Navigation' ) }
 													disabled={ busy }
 													onClick={ () =>
-														void openSiteUrl( '/wp-admin/site-editor.php?path=%2Fnavigation' )
+														openCustomize(
+															'/wp-admin/site-editor.php?path=%2Fnavigation',
+															'editor_navigation'
+														)
 													}
 												/>
 												<OverviewButton
@@ -407,7 +457,10 @@ function SiteOverviewBody( {
 													label={ __( 'Templates' ) }
 													disabled={ busy }
 													onClick={ () =>
-														void openSiteUrl( '/wp-admin/site-editor.php?path=%2Fwp_template' )
+														openCustomize(
+															'/wp-admin/site-editor.php?path=%2Fwp_template',
+															'editor_templates'
+														)
 													}
 												/>
 												<OverviewButton
@@ -415,7 +468,10 @@ function SiteOverviewBody( {
 													label={ __( 'Pages' ) }
 													disabled={ busy }
 													onClick={ () =>
-														void openSiteUrl( '/wp-admin/site-editor.php?path=%2Fpage' )
+														openCustomize(
+															'/wp-admin/site-editor.php?path=%2Fpage',
+															'editor_pages'
+														)
 													}
 												/>
 											</>
@@ -427,14 +483,14 @@ function SiteOverviewBody( {
 													disabled={ busy }
 													loading={ isStarting }
 													loadingAnnouncement={ __( 'Starting site' ) }
-													onClick={ () => void openSiteUrl( '/wp-admin/customize.php' ) }
+													onClick={ () => openCustomize( '/wp-admin/customize.php', 'customizer' ) }
 												/>
 												{ themeDetails?.supportsMenus ? (
 													<OverviewButton
 														icon={ <Icon icon={ navigation } size={ 18 } /> }
 														label={ __( 'Menus' ) }
 														disabled={ busy }
-														onClick={ () => void openSiteUrl( '/wp-admin/nav-menus.php' ) }
+														onClick={ () => openCustomize( '/wp-admin/nav-menus.php', 'menus' ) }
 													/>
 												) : null }
 												{ themeDetails?.supportsWidgets ? (
@@ -442,7 +498,7 @@ function SiteOverviewBody( {
 														icon={ <Icon icon={ widget } size={ 18 } /> }
 														label={ __( 'Widgets' ) }
 														disabled={ busy }
-														onClick={ () => void openSiteUrl( '/wp-admin/widgets.php' ) }
+														onClick={ () => openCustomize( '/wp-admin/widgets.php', 'widgets' ) }
 													/>
 												) : null }
 											</>
@@ -451,7 +507,7 @@ function SiteOverviewBody( {
 											icon={ <Icon icon={ media } size={ 18 } /> }
 											label={ __( 'Media Library' ) }
 											disabled={ busy }
-											onClick={ () => void openSiteUrl( '/wp-admin/upload.php' ) }
+											onClick={ () => openCustomize( '/wp-admin/upload.php', 'media_library' ) }
 										/>
 									</ButtonSection>
 
@@ -484,7 +540,7 @@ function SiteOverviewBody( {
 									<SiteSettingsForm
 										site={ site }
 										activeTab={ activeTab }
-										onTabChange={ setActiveTab }
+										onTabChange={ selectTab }
 										embedded
 										showTabs={ false }
 									/>

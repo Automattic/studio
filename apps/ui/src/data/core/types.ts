@@ -634,6 +634,16 @@ export interface Connector {
 	// `nativeImage`, web `ClipboardItem`) reliably accept PNG, so callers
 	// re-encode other formats before calling.
 	copyImage( pngDataUrl: string ): Promise< void >;
+
+	// Pops the host's native text context menu. Absent in the browser builds,
+	// which already have a real one — there the right-click is left alone.
+	showTextContextMenu?( context: {
+		selectionText: string;
+		isEditable: boolean;
+		messageText?: string;
+		codeText?: string;
+		canQuoteSelection?: boolean;
+	} ): Promise< { action: 'quote-selection'; selectionText: string } | undefined >;
 	openSiteUrl(
 		siteId: string,
 		relativeUrl?: string,

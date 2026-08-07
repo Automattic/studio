@@ -109,6 +109,7 @@ import {
 } from '@/data/core';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useLocalMediaDataUrl } from '@/data/queries/use-local-media';
+import { MESSAGE_TEXT_ATTRIBUTE, QUOTABLE_TEXT_ATTRIBUTE } from '@/hooks/use-text-context-menu';
 import { formatRelativeTime } from '@/lib/format-relative-time';
 import { refreshIcon } from '@/lib/icons';
 import { ThinkingIndicator } from '../thinking-indicator';
@@ -145,7 +146,7 @@ type RenderItem =
 			text: string;
 			attachments?: StudioChatAttachmentSummary[];
 	  }
-	| { kind: 'assistant-text'; key: string; text: string; copyText?: string }
+	| { kind: 'assistant-text'; key: string; text: string; messageText: string; copyText?: string }
 	| {
 			kind: 'work-phase';
 			key: string;
@@ -405,6 +406,7 @@ export function entriesToRenderItems(
 							kind: 'assistant-text',
 							key: `${ entryIndex }:${ blockIndex }:text`,
 							text,
+							messageText: fullMessageText,
 							copyText: block === lastTextBlock ? fullMessageText : undefined,
 						} );
 					}
@@ -683,7 +685,7 @@ function UserTurn( {
 	attachments?: StudioChatAttachmentSummary[];
 } ) {
 	return (
-		<div className={ styles.userTurn }>
+		<div className={ styles.userTurn } { ...{ [ MESSAGE_TEXT_ATTRIBUTE ]: text } }>
 			<div className={ styles.userText }>{ text }</div>
 			{ attachments && attachments.length > 0 ? (
 				<ul className={ styles.userAttachments }>
@@ -712,11 +714,13 @@ function UserTurn( {
 
 function AssistantText( {
 	text,
+	messageText,
 	copyText,
 	showActions,
 	onToggleSelect,
 }: {
 	text: string;
+	messageText: string;
 	copyText?: string;
 	showActions: boolean;
 	onToggleSelect: () => void;
@@ -754,6 +758,10 @@ function AssistantText( {
 		<div
 			className={ styles.assistantTurn }
 			data-actions-open={ showActions ? 'true' : undefined }
+			{ ...{
+				[ MESSAGE_TEXT_ATTRIBUTE ]: messageText,
+				[ QUOTABLE_TEXT_ATTRIBUTE ]: true,
+			} }
 			onClick={ copyText ? handleClick : undefined }
 			onDoubleClick={ handleDoubleClick }
 		>
@@ -2070,6 +2078,7 @@ export function Conversation( {
 								<AssistantText
 									key={ item.key }
 									text={ item.text }
+									messageText={ item.messageText }
 									copyText={ item.copyText }
 									showActions={ selectedKey === item.key || item.key === latestActionableKey }
 									onToggleSelect={ () =>

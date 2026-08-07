@@ -1,4 +1,5 @@
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { sortSites } from '@studio/common/lib/sort-sites';
 import { useNavigate, useParams, useRouterState } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
@@ -24,6 +25,7 @@ import { SidebarButton } from '@/components/sidebar-button';
 import { SiteContextMenu } from '@/components/site-context-menu';
 import { deriveSiteStatus } from '@/components/site-dropdown/utils';
 import { XdebugIcon } from '@/components/xdebug-icon';
+import { useConnector } from '@/data/core';
 import { useSiteActivityOverride } from '@/data/dev-lab-site-activity';
 import { useSiteAgentActivity, type SiteAgentActivity } from '@/data/queries/use-agent-run';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
@@ -330,6 +332,7 @@ function SiteOverviewButton( {
 	isOverviewAnchor?: boolean;
 } ) {
 	const navigate = useNavigate();
+	const connector = useConnector();
 	const overviewAnchorRef = useTourAnchor( 'sidebar-site-row-overview', {
 		disabled: ! isOverviewAnchor,
 	} );
@@ -346,6 +349,7 @@ function SiteOverviewButton( {
 			aria-current={ isActive ? 'page' : undefined }
 			onClick={ ( event ) => {
 				event.stopPropagation();
+				void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'overview' } );
 				void navigate( {
 					to: '/sites/$siteId/overview',
 					params: { siteId: site.id },
@@ -487,6 +491,7 @@ function SiteSection( {
 } ) {
 	const { site, latestSession } = row;
 	const navigate = useNavigate();
+	const connector = useConnector();
 	const sectionRef = useRef< HTMLElement >( null );
 	const isActive = isChatActive || isContextActive;
 	// Keep the active site visible — e.g. when launch restores a site that
@@ -520,12 +525,14 @@ function SiteSection( {
 			return;
 		}
 		if ( agenticGated ) {
+			void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'overview' } );
 			void navigate( {
 				to: '/sites/$siteId/overview',
 				params: { siteId: site.id },
 			} );
 			return;
 		}
+		void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'assistant' } );
 		if ( latestSession ) {
 			void navigate( {
 				to: '/sessions/$sessionId',

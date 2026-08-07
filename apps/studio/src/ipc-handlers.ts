@@ -140,6 +140,7 @@ import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { setAgenticUiEnabled } from 'src/lib/studio-ui-mode';
 import {
 	recordTracksEvent,
+	TRACKS_EVENTS,
 	type TracksChannel,
 	type TracksSiteCreateFlowType,
 	type TracksUiVersion,
@@ -1939,6 +1940,11 @@ export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath
 
 	const preferredTerminal = await getUserTerminal();
 
+	// The single funnel for "open in terminal" across both the apps/studio buttons/context-menu and the
+	// apps/ui ipc connector — emitting here counts every path once. Fire-and-forget; the wrapper gates
+	// opt-out and never throws.
+	void recordTracksEvent( TRACKS_EVENTS.SITE_OPEN_IN_TERMINAL, { terminal: preferredTerminal } );
+
 	if ( platform === 'darwin' ) {
 		const escapedPath = targetPath.replace( /\\/g, '\\\\' ).replace( /"/g, '\\"' );
 		const bundleIds = {
@@ -2810,3 +2816,4 @@ export async function stopRemoteSessionDaemon(
 		emitter.on( 'error', ( { error } ) => reject( error ) );
 	} );
 }
+export { showTextContextMenu } from 'src/text-context-menu';

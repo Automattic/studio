@@ -1,3 +1,4 @@
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { chevronRightSmall, Icon } from '@wordpress/icons';
@@ -6,6 +7,7 @@ import { DeleteSiteDialog } from '@/components/delete-site-dialog';
 import * as Menu from '@/components/menu';
 import { useOpenInDestinations } from '@/components/open-in-menu/use-open-in-destinations';
 import { QuickMenuItem } from '@/components/site-quick-menu';
+import { useConnector } from '@/data/core';
 import {
 	useIsSiteStarting,
 	useIsSiteStopping,
@@ -42,6 +44,7 @@ function SubmenuLabel( { label }: { label: string } ) {
  */
 export function SiteContextMenu( { site, trigger }: { site: SiteDetails; trigger: ReactElement } ) {
 	const navigate = useNavigate();
+	const connector = useConnector();
 	const params = useParams( { strict: false } ) as { siteId?: string };
 	const isStarting = useIsSiteStarting( site.id );
 	const isStopping = useIsSiteStopping( site.id );
@@ -64,7 +67,14 @@ export function SiteContextMenu( { site, trigger }: { site: SiteDetails; trigger
 			icon={ link.icon }
 			label={ link.label }
 			disabled={ busy }
-			onClick={ () => void openSiteUrl( link.url ) }
+			onClick={ () => {
+				if ( link.id === 'wp-admin' ) {
+					void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_WP_ADMIN, {
+						browser: 'internal',
+					} );
+				}
+				void openSiteUrl( link.url );
+			} }
 		/>
 	);
 
@@ -82,6 +92,18 @@ export function SiteContextMenu( { site, trigger }: { site: SiteDetails; trigger
 						{ site.running ? __( 'Stop site' ) : __( 'Start site' ) }
 					</Menu.Item>
 					<Menu.Separator />
+					<Menu.Item
+						onClick={ () => {
+							void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'settings' } );
+							void navigate( {
+								to: '/sites/$siteId/overview',
+								params: { siteId: site.id },
+								search: { tab: 'settings' },
+							} );
+						} }
+					>
+						{ __( 'Site settings' ) }
+					</Menu.Item>
 					<Menu.SubmenuRoot>
 						<Menu.SubmenuTrigger>
 							<SubmenuLabel label={ __( 'Open WordPress' ) } />

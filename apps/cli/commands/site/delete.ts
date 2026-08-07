@@ -22,6 +22,7 @@ import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/dae
 import { removeDomainFromHosts } from 'cli/lib/hosts-file';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { getSnapshotsFromConfig, deleteSnapshotFromConfig } from 'cli/lib/snapshots';
+import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
@@ -166,6 +167,18 @@ export async function runCommand(
 		await removeCheckpointStore( site.id ).catch( () => {} );
 
 		await emitCliEvent( { event: SITE_EVENTS.DELETED, data: { siteId: site.id } } );
+
+		// Tracks: the CLI is the sole emitter of site-delete, whether deleted standalone or by the
+		// desktop app (which delegates to `site delete` and passes its origin via STUDIO_TRACKS_ORIGIN).
+		// Best-effort — wrapped so telemetry can never fail a delete.
+		try {
+			await recordTracksEvent( TRACKS_EVENTS.SITE_DELETE, {
+				...getTracksOrigin(),
+				delete_files: deleteFiles,
+			} );
+		} catch {
+			// Best-effort telemetry — never block or fail a delete.
+		}
 	} finally {
 		await disconnectFromDaemon();
 	}

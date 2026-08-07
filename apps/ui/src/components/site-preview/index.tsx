@@ -50,6 +50,7 @@ import {
 	getPathFromPreviewUrl,
 	getPreviewRealm,
 	getRealmNavigationPath,
+	getRealmOpenEvent,
 	PreviewAddressBar,
 	REALM_SHORTCUT_KEYS,
 	type PreviewRealm,
@@ -1109,10 +1110,11 @@ export function SitePreview( {
 			if ( getPreviewRealm( getSafePath( path ) ) === realm ) {
 				return;
 			}
+			void connector.trackEvent( getRealmOpenEvent( realm ), { browser: 'internal' } );
 			const target = lastRealmPathsRef.current[ realm ];
 			onPathChange?.( getRealmNavigationPath( target, siteUrl ) );
 		},
-		[ onPathChange, path, showDatabaseTab, siteUrl ]
+		[ connector, onPathChange, path, showDatabaseTab, siteUrl ]
 	);
 	const toggleDatabaseTab = useCallback( () => {
 		const next = ! showDatabaseTab;

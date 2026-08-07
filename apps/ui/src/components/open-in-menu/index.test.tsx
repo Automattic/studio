@@ -113,6 +113,7 @@ describe( 'OpenInMenu', () => {
 	const openSiteFolder = vi.fn().mockResolvedValue( undefined );
 	const openSiteInEditor = vi.fn().mockResolvedValue( undefined );
 	const openSiteInTerminal = vi.fn().mockResolvedValue( undefined );
+	const trackEvent = vi.fn().mockResolvedValue( undefined );
 	const startSite = vi.fn().mockResolvedValue( undefined );
 	const copySite = vi.fn();
 	const exportFullSite = vi.fn();
@@ -126,6 +127,7 @@ describe( 'OpenInMenu', () => {
 			openSiteFolder,
 			openSiteInEditor,
 			openSiteInTerminal,
+			trackEvent,
 		} );
 		useCopySiteMock.mockReturnValue( { isPending: false, mutate: copySite } );
 		useExportFullSiteMock.mockReturnValue( { isPending: false, mutate: exportFullSite } );
@@ -195,6 +197,35 @@ describe( 'OpenInMenu', () => {
 
 		const browserItem = screen.getByText( 'Browser' ).closest( 'button' )!;
 		expect( browserItem ).toBeDisabled();
+	} );
+
+	it( 'records Tracks events for browser and folder only', () => {
+		render( <OpenInMenu site={ createSite( { running: true } ) } browserPath="/" /> );
+
+		fireEvent.click( screen.getByText( 'Browser' ).closest( 'button' )! );
+		fireEvent.click(
+			screen.getByText( /^(Finder|File Explorer|File manager)$/ ).closest( 'button' )!
+		);
+		fireEvent.click( screen.getByText( 'Zed' ).closest( 'button' )! );
+		fireEvent.click( screen.getByText( 'Terminal' ).closest( 'button' )! );
+
+		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_in_browser', {
+			browser: 'external',
+		} );
+		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_folder' );
+		expect( trackEvent ).toHaveBeenCalledTimes( 2 );
+	} );
+
+	it( 'records the browser event matching the active preview realm', () => {
+		render(
+			<OpenInMenu site={ createSite( { running: true } ) } browserPath="/wp-admin/plugins.php" />
+		);
+
+		fireEvent.click( screen.getByText( 'Browser' ).closest( 'button' )! );
+
+		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_wp_admin', {
+			browser: 'external',
+		} );
 	} );
 
 	it( 'offers no phpMyAdmin destination', () => {

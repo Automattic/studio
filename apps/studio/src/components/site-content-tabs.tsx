@@ -1,3 +1,4 @@
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { TabPanel } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -16,6 +17,7 @@ import { useEffectiveTab } from 'src/hooks/use-effective-tab';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useSiteDetails } from 'src/hooks/use-site-details';
+import { recordRendererTracksEvent } from 'src/lib/analytics';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ContentTabSync } from 'src/modules/sync';
 
@@ -116,6 +118,7 @@ export function SiteContentTabs() {
 						// so the useEffect can detect it was user-initiated
 						if ( tabName !== effectiveTab ) {
 							lastChangeWasUser.current = true;
+							recordRendererTracksEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: tabName } );
 						}
 						setSelectedTab( tabName as TabName );
 					} }

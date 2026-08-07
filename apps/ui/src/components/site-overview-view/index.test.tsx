@@ -164,6 +164,7 @@ describe( 'SiteOverviewView', () => {
 	const openSiteFolder = vi.fn().mockResolvedValue( undefined );
 	const openSiteInEditor = vi.fn().mockResolvedValue( undefined );
 	const openSiteInTerminal = vi.fn().mockResolvedValue( undefined );
+	const trackEvent = vi.fn().mockResolvedValue( undefined );
 	const startSite = vi.fn().mockResolvedValue( undefined );
 	const stopSite = vi.fn();
 	const copySite = vi.fn();
@@ -196,6 +197,7 @@ describe( 'SiteOverviewView', () => {
 			openSiteFolder,
 			openSiteInEditor,
 			openSiteInTerminal,
+			trackEvent,
 		} );
 		useAgenticFeaturesMock.mockReturnValue( {
 			enabled: true,
@@ -325,6 +327,9 @@ describe( 'SiteOverviewView', () => {
 
 		expect( screen.getByDisplayValue( 'Demo Site' ) ).toBeVisible();
 		expect( screen.queryByText( 'Site settings' ) ).not.toBeInTheDocument();
+		expect( trackEvent ).toHaveBeenCalledWith( 'studio_panel_opened', {
+			panel: 'settings',
+		} );
 	} );
 
 	it( 'offsets the site menu below macOS traffic lights when the sidebar is collapsed', () => {
@@ -404,6 +409,22 @@ describe( 'SiteOverviewView', () => {
 			expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/wp-admin/site-editor.php' )
 		);
 		expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/wp-admin/upload.php' );
+	} );
+
+	it( 'records customize events for internal preview shortcuts', () => {
+		render( <SiteOverviewView siteId="site-1" /> );
+
+		fireEvent.click( screen.getByText( 'Site Editor' ).closest( 'button' )! );
+		fireEvent.click( screen.getByText( 'Media Library' ).closest( 'button' )! );
+
+		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_customize', {
+			entry_point: 'editor',
+			browser: 'internal',
+		} );
+		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_customize', {
+			entry_point: 'media_library',
+			browser: 'internal',
+		} );
 	} );
 
 	it( 'opens the plugins and themes screens from their sections', async () => {

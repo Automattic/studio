@@ -1,7 +1,8 @@
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
-import { conflictsWith, getBlockingOperation } from '@studio/common/lib/site-operation';
+import { getBlockingOperation } from '@studio/common/lib/site-operation';
+import { getSiteOperationNoun } from '@studio/common/lib/site-operation-labels';
 import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { useEffect, useMemo, useRef } from 'react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
@@ -114,11 +115,11 @@ export function useStartSite() {
 		// Returns false when the start was skipped, so the caller's toast (and
 		// anything else keyed off success) doesn't claim a site came up.
 		mutationFn: async ( id: string ): Promise< boolean > => {
-			// Don't call the CLI when it would only refuse. Buttons are already
-			// disabled via `useIsSiteBusy`, but auto-start and "open a URL in the
-			// preview" fire programmatically with no control to disable, and a
-			// start racing an in-flight stop used to loop forever.
-			if ( isStartBlocked( queryClient, id ) ) {
+			// A stop this window fired moments ago hasn't reached the CLI's lease
+			// yet, and racing it used to loop forever. Deliberately the only
+			// pre-flight: everything else is the CLI's call, so a cached lease
+			// can't silently swallow a start it no longer holds.
+			if ( isSiteMutating( queryClient, STOP_SITE_MUTATION_KEY, id ) ) {
 				return false;
 			}
 			await connector.startSite( id );
@@ -130,7 +131,8 @@ export function useStartSite() {
 				toast.success( __( 'Site started' ) );
 			}
 		},
-		onError: () => toast.error( __( 'Failed to start site' ) ),
+		onError: ( _error, id ) =>
+			toast.error( getBusyMessage( queryClient, id, __( 'Failed to start site' ) ) ),
 	} );
 }
 
@@ -144,7 +146,8 @@ export function useStopSite() {
 			await queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
 		},
 		onSuccess: () => toast.success( __( 'Site stopped' ) ),
-		onError: () => toast.error( __( 'Failed to stop site' ) ),
+		onError: ( _error, id ) =>
+			toast.error( getBusyMessage( queryClient, id, __( 'Failed to stop site' ) ) ),
 	} );
 }
 
@@ -255,16 +258,24 @@ function isSiteMutating(
 	);
 }
 
-// Would the CLI refuse this start? Checks its lease on the cached site record
-// (which covers work the agent or another window started) plus this client's
-// own in-flight stop, which lands before the CLI has written anything.
-function isStartBlocked( queryClient: QueryClient, siteId: string ): boolean {
-	if ( isSiteMutating( queryClient, STOP_SITE_MUTATION_KEY, siteId ) ) {
-		return true;
-	}
+/**
+ * Why an action on this site failed, worded from the CLI's lease on the cached
+ * record. Only ever used to phrase an error that already happened, so a cache
+ * that's a beat behind costs nothing — unlike using it to *decide*, which would
+ * silently swallow the action.
+ */
+function getBusyMessage( queryClient: QueryClient, siteId: string, fallback: string ): string {
 	const sites = queryClient.getQueryData< SiteDetails[] >( SITES_QUERY_KEY );
-	const operations = sites?.find( ( site ) => site.id === siteId )?.operations;
-	return Boolean( operations?.some( ( operation ) => conflictsWith( operation.kind, 'start' ) ) );
+	const operation = getBlockingOperation(
+		sites?.find( ( site ) => site.id === siteId )?.operations
+	);
+	return operation
+		? sprintf(
+				/* translators: %s: an operation already running, e.g. "an export". */
+				__( 'This site is busy: %s is in progress. Try again once it finishes.' ),
+				getSiteOperationNoun( operation )
+		  )
+		: fallback;
 }
 
 export function useIsSiteStarting( siteId: string | undefined ): boolean {

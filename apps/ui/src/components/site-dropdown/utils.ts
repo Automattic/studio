@@ -1,4 +1,5 @@
-import { getSiteOperationLabel, type SiteOperationKind } from '@studio/common/lib/site-operation';
+import { type SiteOperationKind } from '@studio/common/lib/site-operation';
+import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
 import { __, sprintf } from '@wordpress/i18n';
 import { getSiteDisplayUrl } from '@/lib/get-site-url';
 import type { SiteStatus } from './dropdown-trigger';

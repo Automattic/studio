@@ -1,6 +1,6 @@
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
-import { getSiteOperationLabel } from '@studio/common/lib/site-operation';
+import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
 import { sortSites } from '@studio/common/lib/sort-sites';
 import { supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { terminalConfig } from '@studio/common/lib/user-settings/terminal';

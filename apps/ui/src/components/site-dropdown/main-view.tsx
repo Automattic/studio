@@ -1,5 +1,6 @@
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
-import { getSiteOperationLabel, type SiteOperationKind } from '@studio/common/lib/site-operation';
+import { type SiteOperationKind } from '@studio/common/lib/site-operation';
+import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
 import { isSnapshotExpired } from '@studio/common/lib/snapshots';
 import { useIsMutating } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';

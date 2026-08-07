@@ -1,4 +1,3 @@
-import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
 
 /**
@@ -49,7 +48,18 @@ export const siteOperationSchema = z.object( {
 	// stale and gets reclaimed, so a crashed client can never wedge a site.
 	pid: z.number(),
 	kind: z.enum( siteOperationKinds ),
+	startedAt: z.number(),
 } );
+
+/**
+ * Ceiling on how long a lease is believed, regardless of its PID.
+ *
+ * PID liveness alone leaves one hole: if the owning process dies and the OS
+ * later reuses its PID for something unrelated, the dead lease looks held and
+ * the site is blocked with no way out but editing cli.json by hand. Nothing
+ * Studio runs against a single site takes a day, so anything older is a leak.
+ */
+export const SITE_OPERATION_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 export type SiteOperation = z.infer< typeof siteOperationSchema >;
 
@@ -73,54 +83,4 @@ export function getBlockingOperation(
 	}
 	const blocking = operations.find( ( operation ) => isExclusiveOperation( operation.kind ) );
 	return ( blocking ?? operations[ 0 ] ).kind;
-}
-
-/** Present continuous, for progress UI ("Importing…"). */
-export function getSiteOperationLabel( kind: SiteOperationKind ): string {
-	switch ( kind ) {
-		case 'start':
-			return __( 'Starting' );
-		case 'stop':
-			return __( 'Stopping' );
-		case 'delete':
-			return __( 'Deleting' );
-		case 'import':
-			return __( 'Importing' );
-		case 'pull':
-			return __( 'Pulling' );
-		case 'settings':
-			return __( 'Saving settings' );
-		case 'export':
-			return __( 'Exporting' );
-		case 'push':
-			return __( 'Pushing' );
-		case 'duplicate':
-			return __( 'Duplicating' );
-	}
-}
-
-// Noun phrase for sentences naming an operation. The article is part of the
-// string so translators get a whole phrase to agree with, rather than an "a/an"
-// the code would have to guess at.
-export function getSiteOperationNoun( kind: SiteOperationKind ): string {
-	switch ( kind ) {
-		case 'start':
-			return __( 'a site start' );
-		case 'stop':
-			return __( 'a site stop' );
-		case 'delete':
-			return __( 'a site deletion' );
-		case 'import':
-			return __( 'an import' );
-		case 'pull':
-			return __( 'a pull' );
-		case 'settings':
-			return __( 'a settings change' );
-		case 'export':
-			return __( 'an export' );
-		case 'push':
-			return __( 'a push' );
-		case 'duplicate':
-			return __( 'a duplication' );
-	}
 }

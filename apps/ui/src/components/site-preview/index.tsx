@@ -1,4 +1,4 @@
-import { getSiteOperationLabel } from '@studio/common/lib/site-operation';
+import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
 import { useQuery } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import { chevronLeft, chevronRight, moreVertical, pencil } from '@wordpress/icons';

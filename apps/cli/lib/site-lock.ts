@@ -2,10 +2,11 @@ import { randomUUID } from 'crypto';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import {
 	conflictsWith,
-	getSiteOperationNoun,
+	SITE_OPERATION_MAX_AGE_MS,
 	type SiteOperation,
 	type SiteOperationKind,
 } from '@studio/common/lib/site-operation';
+import { getSiteOperationNoun } from '@studio/common/lib/site-operation-labels';
 import { __, sprintf } from '@wordpress/i18n';
 import {
 	lockCliConfig,
@@ -49,8 +50,11 @@ function isProcessAlive( pid: number ): boolean {
  * on what they see, so a leaked lease from a crashed process would disable the
  * site forever — including the operations whose acquire would have reclaimed it.
  */
-export function getLiveSiteOperations( site: SiteData ): SiteOperation[] {
-	return ( site.operations ?? [] ).filter( ( operation ) => isProcessAlive( operation.pid ) );
+export function getLiveSiteOperations( site: SiteData, now = Date.now() ): SiteOperation[] {
+	return ( site.operations ?? [] ).filter(
+		( operation ) =>
+			now - operation.startedAt < SITE_OPERATION_MAX_AGE_MS && isProcessAlive( operation.pid )
+	);
 }
 
 /**
@@ -60,7 +64,12 @@ export function getLiveSiteOperations( site: SiteData ): SiteOperation[] {
  * terminal all reach this through the same commands.
  */
 async function acquire( siteId: string, kind: SiteOperationKind ): Promise< SiteOperation > {
-	const operation: SiteOperation = { id: randomUUID(), pid: process.pid, kind };
+	const operation: SiteOperation = {
+		id: randomUUID(),
+		pid: process.pid,
+		kind,
+		startedAt: Date.now(),
+	};
 
 	try {
 		await lockCliConfig();
@@ -130,7 +139,13 @@ export async function withSiteLock< T >(
 	try {
 		return await fn();
 	} finally {
-		await release( siteId, operation );
+		// Never let releasing the lease replace the operation's own failure: if
+		// the config lock times out here, `fn`'s error is the one worth seeing.
+		try {
+			await release( siteId, operation );
+		} catch ( error ) {
+			console.error( 'Failed to release the site operation lease:', error );
+		}
 		await emitCliEvent( { event: SITE_EVENTS.UPDATED, data: { siteId } } );
 	}
 }

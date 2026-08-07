@@ -28,13 +28,15 @@ describe( 'getBlockingOperation', () => {
 	it( 'prefers the exclusive operation over a shared one', () => {
 		expect(
 			getBlockingOperation( [
-				{ id: 'a', pid: 1, kind: 'export' },
-				{ id: 'b', pid: 2, kind: 'import' },
+				{ id: 'a', pid: 1, kind: 'export', startedAt: Date.now() },
+				{ id: 'b', pid: 2, kind: 'import', startedAt: Date.now() },
 			] )
 		).toBe( 'import' );
 	} );
 
 	it( 'falls back to the only operation held', () => {
-		expect( getBlockingOperation( [ { id: 'a', pid: 1, kind: 'push' } ] ) ).toBe( 'push' );
+		expect(
+			getBlockingOperation( [ { id: 'a', pid: 1, kind: 'push', startedAt: Date.now() } ] )
+		).toBe( 'push' );
 	} );
 } );

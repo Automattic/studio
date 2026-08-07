@@ -23,6 +23,7 @@ import type {
 	PushSyncOptions,
 	SyncSite,
 } from '@studio/common/types/sync';
+import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { SiteRestRequest, SiteRestResponse } from '@studio/common/types/wordpress-rest';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
@@ -317,6 +318,14 @@ export interface Connector {
 	// PHP version of the live site's hosting environment, used to warn about
 	// version mismatches before pushing. `undefined` when unavailable.
 	getHostingPhpVersion( remoteSiteId: number ): Promise< string | undefined >;
+	// Local-site lookups for the selective-sync dialog. The desktop answers
+	// from the main process; browser connectors degrade gracefully (empty
+	// tree / zero sizes / unknown versions) so category-level selection still
+	// works without per-file data.
+	listLocalFileTree( siteId: string, path: string, depth: number ): Promise< RawDirectoryEntry[] >;
+	getDirectorySize( siteId: string, path: string[] ): Promise< number >;
+	getFileSize( siteId: string, path: string[] ): Promise< number >;
+	getIsMultisite( siteId: string ): Promise< boolean | undefined >;
 	// URL to open in the browser when the user wants to publish a site that
 	// isn't connected to WordPress.com yet (checkout + deep-link back to the
 	// desktop app). Returns `undefined` when the connector can't provide one.

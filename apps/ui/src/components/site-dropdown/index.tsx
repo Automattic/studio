@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import * as Menu from '@/components/menu';
 import {
 	convertTreeToPullOptions,
 	convertTreeToPushOptions,
 } from '@/components/selective-sync/lib/convert-tree-to-sync-options';
+import { registerSelectiveSyncConnector } from '@/components/selective-sync/lib/get-ipc-api';
 import { SyncDialog } from '@/components/selective-sync/sync-dialog';
 import '@/components/selective-sync/selective-sync.css';
 import { useConnector } from '@/data/core';
@@ -53,6 +54,12 @@ export function SiteDropdown( {
 	const connector = useConnector();
 	const pushSiteToLive = usePushSiteToLive();
 	const pullSiteFromLive = usePullSiteFromLive();
+
+	// The copied selective-sync modules resolve their data calls through the
+	// active connector (see selective-sync/lib/get-ipc-api.ts).
+	useEffect( () => {
+		registerSelectiveSyncConnector( connector );
+	}, [ connector ] );
 
 	// The trigger needs the site status for its running/stopped/transitioning
 	// dot — everything else about status lives inside MainView.

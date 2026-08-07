@@ -613,6 +613,22 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				) }&path=${ encodeURIComponent( path ) }`
 			);
 		},
+		// Selective-sync local lookups: the server has no per-file endpoints yet,
+		// so degrade the same way the dialog does elsewhere without this data —
+		// category-level selection works; file trees, size estimates, and
+		// version warnings are simply absent.
+		async listLocalFileTree() {
+			return [];
+		},
+		async getDirectorySize() {
+			return 0;
+		},
+		async getFileSize() {
+			return 0;
+		},
+		async getIsMultisite() {
+			return undefined;
+		},
 		async getHostingPhpVersion( remoteSiteId ) {
 			const version = await api< string | null >(
 				`/wpcom/sites/${ remoteSiteId }/hosting-php-version`

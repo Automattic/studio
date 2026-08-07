@@ -37,6 +37,7 @@ import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { StoredAuthToken } from '@studio/common/lib/auth-token-schema';
 import type { SiteEvent } from '@studio/common/lib/cli-events';
 import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
+import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 function generateBackupFilename( siteName: string ): string {
@@ -594,6 +595,22 @@ export function createIpcConnector(): Connector {
 
 		async getHostingPhpVersion( remoteSiteId ): Promise< string | undefined > {
 			return ( await ipcApi.getHostingPhpVersion( remoteSiteId ) ) as string | undefined;
+		},
+
+		async listLocalFileTree( siteId, path, depth ): Promise< RawDirectoryEntry[] > {
+			return ( await ipcApi.listLocalFileTree( siteId, path, depth ) ) as RawDirectoryEntry[];
+		},
+
+		async getDirectorySize( siteId, path ): Promise< number > {
+			return ( await ipcApi.getDirectorySize( siteId, path ) ) as number;
+		},
+
+		async getFileSize( siteId, path ): Promise< number > {
+			return ( await ipcApi.getFileSize( siteId, path ) ) as number;
+		},
+
+		async getIsMultisite( siteId ): Promise< boolean | undefined > {
+			return ( await ipcApi.getIsMultisite( siteId ) ) as boolean | undefined;
 		},
 
 		getPublishCheckoutUrl( site ): string {

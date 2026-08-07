@@ -1,10 +1,16 @@
+import type { Connector } from '@/data/core';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 
-// Adapter replacing the legacy renderer's `getIpcApi()` (src/lib/get-ipc-api)
-// for the copied selective-sync modules. In Electron the same preload bridge
-// the legacy renderer uses is available on `window.ipcApi`; outside Electron
-// (local-web/hosted) each method degrades gracefully so the dialog still
-// renders without size estimates and version warnings.
+/**
+ * Adapter replacing the legacy renderer's `getIpcApi()` (src/lib/get-ipc-api)
+ * for the copied selective-sync modules. Instead of reaching for the Electron
+ * bridge directly, every call is served by the active {@link Connector} — the
+ * desktop answers from the main process, browser connectors degrade
+ * gracefully — so the copied files work unchanged in every host.
+ *
+ * The connector is registered by the selective-sync entry point (the site
+ * dropdown) before the dialog can open.
+ */
 type SelectiveSyncIpcApi = {
 	openURL: ( url: string ) => Promise< void >;
 	setTitleBarBackdropEffect: ( enabled: boolean ) => Promise< void >;
@@ -19,21 +25,50 @@ type SelectiveSyncIpcApi = {
 	) => Promise< RawDirectoryEntry[] >;
 };
 
-export function getIpcApi(): SelectiveSyncIpcApi {
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	const ipcApi = ( window as any ).ipcApi;
-	if ( ipcApi ) {
-		return ipcApi as SelectiveSyncIpcApi;
+let activeConnector: Connector | undefined;
+
+export function registerSelectiveSyncConnector( connector: Connector ): void {
+	activeConnector = connector;
+}
+
+function requireConnector(): Connector {
+	if ( ! activeConnector ) {
+		throw new Error(
+			'Selective-sync connector not registered. Call registerSelectiveSyncConnector() first.'
+		);
 	}
+	return activeConnector;
+}
+
+export function getIpcApi(): SelectiveSyncIpcApi {
 	return {
 		openURL: async ( url ) => {
-			window.open( url, '_blank', 'noreferrer' );
+			await requireConnector().openExternalUrl( url );
 		},
-		setTitleBarBackdropEffect: async () => undefined,
-		getWpVersion: async () => undefined,
-		getIsMultisite: async () => undefined,
-		getDirectorySize: async () => 0,
-		getFileSize: async () => 0,
-		listLocalFileTree: async () => [],
+		setTitleBarBackdropEffect: async ( enabled ) => {
+			// Electron-only window chrome tweak; a no-op elsewhere.
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			await ( window as any ).ipcApi?.setTitleBarBackdropEffect?.( enabled );
+		},
+		getWpVersion: ( siteId ) =>
+			requireConnector()
+				.getWpVersion( siteId )
+				.catch( () => undefined ),
+		getIsMultisite: ( siteId ) =>
+			requireConnector()
+				.getIsMultisite( siteId )
+				.catch( () => undefined ),
+		getDirectorySize: ( siteId, path ) =>
+			requireConnector()
+				.getDirectorySize( siteId, path )
+				.catch( () => 0 ),
+		getFileSize: ( siteId, path ) =>
+			requireConnector()
+				.getFileSize( siteId, path )
+				.catch( () => 0 ),
+		listLocalFileTree: ( siteId, path, depth ) =>
+			requireConnector()
+				.listLocalFileTree( siteId, path, depth )
+				.catch( () => [] ),
 	};
 }

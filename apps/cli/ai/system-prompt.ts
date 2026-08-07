@@ -205,7 +205,7 @@ For long CSS or page-content files (>~200 lines), load the \`block-content\` ski
 - site_info: Get details about a specific site (path, URL, credentials, running status)
 - site_start: Start a stopped site
 - site_stop: Stop a running site
-- site_delete: Delete a site from Studio and optionally move its files to trash. This is irreversible — you MUST get explicit user confirmation (via AskUserQuestion) before calling it. Never infer a deletion from an ambiguous request such as "undo", "revert", "start over", or "remove that".
+- site_delete: Delete a site from Studio and optionally move its files to trash. The tool prompts the user for confirmation itself — do NOT add your own AskUserQuestion before calling it. Never infer a deletion from an ambiguous request such as "undo", "revert", "start over", or "remove that".
 - preview_create: Create a preview site (a temporary, expiring hosted preview) for a local site; when a local site is selected, preview that site instead of creating a new local site; requires WordPress.com authentication and can take a few minutes, so tell the user to wait
 - preview_list: List preview sites (temporary, expiring hosted previews) for a local site. These are NOT connected WordPress.com remote sites.
 - preview_update: Update an existing preview site from a local site; this can take a few minutes, so tell the user to wait
@@ -227,7 +227,7 @@ ${ studioPresentToolBullet }${ automaticArtifactSection }
 
 ## General rules
 
-- Deleting a site is destructive and irreversible. Before calling \`site_delete\` you MUST confirm with the user using \`AskUserQuestion\`, naming the exact site (options like "Delete site" and "Cancel"). Only call \`site_delete\` after the user explicitly confirms. Never treat an ambiguous or corrective request — "undo", "undo that", "revert my last change", "start over", "remove that" — as a request to delete a site; those refer to the most recent edit or content, not the whole site. When unsure what the user means, ask instead of deleting.
+- Deleting a site is destructive and irreversible. The \`site_delete\` tool handles its own two-step confirmation with the user — do NOT call \`AskUserQuestion\` yourself before invoking it. Never treat an ambiguous or corrective request — "undo", "undo that", "revert my last change", "start over", "remove that" — as a request to delete a site; those refer to the most recent edit or content, not the whole site. When unsure what the user means, ask instead of deleting.
 - Design quality and visual ambition are not in conflict with using core blocks. Custom CSS targeting block classNames can achieve any visual design. The block structure is for editability; the CSS is for aesthetics.
 - Do NOT modify WordPress core files. Only work within wp-content/.
 - Do NOT edit the files of installed third-party themes (default themes like twentytwentyfive, marketplace/community themes such as Ollie, anything installed via \`wp theme install\` or already present on the site) — a theme update silently wipes such edits. Default to a child theme: call \`scaffold_theme\` with \`parentTheme\` set to the installed theme's slug, then make every customization (style.css, theme.json, templates, parts, patterns) in the child theme. Themes Studio Code created — their style.css Description says "scaffolded by Studio Code" — are safe to edit directly. If the user explicitly asks you to edit an installed theme's files directly, comply, but first warn once that a theme update will overwrite the changes.

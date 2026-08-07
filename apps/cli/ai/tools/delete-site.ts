@@ -4,13 +4,16 @@ import { defineTool } from './define-tool';
 import { resolveSite, textResult } from './utils';
 
 // Called right before a site is actually deleted so the user can explicitly
-// approve. Resolves to `true` only when the user confirms. Site deletion is
-// irreversible, so the destructive command is gated behind this callback.
+// approve and choose whether to trash the files. Site deletion is irreversible,
+// so the destructive command is gated behind this callback.
+export type ConfirmSiteDeletionResult =
+	| { confirmed: true; deleteFiles: boolean }
+	| { confirmed: false };
+
 export type ConfirmSiteDeletion = ( details: {
 	name: string;
 	path: string;
-	deleteFiles: boolean;
-} ) => Promise< boolean >;
+} ) => Promise< ConfirmSiteDeletionResult >;
 
 export function createDeleteSiteTool( confirm?: ConfirmSiteDeletion ) {
 	return defineTool(
@@ -27,12 +30,13 @@ export function createDeleteSiteTool( confirm?: ConfirmSiteDeletion ) {
 		async ( args ) => {
 			try {
 				const site = await resolveSite( args.nameOrPath );
-				const deleteFiles = args.deleteFiles ?? true;
+				let deleteFiles = args.deleteFiles ?? true;
 				if ( confirm ) {
-					const confirmed = await confirm( { name: site.name, path: site.path, deleteFiles } );
-					if ( ! confirmed ) {
+					const result = await confirm( { name: site.name, path: site.path } );
+					if ( ! result.confirmed ) {
 						return textResult( `Site deletion cancelled. "${ site.name }" was not deleted.` );
 					}
+					deleteFiles = result.deleteFiles;
 				}
 				await runDeleteSiteCommand( site.path, deleteFiles );
 				return textResult( `Site "${ site.name }" deleted.` );

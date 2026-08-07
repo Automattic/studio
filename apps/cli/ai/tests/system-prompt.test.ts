@@ -52,11 +52,11 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).toContain( '- pdf:' );
 	} );
 
-	it( 'requires explicit confirmation before deleting a site (local)', () => {
+	it( 'guards site deletion via the tool confirmation, not an extra AskUserQuestion', () => {
 		const prompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
 
 		expect( prompt ).toContain( 'Deleting a site is destructive and irreversible' );
-		expect( prompt ).toContain( 'you MUST confirm with the user using `AskUserQuestion`' );
+		expect( prompt ).toContain( 'do NOT call `AskUserQuestion` yourself before invoking it' );
 		expect( prompt ).toContain(
 			'Never treat an ambiguous or corrective request — "undo", "undo that", "revert my last change", "start over", "remove that" — as a request to delete a site'
 		);

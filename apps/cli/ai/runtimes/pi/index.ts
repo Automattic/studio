@@ -663,23 +663,29 @@ function buildAgentTools(
 	return [ ...studioTools, ...askUserTool, ...skillTool, ...piTools ];
 }
 
-// Turns the agent's AskUserQuestion handler into an explicit yes/no gate for
-// site deletion. The user must pick the affirmative option; anything else
-// (Cancel, a free-form reply, or a dismissed prompt) leaves the site intact.
-const CONFIRM_DELETE_SITE_LABEL = 'Delete site';
+// Two-step confirmation for site deletion:
+// 1. Choose what happens to the files (trash / keep / cancel)
+// 2. Final safety gate naming the site (delete / cancel)
+// Cancelling at either step leaves the site intact.
+const DELETE_AND_TRASH_LABEL = 'Delete and trash files';
+const DELETE_AND_KEEP_LABEL = 'Delete and keep files';
+const CONFIRM_DELETE_LABEL = 'Delete site';
 
 function buildSiteDeletionConfirm( onAskUser: AskUserHandler ): ConfirmSiteDeletion {
-	return async ( { name, deleteFiles } ) => {
-		const question = `Permanently delete the site "${ name }"?`;
-		const answers = await onAskUser( [
+	return async ( { name } ) => {
+		// Step 1: file handling choice
+		const fileQuestion = `What should happen to the files for "${ name }"?`;
+		const fileAnswers = await onAskUser( [
 			{
-				question,
+				question: fileQuestion,
 				options: [
 					{
-						label: CONFIRM_DELETE_SITE_LABEL,
-						description: deleteFiles
-							? `Remove "${ name }" from Studio and move its files to the trash.`
-							: `Remove "${ name }" from Studio but keep its files on disk.`,
+						label: DELETE_AND_TRASH_LABEL,
+						description: `Remove "${ name }" from Studio and move its files to the trash.`,
+					},
+					{
+						label: DELETE_AND_KEEP_LABEL,
+						description: `Remove "${ name }" from Studio but keep its files on disk.`,
 					},
 					{
 						label: 'Cancel',
@@ -689,7 +695,41 @@ function buildSiteDeletionConfirm( onAskUser: AskUserHandler ): ConfirmSiteDelet
 				allowFreeForm: true,
 			},
 		] );
-		return answers[ question ] === CONFIRM_DELETE_SITE_LABEL;
+		const fileChoice = fileAnswers[ fileQuestion ];
+		let deleteFiles: boolean;
+		if ( fileChoice === DELETE_AND_TRASH_LABEL ) {
+			deleteFiles = true;
+		} else if ( fileChoice === DELETE_AND_KEEP_LABEL ) {
+			deleteFiles = false;
+		} else {
+			return { confirmed: false };
+		}
+
+		// Step 2: final confirmation
+		const confirmQuestion = `Permanently delete the site "${ name }"? This cannot be undone.`;
+		const confirmAnswers = await onAskUser( [
+			{
+				question: confirmQuestion,
+				options: [
+					{
+						label: CONFIRM_DELETE_LABEL,
+						description: deleteFiles
+							? `Permanently remove "${ name }" and move its files to the trash.`
+							: `Permanently remove "${ name }" from Studio. Its files will stay on disk.`,
+					},
+					{
+						label: 'Cancel',
+						description: 'Keep the site. Nothing will be deleted.',
+					},
+				],
+				allowFreeForm: true,
+			},
+		] );
+		if ( confirmAnswers[ confirmQuestion ] !== CONFIRM_DELETE_LABEL ) {
+			return { confirmed: false };
+		}
+
+		return { confirmed: true, deleteFiles };
 	};
 }
 

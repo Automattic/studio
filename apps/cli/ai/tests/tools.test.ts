@@ -354,8 +354,7 @@ describe( 'Studio AI MCP tools', () => {
 			confirmSiteDeletion: ( details: {
 				name: string;
 				path: string;
-				deleteFiles: boolean;
-			} ) => Promise< boolean >
+			} ) => Promise< { confirmed: true; deleteFiles: boolean } | { confirmed: false } >
 		) => {
 			const tool = resolveStudioToolDefinitions( { confirmSiteDeletion } ).find(
 				( candidate ) => candidate.name === 'site_delete'
@@ -373,8 +372,8 @@ describe( 'Studio AI MCP tools', () => {
 			expect( getTextContent( result ) ).toBe( 'Site "My Site" deleted.' );
 		} );
 
-		it( 'deletes only after the user confirms', async () => {
-			const confirm = vi.fn().mockResolvedValue( true );
+		it( 'deletes and trashes files when the user confirms with trash', async () => {
+			const confirm = vi.fn().mockResolvedValue( { confirmed: true, deleteFiles: true } );
 			const result = await executeTool( getConfirmingDeleteTool( confirm ), {
 				nameOrPath: 'My Site',
 			} );
@@ -382,14 +381,23 @@ describe( 'Studio AI MCP tools', () => {
 			expect( confirm ).toHaveBeenCalledWith( {
 				name: 'My Site',
 				path: mockSite.path,
-				deleteFiles: true,
 			} );
 			expect( runDeleteSiteCommand ).toHaveBeenCalledWith( mockSite.path, true );
 			expect( getTextContent( result ) ).toBe( 'Site "My Site" deleted.' );
 		} );
 
+		it( 'deletes and keeps files when the user confirms with keep', async () => {
+			const confirm = vi.fn().mockResolvedValue( { confirmed: true, deleteFiles: false } );
+			const result = await executeTool( getConfirmingDeleteTool( confirm ), {
+				nameOrPath: 'My Site',
+			} );
+
+			expect( runDeleteSiteCommand ).toHaveBeenCalledWith( mockSite.path, false );
+			expect( getTextContent( result ) ).toBe( 'Site "My Site" deleted.' );
+		} );
+
 		it( 'does not delete when the user declines', async () => {
-			const confirm = vi.fn().mockResolvedValue( false );
+			const confirm = vi.fn().mockResolvedValue( { confirmed: false } );
 			const result = await executeTool( getConfirmingDeleteTool( confirm ), {
 				nameOrPath: 'My Site',
 			} );
@@ -401,18 +409,15 @@ describe( 'Studio AI MCP tools', () => {
 			);
 		} );
 
-		it( 'passes the resolved deleteFiles choice to the confirmation handler', async () => {
-			const confirm = vi.fn().mockResolvedValue( false );
-			await executeTool( getConfirmingDeleteTool( confirm ), {
+		it( 'uses the confirmation choice even when the agent suggested deleteFiles', async () => {
+			const confirm = vi.fn().mockResolvedValue( { confirmed: true, deleteFiles: false } );
+			const result = await executeTool( getConfirmingDeleteTool( confirm ), {
 				nameOrPath: 'My Site',
-				deleteFiles: false,
+				deleteFiles: true,
 			} );
 
-			expect( confirm ).toHaveBeenCalledWith( {
-				name: 'My Site',
-				path: mockSite.path,
-				deleteFiles: false,
-			} );
+			expect( runDeleteSiteCommand ).toHaveBeenCalledWith( mockSite.path, false );
+			expect( getTextContent( result ) ).toBe( 'Site "My Site" deleted.' );
 		} );
 	} );
 

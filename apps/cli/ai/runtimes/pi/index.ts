@@ -485,7 +485,10 @@ async function createModelRuntime(
 		return modelRuntime;
 	}
 
-	await modelRuntime.setRuntimeApiKey( family, creds.apiKey );
+	// allowNetwork: false — without it the internal refresh fetches remote model
+	// catalogs with no timeout guard, blocking the turn (and hanging tests) when
+	// egress is slow. Studio hand-builds its models, so the catalogs are unused.
+	await modelRuntime.setRuntimeApiKey( family, creds.apiKey, { allowNetwork: false } );
 	return modelRuntime;
 }
 

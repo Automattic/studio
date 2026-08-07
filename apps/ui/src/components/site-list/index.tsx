@@ -206,6 +206,7 @@ function sortSitesByManualOrder( sites: SiteDetails[], manualOrder: string[] ): 
 
 function SiteOverviewButton( { site }: { site: SiteDetails } ) {
 	const navigate = useNavigate();
+	const connector = useConnector();
 
 	return (
 		<IconButton
@@ -217,6 +218,7 @@ function SiteOverviewButton( { site }: { site: SiteDetails } ) {
 			className={ styles.siteAction }
 			onClick={ ( event ) => {
 				event.stopPropagation();
+				void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'overview' } );
 				void navigate( {
 					to: '/sites/$siteId/overview',
 					params: { siteId: site.id },
@@ -427,13 +429,14 @@ function SiteActionsMenu( {
 					) }
 					<Menu.Separator />
 					<Menu.Item
-						onClick={ () =>
+						onClick={ () => {
+							void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'settings' } );
 							void navigate( {
 								to: '/sites/$siteId/overview',
 								params: { siteId: site.id },
 								search: { tab: 'general' },
-							} )
-						}
+							} );
+						} }
 					>
 						{ __( 'Site settings' ) }
 					</Menu.Item>
@@ -507,6 +510,7 @@ function SiteSection( {
 } ) {
 	const { site, latestSession } = row;
 	const navigate = useNavigate();
+	const connector = useConnector();
 	const sectionRef = useRef< HTMLElement >( null );
 	const isActive = isChatActive || isContextActive;
 	// Without chat, a site's home is its overview, so the context-active row
@@ -540,12 +544,14 @@ function SiteSection( {
 		// Without chat (signed out, offline, or switched off in Settings →
 		// AI) there's no session to open; the overview is the site's home.
 		if ( ! chatEnabled ) {
+			void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'overview' } );
 			void navigate( {
 				to: '/sites/$siteId/overview',
 				params: { siteId: site.id },
 			} );
 			return;
 		}
+		void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'assistant' } );
 		if ( latestSession ) {
 			void navigate( {
 				to: '/sessions/$sessionId',

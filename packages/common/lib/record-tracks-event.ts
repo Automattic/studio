@@ -81,6 +81,18 @@ export type TracksCustomizeEntryPoint =
 	| 'menus'
 	| 'widgets';
 
+// The site panel/tab a `studio_panel_opened` event refers to. Studio Classic emits the tab-strip names
+// (`sync`/`import-export`/`previews` are Classic-only); the agentic UI reuses the shared names —
+// `settings` for its General tab and `debugging` for its Debugging tab.
+export type TracksPanel =
+	| 'overview'
+	| 'settings'
+	| 'debugging'
+	| 'assistant'
+	| 'sync'
+	| 'import-export'
+	| 'previews';
+
 // Builds the Tracks pixel URL. Isolated so a param-name correction is a one-file change. These are
 // the reserved Tracks pixel params: `_en` event name, `_ut`/`_ui` identity, `_ts` timestamp (ms).
 // Every event prop is coerced to a string (Tracks stores all values as strings) and appended as its

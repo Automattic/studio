@@ -247,6 +247,9 @@ describe( 'SiteList', () => {
 			params: { siteId: 'stopped-site' },
 			search: { tab: 'general' },
 		} );
+		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_panel_opened', {
+			panel: 'settings',
+		} );
 	} );
 
 	it( 'opens the site overview when clicking a site while agentic features are unavailable', () => {
@@ -265,6 +268,19 @@ describe( 'SiteList', () => {
 		expect( navigateMock ).toHaveBeenLastCalledWith( {
 			to: '/sites/$siteId/overview',
 			params: { siteId: 'stopped-site' },
+		} );
+		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_panel_opened', {
+			panel: 'overview',
+		} );
+	} );
+
+	it( 'records an assistant panel event when clicking a site name opens chat', () => {
+		render( <SiteList /> );
+
+		fireEvent.click( screen.getByText( 'Stopped Site' ) );
+
+		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_panel_opened', {
+			panel: 'assistant',
 		} );
 	} );
 
@@ -295,6 +311,9 @@ describe( 'SiteList', () => {
 
 		fireEvent.click( screen.getAllByRole( 'button', { name: 'Site overview' } )[ 0 ] );
 
+		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_panel_opened', {
+			panel: 'overview',
+		} );
 		expect( navigateMock ).toHaveBeenCalledTimes( 1 );
 		expect( navigateMock ).toHaveBeenLastCalledWith( {
 			to: '/sites/$siteId/overview',

@@ -61,6 +61,11 @@ export type TracksUiVersion = 'v1' | 'v2';
 // caller (import/sync from a renderer, duplicate from the desktop Main `copySite` handler).
 export type TracksSiteCreateFlowType = 'new' | 'blueprint' | 'import' | 'sync' | 'duplicate';
 
+// Where a site "open" action rendered the site content, sent as `browser` on the site-content open
+// events (open_in_browser/wp_admin/customize/phpmyadmin). Studio Classic (v1) always opens the OS
+// browser (`external`); the agentic UI (v2) can open its in-app preview panel (`internal`).
+export type TracksBrowserTarget = 'external' | 'internal';
+
 // The affordance a `studio_site_open_customize` event was launched from, sent as `entry_point`. Block
 // themes expose the site editor and its sub-views plus the media library; classic themes expose the
 // Customizer and (theme-dependent) Menus/Widgets screens.

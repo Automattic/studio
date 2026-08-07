@@ -315,14 +315,18 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 						void stopServer( site.id );
 						break;
 					case 'open-site':
-						recordRendererTracksEvent( TRACKS_EVENTS.SITE_OPEN_IN_BROWSER );
+						recordRendererTracksEvent( TRACKS_EVENTS.SITE_OPEN_IN_BROWSER, {
+							browser: 'external',
+						} );
 						if ( ! site.running ) {
 							await startServer( site );
 						}
 						ipcApi.openSiteURL( site.id, '', { autoLogin: false } );
 						break;
 					case 'open-admin':
-						recordRendererTracksEvent( TRACKS_EVENTS.SITE_OPEN_WP_ADMIN );
+						recordRendererTracksEvent( TRACKS_EVENTS.SITE_OPEN_WP_ADMIN, {
+							browser: 'external',
+						} );
 						if ( ! site.running ) {
 							await startServer( site );
 						}

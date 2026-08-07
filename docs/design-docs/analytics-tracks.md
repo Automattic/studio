@@ -175,23 +175,32 @@ start / creation is counted once whether it originated in a UI or the standalone
 
 Day-to-day site actions. **Stop and delete are emitted by the CLI** (the sole funnel — the desktop
 delegates both to the CLI, so standalone-CLI usage is counted too; filter by `channel`). The **open**
-actions are emitted where each affordance lives: `open_in_editor`/`open_in_terminal` from Desktop Main
-(a single funnel that also covers the agentic UI, whose connector routes through the same handlers);
-the rest from the renderer (the underlying `openSiteURL`/`openLocalPath` IPC is generic, so Main can't
-attribute them). `studio_panel_opened` is Desktop-Classic-only — the agentic UI navigates via routes,
-not a tab strip. No site names, paths, or URLs are ever sent — only the enumerated prop values below.
+actions are emitted from the renderer (both Classic and agentic), except `open_in_editor` /
+`open_in_terminal`, which fire from Desktop Main (`openAppAtPath` / `openTerminalAtPath`) — a single
+funnel that also covers the agentic UI, whose connector routes through the same handlers.
+
+The site-content open events (`open_in_browser`, `open_wp_admin`, `open_customize`,
+`open_phpmyadmin`) carry a **`browser`** prop recording where the content opened: `external` (the OS
+browser) or `internal` (the agentic UI's in-app preview panel). Studio Classic always opens the OS
+browser, so it always sends `external`; the agentic UI sends `internal` when it navigates the preview
+panel (e.g. the overview Customize buttons) and `external` when the affordance explicitly leaves
+Studio (e.g. the site-list "Open phpMyAdmin"/"Open WP admin" menu items and the site header's "open in
+your browser" link). Navigation *within* the agentic preview panel (the address bar, switching preview
+tabs) is out of scope here and tracked separately. `studio_panel_opened` is Desktop-Classic-only — the
+agentic UI navigates via routes, not a tab strip. No site names, paths, or URLs are ever sent — only
+the enumerated prop values below.
 
 | Event | Emitted from | Event-specific props |
 |---|---|---|
 | `studio_site_stop` | CLI site-stop funnel | `running_site_count` (running Studio sites remaining after this stop). A "stop all" emits one event per stopped site, counting down to 0. |
 | `studio_site_delete` | CLI site-delete funnel | `delete_files` (boolean — whether the site's files were moved to trash). Emitted once per **successful** delete. |
-| `studio_site_open_in_browser` | Renderer (Classic + agentic) | (none) |
+| `studio_site_open_in_browser` | Renderer (Classic + agentic) | `browser` (`external`/`internal`) |
 | `studio_site_open_in_editor` | Desktop Main (`openAppAtPath`) | `editor` (the resolved editor, e.g. `vscode`/`phpstorm`) |
 | `studio_site_open_in_terminal` | Desktop Main (`openTerminalAtPath`) | `terminal` (the resolved terminal, e.g. `terminal`/`iterm`/`ghostty`/`warp`) |
-| `studio_site_open_wp_admin` | Renderer (Classic) | (none) |
-| `studio_site_open_customize` | Renderer (Classic + agentic) | `entry_point` — the affordance clicked: `editor`, `editor_styles`, `editor_patterns`, `editor_navigation`, `editor_templates`, `editor_pages`, `media_library` (block themes) or `customizer`, `menus`, `widgets` (classic themes). |
-| `studio_site_open_phpmyadmin` | Renderer (Classic) | (none — a native-runtime affordance in practice) |
-| `studio_site_open_folder` | Renderer (Classic + agentic) | (none) |
+| `studio_site_open_wp_admin` | Renderer (Classic + agentic) | `browser` (`external`/`internal`) |
+| `studio_site_open_customize` | Renderer (Classic + agentic) | `entry_point` — the affordance clicked: `editor`, `editor_styles`, `editor_patterns`, `editor_navigation`, `editor_templates`, `editor_pages`, `media_library` (block themes) or `customizer`, `menus`, `widgets` (classic themes). Plus `browser` (`external`/`internal`). |
+| `studio_site_open_phpmyadmin` | Renderer (Classic + agentic) | `browser` (`external`/`internal`) |
+| `studio_site_open_folder` | Renderer (Classic + agentic) | (none — opens the OS file manager) |
 | `studio_panel_opened` | Renderer (Classic tab strip) | `panel` — the tab opened: `overview`/`sync`/`settings`/`assistant`/`import-export`/`previews`. Emitted only on a genuine user tab switch (not programmatic changes or re-selecting the current tab). |
 
 #### Settings-change events

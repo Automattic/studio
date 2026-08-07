@@ -74,7 +74,8 @@ export function useOpenInDestinations(
 			disabled: ! site.running,
 			open: () => {
 				onOpen?.( 'browser' );
-				void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_IN_BROWSER );
+				// This destination leaves Studio for the OS browser.
+				void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_IN_BROWSER, { browser: 'external' } );
 				// Routed through the host rather than `openExternalUrl` so the
 				// URL goes via /studio-auto-login; opening it raw drops the
 				// session and lands admin screens on the login form.

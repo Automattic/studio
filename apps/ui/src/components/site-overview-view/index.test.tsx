@@ -499,9 +499,11 @@ describe( 'SiteOverviewView', () => {
 
 		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_customize', {
 			entry_point: 'editor',
+			browser: 'internal',
 		} );
 		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_customize', {
 			entry_point: 'media_library',
+			browser: 'internal',
 		} );
 	} );
 

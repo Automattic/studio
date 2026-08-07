@@ -59,7 +59,10 @@ function CustomizeSection( {
 	const handleCustomizeClick =
 		( url: string, entryPoint: TracksCustomizeEntryPoint ) => async () => {
 			if ( isLoading ) return;
-			recordRendererTracksEvent( TRACKS_EVENTS.SITE_OPEN_CUSTOMIZE, { entry_point: entryPoint } );
+			recordRendererTracksEvent( TRACKS_EVENTS.SITE_OPEN_CUSTOMIZE, {
+				entry_point: entryPoint,
+				browser: 'external',
+			} );
 			if ( ! selectedSite.running ) {
 				await startServer( selectedSite );
 			}
@@ -202,7 +205,7 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 		icon: grid,
 		disabled: isServerLoading,
 		onClick: async () => {
-			recordRendererTracksEvent( TRACKS_EVENTS.SITE_OPEN_PHPMYADMIN );
+			recordRendererTracksEvent( TRACKS_EVENTS.SITE_OPEN_PHPMYADMIN, { browser: 'external' } );
 			if ( ! selectedSite.running ) {
 				await startServer( selectedSite );
 			}
@@ -238,7 +241,7 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 	const handleThumbnailClick = async () => {
 		if ( isServerLoading ) return;
 
-		recordRendererTracksEvent( TRACKS_EVENTS.SITE_OPEN_IN_BROWSER );
+		recordRendererTracksEvent( TRACKS_EVENTS.SITE_OPEN_IN_BROWSER, { browser: 'external' } );
 		if ( ! selectedSite.running ) {
 			await startServer( selectedSite );
 		}

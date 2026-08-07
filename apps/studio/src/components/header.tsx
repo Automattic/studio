@@ -15,7 +15,7 @@ export default function Header() {
 	const handleWpAdminClick = async () => {
 		if ( ! site || isLoading ) return;
 
-		recordRendererTracksEvent( TRACKS_EVENTS.SITE_OPEN_WP_ADMIN );
+		recordRendererTracksEvent( TRACKS_EVENTS.SITE_OPEN_WP_ADMIN, { browser: 'external' } );
 		if ( ! site.running ) {
 			await startServer( site );
 		}
@@ -25,7 +25,7 @@ export default function Header() {
 	const handleOpenSiteClick = async () => {
 		if ( ! site || isLoading ) return;
 
-		recordRendererTracksEvent( TRACKS_EVENTS.SITE_OPEN_IN_BROWSER );
+		recordRendererTracksEvent( TRACKS_EVENTS.SITE_OPEN_IN_BROWSER, { browser: 'external' } );
 		if ( ! site.running ) {
 			await startServer( site );
 		}

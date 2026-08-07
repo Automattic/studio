@@ -144,7 +144,7 @@ describe( 'ContentTabOverview — Customize links (IPC command boundary)', () =>
 			await waitFor( () => {
 				expect( getIpcApi().recordAnalyticsEvent ).toHaveBeenCalledWith(
 					'studio_site_open_customize',
-					{ entry_point: entryPoint }
+					{ entry_point: entryPoint, browser: 'external' }
 				);
 			} );
 		}

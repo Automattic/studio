@@ -152,10 +152,13 @@ describe( 'OpenInMenu', () => {
 		fireEvent.click( destination( 'Zed' ) );
 		fireEvent.click( destination( 'Terminal' ) );
 
-		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_in_browser' );
+		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_in_browser', {
+			browser: 'external',
+		} );
 		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_folder' );
-		expect( trackEvent ).not.toHaveBeenCalledWith( 'studio_site_open_in_editor' );
-		expect( trackEvent ).not.toHaveBeenCalledWith( 'studio_site_open_in_terminal' );
+		const trackedEvents = trackEvent.mock.calls.map( ( call ) => call[ 0 ] );
+		expect( trackedEvents ).not.toContain( 'studio_site_open_in_editor' );
+		expect( trackedEvents ).not.toContain( 'studio_site_open_in_terminal' );
 	} );
 
 	it( 'offers no phpMyAdmin destination', () => {

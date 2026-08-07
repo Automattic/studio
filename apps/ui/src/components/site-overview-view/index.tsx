@@ -180,7 +180,11 @@ function SiteOverviewBody( {
 
 	const connector = useConnector();
 	const openCustomize = ( url: string, entryPoint: TracksCustomizeEntryPoint ) => {
-		void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_CUSTOMIZE, { entry_point: entryPoint } );
+		// The agentic UI opens customize screens in its in-app preview panel, not the OS browser.
+		void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_CUSTOMIZE, {
+			entry_point: entryPoint,
+			browser: 'internal',
+		} );
 		void openSiteUrl( url );
 	};
 

@@ -1,4 +1,5 @@
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { sortSites } from '@studio/common/lib/sort-sites';
 import { supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { terminalConfig } from '@studio/common/lib/user-settings/terminal';
@@ -359,6 +360,7 @@ function SiteActionsMenu( {
 	};
 
 	const handleOpenFolder = () => {
+		void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_FOLDER );
 		void connector.openSiteFolder( site.id ).catch( ( error ) => {
 			console.error( 'Failed to open site folder:', error );
 		} );
@@ -382,12 +384,14 @@ function SiteActionsMenu( {
 	};
 
 	const handleOpenPhpMyAdmin = () => {
+		void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_PHPMYADMIN, { browser: 'external' } );
 		void connector.openExternalUrl(
 			`${ getSiteUrl( site ) }/phpmyadmin/index.php?route=/database/structure&db=wordpress`
 		);
 	};
 
 	const handleOpenWpAdmin = () => {
+		void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_WP_ADMIN, { browser: 'external' } );
 		const siteUrl = getSiteUrl( site );
 		const redirectTo = new URL( '/wp-admin/', siteUrl ).toString();
 		const autoLoginUrl = new URL( '/studio-auto-login', siteUrl );

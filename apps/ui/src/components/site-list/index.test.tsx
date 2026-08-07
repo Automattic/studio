@@ -115,10 +115,11 @@ describe( 'SiteList', () => {
 		useSiteSyncActivityMock.mockReturnValue( null );
 		useSessionsMock.mockReturnValue( { data: [], isLoading: false } );
 		useConnectorMock.mockReturnValue( {
-			openExternalUrl: vi.fn(),
-			openSiteFolder: vi.fn(),
-			openSiteInEditor: vi.fn(),
-			openSiteInTerminal: vi.fn(),
+			openExternalUrl: vi.fn().mockResolvedValue( undefined ),
+			openSiteFolder: vi.fn().mockResolvedValue( undefined ),
+			openSiteInEditor: vi.fn().mockResolvedValue( undefined ),
+			openSiteInTerminal: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
 		} as unknown as ReturnType< typeof useConnector > );
 		useCopySiteMock.mockReturnValue( { isPending: false, mutate: vi.fn() } );
 		useDeleteSiteMock.mockReturnValue( { isPending: false, mutate: vi.fn() } );
@@ -206,6 +207,32 @@ describe( 'SiteList', () => {
 		expect( screen.getByText( 'Open folder' ) ).toBeInTheDocument();
 		expect( screen.getByText( 'Export entire site' ) ).toBeInTheDocument();
 		expect( screen.getByText( 'Delete site' ) ).toBeInTheDocument();
+	} );
+
+	it( 'records a Tracks event when opening the site folder from the menu', async () => {
+		render( <SiteList /> );
+
+		fireEvent.contextMenu( screen.getByText( 'Stopped Site' ) );
+		fireEvent.click( await screen.findByText( 'Open folder' ) );
+
+		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_site_open_folder' );
+	} );
+
+	it( 'records external-browser Tracks events for phpMyAdmin and WP admin', async () => {
+		render( <SiteList /> );
+
+		fireEvent.contextMenu( screen.getByText( 'Running Site' ) );
+		fireEvent.click( await screen.findByText( 'Open phpMyAdmin' ) );
+
+		fireEvent.contextMenu( screen.getByText( 'Running Site' ) );
+		fireEvent.click( await screen.findByText( 'Open WP admin' ) );
+
+		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_site_open_phpmyadmin', {
+			browser: 'external',
+		} );
+		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_site_open_wp_admin', {
+			browser: 'external',
+		} );
 	} );
 
 	it( 'opens site settings from the site actions menu', async () => {

@@ -29,8 +29,26 @@ const { ThemeProvider } = unlock( privateApis );
 const CHROME_BG_LIGHT = '#1e1e1e';
 const CHROME_BG_DARK = '#161616';
 
-export function SidebarLayout( { children }: { children: ReactNode } ) {
+interface SidebarLayoutProps {
+	children: ReactNode;
+	// Hides the sidebar without touching the user's own collapsed state, so
+	// clearing it restores whatever the sidebar was doing before (e.g. while
+	// the site preview is fullscreen). The floating "Show sidebar" toggle is
+	// suppressed too — the forcing feature owns the exit affordance.
+	forceCollapsed?: boolean;
+	// Called when the user asks to toggle the sidebar while it is force-
+	// collapsed (the app-menu shortcut), so the forcing feature can stand down.
+	// The sidebar expands alongside it.
+	onForceCollapsedToggle?: () => void;
+}
+
+export function SidebarLayout( {
+	children,
+	forceCollapsed = false,
+	onForceCollapsedToggle,
+}: SidebarLayoutProps ) {
 	const [ collapsed, setCollapsed ] = useState( false );
+	const effectiveCollapsed = collapsed || forceCollapsed;
 	const connector = useConnector();
 	const reserveTrafficLightSpace = useTrafficLightSpace().start;
 	const colorScheme = useColorScheme();
@@ -41,21 +59,26 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 		storageKey: SIDEBAR_PANEL_STORAGE_KEY,
 	} );
 	const toggleSidebar = useCallback( () => {
+		if ( forceCollapsed ) {
+			onForceCollapsedToggle?.();
+			setCollapsed( false );
+			return;
+		}
 		setCollapsed( ( value ) => ! value );
-	}, [] );
-	const sidebarStyle = collapsed
+	}, [ forceCollapsed, onForceCollapsedToggle ] );
+	const sidebarStyle = effectiveCollapsed
 		? undefined
 		: ( { '--sidebar-width': `${ sidebarResize.width }px` } as CSSProperties );
 
 	useEffect( () => connector.onToggleSidebar( toggleSidebar ), [ connector, toggleSidebar ] );
 
 	return (
-		<SidebarCollapsedContext.Provider value={ collapsed }>
+		<SidebarCollapsedContext.Provider value={ effectiveCollapsed }>
 			<div className={ styles.root } style={ { '--app-chrome-bg': chromeBg } as CSSProperties }>
 				<aside
 					className={ clsx(
 						styles.sidebar,
-						collapsed && styles.sidebarCollapsed,
+						effectiveCollapsed && styles.sidebarCollapsed,
 						sidebarResize.isResizing && styles.sidebarResizing
 					) }
 					style={ sidebarStyle }
@@ -71,14 +94,16 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 								{ /* Toasts sit above the persistent cards: the footer is
 								     bottom-anchored, so a transient toast arriving below a card
 								     would shove it up and drop it back on expiry. */ }
-								{ ! collapsed ? <AppToasts className={ styles.sidebarToasts } /> : null }
-								{ ! collapsed ? <AppMessageCards className={ styles.sidebarCards } /> : null }
+								{ ! effectiveCollapsed ? <AppToasts className={ styles.sidebarToasts } /> : null }
+								{ ! effectiveCollapsed ? (
+									<AppMessageCards className={ styles.sidebarCards } />
+								) : null }
 								<UserMenu onToggleSidebar={ toggleSidebar } />
 							</div>
 						</div>
 					</ThemeProvider>
 				</aside>
-				{ ! collapsed ? (
+				{ ! effectiveCollapsed ? (
 					// Same dark theme scope as the sidebar so the indicator's
 					// brand token resolves against the dark ramp.
 					<ThemeProvider color={ { bg: chromeBg } }>
@@ -95,7 +120,7 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 					</ThemeProvider>
 				) : null }
 				<main className={ styles.main }>
-					{ collapsed ? (
+					{ effectiveCollapsed && ! forceCollapsed ? (
 						<div
 							className={ clsx(
 								styles.floatingToggle,
@@ -116,7 +141,9 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 						</div>
 					) : null }
 					{ children }
-					{ collapsed ? <AppToasts className={ styles.floatingToasts } fit="content" /> : null }
+					{ effectiveCollapsed ? (
+						<AppToasts className={ styles.floatingToasts } fit="content" />
+					) : null }
 				</main>
 				{ sidebarResize.isResizing ? <ResizeOverlay /> : null }
 			</div>

@@ -4,6 +4,7 @@ import { displayShortcut } from '@wordpress/keycodes';
 import { Tooltip } from '@wordpress/ui';
 import { describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
+import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import {
 	getBrowserShortcutCommand,
 	getPathFromPreviewUrl,
@@ -11,10 +12,19 @@ import {
 	SitePreview,
 } from './index';
 import type { SiteDetails } from '@/data/core';
-import type { ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 
 vi.mock( '@/data/core', () => ( {
 	useConnector: vi.fn(),
+} ) );
+
+vi.mock( '@/data/queries/use-agentic-features', () => ( {
+	useAgenticFeatures: vi.fn( () => ( {
+		enabled: true,
+		chatEnabled: true,
+		reason: null,
+		isReady: true,
+	} ) ),
 } ) );
 
 // jsdom has no 2D canvas context, so swap the animated grid for a bare canvas.
@@ -68,6 +78,7 @@ describe( 'SitePreview', () => {
 	it( 'shows the active realm name with the same tooltip as when inactive', async () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
 
@@ -95,6 +106,7 @@ describe( 'SitePreview', () => {
 	it( 'shows adjacent toolbar tooltips immediately while the delay group is active', async () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
 
@@ -151,6 +163,7 @@ describe( 'SitePreview', () => {
 	it( 'keeps the Open in… control in the toolbar while the site is stopped', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
 
@@ -162,6 +175,7 @@ describe( 'SitePreview', () => {
 	it( 'shows a refresh button that reloads the active preview surface', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
 
@@ -195,6 +209,7 @@ describe( 'SitePreview', () => {
 	it( 'reloads the preview on the primary-modifier+R shortcut', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
 
@@ -218,6 +233,7 @@ describe( 'SitePreview', () => {
 	it( 'switches realms on primary-modifier number shortcuts', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
 		const onPathChange = vi.fn();
@@ -243,9 +259,55 @@ describe( 'SitePreview', () => {
 		expect( onPathChange ).not.toHaveBeenCalled();
 	} );
 
+	it( 'records an internal-browser Tracks event when switching realms', () => {
+		const trackEvent = vi.fn().mockResolvedValue( undefined );
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent,
+			capabilities: CAPABILITIES,
+		} as never );
+
+		renderPreview(
+			<SitePreview
+				site={ createSite( { running: true } ) }
+				path="/"
+				reloadNonce={ 0 }
+				onPathChange={ vi.fn() }
+			/>
+		);
+
+		fireEvent.keyDown( document.body, { key: '2', ctrlKey: true } );
+		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_wp_admin', {
+			browser: 'internal',
+		} );
+	} );
+
+	it( 'does not record a realm switch when re-selecting the active realm', () => {
+		const trackEvent = vi.fn().mockResolvedValue( undefined );
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent,
+			capabilities: CAPABILITIES,
+		} as never );
+
+		renderPreview(
+			<SitePreview
+				site={ createSite( { running: true } ) }
+				path="/wp-admin/"
+				reloadNonce={ 0 }
+				onPathChange={ vi.fn() }
+			/>
+		);
+
+		// Already on the admin realm; its shortcut is a no-op.
+		fireEvent.keyDown( document.body, { key: '2', ctrlKey: true } );
+		expect( trackEvent ).not.toHaveBeenCalled();
+	} );
+
 	it( 'switches to the database realm on its shortcut', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
 		const onPathChange = vi.fn();
@@ -268,6 +330,7 @@ describe( 'SitePreview', () => {
 	it( 'hides the Annotate control when the host cannot annotate the preview', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
 
@@ -293,9 +356,37 @@ describe( 'SitePreview', () => {
 		expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeInTheDocument();
 	} );
 
+	it( 'hides the Annotate control when agentic features are off', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			capabilities: { ...CAPABILITIES, annotatePreview: true },
+		} as never );
+		vi.mocked( useAgenticFeatures ).mockReturnValue( {
+			enabled: true,
+			chatEnabled: false,
+			reason: null,
+			isReady: true,
+		} );
+
+		renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+
+		expect( screen.queryByRole( 'button', { name: 'Annotate' } ) ).not.toBeInTheDocument();
+
+		// Restore the default for subsequent tests.
+		vi.mocked( useAgenticFeatures ).mockReturnValue( {
+			enabled: true,
+			chatEnabled: true,
+			reason: null,
+			isReady: true,
+		} );
+	} );
+
 	it( 'offers responsive modes from the More options menu while running', async () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
 
@@ -326,9 +417,166 @@ describe( 'SitePreview', () => {
 		);
 	} );
 
+	it( 'toggles full preview from the More options menu', async () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+		const onFullscreenChange = vi.fn();
+		const queryClient = new QueryClient( {
+			defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+		} );
+		const ui = ( fullscreen: boolean ) => (
+			<QueryClientProvider client={ queryClient }>
+				<Tooltip.Provider>
+					<SitePreview
+						site={ createSite( { running: true } ) }
+						path="/"
+						reloadNonce={ 0 }
+						fullscreen={ fullscreen }
+						onFullscreenChange={ onFullscreenChange }
+					/>
+				</Tooltip.Provider>
+			</QueryClientProvider>
+		);
+
+		const { rerender } = render( ui( false ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'More options' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Full preview' } ) );
+
+		expect( onFullscreenChange ).toHaveBeenCalledWith( true );
+
+		// While full, the same item offers the way back out.
+		rerender( ui( true ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'More options' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Exit full preview' } ) );
+
+		expect( onFullscreenChange ).toHaveBeenLastCalledWith( false );
+	} );
+
+	it( 'omits full preview when the host provides no toggle', async () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+
+		renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'More options' } ) );
+
+		expect( await screen.findByText( 'Responsive mode' ) ).toBeVisible();
+		expect( screen.queryByRole( 'menuitem', { name: 'Full preview' } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'asks for full preview when the Desktop + Mobile comparison is picked', async () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+		const onFullscreenChange = vi.fn();
+
+		renderPreview(
+			<SitePreview
+				site={ createSite( { running: true } ) }
+				path="/"
+				reloadNonce={ 0 }
+				onFullscreenChange={ onFullscreenChange }
+			/>
+		);
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'More options' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: 'Desktop + Mobile' } ) );
+
+		expect( onFullscreenChange ).toHaveBeenCalledWith( true );
+	} );
+
+	it( 'drops the comparison back to Fit pane when full preview ends', async () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+		const queryClient = new QueryClient( {
+			defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+		} );
+		const ui = ( fullscreen: boolean ) => (
+			<QueryClientProvider client={ queryClient }>
+				<Tooltip.Provider>
+					<SitePreview
+						site={ createSite( { running: true } ) }
+						path="/"
+						reloadNonce={ 0 }
+						fullscreen={ fullscreen }
+						onFullscreenChange={ vi.fn() }
+					/>
+				</Tooltip.Provider>
+			</QueryClientProvider>
+		);
+
+		const { rerender } = render( ui( true ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'More options' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: 'Desktop + Mobile' } ) );
+		expect( screen.getByRole( 'menuitemradio', { name: 'Desktop + Mobile' } ) ).toBeChecked();
+
+		// Two frames don't fit the panel, so the comparison doesn't survive the
+		// return to the split layout.
+		rerender( ui( false ) );
+
+		expect( await screen.findByRole( 'menuitemradio', { name: 'Fit pane' } ) ).toBeChecked();
+	} );
+
+	it( 'toggles full preview with the keyboard shortcut', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+		const onFullscreenChange = vi.fn();
+		const queryClient = new QueryClient( {
+			defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+		} );
+		const ui = ( props: Partial< ComponentProps< typeof SitePreview > > ) => (
+			<QueryClientProvider client={ queryClient }>
+				<Tooltip.Provider>
+					<SitePreview
+						site={ createSite( { running: true } ) }
+						path="/"
+						reloadNonce={ 0 }
+						{ ...props }
+					/>
+				</Tooltip.Provider>
+			</QueryClientProvider>
+		);
+		// jsdom reports a non-Apple platform, so the chord is Ctrl+Shift+F.
+		const pressShortcut = () =>
+			fireEvent.keyDown( document, { key: 'f', ctrlKey: true, shiftKey: true } );
+
+		const { rerender, unmount } = render( ui( { onFullscreenChange } ) );
+		pressShortcut();
+		expect( onFullscreenChange ).toHaveBeenLastCalledWith( true );
+
+		// It's a toggle, so it reads the current state on the way back out.
+		rerender( ui( { fullscreen: true, onFullscreenChange } ) );
+		pressShortcut();
+		expect( onFullscreenChange ).toHaveBeenLastCalledWith( false );
+
+		// Without a host toggle the chord stays with the page.
+		unmount();
+		render( ui( {} ) );
+		onFullscreenChange.mockClear();
+		pressShortcut();
+		expect( onFullscreenChange ).not.toHaveBeenCalled();
+	} );
+
 	it( 'hides the More options menu when the site is not running', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
 
@@ -340,6 +588,7 @@ describe( 'SitePreview', () => {
 	it( 'remembers the responsive mode per site during the session', async () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
 

@@ -1,3 +1,4 @@
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { isSnapshotExpired } from '@studio/common/lib/snapshots';
 import { useIsMutating } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
@@ -211,7 +212,17 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 		</Tooltip.Root>
 	);
 
-	const renderUrlLink = ( { text, url, label }: { text: string; url: string; label: string } ) => (
+	const renderUrlLink = ( {
+		text,
+		url,
+		label,
+		onOpen,
+	}: {
+		text: string;
+		url: string;
+		label: string;
+		onOpen?: () => void;
+	} ) => (
 		<Tooltip.Root>
 			<Tooltip.Trigger
 				render={
@@ -219,7 +230,10 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 						type="button"
 						className={ styles.urlLink }
 						aria-label={ label }
-						onClick={ () => openExternal( url ) }
+						onClick={ () => {
+							onOpen?.();
+							openExternal( url );
+						} }
 					>
 						<span>{ text }</span>
 						<Icon icon={ external } size={ 12 } aria-hidden="true" />
@@ -253,6 +267,10 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 								text: localSublabel,
 								url: localSiteUrl,
 								label: __( 'Open Studio site in your browser' ),
+								onOpen: () =>
+									void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_IN_BROWSER, {
+										browser: 'external',
+									} ),
 						  } )
 						: localSublabel
 				}

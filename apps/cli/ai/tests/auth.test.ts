@@ -28,8 +28,13 @@ vi.mock( 'cli/lib/cli-config/core', () => ( {
 describe( 'AI auth helpers', () => {
 	beforeEach( () => {
 		vi.resetAllMocks();
+		vi.stubGlobal( '__STUDIO_CLI_VERSION__', '1.2.3' );
 		vi.mocked( readCliConfig ).mockResolvedValue( { version: 1, sites: [], snapshots: [] } );
 		delete process.env.WPCOM_AI_PROXY_BASE_URL;
+	} );
+
+	afterEach( () => {
+		vi.unstubAllGlobals();
 	} );
 
 	it( 'uses the saved Anthropic API key when provider is Anthropic API key', async () => {
@@ -104,7 +109,9 @@ describe( 'AI auth helpers', () => {
 			'https://public-api.wordpress.com/wpcom/v2/ai-api-proxy'
 		);
 		expect( env.ANTHROPIC_AUTH_TOKEN ).toBe( 'wpcom-token' );
-		expect( env.ANTHROPIC_CUSTOM_HEADERS ).toBe( 'X-WPCOM-AI-Feature: studio-assistant-anthropic' );
+		expect( env.ANTHROPIC_CUSTOM_HEADERS ).toBe(
+			'User-Agent: WordPressStudio/1.2.3\nX-WPCOM-AI-Feature: studio-assistant-anthropic'
+		);
 		expect( env.ANTHROPIC_API_KEY ).toBeUndefined();
 	} );
 
@@ -121,7 +128,7 @@ describe( 'AI auth helpers', () => {
 		const env = await resolveAiEnvironment( 'wpcom', { sessionId: 'session-abc' } );
 
 		expect( env.ANTHROPIC_CUSTOM_HEADERS ).toBe(
-			'X-WPCOM-AI-Feature: studio-assistant-anthropic\nX-WPCOM-Session-ID: session-abc'
+			'User-Agent: WordPressStudio/1.2.3\nX-WPCOM-AI-Feature: studio-assistant-anthropic\nX-WPCOM-Session-ID: session-abc'
 		);
 	} );
 

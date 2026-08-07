@@ -9,6 +9,7 @@ import { DotGrid } from '@/components/dot-grid';
 import * as Menu from '@/components/menu';
 import { OpenInMenu } from '@/components/open-in-menu';
 import { useConnector } from '@/data/core';
+import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useIsSiteStarting, useStartSite } from '@/data/queries/use-sites';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { useWindowControlsOverlay } from '@/hooks/use-window-controls-overlay';
@@ -19,6 +20,7 @@ import {
 	getPathFromPreviewUrl,
 	getPreviewRealm,
 	getRealmNavigationPath,
+	getRealmOpenEvent,
 	PreviewAddressBar,
 	REALM_SHORTCUT_KEYS,
 	useDebouncedValue,
@@ -55,6 +57,10 @@ interface SitePreviewProps {
 	// True while the panel is toggled off but kept mounted (so the webview
 	// stays warm). Disables the global browser shortcuts in that state.
 	collapsed?: boolean;
+	// True while the preview fills the whole window (sidebar and chat hidden).
+	fullscreen?: boolean;
+	// Enters/leaves full preview. The "•••" menu only offers it when provided.
+	onFullscreenChange?: ( value: boolean ) => void;
 }
 
 interface InspectorEvent {
@@ -62,7 +68,7 @@ interface InspectorEvent {
 	annotations?: Annotation[];
 	isPicking?: boolean;
 	annotationCount?: number;
-	command?: BrowserShortcutCommandType;
+	command?: PreviewShortcutCommandType;
 }
 
 interface InspectorState {
@@ -85,6 +91,11 @@ interface BrowserNavigationState {
 }
 
 type BrowserShortcutCommandType = 'back' | 'forward' | 'reload';
+
+// What the guest page can forward over the console bridge: the browser
+// commands it swallows, plus the full-preview toggle (the webview covers most
+// of the window in full preview, so the host listener alone would miss it).
+type PreviewShortcutCommandType = BrowserShortcutCommandType | 'full-preview';
 
 interface BrowserCommand {
 	id: number;
@@ -141,13 +152,16 @@ const VIEWPORT_PRESETS: readonly ViewportPreset[] = [
 	{ id: 'desktop', width: 1440, height: 900 },
 ];
 
-// The preview's viewport mode: natural pane size or one simulated preset.
-type ViewportMode = 'fit' | ViewportPreset[ 'id' ];
+// The preview's viewport mode: natural pane size, one simulated preset, or
+// the side-by-side comparison of the desktop and mobile presets.
+type ViewportMode = 'fit' | ViewportPreset[ 'id' ] | 'split';
 
+// The split view reuses the desktop and mobile presets for its two panes.
 const MOBILE_PRESET = VIEWPORT_PRESETS[ 0 ];
+const DESKTOP_PRESET = VIEWPORT_PRESETS[ 2 ];
 
-// The phone frame's orientation. Landscape rotates the frame a quarter
-// turn (844×390).
+// The phone frame's orientation, shared by the mobile preset and the split
+// view. Landscape rotates the frame a quarter turn (844×390).
 type MobileOrientation = 'portrait' | 'landscape';
 
 const MOBILE_PRESET_LANDSCAPE: ViewportPreset = {
@@ -159,6 +173,26 @@ const MOBILE_PRESET_LANDSCAPE: ViewportPreset = {
 function getMobilePreset( orientation: MobileOrientation ): ViewportPreset {
 	return orientation === 'landscape' ? MOBILE_PRESET_LANDSCAPE : MOBILE_PRESET;
 }
+
+// The preset behind the primary preview surface, or null when the pane
+// renders at its natural size. The split view's primary frame is the desktop
+// preset; its phone companion is sized separately.
+function getActivePreset(
+	mode: ViewportMode,
+	orientation: MobileOrientation
+): ViewportPreset | null {
+	if ( mode === 'mobile' ) {
+		return getMobilePreset( orientation );
+	}
+	if ( mode === 'split' ) {
+		return DESKTOP_PRESET;
+	}
+	return VIEWPORT_PRESETS.find( ( preset ) => preset.id === mode ) ?? null;
+}
+
+// Breathing room around the split view's phone frame (matches the pane's
+// CSS padding, subtracted before computing the frame's fit-to-height scale).
+const SPLIT_MOBILE_PANE_PADDING = 16;
 
 // A simulated guest viewport: the page lays out at `width`×`height` CSS px
 // and its rendering is scaled by `scale` to fit the preview pane. `mobile`
@@ -342,23 +376,43 @@ function getRealmShortcut( event: globalThis.KeyboardEvent ): PreviewRealm | nul
 	return null;
 }
 
-function isBrowserShortcutCommand( command: unknown ): command is BrowserShortcutCommandType {
-	return command === 'back' || command === 'forward' || command === 'reload';
+// ⇧⌘F (Ctrl+Shift+F elsewhere) toggles full preview. Listed in Settings →
+// Keyboard alongside the other preview shortcuts.
+const FULL_PREVIEW_SHORTCUT_KEY = 'f';
+
+function isFullPreviewShortcut( event: globalThis.KeyboardEvent ): boolean {
+	if ( event.defaultPrevented || event.repeat ) {
+		return false;
+	}
+	return isKeyboardEvent.primaryShift( event, FULL_PREVIEW_SHORTCUT_KEY );
 }
 
-// Trailing "•••" menu holding the preview's environment controls. For now
-// that's the responsive viewport controls; other view options join it as
-// they land.
+function isPreviewShortcutCommand( command: unknown ): command is PreviewShortcutCommandType {
+	return (
+		command === 'back' ||
+		command === 'forward' ||
+		command === 'reload' ||
+		command === 'full-preview'
+	);
+}
+
+// Trailing "•••" menu holding the preview's environment controls: the
+// responsive viewport controls and full preview. Other view options join it
+// as they land.
 function PreviewOverflowMenu( {
 	viewportMode,
 	onViewportModeChange,
 	mobileOrientation,
 	onMobileOrientationChange,
+	fullscreen,
+	onFullscreenChange,
 }: {
 	viewportMode: ViewportMode;
 	onViewportModeChange: ( mode: ViewportMode ) => void;
 	mobileOrientation: MobileOrientation;
 	onMobileOrientationChange: ( orientation: MobileOrientation ) => void;
+	fullscreen: boolean;
+	onFullscreenChange?: ( value: boolean ) => void;
 } ) {
 	const viewportLabels: Record< ViewportPreset[ 'id' ], string > = {
 		mobile: __( 'Mobile' ),
@@ -406,9 +460,10 @@ function PreviewOverflowMenu( {
 								) }
 							</Menu.RadioItem>
 						) ) }
+						<Menu.RadioItem value="split">{ __( 'Desktop + Mobile' ) }</Menu.RadioItem>
 					</Menu.RadioGroup>
 				</Menu.Group>
-				{ viewportMode === 'mobile' ? (
+				{ viewportMode === 'mobile' || viewportMode === 'split' ? (
 					<>
 						<Menu.Separator />
 						<Menu.Group>
@@ -421,6 +476,14 @@ function PreviewOverflowMenu( {
 								<Menu.RadioItem value="landscape">{ __( 'Landscape' ) }</Menu.RadioItem>
 							</Menu.RadioGroup>
 						</Menu.Group>
+					</>
+				) : null }
+				{ onFullscreenChange ? (
+					<>
+						<Menu.Separator />
+						<Menu.Item onClick={ () => onFullscreenChange( ! fullscreen ) }>
+							{ fullscreen ? __( 'Exit full preview' ) : __( 'Full preview' ) }
+						</Menu.Item>
 					</>
 				) : null }
 			</Menu.Popup>
@@ -445,8 +508,11 @@ export function SitePreview( {
 	onAnnotationsDone,
 	onPathChange,
 	collapsed = false,
+	fullscreen = false,
+	onFullscreenChange,
 }: SitePreviewProps ) {
 	const connector = useConnector();
+	const { chatEnabled } = useAgenticFeatures();
 	const startSite = useStartSite();
 	const isStarting = useIsSiteStarting( site.id );
 	const siteUrl = getSiteUrl( site );
@@ -467,9 +533,10 @@ export function SitePreview( {
 	const [ inspectorState, setInspectorState ] = useState< InspectorState >( EMPTY_INSPECTOR_STATE );
 	const [ inspectorCommand, setInspectorCommand ] = useState< InspectorCommand | null >( null );
 	// 'fit' renders at the pane's natural size; a preset id simulates that
-	// viewport.
+	// viewport; 'split' shows the desktop and mobile presets together.
 	const [ viewportMode, setViewportMode ] = useState< ViewportMode >( 'fit' );
-	// Orientation of the phone frame while the mobile preset is active.
+	// Orientation of the phone frame, wherever it shows (mobile preset and
+	// the split view's phone pane).
 	const [ mobileOrientation, setMobileOrientation ] = useState< MobileOrientation >( 'portrait' );
 	const [ paneSize, setPaneSize ] = useState< { width: number; height: number } | null >( null );
 	const rootRef = useRef< HTMLElement | null >( null );
@@ -483,15 +550,40 @@ export function SitePreview( {
 	const showLoadingProgress = canPreview && progress > 0;
 	// Presets are module constants, so this stays referentially stable per
 	// mode + orientation.
-	const activePreset =
-		viewportMode === 'mobile'
-			? getMobilePreset( mobileOrientation )
-			: VIEWPORT_PRESETS.find( ( preset ) => preset.id === viewportMode ) ?? null;
+	const activePreset = getActivePreset( viewportMode, mobileOrientation );
+	const splitPreview = viewportMode === 'split';
+	// The split view's phone pane: the mobile preset (in its current
+	// orientation) scaled to fit the pane height, and capped at half the
+	// pane's width so a landscape frame can't crowd out the primary view.
+	const splitMobileViewport = useMemo( () => {
+		if ( ! splitPreview || ! paneSize ) {
+			return null;
+		}
+		const preset = getMobilePreset( mobileOrientation );
+		return getSimulatedViewport( preset, {
+			width: Math.max( 160, Math.min( preset.width, Math.round( paneSize.width / 2 ) ) ),
+			height: Math.max( 120, paneSize.height - SPLIT_MOBILE_PANE_PADDING * 2 ),
+		} );
+	}, [ mobileOrientation, paneSize, splitPreview ] );
+	// In split mode the desktop simulation fits the space left beside the
+	// rendered mobile frame, including its pane padding. This keeps the page
+	// at the desktop breakpoint even when the comparison itself is narrow.
+	const primaryPaneSize = useMemo( () => {
+		if ( ! splitPreview || ! paneSize || ! splitMobileViewport ) {
+			return paneSize;
+		}
+		const mobilePaneWidth =
+			splitMobileViewport.width * splitMobileViewport.scale + SPLIT_MOBILE_PANE_PADDING * 2;
+		return {
+			width: Math.max( 1, paneSize.width - mobilePaneWidth ),
+			height: paneSize.height,
+		};
+	}, [ paneSize, splitMobileViewport, splitPreview ] );
 	// No emulation while the site is stopped: the empty state renders in the
 	// plain pane, and the chosen mode re-applies on start.
 	const previewViewport = useMemo(
-		() => ( canPreview ? getSimulatedViewport( activePreset, paneSize ) : null ),
-		[ activePreset, canPreview, paneSize ]
+		() => ( canPreview ? getSimulatedViewport( activePreset, primaryPaneSize ) : null ),
+		[ activePreset, canPreview, primaryPaneSize ]
 	);
 	// Sizing for the frame around the primary surface: the preset's exact
 	// scaled box (the emulation paints it edge to edge).
@@ -543,6 +635,18 @@ export function SitePreview( {
 		commandIdRef.current += 1;
 		setInspectorCommand( { id: commandIdRef.current, type } );
 	}, [] );
+	// Shortcuts the guest page swallowed and forwarded back over the console
+	// bridge: browser commands go to the webview, full preview to the host.
+	const handleForwardedShortcut = useCallback(
+		( command: PreviewShortcutCommandType ) => {
+			if ( command === 'full-preview' ) {
+				onFullscreenChange?.( ! fullscreen );
+				return;
+			}
+			sendBrowserCommand( command );
+		},
+		[ fullscreen, onFullscreenChange, sendBrowserCommand ]
+	);
 
 	// Realm segments (front end / WP Admin / database). Each realm remembers
 	// where you last were: flipping to WP Admin and back returns to the exact
@@ -570,10 +674,12 @@ export function SitePreview( {
 			if ( getPreviewRealm( getSafePath( path ) ) === realm ) {
 				return;
 			}
+			// The agentic UI opens the realm in its in-app preview panel.
+			void connector.trackEvent( getRealmOpenEvent( realm ), { browser: 'internal' } );
 			const target = lastRealmPathsRef.current[ realm ];
 			onPathChange?.( getRealmNavigationPath( target, siteUrl ) );
 		},
-		[ onPathChange, path, siteUrl ]
+		[ connector, onPathChange, path, siteUrl ]
 	);
 
 	const browserShortcuts = useMemo(
@@ -594,8 +700,13 @@ export function SitePreview( {
 		( mode: ViewportMode ) => {
 			setViewportMode( mode );
 			viewportBySiteRef.current[ site.id ] = { ...viewportBySiteRef.current[ site.id ], mode };
+			// Two frames side by side need the room — a desktop page beside a
+			// phone is unreadable in the narrow panel.
+			if ( mode === 'split' ) {
+				onFullscreenChange?.( true );
+			}
 		},
-		[ site.id ]
+		[ onFullscreenChange, site.id ]
 	);
 	const handleMobileOrientationChange = useCallback(
 		( orientation: MobileOrientation ) => {
@@ -607,6 +718,16 @@ export function SitePreview( {
 		},
 		[ site.id ]
 	);
+
+	// The comparison is a full-preview mode: leaving full preview (or landing
+	// on a site that remembered it) falls back to the single fit-to-pane view
+	// rather than squeezing both frames into the panel. Only when the host
+	// offers full preview at all — otherwise the mode could never be picked.
+	useEffect( () => {
+		if ( onFullscreenChange && ! fullscreen && viewportMode === 'split' ) {
+			handleViewportModeChange( 'fit' );
+		}
+	}, [ fullscreen, handleViewportModeChange, onFullscreenChange, viewportMode ] );
 
 	useEffect( () => {
 		setBrowserState( EMPTY_BROWSER_STATE );
@@ -650,7 +771,11 @@ export function SitePreview( {
 		const handleKeyDown = ( event: globalThis.KeyboardEvent ) => {
 			const command = getBrowserShortcutCommand( event );
 			const realm = command ? null : getRealmShortcut( event );
-			if ( ! command && ! realm ) {
+			// Only claim the full-preview chord when the host actually offers
+			// the mode, so it stays available to the page otherwise.
+			const fullPreview =
+				! command && ! realm && !! onFullscreenChange && isFullPreviewShortcut( event );
+			if ( ! command && ! realm && ! fullPreview ) {
 				return;
 			}
 			const activeElement = document.activeElement;
@@ -667,17 +792,35 @@ export function SitePreview( {
 				sendBrowserCommand( command );
 			} else if ( realm ) {
 				handleSwitchRealm( realm );
+			} else {
+				onFullscreenChange?.( ! fullscreen );
 			}
 		};
 
 		document.addEventListener( 'keydown', handleKeyDown, { capture: true } );
 		return () => document.removeEventListener( 'keydown', handleKeyDown, { capture: true } );
-	}, [ canPreview, collapsed, handleSwitchRealm, sendBrowserCommand ] );
+	}, [
+		canPreview,
+		collapsed,
+		fullscreen,
+		handleSwitchRealm,
+		onFullscreenChange,
+		sendBrowserCommand,
+	] );
 
 	return (
-		<aside ref={ rootRef } className={ styles.root } aria-label={ __( 'Site preview' ) }>
+		<aside
+			ref={ rootRef }
+			className={ clsx( styles.root, fullscreen && styles.rootFullscreen ) }
+			aria-label={ __( 'Site preview' ) }
+		>
 			<div
-				className={ styles.header }
+				// In full preview the toolbar reaches the window's physical left
+				// edge, where the macOS traffic lights sit.
+				className={ clsx(
+					styles.header,
+					fullscreen && trafficLightSpace.start && styles.headerTrafficLights
+				) }
 				style={
 					windowControls
 						? {
@@ -746,7 +889,7 @@ export function SitePreview( {
 					) : null }
 				</div>
 				<div className={ clsx( styles.headerSide, styles.headerSideEnd ) }>
-					{ canPreview && connector.capabilities.annotatePreview ? (
+					{ canPreview && chatEnabled && connector.capabilities.annotatePreview ? (
 						<div className={ styles.annotationControls }>
 							<IconButton
 								variant="minimal"
@@ -779,6 +922,8 @@ export function SitePreview( {
 							onViewportModeChange={ handleViewportModeChange }
 							mobileOrientation={ mobileOrientation }
 							onMobileOrientationChange={ handleMobileOrientationChange }
+							fullscreen={ fullscreen }
+							onFullscreenChange={ onFullscreenChange }
 						/>
 					) : null }
 				</div>
@@ -823,7 +968,7 @@ export function SitePreview( {
 										inspectorCommand={ inspectorCommand }
 										browserCommand={ browserCommand }
 										onBrowserStateChange={ handleBrowserStateChange }
-										onBrowserCommand={ sendBrowserCommand }
+										onBrowserCommand={ handleForwardedShortcut }
 										onNavigate={ handlePreviewNavigation }
 										viewport={ previewViewport }
 									/>
@@ -853,6 +998,54 @@ export function SitePreview( {
 									/>
 								) }
 							</div>
+							{ splitPreview && splitMobileViewport ? (
+								// The comparison's phone pane: a lean companion surface that
+								// follows the primary's navigation (shared `path`) but keeps
+								// annotations and history on the primary pane.
+								<div className={ styles.splitMobilePane }>
+									<div
+										className={ clsx( styles.surfaceFrame, styles.deviceFrame ) }
+										style={ {
+											flex: '0 0 auto',
+											width: splitMobileViewport.width * splitMobileViewport.scale,
+											height: splitMobileViewport.height * splitMobileViewport.scale,
+										} }
+									>
+										{ canUseWebview ? (
+											<WebviewSurface
+												key={ `${ site.id }-mobile` }
+												url={ previewUrl }
+												reloadNonce={ reloadNonce }
+												viewport={ splitMobileViewport }
+												browserCommand={ browserCommand?.type === 'reload' ? browserCommand : null }
+												onNavigate={ handlePreviewNavigation }
+											/>
+										) : (
+											<iframe
+												key={ `${ previewUrl }#${ reloadNonce }` }
+												className={ styles.iframe }
+												style={
+													splitMobileViewport.scale !== 1
+														? {
+																flex: '0 0 auto',
+																width: splitMobileViewport.width,
+																height: splitMobileViewport.height,
+																transform: `scale(${ splitMobileViewport.scale })`,
+																transformOrigin: 'top left',
+														  }
+														: undefined
+												}
+												src={ previewUrl }
+												title={ sprintf(
+													/* translators: %s: site name */
+													__( '%s (mobile)' ),
+													site.name
+												) }
+											/>
+										) }
+									</div>
+								</div>
+							) : null }
 						</>
 					) : (
 						<div className={ styles.empty }>
@@ -914,7 +1107,7 @@ interface WebviewSurfaceProps {
 	inspectorCommand?: InspectorCommand | null;
 	browserCommand?: BrowserCommand | null;
 	onBrowserStateChange?: ( state: BrowserNavigationState ) => void;
-	onBrowserCommand?: ( type: BrowserShortcutCommandType ) => void;
+	onBrowserCommand?: ( type: PreviewShortcutCommandType ) => void;
 	onNavigate?: ( url: string ) => void;
 	// Simulated guest viewport, or null for the webview's natural size.
 	viewport?: PreviewViewport | null;
@@ -1087,7 +1280,7 @@ function WebviewSurface( {
 			}
 			if ( ! parsed ) return;
 			if ( parsed.type === 'browser-command' ) {
-				if ( isBrowserShortcutCommand( parsed.command ) ) {
+				if ( isPreviewShortcutCommand( parsed.command ) ) {
 					onBrowserCommandRef.current?.( parsed.command );
 				}
 				return;

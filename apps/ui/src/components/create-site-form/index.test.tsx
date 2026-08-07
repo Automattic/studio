@@ -42,6 +42,8 @@ const useSitesMock = vi.mocked( useSites, { partial: true } );
 const useWordPressVersionsMock = vi.mocked( useWordPressVersions, { partial: true } );
 const useOfflineMock = vi.mocked( useOffline );
 
+type ProposedPathResult = { path: string; isEmpty: boolean; isWordPress: boolean };
+
 function deferred< T >() {
 	let resolve!: ( value: T ) => void;
 	let reject!: ( reason?: unknown ) => void;
@@ -154,16 +156,13 @@ describe( 'CreateSiteForm', () => {
 	} );
 
 	it( 'keeps path validation pending while an asynchronous name suggestion resolves', async () => {
-		const pending = deferred< {
-			path: string;
-			isEmpty: boolean;
-			isWordPress: boolean;
-		} >();
+		const pending = deferred< ProposedPathResult >();
 		usePathValidatorMock.mockReturnValue( {
 			generateProposedPath: vi.fn( () => pending.promise ),
 			selectPath: vi.fn(),
 		} );
-		const { rerenderWith } = renderForm();
+		const onSubmit = vi.fn();
+		const { rerenderWith } = renderForm( undefined, onSubmit );
 		expect( screen.queryByText( '1 error found' ) ).not.toBeInTheDocument();
 		expect( screen.queryByText( 'Please fill out this field.' ) ).not.toBeInTheDocument();
 
@@ -173,16 +172,19 @@ describe( 'CreateSiteForm', () => {
 			'aria-disabled',
 			'false'
 		);
+		fireEvent.click( screen.getByTestId( 'create-site-submit' ) );
+		expect( onSubmit ).not.toHaveBeenCalled();
 
 		await act( async () => {
 			pending.resolve( { path: '/sites/suggested', isEmpty: true, isWordPress: false } );
 			await pending.promise;
 		} );
 		await waitFor( () =>
-			expect( screen.getByTestId( 'create-site-submit' ) ).toHaveAttribute(
-				'aria-disabled',
-				'false'
-			)
+			expect( screen.getByLabelText( 'Local path' ) ).toHaveValue( '/sites/suggested' )
+		);
+		fireEvent.click( screen.getByTestId( 'create-site-submit' ) );
+		expect( onSubmit ).toHaveBeenCalledWith(
+			expect.objectContaining( { path: '/sites/suggested' } )
 		);
 	} );
 
@@ -247,16 +249,8 @@ describe( 'CreateSiteForm', () => {
 	} );
 
 	it( 'ignores a stale generated path after the site name changes', async () => {
-		const first = deferred< {
-			path: string;
-			isEmpty: boolean;
-			isWordPress: boolean;
-		} >();
-		const second = deferred< {
-			path: string;
-			isEmpty: boolean;
-			isWordPress: boolean;
-		} >();
+		const first = deferred< ProposedPathResult >();
+		const second = deferred< ProposedPathResult >();
 		const generateProposedPath = vi
 			.fn()
 			.mockReturnValueOnce( first.promise )
@@ -321,46 +315,83 @@ describe( 'CreateSiteForm', () => {
 		expect( screen.getByLabelText( 'Local path' ) ).toHaveValue( '/sites/created-site' );
 	} );
 
-	it( 'keeps the submit button enabled while typing and queues a submit until the path resolves', async () => {
-		const pending = deferred< {
-			path: string;
-			isEmpty: boolean;
-			isWordPress: boolean;
-		} >();
+	it( 'debounces path generation to one request per pause and holds submit until it resolves', async () => {
+		const generateProposedPath = vi.fn( async ( name: string ) => ( {
+			path: `/sites/${ name }`,
+			isEmpty: true,
+			isWordPress: false,
+		} ) );
 		usePathValidatorMock.mockReturnValue( {
-			generateProposedPath: vi.fn( () => pending.promise ),
+			generateProposedPath,
 			selectPath: vi.fn(),
 		} );
 		const onSubmit = vi.fn();
 		renderForm( undefined, onSubmit );
-		fireEvent.change( screen.getByLabelText( /Site name/ ), {
-			target: { value: 'My site' },
-		} );
+		const nameInput = screen.getByLabelText( /Site name/ );
+		fireEvent.change( nameInput, { target: { value: 'My' } } );
+		fireEvent.change( nameInput, { target: { value: 'My si' } } );
+		fireEvent.change( nameInput, { target: { value: 'My site' } } );
+
 		expect( screen.getByTestId( 'create-site-submit' ) ).toHaveAttribute(
 			'aria-disabled',
 			'false'
 		);
+		fireEvent.click( screen.getByTestId( 'create-site-submit' ) );
+		expect( onSubmit ).not.toHaveBeenCalled();
+		// The blocked click reveals the still-resolving path field instead.
+		expect( screen.getByRole( 'button', { name: /Advanced settings/ } ) ).toHaveAttribute(
+			'aria-expanded',
+			'true'
+		);
 
+		await waitFor( () => expect( generateProposedPath ).toHaveBeenCalledWith( 'My site' ) );
+		expect( generateProposedPath ).toHaveBeenCalledTimes( 1 );
+
+		await waitFor( () =>
+			expect( screen.getByLabelText( 'Local path' ) ).toHaveValue( '/sites/My site' )
+		);
+		fireEvent.click( screen.getByTestId( 'create-site-submit' ) );
+		expect( onSubmit ).toHaveBeenCalledWith(
+			expect.objectContaining( { path: '/sites/My site' } )
+		);
+	} );
+
+	it( 'ignores a resolution that lands while the name keeps changing', async () => {
+		const first = deferred< ProposedPathResult >();
+		const generateProposedPath = vi
+			.fn()
+			.mockReturnValueOnce( first.promise )
+			.mockResolvedValue( { path: '/sites/my-site-updated', isEmpty: true, isWordPress: false } );
+		usePathValidatorMock.mockReturnValue( {
+			generateProposedPath,
+			selectPath: vi.fn(),
+		} );
+		const onSubmit = vi.fn();
+		renderForm( { name: 'My site' }, onSubmit );
+		await waitFor( () => expect( generateProposedPath ).toHaveBeenCalledWith( 'My site' ) );
+
+		// Late resolution for the old name must not let a click submit mid-typing.
+		fireEvent.change( screen.getByLabelText( /Site name/ ), {
+			target: { value: 'My site updated' },
+		} );
+		await act( async () => {
+			first.resolve( { path: '/sites/my-site', isEmpty: true, isWordPress: false } );
+			await first.promise;
+		} );
 		fireEvent.click( screen.getByTestId( 'create-site-submit' ) );
 		expect( onSubmit ).not.toHaveBeenCalled();
 
-		await act( async () => {
-			pending.resolve( { path: '/sites/my-site', isEmpty: true, isWordPress: false } );
-			await pending.promise;
-		} );
 		await waitFor( () =>
-			expect( onSubmit ).toHaveBeenCalledWith(
-				expect.objectContaining( { path: '/sites/my-site' } )
-			)
+			expect( screen.getByLabelText( 'Local path' ) ).toHaveValue( '/sites/my-site-updated' )
+		);
+		fireEvent.click( screen.getByTestId( 'create-site-submit' ) );
+		expect( onSubmit ).toHaveBeenCalledWith(
+			expect.objectContaining( { path: '/sites/my-site-updated' } )
 		);
 	} );
 
 	it( 'preserves a manual path when automatic generation is still pending', async () => {
-		const pending = deferred< {
-			path: string;
-			isEmpty: boolean;
-			isWordPress: boolean;
-		} >();
+		const pending = deferred< ProposedPathResult >();
 		usePathValidatorMock.mockReturnValue( {
 			generateProposedPath: vi.fn( () => pending.promise ),
 			selectPath: vi.fn(),
@@ -398,10 +429,12 @@ describe( 'CreateSiteForm', () => {
 			} ) ),
 			selectPath: vi.fn(),
 		} );
-		const { unmount } = renderForm( { name: 'Taken' } );
+		const onSubmit = vi.fn();
+		const { unmount } = renderForm( { name: 'Taken' }, onSubmit );
 		openAdvancedSettings();
 		expect( await screen.findByText( 'That path is already in use.' ) ).toBeInTheDocument();
-		expect( screen.getByTestId( 'create-site-submit' ) ).toHaveAttribute( 'aria-disabled', 'true' );
+		fireEvent.click( screen.getByTestId( 'create-site-submit' ) );
+		expect( onSubmit ).not.toHaveBeenCalled();
 		unmount();
 
 		usePathValidatorMock.mockReturnValue( {
@@ -410,12 +443,70 @@ describe( 'CreateSiteForm', () => {
 			} ),
 			selectPath: vi.fn(),
 		} );
-		renderForm( { name: 'Unavailable' } );
+		const onSubmitUnavailable = vi.fn();
+		renderForm( { name: 'Unavailable' }, onSubmitUnavailable );
 		openAdvancedSettings();
 		expect(
 			await screen.findByText( 'Unable to suggest a folder for this site name.' )
 		).toBeInTheDocument();
+		fireEvent.click( screen.getByTestId( 'create-site-submit' ) );
+		expect( onSubmitUnavailable ).not.toHaveBeenCalled();
+	} );
+
+	it( 'opens Advanced settings when a blocked click has its error hidden there', async () => {
+		usePathValidatorMock.mockReturnValue( {
+			generateProposedPath: vi.fn( async () => ( {
+				path: '/sites/taken',
+				isEmpty: false,
+				isWordPress: false,
+				error: 'That path is already in use.',
+			} ) ),
+			selectPath: vi.fn(),
+		} );
+		const onSubmit = vi.fn();
+		renderForm( { name: 'Taken' }, onSubmit );
+		expect( await screen.findByText( '1 error found' ) ).toBeInTheDocument();
+
+		fireEvent.click( screen.getByTestId( 'create-site-submit' ) );
+		expect( onSubmit ).not.toHaveBeenCalled();
+		expect( screen.getByRole( 'button', { name: /Advanced settings/ } ) ).toHaveAttribute(
+			'aria-expanded',
+			'true'
+		);
+		expect( await screen.findByText( 'That path is already in use.' ) ).toBeInTheDocument();
+	} );
+
+	it( 'disables submit after a blocked click and re-enables it once the error is fixed', async () => {
+		usePathValidatorMock.mockReturnValue( {
+			generateProposedPath: vi.fn( async ( name: string ) =>
+				name === 'Taken'
+					? {
+							path: '/sites/taken',
+							isEmpty: false,
+							isWordPress: false,
+							error: 'That path is already in use.',
+					  }
+					: { path: `/sites/${ name }`, isEmpty: true, isWordPress: false }
+			),
+			selectPath: vi.fn(),
+		} );
+		const onSubmit = vi.fn();
+		renderForm( { name: 'Taken' }, onSubmit );
+		expect( await screen.findByText( '1 error found' ) ).toBeInTheDocument();
+
+		fireEvent.click( screen.getByTestId( 'create-site-submit' ) );
+		expect( onSubmit ).not.toHaveBeenCalled();
 		expect( screen.getByTestId( 'create-site-submit' ) ).toHaveAttribute( 'aria-disabled', 'true' );
+
+		fireEvent.change( screen.getByLabelText( /Site name/ ), { target: { value: 'Fixed' } } );
+		await waitFor( () =>
+			expect( screen.getByTestId( 'create-site-submit' ) ).toHaveAttribute(
+				'aria-disabled',
+				'false'
+			)
+		);
+		fireEvent.click( screen.getByTestId( 'create-site-submit' ) );
+		expect( onSubmit ).toHaveBeenCalledWith( expect.objectContaining( { path: '/sites/Fixed' } ) );
 	} );
 
 	it( 'marks a focused folder picker invalid as soon as selection validation fails', async () => {

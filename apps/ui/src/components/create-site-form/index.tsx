@@ -74,10 +74,10 @@ interface FormData {
 	// Stops the name→path auto-gen from overriding a manually picked folder.
 	hasCustomPath: boolean;
 	pathError: string;
-	// Suppresses the path field's required check during the auto-gen async
-	// window so a seeded name doesn't flash "1 error found" on the Advanced
-	// toggle before `generateProposedPath` resolves.
-	isPathPending: boolean;
+	// Trimmed name the current `path`/`pathError` were generated for. The
+	// pending state is derived from it (see `isPathPending`), so no flag has
+	// to be kept in sync when the name changes.
+	pathForName: string;
 	phpVersion: SupportedPHPVersion;
 	wpVersion: string;
 	useCustomDomain: boolean;
@@ -105,7 +105,7 @@ function createDefaultFormData(): FormData {
 		path: '',
 		hasCustomPath: false,
 		pathError: '',
-		isPathPending: false,
+		pathForName: '',
 		phpVersion: RecommendedPHPVersion,
 		wpVersion: DEFAULT_WORDPRESS_VERSION,
 		useCustomDomain: false,
@@ -115,6 +115,23 @@ function createDefaultFormData(): FormData {
 		adminPassword: generatePassword(),
 		adminEmail: 'admin@localhost.com',
 	};
+}
+
+function reportInvalidControls( form: HTMLFormElement | null ) {
+	form
+		?.querySelectorAll< HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement >(
+			'input, select, textarea'
+		)
+		.forEach( ( control ) => {
+			if ( ! control.validity.valid ) control.reportValidity();
+		} );
+}
+
+// Pending while the auto-gen result for the current name hasn't landed:
+// covers the debounce window and the in-flight request, with no stored flag
+// to keep in sync.
+function isPathPending( item: FormData ): boolean {
+	return ! item.hasCustomPath && !! item.name.trim() && item.name.trim() !== item.pathForName;
 }
 
 function getSuggestedFields(
@@ -141,7 +158,7 @@ function applyInitialValues(
 			path: defaults.path,
 			hasCustomPath: defaults.hasCustomPath,
 			pathError: defaults.pathError,
-			isPathPending: defaults.isPathPending,
+			pathForName: defaults.pathForName,
 		},
 		phpVersion: { phpVersion: defaults.phpVersion },
 		wpVersion: { wpVersion: defaults.wpVersion },
@@ -167,16 +184,13 @@ function applyInitialValues(
 		next.path = values.path;
 		next.hasCustomPath = !! values.path;
 		next.pathError = '';
-		next.isPathPending = false;
 	}
 	if ( values.customDomain !== undefined && ! dirtyFields.has( 'customDomain' ) ) {
 		next.useCustomDomain = !! values.customDomain;
 		next.customDomain = values.customDomain;
 	}
-	if ( ! next.hasCustomPath && next.name !== prev.name ) {
-		next.isPathPending = !! next.name.trim();
-		next.pathError = '';
-		if ( ! next.name.trim() ) next.path = '';
+	if ( ! next.hasCustomPath && next.name !== prev.name && ! next.name.trim() ) {
+		next.path = '';
 	}
 	return Object.keys( next ).some(
 		( key ) => next[ key as keyof FormData ] !== prev[ key as keyof FormData ]
@@ -201,43 +215,37 @@ function usePathAutoGenerate(
 		onChangeRef.current = onChange;
 	}, [ onChange ] );
 
-	const pendingNameRef = useRef< string | null >( null );
 	useEffect( () => {
-		if ( isSubmitting ) return;
-		if ( data.hasCustomPath ) {
-			pendingNameRef.current = null;
-			onChangeRef.current( { isPathPending: false } );
-			return;
-		}
+		if ( isSubmitting || data.hasCustomPath ) return;
 		const trimmed = data.name.trim();
 		if ( ! trimmed ) {
-			pendingNameRef.current = null;
-			onChangeRef.current( { path: '', pathError: '', isPathPending: false } );
+			onChangeRef.current( { path: '', pathError: '', pathForName: '' } );
 			return;
 		}
-		pendingNameRef.current = trimmed;
-		onChangeRef.current( { isPathPending: true } );
+		// One request per typing pause: each keystroke resets the timer and
+		// cancels any in-flight request.
 		let cancelled = false;
-		void ( async () => {
+		const timer = setTimeout( async () => {
 			try {
 				const result = await generateProposedPath( trimmed );
-				if ( cancelled || pendingNameRef.current !== trimmed ) return;
+				if ( cancelled ) return;
 				onChangeRef.current( {
 					path: result.path,
 					pathError: result.error ?? '',
-					isPathPending: false,
+					pathForName: trimmed,
 				} );
 			} catch {
-				if ( cancelled || pendingNameRef.current !== trimmed ) return;
+				if ( cancelled ) return;
 				onChangeRef.current( {
 					path: '',
 					pathError: __( 'Unable to suggest a folder for this site name.' ),
-					isPathPending: false,
+					pathForName: trimmed,
 				} );
 			}
-		} )();
+		}, 250 );
 		return () => {
 			cancelled = true;
+			clearTimeout( timer );
 		};
 	}, [ data.name, data.hasCustomPath, generateProposedPath, isSubmitting ] );
 }
@@ -271,7 +279,7 @@ function PathField( {
 		} );
 	}, [ item.hasCustomPath, item.name, item.path, onChange, selectPath ] );
 
-	const errorMessage = item.pathError || validity?.custom?.message;
+	const errorMessage = ( isPathPending( item ) ? '' : item.pathError ) || validity?.custom?.message;
 	const help = (
 		<>
 			{ __( 'Select an empty directory or a directory with an existing WordPress site.' ) }{ ' ' }
@@ -413,7 +421,6 @@ export function CreateSiteForm( {
 		return applyInitialValues( defaults, initialValues, defaults );
 	} );
 	const dirtyFieldsRef = useRef( new Set< keyof CreateSiteFormValues >() );
-	const isSubmitQueuedRef = useRef( false );
 
 	useEffect( () => {
 		const values = initialValues ?? {};
@@ -456,11 +463,13 @@ export function CreateSiteForm( {
 				label: __( 'Local path' ),
 				Edit: PathField,
 				// Required check lives inside `custom` so it can opt out while
-				// `isPathPending` is true — see the `FormData` comment above.
+				// the path is pending — a seeded name must not flash "1 error
+				// found" before `generateProposedPath` resolves.
 				isValid: {
 					custom: ( item: FormData ) => {
+						if ( isPathPending( item ) ) return null;
 						if ( item.pathError ) return item.pathError;
-						if ( item.isPathPending || ! item.name.trim() ) return null;
+						if ( ! item.name.trim() ) return null;
 						if ( ! item.path ) return __( 'Local path is required.' );
 						return null;
 					},
@@ -531,6 +540,9 @@ export function CreateSiteForm( {
 
 	const { validity, isValid } = useFormValidity( data, fields, fullForm );
 	const [ isAdvancedOpen, setIsAdvancedOpen ] = useState( false );
+	// After a blocked submit the button tracks validity live: disabled while
+	// the revealed errors remain, enabled again once they're fixed.
+	const [ hasAttemptedSubmit, setHasAttemptedSubmit ] = useState( false );
 
 	// Validated controls hide programmatic errors until they receive an invalid event.
 	// Wait for DataForm to apply custom validity, then reveal errors from suggested values.
@@ -538,24 +550,22 @@ export function CreateSiteForm( {
 		if ( ! shouldReportSuggestedErrorsRef.current ) return;
 		const timeout = window.setTimeout( () => {
 			shouldReportSuggestedErrorsRef.current = false;
-			formRef.current
-				?.querySelectorAll< HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement >(
-					'input, select, textarea'
-				)
-				.forEach( ( control ) => {
-					if ( ! control.validity.valid ) control.reportValidity();
-				} );
+			reportInvalidControls( formRef.current );
 		}, 0 );
 		return () => window.clearTimeout( timeout );
 	}, [ data, initialValues, validity ] );
 
 	const handleChangePartial = useCallback( ( update: Partial< FormData > ) => {
-		setData( ( prev ) => ( { ...prev, ...update } ) );
+		setData( ( prev ) => {
+			const changed = Object.keys( update ).some(
+				( key ) => update[ key as keyof FormData ] !== prev[ key as keyof FormData ]
+			);
+			return changed ? { ...prev, ...update } : prev;
+		} );
 	}, [] );
 	usePathAutoGenerate( data, handleChangePartial, !! isSubmitting );
 
 	const handleChange = useCallback( ( update: Record< string, unknown > ) => {
-		isSubmitQueuedRef.current = false;
 		for ( const key of Object.keys( update ) ) {
 			if ( key === 'useCustomDomain' ) {
 				dirtyFieldsRef.current.add( 'customDomain' );
@@ -565,10 +575,13 @@ export function CreateSiteForm( {
 		}
 		setData( ( prev ) => {
 			const next: FormData = { ...prev, ...( update as Partial< FormData > ) };
-			if ( update.name !== undefined && ! prev.hasCustomPath && next.name !== prev.name ) {
-				next.isPathPending = !! next.name.trim();
-				next.pathError = '';
-				if ( ! next.name.trim() ) next.path = '';
+			if (
+				update.name !== undefined &&
+				! prev.hasCustomPath &&
+				next.name !== prev.name &&
+				! next.name.trim()
+			) {
+				next.path = '';
 			}
 			// Seed the custom-domain input on first toggle with a sensible
 			// default derived from the site name.
@@ -579,13 +592,27 @@ export function CreateSiteForm( {
 		} );
 	}, [] );
 
-	// `isPathPending` is deliberately absent from `canSubmit`: it toggles on
-	// every keystroke of the name field while the path auto-gen resolves, and
-	// disabling the submit button on it makes the button blink. Submits that
-	// land inside that window are queued and fired once the path resolves.
-	const canSubmit = isValid && ! isSubmitting && ! isSubmitDisabled && ! data.pathError;
+	const pathPending = isPathPending( data );
+	const canSubmit = isValid && ! pathPending && ! data.pathError;
+	const advancedErrorCount = countAdvancedErrors( validity, advancedForm );
 
-	const submitForm = () => {
+	// The button stays enabled while typing (no pending-state blink); a click
+	// that can't submit yet reveals what's blocking instead — it opens the
+	// Advanced panel when the blocker lives there and surfaces the native
+	// validation bubbles on the invalid fields. Requires `noValidate` on the
+	// form: native constraint validation would otherwise swallow the submit
+	// event before this handler runs.
+	const handleSubmit = ( event: FormEvent ) => {
+		event.preventDefault();
+		if ( isSubmitting || isSubmitDisabled ) return;
+		if ( ! canSubmit ) {
+			setHasAttemptedSubmit( true );
+			if ( advancedErrorCount > 0 || pathPending || data.pathError ) {
+				setIsAdvancedOpen( true );
+			}
+			window.setTimeout( () => reportInvalidControls( formRef.current ), 0 );
+			return;
+		}
 		onSubmit( {
 			name: data.name.trim(),
 			path: data.path,
@@ -600,24 +627,6 @@ export function CreateSiteForm( {
 			adminEmail: data.adminEmail,
 		} );
 	};
-
-	const handleSubmit = ( event: FormEvent ) => {
-		event.preventDefault();
-		if ( ! canSubmit ) return;
-		if ( data.isPathPending ) {
-			isSubmitQueuedRef.current = true;
-			return;
-		}
-		submitForm();
-	};
-
-	useEffect( () => {
-		if ( data.isPathPending || ! isSubmitQueuedRef.current ) return;
-		isSubmitQueuedRef.current = false;
-		if ( canSubmit ) submitForm();
-	} );
-
-	const advancedErrorCount = countAdvancedErrors( validity, advancedForm );
 	const actions = (
 		<>
 			<Button
@@ -634,7 +643,7 @@ export function CreateSiteForm( {
 				type="submit"
 				variant="solid"
 				tone="brand"
-				disabled={ ! canSubmit }
+				disabled={ isSubmitting || isSubmitDisabled || ( hasAttemptedSubmit && ! canSubmit ) }
 				loading={ isSubmitting }
 				loadingAnnouncement={ loadingAnnouncement ?? __( 'Creating site' ) }
 				data-testid="create-site-submit"
@@ -645,7 +654,7 @@ export function CreateSiteForm( {
 	);
 
 	return (
-		<form ref={ formRef } className={ styles.form } onSubmit={ handleSubmit }>
+		<form ref={ formRef } className={ styles.form } onSubmit={ handleSubmit } noValidate>
 			<div className={ styles.panel }>
 				<DataForm< FormData >
 					data={ data }

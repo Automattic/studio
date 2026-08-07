@@ -13,6 +13,7 @@ import {
 	type AnthropicOptions,
 } from '@earendil-works/pi-ai/api/anthropic-messages';
 import { streamSimple as streamOpenAiResponses } from '@earendil-works/pi-ai/api/openai-responses';
+import { ANTHROPIC_MODELS } from '@earendil-works/pi-ai/providers/anthropic.models';
 import {
 	createAgentSession,
 	createBashTool,
@@ -398,16 +399,29 @@ function buildModel(
 			maxTokens: 32_000,
 		};
 	}
+	// Copy the thinking-related fields from pi's bundled catalog: without
+	// `compat.forceAdaptiveThinking`, pi-ai sends the legacy
+	// `thinking: { type: 'enabled', budget_tokens }` shape, which the Anthropic
+	// API rejects with a 400 for Sonnet 5 / Opus 5 (they require
+	// `thinking: { type: 'adaptive' }` + `output_config.effort`).
+	const catalogModel = (
+		ANTHROPIC_MODELS as Partial< Record< string, Model< 'anthropic-messages' > > >
+	 )[ modelId ];
 	return {
 		...common,
 		api: 'anthropic-messages',
 		provider: creds.useBearerAuth ? STUDIO_WPCOM_ANTHROPIC_PROVIDER : 'anthropic',
 		reasoning: true,
+		// contextWindow/maxTokens intentionally stay below the catalog values.
 		contextWindow: 200_000,
 		// thinkingLevel 'high' reserves ~16384 of this budget for extended thinking
 		// (see adjustMaxTokensForThinking in pi-ai); keep enough headroom for visible
 		// output so single tool calls can emit a full-page HTML payload.
 		maxTokens: 32_000,
+		...( catalogModel?.thinkingLevelMap
+			? { thinkingLevelMap: catalogModel.thinkingLevelMap }
+			: {} ),
+		...( catalogModel?.compat ? { compat: catalogModel.compat } : {} ),
 	};
 }
 
@@ -525,6 +539,7 @@ function createWpcomAnthropicProviderConfig(
 				maxTokens: model.maxTokens,
 				headers: creds.extraHeaders,
 				compat: model.compat,
+				thinkingLevelMap: model.thinkingLevelMap,
 			},
 		],
 	};

@@ -7,6 +7,7 @@
 import { z } from 'zod';
 import { authTokenSchema } from '@studio/common/lib/auth-token-schema';
 import { siteFileAccessSchema } from '@studio/common/lib/site-file-access';
+import { siteOperationSchema } from '@studio/common/lib/site-operation';
 import { siteRuntimeSchema } from '@studio/common/lib/site-runtime';
 import { snapshotSchema } from '@studio/common/types/snapshot';
 
@@ -34,6 +35,9 @@ export const siteDetailsSchema = z.object( {
 	technicalSiteDirectory: z.string().optional(),
 	runtimeBlueprintPath: z.string().optional(),
 	landingPage: z.string().optional(),
+	// In-flight Studio operations holding the site. The UI disables the actions
+	// these block, so it stays correct even when the agent started the work.
+	operations: z.array( siteOperationSchema ).optional(),
 } );
 
 export type SiteDetails = z.infer< typeof siteDetailsSchema >;

@@ -9,6 +9,7 @@ import {
 	useDeleteSite,
 	useExportDatabase,
 	useExportFullSite,
+	useIsSiteBusy,
 	useIsSiteStarting,
 	useIsSiteStopping,
 	useSites,
@@ -53,6 +54,8 @@ vi.mock( '@/data/queries/use-sites', () => ( {
 	useDeleteSite: vi.fn(),
 	useExportDatabase: vi.fn(),
 	useExportFullSite: vi.fn(),
+	useIsSiteBusy: vi.fn(),
+	useSiteOperation: vi.fn(),
 	useIsSiteStarting: vi.fn(),
 	useIsSiteStopping: vi.fn(),
 	useSites: vi.fn(),
@@ -83,6 +86,7 @@ const useCopySiteMock = vi.mocked( useCopySite, { partial: true } );
 const useDeleteSiteMock = vi.mocked( useDeleteSite, { partial: true } );
 const useExportDatabaseMock = vi.mocked( useExportDatabase, { partial: true } );
 const useExportFullSiteMock = vi.mocked( useExportFullSite, { partial: true } );
+const useIsSiteBusyMock = vi.mocked( useIsSiteBusy );
 const useIsSiteStartingMock = vi.mocked( useIsSiteStarting );
 const useIsSiteStoppingMock = vi.mocked( useIsSiteStopping );
 const useSiteAgentActivityMock = vi.mocked( useSiteAgentActivity );
@@ -109,6 +113,7 @@ describe( 'SiteList', () => {
 			reason: null,
 			isReady: true,
 		} );
+		useIsSiteBusyMock.mockReturnValue( false );
 		useIsSiteStartingMock.mockReturnValue( false );
 		useIsSiteStoppingMock.mockReturnValue( false );
 		useSiteAgentActivityMock.mockReturnValue( 'idle' );

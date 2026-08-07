@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import * as Menu from '@/components/menu';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
-import { useIsSiteStarting, useIsSiteStopping } from '@/data/queries/use-sites';
+import { useIsSiteStarting, useIsSiteStopping, useSiteOperation } from '@/data/queries/use-sites';
 import { useSnapshots } from '@/data/queries/use-snapshots';
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { getSiteDisplayUrl } from '@/lib/get-site-url';
@@ -44,7 +44,12 @@ export function SiteDropdown( {
 	// dot — everything else about status lives inside MainView.
 	const isStarting = useIsSiteStarting( site.id );
 	const isStopping = useIsSiteStopping( site.id );
-	const { status, statusLabel } = deriveSiteStatus( site, isStarting, isStopping );
+	const { status, statusLabel } = deriveSiteStatus(
+		site,
+		isStarting,
+		isStopping,
+		useSiteOperation( site )
+	);
 
 	// Only needed here so the disconnect dialog can reference the current live
 	// site. MainView fetches the same data independently for its action row.

@@ -8,6 +8,7 @@ import {
 import { siteDetailsSchema } from '@studio/common/lib/cli-events';
 import { hideDirectoryOnWindows } from '@studio/common/lib/hide-dir-windows';
 import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
+import { siteOperationSchema } from '@studio/common/lib/site-operation';
 import { getCliConfigPath, getConfigDirectory } from '@studio/common/lib/well-known-paths';
 import { snapshotSchema } from '@studio/common/types/snapshot';
 import { __ } from '@wordpress/i18n';
@@ -55,6 +56,10 @@ const siteSchema = siteDetailsSchema
 		// first-full-pull vs. delta. Durable on the site record.
 		importComplete: z.boolean().optional(),
 		status: siteStatusSchema.default( 'ready' ).optional(),
+		// Leases held by in-flight Studio operations. Unlike `status`, these are
+		// transient: a lease whose owning process is gone is reclaimed on the
+		// next acquire. See `cli/lib/site-lock`.
+		operations: z.array( siteOperationSchema ).optional(),
 	} )
 	.loose();
 
@@ -166,18 +171,27 @@ export async function saveCliConfig( config: CliConfig ): Promise< void > {
 	}
 }
 
-const LOCKFILE_PATH = path.join( getConfigDirectory(), CLI_CONFIG_LOCKFILE_NAME );
+// Resolved per call, not at module load: `getConfigDirectory()` reads
+// DEV_CONFIG_DIR, so pinning it at import time would bake in whatever the
+// environment looked like when this module was first pulled in — and would
+// throw outright for any importer that loads before the home path resolves.
+function getLockfilePath(): string {
+	return path.join( getConfigDirectory(), CLI_CONFIG_LOCKFILE_NAME );
+}
 
 export async function lockCliConfig(): Promise< void > {
 	// The lockfile lives inside the config directory. On a first run that directory may not exist
 	// yet (e.g. telemetry bumps fire before `setupServerFiles()` creates it), and `lockfile.lock`
 	// would reject with ENOENT instead of waiting. Ensure the directory exists before locking.
 	await ensureConfigDirectory();
-	await lockFileAsync( LOCKFILE_PATH, { wait: LOCKFILE_WAIT_TIME, stale: LOCKFILE_STALE_TIME } );
+	await lockFileAsync( getLockfilePath(), {
+		wait: LOCKFILE_WAIT_TIME,
+		stale: LOCKFILE_STALE_TIME,
+	} );
 }
 
 export async function unlockCliConfig(): Promise< void > {
-	await unlockFileAsync( LOCKFILE_PATH );
+	await unlockFileAsync( getLockfilePath() );
 }
 
 export async function updateCliConfigWithPartial(

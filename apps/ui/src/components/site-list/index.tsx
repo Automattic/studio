@@ -1,4 +1,5 @@
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
+import { getSiteOperationLabel } from '@studio/common/lib/site-operation';
 import { sortSites } from '@studio/common/lib/sort-sites';
 import { supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { terminalConfig } from '@studio/common/lib/user-settings/terminal';
@@ -32,8 +33,10 @@ import {
 	useCopySite,
 	useExportDatabase,
 	useExportFullSite,
+	useIsSiteBusy,
 	useIsSiteStarting,
 	useIsSiteStopping,
+	useSiteOperation,
 	useSites,
 	useStartSite,
 	useStopSite,
@@ -236,16 +239,20 @@ function SiteStatusButton( {
 } ) {
 	const startSite = useStartSite();
 	const stopSite = useStopSite();
-	const { status } = deriveSiteStatus( site, isStarting, isStopping );
-	const busy = isStarting || isStopping;
-	const statusName =
-		status === 'running'
-			? __( 'Running' )
-			: status === 'transitioning'
-			? isStopping
-				? __( 'Stopping' )
-				: __( 'Starting' )
-			: __( 'Stopped' );
+	const busy = useIsSiteBusy( site );
+	const operation = useSiteOperation( site );
+	const { status } = deriveSiteStatus( site, isStarting, isStopping, operation );
+	// The CLI's lease wins: it names work this window didn't start (an agent
+	// import, another Studio window), which the local start/stop state can't see.
+	const statusName = operation
+		? getSiteOperationLabel( operation )
+		: status === 'running'
+		? __( 'Running' )
+		: status === 'transitioning'
+		? isStopping
+			? __( 'Stopping' )
+			: __( 'Starting' )
+		: __( 'Stopped' );
 	const xdebug = Boolean( site.enableXdebug );
 	const tooltipLabel = xdebug
 		? sprintf( __( 'Site status: %s. Xdebug enabled' ), statusName )
@@ -330,13 +337,11 @@ function SiteActionsMenu( {
 	site,
 	sessionIds,
 	isStarting,
-	isStopping,
 	trigger,
 }: {
 	site: SiteDetails;
 	sessionIds: string[];
 	isStarting: boolean;
-	isStopping: boolean;
 	trigger: ReactElement;
 } ) {
 	const navigate = useNavigate();
@@ -348,7 +353,7 @@ function SiteActionsMenu( {
 	const copySite = useCopySite();
 	const exportFullSite = useExportFullSite();
 	const exportDatabase = useExportDatabase();
-	const busy = isStarting || isStopping;
+	const busy = useIsSiteBusy( site );
 	const isExporting = exportFullSite.isPending || exportDatabase.isPending;
 	const [ deleteOpen, setDeleteOpen ] = useState( false );
 
@@ -433,7 +438,10 @@ function SiteActionsMenu( {
 					>
 						{ __( 'Site settings' ) }
 					</Menu.Item>
-					<Menu.Item disabled={ copySite.isPending } onClick={ () => copySite.mutate( site.id ) }>
+					<Menu.Item
+						disabled={ busy || copySite.isPending }
+						onClick={ () => copySite.mutate( site.id ) }
+					>
 						{ copySite.isPending ? __( 'Duplicating…' ) : __( 'Duplicate site' ) }
 					</Menu.Item>
 					<Menu.Separator />
@@ -463,10 +471,16 @@ function SiteActionsMenu( {
 						{ __( 'Open WP admin' ) }
 					</Menu.Item>
 					<Menu.Separator />
-					<Menu.Item disabled={ isExporting } onClick={ () => exportFullSite.mutate( site.id ) }>
+					<Menu.Item
+						disabled={ busy || isExporting }
+						onClick={ () => exportFullSite.mutate( site.id ) }
+					>
 						{ exportFullSite.isPending ? __( 'Exporting…' ) : __( 'Export entire site' ) }
 					</Menu.Item>
-					<Menu.Item disabled={ isExporting } onClick={ () => exportDatabase.mutate( site.id ) }>
+					<Menu.Item
+						disabled={ busy || isExporting }
+						onClick={ () => exportDatabase.mutate( site.id ) }
+					>
 						{ exportDatabase.isPending ? __( 'Exporting…' ) : __( 'Export database' ) }
 					</Menu.Item>
 					<Menu.Separator />
@@ -519,7 +533,7 @@ function SiteSection( {
 	}, [ isActive ] );
 	const isStarting = useIsSiteStarting( site.id );
 	const isStopping = useIsSiteStopping( site.id );
-	const { status } = deriveSiteStatus( site, isStarting, isStopping );
+	const { status } = deriveSiteStatus( site, isStarting, isStopping, useSiteOperation( site ) );
 	const agentActivity = useSiteAgentActivity( row.sessionIds );
 	const syncActivity = useSiteSyncActivity( site.id );
 	const isLiveSyncPending =
@@ -568,7 +582,6 @@ function SiteSection( {
 				site={ site }
 				sessionIds={ row.sessionIds }
 				isStarting={ isStarting }
-				isStopping={ isStopping }
 				trigger={
 					<header className={ styles.siteHeader } onClick={ handleOpenSite }>
 						<div className={ styles.siteText }>

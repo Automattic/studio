@@ -10,6 +10,7 @@ import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { ImportExportEventEmitter } from 'cli/lib/import-export/events';
 import { getExporter } from 'cli/lib/import-export/export/export-manager';
 import { ExportOptions } from 'cli/lib/import-export/export/types';
+import { withSiteLockByFolder } from 'cli/lib/site-lock';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { untildify } from 'cli/lib/utils';
 import { Logger, LoggerError } from 'cli/logger';
@@ -127,6 +128,26 @@ export async function runCommand(
 	splitDbDumpByTable = false,
 	includeOnlyPaths?: string[],
 	applyDeployIgnore = false
+): Promise< void > {
+	return withSiteLockByFolder( siteFolder, 'export', () =>
+		exportSite(
+			siteFolder,
+			exportPath,
+			mode,
+			splitDbDumpByTable,
+			includeOnlyPaths,
+			applyDeployIgnore
+		)
+	);
+}
+
+async function exportSite(
+	siteFolder: string,
+	exportPath: string,
+	mode: 'full' | 'content' | 'db',
+	splitDbDumpByTable: boolean,
+	includeOnlyPaths: string[] | undefined,
+	applyDeployIgnore: boolean
 ): Promise< void > {
 	try {
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );

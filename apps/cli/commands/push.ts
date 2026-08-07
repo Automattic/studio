@@ -21,6 +21,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { getExporter } from 'cli/lib/import-export/export/export-manager';
 import { ExportOptions } from 'cli/lib/import-export/export/types';
+import { withSiteLockByFolder } from 'cli/lib/site-lock';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import {
 	fetchSyncableSites,
@@ -37,6 +38,16 @@ import { handleExportEvents } from './export';
 const logger = new Logger< LoggerAction >();
 
 export async function runCommand(
+	siteFolder: string,
+	syncOptions?: SyncOption[],
+	remoteSiteIdentifier?: string
+): Promise< void > {
+	return withSiteLockByFolder( siteFolder, 'push', () =>
+		pushSite( siteFolder, syncOptions, remoteSiteIdentifier )
+	);
+}
+
+async function pushSite(
 	siteFolder: string,
 	syncOptions?: SyncOption[],
 	remoteSiteIdentifier?: string

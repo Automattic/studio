@@ -122,6 +122,26 @@ describe( 'CLI: studio site list', () => {
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
+		// Clients disable a site's actions on what this reports, so a lease left
+		// behind by a crashed process must not survive into the payload —
+		// otherwise the site looks busy forever and nothing can clear it.
+		it( 'should omit operation leases whose owning process is gone', async () => {
+			vi.mocked( readCliConfig ).mockResolvedValue( {
+				...testCliConfig,
+				sites: [
+					{
+						...testCliConfig.sites[ 0 ],
+						operations: [ { id: 'dead', pid: 0x7ffffffe, kind: 'import' as const } ],
+					},
+				],
+			} );
+
+			await runCommand( 'json' );
+
+			const [ , json ] = mockReportKeyValuePair.mock.calls[ 0 ];
+			expect( JSON.parse( json )[ 0 ] ).not.toHaveProperty( 'operations' );
+		} );
+
 		it( 'should handle no sites found', async () => {
 			vi.mocked( readCliConfig ).mockResolvedValue( emptyCliConfig );
 

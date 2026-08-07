@@ -19,6 +19,7 @@ import {
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import { removeDomainFromHosts } from 'cli/lib/hosts-file';
+import { withSiteLockByFolder } from 'cli/lib/site-lock';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { getSnapshotsFromConfig, deleteSnapshotFromConfig } from 'cli/lib/snapshots';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
@@ -69,6 +70,10 @@ export async function runCommand(
 	siteFolder: string,
 	deleteFiles: boolean = true
 ): Promise< void > {
+	return withSiteLockByFolder( siteFolder, 'delete', () => deleteSite( siteFolder, deleteFiles ) );
+}
+
+async function deleteSite( siteFolder: string, deleteFiles: boolean ): Promise< void > {
 	try {
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
 		await connectToDaemon();

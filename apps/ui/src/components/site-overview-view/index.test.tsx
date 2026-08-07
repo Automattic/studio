@@ -9,6 +9,7 @@ import {
 	useCopySite,
 	useExportDatabase,
 	useExportFullSite,
+	useIsSiteBusy,
 	useIsSiteStarting,
 	useIsSiteStopping,
 	useSites,
@@ -80,6 +81,7 @@ vi.mock( '@/data/queries/use-sites', () => ( {
 	useCopySite: vi.fn(),
 	useExportDatabase: vi.fn(),
 	useExportFullSite: vi.fn(),
+	useIsSiteBusy: vi.fn(),
 	useIsSiteStarting: vi.fn(),
 	useIsSiteStopping: vi.fn(),
 	useSites: vi.fn(),
@@ -112,6 +114,7 @@ const useExistingCustomDomainsMock = vi.mocked( useExistingCustomDomains, { part
 const useCopySiteMock = vi.mocked( useCopySite, { partial: true } );
 const useExportDatabaseMock = vi.mocked( useExportDatabase, { partial: true } );
 const useExportFullSiteMock = vi.mocked( useExportFullSite, { partial: true } );
+const useIsSiteBusyMock = vi.mocked( useIsSiteBusy );
 const useIsSiteStartingMock = vi.mocked( useIsSiteStarting );
 const useIsSiteStoppingMock = vi.mocked( useIsSiteStopping );
 const useSitesMock = vi.mocked( useSites, { partial: true } );
@@ -162,6 +165,7 @@ describe( 'SiteOverviewView', () => {
 			data: [ createSite( { running: true } ) ],
 			isLoading: false,
 		} );
+		useIsSiteBusyMock.mockReturnValue( false );
 		useIsSiteStartingMock.mockReturnValue( false );
 		useIsSiteStoppingMock.mockReturnValue( false );
 		useStartSiteMock.mockReturnValue( {

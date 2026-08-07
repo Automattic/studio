@@ -1,3 +1,4 @@
+import { getSiteOperationLabel, type SiteOperationKind } from '@studio/common/lib/site-operation';
 import { isSnapshotExpired } from '@studio/common/lib/snapshots';
 import { useIsMutating } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
@@ -13,8 +14,10 @@ import { useLogin } from '@/data/queries/use-auth-user';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import { usePublishPreviewSite } from '@/data/queries/use-preview-site';
 import {
+	useIsSiteBusy,
 	useIsSiteStarting,
 	useIsSiteStopping,
+	useSiteOperation,
 	useStartSite,
 	useStopSite,
 } from '@/data/queries/use-sites';
@@ -123,14 +126,19 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 
 	const isStarting = useIsSiteStarting( site.id );
 	const isStopping = useIsSiteStopping( site.id );
-	const isLocalTransitioning = isStarting || isStopping;
+	const isLocalTransitioning = useIsSiteBusy( site );
+	const operation = useSiteOperation( site );
 	const { push: isPushPending, pull: isPullPending } = useIsSiteSyncing( site.id );
 	const isPreviewPending = publishPreviewSite.isPending;
 	// Preview / push / pull all mutate the same local site; running them
 	// concurrently would wedge the site runtime.
 	const isSyncing = isPreviewPending || isPushPending || isPullPending;
+	// …and none of them can run while the CLI holds the site either. Gate the
+	// controls on both, so a lease the agent took disables them visibly rather
+	// than leaving buttons that swallow the click.
+	const isSiteBusy = isSyncing || isLocalTransitioning;
 
-	const { localSublabel } = deriveSiteStatus( site, isStarting, isStopping );
+	const { localSublabel } = deriveSiteStatus( site, isStarting, isStopping, operation );
 	const localSiteUrl = getSiteUrl( site );
 	const canOpenLocalSite = site.running && ! isStopping;
 
@@ -141,6 +149,14 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 	const getSyncActionLabel = ( idle: string, pending: string, isPending: boolean ): string => {
 		if ( isPending ) {
 			return pending;
+		}
+		if ( operation ) {
+			return sprintf(
+				/* translators: 1: a sync action, e.g. "Pull from live". 2: an operation in progress, e.g. "Exporting". */
+				__( '%1$s (%2$s)' ),
+				idle,
+				getSiteOperationLabel( operation )
+			);
 		}
 		if ( isSyncing ) {
 			// translators: %s: a sync action, e.g. "Pull from live".
@@ -188,12 +204,12 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 	};
 
 	const handlePullClick = () => {
-		if ( ! liveSite || isSyncing ) return;
+		if ( ! liveSite || isSyncing || isLocalTransitioning ) return;
 		pullSiteFromLive.mutate( { siteId: site.id, remoteSiteId: liveSite.id } );
 	};
 
 	const handlePushClick = () => {
-		if ( ! liveSite || isSyncing ) return;
+		if ( ! liveSite || isSyncing || isLocalTransitioning ) return;
 		pushSiteToLive.mutate(
 			{ siteId: site.id, remoteSiteId: liveSite.id },
 			{ onSuccess: () => openExternal( ensureProtocol( liveSite.url ) ) }
@@ -261,6 +277,7 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 						running={ site.running }
 						starting={ isStarting }
 						stopping={ isStopping }
+						operation={ operation }
 						disabled={ isSyncing }
 						onStart={ handleStartLocalClick }
 						onStop={ handleStopLocalClick }
@@ -305,7 +322,7 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 								className={ styles.rowActionButton }
 								loading={ isPreviewPending }
 								loadingAnnouncement={ __( 'Updating preview' ) }
-								disabled={ isSyncing || ! agenticEnabled }
+								disabled={ isSiteBusy || ! agenticEnabled }
 								focusableWhenDisabled
 								onClick={ handlePreviewClick }
 							/>
@@ -321,7 +338,7 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 					tone="neutral"
 					loading={ isPreviewPending }
 					loadingAnnouncement={ __( 'Creating preview' ) }
-					disabled={ isSyncing || ! agenticEnabled }
+					disabled={ isSiteBusy || ! agenticEnabled }
 					onClick={ handlePreviewClick }
 				/>
 			) }
@@ -349,7 +366,7 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 								className={ styles.rowActionButton }
 								loading={ isPullPending }
 								loadingAnnouncement={ __( 'Pulling from live' ) }
-								disabled={ isSyncing || ! agenticEnabled }
+								disabled={ isSiteBusy || ! agenticEnabled }
 								focusableWhenDisabled
 								onClick={ handlePullClick }
 							/>
@@ -366,21 +383,21 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 								className={ styles.rowActionButton }
 								loading={ isPushPending }
 								loadingAnnouncement={ __( 'Pushing to live' ) }
-								disabled={ isSyncing || ! agenticEnabled }
+								disabled={ isSiteBusy || ! agenticEnabled }
 								focusableWhenDisabled
 								onClick={ handlePushClick }
 							/>
 							<Menu.SubmenuRoot>
 								<Menu.SubmenuTrigger
 									className={ styles.moreMenuTrigger }
-									disabled={ isSyncing || ! agenticEnabled }
+									disabled={ isSiteBusy || ! agenticEnabled }
 									aria-label={ __( 'More live site actions' ) }
 								>
 									<Icon icon={ moreHorizontal } size={ 16 } aria-hidden="true" />
 								</Menu.SubmenuTrigger>
 								<Menu.Popup side="right" align="start" className={ styles.moreMenuPopup }>
 									<Menu.Item
-										disabled={ isSyncing || ! agenticEnabled }
+										disabled={ isSiteBusy || ! agenticEnabled }
 										onClick={ onDisconnectClick }
 									>
 										{ __( 'Disconnect' ) }
@@ -399,7 +416,7 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 					tone="brand"
 					loading={ ! agenticEnabled && login.isPending }
 					loadingAnnouncement={ __( 'Opening login page' ) }
-					disabled={ isSyncing || isOffline }
+					disabled={ isSiteBusy || isOffline }
 					onClick={ agenticEnabled ? onSetupClick : () => login.mutate() }
 				/>
 			) }
@@ -472,6 +489,7 @@ function LocalServerControl( {
 	running,
 	starting,
 	stopping,
+	operation,
 	disabled,
 	onStart,
 	onStop,
@@ -479,11 +497,14 @@ function LocalServerControl( {
 	running: boolean;
 	starting: boolean;
 	stopping: boolean;
+	// A CLI lease (an agent export, another window's import). Blocks the toggle
+	// and names itself in the tooltip, so a dead control explains why.
+	operation: SiteOperationKind | null;
 	disabled: boolean;
 	onStart: () => void;
 	onStop: () => void;
 } ) {
-	const pending = starting || stopping;
+	const pending = starting || stopping || operation !== null;
 	const targetRunning = starting ? true : stopping ? false : running;
 	// aria-disabled rather than disabled: a natively disabled button suppresses
 	// the pointer events the tooltip listens for, hiding the status exactly
@@ -491,7 +512,9 @@ function LocalServerControl( {
 	const inert = disabled || pending;
 	const statusLabel = sprintf(
 		__( 'Site status: %s' ),
-		getLocalServerStatusName( { running, starting, stopping } )
+		operation
+			? getSiteOperationLabel( operation )
+			: getLocalServerStatusName( { running, starting, stopping } )
 	);
 	const actionLabel = running ? __( 'Stop site' ) : __( 'Start site' );
 

@@ -11,6 +11,7 @@ import type {
 	TracksProps,
 	TracksSiteCreateFlowType,
 } from '@studio/common/lib/record-tracks-event';
+import type { SiteOperation } from '@studio/common/lib/site-operation';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
@@ -92,6 +93,9 @@ export interface SiteDetails {
 		supportsMenus?: boolean;
 	};
 	siteIcon?: string | null;
+	// Studio operations currently holding the site, from the CLI. Present
+	// regardless of who started them — the user, the desktop app, or the agent.
+	operations?: SiteOperation[];
 }
 
 export interface LocalMediaFile {

@@ -54,6 +54,14 @@ vi.mock( 'cli/lib/cli-config/sites', async () => {
 vi.mock( 'cli/lib/certificate-manager' );
 vi.mock( 'cli/lib/hosts-file' );
 vi.mock( 'cli/lib/daemon-client' );
+// Pass through the lease: these suites cover the command, not the lock
+// (lib/tests/site-lock.test.ts does that). Spreading the real module keeps
+// any other export real rather than silently stubbing it.
+vi.mock( 'cli/lib/site-lock', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('cli/lib/site-lock') >() ),
+	withSiteLock: ( _siteId: string, _kind: string, fn: () => unknown ) => fn(),
+	withSiteLockByFolder: ( _folder: string, _kind: string, fn: () => unknown ) => fn(),
+} ) );
 vi.mock( 'cli/lib/site-utils' );
 vi.mock( 'cli/lib/snapshots' );
 vi.mock( 'cli/lib/wordpress-server-manager' );

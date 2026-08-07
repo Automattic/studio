@@ -1,6 +1,11 @@
 import { __ } from '@wordpress/i18n';
 import { copy, download, grid, trash } from '@wordpress/icons';
-import { useCopySite, useExportDatabase, useExportFullSite } from '@/data/queries/use-sites';
+import {
+	useCopySite,
+	useExportDatabase,
+	useExportFullSite,
+	useIsSiteBusy,
+} from '@/data/queries/use-sites';
 import type { SiteDetails } from '@/data/core';
 import type { ReactElement, SVGProps } from 'react';
 
@@ -44,6 +49,12 @@ export function useSiteManagementActions(
 	// running disables both.
 	const isExporting = exportFullSite.isPending || exportDatabase.isPending;
 
+	// Every one of these reads or rewrites the site tree, so none can run while
+	// the CLI holds the site — including for work started by the agent or
+	// another window. The CLI would refuse them anyway; disabling here means the
+	// user sees that instead of clicking into a dead control.
+	const isBusy = useIsSiteBusy( site );
+
 	return [
 		{
 			id: 'duplicate',
@@ -51,7 +62,7 @@ export function useSiteManagementActions(
 			label: __( 'Duplicate' ),
 			loading: copySite.isPending,
 			loadingAnnouncement: __( 'Duplicating site' ),
-			disabled: copySite.isPending,
+			disabled: isBusy || copySite.isPending,
 			destructive: false,
 			run: () => copySite.mutate( site.id ),
 		},
@@ -61,7 +72,7 @@ export function useSiteManagementActions(
 			label: __( 'Export' ),
 			loading: exportFullSite.isPending,
 			loadingAnnouncement: __( 'Exporting site' ),
-			disabled: isExporting,
+			disabled: isBusy || isExporting,
 			destructive: false,
 			run: () => exportFullSite.mutate( site.id ),
 		},
@@ -71,7 +82,7 @@ export function useSiteManagementActions(
 			label: __( 'Export DB' ),
 			loading: exportDatabase.isPending,
 			loadingAnnouncement: __( 'Exporting database' ),
-			disabled: isExporting,
+			disabled: isBusy || isExporting,
 			destructive: false,
 			run: () => exportDatabase.mutate( site.id ),
 		},
@@ -81,7 +92,7 @@ export function useSiteManagementActions(
 			label: __( 'Delete' ),
 			loading: false,
 			loadingAnnouncement: '',
-			disabled: false,
+			disabled: isBusy,
 			destructive: true,
 			run: onDelete,
 		},

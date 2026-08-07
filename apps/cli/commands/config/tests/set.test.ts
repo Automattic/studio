@@ -51,6 +51,14 @@ vi.mock( 'cli/lib/cli-config/sites', async () => {
 vi.mock( 'cli/lib/certificate-manager' );
 vi.mock( 'cli/lib/hosts-file' );
 vi.mock( 'cli/lib/daemon-client' );
+// Pass through the lease: this suite covers the command, not the lock
+// (lib/tests/site-lock.test.ts does that). Spreading the real module keeps
+// any other export real rather than silently stubbing it.
+vi.mock( 'cli/lib/site-lock', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('cli/lib/site-lock') >() ),
+	withSiteLock: vi.fn( ( _siteId: string, _kind: string, fn: () => unknown ) => fn() ),
+	withSiteLockByFolder: vi.fn( ( _folder: string, _kind: string, fn: () => unknown ) => fn() ),
+} ) );
 vi.mock( 'cli/lib/run-wp-cli-command' );
 vi.mock( 'cli/lib/site-utils' );
 vi.mock( 'cli/lib/wordpress-server-manager' );
@@ -158,6 +166,16 @@ describe( 'CLI: studio config set', () => {
 			await expect( runCommand( testSitePath, { name: 'Test Site' } ) ).rejects.toThrow(
 				'No changes to apply. The site already has the specified settings.'
 			);
+		} );
+
+		// Validation runs before the operation lease is claimed, so a rejected
+		// edit neither writes the config nor briefly blocks the site.
+		it( 'should reject an invalid edit without claiming the site', async () => {
+			const { withSiteLockByFolder } = await import( 'cli/lib/site-lock' );
+
+			await expect( runCommand( testSitePath, { php: '8.1' } ) ).rejects.toThrow();
+
+			expect( withSiteLockByFolder ).not.toHaveBeenCalled();
 		} );
 
 		it( 'should throw when PHP version is not supported', async () => {

@@ -22,7 +22,7 @@ import { ProgressiveBlur } from '@/components/progressive-blur';
 import { SiteDropdown } from '@/components/site-dropdown';
 import { isSiteSettingsTab, SiteSettingsForm } from '@/components/site-settings-view';
 import * as Tabs from '@/components/tabs';
-import { useIsSiteStarting, useIsSiteStopping, useSites } from '@/data/queries/use-sites';
+import { useIsSiteBusy, useSites } from '@/data/queries/use-sites';
 import { useOpenSiteUrl } from '@/hooks/use-open-site-url';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useSiteManagementActions } from '@/hooks/use-site-management-actions';
@@ -158,14 +158,12 @@ function SiteOverviewBody( {
 	onTabChange: ( tab: SiteSettingsTabId ) => void;
 } ) {
 	const navigate = useNavigate();
-	const isStarting = useIsSiteStarting( site.id );
-	const isStopping = useIsSiteStopping( site.id );
 	const [ deleteOpen, setDeleteOpen ] = useState( false );
 	const managementActions = useSiteManagementActions( site, {
 		onDelete: () => setDeleteOpen( true ),
 	} );
 
-	const busy = isStarting || isStopping;
+	const busy = useIsSiteBusy( site );
 	const themeDetails = site.themeDetails;
 	const isBlockTheme = themeDetails?.isBlockTheme === true;
 

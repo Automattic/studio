@@ -1,4 +1,5 @@
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
+import { conflictsWith, getBlockingOperation } from '@studio/common/lib/site-operation';
 import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
 import { useEffect, useMemo, useRef } from 'react';
@@ -7,6 +8,7 @@ import { useConnector } from '@/data/core';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { WP_VERSION_QUERY_KEY } from '@/data/queries/use-wordpress-versions';
 import type { CreateSiteParams, SiteDetails } from '@/data/core';
+import type { SiteOperationKind } from '@studio/common/lib/site-operation';
 import type { QueryClient } from '@tanstack/react-query';
 
 export const SITES_QUERY_KEY = [ 'sites' ] as const;
@@ -20,6 +22,7 @@ const KEEP_INFLIGHT_FETCH = { cancelRefetch: false } as const;
 
 const START_SITE_MUTATION_KEY = [ 'startSite' ] as const;
 const STOP_SITE_MUTATION_KEY = [ 'stopSite' ] as const;
+const COPY_SITE_MUTATION_KEY = [ 'copySite' ] as const;
 
 export function useSites() {
 	const connector = useConnector();
@@ -70,6 +73,9 @@ export function useCopySite() {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	return useMutation( {
+		// Keyed so `useSiteOperation` can spot an in-flight copy. Duplication is
+		// the one operation with no CLI lease behind it — see `SITE_OPERATIONS`.
+		mutationKey: COPY_SITE_MUTATION_KEY,
 		mutationFn: ( sourceSiteId: string ) => connector.copySite( sourceSiteId ),
 		onSuccess: () => queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } ),
 		onError: () => toast.error( __( 'Failed to copy site' ) ),
@@ -100,10 +106,11 @@ export function useStartSite() {
 		// Returns false when the start was skipped, so the caller's toast (and
 		// anything else keyed off success) doesn't claim a site came up.
 		mutationFn: async ( id: string ): Promise< boolean > => {
-			// Racing an in-flight stop leaves the site down — the stop lands
-			// last — while the UI believes it started. Every "not running, so
-			// start it" caller then tries again, which loops.
-			if ( isSiteMutating( queryClient, STOP_SITE_MUTATION_KEY, id ) ) {
+			// Don't call the CLI when it would only refuse. Buttons are already
+			// disabled via `useIsSiteBusy`, but auto-start and "open a URL in the
+			// preview" fire programmatically with no control to disable, and a
+			// start racing an in-flight stop used to loop forever.
+			if ( isStartBlocked( queryClient, id ) ) {
 				return false;
 			}
 			await connector.startSite( id );
@@ -237,12 +244,51 @@ function isSiteMutating(
 	);
 }
 
+// Would the CLI refuse this start? Checks its lease on the cached site record
+// (which covers work the agent or another window started) plus this client's
+// own in-flight stop, which lands before the CLI has written anything.
+function isStartBlocked( queryClient: QueryClient, siteId: string ): boolean {
+	if ( isSiteMutating( queryClient, STOP_SITE_MUTATION_KEY, siteId ) ) {
+		return true;
+	}
+	const sites = queryClient.getQueryData< SiteDetails[] >( SITES_QUERY_KEY );
+	const operations = sites?.find( ( site ) => site.id === siteId )?.operations;
+	return Boolean( operations?.some( ( operation ) => conflictsWith( operation.kind, 'start' ) ) );
+}
+
 export function useIsSiteStarting( siteId: string | undefined ): boolean {
 	return useIsSiteMutating( siteId, START_SITE_MUTATION_KEY );
 }
 
 export function useIsSiteStopping( siteId: string | undefined ): boolean {
 	return useIsSiteMutating( siteId, STOP_SITE_MUTATION_KEY );
+}
+
+/**
+ * The operation currently holding the site, or null. Mostly the CLI's lease on
+ * the site record, so it covers work the agent or another Studio window
+ * started — not just this client's own mutations. Exclusive operations win,
+ * since they're the ones that block everything.
+ *
+ * Duplication is the exception: no CLI command performs it, so it's read from
+ * the in-flight mutation. That only sees this window, which is enough because
+ * a duplicate can't originate anywhere else.
+ */
+export function useSiteOperation( site: SiteDetails | undefined ): SiteOperationKind | null {
+	const isDuplicating = useIsSiteMutating( site?.id, COPY_SITE_MUTATION_KEY );
+	return getBlockingOperation( site?.operations ) ?? ( isDuplicating ? 'duplicate' : null );
+}
+
+/**
+ * Whether the site is mid-transition and its actions should be disabled. Folds
+ * this client's in-flight start/stop — which lands before the CLI writes its
+ * lease — into the CLI's authoritative view.
+ */
+export function useIsSiteBusy( site: SiteDetails | undefined ): boolean {
+	const isStarting = useIsSiteStarting( site?.id );
+	const isStopping = useIsSiteStopping( site?.id );
+	const operation = useSiteOperation( site );
+	return isStarting || isStopping || operation !== null;
 }
 
 /**

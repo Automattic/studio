@@ -5,6 +5,7 @@ import CliTable3 from 'cli-table3';
 import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { getLiveSiteOperations } from 'cli/lib/site-lock';
 import { isSiteRunning } from 'cli/lib/site-utils';
 import { getColumnWidths, getPrettyPath } from 'cli/lib/utils';
 import { Logger, LoggerError } from 'cli/logger';
@@ -42,8 +43,15 @@ async function getSiteListData( sites: SiteData[] ): Promise< {
 			url,
 		} );
 
+		// Must override what `...site` carries, not just add to it: the stored
+		// array can hold leases from crashed processes, and reporting those
+		// would leave clients disabling the site forever. `undefined` drops the
+		// key on serialization, so an idle site reports no `operations` at all.
+		const liveOperations = getLiveSiteOperations( site );
+
 		jsonEntries.push( {
 			...site,
+			operations: liveOperations.length > 0 ? liveOperations : undefined,
 			url,
 			running,
 		} );

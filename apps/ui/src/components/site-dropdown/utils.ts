@@ -1,4 +1,5 @@
-import { __ } from '@wordpress/i18n';
+import { getSiteOperationLabel, type SiteOperationKind } from '@studio/common/lib/site-operation';
+import { __, sprintf } from '@wordpress/i18n';
 import { getSiteDisplayUrl } from '@/lib/get-site-url';
 import type { SiteStatus } from './dropdown-trigger';
 import type { SiteDetails, Snapshot, SyncSite } from '@/data/core';
@@ -52,26 +53,34 @@ export function getSnapshotHostname( snapshot: Snapshot ): string {
 export function deriveSiteStatus(
 	site: SiteDetails,
 	isStarting: boolean,
-	isStopping: boolean
+	isStopping: boolean,
+	// From `useSiteOperation` — covers work this window didn't start (an agent
+	// export, another Studio window) plus an in-flight duplicate. Passed in
+	// rather than derived here for the same reason as the flags above: it's
+	// react-query state, and this stays a pure function.
+	operation: SiteOperationKind | null = null
 ): { status: SiteStatus; statusLabel: string; localSublabel: string } {
 	const status: SiteStatus =
-		isStarting || isStopping ? 'transitioning' : site.running ? 'running' : 'stopped';
+		operation || isStarting || isStopping ? 'transitioning' : site.running ? 'running' : 'stopped';
 
-	const statusLabel =
-		status === 'running'
-			? __( 'Site is running' )
-			: status === 'transitioning'
-			? isStopping
-				? __( 'Site is stopping' )
-				: __( 'Site is starting' )
-			: __( 'Site is stopped' );
+	const statusLabel = operation
+		? getSiteOperationLabel( operation )
+		: status === 'running'
+		? __( 'Site is running' )
+		: status === 'transitioning'
+		? isStopping
+			? __( 'Site is stopping' )
+			: __( 'Site is starting' )
+		: __( 'Site is stopped' );
 
-	const localSublabel =
-		status === 'transitioning'
-			? isStopping
-				? __( 'Stopping…' )
-				: __( 'Starting…' )
-			: getSiteDisplayUrl( site );
+	const localSublabel = operation
+		? // translators: %s: an operation in progress, e.g. "Exporting".
+		  sprintf( __( '%s…' ), getSiteOperationLabel( operation ) )
+		: status === 'transitioning'
+		? isStopping
+			? __( 'Stopping…' )
+			: __( 'Starting…' )
+		: getSiteDisplayUrl( site );
 
 	return { status, statusLabel, localSublabel };
 }

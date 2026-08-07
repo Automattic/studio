@@ -159,6 +159,7 @@ function toSiteDetails( site: SiteListItem ) {
 		enableXdebug: site.enableXdebug,
 		enableDebugLog: site.enableDebugLog,
 		enableDebugDisplay: site.enableDebugDisplay,
+		operations: site.operations,
 		siteIcon: null,
 	};
 }

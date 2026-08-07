@@ -1,6 +1,4 @@
-import os from 'os';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
-import { SITE_OPERATION_MAX_AGE_MS } from '@studio/common/lib/site-operation';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
 	lockCliConfig,
@@ -46,9 +44,6 @@ function storedOperations() {
 // crashed while holding a lease.
 const DEAD_PID = 0x7ffffffe;
 
-// Pinned so two fixtures in the same assertion can't disagree by a millisecond.
-const FIXED_NOW = 1_700_000_000_000;
-
 beforeEach( () => {
 	vi.clearAllMocks();
 	mockConfig = { version: 1, sites: [ structuredClone( site ) ], snapshots: [] };
@@ -63,52 +58,18 @@ beforeEach( () => {
 describe( 'getLiveSiteOperations', () => {
 	it( 'drops leases whose owning process has died', () => {
 		expect(
-			getLiveSiteOperations(
-				{
-					...site,
-					operations: [
-						{ id: 'dead', pid: DEAD_PID, kind: 'import', startedAt: FIXED_NOW },
-						{ id: 'mine', pid: process.pid, kind: 'export', startedAt: FIXED_NOW },
-					],
-				},
-				FIXED_NOW
-			)
-		).toEqual( [ { id: 'mine', pid: process.pid, kind: 'export', startedAt: FIXED_NOW } ] );
+			getLiveSiteOperations( {
+				...site,
+				operations: [
+					{ id: 'dead', pid: DEAD_PID, kind: 'import' },
+					{ id: 'mine', pid: process.pid, kind: 'export' },
+				],
+			} )
+		).toEqual( [ { id: 'mine', pid: process.pid, kind: 'export' } ] );
 	} );
 
 	it( 'returns an empty list for a site with no leases', () => {
 		expect( getLiveSiteOperations( site ) ).toEqual( [] );
-	} );
-
-	// The common way a PID gets reused: reboot. The lease survives in cli.json,
-	// the process it named does not, and the PID may now belong to anything.
-	it( 'drops a lease written before the current boot', () => {
-		const preReboot = {
-			...site,
-			operations: [
-				{
-					id: 'pre-reboot',
-					pid: process.pid,
-					kind: 'export' as const,
-					// Comfortably before this machine booted.
-					startedAt: Date.now() - ( os.uptime() * 1000 + 60_000 ),
-				},
-			],
-		};
-
-		expect( getLiveSiteOperations( preReboot ) ).toEqual( [] );
-	} );
-
-	// PID liveness alone can't tell a reclaimed PID from the original owner, so
-	// without an age ceiling a reused PID would block the site forever.
-	it( 'drops a lease older than the ceiling even though its PID is alive', () => {
-		const stale = {
-			...site,
-			operations: [ { id: 'ancient', pid: process.pid, kind: 'import' as const, startedAt: 0 } ],
-		};
-
-		expect( getLiveSiteOperations( stale, SITE_OPERATION_MAX_AGE_MS + 1 ) ).toEqual( [] );
-		expect( getLiveSiteOperations( stale, SITE_OPERATION_MAX_AGE_MS - 1 ) ).toHaveLength( 1 );
 	} );
 } );
 
@@ -120,7 +81,6 @@ describe( 'withSiteLock', () => {
 					id: expect.any( String ),
 					pid: process.pid,
 					kind: 'import',
-					startedAt: expect.any( Number ),
 				},
 			] );
 		} );
@@ -172,16 +132,13 @@ describe( 'withSiteLock', () => {
 					id: expect.any( String ),
 					pid: process.pid,
 					kind: 'export',
-					startedAt: expect.any( Number ),
 				},
 			] );
 		} );
 	} );
 
 	it( 'reclaims a lease whose owning process is gone', async () => {
-		mockConfig.sites[ 0 ].operations = [
-			{ id: 'dead', pid: DEAD_PID, kind: 'import', startedAt: Date.now() },
-		];
+		mockConfig.sites[ 0 ].operations = [ { id: 'dead', pid: DEAD_PID, kind: 'import' } ];
 
 		const result = await withSiteLock( site.path, 'start', async () => 'started' );
 

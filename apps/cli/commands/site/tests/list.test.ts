@@ -131,9 +131,7 @@ describe( 'CLI: studio site list', () => {
 				sites: [
 					{
 						...testCliConfig.sites[ 0 ],
-						operations: [
-							{ id: 'dead', pid: 0x7ffffffe, kind: 'import' as const, startedAt: Date.now() },
-						],
+						operations: [ { id: 'dead', pid: 0x7ffffffe, kind: 'import' as const } ],
 					},
 				],
 			} );

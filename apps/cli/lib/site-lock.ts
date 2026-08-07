@@ -1,9 +1,7 @@
 import { randomUUID } from 'crypto';
-import os from 'os';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import {
 	conflictsWith,
-	SITE_OPERATION_MAX_AGE_MS,
 	type SiteOperation,
 	type SiteOperationKind,
 } from '@studio/common/lib/site-operation';
@@ -51,18 +49,8 @@ function isProcessAlive( pid: number ): boolean {
  * on what they see, so a leaked lease from a crashed process would disable the
  * site forever — including the operations whose acquire would have reclaimed it.
  */
-export function getLiveSiteOperations( site: SiteData, now = Date.now() ): SiteOperation[] {
-	// PIDs restart from scratch after a reboot, so a lease written before this
-	// boot can match an unrelated process and look held. `cli.json` outlives the
-	// machine; the processes in it don't.
-	const bootedAt = now - os.uptime() * 1000;
-
-	return ( site.operations ?? [] ).filter(
-		( operation ) =>
-			operation.startedAt >= bootedAt &&
-			now - operation.startedAt < SITE_OPERATION_MAX_AGE_MS &&
-			isProcessAlive( operation.pid )
-	);
+export function getLiveSiteOperations( site: SiteData ): SiteOperation[] {
+	return ( site.operations ?? [] ).filter( ( operation ) => isProcessAlive( operation.pid ) );
 }
 
 /**
@@ -72,12 +60,7 @@ export function getLiveSiteOperations( site: SiteData, now = Date.now() ): SiteO
  * terminal all reach this through the same commands.
  */
 async function acquire( siteId: string, kind: SiteOperationKind ): Promise< SiteOperation > {
-	const operation: SiteOperation = {
-		id: randomUUID(),
-		pid: process.pid,
-		kind,
-		startedAt: Date.now(),
-	};
+	const operation: SiteOperation = { id: randomUUID(), pid: process.pid, kind };
 
 	try {
 		await lockCliConfig();

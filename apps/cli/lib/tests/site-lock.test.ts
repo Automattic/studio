@@ -98,7 +98,7 @@ describe( 'withSiteLock', () => {
 		expect( storedOperations() ).toBeUndefined();
 	} );
 
-	it( 'refuses a second operation while an exclusive one is held', async () => {
+	it( 'refuses a second operation while one is held', async () => {
 		await withSiteLock( site.path, 'import', async () => {
 			await expect( withSiteLock( site.path, 'start', async () => 'started' ) ).rejects.toThrow(
 				/already in progress/
@@ -106,7 +106,7 @@ describe( 'withSiteLock', () => {
 		} );
 	} );
 
-	it( 'refuses an exclusive operation while a shared one is held', async () => {
+	it( 'refuses an operation while another holds the site', async () => {
 		await withSiteLock( site.path, 'export', async () => {
 			await expect( withSiteLock( site.path, 'delete', async () => undefined ) ).rejects.toThrow(
 				/already in progress/
@@ -122,18 +122,14 @@ describe( 'withSiteLock', () => {
 		} );
 	} );
 
-	it( 'lets two shared operations run at once', async () => {
+	// Nothing is read-only: `export` and `push` both refresh the SQLite
+	// integration inside wp-content before they read the tree, so two of them
+	// on one site would delete and recreate the same files underneath.
+	it( 'refuses a second export while one is already running', async () => {
 		await withSiteLock( site.path, 'export', async () => {
-			const pushed = await withSiteLock( site.path, 'push', async () => 'pushed' );
-			expect( pushed ).toBe( 'pushed' );
-			// The export's lease survives the push's release.
-			expect( storedOperations() ).toEqual( [
-				{
-					id: expect.any( String ),
-					pid: process.pid,
-					kind: 'export',
-				},
-			] );
+			await expect( withSiteLock( site.path, 'push', async () => 'pushed' ) ).rejects.toThrow(
+				/already in progress/
+			);
 		} );
 	} );
 

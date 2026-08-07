@@ -1,10 +1,5 @@
 import { randomUUID } from 'crypto';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
-import {
-	conflictsWith,
-	type SiteOperation,
-	type SiteOperationKind,
-} from '@studio/common/lib/site-operation';
 import { getSiteOperationNoun } from '@studio/common/lib/site-operation-labels';
 import { __, sprintf } from '@wordpress/i18n';
 import {
@@ -17,6 +12,7 @@ import {
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { emitCliEvent } from 'cli/lib/daemon-client';
 import { LoggerError } from 'cli/logger';
+import type { SiteOperation, SiteOperationKind } from '@studio/common/lib/site-operation';
 
 function siteBusyError( requested: SiteOperationKind, blockedBy: SiteOperationKind ): LoggerError {
 	return new LoggerError(
@@ -71,13 +67,12 @@ async function acquire( siteId: string, kind: SiteOperationKind ): Promise< Site
 			throw new LoggerError( __( 'Site not found' ) );
 		}
 
-		const held = getLiveSiteOperations( site );
-		const blocking = held.find( ( existing ) => conflictsWith( existing.kind, kind ) );
+		const [ blocking ] = getLiveSiteOperations( site );
 		if ( blocking ) {
 			throw siteBusyError( kind, blocking.kind );
 		}
 
-		site.operations = [ ...held, operation ];
+		site.operations = [ operation ];
 		await saveCliConfig( config );
 	} finally {
 		await unlockCliConfig();

@@ -437,9 +437,8 @@ describe( 'pi runtime', () => {
 		} );
 	} );
 
-	// Without `compat.forceAdaptiveThinking`, pi-ai sends the legacy
-	// `thinking: { type: 'enabled', budget_tokens }` shape, which the Anthropic
-	// API rejects with a 400 for Sonnet 5 / Opus 5.
+	// Without `compat.forceAdaptiveThinking`, pi-ai sends a thinking shape that
+	// Sonnet 5 / Opus 5 reject with a 400.
 	it( 'marks direct-key Anthropic models as adaptive-thinking', async () => {
 		await runRuntime( {
 			prompt: 'hello',
@@ -472,8 +471,8 @@ describe( 'pi runtime', () => {
 		} );
 	} );
 
-	// A Studio model id missing from the pinned pi-ai catalog would silently
-	// fall back to the budget-based thinking shape and 400 against the API.
+	// A Studio model missing from the pinned pi-ai catalog would silently fall
+	// back to the rejected thinking shape.
 	it( 'has a pi catalog entry with adaptive-thinking compat for every Anthropic model', () => {
 		const anthropicIds = AI_MODELS.filter( ( m ) => m.family === 'anthropic' ).map( ( m ) => m.id );
 		expect( anthropicIds.length ).toBeGreaterThan( 0 );

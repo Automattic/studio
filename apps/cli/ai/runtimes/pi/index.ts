@@ -399,11 +399,9 @@ function buildModel(
 			maxTokens: 32_000,
 		};
 	}
-	// Copy the thinking-related fields from pi's bundled catalog: without
-	// `compat.forceAdaptiveThinking`, pi-ai sends the legacy
-	// `thinking: { type: 'enabled', budget_tokens }` shape, which the Anthropic
-	// API rejects with a 400 for Sonnet 5 / Opus 5 (they require
-	// `thinking: { type: 'adaptive' }` + `output_config.effort`).
+	// Without `compat.forceAdaptiveThinking` pi-ai sends the legacy
+	// `thinking: { type: 'enabled', budget_tokens }` shape, which Sonnet 5 /
+	// Opus 5 reject with a 400 — copy the thinking fields from pi's catalog.
 	const catalogModel = (
 		ANTHROPIC_MODELS as Partial< Record< string, Model< 'anthropic-messages' > > >
 	 )[ modelId ];
@@ -485,9 +483,8 @@ async function createModelRuntime(
 		return modelRuntime;
 	}
 
-	// allowNetwork: false — without it the internal refresh fetches remote model
-	// catalogs with no timeout guard, blocking the turn (and hanging tests) when
-	// egress is slow. Studio hand-builds its models, so the catalogs are unused.
+	// allowNetwork: false — the default refresh fetches remote model catalogs
+	// (unused here) with no timeout guard, blocking the turn on slow networks.
 	await modelRuntime.setRuntimeApiKey( family, creds.apiKey, { allowNetwork: false } );
 	return modelRuntime;
 }

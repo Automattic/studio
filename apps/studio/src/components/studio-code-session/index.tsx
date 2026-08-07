@@ -474,15 +474,12 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 
 function SessionGate( { selectedSite }: { selectedSite: SiteDetails } ) {
 	const { isAuthenticated } = useAuth();
-	// refetchOnFocus keeps the entitlement gate current: a lifted block or
-	// newly granted access is picked up when the app regains focus, without
-	// restarting Studio.
 	const {
 		data: quota,
 		isLoading: isQuotaLoading,
 		isFetching: isQuotaFetching,
 		refetch: refetchQuota,
-	} = useGetStudioAssistantQuota( undefined, { skip: ! isAuthenticated, refetchOnFocus: true } );
+	} = useGetStudioAssistantQuota( undefined, { skip: ! isAuthenticated } );
 
 	if ( ! isAuthenticated ) {
 		return <NoAuth />;

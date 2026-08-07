@@ -1,29 +1,6 @@
 import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister';
-import { focusManager, QueryClient, defaultShouldDehydrateQuery } from '@tanstack/react-query';
+import { QueryClient, defaultShouldDehydrateQuery } from '@tanstack/react-query';
 import { persistQueryClient } from '@tanstack/react-query-persist-client';
-
-// TanStack Query v5 only watches `visibilitychange`, which never fires in an
-// Electron BrowserWindow when the app loses focus — the document stays
-// visible, so `refetchOnWindowFocus` never triggers in the desktop shell.
-// Watch window focus/blur as well (the listener v5 dropped to avoid
-// overfetching in browsers), matching browser-tab behavior. The classic
-// renderer doesn't need this because RTK Query's `setupListeners` still
-// subscribes to both `focus` and `visibilitychange`.
-if ( typeof window !== 'undefined' ) {
-	focusManager.setEventListener( ( handleFocus ) => {
-		const onFocus = () => handleFocus( true );
-		const onBlur = () => handleFocus( false );
-		const onVisibilityChange = () => handleFocus( document.visibilityState === 'visible' );
-		window.addEventListener( 'focus', onFocus );
-		window.addEventListener( 'blur', onBlur );
-		document.addEventListener( 'visibilitychange', onVisibilityChange );
-		return () => {
-			window.removeEventListener( 'focus', onFocus );
-			window.removeEventListener( 'blur', onBlur );
-			document.removeEventListener( 'visibilitychange', onVisibilityChange );
-		};
-	} );
-}
 
 export const queryClient = new QueryClient( {
 	defaultOptions: {

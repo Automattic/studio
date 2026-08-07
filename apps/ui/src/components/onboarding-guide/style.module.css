@@ -13,7 +13,7 @@
 .close {
 	position: absolute;
 	top: var(--wpds-dimension-padding-sm);
-	right: var(--wpds-dimension-padding-sm);
+	inset-inline-end: var(--wpds-dimension-padding-sm);
 	z-index: 1;
 }
 
@@ -23,6 +23,18 @@
 .closeOnDark svg {
 	color: #fff;
 	fill: currentColor;
+}
+
+/* The modal backdrop covers the window's usual drag region, so nothing is
+   movable while the tour is open. The popup itself can't be a drag handle —
+   it's centered with a CSS transform, and Chromium ignores -webkit-app-region
+   under a transformed ancestor — but the backdrop isn't transformed, so make it
+   the drag surface. Scoped to this guide's backdrop (the sibling preceding our
+   popup) so every other dialog keeps its click-outside-to-dismiss. */
+:global(
+	[data-testid='dialog-backdrop']:has(~ [data-orientation-guide], ~ * [data-orientation-guide])
+) {
+	-webkit-app-region: drag;
 }
 
 .content {
@@ -35,7 +47,7 @@
 	box-sizing: border-box;
 	padding: var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-xl)
 		var(--wpds-dimension-padding-lg);
-	text-align: left;
+	text-align: start;
 }
 
 .title {
@@ -84,14 +96,16 @@
 .dot {
 	width: 6px;
 	height: 6px;
-	border-radius: 50%;
+	/* Fixed radius (not 50%) so it stays constant as the active dot stretches
+	   to a pill — a percentage radius warps mid-transition. At 6px this still
+	   renders a full circle. */
+	border-radius: 3px;
 	background: color-mix(in srgb, var(--wpds-color-fg-content-neutral) 22%, transparent);
 	transition: background 160ms ease, width 160ms ease;
 }
 
 .dotActive {
 	width: 18px;
-	border-radius: 3px;
 	background: var(--wpds-color-fg-interactive-brand);
 }
 

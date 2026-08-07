@@ -47,7 +47,7 @@ export function OnboardingGuide( { guide, onComplete, onDismiss }: OnboardingGui
 				}
 			} }
 		>
-			<Dialog.Popup size="small" className={ styles.popup }>
+			<Dialog.Popup size="small" className={ styles.popup } data-orientation-guide>
 				<OrientationIllustration id={ page.illustration } />
 				<Dialog.CloseIcon
 					label={ __( 'Skip' ) }

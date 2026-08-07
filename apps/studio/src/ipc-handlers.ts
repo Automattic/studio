@@ -132,7 +132,12 @@ import * as oauthClient from 'src/lib/oauth';
 import { getAiInstructionsPath } from 'src/lib/server-files-paths';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { setAgenticUiEnabled } from 'src/lib/studio-ui-mode';
-import { recordTracksEvent, type TracksChannel, type TracksUiVersion } from 'src/lib/tracks';
+import {
+	recordTracksEvent,
+	type TracksChannel,
+	type TracksSiteCreateFlowType,
+	type TracksUiVersion,
+} from 'src/lib/tracks';
 import { updateSiteUrl } from 'src/lib/update-site-url';
 import * as windowsHelpers from 'src/lib/windows-helpers';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
@@ -783,6 +788,7 @@ export async function createSite(
 		adminPassword?: string;
 		adminEmail?: string;
 		noStart?: boolean;
+		flowType?: TracksSiteCreateFlowType;
 	} = {}
 ): Promise< SiteDetails > {
 	const {
@@ -799,6 +805,7 @@ export async function createSite(
 		adminPassword,
 		adminEmail,
 		noStart = false,
+		flowType,
 	} = config;
 
 	const siteId = providedSiteId || crypto.randomUUID();
@@ -834,6 +841,7 @@ export async function createSite(
 				adminPassword,
 				adminEmail,
 				noStart,
+				flowType,
 			},
 			{ wpVersion, blueprint: blueprint?.blueprint }
 		);
@@ -1226,6 +1234,7 @@ export async function copySite(
 			: undefined,
 		adminEmail: sourceSite.adminEmail,
 		noStart: true,
+		flowType: 'duplicate',
 	} );
 
 	// Playground sets the correct siteurl internally, but for the native-php runtime, we need to
@@ -1421,6 +1430,10 @@ export async function openLocalPath( _event: IpcMainInvokeEvent, path: string ) 
 
 export function showItemInFolder( _event: IpcMainInvokeEvent, path: string ) {
 	shell.showItemInFolder( path );
+}
+
+export async function openStudioLogs( _event: IpcMainInvokeEvent ) {
+	await shell.openPath( getLogsFilePath() );
 }
 
 export async function readLocalMediaFile(
@@ -2547,3 +2560,5 @@ export async function setWebviewViewport(
 		scale,
 	} );
 }
+
+export { showTextContextMenu } from 'src/text-context-menu';

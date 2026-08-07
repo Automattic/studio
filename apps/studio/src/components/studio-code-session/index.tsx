@@ -3,6 +3,7 @@ import {
 	isStudioCustomEntryOfType,
 	type StudioCustomEntry,
 } from '@studio/common/ai/sessions/entry-types';
+import { getStudioCodeAiAccessState } from '@studio/common/lib/studio-assistant-quota';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { Spinner } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
@@ -490,8 +491,17 @@ function SessionGate( { selectedSite }: { selectedSite: SiteDetails } ) {
 
 	// Fail open when the quota is unavailable (offline, error, older server) —
 	// the WordPress.com proxy enforces the same gate server-side.
-	if ( quota && ! quota.hasPaymentMethod ) {
-		return <AccessRequirements isRechecking={ isQuotaFetching } onRecheck={ refetchQuota } />;
+	if (
+		quota &&
+		( getStudioCodeAiAccessState( quota ) !== 'available' || ! quota.hasPaymentMethod )
+	) {
+		return (
+			<AccessRequirements
+				quota={ quota }
+				isRechecking={ isQuotaFetching }
+				onRecheck={ refetchQuota }
+			/>
+		);
 	}
 
 	return <SessionContent selectedSite={ selectedSite } />;

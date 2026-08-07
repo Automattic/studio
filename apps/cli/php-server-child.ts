@@ -53,11 +53,6 @@ const SET_DEFAULT_PERMALINKS_PATH = path.resolve(
 	'php',
 	'set-default-permalinks.php'
 );
-const WP_CONFIG_TRANSFORMER_PATH = path.resolve(
-	import.meta.dirname,
-	'php',
-	'wp-config-transformer.php'
-);
 
 // Tracks how many proxied requests each PHP worker is currently handling.
 // Each `php -S` worker processes one request at a time, so a non-zero count
@@ -499,13 +494,7 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 		stopSignal.throwIfAborted();
 
 		if ( ! isImportedSite ) {
-			await ensureWpConfig(
-				config.sitePath,
-				phpVersion,
-				stopSignal,
-				WP_CONFIG_TRANSFORMER_PATH,
-				config
-			);
+			await ensureWpConfig( config.sitePath, phpVersion, stopSignal, config );
 			stopSignal.throwIfAborted();
 		}
 
@@ -800,7 +789,6 @@ async function ipcMessageHandler( packet: unknown ) {
 					blueprintConfig.sitePath,
 					blueprintPhpVersion,
 					abortController.signal,
-					WP_CONFIG_TRANSFORMER_PATH,
 					blueprintConfig
 				);
 				await writeStudioMuPluginsForNativePhpRuntime(

@@ -213,6 +213,7 @@ export function createIpcConnector(): Connector {
 			annotatePreview: true,
 			readLocalMedia: true,
 			agentInstructions: true,
+			studioLogs: true,
 			switchToClassicUi: true,
 		},
 
@@ -274,6 +275,7 @@ export function createIpcConnector(): Connector {
 				adminEmail,
 				skipStart,
 				blueprint,
+				flowType,
 			} = params;
 			return ( await ipcApi.createSite( path, {
 				siteName: name,
@@ -286,6 +288,7 @@ export function createIpcConnector(): Connector {
 				adminEmail,
 				noStart: skipStart,
 				blueprint,
+				flowType,
 			} ) ) as SiteDetails;
 		},
 
@@ -798,6 +801,10 @@ export function createIpcConnector(): Connector {
 			await ipcApi.openTerminalAtPath( sitePath );
 		},
 
+		async openStudioLogs(): Promise< void > {
+			ipcApi.openStudioLogs();
+		},
+
 		// Analytics. `channel` and `ui_version` are attached by the desktop Tracks wrapper's
 		// `commonProps()` in Main, so callers pass only event-specific props here.
 		async trackEvent( eventName, props = {} ): Promise< void > {
@@ -826,6 +833,10 @@ export function createIpcConnector(): Connector {
 
 		async copyText( text: string ): Promise< void > {
 			await ipcApi.copyText( text );
+		},
+
+		async showTextContextMenu( context ) {
+			return ipcApi.showTextContextMenu( context );
 		},
 
 		async confirmDeleteAllPreviewSites(): Promise< boolean > {

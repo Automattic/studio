@@ -56,8 +56,7 @@ vi.mock( 'cli/lib/daemon-client' );
 // any other export real rather than silently stubbing it.
 vi.mock( 'cli/lib/site-lock', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('cli/lib/site-lock') >() ),
-	withSiteLock: vi.fn( ( _siteId: string, _kind: string, fn: () => unknown ) => fn() ),
-	withSiteLockByFolder: vi.fn( ( _folder: string, _kind: string, fn: () => unknown ) => fn() ),
+	withSiteLock: vi.fn( ( _folder: string, _kind: string, fn: () => unknown ) => fn() ),
 } ) );
 vi.mock( 'cli/lib/run-wp-cli-command' );
 vi.mock( 'cli/lib/site-utils' );
@@ -171,11 +170,11 @@ describe( 'CLI: studio config set', () => {
 		// Validation runs before the operation lease is claimed, so a rejected
 		// edit neither writes the config nor briefly blocks the site.
 		it( 'should reject an invalid edit without claiming the site', async () => {
-			const { withSiteLockByFolder } = await import( 'cli/lib/site-lock' );
+			const { withSiteLock } = await import( 'cli/lib/site-lock' );
 
 			await expect( runCommand( testSitePath, { php: '8.1' } ) ).rejects.toThrow();
 
-			expect( withSiteLockByFolder ).not.toHaveBeenCalled();
+			expect( withSiteLock ).not.toHaveBeenCalled();
 		} );
 
 		it( 'should throw when PHP version is not supported', async () => {

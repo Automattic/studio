@@ -13,7 +13,7 @@ import {
 	disconnectFromDaemon,
 	killDaemonAndChildren,
 } from 'cli/lib/daemon-client';
-import { withSiteLockByFolder } from 'cli/lib/site-lock';
+import { withSiteLock } from 'cli/lib/site-lock';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
@@ -39,7 +39,7 @@ export async function runCommand( target: Mode, siteFolder: string | undefined )
 	// there is no per-site lease to take (and taking one for every site could
 	// block on an operation this is about to terminate anyway).
 	if ( target === Mode.STOP_SINGLE_SITE && siteFolder ) {
-		return withSiteLockByFolder( siteFolder, 'stop', () => stopSites( target, siteFolder ) );
+		return withSiteLock( siteFolder, 'stop', () => stopSites( target, siteFolder ) );
 	}
 	return stopSites( target, siteFolder );
 }

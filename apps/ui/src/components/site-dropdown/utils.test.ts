@@ -16,14 +16,14 @@ function createSite( overrides: Partial< SiteDetails > = {} ): SiteDetails {
 
 describe( 'deriveSiteStatus', () => {
 	it( 'reports a stopped site', () => {
-		const { status, statusLabel } = deriveSiteStatus( createSite(), false, false );
+		const { status, statusLabel } = deriveSiteStatus( createSite(), false, false, null );
 
 		expect( status ).toBe( 'stopped' );
 		expect( statusLabel ).toBe( 'Site is stopped' );
 	} );
 
 	it( 'reports this window’s own start', () => {
-		const { status, localSublabel } = deriveSiteStatus( createSite(), true, false );
+		const { status, localSublabel } = deriveSiteStatus( createSite(), true, false, null );
 
 		expect( status ).toBe( 'transitioning' );
 		expect( localSublabel ).toBe( 'Starting…' );

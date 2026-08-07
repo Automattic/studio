@@ -32,8 +32,7 @@ vi.mock( 'cli/lib/daemon-client' );
 // any other export real rather than silently stubbing it.
 vi.mock( 'cli/lib/site-lock', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('cli/lib/site-lock') >() ),
-	withSiteLock: ( _siteId: string, _kind: string, fn: () => unknown ) => fn(),
-	withSiteLockByFolder: ( _folder: string, _kind: string, fn: () => unknown ) => fn(),
+	withSiteLock: ( _folder: string, _kind: string, fn: () => unknown ) => fn(),
 } ) );
 vi.mock( 'cli/lib/sqlite-integration' );
 vi.mock( import( 'cli/lib/import-export/export/export-manager' ), () => ( {

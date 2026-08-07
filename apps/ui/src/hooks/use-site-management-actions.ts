@@ -103,7 +103,8 @@ export function useSiteManagementActions(
 			label: __( 'Delete' ),
 			loading: false,
 			loadingAnnouncement: '',
-			disabled: isBusy,
+			// Also blocked mid-export: the archive is still being read off disk.
+			disabled: isBusy || isExporting,
 			destructive: true,
 			run: onDelete,
 		},

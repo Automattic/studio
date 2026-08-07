@@ -30,14 +30,7 @@ import { useSiteAgentActivity, type SiteAgentActivity } from '@/data/queries/use
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useSessions } from '@/data/queries/use-sessions';
 import {
-	COPY_SITE_MUTATION_KEY,
-	EXPORT_DATABASE_MUTATION_KEY,
-	EXPORT_FULL_SITE_MUTATION_KEY,
-	useCopySite,
-	useExportDatabase,
-	useExportFullSite,
 	useIsSiteBusy,
-	useIsSiteMutating,
 	useIsSiteStarting,
 	useIsSiteStopping,
 	useSiteOperation,
@@ -48,6 +41,11 @@ import {
 } from '@/data/queries/use-sites';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSiteSyncActivity } from '@/data/sync-activity';
+import {
+	useSiteManagementActions,
+	type SiteManagementAction,
+	type SiteManagementActionId,
+} from '@/hooks/use-site-management-actions';
 import { getSiteUrl } from '@/lib/get-site-url';
 import styles from './style.module.css';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
@@ -354,17 +352,14 @@ function SiteActionsMenu( {
 	const { data: userPreferences } = useUserPreferences();
 	const startSite = useStartSite();
 	const stopSite = useStopSite();
-	const copySite = useCopySite();
-	const exportFullSite = useExportFullSite();
-	const exportDatabase = useExportDatabase();
 	const busy = useIsSiteBusy( site );
-	// Cache-wide, not each mutation's own `isPending`: this menu unmounts when
-	// it closes, so a local observer would forget work that's still running.
-	const isDuplicating = useIsSiteMutating( site.id, COPY_SITE_MUTATION_KEY );
-	const isExportingFullSite = useIsSiteMutating( site.id, EXPORT_FULL_SITE_MUTATION_KEY );
-	const isExportingDatabase = useIsSiteMutating( site.id, EXPORT_DATABASE_MUTATION_KEY );
-	const isExporting = isExportingFullSite || isExportingDatabase;
 	const [ deleteOpen, setDeleteOpen ] = useState( false );
+	// Same source as the overview screen's Manage section, so the two can't drift
+	// on what's blocked or what's in flight. Only the labels differ here.
+	const manage = useSiteManagementActions( site, { onDelete: () => setDeleteOpen( true ) } );
+	const manageById = Object.fromEntries(
+		manage.map( ( action ) => [ action.id, action ] )
+	) as Record< SiteManagementActionId, SiteManagementAction >;
 
 	const stopMenuEventPropagation = (
 		event: MouseEvent< HTMLElement > | ReactPointerEvent< HTMLElement >
@@ -447,8 +442,11 @@ function SiteActionsMenu( {
 					>
 						{ __( 'Site settings' ) }
 					</Menu.Item>
-					<Menu.Item disabled={ busy } onClick={ () => copySite.mutate( site.id ) }>
-						{ isDuplicating ? __( 'Duplicating…' ) : __( 'Duplicate site' ) }
+					<Menu.Item
+						disabled={ manageById.duplicate.disabled }
+						onClick={ manageById.duplicate.run }
+					>
+						{ manageById.duplicate.loading ? __( 'Duplicating…' ) : __( 'Duplicate site' ) }
 					</Menu.Item>
 					<Menu.Separator />
 					<Menu.Item onClick={ handleOpenFolder }>{ __( 'Open folder' ) }</Menu.Item>
@@ -477,20 +475,17 @@ function SiteActionsMenu( {
 						{ __( 'Open WP admin' ) }
 					</Menu.Item>
 					<Menu.Separator />
-					<Menu.Item
-						disabled={ busy || isExporting }
-						onClick={ () => exportFullSite.mutate( site.id ) }
-					>
-						{ isExportingFullSite ? __( 'Exporting…' ) : __( 'Export entire site' ) }
+					<Menu.Item disabled={ manageById.export.disabled } onClick={ manageById.export.run }>
+						{ manageById.export.loading ? __( 'Exporting…' ) : __( 'Export entire site' ) }
 					</Menu.Item>
 					<Menu.Item
-						disabled={ busy || isExporting }
-						onClick={ () => exportDatabase.mutate( site.id ) }
+						disabled={ manageById[ 'export-db' ].disabled }
+						onClick={ manageById[ 'export-db' ].run }
 					>
-						{ isExportingDatabase ? __( 'Exporting…' ) : __( 'Export database' ) }
+						{ manageById[ 'export-db' ].loading ? __( 'Exporting…' ) : __( 'Export database' ) }
 					</Menu.Item>
 					<Menu.Separator />
-					<Menu.Item onClick={ () => setDeleteOpen( true ) } disabled={ busy || isExporting }>
+					<Menu.Item onClick={ manageById.delete.run } disabled={ manageById.delete.disabled }>
 						{ __( 'Delete site' ) }
 					</Menu.Item>
 				</Menu.ContextPopup>

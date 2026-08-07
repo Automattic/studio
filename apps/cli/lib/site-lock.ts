@@ -18,22 +18,17 @@ import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { emitCliEvent } from 'cli/lib/daemon-client';
 import { LoggerError } from 'cli/logger';
 
-export class SiteBusyError extends LoggerError {
-	constructor(
-		public readonly requested: SiteOperationKind,
-		public readonly blockedBy: SiteOperationKind
-	) {
-		super(
-			sprintf(
-				/* translators: 1: operation the user asked for, e.g. "a site start". 2: operation already running, e.g. "an import". */
-				__(
-					'Cannot run %1$s: %2$s is already in progress for this site. Wait for it to finish and try again.'
-				),
-				getSiteOperationNoun( requested ),
-				getSiteOperationNoun( blockedBy )
-			)
-		);
-	}
+function siteBusyError( requested: SiteOperationKind, blockedBy: SiteOperationKind ): LoggerError {
+	return new LoggerError(
+		sprintf(
+			/* translators: 1: operation the user asked for, e.g. "a site start". 2: operation already running, e.g. "an import". */
+			__(
+				'Cannot run %1$s: %2$s is already in progress for this site. Wait for it to finish and try again.'
+			),
+			getSiteOperationNoun( requested ),
+			getSiteOperationNoun( blockedBy )
+		)
+	);
 }
 
 // A lease is only as good as its owner. `signal 0` performs the permission and
@@ -59,7 +54,7 @@ export function getLiveSiteOperations( site: SiteData ): SiteOperation[] {
 }
 
 /**
- * Claims a lease on the site, throwing `SiteBusyError` when a conflicting one
+ * Claims a lease on the site, throwing when a conflicting one
  * is already held. Runs inside the config lock so the read-check-write is
  * atomic against other CLI processes — the agent, the desktop app and a
  * terminal all reach this through the same commands.
@@ -79,7 +74,7 @@ async function acquire( siteId: string, kind: SiteOperationKind ): Promise< Site
 		const held = getLiveSiteOperations( site );
 		const blocking = held.find( ( existing ) => conflictsWith( existing.kind, kind ) );
 		if ( blocking ) {
-			throw new SiteBusyError( kind, blocking.kind );
+			throw siteBusyError( kind, blocking.kind );
 		}
 
 		site.operations = [ ...held, operation ];
@@ -120,12 +115,15 @@ async function release( siteId: string, operation: SiteOperation ): Promise< voi
  * Runs `fn` while holding a lease on the site so no other Studio operation can
  * touch it concurrently. The lease is persisted on the site record, so the UI
  * can disable the actions it blocks and the agent gets a readable error.
+ *
+ * Addressed by folder because that's how every command receives its site.
  */
 export async function withSiteLock< T >(
-	siteId: string,
+	siteFolder: string,
 	kind: SiteOperationKind,
 	fn: () => Promise< T >
 ): Promise< T > {
+	const { id: siteId } = await getSiteByFolder( siteFolder );
 	const operation = await acquire( siteId, kind );
 	await emitCliEvent( { event: SITE_EVENTS.UPDATED, data: { siteId } } );
 
@@ -135,14 +133,4 @@ export async function withSiteLock< T >(
 		await release( siteId, operation );
 		await emitCliEvent( { event: SITE_EVENTS.UPDATED, data: { siteId } } );
 	}
-}
-
-/** `withSiteLock` for the commands, which are addressed by site folder. */
-export async function withSiteLockByFolder< T >(
-	siteFolder: string,
-	kind: SiteOperationKind,
-	fn: () => Promise< T >
-): Promise< T > {
-	const site = await getSiteByFolder( siteFolder );
-	return withSiteLock( site.id, kind, fn );
 }

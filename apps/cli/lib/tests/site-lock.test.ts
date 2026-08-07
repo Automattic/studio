@@ -7,7 +7,8 @@ import {
 	SiteData,
 	unlockCliConfig,
 } from 'cli/lib/cli-config/core';
-import { getLiveSiteOperations, SiteBusyError, withSiteLock } from '../site-lock';
+import { LoggerError } from 'cli/logger';
+import { getLiveSiteOperations, withSiteLock } from '../site-lock';
 
 vi.mock( 'cli/lib/cli-config/core', () => ( {
 	lockCliConfig: vi.fn(),
@@ -16,6 +17,14 @@ vi.mock( 'cli/lib/cli-config/core', () => ( {
 	saveCliConfig: vi.fn(),
 } ) );
 vi.mock( 'cli/lib/daemon-client', () => ( { emitCliEvent: vi.fn() } ) );
+vi.mock( 'cli/lib/cli-config/sites', () => ( {
+	getSiteByFolder: vi.fn( async ( folder: string ) => {
+		if ( folder !== site.path ) {
+			throw new LoggerError( 'Site not found' );
+		}
+		return site;
+	} ),
+} ) );
 
 const site: SiteData = {
 	id: 'site-1',
@@ -66,7 +75,7 @@ describe( 'getLiveSiteOperations', () => {
 
 describe( 'withSiteLock', () => {
 	it( 'records the operation while it runs and clears it afterwards', async () => {
-		await withSiteLock( 'site-1', 'import', async () => {
+		await withSiteLock( site.path, 'import', async () => {
 			expect( storedOperations() ).toEqual( [
 				{
 					id: expect.any( String ),
@@ -81,7 +90,7 @@ describe( 'withSiteLock', () => {
 
 	it( 'releases the lease when the operation throws', async () => {
 		await expect(
-			withSiteLock( 'site-1', 'pull', async () => {
+			withSiteLock( site.path, 'pull', async () => {
 				throw new Error( 'pull blew up' );
 			} )
 		).rejects.toThrow( 'pull blew up' );
@@ -90,32 +99,32 @@ describe( 'withSiteLock', () => {
 	} );
 
 	it( 'refuses a second operation while an exclusive one is held', async () => {
-		await withSiteLock( 'site-1', 'import', async () => {
-			await expect( withSiteLock( 'site-1', 'start', async () => 'started' ) ).rejects.toThrow(
-				SiteBusyError
+		await withSiteLock( site.path, 'import', async () => {
+			await expect( withSiteLock( site.path, 'start', async () => 'started' ) ).rejects.toThrow(
+				/already in progress/
 			);
 		} );
 	} );
 
 	it( 'refuses an exclusive operation while a shared one is held', async () => {
-		await withSiteLock( 'site-1', 'export', async () => {
-			await expect( withSiteLock( 'site-1', 'delete', async () => undefined ) ).rejects.toThrow(
-				SiteBusyError
+		await withSiteLock( site.path, 'export', async () => {
+			await expect( withSiteLock( site.path, 'delete', async () => undefined ) ).rejects.toThrow(
+				/already in progress/
 			);
 		} );
 	} );
 
 	it( 'names both operations in the error so the agent can act on it', async () => {
-		await withSiteLock( 'site-1', 'import', async () => {
-			await expect( withSiteLock( 'site-1', 'start', async () => undefined ) ).rejects.toThrow(
+		await withSiteLock( site.path, 'import', async () => {
+			await expect( withSiteLock( site.path, 'start', async () => undefined ) ).rejects.toThrow(
 				/site start.*import/
 			);
 		} );
 	} );
 
 	it( 'lets two shared operations run at once', async () => {
-		await withSiteLock( 'site-1', 'export', async () => {
-			const pushed = await withSiteLock( 'site-1', 'push', async () => 'pushed' );
+		await withSiteLock( site.path, 'export', async () => {
+			const pushed = await withSiteLock( site.path, 'push', async () => 'pushed' );
 			expect( pushed ).toBe( 'pushed' );
 			// The export's lease survives the push's release.
 			expect( storedOperations() ).toEqual( [
@@ -131,14 +140,14 @@ describe( 'withSiteLock', () => {
 	it( 'reclaims a lease whose owning process is gone', async () => {
 		mockConfig.sites[ 0 ].operations = [ { id: 'dead', pid: DEAD_PID, kind: 'import' } ];
 
-		const result = await withSiteLock( 'site-1', 'start', async () => 'started' );
+		const result = await withSiteLock( site.path, 'start', async () => 'started' );
 
 		expect( result ).toBe( 'started' );
 		expect( storedOperations() ).toBeUndefined();
 	} );
 
 	it( 'does not lock a site that is not in the config', async () => {
-		await expect( withSiteLock( 'missing', 'start', async () => undefined ) ).rejects.toThrow(
+		await expect( withSiteLock( '/no/such/site', 'start', async () => undefined ) ).rejects.toThrow(
 			'Site not found'
 		);
 	} );

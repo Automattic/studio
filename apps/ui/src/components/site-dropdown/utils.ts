@@ -58,7 +58,7 @@ export function deriveSiteStatus(
 	// export, another Studio window) plus an in-flight duplicate. Passed in
 	// rather than derived here for the same reason as the flags above: it's
 	// react-query state, and this stays a pure function.
-	operation: SiteOperationKind | null = null
+	operation: SiteOperationKind | null
 ): { status: SiteStatus; statusLabel: string; localSublabel: string } {
 	const status: SiteStatus =
 		operation || isStarting || isStopping ? 'transitioning' : site.running ? 'running' : 'stopped';

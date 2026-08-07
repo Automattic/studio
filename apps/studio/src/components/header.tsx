@@ -1,3 +1,4 @@
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { useI18n } from '@wordpress/react-i18n';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
@@ -5,7 +6,6 @@ import { SiteManagementActions } from 'src/components/site-management-actions';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { recordRendererTracksEvent } from 'src/lib/analytics';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { TRACKS_EVENTS } from 'src/lib/tracks';
 
 export default function Header() {
 	const { __ } = useI18n();

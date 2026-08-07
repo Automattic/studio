@@ -1,4 +1,8 @@
 import * as Sentry from '@sentry/electron/renderer';
+import {
+	TRACKS_EVENTS,
+	type TracksCustomizeEntryPoint,
+} from '@studio/common/lib/record-tracks-event';
 import { __ } from '@wordpress/i18n';
 import {
 	archive,
@@ -24,7 +28,6 @@ import { recordRendererTracksEvent } from 'src/lib/analytics';
 import { cx } from 'src/lib/cx';
 import { getFileManagerLabel } from 'src/lib/file-manager';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { TRACKS_EVENTS, type TracksCustomizeEntryPoint } from 'src/lib/tracks';
 import { supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
 import { getTerminalName } from 'src/modules/user-settings/lib/terminal';
 import { useGetUserEditorQuery, useGetUserTerminalQuery } from 'src/stores/installed-apps-api';

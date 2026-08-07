@@ -14,11 +14,9 @@ import { getPreferredUiVersion } from 'src/lib/studio-ui-mode';
 export {
 	TRACKS_EVENTS,
 	type TracksEventName,
-	type TracksProps,
 	type TracksChannel,
 	type TracksUiVersion,
 	type TracksSiteCreateFlowType,
-	type TracksCustomizeEntryPoint,
 } from '@studio/common/lib/record-tracks-event';
 
 async function commonProps(): Promise< TracksProps > {

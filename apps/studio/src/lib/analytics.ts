@@ -1,5 +1,5 @@
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import type { TracksEventName, TracksProps } from 'src/lib/tracks';
+import type { TracksEventName, TracksProps } from '@studio/common/lib/record-tracks-event';
 
 // Records a Tracks event from the (legacy) renderer. Routes through the `recordAnalyticsEvent` IPC
 // handler so the desktop Main wrapper attaches the common props (`channel`, `ui_version`, …) and

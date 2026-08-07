@@ -1,3 +1,4 @@
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { TabPanel } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -17,7 +18,6 @@ import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { recordRendererTracksEvent } from 'src/lib/analytics';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { TRACKS_EVENTS } from 'src/lib/tracks';
 import { ContentTabSync } from 'src/modules/sync';
 
 export function SiteContentTabs() {

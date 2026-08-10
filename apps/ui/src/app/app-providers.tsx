@@ -5,6 +5,7 @@ import { privateApis } from '@wordpress/theme';
 import { Tooltip } from '@wordpress/ui';
 import { useEffect } from 'react';
 import { OnboardingGuideProvider } from '@/components/onboarding-guide/use-onboarding-guide';
+import { WindowTitlebar } from '@/components/window-titlebar';
 import { ConnectorProvider, queryClient } from '@/data/core';
 import { AgentRunProvider } from '@/data/queries/use-agent-run';
 import { useSyncAppUpdateStatus } from '@/data/queries/use-app-update';
@@ -44,7 +45,10 @@ function ThemedApp( { children }: PropsWithChildren ) {
 	return (
 		<ThemeProvider isRoot color={ themeColor } density="compact">
 			<Tooltip.Provider>
-				<OnboardingGuideProvider>{ children }</OnboardingGuideProvider>
+				<OnboardingGuideProvider>
+					<WindowTitlebar />
+					{ children }
+				</OnboardingGuideProvider>
 			</Tooltip.Provider>
 		</ThemeProvider>
 	);

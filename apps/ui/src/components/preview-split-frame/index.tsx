@@ -4,7 +4,6 @@ import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { usePreviewSplit } from '@/hooks/use-preview-split';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
-import { useWindowControlsOverlay } from '@/hooks/use-window-controls-overlay';
 import styles from './style.module.css';
 
 // Keep in sync with the content-column transition duration in style.module.css.
@@ -36,9 +35,6 @@ export function PreviewSplitFrame( {
 	const showFullscreen = showPreview && previewFullscreen;
 	const { rootRef, contentWidthVar, isResizing, handleProps } = usePreviewSplit( { showPreview } );
 	const isSidebarCollapsed = useSidebarCollapsed();
-	// Windows/Linux pin the native window controls to the top-right of the
-	// window itself, so an inset frame leaves them hanging past its edges.
-	const hasWindowControlsOverlay = useWindowControlsOverlay() !== null;
 
 	// Animate only open/close/fullscreen toggles of an already-mounted preview —
 	// never the initial layout, so a route loading with the preview visible
@@ -93,7 +89,6 @@ export function PreviewSplitFrame( {
 			ref={ rootRef }
 			className={ clsx(
 				styles.root,
-				hasWindowControlsOverlay && styles.rootWindowControls,
 				isSidebarCollapsed && styles.rootFrameless,
 				showPreview && styles.rootPreviewOpen,
 				isResizing && styles.rootPreviewResizing,

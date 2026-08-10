@@ -293,12 +293,12 @@ export function getTitleBarOverlayOptions() {
 		return { color: 'rgba(30, 30, 30, 1)', symbolColor: 'white', height: WINDOWS_TITLEBAR_HEIGHT };
 	}
 	const isDark = nativeTheme.shouldUseDarkColors;
-	// Matches the agentic UI's `--wpds-color-bg-surface-neutral` — the surface
-	// under the controls on the settings and site-creation screens, and on the
-	// dashboard whenever the site preview is closed.
+	// The agentic UI reserves a band of window chrome for these controls (see
+	// `WindowTitlebar`), so this tracks that chrome rather than any content
+	// surface — and the chrome is dark in both schemes, so the symbols are too.
 	return {
-		color: isDark ? '#1e1e1e' : '#fcfcfc',
-		symbolColor: isDark ? '#e0e0e0' : '#1e1e1e',
+		color: isDark ? '#161616' : '#1e1e1e',
+		symbolColor: '#e0e0e0',
 		height: WINDOWS_TITLEBAR_HEIGHT,
 	};
 }

@@ -1,20 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PREVIEW_CONTENT_WIDTH_STORAGE_KEY } from '@/lib/resizable-panels';
-import styles from './style.module.css';
 import { PreviewSplitFrame } from './index';
-
-function stubWindowControlsOverlay() {
-	Object.defineProperty( navigator, 'windowControlsOverlay', {
-		configurable: true,
-		value: {
-			visible: true,
-			getTitlebarAreaRect: () => ( { x: 0, right: window.innerWidth - 138, height: 44 } ),
-			addEventListener: () => {},
-			removeEventListener: () => {},
-		},
-	} );
-}
 
 function getFrameRoot(): HTMLElement {
 	const root = screen.getByTestId( 'content' ).parentElement?.parentElement;
@@ -49,32 +36,7 @@ describe( 'PreviewSplitFrame', () => {
 	afterEach( () => {
 		getBoundingClientRectSpy.mockRestore();
 		window.localStorage.removeItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY );
-		delete ( navigator as Navigator & { windowControlsOverlay?: unknown } ).windowControlsOverlay;
 		vi.unstubAllGlobals();
-	} );
-
-	describe( 'window controls overlay', () => {
-		it( 'keeps the frame fully inset when there is no overlay', () => {
-			render(
-				<PreviewSplitFrame>
-					<span data-testid="content">Content</span>
-				</PreviewSplitFrame>
-			);
-			expect( getFrameRoot() ).not.toHaveClass( styles.rootWindowControls );
-		} );
-
-		it( 'meets the top-right corner so the native controls cannot overhang it', () => {
-			stubWindowControlsOverlay();
-			render(
-				<PreviewSplitFrame>
-					<span data-testid="content">Content</span>
-				</PreviewSplitFrame>
-			);
-			const root = getFrameRoot();
-			expect( root ).toHaveClass( styles.rootWindowControls );
-			// The bottom inset is what keeps it reading as a frame.
-			expect( root ).not.toHaveClass( styles.rootFrameless );
-		} );
 	} );
 
 	it( 'lays out the preview immediately when mounted open', async () => {

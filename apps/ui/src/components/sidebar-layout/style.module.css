@@ -1,6 +1,9 @@
 .root {
 	display: flex;
-	height: 100vh;
+	/* Starts below the window-controls band on Windows/Linux; the variable is
+	   0px everywhere else. */
+	margin-block-start: var(--app-titlebar-height, 0px);
+	height: calc(100vh - var(--app-titlebar-height, 0px));
 	overflow: hidden;
 }
 

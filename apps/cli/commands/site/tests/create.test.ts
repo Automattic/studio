@@ -309,7 +309,7 @@ describe( 'CLI: studio site create', () => {
 	} );
 
 	describe( 'Success Cases', () => {
-		it( 'should request bounded, resumable complete collection when importing a URL', () => {
+		it( 'should prefer the canonical resumable plan-first URL import contract', () => {
 			const blueprint = buildCreateFromSourceBlueprint(
 				'https://example.com/',
 				'Imported URL',
@@ -318,6 +318,27 @@ describe( 'CLI: studio site create', () => {
 			expect( blueprint.contents.steps ).not.toEqual(
 				expect.arrayContaining( [ expect.objectContaining( { step: 'runPHP' } ) ] )
 			);
+			expect( blueprint.staticSiteImport.code ).toContain(
+				"function_exists( 'static_site_importer_ability_import' )"
+			);
+			expect( blueprint.staticSiteImport.code ).toContain( "$input['operation'] = 'plan';" );
+			expect( blueprint.staticSiteImport.code ).toContain( "'type' => 'url'" );
+			expect( blueprint.staticSiteImport.code ).toContain(
+				"$input['source']['import_id'] = (string) $state['import_id'];"
+			);
+			expect( blueprint.staticSiteImport.code ).toContain( "$apply_input['operation'] = 'apply';" );
+			expect( blueprint.staticSiteImport.code ).toContain(
+				"$apply_input['plan'] = $result['plan'];"
+			);
+			expect( blueprint.staticSiteImport.code ).toContain(
+				"ABSPATH . '.studio-import/state.json'"
+			);
+			expect(
+				blueprint.staticSiteImport.code.indexOf( 'static_site_importer_ability_import' )
+			).toBeLessThan(
+				blueprint.staticSiteImport.code.indexOf( 'static_site_importer_ability_import_url' )
+			);
+			// The released package still uses the legacy URL ability until SSI ships the unified contract.
 			expect( blueprint.staticSiteImport.code ).toContain(
 				"'collect_site'                => true"
 			);
@@ -1240,7 +1261,7 @@ describe( 'CLI: studio site create', () => {
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
-		it( 'should roll back a new site when the out-of-band static import fails', async () => {
+		it( 'should retain a new site and its state when the out-of-band static import fails', async () => {
 			const blueprint = buildCreateFromSourceBlueprint(
 				'https://example.com/',
 				'Imported URL',
@@ -1267,8 +1288,11 @@ describe( 'CLI: studio site create', () => {
 				} )
 			).rejects.toThrow( 'Failed to import static site' );
 
-			expect( removeSiteFromConfig ).toHaveBeenCalled();
-			expect( fsRmSpy ).toHaveBeenCalledWith( mockSitePath, { recursive: true, force: true } );
+			expect( removeSiteFromConfig ).not.toHaveBeenCalled();
+			expect( fsRmSpy ).not.toHaveBeenCalledWith( mockSitePath, {
+				recursive: true,
+				force: true,
+			} );
 		} );
 
 		it( 'should handle SQLite setup failure', async () => {

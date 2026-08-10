@@ -97,9 +97,10 @@ import { StudioArgv } from 'cli/types';
 const logger = new Logger< LoggerAction >();
 const DEFAULT_STATIC_SITE_IMPORTER_PLUGIN_URL =
 	'https://github.com/Automattic/static-site-importer/releases/download/v1.4.0/static-site-importer.zip';
-const STATIC_SITE_IMPORT_CONTRACT = 'ssi-url-import-v3-batch-pages-25-cooperative-deadline';
+const STATIC_SITE_IMPORT_CONTRACT = 'ssi-url-import-v4-plan-first';
 const STATIC_SITE_IMPORT_IDENTITY_FILE = 'static-site-importer.json';
 const STATIC_SITE_IMPORT_RESULT_FILE = 'result.json';
+const STATIC_SITE_IMPORT_STATE_FILE = 'state.json';
 const MAX_STATIC_SITE_IMPORT_INVOCATIONS = 10000;
 type StaticSiteImportIdentity = { url: string; contract: string; phase?: 'cleanup_pending' };
 
@@ -308,8 +309,57 @@ $input = array(
 		'source_path' => ${ phpString( source.path ) },
 	),
 );
+$url_batch_run = array();
+$state_path = '';
 
-if ( isset( $source['url'] ) && function_exists( 'static_site_importer_ability_import_url' ) ) {
+if ( isset( $source['url'] ) && function_exists( 'static_site_importer_ability_import' ) ) {
+	$state_path = ABSPATH . '.studio-import/${ STATIC_SITE_IMPORT_STATE_FILE }';
+	$state_raw = is_file( $state_path ) ? file_get_contents( $state_path ) : false;
+	$state = is_string( $state_raw ) ? json_decode( $state_raw, true ) : array();
+	$slug = sanitize_title( ${ phpString( siteName ) } );
+	if ( '' === $slug ) {
+		$slug = 'imported-site';
+	}
+	$input['operation'] = 'plan';
+	$input['slug'] = $slug;
+	$input['source'] = array(
+		'type' => 'url',
+		'url'  => $source['url'],
+	);
+	if ( ! empty( $state['import_id'] ) ) {
+		$input['source']['import_id'] = (string) $state['import_id'];
+	}
+	$result = static_site_importer_ability_import( $input );
+	if ( ! is_array( $result ) || empty( $result['success'] ) ) {
+		throw new RuntimeException( 'Static Site Importer planning failed: ' . wp_json_encode( $result ) );
+	}
+	$url_batch_run = isset( $result['url_batch_run'] ) && is_array( $result['url_batch_run'] ) ? $result['url_batch_run'] : array();
+	if ( ! empty( $result['continuation'] ) ) {
+		$state = array( 'import_id' => (string) ( $result['import_id'] ?? '' ) );
+		if ( '' === $state['import_id'] || false === file_put_contents( $state_path, wp_json_encode( $state ) ) ) {
+			throw new RuntimeException( 'Static Site Importer continuation state could not be saved.' );
+		}
+		$studio_result = array(
+			'continuation'     => true,
+			'completed_routes' => (int) ( $url_batch_run['completed_routes'] ?? 0 ),
+			'total_routes'     => (int) ( $url_batch_run['total_routes'] ?? 0 ),
+		);
+		file_put_contents( ABSPATH . '.studio-import/${ STATIC_SITE_IMPORT_RESULT_FILE }', wp_json_encode( $studio_result ) );
+		return;
+	}
+	if ( ! isset( $result['plan'] ) || ! is_array( $result['plan'] ) ) {
+		throw new RuntimeException( 'Static Site Importer planning completed without a canonical plan.' );
+	}
+	$state = array( 'import_id' => (string) ( $result['import_id'] ?? '' ) );
+	if ( '' !== $state['import_id'] && false === file_put_contents( $state_path, wp_json_encode( $state ) ) ) {
+		throw new RuntimeException( 'Static Site Importer terminal state could not be saved.' );
+	}
+	$apply_input = $input;
+	$apply_input['operation'] = 'apply';
+	$apply_input['plan'] = $result['plan'];
+	unset( $apply_input['source'] );
+	$result = static_site_importer_ability_import( $apply_input );
+} elseif ( isset( $source['url'] ) && function_exists( 'static_site_importer_ability_import_url' ) ) {
 	$input['url'] = $source['url'];
 	$input['work_dir'] = ABSPATH . '.studio-import/static-site-importer';
 	$input['provider_args'] = array(
@@ -348,6 +398,9 @@ ${ storeImportResult ? "update_option( 'studio_create_from_import_result', $resu
 
 if ( ! is_array( $result ) || empty( $result['success'] ) ) {
 	throw new RuntimeException( 'Static Site Importer import failed: ' . wp_json_encode( $result ) );
+}
+if ( '' !== $state_path && is_file( $state_path ) ) {
+	unlink( $state_path );
 }
 
 $import_result = isset( $result['result'] ) && is_array( $result['result'] ) ? $result['result'] : $result;
@@ -438,6 +491,9 @@ function cleanupSuccessfulStaticSiteImport( sitePath: string ): void {
 		force: true,
 	} );
 	fs.rmSync( staticSiteImportIdentityPath( sitePath ), { force: true } );
+	fs.rmSync( path.join( sitePath, '.studio-import', STATIC_SITE_IMPORT_STATE_FILE ), {
+		force: true,
+	} );
 }
 
 async function runStaticSiteImport(
@@ -892,12 +948,12 @@ export async function runCommand(
 					: `http://localhost:${ siteDetails.port }`;
 
 				if ( staticSiteImport ) {
+					staticSiteImportResultObserved = true;
 					staticSiteImportSucceeded = await runStaticSiteImport(
 						siteDetails,
 						staticSiteImport.code,
 						staticSiteImport.identity
 					);
-					staticSiteImportResultObserved = true;
 				}
 
 				if ( ! options.skipLogDetails ) {
@@ -907,9 +963,11 @@ export async function runCommand(
 					await openSiteInBrowser( siteDetails );
 				}
 			} catch ( error ) {
-				await removeSiteFromConfig( siteDetails.id );
-				if ( ! isWordPressDirResult ) {
-					await fs.promises.rm( sitePath, { recursive: true, force: true } );
+				if ( ! staticSiteImportResultObserved ) {
+					await removeSiteFromConfig( siteDetails.id );
+					if ( ! isWordPressDirResult ) {
+						await fs.promises.rm( sitePath, { recursive: true, force: true } );
+					}
 				}
 				throw new LoggerError(
 					staticSiteImport
@@ -939,17 +997,19 @@ export async function runCommand(
 
 					stripWpConfigDbConstants( sitePath );
 					if ( staticSiteImport ) {
+						staticSiteImportResultObserved = true;
 						staticSiteImportSucceeded = await runStaticSiteImport(
 							siteDetails,
 							staticSiteImport.code,
 							staticSiteImport.identity
 						);
-						staticSiteImportResultObserved = true;
 					}
 				} catch ( error ) {
-					await removeSiteFromConfig( siteDetails.id );
-					if ( ! isWordPressDirResult ) {
-						await fs.promises.rm( sitePath, { recursive: true, force: true } );
+					if ( ! staticSiteImportResultObserved ) {
+						await removeSiteFromConfig( siteDetails.id );
+						if ( ! isWordPressDirResult ) {
+							await fs.promises.rm( sitePath, { recursive: true, force: true } );
+						}
 					}
 					throw new LoggerError(
 						staticSiteImport

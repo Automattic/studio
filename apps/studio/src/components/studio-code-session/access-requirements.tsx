@@ -96,13 +96,16 @@ export function AccessRequirements( {
 						<div className="max-w-[48ch] text-frame-text-secondary a8c-body">
 							{ createInterpolateElement( formatAiBlockedNotice(), { supportLink: <span /> } ) }
 						</div>
-						<div className="mt-8">
+						<div className="mt-8 flex items-center gap-2">
 							<Button
 								variant="primary"
 								onClick={ () => void getIpcApi().openURL( WPCOM_SUPPORT_CONTACT_URL ) }
 							>
 								{ __( 'Contact support' ) }
 								<ArrowIcon />
+							</Button>
+							<Button variant="tertiary" aria-disabled={ isRechecking } onClick={ onRecheck }>
+								{ isRechecking ? __( 'Checking…' ) : __( 'Check again' ) }
 							</Button>
 						</div>
 					</div>

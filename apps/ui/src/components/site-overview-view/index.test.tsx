@@ -138,6 +138,7 @@ describe( 'SiteOverviewView', () => {
 	const openSiteFolder = vi.fn().mockResolvedValue( undefined );
 	const openSiteInEditor = vi.fn().mockResolvedValue( undefined );
 	const openSiteInTerminal = vi.fn().mockResolvedValue( undefined );
+	const trackEvent = vi.fn().mockResolvedValue( undefined );
 	const startSite = vi.fn().mockResolvedValue( undefined );
 	const copySite = vi.fn();
 	const exportFullSite = vi.fn();
@@ -149,6 +150,7 @@ describe( 'SiteOverviewView', () => {
 		openSiteFolder,
 		openSiteInEditor,
 		openSiteInTerminal,
+		trackEvent,
 		capabilities: { openInOS } as ConnectorCapabilities,
 	} );
 
@@ -550,6 +552,22 @@ describe( 'SiteOverviewView', () => {
 			expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/wp-admin/site-editor.php' )
 		);
 		expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/wp-admin/upload.php' );
+	} );
+
+	it( 'records a customize Tracks event with the entry_point for each shortcut', () => {
+		renderView();
+
+		fireEvent.click( screen.getByText( 'Site Editor' ).closest( 'button' )! );
+		fireEvent.click( screen.getByText( 'Media Library' ).closest( 'button' )! );
+
+		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_customize', {
+			entry_point: 'editor',
+			browser: 'internal',
+		} );
+		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_customize', {
+			entry_point: 'media_library',
+			browser: 'internal',
+		} );
 	} );
 
 	it( 'runs manage actions and confirms deletion in a dialog', () => {

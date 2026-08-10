@@ -118,6 +118,14 @@ where the sender actually runs — see Testing below for what fires in which bui
   non-`new` values down as a `--flow-type` hint (built into the CLI args by `buildSiteCreateArgs` in
   `packages/common/sites/create.ts`). `channel`/`ui_version` resolve from `STUDIO_TRACKS_ORIGIN` exactly
   as for `studio_site_start`.
+- **`studio_preview_site_create`/`_update`/`_delete`/`_delete_all`** are emitted **only** by the CLI,
+  from the `preview` commands (`apps/cli/commands/preview/{create,update,delete}.ts`). Every desktop
+  Previews-tab action (create/update/delete/delete-all) delegates to the app-spawned CLI (via the
+  `SnapshotManager` fork in `packages/common/sites/snapshots.ts` and the direct `preview delete --all`
+  fork), so the CLI is the sole emitter and each action is counted once whether it originated in a UI or
+  standalone — `channel`/`ui_version` resolve from `STUDIO_TRACKS_ORIGIN` exactly as for
+  `studio_site_start`. The **`studio_preview_site_open`** event is the exception: opening a preview URL is
+  a renderer-only affordance with no CLI equivalent, so it fires from the renderer.
 - **Renderer-originated events** (future) go through the `recordAnalyticsEvent` IPC handler
   (`apps/studio/src/ipc-handlers.ts`). Both renderers share the same Main single entry point, and the
   desktop wrapper's `commonProps()` attaches `channel`/`ui_version` centrally — the `ui_version` is
@@ -213,6 +221,22 @@ enumerated prop values below.
 | `studio_site_open_phpmyadmin` | Renderer (Classic + agentic) | `browser` (`external`/`internal`) |
 | `studio_site_open_folder` | Renderer (Classic + agentic) | (none — opens the OS file manager) |
 | `studio_panel_opened` | Renderer (Classic tab strip + agentic route navigation) | `panel` — the panel opened. Classic: `overview`/`sync`/`settings`/`assistant`/`import-export`/`previews` (only on a genuine user tab switch, not programmatic changes or re-selecting the current tab). Agentic: `overview`/`settings`/`debugging`/`assistant` (`sync`/`import-export`/`previews` are Classic-only). |
+
+#### Preview site events
+
+Preview-site sharing (WordPress.com hosted previews, "snapshots" in code). Create/update/delete/delete-all
+are emitted by the **CLI** (the sole funnel — the desktop Previews tab delegates all four to the CLI, so
+standalone-CLI usage is counted too; filter by `channel`). **Open** fires from the **renderer** when the
+user clicks a preview's URL to visit it. No site names, paths, or URLs are ever sent. `failure_reason` is
+coarse and low-cardinality (the raw error is never sent).
+
+| Event | Emitted from | Event-specific props |
+|---|---|---|
+| `studio_preview_site_create` | CLI `preview create` | `success` (boolean), `time_ms` (creation duration). On failure also `failure_reason` (`auth_required`/`size_limit`/`expired`/`not_found`/`timeout`/`upload`/`unknown`). |
+| `studio_preview_site_update` | CLI `preview update` | `success` (boolean), `time_ms` (update duration). On failure also `failure_reason` (same vocabulary as create). |
+| `studio_preview_site_delete` | CLI `preview delete` (single) | (none). Emitted once per **successful** single delete. |
+| `studio_preview_site_delete_all` | CLI `preview delete --all` | `count` (number of the user's preview sites removed). Emitted once per **successful** delete-all (a single bulk server operation, not per site). |
+| `studio_preview_site_open` | Renderer (Classic Previews list) | (none — opens the preview URL in the OS browser) |
 
 #### Settings-change events
 

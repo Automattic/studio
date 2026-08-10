@@ -28,6 +28,7 @@ import { useWordPressVersions, useWpVersion } from '@/data/queries/use-wordpress
 import { useOffline } from '@/hooks/use-offline';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
+import type { TracksPanel } from '@studio/common/lib/record-tracks-event';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { DataFormControlProps, Field, Form } from '@wordpress/dataviews';
 import type { FormEvent } from 'react';
@@ -328,3 +329,9 @@ export function isSiteSettingsTab( value: string ): value is TabId {
 }
 
 export type SiteSettingsTabId = TabId;
+
+// The `studio_panel_opened` value for a tab. The General tab reports `settings` so it lines up with
+// Studio Classic's Settings panel; overview and debugging keep their own names.
+export function siteSettingsTabToPanel( tab: TabId ): TracksPanel {
+	return tab === 'general' ? 'settings' : tab;
+}

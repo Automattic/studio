@@ -1,15 +1,20 @@
-import { clampQuotaFraction } from '@studio/common/lib/studio-assistant-quota';
+import {
+	clampQuotaFraction,
+	getStudioCodeAiAccessState,
+} from '@studio/common/lib/studio-assistant-quota';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { moreHorizontal } from '@wordpress/icons';
 import { Button, IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useState } from 'react';
 import { SigninNotice } from '@/components/agentic-signin-banner';
+import { AiAccessRequiredNotice, AiBlockedNotice } from '@/components/ai-access-required-notice';
 import * as Menu from '@/components/menu';
 import { OfflineNotice } from '@/components/offline-banner';
 import { PurchaseCreditsDialog } from '@/components/purchase-credits-dialog';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
+import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import {
 	useDeleteAllSnapshots,
@@ -119,6 +124,8 @@ function CreditMeter( {
 function AiCreditsSummary() {
 	const usage = useUsageExploration();
 	const [ purchaseOpen, setPurchaseOpen ] = useState( false );
+	const { data: quota } = useStudioAssistantQuota();
+	const accessState = quota ? getStudioCodeAiAccessState( quota ) : 'available';
 	const purchasedUsed = usage.purchasedTotal - usage.purchasedBalance;
 	const monthlyRemaining = Math.max( 0, usage.monthlyLimit - usage.monthlyUsed );
 	const monthlyMeterIntent =
@@ -129,47 +136,59 @@ function AiCreditsSummary() {
 			<div className={ styles.usageSectionHeader }>
 				<h2>{ __( 'AI credits' ) }</h2>
 			</div>
-			<CreditMeter
-				label={ __( 'Monthly allowance' ) }
-				remainingDollars={ monthlyRemaining }
-				usedDollars={ usage.monthlyUsed }
-				totalDollars={ usage.monthlyLimit }
-				fraction={ usage.monthlyFraction }
-				valueClassName={ monthlyMeterIntent }
-			/>
-			{ usage.purchasedTotal > 0 ? (
-				<CreditMeter
-					label={ __( 'Extra AI credits' ) }
-					remainingDollars={ usage.purchasedBalance }
-					usedDollars={ purchasedUsed }
-					totalDollars={ usage.purchasedTotal }
-					fraction={ usage.purchasedFraction }
-					valueClassName={ getMeterIntent( usage.purchasedFraction ) }
-				/>
-			) : (
-				<div className={ styles.creditTopUpText }>
-					<strong>
-						{ usage.isExhausted
-							? __( 'Keep chatting with extra credits' )
-							: __( 'Extra AI credits' ) }
-					</strong>
-					<p>
-						{ usage.isExhausted
-							? __( 'Add credits to continue now. Extra credits do not expire.' )
-							: __( 'Add more credits in case you go over your allowance.' ) }
-					</p>
+			{ accessState !== 'available' ? (
+				<div className={ styles.previewUsageText }>
+					{ accessState === 'blocked' ? (
+						<AiBlockedNotice />
+					) : (
+						<AiAccessRequiredNotice quota={ quota } />
+					) }
 				</div>
+			) : (
+				<>
+					<CreditMeter
+						label={ __( 'Monthly allowance' ) }
+						remainingDollars={ monthlyRemaining }
+						usedDollars={ usage.monthlyUsed }
+						totalDollars={ usage.monthlyLimit }
+						fraction={ usage.monthlyFraction }
+						valueClassName={ monthlyMeterIntent }
+					/>
+					{ usage.purchasedTotal > 0 ? (
+						<CreditMeter
+							label={ __( 'Extra AI credits' ) }
+							remainingDollars={ usage.purchasedBalance }
+							usedDollars={ purchasedUsed }
+							totalDollars={ usage.purchasedTotal }
+							fraction={ usage.purchasedFraction }
+							valueClassName={ getMeterIntent( usage.purchasedFraction ) }
+						/>
+					) : (
+						<div className={ styles.creditTopUpText }>
+							<strong>
+								{ usage.isExhausted
+									? __( 'Keep chatting with extra credits' )
+									: __( 'Extra AI credits' ) }
+							</strong>
+							<p>
+								{ usage.isExhausted
+									? __( 'Add credits to continue now. Extra credits do not expire.' )
+									: __( 'Add more credits in case you go over your allowance.' ) }
+							</p>
+						</div>
+					) }
+					<Button
+						className={ styles.creditTopUpButton }
+						size="small"
+						variant="outline"
+						tone="neutral"
+						onClick={ () => setPurchaseOpen( true ) }
+					>
+						{ __( 'Add credits' ) }
+					</Button>
+					<PurchaseCreditsDialog open={ purchaseOpen } onOpenChange={ setPurchaseOpen } />
+				</>
 			) }
-			<Button
-				className={ styles.creditTopUpButton }
-				size="small"
-				variant="outline"
-				tone="neutral"
-				onClick={ () => setPurchaseOpen( true ) }
-			>
-				{ __( 'Add credits' ) }
-			</Button>
-			<PurchaseCreditsDialog open={ purchaseOpen } onOpenChange={ setPurchaseOpen } />
 		</section>
 	);
 }

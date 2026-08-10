@@ -2,6 +2,7 @@ import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
+import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
 import {
 	useDeleteAllSnapshots,
@@ -69,6 +70,10 @@ vi.mock( '@/data/queries/use-auth-user', () => ( {
 	useLogin: vi.fn(),
 } ) );
 
+vi.mock( '@/data/queries/use-assistant-quota', () => ( {
+	useStudioAssistantQuota: vi.fn(),
+} ) );
+
 vi.mock( '@/data/queries/use-snapshots', () => ( {
 	useDeleteAllSnapshots: vi.fn(),
 	useSnapshotUsage: vi.fn(),
@@ -95,6 +100,7 @@ vi.mock( '@/data/queries/use-user-preferences', () => ( {
 } ) );
 
 const useConnectorMock = vi.mocked( useConnector );
+const useStudioAssistantQuotaMock = vi.mocked( useStudioAssistantQuota, { partial: true } );
 const useAuthUserMock = vi.mocked( useAuthUser );
 const useLoginMock = vi.mocked( useLogin );
 const useDeleteAllSnapshotsMock = vi.mocked( useDeleteAllSnapshots );
@@ -135,6 +141,16 @@ describe( 'UsagePanel', () => {
 			mutate: deleteSnapshotsMutate,
 			isPending: false,
 			error: null,
+		} as never );
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: {
+				costUsage: 0,
+				costCap: 100,
+				costResetDate: '2026-08-01T12:00:00',
+				studioCodeAiHasAccess: true,
+				studioCodeAiAccess: 'granted',
+			},
+			isLoading: false,
 		} as never );
 	} );
 
@@ -200,6 +216,94 @@ describe( 'UsagePanel', () => {
 		expect( screen.getByText( '0 of 5,000 credits used' ) ).toBeInTheDocument();
 		expect( screen.getByText( 'Extra AI credits' ) ).toBeInTheDocument();
 		expect( screen.getAllByTestId( 'usage-progress-bar' ) ).toHaveLength( 3 );
+	} );
+
+	it( 'shows the suspension copy for an explicitly blocked account', () => {
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: {
+				costUsage: 0,
+				costCap: 100,
+				costResetDate: '2026-08-01T12:00:00',
+				studioCodeAiHasAccess: false,
+				studioCodeAiAccess: 'blocked',
+			},
+			isLoading: false,
+		} as never );
+
+		render( <UsagePanel /> );
+
+		expect(
+			screen.getByText( /Studio Code AI is blocked for this WordPress.com account/ )
+		).toBeInTheDocument();
+		expect( screen.getByRole( 'link', { name: 'contact WordPress.com support' } ) ).toHaveAttribute(
+			'href',
+			'https://wordpress.com/support/contact/'
+		);
+	} );
+
+	it( 'shows the request-access copy, not the suspension copy, for an ungranted default account', () => {
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: {
+				costUsage: 0,
+				costCap: 100,
+				costResetDate: '2026-08-01T12:00:00',
+				studioCodeAiHasAccess: false,
+				studioCodeAiAccess: 'default',
+			},
+			isLoading: false,
+		} as never );
+
+		render( <UsagePanel /> );
+
+		expect(
+			screen.getByText( /Studio Code AI is currently available through limited beta access/ )
+		).toBeInTheDocument();
+		expect(
+			screen.getByRole( 'link', { name: 'developer.wordpress.com/studio/studio-code-beta' } )
+		).toHaveAttribute( 'href', 'https://developer.wordpress.com/studio/studio-code-beta/' );
+		expect(
+			screen.queryByText( /Studio Code AI is blocked for this WordPress.com account/ )
+		).not.toBeInTheDocument();
+	} );
+
+	it( 'tells an ungranted account with spend this cycle that beta access is now required', () => {
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: {
+				costUsage: 3,
+				costCap: 100,
+				costResetDate: '2026-08-01T12:00:00',
+				studioCodeAiHasAccess: false,
+				studioCodeAiAccess: 'default',
+			},
+			isLoading: false,
+		} as never );
+
+		render( <UsagePanel /> );
+
+		expect(
+			screen.getByText( /Thanks for participating in the Studio Code AI beta/ )
+		).toBeInTheDocument();
+		expect(
+			screen.getByRole( 'link', { name: 'developer.wordpress.com/studio/studio-code-beta' } )
+		).toBeInTheDocument();
+	} );
+
+	it( 'shows the exploration usage when access is granted through a default-allow policy', () => {
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: {
+				costUsage: 25,
+				costCap: 100,
+				costResetDate: '2026-08-01T12:00:00',
+				studioCodeAiHasAccess: true,
+				studioCodeAiAccess: 'default',
+			},
+			isLoading: false,
+		} as never );
+
+		render( <UsagePanel /> );
+
+		expect( screen.getByText( '$10.00 left' ) ).toBeInTheDocument();
+		expect( screen.getByText( '4,000 of 5,000 credits used' ) ).toBeInTheDocument();
 	} );
 
 	it( 'confirms through the connector before deleting all preview sites', async () => {

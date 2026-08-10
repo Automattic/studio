@@ -498,3 +498,19 @@
 	background: var(--wpds-color-bg-interactive-neutral-weak-active);
 	outline: none;
 }
+
+/* Composer fade-in after the entitlement check resolves. No fill mode:
+   natural opacity is 1, and index.css's reduced-motion clamp covers it. */
+.fadeInQuick {
+	animation: fade-in-quick 180ms ease-out;
+}
+
+@keyframes fade-in-quick {
+	from {
+		opacity: 0;
+	}
+
+	to {
+		opacity: 1;
+	}
+}

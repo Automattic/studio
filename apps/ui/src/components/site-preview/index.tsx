@@ -9,6 +9,7 @@ import { DotGrid } from '@/components/dot-grid';
 import * as Menu from '@/components/menu';
 import { OpenInMenu } from '@/components/open-in-menu';
 import { useConnector } from '@/data/core';
+import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useIsSiteStarting, useStartSite } from '@/data/queries/use-sites';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { useWindowControlsOverlay } from '@/hooks/use-window-controls-overlay';
@@ -19,6 +20,7 @@ import {
 	getPathFromPreviewUrl,
 	getPreviewRealm,
 	getRealmNavigationPath,
+	getRealmOpenEvent,
 	PreviewAddressBar,
 	REALM_SHORTCUT_KEYS,
 	useDebouncedValue,
@@ -510,6 +512,7 @@ export function SitePreview( {
 	onFullscreenChange,
 }: SitePreviewProps ) {
 	const connector = useConnector();
+	const { chatEnabled } = useAgenticFeatures();
 	const startSite = useStartSite();
 	const isStarting = useIsSiteStarting( site.id );
 	const siteUrl = getSiteUrl( site );
@@ -671,10 +674,12 @@ export function SitePreview( {
 			if ( getPreviewRealm( getSafePath( path ) ) === realm ) {
 				return;
 			}
+			// The agentic UI opens the realm in its in-app preview panel.
+			void connector.trackEvent( getRealmOpenEvent( realm ), { browser: 'internal' } );
 			const target = lastRealmPathsRef.current[ realm ];
 			onPathChange?.( getRealmNavigationPath( target, siteUrl ) );
 		},
-		[ onPathChange, path, siteUrl ]
+		[ connector, onPathChange, path, siteUrl ]
 	);
 
 	const browserShortcuts = useMemo(
@@ -884,7 +889,7 @@ export function SitePreview( {
 					) : null }
 				</div>
 				<div className={ clsx( styles.headerSide, styles.headerSideEnd ) }>
-					{ canPreview && connector.capabilities.annotatePreview ? (
+					{ canPreview && chatEnabled && connector.capabilities.annotatePreview ? (
 						<div className={ styles.annotationControls }>
 							<IconButton
 								variant="minimal"

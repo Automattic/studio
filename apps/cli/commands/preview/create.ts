@@ -11,6 +11,8 @@ import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { getNextSnapshotSequence } from 'cli/lib/cli-config/snapshots';
 import { emitCliEvent } from 'cli/lib/daemon-client';
 import { getSnapshotsFromConfig, saveSnapshotToConfig } from 'cli/lib/snapshots';
+import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
+import { classifyPreviewFailure } from 'cli/lib/utils';
 import { validateSiteSize } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
@@ -21,6 +23,7 @@ export async function runCommand( siteFolder: string, name?: string ): Promise< 
 		`${ path.basename( siteFolder ) }-${ Date.now() }.zip`
 	);
 	const logger = new Logger< LoggerAction >();
+	const startedAt = Date.now();
 
 	try {
 		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating…' ) );
@@ -70,10 +73,16 @@ export async function runCommand( siteFolder: string, name?: string ): Promise< 
 		);
 		logger.reportSuccess( __( 'Preview site saved to Studio' ) );
 		await emitCliEvent( { event: SNAPSHOT_EVENTS.CREATED, data: { snapshotUrl: snapshot.url } } );
+		await recordPreviewCreateEvent( { success: true, time_ms: Date.now() - startedAt } );
 
 		logger.reportKeyValuePair( 'name', snapshot.name ?? '' );
 		logger.reportKeyValuePair( 'url', snapshot.url );
 	} catch ( error ) {
+		await recordPreviewCreateEvent( {
+			success: false,
+			failure_reason: classifyPreviewFailure( error ),
+			time_ms: Date.now() - startedAt,
+		} );
 		if ( error instanceof LoggerError ) {
 			logger.reportError( error );
 		} else {
@@ -82,6 +91,21 @@ export async function runCommand( siteFolder: string, name?: string ): Promise< 
 		}
 	} finally {
 		void cleanup( archivePath );
+	}
+}
+
+async function recordPreviewCreateEvent( props: {
+	success: boolean;
+	failure_reason?: string;
+	time_ms: number;
+} ): Promise< void > {
+	try {
+		await recordTracksEvent( TRACKS_EVENTS.PREVIEW_SITE_CREATE, {
+			...props,
+			...getTracksOrigin(),
+		} );
+	} catch {
+		// Best-effort telemetry — never block or fail preview creation.
 	}
 }
 

@@ -1,5 +1,6 @@
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
+import { readOnboardingHints, writeOnboardingHints } from '../browser-onboarding-hints';
 import { applyStoredSiteOrder, storeSiteOrder } from '../browser-site-order';
 import { UnsupportedError } from '../unsupported-error';
 import { readWapuuScore, writeWapuuScore } from '../wapuu-score-storage';
@@ -470,6 +471,16 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		},
 		async disableAgenticUi() {
 			// No-op in the browser.
+		},
+		async getOnboardingHints() {
+			return readOnboardingHints();
+		},
+		async setOnboardingHints( partial ) {
+			writeOnboardingHints( partial );
+		},
+		onShowGettingStarted() {
+			// No application menu on the hosted surface.
+			return () => {};
 		},
 		async getAppUpdateStatus() {
 			return { readyToInstall: false, version: null };

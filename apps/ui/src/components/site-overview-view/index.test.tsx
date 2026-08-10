@@ -144,6 +144,7 @@ describe( 'SiteOverviewView', () => {
 	const openSiteFolder = vi.fn().mockResolvedValue( undefined );
 	const openSiteInEditor = vi.fn().mockResolvedValue( undefined );
 	const openSiteInTerminal = vi.fn().mockResolvedValue( undefined );
+	const trackEvent = vi.fn().mockResolvedValue( undefined );
 	const startSite = vi.fn().mockResolvedValue( undefined );
 	const copySite = vi.fn();
 	const exportFullSite = vi.fn();
@@ -155,6 +156,7 @@ describe( 'SiteOverviewView', () => {
 		openSiteFolder,
 		openSiteInEditor,
 		openSiteInTerminal,
+		trackEvent,
 		capabilities: { openInOS } as ConnectorCapabilities,
 	} );
 
@@ -247,8 +249,8 @@ describe( 'SiteOverviewView', () => {
 		expect( screen.getByText( 'Media Library' ) ).toBeVisible();
 		expect( screen.queryByText( 'Customizer' ) ).not.toBeInTheDocument();
 		expect( screen.getByText( 'Duplicate' ) ).toBeVisible();
-		expect( screen.getByText( 'Export' ) ).toBeVisible();
-		expect( screen.getByText( 'Export DB' ) ).toBeVisible();
+		expect( screen.getByText( 'Export entire site' ) ).toBeVisible();
+		expect( screen.getByText( 'Export database' ) ).toBeVisible();
 		expect( screen.getByText( 'Delete' ) ).toBeVisible();
 		expect( screen.queryByDisplayValue( 'Demo Site' ) ).not.toBeInTheDocument();
 	} );
@@ -560,6 +562,9 @@ describe( 'SiteOverviewView', () => {
 			'site-1',
 			'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
 		);
+		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_phpmyadmin', {
+			browser: 'internal',
+		} );
 	} );
 
 	it( 'hides the editor shortcut until an editor is configured', () => {
@@ -591,6 +596,22 @@ describe( 'SiteOverviewView', () => {
 			expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/wp-admin/site-editor.php' )
 		);
 		expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/wp-admin/upload.php' );
+	} );
+
+	it( 'records a customize Tracks event with the entry_point for each shortcut', () => {
+		renderView();
+
+		fireEvent.click( screen.getByText( 'Site Editor' ).closest( 'button' )! );
+		fireEvent.click( screen.getByText( 'Media Library' ).closest( 'button' )! );
+
+		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_customize', {
+			entry_point: 'editor',
+			browser: 'internal',
+		} );
+		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_customize', {
+			entry_point: 'media_library',
+			browser: 'internal',
+		} );
 	} );
 
 	it( 'runs manage actions and confirms deletion in a dialog', () => {

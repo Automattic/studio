@@ -2,6 +2,7 @@ import '@testing-library/jest-dom/vitest';
 import { captureException } from '@studio/common/lib/error-reporting';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useStartSite } from '@/data/queries/use-sites';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
@@ -85,6 +86,10 @@ vi.mock( '@studio/common/lib/error-reporting', () => ( {
 	captureException: vi.fn(),
 } ) );
 
+vi.mock( '@/data/app-messages', () => ( {
+	toast: { error: vi.fn() },
+} ) );
+
 const useConnectorMock = vi.mocked( useConnector, { partial: true } );
 const useStartSiteMock = vi.mocked( useStartSite, { partial: true } );
 const useUserPreferencesMock = vi.mocked( useUserPreferences, { partial: true } );
@@ -97,6 +102,7 @@ describe( 'OpenInMenu', () => {
 	const openSiteFolder = vi.fn().mockResolvedValue( undefined );
 	const openSiteInEditor = vi.fn().mockResolvedValue( undefined );
 	const openSiteInTerminal = vi.fn().mockResolvedValue( undefined );
+	const trackEvent = vi.fn().mockResolvedValue( undefined );
 	const startSite = vi.fn().mockResolvedValue( undefined );
 
 	beforeEach( () => {
@@ -108,6 +114,7 @@ describe( 'OpenInMenu', () => {
 			openSiteFolder,
 			openSiteInEditor,
 			openSiteInTerminal,
+			trackEvent,
 			getSites: vi.fn().mockResolvedValue( [] ),
 		} );
 		useStartSiteMock.mockReturnValue( {
@@ -154,7 +161,6 @@ describe( 'OpenInMenu', () => {
 	it( 'reports terminal failures and tells the user', async () => {
 		const error = new Error( 'Terminal unavailable' );
 		openSiteInTerminal.mockRejectedValueOnce( error );
-		const alertMock = vi.spyOn( window, 'alert' ).mockImplementation( () => undefined );
 		const consoleErrorMock = vi.spyOn( console, 'error' ).mockImplementation( () => undefined );
 		renderMenu( { running: true } );
 
@@ -162,7 +168,34 @@ describe( 'OpenInMenu', () => {
 
 		await waitFor( () => expect( captureException ).toHaveBeenCalledWith( error ) );
 		expect( consoleErrorMock ).toHaveBeenCalledWith( 'Failed to open site in terminal:', error );
-		expect( alertMock ).toHaveBeenCalledWith( 'Could not open the terminal.' );
+		expect( toast.error ).toHaveBeenCalledWith( 'Could not open the terminal.' );
+	} );
+
+	it( 'records Tracks events for browser and folder only (editor and terminal emit in Main)', () => {
+		renderMenu( { running: true } );
+
+		fireEvent.click( destination( 'Browser' ) );
+		fireEvent.click( destination( /^(Finder|File Explorer|File manager)$/ ) );
+		fireEvent.click( destination( 'Zed' ) );
+		fireEvent.click( destination( 'Terminal' ) );
+
+		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_in_browser', {
+			browser: 'external',
+		} );
+		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_folder' );
+		const trackedEvents = trackEvent.mock.calls.map( ( call ) => call[ 0 ] );
+		expect( trackedEvents ).not.toContain( 'studio_site_open_in_editor' );
+		expect( trackedEvents ).not.toContain( 'studio_site_open_in_terminal' );
+	} );
+
+	it( 'records the browser event matching the active preview realm', () => {
+		renderMenu( { running: true }, '/wp-admin/plugins.php' );
+
+		fireEvent.click( destination( 'Browser' ) );
+
+		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_wp_admin', {
+			browser: 'external',
+		} );
 	} );
 
 	it( 'offers no phpMyAdmin destination', () => {
@@ -242,8 +275,8 @@ describe( 'OpenInMenu', () => {
 	} );
 } );
 
-function renderMenu( overrides: Partial< SiteDetails > = {} ) {
-	return render( <OpenInMenu site={ createSite( overrides ) } browserPath={ BROWSER_PATH } /> );
+function renderMenu( overrides: Partial< SiteDetails > = {}, browserPath: string = BROWSER_PATH ) {
+	return render( <OpenInMenu site={ createSite( overrides ) } browserPath={ browserPath } /> );
 }
 
 function destination( label: string | RegExp ): HTMLElement {

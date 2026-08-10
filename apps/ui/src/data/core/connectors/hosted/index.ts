@@ -259,6 +259,9 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async removeWordPressSkillById() {
 			throw new UnsupportedError( 'removeWordPressSkillById' );
 		},
+		async getSiteStorageUsage(): Promise< null > {
+			return null;
+		},
 		async exportFullSite(): Promise< string | null > {
 			throw new UnsupportedError( 'exportFullSite' );
 		},

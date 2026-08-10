@@ -97,6 +97,7 @@ const api: IpcApi = {
 	dismissAgenticUiBanner: () => ipcRendererInvoke( 'dismissAgenticUiBanner' ),
 	isAgenticUiBannerDismissed: () => ipcRendererInvoke( 'isAgenticUiBannerDismissed' ),
 	getWpVersion: ( id ) => ipcRendererInvoke( 'getWpVersion', id ),
+	getSiteStorageUsage: ( id ) => ipcRendererInvoke( 'getSiteStorageUsage', id ),
 	getIsMultisite: ( id ) => ipcRendererInvoke( 'getIsMultisite', id ),
 	generateProposedSitePath: ( siteName ) =>
 		ipcRendererInvoke( 'generateProposedSitePath', siteName ),

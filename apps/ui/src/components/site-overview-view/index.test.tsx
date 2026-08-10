@@ -1,5 +1,5 @@
 import { DEFAULT_ACTIVITY_SOUND_PREFERENCES } from '@studio/common/lib/activity-sounds';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Tooltip } from '@wordpress/ui';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
@@ -7,6 +7,7 @@ import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useLogin } from '@/data/queries/use-auth-user';
 import { useCertificateTrust, useTrustCertificate } from '@/data/queries/use-certificate-trust';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
+import { useSiteStorageUsage } from '@/data/queries/use-site-storage-usage';
 import { useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
 import {
 	useCopySite,
@@ -123,6 +124,10 @@ vi.mock( '@/data/queries/use-site-thumbnail', () => ( {
 	useSiteThumbnail: vi.fn(),
 } ) );
 
+vi.mock( '@/data/queries/use-site-storage-usage', () => ( {
+	useSiteStorageUsage: vi.fn(),
+} ) );
+
 vi.mock( '@/data/queries/use-user-preferences', () => ( {
 	useUserPreferences: vi.fn(),
 } ) );
@@ -164,6 +169,7 @@ const useIsSiteStartingMock = vi.mocked( useIsSiteStarting );
 const useIsSiteStoppingMock = vi.mocked( useIsSiteStopping );
 const useSiteOverviewDetailsMock = vi.mocked( useSiteOverviewDetails, { partial: true } );
 const useSiteThumbnailMock = vi.mocked( useSiteThumbnail, { partial: true } );
+const useSiteStorageUsageMock = vi.mocked( useSiteStorageUsage, { partial: true } );
 const useSitesMock = vi.mocked( useSites, { partial: true } );
 const useStartSiteMock = vi.mocked( useStartSite, { partial: true } );
 const useStopSiteMock = vi.mocked( useStopSite, { partial: true } );
@@ -234,6 +240,17 @@ describe( 'SiteOverviewView', () => {
 		useExistingCustomDomainsMock.mockReturnValue( [] );
 		useUpdateSiteMock.mockReturnValue( { isPending: false, mutate: updateSite } );
 		useXdebugEnabledSiteMock.mockReturnValue( null );
+		useSiteStorageUsageMock.mockReturnValue( {
+			data: {
+				total: 800,
+				uploads: 400,
+				plugins: 200,
+				themes: 100,
+				database: 50,
+				other: 50,
+			},
+			isPending: false,
+		} );
 		useIsSiteStartingMock.mockReturnValue( false );
 		useIsSiteStoppingMock.mockReturnValue( false );
 		useStartSiteMock.mockReturnValue( {
@@ -372,6 +389,27 @@ describe( 'SiteOverviewView', () => {
 		await waitFor( () =>
 			expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/', { autoLogin: false } )
 		);
+	} );
+
+	it( 'shows the total disk usage and an accessible category breakdown', () => {
+		render( <SiteOverviewView siteId="site-1" /> );
+
+		expect( screen.getByText( 'Disk' ) ).toBeVisible();
+		expect( screen.getByText( '800 B' ) ).toBeVisible();
+		const diskBreakdown = screen.getByRole( 'group', {
+			name: 'Disk usage breakdown: Media — 400 B (50%), Plugins — 200 B (25%), Themes — 100 B (13%), Database — 50 B (6%), Other — 50 B (6%)',
+		} );
+		expect( diskBreakdown ).toBeVisible();
+		expect( within( diskBreakdown ).getByText( 'Media' ) ).toBeInTheDocument();
+		expect( within( diskBreakdown ).getByText( 'Plugins' ) ).toBeInTheDocument();
+	} );
+
+	it( 'indicates when disk usage is still being measured', () => {
+		useSiteStorageUsageMock.mockReturnValue( { data: undefined, isPending: true } );
+
+		render( <SiteOverviewView siteId="site-1" /> );
+
+		expect( screen.getByText( 'Measuring…' ) ).toBeVisible();
 	} );
 
 	it( 'keeps the browser action available without a cached thumbnail', () => {

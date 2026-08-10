@@ -104,3 +104,169 @@
 	line-height: var(--wpds-typography-line-height-xs);
 	color: var(--wpds-color-fg-content-neutral-weak);
 }
+
+.storageSection {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-xs);
+	min-width: 0;
+}
+
+.storageHeader {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: var(--wpds-dimension-padding-sm);
+}
+
+.storageTotal {
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-xs);
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.storageInteractive {
+	--storage-uploads: light-dark(#3858e9, #6d8bf0);
+	--storage-plugins: light-dark(#c7367f, #d75c90);
+	--storage-themes: light-dark(#b26b00, #d39a38);
+	--storage-database: light-dark(#00918e, #22a79f);
+	--storage-other: var(--wpds-color-fg-content-neutral-weak);
+
+	position: relative;
+	min-width: 0;
+	border-radius: var(--wpds-border-radius-sm);
+}
+
+.storageBar,
+.storageSkeleton {
+	height: 10px;
+	border-radius: var(--wpds-border-radius-sm);
+	overflow: hidden;
+}
+
+.storageBar {
+	display: flex;
+	gap: 2px;
+	background: var(--wpds-color-bg-surface-neutral-weak);
+}
+
+.storageSegment {
+	display: block;
+	min-width: 2px;
+	height: 100%;
+}
+
+.storageInteractive:focus-visible {
+	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus-brand);
+	outline-offset: 2px;
+}
+
+.storageUploads {
+	background: var(--storage-uploads);
+}
+
+.storagePlugins {
+	background: var(--storage-plugins);
+}
+
+.storageThemes {
+	background: var(--storage-themes);
+}
+
+.storageDatabase {
+	background: var(--storage-database);
+}
+
+.storageOther {
+	background: var(--storage-other);
+}
+
+.storageLegend {
+	position: absolute;
+	left: 50%;
+	bottom: calc(100% + var(--wpds-dimension-padding-sm));
+	z-index: 2;
+	display: grid;
+	gap: var(--wpds-dimension-padding-xs);
+	box-sizing: border-box;
+	min-width: 240px;
+	max-width: min(320px, calc(100vw - 32px));
+	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md);
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: var(--wpds-border-radius-md);
+	background: var(--wpds-color-bg-surface-neutral-strong);
+	box-shadow: var(--wpds-elevation-sm);
+	color: var(--wpds-color-fg-content-neutral);
+	opacity: 0;
+	visibility: hidden;
+	transform: translate(-50%, 4px);
+	transition: opacity 120ms ease, transform 120ms ease, visibility 120ms;
+	pointer-events: none;
+}
+
+.storageInteractive:hover .storageLegend,
+.storageInteractive:focus-visible .storageLegend {
+	opacity: 1;
+	visibility: visible;
+	transform: translate(-50%, 0);
+}
+
+.storageLegendRow {
+	display: grid;
+	grid-template-columns: 10px minmax(0, 1fr) auto auto;
+	align-items: center;
+	column-gap: var(--wpds-dimension-padding-sm);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-xs);
+}
+
+.storageLegendSwatch {
+	width: 10px;
+	height: 10px;
+	border-radius: 2px;
+}
+
+.storageLegendLabel {
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+.storageLegendValue {
+	white-space: nowrap;
+}
+
+.storageLegendPercent {
+	min-width: 28px;
+	white-space: nowrap;
+	text-align: end;
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.storageSkeleton {
+	background: linear-gradient(
+		90deg,
+		var(--wpds-color-bg-surface-neutral-weak) 25%,
+		var(--wpds-color-bg-interactive-neutral-weak-active) 50%,
+		var(--wpds-color-bg-surface-neutral-weak) 75%
+	);
+	background-size: 200% 100%;
+	animation: storage-loading 1.4s ease-in-out infinite;
+}
+
+@keyframes storage-loading {
+	from {
+		background-position: 200% 0;
+	}
+	to {
+		background-position: -200% 0;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.storageSkeleton,
+	.storageLegend {
+		animation: none;
+		transition: none;
+	}
+}

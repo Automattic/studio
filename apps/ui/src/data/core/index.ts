@@ -39,6 +39,7 @@ export type {
 	SiteDetails,
 	SiteOverviewDetails,
 	SiteOverviewExtension,
+	SiteStorageUsage,
 	SkillStatus,
 	Snapshot,
 	SnapshotUsage,

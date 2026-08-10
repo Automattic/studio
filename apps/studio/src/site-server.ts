@@ -203,7 +203,15 @@ export class SiteServer {
 
 		// Default to the native PHP runtime when the caller doesn't specify one.
 		const runtime = options.runtime ?? SITE_RUNTIME_NATIVE_PHP;
-		const result = await createSiteViaCli( { ...options, runtime, siteId } );
+		let result;
+		try {
+			result = await createSiteViaCli( { ...options, runtime, siteId } );
+		} catch ( error ) {
+			// The CLI rolls its own state back, so a placeholder left here is a site only the app
+			// believes in. Not `unregister`: a site that never existed is not a deleted one.
+			servers.delete( siteId );
+			throw error;
+		}
 		server.details.runtime = runtime;
 		server.details.fileAccess = options.fileAccess;
 

@@ -282,27 +282,6 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 		fs.mkdirSync( stateDirectory, { recursive: true } );
 		fs.mkdirSync( rawDirectory, { recursive: true } );
 
-		// Preflight reported the remote site's wp-content path at
-		// database.wp.paths_urls.content_dir; the pull's db-apply stage targets
-		// an sqlite file under rawDirectory + that path so flat-docroot can
-		// symlink it into the flattened site.
-		fs.writeFileSync(
-			path.join( stateDirectory, '.import-state.json' ),
-			JSON.stringify( {
-				preflight: {
-					data: {
-						database: {
-							wp: {
-								paths_urls: {
-									content_dir: '/srv/htdocs/wp-content',
-								},
-							},
-						},
-					},
-				},
-			} )
-		);
-
 		const reprint = vi
 			.spyOn( migrationClient, 'runReprintCommandUntilComplete' )
 			.mockResolvedValue( { stdout: '{"ok":true}', stderr: '', exitCode: 0 } );
@@ -329,7 +308,15 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 			'https://example.com/?reprint-api',
 			'hmac-secret',
 			false,
-			true
+			true,
+			{},
+			{
+				...emptyReprintMetadata,
+				sourceSite: {
+					...emptyReprintMetadata.sourceSite,
+					contentDirectory: '/srv/htdocs/wp-content',
+				},
+			}
 		);
 
 		// The pipeline runs as separate commands so the selection can skip steps.
@@ -518,7 +505,7 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 		fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
 	} );
 
-	it( 'clears a damaged raw scratch (non-empty, no local index) before pulling', async () => {
+	it( 'leaves a damaged raw scratch for Reprint to recover', async () => {
 		const technicalSiteDirectory = fs.mkdtempSync(
 			path.join( os.tmpdir(), 'studio-import-pull-damaged-' )
 		);
@@ -555,16 +542,16 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 			true
 		);
 
-		// The scratch was wiped for a clean initial sync: raw is empty, the
-		// stale derived indexes are gone, and only preflight survives in state.
-		expect( fs.readdirSync( rawDirectory ) ).toEqual( [] );
+		// Reprint owns recovery of its state and scratch. Studio must not
+		// delete the raw tree or private state files behind its back.
+		expect( fs.readdirSync( rawDirectory ) ).toEqual( [ 'stale-blocker' ] );
 		expect( fs.existsSync( path.join( stateDirectory, '.import-remote-index.jsonl' ) ) ).toBe(
-			false
+			true
 		);
 		expect(
 			JSON.parse( fs.readFileSync( path.join( stateDirectory, '.import-state.json' ), 'utf-8' ) )
-		).toEqual( { preflight: { data: {} } } );
-		// The pull still ran, in default mode (no preserve-local escape hatch).
+		).toEqual( { command: 'files-pull', status: 'complete', preflight: { data: {} } } );
+		// The pull is still passed to Reprint in its default mode.
 		const filesArgs = reprint.mock.calls[ 0 ][ 2 ] as string[];
 		expect( filesArgs[ 0 ] ).toBe( 'pull-files' );
 		expect( filesArgs.some( ( a ) => a.includes( 'preserve-local' ) ) ).toBe( false );
@@ -1274,6 +1261,14 @@ describe( 'CLI: studio pull-reprint delta re-pull of a completed pull', () => {
 					};
 				}
 
+				if ( args[ 0 ] === 'import-metadata' ) {
+					return {
+						stdout: JSON.stringify( emptyReprintMetadata ),
+						stderr: '',
+						exitCode: 0,
+					};
+				}
+
 				if ( args[ 0 ] === 'pull-files' ) {
 					expect( args ).toEqual( expect.arrayContaining( [ '--filter=essential-files' ] ) );
 					throw new Error( 'stop after essential-files pull invocation' );
@@ -1290,6 +1285,7 @@ describe( 'CLI: studio pull-reprint delta re-pull of a completed pull', () => {
 
 		expect( reprintSpy.mock.calls.map( ( call ) => call[ 2 ][ 0 ] ) ).toEqual( [
 			'preflight',
+			'import-metadata',
 			'pull-files',
 		] );
 	} );
@@ -1354,24 +1350,7 @@ describe( 'CLI: studio pull-reprint first-pull selective sync', () => {
 		fs.mkdirSync( path.join( sitePath, 'wp-content', 'database' ), { recursive: true } );
 		fs.writeFileSync( path.join( sitePath, 'wp-content', 'database', '.ht.sqlite' ), 'local-db' );
 
-		// Preflight data (content dir + core roots) as the real preflight
-		// stage would have persisted it into reprint's state file.
 		fs.mkdirSync( stateDirectory, { recursive: true } );
-		fs.writeFileSync(
-			path.join( stateDirectory, '.import-state.json' ),
-			JSON.stringify( {
-				preflight: {
-					data: {
-						database: {
-							wp: { paths_urls: { content_dir: '/srv/htdocs/wp-content' } },
-						},
-						wp_detect: {
-							roots: [ { path: '/wordpress/core/7.0' }, { path: '/wordpress/core' } ],
-						},
-					},
-				},
-			} )
-		);
 
 		const migrationClientMod = await import( 'cli/lib/pull/migration-client' );
 		const reprintSpy = vi
@@ -1384,6 +1363,20 @@ describe( 'CLI: studio pull-reprint first-pull selective sync', () => {
 								ok: true,
 								database: { wp: { siteurl: 'https://example.com', table_prefix: 'wp_' } },
 								php: { version: '8.3' },
+							},
+						} ),
+						stderr: '',
+						exitCode: 0,
+					};
+				}
+				if ( args[ 0 ] === 'import-metadata' ) {
+					return {
+						stdout: JSON.stringify( {
+							...emptyReprintMetadata,
+							sourceSite: {
+								...emptyReprintMetadata.sourceSite,
+								contentDirectory: '/srv/htdocs/wp-content',
+								wordpressRoots: [ '/wordpress/core/7.0', '/wordpress/core' ],
 							},
 						} ),
 						stderr: '',
@@ -1424,13 +1417,14 @@ describe( 'CLI: studio pull-reprint first-pull selective sync', () => {
 		// remote tree lookup.
 		expect( reprintSpy.mock.calls.map( ( call ) => call[ 2 ][ 0 ] ) ).toEqual( [
 			'preflight',
+			'import-metadata',
 			'pull-files',
 			'flat-docroot',
 		] );
 
 		// The include-list carries the live core root (the ancestor root
 		// holding other core versions is dropped) plus the selection.
-		const filesArgs = reprintSpy.mock.calls[ 1 ][ 2 ] as string[];
+		const filesArgs = reprintSpy.mock.calls[ 2 ][ 2 ] as string[];
 		expect( filesArgs ).toContain( '--only=/wordpress/core/7.0' );
 		expect( filesArgs ).not.toContain( '--only=/wordpress/core' );
 		expect( filesArgs ).toContain( '--only=/srv/htdocs/wp-content/themes' );

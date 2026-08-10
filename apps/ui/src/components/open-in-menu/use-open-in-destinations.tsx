@@ -6,6 +6,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { code, external } from '@wordpress/icons';
 import { getPreviewRealm, getRealmOpenEvent } from '@/components/site-preview/address-bar';
+import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { editorLogos, finderLogo, folderLogo, terminalLogo, terminalLogos } from '@/lib/logos';
@@ -129,7 +130,7 @@ export function useOpenInDestinations(
 				void connector.openSiteInTerminal( site.id ).catch( ( error ) => {
 					console.error( 'Failed to open site in terminal:', error );
 					captureException( error );
-					alert( __( 'Could not open the terminal.' ) );
+					toast.error( __( 'Could not open the terminal.' ) );
 				} );
 			},
 		},

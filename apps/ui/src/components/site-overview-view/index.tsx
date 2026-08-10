@@ -134,11 +134,6 @@ function ButtonSection( { title, children }: { title: string; children: ReactNod
 	);
 }
 
-/**
- * The apps a site can be handed off to. Mirrors the preview toolbar's
- * "Open in…" menu, minus the browser (the preview itself is the browser here)
- * and plus phpMyAdmin, which the classic overview also grouped with them.
- */
 function OpenInSection( {
 	site,
 	busy,

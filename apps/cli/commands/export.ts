@@ -113,12 +113,8 @@ export function handleExportEvents( emitter: ImportExportEventEmitter ): void {
 		logger.reportSuccess( __( 'Site exported successfully' ) );
 	} );
 
-	emitter.on( ExportEvents.EXPORT_ERROR, ( payload ) => {
-		throw new LoggerError(
-			__( 'Export failed' ),
-			payload.message ? new Error( payload.message ) : undefined
-		);
-	} );
+	// No EXPORT_ERROR handler: every emitter rethrows the original error right after emitting, and
+	// that error carries the failure `code` for analytics — a wrap here would discard it.
 }
 
 export async function runCommand(
@@ -170,7 +166,11 @@ export async function runCommand(
 		} );
 
 		if ( ! exporter ) {
-			throw new LoggerError( __( 'No suitable exporter found for the provided backup file' ) );
+			throw new LoggerError(
+				__( 'No suitable exporter found for the provided backup file' ),
+				undefined,
+				'no_exporter_found'
+			);
 		}
 
 		if ( process.send ) {

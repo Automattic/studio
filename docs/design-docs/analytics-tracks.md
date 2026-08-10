@@ -238,8 +238,10 @@ Backup import/export, emitted by the **CLI** `import`/`export` commands (the sol
 and agentic UI delegate to the CLI, so standalone-CLI usage is counted too; filter by `channel`). Both
 events mean a **user-initiated** backup operation: add-site-flow imports, sync-pull imports, and
 sync-push exports suppress the event via a hidden `--suppress-tracks-event` flag (see "Which surface
-emits what"). No file names or paths are ever sent. `failure_reason` is coarse and low-cardinality
-(the raw error is never sent — it can carry filesystem paths).
+emits what"). No file names or paths are ever sent. `failure_reason` is coarse and low-cardinality:
+the known failure points throw `LoggerError`s tagged with a machine-readable `code`, which the
+classifier returns directly — the raw, `__()`-translated error message is never sent or matched on
+(it can carry filesystem paths, and its text varies by locale).
 
 | Event | Emitted from | Event-specific props |
 |---|---|---|

@@ -33,52 +33,26 @@ export function classifyPreviewFailure( error: unknown ): string {
 	return 'unknown';
 }
 
-// Import/export failure buckets for the `failure_reason` Tracks prop, keyed by the exact msgid used
-// at the throw site. These errors are thrown with `__()`-built messages in this same process, so
-// translating the msgid at classification time reproduces the exact localized string — matching
-// works regardless of the active locale (and falls back to English when no translation is loaded).
-// Ordered: the first matching msgid wins.
-const IMPORT_FAILURE_BUCKETS: Array< [ string, string ] > = [
-	[
-		'Cannot set up WordPress. Bundled WordPress files not found. Please connect to the internet or reinstall Studio.',
-		'bundled_wp_missing',
-	],
-	[ 'Import file not found: %s', 'file_not_found' ],
-	[ 'Input file at location "%s" could not be found.', 'file_not_found' ],
-	[ 'No suitable backup handler found for the provided backup file', 'no_backup_handler' ],
-	[ 'No suitable importer found for the provided backup contents', 'no_importer_found' ],
-	[ 'Backup validation failed', 'validation' ],
-	[ 'Failed to extract backup', 'extract' ],
-	[ 'Database import failed: %s', 'database_import' ],
-	[ 'WordPress export import failed: %s', 'wxr_import' ],
-];
-
-const EXPORT_FAILURE_BUCKETS: Array< [ string, string ] > = [
-	[ 'No suitable exporter found for the provided backup file', 'no_exporter_found' ],
-	[ 'Database export failed', 'database_export' ],
-	[ 'Database export failed for table %s', 'database_export' ],
-	[ 'Could not get list of database tables to export.', 'database_export' ],
-	[ 'Failed to get site plugins: %s', 'site_meta' ],
-	[ 'Failed to get site themes: %s', 'site_meta' ],
-	[ 'Could not parse information about installed plugins to create meta.json file.', 'site_meta' ],
-	[ 'Could not parse information about installed themes to create meta.json file.', 'site_meta' ],
-];
-
-// Translates the msgid, strips sprintf placeholders, and requires every remaining static chunk to
-// appear in the message. Chunk-based matching keeps this order-independent, so translations that
-// move the placeholder around still match.
-function matchesTranslatedMessage( normalizedMessage: string, msgid: string ): boolean {
-	const chunks = __( msgid )
-		.toLowerCase()
-		.split( /%(?:\d+\$)?[sd]/ )
-		.map( ( chunk ) => chunk.trim() )
-		.filter( ( chunk ) => chunk.length > 2 );
-	return chunks.length > 0 && chunks.every( ( chunk ) => normalizedMessage.includes( chunk ) );
+// The known import/export failure points throw `LoggerError`s tagged with a machine-readable
+// `code`, which these classifiers return as the `failure_reason` Tracks prop. Classifying on the
+// code rather than the message keeps this locale-independent — messages are `__()`-translated
+// display text. Walks the `previousError` chain so a code survives generic wrapping.
+function findFailureCode( error: unknown ): string | undefined {
+	let current: unknown = error;
+	while ( current instanceof LoggerError ) {
+		if ( current.code ) {
+			return current.code;
+		}
+		current = current.previousError;
+	}
+	return undefined;
 }
 
-function classifyFailureMessage(
+// System/library errors carry no code and are never translated, so they are matched by substring
+// on the full message chain — checked before the code walk so a disk-full error during any phase
+// wins over the phase's own bucket. Never send the raw message: it carries filesystem paths.
+function classifyFailure(
 	error: unknown,
-	buckets: Array< [ string, string ] >,
 	untranslatedBuckets: Array< [ string[], string ] >
 ): string {
 	const message = error instanceof Error ? error.message : String( error );
@@ -88,22 +62,12 @@ function classifyFailureMessage(
 			return bucket;
 		}
 	}
-	for ( const [ msgid, bucket ] of buckets ) {
-		if ( matchesTranslatedMessage( normalized, msgid ) ) {
-			return bucket;
-		}
-	}
-	return 'unknown';
+	return findFailureCode( error ) ?? 'unknown';
 }
 
-// Coarse classification of a site import failure for the `failure_reason` Tracks prop. Same
-// constraints as `classifyPreviewFailure`: never send the raw message (carries file paths).
-// In standalone-logger mode errors arrive as `LoggerError` wrappers whose `.message` getter
-// appends the inner error's message, so inner-message matching still works. System/library
-// errors (ENOSPC, unzipper) are never translated and are matched first, so a disk-full error
-// during any phase wins over the phase's own bucket.
+// Coarse classification of a site import failure for the `failure_reason` Tracks prop.
 export function classifyImportFailure( error: unknown ): string {
-	return classifyFailureMessage( error, IMPORT_FAILURE_BUCKETS, [
+	return classifyFailure( error, [
 		[ [ 'enospc', 'no space left' ], 'disk_full' ],
 		[ [ 'absolute path' ], 'invalid_zip' ],
 	] );
@@ -111,9 +75,7 @@ export function classifyImportFailure( error: unknown ): string {
 
 // Coarse classification of a site export failure for the `failure_reason` Tracks prop.
 export function classifyExportFailure( error: unknown ): string {
-	return classifyFailureMessage( error, EXPORT_FAILURE_BUCKETS, [
-		[ [ 'enospc', 'no space left' ], 'disk_full' ],
-	] );
+	return classifyFailure( error, [ [ [ 'enospc', 'no space left' ], 'disk_full' ] ] );
 }
 
 export function normalizeHostname( hostname: string ): string {

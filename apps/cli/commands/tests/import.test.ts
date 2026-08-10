@@ -224,7 +224,11 @@ describe( 'CLI: studio import', () => {
 
 	it( 'records a failure Tracks event when no importer was selected', async () => {
 		vi.mocked( getImporter ).mockImplementation( () => {
-			throw new Error( 'No suitable importer found for the provided backup contents' );
+			throw new LoggerError(
+				'No suitable importer found for the provided backup contents',
+				undefined,
+				'no_importer_found'
+			);
 		} );
 
 		await expect( runCommand( testSitePath, testImportPath ) ).rejects.toThrow(
@@ -245,7 +249,11 @@ describe( 'CLI: studio import', () => {
 	it( 'records the importer type on failures after the import started', async () => {
 		const importer = createImporter( async () => {
 			importer.emit( ImporterEvents.IMPORT_START, 'sql' );
-			throw new Error( 'Database import failed: unexpected token' );
+			throw new LoggerError(
+				'Database import failed: unexpected token',
+				undefined,
+				'database_import'
+			);
 		} );
 		vi.mocked( getImporter ).mockReturnValue( importer as never );
 
@@ -267,7 +275,7 @@ describe( 'CLI: studio import', () => {
 		vi.mocked( isServerRunning ).mockResolvedValue( { pid: 1234 } as never );
 		vi.mocked( getImporter ).mockReturnValue(
 			createImporter( async () => {
-				throw new Error( 'Backup validation failed' );
+				throw new LoggerError( 'Backup validation failed', undefined, 'validation' );
 			} ) as never
 		);
 		vi.mocked( keepSqliteIntegrationUpdated ).mockRejectedValue( new Error( 'restart failed' ) );

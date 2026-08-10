@@ -4,6 +4,7 @@ import * as path from 'path';
 import { ImportEvents } from '@studio/common/lib/import-export-events';
 import { __, sprintf } from '@wordpress/i18n';
 import * as fse from 'fs-extra';
+import { LoggerError } from 'cli/logger';
 import { ImportExportEventEmitter } from '../../events';
 import { BackupArchiveInfo } from '../types';
 import { BackupHandler } from './backup-handler-factory';
@@ -183,8 +184,10 @@ export class BackupHandlerWpress extends ImportExportEventEmitter implements Bac
 		try {
 			await fs.promises.access( file.path, constants.F_OK );
 		} catch ( error ) {
-			throw new Error(
-				sprintf( __( 'Input file at location "%s" could not be found.' ), file.path )
+			throw new LoggerError(
+				sprintf( __( 'Input file at location "%s" could not be found.' ), file.path ),
+				undefined,
+				'file_not_found'
 			);
 		}
 
@@ -221,8 +224,10 @@ export class BackupHandlerWpress extends ImportExportEventEmitter implements Bac
 		try {
 			await fs.promises.access( file.path, constants.F_OK );
 		} catch ( error ) {
-			throw new Error(
-				sprintf( __( 'Input file at location "%s" could not be found.' ), file.path )
+			throw new LoggerError(
+				sprintf( __( 'Input file at location "%s" could not be found.' ), file.path ),
+				undefined,
+				'file_not_found'
 			);
 		}
 

@@ -51,7 +51,9 @@ async function setupWordPressFilesOnly( sitePath: string ): Promise< void > {
 		throw new LoggerError(
 			__(
 				'Cannot set up WordPress. Bundled WordPress files not found. Please connect to the internet or reinstall Studio.'
-			)
+			),
+			undefined,
+			'bundled_wp_missing'
 		);
 	}
 
@@ -136,7 +138,8 @@ export function handleImportEvents( emitter: ImportExportEventEmitter ): void {
 	emitter.on( ValidatorEvents.IMPORT_VALIDATION_ERROR, ( error ) => {
 		throw new LoggerError(
 			__( 'Backup validation failed' ),
-			error instanceof Error ? error : undefined
+			error instanceof Error ? error : undefined,
+			'validation'
 		);
 	} );
 
@@ -175,7 +178,8 @@ export function handleImportEvents( emitter: ImportExportEventEmitter ): void {
 	emitter.on( BackupExtractEvents.BACKUP_EXTRACT_ERROR, ( error ) => {
 		throw new LoggerError(
 			__( 'Failed to extract backup' ),
-			error instanceof Error ? error : undefined
+			error instanceof Error ? error : undefined,
+			'extract'
 		);
 	} );
 
@@ -252,9 +256,8 @@ export function handleImportEvents( emitter: ImportExportEventEmitter ): void {
 		logger.reportSuccess( __( 'Site imported successfully' ) );
 	} );
 
-	emitter.on( ImporterEvents.IMPORT_ERROR, ( error ) => {
-		throw new LoggerError( __( 'Import failed' ), new Error( error ) );
-	} );
+	// No IMPORT_ERROR handler: every emitter rethrows the original error right after emitting, and
+	// that error carries the failure `code` for analytics — a wrap here would discard it.
 }
 
 export async function runCommand(
@@ -280,7 +283,11 @@ export async function runCommand(
 		logger.reportSuccess( __( 'Site loaded' ) );
 
 		if ( ! fs.existsSync( importFile ) ) {
-			throw new LoggerError( sprintf( __( 'Import file not found: %s' ), importFile ) );
+			throw new LoggerError(
+				sprintf( __( 'Import file not found: %s' ), importFile ),
+				undefined,
+				'file_not_found'
+			);
 		}
 
 		wasServerRunning = !! ( await isServerRunning( site.id ) );
@@ -349,7 +356,7 @@ export async function runCommand(
 	}
 
 	// Record before the LoggerError merge below — merging the restart error into `previousError`
-	// would corrupt the failure classification, which reads the import error's message.
+	// would corrupt the failure classification, which walks the import error's chain.
 	if ( ! suppressTracksEvent ) {
 		await recordSiteImportEvent(
 			importError === undefined

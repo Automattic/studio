@@ -221,7 +221,7 @@ describe( 'CLI: studio export', () => {
 	it( 'records a failure Tracks event when the exporter fails', async () => {
 		vi.mocked( getExporter ).mockResolvedValue(
 			createExporter( async () => {
-				throw new Error( 'Database export failed' );
+				throw new LoggerError( 'Database export failed', undefined, 'database_export' );
 			} ) as never
 		);
 

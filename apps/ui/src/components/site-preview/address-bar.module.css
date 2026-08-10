@@ -133,9 +133,61 @@
 	}
 }
 
-/* Destination rows want room for the muted path on the right. */
-.menuPopup {
-	min-width: 260px;
+/* Same stacking rationale as the shared menu popup: the portal competes
+   with app chrome that creates stacking contexts. */
+.positioner {
+	z-index: 100;
+	outline: none;
+}
+
+/* Popup chrome matches the shared menu popup (surface-strong, weak stroke,
+   hairline ring, elevation) at address-bar width. */
+.popup {
+	box-sizing: border-box;
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-xs);
+	width: min(440px, calc(100vw - 32px));
+	padding: var(--wpds-dimension-padding-xs);
+	background: var(--wpds-color-bg-surface-neutral-strong);
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral-weak);
+	border-radius: var(--wpds-border-radius-lg);
+	box-shadow:
+		0 0 0 1px color-mix(in srgb, var(--wpds-color-fg-content-neutral) 14%, transparent),
+		var(--wpds-elevation-md);
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.input {
+	box-sizing: border-box;
+	width: 100%;
+	padding: 6px var(--wpds-dimension-padding-sm);
+	border: 0;
+	border-radius: var(--wpds-border-radius-sm);
+	background: var(--wpds-color-bg-surface-neutral);
+	color: var(--wpds-color-fg-content-neutral);
+	font-family: inherit;
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	outline: none;
+}
+
+.input::placeholder {
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.list {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	max-height: 320px;
+	overflow-y: auto;
+}
+
+.group {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
 }
 
 /* Section heading over a group of destinations (e.g. "Front end",
@@ -148,9 +200,34 @@
 	font-weight: var(--wpds-typography-font-weight-medium);
 }
 
+.item {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-gap-sm);
+	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm);
+	border-radius: var(--wpds-border-radius-sm);
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	cursor: var(--wpds-cursor-control);
+	outline: none;
+	user-select: none;
+}
+
+.item[data-highlighted],
+.item:hover {
+	background: var(--wpds-color-bg-surface-neutral);
+}
+
 .itemIcon {
 	display: inline-flex;
 	flex-shrink: 0;
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+/* Destination rows carry WordPress-surface icons; a touch stronger than
+   content-result icons so the two kinds scan apart in mixed results. */
+.itemIconDestination {
 	color: var(--wpds-color-fg-content-neutral);
 }
 
@@ -168,9 +245,15 @@
 	overflow: hidden;
 	color: var(--wpds-color-fg-content-neutral-weak);
 	font-size: var(--wpds-typography-font-size-xs);
+	text-align: right;
 	text-overflow: ellipsis;
 	white-space: nowrap;
-	text-align: right;
+}
+
+.status {
+	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
 }
 
 /* The destination the preview is currently on — same fill language as the

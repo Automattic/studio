@@ -246,6 +246,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			annotatePreview: false,
 			readLocalMedia: false,
 			agentInstructions: true,
+			studioLogs: false,
 			switchToClassicUi: false,
 		},
 
@@ -748,6 +749,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			} );
 		},
 
+		// The local server has no REST-proxy route yet; the preview omnibox
+		// only offers search where the webview connector serves it.
+		async fetchSiteRest() {
+			throw new UnsupportedError( 'fetchSiteRest' );
+		},
+
 		// The server runs on the user's machine, so it opens paths in OS apps on
 		// the browser's behalf (the editor/terminal choice comes from prefs above).
 		async openSiteFolder( siteId ) {
@@ -770,6 +777,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				method: 'POST',
 				body: JSON.stringify( { terminal } ),
 			} );
+		},
+
+		// The CLI has no equivalent of the desktop's log file — site server output
+		// goes to `~/.studio/daemon/logs` and the rest to the terminal that ran
+		// `studio ui` — so there is nothing to open here.
+		async openStudioLogs() {
+			throw new UnsupportedError( 'openStudioLogs' );
 		},
 
 		// Analytics — no-op here. Tracks currently flows through the desktop IPC connector; the

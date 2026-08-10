@@ -95,11 +95,27 @@ export function usePullSiteFromLive() {
 			toast.success( __( 'Pull complete' ) );
 		},
 		onError: ( _error, { siteId } ) => {
-			const message = __(
-				"Studio couldn't copy the live site. Try again. If the problem continues, check Studio Logs for details."
-			);
+			// Only point at the logs where the user can actually open them.
+			const canOpenLogs = connector.capabilities.studioLogs;
+			const message = canOpenLogs
+				? __(
+						"Studio couldn't copy the live site. Try again. If the problem continues, check Studio Logs for details."
+				  )
+				: __( "Studio couldn't copy the live site. Try again." );
 			reportSyncError( siteId, 'pull', message );
-			toast.error( __( "Pull didn't complete" ), { description: message } );
+			toast.error( __( "Pull didn't complete" ), {
+				description: message,
+				action: canOpenLogs
+					? {
+							label: __( 'Open Studio Logs' ),
+							onClick: () => {
+								void connector.openStudioLogs().catch( ( error ) => {
+									console.error( 'Failed to open Studio logs:', error );
+								} );
+							},
+					  }
+					: undefined,
+			} );
 		},
 	} );
 }

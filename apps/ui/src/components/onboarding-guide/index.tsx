@@ -3,7 +3,7 @@ import { Button, Dialog, Text, VisuallyHidden } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useRef, useState } from 'react';
 import { LearnMoreLink } from '@/components/learn-more';
-import { GuideIllustration, hasIllustration } from './illustrations';
+import { GuideIllustration, isDarkGuideIllustration, needsCloseScrim } from './illustrations';
 import styles from './style.module.css';
 import type { GuideDefinition } from '@/data/onboarding/guide';
 
@@ -66,7 +66,8 @@ export function OnboardingGuide( { guide, onComplete, onDismiss }: OnboardingGui
 					label={ __( 'Skip' ) }
 					className={ clsx(
 						styles.close,
-						hasIllustration( page.illustration ) && styles.closeOverArt
+						isDarkGuideIllustration( page.illustration ) && styles.closeOnDark,
+						needsCloseScrim( page.illustration ) && styles.closeOverArt
 					) }
 				/>
 				<Dialog.Content className={ styles.content }>

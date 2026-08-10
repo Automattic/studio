@@ -127,6 +127,19 @@ function DashboardLayoutContent() {
 	// `setPreviewSite` effect lands.
 	const previewPath = pathForSite( preview.pathsBySiteId, previewSiteId );
 	const showPreview = preview.open && supportsPreview && !! previewSite;
+	const previewFullscreen = preview.fullscreen && showPreview;
+	// Leave full preview when the route stops supporting a preview (settings,
+	// site settings…) so the user is never left staring at a hidden layout.
+	const { setFullscreen: setPreviewFullscreen } = preview;
+	useEffect( () => {
+		if ( ! supportsPreview ) {
+			setPreviewFullscreen( false );
+		}
+	}, [ supportsPreview, setPreviewFullscreen ] );
+	const exitPreviewFullscreen = useCallback(
+		() => setPreviewFullscreen( false ),
+		[ setPreviewFullscreen ]
+	);
 	const renderPreview = useCallback(
 		( { collapsed }: PreviewSplitFramePreviewProps ) =>
 			previewSite ? (
@@ -137,14 +150,31 @@ function DashboardLayoutContent() {
 					onAnnotationsDone={ onAnnotationsDone }
 					onPathChange={ preview.updatePath }
 					collapsed={ collapsed }
+					fullscreen={ previewFullscreen }
+					onFullscreenChange={ setPreviewFullscreen }
 				/>
 			) : null,
-		[ onAnnotationsDone, previewPath, preview.reloadNonce, preview.updatePath, previewSite ]
+		[
+			onAnnotationsDone,
+			previewFullscreen,
+			previewPath,
+			preview.reloadNonce,
+			preview.updatePath,
+			previewSite,
+			setPreviewFullscreen,
+		]
 	);
 
 	return (
-		<SidebarLayout>
-			<PreviewSplitFrame previewOpen={ showPreview } preview={ renderPreview }>
+		<SidebarLayout
+			forceCollapsed={ previewFullscreen }
+			onForceCollapsedToggle={ exitPreviewFullscreen }
+		>
+			<PreviewSplitFrame
+				previewOpen={ showPreview }
+				previewFullscreen={ previewFullscreen }
+				preview={ renderPreview }
+			>
 				<Outlet />
 			</PreviewSplitFrame>
 		</SidebarLayout>

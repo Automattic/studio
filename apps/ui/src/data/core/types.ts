@@ -6,7 +6,11 @@ import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessio
 import type { SiteEvent } from '@studio/common/lib/cli-events';
 import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 import type { SupportedLocale } from '@studio/common/lib/locale';
-import type { TracksEventName, TracksProps } from '@studio/common/lib/record-tracks-event';
+import type {
+	TracksEventName,
+	TracksProps,
+	TracksSiteCreateFlowType,
+} from '@studio/common/lib/record-tracks-event';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
@@ -14,6 +18,7 @@ import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
 import type { PullSiteProgress, SyncSite } from '@studio/common/types/sync';
+import type { SiteRestRequest, SiteRestResponse } from '@studio/common/types/wordpress-rest';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 export type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
@@ -130,6 +135,11 @@ export interface ConnectorCapabilities {
 	// (~/.studio/knowledge/instructions.md). False when hosted remotely, which
 	// hides the Studio Code settings tab.
 	agentInstructions: boolean;
+	// The host keeps a Studio log file the user can open (`openStudioLogs`).
+	// Only the desktop app does — the CLI writes site server output to
+	// `~/.studio/daemon/logs` and everything else to the terminal that started
+	// it, so there is no single log to point a browser user at.
+	studioLogs: boolean;
 	// The host can switch this window back to the classic Studio UI
 	// (`disableAgenticUi`). Only the desktop app ships the classic renderer;
 	// in a browser there is nothing to switch to.
@@ -369,6 +379,11 @@ export interface Connector {
 	// platform 'browser'.
 	getAppGlobals(): Promise< AppGlobals >;
 
+	// Site WordPress REST API. Proxies requests to the selected site with its
+	// auth (auto-login cookie + REST nonce) attached, so renderer features
+	// like the preview omnibox search can query site content directly.
+	fetchSiteRest( siteId: string, request: SiteRestRequest ): Promise< SiteRestResponse >;
+
 	// Open the given site's folder in the system file manager, preferred
 	// editor, or preferred terminal. When no editor/terminal preference is
 	// set these reject — callers are expected to route the user to Settings.
@@ -376,7 +391,10 @@ export interface Connector {
 	openSiteInEditor( siteId: string ): Promise< void >;
 	openSiteInTerminal( siteId: string ): Promise< void >;
 
-	// Analytics — record a Tracks event. The connector attaches the surface
+	// Open Studio's own log file. Gated by `capabilities.studioLogs`.
+	openStudioLogs(): Promise< void >;
+
+	// Analytics — record a Tracks event. The desktop wrapper attaches the surface
 	// params (channel/ui_version); see `docs/design-docs/analytics-tracks.md`.
 	trackEvent( eventName: TracksEventName, props?: TracksProps ): Promise< void >;
 
@@ -404,6 +422,17 @@ export interface Connector {
 	// Clipboard — routed to the host so it works where the renderer's
 	// `navigator.clipboard` is unavailable (e.g. Electron permission denial).
 	copyText( text: string ): Promise< void >;
+
+	// Pops the host's native text context menu. Absent in the browser builds,
+	// which already have a real one — there the right-click is left alone.
+	showTextContextMenu?( context: {
+		selectionText: string;
+		isEditable: boolean;
+		messageText?: string;
+		codeText?: string;
+		canQuoteSelection?: boolean;
+	} ): Promise< { action: 'quote-selection'; selectionText: string } | undefined >;
+
 	openSiteUrl(
 		siteId: string,
 		relativeUrl?: string,
@@ -544,7 +573,7 @@ export type WritableUserPreferences = Omit<
 };
 
 // Attributes a preference write to an in-app surface for settings-change Tracks
-// events. `ui_version` is fixed per renderer, so connectors set it — not callers.
+// events. `channel`/`ui_version` are attached by the desktop wrapper — not here.
 export interface PreferenceChangeSource {
 	surface: 'onboarding' | 'settings';
 }
@@ -568,6 +597,9 @@ export interface CreateSiteParams {
 		blueprint: BlueprintV1Declaration;
 		filePath?: string;
 	};
+	// Telemetry hint for the `studio_site_created` Tracks event. `import`/`sync` are set by the
+	// onboarding flows that create a blank site before populating it.
+	flowType?: TracksSiteCreateFlowType;
 }
 
 export interface ExtractedBlueprintBundle {

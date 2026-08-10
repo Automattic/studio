@@ -124,6 +124,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			annotatePreview: false,
 			readLocalMedia: false,
 			agentInstructions: false,
+			studioLogs: false,
 			switchToClassicUi: false,
 		},
 
@@ -378,6 +379,10 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			return {} as InstalledApps;
 		},
 
+		async fetchSiteRest() {
+			throw new UnsupportedError( 'fetchSiteRest' );
+		},
+
 		// Filesystem / native integrations — not available in a browser.
 		async openSiteFolder() {
 			throw new UnsupportedError( 'openSiteFolder' );
@@ -387,6 +392,9 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		},
 		async openSiteInTerminal() {
 			throw new UnsupportedError( 'openSiteInTerminal' );
+		},
+		async openStudioLogs() {
+			throw new UnsupportedError( 'openStudioLogs' );
 		},
 
 		// Analytics — no-op here. Tracks currently flows through the desktop IPC connector; the

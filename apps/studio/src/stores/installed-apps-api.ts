@@ -137,7 +137,7 @@ export const installedAppsApi = createApi( {
 			{ enabled: boolean; surface: 'onboarding' | 'settings' }
 		>( {
 			queryFn: async ( { enabled, surface } ) => {
-				await getIpcApi().saveAnalyticsEnabled( enabled, { surface, uiVersion: 'v1' } );
+				await getIpcApi().saveAnalyticsEnabled( enabled, { surface } );
 				return { data: enabled };
 			},
 			invalidatesTags: [ 'AnalyticsEnabled' ],

@@ -9,12 +9,14 @@ import {
 	isAnalyticsOptedOut,
 	isAutomatticianFromToken,
 } from '@studio/common/lib/shared-config';
+import { getPreferredUiVersion } from 'src/lib/studio-ui-mode';
 
 export {
 	TRACKS_EVENTS,
 	type TracksEventName,
 	type TracksChannel,
 	type TracksUiVersion,
+	type TracksSiteCreateFlowType,
 } from '@studio/common/lib/record-tracks-event';
 
 async function commonProps(): Promise< TracksProps > {
@@ -23,6 +25,8 @@ async function commonProps(): Promise< TracksProps > {
 		arch: process.arch,
 		app_version: app.getVersion(),
 		is_a11n: await isAutomatticianFromToken(),
+		channel: 'studio-ui',
+		ui_version: getPreferredUiVersion(),
 	};
 }
 

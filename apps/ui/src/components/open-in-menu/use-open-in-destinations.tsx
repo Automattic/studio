@@ -55,11 +55,11 @@ export function useOpenInDestinations(
 
 	const fileManager = getFileManager();
 	const editorLabel = userPreferences?.editor
-		? supportedEditorConfig[ userPreferences.editor ].label
+		? supportedEditorConfig[ userPreferences.editor ].label()
 		: __( 'Editor' );
 	const editorLogo = userPreferences?.editor ? editorLogos[ userPreferences.editor ] : undefined;
 	const terminalLabel = userPreferences?.terminal
-		? terminalConfig[ userPreferences.terminal ].name
+		? terminalConfig[ userPreferences.terminal ].name()
 		: __( 'Terminal' );
 	const configuredTerminalLogo = userPreferences?.terminal
 		? terminalLogos[ userPreferences.terminal ]

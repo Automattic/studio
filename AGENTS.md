@@ -18,6 +18,7 @@ WordPress Studio - Electron desktop app for managing local WordPress sites. Buil
 - **Auth**: `auth login|logout|status` - WordPress.com OAuth (tokens valid 2 weeks)
 - **Preview Sites**: See `apps/cli/commands/preview/`
 - **Local Sites**: See `apps/cli/commands/site/`
+- **Agentic UI (`apps/ui`)**: To verify UI changes, run `npm run cli:build:ui && node apps/cli/dist/cli/main.mjs ui --no-open`, then open http://localhost:8081 with a browser tool (Playwright/Chrome MCP) and check both light and dark themes. Note: plain `cli:build` does NOT rebuild `apps/ui` — use `cli:build:ui`. Default port 8081 (`--port` to override).
 
 ## Architecture
 
@@ -25,11 +26,14 @@ WordPress Studio - Electron desktop app for managing local WordPress sites. Buil
 **Main Process** (`apps/studio/src/`): IPC handlers, site servers, storage, OAuth, sync, migrations
 **Renderer** (`apps/studio/src/components`, `apps/studio/src/hooks`): React UI, Redux stores, TailwindCSS
 **CLI** (`apps/cli/`): WordPress Playground (PHP WASM), yargs commands, child process of desktop app
+**Browser UI** (second front end, alongside Electron): `studio ui` starts `@studio/local` (Express + SSE), which serves the `apps/ui` React app and forks the CLI for site and agent operations. `@studio/hosted` is the experimental remote backend for that same UI.
 
 ## Directory Structure
 
 **`/apps/studio/src`**: Main (index.ts, ipc-handlers.ts, site-server.ts, storage/, lib/) | Renderer (components/, hooks/, stores/) | modules/ (sync, cli, user-settings, preview-site)
 **`/apps/cli`**: index.ts, commands/ (auth, preview, site), lib/ (appdata, i18n, browser)
+**`/apps/ui`**: Agentic browser UI (`@studio/ui`). app/ (providers, router), components/, data/, hooks/, lib/. **Different stack from `apps/studio`** — React 19, TanStack Query + Router, `@wordpress/ui` + `ThemeProvider`; no Redux, no Tailwind. Built per target: `build:local` / `build:hosted`.
+**`/apps/local`**, **`/apps/hosted`**: HTTP/SSE backends for `apps/ui`. `local` is bundled into the CLI; `hosted` is experimental.
 **`/packages/common`**: Shared lib/ (fs-utils, port-finder, oauth), types/, translations/
 **`/tools/eslint-plugin-studio`**: eslint-plugin-studio
 
@@ -66,6 +70,7 @@ WordPress Studio - Electron desktop app for managing local WordPress sites. Buil
 **IPC Handlers** (`apps/studio/src/ipc-handlers.ts`): **MUST** `export async function handlerName(event, ...args): Promise<ReturnType>` | Handler names in `apps/studio/src/constants.ts` | All handlers MUST be async and return Promises
 **Storage**: **CRITICAL** - Always use file locking when writing config. Each config file has its own lockfile and helpers: `lockAppdata()` / `unlockAppdata()` for `app.json` (`apps/studio/src/storage/user-data.ts`), `lockCliConfig()` / `unlockCliConfig()` for `cli.json` (`apps/cli/lib/cli-config/core.ts`), and `lockSharedConfig()` / `unlockSharedConfig()` for `shared.json` (`packages/common/lib/shared-config.ts`).
 **i18n**: `@wordpress/i18n` (`__()` function), `packages/common/translations/`, `<I18nProvider>` (renderer), `loadTranslations()` (CLI)
+**i18n - Never translate at module level**: **CRITICAL** - Do NOT call translation functions (`__()`, `_x()`, `_n()`, `_nx()`) in module-level constants, object literals, or arrays. They run when the module is first imported — before the locale data loads — so the string is captured once and never updates. This matters for the **legacy `apps/studio` renderer**, which is long-lived and swaps locale data live when the user switches language, so a string evaluated at import time stays stale in the old language until restart. Always wrap them in a function so they are re-evaluated at render/call time: use `const getLabel = () => __( 'Label' )` instead of `const LABEL = __( 'Label' )`. `apps/cli` and `apps/ui` are excluded from the rule: the CLI is a one-shot process that loads the locale before importing modules, and the agentic UI reloads the window on language change, so neither can hold a stale string. Enforced by the `studio/no-module-level-translations` ESLint rule (`tools/eslint-plugin-studio`).
 
 ## WordPress Studio Paths
 
@@ -96,7 +101,7 @@ Studio issues on the **Studio App & CLI** Linear team (`STU-*`) can be picked up
 
 - **Stay in scope.** Touch only the files the issue requires. Prefer the smallest change that resolves it; avoid unrelated refactors.
 - **Verify before claiming done.** Run `npx eslint --fix` on modified files, `npm run typecheck`, and `npm test -- <path>` for affected tests. e2e (`npm run e2e`) usually isn't runnable in the sandbox — rely on unit tests; if it is available, run it last, after everything else passes. If the toolchain or a dependency install is unavailable in the sandbox, say so explicitly — never assert a change is verified when it isn't.
-- **You cannot see the UI.** Visual and dark-mode correctness can't be confirmed headless. For UI/CSS changes, use the `--color-frame-*` tokens (never `--wpds-color-*`) and flag the PR for human visual review. Add this line to the PR description so reviewers don't miss it: `> ⚠️ Visual change: needs human review in light + dark mode.`
+- **You cannot see the Desktop Classic UI.** Visual and dark-mode correctness of `apps/studio` can't be confirmed headless. For UI/CSS changes there, use the `--color-frame-*` tokens (never `--wpds-color-*`) and flag the PR for human visual review. Add this line to the PR description so reviewers don't miss it: `> ⚠️ Visual change: needs human review in light + dark mode.` Exception: `apps/ui` (Agentic UI) IS verifiable — serve it via `npm run cli:build:ui && node apps/cli/dist/cli/main.mjs ui --no-open` (http://localhost:8081) and inspect with a browser tool if available.
 - **Open a draft PoC for big or speculative work.** If the change adds a new dependency, spans a new architectural boundary (e.g. a new IPC handler + Redux slice + UI), or touches many files, open it as a draft Proof of Concept (see below) instead of merge-ready.
 
 ## Large & Exploratory Contributions (Vibe-Coded Features)
@@ -134,13 +139,14 @@ If you've built a substantial new feature — especially one generated with AI a
 For in-depth information, see these docs:
 - **CLI Design**: `docs/design-docs/cli.md` - CLI architecture, installation, IPC communication, data flow
 - **Custom Domains/SSL**: `docs/design-docs/custom-domains-and-ssl.md` - Proxy server, certificates, hosts file
+- **Analytics (Tracks)**: `docs/design-docs/analytics-tracks.md` - Tracks vs MC Stats, anonymous identity, opt-out, event catalog
 - **Localization**: `docs/localization.md` - GlotPress workflow, translation process
 - **Release Process**: `docs/release-process.md` - ReleasesV2 + Fastlane lifecycle, running lanes locally
 - **Overview**: `README.md` - Features, download links, contribution guidelines
 
 ## Quick Reference
 
-**WP Playground**: CLI runs WordPress via PHP WASM, Blueprints for config, `filterUnsupportedBlueprintFeatures()` for compatibility
+**WP Playground**: CLI runs WordPress via PHP WASM, Blueprints for config, `validateBlueprintData()` for schema validation
 **Sync**: OAuth via `packages/common/lib/oauth.ts`, Redux `sync` slice, pull/push WordPress.com sites
 **Security**: Renderer sandboxed, IPC validation, strict CSP, no Node integration, self-signed HTTPS certs
 

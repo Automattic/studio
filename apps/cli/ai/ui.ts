@@ -33,6 +33,11 @@ import { randomThinkingMessage } from '@studio/common/ai/thinking-messages';
 import { getToolDetail, getToolDisplayName, getToolResultPreview } from '@studio/common/ai/tools';
 import chalk from '@studio/common/lib/chalk';
 import { readAuthToken } from '@studio/common/lib/shared-config';
+import {
+	fetchStudioAssistantQuota,
+	formatQuotaResetDate,
+	formatUsageCapNotice,
+} from '@studio/common/lib/studio-assistant-quota';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import {
 	DescriptionAwareAutocompleteProvider,
@@ -1418,6 +1423,28 @@ export class AiChatUI implements AiOutputAdapter {
 		return this.usageCapReached;
 	}
 
+	// Follows the usage-cap notice with the date the monthly limit resets,
+	// fetched from the WordPress.com quota endpoint. Silently skips when
+	// signed out or the quota can't be fetched — the cap notice on its own is
+	// already actionable.
+	private async showUsageCapResetDate(): Promise< void > {
+		const token = await readAuthToken();
+		if ( ! token?.accessToken ) {
+			return;
+		}
+		const quota = await fetchStudioAssistantQuota( token.accessToken );
+		if ( ! quota?.costResetDate ) {
+			return;
+		}
+		this.showInfo(
+			sprintf(
+				/* translators: %s: date the monthly AI usage limit resets (e.g. August 1, 2026). */
+				__( 'It resets on %s.' ),
+				formatQuotaResetDate( quota.costResetDate )
+			)
+		);
+	}
+
 	showOnboarding(): void {
 		const text =
 			' ' +
@@ -2086,14 +2113,10 @@ export class AiChatUI implements AiOutputAdapter {
 				) {
 					this.hideLoader();
 					this.usageCapReached = true;
-					this.showError(
-						__(
-							'AI usage cap reached. You can continue using Studio Code by switching to your own Anthropic API key.'
-						)
-					);
-					this.showInfo(
-						__( 'Use /provider to switch to Anthropic · API key, or try again later.' )
-					);
+					this.showError( formatUsageCapNotice() );
+					// Async on purpose: the reset date needs a wpcom round trip and
+					// must not block rendering the cap notice.
+					void this.showUsageCapResetDate();
 					this.currentMarkdown = null;
 					this.currentResponseText = '';
 					return;
@@ -2144,7 +2167,28 @@ export class AiChatUI implements AiOutputAdapter {
 				this.renderToolResults( event.toolResults );
 				return;
 			}
+			case 'auto_retry_start': {
+				const reason = event.errorMessage.split( '\n' )[ 0 ].trim();
+				if ( reason ) {
+					this.showInfo( reason );
+				}
+				this.showLoader(
+					sprintf(
+						/* translators: 1: retry attempt number, 2: maximum retry attempts, 3: delay in seconds */
+						__( 'Temporary provider error — retrying in %3$ds (attempt %1$d of %2$d)…' ),
+						event.attempt,
+						event.maxAttempts,
+						Math.round( event.delayMs / 1000 )
+					)
+				);
+				return;
+			}
 			case 'agent_end': {
+				// Not final when willRetry: the session auto-retries the turn
+				// after a backoff (`auto_retry_start` follows).
+				if ( event.willRetry ) {
+					return;
+				}
 				this.hideLoader();
 
 				if ( this.usageCapReached ) {
@@ -2189,9 +2233,9 @@ export class AiChatUI implements AiOutputAdapter {
 			}
 			default:
 				// agent_start / turn_start / message_start / message_update /
-				// tool_execution_* — UI doesn't act on these directly; pi
-				// events drive incremental state but the visible transitions
-				// happen at message_end / turn_end / agent_end.
+				// tool_execution_* / auto_retry_end — UI doesn't act on these
+				// directly; pi events drive incremental state but the visible
+				// transitions happen at message_end / turn_end / agent_end.
 				return;
 		}
 	}

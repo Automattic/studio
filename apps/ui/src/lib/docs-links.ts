@@ -8,6 +8,16 @@ type TranslatedLink = Partial< Record< SupportedLocale, string > > & { en: strin
  * `apps/ui` actually links to are duplicated here.
  */
 const DOCS_LINKS = {
+	docsCli: {
+		en: 'https://developer.wordpress.com/docs/developer-tools/studio/cli/',
+		es: 'https://developer.wordpress.com/es/docs/herramientas-para-desarrolladores/studio/cli/',
+	},
+	docsMcp: {
+		en: 'https://developer.wordpress.com/docs/developer-tools/studio/mcp-on-studio/',
+	},
+	docsPhpRuntimes: {
+		en: 'https://developer.wordpress.com/docs/developer-tools/studio/php-runtimes/',
+	},
 	docsSites: {
 		en: 'https://developer.wordpress.com/docs/developer-tools/studio/sites/',
 		es: 'https://developer.wordpress.com/es/docs/herramientas-para-desarrolladores/studio/sitios/',
@@ -15,7 +25,29 @@ const DOCS_LINKS = {
 	docsSslInStudio: {
 		en: 'https://developer.wordpress.com/docs/developer-tools/studio/ssl-in-studio/',
 	},
+	docsSkills: {
+		en: 'https://developer.wordpress.com/docs/developer-tools/studio/agent-skills-wordpress-studio/',
+	},
+	docsStudio: {
+		en: 'https://developer.wordpress.com/docs/developer-tools/studio/',
+		es: 'https://developer.wordpress.com/es/docs/herramientas-para-desarrolladores/studio/',
+	},
+	docsStudioCode: {
+		en: 'https://developer.wordpress.com/docs/developer-tools/studio/studio-code/',
+	},
+	docsSyncSupportedSites: {
+		en: 'https://developer.wordpress.com/docs/developer-tools/studio/sync/#supported-sites',
+		es: 'https://developer.wordpress.com/es/docs/herramientas-para-desarrolladores/studio/sync/#sitios-compatibles',
+	},
+	a8cTos: {
+		en: 'https://wordpress.com/tos/',
+	},
+	a8cPrivacyPolicy: {
+		en: 'https://automattic.com/privacy/',
+	},
 } as const satisfies Record< string, TranslatedLink >;
+
+export const REPORT_ISSUE_URL = 'https://github.com/Automattic/studio/issues/new/choose';
 
 export type DocsLinkKey = keyof typeof DOCS_LINKS;
 

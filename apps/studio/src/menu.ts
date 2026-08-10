@@ -6,6 +6,7 @@ import {
 	autoUpdater,
 	MenuItem,
 	shell,
+	type WebContents,
 } from 'electron';
 import {
 	getAppConfigPath,
@@ -32,15 +33,20 @@ import {
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
+import { getPreferredStudioUiMode, setAgenticUiEnabled } from 'src/lib/studio-ui-mode';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { getLogsFilePath } from 'src/logging';
-import {
-	getMainWindow,
-	getPreferredStudioUiMode,
-	loadMainWindowRenderer,
-	setAgenticUiEnabled,
-} from 'src/main-window';
+import { getMainWindow, loadMainWindowRenderer } from 'src/main-window';
+import { getAgenticFeaturesEnabled } from 'src/modules/user-settings/lib/ipc-handlers';
 import { isUpdateReadyToInstall, manualCheckForUpdates } from 'src/updates';
+
+// Runs against the app window's own contents rather than whatever has focus.
+async function withAppWebContents( run: ( contents: WebContents ) => void ) {
+	const window = await getMainWindow();
+	if ( window && ! window.isDestroyed() && ! window.webContents.isDestroyed() ) {
+		run( window.webContents );
+	}
+}
 
 export async function setupMenu( config: {
 	needsOnboarding: boolean;
@@ -76,14 +82,8 @@ export async function popupMenu( position?: { x: number; y: number } ) {
 
 async function buildBetaFeaturesMenu(): Promise< MenuItemConstructorOptions[] > {
 	const currentBetaFeatures = await getBetaFeatures();
-	return Object.entries< BetaFeatureDefinition >( getBetaFeaturesDefinition() )
-		.filter( ( [ key ] ) => {
-			if ( key === 'enableAgenticUi' ) {
-				return getFeatureFlagFromEnv( 'enableAgenticUi' );
-			}
-			return true;
-		} )
-		.map( ( [ key, definition ] ) => {
+	return Object.entries< BetaFeatureDefinition >( getBetaFeaturesDefinition() ).map(
+		( [ key, definition ] ) => {
 			// On Windows, use the description as the label for a more compact display
 			const label =
 				process.platform === 'win32' && definition.description
@@ -97,7 +97,11 @@ async function buildBetaFeaturesMenu(): Promise< MenuItemConstructorOptions[] > 
 				// Only use sublabel on macOS where it displays nicely
 				sublabel: process.platform === 'darwin' ? definition.description : undefined,
 				click: async ( menuItem: MenuItem ) => {
-					await updateBetaFeature( key as keyof BetaFeatures, menuItem.checked );
+					await updateBetaFeature(
+						key as keyof BetaFeatures,
+						menuItem.checked,
+						key === 'enableAgenticUi' ? 'menu' : undefined
+					);
 					if ( key === 'remoteSession' ) {
 						bumpStat(
 							menuItem.checked
@@ -121,7 +125,8 @@ async function buildBetaFeaturesMenu(): Promise< MenuItemConstructorOptions[] > 
 					void sendIpcEventToRenderer( 'beta-features-updated' );
 				},
 			};
-		} );
+		}
+	);
 }
 
 export function buildViewMenuItems( {
@@ -210,10 +215,29 @@ async function getAppMenu(
 		},
 	];
 
+	// Cmd/Ctrl+R belongs to the site preview: the agentic renderer binds it in
+	// the DOM to reload the guest page, so the menu must leave the key alone
+	// there — a menu accelerator would consume it first. That leaves the app
+	// itself with no way to reload, so these target the app window explicitly
+	// rather than using `role: 'reload'`, which acts on whatever webContents
+	// has focus (the preview, once clicked into).
+	const previewOwnsReloadShortcut = getPreferredStudioUiMode() === 'agentic';
 	const devTools: MenuItemConstructorOptions[] = [
-		{ label: __( 'Reload' ), role: 'reload' },
-		{ label: __( 'Force Reload' ), role: 'forceReload' },
-		{ label: __( 'Toggle DevTools' ), role: 'toggleDevTools' },
+		{
+			label: __( 'Reload App' ),
+			...( previewOwnsReloadShortcut ? {} : { accelerator: 'CommandOrControl+R' } ),
+			click: () => void withAppWebContents( ( contents ) => contents.reload() ),
+		},
+		{
+			label: __( 'Force Reload App' ),
+			accelerator: 'CommandOrControl+Shift+R',
+			click: () => void withAppWebContents( ( contents ) => contents.reloadIgnoringCache() ),
+		},
+		{
+			label: __( 'Toggle DevTools' ),
+			accelerator: process.platform === 'darwin' ? 'Alt+Command+I' : 'Control+Shift+I',
+			click: () => void withAppWebContents( ( contents ) => contents.toggleDevTools() ),
+		},
 		{ type: 'separator' },
 	];
 
@@ -230,6 +254,12 @@ async function getAppMenu(
 	} ) );
 
 	const betaFeaturesMenu = await buildBetaFeaturesMenu();
+
+	// The agentic UI binds Cmd/Ctrl+N to "New chat" in the renderer, so the menu must leave the
+	// key alone there — a menu accelerator would consume it before it reaches the DOM. With chat
+	// switched off nothing binds it, so the shortcut falls back to "Add Site…" as in classic.
+	const rendererOwnsNewShortcut =
+		getPreferredStudioUiMode() === 'agentic' && ( await getAgenticFeaturesEnabled() );
 
 	return Menu.buildFromTemplate( [
 		{
@@ -311,6 +341,7 @@ async function getAppMenu(
 							{
 								label: __( 'Feature Flags' ),
 								submenu: featureFlagsMenu,
+								enabled: featureFlagsMenu.length > 0,
 							},
 					  ]
 					: [] ),
@@ -324,11 +355,7 @@ async function getAppMenu(
 			submenu: [
 				{
 					label: __( 'Add Site…' ),
-					// The agentic UI binds Cmd/Ctrl+N to "New chat" in the renderer;
-					// a menu accelerator would consume the key before it reaches the DOM.
-					accelerator: getFeatureFlagFromEnv( 'enableAgenticUi' )
-						? undefined
-						: 'CommandOrControl+N',
+					accelerator: rendererOwnsNewShortcut ? undefined : 'CommandOrControl+N',
 					click: async () => {
 						void sendIpcEventToRenderer( 'add-site' );
 					},
@@ -426,6 +453,13 @@ async function getAppMenu(
 					label: __( "What's New" ),
 					click: async () => {
 						void sendIpcEventToRenderer( 'show-whats-new' );
+					},
+					enabled: ! needsOnboarding,
+				},
+				{
+					label: __( 'Getting Started' ),
+					click: async () => {
+						void sendIpcEventToRenderer( 'show-getting-started' );
 					},
 					enabled: ! needsOnboarding,
 				},

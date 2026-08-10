@@ -1,133 +1,100 @@
-import { ACCEPTED_IMPORT_FILE_TYPES } from '@studio/common/constants';
+import { getSuggestedSiteNameFromBackupFilename } from '@studio/common/lib/backup-files';
+import { getErrorMessage } from '@studio/common/lib/error-formatting';
+import { getImportStatusMessage } from '@studio/common/lib/import-progress';
 import { createRoute, useNavigate } from '@tanstack/react-router';
-import { __ } from '@wordpress/i18n';
-import { arrowLeft, download } from '@wordpress/icons';
-import { Button, Icon } from '@wordpress/ui';
-import { useCallback, useEffect, useState } from 'react';
-import { flushSync } from 'react-dom';
+import { __, sprintf } from '@wordpress/i18n';
+import { useEffect, useRef, useState } from 'react';
 import { CreateSiteForm } from '@/components/create-site-form';
-import { FileDropzone } from '@/components/file-dropzone';
 import { useConnector } from '@/data/core';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
 import { useImportSite } from '@/data/queries/use-import-site';
-import { useCreateSite } from '@/data/queries/use-sites';
-import { onboardingLayoutRoute } from '../layout-onboarding';
+import { useCreateSite, useDeleteSite } from '@/data/queries/use-sites';
+import { clearPendingBackup, peekPendingBackup } from '@/lib/pending-backup';
+import { onboardingLayoutRoute, useOnboardingProgress } from '../layout-onboarding';
 import sharedStyles from '../layout-onboarding/style.module.css';
-import styles from './style.module.css';
-import type { CreateSiteFormValues } from '@/components/create-site-form';
+import type { CreateSiteFormError, CreateSiteFormValues } from '@/components/create-site-form';
 
-type Step = 'select' | 'configure';
+type ImportPhase = 'preparing' | 'creating' | 'importing';
 
-interface ImportSearch {
-	step?: Step;
+function getImportRecoveryMessage( details: string ): string {
+	if ( /absolute path:/i.test( details ) ) {
+		return __(
+			'This backup contains a file path Studio cannot safely restore. Export the site again with a supported backup tool, then choose the new backup.'
+		);
+	}
+	return __(
+		'The backup may be damaged or use an unsupported format. Studio removed the incomplete site, so you can retry or choose another backup.'
+	);
 }
 
-interface PickedBackup {
-	file: File;
-	// Resolved from the connector once at pick-time so the submit handler
-	// doesn't have to await the preload bridge again.
-	path: string;
+function createFailure( phase: ImportPhase, details: string ): CreateSiteFormError {
+	if ( phase === 'preparing' ) {
+		return {
+			title: __( 'Studio could not access this backup.' ),
+			message: __(
+				'Check that the file is still available and readable, then try again or choose another backup.'
+			),
+			details,
+		};
+	}
+	if ( phase === 'creating' ) {
+		return {
+			title: __( 'Studio could not create the site.' ),
+			message: __( 'Review the site name and local folder, then try again.' ),
+			details,
+		};
+	}
+	return {
+		title: __( 'Studio could not import this backup.' ),
+		message: getImportRecoveryMessage( details ),
+		details,
+	};
 }
 
-function isValidBackupFile( file: File ): boolean {
-	const lower = file.name.toLowerCase();
-	return ACCEPTED_IMPORT_FILE_TYPES.some( ( ext ) => lower.endsWith( ext ) );
-}
-
-/**
- * Derives a friendly default site name from a backup filename. Strips the
- * archive extension and common "site-backup-2024-01-01" date suffixes so the
- * form can seed the site name without the user having to retype it.
- */
-function nameFromFilename( filename: string ): string {
-	const basename = filename.replace( /^.*[\\/]/, '' );
-	const lower = basename.toLowerCase();
-	const ext = ACCEPTED_IMPORT_FILE_TYPES.find( ( candidate ) => lower.endsWith( candidate ) );
-	return ( ext ? basename.slice( 0, -ext.length ) : basename )
-		.replace( /[-_](backup|export|wordpress|jetpack)(s)?$/i, '' )
-		.replace( /[-_]\d{4}[-_]\d{2}[-_]\d{2}.*$/, '' )
-		.replace( /[-_]+/g, ' ' )
-		.trim();
-}
-
-function OnboardingImportPage() {
-	const { step } = onboardingImportRoute.useSearch();
+export function OnboardingImportPage() {
 	const navigate = useNavigate();
 	const connector = useConnector();
-	const activeStep: Step = step === 'configure' ? 'configure' : 'select';
+	const { setProgress } = useOnboardingProgress();
 
 	const existingDomainNames = useExistingCustomDomains();
 	const createSite = useCreateSite();
 	const importSite = useImportSite();
+	const deleteSite = useDeleteSite();
 
-	// Picked backup lives in component state — survives navigation between
-	// steps but not a hard refresh. If the user lands on `step=configure`
-	// with no picked backup, the effect below bounces them back to select.
-	const [ picked, setPicked ] = useState< PickedBackup | null >( null );
-	const [ pickError, setPickError ] = useState< string | null >( null );
-	const [ submitError, setSubmitError ] = useState( '' );
+	const [ selectedFile ] = useState< File | null >( peekPendingBackup );
+	const [ submitError, setSubmitError ] = useState< CreateSiteFormError | null >( null );
+	const [ hasFailed, setHasFailed ] = useState( false );
+	const [ isWorking, setIsWorking ] = useState( false );
+	const isWorkingRef = useRef( false );
 
 	useEffect( () => {
-		if ( activeStep === 'configure' && ! picked ) {
-			void navigate( {
-				to: '/onboarding/import',
-				search: { step: 'select' },
-				replace: true,
-			} );
-		}
-	}, [ activeStep, picked, navigate ] );
-
-	const handlePick = useCallback(
-		async ( file: File ) => {
-			if ( ! isValidBackupFile( file ) ) {
-				setPickError(
-					__(
-						'This file type is not supported. Please use a .zip, .gz, .tar, .tar.gz, or .wpress file.'
-					)
-				);
-				return;
-			}
-			const path = await connector.getFilePath( file );
-			if ( ! path ) {
-				setPickError(
-					__( 'Unable to resolve the backup file path. Try choosing the file via the button.' )
-				);
-				return;
-			}
-			// `flushSync` commits the state updates before `navigate` fires so
-			// the router's URL change and React's component state land in the
-			// same render pass. Without this, tanstack router's store update
-			// commits first, the component re-renders with `activeStep` already
-			// at `configure` but `picked` still null, and the hard-refresh
-			// guard effect below immediately bounces us back to `select`.
-			flushSync( () => {
-				setPickError( null );
-				setPicked( { file, path } );
-			} );
-			void navigate( {
-				to: '/onboarding/import',
-				search: { step: 'configure' },
-			} );
-		},
-		[ connector, navigate ]
-	);
-
-	const handleClearPick = useCallback( () => {
-		setPicked( null );
-		setPickError( null );
+		clearPendingBackup();
 	}, [] );
 
-	const handleBackToSelect = useCallback( () => {
-		void navigate( {
-			to: '/onboarding/import',
-			search: { step: 'select' },
-		} );
-	}, [ navigate ] );
+	useEffect( () => {
+		if ( selectedFile ) return;
+		void navigate( { to: '/onboarding', replace: true } );
+	}, [ navigate, selectedFile ] );
+
+	useEffect( () => () => setProgress( null ), [ setProgress ] );
 
 	const handleSubmit = async ( values: CreateSiteFormValues ) => {
-		if ( ! picked ) return;
-		setSubmitError( '' );
+		if ( ! selectedFile || isWorkingRef.current ) return;
+		isWorkingRef.current = true;
+		setIsWorking( true );
+		setSubmitError( null );
+		setProgress( __( 'Preparing backup…' ) );
+		let phase: ImportPhase = 'preparing';
+		let createdSiteId: string | null = null;
+		let importCompleted = false;
 		try {
+			const backupPath = await connector.getFilePath( selectedFile );
+			if ( ! backupPath ) {
+				throw new Error( __( 'Unable to access the selected backup. Please try again.' ) );
+			}
+
+			phase = 'creating';
+			setProgress( __( 'Creating site…' ) );
 			const site = await createSite.mutateAsync( {
 				name: values.name,
 				path: values.path,
@@ -138,74 +105,77 @@ function OnboardingImportPage() {
 				adminUsername: values.adminUsername || undefined,
 				adminPassword: values.adminPassword || undefined,
 				adminEmail: values.adminEmail || undefined,
+				flowType: 'import',
 			} );
+			createdSiteId = site.id;
+			phase = 'importing';
+			setProgress( __( 'Importing backup…' ) );
 			await importSite.mutateAsync( {
 				siteId: site.id,
-				backup: { path: picked.path, type: picked.file.type },
+				backupPath,
+				onProgress: ( event ) => {
+					const message = getImportStatusMessage( event );
+					if ( message ) setProgress( message );
+				},
 			} );
+			importCompleted = true;
 			await navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
 		} catch ( error ) {
-			setSubmitError(
-				error instanceof Error ? error.message : __( 'Failed to import site. Please try again.' )
-			);
+			setHasFailed( true );
+			const failureDetails =
+				getErrorMessage( error ) ?? __( 'Failed to import site. Please try again.' );
+			if ( createdSiteId && ! importCompleted ) {
+				setProgress( __( 'Removing incomplete site…' ) );
+				try {
+					await deleteSite.mutateAsync( { id: createdSiteId, deleteFiles: true } );
+				} catch ( rollbackError ) {
+					setSubmitError( {
+						title: __( 'Studio could not finish cleaning up.' ),
+						message: sprintf(
+							__(
+								'The import failed, and Studio could not remove “%s”. Remove the incomplete site before trying this location again.'
+							),
+							values.name
+						),
+						details: sprintf(
+							__( 'Import error: %1$s\n\nCleanup error: %2$s' ),
+							failureDetails,
+							getErrorMessage( rollbackError ) ?? __( 'Unknown deletion error.' )
+						),
+					} );
+					return;
+				}
+			}
+			setSubmitError( createFailure( phase, failureDetails ) );
+		} finally {
+			isWorkingRef.current = false;
+			setIsWorking( false );
+			setProgress( null );
 		}
 	};
 
-	if ( activeStep === 'select' ) {
-		return (
-			<div className={ sharedStyles.page }>
-				<h1 className={ sharedStyles.title }>{ __( 'Import from a backup' ) }</h1>
-				<p className={ sharedStyles.subtitle }>
-					{ __(
-						'Drop a backup archive to restore a site locally. Jetpack, All-in-One WP Migration, Local, and Playground exports are supported.'
-					) }
-				</p>
-				<FileDropzone
-					icon={ download }
-					accept={ ACCEPTED_IMPORT_FILE_TYPES.join( ',' ) }
-					prompt={ __( 'Drop a backup archive here, or' ) }
-					onFile={ ( file ) => void handlePick( file ) }
-					file={ picked?.file ?? null }
-					onClear={ handleClearPick }
-					error={ pickError }
-				/>
-			</div>
-		);
-	}
-
-	// `step=configure` with no picked backup is handled by the effect above;
-	// render nothing in the intermediate frame to avoid a flash.
-	if ( ! picked ) return null;
+	if ( ! selectedFile ) return null;
 
 	const initialValues: Partial< CreateSiteFormValues > = {
-		name: nameFromFilename( picked.file.name ),
+		name: getSuggestedSiteNameFromBackupFilename( selectedFile.name ) || __( 'Imported site' ),
 	};
-	const isSubmitting = createSite.isPending || importSite.isPending;
 
 	return (
 		<div className={ sharedStyles.page }>
-			<Button
-				type="button"
-				variant="minimal"
-				tone="neutral"
-				className={ styles.backLink }
-				onClick={ handleBackToSelect }
-			>
-				<Icon icon={ arrowLeft } />
-				<span>{ __( 'Back to backup' ) }</span>
-			</Button>
-			<h1 className={ sharedStyles.title }>{ __( 'Configure the imported site' ) }</h1>
+			<h1 className={ sharedStyles.title }>{ __( 'Set up your imported site' ) }</h1>
 			<p className={ sharedStyles.subtitle }>
-				{ __( 'Pick a name and local folder. The backup will restore on top of this new site.' ) }
+				{ __( 'Choose a name and local folder. The backup will restore on top of this new site.' ) }
 			</p>
 			<CreateSiteForm
 				initialValues={ initialValues }
 				existingDomainNames={ existingDomainNames }
 				onSubmit={ handleSubmit }
 				onCancel={ () => void navigate( { to: '/onboarding' } ) }
-				isSubmitting={ isSubmitting }
-				submitError={ submitError }
-				submitLabel={ __( 'Import site' ) }
+				isSubmitting={ isWorking }
+				submitError={ submitError ?? undefined }
+				submitLabel={ hasFailed ? __( 'Retry import' ) : __( 'Import site' ) }
+				cancelLabel={ hasFailed ? __( 'Choose another backup' ) : undefined }
+				loadingAnnouncement={ __( 'Importing site' ) }
 			/>
 		</div>
 	);
@@ -214,12 +184,5 @@ function OnboardingImportPage() {
 export const onboardingImportRoute = createRoute( {
 	getParentRoute: () => onboardingLayoutRoute,
 	path: '/onboarding/import',
-	validateSearch: ( search: Record< string, unknown > ): ImportSearch => {
-		const value = search.step;
-		if ( value === 'configure' || value === 'select' ) {
-			return { step: value };
-		}
-		return {};
-	},
 	component: OnboardingImportPage,
 } );

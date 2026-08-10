@@ -4,6 +4,7 @@ import {
 	type StudioChatFileAttachment,
 } from '@studio/common/ai/chat-files';
 import { type StudioChatImage } from '@studio/common/ai/chat-images';
+import { getAgentEndFailure } from '@studio/common/ai/json-events';
 import { DEFAULT_MODEL, resolveSessionModel, type AiModelId } from '@studio/common/ai/models';
 import { getAgentEndTurnResult } from '@studio/common/ai/session-events';
 import { buildSkillInvocationPrompt } from '@studio/common/ai/slash-commands';
@@ -537,7 +538,7 @@ export async function runCommand( options: {
 			} )
 		);
 
-		const turnState: { status: TurnStatus } = { status: 'interrupted' };
+		const turnState: { status: TurnStatus; errorMessage?: string } = { status: 'interrupted' };
 
 		const agentQuery = runStudioAgentTurn( {
 			prompt: enrichedPrompt,
@@ -550,7 +551,9 @@ export async function runCommand( options: {
 			onAskUser: ( questions ) => askUserAndPersistAnswers( questions ),
 			onEvent: ( event ) => {
 				ui.handleEvent( event );
-				if ( event.type !== 'agent_end' ) {
+				// An `agent_end` with `willRetry` is not final — the session
+				// restarts the turn after a backoff.
+				if ( event.type !== 'agent_end' || event.willRetry ) {
 					return;
 				}
 				const result = getAgentEndTurnResult( event );
@@ -559,6 +562,7 @@ export async function runCommand( options: {
 				} else {
 					turnState.status = result.success ? 'success' : 'error';
 				}
+				turnState.errorMessage = getAgentEndFailure( event )?.message || undefined;
 			},
 		} );
 
@@ -585,7 +589,12 @@ export async function runCommand( options: {
 			await consumeAgentTurnResult;
 		} finally {
 			await append( ( s ) =>
-				appendStudioEntry( s, 'studio.turn_closed', { status: turnState.status } )
+				appendStudioEntry( s, 'studio.turn_closed', {
+					status: turnState.status,
+					...( turnState.status === 'error' && turnState.errorMessage
+						? { errorMessage: turnState.errorMessage }
+						: {} ),
+				} )
 			);
 			ui.endAgentTurn();
 		}

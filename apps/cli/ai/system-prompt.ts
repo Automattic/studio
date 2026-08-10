@@ -1,3 +1,4 @@
+import { GLOBAL_INSTRUCTIONS_MAX_LENGTH } from '@studio/common/ai/global-instructions';
 import {
 	getStudioPresentationRulesPrompt,
 	getStudioWidgetPromptManifest,
@@ -23,17 +24,20 @@ export interface BuildSystemPromptOptions {
 	// Runtime of the active local site. Playground (PHP WASM) needs extra WP-CLI
 	// constraints that the native PHP runtime does not. Defaults to native-php.
 	runtime?: SiteRuntime;
+	// The user's global instructions (~/.studio/knowledge/instructions.md).
+	userInstructions?: string;
 }
 
 export function buildSystemPrompt( options?: BuildSystemPromptOptions ): string {
 	const remoteSessionAddendum = options?.remoteSession ? `\n\n${ REMOTE_SESSION_GUIDANCE }` : '';
+	const userInstructionsSection = buildUserInstructionsSection( options?.userInstructions );
 
 	if ( options?.remoteSite ) {
 		return `${ buildRemoteIntro( options.remoteSite ) }
 
 ${ REMOTE_CONTENT_GUIDELINES }
 
-${ REMOTE_DESIGN_GUIDELINES }${ remoteSessionAddendum }
+${ REMOTE_DESIGN_GUIDELINES }${ remoteSessionAddendum }${ userInstructionsSection }
 `;
 	}
 
@@ -43,8 +47,28 @@ ${ REMOTE_DESIGN_GUIDELINES }${ remoteSessionAddendum }
 		runtime: options?.runtime,
 	} ) }
 
-${ LOCAL_SKILL_ROUTING }${ remoteSessionAddendum }
+${ LOCAL_SKILL_ROUTING }${ remoteSessionAddendum }${ userInstructionsSection }
 `;
+}
+
+function buildUserInstructionsSection( userInstructions?: string ): string {
+	if ( ! userInstructions ) {
+		return '';
+	}
+	const instructions =
+		userInstructions.length > GLOBAL_INSTRUCTIONS_MAX_LENGTH
+			? `${ userInstructions.slice(
+					0,
+					GLOBAL_INSTRUCTIONS_MAX_LENGTH
+			  ) }\n\n[Note: the global instructions file exceeds the size limit and was truncated here. Let the user know they should shorten it in Studio settings.]`
+			: userInstructions;
+	return `
+
+## User's global instructions
+
+The user saved these standing instructions in Studio's settings. They apply to every conversation. Follow them unless they conflict with the guidance above or ask you to skip safety, plan, or validation requirements.
+
+${ instructions }`;
 }
 
 function buildRemoteIntro( site: RemoteSiteContext ): string {
@@ -197,7 +221,7 @@ For long CSS or page-content files (>~200 lines), load the \`block-content\` ski
 - site_connected_remote_sites: List the durable WordPress.com remote sites (production/staging) already attached to a local site for syncing. These are distinct from temporary preview sites (preview_list). Call this before site_push to decide how to ask the user which remote site to target.
 - site_push: Push a local site to a WordPress.com site. Requires authentication (studio auth login). Specify the remote site URL or ID and sync options (all, sqls, uploads, plugins, themes, contents).
 - site_pull: Pull a WordPress.com site to a local site. Requires authentication. Specify the remote site URL or ID and sync options.
-- site_import: Import a backup file (.zip, .tar.gz, .sql, .wpress) into a local site.
+- site_import: Import a backup file (.zip, .tar.gz, .sql, .wpress, .xml WordPress export) into a local site.
 - site_export: Export a local site to a backup file. Supports full-site (.zip, .tar.gz) or database-only (.sql) exports.
 ${ studioPresentToolBullet }${ automaticArtifactSection }
 

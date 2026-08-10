@@ -8,7 +8,6 @@ import { __ } from '@wordpress/i18n';
 import { Button } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { LearnHowLink } from '@/components/learn-more';
-import { SiteDropdown } from '@/components/site-dropdown';
 import {
 	adminEmailField,
 	adminPasswordField,
@@ -24,22 +23,23 @@ import {
 } from '@/components/site-fields';
 import * as Tabs from '@/components/tabs';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
-import { useSites, useUpdateSite, useXdebugEnabledSite } from '@/data/queries/use-sites';
-import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
-import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
+import { useUpdateSite, useXdebugEnabledSite } from '@/data/queries/use-sites';
+import { useWordPressVersions, useWpVersion } from '@/data/queries/use-wordpress-versions';
+import { useOffline } from '@/hooks/use-offline';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
+import type { TracksPanel } from '@studio/common/lib/record-tracks-event';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { DataFormControlProps, Field, Form } from '@wordpress/dataviews';
 import type { FormEvent } from 'react';
 
-type TabId = 'general' | 'debugging';
+type TabId = 'overview' | 'general' | 'debugging';
 
 interface FormData {
 	name: string;
 	phpVersion: SupportedPHPVersion;
-	// Empty string means "auto-update" — we map that back to
-	// DEFAULT_WORDPRESS_VERSION when building the updated site payload.
+	// Empty string means "auto-update"; anything else pins the site to that
+	// version. Only forwarded on save when the user actually changed it.
 	wpVersion: string;
 	useCustomDomain: boolean;
 	customDomain: string;
@@ -52,17 +52,22 @@ interface FormData {
 	enableDebugDisplay: boolean;
 }
 
-function getEffectiveWpVersion( site: SiteDetails | undefined ): string {
+function getEffectiveWpVersion( site: SiteDetails, installedVersion?: string ): string {
 	// Mirrors the legacy apps/studio behavior: sites created before the auto-
-	// updating flag existed fall through to the default too.
-	return site?.isWpAutoUpdating !== false ? '' : DEFAULT_WORDPRESS_VERSION;
+	// updating flag existed count as auto-updating too.
+	if ( site.isWpAutoUpdating !== false ) {
+		return '';
+	}
+	return installedVersion && installedVersion !== '-'
+		? installedVersion
+		: DEFAULT_WORDPRESS_VERSION;
 }
 
-function initialFormData( site: SiteDetails ): FormData {
+function initialFormData( site: SiteDetails, installedWpVersion?: string ): FormData {
 	return {
 		name: site.name,
 		phpVersion: ( site.phpVersion as SupportedPHPVersion ) ?? RecommendedPHPVersion,
-		wpVersion: getEffectiveWpVersion( site ),
+		wpVersion: getEffectiveWpVersion( site, installedWpVersion ),
 		useCustomDomain: Boolean( site.customDomain ),
 		customDomain: site.customDomain ?? '',
 		enableHttps: site.enableHttps ?? false,
@@ -73,22 +78,6 @@ function initialFormData( site: SiteDetails ): FormData {
 		enableDebugLog: site.enableDebugLog ?? false,
 		enableDebugDisplay: site.enableDebugDisplay ?? false,
 	};
-}
-
-function SettingsHeader( { site }: { site: SiteDetails } ) {
-	const sidebarCollapsed = useSidebarCollapsed();
-	const reserveTrafficLightSpace = useTrafficLightSpace();
-	const toggleSpacerClass = sidebarCollapsed
-		? reserveTrafficLightSpace
-			? styles.toggleSpacer
-			: styles.toggleSpacerFlush
-		: null;
-	return (
-		<div className={ styles.header }>
-			{ toggleSpacerClass ? <span className={ toggleSpacerClass } aria-hidden="true" /> : null }
-			<SiteDropdown site={ site } showSiteIcon showStatus={ sidebarCollapsed } />
-		</div>
-	);
 }
 
 function EnableHttpsControl( { data: item, field, onChange }: DataFormControlProps< FormData > ) {
@@ -110,43 +99,12 @@ function EnableHttpsControl( { data: item, field, onChange }: DataFormControlPro
 	);
 }
 
-export function SiteSettingsView( {
-	siteId,
-	activeTab,
-	onTabChange,
-}: {
-	siteId: string;
-	activeTab: TabId;
-	onTabChange: ( tab: TabId ) => void;
-} ) {
-	const { data: sites, isLoading: sitesLoading } = useSites();
-	const site = sites?.find( ( candidate ) => candidate.id === siteId );
-
-	if ( sitesLoading ) {
-		return <div className={ styles.state }>{ __( 'Loading…' ) }</div>;
-	}
-
-	if ( ! site ) {
-		return (
-			<div className={ styles.state }>
-				<h1>{ __( 'Site not found' ) }</h1>
-				<p>{ siteId }</p>
-			</div>
-		);
-	}
-
-	return <SiteSettingsBody site={ site } activeTab={ activeTab } onTabChange={ onTabChange } />;
-}
-
-function SiteSettingsBody( {
-	site,
-	activeTab,
-	onTabChange,
-}: {
-	site: SiteDetails;
-	activeTab: TabId;
-	onTabChange: ( tab: TabId ) => void;
-} ) {
+/**
+ * The site settings form (General + Debugging), rendered as tab panels inside
+ * a `Tabs.Root` owned by the caller — the site overview view. One instance
+ * spans both panels so unsaved edits survive tab switches.
+ */
+export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; activeTab: TabId } ) {
 	const allDomains = useExistingCustomDomains();
 	const existingDomainNames = useMemo(
 		() => allDomains.filter( ( domain ) => domain !== site.customDomain ),
@@ -157,14 +115,33 @@ function SiteSettingsBody( {
 		xdebugEnabledSite && xdebugEnabledSite.id !== site.id ? xdebugEnabledSite.name : undefined;
 
 	const updateSite = useUpdateSite();
+	const { data: wpVersions } = useWordPressVersions();
+	const { data: installedWpVersion } = useWpVersion( site.id );
+	const isOffline = useOffline();
 	const [ submitError, setSubmitError ] = useState< string | null >( null );
 
-	const [ data, setData ] = useState< FormData >( () => initialFormData( site ) );
+	const [ data, setData ] = useState< FormData >( () =>
+		initialFormData( site, installedWpVersion )
+	);
 	// Re-seed the form when the underlying site changes — e.g. after a save,
-	// or after another window edits it. React Query returns a new `site`
-	// reference on every refetch, so object identity is enough.
+	// or after another window edits it — or when the installed WordPress
+	// version loads. React Query returns a new `site` reference on every
+	// refetch, so object identity is enough.
+	//
+	// Skipped while a save is in flight: editing a site restarts it, and those
+	// restart events refresh `site` before the edit has landed on disk, which
+	// would momentarily seed the form with pre-save values.
+	const isSaving = updateSite.isPending;
 	useEffect( () => {
-		setData( initialFormData( site ) );
+		if ( isSaving ) {
+			return;
+		}
+		setData( initialFormData( site, installedWpVersion ) );
+	}, [ site, installedWpVersion, isSaving ] );
+
+	// Kept out of the effect above so a failed save's error survives the
+	// save finishing; it clears once the site itself changes.
+	useEffect( () => {
 		setSubmitError( null );
 	}, [ site ] );
 
@@ -172,7 +149,12 @@ function SiteSettingsBody( {
 		() => [
 			siteNameField< FormData >(),
 			phpVersionField< FormData >(),
-			wpVersionField< FormData >( DEFAULT_WORDPRESS_VERSION ),
+			wpVersionField< FormData >( DEFAULT_WORDPRESS_VERSION, wpVersions, {
+				latestValue: '',
+				currentVersion:
+					installedWpVersion && installedWpVersion !== '-' ? installedWpVersion : undefined,
+				offline: isOffline,
+			} ),
 			adminUsernameField< FormData >(),
 			adminPasswordField< FormData >(),
 			adminEmailField< FormData >(),
@@ -189,7 +171,7 @@ function SiteSettingsBody( {
 			enableDebugLogField< FormData >(),
 			enableDebugDisplayField< FormData >(),
 		],
-		[ existingDomainNames, xdebugConflictSiteName ]
+		[ existingDomainNames, installedWpVersion, isOffline, wpVersions, xdebugConflictSiteName ]
 	);
 
 	const generalForm = useMemo< Form >(
@@ -199,12 +181,12 @@ function SiteSettingsBody( {
 				'name',
 				{
 					id: 'versions',
-					layout: { type: 'row' },
+					layout: { type: 'row', alignment: 'start' },
 					children: [ 'phpVersion', 'wpVersion' ],
 				},
 				{
 					id: 'adminCredentials',
-					layout: { type: 'row' },
+					layout: { type: 'row', alignment: 'start' },
 					children: [ 'adminUsername', 'adminPassword' ],
 				},
 				'adminEmail',
@@ -244,7 +226,10 @@ function SiteSettingsBody( {
 		} );
 	}, [] );
 
-	const initial = useMemo( () => initialFormData( site ), [ site ] );
+	const initial = useMemo(
+		() => initialFormData( site, installedWpVersion ),
+		[ site, installedWpVersion ]
+	);
 	const isUnchanged = useMemo(
 		() =>
 			( Object.keys( initial ) as Array< keyof FormData > ).every(
@@ -278,8 +263,17 @@ function SiteSettingsBody( {
 			enableDebugLog: data.enableDebugLog,
 			enableDebugDisplay: data.enableDebugDisplay,
 		};
+		// Only forward the version when the user actually changed it — same as
+		// the legacy settings modal — so unrelated saves of a pinned site don't
+		// trigger a WordPress reinstall. Switching back to auto-updating still
+		// has to install the latest release, so the empty "auto-update" value
+		// maps to DEFAULT_WORDPRESS_VERSION rather than forwarding nothing.
+		const wpVersionChanged = data.wpVersion !== initial.wpVersion;
 		updateSite.mutate(
-			{ site: updated, wpVersion: wpPinned || undefined },
+			{
+				site: updated,
+				wpVersion: wpVersionChanged ? wpPinned || DEFAULT_WORDPRESS_VERSION : undefined,
+			},
 			{
 				onError: ( error ) => {
 					setSubmitError( ( error as Error ).message ?? __( 'Unable to save changes.' ) );
@@ -289,77 +283,55 @@ function SiteSettingsBody( {
 	};
 
 	return (
-		<div className={ styles.root }>
-			<SettingsHeader site={ site } />
-			<Tabs.Root
-				selectedTabId={ activeTab }
-				onSelect={ ( tabId ) => {
-					if ( tabId && isSiteSettingsTab( tabId ) ) {
-						onTabChange( tabId );
-					}
-				} }
-			>
-				{ /* Title + tabs sit outside the scroll container so the tablist's
-					 border-bottom spans the full main-area width. Only the form
-					 content scrolls — tabs stay pinned. */ }
-				<div className={ styles.titleBlock }>
-					<h1>{ __( 'Site settings' ) }</h1>
-				</div>
-				<div className={ styles.tabsBar }>
-					<div className={ styles.tabsBarInner }>
-						<Tabs.List>
-							<Tabs.Tab tabId="general">{ __( 'General' ) }</Tabs.Tab>
-							<Tabs.Tab tabId="debugging">{ __( 'Debugging' ) }</Tabs.Tab>
-						</Tabs.List>
-					</div>
-				</div>
+		<form onSubmit={ handleSubmit } className={ styles.form }>
+			<Tabs.Panel tabId="general">
+				<DataForm< FormData >
+					data={ data }
+					fields={ fields }
+					form={ generalForm }
+					onChange={ handleChange }
+					validity={ validity }
+				/>
+			</Tabs.Panel>
+			<Tabs.Panel tabId="debugging">
+				<DataForm< FormData >
+					data={ data }
+					fields={ fields }
+					form={ debuggingForm }
+					onChange={ handleChange }
+					validity={ validity }
+				/>
+			</Tabs.Panel>
 
-				<div className={ styles.scroll }>
-					<div className={ styles.contentBlock }>
-						<form onSubmit={ handleSubmit } className={ styles.form }>
-							<Tabs.Panel tabId="general">
-								<DataForm< FormData >
-									data={ data }
-									fields={ fields }
-									form={ generalForm }
-									onChange={ handleChange }
-									validity={ validity }
-								/>
-							</Tabs.Panel>
-							<Tabs.Panel tabId="debugging">
-								<DataForm< FormData >
-									data={ data }
-									fields={ fields }
-									form={ debuggingForm }
-									onChange={ handleChange }
-									validity={ validity }
-								/>
-							</Tabs.Panel>
+			{ submitError && <div className={ styles.submitError }>{ submitError }</div> }
 
-							{ submitError && <div className={ styles.submitError }>{ submitError }</div> }
-
-							<div className={ styles.actions }>
-								<Button
-									type="submit"
-									variant="solid"
-									tone="brand"
-									disabled={ ! canSubmit }
-									loading={ updateSite.isPending }
-									loadingAnnouncement={ __( 'Saving settings' ) }
-								>
-									{ __( 'Save settings' ) }
-								</Button>
-							</div>
-						</form>
-					</div>
+			{ /* The save actions apply to the form tabs only, not Overview. */ }
+			{ activeTab !== 'overview' && (
+				<div className={ styles.actions }>
+					<Button
+						type="submit"
+						variant="solid"
+						tone="brand"
+						disabled={ ! canSubmit }
+						loading={ updateSite.isPending }
+						loadingAnnouncement={ __( 'Saving settings' ) }
+					>
+						{ __( 'Save settings' ) }
+					</Button>
 				</div>
-			</Tabs.Root>
-		</div>
+			) }
+		</form>
 	);
 }
 
 export function isSiteSettingsTab( value: string ): value is TabId {
-	return value === 'general' || value === 'debugging';
+	return value === 'overview' || value === 'general' || value === 'debugging';
 }
 
 export type SiteSettingsTabId = TabId;
+
+// The `studio_panel_opened` value for a tab. The General tab reports `settings` so it lines up with
+// Studio Classic's Settings panel; overview and debugging keep their own names.
+export function siteSettingsTabToPanel( tab: TabId ): TracksPanel {
+	return tab === 'general' ? 'settings' : tab;
+}

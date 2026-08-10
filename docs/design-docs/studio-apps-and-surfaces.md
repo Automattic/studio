@@ -136,13 +136,12 @@ So the agent run-manager, for instance, is `createAgentRunManager({ cliBinary, e
 | Snapshots / preview | `sites/snapshots.ts` |
 | Sync (pull/push) | `sites/sync.ts` |
 | Blueprint bundles | `sites/blueprint-extract.ts` |
-| Site REST proxy | `lib/wordpress-rest.ts` |
 | Local media MIME | `lib/media-mime.ts` |
 | Installed-app detection | `lib/user-settings/installed-apps.ts` |
 | OAuth URL building | `lib/oauth.ts` |
 | Error reporting | `lib/error-reporting.ts` (`captureException`) |
 
-The desktop's former private copies of this logic are now thin wrappers over the shared modules (e.g. `apps/studio/.../cli-site-creator.ts` calls `buildSiteCreateArgs`; `apps/studio/src/lib/wordpress-rest-api.ts` resolves a `SiteServer` and hands off to the shared proxy; `apps/studio/src/lib/is-installed.ts` re-exports the shared detector). This keeps the two surfaces from drifting — a change to site creation, REST proxying, or app detection lands in one place for both.
+The desktop's former private copies of this logic are now thin wrappers over the shared modules (e.g. `apps/studio/.../cli-site-creator.ts` calls `buildSiteCreateArgs`; `apps/studio/src/lib/is-installed.ts` re-exports the shared detector). This keeps the two surfaces from drifting — a change to site creation or app detection lands in one place for both.
 
 ### What stays per-surface (by design)
 

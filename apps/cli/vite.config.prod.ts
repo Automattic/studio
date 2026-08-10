@@ -3,7 +3,7 @@ import { resolve } from 'path';
 import { globSync } from 'glob';
 import { defineConfig, mergeConfig } from 'vite';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
-import { baseConfig } from './vite.config.base';
+import { baseConfig, buildLocalUiPlugin } from './vite.config.base';
 
 const cliNodeModulesPath = resolve( __dirname, 'node_modules' );
 const distCliNodeModulesPath = resolve( __dirname, 'dist/cli/node_modules' );
@@ -12,6 +12,7 @@ export default mergeConfig(
 	baseConfig,
 	defineConfig( {
 		plugins: [
+			buildLocalUiPlugin(),
 			...( existsSync( cliNodeModulesPath )
 				? [
 						viteStaticCopy( {

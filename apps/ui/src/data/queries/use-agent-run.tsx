@@ -1,4 +1,5 @@
 import { buildChatAttachmentSummaries } from '@studio/common/ai/chat-attachments';
+import { getAgentEndFailure } from '@studio/common/ai/json-events';
 import { useQueryClient } from '@tanstack/react-query';
 import {
 	createContext,
@@ -167,8 +168,14 @@ function reducer( state: State, action: Action ): State {
 			};
 		case 'run_ended':
 			// Preserve the queue across run boundaries so staged follow-ups
-			// survive the transition. Everything else resets.
-			return { ...initialState, queuedPrompts: state.queuedPrompts };
+			// survive the transition, and any transport error — `run.exited`
+			// lags the `error` event and must not wipe the banner before the
+			// user can read it. Everything else resets.
+			return {
+				...initialState,
+				queuedPrompts: state.queuedPrompts,
+				error: state.error,
+			};
 		case 'interrupt_requested':
 			return {
 				...state,
@@ -390,15 +397,40 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					subscribedRunIdsBySessionRef.current.delete( payload.sessionId );
 					if ( ! hasQueuedFollowUp ) {
 						// Refetch to replace optimistic entries with disk-backed ones.
-						void queryClient.invalidateQueries( {
-							queryKey: SESSIONS_QUERY_KEY,
-						} );
+						// `cancelRefetch: false` so a run ending as its site is deleted
+						// can't cancel the redirect route's in-flight fetch (which would
+						// throw a CancelledError into the router's error boundary).
+						void queryClient.invalidateQueries(
+							{ queryKey: SESSIONS_QUERY_KEY },
+							{ cancelRefetch: false }
+						);
 					}
 					return;
 				}
 				case 'message': {
-					// Only message-bearing pi event variants need optimistic entries.
 					const inner = event.message;
+					// A failed turn only surfaces through its final `agent_end` —
+					// the errored assistant message usually has no text content and
+					// no `error` transport event is emitted. Synthesize the
+					// `studio.turn_closed` error entry for immediate in-flow
+					// rendering; the CLI also writes a real one that replaces this
+					// on the post-run refetch.
+					const failure = getAgentEndFailure( inner );
+					if ( failure ) {
+						updateCache( payload.sessionId, ( entries ) => [
+							...entries,
+							{
+								type: 'custom',
+								id: shortEntryId(),
+								parentId: null,
+								timestamp: event.timestamp,
+								customType: 'studio.turn_closed',
+								data: { status: 'error', errorMessage: failure.message },
+							} as SessionEntry,
+						] );
+						return;
+					}
+					// Only message-bearing pi event variants need optimistic entries.
 					if (
 						inner.type === 'message_end' &&
 						( inner.message as { role?: string } ).role === 'assistant'

@@ -1,5 +1,5 @@
 import { type Page } from '@playwright/test';
-import { ACCEPTED_IMPORT_FILE_TYPES } from '@studio/common/constants';
+import { ACCEPTED_ADD_SITE_FILE_TYPES } from '@studio/common/constants';
 import { type SiteRuntime } from '@studio/common/lib/site-runtime';
 import SiteForm from './site-form';
 
@@ -33,7 +33,7 @@ export default class AddSiteModal {
 	}
 
 	get backupFileInput() {
-		const fileTypes = ACCEPTED_IMPORT_FILE_TYPES.join( ',' );
+		const fileTypes = ACCEPTED_ADD_SITE_FILE_TYPES.join( ',' );
 		return this.page.locator( `input[type="file"][accept="${ fileTypes }"]` );
 	}
 

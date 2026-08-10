@@ -1,4 +1,4 @@
-import { generateDefaultBlueprintDescription } from '@studio/common/lib/blueprint-settings';
+import { getBlueprintDisplayDetails } from '@studio/common/lib/blueprint-selection';
 import { BlueprintPreferredVersions } from '@studio/common/lib/blueprint-validation';
 import { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import { useCallback } from 'react';
@@ -6,11 +6,7 @@ import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { Blueprint } from 'src/stores/wpcom-api';
 import { applyBlueprintFormValues } from '../lib/apply-blueprint-form-values';
-
-type BlueprintMetadata = {
-	title?: string;
-	description?: string;
-};
+import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 interface UseBlueprintDeeplinkOptions {
 	isAnySiteProcessing: boolean;
@@ -58,13 +54,12 @@ export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): vo
 				try {
 					const blueprintJson = await getIpcApi().readBlueprintFile( blueprintPath );
 					const fileName = blueprintPath.split( /[/\\]/ ).pop() || 'blueprint.json';
-					const blueprintMeta = blueprintJson.meta as BlueprintMetadata | undefined;
+					const details = getBlueprintDisplayDetails( blueprintJson as BlueprintV1Declaration, '' );
 
 					const fileBlueprint: Blueprint = {
 						slug: `file:${ fileName }`,
-						title: blueprintMeta?.title || '',
-						excerpt:
-							blueprintMeta?.description || generateDefaultBlueprintDescription( blueprintJson ),
+						title: details.title,
+						excerpt: details.excerpt,
 						image: '',
 						playground_url: '',
 						blueprint: blueprintJson,

@@ -38,6 +38,14 @@ export function getSessionsDirectory(): string {
 	return path.join( getConfigDirectory(), 'sessions' );
 }
 
+export function getKnowledgeDirectory(): string {
+	return path.join( getConfigDirectory(), 'knowledge' );
+}
+
+export function getGlobalInstructionsPath(): string {
+	return path.join( getKnowledgeDirectory(), 'instructions.md' );
+}
+
 export function getCertificatesPath(): string {
 	return path.join( getConfigDirectory(), 'certificates' );
 }

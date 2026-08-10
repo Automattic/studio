@@ -8,6 +8,11 @@ import {
 	type StudioChatArtifactWidgetDraft,
 } from '@studio/common/ai/chat-artifacts';
 import {
+	isAiAccessRequiredError,
+	isAiBlockedError,
+	isUsageCapError,
+} from '@studio/common/ai/json-events';
+import {
 	isStudioCustomEntryOfType,
 	type StudioChatAttachmentSummary,
 	type StudioCustomEntry,
@@ -20,6 +25,7 @@ import {
 	splitCommandArgs,
 	type NormalizedToolResult,
 } from '@studio/common/ai/tools';
+import { formatUsageCapNotice } from '@studio/common/lib/studio-assistant-quota';
 import { __, sprintf } from '@wordpress/i18n';
 import {
 	blockDefault,
@@ -64,11 +70,22 @@ import {
 } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import {
+	useEffect,
+	useId,
+	useMemo,
+	useRef,
+	useState,
+	type ReactNode,
+	MouseEvent as ReactMouseEvent,
+} from 'react';
+import { AiAccessRequiredNotice, AiBlockedNotice } from '@/components/ai-access-required-notice';
 import { CopyButton } from '@/components/copy-button';
 import { Markdown } from '@/components/markdown';
 import { useConnector, type LoadedAiSession } from '@/data/core';
+import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useLocalMediaDataUrl } from '@/data/queries/use-local-media';
+import { MESSAGE_TEXT_ATTRIBUTE, QUOTABLE_TEXT_ATTRIBUTE } from '@/hooks/use-text-context-menu';
 import { refreshIcon } from '@/lib/icons';
 import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
@@ -88,7 +105,7 @@ type RenderItem =
 			text: string;
 			attachments?: StudioChatAttachmentSummary[];
 	  }
-	| { kind: 'assistant-text'; key: string; text: string; copyText?: string }
+	| { kind: 'assistant-text'; key: string; text: string; messageText: string; copyText?: string }
 	| {
 			kind: 'tool-use';
 			key: string;
@@ -106,7 +123,8 @@ type RenderItem =
 			key: string;
 			widgets: StudioChatArtifactWidgetDraft[];
 	  }
-	| { kind: 'interrupted-marker'; key: string };
+	| { kind: 'interrupted-marker'; key: string }
+	| { kind: 'error-marker'; key: string; message: string };
 
 interface PiAssistantContentBlock {
 	type: 'text' | 'toolCall' | 'thinking';
@@ -269,6 +287,7 @@ export function entriesToRenderItems(
 							kind: 'assistant-text',
 							key: `${ entryIndex }:${ blockIndex }:text`,
 							text,
+							messageText: fullMessageText,
 							copyText: block === lastTextBlock ? fullMessageText : undefined,
 						} );
 					}
@@ -355,6 +374,12 @@ export function entriesToRenderItems(
 					kind: 'interrupted-marker',
 					key: `${ entryIndex }:interrupted`,
 				} );
+			} else if ( data?.status === 'error' ) {
+				items.push( {
+					kind: 'error-marker',
+					key: `${ entryIndex }:error`,
+					message: data.errorMessage ?? '',
+				} );
 			}
 			continue;
 		}
@@ -390,7 +415,7 @@ function UserTurn( {
 	attachments?: StudioChatAttachmentSummary[];
 } ) {
 	return (
-		<div className={ styles.userTurn }>
+		<div className={ styles.userTurn } { ...{ [ MESSAGE_TEXT_ATTRIBUTE ]: text } }>
 			<div className={ styles.userText }>{ text }</div>
 			{ attachments && attachments.length > 0 ? (
 				<ul className={ styles.userAttachments }>
@@ -422,16 +447,56 @@ function UserTurn( {
 	);
 }
 
-function AssistantText( { text, copyText }: { text: string; copyText?: string } ) {
+function AssistantText( {
+	text,
+	messageText,
+	copyText,
+	showActions,
+	onToggleSelect,
+}: {
+	text: string;
+	messageText: string;
+	copyText?: string;
+	showActions: boolean;
+	onToggleSelect: () => void;
+} ) {
+	const handleClick = ( event: ReactMouseEvent< HTMLDivElement > ) => {
+		// Links and the buttons inside code blocks or the action row own their
+		// clicks; only bare message content toggles the actions.
+		if ( ( event.target as HTMLElement | null )?.closest( 'a, button' ) ) {
+			return;
+		}
+		// A click that ends a text drag is a selection, not a tap.
+		const selection = window.getSelection();
+		if ( selection && ! selection.isCollapsed && selection.toString().trim() ) {
+			return;
+		}
+		onToggleSelect();
+	};
+
 	return (
-		<div className={ styles.assistantTurn }>
+		// Clicking the message is a mouse convenience for revealing its actions;
+		// keyboard users reach the same buttons by tabbing to them, which opens
+		// the row via :focus-within. Deliberately no button role — the message
+		// holds links, and nesting them inside a control would be invalid.
+		<div
+			className={ styles.assistantTurn }
+			data-actions-open={ showActions ? 'true' : undefined }
+			{ ...{
+				[ MESSAGE_TEXT_ATTRIBUTE ]: messageText,
+				[ QUOTABLE_TEXT_ATTRIBUTE ]: true,
+			} }
+			onClick={ copyText ? handleClick : undefined }
+		>
 			<Markdown>{ text }</Markdown>
 			{ copyText ? (
-				<CopyButton
-					text={ copyText }
-					label={ __( 'Copy message' ) }
-					className={ styles.messageActions }
-				/>
+				<div className={ styles.messageActions }>
+					<div className={ styles.messageActionsClip }>
+						<div className={ styles.messageActionsRow }>
+							<CopyButton text={ copyText } label={ __( 'Copy message' ) } />
+						</div>
+					</div>
+				</div>
 			) : null }
 		</div>
 	);
@@ -1132,6 +1197,30 @@ function AgentQuestionBatch( {
 	);
 }
 
+// In-flow marker for a turn that ended in an error. The monthly usage cap
+// gets dedicated copy — with the reset date once the quota query resolves —
+// instead of the raw provider message.
+function TurnErrorMarker( { message }: { message: string } ) {
+	const isUsageCap = isUsageCapError( message );
+	const isAccessRequired = isAiAccessRequiredError( message );
+	const { data: quota } = useStudioAssistantQuota( { enabled: isUsageCap || isAccessRequired } );
+	let text: ReactNode;
+	if ( isAiBlockedError( message ) ) {
+		text = <AiBlockedNotice />;
+	} else if ( isAccessRequired ) {
+		text = <AiAccessRequiredNotice quota={ quota } />;
+	} else if ( isUsageCap ) {
+		text = formatUsageCapNotice( quota?.costResetDate );
+	} else {
+		text = message || __( 'Something went wrong and this turn was stopped. Please try again.' );
+	}
+	return (
+		<div className={ styles.errorMarker } role="alert">
+			{ text }
+		</div>
+	);
+}
+
 export function Conversation( {
 	data,
 	isRunning,
@@ -1158,6 +1247,30 @@ export function Conversation( {
 		[ entries, isRunning ]
 	);
 
+	// One selected message at a time, so picking a new one closes the last.
+	const [ selectedKey, setSelectedKey ] = useState< string | null >( null );
+	const sessionId = data.summary.id;
+	useEffect( () => {
+		setSelectedKey( null );
+	}, [ sessionId ] );
+
+	// The newest reply keeps its actions open, so copying the answer you just
+	// got never depends on discovering that messages can be clicked. Held back
+	// until the turn settles — mid-run the last text block keeps moving as new
+	// blocks stream in, and the row would hop down the transcript with it.
+	const latestActionableKey = useMemo( () => {
+		if ( isRunning ) {
+			return null;
+		}
+		for ( let index = items.length - 1; index >= 0; index -= 1 ) {
+			const item = items[ index ];
+			if ( item.kind === 'assistant-text' && item.copyText ) {
+				return item.key;
+			}
+		}
+		return null;
+	}, [ isRunning, items ] );
+
 	return (
 		<div className={ styles.root }>
 			{ items.map( ( item ) => {
@@ -1167,7 +1280,18 @@ export function Conversation( {
 							<UserTurn key={ item.key } text={ item.text } attachments={ item.attachments } />
 						);
 					case 'assistant-text':
-						return <AssistantText key={ item.key } text={ item.text } copyText={ item.copyText } />;
+						return (
+							<AssistantText
+								key={ item.key }
+								text={ item.text }
+								messageText={ item.messageText }
+								copyText={ item.copyText }
+								showActions={ selectedKey === item.key || item.key === latestActionableKey }
+								onToggleSelect={ () =>
+									setSelectedKey( ( current ) => ( current === item.key ? null : item.key ) )
+								}
+							/>
+						);
 					case 'tool-use':
 						return (
 							<ToolUseRow
@@ -1195,6 +1319,8 @@ export function Conversation( {
 								{ __( 'Interrupted by you' ) }
 							</div>
 						);
+					case 'error-marker':
+						return <TurnErrorMarker key={ item.key } message={ item.message } />;
 					default:
 						return null;
 				}

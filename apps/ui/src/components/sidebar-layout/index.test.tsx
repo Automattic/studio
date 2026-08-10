@@ -5,9 +5,16 @@ import { SidebarLayout } from './index';
 import type { ReactNode } from 'react';
 
 vi.mock( '@/components/sidebar-header', () => ( {
-	SidebarHeader: ( { onToggleSidebar }: { onToggleSidebar: () => void } ) => (
-		<button onClick={ onToggleSidebar }>Hide sidebar</button>
-	),
+	SidebarHeader: () => null,
+} ) );
+
+vi.mock( '@/components/app-message-cards', () => ( {
+	AppMessageCards: () => null,
+	AppMessageCardsDot: () => null,
+} ) );
+
+vi.mock( '@/components/studio-beta-menu', () => ( {
+	StudioBetaMenu: () => null,
 } ) );
 
 vi.mock( '@/components/site-list', () => ( {
@@ -15,7 +22,9 @@ vi.mock( '@/components/site-list', () => ( {
 } ) );
 
 vi.mock( '@/components/user-menu', () => ( {
-	UserMenu: () => null,
+	UserMenu: ( { onToggleSidebar }: { onToggleSidebar: () => void } ) => (
+		<button onClick={ onToggleSidebar }>Hide sidebar</button>
+	),
 } ) );
 
 vi.mock( '@/data/core', () => ( {
@@ -77,5 +86,23 @@ describe( 'SidebarLayout', () => {
 		act( () => toggleSidebarListener?.() );
 
 		expect( screen.queryByRole( 'button', { name: 'Show sidebar' } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'hands the sidebar shortcut to the forcing feature while force-collapsed', () => {
+		const onForceCollapsedToggle = vi.fn();
+		render(
+			<SidebarLayout forceCollapsed onForceCollapsedToggle={ onForceCollapsedToggle }>
+				<div>Content</div>
+			</SidebarLayout>
+		);
+
+		// Collapsed (no resize handle), but its own floating toggle stays away —
+		// the forcing feature (full preview) owns the exit affordance.
+		expect( screen.queryByRole( 'separator', { name: 'Resize sidebar' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'Show sidebar' } ) ).not.toBeInTheDocument();
+
+		act( () => toggleSidebarListener?.() );
+
+		expect( onForceCollapsedToggle ).toHaveBeenCalledTimes( 1 );
 	} );
 } );

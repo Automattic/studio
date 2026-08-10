@@ -12,7 +12,7 @@ import {
 import { watchComposerFilePaste } from '@studio/common/ai/composer-attachments';
 import { AI_MODELS, getAiModelFamily, getAiModelLabel } from '@studio/common/ai/models';
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
-import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
+import { getAiSkillCommands } from '@studio/common/ai/slash-commands';
 import { useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import {
@@ -69,10 +69,6 @@ const COMPOSER_TEXTAREA_MAX_VIEWPORT_RATIO = 0.4;
 const COMPOSER_TEXTAREA_MANUAL_MAX_HEIGHT = 560;
 const COMPOSER_TEXTAREA_MANUAL_MAX_VIEWPORT_RATIO = 0.7;
 const COMPOSER_TEXTAREA_RESIZE_STEP = 16;
-const PLACEHOLDER_SCRAMBLE_DURATION_MS = 420;
-const PLACEHOLDER_SCRAMBLE_STAGGER_MS = 12;
-const PLACEHOLDER_SCRAMBLE_TICK_MS = 32;
-const PLACEHOLDER_SCRAMBLE_CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789!?*+-=';
 
 function AttachmentHoverTextPreview( { text }: { text: string } ) {
 	const viewportRef = useRef< HTMLDivElement | null >( null );
@@ -229,6 +225,9 @@ export interface ComposerHandle {
 		text: string,
 		attachments?: { images?: StudioChatImage[]; files?: StudioChatFileAttachment[] }
 	): void;
+	// What replaceDraft would discard — lets callers decide whether the
+	// replacement warrants a confirmation.
+	getDraft(): { text: string; hasAttachments: boolean };
 }
 
 function shouldShellFocusTextarea( target: EventTarget ) {
@@ -279,83 +278,6 @@ function resizeComposerTextarea(
 	node.style.height = `${ nextHeight }px`;
 	node.style.overflowY = node.scrollHeight > nextHeight ? 'auto' : 'hidden';
 	return nextHeight;
-}
-
-function getScrambleCharacter( index: number, elapsed: number ) {
-	const characterIndex =
-		( index * 7 + Math.floor( elapsed / PLACEHOLDER_SCRAMBLE_TICK_MS ) ) %
-		PLACEHOLDER_SCRAMBLE_CHARS.length;
-	return PLACEHOLDER_SCRAMBLE_CHARS.charAt( characterIndex );
-}
-
-function useScrambledPlaceholder( targetText: string, shouldAnimate: boolean ) {
-	const [ displayText, setDisplayText ] = useState( targetText );
-	const previousTargetRef = useRef( targetText );
-
-	useEffect( () => {
-		const previousText = previousTargetRef.current;
-		previousTargetRef.current = targetText;
-
-		if ( previousText === targetText || ! shouldAnimate ) {
-			setDisplayText( targetText );
-			return;
-		}
-
-		if ( window.matchMedia?.( '(prefers-reduced-motion: reduce)' ).matches ) {
-			setDisplayText( targetText );
-			return;
-		}
-
-		const maxLength = Math.max( previousText.length, targetText.length );
-		const startTime = performance.now();
-		let animationFrame = 0;
-
-		const renderFrame = ( now: number ) => {
-			const elapsed = now - startTime;
-			let isComplete = true;
-			let nextText = '';
-
-			for ( let index = 0; index < maxLength; index++ ) {
-				const previousCharacter = previousText.charAt( index );
-				const targetCharacter = targetText.charAt( index );
-				const characterElapsed = elapsed - index * PLACEHOLDER_SCRAMBLE_STAGGER_MS;
-
-				if ( characterElapsed <= 0 ) {
-					nextText += previousCharacter;
-					isComplete = false;
-					continue;
-				}
-
-				if ( characterElapsed >= PLACEHOLDER_SCRAMBLE_DURATION_MS ) {
-					nextText += targetCharacter;
-					continue;
-				}
-
-				isComplete = false;
-				nextText +=
-					previousCharacter === ' ' && targetCharacter === ' '
-						? ' '
-						: getScrambleCharacter( index, elapsed );
-			}
-
-			setDisplayText( nextText.trimEnd() );
-
-			if ( isComplete ) {
-				setDisplayText( targetText );
-				return;
-			}
-
-			animationFrame = window.requestAnimationFrame( renderFrame );
-		};
-
-		animationFrame = window.requestAnimationFrame( renderFrame );
-
-		return () => {
-			window.cancelAnimationFrame( animationFrame );
-		};
-	}, [ targetText, shouldAnimate ] );
-
-	return displayText;
 }
 
 export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Composer(
@@ -453,20 +375,6 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		};
 	}, [ setComposerManualTextareaHeight ] );
 
-	useEffect( () => {
-		if ( value.length > 0 ) {
-			return;
-		}
-		const interval = window.setInterval( () => {
-			setPlaceholderIndex( ( current ) => current + 1 );
-		}, 5000 );
-		return () => window.clearInterval( interval );
-	}, [ value ] );
-
-	useEffect( () => {
-		setPlaceholderIndex( 0 );
-	}, [ busy ] );
-
 	useImperativeHandle(
 		ref,
 		() => ( {
@@ -496,8 +404,11 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 					node.setSelectionRange( len, len );
 				} );
 			},
+			getDraft() {
+				return { text: value, hasAttachments: attachments.length > 0 };
+			},
 		} ),
-		[ restoreAttachments ]
+		[ restoreAttachments, value, attachments ]
 	);
 
 	const send = useCallback( async () => {
@@ -511,6 +422,9 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		const sentAttachments = attachments;
 		setValue( '' );
 		clearAttachments();
+		// A send is the only thing that swaps the suggestion; it is static
+		// otherwise, so the empty composer never changes under the user.
+		setPlaceholderIndex( ( current ) => current + 1 );
 		try {
 			await onSend( prompt, toComposerSendAttachments( sentAttachments ) );
 		} catch {
@@ -734,8 +648,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 				__( 'What are we tuning now?' ),
 		  ];
 	const placeholder = placeholderOptions[ placeholderIndex % placeholderOptions.length ];
-	const showAnimatedPlaceholder = value.length === 0;
-	const animatedPlaceholder = useScrambledPlaceholder( placeholder, showAnimatedPlaceholder );
+	const showPlaceholderText = value.length === 0;
 	const composerResizeMaxHeight = getComposerTextareaMaxHeight( true );
 	const sendAriaLabel = busy ? __( 'Queue' ) : __( 'Send' );
 	const sendShortcutLabel = __( 'Return to send' );
@@ -762,6 +675,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		<>
 			<div className={ styles.root }>
 				<div
+					data-session-composer
 					className={ clsx(
 						styles.shell,
 						isDraggingOver && styles.shellDragging,
@@ -787,7 +701,9 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 						onPointerCancel={ finishComposerResize }
 						onLostPointerCapture={ finishComposerResize }
 						onKeyDown={ handleComposerResizeKeyDown }
-					/>
+					>
+						<span className={ styles.resizeHandleIndicator } aria-hidden="true" />
+					</div>
 					{ isDraggingOver ? (
 						<div className={ styles.dropOverlay } aria-hidden="true">
 							{ __( 'Drop files to attach' ) }
@@ -929,9 +845,9 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 							hasAttachments && styles.inputAreaWithAttachments
 						) }
 					>
-						{ showAnimatedPlaceholder ? (
+						{ showPlaceholderText ? (
 							<div className={ styles.placeholderText } aria-hidden="true">
-								{ animatedPlaceholder }
+								{ placeholder }
 							</div>
 						) : null }
 						<textarea
@@ -1005,7 +921,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 											/>
 										</Menu.SubmenuTrigger>
 										<Menu.Popup side="right" align="start" className={ styles.skillsMenuPopup }>
-											{ AI_SKILL_COMMANDS.map( ( command ) => (
+											{ getAiSkillCommands().map( ( command ) => (
 												<Menu.Item
 													key={ command.name }
 													className={ styles.skillMenuItem }

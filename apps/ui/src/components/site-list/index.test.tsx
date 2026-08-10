@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
 import { useSiteAgentActivity } from '@/data/queries/use-agent-run';
+import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useSessions } from '@/data/queries/use-sessions';
 import {
 	useCopySite,
@@ -60,6 +61,15 @@ vi.mock( '@/data/queries/use-sites', () => ( {
 	useUpdateSitesSortOrder: vi.fn(),
 } ) );
 
+vi.mock( '@/data/queries/use-agentic-features', () => ( {
+	useAgenticFeatures: vi.fn( () => ( {
+		enabled: true,
+		chatEnabled: true,
+		reason: null,
+		isReady: true,
+	} ) ),
+} ) );
+
 vi.mock( '@/data/queries/use-user-preferences', () => ( {
 	useUserPreferences: vi.fn(),
 } ) );
@@ -93,16 +103,23 @@ describe( 'SiteList', () => {
 		paramsMock = {};
 		pathnameMock = '/';
 
+		vi.mocked( useAgenticFeatures ).mockReturnValue( {
+			enabled: true,
+			chatEnabled: true,
+			reason: null,
+			isReady: true,
+		} );
 		useIsSiteStartingMock.mockReturnValue( false );
 		useIsSiteStoppingMock.mockReturnValue( false );
 		useSiteAgentActivityMock.mockReturnValue( 'idle' );
 		useSiteSyncActivityMock.mockReturnValue( null );
 		useSessionsMock.mockReturnValue( { data: [], isLoading: false } );
 		useConnectorMock.mockReturnValue( {
-			openExternalUrl: vi.fn(),
-			openSiteFolder: vi.fn(),
-			openSiteInEditor: vi.fn(),
-			openSiteInTerminal: vi.fn(),
+			openExternalUrl: vi.fn().mockResolvedValue( undefined ),
+			openSiteFolder: vi.fn().mockResolvedValue( undefined ),
+			openSiteInEditor: vi.fn().mockResolvedValue( undefined ),
+			openSiteInTerminal: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
 		} as unknown as ReturnType< typeof useConnector > );
 		useCopySiteMock.mockReturnValue( { isPending: false, mutate: vi.fn() } );
 		useDeleteSiteMock.mockReturnValue( { isPending: false, mutate: vi.fn() } );
@@ -120,6 +137,11 @@ describe( 'SiteList', () => {
 				terminal: null,
 				colorScheme: 'system',
 				locale: 'en',
+				analyticsEnabled: true,
+				defaultSiteDirectory: '',
+				studioCliInstalled: false,
+				studioCliExternallyManaged: false,
+				agenticFeaturesEnabled: true,
 			},
 		} );
 		useSitesMock.mockReturnValue( {
@@ -174,10 +196,10 @@ describe( 'SiteList', () => {
 		expect( actionGlyph?.querySelector( 'span' ) ).toBeInTheDocument();
 	} );
 
-	it( 'opens site actions from the row without opening the latest chat', async () => {
+	it( 'opens site actions from a row right-click without opening the latest chat', async () => {
 		render( <SiteList /> );
 
-		fireEvent.click( screen.getAllByRole( 'button', { name: 'Site actions' } )[ 0 ] );
+		fireEvent.contextMenu( screen.getByText( 'Stopped Site' ) );
 
 		expect( navigateMock ).not.toHaveBeenCalled();
 		expect( await screen.findByText( 'Site settings' ) ).toBeInTheDocument();
@@ -187,15 +209,114 @@ describe( 'SiteList', () => {
 		expect( screen.getByText( 'Delete site' ) ).toBeInTheDocument();
 	} );
 
+	it( 'records a Tracks event when opening the site folder from the menu', async () => {
+		render( <SiteList /> );
+
+		fireEvent.contextMenu( screen.getByText( 'Stopped Site' ) );
+		fireEvent.click( await screen.findByText( 'Open folder' ) );
+
+		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_site_open_folder' );
+	} );
+
+	it( 'records external-browser Tracks events for phpMyAdmin and WP admin', async () => {
+		render( <SiteList /> );
+
+		fireEvent.contextMenu( screen.getByText( 'Running Site' ) );
+		fireEvent.click( await screen.findByText( 'Open phpMyAdmin' ) );
+
+		fireEvent.contextMenu( screen.getByText( 'Running Site' ) );
+		fireEvent.click( await screen.findByText( 'Open WP admin' ) );
+
+		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_site_open_phpmyadmin', {
+			browser: 'external',
+		} );
+		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_site_open_wp_admin', {
+			browser: 'external',
+		} );
+	} );
+
 	it( 'opens site settings from the site actions menu', async () => {
 		render( <SiteList /> );
 
-		fireEvent.click( screen.getAllByRole( 'button', { name: 'Site actions' } )[ 0 ] );
+		fireEvent.contextMenu( screen.getByText( 'Stopped Site' ) );
 		fireEvent.click( await screen.findByText( 'Site settings' ) );
 
 		expect( navigateMock ).toHaveBeenCalledTimes( 1 );
 		expect( navigateMock ).toHaveBeenLastCalledWith( {
-			to: '/sites/$siteId/settings',
+			to: '/sites/$siteId/overview',
+			params: { siteId: 'stopped-site' },
+			search: { tab: 'general' },
+		} );
+		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_panel_opened', {
+			panel: 'settings',
+		} );
+	} );
+
+	it( 'opens the site overview when clicking a site while agentic features are unavailable', () => {
+		vi.mocked( useAgenticFeatures ).mockReturnValue( {
+			enabled: false,
+			chatEnabled: false,
+			reason: 'signed-out',
+			isReady: true,
+		} );
+
+		render( <SiteList /> );
+
+		fireEvent.click( screen.getByText( 'Stopped Site' ) );
+
+		expect( navigateMock ).toHaveBeenCalledTimes( 1 );
+		expect( navigateMock ).toHaveBeenLastCalledWith( {
+			to: '/sites/$siteId/overview',
+			params: { siteId: 'stopped-site' },
+		} );
+		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_panel_opened', {
+			panel: 'overview',
+		} );
+	} );
+
+	it( 'records an assistant panel event when clicking a site name opens chat', () => {
+		render( <SiteList /> );
+
+		fireEvent.click( screen.getByText( 'Stopped Site' ) );
+
+		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_panel_opened', {
+			panel: 'assistant',
+		} );
+	} );
+
+	it( 'shows the selected site solid without the overview shortcut when signed out', () => {
+		vi.mocked( useAgenticFeatures ).mockReturnValue( {
+			enabled: false,
+			chatEnabled: false,
+			reason: 'signed-out',
+			isReady: true,
+		} );
+		paramsMock = { siteId: 'stopped-site' };
+		pathnameMock = '/sites/stopped-site/overview';
+
+		render( <SiteList /> );
+
+		const stoppedRow = screen.getByText( 'Stopped Site' ).closest( 'section' )!;
+		const className = stoppedRow.getAttribute( 'class' ) ?? '';
+		const siteButton = within( stoppedRow ).getByRole( 'button', { name: 'Stopped Site' } );
+
+		expect( className ).toContain( 'siteActive' );
+		expect( className ).not.toContain( 'siteContextActive' );
+		expect( siteButton ).toHaveAttribute( 'aria-current', 'page' );
+		expect( screen.queryByRole( 'button', { name: 'Site overview' } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'opens the site overview from the row gear without opening the latest chat', () => {
+		render( <SiteList /> );
+
+		fireEvent.click( screen.getAllByRole( 'button', { name: 'Site overview' } )[ 0 ] );
+
+		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_panel_opened', {
+			panel: 'overview',
+		} );
+		expect( navigateMock ).toHaveBeenCalledTimes( 1 );
+		expect( navigateMock ).toHaveBeenLastCalledWith( {
+			to: '/sites/$siteId/overview',
 			params: { siteId: 'stopped-site' },
 		} );
 	} );
@@ -208,6 +329,72 @@ describe( 'SiteList', () => {
 
 		expect( stoppedSiteClassName ).toContain( 'siteNameStopped' );
 		expect( runningSiteClassName ).not.toContain( 'siteNameStopped' );
+	} );
+
+	it( 'replaces the status dot with the Xdebug glyph on the Xdebug-enabled site', () => {
+		useSitesMock.mockReturnValue( {
+			data: [
+				createSite( {
+					id: 'xdebug-site',
+					name: 'Xdebug Site',
+					path: '/Users/example/Studio/xdebug-site',
+					running: true,
+					enableXdebug: true,
+				} ),
+				createSite( {
+					id: 'plain-site',
+					name: 'Plain Site',
+					path: '/Users/example/Studio/plain-site',
+					running: true,
+				} ),
+			],
+			isLoading: false,
+		} );
+
+		render( <SiteList /> );
+
+		const xdebugButton = screen.getByRole( 'button', {
+			name: 'Site status: Running. Xdebug enabled. Stop site',
+		} );
+		const xdebugGlyph = xdebugButton.querySelector( 'svg:first-of-type' );
+		const plainButton = screen.getByRole( 'button', {
+			name: 'Site status: Running. Stop site',
+		} );
+
+		expect( xdebugGlyph ).toHaveAttribute( 'viewBox', '0 0 24 24' );
+		expect( xdebugGlyph?.querySelector( 'rect' ) ).not.toBeInTheDocument();
+		expect( plainButton ).not.toHaveAttribute( 'data-xdebug' );
+		expect( plainButton.querySelector( 'svg:first-of-type rect' ) ).toBeInTheDocument();
+
+		fireEvent.click( xdebugButton );
+		expect( stopSite ).toHaveBeenCalledWith( 'xdebug-site' );
+	} );
+
+	it( 'keeps the greyed Xdebug glyph visible while the site is stopped', () => {
+		useSitesMock.mockReturnValue( {
+			data: [
+				createSite( {
+					id: 'xdebug-site',
+					name: 'Xdebug Site',
+					path: '/Users/example/Studio/xdebug-site',
+					running: false,
+					enableXdebug: true,
+				} ),
+			],
+			isLoading: false,
+		} );
+
+		render( <SiteList /> );
+
+		const button = screen.getByRole( 'button', {
+			name: 'Site status: Stopped. Xdebug enabled. Start site',
+		} );
+
+		// The stopped-row CSS hides the status button unless `data-xdebug` is
+		// set alongside `data-state`; assert that DOM contract.
+		expect( button ).toHaveAttribute( 'data-state', 'stopped' );
+		expect( button ).toHaveAttribute( 'data-xdebug' );
+		expect( button.querySelector( 'svg:first-of-type' ) ).toHaveAttribute( 'viewBox', '0 0 24 24' );
 	} );
 
 	it( 'marks the site row as current for the active chat', () => {
@@ -231,9 +418,9 @@ describe( 'SiteList', () => {
 		expect( siteButton ).toHaveAttribute( 'aria-current', 'page' );
 	} );
 
-	it( 'marks the site row as contextual on site settings routes', () => {
+	it( 'marks the site row as contextual on the site overview route', () => {
 		paramsMock = { siteId: 'stopped-site' };
-		pathnameMock = '/sites/stopped-site/settings';
+		pathnameMock = '/sites/stopped-site/overview';
 
 		render( <SiteList /> );
 
@@ -618,6 +805,62 @@ describe( 'SiteList', () => {
 		rerender( <SiteList /> );
 
 		expect( screen.getByRole( 'status', { name: 'New message' } ) ).toBeInTheDocument();
+	} );
+
+	it( 'names the configured editor and terminal in the site actions', async () => {
+		const openSiteInEditor = vi.fn( () => Promise.resolve() );
+		useConnectorMock.mockReturnValue( {
+			openExternalUrl: vi.fn(),
+			openSiteFolder: vi.fn(),
+			openSiteInEditor,
+			openSiteInTerminal: vi.fn(),
+		} as unknown as ReturnType< typeof useConnector > );
+		useUserPreferencesMock.mockReturnValue( {
+			data: {
+				editor: 'zed',
+				terminal: 'terminal',
+				colorScheme: 'system',
+				locale: 'en',
+				analyticsEnabled: true,
+				defaultSiteDirectory: '',
+				studioCliInstalled: false,
+				studioCliExternallyManaged: false,
+				agenticFeaturesEnabled: true,
+			},
+		} );
+
+		render( <SiteList /> );
+
+		fireEvent.contextMenu( screen.getByText( 'Stopped Site' ) );
+
+		const editorItem = await screen.findByText( 'Open in Zed' );
+		expect( screen.getByText( 'Open in Terminal' ) ).toBeInTheDocument();
+
+		fireEvent.click( editorItem );
+		expect( openSiteInEditor ).toHaveBeenCalledWith( 'stopped-site' );
+	} );
+
+	it( 'hides the editor and terminal actions when unset', async () => {
+		useUserPreferencesMock.mockReturnValue( {
+			data: {
+				editor: null,
+				terminal: null,
+				colorScheme: 'system',
+				locale: undefined,
+				analyticsEnabled: true,
+				defaultSiteDirectory: '',
+				studioCliInstalled: false,
+				studioCliExternallyManaged: false,
+				agenticFeaturesEnabled: true,
+			},
+		} );
+
+		render( <SiteList /> );
+
+		fireEvent.contextMenu( screen.getByText( 'Stopped Site' ) );
+
+		await screen.findByText( 'Open folder' );
+		expect( screen.queryByText( /Open in / ) ).not.toBeInTheDocument();
 	} );
 } );
 

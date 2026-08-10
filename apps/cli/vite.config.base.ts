@@ -74,12 +74,7 @@ export function buildLocalUiPlugin() {
 	};
 }
 
-// Ship only the self-contained engine bundle — its deps are inlined. Shipping
-// the tsc output + node_modules instead added ~10k files to the installer and
-// ~8 min to the Windows CI build (STU-2027). Bundles are committed under
-// packages/data-liberation-agent/dist/; regenerate with
-// `npm -w data-liberation run build:mcp-bundle` when DLA source or deps change
-// (CI fails on drift).
+// Copy the committed data-liberation-agent/dist into the dist/cli/data-liberation-agent.
 function copyDataLiberationEngine( outDir: string ) {
 	const serverBundlePath = resolve( dataLiberationSourcePath, 'dist', 'mcp-server.bundle.mjs' );
 	const scriptsDistPath = resolve( dataLiberationSourcePath, 'dist', 'scripts' );

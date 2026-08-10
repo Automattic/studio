@@ -1,6 +1,7 @@
 import { getAuthenticationUrl, getSignUpUrl } from '@studio/common/lib/oauth';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
+import { readOnboardingHints, writeOnboardingHints } from '../browser-onboarding-hints';
 import { applyStoredSiteOrder, storeSiteOrder } from '../browser-site-order';
 import { buildPublishCheckoutUrl } from '../publish-checkout-url';
 import { UnsupportedError } from '../unsupported-error';
@@ -859,6 +860,16 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		async disableAgenticUi() {
 			// No-op in the browser.
+		},
+		async getOnboardingHints() {
+			return readOnboardingHints();
+		},
+		async setOnboardingHints( partial ) {
+			writeOnboardingHints( partial );
+		},
+		onShowGettingStarted() {
+			// No application menu in a browser tab.
+			return () => {};
 		},
 		async getAppUpdateStatus() {
 			return { readyToInstall: false, version: null };

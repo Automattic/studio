@@ -83,11 +83,11 @@
 }
 
 /* The beta affordance stays in normal footer flow, below transient/persistent
-   messages and above Settings, so it never overlays a toast or checklist. */
+   messages and above Settings, so it never overlays a toast or checklist.
+   Margin, not padding: this class lands on the bubble itself, which owns its
+   own padding. */
 .sidebarBeta {
-	width: fit-content;
-	max-width: calc(100% - 2 * var(--wpds-dimension-padding-lg));
-	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-lg)
+	margin: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-lg)
 		var(--wpds-dimension-padding-xs);
 }
 

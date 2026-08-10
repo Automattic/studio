@@ -3,15 +3,12 @@ import { privateApis } from '@wordpress/theme';
 import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useState } from 'react';
-import {
-	AppMessageCards,
-	AppMessageCardsDot,
-	StudioBetaCard,
-} from '@/components/app-message-cards';
+import { AppMessageCards, AppMessageCardsDot } from '@/components/app-message-cards';
 import { AppToasts } from '@/components/app-toasts';
 import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { SidebarHeader } from '@/components/sidebar-header';
 import { SiteList } from '@/components/site-list';
+import { StudioBetaMenu } from '@/components/studio-beta-menu';
 import { UserMenu } from '@/components/user-menu';
 import { useConnector } from '@/data/core';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -103,7 +100,7 @@ export function SidebarLayout( {
 									<AppMessageCards className={ styles.sidebarCards } />
 								) : null }
 								{ ! effectiveCollapsed ? (
-									<StudioBetaCard className={ styles.sidebarBeta } />
+									<StudioBetaMenu className={ styles.sidebarBeta } />
 								) : null }
 								<UserMenu onToggleSidebar={ toggleSidebar } />
 							</div>

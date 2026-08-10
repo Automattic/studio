@@ -11,7 +11,10 @@ vi.mock( '@/components/sidebar-header', () => ( {
 vi.mock( '@/components/app-message-cards', () => ( {
 	AppMessageCards: () => null,
 	AppMessageCardsDot: () => null,
-	StudioBetaCard: () => null,
+} ) );
+
+vi.mock( '@/components/studio-beta-menu', () => ( {
+	StudioBetaMenu: () => null,
 } ) );
 
 vi.mock( '@/components/site-list', () => ( {

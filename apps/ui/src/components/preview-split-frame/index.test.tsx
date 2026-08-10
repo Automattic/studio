@@ -54,23 +54,26 @@ describe( 'PreviewSplitFrame', () => {
 	} );
 
 	describe( 'window controls overlay', () => {
-		it( 'keeps the inset frame when there is no overlay', () => {
+		it( 'keeps the frame fully inset when there is no overlay', () => {
 			render(
 				<PreviewSplitFrame>
 					<span data-testid="content">Content</span>
 				</PreviewSplitFrame>
 			);
-			expect( getFrameRoot() ).not.toHaveClass( styles.rootFrameless );
+			expect( getFrameRoot() ).not.toHaveClass( styles.rootWindowControls );
 		} );
 
-		it( 'goes full-bleed so the native controls cannot overhang the frame', () => {
+		it( 'meets the top-right corner so the native controls cannot overhang it', () => {
 			stubWindowControlsOverlay();
 			render(
 				<PreviewSplitFrame>
 					<span data-testid="content">Content</span>
 				</PreviewSplitFrame>
 			);
-			expect( getFrameRoot() ).toHaveClass( styles.rootFrameless );
+			const root = getFrameRoot();
+			expect( root ).toHaveClass( styles.rootWindowControls );
+			// The bottom inset is what keeps it reading as a frame.
+			expect( root ).not.toHaveClass( styles.rootFrameless );
 		} );
 	} );
 

@@ -29,12 +29,26 @@
 	transition: height 150ms ease, margin 150ms ease, border-radius 150ms ease;
 }
 
+/* Windows/Linux paint the native window controls over the renderer at the
+   window's own bounds, and the overlay API offers no horizontal offset — they
+   always touch the top-right corner. Meet them there so they land inside the
+   frame's own header strip; the bottom edge keeps its inset, so the frame still
+   reads as a frame. Zero WIDTH on the flush borders, not just a transparent
+   color, for the background-clip reason described below. */
+.rootWindowControls {
+	height: calc(100% - var(--panel-frame-gap));
+	margin-block: 0 var(--panel-frame-gap);
+	margin-inline: 0;
+	border-block-start-width: 0;
+	border-inline-end-width: 0;
+	border-start-start-radius: 0;
+	border-start-end-radius: 0;
+}
+
 /* Full-bleed when the sidebar is hidden — the frame reads as chrome that
-   belongs with the sidebar — and on Windows/Linux, where the native window
-   controls are painted at the window's bounds and would otherwise overhang the
-   inset edges. The border must drop to zero WIDTH (not just transparent): the
-   chrome background shows through a transparent border ring via
-   background-clip, leaving stray dark lines at the edges. */
+   belongs with the sidebar. The border must drop to zero WIDTH (not just
+   transparent): the chrome background shows through a transparent border
+   ring via background-clip, leaving stray dark lines at the edges. */
 .rootFrameless {
 	height: 100%;
 	margin: 0;

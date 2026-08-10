@@ -1,6 +1,8 @@
 import { __ } from '@wordpress/i18n';
 import { close } from '@wordpress/icons';
 import { IconButton } from '@wordpress/ui';
+import { clsx } from 'clsx';
+import { useWindowControlsOverlay } from '@/hooks/use-window-controls-overlay';
 import styles from './style.module.css';
 
 interface FullscreenChromeProps {
@@ -24,6 +26,7 @@ interface FullscreenChromeProps {
  * no-drag rule in index.css.
  */
 export function FullscreenChrome( { onClose, closeLabel, closeDisabled }: FullscreenChromeProps ) {
+	const closeAtStart = useWindowControlsOverlay() !== null;
 	return (
 		<>
 			<div aria-hidden="true">
@@ -33,7 +36,7 @@ export function FullscreenChrome( { onClose, closeLabel, closeDisabled }: Fullsc
 			</div>
 			{ onClose && (
 				<IconButton
-					className={ styles.close }
+					className={ clsx( styles.close, closeAtStart && styles.closeWindowControls ) }
 					variant="minimal"
 					tone="neutral"
 					size="default"

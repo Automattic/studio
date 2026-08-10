@@ -293,8 +293,11 @@ export function getTitleBarOverlayOptions() {
 		return { color: 'rgba(30, 30, 30, 1)', symbolColor: 'white', height: WINDOWS_TITLEBAR_HEIGHT };
 	}
 	const isDark = nativeTheme.shouldUseDarkColors;
+	// Matches the agentic UI's `--wpds-color-bg-surface-neutral` — the surface
+	// under the controls on the settings and site-creation screens, and on the
+	// dashboard whenever the site preview is closed.
 	return {
-		color: isDark ? '#242424' : '#fff',
+		color: isDark ? '#1e1e1e' : '#fcfcfc',
 		symbolColor: isDark ? '#e0e0e0' : '#1e1e1e',
 		height: WINDOWS_TITLEBAR_HEIGHT,
 	};

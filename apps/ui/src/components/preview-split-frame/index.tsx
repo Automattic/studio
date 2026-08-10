@@ -36,11 +36,8 @@ export function PreviewSplitFrame( {
 	const showFullscreen = showPreview && previewFullscreen;
 	const { rootRef, contentWidthVar, isResizing, handleProps } = usePreviewSplit( { showPreview } );
 	const isSidebarCollapsed = useSidebarCollapsed();
-	// Windows/Linux draw the window controls over the renderer at the window's
-	// own bounds, so an inset frame leaves them hanging past its top and outer
-	// edges. Go full-bleed there, the way the classic UI does, and they land
-	// inside the frame's header strip — which is the surface the overlay colors
-	// are matched to.
+	// Windows/Linux pin the native window controls to the top-right of the
+	// window itself, so an inset frame leaves them hanging past its edges.
 	const hasWindowControlsOverlay = useWindowControlsOverlay() !== null;
 
 	// Animate only open/close/fullscreen toggles of an already-mounted preview —
@@ -96,7 +93,8 @@ export function PreviewSplitFrame( {
 			ref={ rootRef }
 			className={ clsx(
 				styles.root,
-				( isSidebarCollapsed || hasWindowControlsOverlay ) && styles.rootFrameless,
+				hasWindowControlsOverlay && styles.rootWindowControls,
+				isSidebarCollapsed && styles.rootFrameless,
 				showPreview && styles.rootPreviewOpen,
 				isResizing && styles.rootPreviewResizing,
 				animatingPreviewToggle && styles.rootPreviewAnimating

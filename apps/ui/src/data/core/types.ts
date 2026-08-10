@@ -558,7 +558,8 @@ export interface UserPreferences {
 export interface AppGlobals {
 	platform: string;
 	isWindowsStore: boolean;
-	// Desktop only — the browser connectors have no app to report a version for.
+	// Supplied by the desktop host; browser targets do not have an installed
+	// Studio app version to report.
 	appVersion?: string;
 }
 

@@ -19,6 +19,7 @@ import {
 	type ReactNode,
 } from 'react';
 import { AgentWorkingIndicator } from '@/components/agent-working-indicator';
+import { useTourAnchor } from '@/components/coachmarks/anchor-registry';
 import { DeleteSiteDialog } from '@/components/delete-site-dialog';
 import * as Menu from '@/components/menu';
 import { ReorderableList } from '@/components/reorderable-list';
@@ -207,9 +208,13 @@ function sortSitesByManualOrder( sites: SiteDetails[], manualOrder: string[] ): 
 function SiteOverviewButton( { site }: { site: SiteDetails } ) {
 	const navigate = useNavigate();
 	const connector = useConnector();
+	// Every row registers this anchor; the coachmark points at whichever gear is
+	// currently laid out, teaching the overview affordance regardless of row.
+	const overviewAnchor = useTourAnchor( 'sidebar-site-row-overview' );
 
 	return (
 		<IconButton
+			ref={ overviewAnchor }
 			variant="minimal"
 			tone="neutral"
 			size="small"

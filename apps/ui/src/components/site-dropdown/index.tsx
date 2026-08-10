@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useTourAnchor } from '@/components/coachmarks/anchor-registry';
 import * as Menu from '@/components/menu';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import { useIsSiteStarting, useIsSiteStopping } from '@/data/queries/use-sites';
@@ -52,6 +53,10 @@ export function SiteDropdown( {
 	const { data: snapshots } = useSnapshots();
 	const activity = useSiteSyncActivity( site.id );
 	const liveSite = useMemo( () => pickLiveSite( connectedSites ), [ connectedSites ] );
+	// Onboarding "publish" coachmark target. Disabled once a live site is
+	// connected, so the checklist item and the one-shot nudge silently skip
+	// already-connected sites (the anchor simply isn't registered).
+	const publishAnchor = useTourAnchor( 'publish-button', { disabled: Boolean( liveSite ) } );
 	const previewSnapshot = useMemo(
 		() => pickLatestSnapshot( snapshots, site.id ),
 		[ snapshots, site.id ]
@@ -75,7 +80,7 @@ export function SiteDropdown( {
 	};
 
 	return (
-		<div className={ styles.root }>
+		<div ref={ publishAnchor } className={ styles.root }>
 			<Menu.Root
 				modal={ false }
 				open={ menuOpen }

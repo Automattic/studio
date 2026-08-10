@@ -16,6 +16,16 @@ export function readOnboardingHints(): OnboardingHintsState {
 }
 
 export function writeOnboardingHints( partial: Partial< OnboardingHintsState > ): void {
-	const merged: OnboardingHintsState = { ...readOnboardingHints(), ...partial };
+	const current = readOnboardingHints();
+	// Merge completedItems by key so a checklist completion never clobbers a
+	// concurrent one (mirrors the renderer query hook + desktop persistence).
+	const merged: OnboardingHintsState = {
+		...current,
+		...partial,
+		completedItems: { ...current.completedItems, ...partial.completedItems },
+	};
+	if ( ! merged.completedItems || Object.keys( merged.completedItems ).length === 0 ) {
+		delete merged.completedItems;
+	}
 	window.localStorage.setItem( ONBOARDING_HINTS_STORAGE_KEY, JSON.stringify( merged ) );
 }

@@ -5,6 +5,7 @@ import { clsx } from 'clsx';
 import { useCallback, useEffect, useState } from 'react';
 import { AppMessageCards, AppMessageCardsDot } from '@/components/app-message-cards';
 import { AppToasts } from '@/components/app-toasts';
+import { GettingStartedChecklist } from '@/components/getting-started-card';
 import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { SidebarHeader } from '@/components/sidebar-header';
 import { SiteList } from '@/components/site-list';
@@ -102,6 +103,7 @@ export function SidebarLayout( {
 								{ ! effectiveCollapsed ? (
 									<StudioBetaMenu className={ styles.sidebarBeta } />
 								) : null }
+								{ ! effectiveCollapsed ? <GettingStartedChecklist /> : null }
 								<UserMenu onToggleSidebar={ toggleSidebar } />
 							</div>
 						</div>

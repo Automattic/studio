@@ -4,8 +4,11 @@ import { I18nProvider } from '@wordpress/react-i18n';
 import { privateApis } from '@wordpress/theme';
 import { Tooltip } from '@wordpress/ui';
 import { useEffect } from 'react';
+import { CoachmarkAnchorProvider } from '@/components/coachmarks/anchor-registry';
+import { CoachmarkProvider } from '@/components/coachmarks/coachmark-provider';
 import { OnboardingGuideProvider } from '@/components/onboarding-guide/use-onboarding-guide';
 import { ConnectorProvider, queryClient } from '@/data/core';
+import { useOnboardingEvents } from '@/data/onboarding/use-onboarding-events';
 import { AgentRunProvider } from '@/data/queries/use-agent-run';
 import { useSyncAppUpdateStatus } from '@/data/queries/use-app-update';
 import { useSyncSessionsWithEvents } from '@/data/queries/use-sessions';
@@ -35,6 +38,13 @@ function SiteEventsBridge() {
 // query providers so it can read the saved color-scheme preference (not just
 // the OS setting), which is what makes the in-app dark/light toggle work in the
 // browser, where there's no Electron `nativeTheme` to mirror it.
+// App-wide onboarding completion watchers (first agent edit, publish). Lives
+// inside the coachmark provider so it can fire the one-shot publish coachmark.
+function OnboardingWatchers() {
+	useOnboardingEvents();
+	return null;
+}
+
 function ThemedApp( { children }: PropsWithChildren ) {
 	const colorScheme = useColorScheme();
 	const themeColor = colorScheme === 'dark' ? { bg: '#1e1e1e' } : undefined;
@@ -44,7 +54,14 @@ function ThemedApp( { children }: PropsWithChildren ) {
 	return (
 		<ThemeProvider isRoot color={ themeColor } density="compact">
 			<Tooltip.Provider>
-				<OnboardingGuideProvider>{ children }</OnboardingGuideProvider>
+				<OnboardingGuideProvider>
+					<CoachmarkAnchorProvider>
+						<CoachmarkProvider>
+							<OnboardingWatchers />
+							{ children }
+						</CoachmarkProvider>
+					</CoachmarkAnchorProvider>
+				</OnboardingGuideProvider>
 			</Tooltip.Provider>
 		</ThemeProvider>
 	);

@@ -31,6 +31,9 @@ export function useOrientationReplay(): void {
 
 	useEffect( () => {
 		return connector.onShowGettingStarted( () => {
+			// Restore the getting-started checklist so it's waiting once the
+			// replayed guide closes, even if the user had hidden or minimized it.
+			setHints.mutate( { checklistDismissed: false, checklistMinimized: false } );
 			openGuide( getOrientationGuide( variantRef.current ), {
 				onEnd: ( reason ) => {
 					setHints.mutate(

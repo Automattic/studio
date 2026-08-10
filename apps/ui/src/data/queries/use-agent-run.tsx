@@ -683,6 +683,17 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 	return <AgentRunContext.Provider value={ value }>{ children }</AgentRunContext.Provider>;
 }
 
+// Exposes the underlying run-state store for app-wide watchers (e.g. onboarding
+// completions) that must observe run transitions across every session, not a
+// single session's flattened view. Prefer useAgentRun inside components.
+export function useAgentRunStore(): AgentRunStore {
+	const store = useContext( AgentRunContext );
+	if ( ! store ) {
+		throw new Error( 'useAgentRunStore must be used within AgentRunProvider' );
+	}
+	return store;
+}
+
 export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 	const store = useContext( AgentRunContext );
 	if ( ! store ) {

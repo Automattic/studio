@@ -260,7 +260,17 @@ async function persistOnboardingHints( partial: Partial< OnboardingHintsState > 
 	await lockAppdata();
 	try {
 		const userData = await loadUserData();
-		const merged: OnboardingHintsState = { ...( userData.onboardingHints ?? {} ), ...partial };
+		const current = userData.onboardingHints ?? {};
+		// Merge completedItems by key so a checklist completion never clobbers a
+		// concurrent one (a plain spread would replace the whole map).
+		const merged: OnboardingHintsState = {
+			...current,
+			...partial,
+			completedItems: { ...current.completedItems, ...partial.completedItems },
+		};
+		if ( ! merged.completedItems || Object.keys( merged.completedItems ).length === 0 ) {
+			delete merged.completedItems;
+		}
 		await saveUserData( { ...userData, onboardingHints: merged } );
 	} finally {
 		await unlockAppdata();

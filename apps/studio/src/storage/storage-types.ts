@@ -69,11 +69,15 @@ export interface PromptWindowsSpeedUpResult {
 
 // Mirror of the renderer's OnboardingHintsState (apps/ui/src/data/core/types.ts).
 // Persisted verbatim; the desktop never inspects it, so a structural shape keeps
-// the two sides decoupled.
+// the two sides decoupled (completedItems keys are the renderer's ChecklistItemId).
 export interface OnboardingHintsState {
 	tourCompletedVersion?: number;
 	tourDismissedVersion?: number;
 	migratedFromClassic?: boolean;
+	checklistDismissed?: boolean;
+	checklistMinimized?: boolean;
+	completedItems?: Record< string, string >;
+	publishCoachmarkShown?: boolean;
 }
 
 export const EMPTY_USER_DATA: UserData = {

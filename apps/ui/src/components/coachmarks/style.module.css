@@ -1,0 +1,148 @@
+/* The bubble's positioner sits above app chrome (it portals to document.body). */
+.positioner {
+	z-index: 95;
+	outline: none;
+}
+
+.card {
+	position: relative;
+	box-sizing: border-box;
+	width: 320px;
+	max-width: calc(100vw - 24px);
+	padding: var(--wpds-dimension-padding-lg) var(--wpds-dimension-padding-xl);
+	background: var(--wpds-color-bg-surface-neutral-strong);
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral-weak);
+	border-radius: var(--wpds-border-radius-lg);
+	/* Foreground-based hairline ring so the card separates from any backdrop in
+	   both schemes, matching the menu popup treatment. */
+	box-shadow:
+		0 0 0 1px color-mix(in srgb, var(--wpds-color-fg-content-neutral) 14%, transparent),
+		var(--wpds-elevation-lg);
+	color: var(--wpds-color-fg-content-neutral);
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-gap-md);
+	outline: none;
+}
+
+.cardBody {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-gap-xs);
+	/* Leave room for the close button in the top-right corner. */
+	padding-right: var(--wpds-dimension-padding-lg);
+}
+
+/* The wpds line-height tokens run loose (24px on 13px text); tighten to a
+   readable ratio, matching how the toast/notice surfaces override them. */
+.cardTitle {
+	margin: 0;
+	font-size: var(--wpds-typography-font-size-md);
+	font-weight: var(--wpds-typography-font-weight-medium);
+	line-height: 1.3;
+	text-wrap: balance;
+}
+
+.cardDescription {
+	margin: 0;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: 1.45;
+	text-wrap: pretty;
+}
+
+/* Icons referenced inline in coachmark copy ("the <icon/> button…"):
+   @wordpress/icons SVGs carry no fill, and they need baseline alignment to
+   sit in the sentence. */
+.cardDescription svg {
+	display: inline-block;
+	vertical-align: text-bottom;
+	fill: currentColor;
+}
+
+/* The pointer toward the anchor. Base UI's positioner sets the arrow's
+   inline position along the popup edge; each side gets its own edge offset
+   and rotation. Offsets overlap the card by 1px so the triangle covers the
+   card's border/ring seam. */
+.arrow {
+	display: flex;
+}
+
+.arrow[data-side='bottom'] {
+	top: -7px;
+}
+
+.arrow[data-side='top'] {
+	bottom: -7px;
+	rotate: 180deg;
+}
+
+.arrow[data-side='right'] {
+	left: -11px;
+	rotate: -90deg;
+}
+
+.arrow[data-side='left'] {
+	right: -11px;
+	rotate: 90deg;
+}
+
+.arrowShape {
+	fill: var(--wpds-color-bg-surface-neutral-strong);
+	stroke: color-mix(in srgb, var(--wpds-color-fg-content-neutral) 14%, transparent);
+	stroke-width: 1;
+	stroke-linejoin: round;
+}
+
+.cardFooter {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: var(--wpds-dimension-gap-sm);
+}
+
+.cardActions {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-gap-xs);
+	margin-left: auto;
+}
+
+.cardClose {
+	position: absolute;
+	top: var(--wpds-dimension-padding-sm);
+	right: var(--wpds-dimension-padding-sm);
+	display: grid;
+	place-items: center;
+	width: 24px;
+	height: 24px;
+	padding: 0;
+	border: 0;
+	border-radius: var(--wpds-border-radius-sm);
+	background: transparent;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	cursor: var(--wpds-cursor-control);
+	outline: none;
+}
+
+.cardClose:hover {
+	background: var(--wpds-color-bg-surface-neutral);
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.cardClose:focus-visible {
+	box-shadow: 0 0 0 2px var(--wpds-color-stroke-interactive-brand);
+}
+
+/* Screen-reader-only live region for coachmark announcements. */
+.srOnly {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
+}

@@ -39,6 +39,7 @@ import {
 	type PointerEvent,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { useTourAnchor } from '@/components/coachmarks/anchor-registry';
 import * as Menu from '@/components/menu';
 import { useConnector } from '@/data/core';
 import {
@@ -310,6 +311,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const resizeDragRef = useRef< { startY: number; startHeight: number } | null >( null );
 	const connector = useConnector();
 	const queryClient = useQueryClient();
+	const composerAnchor = useTourAnchor( 'composer' );
 
 	// File/image attachments (attach button + drag-and-drop). Images ride as
 	// base64 content blocks; other files are referenced by disk path.
@@ -673,7 +675,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 
 	return (
 		<>
-			<div className={ styles.root }>
+			<div ref={ composerAnchor } className={ styles.root }>
 				<div
 					data-session-composer
 					className={ clsx(

@@ -1,0 +1,224 @@
+/* Entrance matching the app message cards / toasts, so the checklist reads as
+   one system with them in the sidebar footer. */
+.card {
+	padding-block: var(--wpds-dimension-padding-sm);
+	animation: card-enter 160ms ease-out;
+}
+
+@keyframes card-enter {
+	from {
+		opacity: 0;
+		transform: translateY(6px);
+	}
+
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+/* Surfaceless variant: no fill, ring, or border — it reads as sidebar content,
+   not a floating card. Carries the same layout metrics the toast surface
+   provides (width, inline padding) so the gravatar-alignment math below holds. */
+.cardPlain {
+	width: 100%;
+	box-sizing: border-box;
+	text-wrap: pretty;
+	--wp-ui-notice-background-color: transparent;
+	--wp-ui-notice-border-color: transparent;
+	--wp-ui-notice-text-color: var(--wpds-color-fg-content-neutral);
+	padding-inline: var(--wpds-dimension-padding-sm);
+	border-radius: 6px;
+}
+
+/* Nudge the card heading in to align with the checklist items' text (they
+   carry their own inline padding; the bare Notice title sits flush left). */
+.cardTitleInset {
+	padding-inline-start: var(--wpds-dimension-padding-xs);
+}
+
+/* Header control cluster (••• menu + minimize, or the expand button) in the
+   notice grid's third column, aligned with the title row. */
+.headerControls {
+	grid-column: 3;
+	display: flex;
+	align-items: center;
+	gap: 2px;
+}
+
+/* Progress count — muted, tabular so it doesn't jitter as it climbs. */
+.progressCount {
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+/* Collapsed toast-like bar: a single tight row. */
+.cardMinimized {
+	padding-block: var(--wpds-dimension-padding-xs);
+}
+
+.minimizedTrigger {
+	grid-column: 2;
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-gap-sm);
+	min-width: 0;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: var(--wpds-color-fg-content-neutral);
+	cursor: var(--wpds-cursor-control);
+	text-align: left;
+}
+
+.minimizedTitle {
+	font-size: var(--wpds-typography-font-size-sm);
+	font-weight: var(--wpds-typography-font-weight-medium);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* Small expand chevron trailing the minimized bar's text. @wordpress/icons
+   SVGs carry no fill; inherit the muted text color. */
+.minimizedChevron {
+	display: grid;
+	place-items: center;
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.minimizedChevron svg {
+	fill: currentColor;
+}
+
+/* A list of line items below the title row. Notice.Root is a 3-column grid
+   (icon / 1fr content / controls); span from the content column to the card
+   edge so items get the full card width — col 2 alone stops short of the
+   header-controls column. */
+.checklist {
+	grid-column: 2 / -1;
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-gap-xs);
+	margin-top: var(--wpds-dimension-gap-xs);
+}
+
+/* Negative inline margin cancels the items' own padding so the check glyphs
+   land at 16px from the sidebar edge — centering them on the 20px gravatar in
+   the user menu below (center 24px) — while hover shapes bleed into the card
+   gutter instead of insetting the content. */
+.checklistItems {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	margin: 0 calc(-1 * var(--wpds-dimension-padding-xs));
+	padding: 0;
+	list-style: none;
+}
+
+/* Rows trail the card's entrance in a quick cascade. `backwards` holds each
+   row invisible through its delay so late rows don't flash in early. */
+.checklistItems > li {
+	animation: card-enter 160ms ease-out backwards;
+	animation-delay: calc(40ms + var(--row-index, 0) * 28ms);
+}
+
+/* Incomplete items are buttons (click → coachmark); complete items render as
+   inert rows. Shared layout so both align. */
+.checklistItem {
+	display: flex;
+	align-items: center;
+	/* 12px glyph→label gap lands the labels at 44px from the sidebar edge —
+	   the same column as the user menu's display name below (20px gravatar
+	   ending at 34px + its 10px gap). */
+	gap: var(--wpds-dimension-gap-md);
+	width: 100%;
+	padding: 3px var(--wpds-dimension-padding-xs);
+	border: 0;
+	border-radius: var(--wpds-border-radius-sm);
+	background: transparent;
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: 1.35;
+	text-align: left;
+	cursor: var(--wpds-cursor-control);
+}
+
+button.checklistItem:hover {
+	background: var(--wpds-color-bg-surface-neutral);
+}
+
+button.checklistItem:focus-visible {
+	outline: none;
+	box-shadow: 0 0 0 2px var(--wpds-color-stroke-interactive-brand);
+}
+
+.checklistItemCompleted {
+	color: var(--wpds-color-fg-content-neutral-weak);
+	cursor: default;
+}
+
+.checklistItemCompleted .checklistLabel {
+	text-decoration: line-through;
+}
+
+.checkGlyph {
+	flex-shrink: 0;
+	display: grid;
+	place-items: center;
+	width: 16px;
+	height: 16px;
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.checkGlyphDone {
+	color: var(--wpds-color-fg-interactive-brand);
+}
+
+.checklistLabel {
+	flex: 1;
+	min-width: 0;
+}
+
+/* Completion confetti: rectangles flung radially from the card center. The
+   host anchors the burst; pieces animate outward, spin, and fade. */
+.confettiHost {
+	position: relative;
+}
+
+.confetti {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+}
+
+.confettiPiece {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	border-radius: 1px;
+	opacity: 0;
+	animation: confetti-burst 900ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes confetti-burst {
+	0% {
+		opacity: 1;
+		transform: rotate(var(--confetti-angle)) translateX(8px) rotate(0deg);
+	}
+	100% {
+		opacity: 0;
+		transform: rotate(var(--confetti-angle)) translateX(var(--confetti-distance))
+			rotate(var(--confetti-spin));
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.confettiPiece,
+	.card,
+	.checklistItems > li {
+		animation: none;
+	}
+}

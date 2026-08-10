@@ -19,6 +19,7 @@ import {
 import { Button } from '@wordpress/ui';
 import { useState } from 'react';
 import { AgenticSigninBanner } from '@/components/agentic-signin-banner';
+import { useTourAnchor } from '@/components/coachmarks/anchor-registry';
 import { DeleteSiteDialog } from '@/components/delete-site-dialog';
 import { OfflineBanner } from '@/components/offline-banner';
 import { PreviewToggleButton } from '@/components/preview-toggle-button';
@@ -188,8 +189,11 @@ function SiteOverviewBody( {
 		void openSiteUrl( url );
 	};
 
+	const overviewAnchor = useTourAnchor( 'site-overview-content' );
+	const settingsTabAnchor = useTourAnchor( 'site-settings-tab' );
+
 	return (
-		<div className={ styles.root }>
+		<div ref={ overviewAnchor } className={ styles.root }>
 			<OverviewHeader site={ site } openSiteDropdown={ openSiteDropdown } />
 			<div className={ styles.tabsFrame }>
 				<Tabs.Root
@@ -204,7 +208,9 @@ function SiteOverviewBody( {
 						<div className={ styles.tabsBarInner }>
 							<Tabs.List>
 								<Tabs.Tab tabId="overview">{ __( 'Overview' ) }</Tabs.Tab>
-								<Tabs.Tab tabId="general">{ __( 'Settings' ) }</Tabs.Tab>
+								<Tabs.Tab ref={ settingsTabAnchor } tabId="general">
+									{ __( 'Settings' ) }
+								</Tabs.Tab>
 								<Tabs.Tab tabId="debugging">{ __( 'Debugging' ) }</Tabs.Tab>
 							</Tabs.List>
 						</div>

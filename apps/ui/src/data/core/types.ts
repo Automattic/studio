@@ -506,6 +506,15 @@ export interface AppUpdateStatus {
 	version: string | null;
 }
 
+// Ids for the getting-started checklist items (see data/onboarding/checklist).
+export type ChecklistItemId =
+	| 'create-site'
+	| 'first-agent-edit'
+	| 'visit-overview'
+	| 'visit-site-settings'
+	| 'publish-site'
+	| 'visit-app-settings';
+
 // Persisted first-run onboarding state for the workbench. Separate from the
 // pre-workbench welcome flag (getOnboardingCompleted).
 export interface OnboardingHintsState {
@@ -517,6 +526,15 @@ export interface OnboardingHintsState {
 	// Studio (vs a fresh install that starts here). Drives the guide's first-page
 	// "Welcome to WordPress Studio 2.0" migrating copy.
 	migratedFromClassic?: boolean;
+	// Getting-started checklist: dismissed for good, or collapsed to a one-line
+	// bar. Both persist so the card's state survives relaunches.
+	checklistDismissed?: boolean;
+	checklistMinimized?: boolean;
+	// Completed checklist items → ISO timestamp of completion. Merged by key on
+	// write so a completion never clobbers a concurrent one.
+	completedItems?: Partial< Record< ChecklistItemId, string > >;
+	// The one-shot "Ready to go live?" publish coachmark has fired (once ever).
+	publishCoachmarkShown?: boolean;
 }
 
 export interface SnapshotUsage {

@@ -13,6 +13,10 @@ vi.mock( '@/components/app-message-cards', () => ( {
 	AppMessageCardsDot: () => null,
 } ) );
 
+vi.mock( '@/components/getting-started-card', () => ( {
+	GettingStartedChecklist: () => null,
+} ) );
+
 vi.mock( '@/components/studio-beta-menu', () => ( {
 	StudioBetaMenu: () => null,
 } ) );

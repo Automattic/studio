@@ -1,0 +1,106 @@
+.card {
+	display: flex;
+	flex-direction: column;
+	box-sizing: border-box;
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: var(--wpds-border-radius-md);
+	background: var(--wpds-color-bg-surface-neutral);
+	min-width: 0;
+}
+
+.cardSection {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-md);
+	padding: var(--wpds-dimension-padding-lg);
+	min-width: 0;
+}
+
+.themeSummary {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-md);
+	min-width: 0;
+}
+
+.thumbnail {
+	position: relative;
+	appearance: none;
+	width: 88px;
+	aspect-ratio: 4 / 3;
+	overflow: hidden;
+	flex: 0 0 auto;
+	padding: 0;
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: var(--wpds-border-radius-sm);
+	background: var(--wpds-color-bg-surface-neutral-strong);
+	cursor: var(--wpds-cursor-control);
+}
+
+.thumbnail img {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+.thumbnailOverlay {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--wpds-dimension-padding-xs);
+	background: var(--wpds-color-bg-interactive-neutral-weak-active);
+	color: var(--wpds-color-fg-content-neutral);
+	fill: currentColor;
+	font-size: var(--wpds-typography-font-size-xs);
+	font-weight: var(--wpds-typography-font-weight-medium);
+	opacity: 0;
+	transition: opacity 120ms ease;
+}
+
+.thumbnail:hover .thumbnailOverlay,
+.thumbnail:focus-visible .thumbnailOverlay,
+.thumbnail[data-empty] .thumbnailOverlay {
+	opacity: 0.94;
+}
+
+.thumbnail:focus-visible {
+	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus-brand);
+	outline-offset: 2px;
+}
+
+.thumbnail:disabled {
+	cursor: not-allowed;
+}
+
+.themeDetails {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.themeValue {
+	overflow-wrap: anywhere;
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.themeMeta {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	column-gap: var(--wpds-dimension-padding-xs);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-xs);
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.tileLabel {
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-xs);
+	color: var(--wpds-color-fg-content-neutral-weak);
+}

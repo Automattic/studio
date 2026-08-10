@@ -5,6 +5,7 @@ import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useLogin } from '@/data/queries/use-auth-user';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
+import { useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
 import {
 	useCopySite,
 	useExportDatabase,
@@ -94,6 +95,10 @@ vi.mock( '@/data/queries/use-sites', () => ( {
 	useXdebugEnabledSite: vi.fn(),
 } ) );
 
+vi.mock( '@/data/queries/use-site-thumbnail', () => ( {
+	useSiteThumbnail: vi.fn(),
+} ) );
+
 vi.mock( '@/data/queries/use-user-preferences', () => ( {
 	useUserPreferences: vi.fn(),
 } ) );
@@ -124,6 +129,7 @@ const useExportDatabaseMock = vi.mocked( useExportDatabase, { partial: true } );
 const useExportFullSiteMock = vi.mocked( useExportFullSite, { partial: true } );
 const useIsSiteStartingMock = vi.mocked( useIsSiteStarting );
 const useIsSiteStoppingMock = vi.mocked( useIsSiteStopping );
+const useSiteThumbnailMock = vi.mocked( useSiteThumbnail, { partial: true } );
 const useSitesMock = vi.mocked( useSites, { partial: true } );
 const useStartSiteMock = vi.mocked( useStartSite, { partial: true } );
 const useUpdateSiteMock = vi.mocked( useUpdateSite, { partial: true } );
@@ -190,6 +196,9 @@ describe( 'SiteOverviewView', () => {
 			data: [ createSite( { running: true } ) ],
 			isLoading: false,
 		} );
+		useSiteThumbnailMock.mockReturnValue( {
+			data: 'data:image/png;base64,site-thumbnail',
+		} );
 		useIsSiteStartingMock.mockReturnValue( false );
 		useIsSiteStoppingMock.mockReturnValue( false );
 		useStartSiteMock.mockReturnValue( {
@@ -223,7 +232,7 @@ describe( 'SiteOverviewView', () => {
 		);
 	}
 
-	it( 'renders the tab strip with the customize and manage sections', () => {
+	it( 'renders the tab strip with the about, customize, and manage sections', () => {
 		renderView();
 
 		expect( siteDropdownMock ).toHaveBeenCalledWith(
@@ -232,6 +241,7 @@ describe( 'SiteOverviewView', () => {
 		expect( screen.getByRole( 'tab', { name: 'Overview' } ) ).toBeVisible();
 		expect( screen.getByRole( 'tab', { name: 'Settings' } ) ).toBeVisible();
 		expect( screen.getByRole( 'tab', { name: 'Debugging' } ) ).toBeVisible();
+		expect( screen.getByRole( 'heading', { name: 'About' } ) ).toBeVisible();
 		expect( screen.getByRole( 'heading', { name: 'Customize' } ) ).toBeVisible();
 		expect( screen.getByRole( 'heading', { name: 'Manage' } ) ).toBeVisible();
 		expect( screen.getByText( 'Site Editor' ) ).toBeVisible();
@@ -243,6 +253,37 @@ describe( 'SiteOverviewView', () => {
 		expect( screen.getByText( 'Export database' ) ).toBeVisible();
 		expect( screen.getByText( 'Delete' ) ).toBeVisible();
 		expect( screen.queryByDisplayValue( 'Demo Site' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'summarizes the site theme and runtime versions', async () => {
+		useWpVersionMock.mockReturnValue( { data: '6.8.2' } );
+
+		renderView();
+
+		expect( screen.getByText( 'Theme' ) ).toBeVisible();
+		expect( screen.getByText( 'Twenty Twenty-Six' ) ).toBeVisible();
+		expect( screen.getByText( 'WP v6.8.2' ) ).toBeVisible();
+		expect( screen.getByText( 'PHP v8.4' ) ).toBeVisible();
+		expect( await screen.findByRole( 'img', { name: 'Screenshot of Demo Site' } ) ).toHaveAttribute(
+			'src',
+			'data:image/png;base64,site-thumbnail'
+		);
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Open site in browser' } ) );
+		await waitFor( () =>
+			expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/', { autoLogin: false } )
+		);
+	} );
+
+	it( 'keeps the browser action available without a cached thumbnail', () => {
+		useSiteThumbnailMock.mockReturnValue( { data: null } );
+
+		renderView();
+
+		expect( screen.getByRole( 'button', { name: 'Open site in browser' } ) ).toBeVisible();
+		expect(
+			screen.queryByRole( 'img', { name: 'Screenshot of Demo Site' } )
+		).not.toBeInTheDocument();
 	} );
 
 	it( 'offsets the site menu below macOS traffic lights when the sidebar is collapsed', () => {

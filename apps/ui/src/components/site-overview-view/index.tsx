@@ -31,11 +31,14 @@ import * as Tabs from '@/components/tabs';
 import { useConnector } from '@/data/core';
 import { useIsSiteStarting, useIsSiteStopping, useSites } from '@/data/queries/use-sites';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
+import { useWpVersion } from '@/data/queries/use-wordpress-versions';
 import { useOpenSiteUrl } from '@/hooks/use-open-site-url';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useSiteManagementActions } from '@/hooks/use-site-management-actions';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { databaseLogo } from '@/lib/logos';
+import { AboutSection } from './about-section';
+import { OverviewCard } from './overview-card';
 import styles from './style.module.css';
 import type { SiteSettingsTabId } from '@/components/site-settings-view';
 import type { SiteDetails } from '@/data/core';
@@ -226,6 +229,7 @@ function SiteOverviewBody( {
 	onTabChange: ( tab: SiteSettingsTabId ) => void;
 } ) {
 	const navigate = useNavigate();
+	const connector = useConnector();
 	const isStarting = useIsSiteStarting( site.id );
 	const isStopping = useIsSiteStopping( site.id );
 	const [ deleteOpen, setDeleteOpen ] = useState( false );
@@ -236,12 +240,12 @@ function SiteOverviewBody( {
 	const busy = isStarting || isStopping;
 	const themeDetails = site.themeDetails;
 	const isBlockTheme = themeDetails?.isBlockTheme === true;
+	const { data: wpVersion } = useWpVersion( site.id );
 
 	// Opens WordPress screens in the in-app preview panel (starting the site
 	// first when needed) rather than the external browser.
 	const openSiteUrl = useOpenSiteUrl( site );
 
-	const connector = useConnector();
 	const openCustomize = ( url: string, entryPoint: TracksCustomizeEntryPoint ) => {
 		// The agentic UI opens customize screens in its in-app preview panel, not the OS browser.
 		void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_CUSTOMIZE, {
@@ -277,6 +281,12 @@ function SiteOverviewBody( {
 							<Tabs.Panel tabId="overview" className={ styles.panel }>
 								<OfflineBanner />
 								<AgenticSigninBanner />
+								<div className={ styles.cardColumn }>
+									<h2 className={ styles.columnHeading }>{ __( 'About' ) }</h2>
+									<OverviewCard>
+										<AboutSection site={ site } wpVersion={ wpVersion } />
+									</OverviewCard>
+								</div>
 								<div className={ styles.actionsColumn }>
 									<ButtonSection title={ __( 'Customize' ) }>
 										{ isBlockTheme ? (

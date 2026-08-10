@@ -548,6 +548,9 @@ export interface UserPreferences {
 export interface AppGlobals {
 	platform: string;
 	isWindowsStore: boolean;
+	// Supplied by the desktop host; browser targets do not have an installed
+	// Studio app version to report.
+	appVersion?: string;
 }
 
 // Subset of UserPreferences that callers can actually mutate. `locale` is

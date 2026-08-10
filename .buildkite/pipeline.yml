@@ -172,6 +172,9 @@ steps:
     command: bash .buildkite/commands/run-metrics-tests.sh
     artifact_paths:
       - tools/metrics/artifacts/**/*.json
+      # DIAGNOSTIC (do not merge): Playwright writes an ARIA snapshot of the page
+      # at failure to error-context.md, which the JSON-only glob never uploaded.
+      - tools/metrics/artifacts/**/*.md
     plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
     # Run this on `trunk` + non-draft PRs targeting `trunk` or `release/`.
     # Note: this job is set as a *required* CI check on GitHub for PRs targeting `trunk`. But the branch

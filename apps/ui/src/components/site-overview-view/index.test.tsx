@@ -32,6 +32,7 @@ import type {
 
 const navigateMock = vi.fn();
 const siteDropdownMock = vi.hoisted( () => vi.fn() );
+const importSiteMock = vi.hoisted( () => vi.fn() );
 const useSidebarCollapsedMock = vi.hoisted( () => vi.fn() );
 const useTrafficLightSpaceMock = vi.hoisted( () => vi.fn() );
 
@@ -96,6 +97,10 @@ vi.mock( '@/data/queries/use-sites', () => ( {
 	useXdebugEnabledSite: vi.fn(),
 } ) );
 
+vi.mock( '@/data/queries/use-import-site', () => ( {
+	useImportSite: () => ( { mutateAsync: importSiteMock } ),
+} ) );
+
 vi.mock( '@/data/queries/use-site-thumbnail', () => ( {
 	useSiteThumbnail: vi.fn(),
 } ) );
@@ -157,12 +162,15 @@ describe( 'SiteOverviewView', () => {
 	const exportDatabase = vi.fn();
 	const onTabChange = vi.fn();
 
+	const getFilePath = vi.fn().mockResolvedValue( '/tmp/backup.tar.gz' );
+
 	const connectorStub = ( openInOS = true ) => ( {
 		openSiteUrl,
 		openSiteFolder,
 		openSiteInEditor,
 		openSiteInTerminal,
 		trackEvent,
+		getFilePath,
 		capabilities: { openInOS } as ConnectorCapabilities,
 	} );
 
@@ -266,6 +274,7 @@ describe( 'SiteOverviewView', () => {
 		expect( screen.getByText( 'Media Library' ) ).toBeVisible();
 		expect( screen.queryByText( 'Customizer' ) ).not.toBeInTheDocument();
 		expect( screen.getByText( 'Duplicate' ) ).toBeVisible();
+		expect( screen.getByText( 'Import' ) ).toBeVisible();
 		expect( screen.getByText( 'Export entire site' ) ).toBeVisible();
 		expect( screen.getByText( 'Export database' ) ).toBeVisible();
 		expect( screen.getByText( 'Delete' ) ).toBeVisible();
@@ -662,6 +671,39 @@ describe( 'SiteOverviewView', () => {
 		expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument();
 		fireEvent.click( screen.getByText( 'Delete' ).closest( 'button' )! );
 		expect( screen.getByRole( 'dialog' ) ).toBeVisible();
+	} );
+
+	function selectBackup( name: string ) {
+		const input = screen.getByTestId( 'import-backup-file' );
+		Object.defineProperty( input, 'files', {
+			configurable: true,
+			value: [ new File( [ 'backup' ], name ) ],
+		} );
+		fireEvent.change( input );
+	}
+
+	it( 'imports a backup after confirming the overwrite', async () => {
+		renderView();
+
+		selectBackup( 'demo-site.tar.gz' );
+
+		expect( screen.getByRole( 'dialog' ) ).toHaveTextContent( 'Overwrite Demo Site?' );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Import' } ) );
+
+		await waitFor( () =>
+			expect( importSiteMock ).toHaveBeenCalledWith(
+				expect.objectContaining( { siteId: 'site-1', backupPath: '/tmp/backup.tar.gz' } )
+			)
+		);
+	} );
+
+	it( 'rejects an unsupported backup file without opening the overwrite dialog', () => {
+		renderView();
+
+		selectBackup( 'notes.txt' );
+
+		expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument();
+		expect( importSiteMock ).not.toHaveBeenCalled();
 	} );
 
 	it( 'shows a sign-in banner with a login action when signed out', () => {

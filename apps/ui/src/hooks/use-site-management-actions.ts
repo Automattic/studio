@@ -1,10 +1,10 @@
 import { __ } from '@wordpress/i18n';
-import { copy, download, grid, trash } from '@wordpress/icons';
+import { copy, download, grid, trash, upload } from '@wordpress/icons';
 import { useCopySite, useExportDatabase, useExportFullSite } from '@/data/queries/use-sites';
 import type { SiteDetails } from '@/data/core';
 import type { ReactElement, SVGProps } from 'react';
 
-export type SiteManagementActionId = 'duplicate' | 'export' | 'export-db' | 'delete';
+export type SiteManagementActionId = 'duplicate' | 'import' | 'export' | 'export-db' | 'delete';
 
 export interface SiteManagementAction {
 	id: SiteManagementActionId;
@@ -24,25 +24,33 @@ export interface SiteManagementAction {
 }
 
 /**
- * The canonical "manage this site" actions — Duplicate, Export entire site,
+ * The canonical "manage this site" actions — Duplicate, Import, Export entire site,
  * Export database, Delete — shared by every surface that offers them, so labels, icons,
  * order, and disabled logic don't drift apart between surfaces.
  *
- * Delete needs a confirmation dialog whose "deleted" navigation differs per
- * surface, so this hook doesn't own the dialog: pass `onDelete` to open your
- * own `DeleteSiteDialog` and the Delete action's `run` calls it.
+ * Import and Delete both need surface-owned UI (a file picker plus an overwrite
+ * confirmation, and a confirmation dialog whose "deleted" navigation differs per
+ * surface), so this hook doesn't own either: pass `onImport` / `onDelete` and the
+ * matching action's `run` calls them. `isImporting` comes back in from the surface
+ * running the import so exports and imports can block each other.
  */
 export function useSiteManagementActions(
 	site: SiteDetails,
-	{ onDelete }: { onDelete: () => void }
+	{
+		onDelete,
+		onImport,
+		isImporting,
+	}: { onDelete: () => void; onImport: () => void; isImporting: boolean }
 ): SiteManagementAction[] {
 	const copySite = useCopySite();
 	const exportFullSite = useExportFullSite();
 	const exportDatabase = useExportDatabase();
 
 	// Full-site and database exports share one backend queue, so either
-	// running disables both.
+	// running disables both. An import rewrites the files being read, so it
+	// blocks exports too — and vice versa.
 	const isExporting = exportFullSite.isPending || exportDatabase.isPending;
+	const isBusy = isExporting || isImporting;
 
 	return [
 		{
@@ -56,12 +64,22 @@ export function useSiteManagementActions(
 			run: () => copySite.mutate( site.id ),
 		},
 		{
+			id: 'import',
+			icon: upload,
+			label: __( 'Import' ),
+			loading: isImporting,
+			loadingAnnouncement: __( 'Importing site' ),
+			disabled: isBusy,
+			destructive: false,
+			run: onImport,
+		},
+		{
 			id: 'export',
 			icon: download,
 			label: __( 'Export entire site' ),
 			loading: exportFullSite.isPending,
 			loadingAnnouncement: __( 'Exporting site' ),
-			disabled: isExporting,
+			disabled: isBusy,
 			destructive: false,
 			run: () => exportFullSite.mutate( site.id ),
 		},
@@ -71,7 +89,7 @@ export function useSiteManagementActions(
 			label: __( 'Export database' ),
 			loading: exportDatabase.isPending,
 			loadingAnnouncement: __( 'Exporting database' ),
-			disabled: isExporting,
+			disabled: isBusy,
 			destructive: false,
 			run: () => exportDatabase.mutate( site.id ),
 		},

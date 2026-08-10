@@ -17,9 +17,14 @@ import {
 	widget,
 } from '@wordpress/icons';
 import { Button } from '@wordpress/ui';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { AgenticSigninBanner } from '@/components/agentic-signin-banner';
 import { DeleteSiteDialog } from '@/components/delete-site-dialog';
+import {
+	ImportSiteDialog,
+	IMPORT_FILE_ACCEPT,
+	useSiteBackupImport,
+} from '@/components/import-site-dialog';
 import { OfflineBanner } from '@/components/offline-banner';
 import { useOpenInDestinations } from '@/components/open-in-menu/use-open-in-destinations';
 import { PreviewToggleButton } from '@/components/preview-toggle-button';
@@ -233,8 +238,12 @@ function SiteOverviewBody( {
 	const isStarting = useIsSiteStarting( site.id );
 	const isStopping = useIsSiteStopping( site.id );
 	const [ deleteOpen, setDeleteOpen ] = useState( false );
+	const importInputRef = useRef< HTMLInputElement >( null );
+	const backupImport = useSiteBackupImport( site );
 	const managementActions = useSiteManagementActions( site, {
 		onDelete: () => setDeleteOpen( true ),
+		onImport: () => importInputRef.current?.click(),
+		isImporting: backupImport.isImporting,
 	} );
 
 	const busy = isStarting || isStopping;
@@ -416,6 +425,25 @@ function SiteOverviewBody( {
 			<div className={ styles.footerBar }>
 				<PreviewToggleButton />
 			</div>
+			<input
+				ref={ importInputRef }
+				type="file"
+				hidden
+				accept={ IMPORT_FILE_ACCEPT }
+				data-testid="import-backup-file"
+				onChange={ ( event ) => {
+					backupImport.selectFile( event.target.files?.[ 0 ] );
+					// Lets the same file be picked again after a cancel or a failure.
+					event.target.value = '';
+				} }
+			/>
+			<ImportSiteDialog
+				site={ site }
+				file={ backupImport.file }
+				open={ backupImport.isConfirming }
+				onCancel={ backupImport.cancel }
+				onConfirm={ () => void backupImport.confirm() }
+			/>
 			<DeleteSiteDialog
 				site={ site }
 				open={ deleteOpen }

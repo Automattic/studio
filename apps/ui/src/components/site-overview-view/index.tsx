@@ -6,7 +6,6 @@ import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import {
 	desktop,
-	grid,
 	Icon,
 	layout,
 	media,
@@ -36,6 +35,7 @@ import { useOpenSiteUrl } from '@/hooks/use-open-site-url';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useSiteManagementActions } from '@/hooks/use-site-management-actions';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
+import { databaseLogo } from '@/lib/logos';
 import styles from './style.module.css';
 import type { SiteSettingsTabId } from '@/components/site-settings-view';
 import type { SiteDetails } from '@/data/core';
@@ -166,7 +166,8 @@ function OpenInSection( {
 				/>
 			) ) }
 			<OverviewButton
-				icon={ <Icon icon={ grid } size={ 18 } /> }
+				brandIcon
+				icon={ <Icon icon={ databaseLogo } size={ 18 } /> }
 				label={ __( 'phpMyAdmin' ) }
 				disabled={ busy }
 				onClick={ () => {

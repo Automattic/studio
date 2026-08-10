@@ -6,8 +6,8 @@ import type { ReactElement } from 'react';
    `currentColor` so they follow the theme-aware foreground tokens in light and
    dark mode. Third-party path data comes from Simple Icons (CC0) except VS
    Code, which comes from Devicon (MIT) because Simple Icons no longer ships
-   it. Finder, Terminal, and the generic folder are drawn in-house in the same
-   stroke style as `./icons`. Each root svg declares its own `fill` so the
+   it. Finder, Terminal, the generic folder, and the database are drawn
+   in-house in the same stroke style as `./icons`. Each root svg declares its own `fill` so the
    stroke-drawn marks are not affected by a consumer's fill mapping for
    @wordpress/icons. */
 
@@ -121,6 +121,22 @@ export const terminalLogo = (
 			strokeLinejoin="round"
 		/>
 		<path d="M12.75 15.25h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+	</svg>
+);
+
+export const databaseLogo = (
+	<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+		<ellipse cx="12" cy="6.25" rx="7.25" ry="3.25" stroke="currentColor" strokeWidth="1.5" />
+		<path
+			d="M4.75 6.25v11.5c0 1.8 3.25 3.25 7.25 3.25s7.25-1.45 7.25-3.25V6.25"
+			stroke="currentColor"
+			strokeWidth="1.5"
+		/>
+		<path
+			d="M4.75 12c0 1.8 3.25 3.25 7.25 3.25s7.25-1.45 7.25-3.25"
+			stroke="currentColor"
+			strokeWidth="1.5"
+		/>
 	</svg>
 );
 

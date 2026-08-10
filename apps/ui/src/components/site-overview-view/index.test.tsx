@@ -16,11 +16,17 @@ import {
 	useUpdateSite,
 	useXdebugEnabledSite,
 } from '@/data/queries/use-sites';
+import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useWordPressVersions, useWpVersion } from '@/data/queries/use-wordpress-versions';
 import { useOffline } from '@/hooks/use-offline';
 import styles from './style.module.css';
 import { SiteOverviewView } from './index';
-import type { SiteDetails } from '@/data/core';
+import type {
+	ConnectorCapabilities,
+	SiteDetails,
+	SupportedEditor,
+	UserPreferences,
+} from '@/data/core';
 
 const navigateMock = vi.fn();
 const siteDropdownMock = vi.hoisted( () => vi.fn() );
@@ -88,6 +94,10 @@ vi.mock( '@/data/queries/use-sites', () => ( {
 	useXdebugEnabledSite: vi.fn(),
 } ) );
 
+vi.mock( '@/data/queries/use-user-preferences', () => ( {
+	useUserPreferences: vi.fn(),
+} ) );
+
 vi.mock( '@/data/queries/use-wordpress-versions', () => ( {
 	useWordPressVersions: vi.fn(),
 	useWpVersion: vi.fn(),
@@ -118,18 +128,34 @@ const useSitesMock = vi.mocked( useSites, { partial: true } );
 const useStartSiteMock = vi.mocked( useStartSite, { partial: true } );
 const useUpdateSiteMock = vi.mocked( useUpdateSite, { partial: true } );
 const useOfflineMock = vi.mocked( useOffline );
+const useUserPreferencesMock = vi.mocked( useUserPreferences, { partial: true } );
 const useWordPressVersionsMock = vi.mocked( useWordPressVersions, { partial: true } );
 const useWpVersionMock = vi.mocked( useWpVersion, { partial: true } );
 const useXdebugEnabledSiteMock = vi.mocked( useXdebugEnabledSite, { partial: true } );
 
 describe( 'SiteOverviewView', () => {
 	const openSiteUrl = vi.fn().mockResolvedValue( undefined );
+	const openSiteFolder = vi.fn().mockResolvedValue( undefined );
+	const openSiteInEditor = vi.fn().mockResolvedValue( undefined );
+	const openSiteInTerminal = vi.fn().mockResolvedValue( undefined );
 	const trackEvent = vi.fn().mockResolvedValue( undefined );
 	const startSite = vi.fn().mockResolvedValue( undefined );
 	const copySite = vi.fn();
 	const exportFullSite = vi.fn();
 	const exportDatabase = vi.fn();
 	const onTabChange = vi.fn();
+
+	const connectorStub = ( openInOS = true ) => ( {
+		openSiteUrl,
+		openSiteFolder,
+		openSiteInEditor,
+		openSiteInTerminal,
+		trackEvent,
+		capabilities: { openInOS } as ConnectorCapabilities,
+	} );
+
+	const preferencesStub = ( editor: SupportedEditor | null ) =>
+		( { editor, terminal: 'terminal' } ) as UserPreferences;
 
 	beforeEach( () => {
 		vi.clearAllMocks();
@@ -150,7 +176,8 @@ describe( 'SiteOverviewView', () => {
 			} ) ),
 		} );
 
-		useConnectorMock.mockReturnValue( { openSiteUrl, trackEvent } );
+		useConnectorMock.mockReturnValue( connectorStub() );
+		useUserPreferencesMock.mockReturnValue( { data: preferencesStub( 'vscode' ) } );
 		useAgenticFeaturesMock.mockReturnValue( {
 			enabled: true,
 			chatEnabled: true,
@@ -212,8 +239,8 @@ describe( 'SiteOverviewView', () => {
 		expect( screen.getByText( 'Media Library' ) ).toBeVisible();
 		expect( screen.queryByText( 'Customizer' ) ).not.toBeInTheDocument();
 		expect( screen.getByText( 'Duplicate' ) ).toBeVisible();
-		expect( screen.getByText( 'Export' ) ).toBeVisible();
-		expect( screen.getByText( 'Export DB' ) ).toBeVisible();
+		expect( screen.getByText( 'Export entire site' ) ).toBeVisible();
+		expect( screen.getByText( 'Export database' ) ).toBeVisible();
 		expect( screen.getByText( 'Delete' ) ).toBeVisible();
 		expect( screen.queryByDisplayValue( 'Demo Site' ) ).not.toBeInTheDocument();
 	} );
@@ -475,6 +502,45 @@ describe( 'SiteOverviewView', () => {
 		expect( screen.getByText( 'Menus' ) ).toBeVisible();
 		expect( screen.queryByText( 'Widgets' ) ).not.toBeInTheDocument();
 		expect( screen.queryByText( 'Site Editor' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'offers the configured apps and phpMyAdmin under Open in…', () => {
+		renderView();
+
+		expect( screen.getByRole( 'heading', { name: 'Open in…' } ) ).toBeVisible();
+		expect( screen.getByText( 'Finder' ) ).toBeVisible();
+		expect( screen.getByText( 'Visual Studio Code' ) ).toBeVisible();
+		expect( screen.getByText( 'Terminal' ) ).toBeVisible();
+		expect( screen.queryByText( 'Browser' ) ).not.toBeInTheDocument();
+
+		fireEvent.click( screen.getByText( 'Finder' ).closest( 'button' )! );
+		expect( openSiteFolder ).toHaveBeenCalledWith( 'site-1' );
+
+		fireEvent.click( screen.getByText( 'phpMyAdmin' ).closest( 'button' )! );
+		expect( openSiteUrl ).toHaveBeenCalledWith(
+			'site-1',
+			'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
+		);
+		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_phpmyadmin', {
+			browser: 'internal',
+		} );
+	} );
+
+	it( 'hides the editor shortcut until an editor is configured', () => {
+		useUserPreferencesMock.mockReturnValue( { data: preferencesStub( null ) } );
+
+		renderView();
+
+		expect( screen.queryByText( 'Visual Studio Code' ) ).not.toBeInTheDocument();
+		expect( screen.getByText( 'Finder' ) ).toBeVisible();
+	} );
+
+	it( 'drops the Open in… section on hosts that cannot open local apps', () => {
+		useConnectorMock.mockReturnValue( connectorStub( false ) );
+
+		renderView();
+
+		expect( screen.queryByRole( 'heading', { name: 'Open in…' } ) ).not.toBeInTheDocument();
 	} );
 
 	// Rendered without a SessionUIProvider, so the open-site-url hook takes

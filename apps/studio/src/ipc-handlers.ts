@@ -100,6 +100,7 @@ import {
 	extractBlueprintBundle as extractBlueprintBundleShared,
 	type ExtractedBlueprintBundle,
 } from '@studio/common/sites/blueprint-extract';
+import { measureSiteStorage, type SiteStorageUsage } from '@studio/common/sites/storage-usage';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
 import { MACOS_TRAFFIC_LIGHT_POSITION, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
@@ -1358,6 +1359,14 @@ export function getWpVersion( _event: IpcMainInvokeEvent, id: string ) {
 	}
 	const wordPressPath = server.details.path;
 	return getWordPressVersion( wordPressPath );
+}
+
+export async function getSiteStorageUsage(
+	_event: IpcMainInvokeEvent,
+	id: string
+): Promise< SiteStorageUsage | null > {
+	const server = SiteServer.get( id );
+	return server ? measureSiteStorage( server.details.path ) : null;
 }
 
 export function getIsMultisite( _event: IpcMainInvokeEvent, id: string ) {

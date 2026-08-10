@@ -426,6 +426,9 @@ export function createIpcConnector(): Connector {
 		async getSiteThumbnail( siteId ): Promise< string | null > {
 			return ( await ipcApi.getThumbnailData( siteId ) ) as string | null;
 		},
+		async getSiteStorageUsage( siteId ) {
+			return ipcApi.getSiteStorageUsage( siteId );
+		},
 
 		async exportFullSite( siteId ): Promise< string | null > {
 			const sites = ( await ipcApi.getSiteDetails() ) as SiteDetails[];

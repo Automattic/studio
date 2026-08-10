@@ -1,0 +1,431 @@
+/* ---- Shared stage ----
+   Motion for the scenes is driven in JS by the choreography timeline; this file
+   only holds static styling and two tiny local effects (caret blink, tool
+   shimmer). */
+
+/* The full-bleed header slot. A fixed aspect ratio gives the popup header a
+   stable height that can't collapse while the dialog animates in; overflow is
+   visible so tooltips can extend past the edge. */
+.stage {
+	position: relative;
+	display: grid;
+	place-items: center;
+	width: 100%;
+	aspect-ratio: 320 / 150;
+	flex-shrink: 0;
+	overflow: visible;
+	border-bottom: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral-weak);
+}
+
+/* Fallback for ids without a built scene yet. */
+.placeholder {
+	position: absolute;
+	inset: 0;
+	background: color-mix(in srgb, var(--wpds-color-fg-interactive-brand) 8%, transparent);
+}
+
+/* ---- Sites scene ---- */
+
+.sitesScene {
+	position: absolute;
+	inset: 0;
+	display: grid;
+	place-items: center;
+	background: var(--sites-chrome-bg);
+}
+
+/* A stack of rows so the focus row reads as one entry in a real sidebar list.
+   No container mask — a mask would clip the focus row's tooltips at the list's
+   edge; the neighbours recede via per-row opacity instead. */
+.list {
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+	width: 264px;
+}
+
+/* Quiet, non-interactive neighbours; the outer ones fade further back. */
+.rowGhost {
+	box-sizing: border-box;
+	display: flex;
+	align-items: center;
+	height: 34px;
+	padding: 0 var(--wpds-dimension-padding-sm) 0 var(--wpds-dimension-padding-md);
+	border-radius: 6px;
+	opacity: 0.7;
+}
+
+.rowGhostFar {
+	opacity: 0.4;
+}
+
+.rowGhostName {
+	overflow: hidden;
+	font-size: var(--wpds-typography-font-size-md);
+	line-height: 1.2;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+.row {
+	position: relative;
+	box-sizing: border-box;
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-xs);
+	width: 100%;
+	height: 34px;
+	padding: 0 var(--wpds-dimension-padding-sm) 0 var(--wpds-dimension-padding-md);
+	border-radius: 6px;
+	background: var(--wpds-color-bg-interactive-neutral-weak-active);
+}
+
+.rowName {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	font-size: var(--wpds-typography-font-size-md);
+	line-height: 1.2;
+	color: var(--wpds-color-fg-content-neutral);
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+.rowActions {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	flex-shrink: 0;
+}
+
+/* The scene tints the background (hover) inline via the timeline. */
+.btn {
+	position: relative;
+	display: grid;
+	place-items: center;
+	width: 24px;
+	height: 24px;
+	border-radius: 4px;
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.btnGlyph {
+	width: 18px;
+	height: 18px;
+	fill: currentColor;
+}
+
+/* The status glyphs stack in the button's single grid cell so they can
+   crossfade between states (play → starting dot → running dot). */
+.statusPlay,
+.statusDot {
+	grid-area: 1 / 1;
+}
+
+.statusPlay {
+	width: 9px;
+	height: 9px;
+	fill: var(--wpds-color-fg-content-neutral);
+}
+
+.statusDot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+}
+
+/* Tooltip pill. Visibility/lift come from the scene inline; positioning and
+   look live here. Centered over the button. */
+.tooltip {
+	position: absolute;
+	bottom: calc(100% + 7px);
+	left: 50%;
+	padding: 3px 8px;
+	border-radius: 4px;
+	background: #fff;
+	color: #1e1e1e;
+	font-size: 11px;
+	font-weight: var(--wpds-typography-font-weight-medium);
+	line-height: 1.4;
+	white-space: nowrap;
+	box-shadow: 0 2px 8px rgb(0 0 0 / 24%);
+	pointer-events: none;
+}
+
+.cursor {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform-origin: 4px 3px;
+	filter: drop-shadow(0 2px 3px rgb(0 0 0 / 30%));
+	will-change: transform, opacity;
+}
+
+/* ---- Chat scene ----
+   Theme-adaptive (the chat pane follows light/dark). */
+
+.chatScene {
+	position: absolute;
+	inset: 0;
+	box-sizing: border-box;
+	overflow: hidden;
+	background: var(--wpds-color-bg-surface-neutral-weak);
+}
+
+/* Above the resting composer, with room up top so the first bubble clears the
+   modal's Skip button. */
+.chatConversation {
+	position: absolute;
+	top: 46px;
+	right: 26px;
+	bottom: 20px;
+	left: 26px;
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	overflow: hidden;
+}
+
+.userBubble {
+	align-self: flex-end;
+	max-width: 82%;
+	padding: 5px 11px;
+	border-radius: 14px 14px 6px 14px;
+	background: color-mix(in srgb, var(--wpds-color-fg-interactive-brand, #2563eb) 12%, transparent);
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: 1.4;
+	transform-origin: bottom right;
+}
+
+.assistantText {
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: 1.45;
+}
+
+/* Blinking cursor at the end of the streaming reply. */
+.streamCaret {
+	display: inline-block;
+	width: 6px;
+	height: 13px;
+	margin-left: 2px;
+	vertical-align: -2px;
+	background: var(--wpds-color-fg-content-neutral-weak);
+	animation: chatCaretBlink 1s steps(1) infinite;
+}
+
+.toolChip {
+	align-self: flex-start;
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+}
+
+.toolIcon {
+	width: 14px;
+	height: 14px;
+	flex-shrink: 0;
+}
+
+/* A light band sweeps across the label to signal the tool is working. */
+.toolShimmer {
+	background: linear-gradient(
+		100deg,
+		var(--wpds-color-fg-content-neutral-weak) 35%,
+		var(--wpds-color-fg-content-neutral) 50%,
+		var(--wpds-color-fg-content-neutral-weak) 65%
+	);
+	background-size: 220% 100%;
+	background-clip: text;
+	-webkit-background-clip: text;
+	-webkit-text-fill-color: transparent;
+	color: transparent;
+	animation: toolShimmer 1.6s linear infinite;
+}
+
+@keyframes toolShimmer {
+	from {
+		background-position: 200% 0;
+	}
+	to {
+		background-position: -200% 0;
+	}
+}
+
+/* Subtle text control at the modal's top-left, shown once the playback ends.
+   Opacity/pointer-events are set inline by the scene. */
+.replayButton {
+	position: absolute;
+	top: 10px;
+	left: 14px;
+	z-index: 2;
+	padding: 2px 4px;
+	border: 0;
+	background: transparent;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	font-weight: var(--wpds-typography-font-weight-medium);
+	cursor: var(--wpds-cursor-control, pointer);
+	transition: color 120ms ease;
+}
+
+.replayButton:hover {
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.composer {
+	position: absolute;
+	right: 26px;
+	bottom: 12px;
+	left: 26px;
+	box-sizing: border-box;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	padding: 8px 10px 7px;
+	border-radius: 8px 8px 20px 8px;
+	background: var(--wpds-color-bg-surface-neutral-strong);
+	outline: 1.5px solid var(--wpds-color-fg-interactive-brand, #2563eb);
+	will-change: transform;
+}
+
+.composerInput {
+	position: relative;
+	min-height: 17px;
+}
+
+.composerPlaceholder {
+	position: absolute;
+	inset: 0;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: 17px;
+	white-space: nowrap;
+}
+
+.composerTyped {
+	position: absolute;
+	inset: 0;
+	display: inline-flex;
+	align-items: center;
+	overflow: hidden;
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: 17px;
+	white-space: nowrap;
+}
+
+.composerCaret {
+	flex-shrink: 0;
+	width: 1.5px;
+	height: 13px;
+	margin-left: 1px;
+	background: var(--wpds-color-fg-interactive-brand, #2563eb);
+	animation: chatCaretBlink 1s steps(1) infinite;
+}
+
+.composerBar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+
+.composerButtons {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+/* Black stop button (fg-content-neutral) with a light square, matching the
+   real composer's busy state; shown alongside the send button. */
+.stopButton {
+	display: grid;
+	place-items: center;
+	width: 22px;
+	height: 22px;
+	border-radius: 999px;
+	background: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-bg-surface-neutral-strong);
+}
+
+.stopGlyph {
+	width: 8px;
+	height: 8px;
+	border-radius: 1px;
+	background: currentColor;
+}
+
+.plusButton {
+	display: grid;
+	place-items: center;
+	width: 18px;
+	height: 18px;
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.plusButton svg {
+	width: 16px;
+	height: 16px;
+}
+
+.sendButton {
+	display: grid;
+	place-items: center;
+	width: 22px;
+	height: 22px;
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--wpds-color-fg-content-neutral) 14%, transparent);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	transition: background 150ms ease, color 150ms ease;
+}
+
+.sendButton svg {
+	width: 15px;
+	height: 15px;
+}
+
+.sendButtonActive {
+	background: var(--wpds-color-fg-interactive-brand, #2563eb);
+	color: #fff;
+}
+
+@keyframes chatCaretBlink {
+	0%,
+	49% {
+		opacity: 1;
+	}
+	50%,
+	100% {
+		opacity: 0;
+	}
+}
+
+/* The choreography timeline already rests on a static frame under reduced
+   motion; only the small looping CSS effects need silencing. */
+@media (prefers-reduced-motion: reduce) {
+	.streamCaret,
+	.composerCaret {
+		animation: none;
+	}
+
+	.toolShimmer {
+		animation: none;
+		background: none;
+		color: var(--wpds-color-fg-content-neutral-weak);
+		-webkit-text-fill-color: var(--wpds-color-fg-content-neutral-weak);
+	}
+}
+
+/* Fixed What's New artwork rather than a built scene: fill the stage, cropping
+   rather than letterboxing on a narrow viewport. */
+.artwork {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}

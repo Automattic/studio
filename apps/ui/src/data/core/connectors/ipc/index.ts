@@ -934,6 +934,32 @@ export function createIpcConnector(): Connector {
 			await ipcApi.disableAgenticUi();
 		},
 
+		async getOnboardingHints() {
+			return ipcApi.getOnboardingHints();
+		},
+
+		async setOnboardingHints( partial ) {
+			await ipcApi.saveOnboardingHints( partial );
+		},
+
+		onShowGettingStarted( listener ) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const ipcListener = ( window as any ).ipcListener;
+			return ipcListener.subscribe( 'show-getting-started', () => listener() );
+		},
+
+		onShowWhatsNew( listener ) {
+			return ipcListener.subscribe( 'show-whats-new', () => listener() );
+		},
+
+		async getLastSeenVersion() {
+			return ipcApi.getLastSeenVersion();
+		},
+
+		async saveLastSeenVersion( version ) {
+			await ipcApi.saveLastSeenVersion( version );
+		},
+
 		async getAppUpdateStatus() {
 			return ipcApi.getAppUpdateStatus();
 		},

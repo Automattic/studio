@@ -1,0 +1,51 @@
+/* Three left-aligned checkmark feature columns sharing one quiet bordered
+   container. Wider than the content column to make use of the horizontal
+   space. */
+.features {
+	list-style: none;
+	margin: 16px 0 0;
+	padding: 16px 20px 20px;
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: 8px;
+	display: flex;
+	gap: 24px;
+	width: min(880px, calc(100vw - 100px));
+	text-align: start;
+}
+
+.features li {
+	flex: 1 1 0;
+	min-width: 0;
+}
+
+.featureTitle {
+	display: flex;
+	/* Titles wrap to two lines in narrow columns, so the check sits on the
+	   first line rather than centred against the whole block. */
+	align-items: flex-start;
+	gap: 6px;
+	font-size: 13px;
+	/* Must be set: the global `h3` rule's line-height is sized for `lg` text
+	   and leaves a huge gap between wrapped lines at 13px. */
+	line-height: 1.4;
+	font-weight: var(--wpds-typography-font-weight-medium);
+	margin: 0 0 2px;
+	text-wrap: balance;
+}
+
+.featureTitle svg {
+	fill: var(--wpds-color-fg-interactive-brand);
+	flex-shrink: 0;
+	/* Optically centre the 16px glyph on the first line of text. */
+	margin-top: calc((1.4em - 16px) / 2);
+}
+
+.featureBody {
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: 12px;
+	line-height: 1.4;
+	margin: 0;
+	/* Align with the title text, past the checkmark. */
+	margin-inline-start: 22px;
+	text-wrap: pretty;
+}

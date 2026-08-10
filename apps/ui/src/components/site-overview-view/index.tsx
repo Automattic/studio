@@ -225,7 +225,6 @@ function SiteOverviewBody( {
 	onTabChange: ( tab: SiteSettingsTabId ) => void;
 } ) {
 	const navigate = useNavigate();
-	const connector = useConnector();
 	const isStarting = useIsSiteStarting( site.id );
 	const isStopping = useIsSiteStopping( site.id );
 	const [ deleteOpen, setDeleteOpen ] = useState( false );
@@ -241,6 +240,7 @@ function SiteOverviewBody( {
 	// first when needed) rather than the external browser.
 	const openSiteUrl = useOpenSiteUrl( site );
 
+	const connector = useConnector();
 	const openCustomize = ( url: string, entryPoint: TracksCustomizeEntryPoint ) => {
 		// The agentic UI opens customize screens in its in-app preview panel, not the OS browser.
 		void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_CUSTOMIZE, {

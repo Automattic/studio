@@ -239,8 +239,8 @@ describe( 'SiteOverviewView', () => {
 		expect( screen.getByText( 'Media Library' ) ).toBeVisible();
 		expect( screen.queryByText( 'Customizer' ) ).not.toBeInTheDocument();
 		expect( screen.getByText( 'Duplicate' ) ).toBeVisible();
-		expect( screen.getByText( 'Export' ) ).toBeVisible();
-		expect( screen.getByText( 'Export DB' ) ).toBeVisible();
+		expect( screen.getByText( 'Export entire site' ) ).toBeVisible();
+		expect( screen.getByText( 'Export database' ) ).toBeVisible();
 		expect( screen.getByText( 'Delete' ) ).toBeVisible();
 		expect( screen.queryByDisplayValue( 'Demo Site' ) ).not.toBeInTheDocument();
 	} );
@@ -521,6 +521,9 @@ describe( 'SiteOverviewView', () => {
 			'site-1',
 			'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
 		);
+		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_phpmyadmin', {
+			browser: 'internal',
+		} );
 	} );
 
 	it( 'hides the editor shortcut until an editor is configured', () => {

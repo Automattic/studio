@@ -11,6 +11,7 @@ import { pathToFileURL } from 'url';
 import { portFinder } from '@studio/common/lib/port-finder';
 import {
 	DEFAULT_HEIGHT,
+	AGENTIC_TITLEBAR_HEIGHT,
 	DEFAULT_WIDTH,
 	MACOS_TRAFFIC_LIGHT_POSITION,
 	MAIN_MIN_HEIGHT,
@@ -299,7 +300,7 @@ export function getTitleBarOverlayOptions() {
 	return {
 		color: isDark ? '#161616' : '#1e1e1e',
 		symbolColor: '#e0e0e0',
-		height: WINDOWS_TITLEBAR_HEIGHT,
+		height: AGENTIC_TITLEBAR_HEIGHT,
 	};
 }
 

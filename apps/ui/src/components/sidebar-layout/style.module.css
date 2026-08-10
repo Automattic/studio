@@ -1,13 +1,14 @@
 .root {
 	display: flex;
-	/* Starts below the window-controls band on Windows/Linux; the variable is
-	   0px everywhere else. */
-	margin-block-start: var(--app-titlebar-height, 0px);
-	height: calc(100vh - var(--app-titlebar-height, 0px));
+	height: 100vh;
 	overflow: hidden;
 }
 
 .sidebar {
+	/* Runs to the top of the window, painting over the window-controls band on
+	   its side — same chrome colour, so its own header fills that strip instead
+	   of leaving it empty. Positioned so it paints above the (fixed) band. */
+	position: relative;
 	width: var(--sidebar-width, 320px);
 	/* The 240px floor is owned by useResizablePanel, which clamps
 	   --sidebar-width on every path. A CSS min-width here would be redundant
@@ -64,6 +65,10 @@
 	overflow: auto;
 	position: relative;
 	isolation: isolate;
+	/* Only this side reserves the window-controls band — the sidebar runs to the
+	   top instead. Its own chrome background fills the reserved strip, so the
+	   controls land on the same colour either way. 0px off Windows/Linux. */
+	padding-block-start: var(--app-titlebar-height, 0px);
 	background-color: var(--app-chrome-bg);
 	-webkit-app-region: drag;
 }

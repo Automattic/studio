@@ -121,12 +121,33 @@ function CreditMeter( {
 	);
 }
 
+function ExtraCreditSummary( { balanceDollars }: { balanceDollars: number } ) {
+	const locale = useUserLocale();
+	const currency = new Intl.NumberFormat( locale, { style: 'currency', currency: 'USD' } );
+	const credits = new Intl.NumberFormat( locale, { maximumFractionDigits: 0 } );
+
+	return (
+		<div className={ styles.extraCreditSummary }>
+			<strong>{ __( 'Extra AI credits' ) }</strong>
+			<div className={ styles.extraCreditBalanceLine }>
+				<strong>{ currency.format( balanceDollars ) }</strong>
+				<span>
+					{ sprintf(
+						/* translators: %s: number of AI credits available. */
+						__( '%s credits available' ),
+						credits.format( creditsFromDollars( balanceDollars ) )
+					) }
+				</span>
+			</div>
+		</div>
+	);
+}
+
 function AiCreditsSummary() {
 	const usage = useUsageExploration();
 	const [ purchaseOpen, setPurchaseOpen ] = useState( false );
 	const { data: quota } = useStudioAssistantQuota();
 	const accessState = quota ? getStudioCodeAiAccessState( quota ) : 'available';
-	const purchasedUsed = usage.purchasedTotal - usage.purchasedBalance;
 	const monthlyRemaining = Math.max( 0, usage.monthlyLimit - usage.monthlyUsed );
 	const monthlyMeterIntent =
 		usage.purchasedTotal > 0 ? undefined : getMeterIntent( usage.monthlyFraction );
@@ -154,38 +175,33 @@ function AiCreditsSummary() {
 						fraction={ usage.monthlyFraction }
 						valueClassName={ monthlyMeterIntent }
 					/>
-					{ usage.purchasedTotal > 0 ? (
-						<CreditMeter
-							label={ __( 'Extra AI credits' ) }
-							remainingDollars={ usage.purchasedBalance }
-							usedDollars={ purchasedUsed }
-							totalDollars={ usage.purchasedTotal }
-							fraction={ usage.purchasedFraction }
-							valueClassName={ getMeterIntent( usage.purchasedFraction ) }
-						/>
-					) : (
-						<div className={ styles.creditTopUpText }>
-							<strong>
-								{ usage.isExhausted
-									? __( 'Keep chatting with extra credits' )
-									: __( 'Extra AI credits' ) }
-							</strong>
-							<p>
-								{ usage.isExhausted
-									? __( 'Add credits to continue now. Extra credits do not expire.' )
-									: __( 'Add more credits in case you go over your allowance.' ) }
-							</p>
-						</div>
-					) }
-					<Button
-						className={ styles.creditTopUpButton }
-						size="small"
-						variant="outline"
-						tone="neutral"
-						onClick={ () => setPurchaseOpen( true ) }
-					>
-						{ __( 'Add credits' ) }
-					</Button>
+					<div className={ styles.extraCreditRow }>
+						{ usage.purchasedTotal > 0 ? (
+							<ExtraCreditSummary balanceDollars={ usage.purchasedBalance } />
+						) : (
+							<div className={ styles.creditTopUpText }>
+								<strong>
+									{ usage.isExhausted
+										? __( 'Keep chatting with extra credits' )
+										: __( 'Extra AI credits' ) }
+								</strong>
+								<p>
+									{ usage.isExhausted
+										? __( 'Add credits to continue now. Extra credits do not expire.' )
+										: __( 'Add more credits in case you go over your allowance.' ) }
+								</p>
+							</div>
+						) }
+						<Button
+							className={ styles.creditTopUpButton }
+							size="small"
+							variant="outline"
+							tone="neutral"
+							onClick={ () => setPurchaseOpen( true ) }
+						>
+							{ __( 'Add credits' ) }
+						</Button>
+					</div>
 					<PurchaseCreditsDialog open={ purchaseOpen } onOpenChange={ setPurchaseOpen } />
 				</>
 			) }
@@ -207,11 +223,11 @@ const EXTRA_EXPLORATION_SCENARIOS: Array< {
 	value: UsageExplorationScenario;
 	label: string;
 } > = [
-	{ value: 'extra-reserve', label: __( 'In reserve' ) },
-	{ value: 'extra-healthy', label: '36%' },
-	{ value: 'extra-warning', label: '80%' },
-	{ value: 'extra-critical', label: '90%' },
-	{ value: 'extra-exhausted', label: '100%' },
+	{ value: 'extra-reserve', label: __( '$50 in reserve' ) },
+	{ value: 'extra-healthy', label: __( '$32 remaining' ) },
+	{ value: 'extra-warning', label: __( '$10 remaining' ) },
+	{ value: 'extra-critical', label: __( '$5 remaining' ) },
+	{ value: 'extra-exhausted', label: __( '$0 remaining' ) },
 ];
 
 function ExplorationScenarioRow( {
@@ -259,7 +275,7 @@ function UsageExplorationControls() {
 					selected={ scenario }
 				/>
 				<ExplorationScenarioRow
-					label={ __( 'Extra credits' ) }
+					label={ __( 'Extra credit balance' ) }
 					options={ EXTRA_EXPLORATION_SCENARIOS }
 					selected={ scenario }
 				/>

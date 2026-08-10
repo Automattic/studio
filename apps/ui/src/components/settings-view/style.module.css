@@ -914,6 +914,47 @@
 	line-height: var( --wpds-typography-line-height-sm );
 }
 
+.extraCreditRow {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var( --wpds-dimension-padding-lg );
+}
+
+.extraCreditSummary {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.extraCreditSummary strong {
+	color: var( --wpds-color-fg-content-neutral );
+	font-size: var( --wpds-typography-font-size-xs );
+	font-weight: 500;
+	line-height: var( --wpds-typography-line-height-sm );
+}
+
+.extraCreditSummary span {
+	color: var( --wpds-color-fg-content-neutral-weak );
+	font-size: var( --wpds-typography-font-size-xs );
+	font-variant-numeric: tabular-nums;
+	line-height: var( --wpds-typography-line-height-sm );
+}
+
+.extraCreditBalanceLine {
+	display: flex;
+	align-items: baseline;
+	flex-wrap: wrap;
+	gap: var( --wpds-dimension-gap-xs );
+}
+
+.extraCreditBalanceLine > strong {
+	font-size: var( --wpds-typography-font-size-sm );
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+}
+
 .creditTopUpText {
 	min-width: 0;
 }
@@ -931,7 +972,7 @@
 }
 
 .creditTopUpButton {
-	align-self: flex-start;
+	flex: none;
 }
 
 .explorationControls {

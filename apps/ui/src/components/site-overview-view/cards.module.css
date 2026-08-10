@@ -53,6 +53,7 @@
 	gap: var(--wpds-dimension-padding-xs);
 	background: var(--wpds-color-bg-interactive-neutral-weak-active);
 	color: var(--wpds-color-fg-content-neutral);
+	fill: currentColor;
 	font-size: var(--wpds-typography-font-size-xs);
 	font-weight: var(--wpds-typography-font-weight-medium);
 	opacity: 0;

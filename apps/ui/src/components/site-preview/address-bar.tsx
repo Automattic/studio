@@ -1,4 +1,5 @@
 import { Autocomplete } from '@base-ui/react/autocomplete';
+import { TRACKS_EVENTS, type TracksEventName } from '@studio/common/lib/record-tracks-event';
 import { __ } from '@wordpress/i18n';
 import { globe, help, home, page as pageIcon, post as postIcon, wordpress } from '@wordpress/icons';
 import { ariaKeyShortcut, displayShortcut } from '@wordpress/keycodes';
@@ -64,6 +65,19 @@ export function getPreviewRealm( path: string ): PreviewRealm {
 	return 'frontend';
 }
 
+// The site-open Tracks event that corresponds to a preview realm. Shared by the preview realm
+// switcher (which sends `browser: 'internal'`) and the "open in browser" button (`external`), so both
+// describe the same destination the same way.
+const REALM_OPEN_EVENTS: Record< PreviewRealm, TracksEventName > = {
+	frontend: TRACKS_EVENTS.SITE_OPEN_IN_BROWSER,
+	admin: TRACKS_EVENTS.SITE_OPEN_WP_ADMIN,
+	database: TRACKS_EVENTS.SITE_OPEN_PHPMYADMIN,
+};
+
+export function getRealmOpenEvent( realm: PreviewRealm ): TracksEventName {
+	return REALM_OPEN_EVENTS[ realm ];
+}
+
 /**
  * Routes a wp-admin path through the site's `/studio-auto-login` endpoint so
  * it never lands on the login form. Non-admin paths pass through untouched.
@@ -108,7 +122,7 @@ export function parseOmniboxInput( raw: string, siteUrl: string ): OmniboxIntent
 	return { type: 'search', term: value };
 }
 
-function useDebouncedValue< T >( value: T, delayMs: number ): T {
+export function useDebouncedValue< T >( value: T, delayMs: number ): T {
 	const [ debounced, setDebounced ] = useState( value );
 	useEffect( () => {
 		const timer = setTimeout( () => setDebounced( value ), delayMs );
@@ -231,9 +245,6 @@ interface PreviewAddressBarProps {
 	// The popup anchors to this element (the toolbar's location slot) so it
 	// opens wide and centered like a browser address bar.
 	anchorRef: RefObject< HTMLElement | null >;
-	// The database (phpMyAdmin) segment is optional — hidden when the user
-	// turns it off.
-	showDatabaseTab: boolean;
 	onNavigate: ( path: string ) => void;
 	// Called when the user clicks an inactive segment; the host navigates to
 	// its remembered path for that realm.
@@ -253,7 +264,6 @@ export function PreviewAddressBar( {
 	path,
 	searchEnabled,
 	anchorRef,
-	showDatabaseTab,
 	onNavigate,
 	onSwitchRealm,
 }: PreviewAddressBarProps ) {
@@ -266,11 +276,6 @@ export function PreviewAddressBar( {
 	const [ highlightedItem, setHighlightedItem ] = useState< AddressItem | undefined >( undefined );
 	const realm = getPreviewRealm( path );
 	const { customizeLinks, contentLinks } = useCustomizeLinks( site );
-	// The database segment is optional; everything else always shows.
-	const segments = useMemo(
-		() => REALM_SEGMENTS.filter( ( segment ) => segment.realm !== 'database' || showDatabaseTab ),
-		[ showDatabaseTab ]
-	);
 
 	// The selected-segment fill is a separate element that slides between
 	// segments. Its position comes from measuring the active button; the
@@ -290,7 +295,7 @@ export function PreviewAddressBar( {
 			current && current.left === left && current.width === width ? current : { left, width }
 		);
 	}, [] );
-	useLayoutEffect( measureIndicator, [ measureIndicator, realm, site.name, showDatabaseTab ] );
+	useLayoutEffect( measureIndicator, [ measureIndicator, realm, site.name ] );
 	useEffect( () => {
 		const root = segmentsRef.current;
 		if ( ! root || typeof ResizeObserver === 'undefined' ) {
@@ -528,7 +533,7 @@ export function PreviewAddressBar( {
 							: { opacity: 0 }
 					}
 				/>
-				{ segments.map( ( segment ) => {
+				{ REALM_SEGMENTS.map( ( segment ) => {
 					const isActive = segment.realm === realm;
 					const content = (
 						<>

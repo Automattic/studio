@@ -1,7 +1,9 @@
 import { getAuthenticationUrl, getSignUpUrl } from '@studio/common/lib/oauth';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
+import { readOnboardingHints, writeOnboardingHints } from '../browser-onboarding-hints';
 import { applyStoredSiteOrder, storeSiteOrder } from '../browser-site-order';
+import { readLastSeenVersion, writeLastSeenVersion } from '../browser-whats-new';
 import { buildPublishCheckoutUrl } from '../publish-checkout-url';
 import { UnsupportedError } from '../unsupported-error';
 import { readWapuuScore, writeWapuuScore } from '../wapuu-score-storage';
@@ -244,6 +246,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			annotatePreview: false,
 			readLocalMedia: false,
 			agentInstructions: true,
+			studioLogs: false,
 			switchToClassicUi: false,
 		},
 
@@ -776,6 +779,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			} );
 		},
 
+		// The CLI has no equivalent of the desktop's log file — site server output
+		// goes to `~/.studio/daemon/logs` and the rest to the terminal that ran
+		// `studio ui` — so there is nothing to open here.
+		async openStudioLogs() {
+			throw new UnsupportedError( 'openStudioLogs' );
+		},
+
 		// Analytics — no-op here. Tracks currently flows through the desktop IPC connector; the
 		// local (browser) target has no Main-process choke point yet. See the design doc.
 		async trackEvent() {
@@ -851,6 +861,26 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		async disableAgenticUi() {
 			// No-op in the browser.
+		},
+		async getOnboardingHints() {
+			return readOnboardingHints();
+		},
+		async setOnboardingHints( partial ) {
+			writeOnboardingHints( partial );
+		},
+		onShowGettingStarted() {
+			// No application menu in a browser tab.
+			return () => {};
+		},
+		onShowWhatsNew() {
+			// No application menu in a browser tab.
+			return () => {};
+		},
+		async getLastSeenVersion() {
+			return readLastSeenVersion();
+		},
+		async saveLastSeenVersion( version ) {
+			writeLastSeenVersion( version );
 		},
 		async getAppUpdateStatus() {
 			return { readyToInstall: false, version: null };

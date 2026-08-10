@@ -6,6 +6,7 @@ import { useConnector } from '@/data/core';
 import {
 	getPreviewRealm,
 	getRealmNavigationPath,
+	getRealmOpenEvent,
 	parseOmniboxInput,
 	PreviewAddressBar,
 } from './address-bar';
@@ -49,7 +50,6 @@ function renderAddressBar( {
 	onSwitchRealm = vi.fn(),
 	path = '/',
 	searchEnabled = true,
-	showDatabaseTab = true,
 	site = SITE,
 }: {
 	fetchSiteRest?: Mock;
@@ -57,7 +57,6 @@ function renderAddressBar( {
 	onSwitchRealm?: Mock;
 	path?: string;
 	searchEnabled?: boolean;
-	showDatabaseTab?: boolean;
 	site?: SiteDetails;
 } = {} ) {
 	useConnectorMock.mockReturnValue( { fetchSiteRest } as never );
@@ -73,7 +72,6 @@ function renderAddressBar( {
 					path={ path }
 					searchEnabled={ searchEnabled }
 					anchorRef={ { current: document.body } }
-					showDatabaseTab={ showDatabaseTab }
 					onNavigate={ onNavigate }
 					onSwitchRealm={ onSwitchRealm }
 				/>
@@ -161,6 +159,14 @@ describe( 'getPreviewRealm', () => {
 	} );
 } );
 
+describe( 'getRealmOpenEvent', () => {
+	it( 'maps each realm to its site-open Tracks event', () => {
+		expect( getRealmOpenEvent( 'frontend' ) ).toBe( 'studio_site_open_in_browser' );
+		expect( getRealmOpenEvent( 'admin' ) ).toBe( 'studio_site_open_wp_admin' );
+		expect( getRealmOpenEvent( 'database' ) ).toBe( 'studio_site_open_phpmyadmin' );
+	} );
+} );
+
 describe( 'getRealmNavigationPath', () => {
 	it( 'passes non-admin paths through untouched', () => {
 		expect( getRealmNavigationPath( '/about/', SITE_URL ) ).toBe( '/about/' );
@@ -203,11 +209,11 @@ describe( 'PreviewAddressBar', () => {
 		).not.toBeInTheDocument();
 	} );
 
-	it( 'hides the database segment when the database tab is turned off', () => {
-		renderAddressBar( { path: '/', showDatabaseTab: false } );
+	it( 'always offers the database segment', () => {
+		renderAddressBar( { path: '/' } );
 
 		expect( screen.getByRole( 'button', { name: 'View WP Admin' } ) ).toBeInTheDocument();
-		expect( screen.queryByRole( 'button', { name: 'View database' } ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'View database' } ) ).toBeInTheDocument();
 	} );
 
 	it( 'marks the segment matching the current path as active', () => {

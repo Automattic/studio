@@ -1,9 +1,11 @@
 import { act, render, screen } from '@testing-library/react';
+import { userEvent } from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { vi } from 'vitest';
 import { SiteContentTabs } from 'src/components/site-content-tabs';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { useSiteDetails } from 'src/hooks/use-site-details';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 import { store } from 'src/stores';
 import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
 
@@ -37,6 +39,7 @@ vi.mock( 'src/lib/get-ipc-api', async () => ( {
 		getUserEditor: vi.fn().mockResolvedValue( 'vscode' ),
 		setWindowControlVisibility: vi.fn(),
 		isAgenticUiBannerDismissed: vi.fn().mockResolvedValue( true ),
+		recordAnalyticsEvent: vi.fn().mockResolvedValue( undefined ),
 	} ),
 } ) );
 
@@ -110,5 +113,21 @@ describe( 'SiteContentTabs', () => {
 		expect(
 			screen.queryByRole( 'tab', { name: 'Backup', selected: false } )
 		).not.toBeInTheDocument();
+	} );
+	it( 'records a panel-opened Tracks event when the user switches tabs', async () => {
+		const user = userEvent.setup();
+		vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
+			selectedSite,
+			sites: [ selectedSite ],
+			loadingServer: {},
+		} );
+		await act( async () => renderWithProvider( <SiteContentTabs /> ) );
+
+		await user.click( screen.getByRole( 'tab', { name: 'Sync' } ) );
+
+		expect( vi.mocked( getIpcApi )().recordAnalyticsEvent ).toHaveBeenCalledWith(
+			'studio_panel_opened',
+			{ panel: 'sync' }
+		);
 	} );
 } );

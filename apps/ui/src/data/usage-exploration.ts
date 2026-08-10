@@ -23,7 +23,7 @@ const STORAGE_KEY = 'studio-usage-exploration-state';
 
 // Balances are held in dollars, matching the `cost_usage` / `cost_cap` figures
 // the quota endpoint returns. Credits are a display unit derived from them.
-export const CREDITS_PER_DOLLAR = 100;
+export const CREDITS_PER_DOLLAR = 10_000;
 
 export function creditsFromDollars( dollars: number ): number {
 	return Math.round( dollars * CREDITS_PER_DOLLAR );

@@ -159,7 +159,7 @@ describe( 'UsagePanel', () => {
 
 		expect( screen.getByRole( 'heading', { name: 'Usage' } ) ).toBeInTheDocument();
 		expect( screen.getByText( '$10.00 left' ) ).toBeInTheDocument();
-		expect( screen.getByText( '4,000 of 5,000 credits used' ) ).toBeInTheDocument();
+		expect( screen.getByText( '400,000 of 500,000 credits used' ) ).toBeInTheDocument();
 		expect( screen.getByText( 'Extra AI credits' ) ).toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Add credits' } ) ).toBeInTheDocument();
 		expect( screen.getByText( '2 of 10 active preview sites' ) ).toBeInTheDocument();
@@ -174,7 +174,7 @@ describe( 'UsagePanel', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'Monthly allowance 100%' } ) );
 
 		expect( screen.getByText( '$0.00 left' ) ).toBeInTheDocument();
-		expect( screen.getByText( '5,000 of 5,000 credits used' ) ).toBeInTheDocument();
+		expect( screen.getByText( '500,000 of 500,000 credits used' ) ).toBeInTheDocument();
 		expect( screen.getByText( 'Keep chatting with extra credits' ) ).toBeInTheDocument();
 		expect(
 			screen.getByText( 'Add credits to continue now. Extra credits do not expire.' )
@@ -188,7 +188,7 @@ describe( 'UsagePanel', () => {
 		render( <UsagePanel /> );
 
 		expect( screen.getByText( '$32.00' ) ).toBeInTheDocument();
-		expect( screen.getByText( '3,200 credits available' ) ).toBeInTheDocument();
+		expect( screen.getByText( '320,000 credits available' ) ).toBeInTheDocument();
 		expect( screen.queryByText( 'Recent activity' ) ).not.toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Add credits' } ) ).toBeInTheDocument();
 		expect( screen.getAllByTestId( 'usage-progress-bar' ) ).toHaveLength( 2 );
@@ -213,9 +213,9 @@ describe( 'UsagePanel', () => {
 		);
 
 		expect( screen.getByText( '$32.00 left' ) ).toBeInTheDocument();
-		expect( screen.getByText( '1,800 of 5,000 credits used' ) ).toBeInTheDocument();
+		expect( screen.getByText( '180,000 of 500,000 credits used' ) ).toBeInTheDocument();
 		expect( screen.getByText( '$50.00' ) ).toBeInTheDocument();
-		expect( screen.getByText( '5,000 credits available' ) ).toBeInTheDocument();
+		expect( screen.getByText( '500,000 credits available' ) ).toBeInTheDocument();
 		expect( screen.getByText( 'Extra AI credits' ) ).toBeInTheDocument();
 		expect( screen.getAllByTestId( 'usage-progress-bar' ) ).toHaveLength( 2 );
 	} );
@@ -305,7 +305,7 @@ describe( 'UsagePanel', () => {
 		render( <UsagePanel /> );
 
 		expect( screen.getByText( '$10.00 left' ) ).toBeInTheDocument();
-		expect( screen.getByText( '4,000 of 5,000 credits used' ) ).toBeInTheDocument();
+		expect( screen.getByText( '400,000 of 500,000 credits used' ) ).toBeInTheDocument();
 	} );
 
 	it( 'confirms through the connector before deleting all preview sites', async () => {

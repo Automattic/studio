@@ -919,6 +919,9 @@
 	align-items: center;
 	justify-content: space-between;
 	gap: var( --wpds-dimension-padding-lg );
+	padding: var( --wpds-dimension-padding-md );
+	border-radius: var( --wpds-border-radius-sm );
+	background: var( --wpds-color-bg-surface-neutral-strong );
 }
 
 .extraCreditSummary {

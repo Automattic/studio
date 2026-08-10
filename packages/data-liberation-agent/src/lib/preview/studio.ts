@@ -22,20 +22,6 @@ const UPLOADS_SUBDIR = 'wp-content/uploads/liberation';
  */
 const SCRIPTS_SUBDIR = '.dla-scripts';
 
-/**
- * Studio mounts the host site directory at VFS path `/wordpress` (see
- * wordpress-server-child.mjs in the Studio bundle: `mounts: [{ hostPath:
- * config.sitePath, vfsPath: "/wordpress" }, ...]`). Any path we pass to
- * `studio wp eval-file`, or that gets consumed by PHP running inside the
- * site, must use the VFS prefix — host paths resolve to "does not exist".
- */
-const STUDIO_VFS_ROOT = '/wordpress';
-
-/** Translate a site-relative path into the VFS path PHP sees inside Studio. */
-export function toVfsPath(siteRelativePath: string): string {
-  return `${STUDIO_VFS_ROOT}/${siteRelativePath.replace(/^\/+/, '')}`;
-}
-
 /** Absolute path to the vendored product-importer PHP script. */
 const PRODUCT_IMPORT_SCRIPT = resolve(
   dirname(fileURLToPath(import.meta.url)),
@@ -235,9 +221,8 @@ async function removeStudioSite(sitePath: string): Promise<void> {
 
 /**
  * Stage extraction artifacts (media, WXR, products.csv) plus our vendored
- * PHP importer scripts into the Studio site directory. Scripts MUST live
- * under the site path because Studio's wp-cli runtime rejects host paths
- * — `wp eval-file /Users/.../import-wxr.php` errors with "does not exist".
+ * PHP importer scripts into the Studio site directory, so everything the
+ * import touches travels with the site.
  * Data artifacts go under wp-content/uploads/liberation/; scripts go under
  * .dla-scripts/ at the site root (separate from uploads so Studio can't
  * apply any upload-dir-specific handling to them).
@@ -278,9 +263,9 @@ export function stageArtifacts(outputDir: string, sitePath: string): {
     productsCsvRelPath = `${UPLOADS_SUBDIR}/products.csv`;
   }
 
-  // Vendored PHP scripts. Studio's wp-cli can't eval-file host paths, so copy
-  // them under the site dir. Placed at the site root (not under uploads) so
-  // Studio can't special-case them. Idempotent / overwrite-safe across reruns.
+  // Vendored PHP scripts, copied under the site dir so they travel with the
+  // site. Placed at the site root (not under uploads) so Studio can't
+  // special-case them. Idempotent / overwrite-safe across reruns.
   const scriptsDir = join(sitePath, SCRIPTS_SUBDIR);
   mkdirSync(scriptsDir, { recursive: true });
   const wxrScriptDest = join(scriptsDir, 'import-wxr.php');
@@ -401,10 +386,6 @@ export async function startStudioPreview(opts: StartStudioOpts): Promise<StartPr
         '--name', name,
         '--path', sitePath,
         '--blueprint', blueprintPath,
-        // Studio 1.12+ defaults to the native runtime, which drops the
-        // `/wordpress` VFS mount our `wp eval-file` script paths rely on;
-        // pin the sandbox runtime until those callers are runtime-aware.
-        '--runtime', 'sandbox',
         '--skip-browser',
         '--skip-log-details',
         '--start',
@@ -432,13 +413,9 @@ export async function startStudioPreview(opts: StartStudioOpts): Promise<StartPr
       // natural slugs (esp. the default privacy-policy draft, which would force
       // the source privacy page to import as privacy-policy-2). Best-effort.
       warnings.push(...await deleteDefaultWpContent(sitePath));
-      // File paths for the rewrite step are host paths (Node writes locally).
       const wxrHostPath = join(sitePath, staged.wxrRelPath);
-      // Paths passed to `studio wp` must be VFS paths — Studio mounts the
-      // site dir at /wordpress inside PHP.
-      const wxrVfsPath = toVfsPath(staged.wxrRelPath);
-      const wxrScriptVfsPath = toVfsPath(staged.wxrScriptRelPath);
-      const sourceDirVfsPath = toVfsPath(UPLOADS_SUBDIR);
+      const wxrScriptHostPath = join(sitePath, staged.wxrScriptRelPath);
+      const sourceDirHostPath = join(sitePath, UPLOADS_SUBDIR);
 
       // Studio's bundled wp-cli lacks `wp import --source-dir` (newer flag),
       // so we drive the import from our own PHP script which installs a
@@ -458,16 +435,16 @@ export async function startStudioPreview(opts: StartStudioOpts): Promise<StartPr
       // already set.
       await studioWp(sitePath, [
         '--skip-plugins=wordpress-importer',
-        'eval-file', wxrScriptVfsPath, wxrVfsPath, sourceDirVfsPath,
+        'eval-file', wxrScriptHostPath, wxrHostPath, sourceDirHostPath,
       ]);
     }
 
     if (hasProducts && staged.productsCsvRelPath) {
-      const csvVfsPath = toVfsPath(staged.productsCsvRelPath);
-      const productScriptVfsPath = toVfsPath(staged.productScriptRelPath);
+      const csvHostPath = join(sitePath, staged.productsCsvRelPath);
+      const productScriptHostPath = join(sitePath, staged.productScriptRelPath);
       try {
         await studioWp(sitePath, [
-          'eval-file', productScriptVfsPath, csvVfsPath, '--user=admin',
+          'eval-file', productScriptHostPath, csvHostPath, '--user=admin',
         ]);
       } catch (err) {
         // Content is already in; losing the whole site over products is too

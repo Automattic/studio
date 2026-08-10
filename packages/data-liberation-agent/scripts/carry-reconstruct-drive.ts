@@ -80,7 +80,7 @@ async function main(): Promise<void> {
   if (data.mediaErrors.length) console.log('  mediaErrors sample:', JSON.stringify(data.mediaErrors.slice(0, 3)));
   if (data.fetchErrors.length) console.log('  fetchErrors:', JSON.stringify(data.fetchErrors));
 
-  // 3. islands + _swap.php (VFS path; Studio mounts the host site dir at /wordpress)
+  // 3. islands + _swap.php
   const islandsDir = join(studioSitePath, 'wp-content/uploads/_carry-islands');
   mkdirSync(islandsDir, { recursive: true });
   const slugs = data.pages.map((p) => p.slug);
@@ -91,7 +91,8 @@ async function main(): Promise<void> {
   if (removedStale.length) console.log(`  removed ${removedStale.length} stale island(s): ${removedStale.slice(0, 8).join(', ')}${removedStale.length > 8 ? ' …' : ''}`);
   for (const p of data.pages) writeFileSync(join(islandsDir, `${p.slug}.html`), p.postContent);
   const swap = `<?php
-$dir = '/wordpress/wp-content/uploads/_carry-islands';
+// WP_CONTENT_DIR keeps the script portable across runtimes and site moves.
+$dir = WP_CONTENT_DIR . '/uploads/_carry-islands';
 $slugs = ${JSON.stringify(slugs)};
 foreach ($slugs as $slug) {
   $file = "$dir/$slug.html";

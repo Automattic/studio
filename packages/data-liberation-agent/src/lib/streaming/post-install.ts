@@ -28,7 +28,6 @@ const INSTALL_POST_SCRIPT_HOST = resolve(
 );
 
 const SCRIPTS_SUBDIR = '.dla-scripts';
-const SCRIPTS_VFS_PREFIX = '/wordpress';
 
 export interface InstallPostOpts {
   /** Single WxrItem to install. Only `page` / `post` are supported by v1. */
@@ -69,14 +68,11 @@ export async function installPost(opts: InstallPostOpts): Promise<InstallPostRes
     };
   }
 
-  // Stage the script + JSON payload under <sitePath>/.dla-scripts/.
-  // Studio's wp-cli rejects host paths, so payloads must live inside the
-  // mounted site dir.
+  // Stage the script + JSON payload under <sitePath>/.dla-scripts/ so they
+  // travel with the site.
   const scriptsDir = join(studioSitePath, SCRIPTS_SUBDIR);
   mkdirSync(scriptsDir, { recursive: true });
-  const scriptVfs = `${SCRIPTS_VFS_PREFIX}/${SCRIPTS_SUBDIR}/install-post.php`;
   const payloadHost = join(scriptsDir, `install-post-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.json`);
-  const payloadVfs = `${SCRIPTS_VFS_PREFIX}/${SCRIPTS_SUBDIR}/${payloadHost.split('/').pop()}`;
 
   // Copy script in (overwrite-safe; matches studio.ts pattern).
   const { copyFileSync } = await import('node:fs');
@@ -102,7 +98,7 @@ export async function installPost(opts: InstallPostOpts): Promise<InstallPostRes
   try {
     const { stdout } = await execFileAsync(
       'studio',
-      ['wp', '--path', studioSitePath, 'eval-file', scriptVfs, payloadVfs],
+      ['wp', '--path', studioSitePath, 'eval-file', scriptHost, payloadHost],
       { timeout: 60_000, maxBuffer: 10 * 1024 * 1024 },
     );
     const trimmed = stdout.trim();

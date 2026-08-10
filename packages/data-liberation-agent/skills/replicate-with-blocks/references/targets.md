@@ -18,9 +18,9 @@ The replica theme can be installed into one of two places. The MCP tool `liberat
 - Otherwise create a new site at `~/Studio/<siteSlug>-replica/` and add it to `appdata-v1.json` via the Studio CLI (`studio create-site` or equivalent).
 - The MCP tool handles all of this — pass `target: { kind: "studio", siteId: "auto" }` and let it decide.
 
-**Theme path:** `<sitePath>/wordpress/wp-content/themes/<siteSlug>-replica/`
+**Theme path:** `<sitePath>/wp-content/themes/<siteSlug>-replica/` (older site layouts nest a `wordpress/` dir; the MCP tool probes for the real wp-root)
 
-**VFS gotcha:** Studio mounts the host site directory as `/wordpress` inside its VFS. When invoking `studio wp eval-file <script>` or any wp-cli command, paths must use the VFS prefix. The MCP tool already wraps this — see `src/lib/preview/studio.ts:toVfsPath`.
+**Paths:** pass ordinary host paths to `studio wp eval-file` and other wp-cli commands — no path translation is needed.
 
 **Activation:** After writing files, the MCP tool runs `studio wp <site> theme activate <siteSlug>-replica` to switch to the replica theme.
 

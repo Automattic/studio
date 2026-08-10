@@ -78,10 +78,10 @@ export const installThemeHandler: Handler = async (args, ctx) => {
       'liberate_install_theme requires `studioSitePath` — the on-disk path to the running Studio site (e.g. ~/Studio/example-com).',
     );
   }
-  // Studio mounts the host site directory at VFS path `/wordpress`. In current
-  // Studio versions the host site directory IS the wp-root (wp-content/ sits
-  // directly inside it). Older layouts nested everything under a `wordpress/`
-  // subdir on the host. Detect by probing for wp-content rather than assuming.
+  // In current Studio versions the host site directory IS the wp-root
+  // (wp-content/ sits directly inside it). Older layouts nested everything
+  // under a `wordpress/` subdir on the host. Detect by probing for
+  // wp-content rather than assuming.
   const sitePathResolved = resolve(studioSitePath);
   let wpRoot = sitePathResolved;
   if (!existsSync(join(wpRoot, 'wp-content'))) {

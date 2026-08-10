@@ -35,7 +35,6 @@ const INSTALL_DATA_SCRIPT_HOST = resolve(
 );
 
 const SCRIPTS_SUBDIR = '.dla-scripts';
-const SCRIPTS_VFS_PREFIX = '/wordpress';
 
 /** The eval-file payload (terms + items + field list) for install-data.php. */
 export interface DataPayload {
@@ -216,19 +215,19 @@ export async function installLocalData(opts: InstallDataOpts): Promise<InstallDa
     }
   }
 
-  // Stage script + payload under the mounted site dir.
+  // Stage script + payload under the site dir so they travel with the site.
   const scriptsDir = join(studioSitePath, SCRIPTS_SUBDIR);
   mkdirSync(scriptsDir, { recursive: true });
-  copyFileSync(INSTALL_DATA_SCRIPT_HOST, join(scriptsDir, 'install-data.php'));
-  const scriptVfs = `${SCRIPTS_VFS_PREFIX}/${SCRIPTS_SUBDIR}/install-data.php`;
+  const scriptHost = join(scriptsDir, 'install-data.php');
+  copyFileSync(INSTALL_DATA_SCRIPT_HOST, scriptHost);
 
   const suffix = opts.uniqueSuffix ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const payloadName = `install-data-${suffix}.json`;
-  writeFileSync(join(scriptsDir, payloadName), JSON.stringify(buildDataPayload(model)));
-  const payloadVfs = `${SCRIPTS_VFS_PREFIX}/${SCRIPTS_SUBDIR}/${payloadName}`;
+  const payloadHost = join(scriptsDir, payloadName);
+  writeFileSync(payloadHost, JSON.stringify(buildDataPayload(model)));
 
   const { stdout } = await exec(
-    ['wp', '--path', studioSitePath, 'eval-file', scriptVfs, payloadVfs],
+    ['wp', '--path', studioSitePath, 'eval-file', scriptHost, payloadHost],
     { timeout: 120_000, maxBuffer: 10 * 1024 * 1024 },
   );
 

@@ -16,7 +16,7 @@
  *   wp eval-file import-products.php                     # falls back to $IMPORT_CSV_PATH or default
  *
  * Resolution order for the CSV path: positional arg ($args[0]) > IMPORT_CSV_PATH env > default.
- * Default: /wordpress/wp-content/imports/products.csv
+ * Default: WP_CONTENT_DIR . '/imports/products.csv'
  *
  * @package Studio
  */
@@ -27,7 +27,7 @@ if ( ! defined( 'WP_CLI' ) || ! WP_CLI ) {
 
 $csv_path = ! empty( $args[0] )
 	? $args[0]
-	: ( getenv( 'IMPORT_CSV_PATH' ) ? getenv( 'IMPORT_CSV_PATH' ) : '/wordpress/wp-content/imports/products.csv' );
+	: ( getenv( 'IMPORT_CSV_PATH' ) ? getenv( 'IMPORT_CSV_PATH' ) : WP_CONTENT_DIR . '/imports/products.csv' );
 
 if ( ! file_exists( $csv_path ) ) {
 	WP_CLI::error( "Products CSV not found: $csv_path" );

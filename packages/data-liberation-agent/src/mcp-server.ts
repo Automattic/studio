@@ -331,7 +331,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: 'liberate_install_theme',
-      description: 'Install replica theme files + block plugins into an ALREADY-RUNNING Studio site (no site creation, no content import). Use this from the streaming watch loop\'s theme-piece / archetype-template judgments — `liberate_preview` would create a `-2` duplicate Studio site and re-import content over the streamed posts. Writes to <studioSitePath>/wordpress/wp-content/{themes,plugins}/, then runs `studio wp plugin activate` and `studio wp theme activate`. Returns warnings[] for non-fatal activate failures.',
+      description: 'Install replica theme files + block plugins into an ALREADY-RUNNING Studio site (no site creation, no content import). Use this from the streaming watch loop\'s theme-piece / archetype-template judgments — `liberate_preview` would create a `-2` duplicate Studio site and re-import content over the streamed posts. Writes into wp-content/{themes,plugins}/ under the probed wp-root, then runs `studio wp plugin activate` and `studio wp theme activate`. Returns warnings[] for non-fatal activate failures.',
       inputSchema: {
         type: 'object' as const,
         properties: {

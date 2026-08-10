@@ -50,15 +50,15 @@ if (pairs.length === 0) {
   process.exit(1);
 }
 
-// 2. Stage the map + a PHP rewriter under the site's uploads, run via studio wp eval-file
-//    (Studio mounts the site at the /wordpress VFS root). str_replace over the sorted
-//    arrays rewrites every post/page body; only changed posts are updated.
+// 2. Stage the map + a PHP rewriter under the site's uploads, run via studio wp eval-file.
+//    str_replace over the sorted arrays rewrites every post/page body; only changed
+//    posts are updated.
 const hostDir = join(resolve(studioSitePath), 'wp-content', 'uploads', '_carry-localize');
 mkdirSync(hostDir, { recursive: true });
 writeFileSync(join(hostDir, 'map.json'), JSON.stringify(pairs));
 
 const php = `<?php
-$pairs = json_decode(file_get_contents('/wordpress/wp-content/uploads/_carry-localize/map.json'), true);
+$pairs = json_decode(file_get_contents(WP_CONTENT_DIR . '/uploads/_carry-localize/map.json'), true);
 if (!is_array($pairs)) { fwrite(STDERR, "map.json unreadable\\n"); exit(1); }
 $search = array_map(function($p){ return $p[0]; }, $pairs);
 $replace = array_map(function($p){ return $p[1]; }, $pairs);
@@ -86,7 +86,7 @@ writeFileSync(join(hostDir, '_localize.php'), php);
 console.log(`Rewriting native post/page content in ${studioSitePath} …`);
 const out = studioExecFileSync(
   ['wp', '--path', resolve(studioSitePath), '--user=admin', 'eval-file',
-   '/wordpress/wp-content/uploads/_carry-localize/_localize.php'],
+   join(hostDir, '_localize.php')],
   { maxBuffer: 64 * 1024 * 1024 },
 );
 const line = out.split('\n').find((l) => l.startsWith('LOCALIZE_RESULT')) ?? out.trim();

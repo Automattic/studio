@@ -13,8 +13,8 @@
 //
 // Studio path is the v1 target. We invoke `studio wp post list` with a
 // `--meta_key=_source_url --meta_value=<url> --field=ID --format=json`
-// filter and parse the resulting JSON array. Studio runs WP-CLI inside the
-// site VFS, so we get the live post ID even though Studio uses SQLite under
+// filter and parse the resulting JSON array. Studio runs WP-CLI against the
+// live site, so we get the live post ID even though Studio uses SQLite under
 // the hood.
 //
 // Only Studio is supported. Non-Studio callers receive a not-yet-supported

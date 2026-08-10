@@ -30,9 +30,11 @@
 }
 
 /* Full-bleed when the sidebar is hidden — the frame reads as chrome that
-   belongs with the sidebar. The border must drop to zero WIDTH (not just
-   transparent): the chrome background shows through a transparent border
-   ring via background-clip, leaving stray dark lines at the edges. */
+   belongs with the sidebar — and on Windows/Linux, where the native window
+   controls are painted at the window's bounds and would otherwise overhang the
+   inset edges. The border must drop to zero WIDTH (not just transparent): the
+   chrome background shows through a transparent border ring via
+   background-clip, leaving stray dark lines at the edges. */
 .rootFrameless {
 	height: 100%;
 	margin: 0;

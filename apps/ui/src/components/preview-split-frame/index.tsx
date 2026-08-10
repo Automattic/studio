@@ -4,6 +4,7 @@ import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { usePreviewSplit } from '@/hooks/use-preview-split';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
+import { useWindowControlsOverlay } from '@/hooks/use-window-controls-overlay';
 import styles from './style.module.css';
 
 // Keep in sync with the content-column transition duration in style.module.css.
@@ -35,6 +36,12 @@ export function PreviewSplitFrame( {
 	const showFullscreen = showPreview && previewFullscreen;
 	const { rootRef, contentWidthVar, isResizing, handleProps } = usePreviewSplit( { showPreview } );
 	const isSidebarCollapsed = useSidebarCollapsed();
+	// Windows/Linux draw the window controls over the renderer at the window's
+	// own bounds, so an inset frame leaves them hanging past its top and outer
+	// edges. Go full-bleed there, the way the classic UI does, and they land
+	// inside the frame's header strip — which is the surface the overlay colors
+	// are matched to.
+	const hasWindowControlsOverlay = useWindowControlsOverlay() !== null;
 
 	// Animate only open/close/fullscreen toggles of an already-mounted preview —
 	// never the initial layout, so a route loading with the preview visible
@@ -89,7 +96,7 @@ export function PreviewSplitFrame( {
 			ref={ rootRef }
 			className={ clsx(
 				styles.root,
-				isSidebarCollapsed && styles.rootFrameless,
+				( isSidebarCollapsed || hasWindowControlsOverlay ) && styles.rootFrameless,
 				showPreview && styles.rootPreviewOpen,
 				isResizing && styles.rootPreviewResizing,
 				animatingPreviewToggle && styles.rootPreviewAnimating

@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto';
+import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { getSiteOperationNoun } from '@studio/common/lib/site-operation-labels';
 import { __, sprintf } from '@wordpress/i18n';
 import {
@@ -9,6 +10,7 @@ import {
 	type SiteData,
 } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
+import { emitCliEvent } from 'cli/lib/daemon-client';
 import { LoggerError } from 'cli/logger';
 import type { SiteOperation, SiteOperationKind } from '@studio/common/lib/site-operation';
 
@@ -104,6 +106,13 @@ async function release( siteId: string, operation: SiteOperation ): Promise< voi
 	}
 }
 
+// Tells clients the site's lease set changed so they can enable or disable the
+// actions it blocks. Both edges matter: without the release, a badge raised by
+// the daemon's own event mid-operation would never clear.
+function emitLeaseChanged( siteId: string ): Promise< void > {
+	return emitCliEvent( { event: SITE_EVENTS.OPERATIONS_CHANGED, data: { siteId } } );
+}
+
 /**
  * Runs `fn` while holding a lease on the site so no other Studio operation can
  * touch it concurrently. The lease is persisted on the site record, so the UI
@@ -118,12 +127,8 @@ export async function withSiteLock< T >(
 ): Promise< T > {
 	const { id: siteId } = await getSiteByFolder( siteFolder );
 	const operation = await acquire( siteId, kind );
+	await emitLeaseChanged( siteId );
 
-	// DIAGNOSTIC (do not merge): the acquire/release `SITE_EVENTS.UPDATED` emits
-	// are removed here to test whether they are what breaks the site-startup
-	// performance metric. They are the signal the UI uses to show "Exporting…",
-	// so they need reinstating as a lease-specific event that doesn't assert a
-	// running state.
 	try {
 		return await fn();
 	} finally {
@@ -134,5 +139,6 @@ export async function withSiteLock< T >(
 		} catch ( error ) {
 			console.error( 'Failed to release the site operation lease:', error );
 		}
+		await emitLeaseChanged( siteId );
 	}
 }

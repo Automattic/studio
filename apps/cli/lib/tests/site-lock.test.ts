@@ -1,4 +1,5 @@
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
+import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
 	lockCliConfig,
@@ -7,6 +8,7 @@ import {
 	SiteData,
 	unlockCliConfig,
 } from 'cli/lib/cli-config/core';
+import { emitCliEvent } from 'cli/lib/daemon-client';
 import { LoggerError } from 'cli/logger';
 import { getLiveSiteOperations, withSiteLock } from '../site-lock';
 
@@ -140,6 +142,16 @@ describe( 'withSiteLock', () => {
 
 		expect( result ).toBe( 'started' );
 		expect( storedOperations() ).toBeUndefined();
+	} );
+
+	// Reusing SITE_EVENTS.UPDATED here made every acquire assert a running state
+	// and clear the desktop renderer's loading flag mid-operation, which broke
+	// stop/start badly enough to fail the startup performance metric.
+	it( 'announces lease changes without claiming to know the running state', async () => {
+		await withSiteLock( site.path, 'export', async () => undefined );
+
+		const events = vi.mocked( emitCliEvent ).mock.calls.map( ( [ payload ] ) => payload.event );
+		expect( events ).toEqual( [ SITE_EVENTS.OPERATIONS_CHANGED, SITE_EVENTS.OPERATIONS_CHANGED ] );
 	} );
 
 	it( 'does not lock a site that is not in the config', async () => {

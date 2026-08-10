@@ -143,6 +143,7 @@ export async function runCommand(): Promise< void > {
 				case SITE_EVENTS.CREATED:
 				case SITE_EVENTS.UPDATED:
 				case SITE_EVENTS.DELETED:
+				case SITE_EVENTS.OPERATIONS_CHANGED:
 					void emitSiteEvent( parsed.event, parsed.data.siteId );
 					break;
 			}

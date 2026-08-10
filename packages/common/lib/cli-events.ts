@@ -54,6 +54,11 @@ export enum SITE_EVENTS {
 	CREATED = 'site-created',
 	UPDATED = 'site-updated',
 	DELETED = 'site-deleted',
+	// A lease was claimed or released. Deliberately not `UPDATED`: that one
+	// asserts whether the site is running, and consumers treat it as
+	// authoritative. A lease change knows nothing about that, and saying so
+	// three times per start/stop is what broke the startup performance metric.
+	OPERATIONS_CHANGED = 'site-operations-changed',
 }
 
 export enum AUTH_EVENTS {

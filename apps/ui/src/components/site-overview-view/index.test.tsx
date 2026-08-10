@@ -7,6 +7,7 @@ import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useLogin } from '@/data/queries/use-auth-user';
 import { useCertificateTrust, useTrustCertificate } from '@/data/queries/use-certificate-trust';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
+import { useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
 import {
 	useCopySite,
 	useExportDatabase,
@@ -32,6 +33,17 @@ const siteDropdownMock = vi.hoisted( () => vi.fn() );
 const headerActionsMock = vi.hoisted( () => vi.fn() );
 const useSidebarCollapsedMock = vi.hoisted( () => vi.fn() );
 const useTrafficLightSpaceMock = vi.hoisted( () => vi.fn() );
+const connectorCapabilities = {
+	nativeFolderPicker: true,
+	nativeSaveDialog: true,
+	openInOS: true,
+	annotatePreview: true,
+	siteCheckpoints: true,
+	readLocalMedia: true,
+	agentInstructions: true,
+	studioLogs: true,
+	switchToClassicUi: true,
+};
 
 class ResizeObserverMock {
 	observe = vi.fn();
@@ -107,6 +119,10 @@ vi.mock( '@/data/queries/use-sites', () => ( {
 	useXdebugEnabledSite: vi.fn(),
 } ) );
 
+vi.mock( '@/data/queries/use-site-thumbnail', () => ( {
+	useSiteThumbnail: vi.fn(),
+} ) );
+
 vi.mock( '@/data/queries/use-user-preferences', () => ( {
 	useUserPreferences: vi.fn(),
 } ) );
@@ -147,6 +163,7 @@ const useExportFullSiteMock = vi.mocked( useExportFullSite, { partial: true } );
 const useIsSiteStartingMock = vi.mocked( useIsSiteStarting );
 const useIsSiteStoppingMock = vi.mocked( useIsSiteStopping );
 const useSiteOverviewDetailsMock = vi.mocked( useSiteOverviewDetails, { partial: true } );
+const useSiteThumbnailMock = vi.mocked( useSiteThumbnail, { partial: true } );
 const useSitesMock = vi.mocked( useSites, { partial: true } );
 const useStartSiteMock = vi.mocked( useStartSite, { partial: true } );
 const useStopSiteMock = vi.mocked( useStopSite, { partial: true } );
@@ -193,6 +210,7 @@ describe( 'SiteOverviewView', () => {
 		} );
 
 		useConnectorMock.mockReturnValue( {
+			capabilities: connectorCapabilities,
 			openSiteUrl,
 			openSiteFolder,
 			openSiteInEditor,
@@ -209,6 +227,9 @@ describe( 'SiteOverviewView', () => {
 		useSitesMock.mockReturnValue( {
 			data: [ createSite( { running: true } ) ],
 			isLoading: false,
+		} );
+		useSiteThumbnailMock.mockReturnValue( {
+			data: 'data:image/png;base64,site-thumbnail',
 		} );
 		useExistingCustomDomainsMock.mockReturnValue( [] );
 		useUpdateSiteMock.mockReturnValue( { isPending: false, mutate: updateSite } );
@@ -285,7 +306,7 @@ describe( 'SiteOverviewView', () => {
 		useOfflineMock.mockReturnValue( false );
 	} );
 
-	it( 'renders the shortcut sections', async () => {
+	it( 'renders the overview summary and shortcut sections', async () => {
 		render( <SiteOverviewView siteId="site-1" /> );
 
 		expect( siteDropdownMock ).toHaveBeenCalledWith(
@@ -305,8 +326,9 @@ describe( 'SiteOverviewView', () => {
 		expect( screen.queryByText( 'Active chats' ) ).not.toBeInTheDocument();
 		expect( screen.queryByText( 'Archived chats' ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'heading', { name: 'Theme' } ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'heading', { name: 'About' } ) ).toBeVisible();
 		expect( screen.getByRole( 'heading', { name: 'Customize' } ) ).toBeVisible();
-		expect( screen.queryByRole( 'heading', { name: 'Open in…' } ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'heading', { name: 'Open in…' } ) ).toBeVisible();
 		expect( headerActionsMock ).toHaveBeenCalledWith(
 			expect.objectContaining( { site: expect.objectContaining( { id: 'site-1' } ) } )
 		);
@@ -319,7 +341,7 @@ describe( 'SiteOverviewView', () => {
 		expect( screen.getByText( 'Akismet Anti-spam' ) ).toBeVisible();
 		expect( screen.getByText( 'Version 5.3 | Active' ) ).toBeVisible();
 		expect( screen.getByText( 'Hello Dolly' ) ).toBeVisible();
-		expect( screen.getByText( 'Twenty Twenty-Six' ) ).toBeVisible();
+		expect( screen.getAllByText( 'Twenty Twenty-Six' ) ).toHaveLength( 2 );
 		expect( screen.getByText( 'Twenty Twenty-Five' ) ).toBeVisible();
 		expect( screen.queryByDisplayValue( 'Demo Site' ) ).not.toBeInTheDocument();
 
@@ -330,6 +352,73 @@ describe( 'SiteOverviewView', () => {
 		expect( trackEvent ).toHaveBeenCalledWith( 'studio_panel_opened', {
 			panel: 'settings',
 		} );
+	} );
+
+	it( 'summarizes the site theme and runtime versions', async () => {
+		useWpVersionMock.mockReturnValue( { data: '6.8.2' } );
+
+		render( <SiteOverviewView siteId="site-1" /> );
+
+		expect( screen.getByText( 'Theme' ) ).toBeVisible();
+		expect( screen.getAllByText( 'Twenty Twenty-Six' ) ).toHaveLength( 2 );
+		expect( screen.getByText( 'WP v6.8.2' ) ).toBeVisible();
+		expect( screen.getByText( 'PHP v8.4' ) ).toBeVisible();
+		expect( await screen.findByRole( 'img', { name: 'Screenshot of Demo Site' } ) ).toHaveAttribute(
+			'src',
+			'data:image/png;base64,site-thumbnail'
+		);
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Open site in browser' } ) );
+		await waitFor( () =>
+			expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/', { autoLogin: false } )
+		);
+	} );
+
+	it( 'keeps the browser action available without a cached thumbnail', () => {
+		useSiteThumbnailMock.mockReturnValue( { data: null } );
+
+		render( <SiteOverviewView siteId="site-1" /> );
+
+		expect( screen.getByRole( 'button', { name: 'Open site in browser' } ) ).toBeVisible();
+		expect(
+			screen.queryByRole( 'img', { name: 'Screenshot of Demo Site' } )
+		).not.toBeInTheDocument();
+	} );
+
+	it( 'routes overview Open in actions through the connector', async () => {
+		render( <SiteOverviewView siteId="site-1" /> );
+
+		fireEvent.click(
+			screen.getByText( /^(Finder|File Explorer|File manager)$/ ).closest( 'button' )!
+		);
+		fireEvent.click( screen.getByText( 'Zed' ).closest( 'button' )! );
+		fireEvent.click( screen.getByText( 'Terminal' ).closest( 'button' )! );
+		fireEvent.click( screen.getByText( 'phpMyAdmin' ).closest( 'button' )! );
+
+		expect( openSiteFolder ).toHaveBeenCalledWith( 'site-1' );
+		expect( openSiteInEditor ).toHaveBeenCalledWith( 'site-1' );
+		expect( openSiteInTerminal ).toHaveBeenCalledWith( 'site-1' );
+		await waitFor( () =>
+			expect( openSiteUrl ).toHaveBeenCalledWith(
+				'site-1',
+				'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
+			)
+		);
+		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_phpmyadmin', {
+			browser: 'internal',
+		} );
+	} );
+
+	it( 'hides overview Open in actions when the host cannot open OS apps', () => {
+		useConnectorMock.mockReturnValue( {
+			capabilities: { ...connectorCapabilities, openInOS: false },
+			openSiteUrl,
+			trackEvent,
+		} );
+
+		render( <SiteOverviewView siteId="site-1" /> );
+
+		expect( screen.queryByRole( 'heading', { name: 'Open in…' } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'offsets the site menu below macOS traffic lights when the sidebar is collapsed', () => {

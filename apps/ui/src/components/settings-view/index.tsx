@@ -66,7 +66,7 @@ function editorElements( installedApps: InstalledApps | undefined ) {
 	return SUPPORTED_EDITORS.filter( ( editor ) => ! installedApps || installedApps[ editor ] ).map(
 		( editor ) => ( {
 			value: editor,
-			label: supportedEditorConfig[ editor ].label,
+			label: supportedEditorConfig[ editor ].label(),
 		} )
 	);
 }
@@ -76,7 +76,7 @@ function terminalElements( installedApps: InstalledApps | undefined ) {
 		( terminal ) => ! installedApps || installedApps[ terminal ]
 	).map( ( terminal ) => ( {
 		value: terminal,
-		label: terminalConfig[ terminal ].name,
+		label: terminalConfig[ terminal ].name(),
 	} ) );
 }
 

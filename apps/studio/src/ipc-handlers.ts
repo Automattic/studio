@@ -42,7 +42,7 @@ import {
 	deleteAiSession as deleteAiSessionFromStore,
 	loadAiSession as loadAiSessionFromStore,
 } from '@studio/common/ai/sessions/store';
-import { AI_SKILL_COMMANDS, buildSkillInvocationPrompt } from '@studio/common/ai/slash-commands';
+import { getAiSkillCommands, buildSkillInvocationPrompt } from '@studio/common/ai/slash-commands';
 import {
 	installSkillToSite,
 	removeSkillFromSite,
@@ -164,7 +164,7 @@ import {
 	type InstructionFileStatus,
 } from 'src/modules/agent-instructions/lib/instructions';
 import {
-	BUNDLED_SKILLS,
+	getBundledSkills,
 	getSkillsStatus,
 	installAllSkills,
 	installSkillById,
@@ -434,7 +434,7 @@ function expandSkillCommandPrompt( prompt: string ): string {
 		return prompt;
 	}
 	const name = trimmed.slice( 1 );
-	const match = AI_SKILL_COMMANDS.find( ( cmd ) => cmd.name === name );
+	const match = getAiSkillCommands().find( ( cmd ) => cmd.name === name );
 	if ( ! match ) {
 		return prompt;
 	}
@@ -693,7 +693,7 @@ export async function getWordPressSkillsStatusAllSites(
 ): Promise< SkillStatus[] > {
 	const sharedConfig = await readSharedConfig();
 	const selectedSkills = sharedConfig.selectedSkills ?? [];
-	return BUNDLED_SKILLS.map( ( skill ) => ( {
+	return getBundledSkills().map( ( skill ) => ( {
 		...skill,
 		installed: selectedSkills.includes( skill.id ),
 	} ) );

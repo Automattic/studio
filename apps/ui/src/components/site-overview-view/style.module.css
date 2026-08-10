@@ -1,4 +1,7 @@
 .root {
+	--overview-content-width: 1120px;
+	--overview-card-column-width: 320px;
+
 	/* Anchor for the footer toolbar + its progressive blur. */
 	position: relative;
 	display: flex;
@@ -65,7 +68,7 @@
 
 .tabsBarInner {
 	min-width: 0;
-	max-width: 760px;
+	max-width: var(--overview-content-width);
 }
 
 /* Fills the scroll viewport so the sign-in banner (margin-top: auto) can sit
@@ -73,12 +76,20 @@
 .overviewPanel {
 	outline: none;
 	flex: 1 0 auto;
-	display: flex;
-	flex-direction: column;
+	display: grid;
+	grid-template-columns: minmax(0, var(--overview-card-column-width)) minmax(0, 1fr);
+	align-items: start;
+	gap: var(--wpds-dimension-padding-3xl);
+	width: 100%;
+	min-width: 0;
 }
 
 .overviewPanel[hidden] {
 	display: none;
+}
+
+.overviewPanel > :not(.cardColumn, .actionsColumn) {
+	grid-column: 1 / -1;
 }
 
 .scroll {
@@ -121,9 +132,12 @@
 }
 
 .content {
+	container-type: inline-size;
+	container-name: overview;
+
 	box-sizing: border-box;
 	width: 100%;
-	max-width: 760px;
+	max-width: var(--overview-content-width);
 	/* Fill the scroll viewport so a short overview still lets the sign-in
 	   banner settle against the bottom. */
 	min-height: 100%;
@@ -139,60 +153,78 @@
 }
 
 .buttonSection h2 {
-	margin: 0 0 var(--wpds-dimension-padding-md);
+	margin: 0;
 	font-size: var(--wpds-typography-font-size-sm);
 	line-height: var(--wpds-typography-line-height-sm);
 	font-weight: var(--wpds-typography-font-weight-medium);
 	color: var(--wpds-color-fg-content-neutral);
 }
 
-/* Each section is a full-width row (Customize, then Manage), stacked. */
+.columnHeading {
+	margin: 0;
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	font-weight: var(--wpds-typography-font-weight-medium);
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.cardColumn {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-md);
+	min-width: 0;
+}
+
+/* Each section is a full-width row (Customize, Open in…, Manage), stacked. */
 .actionsColumn {
 	display: flex;
 	flex-direction: column;
 	width: 100%;
 	min-width: 0;
-	gap: var(--wpds-dimension-padding-xl);
-	margin-bottom: calc(var(--wpds-dimension-padding-xl) * 1.25);
-	padding-bottom: var(--wpds-dimension-padding-xl);
-	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
+	gap: var(--wpds-dimension-padding-3xl);
 }
 
 .buttonSection {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-md);
 	width: 100%;
 }
 
-/* Buttons flow across the row and wrap to the next line as the panel narrows. */
+/* Equal-width cells reflow as the panel narrows, keeping every section aligned. */
 .buttonGrid {
-	display: flex;
-	flex-wrap: wrap;
-	gap: var(--wpds-dimension-padding-xs);
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+	gap: var(--wpds-dimension-padding-md);
 }
 
 .overviewButton {
-	--wp-ui-button-height: 32px;
+	--wp-ui-button-height: 36px;
+	--wp-ui-button-border-color: var(--wpds-color-stroke-surface-neutral);
+	--wp-ui-button-border-color-active: var(--wpds-color-stroke-interactive-neutral);
 
 	display: inline-flex;
 	align-items: center;
 	justify-content: flex-start;
-	/* Never squeeze a button until its label wraps — wrap the whole button to
-	   the next row instead. */
-	flex: 0 0 auto;
-	gap: var(--wpds-dimension-padding-xs);
+	width: 100%;
+	gap: var(--wpds-dimension-padding-sm);
 	min-width: 0;
-	padding: 0 var(--wpds-dimension-padding-sm);
-	border: 0;
-	border-radius: 4px;
+	padding: 0 var(--wpds-dimension-padding-md);
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: var(--wpds-border-radius-sm);
 	background: transparent;
 	color: var(--wpds-color-fg-content-neutral);
 	text-align: start;
 }
 
 .overviewButton:not([data-disabled]):is(:hover, :focus-visible) {
-	background: var(
-		--wpds-color-bg-interactive-neutral-weak-active,
-		var(--wpds-color-bg-surface-neutral-weak)
-	);
+	border-color: var(--wpds-color-stroke-interactive-neutral);
+	background: var(--wpds-color-bg-interactive-neutral-weak-active);
+
+}
+
+.overviewButton[data-disabled] {
+	border-color: var(--wpds-color-stroke-surface-neutral-weak);
 }
 
 .overviewButtonIcon {
@@ -204,13 +236,19 @@
 	color: currentColor;
 }
 
-.overviewButtonIcon svg {
+.overviewButtonIcon:not(.brandIcon) svg {
 	color: currentColor;
 	fill: currentColor;
 }
 
+.brandIcon svg {
+	color: currentColor;
+}
+
 .overviewButtonLabel {
+	overflow: hidden;
 	white-space: nowrap;
+	text-overflow: ellipsis;
 	font-size: var(--wpds-typography-font-size-sm);
 	line-height: var(--wpds-typography-line-height-sm);
 	color: var(--wpds-color-fg-content-neutral);
@@ -226,6 +264,7 @@
 	gap: var(--wpds-dimension-padding-xl);
 	width: 100%;
 	min-width: 0;
+	grid-column: 1 / -1;
 }
 
 .detailSection {
@@ -330,7 +369,37 @@
 
 .destructiveButton .overviewButtonIcon,
 .destructiveButton .overviewButtonLabel {
-	color: var(--wpds-color-fg-content-error, var(--wpds-color-fg-content-neutral));
+	color: var(--wpds-color-fg-content-error);
+}
+
+.destructiveButton {
+	--wp-ui-button-background-color-active: var(--wpds-color-bg-surface-error-weak);
+	--wp-ui-button-border-color-active: var(--wpds-color-stroke-surface-error);
+	--wp-ui-button-foreground-color-active: var(--wpds-color-fg-content-error);
+}
+
+.destructiveButton:not([data-disabled]):is(:hover, :focus-visible, :active) {
+	border-color: var(--wpds-color-stroke-surface-error);
+	background: var(--wpds-color-bg-surface-error-weak);
+}
+
+@container overview (max-width: 760px) {
+	.overviewPanel {
+		grid-template-columns: minmax(0, 1fr);
+		gap: var(--wpds-dimension-padding-2xl);
+	}
+
+	.actionsColumn {
+		order: 1;
+	}
+
+	.cardColumn {
+		order: 2;
+	}
+
+	.detailsColumn {
+		order: 3;
+	}
 }
 
 @media (max-width: 760px) {

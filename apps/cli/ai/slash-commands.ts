@@ -6,7 +6,7 @@ import {
 	isAiResponseLength,
 	type AiResponseLength,
 } from '@studio/common/ai/response-length';
-import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
+import { getAiSkillCommands } from '@studio/common/ai/slash-commands';
 import {
 	GATED_TOOL_NAMES,
 	supportsAlwaysAllow,
@@ -830,5 +830,5 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 		description: __( 'Exit the chat' ),
 		handler: async () => 'break',
 	},
-	...AI_SKILL_COMMANDS,
+	...getAiSkillCommands(),
 ];

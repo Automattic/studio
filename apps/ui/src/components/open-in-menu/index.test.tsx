@@ -1,7 +1,9 @@
 import '@testing-library/jest-dom/vitest';
 import { DEFAULT_ACTIVITY_SOUND_PREFERENCES } from '@studio/common/lib/activity-sounds';
+import { captureException } from '@studio/common/lib/error-reporting';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import {
 	useCopySite,
@@ -99,6 +101,14 @@ vi.mock( '@/data/queries/use-user-preferences', () => ( {
 	useUserPreferences: vi.fn(),
 } ) );
 
+vi.mock( '@studio/common/lib/error-reporting', () => ( {
+	captureException: vi.fn(),
+} ) );
+
+vi.mock( '@/data/app-messages', () => ( {
+	toast: { error: vi.fn() },
+} ) );
+
 const useConnectorMock = vi.mocked( useConnector, { partial: true } );
 const useCopySiteMock = vi.mocked( useCopySite, { partial: true } );
 const useExportDatabaseMock = vi.mocked( useExportDatabase, { partial: true } );
@@ -161,6 +171,10 @@ describe( 'OpenInMenu', () => {
 		} );
 	} );
 
+	afterEach( () => {
+		vi.restoreAllMocks();
+	} );
+
 	it( 'routes each destination through the connector', async () => {
 		render( <OpenInMenu site={ createSite( { running: true } ) } browserPath="/about/" /> );
 
@@ -176,6 +190,19 @@ describe( 'OpenInMenu', () => {
 		expect( openSiteInEditor ).toHaveBeenCalledWith( 'site-1' );
 		expect( openSiteInTerminal ).toHaveBeenCalledWith( 'site-1' );
 		expect( startSite ).not.toHaveBeenCalled();
+	} );
+
+	it( 'reports terminal failures and tells the user', async () => {
+		const error = new Error( 'Terminal unavailable' );
+		openSiteInTerminal.mockRejectedValueOnce( error );
+		const consoleErrorMock = vi.spyOn( console, 'error' ).mockImplementation( () => undefined );
+		render( <OpenInMenu site={ createSite( { running: true } ) } /> );
+
+		fireEvent.click( screen.getByText( 'Terminal' ).closest( 'button' )! );
+
+		await waitFor( () => expect( captureException ).toHaveBeenCalledWith( error ) );
+		expect( consoleErrorMock ).toHaveBeenCalledWith( 'Failed to open site in terminal:', error );
+		expect( toast.error ).toHaveBeenCalledWith( 'Could not open the terminal.' );
 	} );
 
 	it( 'offers the browser destination only when a path is provided', () => {
@@ -292,8 +319,8 @@ describe( 'OpenInMenu', () => {
 		render( <OpenInMenu site={ createSite( { running: true } ) } /> );
 
 		fireEvent.click( screen.getByText( 'Duplicate' ).closest( 'button' )! );
-		fireEvent.click( screen.getByText( 'Export' ).closest( 'button' )! );
-		fireEvent.click( screen.getByText( 'Export DB' ).closest( 'button' )! );
+		fireEvent.click( screen.getByText( 'Export entire site' ).closest( 'button' )! );
+		fireEvent.click( screen.getByText( 'Export database' ).closest( 'button' )! );
 
 		expect( copySite ).toHaveBeenCalledWith( 'site-1' );
 		expect( exportFullSite ).toHaveBeenCalledWith( 'site-1' );

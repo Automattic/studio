@@ -66,12 +66,12 @@ const ImportExportContext = createContext< ImportExportContext >( {
 	clearExportState: () => undefined,
 } );
 
-const WP_CONTENT_TYPE_LABELS: Record< string, string > = {
+const getWpContentTypeLabels = (): Record< string, string > => ( {
 	plugins: __( 'Importing plugins…' ),
 	themes: __( 'Importing themes…' ),
 	uploads: __( 'Importing media uploads…' ),
 	other: __( 'Importing other files…' ),
-};
+} );
 
 export const ImportExportProvider = ( { children }: { children: React.ReactNode } ) => {
 	const [ importState, setImportState ] = useState< ImportProgressState >( {} );
@@ -265,7 +265,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 					data.totalItems > 0
 				) {
 					const percentage = Math.round( ( data.processedItems / data.totalItems ) * 100 );
-					const baseLabel = WP_CONTENT_TYPE_LABELS[ data.type ] || __( 'Importing files…' );
+					const baseLabel = getWpContentTypeLabels()[ data.type ] || __( 'Importing files…' );
 					statusMessage = sprintf( __( '%1$s (%2$d%%)' ), baseLabel, percentage );
 				}
 

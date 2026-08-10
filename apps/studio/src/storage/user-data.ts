@@ -90,8 +90,7 @@ type UserDataSafeKeys =
 	| 'onboardingHints'
 	| 'lastNightlyUpdateCheck'
 	| 'nightlyPromptResult'
-	| 'agenticUiBannerDismissed'
-	| 'agenticFeaturesEnabled';
+	| 'agenticUiBannerDismissed';
 
 type PartialUserDataWithSafeKeysToUpdate = Partial< Pick< UserData, UserDataSafeKeys > >;
 

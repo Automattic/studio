@@ -6,7 +6,9 @@ import {
 import { getAuthenticationUrl, getSignUpUrl } from '@studio/common/lib/oauth';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
+import { readOnboardingHints, writeOnboardingHints } from '../browser-onboarding-hints';
 import { applyStoredSiteOrder, storeSiteOrder } from '../browser-site-order';
+import { readLastSeenVersion, writeLastSeenVersion } from '../browser-whats-new';
 import { buildPublishCheckoutUrl } from '../publish-checkout-url';
 import { UnsupportedError } from '../unsupported-error';
 import { readWapuuScore, writeWapuuScore } from '../wapuu-score-storage';
@@ -22,7 +24,6 @@ import type {
 	InstalledApps,
 	LoadedAiSession,
 	LocalMediaFile,
-	OnboardingHintsState,
 	ProposedSitePath,
 	PullSiteProgress,
 	QuitSitesBehavior,
@@ -83,29 +84,6 @@ function readDismissedMessages(): string[] {
 	} catch {
 		return [];
 	}
-}
-
-// Workbench onboarding state persists per origin in the browser surface.
-const ONBOARDING_HINTS_STORAGE_KEY = 'studio-onboarding-hints';
-
-function readOnboardingHints(): OnboardingHintsState {
-	try {
-		const raw = window.localStorage.getItem( ONBOARDING_HINTS_STORAGE_KEY );
-		const parsed: unknown = raw ? JSON.parse( raw ) : {};
-		return parsed && typeof parsed === 'object' ? ( parsed as OnboardingHintsState ) : {};
-	} catch {
-		return {};
-	}
-}
-
-function writeOnboardingHints( partial: Partial< OnboardingHintsState > ): void {
-	const current = readOnboardingHints();
-	const merged: OnboardingHintsState = {
-		...current,
-		...partial,
-		completedItems: { ...( current.completedItems ?? {} ), ...( partial.completedItems ?? {} ) },
-	};
-	window.localStorage.setItem( ONBOARDING_HINTS_STORAGE_KEY, JSON.stringify( merged ) );
 }
 
 export interface LocalConnectorOptions {
@@ -1019,6 +997,16 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		async disableAgenticUi() {
 			// No-op in the browser.
+		},
+		onShowWhatsNew() {
+			// No application menu in a browser tab.
+			return () => {};
+		},
+		async getLastSeenVersion() {
+			return readLastSeenVersion();
+		},
+		async saveLastSeenVersion( version ) {
+			writeLastSeenVersion( version );
 		},
 		// Sites — desktop-only affordances not yet exposed by the local server.
 		async getSiteOverviewDetails() {

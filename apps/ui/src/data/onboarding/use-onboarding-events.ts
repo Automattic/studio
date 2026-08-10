@@ -3,7 +3,6 @@ import { useRouterState } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { useEffect, useRef } from 'react';
 import { useCoachmarks } from '@/components/coachmarks/coachmark-provider';
-import { useOnboardingGuide } from '@/components/onboarding-guide/use-onboarding-guide';
 import { useConnector } from '@/data/core';
 import { useAgentRunStore } from '@/data/queries/use-agent-run';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
@@ -13,9 +12,7 @@ import {
 	writeOnboardingHints,
 } from '@/data/queries/use-onboarding-hints';
 import { PUSH_TO_LIVE_MUTATION_KEY } from '@/data/queries/use-sync-site';
-import { ORIENTATION_GUIDE_VERSION } from './orientation-guide';
 import type { CoachmarkContent } from './types';
-import type { OpenGuide } from '@/components/onboarding-guide/use-onboarding-guide';
 import type { OnboardingHintsState } from '@/data/core';
 
 // Fired once after the first successful agent edit (agentic mode only).
@@ -42,9 +39,7 @@ function sameMutationKey( key: unknown ): boolean {
  * App-wide onboarding watchers. Mounted once, above the router:
  * - completes "make a change with chat" on the first successful agent run and
  *   fires the one-shot publish coachmark;
- * - completes "publish" when a push to WordPress.com succeeds;
- * - restores the getting-started checklist when the user picks Help ▸ Getting
- *   Started in the application menu.
+ * - completes "publish" when a push to WordPress.com succeeds.
  */
 export function useOnboardingEvents(): void {
 	const connector = useConnector();
@@ -53,7 +48,6 @@ export function useOnboardingEvents(): void {
 	const agentic = useAgenticFeatures();
 	const { data: hints } = useOnboardingHints();
 	const { active, showCoachmark } = useCoachmarks();
-	const { openGuide } = useOnboardingGuide();
 
 	// Kept in refs so the subscriptions below survive re-renders without
 	// resubscribing, while still reading the latest gate/hints/active values.
@@ -61,14 +55,12 @@ export function useOnboardingEvents(): void {
 	const hintsRef = useRef< OnboardingHintsState | undefined >( hints );
 	const hasActiveRef = useRef( active !== null );
 	const showCoachmarkRef = useRef( showCoachmark );
-	const openGuideRef = useRef< OpenGuide >( openGuide );
 	useEffect( () => {
 		agenticEnabledRef.current = agentic.chatEnabled;
 		hintsRef.current = hints;
 		hasActiveRef.current = active !== null;
 		showCoachmarkRef.current = showCoachmark;
-		openGuideRef.current = openGuide;
-	}, [ agentic.chatEnabled, hints, active, showCoachmark, openGuide ] );
+	}, [ agentic.chatEnabled, hints, active, showCoachmark ] );
 
 	// First successful agent run → complete the checklist item, and (agentic
 	// only) fire the publish coachmark once.
@@ -141,29 +133,6 @@ export function useOnboardingEvents(): void {
 			}
 		} );
 	}, [ queryClient, connector ] );
-
-	// Help ▸ Getting Started → reopen the orientation guide (the visible
-	// "start over"), and restore the checklist so it's waiting afterward.
-	useEffect( () => {
-		return connector.onShowGettingStarted( () => {
-			void writeOnboardingHints( connector, queryClient, {
-				checklistDismissed: false,
-				checklistMinimized: false,
-			} );
-			const variant = agenticEnabledRef.current ? 'agentic' : 'overview';
-			openGuideRef.current( variant, {
-				onEnd: ( reason ) => {
-					void writeOnboardingHints(
-						connector,
-						queryClient,
-						reason === 'completed'
-							? { tourCompletedVersion: ORIENTATION_GUIDE_VERSION }
-							: { tourDismissedVersion: ORIENTATION_GUIDE_VERSION }
-					);
-				},
-			} );
-		} );
-	}, [ connector, queryClient ] );
 }
 
 const OVERVIEW_PATH = /^\/sites\/[^/]+\/overview\b/;

@@ -10,7 +10,7 @@ import {
 } from '@/data/queries/use-onboarding-hints';
 import { useSites } from '@/data/queries/use-sites';
 import { deriveChecklistItems, getChecklistItems, isChecklistComplete } from './checklist';
-import { ORIENTATION_GUIDE_VERSION } from './orientation-guide';
+import { getOrientationGuide, ORIENTATION_GUIDE_VERSION } from './orientation-guide';
 import type { ChecklistItemId } from '@/data/core';
 import type { ChecklistMessage } from '@/data/queries/use-app-messages';
 
@@ -87,7 +87,6 @@ export function useGettingStartedMessage(): ChecklistMessage | null {
 	const items = deriveChecklistItems( defs, hints );
 	const allComplete = isChecklistComplete( items );
 	const completedCount = items.filter( ( item ) => item.completed ).length;
-	const variant = agentic.chatEnabled ? 'agentic' : 'overview';
 
 	return {
 		kind: 'checklist',
@@ -107,15 +106,21 @@ export function useGettingStartedMessage(): ChecklistMessage | null {
 		// Reopens the guide without re-arming auto-start: the persisted version
 		// stays put, so this manual replay is the only effect.
 		onReplayTour: () =>
-			openGuide( variant, {
-				onEnd: ( reason ) => {
-					if ( reason === 'completed' ) {
-						setHints.mutate( { tourCompletedVersion: ORIENTATION_GUIDE_VERSION } );
-					} else {
-						setHints.mutate( { tourDismissedVersion: ORIENTATION_GUIDE_VERSION } );
-					}
-				},
-			} ),
+			openGuide(
+				getOrientationGuide( {
+					migrating: hints.migratedFromClassic ?? false,
+					chatEnabled: agentic.chatEnabled,
+				} ),
+				{
+					onEnd: ( reason ) => {
+						if ( reason === 'completed' ) {
+							setHints.mutate( { tourCompletedVersion: ORIENTATION_GUIDE_VERSION } );
+						} else {
+							setHints.mutate( { tourDismissedVersion: ORIENTATION_GUIDE_VERSION } );
+						}
+					},
+				}
+			),
 		onToggleMinimized: () =>
 			setHints.mutate( { checklistMinimized: ! ( hints.checklistMinimized === true ) } ),
 		onDismiss: () => setHints.mutate( { checklistDismissed: true } ),

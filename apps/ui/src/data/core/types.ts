@@ -714,6 +714,16 @@ export interface Connector {
 	// (desktop only). No-ops where there's no OS menu.
 	onShowGettingStarted( listener: () => void ): () => void;
 
+	// Fires when the user picks Help ▸ What's New in the application menu
+	// (desktop only). No-ops where there's no OS menu.
+	onShowWhatsNew( listener: () => void ): () => void;
+
+	// App version the user last dismissed the What's New announcements on. The
+	// same value the classic renderer reads, so the two UIs never show the same
+	// announcements twice.
+	getLastSeenVersion(): Promise< string | undefined >;
+	saveLastSeenVersion( version: string ): Promise< void >;
+
 	// App updates (desktop only). Hosted returns an inert status and no-op
 	// subscribe/install so the messaging layer can call these unconditionally.
 	getAppUpdateStatus(): Promise< AppUpdateStatus >;
@@ -758,6 +768,10 @@ export interface OnboardingHintsState {
 	// user already had sites when they first reached the app (so the checklist
 	// drops "create your first site" and swaps publish for finding sync controls).
 	returningUser?: boolean;
+	// True when the user reached the agentic workbench by opting in from classic
+	// Studio (vs a fresh install that starts here). Drives the guide's first-page
+	// "Welcome to WordPress Studio 2.0" migrating copy.
+	migratedFromClassic?: boolean;
 }
 
 export interface SkillStatus {

@@ -1323,6 +1323,18 @@ export function createIpcConnector(): Connector {
 			await ipcApi.disableAgenticUi();
 		},
 
+		onShowWhatsNew( listener ) {
+			return ipcListener.subscribe( 'show-whats-new', () => listener() );
+		},
+
+		async getLastSeenVersion() {
+			return ipcApi.getLastSeenVersion();
+		},
+
+		async saveLastSeenVersion( version ) {
+			await ipcApi.saveLastSeenVersion( version );
+		},
+
 		async getAppUpdateStatus() {
 			return ipcApi.getAppUpdateStatus();
 		},

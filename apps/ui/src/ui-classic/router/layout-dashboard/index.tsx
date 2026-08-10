@@ -9,6 +9,9 @@ import { SidebarLayout } from '@/components/sidebar-layout';
 import { SitePreview } from '@/components/site-preview';
 import { useOnboardingRouteEvents } from '@/data/onboarding/use-onboarding-events';
 import { useOrientationAutostart } from '@/data/onboarding/use-orientation-autostart';
+import { useOrientationReplay } from '@/data/onboarding/use-orientation-replay';
+import { useWhatsNewAutostart } from '@/data/onboarding/use-whats-new-autostart';
+import { useWhatsNewReplay } from '@/data/onboarding/use-whats-new-replay';
 import { useSession, useSessionEffectiveEnvironment } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
 import {
@@ -65,13 +68,17 @@ function DashboardLayoutContent() {
 	const { sessionId, overviewSiteId, newSessionSiteId } = routePreviewContext;
 	const { data: sites } = useSites();
 	const { data: sessionData } = useSession( sessionId );
+	// Open the orientation guide on first workbench arrival, and let Help ▸
+	// Getting Started replay it.
+	useOrientationAutostart();
+	useOrientationReplay();
+	// Same, for the per-release announcements behind Help ▸ What's New.
+	useWhatsNewAutostart();
+	useWhatsNewReplay();
+	useOnboardingRouteEvents();
 	const preview = useSessionPreviewUI();
 	const previewConsole = useSessionPreviewConsoleUI();
 	const setPreviewOpen = preview.setOpen;
-	// Open the preview when the orientation tour starts so its final step's
-	// anchor lays out (the overview route already opens it on its own).
-	useOrientationAutostart();
-	useOnboardingRouteEvents();
 	const setPreviewFullscreen = preview.setFullscreen;
 	const setPreviewSite = preview.setSite;
 	const updatePreviewPath = preview.updatePath;

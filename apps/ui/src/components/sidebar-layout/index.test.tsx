@@ -13,6 +13,10 @@ vi.mock( '@/components/app-message-cards', () => ( {
 	AppMessageCardsDot: () => null,
 } ) );
 
+vi.mock( '@/components/studio-beta-menu', () => ( {
+	StudioBetaMenu: () => null,
+} ) );
+
 vi.mock( '@/components/site-list', () => ( {
 	SiteList: () => <nav aria-label="Sites" />,
 } ) );

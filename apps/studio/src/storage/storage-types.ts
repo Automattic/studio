@@ -86,6 +86,7 @@ export interface OnboardingHintsState {
 	completedItems?: Record< string, string >;
 	publishCoachmarkShown?: boolean;
 	returningUser?: boolean;
+	migratedFromClassic?: boolean;
 }
 
 export const EMPTY_USER_DATA: UserData = {

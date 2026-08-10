@@ -380,6 +380,51 @@ export async function getWapuuScore(): Promise< number | undefined > {
 	return userData.wapuuScore;
 }
 
+// Agentic UI onboarding state (orientation guide, getting-started checklist,
+// and migration marker).
+// The blob is opaque to the desktop; the renderer owns its meaning.
+export async function getOnboardingHints(): Promise< OnboardingHintsState > {
+	const userData = await loadUserData();
+	return userData.onboardingHints ?? {};
+}
+
+async function persistOnboardingHints( partial: Partial< OnboardingHintsState > ): Promise< void > {
+	if ( ! partial || typeof partial !== 'object' ) {
+		return;
+	}
+	await lockAppdata();
+	try {
+		const userData = await loadUserData();
+		const current = userData.onboardingHints ?? {};
+		const merged: OnboardingHintsState = {
+			...current,
+			...partial,
+			completedItems: {
+				...( current.completedItems ?? {} ),
+				...( partial.completedItems ?? {} ),
+			},
+		};
+		await saveUserData( { ...userData, onboardingHints: merged } );
+	} finally {
+		await unlockAppdata();
+	}
+}
+
+export async function saveOnboardingHints(
+	_event: IpcMainInvokeEvent,
+	partial: Partial< OnboardingHintsState >
+): Promise< void > {
+	await persistOnboardingHints( partial );
+}
+
+// Marks that the user reached the agentic workbench by opting in from classic
+// Studio, so the orientation guide can greet them as a migrating user. Fresh
+// installs get the agentic UI seeded on by default (migration 09) and never
+// hit this path, so they stay "new".
+export async function recordAgenticUiMigration(): Promise< void > {
+	await persistOnboardingHints( { migratedFromClassic: true } );
+}
+
 export async function getGlobalAgentInstructions( _event: IpcMainInvokeEvent ): Promise< string > {
 	return ( await readGlobalInstructionsFile() ) ?? '';
 }
@@ -413,41 +458,6 @@ export async function dismissMessage( _event: IpcMainInvokeEvent, id: string ): 
 		await unlockAppdata();
 	}
 }
-
-// Agentic UI onboarding state (orientation tour, getting-started checklist).
-// The blob is opaque to the desktop; the renderer owns its meaning.
-export async function getOnboardingHints(): Promise< OnboardingHintsState > {
-	const userData = await loadUserData();
-	return userData.onboardingHints ?? {};
-}
-
-export async function saveOnboardingHints(
-	_event: IpcMainInvokeEvent,
-	partial: Partial< OnboardingHintsState >
-): Promise< void > {
-	if ( ! partial || typeof partial !== 'object' ) {
-		return;
-	}
-	await lockAppdata();
-	try {
-		const userData = await loadUserData();
-		const current = userData.onboardingHints ?? {};
-		// Shallow-merge, but merge completedItems by key so concurrent item
-		// completions never clobber one another.
-		const merged: OnboardingHintsState = {
-			...current,
-			...partial,
-			completedItems: {
-				...( current.completedItems ?? {} ),
-				...( partial.completedItems ?? {} ),
-			},
-		};
-		await saveUserData( { ...userData, onboardingHints: merged } );
-	} finally {
-		await unlockAppdata();
-	}
-}
-
 export function showUserSettings( event: IpcMainInvokeEvent, tabName?: UserSettingsTabName ) {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	sendIpcEventToRendererWithWindow( parentWindow, 'user-settings', { tabName } );

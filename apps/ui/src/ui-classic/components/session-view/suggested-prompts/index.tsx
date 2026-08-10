@@ -7,6 +7,8 @@ import styles from './style.module.css';
 import type { CSSProperties } from 'react';
 
 interface SuggestedPromptsProps {
+	// Fade in on appearance (entitlement check just resolved).
+	fadeIn?: boolean;
 	siteName: string;
 	// Drops the prompt into the composer (focused) — the user sends it.
 	onPick: ( prompt: string ) => void;
@@ -31,7 +33,13 @@ interface PromptTransfer {
 // Plain-text starter prompts floating under the empty-state logo. One action:
 // click to load the prompt into the composer, ready to tweak or send. A fresh
 // sample rotates in per mount (memo keeps it stable across re-renders).
-export function SuggestedPrompts( { siteName, onPick, getDraft }: SuggestedPromptsProps ) {
+export function SuggestedPrompts( {
+	fadeIn = false,
+	siteName,
+	onPick,
+	getDraft,
+}: SuggestedPromptsProps ) {
+	const fadeClass = fadeIn ? styles.fadeIn : undefined;
 	const prompts = useMemo( () => getSuggestedPrompts( siteName ), [ siteName ] );
 	const tooltipLabels = [
 		__( 'Start with this idea' ),
@@ -99,12 +107,20 @@ export function SuggestedPrompts( { siteName, onPick, getDraft }: SuggestedPromp
 			<div className={ styles.group }>
 				{ /* Stacked backdrop-blur layers with shrinking radial masks — the
 				     progressive-blur technique (see components/progressive-blur) —
-				     so the frost ramps up smoothly instead of cutting a hard edge. */ }
-				<span className={ clsx( styles.frost, styles.frostSoft ) } aria-hidden="true" />
-				<span className={ clsx( styles.frost, styles.frostMedium ) } aria-hidden="true" />
-				<span className={ clsx( styles.frost, styles.frostStrong ) } aria-hidden="true" />
-				<span className={ clsx( styles.frost, styles.frostIntense ) } aria-hidden="true" />
-				<ul className={ styles.list }>
+				     so the frost ramps up smoothly instead of cutting a hard edge.
+				     The fade class goes on each layer and the list, never on an
+				     ancestor: ancestor opacity forms a backdrop root and disables
+				     the frost's backdrop-filter. */ }
+				{ [ styles.frostSoft, styles.frostMedium, styles.frostStrong, styles.frostIntense ].map(
+					( frost ) => (
+						<span
+							key={ frost }
+							className={ clsx( styles.frost, frost, fadeClass ) }
+							aria-hidden="true"
+						/>
+					)
+				) }
+				<ul className={ clsx( styles.list, fadeClass ) }>
 					{ prompts.map( ( item, index ) => (
 						<li key={ item.id }>
 							<Tooltip.Root>

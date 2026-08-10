@@ -13,6 +13,7 @@ export type {
 	InstalledApps,
 	LocalMediaFile,
 	LoadedAiSession,
+	OnboardingHintsState,
 	ProposedSitePath,
 	PullSiteProgress,
 	QuitSitesBehavior,

@@ -1,4 +1,5 @@
 import { Autocomplete } from '@base-ui/react/autocomplete';
+import { TRACKS_EVENTS, type TracksEventName } from '@studio/common/lib/record-tracks-event';
 import { __ } from '@wordpress/i18n';
 import { globe, help, home, page as pageIcon, post as postIcon, wordpress } from '@wordpress/icons';
 import { ariaKeyShortcut, displayShortcut } from '@wordpress/keycodes';
@@ -62,6 +63,19 @@ export function getPreviewRealm( path: string ): PreviewRealm {
 		return 'database';
 	}
 	return 'frontend';
+}
+
+// The site-open Tracks event that corresponds to a preview realm. Shared by the preview realm
+// switcher (which sends `browser: 'internal'`) and the "open in browser" button (`external`), so both
+// describe the same destination the same way.
+const REALM_OPEN_EVENTS: Record< PreviewRealm, TracksEventName > = {
+	frontend: TRACKS_EVENTS.SITE_OPEN_IN_BROWSER,
+	admin: TRACKS_EVENTS.SITE_OPEN_WP_ADMIN,
+	database: TRACKS_EVENTS.SITE_OPEN_PHPMYADMIN,
+};
+
+export function getRealmOpenEvent( realm: PreviewRealm ): TracksEventName {
+	return REALM_OPEN_EVENTS[ realm ];
 }
 
 /**

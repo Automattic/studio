@@ -5,6 +5,7 @@ import { isWordPressDirectory, recursiveCopyDirectory } from '@studio/common/lib
 import {
 	BackupExtractEvents,
 	ImporterEvents,
+	ImporterType,
 	ImportEventTuple,
 	ImportIpcEvent,
 	ValidatorEvents,
@@ -24,7 +25,8 @@ import { ImportExportEventEmitter } from 'cli/lib/import-export/events';
 import { DEFAULT_IMPORTER_OPTIONS, getImporter } from 'cli/lib/import-export/import/import-manager';
 import { getBackupFileType } from 'cli/lib/import-export/utils';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
-import { untildify } from 'cli/lib/utils';
+import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
+import { classifyImportFailure, untildify } from 'cli/lib/utils';
 import {
 	isServerRunning,
 	startWordPressServer,
@@ -258,12 +260,15 @@ export function handleImportEvents( emitter: ImportExportEventEmitter ): void {
 export async function runCommand(
 	siteFolder: string,
 	importFile: string,
-	alwaysStartServer = false
+	alwaysStartServer = false,
+	suppressTracksEvent = false
 ): Promise< void > {
+	const startedAt = Date.now();
 	let site: SiteData | undefined;
 	let wasServerRunning = false;
 	let importError: unknown;
 	let restartSiteError: unknown;
+	let importerType: ImporterType | undefined;
 
 	try {
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
@@ -299,6 +304,9 @@ export async function runCommand(
 			{ path: importFile, type: getBackupFileType( importFile ) },
 			DEFAULT_IMPORTER_OPTIONS
 		);
+		importer.on( ImporterEvents.IMPORT_START, ( type ) => {
+			importerType = type;
+		} );
 		if ( process.send ) {
 			handleImportIpc( importer );
 		} else {
@@ -340,6 +348,25 @@ export async function runCommand(
 		}
 	}
 
+	// Record before the LoggerError merge below — merging the restart error into `previousError`
+	// would corrupt the failure classification, which reads the import error's message.
+	if ( ! suppressTracksEvent ) {
+		await recordSiteImportEvent(
+			importError === undefined
+				? {
+						success: true,
+						importer_type: importerType ?? 'unknown',
+						time_ms: Date.now() - startedAt,
+				  }
+				: {
+						success: false,
+						importer_type: importerType ?? 'unknown',
+						failure_reason: classifyImportFailure( importError ),
+						time_ms: Date.now() - startedAt,
+				  }
+		);
+	}
+
 	if ( importError instanceof LoggerError && restartSiteError instanceof Error ) {
 		importError.previousError = restartSiteError;
 	}
@@ -350,6 +377,22 @@ export async function runCommand(
 
 	if ( restartSiteError instanceof Error ) {
 		throw restartSiteError;
+	}
+}
+
+async function recordSiteImportEvent( props: {
+	success: boolean;
+	importer_type: string;
+	failure_reason?: string;
+	time_ms: number;
+} ): Promise< void > {
+	try {
+		await recordTracksEvent( TRACKS_EVENTS.SITE_IMPORT, {
+			...props,
+			...getTracksOrigin(),
+		} );
+	} catch {
+		// Best-effort telemetry — never block or fail the import.
 	}
 }
 
@@ -372,11 +415,16 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					type: 'boolean',
 					default: false,
 					hidden: true,
+				} )
+				.option( 'suppress-tracks-event', {
+					type: 'boolean',
+					default: false,
+					hidden: true,
 				} );
 		},
 		handler: async ( argv ) => {
 			try {
-				await runCommand( argv.path, argv.importFile, argv.startServer );
+				await runCommand( argv.path, argv.importFile, argv.startServer, argv.suppressTracksEvent );
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {
 					logger.reportError( error );

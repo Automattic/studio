@@ -33,6 +33,73 @@ export function classifyPreviewFailure( error: unknown ): string {
 	return 'unknown';
 }
 
+// Coarse classification of a site import failure for the `failure_reason` Tracks prop. Same
+// constraints as `classifyPreviewFailure`: never send the raw message (carries file paths).
+// In standalone-logger mode errors arrive as `LoggerError` wrappers whose `.message` getter
+// appends the inner error's message, so inner-message substrings still match.
+export function classifyImportFailure( error: unknown ): string {
+	const message = error instanceof Error ? error.message : String( error );
+	const normalized = message.toLowerCase();
+	// Must precede the `file_not_found` check — this message also contains "not found".
+	if ( normalized.includes( 'bundled wordpress files not found' ) ) {
+		return 'bundled_wp_missing';
+	}
+	if ( normalized.includes( 'not found' ) || normalized.includes( 'could not be found' ) ) {
+		return 'file_not_found';
+	}
+	if ( normalized.includes( 'no suitable backup handler' ) ) {
+		return 'no_backup_handler';
+	}
+	if ( normalized.includes( 'no suitable importer' ) ) {
+		return 'no_importer_found';
+	}
+	if ( normalized.includes( 'backup validation failed' ) ) {
+		return 'validation';
+	}
+	if ( normalized.includes( 'absolute path' ) ) {
+		return 'invalid_zip';
+	}
+	if ( normalized.includes( 'failed to extract' ) ) {
+		return 'extract';
+	}
+	if ( normalized.includes( 'database import failed' ) ) {
+		return 'database_import';
+	}
+	if ( normalized.includes( 'wordpress export import failed' ) ) {
+		return 'wxr_import';
+	}
+	if ( normalized.includes( 'enospc' ) || normalized.includes( 'no space left' ) ) {
+		return 'disk_full';
+	}
+	return 'unknown';
+}
+
+// Coarse classification of a site export failure for the `failure_reason` Tracks prop.
+export function classifyExportFailure( error: unknown ): string {
+	const message = error instanceof Error ? error.message : String( error );
+	const normalized = message.toLowerCase();
+	if ( normalized.includes( 'no suitable exporter' ) ) {
+		return 'no_exporter_found';
+	}
+	if (
+		normalized.includes( 'database export failed' ) ||
+		normalized.includes( 'database tables to export' )
+	) {
+		return 'database_export';
+	}
+	if (
+		normalized.includes( 'failed to get site plugins' ) ||
+		normalized.includes( 'failed to get site themes' ) ||
+		normalized.includes( 'meta.json' )
+	) {
+		return 'site_meta';
+	}
+	if ( normalized.includes( 'enospc' ) || normalized.includes( 'no space left' ) ) {
+		return 'disk_full';
+	}
+	return 'unknown';
+}
+
 export function normalizeHostname( hostname: string ): string {
 	return hostname
 		.trim()

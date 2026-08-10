@@ -126,6 +126,16 @@ where the sender actually runs — see Testing below for what fires in which bui
   standalone — `channel`/`ui_version` resolve from `STUDIO_TRACKS_ORIGIN` exactly as for
   `studio_site_start`. The **`studio_preview_site_open`** event is the exception: opening a preview URL is
   a renderer-only affordance with no CLI equivalent, so it fires from the renderer.
+- **`studio_site_imported`/`studio_site_exported`** are emitted **only** by the CLI, from the `import`
+  and `export` commands (`apps/cli/commands/import.ts`, `apps/cli/commands/export.ts`). The desktop
+  Import/Export tab, the agentic UI's export buttons, and standalone-CLI runs all funnel there —
+  `channel`/`ui_version` resolve from `STUDIO_TRACKS_ORIGIN` exactly as for `studio_site_start`. The
+  events deliberately mean **a user imported/exported a backup**: paths that reuse the same CLI
+  commands as an implementation detail — add-site-flow imports (Classic add-site, agentic onboarding
+  import, browser-UI import route), sync-pull imports, and sync-push exports — pass a hidden
+  `--suppress-tracks-event` flag and emit nothing. An aborted sync export also emits nothing (the CLI
+  process is SIGTERM'd before it can record). Runs in parallel with the MC Stats import/export
+  counters for now.
 - **Renderer-originated events** (future) go through the `recordAnalyticsEvent` IPC handler
   (`apps/studio/src/ipc-handlers.ts`). Both renderers share the same Main single entry point, and the
   desktop wrapper's `commonProps()` attaches `channel`/`ui_version` centrally — the `ui_version` is
@@ -221,6 +231,20 @@ enumerated prop values below.
 | `studio_site_open_phpmyadmin` | Renderer (Classic + agentic) | `browser` (`external`/`internal`) |
 | `studio_site_open_folder` | Renderer (Classic + agentic) | (none — opens the OS file manager) |
 | `studio_panel_opened` | Renderer (Classic tab strip + agentic route navigation) | `panel` — the panel opened. Classic: `overview`/`sync`/`settings`/`assistant`/`import-export`/`previews` (only on a genuine user tab switch, not programmatic changes or re-selecting the current tab). Agentic: `overview`/`settings`/`debugging`/`assistant` (`sync`/`import-export`/`previews` are Classic-only). |
+
+#### Import/export events
+
+Backup import/export, emitted by the **CLI** `import`/`export` commands (the sole funnel — the desktop
+and agentic UI delegate to the CLI, so standalone-CLI usage is counted too; filter by `channel`). Both
+events mean a **user-initiated** backup operation: add-site-flow imports, sync-pull imports, and
+sync-push exports suppress the event via a hidden `--suppress-tracks-event` flag (see "Which surface
+emits what"). No file names or paths are ever sent. `failure_reason` is coarse and low-cardinality
+(the raw error is never sent — it can carry filesystem paths).
+
+| Event | Emitted from | Event-specific props |
+|---|---|---|
+| `studio_site_imported` | CLI `import` | `success` (boolean), `importer_type` (`jetpack`/`local`/`playground`/`sql`/`wpress`/`xml`, or `unknown` when the failure occurred before an importer started), `time_ms` (total command duration, incl. the server restart). On failure also `failure_reason` (`file_not_found`/`no_backup_handler`/`no_importer_found`/`validation`/`invalid_zip`/`extract`/`database_import`/`wxr_import`/`bundled_wp_missing`/`disk_full`/`unknown`). |
+| `studio_site_exported` | CLI `export` | `success` (boolean), `export_type` (`full`/`db` — the `--mode` flag; the sync-only `content` mode never emits because sync pushes are suppressed), `time_ms` (export duration). On failure also `failure_reason` (`no_exporter_found`/`database_export`/`site_meta`/`disk_full`/`unknown`). |
 
 #### Preview site events
 

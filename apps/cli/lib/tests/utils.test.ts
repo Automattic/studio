@@ -1,5 +1,11 @@
 import os from 'node:os';
-import { getPrettyPath, normalizeHostname } from 'cli/lib/utils';
+import {
+	classifyExportFailure,
+	classifyImportFailure,
+	getPrettyPath,
+	normalizeHostname,
+} from 'cli/lib/utils';
+import { LoggerError } from 'cli/logger';
 
 describe( 'normalizeHostname', () => {
 	it( 'should normalize a basic hostname', () => {
@@ -82,5 +88,61 @@ describe( 'getPrettyPath', () => {
 		expect( getPrettyPath( 'C:\\Users\\george\\Studio\\index.php' ) ).toBe(
 			'C:\\Users\\george\\Studio\\index.php'
 		);
+	} );
+} );
+
+describe( 'classifyImportFailure', () => {
+	it.each( [
+		[
+			'Cannot set up WordPress. Bundled WordPress files not found. Please connect to the internet or reinstall Studio.',
+			'bundled_wp_missing',
+		],
+		[ 'Import file not found: /tmp/backup.zip', 'file_not_found' ],
+		[ 'Input file at location "/tmp/backup.wpress" could not be found.', 'file_not_found' ],
+		[ 'No suitable backup handler found for the provided backup file', 'no_backup_handler' ],
+		[ 'No suitable importer found for the provided backup contents', 'no_importer_found' ],
+		[ 'Backup validation failed', 'validation' ],
+		[ 'Error: absolute path: /wp-content/index.php', 'invalid_zip' ],
+		[ 'Failed to extract backup', 'extract' ],
+		[ 'Database import failed: unexpected token', 'database_import' ],
+		[ 'WordPress export import failed', 'wxr_import' ],
+		[ 'ENOSPC: no space left on device', 'disk_full' ],
+		[ 'Something else entirely', 'unknown' ],
+	] )( 'classifies %j as %s', ( message, expected ) => {
+		expect( classifyImportFailure( new Error( message ) ) ).toBe( expected );
+	} );
+
+	it( 'classifies the inner error of a LoggerError wrapper', () => {
+		const error = new LoggerError( 'Import failed', new Error( 'Database import failed: x' ) );
+		expect( classifyImportFailure( error ) ).toBe( 'database_import' );
+	} );
+
+	it( 'handles non-Error input', () => {
+		expect( classifyImportFailure( 'no suitable importer available' ) ).toBe( 'no_importer_found' );
+		expect( classifyImportFailure( undefined ) ).toBe( 'unknown' );
+	} );
+} );
+
+describe( 'classifyExportFailure', () => {
+	it.each( [
+		[ 'No suitable exporter found for the provided backup file', 'no_exporter_found' ],
+		[ 'Database export failed', 'database_export' ],
+		[ 'Failed to get database tables to export', 'database_export' ],
+		[ 'Failed to get site plugins', 'site_meta' ],
+		[ 'Failed to get site themes', 'site_meta' ],
+		[ 'Could not write meta.json', 'site_meta' ],
+		[ 'ENOSPC: no space left on device', 'disk_full' ],
+		[ 'Something else entirely', 'unknown' ],
+	] )( 'classifies %j as %s', ( message, expected ) => {
+		expect( classifyExportFailure( new Error( message ) ) ).toBe( expected );
+	} );
+
+	it( 'classifies the inner error of a LoggerError wrapper', () => {
+		const error = new LoggerError( 'Export failed', new Error( 'Database export failed' ) );
+		expect( classifyExportFailure( error ) ).toBe( 'database_export' );
+	} );
+
+	it( 'handles non-Error input', () => {
+		expect( classifyExportFailure( undefined ) ).toBe( 'unknown' );
 	} );
 } );

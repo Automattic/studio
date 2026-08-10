@@ -948,6 +948,18 @@ export function createIpcConnector(): Connector {
 			return ipcListener.subscribe( 'show-getting-started', () => listener() );
 		},
 
+		onShowWhatsNew( listener ) {
+			return ipcListener.subscribe( 'show-whats-new', () => listener() );
+		},
+
+		async getLastSeenVersion() {
+			return ipcApi.getLastSeenVersion();
+		},
+
+		async saveLastSeenVersion( version ) {
+			await ipcApi.saveLastSeenVersion( version );
+		},
+
 		async getAppUpdateStatus() {
 			return ipcApi.getAppUpdateStatus();
 		},

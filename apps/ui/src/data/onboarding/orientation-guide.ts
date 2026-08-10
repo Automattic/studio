@@ -1,4 +1,5 @@
 import { __ } from '@wordpress/i18n';
+import type { GuideDefinition, GuidePage } from './guide';
 
 // Bump to re-show the orientation guide to everyone who saw the previous
 // version (compared against OnboardingHintsState.tourCompletedVersion /
@@ -13,20 +14,6 @@ export const ORIENTATION_GUIDE_VERSION = 2;
 export interface OrientationVariant {
 	migrating: boolean;
 	chatEnabled: boolean;
-}
-
-export type OrientationIllustrationId = 'sites' | 'chat' | 'preview' | 'overview';
-
-export interface GuidePage {
-	illustration: OrientationIllustrationId;
-	title: () => string;
-	description: () => string;
-	// The advance button's label.
-	action: () => string;
-}
-
-export interface GuideDefinition {
-	pages: GuidePage[];
 }
 
 // Page 1 — the sidebar. Differs only by new vs migrating; a migrating user gets

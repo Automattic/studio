@@ -1,6 +1,6 @@
 import { clsx } from 'clsx';
 import styles from './style.module.css';
-import type { OrientationIllustrationId } from '@/data/onboarding/orientation-guide';
+import type { GuideIllustrationId } from '@/data/onboarding/guide';
 import type { CSSProperties, ReactNode } from 'react';
 
 // Shared building blocks for the illustration scenes. Motion is never baked in
@@ -10,7 +10,7 @@ import type { CSSProperties, ReactNode } from 'react';
 // The full-bleed header slot every illustration fills: a fixed aspect ratio so
 // the popup header keeps a stable height, and a positioning context for the
 // scene. Each scene owns its own background and (if needed) color-scheme scope.
-export function Stage( { id, children }: { id: OrientationIllustrationId; children: ReactNode } ) {
+export function Stage( { id, children }: { id: GuideIllustrationId; children: ReactNode } ) {
 	return (
 		<div className={ styles.stage } data-illustration={ id }>
 			{ children }

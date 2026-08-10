@@ -7,6 +7,17 @@ import {
 } from 'cli/lib/utils';
 import { LoggerError } from 'cli/logger';
 
+// The failure classifiers translate their known msgids at match time so they work against
+// localized error messages. This map lets individual tests install fake "translations".
+const translations: Record< string, string > = {};
+vi.mock( '@wordpress/i18n', async ( importActual ) => {
+	const actual = await importActual< typeof import('@wordpress/i18n') >();
+	return {
+		...actual,
+		__: ( text: string ) => translations[ text ] ?? text,
+	};
+} );
+
 describe( 'normalizeHostname', () => {
 	it( 'should normalize a basic hostname', () => {
 		expect( normalizeHostname( 'example.com' ) ).toBe( 'example.com' );
@@ -105,7 +116,7 @@ describe( 'classifyImportFailure', () => {
 		[ 'Error: absolute path: /wp-content/index.php', 'invalid_zip' ],
 		[ 'Failed to extract backup', 'extract' ],
 		[ 'Database import failed: unexpected token', 'database_import' ],
-		[ 'WordPress export import failed', 'wxr_import' ],
+		[ 'WordPress export import failed: wp-cli stderr output', 'wxr_import' ],
 		[ 'ENOSPC: no space left on device', 'disk_full' ],
 		[ 'Database import failed: ENOSPC: no space left on device', 'disk_full' ],
 		[ 'Something else entirely', 'unknown' ],
@@ -118,8 +129,32 @@ describe( 'classifyImportFailure', () => {
 		expect( classifyImportFailure( error ) ).toBe( 'database_import' );
 	} );
 
+	it( 'classifies localized error messages', () => {
+		translations[ 'Database import failed: %s' ] = 'Datenbankimport fehlgeschlagen: %s';
+		translations[ 'No suitable importer found for the provided backup contents' ] =
+			'Kein passender Importer für die bereitgestellten Backup-Inhalte gefunden';
+		try {
+			expect(
+				classifyImportFailure( new Error( 'Datenbankimport fehlgeschlagen: FEHLER 123' ) )
+			).toBe( 'database_import' );
+			expect(
+				classifyImportFailure(
+					new Error( 'Kein passender Importer für die bereitgestellten Backup-Inhalte gefunden' )
+				)
+			).toBe( 'no_importer_found' );
+			// The English text no longer matches once a translation is active — same as at the
+			// throw site, which produces the translated message.
+			expect( classifyImportFailure( new Error( 'Database import failed: x' ) ) ).toBe( 'unknown' );
+		} finally {
+			delete translations[ 'Database import failed: %s' ];
+			delete translations[ 'No suitable importer found for the provided backup contents' ];
+		}
+	} );
+
 	it( 'handles non-Error input', () => {
-		expect( classifyImportFailure( 'no suitable importer available' ) ).toBe( 'no_importer_found' );
+		expect(
+			classifyImportFailure( 'No suitable importer found for the provided backup contents' )
+		).toBe( 'no_importer_found' );
 		expect( classifyImportFailure( undefined ) ).toBe( 'unknown' );
 	} );
 } );
@@ -128,10 +163,14 @@ describe( 'classifyExportFailure', () => {
 	it.each( [
 		[ 'No suitable exporter found for the provided backup file', 'no_exporter_found' ],
 		[ 'Database export failed', 'database_export' ],
-		[ 'Failed to get database tables to export', 'database_export' ],
-		[ 'Failed to get site plugins', 'site_meta' ],
-		[ 'Failed to get site themes', 'site_meta' ],
-		[ 'Could not write meta.json', 'site_meta' ],
+		[ 'Database export failed for table wp_posts', 'database_export' ],
+		[ 'Could not get list of database tables to export.', 'database_export' ],
+		[ 'Failed to get site plugins: wp-cli stderr output', 'site_meta' ],
+		[ 'Failed to get site themes: wp-cli stderr output', 'site_meta' ],
+		[
+			'Could not parse information about installed plugins to create meta.json file.',
+			'site_meta',
+		],
 		[ 'ENOSPC: no space left on device', 'disk_full' ],
 		[ 'ENOSPC: no space left on device, write meta.json', 'disk_full' ],
 		[ 'Something else entirely', 'unknown' ],

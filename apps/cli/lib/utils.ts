@@ -33,73 +33,87 @@ export function classifyPreviewFailure( error: unknown ): string {
 	return 'unknown';
 }
 
-// Coarse classification of a site import failure for the `failure_reason` Tracks prop. Same
-// constraints as `classifyPreviewFailure`: never send the raw message (carries file paths).
-// In standalone-logger mode errors arrive as `LoggerError` wrappers whose `.message` getter
-// appends the inner error's message, so inner-message substrings still match.
-export function classifyImportFailure( error: unknown ): string {
+// Import/export failure buckets for the `failure_reason` Tracks prop, keyed by the exact msgid used
+// at the throw site. These errors are thrown with `__()`-built messages in this same process, so
+// translating the msgid at classification time reproduces the exact localized string — matching
+// works regardless of the active locale (and falls back to English when no translation is loaded).
+// Ordered: the first matching msgid wins.
+const IMPORT_FAILURE_BUCKETS: Array< [ string, string ] > = [
+	[
+		'Cannot set up WordPress. Bundled WordPress files not found. Please connect to the internet or reinstall Studio.',
+		'bundled_wp_missing',
+	],
+	[ 'Import file not found: %s', 'file_not_found' ],
+	[ 'Input file at location "%s" could not be found.', 'file_not_found' ],
+	[ 'No suitable backup handler found for the provided backup file', 'no_backup_handler' ],
+	[ 'No suitable importer found for the provided backup contents', 'no_importer_found' ],
+	[ 'Backup validation failed', 'validation' ],
+	[ 'Failed to extract backup', 'extract' ],
+	[ 'Database import failed: %s', 'database_import' ],
+	[ 'WordPress export import failed: %s', 'wxr_import' ],
+];
+
+const EXPORT_FAILURE_BUCKETS: Array< [ string, string ] > = [
+	[ 'No suitable exporter found for the provided backup file', 'no_exporter_found' ],
+	[ 'Database export failed', 'database_export' ],
+	[ 'Database export failed for table %s', 'database_export' ],
+	[ 'Could not get list of database tables to export.', 'database_export' ],
+	[ 'Failed to get site plugins: %s', 'site_meta' ],
+	[ 'Failed to get site themes: %s', 'site_meta' ],
+	[ 'Could not parse information about installed plugins to create meta.json file.', 'site_meta' ],
+	[ 'Could not parse information about installed themes to create meta.json file.', 'site_meta' ],
+];
+
+// Translates the msgid, strips sprintf placeholders, and requires every remaining static chunk to
+// appear in the message. Chunk-based matching keeps this order-independent, so translations that
+// move the placeholder around still match.
+function matchesTranslatedMessage( normalizedMessage: string, msgid: string ): boolean {
+	const chunks = __( msgid )
+		.toLowerCase()
+		.split( /%(?:\d+\$)?[sd]/ )
+		.map( ( chunk ) => chunk.trim() )
+		.filter( ( chunk ) => chunk.length > 2 );
+	return chunks.length > 0 && chunks.every( ( chunk ) => normalizedMessage.includes( chunk ) );
+}
+
+function classifyFailureMessage(
+	error: unknown,
+	buckets: Array< [ string, string ] >,
+	untranslatedBuckets: Array< [ string[], string ] >
+): string {
 	const message = error instanceof Error ? error.message : String( error );
 	const normalized = message.toLowerCase();
-	// Checked first so a disk-full error during any phase wins over the phase's own bucket.
-	if ( normalized.includes( 'enospc' ) || normalized.includes( 'no space left' ) ) {
-		return 'disk_full';
+	for ( const [ substrings, bucket ] of untranslatedBuckets ) {
+		if ( substrings.some( ( substring ) => normalized.includes( substring ) ) ) {
+			return bucket;
+		}
 	}
-	// Must precede the `file_not_found` check — this message also contains "not found".
-	if ( normalized.includes( 'bundled wordpress files not found' ) ) {
-		return 'bundled_wp_missing';
-	}
-	if ( normalized.includes( 'not found' ) || normalized.includes( 'could not be found' ) ) {
-		return 'file_not_found';
-	}
-	if ( normalized.includes( 'no suitable backup handler' ) ) {
-		return 'no_backup_handler';
-	}
-	if ( normalized.includes( 'no suitable importer' ) ) {
-		return 'no_importer_found';
-	}
-	if ( normalized.includes( 'backup validation failed' ) ) {
-		return 'validation';
-	}
-	if ( normalized.includes( 'absolute path' ) ) {
-		return 'invalid_zip';
-	}
-	if ( normalized.includes( 'failed to extract' ) ) {
-		return 'extract';
-	}
-	if ( normalized.includes( 'database import failed' ) ) {
-		return 'database_import';
-	}
-	if ( normalized.includes( 'wordpress export import failed' ) ) {
-		return 'wxr_import';
+	for ( const [ msgid, bucket ] of buckets ) {
+		if ( matchesTranslatedMessage( normalized, msgid ) ) {
+			return bucket;
+		}
 	}
 	return 'unknown';
 }
 
+// Coarse classification of a site import failure for the `failure_reason` Tracks prop. Same
+// constraints as `classifyPreviewFailure`: never send the raw message (carries file paths).
+// In standalone-logger mode errors arrive as `LoggerError` wrappers whose `.message` getter
+// appends the inner error's message, so inner-message matching still works. System/library
+// errors (ENOSPC, unzipper) are never translated and are matched first, so a disk-full error
+// during any phase wins over the phase's own bucket.
+export function classifyImportFailure( error: unknown ): string {
+	return classifyFailureMessage( error, IMPORT_FAILURE_BUCKETS, [
+		[ [ 'enospc', 'no space left' ], 'disk_full' ],
+		[ [ 'absolute path' ], 'invalid_zip' ],
+	] );
+}
+
 // Coarse classification of a site export failure for the `failure_reason` Tracks prop.
 export function classifyExportFailure( error: unknown ): string {
-	const message = error instanceof Error ? error.message : String( error );
-	const normalized = message.toLowerCase();
-	// Checked first so a disk-full error during any phase wins over the phase's own bucket.
-	if ( normalized.includes( 'enospc' ) || normalized.includes( 'no space left' ) ) {
-		return 'disk_full';
-	}
-	if ( normalized.includes( 'no suitable exporter' ) ) {
-		return 'no_exporter_found';
-	}
-	if (
-		normalized.includes( 'database export failed' ) ||
-		normalized.includes( 'database tables to export' )
-	) {
-		return 'database_export';
-	}
-	if (
-		normalized.includes( 'failed to get site plugins' ) ||
-		normalized.includes( 'failed to get site themes' ) ||
-		normalized.includes( 'meta.json' )
-	) {
-		return 'site_meta';
-	}
-	return 'unknown';
+	return classifyFailureMessage( error, EXPORT_FAILURE_BUCKETS, [
+		[ [ 'enospc', 'no space left' ], 'disk_full' ],
+	] );
 }
 
 export function normalizeHostname( hostname: string ): string {

@@ -35,8 +35,7 @@
 	/* Fixed so it stays in the corner while the page scrolls; above the
 	   footer scrim/actions (z-index 5/6). */
 	position: fixed;
-	/* Below the window-controls band on Windows/Linux (0px elsewhere). */
-	top: calc(var(--app-titlebar-height, 0px) + 16px);
+	top: 16px;
 	inset-inline-end: 16px;
 	z-index: 7;
 }

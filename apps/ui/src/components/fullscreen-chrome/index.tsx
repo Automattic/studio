@@ -3,6 +3,7 @@ import { close } from '@wordpress/icons';
 import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useWindowControlsOverlay } from '@/hooks/use-window-controls-overlay';
+import { useWindowControlsSurface } from '@/hooks/use-window-controls-surface';
 import styles from './style.module.css';
 
 interface FullscreenChromeProps {
@@ -27,6 +28,8 @@ interface FullscreenChromeProps {
  */
 export function FullscreenChrome( { onClose, closeLabel, closeDisabled }: FullscreenChromeProps ) {
 	const closeAtStart = useWindowControlsOverlay() !== null;
+	// This view covers the window chrome the controls normally sit on.
+	useWindowControlsSurface( 'content' );
 	return (
 		<>
 			<div aria-hidden="true">

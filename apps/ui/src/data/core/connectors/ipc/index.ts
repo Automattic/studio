@@ -881,6 +881,10 @@ export function createIpcConnector(): Connector {
 		// space for them); Windows and Linux don't.
 		reservesTrafficLightSpace: isMacOS,
 
+		async setWindowControlsColors( colors ) {
+			await ipcApi.setWindowControlsColors( colors );
+		},
+
 		async isFullscreen(): Promise< boolean > {
 			return ipcApi.isFullscreen();
 		},

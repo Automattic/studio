@@ -1,7 +1,5 @@
 .root {
-	/* Starts below the window-controls band on Windows/Linux (0px elsewhere). */
-	margin-block-start: var(--app-titlebar-height, 0px);
-	height: calc(100vh - var(--app-titlebar-height, 0px));
+	height: 100vh;
 	position: relative;
 	overflow-y: auto;
 	isolation: isolate;

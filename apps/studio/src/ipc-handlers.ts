@@ -102,7 +102,12 @@ import {
 } from '@studio/common/sites/blueprint-extract';
 import { measureSiteStorage, type SiteStorageUsage } from '@studio/common/sites/storage-usage';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
-import { MACOS_TRAFFIC_LIGHT_POSITION, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
+import {
+	AGENTIC_TITLEBAR_HEIGHT,
+	MACOS_TRAFFIC_LIGHT_POSITION,
+	MAIN_MIN_WIDTH,
+	SIDEBAR_WIDTH,
+} from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import {
 	getBetaFeatures as getBetaFeaturesFromLib,
@@ -2391,6 +2396,21 @@ export async function setWindowControlVisibility( event: IpcMainInvokeEvent, vis
 			visible ? getTitleBarOverlayOptions() : getFrameTitleBarOverlayOptions()
 		);
 	}
+}
+
+// The agentic UI's controls land on the window chrome around the content frame
+// on the dashboard, but on a full-window page (settings, site creation) that
+// covers it. Those surfaces are opposite in light mode, so the renderer tells
+// us which one is showing rather than us guessing from a static colour.
+export async function setWindowControlsColors(
+	event: IpcMainInvokeEvent,
+	colors: { color: string; symbolColor: string }
+) {
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	if ( ! parentWindow || ( process.platform !== 'win32' && process.platform !== 'linux' ) ) {
+		return;
+	}
+	parentWindow.setTitleBarOverlay( { ...colors, height: AGENTIC_TITLEBAR_HEIGHT } );
 }
 
 export async function setTitleBarBackdropEffect( event: IpcMainInvokeEvent, enabled: boolean ) {

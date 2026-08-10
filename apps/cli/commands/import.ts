@@ -382,7 +382,7 @@ export async function runCommand(
 
 async function recordSiteImportEvent( props: {
 	success: boolean;
-	importer_type: string;
+	importer_type: ImporterType | 'unknown';
 	failure_reason?: string;
 	time_ms: number;
 } ): Promise< void > {

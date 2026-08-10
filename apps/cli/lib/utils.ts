@@ -40,6 +40,10 @@ export function classifyPreviewFailure( error: unknown ): string {
 export function classifyImportFailure( error: unknown ): string {
 	const message = error instanceof Error ? error.message : String( error );
 	const normalized = message.toLowerCase();
+	// Checked first so a disk-full error during any phase wins over the phase's own bucket.
+	if ( normalized.includes( 'enospc' ) || normalized.includes( 'no space left' ) ) {
+		return 'disk_full';
+	}
 	// Must precede the `file_not_found` check — this message also contains "not found".
 	if ( normalized.includes( 'bundled wordpress files not found' ) ) {
 		return 'bundled_wp_missing';
@@ -68,9 +72,6 @@ export function classifyImportFailure( error: unknown ): string {
 	if ( normalized.includes( 'wordpress export import failed' ) ) {
 		return 'wxr_import';
 	}
-	if ( normalized.includes( 'enospc' ) || normalized.includes( 'no space left' ) ) {
-		return 'disk_full';
-	}
 	return 'unknown';
 }
 
@@ -78,6 +79,10 @@ export function classifyImportFailure( error: unknown ): string {
 export function classifyExportFailure( error: unknown ): string {
 	const message = error instanceof Error ? error.message : String( error );
 	const normalized = message.toLowerCase();
+	// Checked first so a disk-full error during any phase wins over the phase's own bucket.
+	if ( normalized.includes( 'enospc' ) || normalized.includes( 'no space left' ) ) {
+		return 'disk_full';
+	}
 	if ( normalized.includes( 'no suitable exporter' ) ) {
 		return 'no_exporter_found';
 	}
@@ -93,9 +98,6 @@ export function classifyExportFailure( error: unknown ): string {
 		normalized.includes( 'meta.json' )
 	) {
 		return 'site_meta';
-	}
-	if ( normalized.includes( 'enospc' ) || normalized.includes( 'no space left' ) ) {
-		return 'disk_full';
 	}
 	return 'unknown';
 }

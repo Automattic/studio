@@ -243,8 +243,8 @@ emits what"). No file names or paths are ever sent. `failure_reason` is coarse a
 
 | Event | Emitted from | Event-specific props |
 |---|---|---|
-| `studio_site_imported` | CLI `import` | `success` (boolean), `importer_type` (`jetpack`/`local`/`playground`/`sql`/`wpress`/`xml`, or `unknown` when the failure occurred before an importer started), `time_ms` (total command duration, incl. the server restart). On failure also `failure_reason` (`file_not_found`/`no_backup_handler`/`no_importer_found`/`validation`/`invalid_zip`/`extract`/`database_import`/`wxr_import`/`bundled_wp_missing`/`disk_full`/`unknown`). |
-| `studio_site_exported` | CLI `export` | `success` (boolean), `export_type` (`full`/`db` — the `--mode` flag; the sync-only `content` mode never emits because sync pushes are suppressed), `time_ms` (export duration). On failure also `failure_reason` (`no_exporter_found`/`database_export`/`site_meta`/`disk_full`/`unknown`). |
+| `studio_site_imported` | CLI `import` | `success` (boolean), `importer_type` (`jetpack`/`local`/`playground`/`sql`/`wpress`/`xml`, or `unknown` when the failure occurred before an importer started), `time_ms` (total command duration, incl. the server restart). On failure also `failure_reason` (`disk_full`/`file_not_found`/`no_backup_handler`/`no_importer_found`/`validation`/`invalid_zip`/`extract`/`database_import`/`wxr_import`/`bundled_wp_missing`/`unknown`). |
+| `studio_site_exported` | CLI `export` | `success` (boolean), `export_type` (`full`/`content`/`db` — the `--mode` flag; sync pushes are suppressed, so in practice `content` appears only from standalone `studio export --mode content` runs), `time_ms` (export duration). On failure also `failure_reason` (`disk_full`/`no_exporter_found`/`database_export`/`site_meta`/`unknown`). |
 
 #### Preview site events
 

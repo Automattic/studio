@@ -107,6 +107,7 @@ describe( 'classifyImportFailure', () => {
 		[ 'Database import failed: unexpected token', 'database_import' ],
 		[ 'WordPress export import failed', 'wxr_import' ],
 		[ 'ENOSPC: no space left on device', 'disk_full' ],
+		[ 'Database import failed: ENOSPC: no space left on device', 'disk_full' ],
 		[ 'Something else entirely', 'unknown' ],
 	] )( 'classifies %j as %s', ( message, expected ) => {
 		expect( classifyImportFailure( new Error( message ) ) ).toBe( expected );
@@ -132,6 +133,7 @@ describe( 'classifyExportFailure', () => {
 		[ 'Failed to get site themes', 'site_meta' ],
 		[ 'Could not write meta.json', 'site_meta' ],
 		[ 'ENOSPC: no space left on device', 'disk_full' ],
+		[ 'ENOSPC: no space left on device, write meta.json', 'disk_full' ],
 		[ 'Something else entirely', 'unknown' ],
 	] )( 'classifies %j as %s', ( message, expected ) => {
 		expect( classifyExportFailure( new Error( message ) ) ).toBe( expected );

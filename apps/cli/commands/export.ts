@@ -206,7 +206,7 @@ export async function runCommand(
 
 async function recordSiteExportEvent( props: {
 	success: boolean;
-	export_type: string;
+	export_type: 'full' | 'content' | 'db';
 	failure_reason?: string;
 	time_ms: number;
 } ): Promise< void > {

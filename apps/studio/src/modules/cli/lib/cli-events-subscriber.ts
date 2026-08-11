@@ -96,22 +96,24 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 		return;
 	}
 
+	// A site serving a PHP-error page stays "running" even though the CLI reports it stopped.
+	const effectiveRunning = running || server.inErrorRecovery;
 	const wasNotRunning = ! server.details.running;
-	server.details = siteDetailsToServerDetails( site, running, server.details );
+	server.details = siteDetailsToServerDetails( site, effectiveRunning, server.details );
 
 	if ( server.server && site.url ) {
 		server.server.url = site.url;
 	}
 
-	void sendIpcEventToRenderer( 'site-event', event );
+	void sendIpcEventToRenderer( 'site-event', { ...event, running: effectiveRunning } );
 
-	if ( wasNotRunning && running ) {
+	if ( wasNotRunning && effectiveRunning ) {
 		void captureSiteThumbnail( siteId );
 		await server.getThemeDetails();
 		await server.getSiteIcon();
 		// Mirror "is running" into the Studio-owned autoStart flag so the site resumes next launch.
 		await server.persistAutoStart( true );
-	} else if ( ! wasNotRunning && ! running ) {
+	} else if ( ! wasNotRunning && ! effectiveRunning ) {
 		await server.persistAutoStart( false );
 	}
 } );

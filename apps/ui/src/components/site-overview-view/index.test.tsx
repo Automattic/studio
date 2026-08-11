@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Tooltip } from '@wordpress/ui';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
@@ -687,8 +687,10 @@ describe( 'SiteOverviewView', () => {
 
 		selectBackup( 'demo-site.tar.gz' );
 
-		expect( screen.getByRole( 'dialog' ) ).toHaveTextContent( 'Overwrite Demo Site?' );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Import' } ) );
+		const dialog = screen.getByRole( 'alertdialog' );
+		expect( dialog ).toHaveTextContent( 'Overwrite Demo Site?' );
+		expect( dialog ).toHaveTextContent( 'demo-site.tar.gz' );
+		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Import' } ) );
 
 		await waitFor( () =>
 			expect( importSiteMock ).toHaveBeenCalledWith(
@@ -702,7 +704,7 @@ describe( 'SiteOverviewView', () => {
 
 		selectBackup( 'notes.txt' );
 
-		expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'alertdialog' ) ).not.toBeInTheDocument();
 		expect( importSiteMock ).not.toHaveBeenCalled();
 	} );
 

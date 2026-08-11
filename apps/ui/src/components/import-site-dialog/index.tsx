@@ -3,7 +3,7 @@ import { isSupportedBackupFilename } from '@studio/common/lib/backup-files';
 import { getErrorMessage } from '@studio/common/lib/error-formatting';
 import { getImportStatusMessage } from '@studio/common/lib/import-progress';
 import { __, sprintf } from '@wordpress/i18n';
-import { Button, Dialog } from '@wordpress/ui';
+import { AlertDialog } from '@wordpress/ui';
 import { useState } from 'react';
 import { dismissToast, toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
@@ -100,35 +100,27 @@ export function ImportSiteDialog( {
 	onConfirm,
 }: ImportSiteDialogProps ) {
 	return (
-		<Dialog.Root
+		<AlertDialog.Root
 			open={ open }
 			onOpenChange={ ( next ) => {
 				if ( ! next ) {
 					onCancel();
 				}
 			} }
+			// Returns synchronously so the dialog closes and the import runs in the
+			// background — an async handler would hold it open for the whole import.
+			onConfirm={ onConfirm }
 		>
-			<Dialog.Popup size="small">
-				<Dialog.Header>
-					<Dialog.Title>{ sprintf( __( 'Overwrite %s?' ), site.name ) }</Dialog.Title>
-				</Dialog.Header>
-				<Dialog.Content>
-					<p className={ styles.dialogText }>
-						{ __(
-							'Importing a backup will replace the existing files and database for your site.'
-						) }
-					</p>
-					{ file ? <p className={ styles.fileName }>{ file.name }</p> : null }
-				</Dialog.Content>
-				<Dialog.Footer>
-					<Dialog.Action variant="minimal" tone="neutral">
-						{ __( 'Cancel' ) }
-					</Dialog.Action>
-					<Button variant="solid" tone="brand" onClick={ onConfirm }>
-						{ __( 'Import' ) }
-					</Button>
-				</Dialog.Footer>
-			</Dialog.Popup>
-		</Dialog.Root>
+			<AlertDialog.Popup
+				intent="irreversible"
+				title={ sprintf( __( 'Overwrite %s?' ), site.name ) }
+				description={ __(
+					'Importing a backup will replace the existing files and database for your site.'
+				) }
+				confirmButtonText={ __( 'Import' ) }
+			>
+				{ file ? <p className={ styles.fileName }>{ file.name }</p> : null }
+			</AlertDialog.Popup>
+		</AlertDialog.Root>
 	);
 }

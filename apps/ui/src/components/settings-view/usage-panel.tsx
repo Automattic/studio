@@ -163,7 +163,7 @@ function PreviewSitesSummary( { userId }: { userId: number } ) {
 							}
 						/>
 						<Menu.Popup side="bottom" align="end">
-							<Menu.Item disabled={ isDisabled } onClick={ () => void handleDelete() }>
+							<Menu.Item destructive disabled={ isDisabled } onClick={ () => void handleDelete() }>
 								{ deletePreviewSitesLabel }
 							</Menu.Item>
 						</Menu.Popup>

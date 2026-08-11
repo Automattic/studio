@@ -207,8 +207,7 @@ export class SiteServer {
 		try {
 			result = await createSiteViaCli( { ...options, runtime, siteId } );
 		} catch ( error ) {
-			// The CLI rolls its own state back, so a placeholder left here is a site only the app
-			// believes in. Not `unregister`: a site that never existed is not a deleted one.
+			// Not `unregister`, which would mark the id deleted; this site never existed.
 			servers.delete( siteId );
 			throw error;
 		}

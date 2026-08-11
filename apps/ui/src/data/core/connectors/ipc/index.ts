@@ -34,7 +34,7 @@ import type {
 	UserPreferences,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
-import type { AiSettings } from '@studio/common/ai/providers';
+import type { AiProviderId, AiSettings } from '@studio/common/ai/providers';
 import type { StoredAuthToken } from '@studio/common/lib/auth-token-schema';
 import type { SiteEvent } from '@studio/common/lib/cli-events';
 import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
@@ -85,6 +85,19 @@ export function createIpcConnector(): Connector {
 	// The IPC connector only runs in Electron, so `navigator` reflects the
 	// desktop OS.
 	const isMacOS = /mac/i.test( navigator.platform || navigator.userAgent );
+
+	// Electron prefixes main-process errors with "Error invoking remote method
+	// '<name>': " — strip it so user-facing messages can be shown as-is.
+	async function unwrapIpcError< T >( call: Promise< T > ): Promise< T > {
+		try {
+			return await call;
+		} catch ( error ) {
+			const message = error instanceof Error ? error.message : String( error );
+			throw new Error(
+				message.replace( /^Error invoking remote method '[^']+': (?:\w+Error: |Error: )?/, '' )
+			);
+		}
+	}
 
 	// Fetches an authenticated WordPress.com endpoint with the stored OAuth
 	// token. Resolves `null` when signed out so callers can degrade gracefully.
@@ -780,17 +793,10 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.getAiSettings() ) as AiSettings;
 		},
 		async saveAnthropicApiKey( key: string | null ): Promise< AiSettings > {
-			try {
-				return ( await ipcApi.saveAnthropicApiKey( key ) ) as AiSettings;
-			} catch ( error ) {
-				// Electron wraps main-process errors as "Error invoking remote
-				// method 'saveAnthropicApiKey': Error: <message>" — unwrap so the
-				// settings form can show the message itself.
-				const message = error instanceof Error ? error.message : String( error );
-				throw new Error(
-					message.replace( /^Error invoking remote method '[^']+': (?:\w+Error: |Error: )?/, '' )
-				);
-			}
+			return unwrapIpcError( ipcApi.saveAnthropicApiKey( key ) );
+		},
+		async setAiProvider( provider: AiProviderId ): Promise< AiSettings > {
+			return unwrapIpcError( ipcApi.setAiProvider( provider ) );
 		},
 
 		async getInstalledApps(): Promise< InstalledApps > {

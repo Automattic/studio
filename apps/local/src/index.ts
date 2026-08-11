@@ -8,6 +8,7 @@ import {
 	writeGlobalInstructions,
 } from '@studio/common/ai/global-instructions';
 import { isAiModelId } from '@studio/common/ai/models';
+import { isAiProviderId } from '@studio/common/ai/providers';
 import { createAgentRunManager } from '@studio/common/ai/run-manager';
 import {
 	createOrReuseAiSession,
@@ -28,6 +29,7 @@ import {
 	InvalidAnthropicApiKeyError,
 	readAiSettings,
 	saveAnthropicApiKey,
+	setAiProvider,
 } from '@studio/common/ai/settings-store';
 import { DEFAULT_TOKEN_LIFETIME_MS } from '@studio/common/constants';
 import { createCliRunner } from '@studio/common/lib/cli-process';
@@ -471,19 +473,31 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
-	// Saving a key selects the direct Anthropic provider; clearing it (null)
-	// falls back to WordPress.com. The key is write-only: responses only carry
-	// its presence and display suffix, never the key itself.
+	// Write-only: responses carry the key's presence and suffix, never the key.
 	api.put(
 		'/ai-settings',
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const key = req.body?.anthropicApiKey;
-			if ( key !== null && ( typeof key !== 'string' || key.trim() === '' ) ) {
-				res.status( 400 ).json( { error: 'anthropicApiKey must be a non-empty string or null' } );
+			if ( key !== null && typeof key !== 'string' ) {
+				res.status( 400 ).json( { error: 'anthropicApiKey must be a string or null' } );
+				return;
+			}
+			res.json( await saveAnthropicApiKey( key ) );
+		} )
+	);
+
+	// Answers 400 when Anthropic rejects the saved key, so the UI keeps its
+	// toggle off.
+	api.put(
+		'/ai-settings/provider',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const provider = req.body?.provider;
+			if ( typeof provider !== 'string' || ! isAiProviderId( provider ) ) {
+				res.status( 400 ).json( { error: 'provider must be a known AI provider id' } );
 				return;
 			}
 			try {
-				res.json( await saveAnthropicApiKey( key === null ? null : key.trim() ) );
+				res.json( await setAiProvider( provider ) );
 			} catch ( error ) {
 				if ( error instanceof InvalidAnthropicApiKeyError ) {
 					res.status( 400 ).json( { error: error.message } );

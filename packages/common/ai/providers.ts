@@ -38,6 +38,6 @@ export function getAiProviderModels( provider: AiProviderId ): readonly AiModel[
 export interface AiSettings {
 	provider: AiProviderId;
 	hasAnthropicApiKey: boolean;
-	/** Last characters of the saved key for display, or null when no key is saved. */
-	anthropicApiKeySuffix: string | null;
+	/** Truncated key for display (`sk-ant-…abcd`), or null when none is saved. */
+	anthropicApiKeyPreview: string | null;
 }

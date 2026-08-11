@@ -77,7 +77,7 @@ describe( 'Composer menu', () => {
 		connectorMocks.getAiSettings.mockResolvedValue( {
 			provider: 'anthropic-api-key',
 			hasAnthropicApiKey: true,
-			anthropicApiKeySuffix: '1234',
+			anthropicApiKeyPreview: 'sk-ant-api03-tes...1234',
 		} );
 		renderComposer();
 

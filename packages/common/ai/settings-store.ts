@@ -7,7 +7,12 @@ import { hideDirectoryOnWindows } from '../lib/hide-dir-windows';
 import { lockFileAsync, unlockFileAsync } from '../lib/lockfile';
 import { getCliConfigPath, getConfigDirectory } from '../lib/well-known-paths';
 import { validateAnthropicApiKey } from './anthropic-key';
-import { DEFAULT_AI_PROVIDER, isAiProviderId, type AiSettings } from './providers';
+import {
+	DEFAULT_AI_PROVIDER,
+	isAiProviderId,
+	type AiProviderId,
+	type AiSettings,
+} from './providers';
 
 /** A key Anthropic definitively rejected; carries a user-facing message. */
 export class InvalidAnthropicApiKeyError extends Error {
@@ -18,15 +23,14 @@ export class InvalidAnthropicApiKeyError extends Error {
 }
 
 /**
- * Reads and writes the AI provider settings (`aiProvider`, `anthropicApiKey`)
- * stored in the CLI-owned `~/.studio/cli.json`, shared by the CLI, the local
- * web server, and the desktop app. Like the desktop migrations, it validates
- * with a local, loose schema so unrelated cli.json fields pass through the
- * write-back untouched — the CLI remains the owner of the full schema.
+ * Reads and writes the AI provider settings in the CLI-owned
+ * `~/.studio/cli.json`, shared by the CLI, the local web server and the desktop
+ * app. The schema here is loose on purpose: the CLI owns the full one, so
+ * unrelated fields must survive the write-back untouched.
  */
 
 // Matches CLI_CONFIG_VERSION in `apps/cli/lib/cli-config/core.ts`; only used
-// when creating the file from scratch.
+// when creating the file.
 const CLI_CONFIG_VERSION = 1;
 
 const aiSettingsConfigSchema = z
@@ -36,7 +40,16 @@ const aiSettingsConfigSchema = z
 	} )
 	.loose();
 
+const KEY_PREFIX_LENGTH = 16;
 const KEY_SUFFIX_LENGTH = 4;
+
+// Enough of the key to recognise it, never enough to use it.
+function previewKey( key: string ): string {
+	if ( key.length <= KEY_PREFIX_LENGTH + KEY_SUFFIX_LENGTH ) {
+		return key.slice( 0, KEY_PREFIX_LENGTH );
+	}
+	return `${ key.slice( 0, KEY_PREFIX_LENGTH ) }...${ key.slice( -KEY_SUFFIX_LENGTH ) }`;
+}
 
 function toAiSettings( config: z.infer< typeof aiSettingsConfigSchema > ): AiSettings {
 	const key = config.anthropicApiKey;
@@ -46,7 +59,7 @@ function toAiSettings( config: z.infer< typeof aiSettingsConfigSchema > ): AiSet
 				? config.aiProvider
 				: DEFAULT_AI_PROVIDER,
 		hasAnthropicApiKey: Boolean( key ),
-		anthropicApiKeySuffix: key ? key.slice( -KEY_SUFFIX_LENGTH ) : null,
+		anthropicApiKeyPreview: key ? previewKey( key ) : null,
 	};
 }
 
@@ -66,27 +79,9 @@ export async function readAiSettings(): Promise< AiSettings > {
 	return toAiSettings( aiSettingsConfigSchema.parse( await readCliConfigRaw() ) );
 }
 
-/**
- * Saves or clears the Anthropic API key and switches the AI provider
- * accordingly: a saved key selects the direct Anthropic provider, clearing it
- * falls back to WordPress.com. Existing sessions keep the provider recorded in
- * their session context; only new sessions pick up the change.
- */
-export async function saveAnthropicApiKey( key: string | null ): Promise< AiSettings > {
-	const trimmed = key === null ? null : key.trim();
-	if ( trimmed === '' ) {
-		throw new Error( 'The Anthropic API key must not be empty.' );
-	}
-
-	// Refuse keys Anthropic definitively rejects; an unverifiable result
-	// (offline, Anthropic outage) still saves so users aren't locked out.
-	if ( trimmed !== null ) {
-		const validation = await validateAnthropicApiKey( trimmed );
-		if ( validation.status === 'invalid' ) {
-			throw new InvalidAnthropicApiKeyError( validation.message );
-		}
-	}
-
+async function updateAiSettings(
+	mutate: ( config: Record< string, unknown > ) => void
+): Promise< AiSettings > {
 	const configDir = getConfigDirectory();
 	if ( ! fs.existsSync( configDir ) ) {
 		fs.mkdirSync( configDir, { recursive: true } );
@@ -97,13 +92,7 @@ export async function saveAnthropicApiKey( key: string | null ): Promise< AiSett
 	await lockFileAsync( lockfilePath, { wait: LOCKFILE_WAIT_TIME, stale: LOCKFILE_STALE_TIME } );
 	try {
 		const config = await readCliConfigRaw();
-		if ( trimmed === null ) {
-			delete config.anthropicApiKey;
-			config.aiProvider = DEFAULT_AI_PROVIDER;
-		} else {
-			config.anthropicApiKey = trimmed;
-			config.aiProvider = 'anthropic-api-key';
-		}
+		mutate( config );
 		await writeFile( getCliConfigPath(), JSON.stringify( config, null, 2 ) + '\n', {
 			encoding: 'utf8',
 		} );
@@ -111,4 +100,43 @@ export async function saveAnthropicApiKey( key: string | null ): Promise< AiSett
 	} finally {
 		await unlockFileAsync( lockfilePath );
 	}
+}
+
+/**
+ * Stores or clears the key as the user types; it is only checked against
+ * Anthropic when the provider is selected (see `setAiProvider`). Clearing it
+ * falls back to WordPress.com, since the Anthropic provider needs a key.
+ */
+export async function saveAnthropicApiKey( key: string | null ): Promise< AiSettings > {
+	const trimmed = key === null ? null : key.trim();
+	return updateAiSettings( ( config ) => {
+		if ( ! trimmed ) {
+			delete config.anthropicApiKey;
+			config.aiProvider = DEFAULT_AI_PROVIDER;
+		} else {
+			config.anthropicApiKey = trimmed;
+		}
+	} );
+}
+
+/**
+ * Selects the provider for new conversations. Switching to Anthropic refuses a
+ * key Anthropic rejects, but accepts an unverifiable one. Existing sessions
+ * keep the provider recorded in their session context.
+ */
+export async function setAiProvider( provider: AiProviderId ): Promise< AiSettings > {
+	if ( provider === 'anthropic-api-key' ) {
+		const { anthropicApiKey } = aiSettingsConfigSchema.parse( await readCliConfigRaw() );
+		if ( ! anthropicApiKey ) {
+			throw new InvalidAnthropicApiKeyError( 'Add an Anthropic API key first.' );
+		}
+		const validation = await validateAnthropicApiKey( anthropicApiKey );
+		if ( validation.status === 'invalid' ) {
+			throw new InvalidAnthropicApiKeyError( validation.message );
+		}
+	}
+
+	return updateAiSettings( ( config ) => {
+		config.aiProvider = provider;
+	} );
 }

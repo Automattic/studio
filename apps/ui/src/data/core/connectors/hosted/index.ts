@@ -385,6 +385,9 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async saveAnthropicApiKey(): Promise< AiSettings > {
 			throw new UnsupportedError( 'saveAnthropicApiKey' );
 		},
+		async setAiProvider(): Promise< AiSettings > {
+			throw new UnsupportedError( 'setAiProvider' );
+		},
 
 		async getInstalledApps(): Promise< InstalledApps > {
 			return {} as InstalledApps;

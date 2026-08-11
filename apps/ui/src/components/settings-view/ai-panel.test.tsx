@@ -1,12 +1,15 @@
 import '@testing-library/jest-dom/vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
-import { useAiSettings, useSaveAnthropicApiKey } from '@/data/queries/use-ai-settings';
+import {
+	useAiSettings,
+	useSaveAnthropicApiKey,
+	useSetAiProvider,
+} from '@/data/queries/use-ai-settings';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { AiPanel } from './ai-panel';
 import type { AiSettings } from '@studio/common/ai/providers';
-import type { ReactNode } from 'react';
 
 vi.mock( '@wordpress/components', () => ( {
 	FormToggle: ( props: {
@@ -26,24 +29,16 @@ vi.mock( '@wordpress/components', () => ( {
 	TextControl: ( props: {
 		value: string;
 		label?: string;
-		disabled?: boolean;
+		placeholder?: string;
 		onChange: ( value: string ) => void;
 	} ) => (
 		<input
 			type="password"
 			aria-label={ props.label }
+			placeholder={ props.placeholder }
 			value={ props.value }
-			disabled={ props.disabled }
 			onChange={ ( event ) => props.onChange( event.target.value ) }
 		/>
-	),
-} ) );
-
-vi.mock( '@wordpress/ui', () => ( {
-	Button: ( props: { children: ReactNode; disabled?: boolean; onClick?: () => void } ) => (
-		<button disabled={ props.disabled } onClick={ props.onClick }>
-			{ props.children }
-		</button>
 	),
 } ) );
 
@@ -59,6 +54,7 @@ vi.mock( '@/data/queries/use-user-preferences', () => ( {
 vi.mock( '@/data/queries/use-ai-settings', () => ( {
 	useAiSettings: vi.fn(),
 	useSaveAnthropicApiKey: vi.fn(),
+	useSetAiProvider: vi.fn(),
 } ) );
 
 vi.mock( './studio-code-panel', () => ( {
@@ -70,11 +66,13 @@ const useUserPreferencesMock = vi.mocked( useUserPreferences );
 const useSaveUserPreferencesMock = vi.mocked( useSaveUserPreferences );
 const useAiSettingsMock = vi.mocked( useAiSettings );
 const useSaveAnthropicApiKeyMock = vi.mocked( useSaveAnthropicApiKey );
+const useSetAiProviderMock = vi.mocked( useSetAiProvider );
 
 describe( 'AiPanel', () => {
 	const disableAgenticUi = vi.fn( () => Promise.resolve() );
 	const mutate = vi.fn();
 	const saveKey = vi.fn();
+	const setProvider = vi.fn();
 
 	function mockConnector( agentInstructions = true, aiSettings = false ) {
 		useConnectorMock.mockReturnValue( {
@@ -97,10 +95,11 @@ describe( 'AiPanel', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		useSaveUserPreferencesMock.mockReturnValue( { mutate } as never );
-		useSaveAnthropicApiKeyMock.mockReturnValue( {
-			mutate: saveKey,
+		useSaveAnthropicApiKeyMock.mockReturnValue( { mutate: saveKey } as never );
+		useSetAiProviderMock.mockReturnValue( {
+			mutate: setProvider,
 			isPending: false,
-			isError: false,
+			error: null,
 		} as never );
 		mockAiSettings( undefined );
 		mockPreferences( true );
@@ -154,36 +153,118 @@ describe( 'AiPanel', () => {
 		expect( screen.queryByTestId( 'studio-code-panel' ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'hides the Anthropic API key form when the host has no AI settings access', () => {
+	it( 'hides the Anthropic API key section when the host has no AI settings access', () => {
 		mockConnector( true, false );
 		render( <AiPanel /> );
 
-		expect( screen.queryByText( 'Anthropic API key' ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( 'Use your Anthropic API key' ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'saves a trimmed Anthropic API key', () => {
+	it( 'saves the trimmed key after the user stops typing', async () => {
+		vi.useFakeTimers();
+		try {
+			mockConnector( true, true );
+			mockAiSettings( {
+				provider: 'wpcom',
+				hasAnthropicApiKey: false,
+				anthropicApiKeyPreview: null,
+			} );
+			render( <AiPanel /> );
+
+			fireEvent.change( screen.getByLabelText( 'Anthropic API key' ), {
+				target: { value: '  sk-ant-test-1234  ' },
+			} );
+			expect( saveKey ).not.toHaveBeenCalled();
+
+			act( () => {
+				vi.advanceTimersByTime( 800 );
+			} );
+
+			expect( saveKey ).toHaveBeenCalledWith( 'sk-ant-test-1234' );
+		} finally {
+			vi.useRealTimers();
+		}
+	} );
+
+	it( 'clears the saved key when the field is emptied', async () => {
+		vi.useFakeTimers();
+		try {
+			mockConnector( true, true );
+			mockAiSettings( {
+				provider: 'anthropic-api-key',
+				hasAnthropicApiKey: true,
+				anthropicApiKeyPreview: 'sk-ant-api03-tes...1234',
+			} );
+			render( <AiPanel /> );
+
+			const input = screen.getByLabelText( 'Anthropic API key' );
+			fireEvent.change( input, { target: { value: 'sk-ant-test-1234' } } );
+			fireEvent.change( input, { target: { value: '' } } );
+			act( () => {
+				vi.advanceTimersByTime( 800 );
+			} );
+
+			expect( saveKey ).toHaveBeenCalledWith( null );
+		} finally {
+			vi.useRealTimers();
+		}
+	} );
+
+	it( 'keeps the toggle off and disabled until a key is present', () => {
 		mockConnector( true, true );
-		mockAiSettings( { provider: 'wpcom', hasAnthropicApiKey: false, anthropicApiKeySuffix: null } );
+		mockAiSettings( {
+			provider: 'wpcom',
+			hasAnthropicApiKey: false,
+			anthropicApiKeyPreview: null,
+		} );
 		render( <AiPanel /> );
 
-		const input = screen.getByLabelText( 'Anthropic API key' );
-		const save = screen.getByRole( 'button', { name: 'Save' } );
-		expect( save ).toBeDisabled();
+		const toggle = screen.getByRole( 'checkbox', { name: 'Use your Anthropic API key' } );
+		expect( toggle ).not.toBeChecked();
+		expect( toggle ).toBeDisabled();
 
-		fireEvent.change( input, { target: { value: '  sk-ant-test-1234  ' } } );
-		expect( save ).toBeEnabled();
-		fireEvent.click( save );
+		fireEvent.change( screen.getByLabelText( 'Anthropic API key' ), {
+			target: { value: 'sk-ant-test-1234' },
+		} );
 
-		expect( saveKey ).toHaveBeenCalledWith( 'sk-ant-test-1234', expect.anything() );
+		expect( toggle ).toBeEnabled();
 	} );
 
-	it( 'shows the validation message when saving the key fails', () => {
+	it( 'switches the provider from the toggle', () => {
 		mockConnector( true, true );
-		mockAiSettings( { provider: 'wpcom', hasAnthropicApiKey: false, anthropicApiKeySuffix: null } );
-		useSaveAnthropicApiKeyMock.mockReturnValue( {
-			mutate: saveKey,
+		mockAiSettings( {
+			provider: 'wpcom',
+			hasAnthropicApiKey: true,
+			anthropicApiKeyPreview: 'sk-ant-api03-tes...1234',
+		} );
+		render( <AiPanel /> );
+
+		const toggle = screen.getByRole( 'checkbox', { name: 'Use your Anthropic API key' } );
+		fireEvent.click( toggle );
+		expect( setProvider ).toHaveBeenCalledWith( 'anthropic-api-key' );
+
+		mockAiSettings( {
+			provider: 'anthropic-api-key',
+			hasAnthropicApiKey: true,
+			anthropicApiKeyPreview: 'sk-ant-api03-tes...1234',
+		} );
+		render( <AiPanel /> );
+		fireEvent.click(
+			screen.getAllByRole( 'checkbox', { name: 'Use your Anthropic API key' } )[ 1 ]
+		);
+		expect( setProvider ).toHaveBeenLastCalledWith( 'wpcom' );
+	} );
+
+	it( 'shows why enabling the provider failed', () => {
+		mockConnector( true, true );
+		mockAiSettings( {
+			provider: 'wpcom',
+			hasAnthropicApiKey: true,
+			anthropicApiKeyPreview: 'sk-ant-api03-tes...1234',
+		} );
+		useSetAiProviderMock.mockReturnValue( {
+			mutate: setProvider,
 			isPending: false,
-			isError: true,
 			error: new Error( 'Anthropic rejected this API key. Check the key and try again.' ),
 		} as never );
 		render( <AiPanel /> );
@@ -191,22 +272,5 @@ describe( 'AiPanel', () => {
 		expect(
 			screen.getByText( 'Anthropic rejected this API key. Check the key and try again.' )
 		).toBeInTheDocument();
-	} );
-
-	it( 'removes the saved key to fall back to WordPress.com', () => {
-		mockConnector( true, true );
-		mockAiSettings( {
-			provider: 'anthropic-api-key',
-			hasAnthropicApiKey: true,
-			anthropicApiKeySuffix: '1234',
-		} );
-		render( <AiPanel /> );
-
-		expect( screen.getByText( /ending in 1234/ ) ).toBeInTheDocument();
-		expect( screen.queryByRole( 'button', { name: 'Save' } ) ).not.toBeInTheDocument();
-
-		fireEvent.click( screen.getByRole( 'button', { name: 'Remove key' } ) );
-
-		expect( saveKey ).toHaveBeenCalledWith( null );
 	} );
 } );

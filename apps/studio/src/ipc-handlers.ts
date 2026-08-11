@@ -266,6 +266,7 @@ export {
 	saveGlobalAgentInstructions,
 	saveOnboardingHints,
 	saveQuitSitesBehavior,
+	setAiProvider,
 	saveUserEditor,
 	saveUserLocale,
 	saveUserTerminal,

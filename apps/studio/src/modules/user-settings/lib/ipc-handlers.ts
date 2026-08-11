@@ -6,6 +6,7 @@ import {
 import {
 	readAiSettings,
 	saveAnthropicApiKey as saveAnthropicApiKeyToConfig,
+	setAiProvider as setAiProviderInConfig,
 } from '@studio/common/ai/settings-store';
 import {
 	isAnalyticsOptedOut,
@@ -30,6 +31,7 @@ import {
 	unlockAppdata,
 	updateAppdata,
 } from 'src/storage/user-data';
+import type { AiProviderId } from '@studio/common/ai/providers';
 
 export function getInstalledAppsAndTerminals(): InstalledApps {
 	return {
@@ -296,6 +298,10 @@ export async function getAiSettings() {
 
 export async function saveAnthropicApiKey( _event: IpcMainInvokeEvent, key: string | null ) {
 	return saveAnthropicApiKeyToConfig( key );
+}
+
+export async function setAiProvider( _event: IpcMainInvokeEvent, provider: AiProviderId ) {
+	return setAiProviderInConfig( provider );
 }
 
 export async function saveGlobalAgentInstructions(

@@ -10,13 +10,10 @@ export type AnthropicKeyValidation =
 	| { status: 'unverifiable'; message: string };
 
 /**
- * Checks an Anthropic API key against the live API with a cheap authenticated
- * request (listing models consumes no tokens).
+ * Checks a key against Anthropic by listing models, which consumes no tokens.
  *
- * Only a definitive authentication failure reports `invalid`; rate limits,
- * server errors, and network failures report `unverifiable` so callers can
- * decide whether to accept the key anyway (e.g. saving while offline) rather
- * than locking the user out on an Anthropic outage.
+ * Only an authentication failure is `invalid`. Rate limits, server errors and
+ * network failures are `unverifiable`, so an outage can't lock users out.
  */
 export async function validateAnthropicApiKey( apiKey: string ): Promise< AnthropicKeyValidation > {
 	let response: Response;

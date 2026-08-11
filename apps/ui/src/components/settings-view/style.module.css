@@ -218,19 +218,17 @@
 	inline-size: 100%;
 }
 
+/* Description and toggle share the top line; the key field spans both columns
+   underneath. */
 .apiKeyRow {
-	grid-template-columns: minmax( 0, 1fr );
 	row-gap: var( --wpds-dimension-padding-md );
 }
 
 .apiKeyControls {
-	display: flex;
-	align-items: center;
-	gap: var( --wpds-dimension-padding-sm );
+	grid-column: 1 / -1;
 }
 
 .apiKeyControls :global( .components-base-control ) {
-	flex: 1;
 	max-inline-size: 420px;
 }
 

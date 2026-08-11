@@ -478,6 +478,7 @@ function SiteActionsMenu( {
 					</Menu.Item>
 					<Menu.Separator />
 					<Menu.Item
+						destructive
 						onClick={ () => setDeleteOpen( true ) }
 						disabled={ busy || copySite.isPending || isExporting }
 					>

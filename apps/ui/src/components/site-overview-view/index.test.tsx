@@ -5,6 +5,8 @@ import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useLogin } from '@/data/queries/use-auth-user';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
+import { useSiteStorageUsage } from '@/data/queries/use-site-storage-usage';
+import { useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
 import {
 	useCopySite,
 	useExportDatabase,
@@ -16,13 +18,22 @@ import {
 	useUpdateSite,
 	useXdebugEnabledSite,
 } from '@/data/queries/use-sites';
+import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useWordPressVersions, useWpVersion } from '@/data/queries/use-wordpress-versions';
 import { useOffline } from '@/hooks/use-offline';
+import styles from './style.module.css';
 import { SiteOverviewView } from './index';
-import type { SiteDetails } from '@/data/core';
+import type {
+	ConnectorCapabilities,
+	SiteDetails,
+	SupportedEditor,
+	UserPreferences,
+} from '@/data/core';
 
 const navigateMock = vi.fn();
 const siteDropdownMock = vi.hoisted( () => vi.fn() );
+const useSidebarCollapsedMock = vi.hoisted( () => vi.fn() );
+const useTrafficLightSpaceMock = vi.hoisted( () => vi.fn() );
 
 const WP_VERSIONS = [
 	{ label: '6.8', value: 'latest', isBeta: false, isDevelopment: false },
@@ -46,7 +57,12 @@ vi.mock( '@/components/delete-site-dialog', () => ( {
 } ) );
 
 vi.mock( '@/components/site-dropdown', () => ( {
-	SiteDropdown: ( props: { site: SiteDetails; showSiteIcon?: boolean; showStatus?: boolean } ) => {
+	SiteDropdown: ( props: {
+		site: SiteDetails;
+		showSiteIcon?: boolean;
+		showStatus?: boolean;
+		defaultOpen?: boolean;
+	} ) => {
 		siteDropdownMock( props );
 		return <div>{ props.site.name }</div>;
 	},
@@ -80,6 +96,18 @@ vi.mock( '@/data/queries/use-sites', () => ( {
 	useXdebugEnabledSite: vi.fn(),
 } ) );
 
+vi.mock( '@/data/queries/use-site-thumbnail', () => ( {
+	useSiteThumbnail: vi.fn(),
+} ) );
+
+vi.mock( '@/data/queries/use-site-storage-usage', () => ( {
+	useSiteStorageUsage: vi.fn(),
+} ) );
+
+vi.mock( '@/data/queries/use-user-preferences', () => ( {
+	useUserPreferences: vi.fn(),
+} ) );
+
 vi.mock( '@/data/queries/use-wordpress-versions', () => ( {
 	useWordPressVersions: vi.fn(),
 	useWpVersion: vi.fn(),
@@ -90,7 +118,11 @@ vi.mock( '@/hooks/use-offline', () => ( {
 } ) );
 
 vi.mock( '@/hooks/use-sidebar-collapsed', () => ( {
-	useSidebarCollapsed: () => false,
+	useSidebarCollapsed: useSidebarCollapsedMock,
+} ) );
+
+vi.mock( '@/hooks/use-traffic-light-space', () => ( {
+	useTrafficLightSpace: useTrafficLightSpaceMock,
 } ) );
 
 const useConnectorMock = vi.mocked( useConnector, { partial: true } );
@@ -102,24 +134,45 @@ const useExportDatabaseMock = vi.mocked( useExportDatabase, { partial: true } );
 const useExportFullSiteMock = vi.mocked( useExportFullSite, { partial: true } );
 const useIsSiteStartingMock = vi.mocked( useIsSiteStarting );
 const useIsSiteStoppingMock = vi.mocked( useIsSiteStopping );
+const useSiteThumbnailMock = vi.mocked( useSiteThumbnail, { partial: true } );
+const useSiteStorageUsageMock = vi.mocked( useSiteStorageUsage, { partial: true } );
 const useSitesMock = vi.mocked( useSites, { partial: true } );
 const useStartSiteMock = vi.mocked( useStartSite, { partial: true } );
 const useUpdateSiteMock = vi.mocked( useUpdateSite, { partial: true } );
 const useOfflineMock = vi.mocked( useOffline );
+const useUserPreferencesMock = vi.mocked( useUserPreferences, { partial: true } );
 const useWordPressVersionsMock = vi.mocked( useWordPressVersions, { partial: true } );
 const useWpVersionMock = vi.mocked( useWpVersion, { partial: true } );
 const useXdebugEnabledSiteMock = vi.mocked( useXdebugEnabledSite, { partial: true } );
 
 describe( 'SiteOverviewView', () => {
 	const openSiteUrl = vi.fn().mockResolvedValue( undefined );
+	const openSiteFolder = vi.fn().mockResolvedValue( undefined );
+	const openSiteInEditor = vi.fn().mockResolvedValue( undefined );
+	const openSiteInTerminal = vi.fn().mockResolvedValue( undefined );
+	const trackEvent = vi.fn().mockResolvedValue( undefined );
 	const startSite = vi.fn().mockResolvedValue( undefined );
 	const copySite = vi.fn();
 	const exportFullSite = vi.fn();
 	const exportDatabase = vi.fn();
 	const onTabChange = vi.fn();
 
+	const connectorStub = ( openInOS = true ) => ( {
+		openSiteUrl,
+		openSiteFolder,
+		openSiteInEditor,
+		openSiteInTerminal,
+		trackEvent,
+		capabilities: { openInOS } as ConnectorCapabilities,
+	} );
+
+	const preferencesStub = ( editor: SupportedEditor | null ) =>
+		( { editor, terminal: 'terminal' } ) as UserPreferences;
+
 	beforeEach( () => {
 		vi.clearAllMocks();
+		useSidebarCollapsedMock.mockReturnValue( false );
+		useTrafficLightSpaceMock.mockReturnValue( { start: false, end: false } );
 		vi.stubGlobal( 'ResizeObserver', ResizeObserverMock );
 		Object.defineProperty( window, 'matchMedia', {
 			writable: true,
@@ -135,7 +188,8 @@ describe( 'SiteOverviewView', () => {
 			} ) ),
 		} );
 
-		useConnectorMock.mockReturnValue( { openSiteUrl } );
+		useConnectorMock.mockReturnValue( connectorStub() );
+		useUserPreferencesMock.mockReturnValue( { data: preferencesStub( 'vscode' ) } );
 		useAgenticFeaturesMock.mockReturnValue( {
 			enabled: true,
 			chatEnabled: true,
@@ -147,6 +201,20 @@ describe( 'SiteOverviewView', () => {
 		useSitesMock.mockReturnValue( {
 			data: [ createSite( { running: true } ) ],
 			isLoading: false,
+		} );
+		useSiteThumbnailMock.mockReturnValue( {
+			data: 'data:image/png;base64,site-thumbnail',
+		} );
+		useSiteStorageUsageMock.mockReturnValue( {
+			data: {
+				total: 800,
+				uploads: 400,
+				plugins: 200,
+				themes: 100,
+				database: 50,
+				other: 50,
+			},
+			isPending: false,
 		} );
 		useIsSiteStartingMock.mockReturnValue( false );
 		useIsSiteStoppingMock.mockReturnValue( false );
@@ -165,15 +233,23 @@ describe( 'SiteOverviewView', () => {
 		useXdebugEnabledSiteMock.mockReturnValue( null );
 	} );
 
-	function renderView( activeTab: 'overview' | 'general' | 'debugging' = 'overview' ) {
+	function renderView(
+		activeTab: 'overview' | 'general' | 'debugging' = 'overview',
+		openSiteDropdown = false
+	) {
 		return render(
 			<Tooltip.Provider>
-				<SiteOverviewView siteId="site-1" activeTab={ activeTab } onTabChange={ onTabChange } />
+				<SiteOverviewView
+					siteId="site-1"
+					activeTab={ activeTab }
+					openSiteDropdown={ openSiteDropdown }
+					onTabChange={ onTabChange }
+				/>
 			</Tooltip.Provider>
 		);
 	}
 
-	it( 'renders the tab strip with the customize and manage sections', () => {
+	it( 'renders the tab strip with the about, customize, and manage sections', () => {
 		renderView();
 
 		expect( siteDropdownMock ).toHaveBeenCalledWith(
@@ -182,6 +258,7 @@ describe( 'SiteOverviewView', () => {
 		expect( screen.getByRole( 'tab', { name: 'Overview' } ) ).toBeVisible();
 		expect( screen.getByRole( 'tab', { name: 'Settings' } ) ).toBeVisible();
 		expect( screen.getByRole( 'tab', { name: 'Debugging' } ) ).toBeVisible();
+		expect( screen.getByRole( 'heading', { name: 'About' } ) ).toBeVisible();
 		expect( screen.getByRole( 'heading', { name: 'Customize' } ) ).toBeVisible();
 		expect( screen.getByRole( 'heading', { name: 'Manage' } ) ).toBeVisible();
 		expect( screen.getByText( 'Site Editor' ) ).toBeVisible();
@@ -189,10 +266,74 @@ describe( 'SiteOverviewView', () => {
 		expect( screen.getByText( 'Media Library' ) ).toBeVisible();
 		expect( screen.queryByText( 'Customizer' ) ).not.toBeInTheDocument();
 		expect( screen.getByText( 'Duplicate' ) ).toBeVisible();
-		expect( screen.getByText( 'Export' ) ).toBeVisible();
-		expect( screen.getByText( 'Export DB' ) ).toBeVisible();
+		expect( screen.getByText( 'Export entire site' ) ).toBeVisible();
+		expect( screen.getByText( 'Export database' ) ).toBeVisible();
 		expect( screen.getByText( 'Delete' ) ).toBeVisible();
 		expect( screen.queryByDisplayValue( 'Demo Site' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'summarizes the site theme and runtime versions', async () => {
+		useWpVersionMock.mockReturnValue( { data: '6.8.2' } );
+
+		renderView();
+
+		expect( screen.getByText( 'Theme' ) ).toBeVisible();
+		expect( screen.getByText( 'Twenty Twenty-Six' ) ).toBeVisible();
+		expect( screen.getByText( 'WP v6.8.2' ) ).toBeVisible();
+		expect( screen.getByText( 'PHP v8.4' ) ).toBeVisible();
+		expect( await screen.findByRole( 'img', { name: 'Screenshot of Demo Site' } ) ).toHaveAttribute(
+			'src',
+			'data:image/png;base64,site-thumbnail'
+		);
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Open site in browser' } ) );
+		await waitFor( () =>
+			expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/', { autoLogin: false } )
+		);
+	} );
+
+	it( 'shows the total disk usage and an accessible category breakdown', () => {
+		renderView();
+
+		expect( screen.getByText( 'Disk' ) ).toBeVisible();
+		expect( screen.getByText( '800 B' ) ).toBeVisible();
+		expect(
+			screen.getByRole( 'group', {
+				name: 'Disk usage breakdown: Media — 400 B (50%), Plugins — 200 B (25%), Themes — 100 B (13%), Database — 50 B (6%), Other — 50 B (6%)',
+			} )
+		).toBeVisible();
+		expect( screen.getByText( 'Media' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Plugins' ) ).toBeInTheDocument();
+	} );
+
+	it( 'indicates when disk usage is still being measured', () => {
+		useSiteStorageUsageMock.mockReturnValue( { data: undefined, isPending: true } );
+
+		renderView();
+
+		expect( screen.getByText( 'Measuring…' ) ).toBeVisible();
+	} );
+
+	it( 'keeps the browser action available without a cached thumbnail', () => {
+		useSiteThumbnailMock.mockReturnValue( { data: null } );
+
+		renderView();
+
+		expect( screen.getByRole( 'button', { name: 'Open site in browser' } ) ).toBeVisible();
+		expect(
+			screen.queryByRole( 'img', { name: 'Screenshot of Demo Site' } )
+		).not.toBeInTheDocument();
+	} );
+
+	it( 'offsets the site menu below macOS traffic lights when the sidebar is collapsed', () => {
+		useSidebarCollapsedMock.mockReturnValue( true );
+		useTrafficLightSpaceMock.mockReturnValue( { start: true, end: false } );
+
+		renderView();
+
+		expect( screen.getByText( 'Demo Site' ).parentElement ).toHaveClass(
+			styles.headerSidebarCollapsed
+		);
 	} );
 
 	it( 'reports tab selection to the route', () => {
@@ -201,6 +342,14 @@ describe( 'SiteOverviewView', () => {
 		fireEvent.click( screen.getByRole( 'tab', { name: 'Settings' } ) );
 
 		expect( onTabChange ).toHaveBeenCalledWith( 'general' );
+	} );
+
+	it( 'opens site status when requested by the route', () => {
+		renderView( 'overview', true );
+
+		expect( siteDropdownMock ).toHaveBeenCalledWith(
+			expect.objectContaining( { defaultOpen: true } )
+		);
 	} );
 
 	it( 'renders the settings form with save actions on the general tab', () => {
@@ -435,6 +584,45 @@ describe( 'SiteOverviewView', () => {
 		expect( screen.queryByText( 'Site Editor' ) ).not.toBeInTheDocument();
 	} );
 
+	it( 'offers the configured apps and phpMyAdmin under Open in…', () => {
+		renderView();
+
+		expect( screen.getByRole( 'heading', { name: 'Open in…' } ) ).toBeVisible();
+		expect( screen.getByText( 'Finder' ) ).toBeVisible();
+		expect( screen.getByText( 'Visual Studio Code' ) ).toBeVisible();
+		expect( screen.getByText( 'Terminal' ) ).toBeVisible();
+		expect( screen.queryByText( 'Browser' ) ).not.toBeInTheDocument();
+
+		fireEvent.click( screen.getByText( 'Finder' ).closest( 'button' )! );
+		expect( openSiteFolder ).toHaveBeenCalledWith( 'site-1' );
+
+		fireEvent.click( screen.getByText( 'phpMyAdmin' ).closest( 'button' )! );
+		expect( openSiteUrl ).toHaveBeenCalledWith(
+			'site-1',
+			'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
+		);
+		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_phpmyadmin', {
+			browser: 'internal',
+		} );
+	} );
+
+	it( 'hides the editor shortcut until an editor is configured', () => {
+		useUserPreferencesMock.mockReturnValue( { data: preferencesStub( null ) } );
+
+		renderView();
+
+		expect( screen.queryByText( 'Visual Studio Code' ) ).not.toBeInTheDocument();
+		expect( screen.getByText( 'Finder' ) ).toBeVisible();
+	} );
+
+	it( 'drops the Open in… section on hosts that cannot open local apps', () => {
+		useConnectorMock.mockReturnValue( connectorStub( false ) );
+
+		renderView();
+
+		expect( screen.queryByRole( 'heading', { name: 'Open in…' } ) ).not.toBeInTheDocument();
+	} );
+
 	// Rendered without a SessionUIProvider, so the open-site-url hook takes
 	// its browser fallback path; inside the app these open the preview panel.
 	it( 'routes shortcuts through the connector', async () => {
@@ -447,6 +635,22 @@ describe( 'SiteOverviewView', () => {
 			expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/wp-admin/site-editor.php' )
 		);
 		expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/wp-admin/upload.php' );
+	} );
+
+	it( 'records a customize Tracks event with the entry_point for each shortcut', () => {
+		renderView();
+
+		fireEvent.click( screen.getByText( 'Site Editor' ).closest( 'button' )! );
+		fireEvent.click( screen.getByText( 'Media Library' ).closest( 'button' )! );
+
+		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_customize', {
+			entry_point: 'editor',
+			browser: 'internal',
+		} );
+		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_customize', {
+			entry_point: 'media_library',
+			browser: 'internal',
+		} );
 	} );
 
 	it( 'runs manage actions and confirms deletion in a dialog', () => {

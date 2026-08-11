@@ -10,7 +10,7 @@ import { z } from 'zod';
 import { extractZip } from '../packages/common/lib/extract-zip.ts';
 import { fetch, sharedDispatcher, throwForHttpStatus, withRetry } from './lib/with-retry.ts';
 
-const SQLITE_DATABASE_INTEGRATION_VERSION = 'v3.0.0-rc.6';
+const SQLITE_DATABASE_INTEGRATION_VERSION = 'v3.0.0-rc.8';
 const SQLITE_DATABASE_INTEGRATION_RELEASE_URL = `https://github.com/WordPress/sqlite-database-integration/releases/download/${ SQLITE_DATABASE_INTEGRATION_VERSION }/plugin-sqlite-database-integration.zip`;
 
 async function fetchWithRetry( name: string, url: string ): Promise< Buffer > {
@@ -131,14 +131,7 @@ const FILES_TO_DOWNLOAD: FileToDownload[] = [
 	{
 		name: 'reprint',
 		description: `reprint.phar`,
-		getUrl: async () => {
-			const release = await fetchLatestGithubRelease( 'WordPress/reprint' );
-			const asset = release.assets.find( ( a ) => a.name === 'reprint.phar' );
-			if ( ! asset ) {
-				throw new Error( `No asset found in latest reprint release ${ release.tag_name }` );
-			}
-			return asset.browser_download_url;
-		},
+		getUrl: () => 'https://github.com/WordPress/reprint/releases/download/v0.9.2/reprint.phar',
 		destinationPath: path.join( WP_SERVER_FILES_PATH, 'reprint' ),
 	},
 ];

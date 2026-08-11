@@ -1,6 +1,7 @@
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { isSnapshotExpired } from '@studio/common/lib/snapshots';
 import { useIsMutating } from '@tanstack/react-query';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { arrowDown, arrowUp, copy, external, Icon, moreHorizontal } from '@wordpress/icons';
 import { Button, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
@@ -138,6 +139,24 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 		void connector.openExternalUrl( url );
 	};
 
+	const getSyncActionLabel = ( idle: string, pending: string, isPending: boolean ): string => {
+		if ( isPending ) {
+			return pending;
+		}
+		if ( isSyncing ) {
+			// translators: %s: a sync action, e.g. "Pull from live".
+			return sprintf( __( '%s (sync in progress)' ), idle );
+		}
+		if ( ! agenticEnabled ) {
+			return isOffline
+				? // translators: %s: a sync action, e.g. "Pull from live".
+				  sprintf( __( '%s (offline)' ), idle )
+				: // translators: %s: a sync action, e.g. "Pull from live".
+				  sprintf( __( '%s (sign in required)' ), idle );
+		}
+		return idle;
+	};
+
 	const handlePreviewClick = () => {
 		if ( isPreviewPending ) return;
 		publishPreviewSite.mutate(
@@ -193,7 +212,17 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 		</Tooltip.Root>
 	);
 
-	const renderUrlLink = ( { text, url, label }: { text: string; url: string; label: string } ) => (
+	const renderUrlLink = ( {
+		text,
+		url,
+		label,
+		onOpen,
+	}: {
+		text: string;
+		url: string;
+		label: string;
+		onOpen?: () => void;
+	} ) => (
 		<Tooltip.Root>
 			<Tooltip.Trigger
 				render={
@@ -201,7 +230,10 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 						type="button"
 						className={ styles.urlLink }
 						aria-label={ label }
-						onClick={ () => openExternal( url ) }
+						onClick={ () => {
+							onOpen?.();
+							openExternal( url );
+						} }
 					>
 						<span>{ text }</span>
 						<Icon icon={ external } size={ 12 } aria-hidden="true" />
@@ -214,7 +246,9 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 
 	return (
 		<div className={ styles.rows }>
-			{ activity?.kind === 'error' ? <SyncActivityError activity={ activity } /> : null }
+			{ activity?.kind === 'pending' || activity?.kind === 'error' ? (
+				<SyncActivityDetails activity={ activity } />
+			) : null }
 
 			<PopoverRow
 				label={
@@ -233,6 +267,10 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 								text: localSublabel,
 								url: localSiteUrl,
 								label: __( 'Open Studio site in your browser' ),
+								onOpen: () =>
+									void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_IN_BROWSER, {
+										browser: 'external',
+									} ),
 						  } )
 						: localSublabel
 				}
@@ -242,13 +280,6 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 						starting={ isStarting }
 						stopping={ isStopping }
 						disabled={ isSyncing }
-						busyLabel={
-							isLocalTransitioning
-								? isStopping
-									? __( 'Stopping Studio site' )
-									: __( 'Starting Studio site' )
-								: undefined
-						}
 						onStart={ handleStartLocalClick }
 						onStop={ handleStopLocalClick }
 					/>
@@ -284,7 +315,11 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 								tone="neutral"
 								size="small"
 								icon={ arrowUp }
-								label={ isPreviewPending ? __( 'Updating preview' ) : __( 'Update preview site' ) }
+								label={ getSyncActionLabel(
+									__( 'Update preview site' ),
+									__( 'Updating preview…' ),
+									isPreviewPending
+								) }
 								className={ styles.rowActionButton }
 								loading={ isPreviewPending }
 								loadingAnnouncement={ __( 'Updating preview' ) }
@@ -324,8 +359,14 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 								tone="neutral"
 								size="small"
 								icon={ arrowDown }
-								label={ isPullPending ? __( 'Pulling from live' ) : __( 'Pull from live' ) }
+								label={ getSyncActionLabel(
+									__( 'Pull from live' ),
+									__( 'Pulling from live…' ),
+									isPullPending
+								) }
 								className={ styles.rowActionButton }
+								loading={ isPullPending }
+								loadingAnnouncement={ __( 'Pulling from live' ) }
 								disabled={ isSyncing || ! agenticEnabled }
 								focusableWhenDisabled
 								onClick={ handlePullClick }
@@ -335,8 +376,14 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 								tone="neutral"
 								size="small"
 								icon={ arrowUp }
-								label={ isPushPending ? __( 'Pushing to live' ) : __( 'Push to live' ) }
+								label={ getSyncActionLabel(
+									__( 'Push to live' ),
+									__( 'Pushing to live…' ),
+									isPushPending
+								) }
 								className={ styles.rowActionButton }
+								loading={ isPushPending }
+								loadingAnnouncement={ __( 'Pushing to live' ) }
 								disabled={ isSyncing || ! agenticEnabled }
 								focusableWhenDisabled
 								onClick={ handlePushClick }
@@ -399,17 +446,44 @@ function XdebugBadge( { running }: { running: boolean } ) {
 	);
 }
 
-function SyncActivityError( {
+function SyncActivityDetails( {
 	activity,
 }: {
-	activity: Extract< SyncActivity, { kind: 'error' } >;
+	activity: Extract< SyncActivity, { kind: 'pending' | 'error' } >;
 } ) {
 	return (
-		<div className={ styles.activityError } role="status">
-			<div className={ styles.activityErrorTitle }>{ getSyncActivityLabel( activity ) }</div>
-			<div className={ styles.activityErrorMessage }>{ activity.message }</div>
+		<div
+			className={ clsx(
+				styles.activityStatus,
+				activity.kind === 'error' ? styles.activityStatusError : styles.activityStatusPending
+			) }
+			role="status"
+			aria-live="polite"
+		>
+			<div className={ styles.activityStatusTitle }>{ getSyncActivityLabel( activity ) }</div>
+			<div className={ styles.activityStatusMessage }>
+				{ activity.message ?? __( 'Preparing the live site…' ) }
+			</div>
 		</div>
 	);
+}
+
+function getLocalServerStatusName( {
+	running,
+	starting,
+	stopping,
+}: {
+	running: boolean;
+	starting: boolean;
+	stopping: boolean;
+} ) {
+	if ( stopping ) {
+		return __( 'Stopping' );
+	}
+	if ( starting ) {
+		return __( 'Starting' );
+	}
+	return running ? __( 'Running' ) : __( 'Stopped' );
 }
 
 function LocalServerControl( {
@@ -417,7 +491,6 @@ function LocalServerControl( {
 	starting,
 	stopping,
 	disabled,
-	busyLabel,
 	onStart,
 	onStop,
 }: {
@@ -425,37 +498,65 @@ function LocalServerControl( {
 	starting: boolean;
 	stopping: boolean;
 	disabled: boolean;
-	busyLabel?: string;
 	onStart: () => void;
 	onStop: () => void;
 } ) {
 	const pending = starting || stopping;
 	const targetRunning = starting ? true : stopping ? false : running;
+	// aria-disabled rather than disabled: a natively disabled button suppresses
+	// the pointer events the tooltip listens for, hiding the status exactly
+	// while the site is transitioning.
+	const inert = disabled || pending;
+	const statusLabel = sprintf(
+		__( 'Site status: %s' ),
+		getLocalServerStatusName( { running, starting, stopping } )
+	);
+	const actionLabel = running ? __( 'Stop site' ) : __( 'Start site' );
 
 	return (
-		<button
-			type="button"
-			className={ clsx(
-				styles.localServerControl,
-				targetRunning && styles.localServerControl_running,
-				pending && styles.localServerControl_pending
-			) }
-			aria-label={ busyLabel ?? __( 'Studio site status' ) }
-			role="switch"
-			aria-checked={ targetRunning }
-			aria-busy={ pending || undefined }
-			disabled={ disabled || pending }
-			onClick={ targetRunning ? onStop : onStart }
-		>
-			<span className={ styles.localServerThumb } aria-hidden="true">
-				<span
-					className={ clsx(
-						styles.localServerGlyph,
-						targetRunning ? styles.playIcon : styles.pauseIcon
-					) }
-				/>
-			</span>
-		</button>
+		<Tooltip.Root>
+			<Tooltip.Trigger
+				render={
+					<button
+						type="button"
+						className={ clsx(
+							styles.localServerControl,
+							targetRunning && styles.localServerControl_running,
+							pending && styles.localServerControl_pending
+						) }
+						aria-label={
+							inert ? statusLabel : sprintf( __( '%1$s. %2$s' ), statusLabel, actionLabel )
+						}
+						role="switch"
+						aria-checked={ targetRunning }
+						aria-busy={ pending || undefined }
+						aria-disabled={ inert || undefined }
+						onClick={ () => {
+							if ( inert ) {
+								return;
+							}
+							if ( targetRunning ) {
+								onStop();
+							} else {
+								onStart();
+							}
+						} }
+					>
+						<span className={ styles.localServerThumb } aria-hidden="true">
+							<span
+								className={ clsx(
+									styles.localServerGlyph,
+									targetRunning ? styles.pauseIcon : styles.playIcon
+								) }
+							/>
+						</span>
+					</button>
+				}
+			/>
+			<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+				{ statusLabel }
+			</Tooltip.Popup>
+		</Tooltip.Root>
 	);
 }
 

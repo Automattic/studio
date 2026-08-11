@@ -10,6 +10,9 @@ interface DotGridProps {
 	crossThickness?: number;
 	className?: string;
 	active?: boolean;
+	// Set false to skip the corner reveal sweep and render the grid fully
+	// visible from the first frame.
+	intro?: boolean;
 }
 
 const SPRING_K = 0.07;
@@ -51,6 +54,7 @@ export function DotGrid( {
 	crossThickness = 0.75,
 	className,
 	active = true,
+	intro = true,
 }: DotGridProps ) {
 	const canvasRef = useRef< HTMLCanvasElement >( null );
 	const setActiveRef = useRef< ( value: boolean ) => void >( () => {} );
@@ -73,7 +77,7 @@ export function DotGrid( {
 		let ripples: Ripple[] = [];
 
 		let introRadius = 0;
-		let introComplete = false;
+		let introComplete = ! intro;
 
 		let cols = 0;
 		let rows = 0;
@@ -419,7 +423,7 @@ export function DotGrid( {
 			resizeObserver.disconnect();
 			mediaQuery.removeEventListener( 'change', onColorChange );
 		};
-	}, [ spacing, repulsion, rippleStrength, crossSize, crossThickness ] );
+	}, [ spacing, repulsion, rippleStrength, crossSize, crossThickness, intro ] );
 
 	useEffect( () => {
 		setActiveRef.current( active );

@@ -1,9 +1,12 @@
-import { getAuthenticationUrl } from '@studio/common/lib/oauth';
+import { getAuthenticationUrl, getSignUpUrl } from '@studio/common/lib/oauth';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
+import { readOnboardingHints, writeOnboardingHints } from '../browser-onboarding-hints';
 import { applyStoredSiteOrder, storeSiteOrder } from '../browser-site-order';
+import { readLastSeenVersion, writeLastSeenVersion } from '../browser-whats-new';
 import { buildPublishCheckoutUrl } from '../publish-checkout-url';
 import { UnsupportedError } from '../unsupported-error';
+import { readWapuuScore, writeWapuuScore } from '../wapuu-score-storage';
 import type {
 	ActiveAgentRun,
 	AiSessionPlacementUpdatedEvent,
@@ -18,6 +21,7 @@ import type {
 	LocalMediaFile,
 	ProposedSitePath,
 	QuitSitesBehavior,
+	PullSiteProgress,
 	SelectedSiteFolder,
 	SiteDetails,
 	Snapshot,
@@ -39,6 +43,7 @@ const COLOR_SCHEME_STORAGE_KEY = 'studio-local-color-scheme';
 const EDITOR_STORAGE_KEY = 'studio-local-editor';
 const TERMINAL_STORAGE_KEY = 'studio-local-terminal';
 const QUIT_SITES_BEHAVIOR_STORAGE_KEY = 'studio-local-quit-sites-behavior';
+const WAPUU_SCORE_STORAGE_KEY = 'studio-local-wapuu-score';
 const AGENTIC_FEATURES_STORAGE_KEY = 'studio-local-agentic-features-enabled';
 
 function parseQuitSitesBehavior( value: string | null ): QuitSitesBehavior | undefined {
@@ -62,6 +67,10 @@ type SnapshotSseOutput =
 	| { kind: 'success'; operationId: string }
 	| { kind: 'output' | 'error'; operationId: string };
 
+type PullProgressSseOutput = PullSiteProgress & {
+	siteId: string;
+	remoteSiteId: number;
+};
 type ImportSseOutput = { siteId: string; event: ImportEventTuple };
 
 // Envelope used by the backend's `/events` SSE stream so a single connection
@@ -70,6 +79,7 @@ type ServerEvent =
 	| { channel: 'agent'; payload: AgentRunEvent }
 	| { channel: 'placement'; payload: AiSessionPlacementUpdatedEvent }
 	| { channel: 'snapshot'; payload: SnapshotSseOutput }
+	| { channel: 'sync-pull'; payload: PullProgressSseOutput }
 	| { channel: 'import'; payload: ImportSseOutput }
 	| { channel: 'sync-connect'; payload: { remoteSiteId: number; studioSiteId: string } };
 
@@ -93,6 +103,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 	const agentListeners = new Set< ( event: AgentRunEvent ) => void >();
 	const placementListeners = new Set< ( event: AiSessionPlacementUpdatedEvent ) => void >();
 	const snapshotListeners = new Set< ( output: SnapshotSseOutput ) => void >();
+	const pullProgressListeners = new Set< ( output: PullProgressSseOutput ) => void >();
 	const importListeners = new Set< ( output: ImportSseOutput ) => void >();
 	const syncConnectListeners = new Set<
 		( event: { remoteSiteId: number; studioSiteId: string } ) => void
@@ -215,6 +226,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					placementListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				} else if ( parsed.channel === 'snapshot' ) {
 					snapshotListeners.forEach( ( listener ) => listener( parsed.payload ) );
+				} else if ( parsed.channel === 'sync-pull' ) {
+					pullProgressListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				} else if ( parsed.channel === 'import' ) {
 					importListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				} else if ( parsed.channel === 'sync-connect' ) {
@@ -233,6 +246,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			annotatePreview: false,
 			readLocalMedia: false,
 			agentInstructions: true,
+			studioLogs: false,
 			switchToClassicUi: false,
 		},
 
@@ -251,7 +265,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		// configured: a popup goes through WordPress.com to /auth/callback, which
 		// stores the token and posts back here. Falls back to the paste flow
 		// (`studio auth login`-style) when no client is configured.
-		async authenticate() {
+		async authenticate( signup = false ) {
 			// Open the popup synchronously (inside the click gesture) so it isn't
 			// blocked, then navigate it once the authorize URL is resolved.
 			const popup = window.open( 'about:blank', 'studio-auth', 'width=600,height=720' );
@@ -261,7 +275,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				( { url: loginUrl } = await api< { url: string | null } >(
 					`/auth/login-url?redirect_uri=${ encodeURIComponent(
 						`${ window.location.origin }/auth/callback`
-					) }`
+					) }${ signup ? '&signup=1' : '' }`
 				) );
 			} catch {
 				loginUrl = null;
@@ -270,8 +284,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			if ( ! loginUrl ) {
 				// No OAuth client configured → paste-the-token fallback.
 				popup?.close();
+				const redirectUri = 'https://developer.wordpress.com/copy-oauth-token';
 				window.open(
-					getAuthenticationUrl( 'en', 'https://developer.wordpress.com/copy-oauth-token' ),
+					signup ? getSignUpUrl( 'en', redirectUri ) : getAuthenticationUrl( 'en', redirectUri ),
 					'_blank',
 					'noopener,noreferrer'
 				);
@@ -348,6 +363,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async refreshSiteIcon() {
 			// No-op: icons come back with getSites().
 		},
+		async getSiteThumbnail(): Promise< string | null > {
+			return null;
+		},
+		async getSiteStorageUsage( siteId ) {
+			return api( `/sites/${ encodeURIComponent( siteId ) }/storage` );
+		},
 
 		// Site creation — delegated to the CLI `create` on the local machine.
 		async createSite( params ): Promise< SiteDetails > {
@@ -363,6 +384,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					adminUsername: params.adminUsername,
 					adminPassword: params.adminPassword,
 					adminEmail: params.adminEmail,
+					skipStart: params.skipStart,
 					// The server writes this to a temp file and passes --blueprint to
 					// the CLI (featured blueprint JSON, or an uploaded bundle's filePath).
 					blueprint: params.blueprint,
@@ -372,6 +394,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async generateProposedSiteName(): Promise< string > {
 			// The server derives this from its own (authoritative) site list.
 			const { name } = await api< { name: string } >( '/site-defaults/name' );
+			return name;
+		},
+		async generateNumberedSiteName( baseName ): Promise< string > {
+			const { name } = await api< { name: string } >(
+				`/site-defaults/name?base=${ encodeURIComponent( baseName ) }`
+			);
 			return name;
 		},
 		async generateProposedSitePath( siteName ): Promise< ProposedSitePath > {
@@ -515,7 +543,11 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			return awaitSnapshotOperation( operationId );
 		},
 		async getConnectedWpcomSites( localSiteId ): Promise< SyncSite[] > {
-			return api< SyncSite[] >( `/sites/${ encodeURIComponent( localSiteId ) }/connected-sites` );
+			return api< SyncSite[] >(
+				localSiteId
+					? `/sites/${ encodeURIComponent( localSiteId ) }/connected-sites`
+					: '/wpcom/connected-sites'
+			);
 		},
 		async fetchSyncableWpcomSites(): Promise< SyncSite[] > {
 			return api< SyncSite[] >( '/wpcom/syncable-sites' );
@@ -553,11 +585,26 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				body: JSON.stringify( { remoteSiteId } ),
 			} );
 		},
-		async pullSiteFromLive( siteId, remoteSiteId ) {
-			await api( `/sites/${ encodeURIComponent( siteId ) }/pull`, {
-				method: 'POST',
-				body: JSON.stringify( { remoteSiteId } ),
-			} );
+		async pullSiteFromLive( siteId, remoteSiteId, onProgress ) {
+			const listener = ( output: PullProgressSseOutput ) => {
+				if ( output.siteId === siteId ) {
+					onProgress?.( {
+						message: output.message,
+						...( output.progress === undefined ? {} : { progress: output.progress } ),
+					} );
+				}
+			};
+			if ( onProgress ) {
+				pullProgressListeners.add( listener );
+			}
+			try {
+				await api( `/sites/${ encodeURIComponent( siteId ) }/pull`, {
+					method: 'POST',
+					body: JSON.stringify( { remoteSiteId } ),
+				} );
+			} finally {
+				pullProgressListeners.delete( listener );
+			}
 		},
 		getPublishCheckoutUrl( site ): string {
 			// The post-checkout auto-connect relies on the deep-link listener, which
@@ -643,6 +690,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				colorScheme,
 				quitSitesBehavior,
 				locale: undefined,
+				// Analytics doesn't flow through the browser target in Phase 1; report enabled.
+				analyticsEnabled: true,
 				defaultSiteDirectory: '',
 				studioCliInstalled: false,
 				studioCliExternallyManaged: false,
@@ -703,6 +752,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			} );
 		},
 
+		// The local server has no REST-proxy route yet; the preview omnibox
+		// only offers search where the webview connector serves it.
+		async fetchSiteRest() {
+			throw new UnsupportedError( 'fetchSiteRest' );
+		},
+
 		// The server runs on the user's machine, so it opens paths in OS apps on
 		// the browser's behalf (the editor/terminal choice comes from prefs above).
 		async openSiteFolder( siteId ) {
@@ -727,9 +782,28 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			} );
 		},
 
+		// The CLI has no equivalent of the desktop's log file — site server output
+		// goes to `~/.studio/daemon/logs` and the rest to the terminal that ran
+		// `studio ui` — so there is nothing to open here.
+		async openStudioLogs() {
+			throw new UnsupportedError( 'openStudioLogs' );
+		},
+
+		// Analytics — no-op here. Tracks currently flows through the desktop IPC connector; the
+		// local (browser) target has no Main-process choke point yet. See the design doc.
+		async trackEvent() {
+			// intentionally empty
+		},
+
 		// External links work natively in the browser.
 		async openExternalUrl( url ) {
 			window.open( url, '_blank', 'noopener,noreferrer' );
+		},
+		async getWapuuScore() {
+			return readWapuuScore( WAPUU_SCORE_STORAGE_KEY );
+		},
+		async saveWapuuScore( score ) {
+			writeWapuuScore( WAPUU_SCORE_STORAGE_KEY, score );
 		},
 		async popupAppMenu() {},
 		showsAppMenuButton: false,
@@ -790,6 +864,26 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		async disableAgenticUi() {
 			// No-op in the browser.
+		},
+		async getOnboardingHints() {
+			return readOnboardingHints();
+		},
+		async setOnboardingHints( partial ) {
+			writeOnboardingHints( partial );
+		},
+		onShowGettingStarted() {
+			// No application menu in a browser tab.
+			return () => {};
+		},
+		onShowWhatsNew() {
+			// No application menu in a browser tab.
+			return () => {};
+		},
+		async getLastSeenVersion() {
+			return readLastSeenVersion();
+		},
+		async saveLastSeenVersion( version ) {
+			writeLastSeenVersion( version );
 		},
 		async getAppUpdateStatus() {
 			return { readyToInstall: false, version: null };

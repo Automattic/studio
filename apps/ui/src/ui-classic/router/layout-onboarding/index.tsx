@@ -79,7 +79,12 @@ export function OnboardingShell() {
 	return (
 		<OnboardingShellView
 			hasSites={ ( sites?.length ?? 0 ) > 0 }
-			isWide={ matches.some( ( match ) => match.pathname === '/onboarding' ) }
+			isWide={ matches.some(
+				( match ) =>
+					match.pathname === '/onboarding' ||
+					match.pathname === '/onboarding/connect' ||
+					match.pathname === '/onboarding/tour'
+			) }
 			pathname={ pathname }
 			onClose={ () => void navigate( { to: '/' } ) }
 		>

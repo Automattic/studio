@@ -3,6 +3,8 @@ import {
 	buildUsageCapErrorMessage,
 	getAgentEndFailure,
 	isHttp429ErrorMessage,
+	isAiAccessRequiredError,
+	isAiBlockedError,
 	isUsageCapError,
 	USAGE_CAP_ERROR_PREFIX,
 } from '../json-events';
@@ -85,6 +87,56 @@ describe( 'isUsageCapError', () => {
 	it( 'does not match raw un-rewritten 429s (non-wpcom rate limits)', () => {
 		expect( isUsageCapError( '429 rate limited' ) ).toBe( false );
 		expect( isUsageCapError( 'OpenAI API error (429): rate limited' ) ).toBe( false );
+	} );
+} );
+
+describe( 'isAiBlockedError', () => {
+	it( 'matches the load-bearing code token wherever it appears in the message', () => {
+		expect(
+			isAiBlockedError( '403 studio_code_ai_disabled: Studio Code AI is blocked for this account.' )
+		).toBe( true );
+		expect(
+			isAiBlockedError(
+				'403 {"code":"studio_code_ai_disabled","message":"Studio Code AI is blocked for this account.","data":{"status":403}}'
+			)
+		).toBe( true );
+	} );
+
+	it( 'does not match other 403s or unrelated errors', () => {
+		expect( isAiBlockedError( '403 model not allowed' ) ).toBe( false );
+		expect( isAiBlockedError( '403 Studio Code AI is blocked for this account.' ) ).toBe( false );
+		expect( isAiBlockedError( 'Monthly usage limit reached: x' ) ).toBe( false );
+		expect( isAiBlockedError( undefined ) ).toBe( false );
+		expect(
+			isAiBlockedError(
+				'403 studio_code_ai_access_required: Studio Code AI access has not been enabled for this account.'
+			)
+		).toBe( false );
+	} );
+} );
+
+describe( 'isAiAccessRequiredError', () => {
+	it( 'matches the load-bearing code token wherever it appears in the message', () => {
+		expect(
+			isAiAccessRequiredError(
+				'403 studio_code_ai_access_required: Studio Code AI access has not been enabled for this account.'
+			)
+		).toBe( true );
+		expect(
+			isAiAccessRequiredError(
+				'403 {"code":"studio_code_ai_access_required","message":"Studio Code AI access has not been enabled for this account.","data":{"status":403}}'
+			)
+		).toBe( true );
+	} );
+
+	it( 'does not match the blocked code or unrelated errors', () => {
+		expect(
+			isAiAccessRequiredError(
+				'403 studio_code_ai_disabled: Studio Code AI is blocked for this account.'
+			)
+		).toBe( false );
+		expect( isAiAccessRequiredError( '403 model not allowed' ) ).toBe( false );
+		expect( isAiAccessRequiredError( undefined ) ).toBe( false );
 	} );
 } );
 

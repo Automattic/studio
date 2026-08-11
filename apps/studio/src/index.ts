@@ -41,13 +41,10 @@ import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import { maybePromptNightlySwitch, startNightlyPromptPoller } from 'src/lib/nightly-prompt';
 import { getSentryReleaseInfo } from 'src/lib/sentry-release';
+import { setAgenticUiEnabled } from 'src/lib/studio-ui-mode';
+import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
 import { setupLogging } from 'src/logging';
-import {
-	createMainWindow,
-	getCurrentRendererUrl,
-	getMainWindow,
-	setAgenticUiEnabled,
-} from 'src/main-window';
+import { createMainWindow, getCurrentRendererUrl, getMainWindow } from 'src/main-window';
 import { migrations } from 'src/migrations';
 import {
 	startCliEventsSubscriber,
@@ -414,6 +411,15 @@ async function appBoot() {
 			getPlatformMetric(),
 			'monthly'
 		).catch( ( err ) => Sentry.captureException( err ) );
+
+		// Tracks: structured launch event, runs in parallel with the MC Stats bumps above.
+		// `is_first_launch` intentionally reuses `lastBumpStats` — it's a durable pre-existing marker,
+		// so existing users read false and fresh installs read true. If the MC Stats launch bumps are
+		// ever removed, migrate this to another durable per-install marker (e.g. `sentryUserId`) or a
+		// dedicated flag, or it will silently report true on every launch. See the analytics design doc.
+		void recordTracksEvent( TRACKS_EVENTS.APP_LAUNCH, {
+			is_first_launch: ! userData.lastBumpStats,
+		} ).catch( ( err ) => Sentry.captureException( err ) );
 
 		await autoInstallWindowsCliIfNeeded();
 		await autoInstallMacOSCliIfNeeded();

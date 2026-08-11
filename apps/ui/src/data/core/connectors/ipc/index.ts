@@ -1,3 +1,4 @@
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import {
 	STUDIO_ASSISTANT_QUOTA_URL,
@@ -213,6 +214,7 @@ export function createIpcConnector(): Connector {
 			annotatePreview: true,
 			readLocalMedia: true,
 			agentInstructions: true,
+			studioLogs: true,
 			switchToClassicUi: true,
 		},
 
@@ -272,7 +274,9 @@ export function createIpcConnector(): Connector {
 				adminUsername,
 				adminPassword,
 				adminEmail,
+				skipStart,
 				blueprint,
+				flowType,
 			} = params;
 			return ( await ipcApi.createSite( path, {
 				siteName: name,
@@ -283,7 +287,9 @@ export function createIpcConnector(): Connector {
 				adminUsername,
 				adminPassword,
 				adminEmail,
+				noStart: skipStart,
 				blueprint,
+				flowType,
 			} ) ) as SiteDetails;
 		},
 
@@ -308,6 +314,10 @@ export function createIpcConnector(): Connector {
 
 		async generateProposedSiteName( usedSites ): Promise< string > {
 			return ( await ipcApi.generateSiteNameFromList( usedSites ) ) as string;
+		},
+
+		async generateNumberedSiteName( baseName, usedSites ): Promise< string > {
+			return ( await ipcApi.generateNumberedNameFromList( baseName, usedSites ) ) as string;
 		},
 
 		async generateProposedSitePath( siteName ): Promise< ProposedSitePath > {
@@ -413,6 +423,13 @@ export function createIpcConnector(): Connector {
 			await ipcApi.loadSiteIcon( siteId );
 		},
 
+		async getSiteThumbnail( siteId ): Promise< string | null > {
+			return ( await ipcApi.getThumbnailData( siteId ) ) as string | null;
+		},
+		async getSiteStorageUsage( siteId ) {
+			return ipcApi.getSiteStorageUsage( siteId );
+		},
+
 		async exportFullSite( siteId ): Promise< string | null > {
 			const sites = ( await ipcApi.getSiteDetails() ) as SiteDetails[];
 			const site = sites.find( ( candidate ) => candidate.id === siteId );
@@ -507,7 +524,7 @@ export function createIpcConnector(): Connector {
 		},
 
 		// Connected WPCom sites
-		async getConnectedWpcomSites( localSiteId: string ): Promise< SyncSite[] > {
+		async getConnectedWpcomSites( localSiteId?: string ): Promise< SyncSite[] > {
 			return ( await ipcApi.getConnectedWpcomSites( localSiteId ) ) as SyncSite[];
 		},
 
@@ -542,9 +559,28 @@ export function createIpcConnector(): Connector {
 			await markConnectedWpcomSiteSynced( siteId, remoteSiteId, 'push' );
 		},
 
-		async pullSiteFromLive( siteId, remoteSiteId ): Promise< void > {
-			const siteFolder = await resolveSiteFolder( siteId );
-			await ipcApi.pullSiteFromLive( siteFolder, remoteSiteId );
+		async pullSiteFromLive( siteId, remoteSiteId, onProgress ): Promise< void > {
+			const unsubscribe = onProgress
+				? ipcListener.subscribe(
+						'sync-pull-progress',
+						(
+							_event: unknown,
+							payload: { siteId: string; message: string; progress?: number }
+						) => {
+							if ( payload.siteId === siteId ) {
+								onProgress( {
+									message: payload.message,
+									...( payload.progress === undefined ? {} : { progress: payload.progress } ),
+								} );
+							}
+						}
+				  )
+				: undefined;
+			try {
+				await ipcApi.pullSiteFromLive( siteId, remoteSiteId );
+			} finally {
+				unsubscribe?.();
+			}
 			await markConnectedWpcomSiteSynced( siteId, remoteSiteId, 'pull' );
 		},
 
@@ -635,6 +671,7 @@ export function createIpcConnector(): Connector {
 				colorScheme,
 				quitSitesBehavior,
 				locale,
+				analyticsEnabled,
 				defaultSiteDirectory,
 				studioCliInstalled,
 				studioCliExternallyManaged,
@@ -645,6 +682,7 @@ export function createIpcConnector(): Connector {
 				ipcApi.getColorScheme(),
 				ipcApi.getQuitSitesBehavior(),
 				ipcApi.getUserLocale(),
+				ipcApi.getAnalyticsEnabled(),
 				ipcApi.getDefaultSiteDirectory(),
 				ipcApi.isStudioCliInstalled(),
 				ipcApi.isStudioCliExternallyManaged(),
@@ -655,6 +693,7 @@ export function createIpcConnector(): Connector {
 				ColorScheme,
 				QuitSitesBehavior | undefined,
 				string | undefined,
+				boolean,
 				string,
 				boolean,
 				boolean,
@@ -666,6 +705,7 @@ export function createIpcConnector(): Connector {
 				colorScheme,
 				quitSitesBehavior,
 				locale,
+				analyticsEnabled,
 				defaultSiteDirectory,
 				studioCliInstalled,
 				studioCliExternallyManaged,
@@ -673,7 +713,7 @@ export function createIpcConnector(): Connector {
 			};
 		},
 
-		async setUserPreferences( partial ): Promise< void > {
+		async setUserPreferences( partial, source ): Promise< void > {
 			const writes: Array< Promise< unknown > > = [];
 			if ( 'editor' in partial ) {
 				writes.push( ipcApi.saveUserEditor( partial.editor ) );
@@ -690,6 +730,13 @@ export function createIpcConnector(): Connector {
 			if ( 'locale' in partial && partial.locale ) {
 				writes.push( ipcApi.saveUserLocale( partial.locale ) );
 			}
+			if ( 'analyticsEnabled' in partial ) {
+				writes.push(
+					ipcApi.saveAnalyticsEnabled( partial.analyticsEnabled, {
+						surface: source?.surface ?? 'settings',
+					} )
+				);
+			}
 			if ( 'defaultSiteDirectory' in partial && partial.defaultSiteDirectory ) {
 				writes.push( ipcApi.saveDefaultSiteDirectory( partial.defaultSiteDirectory ) );
 			}
@@ -702,6 +749,11 @@ export function createIpcConnector(): Connector {
 				writes.push( ipcApi.saveAgenticFeaturesEnabled( partial.agenticFeaturesEnabled ) );
 			}
 			await Promise.all( writes );
+			if ( typeof partial.agenticFeaturesEnabled === 'boolean' ) {
+				// Cmd/Ctrl+N belongs to "New chat" only while chat is on, so the
+				// menu has to be rebuilt for the accelerator to change hands.
+				await ipcApi.setupAppMenu( { needsOnboarding: false } );
+			}
 		},
 
 		async selectDefaultSiteDirectory( defaultPath ): Promise< string | null > {
@@ -730,6 +782,10 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.getAppGlobals() ) as AppGlobals;
 		},
 
+		async fetchSiteRest( siteId, request ) {
+			return await ipcApi.fetchSiteRestApi( siteId, request );
+		},
+
 		async openSiteFolder( siteId ): Promise< void > {
 			const sitePath = await resolveSiteFolder( siteId );
 			ipcApi.openLocalPath( sitePath );
@@ -741,6 +797,8 @@ export function createIpcConnector(): Connector {
 			if ( ! editor ) {
 				throw new Error( 'No preferred editor configured.' );
 			}
+			// Emit here rather than in Main's `openAppAtPath`, which is shared with single-file opens.
+			void ipcApi.recordAnalyticsEvent( TRACKS_EVENTS.SITE_OPEN_IN_EDITOR, { editor } );
 			await ipcApi.openAppAtPath( editor, sitePath );
 		},
 
@@ -749,9 +807,26 @@ export function createIpcConnector(): Connector {
 			await ipcApi.openTerminalAtPath( sitePath );
 		},
 
+		async openStudioLogs(): Promise< void > {
+			ipcApi.openStudioLogs();
+		},
+
+		// Analytics. `channel` and `ui_version` are attached by the desktop Tracks wrapper's
+		// `commonProps()` in Main, so callers pass only event-specific props here.
+		async trackEvent( eventName, props = {} ): Promise< void > {
+			await ipcApi.recordAnalyticsEvent( eventName, { ...props } );
+		},
+
 		// External links
 		async openExternalUrl( url: string ): Promise< void > {
 			ipcApi.openURL( url );
+		},
+
+		async getWapuuScore(): Promise< number | undefined > {
+			return ( await ipcApi.getWapuuScore() ) as number | undefined;
+		},
+		async saveWapuuScore( score: number ): Promise< void > {
+			await ipcApi.saveWapuuScore( score );
 		},
 
 		async popupAppMenu( position: { x: number; y: number } ): Promise< void > {
@@ -764,6 +839,10 @@ export function createIpcConnector(): Connector {
 
 		async copyText( text: string ): Promise< void > {
 			await ipcApi.copyText( text );
+		},
+
+		async showTextContextMenu( context ) {
+			return ipcApi.showTextContextMenu( context );
 		},
 
 		async confirmDeleteAllPreviewSites(): Promise< boolean > {
@@ -856,6 +935,32 @@ export function createIpcConnector(): Connector {
 
 		async disableAgenticUi(): Promise< void > {
 			await ipcApi.disableAgenticUi();
+		},
+
+		async getOnboardingHints() {
+			return ipcApi.getOnboardingHints();
+		},
+
+		async setOnboardingHints( partial ) {
+			await ipcApi.saveOnboardingHints( partial );
+		},
+
+		onShowGettingStarted( listener ) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const ipcListener = ( window as any ).ipcListener;
+			return ipcListener.subscribe( 'show-getting-started', () => listener() );
+		},
+
+		onShowWhatsNew( listener ) {
+			return ipcListener.subscribe( 'show-whats-new', () => listener() );
+		},
+
+		async getLastSeenVersion() {
+			return ipcApi.getLastSeenVersion();
+		},
+
+		async saveLastSeenVersion( version ) {
+			await ipcApi.saveLastSeenVersion( version );
 		},
 
 		async getAppUpdateStatus() {

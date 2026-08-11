@@ -1,7 +1,10 @@
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
+import { readOnboardingHints, writeOnboardingHints } from '../browser-onboarding-hints';
 import { applyStoredSiteOrder, storeSiteOrder } from '../browser-site-order';
+import { readLastSeenVersion, writeLastSeenVersion } from '../browser-whats-new';
 import { UnsupportedError } from '../unsupported-error';
+import { readWapuuScore, writeWapuuScore } from '../wapuu-score-storage';
 import type {
 	ActiveAgentRun,
 	AiSessionPlacementUpdatedEvent,
@@ -25,6 +28,8 @@ export interface HostedConnectorOptions {
 	// Base URL of the Studio hosted backend (`apps/hosted`), e.g. http://localhost:8088.
 	apiBaseUrl: string;
 }
+
+const WAPUU_SCORE_STORAGE_KEY = 'studio-hosted-wapuu-score';
 
 // Envelope used by the backend's `/events` SSE stream so a single connection
 // can carry both agent-run events and session-placement updates.
@@ -119,6 +124,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			annotatePreview: false,
 			readLocalMedia: false,
 			agentInstructions: false,
+			studioLogs: false,
 			switchToClassicUi: false,
 		},
 
@@ -177,6 +183,12 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async refreshSiteIcon() {
 			// No-op: icons come back with getSites().
 		},
+		async getSiteThumbnail(): Promise< string | null > {
+			return null;
+		},
+		async getSiteStorageUsage(): Promise< null > {
+			return null;
+		},
 		async exportFullSite(): Promise< string | null > {
 			throw new UnsupportedError( 'exportFullSite' );
 		},
@@ -185,6 +197,9 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		},
 		async generateProposedSiteName(): Promise< string > {
 			throw new UnsupportedError( 'generateProposedSiteName' );
+		},
+		async generateNumberedSiteName() {
+			throw new UnsupportedError( 'generateNumberedSiteName' );
 		},
 		async generateProposedSitePath() {
 			throw new UnsupportedError( 'generateProposedSitePath' );
@@ -331,6 +346,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 				colorScheme: 'system',
 				quitSitesBehavior: undefined,
 				locale: undefined,
+				analyticsEnabled: true,
 				defaultSiteDirectory: '',
 				studioCliInstalled: false,
 				studioCliExternallyManaged: false,
@@ -366,6 +382,10 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			return {} as InstalledApps;
 		},
 
+		async fetchSiteRest() {
+			throw new UnsupportedError( 'fetchSiteRest' );
+		},
+
 		// Filesystem / native integrations — not available in a browser.
 		async openSiteFolder() {
 			throw new UnsupportedError( 'openSiteFolder' );
@@ -376,10 +396,25 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async openSiteInTerminal() {
 			throw new UnsupportedError( 'openSiteInTerminal' );
 		},
+		async openStudioLogs() {
+			throw new UnsupportedError( 'openStudioLogs' );
+		},
+
+		// Analytics — no-op here. Tracks currently flows through the desktop IPC connector; the
+		// hosted (browser) target has no Main-process choke point yet. See the design doc.
+		async trackEvent() {
+			// intentionally empty
+		},
 
 		// External links work natively in the browser.
 		async openExternalUrl( url ) {
 			window.open( url, '_blank', 'noopener,noreferrer' );
+		},
+		async getWapuuScore() {
+			return readWapuuScore( WAPUU_SCORE_STORAGE_KEY );
+		},
+		async saveWapuuScore( score ) {
+			writeWapuuScore( WAPUU_SCORE_STORAGE_KEY, score );
 		},
 		async popupAppMenu() {},
 		showsAppMenuButton: false,
@@ -440,6 +475,26 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		},
 		async disableAgenticUi() {
 			// No-op in the browser.
+		},
+		async getOnboardingHints() {
+			return readOnboardingHints();
+		},
+		async setOnboardingHints( partial ) {
+			writeOnboardingHints( partial );
+		},
+		onShowGettingStarted() {
+			// No application menu on the hosted surface.
+			return () => {};
+		},
+		onShowWhatsNew() {
+			// No application menu on the hosted surface.
+			return () => {};
+		},
+		async getLastSeenVersion() {
+			return readLastSeenVersion();
+		},
+		async saveLastSeenVersion( version ) {
+			writeLastSeenVersion( version );
 		},
 		async getAppUpdateStatus() {
 			return { readyToInstall: false, version: null };

@@ -115,10 +115,11 @@ describe( 'SiteList', () => {
 		useSiteSyncActivityMock.mockReturnValue( null );
 		useSessionsMock.mockReturnValue( { data: [], isLoading: false } );
 		useConnectorMock.mockReturnValue( {
-			openExternalUrl: vi.fn(),
-			openSiteFolder: vi.fn(),
-			openSiteInEditor: vi.fn(),
-			openSiteInTerminal: vi.fn(),
+			openExternalUrl: vi.fn().mockResolvedValue( undefined ),
+			openSiteFolder: vi.fn().mockResolvedValue( undefined ),
+			openSiteInEditor: vi.fn().mockResolvedValue( undefined ),
+			openSiteInTerminal: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
 		} as unknown as ReturnType< typeof useConnector > );
 		useCopySiteMock.mockReturnValue( { isPending: false, mutate: vi.fn() } );
 		useDeleteSiteMock.mockReturnValue( { isPending: false, mutate: vi.fn() } );
@@ -136,6 +137,7 @@ describe( 'SiteList', () => {
 				terminal: null,
 				colorScheme: 'system',
 				locale: 'en',
+				analyticsEnabled: true,
 				defaultSiteDirectory: '',
 				studioCliInstalled: false,
 				studioCliExternallyManaged: false,
@@ -207,6 +209,32 @@ describe( 'SiteList', () => {
 		expect( screen.getByText( 'Delete site' ) ).toBeInTheDocument();
 	} );
 
+	it( 'records a Tracks event when opening the site folder from the menu', async () => {
+		render( <SiteList /> );
+
+		fireEvent.contextMenu( screen.getByText( 'Stopped Site' ) );
+		fireEvent.click( await screen.findByText( 'Open folder' ) );
+
+		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_site_open_folder' );
+	} );
+
+	it( 'records external-browser Tracks events for phpMyAdmin and WP admin', async () => {
+		render( <SiteList /> );
+
+		fireEvent.contextMenu( screen.getByText( 'Running Site' ) );
+		fireEvent.click( await screen.findByText( 'Open phpMyAdmin' ) );
+
+		fireEvent.contextMenu( screen.getByText( 'Running Site' ) );
+		fireEvent.click( await screen.findByText( 'Open WP admin' ) );
+
+		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_site_open_phpmyadmin', {
+			browser: 'external',
+		} );
+		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_site_open_wp_admin', {
+			browser: 'external',
+		} );
+	} );
+
 	it( 'opens site settings from the site actions menu', async () => {
 		render( <SiteList /> );
 
@@ -218,6 +246,9 @@ describe( 'SiteList', () => {
 			to: '/sites/$siteId/overview',
 			params: { siteId: 'stopped-site' },
 			search: { tab: 'general' },
+		} );
+		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_panel_opened', {
+			panel: 'settings',
 		} );
 	} );
 
@@ -238,6 +269,41 @@ describe( 'SiteList', () => {
 			to: '/sites/$siteId/overview',
 			params: { siteId: 'stopped-site' },
 		} );
+		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_panel_opened', {
+			panel: 'overview',
+		} );
+	} );
+
+	it( 'records an assistant panel event when clicking a site name opens chat', () => {
+		render( <SiteList /> );
+
+		fireEvent.click( screen.getByText( 'Stopped Site' ) );
+
+		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_panel_opened', {
+			panel: 'assistant',
+		} );
+	} );
+
+	it( 'shows the selected site solid without the overview shortcut when signed out', () => {
+		vi.mocked( useAgenticFeatures ).mockReturnValue( {
+			enabled: false,
+			chatEnabled: false,
+			reason: 'signed-out',
+			isReady: true,
+		} );
+		paramsMock = { siteId: 'stopped-site' };
+		pathnameMock = '/sites/stopped-site/overview';
+
+		render( <SiteList /> );
+
+		const stoppedRow = screen.getByText( 'Stopped Site' ).closest( 'section' )!;
+		const className = stoppedRow.getAttribute( 'class' ) ?? '';
+		const siteButton = within( stoppedRow ).getByRole( 'button', { name: 'Stopped Site' } );
+
+		expect( className ).toContain( 'siteActive' );
+		expect( className ).not.toContain( 'siteContextActive' );
+		expect( siteButton ).toHaveAttribute( 'aria-current', 'page' );
+		expect( screen.queryByRole( 'button', { name: 'Site overview' } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'opens the site overview from the row gear without opening the latest chat', () => {
@@ -245,6 +311,9 @@ describe( 'SiteList', () => {
 
 		fireEvent.click( screen.getAllByRole( 'button', { name: 'Site overview' } )[ 0 ] );
 
+		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_panel_opened', {
+			panel: 'overview',
+		} );
 		expect( navigateMock ).toHaveBeenCalledTimes( 1 );
 		expect( navigateMock ).toHaveBeenLastCalledWith( {
 			to: '/sites/$siteId/overview',
@@ -752,6 +821,7 @@ describe( 'SiteList', () => {
 				terminal: 'terminal',
 				colorScheme: 'system',
 				locale: 'en',
+				analyticsEnabled: true,
 				defaultSiteDirectory: '',
 				studioCliInstalled: false,
 				studioCliExternallyManaged: false,
@@ -777,6 +847,7 @@ describe( 'SiteList', () => {
 				terminal: null,
 				colorScheme: 'system',
 				locale: undefined,
+				analyticsEnabled: true,
 				defaultSiteDirectory: '',
 				studioCliInstalled: false,
 				studioCliExternallyManaged: false,

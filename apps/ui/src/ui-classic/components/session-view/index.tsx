@@ -1,7 +1,10 @@
 import { resolveSessionModel } from '@studio/common/ai/models';
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
+import { getStudioCodeAiAccessState } from '@studio/common/lib/studio-assistant-quota';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
+import { arrowDown } from '@wordpress/icons';
+import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import {
 	useCallback,
@@ -9,6 +12,7 @@ import {
 	useLayoutEffect,
 	useMemo,
 	useRef,
+	useState,
 	type ReactNode,
 	type Ref,
 } from 'react';
@@ -18,6 +22,7 @@ import { SiteDropdown } from '@/components/site-dropdown';
 import { SiteIcon } from '@/components/site-icon';
 import { type Annotation } from '@/components/site-preview/types';
 import { useAgentRun } from '@/data/queries/use-agent-run';
+import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import {
 	useCreateSession,
 	useSession,
@@ -29,6 +34,8 @@ import { useSessionCommands } from '@/hooks/use-session-commands';
 import { SessionUIProvider, useSessionPreviewAnnotations } from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
+import { formatComposerTextQuote, watchComposerTextQuote } from '@/lib/composer-text-quote';
+import { AccessRequirements } from './access-requirements';
 import { formatAnnotationsAsPrompt, formatAnnotationsSubmittedMessage } from './annotations';
 import { Composer, ComposerSkeleton, type ComposerHandle } from './composer';
 import { Conversation } from './conversation';
@@ -39,6 +46,20 @@ import styles from './style.module.css';
 import { SuggestedPrompts } from './suggested-prompts';
 import type { AiSessionSummary } from '@/data/core';
 
+// Slack below the bottom edge that still counts as "at the latest message",
+// so sub-pixel rounding or a barely-started scroll doesn't flash the button.
+const SCROLL_AWAY_FROM_LATEST_THRESHOLD_PX = 48;
+
+export function isScrolledAwayFromLatest( node: {
+	scrollTop: number;
+	scrollHeight: number;
+	clientHeight: number;
+} ): boolean {
+	return (
+		node.scrollHeight - node.scrollTop - node.clientHeight > SCROLL_AWAY_FROM_LATEST_THRESHOLD_PX
+	);
+}
+
 interface SessionHeaderProps {
 	summary: AiSessionSummary;
 }
@@ -46,7 +67,7 @@ interface SessionHeaderProps {
 function SessionHeader( { summary }: SessionHeaderProps ) {
 	const siteName = summary.ownerSiteName;
 	const sidebarCollapsed = useSidebarCollapsed();
-	const reserveTrafficLightSpace = useTrafficLightSpace();
+	const reserveTrafficLightSpace = useTrafficLightSpace().start;
 	const { data: sites } = useSites();
 	const site = findAiSessionOwnerSite( sites, summary );
 	const effectiveEnvironment = useSessionEffectiveEnvironment( summary, site?.id );
@@ -54,12 +75,13 @@ function SessionHeader( { summary }: SessionHeaderProps ) {
 		return null;
 	}
 
-	const toggleSpacerClass =
-		sidebarCollapsed && reserveTrafficLightSpace ? styles.toggleSpacer : null;
-
 	return (
-		<div className={ styles.header }>
-			{ toggleSpacerClass ? <span className={ toggleSpacerClass } aria-hidden="true" /> : null }
+		<div
+			className={ clsx(
+				styles.header,
+				sidebarCollapsed && reserveTrafficLightSpace && styles.headerSidebarCollapsed
+			) }
+		>
 			{ site ? (
 				<SiteDropdown
 					site={ site }
@@ -151,13 +173,17 @@ function SessionFrame( {
 				{ children }
 			</div>
 			<ProgressiveBlur direction="down" className={ styles.headerBlur } fadeToSurface />
-			<ProgressiveBlur direction="up" className={ styles.composerBlur } />
-			<div
-				ref={ composerRef }
-				className={ clsx( styles.composerOuter, styles.classicComposerOuter ) }
-			>
-				{ composer }
-			</div>
+			{ composer ? (
+				<>
+					<ProgressiveBlur direction="up" className={ styles.composerBlur } />
+					<div
+						ref={ composerRef }
+						className={ clsx( styles.composerOuter, styles.classicComposerOuter ) }
+					>
+						{ composer }
+					</div>
+				</>
+			) : null }
 			{ footer ? (
 				<div
 					className={ clsx(
@@ -225,6 +251,48 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	);
 	const scrollRef = useRef< HTMLDivElement >( null );
 	const composerRef = useRef< ComposerHandle >( null );
+	useEffect(
+		() =>
+			watchComposerTextQuote( ( text ) => {
+				composerRef.current?.appendDraft( formatComposerTextQuote( text ) );
+			} ),
+		[]
+	);
+	const [ isScrolledAway, setIsScrolledAway ] = useState( false );
+	const hasSession = !! data;
+
+	const updateIsScrolledAway = useCallback( () => {
+		const node = scrollRef.current;
+		if ( node ) {
+			setIsScrolledAway( isScrolledAwayFromLatest( node ) );
+		}
+	}, [] );
+
+	useEffect( () => {
+		const node = scrollRef.current;
+		if ( ! hasSession || ! node ) {
+			return;
+		}
+		updateIsScrolledAway();
+		node.addEventListener( 'scroll', updateIsScrolledAway, { passive: true } );
+		return () => node.removeEventListener( 'scroll', updateIsScrolledAway );
+	}, [ hasSession, updateIsScrolledAway ] );
+
+	// Content can grow without emitting scroll events (e.g. while the
+	// auto-scroll below is suspended by pending questions), so re-check
+	// whenever the transcript changes.
+	useEffect( () => {
+		updateIsScrolledAway();
+	}, [ data, pendingQuestions.length, queuedPrompts.length, updateIsScrolledAway ] );
+
+	const scrollToLatest = useCallback( () => {
+		const node = scrollRef.current;
+		if ( ! node ) {
+			return;
+		}
+		const prefersReducedMotion = window.matchMedia?.( '(prefers-reduced-motion: reduce)' ).matches;
+		node.scrollTo( { top: node.scrollHeight, behavior: prefersReducedMotion ? 'auto' : 'smooth' } );
+	}, [] );
 	useSessionCommands( sessionId );
 	const canTogglePreview = !! ownerSite && effectiveEnvironment === 'local';
 	const siteSessionHistory = data
@@ -301,6 +369,31 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		return () => cancelAnimationFrame( id );
 	}, [ sessionId, data, isRunning, pendingQuestions.length, queuedPrompts.length ] );
 
+	const {
+		data: quota,
+		isLoading: isQuotaLoading,
+		isFetching: isQuotaFetching,
+		refetch: refetchQuota,
+	} = useStudioAssistantQuota();
+
+	// Fade the composer and prompts in only right after the entitlement check
+	// resolves; ordinary session loads and switches render instantly. The
+	// render-time latch has the class on from the first post-resolve frame;
+	// the timeout retires it so later remounts don't animate.
+	const [ sawQuotaLoading, setSawQuotaLoading ] = useState( false );
+	if ( isQuotaLoading && ! sawQuotaLoading ) {
+		setSawQuotaLoading( true );
+	}
+	const fadeAfterQuotaCheck = sawQuotaLoading && ! isQuotaLoading;
+	useEffect( () => {
+		if ( ! fadeAfterQuotaCheck ) {
+			return;
+		}
+		// Outlives the 180ms fade so a mid-animation re-render can't strip it.
+		const id = setTimeout( () => setSawQuotaLoading( false ), 300 );
+		return () => clearTimeout( id );
+	}, [ fadeAfterQuotaCheck ] );
+
 	// The open session can vanish out from under this view — most commonly when
 	// its site is deleted, which removes the transcript from disk. Bounce to the
 	// root (the next available site) rather than flashing the dead-end "Session
@@ -312,7 +405,10 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		}
 	}, [ notFound, navigate ] );
 
-	if ( isLoading || notFound || ! data ) {
+	// isQuotaLoading holds the composer back until the entitlement check
+	// resolves, so the view settles once — gate or chat — with no composer
+	// flash. Signed-out and failed quota queries report isLoading false.
+	if ( isLoading || notFound || ! data || isQuotaLoading ) {
 		// Use the same SessionFrame with an empty header and a structural
 		// ComposerSkeleton so the scroll area has the exact same dimensions
 		// as the loaded view — otherwise the EmptyBackground canvas jumps
@@ -332,17 +428,52 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		);
 	}
 
+	// Fail open when the quota is unavailable (offline, error, older server) —
+	// the WordPress.com proxy enforces the same gate server-side.
+	if (
+		quota &&
+		( getStudioCodeAiAccessState( quota ) !== 'available' || ! quota.hasPaymentMethod )
+	) {
+		return (
+			<SessionFrame
+				header={ <SessionHeader summary={ data.summary } /> }
+				footer={ <div aria-hidden /> }
+			>
+				<EmptyBackground />
+				<AccessRequirements
+					quota={ quota }
+					isRechecking={ isQuotaFetching }
+					onRecheck={ () => void refetchQuota() }
+				/>
+			</SessionFrame>
+		);
+	}
+
 	return (
 		<SessionFrame
 			scrollRef={ scrollRef }
 			header={ <SessionHeader summary={ data.summary } /> }
 			composer={
-				<div className={ clsx( styles.classicColumn, styles.classicComposerColumn ) }>
-					<QueuedPrompts
-						prompts={ queuedPrompts }
-						onRemove={ removeQueuedPrompt }
-						onEdit={ reopenQueuedPrompt }
-					/>
+				<div
+					className={ clsx(
+						styles.classicColumn,
+						styles.classicComposerColumn,
+						fadeAfterQuotaCheck && styles.fadeInQuick
+					) }
+				>
+					{ isScrolledAway ? (
+						<div className={ styles.scrollToLatestWrap }>
+							<IconButton
+								className={ styles.scrollToLatestButton }
+								icon={ arrowDown }
+								label={ __( 'Scroll to latest message' ) }
+								size="small"
+								variant="minimal"
+								tone="neutral"
+								onClick={ scrollToLatest }
+							/>
+						</div>
+					) : null }
 					<Composer
 						ref={ composerRef }
 						busy={ composerBusy }
@@ -375,9 +506,10 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			{ isEmpty ? <EmptyBackground /> : null }
 			{ isEmpty && ownerSite ? (
 				<SuggestedPrompts
+					fadeIn={ fadeAfterQuotaCheck }
 					siteName={ ownerSite.name }
 					onPick={ ( prompt ) => composerRef.current?.replaceDraft( prompt ) }
-					hasExistingDraft={ () => composerRef.current?.hasDraft() ?? false }
+					getDraft={ () => composerRef.current?.getDraft() ?? { text: '', hasAttachments: false } }
 				/>
 			) : null }
 			<div
@@ -394,6 +526,11 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 					pendingQuestions={ pendingQuestionTexts }
 					pendingAnswers={ pendingAnswers }
 					onAnswerQuestion={ answerQuestion }
+				/>
+				<QueuedPrompts
+					prompts={ queuedPrompts }
+					onRemove={ removeQueuedPrompt }
+					onEdit={ reopenQueuedPrompt }
 				/>
 			</div>
 		</SessionFrame>

@@ -37,9 +37,6 @@ vi.mock( '@sentry/electron/main', () => ( {
 	setTag: vi.fn(),
 } ) );
 vi.mock( 'src/site-server' );
-vi.mock( 'src/lib/wordpress-setup', () => ( {
-	setupWordPressFilesOnly: vi.fn().mockResolvedValue( undefined ),
-} ) );
 vi.mock( 'src/main-window' );
 vi.mock( 'src/lib/sqlite-versions', () => ( {
 	keepSqliteIntegrationUpdated: vi.fn().mockResolvedValue( undefined ),
@@ -121,6 +118,7 @@ describe( 'createSite', () => {
 		const userData = await createSite( mockIpcMainInvokeEvent, '/test', {
 			siteName: 'Test',
 			wpVersion: '6.4',
+			noStart: true,
 		} );
 
 		expect( userData ).toEqual( {
@@ -141,6 +139,7 @@ describe( 'createSite', () => {
 				path: '/test',
 				name: 'Test',
 				wpVersion: '6.4',
+				noStart: true,
 			} ),
 			expect.any( Object )
 		);

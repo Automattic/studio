@@ -41,22 +41,20 @@
 	display: flex;
 	align-items: center;
 	gap: var(--wpds-dimension-padding-sm);
-	padding-block: var(--wpds-dimension-padding-lg) var(--wpds-dimension-padding-sm);
-	padding-inline: var(--wpds-dimension-padding-lg) var(--wpds-dimension-padding-2xl);
+	padding-block: var(--wpds-dimension-padding-sm);
+	padding-inline: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-2xl);
 	min-height: 46px;
 	font-size: var(--wpds-typography-font-size-sm);
 	color: var(--wpds-color-fg-content-neutral);
 	-webkit-app-region: drag;
 }
 
-/* Clears the macOS traffic lights when the collapsed sidebar puts this
-   header at the window's left edge, matching the sidebar header's
-   reservation. */
-.toggleSpacer {
-	display: block;
-	flex-shrink: 0;
-	width: calc(94px - var(--wpds-dimension-padding-lg) - var(--wpds-dimension-padding-sm));
-	align-self: stretch;
+.headerSidebarCollapsed {
+	padding-top: calc(
+		var(--wpds-dimension-padding-xl) + var(--wpds-dimension-padding-2xl) +
+			var(--wpds-dimension-padding-lg)
+	);
+	padding-inline-start: var(--wpds-dimension-padding-xl);
 }
 
 .headerSite {
@@ -151,6 +149,7 @@
 }
 
 .classicComposerColumn {
+	position: relative;
 	max-width: var(--classic-composer-column-max-width);
 }
 
@@ -169,10 +168,12 @@
 
 .panelFooterControls {
 	position: absolute;
-	left: var(--classic-panel-footer-left);
-	/* Keep the controls fully inside .root (overflow: hidden) so focus
-	   rings aren't clipped at the window edge. */
-	bottom: 0;
+	inset-inline-start: var(--classic-panel-footer-left);
+	/* Sit the strip low in its reserved band so the controls read as anchored
+	   to the panel's bottom edge rather than floating under the composer. The
+	   strip's own bottom padding keeps the buttons and their focus rings clear
+	   of .root's overflow: hidden edge. */
+	bottom: calc(-1 * var(--wpds-dimension-padding-sm));
 	z-index: 3;
 	display: flex;
 	align-items: center;
@@ -183,16 +184,66 @@
 }
 
 .panelFooterControlsCollapsed {
-	left: calc(
+	inset-inline-start: calc(
 		var(--wpds-dimension-padding-xl) + 24px + var(--classic-panel-control-gap)
 	);
 }
 
-/* Applied on top of .panelFooterControls to anchor the strip to the right
+/* Applied on top of .panelFooterControls to anchor the strip to the inline-end
    edge instead (hosts the preview panel toggle). */
 .panelFooterControlsEnd {
-	left: auto;
-	right: var(--classic-panel-control-left);
+	inset-inline-start: auto;
+	inset-inline-end: var(--classic-panel-control-left);
+}
+
+/* Anchors the scroll-to-latest button to the composer column, floating it
+   above the composer without contributing to the measured composer height. */
+.scrollToLatestWrap {
+	position: absolute;
+	bottom: calc(100% + var(--wpds-dimension-padding-md));
+	inset-inline-start: 0;
+	/* Match the send button's inset: the composer toolbar's inline padding is
+	   the shell inline padding minus padding-xs (see composer .toolbar). */
+	inset-inline-end: calc(
+		var(--classic-composer-shell-inline-padding) - var(--wpds-dimension-padding-xs)
+	);
+	display: flex;
+	justify-content: flex-end;
+	pointer-events: none;
+	-webkit-app-region: no-drag;
+}
+
+.scrollToLatestButton {
+	/* Match the 28px composer send button. */
+	--wp-ui-button-height: 28px;
+	--wp-ui-button-aspect-ratio: 1;
+	--wp-ui-button-min-width: unset;
+	--wp-ui-button-padding-inline: 0;
+	--wp-ui-button-background-color: var(--wpds-color-bg-surface-neutral-strong);
+	--wp-ui-button-border-color: var(--wpds-color-stroke-surface-neutral-weak);
+
+	pointer-events: auto;
+	border-radius: 50%;
+	box-shadow: var(--wpds-elevation-md);
+	animation: scroll-to-latest-appear 120ms ease-out;
+}
+
+@keyframes scroll-to-latest-appear {
+	from {
+		opacity: 0;
+		transform: translateY(4px);
+	}
+
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.scrollToLatestButton {
+		animation: none;
+	}
 }
 
 .classicComposerFooter {
@@ -369,4 +420,20 @@
 .classicComposerArchiveItem:focus-visible {
 	background: var(--wpds-color-bg-interactive-neutral-weak-active);
 	outline: none;
+}
+
+/* Composer fade-in after the entitlement check resolves. No fill mode:
+   natural opacity is 1, and index.css's reduced-motion clamp covers it. */
+.fadeInQuick {
+	animation: fade-in-quick 180ms ease-out;
+}
+
+@keyframes fade-in-quick {
+	from {
+		opacity: 0;
+	}
+
+	to {
+		opacity: 1;
+	}
 }

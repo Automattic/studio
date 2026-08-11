@@ -2,12 +2,14 @@ import {
 	clampQuotaFraction,
 	formatQuotaPercentage,
 	formatQuotaResetDate,
+	getStudioCodeAiAccessState,
 } from '@studio/common/lib/studio-assistant-quota';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { moreHorizontal } from '@wordpress/icons';
 import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { SigninNotice } from '@/components/agentic-signin-banner';
+import { AiAccessRequiredNotice, AiBlockedNotice } from '@/components/ai-access-required-notice';
 import * as Menu from '@/components/menu';
 import { OfflineNotice } from '@/components/offline-banner';
 import { useConnector } from '@/data/core';
@@ -48,12 +50,13 @@ function UsageProgressBar( { fraction }: { fraction: number } ) {
 function AiCreditsSummary() {
 	const locale = useUserLocale();
 	const { data: quota, isLoading, isError } = useStudioAssistantQuota();
+	const accessState = quota ? getStudioCodeAiAccessState( quota ) : 'available';
 
 	let content;
 	if ( isLoading ) {
 		content = (
 			<>
-				<div className={ styles.previewUsageText }>{ __( 'Loading...' ) }</div>
+				<div className={ styles.previewUsageText }>{ __( 'Loading…' ) }</div>
 				<UsageProgressBar fraction={ 0 } />
 			</>
 		);
@@ -61,6 +64,16 @@ function AiCreditsSummary() {
 		content = (
 			<div className={ styles.previewUsageText }>
 				{ __( 'Studio Code limits are temporarily unavailable.' ) }
+			</div>
+		);
+	} else if ( accessState !== 'available' ) {
+		content = (
+			<div className={ styles.previewUsageText }>
+				{ accessState === 'blocked' ? (
+					<AiBlockedNotice />
+				) : (
+					<AiAccessRequiredNotice quota={ quota } />
+				) }
 			</div>
 		);
 	} else if ( quota && quota.costCap > 0 ) {
@@ -114,10 +127,10 @@ function PreviewSitesSummary( { userId }: { userId: number } ) {
 	const isLoadingPreviewUsage = isLoading || isLoadingSnapshotUsage || deleteAllSnapshots.isPending;
 	const isDisabled = siteCount === 0 || snapshotCreationBlocked || isLoadingPreviewUsage;
 	// Empty while loading: a bar still filled from the previous figure would
-	// contradict the "Loading..." row next to it.
+	// contradict the "Loading…" row next to it.
 	const fraction = isLoadingPreviewUsage ? 0 : clampQuotaFraction( siteCount, siteLimit );
 	const deletePreviewSitesLabel = deleteAllSnapshots.isPending
-		? __( 'Deleting preview sites...' )
+		? __( 'Deleting all preview sites…' )
 		: __( 'Delete all preview sites' );
 
 	const handleDelete = async () => {
@@ -165,7 +178,7 @@ function PreviewSitesSummary( { userId }: { userId: number } ) {
 				<>
 					<div className={ styles.previewUsageText }>
 						{ isLoadingPreviewUsage
-							? __( 'Loading...' )
+							? __( 'Loading…' )
 							: sprintf(
 									/* translators: 1: number of active preview sites, 2: maximum allowed */
 									_n(
@@ -182,7 +195,7 @@ function PreviewSitesSummary( { userId }: { userId: number } ) {
 			) }
 			{ deleteAllSnapshots.error ? (
 				<div className={ styles.errorMessage }>
-					{ __( 'An error occurred while deleting preview sites. Please try again.' ) }
+					{ __( 'An error occurred while deleting all preview sites. Please try again.' ) }
 				</div>
 			) : null }
 		</section>

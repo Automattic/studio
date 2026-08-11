@@ -8,7 +8,11 @@ import {
 	type StudioChatArtifactWidgetDraft,
 } from '@studio/common/ai/chat-artifacts';
 import { readBlobAsDataUrl } from '@studio/common/ai/composer-attachments';
-import { isUsageCapError } from '@studio/common/ai/json-events';
+import {
+	isAiAccessRequiredError,
+	isAiBlockedError,
+	isUsageCapError,
+} from '@studio/common/ai/json-events';
 import {
 	isStudioCustomEntryOfType,
 	type StudioChatAttachmentSummary,
@@ -24,7 +28,8 @@ import { formatUsageCapNotice } from '@studio/common/lib/studio-assistant-quota'
 import { __ } from '@wordpress/i18n';
 import { image, page } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { AiAccessRequiredNotice, AiBlockedNotice } from 'src/components/ai-access-required-notice';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useGetStudioAssistantQuota } from 'src/stores/wpcom-api';
@@ -651,9 +656,16 @@ function AgentQuestion( {
 // instead of the raw provider message.
 function TurnErrorMarker( { message }: { message: string } ) {
 	const isUsageCap = isUsageCapError( message );
-	const { data: quota } = useGetStudioAssistantQuota( undefined, { skip: ! isUsageCap } );
-	let text: string;
-	if ( isUsageCap ) {
+	const isAccessRequired = isAiAccessRequiredError( message );
+	const { data: quota } = useGetStudioAssistantQuota( undefined, {
+		skip: ! isUsageCap && ! isAccessRequired,
+	} );
+	let text: ReactNode;
+	if ( isAiBlockedError( message ) ) {
+		text = <AiBlockedNotice />;
+	} else if ( isAccessRequired ) {
+		text = <AiAccessRequiredNotice quota={ quota } />;
+	} else if ( isUsageCap ) {
 		text = formatUsageCapNotice( quota?.costResetDate );
 	} else {
 		text = message || __( 'Something went wrong and this turn was stopped. Please try again.' );

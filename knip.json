@@ -12,6 +12,7 @@
 				"src/migrations/index.ts",
 				"src/additional-phrases.ts",
 				"forge.config.ts",
+				"electron.vite.config.ts",
 				"e2e/global-setup.ts",
 				"e2e/**/*.test.ts"
 			],
@@ -49,10 +50,16 @@
 			"project": "**/*.ts"
 		},
 		"packages/data-liberation-agent": {
-			"project": "src/**/*.ts"
+			"project": "src/**/*.{ts,tsx}"
 		},
 		"tools/eslint-plugin-studio": {
 			"project": "**/*.{js,ts}"
 		}
-	}
+	},
+	"ignoreDependencies": [
+		"@sentry/react",
+		"@wp-playground/cli",
+		"@automattic/wp-babel-makepot"
+	],
+	"ignoreBinaries": ["scripts/eval/promptfoo.config.yaml"]
 }

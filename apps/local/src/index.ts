@@ -28,13 +28,14 @@ import { DEFAULT_TOKEN_LIFETIME_MS } from '@studio/common/constants';
 import { createCliRunner } from '@studio/common/lib/cli-process';
 import {
 	addConnectedWpcomSite,
+	getAllConnectedWpcomSitesForCurrentUser,
 	getConnectedWpcomSitesForLocalSite,
 	removeConnectedWpcomSite,
 } from '@studio/common/lib/connected-sites';
 import {
 	arePathsEqual,
+	confineToRoot,
 	isEmptyDir,
-	isPathWithin,
 	isWordPressDirectory,
 	recursiveCopyDirectory,
 } from '@studio/common/lib/fs-utils';
@@ -42,7 +43,7 @@ import { generateNumberedName, generateSiteName } from '@studio/common/lib/gener
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { importIpcEventSchema } from '@studio/common/lib/import-export-events';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
-import { getAuthenticationUrl } from '@studio/common/lib/oauth';
+import { getAuthenticationUrl, getSignUpUrl } from '@studio/common/lib/oauth';
 import { decodePassword } from '@studio/common/lib/passwords';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import {
@@ -64,6 +65,7 @@ import { buildSiteSetArgs } from '@studio/common/sites/edit';
 import { startSite, stopSite } from '@studio/common/sites/lifecycle';
 import { listSites } from '@studio/common/sites/list';
 import { createSnapshotManager, fetchSnapshots } from '@studio/common/sites/snapshots';
+import { measureSiteStorage } from '@studio/common/sites/storage-usage';
 import { pullSite, pushSite } from '@studio/common/sites/sync';
 import express from 'express';
 import { rateLimit } from 'express-rate-limit';
@@ -368,7 +370,12 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			res.json( { url: null } );
 			return;
 		}
-		res.json( { url: getAuthenticationUrl( 'en', redirectUri ) } );
+		res.json( {
+			url:
+				req.query.signup === '1'
+					? getSignUpUrl( 'en', redirectUri )
+					: getAuthenticationUrl( 'en', redirectUri ),
+		} );
 	} );
 
 	// Log in by storing a token from the redirect callback (or pasted from
@@ -501,20 +508,33 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
+	api.get(
+		'/sites/:id/storage',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const sites = await listSites( execute );
+			const site = sites.find( ( candidate ) => candidate.id === req.params.id );
+			if ( ! site ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			res.json( await measureSiteStorage( site.path ) );
+		} )
+	);
+
 	// --- Site creation helpers + create ---------------------------------------
 	// Pure server-side filesystem logic (the server runs on the user's machine),
 	// plus the CLI `create`. The browser has no native folder picker, so the UI
 	// proposes/edits the path as text (see capabilities.nativeFolderPicker).
 	api.get(
 		'/site-defaults/name',
-		asyncHandler( async ( _req: Request, res: Response ) => {
+		asyncHandler( async ( req: Request, res: Response ) => {
 			const sites = await listSites( execute );
-			res.json( {
-				name: await generateSiteName(
-					sites.map( ( s ) => s.name ),
-					sitesRoot
-				),
-			} );
+			const baseName = typeof req.query.base === 'string' ? req.query.base : undefined;
+			const usedNames = sites.map( ( site ) => site.name );
+			const name = baseName
+				? await generateNumberedName( baseName, usedNames, sitesRoot )
+				: await generateSiteName( usedNames, sitesRoot );
+			res.json( { name } );
 		} )
 	);
 
@@ -542,14 +562,11 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 
 	api.post( '/paths/compare', ( req: Request, res: Response ) => {
 		const { path1, path2 } = req.body as { path1?: string; path2?: string };
-		// Confine both operands to `sitesRoot`: nothing outside it can be a site, and
-		// this keeps untrusted input from reaching statSync (in arePathsEqual).
-		const equal =
-			!! path1 &&
-			!! path2 &&
-			isPathWithin( sitesRoot, path1 ) &&
-			isPathWithin( sitesRoot, path2 ) &&
-			arePathsEqual( path1, path2 );
+		// Confine both operands to `sitesRoot` before any filesystem access; nothing
+		// outside it can be a site, so a non-match is the correct answer.
+		const confined1 = path1 ? confineToRoot( sitesRoot, path1 ) : null;
+		const confined2 = path2 ? confineToRoot( sitesRoot, path2 ) : null;
+		const equal = !! confined1 && !! confined2 && arePathsEqual( confined1, confined2 );
 		res.json( { equal } );
 	} );
 
@@ -566,6 +583,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				adminUsername?: string;
 				adminPassword?: string;
 				adminEmail?: string;
+				skipStart?: boolean;
 				// Optional Blueprint to apply on creation: `blueprint` is the parsed
 				// blueprint JSON; `filePath` (set for uploaded ZIP bundles) lets the
 				// CLI resolve relative assets.
@@ -595,6 +613,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 					adminUsername: body.adminUsername,
 					adminPassword: body.adminPassword,
 					adminEmail: body.adminEmail,
+					noStart: body.skipStart,
 					blueprint: body.blueprint?.blueprint,
 					originalBlueprintPath: body.blueprint?.filePath,
 				} );
@@ -1005,6 +1024,13 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	);
 
 	api.get(
+		'/wpcom/connected-sites',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			res.json( await getAllConnectedWpcomSitesForCurrentUser() );
+		} )
+	);
+
+	api.get(
 		'/sites/:id/connected-sites',
 		asyncHandler( async ( req: Request, res: Response ) => {
 			res.json( await getConnectedWpcomSitesForLocalSite( req.params.id ) );
@@ -1073,7 +1099,12 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
-			await pullSite( execute, site.path, remoteSiteId );
+			await pullSite( execute, site.path, remoteSiteId, ( progress ) => {
+				sseSend( {
+					channel: 'sync-pull',
+					payload: { ...progress, siteId: req.params.id, remoteSiteId },
+				} );
+			} );
 			res.sendStatus( 204 );
 		} )
 	);
@@ -1271,11 +1302,13 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		const listening = app.listen( port, host, () => resolve( listening ) );
 	} );
 
-	const url = `http://localhost:${ port }`;
+	const address = server.address();
+	const listeningPort = typeof address === 'object' && address ? address.port : port;
+	const url = `http://localhost:${ listeningPort }`;
 
 	return {
 		url,
-		port,
+		port: listeningPort,
 		async close() {
 			cliRunner.killAll();
 			for ( const watch of publishWatches.values() ) {

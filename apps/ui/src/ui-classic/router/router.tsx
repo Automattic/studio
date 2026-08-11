@@ -7,9 +7,11 @@ import { settingsLayoutRoute } from './layout-settings';
 import { indexRoute } from './route-index';
 import { newSessionRoute } from './route-new-session';
 import { onboardingBlueprintRoute } from './route-onboarding-blueprint';
+import { onboardingConnectRoute } from './route-onboarding-connect';
 import { onboardingCreateRoute } from './route-onboarding-create';
 import { onboardingHomeRoute } from './route-onboarding-home';
 import { onboardingImportRoute } from './route-onboarding-import';
+import { onboardingTourRoute } from './route-onboarding-tour';
 import { sessionDetailRoute } from './route-session-detail';
 import { settingsRoute } from './route-settings';
 import { siteOverviewRoute } from './route-site-overview';
@@ -29,6 +31,8 @@ const routeTree = rootRoute.addChildren( [
 	] ),
 	onboardingLayoutRoute.addChildren( [
 		onboardingHomeRoute,
+		onboardingTourRoute,
+		onboardingConnectRoute,
 		onboardingCreateRoute,
 		onboardingBlueprintRoute,
 		onboardingImportRoute,

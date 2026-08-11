@@ -67,7 +67,7 @@ function AnthropicApiKeySection() {
 					<h2>{ __( 'Use your Anthropic API key' ) }</h2>
 					<p>
 						{ __(
-							'Set your Anthropic API key to send new conversations directly to Anthropic, using only Anthropic models. Usage is billed to your Anthropic account. When off, Studio uses the WordPress.com AI service.'
+							'Use your own API key, which bills against your Anthropic account. When off, Studio uses your WordPress.com AI credits.'
 						) }
 					</p>
 				</div>

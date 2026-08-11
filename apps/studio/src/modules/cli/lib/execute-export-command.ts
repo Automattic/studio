@@ -21,7 +21,10 @@ export function executeExportCliCommand(
 		abortSignal?: AbortSignal;
 	} = {}
 ): ExportCliLifecycleEventEmitter {
-	const [ cliEventEmitter, childProcess ] = executeCliCommand( args, { output: 'capture' } );
+	const [ cliEventEmitter, childProcess ] = executeCliCommand( args, {
+		output: 'capture',
+		logPrefix: siteId,
+	} );
 	const lifecycleEventEmitter = new TypedEventEmitter< ExportCliLifecycleEventMap >();
 	let structuredExportError: unknown;
 	let didEmitFinalLifecycleEvent = false;

@@ -6,7 +6,16 @@ import { CLI_CONFIG_LOCKFILE_NAME, LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } fro
 import { hideDirectoryOnWindows } from '../lib/hide-dir-windows';
 import { lockFileAsync, unlockFileAsync } from '../lib/lockfile';
 import { getCliConfigPath, getConfigDirectory } from '../lib/well-known-paths';
+import { validateAnthropicApiKey } from './anthropic-key';
 import { DEFAULT_AI_PROVIDER, isAiProviderId, type AiSettings } from './providers';
+
+/** A key Anthropic definitively rejected; carries a user-facing message. */
+export class InvalidAnthropicApiKeyError extends Error {
+	constructor( message: string ) {
+		super( message );
+		this.name = 'InvalidAnthropicApiKeyError';
+	}
+}
 
 /**
  * Reads and writes the AI provider settings (`aiProvider`, `anthropicApiKey`)
@@ -67,6 +76,15 @@ export async function saveAnthropicApiKey( key: string | null ): Promise< AiSett
 	const trimmed = key === null ? null : key.trim();
 	if ( trimmed === '' ) {
 		throw new Error( 'The Anthropic API key must not be empty.' );
+	}
+
+	// Refuse keys Anthropic definitively rejects; an unverifiable result
+	// (offline, Anthropic outage) still saves so users aren't locked out.
+	if ( trimmed !== null ) {
+		const validation = await validateAnthropicApiKey( trimmed );
+		if ( validation.status === 'invalid' ) {
+			throw new InvalidAnthropicApiKeyError( validation.message );
+		}
 	}
 
 	const configDir = getConfigDirectory();

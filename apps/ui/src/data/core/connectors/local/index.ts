@@ -758,10 +758,22 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			return api< AiSettings >( '/ai-settings' );
 		},
 		async saveAnthropicApiKey( key: string | null ): Promise< AiSettings > {
-			return api< AiSettings >( '/ai-settings', {
+			const response = await fetch( `${ base }/ai-settings`, {
 				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify( { anthropicApiKey: key } ),
 			} );
+			if ( ! response.ok ) {
+				// A 400 carries a user-facing message (e.g. Anthropic rejected the
+				// key) — surface it verbatim instead of the raw transport error.
+				const body = await response.json().catch( () => undefined );
+				throw new Error(
+					typeof body?.error === 'string'
+						? body.error
+						: `PUT /ai-settings failed (${ response.status })`
+				);
+			}
+			return ( await response.json() ) as AiSettings;
 		},
 
 		// The local server has no REST-proxy route yet; the preview omnibox

@@ -3,6 +3,7 @@
  */
 import crypto from 'node:crypto';
 import EventEmitter from 'node:events';
+import { InvalidAnthropicApiKeyError } from '@studio/common/ai/settings-store';
 import { createCliRunner } from '@studio/common/lib/cli-process';
 import { listSites } from '@studio/common/sites/list';
 import nock from 'nock';
@@ -28,7 +29,8 @@ vi.mock( '@studio/common/sites/list', () => ( { listSites: vi.fn() } ) );
 vi.mock( '@studio/common/sites/storage-usage', () => ( {
 	measureSiteStorage: mocks.measureSiteStorage,
 } ) );
-vi.mock( '@studio/common/ai/settings-store', () => ( {
+vi.mock( '@studio/common/ai/settings-store', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@studio/common/ai/settings-store') >() ),
 	readAiSettings: mocks.readAiSettings,
 	saveAnthropicApiKey: mocks.saveAnthropicApiKey,
 } ) );
@@ -173,6 +175,28 @@ describe( 'local web server Connect contracts', () => {
 			anthropicApiKeySuffix: null,
 		} );
 		expect( mocks.saveAnthropicApiKey ).toHaveBeenCalledWith( null );
+	} );
+
+	it( 'returns 400 with the message when Anthropic rejects the key', async () => {
+		mocks.saveAnthropicApiKey.mockRejectedValueOnce(
+			new InvalidAnthropicApiKeyError(
+				'Anthropic rejected this API key. Check the key and try again.'
+			)
+		);
+
+		const response = await fetch(
+			`${ server.url.replace( 'localhost', '127.0.0.1' ) }/api/ai-settings`,
+			{
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify( { anthropicApiKey: 'sk-ant-rejected' } ),
+			}
+		);
+
+		expect( response.status ).toBe( 400 );
+		await expect( response.json() ).resolves.toEqual( {
+			error: 'Anthropic rejected this API key. Check the key and try again.',
+		} );
 	} );
 
 	it( 'rejects an empty or non-string Anthropic API key', async () => {

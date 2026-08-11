@@ -780,7 +780,17 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.getAiSettings() ) as AiSettings;
 		},
 		async saveAnthropicApiKey( key: string | null ): Promise< AiSettings > {
-			return ( await ipcApi.saveAnthropicApiKey( key ) ) as AiSettings;
+			try {
+				return ( await ipcApi.saveAnthropicApiKey( key ) ) as AiSettings;
+			} catch ( error ) {
+				// Electron wraps main-process errors as "Error invoking remote
+				// method 'saveAnthropicApiKey': Error: <message>" — unwrap so the
+				// settings form can show the message itself.
+				const message = error instanceof Error ? error.message : String( error );
+				throw new Error(
+					message.replace( /^Error invoking remote method '[^']+': (?:\w+Error: |Error: )?/, '' )
+				);
+			}
 		},
 
 		async getInstalledApps(): Promise< InstalledApps > {

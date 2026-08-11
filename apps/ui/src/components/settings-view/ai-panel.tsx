@@ -40,7 +40,7 @@ function AgenticFeaturesSection() {
 
 function AnthropicApiKeySection() {
 	const { data: settings } = useAiSettings();
-	const { mutate: saveKey, isPending, isError } = useSaveAnthropicApiKey();
+	const { mutate: saveKey, isPending, isError, error } = useSaveAnthropicApiKey();
 	const [ draft, setDraft ] = useState( '' );
 
 	if ( ! settings ) {
@@ -61,12 +61,12 @@ function AnthropicApiKeySection() {
 
 	return (
 		<section className={ styles.preferenceSectionGroup }>
-			<section className={ styles.preferenceRow }>
+			<section className={ clsx( styles.preferenceRow, styles.apiKeyRow ) }>
 				<div className={ styles.preferenceText }>
 					<h2>{ __( 'Anthropic API key' ) }</h2>
 					<p>{ description }</p>
 				</div>
-				<div className={ clsx( styles.preferenceControl, styles.apiKeyControl ) }>
+				<div className={ styles.apiKeyControls }>
 					{ settings.hasAnthropicApiKey ? (
 						<Button variant="outline" disabled={ isPending } onClick={ () => saveKey( null ) }>
 							{ __( 'Remove key' ) }
@@ -97,7 +97,9 @@ function AnthropicApiKeySection() {
 			</section>
 			{ isError && (
 				<p className={ styles.instructionsError }>
-					{ __( 'Saving the API key failed. Please try again.' ) }
+					{ error instanceof Error && error.message
+						? error.message
+						: __( 'Saving the API key failed. Please try again.' ) }
 				</p>
 			) }
 		</section>

@@ -1,8 +1,12 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { readAiSettings, saveAnthropicApiKey } from '../settings-store';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+	InvalidAnthropicApiKeyError,
+	readAiSettings,
+	saveAnthropicApiKey,
+} from '../settings-store';
 
 describe( 'ai settings store', () => {
 	let configDir: string;
@@ -14,9 +18,12 @@ describe( 'ai settings store', () => {
 		configDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-ai-settings-' ) );
 		previousDevConfigDir = process.env.DEV_CONFIG_DIR;
 		process.env.DEV_CONFIG_DIR = configDir;
+		// Saving validates the key against Anthropic; default to "valid".
+		vi.stubGlobal( 'fetch', vi.fn().mockResolvedValue( { ok: true, status: 200 } ) );
 	} );
 
 	afterEach( () => {
+		vi.unstubAllGlobals();
 		if ( previousDevConfigDir === undefined ) {
 			delete process.env.DEV_CONFIG_DIR;
 		} else {
@@ -84,6 +91,19 @@ describe( 'ai settings store', () => {
 		);
 
 		await expect( saveAnthropicApiKey( '   ' ) ).rejects.toThrow( 'must not be empty' );
+	} );
+
+	it( 'refuses a key Anthropic rejects and saves one it cannot verify', async () => {
+		vi.stubGlobal( 'fetch', vi.fn().mockResolvedValue( { ok: false, status: 401 } ) );
+		await expect( saveAnthropicApiKey( 'sk-ant-rejected' ) ).rejects.toBeInstanceOf(
+			InvalidAnthropicApiKeyError
+		);
+		expect( fs.existsSync( cliConfigPath() ) ).toBe( false );
+
+		vi.stubGlobal( 'fetch', vi.fn().mockRejectedValue( new Error( 'offline' ) ) );
+		await expect( saveAnthropicApiKey( 'sk-ant-test-abcd1234' ) ).resolves.toMatchObject( {
+			provider: 'anthropic-api-key',
+		} );
 	} );
 
 	it( 'treats an unknown stored provider as the default', async () => {

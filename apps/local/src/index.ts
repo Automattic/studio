@@ -24,7 +24,11 @@ import {
 	deleteAiSession,
 	loadAiSession,
 } from '@studio/common/ai/sessions/store';
-import { readAiSettings, saveAnthropicApiKey } from '@studio/common/ai/settings-store';
+import {
+	InvalidAnthropicApiKeyError,
+	readAiSettings,
+	saveAnthropicApiKey,
+} from '@studio/common/ai/settings-store';
 import { DEFAULT_TOKEN_LIFETIME_MS } from '@studio/common/constants';
 import { createCliRunner } from '@studio/common/lib/cli-process';
 import {
@@ -478,7 +482,15 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 400 ).json( { error: 'anthropicApiKey must be a non-empty string or null' } );
 				return;
 			}
-			res.json( await saveAnthropicApiKey( key === null ? null : key.trim() ) );
+			try {
+				res.json( await saveAnthropicApiKey( key === null ? null : key.trim() ) );
+			} catch ( error ) {
+				if ( error instanceof InvalidAnthropicApiKeyError ) {
+					res.status( 400 ).json( { error: error.message } );
+					return;
+				}
+				throw error;
+			}
 		} )
 	);
 

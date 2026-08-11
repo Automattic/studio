@@ -177,6 +177,22 @@ describe( 'AiPanel', () => {
 		expect( saveKey ).toHaveBeenCalledWith( 'sk-ant-test-1234', expect.anything() );
 	} );
 
+	it( 'shows the validation message when saving the key fails', () => {
+		mockConnector( true, true );
+		mockAiSettings( { provider: 'wpcom', hasAnthropicApiKey: false, anthropicApiKeySuffix: null } );
+		useSaveAnthropicApiKeyMock.mockReturnValue( {
+			mutate: saveKey,
+			isPending: false,
+			isError: true,
+			error: new Error( 'Anthropic rejected this API key. Check the key and try again.' ),
+		} as never );
+		render( <AiPanel /> );
+
+		expect(
+			screen.getByText( 'Anthropic rejected this API key. Check the key and try again.' )
+		).toBeInTheDocument();
+	} );
+
 	it( 'removes the saved key to fall back to WordPress.com', () => {
 		mockConnector( true, true );
 		mockAiSettings( {

@@ -67,7 +67,7 @@ function AnthropicApiKeySection() {
 					<h2>{ __( 'Use your Anthropic API key' ) }</h2>
 					<p>
 						{ __(
-							'Send new conversations directly to Anthropic with your own key, using only Anthropic models. When off, Studio uses the WordPress.com AI service.'
+							'Set your Anthropic API key to send new conversations directly to Anthropic, using only Anthropic models. Usage is billed to your Anthropic account. When off, Studio uses the WordPress.com AI service.'
 						) }
 					</p>
 				</div>
@@ -88,7 +88,7 @@ function AnthropicApiKeySection() {
 						type="password"
 						label={ __( 'Anthropic API key' ) }
 						hideLabelFromVision
-						placeholder={ settings.anthropicApiKeyPreview ?? 'sk-ant-…' }
+						placeholder={ settings.anthropicApiKeyPreview ?? __( 'Paste your API key: sk-…' ) }
 						value={ draft ?? '' }
 						onChange={ setDraft }
 					/>

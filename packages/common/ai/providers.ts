@@ -17,17 +17,21 @@ const PROVIDER_MODEL_FAMILIES: Record< AiProviderId, readonly AiModelFamily[] > 
 	'anthropic-api-key': [ 'anthropic' ],
 };
 
+// Precomputed so callers get a stable reference (the composer calls this per
+// render), mirroring MODEL_BY_ID in models.ts.
+const PROVIDER_MODELS: Record< AiProviderId, readonly AiModel[] > = Object.fromEntries(
+	AI_PROVIDER_IDS.map( ( provider ) => [
+		provider,
+		AI_MODELS.filter( ( model ) => PROVIDER_MODEL_FAMILIES[ provider ].includes( model.family ) ),
+	] )
+) as Record< AiProviderId, readonly AiModel[] >;
+
 export function isAiProviderId( value: string ): value is AiProviderId {
 	return ( AI_PROVIDER_IDS as readonly string[] ).includes( value );
 }
 
-export function getAiProviderModelFamilies( provider: AiProviderId ): readonly AiModelFamily[] {
-	return PROVIDER_MODEL_FAMILIES[ provider ];
-}
-
 export function getAiProviderModels( provider: AiProviderId ): readonly AiModel[] {
-	const families = PROVIDER_MODEL_FAMILIES[ provider ];
-	return AI_MODELS.filter( ( model ) => families.includes( model.family ) );
+	return PROVIDER_MODELS[ provider ];
 }
 
 /**

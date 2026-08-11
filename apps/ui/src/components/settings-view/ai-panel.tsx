@@ -1,7 +1,7 @@
 import { FormToggle, TextControl } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { useConnector } from '@/data/core';
 import {
 	useAiSettings,
@@ -11,6 +11,7 @@ import {
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { StudioCodePanel } from './studio-code-panel';
 import styles from './style.module.css';
+import { useDebouncedSave } from './use-debounced-save';
 
 function AgenticFeaturesSection() {
 	const { data: preferences, isLoading } = useUserPreferences();
@@ -41,10 +42,6 @@ function AgenticFeaturesSection() {
 	);
 }
 
-// Long enough that a typing burst lands as one write, short enough that the
-// save still feels immediate when the user pauses.
-const KEY_SAVE_DEBOUNCE_MS = 800;
-
 function AnthropicApiKeySection() {
 	const { data: settings } = useAiSettings();
 	const { mutate: saveKey, isPending: isSaving, error: saveError } = useSaveAnthropicApiKey();
@@ -53,37 +50,14 @@ function AnthropicApiKeySection() {
 	// so the field shows a truncated preview of it as its placeholder.
 	const [ draft, setDraft ] = useState< string | undefined >( undefined );
 
-	const pendingKey = useRef< string | null >( null );
-	useEffect( () => {
-		if ( draft === undefined ) {
-			return;
-		}
-		const key = draft.trim() === '' ? null : draft.trim();
-		pendingKey.current = key;
-		const timer = setTimeout( () => {
-			pendingKey.current = null;
-			saveKey( key );
-		}, KEY_SAVE_DEBOUNCE_MS );
-		return () => clearTimeout( timer );
-	}, [ draft, saveKey ] );
-
-	// Leaving the tab mid-debounce would otherwise drop the last keystrokes.
-	useEffect(
-		() => () => {
-			if ( pendingKey.current !== null ) {
-				saveKey( pendingKey.current );
-			}
-		},
-		[ saveKey ]
-	);
+	// An emptied field saves `null`, clearing the stored key.
+	useDebouncedSave( draft === undefined ? undefined : draft.trim() || null, saveKey );
 
 	if ( ! settings ) {
 		return null;
 	}
 
 	const usesAnthropic = settings.provider === 'anthropic-api-key';
-	// A key the user typed only counts once it survived validation and was saved.
-	const hasKey = settings.hasAnthropicApiKey;
 	const error = saveError ?? switchError;
 
 	return (
@@ -100,7 +74,9 @@ function AnthropicApiKeySection() {
 				<div className={ clsx( styles.preferenceControl, styles.toggleControl ) }>
 					<FormToggle
 						checked={ usesAnthropic }
-						disabled={ isSaving || isSwitching || ( ! usesAnthropic && ! hasKey ) }
+						disabled={
+							isSaving || isSwitching || ( ! usesAnthropic && ! settings.hasAnthropicApiKey )
+						}
 						aria-label={ __( 'Use your Anthropic API key' ) }
 						onChange={ () => setProvider( usesAnthropic ? 'wpcom' : 'anthropic-api-key' ) }
 					/>
@@ -118,7 +94,7 @@ function AnthropicApiKeySection() {
 					/>
 				</div>
 			</section>
-			{ error instanceof Error && <p className={ styles.instructionsError }>{ error.message }</p> }
+			{ error && <p className={ styles.instructionsError }>{ error.message }</p> }
 		</section>
 	);
 }

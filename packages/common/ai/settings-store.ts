@@ -1,11 +1,10 @@
-import fs from 'fs';
-import path from 'path';
-import { readFile, writeFile } from 'atomically';
 import { z } from 'zod';
-import { CLI_CONFIG_LOCKFILE_NAME, LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from '../constants';
-import { hideDirectoryOnWindows } from '../lib/hide-dir-windows';
-import { lockFileAsync, unlockFileAsync } from '../lib/lockfile';
-import { getCliConfigPath, getConfigDirectory } from '../lib/well-known-paths';
+import {
+	lockCliConfigFile,
+	readCliConfigFileRaw,
+	unlockCliConfigFile,
+	writeCliConfigFileRaw,
+} from '../lib/cli-config-file';
 import { validateAnthropicApiKey } from './anthropic-key';
 import {
 	DEFAULT_AI_PROVIDER,
@@ -29,16 +28,14 @@ export class InvalidAnthropicApiKeyError extends Error {
  * unrelated fields must survive the write-back untouched.
  */
 
-// Matches CLI_CONFIG_VERSION in `apps/cli/lib/cli-config/core.ts`; only used
-// when creating the file.
-const CLI_CONFIG_VERSION = 1;
-
 const aiSettingsConfigSchema = z
 	.object( {
 		aiProvider: z.string().optional(),
 		anthropicApiKey: z.string().optional(),
 	} )
 	.loose();
+
+type AiSettingsConfig = z.infer< typeof aiSettingsConfigSchema >;
 
 const KEY_PREFIX_LENGTH = 16;
 const KEY_SUFFIX_LENGTH = 4;
@@ -51,7 +48,7 @@ function previewKey( key: string ): string {
 	return `${ key.slice( 0, KEY_PREFIX_LENGTH ) }...${ key.slice( -KEY_SUFFIX_LENGTH ) }`;
 }
 
-function toAiSettings( config: z.infer< typeof aiSettingsConfigSchema > ): AiSettings {
+function toAiSettings( config: AiSettingsConfig ): AiSettings {
 	const key = config.anthropicApiKey;
 	return {
 		provider:
@@ -63,42 +60,25 @@ function toAiSettings( config: z.infer< typeof aiSettingsConfigSchema > ): AiSet
 	};
 }
 
-async function readCliConfigRaw(): Promise< Record< string, unknown > > {
-	const configPath = getCliConfigPath();
-	if ( ! fs.existsSync( configPath ) ) {
-		return { version: CLI_CONFIG_VERSION, sites: [], snapshots: [] };
-	}
-	const parsed: unknown = JSON.parse( await readFile( configPath, { encoding: 'utf8' } ) );
-	if ( typeof parsed !== 'object' || parsed === null ) {
-		throw new Error( 'Invalid CLI config file format.' );
-	}
-	return parsed as Record< string, unknown >;
+async function readAiSettingsConfig(): Promise< AiSettingsConfig > {
+	return aiSettingsConfigSchema.parse( await readCliConfigFileRaw() );
 }
 
 export async function readAiSettings(): Promise< AiSettings > {
-	return toAiSettings( aiSettingsConfigSchema.parse( await readCliConfigRaw() ) );
+	return toAiSettings( await readAiSettingsConfig() );
 }
 
 async function updateAiSettings(
-	mutate: ( config: Record< string, unknown > ) => void
+	mutate: ( config: AiSettingsConfig ) => void
 ): Promise< AiSettings > {
-	const configDir = getConfigDirectory();
-	if ( ! fs.existsSync( configDir ) ) {
-		fs.mkdirSync( configDir, { recursive: true } );
-		await hideDirectoryOnWindows( configDir );
-	}
-
-	const lockfilePath = path.join( configDir, CLI_CONFIG_LOCKFILE_NAME );
-	await lockFileAsync( lockfilePath, { wait: LOCKFILE_WAIT_TIME, stale: LOCKFILE_STALE_TIME } );
+	await lockCliConfigFile();
 	try {
-		const config = await readCliConfigRaw();
+		const config = aiSettingsConfigSchema.parse( await readCliConfigFileRaw() );
 		mutate( config );
-		await writeFile( getCliConfigPath(), JSON.stringify( config, null, 2 ) + '\n', {
-			encoding: 'utf8',
-		} );
-		return toAiSettings( aiSettingsConfigSchema.parse( config ) );
+		await writeCliConfigFileRaw( config );
+		return toAiSettings( config );
 	} finally {
-		await unlockFileAsync( lockfilePath );
+		await unlockCliConfigFile();
 	}
 }
 
@@ -134,7 +114,7 @@ export async function saveAnthropicApiKey( key: string | null ): Promise< AiSett
  */
 export async function setAiProvider( provider: AiProviderId ): Promise< AiSettings > {
 	if ( provider === 'anthropic-api-key' ) {
-		const { anthropicApiKey } = aiSettingsConfigSchema.parse( await readCliConfigRaw() );
+		const { anthropicApiKey } = await readAiSettingsConfig();
 		if ( ! anthropicApiKey ) {
 			throw new InvalidAnthropicApiKeyError( 'Add an Anthropic API key first.' );
 		}

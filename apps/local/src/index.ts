@@ -483,15 +483,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 400 ).json( { error: 'anthropicApiKey must be a string or null' } );
 				return;
 			}
-			try {
-				res.json( await saveAnthropicApiKey( key ) );
-			} catch ( error ) {
-				if ( error instanceof InvalidAnthropicApiKeyError ) {
-					res.status( 400 ).json( { error: error.message } );
-					return;
-				}
-				throw error;
-			}
+			res.json( await saveAnthropicApiKey( key ) );
 		} )
 	);
 
@@ -505,15 +497,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 400 ).json( { error: 'provider must be a known AI provider id' } );
 				return;
 			}
-			try {
-				res.json( await setAiProvider( provider ) );
-			} catch ( error ) {
-				if ( error instanceof InvalidAnthropicApiKeyError ) {
-					res.status( 400 ).json( { error: error.message } );
-					return;
-				}
-				throw error;
-			}
+			res.json( await setAiProvider( provider ) );
 		} )
 	);
 
@@ -1353,6 +1337,10 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	}
 
 	app.use( ( err: unknown, _req: Request, res: Response, _next: ( e?: unknown ) => void ) => {
+		if ( err instanceof InvalidAnthropicApiKeyError ) {
+			res.status( 400 ).json( { error: err.message } );
+			return;
+		}
 		const message = err instanceof Error ? err.message : String( err );
 		res.status( 500 ).json( { error: message } );
 	} );

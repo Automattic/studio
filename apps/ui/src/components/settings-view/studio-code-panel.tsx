@@ -1,12 +1,13 @@
 import { GLOBAL_INSTRUCTIONS_MAX_LENGTH } from '@studio/common/ai/global-instructions';
 import { DataForm } from '@wordpress/dataviews';
 import { __ } from '@wordpress/i18n';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import {
 	useAgentInstructions,
 	useSaveAgentInstructions,
 } from '@/data/queries/use-agent-instructions';
 import styles from './style.module.css';
+import { useDebouncedSave } from './use-debounced-save';
 import type { Field, Form } from '@wordpress/dataviews';
 
 interface FormData {
@@ -31,10 +32,6 @@ const FORM: Form = {
 	fields: [ 'content' ],
 };
 
-// Long enough that a normal typing burst lands as one write, short enough that
-// the save still feels immediate when the user pauses.
-const SAVE_DEBOUNCE_MS = 800;
-
 export function StudioCodePanel() {
 	const { data: saved } = useAgentInstructions();
 	const { mutate: save, isError } = useSaveAgentInstructions();
@@ -43,29 +40,7 @@ export function StudioCodePanel() {
 	const content = edits ?? saved ?? '';
 	const isDirty = saved !== undefined && content !== saved;
 
-	const pending = useRef< string | null >( null );
-
-	useEffect( () => {
-		pending.current = isDirty ? content : null;
-		if ( ! isDirty ) {
-			return;
-		}
-		const timer = setTimeout( () => {
-			pending.current = null;
-			save( content );
-		}, SAVE_DEBOUNCE_MS );
-		return () => clearTimeout( timer );
-	}, [ content, isDirty, save ] );
-
-	// Leaving the tab mid-debounce would otherwise drop the last keystrokes.
-	useEffect(
-		() => () => {
-			if ( pending.current !== null ) {
-				save( pending.current );
-			}
-		},
-		[ save ]
-	);
+	useDebouncedSave( isDirty ? content : undefined, save );
 
 	if ( saved === undefined ) {
 		return <div className={ styles.state }>{ __( 'Loading…' ) }</div>;

@@ -1,14 +1,10 @@
 import { password } from '@inquirer/prompts';
 import { validateAnthropicApiKey } from '@studio/common/ai/anthropic-key';
+import { DEFAULT_MODEL, type AiModelId } from '@studio/common/ai/models';
 import {
-	AI_MODELS,
-	DEFAULT_MODEL,
-	type AiModelFamily,
-	type AiModelId,
-} from '@studio/common/ai/models';
-import {
+	AI_PROVIDER_IDS,
 	DEFAULT_AI_PROVIDER,
-	getAiProviderModelFamilies,
+	getAiProviderModels,
 	type AiProviderId,
 } from '@studio/common/ai/providers';
 import { readAuthToken } from '@studio/common/lib/shared-config';
@@ -23,7 +19,9 @@ export const AI_PROVIDERS: Record< AiProviderId, string > = {
 
 export type { AiProviderId };
 export { DEFAULT_AI_PROVIDER };
-export const AI_PROVIDER_PRIORITY: AiProviderId[] = [ 'wpcom', 'anthropic-api-key' ];
+// Fallback order when the configured provider is unavailable; declaration
+// order of the canonical id list.
+export const AI_PROVIDER_PRIORITY: readonly AiProviderId[] = AI_PROVIDER_IDS;
 
 const DEFAULT_WPCOM_AI_GATEWAY_BASE_URL = 'https://public-api.wordpress.com/wpcom/v2/ai-api-proxy';
 // The wpcom AI proxy maps feature slugs to upstream providers. Historically
@@ -40,14 +38,9 @@ export interface ResolveAiEnvironmentOptions {
 export interface AiProviderDefinition {
 	id: AiProviderId;
 	autoFallbackWhenUnavailable: boolean;
-	/**
-	 * Which model families this provider can service. `wpcom` relays both
-	 * Anthropic and OpenAI wire formats through the same proxy; direct-API
-	 * providers are restricted to their own family. `availableModels` and
-	 * `defaultModel` are derived from this and kept on the definition so
-	 * callers don't have to filter AI_MODELS themselves.
-	 */
-	readonly supportedModelFamilies: readonly AiModelFamily[];
+	// Derived from the provider's model families (see
+	// `@studio/common/ai/providers`), kept on the definition so callers don't
+	// have to filter AI_MODELS themselves.
 	readonly availableModels: readonly AiModelId[];
 	readonly defaultModel: AiModelId;
 	supportsModel( model: AiModelId ): boolean;
@@ -57,17 +50,12 @@ export interface AiProviderDefinition {
 	resolveEnv: ( options?: ResolveAiEnvironmentOptions ) => Promise< Record< string, string > >;
 }
 
-/**
- * Fills in `availableModels`, `defaultModel`, and `supportsModel` from the
- * declared `supportedModelFamilies` so each provider literal below only has to
- * state its family allowlist.
- */
+// Fills in `availableModels`, `defaultModel`, and `supportsModel` from the
+// provider id's model families.
 function defineProvider(
 	partial: Omit< AiProviderDefinition, 'availableModels' | 'defaultModel' | 'supportsModel' >
 ): AiProviderDefinition {
-	const availableModels: AiModelId[] = AI_MODELS.filter( ( model ) =>
-		partial.supportedModelFamilies.includes( model.family )
-	).map( ( model ) => model.id );
+	const availableModels = getAiProviderModels( partial.id ).map( ( model ) => model.id );
 	return {
 		...partial,
 		availableModels,
@@ -156,7 +144,6 @@ const AI_PROVIDER_DEFINITIONS: Record< AiProviderId, AiProviderDefinition > = {
 	wpcom: defineProvider( {
 		id: 'wpcom',
 		autoFallbackWhenUnavailable: true,
-		supportedModelFamilies: getAiProviderModelFamilies( 'wpcom' ),
 		isVisible: async () => true,
 		isReady: async () => hasInlineWpcomAuth() || ( await hasValidWpcomAuth() ),
 		prepare: async () => {
@@ -209,7 +196,6 @@ const AI_PROVIDER_DEFINITIONS: Record< AiProviderId, AiProviderDefinition > = {
 	'anthropic-api-key': defineProvider( {
 		id: 'anthropic-api-key',
 		autoFallbackWhenUnavailable: false,
-		supportedModelFamilies: getAiProviderModelFamilies( 'anthropic-api-key' ),
 		isVisible: async () => true,
 		isReady: async () => {
 			const { anthropicApiKey } = await readCliConfig();

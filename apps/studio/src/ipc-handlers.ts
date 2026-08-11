@@ -55,6 +55,7 @@ import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import { parseCliError, errorMessageContains } from '@studio/common/lib/cli-error';
 import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
+import { stripIpcErrorPrefix } from '@studio/common/lib/error-formatting';
 import {
 	calculateDirectorySizeForArchive,
 	isWordPressDirectory,
@@ -1808,11 +1809,7 @@ export async function showErrorMessageBox(
 
 	if ( error ) {
 		const simplifiedError = simplifyErrorForDisplay( error );
-		// Remove prepended error message added by IPC handler
-		const filteredError = simplifiedError?.message?.replace(
-			/Error invoking remote method '\w+': Error:/g,
-			''
-		);
+		const filteredError = stripIpcErrorPrefix( simplifiedError?.message ?? '' );
 		detail = `${ message }\n\n${ filteredError }`;
 	}
 

@@ -124,33 +124,26 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		} );
 		if ( ! response.ok ) {
 			const text = await response.text().catch( () => '' );
+			// Server errors carry a user-facing `{ error }` body — surface that
+			// message directly instead of the transport line.
+			let serverError: string | undefined;
+			try {
+				const payload: unknown = JSON.parse( text );
+				if ( payload && typeof payload === 'object' && 'error' in payload ) {
+					serverError = typeof payload.error === 'string' ? payload.error : undefined;
+				}
+			} catch {
+				// Not JSON; fall through to the transport error.
+			}
 			throw new Error(
-				`${ init?.method ?? 'GET' } ${ path } failed (${ response.status }): ${ text }`
+				serverError ??
+					`${ init?.method ?? 'GET' } ${ path } failed (${ response.status }): ${ text }`
 			);
 		}
 		if ( response.status === 204 ) {
 			return undefined as T;
 		}
 		return ( await response.json() ) as T;
-	}
-
-	// AI settings answer 400 with a user-facing reason (e.g. Anthropic rejected
-	// the key), so surface that message instead of the generic transport error.
-	async function putAiSettings( path: string, body: unknown ): Promise< AiSettings > {
-		const response = await fetch( `${ base }${ path }`, {
-			method: 'PUT',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify( body ),
-		} );
-		if ( ! response.ok ) {
-			const payload = await response.json().catch( () => undefined );
-			throw new Error(
-				typeof payload?.error === 'string'
-					? payload.error
-					: `PUT ${ path } failed (${ response.status })`
-			);
-		}
-		return ( await response.json() ) as AiSettings;
 	}
 
 	// Fetch a server endpoint that returns a file and save it via the browser's
@@ -777,10 +770,16 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			return api< AiSettings >( '/ai-settings' );
 		},
 		async saveAnthropicApiKey( key: string | null ): Promise< AiSettings > {
-			return putAiSettings( '/ai-settings', { anthropicApiKey: key } );
+			return api< AiSettings >( '/ai-settings', {
+				method: 'PUT',
+				body: JSON.stringify( { anthropicApiKey: key } ),
+			} );
 		},
 		async setAiProvider( provider: AiProviderId ): Promise< AiSettings > {
-			return putAiSettings( '/ai-settings/provider', { provider } );
+			return api< AiSettings >( '/ai-settings/provider', {
+				method: 'PUT',
+				body: JSON.stringify( { provider } ),
+			} );
 		},
 
 		// The local server has no REST-proxy route yet; the preview omnibox

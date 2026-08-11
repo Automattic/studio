@@ -42,7 +42,7 @@ export function formatAnnotationsAsPrompt( annotations: Annotation[] ): string {
 			typeof annotation.nearbyText === 'string' && annotation.nearbyText.trim()
 				? ` - "${ truncateText( annotation.nearbyText.trim(), 120 ) }"`
 				: '';
-		const page = annotation.url || annotation.pathname || '/';
+		const page = annotation.url || annotation.path || '/';
 
 		lines.push(
 			`### ${ index + 1 }. ${ tag }${ nearbyText }`,

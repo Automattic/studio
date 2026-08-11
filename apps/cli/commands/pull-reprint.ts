@@ -637,8 +637,8 @@ export async function runCommand(
  * interactive prompt.
  *
  * Order of precedence:
- *   1. A selection persisted by a prior interrupted run → reuse it (the
- *      resume must keep the same `--only` set).
+ *   1. Resuming an unfinished pull → reuse the persisted selection (reprint
+ *      refuses to resume a files-pull whose `--only` set changed).
  *   2. `--only`/`--skip-*` flags → apply non-interactively.
  *   3. Non-interactive with no flags → pull everything.
  *   4. Interactive → the wp-content folder tree + database toggle.
@@ -684,9 +684,15 @@ async function applySelection( params: {
 		];
 	};
 
-	// Reuse the selection captured by a prior interrupted run. A folder
-	// selection can outlive the scratch that made it a delta (damage wipe):
-	// re-anchor it with the core roots so the fresh initial sync still
+	// Reuse the selection captured by a prior interrupted run. The sidecar is
+	// written when a selection is chosen and removed once the pull succeeds,
+	// so its presence already means "a prior run started and did not finish"
+	// — reprint refuses to resume a files-pull whose `--only` set changed, so
+	// the choice is reused rather than re-derived. It is announced because it
+	// silently overrides this run's flags (and a UI pull's full-pull intent).
+	//
+	// A folder selection can outlive the scratch that made it a delta (damage
+	// wipe): re-anchor it with the core roots so the fresh initial sync still
 	// downloads WordPress core.
 	const persisted = readPullSelection( session );
 	if ( persisted ) {
@@ -695,6 +701,9 @@ async function applySelection( params: {
 			persisted.fileOnlyPaths = healed.length > 0 ? healed : undefined;
 			savePullSelection( session, persisted );
 		}
+		console.log(
+			__( 'Resuming the interrupted pull, so its original content selection is reused.' )
+		);
 		return persisted;
 	}
 

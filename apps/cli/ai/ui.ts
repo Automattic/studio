@@ -51,6 +51,7 @@ import { getWpComSites } from 'cli/lib/api';
 import { openBrowser } from 'cli/lib/browser';
 import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
+import { notifyTerminal } from 'cli/lib/notify';
 import { getSitesRunningStatus, isSiteRunning } from 'cli/lib/site-utils';
 import { formatTosNoticeLines } from 'cli/lib/tos-notice';
 import type { ToolResultMessage } from '@earendil-works/pi-ai';
@@ -2001,6 +2002,8 @@ export class AiChatUI implements AiOutputAdapter {
 		this.currentMarkdown = null;
 		this.currentResponseText = '';
 
+		void notifyTerminal( __( 'Studio Code is waiting for your answer' ) );
+
 		const answers: Record< string, string > = {};
 
 		for ( const q of questions ) {
@@ -2229,6 +2232,7 @@ export class AiChatUI implements AiOutputAdapter {
 						this.numTurns
 					)
 				);
+				void notifyTerminal( __( 'Studio Code response is ready' ) );
 				return;
 			}
 			default:

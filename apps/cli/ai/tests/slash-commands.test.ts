@@ -1,5 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AI_CHAT_SLASH_COMMANDS, type SlashCommandContext } from 'cli/ai/slash-commands';
+import {
+	areNotificationsEnabled,
+	getNotificationsPreference,
+	setNotificationsEnabled,
+} from 'cli/lib/notify';
 
 describe( '/remote-session slash command registration', () => {
 	const cmd = AI_CHAT_SLASH_COMMANDS.find( ( c ) => c.name === 'remote-session' );
@@ -38,6 +43,11 @@ vi.mock( 'cli/commands/auth/logout', () => ( { runCommand: vi.fn() } ) );
 vi.mock( 'cli/commands/preview/create', () => ( { runCommand: vi.fn() } ) );
 vi.mock( 'cli/commands/preview/update', () => ( { runCommand: vi.fn() } ) );
 vi.mock( '@studio/common/lib/shared-config', () => ( { readAuthToken: vi.fn() } ) );
+vi.mock( 'cli/lib/notify', () => ( {
+	areNotificationsEnabled: vi.fn(),
+	getNotificationsPreference: vi.fn(),
+	setNotificationsEnabled: vi.fn().mockResolvedValue( undefined ),
+} ) );
 
 vi.mock( 'cli/remote-session/daemon', () => {
 	return {
@@ -399,5 +409,61 @@ describe( '/model slash command', () => {
 		// Same model picked → no swap, no persist.
 		expect( ctx.currentModel ).toBe( 'gpt-5.6-sol' );
 		expect( persistMock ).not.toHaveBeenCalled();
+	} );
+} );
+
+describe( '/notifications slash command', () => {
+	const cmd = AI_CHAT_SLASH_COMMANDS.find( ( c ) => c.name === 'notifications' )!;
+
+	function makeUi() {
+		return { showInfo: vi.fn() };
+	}
+	function makeCtx( ui: ReturnType< typeof makeUi > ): SlashCommandContext {
+		return {
+			ui: ui as unknown as SlashCommandContext[ 'ui' ],
+			currentModel: 'claude-sonnet-4-5' as SlashCommandContext[ 'currentModel' ],
+			currentProvider: 'wpcom' as SlashCommandContext[ 'currentProvider' ],
+			showCapabilitiesOnConnect: false,
+			switchProvider: vi.fn().mockResolvedValue( undefined ),
+			prepareProviderSelection: vi.fn().mockResolvedValue( undefined ),
+			maybeAutoSwitchProvider: vi.fn().mockResolvedValue( undefined ),
+			persistSessionContext: vi.fn().mockResolvedValue( undefined ),
+			clearSession: vi.fn().mockResolvedValue( undefined ),
+		};
+	}
+
+	afterEach( () => {
+		vi.mocked( areNotificationsEnabled ).mockReset();
+		vi.mocked( getNotificationsPreference ).mockReset();
+		vi.mocked( setNotificationsEnabled ).mockClear();
+	} );
+
+	it( 'from unset (auto-detect), forces notifications on', async () => {
+		vi.mocked( getNotificationsPreference ).mockResolvedValue( undefined );
+		const ui = makeUi();
+		const result = await cmd.handler!( '/notifications', makeCtx( ui ) );
+
+		expect( setNotificationsEnabled ).toHaveBeenCalledWith( true );
+		expect( ui.showInfo ).toHaveBeenCalledWith( expect.stringContaining( 'enabled' ) );
+		expect( result ).toBe( 'continue' );
+	} );
+
+	it( 'from always on, forces notifications off', async () => {
+		vi.mocked( getNotificationsPreference ).mockResolvedValue( true );
+		const ui = makeUi();
+		await cmd.handler!( '/notifications', makeCtx( ui ) );
+
+		expect( setNotificationsEnabled ).toHaveBeenCalledWith( false );
+		expect( ui.showInfo ).toHaveBeenCalledWith( expect.stringContaining( 'disabled' ) );
+	} );
+
+	it( 'from always off, resets to auto-detect and reports what that means for this terminal', async () => {
+		vi.mocked( getNotificationsPreference ).mockResolvedValue( false );
+		vi.mocked( areNotificationsEnabled ).mockResolvedValue( true );
+		const ui = makeUi();
+		await cmd.handler!( '/notifications', makeCtx( ui ) );
+
+		expect( setNotificationsEnabled ).toHaveBeenCalledWith( undefined );
+		expect( ui.showInfo ).toHaveBeenCalledWith( expect.stringContaining( 'auto-detect' ) );
 	} );
 } );

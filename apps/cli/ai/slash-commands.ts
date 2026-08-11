@@ -12,6 +12,11 @@ import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/crea
 import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
 import { runCommand as runPushCommand } from 'cli/commands/push';
 import { openBrowser } from 'cli/lib/browser';
+import {
+	areNotificationsEnabled,
+	getNotificationsPreference,
+	setNotificationsEnabled,
+} from 'cli/lib/notify';
 import { getSnapshotsFromConfig, isSnapshotExpired } from 'cli/lib/snapshots';
 import { fetchSyncableSites } from 'cli/lib/sync-api';
 import { LoggerError } from 'cli/logger';
@@ -251,6 +256,32 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 		description: __( 'Clear the conversation and start a fresh session' ),
 		handler: async ( _prompt, ctx ) => {
 			await ctx.clearSession();
+			return 'continue';
+		},
+	},
+	{
+		name: 'notifications',
+		description: __(
+			'Cycle terminal notifications when a response is ready or your input is needed (auto-detect → always on → always off)'
+		),
+		handler: async ( _prompt, ctx ) => {
+			// Cycle: unset (auto-detect) → true (always on) → false (always off) → back to unset.
+			const preference = await getNotificationsPreference();
+			if ( preference === undefined ) {
+				await setNotificationsEnabled( true );
+				ctx.ui.showInfo( __( 'Notifications enabled.' ) );
+			} else if ( preference === true ) {
+				await setNotificationsEnabled( false );
+				ctx.ui.showInfo( __( 'Notifications disabled.' ) );
+			} else {
+				await setNotificationsEnabled( undefined );
+				const autoDetected = await areNotificationsEnabled();
+				ctx.ui.showInfo(
+					autoDetected
+						? __( 'Notifications set to auto-detect (on for this terminal).' )
+						: __( 'Notifications set to auto-detect (off for this terminal).' )
+				);
+			}
 			return 'continue';
 		},
 	},

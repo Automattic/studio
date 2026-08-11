@@ -4,6 +4,7 @@ import { AiChatUI } from 'cli/ai/ui';
 import { openBrowser } from 'cli/lib/browser';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
+import { notifyTerminal } from 'cli/lib/notify';
 import { isSiteRunning } from 'cli/lib/site-utils';
 
 const ANSI_PATTERN = new RegExp( String.fromCharCode( 27 ) + '\\[[0-9;]*m', 'g' );
@@ -38,6 +39,10 @@ vi.mock( 'cli/lib/browser', () => ( {
 
 vi.mock( 'cli/lib/site-utils', () => ( {
 	isSiteRunning: vi.fn(),
+} ) );
+
+vi.mock( 'cli/lib/notify', () => ( {
+	notifyTerminal: vi.fn().mockResolvedValue( undefined ),
 } ) );
 
 describe( 'AiChatUI.openActiveSiteInBrowser', () => {
@@ -714,6 +719,52 @@ describe( 'AiChatUI.renderToolResultImages', () => {
 		);
 
 		expect( target.render( 120 ) ).toHaveLength( 0 );
+	} );
+} );
+
+describe( 'AiChatUI notify hooks', () => {
+	beforeEach( () => {
+		vi.mocked( notifyTerminal ).mockClear();
+	} );
+
+	it( 'notifies "response is ready" on agent_end', () => {
+		const ui = Object.create( AiChatUI.prototype ) as {
+			handleEvent: ( e: unknown ) => unknown;
+			[ key: string ]: unknown;
+		};
+		ui.hideLoader = vi.fn();
+		ui.showInfo = vi.fn();
+		ui.usageCapReached = false;
+		ui.wasInterrupted = false;
+		ui.hasShownResponseMarker = true;
+		ui.nowMs = () => 5000;
+		ui.turnStartTime = 0;
+		ui.numTurns = 1;
+		ui.messages = { addChild: vi.fn() };
+
+		ui.handleEvent( { type: 'agent_end', messages: [] } );
+
+		expect( notifyTerminal ).toHaveBeenCalledExactlyOnceWith(
+			expect.stringContaining( 'response is ready' )
+		);
+	} );
+
+	it( 'notifies "waiting for your answer" when askUser pauses for a question', async () => {
+		const ui = Object.create( AiChatUI.prototype ) as {
+			askUser: ( q: unknown[] ) => Promise< Record< string, string > >;
+			[ key: string ]: unknown;
+		};
+		ui.hideLoader = vi.fn();
+		ui.showLoader = vi.fn();
+		ui.currentMarkdown = { setText: vi.fn() };
+		ui.currentResponseText = '';
+
+		const answers = await ui.askUser( [] );
+
+		expect( notifyTerminal ).toHaveBeenCalledExactlyOnceWith(
+			expect.stringContaining( 'waiting for your answer' )
+		);
+		expect( answers ).toEqual( {} );
 	} );
 } );
 

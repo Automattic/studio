@@ -1118,13 +1118,10 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 401 ).json( { error: 'Authentication required.' } );
 				return;
 			}
-			try {
-				res.json(
-					await fetchLatestRewindId( token.accessToken, Number( req.params.remoteSiteId ) )
-				);
-			} catch {
-				res.json( null );
-			}
+			// No backup yet (or lookup failure) rejects and surfaces as a 500 via
+			// the error middleware — the dialog needs the error state to disable
+			// per-item selection and force a full sync, like the classic renderer.
+			res.json( await fetchLatestRewindId( token.accessToken, Number( req.params.remoteSiteId ) ) );
 		} )
 	);
 

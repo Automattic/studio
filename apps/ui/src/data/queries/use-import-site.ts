@@ -11,11 +11,9 @@ export interface ImportSiteInput {
 	onProgress?: ( event: ImportEventTuple ) => void;
 }
 
-/**
- * Runs a backup import against a site that has just been created. The
- * The cached site list is invalidated so metadata changed by the importer is
- * picked up.
- */
+// Imports a backup over an existing site, whether it was just created by the
+// import flow or has been around. The cached site list is invalidated so
+// metadata changed by the importer is picked up.
 export function useImportSite() {
 	const connector = useConnector();
 	const queryClient = useQueryClient();

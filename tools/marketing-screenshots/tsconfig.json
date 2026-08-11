@@ -1,0 +1,12 @@
+{
+	"extends": "../../tsconfig.base.json",
+	"compilerOptions": {
+		"module": "preserve",
+		"moduleResolution": "bundler",
+		"erasableSyntaxOnly": true,
+		"lib": [ "ES2023", "DOM", "DOM.Iterable" ],
+		"noEmit": true
+	},
+	"include": [ "**/*.ts" ],
+	"exclude": [ "node_modules" ]
+}

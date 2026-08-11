@@ -1,0 +1,9 @@
+html[data-marketing-screenshot-ready] *,
+html[data-marketing-screenshot-ready] *::before,
+html[data-marketing-screenshot-ready] *::after {
+	animation-delay: 0s !important;
+	animation-duration: 0s !important;
+	caret-color: transparent !important;
+	scroll-behavior: auto !important;
+	transition: none !important;
+}

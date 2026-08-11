@@ -113,6 +113,8 @@ function renderMainView( {
 					activity={ activity }
 					onSetupClick={ vi.fn() }
 					onDisconnectClick={ vi.fn() }
+					onPullClick={ vi.fn() }
+					onPushClick={ vi.fn() }
 				/>
 			</Menu.Popup>
 		</Menu.Root>

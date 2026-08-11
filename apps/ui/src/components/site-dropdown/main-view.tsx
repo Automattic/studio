@@ -27,8 +27,6 @@ import { useSnapshots } from '@/data/queries/use-snapshots';
 import {
 	PULL_FROM_LIVE_MUTATION_KEY,
 	PUSH_TO_LIVE_MUTATION_KEY,
-	usePullSiteFromLive,
-	usePushSiteToLive,
 } from '@/data/queries/use-sync-site';
 import { getSiteUrl } from '@/lib/get-site-url';
 import styles from './main-view.module.css';
@@ -58,6 +56,10 @@ type Props = {
 	// Opens the disconnect-site confirmation dialog; owned by the parent so the
 	// dialog persists after the dropdown closes.
 	onDisconnectClick: () => void;
+	// Open the selective-sync dialog for pull/push; owned by the parent for the
+	// same reason as the disconnect dialog.
+	onPullClick: () => void;
+	onPushClick: () => void;
 };
 
 // Counts in-flight push/pull mutations for this site across hook instances.
@@ -106,7 +108,14 @@ function getLivePanelCopy( agenticEnabled: boolean, isOffline: boolean ): string
 	return __( 'Sign in to publish your site.' );
 }
 
-export function MainView( { site, activity, onSetupClick, onDisconnectClick }: Props ) {
+export function MainView( {
+	site,
+	activity,
+	onSetupClick,
+	onDisconnectClick,
+	onPullClick,
+	onPushClick,
+}: Props ) {
 	const connector = useConnector();
 	const { enabled: agenticEnabled, reason: agenticReason } = useAgenticFeatures();
 	const isOffline = agenticReason === 'offline';
@@ -124,8 +133,6 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 	const startSite = useStartSite();
 	const stopSite = useStopSite();
 	const publishPreviewSite = usePublishPreviewSite();
-	const pushSiteToLive = usePushSiteToLive();
-	const pullSiteFromLive = usePullSiteFromLive();
 
 	const isStarting = useIsSiteStarting( site.id );
 	const isStopping = useIsSiteStopping( site.id );
@@ -208,15 +215,12 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 
 	const handlePullClick = () => {
 		if ( ! liveSite || isSyncing || isLocalTransitioning ) return;
-		pullSiteFromLive.mutate( { siteId: site.id, remoteSiteId: liveSite.id } );
+		onPullClick();
 	};
 
 	const handlePushClick = () => {
 		if ( ! liveSite || isSyncing || isLocalTransitioning ) return;
-		pushSiteToLive.mutate(
-			{ siteId: site.id, remoteSiteId: liveSite.id },
-			{ onSuccess: () => openExternal( ensureProtocol( liveSite.url ) ) }
-		);
+		onPushClick();
 	};
 
 	const renderTooltipButton = ( {

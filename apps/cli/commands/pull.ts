@@ -45,17 +45,19 @@ const logger = new Logger< LoggerAction >();
 export async function runCommand(
 	siteFolder: string,
 	syncOptions?: SyncOption[],
-	siteIdentifier?: string
+	siteIdentifier?: string,
+	syncIncludePathList?: string[]
 ): Promise< void > {
 	return withSiteOperation( siteFolder, 'pull', () =>
-		pullSite( siteFolder, syncOptions, siteIdentifier )
+		pullSite( siteFolder, syncOptions, siteIdentifier, syncIncludePathList )
 	);
 }
 
 async function pullSite(
 	siteFolder: string,
 	syncOptions?: SyncOption[],
-	siteIdentifier?: string
+	siteIdentifier?: string,
+	syncIncludePathList?: string[]
 ): Promise< void > {
 	let site: SiteData | undefined;
 	let wasServerRunning = false;
@@ -97,6 +99,7 @@ async function pullSite(
 
 		if ( syncOptions ) {
 			optionsToSync = syncOptions;
+			includePathList = syncIncludePathList;
 		} else {
 			logger.reportStart( LoggerAction.FETCH_REMOTE_SITES, __( 'Fetching file tree…' ) );
 			const { tree } = await fetchPullTree( token.accessToken, remoteSite.id );
@@ -270,11 +273,27 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				.option( 'remote-site', {
 					type: 'string',
 					description: __( 'Remote site URL or ID' ),
+				} )
+				.option( 'include-path-list', {
+					type: 'array',
+					description: __( 'Backup node ids to pull when using the "paths" option' ),
+					hidden: true,
+					coerce: ( value ) => {
+						if ( ! Array.isArray( value ) ) {
+							throw new Error( __( 'include-path-list must be an array' ) );
+						}
+						return value.map( String );
+					},
 				} );
 		},
 		handler: async ( argv ) => {
 			try {
-				await runCommand( argv.path, argv.options as SyncOption[] | undefined, argv.remoteSite );
+				await runCommand(
+					argv.path,
+					argv.options as SyncOption[] | undefined,
+					argv.remoteSite,
+					argv.includePathList as string[] | undefined
+				);
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {
 					logger.reportError( error );

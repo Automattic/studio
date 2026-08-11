@@ -23,12 +23,12 @@ vi.mock( 'cli/lib/cli-config/sites', () => ( {
 	updateSitePhpVersion: vi.fn(),
 } ) );
 vi.mock( 'cli/lib/daemon-client' );
-// Pass through the lease: these suites cover the command, not the lock
-// (lib/tests/site-lock.test.ts does that). Spreading the real module keeps
+// Run the command body directly: these suites cover the command, not the
+// operation guard (lib/tests/site-operations.test.ts does that). Spreading the real module keeps
 // any other export real rather than silently stubbing it.
-vi.mock( 'cli/lib/site-lock', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('cli/lib/site-lock') >() ),
-	withSiteLock: ( _folder: string, _kind: string, fn: () => unknown ) => fn(),
+vi.mock( 'cli/lib/site-operations', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('cli/lib/site-operations') >() ),
+	withSiteOperation: ( _folder: string, _kind: string, fn: () => unknown ) => fn(),
 } ) );
 vi.mock( 'cli/lib/sqlite-integration', () => ( {
 	keepSqliteIntegrationUpdated: vi.fn(),

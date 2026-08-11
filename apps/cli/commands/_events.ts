@@ -29,7 +29,7 @@ import {
 	SITE_EVENTS_SOCKET_PATH,
 	getDaemonBus,
 } from 'cli/lib/daemon-client';
-import { getLiveSiteOperations } from 'cli/lib/site-lock';
+import { getLiveSiteOperations } from 'cli/lib/site-operations';
 import { isSiteRunning } from 'cli/lib/site-utils';
 import { SocketServer } from 'cli/lib/socket';
 import { SITE_PROCESS_PREFIX } from 'cli/lib/wordpress-server-manager';

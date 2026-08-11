@@ -10,7 +10,7 @@ import {
 } from 'cli/lib/cli-config/core';
 import { emitCliEvent } from 'cli/lib/daemon-client';
 import { LoggerError } from 'cli/logger';
-import { getLiveSiteOperations, withSiteLock } from '../site-lock';
+import { getLiveSiteOperations, withSiteOperation } from '../site-operations';
 
 vi.mock( 'cli/lib/cli-config/core', () => ( {
 	lockCliConfig: vi.fn(),
@@ -43,7 +43,7 @@ function storedOperations() {
 }
 
 // A pid that is guaranteed not to be running, standing in for a client that
-// crashed while holding a lease.
+// crashed while holding an operation.
 const DEAD_PID = 0x7ffffffe;
 
 beforeEach( () => {
@@ -58,7 +58,7 @@ beforeEach( () => {
 } );
 
 describe( 'getLiveSiteOperations', () => {
-	it( 'drops leases whose owning process has died', () => {
+	it( 'drops operations whose owning process has died', () => {
 		expect(
 			getLiveSiteOperations( {
 				...site,
@@ -70,14 +70,14 @@ describe( 'getLiveSiteOperations', () => {
 		).toEqual( [ { id: 'mine', pid: process.pid, kind: 'export' } ] );
 	} );
 
-	it( 'returns an empty list for a site with no leases', () => {
+	it( 'returns an empty list for a site with no operations', () => {
 		expect( getLiveSiteOperations( site ) ).toEqual( [] );
 	} );
 } );
 
-describe( 'withSiteLock', () => {
+describe( 'withSiteOperation', () => {
 	it( 'records the operation while it runs and clears it afterwards', async () => {
-		await withSiteLock( site.path, 'import', async () => {
+		await withSiteOperation( site.path, 'import', async () => {
 			expect( storedOperations() ).toEqual( [
 				{
 					id: expect.any( String ),
@@ -90,9 +90,9 @@ describe( 'withSiteLock', () => {
 		expect( storedOperations() ).toBeUndefined();
 	} );
 
-	it( 'releases the lease when the operation throws', async () => {
+	it( 'releases the operation when the work throws', async () => {
 		await expect(
-			withSiteLock( site.path, 'pull', async () => {
+			withSiteOperation( site.path, 'pull', async () => {
 				throw new Error( 'pull blew up' );
 			} )
 		).rejects.toThrow( 'pull blew up' );
@@ -101,26 +101,26 @@ describe( 'withSiteLock', () => {
 	} );
 
 	it( 'refuses a second operation while one is held', async () => {
-		await withSiteLock( site.path, 'import', async () => {
-			await expect( withSiteLock( site.path, 'start', async () => 'started' ) ).rejects.toThrow(
-				/already in progress/
-			);
+		await withSiteOperation( site.path, 'import', async () => {
+			await expect(
+				withSiteOperation( site.path, 'start', async () => 'started' )
+			).rejects.toThrow( /already in progress/ );
 		} );
 	} );
 
 	it( 'refuses an operation while another holds the site', async () => {
-		await withSiteLock( site.path, 'export', async () => {
-			await expect( withSiteLock( site.path, 'delete', async () => undefined ) ).rejects.toThrow(
-				/already in progress/
-			);
+		await withSiteOperation( site.path, 'export', async () => {
+			await expect(
+				withSiteOperation( site.path, 'delete', async () => undefined )
+			).rejects.toThrow( /already in progress/ );
 		} );
 	} );
 
 	it( 'names both operations in the error so the agent can act on it', async () => {
-		await withSiteLock( site.path, 'import', async () => {
-			await expect( withSiteLock( site.path, 'start', async () => undefined ) ).rejects.toThrow(
-				/site start.*import/
-			);
+		await withSiteOperation( site.path, 'import', async () => {
+			await expect(
+				withSiteOperation( site.path, 'start', async () => undefined )
+			).rejects.toThrow( /site start.*import/ );
 		} );
 	} );
 
@@ -128,17 +128,17 @@ describe( 'withSiteLock', () => {
 	// integration inside wp-content before they read the tree, so two of them
 	// on one site would delete and recreate the same files underneath.
 	it( 'refuses a second export while one is already running', async () => {
-		await withSiteLock( site.path, 'export', async () => {
-			await expect( withSiteLock( site.path, 'push', async () => 'pushed' ) ).rejects.toThrow(
+		await withSiteOperation( site.path, 'export', async () => {
+			await expect( withSiteOperation( site.path, 'push', async () => 'pushed' ) ).rejects.toThrow(
 				/already in progress/
 			);
 		} );
 	} );
 
-	it( 'reclaims a lease whose owning process is gone', async () => {
+	it( 'reclaims an operation whose owning process is gone', async () => {
 		mockConfig.sites[ 0 ].operations = [ { id: 'dead', pid: DEAD_PID, kind: 'import' } ];
 
-		const result = await withSiteLock( site.path, 'start', async () => 'started' );
+		const result = await withSiteOperation( site.path, 'start', async () => 'started' );
 
 		expect( result ).toBe( 'started' );
 		expect( storedOperations() ).toBeUndefined();
@@ -147,16 +147,16 @@ describe( 'withSiteLock', () => {
 	// Reusing SITE_EVENTS.UPDATED here made every acquire assert a running state
 	// and clear the desktop renderer's loading flag mid-operation, which broke
 	// stop/start badly enough to fail the startup performance metric.
-	it( 'announces lease changes without claiming to know the running state', async () => {
-		await withSiteLock( site.path, 'export', async () => undefined );
+	it( 'announces operation changes without claiming to know the running state', async () => {
+		await withSiteOperation( site.path, 'export', async () => undefined );
 
 		const events = vi.mocked( emitCliEvent ).mock.calls.map( ( [ payload ] ) => payload.event );
 		expect( events ).toEqual( [ SITE_EVENTS.OPERATIONS_CHANGED, SITE_EVENTS.OPERATIONS_CHANGED ] );
 	} );
 
 	it( 'does not lock a site that is not in the config', async () => {
-		await expect( withSiteLock( '/no/such/site', 'start', async () => undefined ) ).rejects.toThrow(
-			'Site not found'
-		);
+		await expect(
+			withSiteOperation( '/no/such/site', 'start', async () => undefined )
+		).rejects.toThrow( 'Site not found' );
 	} );
 } );

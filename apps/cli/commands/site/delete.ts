@@ -19,7 +19,7 @@ import {
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import { removeDomainFromHosts } from 'cli/lib/hosts-file';
-import { withSiteLock } from 'cli/lib/site-lock';
+import { withSiteOperation } from 'cli/lib/site-operations';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { getSnapshotsFromConfig, deleteSnapshotFromConfig } from 'cli/lib/snapshots';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
@@ -71,7 +71,7 @@ export async function runCommand(
 	siteFolder: string,
 	deleteFiles: boolean = true
 ): Promise< void > {
-	return withSiteLock( siteFolder, 'delete', () => deleteSite( siteFolder, deleteFiles ) );
+	return withSiteOperation( siteFolder, 'delete', () => deleteSite( siteFolder, deleteFiles ) );
 }
 
 async function deleteSite( siteFolder: string, deleteFiles: boolean ): Promise< void > {

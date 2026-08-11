@@ -45,7 +45,7 @@ describe( 'deriveSiteStatus', () => {
 		expect( localSublabel ).toBe( 'Exporting…' );
 	} );
 
-	it( 'names a duplicate, which has no CLI lease behind it', () => {
+	it( 'names a duplicate, which has no CLI operation behind it', () => {
 		const { localSublabel } = deriveSiteStatus( createSite(), false, false, 'duplicate' );
 
 		expect( localSublabel ).toBe( 'Duplicating…' );

@@ -56,9 +56,9 @@ const siteSchema = siteDetailsSchema
 		// first-full-pull vs. delta. Durable on the site record.
 		importComplete: z.boolean().optional(),
 		status: siteStatusSchema.default( 'ready' ).optional(),
-		// Leases held by in-flight Studio operations. Unlike `status`, these are
-		// transient: a lease whose owning process is gone is reclaimed on the
-		// next acquire. See `cli/lib/site-lock`.
+		// In-flight Studio operations holding this site. Unlike `status`, these
+		// are transient: one whose owning process is gone is reclaimed on the
+		// next acquire. See `cli/lib/site-operations`.
 		operations: z.array( siteOperationSchema ).optional(),
 	} )
 	.loose();

@@ -81,7 +81,7 @@ export function useCopySite() {
 	const queryClient = useQueryClient();
 	return useMutation( {
 		// Keyed so `useSiteOperation` can spot an in-flight copy. Duplication is
-		// the one operation with no CLI lease behind it — see `SITE_OPERATIONS`.
+		// the one kind no CLI command records — see `SITE_OPERATIONS`.
 		mutationKey: COPY_SITE_MUTATION_KEY,
 		mutationFn: ( sourceSiteId: string ) => connector.copySite( sourceSiteId ),
 		onSuccess: () => queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } ),
@@ -115,10 +115,10 @@ export function useStartSite() {
 		// Returns false when the start was skipped, so the caller's toast (and
 		// anything else keyed off success) doesn't claim a site came up.
 		mutationFn: async ( id: string ): Promise< boolean > => {
-			// A stop this window fired moments ago hasn't reached the CLI's lease
+			// A stop this window fired moments ago hasn't been recorded by the CLI
 			// yet, and racing it used to loop forever. Deliberately the only
-			// pre-flight: everything else is the CLI's call, so a cached lease
-			// can't silently swallow a start it no longer holds.
+			// pre-flight: everything else is the CLI's call, so a stale cache
+			// can't silently swallow a start.
 			if ( isSiteMutating( queryClient, STOP_SITE_MUTATION_KEY, id ) ) {
 				return false;
 			}
@@ -259,7 +259,7 @@ function isSiteMutating(
 }
 
 /**
- * Why an action on this site failed, worded from the CLI's lease on the cached
+ * Why an action on this site failed, worded from the operation on the cached
  * record. Only ever used to phrase an error that already happened, so a cache
  * that's a beat behind costs nothing — unlike using it to *decide*, which would
  * silently swallow the action.
@@ -287,10 +287,9 @@ export function useIsSiteStopping( siteId: string | undefined ): boolean {
 }
 
 /**
- * The operation currently holding the site, or null. Mostly the CLI's lease on
- * the site record, so it covers work the agent or another Studio window
- * started — not just this client's own mutations. Exclusive operations win,
- * since they're the ones that block everything.
+ * The operation currently holding the site, or null. Mostly read from the site
+ * record the CLI writes, so it covers work the agent or another Studio window
+ * started — not just this client's own mutations.
  *
  * Duplication is the exception: no CLI command performs it, so it's read from
  * the in-flight mutation. That only sees this window, which is enough because
@@ -304,7 +303,7 @@ export function useSiteOperation( site: SiteDetails | undefined ): SiteOperation
 /**
  * Whether the site is mid-transition and its actions should be disabled. Folds
  * this client's in-flight start/stop — which lands before the CLI writes its
- * lease — into the CLI's authoritative view.
+ * operation — into the CLI's authoritative view.
  */
 export function useIsSiteBusy( site: SiteDetails | undefined ): boolean {
 	const isStarting = useIsSiteStarting( site?.id );

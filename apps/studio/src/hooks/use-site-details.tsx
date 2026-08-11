@@ -172,17 +172,17 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 				return prevSites;
 			}
 
-			// Lease changes carry no verdict on whether the site is running, so
-			// they must not go through the merge below — it adopts the event's
+			// This event carries no verdict on whether the site is running, so it
+			// must not go through the merge below — that adopts the event's
 			// `running` wholesale, which would overwrite the real state mid-stop.
 			if ( eventType === SITE_EVENTS.OPERATIONS_CHANGED ) {
-				const leaseIndex = prevSites.findIndex( ( s ) => s.id === siteId );
-				if ( leaseIndex < 0 ) {
+				const index = prevSites.findIndex( ( s ) => s.id === siteId );
+				if ( index < 0 ) {
 					return prevSites;
 				}
-				const withLease = [ ...prevSites ];
-				withLease[ leaseIndex ] = { ...withLease[ leaseIndex ], operations: site.operations };
-				return withLease;
+				const nextSites = [ ...prevSites ];
+				nextSites[ index ] = { ...nextSites[ index ], operations: site.operations };
+				return nextSites;
 			}
 
 			const siteDetails: SiteDetails = {

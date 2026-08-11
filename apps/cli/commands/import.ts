@@ -23,7 +23,7 @@ import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/dae
 import { ImportExportEventEmitter } from 'cli/lib/import-export/events';
 import { DEFAULT_IMPORTER_OPTIONS, getImporter } from 'cli/lib/import-export/import/import-manager';
 import { getBackupFileType } from 'cli/lib/import-export/utils';
-import { withSiteLock } from 'cli/lib/site-lock';
+import { withSiteOperation } from 'cli/lib/site-operations';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { untildify } from 'cli/lib/utils';
 import {
@@ -261,7 +261,7 @@ export async function runCommand(
 	importFile: string,
 	alwaysStartServer = false
 ): Promise< void > {
-	return withSiteLock( siteFolder, 'import', () =>
+	return withSiteOperation( siteFolder, 'import', () =>
 		importSite( siteFolder, importFile, alwaysStartServer )
 	);
 }

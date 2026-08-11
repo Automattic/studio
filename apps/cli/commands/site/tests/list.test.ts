@@ -122,10 +122,9 @@ describe( 'CLI: studio site list', () => {
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
-		// Clients disable a site's actions on what this reports, so a lease left
-		// behind by a crashed process must not survive into the payload —
-		// otherwise the site looks busy forever and nothing can clear it.
-		it( 'should omit operation leases whose owning process is gone', async () => {
+		// Both front ends disable a site's actions on what this reports, so an
+		// entry left behind by a crashed process must not survive into the payload.
+		it( 'should omit operations whose owning process is gone', async () => {
 			vi.mocked( readCliConfig ).mockResolvedValue( {
 				...testCliConfig,
 				sites: [

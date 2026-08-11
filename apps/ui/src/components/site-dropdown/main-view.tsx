@@ -137,7 +137,7 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 	// concurrently would wedge the site runtime.
 	const isSyncing = isPreviewPending || isPushPending || isPullPending;
 	// …and none of them can run while the CLI holds the site either. Gate the
-	// controls on both, so a lease the agent took disables them visibly rather
+	// controls on both, so an operation the agent took disables them visibly rather
 	// than leaving buttons that swallow the click.
 	const isSiteBusy = isSyncing || isLocalTransitioning;
 
@@ -499,7 +499,7 @@ function LocalServerControl( {
 	running: boolean;
 	starting: boolean;
 	stopping: boolean;
-	// A CLI lease (an agent export, another window's import). Blocks the toggle
+	// A CLI operation (an agent export, another window's import). Blocks the toggle
 	// and names itself in the tooltip, so a dead control explains why.
 	operation: SiteOperationKind | null;
 	disabled: boolean;

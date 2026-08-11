@@ -73,13 +73,13 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 		return;
 	}
 
-	// A lease change says nothing about whether the site is running, so it must
-	// not go through the merge below — that one adopts the event's `running` as
+	// This event says nothing about whether the site is running, so it must not
+	// go through the merge below — that one adopts the event's `running` as
 	// authoritative and fires the start/stop side effects off the transition.
 	if ( eventType === SITE_EVENTS.OPERATIONS_CHANGED ) {
-		const leaseServer = SiteServer.get( siteId ) ?? SiteServer.getByPath( site.path );
-		if ( leaseServer ) {
-			leaseServer.details = { ...leaseServer.details, operations: site.operations };
+		const server = SiteServer.get( siteId ) ?? SiteServer.getByPath( site.path );
+		if ( server ) {
+			server.details = { ...server.details, operations: site.operations };
 		}
 		void sendIpcEventToRenderer( 'site-event', event );
 		return;

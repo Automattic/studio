@@ -19,7 +19,7 @@ import { SiteData } from 'cli/lib/cli-config/core';
 import { clearSiteLatestCliPid, getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { DEFAULT_IMPORTER_OPTIONS, getImporter } from 'cli/lib/import-export/import/import-manager';
-import { withSiteLock } from 'cli/lib/site-lock';
+import { withSiteOperation } from 'cli/lib/site-operations';
 import {
 	checkBackupSize,
 	fetchSyncableSites,
@@ -47,7 +47,7 @@ export async function runCommand(
 	syncOptions?: SyncOption[],
 	siteIdentifier?: string
 ): Promise< void > {
-	return withSiteLock( siteFolder, 'pull', () =>
+	return withSiteOperation( siteFolder, 'pull', () =>
 		pullSite( siteFolder, syncOptions, siteIdentifier )
 	);
 }

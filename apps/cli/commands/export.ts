@@ -10,7 +10,7 @@ import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { ImportExportEventEmitter } from 'cli/lib/import-export/events';
 import { getExporter } from 'cli/lib/import-export/export/export-manager';
 import { ExportOptions } from 'cli/lib/import-export/export/types';
-import { withSiteLock } from 'cli/lib/site-lock';
+import { withSiteOperation } from 'cli/lib/site-operations';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { untildify } from 'cli/lib/utils';
 import { Logger, LoggerError } from 'cli/logger';
@@ -129,7 +129,7 @@ export async function runCommand(
 	includeOnlyPaths?: string[],
 	applyDeployIgnore = false
 ): Promise< void > {
-	return withSiteLock( siteFolder, 'export', () =>
+	return withSiteOperation( siteFolder, 'export', () =>
 		exportSite(
 			siteFolder,
 			exportPath,

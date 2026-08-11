@@ -44,7 +44,7 @@ import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/dae
 import { updateDomainInHosts } from 'cli/lib/hosts-file';
 import { validateSupportedPhpVersion } from 'cli/lib/php-versions';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
-import { withSiteLock } from 'cli/lib/site-lock';
+import { withSiteOperation } from 'cli/lib/site-operations';
 import { setupCustomDomain } from 'cli/lib/site-utils';
 import { ValidationError } from 'cli/lib/validation-error';
 import {
@@ -75,11 +75,11 @@ export interface SetCommandOptions {
 
 export async function runCommand( sitePath: string, options: SetCommandOptions ): Promise< void > {
 	const validated = validateSetOptions( options );
-	return withSiteLock( sitePath, 'settings', () => setSiteConfig( sitePath, validated ) );
+	return withSiteOperation( sitePath, 'settings', () => setSiteConfig( sitePath, validated ) );
 }
 
-// Runs before the lease is taken, so an invalid edit fails without touching the
-// config file or briefly blocking other operations on the site. Returns the
+// Runs before the operation is recorded, so an invalid edit fails without
+// touching the config file or briefly blocking the site. Returns the
 // options with `adminEmail` normalized (blank means "leave it alone").
 function validateSetOptions( options: SetCommandOptions ): SetCommandOptions {
 	const {

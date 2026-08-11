@@ -9,8 +9,8 @@ import { z } from 'zod';
  *
  * Distinct from the site's `status` health field: `status` records durable
  * damage that must survive a crash (a half-written `pull-failed` site stays
- * broken until repaired), whereas an operation is a lease reclaimed as soon
- * as its owning process dies.
+ * broken until repaired), whereas an operation is transient and reclaimed as
+ * soon as its owning process dies.
  *
  * `duplicate` is the one kind no CLI command writes — the desktop and the
  * local server each copy the directory themselves, and neither the CLI nor
@@ -35,11 +35,11 @@ export const SITE_OPERATIONS = [
 export type SiteOperationKind = ( typeof SITE_OPERATIONS )[ number ];
 
 export const siteOperationSchema = z.object( {
-	// Identifies the lease on release, so a process releasing one lease can't
-	// clear a different one that happens to share its PID.
+	// Identifies which entry to clear on release, so a process can't drop a
+	// different operation that happens to share its PID.
 	id: z.string(),
-	// PID of the process holding the lease. A lease whose owner is gone is
-	// stale and gets reclaimed, so a crashed client can never wedge a site.
+	// Owning process. Once it's gone the entry is stale and gets reclaimed, so a
+	// crashed client can never wedge a site.
 	pid: z.number(),
 	kind: z.enum( SITE_OPERATIONS ),
 } );

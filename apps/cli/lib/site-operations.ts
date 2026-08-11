@@ -27,9 +27,8 @@ function siteBusyError( requested: SiteOperationKind, blockedBy: SiteOperationKi
 	);
 }
 
-// A lease is only as good as its owner. `signal 0` performs the permission and
-// existence checks without delivering anything; EPERM means the process is
-// alive but owned by someone else, which still counts as held.
+// Signal 0 only runs the existence and permission checks. EPERM means the
+// process exists but belongs to another user, which still counts as alive.
 function isProcessAlive( pid: number ): boolean {
 	try {
 		process.kill( pid, 0 );
@@ -40,20 +39,20 @@ function isProcessAlive( pid: number ): boolean {
 }
 
 /**
- * The site's leases minus any whose owning process has died. Every path that
- * reports a site to a client must filter through this: clients disable actions
- * on what they see, so a leaked lease from a crashed process would disable the
- * site forever — including the operations whose acquire would have reclaimed it.
+ * The site's operations minus any whose owning process has died. Every path
+ * that reports a site to a client must filter through this — an entry left
+ * behind by a crashed process would otherwise keep the site's actions
+ * disabled in the UI.
  */
 export function getLiveSiteOperations( site: SiteData ): SiteOperation[] {
 	return ( site.operations ?? [] ).filter( ( operation ) => isProcessAlive( operation.pid ) );
 }
 
 /**
- * Claims a lease on the site, throwing when a conflicting one
- * is already held. Runs inside the config lock so the read-check-write is
- * atomic against other CLI processes — the agent, the desktop app and a
- * terminal all reach this through the same commands.
+ * Records the operation against the site, throwing when another one already
+ * holds it. Runs inside the config lock so the read-check-write is atomic
+ * across CLI processes — the agent, the desktop app and a terminal all reach
+ * this through the same commands.
  */
 async function acquire( siteId: string, kind: SiteOperationKind ): Promise< SiteOperation > {
 	const operation: SiteOperation = { id: randomUUID(), pid: process.pid, kind };
@@ -106,39 +105,38 @@ async function release( siteId: string, operation: SiteOperation ): Promise< voi
 	}
 }
 
-// Tells clients the site's lease set changed so they can enable or disable the
-// actions it blocks. Both edges matter: without the release, a badge raised by
-// the daemon's own event mid-operation would never clear.
-function emitLeaseChanged( siteId: string ): Promise< void > {
+// Both edges matter: without the release, an indicator raised by the daemon's
+// own event mid-operation would never clear.
+function emitOperationsChanged( siteId: string ): Promise< void > {
 	return emitCliEvent( { event: SITE_EVENTS.OPERATIONS_CHANGED, data: { siteId } } );
 }
 
 /**
- * Runs `fn` while holding a lease on the site so no other Studio operation can
- * touch it concurrently. The lease is persisted on the site record, so the UI
- * can disable the actions it blocks and the agent gets a readable error.
+ * Runs `fn` while holding the site, so no other Studio operation can touch it
+ * concurrently. The operation is persisted on the site record, letting the UI
+ * disable the actions it blocks and the agent read back why one was refused.
  *
  * Addressed by folder because that's how every command receives its site.
  */
-export async function withSiteLock< T >(
+export async function withSiteOperation< T >(
 	siteFolder: string,
 	kind: SiteOperationKind,
 	fn: () => Promise< T >
 ): Promise< T > {
 	const { id: siteId } = await getSiteByFolder( siteFolder );
 	const operation = await acquire( siteId, kind );
-	await emitLeaseChanged( siteId );
+	await emitOperationsChanged( siteId );
 
 	try {
 		return await fn();
 	} finally {
-		// Never let releasing the lease replace the operation's own failure: if
-		// the config lock times out here, `fn`'s error is the one worth seeing.
+		// Releasing must never replace the operation's own failure: if the config
+		// lock times out here, `fn`'s error is the one worth seeing.
 		try {
 			await release( siteId, operation );
 		} catch ( error ) {
-			console.error( 'Failed to release the site operation lease:', error );
+			console.error( 'Failed to release the site operation:', error );
 		}
-		await emitLeaseChanged( siteId );
+		await emitOperationsChanged( siteId );
 	}
 }

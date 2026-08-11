@@ -14,6 +14,8 @@ const mocks = vi.hoisted( () => ( {
 	execute: vi.fn(),
 	killAll: vi.fn(),
 	measureSiteStorage: vi.fn(),
+	readAiSettings: vi.fn(),
+	saveAnthropicApiKey: vi.fn(),
 } ) );
 
 vi.mock( '@studio/common/lib/cli-process', () => ( {
@@ -77,12 +79,26 @@ describe( 'local web server Connect contracts', () => {
 			queueMicrotask( () => emitter.emit( 'success' ) );
 			return [ emitter, {} ];
 		} );
+		mocks.readAiSettings.mockResolvedValue( {
+			provider: 'wpcom',
+			hasAnthropicApiKey: false,
+			anthropicApiKeySuffix: null,
+		} );
+		mocks.saveAnthropicApiKey.mockImplementation( async ( key: string | null ) => ( {
+			provider: key === null ? 'wpcom' : 'anthropic-api-key',
+			hasAnthropicApiKey: key !== null,
+			anthropicApiKeySuffix: key === null ? null : key.slice( -4 ),
+		} ) );
 		server = await startLocalServer( {
 			cliBinary: '/mock/cli.mjs',
 			sessionsRoot: '/sessions',
 			sitesRoot: '/sites',
 			port: 0,
 			host: '127.0.0.1',
+			aiSettings: {
+				read: mocks.readAiSettings,
+				saveAnthropicApiKey: mocks.saveAnthropicApiKey,
+			},
 		} );
 	} );
 
@@ -106,6 +122,72 @@ describe( 'local web server Connect contracts', () => {
 	afterEach( async () => {
 		await server.close();
 		nock.disableNetConnect();
+	} );
+
+	it( 'reports the AI provider settings without the key itself', async () => {
+		const response = await fetch(
+			`${ server.url.replace( 'localhost', '127.0.0.1' ) }/api/ai-settings`
+		);
+
+		expect( response.status ).toBe( 200 );
+		await expect( response.json() ).resolves.toEqual( {
+			provider: 'wpcom',
+			hasAnthropicApiKey: false,
+			anthropicApiKeySuffix: null,
+		} );
+	} );
+
+	it( 'saves a trimmed Anthropic API key and switches the provider', async () => {
+		const response = await fetch(
+			`${ server.url.replace( 'localhost', '127.0.0.1' ) }/api/ai-settings`,
+			{
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify( { anthropicApiKey: '  sk-ant-test-1234  ' } ),
+			}
+		);
+
+		expect( response.status ).toBe( 200 );
+		await expect( response.json() ).resolves.toEqual( {
+			provider: 'anthropic-api-key',
+			hasAnthropicApiKey: true,
+			anthropicApiKeySuffix: '1234',
+		} );
+		expect( mocks.saveAnthropicApiKey ).toHaveBeenCalledWith( 'sk-ant-test-1234' );
+	} );
+
+	it( 'clears the Anthropic API key and falls back to WordPress.com', async () => {
+		const response = await fetch(
+			`${ server.url.replace( 'localhost', '127.0.0.1' ) }/api/ai-settings`,
+			{
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify( { anthropicApiKey: null } ),
+			}
+		);
+
+		expect( response.status ).toBe( 200 );
+		await expect( response.json() ).resolves.toEqual( {
+			provider: 'wpcom',
+			hasAnthropicApiKey: false,
+			anthropicApiKeySuffix: null,
+		} );
+		expect( mocks.saveAnthropicApiKey ).toHaveBeenCalledWith( null );
+	} );
+
+	it( 'rejects an empty or non-string Anthropic API key', async () => {
+		for ( const anthropicApiKey of [ '', '   ', 42 ] ) {
+			const response = await fetch(
+				`${ server.url.replace( 'localhost', '127.0.0.1' ) }/api/ai-settings`,
+				{
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify( { anthropicApiKey } ),
+				}
+			);
+			expect( response.status ).toBe( 400 );
+		}
+		expect( mocks.saveAnthropicApiKey ).not.toHaveBeenCalled();
 	} );
 
 	it( 'delegates deletion to the CLI cascade', async () => {

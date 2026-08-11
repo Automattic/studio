@@ -7,6 +7,7 @@ import {
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
 import { buildPublishCheckoutUrl } from '../publish-checkout-url';
+import { UnsupportedError } from '../unsupported-error';
 import type {
 	ActiveAgentRun,
 	AiSessionSummary,
@@ -34,6 +35,7 @@ import type {
 	UserPreferences,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
+import type { AiSettings } from '@studio/common/ai/providers';
 import type { StoredAuthToken } from '@studio/common/lib/auth-token-schema';
 import type { SiteEvent } from '@studio/common/lib/cli-events';
 import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
@@ -214,6 +216,7 @@ export function createIpcConnector(): Connector {
 			annotatePreview: true,
 			readLocalMedia: true,
 			agentInstructions: true,
+			aiSettings: false,
 			studioLogs: true,
 			switchToClassicUi: true,
 		},
@@ -772,6 +775,15 @@ export function createIpcConnector(): Connector {
 		},
 		async saveAgentInstructions( content: string ): Promise< void > {
 			await ipcApi.saveGlobalAgentInstructions( content );
+		},
+
+		// No IPC handler for the CLI config's AI settings yet; the desktop's
+		// agentic UI hides the Anthropic key form (capabilities.aiSettings).
+		async getAiSettings(): Promise< AiSettings > {
+			throw new UnsupportedError( 'getAiSettings' );
+		},
+		async saveAnthropicApiKey(): Promise< AiSettings > {
+			throw new UnsupportedError( 'saveAnthropicApiKey' );
 		},
 
 		async getInstalledApps(): Promise< InstalledApps > {

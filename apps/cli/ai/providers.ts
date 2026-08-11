@@ -5,19 +5,23 @@ import {
 	type AiModelFamily,
 	type AiModelId,
 } from '@studio/common/ai/models';
+import {
+	DEFAULT_AI_PROVIDER,
+	getAiProviderModelFamilies,
+	type AiProviderId,
+} from '@studio/common/ai/providers';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __ } from '@wordpress/i18n';
 import { readCliConfig, updateCliConfigWithPartial } from 'cli/lib/cli-config/core';
 import { LoggerError } from 'cli/logger';
 
-export const AI_PROVIDERS = {
+export const AI_PROVIDERS: Record< AiProviderId, string > = {
 	wpcom: 'WordPress.com',
 	'anthropic-api-key': 'Anthropic · API key',
-} as const;
+};
 
-export type AiProviderId = keyof typeof AI_PROVIDERS;
-
-export const DEFAULT_AI_PROVIDER: AiProviderId = 'wpcom';
+export type { AiProviderId };
+export { DEFAULT_AI_PROVIDER };
 export const AI_PROVIDER_PRIORITY: AiProviderId[] = [ 'wpcom', 'anthropic-api-key' ];
 
 const DEFAULT_WPCOM_AI_GATEWAY_BASE_URL = 'https://public-api.wordpress.com/wpcom/v2/ai-api-proxy';
@@ -143,7 +147,7 @@ const AI_PROVIDER_DEFINITIONS: Record< AiProviderId, AiProviderDefinition > = {
 	wpcom: defineProvider( {
 		id: 'wpcom',
 		autoFallbackWhenUnavailable: true,
-		supportedModelFamilies: [ 'anthropic', 'openai' ],
+		supportedModelFamilies: getAiProviderModelFamilies( 'wpcom' ),
 		isVisible: async () => true,
 		isReady: async () => hasInlineWpcomAuth() || ( await hasValidWpcomAuth() ),
 		prepare: async () => {
@@ -196,7 +200,7 @@ const AI_PROVIDER_DEFINITIONS: Record< AiProviderId, AiProviderDefinition > = {
 	'anthropic-api-key': defineProvider( {
 		id: 'anthropic-api-key',
 		autoFallbackWhenUnavailable: false,
-		supportedModelFamilies: [ 'anthropic' ],
+		supportedModelFamilies: getAiProviderModelFamilies( 'anthropic-api-key' ),
 		isVisible: async () => true,
 		isReady: async () => {
 			const { anthropicApiKey } = await readCliConfig();

@@ -33,6 +33,7 @@ import type {
 	UserPreferences,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
+import type { AiSettings } from '@studio/common/ai/providers';
 import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 
 // The in-app dark/light/system choice, persisted in the browser (there's no
@@ -246,6 +247,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			annotatePreview: false,
 			readLocalMedia: false,
 			agentInstructions: true,
+			aiSettings: true,
 			studioLogs: false,
 			switchToClassicUi: false,
 		},
@@ -749,6 +751,16 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			await api< void >( '/agent-instructions', {
 				method: 'POST',
 				body: JSON.stringify( { content } ),
+			} );
+		},
+
+		async getAiSettings(): Promise< AiSettings > {
+			return api< AiSettings >( '/ai-settings' );
+		},
+		async saveAnthropicApiKey( key: string | null ): Promise< AiSettings > {
+			return api< AiSettings >( '/ai-settings', {
+				method: 'PUT',
+				body: JSON.stringify( { anthropicApiKey: key } ),
 			} );
 		},
 

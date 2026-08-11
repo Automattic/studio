@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { AI_PROVIDER_IDS } from '@studio/common/ai/providers';
 import {
 	CLI_CONFIG_LOCKFILE_NAME,
 	LOCKFILE_STALE_TIME,
@@ -64,7 +65,7 @@ const CLI_CONFIG_VERSION = 1;
 
 // IMPORTANT: Always consider that independently installed versions of the CLI (from npm) may also
 // read this file, and any updates to this schema may require updating the `version` field.
-export const aiProviderSchema = z.enum( [ 'wpcom', 'anthropic-api-key' ] );
+export const aiProviderSchema = z.enum( AI_PROVIDER_IDS );
 
 export const updateCheckSchema = z.object( {
 	lastChecked: z.number(),

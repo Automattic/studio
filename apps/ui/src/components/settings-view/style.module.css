@@ -218,6 +218,15 @@
 	inline-size: 100%;
 }
 
+.apiKeyControl {
+	align-items: center;
+	gap: var( --wpds-dimension-padding-sm );
+}
+
+.apiKeyControl :global( .components-base-control ) {
+	inline-size: 260px;
+}
+
 .appearancePicker {
 	position: relative;
 	display: grid;

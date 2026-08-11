@@ -198,6 +198,24 @@ describe( 'CLI: studio import', () => {
 		expect( stopWordPressServer ).toHaveBeenCalledWith( testSite.id );
 	} );
 
+	it( 'keeps the import error cause when restore steps also fail', async () => {
+		vi.mocked( isServerRunning ).mockResolvedValue( { pid: 1234 } as never );
+		vi.mocked( getImporter ).mockReturnValue(
+			createImporter( async () => {
+				throw new LoggerError(
+					'Failed to extract backup',
+					new Error( 'unexpected end of file' ),
+					'extract'
+				);
+			} ) as never
+		);
+		vi.mocked( keepSqliteIntegrationUpdated ).mockRejectedValue( new Error( 'restart failed' ) );
+
+		await expect( runCommand( testSitePath, testImportPath ) ).rejects.toThrow(
+			'Failed to extract backup: unexpected end of file'
+		);
+	} );
+
 	it( 'records a success Tracks event with the importer type', async () => {
 		const importer = createImporter( async () => {
 			importer.emit( ImporterEvents.IMPORT_START, 'jetpack' );

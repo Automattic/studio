@@ -368,7 +368,13 @@ export async function runCommand(
 		);
 	}
 
-	if ( importError instanceof LoggerError && restartSiteError instanceof Error ) {
+	// Attach the restart error only when the import error has no cause of its own — overwriting an
+	// existing `previousError` would hide the root cause behind the (secondary) restart failure.
+	if (
+		importError instanceof LoggerError &&
+		restartSiteError instanceof Error &&
+		! importError.previousError
+	) {
 		importError.previousError = restartSiteError;
 	}
 

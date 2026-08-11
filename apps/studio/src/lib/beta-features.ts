@@ -40,7 +40,9 @@ export function getBetaFeaturesDefinition(): Record< keyof BetaFeatures, BetaFea
 			label: __( 'Reprint pull engine' ),
 			key: 'reprintPull',
 			default: BETA_FEATURE_DEFAULTS.reprintPull,
-			description: __( 'Pull live sites with the Reprint engine instead of Jetpack backups.' ),
+			description: __(
+				'Makes pull operations incremental and faster in the new Studio experience.'
+			),
 		},
 	};
 }

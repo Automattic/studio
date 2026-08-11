@@ -275,7 +275,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 			/* Only render markers for annotations made on the current page.
 			 * Annotations from other pages are preserved for submission but
 			 * their document-coordinate positions would be meaningless here. */
-			const onCurrentPage = ! ann.pathname || ann.pathname === currentPath;
+			const onCurrentPage = ! ann.path || ann.path === currentPath;
 			let marker = markerNodes.get( ann.id );
 			if ( ! onCurrentPage ) {
 				if ( marker ) {
@@ -485,7 +485,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 						boundingBox: state.target.boundingBox,
 						documentRect: state.target.documentRect,
 						computedStyles: state.target.computedStyles,
-						pathname: window.location.pathname + window.location.search,
+						path: window.location.pathname + window.location.search,
 						url: window.location.href,
 						timestamp: Date.now(),
 					},

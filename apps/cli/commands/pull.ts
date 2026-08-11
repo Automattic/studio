@@ -234,7 +234,13 @@ async function pullSite(
 		}
 	}
 
-	if ( pullError instanceof LoggerError && restartSiteError instanceof Error ) {
+	// Attach the restart error only when the pull error has no cause of its own — overwriting an
+	// existing `previousError` would hide the root cause behind the (secondary) restart failure.
+	if (
+		pullError instanceof LoggerError &&
+		restartSiteError instanceof Error &&
+		! pullError.previousError
+	) {
 		pullError.previousError = restartSiteError;
 	}
 

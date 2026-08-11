@@ -7,6 +7,7 @@ import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { ImportExportEventEmitter } from 'cli/lib/import-export/events';
 import { getExporter } from 'cli/lib/import-export/export/export-manager';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
+import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { Logger, LoggerError } from 'cli/logger';
 import { registerCommand, runCommand } from '../export';
 import type { SiteData } from 'cli/lib/cli-config/core';
@@ -38,6 +39,10 @@ vi.mock( 'cli/lib/sqlite-integration' );
 vi.mock( import( 'cli/lib/import-export/export/export-manager' ), () => ( {
 	getExporter: vi.fn(),
 } ) );
+vi.mock( 'cli/lib/tracks', async ( importActual ) => {
+	const actual = await importActual< typeof import('cli/lib/tracks') >();
+	return { ...actual, recordTracksEvent: vi.fn() };
+} );
 
 describe( 'CLI: studio export', () => {
 	const testSitePath = '/test/site';
@@ -173,6 +178,79 @@ describe( 'CLI: studio export', () => {
 			} )
 		);
 		expect( reportErrorSpy ).not.toHaveBeenCalled();
+	} );
+
+	it( 'records a success Tracks event with the export mode', async () => {
+		await runCommand( testSitePath, testExportPath );
+
+		expect( recordTracksEvent ).toHaveBeenCalledTimes( 1 );
+		expect( recordTracksEvent ).toHaveBeenCalledWith(
+			TRACKS_EVENTS.SITE_EXPORT,
+			expect.objectContaining( {
+				success: true,
+				export_type: 'full',
+				time_ms: expect.any( Number ),
+				channel: 'studio-cli',
+			} )
+		);
+		expect( vi.mocked( recordTracksEvent ).mock.calls[ 0 ][ 1 ] ).not.toHaveProperty(
+			'failure_reason'
+		);
+	} );
+
+	it( 'reports the requested mode as export_type', async () => {
+		await runCommand( testSitePath, testExportPath, 'db' );
+
+		expect( recordTracksEvent ).toHaveBeenCalledWith(
+			TRACKS_EVENTS.SITE_EXPORT,
+			expect.objectContaining( { success: true, export_type: 'db' } )
+		);
+	} );
+
+	it( 'records a failure Tracks event when no exporter is found', async () => {
+		vi.mocked( getExporter ).mockResolvedValue( null as never );
+
+		await expect( runCommand( testSitePath, testExportPath ) ).rejects.toThrow(
+			'No suitable exporter'
+		);
+
+		expect( recordTracksEvent ).toHaveBeenCalledWith(
+			TRACKS_EVENTS.SITE_EXPORT,
+			expect.objectContaining( {
+				success: false,
+				export_type: 'full',
+				failure_reason: 'no_exporter_found',
+				time_ms: expect.any( Number ),
+			} )
+		);
+	} );
+
+	it( 'records a failure Tracks event when the exporter fails', async () => {
+		vi.mocked( getExporter ).mockResolvedValue(
+			createExporter( async () => {
+				throw new LoggerError( 'Database export failed', undefined, 'database_export' );
+			} ) as never
+		);
+
+		await expect( runCommand( testSitePath, testExportPath ) ).rejects.toThrow(
+			'Database export failed'
+		);
+
+		expect( recordTracksEvent ).toHaveBeenCalledWith(
+			TRACKS_EVENTS.SITE_EXPORT,
+			expect.objectContaining( { success: false, failure_reason: 'database_export' } )
+		);
+	} );
+
+	it( 'does not record a Tracks event when suppressed', async () => {
+		await runCommand( testSitePath, testExportPath, 'full', false, undefined, false, true );
+
+		vi.mocked( getExporter ).mockResolvedValue( null as never );
+		await expect(
+			runCommand( testSitePath, testExportPath, 'full', false, undefined, false, true )
+		).rejects.toThrow( 'No suitable exporter' );
+
+		expect( recordTracksEvent ).not.toHaveBeenCalled();
 	} );
 
 	it( 'rejects .sql exports with --mode full', async () => {

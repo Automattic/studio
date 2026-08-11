@@ -54,7 +54,7 @@ describe( 'useActivePersistentMessages usage notices', () => {
 			expect.arrayContaining( [
 				expect.objectContaining( {
 					id: 'ai-credits:warning',
-					title: 'At 80% extra credit usage',
+					title: 'At 80% usage',
 				} ),
 			] )
 		);

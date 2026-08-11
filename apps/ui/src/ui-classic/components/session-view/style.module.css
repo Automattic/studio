@@ -243,6 +243,11 @@
 	white-space: nowrap;
 }
 
+.usageLimitLockButton svg {
+	color: inherit;
+	fill: currentColor;
+}
+
 .panelFooterControls {
 	position: absolute;
 	inset-inline-start: var(--classic-panel-footer-left);

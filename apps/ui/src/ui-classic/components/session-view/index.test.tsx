@@ -155,11 +155,11 @@ describe( 'SessionView', () => {
 
 		render( <SessionView sessionId="session-1" /> );
 
-		expect( screen.getByRole( 'alert' ) ).toHaveTextContent( 'Monthly credits used' );
+		expect( screen.getByRole( 'alert' ) ).toHaveTextContent( 'Monthly AI credits used' );
 		expect( screen.getByRole( 'alert' ) ).toHaveTextContent(
-			"You've used up your free $50 for the month."
+			"You've used your monthly AI credit allowance."
 		);
-		expect( screen.getByRole( 'button', { name: 'Add credits' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Add AI credits' } ) ).toBeInTheDocument();
 	} );
 
 	it( 'explains when purchased credits are exhausted', () => {
@@ -172,9 +172,9 @@ describe( 'SessionView', () => {
 
 		render( <SessionView sessionId="session-1" /> );
 
-		expect( screen.getByRole( 'alert' ) ).toHaveTextContent( 'Extra AI credits used' );
+		expect( screen.getByRole( 'alert' ) ).toHaveTextContent( 'Purchased AI credits used' );
 		expect( screen.getByRole( 'alert' ) ).toHaveTextContent(
-			"You've used all of your extra AI credits."
+			"You've used all of your purchased AI credits."
 		);
 	} );
 
@@ -215,7 +215,7 @@ describe( 'SessionView', () => {
 
 		render( <SessionView sessionId="session-1" /> );
 
-		expect( screen.getByRole( 'status' ) ).toHaveTextContent( 'At 90% extra credit usage' );
+		expect( screen.getByRole( 'status' ) ).toHaveTextContent( 'At 90% usage' );
 	} );
 
 	it( 'shows the scroll-to-latest button only while scrolled away and scrolls down on click', async () => {

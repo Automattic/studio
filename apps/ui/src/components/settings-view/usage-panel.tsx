@@ -3,15 +3,17 @@ import {
 	getStudioCodeAiAccessState,
 } from '@studio/common/lib/studio-assistant-quota';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { moreHorizontal } from '@wordpress/icons';
+import { external, Icon, moreHorizontal } from '@wordpress/icons';
 import { Button, IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useState } from 'react';
 import { SigninNotice } from '@/components/agentic-signin-banner';
 import { AiAccessRequiredNotice, AiBlockedNotice } from '@/components/ai-access-required-notice';
+import { AiCreditsDetailsDialog } from '@/components/ai-credits-details-dialog';
 import * as Menu from '@/components/menu';
 import { OfflineNotice } from '@/components/offline-banner';
 import { PurchaseCreditsDialog } from '@/components/purchase-credits-dialog';
+import { PURCHASE_CREDITS_PROTOTYPE_URL } from '@/components/purchase-credits-dialog/events';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
@@ -22,12 +24,7 @@ import {
 	useSnapshots,
 } from '@/data/queries/use-snapshots';
 import { useUserLocale } from '@/data/queries/use-user-locale';
-import {
-	creditsFromDollars,
-	setUsageExplorationScenario,
-	useUsageExploration,
-	type UsageExplorationScenario,
-} from '@/data/usage-exploration';
+import { creditsFromDollars, useUsageExploration } from '@/data/usage-exploration';
 import styles from './style.module.css';
 
 const DEFAULT_PREVIEW_SITE_LIMIT = 10;
@@ -75,8 +72,6 @@ function getMeterIntent( fraction: number ): string | undefined {
 	return undefined;
 }
 
-// Dollars lead because that is what the account is actually charged; the credit
-// count sits underneath as the unit the assistant spends.
 function CreditMeter( {
 	label,
 	remainingDollars,
@@ -93,8 +88,8 @@ function CreditMeter( {
 	valueClassName?: string;
 } ) {
 	const locale = useUserLocale();
-	const currency = new Intl.NumberFormat( locale, { style: 'currency', currency: 'USD' } );
 	const credits = new Intl.NumberFormat( locale, { maximumFractionDigits: 0 } );
+	const remainingCredits = creditsFromDollars( remainingDollars );
 
 	return (
 		<div className={ styles.creditMeter }>
@@ -102,9 +97,9 @@ function CreditMeter( {
 				<span>{ label }</span>
 				<span className={ styles.creditMeterValue }>
 					{ sprintf(
-						/* translators: %s: dollar value of the AI credits still available. */
-						__( '%s left' ),
-						currency.format( remainingDollars )
+						/* translators: %s: number of AI credits still available. */
+						__( '%s available' ),
+						credits.format( remainingCredits )
 					) }
 				</span>
 			</div>
@@ -112,7 +107,7 @@ function CreditMeter( {
 			<span className={ styles.creditMeterCredits }>
 				{ sprintf(
 					/* translators: 1: AI credits used, 2: total AI credits available. */
-					__( '%1$s of %2$s credits used' ),
+					__( '%1$s of %2$s AI credits used' ),
 					credits.format( creditsFromDollars( usedDollars ) ),
 					credits.format( creditsFromDollars( totalDollars ) )
 				) }
@@ -121,41 +116,39 @@ function CreditMeter( {
 	);
 }
 
-function ExtraCreditSummary( { balanceDollars }: { balanceDollars: number } ) {
-	const locale = useUserLocale();
-	const currency = new Intl.NumberFormat( locale, { style: 'currency', currency: 'USD' } );
-	const credits = new Intl.NumberFormat( locale, { maximumFractionDigits: 0 } );
-
-	return (
-		<div className={ styles.extraCreditSummary }>
-			<strong>{ __( 'Extra AI credits' ) }</strong>
-			<div className={ styles.extraCreditBalanceLine }>
-				<strong>{ currency.format( balanceDollars ) }</strong>
-				<span>
-					{ sprintf(
-						/* translators: %s: number of AI credits available. */
-						__( '%s credits available' ),
-						credits.format( creditsFromDollars( balanceDollars ) )
-					) }
-				</span>
-			</div>
-		</div>
-	);
-}
-
 function AiCreditsSummary() {
 	const usage = useUsageExploration();
+	const connector = useConnector();
 	const [ purchaseOpen, setPurchaseOpen ] = useState( false );
+	const [ detailsOpen, setDetailsOpen ] = useState( false );
 	const { data: quota } = useStudioAssistantQuota();
 	const accessState = quota ? getStudioCodeAiAccessState( quota ) : 'available';
 	const monthlyRemaining = Math.max( 0, usage.monthlyLimit - usage.monthlyUsed );
 	const monthlyMeterIntent =
 		usage.purchasedTotal > 0 ? undefined : getMeterIntent( usage.monthlyFraction );
+	const purchasedUsed = Math.max( 0, usage.purchasedTotal - usage.purchasedBalance );
+	const opensExternalCheckout = usage.purchaseCreditsFlow === 'external';
+	const openPurchaseCredits = () => {
+		if ( opensExternalCheckout ) {
+			void connector.openExternalUrl( PURCHASE_CREDITS_PROTOTYPE_URL );
+			return;
+		}
+		setPurchaseOpen( true );
+	};
 
 	return (
 		<section className={ styles.usageSection }>
 			<div className={ styles.usageSectionHeader }>
 				<h2>{ __( 'AI credits' ) }</h2>
+				<Button
+					className={ styles.aiCreditsDetailsButton }
+					size="small"
+					variant="minimal"
+					tone="neutral"
+					onClick={ () => setDetailsOpen( true ) }
+				>
+					{ __( 'How AI credits work' ) }
+				</Button>
 			</div>
 			{ accessState !== 'available' ? (
 				<div className={ styles.previewUsageText }>
@@ -168,7 +161,7 @@ function AiCreditsSummary() {
 			) : (
 				<>
 					<CreditMeter
-						label={ __( 'Monthly allowance' ) }
+						label={ __( 'Monthly AI credit allowance' ) }
 						remainingDollars={ monthlyRemaining }
 						usedDollars={ usage.monthlyUsed }
 						totalDollars={ usage.monthlyLimit }
@@ -177,109 +170,52 @@ function AiCreditsSummary() {
 					/>
 					<div className={ styles.extraCreditRow }>
 						{ usage.purchasedTotal > 0 ? (
-							<ExtraCreditSummary balanceDollars={ usage.purchasedBalance } />
+							<CreditMeter
+								label={ __( 'Purchased AI credits' ) }
+								remainingDollars={ usage.purchasedBalance }
+								usedDollars={ purchasedUsed }
+								totalDollars={ usage.purchasedTotal }
+								fraction={ usage.purchasedFraction }
+								valueClassName={ getMeterIntent( usage.purchasedFraction ) }
+							/>
 						) : (
 							<div className={ styles.creditTopUpText }>
 								<strong>
 									{ usage.isExhausted
-										? __( 'Keep chatting with extra credits' )
-										: __( 'Extra AI credits' ) }
+										? __( 'Keep chatting with AI credits' )
+										: __( 'Purchased AI credits' ) }
 								</strong>
 								<p>
 									{ usage.isExhausted
-										? __( 'Add credits to continue now. Extra credits do not expire.' )
-										: __( 'Add more credits in case you go over your allowance.' ) }
+										? __(
+												'Keep your work moving without waiting for your monthly allowance to reset.'
+										  )
+										: __(
+												'Keep AI credits ready so your work can continue after your monthly allowance runs out.'
+										  ) }
 								</p>
 							</div>
 						) }
-						<Button
-							className={ styles.creditTopUpButton }
-							size="small"
-							variant="outline"
-							tone="neutral"
-							onClick={ () => setPurchaseOpen( true ) }
-						>
-							{ __( 'Add credits' ) }
-						</Button>
+						<div className={ styles.creditTopUpAction }>
+							<Button
+								className={ styles.creditTopUpButton }
+								size="small"
+								variant="outline"
+								tone="neutral"
+								onClick={ openPurchaseCredits }
+							>
+								{ opensExternalCheckout ? __( 'Purchase AI credits' ) : __( 'Add AI credits' ) }
+								{ opensExternalCheckout ? (
+									<Icon icon={ external } size={ 14 } aria-hidden="true" />
+								) : null }
+							</Button>
+							{ opensExternalCheckout ? <span>{ __( 'Checkout on WordPress.com' ) }</span> : null }
+						</div>
 					</div>
 					<PurchaseCreditsDialog open={ purchaseOpen } onOpenChange={ setPurchaseOpen } />
 				</>
 			) }
-		</section>
-	);
-}
-
-const MONTHLY_EXPLORATION_SCENARIOS: Array< {
-	value: UsageExplorationScenario;
-	label: string;
-} > = [
-	{ value: 'healthy', label: '36%' },
-	{ value: 'warning', label: '80%' },
-	{ value: 'critical', label: '90%' },
-	{ value: 'exhausted', label: '100%' },
-];
-
-const EXTRA_EXPLORATION_SCENARIOS: Array< {
-	value: UsageExplorationScenario;
-	label: string;
-} > = [
-	{ value: 'extra-reserve', label: __( '$50 in reserve' ) },
-	{ value: 'extra-healthy', label: __( '$32 remaining' ) },
-	{ value: 'extra-warning', label: __( '$10 remaining' ) },
-	{ value: 'extra-critical', label: __( '$5 remaining' ) },
-	{ value: 'extra-exhausted', label: __( '$0 remaining' ) },
-];
-
-function ExplorationScenarioRow( {
-	label,
-	options,
-	selected,
-}: {
-	label: string;
-	options: Array< { value: UsageExplorationScenario; label: string } >;
-	selected: UsageExplorationScenario;
-} ) {
-	return (
-		<div className={ styles.explorationScenarioRow }>
-			<span>{ label }</span>
-			<div className={ styles.explorationButtons }>
-				{ options.map( ( option ) => (
-					<button
-						key={ option.value }
-						type="button"
-						className={ styles.explorationButton }
-						data-selected={ selected === option.value ? '' : undefined }
-						aria-label={ `${ label } ${ option.label }` }
-						onClick={ () => setUsageExplorationScenario( option.value ) }
-					>
-						{ option.label }
-					</button>
-				) ) }
-			</div>
-		</div>
-	);
-}
-
-function UsageExplorationControls() {
-	const { scenario } = useUsageExploration();
-	return (
-		<section className={ clsx( styles.usageSection, styles.explorationControls ) }>
-			<div>
-				<strong>{ __( 'Prototype state' ) }</strong>
-				<p>{ __( 'Switch between usage conditions to review each interface.' ) }</p>
-			</div>
-			<div className={ styles.explorationScenarioRows }>
-				<ExplorationScenarioRow
-					label={ __( 'Monthly allowance' ) }
-					options={ MONTHLY_EXPLORATION_SCENARIOS }
-					selected={ scenario }
-				/>
-				<ExplorationScenarioRow
-					label={ __( 'Extra credit balance' ) }
-					options={ EXTRA_EXPLORATION_SCENARIOS }
-					selected={ scenario }
-				/>
-			</div>
+			<AiCreditsDetailsDialog open={ detailsOpen } onOpenChange={ setDetailsOpen } />
 		</section>
 	);
 }
@@ -402,7 +338,6 @@ export function UsagePanel() {
 						) : (
 							<UnavailableSection title={ __( 'Preview sites' ) } />
 						) }
-						<UsageExplorationControls />
 					</>
 				) }
 			</section>

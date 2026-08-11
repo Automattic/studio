@@ -49,6 +49,7 @@ import {
 } from '@/data/queries/use-sessions';
 import { FamilySwitchConfirmDialog } from './family-switch-confirm-dialog';
 import styles from './style.module.css';
+import { UsageCreditsControl } from './usage-credits-control';
 import {
 	toComposerSendAttachments,
 	useComposerAttachments,
@@ -956,6 +957,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 							/>
 						</div>
 						<div className={ styles.rightActions }>
+							<UsageCreditsControl />
 							<Menu.Root modal={ false }>
 								<Tooltip.Root>
 									<Menu.Trigger

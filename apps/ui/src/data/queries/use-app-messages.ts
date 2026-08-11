@@ -62,7 +62,7 @@ export function useActivePersistentMessages(): {
 		const usagePercentage = Math.round( activeUsageFraction * 100 );
 		const usageTitle = sprintf(
 			/* translators: %s: percentage of the active AI credit pool used. */
-			usingExtraCredits ? __( 'At %s%% extra credit usage' ) : __( 'At %s%% usage' ),
+			__( 'At %s%% usage' ),
 			String( usagePercentage )
 		);
 
@@ -71,16 +71,16 @@ export function useActivePersistentMessages(): {
 				id: 'ai-credits:critical',
 				intent: 'warning',
 				title: usageTitle,
-				description: __( 'Add credits to keep chatting without interruption.' ),
-				cta: { label: __( 'Add credits' ), onClick: openPurchaseCreditsDialog },
+				description: __( 'Add AI credits to keep chatting without interruption.' ),
+				cta: { label: __( 'Add AI credits' ), onClick: openPurchaseCreditsDialog },
 			} );
 		} else if ( ! usage.isExhausted && activeUsageFraction >= 0.8 ) {
 			messages.push( {
 				id: 'ai-credits:warning',
 				intent: 'warning',
 				title: usageTitle,
-				description: __( 'Add credits to keep chatting without interruption.' ),
-				cta: { label: __( 'Add credits' ), onClick: openPurchaseCreditsDialog },
+				description: __( 'Add AI credits to keep chatting without interruption.' ),
+				cta: { label: __( 'Add AI credits' ), onClick: openPurchaseCreditsDialog },
 			} );
 		}
 

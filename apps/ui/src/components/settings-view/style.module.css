@@ -916,12 +916,14 @@
 
 .extraCreditRow {
 	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: var( --wpds-dimension-padding-lg );
-	padding: var( --wpds-dimension-padding-md );
-	border-radius: var( --wpds-border-radius-sm );
-	background: var( --wpds-color-bg-surface-neutral-strong );
+	flex-direction: column;
+	align-items: stretch;
+	gap: var( --wpds-dimension-padding-md );
+}
+
+.extraCreditRow .creditMeter,
+.extraCreditRow .creditTopUpText {
+	inline-size: 100%;
 }
 
 .extraCreditSummary {
@@ -975,68 +977,28 @@
 }
 
 .creditTopUpButton {
-	flex: none;
+	align-self: flex-start;
 }
 
-.explorationControls {
-	gap: var( --wpds-dimension-padding-lg );
-}
-
-.explorationControls strong {
-	color: var( --wpds-color-fg-content-neutral );
-	font-size: var( --wpds-typography-font-size-sm );
-}
-
-.explorationControls p {
-	margin-block-start: var( --wpds-dimension-padding-xs );
-}
-
-.explorationButtons {
+.creditTopUpAction {
 	display: flex;
-	flex-wrap: wrap;
-	gap: var( --wpds-dimension-gap-xs );
-}
-
-.explorationScenarioRows {
-	display: flex;
-	flex-direction: column;
-	gap: var( --wpds-dimension-padding-sm );
-}
-
-.explorationScenarioRow {
-	display: grid;
-	grid-template-columns: 112px 1fr;
 	align-items: center;
-	gap: var( --wpds-dimension-padding-md );
+	align-self: flex-start;
+	gap: var( --wpds-dimension-gap-sm );
+}
+
+.creditTopUpAction > span {
 	color: var( --wpds-color-fg-content-neutral-weak );
 	font-size: var( --wpds-typography-font-size-xs );
+	line-height: var( --wpds-typography-line-height-sm );
 }
 
-.explorationButton {
-	padding: 5px 10px;
-	border: 1px solid var( --wpds-color-stroke-surface-neutral );
-	border-radius: 999px;
-	background: var( --wpds-color-bg-surface-neutral-strong );
-	color: var( --wpds-color-fg-content-neutral-weak );
-	cursor: pointer;
-	font-size: var( --wpds-typography-font-size-xs );
+.aiCreditsDetailsButton {
+	flex: none;
+	padding-inline: 0;
+	font-weight: 400;
 }
 
-.explorationButton:hover {
-	border-color: var( --wpds-color-stroke-interactive-neutral );
-	color: var( --wpds-color-fg-content-neutral );
-}
-
-.explorationButton[data-selected] {
-	border-color: var( --wpds-color-stroke-interactive-brand );
-	background: var( --wpds-color-bg-interactive-brand-weak );
-	color: var( --wpds-color-fg-interactive-brand );
-}
-
-.explorationButton:focus-visible {
-	outline: var( --wpds-border-width-focus ) solid var( --wpds-color-stroke-focus-brand );
-	outline-offset: 2px;
-}
 
 .previewActionsButton {
 	flex-shrink: 0;

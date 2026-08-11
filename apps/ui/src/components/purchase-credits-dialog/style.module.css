@@ -26,12 +26,6 @@
 	text-align: start;
 }
 
-.amountCards[data-layout='grid'] .amountOption {
-	align-items: center;
-	flex-direction: row;
-	justify-content: space-between;
-}
-
 .amountOption:hover {
 	border-color: var( --wpds-color-stroke-interactive-neutral );
 }
@@ -50,6 +44,10 @@
 .optionValue {
 	font-size: var( --wpds-typography-font-size-lg );
 	font-weight: 600;
+}
+
+.amountCards[data-layout='row'] .optionValue {
+	font-size: var( --wpds-typography-font-size-sm );
 }
 
 .optionCreditCount,
@@ -214,54 +212,6 @@
 	}
 }
 
-.variantSwitcher {
-	position: fixed;
-	z-index: 100000;
-	inset-block-start: calc( 50vh + 50% - 64px );
-	inset-inline-start: 50%;
-	display: flex;
-	align-items: center;
-	gap: 2px;
-	inline-size: max-content;
-	max-inline-size: calc( 100vw - 32px );
-	padding: 4px;
-	border: 1px solid var( --wpds-color-stroke-surface-neutral );
-	border-radius: 10px;
-	background: var( --wpds-color-bg-surface-neutral-strong );
-	box-shadow: var( --wpds-elevation-md );
-	transform: translateX( -50% );
-}
-
-.variantLabel {
-	padding-inline: var( --wpds-dimension-padding-sm );
-	color: var( --wpds-color-fg-content-neutral-weak );
-	font-size: var( --wpds-typography-font-size-xs );
-}
-
-.variantButton {
-	padding: 5px 8px;
-	border: 0;
-	border-radius: 6px;
-	background: transparent;
-	color: var( --wpds-color-fg-content-neutral );
-	cursor: pointer;
-	font: inherit;
-	font-size: var( --wpds-typography-font-size-xs );
-}
-
-.variantButton:hover {
-	background: var( --wpds-color-bg-surface-neutral-weak );
-}
-
-.variantButton[aria-pressed='true'] {
-	background: var( --wpds-color-bg-surface-neutral );
-	font-weight: 600;
-}
-
-.variantButton:focus-visible {
-	outline: 2px solid var( --wpds-color-stroke-focus-brand );
-	outline-offset: -1px;
-}
 .dialogPopup {
 	overflow: visible;
 }

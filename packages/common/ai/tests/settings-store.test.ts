@@ -41,7 +41,7 @@ describe( 'ai settings store', () => {
 		} );
 	} );
 
-	it( 'saves a key without validating it or changing the provider', async () => {
+	it( 'saves an accepted key without changing the provider', async () => {
 		const settings = await saveAnthropicApiKey( 'sk-ant-api03-testkey-abcd1234' );
 
 		expect( settings ).toEqual( {
@@ -52,7 +52,19 @@ describe( 'ai settings store', () => {
 		expect( JSON.parse( fs.readFileSync( cliConfigPath(), 'utf8' ) ).anthropicApiKey ).toBe(
 			'sk-ant-api03-testkey-abcd1234'
 		);
-		expect( fetch ).not.toHaveBeenCalled();
+	} );
+
+	it( 'does not store a key Anthropic rejects, but stores an unverifiable one', async () => {
+		vi.stubGlobal( 'fetch', vi.fn().mockResolvedValue( { ok: false, status: 401 } ) );
+		await expect( saveAnthropicApiKey( 'sk-ant-api03-rejected' ) ).rejects.toBeInstanceOf(
+			InvalidAnthropicApiKeyError
+		);
+		await expect( readAiSettings() ).resolves.toMatchObject( { hasAnthropicApiKey: false } );
+
+		vi.stubGlobal( 'fetch', vi.fn().mockRejectedValue( new Error( 'offline' ) ) );
+		await expect( saveAnthropicApiKey( 'sk-ant-api03-testkey-abcd1234' ) ).resolves.toMatchObject( {
+			hasAnthropicApiKey: true,
+		} );
 	} );
 
 	it( 'selects the Anthropic provider once its key is accepted', async () => {

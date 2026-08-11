@@ -103,12 +103,20 @@ async function updateAiSettings(
 }
 
 /**
- * Stores or clears the key as the user types; it is only checked against
- * Anthropic when the provider is selected (see `setAiProvider`). Clearing it
- * falls back to WordPress.com, since the Anthropic provider needs a key.
+ * Stores or clears the Anthropic API key. A key Anthropic rejects is not
+ * stored; an unverifiable one (offline, Anthropic outage) is. Clearing the key
+ * falls back to WordPress.com, since the Anthropic provider needs one.
  */
 export async function saveAnthropicApiKey( key: string | null ): Promise< AiSettings > {
 	const trimmed = key === null ? null : key.trim();
+
+	if ( trimmed ) {
+		const validation = await validateAnthropicApiKey( trimmed );
+		if ( validation.status === 'invalid' ) {
+			throw new InvalidAnthropicApiKeyError( validation.message );
+		}
+	}
+
 	return updateAiSettings( ( config ) => {
 		if ( ! trimmed ) {
 			delete config.anthropicApiKey;

@@ -179,6 +179,28 @@ describe( 'local web server Connect contracts', () => {
 		expect( mocks.saveAnthropicApiKey ).toHaveBeenCalledWith( null );
 	} );
 
+	it( 'returns 400 with the message when Anthropic rejects a key being saved', async () => {
+		mocks.saveAnthropicApiKey.mockRejectedValueOnce(
+			new InvalidAnthropicApiKeyError(
+				'Anthropic rejected this API key. Check the key and try again.'
+			)
+		);
+
+		const response = await fetch(
+			`${ server.url.replace( 'localhost', '127.0.0.1' ) }/api/ai-settings`,
+			{
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify( { anthropicApiKey: 'sk-ant-rejected' } ),
+			}
+		);
+
+		expect( response.status ).toBe( 400 );
+		await expect( response.json() ).resolves.toEqual( {
+			error: 'Anthropic rejected this API key. Check the key and try again.',
+		} );
+	} );
+
 	it( 'rejects a non-string Anthropic API key', async () => {
 		const response = await fetch(
 			`${ server.url.replace( 'localhost', '127.0.0.1' ) }/api/ai-settings`,

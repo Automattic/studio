@@ -473,7 +473,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
-	// Write-only: responses carry the key's presence and suffix, never the key.
+	// Write-only: responses carry a truncated preview, never the key. A key
+	// Anthropic rejects answers 400 and is not stored.
 	api.put(
 		'/ai-settings',
 		asyncHandler( async ( req: Request, res: Response ) => {
@@ -482,7 +483,15 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 400 ).json( { error: 'anthropicApiKey must be a string or null' } );
 				return;
 			}
-			res.json( await saveAnthropicApiKey( key ) );
+			try {
+				res.json( await saveAnthropicApiKey( key ) );
+			} catch ( error ) {
+				if ( error instanceof InvalidAnthropicApiKeyError ) {
+					res.status( 400 ).json( { error: error.message } );
+					return;
+				}
+				throw error;
+			}
 		} )
 	);
 

@@ -47,7 +47,7 @@ const KEY_SAVE_DEBOUNCE_MS = 800;
 
 function AnthropicApiKeySection() {
 	const { data: settings } = useAiSettings();
-	const { mutate: saveKey } = useSaveAnthropicApiKey();
+	const { mutate: saveKey, isPending: isSaving, error: saveError } = useSaveAnthropicApiKey();
 	const { mutate: setProvider, isPending: isSwitching, error: switchError } = useSetAiProvider();
 	// `undefined` until the user types: the saved key never reaches the client,
 	// so the field shows a truncated preview of it as its placeholder.
@@ -82,7 +82,9 @@ function AnthropicApiKeySection() {
 	}
 
 	const usesAnthropic = settings.provider === 'anthropic-api-key';
-	const hasKey = draft === undefined ? settings.hasAnthropicApiKey : draft.trim() !== '';
+	// A key the user typed only counts once it survived validation and was saved.
+	const hasKey = settings.hasAnthropicApiKey;
+	const error = saveError ?? switchError;
 
 	return (
 		<section className={ styles.preferenceSectionGroup }>
@@ -98,7 +100,7 @@ function AnthropicApiKeySection() {
 				<div className={ clsx( styles.preferenceControl, styles.toggleControl ) }>
 					<FormToggle
 						checked={ usesAnthropic }
-						disabled={ isSwitching || ( ! usesAnthropic && ! hasKey ) }
+						disabled={ isSaving || isSwitching || ( ! usesAnthropic && ! hasKey ) }
 						aria-label={ __( 'Use your Anthropic API key' ) }
 						onChange={ () => setProvider( usesAnthropic ? 'wpcom' : 'anthropic-api-key' ) }
 					/>
@@ -116,9 +118,7 @@ function AnthropicApiKeySection() {
 					/>
 				</div>
 			</section>
-			{ switchError instanceof Error && (
-				<p className={ styles.instructionsError }>{ switchError.message }</p>
-			) }
+			{ error instanceof Error && <p className={ styles.instructionsError }>{ error.message }</p> }
 		</section>
 	);
 }

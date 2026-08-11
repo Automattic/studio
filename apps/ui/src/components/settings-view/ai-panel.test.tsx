@@ -95,7 +95,11 @@ describe( 'AiPanel', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		useSaveUserPreferencesMock.mockReturnValue( { mutate } as never );
-		useSaveAnthropicApiKeyMock.mockReturnValue( { mutate: saveKey } as never );
+		useSaveAnthropicApiKeyMock.mockReturnValue( {
+			mutate: saveKey,
+			isPending: false,
+			error: null,
+		} as never );
 		useSetAiProviderMock.mockReturnValue( {
 			mutate: setProvider,
 			isPending: false,
@@ -210,24 +214,45 @@ describe( 'AiPanel', () => {
 		}
 	} );
 
-	it( 'keeps the toggle off and disabled until a key is present', () => {
+	it( 'keeps the toggle disabled until a key has been saved', () => {
 		mockConnector( true, true );
 		mockAiSettings( {
 			provider: 'wpcom',
 			hasAnthropicApiKey: false,
 			anthropicApiKeyPreview: null,
 		} );
+		const { unmount } = render( <AiPanel /> );
+
+		expect( screen.getByRole( 'checkbox', { name: 'Use your Anthropic API key' } ) ).toBeDisabled();
+		unmount();
+
+		mockAiSettings( {
+			provider: 'wpcom',
+			hasAnthropicApiKey: true,
+			anthropicApiKeyPreview: 'sk-ant-api03-tes...1234',
+		} );
 		render( <AiPanel /> );
 
-		const toggle = screen.getByRole( 'checkbox', { name: 'Use your Anthropic API key' } );
-		expect( toggle ).not.toBeChecked();
-		expect( toggle ).toBeDisabled();
+		expect( screen.getByRole( 'checkbox', { name: 'Use your Anthropic API key' } ) ).toBeEnabled();
+	} );
 
-		fireEvent.change( screen.getByLabelText( 'Anthropic API key' ), {
-			target: { value: 'sk-ant-test-1234' },
+	it( 'shows why saving the key failed', () => {
+		mockConnector( true, true );
+		mockAiSettings( {
+			provider: 'wpcom',
+			hasAnthropicApiKey: false,
+			anthropicApiKeyPreview: null,
 		} );
+		useSaveAnthropicApiKeyMock.mockReturnValue( {
+			mutate: saveKey,
+			isPending: false,
+			error: new Error( 'Anthropic rejected this API key. Check the key and try again.' ),
+		} as never );
+		render( <AiPanel /> );
 
-		expect( toggle ).toBeEnabled();
+		expect(
+			screen.getByText( 'Anthropic rejected this API key. Check the key and try again.' )
+		).toBeInTheDocument();
 	} );
 
 	it( 'switches the provider from the toggle', () => {

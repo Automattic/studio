@@ -13,6 +13,7 @@
 The first runnable slice on this branch includes:
 
 - deterministic `add-site`, `site-overview`, and `agent-complete-preview` scenarios;
+- scenario-owned panel states and responsive sidebar/preview proportions, with per-run CLI overrides;
 - explicit light and dark rendering with a fixed clock, locale, timezone, and reduced motion;
 - `smoke`, `raw-default-2x`, `raw-wide-2x`, and `store-4k` presets;
 - a marketing-only static preview fixture with no account, site, or external network dependency;
@@ -329,6 +330,10 @@ interface MarketingScenario {
 	title: string;
 	description: string;
 	route: string;
+	panelLayout: {
+		sidebar: { state: 'expanded' | 'collapsed'; width: number };
+		preview: { state: 'open' | 'closed'; widthRatio: number };
+	};
 	data: MarketingScenarioData;
 	hostProfiles: MarketingHostProfile[];
 	preferredViewport: Viewport;
@@ -353,6 +358,13 @@ http://127.0.0.1:<port>/?scenario=agent-complete-preview&theme=dark
 
 The scenario registry is the content-review surface. A reviewer should be able to understand all
 synthetic claims and visible states without reading the connector implementation.
+
+Panel defaults live with each scenario so captures do not inherit a developer's persisted split.
+Preview width is expressed as a share of the available content frame rather than a fixed pixel
+value, then converted to Studio's existing persisted content width before React mounts. This keeps
+the intended composition stable across capture presets while retaining the product's minimum-width
+clamps. The runner can override those defaults for one-off exports with `--preview-width-ratio`,
+`--sidebar-width`, `--preview`, and `--sidebar`.
 
 ### 3. Deterministic preview fixtures
 

@@ -24,12 +24,32 @@ npm run screenshots:marketing -- \
 	--scenario agent-complete-preview \
 	--theme light,dark \
 	--preset raw-wide-2x,store-4k \
+	--preview-width-ratio 0.6 \
+	--sidebar-width 320 \
 	--output artifacts/marketing-screenshots/review
 ```
 
 Run `npm run screenshots:marketing -- --list` to see all accepted values and `--help` for the full
 CLI. When `--output` is omitted, results are written to
 `artifacts/marketing-screenshots/<commit>/`.
+
+## Panel layout overrides
+
+Scenarios own their default panel layout. A capture run can selectively override any part of that
+layout without changing the fixture:
+
+| Flag                        | Accepted values             | URL parameter       |
+| --------------------------- | --------------------------- | ------------------- |
+| `--preview-width-ratio <n>` | `0.2` through `0.8`         | `previewWidthRatio` |
+| `--sidebar-width <px>`      | Integer `240` through `600` | `sidebarWidth`      |
+| `--preview <state>`         | `open` or `closed`          | `preview`           |
+| `--sidebar <state>`         | `expanded` or `collapsed`   | `sidebar`           |
+
+Flags are optional and independent. When none are present, the runner sends no panel-layout query
+parameters, preserving the scenario defaults. The manifest stores both the requested overrides and
+the effective post-layout values reported by the UI, including panel states and logical-pixel
+widths. This makes clamping visible—for example, a requested sidebar width may resolve narrower in a
+small viewport.
 
 ## UI readiness contract
 

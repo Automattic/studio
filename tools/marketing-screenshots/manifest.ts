@@ -1,7 +1,8 @@
 import path from 'node:path';
+import type { EffectivePanelLayout, PanelLayoutOverrides } from './layout.ts';
 import type { CapturePreset, ScenarioId, Theme } from './presets.ts';
 
-export const MANIFEST_SCHEMA_VERSION = 1;
+export const MANIFEST_SCHEMA_VERSION = 2;
 
 export interface GitMetadata {
 	commit: string;
@@ -35,6 +36,10 @@ export interface CaptureManifestEntry {
 	relativePath: string;
 	readyMarker: string;
 	fileSizeBytes: number;
+	panelLayout: {
+		requested: PanelLayoutOverrides;
+		effective: EffectivePanelLayout;
+	};
 	diagnostics: CaptureDiagnostics;
 }
 

@@ -8,12 +8,29 @@ export interface MarketingViewport {
 	deviceScaleFactor: number;
 }
 
+export type MarketingSidebarState = 'expanded' | 'collapsed';
+export type MarketingPreviewState = 'open' | 'closed';
+
+export interface MarketingPanelLayout {
+	sidebar: {
+		state: MarketingSidebarState;
+		width: number;
+	};
+	preview: {
+		state: MarketingPreviewState;
+		/** The preview's share of the content frame, from 0 to 1. */
+		widthRatio: number;
+	};
+}
+
 export interface MarketingScenario {
 	id: MarketingScenarioId;
 	title: string;
 	description: string;
 	route: string;
 	preferredViewport: MarketingViewport;
+	/** Initial panel state used by the marketing-only entry point. */
+	panelLayout: MarketingPanelLayout;
 	/**
 	 * A selector for content that only appears once the scenario's primary UI
 	 * has resolved. The marketing entry waits for this element to be visible,
@@ -28,6 +45,10 @@ const scenarioDefinitions = {
 		description: 'The site creation, connection, and import choices.',
 		route: '/onboarding',
 		preferredViewport: { width: 1440, height: 900, deviceScaleFactor: 2 },
+		panelLayout: {
+			sidebar: { state: 'expanded', width: 320 },
+			preview: { state: 'closed', widthRatio: 0.5 },
+		},
 		readySelector: 'h1',
 	},
 	'site-overview': {
@@ -35,6 +56,10 @@ const scenarioDefinitions = {
 		description: 'A local site overview with a deterministic site thumbnail and storage data.',
 		route: '/sites/meridian/overview',
 		preferredViewport: { width: 1440, height: 900, deviceScaleFactor: 2 },
+		panelLayout: {
+			sidebar: { state: 'expanded', width: 320 },
+			preview: { state: 'open', widthRatio: 0.48 },
+		},
 		readySelector: 'button[aria-label="Open site in browser"]',
 	},
 	'agent-complete-preview': {
@@ -42,6 +67,10 @@ const scenarioDefinitions = {
 		description: 'A completed agent conversation shown beside the site preview.',
 		route: '/sessions/marketing-agent-complete',
 		preferredViewport: { width: 1600, height: 1000, deviceScaleFactor: 2 },
+		panelLayout: {
+			sidebar: { state: 'expanded', width: 320 },
+			preview: { state: 'open', widthRatio: 0.55 },
+		},
 		readySelector: '[data-message-text]',
 	},
 } as const;

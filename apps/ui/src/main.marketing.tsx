@@ -3,12 +3,19 @@ import { App } from '@/app';
 import { queryClient } from '@/data/core';
 import { persister, persistPromise } from '@/data/core/query-client';
 import { applyLocale } from '@/lib/apply-locale';
-import { createMarketingConnector, getMarketingScenario } from '@/marketing';
+import {
+	applyMarketingPanelLayout,
+	createMarketingConnector,
+	getMarketingScenario,
+	resolveMarketingPanelLayout,
+} from '@/marketing';
 import '@/marketing.css';
+import type { AppliedMarketingPanelLayout } from '@/marketing';
 
 declare global {
 	interface Window {
 		__STUDIO_MARKETING_SCREENSHOT_READY__?: boolean;
+		__STUDIO_MARKETING_PANEL_LAYOUT__?: AppliedMarketingPanelLayout;
 	}
 }
 
@@ -158,6 +165,10 @@ async function bootstrap() {
 		requestedUrl.searchParams.get( 'scenario' ) ?? 'add-site'
 	);
 	const theme = getTheme( requestedUrl.searchParams.get( 'theme' ) );
+	const panelLayout = resolveMarketingPanelLayout(
+		scenario.panelLayout,
+		requestedUrl.searchParams
+	);
 
 	document.documentElement.dataset.marketingScreenshotScenario = scenario.id;
 	document.documentElement.dataset.marketingScreenshotTheme = theme;
@@ -166,13 +177,19 @@ async function bootstrap() {
 	await persister.removeClient();
 	queryClient.clear();
 	window.localStorage.clear();
+	const appliedPanelLayout = applyMarketingPanelLayout( panelLayout, window.innerWidth );
+	window.__STUDIO_MARKETING_PANEL_LAYOUT__ = appliedPanelLayout;
 
-	const connector = createMarketingConnector( scenario, theme );
+	const connector = createMarketingConnector( scenario, theme, panelLayout );
 	await Promise.all( [ connector.init?.(), applyLocale( connector ) ] );
 
 	const scenarioUrl = new URL( scenario.route, window.location.origin );
 	scenarioUrl.searchParams.set( 'scenario', scenario.id );
 	scenarioUrl.searchParams.set( 'theme', theme );
+	scenarioUrl.searchParams.set( 'sidebar', panelLayout.sidebar.state );
+	scenarioUrl.searchParams.set( 'sidebarWidth', String( panelLayout.sidebar.width ) );
+	scenarioUrl.searchParams.set( 'preview', panelLayout.preview.state );
+	scenarioUrl.searchParams.set( 'previewWidthRatio', String( panelLayout.preview.widthRatio ) );
 	window.history.replaceState( null, '', `${ scenarioUrl.pathname }${ scenarioUrl.search }` );
 
 	createRoot( document.getElementById( 'root' )! ).render(

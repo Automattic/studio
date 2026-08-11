@@ -26,6 +26,18 @@ const capture: CaptureManifestEntry = {
 	relativePath: 'site-overview/renderer/dark/smoke.png',
 	readyMarker: 'data-marketing-screenshot-ready',
 	fileSizeBytes: 42_000,
+	panelLayout: {
+		requested: { previewWidthRatio: 0.4, sidebar: 'expanded' },
+		effective: {
+			sidebar: { state: 'expanded', width: 320 },
+			preview: {
+				state: 'open',
+				requestedWidthRatio: 0.4,
+				contentWidth: 580,
+				width: 430,
+			},
+		},
+	},
 	diagnostics: {
 		consoleErrors: [],
 		pageErrors: [],
@@ -51,10 +63,18 @@ describe( 'capture manifest', () => {
 		} );
 
 		expect( manifest ).toMatchObject( {
-			schemaVersion: 1,
+			schemaVersion: 2,
 			syntheticData: true,
 			studio: { commit: 'abc123', dirty: false },
-			captures: [ { scenario: 'site-overview', captureTier: 'renderer' } ],
+			captures: [
+				{
+					scenario: 'site-overview',
+					captureTier: 'renderer',
+					panelLayout: {
+						requested: { previewWidthRatio: 0.4, sidebar: 'expanded' },
+					},
+				},
+			],
 		} );
 	} );
 

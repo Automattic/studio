@@ -8,7 +8,7 @@ import {
 	PRIMARY_SITE_ID,
 	PRIMARY_SITE_STORAGE,
 } from './fixtures';
-import type { MarketingScenario, MarketingTheme } from './scenarios';
+import type { MarketingPanelLayout, MarketingScenario, MarketingTheme } from './scenarios';
 import type {
 	AiSessionSummary,
 	AppUpdateStatus,
@@ -19,6 +19,17 @@ import type {
 } from '@/data/core';
 
 const noopUnsubscribe = () => () => {};
+
+function createInitialToggleSubscription( shouldToggle: boolean ) {
+	let didToggle = false;
+	return ( listener: () => void ) => {
+		if ( shouldToggle && ! didToggle ) {
+			didToggle = true;
+			listener();
+		}
+		return () => {};
+	};
+}
 
 function cloneSite( site: SiteDetails ): SiteDetails {
 	return {
@@ -36,7 +47,8 @@ function cloneSite( site: SiteDetails ): SiteDetails {
  */
 export function createMarketingConnector(
 	scenario: MarketingScenario,
-	theme: MarketingTheme
+	theme: MarketingTheme,
+	panelLayout: MarketingPanelLayout = scenario.panelLayout
 ): Connector {
 	const localConnector = createLocalConnector( { apiBaseUrl: 'http://127.0.0.1:0' } );
 	const sites = scenario.id === 'add-site' ? [] : getMarketingSites();
@@ -70,6 +82,12 @@ export function createMarketingConnector(
 		migratedFromClassic: false,
 	};
 	const updateStatus: AppUpdateStatus = { readyToInstall: false, version: null };
+	const onToggleSitePreview = createInitialToggleSubscription(
+		panelLayout.preview.state === 'closed'
+	);
+	const onToggleSidebar = createInitialToggleSubscription(
+		panelLayout.sidebar.state === 'collapsed'
+	);
 
 	const overrides: Partial< Connector > = {
 		async init() {},
@@ -225,8 +243,8 @@ export function createMarketingConnector(
 		},
 		onFullscreenChange: noopUnsubscribe,
 		onSiteEvent: noopUnsubscribe,
-		onToggleSitePreview: noopUnsubscribe,
-		onToggleSidebar: noopUnsubscribe,
+		onToggleSitePreview,
+		onToggleSidebar,
 		onAddSite: noopUnsubscribe,
 		onAddSiteWithBlueprint: noopUnsubscribe,
 		onOpenSettings: noopUnsubscribe,

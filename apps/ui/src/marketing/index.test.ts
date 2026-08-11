@@ -1,5 +1,15 @@
 import { describe, expect, it, vi } from 'vitest';
-import { MARKETING_SCENARIO_IDS, createMarketingConnector, getMarketingScenario } from './index';
+import {
+	PREVIEW_CONTENT_WIDTH_STORAGE_KEY,
+	SIDEBAR_PANEL_STORAGE_KEY,
+} from '@/lib/resizable-panels';
+import {
+	MARKETING_SCENARIO_IDS,
+	applyMarketingPanelLayout,
+	createMarketingConnector,
+	getMarketingScenario,
+	resolveMarketingPanelLayout,
+} from './index';
 
 describe( 'marketing screenshot scenarios', () => {
 	it( 'registers stable routes and readiness selectors', () => {
@@ -17,6 +27,10 @@ describe( 'marketing screenshot scenarios', () => {
 		} );
 		expect( getMarketingScenario( 'agent-complete-preview' ) ).toMatchObject( {
 			route: '/sessions/marketing-agent-complete',
+			panelLayout: {
+				sidebar: { state: 'expanded', width: 320 },
+				preview: { state: 'open', widthRatio: 0.55 },
+			},
 		} );
 	} );
 
@@ -25,6 +39,92 @@ describe( 'marketing screenshot scenarios', () => {
 			'Expected one of: add-site, site-overview, agent-complete-preview'
 		);
 	} );
+
+	it( 'resolves explicit panel overrides without changing scenario defaults', () => {
+		const scenario = getMarketingScenario( 'agent-complete-preview' );
+		const layout = resolveMarketingPanelLayout(
+			scenario.panelLayout,
+			new URLSearchParams( {
+				sidebar: 'collapsed',
+				sidebarWidth: '280',
+				preview: 'closed',
+				previewWidthRatio: '0.6',
+			} )
+		);
+
+		expect( layout ).toEqual( {
+			sidebar: { state: 'collapsed', width: 280 },
+			preview: { state: 'closed', widthRatio: 0.6 },
+		} );
+		expect( scenario.panelLayout.preview.widthRatio ).toBe( 0.55 );
+	} );
+
+	it( 'rejects invalid panel overrides', () => {
+		const defaults = getMarketingScenario( 'agent-complete-preview' ).panelLayout;
+
+		expect( () =>
+			resolveMarketingPanelLayout( defaults, new URLSearchParams( { preview: 'fullscreen' } ) )
+		).toThrow( 'Expected one of: open, closed' );
+		expect( () =>
+			resolveMarketingPanelLayout( defaults, new URLSearchParams( { previewWidthRatio: '0.9' } ) )
+		).toThrow( 'must be between 0.2 and 0.8' );
+	} );
+
+	it.each( [
+		{
+			viewportWidth: 900,
+			storedSidebarWidth: 240,
+			renderedSidebarWidth: 225,
+			contentWidth: 298,
+			previewWidth: 365,
+		},
+		{
+			viewportWidth: 1100,
+			storedSidebarWidth: 275,
+			renderedSidebarWidth: 275,
+			contentWidth: 366,
+			previewWidth: 447,
+		},
+		{
+			viewportWidth: 1440,
+			storedSidebarWidth: 320,
+			renderedSidebarWidth: 320,
+			contentWidth: 499,
+			previewWidth: 609,
+		},
+		{
+			viewportWidth: 1920,
+			storedSidebarWidth: 320,
+			renderedSidebarWidth: 320,
+			contentWidth: 715,
+			previewWidth: 873,
+		},
+	] )(
+		'seeds a responsive preview-first split at $viewportWidth px',
+		( { viewportWidth, storedSidebarWidth, renderedSidebarWidth, contentWidth, previewWidth } ) => {
+			window.localStorage.clear();
+			const applied = applyMarketingPanelLayout(
+				getMarketingScenario( 'agent-complete-preview' ).panelLayout,
+				viewportWidth
+			);
+
+			expect( applied ).toEqual( {
+				sidebar: { state: 'expanded', width: renderedSidebarWidth },
+				preview: {
+					state: 'open',
+					requestedWidthRatio: 0.55,
+					contentWidth,
+					width: previewWidth,
+				},
+			} );
+			expect( window.localStorage.getItem( SIDEBAR_PANEL_STORAGE_KEY ) ).toBe(
+				String( storedSidebarWidth )
+			);
+			expect( window.localStorage.getItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY ) ).toBe(
+				String( contentWidth )
+			);
+		}
+	);
 } );
 
 describe( 'marketing screenshot connector', () => {
@@ -88,5 +188,23 @@ describe( 'marketing screenshot connector', () => {
 			running: true,
 			url: window.location.origin,
 		} );
+	} );
+
+	it( 'applies requested initial closed panel states once', () => {
+		const scenario = getMarketingScenario( 'agent-complete-preview' );
+		const connector = createMarketingConnector( scenario, 'light', {
+			sidebar: { state: 'collapsed', width: 320 },
+			preview: { state: 'closed', widthRatio: 0.55 },
+		} );
+		const previewToggle = vi.fn();
+		const sidebarToggle = vi.fn();
+
+		connector.onToggleSitePreview( previewToggle );
+		connector.onToggleSitePreview( previewToggle );
+		connector.onToggleSidebar( sidebarToggle );
+		connector.onToggleSidebar( sidebarToggle );
+
+		expect( previewToggle ).toHaveBeenCalledOnce();
+		expect( sidebarToggle ).toHaveBeenCalledOnce();
 	} );
 } );

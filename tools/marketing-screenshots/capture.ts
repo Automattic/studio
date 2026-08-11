@@ -5,6 +5,15 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { chromium, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import {
+	addPanelLayoutSearchParams,
+	parseEffectivePanelLayout,
+	parsePreviewPanelState,
+	parsePreviewWidthRatio,
+	parseSidebarPanelState,
+	parseSidebarWidth,
+	type PanelLayoutOverrides,
+} from './layout.ts';
+import {
 	createManifest,
 	getCaptureRelativePath,
 	renderContactSheet,
@@ -42,6 +51,7 @@ interface CliOptions {
 	headless: boolean;
 	help: boolean;
 	list: boolean;
+	panelLayoutOverrides: PanelLayoutOverrides;
 }
 
 interface CaptureOptions {
@@ -52,6 +62,7 @@ interface CaptureOptions {
 	theme: Theme;
 	preset: CapturePreset;
 	timeoutMs: number;
+	panelLayoutOverrides: PanelLayoutOverrides;
 }
 
 async function main(): Promise< void > {
@@ -104,6 +115,7 @@ async function main(): Promise< void > {
 							theme,
 							preset,
 							timeoutMs: cli.timeoutMs,
+							panelLayoutOverrides: cli.panelLayoutOverrides,
 						} )
 					);
 				}
@@ -138,7 +150,16 @@ async function main(): Promise< void > {
 }
 
 async function captureScreenshot( options: CaptureOptions ): Promise< CaptureManifestEntry > {
-	const { browser, origin, outputDirectory, scenario, theme, preset, timeoutMs } = options;
+	const {
+		browser,
+		origin,
+		outputDirectory,
+		scenario,
+		theme,
+		preset,
+		timeoutMs,
+		panelLayoutOverrides,
+	} = options;
 	const diagnostics: CaptureDiagnostics = {
 		consoleErrors: [],
 		pageErrors: [],
@@ -164,6 +185,7 @@ async function captureScreenshot( options: CaptureOptions ): Promise< CaptureMan
 		const scenarioUrl = new URL( '/', origin );
 		scenarioUrl.searchParams.set( 'scenario', scenario );
 		scenarioUrl.searchParams.set( 'theme', theme );
+		addPanelLayoutSearchParams( scenarioUrl, panelLayoutOverrides );
 
 		await page.goto( scenarioUrl.href, { waitUntil: 'domcontentloaded', timeout: timeoutMs } );
 		await disableMotion( page );
@@ -171,6 +193,7 @@ async function captureScreenshot( options: CaptureOptions ): Promise< CaptureMan
 		await waitForStableAssets( page );
 		await assertUsefulDocument( page );
 		await settlePaint( page );
+		const effectivePanelLayout = await readEffectivePanelLayout( page );
 		assertCleanDiagnostics( diagnostics );
 
 		const relativePath = getCaptureRelativePath( scenario, theme, preset.id );
@@ -207,6 +230,10 @@ async function captureScreenshot( options: CaptureOptions ): Promise< CaptureMan
 			relativePath,
 			readyMarker,
 			fileSizeBytes: png.fileSizeBytes,
+			panelLayout: {
+				requested: { ...panelLayoutOverrides },
+				effective: effectivePanelLayout,
+			},
 			diagnostics,
 		};
 	} finally {
@@ -374,6 +401,17 @@ async function assertUsefulDocument( page: Page ): Promise< void > {
 	}
 }
 
+async function readEffectivePanelLayout( page: Page ) {
+	const value: unknown = await page.evaluate( () => {
+		const screenshotWindow = window as typeof window & {
+			__STUDIO_MARKETING_PANEL_LAYOUT__?: unknown;
+		};
+		return screenshotWindow.__STUDIO_MARKETING_PANEL_LAYOUT__;
+	} );
+
+	return parseEffectivePanelLayout( value );
+}
+
 async function settlePaint( page: Page ): Promise< void > {
 	await page.evaluate(
 		() =>
@@ -410,6 +448,7 @@ function parseArguments( arguments_: string[] ): CliOptions {
 		headless: true,
 		help: false,
 		list: false,
+		panelLayoutOverrides: {},
 	};
 
 	for ( let index = 0; index < arguments_.length; index++ ) {
@@ -444,6 +483,18 @@ function parseArguments( arguments_: string[] ): CliOptions {
 				break;
 			case '--commit':
 				options.commit = readValue();
+				break;
+			case '--preview-width-ratio':
+				options.panelLayoutOverrides.previewWidthRatio = parsePreviewWidthRatio( readValue() );
+				break;
+			case '--sidebar-width':
+				options.panelLayoutOverrides.sidebarWidth = parseSidebarWidth( readValue() );
+				break;
+			case '--preview':
+				options.panelLayoutOverrides.preview = parsePreviewPanelState( readValue() );
+				break;
+			case '--sidebar':
+				options.panelLayoutOverrides.sidebar = parseSidebarPanelState( readValue() );
 				break;
 			case '--timeout': {
 				const timeout = Number( readValue() );
@@ -512,6 +563,10 @@ Options:
   --dist <path>              Static marketing build (default: apps/ui/dist-marketing)
   --output <path>            Exact run output directory
   --commit <sha>             Override commit recorded in the manifest
+  --preview-width-ratio <n>  Preview share of content area, from 0.2 through 0.8
+  --sidebar-width <px>       Expanded sidebar width, from 240 through 600 logical px
+  --preview <state>          Override preview state: open or closed
+  --sidebar <state>          Override sidebar state: expanded or collapsed
   --timeout <ms>             Scenario-ready timeout (default: ${ DEFAULT_TIMEOUT_MS })
   --headful                  Show Chromium while capturing
   --list                     List scenarios, themes, and presets

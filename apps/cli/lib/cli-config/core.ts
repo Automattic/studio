@@ -64,7 +64,7 @@ const CLI_CONFIG_VERSION = 1;
 
 // IMPORTANT: Always consider that independently installed versions of the CLI (from npm) may also
 // read this file, and any updates to this schema may require updating the `version` field.
-export const aiProviderSchema = z.enum( [ 'wpcom', 'anthropic-api-key' ] );
+export const aiProviderSchema = z.enum( [ 'wpcom', 'anthropic-api-key', 'claude-code' ] );
 
 export const updateCheckSchema = z.object( {
 	lastChecked: z.number(),

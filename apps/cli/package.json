@@ -22,6 +22,8 @@
 		"directory": "apps/cli"
 	},
 	"dependencies": {
+		"@agentclientprotocol/claude-agent-acp": "^0.63.0",
+		"@agentclientprotocol/sdk": "^1.3.0",
 		"@anthropic-ai/sdk": "^0.91.1",
 		"@earendil-works/pi-agent-core": "0.82.1",
 		"@earendil-works/pi-ai": "0.82.1",

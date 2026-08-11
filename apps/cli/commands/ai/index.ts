@@ -25,6 +25,7 @@ import { setChatArtifactCallback } from 'cli/ai/chat-artifacts';
 import { startDaemonStatusPolling } from 'cli/ai/daemon-status-poll';
 import { type AiOutputAdapter, JsonAdapter } from 'cli/ai/output-adapter';
 import { AI_PROVIDERS, getAiProviderDefinition, type AiProviderId } from 'cli/ai/providers';
+import { runAcpAgentTurn } from 'cli/ai/runtimes/acp';
 import { runStudioAgentTurn } from 'cli/ai/runtimes/pi';
 import { setScreenshotDirectoryProvider } from 'cli/ai/screenshot-storage';
 import { resolveResumeSessionContext } from 'cli/ai/sessions/context';
@@ -540,7 +541,12 @@ export async function runCommand( options: {
 
 		const turnState: { status: TurnStatus; errorMessage?: string } = { status: 'interrupted' };
 
-		const agentQuery = runStudioAgentTurn( {
+		// The claude-code provider runs the turn through the official Claude
+		// Code harness (ACP adapter) so it can bill the user's subscription;
+		// every other provider keeps using the pi runtime.
+		const runAgentTurnForProvider =
+			currentProvider === 'claude-code' ? runAcpAgentTurn : runStudioAgentTurn;
+		const agentQuery = runAgentTurnForProvider( {
 			prompt: enrichedPrompt,
 			images,
 			env,

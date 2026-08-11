@@ -125,6 +125,10 @@ type SiteServerMeta = {
 export class SiteServer {
 	server: CliServerProcess;
 
+	// True while Studio serves a PHP-error page for this site and watches for a fix. The CLI reports
+	// the site as stopped in this state, so running-state adoption treats it as running instead.
+	inErrorRecovery = false;
+
 	private constructor(
 		public details: SiteDetails,
 		public meta: SiteServerMeta
@@ -258,6 +262,11 @@ export class SiteServer {
 
 	// Adopt an authoritative running value, touching only running/url so Studio-owned fields survive.
 	adoptRunningState( running: boolean ): boolean {
+		// A site serving a PHP-error page counts as running even though the CLI reports it stopped.
+		if ( this.inErrorRecovery ) {
+			running = true;
+		}
+
 		if ( this.details.running === running ) {
 			return false;
 		}

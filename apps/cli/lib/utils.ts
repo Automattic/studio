@@ -5,6 +5,34 @@ import { __, sprintf } from '@wordpress/i18n';
 import { z } from 'zod';
 import { LoggerError } from 'cli/logger';
 
+// Coarse, low-cardinality classification of a preview-site create/update failure for the
+// `failure_reason` Tracks prop. Never send the raw error message: it can carry site URLs and
+// filesystem paths (PII), and its high cardinality would make the prop unqueryable. Mirrors
+// `classifyStartFailure` in `wordpress-server-manager.ts`.
+export function classifyPreviewFailure( error: unknown ): string {
+	const message = error instanceof Error ? error.message : String( error );
+	const normalized = message.toLowerCase();
+	if ( normalized.includes( 'authentication' ) || normalized.includes( 'log in' ) ) {
+		return 'auth_required';
+	}
+	if ( normalized.includes( 'size limit' ) || normalized.includes( 'exceeds' ) ) {
+		return 'size_limit';
+	}
+	if ( normalized.includes( 'expired' ) ) {
+		return 'expired';
+	}
+	if ( normalized.includes( 'not found' ) ) {
+		return 'not_found';
+	}
+	if ( normalized.includes( 'timeout' ) || normalized.includes( 'timed out' ) ) {
+		return 'timeout';
+	}
+	if ( normalized.includes( 'upload' ) ) {
+		return 'upload';
+	}
+	return 'unknown';
+}
+
 export function normalizeHostname( hostname: string ): string {
 	return hostname
 		.trim()

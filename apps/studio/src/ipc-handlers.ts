@@ -41,7 +41,7 @@ import {
 	deleteAiSession as deleteAiSessionFromStore,
 	loadAiSession as loadAiSessionFromStore,
 } from '@studio/common/ai/sessions/store';
-import { AI_SKILL_COMMANDS, buildSkillInvocationPrompt } from '@studio/common/ai/slash-commands';
+import { getAiSkillCommands, buildSkillInvocationPrompt } from '@studio/common/ai/slash-commands';
 import {
 	installSkillToSite,
 	removeSkillFromSite,
@@ -100,6 +100,7 @@ import {
 	extractBlueprintBundle as extractBlueprintBundleShared,
 	type ExtractedBlueprintBundle,
 } from '@studio/common/sites/blueprint-extract';
+import { measureSiteStorage, type SiteStorageUsage } from '@studio/common/sites/storage-usage';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
 import { MACOS_TRAFFIC_LIGHT_POSITION, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
@@ -157,7 +158,7 @@ import {
 	type InstructionFileStatus,
 } from 'src/modules/agent-instructions/lib/instructions';
 import {
-	BUNDLED_SKILLS,
+	getBundledSkills,
 	getSkillsStatus,
 	installAllSkills,
 	installSkillById,
@@ -176,6 +177,7 @@ import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
 import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import {
+	recordAgenticUiMigration,
 	getUserEditor,
 	getUserTerminal,
 	getDefaultSiteDirectory,
@@ -249,6 +251,7 @@ export {
 	getColorScheme,
 	getGlobalAgentInstructions,
 	getInstalledAppsAndTerminals,
+	getOnboardingHints,
 	getQuitSitesBehavior,
 	getUserEditor,
 	getUserLocale,
@@ -259,6 +262,7 @@ export {
 	saveAnalyticsEnabled,
 	saveColorScheme,
 	saveGlobalAgentInstructions,
+	saveOnboardingHints,
 	saveQuitSitesBehavior,
 	saveUserEditor,
 	saveUserLocale,
@@ -399,7 +403,7 @@ function expandSkillCommandPrompt( prompt: string ): string {
 		return prompt;
 	}
 	const name = trimmed.slice( 1 );
-	const match = AI_SKILL_COMMANDS.find( ( cmd ) => cmd.name === name );
+	const match = getAiSkillCommands().find( ( cmd ) => cmd.name === name );
 	if ( ! match ) {
 		return prompt;
 	}
@@ -649,7 +653,7 @@ export async function getWordPressSkillsStatusAllSites(
 ): Promise< SkillStatus[] > {
 	const sharedConfig = await readSharedConfig();
 	const selectedSkills = sharedConfig.selectedSkills ?? [];
-	return BUNDLED_SKILLS.map( ( skill ) => ( {
+	return getBundledSkills().map( ( skill ) => ( {
 		...skill,
 		installed: selectedSkills.includes( skill.id ),
 	} ) );
@@ -1357,6 +1361,14 @@ export function getWpVersion( _event: IpcMainInvokeEvent, id: string ) {
 	return getWordPressVersion( wordPressPath );
 }
 
+export async function getSiteStorageUsage(
+	_event: IpcMainInvokeEvent,
+	id: string
+): Promise< SiteStorageUsage | null > {
+	const server = SiteServer.get( id );
+	return server ? measureSiteStorage( server.details.path ) : null;
+}
+
 export function getIsMultisite( _event: IpcMainInvokeEvent, id: string ) {
 	const server = SiteServer.get( id );
 	if ( ! server ) {
@@ -1553,6 +1565,10 @@ export async function enableAgenticUi(
 ): Promise< void > {
 	await updateBetaFeatureInLib( 'enableAgenticUi', true, surface );
 	setAgenticUiEnabled( true );
+	// Opting in from classic Studio is the sole way an existing user reaches the
+	// agentic workbench, so record it here for the orientation guide's migrating
+	// copy. Must land before the renderer reloads below so the guide sees it.
+	await recordAgenticUiMigration();
 	const mainWindow = await getMainWindow();
 	if ( mainWindow && ! mainWindow.isDestroyed() ) {
 		await loadMainWindowRenderer( mainWindow );

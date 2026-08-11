@@ -4,6 +4,7 @@ import { I18nProvider } from '@wordpress/react-i18n';
 import { privateApis } from '@wordpress/theme';
 import { Tooltip } from '@wordpress/ui';
 import { useEffect } from 'react';
+import { OnboardingGuideProvider } from '@/components/onboarding-guide/use-onboarding-guide';
 import { ConnectorProvider, queryClient } from '@/data/core';
 import { AgentRunProvider } from '@/data/queries/use-agent-run';
 import { useSyncAppUpdateStatus } from '@/data/queries/use-app-update';
@@ -42,7 +43,9 @@ function ThemedApp( { children }: PropsWithChildren ) {
 	}, [ colorScheme ] );
 	return (
 		<ThemeProvider isRoot color={ themeColor } density="compact">
-			<Tooltip.Provider>{ children }</Tooltip.Provider>
+			<Tooltip.Provider>
+				<OnboardingGuideProvider>{ children }</OnboardingGuideProvider>
+			</Tooltip.Provider>
 		</ThemeProvider>
 	);
 }

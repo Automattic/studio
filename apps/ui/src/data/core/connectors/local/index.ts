@@ -1,7 +1,9 @@
 import { getAuthenticationUrl, getSignUpUrl } from '@studio/common/lib/oauth';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
+import { readOnboardingHints, writeOnboardingHints } from '../browser-onboarding-hints';
 import { applyStoredSiteOrder, storeSiteOrder } from '../browser-site-order';
+import { readLastSeenVersion, writeLastSeenVersion } from '../browser-whats-new';
 import { buildPublishCheckoutUrl } from '../publish-checkout-url';
 import { UnsupportedError } from '../unsupported-error';
 import { readWapuuScore, writeWapuuScore } from '../wapuu-score-storage';
@@ -363,6 +365,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		async getSiteThumbnail(): Promise< string | null > {
 			return null;
+		},
+		async getSiteStorageUsage( siteId ) {
+			return api( `/sites/${ encodeURIComponent( siteId ) }/storage` );
 		},
 
 		// Site creation — delegated to the CLI `create` on the local machine.
@@ -859,6 +864,26 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		async disableAgenticUi() {
 			// No-op in the browser.
+		},
+		async getOnboardingHints() {
+			return readOnboardingHints();
+		},
+		async setOnboardingHints( partial ) {
+			writeOnboardingHints( partial );
+		},
+		onShowGettingStarted() {
+			// No application menu in a browser tab.
+			return () => {};
+		},
+		onShowWhatsNew() {
+			// No application menu in a browser tab.
+			return () => {};
+		},
+		async getLastSeenVersion() {
+			return readLastSeenVersion();
+		},
+		async saveLastSeenVersion( version ) {
+			writeLastSeenVersion( version );
 		},
 		async getAppUpdateStatus() {
 			return { readyToInstall: false, version: null };

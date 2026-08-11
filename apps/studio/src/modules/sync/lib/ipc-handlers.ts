@@ -541,18 +541,15 @@ export async function pullSiteFromLive(
 	}
 	const { reprintPull } = await getBetaFeatures();
 	const window = BrowserWindow.fromWebContents( event.sender );
-	return pullSite(
-		executeCliCommand,
-		site.details.path,
-		remoteSiteId,
-		( progress ) => {
+	return pullSite( executeCliCommand, site.details.path, remoteSiteId, {
+		emit: ( progress ) => {
 			sendIpcEventToRendererWithWindow( window, 'sync-pull-progress', {
 				siteId,
 				...progress,
 			} );
 		},
-		reprintPull ? 'reprint' : 'jetpack'
-	);
+		engine: reprintPull ? 'reprint' : 'jetpack',
+	} );
 }
 
 // Push for the agentic UI (apps/ui): the same shared `pushSite` the `studio ui`

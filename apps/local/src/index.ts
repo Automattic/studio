@@ -1085,11 +1085,13 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
-			await pullSite( execute, site.path, remoteSiteId, ( progress ) => {
-				sseSend( {
-					channel: 'sync-pull',
-					payload: { ...progress, siteId: req.params.id, remoteSiteId },
-				} );
+			await pullSite( execute, site.path, remoteSiteId, {
+				emit: ( progress ) => {
+					sseSend( {
+						channel: 'sync-pull',
+						payload: { ...progress, siteId: req.params.id, remoteSiteId },
+					} );
+				},
 			} );
 			res.sendStatus( 204 );
 		} )

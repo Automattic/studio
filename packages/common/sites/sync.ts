@@ -77,16 +77,24 @@ export async function pushSite(
 /**
  * Pull a local site from its connected WordPress.com live site via the CLI.
  * `jetpack` runs `pull`, exchanging everything (`--options all`); `reprint`
- * runs `pull-reprint`, which has no equivalent option and always pulls
- * everything when driven non-interactively. Both commands take the same
- * `--remote-site` identifier. Resolves on success, rejects on failure.
+ * runs `pull-reprint`, which has no equivalent option and pulls everything
+ * when driven non-interactively — except when it resumes a pull that was
+ * interrupted mid-flight, which reprint requires to keep its original
+ * content selection. Both commands take the same `--remote-site` identifier.
+ * Resolves on success, rejects on failure.
+ *
+ * Only the arguments differ per engine. The progress parsing below is the
+ * CLI-wide `reportProgress` envelope plus the `(N%)` token that `pull`,
+ * `pull-reprint`, `push` and `import` all emit, so both engines share it.
  */
 export function pullSite(
 	executeCliCommand: ExecuteCliCommand,
 	siteFolder: string,
 	remoteSiteId: number,
-	emit?: ( output: PullSiteProgress ) => void,
-	engine: PullEngine = 'jetpack'
+	{
+		emit,
+		engine = 'jetpack',
+	}: { emit?: ( output: PullSiteProgress ) => void; engine?: PullEngine } = {}
 ): Promise< void > {
 	const target = [ '--path', siteFolder, '--remote-site', String( remoteSiteId ) ];
 	const args =

@@ -22,7 +22,7 @@ describe( 'pullSite', () => {
 		const emitter = new EventEmitter();
 		const execute = vi.fn( () => [ emitter, {} ] ) as unknown as ExecuteCliCommand;
 
-		const pulling = pullSite( execute, '/sites/local', 42, undefined, 'reprint' );
+		const pulling = pullSite( execute, '/sites/local', 42, { engine: 'reprint' } );
 		emitter.emit( 'success' );
 		await pulling;
 
@@ -36,7 +36,7 @@ describe( 'pullSite', () => {
 		const emitter = new EventEmitter();
 		const execute = vi.fn( () => [ emitter, {} ] ) as unknown as ExecuteCliCommand;
 		const onProgress = vi.fn();
-		const pulling = pullSite( execute, '/sites/local', 42, onProgress );
+		const pulling = pullSite( execute, '/sites/local', 42, { emit: onProgress } );
 
 		emitter.emit( 'data', {
 			data: {

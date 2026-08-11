@@ -99,6 +99,9 @@ export function usePullSiteFromLive() {
 				"Studio couldn't copy the live site. Try again. If the problem continues, check Studio Logs for details."
 			);
 			reportSyncError( siteId, 'pull', message );
+			// A failed pull can still have stopped the server and half-written
+			// the site, so the list is as stale here as it is on success.
+			void queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
 			toast.error( __( "Pull didn't complete" ), { description: message } );
 		},
 	} );

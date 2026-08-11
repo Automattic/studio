@@ -1499,6 +1499,91 @@ describe( 'CLI: studio pull-reprint first-pull selective sync', () => {
 		] );
 		expect( sidecar.skipDatabase ).toBe( true );
 	} );
+
+	// The site directory is only rewritten from `preserveUnselectedLocalContent`
+	// onwards; every download before that lands in the scratch. `pulling` marks
+	// "half-written", so it must not be set while the site is still intact.
+	describe( 'the site is only marked as being written once it actually is', () => {
+		async function runPullFailingAt( failingStep: string ) {
+			const { runCommand } = await loadRunCommandWithFakeHome();
+			mockWpComPullSource();
+
+			const stateDirectory = path.join( fakeHome, '.studio', 'pulls', 'fresh-id', 'state' );
+			const sitePath = path.join( fakeHome, 'Studio', 'My-Fresh-Site' );
+
+			seedCliConfigSite( fakeHome, [
+				makeSiteRecord( {
+					id: 'fresh-id',
+					name: 'My Fresh Site',
+					path: sitePath,
+					status: 'ready',
+				} ),
+			] );
+
+			fs.mkdirSync( path.join( sitePath, 'wp-content', 'database' ), { recursive: true } );
+			fs.writeFileSync( path.join( sitePath, 'wp-content', 'database', '.ht.sqlite' ), 'local-db' );
+
+			fs.mkdirSync( stateDirectory, { recursive: true } );
+			fs.writeFileSync(
+				path.join( stateDirectory, '.import-state.json' ),
+				JSON.stringify( {
+					preflight: {
+						data: {
+							database: { wp: { paths_urls: { content_dir: '/srv/htdocs/wp-content' } } },
+							wp_detect: { roots: [ { path: '/wordpress/core/7.0' } ] },
+						},
+					},
+				} )
+			);
+
+			const migrationClientMod = await import( 'cli/lib/pull/migration-client' );
+			vi.spyOn( migrationClientMod, 'runReprintCommandUntilComplete' ).mockImplementation(
+				async ( _stateDir, _rawDir, args ) => {
+					if ( args[ 0 ] === failingStep ) {
+						throw new Error( `stop at ${ failingStep }` );
+					}
+					if ( args[ 0 ] === 'preflight' ) {
+						return {
+							stdout: JSON.stringify( {
+								data: {
+									ok: true,
+									database: { wp: { siteurl: 'https://example.com', table_prefix: 'wp_' } },
+									php: { version: '8.3' },
+								},
+							} ),
+							stderr: '',
+							exitCode: 0,
+						};
+					}
+					return { stdout: '{"ok":true}', stderr: '', exitCode: 0 };
+				}
+			);
+			vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+			vi.spyOn( console, 'error' ).mockImplementation( () => undefined );
+
+			await expect( runCommand( sitePath, 'https://example.com', false ) ).rejects.toThrow(
+				new RegExp( `stop at ${ failingStep }` )
+			);
+
+			return readSeededCliConfig( fakeHome ).sites.find( ( s ) => s.id === 'fresh-id' )!;
+		}
+
+		it( 'leaves a site untouched by a failed download as `ready`, not `pull-failed`', async () => {
+			// A dropped connection during pull-files is the likeliest failure,
+			// and the site is still the intact `studio create` install.
+			expect( ( await runPullFailingAt( 'pull-files' ) ).status ).toBe( 'ready' );
+		} );
+
+		it( 'still records the origin so the failed run can be resumed without --remote-site', async () => {
+			expect( ( await runPullFailingAt( 'pull-files' ) ).reprintOrigin ).toMatchObject( {
+				remoteUrl: 'https://example.com/',
+			} );
+		} );
+
+		it( 'marks `pull-failed` once the flatten has started rewriting the site', async () => {
+			expect( ( await runPullFailingAt( 'flat-docroot' ) ).status ).toBe( 'pull-failed' );
+		} );
+	} );
 } );
 
 describe( 'CLI: studio pull-reprint admin credentials re-apply', () => {

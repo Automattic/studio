@@ -409,12 +409,22 @@ export async function runCommand(
 			remoteSiteUrl: preflight.siteurl || normalizedRemoteUrl,
 			tablePrefix: preflight.table_prefix || undefined,
 		};
-		site.status = 'pulling';
 		site.reprintOrigin = origin;
 		await updateSiteRecord( site.id, ( record ) => {
-			record.status = 'pulling';
 			record.reprintOrigin = origin;
 		} );
+
+		// `pulling` means "the site directory is half-written", so it is set
+		// only once the pull reaches the steps that rewrite it — not here.
+		// The downloads run entirely in the scratch, so a dropped connection
+		// (by far the likeliest failure) leaves the site intact and startable
+		// rather than stranding it in `pull-failed`.
+		const markSiteBeingWritten = async () => {
+			site.status = 'pulling';
+			await updateSiteRecord( site.id, ( record ) => {
+				record.status = 'pulling';
+			} );
+		};
 
 		// db-apply (run inside `pull-db`) rewrites the remote site URL to
 		// the local one the Studio server already serves —
@@ -433,7 +443,8 @@ export async function runCommand(
 			secret,
 			verbose,
 			! isRepull,
-			selection
+			selection,
+			markSiteBeingWritten
 		);
 
 		// The site record already exists (created via `studio create`) and its
@@ -1047,7 +1058,13 @@ export async function runFullPull(
 	secret: string,
 	verbose: boolean,
 	force: boolean,
-	selection: PullSelection = {}
+	selection: PullSelection = {},
+	/**
+	 * Invoked once, immediately before the first step that writes the site
+	 * directory. Everything up to here lands in the scratch, so a failure
+	 * leaves the local site untouched — this is where it stops being true.
+	 */
+	onBeforeSiteWrite?: () => Promise< void >
 ): Promise< void > {
 	const contentDir = getContentDirFromState( metadata.stateDirectory );
 	const sqlitePath = contentDir
@@ -1134,6 +1151,11 @@ export async function runFullPull(
 	} else {
 		setSqliteRuntimeTarget( metadata.stateDirectory, sqlitePath );
 	}
+
+	// Everything above landed in the scratch; from here on the site
+	// directory itself is rewritten — step 3 *moves* local wp-content
+	// entries out of it, and the flatten then replaces the directory.
+	await onBeforeSiteWrite?.();
 
 	// 3. Carry the unselected local wp-content entries (and a kept
 	// database) into the scratch before flattening replaces the site's

@@ -12,6 +12,7 @@ import {
 } from '@studio/common/lib/connected-sites';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { getCurrentUserId } from '@studio/common/lib/shared-config';
+import { isSyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { fetchLatestRewindId, fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import { shouldRetryTusStatus } from '@studio/common/lib/sync/tus-upload';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
@@ -40,6 +41,9 @@ import { SyncOption } from 'src/types';
  * Key format: `${selectedSiteId}-${remoteSiteId}`
  */
 const SYNC_ABORT_CONTROLLERS = new Map< string, AbortController >();
+
+// Agentic push/pull resolve with this instead of rejecting when the user cancels.
+type SyncOperationResult = { cancelled: boolean };
 
 /**
  * Registry to store TUS upload instances and their pause state for ongoing uploads.
@@ -533,24 +537,47 @@ export async function pullSiteFromLive(
 	siteId: string,
 	remoteSiteId: number,
 	options?: PullSyncOptions
-): Promise< void > {
+): Promise< SyncOperationResult > {
 	const site = SiteServer.get( siteId );
 	if ( ! site ) {
 		throw new Error( 'Site not found.' );
 	}
 	const window = BrowserWindow.fromWebContents( event.sender );
-	return pullSite(
-		executeCliCommand,
-		site.details.path,
-		remoteSiteId,
-		( progress ) => {
-			sendIpcEventToRendererWithWindow( window, 'sync-pull-progress', {
-				siteId,
-				...progress,
-			} );
-		},
-		options
-	);
+	// Registered under the same key the legacy renderer uses, so `cancelSyncOperation`
+	// stops an agentic pull too.
+	const operationId = `${ siteId }-${ remoteSiteId }`;
+	const abortController = new AbortController();
+	SYNC_ABORT_CONTROLLERS.set( operationId, abortController );
+	try {
+		await pullSite(
+			executeCliCommand,
+			site.details.path,
+			remoteSiteId,
+			( progress ) => {
+				sendIpcEventToRendererWithWindow( window, 'sync-pull-progress', {
+					siteId,
+					...progress,
+				} );
+			},
+			options,
+			abortController.signal
+		);
+		return { cancelled: false };
+	} catch ( error ) {
+		// A user cancel is an intentional stop, not a failure. Rejecting here would
+		// make Electron log it as a handler error in the very log we point users at
+		// when a pull fails, so report it as a result instead — the renderer turns it
+		// back into a cancelled operation. Same reasoning as `downloadSyncBackup`.
+		if ( isSyncCancelledError( error ) ) {
+			console.log( `[Sync] Pull cancelled by user for operation: ${ operationId }` );
+			return { cancelled: true };
+		}
+		throw error;
+	} finally {
+		if ( SYNC_ABORT_CONTROLLERS.get( operationId ) === abortController ) {
+			SYNC_ABORT_CONTROLLERS.delete( operationId );
+		}
+	}
 }
 
 // Push for the agentic UI (apps/ui): the same shared `pushSite` the `studio ui`
@@ -563,7 +590,7 @@ export async function pushSiteToLive(
 	selectedSiteId: string,
 	remoteSiteId: number,
 	options?: PushSyncOptions
-): Promise< void > {
+): Promise< SyncOperationResult > {
 	const site = SiteServer.get( selectedSiteId );
 	if ( ! site ) {
 		throw new Error( 'Site not found.' );
@@ -572,33 +599,57 @@ export async function pushSiteToLive(
 	if ( ! token?.accessToken ) {
 		throw new Error( 'No token found' );
 	}
-	await pushSite(
-		{
-			executeCliCommand,
-			accessToken: token.accessToken,
-			emit: ( output ) => {
-				if ( output.kind === 'upload-progress' ) {
-					void sendIpcEventToRenderer( 'sync-upload-progress', {
-						selectedSiteId,
-						remoteSiteId,
-						progress: output.progress,
-					} );
-				} else if ( output.kind === 'network-paused' ) {
-					void sendIpcEventToRenderer( 'sync-upload-network-paused', {
-						selectedSiteId,
-						remoteSiteId,
-						error: output.error,
-					} );
-				} else if ( output.kind === 'resumed' ) {
-					void sendIpcEventToRenderer( 'sync-upload-resumed', {
-						selectedSiteId,
-						remoteSiteId,
-					} );
-				}
+	// See `pullSiteFromLive` — same registry, so `cancelSyncOperation` covers both UIs.
+	const operationId = `${ selectedSiteId }-${ remoteSiteId }`;
+	const abortController = new AbortController();
+	SYNC_ABORT_CONTROLLERS.set( operationId, abortController );
+	try {
+		await pushSite(
+			{
+				executeCliCommand,
+				accessToken: token.accessToken,
+				emit: ( output ) => {
+					if ( output.kind === 'phase' ) {
+						void sendIpcEventToRenderer( 'sync-push-phase', {
+							selectedSiteId,
+							remoteSiteId,
+							phase: output.phase,
+						} );
+					} else if ( output.kind === 'upload-progress' ) {
+						void sendIpcEventToRenderer( 'sync-upload-progress', {
+							selectedSiteId,
+							remoteSiteId,
+							progress: output.progress,
+						} );
+					} else if ( output.kind === 'network-paused' ) {
+						void sendIpcEventToRenderer( 'sync-upload-network-paused', {
+							selectedSiteId,
+							remoteSiteId,
+							error: output.error,
+						} );
+					} else if ( output.kind === 'resumed' ) {
+						void sendIpcEventToRenderer( 'sync-upload-resumed', {
+							selectedSiteId,
+							remoteSiteId,
+						} );
+					}
+				},
 			},
-		},
-		{ sitePath: site.details.path, remoteSiteId, options }
-	);
+			{ sitePath: site.details.path, remoteSiteId, options, signal: abortController.signal }
+		);
+		return { cancelled: false };
+	} catch ( error ) {
+		// See `pullSiteFromLive` — a cancel is reported, not thrown.
+		if ( isSyncCancelledError( error ) ) {
+			console.log( `[Sync] Push cancelled by user for operation: ${ operationId }` );
+			return { cancelled: true };
+		}
+		throw error;
+	} finally {
+		if ( SYNC_ABORT_CONTROLLERS.get( operationId ) === abortController ) {
+			SYNC_ABORT_CONTROLLERS.delete( operationId );
+		}
+	}
 }
 
 // Fetches every WordPress.com site the authenticated user can sync to.

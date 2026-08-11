@@ -1,3 +1,4 @@
+import { isSyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
 import { toast } from '@/data/app-messages';
@@ -5,6 +6,8 @@ import { useConnector } from '@/data/core';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
 import {
+	reportPushPhase,
+	reportSyncCancelled,
 	reportSyncError,
 	reportSyncPending,
 	reportSyncProgress,
@@ -30,7 +33,9 @@ export function usePushSiteToLive() {
 	return useMutation( {
 		mutationKey: PUSH_TO_LIVE_MUTATION_KEY,
 		mutationFn: ( { siteId, remoteSiteId, options }: PushToLiveVariables ) =>
-			connector.pushSiteToLive( siteId, remoteSiteId, options ),
+			connector.pushSiteToLive( siteId, remoteSiteId, options, ( phase ) =>
+				reportPushPhase( siteId, phase )
+			),
 		onMutate: ( { siteId } ) => {
 			reportSyncPending( siteId, 'push' );
 		},
@@ -42,6 +47,11 @@ export function usePushSiteToLive() {
 			toast.success( __( 'Push complete' ) );
 		},
 		onError: ( error, { siteId } ) => {
+			if ( isSyncCancelledError( error ) ) {
+				reportSyncCancelled( siteId, 'push' );
+				toast.success( __( 'Push cancelled' ) );
+				return;
+			}
 			const message = error instanceof Error ? error.message : String( error );
 			reportSyncError( siteId, 'push', message );
 			toast.error( __( "Push didn't complete" ) );
@@ -64,6 +74,24 @@ export function useDisconnectWpcomSite() {
 			void queryClient.invalidateQueries( {
 				queryKey: connectedWpcomSitesQueryKey( siteId ),
 			} );
+		},
+	} );
+}
+
+type CancelSyncVariables = {
+	siteId: string;
+	remoteSiteId: number;
+};
+
+// Stopping is best-effort: the push/pull mutation itself rejects with a
+// cancelled error and reports the outcome, so nothing is reported here.
+export function useCancelSync() {
+	const connector = useConnector();
+	return useMutation( {
+		mutationFn: ( { siteId, remoteSiteId }: CancelSyncVariables ) =>
+			connector.cancelSync( siteId, remoteSiteId ),
+		onError: ( error ) => {
+			console.error( 'Failed to cancel sync:', error );
 		},
 	} );
 }
@@ -102,6 +130,14 @@ export function usePullSiteFromLive() {
 			toast.success( __( 'Pull complete' ) );
 		},
 		onError: ( _error, { siteId } ) => {
+			if ( isSyncCancelledError( _error ) ) {
+				reportSyncCancelled( siteId, 'pull' );
+				// The CLI restarts the site server on its way out, so the local
+				// site may have been stopped and started again.
+				void queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
+				toast.success( __( 'Pull cancelled' ) );
+				return;
+			}
 			// Only point at the logs where the user can actually open them.
 			const canOpenLogs = connector.capabilities.studioLogs;
 			const message = canOpenLogs

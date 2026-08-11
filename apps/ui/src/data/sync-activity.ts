@@ -1,5 +1,7 @@
+import { canCancelPull, canCancelPush } from '@studio/common/lib/sync/cancel';
+import { __ } from '@wordpress/i18n';
 import { useSyncExternalStore } from 'react';
-import type { PullSiteProgress } from '@/data/core';
+import type { PullSiteProgress, PushPhase } from '@/data/core';
 
 // Tracks in-flight and recently completed live-site sync operations so the
 // Site Details header can surface a cross-page indicator. Uses a module-
@@ -13,8 +15,18 @@ import type { PullSiteProgress } from '@/data/core';
 export type SyncDirection = 'push' | 'pull' | 'preview';
 
 export type SyncActivity =
-	| { kind: 'pending'; direction: SyncDirection; message?: string; progress?: number }
+	| {
+			kind: 'pending';
+			direction: SyncDirection;
+			message?: string;
+			progress?: number;
+			// How far a push has got; drives the cancel gate. Pull reports the
+			// equivalent through the CLI `action` behind its progress message.
+			phase?: PushPhase;
+			action?: string;
+	  }
 	| { kind: 'success'; direction: SyncDirection }
+	| { kind: 'cancelled'; direction: SyncDirection }
 	| { kind: 'error'; direction: SyncDirection; message: string };
 
 // How long success/error stay visible before the indicator vanishes.
@@ -70,6 +82,40 @@ export function reportSyncProgress(
 	emit();
 }
 
+export function reportPushPhase( siteId: string, phase: PushPhase ): void {
+	const current = entries.get( siteId );
+	if ( current?.kind !== 'pending' || current.direction !== 'push' ) {
+		return;
+	}
+	clearExpiryTimer( siteId );
+	entries.set( siteId, { ...current, phase } );
+	emit();
+}
+
+export function reportSyncCancelled( siteId: string, direction: SyncDirection ): void {
+	entries.set( siteId, { kind: 'cancelled', direction } );
+	scheduleExpiry( siteId );
+	emit();
+}
+
+/**
+ * Whether the in-flight operation can still be stopped. Mirrors the legacy
+ * renderer: a push is cancellable until the remote import is initiated, a pull
+ * until the CLI starts writing the local site.
+ */
+export function canCancelSyncActivity( activity: SyncActivity | null ): boolean {
+	if ( activity?.kind !== 'pending' ) {
+		return false;
+	}
+	if ( activity.direction === 'push' ) {
+		return canCancelPush( activity.phase );
+	}
+	if ( activity.direction === 'pull' ) {
+		return canCancelPull( activity.action );
+	}
+	return false;
+}
+
 export function reportSyncSuccess( siteId: string, direction: SyncDirection ): void {
 	entries.set( siteId, { kind: 'success', direction } );
 	scheduleExpiry( siteId );
@@ -95,4 +141,33 @@ export function useSiteSyncActivity( siteId: string | undefined ): SyncActivity 
 		() => ( siteId ? snapshot.get( siteId ) ?? null : null ),
 		() => null
 	);
+}
+
+/**
+ * Wording for the cancel affordance, or null when there is nothing to cancel.
+ * Shared by the dropdown trigger (always visible while a sync runs) and the
+ * progress panel inside the dropdown, so both read identically.
+ */
+export function getSyncCancelLabels(
+	activity: SyncActivity | null
+): { label: string; enabled: boolean } | null {
+	if ( activity?.kind !== 'pending' || activity.direction === 'preview' ) {
+		return null;
+	}
+
+	const enabled = canCancelSyncActivity( activity );
+	if ( activity.direction === 'push' ) {
+		return {
+			enabled,
+			label: enabled
+				? __( 'Cancel push' )
+				: __( 'Push can not be cancelled while applying changes to the remote site' ),
+		};
+	}
+	return {
+		enabled,
+		label: enabled
+			? __( 'Cancel pull' )
+			: __( 'Pull can not be cancelled while importing changes to your local site' ),
+	};
 }

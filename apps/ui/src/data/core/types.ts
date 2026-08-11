@@ -21,6 +21,7 @@ import type { Snapshot } from '@studio/common/types/snapshot';
 import type {
 	PullSiteProgress,
 	PullSyncOptions,
+	PushPhase,
 	PushSyncOptions,
 	SyncSite,
 } from '@studio/common/types/sync';
@@ -49,6 +50,7 @@ export type { Snapshot } from '@studio/common/types/snapshot';
 export type {
 	PullSiteProgress,
 	PullSyncOptions,
+	PushPhase,
 	PushSyncOptions,
 	SyncSite,
 } from '@studio/common/types/sync';
@@ -298,7 +300,8 @@ export interface Connector {
 	pushSiteToLive(
 		siteId: string,
 		remoteSiteId: number,
-		options?: PushSyncOptions
+		options?: PushSyncOptions,
+		onPhase?: ( phase: PushPhase ) => void
 	): Promise< void >;
 	// Pulls the connected WordPress.com site's database + wp-content back
 	// into the local Studio site, or only the selection described by
@@ -310,6 +313,10 @@ export interface Connector {
 		onProgress?: ( progress: PullSiteProgress ) => void,
 		options?: PullSyncOptions
 	): Promise< void >;
+	// Stops an in-flight push or pull, rejecting the operation with a cancelled
+	// error. A no-op once the operation is past the point where stopping is safe
+	// (`canCancelPush` / `canCancelPull`), and when nothing is running.
+	cancelSync( siteId: string, remoteSiteId: number ): Promise< void >;
 	// Latest rewind (backup) id of the connected live site, or `null` when no
 	// backup exists yet. Selective pull browses the backup tree under this id.
 	getLatestRewindId( remoteSiteId: number ): Promise< string | null >;

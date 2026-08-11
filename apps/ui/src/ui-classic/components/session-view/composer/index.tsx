@@ -312,8 +312,6 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 
-	// Inline slash-command autocomplete: typing a trailing `/token` opens a
-	// listbox of skill commands above the textarea.
 	const slash = useSlashCommands( {
 		value,
 		setValue,

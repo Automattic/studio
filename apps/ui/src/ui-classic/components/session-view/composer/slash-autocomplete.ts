@@ -7,16 +7,10 @@ export interface SlashCommandMatches {
 }
 
 /**
- * Pure helper that decides whether the inline slash-command autocomplete popup
- * should be open and, if so, which commands match the current draft.
- *
- * The popup opens when the textarea ends with a `/` token that sits at the
- * very start or right after whitespace (e.g. `/`, `/an`, `fix this /sp`), and
- * no preview prompt is active. A `/` glued to the end of a word (e.g.
- * `path/to`) does not trigger it. The text after the `/` is matched as a
- * case-insensitive substring against the available skill command names and
- * descriptions (so `/speed` matches `need-for-speed` and `/migrate` matches
- * `liberate`). If nothing matches, the popup closes.
+ * Decides whether the slash-command popup is open and which commands match.
+ * Opens when the draft ends with a `/` token at the start or after whitespace
+ * (`path/to` doesn't trigger it); the text after the `/` is matched as a
+ * case-insensitive substring of command names and descriptions.
  */
 export function getSlashCommandMatches(
 	value: string,

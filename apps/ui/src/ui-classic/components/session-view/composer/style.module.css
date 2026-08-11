@@ -337,10 +337,9 @@
 	min-width: 0;
 }
 
-/* Inline listbox anchored above the textarea. Reuses the Menu surface
-   (`.popup` from @/components/menu/style.module.css) for its look; this rule
-   only adds the anchor/layout bits the portaled Menu doesn't need. Stays a
-   plain element so the textarea keeps focus. */
+/* Inline listbox anchored above the textarea. The Menu `.popup` class provides
+   the surface; this only adds the anchor/layout bits the portaled Menu doesn't
+   need. Stays a plain element so the textarea keeps focus. */
 .autocompletePopup {
 	position: absolute;
 	bottom: calc(100% + 4px);

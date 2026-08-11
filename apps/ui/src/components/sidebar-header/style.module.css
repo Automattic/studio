@@ -30,6 +30,16 @@
 	padding-left: var(--wpds-dimension-padding-2xl);
 }
 
+/* Windows/Linux paint the native window controls in a band at the top of the
+   window that can't be moved or offset, so the header takes exactly that
+   height and its content centers on the same line as the buttons. Border-box
+   because the band's height is the header's total height, padding included;
+   the 46px floor above only exists to clear the macOS traffic lights. */
+.windowControls {
+	box-sizing: border-box;
+	min-height: var(--sidebar-header-controls-height);
+}
+
 .menuButton {
 	margin-inline-start: calc(-1 * var(--wpds-dimension-padding-sm));
 	cursor: var(--wpds-cursor-control);

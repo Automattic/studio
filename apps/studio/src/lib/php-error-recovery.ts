@@ -78,7 +78,7 @@ function generateErrorPageHtml( errorMessage: string ): string {
 	return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>PHP Error</title>
 <style>html{background:#f1f1f1}body{background:#fff;border:1px solid #ccd0d4;color:#444;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;margin:2em auto;padding:1em 2em;max-width:700px}h1{color:#d63638;font-size:1.3em}pre{background:#f6f7f7;border:1px solid #dcdcde;padding:1em;white-space:pre-wrap;word-wrap:break-word;font-size:13px}.info{background:#f0f6fc;border-left:4px solid #72aee6;padding:12px 16px;margin:1.5em 0}</style>
 </head><body><h1>PHP Error Detected</h1><pre>${ escaped }</pre>
-<div class="info"><p><strong>Studio is watching for file changes.</strong> Fix the PHP error and the site will automatically restart.</p></div></body></html>`;
+<div class="info"><p><strong>Studio is watching for file changes.</strong> Fix the PHP error, then refresh this page.</p></div></body></html>`;
 }
 
 /**

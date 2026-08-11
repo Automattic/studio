@@ -35,4 +35,32 @@ describe( 'pullSite', () => {
 			message: 'Importing media uploads… (3/10)',
 		} );
 	} );
+
+	it( 'passes backup node ids with commas as separate argv values', async () => {
+		const emitter = new EventEmitter();
+		const execute = vi.fn( () => [ emitter, {} ] ) as unknown as ExecuteCliCommand;
+		const includePathList = [ 'cjE6,ZjE6Lw==', 'cjI6,ZjI6Lw==', 'ZjM6Lw==' ];
+		const pulling = pullSite( execute, '/sites/local', 42, undefined, {
+			optionsToSync: [ 'paths' ],
+			includePathList,
+		} );
+
+		emitter.emit( 'success' );
+		await pulling;
+
+		expect( execute ).toHaveBeenCalledWith(
+			[
+				'pull',
+				'--path',
+				'/sites/local',
+				'--remote-site',
+				'42',
+				'--options',
+				'paths',
+				'--include-path-list',
+				...includePathList,
+			],
+			{ output: 'capture' }
+		);
+	} );
 } );

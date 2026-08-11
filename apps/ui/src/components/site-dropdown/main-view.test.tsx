@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider, useIsMutating } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import * as Menu from '@/components/menu';
 import { MainView } from './main-view';
 import type { SiteDetails, Snapshot, SyncSite } from '@/data/core';
 import type { SyncActivity } from '@/data/sync-activity';
@@ -15,10 +16,9 @@ const {
 	stopSiteMutate,
 } = vi.hoisted( () => ( {
 	connector: {
+		capabilities: {},
 		copyText: vi.fn(),
 		openExternalUrl: vi.fn(),
-		getLiveSyncItems: vi.fn(),
-		getLiveSyncLatestBackupTime: vi.fn(),
 	},
 	snapshots: [] as Snapshot[],
 	connectedSites: [] as SyncSite[],
@@ -61,6 +61,11 @@ vi.mock( '@/data/queries/use-preview-site', () => ( {
 	usePublishPreviewSite: () => ( { isPending: false, mutate: publishPreviewMutate } ),
 } ) );
 
+vi.mock( '@/data/queries/use-checkpoints', () => ( {
+	useCheckpoints: () => ( { data: [] } ),
+	useCreateCheckpoint: () => ( { isPending: false, mutate: vi.fn() } ),
+} ) );
+
 vi.mock( '@/data/queries/use-sites', () => ( {
 	useIsSiteStarting: () => transitions.starting,
 	useIsSiteStopping: () => transitions.stopping,
@@ -91,6 +96,8 @@ const site: SiteDetails = {
 function renderMainView(
 	props: {
 		onDisconnectClick?: () => void;
+		onPullClick?: () => void;
+		onPushClick?: () => void;
 		siteOverrides?: Partial< SiteDetails >;
 		activity?: SyncActivity | null;
 	} = {}
@@ -98,13 +105,19 @@ function renderMainView(
 	const queryClient = new QueryClient();
 	return render(
 		<QueryClientProvider client={ queryClient }>
-			<MainView
-				site={ { ...site, ...props.siteOverrides } }
-				activity={ props.activity ?? null }
-				lastSyncLog={ null }
-				onSetupClick={ vi.fn() }
-				onDisconnectClick={ props.onDisconnectClick ?? vi.fn() }
-			/>
+			<Menu.Root open>
+				<Menu.Popup>
+					<MainView
+						site={ { ...site, ...props.siteOverrides } }
+						activity={ props.activity ?? null }
+						lastSyncLog={ null }
+						onSetupClick={ vi.fn() }
+						onDisconnectClick={ props.onDisconnectClick ?? vi.fn() }
+						onPullClick={ props.onPullClick ?? vi.fn() }
+						onPushClick={ props.onPushClick ?? vi.fn() }
+					/>
+				</Menu.Popup>
+			</Menu.Root>
 		</QueryClientProvider>
 	);
 }
@@ -114,10 +127,6 @@ describe( 'MainView', () => {
 		vi.mocked( useIsMutating ).mockImplementation( () => 0 );
 		connector.copyText.mockReset();
 		connector.openExternalUrl.mockReset();
-		connector.getLiveSyncItems.mockReset();
-		connector.getLiveSyncItems.mockResolvedValue( { source: 'local', themes: [], plugins: [] } );
-		connector.getLiveSyncLatestBackupTime.mockReset();
-		connector.getLiveSyncLatestBackupTime.mockResolvedValue( null );
 		publishPreviewMutate.mockReset();
 		startSiteMutate.mockReset();
 		stopSiteMutate.mockReset();
@@ -199,7 +208,7 @@ describe( 'MainView', () => {
 		consoleError.mockRestore();
 	} );
 
-	it( 'shows disconnect at the bottom of the sync flyout', () => {
+	it( 'shows disconnect in the live-site actions menu', () => {
 		const onDisconnectClick = vi.fn();
 		connectedSites.splice( 0, connectedSites.length, {
 			id: 123,
@@ -215,12 +224,8 @@ describe( 'MainView', () => {
 
 		renderMainView( { onDisconnectClick } );
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Sync' } ) );
-
-		expect(
-			screen.queryByRole( 'button', { name: 'More live site actions' } )
-		).not.toBeInTheDocument();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Disconnect' } ) );
+		fireEvent.click( screen.getByRole( 'menuitem', { name: 'More live site actions' } ) );
+		fireEvent.click( screen.getByRole( 'menuitem', { name: 'Disconnect' } ) );
 
 		expect( onDisconnectClick ).toHaveBeenCalledTimes( 1 );
 	} );
@@ -235,8 +240,13 @@ describe( 'MainView', () => {
 			},
 		} );
 
-		expect( screen.getByRole( 'status' ) ).toHaveTextContent( 'Pulling from live…' );
-		expect( screen.getByRole( 'status' ) ).toHaveTextContent( 'Creating remote backup… (24%)' );
+		const statuses = screen.getAllByRole( 'status' );
+		expect(
+			statuses.some( ( status ) => status.textContent?.includes( 'Pulling from live…' ) )
+		).toBe( true );
+		expect(
+			statuses.some( ( status ) => status.textContent?.includes( 'Creating remote backup… (24%)' ) )
+		).toBe( true );
 	} );
 
 	it( 'updates the existing preview site while the snapshot is fresh', () => {

@@ -24,7 +24,7 @@ import { shouldRetryTusStatus } from '@studio/common/lib/sync/tus-upload';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import { pullSite, pushSite } from '@studio/common/sites/sync';
-import { SyncSite } from '@studio/common/types/sync';
+import { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
 import { __, sprintf } from '@wordpress/i18n';
 import { Upload } from 'tus-js-client';
 import { z } from 'zod';
@@ -662,8 +662,7 @@ export async function pullSiteFromLive(
 	event: IpcMainInvokeEvent,
 	siteId: string,
 	remoteSiteId: number,
-	optionsToSync: SyncOption[] = [ 'all' ],
-	includePathList?: string[]
+	options?: PullSyncOptions
 ): Promise< void > {
 	const site = SiteServer.get( siteId );
 	if ( ! site ) {
@@ -674,13 +673,13 @@ export async function pullSiteFromLive(
 		executeCliCommand,
 		site.details.path,
 		remoteSiteId,
-		{ optionsToSync, includePathList },
 		( progress ) => {
 			sendIpcEventToRendererWithWindow( window, 'sync-pull-progress', {
 				siteId,
 				...progress,
 			} );
-		}
+		},
+		options
 	);
 }
 
@@ -692,7 +691,8 @@ export async function pullSiteFromLive(
 export async function pushSiteToLive(
 	_event: IpcMainInvokeEvent,
 	selectedSiteId: string,
-	remoteSiteId: number
+	remoteSiteId: number,
+	options?: PushSyncOptions
 ): Promise< void > {
 	const site = SiteServer.get( selectedSiteId );
 	if ( ! site ) {
@@ -727,7 +727,7 @@ export async function pushSiteToLive(
 				}
 			},
 		},
-		{ sitePath: site.details.path, remoteSiteId }
+		{ sitePath: site.details.path, remoteSiteId, options }
 	);
 }
 
@@ -768,4 +768,80 @@ export async function getConnectedWpcomSites(
 		return getConnectedWpcomSitesForLocalSite( localSiteId );
 	}
 	return getAllConnectedWpcomSitesForCurrentUser();
+}
+
+/**
+ * Latest rewind (backup) id for a remote site — used by the agentic UI's
+ * selective pull to browse the remote backup file tree. Rejects when the site
+ * has no backup yet (or the lookup fails), like the classic renderer's query:
+ * the dialog relies on the error state to disable per-item selection and
+ * force a full sync.
+ */
+export async function getLatestRewindId(
+	_event: IpcMainInvokeEvent,
+	remoteSiteId: number
+): Promise< string | null > {
+	const token = await getAuthenticationToken();
+	if ( ! token?.accessToken ) {
+		throw new Error( 'No token found' );
+	}
+	return fetchLatestRewindId( token.accessToken, remoteSiteId );
+}
+
+/**
+ * Raw contents of a remote backup directory (rewind backup `ls`), keyed by
+ * entry name. The renderer maps entries to tree nodes; returning the raw
+ * items preserves `has_children`/`type` used for plugin/theme classification.
+ */
+export async function listRemoteFileTree(
+	_event: IpcMainInvokeEvent,
+	remoteSiteId: number,
+	rewindId: string,
+	treePath: string
+): Promise< Record< string, unknown > > {
+	const token = await getAuthenticationToken();
+	if ( ! token?.accessToken ) {
+		throw new Error( 'No token found' );
+	}
+	const wpcom = wpcomFactory( token.accessToken, wpcomXhrRequest );
+	const rawResponse = await wpcom.req.post( {
+		path: `/sites/${ remoteSiteId }/rewind/backup/ls`,
+		apiNamespace: 'wpcom/v2',
+		body: { backup_id: rewindId, path: treePath },
+	} );
+	const parsed = z
+		.object( {
+			ok: z.boolean(),
+			error: z.string().optional(),
+			contents: z.record( z.string(), z.unknown() ).optional(),
+		} )
+		.parse( rawResponse );
+	if ( ! parsed.ok ) {
+		throw new Error( parsed.error || 'Failed to fetch remote file tree' );
+	}
+	return parsed.contents ?? {};
+}
+
+/**
+ * PHP version of the remote site's hosting environment — used by the agentic
+ * UI's sync dialog to warn about version mismatches before pushing.
+ */
+export async function getHostingPhpVersion(
+	_event: IpcMainInvokeEvent,
+	remoteSiteId: number
+): Promise< string | undefined > {
+	const token = await getAuthenticationToken();
+	if ( ! token?.accessToken ) {
+		throw new Error( 'No token found' );
+	}
+	try {
+		const wpcom = wpcomFactory( token.accessToken, wpcomXhrRequest );
+		const response = await wpcom.req.get( {
+			apiNamespace: 'wpcom/v2',
+			path: `/sites/${ remoteSiteId }/hosting/php-version`,
+		} );
+		return z.string().parse( response );
+	} catch {
+		return undefined;
+	}
 }

@@ -47,6 +47,7 @@ import type { AiResponseLength } from '@studio/common/ai/response-length';
 import type { StoredAuthToken } from '@studio/common/lib/auth-token-schema';
 import type { SiteEvent } from '@studio/common/lib/cli-events';
 import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
+import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 function generateBackupFilename( siteName: string ): string {
@@ -803,34 +804,15 @@ export function createIpcConnector(): Connector {
 		},
 
 		async pushSiteToLive( siteId, remoteSiteId, options ): Promise< void > {
-			// Mirrors the desktop app's `pushSiteThunk` — export a backup, then
-			// TUS-upload it + initiate the remote import. We skip the
-			// post-upload polling that the desktop app uses for progress UI;
-			// `pushArchive` only resolves after `import/initiate` succeeds, so
-			// the remote import may still be running when this returns.
-			const operationId = window.crypto.randomUUID();
-			const { archivePath } = ( await ipcApi.exportSiteForPush( siteId, operationId, {
-				optionsToSync: options?.optionsToSync,
-				specificSelectionPaths: options?.specificSelectionPaths,
-			} ) ) as { archivePath: string };
-			const result = ( await ipcApi.pushArchive(
-				siteId,
-				remoteSiteId,
-				archivePath,
-				options?.optionsToSync,
-				options?.specificSelectionPaths
-			) ) as { success: boolean; error?: string };
-			if ( ! result.success ) {
-				throw new Error( result.error ?? 'Push failed' );
-			}
-			await markConnectedWpcomSiteSynced( siteId, remoteSiteId, 'push' );
+			// The agentic UI pushes via the shared `pushSite` (export → TUS
+			// upload → import) in both desktop and `studio ui`; the desktop runs
+			// it behind this single IPC handler. Resolves once the import is
+			// initiated (the remote import may still be running).
+			await ipcApi.pushSiteToLive( siteId, remoteSiteId, options );
 		},
 
-		async pullSiteFromLive( siteId, remoteSiteId, optionsOrProgress, onProgress ): Promise< void > {
-			const options = typeof optionsOrProgress === 'function' ? undefined : optionsOrProgress;
-			const progressCallback =
-				typeof optionsOrProgress === 'function' ? optionsOrProgress : onProgress;
-			const unsubscribe = progressCallback
+		async pullSiteFromLive( siteId, remoteSiteId, onProgress, options ): Promise< void > {
+			const unsubscribe = onProgress
 				? ipcListener.subscribe(
 						'sync-pull-progress',
 						(
@@ -838,7 +820,7 @@ export function createIpcConnector(): Connector {
 							payload: { siteId: string; message: string; progress?: number }
 						) => {
 							if ( payload.siteId === siteId ) {
-								progressCallback( {
+								onProgress( {
 									message: payload.message,
 									...( payload.progress === undefined ? {} : { progress: payload.progress } ),
 								} );
@@ -847,16 +829,7 @@ export function createIpcConnector(): Connector {
 				  )
 				: undefined;
 			try {
-				if ( options ) {
-					await ipcApi.pullSiteFromLive(
-						siteId,
-						remoteSiteId,
-						options.optionsToSync,
-						options.includePathList
-					);
-				} else {
-					await ipcApi.pullSiteFromLive( siteId, remoteSiteId );
-				}
+				await ipcApi.pullSiteFromLive( siteId, remoteSiteId, options );
 			} finally {
 				unsubscribe?.();
 			}
@@ -877,6 +850,36 @@ export function createIpcConnector(): Connector {
 
 		async markLiveSiteSynced( localSiteId, remoteSiteId, direction ) {
 			await markConnectedWpcomSiteSynced( localSiteId, remoteSiteId, direction );
+		},
+		async getLatestRewindId( remoteSiteId ): Promise< string | null > {
+			return ( await ipcApi.getLatestRewindId( remoteSiteId ) ) as string | null;
+		},
+
+		async listRemoteFileTree( remoteSiteId, rewindId, path ): Promise< Record< string, unknown > > {
+			return ( await ipcApi.listRemoteFileTree( remoteSiteId, rewindId, path ) ) as Record<
+				string,
+				unknown
+			>;
+		},
+
+		async getHostingPhpVersion( remoteSiteId ): Promise< string | undefined > {
+			return ( await ipcApi.getHostingPhpVersion( remoteSiteId ) ) as string | undefined;
+		},
+
+		async listLocalFileTree( siteId, path, depth ): Promise< RawDirectoryEntry[] > {
+			return ( await ipcApi.listLocalFileTree( siteId, path, depth ) ) as RawDirectoryEntry[];
+		},
+
+		async getDirectorySize( siteId, path ): Promise< number > {
+			return ( await ipcApi.getDirectorySize( siteId, path ) ) as number;
+		},
+
+		async getFileSize( siteId, path ): Promise< number > {
+			return ( await ipcApi.getFileSize( siteId, path ) ) as number;
+		},
+
+		async getIsMultisite( siteId ): Promise< boolean | undefined > {
+			return ( await ipcApi.getIsMultisite( siteId ) ) as boolean | undefined;
 		},
 
 		getPublishCheckoutUrl( site ): string {

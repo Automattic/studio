@@ -41,50 +41,11 @@ import type { SyncOption } from '@studio/common/types/sync';
 
 const logger = new Logger< LoggerAction >();
 
-function parseIncludePathList( value?: string ): string[] | undefined {
-	if ( ! value ) {
-		return undefined;
-	}
-
-	const trimmedValue = value.trim();
-	if ( ! trimmedValue ) {
-		return undefined;
-	}
-
-	if ( trimmedValue.startsWith( '[' ) ) {
-		let parsedValue: unknown;
-		try {
-			parsedValue = JSON.parse( trimmedValue );
-		} catch ( error ) {
-			throw new LoggerError(
-				__( 'Invalid include path list. Pass a JSON array of remote path IDs.' ),
-				error
-			);
-		}
-
-		if (
-			! Array.isArray( parsedValue ) ||
-			! parsedValue.every( ( item ): item is string => typeof item === 'string' && item.length > 0 )
-		) {
-			throw new LoggerError(
-				__( 'Invalid include path list. Pass a JSON array of remote path IDs.' )
-			);
-		}
-
-		return parsedValue;
-	}
-
-	return trimmedValue
-		.split( ',' )
-		.map( ( item ) => item.trim() )
-		.filter( Boolean );
-}
-
 export async function runCommand(
 	siteFolder: string,
 	syncOptions?: SyncOption[],
 	siteIdentifier?: string,
-	includePathListArg?: string[]
+	syncIncludePathList?: string[]
 ): Promise< void > {
 	let site: SiteData | undefined;
 	let wasServerRunning = false;
@@ -122,10 +83,11 @@ export async function runCommand(
 		}
 
 		let optionsToSync: SyncOption[];
-		let includePathList: string[] | undefined = includePathListArg;
+		let includePathList: string[] | undefined;
 
 		if ( syncOptions ) {
 			optionsToSync = syncOptions;
+			includePathList = syncIncludePathList;
 		} else {
 			logger.reportStart( LoggerAction.FETCH_REMOTE_SITES, __( 'Fetching file tree…' ) );
 			const { tree } = await fetchPullTree( token.accessToken, remoteSite.id );
@@ -301,9 +263,15 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					description: __( 'Remote site URL or ID' ),
 				} )
 				.option( 'include-path-list', {
-					type: 'string',
-					description: __( 'JSON array of remote path IDs to pull when using the paths option' ),
-					coerce: parseIncludePathList,
+					type: 'array',
+					description: __( 'Backup node ids to pull when using the "paths" option' ),
+					hidden: true,
+					coerce: ( value ) => {
+						if ( ! Array.isArray( value ) ) {
+							throw new Error( __( 'include-path-list must be an array' ) );
+						}
+						return value.map( String );
+					},
 				} );
 		},
 		handler: async ( argv ) => {

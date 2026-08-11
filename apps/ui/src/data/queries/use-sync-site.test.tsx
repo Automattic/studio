@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useSiteSyncActivity } from '@/data/sync-activity';
-import { usePullSiteFromLive } from './use-sync-site';
+import { usePullSiteFromLive, usePushSiteToLive } from './use-sync-site';
 import type { Connector } from '@/data/core';
 
 vi.mock( '@/data/core', async ( importOriginal ) => {
@@ -35,6 +35,15 @@ function Harness() {
 	);
 }
 
+function PushHarness() {
+	const push = usePushSiteToLive();
+	return (
+		<button type="button" onClick={ () => push.mutate( { siteId: 'site-1', remoteSiteId: 42 } ) }>
+			Push
+		</button>
+	);
+}
+
 describe( 'usePullSiteFromLive', () => {
 	let finishPull: () => void;
 
@@ -43,7 +52,7 @@ describe( 'usePullSiteFromLive', () => {
 		finishPull = () => {};
 		useConnectorMock.mockReturnValue( {
 			capabilities: { studioLogs: true },
-			pullSiteFromLive: vi.fn( async ( _siteId, _remoteSiteId, _options, onProgress ) => {
+			pullSiteFromLive: vi.fn( async ( _siteId, _remoteSiteId, onProgress ) => {
 				onProgress?.( { message: 'Creating remote backup… (24%)', progress: 24 } );
 				await new Promise< void >( ( resolve ) => {
 					finishPull = resolve;
@@ -130,5 +139,30 @@ describe( 'usePullSiteFromLive', () => {
 				action: undefined,
 			} )
 		);
+	} );
+
+	it( 'completes a push when the host cannot poll remote import status', async () => {
+		const pushSiteToLive = vi.fn().mockResolvedValue( undefined );
+		const markLiveSiteSynced = vi.fn();
+		useConnectorMock.mockReturnValue( {
+			capabilities: { studioLogs: false },
+			getLiveSyncImportStatus: vi.fn().mockRejectedValue( new Error( 'unsupported' ) ),
+			pushSiteToLive,
+			markLiveSiteSynced,
+		} as unknown as Connector );
+		const queryClient = new QueryClient( {
+			defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+		} );
+		render(
+			<QueryClientProvider client={ queryClient }>
+				<PushHarness />
+			</QueryClientProvider>
+		);
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Push' } ) );
+
+		await waitFor( () => expect( pushSiteToLive ).toHaveBeenCalledWith( 'site-1', 42, undefined ) );
+		expect( markLiveSiteSynced ).not.toHaveBeenCalled();
+		expect( toast.success ).toHaveBeenCalledWith( 'Push complete' );
 	} );
 } );

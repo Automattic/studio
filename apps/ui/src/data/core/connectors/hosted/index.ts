@@ -406,6 +406,27 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async markLiveSiteSynced() {
 			throw new UnsupportedError( 'markLiveSiteSynced' );
 		},
+		async getLatestRewindId(): Promise< string | null > {
+			throw new UnsupportedError( 'getLatestRewindId' );
+		},
+		async listRemoteFileTree(): Promise< Record< string, unknown > > {
+			throw new UnsupportedError( 'listRemoteFileTree' );
+		},
+		async getHostingPhpVersion(): Promise< string | undefined > {
+			throw new UnsupportedError( 'getHostingPhpVersion' );
+		},
+		async listLocalFileTree(): Promise< never > {
+			throw new UnsupportedError( 'listLocalFileTree' );
+		},
+		async getDirectorySize(): Promise< never > {
+			throw new UnsupportedError( 'getDirectorySize' );
+		},
+		async getFileSize(): Promise< never > {
+			throw new UnsupportedError( 'getFileSize' );
+		},
+		async getIsMultisite(): Promise< never > {
+			throw new UnsupportedError( 'getIsMultisite' );
+		},
 		getPublishCheckoutUrl() {
 			return undefined;
 		},

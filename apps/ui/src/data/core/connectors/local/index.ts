@@ -638,35 +638,64 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				method: 'POST',
 			} );
 		},
-		async pushSiteToLive( siteId, remoteSiteId ) {
+		async pushSiteToLive( siteId, remoteSiteId, options ) {
 			await api( `/sites/${ encodeURIComponent( siteId ) }/push`, {
 				method: 'POST',
-				body: JSON.stringify( { remoteSiteId } ),
+				body: JSON.stringify( { remoteSiteId, options } ),
 			} );
 		},
-		async pullSiteFromLive( siteId, remoteSiteId, optionsOrProgress, onProgress ) {
-			const options = typeof optionsOrProgress === 'function' ? undefined : optionsOrProgress;
-			const progressCallback =
-				typeof optionsOrProgress === 'function' ? optionsOrProgress : onProgress;
+		async pullSiteFromLive( siteId, remoteSiteId, onProgress, options ) {
 			const listener = ( output: PullProgressSseOutput ) => {
 				if ( output.siteId === siteId ) {
-					progressCallback?.( {
+					onProgress?.( {
 						message: output.message,
 						...( output.progress === undefined ? {} : { progress: output.progress } ),
 					} );
 				}
 			};
-			if ( progressCallback ) {
+			if ( onProgress ) {
 				pullProgressListeners.add( listener );
 			}
 			try {
 				await api( `/sites/${ encodeURIComponent( siteId ) }/pull`, {
 					method: 'POST',
-					body: JSON.stringify( { remoteSiteId, ...options } ),
+					body: JSON.stringify( { remoteSiteId, options } ),
 				} );
 			} finally {
 				pullProgressListeners.delete( listener );
 			}
+		},
+		async getLatestRewindId( remoteSiteId ) {
+			return api< string | null >( `/wpcom/sites/${ remoteSiteId }/latest-rewind-id` );
+		},
+		async listRemoteFileTree( remoteSiteId, rewindId, path ) {
+			return api< Record< string, unknown > >(
+				`/wpcom/sites/${ remoteSiteId }/remote-file-tree?rewindId=${ encodeURIComponent(
+					rewindId
+				) }&path=${ encodeURIComponent( path ) }`
+			);
+		},
+		// Selective-sync local lookups: the server has no per-file endpoints yet,
+		// so degrade the same way the dialog does elsewhere without this data —
+		// category-level selection works; file trees, size estimates, and
+		// version warnings are simply absent.
+		async listLocalFileTree() {
+			return [];
+		},
+		async getDirectorySize() {
+			return 0;
+		},
+		async getFileSize() {
+			return 0;
+		},
+		async getIsMultisite() {
+			return undefined;
+		},
+		async getHostingPhpVersion( remoteSiteId ) {
+			const version = await api< string | null >(
+				`/wpcom/sites/${ remoteSiteId }/hosting-php-version`
+			);
+			return version ?? undefined;
 		},
 		getPublishCheckoutUrl( site ): string {
 			// The post-checkout auto-connect relies on the deep-link listener, which

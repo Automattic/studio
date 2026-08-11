@@ -1,12 +1,20 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTourAnchor } from '@/components/coachmarks/anchor-registry';
 import * as Menu from '@/components/menu';
+import {
+	convertTreeToPullOptions,
+	convertTreeToPushOptions,
+} from '@/components/selective-sync/lib/convert-tree-to-sync-options';
+import { registerSelectiveSyncConnector } from '@/components/selective-sync/lib/get-ipc-api';
+import { SyncDialog } from '@/components/selective-sync/sync-dialog';
+import '@/components/selective-sync/selective-sync.css';
 import { useConnector } from '@/data/core';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import { markChecklistItemComplete } from '@/data/queries/use-onboarding-hints';
 import { useIsSiteStarting, useIsSiteStopping } from '@/data/queries/use-sites';
 import { useSnapshots } from '@/data/queries/use-snapshots';
+import { usePullSiteFromLive, usePushSiteToLive } from '@/data/queries/use-sync-site';
 import { useSiteLastSyncLog, useSiteSyncActivity } from '@/data/sync-activity';
 import { getSiteDisplayUrl } from '@/lib/get-site-url';
 import { DisconnectSiteDialog } from './disconnect-site-dialog';
@@ -15,7 +23,8 @@ import { MainView } from './main-view';
 import { PublishPickerView } from './publish-picker-view';
 import styles from './style.module.css';
 import { getSiteDropdownSecondary } from './trigger-secondary';
-import { deriveSiteStatus, pickLatestSnapshot, pickLiveSite } from './utils';
+import { deriveSiteStatus, ensureProtocol, pickLatestSnapshot, pickLiveSite } from './utils';
+import type { TreeNode } from '@/components/selective-sync/tree-view';
 import type { SiteDetails } from '@/data/core';
 
 type Props = {
@@ -43,10 +52,17 @@ export function SiteDropdown( {
 	const [ view, setView ] = useState< 'main' | 'picker' >( 'main' );
 	const [ menuOpen, setMenuOpen ] = useState( defaultOpen );
 	const [ disconnectOpen, setDisconnectOpen ] = useState( false );
+	const [ syncDialogType, setSyncDialogType ] = useState< 'push' | 'pull' | null >( null );
 	const connector = useConnector();
 	const queryClient = useQueryClient();
+	const pushSiteToLive = usePushSiteToLive();
+	const pullSiteFromLive = usePullSiteFromLive();
 	// Anchors the "find your sync controls" onboarding coachmark for returning users.
 	const menuAnchorRef = useTourAnchor( 'site-menu-button' );
+
+	useEffect( () => {
+		registerSelectiveSyncConnector( connector );
+	}, [ connector ] );
 
 	// The trigger needs the site status for its running/stopped/transitioning
 	// dot — everything else about status lives inside MainView.
@@ -79,6 +95,32 @@ export function SiteDropdown( {
 		// overlays don't stack.
 		setMenuOpen( false );
 		setDisconnectOpen( true );
+	};
+
+	const openSyncDialog = ( type: 'push' | 'pull' ) => {
+		setMenuOpen( false );
+		setSyncDialogType( type );
+	};
+
+	const handleDialogPush = ( tree: TreeNode[] ) => {
+		if ( ! liveSite ) return;
+		const options = convertTreeToPushOptions( tree );
+		pushSiteToLive.mutate(
+			{ siteId: site.id, remoteSiteId: liveSite.id, options },
+			{ onSuccess: () => void connector.openExternalUrl( ensureProtocol( liveSite.url ) ) }
+		);
+		setSyncDialogType( null );
+	};
+
+	const handleDialogPull = ( tree: TreeNode[] ) => {
+		if ( ! liveSite ) return;
+		const { optionsToSync, include_path_list: includePathList } = convertTreeToPullOptions( tree );
+		pullSiteFromLive.mutate( {
+			siteId: site.id,
+			remoteSiteId: liveSite.id,
+			options: { optionsToSync, includePathList },
+		} );
+		setSyncDialogType( null );
 	};
 
 	return (
@@ -125,6 +167,8 @@ export function SiteDropdown( {
 							lastSyncLog={ lastSyncLog }
 							onSetupClick={ () => setView( 'picker' ) }
 							onDisconnectClick={ handleDisconnectClick }
+							onPullClick={ () => openSyncDialog( 'pull' ) }
+							onPushClick={ () => openSyncDialog( 'push' ) }
 						/>
 					) : (
 						<PublishPickerView site={ site } onClose={ () => setView( 'main' ) } />
@@ -137,6 +181,16 @@ export function SiteDropdown( {
 					liveSite={ liveSite }
 					open={ disconnectOpen }
 					onOpenChange={ setDisconnectOpen }
+				/>
+			) : null }
+			{ liveSite && syncDialogType ? (
+				<SyncDialog
+					type={ syncDialogType }
+					localSite={ site }
+					remoteSite={ liveSite }
+					onPush={ handleDialogPush }
+					onPull={ handleDialogPull }
+					onRequestClose={ () => setSyncDialogType( null ) }
 				/>
 			) : null }
 		</div>

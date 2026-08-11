@@ -29,9 +29,12 @@ import type { Snapshot } from '@studio/common/types/snapshot';
 import type {
 	ImportResponse,
 	PullSiteProgress,
+	PullSyncOptions,
+	PushSyncOptions,
 	SyncOption,
 	SyncSite,
 } from '@studio/common/types/sync';
+import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { SiteRestRequest, SiteRestResponse } from '@studio/common/types/wordpress-rest';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
@@ -59,7 +62,13 @@ export type {
 } from '@studio/common/ai/tool-permissions';
 export type { AiModelId } from '@studio/common/ai/models';
 export type { Snapshot } from '@studio/common/types/snapshot';
-export type { PullSiteProgress, SyncOption, SyncSite } from '@studio/common/types/sync';
+export type {
+	PullSiteProgress,
+	PullSyncOptions,
+	PushSyncOptions,
+	SyncOption,
+	SyncSite,
+} from '@studio/common/types/sync';
 export type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 export type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 export type { SupportedLocale } from '@studio/common/lib/locale';
@@ -457,21 +466,26 @@ export interface Connector {
 	// unaffected — only the Studio-side mapping is dropped, so Pull/Push
 	// are no longer available until the user reconnects.
 	disconnectWpcomSite( localSiteId: string, remoteSiteId: number ): Promise< void >;
-	// Pushes selected local content to a previously connected WordPress.com site.
+	// Pushes the local site to a previously connected WordPress.com site.
+	// Replaces the remote contents with the local database and wp-content,
+	// or only the selection described by `options` when provided.
 	pushSiteToLive(
 		siteId: string,
 		remoteSiteId: number,
-		options?: LiveSyncOptions
+		options?: PushSyncOptions
 	): Promise< void >;
-	// Pulls selected content from the connected WordPress.com site back into
-	// the local Studio site. Stops the local server while the backup imports
-	// and restarts it on completion.
+	// Pulls the connected WordPress.com site's database + wp-content back
+	// into the local Studio site, or only the selection described by
+	// `options` when provided. Stops the local server while the backup
+	// imports and restarts it on completion.
 	pullSiteFromLive(
 		siteId: string,
 		remoteSiteId: number,
-		options?: LiveSyncOptions | ( ( progress: PullSiteProgress ) => void ),
-		onProgress?: ( progress: PullSiteProgress ) => void
+		onProgress?: ( progress: PullSiteProgress ) => void,
+		options?: PullSyncOptions
 	): Promise< void >;
+	// Legacy item summaries and import status remain available to preserve
+	// in-flight sync tracking and existing connector behavior.
 	// Lists syncable theme/plugin items from the direction's source side:
 	// local files for push, remote backup files for pull.
 	getLiveSyncItems(
@@ -490,6 +504,27 @@ export interface Connector {
 		remoteSiteId: number,
 		direction: LiveSyncDirection
 	): Promise< void >;
+	// Latest rewind (backup) id of the connected live site, or `null` when no
+	// backup exists yet. Selective pull browses the backup tree under this id.
+	getLatestRewindId( remoteSiteId: number ): Promise< string | null >;
+	// Raw contents of a remote backup directory (rewind backup `ls`), keyed by
+	// entry name. Entries are validated and mapped to tree nodes by the UI.
+	listRemoteFileTree(
+		remoteSiteId: number,
+		rewindId: string,
+		path: string
+	): Promise< Record< string, unknown > >;
+	// PHP version of the live site's hosting environment, used to warn about
+	// version mismatches before pushing. `undefined` when unavailable.
+	getHostingPhpVersion( remoteSiteId: number ): Promise< string | undefined >;
+	// Local-site lookups for the selective-sync dialog. The desktop answers
+	// from the main process; browser connectors degrade gracefully (empty
+	// tree / zero sizes / unknown versions) so category-level selection still
+	// works without per-file data.
+	listLocalFileTree( siteId: string, path: string, depth: number ): Promise< RawDirectoryEntry[] >;
+	getDirectorySize( siteId: string, path: string[] ): Promise< number >;
+	getFileSize( siteId: string, path: string[] ): Promise< number >;
+	getIsMultisite( siteId: string ): Promise< boolean | undefined >;
 	// URL to open in the browser when the user wants to publish a site that
 	// isn't connected to WordPress.com yet (checkout + deep-link back to the
 	// desktop app). Returns `undefined` when the connector can't provide one.

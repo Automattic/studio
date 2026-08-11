@@ -289,17 +289,30 @@ export function getFrameTitleBarOverlayOptions() {
 	};
 }
 
+export type WindowControlsSurface = 'chrome' | 'content';
+
+// The agentic UI's controls sit in the chrome gap above the content frame,
+// except while a full-window page (settings, site creation) covers that chrome.
+// Those two surfaces are opposite shades in light mode, so the renderer tells us
+// which one is showing; remembering it here keeps a later theme change from
+// repainting the controls for the wrong one.
+let agenticControlsSurface: WindowControlsSurface = 'chrome';
+
+export function setAgenticControlsSurface( surface: WindowControlsSurface ) {
+	agenticControlsSurface = surface;
+}
+
 export function getTitleBarOverlayOptions() {
 	if ( getPreferredStudioUiMode() !== 'agentic' ) {
 		return { color: 'rgba(30, 30, 30, 1)', symbolColor: 'white', height: WINDOWS_TITLEBAR_HEIGHT };
 	}
 	const isDark = nativeTheme.shouldUseDarkColors;
-	// The agentic UI reserves a band of window chrome for these controls (see
-	// `WindowTitlebar`), so this tracks that chrome rather than any content
-	// surface — and the chrome is dark in both schemes, so the symbols are too.
+	// Chrome is dark in both schemes; the content surface tracks
+	// `--wpds-color-bg-surface-neutral`.
+	const onChrome = agenticControlsSurface === 'chrome';
 	return {
-		color: isDark ? '#161616' : '#1e1e1e',
-		symbolColor: '#e0e0e0',
+		color: onChrome ? ( isDark ? '#161616' : '#1e1e1e' ) : isDark ? '#1e1e1e' : '#fcfcfc',
+		symbolColor: onChrome || isDark ? '#e0e0e0' : '#1e1e1e',
 		height: AGENTIC_TITLEBAR_HEIGHT,
 	};
 }

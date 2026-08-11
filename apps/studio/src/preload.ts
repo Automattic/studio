@@ -205,7 +205,7 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'setWindowControlVisibility', visible ),
 	setTitleBarBackdropEffect: ( enabled ) =>
 		ipcRendererInvoke( 'setTitleBarBackdropEffect', enabled ),
-	setWindowControlsColors: ( colors ) => ipcRendererInvoke( 'setWindowControlsColors', colors ),
+	setWindowControlsSurface: ( surface ) => ipcRendererInvoke( 'setWindowControlsSurface', surface ),
 	updateSitesSortOrder: ( updates ) => ipcRendererInvoke( 'updateSitesSortOrder', updates ),
 	getRemoteSessionDaemonStatus: () => ipcRendererInvoke( 'getRemoteSessionDaemonStatus' ),
 	startRemoteSessionDaemon: () => ipcRendererInvoke( 'startRemoteSessionDaemon' ),

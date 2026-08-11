@@ -174,13 +174,8 @@ export function handleImportEvents( emitter: ImportExportEventEmitter ): void {
 		logger.reportWarning( warningMessage || __( 'A warning occurred while extracting backup' ) );
 	} );
 
-	emitter.on( BackupExtractEvents.BACKUP_EXTRACT_ERROR, ( error ) => {
-		throw new LoggerError(
-			__( 'Failed to extract backup' ),
-			error instanceof Error ? error : undefined,
-			'extract'
-		);
-	} );
+	// No BACKUP_EXTRACT_ERROR handler: every extraction failure rejects `extractFiles`, which the
+	// import manager wraps in a LoggerError coded `extract` — a wrap here would double-wrap it.
 
 	emitter.on( ImporterEvents.IMPORT_START, () => {
 		logger.reportStart( LoggerAction.IMPORT_SITE, __( 'Importing backup…' ) );

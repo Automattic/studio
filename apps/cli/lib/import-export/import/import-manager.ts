@@ -94,7 +94,18 @@ class BackupImporter extends ImportExportEventEmitter implements Importer {
 				importer.on( eventName, ( data ) => this.emit( eventName, data ) );
 			}
 
-			await backupHandler.extractFiles( this.backupFile, extractionDirectory );
+			try {
+				await backupHandler.extractFiles( this.backupFile, extractionDirectory );
+			} catch ( error ) {
+				// Tag extraction failures for analytics at the single funnel every backup handler
+				// passes through, so the `extract` code is attached in both IPC and logger modes.
+				// Errors that already carry a code (e.g. the wpress handler's `file_not_found`)
+				// keep their more specific one.
+				if ( error instanceof LoggerError && error.code ) {
+					throw error;
+				}
+				throw new LoggerError( __( 'Failed to extract backup' ), error, 'extract' );
+			}
 
 			const result = await importer.import( site );
 

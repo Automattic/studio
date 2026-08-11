@@ -247,6 +247,7 @@ export {
 
 export {
 	getAgenticFeaturesEnabled,
+	getAiSettings,
 	getAnalyticsEnabled,
 	getColorScheme,
 	getGlobalAgentInstructions,
@@ -260,6 +261,7 @@ export {
 	previewColorScheme,
 	saveAgenticFeaturesEnabled,
 	saveAnalyticsEnabled,
+	saveAnthropicApiKey,
 	saveColorScheme,
 	saveGlobalAgentInstructions,
 	saveOnboardingHints,

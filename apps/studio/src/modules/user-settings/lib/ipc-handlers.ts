@@ -4,6 +4,10 @@ import {
 	writeGlobalInstructions,
 } from '@studio/common/ai/global-instructions';
 import {
+	readAiSettings,
+	saveAnthropicApiKey as saveAnthropicApiKeyToConfig,
+} from '@studio/common/ai/settings-store';
+import {
 	isAnalyticsOptedOut,
 	readSharedConfig,
 	updateSharedConfig,
@@ -284,6 +288,14 @@ export async function recordAgenticUiMigration(): Promise< void > {
 
 export async function getGlobalAgentInstructions(): Promise< string > {
 	return ( await readGlobalInstructionsFile() ) ?? '';
+}
+
+export async function getAiSettings() {
+	return readAiSettings();
+}
+
+export async function saveAnthropicApiKey( _event: IpcMainInvokeEvent, key: string | null ) {
+	return saveAnthropicApiKeyToConfig( key );
 }
 
 export async function saveGlobalAgentInstructions(

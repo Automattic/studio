@@ -173,6 +173,8 @@ const api: IpcApi = {
 	getGlobalAgentInstructions: () => ipcRendererInvoke( 'getGlobalAgentInstructions' ),
 	saveGlobalAgentInstructions: ( content ) =>
 		ipcRendererInvoke( 'saveGlobalAgentInstructions', content ),
+	getAiSettings: () => ipcRendererInvoke( 'getAiSettings' ),
+	saveAnthropicApiKey: ( key ) => ipcRendererInvoke( 'saveAnthropicApiKey', key ),
 	previewColorScheme: ( colorScheme ) => ipcRendererInvoke( 'previewColorScheme', colorScheme ),
 	saveColorScheme: ( colorScheme ) => ipcRendererInvoke( 'saveColorScheme', colorScheme ),
 	getColorScheme: () => ipcRendererInvoke( 'getColorScheme' ),

@@ -28,6 +28,10 @@ vi.mock( '@studio/common/sites/list', () => ( { listSites: vi.fn() } ) );
 vi.mock( '@studio/common/sites/storage-usage', () => ( {
 	measureSiteStorage: mocks.measureSiteStorage,
 } ) );
+vi.mock( '@studio/common/ai/settings-store', () => ( {
+	readAiSettings: mocks.readAiSettings,
+	saveAnthropicApiKey: mocks.saveAnthropicApiKey,
+} ) );
 vi.mock( '@studio/common/ai/run-manager', () => ( {
 	createAgentRunManager: vi.fn( () => ( {
 		startAgentRun: vi.fn(),
@@ -95,10 +99,6 @@ describe( 'local web server Connect contracts', () => {
 			sitesRoot: '/sites',
 			port: 0,
 			host: '127.0.0.1',
-			aiSettings: {
-				read: mocks.readAiSettings,
-				saveAnthropicApiKey: mocks.saveAnthropicApiKey,
-			},
 		} );
 	} );
 

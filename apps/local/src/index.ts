@@ -24,6 +24,7 @@ import {
 	deleteAiSession,
 	loadAiSession,
 } from '@studio/common/ai/sessions/store';
+import { readAiSettings, saveAnthropicApiKey } from '@studio/common/ai/settings-store';
 import { DEFAULT_TOKEN_LIFETIME_MS } from '@studio/common/constants';
 import { createCliRunner } from '@studio/common/lib/cli-process';
 import {
@@ -70,7 +71,6 @@ import { pullSite, pushSite } from '@studio/common/sites/sync';
 import express from 'express';
 import { rateLimit } from 'express-rate-limit';
 import { isEditor, isTerminal, openInEditor, openInTerminal, openPath } from './open-in-os';
-import type { AiSettings } from '@studio/common/ai/providers';
 import type { SiteListItem } from '@studio/common/lib/cli-events';
 import type { EditSiteOptions } from '@studio/common/sites/edit';
 import type { SyncSite } from '@studio/common/types/sync';
@@ -108,13 +108,6 @@ export interface LocalServerOptions {
 	// Path to the built browser UI (apps/ui `dist-local`). Served when present
 	// so the server is the only process needed; omitted in dev (Vite serves it).
 	uiDist?: string;
-	// Accessors for the AI provider settings stored in `cli.json`. Injected by
-	// the CLI, which owns that file's schema and locking — this package can't
-	// import `cli/lib/cli-config` directly.
-	aiSettings: {
-		read(): Promise< AiSettings >;
-		saveAnthropicApiKey( key: string | null ): Promise< AiSettings >;
-	};
 }
 
 export interface LocalServer {
@@ -192,7 +185,7 @@ function asyncHandler( fn: ( req: Request, res: Response ) => Promise< void > ) 
 }
 
 export async function startLocalServer( options: LocalServerOptions ): Promise< LocalServer > {
-	const { cliBinary, nodeBinary, sessionsRoot, sitesRoot, uiDist, aiSettings } = options;
+	const { cliBinary, nodeBinary, sessionsRoot, sitesRoot, uiDist } = options;
 	const port = options.port ?? Number( process.env.STUDIO_LOCAL_SERVER_PORT ?? DEFAULT_PORT );
 	const host = options.host ?? '127.0.0.1';
 
@@ -470,7 +463,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.get(
 		'/ai-settings',
 		asyncHandler( async ( _req: Request, res: Response ) => {
-			res.json( await aiSettings.read() );
+			res.json( await readAiSettings() );
 		} )
 	);
 
@@ -485,7 +478,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 400 ).json( { error: 'anthropicApiKey must be a non-empty string or null' } );
 				return;
 			}
-			res.json( await aiSettings.saveAnthropicApiKey( key === null ? null : key.trim() ) );
+			res.json( await saveAnthropicApiKey( key === null ? null : key.trim() ) );
 		} )
 	);
 

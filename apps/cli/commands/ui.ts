@@ -24,17 +24,12 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 			// `@studio/local` is bundled into the CLI from source (see the vite
 			// alias); the dynamic import keeps Express off the startup path of
 			// every other command.
-			const [
-				{ startLocalServer },
-				{ getSessionsDirectory },
-				{ STUDIO_SITES_ROOT },
-				{ readAiSettings, saveAnthropicApiKey },
-			] = await Promise.all( [
-				import( '@studio/local' ),
-				import( '@studio/common/lib/well-known-paths' ),
-				import( 'cli/lib/site-paths' ),
-				import( 'cli/ai/settings-store' ),
-			] );
+			const [ { startLocalServer }, { getSessionsDirectory }, { STUDIO_SITES_ROOT } ] =
+				await Promise.all( [
+					import( '@studio/local' ),
+					import( '@studio/common/lib/well-known-paths' ),
+					import( 'cli/lib/site-paths' ),
+				] );
 
 			// The server forks this same CLI for site + agent operations. When run
 			// from the packaged CLI, `process.argv[1]` is that binary;
@@ -55,7 +50,6 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				sitesRoot: STUDIO_SITES_ROOT,
 				port: argv.port as number | undefined,
 				uiDist,
-				aiSettings: { read: readAiSettings, saveAnthropicApiKey },
 			} );
 
 			console.log( '' );

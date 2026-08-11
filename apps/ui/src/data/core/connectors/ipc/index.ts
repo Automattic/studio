@@ -7,7 +7,6 @@ import {
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
 import { buildPublishCheckoutUrl } from '../publish-checkout-url';
-import { UnsupportedError } from '../unsupported-error';
 import type {
 	ActiveAgentRun,
 	AiSessionSummary,
@@ -216,7 +215,7 @@ export function createIpcConnector(): Connector {
 			annotatePreview: true,
 			readLocalMedia: true,
 			agentInstructions: true,
-			aiSettings: false,
+			aiSettings: true,
 			studioLogs: true,
 			switchToClassicUi: true,
 		},
@@ -777,13 +776,11 @@ export function createIpcConnector(): Connector {
 			await ipcApi.saveGlobalAgentInstructions( content );
 		},
 
-		// No IPC handler for the CLI config's AI settings yet; the desktop's
-		// agentic UI hides the Anthropic key form (capabilities.aiSettings).
 		async getAiSettings(): Promise< AiSettings > {
-			throw new UnsupportedError( 'getAiSettings' );
+			return ( await ipcApi.getAiSettings() ) as AiSettings;
 		},
-		async saveAnthropicApiKey(): Promise< AiSettings > {
-			throw new UnsupportedError( 'saveAnthropicApiKey' );
+		async saveAnthropicApiKey( key: string | null ): Promise< AiSettings > {
+			return ( await ipcApi.saveAnthropicApiKey( key ) ) as AiSettings;
 		},
 
 		async getInstalledApps(): Promise< InstalledApps > {

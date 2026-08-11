@@ -14,14 +14,10 @@ function isWriteAccessError( error: unknown ): boolean {
 	return code === 'EACCES' || code === 'EPERM' || code === 'EROFS';
 }
 
-// blueprints.phar's v1 schema accepts no other feature, so Playground's `intl` fails the whole
-// Blueprint rather than being ignored.
+// blueprints.phar fails the whole Blueprint on an unknown feature rather than ignoring it.
 const RUNNER_SUPPORTED_FEATURES = [ 'networking' ];
 
-/**
- * Drops the environment choices the runner does not make here: Studio picks the PHP binary and
- * installs WordPress before the Blueprint runs, and its PHP builds already ship Intl.
- */
+// Studio picks the PHP binary, installs WordPress, and ships Intl, so these are already decided.
 export function normalizeBlueprintForRunner( contents: Record< string, unknown > ): void {
 	delete contents.preferredVersions;
 

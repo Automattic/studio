@@ -7,6 +7,7 @@ import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { saveSnapshotToConfig } from 'cli/lib/snapshots';
+import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { LoggerError } from 'cli/logger';
 import { runCommand } from '../create';
 
@@ -41,6 +42,10 @@ vi.mock( 'cli/lib/snapshots', async () => ( {
 	getSnapshotsFromConfig: vi.fn().mockResolvedValue( [] ),
 	saveSnapshotToConfig: vi.fn(),
 } ) );
+vi.mock( 'cli/lib/tracks', async ( importActual ) => {
+	const actual = await importActual< typeof import('cli/lib/tracks') >();
+	return { ...actual, recordTracksEvent: vi.fn() };
+} );
 vi.mock( 'cli/logger', () => ( {
 	Logger: class {
 		reportStart = mockReportStart;
@@ -153,6 +158,35 @@ describe( 'Preview Create Command', () => {
 		expect( mockReportSuccess.mock.calls[ 3 ] ).toEqual( [ 'Preview site saved to Studio' ] );
 
 		expect( cleanup ).toHaveBeenCalledWith( mockArchivePath );
+	} );
+
+	it( 'records a successful preview_site_create Tracks event', async () => {
+		await runCommand( mockFolder );
+
+		expect( recordTracksEvent ).toHaveBeenCalledWith(
+			TRACKS_EVENTS.PREVIEW_SITE_CREATE,
+			expect.objectContaining( {
+				success: true,
+				time_ms: expect.any( Number ),
+				channel: 'studio-cli',
+			} )
+		);
+	} );
+
+	it( 'records a failed preview_site_create Tracks event with a failure_reason', async () => {
+		vi.mocked( uploadArchive ).mockRejectedValue( new LoggerError( 'Failed to upload archive' ) );
+
+		await runCommand( mockFolder );
+
+		expect( recordTracksEvent ).toHaveBeenCalledWith(
+			TRACKS_EVENTS.PREVIEW_SITE_CREATE,
+			expect.objectContaining( {
+				success: false,
+				failure_reason: 'upload',
+				time_ms: expect.any( Number ),
+				channel: 'studio-cli',
+			} )
+		);
 	} );
 
 	it( 'should use current directory when no folder is specified', async () => {

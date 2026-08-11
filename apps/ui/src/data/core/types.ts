@@ -15,6 +15,7 @@ import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-q
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
+import type { SiteStorageUsage } from '@studio/common/sites/storage-usage';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
 import type { PullSiteProgress, SyncSite } from '@studio/common/types/sync';
@@ -44,6 +45,7 @@ export type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 export type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 export type { SupportedLocale } from '@studio/common/lib/locale';
 export type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
+export type { SiteStorageUsage } from '@studio/common/sites/storage-usage';
 
 export type InstalledApps = Record< SupportedEditor | SupportedTerminal, boolean >;
 
@@ -196,6 +198,9 @@ export interface Connector {
 	// Cached screenshot thumbnail captured by the desktop app while the site
 	// was running. Returns null when the site has not produced a thumbnail yet.
 	getSiteThumbnail( siteId: string ): Promise< string | null >;
+	// Size of the local site's files, grouped for the overview's disk summary.
+	// Hosted sites return null because their storage is not on this machine.
+	getSiteStorageUsage( siteId: string ): Promise< SiteStorageUsage | null >;
 
 	// Exports a site as a full backup archive (files + database). Prompts the
 	// user for a destination via a save-as dialog; resolves with the chosen
@@ -475,6 +480,26 @@ export interface Connector {
 	// Switches back to the legacy (classic) Studio UI.
 	disableAgenticUi(): Promise< void >;
 
+	// Agentic UI onboarding state. Distinct from getOnboardingCompleted (the
+	// pre-workbench first-run welcome flag). setOnboardingHints shallow-merges
+	// its partial. Desktop persists to app.json; hosted/web to localStorage.
+	getOnboardingHints(): Promise< OnboardingHintsState >;
+	setOnboardingHints( partial: Partial< OnboardingHintsState > ): Promise< void >;
+
+	// Fires when the user picks Help ▸ Getting Started in the application menu
+	// (desktop only). No-ops where there's no OS menu.
+	onShowGettingStarted( listener: () => void ): () => void;
+
+	// Fires when the user picks Help ▸ What's New in the application menu
+	// (desktop only). No-ops where there's no OS menu.
+	onShowWhatsNew( listener: () => void ): () => void;
+
+	// App version the user last dismissed the What's New announcements on. The
+	// same value the classic renderer reads, so the two UIs never show the same
+	// announcements twice.
+	getLastSeenVersion(): Promise< string | undefined >;
+	saveLastSeenVersion( version: string ): Promise< void >;
+
 	// Auto-updater status.
 	getAppUpdateStatus(): Promise< AppUpdateStatus >;
 	installAppUpdate(): Promise< void >;
@@ -484,6 +509,19 @@ export interface Connector {
 export interface AppUpdateStatus {
 	readyToInstall: boolean;
 	version: string | null;
+}
+
+// Persisted first-run onboarding state for the workbench. Separate from the
+// pre-workbench welcome flag (getOnboardingCompleted).
+export interface OnboardingHintsState {
+	// Version of the orientation guide the user finished or explicitly skipped.
+	tourCompletedVersion?: number;
+	// Version of the orientation guide the user closed early (Esc / Skip).
+	tourDismissedVersion?: number;
+	// True when the user reached the agentic workbench by opting in from classic
+	// Studio (vs a fresh install that starts here). Drives the guide's first-page
+	// "Welcome to WordPress Studio 2.0" migrating copy.
+	migratedFromClassic?: boolean;
 }
 
 export interface SnapshotUsage {
@@ -525,6 +563,9 @@ export interface UserPreferences {
 export interface AppGlobals {
 	platform: string;
 	isWindowsStore: boolean;
+	// Supplied by the desktop host; browser targets do not have an installed
+	// Studio app version to report.
+	appVersion?: string;
 }
 
 // Subset of UserPreferences that callers can actually mutate. `locale` is

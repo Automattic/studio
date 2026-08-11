@@ -1,3 +1,4 @@
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import {
 	STUDIO_ASSISTANT_QUOTA_URL,
@@ -425,6 +426,9 @@ export function createIpcConnector(): Connector {
 		async getSiteThumbnail( siteId ): Promise< string | null > {
 			return ( await ipcApi.getThumbnailData( siteId ) ) as string | null;
 		},
+		async getSiteStorageUsage( siteId ) {
+			return ipcApi.getSiteStorageUsage( siteId );
+		},
 
 		async exportFullSite( siteId ): Promise< string | null > {
 			const sites = ( await ipcApi.getSiteDetails() ) as SiteDetails[];
@@ -793,6 +797,8 @@ export function createIpcConnector(): Connector {
 			if ( ! editor ) {
 				throw new Error( 'No preferred editor configured.' );
 			}
+			// Emit here rather than in Main's `openAppAtPath`, which is shared with single-file opens.
+			void ipcApi.recordAnalyticsEvent( TRACKS_EVENTS.SITE_OPEN_IN_EDITOR, { editor } );
 			await ipcApi.openAppAtPath( editor, sitePath );
 		},
 
@@ -929,6 +935,32 @@ export function createIpcConnector(): Connector {
 
 		async disableAgenticUi(): Promise< void > {
 			await ipcApi.disableAgenticUi();
+		},
+
+		async getOnboardingHints() {
+			return ipcApi.getOnboardingHints();
+		},
+
+		async setOnboardingHints( partial ) {
+			await ipcApi.saveOnboardingHints( partial );
+		},
+
+		onShowGettingStarted( listener ) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const ipcListener = ( window as any ).ipcListener;
+			return ipcListener.subscribe( 'show-getting-started', () => listener() );
+		},
+
+		onShowWhatsNew( listener ) {
+			return ipcListener.subscribe( 'show-whats-new', () => listener() );
+		},
+
+		async getLastSeenVersion() {
+			return ipcApi.getLastSeenVersion();
+		},
+
+		async saveLastSeenVersion( version ) {
+			await ipcApi.saveLastSeenVersion( version );
 		},
 
 		async getAppUpdateStatus() {

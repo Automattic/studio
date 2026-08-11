@@ -58,6 +58,48 @@ describe( 'createIpcConnector exports', () => {
 	} );
 } );
 
+describe( 'createIpcConnector openSiteInEditor', () => {
+	const getSiteDetails = vi
+		.fn()
+		.mockResolvedValue( [ { id: 'site-1', name: 'Demo', path: '/Users/x/Studio/demo' } ] );
+	const getUserEditor = vi.fn().mockResolvedValue( 'vscode' );
+	const openAppAtPath = vi.fn();
+	const recordAnalyticsEvent = vi.fn().mockResolvedValue( undefined );
+
+	beforeEach( () => {
+		vi.clearAllMocks();
+		vi.stubGlobal( 'ipcApi', {
+			getSiteDetails,
+			getUserEditor,
+			openAppAtPath,
+			recordAnalyticsEvent,
+		} );
+		vi.stubGlobal( 'ipcListener', { subscribe: vi.fn() } );
+	} );
+
+	afterEach( () => {
+		vi.unstubAllGlobals();
+	} );
+
+	it( 'records an open-in-editor event and launches the editor at the site path', async () => {
+		await createIpcConnector().openSiteInEditor( 'site-1' );
+
+		expect( recordAnalyticsEvent ).toHaveBeenCalledWith( 'studio_site_open_in_editor', {
+			editor: 'vscode',
+		} );
+		expect( openAppAtPath ).toHaveBeenCalledWith( 'vscode', '/Users/x/Studio/demo' );
+	} );
+
+	it( 'does not record or launch when no editor is configured', async () => {
+		getUserEditor.mockResolvedValueOnce( null );
+
+		await expect( createIpcConnector().openSiteInEditor( 'site-1' ) ).rejects.toThrow();
+
+		expect( recordAnalyticsEvent ).not.toHaveBeenCalled();
+		expect( openAppAtPath ).not.toHaveBeenCalled();
+	} );
+} );
+
 describe( 'createIpcConnector Connect contracts', () => {
 	const createSite = vi.fn();
 	const fetchSyncableWpcomSites = vi.fn();

@@ -2,14 +2,14 @@ import { app } from 'electron';
 import { fork, spawnSync, type ChildProcess, type StdioOptions } from 'node:child_process';
 import * as Sentry from '@sentry/electron/main';
 import { z } from 'zod';
-import { getPreferredStudioUiMode } from 'src/lib/studio-ui-mode';
+import { getPreferredUiVersion } from 'src/lib/studio-ui-mode';
 import { TypedEventEmitter } from 'src/modules/cli/lib/typed-event-emitter';
 import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
 
 // Origin tag passed to every app-spawned CLI process so its Tracks events are attributed to the
 // active desktop renderer (v1 = legacy, v2 = agentic). Read by the CLI in `apps/cli/lib/tracks.ts`.
 function getTracksOriginEnv(): string {
-	return getPreferredStudioUiMode() === 'agentic' ? 'studio-ui:v2' : 'studio-ui:v1';
+	return `studio-ui:${ getPreferredUiVersion() }`;
 }
 
 export type CliCommandResult = {

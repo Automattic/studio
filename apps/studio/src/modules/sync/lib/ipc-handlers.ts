@@ -202,6 +202,8 @@ export async function exportSiteForPush(
 			specificSelectionPaths: configuration?.specificSelectionPaths,
 			applyDeployIgnore: true,
 			abortSignal: abortController.signal,
+			// `studio_site_exported` means a user-initiated backup export — sync pushes are not counted.
+			suppressTracksEvent: true,
 		} );
 
 		if ( abortController.signal.aborted ) {
@@ -623,8 +625,10 @@ export async function getConnectedWpcomSites(
 
 /**
  * Latest rewind (backup) id for a remote site — used by the agentic UI's
- * selective pull to browse the remote backup file tree. Returns `null` when
- * the site has no backup yet.
+ * selective pull to browse the remote backup file tree. Rejects when the site
+ * has no backup yet (or the lookup fails), like the classic renderer's query:
+ * the dialog relies on the error state to disable per-item selection and
+ * force a full sync.
  */
 export async function getLatestRewindId(
 	_event: IpcMainInvokeEvent,
@@ -634,11 +638,7 @@ export async function getLatestRewindId(
 	if ( ! token?.accessToken ) {
 		throw new Error( 'No token found' );
 	}
-	try {
-		return await fetchLatestRewindId( token.accessToken, remoteSiteId );
-	} catch {
-		return null;
-	}
+	return fetchLatestRewindId( token.accessToken, remoteSiteId );
 }
 
 /**

@@ -122,8 +122,10 @@ export function pullSite(
 				String( remoteSiteId ),
 				'--options',
 				( options?.optionsToSync?.length ? options.optionsToSync : [ 'all' ] ).join( ',' ),
+				// Pass each backup node id as its own argv value — ids can contain
+				// commas (e.g. themes `cjE6,ZjE6Lw==`), so a join/split would corrupt them.
 				...( options?.includePathList?.length
-					? [ '--include-path-list', options.includePathList.join( ',' ) ]
+					? [ '--include-path-list', ...options.includePathList ]
 					: [] ),
 			],
 			{ output: 'capture' }

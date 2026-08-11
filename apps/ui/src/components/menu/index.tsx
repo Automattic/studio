@@ -1,6 +1,7 @@
 import { ContextMenu as BaseContextMenu } from '@base-ui/react/context-menu';
 import { Menu as BaseMenu } from '@base-ui/react/menu';
 import { privateApis } from '@wordpress/theme';
+import { clsx } from 'clsx';
 import { forwardRef } from 'react';
 import motionStyles from '@/components/floating-surface-motion/style.module.css';
 import { unlock } from '@/lock-unlock';
@@ -17,6 +18,7 @@ const { ThemeProvider } = unlock( privateApis );
 
 export const Root = BaseMenu.Root;
 export const Trigger = BaseMenu.Trigger;
+export const Group = BaseMenu.Group;
 export const RadioGroup = BaseMenu.RadioGroup;
 export const SubmenuRoot = BaseMenu.SubmenuRoot;
 export const ContextMenuRoot = BaseContextMenu.Root;
@@ -112,14 +114,21 @@ export function ContextPopup( {
 	);
 }
 
-type ItemProps = ComponentPropsWithoutRef< typeof BaseMenu.Item >;
+type ItemProps = ComponentPropsWithoutRef< typeof BaseMenu.Item > & {
+	/** Renders the item in error colors, for actions that destroy data. */
+	destructive?: boolean;
+};
 
 export const Item = forwardRef< ElementRef< typeof BaseMenu.Item >, ItemProps >( function Item(
-	{ className, children, ...props },
+	{ className, children, destructive, ...props },
 	ref
 ) {
 	return (
-		<BaseMenu.Item ref={ ref } className={ `${ styles.item } ${ className ?? '' }` } { ...props }>
+		<BaseMenu.Item
+			ref={ ref }
+			className={ clsx( styles.item, destructive && styles.itemDestructive, className ) }
+			{ ...props }
+		>
 			{ children }
 		</BaseMenu.Item>
 	);
@@ -170,6 +179,10 @@ export const RadioItem = forwardRef< ElementRef< typeof BaseMenu.RadioItem >, Ra
 		);
 	}
 );
+
+export function GroupLabel( { children }: { children: ReactNode } ) {
+	return <BaseMenu.GroupLabel className={ styles.groupLabel }>{ children }</BaseMenu.GroupLabel>;
+}
 
 export function Separator( { className }: { className?: string } ) {
 	return <BaseMenu.Separator className={ `${ styles.separator } ${ className ?? '' }` } />;

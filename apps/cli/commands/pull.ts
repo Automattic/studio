@@ -225,7 +225,13 @@ export async function runCommand(
 		}
 	}
 
-	if ( pullError instanceof LoggerError && restartSiteError instanceof Error ) {
+	// Attach the restart error only when the pull error has no cause of its own — overwriting an
+	// existing `previousError` would hide the root cause behind the (secondary) restart failure.
+	if (
+		pullError instanceof LoggerError &&
+		restartSiteError instanceof Error &&
+		! pullError.previousError
+	) {
 		pullError.previousError = restartSiteError;
 	}
 
@@ -257,18 +263,15 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					description: __( 'Remote site URL or ID' ),
 				} )
 				.option( 'include-path-list', {
-					type: 'string',
-					description: __(
-						'Comma-separated backup node ids to pull when using the "paths" option'
-					),
+					type: 'array',
+					description: __( 'Backup node ids to pull when using the "paths" option' ),
 					hidden: true,
-					coerce: ( val: string | undefined ) =>
-						val !== undefined
-							? val
-									.split( ',' )
-									.map( ( item ) => item.trim() )
-									.filter( Boolean )
-							: undefined,
+					coerce: ( value ) => {
+						if ( ! Array.isArray( value ) ) {
+							throw new Error( __( 'include-path-list must be an array' ) );
+						}
+						return value.map( String );
+					},
 				} );
 		},
 		handler: async ( argv ) => {

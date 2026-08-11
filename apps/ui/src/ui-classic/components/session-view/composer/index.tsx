@@ -12,7 +12,7 @@ import {
 import { watchComposerFilePaste } from '@studio/common/ai/composer-attachments';
 import { AI_MODELS, getAiModelFamily, getAiModelLabel } from '@studio/common/ai/models';
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
-import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
+import { getAiSkillCommands } from '@studio/common/ai/slash-commands';
 import { useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import {
@@ -675,6 +675,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		<>
 			<div className={ styles.root }>
 				<div
+					data-session-composer
 					className={ clsx(
 						styles.shell,
 						isDraggingOver && styles.shellDragging,
@@ -920,7 +921,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 											/>
 										</Menu.SubmenuTrigger>
 										<Menu.Popup side="right" align="start" className={ styles.skillsMenuPopup }>
-											{ AI_SKILL_COMMANDS.map( ( command ) => (
+											{ getAiSkillCommands().map( ( command ) => (
 												<Menu.Item
 													key={ command.name }
 													className={ styles.skillMenuItem }

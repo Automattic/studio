@@ -1,7 +1,9 @@
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { createRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useEffect } from 'react';
 import { SiteOverviewView } from '@/components/site-overview-view';
-import { isSiteSettingsTab } from '@/components/site-settings-view';
+import { isSiteSettingsTab, siteSettingsTabToPanel } from '@/components/site-settings-view';
+import { useConnector } from '@/data/core';
 import { useSites, SITES_QUERY_KEY } from '@/data/queries/use-sites';
 import { dashboardLayoutRoute } from '../layout-dashboard';
 import type { SiteSettingsTabId } from '@/components/site-settings-view';
@@ -18,6 +20,7 @@ function SiteOverviewPage() {
 	const { siteId } = siteOverviewRoute.useParams();
 	const { tab, sync } = siteOverviewRoute.useSearch();
 	const navigate = useNavigate();
+	const connector = useConnector();
 	const { data: sites } = useSites();
 	const activeTab: SiteSettingsTabId = tab ?? 'overview';
 
@@ -37,14 +40,17 @@ function SiteOverviewPage() {
 			siteId={ siteId }
 			activeTab={ activeTab }
 			openPullOnLoad={ sync === 'pull' }
-			onTabChange={ ( next ) =>
+			onTabChange={ ( next ) => {
+				void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, {
+					panel: siteSettingsTabToPanel( next ),
+				} );
 				void navigate( {
 					to: '/sites/$siteId/overview',
 					params: { siteId },
 					search: { tab: next },
 					replace: true,
-				} )
-			}
+				} );
+			} }
 		/>
 	);
 }

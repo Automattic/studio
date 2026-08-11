@@ -67,6 +67,7 @@ import { buildSiteSetArgs } from '@studio/common/sites/edit';
 import { startSite, stopSite } from '@studio/common/sites/lifecycle';
 import { listSites } from '@studio/common/sites/list';
 import { createSnapshotManager, fetchSnapshots } from '@studio/common/sites/snapshots';
+import { measureSiteStorage } from '@studio/common/sites/storage-usage';
 import { pullSite, pushSite } from '@studio/common/sites/sync';
 import express from 'express';
 import { rateLimit } from 'express-rate-limit';
@@ -510,6 +511,19 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
+	api.get(
+		'/sites/:id/storage',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const sites = await listSites( execute );
+			const site = sites.find( ( candidate ) => candidate.id === req.params.id );
+			if ( ! site ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			res.json( await measureSiteStorage( site.path ) );
+		} )
+	);
+
 	// --- Site creation helpers + create ---------------------------------------
 	// Pure server-side filesystem logic (the server runs on the user's machine),
 	// plus the CLI `create`. The browser has no native folder picker, so the UI
@@ -894,7 +908,16 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			try {
 				await new Promise< void >( ( resolve, reject ) => {
 					const [ emitter ] = execute(
-						[ 'import', '--path', site.path, upload.path, '--start-server' ],
+						// Onboarding imports are part of the add-site flow, which `studio_site_imported`
+						// deliberately does not count.
+						[
+							'import',
+							'--path',
+							site.path,
+							upload.path,
+							'--start-server',
+							'--suppress-tracks-event',
+						],
 						{ output: 'capture' }
 					);
 					emitter.on( 'data', ( { data } ) => {
@@ -1118,13 +1141,10 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 401 ).json( { error: 'Authentication required.' } );
 				return;
 			}
-			try {
-				res.json(
-					await fetchLatestRewindId( token.accessToken, Number( req.params.remoteSiteId ) )
-				);
-			} catch {
-				res.json( null );
-			}
+			// No backup yet (or lookup failure) rejects and surfaces as a 500 via
+			// the error middleware — the dialog needs the error state to disable
+			// per-item selection and force a full sync, like the classic renderer.
+			res.json( await fetchLatestRewindId( token.accessToken, Number( req.params.remoteSiteId ) ) );
 		} )
 	);
 

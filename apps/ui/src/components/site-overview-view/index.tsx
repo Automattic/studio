@@ -1,3 +1,7 @@
+import {
+	TRACKS_EVENTS,
+	type TracksCustomizeEntryPoint,
+} from '@studio/common/lib/record-tracks-event';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import {
@@ -17,16 +21,24 @@ import { useState } from 'react';
 import { AgenticSigninBanner } from '@/components/agentic-signin-banner';
 import { DeleteSiteDialog } from '@/components/delete-site-dialog';
 import { OfflineBanner } from '@/components/offline-banner';
+import { useOpenInDestinations } from '@/components/open-in-menu/use-open-in-destinations';
 import { PreviewToggleButton } from '@/components/preview-toggle-button';
 import { ProgressiveBlur } from '@/components/progressive-blur';
+import { DATABASE_HOME_PATH } from '@/components/site-preview/address-bar';
 import { isSiteSettingsTab, SiteSettingsForm } from '@/components/site-settings-view';
 import { SiteToolbar } from '@/components/site-toolbar';
 import * as Tabs from '@/components/tabs';
+import { useConnector } from '@/data/core';
 import { useIsSiteStarting, useIsSiteStopping, useSites } from '@/data/queries/use-sites';
+import { useUserPreferences } from '@/data/queries/use-user-preferences';
+import { useWpVersion } from '@/data/queries/use-wordpress-versions';
 import { useOpenSiteUrl } from '@/hooks/use-open-site-url';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useSiteManagementActions } from '@/hooks/use-site-management-actions';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
+import { databaseLogo } from '@/lib/logos';
+import { AboutSection } from './about-section';
+import { OverviewCard } from './overview-card';
 import styles from './style.module.css';
 import type { SiteSettingsTabId } from '@/components/site-settings-view';
 import type { SiteDetails } from '@/data/core';
@@ -47,6 +59,7 @@ interface OverviewButtonProps {
 	loading?: boolean;
 	loadingAnnouncement?: string;
 	className?: string;
+	brandIcon?: boolean;
 }
 
 function OverviewHeader( {
@@ -80,6 +93,7 @@ function OverviewButton( {
 	loading,
 	loadingAnnouncement,
 	className,
+	brandIcon,
 }: OverviewButtonProps ) {
 	return (
 		<Button
@@ -91,10 +105,19 @@ function OverviewButton( {
 			loadingAnnouncement={ loadingAnnouncement }
 			onClick={ onClick }
 		>
-			<span className={ styles.overviewButtonIcon } aria-hidden="true">
+			<span
+				className={
+					brandIcon
+						? `${ styles.overviewButtonIcon } ${ styles.brandIcon }`
+						: styles.overviewButtonIcon
+				}
+				aria-hidden="true"
+			>
 				{ icon }
 			</span>
-			<span className={ styles.overviewButtonLabel }>{ label }</span>
+			<span className={ styles.overviewButtonLabel } title={ label }>
+				{ label }
+			</span>
 		</Button>
 	);
 }
@@ -102,9 +125,57 @@ function OverviewButton( {
 function ButtonSection( { title, children }: { title: string; children: ReactNode } ) {
 	return (
 		<section className={ styles.buttonSection }>
-			<h2>{ title }</h2>
+			<h2 className={ styles.columnHeading }>{ title }</h2>
 			<div className={ styles.buttonGrid }>{ children }</div>
 		</section>
+	);
+}
+
+function OpenInSection( {
+	site,
+	busy,
+	openSiteUrl,
+}: {
+	site: SiteDetails;
+	busy: boolean;
+	openSiteUrl: ( url: string ) => Promise< void >;
+} ) {
+	const connector = useConnector();
+	const { data: preferences } = useUserPreferences();
+	const destinations = useOpenInDestinations( site, '/' );
+	const editorConfigured = Boolean( preferences?.editor );
+
+	const apps = destinations.filter(
+		( destination ) =>
+			destination.id !== 'browser' && ( destination.id !== 'editor' || editorConfigured )
+	);
+
+	return (
+		<ButtonSection title={ __( 'Open in…' ) }>
+			{ apps.map( ( destination ) => (
+				<OverviewButton
+					key={ destination.id }
+					brandIcon
+					icon={ <Icon icon={ destination.logo } size={ 18 } /> }
+					label={ destination.label }
+					disabled={ destination.disabled }
+					onClick={ destination.open }
+				/>
+			) ) }
+			<OverviewButton
+				brandIcon
+				icon={ <Icon icon={ databaseLogo } size={ 18 } /> }
+				label={ __( 'phpMyAdmin' ) }
+				disabled={ busy }
+				onClick={ () => {
+					// Opens in the in-app preview panel, not the OS browser.
+					void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_PHPMYADMIN, {
+						browser: 'internal',
+					} );
+					void openSiteUrl( DATABASE_HOME_PATH );
+				} }
+			/>
+		</ButtonSection>
 	);
 }
 
@@ -152,6 +223,7 @@ function SiteOverviewBody( {
 	onTabChange: ( tab: SiteSettingsTabId ) => void;
 } ) {
 	const navigate = useNavigate();
+	const connector = useConnector();
 	const isStarting = useIsSiteStarting( site.id );
 	const isStopping = useIsSiteStopping( site.id );
 	const [ deleteOpen, setDeleteOpen ] = useState( false );
@@ -162,10 +234,20 @@ function SiteOverviewBody( {
 	const busy = isStarting || isStopping;
 	const themeDetails = site.themeDetails;
 	const isBlockTheme = themeDetails?.isBlockTheme === true;
+	const { data: wpVersion } = useWpVersion( site.id );
 
 	// Opens WordPress screens in the in-app preview panel (starting the site
 	// first when needed) rather than the external browser.
 	const openSiteUrl = useOpenSiteUrl( site );
+
+	const openCustomize = ( url: string, entryPoint: TracksCustomizeEntryPoint ) => {
+		// The agentic UI opens customize screens in its in-app preview panel, not the OS browser.
+		void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_CUSTOMIZE, {
+			entry_point: entryPoint,
+			browser: 'internal',
+		} );
+		void openSiteUrl( url );
+	};
 
 	return (
 		<div className={ styles.root }>
@@ -193,6 +275,12 @@ function SiteOverviewBody( {
 							<Tabs.Panel tabId="overview" className={ styles.panel }>
 								<OfflineBanner />
 								<AgenticSigninBanner />
+								<div className={ styles.cardColumn }>
+									<h2 className={ styles.columnHeading }>{ __( 'About' ) }</h2>
+									<OverviewCard>
+										<AboutSection site={ site } wpVersion={ wpVersion } />
+									</OverviewCard>
+								</div>
 								<div className={ styles.actionsColumn }>
 									<ButtonSection title={ __( 'Customize' ) }>
 										{ isBlockTheme ? (
@@ -201,14 +289,17 @@ function SiteOverviewBody( {
 													icon={ <Icon icon={ desktop } size={ 18 } /> }
 													label={ __( 'Site Editor' ) }
 													disabled={ busy }
-													onClick={ () => void openSiteUrl( '/wp-admin/site-editor.php' ) }
+													onClick={ () => openCustomize( '/wp-admin/site-editor.php', 'editor' ) }
 												/>
 												<OverviewButton
 													icon={ <Icon icon={ stylesIcon } size={ 18 } /> }
 													label={ __( 'Styles' ) }
 													disabled={ busy }
 													onClick={ () =>
-														void openSiteUrl( '/wp-admin/site-editor.php?path=%2Fwp_global_styles' )
+														openCustomize(
+															'/wp-admin/site-editor.php?path=%2Fwp_global_styles',
+															'editor_styles'
+														)
 													}
 												/>
 												<OverviewButton
@@ -216,7 +307,10 @@ function SiteOverviewBody( {
 													label={ __( 'Patterns' ) }
 													disabled={ busy }
 													onClick={ () =>
-														void openSiteUrl( '/wp-admin/site-editor.php?path=%2Fpatterns' )
+														openCustomize(
+															'/wp-admin/site-editor.php?path=%2Fpatterns',
+															'editor_patterns'
+														)
 													}
 												/>
 												<OverviewButton
@@ -224,7 +318,10 @@ function SiteOverviewBody( {
 													label={ __( 'Navigation' ) }
 													disabled={ busy }
 													onClick={ () =>
-														void openSiteUrl( '/wp-admin/site-editor.php?path=%2Fnavigation' )
+														openCustomize(
+															'/wp-admin/site-editor.php?path=%2Fnavigation',
+															'editor_navigation'
+														)
 													}
 												/>
 												<OverviewButton
@@ -232,7 +329,10 @@ function SiteOverviewBody( {
 													label={ __( 'Templates' ) }
 													disabled={ busy }
 													onClick={ () =>
-														void openSiteUrl( '/wp-admin/site-editor.php?path=%2Fwp_template' )
+														openCustomize(
+															'/wp-admin/site-editor.php?path=%2Fwp_template',
+															'editor_templates'
+														)
 													}
 												/>
 												<OverviewButton
@@ -240,7 +340,10 @@ function SiteOverviewBody( {
 													label={ __( 'Pages' ) }
 													disabled={ busy }
 													onClick={ () =>
-														void openSiteUrl( '/wp-admin/site-editor.php?path=%2Fpage' )
+														openCustomize(
+															'/wp-admin/site-editor.php?path=%2Fpage',
+															'editor_pages'
+														)
 													}
 												/>
 											</>
@@ -250,14 +353,14 @@ function SiteOverviewBody( {
 													icon={ <Icon icon={ pencil } size={ 18 } /> }
 													label={ __( 'Customizer' ) }
 													disabled={ busy }
-													onClick={ () => void openSiteUrl( '/wp-admin/customize.php' ) }
+													onClick={ () => openCustomize( '/wp-admin/customize.php', 'customizer' ) }
 												/>
 												{ themeDetails?.supportsMenus ? (
 													<OverviewButton
 														icon={ <Icon icon={ navigation } size={ 18 } /> }
 														label={ __( 'Menus' ) }
 														disabled={ busy }
-														onClick={ () => void openSiteUrl( '/wp-admin/nav-menus.php' ) }
+														onClick={ () => openCustomize( '/wp-admin/nav-menus.php', 'menus' ) }
 													/>
 												) : null }
 												{ themeDetails?.supportsWidgets ? (
@@ -265,7 +368,7 @@ function SiteOverviewBody( {
 														icon={ <Icon icon={ widget } size={ 18 } /> }
 														label={ __( 'Widgets' ) }
 														disabled={ busy }
-														onClick={ () => void openSiteUrl( '/wp-admin/widgets.php' ) }
+														onClick={ () => openCustomize( '/wp-admin/widgets.php', 'widgets' ) }
 													/>
 												) : null }
 											</>
@@ -274,9 +377,13 @@ function SiteOverviewBody( {
 											icon={ <Icon icon={ media } size={ 18 } /> }
 											label={ __( 'Media Library' ) }
 											disabled={ busy }
-											onClick={ () => void openSiteUrl( '/wp-admin/upload.php' ) }
+											onClick={ () => openCustomize( '/wp-admin/upload.php', 'media_library' ) }
 										/>
 									</ButtonSection>
+
+									{ connector.capabilities.openInOS && (
+										<OpenInSection site={ site } busy={ busy } openSiteUrl={ openSiteUrl } />
+									) }
 
 									<ButtonSection title={ __( 'Manage' ) }>
 										{ managementActions.map( ( action ) => (

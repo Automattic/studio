@@ -23,7 +23,7 @@ export function executeImportCliCommand(
 	args: string[],
 	parentWindow: Electron.BrowserWindow | null
 ): ImportCliLifecycleEventEmitter {
-	const [ cliEventEmitter ] = executeCliCommand( args, { output: 'capture' } );
+	const [ cliEventEmitter ] = executeCliCommand( args, { output: 'capture', logPrefix: siteId } );
 	const lifecycleEventEmitter = new TypedEventEmitter< ImportCliLifecycleEventMap >();
 	let importerType: ImporterType | undefined;
 	let structuredImportError: unknown;

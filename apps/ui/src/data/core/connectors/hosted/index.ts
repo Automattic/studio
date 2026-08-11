@@ -1,6 +1,8 @@
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
+import { readOnboardingHints, writeOnboardingHints } from '../browser-onboarding-hints';
 import { applyStoredSiteOrder, storeSiteOrder } from '../browser-site-order';
+import { readLastSeenVersion, writeLastSeenVersion } from '../browser-whats-new';
 import { UnsupportedError } from '../unsupported-error';
 import { readWapuuScore, writeWapuuScore } from '../wapuu-score-storage';
 import type {
@@ -122,6 +124,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			annotatePreview: false,
 			readLocalMedia: false,
 			agentInstructions: false,
+			studioLogs: false,
 			switchToClassicUi: false,
 		},
 
@@ -181,6 +184,9 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			// No-op: icons come back with getSites().
 		},
 		async getSiteThumbnail(): Promise< string | null > {
+			return null;
+		},
+		async getSiteStorageUsage(): Promise< null > {
 			return null;
 		},
 		async exportFullSite(): Promise< string | null > {
@@ -397,6 +403,10 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			return {} as InstalledApps;
 		},
 
+		async fetchSiteRest() {
+			throw new UnsupportedError( 'fetchSiteRest' );
+		},
+
 		// Filesystem / native integrations — not available in a browser.
 		async openSiteFolder() {
 			throw new UnsupportedError( 'openSiteFolder' );
@@ -406,6 +416,9 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		},
 		async openSiteInTerminal() {
 			throw new UnsupportedError( 'openSiteInTerminal' );
+		},
+		async openStudioLogs() {
+			throw new UnsupportedError( 'openStudioLogs' );
 		},
 
 		// Analytics — no-op here. Tracks currently flows through the desktop IPC connector; the
@@ -483,6 +496,26 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		},
 		async disableAgenticUi() {
 			// No-op in the browser.
+		},
+		async getOnboardingHints() {
+			return readOnboardingHints();
+		},
+		async setOnboardingHints( partial ) {
+			writeOnboardingHints( partial );
+		},
+		onShowGettingStarted() {
+			// No application menu on the hosted surface.
+			return () => {};
+		},
+		onShowWhatsNew() {
+			// No application menu on the hosted surface.
+			return () => {};
+		},
+		async getLastSeenVersion() {
+			return readLastSeenVersion();
+		},
+		async saveLastSeenVersion( version ) {
+			writeLastSeenVersion( version );
 		},
 		async getAppUpdateStatus() {
 			return { readyToInstall: false, version: null };

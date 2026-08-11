@@ -7,6 +7,10 @@ import {
 } from '@/components/preview-split-frame';
 import { SidebarLayout } from '@/components/sidebar-layout';
 import { SitePreview } from '@/components/site-preview';
+import { useOrientationAutostart } from '@/data/onboarding/use-orientation-autostart';
+import { useOrientationReplay } from '@/data/onboarding/use-orientation-replay';
+import { useWhatsNewAutostart } from '@/data/onboarding/use-whats-new-autostart';
+import { useWhatsNewReplay } from '@/data/onboarding/use-whats-new-replay';
 import { useSession, useSessionEffectiveEnvironment } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
 import {
@@ -59,6 +63,13 @@ function DashboardLayoutContent() {
 	const { sessionId, overviewSiteId, newSessionSiteId } = routePreviewContext;
 	const { data: sites } = useSites();
 	const { data: sessionData } = useSession( sessionId );
+	// Open the orientation guide on first workbench arrival, and let Help ▸
+	// Getting Started replay it.
+	useOrientationAutostart();
+	useOrientationReplay();
+	// Same, for the per-release announcements behind Help ▸ What's New.
+	useWhatsNewAutostart();
+	useWhatsNewReplay();
 	const preview = useSessionPreviewUI();
 	const onAnnotationsDone = useSessionPreviewAnnotationsHandler();
 	const sessionSite = findAiSessionOwnerSite( sites, sessionData?.summary );
@@ -116,6 +127,19 @@ function DashboardLayoutContent() {
 	// `setPreviewSite` effect lands.
 	const previewPath = pathForSite( preview.pathsBySiteId, previewSiteId );
 	const showPreview = preview.open && supportsPreview && !! previewSite;
+	const previewFullscreen = preview.fullscreen && showPreview;
+	// Leave full preview when the route stops supporting a preview (settings,
+	// site settings…) so the user is never left staring at a hidden layout.
+	const { setFullscreen: setPreviewFullscreen } = preview;
+	useEffect( () => {
+		if ( ! supportsPreview ) {
+			setPreviewFullscreen( false );
+		}
+	}, [ supportsPreview, setPreviewFullscreen ] );
+	const exitPreviewFullscreen = useCallback(
+		() => setPreviewFullscreen( false ),
+		[ setPreviewFullscreen ]
+	);
 	const renderPreview = useCallback(
 		( { collapsed }: PreviewSplitFramePreviewProps ) =>
 			previewSite ? (
@@ -126,14 +150,31 @@ function DashboardLayoutContent() {
 					onAnnotationsDone={ onAnnotationsDone }
 					onPathChange={ preview.updatePath }
 					collapsed={ collapsed }
+					fullscreen={ previewFullscreen }
+					onFullscreenChange={ setPreviewFullscreen }
 				/>
 			) : null,
-		[ onAnnotationsDone, previewPath, preview.reloadNonce, preview.updatePath, previewSite ]
+		[
+			onAnnotationsDone,
+			previewFullscreen,
+			previewPath,
+			preview.reloadNonce,
+			preview.updatePath,
+			previewSite,
+			setPreviewFullscreen,
+		]
 	);
 
 	return (
-		<SidebarLayout>
-			<PreviewSplitFrame previewOpen={ showPreview } preview={ renderPreview }>
+		<SidebarLayout
+			forceCollapsed={ previewFullscreen }
+			onForceCollapsedToggle={ exitPreviewFullscreen }
+		>
+			<PreviewSplitFrame
+				previewOpen={ showPreview }
+				previewFullscreen={ previewFullscreen }
+				preview={ renderPreview }
+			>
 				<Outlet />
 			</PreviewSplitFrame>
 		</SidebarLayout>

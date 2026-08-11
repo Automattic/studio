@@ -23,11 +23,12 @@
 
 /* When there are no traffic lights to clear — non-macOS, the browser
    (`studio ui` / hosted), or macOS fullscreen (which hides them) — reclaim the
-   reserved padding so the header content lines up with the site list entries
-   below. The site list outer padding is `2xl` and its rows start flush with
-   that edge, so text starts at `2xl` from the sidebar edge. */
+   reserved padding so the menu icon lines up with the site names below. The
+   button's negative inline-start margin cancels its own icon inset, so the
+   glyph lands exactly on this padding; `xl` is where a site row starts its
+   label text (row edge + the row button's own inner padding). */
 .flush {
-	padding-left: var(--wpds-dimension-padding-2xl);
+	padding-left: var(--wpds-dimension-padding-xl);
 }
 
 /* Windows/Linux paint the native window controls in a band at the top of the

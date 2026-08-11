@@ -175,7 +175,7 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 	const editorConfig = editor ? supportedEditorConfig[ editor ] : false;
 	if ( editor && editorConfig ) {
 		buttonsArray.push( {
-			label: editorConfig.label,
+			label: editorConfig.label(),
 			className: 'text-nowrap',
 			icon: code,
 			onClick: async () => {

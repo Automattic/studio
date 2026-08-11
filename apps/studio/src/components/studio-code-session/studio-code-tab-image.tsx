@@ -1,7 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import styles from './studio-code-tab-image.module.css';
 
-const exampleRequests = [
+const getExampleRequests = () => [
 	__( 'Add a contact form' ),
 	__( 'Make the header sticky' ),
 	__( 'Create a pricing page' ),
@@ -11,7 +11,7 @@ const exampleRequests = [
 
 export const StudioCodeTabImage = () => (
 	<div className={ styles.stack }>
-		{ exampleRequests.map( ( request ) => (
+		{ getExampleRequests().map( ( request ) => (
 			<div key={ request } className={ styles.message }>
 				{ request }
 			</div>

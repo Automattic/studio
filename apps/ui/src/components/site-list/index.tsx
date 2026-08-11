@@ -246,8 +246,8 @@ function SiteStatusButton( {
 	const busy = useIsSiteBusy( site );
 	const operation = useSiteOperation( site );
 	const { status } = deriveSiteStatus( site, isStarting, isStopping, operation );
-	// The CLI's lease wins: it names work this window didn't start (an agent
-	// import, another Studio window), which the local start/stop state can't see.
+	// The recorded operation wins: it names work this window didn't start (an
+	// agent import, another Studio window) that local start/stop state can't see.
 	const statusName = getSiteStatusName( {
 		running: site.running,
 		starting: isStarting,
@@ -374,9 +374,9 @@ function SiteActionsMenu( {
 	};
 
 	const editor = userPreferences?.editor;
-	const editorLabel = editor ? supportedEditorConfig[ editor ].label : null;
+	const editorLabel = editor ? supportedEditorConfig[ editor ].label() : null;
 	const terminal = userPreferences?.terminal;
-	const terminalLabel = terminal ? terminalConfig[ terminal ].name : null;
+	const terminalLabel = terminal ? terminalConfig[ terminal ].name() : null;
 
 	const handleOpenInEditor = () => {
 		void connector.openSiteInEditor( site.id ).catch( ( error ) => {
@@ -488,7 +488,11 @@ function SiteActionsMenu( {
 						{ manageById[ 'export-db' ].loading ? __( 'Exporting…' ) : __( 'Export database' ) }
 					</Menu.Item>
 					<Menu.Separator />
-					<Menu.Item onClick={ manageById.delete.run } disabled={ manageById.delete.disabled }>
+					<Menu.Item
+						destructive={ manageById.delete.destructive }
+						onClick={ manageById.delete.run }
+						disabled={ manageById.delete.disabled }
+					>
 						{ __( 'Delete site' ) }
 					</Menu.Item>
 				</Menu.ContextPopup>

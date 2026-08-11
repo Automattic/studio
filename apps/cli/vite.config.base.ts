@@ -40,7 +40,6 @@ const dataLiberationSourcePath = resolve(
 	'packages',
 	'data-liberation-agent'
 );
-const repoRoot = resolve( __dirname, '..', '..' );
 
 // The `studio ui` command serves the built browser UI (apps/ui `dist-local`)
 // from `<chunk dir>/ui`, so it must sit next to the built chunks too. Built
@@ -75,33 +74,30 @@ export function buildLocalUiPlugin() {
 	};
 }
 
-// Ship only the self-contained engine bundle — its deps are inlined. Shipping
-// the tsc output + node_modules instead added ~10k files to the installer and
-// ~8 min to the Windows CI build (STU-2027).
+// Copy the committed data-liberation-agent/dist into the dist/cli/data-liberation-agent.
 function copyDataLiberationEngine( outDir: string ) {
-	execSync( 'npm -w data-liberation run build:mcp-bundle', {
-		cwd: repoRoot,
-		stdio: 'inherit',
-	} );
+	const serverBundlePath = resolve( dataLiberationSourcePath, 'dist', 'mcp-server.bundle.mjs' );
+	const scriptsDistPath = resolve( dataLiberationSourcePath, 'dist', 'scripts' );
+	if ( ! existsSync( serverBundlePath ) || ! existsSync( scriptsDistPath ) ) {
+		throw new Error(
+			'Data Liberation engine bundles are missing under packages/data-liberation-agent/dist/. ' +
+				'Run `npm -w data-liberation run build:mcp-bundle` and commit the updated artifacts.'
+		);
+	}
+
 	const engineOutDir = resolve( outDir, 'data-liberation-agent' );
 	mkdirSync( resolve( engineOutDir, 'dist' ), { recursive: true } );
-	copyFileSync(
-		resolve( dataLiberationSourcePath, 'dist', 'mcp-server.bundle.mjs' ),
-		resolve( engineOutDir, 'dist', 'mcp-server.bundle.mjs' )
-	);
+	copyFileSync( serverBundlePath, resolve( engineOutDir, 'dist', 'mcp-server.bundle.mjs' ) );
 	cpSync( resolve( dataLiberationSourcePath, 'skills' ), resolve( engineOutDir, 'skills' ), {
 		recursive: true,
 	} );
 
 	// The skills also invoke pipeline drivers via `node scripts/run.mjs <name>`.
 	// Ship the launcher plus the self-contained driver bundles it falls back to
-	// when no dev dependencies resolve next to it (dist/scripts/, emitted by the
-	// same build:mcp-bundle run as the server bundle).
-	cpSync(
-		resolve( dataLiberationSourcePath, 'dist', 'scripts' ),
-		resolve( engineOutDir, 'dist', 'scripts' ),
-		{ recursive: true }
-	);
+	// when no dev dependencies resolve next to it (dist/scripts/).
+	cpSync( scriptsDistPath, resolve( engineOutDir, 'dist', 'scripts' ), {
+		recursive: true,
+	} );
 	mkdirSync( resolve( engineOutDir, 'scripts' ), { recursive: true } );
 	copyFileSync(
 		resolve( dataLiberationSourcePath, 'scripts', 'run.mjs' ),

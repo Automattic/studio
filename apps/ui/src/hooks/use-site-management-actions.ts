@@ -33,8 +33,8 @@ export interface SiteManagementAction {
 }
 
 /**
- * The canonical "manage this site" actions — Duplicate, Export, Export DB,
- * Delete — shared by every surface that offers them, so labels, icons,
+ * The canonical "manage this site" actions — Duplicate, Export entire site,
+ * Export database, Delete — shared by every surface that offers them, so labels, icons,
  * order, and disabled logic don't drift apart between surfaces.
  *
  * Delete needs a confirmation dialog whose "deleted" navigation differs per
@@ -80,7 +80,7 @@ export function useSiteManagementActions(
 		{
 			id: 'export',
 			icon: download,
-			label: __( 'Export' ),
+			label: __( 'Export entire site' ),
 			loading: isExportingFullSite,
 			loadingAnnouncement: __( 'Exporting site' ),
 			disabled: isBusy || isExporting,
@@ -90,7 +90,7 @@ export function useSiteManagementActions(
 		{
 			id: 'export-db',
 			icon: grid,
-			label: __( 'Export DB' ),
+			label: __( 'Export database' ),
 			loading: isExportingDatabase,
 			loadingAnnouncement: __( 'Exporting database' ),
 			disabled: isBusy || isExporting,

@@ -4,7 +4,6 @@ import { deriveOrientationAutostart } from './use-orientation-autostart';
 import type { OnboardingHintsState } from '@/data/core';
 
 const base = {
-	onboardingCompleted: true,
 	siteCount: 1,
 	agentic: { chatEnabled: true, isReady: true },
 	hints: {} as OnboardingHintsState,
@@ -27,11 +26,6 @@ describe( 'deriveOrientationAutostart', () => {
 		expect(
 			deriveOrientationAutostart( { ...base, hints: { migratedFromClassic: true } } )
 		).toEqual( { migrating: true, chatEnabled: true } );
-	} );
-
-	it( 'waits until the pre-workbench welcome is done', () => {
-		expect( deriveOrientationAutostart( { ...base, onboardingCompleted: false } ) ).toBeNull();
-		expect( deriveOrientationAutostart( { ...base, onboardingCompleted: undefined } ) ).toBeNull();
 	} );
 
 	it( 'waits until there is at least one site', () => {

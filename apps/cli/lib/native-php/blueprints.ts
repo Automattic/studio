@@ -5,7 +5,7 @@ import {
 	removeBlueprintTempDir,
 } from '@studio/common/lib/blueprint-bundle';
 import { getBlueprintsPharPath, getPhpBinaryPath } from 'cli/lib/dependency-management/paths';
-import { runPhpCommand } from './php-process';
+import { PhpCommandError, runPhpCommand } from './php-process';
 import type { NativePhpSupportedVersion } from '@studio/common/lib/php-binary-metadata';
 import type { ServerConfig } from 'cli/lib/types/wordpress-server-ipc';
 
@@ -38,6 +38,44 @@ export function normalizeBlueprintForRunner( contents: Record< string, unknown >
 	} else {
 		delete contents.features;
 	}
+}
+
+// Fits a schema validation report (one line per offending property) without overflowing a toast.
+const MAX_BLUEPRINT_ERROR_LENGTH = 2000;
+
+function truncate( message: string ): string {
+	return message.length > MAX_BLUEPRINT_ERROR_LENGTH
+		? `${ message.slice( 0, MAX_BLUEPRINT_ERROR_LENGTH ) }…`
+		: message;
+}
+
+/**
+ * The runner reports on stdout as JSON lines, progress interleaved with errors. Only `message` is
+ * kept; the `details.trace` on step failures is a phar-internal stack, meaningless to the user.
+ */
+export function formatBlueprintRunnerError( error: PhpCommandError ): string {
+	const reportedErrors: string[] = [];
+	for ( const line of error.stdout.split( /\r?\n/ ) ) {
+		const trimmed = line.trim();
+		if ( ! trimmed.startsWith( '{' ) ) {
+			continue;
+		}
+		try {
+			const parsed = JSON.parse( trimmed );
+			if ( parsed?.type === 'error' && typeof parsed.message === 'string' ) {
+				reportedErrors.push( parsed.message );
+			}
+		} catch {
+			// A partial line from a truncated capture - nothing to report from it.
+		}
+	}
+
+	if ( reportedErrors.length > 0 ) {
+		return truncate( reportedErrors.join( '\n' ) );
+	}
+
+	const stderr = error.stderr.trim();
+	return stderr ? truncate( stderr ) : error.message;
 }
 
 export async function runBlueprint(
@@ -138,6 +176,11 @@ export async function runBlueprint(
 				},
 			}
 		);
+	} catch ( error ) {
+		if ( error instanceof PhpCommandError ) {
+			throw new Error( formatBlueprintRunnerError( error ) );
+		}
+		throw error;
 	} finally {
 		await fs.promises.unlink( tmpPath ).catch( () => {} );
 		if ( fallbackTempDir ) {

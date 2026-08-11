@@ -64,7 +64,7 @@ interface SitePreviewProps {
 }
 
 interface InspectorEvent {
-	type: 'browser-command' | 'done' | 'state';
+	type: 'annotations-updated' | 'browser-command' | 'done' | 'state';
 	annotations?: Annotation[];
 	isPicking?: boolean;
 	annotationCount?: number;
@@ -1143,6 +1143,7 @@ function WebviewSurface( {
 	const browserStateRef = useRef< BrowserNavigationState >( EMPTY_BROWSER_STATE );
 	const domReadyRef = useRef( false );
 	const currentUrlRef = useRef( url );
+	const storedAnnotationsRef = useRef< Annotation[] >( [] );
 	const lastReloadNonceRef = useRef( reloadNonce );
 	const progressTimerRef = useRef< ReturnType< typeof setInterval > | null >( null );
 	const progressResetTimerRef = useRef< ReturnType< typeof setTimeout > | null >( null );
@@ -1250,16 +1251,19 @@ function WebviewSurface( {
 			domReadyRef.current = true;
 			setReady( true );
 			publishDocumentTitle();
+			// If annotations were collected on a previous page, seed
+			// window.__studioInspectorState before the IIFE runs so the
+			// freshly-injected inspector picks them up on init.
+			const stored = storedAnnotationsRef.current;
+			const preload =
+				stored.length > 0 ? `window.__studioInspectorState=${ JSON.stringify( stored ) };` : '';
 			webview
-				.executeJavaScript( INSPECTOR_PAGE_SCRIPT, false )
+				.executeJavaScript( preload + INSPECTOR_PAGE_SCRIPT, false )
 				.then( () => {
-					// The injected script reports the real picking/count state
-					// through the console bridge; this just flips `ready` so the
-					// host controls enable without waiting for that round-trip.
 					onInspectorStateRef.current?.( {
 						ready: true,
 						isPicking: false,
-						annotationCount: 0,
+						annotationCount: stored.length,
 					} );
 				} )
 				.catch( () => {
@@ -1293,6 +1297,12 @@ function WebviewSurface( {
 				} );
 				return;
 			}
+			if ( parsed.type === 'annotations-updated' ) {
+				if ( Array.isArray( parsed.annotations ) ) {
+					storedAnnotationsRef.current = parsed.annotations;
+				}
+				return;
+			}
 			if ( parsed.type !== 'done' || ! parsed.annotations ) return;
 			onAnnotationsDoneRef.current?.( parsed.annotations );
 		};
@@ -1314,7 +1324,10 @@ function WebviewSurface( {
 		};
 		const handleStartLoading = () => {
 			didReadTitleAfterLoad = false;
-			onInspectorStateRef.current?.( EMPTY_INSPECTOR_STATE );
+			onInspectorStateRef.current?.( {
+				...EMPTY_INSPECTOR_STATE,
+				annotationCount: storedAnnotationsRef.current.length,
+			} );
 			publishBrowserState( { title: null } );
 			startProgress();
 		};

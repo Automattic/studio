@@ -54,6 +54,7 @@ import {
 } from '@studio/common/lib/blueprint-bundle';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import { parseCliError, errorMessageContains } from '@studio/common/lib/cli-error';
+import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
 import {
@@ -104,7 +105,7 @@ import {
 import { measureSiteStorage, type SiteStorageUsage } from '@studio/common/sites/storage-usage';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
 import { MACOS_TRAFFIC_LIGHT_POSITION, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
-import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
+import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import {
 	getBetaFeatures as getBetaFeaturesFromLib,
 	updateBetaFeature as updateBetaFeatureInLib,
@@ -135,6 +136,12 @@ import { getImageData } from 'src/lib/get-image-data';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import * as oauthClient from 'src/lib/oauth';
+import {
+	isPhpUserError,
+	parsePhpError,
+	startErrorRecovery,
+	stopErrorRecovery,
+} from 'src/lib/php-error-recovery';
 import { scaffoldPluginInSite, type PluginScaffoldMeta } from 'src/lib/scaffold-plugin';
 import { getAiInstructionsPath } from 'src/lib/server-files-paths';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
@@ -1055,6 +1062,10 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 		throw new Error( 'MAINTENANCE_MODE' );
 	}
 
+	// Release the port held by any active PHP-error recovery before (re)starting the real server,
+	// otherwise the recovery error server still bound to the site's port causes EADDRINUSE.
+	await stopErrorRecovery( id );
+
 	try {
 		await server.start();
 	} catch ( error ) {
@@ -1072,6 +1083,46 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 		// Capacity limit is expected behavior, not a bug — skip Sentry
 		if ( errorMessageContains( error, 'CAPACITY_LIMIT_REACHED' ) ) {
 			throw new Error( 'CAPACITY_LIMIT_REACHED' );
+		}
+
+		// A fatal error in the user's own PHP (theme/plugin) code stops WordPress from booting.
+		// Rather than failing the start, serve the parsed PHP error on the site's port and watch for
+		// the fix so the site self-recovers. This is user code, not a Studio bug, so skip Sentry.
+		if ( isPhpUserError( error ) ) {
+			const processManagerLogs = readProcessManagerLogs( id );
+			const logContent = [
+				...( processManagerLogs.stdout ?? [] ),
+				...( processManagerLogs.stderr ?? [] ),
+			].join( '\n' );
+			const errorMessage = parsePhpError( logContent );
+
+			try {
+				await startErrorRecovery( server, errorMessage, readProcessManagerLogs );
+				console.log(
+					`[PHP Recovery - ${ id }] Serving PHP error page on port ${ server.details.port }`
+				);
+				void sendIpcEventToRenderer( 'site-event', {
+					event: SITE_EVENTS.UPDATED,
+					siteId: id,
+					site: {
+						id: server.details.id,
+						name: server.details.name,
+						path: server.details.path,
+						port: server.details.port,
+						url:
+							( 'url' in server.details ? server.details.url : undefined ) ??
+							`http://localhost:${ server.details.port }`,
+						phpVersion: server.details.phpVersion,
+					},
+					running: true,
+				} );
+				// Refresh the thumbnail so it shows the error page instead of a stale capture.
+				void captureSiteThumbnail( id, true );
+				return;
+			} catch ( recoveryError ) {
+				console.error( `[PHP Recovery - ${ id }] Failed to start recovery:`, recoveryError );
+				// Fall through to report the original error.
+			}
 		}
 
 		const contexts: Record< string, Record< string, unknown > > = {
@@ -1136,6 +1187,7 @@ export async function stopServer( event: IpcMainInvokeEvent, id: string ): Promi
 		return;
 	}
 
+	await stopErrorRecovery( id );
 	await server.stop();
 	// Stopping a single site by hand clears its auto-start. SiteServer.stop() pre-empts the running
 	// transition the events subscriber relies on, so persist it explicitly here.

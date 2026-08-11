@@ -693,6 +693,17 @@ async function ipcMessageHandler( packet: unknown ) {
 	}
 }
 
+// A PHP WASM worker hitting a fatal error can surface as a stray unhandled rejection in addition to
+// the runCLI() rejection that startServer already handles. Log instead of letting it crash the child,
+// so the clean error-reporting path runs and the PHP error reaches the main process for recovery.
+process.on( 'uncaughtException', ( error ) => {
+	errorToConsole( 'Uncaught exception in child process:', error );
+} );
+
+process.on( 'unhandledRejection', ( reason ) => {
+	errorToConsole( 'Unhandled rejection in child process:', reason );
+} );
+
 if ( process.send ) {
 	process.on( 'message', ipcMessageHandler );
 	process.send( { topic: 'ready' } );

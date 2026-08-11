@@ -1,3 +1,4 @@
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { useIsMutating } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
 import { arrowDown, arrowUp, external, Icon, moreVertical } from '@wordpress/icons';
@@ -174,7 +175,12 @@ export function SiteToolbar( { site, className, openPullOnLoad = false }: SiteTo
 										<button
 											type="button"
 											className={ styles.siteUrl }
-											onClick={ () => openExternal( localSiteUrl ) }
+											onClick={ () => {
+												void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_IN_BROWSER, {
+													browser: 'external',
+												} );
+												openExternal( localSiteUrl );
+											} }
 										>
 											<span>{ localSiteLabel }</span>
 											<Icon

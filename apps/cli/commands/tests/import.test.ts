@@ -275,19 +275,19 @@ describe( 'CLI: studio import', () => {
 		vi.mocked( isServerRunning ).mockResolvedValue( { pid: 1234 } as never );
 		vi.mocked( getImporter ).mockReturnValue(
 			createImporter( async () => {
-				throw new LoggerError( 'Backup validation failed', undefined, 'validation' );
+				throw new LoggerError( 'Database import failed: x', undefined, 'database_import' );
 			} ) as never
 		);
 		vi.mocked( keepSqliteIntegrationUpdated ).mockRejectedValue( new Error( 'restart failed' ) );
 
 		await expect( runCommand( testSitePath, testImportPath ) ).rejects.toThrow(
-			'Backup validation failed'
+			'Database import failed'
 		);
 
 		expect( recordTracksEvent ).toHaveBeenCalledTimes( 1 );
 		expect( recordTracksEvent ).toHaveBeenCalledWith(
 			TRACKS_EVENTS.SITE_IMPORT,
-			expect.objectContaining( { success: false, failure_reason: 'validation' } )
+			expect.objectContaining( { success: false, failure_reason: 'database_import' } )
 		);
 	} );
 

@@ -138,8 +138,7 @@ export function handleImportEvents( emitter: ImportExportEventEmitter ): void {
 	emitter.on( ValidatorEvents.IMPORT_VALIDATION_ERROR, ( error ) => {
 		throw new LoggerError(
 			__( 'Backup validation failed' ),
-			error instanceof Error ? error : undefined,
-			'validation'
+			error instanceof Error ? error : undefined
 		);
 	} );
 

@@ -97,7 +97,6 @@ describe( 'classifyImportFailure', () => {
 		[ 'file_not_found' ],
 		[ 'no_backup_handler' ],
 		[ 'no_importer_found' ],
-		[ 'validation' ],
 		[ 'extract' ],
 		[ 'database_import' ],
 		[ 'wxr_import' ],

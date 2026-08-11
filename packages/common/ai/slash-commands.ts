@@ -19,3 +19,19 @@ export const getAiSkillCommands = (): SkillSlashCommand[] => [
 export function buildSkillInvocationPrompt( name: string ): string {
 	return `Run the /${ name } skill using the Skill tool.`;
 }
+
+// Expand a bare skill-command slash prompt (e.g. `/rank-me-up`) into the
+// instruction the agent actually acts on. Mirrors the CLI's interactive main
+// loop so UI clients can send the short form and get the same behaviour.
+export function expandSkillCommandPrompt( prompt: string ): string {
+	const trimmed = prompt.trim();
+	if ( ! trimmed.startsWith( '/' ) ) {
+		return prompt;
+	}
+	const name = trimmed.slice( 1 );
+	const match = getAiSkillCommands().find( ( cmd ) => cmd.name === name );
+	if ( ! match ) {
+		return prompt;
+	}
+	return buildSkillInvocationPrompt( name );
+}

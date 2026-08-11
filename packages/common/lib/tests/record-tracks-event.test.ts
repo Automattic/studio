@@ -13,6 +13,10 @@ describe( 'isTracksEventName', () => {
 	it( 'accepts known event names', () => {
 		expect( isTracksEventName( TRACKS_EVENTS.APP_LAUNCH ) ).toBe( true );
 		expect( isTracksEventName( TRACKS_EVENTS.SITE_START ) ).toBe( true );
+		expect( isTracksEventName( TRACKS_EVENTS.CODE_MESSAGE_SENT ) ).toBe( true );
+		expect( isTracksEventName( TRACKS_EVENTS.CODE_TURN_COMPLETED ) ).toBe( true );
+		expect( isTracksEventName( TRACKS_EVENTS.CODE_SESSION_CREATED ) ).toBe( true );
+		expect( isTracksEventName( TRACKS_EVENTS.SETTING_INSTRUCTIONS_CHANGE ) ).toBe( true );
 	} );
 
 	it( 'rejects unknown or non-string values', () => {

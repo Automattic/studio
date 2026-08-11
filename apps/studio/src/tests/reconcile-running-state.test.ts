@@ -9,6 +9,7 @@ import { SiteServer, reconcileSitesRunningState } from 'src/site-server';
 // `vi.mock` calls are hoisted above the imports above, so SiteServer sees the mocked CLI plumbing.
 vi.mock( 'src/modules/cli/lib/execute-command', () => ( {
 	executeCliCommand: vi.fn().mockReturnValue( [ new EventEmitter(), { kill: vi.fn() } ] ),
+	getTracksOriginEnv: vi.fn( () => 'studio-ui:v1' ),
 } ) );
 vi.mock( '@sentry/electron/main', () => ( {
 	captureException: vi.fn(),

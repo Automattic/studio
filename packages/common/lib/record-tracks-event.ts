@@ -38,6 +38,10 @@ export const TRACKS_EVENTS = {
 	SETTING_CLI_CHANGE: 'studio_setting_cli_change',
 	SETTING_AGENTIC_FEATURES_CHANGE: 'studio_setting_agentic_features_change',
 	SETTING_UI_CHANGE: 'studio_setting_ui_change',
+	SETTING_INSTRUCTIONS_CHANGE: 'studio_setting_instructions_change',
+	CODE_MESSAGE_SENT: 'studio_code_message_sent',
+	CODE_TURN_COMPLETED: 'studio_code_turn_completed',
+	CODE_SESSION_CREATED: 'studio_code_session_created',
 } as const;
 
 export type TracksEventName = ( typeof TRACKS_EVENTS )[ keyof typeof TRACKS_EVENTS ];
@@ -87,6 +91,29 @@ export type TracksCustomizeEntryPoint =
 	| 'customizer'
 	| 'menus'
 	| 'widgets';
+
+// Studio Code (AI assistant) event vocabulary. Follows the data team's shared AI-event property
+// names so Studio's assistant metrics aggregate with other Automattic AI products — see the design
+// doc. `is_test` is deliberately absent: dev/E2E/CI runs are suppressed at the source (see the gates
+// in `__recordTracksEvent` and the app wrappers), so the prop could only ever be `false`.
+export interface TracksAiIdentity {
+	ai_session_id: string;
+	agent_name: string;
+	agent_version: string;
+	client: TracksAiClient;
+}
+
+// Which AI client product an assistant event came from. `channel` still records the surface
+// (desktop UI vs CLI); this records the product, leaving room for future Studio AI clients.
+export type TracksAiClient = 'studio-code';
+
+// How an assistant turn ended, sent as `outcome` on `studio_code_turn_completed`. Mirrors the
+// session log's `TurnStatus` so the Tracks value and the transcript never disagree.
+export type TracksAiOutcome = 'success' | 'error' | 'interrupted' | 'max_turns';
+
+// Coarse size of the user's global agent instructions, sent as `length_bucket` on
+// `studio_setting_instructions_change`. Bucketed because the instructions text itself is never sent.
+export type TracksInstructionsLengthBucket = 'empty' | 'short' | 'medium' | 'long';
 
 // The site panel/tab a `studio_panel_opened` event refers to. Studio Classic emits the tab-strip names
 // (`sync`/`import-export`/`previews` are Classic-only); the agentic UI reuses the shared names —

@@ -2,6 +2,7 @@
  * @vitest-environment node
  */
 import { IpcMainInvokeEvent } from 'electron';
+import { writeGlobalInstructions } from '@studio/common/ai/global-instructions';
 import { readSharedConfig, updateSharedConfig } from '@studio/common/lib/shared-config';
 import { vi } from 'vitest';
 import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
@@ -13,6 +14,7 @@ import {
 	saveDefaultSiteDirectory,
 	saveQuitSitesBehavior,
 	saveAgenticFeaturesEnabled,
+	saveGlobalAgentInstructions,
 } from 'src/modules/user-settings/lib/ipc-handlers';
 import { defaultSitePath } from 'src/storage/paths';
 import { loadUserData, updateAppdata } from 'src/storage/user-data';
@@ -41,6 +43,10 @@ vi.mock( 'src/ipc-utils', () => ( {
 vi.mock( 'src/storage/paths', () => ( {
 	defaultSitePath: '/home/user/Studio',
 	ensureWritableDirectory: vi.fn(),
+} ) );
+vi.mock( '@studio/common/ai/global-instructions', () => ( {
+	readGlobalInstructionsFile: vi.fn(),
+	writeGlobalInstructions: vi.fn(),
 } ) );
 
 const mockRecord = vi.mocked( recordTracksEvent );
@@ -222,4 +228,72 @@ it( 'saveAgenticFeaturesEnabled does not emit when unchanged (persisted default 
 	await saveAgenticFeaturesEnabled( event, true );
 
 	expect( mockRecord ).not.toHaveBeenCalled();
+} );
+
+// The instructions save is a special case in this family: the agentic UI autosaves on a debounce, so
+// by the time the user leaves the tab the file already holds the new text and Main has nothing to
+// compare against. The renderer therefore supplies the value the edit session started from, and
+// intermediate autosaves omit it entirely so one edit is counted once.
+describe( 'saveGlobalAgentInstructions', () => {
+	it( 'emits studio_setting_instructions_change when an edit session changed the text', async () => {
+		await saveGlobalAgentInstructions( event, 'Always answer in French.', {
+			editSession: { previousContent: '' },
+		} );
+
+		expect( writeGlobalInstructions ).toHaveBeenCalledWith( 'Always answer in French.' );
+		expect( mockRecord ).toHaveBeenCalledWith( TRACKS_EVENTS.SETTING_INSTRUCTIONS_CHANGE, {
+			has_content: true,
+			length_bucket: 'short',
+			surface: 'settings',
+		} );
+	} );
+
+	it( 'does not emit for an intermediate autosave', async () => {
+		await saveGlobalAgentInstructions( event, 'Half-typed instr' );
+
+		expect( writeGlobalInstructions ).toHaveBeenCalledWith( 'Half-typed instr' );
+		expect( mockRecord ).not.toHaveBeenCalled();
+	} );
+
+	it( 'does not emit when the edit session ended with the text unchanged', async () => {
+		await saveGlobalAgentInstructions( event, 'Same text', {
+			editSession: { previousContent: 'Same text' },
+		} );
+
+		expect( mockRecord ).not.toHaveBeenCalled();
+	} );
+
+	it( 'reports cleared instructions as empty rather than skipping the change', async () => {
+		await saveGlobalAgentInstructions( event, '', {
+			editSession: { previousContent: 'Previously set' },
+		} );
+
+		expect( mockRecord ).toHaveBeenCalledWith( TRACKS_EVENTS.SETTING_INSTRUCTIONS_CHANGE, {
+			has_content: false,
+			length_bucket: 'empty',
+			surface: 'settings',
+		} );
+	} );
+
+	it( 'buckets length instead of sending the instructions text', async () => {
+		await saveGlobalAgentInstructions( event, 'x'.repeat( 1500 ), {
+			editSession: { previousContent: '' },
+		} );
+
+		const props = mockRecord.mock.calls[ 0 ][ 1 ] as Record< string, unknown >;
+		expect( props.length_bucket ).toBe( 'long' );
+		expect( JSON.stringify( props ) ).not.toContain( 'xxx' );
+	} );
+
+	it( 'treats whitespace-only instructions as empty', async () => {
+		await saveGlobalAgentInstructions( event, '   \n  ', {
+			editSession: { previousContent: 'Previously set' },
+		} );
+
+		expect( mockRecord ).toHaveBeenCalledWith( TRACKS_EVENTS.SETTING_INSTRUCTIONS_CHANGE, {
+			has_content: false,
+			length_bucket: 'empty',
+			surface: 'settings',
+		} );
+	} );
 } );

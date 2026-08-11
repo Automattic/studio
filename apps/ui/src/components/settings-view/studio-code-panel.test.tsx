@@ -57,7 +57,7 @@ describe( 'StudioCodePanel', () => {
 		act( () => void vi.advanceTimersByTime( 800 ) );
 
 		expect( save ).toHaveBeenCalledTimes( 1 );
-		expect( save ).toHaveBeenCalledWith( 'Answer in Spanish.' );
+		expect( save ).toHaveBeenCalledWith( { content: 'Answer in Spanish.' } );
 	} );
 
 	it( 'flushes a pending edit when the panel unmounts mid-debounce', () => {
@@ -68,7 +68,10 @@ describe( 'StudioCodePanel', () => {
 		} );
 		unmount();
 
-		expect( save ).toHaveBeenCalledExactlyOnceWith( 'Half-typed thought' );
+		expect( save ).toHaveBeenCalledExactlyOnceWith( {
+			content: 'Half-typed thought',
+			editSession: { previousContent: 'Answer in French.' },
+		} );
 	} );
 
 	it( 'does not save while the content still matches what is stored', () => {
@@ -78,6 +81,34 @@ describe( 'StudioCodePanel', () => {
 			target: { value: 'Answer in French.' },
 		} );
 		act( () => void vi.advanceTimersByTime( 800 ) );
+
+		expect( save ).not.toHaveBeenCalled();
+	} );
+
+	// The autosave means the stored value already matches by the time the user leaves, so the
+	// edit-session boundary has to carry the value the visit started from — otherwise Main sees no
+	// change and the edit goes uncounted.
+	it( 'reports the edit session on unmount after the debounce already saved', () => {
+		const { unmount } = render( <StudioCodePanel /> );
+
+		fireEvent.change( screen.getByLabelText( 'Instructions' ), {
+			target: { value: 'Answer in Spanish.' },
+		} );
+		act( () => void vi.advanceTimersByTime( 800 ) );
+		expect( save ).toHaveBeenCalledExactlyOnceWith( { content: 'Answer in Spanish.' } );
+
+		unmount();
+
+		expect( save ).toHaveBeenLastCalledWith( {
+			content: 'Answer in Spanish.',
+			editSession: { previousContent: 'Answer in French.' },
+		} );
+	} );
+
+	it( 'does not report an edit session when the user only looked at the tab', () => {
+		const { unmount } = render( <StudioCodePanel /> );
+
+		unmount();
 
 		expect( save ).not.toHaveBeenCalled();
 	} );

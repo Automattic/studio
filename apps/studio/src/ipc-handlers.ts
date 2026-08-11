@@ -41,7 +41,11 @@ import {
 	deleteAiSession as deleteAiSessionFromStore,
 	loadAiSession as loadAiSessionFromStore,
 } from '@studio/common/ai/sessions/store';
-import { getAiSkillCommands, buildSkillInvocationPrompt } from '@studio/common/ai/slash-commands';
+import {
+	buildSkillInvocationPrompt,
+	resolveSkillFromPrompt,
+} from '@studio/common/ai/slash-commands';
+import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import {
 	installSkillToSite,
 	removeSkillFromSite,
@@ -319,25 +323,34 @@ export async function createAiSession(
 	siteId?: string
 ): Promise< AiSessionSummary > {
 	const sessionsRoot = getSessionsDirectory();
-	if ( ! siteId ) {
-		return createOrReuseAiSession( sessionsRoot );
-	}
-
-	const server = SiteServer.get( siteId );
-	if ( ! server ) {
+	const server = siteId ? SiteServer.get( siteId ) : undefined;
+	if ( siteId && ! server ) {
 		throw new Error( `Site not found: ${ siteId }` );
 	}
 
 	// Binds the session to the site and reuses an existing empty draft for it
 	// instead of piling up orphans — the shared logic the `studio ui` server
 	// uses too.
-	return createOrReuseAiSession( sessionsRoot, {
-		site: {
+	const { created, ...summary } = await createOrReuseAiSession( sessionsRoot, {
+		site: server && {
 			id: server.details.id,
 			name: server.details.name,
 			path: server.details.path,
 		},
 	} );
+
+	// Unlike the other Studio Code events this fires from Main, because sessions are created
+	// in-process rather than by forking the CLI. Reused drafts are not creations, so they don't
+	// count. The `studio ui` server has no Tracks emitter, so browser-created sessions are missing
+	// here — see STU-2247.
+	if ( created ) {
+		await recordTracksEvent( TRACKS_EVENTS.CODE_SESSION_CREATED, {
+			...getAiTracksIdentity( summary.id ),
+			has_site: Boolean( server ),
+		} );
+	}
+
+	return summary;
 }
 
 export async function updateAiSessionMetadata(
@@ -398,16 +411,8 @@ async function reconcileSessionEnvironmentBeforeRun( sessionId: string ): Promis
 // instruction the agent actually acts on. Mirrors the CLI's interactive main
 // loop so UI clients can send the short form and get the same behaviour.
 function expandSkillCommandPrompt( prompt: string ): string {
-	const trimmed = prompt.trim();
-	if ( ! trimmed.startsWith( '/' ) ) {
-		return prompt;
-	}
-	const name = trimmed.slice( 1 );
-	const match = getAiSkillCommands().find( ( cmd ) => cmd.name === name );
-	if ( ! match ) {
-		return prompt;
-	}
-	return buildSkillInvocationPrompt( name );
+	const name = resolveSkillFromPrompt( prompt );
+	return name ? buildSkillInvocationPrompt( name ) : prompt;
 }
 
 export async function continueAiSession(

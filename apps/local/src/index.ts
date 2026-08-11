@@ -1200,7 +1200,12 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 					site = { id: found.id, name: found.name, path: found.path };
 				}
 			}
-			res.json( await createOrReuseAiSession( sessionsRoot, { site } ) );
+			// `created` only tells the caller whether a draft was reused; it is an analytics signal the
+			// desktop uses and not part of the session shape clients consume.
+			const { created: _created, ...summary } = await createOrReuseAiSession( sessionsRoot, {
+				site,
+			} );
+			res.json( summary );
 		} )
 	);
 

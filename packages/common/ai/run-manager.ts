@@ -55,6 +55,12 @@ export interface AgentRunManagerConfig {
 	emit: ( output: RunManagerOutput ) => void;
 	// Telemetry surface, so desktop and `studio ui` stats stay distinct.
 	surface: AgentSurface;
+	// Resolves `STUDIO_TRACKS_ORIGIN` for the forked CLI, which emits the Studio Code Tracks events
+	// (it is the only layer that knows the provider, model and turn outcome). Without it the child
+	// falls back to `channel: studio-cli`, so the desktop passes its renderer origin here. Called per
+	// fork rather than read once, because the user can switch renderer mid-session. Left unset by
+	// `studio ui`, whose runs are counted as CLI for now — see STU-2247.
+	getTracksOrigin?: () => string;
 }
 
 export interface StartAgentRunOptions {
@@ -92,7 +98,13 @@ function writeInputPayloadFile( payload: StudioAiSessionInputPayload ): {
 }
 
 export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRunManager {
-	const { cliBinary, nodeBinary, execArgv = [ '--experimental-wasm-jspi' ], surface } = config;
+	const {
+		cliBinary,
+		nodeBinary,
+		execArgv = [ '--experimental-wasm-jspi' ],
+		surface,
+		getTracksOrigin,
+	} = config;
 
 	// Two subprocesses resuming the same session id would race on the JSONL
 	// recorder, so we reject the second one here.
@@ -180,7 +192,10 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 			stdio: [ 'ignore', 'ignore', 'ignore', 'ipc' ],
 			execPath: nodeBinary,
 			execArgv,
-			env: { ...process.env },
+			env: {
+				...process.env,
+				...( getTracksOrigin ? { STUDIO_TRACKS_ORIGIN: getTracksOrigin() } : {} ),
+			},
 		} );
 
 		const run: AgentRun = {

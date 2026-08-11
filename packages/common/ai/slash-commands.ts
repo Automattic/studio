@@ -19,3 +19,19 @@ export const getAiSkillCommands = (): SkillSlashCommand[] => [
 export function buildSkillInvocationPrompt( name: string ): string {
 	return `Run the /${ name } skill using the Skill tool.`;
 }
+
+// Identifies which predefined skill a prompt invokes, or `undefined` for an ordinary message.
+//
+// Two shapes reach the agent: the bare `/rank-me-up` a user typed, and the sentence
+// `buildSkillInvocationPrompt` expands it into. Desktop expands before forking the CLI while the
+// `studio ui` server passes the prompt through untouched, so both arrive in practice. Only names in
+// the catalog above are ever returned — arbitrary slash text is a normal prompt, and callers
+// reporting this to analytics must never echo it back.
+export function resolveSkillFromPrompt( prompt: string ): string | undefined {
+	const trimmed = prompt.trim();
+	const name = trimmed.startsWith( '/' )
+		? trimmed.slice( 1 )
+		: getAiSkillCommands().find( ( cmd ) => buildSkillInvocationPrompt( cmd.name ) === trimmed )
+				?.name;
+	return getAiSkillCommands().find( ( cmd ) => cmd.name === name )?.name;
+}

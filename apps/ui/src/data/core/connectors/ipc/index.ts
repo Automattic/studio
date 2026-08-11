@@ -773,8 +773,11 @@ export function createIpcConnector(): Connector {
 		async getAgentInstructions(): Promise< string > {
 			return ( await ipcApi.getGlobalAgentInstructions() ) as string;
 		},
-		async saveAgentInstructions( content: string ): Promise< void > {
-			await ipcApi.saveGlobalAgentInstructions( content );
+		async saveAgentInstructions(
+			content: string,
+			options: { editSession?: { previousContent: string } } = {}
+		): Promise< void > {
+			await ipcApi.saveGlobalAgentInstructions( content, options );
 		},
 
 		async getInstalledApps(): Promise< InstalledApps > {

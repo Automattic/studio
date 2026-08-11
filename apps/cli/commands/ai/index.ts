@@ -5,9 +5,18 @@ import {
 } from '@studio/common/ai/chat-files';
 import { type StudioChatImage } from '@studio/common/ai/chat-images';
 import { getAgentEndFailure } from '@studio/common/ai/json-events';
-import { DEFAULT_MODEL, resolveSessionModel, type AiModelId } from '@studio/common/ai/models';
+import {
+	DEFAULT_MODEL,
+	getAiModelFamily,
+	resolveSessionModel,
+	type AiModelId,
+} from '@studio/common/ai/models';
 import { getAgentEndTurnResult } from '@studio/common/ai/session-events';
-import { buildSkillInvocationPrompt } from '@studio/common/ai/slash-commands';
+import {
+	buildSkillInvocationPrompt,
+	resolveSkillFromPrompt,
+} from '@studio/common/ai/slash-commands';
+import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { __, sprintf } from '@wordpress/i18n';
@@ -43,6 +52,7 @@ import { findSiteByFolder, findSiteById } from 'cli/lib/cli-config/sites';
 import { disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { isSiteRunning } from 'cli/lib/site-utils';
 import { maybeShowTosNotice } from 'cli/lib/tos-notice';
+import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 import type { SessionManager } from '@earendil-works/pi-coding-agent';
@@ -528,6 +538,27 @@ export async function runCommand( options: {
 
 		await persistSessionContext();
 
+		// The CLI is the sole emitter of the Studio Code chat events: every surface (both desktop
+		// renderers, `studio ui`, and a standalone `studio code`) forks this process, and this is the
+		// only layer holding the provider, model and turn outcome together. `channel` separates them.
+		const tracksProps = {
+			...getTracksOrigin(),
+			...getAiTracksIdentity( sessionId ),
+			provider: currentProvider,
+			model: currentModel,
+			model_family: getAiModelFamily( currentModel ),
+		};
+		const turnStartedAt = Date.now();
+		void recordTracksEvent( TRACKS_EVENTS.CODE_MESSAGE_SENT, {
+			...tracksProps,
+			// The raw prompt, before site context is prepended — only ever a name from the skill
+			// catalog, never arbitrary prompt text.
+			ability_name: resolveSkillFromPrompt( prompt ),
+			has_images: images.length > 0,
+			has_files: files.length > 0,
+			is_resumed: Boolean( options.resumeSession || options.resumeSessionId ),
+		} );
+
 		// Studio marker for the typed prompt; pi appends the real UserMessage.
 		await append( ( s ) =>
 			appendStudioEntry( s, 'studio.user_prompt', {
@@ -596,6 +627,13 @@ export async function runCommand( options: {
 						: {} ),
 				} )
 			);
+			// `errorMessage` is deliberately not sent: it is raw error text that can embed filesystem
+			// paths and site names. A coarse `failure_reason` needs its own vocabulary first.
+			void recordTracksEvent( TRACKS_EVENTS.CODE_TURN_COMPLETED, {
+				...tracksProps,
+				outcome: turnState.status,
+				duration_ms: Date.now() - turnStartedAt,
+			} );
 			ui.endAgentTurn();
 		}
 

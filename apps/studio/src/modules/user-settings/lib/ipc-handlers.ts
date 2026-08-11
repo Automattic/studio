@@ -3,6 +3,7 @@ import {
 	readGlobalInstructionsFile,
 	writeGlobalInstructions,
 } from '@studio/common/ai/global-instructions';
+import { type TracksInstructionsLengthBucket } from '@studio/common/lib/record-tracks-event';
 import {
 	isAnalyticsOptedOut,
 	readSharedConfig,
@@ -286,11 +287,40 @@ export async function getGlobalAgentInstructions(): Promise< string > {
 	return ( await readGlobalInstructionsFile() ) ?? '';
 }
 
+// Coarse size bucket for `studio_setting_instructions_change`. The instructions text is never sent —
+// it is free-form user content.
+function getInstructionsLengthBucket( content: string ): TracksInstructionsLengthBucket {
+	const length = content.trim().length;
+	if ( length === 0 ) {
+		return 'empty';
+	}
+	if ( length <= 200 ) {
+		return 'short';
+	}
+	return length <= 1000 ? 'medium' : 'long';
+}
+
 export async function saveGlobalAgentInstructions(
 	_event: IpcMainInvokeEvent,
-	content: string
+	content: string,
+	// Set when this save ends an edit session, to record the change. `previousContent` is the value
+	// the session started from, which only the renderer knows: the agentic UI autosaves on a debounce,
+	// so by the time the user leaves the tab the file already holds the new text and Main has nothing
+	// to compare against. Classic saves on an explicit button press and passes the last saved value.
+	// Omitting the option saves without recording anything, which is what the debounced writes do.
+	options: { editSession?: { previousContent: string } } = {}
 ): Promise< void > {
 	await writeGlobalInstructions( content );
+
+	const previous = options.editSession?.previousContent;
+	if ( previous === undefined || previous === content ) {
+		return;
+	}
+	await recordTracksEvent( TRACKS_EVENTS.SETTING_INSTRUCTIONS_CHANGE, {
+		has_content: content.trim().length > 0,
+		length_bucket: getInstructionsLengthBucket( content ),
+		surface: 'settings',
+	} );
 }
 
 export function showUserSettings( event: IpcMainInvokeEvent, tabName?: UserSettingsTabName ) {

@@ -20,6 +20,8 @@ export const TRACKS_EVENTS = {
 	SITE_OPEN_CUSTOMIZE: 'studio_site_open_customize',
 	SITE_OPEN_PHPMYADMIN: 'studio_site_open_phpmyadmin',
 	SITE_OPEN_FOLDER: 'studio_site_open_folder',
+	SITE_IMPORT: 'studio_site_imported',
+	SITE_EXPORT: 'studio_site_exported',
 	PREVIEW_SITE_CREATE: 'studio_preview_site_create',
 	PREVIEW_SITE_UPDATE: 'studio_preview_site_update',
 	PREVIEW_SITE_DELETE: 'studio_preview_site_delete',

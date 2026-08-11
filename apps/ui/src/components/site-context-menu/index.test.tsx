@@ -234,8 +234,8 @@ describe( 'SiteContextMenu', () => {
 		renderMenu( createSite( { running: true } ) );
 
 		fireEvent.click( screen.getByText( 'Duplicate' ).closest( 'button' )! );
-		fireEvent.click( screen.getByText( 'Export' ).closest( 'button' )! );
-		fireEvent.click( screen.getByText( 'Export DB' ).closest( 'button' )! );
+		fireEvent.click( screen.getByText( 'Export entire site' ).closest( 'button' )! );
+		fireEvent.click( screen.getByText( 'Export database' ).closest( 'button' )! );
 
 		expect( copySite ).toHaveBeenCalledWith( 'site-1' );
 		expect( exportFullSite ).toHaveBeenCalledWith( 'site-1' );

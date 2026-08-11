@@ -425,9 +425,8 @@
 	line-height: var(--wpds-typography-line-height-sm);
 }
 
-/* The preview "Reset" button reads like the AI-credits meta text (weak, sm,
-   regular weight) with its label flush to the right edge — no button padding,
-   fill or min-width — so it lines up with "Resets Jul 31" above it. */
+/* The preview "Reset" button is destructive, but remains visually compact so
+   it lines up with the AI-credits metadata above it. */
 .meterActionsButton {
 	flex-shrink: 0;
 	font-size: var(--wpds-typography-font-size-sm);
@@ -437,8 +436,9 @@
 	--wp-ui-button-background-color: transparent;
 	--wp-ui-button-background-color-active: transparent;
 	--wp-ui-button-background-color-disabled: transparent;
-	--wp-ui-button-foreground-color: var(--wpds-color-fg-content-neutral-weak);
-	--wp-ui-button-foreground-color-active: var(--wpds-color-fg-content-neutral);
+	--wp-ui-button-foreground-color: var(--wpds-color-fg-interactive-error);
+	--wp-ui-button-foreground-color-active: var(--wpds-color-fg-interactive-error-active);
+	--wp-ui-button-foreground-color-disabled: var(--wpds-color-fg-interactive-neutral-disabled);
 }
 
 /* Thin pill bar: bright brand fill on a neutral track. */

@@ -546,6 +546,9 @@ export function createIpcConnector(): Connector {
 					alwaysStartServer: true,
 					showErrorModal: false,
 					showNotification: false,
+					// Onboarding imports are part of the add-site flow, which `studio_site_imported`
+					// deliberately does not count.
+					suppressTracksEvent: true,
 				} );
 			} finally {
 				unsubscribe?.();

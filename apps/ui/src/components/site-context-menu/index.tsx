@@ -146,7 +146,7 @@ export function SiteContextMenu( { site, trigger }: { site: SiteDetails; trigger
 						.map( ( action ) => (
 							<Menu.Item
 								key={ action.id }
-								className={ styles.destructiveItem }
+								destructive
 								disabled={ action.disabled }
 								onClick={ action.run }
 							>

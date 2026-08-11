@@ -222,6 +222,8 @@ export async function exportSiteForPush(
 			specificSelectionPaths: configuration?.specificSelectionPaths,
 			applyDeployIgnore: true,
 			abortSignal: abortController.signal,
+			// `studio_site_exported` means a user-initiated backup export — sync pushes are not counted.
+			suppressTracksEvent: true,
 		} );
 
 		if ( abortController.signal.aborted ) {

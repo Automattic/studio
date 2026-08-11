@@ -2,20 +2,36 @@
 	height: 100vh;
 	position: relative;
 	overflow-y: auto;
+	/* New stacking context so the backdrop layer's negative z-index nests
+	   here (behind the content, above the root's background) instead of
+	   escaping below an ancestor's paint. */
 	isolation: isolate;
 }
 
 .content {
 	max-width: 640px;
 	width: 100%;
-	margin-block: auto;
 	padding: var(--wpds-dimension-padding-3xl);
+	/* Auto block margins center the content vertically when it's shorter
+	   than the viewport but — unlike `justify: center` on the flex parent —
+	   keep the top reachable by scrolling when it's taller (e.g. the connect
+	   picker's site list). */
+	margin-block: auto;
 }
 
+/* `wide` variant — used by content-heavy onboarding pages like the flow
+   pickers. Sized to fit a 3-column card grid. */
 .contentWide {
 	max-width: 960px;
 }
 
+/* `full` variant — thumbnail grids that benefit from the extra room on
+   large windows, still capped so rows don't sprawl indefinitely. */
+.contentFull {
+	max-width: 1360px;
+}
+
+/* Clears the fixed close button pinned top-right by FullscreenChrome. */
 .contentWithClose {
 	padding-block-start: calc(var(--wpds-dimension-padding-3xl) + 32px);
 }

@@ -1,0 +1,32 @@
+.root {
+	/* Match the composer's send/stop button footprint. */
+	--wp-ui-button-height: 28px;
+	--wp-ui-button-aspect-ratio: 1;
+	--wp-ui-button-min-width: unset;
+	--wp-ui-button-padding-inline: 0;
+	/* The button floats over conversation text, so it needs an opaque
+	   surface instead of the outline variant's transparent resting fill. */
+	--wp-ui-button-background-color: var(--wpds-color-bg-surface-neutral-strong);
+
+	border-radius: 50%;
+	box-shadow: var(--wpds-elevation-sm);
+	opacity: 0;
+	transform: translateY(8px);
+	pointer-events: none;
+	transition:
+		opacity 150ms ease,
+		transform 150ms ease;
+}
+
+.root[data-visible='true'] {
+	opacity: 1;
+	transform: translateY(0);
+	pointer-events: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.root {
+		transform: none;
+		transition: none;
+	}
+}

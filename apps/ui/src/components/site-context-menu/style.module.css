@@ -1,0 +1,8 @@
+.popup {
+	min-width: 180px;
+}
+
+.submenuChevron {
+	flex: 0 0 auto;
+	color: var(--wpds-color-fg-content-neutral-weak);
+}

@@ -1,11 +1,29 @@
 .root {
+	/* Dark window chrome behind the sidebar and the content frame — mimics
+	   the legacy renderer's `bg-chrome`. Keep in sync with CHROME_BG_* in
+	   index.tsx (which feeds the sidebar's nested dark ThemeProvider). */
+	--app-chrome-bg: #1e1e1e;
+
 	display: flex;
 	height: 100vh;
 	overflow: hidden;
 }
 
+@media (prefers-color-scheme: dark) {
+	.root {
+		--app-chrome-bg: #161616;
+	}
+}
+
 .sidebar {
-	width: var(--sidebar-width, 320px);
+	/* Single source for the rendered sidebar-header height (its content-box
+	   min-height plus vertical padding — see sidebar-header/style.module.css).
+	   Sticky elements below the header (the site list's view switcher) offset
+	   against this so they pin exactly at the header's bottom edge. */
+	--sidebar-header-block-size: calc(46px + 2 * var(--wpds-dimension-padding-sm));
+
+	/* Fallback mirrors SIDEBAR_PANEL_CONFIG.defaultWidth in resizable-panels.ts. */
+	width: var(--sidebar-width, 280px);
 	/* The 240px floor is owned by useResizablePanel, which clamps
 	   --sidebar-width on every path. A CSS min-width here would be redundant
 	   while open and, because it can't transition in lockstep with width, would
@@ -25,11 +43,12 @@
 }
 
 /* Inside the sidebar's dark ThemeProvider; generates no box, but declares
-   the row background here so it resolves against the dark ramp (declared on
-   .sidebar it would resolve against the outer light theme). */
+   the row hover/active colors here so they resolve against the dark ramp
+   (declared on .sidebar they'd resolve against the outer light theme). */
 .sidebarThemeScope {
 	display: contents;
-	--sidebar-row-background: var(--wpds-color-bg-interactive-neutral-weak-active);
+	--sidebar-row-background-hover: var(--wpds-color-bg-interactive-neutral-weak-active);
+	--sidebar-row-background-active: var(--wpds-color-bg-interactive-neutral-weak-active);
 }
 
 /* While dragging the handle the width updates every frame; the collapse
@@ -51,6 +70,41 @@
 	background-color: var(--app-chrome-bg);
 }
 
+/* Scroll hint above the sticky footer: anchored to the footer (its nearest
+   positioned ancestor), spanning the sidebar width. The surface fade blends
+   into the chrome, and the scroll-driven animation removes the blur as the
+   sidebar approaches the end of its scroll range (with no overflow the
+   timeline is inactive and the blur sits invisibly over the flat chrome). */
+.footerBlur {
+	inset-inline: 0;
+	bottom: 100%;
+	height: 48px;
+	--progressive-blur-surface-color: var(--app-chrome-bg);
+	animation: footerBlurFadeOut linear both;
+	animation-timeline: scroll(nearest);
+	animation-range: calc(100% - 48px) 100%;
+}
+
+@keyframes footerBlurFadeOut {
+	to {
+		opacity: 0;
+	}
+}
+
+/* Toast shelf above the UserMenu in the expanded footer. The inset matches
+   the site list's row outer inset, so toast edges line up with row hover
+   shapes and the toast icon column lands on the site-icon column. */
+.sidebarToasts {
+	padding: var(--wpds-dimension-padding-sm)
+		calc(var(--wpds-dimension-padding-lg) - var(--wpds-dimension-padding-sm)) 0;
+}
+
+/* Persistent cards above the toasts, same row inset. */
+.sidebarCards {
+	padding: var(--wpds-dimension-padding-sm)
+		calc(var(--wpds-dimension-padding-lg) - var(--wpds-dimension-padding-sm)) 0;
+}
+
 .sidebarCollapsed {
 	width: 0;
 }
@@ -61,15 +115,17 @@
 	overflow: auto;
 	position: relative;
 	isolation: isolate;
+	/* Continues the chrome canvas into the inset-frame gaps around the
+	   content/preview container. The exposed chrome doubles as a window drag
+	   handle — the content frame inside opts back out. */
 	background-color: var(--app-chrome-bg);
 	-webkit-app-region: drag;
 }
 
 /* The negative margin cancels the handle's width so it adds no space to the
    flex row — the main content butts straight against the sidebar's border and
-   the hit area overlays main's sidebar-side edge. position/z-index lift it
-   above main (a later flex sibling) so the full-height indicator sits on the
-   border. */
+   the hit area overlays main's left edge. position/z-index lift it above main
+   (a later flex sibling) so the full-height indicator sits on the border. */
 .resizeHandle {
 	position: relative;
 	z-index: 20;
@@ -95,8 +151,8 @@
    extent instead of running through the frame gaps above/below it (keep the
    12px in sync with --panel-frame-gap in preview-split-frame). The handle is
    wrapped in the sidebar's dark ThemeProvider, so the brand token resolves
-   to the on-dark blue. Nudged left off the content card's edge onto the
-   chrome, with rounded caps to match the frame's soft corners. */
+   to the on-dark blue here. Nudged left off the content card's edge onto
+   the chrome, with rounded caps to match the frame's soft corners. */
 .resizeHandle span {
 	margin-block: 12px;
 	margin-inline-start: -3px;
@@ -104,10 +160,12 @@
 	background-color: var(--wpds-color-fg-interactive-brand);
 }
 
-/* Bottom-left of the main area. The 46px min-height and the negative bottom
-   offset both match the session view's `panelFooterControls` so the toggle
-   lines up vertically with the chat-history/new-chat buttons — keep the two
-   in sync. */
+/* Pinned to the bottom-left of the main area, mirroring the sidebar footer.
+   The button carries its own `padding-sm` top/bottom for its hit area; the
+   matching negative `bottom` cancels that lower padding so the glyph sits flush
+   with the main area's bottom edge instead of floating a padding's-worth above
+   it. The min-height and bottom offset match the session view's
+   `panelFooterControls` so the controls stay vertically aligned. */
 .floatingToggle {
 	position: absolute;
 	bottom: calc(-1 * var(--wpds-dimension-padding-sm));
@@ -132,27 +190,32 @@
 	inset-inline-start: var(--wpds-dimension-padding-xl);
 }
 
+/* Anchor for the pending-cards dot: hugs the icon button itself rather than
+   the padded toggle container. */
 .floatingToggleButton {
 	position: relative;
 	display: inline-flex;
 }
 
-/* The drawer icon depicts the sidebar edge; mirror it when the sidebar sits
-   on the right. */
 .floatingToggleButton:dir(rtl) svg {
 	transform: scaleX(-1);
 }
 
-.sidebarToasts {
-	padding: var(--wpds-dimension-padding-sm) calc(var(--wpds-dimension-padding-lg) - var(--wpds-dimension-padding-sm)) 0;
-}
-
+/* Collapsed-sidebar toast shelf, floating bottom-left of the main area just
+   above the floating toggle. When a chat session is on screen, its frame
+   publishes `--app-main-composer-height` onto the main panel (see
+   SessionFrame) so the shelf clears the composer instead of covering it.
+   `.main` is a window drag region, so the shelf must opt back out for its
+   buttons to be clickable (same as .floatingToggle). */
 .floatingToasts {
 	position: absolute;
 	bottom: calc(52px + var(--app-main-composer-height, 0px));
 	inset-inline-start: var(--wpds-dimension-padding-xl);
-	width: min(320px, calc(100% - 2 * var(--wpds-dimension-padding-xl)));
 	z-index: 110;
+	/* Definite width on purpose: the shelf is an invisible container (the
+	   inner stack hugs the toasts via the `content` fit), and an abspos
+	   auto width would collapse the whole chain to min-content. */
+	width: min(320px, calc(100% - 2 * var(--wpds-dimension-padding-xl)));
 	pointer-events: auto;
 	-webkit-app-region: no-drag;
 }

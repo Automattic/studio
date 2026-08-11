@@ -1,3 +1,5 @@
+import { SITE_FILE_ACCESS_SITE_DIRECTORY } from '@studio/common/lib/site-file-access';
+import { SITE_RUNTIME_NATIVE_PHP } from '@studio/common/lib/site-runtime';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CreateSitePage } from './index';
@@ -61,6 +63,7 @@ vi.mock( '@/data/core', async ( importOriginal ) => {
 vi.mock( '@/data/queries/use-create-site-helpers', () => ( {
 	useExistingCustomDomains: () => [],
 	useProposedSiteName: () => ( { data: mocks.proposedName } ),
+	useFindAvailableSiteName: () => async ( name: string ) => ( { name } ),
 } ) );
 
 vi.mock( '@/data/queries/use-sites', () => ( {
@@ -72,6 +75,8 @@ const formValues: CreateSiteFormValues = {
 	name: 'My Site',
 	path: '/sites/my-site',
 	phpVersion: '8.3',
+	runtime: SITE_RUNTIME_NATIVE_PHP,
+	fileAccess: SITE_FILE_ACCESS_SITE_DIRECTORY,
 	wpVersion: 'latest',
 	enableHttps: false,
 	adminUsername: 'admin',

@@ -71,7 +71,9 @@ describe( 'OnboardingShellView', () => {
 		);
 	} );
 
-	it( 'moves focus to the route heading', () => {
+	// The shell only claims focus when the route changes — on first mount the
+	// incoming page keeps whatever focus it set up itself.
+	it( 'moves focus to the route heading on navigation', () => {
 		const { rerender } = render(
 			<OnboardingShellView
 				hasSites={ false }
@@ -82,7 +84,7 @@ describe( 'OnboardingShellView', () => {
 				<h1>Create</h1>
 			</OnboardingShellView>
 		);
-		expect( screen.getByRole( 'heading', { name: 'Create' } ) ).toHaveFocus();
+		expect( screen.getByRole( 'heading', { name: 'Create' } ) ).not.toHaveFocus();
 
 		rerender(
 			<OnboardingShellView

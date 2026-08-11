@@ -17,12 +17,13 @@ export const newSessionRoute = createRoute( {
 	getParentRoute: () => dashboardLayoutRoute,
 	path: '/sites/$siteId/new',
 	beforeLoad: async ( { params, context } ) => {
+		// When agentic features are unavailable (signed out, or disabled in
+		// settings) the site overview takes chat's place — bail before a
+		// session gets created. All chat entry points (site rows, onboarding
+		// flows, index redirects) funnel through here.
 		const { chatEnabled } = await resolveAgenticFeatures( context );
 		if ( ! chatEnabled ) {
-			throw redirect( {
-				to: '/sites/$siteId/overview',
-				params: { siteId: params.siteId },
-			} );
+			throw redirect( { to: '/sites/$siteId/overview', params: { siteId: params.siteId } } );
 		}
 
 		const summary = await context.connector.createSession( params.siteId );

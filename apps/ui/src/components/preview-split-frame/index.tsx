@@ -1,6 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { useTourAnchor } from '@/components/coachmarks/anchor-registry';
 import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { usePreviewSplit } from '@/hooks/use-preview-split';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
@@ -33,7 +34,10 @@ export function PreviewSplitFrame( {
 }: PreviewSplitFrameProps ) {
 	const showPreview = previewOpen && preview != null;
 	const showFullscreen = showPreview && previewFullscreen;
+	const previewAnchorRef = useTourAnchor( 'preview-pane' );
 	const { rootRef, contentWidthVar, isResizing, handleProps } = usePreviewSplit( { showPreview } );
+	// The inset frame reads as chrome that belongs with the sidebar; when the
+	// sidebar is hidden the container goes full-bleed.
 	const isSidebarCollapsed = useSidebarCollapsed();
 
 	// Animate only open/close/fullscreen toggles of an already-mounted preview —
@@ -104,6 +108,7 @@ export function PreviewSplitFrame( {
 			</div>
 			{ preview ? (
 				<div
+					ref={ previewAnchorRef }
 					className={ clsx(
 						styles.previewSlot,
 						previewVisible && styles.previewSlotVisible,

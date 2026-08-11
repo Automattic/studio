@@ -1,18 +1,25 @@
+import { DEFAULT_ACTIVITY_SOUND_PREFERENCES } from '@studio/common/lib/activity-sounds';
 import { describe, expect, it } from 'vitest';
 import { UNSET, toPreferencesFormData, toPreferencesPatch } from './preferences';
 import type { UserPreferences } from '@/data/core';
 
 const SAVED_PREFERENCES: UserPreferences = {
-	editor: 'vscode',
+	editor: 'zed',
 	terminal: 'terminal',
 	colorScheme: 'system',
-	quitSitesBehavior: 'stop',
+	frameColor: null,
 	locale: 'en',
 	analyticsEnabled: true,
 	defaultSiteDirectory: '/Users/example/Studio',
 	studioCliInstalled: false,
 	studioCliExternallyManaged: false,
 	agenticFeaturesEnabled: true,
+	chatNotificationsEnabled: true,
+	activitySoundPreferences: DEFAULT_ACTIVITY_SOUND_PREFERENCES,
+	quitSitesBehavior: 'ask',
+	agentResponseLength: 'normal',
+	defaultAiModel: 'claude-sonnet-5',
+	toolPermissions: {},
 };
 
 describe( 'settings preference helpers', () => {
@@ -22,63 +29,65 @@ describe( 'settings preference helpers', () => {
 				...SAVED_PREFERENCES,
 				editor: null,
 				terminal: null,
-				quitSitesBehavior: undefined,
 				locale: 'missing-locale',
 			} )
 		).toEqual( {
 			editor: UNSET,
 			terminal: UNSET,
 			colorScheme: 'system',
-			quitSitesBehavior: UNSET,
+			frameColor: null,
 			locale: 'en',
 			analyticsEnabled: true,
 			defaultSiteDirectory: '/Users/example/Studio',
+			studioCliInstalled: false,
+			agenticFeaturesEnabled: true,
+			chatNotificationsEnabled: true,
+			activitySoundPreferences: DEFAULT_ACTIVITY_SOUND_PREFERENCES,
+			quitSitesBehavior: 'ask',
+			agentResponseLength: 'normal',
+			defaultAiModel: 'claude-sonnet-5',
+			toolPermissions: {},
 		} );
 	} );
 
-	it( 'returns an empty patch for an empty update', () => {
+	it( 'returns an empty patch for an empty change', () => {
 		expect( toPreferencesPatch( {} ) ).toEqual( {} );
 	} );
 
-	it( 'maps a single-field update to a single-field patch', () => {
-		expect( toPreferencesPatch( { colorScheme: 'dark' } ) ).toEqual( { colorScheme: 'dark' } );
-		expect( toPreferencesPatch( { locale: 'es' } ) ).toEqual( { locale: 'es' } );
-		expect( toPreferencesPatch( { quitSitesBehavior: 'leave-running' } ) ).toEqual( {
-			quitSitesBehavior: 'leave-running',
-		} );
-		expect( toPreferencesPatch( { defaultSiteDirectory: '/Users/example/Sites' } ) ).toEqual( {
-			defaultSiteDirectory: '/Users/example/Sites',
-		} );
-	} );
-
-	it( 'persists the editor/terminal UNSET sentinel as null', () => {
-		expect( toPreferencesPatch( { editor: UNSET } ) ).toEqual( { editor: null } );
-		expect( toPreferencesPatch( { terminal: UNSET } ) ).toEqual( { terminal: null } );
-	} );
-
-	it( 'persists the quit-sites UNSET sentinel as undefined ("ask every time")', () => {
-		expect( toPreferencesPatch( { quitSitesBehavior: UNSET } ) ).toStrictEqual( {
-			quitSitesBehavior: undefined,
-		} );
-	} );
-
-	it( 'maps every changed field in a multi-field update', () => {
+	it( 'maps form changes to writable preferences, persisting UNSET as null', () => {
 		expect(
 			toPreferencesPatch( {
 				editor: UNSET,
 				terminal: 'iterm',
 				colorScheme: 'dark',
-				quitSitesBehavior: 'stop-and-auto-start',
 				locale: 'es',
+				analyticsEnabled: false,
 				defaultSiteDirectory: '/Users/example/Sites',
+				studioCliInstalled: true,
+				agenticFeaturesEnabled: false,
+				chatNotificationsEnabled: false,
+				agentResponseLength: 'compact',
+				defaultAiModel: 'claude-opus-5',
 			} )
 		).toEqual( {
 			editor: null,
 			terminal: 'iterm',
 			colorScheme: 'dark',
-			quitSitesBehavior: 'stop-and-auto-start',
 			locale: 'es',
+			analyticsEnabled: false,
 			defaultSiteDirectory: '/Users/example/Sites',
+			studioCliInstalled: true,
+			agenticFeaturesEnabled: false,
+			chatNotificationsEnabled: false,
+			agentResponseLength: 'compact',
+			defaultAiModel: 'claude-opus-5',
+		} );
+	} );
+
+	it( 'includes only the fields present in the change', () => {
+		expect( toPreferencesPatch( { locale: 'fr' } ) ).toEqual( { locale: 'fr' } );
+		expect( toPreferencesPatch( { studioCliInstalled: false } ) ).toEqual( {
+			studioCliInstalled: false,
 		} );
 	} );
 } );

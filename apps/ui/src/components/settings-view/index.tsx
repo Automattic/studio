@@ -1,9 +1,15 @@
+import {
+	ACTIVITY_SOUND_EVENTS,
+	type ActivitySoundEvent,
+	type ActivitySoundId,
+	type ActivitySoundPreferences,
+} from '@studio/common/lib/activity-sounds';
 import { supportedLocaleNames } from '@studio/common/lib/locale';
 import { SUPPORTED_EDITORS, supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { SUPPORTED_TERMINALS, terminalConfig } from '@studio/common/lib/user-settings/terminal';
-import { CheckboxControl } from '@wordpress/components';
+import { FormToggle } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
-import { close } from '@wordpress/icons';
+import { audio, close } from '@wordpress/icons';
 import { Button, IconButton, SelectControl } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useState } from 'react';
@@ -14,33 +20,41 @@ import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSettingsClose } from '@/hooks/use-settings-close';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
+import { playActivitySound } from '@/lib/activity-sounds';
 import { AccountSection } from './account-section';
 import { AiPanel } from './ai-panel';
 import { KeyboardPanel } from './keyboard-panel';
-import { McpPanel } from './mcp-panel';
+import { McpSection } from './mcp-panel';
 import { UNSET, toPreferencesFormData, toPreferencesPatch } from './preferences';
-import { SkillsPanel } from './skills-panel';
 import { StudioCliSection } from './studio-cli-section';
 import styles from './style.module.css';
-import { UsagePanel } from './usage-panel';
-import { WapuuScore } from './wapuu-score';
 import type { PreferencesFormData } from './preferences';
 import type {
 	ColorScheme,
 	InstalledApps,
-	QuitSitesBehavior,
+	QuitSitesBehaviorSetting,
 	SupportedEditor,
 	SupportedLocale,
 	SupportedTerminal,
 } from '@/data/core';
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 
-const SETTINGS_TABS = [ 'preferences', 'ai', 'usage', 'keyboard', 'skills', 'mcp' ] as const;
+const SETTINGS_TABS = [ 'preferences', 'ai' ] as const;
 
 type TabId = ( typeof SETTINGS_TABS )[ number ];
 
 export function isSettingsTab( value: string ): value is TabId {
 	return SETTINGS_TABS.some( ( tab ) => tab === value );
+}
+
+// Deep links and settings events can carry tab ids that no longer exist after
+// the two-tab redesign (e.g. `usage`, `keyboard`, `mcp`); fall back to the
+// Settings tab so the route always resolves.
+export function normalizeSettingsTab( value: string | undefined ): TabId {
+	if ( value && isSettingsTab( value ) ) {
+		return value;
+	}
+	return 'preferences';
 }
 
 export type SettingsTabId = TabId;
@@ -76,14 +90,36 @@ function isColorScheme( value: unknown ): value is ColorScheme {
 	return value === 'system' || value === 'light' || value === 'dark';
 }
 
+// The swatch shown for the scheme-aware default (its value is `null`, which
+// clears the override). Matches CHROME_BG_LIGHT in sidebar-layout.
+const FRAME_COLOR_DEFAULT_SWATCH = '#1e1e1e';
+
+// Preset window-chrome ("frame") colors — dark, rich tones so the chrome keeps
+// its inset look. Custom lets the user pick any single color of their own.
+const FRAME_COLOR_PRESETS: { value: string; label: string }[] = [
+	{ value: '#1c2431', label: __( 'Ink' ) },
+	{ value: '#123138', label: __( 'Ocean' ) },
+	{ value: '#1b3125', label: __( 'Forest' ) },
+	{ value: '#2b1f38', label: __( 'Plum' ) },
+	{ value: '#331d26', label: __( 'Wine' ) },
+	{ value: '#2b2118', label: __( 'Espresso' ) },
+];
+
 const QUIT_SITES_BEHAVIOR_ELEMENTS: {
-	value: QuitSitesBehavior | typeof UNSET;
+	value: QuitSitesBehaviorSetting;
 	label: string;
 }[] = [
-	{ value: UNSET, label: __( 'Ask every time' ) },
+	{ value: 'ask', label: __( 'Ask every time' ) },
 	{ value: 'leave-running', label: __( 'Keep sites running' ) },
 	{ value: 'stop-and-auto-start', label: __( 'Stop, restart on next launch' ) },
 	{ value: 'stop', label: __( 'Stop sites' ) },
+];
+
+type AnalyticsChoice = 'share' | 'off';
+
+const ANALYTICS_ELEMENTS: { value: AnalyticsChoice; label: string }[] = [
+	{ value: 'share', label: __( 'Share anonymous data' ) },
+	{ value: 'off', label: __( 'Don’t share' ) },
 ];
 
 const LOCALE_ELEMENTS: { value: SupportedLocale; label: string }[] = Object.entries(
@@ -91,9 +127,6 @@ const LOCALE_ELEMENTS: { value: SupportedLocale; label: string }[] = Object.entr
 ).map( ( [ value, label ] ) => ( { value: value as SupportedLocale, label } ) );
 
 function SettingsHeader() {
-	// Settings renders fullscreen, so only the macOS traffic lights need
-	// clearing: at the header's start edge in LTR, at its end edge (next to
-	// the close button) in RTL.
 	const trafficLightSpace = useTrafficLightSpace();
 	const onClose = useSettingsClose();
 	return (
@@ -106,11 +139,7 @@ function SettingsHeader() {
 			<div className={ styles.headerTabs }>
 				<Tabs.List className={ styles.headerTabList }>
 					<Tabs.Tab tabId="preferences">{ __( 'Settings' ) }</Tabs.Tab>
-					<Tabs.Tab tabId="ai">{ __( 'AI' ) }</Tabs.Tab>
-					<Tabs.Tab tabId="usage">{ __( 'Usage' ) }</Tabs.Tab>
-					<Tabs.Tab tabId="keyboard">{ __( 'Keyboard' ) }</Tabs.Tab>
-					<Tabs.Tab tabId="skills">{ __( 'Skills' ) }</Tabs.Tab>
-					<Tabs.Tab tabId="mcp">{ __( 'MCP' ) }</Tabs.Tab>
+					<Tabs.Tab tabId="ai">{ __( 'Agent' ) }</Tabs.Tab>
 				</Tabs.List>
 			</div>
 			{ onClose ? (
@@ -142,13 +171,13 @@ function PreferenceRow( {
 	children: ReactNode;
 } ) {
 	return (
-		<section className={ styles.preferenceRow }>
-			<div className={ styles.preferenceText }>
-				<h2>{ title }</h2>
-				{ description ? <p>{ description }</p> : null }
+		<div className={ styles.field }>
+			<div className={ styles.fieldText }>
+				<span className={ styles.fieldLabel }>{ title }</span>
+				{ description ? <span className={ styles.fieldDescription }>{ description }</span> : null }
 			</div>
-			<div className={ styles.preferenceControl }>{ children }</div>
-		</section>
+			<div className={ styles.fieldControl }>{ children }</div>
+		</div>
 	);
 }
 
@@ -186,6 +215,72 @@ function AppearancePicker( {
 						{ option.label }
 					</button>
 				) ) }
+			</div>
+		</PreferenceRow>
+	);
+}
+
+function FrameColorPicker( {
+	value,
+	onChange,
+}: {
+	value: string | null;
+	onChange: ( value: string | null ) => void;
+} ) {
+	const normalized = value?.toLowerCase() ?? null;
+	const isDefault = normalized === null;
+	const isPreset = FRAME_COLOR_PRESETS.some( ( preset ) => preset.value === normalized );
+	const isCustom = ! isDefault && ! isPreset;
+	// The native picker opens on the active custom color, or on the default
+	// swatch as a starting point when a preset/default is currently selected.
+	const customColor = isCustom ? ( normalized as string ) : FRAME_COLOR_DEFAULT_SWATCH;
+
+	return (
+		<PreferenceRow title={ __( 'Frame color' ) }>
+			<div className={ styles.framePicker } role="group" aria-label={ __( 'Frame color' ) }>
+				<button
+					type="button"
+					className={ clsx( styles.frameSwatch, isDefault && styles.frameSwatchActive ) }
+					style={ { '--frame-swatch-color': FRAME_COLOR_DEFAULT_SWATCH } as CSSProperties }
+					aria-pressed={ isDefault }
+					aria-label={ __( 'Default' ) }
+					title={ __( 'Default' ) }
+					onClick={ () => onChange( null ) }
+				/>
+				{ FRAME_COLOR_PRESETS.map( ( preset ) => (
+					<button
+						key={ preset.value }
+						type="button"
+						className={ clsx(
+							styles.frameSwatch,
+							normalized === preset.value && styles.frameSwatchActive
+						) }
+						style={ { '--frame-swatch-color': preset.value } as CSSProperties }
+						aria-pressed={ normalized === preset.value }
+						aria-label={ preset.label }
+						title={ preset.label }
+						onClick={ () => onChange( preset.value ) }
+					/>
+				) ) }
+				<label
+					className={ clsx(
+						styles.frameSwatch,
+						styles.frameSwatchCustom,
+						isCustom && styles.frameSwatchActive
+					) }
+					style={
+						isCustom ? ( { '--frame-swatch-color': customColor } as CSSProperties ) : undefined
+					}
+					title={ __( 'Custom color' ) }
+				>
+					<input
+						type="color"
+						className={ styles.frameSwatchInput }
+						value={ customColor }
+						aria-label={ __( 'Custom color' ) }
+						onChange={ ( event ) => onChange( event.target.value ) }
+					/>
+				</label>
 			</div>
 		</PreferenceRow>
 	);
@@ -243,26 +338,135 @@ function DefaultSiteDirectoryField( { value, onSelect }: { value: string; onSele
 	);
 }
 
+// Leaving the agentic UI entirely is a separate, heavier action than the AI
+// tab's chat toggle: it reloads the window into the classic Studio interface.
+// Only hosts that ship the classic renderer can switch (see capabilities).
 function StudioExperienceSection() {
 	const connector = useConnector();
 	if ( ! connector.capabilities.switchToClassicUi ) {
 		return null;
 	}
 	return (
-		<section className={ styles.preferenceSectionGroup }>
-			<PreferenceRow
-				title={ __( 'Studio experience' ) }
-				description={ __( 'You are using the new Studio experience.' ) }
-			>
-				<Button
-					type="button"
-					variant="outline"
-					tone="neutral"
-					onClick={ () => void connector.disableAgenticUi() }
-				>
-					{ __( 'Switch to classic' ) }
-				</Button>
-			</PreferenceRow>
+		<section className={ styles.card }>
+			<div className={ clsx( styles.cardHeader, styles.cardHeaderCentered ) }>
+				<div className={ styles.cardHeaderText }>
+					<h2 className={ styles.cardTitle }>{ __( 'Studio Beta' ) }</h2>
+					<p className={ styles.cardDescription }>
+						{ __( 'You’re using the new Studio with AI chat and a built-in site preview.' ) }
+					</p>
+				</div>
+				<div className={ styles.cardHeaderActions }>
+					<Button
+						type="button"
+						variant="outline"
+						tone="neutral"
+						size="compact"
+						onClick={ () => void connector.disableAgenticUi() }
+					>
+						{ __( 'Switch to classic' ) }
+					</Button>
+				</div>
+			</div>
+		</section>
+	);
+}
+
+function activitySoundOptions(): Array< { value: ActivitySoundId | 'none'; label: string } > {
+	return [
+		{ value: 'none', label: __( 'None' ) },
+		{ value: 'soft-chime', label: __( 'Soft chime' ) },
+		{ value: 'bright-chime', label: __( 'Bright chime' ) },
+		{ value: 'pop', label: __( 'Pop' ) },
+		{ value: 'pulse', label: __( 'Pulse' ) },
+	];
+}
+
+function activitySoundEventLabel( event: ActivitySoundEvent ): string {
+	switch ( event ) {
+		case 'attention-required':
+			return __( 'Needs your input' );
+		case 'agent-complete':
+			return __( 'Agent finished' );
+		case 'sync-started':
+			return __( 'Sync started' );
+		case 'sync-complete':
+			return __( 'Sync finished' );
+		case 'sync-failed':
+			return __( 'Sync failed' );
+	}
+}
+
+function ActivitySoundsSection( {
+	value,
+	onChange,
+}: {
+	value: ActivitySoundPreferences;
+	onChange: ( value: ActivitySoundPreferences ) => void;
+} ) {
+	const options = activitySoundOptions();
+
+	return (
+		<section className={ clsx( styles.card, ! value.enabled && styles.cardDisabled ) }>
+			<div className={ styles.cardHeader }>
+				<div className={ styles.cardHeaderText }>
+					<h2 className={ styles.cardTitle }>{ __( 'Activity sounds' ) }</h2>
+					<p className={ styles.cardDescription }>
+						{ __( 'Choose the sounds Studio plays for agent and live-site activity.' ) }
+					</p>
+				</div>
+				<div className={ clsx( styles.cardHeaderActions, styles.toggleControl ) }>
+					<FormToggle
+						aria-label={ __( 'Activity sounds' ) }
+						checked={ value.enabled }
+						onChange={ ( event ) => onChange( { ...value, enabled: event.target.checked } ) }
+					/>
+				</div>
+			</div>
+			{ value.enabled ? (
+				<div className={ styles.fieldList }>
+					{ ACTIVITY_SOUND_EVENTS.map( ( event ) => {
+						const selectedSound = value.events[ event ];
+						const label = activitySoundEventLabel( event );
+						return (
+							<PreferenceRow key={ event } title={ label }>
+								<div className={ styles.soundControl }>
+									<PreferenceSelect< ActivitySoundId | 'none' >
+										label={ label }
+										value={ selectedSound ?? 'none' }
+										options={ options }
+										onChange={ ( soundId ) =>
+											onChange( {
+												...value,
+												events: {
+													...value.events,
+													[ event ]: soundId === 'none' ? null : soundId,
+												},
+											} )
+										}
+									/>
+									<IconButton
+										variant="minimal"
+										tone="neutral"
+										size="small"
+										icon={ audio }
+										label={ sprintf(
+											/* translators: %s: the activity that plays the sound, e.g. "Agent finished". */
+											__( 'Preview sound for %s' ),
+											label
+										) }
+										disabled={ ! selectedSound }
+										onClick={ () => {
+											if ( selectedSound ) {
+												void playActivitySound( selectedSound );
+											}
+										} }
+									/>
+								</div>
+							</PreferenceRow>
+						);
+					} ) }
+				</div>
+			) : null }
 		</section>
 	);
 }
@@ -283,65 +487,83 @@ function PreferencesPanel( {
 	onChange: ( update: Partial< PreferencesFormData > ) => void;
 } ) {
 	return (
-		<div className={ styles.preferencesPanel }>
-			<section className={ styles.preferenceSectionGroup }>
-				<h2 className={ styles.preferenceSectionHeading }>{ __( 'General' ) }</h2>
-				{ saveError ? (
-					<div className={ styles.errorMessage }>
-						{ __( 'An error occurred while saving settings. Please try again.' ) }
-					</div>
-				) : null }
-				<AppearancePicker value={ data.colorScheme } onChange={ onColorSchemeChange } />
-				<PreferenceRow title={ __( 'Language' ) }>
-					<PreferenceSelect
-						label={ __( 'Language' ) }
-						value={ data.locale }
-						options={ LOCALE_ELEMENTS }
-						onChange={ ( locale ) => onChange( { locale } ) }
-					/>
-				</PreferenceRow>
-				<PreferenceRow title={ __( 'Preferred editor' ) }>
-					<PreferenceSelect< SupportedEditor | typeof UNSET >
-						label={ __( 'Preferred editor' ) }
-						value={ data.editor }
-						options={ editorElements( installedApps ) }
-						onChange={ ( editor ) => onChange( { editor } ) }
-					/>
-				</PreferenceRow>
-				<PreferenceRow title={ __( 'Preferred terminal' ) }>
-					<PreferenceSelect< SupportedTerminal | typeof UNSET >
-						label={ __( 'Preferred terminal' ) }
-						value={ data.terminal }
-						options={ terminalElements( installedApps ) }
-						onChange={ ( terminal ) => onChange( { terminal } ) }
-					/>
-				</PreferenceRow>
-				<DefaultSiteDirectoryField
-					value={ data.defaultSiteDirectory }
-					onSelect={ onDefaultSiteDirectorySelect }
-				/>
-				<PreferenceRow title={ __( 'When quitting with running sites' ) }>
-					<PreferenceSelect< QuitSitesBehavior | typeof UNSET >
-						label={ __( 'When quitting with running sites' ) }
-						className={ styles.selectControlWide }
-						value={ data.quitSitesBehavior }
-						options={ QUIT_SITES_BEHAVIOR_ELEMENTS }
-						onChange={ ( quitSitesBehavior ) => onChange( { quitSitesBehavior } ) }
-					/>
-				</PreferenceRow>
-				<PreferenceRow title={ __( 'Usage statistics' ) }>
-					<CheckboxControl
-						__nextHasNoMarginBottom
-						label={ __( 'Help improve Studio by sharing anonymous usage statistics' ) }
-						checked={ data.analyticsEnabled }
-						onChange={ ( analyticsEnabled ) => onChange( { analyticsEnabled } ) }
-					/>
-				</PreferenceRow>
-			</section>
+		<div className={ styles.settingsLayout }>
 			<AccountSection />
-			<WapuuScore />
-			<StudioCliSection />
-			<StudioExperienceSection />
+			<div className={ styles.settingsMain }>
+				<section className={ styles.card }>
+					<div className={ styles.cardHeader }>
+						<div className={ styles.cardHeaderText }>
+							<h2 className={ styles.cardTitle }>{ __( 'General' ) }</h2>
+						</div>
+					</div>
+					{ saveError ? (
+						<div className={ styles.errorMessage }>
+							{ __( 'An error occurred while saving settings. Please try again.' ) }
+						</div>
+					) : null }
+					<div className={ styles.fieldList }>
+						<AppearancePicker value={ data.colorScheme } onChange={ onColorSchemeChange } />
+						<FrameColorPicker
+							value={ data.frameColor }
+							onChange={ ( frameColor ) => onChange( { frameColor } ) }
+						/>
+						<PreferenceRow title={ __( 'Language' ) }>
+							<PreferenceSelect
+								label={ __( 'Language' ) }
+								value={ data.locale }
+								options={ LOCALE_ELEMENTS }
+								onChange={ ( locale ) => onChange( { locale } ) }
+							/>
+						</PreferenceRow>
+						<PreferenceRow title={ __( 'Preferred editor' ) }>
+							<PreferenceSelect< SupportedEditor | typeof UNSET >
+								label={ __( 'Preferred editor' ) }
+								value={ data.editor }
+								options={ editorElements( installedApps ) }
+								onChange={ ( editor ) => onChange( { editor } ) }
+							/>
+						</PreferenceRow>
+						<PreferenceRow title={ __( 'Preferred terminal' ) }>
+							<PreferenceSelect< SupportedTerminal | typeof UNSET >
+								label={ __( 'Preferred terminal' ) }
+								value={ data.terminal }
+								options={ terminalElements( installedApps ) }
+								onChange={ ( terminal ) => onChange( { terminal } ) }
+							/>
+						</PreferenceRow>
+						<DefaultSiteDirectoryField
+							value={ data.defaultSiteDirectory }
+							onSelect={ onDefaultSiteDirectorySelect }
+						/>
+						<PreferenceRow title={ __( 'When quitting with running sites' ) }>
+							<PreferenceSelect< QuitSitesBehaviorSetting >
+								label={ __( 'When quitting with running sites' ) }
+								className={ styles.selectControlWide }
+								value={ data.quitSitesBehavior }
+								options={ QUIT_SITES_BEHAVIOR_ELEMENTS }
+								onChange={ ( quitSitesBehavior ) => onChange( { quitSitesBehavior } ) }
+							/>
+						</PreferenceRow>
+						<PreferenceRow title={ __( 'Help improve Studio by sharing anonymous usage data' ) }>
+							<PreferenceSelect< AnalyticsChoice >
+								label={ __( 'Help improve Studio by sharing anonymous usage data' ) }
+								className={ styles.selectControlAuto }
+								value={ data.analyticsEnabled ? 'share' : 'off' }
+								options={ ANALYTICS_ELEMENTS }
+								onChange={ ( choice ) => onChange( { analyticsEnabled: choice === 'share' } ) }
+							/>
+						</PreferenceRow>
+					</div>
+				</section>
+				<ActivitySoundsSection
+					value={ data.activitySoundPreferences }
+					onChange={ ( activitySoundPreferences ) => onChange( { activitySoundPreferences } ) }
+				/>
+				<KeyboardPanel />
+				<StudioCliSection />
+				<McpSection />
+				<StudioExperienceSection />
+			</div>
 		</div>
 	);
 }
@@ -449,18 +671,6 @@ export function SettingsView( {
 						</Tabs.Panel>
 						<Tabs.Panel tabId="ai">
 							<AiPanel />
-						</Tabs.Panel>
-						<Tabs.Panel tabId="usage">
-							<UsagePanel />
-						</Tabs.Panel>
-						<Tabs.Panel tabId="keyboard">
-							<KeyboardPanel />
-						</Tabs.Panel>
-						<Tabs.Panel tabId="skills">
-							<SkillsPanel />
-						</Tabs.Panel>
-						<Tabs.Panel tabId="mcp">
-							<McpPanel />
 						</Tabs.Panel>
 					</div>
 				</div>

@@ -89,12 +89,13 @@ export type TracksCustomizeEntryPoint =
 	| 'widgets';
 
 // The site panel/tab a `studio_panel_opened` event refers to. Studio Classic emits the tab-strip names
-// (`sync`/`import-export`/`previews` are Classic-only); the agentic UI reuses the shared names —
-// `settings` for its General tab and `debugging` for its Debugging tab.
+// (`sync`/`import-export`/`previews` are Classic-only); the agentic UI emits its site overview tabs and
+// `assistant` when a site conversation opens.
 export type TracksPanel =
 	| 'overview'
 	| 'settings'
-	| 'debugging'
+	| 'agent'
+	| 'checkpoints'
 	| 'assistant'
 	| 'sync'
 	| 'import-export'

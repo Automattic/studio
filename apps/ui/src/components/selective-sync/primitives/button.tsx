@@ -36,7 +36,7 @@ justify-center
 disabled:cursor-not-allowed
 aria-disabled:cursor-not-allowed
 [&.components-button]:focus:shadow-[inset_0_0_0_1px_transparent]
-[&.components-button]:focus-visible:shadow-[0_0_0_1px_var(--color-frame-theme)]
+[&.components-button]:focus-visible:shadow-[0_0_0_1px_var(--wpds-color-fg-interactive-brand)]
 [&.components-button]:focus-visible:shadow-frame-theme
 [&.components-button.is-destructive]:focus-visible:shadow-a8c-red-50
 [&_svg]:shrink-0
@@ -44,7 +44,7 @@ aria-disabled:cursor-not-allowed
 
 const primaryStyles = `
 [&.is-primary:not(:disabled)]:focus:shadow-[inset_0_0_0_1px_transparent]
-[&.is-primary:not(:disabled)]:focus-visible:shadow-[inset_0_0_0_1px_white,0_0_0_1px_var(--color-frame-theme)]
+[&.is-primary:not(:disabled)]:focus-visible:shadow-[inset_0_0_0_1px_white,0_0_0_1px_var(--wpds-color-fg-interactive-brand)]
 `.replace( /\n/g, ' ' );
 
 const secondaryStyles = `
@@ -74,7 +74,7 @@ text-white
 [&.components-button]:shadow-[inset_0_0_0_1px_white]
 [&.components-button.outlined]:focus:shadow-[inset_0_0_0_1px_white]
 [&.components-button]:focus-visible:outline-none
-[&.components-button.outlined]:focus-visible:shadow-[inset_0_0_0_1px_var(--color-frame-theme)]
+[&.components-button.outlined]:focus-visible:shadow-[inset_0_0_0_1px_var(--wpds-color-fg-interactive-brand)]
 [&.components-button]:focus-visible:shadow-frame-theme
 `.replace( /\n/g, ' ' );
 

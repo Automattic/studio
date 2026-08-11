@@ -1,6 +1,24 @@
-import { randomThinkingMessage } from '@studio/common/ai/thinking-messages';
 import { useEffect, useState } from 'react';
+import { AgentWorkingIndicator } from '@/components/agent-working-indicator';
+import { formatElapsedTime, RollingChar } from '@/components/rolling-text';
 import styles from './style.module.css';
+
+function ElapsedTime( { seconds }: { seconds: number } ) {
+	const text = formatElapsedTime( seconds );
+	return (
+		<span className={ styles.elapsed } aria-hidden="true">
+			{ text
+				.split( '' )
+				.map( ( char, index ) =>
+					char === ' ' ? (
+						<span key={ text.length - index }>&nbsp;</span>
+					) : (
+						<RollingChar key={ text.length - index } char={ char } />
+					)
+				) }
+		</span>
+	);
+}
 
 export function ThinkingIndicator( {
 	active,
@@ -11,37 +29,28 @@ export function ThinkingIndicator( {
 	startedAt: number | null;
 	progressMessage: string | null;
 } ) {
-	const [ message, setMessage ] = useState( () => randomThinkingMessage() );
 	const [ elapsedSeconds, setElapsedSeconds ] = useState( 0 );
 
 	useEffect( () => {
 		if ( ! active || startedAt === null ) {
 			return;
 		}
-		setMessage( randomThinkingMessage() );
 		setElapsedSeconds( Math.floor( ( Date.now() - startedAt ) / 1000 ) );
-		const labelInterval = window.setInterval( () => {
-			setMessage( randomThinkingMessage() );
-		}, 4000 );
 		const tickInterval = window.setInterval( () => {
 			setElapsedSeconds( Math.floor( ( Date.now() - startedAt ) / 1000 ) );
 		}, 1000 );
 		return () => {
-			window.clearInterval( labelInterval );
 			window.clearInterval( tickInterval );
 		};
 	}, [ active, startedAt ] );
 
 	return (
-		<div className={ styles.root } role="status" aria-live="polite">
+		<div className={ styles.root }>
 			{ active ? (
 				<>
 					<div className={ styles.head }>
-						<span className={ styles.dot } aria-hidden="true" />
-						<span className={ styles.label }>{ message }</span>
-						{ elapsedSeconds > 0 ? (
-							<span className={ styles.elapsed }>{ `${ elapsedSeconds }s` }</span>
-						) : null }
+						<AgentWorkingIndicator className={ styles.pixels } />
+						{ elapsedSeconds > 0 ? <ElapsedTime seconds={ elapsedSeconds } /> : null }
 					</div>
 					{ progressMessage ? (
 						<span className={ styles.progress }>{ progressMessage }</span>
@@ -51,3 +60,5 @@ export function ThinkingIndicator( {
 		</div>
 	);
 }
+
+export { formatElapsedTime } from '@/components/rolling-text';

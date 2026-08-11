@@ -8,6 +8,9 @@
 	flex-direction: column;
 	height: 100%;
 	min-height: 0;
+	/* Let this panel shrink below the tab strip's intrinsic width so the tabs
+	   scroll inside their own bar (see .tabsBar) instead of widening the panel
+	   and spilling past its edge. */
 	min-width: 0;
 	color: var(--wpds-color-fg-content-neutral);
 	background: var(--wpds-color-bg-surface-neutral);
@@ -19,6 +22,7 @@
 }
 
 .header {
+	/* Anchor for the absolutely-pinned open-in trigger. */
 	position: relative;
 	display: flex;
 	align-items: center;
@@ -45,7 +49,6 @@
 	   at the window's left edge — give the site menu more breathing room. */
 	padding-inline-start: var(--wpds-dimension-padding-xl);
 }
-
 .tabsFrame {
 	flex: 1;
 	min-height: 0;
@@ -68,8 +71,11 @@
 	max-width: var(--overview-content-width);
 }
 
-.panel {
+/* Fills the scroll viewport so the sign-in banner (margin-top: auto) can sit
+   at the very bottom of the panel when the content above is short. */
+.overviewPanel {
 	outline: none;
+	flex: 1 0 auto;
 	display: grid;
 	grid-template-columns: minmax(0, var(--overview-card-column-width)) minmax(0, 1fr);
 	align-items: start;
@@ -78,7 +84,11 @@
 	min-width: 0;
 }
 
-.panel > :not(.cardColumn, .actionsColumn) {
+.overviewPanel[hidden] {
+	display: none;
+}
+
+.overviewPanel > :not(.cardColumn, .actionsColumn) {
 	grid-column: 1 / -1;
 }
 
@@ -128,10 +138,26 @@
 	box-sizing: border-box;
 	width: 100%;
 	max-width: var(--overview-content-width);
-	/* Extra bottom padding keeps the last content clear of the overlaid
-	   footer toolbar. */
-	padding: var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-xl)
-		calc(var(--wpds-dimension-padding-2xl) + 46px);
+	/* Fill the scroll viewport so a short overview still lets the sign-in
+	   banner settle against the bottom. */
+	min-height: 100%;
+	display: flex;
+	flex-direction: column;
+	/* Bottom padding == the overlaid footer toolbar height, so the composer
+	   rests right above the footer controls like the chat composer does. */
+	padding: var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-xl) 46px;
+}
+
+.panel {
+	outline: none;
+}
+
+.buttonSection h2 {
+	margin: 0;
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	font-weight: var(--wpds-typography-font-weight-medium);
+	color: var(--wpds-color-fg-content-neutral);
 }
 
 .columnHeading {
@@ -147,25 +173,6 @@
 	flex-direction: column;
 	gap: var(--wpds-dimension-padding-md);
 	min-width: 0;
-}
-
-@container overview (max-width: 760px) {
-	.panel {
-		grid-template-columns: minmax(0, 1fr);
-		gap: var(--wpds-dimension-padding-2xl);
-	}
-
-	.panel > :not(.cardColumn, .actionsColumn) {
-		order: 0;
-	}
-
-	.cardColumn {
-		order: 2;
-	}
-
-	.actionsColumn {
-		order: 1;
-	}
 }
 
 /* Each section is a full-width row (Customize, Open in…, Manage), stacked. */
@@ -213,6 +220,7 @@
 .overviewButton:not([data-disabled]):is(:hover, :focus-visible) {
 	border-color: var(--wpds-color-stroke-interactive-neutral);
 	background: var(--wpds-color-bg-interactive-neutral-weak-active);
+
 }
 
 .overviewButton[data-disabled] {
@@ -246,6 +254,119 @@
 	color: var(--wpds-color-fg-content-neutral);
 }
 
+.manageSection {
+	padding-top: 0;
+}
+
+.detailsColumn {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-xl);
+	width: 100%;
+	min-width: 0;
+	grid-column: 1 / -1;
+}
+
+.detailSection {
+	padding-bottom: var(--wpds-dimension-padding-xl);
+	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
+}
+
+.detailSection:last-child {
+	border-bottom: 0;
+}
+
+.detailSectionHeading {
+	margin: 0 0 var(--wpds-dimension-padding-md);
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-sm);
+	font-weight: var(--wpds-typography-font-weight-medium);
+	line-height: var(--wpds-typography-line-height-sm);
+}
+
+/* Plugins / Themes headings double as the link into the matching wp-admin
+   screen ("Plugins ›"). The button reads as the heading itself — same type —
+   with a trailing chevron and a hover target that hangs back so the label's
+   left edge stays aligned with the list beneath it. */
+.sectionHeadingButton {
+	--wp-ui-button-height: 26px;
+
+	display: inline-flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-xs);
+	margin-inline-start: calc(-1 * var(--wpds-dimension-padding-sm));
+	padding: 0 var(--wpds-dimension-padding-sm);
+	border: 0;
+	border-radius: 4px;
+	background: transparent;
+	color: inherit;
+	font-size: inherit;
+	font-weight: inherit;
+	line-height: inherit;
+	white-space: nowrap;
+}
+
+.sectionHeadingButton:not([data-disabled]):is(:hover, :focus-visible) {
+	background: var(
+		--wpds-color-bg-interactive-neutral-weak-active,
+		var(--wpds-color-bg-surface-neutral-weak)
+	);
+}
+
+.sectionActionIcon {
+	display: grid;
+	place-items: center;
+	flex: 0 0 auto;
+	color: currentColor;
+}
+
+.sectionActionIcon svg {
+	color: currentColor;
+	fill: currentColor;
+}
+
+.detailStatus {
+	margin: 0;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+}
+
+.extensionList {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.extensionItem {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	gap: var(--wpds-dimension-padding-md);
+	align-items: baseline;
+	min-width: 0;
+	padding: var(--wpds-dimension-padding-xs) 0;
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.extensionName {
+	min-width: 0;
+	overflow: hidden;
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.extensionMeta {
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-xs);
+	white-space: nowrap;
+}
+
 .destructiveButton .overviewButtonIcon,
 .destructiveButton .overviewButtonLabel {
 	color: var(--wpds-color-fg-content-error);
@@ -262,9 +383,36 @@
 	background: var(--wpds-color-bg-surface-error-weak);
 }
 
+@container overview (max-width: 760px) {
+	.overviewPanel {
+		grid-template-columns: minmax(0, 1fr);
+		gap: var(--wpds-dimension-padding-2xl);
+	}
+
+	.actionsColumn {
+		order: 1;
+	}
+
+	.cardColumn {
+		order: 2;
+	}
+
+	.detailsColumn {
+		order: 3;
+	}
+}
+
 @media (max-width: 760px) {
+	.tabsBar {
+		padding: 0 var(--wpds-dimension-padding-md);
+	}
+
 	.content {
-		padding: var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-md)
-			calc(var(--wpds-dimension-padding-2xl) + 46px);
+		padding: var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-md) 46px;
+	}
+
+	.extensionItem {
+		grid-template-columns: 1fr;
+		gap: 2px;
 	}
 }

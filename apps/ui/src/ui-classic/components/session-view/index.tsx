@@ -3,8 +3,6 @@ import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
 import { getStudioCodeAiAccessState } from '@studio/common/lib/studio-assistant-quota';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { arrowDown } from '@wordpress/icons';
-import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import {
 	useCallback,
@@ -13,14 +11,19 @@ import {
 	useMemo,
 	useRef,
 	useState,
+	useSyncExternalStore,
 	type ReactNode,
 	type Ref,
 } from 'react';
-import { PreviewToggleButton } from '@/components/preview-toggle-button';
 import { ProgressiveBlur } from '@/components/progressive-blur';
 import { SiteDropdown } from '@/components/site-dropdown';
+import { SiteHeaderActions } from '@/components/site-header-actions';
 import { SiteIcon } from '@/components/site-icon';
-import { type Annotation } from '@/components/site-preview/types';
+import {
+	appendPreviewConsoleEntriesToPrompt,
+	stripPreviewConsolePromptBlock,
+} from '@/components/site-preview/console-utils';
+import { toast } from '@/data/app-messages';
 import { useAgentRun } from '@/data/queries/use-agent-run';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import {
@@ -30,35 +33,37 @@ import {
 	useSessions,
 } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
+import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSessionCommands } from '@/hooks/use-session-commands';
-import { SessionUIProvider, useSessionPreviewAnnotations } from '@/hooks/use-session-ui';
+import {
+	SessionUIProvider,
+	useSessionPreviewClipMarkersPublisher,
+	useSessionPreviewClips,
+	useSessionPreviewConsoleEntries,
+	type SessionPreviewClipActions,
+} from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { formatComposerTextQuote, watchComposerTextQuote } from '@/lib/composer-text-quote';
+import { pendingSessionPromptSlot, type PendingSessionPrompt } from '@/lib/pending-session-prompt';
 import { AccessRequirements } from './access-requirements';
-import { formatAnnotationsAsPrompt, formatAnnotationsSubmittedMessage } from './annotations';
 import { Composer, ComposerSkeleton, type ComposerHandle } from './composer';
 import { Conversation } from './conversation';
 import { EmptyBackground } from './empty-background';
 import { QueuedPrompts } from './queued-prompts';
-import { getSiteSessionHistory, SessionChatActions } from './session-chat-actions';
+import { ScrollToBottomButton } from './scroll-to-bottom-button';
+import {
+	getSiteArchivedSessionHistory,
+	getSiteSessionHistory,
+	SessionChatActions,
+	SessionChatActionsSkeleton,
+} from './session-chat-actions';
 import styles from './style.module.css';
 import { SuggestedPrompts } from './suggested-prompts';
-import type { AiSessionSummary } from '@/data/core';
-
-// Slack below the bottom edge that still counts as "at the latest message",
-// so sub-pixel rounding or a barely-started scroll doesn't flash the button.
-const SCROLL_AWAY_FROM_LATEST_THRESHOLD_PX = 48;
-
-export function isScrolledAwayFromLatest( node: {
-	scrollTop: number;
-	scrollHeight: number;
-	clientHeight: number;
-} ): boolean {
-	return (
-		node.scrollHeight - node.scrollTop - node.clientHeight > SCROLL_AWAY_FROM_LATEST_THRESHOLD_PX
-	);
-}
+import { useStickToBottom } from './use-stick-to-bottom';
+import type { ComposerAttachment } from './composer/use-composer-attachments';
+import type { AiSessionSummary, PermissionDecision } from '@/data/core';
+import type { ClipMarker } from '@studio/common/inspector/protocol';
 
 interface SessionHeaderProps {
 	summary: AiSessionSummary;
@@ -100,6 +105,7 @@ function SessionHeader( { summary }: SessionHeaderProps ) {
 				</>
 			) }
 			<span className={ styles.headerSpacer } aria-hidden="true" />
+			{ site ? <SiteHeaderActions site={ site } /> : null }
 		</div>
 	);
 }
@@ -107,8 +113,8 @@ function SessionHeader( { summary }: SessionHeaderProps ) {
 interface SessionFrameProps {
 	header?: ReactNode;
 	composer?: ReactNode;
+	composerOverlay?: ReactNode;
 	footer?: ReactNode;
-	footerEnd?: ReactNode;
 	scrollRef?: Ref< HTMLDivElement >;
 	children?: ReactNode;
 }
@@ -119,15 +125,14 @@ interface SessionFrameProps {
 function SessionFrame( {
 	header,
 	composer,
+	composerOverlay,
 	footer,
-	footerEnd,
 	scrollRef,
 	children,
 }: SessionFrameProps ) {
 	const rootRef = useRef< HTMLDivElement >( null );
 	const headerRef = useRef< HTMLDivElement >( null );
 	const composerRef = useRef< HTMLDivElement >( null );
-	const sidebarCollapsed = useSidebarCollapsed();
 
 	useLayoutEffect( () => {
 		const root = rootRef.current;
@@ -135,22 +140,32 @@ function SessionFrame( {
 			return;
 		}
 
+		// The dashboard's floating toast shelf reads the composer height off
+		// the main panel to position itself above the composer while a chat
+		// session is on screen.
+		const mainPanel = root.closest< HTMLElement >( '[data-app-main]' );
+
 		const updateChromeSize = () => {
+			const composerHeight = composerRef.current?.offsetHeight ?? 0;
 			root.style.setProperty(
 				'--classic-header-height',
 				`${ headerRef.current?.offsetHeight ?? 0 }px`
 			);
-			root.style.setProperty(
-				'--classic-composer-height',
-				`${ composerRef.current?.offsetHeight ?? 0 }px`
-			);
+			root.style.setProperty( '--classic-composer-height', `${ composerHeight }px` );
+			mainPanel?.style.setProperty( '--app-main-composer-height', `${ composerHeight }px` );
 		};
 
 		updateChromeSize();
 
+		const clearMainPanelProperty = () =>
+			mainPanel?.style.removeProperty( '--app-main-composer-height' );
+
 		if ( typeof ResizeObserver === 'undefined' ) {
 			window.addEventListener( 'resize', updateChromeSize );
-			return () => window.removeEventListener( 'resize', updateChromeSize );
+			return () => {
+				window.removeEventListener( 'resize', updateChromeSize );
+				clearMainPanelProperty();
+			};
 		}
 
 		const resizeObserver = new ResizeObserver( updateChromeSize );
@@ -161,11 +176,18 @@ function SessionFrame( {
 			resizeObserver.observe( composerRef.current );
 		}
 
-		return () => resizeObserver.disconnect();
+		return () => {
+			resizeObserver.disconnect();
+			clearMainPanelProperty();
+		};
 	}, [] );
 
 	return (
-		<div ref={ rootRef } className={ clsx( styles.root, footer && styles.rootWithFooter ) }>
+		<div
+			ref={ rootRef }
+			className={ clsx( styles.root, footer && styles.rootWithFooter ) }
+			data-classic-session-view
+		>
 			<div ref={ headerRef } className={ styles.headerLayer }>
 				{ header }
 			</div>
@@ -176,6 +198,9 @@ function SessionFrame( {
 			{ composer ? (
 				<>
 					<ProgressiveBlur direction="up" className={ styles.composerBlur } />
+					{ composerOverlay ? (
+						<div className={ styles.composerOverlay }>{ composerOverlay }</div>
+					) : null }
 					<div
 						ref={ composerRef }
 						className={ clsx( styles.composerOuter, styles.classicComposerOuter ) }
@@ -184,21 +209,7 @@ function SessionFrame( {
 					</div>
 				</>
 			) : null }
-			{ footer ? (
-				<div
-					className={ clsx(
-						styles.panelFooterControls,
-						sidebarCollapsed && styles.panelFooterControlsCollapsed
-					) }
-				>
-					{ footer }
-				</div>
-			) : null }
-			{ footerEnd ? (
-				<div className={ clsx( styles.panelFooterControls, styles.panelFooterControlsEnd ) }>
-					{ footerEnd }
-				</div>
-			) : null }
+			{ footer ? <div className={ styles.panelFooterControls }>{ footer }</div> : null }
 		</div>
 	);
 }
@@ -213,7 +224,7 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 
 function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const navigate = useNavigate();
-	const { data, isLoading, error } = useSession( sessionId );
+	const { data, isLoading, isFetching, error } = useSession( sessionId );
 	const { data: sites } = useSites();
 	const { data: sessions } = useSessions();
 	const { mutateAsync: createSession, isPending: isCreatingSession } = useCreateSession();
@@ -224,24 +235,45 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		hasActiveRun,
 		isInterrupting,
 		startedAt,
+		activeTool,
 		error: runError,
 		pendingQuestions,
+		pendingPermissions,
+		answeredPermissions,
 		pendingAnswers,
 		queuedPrompts,
 		sendMessage,
 		interrupt,
 		answerQuestion,
+		answerPermission,
 		removeQueuedPrompt,
 	} = useAgentRun( sessionId );
+	// Sessions with no recorded model (fresh chats) start on the user's
+	// preferred default model rather than the built-in default.
+	const { data: preferences } = useUserPreferences();
 	const currentModel = useMemo(
-		() => resolveSessionModel( data?.entries ?? [] ),
-		[ data?.entries ]
+		() => resolveSessionModel( data?.entries ?? [], preferences?.defaultAiModel ),
+		[ data?.entries, preferences?.defaultAiModel ]
 	);
 	const pendingQuestionTexts = useMemo(
 		() => new Set( pendingQuestions.map( ( q ) => q.question ) ),
 		[ pendingQuestions ]
 	);
-	const composerBusy = hasActiveRun || pendingQuestions.length > 0;
+	const pendingPermissionIds = useMemo(
+		() => new Set( pendingPermissions.map( ( request ) => request.id ) ),
+		[ pendingPermissions ]
+	);
+	const composerBusy = hasActiveRun || pendingQuestions.length > 0 || pendingPermissions.length > 0;
+
+	// Run failures (send rejected, agent unavailable, run crashed) surface as
+	// app toasts rather than a dedicated row under the composer. The effect
+	// fires once per distinct error; a new run clears the state so the next
+	// failure announces again.
+	useEffect( () => {
+		if ( runError ) {
+			toast.error( runError );
+		}
+	}, [ runError ] );
 	const isEmpty = useMemo(
 		() =>
 			! ( data?.entries ?? [] ).some(
@@ -251,6 +283,17 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	);
 	const scrollRef = useRef< HTMLDivElement >( null );
 	const composerRef = useRef< ComposerHandle >( null );
+	// The pending permission card holds keyboard focus; hand it back to the
+	// composer once the user decides (the card collapses to a static row).
+	const answerPermissionAndRefocus = useCallback(
+		( requestId: string, decision: PermissionDecision ) => {
+			answerPermission( requestId, decision );
+			composerRef.current?.focus();
+		},
+		[ answerPermission ]
+	);
+	const { isAtBottom, isAtBottomRef, scrollToBottom } = useStickToBottom( scrollRef, sessionId );
+
 	useEffect(
 		() =>
 			watchComposerTextQuote( ( text ) => {
@@ -258,82 +301,127 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			} ),
 		[]
 	);
-	const [ isScrolledAway, setIsScrolledAway ] = useState( false );
-	const hasSession = !! data;
-
-	const updateIsScrolledAway = useCallback( () => {
-		const node = scrollRef.current;
-		if ( node ) {
-			setIsScrolledAway( isScrolledAwayFromLatest( node ) );
-		}
-	}, [] );
-
-	useEffect( () => {
-		const node = scrollRef.current;
-		if ( ! hasSession || ! node ) {
-			return;
-		}
-		updateIsScrolledAway();
-		node.addEventListener( 'scroll', updateIsScrolledAway, { passive: true } );
-		return () => node.removeEventListener( 'scroll', updateIsScrolledAway );
-	}, [ hasSession, updateIsScrolledAway ] );
-
-	// Content can grow without emitting scroll events (e.g. while the
-	// auto-scroll below is suspended by pending questions), so re-check
-	// whenever the transcript changes.
-	useEffect( () => {
-		updateIsScrolledAway();
-	}, [ data, pendingQuestions.length, queuedPrompts.length, updateIsScrolledAway ] );
-
-	const scrollToLatest = useCallback( () => {
-		const node = scrollRef.current;
-		if ( ! node ) {
-			return;
-		}
-		const prefersReducedMotion = window.matchMedia?.( '(prefers-reduced-motion: reduce)' ).matches;
-		node.scrollTo( { top: node.scrollHeight, behavior: prefersReducedMotion ? 'auto' : 'smooth' } );
-	}, [] );
 	useSessionCommands( sessionId );
 	const canTogglePreview = !! ownerSite && effectiveEnvironment === 'local';
-	const siteSessionHistory = data
-		? getSiteSessionHistory( {
-				currentSession: data.summary,
-				ownerSite,
-				sessions,
-		  } )
-		: [];
-	const archivedSiteSessionHistory = data
-		? getSiteSessionHistory( {
-				currentSession: data.summary,
-				ownerSite,
-				sessions,
-				archived: true,
-		  } )
-		: [];
-
-	const handleAnnotationsDone = useCallback(
-		( annotations: Annotation[] ) => {
-			if ( annotations.length === 0 ) return;
-			void sendMessage( formatAnnotationsAsPrompt( annotations ), {
-				displayMessage: formatAnnotationsSubmittedMessage( annotations.length ),
+	const previewConsoleEntries = useSessionPreviewConsoleEntries();
+	const sendMessageWithConsole = useCallback(
+		async ( prompt: string, options?: Parameters< typeof sendMessage >[ 1 ] ) => {
+			const nextPrompt =
+				canTogglePreview && previewConsoleEntries.length > 0
+					? appendPreviewConsoleEntriesToPrompt( prompt, previewConsoleEntries )
+					: prompt;
+			await sendMessage( nextPrompt, {
+				...options,
+				displayMessage: options?.displayMessage ?? ( nextPrompt === prompt ? undefined : prompt ),
 			} );
 		},
-		[ sendMessage ]
+		[ canTogglePreview, previewConsoleEntries, sendMessage ]
+	);
+	// A flow can queue a prompt to auto-send in this site's next session
+	// (e.g. plugin creation handing the description to the agent). The sent
+	// ref guards StrictMode's double-invoked effects from sending twice.
+	// Waits for the session query to settle: the new-session route primes the
+	// cache and fires a reconciling refetch, and sending while that fetch is
+	// in flight lets it resolve afterwards with the still-empty on-disk
+	// session — clobbering the optimistic user-prompt entry.
+	const pendingPrompt = useSyncExternalStore(
+		pendingSessionPromptSlot.subscribe,
+		pendingSessionPromptSlot.peek
+	);
+	const sentPendingPromptRef = useRef< PendingSessionPrompt | null >( null );
+	useEffect( () => {
+		if ( ! pendingPrompt || ! ownerSite || pendingPrompt.siteId !== ownerSite.id ) {
+			return;
+		}
+		if ( isFetching || ! data ) {
+			return;
+		}
+		if ( sentPendingPromptRef.current === pendingPrompt ) {
+			return;
+		}
+		sentPendingPromptRef.current = pendingPrompt;
+		pendingSessionPromptSlot.clear();
+		void sendMessageWithConsole( pendingPrompt.prompt, {
+			images: pendingPrompt.images,
+			files: pendingPrompt.files,
+		} );
+	}, [ pendingPrompt, ownerSite, isFetching, data, sendMessageWithConsole ] );
+	const siteSessionHistory = useMemo(
+		() =>
+			data
+				? getSiteSessionHistory( {
+						currentSession: data.summary,
+						ownerSite,
+						sessions,
+				  } )
+				: [],
+		[ data, ownerSite, sessions ]
+	);
+	const archivedSiteSessionHistory = useMemo(
+		() =>
+			data
+				? getSiteArchivedSessionHistory( {
+						currentSession: data.summary,
+						ownerSite,
+						sessions,
+				  } )
+				: [],
+		[ data, ownerSite, sessions ]
+	);
+
+	// Clips from the site preview land in this session's composer as
+	// attachments; edits made on the page markers round-trip through here.
+	const clipActions = useMemo< SessionPreviewClipActions >(
+		() => ( {
+			async addClip( input ) {
+				const composer = composerRef.current;
+				if ( ! composer ) {
+					throw new Error( 'Composer is not ready.' );
+				}
+				await composer.addClip( input );
+			},
+			updateClipComment( id, comment ) {
+				composerRef.current?.updateClipComment( id, comment );
+			},
+			removeClip( id ) {
+				composerRef.current?.removeClip( id );
+			},
+			appendComposerText( text ) {
+				composerRef.current?.appendDraft( text );
+			},
+		} ),
+		[]
 	);
 	// The preview panel itself is hosted by the dashboard layout; route its
-	// annotation submissions to this session while it is on screen.
-	useSessionPreviewAnnotations( handleAnnotationsDone, canTogglePreview );
-
-	const reopenQueuedPrompt = useCallback(
-		( queuedPrompt: ( typeof queuedPrompts )[ number ] ) => {
-			removeQueuedPrompt( queuedPrompt.id );
-			composerRef.current?.replaceDraft( queuedPrompt.prompt, {
-				images: queuedPrompt.images,
-				files: queuedPrompt.files,
-			} );
+	// actions to this session while it is on screen.
+	useSessionPreviewClips( clipActions, canTogglePreview );
+	// Mirror the composer's clips back to the preview as numbered markers.
+	const publishClipMarkers = useSessionPreviewClipMarkersPublisher();
+	const handleAttachmentsChange = useCallback(
+		( attachments: ComposerAttachment[] ) => {
+			const markers: ClipMarker[] = [];
+			for ( const attachment of attachments ) {
+				if ( attachment.kind !== 'clip' ) {
+					continue;
+				}
+				markers.push( {
+					id: attachment.id,
+					number: markers.length + 1,
+					grain: attachment.grain,
+					comment: attachment.comment,
+					pathname: attachment.context.pathname,
+					documentRect: attachment.documentRect,
+				} );
+			}
+			publishClipMarkers( markers );
 		},
-		[ removeQueuedPrompt ]
+		[ publishClipMarkers ]
 	);
+	// Clear leftover markers when leaving this session.
+	useEffect( () => {
+		return () => publishClipMarkers( [] );
+	}, [ publishClipMarkers, sessionId ] );
+
 	const switchSession = useCallback(
 		( nextSessionId: string ) =>
 			void navigate( {
@@ -341,6 +429,16 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 				params: { sessionId: nextSessionId },
 			} ),
 		[ navigate ]
+	);
+	const reopenQueuedPrompt = useCallback(
+		( queuedPrompt: ( typeof queuedPrompts )[ number ] ) => {
+			removeQueuedPrompt( queuedPrompt.id );
+			composerRef.current?.replaceDraft( stripPreviewConsolePromptBlock( queuedPrompt.prompt ), {
+				images: queuedPrompt.images,
+				files: queuedPrompt.files,
+			} );
+		},
+		[ removeQueuedPrompt ]
 	);
 	const startNewChat = useCallback( async () => {
 		// Already on a chat with no prompts yet — creating another empty
@@ -357,9 +455,17 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		}
 	}, [ createSession, isEmpty, ownerSite, switchSession ] );
 
+	const autoScrolledSessionRef = useRef< string | undefined >( undefined );
 	useLayoutEffect( () => {
 		const node = scrollRef.current;
 		if ( ! node || pendingQuestions.length > 0 ) {
+			return;
+		}
+		// Stick-to-bottom: once the user scrolls up, stop following new
+		// content — but always land at the bottom when switching sessions.
+		const sessionChanged = autoScrolledSessionRef.current !== sessionId;
+		autoScrolledSessionRef.current = sessionId;
+		if ( ! sessionChanged && ! isAtBottomRef.current ) {
 			return;
 		}
 		node.scrollTop = node.scrollHeight;
@@ -367,7 +473,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			node.scrollTop = node.scrollHeight;
 		} );
 		return () => cancelAnimationFrame( id );
-	}, [ sessionId, data, isRunning, pendingQuestions.length, queuedPrompts.length ] );
+	}, [ sessionId, data, isRunning, pendingQuestions.length, queuedPrompts.length, isAtBottomRef ] );
 
 	const {
 		data: quota,
@@ -421,7 +527,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						<ComposerSkeleton />
 					</div>
 				}
-				footer={ <div aria-hidden /> }
+				footer={ <SessionChatActionsSkeleton /> }
 			>
 				<EmptyBackground />
 			</SessionFrame>
@@ -461,27 +567,14 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						fadeAfterQuotaCheck && styles.fadeInQuick
 					) }
 				>
-					{ isScrolledAway ? (
-						<div className={ styles.scrollToLatestWrap }>
-							<IconButton
-								className={ styles.scrollToLatestButton }
-								icon={ arrowDown }
-								label={ __( 'Scroll to latest message' ) }
-								size="small"
-								variant="minimal"
-								tone="neutral"
-								onClick={ scrollToLatest }
-							/>
-						</div>
-					) : null }
 					<Composer
 						ref={ composerRef }
 						busy={ composerBusy }
 						isInterrupting={ isInterrupting }
-						error={ runError }
 						model={ currentModel }
-						onSend={ sendMessage }
+						onSend={ sendMessageWithConsole }
 						onInterrupt={ interrupt }
+						onAttachmentsChange={ canTogglePreview ? handleAttachmentsChange : undefined }
 						sessionId={ sessionId }
 						entries={ data.entries }
 						ownerSiteId={ ownerSite?.id }
@@ -489,10 +582,14 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 					/>
 				</div>
 			}
+			composerOverlay={
+				<ScrollToBottomButton visible={ ! isAtBottom } onClick={ scrollToBottom } />
+			}
 			footer={
 				ownerSite ? (
 					<SessionChatActions
 						archivedSessions={ archivedSiteSessionHistory }
+						canTogglePreview={ canTogglePreview }
 						currentSessionId={ sessionId }
 						isCreatingSession={ isCreatingSession }
 						onNewChat={ startNewChat }
@@ -501,14 +598,16 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 					/>
 				) : null
 			}
-			footerEnd={ canTogglePreview ? <PreviewToggleButton /> : null }
 		>
 			{ isEmpty ? <EmptyBackground /> : null }
 			{ isEmpty && ownerSite ? (
 				<SuggestedPrompts
 					fadeIn={ fadeAfterQuotaCheck }
 					siteName={ ownerSite.name }
-					onPick={ ( prompt ) => composerRef.current?.replaceDraft( prompt ) }
+					onPick={ ( prompt ) => {
+						composerRef.current?.replaceDraft( prompt );
+						composerRef.current?.focus();
+					} }
 					getDraft={ () => composerRef.current?.getDraft() ?? { text: '', hasAttachments: false } }
 				/>
 			) : null }
@@ -523,9 +622,13 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 					data={ data }
 					isRunning={ isRunning }
 					startedAt={ startedAt }
+					activeTool={ activeTool }
 					pendingQuestions={ pendingQuestionTexts }
 					pendingAnswers={ pendingAnswers }
+					pendingPermissions={ pendingPermissionIds }
+					answeredPermissions={ answeredPermissions }
 					onAnswerQuestion={ answerQuestion }
+					onAnswerPermission={ answerPermissionAndRefocus }
 				/>
 				<QueuedPrompts
 					prompts={ queuedPrompts }

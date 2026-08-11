@@ -1,3 +1,5 @@
+import { DEFAULT_MODEL } from '@studio/common/ai/models';
+import { DEFAULT_ACTIVITY_SOUND_PREFERENCES } from '@studio/common/lib/activity-sounds';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -20,13 +22,19 @@ const PREFERENCES: UserPreferences = {
 	editor: null,
 	terminal: null,
 	colorScheme: 'system',
-	quitSitesBehavior: undefined,
+	frameColor: null,
+	quitSitesBehavior: 'ask',
 	locale: 'en',
 	analyticsEnabled: true,
 	defaultSiteDirectory: '',
 	studioCliInstalled: true,
 	agenticFeaturesEnabled: true,
 	studioCliExternallyManaged: false,
+	chatNotificationsEnabled: true,
+	activitySoundPreferences: DEFAULT_ACTIVITY_SOUND_PREFERENCES,
+	agentResponseLength: 'normal',
+	defaultAiModel: DEFAULT_MODEL,
+	toolPermissions: {},
 };
 
 describe( 'useSaveUserPreferences', () => {

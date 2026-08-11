@@ -1,259 +1,421 @@
+import { getEnvironmentLabel, getSiteEnvironment } from '@studio/common/lib/sync/environment-utils';
+import { getMshotUrl } from '@studio/common/lib/sync/mshots';
 import { createRoute, useNavigate } from '@tanstack/react-router';
-import { Spinner, VisuallyHidden } from '@wordpress/components';
+import { speak } from '@wordpress/a11y';
+import { Spinner } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
-import { check, chevronLeft, external, search } from '@wordpress/icons';
-import { Badge, Button, Icon } from '@wordpress/ui';
-import { clsx } from 'clsx';
+import { chevronLeft, check, external, info, search } from '@wordpress/icons';
+import { Button, Icon, IconButton, Input, InputLayout } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AuthActions } from '@/components/auth-actions';
+import { BusyOverlay } from '@/components/busy-overlay';
 import { OnboardingFooter } from '@/components/onboarding-footer';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
+import { useFindAvailableSiteName } from '@/data/queries/use-create-site-helpers';
 import { useCreateSite, useDeleteSite, useSites, useStartSite } from '@/data/queries/use-sites';
 import { usePullSiteFromLive } from '@/data/queries/use-sync-site';
 import { useUserLocale } from '@/data/queries/use-user-locale';
-import { useSyncableWpcomSites } from '@/data/queries/use-wpcom-sites';
+import {
+	useAllConnectedWpcomSites,
+	useSyncableWpcomSitesPage,
+} from '@/data/queries/use-wpcom-sites';
+import { useGridArrowNavigation } from '@/hooks/use-grid-arrow-navigation';
 import { useOffline } from '@/hooks/use-offline';
 import { getLocalizedLink } from '@/lib/docs-links';
 import { onboardingLayoutRoute, useOnboardingProgress } from '../layout-onboarding';
 import sharedStyles from '../layout-onboarding/style.module.css';
 import { ConnectSiteLifecycleError, runConnectSiteLifecycle } from './connect-site';
-import { presentRemoteSites, searchRemoteSites, type ConnectSiteGroup } from './site-presentation';
 import styles from './style.module.css';
 import type { SyncSite } from '@/data/core';
 
-const createWpcomSiteUrl = new URL( 'https://wordpress.com/setup/new-hosted-site' );
-createWpcomSiteUrl.searchParams.set( 'ref', 'studio' );
-createWpcomSiteUrl.searchParams.set( 'section', 'studio-sync' );
-createWpcomSiteUrl.searchParams.set( 'showDomainStep', 'true' );
+const SEARCH_VISIBILITY_THRESHOLD = 5;
 
-function getEnvironmentLabel( site: SyncSite ): string {
-	if ( site.isPressable && site.environmentType === 'development' ) return __( 'Development' );
-	if ( site.isPressable && site.environmentType === 'staging' ) return __( 'Staging' );
-	if ( site.isStaging ) return __( 'Staging' );
-	return __( 'Production' );
-}
+// Same wordpress.com new-site flow the desktop renderer's Create button
+// opens (see generate-checkout-url.ts).
+const CREATE_WPCOM_SITE_URL =
+	'https://wordpress.com/setup/new-hosted-site?ref=studio&section=studio-sync&showDomainStep=true';
 
-function getEnvironmentIntent( site: SyncSite ) {
-	if ( site.isPressable && site.environmentType === 'development' ) return 'informational';
-	if ( site.isStaging || ( site.isPressable && site.environmentType === 'staging' ) )
-		return 'medium';
-	return 'stable';
-}
-
-function getSiteStatus( site: SyncSite, group: ConnectSiteGroup ): string {
-	if ( group === 'needs-transfer' ) {
-		return __( 'Enable hosting features on WordPress.com before connecting this site.' );
-	}
-	if ( group === 'needs-upgrade' ) {
-		return __( 'Upgrade this site to a supported plan before connecting it.' );
-	}
-	if ( site.syncSupport === 'missing-permissions' ) {
-		return __( "Your account doesn't have permission to manage this site." );
-	}
-	if ( site.syncSupport === 'deleted' ) return __( 'This site has been deleted.' );
-	return __( 'This site does not support pulling into Studio.' );
-}
-
-function getSiteName( site: SyncSite ): string {
-	if ( site.name.trim() ) return site.name.trim();
-	try {
-		return new URL( site.url ).hostname;
-	} catch {
-		return __( 'WordPress site' );
+// Labels for sites the user can see but not pick; the needs-upgrade and
+// needs-transfer groups get overlay CTAs instead.
+function getSyncStatusLabel( site: SyncSite ): string | null {
+	switch ( site.syncSupport ) {
+		case 'missing-permissions':
+			return __( 'Missing permissions' );
+		case 'deleted':
+			return __( 'Deleted' );
+		case 'unsupported':
+			return __( 'Unsupported' );
+		default:
+			return null;
 	}
 }
 
-function RemoteSiteCard( {
-	site,
-	group,
-	isSelected,
-	onSelect,
-}: ReturnType< typeof presentRemoteSites >[ number ] & {
-	isSelected: boolean;
-	onSelect: ( id: number ) => void;
-} ) {
-	const connector = useConnector();
-	const isAvailable = group === 'available';
-	const siteName = getSiteName( site );
-	const providerLabel = site.isPressable ? __( 'Pressable' ) : __( 'WP.com' );
-	const environmentLabel = getEnvironmentLabel( site );
-	const siteStatus = isAvailable ? '' : getSiteStatus( site, group );
-	const className = clsx(
-		styles.siteCard,
-		isSelected && styles.siteCardSelected,
-		! isAvailable && styles.siteCardUnavailable
+interface SiteSection {
+	key: string;
+	title?: string;
+	description?: string;
+	sites: SyncSite[];
+}
+
+// Groups sites the way the desktop renderer's picker does: syncable sites
+// lead (no heading), followed by explained groups for everything else.
+function groupSites( sites: SyncSite[] ): SiteSection[] {
+	const syncable = sites.filter(
+		( site ) => site.syncSupport === 'syncable' || site.syncSupport === 'already-connected'
+	);
+	const needsTransfer = sites.filter( ( s ) => s.syncSupport === 'needs-transfer' );
+	const needsUpgrade = sites.filter( ( s ) => s.syncSupport === 'needs-upgrade' );
+	const other = sites.filter(
+		( s ) =>
+			s.syncSupport === 'unsupported' ||
+			s.syncSupport === 'missing-permissions' ||
+			s.syncSupport === 'deleted'
 	);
 
-	return (
-		<li className={ styles.siteCardWrapper }>
-			<button
-				type="button"
-				className={ className }
-				aria-pressed={ isAvailable ? isSelected : undefined }
-				disabled={ ! isAvailable }
-				onClick={ () => isAvailable && onSelect( site.id ) }
-			>
-				<span className={ styles.siteThumb }>
-					<img
-						src={ `https://s0.wp.com/mshots/v1/${ encodeURIComponent( site.url ) }?w=600&h=400` }
-						alt=""
-						loading="lazy"
-					/>
-					<span className={ styles.badges }>
-						<Badge intent="draft">{ providerLabel }</Badge>
-						<Badge intent={ getEnvironmentIntent( site ) }>{ environmentLabel }</Badge>
-					</span>
-				</span>
-				<span className={ styles.siteText }>
-					<span className={ styles.siteName }>{ siteName }</span>
-					<span className={ styles.siteUrl }>{ site.url.replace( /^https?:\/\//, '' ) }</span>
-					{ siteStatus && <span className={ styles.siteStatus }>{ siteStatus }</span> }
-				</span>
-			</button>
-			{ group === 'needs-transfer' && (
-				<Button
-					type="button"
-					variant="minimal"
-					tone="brand"
-					className={ styles.siteAction }
-					onClick={ () =>
-						void connector.openExternalUrl( `https://wordpress.com/hosting-features/${ site.id }` )
-					}
-				>
-					<span>{ __( 'Enable hosting features' ) }</span>
-					<Icon icon={ external } size={ 14 } />
-				</Button>
-			) }
-			{ group === 'needs-upgrade' && (
-				<Button
-					type="button"
-					variant="minimal"
-					tone="brand"
-					className={ styles.siteAction }
-					onClick={ () =>
-						void connector.openExternalUrl( `https://wordpress.com/plans/${ site.id }` )
-					}
-				>
-					<span>{ __( 'View plans' ) }</span>
-					<Icon icon={ external } size={ 14 } />
-				</Button>
-			) }
-		</li>
-	);
+	const sections: SiteSection[] = [];
+	if ( syncable.length > 0 ) {
+		sections.push( { key: 'syncable', sites: syncable } );
+	}
+	if ( needsTransfer.length > 0 ) {
+		sections.push( {
+			key: 'needs-transfer',
+			title: __( 'Enable hosting features first' ),
+			description: __(
+				'These sites need hosting features turned on before they can sync. You can do this from WordPress.com.'
+			),
+			sites: needsTransfer,
+		} );
+	}
+	if ( needsUpgrade.length > 0 ) {
+		sections.push( {
+			key: 'needs-upgrade',
+			title: __( 'Upgrade your plan to sync' ),
+			description: __(
+				'Syncing requires a Business plan or higher. Upgrade on WordPress.com to get started.'
+			),
+			sites: needsUpgrade,
+		} );
+	}
+	if ( other.length > 0 ) {
+		sections.push( {
+			key: 'other',
+			title: __( 'Not available for sync' ),
+			description: __(
+				"These sites can't be synced due to missing permissions or other limitations."
+			),
+			sites: other,
+		} );
+	}
+	return sections;
 }
 
 function SignedOutView() {
+	const benefits = [
+		__( 'Work on your site locally.' ),
+		__( 'Sync content, themes, and plugins.' ),
+		__( 'Supports staging and production sites.' ),
+	];
+
 	return (
 		<div className={ styles.signedOut }>
 			<ul className={ styles.benefits }>
-				<li>
-					<Icon icon={ check } size={ 16 } aria-hidden="true" />
-					<span>{ __( 'Work on your site locally.' ) }</span>
-				</li>
-				<li>
-					<Icon icon={ check } size={ 16 } aria-hidden="true" />
-					<span>{ __( 'Sync content, themes, and plugins.' ) }</span>
-				</li>
-				<li>
-					<Icon icon={ check } size={ 16 } aria-hidden="true" />
-					<span>{ __( 'Supports staging and production sites.' ) }</span>
-				</li>
+				{ benefits.map( ( benefit ) => (
+					<li key={ benefit } className={ styles.benefit }>
+						<Icon icon={ check } className={ styles.benefitIcon } />
+						<span>{ benefit }</span>
+					</li>
+				) ) }
 			</ul>
 			<AuthActions className={ styles.authActions } />
 		</div>
 	);
 }
 
-export function OnboardingConnectPage() {
+// Centered call to action on a non-syncable site's thumbnail — "Enable" for
+// sites that need hosting features, "Upgrade plan" for free-plan sites.
+// Rendered as a sibling of the (inert) card button so the markup stays valid.
+function ThumbnailCta( { site }: { site: SyncSite } ) {
 	const connector = useConnector();
+
+	if ( site.syncSupport === 'needs-upgrade' ) {
+		return (
+			<div className={ styles.thumbCtaOverlay }>
+				<button
+					type="button"
+					className={ styles.ctaButton }
+					onClick={ () =>
+						void connector.openExternalUrl( `https://wordpress.com/plans/${ site.id }` )
+					}
+				>
+					<span>{ __( 'Upgrade plan' ) }</span>
+					<Icon icon={ external } size={ 14 } />
+				</button>
+				{ site.planName && <span className={ styles.planBadge }>{ site.planName }</span> }
+			</div>
+		);
+	}
+	if ( site.syncSupport === 'needs-transfer' ) {
+		return (
+			<div className={ styles.thumbCtaOverlay }>
+				<button
+					type="button"
+					className={ styles.ctaButton }
+					onClick={ () =>
+						void connector.openExternalUrl( `https://wordpress.com/hosting-features/${ site.id }` )
+					}
+				>
+					<span>{ __( 'Enable' ) }</span>
+					<Icon icon={ external } size={ 14 } />
+				</button>
+			</div>
+		);
+	}
+	return null;
+}
+
+function getConnectedSiteTooltip( localSiteNames: string[] ): string {
+	const uniqueNames = [ ...new Set( localSiteNames.filter( Boolean ) ) ];
+
+	if ( uniqueNames.length === 0 ) {
+		return __( 'Already connected to another local site.' );
+	}
+
+	if ( uniqueNames.length === 1 ) {
+		return sprintf(
+			// translators: %s is a local Studio site name.
+			__( 'Already connected to %s.' ),
+			uniqueNames[ 0 ]
+		);
+	}
+
+	return sprintf(
+		// translators: 1: local Studio site name, 2: number of additional local Studio sites.
+		__( 'Already connected to %1$s and %2$d more.' ),
+		uniqueNames[ 0 ],
+		uniqueNames.length - 1
+	);
+}
+
+function ConnectedSiteInfo( { localSiteNames }: { localSiteNames: string[] } ) {
+	const tooltipText = getConnectedSiteTooltip( localSiteNames );
+
+	return (
+		<div className={ styles.connectedInfoOverlay }>
+			<IconButton
+				variant="minimal"
+				tone="neutral"
+				size="small"
+				icon={ info }
+				label={ tooltipText }
+				className={ styles.connectedInfoButton }
+			/>
+		</div>
+	);
+}
+
+function RemoteSiteCard( {
+	site,
+	isSelected,
+	onSelect,
+	connectedLocalSiteNames,
+}: {
+	site: SyncSite;
+	isSelected: boolean;
+	onSelect: ( id: number ) => void;
+	connectedLocalSiteNames?: string[];
+} ) {
+	const isSyncable = site.syncSupport === 'syncable' || site.syncSupport === 'already-connected';
+	const isDimmed =
+		site.syncSupport === 'deleted' ||
+		site.syncSupport === 'unsupported' ||
+		site.syncSupport === 'missing-permissions';
+	const statusLabel = getSyncStatusLabel( site );
+	const environment = getSiteEnvironment( site );
+
+	let cardClass = styles.siteCard;
+	if ( isSelected ) {
+		cardClass += ` ${ styles.siteCardSelected }`;
+	} else if ( ! isSyncable ) {
+		cardClass += ` ${ styles.siteCardInert }`;
+		if ( isDimmed ) {
+			cardClass += ` ${ styles.siteCardDimmed }`;
+		}
+	}
+
+	return (
+		<li className={ styles.siteCardWrapper }>
+			<button
+				type="button"
+				className={ cardClass }
+				aria-pressed={ isSelected }
+				aria-disabled={ ! isSyncable || undefined }
+				data-arrow-nav-item
+				onClick={ () => {
+					if ( isSyncable ) {
+						onSelect( site.id );
+					}
+				} }
+			>
+				<span className={ styles.siteThumb }>
+					<img src={ getMshotUrl( site.url ) } alt="" loading="lazy" />
+					{ isSyncable && (
+						<span className={ styles.siteBadges }>
+							<span className={ styles.siteBadge }>
+								{ site.isPressable ? __( 'Pressable' ) : __( 'WP.com' ) }
+							</span>
+							<span className={ `${ styles.envBadge } ${ styles[ `envBadge-${ environment }` ] }` }>
+								{ getEnvironmentLabel( environment ) }
+							</span>
+						</span>
+					) }
+				</span>
+				<span className={ styles.siteText }>
+					<span className={ styles.siteName }>{ site.name || site.url }</span>
+					<span className={ styles.siteUrl }>{ site.url.replace( /^https?:\/\//, '' ) }</span>
+					{ statusLabel && <span className={ styles.siteStatus }>{ statusLabel }</span> }
+				</span>
+			</button>
+			<ThumbnailCta site={ site } />
+			{ connectedLocalSiteNames && connectedLocalSiteNames.length > 0 && (
+				<ConnectedSiteInfo localSiteNames={ connectedLocalSiteNames } />
+			) }
+		</li>
+	);
+}
+
+export function OnboardingConnectPage() {
 	const navigate = useNavigate();
+	const connector = useConnector();
 	const { setProgress } = useOnboardingProgress();
+	const locale = useUserLocale();
 	const { data: user, isLoading: isAuthLoading } = useAuthUser();
 	const { data: localSites = [] } = useSites();
-	const locale = useUserLocale();
-	const isOffline = useOffline();
-	const remoteSites = useSyncableWpcomSites( {
-		enabled: !! user && ! isOffline,
-	} );
+	const { data: connectedWpcomSites = [] } = useAllConnectedWpcomSites( { enabled: !! user } );
 	const createSite = useCreateSite();
 	const deleteSite = useDeleteSite();
-	const pullSite = usePullSiteFromLive();
+	const pullSiteFromLive = usePullSiteFromLive();
 	const startSite = useStartSite();
-	const [ searchQuery, setSearchQuery ] = useState( '' );
+	const findAvailableSiteName = useFindAvailableSiteName();
+
+	const isOffline = useOffline();
+	const handleGridKeyDown = useGridArrowNavigation();
 	const [ selectedId, setSelectedId ] = useState< number | null >( null );
 	const [ isConnecting, setIsConnecting ] = useState( false );
 	const [ submitError, setSubmitError ] = useState( '' );
+	const [ searchQuery, setSearchQuery ] = useState( '' );
+	const [ debouncedSearchQuery, setDebouncedSearchQuery ] = useState( '' );
+	const isSearching = searchQuery.trim().length > 0;
+	const syncable = useSyncableWpcomSitesPage( {
+		enabled: !! user && ! isOffline,
+		perPage: 100,
+		search: debouncedSearchQuery,
+	} );
 
-	const presentedSites = useMemo(
-		() => presentRemoteSites( remoteSites.data ?? [] ),
-		[ remoteSites.data ]
-	);
-	const filteredSites = useMemo(
-		() => searchRemoteSites( presentedSites, searchQuery ),
-		[ presentedSites, searchQuery ]
-	);
-	const isSingleSite = presentedSites.length === 1 && searchQuery.trim() === '';
-	const isSingleAvailableSite = isSingleSite && presentedSites[ 0 ].group === 'available';
-	const selectedSite = filteredSites.find(
-		( entry ) => entry.site.id === selectedId && entry.group === 'available'
-	)?.site;
-	const isLoadingSites = remoteSites.isLoading;
-	const loadError = remoteSites.error;
-	const sections = [
-		{
-			key: 'available',
-			title: __( 'Available to connect' ),
-			description: __( 'Select a site to create its local copy.' ),
-			sites: filteredSites.filter( ( entry ) => entry.group === 'available' ),
-		},
-		{
-			key: 'unavailable',
-			title: __( 'Unavailable' ),
-			description: __( 'These sites cannot currently be connected to Studio.' ),
-			sites: filteredSites.filter( ( entry ) => entry.group !== 'available' ),
-		},
-	];
+	const sites = useMemo( () => syncable.data?.sites ?? [], [ syncable.data ] );
+	const connectedLocalSiteNamesByRemoteId = useMemo( () => {
+		const localSiteNamesById = new Map( localSites.map( ( site ) => [ site.id, site.name ] ) );
+		const namesByRemoteId = new Map< number, string[] >();
+
+		for ( const connectedSite of connectedWpcomSites ) {
+			const localSiteName =
+				localSiteNamesById.get( connectedSite.localSiteId ) ?? __( 'another local Studio site' );
+			const names = namesByRemoteId.get( connectedSite.id ) ?? [];
+
+			if ( ! names.includes( localSiteName ) ) {
+				names.push( localSiteName );
+			}
+
+			namesByRemoteId.set( connectedSite.id, names );
+		}
+
+		return namesByRemoteId;
+	}, [ connectedWpcomSites, localSites ] );
+	const totalSites = syncable.data?.total ?? sites.length;
+	const isSingleSite = ! isSearching && totalSites === 1 && sites.length === 1;
+	const isSingleAvailableSite =
+		isSingleSite &&
+		( sites[ 0 ].syncSupport === 'syncable' || sites[ 0 ].syncSupport === 'already-connected' );
+	const isLoadingSites = syncable.isLoading || ( syncable.isFetching && sites.length === 0 );
 
 	useEffect( () => {
+		const timer = window.setTimeout( () => {
+			setDebouncedSearchQuery( searchQuery );
+		}, 300 );
+		return () => window.clearTimeout( timer );
+	}, [ searchQuery ] );
+
+	// With exactly one site on the account, pre-select it so the user can
+	// proceed straight to Add site — mirrors the desktop renderer.
+	useEffect( () => {
 		if ( isSingleAvailableSite ) {
-			setSelectedId( presentedSites[ 0 ].site.id );
+			setSelectedId( sites[ 0 ].id );
 		}
-	}, [ isSingleAvailableSite, presentedSites ] );
+	}, [ isSingleAvailableSite, sites ] );
+
+	useEffect( () => {
+		if ( selectedId && ! sites.some( ( site ) => site.id === selectedId ) ) {
+			setSelectedId( null );
+		}
+	}, [ selectedId, sites ] );
 
 	useEffect( () => () => setProgress( null ), [ setProgress ] );
 
-	const retry = useCallback( () => {
-		void remoteSites.refetch();
-	}, [ remoteSites ] );
+	const sections = useMemo( () => groupSites( sites ), [ sites ] );
+	const shouldGrowSection = useCallback(
+		( section: SiteSection, sectionIndex: number ) => {
+			if ( isSearching || section.key !== 'syncable' ) {
+				return false;
+			}
+			return sections.length === 1 || ( sectionIndex === 0 && section.sites.length >= 3 );
+		},
+		[ isSearching, sections.length ]
+	);
+	const getSectionGridClass = useCallback(
+		( section: SiteSection, sectionIndex: number ) => {
+			if ( shouldGrowSection( section, sectionIndex ) ) {
+				return `${ styles.siteGrid } ${ styles.siteGridPrimary }`;
+			}
+
+			if ( section.key === 'syncable' ) {
+				return `${ styles.siteGrid } ${ styles.siteGridSecondary }`;
+			}
+
+			return `${ styles.siteGrid } ${ styles.siteGridCompact }`;
+		},
+		[ shouldGrowSection ]
+	);
+
+	const selectedSite = sites.find( ( site ) => site.id === selectedId );
+	const showSearch = searchQuery.length > 0 || totalSites > SEARCH_VISIBILITY_THRESHOLD;
 
 	const handleConnect = useCallback( async () => {
-		if ( ! selectedSite || isConnecting || isOffline ) return;
-		setIsConnecting( true );
+		if ( ! selectedSite || isConnecting || isOffline ) {
+			return;
+		}
 		setSubmitError( '' );
-		const localName = getSiteName( selectedSite );
-
+		setIsConnecting( true );
 		try {
-			const name = await connector.generateNumberedSiteName( localName, localSites );
-			const { path } = await connector.generateProposedSitePath( name );
+			const { name: availableName, path } = await findAvailableSiteName(
+				selectedSite.name || selectedSite.url
+			);
 			await runConnectSiteLifecycle( {
 				createLocalSite: () =>
 					createSite.mutateAsync( {
-						name,
+						name: availableName,
 						path,
 						skipStart: true,
 						flowType: 'sync',
 					} ),
-				persistConnection: async ( localSiteId ) => {
-					await connector.connectWpcomSite( localSiteId, {
+				persistConnection: ( localSiteId ) =>
+					connector.connectWpcomSite( localSiteId, {
 						...selectedSite,
 						localSiteId,
 						syncSupport: 'already-connected',
-					} );
-				},
+					} ),
 				pullRemoteSite: ( localSiteId ) =>
-					pullSite.mutateAsync( {
+					pullSiteFromLive.mutateAsync( {
 						siteId: localSiteId,
 						remoteSiteId: selectedSite.id,
 					} ),
@@ -276,6 +438,13 @@ export function OnboardingConnectPage() {
 					setProgress( messages[ stage ] );
 				},
 			} );
+			speak(
+				sprintf(
+					// translators: %s is the site name.
+					__( '%s site added.' ),
+					availableName
+				)
+			);
 		} catch ( error ) {
 			if (
 				error instanceof ConnectSiteLifecycleError &&
@@ -291,9 +460,7 @@ export function OnboardingConnectPage() {
 				} );
 			} else {
 				setSubmitError(
-					error instanceof Error
-						? error.message
-						: __( 'Failed to connect the site. Please try again.' )
+					error instanceof Error ? error.message : __( 'Failed to connect site. Please try again.' )
 				);
 			}
 		} finally {
@@ -304,171 +471,212 @@ export function OnboardingConnectPage() {
 		selectedSite,
 		isConnecting,
 		isOffline,
+		findAvailableSiteName,
 		connector,
-		localSites,
 		createSite,
-		pullSite,
+		deleteSite,
+		pullSiteFromLive,
 		startSite,
 		navigate,
-		deleteSite,
 		setProgress,
 	] );
 
+	const isSignedIn = !! user;
+
+	const helperLinks = (
+		<p className={ styles.helperLinks }>
+			<Button
+				type="button"
+				variant="minimal"
+				tone="neutral"
+				className={ styles.helperLink }
+				onClick={ () => void syncable.refetch() }
+				disabled={ syncable.isFetching }
+			>
+				{ syncable.isFetching ? __( 'Refreshing…' ) : __( 'Refresh list' ) }
+			</Button>
+			{ ' · ' }
+			<Button
+				type="button"
+				variant="minimal"
+				tone="neutral"
+				className={ styles.helperLink }
+				onClick={ () =>
+					void connector.openExternalUrl( getLocalizedLink( locale, 'docsSyncSupportedSites' ) )
+				}
+			>
+				<span>{ __( 'Supported sites' ) }</span>
+				<Icon icon={ external } size={ 14 } />
+			</Button>
+		</p>
+	);
+
 	return (
-		<div className={ `${ sharedStyles.page } ${ styles.page }` }>
+		<div className={ `${ sharedStyles.page } ${ sharedStyles.pageSpacious }` }>
+			{ /* Connecting creates the local site and persists the connection;
+			     shield the window so stray clicks can't interrupt mid-flight. */ }
+			<BusyOverlay active={ isConnecting } />
 			<h1 className={ sharedStyles.title }>
-				{ user && isSingleAvailableSite ? __( 'Connect your site' ) : __( 'Connect a site' ) }
+				{ isSignedIn && isSingleAvailableSite ? __( 'Connect your site' ) : __( 'Connect a site' ) }
 			</h1>
 			<p className={ sharedStyles.subtitle }>
-				{ user
-					? __( 'Select a WordPress.com or Pressable site to bring into your Studio.' )
-					: __( 'Log in with your WordPress.com account to see your sites.' ) }
+				{ ! isSignedIn && __( 'Log in with your WordPress.com account to see your sites.' ) }
+				{ isSignedIn &&
+					( isSingleAvailableSite
+						? __( 'Ready to bring into your Studio.' )
+						: __( 'Select a WordPress.com or Pressable site to bring into your Studio.' ) ) }
 			</p>
-			{ submitError && (
-				<p role="alert" className={ `${ sharedStyles.progress } ${ styles.connectError }` }>
-					{ submitError }
-				</p>
-			) }
 
 			{ isAuthLoading && (
-				<div className={ styles.state } role="status">
+				<div className={ styles.loadingState } role="status">
 					<Spinner />
-					<p>{ __( 'Checking your account…' ) }</p>
+					<p className={ styles.listHint }>{ __( 'Checking your account…' ) }</p>
 				</div>
 			) }
-			{ ! isAuthLoading && ! user && <SignedOutView /> }
+			{ ! isSignedIn && ! isAuthLoading && <SignedOutView /> }
 
-			{ user && isOffline && (
-				<div className={ styles.state } role="status">
-					<h2>{ __( "You're offline" ) }</h2>
-					<p>{ __( 'Reconnect to load your WordPress.com and Pressable sites.' ) }</p>
-				</div>
-			) }
-
-			{ user && ! isOffline && isLoadingSites && (
-				<div className={ styles.state } role="status">
-					<Spinner />
-					<p>{ __( 'Loading your sites…' ) }</p>
+			{ isSignedIn && isOffline && (
+				<div className={ styles.emptyState } role="status">
+					<p className={ styles.listHint }>
+						{ __( 'Reconnect to load your WordPress.com and Pressable sites.' ) }
+					</p>
 				</div>
 			) }
 
-			{ user && ! isOffline && ! isLoadingSites && loadError && (
-				<div className={ styles.state }>
-					<h2>{ __( "We couldn't load your sites" ) }</h2>
-					<p>{ __( 'Check your connection and try again.' ) }</p>
+			{ isSignedIn && ! isOffline && ! isLoadingSites && syncable.error && (
+				<div className={ styles.emptyState }>
+					<p className={ styles.listHint }>
+						{ __( "We couldn't load your sites. Check your connection and try again." ) }
+					</p>
 					<Button
 						type="button"
 						variant="outline"
 						tone="neutral"
-						loading={ remoteSites.isFetching }
-						onClick={ retry }
+						loading={ syncable.isFetching }
+						onClick={ () => void syncable.refetch() }
 					>
 						{ __( 'Retry' ) }
 					</Button>
 				</div>
 			) }
 
-			{ user && ! isOffline && ! isLoadingSites && ! loadError && presentedSites.length === 0 && (
-				<div className={ styles.state }>
-					<h2>{ __( 'No sites found' ) }</h2>
-					<p>{ __( 'This account has no WordPress.com or Pressable sites to show.' ) }</p>
-					<Button
-						type="button"
-						variant="minimal"
-						tone="brand"
-						onClick={ () => void connector.openExternalUrl( createWpcomSiteUrl.toString() ) }
-					>
-						<span>{ __( 'Create a WordPress.com site' ) }</span>
-						<Icon icon={ external } size={ 14 } />
-					</Button>
-				</div>
-			) }
-
-			{ user && ! isOffline && ! isLoadingSites && ! loadError && presentedSites.length > 0 && (
+			{ isSignedIn && ! isOffline && ! syncable.error && (
 				<>
-					<div className={ styles.siteControls }>
-						{ ! isSingleSite && (
-							<label className={ styles.search }>
-								<Icon icon={ search } size={ 18 } />
-								<VisuallyHidden as="span">{ __( 'Search sites' ) }</VisuallyHidden>
-								<input
+					{ /* The helper links read "Refreshing…" during the initial
+					     load; hide the whole row until the list exists and let
+					     the loading state below carry the message. */ }
+					{ ! isSingleAvailableSite && ! isLoadingSites && (
+						<div className={ styles.searchHeader }>
+							{ showSearch && (
+								<Input
 									type="search"
+									className={ styles.search }
 									placeholder={ __( 'Search sites' ) }
+									prefix={
+										<InputLayout.Slot>
+											<Icon icon={ search } size={ 16 } />
+										</InputLayout.Slot>
+									}
 									value={ searchQuery }
 									onChange={ ( event ) => setSearchQuery( event.target.value ) }
 								/>
-							</label>
-						) }
-						<p className={ styles.helperLinks }>
+							) }
+							{ helperLinks }
+						</div>
+					) }
+
+					{ isLoadingSites && (
+						<div className={ styles.loadingState } role="status">
+							<Spinner />
+							<p className={ styles.listHint }>{ __( 'Loading your sites…' ) }</p>
+						</div>
+					) }
+					{ ! isLoadingSites && ! isSearching && sites.length === 0 && (
+						<div className={ styles.emptyState }>
+							<p className={ styles.listHint }>
+								{ __( 'No WordPress.com sites found on this account.' ) }
+							</p>
 							<Button
 								type="button"
 								variant="minimal"
-								tone="neutral"
-								size="small"
-								disabled={ remoteSites.isFetching }
-								onClick={ retry }
+								tone="brand"
+								disabled={ isOffline }
+								onClick={ () => void connector.openExternalUrl( CREATE_WPCOM_SITE_URL ) }
 							>
-								{ remoteSites.isFetching ? __( 'Refreshing…' ) : __( 'Refresh list' ) }
-							</Button>
-							<span aria-hidden="true">·</span>
-							<Button
-								type="button"
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								onClick={ () =>
-									void connector.openExternalUrl(
-										getLocalizedLink( locale, 'docsSyncSupportedSites' )
-									)
-								}
-							>
-								<span>{ __( 'Supported sites' ) }</span>
+								<span>{ __( 'Create a new WordPress.com site' ) }</span>
 								<Icon icon={ external } size={ 14 } />
 							</Button>
-						</p>
-					</div>
-
-					{ filteredSites.length === 0 ? (
-						<div className={ styles.state } role="status">
-							<p>
-								{ sprintf(
-									// translators: %s is the site search query.
-									__( 'No sites match “%s”.' ),
-									searchQuery
-								) }
-							</p>
 						</div>
-					) : isSingleAvailableSite ? (
-						<ul className={ `${ styles.siteGrid } ${ styles.singleSiteGrid }` }>
-							<RemoteSiteCard
-								{ ...filteredSites[ 0 ] }
-								isSelected={ selectedId === filteredSites[ 0 ].site.id }
-								onSelect={ setSelectedId }
-							/>
-						</ul>
-					) : (
-						<div className={ styles.sections }>
-							{ sections.map(
-								( section ) =>
-									section.sites.length > 0 && (
-										<section key={ section.key } className={ styles.section }>
-											<div className={ styles.sectionHeader }>
-												<h2>{ section.title }</h2>
-												<p>{ section.description }</p>
-											</div>
-											<ul className={ styles.siteGrid }>
-												{ section.sites.map( ( entry ) => (
-													<RemoteSiteCard
-														key={ entry.site.id }
-														{ ...entry }
-														isSelected={ selectedId === entry.site.id }
-														onSelect={ setSelectedId }
-													/>
-												) ) }
-											</ul>
-										</section>
-									)
+					) }
+					{ ! isLoadingSites && isSearching && sites.length === 0 && (
+						<p className={ styles.listHint }>
+							{ sprintf(
+								// translators: %s is the search query.
+								__( 'No sites found for "%s"' ),
+								searchQuery
 							) }
+						</p>
+					) }
+
+					{ ! isLoadingSites && isSingleAvailableSite ? (
+						<div className={ styles.singleSite }>
+							<ul
+								className={ `${ styles.siteGrid } ${ styles.siteGridSingle }` }
+								onKeyDown={ handleGridKeyDown }
+							>
+								<RemoteSiteCard
+									site={ sites[ 0 ] }
+									isSelected={ selectedId === sites[ 0 ].id }
+									onSelect={ setSelectedId }
+									connectedLocalSiteNames={ connectedLocalSiteNamesByRemoteId.get( sites[ 0 ].id ) }
+								/>
+							</ul>
+							{ helperLinks }
+						</div>
+					) : ! isLoadingSites && sites.length > 0 ? (
+						<div className={ styles.sections }>
+							{ sections.map( ( section, sectionIndex ) => (
+								<section
+									key={ section.key }
+									className={ `${ styles.section } ${
+										sectionIndex > 0 && sections[ sectionIndex - 1 ]?.key === 'syncable'
+											? styles.sectionAfterAvailable
+											: ''
+									}` }
+								>
+									{ section.title && (
+										<div className={ styles.sectionHeader }>
+											<h3 className={ styles.sectionTitle }>{ section.title }</h3>
+											{ section.description && (
+												<p className={ styles.sectionDescription }>{ section.description }</p>
+											) }
+										</div>
+									) }
+									{ /* Grow the primary syncable row when it has enough sites to
+										     read as a gallery. Grouped one- and two-card rows stay
+										     compact and centered instead of ballooning. */ }
+									<ul
+										className={ getSectionGridClass( section, sectionIndex ) }
+										onKeyDown={ handleGridKeyDown }
+									>
+										{ section.sites.map( ( site ) => (
+											<RemoteSiteCard
+												key={ site.id }
+												site={ site }
+												isSelected={ selectedId === site.id }
+												onSelect={ setSelectedId }
+												connectedLocalSiteNames={ connectedLocalSiteNamesByRemoteId.get( site.id ) }
+											/>
+										) ) }
+									</ul>
+								</section>
+							) ) }
+						</div>
+					) : null }
+
+					{ submitError && (
+						<div role="alert" className={ styles.submitError }>
+							{ submitError }
 						</div>
 					) }
 				</>
@@ -479,20 +687,22 @@ export function OnboardingConnectPage() {
 					type="button"
 					variant="minimal"
 					tone="neutral"
-					disabled={ isConnecting }
 					onClick={ () => void navigate( { to: '/onboarding' } ) }
+					disabled={ isConnecting }
 				>
 					<Icon icon={ chevronLeft } size={ 16 } />
 					<span>{ __( 'Back' ) }</span>
 				</Button>
-				{ user && (
+				{ isSignedIn && (
 					<Button
 						type="button"
 						variant="solid"
 						tone="brand"
-						disabled={ ! selectedSite || isOffline || isConnecting }
+						disabled={ ! selectedSite || isConnecting || isOffline || !! syncable.error }
 						loading={ isConnecting }
+						loadingAnnouncement={ __( 'Connecting site' ) }
 						onClick={ () => void handleConnect() }
+						data-testid="connect-site-submit"
 					>
 						{ __( 'Connect site' ) }
 					</Button>

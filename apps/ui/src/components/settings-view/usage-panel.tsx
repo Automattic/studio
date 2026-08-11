@@ -1,21 +1,16 @@
 import {
 	clampQuotaFraction,
 	formatQuotaPercentage,
-	formatQuotaResetDate,
+	formatQuotaResetDateShort,
 	getStudioCodeAiAccessState,
 } from '@studio/common/lib/studio-assistant-quota';
-import { __, _n, sprintf } from '@wordpress/i18n';
-import { moreHorizontal } from '@wordpress/icons';
-import { IconButton } from '@wordpress/ui';
+import { __, sprintf } from '@wordpress/i18n';
+import { Button, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { SigninNotice } from '@/components/agentic-signin-banner';
 import { AiAccessRequiredNotice, AiBlockedNotice } from '@/components/ai-access-required-notice';
-import * as Menu from '@/components/menu';
-import { OfflineNotice } from '@/components/offline-banner';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
-import { useAuthUser } from '@/data/queries/use-auth-user';
 import {
 	useDeleteAllSnapshots,
 	useSnapshotUsage,
@@ -23,96 +18,141 @@ import {
 } from '@/data/queries/use-snapshots';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import styles from './style.module.css';
+import type { ReactNode } from 'react';
 
 const DEFAULT_PREVIEW_SITE_LIMIT = 10;
 
 // Stands in for a figure we can't read: a hatched bar fills the row the real
 // meter would occupy, so the section reads as disabled, not empty.
-function UnavailableSection( { title }: { title: string } ) {
-	return (
-		<section className={ styles.usageSection }>
-			<div className={ styles.usageSectionHeader }>
-				<h2>{ title }</h2>
-			</div>
-			<div className={ styles.unavailableBar } role="img" aria-label={ __( 'Unavailable' ) } />
-		</section>
-	);
+function UnavailableBar() {
+	return <div className={ styles.unavailableBar } role="img" aria-label={ __( 'Unavailable' ) } />;
 }
 
-function UsageProgressBar( { fraction }: { fraction: number } ) {
+// A thin pill bar with an optional value at its trailing end.
+function Gauge( { fraction, value }: { fraction: number; value?: string } ) {
+	const pct = Math.min( 100, Math.max( 0, fraction * 100 ) );
 	return (
-		<div className={ styles.progressTrack } data-testid="usage-progress-bar" aria-hidden="true">
-			<div className={ styles.progressValue } style={ { inlineSize: `${ fraction * 100 }%` } } />
+		<div className={ styles.gauge }>
+			<div className={ styles.progressTrack } data-testid="usage-progress-bar" aria-hidden="true">
+				<div className={ styles.progressValue } style={ { inlineSize: `${ pct }%` } } />
+			</div>
+			{ value !== undefined ? <span className={ styles.gaugeValue }>{ value }</span> : null }
 		</div>
 	);
 }
 
-function AiCreditsSummary() {
-	const locale = useUserLocale();
-	const { data: quota, isLoading, isError } = useStudioAssistantQuota();
-	const accessState = quota ? getStudioCodeAiAccessState( quota ) : 'available';
+// One usage meter: a title with right-aligned meta (or a menu) over a bar.
+// Every readout in the account sidebar shares this shape.
+function Meter( {
+	title,
+	meta,
+	trailing,
+	children,
+	disabled,
+}: {
+	title: string;
+	meta?: string;
+	trailing?: ReactNode;
+	children: ReactNode;
+	disabled?: boolean;
+} ) {
+	return (
+		<div className={ clsx( styles.meter, disabled && styles.usageDisabled ) }>
+			<div className={ styles.meterHeader }>
+				<h3 className={ styles.meterTitle }>{ title }</h3>
+				{ meta || trailing ? (
+					<div className={ styles.meterHeaderEnd }>
+						{ meta ? <span className={ styles.meterMeta }>{ meta }</span> : null }
+						{ trailing }
+					</div>
+				) : null }
+			</div>
+			{ children }
+		</div>
+	);
+}
 
-	let content;
-	if ( isLoading ) {
-		content = (
-			<>
-				<div className={ styles.previewUsageText }>{ __( 'Loading…' ) }</div>
-				<UsageProgressBar fraction={ 0 } />
-			</>
-		);
-	} else if ( isError ) {
-		content = (
-			<div className={ styles.previewUsageText }>
-				{ __( 'Studio Code limits are temporarily unavailable.' ) }
-			</div>
-		);
-	} else if ( accessState !== 'available' ) {
-		content = (
-			<div className={ styles.previewUsageText }>
-				{ accessState === 'blocked' ? (
-					<AiBlockedNotice />
-				) : (
-					<AiAccessRequiredNotice quota={ quota } />
-				) }
-			</div>
-		);
-	} else if ( quota && quota.costCap > 0 ) {
-		const fraction = clampQuotaFraction( quota.costUsage, quota.costCap );
-		content = (
-			<>
-				<div className={ styles.previewUsageText }>
-					{ sprintf(
-						/* translators: %1$s: percentage of monthly limit used (e.g. 7.5%). %2$s: date the limit resets (e.g. July 1, 2026). */
-						__( '%1$s of monthly limit used (resets on %2$s)' ),
-						formatQuotaPercentage( fraction, locale ),
-						formatQuotaResetDate( quota.costResetDate, locale )
-					) }
-				</div>
-				<UsageProgressBar fraction={ fraction } />
-			</>
-		);
-	} else {
-		content = (
-			<>
-				<p>
-					{ __(
-						'AI credits are currently free while Studio Code is in Alpha. Build, iterate, and experiment, but know that credits will eventually have a cost.'
-					) }
-				</p>
-				<div className={ clsx( styles.progressTrack, styles.aiCreditsTrack ) } aria-hidden="true">
-					<div className={ styles.aiCreditsMeterValue } />
-				</div>
-			</>
+// Studio Code AI credit usage. A meter sub-section in the account sidebar, since
+// credits are spent by the agent. Goes disabled whenever the figures can't be
+// read (offline or signed out) rather than presenting a stale number as current.
+export function AiCreditsSection() {
+	const locale = useUserLocale();
+	const { reason } = useAgenticFeatures();
+	const { data: quota, isLoading, isError } = useStudioAssistantQuota();
+	const unavailable = reason !== null;
+
+	if ( unavailable ) {
+		return (
+			<Meter title={ __( 'AI credits' ) } disabled>
+				<UnavailableBar />
+			</Meter>
 		);
 	}
 
+	if ( isLoading ) {
+		return (
+			<Meter title={ __( 'AI credits' ) }>
+				<Gauge fraction={ 0 } />
+			</Meter>
+		);
+	}
+
+	if ( isError ) {
+		return (
+			<Meter title={ __( 'AI credits' ) }>
+				<p className={ styles.meterText }>
+					{ __( 'Studio Code limits are temporarily unavailable.' ) }
+				</p>
+			</Meter>
+		);
+	}
+
+	const accessState = quota ? getStudioCodeAiAccessState( quota ) : 'available';
+	if ( accessState !== 'available' ) {
+		return (
+			<Meter title={ __( 'AI credits' ) }>
+				<p className={ styles.meterText }>
+					{ accessState === 'blocked' ? (
+						<AiBlockedNotice />
+					) : (
+						<AiAccessRequiredNotice quota={ quota } />
+					) }
+				</p>
+			</Meter>
+		);
+	}
+
+	if ( quota && quota.costCap > 0 ) {
+		const fraction = clampQuotaFraction( quota.costUsage, quota.costCap );
+		// Round the shown figure up to the next whole percent (toFixed guards
+		// float noise like 0.07 * 100 = 7.0000001); the bar still fills to the
+		// exact value.
+		const wholePercent = Math.ceil( Number( ( fraction * 100 ).toFixed( 4 ) ) );
+		return (
+			<Meter
+				title={ __( 'AI credits' ) }
+				meta={ sprintf(
+					/* translators: %s: date the limit resets (e.g. Jul 31). */
+					__( 'Resets %s' ),
+					formatQuotaResetDateShort( quota.costResetDate, locale )
+				) }
+			>
+				<Gauge
+					fraction={ fraction }
+					value={ formatQuotaPercentage( wholePercent / 100, locale ) }
+				/>
+			</Meter>
+		);
+	}
+
+	// Alpha: no cost cap yet, so there's no figure — a hatched brand bar stands in
+	// while credits are free.
 	return (
-		<section className={ styles.usageSection }>
-			<div className={ styles.usageSectionHeader }>
-				<h2>{ __( 'AI credits' ) }</h2>
+		<Meter title={ __( 'AI credits' ) } meta={ __( 'Free during Alpha' ) }>
+			<div className={ clsx( styles.progressTrack, styles.aiCreditsTrack ) } aria-hidden="true">
+				<div className={ styles.aiCreditsMeterValue } />
 			</div>
-			{ content }
-		</section>
+		</Meter>
 	);
 }
 
@@ -129,9 +169,6 @@ function PreviewSitesSummary( { userId }: { userId: number } ) {
 	// Empty while loading: a bar still filled from the previous figure would
 	// contradict the "Loading…" row next to it.
 	const fraction = isLoadingPreviewUsage ? 0 : clampQuotaFraction( siteCount, siteLimit );
-	const deletePreviewSitesLabel = deleteAllSnapshots.isPending
-		? __( 'Deleting all preview sites…' )
-		: __( 'Delete all preview sites' );
 
 	const handleDelete = async () => {
 		if ( isDisabled ) {
@@ -143,100 +180,76 @@ function PreviewSitesSummary( { userId }: { userId: number } ) {
 		}
 	};
 
-	return (
-		<section className={ styles.usageSection }>
-			<div className={ styles.usageSectionHeader }>
-				<h2>{ __( 'Preview sites' ) }</h2>
-				{ ! snapshotCreationBlocked ? (
-					<Menu.Root modal={ false }>
-						<Menu.Trigger
-							render={
-								<IconButton
-									variant="minimal"
-									tone="neutral"
-									size="small"
-									icon={ moreHorizontal }
-									label={ __( 'Preview site actions' ) }
-									className={ styles.previewActionsButton }
-									disabled={ isDisabled }
-								/>
-							}
-						/>
-						<Menu.Popup side="bottom" align="end">
-							<Menu.Item destructive disabled={ isDisabled } onClick={ () => void handleDelete() }>
-								{ deletePreviewSitesLabel }
-							</Menu.Item>
-						</Menu.Popup>
-					</Menu.Root>
-				) : null }
-			</div>
-			{ snapshotCreationBlocked ? (
-				<div className={ styles.previewUsageText }>
+	if ( snapshotCreationBlocked ) {
+		return (
+			<Meter title={ __( 'Preview sites' ) }>
+				<p className={ styles.meterText }>
 					{ __( 'Preview sites are not available for your account.' ) }
-				</div>
-			) : (
-				<>
-					<div className={ styles.previewUsageText }>
-						{ isLoadingPreviewUsage
-							? __( 'Loading…' )
-							: sprintf(
-									/* translators: 1: number of active preview sites, 2: maximum allowed */
-									_n(
-										'%1$d of %2$d active preview site',
-										'%1$d of %2$d active preview sites',
-										siteCount
-									),
-									siteCount,
-									siteLimit
-							  ) }
-					</div>
-					<UsageProgressBar fraction={ fraction } />
-				</>
-			) }
+				</p>
+			</Meter>
+		);
+	}
+
+	const value = isLoadingPreviewUsage
+		? __( 'Loading…' )
+		: sprintf(
+				/* translators: 1: number of active preview sites, 2: maximum allowed. */
+				__( '%1$d/%2$d' ),
+				siteCount,
+				siteLimit
+		  );
+
+	return (
+		<Meter
+			title={ __( 'Preview sites' ) }
+			trailing={
+				<Tooltip.Root>
+					<Tooltip.Trigger
+						render={
+							<Button
+								type="button"
+								variant="minimal"
+								tone="neutral"
+								size="small"
+								className={ styles.meterActionsButton }
+								disabled={ isDisabled }
+								loading={ deleteAllSnapshots.isPending }
+								loadingAnnouncement={ __( 'Deleting all preview sites…' ) }
+								onClick={ () => void handleDelete() }
+							>
+								{ __( 'Reset' ) }
+							</Button>
+						}
+					/>
+					<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+						{ __( 'Delete all preview sites' ) }
+					</Tooltip.Popup>
+				</Tooltip.Root>
+			}
+		>
+			<Gauge fraction={ fraction } value={ value } />
 			{ deleteAllSnapshots.error ? (
 				<div className={ styles.errorMessage }>
 					{ __( 'An error occurred while deleting all preview sites. Please try again.' ) }
 				</div>
 			) : null }
-		</section>
+		</Meter>
 	);
 }
 
-export function UsagePanel() {
-	const { data: user } = useAuthUser();
-	// Same signed-out/offline split the rest of the app banners use. Either way
-	// the figures can't be read or refreshed, so the card goes disabled rather
-	// than presenting a stale number as current.
+// Preview-site usage as a row inside the account sidebar. The sidebar only
+// renders it for a signed-in user, so the sole unreadable state that reaches
+// here is offline — swap in a hatched placeholder rather than a stale count.
+export function PreviewUsageSection( { userId }: { userId: number } ) {
 	const { reason } = useAgenticFeatures();
-	const unavailable = reason !== null;
 
-	return (
-		<div className={ styles.usagePanel }>
-			{ reason === 'offline' ? <OfflineNotice /> : null }
-			{ reason === 'signed-out' ? <SigninNotice /> : null }
-			<section
-				className={ clsx( styles.settingsPanelSection, unavailable && styles.usageDisabled ) }
-			>
-				<div className={ styles.settingsPanelHeader }>
-					<h2>{ __( 'Usage' ) }</h2>
-					<p>{ __( 'Track your preview site usage and Studio Code AI credits.' ) }</p>
-				</div>
-				{ unavailable ? (
-					<>
-						<UnavailableSection title={ __( 'AI credits' ) } />
-						<UnavailableSection title={ __( 'Preview sites' ) } />
-					</>
-				) : (
-					<>
-						<AiCreditsSummary />
-						{ user ? (
-							<PreviewSitesSummary userId={ user.id } />
-						) : (
-							<UnavailableSection title={ __( 'Preview sites' ) } />
-						) }
-					</>
-				) }
-			</section>
-		</div>
-	);
+	if ( reason === 'offline' ) {
+		return (
+			<Meter title={ __( 'Preview sites' ) } disabled>
+				<UnavailableBar />
+			</Meter>
+		);
+	}
+
+	return <PreviewSitesSummary userId={ userId } />;
 }

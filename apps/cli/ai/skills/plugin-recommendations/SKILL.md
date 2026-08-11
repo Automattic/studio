@@ -33,6 +33,7 @@ When a feature needs a plugin, reach for one of the preferred plugins below befo
 - Install a plugin only when the feature needs backend behavior, registered blocks, or maintained integrations.
 - Do not stack overlapping plugins for the same concern unless the user explicitly asks.
 - Keep `core/html` as a last resort for the `block-content` skill's allowed cases: inline SVG, interaction markup with no block equivalent, or a single bottom-of-page script block.
+- Before writing custom HTML or JavaScript for a feature, check current core blocks and registered plugin blocks. If the feature is reusable interactive UI rather than durable plugin functionality, load `interactive-frontend` and consider a custom block plus the Interactivity API.
 
 ## Discovery Workflow
 
@@ -50,8 +51,9 @@ wp_cli eval 'foreach (\WP_Block_Type_Registry::get_instance()->get_all_registere
 ```
 
 4. If you expect a plugin block but it is missing, check whether the plugin uses modules or feature flags, then activate the relevant module.
-5. Use the registered block in editable block markup.
-6. Validate generated block markup with `validate_blocks`, passing `filePath` when the content lives in a file so safe editor fixes are applied automatically.
+5. Check whether a core block already covers the feature on the current WordPress version before installing anything.
+6. Use the registered block in editable block markup.
+7. Validate generated block markup with `validate_blocks`, passing `filePath` when the content lives in a file so safe editor fixes and the style ownership audit run automatically.
 
 ## WooCommerce Shop Sites
 

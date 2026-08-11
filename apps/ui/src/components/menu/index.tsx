@@ -87,13 +87,9 @@ export function Popup( {
 export function ContextPopup( {
 	children,
 	className,
-	onClick,
-	onPointerDown,
 }: {
 	children: ReactNode;
 	className?: string;
-	onClick?: MouseEventHandler< HTMLElement >;
-	onPointerDown?: PointerEventHandler< HTMLElement >;
 } ) {
 	return (
 		<BaseMenu.Portal>
@@ -103,8 +99,6 @@ export function ContextPopup( {
 				<ThemeProvider density="compact">
 					<BaseMenu.Popup
 						className={ `${ styles.popup } ${ motionStyles.motion } ${ className ?? '' }` }
-						onClick={ onClick }
-						onPointerDown={ onPointerDown }
 					>
 						{ children }
 					</BaseMenu.Popup>
@@ -151,10 +145,13 @@ export const SubmenuTrigger = forwardRef<
 	);
 } );
 
-type RadioItemProps = ComponentPropsWithoutRef< typeof BaseMenu.RadioItem >;
+type RadioItemProps = ComponentPropsWithoutRef< typeof BaseMenu.RadioItem > & {
+	// Right-aligned muted keyboard hint, e.g. "⇧⌘D".
+	shortcut?: string;
+};
 
 export const RadioItem = forwardRef< ElementRef< typeof BaseMenu.RadioItem >, RadioItemProps >(
-	function RadioItem( { className, children, ...props }, ref ) {
+	function RadioItem( { className, children, shortcut, ...props }, ref ) {
 		return (
 			<BaseMenu.RadioItem
 				ref={ ref }
@@ -175,10 +172,50 @@ export const RadioItem = forwardRef< ElementRef< typeof BaseMenu.RadioItem >, Ra
 					</BaseMenu.RadioItemIndicator>
 				</span>
 				<span className={ styles.itemLabel }>{ children }</span>
+				{ shortcut ? <span className={ styles.itemShortcut }>{ shortcut }</span> : null }
 			</BaseMenu.RadioItem>
 		);
 	}
 );
+
+type CheckboxItemProps = ComponentPropsWithoutRef< typeof BaseMenu.CheckboxItem > & {
+	// Right-aligned muted keyboard hint, e.g. "⇧⌘D".
+	shortcut?: string;
+};
+
+// A toggleable menu row that wears the same check indicator + label + shortcut
+// layout as `RadioItem`, so on/off preferences sit flush with the radio groups
+// around them.
+export const CheckboxItem = forwardRef<
+	ElementRef< typeof BaseMenu.CheckboxItem >,
+	CheckboxItemProps
+>( function CheckboxItem( { className, children, shortcut, ...props }, ref ) {
+	return (
+		<BaseMenu.CheckboxItem
+			ref={ ref }
+			className={ `${ styles.item } ${ styles.radioItem } ${ className ?? '' }` }
+			// Keep the menu open when toggled, so the checked state stays visible.
+			closeOnClick={ false }
+			{ ...props }
+		>
+			<span className={ styles.indicator } aria-hidden="true">
+				<BaseMenu.CheckboxItemIndicator className={ styles.indicatorMark } keepMounted>
+					<svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+						<path
+							d="M5 12l5 5L20 7"
+							stroke="currentColor"
+							strokeWidth="2"
+							strokeLinecap="round"
+							strokeLinejoin="round"
+						/>
+					</svg>
+				</BaseMenu.CheckboxItemIndicator>
+			</span>
+			<span className={ styles.itemLabel }>{ children }</span>
+			{ shortcut ? <span className={ styles.itemShortcut }>{ shortcut }</span> : null }
+		</BaseMenu.CheckboxItem>
+	);
+} );
 
 export function GroupLabel( { children }: { children: ReactNode } ) {
 	return <BaseMenu.GroupLabel className={ styles.groupLabel }>{ children }</BaseMenu.GroupLabel>;

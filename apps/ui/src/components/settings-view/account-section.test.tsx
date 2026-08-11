@@ -64,6 +64,11 @@ vi.mock( '@/hooks/use-offline', () => ( {
 	useOffline: vi.fn(),
 } ) );
 
+vi.mock( './usage-panel', () => ( {
+	AiCreditsSection: () => <div data-testid="ai-credits-section" />,
+	PreviewUsageSection: () => <div data-testid="preview-usage-section" />,
+} ) );
+
 const useConnectorMock = vi.mocked( useConnector );
 const useAuthUserMock = vi.mocked( useAuthUser );
 const useLoginMock = vi.mocked( useLogin );
@@ -103,19 +108,29 @@ describe( 'AccountSection', () => {
 		expect( logoutMutate ).toHaveBeenCalledTimes( 1 );
 	} );
 
-	it( 'prompts signed-out users to log in', () => {
+	it( 'shows preview-site usage only for a signed-in user', () => {
+		const { rerender } = render( <AccountSection /> );
+		expect( screen.getByTestId( 'preview-usage-section' ) ).toBeInTheDocument();
+
+		useAuthUserMock.mockReturnValue( { data: null, isLoading: false } as never );
+		rerender( <AccountSection /> );
+		expect( screen.queryByTestId( 'preview-usage-section' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'prompts signed-out users with the overview sign-in pitch', () => {
 		useAuthUserMock.mockReturnValue( { data: null, isLoading: false } as never );
 
 		render( <AccountSection /> );
 
-		expect( screen.getByText( 'WordPress.com account' ) ).toBeInTheDocument();
 		expect(
-			screen.getByText( 'Log in to use AI features and synchronize with live and preview sites.' )
+			screen.getByRole( 'heading', { name: 'Let Studio code it for you' } )
 		).toBeInTheDocument();
+		expect( screen.getByText( /An AI powered WordPress expert/ ) ).toBeInTheDocument();
 		expect( screen.queryByTestId( 'gravatar' ) ).not.toBeInTheDocument();
+		expect( screen.queryByTestId( 'ai-credits-section' ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'button', { name: 'Log out' } ) ).not.toBeInTheDocument();
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Log in' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Log in with WordPress.com' } ) );
 
 		expect( loginMutate ).toHaveBeenCalledTimes( 1 );
 	} );
@@ -126,13 +141,13 @@ describe( 'AccountSection', () => {
 
 		render( <AccountSection /> );
 
-		expect( screen.getByRole( 'button', { name: 'Log in' } ) ).toBeDisabled();
+		expect( screen.getByRole( 'button', { name: 'Log in with WordPress.com' } ) ).toBeDisabled();
 	} );
 
 	it( 'opens docs and issue links through the connector', () => {
 		render( <AccountSection /> );
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Docs' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Documentation' } ) );
 
 		expect( openExternalUrl ).toHaveBeenCalledWith(
 			'https://developer.wordpress.com/docs/developer-tools/studio/'
@@ -150,7 +165,7 @@ describe( 'AccountSection', () => {
 
 		render( <AccountSection /> );
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Docs' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Documentation' } ) );
 
 		expect( openExternalUrl ).toHaveBeenCalledWith(
 			'https://developer.wordpress.com/es/docs/herramientas-para-desarrolladores/studio/'

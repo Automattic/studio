@@ -1,11 +1,11 @@
 import { createRoute, useNavigate } from '@tanstack/react-router';
-import { isSettingsTab, SettingsView } from '@/components/settings-view';
+import { normalizeSettingsTab, SettingsView } from '@/components/settings-view';
 import { settingsLayoutRoute } from '../layout-settings';
 import type { SettingsTabId } from '@/components/settings-view';
 
 interface SettingsSearch {
 	// Tab selection is a `search` param so opening the route defaults to
-	// preferences and deep-links like `?tab=account` stay human-readable.
+	// preferences and deep-links like `?tab=usage` stay human-readable.
 	// Mirrors the shape used by the site-settings route.
 	tab?: SettingsTabId;
 }
@@ -33,8 +33,8 @@ export const settingsRoute = createRoute( {
 	path: '/settings',
 	validateSearch: ( search: Record< string, unknown > ): SettingsSearch => {
 		const value = search.tab;
-		if ( typeof value === 'string' && isSettingsTab( value ) ) {
-			return { tab: value };
+		if ( typeof value === 'string' ) {
+			return { tab: normalizeSettingsTab( value ) };
 		}
 		return {};
 	},

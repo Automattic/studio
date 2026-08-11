@@ -1,6 +1,7 @@
 import { buildChatAttachmentSummaries } from '@studio/common/ai/chat-attachments';
 import { getAgentEndFailure } from '@studio/common/ai/json-events';
 import { useQueryClient } from '@tanstack/react-query';
+import { __ } from '@wordpress/i18n';
 import {
 	createContext,
 	useCallback,
@@ -18,6 +19,8 @@ import type {
 	AgentEvent,
 	AgentRunEvent,
 	LoadedAiSession,
+	PermissionDecision,
+	PermissionRequestData,
 	SessionEntry,
 	StudioChatFileAttachment,
 	StudioChatImage,
@@ -56,6 +59,12 @@ export interface SendMessageOptions {
 	files?: StudioChatFileAttachment[];
 }
 
+export interface ActiveToolState {
+	name: string;
+	input: Record< string, unknown >;
+	startedAt: number;
+}
+
 export interface LiveAgentEvents {
 	// Agent loop is working - drives the thinking indicator. Clears at
 	// `turn.completed`, before the subprocess has finished winding down.
@@ -68,8 +77,15 @@ export interface LiveAgentEvents {
 	// Gives the Stop button immediate "Stopping..." feedback.
 	isInterrupting: boolean;
 	startedAt: number | null;
+	activeTool: ActiveToolState | null;
 	error: string | null;
 	pendingQuestions: PendingQuestion[];
+	// Gated tool calls awaiting the user's decision, in arrival order. Each
+	// blocks the agent turn until answered.
+	pendingPermissions: PermissionRequestData[];
+	// Decisions already sent this session, keyed by request id, so the card
+	// stays resolved while the disk-backed entry catches up.
+	answeredPermissions: Record< string, PermissionDecision >;
 	// Accumulated answers for the current batch, keyed by question text.
 	// The user can re-click an option to change their pick until every
 	// question is answered, at which point the batch is dispatched.
@@ -80,6 +96,7 @@ export interface LiveAgentEvents {
 	sendMessage: ( prompt: string, options?: SendMessageOptions ) => Promise< void >;
 	interrupt: () => Promise< void >;
 	answerQuestion: ( question: string, answer: string ) => void;
+	answerPermission: ( requestId: string, decision: PermissionDecision ) => void;
 	removeQueuedPrompt: ( id: string ) => void;
 }
 
@@ -94,20 +111,30 @@ interface State {
 	phase: RunPhase;
 	runId: string | null;
 	startedAt: number | null;
+	activeTool: ActiveToolState | null;
 	error: string | null;
 	isInterrupting: boolean;
 	pendingQuestions: PendingQuestion[];
+	pendingPermissions: PermissionRequestData[];
+	answeredPermissions: Record< string, PermissionDecision >;
 	pendingAnswers: Record< string, string >;
 	queuedPrompts: QueuedPrompt[];
 }
+
+// Read-only view of a session's live-run slice for non-rendering observers
+// (e.g. the chat-notifications watcher).
+export type AgentRunSessionState = Readonly< State >;
 
 const initialState: State = {
 	phase: 'idle',
 	runId: null,
 	startedAt: null,
+	activeTool: null,
 	error: null,
 	isInterrupting: false,
 	pendingQuestions: [],
+	pendingPermissions: [],
+	answeredPermissions: {},
 	pendingAnswers: {},
 	queuedPrompts: [],
 };
@@ -123,10 +150,19 @@ type Action =
 	| { type: 'questions_added'; questions: PendingQuestion[] }
 	| { type: 'question_answered'; question: string; answer: string }
 	| { type: 'batch_dispatched' }
+	| { type: 'permission_requested'; request: PermissionRequestData }
+	| { type: 'permission_answered'; requestId: string; decision: PermissionDecision }
 	| { type: 'queue_append'; prompt: QueuedPrompt }
 	| { type: 'queue_remove'; id: string }
 	| { type: 'queue_shift' }
-	| { type: 'queue_clear' };
+	| { type: 'queue_clear' }
+	| {
+			type: 'tool_execution_started';
+			name: string;
+			input: Record< string, unknown >;
+			startedAt: number;
+	  }
+	| { type: 'tool_execution_ended' };
 
 function reducer( state: State, action: Action ): State {
 	switch ( action.type ) {
@@ -145,6 +181,7 @@ function reducer( state: State, action: Action ): State {
 				phase: 'starting',
 				runId: null,
 				startedAt: action.startedAt,
+				activeTool: null,
 				error: null,
 				isInterrupting: false,
 			};
@@ -154,6 +191,7 @@ function reducer( state: State, action: Action ): State {
 				phase: 'running',
 				runId: action.runId,
 				startedAt: action.startedAt,
+				activeTool: null,
 				error: null,
 				isInterrupting: false,
 			};
@@ -163,17 +201,21 @@ function reducer( state: State, action: Action ): State {
 			return {
 				...state,
 				phase: state.phase === 'idle' ? 'idle' : 'winding_down',
+				activeTool: null,
 				pendingQuestions: [],
+				pendingPermissions: [],
 				pendingAnswers: {},
 			};
 		case 'run_ended':
 			// Preserve the queue across run boundaries so staged follow-ups
-			// survive the transition, and any transport error — `run.exited`
-			// lags the `error` event and must not wipe the banner before the
-			// user can read it. Everything else resets.
+			// survive the transition, and the answered-permissions map so
+			// resolved cards stay labeled. Preserve any transport error too —
+			// `run.exited` lags the `error` event and must not wipe the banner
+			// before the user can read it. Everything else resets.
 			return {
 				...initialState,
 				queuedPrompts: state.queuedPrompts,
+				answeredPermissions: state.answeredPermissions,
 				error: state.error,
 			};
 		case 'interrupt_requested':
@@ -182,15 +224,27 @@ function reducer( state: State, action: Action ): State {
 				phase: 'idle',
 				runId: null,
 				startedAt: null,
+				activeTool: null,
 				isInterrupting: false,
 				pendingQuestions: [],
+				pendingPermissions: [],
 				pendingAnswers: {},
 			};
-		case 'questions_added':
+		case 'questions_added': {
+			// Both the live event and active-run hydration can deliver the same
+			// questions (e.g. right after a renderer reload) — keep one of each.
+			const fresh = action.questions.filter(
+				( question ) =>
+					! state.pendingQuestions.some( ( pending ) => pending.question === question.question )
+			);
+			if ( fresh.length === 0 ) {
+				return state;
+			}
 			return {
 				...state,
-				pendingQuestions: [ ...state.pendingQuestions, ...action.questions ],
+				pendingQuestions: [ ...state.pendingQuestions, ...fresh ],
 			};
+		}
 		case 'question_answered':
 			return {
 				...state,
@@ -198,6 +252,27 @@ function reducer( state: State, action: Action ): State {
 			};
 		case 'batch_dispatched':
 			return { ...state, pendingQuestions: [], pendingAnswers: {} };
+		case 'permission_requested':
+			// Both the live event and active-run hydration can deliver the same
+			// request (e.g. right after a renderer reload) — keep one.
+			if ( state.pendingPermissions.some( ( request ) => request.id === action.request.id ) ) {
+				return state;
+			}
+			return {
+				...state,
+				pendingPermissions: [ ...state.pendingPermissions, action.request ],
+			};
+		case 'permission_answered':
+			return {
+				...state,
+				pendingPermissions: state.pendingPermissions.filter(
+					( request ) => request.id !== action.requestId
+				),
+				answeredPermissions: {
+					...state.answeredPermissions,
+					[ action.requestId ]: action.decision,
+				},
+			};
 		case 'queue_append':
 			return { ...state, queuedPrompts: [ ...state.queuedPrompts, action.prompt ] };
 		case 'queue_remove':
@@ -209,6 +284,17 @@ function reducer( state: State, action: Action ): State {
 			return { ...state, queuedPrompts: state.queuedPrompts.slice( 1 ) };
 		case 'queue_clear':
 			return { ...state, queuedPrompts: [] };
+		case 'tool_execution_started':
+			return {
+				...state,
+				activeTool: {
+					name: action.name,
+					input: action.input,
+					startedAt: action.startedAt,
+				},
+			};
+		case 'tool_execution_ended':
+			return { ...state, activeTool: null };
 	}
 }
 
@@ -240,7 +326,7 @@ function getTimestampMs( timestamp: string ): number {
 // subscribe with `useSyncExternalStore` and re-render only when their own
 // session's slice changes — a streaming tick for one session must not
 // re-render every sidebar row.
-interface SessionStateStore {
+export interface SessionStateStore {
 	getState: () => StatesBySession;
 	dispatch: ( action: StoreAction ) => void;
 	subscribe: ( listener: () => void ) => () => void;
@@ -268,12 +354,13 @@ function createSessionStateStore(): SessionStateStore {
 	};
 }
 
-interface AgentRunStore {
+export interface AgentRunStore {
 	stateStore: SessionStateStore;
 	dispatchSession: ( sessionId: string, action: Action ) => void;
 	startRun: ( sessionId: string, prompt: string, options?: SendMessageOptions ) => Promise< void >;
 	interrupt: ( sessionId: string ) => Promise< void >;
 	answerQuestion: ( sessionId: string, question: string, answer: string ) => void;
+	answerPermission: ( sessionId: string, requestId: string, decision: PermissionDecision ) => void;
 }
 
 const AgentRunContext = createContext< AgentRunStore | null >( null );
@@ -286,6 +373,53 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 	const ignoredRunIdsRef = useRef< Set< string > >( new Set() );
 	const interruptRequestsBySessionRef = useRef< Map< string, Promise< void > > >( new Map() );
 	const interruptPendingStartSessionIdsRef = useRef< Set< string > >( new Set() );
+	// Sessions whose transcript cache may have missed a live event: the event
+	// landed while the transcript had no data yet (fresh renderer, its initial
+	// load still in flight) or while a refetch was in flight (whose snapshot was
+	// read from disk before the event and will overwrite the appended entry when
+	// it resolves). The CLI persists every entry to the JSONL *before* emitting
+	// its event, so disk is always at least as new as any event — flagged
+	// sessions just need one more refetch after the in-flight one settles.
+	const reconcileSessionIdsRef = useRef< Set< string > >( new Set() );
+	// When each session last had a live event actually processed, for the
+	// starvation watchdog below.
+	const lastEventAtBySessionRef = useRef< Map< string, number > >( new Map() );
+	// Reconcile refetches are rate-limited per session: with a large transcript
+	// and a streaming run, an unthrottled reconcile-per-settle loops (each
+	// refetch is long enough for another event to land and re-flag), and every
+	// cycle re-renders the session view and re-parses the JSONL in the main
+	// process. One trailing invalidate per interval converges just the same.
+	const lastReconcileAtBySessionRef = useRef< Map< string, number > >( new Map() );
+	const reconcileTimerBySessionRef = useRef< Map< string, number > >( new Map() );
+
+	const scheduleReconcile = useCallback(
+		( sessionId: string ) => {
+			if ( reconcileTimerBySessionRef.current.has( sessionId ) ) {
+				return;
+			}
+			const RECONCILE_MIN_INTERVAL_MS = 5_000;
+			const lastAt = lastReconcileAtBySessionRef.current.get( sessionId ) ?? 0;
+			const wait = Math.max( 0, RECONCILE_MIN_INTERVAL_MS - ( Date.now() - lastAt ) );
+			const timerId = window.setTimeout( () => {
+				reconcileTimerBySessionRef.current.delete( sessionId );
+				lastReconcileAtBySessionRef.current.set( sessionId, Date.now() );
+				void queryClient.invalidateQueries( {
+					queryKey: [ ...SESSIONS_QUERY_KEY, sessionId ],
+					exact: true,
+				} );
+			}, wait );
+			reconcileTimerBySessionRef.current.set( sessionId, timerId );
+		},
+		[ queryClient ]
+	);
+
+	useEffect( () => {
+		const timers = reconcileTimerBySessionRef.current;
+		return () => {
+			timers.forEach( ( timerId ) => window.clearTimeout( timerId ) );
+			timers.clear();
+		};
+	}, [] );
 
 	const dispatchSession = useCallback(
 		( sessionId: string, action: Action ) => {
@@ -296,23 +430,159 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 
 	const updateCache = useCallback(
 		( sessionId: string, updater: ( entries: SessionEntry[] ) => SessionEntry[] ) => {
-			queryClient.setQueryData< LoadedAiSession >(
-				[ ...SESSIONS_QUERY_KEY, sessionId ],
-				( prev ) => {
-					if ( ! prev ) {
-						return prev;
-					}
-					const current = prev.entries ?? [];
-					const entries = updater( current );
-					return entries === current ? prev : { ...prev, entries };
+			const queryKey = [ ...SESSIONS_QUERY_KEY, sessionId ];
+			const queryState = queryClient.getQueryState< LoadedAiSession >( queryKey );
+			if ( ! queryState?.data || queryState.fetchStatus === 'fetching' ) {
+				reconcileSessionIdsRef.current.add( sessionId );
+			}
+			queryClient.setQueryData< LoadedAiSession >( queryKey, ( prev ) => {
+				if ( ! prev ) {
+					return prev;
 				}
-			);
+				const current = prev.entries ?? [];
+				const entries = updater( current );
+				return entries === current ? prev : { ...prev, entries };
+			} );
 		},
 		[ queryClient ]
 	);
 
+	// Starvation watchdog: if a session claims an active run but no live event
+	// has been processed for it in STARVATION_MS, stop trusting the event
+	// stream and re-sync from the main process + disk. `getActiveAgentRuns` is
+	// a tiny IPC call, so polling while a run is active is cheap; the transcript
+	// is only refetched when something is actually missing. This heals every
+	// class of dropped-event failure: a missed question/permission becomes
+	// visible and answerable, a stale run-id subscription is corrected so the
+	// stream resumes, and a missed run.exited unsticks the composer.
+	useEffect( () => {
+		const STARVATION_MS = 10_000;
+		const intervalId = window.setInterval( () => {
+			const states = stateStore.getState();
+			const now = Date.now();
+			const starvedSessionIds = Object.keys( states ).filter( ( sessionId ) => {
+				const state = states[ sessionId ];
+				if ( state.phase === 'idle' ) {
+					return false;
+				}
+				const lastEventAt =
+					lastEventAtBySessionRef.current.get( sessionId ) ?? state.startedAt ?? now;
+				return now - lastEventAt >= STARVATION_MS;
+			} );
+			if ( starvedSessionIds.length === 0 ) {
+				return;
+			}
+			void connector
+				.getActiveAgentRuns()
+				.then( ( runs ) => {
+					const runsBySessionId = new Map( runs.map( ( run ) => [ run.sessionId, run ] ) );
+					for ( const sessionId of starvedSessionIds ) {
+						const state = stateStore.getState()[ sessionId ];
+						if ( ! state || state.phase === 'idle' ) {
+							continue;
+						}
+						const run = runsBySessionId.get( sessionId );
+						if ( ! run ) {
+							// The run is gone but run.exited never reached us — close
+							// out the session and reconcile the transcript from disk.
+							lastEventAtBySessionRef.current.set( sessionId, Date.now() );
+							subscribedRunIdsBySessionRef.current.delete( sessionId );
+							dispatchSession( sessionId, { type: 'run_ended' } );
+							void queryClient.invalidateQueries( {
+								queryKey: SESSIONS_QUERY_KEY,
+								exact: true,
+							} );
+							scheduleReconcile( sessionId );
+							continue;
+						}
+						const pendingQuestions = run.pendingQuestions ?? [];
+						const pendingPermissions = run.pendingPermissions ?? [];
+						const missedQuestions = pendingQuestions.filter(
+							( question ) =>
+								! state.pendingQuestions.some( ( p ) => p.question === question.question )
+						);
+						const missedPermissions = pendingPermissions.filter(
+							( request ) => ! state.pendingPermissions.some( ( p ) => p.id === request.id )
+						);
+						if (
+							missedQuestions.length === 0 &&
+							missedPermissions.length === 0 &&
+							state.runId === run.runId
+						) {
+							// Healthy but quiet (e.g. a long tool call) — nothing to heal.
+							continue;
+						}
+						lastEventAtBySessionRef.current.set( sessionId, Date.now() );
+						// Re-point the event subscription at the run the main process
+						// actually has, in case a stale run id was filtering the stream.
+						subscribedRunIdsBySessionRef.current.set( sessionId, run.runId );
+						dispatchSession( sessionId, {
+							type: 'hydrate_active_run',
+							runId: run.runId,
+							startedAt: run.startedAt,
+							interrupting: run.phase === 'interrupting',
+						} );
+						if ( missedQuestions.length > 0 ) {
+							dispatchSession( sessionId, {
+								type: 'questions_added',
+								questions: pendingQuestions,
+							} );
+						}
+						for ( const request of missedPermissions ) {
+							dispatchSession( sessionId, { type: 'permission_requested', request } );
+						}
+						// Whatever produced the missed interaction also wrote transcript
+						// entries we never appended — reconcile from disk.
+						scheduleReconcile( sessionId );
+					}
+				} )
+				.catch( () => {
+					// A failed poll just means the next tick tries again.
+				} );
+		}, 5_000 );
+		return () => window.clearInterval( intervalId );
+	}, [ connector, dispatchSession, queryClient, scheduleReconcile, stateStore ] );
+
+	// Second half of the reconcile contract: once a flagged session's transcript
+	// fetch settles, refetch it. That fetch started after the flagged event, so
+	// its disk snapshot is guaranteed to contain the event's entry. If more
+	// events land during the reconciling fetch they re-flag the session, and the
+	// loop converges as soon as a fetch window passes without one.
+	useEffect( () => {
+		return queryClient.getQueryCache().subscribe( ( event ) => {
+			if ( event.type !== 'updated' ) {
+				return;
+			}
+			if ( event.action.type !== 'success' && event.action.type !== 'error' ) {
+				return;
+			}
+			const queryKey = event.query.queryKey;
+			if (
+				! Array.isArray( queryKey ) ||
+				queryKey.length !== SESSIONS_QUERY_KEY.length + 1 ||
+				queryKey[ 0 ] !== SESSIONS_QUERY_KEY[ 0 ]
+			) {
+				return;
+			}
+			const sessionId = queryKey[ SESSIONS_QUERY_KEY.length ];
+			if ( typeof sessionId !== 'string' || ! reconcileSessionIdsRef.current.delete( sessionId ) ) {
+				return;
+			}
+			scheduleReconcile( sessionId );
+		} );
+	}, [ queryClient, scheduleReconcile ] );
+
 	useEffect( () => {
 		let cancelled = false;
+
+		// Reconcile persisted transcripts with disk once per renderer boot.
+		// Session queries never refetch on their own (staleTime: Infinity —
+		// live events own the cache during a run), so anything that happened
+		// while this renderer wasn't alive (a question asked mid-restart, a
+		// run that finished with the app closed) would otherwise never appear.
+		// Invalidation refetches the open transcript now and marks the rest
+		// stale so they refetch on mount.
+		void queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY } );
 
 		void connector
 			.getActiveAgentRuns()
@@ -328,6 +598,19 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 						startedAt: run.startedAt,
 						interrupting: run.phase === 'interrupting',
 					} );
+					// Restore what the run is still blocked on — the live events
+					// predate this renderer, but the agent process is waiting on the
+					// answers. The transcript entries come from disk; this makes the
+					// question and permission cards interactive again.
+					if ( ( run.pendingQuestions ?? [] ).length > 0 ) {
+						dispatchSession( run.sessionId, {
+							type: 'questions_added',
+							questions: run.pendingQuestions ?? [],
+						} );
+					}
+					for ( const request of run.pendingPermissions ?? [] ) {
+						dispatchSession( run.sessionId, { type: 'permission_requested', request } );
+					}
 				}
 			} )
 			.catch( () => {
@@ -337,7 +620,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 		return () => {
 			cancelled = true;
 		};
-	}, [ connector, dispatchSession ] );
+	}, [ connector, dispatchSession, queryClient ] );
 
 	useEffect( () => {
 		return connector.onAgentEvent( ( payload: AgentRunEvent ) => {
@@ -352,6 +635,8 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 			if ( subscribedRunId && payload.runId !== subscribedRunId ) {
 				return;
 			}
+
+			lastEventAtBySessionRef.current.set( payload.sessionId, Date.now() );
 
 			const event: AgentEvent = payload.event;
 
@@ -369,6 +654,17 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					dispatchSession( payload.sessionId, { type: 'error_set', message: event.message } );
 					return;
 				case 'turn.completed':
+					// A turn can "complete" by dying (e.g. the model API
+					// rejecting the request). Without surfacing the status the
+					// failure is indistinguishable from a hang.
+					if ( event.status === 'error' ) {
+						dispatchSession( payload.sessionId, {
+							type: 'error_set',
+							message: __(
+								'The agent stopped with an error. Try again — if it keeps failing, the last message (or an attachment) may be the cause; start a new chat without it.'
+							),
+						} );
+					}
 					dispatchSession( payload.sessionId, { type: 'turn_completed' } );
 					return;
 				case 'run.interrupting':
@@ -397,13 +693,18 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					subscribedRunIdsBySessionRef.current.delete( payload.sessionId );
 					if ( ! hasQueuedFollowUp ) {
 						// Refetch to replace optimistic entries with disk-backed ones.
-						// `cancelRefetch: false` so a run ending as its site is deleted
-						// can't cancel the redirect route's in-flight fetch (which would
-						// throw a CancelledError into the router's error boundary).
-						void queryClient.invalidateQueries(
-							{ queryKey: SESSIONS_QUERY_KEY },
-							{ cancelRefetch: false }
-						);
+						// Scoped to this session (plus the summaries list) — a broad
+						// invalidate would force-refetch every mounted transcript, and
+						// a refetch racing another session's live run can clobber its
+						// just-appended entries (e.g. a pending agent question).
+						void queryClient.invalidateQueries( {
+							queryKey: SESSIONS_QUERY_KEY,
+							exact: true,
+						} );
+						void queryClient.invalidateQueries( {
+							queryKey: [ ...SESSIONS_QUERY_KEY, payload.sessionId ],
+							exact: true,
+						} );
 					}
 					return;
 				}
@@ -428,6 +729,24 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 								data: { status: 'error', errorMessage: failure.message },
 							} as SessionEntry,
 						] );
+						return;
+					}
+					if ( inner.type === 'tool_execution_start' ) {
+						const name = typeof inner.toolName === 'string' ? inner.toolName : 'tool';
+						const input =
+							inner.args && typeof inner.args === 'object' && ! Array.isArray( inner.args )
+								? ( inner.args as Record< string, unknown > )
+								: {};
+						dispatchSession( payload.sessionId, {
+							type: 'tool_execution_started',
+							name,
+							input,
+							startedAt: getTimestampMs( event.timestamp ),
+						} );
+						return;
+					}
+					if ( inner.type === 'tool_execution_end' ) {
+						dispatchSession( payload.sessionId, { type: 'tool_execution_ended' } );
 						return;
 					}
 					// Only message-bearing pi event variants need optimistic entries.
@@ -466,17 +785,6 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					return;
 				}
 				case 'progress':
-					updateCache( payload.sessionId, ( entries ) => [
-						...entries,
-						{
-							type: 'custom',
-							id: shortEntryId(),
-							parentId: null,
-							timestamp: event.timestamp,
-							customType: 'studio.tool_progress',
-							data: { message: event.message },
-						} as SessionEntry,
-					] );
 					return;
 				case 'chat.artifact':
 					updateCache( payload.sessionId, ( entries ) => [
@@ -510,6 +818,23 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					dispatchSession( payload.sessionId, {
 						type: 'questions_added',
 						questions: event.questions,
+					} );
+					return;
+				case 'permission.requested':
+					updateCache( payload.sessionId, ( entries ) => [
+						...entries,
+						{
+							type: 'custom',
+							id: shortEntryId(),
+							parentId: null,
+							timestamp: event.timestamp,
+							customType: 'studio.permission_request',
+							data: event.request,
+						} as SessionEntry,
+					] );
+					dispatchSession( payload.sessionId, {
+						type: 'permission_requested',
+						request: event.request,
 					} );
 					return;
 			}
@@ -669,6 +994,31 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 		[ connector, dispatchSession, stateStore, updateCache ]
 	);
 
+	const answerPermission = useCallback(
+		( sessionId: string, requestId: string, decision: PermissionDecision ) => {
+			const state = stateStore.getState()[ sessionId ] ?? initialState;
+			if ( ! state.runId ) {
+				return;
+			}
+			dispatchSession( sessionId, { type: 'permission_answered', requestId, decision } );
+			// Optimistic response entry so the transcript pairs the request with
+			// its outcome before the disk refetch lands.
+			updateCache( sessionId, ( entries ) => [
+				...entries,
+				{
+					type: 'custom',
+					id: shortEntryId(),
+					parentId: null,
+					timestamp: nowIso(),
+					customType: 'studio.permission_response',
+					data: { id: requestId, decision },
+				} as SessionEntry,
+			] );
+			void connector.answerAgentPermission( state.runId, requestId, decision );
+		},
+		[ connector, dispatchSession, stateStore, updateCache ]
+	);
+
 	const value = useMemo< AgentRunStore >(
 		() => ( {
 			stateStore,
@@ -676,11 +1026,22 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 			startRun,
 			interrupt,
 			answerQuestion,
+			answerPermission,
 		} ),
-		[ answerQuestion, dispatchSession, interrupt, startRun, stateStore ]
+		[ answerPermission, answerQuestion, dispatchSession, interrupt, startRun, stateStore ]
 	);
 
 	return <AgentRunContext.Provider value={ value }>{ children }</AgentRunContext.Provider>;
+}
+
+// Direct access to the per-session state store for imperative observers that
+// must not re-render on every dispatch (e.g. the chat-notifications watcher).
+export function useAgentRunStore(): AgentRunStore {
+	const store = useContext( AgentRunContext );
+	if ( ! store ) {
+		throw new Error( 'useAgentRunStore must be used within AgentRunProvider' );
+	}
+	return store;
 }
 
 export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
@@ -695,6 +1056,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 		startRun,
 		interrupt: interruptRun,
 		answerQuestion: answerRunQuestion,
+		answerPermission: answerRunPermission,
 	} = store;
 	// Per-session slices keep their identity while other sessions update, so
 	// this only re-renders when this session's state actually changes.
@@ -704,9 +1066,12 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 	const {
 		phase,
 		startedAt,
+		activeTool,
 		error,
 		isInterrupting,
 		pendingQuestions,
+		pendingPermissions,
+		answeredPermissions,
 		pendingAnswers,
 		queuedPrompts,
 	} = state;
@@ -751,9 +1116,14 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 				throw new Error( 'No session selected' );
 			}
 			// Queue if anything is in flight, if we're waiting on question
-			// answers, or if earlier queued prompts haven't been dispatched yet
-			// (preserves FIFO order).
-			if ( phase !== 'idle' || pendingQuestions.length > 0 || queuedPrompts.length > 0 ) {
+			// answers or a permission decision, or if earlier queued prompts
+			// haven't been dispatched yet (preserves FIFO order).
+			if (
+				phase !== 'idle' ||
+				pendingQuestions.length > 0 ||
+				pendingPermissions.length > 0 ||
+				queuedPrompts.length > 0
+			) {
 				dispatchSession( sessionId, {
 					type: 'queue_append',
 					prompt: {
@@ -768,7 +1138,15 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 			}
 			await startRun( sessionId, prompt, options );
 		},
-		[ dispatchSession, phase, pendingQuestions.length, queuedPrompts.length, sessionId, startRun ]
+		[
+			dispatchSession,
+			phase,
+			pendingQuestions.length,
+			pendingPermissions.length,
+			queuedPrompts.length,
+			sessionId,
+			startRun,
+		]
 	);
 
 	const interrupt = useCallback( async () => {
@@ -788,6 +1166,16 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 		[ answerRunQuestion, sessionId ]
 	);
 
+	const answerPermission = useCallback(
+		( requestId: string, decision: PermissionDecision ) => {
+			if ( ! sessionId ) {
+				return;
+			}
+			answerRunPermission( sessionId, requestId, decision );
+		},
+		[ answerRunPermission, sessionId ]
+	);
+
 	const removeQueuedPrompt = useCallback(
 		( id: string ) => {
 			if ( ! sessionId ) {
@@ -803,13 +1191,17 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 		hasActiveRun: phase !== 'idle',
 		isInterrupting,
 		startedAt,
+		activeTool,
 		error,
 		pendingQuestions,
+		pendingPermissions,
+		answeredPermissions,
 		pendingAnswers,
 		queuedPrompts,
 		sendMessage,
 		interrupt,
 		answerQuestion,
+		answerPermission,
 		removeQueuedPrompt,
 	};
 }
@@ -834,7 +1226,8 @@ export function useSiteAgentActivity( sessionIds: string[] ): SiteAgentActivity 
 			const hasPendingQuestion = state.pendingQuestions.some(
 				( pendingQuestion ) => typeof state.pendingAnswers[ pendingQuestion.question ] !== 'string'
 			);
-			if ( hasPendingQuestion ) {
+			// A pending permission needs the user's attention just like a question.
+			if ( hasPendingQuestion || state.pendingPermissions.length > 0 ) {
 				return 'pending-question';
 			}
 			if ( state.phase === 'starting' || state.phase === 'running' ) {

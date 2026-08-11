@@ -1,120 +1,94 @@
-.page {
-	padding-bottom: 88px;
-}
-
 .signedOut {
 	display: flex;
 	flex-direction: column;
 	gap: 24px;
-	max-width: 520px;
+	max-width: 420px;
 	margin-inline: auto;
-	text-align: start;
+	text-align: left;
 }
 
 .benefits {
-	display: grid;
-	gap: 12px;
+	list-style: none;
 	margin: 0;
 	padding: 0;
-	color: var(--wpds-color-fg-content-neutral-weak);
-	list-style: none;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
 }
 
-.benefits li {
+.benefit {
 	display: flex;
 	align-items: center;
-	gap: 12px;
+	gap: 8px;
+	color: var(--wpds-color-fg-content-neutral-weak, #666);
 }
 
-.benefits svg {
-	flex: 0 0 auto;
-	fill: currentColor;
-	color: var(--wpds-color-fg-interactive-brand);
+.benefitIcon {
+	flex-shrink: 0;
+	fill: var(--wpds-color-fg-interactive-brand, #3858e9);
 }
 
 .authActions {
+	align-items: flex-start;
 	padding-top: 16px;
 	border-top: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
 }
 
-.state p {
+.listHint {
 	margin: 0;
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-fg-content-neutral-weak, #666);
 }
 
-.state {
+/* Initial-load state: spinner over the hint, centered where the grid will
+   appear. */
+.loadingState {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
 	gap: 12px;
-	max-width: 520px;
-	margin-inline: auto;
-	padding: 0 20px 32px;
+	padding: 32px 0;
 }
 
-.state h2 {
-	margin: 0;
-	font-size: var(--wpds-typography-font-size-lg);
-	font-weight: 500;
-}
-
-.siteControls {
+/* Search + helper links, centered under the subtitle like the desktop
+   renderer's picker header. */
+.searchHeader {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
 	gap: 8px;
-	margin-bottom: 32px;
+	max-width: 480px;
+	margin: 0 auto 24px;
 }
 
 .search {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	width: min(100%, 520px);
-	padding: 0 12px;
-	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
-	border-radius: 6px;
-	background: var(--wpds-color-bg-surface-neutral);
-	color: var(--wpds-color-fg-content-neutral-weak);
-}
-
-.search:focus-within {
-	border-color: var(--wpds-color-stroke-focus-brand);
-	box-shadow: 0 0 0 1px var(--wpds-color-stroke-focus-brand);
-}
-
-.search input {
 	width: 100%;
-	height: 40px;
-	padding: 0;
-	border: 0;
-	outline: 0;
-	background: transparent;
-	color: var(--wpds-color-fg-content-neutral);
-	font: inherit;
-}
-
-.search input::placeholder {
-	color: var(--wpds-color-fg-content-neutral-weak);
+	/* The wpds input fill token is transparent (#0000); with the dot grid
+	   correctly painting behind the page, it shows through the field
+	   without a solid fill. */
+	background-color: var(--wpds-color-bg-surface-neutral, #fcfcfc);
 }
 
 .helperLinks {
+	margin: 0;
+	font-size: 0.75rem;
+	color: var(--wpds-color-fg-content-neutral-weak, #666);
 	display: flex;
 	align-items: center;
-	gap: 2px;
-	margin: 0;
-	color: var(--wpds-color-fg-content-neutral-weak);
+	gap: 4px;
 }
 
-.helperLinks button {
-	padding-inline: 2px;
+.helperLink {
+	padding: 0;
+	height: auto;
+	min-height: 0;
+	font-size: 0.75rem;
 }
 
 .sections {
 	display: flex;
 	flex-direction: column;
-	gap: 40px;
-	text-align: start;
+	gap: 32px;
+	text-align: left;
 }
 
 .section {
@@ -123,82 +97,174 @@
 	gap: 16px;
 }
 
+.sectionAfterAvailable {
+	margin-top: 24px;
+}
+
 .sectionHeader {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
 	text-align: center;
+	gap: 2px;
 }
 
-.sectionHeader h2 {
-	margin: 0 0 4px;
-	font-size: var(--wpds-typography-font-size-lg);
+.sectionTitle {
+	font-size: 1rem;
 	font-weight: 500;
-}
-
-.sectionHeader p {
 	margin: 0;
-	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-sm);
 }
 
+.sectionDescription {
+	margin: 0;
+	font-size: 0.875rem;
+	color: var(--wpds-color-fg-content-neutral-weak, #666);
+}
+
+/* Mirrors the desktop renderer's pull-remote picker: a responsive grid of
+   site cards with live screenshot thumbnails. */
 .siteGrid {
-	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
-	gap: 20px;
+	list-style: none;
 	margin: 0;
 	padding: 0;
-	list-style: none;
+	display: grid;
+	/* auto-fit (not auto-fill) collapses unused tracks, so a handful of
+	   sites gets larger cards instead of empty columns. */
+	grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+	gap: 20px;
 }
 
-.singleSiteGrid {
-	grid-template-columns: minmax(0, 440px);
+/* Larger windows raise the column minimum so thumbnails grow with the
+   viewport instead of just adding more columns. */
+@media (min-width: 1280px) {
+	.siteGrid {
+		grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+	}
+}
+
+.siteGridPrimary {
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+}
+
+@media (min-width: 1280px) {
+	.siteGridPrimary {
+		grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
+	}
+}
+
+/* Grouped or filtered lists: compact tracks are centered, so one- and
+   two-card sections don't balloon or hug the left edge. */
+.siteGridSecondary {
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 340px));
 	justify-content: center;
+}
+
+@media (min-width: 1280px) {
+	.siteGridSecondary {
+		grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 340px));
+	}
+}
+
+/* Non-connectable groups stay intentionally smaller than the primary
+   connectable gallery so disabled states don't dominate the page. */
+.siteGridCompact {
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 240px));
+	justify-content: center;
+	gap: 16px;
+}
+
+@media (min-width: 1280px) {
+	.siteGridCompact {
+		grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 260px));
+	}
+}
+
+/* Single-site account: one comfortable card, centered. */
+.siteGridSingle {
+	grid-template-columns: minmax(0, 420px);
+	justify-content: center;
+}
+
+.singleSite {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 16px;
+}
+
+.emptyState {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 8px;
 }
 
 .siteCardWrapper {
 	position: relative;
-	display: flex;
-	flex-direction: column;
-	min-width: 0;
 }
 
 .siteCard {
 	display: flex;
-	flex: 1;
 	flex-direction: column;
 	width: 100%;
 	padding: 6px;
-	border: 0;
+	border: none;
 	border-radius: 12px;
 	background: transparent;
-	color: var(--wpds-color-fg-content-neutral);
 	cursor: pointer;
-	text-align: start;
+	text-align: left;
+	color: inherit;
+	transition: background-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.siteCard:not(:disabled):hover .siteThumb,
-.siteCardSelected .siteThumb {
-	box-shadow: 0 0 0 1px var(--wpds-color-stroke-interactive-brand);
+/* Brand ring on hover, matching the card affordance on the home and
+   gallery screens. */
+.siteCard:hover {
+	background: var(--wpds-color-bg-surface-neutral-strong, #f7f7f7);
+	box-shadow: 0 0 0 2px var(--wpds-color-stroke-interactive-brand, #3858e9);
 }
 
+/* Keyboard focus gets the hover surface plus an offset ring — the selected
+   state's own ring sits flush, so the two remain distinguishable. */
 .siteCard:focus-visible {
-	outline: 2px solid var(--wpds-color-stroke-focus-brand);
+	outline: 2px solid var(--wpds-color-stroke-interactive-brand, #3858e9);
 	outline-offset: 2px;
+	background: var(--wpds-color-bg-surface-neutral-strong, #f7f7f7);
 }
 
-.siteCardUnavailable,
-.siteCardUnavailable:hover {
+/* Visible but not selectable (already connected, needs upgrade/transfer). */
+.siteCardInert,
+.siteCardInert:hover {
 	cursor: default;
+	background: transparent;
+	box-shadow: none;
+}
+
+/* Sites that can't sync at all (deleted, unsupported, missing permissions). */
+.siteCardDimmed,
+.siteCardDimmed:hover {
+	opacity: 0.55;
+}
+
+.siteCardSelected,
+.siteCardSelected:hover {
+	box-shadow: 0 0 0 2px var(--wpds-color-stroke-interactive-brand, #3858e9);
+	background: color-mix(in srgb, var(--wpds-color-fg-interactive-brand, #3858e9) 5%, transparent);
 }
 
 .siteThumb {
+	/* border-box so the 1px border doesn't push the thumb 2px past its
+	   container — which also kept the CTA scrim from covering its right
+	   and bottom edges. */
+	box-sizing: border-box;
 	position: relative;
 	display: block;
 	width: 100%;
 	aspect-ratio: 3 / 2;
-	overflow: hidden;
 	border-radius: 8px;
-	background: var(--wpds-color-bg-surface-neutral-strong);
-	box-shadow: 0 0 0 var(--wpds-border-width-xs) var(--wpds-color-stroke-surface-neutral);
-	transition: box-shadow 0.15s ease;
+	overflow: hidden;
+	border: 1px solid var(--wpds-color-stroke-surface-neutral, #ddd);
+	background: var(--wpds-color-bg-surface-neutral, #f0f0f0);
 }
 
 .siteThumb img {
@@ -207,62 +273,172 @@
 	object-fit: cover;
 }
 
-.siteCardUnavailable .siteThumb {
-	opacity: 0.65;
+.siteBadges {
+	position: absolute;
+	bottom: 6px;
+	right: 6px;
+	display: flex;
+	gap: 4px;
+}
+
+.siteBadge {
+	font-size: 11px;
+	line-height: 1;
+	padding: 4px 6px;
+	border-radius: 4px;
+	background: rgba(0, 0, 0, 0.4);
+	color: #fff;
+	backdrop-filter: blur(4px);
+}
+
+/* Environment chips use the same fixed palette as the desktop renderer's
+   EnvironmentBadge — identical in both color schemes by design. */
+.envBadge {
+	font-size: 11px;
+	line-height: 1;
+	padding: 4px 6px;
+	border-radius: 4px;
+	font-weight: 500;
+}
+
+.envBadge-production {
+	background: #ceead6;
+	color: #1a6928;
+}
+
+.envBadge-staging {
+	background: #fef0c7;
+	color: #93590c;
+}
+
+.envBadge-development {
+	background: #d9e2ff;
+	color: #1f3a93;
+}
+
+/* Centered CTA over a non-syncable site's thumbnail. Sits outside the inert
+   card button (siblings, not nested) so the markup stays valid; aligned to
+   the thumbnail box, which is inset by the card's 6px padding. */
+.thumbCtaOverlay {
+	position: absolute;
+	top: 6px;
+	left: 6px;
+	right: 6px;
+	aspect-ratio: 3 / 2;
+	border-radius: 8px;
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	/* Scrim keeps the CTA legible over both light and busy thumbnails —
+	   dark only, no blur, so the site underneath stays recognizable. */
+	background: rgba(0, 0, 0, 0.4);
+}
+
+.ctaButton {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 6px 12px;
+	border: none;
+	border-radius: 4px;
+	background: #fff;
+	color: #1e1e1e;
+	font-size: 12px;
+	font-weight: 500;
+	line-height: 1;
+	white-space: nowrap;
+	cursor: pointer;
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+
+.ctaButton:hover {
+	background: #f0f0f0;
+}
+
+.ctaButton:focus-visible {
+	outline: 2px solid var(--wpds-color-stroke-interactive-brand, #3858e9);
+	outline-offset: 2px;
+}
+
+.planBadge {
+	font-size: 11px;
+	line-height: 1;
+	padding: 4px 8px;
+	border-radius: 4px;
+	background: rgba(0, 0, 0, 0.5);
+	color: #fff;
+	backdrop-filter: blur(4px);
+}
+
+.connectedInfoOverlay {
+	position: absolute;
+	top: 12px;
+	right: 12px;
+	z-index: 2;
+}
+
+.connectedInfoButton {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	padding: 0;
+	border: 1px solid var(--wpds-color-stroke-surface-neutral, #ddd);
+	border-radius: 999px;
+	background: color-mix(
+		in srgb,
+		var(--wpds-color-bg-surface-neutral, #fff) 92%,
+		transparent
+	);
+	color: var(--wpds-color-fg-content-neutral, #1e1e1e);
+	cursor: help;
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+	backdrop-filter: blur(6px);
+}
+
+.connectedInfoButton:hover {
+	background: var(--wpds-color-bg-surface-neutral, #fff);
+}
+
+.connectedInfoButton:focus-visible {
+	outline: 2px solid var(--wpds-color-stroke-interactive-brand, #3858e9);
+	outline-offset: 2px;
 }
 
 .siteText {
 	display: flex;
 	flex-direction: column;
-	gap: 4px;
+	gap: 2px;
+	padding: 8px 6px 4px;
 	min-width: 0;
-	padding: 10px 8px 8px;
 }
 
 .siteName {
-	overflow: hidden;
+	font-size: 0.875rem;
 	font-weight: 500;
+	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
 .siteUrl {
+	font-size: 0.75rem;
+	color: var(--wpds-color-fg-content-neutral-weak, #666);
 	overflow: hidden;
-	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-sm);
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
 .siteStatus {
-	margin-top: 4px;
-	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-sm);
-	line-height: 1.4;
+	font-size: 11px;
+	color: var(--wpds-color-fg-content-neutral-weak, #666);
 }
 
-.badges {
-	position: absolute;
-	inset-inline-end: 8px;
-	inset-block-end: 8px;
-	display: flex;
-	flex-wrap: wrap;
-	gap: 6px;
-}
-
-.siteAction {
-	align-self: center;
-	margin-top: 4px;
-}
-
-.connectError {
-	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-error);
-	background: var(--wpds-color-bg-surface-error-weak);
-	color: var(--wpds-color-fg-content-error);
-}
-
-@media (max-width: 600px) {
-	.siteGrid {
-		grid-template-columns: minmax(0, 1fr);
-	}
+.submitError {
+	margin-top: 16px;
+	color: var(--wpds-color-fg-content-error, var(--wpds-color-fg-content-neutral));
 }

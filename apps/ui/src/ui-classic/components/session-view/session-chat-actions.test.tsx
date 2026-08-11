@@ -1,13 +1,29 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getSiteSessionHistory, SessionChatActions } from './session-chat-actions';
+import {
+	getSiteArchivedSessionHistory,
+	getSiteSessionHistory,
+	SessionChatActions,
+} from './session-chat-actions';
 import type { AiSessionSummary } from '@/data/core';
 
 const updateSessionMetadataMutate = vi.hoisted( () => vi.fn() );
+const togglePreview = vi.hoisted( () => vi.fn() );
 
 vi.mock( '@/data/queries/use-sessions', () => ( {
 	useUpdateSessionMetadata: () => ( {
 		mutate: updateSessionMetadataMutate,
+	} ),
+} ) );
+
+vi.mock( '@/hooks/use-session-ui', () => ( {
+	useOptionalSessionPreviewUI: () => ( {
+		open: true,
+		path: '/',
+		reloadNonce: 0,
+		setOpen: vi.fn(),
+		toggle: togglePreview,
+		updatePath: vi.fn(),
 	} ),
 } ) );
 
@@ -62,8 +78,7 @@ describe( 'getSiteSessionHistory', () => {
 			updatedAt: '2026-06-20T12:00:00.000Z',
 		} );
 
-		const history = getSiteSessionHistory( {
-			archived: true,
+		const history = getSiteArchivedSessionHistory( {
 			currentSession,
 			ownerSite: { id: 'demo-site', path: '/Users/example/Studio/demo-site' },
 			sessions: [
@@ -111,6 +126,35 @@ describe( 'SessionChatActions', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'New chat' } ) );
 
 		expect( onNewChat ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	it( 'toggles the preview from the footer when the session supports it', () => {
+		render(
+			<SessionChatActions
+				canTogglePreview
+				currentSessionId="current"
+				onNewChat={ vi.fn() }
+				onSwitchSession={ vi.fn() }
+				sessions={ [ createSession( { id: 'current', firstPrompt: 'Current chat' } ) ] }
+			/>
+		);
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Hide preview' } ) );
+
+		expect( togglePreview ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	it( 'hides the preview toggle when the session cannot preview', () => {
+		render(
+			<SessionChatActions
+				currentSessionId="current"
+				onNewChat={ vi.fn() }
+				onSwitchSession={ vi.fn() }
+				sessions={ [ createSession( { id: 'current', firstPrompt: 'Current chat' } ) ] }
+			/>
+		);
+
+		expect( screen.queryByRole( 'button', { name: /preview/i } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'keeps the history button first and exposes the new chat shortcut', () => {
@@ -203,6 +247,7 @@ describe( 'SessionChatActions', () => {
 		const olderItem = screen.getByText( 'Older chat' ).closest( '[role="menuitem"]' );
 
 		expect( currentItem ).toHaveAttribute( 'aria-current', 'page' );
+		expect( currentItem ).toHaveAttribute( 'data-current', 'true' );
 		expect( olderItem ).toBeInTheDocument();
 
 		fireEvent.click( olderItem! );

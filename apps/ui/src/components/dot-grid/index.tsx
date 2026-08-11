@@ -1,6 +1,15 @@
 import { useEffect, useRef } from 'react';
 import styles from './style.module.css';
 
+/**
+ * Animated dot-grid backdrop, ported from the desktop renderer's
+ * `DotGrid`. Renders a grid of crosses joined by dashed lines on a canvas;
+ * dots spring away from the cursor, mouse-down focuses the repulsion radius,
+ * and mouse-up emits a ripple. Honors `prefers-reduced-motion` by drawing a
+ * static grid instead. The draw color comes from the canvas' computed CSS
+ * `color`, so it tracks light/dark token changes for free.
+ */
+
 interface DotGridProps {
 	opacity?: number;
 	repulsion?: number;
@@ -9,9 +18,17 @@ interface DotGridProps {
 	crossSize?: number;
 	crossThickness?: number;
 	className?: string;
+	/**
+	 * Set false while the grid is hidden (e.g. faded out behind a sub-page)
+	 * to pause the physics/render loop instead of burning CPU on invisible
+	 * frames. The simulation state survives, so re-activating doesn't replay
+	 * the intro sweep.
+	 */
 	active?: boolean;
-	// Set false to skip the corner reveal sweep and render the grid fully
-	// visible from the first frame.
+	/**
+	 * Set false to skip the corner reveal sweep and render the grid fully
+	 * visible from the first frame.
+	 */
 	intro?: boolean;
 }
 
@@ -57,6 +74,8 @@ export function DotGrid( {
 	intro = true,
 }: DotGridProps ) {
 	const canvasRef = useRef< HTMLCanvasElement >( null );
+	// Bridges the `active` prop into the long-lived effect below without
+	// tearing the simulation down (the effect's deps stay layout-only).
 	const setActiveRef = useRef< ( value: boolean ) => void >( () => {} );
 
 	useEffect( () => {
@@ -144,6 +163,7 @@ export function DotGrid( {
 					let dox = ox[ i ];
 					let doy = oy[ i ];
 
+					// Hover repulsion
 					if ( cursorActive ) {
 						const cx2 = rx + dox;
 						const cy2 = ry + doy;
@@ -157,6 +177,7 @@ export function DotGrid( {
 						}
 					}
 
+					// Ripple wavefronts
 					for ( const ripple of ripples ) {
 						const cx2 = rx + dox;
 						const cy2 = ry + doy;
@@ -172,12 +193,15 @@ export function DotGrid( {
 						}
 					}
 
+					// Spring toward rest
 					dvx += SPRING_K * -dox * dt;
 					dvy += SPRING_K * -doy * dt;
 
+					// Damping
 					dvx *= dampFactor;
 					dvy *= dampFactor;
 
+					// Integrate
 					dox += dvx * dt;
 					doy += dvy * dt;
 
@@ -197,6 +221,7 @@ export function DotGrid( {
 				}
 			}
 
+			// Draw dotted connecting lines
 			ctx.strokeStyle = color;
 			ctx.lineWidth = crossThickness;
 			ctx.setLineDash( [ 1, 4 ] );
@@ -214,6 +239,7 @@ export function DotGrid( {
 						);
 					}
 
+					// Horizontal line to right neighbor
 					if ( c < cols - 1 ) {
 						const ni = r * cols + ( c + 1 );
 						const nx = ( c + 1 ) * spacing + ox[ ni ];
@@ -223,6 +249,7 @@ export function DotGrid( {
 						ctx.lineTo( nx - crossSize, ny );
 						ctx.stroke();
 					}
+					// Vertical line to bottom neighbor
 					if ( r < rows - 1 ) {
 						const ni = ( r + 1 ) * cols + c;
 						const nx = c * spacing + ox[ ni ];
@@ -236,6 +263,7 @@ export function DotGrid( {
 			}
 			ctx.setLineDash( [] );
 
+			// Draw crosses on top
 			ctx.fillStyle = color;
 			for ( let r = 0; r < rows; r++ ) {
 				for ( let c = 0; c < cols; c++ ) {
@@ -281,8 +309,43 @@ export function DotGrid( {
 		}
 
 		function drawStatic() {
-			introComplete = true;
-			tick( 0 );
+			if ( ! ctx || ! canvas ) return;
+			const cssW = canvas.offsetWidth;
+			const cssH = canvas.offsetHeight;
+			ctx.clearRect( 0, 0, cssW, cssH );
+
+			ctx.strokeStyle = color;
+			ctx.lineWidth = crossThickness;
+			ctx.setLineDash( [ 1, 4 ] );
+			for ( let r = 0; r < rows; r++ ) {
+				for ( let c = 0; c < cols; c++ ) {
+					const x = c * spacing;
+					const y = r * spacing;
+					if ( c < cols - 1 ) {
+						ctx.beginPath();
+						ctx.moveTo( x + crossSize, y );
+						ctx.lineTo( ( c + 1 ) * spacing - crossSize, y );
+						ctx.stroke();
+					}
+					if ( r < rows - 1 ) {
+						ctx.beginPath();
+						ctx.moveTo( x, y + crossSize );
+						ctx.lineTo( x, ( r + 1 ) * spacing - crossSize );
+						ctx.stroke();
+					}
+				}
+			}
+			ctx.setLineDash( [] );
+
+			ctx.fillStyle = color;
+			for ( let r = 0; r < rows; r++ ) {
+				for ( let c = 0; c < cols; c++ ) {
+					const x = c * spacing;
+					const y = r * spacing;
+					ctx.fillRect( x - crossSize, y - crossThickness / 2, crossSize * 2, crossThickness );
+					ctx.fillRect( x - crossThickness / 2, y - crossSize, crossThickness, crossSize * 2 );
+				}
+			}
 		}
 
 		function setupCanvas() {

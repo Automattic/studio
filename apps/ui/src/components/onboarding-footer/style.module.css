@@ -1,3 +1,6 @@
+/* Progressive blur scrim: the backdrop blur fades out toward the top via
+   the mask, and the background gradient keeps the action bar legible over
+   content scrolling underneath — mirrors the desktop renderer's stepper. */
 .scrim {
 	position: fixed;
 	bottom: 0;
@@ -6,10 +9,13 @@
 	height: 88px;
 	pointer-events: none;
 	z-index: 5;
+	/* Own snapshot group so the router's view transition doesn't fade/rise
+	   the fixed bar along with the page content. */
+	view-transition-name: onboarding-footer-scrim;
 	background: linear-gradient(
 		to top,
-		var(--wpds-color-bg-surface-neutral) 10%,
-		color-mix(in srgb, var(--wpds-color-bg-surface-neutral) 80%, transparent) 55%,
+		var(--wpds-color-bg-surface-neutral, #fff) 10%,
+		color-mix(in srgb, var(--wpds-color-bg-surface-neutral, #fff) 80%, transparent) 55%,
 		transparent
 	);
 	backdrop-filter: blur(10px);
@@ -27,8 +33,19 @@
 	align-items: center;
 	justify-content: flex-end;
 	gap: 12px;
+	/* Own snapshot group — see .scrim. The persistent Back button reads as
+	   stationary chrome across steps instead of animating with the page. */
+	view-transition-name: onboarding-footer-actions;
 }
 
+/* The first action is always Back/Cancel — pin it bottom-left and keep the
+   primary action(s) bottom-right. */
 .actions > :first-child {
 	margin-right: auto;
+}
+
+/* @wordpress/icons SVGs carry no fill and default to black; inherit the
+   button text color so footer icons respect dark mode. */
+.actions svg {
+	fill: currentColor;
 }

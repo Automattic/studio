@@ -1,3 +1,110 @@
+.root {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	min-height: 0;
+}
+
+.state {
+	padding: var(--wpds-dimension-padding-xl);
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.header {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-sm);
+	padding-block: var(--wpds-dimension-padding-lg) var(--wpds-dimension-padding-sm);
+	padding-inline: var(--wpds-dimension-padding-lg) var(--wpds-dimension-padding-2xl);
+	min-height: 46px;
+	font-size: var(--wpds-typography-font-size-sm);
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+/* Keep in sync with .headerSidebarCollapsed in site-overview-view so the site
+   menu sits in the same spot when switching between overview and settings. */
+.headerSidebarCollapsed {
+	padding-top: calc(
+		var(--wpds-dimension-padding-xl) + var(--wpds-dimension-padding-2xl) +
+			var(--wpds-dimension-padding-lg)
+	);
+	padding-inline-start: var(--wpds-dimension-padding-xl);
+}
+
+/* Pushed to the toolbar's right edge, opposite the site dropdown. */
+.closeButton {
+	margin-inline-start: auto;
+	flex-shrink: 0;
+}
+
+.titleBlock {
+	max-width: 760px;
+	margin: 0 auto;
+	padding: var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-xl) 0;
+	width: 100%;
+}
+
+.embeddedTitleBlock {
+	width: 100%;
+	padding: 0;
+}
+
+.embeddedTitleBlock h1 {
+	margin: 0;
+	font-size: var(--wpds-typography-font-size-lg);
+	line-height: var(--wpds-typography-line-height-lg);
+	font-weight: var(--wpds-typography-font-weight-medium);
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+/* Full-width bar so the border-bottom spans the entire main area. The inner
+   wrapper centers the tablist over the same 760px column the form uses.
+   The shared `Tabs` component expects this 1px neutral baseline and lines its
+   active indicator up with it via `margin-bottom: -1px` on the tablist. */
+.tabsBar {
+	width: 100%;
+	/* Matches the sidebar's right border so the two feel like one continuous
+	   frame around the main area. */
+	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
+	margin-top: var(--wpds-dimension-padding-xl);
+}
+
+.embeddedTabsBar {
+	width: 100%;
+	margin-top: var(--wpds-dimension-padding-lg);
+	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
+}
+
+.tabsBarInner {
+	max-width: 760px;
+	margin: 0 auto;
+	padding: 0 var(--wpds-dimension-padding-xl);
+}
+
+.embeddedTabsBarInner {
+	padding: 0;
+}
+
+/* Only the form content scrolls. The tabs and title sit above this container
+   so the tablist's border-bottom isn't clipped by scrollbar-gutter
+   reservations. */
+.scroll {
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+}
+
+.contentBlock {
+	max-width: 760px;
+	margin: 0 auto;
+	padding: calc(var(--wpds-dimension-padding-2xl) * 1.5) var(--wpds-dimension-padding-xl)
+		var(--wpds-dimension-padding-2xl);
+}
+
+.embeddedContentBlock {
+	padding-top: var(--wpds-dimension-padding-xl);
+}
+
 .form {
 	display: flex;
 	flex-direction: column;
@@ -17,4 +124,37 @@
 	display: flex;
 	justify-content: flex-end;
 	gap: var(--wpds-dimension-padding-sm);
+}
+
+.phpVersionWarning,
+.inlineWarning {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--wpds-dimension-padding-xs);
+	margin: 0 0 var(--wpds-dimension-padding-md);
+	font-size: var(--wpds-typography-font-size-sm);
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.phpVersionWarning svg {
+	flex-shrink: 0;
+	fill: var(--wpds-color-fg-content-warning);
+}
+
+.debuggingActions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--wpds-dimension-padding-sm);
+}
+
+/* The "Agent" tab stacks the Skills and Instructions panels with a divider. */
+.agentPanels {
+	display: flex;
+	flex-direction: column;
+}
+
+.agentPanels > * + * {
+	margin-top: var(--wpds-dimension-padding-2xl);
+	padding-top: var(--wpds-dimension-padding-2xl);
+	border-top: 1px solid var(--wpds-color-stroke-surface-neutral);
 }

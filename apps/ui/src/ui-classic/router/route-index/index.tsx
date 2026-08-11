@@ -15,35 +15,58 @@ export const indexRoute = createRoute( {
 			queryKey: SITES_QUERY_KEY,
 			queryFn: () => context.connector.getSites(),
 		} );
-		const firstSite = sites[ 0 ];
-		if ( ! firstSite ) {
+
+		// Capture new-vs-returning once, at the only moment they differ: a
+		// brand-new user reaches here with no sites (then goes to /welcome), a
+		// returning user arrives with sites already. Never overwrite once set,
+		// and never let this block or break the redirect below.
+		try {
+			const hints = await context.connector.getOnboardingHints();
+			if ( hints.returningUser === undefined ) {
+				await context.connector.setOnboardingHints( { returningUser: sites.length > 0 } );
+			}
+		} catch {
+			// Non-fatal: the checklist just falls back to the new-user set.
+		}
+
+		if ( sites.length === 0 ) {
+			// Brand-new users see the first-run welcome (log in or skip) before
+			// the add-a-site flow.
 			const onboardingCompleted = await context.connector.getOnboardingCompleted();
 			throw redirect( { to: onboardingCompleted ? '/onboarding' : '/welcome' } );
 		}
 
-		// Return the user to their last visited site (recorded by the dashboard
-		// layout), validating against live data so a stale id from a deleted
-		// site falls through to the sidebar's top site — not the raw fetch
-		// order. `sortSites` sorts in place, so sort a copy.
+		// Return the user to where they were (recorded by the dashboard
+		// layout), validating against live data so stale ids from deleted
+		// sessions/sites fall through to the defaults.
 		const lastVisited = readLastVisited();
-		const targetSite =
-			( lastVisited.siteId && sites.find( ( site ) => site.id === lastVisited.siteId ) ) ||
-			sortSites( [ ...sites ] )[ 0 ];
 
-		// Without chat there is nothing to open a session for; the site
-		// overview is the site's home instead (matching the sidebar).
+		// Without chat (signed out, offline, or disabled in settings), the site
+		// overview is the home — never restore or create chat sessions.
 		const { chatEnabled } = await resolveAgenticFeatures( context );
 		if ( ! chatEnabled ) {
-			throw redirect( {
-				to: '/sites/$siteId/overview',
-				params: { siteId: targetSite.id },
-			} );
+			const targetSite =
+				( lastVisited.siteId && sites.find( ( site ) => site.id === lastVisited.siteId ) ) ||
+				sites[ 0 ];
+			throw redirect( { to: '/sites/$siteId/overview', params: { siteId: targetSite.id } } );
 		}
 
 		const sessions = await context.queryClient.fetchQuery( {
 			queryKey: SESSIONS_QUERY_KEY,
 			queryFn: () => context.connector.getSessions(),
 		} );
+
+		if ( lastVisited.sessionId ) {
+			const lastSession = sessions.find(
+				( session ) => session.id === lastVisited.sessionId && ! session.archived
+			);
+			if ( lastSession ) {
+				throw redirect( { to: '/sessions/$sessionId', params: { sessionId: lastSession.id } } );
+			}
+		}
+		const targetSite =
+			( lastVisited.siteId && sites.find( ( site ) => site.id === lastVisited.siteId ) ) ||
+			sortSites( [ ...sites ] )[ 0 ];
 
 		// Sessions arrive sorted newest-first, so the first session owned by
 		// the site is its most recently updated active one.

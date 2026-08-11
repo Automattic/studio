@@ -7,8 +7,40 @@ import { ZipArchive } from 'archiver';
 import { glob } from 'glob';
 import { LoggerError } from 'cli/logger';
 
-const ZIP_COMPRESSION_LEVEL = 9;
+const ZIP_COMPRESSION_LEVEL = 6;
 const STUDIO_LOADER_ARCHIVE_PATH = `wp-content/mu-plugins/${ STUDIO_LOADER_MU_PLUGIN_FILENAME }`;
+
+// Media, archives, and fonts are already compressed — deflating them again wastes
+// CPU for a negligible size win, so archive them with the STORE method instead.
+const STORE_EXTENSIONS = new Set( [
+	'.jpg',
+	'.jpeg',
+	'.png',
+	'.gif',
+	'.webp',
+	'.avif',
+	'.heic',
+	'.mp4',
+	'.m4v',
+	'.mov',
+	'.webm',
+	'.mkv',
+	'.avi',
+	'.mp3',
+	'.m4a',
+	'.aac',
+	'.ogg',
+	'.flac',
+	'.zip',
+	'.gz',
+	'.tgz',
+	'.bz2',
+	'.xz',
+	'.7z',
+	'.woff',
+	'.woff2',
+	'.pdf',
+] );
 
 export async function archiveSiteContent(
 	siteFolder: string,
@@ -59,7 +91,9 @@ export async function archiveSiteContent(
 			// can lead to EMFILE errors.
 			try {
 				const resolvedPath = fs.realpathSync( path.join( wpContentPath, relativePath ) );
-				archiveBuilder.file( resolvedPath, { name: archiveEntryPath } );
+				const store = STORE_EXTENSIONS.has( path.extname( relativePath ).toLowerCase() );
+				const entryData = { name: archiveEntryPath, store };
+				archiveBuilder.file( resolvedPath, entryData );
 			} catch ( error ) {
 				// Dangling symlink. Skip it rather than aborting the whole archive.
 				console.warn( `Skipping ${ archiveEntryPath }: ${ error }` );

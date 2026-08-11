@@ -18,6 +18,7 @@ import {
 import {
 	deleteAiSessionPlacement,
 	readAiSessionPlacement,
+	readAiSessionPlacements,
 } from '@studio/common/ai/sessions/placement';
 import {
 	appendModelChangeEntry,
@@ -52,6 +53,8 @@ import {
 	updateSharedConfig,
 	updateSharedSession,
 } from '@studio/common/lib/shared-config';
+import { getSiteFileAccess } from '@studio/common/lib/site-file-access';
+import { getSiteRuntime, siteModeFromRuntime } from '@studio/common/lib/site-runtime';
 import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { fetchLatestRewindId, fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import { detectInstalledApps } from '@studio/common/lib/user-settings/installed-apps';
@@ -73,6 +76,7 @@ import express from 'express';
 import { rateLimit } from 'express-rate-limit';
 import { z } from 'zod';
 import { isEditor, isTerminal, openInEditor, openInTerminal, openPath } from './open-in-os';
+import type { PermissionDecision } from '@studio/common/ai/tool-permissions';
 import type { SiteListItem } from '@studio/common/lib/cli-events';
 import type { EditSiteOptions } from '@studio/common/sites/edit';
 import type { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
@@ -154,6 +158,8 @@ function toSiteDetails( site: SiteListItem ) {
 		running: site.running,
 		url: site.url,
 		phpVersion: site.phpVersion,
+		runtime: site.runtime,
+		fileAccess: site.fileAccess,
 		customDomain: site.customDomain,
 		enableHttps: site.enableHttps,
 		adminUsername: site.adminUsername,
@@ -580,6 +586,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				name?: string;
 				path?: string;
 				phpVersion?: string;
+				runtime?: SiteCreateOptions[ 'runtime' ];
+				fileAccess?: SiteCreateOptions[ 'fileAccess' ];
 				wpVersion?: string;
 				customDomain?: string;
 				enableHttps?: boolean;
@@ -611,6 +619,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 					siteId,
 					wpVersion: body.wpVersion,
 					phpVersion: body.phpVersion,
+					runtime: body.runtime,
+					fileAccess: body.fileAccess,
 					customDomain: body.customDomain,
 					enableHttps: body.enableHttps,
 					adminUsername: body.adminUsername,
@@ -671,7 +681,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 
 	// Edit a site's settings — the same CLI `site set` the desktop uses, built
 	// from the shared arg builder. Mirrors the desktop's diff: only changed
-	// fields are forwarded (the agentic UI doesn't edit runtime/file-access).
+	// fields are forwarded.
 	api.post(
 		'/sites/:id/update',
 		asyncHandler( async ( req: Request, res: Response ) => {
@@ -704,6 +714,12 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			}
 			if ( wpVersion ) {
 				options.wp = isWordPressDevVersion( wpVersion ) ? 'nightly' : wpVersion;
+			}
+			if ( getSiteRuntime( updated ) !== getSiteRuntime( current ) ) {
+				options.runtime = siteModeFromRuntime( getSiteRuntime( updated ) );
+			}
+			if ( getSiteFileAccess( updated ) !== getSiteFileAccess( current ) ) {
+				options.fileAccess = getSiteFileAccess( updated );
 			}
 			if ( ( updated.enableXdebug ?? false ) !== ( current.enableXdebug ?? false ) ) {
 				options.xdebug = updated.enableXdebug ?? false;
@@ -768,6 +784,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				name: newName,
 				siteId: newId,
 				phpVersion: source.phpVersion,
+				runtime: source.runtime,
+				fileAccess: source.fileAccess,
 				adminUsername: source.adminUsername || undefined,
 				adminPassword: source.adminPassword ? decodePassword( source.adminPassword ) : undefined,
 				adminEmail: source.adminEmail || undefined,
@@ -940,6 +958,121 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
+	// --- Site checkpoints ------------------------------------------------------
+	// Files + database save points, backed by the CLI checkpoint engine. Every
+	// route forks the same `studio checkpoint` command the terminal user runs.
+
+	// Runs a checkpoint CLI command to completion, resolving with the captured
+	// stdout (used by `list --json`; the mutations ignore it).
+	function runCheckpointCommand( args: string[] ): Promise< string > {
+		return new Promise< string >( ( resolve, reject ) => {
+			const [ emitter ] = execute( args, { output: 'capture' } );
+			emitter.on( 'success', ( { result } ) => resolve( result?.stdout ?? '' ) );
+			emitter.on( 'failure', ( { error } ) => reject( error ) );
+			emitter.on( 'error', ( { error } ) => reject( error ) );
+		} );
+	}
+
+	api.get(
+		'/sites/:id/checkpoints',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const site = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
+			if ( ! site ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			const stdout = await runCheckpointCommand( [
+				'checkpoint',
+				'list',
+				'--path',
+				site.path,
+				'--json',
+			] );
+			// `checkpoint list --json` prints a single JSON object on stdout:
+			// `{ checkpoints: [...], interruptedRestore: ... }`. Parse from the
+			// first `{` so any stray CLI output before it can't break the parse.
+			const jsonStart = stdout.indexOf( '{' );
+			const parsed = JSON.parse( jsonStart >= 0 ? stdout.slice( jsonStart ) : stdout ) as {
+				checkpoints?: unknown[];
+			};
+			res.json( parsed.checkpoints ?? [] );
+		} )
+	);
+
+	api.post(
+		'/sites/:id/checkpoints',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const site = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
+			if ( ! site ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			const label = typeof req.body?.label === 'string' ? req.body.label.trim() : '';
+			const args = [ 'checkpoint', 'create', '--path', site.path ];
+			if ( label ) {
+				args.push( '--label', label );
+			}
+			await runCheckpointCommand( args );
+			res.status( 204 ).end();
+		} )
+	);
+
+	api.post(
+		'/sites/:id/checkpoints/:checkpointId/restore',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const site = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
+			if ( ! site ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			// Refuse to rewrite the site tree under an agent that is actively
+			// working on it — restoring mid-run would yank files out from under
+			// the run's tools. Active runs are matched to the site through their
+			// session placement.
+			const activeRuns = runManager.listActiveAgentRuns();
+			if ( activeRuns.length > 0 ) {
+				const placements = await readAiSessionPlacements();
+				const busy = activeRuns.some(
+					( run ) => placements[ run.sessionId ]?.siteId === req.params.id
+				);
+				if ( busy ) {
+					res.status( 409 ).json( {
+						error: 'An agent is currently working on this site. Stop the run before restoring.',
+					} );
+					return;
+				}
+			}
+			await runCheckpointCommand( [
+				'checkpoint',
+				'restore',
+				req.params.checkpointId,
+				'--path',
+				site.path,
+				'--yes',
+			] );
+			res.status( 204 ).end();
+		} )
+	);
+
+	api.delete(
+		'/sites/:id/checkpoints/:checkpointId',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const site = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
+			if ( ! site ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			await runCheckpointCommand( [
+				'checkpoint',
+				'delete',
+				req.params.checkpointId,
+				'--path',
+				site.path,
+			] );
+			res.status( 204 ).end();
+		} )
+	);
+
 	// NOTE: there is intentionally no `/media/read` endpoint. Streaming an
 	// arbitrary local file by absolute path over HTTP is an arbitrary-read risk
 	// (the API is reachable cross-origin from the browser), and nothing in the UI
@@ -969,6 +1102,19 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				return;
 			}
 			await openPath( site.path );
+			res.status( 204 ).end();
+		} )
+	);
+
+	api.post(
+		'/sites/:id/open-debug-log',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const site = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
+			if ( ! site ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			await openPath( path.join( site.path, 'wp-content', 'debug.log' ) );
 			res.status( 204 ).end();
 		} )
 	);
@@ -1362,6 +1508,19 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.post( '/runs/:runId/answer', ( req: Request, res: Response ) => {
 		const { answers } = req.body as { answers?: Record< string, string > };
 		runManager.answerAgentRun( req.params.runId, answers ?? {} );
+		res.sendStatus( 204 );
+	} );
+
+	api.post( '/runs/:runId/permission', ( req: Request, res: Response ) => {
+		const { requestId, decision } = req.body as {
+			requestId?: string;
+			decision?: PermissionDecision;
+		};
+		if ( ! requestId || ! decision ) {
+			res.status( 400 ).json( { error: 'requestId and decision are required' } );
+			return;
+		}
+		runManager.answerAgentPermission( req.params.runId, requestId, decision );
 		res.sendStatus( 204 );
 	} );
 

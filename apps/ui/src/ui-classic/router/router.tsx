@@ -6,11 +6,15 @@ import { rootRoute } from './layout-root';
 import { settingsLayoutRoute } from './layout-settings';
 import { indexRoute } from './route-index';
 import { newSessionRoute } from './route-new-session';
+import { onboardingAiRoute } from './route-onboarding-ai';
 import { onboardingBlueprintRoute } from './route-onboarding-blueprint';
 import { onboardingConnectRoute } from './route-onboarding-connect';
 import { onboardingCreateRoute } from './route-onboarding-create';
 import { onboardingHomeRoute } from './route-onboarding-home';
 import { onboardingImportRoute } from './route-onboarding-import';
+import { onboardingPluginRoute } from './route-onboarding-plugin';
+import { onboardingPluginConnectRoute } from './route-onboarding-plugin-connect';
+import { onboardingPluginCreateRoute } from './route-onboarding-plugin-create';
 import { onboardingTourRoute } from './route-onboarding-tour';
 import { sessionDetailRoute } from './route-session-detail';
 import { settingsRoute } from './route-settings';
@@ -26,16 +30,22 @@ const routeTree = rootRoute.addChildren( [
 		newSessionRoute,
 		sessionDetailRoute,
 		siteOverviewRoute,
-		siteSettingsRoute,
-		settingsLayoutRoute.addChildren( [ settingsRoute ] ),
+		// Settings lives inside the dashboard layout so opening it keeps the
+		// sidebar and (warm) site preview mounted; the settings layout hides
+		// them behind a fullscreen chrome and closing just navigates back.
+		settingsLayoutRoute.addChildren( [ settingsRoute, siteSettingsRoute ] ),
 	] ),
 	onboardingLayoutRoute.addChildren( [
-		onboardingHomeRoute,
 		onboardingTourRoute,
+		onboardingAiRoute,
+		onboardingHomeRoute,
 		onboardingConnectRoute,
 		onboardingCreateRoute,
 		onboardingBlueprintRoute,
 		onboardingImportRoute,
+		onboardingPluginRoute,
+		onboardingPluginCreateRoute,
+		onboardingPluginConnectRoute,
 	] ),
 ] );
 
@@ -44,6 +54,14 @@ export function createAppRouter( context: RouterContext ) {
 		routeTree,
 		context,
 		defaultPreload: 'intent',
+		// Only animate navigations within the site-creation onboarding flow.
+		// Returning false skips document.startViewTransition entirely for every
+		// other navigation (e.g. switching sites/sessions), so the rest of the
+		// app navigates instantly instead of running the root fade/slide.
+		defaultViewTransition: {
+			types: ( { toLocation } ) =>
+				toLocation.pathname.startsWith( '/onboarding' ) ? [ 'onboarding' ] : false,
+		},
 		history: createPackagedRouterHistory(),
 	} );
 }

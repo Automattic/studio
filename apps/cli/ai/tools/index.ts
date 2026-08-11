@@ -1,10 +1,18 @@
 import { emitChatArtifactWidgets } from 'cli/ai/chat-artifacts';
+import { withAutoCheckpoint } from './auto-checkpoint';
+import {
+	createCheckpointTool,
+	diffCheckpointTool,
+	listCheckpointsTool,
+	restoreCheckpointTool,
+} from './checkpoints';
 import { createPreviewTool } from './create-preview';
 import { createSiteTool } from './create-site';
 import { dataLiberationTool } from './data-liberation';
 import { deletePreviewTool } from './delete-preview';
 import { deleteSiteTool } from './delete-site';
 import { exportSiteTool } from './export-site';
+import { generateImageTool } from './generate-image';
 import { importSiteTool } from './import-site';
 import { inspectDesignTool } from './inspect-design';
 import { installTaxonomyScriptsTool } from './install-taxonomy-scripts';
@@ -48,6 +56,7 @@ export const studioToolDefinitions: AnyStudioAgentTool[] = [
 	scaffoldThemeTool,
 	validateBlocksTool,
 	takeScreenshotTool,
+	generateImageTool,
 	inspectDesignTool,
 	shareScreenshotTool,
 	installTaxonomyScriptsTool,
@@ -59,6 +68,10 @@ export const studioToolDefinitions: AnyStudioAgentTool[] = [
 	pullSiteTool,
 	importSiteTool,
 	exportSiteTool,
+	createCheckpointTool,
+	listCheckpointsTool,
+	restoreCheckpointTool,
+	diffCheckpointTool,
 	openAnnotationBrowserTool,
 	waitForAnnotationsTool,
 ];
@@ -87,7 +100,14 @@ export function resolveStudioToolDefinitions(
 		if ( candidate.name === shareScreenshotTool.name && ! options.remoteSession ) {
 			return [];
 		}
-		return [ withChatArtifactEmission( candidate, options.emitChatArtifacts === true ) ];
+		// Auto-checkpoint wraps first so the emission wrapper sees (and emits)
+		// any checkpoint artifact the decorator attaches to the tool result.
+		return [
+			withChatArtifactEmission(
+				withAutoCheckpoint( candidate ),
+				options.emitChatArtifacts === true
+			),
+		];
 	} );
 }
 

@@ -22,15 +22,20 @@ export function usePublishPreviewSite() {
 		onMutate: ( { siteId } ) => {
 			reportSyncPending( siteId, 'preview' );
 		},
-		onSuccess: ( _result, { siteId } ) => {
+		onSuccess: ( result, { siteId } ) => {
 			reportSyncSuccess( siteId, 'preview' );
 			void queryClient.invalidateQueries( { queryKey: SNAPSHOTS_QUERY_KEY } );
-			toast.success( __( 'Preview site published' ) );
+			toast.success( __( 'Preview site published' ), {
+				action: {
+					label: __( 'Copy link' ),
+					onClick: () => void connector.copyText( result.url ),
+				},
+			} );
 		},
 		onError: ( error, { siteId } ) => {
 			const message = error instanceof Error ? error.message : String( error );
 			reportSyncError( siteId, 'preview', message );
-			toast.error( __( 'Failed to publish preview site' ) );
+			toast.error( __( 'Failed to publish preview site' ), { description: message } );
 		},
 	} );
 }

@@ -1,6 +1,16 @@
 import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import { generateCustomDomainFromSiteName } from '@studio/common/lib/domains';
 import { generatePassword } from '@studio/common/lib/passwords';
+import {
+	SITE_FILE_ACCESS_SITE_DIRECTORY,
+	type SiteFileAccess,
+} from '@studio/common/lib/site-file-access';
+import {
+	getSiteRuntime,
+	SITE_RUNTIME_NATIVE_PHP,
+	SITE_RUNTIME_PLAYGROUND,
+	type SiteRuntime,
+} from '@studio/common/lib/site-runtime';
 import { RecommendedPHPVersion } from '@studio/common/types/php-versions';
 import { BaseControl, CheckboxControl, TextControl } from '@wordpress/components';
 import { DataForm, useFormValidity } from '@wordpress/dataviews';
@@ -8,6 +18,7 @@ import { __, _n, sprintf } from '@wordpress/i18n';
 import { chevronDown, chevronLeft, chevronRight, error as errorIcon } from '@wordpress/icons';
 import { Button, Icon } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { BusyOverlay } from '@/components/busy-overlay';
 import { LearnHowLink, LearnMoreLink } from '@/components/learn-more';
 import { OnboardingFooter } from '@/components/onboarding-footer';
 import {
@@ -15,9 +26,11 @@ import {
 	adminPasswordField,
 	adminUsernameField,
 	customDomainField,
-	phpVersionField,
-	siteNameField,
 	customDomainToggleField,
+	fileAccessField,
+	phpVersionField,
+	runtimeField,
+	siteNameField,
 	wpVersionField,
 } from '@/components/site-fields';
 import { useConnector } from '@/data/core';
@@ -41,6 +54,8 @@ export interface CreateSiteFormValues {
 	name: string;
 	path: string;
 	phpVersion: SupportedPHPVersion;
+	runtime: SiteRuntime;
+	fileAccess: SiteFileAccess;
 	wpVersion: string;
 	customDomain?: string;
 	enableHttps: boolean;
@@ -79,6 +94,8 @@ interface FormData {
 	// toggle before `generateProposedPath` resolves.
 	isPathPending: boolean;
 	phpVersion: SupportedPHPVersion;
+	runtime: SiteRuntime;
+	fileAccess: SiteFileAccess;
 	wpVersion: string;
 	useCustomDomain: boolean;
 	customDomain: string;
@@ -91,6 +108,8 @@ interface FormData {
 const SIMPLE_FIELDS = [
 	'name',
 	'phpVersion',
+	'runtime',
+	'fileAccess',
 	'wpVersion',
 	'enableHttps',
 	'adminUsername',
@@ -107,6 +126,8 @@ function createDefaultFormData(): FormData {
 		pathError: '',
 		isPathPending: false,
 		phpVersion: RecommendedPHPVersion,
+		runtime: SITE_RUNTIME_NATIVE_PHP,
+		fileAccess: SITE_FILE_ACCESS_SITE_DIRECTORY,
 		wpVersion: DEFAULT_WORDPRESS_VERSION,
 		useCustomDomain: false,
 		customDomain: '',
@@ -144,6 +165,8 @@ function applyInitialValues(
 			isPathPending: defaults.isPathPending,
 		},
 		phpVersion: { phpVersion: defaults.phpVersion },
+		runtime: { runtime: defaults.runtime },
+		fileAccess: { fileAccess: defaults.fileAccess },
 		wpVersion: { wpVersion: defaults.wpVersion },
 		customDomain: {
 			useCustomDomain: defaults.useCustomDomain,
@@ -436,8 +459,19 @@ export function CreateSiteForm( {
 
 	const { data: wpVersions } = useWordPressVersions();
 	const isOffline = useOffline();
+
+	// Land keyboard focus in the Site name field on mount — it's the first
+	// thing every flow asks for. The onboarding layout's heading-focus
+	// fallback yields when a page claims focus itself.
+	useEffect( () => {
+		const input = formRef.current?.querySelector< HTMLInputElement >(
+			'input[type="text"], input:not([type])'
+		);
+		input?.focus();
+	}, [] );
+
 	// While offline, "latest" is the only version installable without a
-	// download, so it's forced — same as the legacy version selector.
+	// download. Otherwise, discard unsupported preferred versions.
 	useEffect( () => {
 		if ( ! isOffline && ! wpVersions?.length ) return;
 		setData( ( prev ) => {
@@ -467,6 +501,8 @@ export function CreateSiteForm( {
 				},
 			},
 			phpVersionField< FormData >(),
+			runtimeField< FormData >(),
+			fileAccessField< FormData >(),
 			wpVersionField< FormData >( DEFAULT_WORDPRESS_VERSION, wpVersions, {
 				offline: isOffline,
 			} ),
@@ -505,6 +541,11 @@ export function CreateSiteForm( {
 					id: 'versions',
 					layout: { type: 'row', alignment: 'start' },
 					children: [ 'phpVersion', 'wpVersion' ],
+				},
+				{
+					id: 'runtimeSettings',
+					layout: { type: 'row' },
+					children: [ 'runtime', 'fileAccess' ],
 				},
 				{
 					id: 'adminCredentials',
@@ -575,6 +616,9 @@ export function CreateSiteForm( {
 			if ( ! prev.useCustomDomain && next.useCustomDomain && ! next.customDomain ) {
 				next.customDomain = generateCustomDomainFromSiteName( next.name );
 			}
+			if ( next.runtime !== prev.runtime && getSiteRuntime( next ) === SITE_RUNTIME_PLAYGROUND ) {
+				next.fileAccess = SITE_FILE_ACCESS_SITE_DIRECTORY;
+			}
 			return next;
 		} );
 	}, [] );
@@ -590,6 +634,11 @@ export function CreateSiteForm( {
 			name: data.name.trim(),
 			path: data.path,
 			phpVersion: data.phpVersion,
+			runtime: data.runtime,
+			fileAccess:
+				getSiteRuntime( data ) === SITE_RUNTIME_PLAYGROUND
+					? SITE_FILE_ACCESS_SITE_DIRECTORY
+					: data.fileAccess,
 			wpVersion: data.wpVersion,
 			customDomain: data.useCustomDomain
 				? data.customDomain || generateCustomDomainFromSiteName( data.name )
@@ -618,7 +667,10 @@ export function CreateSiteForm( {
 	} );
 
 	const advancedErrorCount = countAdvancedErrors( validity, advancedForm );
-	const actions = (
+
+	// The buttons stay inside the <form> element so the submit button keeps
+	// its implicit form association while floating in the footer.
+	const actionButtons = (
 		<>
 			<Button
 				type="button"
@@ -646,7 +698,15 @@ export function CreateSiteForm( {
 
 	return (
 		<form ref={ formRef } className={ styles.form } onSubmit={ handleSubmit }>
-			<div className={ styles.panel }>
+			{ /* While creating, shield the rest of the window and freeze the
+			     fields (inert) — the submit button's spinner is the progress
+			     indication. */ }
+			<BusyOverlay active={ !! isSubmitting } />
+			{ /* The frosted panel wraps only the fields: its backdrop-filter
+			     turns it into a containing block for fixed descendants, so the
+			     fixed OnboardingFooter must stay outside (but inside the form
+			     for the submit button's implicit association). */ }
+			<div className={ styles.panel } inert={ isSubmitting || undefined }>
 				<DataForm< FormData >
 					data={ data }
 					fields={ fields }
@@ -715,7 +775,7 @@ export function CreateSiteForm( {
 				) }
 			</div>
 
-			<OnboardingFooter>{ actions }</OnboardingFooter>
+			<OnboardingFooter>{ actionButtons }</OnboardingFooter>
 		</form>
 	);
 }

@@ -271,7 +271,7 @@ export function Composer( {
 		restore: restoreAttachments,
 		dragHandlers,
 		pasteHandlers,
-	} = useComposerAttachments();
+	} = useComposerAttachments( getAiModelFamily( model ) );
 
 	useEffect( () => {
 		if ( ! draftPrompt || appliedDraftPromptIdRef.current === draftPrompt.id ) {

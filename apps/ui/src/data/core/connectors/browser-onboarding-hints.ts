@@ -16,6 +16,11 @@ export function readOnboardingHints(): OnboardingHintsState {
 }
 
 export function writeOnboardingHints( partial: Partial< OnboardingHintsState > ): void {
-	const merged: OnboardingHintsState = { ...readOnboardingHints(), ...partial };
+	const current = readOnboardingHints();
+	const merged: OnboardingHintsState = {
+		...current,
+		...partial,
+		completedItems: { ...( current.completedItems ?? {} ), ...( partial.completedItems ?? {} ) },
+	};
 	window.localStorage.setItem( ONBOARDING_HINTS_STORAGE_KEY, JSON.stringify( merged ) );
 }

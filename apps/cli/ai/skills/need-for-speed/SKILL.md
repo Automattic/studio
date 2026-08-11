@@ -42,10 +42,11 @@ Based on the metrics, suggest specific actions:
 - **High TTFB**: Enable page caching (e.g., `wp_cli: plugin install wp-super-cache --activate`), check for slow database queries, consider object caching.
 - **High LCP / FCP**: Check for render-blocking CSS/JS, add lazy loading for below-the-fold images, defer non-critical scripts.
 - **Large JS payload**: Identify heavy plugins from the scripts URL list, suggest deactivating unused plugins, check for jQuery dependency chains.
-- **Large CSS payload**: Look for unused theme stylesheets, check for multiple Google Fonts loads.
+- **Large CSS payload**: Look for unused theme stylesheets, check for multiple Google Fonts loads, move standard color/type/spacing/layout styling into `theme.json` where possible, and avoid global CSS for one-off block styling that block attributes can express.
 - **Many HTTP requests**: Suggest reducing plugin count, enabling asset concatenation.
 - **High CLS**: Check for images without explicit width/height dimensions, ads or dynamic content injection, web fonts causing layout shifts.
 - **Large DOM**: Check theme template complexity, excessive nesting in block content, too many wrapper elements.
+- **Large frontend JS from custom behavior**: Prefer block assets and `viewScriptModule` for behavior attached to a block. Keep plain enqueued scripts scoped and progressive; do not enqueue site-wide JavaScript for a feature that appears on one block or page.
 
 ## Important Notes
 

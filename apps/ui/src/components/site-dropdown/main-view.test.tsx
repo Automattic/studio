@@ -1,4 +1,4 @@
-import { useIsMutating } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, useIsMutating } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as Menu from '@/components/menu';
@@ -16,6 +16,7 @@ const {
 	stopSiteMutate,
 } = vi.hoisted( () => ( {
 	connector: {
+		capabilities: {},
 		copyText: vi.fn(),
 		openExternalUrl: vi.fn(),
 	},
@@ -44,7 +45,12 @@ vi.mock( '@/data/queries/use-connected-wpcom-sites', () => ( {
 } ) );
 
 vi.mock( '@/data/queries/use-agentic-features', () => ( {
-	useAgenticFeatures: vi.fn( () => ( { enabled: true, reason: null, isReady: true } ) ),
+	useAgenticFeatures: vi.fn( () => ( {
+		enabled: true,
+		chatEnabled: true,
+		reason: null,
+		isReady: true,
+	} ) ),
 } ) );
 
 vi.mock( '@/data/queries/use-auth-user', () => ( {
@@ -53,6 +59,11 @@ vi.mock( '@/data/queries/use-auth-user', () => ( {
 
 vi.mock( '@/data/queries/use-preview-site', () => ( {
 	usePublishPreviewSite: () => ( { isPending: false, mutate: publishPreviewMutate } ),
+} ) );
+
+vi.mock( '@/data/queries/use-checkpoints', () => ( {
+	useCheckpoints: () => ( { data: [] } ),
+	useCreateCheckpoint: () => ( { isPending: false, mutate: vi.fn() } ),
 } ) );
 
 vi.mock( '@/data/queries/use-sites', () => ( {
@@ -73,18 +84,6 @@ vi.mock( '@/data/queries/use-sync-site', () => ( {
 	usePushSiteToLive: () => ( { mutate: vi.fn() } ),
 } ) );
 
-const liveSite: SyncSite = {
-	id: 123,
-	localSiteId: 'site-1',
-	name: 'Live Site',
-	url: 'example.com',
-	isStaging: false,
-	isPressable: false,
-	syncSupport: 'already-connected',
-	lastPullTimestamp: null,
-	lastPushTimestamp: null,
-};
-
 const site: SiteDetails = {
 	id: 'site-1',
 	name: 'Demo Site',
@@ -94,28 +93,32 @@ const site: SiteDetails = {
 	phpVersion: '8.3',
 };
 
-function renderMainView( {
-	siteOverrides = {},
-	activity = null,
-}: {
-	siteOverrides?: Partial< SiteDetails >;
-	activity?: SyncActivity | null;
-} = {} ) {
-	// The live row's "more" submenu needs the Menu.Root + Popup contexts the
-	// dropdown provides around MainView in the real app.
+function renderMainView(
+	props: {
+		onDisconnectClick?: () => void;
+		onPullClick?: () => void;
+		onPushClick?: () => void;
+		siteOverrides?: Partial< SiteDetails >;
+		activity?: SyncActivity | null;
+	} = {}
+) {
+	const queryClient = new QueryClient();
 	return render(
-		<Menu.Root open>
-			<Menu.Popup>
-				<MainView
-					site={ { ...site, ...siteOverrides } }
-					activity={ activity }
-					onSetupClick={ vi.fn() }
-					onDisconnectClick={ vi.fn() }
-					onPullClick={ vi.fn() }
-					onPushClick={ vi.fn() }
-				/>
-			</Menu.Popup>
-		</Menu.Root>
+		<QueryClientProvider client={ queryClient }>
+			<Menu.Root open>
+				<Menu.Popup>
+					<MainView
+						site={ { ...site, ...props.siteOverrides } }
+						activity={ props.activity ?? null }
+						lastSyncLog={ null }
+						onSetupClick={ vi.fn() }
+						onDisconnectClick={ props.onDisconnectClick ?? vi.fn() }
+						onPullClick={ props.onPullClick ?? vi.fn() }
+						onPushClick={ props.onPushClick ?? vi.fn() }
+					/>
+				</Menu.Popup>
+			</Menu.Root>
+		</QueryClientProvider>
 	);
 }
 
@@ -205,6 +208,28 @@ describe( 'MainView', () => {
 		consoleError.mockRestore();
 	} );
 
+	it( 'shows disconnect in the live-site actions menu', () => {
+		const onDisconnectClick = vi.fn();
+		connectedSites.splice( 0, connectedSites.length, {
+			id: 123,
+			name: 'Live Site',
+			url: 'https://example.com',
+			localSiteId: site.id,
+			isStaging: false,
+			isPressable: false,
+			syncSupport: 'already-connected',
+			lastPullTimestamp: null,
+			lastPushTimestamp: null,
+		} );
+
+		renderMainView( { onDisconnectClick } );
+
+		fireEvent.click( screen.getByRole( 'menuitem', { name: 'More live site actions' } ) );
+		fireEvent.click( screen.getByRole( 'menuitem', { name: 'Disconnect' } ) );
+
+		expect( onDisconnectClick ).toHaveBeenCalledTimes( 1 );
+	} );
+
 	it( 'shows detailed pull progress in the open site status', () => {
 		renderMainView( {
 			activity: {
@@ -215,8 +240,13 @@ describe( 'MainView', () => {
 			},
 		} );
 
-		expect( screen.getByRole( 'status' ) ).toHaveTextContent( 'Pulling from live…' );
-		expect( screen.getByRole( 'status' ) ).toHaveTextContent( 'Creating remote backup… (24%)' );
+		const statuses = screen.getAllByRole( 'status' );
+		expect(
+			statuses.some( ( status ) => status.textContent?.includes( 'Pulling from live…' ) )
+		).toBe( true );
+		expect(
+			statuses.some( ( status ) => status.textContent?.includes( 'Creating remote backup… (24%)' ) )
+		).toBe( true );
 	} );
 
 	it( 'updates the existing preview site while the snapshot is fresh', () => {
@@ -252,32 +282,15 @@ describe( 'MainView', () => {
 		);
 	} );
 
-	it( 'labels the live sync controls with plain actions while idle', () => {
-		connectedSites.splice( 0, connectedSites.length, liveSite );
-
-		renderMainView();
-
-		const pullButton = screen.getByRole( 'button', { name: 'Pull from live' } );
-		expect( pullButton.getAttribute( 'aria-disabled' ) ).not.toBe( 'true' );
-		expect( screen.getByRole( 'button', { name: 'Push to live' } ) ).toBeInTheDocument();
-	} );
-
-	it( 'reflects an in-flight pull on both live sync controls', () => {
+	it( 'labels the preview action while another sync is in progress', () => {
 		vi.mocked( useIsMutating ).mockImplementation( ( filters ) =>
 			filters?.mutationKey?.[ 0 ] === 'pull-site-from-live' ? 1 : 0
 		);
-		connectedSites.splice( 0, connectedSites.length, liveSite );
 
 		renderMainView();
 
-		const pullButton = screen.getByRole( 'button', { name: 'Pulling from live…' } );
-		expect( pullButton ).toHaveAttribute( 'aria-disabled', 'true' );
-
-		const pushButton = screen.getByRole( 'button', { name: 'Push to live (sync in progress)' } );
-		expect( pushButton ).toHaveAttribute( 'aria-disabled', 'true' );
-
 		expect(
 			screen.getByRole( 'button', { name: 'Update preview site (sync in progress)' } )
-		).toBeInTheDocument();
+		).toHaveAttribute( 'aria-disabled', 'true' );
 	} );
 } );

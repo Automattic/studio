@@ -110,6 +110,7 @@ describe( 'CreateSiteForm', () => {
 			capabilities: {
 				nativeFolderPicker: false,
 				nativeSaveDialog: false,
+				siteCheckpoints: false,
 				openInOS: false,
 				annotatePreview: false,
 				readLocalMedia: false,
@@ -424,6 +425,7 @@ describe( 'CreateSiteForm', () => {
 			capabilities: {
 				nativeFolderPicker: true,
 				nativeSaveDialog: false,
+				siteCheckpoints: false,
 				openInOS: false,
 				annotatePreview: false,
 				readLocalMedia: false,

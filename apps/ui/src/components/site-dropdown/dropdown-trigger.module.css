@@ -43,6 +43,9 @@
 }
 
 .siteIcon {
+	--site-icon-size: 44px;
+	--site-icon-border-radius: 0;
+
 	width: 100%;
 	height: 100%;
 	border-radius: 0;
@@ -168,7 +171,7 @@
 }
 
 .dot_running {
-	background-color: var(--studio-color-status-running);
+	background-color: #16a34a;
 }
 
 .dot_stopped {
@@ -219,6 +222,12 @@
 	line-height: 1;
 }
 
+.chevron {
+	flex: 0 0 auto;
+	color: color-mix(in srgb, var(--site-menu-foreground) 72%, transparent);
+	fill: currentColor;
+}
+
 @keyframes siteDotBlink {
 	0%,
 	100% {
@@ -227,10 +236,4 @@
 	50% {
 		opacity: 0.25;
 	}
-}
-
-.chevron {
-	flex: 0 0 auto;
-	color: color-mix(in srgb, var(--site-menu-foreground) 72%, transparent);
-	fill: currentColor;
 }

@@ -4,6 +4,12 @@ import { useConnector } from '@/data/core';
 export const WORDPRESS_VERSIONS_QUERY_KEY = [ 'wordpress-versions' ] as const;
 export const WP_VERSION_QUERY_KEY = [ 'wp-version' ] as const;
 
+/**
+ * Installable WordPress versions for the create-site and site-settings
+ * forms. The list changes only when WordPress ships a release, so keep it
+ * fresh for an hour; failures fall back to the form's static default
+ * rather than blocking site creation.
+ */
 export function useWordPressVersions() {
 	const connector = useConnector();
 	return useQuery( {

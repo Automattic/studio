@@ -2,6 +2,8 @@ import fs from 'fs';
 import path from 'path';
 import { readFile, writeFile } from 'atomically';
 import { z } from 'zod';
+import { AI_MODEL_IDS } from '../ai/models';
+import { AI_RESPONSE_LENGTHS } from '../ai/response-length';
 import { LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME, SHARED_CONFIG_LOCKFILE_NAME } from '../constants';
 import { syncSiteSchema } from '../types/sync';
 import { authTokenSchema, type StoredAuthToken } from './auth-token-schema';
@@ -38,7 +40,24 @@ export const sharedConfigSchema = z
 		version: z.literal( SHARED_CONFIG_VERSION ),
 		authToken: authTokenSchema.optional(),
 		locale: z.string().optional(),
+		// How long the agent's replies should be. Read by the CLI on every
+		// agent turn; written by the desktop settings screens and the CLI's
+		// `/response-length` command. `catch` so an unknown value (e.g. written
+		// by a newer build) reads as unset instead of failing the whole config.
+		agentResponseLength: z.enum( AI_RESPONSE_LENGTHS ).optional().catch( undefined ),
+		// The model new agent sessions start on. Same lifecycle as
+		// `agentResponseLength`: written by the desktop settings screens, read
+		// by both renderers and the CLI. `catch` so a model id we no longer
+		// offer reads as unset and falls back to the built-in default.
+		defaultAiModel: z.enum( AI_MODEL_IDS ).optional().catch( undefined ),
 		selectedSkills: z.array( z.string() ).optional(),
+		// Per-tool permission overrides for the agent's gated tools ("Always
+		// allow"). Written by the desktop settings screens, the CLI's
+		// `/permissions` command, and an in-conversation "Always allow" choice;
+		// read by the CLI's permission extension on every gated tool call. Only
+		// `allow` is meaningful — `ask` entries are treated as unset. Unknown
+		// tool names are preserved (forward compatibility) but ignored.
+		toolPermissions: z.record( z.string(), z.enum( [ 'allow', 'ask' ] ) ).optional(),
 		sessions: z.record( z.string(), sharedSessionMetadataSchema ).optional(),
 		// WordPress.com sites connected to local sites, keyed by user id.
 		// Both Studio and the Studio CLI read and write this field through

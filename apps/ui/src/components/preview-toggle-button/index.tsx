@@ -5,9 +5,10 @@ import { drawerIcon } from '@/lib/icons';
 import styles from './style.module.css';
 
 /**
- * Bottom-toolbar button that shows/hides the site preview panel. Renders
- * nothing outside the dashboard layout (no SessionUIProvider hosting a
- * preview panel).
+ * Bottom-toolbar button that shows/hides the site preview panel. Shared by
+ * the chat footer and the site overview footer so the control looks and
+ * behaves identically everywhere. Renders nothing outside the dashboard
+ * layout (no SessionUIProvider hosting a preview panel).
  */
 export function PreviewToggleButton() {
 	const preview = useOptionalSessionPreviewUI();

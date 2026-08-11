@@ -88,6 +88,7 @@ const api: IpcApi = {
 	stopServer: ( id ) => ipcRendererInvoke( 'stopServer', id ),
 	stopAllServers: () => ipcRendererInvoke( 'stopAllServers' ),
 	copyText: ( text ) => ipcRendererInvoke( 'copyText', text ),
+	copyImage: ( pngDataUrl ) => ipcRendererInvoke( 'copyImage', pngDataUrl ),
 	getAppGlobals: () => ipcRendererInvoke( 'getAppGlobals' ),
 	enableAgenticUi: ( surface?: AgenticUiSurface ) =>
 		ipcRendererInvoke( 'enableAgenticUi', surface ),
@@ -95,12 +96,9 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'disableAgenticUi', surface ),
 	dismissAgenticUiBanner: () => ipcRendererInvoke( 'dismissAgenticUiBanner' ),
 	isAgenticUiBannerDismissed: () => ipcRendererInvoke( 'isAgenticUiBannerDismissed' ),
-	getAppUpdateStatus: () => ipcRendererInvoke( 'getAppUpdateStatus' ),
-	installAppUpdate: () => ipcRendererInvoke( 'installAppUpdate' ),
 	getWpVersion: ( id ) => ipcRendererInvoke( 'getWpVersion', id ),
 	getSiteStorageUsage: ( id ) => ipcRendererInvoke( 'getSiteStorageUsage', id ),
 	getIsMultisite: ( id ) => ipcRendererInvoke( 'getIsMultisite', id ),
-	fetchSiteRestApi: ( siteId, request ) => ipcRendererInvoke( 'fetchSiteRestApi', siteId, request ),
 	generateProposedSitePath: ( siteName ) =>
 		ipcRendererInvoke( 'generateProposedSitePath', siteName ),
 	generateSiteNameFromList: ( usedSites ) =>
@@ -117,7 +115,15 @@ const api: IpcApi = {
 	getInstalledAppsAndTerminals: () => ipcRendererInvoke( 'getInstalledAppsAndTerminals' ),
 	importSite: ( siteId, importArchivePath, options ) =>
 		ipcRendererInvoke( 'importSite', siteId, importArchivePath, options ),
+	listSiteCheckpoints: ( siteId ) => ipcRendererInvoke( 'listSiteCheckpoints', siteId ),
+	createSiteCheckpoint: ( siteId, label ) =>
+		ipcRendererInvoke( 'createSiteCheckpoint', siteId, label ),
+	restoreSiteCheckpoint: ( siteId, checkpointId ) =>
+		ipcRendererInvoke( 'restoreSiteCheckpoint', siteId, checkpointId ),
+	deleteSiteCheckpoint: ( siteId, checkpointId ) =>
+		ipcRendererInvoke( 'deleteSiteCheckpoint', siteId, checkpointId ),
 	executeWPCLiInline: ( options ) => ipcRendererInvoke( 'executeWPCLiInline', options ),
+	scaffoldPlugin: ( options ) => ipcRendererInvoke( 'scaffoldPlugin', options ),
 	getOnboardingData: () => ipcRendererInvoke( 'getOnboardingData' ),
 	saveOnboarding: ( onboardingCompleted ) =>
 		ipcRendererInvoke( 'saveOnboarding', onboardingCompleted ),
@@ -128,6 +134,7 @@ const api: IpcApi = {
 	showMessageBox: ( options ) => ipcRendererInvoke( 'showMessageBox', options ),
 	showErrorMessageBox: ( options ) => ipcRendererSend( 'showErrorMessageBox', options ),
 	showNotification: ( options ) => ipcRendererSend( 'showNotification', options ),
+	showChatNotification: ( request ) => ipcRendererSend( 'showChatNotification', request ),
 	logRendererMessage: ( level, ...args ) => ipcRendererSend( 'logRendererMessage', level, ...args ),
 	setupAppMenu: ( config ) => ipcRendererInvoke( 'setupAppMenu', config ),
 	popupAppMenu: ( position ) => ipcRendererSend( 'popupAppMenu', position ),
@@ -150,13 +157,21 @@ const api: IpcApi = {
 	getConnectedWpcomSites: ( localSiteId ) =>
 		ipcRendererInvoke( 'getConnectedWpcomSites', localSiteId ),
 	fetchSyncableWpcomSites: () => ipcRendererInvoke( 'fetchSyncableWpcomSites' ),
+	fetchSyncableWpcomSitesPage: ( options ) =>
+		ipcRendererInvoke( 'fetchSyncableWpcomSitesPage', options ),
+	pullSiteFromLive: ( siteId, remoteSiteId, options ) =>
+		ipcRendererInvoke( 'pullSiteFromLive', siteId, remoteSiteId, options ),
+	getLiveSyncItems: ( localSiteId, remoteSiteId, direction ) =>
+		ipcRendererInvoke( 'getLiveSyncItems', localSiteId, remoteSiteId, direction ),
+	getLiveSyncImportStatus: ( remoteSiteId ) =>
+		ipcRendererInvoke( 'getLiveSyncImportStatus', remoteSiteId ),
+	getLiveSyncLatestBackupTime: ( remoteSiteId ) =>
+		ipcRendererInvoke( 'getLiveSyncLatestBackupTime', remoteSiteId ),
 	getHostingPhpVersion: ( remoteSiteId ) =>
 		ipcRendererInvoke( 'getHostingPhpVersion', remoteSiteId ),
 	getLatestRewindId: ( remoteSiteId ) => ipcRendererInvoke( 'getLatestRewindId', remoteSiteId ),
 	listRemoteFileTree: ( remoteSiteId, rewindId, treePath ) =>
 		ipcRendererInvoke( 'listRemoteFileTree', remoteSiteId, rewindId, treePath ),
-	pullSiteFromLive: ( siteId, remoteSiteId, options ) =>
-		ipcRendererInvoke( 'pullSiteFromLive', siteId, remoteSiteId, options ),
 	addSyncOperation: ( id, status ) => ipcRendererSend( 'addSyncOperation', id, status ),
 	clearSyncOperation: ( id ) => ipcRendererSend( 'clearSyncOperation', id ),
 	cancelSyncOperation: ( id ) => ipcRendererSend( 'cancelSyncOperation', id ),
@@ -167,10 +182,19 @@ const api: IpcApi = {
 	getDirectorySize: ( id, subdir ) => ipcRendererInvoke( 'getDirectorySize', id, subdir ),
 	getFileSize: ( id, filePath ) => ipcRendererInvoke( 'getFileSize', id, filePath ),
 	getPathForFile: ( file ) => webUtils.getPathForFile( file ),
+	createTemporaryTextFile: ( name, contents ) =>
+		ipcRendererInvoke( 'createTemporaryTextFile', name, contents ),
 	readLocalMediaFile: ( path ) => ipcRendererInvoke( 'readLocalMediaFile', path ),
+	setWebviewColorScheme: ( webContentsId, colorScheme ) =>
+		ipcRendererInvoke( 'setWebviewColorScheme', webContentsId, colorScheme ),
 	setWebviewViewport: ( webContentsId, viewport ) =>
 		ipcRendererInvoke( 'setWebviewViewport', webContentsId, viewport ),
+	captureSiteScreenshot: ( webContentsId, options ) =>
+		ipcRendererInvoke( 'captureSiteScreenshot', webContentsId, options ),
+	captureFullPageScreenshot: ( url, options ) =>
+		ipcRendererInvoke( 'captureFullPageScreenshot', url, options ),
 	isFullscreen: () => ipcRendererInvoke( 'isFullscreen' ),
+	expandWindowForWorkbench: () => ipcRendererInvoke( 'expandWindowForWorkbench' ),
 	getAllCustomDomains: () => ipcRendererInvoke( 'getAllCustomDomains' ),
 	saveUserTerminal: ( preferredTerminal ) =>
 		ipcRendererInvoke( 'saveUserTerminal', preferredTerminal ),
@@ -181,19 +205,39 @@ const api: IpcApi = {
 	previewColorScheme: ( colorScheme ) => ipcRendererInvoke( 'previewColorScheme', colorScheme ),
 	saveColorScheme: ( colorScheme ) => ipcRendererInvoke( 'saveColorScheme', colorScheme ),
 	getColorScheme: () => ipcRendererInvoke( 'getColorScheme' ),
+	saveFrameColor: ( frameColor ) => ipcRendererInvoke( 'saveFrameColor', frameColor ),
+	getFrameColor: () => ipcRendererInvoke( 'getFrameColor' ),
 	getAnalyticsEnabled: () => ipcRendererInvoke( 'getAnalyticsEnabled' ),
 	saveAnalyticsEnabled: ( enabled, source ) =>
 		ipcRendererInvoke( 'saveAnalyticsEnabled', enabled, source ),
-	saveQuitSitesBehavior: ( quitSitesBehavior ) =>
-		ipcRendererInvoke( 'saveQuitSitesBehavior', quitSitesBehavior ),
-	getQuitSitesBehavior: () => ipcRendererInvoke( 'getQuitSitesBehavior' ),
 	saveAgenticFeaturesEnabled: ( enabled ) =>
 		ipcRendererInvoke( 'saveAgenticFeaturesEnabled', enabled ),
 	getAgenticFeaturesEnabled: () => ipcRendererInvoke( 'getAgenticFeaturesEnabled' ),
+	saveAgentResponseLength: ( responseLength ) =>
+		ipcRendererInvoke( 'saveAgentResponseLength', responseLength ),
+	getAgentResponseLength: () => ipcRendererInvoke( 'getAgentResponseLength' ),
+	getActivitySoundPreferences: () => ipcRendererInvoke( 'getActivitySoundPreferences' ),
+	saveActivitySoundPreferences: ( preferences ) =>
+		ipcRendererInvoke( 'saveActivitySoundPreferences', preferences ),
+	getToolPermissions: () => ipcRendererInvoke( 'getToolPermissions' ),
+	saveToolPermission: ( toolName, level ) =>
+		ipcRendererInvoke( 'saveToolPermission', toolName, level ),
+	saveDefaultAiModel: ( model ) => ipcRendererInvoke( 'saveDefaultAiModel', model ),
+	getDefaultAiModel: () => ipcRendererInvoke( 'getDefaultAiModel' ),
+	saveChatNotificationsEnabled: ( enabled ) =>
+		ipcRendererInvoke( 'saveChatNotificationsEnabled', enabled ),
+	getChatNotificationsEnabled: () => ipcRendererInvoke( 'getChatNotificationsEnabled' ),
+	saveQuitSitesBehavior: ( quitSitesBehavior ) =>
+		ipcRendererInvoke( 'saveQuitSitesBehavior', quitSitesBehavior ),
+	getQuitSitesBehavior: () => ipcRendererInvoke( 'getQuitSitesBehavior' ),
 	saveWapuuScore: ( score ) => ipcRendererInvoke( 'saveWapuuScore', score ),
 	getWapuuScore: () => ipcRendererInvoke( 'getWapuuScore' ),
+	getDismissedMessages: () => ipcRendererInvoke( 'getDismissedMessages' ),
+	dismissMessage: ( id ) => ipcRendererInvoke( 'dismissMessage', id ),
 	getOnboardingHints: () => ipcRendererInvoke( 'getOnboardingHints' ),
 	saveOnboardingHints: ( partial ) => ipcRendererInvoke( 'saveOnboardingHints', partial ),
+	getAppUpdateStatus: () => ipcRendererInvoke( 'getAppUpdateStatus' ),
+	installAppUpdate: () => ipcRendererInvoke( 'installAppUpdate' ),
 	getUserEditor: () => ipcRendererInvoke( 'getUserEditor' ),
 	saveUserEditor: ( editor ) => ipcRendererInvoke( 'saveUserEditor', editor ),
 	comparePaths: ( path1, path2 ) => ipcRendererInvoke( 'comparePaths', path1, path2 ),
@@ -255,8 +299,11 @@ const api: IpcApi = {
 	interruptAiAgentRun: ( runId ) => ipcRendererInvoke( 'interruptAiAgentRun', runId ),
 	answerAiAgentQuestion: ( runId, answers ) =>
 		ipcRendererInvoke( 'answerAiAgentQuestion', runId, answers ),
+	answerAiAgentPermission: ( runId, requestId, decision ) =>
+		ipcRendererInvoke( 'answerAiAgentPermission', runId, requestId, decision ),
 	setSessionEnvironment: ( sessionId, environment ) =>
 		ipcRendererInvoke( 'setSessionEnvironment', sessionId, environment ),
+	fetchSiteRestApi: ( siteId, request ) => ipcRendererInvoke( 'fetchSiteRestApi', siteId, request ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

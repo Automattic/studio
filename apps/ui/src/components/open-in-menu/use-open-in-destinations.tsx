@@ -5,7 +5,7 @@ import { terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { code, external } from '@wordpress/icons';
-import { getPreviewRealm, getRealmOpenEvent } from '@/components/site-preview/address-bar';
+import { getPreviewRealm, getRealmOpenEvent } from '@/components/site-preview/location-omnibox';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
@@ -36,20 +36,17 @@ export function getFileManager(): { label: string; logo: ReactElement } {
 
 /**
  * The "Open in…" destinations for a site (browser, file manager, editor,
- * terminal) with their labels, logos, and open handlers.
+ * terminal) with their labels, logos, and open handlers. `onOpen` fires only
+ * when a destination actually opens — picking the editor without a configured
+ * preference navigates to settings instead and reports nothing.
  *
- * `browserPath` is the site-relative path the browser opens — the preview's
- * current page, not the site root. `onOpen` fires only when a destination
- * actually opens: picking the editor without a configured preference
- * navigates to settings instead and reports nothing.
- *
- * Browser is the only destination that needs a running site; the rest work
- * stopped.
+ * The browser destination only appears when the caller provides `browserPath`
+ * (the site-relative path to open through Studio's authenticated site URL).
  */
 export function useOpenInDestinations(
 	site: SiteDetails,
-	browserPath: string,
-	onOpen?: ( destination: OpenInDestination ) => void
+	onOpen?: ( destination: OpenInDestination ) => void,
+	browserPath?: string
 ): OpenInDestinationEntry[] {
 	const connector = useConnector();
 	const navigate = useNavigate();
@@ -67,30 +64,28 @@ export function useOpenInDestinations(
 		? terminalLogos[ userPreferences.terminal ]
 		: terminalLogo;
 
+	const browserDestination: OpenInDestinationEntry[] = browserPath
+		? [
+				{
+					id: 'browser',
+					label: __( 'Browser' ),
+					logo: external,
+					disabled: ! site.running,
+					open: () => {
+						onOpen?.( 'browser' );
+						void connector.trackEvent( getRealmOpenEvent( getPreviewRealm( browserPath ) ), {
+							browser: 'external',
+						} );
+						void connector.openSiteUrl( site.id, browserPath ).catch( ( error ) => {
+							console.error( 'Failed to open site in browser:', error );
+						} );
+					},
+				},
+		  ]
+		: [];
+
 	return [
-		{
-			id: 'browser',
-			label: __( 'Browser' ),
-			// Not the globe: the address bar already uses that for the site's
-			// front end, and this one leaves Studio.
-			logo: external,
-			disabled: ! site.running,
-			open: () => {
-				onOpen?.( 'browser' );
-				// This destination leaves Studio for the OS browser, carrying whatever the
-				// preview is currently showing — so the event matches the active realm
-				// (front end / WP Admin / phpMyAdmin) rather than always the front end.
-				void connector.trackEvent( getRealmOpenEvent( getPreviewRealm( browserPath ) ), {
-					browser: 'external',
-				} );
-				// Routed through the host rather than `openExternalUrl` so the
-				// URL goes via /studio-auto-login; opening it raw drops the
-				// session and lands admin screens on the login form.
-				void connector.openSiteUrl( site.id, browserPath ).catch( ( error ) => {
-					console.error( 'Failed to open site in browser:', error );
-				} );
-			},
-		},
+		...browserDestination,
 		{
 			id: 'files',
 			label: fileManager.label,

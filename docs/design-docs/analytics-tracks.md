@@ -213,11 +213,9 @@ preview is currently showing, so opening a WP Admin preview externally is an `op
 (`external`), not an `open_in_browser`. Free-form navigation *within* the preview panel (typing in the
 address bar) is out of scope here and tracked separately. `studio_panel_opened` fires in **both**
 front-ends: Classic from its tab strip, and the agentic UI from its route navigations (the
-overview/settings/debugging tab switches, the site-list gear → overview, a site-name click → assistant
-or, when chat is unavailable, overview, and the context-menu "Site settings" → settings). The agentic
-UI's General settings tab reports `panel: settings` so it lines up with Classic's Settings panel; its
-Debugging tab reports `panel: debugging`. No site names, paths, or URLs are ever sent — only the
-enumerated prop values below.
+overview/settings/agent/checkpoints tab switches, the site-list gear → overview, a site-name click →
+assistant or, when chat is unavailable, overview, and the context-menu "Site settings" → settings).
+No site names, paths, or URLs are ever sent — only the enumerated prop values below.
 
 | Event | Emitted from | Event-specific props |
 |---|---|---|
@@ -230,7 +228,7 @@ enumerated prop values below.
 | `studio_site_open_customize` | Renderer (Classic + agentic) | `entry_point` — the affordance clicked: `editor`, `editor_styles`, `editor_patterns`, `editor_navigation`, `editor_templates`, `editor_pages`, `media_library` (block themes) or `customizer`, `menus`, `widgets` (classic themes). Plus `browser` (`external`/`internal`). |
 | `studio_site_open_phpmyadmin` | Renderer (Classic + agentic) | `browser` (`external`/`internal`) |
 | `studio_site_open_folder` | Renderer (Classic + agentic) | (none — opens the OS file manager) |
-| `studio_panel_opened` | Renderer (Classic tab strip + agentic route navigation) | `panel` — the panel opened. Classic: `overview`/`sync`/`settings`/`assistant`/`import-export`/`previews` (only on a genuine user tab switch, not programmatic changes or re-selecting the current tab). Agentic: `overview`/`settings`/`debugging`/`assistant` (`sync`/`import-export`/`previews` are Classic-only). |
+| `studio_panel_opened` | Renderer (Classic tab strip + agentic route navigation) | `panel` — the panel opened. Classic: `overview`/`sync`/`settings`/`assistant`/`import-export`/`previews` (only on a genuine user tab switch, not programmatic changes or re-selecting the current tab). Agentic: `overview`/`settings`/`agent`/`checkpoints`/`assistant` (`sync`/`import-export`/`previews` are Classic-only). |
 
 #### Import/export events
 

@@ -1,17 +1,18 @@
 /* Pinning to the sidebar bottom is handled by the layout's
    `sidebarFooter` wrapper. */
 .root {
+	--user-menu-row-height: 34px;
 	--user-menu-leading-offset: calc(
 		var(--wpds-dimension-padding-lg) - var(--wpds-dimension-padding-sm)
 	);
-	--user-menu-trailing-offset: calc(
-		var(--wpds-dimension-padding-2xl) - var(--wpds-dimension-padding-xs)
-	);
+	--user-menu-trailing-offset: var(--wpds-dimension-padding-lg);
+	--user-menu-row-background-hover: var(--sidebar-row-background-hover);
+	--user-menu-row-background-active: var(--sidebar-row-background-active);
 
 	/* SidebarButton adds `sm` inline padding; this offset puts the avatar's
 	   left edge on the same column as the site icons. */
 	padding: var(--wpds-dimension-padding-sm) var(--user-menu-trailing-offset)
-		var(--wpds-dimension-padding-xl) var(--user-menu-leading-offset);
+		var(--wpds-dimension-padding-md) var(--user-menu-leading-offset);
 }
 
 .row {
@@ -33,8 +34,6 @@
 	margin-inline-end: calc(-1 * var(--wpds-dimension-padding-sm));
 }
 
-/* The drawer icon depicts the sidebar edge; mirror it when the sidebar sits
-   on the right. */
 .sidebarToggle:dir(rtl) svg {
 	transform: scaleX(-1);
 }
@@ -46,13 +45,32 @@
 	color: var(--wpds-color-fg-content-neutral);
 }
 
+/* Selected treatment for the settings route, mirroring the site rows: the
+   descendant selector clears SidebarButton's transparent background (declared
+   at the same specificity on the button itself). */
+.rowActive .userTrigger,
+.rowActive .userTrigger:hover,
+.rowActive .userTrigger:focus-visible {
+	background-color: var(--user-menu-row-background-active);
+}
+
+.rowActive .userName {
+	color: var(--wpds-color-fg-content-neutral);
+	font-weight: var(--wpds-typography-font-weight-medium);
+}
+
 .userTrigger {
+	--wp-ui-button-height: var(--user-menu-row-height);
 	--user-menu-avatar-offset: 2px;
 
+	box-sizing: border-box;
 	flex: 1;
+	height: var(--user-menu-row-height);
 	font-weight: var(--wpds-typography-font-weight-regular);
 	gap: calc(var(--wpds-dimension-gap-sm) + var(--user-menu-avatar-offset));
+	padding-block: var(--wpds-dimension-padding-xs);
 	padding-inline-start: calc(var(--wpds-dimension-padding-sm) - var(--user-menu-avatar-offset));
+	border-radius: 6px;
 }
 
 /* Signed-out avatar: a circle with the settings (sliders) icon, sized/shaped to

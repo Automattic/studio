@@ -107,23 +107,6 @@ describe( 'OnboardingHomePage', () => {
 		expect( mocks.navigate ).toHaveBeenCalledWith( { to: '/onboarding/import' } );
 	} );
 
-	it( 'keeps the drag state while moving across the Import card contents', () => {
-		render( <OnboardingHomePage /> );
-		const importCard = screen.getByRole( 'button', { name: /Import from a backup/ } );
-		const cardContents = screen.getByText( 'Import from a backup' );
-
-		fireEvent.dragOver( importCard );
-		const draggingClassName = importCard.className;
-		const childDragLeave = new Event( 'dragleave', { bubbles: true, cancelable: true } );
-		Object.defineProperty( childDragLeave, 'relatedTarget', { value: cardContents } );
-		fireEvent( importCard, childDragLeave );
-
-		expect( importCard ).toHaveClass( draggingClassName, { exact: true } );
-
-		fireEvent.dragLeave( importCard );
-		expect( importCard ).not.toHaveClass( draggingClassName, { exact: true } );
-	} );
-
 	it( 'rejects unsupported selected and dropped files', () => {
 		const { container } = render( <OnboardingHomePage /> );
 		const input = container.querySelector< HTMLInputElement >( 'input[type="file"]' );
@@ -143,10 +126,26 @@ describe( 'OnboardingHomePage', () => {
 		expect( mocks.navigate ).not.toHaveBeenCalled();
 	} );
 
-	it( 'shows Back when onboarding was opened from an existing site', () => {
-		mocks.hasSites = true;
+	it( 'offers the create, connect, and import paths', () => {
 		render( <OnboardingHomePage /> );
 
-		expect( screen.getByRole( 'button', { name: 'Back' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'heading', { name: 'Add a site' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'link', { name: /Create a new site/ } ) ).toHaveAttribute(
+			'href',
+			'/onboarding/create'
+		);
+		expect( screen.getByText( 'Connect a site' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Import from a backup' ) ).toBeInTheDocument();
+	} );
+
+	it( 'shows Back to the tour only for first-run users without sites', () => {
+		render( <OnboardingHomePage /> );
+		expect( screen.getByRole( 'button', { name: /Back/ } ) ).toBeInTheDocument();
+	} );
+
+	it( 'hides the Back button once sites exist', () => {
+		mocks.hasSites = true;
+		render( <OnboardingHomePage /> );
+		expect( screen.queryByRole( 'button', { name: /Back/ } ) ).not.toBeInTheDocument();
 	} );
 } );

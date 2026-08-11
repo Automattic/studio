@@ -31,6 +31,7 @@ export function useOrientationReplay(): void {
 
 	useEffect( () => {
 		return connector.onShowGettingStarted( () => {
+			setHints.mutate( { checklistDismissed: false, checklistMinimized: false } );
 			openGuide( getOrientationGuide( variantRef.current ), {
 				onEnd: ( reason ) => {
 					setHints.mutate(

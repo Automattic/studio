@@ -16,7 +16,14 @@
 	background: var(--wpds-color-bg-surface-neutral-strong);
 	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral-weak);
 	border-radius: var(--wpds-border-radius-lg);
-	box-shadow: var(--wpds-elevation-md);
+	/* The weak stroke alone all but disappears when a dark-theme popup opens
+	   over the equally dark window chrome (sidebar menus). A foreground-based
+	   hairline ring tracks the theme — a light edge on dark surfaces, a subtle
+	   extra definition on light ones — so the popup separates from any
+	   backdrop. */
+	box-shadow:
+		0 0 0 1px color-mix(in srgb, var(--wpds-color-fg-content-neutral) 14%, transparent),
+		var(--wpds-elevation-md);
 	color: var(--wpds-color-fg-content-neutral);
 	display: flex;
 	flex-direction: column;
@@ -89,6 +96,15 @@
 	min-width: 0;
 	overflow: hidden;
 	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.itemShortcut {
+	margin-left: auto;
+	padding-left: 16px;
+	flex-shrink: 0;
+	font-size: var(--wpds-typography-font-size-xs);
+	color: var(--wpds-color-fg-content-neutral-weak);
 	white-space: nowrap;
 }
 

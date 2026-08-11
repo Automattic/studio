@@ -1,3 +1,8 @@
+import { DEFAULT_MODEL } from '@studio/common/ai/models';
+import {
+	DEFAULT_ACTIVITY_SOUND_PREFERENCES,
+	resolveActivitySoundPreferences,
+} from '@studio/common/lib/activity-sounds';
 import { getAuthenticationUrl, getSignUpUrl } from '@studio/common/lib/oauth';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
@@ -11,8 +16,8 @@ import type {
 	ActiveAgentRun,
 	AiSessionPlacementUpdatedEvent,
 	AiSessionSummary,
-	AppGlobals,
 	AuthUser,
+	AvailableSitePath,
 	ColorScheme,
 	Connector,
 	ExtractedBlueprintBundle,
@@ -20,9 +25,10 @@ import type {
 	LoadedAiSession,
 	LocalMediaFile,
 	ProposedSitePath,
-	QuitSitesBehavior,
 	PullSiteProgress,
+	QuitSitesBehavior,
 	SelectedSiteFolder,
+	SiteCheckpoint,
 	SiteDetails,
 	Snapshot,
 	SnapshotUsage,
@@ -34,22 +40,50 @@ import type {
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
+import type { SiteRestResponse } from '@studio/common/types/wordpress-rest';
 
 // The in-app dark/light/system choice, persisted in the browser (there's no
 // Electron `nativeTheme` to mirror it) so it sticks across reloads.
 const COLOR_SCHEME_STORAGE_KEY = 'studio-local-color-scheme';
+const FRAME_COLOR_STORAGE_KEY = 'studio-local-frame-color';
 // Editor/terminal choices live in the browser too (no Electron user-settings
 // store); the server reads them back from each open request.
 const EDITOR_STORAGE_KEY = 'studio-local-editor';
 const TERMINAL_STORAGE_KEY = 'studio-local-terminal';
 const QUIT_SITES_BEHAVIOR_STORAGE_KEY = 'studio-local-quit-sites-behavior';
-const WAPUU_SCORE_STORAGE_KEY = 'studio-local-wapuu-score';
+const ACTIVITY_SOUND_PREFERENCES_STORAGE_KEY = 'studio-activity-sound-preferences';
 const AGENTIC_FEATURES_STORAGE_KEY = 'studio-local-agentic-features-enabled';
+const WAPUU_SCORE_STORAGE_KEY = 'studio-local-wapuu-score';
+
+function readActivitySoundPreferences() {
+	try {
+		return resolveActivitySoundPreferences(
+			JSON.parse( window.localStorage.getItem( ACTIVITY_SOUND_PREFERENCES_STORAGE_KEY ) ?? 'null' )
+		);
+	} catch {
+		return DEFAULT_ACTIVITY_SOUND_PREFERENCES;
+	}
+}
 
 function parseQuitSitesBehavior( value: string | null ): QuitSitesBehavior | undefined {
 	return value === 'leave-running' || value === 'stop-and-auto-start' || value === 'stop'
 		? value
 		: undefined;
+}
+
+// Persistent-message dismissals live in the browser too (per origin).
+const DISMISSED_MESSAGES_STORAGE_KEY = 'studio-dismissed-messages';
+
+function readDismissedMessages(): string[] {
+	try {
+		const raw = window.localStorage.getItem( DISMISSED_MESSAGES_STORAGE_KEY );
+		const parsed: unknown = raw ? JSON.parse( raw ) : [];
+		return Array.isArray( parsed )
+			? parsed.filter( ( id ): id is string => typeof id === 'string' )
+			: [];
+	} catch {
+		return [];
+	}
 }
 
 export interface LocalConnectorOptions {
@@ -74,7 +108,7 @@ type PullProgressSseOutput = PullSiteProgress & {
 type ImportSseOutput = { siteId: string; event: ImportEventTuple };
 
 // Envelope used by the backend's `/events` SSE stream so a single connection
-// can carry every live update consumed by the browser UI.
+// can carry agent-run events, session-placement updates, and snapshot progress.
 type ServerEvent =
 	| { channel: 'agent'; payload: AgentRunEvent }
 	| { channel: 'placement'; payload: AiSessionPlacementUpdatedEvent }
@@ -108,6 +142,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 	const syncConnectListeners = new Set<
 		( event: { remoteSiteId: number; studioSiteId: string } ) => void
 	>();
+	const notificationClickListeners = new Set< ( event: { sessionId: string } ) => void >();
 	let eventSource: EventSource | undefined;
 	// Last site list fetched via getSites(), so one-off lookups (openSiteUrl)
 	// don't trigger an extra round-trip.
@@ -210,7 +245,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 
 	return {
 		async init() {
-			// The browser's EventSource reconnects automatically.
+			// One SSE connection carries both agent and placement events; the
+			// browser's EventSource reconnects automatically.
 			eventSource?.close();
 			eventSource = new EventSource( `${ base }/events` );
 			eventSource.onmessage = ( message ) => {
@@ -244,6 +280,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			nativeSaveDialog: false,
 			openInOS: true,
 			annotatePreview: false,
+			siteCheckpoints: true,
 			readLocalMedia: false,
 			agentInstructions: true,
 			studioLogs: false,
@@ -254,7 +291,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		// (read from the shared auth token by the server). The app isn't gated on
 		// it, but the user menu should show the real account.
 		requiresAuth: false,
-		agenticRequiresAuth: false,
 		async isAuthenticated() {
 			return ( await api< AuthUser | null >( '/auth/user' ) ) !== null;
 		},
@@ -378,6 +414,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					name: params.name,
 					path: params.path,
 					phpVersion: params.phpVersion,
+					runtime: params.runtime,
+					fileAccess: params.fileAccess,
 					wpVersion: params.wpVersion,
 					customDomain: params.customDomain,
 					enableHttps: params.enableHttps,
@@ -500,37 +538,58 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async importSiteFromBackup( siteId, backupPath, onProgress ): Promise< void > {
 			const listener = onProgress
 				? ( output: ImportSseOutput ) => {
-						if ( output.siteId === siteId ) onProgress( output.event );
+						if ( output.siteId === siteId ) {
+							onProgress( output.event );
+						}
 				  }
 				: undefined;
-			if ( listener ) importListeners.add( listener );
+			if ( listener ) {
+				importListeners.add( listener );
+			}
 			try {
 				await api< void >( `/sites/${ encodeURIComponent( siteId ) }/import`, {
 					method: 'POST',
 					body: JSON.stringify( { path: backupPath } ),
 				} );
 			} finally {
-				if ( listener ) importListeners.delete( listener );
+				if ( listener ) {
+					importListeners.delete( listener );
+				}
 			}
+		},
+
+		// Site checkpoints — the server forks the same `studio checkpoint`
+		// commands the terminal user runs.
+		async listCheckpoints( siteId ): Promise< SiteCheckpoint[] > {
+			return api< SiteCheckpoint[] >( `/sites/${ encodeURIComponent( siteId ) }/checkpoints` );
+		},
+		async createCheckpoint( siteId, label ) {
+			await api( `/sites/${ encodeURIComponent( siteId ) }/checkpoints`, {
+				method: 'POST',
+				body: JSON.stringify( { label } ),
+			} );
+		},
+		async restoreCheckpoint( siteId, checkpointId ) {
+			await api(
+				`/sites/${ encodeURIComponent( siteId ) }/checkpoints/${ encodeURIComponent(
+					checkpointId
+				) }/restore`,
+				{ method: 'POST' }
+			);
+		},
+		async deleteCheckpoint( siteId, checkpointId ) {
+			await api(
+				`/sites/${ encodeURIComponent( siteId ) }/checkpoints/${ encodeURIComponent(
+					checkpointId
+				) }`,
+				{ method: 'DELETE' }
+			);
 		},
 
 		// Preview snapshots + WordPress.com sync — backed by the server's snapshot
 		// manager and sync routes (the same shared code the desktop uses).
 		async getSnapshots(): Promise< Snapshot[] > {
 			return api< Snapshot[] >( '/snapshots' );
-		},
-		async getSnapshotUsage(): Promise< SnapshotUsage | null > {
-			// No usage endpoint on the local server yet; callers fall back to
-			// counting snapshots.
-			return null;
-		},
-		async getStudioAssistantQuota() {
-			// The server proxies the WordPress.com quota endpoint and returns
-			// the already-parsed shape (or null when signed out).
-			return api< StudioAssistantQuota | null >( '/quota' );
-		},
-		async deleteAllSnapshots() {
-			// No-op: the local server has no delete-all route yet.
 		},
 		async publishPreviewSite( siteId, existingHostname ): Promise< { url: string } > {
 			// A hostname means "refresh this preview"; otherwise create a new one.
@@ -720,20 +779,42 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					( window.localStorage.getItem( TERMINAL_STORAGE_KEY ) as SupportedTerminal | null ) ||
 					null,
 				colorScheme,
-				quitSitesBehavior,
+				frameColor: window.localStorage.getItem( FRAME_COLOR_STORAGE_KEY ) || null,
 				locale: undefined,
-				// Analytics doesn't flow through the browser target in Phase 1; report enabled.
 				analyticsEnabled: true,
+				// The rest are desktop-managed preferences with sensible defaults
+				// here; the settings screens hide their controls in the browser
+				// (`showNativePreferences`).
 				defaultSiteDirectory: '',
-				studioCliInstalled: false,
+				// `studio ui` is served by the CLI itself.
+				studioCliInstalled: true,
 				studioCliExternallyManaged: false,
 				agenticFeaturesEnabled:
 					window.localStorage.getItem( AGENTIC_FEATURES_STORAGE_KEY ) !== 'false',
+				chatNotificationsEnabled: true,
+				activitySoundPreferences: readActivitySoundPreferences(),
+				quitSitesBehavior: quitSitesBehavior ?? 'ask',
+				agentResponseLength: 'normal',
+				defaultAiModel: DEFAULT_MODEL,
+				toolPermissions: {},
 			};
 		},
 		async setUserPreferences( partial ) {
+			if ( partial.activitySoundPreferences ) {
+				window.localStorage.setItem(
+					ACTIVITY_SOUND_PREFERENCES_STORAGE_KEY,
+					JSON.stringify( partial.activitySoundPreferences )
+				);
+			}
 			if ( partial.colorScheme ) {
 				window.localStorage.setItem( COLOR_SCHEME_STORAGE_KEY, partial.colorScheme );
+			}
+			if ( 'frameColor' in partial ) {
+				if ( partial.frameColor ) {
+					window.localStorage.setItem( FRAME_COLOR_STORAGE_KEY, partial.frameColor );
+				} else {
+					window.localStorage.removeItem( FRAME_COLOR_STORAGE_KEY );
+				}
 			}
 			if ( partial.editor !== undefined ) {
 				if ( partial.editor ) {
@@ -769,10 +850,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			return api< InstalledApps >( '/installed-apps' );
 		},
 
-		async getAppGlobals(): Promise< AppGlobals > {
-			return { platform: 'browser', isWindowsStore: false };
-		},
-
 		async getAgentInstructions(): Promise< string > {
 			const { content } = await api< { content: string } >( '/agent-instructions' );
 			return content;
@@ -784,10 +861,11 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			} );
 		},
 
-		// The local server has no REST-proxy route yet; the preview omnibox
-		// only offers search where the webview connector serves it.
-		async fetchSiteRest() {
-			throw new UnsupportedError( 'fetchSiteRest' );
+		async fetchSiteRest( siteId, request ): Promise< SiteRestResponse > {
+			return api< SiteRestResponse >( `/sites/${ encodeURIComponent( siteId ) }/rest`, {
+				method: 'POST',
+				body: JSON.stringify( request ),
+			} );
 		},
 
 		// The server runs on the user's machine, so it opens paths in OS apps on
@@ -862,6 +940,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		onFullscreenChange() {
 			return () => {};
 		},
+		async expandWindowForWorkbench() {
+			// A browser tab can't resize itself.
+		},
 		onSiteEvent() {
 			return () => {};
 		},
@@ -872,31 +953,66 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async copyText( text ) {
 			await navigator.clipboard.writeText( text );
 		},
-		async confirmDeleteAllPreviewSites() {
-			return window.confirm(
-				__(
-					'All preview sites that exist for your WordPress.com account, along with all posts, pages, comments, and media, will be lost.'
-				)
-			);
+		async copyImage( pngDataUrl ) {
+			const blob = await ( await fetch( pngDataUrl ) ).blob();
+			await navigator.clipboard.write( [ new ClipboardItem( { 'image/png': blob } ) ] );
 		},
 		onToggleSidebar() {
 			// No application menu in a browser tab.
 			return () => {};
 		},
-		onAddSite() {
-			// No application menu in a browser tab.
-			return () => {};
+
+		// Agentic gating — like hosted mode, the browser surface has no per-user
+		// opt-out; agentic features stay always-on.
+		supportsAgenticOptOut: false,
+
+		// Gated-tool permissions ride the same run routes as answers; the shared
+		// run manager forwards the decision to the CLI child.
+		async answerAgentPermission( runId, requestId, decision ) {
+			await api( `/runs/${ encodeURIComponent( runId ) }/permission`, {
+				method: 'POST',
+				body: JSON.stringify( { requestId, decision } ),
+			} );
 		},
-		onAddSiteWithBlueprint() {
-			return () => {};
+
+		// Web Notifications stand in for the desktop's OS notifications. The
+		// caller has already decided the user isn't looking at this session.
+		async showChatNotification( { sessionId, title, body } ) {
+			if ( ! ( 'Notification' in window ) ) {
+				return;
+			}
+			if ( Notification.permission === 'default' ) {
+				await Notification.requestPermission();
+			}
+			if ( Notification.permission !== 'granted' ) {
+				return;
+			}
+			// `tag` collapses successive notifications for the same session.
+			const notification = new Notification( title, { body, tag: sessionId, silent: true } );
+			notification.onclick = () => {
+				window.focus();
+				notificationClickListeners.forEach( ( listener ) => listener( { sessionId } ) );
+			};
 		},
-		onOpenSettings() {
-			// No application menu in a browser tab.
-			return () => {};
+		onChatNotificationClicked( listener ) {
+			notificationClickListeners.add( listener );
+			return () => notificationClickListeners.delete( listener );
 		},
-		async disableAgenticUi() {
-			// No-op in the browser.
+
+		// Persistent-message dismissals live in localStorage on the web.
+		async getDismissedMessages() {
+			return readDismissedMessages();
 		},
+		async dismissMessage( id ) {
+			const dismissed = readDismissedMessages();
+			if ( ! dismissed.includes( id ) ) {
+				window.localStorage.setItem(
+					DISMISSED_MESSAGES_STORAGE_KEY,
+					JSON.stringify( [ ...dismissed, id ] )
+				);
+			}
+		},
+
 		async getOnboardingHints() {
 			return readOnboardingHints();
 		},
@@ -906,6 +1022,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		onShowGettingStarted() {
 			// No application menu in a browser tab.
 			return () => {};
+		},
+		onOpenSettings() {
+			// No application menu in a browser tab.
+			return () => {};
+		},
+		async disableAgenticUi() {
+			// No-op in the browser.
 		},
 		onShowWhatsNew() {
 			// No application menu in a browser tab.
@@ -917,14 +1040,150 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async saveLastSeenVersion( version ) {
 			writeLastSeenVersion( version );
 		},
+		// Sites — desktop-only affordances not yet exposed by the local server.
+		async getSiteOverviewDetails() {
+			throw new UnsupportedError( 'getSiteOverviewDetails' );
+		},
+		async scaffoldPlugin() {
+			throw new UnsupportedError( 'scaffoldPlugin' );
+		},
+		async getXdebugEnabledSite(): Promise< SiteDetails | null > {
+			return null;
+		},
+
+		async isCertificateTrusted(): Promise< boolean > {
+			return false;
+		},
+
+		async trustCertificate() {
+			throw new UnsupportedError( 'trustCertificate' );
+		},
+
+		async openSiteFileInEditor() {
+			throw new UnsupportedError( 'openSiteFileInEditor' );
+		},
+
+		async openSiteDebugLog( siteId ) {
+			await api( `/sites/${ encodeURIComponent( siteId ) }/open-debug-log`, {
+				method: 'POST',
+			} );
+		},
+
+		async getAgentInstructionsStatus() {
+			throw new UnsupportedError( 'getAgentInstructionsStatus' );
+		},
+
+		async installAgentInstructions() {
+			throw new UnsupportedError( 'installAgentInstructions' );
+		},
+
+		async removeAgentInstruction() {
+			throw new UnsupportedError( 'removeAgentInstruction' );
+		},
+
+		async getWordPressSkillsStatus() {
+			throw new UnsupportedError( 'getWordPressSkillsStatus' );
+		},
+
+		async installWordPressSkillById() {
+			throw new UnsupportedError( 'installWordPressSkillById' );
+		},
+
+		async removeWordPressSkillById() {
+			throw new UnsupportedError( 'removeWordPressSkillById' );
+		},
+
+		async findAvailableSitePath(): Promise< AvailableSitePath > {
+			throw new UnsupportedError( 'findAvailableSitePath' );
+		},
+		async createTemporaryTextFile() {
+			throw new UnsupportedError( 'createTemporaryTextFile' );
+		},
+		async captureSiteScreenshot() {
+			throw new UnsupportedError( 'captureSiteScreenshot' );
+		},
+		async captureFullPageScreenshot() {
+			throw new UnsupportedError( 'captureFullPageScreenshot' );
+		},
+		onAddSite() {
+			return () => {};
+		},
+		onAddSiteWithBlueprint() {
+			return () => {};
+		},
+
+		// Preview snapshots — listed for real above; account-level usage and bulk
+		// deletion aren't exposed by the local server yet.
+		async getSnapshotUsage(): Promise< SnapshotUsage | null > {
+			return null;
+		},
+		async getStudioAssistantQuota() {
+			// The server proxies the WordPress.com quota endpoint and returns
+			// the already-parsed shape (or null when signed out).
+			return api< StudioAssistantQuota | null >( '/quota' );
+		},
+		async deleteAllSnapshots() {
+			throw new UnsupportedError( 'deleteAllSnapshots' );
+		},
+		async confirmDeleteAllPreviewSites() {
+			return window.confirm(
+				__(
+					'All preview sites that exist for your WordPress.com account, along with all posts, pages, comments, and media, will be lost.'
+				)
+			);
+		},
+
+		// WordPress.com sync — push/pull are real above; the itemized live-sync
+		// UI endpoints aren't exposed by the local server yet.
+		async fetchSyncableWpcomSitesPage() {
+			return {
+				sites: [],
+				total: 0,
+				page: 1,
+				perPage: 100,
+				hasMore: false,
+				nextPage: null,
+			};
+		},
+		async getLiveSyncItems() {
+			throw new UnsupportedError( 'getLiveSyncItems' );
+		},
+		async getLiveSyncImportStatus() {
+			throw new UnsupportedError( 'getLiveSyncImportStatus' );
+		},
+		async getLiveSyncLatestBackupTime() {
+			return null;
+		},
+		async markLiveSiteSynced() {
+			// No-op: called after a successful push/pull; the local server tracks
+			// connected-site state on its own side.
+		},
+
+		// App shell — browser tabs have no auto-updater or native settings events.
+		async getAppGlobals() {
+			return {
+				platform: 'browser',
+				appName: 'WordPress Studio',
+				appVersion: '',
+				arm64Translation: false,
+				isWindowsStore: false,
+				enableAgenticUi: true,
+			};
+		},
+		onUserSettings() {
+			return () => {};
+		},
+		async previewColorScheme() {
+			// No-op: the local UI applies the scheme itself via user preferences.
+		},
+		// Report an inert update status (rather than throwing) because the
+		// messaging layer polls unconditionally.
 		async getAppUpdateStatus() {
 			return { readyToInstall: false, version: null };
-		},
-		async installAppUpdate() {
-			// No-op.
 		},
 		onAppUpdateStatusChanged() {
 			return () => {};
 		},
+		async installAppUpdate() {},
 	};
 }

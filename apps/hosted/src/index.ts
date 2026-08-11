@@ -18,6 +18,7 @@ import { getSyncSupport } from '@studio/common/lib/sync/sync-support';
 import express from 'express';
 import { rateLimit } from 'express-rate-limit';
 import {
+	answerAgentPermission,
 	answerAgentRun,
 	interruptAgentRun,
 	listActiveAgentRuns,
@@ -27,6 +28,7 @@ import {
 import { getAiSessionsRootDirectory } from './lib/paths';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { AiSessionSummary } from '@studio/common/ai/sessions/types';
+import type { PermissionDecision } from '@studio/common/ai/tool-permissions';
 import type { SitesEndpointSite } from '@studio/common/types/sync';
 import type { Request, Response } from 'express';
 
@@ -321,6 +323,19 @@ api.post( '/runs/:runId/interrupt', ( req: Request, res: Response ) => {
 api.post( '/runs/:runId/answer', ( req: Request, res: Response ) => {
 	const { answers } = req.body as { answers?: Record< string, string > };
 	answerAgentRun( req.params.runId, answers ?? {} );
+	res.sendStatus( 204 );
+} );
+
+api.post( '/runs/:runId/permission', ( req: Request, res: Response ) => {
+	const { requestId, decision } = req.body as {
+		requestId?: string;
+		decision?: PermissionDecision;
+	};
+	if ( ! requestId || ! decision ) {
+		res.status( 400 ).json( { error: 'requestId and decision are required' } );
+		return;
+	}
+	answerAgentPermission( req.params.runId, requestId, decision );
 	res.sendStatus( 204 );
 } );
 

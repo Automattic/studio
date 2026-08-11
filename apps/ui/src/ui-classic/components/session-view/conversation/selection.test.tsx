@@ -32,9 +32,13 @@ function renderConversation( { isRunning = false }: { isRunning?: boolean } = {}
 					data={ data }
 					isRunning={ isRunning }
 					startedAt={ null }
+					activeTool={ null }
 					pendingQuestions={ new Set() }
 					pendingAnswers={ {} }
+					pendingPermissions={ new Set() }
+					answeredPermissions={ {} }
 					onAnswerQuestion={ vi.fn() }
+					onAnswerPermission={ vi.fn() }
 				/>
 			</Tooltip.Provider>
 		</QueryClientProvider>

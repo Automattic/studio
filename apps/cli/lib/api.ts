@@ -228,7 +228,7 @@ export async function getWpComSites( token: string ): Promise< WpComSiteInfo[] >
 			},
 			{
 				fields: 'ID,name,URL,is_deleted,is_a8c',
-				filter: 'atomic,wpcom',
+				filters: 'jetpack,atomic,wpcom',
 				site_activity: 'active',
 			}
 		);

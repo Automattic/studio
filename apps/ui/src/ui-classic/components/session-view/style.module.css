@@ -11,8 +11,19 @@
 		calc(var(--classic-column-inline-gutter) - var(--classic-composer-shell-inline-padding))
 	);
 	--classic-panel-control-left: var(--wpds-dimension-padding-xl);
+	--classic-panel-control-size: 24px;
 	--classic-panel-control-gap: var(--wpds-dimension-gap-xs);
 	--classic-panel-footer-left: min(
+		var(--classic-panel-control-left),
+		max(
+			var(--classic-composer-outer-inline-padding),
+			calc((100% - var(--classic-composer-column-max-width)) / 2)
+		)
+	);
+	/* Mirror of --classic-panel-footer-left: end-aligned footer controls
+	   (the preview toggle) hug the panel's right edge on wide panels and
+	   fall in line with the composer column's edge on narrow ones. */
+	--classic-panel-footer-right: min(
 		var(--classic-panel-control-left),
 		max(
 			var(--classic-composer-outer-inline-padding),
@@ -38,10 +49,14 @@
 }
 
 .header {
+	/* Anchor for the absolutely-pinned open-in trigger. */
+	position: relative;
 	display: flex;
 	align-items: center;
 	gap: var(--wpds-dimension-padding-sm);
-	padding-block: var(--wpds-dimension-padding-sm);
+	/* Hug the panel's top-left corner with the same breathing room the
+	   preview toolbar gives its controls. */
+	padding-block: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-sm);
 	padding-inline: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-2xl);
 	min-height: 46px;
 	font-size: var(--wpds-typography-font-size-sm);
@@ -54,6 +69,8 @@
 		var(--wpds-dimension-padding-xl) + var(--wpds-dimension-padding-2xl) +
 			var(--wpds-dimension-padding-lg)
 	);
+	/* With the sidebar hidden the panel goes full-bleed, putting this header
+	   at the window's left edge — give the site menu more breathing room. */
 	padding-inline-start: var(--wpds-dimension-padding-xl);
 }
 
@@ -69,7 +86,7 @@
 	width: 6px;
 	height: 6px;
 	border-radius: 50%;
-	background-color: var(--studio-color-status-running);
+	background-color: var(--wpds-color-fg-content-success, #16a34a);
 	flex-shrink: 0;
 	/* Extra horizontal margin around the dot only — keeps the toggle-to-title
 	   gap at the header's base 8px while giving the site/dot/local grouping
@@ -92,6 +109,9 @@
 	min-height: 0;
 	box-sizing: border-box;
 	overflow-y: auto;
+	/* The panel never scrolls sideways — wide content (code blocks, tables)
+	   must scroll inside its own container instead. */
+	overflow-x: hidden;
 	padding-block: var(--classic-header-height)
 		calc(var(--classic-composer-height) + var(--classic-panel-footer-height));
 	z-index: 0;
@@ -137,6 +157,25 @@
 	z-index: 2;
 }
 
+/* Anchors floating controls (the scroll-to-bottom button) just above the
+   composer, horizontally aligned with its send button: the composer column's
+   right edge (centered on wide panels, gutter-bound on narrow ones) plus the
+   toolbar's inline inset. */
+.composerOverlay {
+	position: absolute;
+	right: calc(
+		max(
+				var(--classic-composer-outer-inline-padding),
+				(100% - var(--classic-composer-column-max-width)) / 2
+			) + var(--wpds-dimension-padding-lg) - var(--wpds-dimension-padding-xs)
+	);
+	bottom: calc(
+		var(--classic-panel-footer-height) + var(--classic-composer-height) +
+			var(--wpds-dimension-padding-md)
+	);
+	z-index: 2;
+}
+
 .classicScroll {
 	padding-inline: var(--classic-column-inline-gutter);
 }
@@ -149,7 +188,6 @@
 }
 
 .classicComposerColumn {
-	position: relative;
 	max-width: var(--classic-composer-column-max-width);
 }
 
@@ -169,10 +207,10 @@
 .panelFooterControls {
 	position: absolute;
 	inset-inline-start: var(--classic-panel-footer-left);
-	/* Sit the strip low in its reserved band so the controls read as anchored
-	   to the panel's bottom edge rather than floating under the composer. The
-	   strip's own bottom padding keeps the buttons and their focus rings clear
-	   of .root's overflow: hidden edge. */
+	/* Span to the composer card's right edge so end-aligned controls (the
+	   preview toggle) line up with it. Sit the strip low in its reserved band;
+	   its bottom padding keeps focus rings clear of .root's clipped edge. */
+	inset-inline-end: var(--classic-panel-footer-right);
 	bottom: calc(-1 * var(--wpds-dimension-padding-sm));
 	z-index: 3;
 	display: flex;
@@ -183,75 +221,17 @@
 	-webkit-app-region: no-drag;
 }
 
-.panelFooterControlsCollapsed {
-	inset-inline-start: calc(
-		var(--wpds-dimension-padding-xl) + 24px + var(--classic-panel-control-gap)
-	);
-}
-
-/* Applied on top of .panelFooterControls to anchor the strip to the inline-end
-   edge instead (hosts the preview panel toggle). */
-.panelFooterControlsEnd {
-	inset-inline-start: auto;
-	inset-inline-end: var(--classic-panel-control-left);
-}
-
-/* Anchors the scroll-to-latest button to the composer column, floating it
-   above the composer without contributing to the measured composer height. */
-.scrollToLatestWrap {
-	position: absolute;
-	bottom: calc(100% + var(--wpds-dimension-padding-md));
-	inset-inline-start: 0;
-	/* Match the send button's inset: the composer toolbar's inline padding is
-	   the shell inline padding minus padding-xs (see composer .toolbar). */
-	inset-inline-end: calc(
-		var(--classic-composer-shell-inline-padding) - var(--wpds-dimension-padding-xs)
-	);
-	display: flex;
-	justify-content: flex-end;
-	pointer-events: none;
-	-webkit-app-region: no-drag;
-}
-
-.scrollToLatestButton {
-	/* Match the 28px composer send button. */
-	--wp-ui-button-height: 28px;
-	--wp-ui-button-aspect-ratio: 1;
-	--wp-ui-button-min-width: unset;
-	--wp-ui-button-padding-inline: 0;
-	--wp-ui-button-background-color: var(--wpds-color-bg-surface-neutral-strong);
-	--wp-ui-button-border-color: var(--wpds-color-stroke-surface-neutral-weak);
-
-	pointer-events: auto;
-	border-radius: 50%;
-	box-shadow: var(--wpds-elevation-md);
-	animation: scroll-to-latest-appear 120ms ease-out;
-}
-
-@keyframes scroll-to-latest-appear {
-	from {
-		opacity: 0;
-		transform: translateY(4px);
-	}
-
-	to {
-		opacity: 1;
-		transform: translateY(0);
-	}
-}
-
-@media (prefers-reduced-motion: reduce) {
-	.scrollToLatestButton {
-		animation: none;
-	}
-}
-
 .classicComposerFooter {
 	display: flex;
 	justify-content: flex-start;
 	align-items: center;
 	gap: var(--wpds-dimension-gap-md);
 	box-sizing: border-box;
+	width: 100%;
+}
+
+.classicComposerFooterSidebarCollapsed {
+	padding-inline-start: calc(var(--classic-panel-control-size) + var(--classic-panel-control-gap));
 }
 
 .classicComposerFooterSide {
@@ -259,6 +239,10 @@
 	align-items: center;
 	gap: var(--classic-panel-control-gap);
 	min-width: 0;
+}
+
+.classicComposerFooterEnd {
+	margin-inline-start: auto;
 }
 
 .classicComposerTextButton {
@@ -304,7 +288,7 @@
 	min-width: 0;
 }
 
-.classicComposerHistoryItem[aria-current='page'] {
+.classicComposerHistoryItem[data-current='true'] {
 	background: var(--wpds-color-bg-surface-neutral);
 }
 

@@ -126,7 +126,7 @@ Read `taxonomist-data/export/posts.json` and split into batch files of ~20-50 po
 
 ### Parallel analysis
 
-For each batch, spawn a sub-agent (use the Agent tool with model "haiku" for efficiency) with this prompt:
+For each batch, spawn a sub-agent with an efficient available model and this prompt:
 
 > Analyze these blog posts and suggest optimal category assignments.
 >

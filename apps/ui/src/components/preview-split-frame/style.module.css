@@ -6,6 +6,9 @@
 	--panel-frame-gap: 12px;
 	--panel-frame-radius: 10px;
 
+	/* Border-box so the 1px frame border stays inside the calculated height —
+	   content-box makes the frame 2px taller than the layout column, which
+	   turns the dashboard's main area into a scroll container. */
 	box-sizing: border-box;
 	height: calc(100% - 2 * var(--panel-frame-gap));
 	margin-block: var(--panel-frame-gap);
@@ -26,6 +29,8 @@
 	   hard stroke — especially against dark page content in the preview. */
 	border: 1px solid rgb(255 255 255 / 18%);
 	border-radius: var(--panel-frame-radius);
+	/* Ease in/out of the frameless state alongside the sidebar's 150ms
+	   width transition. */
 	transition: height 150ms ease, margin 150ms ease, border-radius 150ms ease;
 }
 
@@ -66,8 +71,9 @@
 	transition: width 150ms ease;
 }
 
-/* Full preview: the column is width 0 once the slide finishes; visibility
-   keeps the mounted chat out of the focus order and the accessibility tree. */
+/* Fullscreen preview: the column is width 0 once the slide finishes;
+   visibility keeps the mounted chat out of the focus order and the
+   accessibility tree. */
 .contentColumnHidden {
 	visibility: hidden;
 }

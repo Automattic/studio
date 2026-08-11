@@ -309,6 +309,59 @@ describe( 'Studio AI MCP tools', () => {
 		}
 	} );
 
+	it( 'reports style ownership warnings for editor-native CSS on block classNames', async () => {
+		const tempSiteRoot = await mkdtemp( path.join( os.tmpdir(), 'studio-style-audit-' ) );
+		const auditSite = { ...mockSite, path: tempSiteRoot };
+		const themeDir = path.join( tempSiteRoot, 'wp-content', 'themes', 'audit-theme' );
+		await mkdir( themeDir, { recursive: true } );
+		await writeFile(
+			path.join( themeDir, 'style.css' ),
+			[
+				'.rv-svc-h {',
+				'	color: #f6d365;',
+				'	max-width: 42rem;',
+				'}',
+				'.rv-svc-h::before {',
+				'	background: currentColor;',
+				'}',
+			].join( '\n' )
+		);
+		vi.mocked( readCliConfig ).mockResolvedValue( {
+			sites: [ auditSite ],
+		} as Awaited< ReturnType< typeof readCliConfig > > );
+		vi.mocked( getSiteByFolder ).mockResolvedValue( auditSite );
+		vi.mocked( validateBlocks ).mockResolvedValue( {
+			totalBlocks: 1,
+			validBlocks: 1,
+			invalidBlocks: 0,
+			results: [
+				{
+					blockName: 'core/heading',
+					isValid: true,
+					issues: [],
+					originalContent: '',
+				},
+			],
+		} );
+
+		try {
+			const result = await getTool( 'validate_blocks' ).rawHandler( {
+				nameOrPath: 'My Site',
+				content:
+					'<!-- wp:heading {"style":{"spacing":{"margin":{"top":"var:preset|spacing|60"}}},"className":"rv-svc-h"} -->\n<h2 class="wp-block-heading rv-svc-h">Services</h2>\n<!-- /wp:heading -->',
+			} as never );
+
+			const text = getTextContent( result );
+			expect( text ).toContain( 'Style ownership audit: 1 warning(s)' );
+			expect( text ).toContain( 'wp-content/themes/audit-theme/style.css:1' );
+			expect( text ).toContain( 'color, max-width' );
+			expect( text ).toContain( 'layout.contentSize/wideSize/align' );
+			expect( text ).not.toContain( '::before' );
+		} finally {
+			await rm( tempSiteRoot, { recursive: true, force: true } );
+		}
+	} );
+
 	it( 'exposes the explicit presentation tool when chat artifacts are enabled', () => {
 		const names = resolveStudioToolDefinitions().map( ( tool ) => tool.name );
 		expect( names ).not.toContain( 'show_artifact' );

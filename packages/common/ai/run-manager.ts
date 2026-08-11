@@ -10,10 +10,15 @@ import {
 	type AiSessionPlacementUpdatedEvent,
 } from '@studio/common/ai/sessions/placement';
 import { captureException } from '@studio/common/lib/error-reporting';
-import type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
+import type {
+	ActiveAgentRun,
+	AgentRunEvent,
+	PendingAgentQuestion,
+} from '@studio/common/ai/agent-events';
 import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
 import type { StudioAiSessionInputPayload, StudioChatImage } from '@studio/common/ai/chat-images';
 import type { JsonEvent } from '@studio/common/ai/json-events';
+import type { PermissionDecision, PermissionRequestData } from '@studio/common/ai/tool-permissions';
 
 /**
  * Runs the Studio Code agent as a CLI child process: forks the CLI
@@ -34,6 +39,12 @@ interface AgentRun {
 	interruptAttempts: number;
 	eventQueue: Promise< void >;
 	startedAt: number;
+	// What the child is blocked on — unanswered questions keyed by question
+	// text, gated tool calls keyed by request id. Tracked here (not only in the
+	// renderer) so a reloaded renderer can rehydrate the pending interaction
+	// from listActiveAgentRuns — the child waits indefinitely for the answer.
+	pendingQuestions: Map< string, PendingAgentQuestion >;
+	pendingPermissions: Map< string, PermissionRequestData >;
 }
 
 // Everything a run produces for the UI. The host maps each kind to its transport
@@ -70,6 +81,7 @@ export interface AgentRunManager {
 	listActiveAgentRuns(): ActiveAgentRun[];
 	interruptAgentRun( runId: string ): void;
 	answerAgentRun( runId: string, answers: Record< string, string > ): void;
+	answerAgentPermission( runId: string, requestId: string, decision: PermissionDecision ): void;
 }
 
 const INTERRUPT_FORCE_KILL_TIMEOUT_MS = 2000;
@@ -191,6 +203,8 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 			interruptAttempts: 0,
 			eventQueue: Promise.resolve(),
 			startedAt,
+			pendingQuestions: new Map(),
+			pendingPermissions: new Map(),
 		};
 
 		runsBySessionId.set( sessionId, run );
@@ -207,7 +221,20 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 			// shape (`{ action, status, message }`) on error paths. Forward only
 			// messages that look like the CLI JSON transport envelope.
 			if ( message && typeof message === 'object' && 'type' in message ) {
-				enqueueJsonEvent( run, message as JsonEvent );
+				const event = message as JsonEvent;
+				if ( event.type === 'permission.requested' ) {
+					run.pendingPermissions.set( event.request.id, event.request );
+				} else if ( event.type === 'question.asked' ) {
+					for ( const question of event.questions ) {
+						run.pendingQuestions.set( question.question, question );
+					}
+				} else if ( event.type === 'turn.completed' ) {
+					// A completed turn cannot be blocked on an answer; drop
+					// anything stale so hydration can't resurrect it.
+					run.pendingQuestions.clear();
+					run.pendingPermissions.clear();
+				}
+				enqueueJsonEvent( run, event );
 			}
 		} );
 
@@ -258,6 +285,8 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 			sessionId: run.sessionId,
 			startedAt: run.startedAt,
 			phase: run.interrupted ? 'interrupting' : 'running',
+			pendingQuestions: Array.from( run.pendingQuestions.values() ),
+			pendingPermissions: Array.from( run.pendingPermissions.values() ),
 		} ) );
 	}
 
@@ -303,8 +332,32 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 		if ( ! run || ! run.child.connected ) {
 			return;
 		}
+		for ( const question of Object.keys( answers ) ) {
+			run.pendingQuestions.delete( question );
+		}
 		run.child.send( { type: 'answer', answers } );
 	}
 
-	return { startAgentRun, listActiveAgentRuns, interruptAgentRun, answerAgentRun };
+	// Resolve a pending gated-tool permission request in the child. A run that
+	// is gone or disconnected means the tool never ran — no fallback needed.
+	function answerAgentPermission(
+		runId: string,
+		requestId: string,
+		decision: PermissionDecision
+	): void {
+		const run = runsById.get( runId );
+		if ( ! run || ! run.child.connected ) {
+			return;
+		}
+		run.pendingPermissions.delete( requestId );
+		run.child.send( { type: 'permission_response', id: requestId, decision } );
+	}
+
+	return {
+		startAgentRun,
+		listActiveAgentRuns,
+		interruptAgentRun,
+		answerAgentRun,
+		answerAgentPermission,
+	};
 }

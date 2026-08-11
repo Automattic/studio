@@ -47,6 +47,7 @@ export interface IpcEvents {
 	'snapshot-success': [ { operationId: crypto.UUID } ];
 	'show-whats-new': [ void ];
 	'show-getting-started': [ void ];
+	'show-agentic-ui-banner': [ void ];
 	'sync-connect-site': [
 		{
 			remoteSiteId: number;
@@ -69,6 +70,7 @@ export interface IpcEvents {
 	'beta-features-updated': [ void ];
 	'ai-agent-event': [ AgentRunEvent ];
 	'ai-session-placement-updated': [ AiSessionPlacementUpdatedEvent ];
+	'chat-notification-clicked': [ { sessionId: string } ];
 	'remote-session-status': [ RemoteSessionStatus ];
 	'app-update-status': [ AppUpdateStatus ];
 }

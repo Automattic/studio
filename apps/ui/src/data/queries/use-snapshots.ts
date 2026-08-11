@@ -6,6 +6,12 @@ import type { SnapshotUsage } from '@/data/core';
 export const SNAPSHOTS_QUERY_KEY = [ 'snapshots' ] as const;
 export const SNAPSHOT_USAGE_QUERY_KEY = [ 'snapshot-usage' ] as const;
 
+function getSnapshotsQueryKey( userId?: number ) {
+	return userId === undefined
+		? SNAPSHOTS_QUERY_KEY
+		: ( [ ...SNAPSHOTS_QUERY_KEY, userId ] as const );
+}
+
 function getSnapshotUsageQueryKey( userId?: number ) {
 	return userId === undefined
 		? SNAPSHOT_USAGE_QUERY_KEY
@@ -16,7 +22,7 @@ export function useSnapshots( userId?: number ) {
 	const connector = useConnector();
 	const { data: authUser } = useAuthUser();
 	const query = useQuery( {
-		queryKey: SNAPSHOTS_QUERY_KEY,
+		queryKey: getSnapshotsQueryKey( userId ),
 		queryFn: () => connector.getSnapshots(),
 		enabled: !! authUser,
 		select: ( snapshots ) =>
@@ -24,9 +30,6 @@ export function useSnapshots( userId?: number ) {
 				? snapshots
 				: snapshots.filter( ( snapshot ) => snapshot.userId === userId ),
 	} );
-	// Preview sites belong to the signed-in WordPress.com account. Disabling
-	// the query alone isn't enough — React Query keeps the cached list around
-	// after logout, so hide it explicitly while signed out.
 	return { ...query, data: authUser ? query.data : undefined };
 }
 
@@ -46,10 +49,7 @@ export function useDeleteAllSnapshots( userId?: number ) {
 		mutationFn: () => connector.deleteAllSnapshots(),
 		onSuccess: () => {
 			void queryClient.invalidateQueries( { queryKey: SNAPSHOTS_QUERY_KEY } );
-			// Zero the count directly instead of refetching: the wpcom usage
-			// counter is eventually consistent, so an immediate refetch can
-			// overwrite the correct zero with the stale pre-delete count. The
-			// next mount/focus refetch (staleTime 0) reconciles with the server.
+			void queryClient.invalidateQueries( { queryKey: SNAPSHOT_USAGE_QUERY_KEY } );
 			queryClient.setQueryData< SnapshotUsage | null >(
 				getSnapshotUsageQueryKey( userId ),
 				( current ) => ( current ? { ...current, siteCount: 0 } : current )

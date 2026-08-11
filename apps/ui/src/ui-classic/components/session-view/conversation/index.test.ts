@@ -1,7 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen } from '@testing-library/react';
-import { createElement, useState } from 'react';
+import { cloneElement, createElement, useState, type ReactElement, type ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { toast } from '@/data/app-messages';
 import { Conversation, entriesToRenderItems } from './index';
 import type { LoadedAiSession, SessionEntry } from '@/data/core';
 import type { StudioChatArtifactWidgetDraft } from '@studio/common/ai/chat-artifacts';
@@ -16,23 +17,77 @@ vi.mock( '@/components/markdown', () => ( {
 	Markdown: ( { children }: { children: string } ) => children,
 } ) );
 
+vi.mock( '@/data/app-messages', () => ( {
+	toast: { success: vi.fn(), info: vi.fn(), error: vi.fn() },
+} ) );
+
 vi.mock( '@/data/core', () => ( {
 	useConnector: () => connectorMocks,
 } ) );
 
-vi.mock( '@wordpress/ui', () => ( {
-	Icon: () => null,
-	Tooltip: {
-		Root: ( { children }: { children?: unknown } ) => children,
-		Trigger: ( { render: trigger }: { render?: unknown } ) => trigger,
-		Popup: () => null,
-		Positioner: () => null,
-	},
-} ) );
+// Minimal stand-ins for the wpds primitives: plain buttons that keep the
+// DOM props (className, aria-*, onClick) and drop the wpds-only ones.
+type MockButtonProps = {
+	children?: ReactNode;
+	label?: string;
+	icon?: unknown;
+	variant?: string;
+	nativeButton?: boolean;
+	render?: unknown;
+} & Record< string, unknown >;
 
-vi.mock( '../thinking-indicator', () => ( {
-	ThinkingIndicator: () => null,
-} ) );
+vi.mock( '@wordpress/ui', () => {
+	function mergeRenderProps(
+		render: ReactElement,
+		props: Record< string, unknown >,
+		children: ReactNode
+	) {
+		return cloneElement( render as ReactElement< Record< string, unknown > >, {
+			...props,
+			...( typeof render.props === 'object' && render.props !== null ? render.props : {} ),
+			children:
+				children ??
+				( typeof render.props === 'object' && render.props !== null && 'children' in render.props
+					? ( render.props as { children?: ReactNode } ).children
+					: undefined ),
+		} );
+	}
+
+	return {
+		Icon: () => null,
+		Button: ( {
+			children,
+			variant: _v,
+			nativeButton: _n,
+			render: _r,
+			...props
+		}: MockButtonProps ) => createElement( 'button', { type: 'button', ...props }, children ),
+		IconButton: ( {
+			label,
+			icon: _i,
+			variant: _v,
+			nativeButton: _n,
+			render: _r,
+			...props
+		}: MockButtonProps ) =>
+			createElement( 'button', { type: 'button', 'aria-label': label, ...props } ),
+		Tooltip: {
+			Root: ( { children }: { children?: ReactNode } ) => children,
+			Trigger: ( {
+				children,
+				render,
+				...props
+			}: {
+				children?: ReactNode;
+				render?: ReactElement;
+			} & Record< string, unknown > ) =>
+				render ? mergeRenderProps( render, props, children ) : children,
+			Positioner: () => null,
+			Popup: () => null,
+			Provider: ( { children }: { children?: ReactNode } ) => children,
+		},
+	};
+} );
 
 beforeEach( () => {
 	connectorMocks.readLocalMediaFile.mockReset();
@@ -75,6 +130,27 @@ describe( 'Assistant message copy button', () => {
 		expect( connectorMocks.copyText ).toHaveBeenCalledWith( 'First part.\n\nSecond part.' );
 	} );
 
+	it( 'copies the message on double-click and shows a notice', () => {
+		const data = loadedSession( [
+			{
+				type: 'message',
+				id: 'assistant-single',
+				parentId: null,
+				timestamp: '2026-06-05T12:00:00.000Z',
+				message: {
+					role: 'assistant',
+					content: [ { type: 'text', text: 'Plain reply.' } ],
+				},
+			} as unknown as SessionEntry,
+		] );
+		renderConversation( data );
+
+		fireEvent.doubleClick( screen.getByText( 'Plain reply.' ) );
+
+		expect( connectorMocks.copyText ).toHaveBeenCalledWith( 'Plain reply.' );
+		expect( toast.success ).toHaveBeenCalledWith( 'Copied', { id: 'copy-feedback' } );
+	} );
+
 	it( 'does not add a copy button to user messages', () => {
 		const data = loadedSession( [
 			{
@@ -95,6 +171,10 @@ describe( 'Assistant message copy button', () => {
 } );
 
 describe( 'Conversation tool rows', () => {
+	function expandWorkPhase( label: string | RegExp ) {
+		fireEvent.click( screen.getByRole( 'button', { name: label } ) );
+	}
+
 	it( 'keeps tool inputs and results hidden until the label row is clicked', () => {
 		const data = loadedSession( [
 			assistantToolCallEntry( 'Bash', { command: 'npm test' } ),
@@ -106,6 +186,7 @@ describe( 'Conversation tool rows', () => {
 		expect( screen.queryByText( 'npm test' ) ).not.toBeInTheDocument();
 		expect( screen.queryByText( /first output line/ ) ).not.toBeInTheDocument();
 
+		expandWorkPhase( 'Ran 1 command' );
 		const toolRow = screen.getByRole( 'button', { name: 'Run terminal command' } );
 		expect( toolRow ).toHaveAttribute( 'aria-expanded', 'false' );
 		expect( toolRow ).toHaveAttribute( 'data-expanded', 'false' );
@@ -121,10 +202,12 @@ describe( 'Conversation tool rows', () => {
 
 		expect( toolRow ).toHaveAttribute( 'aria-expanded', 'false' );
 		expect( toolRow ).toHaveAttribute( 'data-expanded', 'false' );
-		const hiddenDetails = screen.getByText( /first output line/ ).closest( '[aria-hidden="true"]' );
+		const hiddenDetails = screen
+			.getByText( /second output line/ )
+			.closest( '[aria-hidden="true"]' );
 		expect( hiddenDetails ).toBeInTheDocument();
 		fireEvent.transitionEnd( hiddenDetails! );
-		expect( screen.queryByText( /first output line/ ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( /second output line/ ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'shows long tool results in the opened details without an extra toggle', () => {
@@ -141,6 +224,7 @@ describe( 'Conversation tool rows', () => {
 
 		expect( screen.queryByRole( 'button', { name: 'Show more' } ) ).not.toBeInTheDocument();
 
+		expandWorkPhase( 'Ran 1 command' );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Run terminal command' } ) );
 
 		expect( screen.getByText( /output line 13/ ) ).toBeInTheDocument();
@@ -158,6 +242,7 @@ describe( 'Conversation tool rows', () => {
 
 		renderConversation( data );
 
+		expandWorkPhase( 'Ran 1 WP-CLI command' );
 		const toolRow = screen.getByRole( 'button', { name: 'List published posts' } );
 		expect( toolRow ).toBeInTheDocument();
 		expect( screen.queryByText( /--fields=ID/ ) ).not.toBeInTheDocument();
@@ -176,6 +261,7 @@ describe( 'Conversation tool rows', () => {
 
 		renderConversation( data );
 
+		expandWorkPhase( 'Read 1 file' );
 		expect( screen.getByRole( 'button', { name: 'Read studio/app.tsx' } ) ).toHaveAttribute(
 			'aria-label',
 			'Read studio/app.tsx'
@@ -220,6 +306,7 @@ describe( 'Conversation tool rows', () => {
 		] );
 
 		renderConversation( data );
+		expandWorkPhase( /Used 1 tool|Take screenshot|Captured/ );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Take screenshot' } ) );
 
 		expect( screen.getByText( /Screenshot captured/ ) ).toBeInTheDocument();
@@ -661,9 +748,13 @@ function renderConversation( data: LoadedAiSession, options: RenderConversationO
 				data,
 				isRunning: options.isRunning ?? false,
 				startedAt: options.startedAt ?? null,
+				activeTool: null,
 				pendingQuestions: options.pendingQuestions ?? new Set< string >(),
 				pendingAnswers: options.pendingAnswers ?? {},
+				pendingPermissions: new Set< string >(),
+				answeredPermissions: {},
 				onAnswerQuestion: options.onAnswerQuestion ?? vi.fn(),
+				onAnswerPermission: vi.fn(),
 			} )
 		)
 	);
@@ -698,12 +789,16 @@ function InteractiveConversation( {
 		data,
 		isRunning: false,
 		startedAt: null,
+		activeTool: null,
 		pendingQuestions: new Set( pendingQuestionTexts ),
 		pendingAnswers,
+		pendingPermissions: new Set< string >(),
+		answeredPermissions: {},
 		onAnswerQuestion: ( question, label ) => {
 			onAnswerQuestion( question, label );
 			setPendingAnswers( ( answers ) => ( { ...answers, [ question ]: label } ) );
 		},
+		onAnswerPermission: () => {},
 	} );
 }
 
@@ -833,4 +928,286 @@ function mockPrefersReducedMotion( matches: boolean ) {
 		}
 		delete mutableWindow.matchMedia;
 	};
+}
+
+function assistantThinkingEntry( thinking: string ): SessionEntry {
+	return {
+		type: 'message',
+		id: 'assistant-thinking',
+		parentId: null,
+		timestamp: '2026-06-05T12:00:00.000Z',
+		message: {
+			role: 'assistant',
+			content: [
+				{ type: 'thinking', thinking },
+				{ type: 'text', text: 'The final answer.' },
+			],
+		},
+	} as unknown as SessionEntry;
+}
+
+describe( 'Conversation thinking rows', () => {
+	it( 'folds thinking into a work phase before the answer text', () => {
+		const items = entriesToRenderItems( [ assistantThinkingEntry( 'Weighing two options.' ) ] );
+		expect( items.map( ( item ) => item.kind ) ).toEqual( [ 'work-phase', 'assistant-text' ] );
+		if ( items[ 0 ]?.kind === 'work-phase' ) {
+			expect( items[ 0 ].steps.map( ( step ) => step.kind ) ).toEqual( [ 'thinking' ] );
+		}
+	} );
+
+	it( 'drops whitespace-only thinking blocks', () => {
+		const items = entriesToRenderItems( [ assistantThinkingEntry( '   \n  ' ) ] );
+		expect( items.map( ( item ) => item.kind ) ).toEqual( [ 'assistant-text' ] );
+	} );
+
+	it( 'labels the work phase with the duration derived from entry timestamps', () => {
+		const prior = {
+			type: 'custom',
+			id: 'prompt-entry',
+			parentId: null,
+			timestamp: '2026-06-05T11:59:57.000Z',
+			customType: 'studio.user_prompt',
+			data: { text: 'Question', source: 'prompt' },
+		} as unknown as SessionEntry;
+		const data = loadedSession( [ prior, assistantThinkingEntry( 'Reasoning.' ) ] );
+
+		renderConversation( data );
+
+		expect( screen.getByRole( 'button', { name: 'Thought for 3s' } ) ).toBeInTheDocument();
+	} );
+
+	it( 'keeps the reasoning hidden until the work phase is expanded', () => {
+		const data = loadedSession( [
+			assistantThinkingEntry( 'First reasoning line.\nSecond reasoning line.' ),
+		] );
+
+		renderConversation( data );
+
+		expect( screen.queryByText( /Second reasoning line/ ) ).not.toBeInTheDocument();
+
+		const phaseRow = screen.getByRole( 'button', { name: 'Thinking…' } );
+		expect( phaseRow ).toHaveAttribute( 'aria-expanded', 'false' );
+
+		fireEvent.click( phaseRow );
+
+		const thinkingRow = screen.getAllByRole( 'button', { name: 'Thinking…' } )[ 1 ];
+		fireEvent.click( thinkingRow );
+
+		expect( screen.getByText( /Second reasoning line/ ) ).toBeInTheDocument();
+	} );
+} );
+
+describe( 'Conversation work phases', () => {
+	it( 'folds a single tool into a work-phase row', () => {
+		const items = entriesToRenderItems( [
+			assistantToolCallEntry( 'Read', { file_path: '/tmp/studio/app.tsx' } ),
+		] );
+		expect( items ).toHaveLength( 1 );
+		expect( items[ 0 ]?.kind ).toBe( 'work-phase' );
+		if ( items[ 0 ]?.kind === 'work-phase' ) {
+			expect( items[ 0 ].steps ).toHaveLength( 1 );
+			expect( items[ 0 ].summary.label ).toContain( 'Read 1 file' );
+		}
+	} );
+
+	it( 'collapses thinking and tools across iterations into one work phase', () => {
+		const items = entriesToRenderItems( [
+			{
+				type: 'message',
+				id: 'assistant-1',
+				parentId: null,
+				timestamp: '2026-06-05T12:00:00.000Z',
+				message: {
+					role: 'assistant',
+					content: [
+						{ type: 'thinking', thinking: 'Explore first.' },
+						{ type: 'toolCall', id: 'tool-1', name: 'Ls', arguments: { path: '/tmp/pages' } },
+						{ type: 'toolCall', id: 'tool-2', name: 'Read', arguments: { file_path: '/tmp/a' } },
+					],
+				},
+			} as unknown as SessionEntry,
+			{
+				type: 'message',
+				id: 'assistant-2',
+				parentId: null,
+				timestamp: '2026-06-05T12:00:10.000Z',
+				message: {
+					role: 'assistant',
+					content: [
+						{ type: 'thinking', thinking: 'Now write.' },
+						{ type: 'toolCall', id: 'tool-3', name: 'Write', arguments: { file_path: '/tmp/b' } },
+						{ type: 'text', text: 'Done with the plugin scaffold.' },
+					],
+				},
+			} as unknown as SessionEntry,
+		] );
+		expect( items.map( ( item ) => item.kind ) ).toEqual( [ 'work-phase', 'assistant-text' ] );
+		if ( items[ 0 ]?.kind === 'work-phase' ) {
+			expect( items[ 0 ].steps.map( ( step ) => step.kind ) ).toEqual( [
+				'thinking',
+				'tool-use',
+				'tool-use',
+				'thinking',
+				'tool-use',
+			] );
+			expect( items[ 0 ].summary.label ).toContain( 'Edited 1 file' );
+			expect( items[ 0 ].summary.label ).toContain( 'Read 1 file' );
+			expect( items[ 0 ].summary.label ).toContain( 'Explored 1 path' );
+		}
+	} );
+
+	it( 'flushes the work phase before assistant text, then starts a new phase', () => {
+		const items = entriesToRenderItems( [
+			{
+				type: 'message',
+				id: 'assistant-mixed',
+				parentId: null,
+				timestamp: '2026-06-05T12:00:00.000Z',
+				message: {
+					role: 'assistant',
+					content: [
+						{ type: 'toolCall', id: 'tool-1', name: 'Read', arguments: { file_path: '/a' } },
+						{ type: 'text', text: 'Found the template.' },
+						{ type: 'toolCall', id: 'tool-2', name: 'Read', arguments: { file_path: '/b' } },
+						{ type: 'toolCall', id: 'tool-3', name: 'Write', arguments: { file_path: '/c' } },
+					],
+				},
+			} as unknown as SessionEntry,
+		] );
+		expect( items.map( ( item ) => item.kind ) ).toEqual( [
+			'work-phase',
+			'assistant-text',
+			'work-phase',
+		] );
+	} );
+
+	it( 'hoists media artifacts out of the work phase as standalone items', () => {
+		const items = entriesToRenderItems( [
+			assistantToolCallEntry( 'take_screenshot', { url: 'http://localhost:8888/' } ),
+			{
+				type: 'custom',
+				id: 'artifact-1',
+				parentId: null,
+				timestamp: '2026-06-05T12:00:02.000Z',
+				customType: 'studio.chat_artifact',
+				data: {
+					version: 1,
+					id: 'artifact-1',
+					widgets: [
+						{
+							type: 'media',
+							widgetProps: {
+								mediaKind: 'image',
+								url: 'https://example.com/shot.png',
+								alt: 'Screenshot',
+							},
+						},
+					],
+				},
+			} as unknown as SessionEntry,
+		] );
+		expect( items.map( ( item ) => item.kind ) ).toEqual( [ 'work-phase', 'chat-artifact' ] );
+		if ( items[ 0 ]?.kind === 'work-phase' ) {
+			expect( items[ 0 ].steps.map( ( step ) => step.kind ) ).toEqual( [ 'tool-use' ] );
+		}
+	} );
+
+	it( 'shows each media file only once per turn, resetting on a new prompt', () => {
+		// generate_image emits its own card, then the agent re-presents the same
+		// file via studio_present — the duplicate must not render twice.
+		const promptEntry = ( id: string, text: string ) =>
+			( {
+				type: 'custom',
+				id,
+				parentId: null,
+				timestamp: '2026-06-05T12:00:00.000Z',
+				customType: 'studio.user_prompt',
+				data: { text, source: 'prompt' },
+			} ) as unknown as SessionEntry;
+		const items = entriesToRenderItems( [
+			promptEntry( 'prompt-1', 'make me an image' ),
+			chatArtifactEntry( [ localScreenshotWidget() ] ),
+			chatArtifactEntry( [ localScreenshotWidget() ] ),
+			promptEntry( 'prompt-2', 'show it again' ),
+			chatArtifactEntry( [ localScreenshotWidget() ] ),
+		] );
+		expect( items.map( ( item ) => item.kind ) ).toEqual( [
+			'user-text',
+			'chat-artifact',
+			'user-text',
+			'chat-artifact',
+		] );
+	} );
+
+	it( 'renders one expandable summary for the whole work phase', () => {
+		const data = loadedSession( [
+			assistantMultiToolCallEntry( [
+				{ id: 'tool-1', name: 'Bash', arguments: { command: 'npm test' } },
+				{ id: 'tool-2', name: 'Bash', arguments: { command: 'npm run lint' } },
+			] ),
+			toolResultEntryForId( 'tool-1', 'ok' ),
+			toolResultEntryForId( 'tool-2', 'ok' ),
+		] );
+
+		renderConversation( data );
+
+		expect( screen.getByRole( 'button', { name: 'Ran 2 commands' } ) ).toBeInTheDocument();
+		expect(
+			screen.queryByRole( 'button', { name: 'Run terminal command' } )
+		).not.toBeInTheDocument();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Ran 2 commands' } ) );
+
+		expect( screen.getAllByRole( 'button', { name: 'Run terminal command' } ) ).toHaveLength( 2 );
+	} );
+
+	it( 'does not emit a work phase for text-only replies', () => {
+		const items = entriesToRenderItems( [
+			{
+				type: 'message',
+				id: 'assistant-text-only',
+				parentId: null,
+				timestamp: '2026-06-05T12:00:00.000Z',
+				message: {
+					role: 'assistant',
+					content: [ { type: 'text', text: 'Just a reply.' } ],
+				},
+			} as unknown as SessionEntry,
+		] );
+		expect( items.map( ( item ) => item.kind ) ).toEqual( [ 'assistant-text' ] );
+	} );
+} );
+
+function assistantMultiToolCallEntry(
+	tools: Array< { id: string; name: string; arguments: Record< string, unknown > } >
+): SessionEntry {
+	return {
+		type: 'message',
+		id: 'assistant-multi-tool',
+		parentId: null,
+		timestamp: '2026-06-05T12:00:00.000Z',
+		message: {
+			role: 'assistant',
+			content: tools.map( ( tool ) => ( {
+				type: 'toolCall',
+				id: tool.id,
+				name: tool.name,
+				arguments: tool.arguments,
+			} ) ),
+		},
+	} as unknown as SessionEntry;
+}
+
+function toolResultEntryForId( toolCallId: string, text: string ): SessionEntry {
+	return {
+		type: 'message',
+		id: `tool-result-${ toolCallId }`,
+		parentId: null,
+		timestamp: '2026-06-05T12:00:01.000Z',
+		message: {
+			role: 'toolResult',
+			toolCallId,
+			content: [ { type: 'text', text } ],
+		},
+	} as unknown as SessionEntry;
 }

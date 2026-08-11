@@ -1,0 +1,94 @@
+import { useQueryClient } from '@tanstack/react-query';
+import { __ } from '@wordpress/i18n';
+import { Button, Tooltip } from '@wordpress/ui';
+import { clsx } from 'clsx';
+import { useMemo, useState } from 'react';
+import { useTourAnchor } from '@/components/coachmarks/anchor-registry';
+import * as Menu from '@/components/menu';
+import { PublishPickerView } from '@/components/site-dropdown/publish-picker-view';
+import { pickLiveSite } from '@/components/site-dropdown/utils';
+import { useConnector } from '@/data/core';
+import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
+import { markChecklistItemComplete } from '@/data/queries/use-onboarding-hints';
+import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
+import { usePluginSiteTag } from '@/lib/plugin-prototype';
+import styles from './style.module.css';
+import type { SiteDetails } from '@/data/core';
+
+// A publish call to action for sites that have never been connected to a
+// live WordPress.com site. Opens the same picker the site dropdown uses.
+function PublishButton( { site }: { site: SiteDetails } ) {
+	const [ pickerOpen, setPickerOpen ] = useState( false );
+	const { data: connectedSites } = useConnectedWpcomSites( site.id );
+	const liveSite = useMemo( () => pickLiveSite( connectedSites ), [ connectedSites ] );
+	const connector = useConnector();
+	const queryClient = useQueryClient();
+	const publishAnchorRef = useTourAnchor( 'publish-button' );
+	// Prototype: publishing to WordPress.com doesn't apply to plugins — their
+	// publish story is WordPress.org (submit/release), which doesn't exist
+	// here yet.
+	const pluginTag = usePluginSiteTag( site.id );
+
+	// While connections are still loading, render nothing rather than
+	// flashing a publish prompt at already-published sites.
+	if ( pluginTag || ! connectedSites || liveSite ) {
+		return null;
+	}
+
+	return (
+		<Menu.Root
+			modal={ false }
+			open={ pickerOpen }
+			onOpenChange={ ( open ) => {
+				setPickerOpen( open );
+				// Opening the publish picker counts as engaging with publishing.
+				if ( open ) {
+					void markChecklistItemComplete( connector, queryClient, 'publish-site' );
+				}
+			} }
+		>
+			<Tooltip.Root disabled={ pickerOpen }>
+				<Menu.Trigger
+					render={
+						<Tooltip.Trigger
+							render={
+								<Button
+									ref={ publishAnchorRef }
+									variant="solid"
+									tone="brand"
+									size="small"
+									className={ styles.publishButton }
+								/>
+							}
+						>
+							{ __( 'Publish' ) }
+						</Tooltip.Trigger>
+					}
+				/>
+				<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
+					{ __( 'Publish this site to WordPress.com' ) }
+				</Tooltip.Popup>
+			</Tooltip.Root>
+			<Menu.Popup side="bottom" align="end" className={ styles.publishPopup }>
+				<PublishPickerView site={ site } onClose={ () => setPickerOpen( false ) } />
+			</Menu.Popup>
+		</Menu.Root>
+	);
+}
+
+/**
+ * The compact dropdown buttons pinned to the top right of the site panels
+ * (Overview and chat), vertically aligned with the preview panel's browser
+ * toolbar buttons.
+ */
+export function SiteHeaderActions( { site }: { site: SiteDetails } ) {
+	// With the sidebar hidden the panels go full-bleed to the window top; the
+	// cluster drops by the lost frame gap, in step with the preview toolbar.
+	const sidebarCollapsed = useSidebarCollapsed();
+
+	return (
+		<div className={ clsx( styles.root, sidebarCollapsed && styles.rootSidebarCollapsed ) }>
+			<PublishButton site={ site } />
+		</div>
+	);
+}

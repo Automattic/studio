@@ -15,6 +15,7 @@ import { useBetaFeatures } from 'src/hooks/use-beta-features';
 import { TabName } from 'src/hooks/use-content-tabs';
 import { useEffectiveTab } from 'src/hooks/use-effective-tab';
 import { useImportExport } from 'src/hooks/use-import-export';
+import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { recordRendererTracksEvent } from 'src/lib/analytics';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -40,6 +41,13 @@ export function SiteContentTabs() {
 		setBannerDismissed( true );
 		void getIpcApi().dismissAgenticUiBanner();
 	}, [] );
+
+	// Dev-tool hook: the "Show Agentic UI Banner" menu item resets the
+	// persisted dismissal and fires this so the banner reappears without a reload.
+	useIpcListener(
+		'show-agentic-ui-banner',
+		useCallback( () => setBannerDismissed( false ), [] )
+	);
 
 	// Remount: Avoid focus loss on user tab changes (no remount),
 	// but remount on programmatic changes and site switches so initial tab/content state resets.

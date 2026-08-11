@@ -5,14 +5,21 @@ import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import {
 	addConnectedWpcomSite,
-	getAllConnectedWpcomSitesForCurrentUser as getAllConnectedWpcomSitesForCurrentUserShared,
+	getAllConnectedWpcomSitesForCurrentUser,
 	getConnectedWpcomSitesForLocalSite,
 	removeConnectedWpcomSite,
 	updateConnectedWpcomSites as updateConnectedWpcomSitesShared,
 } from '@studio/common/lib/connected-sites';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { getCurrentUserId } from '@studio/common/lib/shared-config';
-import { fetchLatestRewindId, fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
+import {
+	fetchLatestRewindId,
+	fetchRemoteFileTree,
+	fetchSyncableSites,
+	fetchSyncableSitesPage,
+	pollImportStatus,
+	type SyncableSitesPage,
+} from '@studio/common/lib/sync/sync-api';
 import { shouldRetryTusStatus } from '@studio/common/lib/sync/tus-upload';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
@@ -34,6 +41,19 @@ import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import { exportSite } from 'src/modules/import-export/lib/ipc-handlers';
 import { SiteServer } from 'src/site-server';
 import { SyncOption } from 'src/types';
+import type { ImportResponse } from '@studio/common/types/sync';
+
+type LiveSyncDirection = 'push' | 'pull';
+type LiveSyncItem = {
+	name: string;
+	path: string;
+	pathId?: string;
+};
+type LiveSyncItems = {
+	source: 'local' | 'remote';
+	themes: LiveSyncItem[];
+	plugins: LiveSyncItem[];
+};
 
 /**
  * Registry to store AbortControllers for ongoing sync operations (push/pull).
@@ -522,12 +542,122 @@ export async function updateConnectedWpcomSites(
 	}
 }
 
+async function listLocalSyncItems(
+	localSiteId: string,
+	directory: 'themes' | 'plugins'
+): Promise< LiveSyncItem[] > {
+	const site = SiteServer.get( localSiteId );
+	if ( ! site ) {
+		throw new Error( 'Site not found.' );
+	}
+
+	const directoryPath = path.join( site.details.path, 'wp-content', directory );
+
+	try {
+		const entries = await fsPromises.readdir( directoryPath, { withFileTypes: true } );
+		return entries
+			.filter( ( entry ) => entry.isDirectory() )
+			.map( ( entry ) => ( {
+				name: entry.name,
+				path: `${ directory }/${ entry.name }`,
+			} ) )
+			.sort( ( a, b ) => a.name.localeCompare( b.name ) );
+	} catch ( error ) {
+		if ( isErrnoException( error ) && error.code === 'ENOENT' ) {
+			return [];
+		}
+		throw error;
+	}
+}
+
+async function listRemoteSyncItems(
+	token: string,
+	remoteSiteId: number,
+	rewindId: string,
+	directory: 'themes' | 'plugins'
+): Promise< LiveSyncItem[] > {
+	const entries = await fetchRemoteFileTree(
+		token,
+		remoteSiteId,
+		rewindId,
+		`/wp-content/${ directory }/`
+	);
+
+	return entries
+		.filter( ( entry ) => entry.isDirectory )
+		.map( ( entry ) => ( {
+			name: entry.name,
+			path: `${ directory }/${ entry.name }`,
+			pathId: entry.pathId,
+		} ) )
+		.sort( ( a, b ) => a.name.localeCompare( b.name ) );
+}
+
+export async function getLiveSyncItems(
+	_event: IpcMainInvokeEvent,
+	localSiteId: string,
+	remoteSiteId: number,
+	direction: LiveSyncDirection
+): Promise< LiveSyncItems > {
+	if ( direction === 'push' ) {
+		const [ themes, plugins ] = await Promise.all( [
+			listLocalSyncItems( localSiteId, 'themes' ),
+			listLocalSyncItems( localSiteId, 'plugins' ),
+		] );
+
+		return { source: 'local', themes, plugins };
+	}
+
+	const token = await getAuthenticationToken();
+	if ( ! token?.accessToken ) {
+		throw new Error( 'Authentication required to fetch remote sync items.' );
+	}
+
+	const rewindId = await fetchLatestRewindId( token.accessToken, remoteSiteId );
+	const [ themes, plugins ] = await Promise.all( [
+		listRemoteSyncItems( token.accessToken, remoteSiteId, rewindId, 'themes' ),
+		listRemoteSyncItems( token.accessToken, remoteSiteId, rewindId, 'plugins' ),
+	] );
+
+	return { source: 'remote', themes, plugins };
+}
+
+export async function getLiveSyncImportStatus(
+	_event: IpcMainInvokeEvent,
+	remoteSiteId: number
+): Promise< ImportResponse > {
+	const token = await getAuthenticationToken();
+	if ( ! token?.accessToken ) {
+		throw new Error( 'Authentication required to fetch live sync status.' );
+	}
+
+	return pollImportStatus( token.accessToken, remoteSiteId );
+}
+
+export async function getLiveSyncLatestBackupTime(
+	_event: IpcMainInvokeEvent,
+	remoteSiteId: number
+): Promise< string | null > {
+	const token = await getAuthenticationToken();
+	if ( ! token?.accessToken ) {
+		throw new Error( 'Authentication required to fetch latest live backup.' );
+	}
+
+	const rewindId = await fetchLatestRewindId( token.accessToken, remoteSiteId );
+	const timestampMs = Number.parseInt( rewindId, 10 ) * 1000;
+	if ( ! Number.isFinite( timestampMs ) ) {
+		return null;
+	}
+
+	return new Date( timestampMs ).toISOString();
+}
+
 // Wraps the CLI `pull` command for apps/ui. The desktop renderer handles
 // pull via `pullSiteThunk` + `pollPullBackupThunk` using its own WPCOM
 // client to initiate + poll + download — that polling lives in the
 // renderer sync slice with no end-to-end IPC equivalent to reuse. Calling
 // the CLI instead keeps apps/ui free of wpcom-client setup and mirrors the
-// simpler flow used by `push`. Exchanges everything (`--options all`).
+// simpler flow used by `push`.
 export async function pullSiteFromLive(
 	event: IpcMainInvokeEvent,
 	siteId: string,
@@ -610,17 +740,34 @@ export async function fetchSyncableWpcomSites( _event: IpcMainInvokeEvent ): Pro
 	if ( ! token?.accessToken ) {
 		throw new Error( 'Authentication required to fetch WordPress.com sites.' );
 	}
-	return fetchSyncableSites( token.accessToken );
+	// Pass the already-connected remote IDs so the transform can mark those
+	// sites 'already-connected' instead of offering them as syncable again.
+	const connectedSites = await getAllConnectedWpcomSitesForCurrentUser();
+	const connectedSiteIds = connectedSites.map( ( site ) => site.id );
+	return fetchSyncableSites( token.accessToken, { connectedSiteIds } );
+}
+
+export async function fetchSyncableWpcomSitesPage(
+	_event: IpcMainInvokeEvent,
+	options: { page?: number; perPage?: number; search?: string } = {}
+): Promise< SyncableSitesPage > {
+	const token = await getAuthenticationToken();
+	if ( ! token?.accessToken ) {
+		throw new Error( 'Authentication required to fetch WordPress.com sites.' );
+	}
+	// Mirrors the default Add Site picker: a remote site connected to another
+	// local site is still selectable when creating a new local site.
+	return fetchSyncableSitesPage( token.accessToken, options );
 }
 
 export async function getConnectedWpcomSites(
-	_event: IpcMainInvokeEvent,
+	event: IpcMainInvokeEvent,
 	localSiteId?: string
 ): Promise< SyncSite[] > {
 	if ( localSiteId ) {
 		return getConnectedWpcomSitesForLocalSite( localSiteId );
 	}
-	return getAllConnectedWpcomSitesForCurrentUserShared();
+	return getAllConnectedWpcomSitesForCurrentUser();
 }
 
 /**

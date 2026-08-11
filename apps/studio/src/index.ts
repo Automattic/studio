@@ -1,3 +1,7 @@
+// MUST be the first import: redirects config paths into the new-user
+// simulation sandbox before any other module reads them.
+
+import 'src/lib/simulation-mode';
 import {
 	app,
 	BrowserWindow,
@@ -176,6 +180,13 @@ function launchExtensionBackgroundWorkers( appSession = session.defaultSession )
 async function appBoot() {
 	app.setName( packageJson.productName );
 
+	if ( process.platform === 'win32' ) {
+		// Windows toast notifications require an AppUserModelID that matches the
+		// Start-menu shortcut. Squirrel stamps `com.squirrel.<nuget-id>.<exe>` on
+		// installed builds; setting it here also makes toasts work in dev builds.
+		app.setAppUserModelId( 'com.squirrel.studio_app.Studio' );
+	}
+
 	Menu.setApplicationMenu( null );
 
 	setupCustomProtocolHandler();
@@ -301,9 +312,16 @@ async function appBoot() {
 	app.on( 'ready', async () => {
 		const locale = await getUserLocaleWithFallback();
 		if ( process.env.NODE_ENV === 'development' ) {
-			await installExtension( REACT_DEVELOPER_TOOLS );
-			await installExtension( REDUX_DEVTOOLS );
-			await launchExtensionBackgroundWorkers();
+			try {
+				await installExtension( REACT_DEVELOPER_TOOLS );
+				await installExtension( REDUX_DEVTOOLS );
+				await launchExtensionBackgroundWorkers();
+			} catch ( error ) {
+				// Devtools extensions are a dev nicety — never block boot on them.
+				// Their install/worker start is flaky on a fresh userData directory
+				// (e.g. the new-user simulation sandbox).
+				console.error( 'Failed to set up devtools extensions:', error );
+			}
 		}
 
 		console.log( `App version: ${ app.getVersion() }` );

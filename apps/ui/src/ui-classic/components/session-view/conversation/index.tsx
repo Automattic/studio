@@ -1,10 +1,13 @@
 import {
+	getCheckpointArtifactProps,
 	getLocalMediaPath,
 	getMediaAltText,
 	getSafeMediaUrl,
+	isCheckpointArtifactWidget,
 	isRenderableMediaWidget,
 	isStudioChatArtifactData,
 	stripMediaWidgetPayloadLines,
+	type CheckpointArtifactProps,
 	type StudioChatArtifactWidgetDraft,
 } from '@studio/common/ai/chat-artifacts';
 import {
@@ -18,22 +21,29 @@ import {
 	type StudioCustomEntry,
 } from '@studio/common/ai/sessions/entry-types';
 import {
+	buildWorkPhaseSummary,
+	formatThinkingDurationLabel,
 	getInputString,
 	getToolDetail,
 	getToolDisplayName,
 	getToolResultDiff,
+	getToolResultPreview,
+	getWritePseudoDiff,
 	splitCommandArgs,
 	type NormalizedToolResult,
+	type ToolGroupSummary,
 } from '@studio/common/ai/tools';
 import { formatUsageCapNotice } from '@studio/common/lib/studio-assistant-quota';
 import { __, sprintf } from '@wordpress/i18n';
 import {
+	backup,
 	blockDefault,
 	brush,
 	capturePhoto,
 	category,
 	chartBar,
 	check,
+	close,
 	cloud,
 	cloudDownload,
 	cloudUpload,
@@ -62,15 +72,19 @@ import {
 	share,
 	styles as stylesIcon,
 	tag,
+	tip,
 	tool,
 	trash,
 	trendingUp,
 	update,
 	upload,
 } from '@wordpress/icons';
-import { Icon } from '@wordpress/ui';
+import { Button, Icon, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import {
+	createContext,
+	useCallback,
+	useContext,
 	useEffect,
 	useId,
 	useMemo,
@@ -80,15 +94,27 @@ import {
 	MouseEvent as ReactMouseEvent,
 } from 'react';
 import { AiAccessRequiredNotice, AiBlockedNotice } from '@/components/ai-access-required-notice';
+import { RestoreCheckpointDialog } from '@/components/checkpoint-timeline';
 import { CopyButton } from '@/components/copy-button';
+import { ImageContextMenu } from '@/components/image-context-menu';
+import { ImageLightbox, type LightboxImage } from '@/components/image-lightbox';
 import { Markdown } from '@/components/markdown';
-import { useConnector, type LoadedAiSession } from '@/data/core';
+import * as Menu from '@/components/menu';
+import { toast } from '@/data/app-messages';
+import {
+	useConnector,
+	type LoadedAiSession,
+	type PermissionDecision,
+	type PermissionRequestData,
+} from '@/data/core';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useLocalMediaDataUrl } from '@/data/queries/use-local-media';
 import { MESSAGE_TEXT_ATTRIBUTE, QUOTABLE_TEXT_ATTRIBUTE } from '@/hooks/use-text-context-menu';
+import { formatRelativeTime } from '@/lib/format-relative-time';
 import { refreshIcon } from '@/lib/icons';
 import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
+import type { ActiveToolState } from '@/data/queries/use-agent-run';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 
 interface AgentQuestionRenderItem {
@@ -97,6 +123,21 @@ interface AgentQuestionRenderItem {
 	options: Array< { label: string; description: string } >;
 	pickedLabel?: string;
 }
+
+type WorkPhaseStep =
+	| { kind: 'thinking'; key: string; text: string; durationMs?: number }
+	| {
+			kind: 'tool-use';
+			key: string;
+			name: string;
+			input?: Record< string, unknown >;
+			result?: NormalizedToolResult;
+	  }
+	| {
+			kind: 'chat-artifact';
+			key: string;
+			widgets: StudioChatArtifactWidgetDraft[];
+	  };
 
 type RenderItem =
 	| {
@@ -107,16 +148,23 @@ type RenderItem =
 	  }
 	| { kind: 'assistant-text'; key: string; text: string; messageText: string; copyText?: string }
 	| {
-			kind: 'tool-use';
+			kind: 'work-phase';
 			key: string;
-			name: string;
-			input?: Record< string, unknown >;
-			result?: NormalizedToolResult;
+			steps: WorkPhaseStep[];
+			summary: ToolGroupSummary;
 	  }
 	| {
 			kind: 'agent-question-batch';
 			key: string;
 			questions: AgentQuestionRenderItem[];
+	  }
+	| {
+			kind: 'permission-request';
+			key: string;
+			request: PermissionRequestData;
+			// Disk-backed decision paired by request id; undefined while pending
+			// (or forever, if the session died before the user answered).
+			decision?: PermissionDecision;
 	  }
 	| {
 			kind: 'chat-artifact';
@@ -126,9 +174,20 @@ type RenderItem =
 	| { kind: 'interrupted-marker'; key: string }
 	| { kind: 'error-marker'; key: string; message: string };
 
+/** Intermediate items before work-phase grouping. */
+type FlatRenderItem =
+	| Extract< RenderItem, { kind: 'user-text' } >
+	| Extract< RenderItem, { kind: 'assistant-text' } >
+	| WorkPhaseStep
+	| Extract< RenderItem, { kind: 'agent-question-batch' } >
+	| Extract< RenderItem, { kind: 'permission-request' } >
+	| Extract< RenderItem, { kind: 'interrupted-marker' } >
+	| Extract< RenderItem, { kind: 'error-marker' } >;
+
 interface PiAssistantContentBlock {
 	type: 'text' | 'toolCall' | 'thinking';
 	text?: string;
+	thinking?: string;
 	id?: string;
 	name?: string;
 	arguments?: Record< string, unknown >;
@@ -148,6 +207,22 @@ interface PiToolResultLike {
 }
 
 const HIDDEN_TOOL_ROWS = new Set( [ 'studio_present', 'AskUserQuestion' ] );
+
+function getEntryTimestampMs( entry: SessionEntry | undefined ): number | null {
+	const raw = ( entry as { timestamp?: unknown } | undefined )?.timestamp;
+	if ( typeof raw !== 'string' ) {
+		return null;
+	}
+	const parsed = Date.parse( raw );
+	return Number.isFinite( parsed ) ? parsed : null;
+}
+
+// "Thought for 3s" from the gap between the previous entry and the assistant
+// message carrying the thinking block — the closest the transcript gets to
+// the model's thinking time (pi doesn't persist per-block durations).
+function getThinkingLabel( durationMs?: number ): string {
+	return formatThinkingDurationLabel( durationMs );
+}
 const QUESTION_COLLAPSE_DELAY_MS = 650;
 const QUESTION_SCROLL_TOP_MARGIN_PX = 12;
 const QUESTION_SCROLL_BOTTOM_CLEARANCE_PX = 96;
@@ -246,10 +321,48 @@ export function entriesToRenderItems(
 		} );
 	}
 
-	const items: RenderItem[] = [];
+	// Permission decisions pair with their request by id.
+	const permissionDecisionsById = new Map< string, PermissionDecision >();
+	// Gated tool calls, keyed by their toolCallId, so the raw tool-call row can
+	// be hidden until the tool actually ran: showing "Delete site …" above a
+	// pending confirmation reads as if it already happened.
+	const permissionRequestIdsByToolCallId = new Map< string, string >();
+	for ( const entry of entries ) {
+		if ( isStudioCustomEntryOfType( entry, 'studio.permission_response' ) ) {
+			const data = ( entry as StudioCustomEntry< 'studio.permission_response' > ).data;
+			if ( data ) {
+				permissionDecisionsById.set( data.id, data.decision );
+			}
+		}
+		if ( isStudioCustomEntryOfType( entry, 'studio.permission_request' ) ) {
+			const data = ( entry as StudioCustomEntry< 'studio.permission_request' > ).data;
+			if ( data ) {
+				permissionRequestIdsByToolCallId.set( data.toolCallId, data.id );
+			}
+		}
+	}
+	// The tool-call row only appears once the request was approved (the tool
+	// ran). Pending, denied, and expired requests are represented entirely by
+	// the permission card / its resolved row.
+	const isHiddenGatedToolCall = ( toolCallId: string ): boolean => {
+		const requestId = permissionRequestIdsByToolCallId.get( toolCallId );
+		if ( ! requestId ) {
+			return false;
+		}
+		const decision = permissionDecisionsById.get( requestId );
+		return decision === undefined || decision === 'deny';
+	};
+
+	const items: FlatRenderItem[] = [];
+	// Media files already rendered in the current turn, keyed by local path or
+	// URL. Two artifacts pointing at the same file (e.g. generate_image's own
+	// card plus a studio_present of the same path) load identical bytes, so
+	// only the first is worth showing.
+	let seenTurnMediaKeys = new Set< string >();
 	for ( let entryIndex = 0; entryIndex < entries.length; entryIndex += 1 ) {
 		const entry = entries[ entryIndex ];
 		if ( isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) ) {
+			seenTurnMediaKeys = new Set();
 			const data = ( entry as StudioCustomEntry< 'studio.user_prompt' > ).data;
 			if ( ! data || data.source !== 'prompt' ) continue;
 			items.push( {
@@ -268,6 +381,12 @@ export function entriesToRenderItems(
 			if ( ! message || message.role !== 'assistant' || ! Array.isArray( message.content ) ) {
 				continue;
 			}
+			const startedMs = getEntryTimestampMs( entries[ entryIndex - 1 ] );
+			const endedMs = getEntryTimestampMs( entry );
+			const thinkingDurationMs =
+				startedMs !== null && endedMs !== null && endedMs > startedMs
+					? endedMs - startedMs
+					: undefined;
 			// A single assistant message can hold several text blocks split by tool
 			// calls. Copy must yield the whole message, so join every text block and
 			// hang one copy button off the last one rather than one per fragment.
@@ -291,11 +410,22 @@ export function entriesToRenderItems(
 							copyText: block === lastTextBlock ? fullMessageText : undefined,
 						} );
 					}
+				} else if ( block.type === 'thinking' && typeof block.thinking === 'string' ) {
+					const text = block.thinking.trim();
+					if ( text ) {
+						items.push( {
+							kind: 'thinking',
+							key: `${ entryIndex }:${ blockIndex }:thinking`,
+							text,
+							durationMs: thinkingDurationMs,
+						} );
+					}
 				} else if (
 					block.type === 'toolCall' &&
 					typeof block.id === 'string' &&
 					typeof block.name === 'string' &&
-					! HIDDEN_TOOL_ROWS.has( block.name )
+					! HIDDEN_TOOL_ROWS.has( block.name ) &&
+					! isHiddenGatedToolCall( block.id )
 				) {
 					items.push( {
 						kind: 'tool-use',
@@ -343,6 +473,18 @@ export function entriesToRenderItems(
 			continue;
 		}
 
+		if ( isStudioCustomEntryOfType( entry, 'studio.permission_request' ) ) {
+			const data = ( entry as StudioCustomEntry< 'studio.permission_request' > ).data;
+			if ( ! data ) continue;
+			items.push( {
+				kind: 'permission-request',
+				key: `${ entryIndex }:permission`,
+				request: data,
+				decision: permissionDecisionsById.get( data.id ),
+			} );
+			continue;
+		}
+
 		if ( isStudioCustomEntryOfType( entry, 'studio.chat_artifact' ) ) {
 			const data = ( entry as StudioCustomEntry< 'studio.chat_artifact' > ).data;
 			// Guard against malformed persisted entries so one bad line can't
@@ -350,13 +492,27 @@ export function entriesToRenderItems(
 			if ( ! isStudioChatArtifactData( data ) ) {
 				continue;
 			}
-			const widgets = data.widgets.filter(
-				( widget ) =>
-					isRenderableMediaWidget( widget ) &&
+			const widgets = data.widgets.filter( ( widget ) => {
+				if ( isCheckpointArtifactWidget( widget ) ) {
+					return true;
+				}
+				if (
+					! isRenderableMediaWidget( widget ) ||
 					// Without local media access (browser builds), only widgets
 					// with a renderable remote URL are worth showing.
-					( options.canReadLocalMedia !== false || Boolean( getSafeMediaUrl( widget ) ) )
-			);
+					( options.canReadLocalMedia === false && ! getSafeMediaUrl( widget ) )
+				) {
+					return false;
+				}
+				const mediaKey = getLocalMediaPath( widget ) ?? getSafeMediaUrl( widget );
+				if ( mediaKey ) {
+					if ( seenTurnMediaKeys.has( mediaKey ) ) {
+						return false;
+					}
+					seenTurnMediaKeys.add( mediaKey );
+				}
+				return true;
+			} );
 			if ( widgets.length > 0 ) {
 				items.push( {
 					kind: 'chat-artifact',
@@ -385,7 +541,70 @@ export function entriesToRenderItems(
 		}
 	}
 
-	return items;
+	return groupIntoWorkPhases( items );
+}
+
+// Media artifacts (screenshots, generated images) are deliberate, user-facing
+// milestones — they render as standalone cards in the transcript instead of
+// collapsing into the work-phase row like checkpoints and notes do.
+function isMediaArtifact( item: FlatRenderItem ): boolean {
+	return item.kind === 'chat-artifact' && item.widgets.some( isRenderableMediaWidget );
+}
+
+function isWorkPhaseStep( item: FlatRenderItem ): item is WorkPhaseStep {
+	return (
+		item.kind === 'thinking' ||
+		item.kind === 'tool-use' ||
+		( item.kind === 'chat-artifact' && ! isMediaArtifact( item ) )
+	);
+}
+
+function buildWorkPhaseItem(
+	steps: WorkPhaseStep[]
+): Extract< RenderItem, { kind: 'work-phase' } > {
+	const tools = steps.filter(
+		( step ): step is Extract< WorkPhaseStep, { kind: 'tool-use' } > => step.kind === 'tool-use'
+	);
+	const thinkingDurationMs = steps
+		.filter(
+			( step ): step is Extract< WorkPhaseStep, { kind: 'thinking' } > => step.kind === 'thinking'
+		)
+		.reduce( ( total, step ) => total + ( step.durationMs ?? 0 ), 0 );
+	const artifactCount = steps.filter( ( step ) => step.kind === 'chat-artifact' ).length;
+	return {
+		kind: 'work-phase',
+		key: steps.map( ( step ) => step.key ).join( ':' ),
+		steps,
+		summary: buildWorkPhaseSummary( tools, thinkingDurationMs || undefined, { artifactCount } ),
+	};
+}
+
+/**
+ * Collapse everything between a user prompt and the assistant's reply into
+ * one work-phase row: thinking, tools, and artifacts across agent iterations.
+ */
+export function groupIntoWorkPhases( items: FlatRenderItem[] ): RenderItem[] {
+	const grouped: RenderItem[] = [];
+	let pendingSteps: WorkPhaseStep[] = [];
+
+	const flushPhase = () => {
+		if ( pendingSteps.length === 0 ) {
+			return;
+		}
+		grouped.push( buildWorkPhaseItem( pendingSteps ) );
+		pendingSteps = [];
+	};
+
+	for ( const item of items ) {
+		if ( isWorkPhaseStep( item ) ) {
+			pendingSteps.push( item );
+			continue;
+		}
+		flushPhase();
+		grouped.push( item );
+	}
+	flushPhase();
+	return grouped;
 }
 
 // Progress from earlier turns must not leak into the current indicator, so
@@ -407,6 +626,57 @@ function findLatestProgressMessage( entries: SessionEntry[] ): string | null {
 	return null;
 }
 
+// Registry of every image rendered in the conversation, in mount order, so
+// the lightbox can page through all of them (uploads and screenshots alike)
+// with prev/next. Registration happens on mount; the map lives on the
+// Conversation root.
+const ConversationGalleryContext = createContext< {
+	register: ( id: string, image: LightboxImage ) => () => void;
+	open: ( id: string ) => void;
+} | null >( null );
+
+/**
+ * Every image in the conversation — user uploads and agent screenshots —
+ * renders through this one component so they look and behave identically:
+ * a bounded thumbnail that opens the full-size image in the shared
+ * conversation lightbox (with a standalone fallback outside a gallery).
+ */
+function ConversationImage( { src, alt }: { src: string; alt: string } ) {
+	const gallery = useContext( ConversationGalleryContext );
+	const galleryId = useId();
+	const [ isLightboxOpen, setIsLightboxOpen ] = useState( false );
+
+	useEffect( () => {
+		return gallery?.register( galleryId, { src, alt } );
+	}, [ gallery, galleryId, src, alt ] );
+
+	const openImage = () => ( gallery ? gallery.open( galleryId ) : setIsLightboxOpen( true ) );
+
+	return (
+		<>
+			<ImageContextMenu
+				image={ { src, alt } }
+				trigger={
+					<Button
+						variant="unstyled"
+						className={ styles.chatImageButton }
+						aria-haspopup="dialog"
+						title={ alt }
+						onClick={ openImage }
+					>
+						<img className={ styles.chatImageThumb } src={ src } alt={ alt } />
+					</Button>
+				}
+			>
+				<Menu.Item onClick={ openImage }>{ __( 'Open image' ) }</Menu.Item>
+			</ImageContextMenu>
+			{ ! gallery && isLightboxOpen ? (
+				<ImageLightbox images={ [ { src, alt } ] } onClose={ () => setIsLightboxOpen( false ) } />
+			) : null }
+		</>
+	);
+}
+
 function UserTurn( {
 	text,
 	attachments,
@@ -425,12 +695,7 @@ function UserTurn( {
 								key={ `${ attachment.name }:${ index }` }
 								className={ styles.userAttachmentThumbItem }
 							>
-								<img
-									className={ styles.userAttachmentThumb }
-									src={ attachment.previewDataUrl }
-									alt={ attachment.name }
-									title={ attachment.name }
-								/>
+								<ConversationImage src={ attachment.previewDataUrl } alt={ attachment.name } />
 							</li>
 						) : (
 							<li key={ `${ attachment.name }:${ index }` } className={ styles.userAttachmentChip }>
@@ -460,6 +725,8 @@ function AssistantText( {
 	showActions: boolean;
 	onToggleSelect: () => void;
 } ) {
+	const connector = useConnector();
+
 	const handleClick = ( event: ReactMouseEvent< HTMLDivElement > ) => {
 		// Links and the buttons inside code blocks or the action row own their
 		// clicks; only bare message content toggles the actions.
@@ -474,6 +741,15 @@ function AssistantText( {
 		onToggleSelect();
 	};
 
+	// Double-click anywhere in the reply copies it (the whole message when
+	// this is its last text block, otherwise this fragment). Native word
+	// selection still happens — the copy is additive, and the app toast is
+	// the signal that more than a selection occurred.
+	const handleDoubleClick = useCallback( () => {
+		void connector.copyText( copyText ?? text );
+		toast.success( __( 'Copied' ), { id: 'copy-feedback' } );
+	}, [ connector, copyText, text ] );
+
 	return (
 		// Clicking the message is a mouse convenience for revealing its actions;
 		// keyboard users reach the same buttons by tabbing to them, which opens
@@ -487,6 +763,7 @@ function AssistantText( {
 				[ QUOTABLE_TEXT_ATTRIBUTE ]: true,
 			} }
 			onClick={ copyText ? handleClick : undefined }
+			onDoubleClick={ handleDoubleClick }
 		>
 			<Markdown>{ text }</Markdown>
 			{ copyText ? (
@@ -692,6 +969,38 @@ function getToolIcon( name: string, input: Record< string, unknown > | undefined
 	}
 }
 
+function getToolDiffForDisplay(
+	name: string,
+	input: Record< string, unknown > | undefined,
+	result?: NormalizedToolResult
+): string | undefined {
+	if ( result?.diff ) {
+		return result.diff;
+	}
+	if ( name === 'Write' ) {
+		return getWritePseudoDiff( input );
+	}
+	return undefined;
+}
+
+function getToolResultDisplayText(
+	name: string,
+	input: Record< string, unknown > | undefined,
+	result?: NormalizedToolResult
+): string {
+	const rawResultText = result?.text?.trim() ?? '';
+	const resultText =
+		name === 'take_screenshot' ? stripMediaWidgetPayloadLines( rawResultText ) : rawResultText;
+	if ( ! resultText ) {
+		return '';
+	}
+	const preview = getToolResultPreview( name, input, resultText, result?.isError === true );
+	if ( preview?.summaryLines.length ) {
+		return preview.summaryLines.join( '\n' );
+	}
+	return resultText;
+}
+
 function DiffBlock( { diff }: { diff: string } ) {
 	const lines = diff.replace( /\n$/, '' ).split( '\n' );
 	return (
@@ -727,17 +1036,25 @@ function ToolUseRow( {
 	name,
 	input,
 	result,
+	compact = false,
 }: {
 	name: string;
 	input?: Record< string, unknown >;
 	result?: NormalizedToolResult;
+	compact?: boolean;
 } ) {
 	const display = getClassicToolDisplay( name, input );
 	const detailsId = useId();
-	const resultText = result?.text?.trim() ?? '';
-	const hasOutput = resultText.length > 0;
+	const rawResultText = result?.text?.trim() ?? '';
+	const resultText =
+		name === 'take_screenshot' ? stripMediaWidgetPayloadLines( rawResultText ) : rawResultText;
+	const preview = getToolResultPreview( name, input, resultText, result?.isError === true );
+	const displayResultText = getToolResultDisplayText( name, input, result );
+	const detailText = preview?.detailText ?? resultText;
+	const hasOutput = detailText.length > 0;
 	const hasInput = display.inputText.length > 0;
-	const hasDiff = Boolean( result?.diff );
+	const diff = getToolDiffForDisplay( name, input, result );
+	const hasDiff = Boolean( diff );
 	const hasExpandableDetails = hasInput || hasOutput || hasDiff;
 	const [ expanded, setExpanded ] = useState( false );
 	const [ detailsMounted, setDetailsMounted ] = useState( false );
@@ -753,31 +1070,44 @@ function ToolUseRow( {
 			<ToolIcon name={ name } input={ input } />
 			<span className={ styles.toolLabel }>{ display.label }</span>
 			{ display.detail ? <span className={ styles.toolDetail }>{ display.detail }</span> : null }
+			{ compact && displayResultText && ! expanded ? (
+				<span className={ styles.toolDetail }>{ displayResultText.split( '\n' )[ 0 ] }</span>
+			) : null }
 		</>
 	);
 
 	return (
 		<div className={ styles.toolBlock }>
 			{ hasExpandableDetails ? (
-				<button
-					type="button"
-					className={ clsx( styles.toolRow, styles.toolRowButton ) }
-					aria-label={ display.detail ? `${ display.label } ${ display.detail }` : display.label }
-					aria-expanded={ expanded }
-					aria-controls={ detailsId }
-					data-expanded={ expanded }
-					onClick={ () => {
-						if ( expanded ) {
-							setExpanded( false );
-							return;
+				<Tooltip.Root>
+					<Tooltip.Trigger
+						render={
+							<button
+								type="button"
+								className={ clsx( styles.toolRow, styles.toolRowButton ) }
+								aria-label={
+									display.detail ? `${ display.label } ${ display.detail }` : display.label
+								}
+								aria-expanded={ expanded }
+								aria-controls={ detailsId }
+								data-expanded={ expanded }
+								onClick={ () => {
+									if ( expanded ) {
+										setExpanded( false );
+										return;
+									}
+									setDetailsMounted( true );
+									setExpanded( true );
+								} }
+							/>
 						}
-						setDetailsMounted( true );
-						setExpanded( true );
-					} }
-					title={ expanded ? __( 'Hide tool details' ) : __( 'Show tool details' ) }
-				>
-					{ rowContent }
-				</button>
+					>
+						{ rowContent }
+					</Tooltip.Trigger>
+					<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+						{ expanded ? __( 'Hide tool details' ) : __( 'Show tool details' ) }
+					</Tooltip.Popup>
+				</Tooltip.Root>
 			) : (
 				<div className={ styles.toolRow }>{ rowContent }</div>
 			) }
@@ -800,10 +1130,211 @@ function ToolUseRow( {
 								<pre
 									className={ clsx( styles.toolOutput, result?.isError && styles.toolOutputError ) }
 								>
-									{ resultText }
+									{ detailText }
 								</pre>
 							) : null }
-							{ hasDiff ? <DiffBlock diff={ result!.diff! } /> : null }
+							{ hasDiff ? <DiffBlock diff={ diff! } /> : null }
+						</div>
+					</div>
+				</div>
+			) : null }
+		</div>
+	);
+}
+
+function WorkPhaseStats( { summary }: { summary: ToolGroupSummary } ) {
+	if ( summary.additions === 0 && summary.deletions === 0 ) {
+		return null;
+	}
+	return (
+		<span className={ styles.workPhaseStats } aria-hidden="true">
+			{ summary.additions > 0 ? (
+				<span className={ styles.workPhaseStatAdded }>+{ summary.additions }</span>
+			) : null }
+			{ summary.deletions > 0 ? (
+				<span className={ styles.workPhaseStatRemoved }>-{ summary.deletions }</span>
+			) : null }
+		</span>
+	);
+}
+
+function WorkPhaseRow( { steps, summary }: { steps: WorkPhaseStep[]; summary: ToolGroupSummary } ) {
+	const detailsId = useId();
+	const [ expanded, setExpanded ] = useState( false );
+	const [ detailsMounted, setDetailsMounted ] = useState( false );
+	useEffect( () => {
+		if ( expanded || ! detailsMounted ) {
+			return;
+		}
+		const timeoutId = window.setTimeout( () => setDetailsMounted( false ), 220 );
+		return () => window.clearTimeout( timeoutId );
+	}, [ detailsMounted, expanded ] );
+
+	return (
+		<div className={ styles.toolBlock }>
+			<Tooltip.Root>
+				<Tooltip.Trigger
+					render={
+						<button
+							type="button"
+							className={ clsx( styles.toolRow, styles.toolRowButton, styles.workPhaseButton ) }
+							aria-label={ summary.label }
+							aria-expanded={ expanded }
+							aria-controls={ detailsId }
+							data-expanded={ expanded }
+							onClick={ () => {
+								if ( expanded ) {
+									setExpanded( false );
+									return;
+								}
+								setDetailsMounted( true );
+								setExpanded( true );
+							} }
+						/>
+					}
+				>
+					<span className={ styles.toolLabel }>{ summary.label }</span>
+					<WorkPhaseStats summary={ summary } />
+				</Tooltip.Trigger>
+				<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+					{ expanded ? __( 'Hide work details' ) : __( 'Show work details' ) }
+				</Tooltip.Popup>
+			</Tooltip.Root>
+			{ detailsMounted ? (
+				<div
+					id={ detailsId }
+					className={ styles.toolDetailsShell }
+					data-expanded={ expanded }
+					aria-hidden={ ! expanded }
+					onTransitionEnd={ ( event ) => {
+						if ( event.currentTarget === event.target && ! expanded ) {
+							setDetailsMounted( false );
+						}
+					} }
+				>
+					<div className={ styles.toolDetailsClip }>
+						<div className={ styles.workPhaseChildren }>
+							{ steps.map( ( step ) => {
+								switch ( step.kind ) {
+									case 'thinking':
+										return (
+											<ThinkingRow
+												key={ step.key }
+												text={ step.text }
+												durationMs={ step.durationMs }
+											/>
+										);
+									case 'tool-use':
+										return (
+											<ToolUseRow
+												key={ step.key }
+												name={ step.name }
+												input={ step.input }
+												result={ step.result }
+												compact
+											/>
+										);
+									case 'chat-artifact':
+										return <ChatArtifact key={ step.key } widgets={ step.widgets } />;
+									default:
+										return null;
+								}
+							} ) }
+						</div>
+					</div>
+				</div>
+			) : null }
+		</div>
+	);
+}
+
+function LiveWorkPhase( {
+	steps,
+	activeTool,
+}: {
+	steps: WorkPhaseStep[];
+	activeTool: ActiveToolState | null;
+} ) {
+	const liveSteps = useMemo( () => {
+		if ( ! activeTool ) {
+			return steps;
+		}
+		const pending: WorkPhaseStep = {
+			kind: 'tool-use',
+			key: `live:${ activeTool.name }:${ activeTool.startedAt }`,
+			name: activeTool.name,
+			input: activeTool.input,
+		};
+		return [ ...steps, pending ];
+	}, [ activeTool, steps ] );
+
+	if ( liveSteps.length === 0 ) {
+		return null;
+	}
+
+	const phase = buildWorkPhaseItem( liveSteps );
+	return <WorkPhaseRow steps={ phase.steps } summary={ phase.summary } />;
+}
+
+// The model's extended-thinking block, shown collapsed like a tool call —
+// the label row expands to reveal the full reasoning text.
+function ThinkingRow( { text, durationMs }: { text: string; durationMs?: number } ) {
+	const label = getThinkingLabel( durationMs );
+	const detailsId = useId();
+	const [ expanded, setExpanded ] = useState( false );
+	const [ detailsMounted, setDetailsMounted ] = useState( false );
+	useEffect( () => {
+		if ( expanded || ! detailsMounted ) {
+			return;
+		}
+		const timeoutId = window.setTimeout( () => setDetailsMounted( false ), 220 );
+		return () => window.clearTimeout( timeoutId );
+	}, [ detailsMounted, expanded ] );
+	return (
+		<div className={ styles.toolBlock }>
+			<Tooltip.Root>
+				<Tooltip.Trigger
+					render={
+						<button
+							type="button"
+							className={ clsx( styles.toolRow, styles.toolRowButton ) }
+							aria-label={ label }
+							aria-expanded={ expanded }
+							aria-controls={ detailsId }
+							data-expanded={ expanded }
+							onClick={ () => {
+								if ( expanded ) {
+									setExpanded( false );
+									return;
+								}
+								setDetailsMounted( true );
+								setExpanded( true );
+							} }
+						/>
+					}
+				>
+					<Icon icon={ tip } size={ 18 } className={ styles.toolIcon } aria-hidden="true" />
+					<span className={ styles.toolLabel }>{ label }</span>
+				</Tooltip.Trigger>
+				<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+					{ expanded ? __( 'Hide thinking' ) : __( 'Show thinking' ) }
+				</Tooltip.Popup>
+			</Tooltip.Root>
+			{ detailsMounted ? (
+				<div
+					id={ detailsId }
+					className={ styles.toolDetailsShell }
+					data-expanded={ expanded }
+					aria-hidden={ ! expanded }
+					onTransitionEnd={ ( event ) => {
+						if ( event.currentTarget === event.target && ! expanded ) {
+							setDetailsMounted( false );
+						}
+					} }
+				>
+					<div className={ styles.toolDetailsClip }>
+						<div className={ styles.toolOutputWrap }>
+							<pre className={ styles.toolOutput }>{ text }</pre>
 						</div>
 					</div>
 				</div>
@@ -813,11 +1344,66 @@ function ToolUseRow( {
 }
 
 function ChatArtifact( { widgets }: { widgets: StudioChatArtifactWidgetDraft[] } ) {
+	// Checkpoints render as tool-style rows; everything else is media in a grid.
+	const checkpointArtifacts = widgets
+		.map( getCheckpointArtifactProps )
+		.filter( ( artifact ): artifact is NonNullable< typeof artifact > => artifact !== null );
+	const mediaWidgets = widgets.filter( ( widget ) => ! isCheckpointArtifactWidget( widget ) );
 	return (
-		<div className={ styles.mediaArtifactGrid }>
-			{ widgets.map( ( widget, index ) => (
-				<MediaArtifactImage key={ `${ widget.type }:${ index }` } widget={ widget } />
+		<>
+			{ checkpointArtifacts.map( ( artifact ) => (
+				<CheckpointRow key={ artifact.checkpointId } artifact={ artifact } />
 			) ) }
+			{ mediaWidgets.length > 0 ? (
+				<div className={ styles.mediaArtifactGrid }>
+					{ mediaWidgets.map( ( widget, index ) => (
+						<MediaArtifactImage key={ `${ widget.type }:${ index }` } widget={ widget } />
+					) ) }
+				</div>
+			) : null }
+		</>
+	);
+}
+
+// A checkpoint capture rendered with the same anatomy as a tool call row —
+// icon, muted label, detail — plus a Restore action. Restore opens the same
+// confirmation dialog the site's checkpoint timeline uses.
+function CheckpointRow( { artifact }: { artifact: CheckpointArtifactProps } ) {
+	const [ restoreOpen, setRestoreOpen ] = useState( false );
+
+	let title = artifact.label;
+	if ( ! title ) {
+		title = artifact.toolName
+			? /* translators: %s: the agent tool a checkpoint was captured before (e.g. "wp_cli") */
+			  sprintf( __( 'Checkpoint before %s' ), artifact.toolName )
+			: __( 'Checkpoint' );
+	}
+
+	return (
+		<div className={ styles.toolBlock }>
+			<div className={ styles.toolRow }>
+				<Icon icon={ backup } className={ styles.toolIcon } />
+				<span className={ styles.toolLabel }>{ title }</span>
+				<span className={ styles.toolDetail }>
+					{ formatRelativeTime( new Date( artifact.createdAt ).toISOString() ) }
+				</span>
+				<Button
+					variant="minimal"
+					tone="neutral"
+					size="compact"
+					className={ styles.toolAction }
+					onClick={ () => setRestoreOpen( true ) }
+				>
+					{ __( 'Restore' ) }
+				</Button>
+			</div>
+			<RestoreCheckpointDialog
+				siteId={ artifact.siteId }
+				checkpointId={ artifact.checkpointId }
+				title={ title }
+				open={ restoreOpen }
+				onOpenChange={ setRestoreOpen }
+			/>
 		</div>
 	);
 }
@@ -842,15 +1428,7 @@ function MediaArtifactImage( { widget }: { widget: StudioChatArtifactWidgetDraft
 		return <div className={ styles.mediaArtifactLoading } aria-hidden="true" />;
 	}
 
-	return (
-		<figure className={ styles.mediaArtifactItem }>
-			<img
-				className={ styles.mediaArtifactImage }
-				src={ src }
-				alt={ getMediaAltText( widget, __( 'Image' ) ) }
-			/>
-		</figure>
-	);
+	return <ConversationImage src={ src } alt={ getMediaAltText( widget, __( 'Image' ) ) } />;
 }
 
 function AgentQuestion( {
@@ -1197,6 +1775,128 @@ function AgentQuestionBatch( {
 	);
 }
 
+function PermissionRequest( {
+	request,
+	isInteractive,
+	decision,
+	onDecide,
+}: {
+	request: PermissionRequestData;
+	isInteractive: boolean;
+	decision: PermissionDecision | undefined;
+	onDecide: ( decision: PermissionDecision ) => void;
+} ) {
+	const titleId = useId();
+	const descriptionId = useId();
+	const containerRef = useRef< HTMLDivElement >( null );
+	const prefersReducedMotion = usePrefersReducedMotion();
+
+	// Move keyboard focus to the card (not a button) when it appears: a screen
+	// reader announces the whole question via the group's name/description, Tab
+	// reaches the actions, and Enter can't trigger the destructive action until
+	// the user deliberately moves to it. Not a dialog — the user can still
+	// scroll and read the conversation to inform the decision.
+	useEffect( () => {
+		if ( ! isInteractive ) {
+			return;
+		}
+		const element = containerRef.current;
+		if ( ! element ) {
+			return;
+		}
+		scrollElementIntoViewIfNeeded( element, prefersReducedMotion );
+		element.focus( { preventScroll: true } );
+	}, [ isInteractive, prefersReducedMotion ] );
+
+	// Resolved (or expired) requests collapse to a tool-call-style row — the
+	// full card is only for the decision that's actually being made.
+	if ( ! isInteractive ) {
+		let icon = info;
+		let label: string = __( 'Permission request expired' );
+		if ( decision === 'deny' ) {
+			icon = close;
+			label = request.deniedLabel ?? __( 'Permission denied' );
+		} else if ( decision !== undefined ) {
+			icon = check;
+			label = request.allowedLabel ?? __( 'Permission granted' );
+		}
+		return (
+			<div className={ styles.toolBlock }>
+				<div className={ styles.toolRow }>
+					<Icon icon={ icon } size={ 18 } className={ styles.toolIcon } aria-hidden="true" />
+					<span className={ styles.toolLabel }>{ label }</span>
+				</div>
+			</div>
+		);
+	}
+
+	return (
+		<div
+			ref={ containerRef }
+			className={ styles.permission }
+			role="group"
+			tabIndex={ -1 }
+			aria-labelledby={ titleId }
+			aria-describedby={ descriptionId }
+			onKeyDown={ ( event ) => {
+				// Escape is the keyboard's "dismiss", and dismissal means deny.
+				if ( event.key === 'Escape' ) {
+					event.stopPropagation();
+					onDecide( 'deny' );
+				}
+			} }
+		>
+			<p id={ titleId } className={ styles.permissionTitle }>
+				{ request.title }
+			</p>
+			<div id={ descriptionId } className={ styles.permissionConsequences }>
+				{ request.consequences.map( ( line, index ) => (
+					<p key={ index } className={ styles.permissionConsequence }>
+						{ line }
+					</p>
+				) ) }
+			</div>
+			<div className={ styles.permissionActions }>
+				{ /* Same error-token remap the wpds AlertDialog uses for its
+				     irreversible confirm button — a solid Button rendered with
+				     the theme's error colors instead of brand. */ }
+				<Button
+					variant="solid"
+					size="compact"
+					className={ styles.permissionConfirmButton }
+					onClick={ () => onDecide( 'allow_once' ) }
+				>
+					{ __( 'Yes, go ahead' ) }
+				</Button>
+				{ request.allowAlways ? (
+					<Button
+						variant="outline"
+						tone="neutral"
+						size="compact"
+						className={ styles.permissionAlwaysButton }
+						onClick={ () => onDecide( 'always_allow' ) }
+						title={ sprintf(
+							/* translators: %s: what will be allowed without asking again (e.g. "pushing sites to WordPress.com") */
+							__( 'Stop asking before %s. You can change this in Settings.' ),
+							request.actionLabel
+						) }
+					>
+						{ __( 'Always allow' ) }
+					</Button>
+				) : null }
+				<Button
+					variant="minimal"
+					tone="neutral"
+					size="compact"
+					onClick={ () => onDecide( 'deny' ) }
+				>
+					{ __( 'No, stop' ) }
+				</Button>
+			</div>
+		</div>
+	);
+}
+
 // In-flow marker for a turn that ended in an error. The monthly usage cap
 // gets dedicated copy — with the reset date once the quota query resolves —
 // instead of the raw provider message.
@@ -1225,16 +1925,26 @@ export function Conversation( {
 	data,
 	isRunning,
 	startedAt,
+	activeTool,
 	pendingQuestions,
 	pendingAnswers,
+	pendingPermissions,
+	answeredPermissions,
 	onAnswerQuestion,
+	onAnswerPermission,
 }: {
 	data: LoadedAiSession;
 	isRunning: boolean;
 	startedAt: number | null;
+	activeTool: ActiveToolState | null;
 	pendingQuestions: Set< string >;
 	pendingAnswers: Record< string, string >;
+	// Ids of gated tool calls awaiting a decision on the active run.
+	pendingPermissions: Set< string >;
+	// Decisions sent this session, keyed by request id (bridges the disk lag).
+	answeredPermissions: Record< string, PermissionDecision >;
 	onAnswerQuestion: ( question: string, label: string ) => void;
+	onAnswerPermission: ( requestId: string, decision: PermissionDecision ) => void;
 } ) {
 	const entries = data.entries;
 	const canReadLocalMedia = useConnector().capabilities.readLocalMedia;
@@ -1242,9 +1952,85 @@ export function Conversation( {
 		() => entriesToRenderItems( entries, { canReadLocalMedia } ),
 		[ entries, canReadLocalMedia ]
 	);
-	const progressMessage = useMemo(
-		() => ( isRunning ? findLatestProgressMessage( entries ) : null ),
-		[ entries, isRunning ]
+	const progressMessage = useMemo( () => findLatestProgressMessage( entries ), [ entries ] );
+
+	// While a turn is in flight, the last work-phase (after the latest user
+	// prompt, before any reply text) is shown as a live updating summary.
+	// Completed phases earlier in the transcript stay as normal rows.
+	const { committedItems, livePhaseSteps } = useMemo( () => {
+		if ( ! isRunning ) {
+			return { committedItems: items, livePhaseSteps: null as WorkPhaseStep[] | null };
+		}
+		let lastUserIndex = -1;
+		for ( let i = items.length - 1; i >= 0; i -= 1 ) {
+			if ( items[ i ].kind === 'user-text' ) {
+				lastUserIndex = i;
+				break;
+			}
+		}
+		const turnItems = lastUserIndex >= 0 ? items.slice( lastUserIndex + 1 ) : items;
+		const hasReply = turnItems.some( ( item ) => item.kind === 'assistant-text' );
+		if ( hasReply ) {
+			return { committedItems: items, livePhaseSteps: null as WorkPhaseStep[] | null };
+		}
+		let lastPhaseIndex = -1;
+		for ( let i = items.length - 1; i >= 0; i -= 1 ) {
+			if ( items[ i ].kind === 'work-phase' ) {
+				lastPhaseIndex = i;
+				break;
+			}
+		}
+		if ( lastPhaseIndex < 0 || lastPhaseIndex < lastUserIndex ) {
+			return { committedItems: items, livePhaseSteps: [] as WorkPhaseStep[] };
+		}
+		// A standalone item (e.g. a media artifact) after the phase commits it:
+		// slicing at the phase would drop the trailing item from the transcript.
+		if ( lastPhaseIndex !== items.length - 1 ) {
+			return { committedItems: items, livePhaseSteps: [] as WorkPhaseStep[] };
+		}
+		const phase = items[ lastPhaseIndex ];
+		if ( phase.kind !== 'work-phase' ) {
+			return { committedItems: items, livePhaseSteps: null as WorkPhaseStep[] | null };
+		}
+		return {
+			committedItems: items.slice( 0, lastPhaseIndex ),
+			livePhaseSteps: phase.steps,
+		};
+	}, [ isRunning, items ] );
+
+	const showLiveWork =
+		isRunning &&
+		livePhaseSteps !== null &&
+		pendingQuestions.size === 0 &&
+		pendingPermissions.size === 0;
+
+	// Gallery registry: insertion order matches render (≈ chronological)
+	// order, so the lightbox pages through images as they appear in the
+	// transcript. A ref (not state) — registration must not re-render the
+	// whole conversation. `open` snapshots the registry into state, so the
+	// render below never reads the ref.
+	const galleryImagesRef = useRef( new Map< string, LightboxImage >() );
+	const [ activeGallery, setActiveGallery ] = useState< {
+		images: LightboxImage[];
+		index: number;
+	} | null >( null );
+	const gallery = useMemo(
+		() => ( {
+			register: ( id: string, image: LightboxImage ) => {
+				galleryImagesRef.current.set( id, image );
+				return () => {
+					galleryImagesRef.current.delete( id );
+				};
+			},
+			open: ( id: string ) => {
+				const ids = [ ...galleryImagesRef.current.keys() ];
+				setActiveGallery( {
+					images: [ ...galleryImagesRef.current.values() ],
+					index: Math.max( 0, ids.indexOf( id ) ),
+				} );
+			},
+		} ),
+		[]
 	);
 
 	// One selected message at a time, so picking a new one closes the last.
@@ -1272,64 +2058,85 @@ export function Conversation( {
 	}, [ isRunning, items ] );
 
 	return (
-		<div className={ styles.root }>
-			{ items.map( ( item ) => {
-				switch ( item.kind ) {
-					case 'user-text':
-						return (
-							<UserTurn key={ item.key } text={ item.text } attachments={ item.attachments } />
-						);
-					case 'assistant-text':
-						return (
-							<AssistantText
-								key={ item.key }
-								text={ item.text }
-								messageText={ item.messageText }
-								copyText={ item.copyText }
-								showActions={ selectedKey === item.key || item.key === latestActionableKey }
-								onToggleSelect={ () =>
-									setSelectedKey( ( current ) => ( current === item.key ? null : item.key ) )
-								}
-							/>
-						);
-					case 'tool-use':
-						return (
-							<ToolUseRow
-								key={ item.key }
-								name={ item.name }
-								input={ item.input }
-								result={ item.result }
-							/>
-						);
-					case 'agent-question-batch':
-						return (
-							<AgentQuestionBatch
-								key={ item.key }
-								questions={ item.questions }
-								pendingQuestions={ pendingQuestions }
-								pendingAnswers={ pendingAnswers }
-								onAnswer={ onAnswerQuestion }
-							/>
-						);
-					case 'chat-artifact':
-						return <ChatArtifact key={ item.key } widgets={ item.widgets } />;
-					case 'interrupted-marker':
-						return (
-							<div key={ item.key } className={ styles.interruptedMarker } role="status">
-								{ __( 'Interrupted by you' ) }
-							</div>
-						);
-					case 'error-marker':
-						return <TurnErrorMarker key={ item.key } message={ item.message } />;
-					default:
-						return null;
-				}
-			} ) }
-			<ThinkingIndicator
-				active={ isRunning && pendingQuestions.size === 0 }
-				startedAt={ startedAt }
-				progressMessage={ progressMessage }
-			/>
-		</div>
+		<ConversationGalleryContext.Provider value={ gallery }>
+			{ activeGallery ? (
+				<ImageLightbox
+					images={ activeGallery.images }
+					initialIndex={ activeGallery.index }
+					onClose={ () => setActiveGallery( null ) }
+				/>
+			) : null }
+			<div className={ styles.root }>
+				{ committedItems.map( ( item ) => {
+					switch ( item.kind ) {
+						case 'user-text':
+							return (
+								<UserTurn key={ item.key } text={ item.text } attachments={ item.attachments } />
+							);
+						case 'assistant-text':
+							return (
+								<AssistantText
+									key={ item.key }
+									text={ item.text }
+									messageText={ item.messageText }
+									copyText={ item.copyText }
+									showActions={ selectedKey === item.key || item.key === latestActionableKey }
+									onToggleSelect={ () =>
+										setSelectedKey( ( current ) => ( current === item.key ? null : item.key ) )
+									}
+								/>
+							);
+						case 'work-phase':
+							return (
+								<WorkPhaseRow key={ item.key } steps={ item.steps } summary={ item.summary } />
+							);
+						case 'chat-artifact':
+							return <ChatArtifact key={ item.key } widgets={ item.widgets } />;
+						case 'agent-question-batch':
+							return (
+								<AgentQuestionBatch
+									key={ item.key }
+									questions={ item.questions }
+									pendingQuestions={ pendingQuestions }
+									pendingAnswers={ pendingAnswers }
+									onAnswer={ onAnswerQuestion }
+								/>
+							);
+						case 'permission-request':
+							return (
+								<PermissionRequest
+									key={ item.key }
+									request={ item.request }
+									isInteractive={ pendingPermissions.has( item.request.id ) }
+									decision={ answeredPermissions[ item.request.id ] ?? item.decision }
+									onDecide={ ( decision ) => onAnswerPermission( item.request.id, decision ) }
+								/>
+							);
+						case 'interrupted-marker':
+							return (
+								<div key={ item.key } className={ styles.interruptedMarker } role="status">
+									{ __( 'Interrupted by you' ) }
+								</div>
+							);
+						case 'error-marker':
+							return <TurnErrorMarker key={ item.key } message={ item.message } />;
+						default:
+							return null;
+					}
+				} ) }
+				{ showLiveWork ? (
+					<>
+						<LiveWorkPhase steps={ livePhaseSteps } activeTool={ activeTool } />
+						<ThinkingIndicator active startedAt={ startedAt } progressMessage={ progressMessage } />
+					</>
+				) : (
+					<ThinkingIndicator
+						active={ isRunning && pendingQuestions.size === 0 && pendingPermissions.size === 0 }
+						startedAt={ startedAt }
+						progressMessage={ progressMessage }
+					/>
+				) }
+			</div>
+		</ConversationGalleryContext.Provider>
 	);
 }

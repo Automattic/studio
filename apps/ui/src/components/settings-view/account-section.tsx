@@ -1,5 +1,6 @@
 import { __ } from '@wordpress/i18n';
-import { Button, Tooltip } from '@wordpress/ui';
+import { caution, Icon, page } from '@wordpress/icons';
+import { Button } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { Gravatar } from '@/components/gravatar';
 import { useConnector } from '@/data/core';
@@ -9,8 +10,9 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useOffline } from '@/hooks/use-offline';
 import { getLocalizedLink, REPORT_ISSUE_URL } from '@/lib/docs-links';
 import styles from './style.module.css';
+import { AiCreditsSection, PreviewUsageSection } from './usage-panel';
 
-function AccountHelpActions() {
+function AccountHelpLinks() {
 	const connector = useConnector();
 	const locale = useUserLocale();
 
@@ -19,43 +21,35 @@ function AccountHelpActions() {
 	};
 
 	return (
-		<div className={ styles.accountActions }>
-			<Tooltip.Root>
-				<Tooltip.Trigger
-					render={
-						<Button
-							type="button"
-							variant="minimal"
-							tone="neutral"
-							size="small"
-							onClick={ () => openLink( getLocalizedLink( locale, 'docsStudio' ) ) }
-						>
-							{ __( 'Docs' ) }
-						</Button>
-					}
-				/>
-				<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+		<div className={ styles.helpLinks }>
+			<button
+				type="button"
+				className={ styles.helpLink }
+				aria-label={ __( 'Documentation' ) }
+				onClick={ () => openLink( getLocalizedLink( locale, 'docsStudio' ) ) }
+			>
+				<Icon icon={ page } size={ 20 } className={ styles.helpLinkIcon } />
+				<span
+					className={ clsx( styles.helpLinkLabel, styles.helpLinkLabelFull ) }
+					aria-hidden="true"
+				>
 					{ __( 'Documentation' ) }
-				</Tooltip.Popup>
-			</Tooltip.Root>
-			<Tooltip.Root>
-				<Tooltip.Trigger
-					render={
-						<Button
-							type="button"
-							variant="minimal"
-							tone="neutral"
-							size="small"
-							onClick={ () => openLink( REPORT_ISSUE_URL ) }
-						>
-							{ __( 'Report an issue' ) }
-						</Button>
-					}
-				/>
-				<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-					{ __( 'Report an issue or request a feature' ) }
-				</Tooltip.Popup>
-			</Tooltip.Root>
+				</span>
+				<span
+					className={ clsx( styles.helpLinkLabel, styles.helpLinkLabelShort ) }
+					aria-hidden="true"
+				>
+					{ __( 'Docs' ) }
+				</span>
+			</button>
+			<button
+				type="button"
+				className={ styles.helpLink }
+				onClick={ () => openLink( REPORT_ISSUE_URL ) }
+			>
+				<Icon icon={ caution } size={ 20 } className={ styles.helpLinkIcon } />
+				<span className={ styles.helpLinkLabel }>{ __( 'Report an issue' ) }</span>
+			</button>
 		</div>
 	);
 }
@@ -68,58 +62,73 @@ export function AccountSection() {
 	const isOffline = useOffline();
 
 	return (
-		<section className={ styles.preferenceSectionGroup }>
-			<div className={ styles.accountSectionHeader }>
-				<h2 className={ clsx( styles.preferenceSectionHeading, styles.accountHeading ) }>
-					{ __( 'Account' ) }
-				</h2>
-				<AccountHelpActions />
-			</div>
-			<div className={ styles.accountSummary }>
-				<div className={ styles.accountIdentity }>
-					{ user ? (
-						<Gravatar
-							email={ user.email }
-							isDark={ themeIsDark }
-							className={ styles.accountAvatar }
-						/>
-					) : null }
-					<div className={ styles.accountDetails }>
-						<h2>{ user ? user.displayName : __( 'WordPress.com account' ) }</h2>
-						<p>
-							{ user
-								? user.email
-								: __( 'Log in to use AI features and synchronize with live and preview sites.' ) }
-						</p>
+		<div className={ clsx( styles.accountAside, user && styles.accountAsideGrid ) }>
+			{ user ? (
+				<>
+					<section className={ clsx( styles.asideSection, styles.accountBlock ) }>
+						<h2 className={ clsx( styles.asideHeading, styles.visuallyHidden ) }>
+							{ __( 'Account' ) }
+						</h2>
+						<div className={ styles.accountIdentity }>
+							<Gravatar
+								email={ user.email }
+								isDark={ themeIsDark }
+								className={ styles.accountAvatar }
+							/>
+							<div className={ styles.accountDetails }>
+								<span className={ styles.accountName }>{ user.displayName }</span>
+								<p className={ styles.accountEmail }>{ user.email }</p>
+							</div>
+						</div>
+					</section>
+
+					<div className={ styles.usageGroup }>
+						<AiCreditsSection />
+						<PreviewUsageSection userId={ user.id } />
 					</div>
-				</div>
-				{ user ? (
-					<div className={ styles.accountButtons }>
-						<Button
-							type="button"
-							variant="outline"
-							tone="neutral"
-							loading={ logout.isPending }
-							loadingAnnouncement={ __( 'Logging out' ) }
-							onClick={ () => logout.mutate() }
-						>
-							{ __( 'Log out' ) }
-						</Button>
-					</div>
-				) : (
+				</>
+			) : (
+				<section className={ styles.asideSection }>
+					<h2 className={ styles.asideHeading }>{ __( 'Let Studio code it for you' ) }</h2>
+					<p className={ styles.signinCopy }>
+						{ __(
+							'An AI powered WordPress expert that can build a site, theme, or plugin, and help you share and publish.'
+						) }
+					</p>
 					<Button
 						type="button"
-						variant="outline"
+						className={ styles.signinButton }
+						variant="solid"
 						tone="neutral"
+						size="small"
 						disabled={ isLoading || isOffline }
 						loading={ login.isPending }
 						loadingAnnouncement={ __( 'Logging in' ) }
 						onClick={ () => login.mutate() }
 					>
-						{ __( 'Log in' ) }
+						{ __( 'Log in with WordPress.com' ) }
 					</Button>
-				) }
-			</div>
-		</section>
+				</section>
+			) }
+
+			{ user ? (
+				<Button
+					type="button"
+					className={ styles.logoutButton }
+					variant="solid"
+					size="small"
+					loading={ logout.isPending }
+					loadingAnnouncement={ __( 'Logging out' ) }
+					onClick={ () => logout.mutate() }
+				>
+					{ __( 'Log out' ) }
+				</Button>
+			) : null }
+
+			<section className={ clsx( styles.asideSection, styles.accountHelp ) }>
+				<h2 className={ styles.asideHeading }>{ __( 'Help' ) }</h2>
+				<AccountHelpLinks />
+			</section>
+		</div>
 	);
 }

@@ -1,12 +1,14 @@
 import { STUDIO_CHAT_MAX_FILES, type StudioChatFileAttachment } from './chat-files';
 import {
-	STUDIO_CHAT_MAX_IMAGES,
-	STUDIO_CHAT_MAX_IMAGE_BYTES,
-	STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES,
+	getStudioChatImageEncodedBytes,
+	getStudioChatImageLimits,
 	isStudioChatImageMimeType,
 	type StudioChatImage,
+	type StudioChatImageLimits,
 	type StudioChatImageMimeType,
 } from './chat-images';
+import { fitImageFileWithinLimits } from './image-fit';
+import type { ClipDocumentRect, ClipElementTarget, ClipGrain } from '../inspector/protocol';
 
 export interface ComposerImageAttachment {
 	id: string;
@@ -27,15 +29,80 @@ export interface ComposerFileAttachment {
 	preview?: ComposerFilePreview;
 }
 
+/** Preview-side state a clip was made under; restorable context for the
+ * agent ("mobile viewport, dark mode, WP Admin"). */
+export interface ComposerClipContext {
+	realm?: 'frontend' | 'admin' | 'database';
+	url?: string;
+	pathname?: string;
+	viewportWidth?: number | null;
+	colorScheme?: 'light' | 'dark';
+}
+
+/**
+ * A clip: one captured piece of the previewed site, at one of four grains.
+ * Element and region clips carry a JPEG crop plus whatever semantics the
+ * inspector could gather; page clips are a full-page capture; console clips
+ * reference an exported log file on disk. The numbered chip in the composer
+ * and the numbered marker on the page are the same clip — the number is
+ * derived from the clip's position among its siblings, not stored.
+ */
+export interface ComposerClipAttachment {
+	id: string;
+	kind: 'clip';
+	grain: ClipGrain;
+	// Display name for the chip ("Element clip", localized by the app).
+	name: string;
+	comment?: string;
+	// Element grain: what was clicked.
+	target?: ClipElementTarget;
+	// Element/region grain: marker anchor in guest document coordinates.
+	documentRect?: ClipDocumentRect;
+	// Region grain: best-effort content hint + loupe zoom at snap time.
+	coveredTag?: string;
+	coveredSelector?: string;
+	zoom?: number;
+	context: ComposerClipContext;
+	// JPEG capture (element/region/page grains).
+	mimeType?: StudioChatImageMimeType;
+	dataBase64?: string;
+	size: number;
+	// Console grain: exported entries file.
+	filePath?: string;
+	entryCount?: number;
+}
+
 export type ComposerFilePreview =
 	| { kind: 'image'; dataUrl: string }
 	| { kind: 'text'; text: string };
 
-export type ComposerAttachment = ComposerImageAttachment | ComposerFileAttachment;
+export type ComposerAttachment =
+	| ComposerImageAttachment
+	| ComposerFileAttachment
+	| ComposerClipAttachment;
 
 export interface ComposerSendAttachments {
 	images: StudioChatImage[];
 	files: StudioChatFileAttachment[];
+}
+
+export function isComposerClipAttachment(
+	attachment: ComposerAttachment
+): attachment is ComposerClipAttachment {
+	return attachment.kind === 'clip';
+}
+
+export function getComposerClipAttachments(
+	attachments: ComposerAttachment[]
+): ComposerClipAttachment[] {
+	return attachments.filter( isComposerClipAttachment );
+}
+
+/** The filename a clip's capture rides under in the outgoing message; the
+ * clips prompt references clips by this name so the agent can pair the
+ * text with the right image. */
+export function getComposerClipImageName( clip: ComposerClipAttachment, number: number ): string {
+	return `clip-${ number }-${ clip.grain }.jpg`;
 }
 
 export const COMPOSER_FILE_IMAGE_PREVIEW_MAX_BYTES = 1 * 1024 * 1024;
@@ -54,6 +121,8 @@ type PrepareComposerAttachmentsOptions = {
 	resolveFilePath: ( file: File ) => string | Promise< string >;
 	messages: ComposerAttachmentMessages;
 	existingAttachments?: ComposerAttachment[];
+	/** Family-specific quotas; defaults to the strictest across families. */
+	limits?: StudioChatImageLimits;
 };
 
 export function toComposerSendAttachments(
@@ -61,6 +130,7 @@ export function toComposerSendAttachments(
 ): ComposerSendAttachments {
 	const images: StudioChatImage[] = [];
 	const files: StudioChatFileAttachment[] = [];
+	let clipNumber = 0;
 	for ( const attachment of attachments ) {
 		if ( attachment.kind === 'image' ) {
 			images.push( {
@@ -70,6 +140,26 @@ export function toComposerSendAttachments(
 				size: attachment.size,
 				dataBase64: attachment.dataBase64,
 			} );
+		} else if ( attachment.kind === 'clip' ) {
+			clipNumber += 1;
+			if ( attachment.dataBase64 && attachment.mimeType ) {
+				images.push( {
+					id: attachment.id,
+					name: getComposerClipImageName( attachment, clipNumber ),
+					mimeType: attachment.mimeType,
+					size: attachment.size,
+					dataBase64: attachment.dataBase64,
+				} );
+			}
+			if ( attachment.filePath ) {
+				files.push( {
+					id: attachment.id,
+					name: attachment.name,
+					path: attachment.filePath,
+					mimeType: 'text/plain',
+					size: attachment.size,
+				} );
+			}
 		} else {
 			files.push( {
 				id: attachment.id,
@@ -81,6 +171,76 @@ export function toComposerSendAttachments(
 		}
 	}
 	return { images, files };
+}
+
+export interface ComposerClipInput {
+	grain: ClipGrain;
+	name: string;
+	comment?: string;
+	target?: ClipElementTarget;
+	documentRect?: ClipDocumentRect;
+	coveredTag?: string;
+	coveredSelector?: string;
+	zoom?: number;
+	context: ComposerClipContext;
+	/** JPEG capture for element/region/page grains. */
+	image?: File;
+	/** Console grain: exported entries already written to disk. */
+	filePath?: string;
+	entryCount?: number;
+	fileSize?: number;
+}
+
+/**
+ * Builds a clip attachment from a capture. Oversized captures are rejected
+ * (returns an error message key holder rather than throwing) so callers can
+ * toast the same way `prepareComposerAttachments` does.
+ */
+export async function prepareComposerClipAttachment(
+	input: ComposerClipInput,
+	messages: Pick< ComposerAttachmentMessages, 'imageTooLarge' | 'imageReadFailed' >,
+	limits: StudioChatImageLimits = getStudioChatImageLimits()
+): Promise< { attachment: ComposerClipAttachment | null; error: string | null } > {
+	let dataBase64: string | undefined;
+	let mimeType: StudioChatImageMimeType | undefined;
+	let size = input.fileSize ?? 0;
+	if ( input.image ) {
+		const fitted = await fitImageFileWithinLimits( input.image );
+		if ( getStudioChatImageEncodedBytes( fitted.size ) > limits.maxImageEncodedBytes ) {
+			return { attachment: null, error: messages.imageTooLarge };
+		}
+		if ( ! isStudioChatImageMimeType( fitted.type ) ) {
+			return { attachment: null, error: messages.imageReadFailed };
+		}
+		try {
+			dataBase64 = await readFileAsBase64( fitted );
+		} catch {
+			return { attachment: null, error: messages.imageReadFailed };
+		}
+		mimeType = fitted.type;
+		size = fitted.size;
+	}
+	return {
+		attachment: {
+			id: newAttachmentId(),
+			kind: 'clip',
+			grain: input.grain,
+			name: input.name,
+			comment: input.comment || undefined,
+			target: input.target,
+			documentRect: input.documentRect,
+			coveredTag: input.coveredTag,
+			coveredSelector: input.coveredSelector,
+			zoom: input.zoom,
+			context: input.context,
+			mimeType,
+			dataBase64,
+			size,
+			filePath: input.filePath,
+			entryCount: input.entryCount,
+		},
+		error: null,
+	};
 }
 
 function newAttachmentId(): string {
@@ -265,53 +425,76 @@ function summarizeComposerAttachmentErrors( errors: string[] ): string | null {
 	return errors.length > 0 ? errors.join( ' ' ) : null;
 }
 
+// Clip captures ride as image content blocks, so they count against the
+// image quotas; console clips reference a file on disk and count as files.
+function countsAsImage( attachment: ComposerAttachment ): boolean {
+	if ( attachment.kind === 'image' ) {
+		return true;
+	}
+	return attachment.kind === 'clip' && !! attachment.dataBase64;
+}
+
 function getAttachmentStats( attachments: ComposerAttachment[] ): {
 	imageCount: number;
 	fileCount: number;
-	imageBytes: number;
+	imageEncodedBytes: number;
 } {
-	const images = attachments.filter( ( item ) => item.kind === 'image' );
+	const images = attachments.filter( countsAsImage );
 	return {
 		imageCount: images.length,
 		fileCount: attachments.length - images.length,
-		imageBytes: images.reduce( ( sum, item ) => sum + item.size, 0 ),
+		imageEncodedBytes: images.reduce(
+			( sum, item ) => sum + getStudioChatImageEncodedBytes( item.size ),
+			0
+		),
 	};
 }
 
 export async function prepareComposerAttachments(
 	incoming: File[],
-	{ resolveFilePath, messages, existingAttachments = [] }: PrepareComposerAttachmentsOptions
+	{
+		resolveFilePath,
+		messages,
+		existingAttachments = [],
+		limits = getStudioChatImageLimits(),
+	}: PrepareComposerAttachmentsOptions
 ): Promise< { attachments: ComposerAttachment[]; error: string | null; errors: string[] } > {
 	const attachments: ComposerAttachment[] = [];
 	const errors: string[] = [];
-	let { imageCount, fileCount, imageBytes } = getAttachmentStats( existingAttachments );
+	let { imageCount, fileCount, imageEncodedBytes } = getAttachmentStats( existingAttachments );
 
 	for ( const file of incoming ) {
 		if ( isStudioChatImageMimeType( file.type ) ) {
-			if ( file.size > STUDIO_CHAT_MAX_IMAGE_BYTES ) {
+			// Oversized/overdimensioned images are downscaled and re-encoded to
+			// fit rather than rejected; the size check below only trips when the
+			// image couldn't be decoded or shrunk enough.
+			const fitted = await fitImageFileWithinLimits( file );
+			const mimeType = isStudioChatImageMimeType( fitted.type ) ? fitted.type : file.type;
+			const encodedBytes = getStudioChatImageEncodedBytes( fitted.size );
+			if ( encodedBytes > limits.maxImageEncodedBytes ) {
 				addUniqueError( errors, messages.imageTooLarge );
 				continue;
 			}
-			if ( imageCount >= STUDIO_CHAT_MAX_IMAGES ) {
+			if ( imageCount >= limits.maxImages ) {
 				addUniqueError( errors, messages.maxImages );
 				continue;
 			}
-			if ( imageBytes + file.size > STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES ) {
+			if ( imageEncodedBytes + encodedBytes > limits.maxTotalImageEncodedBytes ) {
 				addUniqueError( errors, messages.totalImagesTooLarge );
 				continue;
 			}
 			try {
-				const dataBase64 = await readFileAsBase64( file );
+				const dataBase64 = await readFileAsBase64( fitted );
 				attachments.push( {
 					id: newAttachmentId(),
 					kind: 'image',
-					name: file.name,
-					mimeType: file.type,
-					size: file.size,
+					name: fitted.name,
+					mimeType,
+					size: fitted.size,
 					dataBase64,
 				} );
 				imageCount++;
-				imageBytes += file.size;
+				imageEncodedBytes += encodedBytes;
 			} catch {
 				addUniqueError( errors, messages.imageReadFailed );
 			}
@@ -356,27 +539,26 @@ export async function prepareComposerAttachments(
 export function mergeComposerAttachments(
 	current: ComposerAttachment[],
 	next: ComposerAttachment[],
-	messages: Pick< ComposerAttachmentMessages, 'maxImages' | 'totalImagesTooLarge' | 'maxFiles' >
+	messages: Pick< ComposerAttachmentMessages, 'maxImages' | 'totalImagesTooLarge' | 'maxFiles' >,
+	limits: StudioChatImageLimits = getStudioChatImageLimits()
 ): { attachments: ComposerAttachment[]; error: string | null; errors: string[] } {
 	const merged = [ ...current ];
-	const images = current.filter( ( item ) => item.kind === 'image' );
-	let imageCount = images.length;
-	let fileCount = current.length - imageCount;
-	let imageBytes = images.reduce( ( sum, item ) => sum + item.size, 0 );
+	let { imageCount, fileCount, imageEncodedBytes } = getAttachmentStats( current );
 	const errors: string[] = [];
 
 	for ( const attachment of next ) {
-		if ( attachment.kind === 'image' ) {
-			if ( imageCount >= STUDIO_CHAT_MAX_IMAGES ) {
+		if ( countsAsImage( attachment ) ) {
+			const encodedBytes = getStudioChatImageEncodedBytes( attachment.size );
+			if ( imageCount >= limits.maxImages ) {
 				addUniqueError( errors, messages.maxImages );
 				continue;
 			}
-			if ( imageBytes + attachment.size > STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES ) {
+			if ( imageEncodedBytes + encodedBytes > limits.maxTotalImageEncodedBytes ) {
 				addUniqueError( errors, messages.totalImagesTooLarge );
 				continue;
 			}
 			imageCount++;
-			imageBytes += attachment.size;
+			imageEncodedBytes += encodedBytes;
 		} else {
 			if ( fileCount >= STUDIO_CHAT_MAX_FILES ) {
 				addUniqueError( errors, messages.maxFiles );

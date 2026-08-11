@@ -1,38 +1,36 @@
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { sortSites } from '@studio/common/lib/sort-sites';
-import { supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
-import { terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { useNavigate, useParams, useRouterState } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
-import { settings } from '@wordpress/icons';
-import { IconButton, Tooltip } from '@wordpress/ui';
-import { clsx } from 'clsx';
 import {
-	useEffect,
-	useMemo,
-	useRef,
-	useState,
-	type MouseEvent,
-	type PointerEvent as ReactPointerEvent,
-	type ReactElement,
-	type ReactNode,
-} from 'react';
+	category,
+	chevronDown,
+	chevronRight,
+	closeSmall,
+	funnel,
+	plugins as pluginsIcon,
+	settings,
+	wordpress,
+} from '@wordpress/icons';
+import { Button, Icon, IconButton, Tooltip } from '@wordpress/ui';
+import { clsx } from 'clsx';
+import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 import { AgentWorkingIndicator } from '@/components/agent-working-indicator';
-import { DeleteSiteDialog } from '@/components/delete-site-dialog';
+import { useTourAnchor } from '@/components/coachmarks/anchor-registry';
 import * as Menu from '@/components/menu';
 import { ReorderableList } from '@/components/reorderable-list';
+import { SegmentedControl } from '@/components/segmented-control';
 import { SidebarButton } from '@/components/sidebar-button';
+import { SiteContextMenu } from '@/components/site-context-menu';
 import { deriveSiteStatus } from '@/components/site-dropdown/utils';
 import { XdebugIcon } from '@/components/xdebug-icon';
 import { useConnector } from '@/data/core';
+import { useSiteActivityOverride } from '@/data/dev-lab-site-activity';
 import { useSiteAgentActivity, type SiteAgentActivity } from '@/data/queries/use-agent-run';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useSessions } from '@/data/queries/use-sessions';
 import {
-	useCopySite,
-	useExportDatabase,
-	useExportFullSite,
 	useIsSiteStarting,
 	useIsSiteStopping,
 	useSites,
@@ -40,9 +38,14 @@ import {
 	useStopSite,
 	useUpdateSitesSortOrder,
 } from '@/data/queries/use-sites';
-import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSiteSyncActivity } from '@/data/sync-activity';
-import { getSiteUrl } from '@/lib/get-site-url';
+import { usePluginSiteTags } from '@/lib/plugin-prototype';
+import {
+	createSiteGroup,
+	removeSiteGroup,
+	toggleSiteGroupCollapsed,
+	useSiteGroups,
+} from '@/lib/site-groups-prototype';
 import styles from './style.module.css';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
 
@@ -55,6 +58,93 @@ type SiteRow = {
 type SiteRowActivity = SiteAgentActivity | 'new-message' | 'sync';
 
 const ACTIVITY_EXIT_DURATION_MS = 180;
+const SIDEBAR_VIEW_STORAGE_KEY = 'studio-ui-sidebar-view-v1';
+const SIDEBAR_SORT_STORAGE_KEY = 'studio-ui-sidebar-sort-v1';
+
+type SidebarView = 'all' | 'sites' | 'plugins';
+
+const SIDEBAR_VIEWS: SidebarView[] = [ 'all', 'sites', 'plugins' ];
+
+// 'custom' is the hand-arranged order (drag to reorder); every other mode
+// derives the order, so dragging is unavailable while one is active.
+type SidebarSort =
+	| 'custom'
+	| 'name-asc'
+	| 'name-desc'
+	| 'running-first'
+	| 'created-desc'
+	| 'created-asc';
+
+const SIDEBAR_SORTS: SidebarSort[] = [
+	'custom',
+	'name-asc',
+	'name-desc',
+	'running-first',
+	'created-desc',
+	'created-asc',
+];
+
+function readStoredSidebarSort(): SidebarSort {
+	try {
+		const stored = window.localStorage.getItem( SIDEBAR_SORT_STORAGE_KEY );
+		return SIDEBAR_SORTS.includes( stored as SidebarSort ) ? ( stored as SidebarSort ) : 'custom';
+	} catch {
+		return 'custom';
+	}
+}
+
+function writeStoredSidebarSort( sort: SidebarSort ): void {
+	try {
+		window.localStorage.setItem( SIDEBAR_SORT_STORAGE_KEY, sort );
+	} catch {
+		// Ignore storage failures; the selection still applies for this render.
+	}
+}
+
+// Creation dates aren't part of SiteDetails; the config order stands in for
+// them (sites are appended to cli.json as they're created), passed here as a
+// site-id → index rank.
+function compareRows(
+	a: SiteRow,
+	b: SiteRow,
+	sort: SidebarSort,
+	creationRank: Map< string, number >
+): number {
+	switch ( sort ) {
+		case 'name-asc':
+			return a.site.name.localeCompare( b.site.name );
+		case 'name-desc':
+			return b.site.name.localeCompare( a.site.name );
+		case 'running-first':
+			return (
+				Number( b.site.running ) - Number( a.site.running ) ||
+				a.site.name.localeCompare( b.site.name )
+			);
+		case 'created-desc':
+			return ( creationRank.get( b.site.id ) ?? 0 ) - ( creationRank.get( a.site.id ) ?? 0 );
+		case 'created-asc':
+			return ( creationRank.get( a.site.id ) ?? 0 ) - ( creationRank.get( b.site.id ) ?? 0 );
+		default:
+			return 0;
+	}
+}
+
+function readStoredSidebarView(): SidebarView {
+	try {
+		const stored = window.localStorage.getItem( SIDEBAR_VIEW_STORAGE_KEY );
+		return SIDEBAR_VIEWS.includes( stored as SidebarView ) ? ( stored as SidebarView ) : 'all';
+	} catch {
+		return 'all';
+	}
+}
+
+function writeStoredSidebarView( view: SidebarView ): void {
+	try {
+		window.localStorage.setItem( SIDEBAR_VIEW_STORAGE_KEY, view );
+	} catch {
+		// Ignore storage failures; the selection still applies for this render.
+	}
+}
 
 function SiteAgentActivityTooltip( {
 	label,
@@ -91,7 +181,16 @@ function SiteAgentActivityTooltip( {
 	);
 }
 
-function SiteAgentActivityIndicator( { activity }: { activity: SiteRowActivity } ) {
+function SiteAgentActivityIndicator( {
+	activity,
+	idleGlyph,
+}: {
+	activity: SiteRowActivity;
+	// Occupies the slot while there's no activity (the mixed "All" view's
+	// type glyph); an active indicator crossfades in over it. Keeps the slot
+	// permanently expanded so row labels never shift.
+	idleGlyph?: ReactNode;
+} ) {
 	const [ exitingActivity, setExitingActivity ] = useState< SiteRowActivity >( 'idle' );
 
 	useEffect( () => {
@@ -119,46 +218,75 @@ function SiteAgentActivityIndicator( { activity }: { activity: SiteRowActivity }
 		<span
 			className={ clsx(
 				styles.siteAgentActivitySlot,
-				isVisible && styles.siteAgentActivitySlotVisible
+				( isVisible || idleGlyph ) && styles.siteAgentActivitySlotVisible
 			) }
 			aria-hidden={ isVisible ? undefined : 'true' }
 		>
-			{ renderedActivity === 'working' ? (
-				<SiteAgentActivityTooltip label={ workingLabel } childProvidesLabel>
-					<AgentWorkingIndicator
-						className={ styles.siteAgentActivityPixels }
-						label={ workingLabel }
+			{ idleGlyph ? (
+				<span
+					className={ clsx( styles.siteTypeGlyph, isVisible && styles.siteTypeGlyphHidden ) }
+					aria-hidden="true"
+				>
+					{ idleGlyph }
+				</span>
+			) : null }
+			<span
+				className={ clsx(
+					styles.siteActivityStack,
+					! isVisible && styles.siteActivityStackHidden
+				) }
+			>
+				{ renderedActivity === 'working' ? (
+					<SiteAgentActivityTooltip label={ workingLabel } childProvidesLabel>
+						<AgentWorkingIndicator
+							className={ styles.siteAgentActivityPixels }
+							label={ workingLabel }
+						/>
+					</SiteAgentActivityTooltip>
+				) : null }
+				{ renderedActivity === 'pending-question' ? (
+					<SiteAgentActivityTooltip
+						label={ pendingQuestionLabel }
+						ariaLabel={ pendingQuestionAriaLabel }
+						className={ styles.siteAgentActivityQuestion }
 					/>
-				</SiteAgentActivityTooltip>
-			) : null }
-			{ renderedActivity === 'pending-question' ? (
-				<SiteAgentActivityTooltip
-					label={ pendingQuestionLabel }
-					ariaLabel={ pendingQuestionAriaLabel }
-					className={ styles.siteAgentActivityQuestion }
-				/>
-			) : null }
-			{ renderedActivity === 'new-message' ? (
-				<SiteAgentActivityTooltip
-					label={ newMessageLabel }
-					className={ styles.siteAgentActivityMessage }
-				/>
-			) : null }
-			{ renderedActivity === 'sync' ? (
-				<SiteAgentActivityTooltip label={ syncLabel } className={ styles.siteAgentActivitySync }>
-					<span className={ styles.siteAgentActivitySyncDots } aria-hidden="true">
-						<span className={ styles.siteAgentActivitySyncDot } />
-						<span className={ styles.siteAgentActivitySyncDot } />
-						<span className={ styles.siteAgentActivitySyncDot } />
-					</span>
-				</SiteAgentActivityTooltip>
-			) : null }
+				) : null }
+				{ renderedActivity === 'new-message' ? (
+					<SiteAgentActivityTooltip
+						label={ newMessageLabel }
+						className={ styles.siteAgentActivityMessage }
+					/>
+				) : null }
+				{ renderedActivity === 'sync' ? (
+					<SiteAgentActivityTooltip label={ syncLabel } className={ styles.siteAgentActivitySync }>
+						<span className={ styles.siteAgentActivitySyncDots } aria-hidden="true">
+							<span className={ styles.siteAgentActivitySyncDot } />
+							<span className={ styles.siteAgentActivitySyncDot } />
+							<span className={ styles.siteAgentActivitySyncDot } />
+						</span>
+					</SiteAgentActivityTooltip>
+				) : null }
+			</span>
 		</span>
 	);
 }
 
 function getTimestamp( session: AiSessionSummary | undefined ): number {
 	return session ? Date.parse( session.updatedAt ) || 0 : 0;
+}
+
+// Overlays the just-dragged order (kept in state while the persisted
+// `sortOrder` catches up) on top of the fetched sites; sites not in the
+// overlay keep their order via sort stability.
+function sortSitesByManualOrder( sites: SiteDetails[], manualOrder: string[] ): SiteDetails[] {
+	// MAX_SAFE_INTEGER (not Infinity): two unranked sites must compare as 0,
+	// not NaN, for the sort to be well-defined.
+	const rank = new Map( manualOrder.map( ( id, index ) => [ id, index ] ) );
+	return [ ...sites ].sort(
+		( a, b ) =>
+			( rank.get( a.id ) ?? Number.MAX_SAFE_INTEGER ) -
+			( rank.get( b.id ) ?? Number.MAX_SAFE_INTEGER )
+	);
 }
 
 function createSiteRows(
@@ -190,32 +318,35 @@ function createSiteRows(
 	return rows;
 }
 
-// Overlays the just-dragged order (kept in state while the persisted
-// `sortOrder` catches up) on top of the fetched sites; sites not in the
-// overlay keep their order via sort stability.
-function sortSitesByManualOrder( sites: SiteDetails[], manualOrder: string[] ): SiteDetails[] {
-	// MAX_SAFE_INTEGER (not Infinity): two unranked sites must compare as 0,
-	// not NaN, for the sort to be well-defined.
-	const rank = new Map( manualOrder.map( ( id, index ) => [ id, index ] ) );
-	return [ ...sites ].sort(
-		( a, b ) =>
-			( rank.get( a.id ) ?? Number.MAX_SAFE_INTEGER ) -
-			( rank.get( b.id ) ?? Number.MAX_SAFE_INTEGER )
-	);
-}
-
-function SiteOverviewButton( { site }: { site: SiteDetails } ) {
+function SiteOverviewButton( {
+	site,
+	isActive = false,
+	isPlugin = false,
+	isOverviewAnchor = false,
+}: {
+	site: SiteDetails;
+	isActive?: boolean;
+	isPlugin?: boolean;
+	// Registers this gear as the coachmark target for "view site overview".
+	// Exactly one row's gear is the anchor at a time.
+	isOverviewAnchor?: boolean;
+} ) {
 	const navigate = useNavigate();
 	const connector = useConnector();
+	const overviewAnchorRef = useTourAnchor( 'sidebar-site-row-overview', {
+		disabled: ! isOverviewAnchor,
+	} );
 
 	return (
 		<IconButton
+			ref={ overviewAnchorRef }
 			variant="minimal"
 			tone="neutral"
 			size="small"
 			icon={ settings }
-			label={ __( 'Site overview' ) }
-			className={ styles.siteAction }
+			label={ isPlugin ? __( 'Plugin overview' ) : __( 'Site overview' ) }
+			className={ clsx( styles.siteAction, isActive && styles.siteActionActive ) }
+			aria-current={ isActive ? 'page' : undefined }
 			onClick={ ( event ) => {
 				event.stopPropagation();
 				void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'overview' } );
@@ -325,200 +456,44 @@ function SiteStatusButton( {
 	);
 }
 
-// Right-click quick actions for a sidebar site row. The row element itself is
-// passed as `trigger` and rendered via the context-menu trigger's render prop,
-// so no wrapper DOM is added around it (the sidebar's drag-reorder CSS and
-// animation code rely on the row's DOM position).
-function SiteActionsMenu( {
-	site,
-	sessionIds,
-	isStarting,
-	isStopping,
-	trigger,
-}: {
-	site: SiteDetails;
-	sessionIds: string[];
-	isStarting: boolean;
-	isStopping: boolean;
-	trigger: ReactElement;
-} ) {
-	const navigate = useNavigate();
-	const params = useParams( { strict: false } ) as { sessionId?: string; siteId?: string };
-	const connector = useConnector();
-	const { data: userPreferences } = useUserPreferences();
-	const startSite = useStartSite();
-	const stopSite = useStopSite();
-	const copySite = useCopySite();
-	const exportFullSite = useExportFullSite();
-	const exportDatabase = useExportDatabase();
-	const busy = isStarting || isStopping;
-	const isExporting = exportFullSite.isPending || exportDatabase.isPending;
-	const [ deleteOpen, setDeleteOpen ] = useState( false );
-
-	const stopMenuEventPropagation = (
-		event: MouseEvent< HTMLElement > | ReactPointerEvent< HTMLElement >
-	) => {
-		event.stopPropagation();
-	};
-
-	const handleOpenFolder = () => {
-		void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_FOLDER );
-		void connector.openSiteFolder( site.id ).catch( ( error ) => {
-			console.error( 'Failed to open site folder:', error );
-		} );
-	};
-
-	const editor = userPreferences?.editor;
-	const editorLabel = editor ? supportedEditorConfig[ editor ].label() : null;
-	const terminal = userPreferences?.terminal;
-	const terminalLabel = terminal ? terminalConfig[ terminal ].name() : null;
-
-	const handleOpenInEditor = () => {
-		void connector.openSiteInEditor( site.id ).catch( ( error ) => {
-			console.error( 'Failed to open site in editor:', error );
-		} );
-	};
-
-	const handleOpenInTerminal = () => {
-		void connector.openSiteInTerminal( site.id ).catch( ( error ) => {
-			console.error( 'Failed to open site in terminal:', error );
-		} );
-	};
-
-	const handleOpenPhpMyAdmin = () => {
-		void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_PHPMYADMIN, { browser: 'external' } );
-		void connector.openExternalUrl(
-			`${ getSiteUrl( site ) }/phpmyadmin/index.php?route=/database/structure&db=wordpress`
-		);
-	};
-
-	const handleOpenWpAdmin = () => {
-		void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_WP_ADMIN, { browser: 'external' } );
-		const siteUrl = getSiteUrl( site );
-		const redirectTo = new URL( '/wp-admin/', siteUrl ).toString();
-		const autoLoginUrl = new URL( '/studio-auto-login', siteUrl );
-		autoLoginUrl.searchParams.set( 'redirect_to', redirectTo );
-		void connector.openExternalUrl( autoLoginUrl.toString() );
-	};
-
-	const handleDeleted = () => {
-		const viewingDeletedSite =
-			params.siteId === site.id ||
-			( params.sessionId ? sessionIds.includes( params.sessionId ) : false );
-		if ( viewingDeletedSite ) {
-			void navigate( { to: '/' } );
-		}
-	};
-
-	return (
-		<>
-			<Menu.ContextMenuRoot>
-				<Menu.ContextMenuTrigger render={ trigger } />
-				<Menu.ContextPopup
-					onClick={ stopMenuEventPropagation }
-					onPointerDown={ stopMenuEventPropagation }
-				>
-					{ site.running ? (
-						<Menu.Item disabled={ busy } onClick={ () => stopSite.mutate( site.id ) }>
-							{ __( 'Stop site' ) }
-						</Menu.Item>
-					) : (
-						<Menu.Item disabled={ busy } onClick={ () => startSite.mutate( site.id ) }>
-							{ isStarting ? __( 'Starting…' ) : __( 'Start site' ) }
-						</Menu.Item>
-					) }
-					<Menu.Separator />
-					<Menu.Item
-						onClick={ () => {
-							void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'settings' } );
-							void navigate( {
-								to: '/sites/$siteId/overview',
-								params: { siteId: site.id },
-								search: { tab: 'general' },
-							} );
-						} }
-					>
-						{ __( 'Site settings' ) }
-					</Menu.Item>
-					<Menu.Item disabled={ copySite.isPending } onClick={ () => copySite.mutate( site.id ) }>
-						{ copySite.isPending ? __( 'Duplicating…' ) : __( 'Duplicate site' ) }
-					</Menu.Item>
-					<Menu.Separator />
-					<Menu.Item onClick={ handleOpenFolder }>{ __( 'Open folder' ) }</Menu.Item>
-					{ editorLabel ? (
-						<Menu.Item onClick={ handleOpenInEditor }>
-							{ sprintf(
-								/* translators: %s is the name of the editor. E.g. "Open in Cursor" */
-								__( 'Open in %s' ),
-								editorLabel
-							) }
-						</Menu.Item>
-					) : null }
-					{ terminalLabel ? (
-						<Menu.Item onClick={ handleOpenInTerminal }>
-							{ sprintf(
-								/* translators: %s is the name of the terminal app. E.g. "Open in iTerm2" */
-								__( 'Open in %s' ),
-								terminalLabel
-							) }
-						</Menu.Item>
-					) : null }
-					<Menu.Item disabled={ ! site.running } onClick={ handleOpenPhpMyAdmin }>
-						{ __( 'Open phpMyAdmin' ) }
-					</Menu.Item>
-					<Menu.Item disabled={ ! site.running } onClick={ handleOpenWpAdmin }>
-						{ __( 'Open WP admin' ) }
-					</Menu.Item>
-					<Menu.Separator />
-					<Menu.Item disabled={ isExporting } onClick={ () => exportFullSite.mutate( site.id ) }>
-						{ exportFullSite.isPending ? __( 'Exporting…' ) : __( 'Export entire site' ) }
-					</Menu.Item>
-					<Menu.Item disabled={ isExporting } onClick={ () => exportDatabase.mutate( site.id ) }>
-						{ exportDatabase.isPending ? __( 'Exporting…' ) : __( 'Export database' ) }
-					</Menu.Item>
-					<Menu.Separator />
-					<Menu.Item
-						destructive
-						onClick={ () => setDeleteOpen( true ) }
-						disabled={ busy || copySite.isPending || isExporting }
-					>
-						{ __( 'Delete site' ) }
-					</Menu.Item>
-				</Menu.ContextPopup>
-			</Menu.ContextMenuRoot>
-			<DeleteSiteDialog
-				site={ site }
-				open={ deleteOpen }
-				onOpenChange={ setDeleteOpen }
-				onDeleted={ handleDeleted }
-			/>
-		</>
-	);
-}
-
 function SiteSection( {
 	row,
 	isChatActive,
 	isContextActive,
-	hasUnreadUpdate,
-	chatEnabled,
+	hasUnreadUpdate = false,
+	isPlugin = false,
+	showTypeIcon = false,
+	agenticGated = false,
+	isOverviewAnchor = false,
+	selecting = false,
+	selected = false,
+	onToggleSelect,
 }: {
 	row: SiteRow;
 	isChatActive: boolean;
 	isContextActive: boolean;
-	hasUnreadUpdate: boolean;
-	chatEnabled: boolean;
+	hasUnreadUpdate?: boolean;
+	// Prototype: true when this site is tagged as a plugin — only changes
+	// the overview action's label; plugin rows otherwise look like sites.
+	isPlugin?: boolean;
+	// In the mixed "All" view a small leading glyph tells the types apart.
+	showTypeIcon?: boolean;
+	// When chat is unavailable the row opens the overview directly, making
+	// the dedicated overview button redundant.
+	agenticGated?: boolean;
+	// Marks this row's gear as the "view site overview" coachmark target.
+	isOverviewAnchor?: boolean;
+	// Prototype grouping: while selecting (or on shift+click) row clicks
+	// toggle membership in the pending selection instead of navigating.
+	selecting?: boolean;
+	selected?: boolean;
+	onToggleSelect?: () => void;
 } ) {
 	const { site, latestSession } = row;
 	const navigate = useNavigate();
 	const connector = useConnector();
 	const sectionRef = useRef< HTMLElement >( null );
 	const isActive = isChatActive || isContextActive;
-	// Without chat, a site's home is its overview, so the context-active row
-	// is simply "the selected site" — show it solid-selected (no dashed
-	// outline, no overview shortcut), matching how chat-active looks.
-	const isSelected = isChatActive || ( isContextActive && ! chatEnabled );
-	const showContextOutline = isContextActive && chatEnabled;
 	// Keep the active site visible — e.g. when launch restores a site that
 	// sits below the sidebar's fold. `nearest` no-ops when already visible.
 	useEffect( () => {
@@ -534,17 +509,22 @@ function SiteSection( {
 	const isLiveSyncPending =
 		syncActivity?.kind === 'pending' &&
 		( syncActivity.direction === 'push' || syncActivity.direction === 'pull' );
-	const displayActivity = isLiveSyncPending
+	const computedActivity: SiteRowActivity = isLiveSyncPending
 		? 'sync'
 		: agentActivity !== 'idle'
 		? agentActivity
 		: hasUnreadUpdate
 		? 'new-message'
 		: 'idle';
-	const handleOpenSite = () => {
-		// Without chat (signed out, offline, or switched off in Settings →
-		// AI) there's no session to open; the overview is the site's home.
-		if ( ! chatEnabled ) {
+	// Dev-only message lab override (see components/dev-message-lab).
+	const forcedActivity = useSiteActivityOverride( site.id );
+	const displayActivity = forcedActivity === 'auto' ? computedActivity : forcedActivity;
+	const handleOpenSite = ( event: MouseEvent< HTMLElement > ) => {
+		if ( onToggleSelect && ( selecting || event.shiftKey ) ) {
+			onToggleSelect();
+			return;
+		}
+		if ( agenticGated ) {
 			void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'overview' } );
 			void navigate( {
 				to: '/sites/$siteId/overview',
@@ -566,31 +546,42 @@ function SiteSection( {
 		} );
 	};
 
+	// When gated, the overview is the row's primary destination, so a
+	// context-active row gets the normal selected treatment instead of the
+	// dashed secondary one.
+	const isPrimaryActive = isChatActive || ( agenticGated && isContextActive );
+
+	// The row section doubles as the context-menu trigger (via render prop)
+	// so no wrapper DOM disturbs the drag-reorder CSS and animation code.
 	return (
-		<section
-			ref={ sectionRef }
-			className={ clsx(
-				styles.site,
-				isSelected && styles.siteActive,
-				showContextOutline && styles.siteContextActive
-			) }
-		>
-			<SiteActionsMenu
-				site={ site }
-				sessionIds={ row.sessionIds }
-				isStarting={ isStarting }
-				isStopping={ isStopping }
-				trigger={
+		<SiteContextMenu
+			site={ site }
+			trigger={
+				<section
+					className={ clsx(
+						styles.site,
+						isPrimaryActive && styles.siteActive,
+						! agenticGated && isContextActive && styles.siteContextActive,
+						selected && styles.siteSelected
+					) }
+				>
 					<header className={ styles.siteHeader } onClick={ handleOpenSite }>
 						<div className={ styles.siteText }>
-							<SiteAgentActivityIndicator activity={ displayActivity } />
+							<SiteAgentActivityIndicator
+								activity={ displayActivity }
+								idleGlyph={
+									showTypeIcon ? (
+										<Icon icon={ isPlugin ? pluginsIcon : wordpress } size={ 14 } />
+									) : undefined
+								}
+							/>
 							<SidebarButton
 								className={ styles.siteToggle }
 								onClick={ ( event ) => {
 									event.stopPropagation();
-									handleOpenSite();
+									handleOpenSite( event );
 								} }
-								aria-current={ isSelected ? 'page' : undefined }
+								aria-current={ isPrimaryActive ? 'page' : undefined }
 							>
 								<span
 									className={ clsx(
@@ -603,15 +594,78 @@ function SiteSection( {
 								</span>
 							</SidebarButton>
 						</div>
-						<div className={ styles.siteActions } data-reorder-exclude>
-							{ chatEnabled ? <SiteOverviewButton site={ site } /> : null }
+						<div className={ styles.siteActions } data-site-actions>
+							{ ! agenticGated && (
+								<SiteOverviewButton
+									site={ site }
+									isActive={ isContextActive }
+									isPlugin={ isPlugin }
+									isOverviewAnchor={ isOverviewAnchor }
+								/>
+							) }
 							<SiteStatusButton site={ site } isStarting={ isStarting } isStopping={ isStopping } />
 						</div>
 					</header>
-				}
-			/>
-		</section>
+				</section>
+			}
+		/>
 	);
+}
+
+// Prototype: accordion heading for a named site group. Right-click offers
+// ungrouping (when the section is a real group) so experiments are easy to
+// undo.
+function GroupHeading( {
+	label,
+	isOpen,
+	onToggle,
+	onUngroup,
+}: {
+	label: string;
+	isOpen: boolean;
+	onToggle: () => void;
+	onUngroup?: () => void;
+} ) {
+	const heading = (
+		<button
+			type="button"
+			className={ styles.groupHeading }
+			aria-expanded={ isOpen }
+			onClick={ onToggle }
+		>
+			<span className={ styles.groupHeadingLabel }>{ label }</span>
+			<Icon icon={ isOpen ? chevronDown : chevronRight } size={ 16 } />
+		</button>
+	);
+
+	if ( ! onUngroup ) {
+		return heading;
+	}
+
+	return (
+		<Menu.ContextMenuRoot>
+			<Menu.ContextMenuTrigger render={ heading } />
+			<Menu.ContextPopup>
+				<Menu.Item onClick={ onUngroup }>{ __( 'Ungroup' ) }</Menu.Item>
+			</Menu.ContextPopup>
+		</Menu.ContextMenuRoot>
+	);
+}
+
+function getRowSiteId( row: SiteRow ) {
+	return row.site.id;
+}
+
+function findActiveSiteKey(
+	rows: SiteRow[],
+	activeSessionId: string | undefined,
+	activeSiteId: string | undefined
+): string | undefined {
+	if ( activeSiteId ) {
+		const match = rows.find( ( row ) => row.site.id === activeSiteId );
+		if ( match ) return match.site.id;
+	}
+	return findSessionSiteKey( rows, activeSessionId );
 }
 
 function findSessionSiteKey(
@@ -621,19 +675,90 @@ function findSessionSiteKey(
 	if ( ! activeSessionId ) {
 		return undefined;
 	}
-	return rows.find( ( row ) => row.sessionIds.includes( activeSessionId ) )?.site.id;
+	for ( const row of rows ) {
+		if ( row.sessionIds.includes( activeSessionId ) ) {
+			return row.site.id;
+		}
+	}
+	return undefined;
+}
+
+function isSiteContextPath( pathname: string, siteId: string | undefined ) {
+	if ( ! siteId ) {
+		return false;
+	}
+
+	const [ root, routeSiteId, section, ...rest ] = pathname.split( '/' ).filter( Boolean );
+	if ( rest.length > 0 || root !== 'sites' || ! routeSiteId ) {
+		return false;
+	}
+
+	try {
+		return (
+			decodeURIComponent( routeSiteId ) === siteId &&
+			( section === 'overview' || section === 'settings' )
+		);
+	} catch {
+		return false;
+	}
 }
 
 export function SiteList() {
 	const { data: sites, isLoading: sitesLoading } = useSites();
 	const { data: sessions, isLoading: sessionsLoading } = useSessions();
-	const { chatEnabled } = useAgenticFeatures();
 	const params = useParams( { strict: false } ) as { sessionId?: string; siteId?: string };
 	const pathname = useRouterState( { select: ( state ) => state.location.pathname } );
 	const activeSessionId = params.sessionId;
 	const activeSiteId = params.siteId;
 	const [ manualSiteOrder, setManualSiteOrder ] = useState< string[] >( [] );
 	const updateSitesSortOrder = useUpdateSitesSortOrder();
+	// One subscription for the whole list; rows receive the resolved flag.
+	const agenticFeatures = useAgenticFeatures();
+	const agenticGated = agenticFeatures.isReady && ! agenticFeatures.chatEnabled;
+	// Prototype: plugin-tagged sites (see plugin-prototype.ts). Plugins are
+	// just sites; tags only change where and how their rows render.
+	const pluginTags = usePluginSiteTags();
+	// Prototype: the sidebar shows one project type at a time, picked by the
+	// segmented control at the top. View and sort survive reloads; the search
+	// query is ephemeral.
+	const [ view, setView ] = useState< SidebarView >( readStoredSidebarView );
+	const selectView = ( nextView: SidebarView ) => {
+		setView( nextView );
+		writeStoredSidebarView( nextView );
+	};
+	const [ sort, setSort ] = useState< SidebarSort >( readStoredSidebarSort );
+	const selectSort = ( nextSort: SidebarSort ) => {
+		setSort( nextSort );
+		writeStoredSidebarSort( nextSort );
+	};
+	const [ searchQuery, setSearchQuery ] = useState( '' );
+	// Prototype grouping: selection is active while explicit select mode is on
+	// (funnel menu) or any row is selected (shift+click starts one); a named
+	// group is then cut from the selection.
+	const siteGroups = useSiteGroups();
+	const [ selectModeOn, setSelectModeOn ] = useState( false );
+	const [ selectedSiteIds, setSelectedSiteIds ] = useState< Set< string > >( () => new Set() );
+	const [ groupNaming, setGroupNaming ] = useState( false );
+	const [ groupName, setGroupName ] = useState( '' );
+	const [ otherGroupCollapsed, setOtherGroupCollapsed ] = useState( false );
+	const selecting = selectModeOn || selectedSiteIds.size > 0;
+	const toggleSelected = ( siteId: string ) => {
+		setSelectedSiteIds( ( current ) => {
+			const next = new Set( current );
+			if ( next.has( siteId ) ) {
+				next.delete( siteId );
+			} else {
+				next.add( siteId );
+			}
+			return next;
+		} );
+	};
+	const clearSelection = () => {
+		setSelectModeOn( false );
+		setSelectedSiteIds( new Set() );
+		setGroupNaming( false );
+		setGroupName( '' );
+	};
 	const [ seenSiteSessionTimestampsInitialized, setSeenSiteSessionTimestampsInitialized ] =
 		useState( false );
 	const [ seenSiteSessionTimestamps, setSeenSiteSessionTimestamps ] = useState<
@@ -644,17 +769,71 @@ export function SiteList() {
 		() => sortSitesByManualOrder( sortSites( [ ...( sites ?? [] ) ] ), manualSiteOrder ),
 		[ sites, manualSiteOrder ]
 	);
+	// Config order before any manual rearranging — the creation-date proxy for
+	// the "Newest/Oldest first" sorts (see compareRows).
+	const creationRank = useMemo(
+		() => new Map( ( sites ?? [] ).map( ( site, index ) => [ site.id, index ] ) ),
+		[ sites ]
+	);
 	const rows = useMemo(
 		() => createSiteRows( orderedSites, sessions ),
 		[ orderedSites, sessions ]
+	);
+	// Prototype: split plugin-tagged sites out of the (draggable) site list;
+	// they render as ordinary site rows in their own spot.
+	const pluginSiteIds = useMemo(
+		() => new Set( pluginTags.map( ( tag ) => tag.siteId ) ),
+		[ pluginTags ]
+	);
+	const siteRows = useMemo(
+		() => rows.filter( ( row ) => ! pluginSiteIds.has( row.site.id ) ),
+		[ rows, pluginSiteIds ]
+	);
+	const pluginSiteRows = useMemo(
+		() => rows.filter( ( row ) => pluginSiteIds.has( row.site.id ) ),
+		[ rows, pluginSiteIds ]
+	);
+	// Prototype grouping: resolve stored groups against the current site rows.
+	// Members keep their stored order; groups whose sites all vanished drop
+	// out of the render (the store keeps them in case the sites come back).
+	const groupSections = useMemo( () => {
+		const rowsBySiteId = new Map( siteRows.map( ( row ) => [ row.site.id, row ] ) );
+		return siteGroups
+			.map( ( group ) => ( {
+				group,
+				groupRows: group.siteIds
+					.map( ( siteId ) => rowsBySiteId.get( siteId ) )
+					.filter( ( row ): row is SiteRow => Boolean( row ) ),
+			} ) )
+			.filter( ( section ) => section.groupRows.length > 0 );
+	}, [ siteGroups, siteRows ] );
+	const ungroupedRows = useMemo( () => {
+		const groupedIds = new Set( groupSections.flatMap( ( section ) => section.group.siteIds ) );
+		return siteRows.filter( ( row ) => ! groupedIds.has( row.site.id ) );
+	}, [ groupSections, siteRows ] );
+	const submitGroup = () => {
+		const name = groupName.trim();
+		if ( ! name || selectedSiteIds.size === 0 ) {
+			return;
+		}
+		// Members are stored in their current list order, not click order.
+		createSiteGroup(
+			name,
+			siteRows.map( getRowSiteId ).filter( ( siteId ) => selectedSiteIds.has( siteId ) )
+		);
+		clearSelection();
+	};
+	const activeSiteKey = useMemo(
+		() => findActiveSiteKey( rows, activeSessionId, activeSiteId ),
+		[ rows, activeSessionId, activeSiteId ]
 	);
 	const activeChatSiteKey = useMemo(
 		() => findSessionSiteKey( rows, activeSessionId ),
 		[ rows, activeSessionId ]
 	);
-	// Site ids are UUIDs, so no URL decoding is needed to compare the path.
-	const activeContextSiteKey =
-		activeSiteId && pathname === `/sites/${ activeSiteId }/overview` ? activeSiteId : undefined;
+	const activeContextSiteKey = isSiteContextPath( pathname, activeSiteId )
+		? activeSiteKey
+		: undefined;
 	useEffect( () => {
 		if ( sitesLoading || sessionsLoading || rows.length === 0 ) {
 			return;
@@ -680,7 +859,7 @@ export function SiteList() {
 				if ( ! latestTimestamp ) {
 					continue;
 				}
-				if ( shouldSeedSeenTimestamps || row.site.id === activeChatSiteKey ) {
+				if ( shouldSeedSeenTimestamps || row.site.id === activeSiteKey ) {
 					updateSeenTimestamp( row.site.id, latestTimestamp );
 				}
 			}
@@ -690,20 +869,14 @@ export function SiteList() {
 		if ( ! seenSiteSessionTimestampsInitialized ) {
 			setSeenSiteSessionTimestampsInitialized( true );
 		}
-	}, [
-		activeChatSiteKey,
-		rows,
-		seenSiteSessionTimestampsInitialized,
-		sessionsLoading,
-		sitesLoading,
-	] );
+	}, [ activeSiteKey, rows, seenSiteSessionTimestampsInitialized, sessionsLoading, sitesLoading ] );
 	const unreadSiteIds = useMemo( () => {
 		if ( ! seenSiteSessionTimestampsInitialized ) {
 			return new Set< string >();
 		}
 		const unread = new Set< string >();
 		for ( const row of rows ) {
-			if ( row.site.id === activeChatSiteKey ) {
+			if ( row.site.id === activeSiteKey ) {
 				continue;
 			}
 			const latestTimestamp = getTimestamp( row.latestSession );
@@ -712,43 +885,332 @@ export function SiteList() {
 			}
 		}
 		return unread;
-	}, [ activeChatSiteKey, rows, seenSiteSessionTimestamps, seenSiteSessionTimestampsInitialized ] );
+	}, [ activeSiteKey, rows, seenSiteSessionTimestamps, seenSiteSessionTimestampsInitialized ] );
+	const rowSiteIds = useMemo( () => siteRows.map( getRowSiteId ), [ siteRows ] );
+	const pluginRowIds = useMemo( () => pluginSiteRows.map( getRowSiteId ), [ pluginSiteRows ] );
 
+	// Exactly one site row's gear is the "view site overview" coachmark anchor:
+	// the active site's, falling back to the first site row.
+	const overviewAnchorSiteId = useMemo( () => {
+		if ( activeSiteKey && siteRows.some( ( row ) => row.site.id === activeSiteKey ) ) {
+			return activeSiteKey;
+		}
+		return siteRows[ 0 ]?.site.id;
+	}, [ activeSiteKey, siteRows ] );
+
+	const listAnchorRef = useTourAnchor( 'sidebar-site-list' );
+
+	// Both groups persist into the single stored order (ordering is applied to
+	// the full site list before the rows split into groups), so a drop in one
+	// group merges its new order with the other group's current order.
 	const persistOrder = ( nextSiteIds: string[] ) => {
 		setManualSiteOrder( nextSiteIds );
 		updateSitesSortOrder.mutate( nextSiteIds );
 	};
 
-	const renderSiteRow = ( row: SiteRow ) => (
-		<SiteSection
-			row={ row }
-			isChatActive={ row.site.id === activeChatSiteKey }
-			isContextActive={ row.site.id === activeContextSiteKey }
-			hasUnreadUpdate={ unreadSiteIds.has( row.site.id ) }
-			chatEnabled={ chatEnabled }
+	const renderSiteRow = ( row: SiteRow ) => {
+		const isPlugin = pluginSiteIds.has( row.site.id );
+		return (
+			<SiteSection
+				row={ row }
+				isPlugin={ isPlugin }
+				showTypeIcon={ view === 'all' }
+				isChatActive={ row.site.id === activeChatSiteKey }
+				isContextActive={ row.site.id === activeContextSiteKey }
+				hasUnreadUpdate={ unreadSiteIds.has( row.site.id ) }
+				agenticGated={ agenticGated }
+				isOverviewAnchor={ ! isPlugin && row.site.id === overviewAnchorSiteId }
+				selecting={ ! isPlugin && selecting }
+				selected={ ! isPlugin && selectedSiteIds.has( row.site.id ) }
+				onToggleSelect={ isPlugin ? undefined : () => toggleSelected( row.site.id ) }
+			/>
+		);
+	};
+
+	const renderStaticRows = ( rowsToRender: SiteRow[] ) => (
+		<div className={ styles.sites }>
+			{ rowsToRender.map( ( row ) => (
+				<div key={ row.site.id } className={ styles.siteDragWrapper } data-site-id={ row.site.id }>
+					{ renderSiteRow( row ) }
+				</div>
+			) ) }
+		</div>
+	);
+
+	const siteRowsBlock = (
+		<ReorderableList
+			items={ siteRows }
+			getItemId={ getRowSiteId }
+			renderItem={ renderSiteRow }
+			onReorder={ ( nextIds ) => persistOrder( [ ...nextIds, ...pluginRowIds ] ) }
+			className={ styles.sites }
+			itemClassName={ styles.siteDragWrapper }
+			placeholderClassName={ styles.siteDropPlaceholder }
+			previewClassName={ styles.siteDragPreview }
+			placeholderTestId="site-drop-placeholder"
+			itemIdAttribute="data-site-id"
+			excludeSelector="[data-site-actions]"
 		/>
 	);
 
+	// Prototype: plugin-tagged sites render as ordinary site rows (status,
+	// chat, overview all intact), draggable within their own view.
+	const pluginRowsBlock = (
+		<ReorderableList
+			items={ pluginSiteRows }
+			getItemId={ getRowSiteId }
+			renderItem={ renderSiteRow }
+			onReorder={ ( nextIds ) => persistOrder( [ ...rowSiteIds, ...nextIds ] ) }
+			className={ styles.sites }
+			itemClassName={ styles.siteDragWrapper }
+			placeholderClassName={ styles.siteDropPlaceholder }
+			previewClassName={ styles.siteDragPreview }
+			placeholderTestId="plugin-drop-placeholder"
+			itemIdAttribute="data-site-id"
+			excludeSelector="[data-site-actions]"
+		/>
+	);
+
+	// The "All" view drags across the full combined list, so its order is the
+	// persisted order verbatim.
+	const allRowsBlock = (
+		<ReorderableList
+			items={ rows }
+			getItemId={ getRowSiteId }
+			renderItem={ renderSiteRow }
+			onReorder={ persistOrder }
+			className={ styles.sites }
+			itemClassName={ styles.siteDragWrapper }
+			placeholderClassName={ styles.siteDropPlaceholder }
+			previewClassName={ styles.siteDragPreview }
+			placeholderTestId="site-drop-placeholder"
+			itemIdAttribute="data-site-id"
+			excludeSelector="[data-site-actions]"
+		/>
+	);
+
+	const isLoading = sitesLoading || sessionsLoading;
+	const baseRows = view === 'plugins' ? pluginSiteRows : view === 'sites' ? siteRows : rows;
+	const searchLabel =
+		view === 'plugins'
+			? __( 'Search plugins' )
+			: view === 'sites'
+			? __( 'Search sites' )
+			: __( 'Search' );
+	const query = searchQuery.trim().toLowerCase();
+
+	// A search or a derived sort renders a plain (non-draggable) list; manual
+	// ordering only makes sense against the full custom-ordered list.
+	const derivedRows = useMemo( () => {
+		if ( ! query && sort === 'custom' ) {
+			return null;
+		}
+		const filtered = query
+			? baseRows.filter( ( row ) => row.site.name.toLowerCase().includes( query ) )
+			: baseRows;
+		return [ ...filtered ].sort( ( a, b ) => compareRows( a, b, sort, creationRank ) );
+	}, [ baseRows, query, sort, creationRank ] );
+
 	let listContent: ReactNode;
-	if ( sitesLoading || sessionsLoading ) {
+	if ( isLoading ) {
 		listContent = <p className={ styles.empty }>{ __( 'Loading…' ) }</p>;
-	} else if ( rows.length === 0 ) {
-		listContent = <p className={ styles.empty }>{ __( 'No sites yet' ) }</p>;
-	} else {
+	} else if ( baseRows.length === 0 ) {
 		listContent = (
-			<ReorderableList
-				items={ rows }
-				getItemId={ ( row ) => row.site.id }
-				renderItem={ renderSiteRow }
-				onReorder={ persistOrder }
-				className={ styles.sites }
-				itemClassName={ styles.siteDragWrapper }
-				placeholderClassName={ styles.siteDropPlaceholder }
-				previewClassName={ styles.siteDragPreview }
-				excludeSelector="[data-reorder-exclude]"
-			/>
+			<p className={ styles.empty }>
+				{ view === 'plugins'
+					? __( 'No plugins yet' )
+					: view === 'sites'
+					? __( 'No sites yet' )
+					: __( 'Nothing yet' ) }
+			</p>
 		);
+	} else if ( derivedRows ) {
+		listContent =
+			derivedRows.length === 0 ? (
+				<p className={ styles.empty }>{ __( 'No matches' ) }</p>
+			) : (
+				renderStaticRows( derivedRows )
+			);
+	} else if ( view === 'sites' && groupSections.length > 0 ) {
+		// Grouped sidebar: accordion sections per group, ungrouped sites under
+		// a trailing "Other" section. Rows render static — dragging across
+		// group boundaries is out of scope for the prototype.
+		listContent = (
+			<>
+				{ groupSections.map( ( { group, groupRows } ) => (
+					<div key={ group.id } className={ styles.group }>
+						<GroupHeading
+							label={ group.name }
+							isOpen={ ! group.collapsed }
+							onToggle={ () => toggleSiteGroupCollapsed( group.id ) }
+							onUngroup={ () => removeSiteGroup( group.id ) }
+						/>
+						{ ! group.collapsed && renderStaticRows( groupRows ) }
+					</div>
+				) ) }
+				{ ungroupedRows.length > 0 ? (
+					<div className={ styles.group }>
+						<GroupHeading
+							label={ __( 'Other' ) }
+							isOpen={ ! otherGroupCollapsed }
+							onToggle={ () => setOtherGroupCollapsed( ( value ) => ! value ) }
+						/>
+						{ ! otherGroupCollapsed && renderStaticRows( ungroupedRows ) }
+					</div>
+				) : null }
+			</>
+		);
+	} else {
+		listContent =
+			view === 'plugins' ? pluginRowsBlock : view === 'sites' ? siteRowsBlock : allRowsBlock;
 	}
 
-	return <div className={ styles.root }>{ listContent }</div>;
+	// The project-type tabs, search, and sort controls only earn their space
+	// once there's more than one site to switch between, search, or sort.
+	const showListControls = ( sites?.length ?? 0 ) > 1;
+
+	return (
+		<div className={ styles.root } ref={ listAnchorRef }>
+			{ showListControls && (
+				<div className={ styles.viewSwitcherBar }>
+					<SegmentedControl
+						aria-label={ __( 'Project type' ) }
+						value={ view }
+						onChange={ selectView }
+						options={ [
+							{
+								value: 'all',
+								label: <Icon icon={ category } size={ 16 } />,
+								tooltip: __( 'All' ),
+							},
+							{
+								value: 'sites',
+								label: <Icon icon={ wordpress } size={ 16 } />,
+								tooltip: __( 'Sites' ),
+							},
+							{
+								value: 'plugins',
+								label: <Icon icon={ pluginsIcon } size={ 16 } />,
+								tooltip: __( 'Plugins' ),
+							},
+						] }
+					/>
+					<div className={ styles.searchRow }>
+						<div className={ styles.searchField }>
+							<input
+								type="search"
+								className={ styles.searchInput }
+								placeholder={ searchLabel }
+								aria-label={ searchLabel }
+								value={ searchQuery }
+								onChange={ ( event ) => setSearchQuery( event.target.value ) }
+							/>
+							<Menu.Root modal={ false }>
+								<Menu.Trigger
+									render={
+										<IconButton
+											variant="minimal"
+											tone={ sort === 'custom' ? 'neutral' : 'brand' }
+											size="small"
+											icon={ funnel }
+											label={ __( 'Sort' ) }
+										/>
+									}
+								/>
+								<Menu.Popup side="bottom" align="end">
+									<Menu.Group>
+										<Menu.GroupLabel>{ __( 'Sort by' ) }</Menu.GroupLabel>
+										<Menu.RadioGroup
+											value={ sort }
+											onValueChange={ ( next ) => selectSort( next as SidebarSort ) }
+										>
+											<Menu.RadioItem value="custom">{ __( 'Custom order' ) }</Menu.RadioItem>
+											<Menu.RadioItem value="name-asc">{ __( 'Name, A to Z' ) }</Menu.RadioItem>
+											<Menu.RadioItem value="name-desc">{ __( 'Name, Z to A' ) }</Menu.RadioItem>
+											<Menu.RadioItem value="running-first">
+												{ __( 'Running first' ) }
+											</Menu.RadioItem>
+											<Menu.RadioItem value="created-desc">{ __( 'Newest first' ) }</Menu.RadioItem>
+											<Menu.RadioItem value="created-asc">{ __( 'Oldest first' ) }</Menu.RadioItem>
+										</Menu.RadioGroup>
+									</Menu.Group>
+									{ view === 'sites' ? (
+										<>
+											<Menu.Separator />
+											<Menu.Item onClick={ () => setSelectModeOn( true ) }>
+												{ __( 'Select sites to group' ) }
+											</Menu.Item>
+										</>
+									) : null }
+								</Menu.Popup>
+							</Menu.Root>
+						</div>
+					</div>
+					{ selecting ? (
+						<div className={ styles.selectionBar }>
+							{ groupNaming ? (
+								<>
+									{ /* The input appears on explicit user action; moving focus
+								     into it follows the intent. */ }
+									<input
+										className={ styles.groupNameInput }
+										autoFocus
+										placeholder={ __( 'Group name' ) }
+										aria-label={ __( 'Group name' ) }
+										value={ groupName }
+										onChange={ ( event ) => setGroupName( event.target.value ) }
+										onKeyDown={ ( event ) => {
+											if ( event.key === 'Enter' ) {
+												submitGroup();
+											} else if ( event.key === 'Escape' ) {
+												setGroupNaming( false );
+												setGroupName( '' );
+											}
+										} }
+									/>
+									<Button
+										size="small"
+										variant="solid"
+										tone="brand"
+										disabled={ ! groupName.trim() }
+										onClick={ submitGroup }
+									>
+										{ __( 'Save' ) }
+									</Button>
+								</>
+							) : (
+								<>
+									<span className={ styles.selectionCount }>
+										{ sprintf(
+											/* translators: %d: number of selected sites */
+											__( '%d selected' ),
+											selectedSiteIds.size
+										) }
+									</span>
+									<Button
+										size="small"
+										variant="solid"
+										tone="brand"
+										disabled={ selectedSiteIds.size === 0 }
+										onClick={ () => setGroupNaming( true ) }
+									>
+										{ __( 'Create group' ) }
+									</Button>
+								</>
+							) }
+							<IconButton
+								variant="minimal"
+								tone="neutral"
+								size="small"
+								icon={ closeSmall }
+								label={ __( 'Cancel selection' ) }
+								onClick={ clearSelection }
+							/>
+						</div>
+					) : null }
+				</div>
+			) }
+			{ listContent }
+		</div>
+	);
 }

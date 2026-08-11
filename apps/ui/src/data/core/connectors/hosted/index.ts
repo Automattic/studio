@@ -1,3 +1,8 @@
+import { DEFAULT_MODEL } from '@studio/common/ai/models';
+import {
+	DEFAULT_ACTIVITY_SOUND_PREFERENCES,
+	resolveActivitySoundPreferences,
+} from '@studio/common/lib/activity-sounds';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
 import { readOnboardingHints, writeOnboardingHints } from '../browser-onboarding-hints';
@@ -9,12 +14,14 @@ import type {
 	ActiveAgentRun,
 	AiSessionPlacementUpdatedEvent,
 	AiSessionSummary,
-	AppGlobals,
 	AuthUser,
+	AvailableSitePath,
 	Connector,
 	InstalledApps,
 	LoadedAiSession,
+	SiteCheckpoint,
 	SiteDetails,
+	SkillStatus,
 	Snapshot,
 	SnapshotUsage,
 	SyncSite,
@@ -22,14 +29,37 @@ import type {
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 
-const AGENTIC_FEATURES_STORAGE_KEY = 'studio-hosted-agentic-features-enabled';
-
 export interface HostedConnectorOptions {
 	// Base URL of the Studio hosted backend (`apps/hosted`), e.g. http://localhost:8088.
 	apiBaseUrl: string;
 }
 
+const DISMISSED_MESSAGES_STORAGE_KEY = 'studio-dismissed-messages';
+const ACTIVITY_SOUND_PREFERENCES_STORAGE_KEY = 'studio-activity-sound-preferences';
+const AGENTIC_FEATURES_STORAGE_KEY = 'studio-hosted-agentic-features-enabled';
 const WAPUU_SCORE_STORAGE_KEY = 'studio-hosted-wapuu-score';
+
+function readActivitySoundPreferences() {
+	try {
+		return resolveActivitySoundPreferences(
+			JSON.parse( window.localStorage.getItem( ACTIVITY_SOUND_PREFERENCES_STORAGE_KEY ) ?? 'null' )
+		);
+	} catch {
+		return DEFAULT_ACTIVITY_SOUND_PREFERENCES;
+	}
+}
+
+function readDismissedMessages(): string[] {
+	try {
+		const raw = window.localStorage.getItem( DISMISSED_MESSAGES_STORAGE_KEY );
+		const parsed: unknown = raw ? JSON.parse( raw ) : [];
+		return Array.isArray( parsed )
+			? parsed.filter( ( id ): id is string => typeof id === 'string' )
+			: [];
+	} catch {
+		return [];
+	}
+}
 
 // Envelope used by the backend's `/events` SSE stream so a single connection
 // can carry both agent-run events and session-placement updates.
@@ -61,6 +91,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 
 	const agentListeners = new Set< ( event: AgentRunEvent ) => void >();
 	const placementListeners = new Set< ( event: AiSessionPlacementUpdatedEvent ) => void >();
+	const notificationClickListeners = new Set< ( event: { sessionId: string } ) => void >();
 	let eventSource: EventSource | undefined;
 	// Last site list fetched via getSites(), so one-off lookups (openSiteUrl)
 	// don't trigger an extra round-trip to the WordPress.com API.
@@ -122,6 +153,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			nativeSaveDialog: false,
 			openInOS: false,
 			annotatePreview: false,
+			siteCheckpoints: false,
 			readLocalMedia: false,
 			agentInstructions: false,
 			studioLogs: false,
@@ -131,7 +163,9 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		// Auth — runs unauthenticated, like the desktop app. WordPress.com login
 		// in the browser is a follow-up (explored in the PR linked above).
 		requiresAuth: false,
-		agenticRequiresAuth: false,
+		// Hosted mode has no real auth, so agentic features can't be gated on
+		// sign-in state — they stay always-on.
+		supportsAgenticOptOut: false,
 		async isAuthenticated() {
 			return true;
 		},
@@ -183,8 +217,47 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async refreshSiteIcon() {
 			// No-op: icons come back with getSites().
 		},
+		async getSiteOverviewDetails() {
+			throw new UnsupportedError( 'getSiteOverviewDetails' );
+		},
+		async scaffoldPlugin() {
+			throw new UnsupportedError( 'scaffoldPlugin' );
+		},
 		async getSiteThumbnail(): Promise< string | null > {
 			return null;
+		},
+		async getXdebugEnabledSite(): Promise< SiteDetails | null > {
+			return null;
+		},
+		async isCertificateTrusted(): Promise< boolean > {
+			return false;
+		},
+		async trustCertificate() {
+			throw new UnsupportedError( 'trustCertificate' );
+		},
+		async openSiteFileInEditor() {
+			throw new UnsupportedError( 'openSiteFileInEditor' );
+		},
+		async openSiteDebugLog() {
+			throw new UnsupportedError( 'openSiteDebugLog' );
+		},
+		async getAgentInstructionsStatus() {
+			throw new UnsupportedError( 'getAgentInstructionsStatus' );
+		},
+		async installAgentInstructions() {
+			throw new UnsupportedError( 'installAgentInstructions' );
+		},
+		async removeAgentInstruction() {
+			throw new UnsupportedError( 'removeAgentInstruction' );
+		},
+		async getWordPressSkillsStatus() {
+			throw new UnsupportedError( 'getWordPressSkillsStatus' );
+		},
+		async installWordPressSkillById() {
+			throw new UnsupportedError( 'installWordPressSkillById' );
+		},
+		async removeWordPressSkillById() {
+			throw new UnsupportedError( 'removeWordPressSkillById' );
 		},
 		async getSiteStorageUsage(): Promise< null > {
 			return null;
@@ -204,6 +277,9 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async generateProposedSitePath() {
 			throw new UnsupportedError( 'generateProposedSitePath' );
 		},
+		async findAvailableSitePath(): Promise< AvailableSitePath > {
+			throw new UnsupportedError( 'findAvailableSitePath' );
+		},
 		async selectSiteFolder() {
 			throw new UnsupportedError( 'selectSiteFolder' );
 		},
@@ -221,8 +297,17 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			// Browsers can't resolve a real filesystem path for a File.
 			return '';
 		},
+		async createTemporaryTextFile() {
+			throw new UnsupportedError( 'createTemporaryTextFile' );
+		},
 		async readLocalMediaFile() {
 			throw new UnsupportedError( 'readLocalMediaFile' );
+		},
+		async captureSiteScreenshot() {
+			throw new UnsupportedError( 'captureSiteScreenshot' );
+		},
+		async captureFullPageScreenshot() {
+			throw new UnsupportedError( 'captureFullPageScreenshot' );
 		},
 		async extractBlueprintBundle() {
 			throw new UnsupportedError( 'extractBlueprintBundle' );
@@ -233,8 +318,29 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async readBlueprintFile() {
 			throw new UnsupportedError( 'readBlueprintFile' );
 		},
+		onAddSite() {
+			return () => {};
+		},
+		onAddSiteWithBlueprint() {
+			return () => {};
+		},
 		async importSiteFromBackup(): Promise< void > {
 			throw new UnsupportedError( 'importSiteFromBackup' );
+		},
+
+		// Site checkpoints — local-machine only (the CLI checkpoint engine).
+		// The list returns a benign default so mount-time queries don't throw.
+		async listCheckpoints(): Promise< SiteCheckpoint[] > {
+			return [];
+		},
+		async createCheckpoint() {
+			throw new UnsupportedError( 'createCheckpoint' );
+		},
+		async restoreCheckpoint() {
+			throw new UnsupportedError( 'restoreCheckpoint' );
+		},
+		async deleteCheckpoint() {
+			throw new UnsupportedError( 'deleteCheckpoint' );
 		},
 
 		// Preview snapshots / sync — out of scope for this increment.
@@ -242,7 +348,11 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			return [];
 		},
 		async getSnapshotUsage(): Promise< SnapshotUsage | null > {
-			return { siteCount: 0, siteLimit: 10, siteCreationBlocked: false };
+			return {
+				siteCount: 0,
+				siteLimit: 10,
+				siteCreationBlocked: false,
+			};
 		},
 		async getStudioAssistantQuota() {
 			return null;
@@ -259,6 +369,16 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async fetchSyncableWpcomSites(): Promise< SyncSite[] > {
 			return [];
 		},
+		async fetchSyncableWpcomSitesPage() {
+			return {
+				sites: [],
+				total: 0,
+				page: 1,
+				perPage: 100,
+				hasMore: false,
+				nextPage: null,
+			};
+		},
 		async connectWpcomSite() {
 			throw new UnsupportedError( 'connectWpcomSite' );
 		},
@@ -273,6 +393,18 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		},
 		async pullSiteFromLive() {
 			throw new UnsupportedError( 'pullSiteFromLive' );
+		},
+		async getLiveSyncItems() {
+			throw new UnsupportedError( 'getLiveSyncItems' );
+		},
+		async getLiveSyncImportStatus() {
+			throw new UnsupportedError( 'getLiveSyncImportStatus' );
+		},
+		async getLiveSyncLatestBackupTime() {
+			throw new UnsupportedError( 'getLiveSyncLatestBackupTime' );
+		},
+		async markLiveSiteSynced() {
+			throw new UnsupportedError( 'markLiveSiteSynced' );
 		},
 		async getLatestRewindId(): Promise< string | null > {
 			throw new UnsupportedError( 'getLatestRewindId' );
@@ -346,6 +478,12 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 				body: JSON.stringify( { answers } ),
 			} );
 		},
+		async answerAgentPermission( runId, requestId, decision ) {
+			await api( `/runs/${ encodeURIComponent( runId ) }/permission`, {
+				method: 'POST',
+				body: JSON.stringify( { requestId, decision } ),
+			} );
+		},
 		async setSessionEnvironment( _sessionId, environment ) {
 			// The agent always acts on the backend's local runtime.
 			return { environment };
@@ -359,13 +497,37 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			return () => placementListeners.delete( listener );
 		},
 
+		// Web Notifications stand in for the desktop's OS notifications. The
+		// caller has already decided the user isn't looking at this session.
+		async showChatNotification( { sessionId, title, body } ) {
+			if ( ! ( 'Notification' in window ) ) {
+				return;
+			}
+			if ( Notification.permission === 'default' ) {
+				await Notification.requestPermission();
+			}
+			if ( Notification.permission !== 'granted' ) {
+				return;
+			}
+			// `tag` collapses successive notifications for the same session.
+			const notification = new Notification( title, { body, tag: sessionId, silent: true } );
+			notification.onclick = () => {
+				window.focus();
+				notificationClickListeners.forEach( ( listener ) => listener( { sessionId } ) );
+			};
+		},
+		onChatNotificationClicked( listener ) {
+			notificationClickListeners.add( listener );
+			return () => notificationClickListeners.delete( listener );
+		},
+
 		// User preferences — sensible browser defaults.
 		async getUserPreferences(): Promise< UserPreferences > {
 			return {
 				editor: null,
 				terminal: null,
 				colorScheme: 'system',
-				quitSitesBehavior: undefined,
+				frameColor: null,
 				locale: undefined,
 				analyticsEnabled: true,
 				defaultSiteDirectory: '',
@@ -373,11 +535,21 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 				studioCliExternallyManaged: false,
 				agenticFeaturesEnabled:
 					window.localStorage.getItem( AGENTIC_FEATURES_STORAGE_KEY ) !== 'false',
+				chatNotificationsEnabled: true,
+				activitySoundPreferences: readActivitySoundPreferences(),
+				quitSitesBehavior: 'ask',
+				agentResponseLength: 'normal',
+				defaultAiModel: DEFAULT_MODEL,
+				toolPermissions: {},
 			};
 		},
 		async setUserPreferences( partial ) {
-			// The rest aren't persisted in the browser yet; this one has to
-			// stick or the AI settings toggle would silently snap back.
+			if ( partial.activitySoundPreferences ) {
+				window.localStorage.setItem(
+					ACTIVITY_SOUND_PREFERENCES_STORAGE_KEY,
+					JSON.stringify( partial.activitySoundPreferences )
+				);
+			}
 			if ( typeof partial.agenticFeaturesEnabled === 'boolean' ) {
 				window.localStorage.setItem(
 					AGENTIC_FEATURES_STORAGE_KEY,
@@ -385,12 +557,24 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 				);
 			}
 		},
-		async getAppGlobals(): Promise< AppGlobals > {
-			return { platform: 'browser', isWindowsStore: false };
+		async previewColorScheme() {
+			// No-op: the hosted UI follows the browser theme.
 		},
-		async selectDefaultSiteDirectory(): Promise< string | null > {
-			// No native folder picker in a browser.
+		async selectDefaultSiteDirectory() {
 			return null;
+		},
+		async getAppGlobals() {
+			return {
+				platform: 'browser',
+				appName: 'WordPress Studio',
+				appVersion: '',
+				arm64Translation: false,
+				isWindowsStore: false,
+				enableAgenticUi: true,
+			};
+		},
+		onUserSettings() {
+			return () => {};
 		},
 		async getAgentInstructions(): Promise< string > {
 			throw new UnsupportedError( 'getAgentInstructions' );
@@ -398,7 +582,6 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async saveAgentInstructions(): Promise< void > {
 			throw new UnsupportedError( 'saveAgentInstructions' );
 		},
-
 		async getInstalledApps(): Promise< InstalledApps > {
 			return {} as InstalledApps;
 		},
@@ -421,11 +604,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			throw new UnsupportedError( 'openStudioLogs' );
 		},
 
-		// Analytics — no-op here. Tracks currently flows through the desktop IPC connector; the
-		// hosted (browser) target has no Main-process choke point yet. See the design doc.
-		async trackEvent() {
-			// intentionally empty
-		},
+		async trackEvent() {},
 
 		// External links work natively in the browser.
 		async openExternalUrl( url ) {
@@ -442,19 +621,21 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async copyText( text ) {
 			await navigator.clipboard.writeText( text );
 		},
-		async confirmDeleteAllPreviewSites() {
-			return window.confirm(
-				__(
-					'All preview sites that exist for your WordPress.com account, along with all posts, pages, comments, and media, will be lost.'
-				)
-			);
+		async copyImage( pngDataUrl ) {
+			const blob = await ( await fetch( pngDataUrl ) ).blob();
+			await navigator.clipboard.write( [ new ClipboardItem( { 'image/png': blob } ) ] );
 		},
 		async openSiteUrl( siteId, relativeUrl = '' ) {
 			const sites = lastSites ?? ( await api< SiteDetails[] >( '/sites' ) );
 			const target = new URL( relativeUrl || '/', findSiteUrl( sites, siteId ) ).toString();
 			window.open( target, '_blank', 'noopener,noreferrer' );
 		},
-		async getWordPressSkillsStatusAllSites() {
+		async confirmDeleteAllPreviewSites() {
+			return window.confirm(
+				'All preview sites that exist for your WordPress.com account, along with all posts, pages, comments, and media, will be lost.'
+			);
+		},
+		async getWordPressSkillsStatusAllSites(): Promise< SkillStatus[] > {
 			return [];
 		},
 		async installWordPressSkillToAllSites() {
@@ -472,6 +653,9 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		onFullscreenChange() {
 			return () => {};
 		},
+		async expandWindowForWorkbench() {
+			// A browser tab can't resize itself.
+		},
 		onSiteEvent() {
 			return () => {};
 		},
@@ -483,20 +667,22 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			// No application menu in a browser tab.
 			return () => {};
 		},
-		onAddSite() {
-			// No application menu in a browser tab.
-			return () => {};
+
+		// Persistent-message dismissals live in localStorage on the web.
+		async getDismissedMessages() {
+			return readDismissedMessages();
 		},
-		onAddSiteWithBlueprint() {
-			return () => {};
+
+		async dismissMessage( id ) {
+			const dismissed = readDismissedMessages();
+			if ( ! dismissed.includes( id ) ) {
+				window.localStorage.setItem(
+					DISMISSED_MESSAGES_STORAGE_KEY,
+					JSON.stringify( [ ...dismissed, id ] )
+				);
+			}
 		},
-		onOpenSettings() {
-			// No application menu in a browser tab.
-			return () => {};
-		},
-		async disableAgenticUi() {
-			// No-op in the browser.
-		},
+
 		async getOnboardingHints() {
 			return readOnboardingHints();
 		},
@@ -506,6 +692,13 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		onShowGettingStarted() {
 			// No application menu on the hosted surface.
 			return () => {};
+		},
+		onOpenSettings() {
+			// No application menu in a browser tab.
+			return () => {};
+		},
+		async disableAgenticUi() {
+			// No-op in the browser.
 		},
 		onShowWhatsNew() {
 			// No application menu on the hosted surface.
@@ -517,14 +710,16 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async saveLastSeenVersion( version ) {
 			writeLastSeenVersion( version );
 		},
+		// Browser tabs have no auto-updater; report an inert status (rather
+		// than throwing) because the messaging layer polls unconditionally.
 		async getAppUpdateStatus() {
 			return { readyToInstall: false, version: null };
 		},
-		async installAppUpdate() {
-			// No-op.
-		},
+
 		onAppUpdateStatusChanged() {
 			return () => {};
 		},
+
+		async installAppUpdate() {},
 	};
 }

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OnboardingConnectPage } from './index';
 import type { SiteDetails, SyncSite } from '@/data/core';
@@ -17,8 +17,7 @@ const mocks = vi.hoisted( () => ( {
 	localSites: [] as SiteDetails[],
 	remoteLoading: false,
 	remoteError: null as Error | null,
-	generateNumberedSiteName: vi.fn(),
-	generateProposedSitePath: vi.fn(),
+	findAvailableSitePath: vi.fn(),
 	connectWpcomSite: vi.fn(),
 	createSite: vi.fn(),
 	deleteSite: vi.fn(),
@@ -39,8 +38,8 @@ vi.mock( '../layout-onboarding', () => ( {
 
 vi.mock( '@/data/core', () => ( {
 	useConnector: () => ( {
-		generateNumberedSiteName: mocks.generateNumberedSiteName,
-		generateProposedSitePath: mocks.generateProposedSitePath,
+		authenticate: ( signup = false ) => ( signup ? mocks.signup() : mocks.login() ),
+		findAvailableSitePath: mocks.findAvailableSitePath,
 		connectWpcomSite: mocks.connectWpcomSite,
 		openExternalUrl: mocks.openExternalUrl,
 	} ),
@@ -48,11 +47,15 @@ vi.mock( '@/data/core', () => ( {
 
 vi.mock( '@/data/queries/use-auth-user', () => ( {
 	useAuthUser: () => ( { data: mocks.user, isLoading: mocks.authLoading } ),
-	useLogin: ( options: { signup?: boolean } = {} ) => ( {
-		mutate: options.signup ? mocks.signup : mocks.login,
+	useLogin: ( options?: { signup?: boolean } ) => ( {
+		mutate: options?.signup ? mocks.signup : mocks.login,
 		isPending: false,
 		error: null,
 	} ),
+} ) );
+
+vi.mock( '@/data/queries/use-create-site-helpers', () => ( {
+	useFindAvailableSiteName: () => mocks.findAvailableSitePath,
 } ) );
 
 vi.mock( '@/data/queries/use-sites', () => ( {
@@ -71,8 +74,9 @@ vi.mock( '@/data/queries/use-user-locale', () => ( {
 } ) );
 
 vi.mock( '@/data/queries/use-wpcom-sites', () => ( {
-	useSyncableWpcomSites: () => ( {
-		data: mocks.remoteSites,
+	useAllConnectedWpcomSites: () => ( { data: [] } ),
+	useSyncableWpcomSitesPage: () => ( {
+		data: { sites: mocks.remoteSites, total: mocks.remoteSites.length },
 		isLoading: mocks.remoteLoading,
 		isFetching: false,
 		error: mocks.remoteError,
@@ -113,10 +117,9 @@ describe( 'OnboardingConnectPage', () => {
 		mocks.localSites = [];
 		mocks.remoteLoading = false;
 		mocks.remoteError = null;
-		mocks.generateNumberedSiteName.mockResolvedValue( 'Remote site' );
-		mocks.generateProposedSitePath.mockResolvedValue( {
+		mocks.findAvailableSitePath.mockResolvedValue( {
+			name: 'Remote site',
 			path: '/sites/remote-site',
-			isEmpty: true,
 		} );
 		mocks.connectWpcomSite.mockResolvedValue( undefined );
 		mocks.createSite.mockResolvedValue( {
@@ -159,30 +162,15 @@ describe( 'OnboardingConnectPage', () => {
 
 		expect( screen.getByText( 'Pressable' ) ).toBeInTheDocument();
 		expect( screen.getByText( 'Staging' ) ).toBeInTheDocument();
-		const availableSection = screen
-			.getByRole( 'heading', { name: 'Available to connect' } )
-			.closest( 'section' )!;
-		const unavailableSection = screen
-			.getByRole( 'heading', { name: 'Unavailable' } )
-			.closest( 'section' )!;
-		expect(
-			within( availableSection ).getByText( 'Already local' ).closest( 'button' )
-		).toBeEnabled();
-		expect(
-			within( unavailableSection ).getByText( 'Free site' ).closest( 'button' )
-		).toBeDisabled();
-		expect(
-			within( unavailableSection ).getByText(
-				'Upgrade this site to a supported plan before connecting it.'
-			)
-		).toBeVisible();
-		expect( screen.queryByRole( 'button', { name: /About / } ) ).not.toBeInTheDocument();
-
-		fireEvent.change( screen.getByRole( 'searchbox', { name: 'Search sites' } ), {
-			target: { value: 'Pressable' },
-		} );
-		expect( screen.getByText( 'Pressable store' ) ).toBeInTheDocument();
-		expect( screen.queryByText( 'Already local' ) ).not.toBeInTheDocument();
+		const alreadyConnectedCard = screen.getByText( 'Already local' ).closest( 'button' )!;
+		expect( alreadyConnectedCard ).not.toHaveAttribute( 'aria-disabled', 'true' );
+		fireEvent.click( alreadyConnectedCard );
+		expect( screen.getByRole( 'button', { name: 'Connect site' } ) ).not.toHaveAttribute(
+			'aria-disabled',
+			'true'
+		);
+		expect( screen.getByRole( 'heading', { name: 'Upgrade your plan to sync' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: /Upgrade plan/ } ) ).toBeVisible();
 	} );
 
 	it( 'shows an offline state instead of fetching remote sites', () => {
@@ -191,7 +179,9 @@ describe( 'OnboardingConnectPage', () => {
 
 		render( <OnboardingConnectPage /> );
 
-		expect( screen.getByRole( 'status' ) ).toHaveTextContent( "You're offline" );
+		expect( screen.getByRole( 'status' ) ).toHaveTextContent(
+			'Reconnect to load your WordPress.com and Pressable sites.'
+		);
 		expect( screen.getByRole( 'button', { name: 'Connect site' } ) ).toHaveAttribute(
 			'aria-disabled',
 			'true'
@@ -207,7 +197,9 @@ describe( 'OnboardingConnectPage', () => {
 
 		mocks.remoteLoading = false;
 		rerender( <OnboardingConnectPage /> );
-		expect( screen.getByRole( 'heading', { name: 'No sites found' } ) ).toBeInTheDocument();
+		expect(
+			screen.getByText( 'No WordPress.com sites found on this account.' )
+		).toBeInTheDocument();
 	} );
 
 	it( 'adapts a single available site into a preselected account view', async () => {
@@ -232,10 +224,8 @@ describe( 'OnboardingConnectPage', () => {
 
 		render( <OnboardingConnectPage /> );
 
-		expect( screen.getByRole( 'heading', { name: 'Unavailable' } ) ).toBeInTheDocument();
-		expect(
-			screen.getByText( 'Upgrade this site to a supported plan before connecting it.' )
-		).toBeVisible();
+		expect( screen.getByRole( 'heading', { name: 'Upgrade your plan to sync' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: /Upgrade plan/ } ) ).toBeVisible();
 		expect( screen.getByRole( 'button', { name: 'Connect site' } ) ).toHaveAttribute(
 			'aria-disabled',
 			'true'
@@ -303,7 +293,7 @@ describe( 'OnboardingConnectPage', () => {
 				search: { sync: 'pull' },
 			} )
 		);
-		expect( mocks.generateNumberedSiteName ).toHaveBeenCalledOnce();
+		expect( mocks.findAvailableSitePath ).toHaveBeenCalledOnce();
 		expect( mocks.startSite ).not.toHaveBeenCalled();
 
 		finishPull();

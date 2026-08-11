@@ -1,3 +1,4 @@
+import { resolveActivitySoundPreferences } from '@studio/common/lib/activity-sounds';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import {
@@ -5,35 +6,44 @@ import {
 	studioAssistantQuotaSchema,
 } from '@studio/common/lib/studio-assistant-quota';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { buildPublishCheckoutUrl } from '../publish-checkout-url';
 import type {
 	ActiveAgentRun,
 	AiSessionSummary,
 	AiSessionPlacementUpdatedEvent,
-	AppGlobals,
+	AppUpdateStatus,
 	AuthUser,
+	AvailableSitePath,
 	ColorScheme,
 	Connector,
 	ExtractedBlueprintBundle,
 	InstalledApps,
+	InstructionFileStatus,
 	LocalMediaFile,
 	LoadedAiSession,
-	AppUpdateStatus,
 	ProposedSitePath,
 	QuitSitesBehavior,
 	SelectedSiteFolder,
+	SiteCheckpoint,
 	SiteDetails,
+	SiteOverviewDetails,
+	SiteOverviewExtension,
 	SkillStatus,
 	Snapshot,
 	SnapshotUsage,
 	StudioAssistantQuota,
 	SupportedEditor,
 	SupportedTerminal,
+	SyncableWpcomSitesPage,
 	SyncSite,
+	ToolPermissionOverrides,
+	UserSettingsEventTab,
 	UserPreferences,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
+import type { AiModelId } from '@studio/common/ai/models';
+import type { AiResponseLength } from '@studio/common/ai/response-length';
 import type { StoredAuthToken } from '@studio/common/lib/auth-token-schema';
 import type { SiteEvent } from '@studio/common/lib/cli-events';
 import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
@@ -49,10 +59,18 @@ function generateBackupFilename( siteName: string ): string {
 	return sanitizeFolderName( `studio-backup-${ siteName }-${ timestamp }` );
 }
 
+type WpCliResult = {
+	stdout: string;
+	stderr: string;
+	exitCode: number;
+};
+
 function parseSnapshotUsage( response: unknown ): SnapshotUsage {
-	const record = response as Record< string, unknown > | null;
+	if ( ! response || typeof response !== 'object' ) {
+		throw new Error( 'Invalid snapshot usage response.' );
+	}
+	const record = response as Record< string, unknown >;
 	if (
-		! record ||
 		typeof record.site_count !== 'number' ||
 		typeof record.site_limit !== 'number' ||
 		typeof record.site_creation_blocked !== 'boolean'
@@ -64,6 +82,81 @@ function parseSnapshotUsage( response: unknown ): SnapshotUsage {
 		siteLimit: record.site_limit,
 		siteCreationBlocked: record.site_creation_blocked,
 	};
+}
+
+const SITE_OVERVIEW_DETAILS_SCRIPT = [
+	'require_once ABSPATH . "wp-admin/includes/plugin.php";',
+	'$plugins = array();',
+	'foreach (get_plugins() as $plugin_file => $plugin_data) { $plugins[] = array("slug" => $plugin_file, "name" => empty($plugin_data["Name"]) ? $plugin_file : $plugin_data["Name"], "status" => is_plugin_active($plugin_file) ? "active" : "inactive", "version" => empty($plugin_data["Version"]) ? "" : $plugin_data["Version"]); }',
+	'$themes = array();',
+	'$active_theme = get_stylesheet();',
+	'foreach (wp_get_themes() as $stylesheet => $theme) { $themes[] = array("slug" => $stylesheet, "name" => $theme->get("Name") ?: $stylesheet, "status" => $stylesheet === $active_theme ? "active" : "inactive", "version" => $theme->get("Version") ?: ""); }',
+	'echo wp_json_encode(array("plugins" => $plugins, "themes" => $themes));',
+].join( ' ' );
+
+const SITE_OVERVIEW_DETAILS_COMMAND = `eval '${ SITE_OVERVIEW_DETAILS_SCRIPT }'`;
+
+function parseSiteOverviewDetails( result: WpCliResult ): SiteOverviewDetails {
+	if ( result.exitCode !== 0 ) {
+		throw new Error( result.stderr || 'Failed to load site overview details.' );
+	}
+
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse( result.stdout );
+	} catch {
+		throw new Error( 'Site overview details returned invalid JSON.' );
+	}
+
+	const record =
+		parsed && typeof parsed === 'object' ? ( parsed as Record< string, unknown > ) : {};
+
+	return {
+		plugins: normalizeOverviewExtensions( record.plugins ),
+		themes: normalizeOverviewExtensions( record.themes ),
+	};
+}
+
+function normalizeOverviewExtensions( value: unknown ): SiteOverviewExtension[] {
+	if ( ! Array.isArray( value ) ) {
+		return [];
+	}
+
+	return value
+		.flatMap( ( extension ) => {
+			const record =
+				extension && typeof extension === 'object'
+					? ( extension as Record< string, unknown > )
+					: {};
+			const slug = getText( record.slug );
+			const name = getText( record.name ) ?? slug;
+
+			if ( ! slug || ! name ) {
+				return [];
+			}
+
+			return [
+				{
+					slug,
+					name,
+					status: getText( record.status ),
+					version: getText( record.version ),
+				},
+			];
+		} )
+		.sort( ( first, second ) => {
+			const statusOrder =
+				getExtensionStatusSortValue( first.status ) - getExtensionStatusSortValue( second.status );
+			return statusOrder || first.name.localeCompare( second.name );
+		} );
+}
+
+function getText( value: unknown ): string | undefined {
+	return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+function getExtensionStatusSortValue( status: string | undefined ) {
+	return status === 'active' ? 0 : 1;
 }
 
 /**
@@ -86,8 +179,6 @@ export function createIpcConnector(): Connector {
 	// desktop OS.
 	const isMacOS = /mac/i.test( navigator.platform || navigator.userAgent );
 
-	// Fetches an authenticated WordPress.com endpoint with the stored OAuth
-	// token. Resolves `null` when signed out so callers can degrade gracefully.
 	async function fetchWpcomJson( url: string, errorLabel: string ): Promise< unknown > {
 		const token = ( await ipcApi.getAuthenticationToken() ) as StoredAuthToken | null;
 		if ( ! token ) {
@@ -111,6 +202,18 @@ export function createIpcConnector(): Connector {
 			throw new Error( `Site ${ siteId } not found` );
 		}
 		return site.path;
+	}
+
+	async function executeWpCli(
+		siteId: string,
+		args: string,
+		options: { skipPluginsAndThemes?: boolean } = {}
+	): Promise< WpCliResult > {
+		return ( await ipcApi.executeWPCLiInline( {
+			siteId,
+			args,
+			skipPluginsAndThemes: options.skipPluginsAndThemes ?? true,
+		} ) ) as WpCliResult;
 	}
 
 	async function markConnectedWpcomSiteSynced(
@@ -213,6 +316,7 @@ export function createIpcConnector(): Connector {
 			nativeSaveDialog: true,
 			openInOS: true,
 			annotatePreview: true,
+			siteCheckpoints: true,
 			readLocalMedia: true,
 			agentInstructions: true,
 			studioLogs: true,
@@ -221,7 +325,7 @@ export function createIpcConnector(): Connector {
 
 		// Auth — optional in Electron, delegated to main process
 		requiresAuth: false,
-		agenticRequiresAuth: true,
+		supportsAgenticOptOut: true,
 
 		async isAuthenticated(): Promise< boolean > {
 			return ipcApi.isAuthenticated();
@@ -251,6 +355,7 @@ export function createIpcConnector(): Connector {
 			return ipcListener.subscribe( 'auth-updated', () => listener() );
 		},
 
+		// Onboarding
 		async getOnboardingCompleted(): Promise< boolean > {
 			return ipcApi.getOnboardingData();
 		},
@@ -269,27 +374,31 @@ export function createIpcConnector(): Connector {
 				name,
 				path,
 				phpVersion,
+				runtime,
+				fileAccess,
 				wpVersion,
 				customDomain,
 				enableHttps,
 				adminUsername,
 				adminPassword,
 				adminEmail,
-				skipStart,
 				blueprint,
+				skipStart,
 				flowType,
 			} = params;
 			return ( await ipcApi.createSite( path, {
 				siteName: name,
 				phpVersion,
+				runtime,
+				fileAccess,
 				wpVersion,
 				customDomain,
 				enableHttps,
 				adminUsername,
 				adminPassword,
 				adminEmail,
-				noStart: skipStart,
 				blueprint,
+				noStart: skipStart,
 				flowType,
 			} ) ) as SiteDetails;
 		},
@@ -321,6 +430,16 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.generateNumberedNameFromList( baseName, usedSites ) ) as string;
 		},
 
+		async findAvailableSitePath( baseName ): Promise< AvailableSitePath > {
+			// The main process resolves the numbered-name collision search in a
+			// single call (checking both existing site names and non-empty site
+			// folders) — same helper `copySite` uses above.
+			const sites = ( await ipcApi.getSiteDetails() ) as SiteDetails[];
+			const name = ( await ipcApi.generateNumberedNameFromList( baseName, sites ) ) as string;
+			const { path } = ( await ipcApi.generateProposedSitePath( name ) ) as { path: string };
+			return { name, path };
+		},
+
 		async generateProposedSitePath( siteName ): Promise< ProposedSitePath > {
 			const response = ( await ipcApi.generateProposedSitePath( siteName ) ) as {
 				path: string;
@@ -348,7 +467,12 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.comparePaths( path1, path2 ) ) as boolean;
 		},
 
-		getWordPressVersions: fetchWordPressVersions,
+		async getWordPressVersions() {
+			// Fetches straight from the wordpress.org version-check API (the
+			// renderer CSP allows api.wordpress.org) using the same shared
+			// helper the desktop renderer's version selector relies on.
+			return fetchWordPressVersions();
+		},
 
 		async getWpVersion( siteId ) {
 			return ( await ipcApi.getWpVersion( siteId ) ) as string;
@@ -362,8 +486,20 @@ export function createIpcConnector(): Connector {
 			return ( ipcApi.getPathForFile( file ) as string ) ?? '';
 		},
 
+		async createTemporaryTextFile( name, contents ): Promise< string > {
+			return ( await ipcApi.createTemporaryTextFile( name, contents ) ) as string;
+		},
+
 		async readLocalMediaFile( path ): Promise< LocalMediaFile > {
 			return ( await ipcApi.readLocalMediaFile( path ) ) as LocalMediaFile;
+		},
+
+		async captureSiteScreenshot( webContentsId, options ): Promise< LocalMediaFile > {
+			return ( await ipcApi.captureSiteScreenshot( webContentsId, options ) ) as LocalMediaFile;
+		},
+
+		async captureFullPageScreenshot( url, options ): Promise< LocalMediaFile > {
+			return ( await ipcApi.captureFullPageScreenshot( url, options ) ) as LocalMediaFile;
 		},
 
 		async extractBlueprintBundle( file ): Promise< ExtractedBlueprintBundle > {
@@ -384,12 +520,25 @@ export function createIpcConnector(): Connector {
 			return ipcApi.readBlueprintFile( filePath ) as Promise< BlueprintV1Declaration >;
 		},
 
+		onAddSite( listener ) {
+			return ipcListener.subscribe( 'add-site', () => listener() );
+		},
+
+		onAddSiteWithBlueprint( listener ) {
+			return ipcListener.subscribe(
+				'add-site-with-blueprint',
+				( _event: unknown, payload: { blueprintPath: string } ) => listener( payload )
+			);
+		},
+
 		async importSiteFromBackup( siteId, backupPath, onProgress ): Promise< void > {
 			const unsubscribe = onProgress
 				? ipcListener.subscribe(
 						'on-import',
 						( _event: unknown, importEvent: ImportEventTuple, importSiteId: string ) => {
-							if ( importSiteId === siteId ) onProgress( importEvent );
+							if ( importSiteId === siteId ) {
+								onProgress( importEvent );
+							}
 						}
 				  )
 				: undefined;
@@ -407,8 +556,42 @@ export function createIpcConnector(): Connector {
 			}
 		},
 
+		// Site checkpoints — the main process forks the same `studio checkpoint`
+		// CLI commands the terminal user runs.
+		async listCheckpoints( siteId ): Promise< SiteCheckpoint[] > {
+			return ( await ipcApi.listSiteCheckpoints( siteId ) ) as SiteCheckpoint[];
+		},
+		async createCheckpoint( siteId, label ) {
+			await ipcApi.createSiteCheckpoint( siteId, label );
+		},
+		async restoreCheckpoint( siteId, checkpointId ) {
+			await ipcApi.restoreSiteCheckpoint( siteId, checkpointId );
+		},
+		async deleteCheckpoint( siteId, checkpointId ) {
+			await ipcApi.deleteSiteCheckpoint( siteId, checkpointId );
+		},
+
 		async startSite( id ) {
-			await ipcApi.startServer( id );
+			try {
+				await ipcApi.startServer( id );
+			} catch ( error ) {
+				const sites = ( await ipcApi.getSiteDetails().catch( () => [] ) ) as SiteDetails[];
+				const site = sites.find( ( candidate ) => candidate.id === id );
+				ipcApi.showErrorMessageBox( {
+					title: site
+						? sprintf( __( "Failed to start '%s'" ), site.name )
+						: __( 'Failed to start site' ),
+					message:
+						error instanceof Error
+							? error.message
+							: __(
+									'Please restart Studio and try again. If this problem persists, please contact support.'
+							  ),
+					error,
+					showOpenLogs: true,
+				} );
+				throw error;
+			}
 		},
 
 		async stopSite( id ) {
@@ -427,11 +610,73 @@ export function createIpcConnector(): Connector {
 			await ipcApi.loadSiteIcon( siteId );
 		},
 
+		async getSiteOverviewDetails( siteId ): Promise< SiteOverviewDetails > {
+			return parseSiteOverviewDetails(
+				await executeWpCli( siteId, SITE_OVERVIEW_DETAILS_COMMAND )
+			);
+		},
+
+		async scaffoldPlugin( siteId, meta ) {
+			return ( await ipcApi.scaffoldPlugin( { siteId, meta } ) ) as {
+				pluginDir: string;
+				activated: boolean;
+			};
+		},
+
 		async getSiteThumbnail( siteId ): Promise< string | null > {
 			return ( await ipcApi.getThumbnailData( siteId ) ) as string | null;
 		},
 		async getSiteStorageUsage( siteId ) {
 			return ipcApi.getSiteStorageUsage( siteId );
+		},
+
+		async getXdebugEnabledSite() {
+			return ( await ipcApi.getXdebugEnabledSite() ) as SiteDetails | null;
+		},
+
+		async isCertificateTrusted() {
+			return ( await ipcApi.isCATrusted() ) as boolean;
+		},
+
+		async trustCertificate() {
+			await ipcApi.trustCertificate();
+		},
+
+		async openSiteFileInEditor( siteId, relativePath ) {
+			ipcApi.openFileInIDE( relativePath, siteId );
+		},
+
+		async openSiteDebugLog( siteId ) {
+			const logPath = ( await ipcApi.getAbsolutePathFromSite( siteId, 'wp-content/debug.log' ) ) as
+				| string
+				| null;
+			if ( logPath ) {
+				ipcApi.openLocalPath( logPath );
+			}
+		},
+
+		async getAgentInstructionsStatus( siteId ) {
+			return ( await ipcApi.getAgentInstructionsStatus( siteId ) ) as InstructionFileStatus[];
+		},
+
+		async installAgentInstructions( siteId, options ) {
+			await ipcApi.installAgentInstructions( siteId, options );
+		},
+
+		async removeAgentInstruction( siteId, fileType ) {
+			await ipcApi.removeAgentInstruction( siteId, fileType );
+		},
+
+		async getWordPressSkillsStatus( siteId ) {
+			return ( await ipcApi.getWordPressSkillsStatus( siteId ) ) as SkillStatus[];
+		},
+
+		async installWordPressSkillById( siteId, skillId ) {
+			await ipcApi.installWordPressSkillById( siteId, skillId );
+		},
+
+		async removeWordPressSkillById( siteId, skillId ) {
+			await ipcApi.removeWordPressSkillById( siteId, skillId );
 		},
 
 		async exportFullSite( siteId ): Promise< string | null > {
@@ -528,12 +773,16 @@ export function createIpcConnector(): Connector {
 		},
 
 		// Connected WPCom sites
-		async getConnectedWpcomSites( localSiteId?: string ): Promise< SyncSite[] > {
+		async getConnectedWpcomSites( localSiteId: string ): Promise< SyncSite[] > {
 			return ( await ipcApi.getConnectedWpcomSites( localSiteId ) ) as SyncSite[];
 		},
 
 		async fetchSyncableWpcomSites(): Promise< SyncSite[] > {
 			return ( await ipcApi.fetchSyncableWpcomSites() ) as SyncSite[];
+		},
+
+		async fetchSyncableWpcomSitesPage( options ): Promise< SyncableWpcomSitesPage > {
+			return ( await ipcApi.fetchSyncableWpcomSitesPage( options ) ) as SyncableWpcomSitesPage;
 		},
 
 		async connectWpcomSite( localSiteId, site ): Promise< void > {
@@ -560,7 +809,6 @@ export function createIpcConnector(): Connector {
 			// it behind this single IPC handler. Resolves once the import is
 			// initiated (the remote import may still be running).
 			await ipcApi.pushSiteToLive( siteId, remoteSiteId, options );
-			await markConnectedWpcomSiteSynced( siteId, remoteSiteId, 'push' );
 		},
 
 		async pullSiteFromLive( siteId, remoteSiteId, onProgress, options ): Promise< void > {
@@ -588,6 +836,21 @@ export function createIpcConnector(): Connector {
 			await markConnectedWpcomSiteSynced( siteId, remoteSiteId, 'pull' );
 		},
 
+		async getLiveSyncItems( siteId, remoteSiteId, direction ) {
+			return ipcApi.getLiveSyncItems( siteId, remoteSiteId, direction );
+		},
+
+		async getLiveSyncImportStatus( remoteSiteId ) {
+			return ipcApi.getLiveSyncImportStatus( remoteSiteId );
+		},
+
+		async getLiveSyncLatestBackupTime( remoteSiteId ) {
+			return ipcApi.getLiveSyncLatestBackupTime( remoteSiteId );
+		},
+
+		async markLiveSiteSynced( localSiteId, remoteSiteId, direction ) {
+			await markConnectedWpcomSiteSynced( localSiteId, remoteSiteId, direction );
+		},
 		async getLatestRewindId( remoteSiteId ): Promise< string | null > {
 			return ( await ipcApi.getLatestRewindId( remoteSiteId ) ) as string | null;
 		},
@@ -666,6 +929,10 @@ export function createIpcConnector(): Connector {
 			await ipcApi.answerAiAgentQuestion( runId, answers );
 		},
 
+		async answerAgentPermission( runId, requestId, decision ) {
+			await ipcApi.answerAiAgentPermission( runId, requestId, decision );
+		},
+
 		async setSessionEnvironment( sessionId, environment ) {
 			const result = ( await ipcApi.setSessionEnvironment( sessionId, environment ) ) as {
 				environment: 'local' | 'live';
@@ -696,6 +963,20 @@ export function createIpcConnector(): Connector {
 			);
 		},
 
+		async showChatNotification( notification ) {
+			const { sessionId, title, body } = notification;
+			ipcApi.showChatNotification( { sessionId, title, body } );
+		},
+
+		onChatNotificationClicked( listener ) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const ipcListener = ( window as any ).ipcListener;
+			return ipcListener.subscribe(
+				'chat-notification-clicked',
+				( _event: unknown, payload: { sessionId: string } ) => listener( payload )
+			);
+		},
+
 		// User preferences — the underlying main-process handlers are split
 		// per field; we fan out in parallel here so the UI can work with a
 		// single query/mutation pair.
@@ -704,47 +985,73 @@ export function createIpcConnector(): Connector {
 				editor,
 				terminal,
 				colorScheme,
-				quitSitesBehavior,
+				frameColor,
 				locale,
 				analyticsEnabled,
 				defaultSiteDirectory,
 				studioCliInstalled,
 				studioCliExternallyManaged,
 				agenticFeaturesEnabled,
+				chatNotificationsEnabled,
+				activitySoundPreferences,
+				quitSitesBehavior,
+				agentResponseLength,
+				defaultAiModel,
+				toolPermissions,
 			] = ( await Promise.all( [
 				ipcApi.getUserEditor(),
 				ipcApi.getUserTerminal(),
 				ipcApi.getColorScheme(),
-				ipcApi.getQuitSitesBehavior(),
+				ipcApi.getFrameColor(),
 				ipcApi.getUserLocale(),
 				ipcApi.getAnalyticsEnabled(),
 				ipcApi.getDefaultSiteDirectory(),
 				ipcApi.isStudioCliInstalled(),
 				ipcApi.isStudioCliExternallyManaged(),
 				ipcApi.getAgenticFeaturesEnabled(),
+				ipcApi.getChatNotificationsEnabled(),
+				ipcApi.getActivitySoundPreferences(),
+				ipcApi.getQuitSitesBehavior(),
+				ipcApi.getAgentResponseLength(),
+				ipcApi.getDefaultAiModel(),
+				ipcApi.getToolPermissions(),
 			] ) ) as [
 				SupportedEditor | null,
 				SupportedTerminal | null,
 				ColorScheme,
-				QuitSitesBehavior | undefined,
+				string | null,
 				string | undefined,
 				boolean,
 				string,
 				boolean,
 				boolean,
 				boolean,
+				boolean,
+				unknown,
+				QuitSitesBehavior | undefined,
+				AiResponseLength,
+				AiModelId,
+				ToolPermissionOverrides,
 			];
 			return {
 				editor,
 				terminal,
 				colorScheme,
-				quitSitesBehavior,
+				frameColor,
 				locale,
 				analyticsEnabled,
 				defaultSiteDirectory,
 				studioCliInstalled,
 				studioCliExternallyManaged,
 				agenticFeaturesEnabled,
+				chatNotificationsEnabled,
+				activitySoundPreferences: resolveActivitySoundPreferences( activitySoundPreferences ),
+				// The desktop stores "ask" as an absent key; surface it as the
+				// explicit 'ask' member the settings UI works with.
+				quitSitesBehavior: quitSitesBehavior ?? 'ask',
+				agentResponseLength,
+				defaultAiModel,
+				toolPermissions,
 			};
 		},
 
@@ -759,8 +1066,8 @@ export function createIpcConnector(): Connector {
 			if ( 'colorScheme' in partial && partial.colorScheme ) {
 				writes.push( ipcApi.saveColorScheme( partial.colorScheme ) );
 			}
-			if ( 'quitSitesBehavior' in partial ) {
-				writes.push( ipcApi.saveQuitSitesBehavior( partial.quitSitesBehavior ) );
+			if ( 'frameColor' in partial ) {
+				writes.push( ipcApi.saveFrameColor( partial.frameColor ?? null ) );
 			}
 			if ( 'locale' in partial && partial.locale ) {
 				writes.push( ipcApi.saveUserLocale( partial.locale ) );
@@ -780,26 +1087,66 @@ export function createIpcConnector(): Connector {
 					partial.studioCliInstalled ? ipcApi.installStudioCli() : ipcApi.uninstallStudioCli()
 				);
 			}
-			if ( typeof partial.agenticFeaturesEnabled === 'boolean' ) {
+			if (
+				'agenticFeaturesEnabled' in partial &&
+				typeof partial.agenticFeaturesEnabled === 'boolean'
+			) {
 				writes.push( ipcApi.saveAgenticFeaturesEnabled( partial.agenticFeaturesEnabled ) );
 			}
-			await Promise.all( writes );
-			if ( typeof partial.agenticFeaturesEnabled === 'boolean' ) {
-				// Cmd/Ctrl+N belongs to "New chat" only while chat is on, so the
-				// menu has to be rebuilt for the accelerator to change hands.
-				await ipcApi.setupAppMenu( { needsOnboarding: false } );
+			if (
+				'chatNotificationsEnabled' in partial &&
+				typeof partial.chatNotificationsEnabled === 'boolean'
+			) {
+				writes.push( ipcApi.saveChatNotificationsEnabled( partial.chatNotificationsEnabled ) );
 			}
+			if ( 'activitySoundPreferences' in partial && partial.activitySoundPreferences ) {
+				writes.push( ipcApi.saveActivitySoundPreferences( partial.activitySoundPreferences ) );
+			}
+			if ( 'quitSitesBehavior' in partial && partial.quitSitesBehavior ) {
+				writes.push(
+					ipcApi.saveQuitSitesBehavior(
+						partial.quitSitesBehavior === 'ask' ? undefined : partial.quitSitesBehavior
+					)
+				);
+			}
+			if ( 'agentResponseLength' in partial && partial.agentResponseLength ) {
+				writes.push( ipcApi.saveAgentResponseLength( partial.agentResponseLength ) );
+			}
+			if ( 'defaultAiModel' in partial && partial.defaultAiModel ) {
+				writes.push( ipcApi.saveDefaultAiModel( partial.defaultAiModel ) );
+			}
+			if ( 'toolPermissions' in partial && partial.toolPermissions ) {
+				for ( const [ toolName, level ] of Object.entries( partial.toolPermissions ) ) {
+					if ( level ) {
+						writes.push( ipcApi.saveToolPermission( toolName, level ) );
+					}
+				}
+			}
+			await Promise.all( writes );
+		},
+
+		async previewColorScheme( colorScheme ): Promise< void > {
+			await ipcApi.previewColorScheme( colorScheme );
 		},
 
 		async selectDefaultSiteDirectory( defaultPath ): Promise< string | null > {
 			const response = ( await ipcApi.showOpenFolderDialog(
 				__( 'Select default site directory' ),
 				defaultPath
-			) ) as { path?: string } | string | null;
-			if ( typeof response === 'string' ) {
-				return response || null;
-			}
+			) ) as { path?: string } | null;
 			return response?.path ?? null;
+		},
+
+		async getAppGlobals() {
+			return ipcApi.getAppGlobals();
+		},
+
+		onUserSettings( listener ) {
+			return ipcListener.subscribe(
+				'user-settings',
+				( _event: unknown, payload: { tabName?: UserSettingsEventTab } ) =>
+					listener( payload?.tabName )
+			);
 		},
 
 		async getAgentInstructions(): Promise< string > {
@@ -811,10 +1158,6 @@ export function createIpcConnector(): Connector {
 
 		async getInstalledApps(): Promise< InstalledApps > {
 			return ( await ipcApi.getInstalledAppsAndTerminals() ) as InstalledApps;
-		},
-
-		async getAppGlobals(): Promise< AppGlobals > {
-			return ( await ipcApi.getAppGlobals() ) as AppGlobals;
 		},
 
 		async fetchSiteRest( siteId, request ) {
@@ -876,8 +1219,16 @@ export function createIpcConnector(): Connector {
 			await ipcApi.copyText( text );
 		},
 
+		async copyImage( pngDataUrl: string ): Promise< void > {
+			await ipcApi.copyImage( pngDataUrl );
+		},
+
 		async showTextContextMenu( context ) {
 			return ipcApi.showTextContextMenu( context );
+		},
+
+		async openSiteUrl( siteId, relativeUrl = '', options ): Promise< void > {
+			await ipcApi.openSiteURL( siteId, relativeUrl, options );
 		},
 
 		async confirmDeleteAllPreviewSites(): Promise< boolean > {
@@ -895,19 +1246,15 @@ export function createIpcConnector(): Connector {
 			return response === DELETE_BUTTON_INDEX;
 		},
 
-		async openSiteUrl( siteId, relativeUrl = '', options ): Promise< void > {
-			await ipcApi.openSiteURL( siteId, relativeUrl, options );
-		},
-
 		async getWordPressSkillsStatusAllSites(): Promise< SkillStatus[] > {
 			return ( await ipcApi.getWordPressSkillsStatusAllSites() ) as SkillStatus[];
 		},
 
-		async installWordPressSkillToAllSites( skillId: string ): Promise< void > {
+		async installWordPressSkillToAllSites( skillId ): Promise< void > {
 			await ipcApi.installWordPressSkillsToAllSites( { skillId } );
 		},
 
-		async removeWordPressSkillFromAllSites( skillId: string ): Promise< void > {
+		async removeWordPressSkillFromAllSites( skillId ): Promise< void > {
 			await ipcApi.removeWordPressSkillFromAllSites( skillId );
 		},
 
@@ -918,6 +1265,10 @@ export function createIpcConnector(): Connector {
 
 		async isFullscreen(): Promise< boolean > {
 			return ipcApi.isFullscreen();
+		},
+
+		async expandWindowForWorkbench(): Promise< void > {
+			await ipcApi.expandWindowForWorkbench();
 		},
 
 		onFullscreenChange( listener ) {
@@ -949,27 +1300,12 @@ export function createIpcConnector(): Connector {
 			return ipcListener.subscribe( 'toggle-sidebar', () => listener() );
 		},
 
-		onAddSite( listener ) {
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			const ipcListener = ( window as any ).ipcListener;
-			return ipcListener.subscribe( 'add-site', () => listener() );
+		async getDismissedMessages() {
+			return ipcApi.getDismissedMessages();
 		},
 
-		onAddSiteWithBlueprint( listener ) {
-			return ipcListener.subscribe(
-				'add-site-with-blueprint',
-				( _event: unknown, payload: { blueprintPath: string } ) => listener( payload )
-			);
-		},
-
-		onOpenSettings( listener ) {
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			const ipcListener = ( window as any ).ipcListener;
-			return ipcListener.subscribe( 'user-settings', () => listener() );
-		},
-
-		async disableAgenticUi(): Promise< void > {
-			await ipcApi.disableAgenticUi();
+		async dismissMessage( id ) {
+			await ipcApi.dismissMessage( id );
 		},
 
 		async getOnboardingHints() {
@@ -980,10 +1316,20 @@ export function createIpcConnector(): Connector {
 			await ipcApi.saveOnboardingHints( partial );
 		},
 
+		onOpenSettings( listener ) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const ipcListener = ( window as any ).ipcListener;
+			return ipcListener.subscribe( 'user-settings', () => listener() );
+		},
+
 		onShowGettingStarted( listener ) {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const ipcListener = ( window as any ).ipcListener;
 			return ipcListener.subscribe( 'show-getting-started', () => listener() );
+		},
+
+		async disableAgenticUi(): Promise< void > {
+			await ipcApi.disableAgenticUi();
 		},
 
 		onShowWhatsNew( listener ) {

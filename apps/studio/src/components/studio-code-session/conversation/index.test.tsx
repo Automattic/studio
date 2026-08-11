@@ -123,6 +123,43 @@ describe( 'entriesToRenderItems – persisted picked answers', () => {
 	} );
 } );
 
+function assistantThinkingEntry( thinking: string ): SessionEntry {
+	return {
+		type: 'message',
+		id: 'assistant-thinking',
+		parentId: null,
+		timestamp: '2026-06-19T00:00:00.000Z',
+		message: {
+			role: 'assistant',
+			content: [
+				{ type: 'thinking', thinking },
+				{ type: 'text', text: 'The final answer.' },
+			],
+		},
+	} as unknown as SessionEntry;
+}
+
+describe( 'entriesToRenderItems – thinking blocks', () => {
+	it( 'maps thinking blocks to render items before the answer text', () => {
+		const items = entriesToRenderItems( [ assistantThinkingEntry( 'Weighing two options.' ) ] );
+		expect( items.map( ( i ) => i.kind ) ).toEqual( [ 'thinking', 'assistant-text' ] );
+		expect( items[ 0 ] ).toMatchObject( { kind: 'thinking', text: 'Weighing two options.' } );
+	} );
+
+	it( 'drops whitespace-only thinking blocks', () => {
+		const items = entriesToRenderItems( [ assistantThinkingEntry( '   \n  ' ) ] );
+		expect( items.map( ( i ) => i.kind ) ).toEqual( [ 'assistant-text' ] );
+	} );
+
+	it( 'derives the thinking duration from entry timestamps', () => {
+		const prior = customEntry( 'studio.user_prompt', { text: 'Question', source: 'prompt' } );
+		( prior as unknown as { timestamp: string } ).timestamp = '2026-06-18T23:59:57.000Z';
+		const items = entriesToRenderItems( [ prior, assistantThinkingEntry( 'Reasoning.' ) ] );
+		const thinking = items.find( ( i ) => i.kind === 'thinking' );
+		expect( thinking ).toMatchObject( { kind: 'thinking', durationMs: 3000 } );
+	} );
+} );
+
 describe( 'wasLastTurnInterrupted', () => {
 	it( 'is false for an in-flight or completed turn', () => {
 		expect( wasLastTurnInterrupted( [ prompt( 'Build me a blog' ) ] ) ).toBe( false );
@@ -259,7 +296,10 @@ describe( 'Conversation – inline media artifacts', () => {
 				pendingQuestions={ new Set() }
 				pendingAnswers={ {} }
 				answeredQuestions={ {} }
+				pendingPermissions={ new Set() }
+				answeredPermissions={ {} }
 				onAnswerQuestion={ () => {} }
+				onAnswerPermission={ () => {} }
 			/>
 		);
 	}
@@ -378,7 +418,10 @@ describe( 'Conversation – assistant message copy button', () => {
 				pendingQuestions={ new Set() }
 				pendingAnswers={ {} }
 				answeredQuestions={ {} }
+				pendingPermissions={ new Set() }
+				answeredPermissions={ {} }
 				onAnswerQuestion={ () => {} }
+				onAnswerPermission={ () => {} }
 			/>
 		);
 	}
@@ -404,6 +447,15 @@ describe( 'Conversation – assistant message copy button', () => {
 		fireEvent.click( buttons[ 0 ] );
 
 		expect( ipcApiMocks.copyText ).toHaveBeenCalledWith( 'First part.\n\nSecond part.' );
+	} );
+
+	it( 'copies the message on double-click and shows a notice', () => {
+		renderConversation( [ assistantTextEntry( 'Plain reply.' ) ] );
+
+		fireEvent.doubleClick( screen.getByText( 'Plain reply.' ) );
+
+		expect( ipcApiMocks.copyText ).toHaveBeenCalledWith( 'Plain reply.' );
+		expect( screen.getByText( 'Copied' ) ).toBeInTheDocument();
 	} );
 
 	it( 'does not render a copy button for user messages', () => {

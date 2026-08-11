@@ -1,7 +1,19 @@
+/**
+ * Illustrations for the onboarding flow-picker cards, ported from the
+ * desktop renderer's Add Site options screen. Strokes and fills use design
+ * tokens so they adapt to light/dark mode without overrides.
+ *
+ * Rest animations are kept very subtle — a single dashed accent spins slowly
+ * on each illustration. On hover (triggered by `illustrationHostClass` on the
+ * parent card), a secondary element picks up the brand color and a second
+ * motion kicks in.
+ */
+
 import styles from './style.module.css';
 
-const STROKE = 'var(--wpds-color-fg-content-neutral)';
+const STROKE = 'var(--wpds-color-fg-content-neutral, #1e1e1e)';
 
+/** Apply to the hoverable card that contains an illustration. */
 export const illustrationHostClass = styles.host;
 
 export function BuildNewSiteIllustration() {
@@ -81,6 +93,14 @@ export function ConnectSiteIllustration() {
 	);
 }
 
+/**
+ * Miniature site list for the onboarding tour's "sites" step: skeleton site
+ * titles with running-status dots, previewing the sidebar users meet after
+ * onboarding. Status colors match the real site list (site-list/style.module.css):
+ * green running dot, amber transitioning pulse. The middle site plays a
+ * one-shot startup: off → starting (spinning ring, pulsing amber) → running,
+ * with a green ping expanding as it lands — and then stays on.
+ */
 export function SiteListIllustration() {
 	return (
 		<svg
@@ -133,6 +153,9 @@ export function DropBackupIllustration() {
 			aria-hidden="true"
 			data-keep-size
 		>
+			{ /* Mask that hides the portion of the back folder that sits under the
+			     front square, so the back can drift behind without appearing
+			     on top of the front outline. */ }
 			<defs>
 				<mask
 					id="dropbackup-outside-front"

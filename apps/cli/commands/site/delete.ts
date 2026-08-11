@@ -10,6 +10,7 @@ import { __, _n, sprintf } from '@wordpress/i18n';
 import trash from 'trash';
 import { deleteSnapshot } from 'cli/lib/api';
 import { deleteSiteCertificate } from 'cli/lib/certificate-manager';
+import { removeCheckpointStore } from 'cli/lib/checkpoints/manifest';
 import {
 	lockCliConfig,
 	readCliConfig,
@@ -160,6 +161,10 @@ export async function runCommand(
 				logger.reportSuccess( __( 'Site files already removed' ) );
 			}
 		}
+
+		// Remove the site's checkpoint store; checkpoints are meaningless once
+		// the site itself is gone.
+		await removeCheckpointStore( site.id ).catch( () => {} );
 
 		await emitCliEvent( { event: SITE_EVENTS.DELETED, data: { siteId: site.id } } );
 

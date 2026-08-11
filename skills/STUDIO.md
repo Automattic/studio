@@ -46,6 +46,8 @@ studio wp theme activate my-child-theme
 
 **When building themes, always build block themes** (not classic themes). Use `theme.json` for styling, templates, and patterns.
 
+**Editor-native styling first:** Put normal color, typography, spacing, and layout in block attributes or `theme.json` before custom CSS. Use CSS for unsupported selectors, pseudo-elements, responsive glue, effects, plugin cleanup, and progressive enhancement. If the front end looks designed but the editor looks plain, the styling is in the wrong layer.
+
 **Check if a plugin/theme change works:**
 ```bash
 studio wp eval 'echo function_exists("my_function") ? "yes" : "no";'
@@ -113,7 +115,7 @@ Run `studio mcp --help` for per-assistant install commands and config paths. Doc
 | `site_delete` | Remove a site from Studio (optionally trash its files) |
 | `wp_cli` | Run a WP-CLI command against a site (e.g. `plugin install woocommerce --activate`) |
 | `scaffold_theme` | Scaffold + activate a minimal block theme (`theme.json`-based) |
-| `validate_blocks` | Validate block markup on a running site |
+| `validate_blocks` | Validate block markup on a running site and audit custom class CSS ownership |
 | `take_screenshot` | Full-page screenshot of a URL (desktop/mobile/all viewports) for visual verification |
 | `inspect_design` | Inspect a live page's rendered DOM to diagnose visual issues |
 | `need_for_speed` | Frontend performance audit (Core Web Vitals, page weight, request count) |
@@ -194,6 +196,10 @@ studio auth logout  # Clear stored credentials
 ## WordPress Development Best Practices
 
 **Themes and plugins:** Add custom themes to `wp-content/themes/` and plugins to `wp-content/plugins/`. To customise an existing theme, create a child theme rather than modifying the parent directly.
+
+**Block theme styling layers:** Use `theme.json` for palettes, font sizes, spacing presets, layout widths, element styles, and block defaults. Use block attributes for page-specific editable styling such as `textColor`, `backgroundColor`, `fontSize`, `style.spacing`, `layout.contentSize`, and `align`. Use `style.css` only for styling that the editor cannot express.
+
+**Custom frontend behavior:** Prefer core or plugin blocks first. For reusable reactive UI, build a custom block using `block.json`, `apiVersion: 3`, `viewScriptModule`, and the WordPress Interactivity API. Use plain enqueued JavaScript only for progressive enhancement, third-party integrations, canvas/WebGL, analytics hooks, or intentionally frontend-only effects.
 
 **Use hooks, not direct edits:** Extend WordPress via actions and filters. NEVER edit core files in `wp-includes/` or `wp-admin/`.
 <!-- IF playground -->

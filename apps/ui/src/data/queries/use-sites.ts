@@ -9,6 +9,7 @@ import { WP_VERSION_QUERY_KEY } from '@/data/queries/use-wordpress-versions';
 import type { CreateSiteParams, SiteDetails } from '@/data/core';
 
 export const SITES_QUERY_KEY = [ 'sites' ] as const;
+export const SITE_OVERVIEW_DETAILS_QUERY_KEY = [ 'site-overview-details' ] as const;
 
 // The index route's redirect `beforeLoad` fetches the site and session lists to
 // choose a destination. Refreshing those lists after a delete with the default
@@ -20,11 +21,24 @@ const KEEP_INFLIGHT_FETCH = { cancelRefetch: false } as const;
 const START_SITE_MUTATION_KEY = [ 'startSite' ] as const;
 const STOP_SITE_MUTATION_KEY = [ 'stopSite' ] as const;
 
+function errorDescription( error: unknown ): string {
+	return error instanceof Error ? error.message : String( error );
+}
+
 export function useSites() {
 	const connector = useConnector();
 	return useQuery( {
 		queryKey: SITES_QUERY_KEY,
 		queryFn: () => connector.getSites(),
+	} );
+}
+
+export function useSiteOverviewDetails( siteId: string ) {
+	const connector = useConnector();
+	return useQuery( {
+		queryKey: [ ...SITE_OVERVIEW_DETAILS_QUERY_KEY, siteId ],
+		queryFn: () => connector.getSiteOverviewDetails( siteId ),
+		meta: { persist: false },
 	} );
 }
 
@@ -71,7 +85,10 @@ export function useCopySite() {
 	return useMutation( {
 		mutationFn: ( sourceSiteId: string ) => connector.copySite( sourceSiteId ),
 		onSuccess: () => queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } ),
-		onError: () => toast.error( __( 'Failed to copy site' ) ),
+		// Callers fire-and-forget (context menu, overview); without this a
+		// failed copy would be silent. Success shows up as the new site row.
+		onError: ( error ) =>
+			toast.error( __( 'Failed to copy site' ), { description: errorDescription( error ) } ),
 	} );
 }
 
@@ -101,7 +118,8 @@ export function useStartSite() {
 			await queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
 		},
 		onSuccess: () => toast.success( __( 'Site started' ) ),
-		onError: () => toast.error( __( 'Failed to start site' ) ),
+		onError: ( error ) =>
+			toast.error( __( 'Failed to start site' ), { description: errorDescription( error ) } ),
 	} );
 }
 
@@ -115,7 +133,8 @@ export function useStopSite() {
 			await queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
 		},
 		onSuccess: () => toast.success( __( 'Site stopped' ) ),
-		onError: () => toast.error( __( 'Failed to stop site' ) ),
+		onError: ( error ) =>
+			toast.error( __( 'Failed to stop site' ), { description: errorDescription( error ) } ),
 	} );
 }
 

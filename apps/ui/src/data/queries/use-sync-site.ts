@@ -3,6 +3,10 @@ import { __ } from '@wordpress/i18n';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
+import {
+	getImportStatusPendingDetails,
+	monitorLiveSyncImport,
+} from '@/data/queries/use-live-sync-monitor';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
 import {
 	reportSyncError,
@@ -29,22 +33,57 @@ export function usePushSiteToLive() {
 	const queryClient = useQueryClient();
 	return useMutation( {
 		mutationKey: PUSH_TO_LIVE_MUTATION_KEY,
-		mutationFn: ( { siteId, remoteSiteId, options }: PushToLiveVariables ) =>
-			connector.pushSiteToLive( siteId, remoteSiteId, options ),
-		onMutate: ( { siteId } ) => {
-			reportSyncPending( siteId, 'push' );
+		mutationFn: async ( { siteId, remoteSiteId, options }: PushToLiveVariables ) => {
+			let canMonitorImport = true;
+			const currentStatus = await connector.getLiveSyncImportStatus( remoteSiteId ).catch( () => {
+				canMonitorImport = false;
+				return null;
+			} );
+			if ( currentStatus && getImportStatusPendingDetails( currentStatus ) ) {
+				await monitorLiveSyncImport( {
+					connector,
+					siteId,
+					remoteSiteId,
+				} );
+				await connector.markLiveSiteSynced( siteId, remoteSiteId, 'push' );
+				return;
+			}
+
+			await connector.pushSiteToLive( siteId, remoteSiteId, options );
+			if ( canMonitorImport ) {
+				await monitorLiveSyncImport( {
+					connector,
+					siteId,
+					remoteSiteId,
+					reportInitialFailure: true,
+				} );
+				await connector.markLiveSiteSynced( siteId, remoteSiteId, 'push' );
+			}
+		},
+		onMutate: ( { siteId, remoteSiteId } ) => {
+			reportSyncPending( siteId, 'push', {
+				phase: 'uploading',
+				progress: null,
+				remoteSiteId,
+				logMessage: __( 'Uploading selected changes to live site.' ),
+			} );
 		},
 		onSuccess: ( _result, { siteId } ) => {
 			reportSyncSuccess( siteId, 'push' );
+			toast.success( __( 'Push complete' ) );
 			void queryClient.invalidateQueries( {
 				queryKey: connectedWpcomSitesQueryKey( siteId ),
 			} );
-			toast.success( __( 'Push complete' ) );
+			void queryClient.invalidateQueries( {
+				queryKey: [ 'liveSyncLatestBackupTime' ],
+			} );
 		},
 		onError: ( error, { siteId } ) => {
 			const message = error instanceof Error ? error.message : String( error );
 			reportSyncError( siteId, 'push', message );
-			toast.error( __( "Push didn't complete" ) );
+			// The sync-activity report above only surfaces in the site
+			// dropdown; the toast reaches the user wherever they are.
+			toast.error( __( 'Push didn’t complete' ), { description: message } );
 		},
 	} );
 }
@@ -91,15 +130,17 @@ export function usePullSiteFromLive() {
 				options
 			),
 		onMutate: ( { siteId } ) => {
-			reportSyncPending( siteId, 'pull' );
+			reportSyncPending( siteId, 'pull', {
+				logMessage: __( 'Pulling selected live-site changes into Studio.' ),
+			} );
 		},
 		onSuccess: ( _result, { siteId } ) => {
 			reportSyncSuccess( siteId, 'pull' );
+			toast.success( __( 'Pull complete' ) );
 			// The CLI may have stopped/started the server during the import,
 			// and the site's database + themes just changed — refresh the
 			// site list so any downstream consumers see the new state.
 			void queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
-			toast.success( __( 'Pull complete' ) );
 		},
 		onError: ( _error, { siteId } ) => {
 			// Only point at the logs where the user can actually open them.

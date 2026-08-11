@@ -1,11 +1,12 @@
 /**
- * Remembers the most recently visited site so the `/` index route can return
- * the user to it, instead of always landing on the first site in the list.
- * The id is validated against live data at redirect time, so a stale id
- * (deleted site) just falls through.
+ * Remembers the most recently visited session/site so the `/` index route
+ * can return the user to where they were, instead of always landing on the
+ * first site in the list. Values are validated against live data at
+ * redirect time, so stale ids (deleted sites/sessions) just fall through.
  */
 
 export interface LastVisited {
+	sessionId?: string;
 	siteId?: string;
 }
 
@@ -16,6 +17,7 @@ export function readLastVisited(): LastVisited {
 		const stored = window.localStorage.getItem( STORAGE_KEY );
 		const parsed = stored ? JSON.parse( stored ) : {};
 		return {
+			sessionId: typeof parsed.sessionId === 'string' ? parsed.sessionId : undefined,
 			siteId: typeof parsed.siteId === 'string' ? parsed.siteId : undefined,
 		};
 	} catch {

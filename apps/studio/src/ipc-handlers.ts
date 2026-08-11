@@ -6,12 +6,13 @@ import {
 	app,
 	clipboard,
 	dialog,
+	nativeImage,
 	shell,
 	webContents,
 	type IpcMainInvokeEvent,
-	type WebContents,
 	Notification,
 	SaveDialogOptions,
+	type WebContents,
 } from 'electron';
 import fs from 'fs';
 import fsPromises from 'fs/promises';
@@ -123,6 +124,10 @@ import {
 	trustRootCA,
 } from 'src/lib/certificate-manager';
 import {
+	showChatNotification as showChatNotificationForWindow,
+	type ChatNotificationRequest,
+} from 'src/lib/chat-notifications';
+import {
 	extractErrorFromProcessManagerLogs,
 	simplifyErrorForDisplay,
 } from 'src/lib/error-formatting';
@@ -137,6 +142,7 @@ import {
 	startErrorRecovery,
 	stopErrorRecovery,
 } from 'src/lib/php-error-recovery';
+import { scaffoldPluginInSite, type PluginScaffoldMeta } from 'src/lib/scaffold-plugin';
 import { getAiInstructionsPath } from 'src/lib/server-files-paths';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { setAgenticUiEnabled } from 'src/lib/studio-ui-mode';
@@ -148,6 +154,7 @@ import {
 	type TracksUiVersion,
 } from 'src/lib/tracks';
 import { updateSiteUrl } from 'src/lib/update-site-url';
+import { expandWindowForWorkbench as expandMainWindowForWorkbench } from 'src/lib/window-expansion';
 import * as windowsHelpers from 'src/lib/windows-helpers';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
 import {
@@ -173,6 +180,7 @@ import {
 	type SkillStatus,
 } from 'src/modules/agent-instructions/lib/skills';
 import {
+	answerAgentPermission,
 	answerAgentRun,
 	interruptAgentRun,
 	listActiveAgentRuns,
@@ -213,6 +221,7 @@ import type { ActiveAgentRun } from '@studio/common/ai/agent-events';
 import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
 import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
+import type { PermissionDecision } from '@studio/common/ai/tool-permissions';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { Ignore } from 'ignore';
 import type { WpCliResult } from 'src/site-server';
@@ -233,7 +242,11 @@ export {
 	downloadSyncBackup,
 	exportSiteForPush,
 	fetchSyncableWpcomSites,
+	fetchSyncableWpcomSitesPage,
 	getConnectedWpcomSites,
+	getLiveSyncImportStatus,
+	getLiveSyncItems,
+	getLiveSyncLatestBackupTime,
 	getHostingPhpVersion,
 	getLatestRewindId,
 	listRemoteFileTree,
@@ -256,13 +269,21 @@ export {
 } from 'src/modules/preview-site/lib/ipc-handlers';
 
 export {
+	dismissMessage,
 	getAgenticFeaturesEnabled,
 	getAnalyticsEnabled,
+	getAgentResponseLength,
+	getActivitySoundPreferences,
+	getChatNotificationsEnabled,
 	getColorScheme,
+	getFrameColor,
+	getDefaultAiModel,
+	getDismissedMessages,
 	getGlobalAgentInstructions,
 	getInstalledAppsAndTerminals,
 	getOnboardingHints,
 	getQuitSitesBehavior,
+	getToolPermissions,
 	getUserEditor,
 	getUserLocale,
 	getUserTerminal,
@@ -270,10 +291,16 @@ export {
 	previewColorScheme,
 	saveAgenticFeaturesEnabled,
 	saveAnalyticsEnabled,
+	saveAgentResponseLength,
+	saveActivitySoundPreferences,
+	saveChatNotificationsEnabled,
 	saveColorScheme,
+	saveFrameColor,
+	saveDefaultAiModel,
 	saveGlobalAgentInstructions,
 	saveOnboardingHints,
 	saveQuitSitesBehavior,
+	saveToolPermission,
 	saveUserEditor,
 	saveUserLocale,
 	saveUserTerminal,
@@ -284,12 +311,17 @@ export { getDefaultSiteDirectory, saveDefaultSiteDirectory };
 
 export { importSite, exportSite } from 'src/modules/import-export/lib/ipc-handlers';
 
+export {
+	listSiteCheckpoints,
+	createSiteCheckpoint,
+	restoreSiteCheckpoint,
+	deleteSiteCheckpoint,
+} from 'src/modules/checkpoints/lib/ipc-handlers';
+
 export { fetchSiteRest as fetchSiteRestApi } from 'src/lib/wordpress-rest-api';
 
 export async function recordAnalyticsEvent(
 	_event: IpcMainInvokeEvent,
-	// Typed `string` because this crosses the IPC boundary from the (untrusted) renderer; validated
-	// against the known event names below before recording.
 	eventName: string,
 	props: Record< string, string | number | boolean | undefined > & {
 		channel?: TracksChannel;
@@ -569,6 +601,15 @@ export async function answerAiAgentQuestion(
 	answers: Record< string, string >
 ): Promise< void > {
 	answerAgentRun( runId, answers );
+}
+
+export async function answerAiAgentPermission(
+	_event: IpcMainInvokeEvent,
+	runId: string,
+	requestId: string,
+	decision: PermissionDecision
+): Promise< void > {
+	answerAgentPermission( runId, requestId, decision );
 }
 
 export async function getAgentInstructionsStatus(
@@ -1396,6 +1437,14 @@ export function copyText( event: IpcMainInvokeEvent, text: string ) {
 	return clipboard.writeText( text );
 }
 
+export async function copyImage( event: IpcMainInvokeEvent, pngDataUrl: string ) {
+	const image = nativeImage.createFromDataURL( pngDataUrl );
+	if ( image.isEmpty() ) {
+		throw new Error( 'Could not decode image data URL' );
+	}
+	clipboard.writeImage( image );
+}
+
 export function getAppGlobals(): AppGlobals {
 	return {
 		platform: process.platform,
@@ -1500,6 +1549,34 @@ export function showItemInFolder( _event: IpcMainInvokeEvent, path: string ) {
 	shell.showItemInFolder( path );
 }
 
+function sanitizeTemporaryTextFileName( name: string ): string {
+	const fallbackName = 'browser-console.txt';
+	const normalized = nodePath
+		.basename( typeof name === 'string' && name ? name : fallbackName )
+		.replace( /[^a-zA-Z0-9._-]/g, '-' );
+	const withExtension = normalized.toLowerCase().endsWith( '.txt' )
+		? normalized
+		: `${ normalized }.txt`;
+	return withExtension || fallbackName;
+}
+
+export async function createTemporaryTextFile(
+	_event: IpcMainInvokeEvent,
+	name: string,
+	contents: string
+): Promise< string > {
+	if ( typeof contents !== 'string' ) {
+		throw new Error( 'Temporary text file contents must be a string.' );
+	}
+
+	const directory = nodePath.join( app.getPath( 'temp' ), 'com.wordpress.studio', 'attachments' );
+	await fsPromises.mkdir( directory, { recursive: true } );
+	const fileName = `${ crypto.randomUUID() }-${ sanitizeTemporaryTextFileName( name ) }`;
+	const filePath = nodePath.join( directory, fileName );
+	await fsPromises.writeFile( filePath, contents, 'utf8' );
+	return filePath;
+}
+
 export async function openStudioLogs( _event: IpcMainInvokeEvent ) {
 	await shell.openPath( getLogsFilePath() );
 }
@@ -1540,6 +1617,208 @@ export async function readLocalMediaFile(
 			buffer.byteOffset + buffer.byteLength
 		) as ArrayBuffer,
 	};
+}
+
+// Captures the webview's visible viewport at native (device pixel)
+// resolution. Viewport-only by design: CDP has no working full-page capture
+// for webview guests (`clip` silently produces blank images,
+// `captureBeyondViewport` and viewport emulation both tile the visible
+// surface down the page) — full pages go through
+// `captureFullPageScreenshot`, which renders in a headless top-level
+// browser instead. `area` is accepted for call-site clarity.
+export async function captureSiteScreenshot(
+	event: IpcMainInvokeEvent,
+	webContentsId: number,
+	options: {
+		colorScheme?: 'light' | 'dark';
+		area?: 'viewport';
+	} = {}
+): Promise< { name: string; mimeType: string; data: ArrayBuffer } > {
+	if ( options.colorScheme && options.colorScheme !== 'light' && options.colorScheme !== 'dark' ) {
+		throw new Error( 'Unsupported screenshot color scheme.' );
+	}
+	if ( options.area && options.area !== 'viewport' ) {
+		throw new Error( 'Unsupported screenshot area.' );
+	}
+
+	const target = getOwnedWebviewContents( event, webContentsId );
+	attachDebuggerIfNeeded( target );
+	if ( options.colorScheme ) {
+		await sendDebuggerCommand( target, 'Emulation.setEmulatedMedia', {
+			features: [ { name: 'prefers-color-scheme', value: options.colorScheme } ],
+		} );
+	}
+
+	const screenshot = await sendDebuggerCommand< { data: string } >(
+		target,
+		'Page.captureScreenshot',
+		{
+			format: 'jpeg',
+			quality: 80,
+			captureBeyondViewport: false,
+		}
+	);
+
+	const buffer = Buffer.from( screenshot.data, 'base64' );
+	return {
+		name: `screenshot-viewport${ options.colorScheme ? `-${ options.colorScheme }` : '' }.jpg`,
+		mimeType: 'image/jpeg',
+		data: buffer.buffer.slice(
+			buffer.byteOffset,
+			buffer.byteOffset + buffer.byteLength
+		) as ArrayBuffer,
+	};
+}
+
+// Full-page screenshots delegate to the CLI's Playwright pipeline (the same
+// engine as the agent's `take_screenshot` tool): a headless top-level page
+// renders the whole document correctly in one pass, with lazy-image
+// scrolling and font settling handled there. First use may download the
+// Playwright browser. The capture runs against a fresh page load in a
+// separate browser session, so admin URLs should be routed through the
+// site's `/studio-auto-login` endpoint by the caller.
+export async function captureFullPageScreenshot(
+	_event: IpcMainInvokeEvent,
+	url: string,
+	options: { width?: number; colorScheme?: 'light' | 'dark' } = {}
+): Promise< { name: string; mimeType: string; data: ArrayBuffer } > {
+	let parsedUrl: URL;
+	try {
+		parsedUrl = new URL( url );
+	} catch {
+		throw new Error( 'Unsupported screenshot URL.' );
+	}
+	if ( parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:' ) {
+		throw new Error( 'Unsupported screenshot URL.' );
+	}
+	if ( options.colorScheme && options.colorScheme !== 'light' && options.colorScheme !== 'dark' ) {
+		throw new Error( 'Unsupported screenshot color scheme.' );
+	}
+	const width = options.width === undefined ? undefined : Math.round( options.width );
+	if ( width !== undefined && ( ! Number.isFinite( width ) || width < 200 || width > 4000 ) ) {
+		throw new Error( 'Unsupported screenshot width.' );
+	}
+
+	const outPath = nodePath.join(
+		os.tmpdir(),
+		`studio-page-clip-${ Date.now().toString( 36 ) }-${ Math.random()
+			.toString( 36 )
+			.slice( 2, 8 ) }.jpg`
+	);
+	const args = [ 'screenshot', url, '--out', outPath ];
+	if ( width !== undefined ) {
+		args.push( '--width', String( width ) );
+	}
+	if ( options.colorScheme ) {
+		args.push( '--color-scheme', options.colorScheme );
+	}
+
+	await new Promise< void >( ( resolve, reject ) => {
+		const [ emitter ] = executeCliCommand( args, { output: 'capture' } );
+		emitter.on( 'success', () => resolve() );
+		emitter.on( 'failure', ( { error } ) => reject( error ) );
+		emitter.on( 'error', ( { error } ) => reject( error ) );
+	} );
+
+	try {
+		const buffer = await fsPromises.readFile( outPath );
+		return {
+			name: `clip-page${ options.colorScheme ? `-${ options.colorScheme }` : '' }.jpg`,
+			mimeType: 'image/jpeg',
+			data: buffer.buffer.slice(
+				buffer.byteOffset,
+				buffer.byteOffset + buffer.byteLength
+			) as ArrayBuffer,
+		};
+	} finally {
+		fsPromises.unlink( outPath ).catch( () => undefined );
+	}
+}
+
+function getOwnedWebviewContents( event: IpcMainInvokeEvent, webContentsId: number ): WebContents {
+	if ( ! Number.isInteger( webContentsId ) || webContentsId <= 0 ) {
+		throw new Error( 'Invalid webview identifier.' );
+	}
+
+	const target = webContents.fromId( webContentsId );
+	if ( ! target || target.isDestroyed() ) {
+		throw new Error( 'Webview is no longer available.' );
+	}
+
+	if ( target.hostWebContents?.id !== event.sender.id ) {
+		throw new Error( 'Webview does not belong to the current window.' );
+	}
+
+	return target;
+}
+
+function attachDebuggerIfNeeded( target: WebContents ): boolean {
+	if ( target.debugger.isAttached() ) {
+		return false;
+	}
+
+	target.debugger.attach( '1.3' );
+	return true;
+}
+
+async function sendDebuggerCommand< T >(
+	target: WebContents,
+	method: string,
+	params?: Record< string, unknown >
+): Promise< T > {
+	return ( await target.debugger.sendCommand( method, params ) ) as T;
+}
+
+export async function setWebviewColorScheme(
+	event: IpcMainInvokeEvent,
+	webContentsId: number,
+	colorScheme: 'light' | 'dark'
+): Promise< void > {
+	if ( colorScheme !== 'light' && colorScheme !== 'dark' ) {
+		throw new Error( 'Unsupported webview color scheme.' );
+	}
+
+	const target = getOwnedWebviewContents( event, webContentsId );
+	attachDebuggerIfNeeded( target );
+	await sendDebuggerCommand( target, 'Emulation.setEmulatedMedia', {
+		features: [ { name: 'prefers-color-scheme', value: colorScheme } ],
+	} );
+}
+
+// Simulates a viewport for the preview webview via the CDP device-metrics
+// override that DevTools device mode is built on: the guest lays out at
+// `width`×`height` CSS px and Chromium scales the rendered result by `scale`
+// to fit the webview, remapping input coordinates to match. `null` returns
+// the guest to the webview's natural size.
+export async function setWebviewViewport(
+	event: IpcMainInvokeEvent,
+	webContentsId: number,
+	viewport: { width: number; height: number; scale: number; mobile?: boolean } | null
+): Promise< void > {
+	const target = getOwnedWebviewContents( event, webContentsId );
+	attachDebuggerIfNeeded( target );
+	if ( ! viewport ) {
+		await sendDebuggerCommand( target, 'Emulation.clearDeviceMetricsOverride' );
+		return;
+	}
+	const { width, height, scale, mobile } = viewport;
+	const isValidDimension = ( value: number ) =>
+		Number.isInteger( value ) && value > 0 && value <= 10000;
+	const isValidScale =
+		typeof scale === 'number' && Number.isFinite( scale ) && scale > 0 && scale <= 1;
+	if ( ! isValidDimension( width ) || ! isValidDimension( height ) || ! isValidScale ) {
+		throw new Error( 'Unsupported webview viewport.' );
+	}
+	await sendDebuggerCommand( target, 'Emulation.setDeviceMetricsOverride', {
+		width,
+		height,
+		// 0 keeps the display's real device pixel ratio.
+		deviceScaleFactor: 0,
+		// Mobile presets emulate a phone (meta-viewport handling and mobile UA
+		// hints), not just a narrow desktop window.
+		mobile: mobile === true,
+		scale,
+	} );
 }
 
 // Update a site's theme details and thumbnail. Emit the appropriate IPC events to the renderer
@@ -1679,6 +1958,33 @@ export async function executeWPCLiInline(
 	return server.executeWpCliCommand( args, {
 		skipPluginsAndThemes,
 	} );
+}
+
+/**
+ * Scaffolds a structured plugin into the site's wp-content/plugins folder
+ * and activates it. Activation works whether the site is running or stopped
+ * (wp-cli writes to the on-disk database); a failed activation is reported
+ * rather than thrown so the caller still has the scaffolded files.
+ */
+export async function scaffoldPlugin(
+	_event: IpcMainInvokeEvent,
+	{ siteId, meta }: { siteId: string; meta: PluginScaffoldMeta }
+): Promise< { pluginDir: string; activated: boolean } > {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( 'Site not found.' );
+	}
+	const pluginDir = await scaffoldPluginInSite( server.details.path, meta );
+	let activated = false;
+	try {
+		const result = await server.executeWpCliCommand( `plugin activate ${ meta.slug }`, {
+			skipPluginsAndThemes: true,
+		} );
+		activated = result.exitCode === 0;
+	} catch ( error ) {
+		console.error( 'Failed to activate scaffolded plugin:', error );
+	}
+	return { pluginDir, activated };
 }
 
 export function getThumbnailData( _event: IpcMainInvokeEvent, id: string ) {
@@ -1889,6 +2195,13 @@ export function showNotification(
 	options: Electron.NotificationConstructorOptions
 ) {
 	new Notification( options ).show();
+}
+
+export function showChatNotification(
+	event: IpcMainInvokeEvent,
+	request: ChatNotificationRequest
+) {
+	showChatNotificationForWindow( BrowserWindow.fromWebContents( event.sender ), request );
 }
 
 export async function setupAppMenu(
@@ -2314,6 +2627,11 @@ export async function isFullscreen( _event: IpcMainInvokeEvent ): Promise< boole
 	return window.isFullScreen();
 }
 
+export async function expandWindowForWorkbench( _event: IpcMainInvokeEvent ): Promise< void > {
+	const window = await getMainWindow();
+	await expandMainWindowForWorkbench( window );
+}
+
 export async function getAllCustomDomains(): Promise< string[] > {
 	return SiteServer.getAllDetails()
 		.map( ( site ) => site.customDomain )
@@ -2567,75 +2885,4 @@ export async function stopRemoteSessionDaemon(
 		emitter.on( 'error', ( { error } ) => reject( error ) );
 	} );
 }
-
-function getOwnedWebviewContents( event: IpcMainInvokeEvent, webContentsId: number ): WebContents {
-	if ( ! Number.isInteger( webContentsId ) || webContentsId <= 0 ) {
-		throw new Error( 'Invalid webview identifier.' );
-	}
-
-	const target = webContents.fromId( webContentsId );
-	if ( ! target || target.isDestroyed() ) {
-		throw new Error( 'Webview is no longer available.' );
-	}
-
-	if ( target.hostWebContents?.id !== event.sender.id ) {
-		throw new Error( 'Webview does not belong to the current window.' );
-	}
-
-	return target;
-}
-
-function attachDebuggerIfNeeded( target: WebContents ): boolean {
-	if ( target.debugger.isAttached() ) {
-		return false;
-	}
-
-	target.debugger.attach( '1.3' );
-	return true;
-}
-
-async function sendDebuggerCommand< T >(
-	target: WebContents,
-	method: string,
-	params?: Record< string, unknown >
-): Promise< T > {
-	return ( await target.debugger.sendCommand( method, params ) ) as T;
-}
-
-// Simulates a viewport for the preview webview via the CDP device-metrics
-// override that DevTools device mode is built on: the guest lays out at
-// `width`×`height` CSS px and Chromium scales the rendered result by `scale`
-// to fit the webview, remapping input coordinates to match. `null` returns
-// the guest to the webview's natural size.
-export async function setWebviewViewport(
-	event: IpcMainInvokeEvent,
-	webContentsId: number,
-	viewport: { width: number; height: number; scale: number; mobile?: boolean } | null
-): Promise< void > {
-	const target = getOwnedWebviewContents( event, webContentsId );
-	attachDebuggerIfNeeded( target );
-	if ( ! viewport ) {
-		await sendDebuggerCommand( target, 'Emulation.clearDeviceMetricsOverride' );
-		return;
-	}
-	const { width, height, scale, mobile } = viewport;
-	const isValidDimension = ( value: number ) =>
-		Number.isInteger( value ) && value > 0 && value <= 10000;
-	const isValidScale =
-		typeof scale === 'number' && Number.isFinite( scale ) && scale > 0 && scale <= 1;
-	if ( ! isValidDimension( width ) || ! isValidDimension( height ) || ! isValidScale ) {
-		throw new Error( 'Unsupported webview viewport.' );
-	}
-	await sendDebuggerCommand( target, 'Emulation.setDeviceMetricsOverride', {
-		width,
-		height,
-		// 0 keeps the display's real device pixel ratio.
-		deviceScaleFactor: 0,
-		// Mobile presets emulate a phone (meta-viewport handling and mobile UA
-		// hints), not just a narrow desktop window.
-		mobile: mobile === true,
-		scale,
-	} );
-}
-
 export { showTextContextMenu } from 'src/text-context-menu';

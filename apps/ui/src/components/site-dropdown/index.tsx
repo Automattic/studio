@@ -1,4 +1,6 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
+import { useTourAnchor } from '@/components/coachmarks/anchor-registry';
 import * as Menu from '@/components/menu';
 import {
 	convertTreeToPullOptions,
@@ -9,10 +11,11 @@ import { SyncDialog } from '@/components/selective-sync/sync-dialog';
 import '@/components/selective-sync/selective-sync.css';
 import { useConnector } from '@/data/core';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
+import { markChecklistItemComplete } from '@/data/queries/use-onboarding-hints';
 import { useIsSiteStarting, useIsSiteStopping } from '@/data/queries/use-sites';
 import { useSnapshots } from '@/data/queries/use-snapshots';
 import { usePullSiteFromLive, usePushSiteToLive } from '@/data/queries/use-sync-site';
-import { useSiteSyncActivity } from '@/data/sync-activity';
+import { useSiteLastSyncLog, useSiteSyncActivity } from '@/data/sync-activity';
 import { getSiteDisplayUrl } from '@/lib/get-site-url';
 import { DisconnectSiteDialog } from './disconnect-site-dialog';
 import { DropdownTrigger } from './dropdown-trigger';
@@ -50,13 +53,13 @@ export function SiteDropdown( {
 	const [ menuOpen, setMenuOpen ] = useState( defaultOpen );
 	const [ disconnectOpen, setDisconnectOpen ] = useState( false );
 	const [ syncDialogType, setSyncDialogType ] = useState< 'push' | 'pull' | null >( null );
-
 	const connector = useConnector();
+	const queryClient = useQueryClient();
 	const pushSiteToLive = usePushSiteToLive();
 	const pullSiteFromLive = usePullSiteFromLive();
+	// Anchors the "find your sync controls" onboarding coachmark for returning users.
+	const menuAnchorRef = useTourAnchor( 'site-menu-button' );
 
-	// The copied selective-sync modules resolve their data calls through the
-	// active connector (see selective-sync/lib/get-ipc-api.ts).
 	useEffect( () => {
 		registerSelectiveSyncConnector( connector );
 	}, [ connector ] );
@@ -67,11 +70,10 @@ export function SiteDropdown( {
 	const isStopping = useIsSiteStopping( site.id );
 	const { status, statusLabel } = deriveSiteStatus( site, isStarting, isStopping );
 
-	// Only needed here so the disconnect dialog can reference the current live
-	// site. MainView fetches the same data independently for its action row.
 	const { data: connectedSites } = useConnectedWpcomSites( site.id );
 	const { data: snapshots } = useSnapshots();
 	const activity = useSiteSyncActivity( site.id );
+	const lastSyncLog = useSiteLastSyncLog( site.id );
 	const liveSite = useMemo( () => pickLiveSite( connectedSites ), [ connectedSites ] );
 	const previewSnapshot = useMemo(
 		() => pickLatestSnapshot( snapshots, site.id ),
@@ -96,7 +98,6 @@ export function SiteDropdown( {
 	};
 
 	const openSyncDialog = ( type: 'push' | 'pull' ) => {
-		// Same overlay rule as the disconnect dialog: dropdown closes first.
 		setMenuOpen( false );
 		setSyncDialogType( type );
 	};
@@ -123,15 +124,19 @@ export function SiteDropdown( {
 	};
 
 	return (
-		<div className={ styles.root }>
+		<div className={ styles.root } ref={ menuAnchorRef }>
 			<Menu.Root
 				modal={ false }
 				open={ menuOpen }
 				onOpenChange={ ( open ) => {
 					setMenuOpen( open );
-					// Reset to the main view whenever the dropdown closes so the
-					// next opening doesn't unexpectedly land in the picker state.
-					if ( ! open ) {
+					// Opening the site menu is where a returning user discovers the
+					// sync controls, so it checks that getting-started item off.
+					if ( open ) {
+						void markChecklistItemComplete( connector, queryClient, 'find-sync-controls' );
+					} else {
+						// Reset to the main view whenever the dropdown closes so the
+						// next opening doesn't unexpectedly land in the picker state.
 						setView( 'main' );
 					}
 				} }
@@ -159,6 +164,7 @@ export function SiteDropdown( {
 						<MainView
 							site={ site }
 							activity={ activity }
+							lastSyncLog={ lastSyncLog }
 							onSetupClick={ () => setView( 'picker' ) }
 							onDisconnectClick={ handleDisconnectClick }
 							onPullClick={ () => openSyncDialog( 'pull' ) }

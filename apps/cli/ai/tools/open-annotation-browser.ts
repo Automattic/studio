@@ -6,8 +6,10 @@ import { textResult } from './utils';
 
 export const openAnnotationBrowserTool = defineTool(
 	'open_annotation_browser',
-	'Opens a headed browser on a site with the Studio annotation inspector. ' +
-		'The user clicks "Annotate", picks an element, types feedback, then clicks "Done". ' +
+	'Opens a headed browser on a site with the Studio clip inspector. ' +
+		'The user clips elements (with optional comments), drags regions, or captures the page, ' +
+		'then clicks "Send to agent". Element clips include a selector, computed styles, and a ' +
+		'screenshot path; region/page clips include a screenshot path. ' +
 		'After calling this tool, call `wait_for_annotations` to block until the user submits.',
 	{
 		url: Type.String( { description: 'The site URL to open (e.g., "http://localhost:8881")' } ),

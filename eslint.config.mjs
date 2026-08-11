@@ -41,10 +41,12 @@ export default defineConfig(
 				projectService: {
 					allowDefaultProject: [
 						'apps/studio/forge.config.ts',
+						'apps/studio/vitest.setup.ts',
 						'apps/studio/windowsSign.ts',
 						'apps/studio/tailwind.config.js',
 						'apps/ui/vite.config.ts',
 						'apps/ui/vitest.setup.ts',
+						'apps/ui/scripts/*.mjs',
 						'eslint.config.mjs',
 						'vitest.config.ts',
 						'tools/eslint-plugin-studio/vitest.config.ts',

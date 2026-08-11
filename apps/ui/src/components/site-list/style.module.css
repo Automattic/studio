@@ -1,5 +1,7 @@
 .root {
 	--site-list-row-height: 34px;
+	--site-list-row-background-hover: var(--sidebar-row-background-hover);
+	--site-list-row-background-active: var(--sidebar-row-background-active);
 	--site-list-row-leading-inset: var(--wpds-dimension-padding-sm);
 	--site-list-row-outer-inset: calc(
 		var(--wpds-dimension-padding-lg) - var(--site-list-row-leading-inset)
@@ -8,10 +10,11 @@
 	--site-list-chat-status-start-offset: 4px;
 	--site-list-chat-status-gap: 3px;
 	--site-list-label-inline-offset: 4px;
-	/* The sidebar sits on the dark window chrome in both color schemes, so
-	   the pending indicator is always the vivid on-dark value. */
-	--site-list-pending-indicator-bg: var(--studio-color-status-attention);
-	--site-list-sync-indicator-bg: var(--studio-color-status-sync);
+	/* The sidebar always sits on the dark window chrome (regardless of the
+	   OS color scheme), so the indicators use their dark-surface colors
+	   unconditionally. */
+	--site-list-pending-indicator-bg: #facc15;
+	--site-list-sync-indicator-bg: #a855f7;
 
 	/* Pull the row shape slightly left, then add the inset back inside rows so
 	   labels keep their column while selected rows have breathing room. */
@@ -40,7 +43,7 @@
 .siteDropPlaceholder {
 	block-size: var(--site-list-row-height);
 	border-radius: 6px;
-	background-color: var(--sidebar-row-background);
+	background-color: var(--site-list-row-background-hover);
 	box-shadow: inset 0 0 0 1px
 		color-mix(in srgb, var(--wpds-color-stroke-interactive-brand) 45%, transparent);
 	transition: background-color 120ms ease, box-shadow 120ms ease;
@@ -52,7 +55,7 @@
 }
 
 .siteDragPreview .siteHeader {
-	background-color: var(--sidebar-row-background);
+	background-color: var(--site-list-row-background-active);
 }
 
 .site {
@@ -81,13 +84,13 @@
 
 .siteHeader:hover,
 .siteHeader:focus-within {
-	background-color: var(--sidebar-row-background);
+	background-color: var(--site-list-row-background-hover);
 }
 
 .siteActive .siteHeader,
 .siteActive .siteHeader:hover,
 .siteActive .siteHeader:focus-within {
-	background-color: var(--sidebar-row-background);
+	background-color: var(--site-list-row-background-active);
 }
 
 .siteContextActive .siteHeader {
@@ -146,6 +149,38 @@
 	opacity: 1;
 	pointer-events: auto;
 	transform: scale(1);
+}
+
+/* Type glyph for the mixed "All" view: shares the activity slot's grid cell
+   so an active indicator crossfades in exactly on top of it — the label
+   never shifts. Small and recessive so rows still read name-first. */
+.siteTypeGlyph {
+	grid-row-start: 1;
+	grid-column-start: 1;
+	display: inline-grid;
+	place-items: center;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	fill: currentColor;
+	transition: opacity 120ms ease, transform 160ms ease;
+}
+
+.siteTypeGlyphHidden {
+	opacity: 0;
+	transform: scale(0.75);
+}
+
+/* Wraps whichever indicator is active so it can fade against the glyph
+   independently of the slot's own show/hide transition. */
+.siteActivityStack {
+	grid-row-start: 1;
+	grid-column-start: 1;
+	display: inline-grid;
+	place-items: center;
+	transition: opacity 120ms ease;
+}
+
+.siteActivityStackHidden {
+	opacity: 0;
 }
 
 .siteAgentActivity {
@@ -274,16 +309,21 @@
 	outline-offset: -2px;
 }
 
+.siteActionActive {
+	--wp-ui-button-background-color: var(--site-list-row-background-active);
+	--wp-ui-button-background-color-active: var(--site-list-row-background-active);
+	--wp-ui-button-border-color: transparent;
+	--wp-ui-button-border-color-active: transparent;
+}
+
 /* Collapsed, only the trailing status button shows; hover/focus/active
-   reveals the overview button next to it. The header carries
-   `data-popup-open` while its right-click menu is open (Base UI sets it on
-   the context-menu trigger), keeping the row's controls visible. */
+   slides the overview button in next to it. */
 .siteActive .siteActions,
 .siteContextActive .siteActions,
 .siteHeader:hover .siteActions,
-.siteHeader:focus-within .siteActions,
-.siteHeader[data-popup-open] .siteActions {
-	max-width: 48px;
+.siteHeader:focus-within .siteActions {
+	max-width: 56px;
+	overflow: visible;
 }
 
 .siteStatus {
@@ -311,8 +351,7 @@
 .siteActive .siteStatus[data-state='stopped'],
 .siteContextActive .siteStatus[data-state='stopped'],
 .siteHeader:hover .siteStatus[data-state='stopped'],
-.siteHeader:focus-within .siteStatus[data-state='stopped'],
-.siteHeader[data-popup-open] .siteStatus[data-state='stopped'] {
+.siteHeader:focus-within .siteStatus[data-state='stopped'] {
 	opacity: 1;
 }
 
@@ -431,7 +470,7 @@
 	width: 8px;
 	height: 8px;
 	rx: 4px;
-	fill: var(--studio-color-status-running);
+	fill: #16a34a;
 	transition: fill 160ms ease, rx 160ms ease;
 }
 
@@ -440,12 +479,12 @@
 }
 
 .siteStatus[data-state='running'] .siteStatusShape {
-	fill: var(--studio-color-status-running);
+	fill: #16a34a;
 	rx: 4px;
 }
 
 .siteStatus[data-state='transitioning'] .siteStatusShape {
-	fill: var(--studio-color-status-transitioning);
+	fill: #a16207;
 	rx: 4px;
 	animation: siteStatusBlink 1s ease-in-out infinite;
 }
@@ -541,4 +580,176 @@
 	color: var(--wpds-color-fg-content-neutral-weak);
 	font-size: var(--wpds-typography-font-size-sm);
 	margin: 0;
+}
+
+/* ---- Prototype: sites/plugins view switcher ----
+   Temporary styles for the plugin-development exploration; see
+   docs/design-docs/plugin-development-prototype.md. */
+
+/* Sticks just below the sidebar header (whose rendered height the layout
+   publishes as --sidebar-header-block-size) so the controls stay reachable
+   while long lists scroll. Bleeds over the root's inline padding with an
+   opaque chrome patch so rows scroll cleanly behind it. */
+.viewSwitcherBar {
+	position: sticky;
+	top: var(--sidebar-header-block-size, 54px);
+	z-index: 1;
+	margin: 0 calc(-1 * var(--site-list-row-outer-inset));
+	padding: 0 var(--site-list-row-outer-inset) var(--wpds-dimension-padding-xs);
+	background-color: var(--app-chrome-bg, var(--wpds-color-bg-surface-neutral-weak));
+}
+
+.searchRow {
+	display: flex;
+	align-items: center;
+	margin-block-start: var(--wpds-dimension-padding-xs);
+}
+
+/* Sized like a site row (same height, radius, and label metrics) so the
+   field reads as part of the list rather than a foreign control. The inline
+   padding mirrors the rows: text starts at the rows' label column, and the
+   trailing inset puts the embedded filter button's 24px box exactly over
+   the rows' status buttons. */
+.searchField {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-gap-xs);
+	block-size: var(--site-list-row-height);
+	padding-inline: calc(var(--site-list-row-leading-inset) + var(--site-list-label-inline-offset))
+		var(--wpds-dimension-padding-sm);
+	border-radius: 6px;
+	background-color: var(--wpds-color-bg-surface-neutral-weak);
+}
+
+.searchField:focus-within {
+	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus-brand);
+	outline-offset: -1px;
+}
+
+.searchInput {
+	flex: 1;
+	min-width: 0;
+	appearance: none;
+	border: 0;
+	margin: 0;
+	padding: 0;
+	background: transparent;
+	font-family: inherit;
+	font-size: var(--wpds-typography-font-size-md);
+	line-height: 1.2;
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.searchInput:focus {
+	outline: none;
+}
+
+.searchInput::placeholder {
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+/* ---- Prototype: site groups + multi-select ---- */
+
+.group {
+	display: flex;
+	flex-direction: column;
+}
+
+.groupHeading {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	appearance: none;
+	background: none;
+	border: 0;
+	margin: 0;
+	/* Match the site rows' text column: row leading inset plus the label's
+	   inline offset, so the heading and the titles below share an edge. */
+	padding: var(--wpds-dimension-padding-xs) var(--site-list-row-leading-inset)
+		var(--wpds-dimension-padding-xs)
+		calc(var(--site-list-row-leading-inset) + var(--site-list-label-inline-offset));
+	border-radius: 6px;
+	font-family: inherit;
+	font-size: 11px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: var(--wpds-color-fg-content-neutral-weak, #666);
+	cursor: var(--wpds-cursor-control);
+	text-align: left;
+}
+
+.groupHeading:hover {
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.groupHeading:focus-visible {
+	outline: 2px solid var(--wpds-color-stroke-interactive-brand, #3858e9);
+	outline-offset: -2px;
+}
+
+.groupHeading svg {
+	fill: currentColor;
+	flex-shrink: 0;
+}
+
+.groupHeadingLabel {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* Pending group selection: persistent brand outline + tint so the marked
+   rows read at a glance while picking. */
+.siteSelected .siteHeader,
+.siteSelected .siteHeader:hover,
+.siteSelected .siteHeader:focus-within {
+	background-color: color-mix(
+		in srgb,
+		var(--wpds-color-bg-interactive-brand-strong) 16%,
+		transparent
+	);
+	outline: 1px solid var(--wpds-color-stroke-surface-brand);
+	outline-offset: -1px;
+}
+
+.selectionBar {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-gap-xs);
+	margin-block-start: var(--wpds-dimension-padding-xs);
+}
+
+.selectionCount {
+	flex: 1;
+	min-width: 0;
+	font-size: var(--wpds-typography-font-size-sm);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	white-space: nowrap;
+}
+
+.groupNameInput {
+	flex: 1;
+	min-width: 0;
+	block-size: 24px;
+	padding-inline: var(--wpds-dimension-padding-xs);
+	border: 0;
+	margin: 0;
+	border-radius: var(--wpds-border-radius-md);
+	background-color: var(--wpds-color-bg-surface-neutral-weak);
+	font-family: inherit;
+	font-size: var(--wpds-typography-font-size-md);
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.groupNameInput:focus {
+	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus-brand);
+	outline-offset: -1px;
+}
+
+.groupNameInput::placeholder {
+	color: var(--wpds-color-fg-content-neutral-weak);
 }

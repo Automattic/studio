@@ -4,6 +4,7 @@ import {
 	app,
 	BrowserWindow,
 	autoUpdater,
+	dialog,
 	MenuItem,
 	shell,
 	type WebContents,
@@ -17,6 +18,7 @@ import { __ } from '@wordpress/i18n';
 import { openAboutWindow } from 'src/about-menu/open-about-menu';
 import { BUG_REPORT_URL, FEATURE_REQUEST_URL } from 'src/constants';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
+import { hasActiveSyncOperations } from 'src/lib/active-sync-operations';
 import {
 	BetaFeatureDefinition,
 	getBetaFeatures,
@@ -32,12 +34,16 @@ import {
 } from 'src/lib/feature-flags';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
+import { showQuitSitesDialog } from 'src/lib/quit-sites-dialog';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
+import { isSimulatingNewUser, toggleNewUserSimulation } from 'src/lib/simulation-mode';
 import { getPreferredStudioUiMode, setAgenticUiEnabled } from 'src/lib/studio-ui-mode';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { getLogsFilePath } from 'src/logging';
 import { getMainWindow, loadMainWindowRenderer } from 'src/main-window';
 import { getAgenticFeaturesEnabled } from 'src/modules/user-settings/lib/ipc-handlers';
+import { getRunningSiteCount, getRunningSiteNames } from 'src/site-server';
+import { updateAppdata } from 'src/storage/user-data';
 import { isUpdateReadyToInstall, manualCheckForUpdates } from 'src/updates';
 
 // Runs against the app window's own contents rather than whatever has focus.
@@ -342,6 +348,70 @@ async function getAppMenu(
 								label: __( 'Feature Flags' ),
 								submenu: featureFlagsMenu,
 								enabled: featureFlagsMenu.length > 0,
+							},
+							{
+								label: isSimulatingNewUser()
+									? __( 'Exit New User Simulation (dev only)' )
+									: __( 'Simulate New User (dev only)' ),
+								type: 'checkbox' as const,
+								checked: isSimulatingNewUser(),
+								click: async ( menuItem: MenuItem ) => {
+									// The checkbox reflects boot state; it only changes via relaunch.
+									menuItem.checked = isSimulatingNewUser();
+
+									// Refuse while sites or syncs are active instead of racing the
+									// interactive quit dialogs with an armed relaunch handoff.
+									if ( getRunningSiteCount() > 0 || hasActiveSyncOperations() ) {
+										await dialog.showMessageBox( {
+											type: 'info',
+											message: __( 'Stop all running sites and syncs first' ),
+											detail: __( 'Toggling the new-user simulation relaunches Studio.' ),
+										} );
+										return;
+									}
+
+									// Carry env-based feature flags (e.g. ENABLE_AGENTIC_UI) across
+									// the relaunch so the same UI mode loads on the other side.
+									const carriedEnv: Record< string, string > = {};
+									for ( const definition of Object.values< FeatureFlagDefinition >(
+										FEATURE_FLAGS
+									) ) {
+										const value = process.env[ definition.env ];
+										if ( value !== undefined ) {
+											carriedEnv[ definition.env ] = value;
+										}
+									}
+									await toggleNewUserSimulation( carriedEnv );
+								},
+							},
+							{
+								label: __( 'Reset New UI Onboarding (dev only)' ),
+								click: async () => {
+									// Replay the whole new-UI intro on the real profile: bring back the
+									// old-UI announcement banner, and clear the welcome/concept-tour
+									// flag and the workbench coachmark/checklist hints so opting in
+									// shows the tour again. The new UI re-reads these on load, so the
+									// reset lands when the banner's "Try it" switches modes.
+									await updateAppdata( {
+										agenticUiBannerDismissed: false,
+										onboardingCompleted: false,
+										onboardingHints: {},
+									} );
+									void sendIpcEventToRenderer( 'show-agentic-ui-banner' );
+								},
+							},
+							{
+								label: __( 'Show Quit Dialog (dev only)' ),
+								click: async () => {
+									// Preview-only: shows the running-sites quit dialog without
+									// quitting or persisting the choice. Falls back to sample
+									// site names when nothing is running.
+									const runningSiteNames = getRunningSiteNames();
+									const choice = await showQuitSitesDialog(
+										runningSiteNames.length ? runningSiteNames : [ 'Beach Vibes', 'Client Demo' ]
+									);
+									console.log( 'Quit dialog simulation result:', choice );
+								},
 							},
 					  ]
 					: [] ),

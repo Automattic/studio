@@ -1,0 +1,152 @@
+.connectedHint {
+	margin: -20px 0 24px;
+	font-size: 13px;
+	color: var(--wpds-color-fg-content-neutral-weak, #666);
+}
+
+.loadingState {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 8px;
+	padding: 48px 0;
+}
+
+.listHint {
+	margin: 0;
+	font-size: 13px;
+	color: var(--wpds-color-fg-content-neutral-weak, #666);
+}
+
+.pluginGrid {
+	list-style: none;
+	margin: 0 auto;
+	padding: 0;
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+	gap: 12px;
+	max-width: 920px;
+	text-align: left;
+}
+
+/* Frosted selectable rows — same surface treatment as the onboarding cards
+   so the dot grid glows through without hurting readability. */
+.pluginCard {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	width: 100%;
+	padding: 12px;
+	border: 1px solid var(--wpds-color-stroke-surface-neutral, #ddd);
+	border-radius: 8px;
+	background: color-mix(in srgb, var(--wpds-color-bg-surface-neutral-strong, #fff) 50%, transparent);
+	backdrop-filter: blur(12px);
+	appearance: none;
+	font: inherit;
+	color: inherit;
+	text-align: left;
+	cursor: pointer;
+	transition: border-color 0.15s ease;
+}
+
+.pluginCard:hover {
+	border-color: var(--wpds-color-stroke-interactive-brand, #3858e9);
+}
+
+.pluginCard:focus-visible {
+	outline: 2px solid var(--wpds-color-stroke-interactive-brand, #3858e9);
+	outline-offset: 2px;
+}
+
+.pluginCardSelected {
+	border-color: var(--wpds-color-stroke-interactive-brand, #3858e9);
+	box-shadow: 0 0 0 1px var(--wpds-color-stroke-interactive-brand, #3858e9);
+}
+
+.pluginIcon {
+	flex: 0 0 auto;
+	width: 40px;
+	height: 40px;
+	border-radius: 6px;
+	overflow: hidden;
+	background: color-mix(in srgb, var(--wpds-color-fg-content-neutral, #1e1e1e) 6%, transparent);
+}
+
+.pluginIcon img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	display: block;
+}
+
+.pluginText {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.pluginName {
+	font-size: 14px;
+	font-weight: 500;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.pluginMeta {
+	font-size: 12px;
+	color: var(--wpds-color-fg-content-neutral-weak, #666);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.submitError {
+	margin: 16px auto 0;
+	max-width: 920px;
+	padding: 10px 12px;
+	border-radius: 4px;
+	background: color-mix(in srgb, var(--wpds-color-fg-content-error, #d63638) 12%, transparent);
+	color: var(--wpds-color-fg-content-error, #7a1a1a);
+	font-size: 13px;
+}
+
+/* Signed-out state — mirrors the site connect screen's WordPress.com login
+   block so the two flows read as siblings. */
+.signedOut {
+	display: flex;
+	flex-direction: column;
+	gap: 24px;
+	max-width: 420px;
+	margin-inline: auto;
+	text-align: left;
+}
+
+.benefits {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.benefit {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	color: var(--wpds-color-fg-content-neutral-weak, #666);
+}
+
+.benefitIcon {
+	flex-shrink: 0;
+	fill: var(--wpds-color-fg-interactive-brand, #3858e9);
+}
+
+.authActions {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 12px;
+}

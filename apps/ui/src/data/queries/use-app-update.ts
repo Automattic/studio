@@ -1,9 +1,9 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { useConnector } from '@/data/core';
 import type { AppUpdateStatus } from '@/data/core';
 
-const APP_UPDATE_STATUS_QUERY_KEY = [ 'app-update-status' ] as const;
+export const APP_UPDATE_STATUS_QUERY_KEY = [ 'app-update-status' ] as const;
 
 export function useAppUpdateStatus() {
 	const connector = useConnector();
@@ -28,4 +28,11 @@ export function useSyncAppUpdateStatus(): void {
 			queryClient.setQueryData( APP_UPDATE_STATUS_QUERY_KEY, status );
 		} );
 	}, [ connector, queryClient ] );
+}
+
+export function useInstallAppUpdate() {
+	const connector = useConnector();
+	return useMutation( {
+		mutationFn: () => connector.installAppUpdate(),
+	} );
 }

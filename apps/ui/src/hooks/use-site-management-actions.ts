@@ -10,7 +10,7 @@ export interface SiteManagementAction {
 	id: SiteManagementActionId;
 	// Matches the element type `Icon` accepts, so callers render via
 	// `<Icon icon={ action.icon } />` without widening casts. Surfaces that
-	// show plain-text rows can ignore it.
+	// show plain-text rows (the sidebar context menu) can ignore it.
 	icon: ReactElement< SVGProps< SVGSVGElement > >;
 	label: string;
 	// True while this action's own work is in flight (drives spinners on
@@ -25,8 +25,10 @@ export interface SiteManagementAction {
 
 /**
  * The canonical "manage this site" actions — Duplicate, Export entire site,
- * Export database, Delete — shared by every surface that offers them, so labels, icons,
- * order, and disabled logic don't drift apart between surfaces.
+ * Export database, Delete — shared by every surface that offers them (the sidebar context
+ * menu, the preview's Open in… menu, and the site overview). Keeping the
+ * labels, icons, order, and disabled logic in one place stops the three
+ * surfaces from drifting apart.
  *
  * Delete needs a confirmation dialog whose "deleted" navigation differs per
  * surface, so this hook doesn't own the dialog: pass `onDelete` to open your

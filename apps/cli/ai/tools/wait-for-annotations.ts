@@ -6,9 +6,10 @@ import { textResult } from './utils';
 
 export const waitForAnnotationsTool = defineTool(
 	'wait_for_annotations',
-	'Blocks until the user clicks "Done" in the annotation inspector toolbar. ' +
-		'Returns the annotations the user wrote, captured straight from the page. ' +
-		'Call this AFTER `open_annotation_browser`.',
+	'Blocks until the user clicks "Send to agent" in the clip inspector. ' +
+		'Returns the clips the user made — element clips (selector, styles, comment, screenshot ' +
+		'path) and region/page clips (screenshot path). Read the referenced screenshot files to ' +
+		'see what the user is pointing at. Call this AFTER `open_annotation_browser`.',
 	{
 		// `0` would resolve to Playwright's "no timeout" and block forever.
 		// 120 minutes is generous enough for any realistic annotation session.
@@ -22,11 +23,11 @@ export const waitForAnnotationsTool = defineTool(
 	},
 	async ( args ) => {
 		try {
-			emitProgress( 'Waiting for the user to click "Done"…' );
+			emitProgress( 'Waiting for the user to click "Send to agent"…' );
 			const result = await waitForAnnotationsDone( {
 				timeoutMs: ( args.timeoutMinutes ?? 30 ) * 60 * 1000,
 			} );
-			emitProgress( `Received ${ result.annotations.length } annotation(s)` );
+			emitProgress( `Received ${ result.annotations.length } clip(s)` );
 			return textResult( JSON.stringify( result, null, 2 ) );
 		} catch ( error ) {
 			throw new Error(

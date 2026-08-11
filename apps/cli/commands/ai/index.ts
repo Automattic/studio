@@ -6,9 +6,10 @@ import {
 import { type StudioChatImage } from '@studio/common/ai/chat-images';
 import { getAgentEndFailure } from '@studio/common/ai/json-events';
 import { DEFAULT_MODEL, resolveSessionModel, type AiModelId } from '@studio/common/ai/models';
+import { DEFAULT_RESPONSE_LENGTH, type AiResponseLength } from '@studio/common/ai/response-length';
 import { getAgentEndTurnResult } from '@studio/common/ai/session-events';
 import { buildSkillInvocationPrompt } from '@studio/common/ai/slash-commands';
-import { readAuthToken } from '@studio/common/lib/shared-config';
+import { readAuthToken, readSharedConfig } from '@studio/common/lib/shared-config';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { __, sprintf } from '@wordpress/i18n';
 import {
@@ -51,9 +52,33 @@ import type {
 	StudioCustomEntryType,
 } from '@studio/common/ai/sessions/entry-types';
 import type { LoadedAiSession, TurnStatus } from '@studio/common/ai/sessions/types';
+import type { PermissionDecision, PermissionRequestData } from '@studio/common/ai/tool-permissions';
 import type { AskUserQuestion } from 'cli/ai/types';
 
 const logger = new Logger< string >();
+
+// Resolved fresh each turn so a change made in the desktop settings (or via
+// `/response-length`) applies from the next message, including in already
+// running interactive sessions.
+async function resolveResponseLength(): Promise< AiResponseLength > {
+	try {
+		const config = await readSharedConfig();
+		return config.agentResponseLength ?? DEFAULT_RESPONSE_LENGTH;
+	} catch {
+		return DEFAULT_RESPONSE_LENGTH;
+	}
+}
+
+// The model sessions start on when they haven't recorded one themselves;
+// set from the desktop settings screens ("Default model").
+async function resolveDefaultModel(): Promise< AiModelId > {
+	try {
+		const config = await readSharedConfig();
+		return config.defaultAiModel ?? DEFAULT_MODEL;
+	} catch {
+		return DEFAULT_MODEL;
+	}
+}
 
 // Type-safe wrapper around `sm.appendCustomEntry` — the underlying call
 // accepts `data: unknown`, so this constrains `data` to the shape declared
@@ -109,10 +134,11 @@ export async function runCommand( options: {
 } ): Promise< void > {
 	const ui = options.adapter;
 	const isJsonMode = ui instanceof JsonAdapter;
-	const resumeContext = resolveResumeSessionContext( options.resumeSession );
+	const preferredDefaultModel = await resolveDefaultModel();
+	const resumeContext = resolveResumeSessionContext( options.resumeSession, preferredDefaultModel );
 	let currentProvider: AiProviderId =
 		resumeContext.provider ?? ( await resolveInitialAiProvider() );
-	let currentModel: AiModelId = resumeContext.model ?? DEFAULT_MODEL;
+	let currentModel: AiModelId = resumeContext.model ?? preferredDefaultModel;
 	ui.currentProvider = currentProvider;
 	ui.currentModel = currentModel;
 	if ( options.activeSite ) {
@@ -152,7 +178,7 @@ export async function runCommand( options: {
 					if ( sm.getSessionId() === options.resumeSessionId ) {
 						session = sm;
 						match = file;
-						currentModel = resolveSessionModel( sm.getEntries() );
+						currentModel = resolveSessionModel( sm.getEntries(), preferredDefaultModel );
 						ui.currentModel = currentModel;
 						break;
 					}
@@ -198,8 +224,6 @@ export async function runCommand( options: {
 
 	setProgressCallback( ( message, update ) => {
 		ui.setLoaderMessage( message, update );
-		if ( ! message.trim() ) return;
-		void append( ( sm ) => appendStudioEntry( sm, 'studio.tool_progress', { message } ) );
 	} );
 
 	setChatArtifactCallback( ( artifact ) =>
@@ -463,6 +487,20 @@ export async function runCommand( options: {
 		return answers;
 	}
 
+	// Persist the request before asking (so a session that dies mid-question
+	// still shows what was pending) and the decision after. Blocks the agent
+	// turn until the user decides; the UI resolves dismissal as deny.
+	async function requestPermissionAndPersist(
+		request: PermissionRequestData
+	): Promise< PermissionDecision > {
+		await append( ( sm ) => appendStudioEntry( sm, 'studio.permission_request', request ) );
+		const decision = await ui.requestPermission( request );
+		await append( ( sm ) =>
+			appendStudioEntry( sm, 'studio.permission_response', { id: request.id, decision } )
+		);
+		return decision;
+	}
+
 	async function runAgentTurn(
 		prompt: string,
 		displayMessage = prompt,
@@ -545,10 +583,12 @@ export async function runCommand( options: {
 			images,
 			env,
 			model: currentModel,
+			responseLength: await resolveResponseLength(),
 			session: sm,
 			activeSite: site,
 			wpcomAccessToken,
 			onAskUser: ( questions ) => askUserAndPersistAnswers( questions ),
+			onRequestPermission: ( request ) => requestPermissionAndPersist( request ),
 			onEvent: ( event ) => {
 				ui.handleEvent( event );
 				// An `agent_end` with `willRetry` is not final — the session
@@ -626,6 +666,12 @@ export async function runCommand( options: {
 			setLocalSiteSelectedCallback( null );
 			ui.stop();
 			await closeSharedBrowser();
+			// Catch-all for daemon sockets opened implicitly during the turn
+			// (listProcesses connects on demand — e.g. checkpoints probing
+			// isServerRunning). An open DaemonBus keeps this headless process
+			// alive after turn.completed, so the desktop never sees run.exited
+			// and the session sticks in the working state.
+			await disconnectFromDaemon();
 		}
 		return;
 	}
@@ -780,6 +826,13 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					type: 'string',
 					hidden: true,
 					description: __( 'JSON-encoded permission response for a paused session' ),
+				} )
+				.option( 'permission-decisions', {
+					type: 'string',
+					hidden: true,
+					description: __(
+						'JSON-encoded gated-tool decisions keyed by tool name, for resuming a session paused on a permission request'
+					),
 				} );
 
 			// `--message-from-stdin` is the headless turn entry point used by the
@@ -806,6 +859,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					json?: boolean;
 					resumeSession?: string;
 					permissionResponse?: string;
+					permissionDecisions?: string;
 					siteName?: string;
 					messageFromStdin?: boolean;
 				};
@@ -828,6 +882,12 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					adapter.permissionResponse = JSON.parse( typedArgv.permissionResponse ) as Record<
 						string,
 						string
+					>;
+				}
+
+				if ( adapter instanceof JsonAdapter && typedArgv.permissionDecisions ) {
+					adapter.permissionDecisions = JSON.parse( typedArgv.permissionDecisions ) as Partial<
+						Record< string, PermissionDecision >
 					>;
 				}
 

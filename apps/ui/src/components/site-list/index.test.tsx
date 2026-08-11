@@ -5,10 +5,6 @@ import { useSiteAgentActivity } from '@/data/queries/use-agent-run';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useSessions } from '@/data/queries/use-sessions';
 import {
-	useCopySite,
-	useDeleteSite,
-	useExportDatabase,
-	useExportFullSite,
 	useIsSiteStarting,
 	useIsSiteStopping,
 	useSites,
@@ -16,10 +12,11 @@ import {
 	useStopSite,
 	useUpdateSitesSortOrder,
 } from '@/data/queries/use-sites';
-import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSiteSyncActivity } from '@/data/sync-activity';
+import { removePluginSiteTag, tagSiteAsPlugin } from '@/lib/plugin-prototype';
 import { SiteList } from './index';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
+import type { ReactElement } from 'react';
 
 const navigateMock = vi.fn();
 let paramsMock: { sessionId?: string; siteId?: string } = {};
@@ -36,8 +33,10 @@ vi.mock( '@tanstack/react-router', () => ( {
 	},
 } ) );
 
-vi.mock( '@/data/core', () => ( {
-	useConnector: vi.fn(),
+// The context menu pulls in the connector and user-preference stacks; it has
+// its own tests, so the rows here render their trigger element bare.
+vi.mock( '@/components/site-context-menu', () => ( {
+	SiteContextMenu: ( { trigger }: { trigger: ReactElement } ) => trigger,
 } ) );
 
 vi.mock( '@/data/queries/use-sessions', () => ( {
@@ -48,11 +47,15 @@ vi.mock( '@/data/queries/use-agent-run', () => ( {
 	useSiteAgentActivity: vi.fn(),
 } ) );
 
+vi.mock( '@/data/queries/use-agentic-features', () => ( {
+	useAgenticFeatures: vi.fn(),
+} ) );
+
+vi.mock( '@/data/core', () => ( {
+	useConnector: vi.fn(),
+} ) );
+
 vi.mock( '@/data/queries/use-sites', () => ( {
-	useCopySite: vi.fn(),
-	useDeleteSite: vi.fn(),
-	useExportDatabase: vi.fn(),
-	useExportFullSite: vi.fn(),
 	useIsSiteStarting: vi.fn(),
 	useIsSiteStopping: vi.fn(),
 	useSites: vi.fn(),
@@ -61,28 +64,12 @@ vi.mock( '@/data/queries/use-sites', () => ( {
 	useUpdateSitesSortOrder: vi.fn(),
 } ) );
 
-vi.mock( '@/data/queries/use-agentic-features', () => ( {
-	useAgenticFeatures: vi.fn( () => ( {
-		enabled: true,
-		chatEnabled: true,
-		reason: null,
-		isReady: true,
-	} ) ),
-} ) );
-
-vi.mock( '@/data/queries/use-user-preferences', () => ( {
-	useUserPreferences: vi.fn(),
-} ) );
-
 vi.mock( '@/data/sync-activity', () => ( {
 	useSiteSyncActivity: vi.fn(),
 } ) );
 
-const useConnectorMock = vi.mocked( useConnector );
-const useCopySiteMock = vi.mocked( useCopySite, { partial: true } );
-const useDeleteSiteMock = vi.mocked( useDeleteSite, { partial: true } );
-const useExportDatabaseMock = vi.mocked( useExportDatabase, { partial: true } );
-const useExportFullSiteMock = vi.mocked( useExportFullSite, { partial: true } );
+const useAgenticFeaturesMock = vi.mocked( useAgenticFeatures );
+const useConnectorMock = vi.mocked( useConnector, { partial: true } );
 const useIsSiteStartingMock = vi.mocked( useIsSiteStarting );
 const useIsSiteStoppingMock = vi.mocked( useIsSiteStopping );
 const useSiteAgentActivityMock = vi.mocked( useSiteAgentActivity );
@@ -92,18 +79,21 @@ const useStartSiteMock = vi.mocked( useStartSite, { partial: true } );
 const useStopSiteMock = vi.mocked( useStopSite, { partial: true } );
 const useUpdateSitesSortOrderMock = vi.mocked( useUpdateSitesSortOrder, { partial: true } );
 const useSiteSyncActivityMock = vi.mocked( useSiteSyncActivity );
-const useUserPreferencesMock = vi.mocked( useUserPreferences, { partial: true } );
+
 describe( 'SiteList', () => {
 	const startSite = vi.fn();
 	const stopSite = vi.fn();
+	const trackEvent = vi.fn().mockResolvedValue( undefined );
 	const updateSitesSortOrder = vi.fn();
 
 	beforeEach( () => {
 		vi.clearAllMocks();
+		window.localStorage.clear();
 		paramsMock = {};
 		pathnameMock = '/';
+		useConnectorMock.mockReturnValue( { trackEvent } );
 
-		vi.mocked( useAgenticFeatures ).mockReturnValue( {
+		useAgenticFeaturesMock.mockReturnValue( {
 			enabled: true,
 			chatEnabled: true,
 			reason: null,
@@ -114,35 +104,11 @@ describe( 'SiteList', () => {
 		useSiteAgentActivityMock.mockReturnValue( 'idle' );
 		useSiteSyncActivityMock.mockReturnValue( null );
 		useSessionsMock.mockReturnValue( { data: [], isLoading: false } );
-		useConnectorMock.mockReturnValue( {
-			openExternalUrl: vi.fn().mockResolvedValue( undefined ),
-			openSiteFolder: vi.fn().mockResolvedValue( undefined ),
-			openSiteInEditor: vi.fn().mockResolvedValue( undefined ),
-			openSiteInTerminal: vi.fn().mockResolvedValue( undefined ),
-			trackEvent: vi.fn().mockResolvedValue( undefined ),
-		} as unknown as ReturnType< typeof useConnector > );
-		useCopySiteMock.mockReturnValue( { isPending: false, mutate: vi.fn() } );
-		useDeleteSiteMock.mockReturnValue( { isPending: false, mutate: vi.fn() } );
-		useExportDatabaseMock.mockReturnValue( { isPending: false, mutate: vi.fn() } );
-		useExportFullSiteMock.mockReturnValue( { isPending: false, mutate: vi.fn() } );
 		useStartSiteMock.mockReturnValue( { isPending: false, mutate: startSite } );
 		useStopSiteMock.mockReturnValue( { isPending: false, mutate: stopSite } );
 		useUpdateSitesSortOrderMock.mockReturnValue( {
 			isPending: false,
 			mutate: updateSitesSortOrder,
-		} );
-		useUserPreferencesMock.mockReturnValue( {
-			data: {
-				editor: 'vscode',
-				terminal: null,
-				colorScheme: 'system',
-				locale: 'en',
-				analyticsEnabled: true,
-				defaultSiteDirectory: '',
-				studioCliInstalled: false,
-				studioCliExternallyManaged: false,
-				agenticFeaturesEnabled: true,
-			},
 		} );
 		useSitesMock.mockReturnValue( {
 			data: [
@@ -194,131 +160,6 @@ describe( 'SiteList', () => {
 
 		expect( runningButton.querySelectorAll( 'svg' ) ).toHaveLength( 1 );
 		expect( actionGlyph?.querySelector( 'span' ) ).toBeInTheDocument();
-	} );
-
-	it( 'opens site actions from a row right-click without opening the latest chat', async () => {
-		render( <SiteList /> );
-
-		fireEvent.contextMenu( screen.getByText( 'Stopped Site' ) );
-
-		expect( navigateMock ).not.toHaveBeenCalled();
-		expect( await screen.findByText( 'Site settings' ) ).toBeInTheDocument();
-		expect( screen.getByText( 'Duplicate site' ) ).toBeInTheDocument();
-		expect( screen.getByText( 'Open folder' ) ).toBeInTheDocument();
-		expect( screen.getByText( 'Export entire site' ) ).toBeInTheDocument();
-		expect( screen.getByText( 'Delete site' ) ).toBeInTheDocument();
-	} );
-
-	it( 'records a Tracks event when opening the site folder from the menu', async () => {
-		render( <SiteList /> );
-
-		fireEvent.contextMenu( screen.getByText( 'Stopped Site' ) );
-		fireEvent.click( await screen.findByText( 'Open folder' ) );
-
-		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_site_open_folder' );
-	} );
-
-	it( 'records external-browser Tracks events for phpMyAdmin and WP admin', async () => {
-		render( <SiteList /> );
-
-		fireEvent.contextMenu( screen.getByText( 'Running Site' ) );
-		fireEvent.click( await screen.findByText( 'Open phpMyAdmin' ) );
-
-		fireEvent.contextMenu( screen.getByText( 'Running Site' ) );
-		fireEvent.click( await screen.findByText( 'Open WP admin' ) );
-
-		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_site_open_phpmyadmin', {
-			browser: 'external',
-		} );
-		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_site_open_wp_admin', {
-			browser: 'external',
-		} );
-	} );
-
-	it( 'opens site settings from the site actions menu', async () => {
-		render( <SiteList /> );
-
-		fireEvent.contextMenu( screen.getByText( 'Stopped Site' ) );
-		fireEvent.click( await screen.findByText( 'Site settings' ) );
-
-		expect( navigateMock ).toHaveBeenCalledTimes( 1 );
-		expect( navigateMock ).toHaveBeenLastCalledWith( {
-			to: '/sites/$siteId/overview',
-			params: { siteId: 'stopped-site' },
-			search: { tab: 'general' },
-		} );
-		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_panel_opened', {
-			panel: 'settings',
-		} );
-	} );
-
-	it( 'opens the site overview when clicking a site while agentic features are unavailable', () => {
-		vi.mocked( useAgenticFeatures ).mockReturnValue( {
-			enabled: false,
-			chatEnabled: false,
-			reason: 'signed-out',
-			isReady: true,
-		} );
-
-		render( <SiteList /> );
-
-		fireEvent.click( screen.getByText( 'Stopped Site' ) );
-
-		expect( navigateMock ).toHaveBeenCalledTimes( 1 );
-		expect( navigateMock ).toHaveBeenLastCalledWith( {
-			to: '/sites/$siteId/overview',
-			params: { siteId: 'stopped-site' },
-		} );
-		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_panel_opened', {
-			panel: 'overview',
-		} );
-	} );
-
-	it( 'records an assistant panel event when clicking a site name opens chat', () => {
-		render( <SiteList /> );
-
-		fireEvent.click( screen.getByText( 'Stopped Site' ) );
-
-		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_panel_opened', {
-			panel: 'assistant',
-		} );
-	} );
-
-	it( 'shows the selected site solid without the overview shortcut when signed out', () => {
-		vi.mocked( useAgenticFeatures ).mockReturnValue( {
-			enabled: false,
-			chatEnabled: false,
-			reason: 'signed-out',
-			isReady: true,
-		} );
-		paramsMock = { siteId: 'stopped-site' };
-		pathnameMock = '/sites/stopped-site/overview';
-
-		render( <SiteList /> );
-
-		const stoppedRow = screen.getByText( 'Stopped Site' ).closest( 'section' )!;
-		const className = stoppedRow.getAttribute( 'class' ) ?? '';
-		const siteButton = within( stoppedRow ).getByRole( 'button', { name: 'Stopped Site' } );
-
-		expect( className ).toContain( 'siteActive' );
-		expect( className ).not.toContain( 'siteContextActive' );
-		expect( siteButton ).toHaveAttribute( 'aria-current', 'page' );
-		expect( screen.queryByRole( 'button', { name: 'Site overview' } ) ).not.toBeInTheDocument();
-	} );
-
-	it( 'opens the site overview from the row gear without opening the latest chat', () => {
-		render( <SiteList /> );
-
-		fireEvent.click( screen.getAllByRole( 'button', { name: 'Site overview' } )[ 0 ] );
-
-		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_panel_opened', {
-			panel: 'overview',
-		} );
-		expect( navigateMock ).toHaveBeenCalledTimes( 1 );
-		expect( navigateMock ).toHaveBeenLastCalledWith( {
-			to: '/sites/$siteId/overview',
-			params: { siteId: 'stopped-site' },
-		} );
 	} );
 
 	it( 'dims stopped site titles without dimming running sites', () => {
@@ -390,11 +231,26 @@ describe( 'SiteList', () => {
 			name: 'Site status: Stopped. Xdebug enabled. Start site',
 		} );
 
-		// The stopped-row CSS hides the status button unless `data-xdebug` is
-		// set alongside `data-state`; assert that DOM contract.
 		expect( button ).toHaveAttribute( 'data-state', 'stopped' );
 		expect( button ).toHaveAttribute( 'data-xdebug' );
 		expect( button.querySelector( 'svg:first-of-type' ) ).toHaveAttribute( 'viewBox', '0 0 24 24' );
+	} );
+
+	it( 'opens the site overview from the site action button', () => {
+		render( <SiteList /> );
+
+		expect( screen.queryByRole( 'button', { name: 'New chat' } ) ).not.toBeInTheDocument();
+
+		fireEvent.click( screen.getAllByRole( 'button', { name: 'Site overview' } )[ 0 ] );
+
+		expect( navigateMock ).toHaveBeenCalledTimes( 1 );
+		expect( navigateMock ).toHaveBeenCalledWith( {
+			to: '/sites/$siteId/overview',
+			params: { siteId: 'stopped-site' },
+		} );
+		expect( trackEvent ).toHaveBeenCalledWith( 'studio_panel_opened', {
+			panel: 'overview',
+		} );
 	} );
 
 	it( 'marks the site row as current for the active chat', () => {
@@ -414,11 +270,13 @@ describe( 'SiteList', () => {
 
 		const stoppedRow = screen.getByText( 'Stopped Site' ).closest( 'section' )!;
 		const siteButton = within( stoppedRow ).getByRole( 'button', { name: 'Stopped Site' } );
+		const overviewButton = within( stoppedRow ).getByRole( 'button', { name: 'Site overview' } );
 
 		expect( siteButton ).toHaveAttribute( 'aria-current', 'page' );
+		expect( overviewButton ).not.toHaveAttribute( 'aria-current' );
 	} );
 
-	it( 'marks the site row as contextual on the site overview route', () => {
+	it( 'marks the site overview action instead of the site row on site context routes', () => {
 		paramsMock = { siteId: 'stopped-site' };
 		pathnameMock = '/sites/stopped-site/overview';
 
@@ -426,9 +284,10 @@ describe( 'SiteList', () => {
 
 		const stoppedRow = screen.getByText( 'Stopped Site' ).closest( 'section' )!;
 		const siteButton = within( stoppedRow ).getByRole( 'button', { name: 'Stopped Site' } );
+		const overviewButton = within( stoppedRow ).getByRole( 'button', { name: 'Site overview' } );
 
 		expect( siteButton ).not.toHaveAttribute( 'aria-current' );
-		expect( stoppedRow.getAttribute( 'class' ) ?? '' ).toContain( 'siteContextActive' );
+		expect( overviewButton ).toHaveAttribute( 'aria-current', 'page' );
 	} );
 
 	it( 'opens the latest active chat when a site is clicked', () => {
@@ -463,6 +322,9 @@ describe( 'SiteList', () => {
 			to: '/sessions/$sessionId',
 			params: { sessionId: 'latest-chat' },
 		} );
+		expect( trackEvent ).toHaveBeenCalledWith( 'studio_panel_opened', {
+			panel: 'assistant',
+		} );
 	} );
 
 	it( 'keeps the site list order instead of sorting by recent chat activity', () => {
@@ -495,8 +357,8 @@ describe( 'SiteList', () => {
 	it( 'matches sessions by owner site id, falling back to path for legacy sessions', () => {
 		useSitesMock.mockReturnValue( {
 			data: [
-				createSite( { id: 'site-a', name: 'Site A', path: '/sites/site-a' } ),
-				createSite( { id: 'site-b', name: 'Site B', path: '/sites/site-b' } ),
+				createSite( { id: 'site-a', name: 'Site A', path: '/sites/site-a', sortOrder: 1000 } ),
+				createSite( { id: 'site-b', name: 'Site B', path: '/sites/site-b', sortOrder: 2000 } ),
 			],
 			isLoading: false,
 		} );
@@ -545,26 +407,42 @@ describe( 'SiteList', () => {
 	it( 'persists a manual site order after drag and drop', () => {
 		render( <SiteList /> );
 
-		const stoppedRow = document.querySelector( '[data-reorder-id="stopped-site"]' );
-		const runningRow = document.querySelector( '[data-reorder-id="running-site"]' );
+		const stoppedRow = document.querySelector( '[data-site-id="stopped-site"]' );
+		const runningRow = document.querySelector( '[data-site-id="running-site"]' );
 
 		expect( stoppedRow ).toBeInTheDocument();
 		expect( runningRow ).toBeInTheDocument();
 		vi.spyOn( stoppedRow!, 'getBoundingClientRect' ).mockReturnValue(
-			createRect( { top: 0, left: 8, width: 272, height: 34 } )
+			createRect( {
+				top: 0,
+				left: 8,
+				width: 272,
+				height: 34,
+			} )
 		);
 		vi.spyOn( runningRow!, 'getBoundingClientRect' ).mockReturnValue(
-			createRect( { top: 35, left: 0, width: 0, height: 34 } )
+			createRect( {
+				top: 35,
+				left: 0,
+				width: 0,
+				height: 34,
+			} )
 		);
 
 		fireEvent(
 			stoppedRow!,
-			createPointerEvent( 'pointerdown', { button: 0, clientX: 16, clientY: 10 } )
+			createPointerEvent( 'pointerdown', {
+				button: 0,
+				clientX: 16,
+				clientY: 10,
+			} )
 		);
 		fireEvent( window, createPointerEvent( 'pointermove', { clientX: 16, clientY: 70 } ) );
 
-		expect( screen.getByTestId( 'drop-placeholder' ) ).toBeInTheDocument();
-		expect( document.querySelector( '[data-reorder-id="stopped-site"]' ) ).not.toBeInTheDocument();
+		const placeholder = screen.getByTestId( 'site-drop-placeholder' );
+
+		expect( placeholder ).toBeInTheDocument();
+		expect( document.querySelector( '[data-site-id="stopped-site"]' ) ).not.toBeInTheDocument();
 		expect( updateSitesSortOrder ).not.toHaveBeenCalled();
 
 		fireEvent( window, createPointerEvent( 'pointerup', { clientX: 16, clientY: 70 } ) );
@@ -578,11 +456,109 @@ describe( 'SiteList', () => {
 		expect( updateSitesSortOrder ).toHaveBeenCalledWith( [ 'running-site', 'stopped-site' ] );
 	} );
 
+	it( 'reorders plugins within their group and keeps the site order intact', () => {
+		useSitesMock.mockReturnValue( {
+			data: [
+				createSite( {
+					id: 'stopped-site',
+					name: 'Stopped Site',
+					path: '/Users/example/Studio/stopped-site',
+					running: false,
+					sortOrder: 1000,
+				} ),
+				createSite( {
+					id: 'running-site',
+					name: 'Running Site',
+					path: '/Users/example/Studio/running-site',
+					running: true,
+					sortOrder: 2000,
+				} ),
+				createSite( {
+					id: 'plugin-a',
+					name: 'Plugin A',
+					path: '/Users/example/Studio/plugin-a',
+					running: false,
+					sortOrder: 3000,
+				} ),
+				createSite( {
+					id: 'plugin-b',
+					name: 'Plugin B',
+					path: '/Users/example/Studio/plugin-b',
+					running: false,
+					sortOrder: 4000,
+				} ),
+			],
+			isLoading: false,
+		} );
+		tagSiteAsPlugin( { siteId: 'plugin-a', slug: 'plugin-a', source: 'new' } );
+		tagSiteAsPlugin( { siteId: 'plugin-b', slug: 'plugin-b', source: 'new' } );
+
+		try {
+			render( <SiteList /> );
+
+			// Plugins render in their own view behind the segmented control.
+			fireEvent.click( screen.getByRole( 'button', { name: /Plugins/ } ) );
+
+			const pluginARow = document.querySelector( '[data-site-id="plugin-a"]' );
+			const pluginBRow = document.querySelector( '[data-site-id="plugin-b"]' );
+
+			expect( pluginARow ).toBeInTheDocument();
+			expect( pluginBRow ).toBeInTheDocument();
+			vi.spyOn( pluginARow!, 'getBoundingClientRect' ).mockReturnValue(
+				createRect( {
+					top: 0,
+					left: 8,
+					width: 272,
+					height: 34,
+				} )
+			);
+			vi.spyOn( pluginBRow!, 'getBoundingClientRect' ).mockReturnValue(
+				createRect( {
+					top: 35,
+					left: 8,
+					width: 272,
+					height: 34,
+				} )
+			);
+
+			fireEvent(
+				pluginARow!,
+				createPointerEvent( 'pointerdown', {
+					button: 0,
+					clientX: 16,
+					clientY: 10,
+				} )
+			);
+			fireEvent( window, createPointerEvent( 'pointermove', { clientX: 16, clientY: 70 } ) );
+
+			expect( screen.getByTestId( 'plugin-drop-placeholder' ) ).toBeInTheDocument();
+			expect( screen.queryByTestId( 'site-drop-placeholder' ) ).not.toBeInTheDocument();
+
+			fireEvent( window, createPointerEvent( 'pointerup', { clientX: 16, clientY: 70 } ) );
+
+			const pluginA = screen.getByText( 'Plugin A' );
+			const pluginB = screen.getByText( 'Plugin B' );
+
+			expect( pluginB.compareDocumentPosition( pluginA ) & Node.DOCUMENT_POSITION_FOLLOWING ).toBe(
+				Node.DOCUMENT_POSITION_FOLLOWING
+			);
+			expect( updateSitesSortOrder ).toHaveBeenCalledWith( [
+				'stopped-site',
+				'running-site',
+				'plugin-b',
+				'plugin-a',
+			] );
+		} finally {
+			removePluginSiteTag( 'plugin-a' );
+			removePluginSiteTag( 'plugin-b' );
+		}
+	} );
+
 	it( 'animates other sites into the drop placeholder while dragging', () => {
 		render( <SiteList /> );
 
-		const stoppedRow = document.querySelector( '[data-reorder-id="stopped-site"]' );
-		const runningRow = document.querySelector( '[data-reorder-id="running-site"]' );
+		const stoppedRow = document.querySelector( '[data-site-id="stopped-site"]' );
+		const runningRow = document.querySelector( '[data-site-id="running-site"]' );
 		const originalAnimate = Element.prototype.animate;
 		const animateMock = vi.fn(
 			() =>
@@ -637,9 +613,6 @@ describe( 'SiteList', () => {
 				} )
 			);
 		} finally {
-			// End the drag so its window pointer listeners don't leak into
-			// later tests.
-			fireEvent( window, createPointerEvent( 'pointerup', { clientX: 16, clientY: 70 } ) );
 			if ( originalAnimate ) {
 				Element.prototype.animate = originalAnimate;
 			} else {
@@ -748,9 +721,74 @@ describe( 'SiteList', () => {
 		);
 	} );
 
-	it( 'does not show a new message indicator for the open chat', () => {
-		paramsMock = { sessionId: 'stopped-chat' };
-		pathnameMock = '/sessions/stopped-chat';
+	it( 'opens the site overview from the site row when agentic features are gated', () => {
+		useAgenticFeaturesMock.mockReturnValue( {
+			enabled: false,
+			chatEnabled: false,
+			reason: 'signed-out',
+			isReady: true,
+		} );
+		useSessionsMock.mockReturnValue( {
+			data: [
+				createSession( {
+					id: 'stopped-chat',
+					ownerSitePath: '/Users/example/Studio/stopped-site',
+				} ),
+			],
+			isLoading: false,
+		} );
+
+		render( <SiteList /> );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Stopped Site' } ) );
+
+		expect( navigateMock ).toHaveBeenCalledWith( {
+			to: '/sites/$siteId/overview',
+			params: { siteId: 'stopped-site' },
+		} );
+		expect( trackEvent ).toHaveBeenCalledWith( 'studio_panel_opened', {
+			panel: 'overview',
+		} );
+	} );
+
+	it( 'uses the primary selected state for the overview row when agentic features are gated', () => {
+		useAgenticFeaturesMock.mockReturnValue( {
+			enabled: false,
+			chatEnabled: false,
+			reason: 'signed-out',
+			isReady: true,
+		} );
+		paramsMock = { siteId: 'stopped-site' };
+		pathnameMock = '/sites/stopped-site/overview';
+
+		render( <SiteList /> );
+
+		const stoppedRow = screen.getByText( 'Stopped Site' ).closest( 'section' )!;
+		const rowClassName = stoppedRow.getAttribute( 'class' ) ?? '';
+
+		expect( rowClassName ).toContain( 'siteActive' );
+		expect( rowClassName ).not.toContain( 'siteContextActive' );
+		expect( within( stoppedRow ).getByRole( 'button', { name: 'Stopped Site' } ) ).toHaveAttribute(
+			'aria-current',
+			'page'
+		);
+	} );
+
+	it( 'hides the site overview action button when agentic features are gated', () => {
+		useAgenticFeaturesMock.mockReturnValue( {
+			enabled: true,
+			chatEnabled: false,
+			reason: null,
+			isReady: true,
+		} );
+
+		render( <SiteList /> );
+
+		expect( screen.queryByRole( 'button', { name: 'Site overview' } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'does not show a new message indicator for the active site', () => {
+		paramsMock = { siteId: 'stopped-site' };
 		let sessions = [
 			createSession( {
 				id: 'stopped-chat',
@@ -776,93 +814,33 @@ describe( 'SiteList', () => {
 
 		expect( screen.queryByRole( 'status', { name: 'New message' } ) ).not.toBeInTheDocument();
 	} );
-
-	it( 'shows a new message indicator while only the site settings are open', () => {
-		// Settings don't show the chat, so an update there is still unseen.
-		paramsMock = { siteId: 'stopped-site' };
-		pathnameMock = '/sites/stopped-site/settings';
-		let sessions = [
-			createSession( {
-				id: 'stopped-chat',
-				ownerSitePath: '/Users/example/Studio/stopped-site',
-				updatedAt: '2026-06-20T12:00:00.000Z',
-			} ),
-		];
-		useSessionsMock.mockImplementation( () => ( {
-			data: sessions,
-			isLoading: false,
-		} ) );
-
-		const { rerender } = render( <SiteList /> );
-
-		sessions = [
-			createSession( {
-				id: 'stopped-chat',
-				ownerSitePath: '/Users/example/Studio/stopped-site',
-				updatedAt: '2026-06-20T12:01:00.000Z',
-			} ),
-		];
-		rerender( <SiteList /> );
-
-		expect( screen.getByRole( 'status', { name: 'New message' } ) ).toBeInTheDocument();
-	} );
-
-	it( 'names the configured editor and terminal in the site actions', async () => {
-		const openSiteInEditor = vi.fn( () => Promise.resolve() );
-		useConnectorMock.mockReturnValue( {
-			openExternalUrl: vi.fn(),
-			openSiteFolder: vi.fn(),
-			openSiteInEditor,
-			openSiteInTerminal: vi.fn(),
-		} as unknown as ReturnType< typeof useConnector > );
-		useUserPreferencesMock.mockReturnValue( {
-			data: {
-				editor: 'zed',
-				terminal: 'terminal',
-				colorScheme: 'system',
-				locale: 'en',
-				analyticsEnabled: true,
-				defaultSiteDirectory: '',
-				studioCliInstalled: false,
-				studioCliExternallyManaged: false,
-				agenticFeaturesEnabled: true,
-			},
-		} );
-
-		render( <SiteList /> );
-
-		fireEvent.contextMenu( screen.getByText( 'Stopped Site' ) );
-
-		const editorItem = await screen.findByText( 'Open in Zed' );
-		expect( screen.getByText( 'Open in Terminal' ) ).toBeInTheDocument();
-
-		fireEvent.click( editorItem );
-		expect( openSiteInEditor ).toHaveBeenCalledWith( 'stopped-site' );
-	} );
-
-	it( 'hides the editor and terminal actions when unset', async () => {
-		useUserPreferencesMock.mockReturnValue( {
-			data: {
-				editor: null,
-				terminal: null,
-				colorScheme: 'system',
-				locale: undefined,
-				analyticsEnabled: true,
-				defaultSiteDirectory: '',
-				studioCliInstalled: false,
-				studioCliExternallyManaged: false,
-				agenticFeaturesEnabled: true,
-			},
-		} );
-
-		render( <SiteList /> );
-
-		fireEvent.contextMenu( screen.getByText( 'Stopped Site' ) );
-
-		await screen.findByText( 'Open folder' );
-		expect( screen.queryByText( /Open in / ) ).not.toBeInTheDocument();
-	} );
 } );
+
+function createSite( overrides: Partial< SiteDetails > = {} ): SiteDetails {
+	return {
+		id: 'site-1',
+		name: 'Demo Site',
+		path: '/Users/example/Studio/demo-site',
+		port: 8881,
+		running: false,
+		phpVersion: '8.4',
+		...overrides,
+	};
+}
+
+function createSession( overrides: Partial< AiSessionSummary > = {} ): AiSessionSummary {
+	return {
+		id: 'session-1',
+		filePath: '/Users/example/.studio/sessions/session-1.jsonl',
+		createdAt: '2026-06-01T12:00:00.000Z',
+		updatedAt: '2026-06-20T12:00:00.000Z',
+		firstPrompt: 'Site chat',
+		ownerSitePath: '/Users/example/Studio/demo-site',
+		activeEnvironment: 'local',
+		eventCount: 1,
+		...overrides,
+	};
+}
 
 function createPointerEvent(
 	type: 'pointerdown' | 'pointermove' | 'pointerup',
@@ -901,30 +879,4 @@ function createRect( {
 		y: top,
 		toJSON: () => ( {} ),
 	} as DOMRect;
-}
-
-function createSite( overrides: Partial< SiteDetails > = {} ): SiteDetails {
-	return {
-		id: 'site-1',
-		name: 'Demo Site',
-		path: '/Users/example/Studio/demo-site',
-		port: 8881,
-		running: false,
-		phpVersion: '8.4',
-		...overrides,
-	};
-}
-
-function createSession( overrides: Partial< AiSessionSummary > = {} ): AiSessionSummary {
-	return {
-		id: 'session-1',
-		filePath: '/Users/example/.studio/sessions/session-1.jsonl',
-		createdAt: '2026-06-01T12:00:00.000Z',
-		updatedAt: '2026-06-20T12:00:00.000Z',
-		firstPrompt: 'Site chat',
-		ownerSitePath: '/Users/example/Studio/demo-site',
-		activeEnvironment: 'local',
-		eventCount: 1,
-		...overrides,
-	};
 }

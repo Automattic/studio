@@ -424,6 +424,9 @@ describe( 'pi runtime', () => {
 		expect( options.model?.api ).toBe( 'anthropic-messages' );
 		expect( options.model?.maxTokens ).toBe( 32_000 );
 		expect( options.model?.input ).toEqual( [ 'text', 'image' ] );
+		// Sonnet 5 rejects budget-based thinking (400); the compat flag makes
+		// pi-ai request `thinking: {type: "adaptive"}` instead.
+		expect( options.model?.reasoning ).toBe( true );
 		expect( options.model?.compat ).toMatchObject( { forceAdaptiveThinking: true } );
 		const modelRegistry = new ModelRegistry( options.modelRuntime! );
 		const auth = await modelRegistry.getApiKeyAndHeaders( options.model! );

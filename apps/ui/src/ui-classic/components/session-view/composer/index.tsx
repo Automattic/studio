@@ -1,3 +1,4 @@
+import { formatClipsAsPrompt, formatClipsFallbackMessage } from '@studio/common/ai/clips';
 import {
 	formatComposerAttachmentSize,
 	getComposerAttachmentHoverPreviewPosition,
@@ -9,7 +10,10 @@ import {
 	watchComposerAttachmentTextScroll,
 	type ComposerAttachmentHoverPreviewState,
 } from '@studio/common/ai/composer-attachment-preview';
-import { watchComposerFilePaste } from '@studio/common/ai/composer-attachments';
+import {
+	getComposerClipAttachments,
+	watchComposerFilePaste,
+} from '@studio/common/ai/composer-attachments';
 import { AI_MODELS, getAiModelFamily, getAiModelLabel } from '@studio/common/ai/models';
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
 import { getAiSkillCommands } from '@studio/common/ai/slash-commands';
@@ -39,6 +43,7 @@ import {
 	type PointerEvent,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { useTourAnchor } from '@/components/coachmarks/anchor-registry';
 import * as Menu from '@/components/menu';
 import { useConnector } from '@/data/core';
 import {
@@ -52,6 +57,7 @@ import {
 	toComposerSendAttachments,
 	useComposerAttachments,
 	type ComposerAttachment,
+	type ComposerClipInput,
 	type ComposerSendAttachments,
 } from './use-composer-attachments';
 import type {
@@ -69,7 +75,6 @@ const COMPOSER_TEXTAREA_MAX_VIEWPORT_RATIO = 0.4;
 const COMPOSER_TEXTAREA_MANUAL_MAX_HEIGHT = 560;
 const COMPOSER_TEXTAREA_MANUAL_MAX_VIEWPORT_RATIO = 0.7;
 const COMPOSER_TEXTAREA_RESIZE_STEP = 16;
-
 function AttachmentHoverTextPreview( { text }: { text: string } ) {
 	const viewportRef = useRef< HTMLDivElement | null >( null );
 	const textRef = useRef< HTMLPreElement | null >( null );
@@ -198,10 +203,15 @@ export function ComposerSkeleton() {
 interface ComposerProps {
 	busy: boolean;
 	isInterrupting?: boolean;
-	error: string | null;
 	model: AiModelId;
-	onSend: ( prompt: string, attachments?: ComposerSendAttachments ) => Promise< void >;
+	onSend: (
+		prompt: string,
+		attachments?: ComposerSendAttachments & { displayMessage?: string }
+	) => Promise< void >;
 	onInterrupt: () => Promise< void >;
+	// Fires whenever the attachment set changes; the session view derives
+	// preview clip markers from it.
+	onAttachmentsChange?: ( attachments: ComposerAttachment[] ) => void;
 	sessionId?: string;
 	entries?: SessionEntry[];
 	// Local owner site id, when the session is anchored to one. Required to
@@ -225,9 +235,16 @@ export interface ComposerHandle {
 		text: string,
 		attachments?: { images?: StudioChatImage[]; files?: StudioChatFileAttachment[] }
 	): void;
-	// What replaceDraft would discard — lets callers decide whether the
-	// replacement warrants a confirmation.
+	addFiles( files: FileList | File[] ): Promise< boolean >;
+	addFileAttachments( files: StudioChatFileAttachment[] ): boolean;
+	// Clips from the site preview (element/region/page/console grains).
+	addClip( input: ComposerClipInput ): Promise< boolean >;
+	updateClipComment( id: string, comment: string ): void;
+	removeClip( id: string ): void;
 	getDraft(): { text: string; hasAttachments: boolean };
+	// Move keyboard focus to the textarea (e.g. after answering a permission
+	// request, whose card takes focus while it's pending).
+	focus(): void;
 }
 
 function shouldShellFocusTextarea( target: EventTarget ) {
@@ -284,10 +301,10 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 	{
 		busy,
 		isInterrupting = false,
-		error,
 		model,
 		onSend,
 		onInterrupt,
+		onAttachmentsChange,
 		sessionId,
 		entries,
 		ownerSiteId,
@@ -296,6 +313,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 	},
 	ref
 ) {
+	const composerAnchorRef = useTourAnchor( 'composer' );
 	const [ value, setValue ] = useState( '' );
 	const [ placeholderIndex, setPlaceholderIndex ] = useState( 0 );
 	const [ hoverPreview, setHoverPreview ] = useState< ComposerAttachmentHoverPreviewState | null >(
@@ -315,16 +333,23 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 	// base64 content blocks; other files are referenced by disk path.
 	const {
 		attachments,
-		error: attachmentError,
 		isDraggingOver,
 		addFiles,
+		addFileAttachments,
+		addClip,
+		updateClipComment,
 		removeAttachment,
 		clear: clearAttachments,
 		restore: restoreAttachments,
 		dragHandlers,
 		pasteHandlers,
-	} = useComposerAttachments();
+	} = useComposerAttachments( getAiModelFamily( model ) );
 	const hasAttachments = attachments.length > 0;
+
+	// Mirror the attachment set to the parent (preview clip markers).
+	useEffect( () => {
+		onAttachmentsChange?.( attachments );
+	}, [ attachments, onAttachmentsChange ] );
 
 	// Cross-family swap state. We hold the picked model here while the
 	// confirmation dialog is open; nothing is persisted until the user
@@ -378,6 +403,9 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 	useImperativeHandle(
 		ref,
 		() => ( {
+			focus() {
+				textareaRef.current?.focus();
+			},
 			appendDraft( text ) {
 				if ( ! text ) return;
 				setValue( ( current ) =>
@@ -404,29 +432,78 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 					node.setSelectionRange( len, len );
 				} );
 			},
+			async addFiles( files ) {
+				const didAdd = await addFiles( files );
+				if ( didAdd ) {
+					requestAnimationFrame( () => {
+						textareaRef.current?.focus();
+					} );
+				}
+				return didAdd;
+			},
+			addFileAttachments( files ) {
+				const didAdd = addFileAttachments( files );
+				if ( didAdd ) {
+					requestAnimationFrame( () => {
+						textareaRef.current?.focus();
+					} );
+				}
+				return didAdd;
+			},
+			async addClip( input ) {
+				return addClip( input );
+			},
+			updateClipComment( id, comment ) {
+				updateClipComment( id, comment );
+			},
+			removeClip( id ) {
+				removeAttachment( id );
+			},
 			getDraft() {
 				return { text: value, hasAttachments: attachments.length > 0 };
 			},
 		} ),
-		[ restoreAttachments, value, attachments ]
+		[
+			addClip,
+			addFileAttachments,
+			addFiles,
+			removeAttachment,
+			restoreAttachments,
+			updateClipComment,
+			value,
+			attachments,
+		]
 	);
 
 	const send = useCallback( async () => {
 		const trimmed = value.trim();
 		// Allow sending attachments on their own; fall back to a minimal prompt so
 		// the backend (which requires a non-empty message) still has one.
-		if ( ! trimmed && attachments.length === 0 ) {
+		if ( ! trimmed && ! hasAttachments ) {
 			return;
 		}
-		const prompt = trimmed || __( 'Please review the attached files.' );
 		const sentAttachments = attachments;
+		const clips = getComposerClipAttachments( sentAttachments );
+		const prompt =
+			trimmed ||
+			( clips.length > 0
+				? formatClipsFallbackMessage( clips.length )
+				: __( 'Please review the attached files.' ) );
+		// Clips serialize into a prompt block the user doesn't see typed out;
+		// the visible message stays their own words (the chips are visible as
+		// the message's attachments).
+		const clipsPrompt = formatClipsAsPrompt( clips );
+		const fullPrompt = clipsPrompt ? `${ prompt }\n${ clipsPrompt }` : prompt;
 		setValue( '' );
 		clearAttachments();
 		// A send is the only thing that swaps the suggestion; it is static
 		// otherwise, so the empty composer never changes under the user.
 		setPlaceholderIndex( ( current ) => current + 1 );
 		try {
-			await onSend( prompt, toComposerSendAttachments( sentAttachments ) );
+			await onSend( fullPrompt, {
+				...toComposerSendAttachments( sentAttachments ),
+				...( clipsPrompt ? { displayMessage: prompt } : {} ),
+			} );
 		} catch {
 			// Restore the draft and attachments so the user can retry; the parent
 			// surfaces the error message via `error`. Queued sends never throw from
@@ -435,7 +512,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 			setValue( trimmed );
 			restoreAttachments( sentAttachments );
 		}
-	}, [ value, attachments, clearAttachments, restoreAttachments, onSend ] );
+	}, [ value, attachments, hasAttachments, clearAttachments, restoreAttachments, onSend ] );
 
 	const openFilePicker = useCallback( () => {
 		fileInputRef.current?.click();
@@ -606,25 +683,20 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 			// new view picks up via `resolveSessionModel`. If this fails we
 			// still navigate; the user can re-pick from the new view's
 			// dropdown.
-			const modelPersisted = await connector
-				.setSessionModel( newSession.id, pickedModel )
-				.then( () => true )
-				.catch( () => false );
-			if ( modelPersisted ) {
-				queryClient.setQueryData< LoadedAiSession >(
-					[ ...SESSIONS_QUERY_KEY, newSession.id ],
-					( current ) =>
-						current
-							? {
-									...current,
-									entries: [ ...( current.entries ?? [] ), createModelChangeEntry( pickedModel ) ],
-							  }
-							: {
-									summary: newSession,
-									entries: [ createModelChangeEntry( pickedModel ) ],
-							  }
-				);
-			}
+			await connector.setSessionModel( newSession.id, pickedModel ).catch( () => undefined );
+			queryClient.setQueryData< LoadedAiSession >(
+				[ ...SESSIONS_QUERY_KEY, newSession.id ],
+				( current ) =>
+					current
+						? {
+								...current,
+								entries: [ ...( current.entries ?? [] ), createModelChangeEntry( pickedModel ) ],
+						  }
+						: {
+								summary: newSession,
+								entries: [ createModelChangeEntry( pickedModel ) ],
+						  }
+			);
 			await reconcilePrimedSessionQueryData( queryClient, newSession.id );
 			setPendingFamilyChange( null );
 			onSwitchSession( newSession.id );
@@ -633,7 +705,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		}
 	}, [ connector, onSwitchSession, ownerSiteId, pendingFamilyChange, queryClient ] );
 
-	const canSend = value.trim().length > 0 || attachments.length > 0;
+	const canSend = value.trim().length > 0 || hasAttachments;
 	const placeholderOptions = busy
 		? [
 				__( 'Queue the next message while I work…' ),
@@ -652,7 +724,6 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const composerResizeMaxHeight = getComposerTextareaMaxHeight( true );
 	const sendAriaLabel = busy ? __( 'Queue' ) : __( 'Send' );
 	const sendShortcutLabel = __( 'Return to send' );
-	const composerError = attachmentError ?? error;
 	const stopTooltipLabel = isInterrupting
 		? __( 'Stopping… click again to force stop' )
 		: __( 'Stop' );
@@ -673,7 +744,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 
 	return (
 		<>
-			<div className={ styles.root }>
+			<div className={ styles.root } ref={ composerAnchorRef }>
 				<div
 					data-session-composer
 					className={ clsx(
@@ -712,6 +783,14 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 					{ hasAttachments ? (
 						<ul className={ styles.attachments } aria-label={ __( 'Attachments' ) }>
 							{ attachments.map( ( attachment ) => {
+								// Clip chips wear the same number as their on-page marker
+								// (position among clip siblings, matching the marker sync).
+								const clipNumber =
+									attachment.kind === 'clip'
+										? getComposerClipAttachments( attachments ).findIndex(
+												( clip ) => clip.id === attachment.id
+										  ) + 1
+										: 0;
 								const attachmentDetailsId = getAttachmentDetailsId( attachment.id );
 								const attachmentSizeLabel = formatComposerAttachmentSize( attachment.size );
 								const attachmentTypeDescription = getComposerAttachmentTypeDescription(
@@ -777,6 +856,9 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 									>
 										<div className={ styles.attachmentTile } aria-hidden="true">
 											{ renderAttachmentVisual( attachment, 'tile', fallbackAttachmentTypeLabel ) }
+											{ clipNumber > 0 ? (
+												<span className={ styles.attachmentClipBadge }>{ clipNumber }</span>
+											) : null }
 										</div>
 										<span id={ attachmentDetailsId } className={ styles.attachmentAssistiveText }>
 											{ attachmentDetails }
@@ -1028,11 +1110,6 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 						</div>
 					</div>
 				</div>
-				{ composerError ? (
-					<div className={ styles.meta }>
-						<span className={ styles.error }>{ composerError }</span>
-					</div>
-				) : null }
 			</div>
 			<FamilySwitchConfirmDialog
 				currentModel={ model }

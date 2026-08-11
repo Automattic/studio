@@ -1,3 +1,5 @@
+import { DEFAULT_MODEL, type AiModelId } from '@studio/common/ai/models';
+import { type AiResponseLength } from '@studio/common/ai/response-length';
 import { SupportedLocale } from '@studio/common/lib/locale';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -9,11 +11,14 @@ import { isWindowsStore } from 'src/lib/app-globals';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { AnalyticsToggle } from 'src/modules/user-settings/components/analytics-toggle';
 import { ColorSchemePicker } from 'src/modules/user-settings/components/color-scheme-picker';
+import { DefaultModelPicker } from 'src/modules/user-settings/components/default-model-picker';
 import { EditorPicker } from 'src/modules/user-settings/components/editor-picker';
 import { LanguagePicker } from 'src/modules/user-settings/components/language-picker';
 import { QuitSitesBehaviorPicker } from 'src/modules/user-settings/components/quit-sites-behavior-picker';
+import { ResponseLengthPicker } from 'src/modules/user-settings/components/response-length-picker';
 import { StudioCliToggle } from 'src/modules/user-settings/components/studio-cli-toggle';
 import { TerminalPicker } from 'src/modules/user-settings/components/terminal-picker';
+import { ToolPermissionsSection } from 'src/modules/user-settings/components/tool-permissions-section';
 import { SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 import { useAppDispatch, useI18nLocale } from 'src/stores';
@@ -31,10 +36,21 @@ import {
 	useSaveDefaultSiteDirectoryMutation,
 	useGetAnalyticsEnabledQuery,
 	useSaveAnalyticsEnabledMutation,
+	useGetAgentResponseLengthQuery,
+	useSaveAgentResponseLengthMutation,
+	useGetDefaultAiModelQuery,
+	useSaveDefaultAiModelMutation,
+	useGetToolPermissionsQuery,
+	useSaveToolPermissionMutation,
 	useGetQuitSitesBehaviorQuery,
 	useSaveQuitSitesBehaviorMutation,
 } from 'src/stores/installed-apps-api';
 import { SettingsFormField } from './settings-form-field';
+import type {
+	GatedToolName,
+	ToolPermissionLevel,
+	ToolPermissionOverrides,
+} from '@studio/common/ai/tool-permissions';
 import type { QuitSitesBehavior } from 'src/storage/user-data';
 
 function AgenticUiCallout() {
@@ -84,6 +100,9 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const { data: quitSitesBehavior } = useGetQuitSitesBehaviorQuery();
 	const { data: defaultSiteDirectory, isLoading: isLoadingDefaultSiteDirectory } =
 		useGetDefaultSiteDirectoryQuery();
+	const { data: agentResponseLength } = useGetAgentResponseLengthQuery();
+	const { data: defaultAiModel } = useGetDefaultAiModelQuery();
+	const { data: toolPermissions } = useGetToolPermissionsQuery();
 	const { data: analyticsEnabled } = useGetAnalyticsEnabledQuery();
 
 	const [ saveColorSchemePreference ] = useSaveColorSchemeMutation();
@@ -91,6 +110,9 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const [ saveTerminal ] = useSaveUserTerminalMutation();
 	const [ saveCliIsInstalled ] = useSaveStudioCliIsInstalledMutation();
 	const [ saveDefaultSiteDirectory ] = useSaveDefaultSiteDirectoryMutation();
+	const [ saveAgentResponseLength ] = useSaveAgentResponseLengthMutation();
+	const [ saveDefaultAiModel ] = useSaveDefaultAiModelMutation();
+	const [ saveToolPermission ] = useSaveToolPermissionMutation();
 	const [ saveAnalyticsEnabled ] = useSaveAnalyticsEnabledMutation();
 	const [ saveQuitSitesBehavior ] = useSaveQuitSitesBehaviorMutation();
 
@@ -100,6 +122,11 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const [ dirtyTerminal, setDirtyTerminal ] = useState< SupportedTerminal >();
 	const [ dirtyIsCliInstalled, setDirtyIsCliInstalled ] = useState< boolean >();
 	const [ dirtyDefaultSiteDirectory, setDirtyDefaultSiteDirectory ] = useState< string >();
+	const [ dirtyAgentResponseLength, setDirtyAgentResponseLength ] = useState< AiResponseLength >();
+	const [ dirtyDefaultAiModel, setDirtyDefaultAiModel ] = useState< AiModelId >();
+	const [ dirtyToolPermissions, setDirtyToolPermissions ] = useState< ToolPermissionOverrides >(
+		{}
+	);
 	const [ dirtyAnalyticsEnabled, setDirtyAnalyticsEnabled ] = useState< boolean >();
 	const [ dirtyQuitSitesBehavior, setDirtyQuitSitesBehavior ] = useState<
 		QuitSitesBehavior | undefined
@@ -152,6 +179,17 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 		if ( dirtyDefaultSiteDirectory ) {
 			await saveDefaultSiteDirectory( dirtyDefaultSiteDirectory );
 		}
+		if ( dirtyAgentResponseLength ) {
+			await saveAgentResponseLength( dirtyAgentResponseLength );
+		}
+		if ( dirtyDefaultAiModel ) {
+			await saveDefaultAiModel( dirtyDefaultAiModel );
+		}
+		for ( const [ toolName, level ] of Object.entries( dirtyToolPermissions ) ) {
+			if ( level && level !== ( toolPermissions?.[ toolName as GatedToolName ] ?? 'ask' ) ) {
+				await saveToolPermission( { toolName: toolName as GatedToolName, level } );
+			}
+		}
 		if ( dirtyAnalyticsEnabled !== undefined ) {
 			await saveAnalyticsEnabled( { enabled: dirtyAnalyticsEnabled, surface: 'settings' } );
 		}
@@ -167,20 +205,35 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const terminalSelection = dirtyTerminal ?? terminal ?? 'terminal';
 	const isCliInstalledSelection = dirtyIsCliInstalled ?? isCliInstalled ?? false;
 	const defaultSiteDirectorySelection = dirtyDefaultSiteDirectory ?? defaultSiteDirectory ?? '';
+	const agentResponseLengthSelection = dirtyAgentResponseLength ?? agentResponseLength ?? 'normal';
+	const defaultAiModelSelection = dirtyDefaultAiModel ?? defaultAiModel ?? DEFAULT_MODEL;
+	const toolPermissionsSelection: ToolPermissionOverrides = {
+		...toolPermissions,
+		...dirtyToolPermissions,
+	};
 	const analyticsEnabledSelection = dirtyAnalyticsEnabled ?? analyticsEnabled ?? true;
 	const quitSitesBehaviorSelection = isQuitSitesBehaviorDirty
 		? dirtyQuitSitesBehavior
 		: quitSitesBehavior;
 
-	const hasChanges = [
-		[ dirtyColorScheme, colorScheme ],
-		[ dirtyLocale, savedLocale ],
-		[ dirtyEditor, editor ],
-		[ dirtyTerminal, terminal ],
-		[ dirtyIsCliInstalled, isCliInstalled ],
-		[ dirtyDefaultSiteDirectory, defaultSiteDirectory ],
-		[ dirtyAnalyticsEnabled, analyticsEnabled ],
-	].some( ( [ a, b ] ) => a !== undefined && a !== b );
+	const hasToolPermissionChanges = Object.entries( dirtyToolPermissions ).some(
+		( [ toolName, level ] ) =>
+			level !== undefined && level !== ( toolPermissions?.[ toolName as GatedToolName ] ?? 'ask' )
+	);
+
+	const hasChanges =
+		hasToolPermissionChanges ||
+		[
+			[ dirtyColorScheme, colorScheme ],
+			[ dirtyLocale, savedLocale ],
+			[ dirtyEditor, editor ],
+			[ dirtyTerminal, terminal ],
+			[ dirtyIsCliInstalled, isCliInstalled ],
+			[ dirtyDefaultSiteDirectory, defaultSiteDirectory ],
+			[ dirtyAgentResponseLength, agentResponseLength ],
+			[ dirtyDefaultAiModel, defaultAiModel ],
+			[ dirtyAnalyticsEnabled, analyticsEnabled ],
+		].some( ( [ a, b ] ) => a !== undefined && a !== b );
 	const hasQuitSitesBehaviorChanges =
 		isQuitSitesBehaviorDirty && dirtyQuitSitesBehavior !== quitSitesBehavior;
 	const hasAnyChanges = hasChanges || hasQuitSitesBehaviorChanges;
@@ -214,6 +267,17 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 					onClick={ handleChangeDefaultDirectory }
 				/>
 			</SettingsFormField>
+			<DefaultModelPicker value={ defaultAiModelSelection } onChange={ setDirtyDefaultAiModel } />
+			<ResponseLengthPicker
+				value={ agentResponseLengthSelection }
+				onChange={ setDirtyAgentResponseLength }
+			/>
+			<ToolPermissionsSection
+				value={ toolPermissionsSelection }
+				onChange={ ( toolName: GatedToolName, level: ToolPermissionLevel ) =>
+					setDirtyToolPermissions( ( previous ) => ( { ...previous, [ toolName ]: level } ) )
+				}
+			/>
 			<QuitSitesBehaviorPicker
 				value={ quitSitesBehaviorSelection }
 				onChange={ ( value ) => {

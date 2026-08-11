@@ -3,12 +3,14 @@ import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { useQueryClient } from '@tanstack/react-query';
 import { createRootRouteWithContext, Outlet, useNavigate, useParams } from '@tanstack/react-router';
 import { useEffect, useRef } from 'react';
+import { normalizeSettingsTab } from '@/components/settings-view';
 import { useConnector } from '@/data/core';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
-import { useAppMenuNavigation } from '@/hooks/use-app-menu-navigation';
+import { useAddSiteListener } from '@/hooks/use-add-site-listener';
+import { useMouseNavigation } from '@/hooks/use-mouse-navigation';
 import { WapuuWorldMount } from '@/ui-classic/components/wapuu-world';
-import type { AiSessionSummary, Connector, SiteDetails } from '@/data/core';
+import type { AiSessionSummary, Connector, SiteDetails, UserSettingsEventTab } from '@/data/core';
 import type { QueryClient } from '@tanstack/react-query';
 
 export interface RouterContext {
@@ -16,9 +18,33 @@ export interface RouterContext {
 	connector: Connector;
 }
 
-function AppMenuNavigation() {
-	useAppMenuNavigation();
-	return null;
+function getSettingsTabFromEvent( tabName: UserSettingsEventTab | undefined ) {
+	return normalizeSettingsTab( tabName );
+}
+
+function RootLayout() {
+	const connector = useConnector();
+	const navigate = useNavigate();
+
+	useAddSiteListener();
+	useMouseNavigation();
+
+	useEffect( () => {
+		return connector.onUserSettings( ( tabName ) => {
+			void navigate( {
+				to: '/settings',
+				search: { tab: getSettingsTabFromEvent( tabName ) },
+			} );
+		} );
+	}, [ connector, navigate ] );
+
+	return (
+		<>
+			<DeletedSiteRedirect />
+			<WapuuWorldMount />
+			<Outlet />
+		</>
+	);
 }
 
 /**
@@ -80,12 +106,5 @@ export function DeletedSiteRedirect() {
 }
 
 export const rootRoute = createRootRouteWithContext< RouterContext >()( {
-	component: () => (
-		<>
-			<AppMenuNavigation />
-			<DeletedSiteRedirect />
-			<WapuuWorldMount />
-			<Outlet />
-		</>
-	),
+	component: RootLayout,
 } );

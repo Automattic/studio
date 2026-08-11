@@ -5,12 +5,18 @@ import { ariaKeyShortcut, displayShortcut, isKeyboardEvent } from '@wordpress/ke
 import { Button, Dialog, Icon, IconButton, Tooltip } from '@wordpress/ui';
 import { useEffect, useState } from 'react';
 import * as Menu from '@/components/menu';
+import { PreviewToggleButton } from '@/components/preview-toggle-button';
 import { useUpdateSessionMetadata } from '@/data/queries/use-sessions';
+import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { formatRelativeTime } from '@/lib/format-relative-time';
 import styles from './style.module.css';
 import type { AiSessionSummary } from '@/data/core';
 
 const NEW_CHAT_SHORTCUT_KEY = 'n';
+const NEW_CHAT_SHORTCUT = {
+	displayShortcut: displayShortcut.primary( NEW_CHAT_SHORTCUT_KEY ),
+	ariaKeyShortcut: ariaKeyShortcut.primary( NEW_CHAT_SHORTCUT_KEY ),
+};
 
 function getTimestamp( session: AiSessionSummary ): number {
 	return Date.parse( session.updatedAt ) || 0;
@@ -20,17 +26,16 @@ function getSessionTitle( session: AiSessionSummary ): string {
 	return session.firstPrompt?.trim() || __( 'Untitled chat' );
 }
 
-export function getSiteSessionHistory( {
-	currentSession,
-	ownerSite,
-	sessions,
-	archived = false,
-}: {
+interface SiteSessionHistoryArgs {
 	currentSession: AiSessionSummary;
 	ownerSite: { id: string; path: string } | undefined;
 	sessions: AiSessionSummary[] | undefined;
-	archived?: boolean;
-} ): AiSessionSummary[] {
+}
+
+function collectSiteSessionHistory(
+	{ currentSession, ownerSite, sessions }: SiteSessionHistoryArgs,
+	archived: boolean
+): AiSessionSummary[] {
 	if ( ! ownerSite ) {
 		return [];
 	}
@@ -47,8 +52,17 @@ export function getSiteSessionHistory( {
 	return [ ...sessionsById.values() ].sort( ( a, b ) => getTimestamp( b ) - getTimestamp( a ) );
 }
 
+export function getSiteSessionHistory( args: SiteSessionHistoryArgs ): AiSessionSummary[] {
+	return collectSiteSessionHistory( args, false );
+}
+
+export function getSiteArchivedSessionHistory( args: SiteSessionHistoryArgs ): AiSessionSummary[] {
+	return collectSiteSessionHistory( args, true );
+}
+
 interface SessionChatActionsProps {
 	archivedSessions?: AiSessionSummary[];
+	canTogglePreview?: boolean;
 	currentSessionId: string;
 	isCreatingSession?: boolean;
 	onNewChat: () => void;
@@ -58,12 +72,14 @@ interface SessionChatActionsProps {
 
 export function SessionChatActions( {
 	archivedSessions = [],
+	canTogglePreview = false,
 	currentSessionId,
 	isCreatingSession = false,
 	onNewChat,
 	onSwitchSession,
 	sessions,
 }: SessionChatActionsProps ) {
+	const sidebarCollapsed = useSidebarCollapsed();
 	const updateSessionMetadata = useUpdateSessionMetadata();
 	const [ archiveDialogOpen, setArchiveDialogOpen ] = useState( false );
 	const [ historyMenuOpen, setHistoryMenuOpen ] = useState( false );
@@ -99,7 +115,13 @@ export function SessionChatActions( {
 	}, [ isCreatingSession, onNewChat ] );
 
 	return (
-		<div className={ styles.classicComposerFooter }>
+		<div
+			className={
+				sidebarCollapsed
+					? `${ styles.classicComposerFooter } ${ styles.classicComposerFooterSidebarCollapsed }`
+					: styles.classicComposerFooter
+			}
+		>
 			<div className={ styles.classicComposerFooterSide }>
 				<Menu.Root modal={ false } onOpenChange={ setHistoryMenuOpen }>
 					<Tooltip.Root disabled={ historyMenuOpen }>
@@ -135,6 +157,7 @@ export function SessionChatActions( {
 									<Menu.Item
 										key={ session.id }
 										className={ styles.classicComposerHistoryItem }
+										data-current={ isCurrent ? 'true' : undefined }
 										aria-current={ isCurrent ? 'page' : undefined }
 										onClick={ () => {
 											if ( ! isCurrent ) {
@@ -238,7 +261,7 @@ export function SessionChatActions( {
 								onClick={ onNewChat }
 								disabled={ isCreatingSession }
 								aria-busy={ isCreatingSession || undefined }
-								aria-keyshortcuts={ ariaKeyShortcut.primary( NEW_CHAT_SHORTCUT_KEY ) }
+								aria-keyshortcuts={ NEW_CHAT_SHORTCUT.ariaKeyShortcut }
 							/>
 						}
 					>
@@ -248,10 +271,57 @@ export function SessionChatActions( {
 						{ sprintf(
 							// translators: %s: keyboard shortcut for starting a new chat.
 							__( 'New chat %s' ),
-							displayShortcut.primary( NEW_CHAT_SHORTCUT_KEY )
+							NEW_CHAT_SHORTCUT.displayShortcut
 						) }
 					</Tooltip.Popup>
 				</Tooltip.Root>
+			</div>
+			{ canTogglePreview ? (
+				<div
+					className={ `${ styles.classicComposerFooterSide } ${ styles.classicComposerFooterEnd }` }
+				>
+					<PreviewToggleButton />
+				</div>
+			) : null }
+		</div>
+	);
+}
+
+export function SessionChatActionsSkeleton() {
+	const sidebarCollapsed = useSidebarCollapsed();
+
+	return (
+		<div
+			className={
+				sidebarCollapsed
+					? `${ styles.classicComposerFooter } ${ styles.classicComposerFooterSidebarCollapsed }`
+					: styles.classicComposerFooter
+			}
+			style={ { visibility: 'hidden' } }
+			aria-hidden="true"
+		>
+			<div className={ styles.classicComposerFooterSide }>
+				<Button
+					type="button"
+					variant="minimal"
+					tone="neutral"
+					size="small"
+					className={ `${ styles.classicComposerTextButton } ${ styles.classicComposerIconButton }` }
+					aria-label={ __( 'Chat history' ) }
+					tabIndex={ -1 }
+				>
+					<Icon icon={ backup } size={ 26 } className={ styles.classicComposerIcon } />
+				</Button>
+				<Button
+					type="button"
+					className={ styles.classicComposerTextButton }
+					variant="minimal"
+					tone="neutral"
+					size="small"
+					tabIndex={ -1 }
+				>
+					<span>{ __( 'New chat' ) }</span>
+				</Button>
 			</div>
 		</div>
 	);

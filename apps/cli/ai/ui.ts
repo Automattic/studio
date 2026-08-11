@@ -55,6 +55,7 @@ import { getSitesRunningStatus, isSiteRunning } from 'cli/lib/site-utils';
 import { formatTosNoticeLines } from 'cli/lib/tos-notice';
 import type { ToolResultMessage } from '@earendil-works/pi-ai';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
+import type { PermissionDecision, PermissionRequestData } from '@studio/common/ai/tool-permissions';
 import type { AskUserQuestion, SiteInfo } from 'cli/ai/types';
 
 const SITE_PICKER_TAB_LOCAL = 'local' as const;
@@ -2074,6 +2075,108 @@ export class AiChatUI implements AiOutputAdapter {
 		// Resume the agent turn with a fresh markdown block for subsequent text
 		this.showLoader( randomThinkingMessage() );
 		return answers;
+	}
+
+	/**
+	 * Blocking confirmation for a gated tool call. Reuses the option-picker
+	 * machinery from askUser, but with fixed decisions, warning styling, and
+	 * dismissal (Escape/interrupt) resolving as deny.
+	 */
+	async requestPermission( request: PermissionRequestData ): Promise< PermissionDecision > {
+		this.hideLoader();
+		this.currentMarkdown = null;
+		this.currentResponseText = '';
+
+		this.messages.addChild(
+			new Text( '\n' + chalk.yellow( '⚠ ' + __( 'Permission needed' ) ), 1, 0 )
+		);
+		this.messages.addChild( new Text( chalk.bold( request.title ), 1, 0 ) );
+		for ( const line of request.consequences ) {
+			this.messages.addChild( new Text( chalk.dim( `• ${ line }` ), 1, 0 ) );
+		}
+		this.tui.requestRender();
+
+		this.hideEditor();
+		const selectItems: SelectItem[] = [
+			{ value: 'allow_once', label: `1. ${ __( 'Yes, go ahead' ) }` },
+		];
+		if ( request.allowAlways ) {
+			selectItems.push( {
+				value: 'always_allow',
+				// translators: %s: what will be allowed without asking again (e.g. "pushing sites to WordPress.com")
+				label: `2. ${ sprintf( __( 'Always allow %s' ), request.actionLabel ) }`,
+				description: __( 'You can change this later with /permissions.' ),
+			} );
+		}
+		selectItems.push( {
+			value: 'deny',
+			label: `${ selectItems.length + 1 }. ${ __( 'No, stop' ) }`,
+			description: __( 'The agent will not run this and will ask what to do instead.' ),
+		} );
+
+		this.optionPickerHasFreeForm = false;
+		this.optionPickerItemCount = selectItems.length;
+		const selectList = new SelectList(
+			selectItems,
+			selectItems.length,
+			AiChatUI.OPTION_PICKER_THEME
+		);
+
+		this.optionPickerSelectList = selectList;
+		this.optionPickerVisible = true;
+		this.optionPickerContainer = new Container();
+		this.tui.addChild( this.optionPickerContainer );
+		this.optionPickerContainer.addChild( this.optionPickerSelectList );
+		this.tui.requestRender();
+
+		const selected = await new Promise< string >( ( resolve ) => {
+			this.optionPickerResolve = resolve;
+			selectList.onSelect = ( item: SelectItem ) => {
+				this.optionPickerResolve = null;
+				this.closeOptionPicker();
+				resolve( item.value );
+			};
+			selectList.onCancel = () => {
+				// Resolves the promise with '' — mapped to deny below.
+				this.cancelOptionPicker();
+			};
+		} );
+
+		const decision: PermissionDecision =
+			selected === 'allow_once' || selected === 'always_allow' ? selected : 'deny';
+
+		this.messages.addChild(
+			new Text( chalk.dim( decision === 'deny' ? __( '✕ Denied' ) : __( '✓ Allowed' ) ), 1, 0 )
+		);
+		this.showLoader( randomThinkingMessage() );
+		return decision;
+	}
+
+	/**
+	 * Render a past permission request during session replay. `decision` is
+	 * absent when the session ended before the user answered — the tool never
+	 * ran, and the request is shown as expired rather than re-answerable.
+	 */
+	showPermissionRequest(
+		request: Pick< PermissionRequestData, 'title' >,
+		decision?: PermissionDecision
+	): void {
+		this.hideLoader();
+		this.currentMarkdown = null;
+		this.currentResponseText = '';
+		this.messages.addChild(
+			new Text( '\n' + chalk.yellow( '⚠ ' ) + chalk.bold( request.title ), 0, 0 )
+		);
+		let outcome: string;
+		if ( decision === undefined ) {
+			outcome = __( 'Expired without an answer' );
+		} else if ( decision === 'deny' ) {
+			outcome = __( '✕ Denied' );
+		} else {
+			outcome = __( '✓ Allowed' );
+		}
+		this.messages.addChild( new Text( chalk.dim( outcome ), 0, 0 ) );
+		this.tui.requestRender();
 	}
 
 	/**

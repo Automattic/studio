@@ -49,11 +49,11 @@ describe( 'PreviewSplitFrame', () => {
 		const root = getFrameRoot();
 
 		await waitFor( () => {
-			expect( root ).toHaveStyle( '--preview-frame-content-width: 480px' );
+			expect( root ).toHaveStyle( '--preview-frame-content-width: 520px' );
 		} );
 		expect( screen.getByRole( 'separator', { name: 'Resize site preview' } ) ).toHaveAttribute(
 			'aria-valuenow',
-			'520'
+			'480'
 		);
 		expect( screen.getByLabelText( 'Site preview' ) ).toBeVisible();
 	} );
@@ -77,7 +77,7 @@ describe( 'PreviewSplitFrame', () => {
 		);
 	} );
 
-	it( 'keeps the content width stable as the window grows', async () => {
+	it( 'keeps the content column at its default width as the window grows', async () => {
 		render(
 			<PreviewSplitFrame previewOpen preview={ () => <aside aria-label="Site preview" /> }>
 				<span data-testid="content">Content</span>
@@ -86,61 +86,60 @@ describe( 'PreviewSplitFrame', () => {
 
 		const root = getFrameRoot();
 		await waitFor( () => {
-			expect( root ).toHaveStyle( '--preview-frame-content-width: 480px' );
+			expect( root ).toHaveStyle( '--preview-frame-content-width: 520px' );
 		} );
-
-		frameWidth = 1120;
-		fireEvent( window, new Event( 'resize' ) );
-
-		expect( root ).toHaveStyle( '--preview-frame-content-width: 480px' );
 
 		frameWidth = 1300;
 		fireEvent( window, new Event( 'resize' ) );
 
-		expect( root ).toHaveStyle( '--preview-frame-content-width: 480px' );
+		expect( root ).toHaveStyle( '--preview-frame-content-width: 520px' );
 	} );
 
-	it( 'gives the whole frame to the preview in fullscreen', async () => {
-		const preview = () => <aside aria-label="Site preview" />;
-		const { rerender } = render(
-			<PreviewSplitFrame previewOpen preview={ preview }>
+	it( 'restores the squeezed default content width when the window grows', async () => {
+		// A narrow frame (e.g. before the post-onboarding window expansion)
+		// clamps the content column below its default…
+		frameWidth = 700;
+
+		render(
+			<PreviewSplitFrame previewOpen preview={ () => <aside aria-label="Site preview" /> }>
 				<span data-testid="content">Content</span>
 			</PreviewSplitFrame>
 		);
+
 		const root = getFrameRoot();
-		await waitFor( () => expect( root ).toHaveStyle( '--preview-frame-content-width: 480px' ) );
+		await waitFor( () => {
+			expect( root ).toHaveStyle( '--preview-frame-content-width: 340px' );
+		} );
 
-		rerender(
-			<PreviewSplitFrame previewOpen previewFullscreen preview={ preview }>
-				<span data-testid="content">Content</span>
-			</PreviewSplitFrame>
-		);
+		// …and the growth goes back to the content column, not the preview: the
+		// clamped width was never frozen as the user's intent.
+		frameWidth = 1000;
+		fireEvent( window, new Event( 'resize' ) );
 
-		expect( root ).toHaveStyle( '--preview-frame-content-width: 0px' );
-		// Nothing left to drag once the content column is gone.
-		await waitFor( () =>
-			expect(
-				screen.queryByRole( 'separator', { name: 'Resize site preview' } )
-			).not.toBeInTheDocument()
-		);
-		// The chat stays mounted but out of reach until the slide finishes.
-		await waitFor( () =>
-			expect( screen.getByTestId( 'content' ).parentElement ).toHaveAttribute(
-				'aria-hidden',
-				'true'
-			)
-		);
-
-		// Leaving fullscreen restores the split the user had before.
-		rerender(
-			<PreviewSplitFrame previewOpen preview={ preview }>
-				<span data-testid="content">Content</span>
-			</PreviewSplitFrame>
-		);
-		expect( root ).toHaveStyle( '--preview-frame-content-width: 480px' );
+		expect( root ).toHaveStyle( '--preview-frame-content-width: 520px' );
 	} );
 
-	it( 'keeps preview space reserved when the first mount measurement is zero', () => {
+	it( 'keeps a user-chosen content width stable as the window grows', async () => {
+		window.localStorage.setItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY, '500' );
+
+		render(
+			<PreviewSplitFrame previewOpen preview={ () => <aside aria-label="Site preview" /> }>
+				<span data-testid="content">Content</span>
+			</PreviewSplitFrame>
+		);
+
+		const root = getFrameRoot();
+		await waitFor( () => {
+			expect( root ).toHaveStyle( '--preview-frame-content-width: 500px' );
+		} );
+
+		frameWidth = 1300;
+		fireEvent( window, new Event( 'resize' ) );
+
+		expect( root ).toHaveStyle( '--preview-frame-content-width: 500px' );
+	} );
+
+	it( 'falls back to the default content width when the first mount measurement is zero', () => {
 		frameWidth = 0;
 
 		render(
@@ -150,8 +149,82 @@ describe( 'PreviewSplitFrame', () => {
 		);
 
 		const root = getFrameRoot();
-		expect( root ).toHaveStyle( '--preview-frame-content-width: calc(100% - 520px)' );
+		expect( root ).toHaveStyle( '--preview-frame-content-width: 520px' );
 		expect( screen.getByLabelText( 'Site preview' ) ).toBeVisible();
+	} );
+
+	describe( 'fullscreen', () => {
+		it( 'collapses the content column and hides the resize handle', async () => {
+			render(
+				<PreviewSplitFrame
+					previewOpen
+					previewFullscreen
+					preview={ () => <aside aria-label="Site preview" /> }
+				>
+					<span data-testid="content">Content</span>
+				</PreviewSplitFrame>
+			);
+
+			const root = getFrameRoot();
+			expect( root ).toHaveStyle( '--preview-frame-content-width: 0px' );
+			expect(
+				screen.queryByRole( 'separator', { name: 'Resize site preview' } )
+			).not.toBeInTheDocument();
+			// The chat column stays mounted but leaves the accessibility tree.
+			expect( screen.getByTestId( 'content' ).parentElement ).toHaveAttribute(
+				'aria-hidden',
+				'true'
+			);
+			expect( screen.getByLabelText( 'Site preview' ) ).toBeInTheDocument();
+		} );
+
+		it( 'restores the split when leaving fullscreen', async () => {
+			const preview = () => <aside aria-label="Site preview" />;
+			const { rerender } = render(
+				<PreviewSplitFrame previewOpen previewFullscreen preview={ preview }>
+					<span data-testid="content">Content</span>
+				</PreviewSplitFrame>
+			);
+
+			const root = getFrameRoot();
+			expect( root ).toHaveStyle( '--preview-frame-content-width: 0px' );
+
+			rerender(
+				<PreviewSplitFrame previewOpen preview={ preview }>
+					<span data-testid="content">Content</span>
+				</PreviewSplitFrame>
+			);
+
+			await waitFor( () => {
+				expect( root ).toHaveStyle( '--preview-frame-content-width: 520px' );
+			} );
+			expect( screen.getByTestId( 'content' ).parentElement ).not.toHaveAttribute( 'aria-hidden' );
+			await waitFor( () => {
+				expect(
+					screen.getByRole( 'separator', { name: 'Resize site preview' } )
+				).toBeInTheDocument();
+			} );
+		} );
+
+		it( 'keeps the content visible while the fullscreen toggle animates', () => {
+			const preview = () => <aside aria-label="Site preview" />;
+			const { rerender } = render(
+				<PreviewSplitFrame previewOpen preview={ preview }>
+					<span data-testid="content">Content</span>
+				</PreviewSplitFrame>
+			);
+
+			rerender(
+				<PreviewSplitFrame previewOpen previewFullscreen preview={ preview }>
+					<span data-testid="content">Content</span>
+				</PreviewSplitFrame>
+			);
+
+			const root = getFrameRoot();
+			// Width snaps immediately; the hide waits for the slide to finish.
+			expect( root ).toHaveStyle( '--preview-frame-content-width: 0px' );
+			expect( screen.getByTestId( 'content' ).parentElement ).not.toHaveAttribute( 'aria-hidden' );
+		} );
 	} );
 
 	describe( 'keyboard and pointer resizing', () => {
@@ -162,7 +235,7 @@ describe( 'PreviewSplitFrame', () => {
 				</PreviewSplitFrame>
 			);
 			await waitFor( () =>
-				expect( getFrameRoot() ).toHaveStyle( '--preview-frame-content-width: 480px' )
+				expect( getFrameRoot() ).toHaveStyle( '--preview-frame-content-width: 520px' )
 			);
 			return screen.getByRole( 'separator', { name: 'Resize site preview' } );
 		}
@@ -184,18 +257,18 @@ describe( 'PreviewSplitFrame', () => {
 		it( 'steps the preview width with arrow keys, using a larger step with Shift', async () => {
 			const handle = await renderOpenAndSettle();
 			fireEvent.keyDown( handle, { key: 'ArrowLeft' } );
-			expect( handle ).toHaveAttribute( 'aria-valuenow', '536' );
-			fireEvent.keyDown( handle, { key: 'ArrowRight', shiftKey: true } );
 			expect( handle ).toHaveAttribute( 'aria-valuenow', '496' );
-			expect( window.localStorage.getItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY ) ).toBe( '504' );
+			fireEvent.keyDown( handle, { key: 'ArrowRight', shiftKey: true } );
+			expect( handle ).toHaveAttribute( 'aria-valuenow', '456' );
+			expect( window.localStorage.getItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY ) ).toBe( '544' );
 		} );
 
 		it( 'persists the dragged width on mouse resize', async () => {
 			const handle = await renderOpenAndSettle();
 			fireEvent.mouseDown( handle, { button: 0, clientX: 500 } );
 			fireEvent.mouseUp( document, { clientX: 440 } );
-			expect( handle ).toHaveAttribute( 'aria-valuenow', '580' );
-			expect( window.localStorage.getItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY ) ).toBe( '420' );
+			expect( handle ).toHaveAttribute( 'aria-valuenow', '540' );
+			expect( window.localStorage.getItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY ) ).toBe( '460' );
 		} );
 
 		it( 'cleans up document drag state if the preview closes mid-resize', async () => {
@@ -229,7 +302,7 @@ describe( 'PreviewSplitFrame', () => {
 			const handle = await renderOpenAndSettle();
 			fireEvent.mouseDown( handle, { button: 2, clientX: 500 } );
 			fireEvent.mouseUp( document, { clientX: 200 } );
-			expect( handle ).toHaveAttribute( 'aria-valuenow', '520' );
+			expect( handle ).toHaveAttribute( 'aria-valuenow', '480' );
 			expect( window.localStorage.getItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY ) ).toBeNull();
 		} );
 	} );

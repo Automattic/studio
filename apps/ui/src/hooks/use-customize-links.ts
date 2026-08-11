@@ -6,13 +6,16 @@ import {
 	navigation,
 	pages,
 	pencil,
+	plugins as pluginsIcon,
 	postList,
 	styles as stylesIcon,
 	symbolFilled,
+	tool,
 	widget,
 	wordpress,
 } from '@wordpress/icons';
 import { useMemo } from 'react';
+import { usePluginSiteTag } from '@/lib/plugin-prototype';
 import type { SiteDetails } from '@/data/core';
 import type { ReactElement, SVGProps } from 'react';
 
@@ -27,8 +30,9 @@ export interface CustomizeLink {
 
 /**
  * The WP Admin destinations offered for a site, grouped the way the
- * "Open WordPress…" menus present them: a customize group (theme-editing
- * surfaces), a content group, and the WP Admin dashboard link.
+ * "Open WordPress…" menus present them: a customize group (plugin
+ * destinations for plugin-tagged sites, theme-editing surfaces otherwise),
+ * a content group, and the WP Admin dashboard link.
  */
 export function useCustomizeLinks( site: SiteDetails ): {
 	customizeLinks: CustomizeLink[];
@@ -36,18 +40,45 @@ export function useCustomizeLinks( site: SiteDetails ): {
 	adminLink: CustomizeLink;
 	allLinks: CustomizeLink[];
 } {
+	// Prototype: plugin sites lead with plugin-development destinations
+	// instead of the theme-editing surfaces.
+	const pluginTag = usePluginSiteTag( site.id );
 	const themeDetails = site.themeDetails;
 
 	// Memoized so consumers can feed the lists to identity-sensitive APIs
 	// (the address bar hands them to Base UI as autocomplete items, which
 	// re-renders on every items identity change).
-	return useMemo( () => buildCustomizeLinks( { themeDetails } ), [ themeDetails ] );
+	return useMemo(
+		() => buildCustomizeLinks( { isPluginSite: !! pluginTag, themeDetails } ),
+		[ pluginTag, themeDetails ]
+	);
 }
 
-function buildCustomizeLinks( { themeDetails }: { themeDetails: SiteDetails[ 'themeDetails' ] } ) {
+function buildCustomizeLinks( {
+	isPluginSite,
+	themeDetails,
+}: {
+	isPluginSite: boolean;
+	themeDetails: SiteDetails[ 'themeDetails' ];
+} ) {
 	const isBlockTheme = themeDetails?.isBlockTheme === true;
 
-	const customizeLinks: CustomizeLink[] = isBlockTheme
+	const pluginLinks: CustomizeLink[] = [
+		{
+			id: 'plugins',
+			icon: pluginsIcon,
+			label: __( 'Plugins' ),
+			url: '/wp-admin/plugins.php',
+		},
+		{
+			id: 'site-health',
+			icon: tool,
+			label: __( 'Site Health' ),
+			url: '/wp-admin/site-health.php',
+		},
+	];
+
+	const themeLinks: CustomizeLink[] = isBlockTheme
 		? [
 				{
 					id: 'site-editor',
@@ -120,6 +151,7 @@ function buildCustomizeLinks( { themeDetails }: { themeDetails: SiteDetails[ 'th
 		url: '/wp-admin/',
 	};
 
+	const customizeLinks = isPluginSite ? pluginLinks : themeLinks;
 	return {
 		customizeLinks,
 		contentLinks,

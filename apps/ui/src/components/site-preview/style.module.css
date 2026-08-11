@@ -13,8 +13,8 @@
 	overflow: hidden;
 }
 
-/* Full preview: the panel spans the whole frame, so the content/preview
-   separator would read as a stray line down the window's edge. */
+/* Fullscreen (full preview): the panel sits flush against the window's left
+   edge, where the content/preview separator would read as a stray line. */
 .rootFullscreen {
 	border-inline-start: none;
 }
@@ -30,15 +30,27 @@
 	background-color: var(--wpds-color-bg-surface-neutral-strong, #fff);
 	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
 	-webkit-app-region: drag;
-	/* Sizes the address segments' narrow-width behavior (the title collapse
-	   in location-omnibox.module.css queries this container). */
 	container: studio-preview-toolbar / inline-size;
+	/* Ease in/out of the sidebar-collapsed padding alongside the split
+	   frame's 150ms full-bleed transition. */
+	transition: padding 150ms ease;
 }
 
-/* Clears the macOS traffic lights, which always sit at the window's physical
-   top-left — hence the physical padding rather than an inline-start one. */
+/* With the sidebar hidden the split frame goes full-bleed (`.rootFrameless`
+   in preview-split-frame), putting this toolbar flush against the window's
+   top edge where it read as cropped. Equal extra padding keeps the controls
+   centered in a slightly taller bar, in line with the macOS traffic lights
+   (12px glyphs at y 20–32, center 26) and the pinned SiteHeaderActions
+   cluster, which drops to match. */
+.headerSidebarCollapsed {
+	padding-block: calc(var(--wpds-dimension-padding-xs) + 4px);
+}
+
+/* Full preview hides the sidebar, so the macOS traffic lights (at {20, 20})
+   overlay this toolbar's left edge; clear them the same way the sidebar
+   header does (94px). */
 .headerTrafficLights {
-	padding-left: 94px;
+	padding-inline-start: 94px;
 }
 
 /* The toolbar doubles as a window drag region; the controls (including the
@@ -60,6 +72,24 @@
 
 .headerSideEnd {
 	justify-content: flex-end;
+}
+
+.refreshButton {
+	min-width: 28px;
+}
+
+.refreshIcon {
+	display: inline-flex;
+	width: 14px;
+	height: 14px;
+	align-items: center;
+	justify-content: center;
+}
+
+.refreshIcon svg {
+	display: block;
+	width: 100%;
+	height: 100%;
 }
 
 .browserLocation {
@@ -102,7 +132,6 @@
 	transition: transform 160ms ease-out;
 }
 
-/* Page-load progress grows from the reading start. */
 .loadingProgress span:dir(rtl) {
 	transform-origin: right center;
 }
@@ -111,6 +140,7 @@
 	flex: 1;
 	min-height: 0;
 	display: flex;
+	flex-direction: column;
 	position: relative;
 	background-color: var(--wpds-color-bg-surface-neutral-strong, #fff);
 	overflow: hidden;
@@ -120,24 +150,30 @@
 	position: relative;
 	display: flex;
 	flex: 1 1 auto;
-	min-width: 0;
 	min-height: 120px;
 	overflow: hidden;
 }
 
-/* While simulating a viewport, the preset's frame floats centered with
-   breathing room; the padding is excluded from the measured pane, so the
-   frame's fit-to-pane scale accounts for it automatically. */
+/* While simulating a viewport, the surface can be narrower than the pane
+   (letterboxed 1:1) or lay out wider than it (scaled down to fit). `safe`
+   keeps the overflowing case pinned to the start so the scaled page stays
+   fully visible. */
 .previewViewportSimulated {
-	align-items: safe center;
 	justify-content: safe center;
-	padding: 16px;
 	background-color: var(--wpds-color-bg-surface-neutral);
 }
 
-/* The letterbox behind simulated viewports carries a dot grid so it reads
-   as the preview panel's own surface. No radial mask here — the frame
-   covers the center, so the grid lives at the edges. */
+/* Fixed-height (device) presets float as a centered frame with breathing
+   room; the padding is excluded from the measured pane, so the frame's
+   fit-to-pane scale accounts for it automatically. */
+.previewViewportDevice {
+	align-items: safe center;
+	padding: 16px;
+}
+
+/* The letterbox behind simulated viewports carries the same dot grid as the
+   stopped state, so it reads as the preview panel's own surface. No radial
+   mask here — the frame covers the center, so the grid lives at the edges. */
 .viewportGrid {
 	position: absolute;
 	inset: 0;
@@ -168,8 +204,8 @@
 	background-color: var(--wpds-color-bg-surface-neutral-strong, #fff);
 }
 
-/* The split view's phone pane, beside the desktop frame on the shared
-   letterbox. Shrinkable so a narrow panel never crushes the primary view. */
+/* The split view's phone pane, beside the pane-filling primary surface.
+   Shrinkable so a narrow panel never crushes the primary view entirely. */
 .splitMobilePane {
 	position: relative;
 	display: flex;
@@ -179,6 +215,8 @@
 	justify-content: safe center;
 	padding: 16px;
 	overflow: hidden;
+	border-inline-start: 1px solid var(--wpds-color-stroke-surface-neutral);
+	background-color: var(--wpds-color-bg-surface-neutral);
 }
 
 .spinnerOverlay {
@@ -216,6 +254,184 @@
 	height: 100%;
 	border: 0;
 	background-color: var(--wpds-color-bg-surface-neutral-strong, #fff);
+}
+
+.consoleDrawer {
+	position: relative;
+	z-index: 1;
+	display: flex;
+	flex-direction: column;
+	flex: 0 0 min(calc(100% - 120px), var(--preview-console-height, 280px));
+	height: min(calc(100% - 120px), var(--preview-console-height, 280px));
+	min-height: 168px;
+	border-top: 1px solid var(--wpds-color-stroke-surface-neutral);
+	background-color: var(--wpds-color-bg-surface-neutral-strong);
+	color: var(--wpds-color-fg-content-neutral);
+	-webkit-app-region: no-drag;
+}
+
+.consoleResizeHandle {
+	position: absolute;
+	top: -4px;
+	left: 0;
+	right: 0;
+	z-index: 4;
+}
+
+.consoleHeader {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+	align-items: center;
+	gap: var(--wpds-dimension-padding-sm);
+	min-height: 36px;
+	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-md);
+	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
+	background-color: var(--wpds-color-bg-surface-neutral);
+}
+
+.consoleTitle {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-xs);
+	justify-self: start;
+	min-width: 0;
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-xs);
+	font-weight: 600;
+	line-height: 16px;
+}
+
+.consoleTitleIcon {
+	display: inline-flex;
+	width: 14px;
+	height: 14px;
+	flex-shrink: 0;
+}
+
+.consoleTitleIcon svg {
+	display: block;
+	width: 100%;
+	height: 100%;
+}
+
+.consoleFilters {
+	display: inline-flex;
+	align-items: center;
+	justify-self: center;
+	gap: 2px;
+	padding: 2px;
+	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: 6px;
+	background-color: var(--wpds-color-bg-surface-neutral-strong);
+}
+
+.consoleFilter {
+	min-width: 44px;
+	height: 24px;
+	padding: 0 var(--wpds-dimension-padding-sm);
+	border: 0;
+	border-radius: 4px;
+	background-color: transparent;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	font-weight: 500;
+	line-height: 16px;
+	cursor: pointer;
+}
+
+.consoleFilter[aria-pressed='true'] {
+	background-color: var(--wpds-color-bg-interactive-neutral-weak-active);
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.consoleFilter:focus-visible {
+	outline: 2px solid var(--wpds-color-stroke-focus-brand);
+	outline-offset: 1px;
+}
+
+.consoleActions {
+	display: flex;
+	align-items: center;
+	justify-self: end;
+	gap: 0;
+}
+
+.consoleBody {
+	flex: 1;
+	min-height: 0;
+	overflow: auto;
+	background-color: var(--wpds-color-bg-surface-neutral-strong);
+}
+
+.consoleEntries {
+	display: flex;
+	flex-direction: column;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.consoleEntry {
+	display: grid;
+	grid-template-columns: minmax(94px, auto) minmax(0, 1fr) minmax(0, auto);
+	gap: var(--wpds-dimension-padding-sm);
+	align-items: start;
+	padding: 7px var(--wpds-dimension-padding-md);
+	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
+	font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+	font-size: 11px;
+	line-height: 16px;
+}
+
+.consoleEntryMeta {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-xs);
+	min-width: 0;
+	white-space: nowrap;
+}
+
+.consoleEntryTime {
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.consoleEntryLevel {
+	color: var(--wpds-color-fg-content-neutral);
+	font-weight: 700;
+}
+
+.consoleEntry[data-level='error'] .consoleEntryLevel {
+	color: var(--wpds-color-fg-content-error);
+}
+
+.consoleEntry[data-level='warning'] .consoleEntryLevel {
+	color: var(--wpds-color-fg-content-warning);
+}
+
+.consoleEntryMessage {
+	min-width: 0;
+	overflow-wrap: anywhere;
+	white-space: pre-wrap;
+}
+
+.consoleEntrySource {
+	min-width: 0;
+	max-width: 180px;
+	overflow: hidden;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.consoleEmpty {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	height: 100%;
+	padding: var(--wpds-dimension-padding-lg);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	text-align: center;
 }
 
 .empty {
@@ -271,11 +487,15 @@
 	object-fit: cover;
 }
 
+.startButton {
+	padding-inline: var(--wpds-dimension-padding-xl) calc(var(--wpds-dimension-padding-xl) + 8px);
+}
+
 .startIcon {
 	display: inline-flex;
 	width: 16px;
 	height: 16px;
-	margin-right: 4px;
+	margin-right: 8px;
 }
 
 .startIcon svg {

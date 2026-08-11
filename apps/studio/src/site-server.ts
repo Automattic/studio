@@ -60,6 +60,12 @@ export function getRunningSiteCount(): number {
 	return Array.from( servers.values() ).filter( ( server ) => server.details.running ).length;
 }
 
+export function getRunningSiteNames(): string[] {
+	return Array.from( servers.values() )
+		.filter( ( server ) => server.details.running )
+		.map( ( server ) => server.details.name );
+}
+
 // Re-query the CLI for authoritative running state and reconcile in-memory details — recovers from
 // transitions the `_events` stream never emits (e.g. a daemon crash), which no push update can fix.
 export async function reconcileSitesRunningState(): Promise< void > {

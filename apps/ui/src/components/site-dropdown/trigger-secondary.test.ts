@@ -91,6 +91,15 @@ describe( 'getSiteDropdownSecondary', () => {
 } );
 
 describe( 'getSyncActivityLabel', () => {
+	it( 'formats pending push labels by phase', () => {
+		expect(
+			getSyncActivityLabel( { kind: 'pending', direction: 'push', phase: 'creating-backup' } )
+		).toBe( 'Backing up live site…' );
+		expect(
+			getSyncActivityLabel( { kind: 'pending', direction: 'push', phase: 'applying' } )
+		).toBe( 'Applying live changes…' );
+	} );
+
 	it( 'formats error labels by direction', () => {
 		expect( getSyncActivityLabel( { kind: 'error', direction: 'push', message: 'Nope' } ) ).toBe(
 			'Pushing to live failed'

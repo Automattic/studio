@@ -3,8 +3,9 @@ import {
 	type TracksCustomizeEntryPoint,
 } from '@studio/common/lib/record-tracks-event';
 import { useNavigate } from '@tanstack/react-router';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import {
+	chevronRight,
 	desktop,
 	Icon,
 	layout,
@@ -19,17 +20,24 @@ import {
 import { Button } from '@wordpress/ui';
 import { useState } from 'react';
 import { AgenticSigninBanner } from '@/components/agentic-signin-banner';
+import { useTourAnchor } from '@/components/coachmarks/anchor-registry';
 import { DeleteSiteDialog } from '@/components/delete-site-dialog';
 import { OfflineBanner } from '@/components/offline-banner';
 import { useOpenInDestinations } from '@/components/open-in-menu/use-open-in-destinations';
 import { PreviewToggleButton } from '@/components/preview-toggle-button';
 import { ProgressiveBlur } from '@/components/progressive-blur';
 import { SiteDropdown } from '@/components/site-dropdown';
-import { DATABASE_HOME_PATH } from '@/components/site-preview/address-bar';
-import { isSiteSettingsTab, SiteSettingsForm } from '@/components/site-settings-view';
+import { SiteHeaderActions } from '@/components/site-header-actions';
+import { DATABASE_HOME_PATH } from '@/components/site-preview/location-omnibox';
+import { SiteSettingsForm, type SiteSettingsTabId } from '@/components/site-settings-view';
 import * as Tabs from '@/components/tabs';
 import { useConnector } from '@/data/core';
-import { useIsSiteStarting, useIsSiteStopping, useSites } from '@/data/queries/use-sites';
+import {
+	useIsSiteStarting,
+	useIsSiteStopping,
+	useSiteOverviewDetails,
+	useSites,
+} from '@/data/queries/use-sites';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useWpVersion } from '@/data/queries/use-wordpress-versions';
 import { useOpenSiteUrl } from '@/hooks/use-open-site-url';
@@ -40,15 +48,14 @@ import { databaseLogo } from '@/lib/logos';
 import { AboutSection } from './about-section';
 import { OverviewCard } from './overview-card';
 import styles from './style.module.css';
-import type { SiteSettingsTabId } from '@/components/site-settings-view';
-import type { SiteDetails } from '@/data/core';
+import type { SiteDetails, SiteOverviewDetails, SiteOverviewExtension } from '@/data/core';
 import type { ReactNode } from 'react';
 
 interface SiteOverviewViewProps {
 	siteId: string;
-	activeTab: SiteSettingsTabId;
 	openSiteDropdown?: boolean;
-	onTabChange: ( tab: SiteSettingsTabId ) => void;
+	activeTab?: SiteOverviewTabId;
+	onTabChange?: ( tab: SiteOverviewTabId ) => void;
 }
 
 interface OverviewButtonProps {
@@ -58,8 +65,37 @@ interface OverviewButtonProps {
 	disabled?: boolean;
 	loading?: boolean;
 	loadingAnnouncement?: string;
+	tone?: 'neutral' | 'brand';
 	className?: string;
 	brandIcon?: boolean;
+}
+
+interface ButtonSectionProps {
+	title: string;
+	children: ReactNode;
+	className?: string;
+}
+
+interface DetailSectionProps {
+	title: string;
+	// When provided, the section heading becomes a button that opens the
+	// matching wp-admin screen (e.g. "Plugins ›").
+	onOpen?: () => void;
+	disabled?: boolean;
+	children: ReactNode;
+}
+
+export type SiteOverviewTabId = 'overview' | SiteSettingsTabId;
+
+export function isSiteOverviewTab( value: string ): value is SiteOverviewTabId {
+	return (
+		value === 'overview' || value === 'settings' || value === 'agent' || value === 'checkpoints'
+	);
+}
+
+// Tabs whose content is rendered by the shared SiteSettingsForm.
+function isSettingsTab( value: SiteOverviewTabId ): value is SiteSettingsTabId {
+	return value === 'settings' || value === 'agent' || value === 'checkpoints';
 }
 
 function OverviewHeader( {
@@ -87,6 +123,7 @@ function OverviewHeader( {
 				floating={ false }
 				defaultOpen={ openSiteDropdown }
 			/>
+			<SiteHeaderActions site={ site } />
 		</div>
 	);
 }
@@ -98,13 +135,14 @@ function OverviewButton( {
 	disabled,
 	loading,
 	loadingAnnouncement,
+	tone = 'neutral',
 	className,
 	brandIcon,
 }: OverviewButtonProps ) {
 	return (
 		<Button
 			variant="minimal"
-			tone="neutral"
+			tone={ tone }
 			className={ `${ styles.overviewButton } ${ className ?? '' }` }
 			disabled={ disabled }
 			loading={ loading }
@@ -128,13 +166,148 @@ function OverviewButton( {
 	);
 }
 
-function ButtonSection( { title, children }: { title: string; children: ReactNode } ) {
+function ButtonSection( { title, children, className }: ButtonSectionProps ) {
 	return (
-		<section className={ styles.buttonSection }>
-			<h2 className={ styles.columnHeading }>{ title }</h2>
+		<section className={ `${ styles.buttonSection } ${ className ?? '' }` }>
+			<h2>{ title }</h2>
 			<div className={ styles.buttonGrid }>{ children }</div>
 		</section>
 	);
+}
+
+function DetailSection( { title, onOpen, disabled, children }: DetailSectionProps ) {
+	return (
+		<section className={ styles.detailSection }>
+			<h2 className={ styles.detailSectionHeading }>
+				{ onOpen ? (
+					<Button
+						variant="minimal"
+						className={ styles.sectionHeadingButton }
+						disabled={ disabled }
+						onClick={ onOpen }
+					>
+						<span>{ title }</span>
+						<span className={ styles.sectionActionIcon } aria-hidden="true">
+							<Icon icon={ chevronRight } size={ 18 } />
+						</span>
+					</Button>
+				) : (
+					title
+				) }
+			</h2>
+			{ children }
+		</section>
+	);
+}
+
+function getDetailsStatus( { isLoading, isError }: { isLoading: boolean; isError: boolean } ) {
+	if ( isLoading ) {
+		return __( 'Loading site details...' );
+	}
+	if ( isError ) {
+		return __( 'Site details unavailable.' );
+	}
+	return null;
+}
+
+function OverviewDetailsSections( {
+	details,
+	isLoading,
+	isError,
+	onOpenPlugins,
+	onOpenThemes,
+	disabled,
+}: {
+	details?: SiteOverviewDetails;
+	isLoading: boolean;
+	isError: boolean;
+	onOpenPlugins: () => void;
+	onOpenThemes: () => void;
+	disabled?: boolean;
+} ) {
+	const status = getDetailsStatus( { isLoading, isError } );
+
+	return (
+		<div className={ styles.detailsColumn }>
+			<ExtensionListSection
+				title={ __( 'Plugins' ) }
+				items={ details?.plugins }
+				status={ status }
+				emptyLabel={ __( 'No plugins installed.' ) }
+				onOpen={ onOpenPlugins }
+				disabled={ disabled }
+			/>
+			<ExtensionListSection
+				title={ __( 'Themes' ) }
+				items={ details?.themes }
+				status={ status }
+				emptyLabel={ __( 'No themes installed.' ) }
+				onOpen={ onOpenThemes }
+				disabled={ disabled }
+			/>
+		</div>
+	);
+}
+
+function ExtensionListSection( {
+	title,
+	items,
+	status,
+	emptyLabel,
+	onOpen,
+	disabled,
+}: {
+	title: string;
+	items?: SiteOverviewExtension[];
+	status: string | null;
+	emptyLabel: string;
+	onOpen?: () => void;
+	disabled?: boolean;
+} ) {
+	return (
+		<DetailSection title={ title } onOpen={ onOpen } disabled={ disabled }>
+			{ status ? (
+				<p className={ styles.detailStatus }>{ status }</p>
+			) : items?.length ? (
+				<ul className={ styles.extensionList }>
+					{ items.map( ( item ) => (
+						<li key={ item.slug } className={ styles.extensionItem }>
+							<span className={ styles.extensionName }>{ item.name }</span>
+							{ getExtensionMeta( item ) ? (
+								<span className={ styles.extensionMeta }>{ getExtensionMeta( item ) }</span>
+							) : null }
+						</li>
+					) ) }
+				</ul>
+			) : (
+				<p className={ styles.detailStatus }>{ emptyLabel }</p>
+			) }
+		</DetailSection>
+	);
+}
+
+function getExtensionMeta( item: SiteOverviewExtension ) {
+	const parts: string[] = [];
+	const statusLabel = getExtensionStatusLabel( item.status );
+
+	if ( item.version ) {
+		parts.push( sprintf( __( 'Version %s' ), item.version ) );
+	}
+	if ( statusLabel ) {
+		parts.push( statusLabel );
+	}
+
+	return parts.join( ' | ' );
+}
+
+function getExtensionStatusLabel( status: SiteOverviewExtension[ 'status' ] ) {
+	if ( status === 'active' ) {
+		return __( 'Active' );
+	}
+	if ( status === 'inactive' ) {
+		return __( 'Inactive' );
+	}
+	return status ? status.replace( /-/g, ' ' ) : null;
 }
 
 function OpenInSection( {
@@ -148,9 +321,8 @@ function OpenInSection( {
 } ) {
 	const connector = useConnector();
 	const { data: preferences } = useUserPreferences();
-	const destinations = useOpenInDestinations( site, '/' );
+	const destinations = useOpenInDestinations( site, undefined, '/' );
 	const editorConfigured = Boolean( preferences?.editor );
-
 	const apps = destinations.filter(
 		( destination ) =>
 			destination.id !== 'browser' && ( destination.id !== 'editor' || editorConfigured )
@@ -174,7 +346,6 @@ function OpenInSection( {
 				label={ __( 'phpMyAdmin' ) }
 				disabled={ busy }
 				onClick={ () => {
-					// Opens in the in-app preview panel, not the OS browser.
 					void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_PHPMYADMIN, {
 						browser: 'internal',
 					} );
@@ -187,8 +358,8 @@ function OpenInSection( {
 
 export function SiteOverviewView( {
 	siteId,
-	activeTab,
 	openSiteDropdown = false,
+	activeTab,
 	onTabChange,
 }: SiteOverviewViewProps ) {
 	const { data: sites, isLoading: sitesLoading } = useSites();
@@ -210,8 +381,8 @@ export function SiteOverviewView( {
 	return (
 		<SiteOverviewBody
 			site={ site }
-			activeTab={ activeTab }
 			openSiteDropdown={ openSiteDropdown }
+			activeTab={ activeTab }
 			onTabChange={ onTabChange }
 		/>
 	);
@@ -219,25 +390,33 @@ export function SiteOverviewView( {
 
 function SiteOverviewBody( {
 	site,
-	activeTab,
 	openSiteDropdown,
+	activeTab: controlledActiveTab,
 	onTabChange,
 }: {
 	site: SiteDetails;
-	activeTab: SiteSettingsTabId;
 	openSiteDropdown: boolean;
-	onTabChange: ( tab: SiteSettingsTabId ) => void;
+	activeTab?: SiteOverviewTabId;
+	onTabChange?: ( tab: SiteOverviewTabId ) => void;
 } ) {
 	const navigate = useNavigate();
-	const connector = useConnector();
+	const overviewAnchorRef = useTourAnchor( 'site-overview-content' );
+	const settingsTabAnchorRef = useTourAnchor( 'site-settings-tab' );
 	const isStarting = useIsSiteStarting( site.id );
 	const isStopping = useIsSiteStopping( site.id );
+	const overviewDetails = useSiteOverviewDetails( site.id );
 	const [ deleteOpen, setDeleteOpen ] = useState( false );
+	const [ localActiveTab, setLocalActiveTab ] = useState< SiteOverviewTabId >( 'overview' );
+	const activeTab = controlledActiveTab ?? localActiveTab;
 	const managementActions = useSiteManagementActions( site, {
 		onDelete: () => setDeleteOpen( true ),
 	} );
 
 	const busy = isStarting || isStopping;
+	// Checkpoints run on the user's machine (the CLI checkpoint engine), so the
+	// tab only exists where the connector can reach it.
+	const connector = useConnector();
+	const supportsCheckpoints = connector.capabilities?.siteCheckpoints ?? false;
 	const themeDetails = site.themeDetails;
 	const isBlockTheme = themeDetails?.isBlockTheme === true;
 	const { data: wpVersion } = useWpVersion( site.id );
@@ -245,14 +424,22 @@ function SiteOverviewBody( {
 	// Opens WordPress screens in the in-app preview panel (starting the site
 	// first when needed) rather than the external browser.
 	const openSiteUrl = useOpenSiteUrl( site );
-
 	const openCustomize = ( url: string, entryPoint: TracksCustomizeEntryPoint ) => {
-		// The agentic UI opens customize screens in its in-app preview panel, not the OS browser.
 		void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_CUSTOMIZE, {
 			entry_point: entryPoint,
 			browser: 'internal',
 		} );
 		void openSiteUrl( url );
+	};
+	const selectTab = ( tab: SiteOverviewTabId ) => {
+		if ( tab === activeTab ) {
+			return;
+		}
+		void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: tab } );
+		if ( controlledActiveTab === undefined ) {
+			setLocalActiveTab( tab );
+		}
+		onTabChange?.( tab );
 	};
 
 	return (
@@ -262,8 +449,8 @@ function SiteOverviewBody( {
 				<Tabs.Root
 					selectedTabId={ activeTab }
 					onSelect={ ( tabId ) => {
-						if ( tabId && isSiteSettingsTab( tabId ) ) {
-							onTabChange( tabId );
+						if ( tabId && isSiteOverviewTab( tabId ) ) {
+							selectTab( tabId );
 						}
 					} }
 				>
@@ -271,23 +458,27 @@ function SiteOverviewBody( {
 						<div className={ styles.tabsBarInner }>
 							<Tabs.List>
 								<Tabs.Tab tabId="overview">{ __( 'Overview' ) }</Tabs.Tab>
-								<Tabs.Tab tabId="general">{ __( 'Settings' ) }</Tabs.Tab>
-								<Tabs.Tab tabId="debugging">{ __( 'Debugging' ) }</Tabs.Tab>
+								<Tabs.Tab tabId="settings" ref={ settingsTabAnchorRef }>
+									{ __( 'Settings' ) }
+								</Tabs.Tab>
+								<Tabs.Tab tabId="agent">{ __( 'Agent' ) }</Tabs.Tab>
+								{ supportsCheckpoints ? (
+									<Tabs.Tab tabId="checkpoints">{ __( 'Checkpoints' ) }</Tabs.Tab>
+								) : null }
 							</Tabs.List>
 						</div>
 					</div>
 					<div className={ styles.scroll }>
 						<main className={ styles.content }>
-							<Tabs.Panel tabId="overview" className={ styles.panel }>
+							<Tabs.Panel tabId="overview" className={ styles.overviewPanel }>
 								<OfflineBanner />
-								<AgenticSigninBanner />
 								<div className={ styles.cardColumn }>
 									<h2 className={ styles.columnHeading }>{ __( 'About' ) }</h2>
 									<OverviewCard>
 										<AboutSection site={ site } wpVersion={ wpVersion } />
 									</OverviewCard>
 								</div>
-								<div className={ styles.actionsColumn }>
+								<div className={ styles.actionsColumn } ref={ overviewAnchorRef }>
 									<ButtonSection title={ __( 'Customize' ) }>
 										{ isBlockTheme ? (
 											<>
@@ -295,6 +486,8 @@ function SiteOverviewBody( {
 													icon={ <Icon icon={ desktop } size={ 18 } /> }
 													label={ __( 'Site Editor' ) }
 													disabled={ busy }
+													loading={ isStarting }
+													loadingAnnouncement={ __( 'Starting site' ) }
 													onClick={ () => openCustomize( '/wp-admin/site-editor.php', 'editor' ) }
 												/>
 												<OverviewButton
@@ -359,6 +552,8 @@ function SiteOverviewBody( {
 													icon={ <Icon icon={ pencil } size={ 18 } /> }
 													label={ __( 'Customizer' ) }
 													disabled={ busy }
+													loading={ isStarting }
+													loadingAnnouncement={ __( 'Starting site' ) }
 													onClick={ () => openCustomize( '/wp-admin/customize.php', 'customizer' ) }
 												/>
 												{ themeDetails?.supportsMenus ? (
@@ -387,11 +582,11 @@ function SiteOverviewBody( {
 										/>
 									</ButtonSection>
 
-									{ connector.capabilities.openInOS && (
+									{ connector.capabilities?.openInOS ? (
 										<OpenInSection site={ site } busy={ busy } openSiteUrl={ openSiteUrl } />
-									) }
+									) : null }
 
-									<ButtonSection title={ __( 'Manage' ) }>
+									<ButtonSection title={ __( 'Manage' ) } className={ styles.manageSection }>
 										{ managementActions.map( ( action ) => (
 											<OverviewButton
 												key={ action.id }
@@ -406,12 +601,31 @@ function SiteOverviewBody( {
 										) ) }
 									</ButtonSection>
 								</div>
+								<OverviewDetailsSections
+									details={ overviewDetails.data }
+									isLoading={ overviewDetails.isLoading }
+									isError={ overviewDetails.isError }
+									onOpenPlugins={ () => void openSiteUrl( '/wp-admin/plugins.php' ) }
+									onOpenThemes={ () => void openSiteUrl( '/wp-admin/themes.php' ) }
+									disabled={ busy }
+								/>
 							</Tabs.Panel>
-							<SiteSettingsForm site={ site } activeTab={ activeTab } />
+							{ isSettingsTab( activeTab ) ? (
+								<Tabs.Panel tabId={ activeTab } className={ styles.panel }>
+									<SiteSettingsForm
+										site={ site }
+										activeTab={ activeTab }
+										onTabChange={ selectTab }
+										embedded
+										showTabs={ false }
+									/>
+								</Tabs.Panel>
+							) : null }
 						</main>
 					</div>
 				</Tabs.Root>
 			</div>
+			{ activeTab === 'overview' ? <AgenticSigninBanner /> : null }
 			<ProgressiveBlur direction="up" className={ styles.footerBlur } />
 			<div className={ styles.footerBar }>
 				<PreviewToggleButton />

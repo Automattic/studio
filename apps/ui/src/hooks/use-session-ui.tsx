@@ -11,7 +11,9 @@ import {
 	type ReactNode,
 } from 'react';
 import { useConnector } from '@/data/core';
-import type { Annotation } from '@/components/site-preview/types';
+import type { PreviewConsoleEntry } from '@/components/site-preview/types';
+import type { ComposerClipInput } from '@studio/common/ai/composer-attachments';
+import type { ClipMarker } from '@studio/common/inspector/protocol';
 
 // Dashboard-scoped UI store (mounted once in the dashboard layout, shared by
 // every route under it). Holds the slices of UI state that the chat agent
@@ -31,13 +33,10 @@ interface PreviewUIState {
 	// Only meaningful while `open`; closing the panel always clears it.
 	fullscreen: boolean;
 	reloadNonce: number;
-	// Currently previewed site.
 	siteId: string | null;
-	// Last visited path per site, so switching back restores it. In-memory only.
 	pathsBySiteId: Record< string, string >;
 }
 
-// The path a site's preview shows: its last visited path, or home.
 export function pathForSite(
 	pathsBySiteId: Record< string, string >,
 	siteId: string | null | undefined
@@ -45,21 +44,44 @@ export function pathForSite(
 	return siteId ? pathsBySiteId[ siteId ] ?? '/' : '/';
 }
 
+interface PreviewConsoleUIState {
+	entries: PreviewConsoleEntry[];
+}
+
+// The on-screen session's clips, mirrored into the preview's guest page as
+// numbered markers (published by the composer, read by the preview).
+interface PreviewClipsUIState {
+	markers: ClipMarker[];
+}
+
 export interface SessionUIState {
 	preview: PreviewUIState;
+	previewConsole: PreviewConsoleUIState;
+	previewClips: PreviewClipsUIState;
 }
 
 export type SessionUIAction =
 	| { type: 'preview/set-open'; value: boolean }
 	| { type: 'preview/toggle' }
 	| { type: 'preview/set-fullscreen'; value: boolean }
+	| { type: 'preview/toggle-fullscreen' }
 	| { type: 'preview/navigate'; path: string }
 	| { type: 'preview/reload' }
 	| { type: 'preview/update-path'; path: string }
-	| { type: 'preview/set-site'; siteId: string };
+	| { type: 'preview/set-site'; siteId: string }
+	| { type: 'preview-console/set-entries'; entries: PreviewConsoleEntry[] }
+	| { type: 'preview-clips/set-markers'; markers: ClipMarker[] };
 
 const INITIAL_STATE: SessionUIState = {
-	preview: { open: true, fullscreen: false, reloadNonce: 0, siteId: null, pathsBySiteId: {} },
+	preview: {
+		open: true,
+		fullscreen: false,
+		reloadNonce: 0,
+		siteId: null,
+		pathsBySiteId: {},
+	},
+	previewConsole: { entries: [] },
+	previewClips: { markers: [] },
 };
 
 function reducer( state: SessionUIState, action: SessionUIAction ): SessionUIState {
@@ -69,17 +91,21 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 				? state
 				: {
 						...state,
-						// Closing the panel leaves full preview; reopening starts split.
 						preview: {
 							...state.preview,
 							open: action.value,
+							// Closing the panel leaves full preview; reopening starts split.
 							fullscreen: action.value && state.preview.fullscreen,
 						},
 				  };
 		case 'preview/toggle':
 			return {
 				...state,
-				preview: { ...state.preview, open: ! state.preview.open, fullscreen: false },
+				preview: {
+					...state.preview,
+					open: ! state.preview.open,
+					fullscreen: false,
+				},
 			};
 		case 'preview/set-fullscreen':
 			return state.preview.fullscreen === action.value
@@ -93,6 +119,15 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 							open: action.value || state.preview.open,
 						},
 				  };
+		case 'preview/toggle-fullscreen':
+			return {
+				...state,
+				preview: {
+					...state.preview,
+					fullscreen: ! state.preview.fullscreen,
+					open: ! state.preview.fullscreen || state.preview.open,
+				},
+			};
 		case 'preview/navigate':
 			return {
 				...state,
@@ -124,6 +159,14 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 			return state.preview.siteId === action.siteId
 				? state
 				: { ...state, preview: { ...state.preview, siteId: action.siteId } };
+		case 'preview-console/set-entries':
+			return state.previewConsole.entries === action.entries
+				? state
+				: { ...state, previewConsole: { entries: action.entries } };
+		case 'preview-clips/set-markers':
+			return state.previewClips.markers === action.markers
+				? state
+				: { ...state, previewClips: { markers: action.markers } };
 	}
 }
 
@@ -138,10 +181,22 @@ function rememberPath( preview: PreviewUIState, path: string ): Record< string, 
 // `useSessionCommands`) don't re-run on every state change.
 const SessionUIStateContext = createContext< SessionUIState | null >( null );
 const SessionUIDispatchContext = createContext< Dispatch< SessionUIAction > | null >( null );
+/**
+ * Everything the preview can do *to* the on-screen session. Registered by
+ * the session view while it's displayed; invoked by the dashboard-level
+ * preview. The composer owns the clips, so edits round-trip through here.
+ */
+export interface SessionPreviewClipActions {
+	addClip: ( input: ComposerClipInput ) => void | Promise< void >;
+	updateClipComment: ( id: string, comment: string ) => void;
+	removeClip: ( id: string ) => void;
+	appendComposerText: ( text: string ) => void;
+}
+
 // Ref (not state) so registering/unregistering the handler never re-renders
-// the tree; the dashboard-level preview reads it lazily on submit.
-const SessionUIPreviewAnnotationsContext = createContext< MutableRefObject<
-	( ( annotations: Annotation[] ) => void ) | undefined
+// the tree; the dashboard-level preview reads it lazily on use.
+const SessionUIPreviewClipActionsContext = createContext< MutableRefObject<
+	SessionPreviewClipActions | undefined
 > | null >( null );
 
 export function SessionUIProvider( { children }: { children: ReactNode } ) {
@@ -158,9 +213,7 @@ export function SessionUIProvider( { children }: { children: ReactNode } ) {
 
 function SessionUIProviderRoot( { children }: { children: ReactNode } ) {
 	const [ state, dispatch ] = useReducer( reducer, INITIAL_STATE );
-	const previewAnnotationsRef = useRef< ( ( annotations: Annotation[] ) => void ) | undefined >(
-		undefined
-	);
+	const previewClipActionsRef = useRef< SessionPreviewClipActions | undefined >( undefined );
 	const connector = useConnector();
 	useEffect( () => {
 		return connector.onToggleSitePreview( () => {
@@ -169,13 +222,21 @@ function SessionUIProviderRoot( { children }: { children: ReactNode } ) {
 	}, [ connector ] );
 	return (
 		<SessionUIDispatchContext.Provider value={ dispatch }>
-			<SessionUIPreviewAnnotationsContext.Provider value={ previewAnnotationsRef }>
+			<SessionUIPreviewClipActionsContext.Provider value={ previewClipActionsRef }>
 				<SessionUIStateContext.Provider value={ state }>
 					{ children }
 				</SessionUIStateContext.Provider>
-			</SessionUIPreviewAnnotationsContext.Provider>
+			</SessionUIPreviewClipActionsContext.Provider>
 		</SessionUIDispatchContext.Provider>
 	);
+}
+
+function useSessionUIState(): SessionUIState {
+	const value = useContext( SessionUIStateContext );
+	if ( ! value ) {
+		throw new Error( 'useSessionUIState must be used within a SessionUIProvider' );
+	}
+	return value;
 }
 
 export function useSessionUIDispatch(): Dispatch< SessionUIAction > {
@@ -196,13 +257,16 @@ export interface SessionPreviewUI {
 	setOpen: ( value: boolean ) => void;
 	toggle: () => void;
 	setFullscreen: ( value: boolean ) => void;
+	toggleFullscreen: () => void;
 	updatePath: ( path: string ) => void;
 	setSite: ( siteId: string ) => void;
 }
 
-// Like `useSessionPreviewUI`, but usable outside the dashboard layout —
-// returns null when no SessionUIProvider is mounted, so callers can fall
-// back to non-preview behavior (e.g. opening the external browser).
+/**
+ * Non-throwing variant for callers that may render outside the dashboard's
+ * SessionUIProvider (so they can fall back to another behavior, e.g. opening
+ * the browser, when no preview panel exists).
+ */
 export function useOptionalSessionPreviewUI(): SessionPreviewUI | null {
 	const state = useContext( SessionUIStateContext );
 	const dispatch = useContext( SessionUIDispatchContext );
@@ -213,6 +277,10 @@ export function useOptionalSessionPreviewUI(): SessionPreviewUI | null {
 	const toggle = useCallback( () => dispatch?.( { type: 'preview/toggle' } ), [ dispatch ] );
 	const setFullscreen = useCallback(
 		( value: boolean ) => dispatch?.( { type: 'preview/set-fullscreen', value } ),
+		[ dispatch ]
+	);
+	const toggleFullscreen = useCallback(
+		() => dispatch?.( { type: 'preview/toggle-fullscreen' } ),
 		[ dispatch ]
 	);
 	const updatePath = useCallback(
@@ -237,50 +305,148 @@ export function useOptionalSessionPreviewUI(): SessionPreviewUI | null {
 			setOpen,
 			toggle,
 			setFullscreen,
+			toggleFullscreen,
 			updatePath,
 			setSite,
 		};
-	}, [ state, dispatch, setOpen, toggle, setFullscreen, updatePath, setSite ] );
+	}, [ state, dispatch, setOpen, toggle, setFullscreen, toggleFullscreen, updatePath, setSite ] );
 }
 
 export function useSessionPreviewUI(): SessionPreviewUI {
-	const ui = useOptionalSessionPreviewUI();
-	if ( ! ui ) {
-		throw new Error( 'useSessionPreviewUI must be used within a SessionUIProvider' );
-	}
-	return ui;
+	const state = useSessionUIState();
+	const dispatch = useSessionUIDispatch();
+	const setOpen = useCallback(
+		( value: boolean ) => dispatch( { type: 'preview/set-open', value } ),
+		[ dispatch ]
+	);
+	const toggle = useCallback( () => dispatch( { type: 'preview/toggle' } ), [ dispatch ] );
+	const setFullscreen = useCallback(
+		( value: boolean ) => dispatch( { type: 'preview/set-fullscreen', value } ),
+		[ dispatch ]
+	);
+	const toggleFullscreen = useCallback(
+		() => dispatch( { type: 'preview/toggle-fullscreen' } ),
+		[ dispatch ]
+	);
+	const updatePath = useCallback(
+		( path: string ) => dispatch( { type: 'preview/update-path', path } ),
+		[ dispatch ]
+	);
+	const setSite = useCallback(
+		( siteId: string ) => dispatch( { type: 'preview/set-site', siteId } ),
+		[ dispatch ]
+	);
+	return useMemo(
+		() => ( {
+			open: state.preview.open,
+			fullscreen: state.preview.fullscreen,
+			path: pathForSite( state.preview.pathsBySiteId, state.preview.siteId ),
+			reloadNonce: state.preview.reloadNonce,
+			siteId: state.preview.siteId,
+			pathsBySiteId: state.preview.pathsBySiteId,
+			setOpen,
+			toggle,
+			setFullscreen,
+			toggleFullscreen,
+			updatePath,
+			setSite,
+		} ),
+		[
+			state.preview.open,
+			state.preview.fullscreen,
+			state.preview.siteId,
+			state.preview.pathsBySiteId,
+			state.preview.reloadNonce,
+			setOpen,
+			toggle,
+			setFullscreen,
+			toggleFullscreen,
+			updatePath,
+			setSite,
+		]
+	);
 }
 
-// Registers the on-screen session's annotations handler (its "send to chat")
-// with the shared store, so the dashboard-level preview can submit
-// annotations to whichever session is currently displayed.
-export function useSessionPreviewAnnotations(
-	onAnnotationsDone: ( annotations: Annotation[] ) => void,
+export interface SessionPreviewConsoleUI {
+	readonly entries: PreviewConsoleEntry[];
+	setEntries: ( entries: PreviewConsoleEntry[] ) => void;
+}
+
+export function useSessionPreviewConsoleUI(): SessionPreviewConsoleUI {
+	const state = useSessionUIState();
+	const dispatch = useSessionUIDispatch();
+	const setEntries = useCallback(
+		( entries: PreviewConsoleEntry[] ) =>
+			dispatch( { type: 'preview-console/set-entries', entries } ),
+		[ dispatch ]
+	);
+	return useMemo(
+		() => ( {
+			entries: state.previewConsole.entries,
+			setEntries,
+		} ),
+		[ state.previewConsole.entries, setEntries ]
+	);
+}
+
+export function useSessionPreviewConsoleEntries(): PreviewConsoleEntry[] {
+	return useSessionUIState().previewConsole.entries;
+}
+
+// Registers the on-screen session's clip actions with the shared store, so
+// the dashboard-level preview routes clips to whichever session is
+// currently displayed.
+export function useSessionPreviewClips(
+	actions: SessionPreviewClipActions,
 	enabled: boolean
 ): void {
-	const ref = useContext( SessionUIPreviewAnnotationsContext );
+	const ref = useContext( SessionUIPreviewClipActionsContext );
 	if ( ! ref ) {
-		throw new Error( 'useSessionPreviewAnnotations must be used within a SessionUIProvider' );
+		throw new Error( 'useSessionPreviewClips must be used within a SessionUIProvider' );
 	}
 	useEffect( () => {
 		if ( ! enabled ) {
 			return;
 		}
-		ref.current = onAnnotationsDone;
+		ref.current = actions;
 		return () => {
-			if ( ref.current === onAnnotationsDone ) {
+			if ( ref.current === actions ) {
 				ref.current = undefined;
 			}
 		};
-	}, [ enabled, onAnnotationsDone, ref ] );
+	}, [ enabled, actions, ref ] );
 }
 
-export function useSessionPreviewAnnotationsHandler(): ( annotations: Annotation[] ) => void {
-	const ref = useContext( SessionUIPreviewAnnotationsContext );
+export function useSessionPreviewClipActions(): SessionPreviewClipActions {
+	const ref = useContext( SessionUIPreviewClipActionsContext );
 	if ( ! ref ) {
-		throw new Error(
-			'useSessionPreviewAnnotationsHandler must be used within a SessionUIProvider'
-		);
+		throw new Error( 'useSessionPreviewClipActions must be used within a SessionUIProvider' );
 	}
-	return useCallback( ( annotations: Annotation[] ) => ref.current?.( annotations ), [ ref ] );
+	return useMemo(
+		() => ( {
+			addClip: async ( input: ComposerClipInput ) => {
+				await ref.current?.addClip( input );
+			},
+			updateClipComment: ( id: string, comment: string ) =>
+				ref.current?.updateClipComment( id, comment ),
+			removeClip: ( id: string ) => ref.current?.removeClip( id ),
+			appendComposerText: ( text: string ) => ref.current?.appendComposerText( text ),
+		} ),
+		[ ref ]
+	);
+}
+
+/** The on-screen session's clip markers, for the preview to mirror into the
+ * guest page. */
+export function useSessionPreviewClipMarkers(): ClipMarker[] {
+	return useSessionUIState().previewClips.markers;
+}
+
+/** Publisher side: the composer keeps this in sync with its attachments. */
+export function useSessionPreviewClipMarkersPublisher(): ( markers: ClipMarker[] ) => void {
+	const dispatch = useSessionUIDispatch();
+	return useCallback(
+		( markers: ClipMarker[] ) => dispatch( { type: 'preview-clips/set-markers', markers } ),
+		[ dispatch ]
+	);
 }

@@ -148,6 +148,7 @@ Based on the metrics, suggest specific actions. Route each fix through whatever 
 - **Missing canonical**: Any SEO plugin (Jetpack, Yoast, Rank Math, AIOSEO) handles this automatically once active. Without one, add `<link rel="canonical" href="<?php echo esc_url( wp_get_canonical_url() ); ?>">` to the head.
 - **Wrong h1 count**: Audit the active block theme's templates — site title is often wrapped in an `h1` on every page. Use `h2` for the site title on inner pages, reserve `h1` for the page title. This is a theme fix; no SEO plugin will correct it.
 - **Missing alt text**: Content fix, not a plugin fix. Run `wp media list --field=ID` and update via `wp post update`, or train content editors to add alt text on upload.
+- **Empty text links or button-like links**: Fix the block content or template structure. Use semantic Button, Navigation, and Link controls; do not rely on JavaScript-only click targets or empty icon anchors without accessible labels.
 - **Missing OG / Twitter tags**:
   - *Jetpack active + `seo-tools` on*: OG/Twitter should already be emitted — re-check the HTML; if still missing, inspect for a conflicting plugin stripping them.
   - *Jetpack active + `seo-tools` off*: enable the module.
@@ -158,6 +159,7 @@ Based on the metrics, suggest specific actions. Route each fix through whatever 
 - **Missing sitemap**: Verify `blog_public` is `1` first. Then check `/wp-sitemap.xml` (WP core since 5.5) or `/sitemap.xml` (Jetpack). If Jetpack is active but the sitemap is missing, enable the `seo-tools` module. If another SEO plugin is active, it may have disabled core sitemaps in favor of its own — check its sitemap settings.
 - **Missing viewport meta**: Theme bug — add `<meta name="viewport" content="width=device-width, initial-scale=1">` in the `<head>`. Not a plugin concern.
 - **Missing `htmlLang`**: Theme should output `<html <?php language_attributes(); ?>>` (block themes do this automatically; classic themes need it added). Not a plugin concern.
+- **Essential content rendered only by custom JavaScript**: SEO and accessibility both suffer. Prefer server-rendered block markup, dynamic blocks, or plugin output with progressive enhancement.
 
 ## Important Notes
 

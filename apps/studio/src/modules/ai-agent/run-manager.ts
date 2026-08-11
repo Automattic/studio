@@ -3,6 +3,7 @@ import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
 import type { ActiveAgentRun } from '@studio/common/ai/agent-events';
 import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
 import type { StudioChatImage } from '@studio/common/ai/chat-images';
+import type { PermissionDecision } from '@studio/common/ai/tool-permissions';
 import type { WebContents } from 'electron';
 
 /**
@@ -25,7 +26,21 @@ const runManager = createAgentRunManager( {
 	surface: 'desktop',
 	emit: ( output ) => {
 		const webContents = runWebContents.get( output.runId );
-		if ( webContents && ! webContents.isDestroyed() ) {
+		const deliverable = !! webContents && ! webContents.isDestroyed();
+		// Interaction and lifecycle events are load-bearing for the renderer —
+		// log their delivery so a silent drop (destroyed/unmapped webContents)
+		// is diagnosable from the log file instead of invisible.
+		if ( output.kind === 'agent' ) {
+			const type = output.event.event.type;
+			if ( type !== 'message' && type !== 'progress' ) {
+				console.log(
+					`[ai-agent] ${ type } run=${ output.runId } wc=${
+						webContents ? `${ webContents.id }${ deliverable ? '' : ':destroyed' }` : 'unmapped'
+					}`
+				);
+			}
+		}
+		if ( deliverable ) {
 			if ( output.kind === 'agent' ) {
 				webContents.send( 'ai-agent-event', output.event );
 			} else {
@@ -73,4 +88,12 @@ export function interruptAgentRun( runId: string ): void {
 
 export function answerAgentRun( runId: string, answers: Record< string, string > ): void {
 	runManager.answerAgentRun( runId, answers );
+}
+
+export function answerAgentPermission(
+	runId: string,
+	requestId: string,
+	decision: PermissionDecision
+): void {
+	runManager.answerAgentPermission( runId, requestId, decision );
 }

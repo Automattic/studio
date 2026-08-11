@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ORIENTATION_GUIDE_VERSION } from './orientation-guide';
-import { deriveOrientationAutostart } from './use-orientation-autostart';
+import { deriveOrientationAutostart, isFirstWorkbenchArrival } from './use-orientation-autostart';
 import type { OnboardingHintsState } from '@/data/core';
 
 const base = {
@@ -72,5 +72,20 @@ describe( 'deriveOrientationAutostart', () => {
 	it( 'does not open while the guide is already open or already started', () => {
 		expect( deriveOrientationAutostart( { ...base, guideOpen: true } ) ).toBeNull();
 		expect( deriveOrientationAutostart( { ...base, alreadyStarted: true } ) ).toBeNull();
+	} );
+} );
+
+describe( 'isFirstWorkbenchArrival', () => {
+	it( 'is true when no guide of any version was completed or dismissed', () => {
+		expect( isFirstWorkbenchArrival( {} ) ).toBe( true );
+		expect( isFirstWorkbenchArrival( undefined ) ).toBe( true );
+		expect( isFirstWorkbenchArrival( { tourCompletedVersion: 0, tourDismissedVersion: 0 } ) ).toBe(
+			true
+		);
+	} );
+
+	it( 'is false once any guide version was completed or dismissed', () => {
+		expect( isFirstWorkbenchArrival( { tourCompletedVersion: 1 } ) ).toBe( false );
+		expect( isFirstWorkbenchArrival( { tourDismissedVersion: 1 } ) ).toBe( false );
 	} );
 } );

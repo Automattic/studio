@@ -7,6 +7,7 @@ import {
 } from '@/components/preview-split-frame';
 import { SidebarLayout } from '@/components/sidebar-layout';
 import { SitePreview } from '@/components/site-preview';
+import { useOnboardingRouteEvents } from '@/data/onboarding/use-onboarding-events';
 import { useOrientationAutostart } from '@/data/onboarding/use-orientation-autostart';
 import { useOrientationReplay } from '@/data/onboarding/use-orientation-replay';
 import { useWhatsNewAutostart } from '@/data/onboarding/use-whats-new-autostart';
@@ -16,15 +17,19 @@ import { useSites } from '@/data/queries/use-sites';
 import {
 	pathForSite,
 	SessionUIProvider,
-	useSessionPreviewAnnotationsHandler,
+	useSessionPreviewClipActions,
+	useSessionPreviewClipMarkers,
+	useSessionPreviewConsoleUI,
 	useSessionPreviewUI,
 } from '@/hooks/use-session-ui';
+import { getSiteUrl } from '@/lib/get-site-url';
 import { writeLastVisited } from '@/lib/last-visited';
+import { usePluginSiteTag } from '@/lib/plugin-prototype';
 import { rootRoute } from '../layout-root';
 
 // Session detail routes and the site overview host the preview; on every
-// other route (settings, site settings…) the last previewed site stays
-// mounted but hidden.
+// other route (settings, site settings…) the last previewed site stays mounted
+// but hidden.
 function getRouteSessionId( pathname: string ): string | undefined {
 	const match = /^\/sessions\/([^/]+)\/?$/.exec( pathname );
 	return match ? decodeURIComponent( match[ 1 ] ) : undefined;
@@ -70,8 +75,15 @@ function DashboardLayoutContent() {
 	// Same, for the per-release announcements behind Help ▸ What's New.
 	useWhatsNewAutostart();
 	useWhatsNewReplay();
+	useOnboardingRouteEvents();
 	const preview = useSessionPreviewUI();
-	const onAnnotationsDone = useSessionPreviewAnnotationsHandler();
+	const previewConsole = useSessionPreviewConsoleUI();
+	const setPreviewOpen = preview.setOpen;
+	const setPreviewFullscreen = preview.setFullscreen;
+	const setPreviewSite = preview.setSite;
+	const updatePreviewPath = preview.updatePath;
+	const clipActions = useSessionPreviewClipActions();
+	const clipMarkers = useSessionPreviewClipMarkers();
 	const sessionSite = findAiSessionOwnerSite( sites, sessionData?.summary );
 	const effectiveEnvironment = useSessionEffectiveEnvironment(
 		sessionData?.summary,
@@ -80,6 +92,7 @@ function DashboardLayoutContent() {
 	const overviewSite = overviewSiteId
 		? sites?.find( ( site ) => site.id === overviewSiteId )
 		: undefined;
+	const overviewRouteSiteId = overviewSite?.id;
 	const newSessionSite = newSessionSiteId
 		? sites?.find( ( site ) => site.id === newSessionSiteId )
 		: undefined;
@@ -87,6 +100,8 @@ function DashboardLayoutContent() {
 		overviewSite ??
 		newSessionSite ??
 		( effectiveEnvironment === 'local' ? sessionSite : undefined );
+	const canClipToSession =
+		sessionId !== undefined && effectiveEnvironment === 'local' && !! sessionSite;
 	// While session or site data is still loading, preview-capable routes stay
 	// preview-capable so navigation doesn't close and reopen the panel around
 	// the fetch.
@@ -103,34 +118,73 @@ function DashboardLayoutContent() {
 			setLastPreviewSiteId( routeSite.id );
 		}
 	}, [ routeSite ] );
-	// Remember the user's site so the `/` index route can return here
+	// Remember where the user is so the `/` index route can return here
 	// instead of defaulting to the first site.
 	const sessionSiteId = sessionSite?.id;
 	useEffect( () => {
-		const siteId = sessionSiteId ?? newSessionSiteId;
-		if ( siteId ) {
-			writeLastVisited( { siteId } );
+		if ( sessionId ) {
+			writeLastVisited( { sessionId, siteId: sessionSiteId } );
+			return;
 		}
-	}, [ sessionSiteId, newSessionSiteId ] );
+		const visitedSiteId = overviewSiteId ?? newSessionSiteId;
+		if ( visitedSiteId ) {
+			writeLastVisited( { siteId: visitedSiteId } );
+		}
+	}, [ sessionId, sessionSiteId, overviewSiteId, newSessionSiteId ] );
+	useEffect( () => {
+		if ( overviewRouteSiteId ) {
+			setPreviewOpen( true );
+		}
+	}, [ overviewRouteSiteId, setPreviewOpen ] );
+	// Prototype: a plugin site's new-session route lands the preview on the
+	// Plugins screen (via auto-login) instead of the site's front end.
+	const newSessionPluginTag = usePluginSiteTag( newSessionSite?.id );
+	const newSessionPluginSiteId = newSessionPluginTag ? newSessionSite?.id : undefined;
+	let newSessionPluginPreviewPath: string | undefined;
+	if ( newSessionPluginSiteId && newSessionSite ) {
+		try {
+			const redirectTo = new URL(
+				'/wp-admin/plugins.php',
+				getSiteUrl( newSessionSite )
+			).toString();
+			newSessionPluginPreviewPath = `/studio-auto-login?redirect_to=${ encodeURIComponent(
+				redirectTo
+			) }`;
+		} catch {
+			newSessionPluginPreviewPath = '/wp-admin/plugins.php';
+		}
+	}
+	useEffect( () => {
+		if ( ! newSessionPluginSiteId || ! newSessionPluginPreviewPath ) {
+			return;
+		}
+		setPreviewSite( newSessionPluginSiteId );
+		setPreviewOpen( true );
+		updatePreviewPath( newSessionPluginPreviewPath );
+		// Keyed on the site id — the path only changes with the site's URL, and
+		// re-running then (fresh port) is the desired refresh.
+	}, [
+		newSessionPluginSiteId,
+		newSessionPluginPreviewPath,
+		setPreviewOpen,
+		setPreviewSite,
+		updatePreviewPath,
+	] );
 	const lastPreviewSite = lastPreviewSiteId
 		? sites?.find( ( site ) => site.id === lastPreviewSiteId )
 		: undefined;
 	const previewSite = routeSite ?? lastPreviewSite;
 	const previewSiteId = previewSite?.id;
-	const { setSite: setPreviewSite } = preview;
 	useEffect( () => {
 		if ( previewSiteId ) {
 			setPreviewSite( previewSiteId );
 		}
 	}, [ previewSiteId, setPreviewSite ] );
-	// Look up by the route's site so the path is right even before the
-	// `setPreviewSite` effect lands.
 	const previewPath = pathForSite( preview.pathsBySiteId, previewSiteId );
 	const showPreview = preview.open && supportsPreview && !! previewSite;
 	const previewFullscreen = preview.fullscreen && showPreview;
 	// Leave full preview when the route stops supporting a preview (settings,
 	// site settings…) so the user is never left staring at a hidden layout.
-	const { setFullscreen: setPreviewFullscreen } = preview;
 	useEffect( () => {
 		if ( ! supportsPreview ) {
 			setPreviewFullscreen( false );
@@ -147,21 +201,29 @@ function DashboardLayoutContent() {
 					site={ previewSite }
 					path={ previewPath }
 					reloadNonce={ preview.reloadNonce }
-					onAnnotationsDone={ onAnnotationsDone }
+					onClip={ canClipToSession ? clipActions.addClip : undefined }
+					onClipUpdate={ canClipToSession ? clipActions.updateClipComment : undefined }
+					onClipRemove={ canClipToSession ? clipActions.removeClip : undefined }
+					onComposerText={ canClipToSession ? clipActions.appendComposerText : undefined }
+					clipMarkers={ clipMarkers }
 					onPathChange={ preview.updatePath }
 					collapsed={ collapsed }
 					fullscreen={ previewFullscreen }
-					onFullscreenChange={ setPreviewFullscreen }
+					onToggleFullscreen={ preview.toggleFullscreen }
+					onConsoleEntriesChange={ previewConsole.setEntries }
 				/>
 			) : null,
 		[
-			onAnnotationsDone,
-			previewFullscreen,
+			clipActions,
+			clipMarkers,
+			canClipToSession,
 			previewPath,
 			preview.reloadNonce,
 			preview.updatePath,
+			preview.toggleFullscreen,
+			previewConsole.setEntries,
+			previewFullscreen,
 			previewSite,
-			setPreviewFullscreen,
 		]
 	);
 

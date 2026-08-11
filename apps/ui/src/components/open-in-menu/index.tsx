@@ -1,17 +1,15 @@
+import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
-import { chevronDown, Icon } from '@wordpress/icons';
-import { Button, Tooltip } from '@wordpress/ui';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { DeleteSiteDialog } from '@/components/delete-site-dialog';
 import * as Menu from '@/components/menu';
-import styles from './style.module.css';
+import { QuickMenuItem, QuickMenuPopup, QuickMenuTrigger } from '@/components/site-quick-menu';
+import { useSiteManagementActions } from '@/hooks/use-site-management-actions';
 import { useOpenInDestinations } from './use-open-in-destinations';
 import type { OpenInDestination } from './use-open-in-destinations';
 import type { SiteDetails } from '@/data/core';
 
-// Scoped per site: which app you reach for depends on what you're doing with
-// that site, even though the apps themselves come from global preferences.
 const lastUsedStorageKey = ( siteId: string ) => `studio:open-in-menu:last-used:${ siteId }`;
-const DEFAULT_DESTINATION: OpenInDestination = 'browser';
 
 function isOpenInDestination( value: string | null ): value is OpenInDestination {
 	return value === 'browser' || value === 'files' || value === 'editor' || value === 'terminal';
@@ -20,9 +18,9 @@ function isOpenInDestination( value: string | null ): value is OpenInDestination
 function getStoredDestination( siteId: string ): OpenInDestination {
 	try {
 		const stored = window.localStorage.getItem( lastUsedStorageKey( siteId ) );
-		return isOpenInDestination( stored ) ? stored : DEFAULT_DESTINATION;
+		return isOpenInDestination( stored ) ? stored : 'browser';
 	} catch {
-		return DEFAULT_DESTINATION;
+		return 'browser';
 	}
 }
 
@@ -35,108 +33,123 @@ function storeLastUsedDestination( siteId: string, destination: OpenInDestinatio
 }
 
 /**
- * Split button for the preview toolbar: the left half repeats the last
- * destination the user opened, the chevron half opens the full list.
- *
- * The caller keys this on the site id, so the remembered destination is read
- * fresh when the preview switches sites.
+ * Just the destination items, for embedding in another menu (the preview's
+ * narrow-toolbar overflow). Site-management actions (Duplicate, Export,
+ * Delete) stay with the full `OpenInMenu` and the sidebar context menu.
  */
-export function OpenInMenu( {
+export function OpenInDestinationItems( {
 	site,
-	// The site-relative path the "Browser" destination opens — the preview's
-	// current page.
 	browserPath,
 }: {
 	site: SiteDetails;
-	browserPath: string;
+	browserPath?: string;
 } ) {
+	const destinations = useOpenInDestinations(
+		site,
+		( destination ) => storeLastUsedDestination( site.id, destination ),
+		browserPath
+	);
+	return (
+		<>
+			{ destinations.map( ( destination ) => (
+				<QuickMenuItem
+					key={ destination.id }
+					icon={ destination.logo }
+					label={ destination.label }
+					disabled={ destination.disabled }
+					onClick={ destination.open }
+				/>
+			) ) }
+		</>
+	);
+}
+
+export function OpenInMenu( {
+	site,
+	browserPath,
+}: {
+	site: SiteDetails;
+	// Enables the "Browser" destination at this site-relative path.
+	browserPath?: string;
+} ) {
+	const navigate = useNavigate();
+	const [ deleteOpen, setDeleteOpen ] = useState( false );
+	const managementActions = useSiteManagementActions( site, {
+		onDelete: () => setDeleteOpen( true ),
+	} );
+
+	// The trigger reflects the destination the user opened last, like a
+	// split button's default action.
 	const [ lastUsed, setLastUsed ] = useState< OpenInDestination >( () =>
 		getStoredDestination( site.id )
 	);
+	useEffect( () => setLastUsed( getStoredDestination( site.id ) ), [ site.id ] );
 
 	const rememberDestination = ( destination: OpenInDestination ) => {
 		setLastUsed( destination );
 		storeLastUsedDestination( site.id, destination );
 	};
 
-	const destinations = useOpenInDestinations( site, browserPath, rememberDestination );
+	const destinations = useOpenInDestinations( site, rememberDestination, browserPath );
 	const lastUsedDestination =
 		destinations.find( ( destination ) => destination.id === lastUsed ) ?? destinations[ 0 ];
 
-	const actionLabel = sprintf(
-		// translators: %s is the app the site opens in, e.g. "Finder".
-		__( 'Open in %s' ),
-		lastUsedDestination.label
-	);
-
 	return (
-		<Menu.Root>
-			<div className={ styles.splitTrigger }>
-				<Tooltip.Root>
-					<Tooltip.Trigger
-						render={
-							<Button
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								className={ styles.splitAction }
-								aria-label={ actionLabel }
-								disabled={ lastUsedDestination.disabled }
-								onClick={ () => lastUsedDestination.open() }
+		<>
+			<Menu.Root modal={ false }>
+				<QuickMenuTrigger
+					menuLabel={ __( 'Open in…' ) }
+					actionLabel={ sprintf(
+						// translators: %s is the app the site opens in, e.g. "Finder".
+						__( 'Open in %s' ),
+						lastUsedDestination.label
+					) }
+					logo={ lastUsedDestination.logo }
+					onActionClick={ () => lastUsedDestination.open() }
+				/>
+				<QuickMenuPopup>
+					{ destinations.map( ( destination ) => (
+						<QuickMenuItem
+							key={ destination.id }
+							icon={ destination.logo }
+							label={ destination.label }
+							disabled={ destination.disabled }
+							onClick={ destination.open }
+						/>
+					) ) }
+					<Menu.Separator />
+					{ managementActions
+						.filter( ( action ) => ! action.destructive )
+						.map( ( action ) => (
+							<QuickMenuItem
+								key={ action.id }
+								icon={ action.icon }
+								label={ action.label }
+								disabled={ action.disabled }
+								onClick={ action.run }
 							/>
-						}
-					>
-						<Icon icon={ lastUsedDestination.logo } size={ 18 } />
-					</Tooltip.Trigger>
-					<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
-						{ actionLabel }
-					</Tooltip.Popup>
-				</Tooltip.Root>
-				<Tooltip.Root>
-					<Menu.Trigger
-						render={
-							<Tooltip.Trigger
-								render={
-									<Button
-										variant="minimal"
-										tone="neutral"
-										size="small"
-										className={ styles.splitMenuButton }
-										aria-label={ __( 'Open in…' ) }
-									/>
-								}
-							>
-								{ /* data-keep-size opts out of the classic-UI rule that
-								     forces svgs to 16px, letting the chevron render
-								     small enough for a narrow tab. */ }
-								<Icon
-									icon={ chevronDown }
-									size={ 12 }
-									className={ styles.chevron }
-									data-keep-size
-								/>
-							</Tooltip.Trigger>
-						}
-					/>
-					<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
-						{ __( 'Open in…' ) }
-					</Tooltip.Popup>
-				</Tooltip.Root>
-			</div>
-			<Menu.Popup side="bottom" align="end" className={ styles.popup }>
-				{ destinations.map( ( destination ) => (
-					<Menu.Item
-						key={ destination.id }
-						disabled={ destination.disabled }
-						onClick={ destination.open }
-					>
-						<span className={ styles.itemIcon } aria-hidden="true">
-							<Icon icon={ destination.logo } size={ 18 } />
-						</span>
-						{ destination.label }
-					</Menu.Item>
-				) ) }
-			</Menu.Popup>
-		</Menu.Root>
+						) ) }
+					<Menu.Separator />
+					{ managementActions
+						.filter( ( action ) => action.destructive )
+						.map( ( action ) => (
+							<QuickMenuItem
+								key={ action.id }
+								icon={ action.icon }
+								label={ action.label }
+								disabled={ action.disabled }
+								destructive
+								onClick={ action.run }
+							/>
+						) ) }
+				</QuickMenuPopup>
+			</Menu.Root>
+			<DeleteSiteDialog
+				site={ site }
+				open={ deleteOpen }
+				onOpenChange={ setDeleteOpen }
+				onDeleted={ () => void navigate( { to: '/' } ) }
+			/>
+		</>
 	);
 }

@@ -28,6 +28,9 @@ vi.mock( 'src/stores/onboarding-slice', async () => {
 } );
 vi.mock( 'src/modules/onboarding/hooks/use-onboarding' );
 vi.mock( 'src/hooks/use-site-details' );
+vi.mock( 'src/hooks/use-ipc-listener', () => ( {
+	useIpcListener: vi.fn(),
+} ) );
 vi.mock( 'src/modules/whats-new/hooks/use-whats-new', () => ( {
 	useWhatsNew: () => ( {
 		showWhatsNew: false,

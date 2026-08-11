@@ -1,6 +1,7 @@
 import { StatsMetric } from 'src/lib/bump-stats';
 import { SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import type { AiSessionSitePlacement } from '@studio/common/ai/sessions/placement';
+import type { ActivitySoundPreferences } from '@studio/common/lib/activity-sounds';
 import type { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 
 export interface WindowBounds {
@@ -43,6 +44,8 @@ export interface UserData {
 	preferredTerminal?: SupportedTerminal;
 	preferredEditor?: SupportedEditor;
 	colorScheme?: 'system' | 'light' | 'dark';
+	/** Agentic UI window-chrome ("frame") color. Absent means the scheme-aware default. */
+	frameColor?: string;
 	betaFeatures?: BetaFeatures;
 	quitSitesBehavior?: QuitSitesBehavior;
 	defaultSiteDirectory?: string;
@@ -50,15 +53,20 @@ export interface UserData {
 	cliAutoInstalled?: boolean;
 	cliUserUninstalled?: boolean;
 	wapuuScore?: number;
+	/** Agentic UI chat gating preference. Absent means enabled. */
+	agenticFeaturesEnabled?: boolean;
+	/** OS notifications for chat activity. Absent means enabled. */
+	chatNotificationsEnabled?: boolean;
+	/** Sounds for agent and live-sync activity. */
+	activitySoundPreferences?: ActivitySoundPreferences;
+	/** Persistent-message ids (update cards, announcements) the user dismissed. */
+	dismissedMessages?: string[];
+	/** Agentic UI onboarding state (orientation tour, getting-started checklist). Opaque blob owned by the renderer. */
+	onboardingHints?: OnboardingHintsState;
 	aiSessionPlacements?: Record< string, AiSessionSitePlacement >;
 	lastNightlyUpdateCheck?: number;
 	nightlyPromptResult?: NightlyPromptResult;
 	agenticUiBannerDismissed?: boolean;
-	// Whether chat/agent features are offered inside the new UI. Distinct from
-	// `betaFeatures.enableAgenticUi`, which picks the renderer (new vs classic).
-	agenticFeaturesEnabled?: boolean;
-	/** Agentic UI onboarding state (orientation tour, getting-started checklist). Opaque blob owned by the renderer. */
-	onboardingHints?: OnboardingHintsState;
 }
 
 export interface PromptWindowsSpeedUpResult {
@@ -73,6 +81,11 @@ export interface PromptWindowsSpeedUpResult {
 export interface OnboardingHintsState {
 	tourCompletedVersion?: number;
 	tourDismissedVersion?: number;
+	checklistDismissed?: boolean;
+	checklistMinimized?: boolean;
+	completedItems?: Record< string, string >;
+	publishCoachmarkShown?: boolean;
+	returningUser?: boolean;
 	migratedFromClassic?: boolean;
 }
 

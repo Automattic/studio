@@ -127,7 +127,6 @@
 	   once and fades up. */
 	transition: opacity 200ms ease-in-out, visibility 0s 200ms;
 }
-
 .footerEnd {
 	justify-self: end;
 }

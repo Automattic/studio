@@ -3,6 +3,17 @@ import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 
 export type AiModelFamily = 'anthropic' | 'openai';
 
+/**
+ * How a model accepts extended-thinking requests.
+ *
+ * - `adaptive`: only `thinking: {type: "adaptive"}` — budget-based requests
+ *   (`type: "enabled"` + `budget_tokens`) are rejected with a 400. Applies to
+ *   Sonnet 5 / Opus 5 and later Anthropic models.
+ * - `budget`: budget-based thinking (older Anthropic models).
+ * - `none`: never request thinking.
+ */
+export type AiModelThinking = 'adaptive' | 'budget' | 'none';
+
 export interface AiModel {
 	/** Stable model id sent to the upstream provider. */
 	id: string;
@@ -10,6 +21,8 @@ export interface AiModel {
 	label: string;
 	/** Which runtime serves this model. Drives `pickRuntime` in agent.ts. */
 	family: AiModelFamily;
+	/** Which extended-thinking request shape the model accepts. */
+	thinking: AiModelThinking;
 }
 
 // Pro / o-series OpenAI variants (`gpt-*-pro`, `o[1-9]*`) are intentionally
@@ -18,12 +31,16 @@ export interface AiModel {
 // through the proxy's `/v1/responses` path, which supports reasoning models
 // and function tools.)
 export const AI_MODELS = [
-	{ id: 'claude-sonnet-5', label: 'Sonnet 5', family: 'anthropic' },
-	{ id: 'claude-opus-5', label: 'Opus 5', family: 'anthropic' },
-	{ id: 'gpt-5.6-sol', label: 'GPT 5.6 Sol', family: 'openai' },
+	{ id: 'claude-sonnet-5', label: 'Sonnet 5', family: 'anthropic', thinking: 'adaptive' },
+	{ id: 'claude-opus-5', label: 'Opus 5', family: 'anthropic', thinking: 'adaptive' },
+	{ id: 'claude-fable-5', label: 'Fable 5', family: 'anthropic', thinking: 'adaptive' },
+	{ id: 'gpt-5.6-sol', label: 'GPT 5.6 Sol', family: 'openai', thinking: 'none' },
 ] as const satisfies readonly AiModel[];
 
 export type AiModelId = ( typeof AI_MODELS )[ number ][ 'id' ];
+
+/** Model ids as a tuple, for zod enums and other literal-union consumers. */
+export const AI_MODEL_IDS = AI_MODELS.map( ( model ) => model.id ) as [ AiModelId, ...AiModelId[] ];
 
 export const DEFAULT_MODEL: AiModelId = 'claude-sonnet-5';
 
@@ -56,6 +73,10 @@ export function getAiModelLabel( id: AiModelId ): string {
 	return getAiModel( id ).label;
 }
 
+export function getAiModelThinking( id: AiModelId ): AiModelThinking {
+	return getAiModel( id ).thinking;
+}
+
 /**
  * Read the raw model id recorded on a single session entry, if any.
  *
@@ -81,15 +102,19 @@ function readEntryModelId( entry: SessionEntry ): string | undefined {
  *
  * The most recently recorded model wins. If it names a model we no longer
  * offer (e.g. one that was removed from `AI_MODELS`), the session
- * auto-switches to `DEFAULT_MODEL` rather than pinning a dead id. Sessions
- * that recorded no model — e.g. a brand-new session before the first turn
- * runs — also fall back to `DEFAULT_MODEL`.
+ * auto-switches to `fallback` rather than pinning a dead id. Sessions that
+ * recorded no model — e.g. a brand-new session before the first turn runs —
+ * also fall back. Callers pass the user's preferred default model as
+ * `fallback` so fresh sessions start on it.
  */
-export function resolveSessionModel( entries: SessionEntry[] ): AiModelId {
+export function resolveSessionModel(
+	entries: SessionEntry[],
+	fallback: AiModelId = DEFAULT_MODEL
+): AiModelId {
 	for ( let index = entries.length - 1; index >= 0; index -= 1 ) {
 		const recordedModel = readEntryModelId( entries[ index ] );
 		if ( recordedModel === undefined ) continue;
-		return isAiModelId( recordedModel ) ? recordedModel : DEFAULT_MODEL;
+		return isAiModelId( recordedModel ) ? recordedModel : fallback;
 	}
-	return DEFAULT_MODEL;
+	return fallback;
 }

@@ -1,13 +1,36 @@
 import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import { generateCustomDomainFromSiteName } from '@studio/common/lib/domains';
-import { decodePassword, encodePassword } from '@studio/common/lib/passwords';
-import { RecommendedPHPVersion } from '@studio/common/types/php-versions';
-import { CheckboxControl } from '@wordpress/components';
+import {
+	decodePassword,
+	encodePassword,
+	validateAdminUsername,
+} from '@studio/common/lib/passwords';
+import {
+	getSiteFileAccess,
+	SITE_FILE_ACCESS_SITE_DIRECTORY,
+	type SiteFileAccess,
+} from '@studio/common/lib/site-file-access';
+import { siteNeedsRestart } from '@studio/common/lib/site-needs-restart';
+import {
+	getSiteRuntime,
+	SITE_RUNTIME_PLAYGROUND,
+	type SiteRuntime,
+} from '@studio/common/lib/site-runtime';
+import {
+	getClosestSupportedPhpVersion,
+	RecommendedPHPVersion,
+	SupportedPHPVersions,
+} from '@studio/common/types/php-versions';
+import { CheckboxControl, Icon } from '@wordpress/components';
 import { DataForm, useFormValidity } from '@wordpress/dataviews';
-import { __ } from '@wordpress/i18n';
-import { Button } from '@wordpress/ui';
+import { __, sprintf } from '@wordpress/i18n';
+import { cautionFilled, close } from '@wordpress/icons';
+import { Button, IconButton } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { CheckpointTimeline } from '@/components/checkpoint-timeline';
 import { LearnHowLink } from '@/components/learn-more';
+import { AgentInstructionsPanel, WordPressSkillsPanel } from '@/components/site-agent-panels';
+import { SiteDropdown } from '@/components/site-dropdown';
 import {
 	adminEmailField,
 	adminPasswordField,
@@ -17,23 +40,31 @@ import {
 	enableDebugDisplayField,
 	enableDebugLogField,
 	enableXdebugField,
+	fileAccessField,
 	phpVersionField,
+	runtimeField,
 	siteNameField,
 	wpVersionField,
 } from '@/components/site-fields';
 import * as Tabs from '@/components/tabs';
+import { useConnector } from '@/data/core';
+import { useCertificateTrust, useTrustCertificate } from '@/data/queries/use-certificate-trust';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
-import { useUpdateSite, useXdebugEnabledSite } from '@/data/queries/use-sites';
+import { useSites, useUpdateSite, useXdebugEnabledSite } from '@/data/queries/use-sites';
 import { useWordPressVersions, useWpVersion } from '@/data/queries/use-wordpress-versions';
 import { useOffline } from '@/hooks/use-offline';
+import { useSettingsClose } from '@/hooks/use-settings-close';
+import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 import type { TracksPanel } from '@studio/common/lib/record-tracks-event';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { DataFormControlProps, Field, Form } from '@wordpress/dataviews';
-import type { FormEvent } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 
-type TabId = 'overview' | 'general' | 'debugging';
+// "settings" merges the former General + Debugging forms; "agent" merges the
+// former Skills + Instructions panels.
+type TabId = 'settings' | 'agent' | 'checkpoints';
 
 interface FormData {
 	name: string;
@@ -41,6 +72,8 @@ interface FormData {
 	// Empty string means "auto-update"; anything else pins the site to that
 	// version. Only forwarded on save when the user actually changed it.
 	wpVersion: string;
+	runtime: SiteRuntime;
+	fileAccess: SiteFileAccess;
 	useCustomDomain: boolean;
 	customDomain: string;
 	enableHttps: boolean;
@@ -50,6 +83,13 @@ interface FormData {
 	enableXdebug: boolean;
 	enableDebugLog: boolean;
 	enableDebugDisplay: boolean;
+}
+
+function resolvePhpVersion( phpVersion: string | undefined ): SupportedPHPVersion {
+	if ( phpVersion && SupportedPHPVersions.includes( phpVersion as SupportedPHPVersion ) ) {
+		return phpVersion as SupportedPHPVersion;
+	}
+	return ( phpVersion && getClosestSupportedPhpVersion( phpVersion ) ) || RecommendedPHPVersion;
 }
 
 function getEffectiveWpVersion( site: SiteDetails, installedVersion?: string ): string {
@@ -66,8 +106,10 @@ function getEffectiveWpVersion( site: SiteDetails, installedVersion?: string ): 
 function initialFormData( site: SiteDetails, installedWpVersion?: string ): FormData {
 	return {
 		name: site.name,
-		phpVersion: ( site.phpVersion as SupportedPHPVersion ) ?? RecommendedPHPVersion,
+		phpVersion: resolvePhpVersion( site.phpVersion ),
 		wpVersion: getEffectiveWpVersion( site, installedWpVersion ),
+		runtime: getSiteRuntime( site ),
+		fileAccess: getSiteFileAccess( site ),
 		useCustomDomain: Boolean( site.customDomain ),
 		customDomain: site.customDomain ?? '',
 		enableHttps: site.enableHttps ?? false,
@@ -78,6 +120,57 @@ function initialFormData( site: SiteDetails, installedWpVersion?: string ): Form
 		enableDebugLog: site.enableDebugLog ?? false,
 		enableDebugDisplay: site.enableDebugDisplay ?? false,
 	};
+}
+
+function getRestartChanges( initial: FormData, data: FormData, site: SiteDetails ) {
+	const usedCustomDomain = data.useCustomDomain
+		? data.customDomain || generateCustomDomainFromSiteName( data.name )
+		: undefined;
+	const initialCustomDomain = site.customDomain;
+	return {
+		domainChanged: usedCustomDomain !== initialCustomDomain,
+		httpsChanged: ( !! usedCustomDomain && data.enableHttps ) !== ( site.enableHttps ?? false ),
+		phpChanged: data.phpVersion !== initial.phpVersion,
+		wpChanged: data.wpVersion.trim() !== initial.wpVersion.trim(),
+		runtimeChanged: data.runtime !== initial.runtime,
+		fileAccessChanged: data.fileAccess !== initial.fileAccess,
+		xdebugChanged: data.enableXdebug !== initial.enableXdebug,
+		credentialsChanged:
+			data.adminUsername !== initial.adminUsername ||
+			data.adminPassword !== initial.adminPassword ||
+			data.adminEmail !== initial.adminEmail,
+		debugLogChanged: data.enableDebugLog !== initial.enableDebugLog,
+		debugDisplayChanged: data.enableDebugDisplay !== initial.enableDebugDisplay,
+	};
+}
+
+function SettingsHeader( { site }: { site: SiteDetails } ) {
+	// A toolbar across the top of the view: the site dropdown on the left, the
+	// close button on the right. With the sidebar hidden the panel goes
+	// full-bleed and the dropdown drops below the macOS traffic lights, exactly
+	// as the overview header does.
+	const sidebarCollapsed = useSidebarCollapsed();
+	const onClose = useSettingsClose();
+	return (
+		<div
+			className={
+				sidebarCollapsed ? `${ styles.header } ${ styles.headerSidebarCollapsed }` : styles.header
+			}
+		>
+			<SiteDropdown site={ site } showSiteIcon showStatus />
+			{ onClose ? (
+				<IconButton
+					className={ styles.closeButton }
+					variant="minimal"
+					tone="neutral"
+					size="small"
+					icon={ close }
+					label={ __( 'Close settings' ) }
+					onClick={ onClose }
+				/>
+			) : null }
+		</div>
+	);
 }
 
 function EnableHttpsControl( { data: item, field, onChange }: DataFormControlProps< FormData > ) {
@@ -99,12 +192,96 @@ function EnableHttpsControl( { data: item, field, onChange }: DataFormControlPro
 	);
 }
 
-/**
- * The site settings form (General + Debugging), rendered as tab panels inside
- * a `Tabs.Root` owned by the caller — the site overview view. One instance
- * spans both panels so unsaved edits survive tab switches.
- */
-export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; activeTab: TabId } ) {
+function DebuggingActions( {
+	site,
+	showTrustCertificate,
+	onTrustCertificate,
+	onOpenDebugLog,
+}: {
+	site: SiteDetails;
+	showTrustCertificate: boolean;
+	onTrustCertificate: () => void;
+	onOpenDebugLog: () => void;
+} ) {
+	if ( ! showTrustCertificate && ! site.enableDebugLog ) {
+		return null;
+	}
+	return (
+		<div className={ styles.debuggingActions }>
+			{ showTrustCertificate && (
+				<Button type="button" variant="outline" onClick={ onTrustCertificate }>
+					{ __( 'Trust certificate' ) }
+				</Button>
+			) }
+			{ site.enableDebugLog && (
+				<Button type="button" variant="outline" onClick={ onOpenDebugLog }>
+					{ __( 'Open debug log' ) }
+				</Button>
+			) }
+		</div>
+	);
+}
+
+export function SiteSettingsView( {
+	siteId,
+	activeTab,
+	onTabChange,
+}: {
+	siteId: string;
+	activeTab: TabId;
+	onTabChange: ( tab: TabId ) => void;
+} ) {
+	const { data: sites, isLoading: sitesLoading } = useSites();
+	const site = sites?.find( ( candidate ) => candidate.id === siteId );
+
+	if ( sitesLoading ) {
+		return <div className={ styles.state }>{ __( 'Loading…' ) }</div>;
+	}
+
+	if ( ! site ) {
+		return (
+			<div className={ styles.state }>
+				<h1>{ __( 'Site not found' ) }</h1>
+				<p>{ siteId }</p>
+			</div>
+		);
+	}
+
+	return <SiteSettingsBody site={ site } activeTab={ activeTab } onTabChange={ onTabChange } />;
+}
+
+function SiteSettingsBody( {
+	site,
+	activeTab,
+	onTabChange,
+}: {
+	site: SiteDetails;
+	activeTab: TabId;
+	onTabChange: ( tab: TabId ) => void;
+} ) {
+	return (
+		<div className={ styles.root }>
+			<SettingsHeader site={ site } />
+			<SiteSettingsForm site={ site } activeTab={ activeTab } onTabChange={ onTabChange } />
+		</div>
+	);
+}
+
+export function SiteSettingsForm( {
+	site,
+	activeTab,
+	onTabChange,
+	embedded = false,
+	showTabs = true,
+}: {
+	site: SiteDetails;
+	activeTab: TabId;
+	onTabChange: ( tab: TabId ) => void;
+	embedded?: boolean;
+	showTabs?: boolean;
+} ) {
+	const connector = useConnector();
+	const supportsCheckpoints = connector.capabilities?.siteCheckpoints ?? false;
 	const allDomains = useExistingCustomDomains();
 	const existingDomainNames = useMemo(
 		() => allDomains.filter( ( domain ) => domain !== site.customDomain ),
@@ -113,6 +290,8 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 	const xdebugEnabledSite = useXdebugEnabledSite();
 	const xdebugConflictSiteName =
 		xdebugEnabledSite && xdebugEnabledSite.id !== site.id ? xdebugEnabledSite.name : undefined;
+	const { data: isCertificateTrusted } = useCertificateTrust();
+	const trustCertificate = useTrustCertificate();
 
 	const updateSite = useUpdateSite();
 	const { data: wpVersions } = useWordPressVersions();
@@ -145,16 +324,33 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 		setSubmitError( null );
 	}, [ site ] );
 
+	const storedPhpVersion = site.phpVersion;
+	const resolvedSitePhpVersion = resolvePhpVersion( storedPhpVersion );
+	const phpVersionWarning =
+		storedPhpVersion !== undefined && storedPhpVersion !== resolvedSitePhpVersion
+			? sprintf(
+					/* translators: 1: unsupported PHP version, 2: supported PHP version */
+					__( 'PHP %1$s is no longer supported. Saving will update this site to PHP %2$s.' ),
+					storedPhpVersion,
+					resolvedSitePhpVersion
+			  )
+			: undefined;
+
 	const fields = useMemo< Field< FormData >[] >(
 		() => [
 			siteNameField< FormData >(),
-			phpVersionField< FormData >(),
+			{
+				...phpVersionField< FormData >(),
+				description: phpVersionWarning,
+			},
 			wpVersionField< FormData >( DEFAULT_WORDPRESS_VERSION, wpVersions, {
 				latestValue: '',
 				currentVersion:
 					installedWpVersion && installedWpVersion !== '-' ? installedWpVersion : undefined,
 				offline: isOffline,
 			} ),
+			runtimeField< FormData >(),
+			fileAccessField< FormData >(),
 			adminUsernameField< FormData >(),
 			adminPasswordField< FormData >(),
 			adminEmailField< FormData >(),
@@ -171,7 +367,14 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 			enableDebugLogField< FormData >(),
 			enableDebugDisplayField< FormData >(),
 		],
-		[ existingDomainNames, installedWpVersion, isOffline, wpVersions, xdebugConflictSiteName ]
+		[
+			existingDomainNames,
+			installedWpVersion,
+			isOffline,
+			phpVersionWarning,
+			wpVersions,
+			xdebugConflictSiteName,
+		]
 	);
 
 	const generalForm = useMemo< Form >(
@@ -183,6 +386,11 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 					id: 'versions',
 					layout: { type: 'row', alignment: 'start' },
 					children: [ 'phpVersion', 'wpVersion' ],
+				},
+				{
+					id: 'runtimeSettings',
+					layout: { type: 'row' },
+					children: [ 'runtime', 'fileAccess' ],
 				},
 				{
 					id: 'adminCredentials',
@@ -217,10 +425,11 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 	const handleChange = useCallback( ( update: Record< string, unknown > ) => {
 		setData( ( prev ) => {
 			const next: FormData = { ...prev, ...( update as Partial< FormData > ) };
-			// When the user toggles custom domain on for the first time, seed
-			// the input with a default derived from the current site name.
 			if ( ! prev.useCustomDomain && next.useCustomDomain && ! next.customDomain ) {
 				next.customDomain = generateCustomDomainFromSiteName( next.name );
+			}
+			if ( next.runtime !== prev.runtime && getSiteRuntime( next ) === SITE_RUNTIME_PLAYGROUND ) {
+				next.fileAccess = SITE_FILE_ACCESS_SITE_DIRECTORY;
 			}
 			return next;
 		} );
@@ -240,6 +449,13 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 
 	const xdebugBlocked = data.enableXdebug && !! xdebugConflictSiteName && ! site.enableXdebug;
 	const canSubmit = isValid && ! isUnchanged && ! updateSite.isPending && ! xdebugBlocked;
+	const willRestart = site.running && siteNeedsRestart( getRestartChanges( initial, data, site ) );
+	const showUsernameWarning =
+		! validateAdminUsername( data.adminUsername ) &&
+		data.adminUsername !== ( site.adminUsername ?? 'admin' );
+	const showTrustCertificate = Boolean(
+		site.customDomain && site.enableHttps && isCertificateTrusted === false
+	);
 
 	const handleSubmit = ( event: FormEvent ) => {
 		event.preventDefault();
@@ -253,6 +469,11 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 			...site,
 			name: data.name,
 			phpVersion: data.phpVersion,
+			runtime: data.runtime,
+			fileAccess:
+				getSiteRuntime( data ) === SITE_RUNTIME_PLAYGROUND
+					? SITE_FILE_ACCESS_SITE_DIRECTORY
+					: data.fileAccess,
 			isWpAutoUpdating: ! wpPinned,
 			customDomain: usedCustomDomain,
 			enableHttps: !! usedCustomDomain && data.enableHttps,
@@ -282,56 +503,132 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 		);
 	};
 
-	return (
-		<form onSubmit={ handleSubmit } className={ styles.form }>
-			<Tabs.Panel tabId="general">
-				<DataForm< FormData >
-					data={ data }
-					fields={ fields }
-					form={ generalForm }
-					onChange={ handleChange }
-					validity={ validity }
-				/>
-			</Tabs.Panel>
-			<Tabs.Panel tabId="debugging">
-				<DataForm< FormData >
-					data={ data }
-					fields={ fields }
-					form={ debuggingForm }
-					onChange={ handleChange }
-					validity={ validity }
-				/>
-			</Tabs.Panel>
-
-			{ submitError && <div className={ styles.submitError }>{ submitError }</div> }
-
-			{ /* The save actions apply to the form tabs only, not Overview. */ }
-			{ activeTab !== 'overview' && (
-				<div className={ styles.actions }>
-					<Button
-						type="submit"
-						variant="solid"
-						tone="brand"
-						disabled={ ! canSubmit }
-						loading={ updateSite.isPending }
-						loadingAnnouncement={ __( 'Saving settings' ) }
-					>
-						{ __( 'Save settings' ) }
-					</Button>
+	// The "Settings" tab shows the general + debugging fields as one form, with
+	// the debugging actions (trust cert / open debug log) beneath them.
+	const settingsFormBody = (
+		<>
+			{ phpVersionWarning && (
+				<div className={ styles.phpVersionWarning } role="note">
+					<Icon icon={ cautionFilled } size={ 18 } />
+					<span>{ phpVersionWarning }</span>
 				</div>
 			) }
+			{ showUsernameWarning && (
+				<p className={ styles.inlineWarning }>
+					{ __( 'Changing the username will create a new admin user.' ) }
+				</p>
+			) }
+			<DataForm< FormData >
+				data={ data }
+				fields={ fields }
+				form={ fullForm }
+				onChange={ handleChange }
+				validity={ validity }
+			/>
+			<DebuggingActions
+				site={ site }
+				showTrustCertificate={ showTrustCertificate }
+				onTrustCertificate={ () => void trustCertificate.mutate() }
+				onOpenDebugLog={ () => void connector.openSiteDebugLog( site.id ) }
+			/>
+		</>
+	);
+
+	const settingsForm = (
+		<form onSubmit={ handleSubmit } className={ styles.form }>
+			{ settingsFormBody }
+			{ submitError && <div className={ styles.submitError }>{ submitError }</div> }
+			<div className={ styles.actions }>
+				<Button
+					type="submit"
+					variant="solid"
+					tone="brand"
+					disabled={ ! canSubmit }
+					loading={ updateSite.isPending }
+					loadingAnnouncement={
+						willRestart ? __( 'Saving and restarting…' ) : __( 'Saving settings' )
+					}
+				>
+					{ __( 'Save settings' ) }
+				</Button>
+			</div>
 		</form>
+	);
+
+	// The "Agent" tab stacks the skills and instructions panels.
+	const agentPanels = (
+		<div className={ styles.agentPanels }>
+			<WordPressSkillsPanel siteId={ site.id } />
+			<AgentInstructionsPanel siteId={ site.id } />
+		</div>
+	);
+
+	// Embedded in the site overview: the overview owns the tab strip, so render
+	// only the active tab's content.
+	if ( ! showTabs ) {
+		if ( activeTab === 'agent' ) {
+			return agentPanels;
+		}
+		if ( activeTab === 'checkpoints' && supportsCheckpoints ) {
+			return <CheckpointTimeline siteId={ site.id } />;
+		}
+		return <div className={ styles.embeddedContentBlock }>{ settingsForm }</div>;
+	}
+
+	// Fullscreen site settings: own the tab strip and mount every panel so the
+	// WP Tabs component can toggle between them.
+	const tabsContent = (
+		<div className={ embedded ? styles.embeddedContentBlock : styles.contentBlock }>
+			<Tabs.Panel tabId="settings">{ settingsForm }</Tabs.Panel>
+			<Tabs.Panel tabId="agent">{ agentPanels }</Tabs.Panel>
+			{ supportsCheckpoints ? (
+				<Tabs.Panel tabId="checkpoints">
+					<CheckpointTimeline siteId={ site.id } />
+				</Tabs.Panel>
+			) : null }
+		</div>
+	);
+	const scrollContent: ReactNode = embedded ? (
+		tabsContent
+	) : (
+		<div className={ styles.scroll }>{ tabsContent }</div>
+	);
+
+	return (
+		<Tabs.Root
+			selectedTabId={ activeTab }
+			onSelect={ ( tabId ) => {
+				if ( tabId && isSiteSettingsTab( tabId ) ) {
+					onTabChange( tabId );
+				}
+			} }
+		>
+			<div className={ embedded ? styles.embeddedTitleBlock : styles.titleBlock }>
+				<h1>{ __( 'Site settings' ) }</h1>
+			</div>
+			<div className={ embedded ? styles.embeddedTabsBar : styles.tabsBar }>
+				<div className={ embedded ? styles.embeddedTabsBarInner : styles.tabsBarInner }>
+					<Tabs.List>
+						<Tabs.Tab tabId="settings">{ __( 'Settings' ) }</Tabs.Tab>
+						<Tabs.Tab tabId="agent">{ __( 'Agent' ) }</Tabs.Tab>
+						{ supportsCheckpoints ? (
+							<Tabs.Tab tabId="checkpoints">{ __( 'Checkpoints' ) }</Tabs.Tab>
+						) : null }
+					</Tabs.List>
+				</div>
+			</div>
+			{ scrollContent }
+		</Tabs.Root>
 	);
 }
 
 export function isSiteSettingsTab( value: string ): value is TabId {
-	return value === 'overview' || value === 'general' || value === 'debugging';
+	return value === 'settings' || value === 'agent' || value === 'checkpoints';
 }
 
 export type SiteSettingsTabId = TabId;
 
-// The `studio_panel_opened` value for a tab. The General tab reports `settings` so it lines up with
-// Studio Classic's Settings panel; overview and debugging keep their own names.
+// The `studio_panel_opened` value for the redesigned site's settings tabs.
 export function siteSettingsTabToPanel( tab: TabId ): TracksPanel {
-	return tab === 'general' ? 'settings' : tab;
+	return tab;
 }

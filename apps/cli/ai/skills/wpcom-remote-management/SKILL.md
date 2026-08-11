@@ -98,8 +98,9 @@ Do not combine `bodyFile` with `body` or `bodyFiles`.
 
 1. Check the site plan first. This is already required by the remote system prompt and must happen before any change.
 2. Understand the site with lightweight reads, such as `GET /posts` and `GET /themes?status=active`.
-3. Make changes with POST requests to create or update content, manage templates, switch themes, or manage plugins.
-4. Verify visually with `take_screenshot` using `viewport: "all"` for desktop and mobile.
-5. If an operation fails, inspect the error and try a lightweight GET request to discover the available shape before retrying.
+3. For design changes on paid plans, prefer block attributes, templates/template parts, and global styles before custom CSS. Keep standard color, typography, spacing, and layout editor-visible whenever the API allows it.
+4. Make changes with POST requests to create or update content, manage templates, switch themes, global styles, custom CSS, or plugins.
+5. Verify visually with `take_screenshot` using `viewport: "all"` for desktop and mobile, and check that important styling is not front-end-only custom CSS when it should be editable.
+6. If an operation fails, inspect the error and try a lightweight GET request to discover the available shape before retrying.
 
 Always confirm destructive operations, including deleting posts or deactivating plugins, before proceeding.

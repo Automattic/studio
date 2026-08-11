@@ -3,7 +3,8 @@ import {
 	updateBlueprintWithFormValues,
 } from '@studio/common/lib/blueprint-settings';
 import { createRoute, useNavigate } from '@tanstack/react-router';
-import { __ } from '@wordpress/i18n';
+import { speak } from '@wordpress/a11y';
+import { __, sprintf } from '@wordpress/i18n';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { BlueprintUpload, type SelectedBlueprint } from '@/components/blueprint-upload';
 import { CreateSiteForm } from '@/components/create-site-form';
@@ -13,6 +14,7 @@ import {
 	useProposedSiteName,
 } from '@/data/queries/use-create-site-helpers';
 import { useCreateSite, useSites } from '@/data/queries/use-sites';
+import { useSeededSiteName } from '@/hooks/use-seeded-site-name';
 import { pendingBlueprintSlot } from '@/lib/pending-blueprint';
 import { onboardingLayoutRoute, useOnboardingProgress } from '../layout-onboarding';
 import styles from '../layout-onboarding/style.module.css';
@@ -34,6 +36,12 @@ function mapBlueprintSettingsToFormValues(
 	};
 }
 
+/**
+ * The one create-site screen: name the site and go. A blueprint is an
+ * optional power-up rather than its own step — dropped/uploaded here (or
+ * handed over by the `wp-studio://add-site` deep link via the
+ * pending-blueprint slot), it reseeds the form and rides along on submit.
+ */
 export function CreateSitePage() {
 	const connector = useConnector();
 	const navigate = useNavigate();
@@ -87,12 +95,22 @@ export function CreateSitePage() {
 		[ cleanupBlueprint, setProgress ]
 	);
 
+	// A blueprint's preferred site name may collide with an existing site —
+	// seed the form with an available variant ("Name", "Name 2", …) instead.
+	const seededBlueprintName = useSeededSiteName(
+		selectedBlueprint
+			? extractFormValuesFromBlueprint( selectedBlueprint.blueprint ).siteName ||
+					selectedBlueprint.title
+			: null
+	);
+
 	const initialValues = useMemo(
 		() => ( {
 			...( proposedName ? { name: proposedName } : {} ),
 			...( selectedBlueprint ? mapBlueprintSettingsToFormValues( selectedBlueprint ) : {} ),
+			...( selectedBlueprint && seededBlueprintName ? { name: seededBlueprintName } : {} ),
 		} ),
-		[ proposedName, selectedBlueprint ]
+		[ proposedName, selectedBlueprint, seededBlueprintName ]
 	);
 
 	const handleSubmit = async ( values: CreateSiteFormValues ) => {
@@ -103,6 +121,9 @@ export function CreateSitePage() {
 		transferredTempDirRef.current = blueprint?.tempDir ?? null;
 
 		try {
+			// Fold the user's edited form values back into the blueprint JSON so
+			// any steps that reference them (defineSiteUrl, login, setSiteOptions,
+			// preferredVersions) pick up the final values when the CLI runs it.
 			const mergedBlueprint = blueprint
 				? updateBlueprintWithFormValues( blueprint.blueprint, {
 						phpVersion: values.phpVersion,
@@ -118,6 +139,8 @@ export function CreateSitePage() {
 				name: values.name,
 				path: values.path,
 				phpVersion: values.phpVersion,
+				runtime: values.runtime,
+				fileAccess: values.fileAccess,
 				wpVersion: values.wpVersion,
 				customDomain: values.customDomain,
 				enableHttps: values.enableHttps,
@@ -133,6 +156,13 @@ export function CreateSitePage() {
 					  }
 					: {} ),
 			} );
+			speak(
+				sprintf(
+					// translators: %s is the site name.
+					__( '%s site added.' ),
+					values.name
+				)
+			);
 			await navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
 		} catch ( error ) {
 			setSubmittedInitialValues( null );
@@ -153,9 +183,12 @@ export function CreateSitePage() {
 
 	return (
 		<div className={ styles.page }>
-			<h1 className={ styles.title }>{ __( 'Create a new site' ) }</h1>
+			<h1 className={ styles.title }>
+				{ selectedBlueprint ? selectedBlueprint.title : __( 'Create a new site' ) }
+			</h1>
 			<p className={ styles.subtitle }>
-				{ __( "Choose a name and we'll set up a fresh WordPress site on your machine." ) }
+				{ selectedBlueprint?.excerpt ||
+					__( 'Choose a name and we’ll set up a fresh WordPress site on your machine.' ) }
 			</p>
 			<CreateSiteForm
 				initialValues={ submittedInitialValues ?? initialValues }
@@ -165,7 +198,7 @@ export function CreateSitePage() {
 				isSubmitting={ submittedInitialValues !== null }
 				isSubmitDisabled={ ! isBlueprintValid }
 				submitError={ submitError }
-				submitLabel={ selectedBlueprint ? __( 'Create site from Blueprint' ) : undefined }
+				submitLabel={ selectedBlueprint ? __( 'Create site from blueprint' ) : undefined }
 			/>
 			<div className={ localStyles.blueprint }>
 				<BlueprintUpload

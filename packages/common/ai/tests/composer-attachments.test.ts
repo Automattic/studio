@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { STUDIO_CHAT_MAX_FILES } from '../chat-files';
-import { STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES } from '../chat-images';
+import { getStudioChatImageLimits } from '../chat-images';
 import {
 	COMPOSER_FILE_IMAGE_PREVIEW_MAX_BYTES,
 	getComposerClipboardFiles,
@@ -147,9 +147,17 @@ describe( 'prepareComposerAttachments', () => {
 	it( 'keeps each unique error from a mixed invalid batch', async () => {
 		const result = await prepareComposerAttachments(
 			[
-				new File( [ new Uint8Array( STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES ) ], 'large.png', {
-					type: 'image/png',
-				} ),
+				new File(
+					// Over the per-image base64 budget; jsdom has no canvas, so the
+					// fit step passes it through and the size check rejects it.
+					[
+						new Uint8Array(
+							Math.ceil( ( getStudioChatImageLimits().maxImageEncodedBytes * 3 ) / 4 ) + 3
+						),
+					],
+					'large.png',
+					{ type: 'image/png' }
+				),
 				new File( [ '%PDF-1.7' ], 'missing.pdf', { type: 'application/pdf' } ),
 			],
 			{
@@ -217,7 +225,10 @@ describe( 'mergeComposerAttachments', () => {
 
 	it( 'rejects images that would exceed the total image byte limit', () => {
 		const current = [
-			createImageAttachment( 'existing-image', STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES - 1 ),
+			createImageAttachment(
+				'existing-image',
+				Math.floor( ( getStudioChatImageLimits().maxTotalImageEncodedBytes * 3 ) / 4 )
+			),
 		];
 		const next = [ createImageAttachment( 'extra-image', 2 ) ];
 

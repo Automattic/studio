@@ -4,12 +4,19 @@ import { I18nProvider } from '@wordpress/react-i18n';
 import { privateApis } from '@wordpress/theme';
 import { Tooltip } from '@wordpress/ui';
 import { useEffect } from 'react';
+import { CoachmarkAnchorProvider } from '@/components/coachmarks/anchor-registry';
+import { CoachmarkProvider } from '@/components/coachmarks/coachmark-provider';
+import { DevMessageLab } from '@/components/dev-message-lab';
 import { OnboardingGuideProvider } from '@/components/onboarding-guide/use-onboarding-guide';
 import { ConnectorProvider, queryClient } from '@/data/core';
+import { useOnboardingEvents } from '@/data/onboarding/use-onboarding-events';
+import { useSyncActivitySounds } from '@/data/queries/use-activity-sounds';
 import { AgentRunProvider } from '@/data/queries/use-agent-run';
 import { useSyncAppUpdateStatus } from '@/data/queries/use-app-update';
+import { useChatNotifications } from '@/data/queries/use-chat-notifications';
+import { useLiveSyncActivityMonitor } from '@/data/queries/use-live-sync-monitor';
 import { useSyncSessionsWithEvents } from '@/data/queries/use-sessions';
-import { useAutoStartSites, useSyncSitesWithEvents } from '@/data/queries/use-sites';
+import { useSyncSitesWithEvents } from '@/data/queries/use-sites';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useSyncConnectSiteListener } from '@/hooks/use-sync-connect-site-listener';
 import { unlock } from '@/lock-unlock';
@@ -26,8 +33,17 @@ function SiteEventsBridge() {
 	useSyncSitesWithEvents();
 	useSyncSessionsWithEvents();
 	useSyncConnectSiteListener();
-	useAutoStartSites();
+	useLiveSyncActivityMonitor();
 	useSyncAppUpdateStatus();
+	useChatNotifications();
+	useSyncActivitySounds();
+	return null;
+}
+
+// Onboarding completion watchers + one-shot publish coachmark. Rendered inside
+// CoachmarkProvider (below) because it drives the coachmark API.
+function OnboardingBridge() {
+	useOnboardingEvents();
 	return null;
 }
 
@@ -44,7 +60,16 @@ function ThemedApp( { children }: PropsWithChildren ) {
 	return (
 		<ThemeProvider isRoot color={ themeColor } density="compact">
 			<Tooltip.Provider>
-				<OnboardingGuideProvider>{ children }</OnboardingGuideProvider>
+				<CoachmarkAnchorProvider>
+					<CoachmarkProvider>
+						<OnboardingGuideProvider>
+							<OnboardingBridge />
+							{ /* Dev-only QA panel for firing toasts/cards on demand. */ }
+							{ import.meta.env.DEV ? <DevMessageLab /> : null }
+							{ children }
+						</OnboardingGuideProvider>
+					</CoachmarkProvider>
+				</CoachmarkAnchorProvider>
 			</Tooltip.Provider>
 		</ThemeProvider>
 	);

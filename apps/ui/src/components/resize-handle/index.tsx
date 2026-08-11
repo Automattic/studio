@@ -9,6 +9,7 @@ interface ResizeHandleProps {
 	maxWidth: number;
 	width: number;
 	isResizing: boolean;
+	orientation?: 'vertical' | 'horizontal';
 	onResizeStart: MouseEventHandler< HTMLDivElement >;
 	onKeyDown: KeyboardEventHandler< HTMLDivElement >;
 }
@@ -20,15 +21,21 @@ export function ResizeHandle( {
 	maxWidth,
 	width,
 	isResizing,
+	orientation = 'vertical',
 	onResizeStart,
 	onKeyDown,
 }: ResizeHandleProps ) {
 	return (
 		<div
-			className={ clsx( styles.resizeHandle, className, isResizing && styles.resizing ) }
+			className={ clsx(
+				styles.resizeHandle,
+				orientation === 'horizontal' && styles.horizontal,
+				className,
+				isResizing && styles.resizing
+			) }
 			role="separator"
 			aria-label={ label }
-			aria-orientation="vertical"
+			aria-orientation={ orientation }
 			aria-valuemin={ minWidth }
 			aria-valuemax={ maxWidth }
 			aria-valuenow={ width }
@@ -41,6 +48,21 @@ export function ResizeHandle( {
 	);
 }
 
-export function ResizeOverlay( { className }: { className?: string } ) {
-	return <div className={ clsx( styles.resizeOverlay, className ) } aria-hidden="true" />;
+export function ResizeOverlay( {
+	className,
+	orientation = 'vertical',
+}: {
+	className?: string;
+	orientation?: 'vertical' | 'horizontal';
+} ) {
+	return (
+		<div
+			className={ clsx(
+				styles.resizeOverlay,
+				orientation === 'horizontal' && styles.horizontalOverlay,
+				className
+			) }
+			aria-hidden="true"
+		/>
+	);
 }

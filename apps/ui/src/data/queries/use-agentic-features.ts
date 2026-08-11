@@ -1,96 +1,93 @@
 import { useConnector } from '@/data/core';
-import { useAuthUser, AUTH_USER_QUERY_KEY } from '@/data/queries/use-auth-user';
-import {
-	useUserPreferences,
-	USER_PREFERENCES_QUERY_KEY,
-} from '@/data/queries/use-user-preferences';
 import { useOffline } from '@/hooks/use-offline';
-import type { AuthUser, Connector } from '@/data/core';
+import { AUTH_USER_QUERY_KEY, useAuthUser } from './use-auth-user';
+import { USER_PREFERENCES_QUERY_KEY, useUserPreferences } from './use-user-preferences';
+import type { AuthUser, Connector, UserPreferences } from '@/data/core';
 import type { QueryClient } from '@tanstack/react-query';
 
-export type AgenticFeatureReason = 'signed-out' | 'offline' | null;
+export type AgenticGateReason = 'signed-out' | 'offline' | null;
+export type AgenticFeatureReason = AgenticGateReason;
 
 export interface AgenticFeatures {
-	// Whether the host can reach the agentic backend at all (online + signed
-	// in). Gates everything that needs it, chat included, plus previews,
-	// sync and publishing.
+	// Network/auth availability for previews, sync, publishing, and chat.
 	enabled: boolean;
-	// Whether chat is on offer: `enabled`, and the user hasn't switched
-	// agentic features off in Settings → AI. Non-chat networked features stay
-	// available when they do, so gate those on `enabled` instead.
+	// Chat availability additionally honors the user's agentic-features preference.
 	chatEnabled: boolean;
-	reason: AgenticFeatureReason;
+	reason: AgenticGateReason;
 }
 
+/**
+ * Single source of truth for agentic backend availability and chat visibility.
+ * Turning chat off does not disable previews, sync, or publishing.
+ */
 export function deriveAgenticFeatures(
-	connector: Pick< Connector, 'agenticRequiresAuth' >,
+	connector: Pick< Connector, 'supportsAgenticOptOut' >,
 	user: AuthUser | null | undefined,
-	isOffline = false,
-	agenticFeaturesEnabled = true
+	preferences: Pick< UserPreferences, 'agenticFeaturesEnabled' > | undefined,
+	isOffline = false
 ): AgenticFeatures {
-	const withChat = ( features: Omit< AgenticFeatures, 'chatEnabled' > ): AgenticFeatures => ( {
-		...features,
-		chatEnabled: features.enabled && agenticFeaturesEnabled,
-	} );
-	// Agentic features need the network regardless of the connector's auth
-	// requirements, so offline wins over any auth state.
 	if ( isOffline ) {
-		return withChat( { enabled: false, reason: 'offline' } );
+		return { enabled: false, chatEnabled: false, reason: 'offline' };
 	}
-	if ( ! connector.agenticRequiresAuth ) {
-		return withChat( { enabled: true, reason: null } );
+	if ( connector.supportsAgenticOptOut && ! user ) {
+		return { enabled: false, chatEnabled: false, reason: 'signed-out' };
 	}
-	// `undefined` means the auth query hasn't resolved yet — keep features
-	// disabled but without a reason, so signed-out UI (e.g. the sign-in
-	// banner) doesn't flash for signed-in users while auth loads.
-	if ( user === undefined ) {
-		return withChat( { enabled: false, reason: null } );
-	}
-	if ( ! user ) {
-		return withChat( { enabled: false, reason: 'signed-out' } );
-	}
-	return withChat( { enabled: true, reason: null } );
+	return {
+		enabled: true,
+		chatEnabled: preferences?.agenticFeaturesEnabled !== false,
+		reason: null,
+	};
 }
 
+/**
+ * Reactive gate for components. While the underlying queries are still
+ * loading (`isReady: false`) the gate reports enabled, matching current
+ * behavior — the route guards below use resolved values, so a wrong
+ * navigation can't happen during that window.
+ */
 export function useAgenticFeatures(): AgenticFeatures & { isReady: boolean } {
 	const connector = useConnector();
 	const isOffline = useOffline();
-	const { data: user, isLoading } = useAuthUser();
-	const { data: preferences, isLoading: preferencesLoading } = useUserPreferences();
-	const features = deriveAgenticFeatures(
-		connector,
-		user,
-		isOffline,
-		preferences?.agenticFeaturesEnabled ?? true
-	);
-	return { ...features, isReady: ! isLoading && ! preferencesLoading };
+	const user = useAuthUser();
+	const preferences = useUserPreferences();
+
+	const isReady =
+		! preferences.isPending && ( ! connector.supportsAgenticOptOut || ! user.isPending );
+	if ( ! isReady ) {
+		return { enabled: true, chatEnabled: true, reason: null, isReady };
+	}
+	return {
+		...deriveAgenticFeatures( connector, user.data, preferences.data, isOffline ),
+		isReady,
+	};
 }
 
-export async function resolveAgenticFeatures( context: {
-	queryClient: QueryClient;
+/**
+ * Gate resolver for route `beforeLoad` hooks. Fetches through the query
+ * client with the same keys the hooks use, so results land in (and reuse)
+ * the shared cache.
+ */
+export async function resolveAgenticFeatures( {
+	connector,
+	queryClient,
+}: {
 	connector: Connector;
+	queryClient: QueryClient;
 } ): Promise< AgenticFeatures > {
-	const preferences = await context.queryClient.fetchQuery( {
-		queryKey: USER_PREFERENCES_QUERY_KEY,
-		queryFn: () => context.connector.getUserPreferences(),
-	} );
-	// Skip the auth fetch offline — it could hang without a network.
 	if ( ! navigator.onLine ) {
-		return deriveAgenticFeatures(
-			context.connector,
-			undefined,
-			true,
-			preferences.agenticFeaturesEnabled
-		);
+		return deriveAgenticFeatures( connector, undefined, undefined, true );
 	}
-	const user = await context.queryClient.fetchQuery( {
-		queryKey: AUTH_USER_QUERY_KEY,
-		queryFn: () => context.connector.getAuthUser(),
+	const preferencesPromise = queryClient.fetchQuery( {
+		queryKey: USER_PREFERENCES_QUERY_KEY,
+		queryFn: () => connector.getUserPreferences(),
+		staleTime: Infinity,
 	} );
-	return deriveAgenticFeatures(
-		context.connector,
-		user,
-		false,
-		preferences.agenticFeaturesEnabled
-	);
+	const userPromise = connector.supportsAgenticOptOut
+		? queryClient.fetchQuery( {
+				queryKey: AUTH_USER_QUERY_KEY,
+				queryFn: () => connector.getAuthUser(),
+		  } )
+		: Promise.resolve( null );
+	const [ user, preferences ] = await Promise.all( [ userPromise, preferencesPromise ] );
+	return deriveAgenticFeatures( connector, user, preferences );
 }

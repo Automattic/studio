@@ -82,22 +82,54 @@
 /* Assistant response wrapper: the copy button below stays hidden until the
    turn is hovered (or a control inside it is focused), mirroring Claude/ChatGPT. */
 .assistantTurn {
+	position: relative;
 	display: flex;
 	flex-direction: column;
 	gap: var(--wpds-dimension-padding-xs);
 }
 
+/* Hangs off the turn's bottom-left without reserving layout space. The
+   hidden button keeps pointer-events so its own footprint is a hover
+   target: hovering where the icon would be reveals it (it's a descendant,
+   so the turn's :hover fires). The 28px button only grazes the next row's
+   top edge, and it fades in on hover, so clicks there are informed. */
 .messageActions {
+	position: absolute;
+	top: 100%;
+	inset-inline-start: calc((16px - 1.5rem) / 2);
 	display: flex;
 	align-items: center;
-	margin-inline-start: calc((16px - 1.75rem) / 2);
 	opacity: 0;
 	transition: opacity 0.12s ease;
 }
 
-.assistantTurn:hover .messageActions,
+/* Reveal needs a beat of hover intent so casual mouse travel across the
+   transcript doesn't flicker buttons; keyboard focus reveals immediately. */
+.assistantTurn:hover .messageActions {
+	opacity: 1;
+	transition-delay: 1s;
+}
+
 .assistantTurn:focus-within .messageActions {
 	opacity: 1;
+	transition-delay: 0s;
+}
+
+/* Transient double-click feedback, sitting beside the button's spot. */
+.copyNotice {
+	position: absolute;
+	top: 100%;
+	inset-inline-start: calc(1.5rem + var(--wpds-dimension-padding-xs));
+	display: inline-flex;
+	align-items: center;
+	height: 1.5rem;
+	padding: 0 var(--wpds-dimension-padding-sm);
+	border: 1px solid var(--color-frame-border);
+	border-radius: var(--wpds-border-radius-sm, 4px);
+	background-color: var(--color-frame-surface);
+	color: var(--color-frame-text-secondary);
+	font-size: var(--wpds-typography-font-size-sm);
+	white-space: nowrap;
 }
 
 .userActions {
@@ -364,6 +396,106 @@
 	color: var(--color-frame-text-secondary);
 	font-size: var(--wpds-typography-font-size-xs);
 	text-align: center;
+}
+
+/* Gated-tool confirmation card: a borderless surface; the red confirm
+   button carries the destructive signal. Once resolved it collapses to a
+   tool-call-style row (see PermissionRequest). */
+.permission {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-xs);
+	padding: var(--wpds-dimension-padding-md);
+	border-radius: 6px;
+	background-color: var(--color-frame-surface);
+}
+
+.permissionTitle {
+	margin: 0;
+	font-weight: 600;
+	color: var(--color-frame-text);
+	line-height: var(--wpds-typography-line-height-md);
+	text-wrap: balance;
+}
+
+/* The card receives programmatic focus as a group (see PermissionRequest);
+   the visible focus treatment belongs to the action buttons. */
+.permission:focus {
+	outline: none;
+}
+
+.permissionConsequences {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-xs);
+}
+
+.permissionConsequence {
+	margin: 0;
+	line-height: var(--wpds-typography-line-height-sm);
+	color: var(--color-frame-text-secondary);
+	font-size: var(--wpds-typography-font-size-sm);
+	text-wrap: pretty;
+}
+
+.permissionActions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--wpds-dimension-padding-md);
+	margin-top: var(--wpds-dimension-padding-md);
+}
+
+.permissionAction {
+	display: inline-flex;
+	align-items: center;
+	white-space: nowrap;
+	flex-shrink: 0;
+	background-color: var(--color-frame-bg);
+	border: 1px solid var(--color-frame-border);
+	border-radius: 6px;
+	padding: 4px 10px;
+	color: var(--color-frame-text);
+	font: inherit;
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: 1.4;
+	cursor: pointer;
+	transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.permissionAction:hover,
+.permissionAction:focus-visible {
+	background-color: var(--color-frame-surface-alt);
+	border-color: var(--color-frame-text-secondary);
+}
+
+/* Destructive confirm: the error color carries the "this deletes things"
+   signal now that the card itself is plain. */
+.permissionActionConfirm {
+	font-weight: 600;
+	background-color: var(--color-frame-error);
+	border-color: var(--color-frame-error);
+	color: #fff;
+}
+
+.permissionActionConfirm:hover,
+.permissionActionConfirm:focus-visible {
+	background-color: var(--color-frame-error);
+	border-color: var(--color-frame-error);
+	opacity: 0.85;
+}
+
+/* "Always allow" also relaxes a destructive gate, so it reads as destructive
+   too: outlined in the error color. */
+.permissionActionAlways {
+	color: var(--color-frame-error);
+	border-color: var(--color-frame-error);
+}
+
+.permissionActionAlways:hover,
+.permissionActionAlways:focus-visible {
+	color: var(--color-frame-error);
+	border-color: var(--color-frame-error);
+	background-color: var(--color-frame-surface-alt);
 }
 
 .errorMarker {

@@ -1,9 +1,16 @@
 .page {
 	width: 100%;
 	text-align: center;
+	/* Breathing room so content scrolls clear of the fixed footer bar. */
 	padding-bottom: 72px;
 }
 
+.pageSpacious {
+	padding-top: 64px;
+}
+
+/* Forms read better as a narrow left-aligned column centered in the
+   viewport — matches the desktop renderer's Add Site form layout. */
 .page form {
 	max-width: 480px;
 	margin-inline: auto;
@@ -25,6 +32,14 @@
 	margin: 0 0 32px;
 }
 
+.outlet {
+	display: contents;
+}
+
+.outlet h1:focus:not(:focus-visible) {
+	outline: none;
+}
+
 .progress {
 	position: fixed;
 	top: 24px;
@@ -39,21 +54,22 @@
 	box-shadow: var(--wpds-elevation-md);
 }
 
-.outlet h1:focus:not(:focus-visible) {
-	outline: none;
-}
-
+/* Decorative dot-grid backdrop behind every onboarding step. Fixed so it
+   stays put while tall pages (the gallery, the connect picker) scroll. */
 .dotGridLayer {
 	position: fixed;
 	inset: 0;
 	overflow: hidden;
 	pointer-events: none;
+	/* Negative z-index puts it behind content inside onboarding-layout's
+	   isolated stacking context. */
 	z-index: -1;
 }
 
-/* Translucent surface that lets the dot grid show through, softened.
+/* Shared "glass" surface for cards and containers across the onboarding
+   flows: a subtle translucent fill + blur so the dot grid glows through.
    Compose into a rule with `composes: glassSurface from '…'`. */
 .glassSurface {
-	background: color-mix(in srgb, var(--wpds-color-bg-surface-neutral-strong) 50%, transparent);
+	background: color-mix(in srgb, var(--wpds-color-bg-surface-neutral-strong, #fff) 50%, transparent);
 	backdrop-filter: blur(12px);
 }

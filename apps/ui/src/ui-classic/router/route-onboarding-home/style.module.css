@@ -1,30 +1,29 @@
+/* The heading/subtitle use the shared classes from ../layout-onboarding so
+   the typography can't drift between the home screen and the steps it leads
+   to. Only `.page` stays local: the home screen has no fixed footer, so it
+   skips the shared footer-clearance padding. */
 .page {
 	width: 100%;
 	text-align: center;
-	padding-bottom: 72px;
 }
 
 .cards {
-	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(240px, 300px));
+	display: flex;
 	gap: 20px;
 	justify-content: center;
 }
 
 .card {
+	composes: glassSurface from '../layout-onboarding/style.module.css';
+	flex: 1 1 0;
+	min-width: 0;
 	display: flex;
 	flex-direction: column;
 	align-items: center;
 	gap: 16px;
 	padding: 24px;
-	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
+	border: 1px solid var(--wpds-color-stroke-surface-neutral, #ddd);
 	border-radius: 12px;
-	background: color-mix(
-		in srgb,
-		var(--wpds-color-bg-surface-neutral-strong) 50%,
-		transparent
-	);
-	backdrop-filter: blur(12px);
 	appearance: none;
 	font: inherit;
 	text-align: center;
@@ -34,24 +33,49 @@
 	transition: border-color 0.15s ease;
 }
 
+/* Illustrations are authored at 198×110; let them shrink with the card so
+   four cards fit comfortably on narrower windows. */
+.card svg {
+	max-width: 100%;
+	height: auto;
+}
+
+/* The 1px border plus a 1px ring of the same color reads as a 2px edge
+   without shifting the layout. */
 .card:hover,
 .cardDragging {
-	border-color: var(--wpds-color-stroke-interactive-brand);
-	box-shadow: 0 0 0 1px var(--wpds-color-stroke-interactive-brand);
+	border-color: var(--wpds-color-stroke-interactive-brand, #3858e9);
+	box-shadow: 0 0 0 1px var(--wpds-color-stroke-interactive-brand, #3858e9);
 }
 
+/* Keyboard focus mirrors the hover affordance, plus an offset ring so the
+   focused card is unmistakable against its neighbors. */
 .card:focus-visible {
-	outline: 2px solid var(--wpds-color-stroke-focus-brand);
+	outline: 2px solid var(--wpds-color-stroke-interactive-brand, #3858e9);
 	outline-offset: 2px;
-	border-color: var(--wpds-color-stroke-interactive-brand);
+	border-color: var(--wpds-color-stroke-interactive-brand, #3858e9);
 }
 
-.cardDisabled,
-.cardDisabled:hover {
-	opacity: 0.55;
-	border-color: var(--wpds-color-stroke-surface-neutral);
-	box-shadow: none;
+.card:focus-visible .cardTitle {
+	color: var(--wpds-color-fg-interactive-brand, #3858e9);
+}
+
+.cardDisabled {
+	opacity: 0.5;
 	cursor: not-allowed;
+}
+
+.cardDisabled:hover {
+	border-color: var(--wpds-color-stroke-surface-neutral, #ddd);
+	box-shadow: none;
+}
+
+.cardDisabled:hover .cardTitle {
+	color: inherit;
+}
+
+.cardDragging {
+	background: color-mix(in srgb, var(--wpds-color-fg-interactive-brand, #3858e9) 5%, transparent);
 }
 
 .cardText {
@@ -61,49 +85,58 @@
 }
 
 .cardTitle {
-	font-size: var(--wpds-typography-font-size-lg);
+	font-size: 16px;
 	font-weight: 500;
+	margin: 0;
 	transition: color 0.15s ease;
 }
 
-.card:hover .cardTitle,
-.card:focus-visible .cardTitle {
-	color: var(--wpds-color-fg-interactive-brand);
+.card:hover .cardTitle {
+	color: var(--wpds-color-fg-interactive-brand, #3858e9);
 }
 
 .cardBody {
-	margin: 0;
-	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-md);
+	color: var(--wpds-color-fg-content-neutral-weak, #666);
+	font-size: 13px;
 	line-height: 1.4;
+	margin: 0;
 }
 
 .cardHint {
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-fg-content-neutral-weak, #666);
 	font-size: var(--wpds-typography-font-size-sm);
 }
 
 .cardError {
 	margin-top: 4px;
-	color: var(--wpds-color-fg-content-error);
-	font-size: var(--wpds-typography-font-size-sm);
+	font-size: 12px;
+	color: var(--wpds-color-fg-content-error, #b32d2e);
 }
 
-.hiddenInput {
-	display: none;
-}
-
-@media (max-width: 720px) {
+/* Narrow windows: stack the option cards and lay each one out
+   horizontally — illustration on the left, text on the right. */
+@media (max-width: 900px) {
 	.cards {
-		grid-template-columns: minmax(0, 1fr);
+		flex-direction: column;
+		align-items: stretch;
 	}
 
 	.card {
 		flex-direction: row;
+		align-items: center;
+		gap: 20px;
 		text-align: left;
+	}
+
+	.card svg {
+		flex-shrink: 0;
 	}
 
 	.cardText {
 		text-align: left;
 	}
+}
+
+.hiddenInput {
+	display: none;
 }

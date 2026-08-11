@@ -1,4 +1,120 @@
+/* Signed-out call to action: a full-width band across the bottom of the overview
+   panel. The particle "W" is a square anchored near the band's top-left, bleeding off
+   the leading edge and hanging off the bottom — so its round top always shows and it's
+   never squeezed. It scales with the band's width; the copy sits to its right,
+   vertically centred. Row → stacked → copy-only as the band narrows. */
 .root {
+	container-type: inline-size;
+	position: relative;
+	display: flex;
+	align-items: stretch;
+	min-block-size: 172px;
+	background: var(--wpds-color-bg-surface-neutral);
+}
+
+/* Sidebar collapsed: a sidebar-expand toggle joins the preview toggle along the
+   panel's bottom edge — reserve room below so neither sits under the content. */
+.collapsed {
+	min-block-size: calc(172px + 46px);
+	padding-block-end: 46px;
+}
+
+/* Static plus-grid backdrop behind everything, full-bleed. */
+.grid {
+	z-index: 0;
+}
+
+/* Softens and fades the grid's top edge into the plain panel surface above. */
+.topBlur {
+	inset-inline: 0;
+	inset-block-start: 0;
+	height: 80px;
+	z-index: 1;
+}
+
+/* The content block. Stretches to the band height, fills the width up to a max, then
+   centres — so on a wide band the whole lockup pulls in from the leading edge and the
+   W stops bleeding, sitting fully on the grid with room to its side. */
+.lockup {
+	/* Square W that scales with the band width, capped. cqw resolves against .root, so
+	   it tracks the band regardless of this element's own (centred, capped) width. */
+	--w-size: clamp(160px, 36cqw, 240px);
+	--w-gap: clamp(28px, 6cqw, 52px);
+	--w-bleed: 31px;
+	--w-top: var(--wpds-dimension-padding-3xl);
+	position: relative;
+	z-index: 2;
+	width: 100%;
+	max-width: 780px;
+	margin-inline: auto;
+	display: flex;
+	align-items: center;
+	/* Reserve the W's visible width + a gap on the leading side so the copy clears it;
+	   the W itself is absolute and ignores this padding, bleeding off the leading edge. */
+	padding-inline: calc(var(--w-size) - var(--w-bleed) + var(--w-gap))
+		calc(var(--wpds-dimension-padding-3xl) + var(--wpds-dimension-padding-xl));
+}
+
+/* The particle "W": a square holding the whole glyph. Absolutely positioned and pinned
+   near the top so it hangs off the band's bottom edge (clipped there) rather than being
+   sliced top-and-bottom — the round top always reads. Its size never drives the band
+   height. */
+.mark {
+	position: absolute;
+	inset-block-start: var(--w-top);
+	inset-inline-start: calc(-1 * var(--w-bleed));
+	inline-size: var(--w-size);
+	aspect-ratio: 1;
+	z-index: 0;
+}
+
+/* Scale the canvas up so the glyph fills the square (EmptyBackground pads its own
+   canvas heavily); the surplus is transparent and clipped to the square. Equal
+   width/height keep it perfectly circular — never stretched. */
+.mark canvas {
+	width: 175%;
+	height: 175%;
+	max-width: none;
+}
+
+.copy {
+	position: relative;
+	z-index: 1;
+	max-width: 460px;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: var(--wpds-dimension-padding-xs);
+}
+
+.heading {
+	margin: 0;
+	font-size: var(--wpds-typography-font-size-lg);
+	line-height: var(--wpds-typography-line-height-lg);
+	font-weight: var(--wpds-typography-font-weight-medium);
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.subline {
+	margin: 0;
+	font-size: var(--wpds-typography-font-size-md);
+	line-height: 1.35;
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.actions {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: var(--wpds-dimension-padding-sm);
+	margin-block-start: var(--wpds-dimension-padding-md);
+}
+
+/* SigninNotice: a compact inline card (heading + benefits + button) for surfaces
+   that keep the prompt in the content flow, e.g. the Settings Usage panel. Kept
+   separate from the .root band above so the two treatments don't collide. */
+.notice {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
@@ -11,12 +127,12 @@
 	background: var(--wpds-color-bg-surface-neutral-weak);
 }
 
-.text {
+.noticeText {
 	flex: 1 1 auto;
 	min-width: 0;
 }
 
-.heading {
+.noticeHeading {
 	margin: 0 0 var(--wpds-dimension-padding-sm);
 	font-size: var(--wpds-typography-font-size-md);
 	line-height: var(--wpds-typography-line-height-md);
@@ -24,7 +140,7 @@
 	color: var(--wpds-color-fg-content-neutral);
 }
 
-.benefits {
+.noticeBenefits {
 	margin: 0;
 	padding-inline-start: var(--wpds-dimension-padding-lg);
 	display: flex;
@@ -35,7 +151,88 @@
 	color: var(--wpds-color-fg-content-neutral-weak);
 }
 
-.actions {
+.noticeActions {
 	flex-shrink: 0;
 	align-self: center;
+}
+
+/* Hidden: no band — a rotating tagline plus the log-in button, right-aligned and
+   padded clear of the preview toggle at the panel's bottom-right corner. */
+.minimized {
+	min-block-size: 0;
+	/* Sit above the panel's footer blur so the tagline and button stay crisp. */
+	z-index: 2;
+	background: transparent;
+	align-items: center;
+	justify-content: flex-end;
+	gap: var(--wpds-dimension-padding-lg);
+	padding-block: var(--wpds-dimension-padding-lg);
+	padding-inline: var(--wpds-dimension-padding-3xl) calc(46px + var(--wpds-dimension-padding-lg));
+}
+
+.tagline {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: var(--wpds-typography-font-size-md);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	animation: agentic-tagline-in 400ms ease;
+}
+
+@keyframes agentic-tagline-in {
+	from {
+		opacity: 0;
+		transform: translateY(2px);
+	}
+
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.tagline {
+		animation: none;
+	}
+}
+
+/* Stacked: not enough width for a bleeding W — a small, whole W sits on top of the
+   copy, both left-aligned within symmetric padding. (Padding lives on .lockup, not
+   .root: .root establishes the query container, so its own @container rules never
+   apply.) */
+@container (max-width: 459px) {
+	.lockup {
+		max-width: none;
+		margin-inline: 0;
+		padding: var(--wpds-dimension-padding-3xl);
+		flex-direction: column;
+		align-items: flex-start;
+		gap: var(--wpds-dimension-padding-lg);
+	}
+
+	.mark {
+		position: relative;
+		inset: auto;
+		inline-size: 96px;
+	}
+
+	.copy {
+		max-width: none;
+	}
+}
+
+/* Copy only. */
+@container (max-width: 359px) {
+	.mark {
+		display: none;
+	}
+}
+
+/* Only drop the tagline when the panel is genuinely tiny. */
+@container (max-width: 300px) {
+	.tagline {
+		display: none;
+	}
 }

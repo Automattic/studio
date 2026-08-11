@@ -20,14 +20,6 @@
 	--wp-ui-dialog-z-index: 700;
 	--wp-ui-select-z-index: 750;
 	--wp-ui-tooltip-z-index: 800;
-
-	/* Vivid status colors the wpds palette lacks: --wpds-color-fg-content-success
-	   resolves to #002900 (reads black at dot size) and there are no
-	   caution/accent equivalents. */
-	--studio-color-status-running: #16a34a;
-	--studio-color-status-transitioning: #a16207;
-	--studio-color-status-attention: #facc15;
-	--studio-color-status-sync: #a855f7;
 }
 
 body {
@@ -143,19 +135,22 @@ textarea,
 
 /* Show the focus ring only on keyboard focus, overriding @wordpress/ui's
    :focus-based outline. Unlayered CSS wins over WP UI's cascade layers.
-   `a` covers Button primitives rendered as links via its `render` prop.
-   Also revert the background/border shift @wordpress/ui's Button applies on
-   `:focus` — when a Dialog auto-focuses a button on open, the "active" look
-   would otherwise show without any user intent. Leave `color` alone:
-   loading buttons rely on `color: transparent` to hide their label while
-   the spinner runs, and overriding that here would make the label visible
-   again. */
+   `a` covers Button primitives rendered as links via its `render` prop. */
 button:focus:not( :focus-visible ),
 a:focus:not( :focus-visible ),
 [role='button']:focus:not( :focus-visible ) {
 	outline: none;
-	background-color: var( --wp-ui-button-background-color );
-	border-color: var( --wp-ui-button-border-color );
+}
+
+/* Revert the background/border shift @wordpress/ui's Button applies on
+   `:focus` without overriding unlayered custom component styles. */
+@layer wp-ui-overrides {
+	button:focus:not( :focus-visible ),
+	a:focus:not( :focus-visible ),
+	[role='button']:focus:not( :focus-visible ) {
+		background-color: var( --wp-ui-button-background-color );
+		border-color: var( --wp-ui-button-border-color );
+	}
 }
 
 /* Compact density: shrink icons to match the tighter spacing tokens.
@@ -168,11 +163,6 @@ a:focus:not( :focus-visible ),
 	height: 16px;
 }
 
-[data-wpds-density='compact'] [data-ui-mode='classic'] svg[data-keep-size] {
-	width: auto;
-	height: auto;
-}
-
 /* @wordpress/ui SelectControl and Autocomplete popup items use the brand
    weak-active fill for highlighted rows. In Studio's dark chrome that reads
    too saturated; the selected item is already indicated with a checkmark, so
@@ -182,6 +172,42 @@ a:focus:not( :focus-visible ),
 	) {
 	background-color: var( --wpds-color-bg-interactive-neutral-weak-active );
 	color: var( --wpds-color-fg-interactive-neutral );
+}
+
+/* Escape hatch for non-icon SVGs (illustrations, thumbnails) that size
+   themselves through their width/height attributes — `auto` defers back to
+   the attribute values the compact-density rule above would override. */
+[data-wpds-density='compact'] [data-ui-mode='classic'] svg[data-keep-size] {
+	width: auto;
+	height: auto;
+}
+
+@keyframes view-transition-exit {
+	to {
+		opacity: 0;
+	}
+}
+
+@keyframes view-transition-enter {
+	from {
+		opacity: 0;
+		transform: translateY(10px);
+	}
+}
+
+::view-transition-old(root) {
+	animation: 120ms ease-out both view-transition-exit;
+}
+
+::view-transition-new(root) {
+	animation: 220ms ease-out both view-transition-enter;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	::view-transition-old(root),
+	::view-transition-new(root) {
+		animation: none;
+	}
 }
 
 /* @wordpress/components' ComboboxControl (used by DataForm's adaptive

@@ -1,0 +1,82 @@
+/* Frosted panel around the fields — same treatment as the create-site form
+   so the dot grid reads as a backdrop instead of bleeding through inputs. */
+.panel {
+	display: flex;
+	flex-direction: column;
+	gap: 24px;
+	padding: 32px;
+	border: 1px solid var(--wpds-color-stroke-surface-neutral, #ddd);
+	border-radius: 12px;
+	background: color-mix(in srgb, var(--wpds-color-bg-surface-neutral-strong, #fff) 50%, transparent);
+	backdrop-filter: blur(12px);
+}
+
+/* Read-only display of the folder chosen in the picker step. */
+.folderRow {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.folderLabel {
+	font-size: var(--wpds-typography-font-size-md, 13px);
+	font-weight: 500;
+}
+
+.folderPath {
+	font-size: var(--wpds-typography-font-size-md, 13px);
+	color: var(--wpds-color-fg-content-neutral-weak, #666);
+	overflow-wrap: anywhere;
+}
+
+.slugPreview {
+	margin: 0;
+	font-size: 12px;
+	color: var(--wpds-color-fg-content-neutral-weak, #666);
+}
+
+.advancedToggle {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	align-self: flex-start;
+}
+
+/* Animated expand/collapse — same 0fr -> 1fr grid-row technique as the
+   create-site form's Advanced settings, so the two forms feel identical. */
+.advancedCollapse {
+	display: grid;
+	grid-template-rows: 0fr;
+	opacity: 0;
+	/* Cancels the panel's 24px flex gap while collapsed. */
+	margin-top: -24px;
+	transition: grid-template-rows 0.25s ease, opacity 0.2s ease, margin-top 0.25s ease;
+}
+
+.advancedCollapseOpen {
+	grid-template-rows: 1fr;
+	opacity: 1;
+	margin-top: 0;
+}
+
+.advancedCollapseInner {
+	overflow: hidden;
+	min-height: 0;
+	/* Widen the clip box so outset focus rings on edge fields survive. */
+	padding: 4px;
+	margin: -4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.advancedCollapse {
+		transition: none;
+	}
+}
+
+.submitError {
+	padding: 10px 12px;
+	border-radius: 4px;
+	background: color-mix(in srgb, var(--wpds-color-fg-content-error, #d63638) 12%, transparent);
+	color: var(--wpds-color-fg-content-error, #7a1a1a);
+	font-size: 13px;
+}

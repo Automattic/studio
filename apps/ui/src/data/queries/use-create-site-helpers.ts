@@ -7,7 +7,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 import { useConnector } from '@/data/core';
 import { useSites } from '@/data/queries/use-sites';
-import type { SiteDetails } from '@/data/core';
+import type { AvailableSitePath, SiteDetails } from '@/data/core';
 
 const PROPOSED_SITE_NAME_QUERY_KEY = [ 'proposedSiteName' ] as const;
 
@@ -41,6 +41,22 @@ export function useProposedSiteName( sites: SiteDetails[] | undefined ) {
 		enabled: !! sites,
 		staleTime: Infinity,
 	} );
+}
+
+/**
+ * Finds a site name that doesn't collide with an existing site or a
+ * non-empty site folder by appending an incrementing suffix ("My Site",
+ * "My Site 2", ...), and returns it together with its proposed directory.
+ * Used when a flow seeds the name from an external source rather than user
+ * input. The search runs in the main process in one round-trip.
+ */
+export function useFindAvailableSiteName() {
+	const connector = useConnector();
+	return useCallback(
+		( baseName: string ): Promise< AvailableSitePath > =>
+			connector.findAvailableSitePath( baseName ),
+		[ connector ]
+	);
 }
 
 /**

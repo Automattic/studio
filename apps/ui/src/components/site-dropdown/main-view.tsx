@@ -5,12 +5,13 @@ import { __, sprintf } from '@wordpress/i18n';
 import { arrowDown, arrowUp, copy, external, Icon, moreHorizontal } from '@wordpress/icons';
 import { Button, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import * as Menu from '@/components/menu';
 import { XdebugIcon } from '@/components/xdebug-icon';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useLogin } from '@/data/queries/use-auth-user';
+import { useCheckpoints, useCreateCheckpoint } from '@/data/queries/use-checkpoints';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import { usePublishPreviewSite } from '@/data/queries/use-preview-site';
 import {
@@ -24,6 +25,7 @@ import {
 	PULL_FROM_LIVE_MUTATION_KEY,
 	PUSH_TO_LIVE_MUTATION_KEY,
 } from '@/data/queries/use-sync-site';
+import { formatRelativeTime } from '@/lib/format-relative-time';
 import { getSiteUrl } from '@/lib/get-site-url';
 import styles from './main-view.module.css';
 import { PopoverRow } from './popover-row';
@@ -37,7 +39,7 @@ import {
 	stripProtocol,
 } from './utils';
 import type { SiteDetails } from '@/data/core';
-import type { SyncActivity } from '@/data/sync-activity';
+import type { SyncActivity, SyncLogEntry, SyncLogSummary } from '@/data/sync-activity';
 import type { ComponentProps } from 'react';
 
 type ButtonProps = ComponentProps< typeof Button >;
@@ -45,6 +47,7 @@ type ButtonProps = ComponentProps< typeof Button >;
 type Props = {
 	site: SiteDetails;
 	activity: SyncActivity | null;
+	lastSyncLog: SyncLogSummary | null;
 	// Switches the dropdown to the publish picker. Lives in the parent because
 	// the picker is a sibling view at the popup level.
 	onSetupClick: () => void;
@@ -103,9 +106,80 @@ function getLivePanelCopy( agenticEnabled: boolean, isOffline: boolean ): string
 	return __( 'Sign in to publish your site.' );
 }
 
+function isLiveSyncPending(
+	activity: SyncActivity | null
+): activity is Extract< SyncActivity, { kind: 'pending' } > {
+	return (
+		activity?.kind === 'pending' &&
+		( activity.direction === 'push' || activity.direction === 'pull' )
+	);
+}
+
+function formatLogDuration(
+	startTimestamp: string,
+	endTimestamp: string | undefined,
+	now: number
+): string {
+	const start = Date.parse( startTimestamp );
+	if ( Number.isNaN( start ) ) {
+		return '';
+	}
+
+	const parsedEnd = endTimestamp ? Date.parse( endTimestamp ) : now;
+	const end = Number.isNaN( parsedEnd ) ? now : parsedEnd;
+	const elapsedSeconds = Math.floor( Math.max( 0, end - start ) / 1000 );
+
+	if ( elapsedSeconds < 60 ) {
+		return sprintf( __( '%ds' ), elapsedSeconds );
+	}
+
+	const elapsedMinutes = Math.floor( elapsedSeconds / 60 );
+	if ( elapsedMinutes < 60 ) {
+		return sprintf( __( '%dm' ), elapsedMinutes );
+	}
+
+	const elapsedHours = Math.floor( elapsedMinutes / 60 );
+	if ( elapsedHours < 24 ) {
+		return sprintf( __( '%dh' ), elapsedHours );
+	}
+
+	return sprintf( __( '%dd' ), Math.floor( elapsedHours / 24 ) );
+}
+
+function getSyncLogEntries( activity: SyncActivity | null ): SyncLogEntry[] {
+	if ( activity?.log?.length ) {
+		return activity.log;
+	}
+
+	if ( activity?.kind === 'pending' ) {
+		return [
+			{
+				timestamp: new Date().toISOString(),
+				message: getSyncActivityLabel( activity ),
+			},
+		];
+	}
+
+	return [];
+}
+
+function getLastSyncLogMeta( summary: SyncLogSummary ): string {
+	const relativeTime = formatRelativeTime( summary.completedAt );
+	if ( ! relativeTime ) {
+		return summary.kind === 'success' ? __( 'Completed' ) : __( 'Failed' );
+	}
+
+	const suffix =
+		relativeTime === __( 'now' ) ? relativeTime : sprintf( __( '%s ago' ), relativeTime );
+	return summary.kind === 'success'
+		? sprintf( __( 'Completed %s' ), suffix )
+		: sprintf( __( 'Failed %s' ), suffix );
+}
+
 export function MainView( {
 	site,
 	activity,
+	lastSyncLog,
 	onSetupClick,
 	onDisconnectClick,
 	onPullClick,
@@ -133,14 +207,21 @@ export function MainView( {
 	const isStopping = useIsSiteStopping( site.id );
 	const isLocalTransitioning = isStarting || isStopping;
 	const { push: isPushPending, pull: isPullPending } = useIsSiteSyncing( site.id );
-	const isPreviewPending = publishPreviewSite.isPending;
+	const isPreviewActivityPending = activity?.kind === 'pending' && activity.direction === 'preview';
+	const isPreviewPending = publishPreviewSite.isPending || isPreviewActivityPending;
+	const liveSyncActivity = isLiveSyncPending( activity ) ? activity : null;
+	const isLiveSyncActivityPending = !! liveSyncActivity;
 	// Preview / push / pull all mutate the same local site; running them
 	// concurrently would wedge the site runtime.
-	const isSyncing = isPreviewPending || isPushPending || isPullPending;
+	const isSyncing = isPreviewPending || isPushPending || isPullPending || isLiveSyncActivityPending;
 
 	const { localSublabel } = deriveSiteStatus( site, isStarting, isStopping );
 	const localSiteUrl = getSiteUrl( site );
 	const canOpenLocalSite = site.running && ! isStopping;
+	const supportsCheckpoints = connector.capabilities?.siteCheckpoints ?? false;
+	const checkpoints = useCheckpoints( supportsCheckpoints ? site.id : undefined );
+	const createCheckpoint = useCreateCheckpoint();
+	const latestCheckpoint = checkpoints.data?.[ checkpoints.data.length - 1 ];
 
 	const openExternal = ( url: string ) => {
 		void connector.openExternalUrl( url );
@@ -266,27 +347,56 @@ export function MainView( {
 					)
 				}
 				sublabel={
-					canOpenLocalSite
-						? renderUrlLink( {
-								text: localSublabel,
-								url: localSiteUrl,
-								label: __( 'Open Studio site in your browser' ),
-								onOpen: () =>
-									void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_IN_BROWSER, {
-										browser: 'external',
-									} ),
-						  } )
-						: localSublabel
+					<>
+						{ canOpenLocalSite
+							? renderUrlLink( {
+									text: localSublabel,
+									url: localSiteUrl,
+									label: __( 'Open Studio site in your browser' ),
+									onOpen: () =>
+										void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_IN_BROWSER, {
+											browser: 'external',
+										} ),
+							  } )
+							: localSublabel }
+						{ supportsCheckpoints ? (
+							<div>
+								{ latestCheckpoint
+									? sprintf(
+											__( 'Checkpoint saved %s' ),
+											formatRelativeTime( new Date( latestCheckpoint.createdAt ).toISOString() )
+									  )
+									: __( 'No checkpoints yet.' ) }
+							</div>
+						) : null }
+					</>
 				}
 				action={
-					<LocalServerControl
-						running={ site.running }
-						starting={ isStarting }
-						stopping={ isStopping }
-						disabled={ isSyncing }
-						onStart={ handleStartLocalClick }
-						onStop={ handleStopLocalClick }
-					/>
+					<div className={ styles.rowActions }>
+						{ supportsCheckpoints
+							? renderTooltipButton( {
+									tooltip: __( 'Save a checkpoint of the site’s files and database' ),
+									variant: 'minimal',
+									tone: 'neutral',
+									size: 'compact',
+									loading: createCheckpoint.isPending,
+									onClick: () => {
+										if ( ! createCheckpoint.isPending ) {
+											createCheckpoint.mutate( { siteId: site.id } );
+										}
+									},
+									children: __( 'Checkpoint' ),
+							  } )
+							: null }
+						<LocalServerControl
+							running={ site.running }
+							starting={ isStarting }
+							stopping={ isStopping }
+							disabled={ isSyncing }
+							onStart={ handleStartLocalClick }
+							onStop={ handleStopLocalClick }
+						/>
+					</div>
 				}
 			/>
 
@@ -349,69 +459,81 @@ export function MainView( {
 			) }
 
 			{ liveSite ? (
-				<PopoverRow
-					label={ __( 'Live' ) }
-					sublabel={ renderUrlLink( {
-						text: stripProtocol( liveSite.url ),
-						url: ensureProtocol( liveSite.url ),
-						label: __( 'Open live site in your browser' ),
-					} ) }
-					action={
-						<div className={ styles.rowActions }>
-							<IconButton
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								icon={ arrowDown }
-								label={ getSyncActionLabel(
-									__( 'Pull from live' ),
-									__( 'Pulling from live…' ),
-									isPullPending
-								) }
-								className={ styles.rowActionButton }
-								loading={ isPullPending }
-								loadingAnnouncement={ __( 'Pulling from live' ) }
-								disabled={ isSyncing || ! agenticEnabled }
-								focusableWhenDisabled
-								onClick={ handlePullClick }
-							/>
-							<IconButton
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								icon={ arrowUp }
-								label={ getSyncActionLabel(
-									__( 'Push to live' ),
-									__( 'Pushing to live…' ),
-									isPushPending
-								) }
-								className={ styles.rowActionButton }
-								loading={ isPushPending }
-								loadingAnnouncement={ __( 'Pushing to live' ) }
-								disabled={ isSyncing || ! agenticEnabled }
-								focusableWhenDisabled
-								onClick={ handlePushClick }
-							/>
-							<Menu.SubmenuRoot>
-								<Menu.SubmenuTrigger
-									className={ styles.moreMenuTrigger }
+				<div className={ styles.liveRow }>
+					<PopoverRow
+						label={ __( 'Live' ) }
+						sublabel={ renderUrlLink( {
+							text: stripProtocol( liveSite.url ),
+							url: ensureProtocol( liveSite.url ),
+							label: __( 'Open live site in your browser' ),
+						} ) }
+						action={
+							<div className={ styles.rowActions }>
+								<IconButton
+									variant="minimal"
+									tone="neutral"
+									size="small"
+									icon={ arrowDown }
+									label={ getSyncActionLabel(
+										__( 'Pull from live' ),
+										__( 'Pulling from live…' ),
+										isPullPending
+									) }
+									className={ styles.rowActionButton }
+									loading={ isPullPending }
+									loadingAnnouncement={ __( 'Pulling from live' ) }
 									disabled={ isSyncing || ! agenticEnabled }
-									aria-label={ __( 'More live site actions' ) }
-								>
-									<Icon icon={ moreHorizontal } size={ 16 } aria-hidden="true" />
-								</Menu.SubmenuTrigger>
-								<Menu.Popup side="right" align="start" className={ styles.moreMenuPopup }>
-									<Menu.Item
+									focusableWhenDisabled
+									onClick={ handlePullClick }
+								/>
+								<IconButton
+									variant="minimal"
+									tone="neutral"
+									size="small"
+									icon={ arrowUp }
+									label={ getSyncActionLabel(
+										__( 'Push to live' ),
+										__( 'Pushing to live…' ),
+										isPushPending
+									) }
+									className={ styles.rowActionButton }
+									loading={ isPushPending }
+									loadingAnnouncement={ __( 'Pushing to live' ) }
+									disabled={ isSyncing || ! agenticEnabled }
+									focusableWhenDisabled
+									onClick={ handlePushClick }
+								/>
+								<Menu.SubmenuRoot>
+									<Menu.SubmenuTrigger
+										className={ styles.moreMenuTrigger }
 										disabled={ isSyncing || ! agenticEnabled }
-										onClick={ onDisconnectClick }
+										aria-label={ __( 'More live site actions' ) }
 									>
-										{ __( 'Disconnect' ) }
-									</Menu.Item>
-								</Menu.Popup>
-							</Menu.SubmenuRoot>
+										<Icon icon={ moreHorizontal } size={ 16 } aria-hidden="true" />
+									</Menu.SubmenuTrigger>
+									<Menu.Popup side="right" align="start" className={ styles.moreMenuPopup }>
+										<Menu.Item
+											disabled={ isSyncing || ! agenticEnabled }
+											onClick={ onDisconnectClick }
+										>
+											{ __( 'Disconnect' ) }
+										</Menu.Item>
+									</Menu.Popup>
+								</Menu.SubmenuRoot>
+							</div>
+						}
+					/>
+					{ liveSyncActivity ? (
+						<div className={ styles.liveSyncStatus }>
+							<SyncProgressPanel activity={ liveSyncActivity } />
+							<SyncLog entries={ getSyncLogEntries( activity ) } active />
 						</div>
-					}
-				/>
+					) : lastSyncLog?.log.length ? (
+						<div className={ styles.liveSyncStatus }>
+							<LastSyncLogDisclosure summary={ lastSyncLog } />
+						</div>
+					) : null }
+				</div>
 			) : (
 				<EnvironmentActionPanel
 					title={ __( 'Live' ) }
@@ -469,6 +591,130 @@ function SyncActivityDetails( {
 				{ activity.message ?? __( 'Preparing the live site…' ) }
 			</div>
 		</div>
+	);
+}
+
+function getSyncProgressDetail( activity: Extract< SyncActivity, { kind: 'pending' } > ): string {
+	if ( activity.direction === 'pull' ) {
+		return __( 'Bringing selected live-site changes into Studio.' );
+	}
+
+	switch ( activity.phase ) {
+		case 'uploading':
+			return __( 'Preparing and uploading the selected Studio changes.' );
+		case 'creating-backup':
+			return __( 'Creating a safety backup before the live site changes.' );
+		case 'applying':
+			return __( 'Updating the live site with the selected changes.' );
+		case 'finishing':
+			return __( 'Finishing the live-site update.' );
+		default:
+			return __( 'Preparing the live-site update.' );
+	}
+}
+
+function SyncProgressPanel( {
+	activity,
+}: {
+	activity: Extract< SyncActivity, { kind: 'pending' } >;
+} ) {
+	const progress =
+		typeof activity.progress === 'number'
+			? Math.max( 0, Math.min( 100, Math.round( activity.progress ) ) )
+			: null;
+	const progressLabel = progress !== null ? sprintf( __( '%d%%' ), progress ) : __( 'Working' );
+
+	return (
+		<div className={ styles.syncProgressPanel } role="status" aria-live="polite">
+			<div className={ styles.syncProgressHeader }>
+				<div className={ styles.syncProgressTitle }>{ getSyncActivityLabel( activity ) }</div>
+				<div className={ styles.syncProgressPercent }>{ progressLabel }</div>
+			</div>
+			<div className={ styles.syncProgressDetail }>{ getSyncProgressDetail( activity ) }</div>
+			<div
+				className={ clsx(
+					styles.syncProgressTrack,
+					progress === null && styles.syncProgressTrack_indeterminate
+				) }
+				aria-hidden="true"
+			>
+				{ progress !== null ? (
+					<div className={ styles.syncProgressBar } style={ { width: `${ progress }%` } } />
+				) : null }
+			</div>
+		</div>
+	);
+}
+
+function SyncLog( { entries, active }: { entries: SyncLogEntry[]; active: boolean } ) {
+	const now = useSyncLogClock( active, entries );
+
+	return (
+		<div className={ styles.syncLog } aria-label={ __( 'Sync log' ) }>
+			<div className={ styles.syncLogTitle }>{ __( 'Sync log' ) }</div>
+			<div className={ styles.syncLogEntries }>
+				<SyncLogRows entries={ entries } active={ active } now={ now } />
+			</div>
+		</div>
+	);
+}
+
+function LastSyncLogDisclosure( { summary }: { summary: SyncLogSummary } ) {
+	const now = useSyncLogClock( false, summary.log );
+
+	return (
+		<details className={ styles.lastSyncLog }>
+			<summary className={ styles.lastSyncLogSummary }>
+				<span>{ __( 'Last sync log' ) }</span>
+				<span className={ styles.lastSyncLogMeta }>{ getLastSyncLogMeta( summary ) }</span>
+			</summary>
+			<div className={ styles.lastSyncLogBody }>
+				<SyncLogRows entries={ summary.log } active={ false } now={ now } />
+			</div>
+		</details>
+	);
+}
+
+function useSyncLogClock( active: boolean, entries: SyncLogEntry[] ): number {
+	const [ now, setNow ] = useState( () => Date.now() );
+
+	useEffect( () => {
+		setNow( Date.now() );
+		if ( ! active ) {
+			return;
+		}
+
+		const interval = window.setInterval( () => setNow( Date.now() ), 1000 );
+		return () => window.clearInterval( interval );
+	}, [ active, entries ] );
+
+	return now;
+}
+
+function SyncLogRows( {
+	entries,
+	active,
+	now,
+}: {
+	entries: SyncLogEntry[];
+	active: boolean;
+	now: number;
+} ) {
+	return (
+		<>
+			{ entries.map( ( entry, index ) => {
+				const nextEntry = entries[ index + 1 ];
+				const endTimestamp = nextEntry?.timestamp ?? ( active ? undefined : entry.timestamp );
+				return (
+					<div className={ styles.syncLogEntry } key={ `${ entry.timestamp }:${ entry.message }` }>
+						<time className={ styles.syncLogTime } dateTime={ entry.timestamp }>
+							{ formatLogDuration( entry.timestamp, endTimestamp, now ) }
+						</time>
+						<div className={ styles.syncLogMessage }>{ entry.message }</div>
+					</div>
+				);
+			} ) }
+		</>
 	);
 }
 

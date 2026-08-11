@@ -5,6 +5,7 @@ import { clsx } from 'clsx';
 import { useCallback, useEffect, useState } from 'react';
 import { AppMessageCards, AppMessageCardsDot } from '@/components/app-message-cards';
 import { AppToasts } from '@/components/app-toasts';
+import { ProgressiveBlur } from '@/components/progressive-blur';
 import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { SidebarHeader } from '@/components/sidebar-header';
 import { SiteList } from '@/components/site-list';
@@ -12,6 +13,7 @@ import { StudioBetaMenu } from '@/components/studio-beta-menu';
 import { UserMenu } from '@/components/user-menu';
 import { useConnector } from '@/data/core';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useFrameColor } from '@/hooks/use-frame-color';
 import { useResizablePanel } from '@/hooks/use-resizable-panel';
 import { SidebarCollapsedContext } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
@@ -24,9 +26,10 @@ import type { CSSProperties, ReactNode } from 'react';
 const { ThemeProvider } = unlock( privateApis );
 
 // Dark window chrome behind the sidebar and the content frame, mimicking the
-// legacy renderer's `bg-chrome` (rgba(30,30,30,1)) and the wp-admin dark
-// chrome. Dark mode goes a step deeper so the chrome still contrasts with
-// #1e1e1e content surfaces.
+// legacy renderer's `bg-chrome` (rgba(30,30,30,1)). Dark mode goes a step
+// deeper so the chrome still contrasts with #1e1e1e content surfaces. Keep in
+// sync with --app-chrome-bg in style.module.css. The user's Frame color setting
+// overrides both with a single color.
 const CHROME_BG_LIGHT = '#1e1e1e';
 const CHROME_BG_DARK = '#161616';
 
@@ -53,7 +56,8 @@ export function SidebarLayout( {
 	const connector = useConnector();
 	const reserveTrafficLightSpace = useTrafficLightSpace().start;
 	const colorScheme = useColorScheme();
-	const chromeBg = colorScheme === 'dark' ? CHROME_BG_DARK : CHROME_BG_LIGHT;
+	const frameColor = useFrameColor();
+	const chromeBg = frameColor ?? ( colorScheme === 'dark' ? CHROME_BG_DARK : CHROME_BG_LIGHT );
 	const sidebarResize = useResizablePanel( {
 		config: SIDEBAR_PANEL_CONFIG,
 		edge: 'right',
@@ -75,7 +79,10 @@ export function SidebarLayout( {
 
 	return (
 		<SidebarCollapsedContext.Provider value={ effectiveCollapsed }>
-			<div className={ styles.root } style={ { '--app-chrome-bg': chromeBg } as CSSProperties }>
+			<div
+				className={ styles.root }
+				style={ frameColor ? ( { '--app-chrome-bg': frameColor } as CSSProperties ) : undefined }
+			>
 				<aside
 					className={ clsx(
 						styles.sidebar,
@@ -84,21 +91,29 @@ export function SidebarLayout( {
 					) }
 					style={ sidebarStyle }
 				>
-					{ /* The sidebar sits on the dark window chrome in both color
-					     schemes, so its wpds tokens come from a nested dark theme
-					     scope. */ }
+					{ /* The sidebar sits on the dark window chrome, so its wpds
+					     tokens come from a nested dark theme scope. The scope div
+					     re-declares the row hover/active custom properties so they
+					     resolve against the dark ramp. */ }
 					<ThemeProvider color={ { bg: chromeBg } }>
 						<div className={ styles.sidebarThemeScope }>
 							<SidebarHeader />
 							<SiteList />
 							<div className={ styles.sidebarFooter }>
-								{ /* Toasts sit above the persistent cards: the footer is
-								     bottom-anchored, so a transient toast arriving below a card
-								     would shove it up and drop it back on expiry. */ }
-								{ ! effectiveCollapsed ? <AppToasts className={ styles.sidebarToasts } /> : null }
+								{ /* Rides the sticky footer's top edge, blurring list rows as
+								     they scroll under; a scroll-driven animation fades it out
+								     at the end of the scroll range so the last rows are never
+								     left obscured. */ }
+								<ProgressiveBlur direction="up" fadeToSurface className={ styles.footerBlur } />
+								{ /* Persistent cards stack above the ephemeral toasts; while
+								     collapsed the floating toggle's dot stands in for them. */ }
 								{ ! effectiveCollapsed ? (
 									<AppMessageCards className={ styles.sidebarCards } />
 								) : null }
+								{ /* Single AppToasts instance app-wide: here when expanded,
+								     floating over the main panel when collapsed. The store
+								     survives the swap. */ }
+								{ ! effectiveCollapsed ? <AppToasts className={ styles.sidebarToasts } /> : null }
 								{ ! effectiveCollapsed ? (
 									<StudioBetaMenu className={ styles.sidebarBeta } />
 								) : null }
@@ -123,7 +138,14 @@ export function SidebarLayout( {
 						/>
 					</ThemeProvider>
 				) : null }
-				<main className={ styles.main }>
+				{ /* data-app-main lets descendants publish layout facts to this
+				     scope — SessionFrame sets --app-main-composer-height here so
+				     the floating toast shelf can clear the chat composer. */ }
+				<main className={ styles.main } data-app-main>
+					{ children }
+					{ effectiveCollapsed ? (
+						<AppToasts className={ styles.floatingToasts } fit="content" />
+					) : null }
 					{ effectiveCollapsed && ! forceCollapsed ? (
 						<div
 							className={ clsx(
@@ -131,6 +153,8 @@ export function SidebarLayout( {
 								! reserveTrafficLightSpace && styles.floatingToggleFlush
 							) }
 						>
+							{ /* The wrapper pins the pending-cards dot to the button's
+							     corner; the outer container is taller than the button. */ }
 							<span className={ styles.floatingToggleButton }>
 								<IconButton
 									variant="minimal"
@@ -143,10 +167,6 @@ export function SidebarLayout( {
 								<AppMessageCardsDot />
 							</span>
 						</div>
-					) : null }
-					{ children }
-					{ effectiveCollapsed ? (
-						<AppToasts className={ styles.floatingToasts } fit="content" />
 					) : null }
 				</main>
 				{ sidebarResize.isResizing ? <ResizeOverlay /> : null }

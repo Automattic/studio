@@ -4,6 +4,7 @@ import { usePointerDrag } from '@/hooks/use-pointer-drag';
 import {
 	getInitialPreviewContentWidth,
 	getPreviewSplitLayout,
+	PREVIEW_CONTENT_DEFAULT_WIDTH,
 	PREVIEW_CONTENT_WIDTH_STORAGE_KEY,
 	PREVIEW_PANEL_DEFAULT_WIDTH,
 	PREVIEW_PANEL_MIN_WIDTH,
@@ -26,9 +27,9 @@ interface PreviewSplitHandleProps {
 
 interface UsePreviewSplitResult {
 	rootRef: RefObject< HTMLDivElement | null >;
-	// The value for the --preview-frame-content-width CSS var: a px width once
-	// measured, or a `calc(100% - <default>px)` fallback that reserves preview
-	// space before the first measurement.
+	// The value for the --preview-frame-content-width CSS var: the clamped px
+	// width once measured, or the default content width before the first
+	// measurement.
 	contentWidthVar: string;
 	isResizing: boolean;
 	handleProps: PreviewSplitHandleProps;
@@ -42,10 +43,14 @@ interface UsePreviewSplitResult {
 export function usePreviewSplit( { showPreview }: UsePreviewSplitOptions ): UsePreviewSplitResult {
 	const rootRef = useRef< HTMLDivElement >( null );
 
-	// `preferredContentWidth` is the user's intent (persisted); the displayed
-	// width is always re-derived from it against the current container, never
-	// stored back. Recomputing from a previously-clamped displayed value would
-	// lose the intent on shrink-then-grow.
+	// `preferredContentWidth` is the user's explicit intent (persisted); the
+	// displayed width is always re-derived from it against the current
+	// container, never stored back. Recomputing from a previously-clamped
+	// displayed value would lose the intent on shrink-then-grow. While null (the
+	// user never resized the split), the content column anchors to
+	// PREVIEW_CONTENT_DEFAULT_WIDTH against the live container — a narrow window
+	// clamps it down but growth restores it (never freezing a squeezed
+	// measurement), and the preview absorbs the rest.
 	const [ preferredContentWidth, setPreferredContentWidth ] = useState< number | null >(
 		getInitialPreviewContentWidth
 	);
@@ -79,19 +84,15 @@ export function usePreviewSplit( { showPreview }: UsePreviewSplitOptions ): UseP
 		[ setPreferred ]
 	);
 
-	const ensurePreferred = useCallback(
-		( container: number ) => {
-			if ( preferredRef.current !== null ) {
-				return preferredRef.current;
-			}
-			const next = getPreviewSplitLayout(
-				container,
-				container - PREVIEW_PANEL_DEFAULT_WIDTH
-			).contentWidth;
-			setPreferred( next );
-			return next;
-		},
-		[ setPreferred ]
+	// The content width a resize gesture starts from: the user's explicit
+	// intent when set, otherwise the clamped default. Pure — deriving must not
+	// become intent, or the split would stop recovering from a squeezed layout
+	// when the window later grows.
+	const resolveContentWidth = useCallback(
+		( container: number ) =>
+			preferredRef.current ??
+			getPreviewSplitLayout( container, PREVIEW_CONTENT_DEFAULT_WIDTH ).contentWidth,
+		[]
 	);
 
 	// Measure synchronously on open so the clamped px var is present before
@@ -100,11 +101,8 @@ export function usePreviewSplit( { showPreview }: UsePreviewSplitOptions ): UseP
 		if ( ! showPreview ) {
 			return;
 		}
-		const width = measureRootWidth();
-		if ( width !== null ) {
-			ensurePreferred( width );
-		}
-	}, [ ensurePreferred, measureRootWidth, showPreview ] );
+		measureRootWidth();
+	}, [ measureRootWidth, showPreview ] );
 
 	// Keep the measured container fresh so the displayed width and the handle's
 	// aria values track window/sidebar resizes. CSS no longer absorbs resizes,
@@ -133,7 +131,7 @@ export function usePreviewSplit( { showPreview }: UsePreviewSplitOptions ): UseP
 			if ( container === null ) {
 				return null;
 			}
-			return getPreviewSplitLayout( container, ensurePreferred( container ) ).contentWidth;
+			return getPreviewSplitLayout( container, resolveContentWidth( container ) ).contentWidth;
 		},
 		onMove: ( start, deltaX ) => {
 			const container = Math.round(
@@ -171,7 +169,7 @@ export function usePreviewSplit( { showPreview }: UsePreviewSplitOptions ): UseP
 			}
 			event.preventDefault();
 			const step = event.shiftKey ? 40 : 16;
-			const current = getPreviewSplitLayout( container, ensurePreferred( container ) );
+			const current = getPreviewSplitLayout( container, resolveContentWidth( container ) );
 			let nextContentWidth = current.contentWidth;
 			if ( event.key === 'Home' ) {
 				nextContentWidth = container - current.previewMinWidth;
@@ -183,7 +181,7 @@ export function usePreviewSplit( { showPreview }: UsePreviewSplitOptions ): UseP
 			}
 			persistContentWidth( getPreviewSplitLayout( container, nextContentWidth ).contentWidth );
 		},
-		[ ensurePreferred, measureRootWidth, persistContentWidth ]
+		[ resolveContentWidth, measureRootWidth, persistContentWidth ]
 	);
 
 	// One clamp, two consumers: the rendered content width and the handle bounds.
@@ -193,15 +191,13 @@ export function usePreviewSplit( { showPreview }: UsePreviewSplitOptions ): UseP
 				? null
 				: getPreviewSplitLayout(
 						containerWidth,
-						preferredContentWidth ?? containerWidth - PREVIEW_PANEL_DEFAULT_WIDTH
+						preferredContentWidth ?? PREVIEW_CONTENT_DEFAULT_WIDTH
 				  ),
 		[ containerWidth, preferredContentWidth ]
 	);
 
 	const contentWidthVar =
-		layout === null || preferredContentWidth === null
-			? `calc(100% - ${ PREVIEW_PANEL_DEFAULT_WIDTH }px)`
-			: `${ layout.contentWidth }px`;
+		layout === null ? `${ PREVIEW_CONTENT_DEFAULT_WIDTH }px` : `${ layout.contentWidth }px`;
 
 	return {
 		rootRef,

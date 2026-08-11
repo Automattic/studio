@@ -31,18 +31,6 @@ describe( 'QueuedPrompts', () => {
 		expect( onEdit ).toHaveBeenCalledWith( queuedPrompt );
 	} );
 
-	it( 'opens a queued prompt for editing with Space', () => {
-		const onEdit = vi.fn();
-
-		render( <QueuedPrompts prompts={ [ queuedPrompt ] } onRemove={ vi.fn() } onEdit={ onEdit } /> );
-
-		fireEvent.keyDown( screen.getByRole( 'button', { name: 'Edit queued follow-up' } ), {
-			key: ' ',
-		} );
-
-		expect( onEdit ).toHaveBeenCalledWith( queuedPrompt );
-	} );
-
 	it( 'discards without opening the queued prompt for editing', () => {
 		const onEdit = vi.fn();
 		const onRemove = vi.fn();

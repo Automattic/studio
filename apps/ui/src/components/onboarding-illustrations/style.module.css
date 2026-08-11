@@ -1,3 +1,14 @@
+/* Animation and hover treatment for the onboarding illustrations. The
+   `host` class goes on the hoverable card that contains an illustration —
+   hover effects on individual SVG parts key off it, mirroring the Tailwind
+   `group`/`group-hover` pairing the desktop renderer uses. */
+
+.host {
+	/* Hover scope only — no visual styles of its own. */
+}
+
+/* Rotate SVG children around their own centroid rather than the
+   document origin. */
 .spin,
 .hoverSpinReverse {
 	transform-box: fill-box;
@@ -16,16 +27,16 @@
 	transition: stroke 0.15s ease;
 }
 
+.host:hover .themeStroke {
+	stroke: var(--wpds-color-stroke-interactive-brand, #3858e9);
+}
+
 .themeFill {
 	transition: fill 0.15s ease;
 }
 
-.host:hover .themeStroke {
-	stroke: var(--wpds-color-stroke-interactive-brand);
-}
-
 .host:hover .themeFill {
-	fill: var(--wpds-color-fg-interactive-brand);
+	fill: var(--wpds-color-fg-interactive-brand, #3858e9);
 }
 
 .host:hover .arrowNudge {
@@ -36,9 +47,12 @@
 	animation: card-shift 3s ease-in-out infinite;
 }
 
-/* Site-list startup sequence (SiteListIllustration): the middle row plays a
-   one-shot boot — off, pulsing amber behind a spinning dashed ring, then
-   steady green with a ping. Played once and held; a loop read as a crash. */
+/* Site-list illustration: one site plays a one-shot startup — off →
+   starting → running — and then stays running (a loop back to off would
+   read as a crash). The dot, its dashed ring, and the landing ping share
+   one 7s timeline held at the end with `forwards`; the ring also borrows
+   the family's slow spin. Base styles double as the reduced-motion resting
+   state: steady running green, no ring, no ping. */
 .startingDot {
 	fill: #16a34a;
 	animation: site-turn-on 7s forwards;
@@ -56,16 +70,6 @@
 	transform-origin: center;
 	opacity: 0;
 	animation: startup-ping 7s ease-out forwards;
-}
-
-/* Agent pixel field (agent-pixel-field.tsx): a fixed 880-wide logical canvas
-   that scales down responsively on narrow windows. The canvas is interactive
-   (pointer scatter, click ripples) but isn't a control. */
-.pixelField {
-	display: block;
-	width: min(880px, calc(100vw - 100px));
-	height: auto;
-	cursor: default;
 }
 
 @keyframes site-turn-on {
@@ -140,6 +144,15 @@
 	}
 }
 
+/* Agent pixel field (agent-pixel-field.tsx): a fixed 880-wide logical canvas
+   that scales down responsively on narrow windows. The canvas is interactive
+   (pointer scatter, click ripples) but isn't a control. */
+.pixelField {
+	display: block;
+	width: min(880px, calc(100vw - 100px));
+	height: auto;
+	cursor: default;
+}
 /* Sonar ping when the site lands running: a green ring expands out from
    the dot and dissolves. */
 @keyframes startup-ping {

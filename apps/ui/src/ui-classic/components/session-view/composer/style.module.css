@@ -149,6 +149,26 @@
 	border-color: var(--wpds-color-fg-interactive-brand, #2563eb);
 }
 
+/* Clip chips wear the same numbered badge as their marker on the page. */
+.attachmentClipBadge {
+	position: absolute;
+	bottom: 3px;
+	left: 3px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 16px;
+	height: 16px;
+	padding: 0 4px;
+	border-radius: 8px;
+	background-color: var(--wpds-color-bg-interactive-brand, #2563eb);
+	color: var(--wpds-color-fg-interactive-onbrand, #fff);
+	font-size: 10px;
+	font-weight: 700;
+	line-height: 1;
+	pointer-events: none;
+}
+
 .attachmentPreviewImage,
 .attachmentHoverImage {
 	display: block;
@@ -208,20 +228,14 @@
 	padding: 0;
 	border: 1px solid var(--wpds-color-stroke-surface-neutral);
 	border-radius: 999px;
-	box-shadow: var(--wpds-elevation-small, 0 1px 2px rgb(0 0 0 / 16%));
+	background-color: var(--wpds-color-bg-surface-neutral);
+	color: var(--wpds-color-fg-content-neutral);
+	box-shadow: var(--wpds-elevation-sm);
 	cursor: pointer;
 	opacity: 0;
 	pointer-events: none;
 	transform: scale(0.94);
 	transition: opacity 120ms ease, transform 120ms ease;
-}
-
-/* Doubled class keeps the native button background above generic button resets. */
-.attachmentRemove.attachmentRemove,
-.attachmentRemove.attachmentRemove:focus:not(:focus-visible) {
-	background: var(--wpds-color-bg-surface-neutral);
-	border-color: var(--wpds-color-stroke-surface-neutral);
-	color: var(--wpds-color-fg-content-neutral);
 }
 
 .attachmentItem:hover .attachmentRemove,
@@ -322,13 +336,9 @@
 	}
 }
 
-.attachmentItem:hover .attachmentRemove.attachmentRemove,
-.attachmentItem:focus-within .attachmentRemove.attachmentRemove,
-.attachmentRemove.attachmentRemove:hover,
-.attachmentRemove.attachmentRemove:focus-visible,
-.attachmentRemove.attachmentRemove:active {
-	background: var(--wpds-color-bg-surface-neutral-weak, #f4f4f4);
-	border-color: var(--wpds-color-stroke-surface-neutral);
+.attachmentRemove:hover,
+.attachmentRemove:focus-visible {
+	background-color: var(--wpds-color-bg-surface-neutral-weak, #f4f4f4);
 	color: var(--wpds-color-fg-content-neutral);
 }
 
@@ -382,6 +392,26 @@
 
 .inputAreaWithAttachments .placeholderText {
 	top: var(--wpds-dimension-padding-xs);
+}
+
+.placeholderFadeOut {
+	animation: placeholder-fade-out 120ms var(--wpds-motion-easing-subtle) both;
+}
+
+.placeholderFadeIn {
+	animation: placeholder-fade-in 120ms var(--wpds-motion-easing-subtle) both;
+}
+
+@keyframes placeholder-fade-out {
+	to {
+		opacity: 0;
+	}
+}
+
+@keyframes placeholder-fade-in {
+	from {
+		opacity: 0;
+	}
 }
 
 .toolbar {

@@ -2,84 +2,59 @@ import { describe, expect, it } from 'vitest';
 import { deriveAgenticFeatures } from './use-agentic-features';
 import type { AuthUser } from '@/data/core';
 
-const user = { id: 1, displayName: 'Test', email: 'test@example.com' } as unknown as AuthUser;
+const USER: AuthUser = { id: 1, email: 'ada@example.com', displayName: 'Ada Lovelace' };
 
 describe( 'deriveAgenticFeatures', () => {
-	it( 'always enables features when the connector does not gate them on auth', () => {
-		const connector = { agenticRequiresAuth: false };
-		expect( deriveAgenticFeatures( connector, undefined ) ).toEqual( {
-			enabled: true,
-			chatEnabled: true,
-			reason: null,
-		} );
-		expect( deriveAgenticFeatures( connector, null ) ).toEqual( {
-			enabled: true,
-			chatEnabled: true,
-			reason: null,
-		} );
-		expect( deriveAgenticFeatures( connector, user ) ).toEqual( {
+	it( 'always enables features when the connector cannot opt out (hosted mode)', () => {
+		expect( deriveAgenticFeatures( { supportsAgenticOptOut: false }, null, undefined ) ).toEqual( {
 			enabled: true,
 			chatEnabled: true,
 			reason: null,
 		} );
 	} );
 
-	it( 'disables features without a signed-out reason while auth is still loading', () => {
-		expect( deriveAgenticFeatures( { agenticRequiresAuth: true }, undefined ) ).toEqual( {
-			enabled: false,
-			chatEnabled: false,
-			reason: null,
-		} );
+	it( 'gates signed-out users', () => {
+		expect(
+			deriveAgenticFeatures( { supportsAgenticOptOut: true }, null, {
+				agenticFeaturesEnabled: true,
+			} )
+		).toEqual( { enabled: false, chatEnabled: false, reason: 'signed-out' } );
 	} );
 
-	it( 'disables features with a signed-out reason for signed-out users', () => {
-		expect( deriveAgenticFeatures( { agenticRequiresAuth: true }, null ) ).toEqual( {
-			enabled: false,
-			chatEnabled: false,
-			reason: 'signed-out',
-		} );
+	it( 'disables only chat when signed-in users disable the preference', () => {
+		expect(
+			deriveAgenticFeatures( { supportsAgenticOptOut: true }, USER, {
+				agenticFeaturesEnabled: false,
+			} )
+		).toEqual( { enabled: true, chatEnabled: false, reason: null } );
+		expect(
+			deriveAgenticFeatures( { supportsAgenticOptOut: false }, null, {
+				agenticFeaturesEnabled: false,
+			} )
+		).toEqual( { enabled: true, chatEnabled: false, reason: null } );
 	} );
 
-	it( 'enables features for signed-in users', () => {
-		expect( deriveAgenticFeatures( { agenticRequiresAuth: true }, user ) ).toEqual( {
+	it( 'enables features for signed-in users, treating a missing preference as enabled', () => {
+		expect( deriveAgenticFeatures( { supportsAgenticOptOut: true }, USER, undefined ) ).toEqual( {
 			enabled: true,
 			chatEnabled: true,
-			reason: null,
-		} );
-	} );
-
-	it( 'disables features with an offline reason regardless of auth state', () => {
-		expect( deriveAgenticFeatures( { agenticRequiresAuth: true }, user, true ) ).toEqual( {
-			enabled: false,
-			chatEnabled: false,
-			reason: 'offline',
-		} );
-		expect( deriveAgenticFeatures( { agenticRequiresAuth: false }, undefined, true ) ).toEqual( {
-			enabled: false,
-			chatEnabled: false,
-			reason: 'offline',
-		} );
-		expect( deriveAgenticFeatures( { agenticRequiresAuth: true }, null, true ) ).toEqual( {
-			enabled: false,
-			chatEnabled: false,
-			reason: 'offline',
-		} );
-	} );
-
-	// Turning agentic features off in Settings → AI only takes chat away.
-	// Previews, sync and publishing keep working, so `enabled` stays true.
-	it( 'disables only chat when the user switches agentic features off', () => {
-		expect( deriveAgenticFeatures( { agenticRequiresAuth: true }, user, false, false ) ).toEqual( {
-			enabled: true,
-			chatEnabled: false,
 			reason: null,
 		} );
 		expect(
-			deriveAgenticFeatures( { agenticRequiresAuth: false }, undefined, false, false )
-		).toEqual( {
-			enabled: true,
-			chatEnabled: false,
-			reason: null,
-		} );
+			deriveAgenticFeatures( { supportsAgenticOptOut: true }, USER, {
+				agenticFeaturesEnabled: true,
+			} )
+		).toEqual( { enabled: true, chatEnabled: true, reason: null } );
+	} );
+
+	it( 'disables backend features and chat while offline', () => {
+		expect(
+			deriveAgenticFeatures(
+				{ supportsAgenticOptOut: false },
+				null,
+				{ agenticFeaturesEnabled: true },
+				true
+			)
+		).toEqual( { enabled: false, chatEnabled: false, reason: 'offline' } );
 	} );
 } );

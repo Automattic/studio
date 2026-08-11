@@ -25,6 +25,20 @@ export function getSyncActivityLabel( activity: SyncActivity ): string {
 		if ( activity.direction === 'preview' ) {
 			return __( 'Publishing preview…' );
 		}
+
+		if ( activity.direction === 'push' ) {
+			switch ( activity.phase ) {
+				case 'uploading':
+					return __( 'Uploading to live…' );
+				case 'creating-backup':
+					return __( 'Backing up live site…' );
+				case 'applying':
+					return __( 'Applying live changes…' );
+				case 'finishing':
+					return __( 'Finishing live sync…' );
+			}
+		}
+
 		return activity.direction === 'push' ? __( 'Pushing to live…' ) : __( 'Pulling from live…' );
 	}
 

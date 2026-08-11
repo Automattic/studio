@@ -1,6 +1,6 @@
 ---
 name: block-content
-description: Write editable WordPress block markup for local Studio sites, including core/html limits, block-theme layout rules, full-width sections, validation, and skeleton-first page/CSS recipes.
+description: Write editable WordPress block markup for local Studio sites, including core/html limits, editor-native styling, block-theme layout rules, full-width sections, style ownership validation, and skeleton-first page/CSS recipes.
 user-invokable: true
 ---
 
@@ -10,15 +10,16 @@ Use this skill before writing or editing page content, post content, templates, 
 
 ## Core Policy
 
-- Use editable WordPress blocks for content and layout. Prefer `core/group`, `core/columns`, `core/heading`, `core/paragraph`, `core/list`, `core/image`, `core/buttons`, and theme CSS.
+- Use editable WordPress blocks for content, layout, and editor-visible styling. Prefer `core/group`, `core/columns`, `core/heading`, `core/paragraph`, `core/list`, `core/image`, `core/buttons`, and registered plugin blocks before custom markup.
 - Only use `core/html` blocks for inline SVGs, interaction markup with no block equivalent such as marquee or custom cursor markup, or a single bottom-of-page `<script>` block.
 - Never use `core/html` to wrap text content, headings, layout sections, lists, or forms.
 - For forms or features core blocks do not cleanly provide, load the `plugin-recommendations` skill and use editable plugin blocks.
 - No decorative HTML comments such as `<!-- Hero Section -->` or `<!-- Features -->`. Only WordPress block delimiter comments are allowed.
 - No custom class names on inner DOM elements. Put custom classes only on the outermost block wrapper via the block `className` attribute.
 - Style buttons via `.wp-element-button` — the inner element WordPress applies the button's padding, background, and border to (shared by the button block and buttons from other blocks). A custom class on a button block sits on the `.wp-block-button` wrapper, so descend to `.your-class .wp-element-button`; never style the wrapper directly, or its padding stacks on top of the default and the button doubles in size.
-- No inline `style` attributes or block `style` attributes for styling. Use `className` plus the theme's `style.css`.
-- Prefer theme palette colors over hardcoded hex. Apply block colors with palette **slug** attributes — `{"backgroundColor":"accent-1","textColor":"base"}` — and in `style.css` reference palette colors as `var(--wp--preset--color--<slug>)`. Discover the available slugs from the active theme's `theme.json` `settings.color.palette` (for a theme you are building, the palette you defined there); when you want a color the palette lacks, prefer adding it to the palette and referencing its slug. Keeping colors on the palette keeps sections in sync with Global Styles, theme switching, and light/dark variations. A raw hex value is fine for a deliberate one-off, but it should be the exception, not the default.
+- No raw HTML `style=""` attributes. Valid Gutenberg block attributes are allowed and preferred when the editor exposes the control, including `style.spacing`, `style.typography`, `style.dimensions`, `layout`, `fontSize`, `textColor`, `backgroundColor`, `gradient`, `align`, and `className`.
+- Editor-native styling first. Before reaching for a custom `className` plus `style.css`, check whether the look can be expressed as block attributes or `theme.json`: `layout.contentSize`/`wideSize` for width, `style.spacing` for margin/padding/blockGap, `fontSize` and typography presets for type, palette slugs for color, and theme styles for block/element defaults. Reserve CSS for what the editor cannot represent: pseudo-elements, complex selectors, responsive glue, scroll/anchor offsets, animation engines, JavaScript-driven effects, and third-party/plugin cleanup.
+- Prefer theme palette colors over hardcoded hex. Apply block colors with palette **slug** attributes — `{"backgroundColor":"accent-1","textColor":"base"}` — and in `style.css` reference palette colors as `var(--wp--preset--color--<slug>)`. Discover the available slugs from the active theme's `theme.json` `settings.color.palette` (for a theme you are building, the palette you defined there); when you want a color the palette lacks, prefer adding it to the palette and referencing its slug. Keeping colors on the palette keeps sections in sync with Global Styles, theme switching, light/dark variations, and the editor. A raw hex value is fine for a deliberate one-off, but it should be the exception, not the default.
 - Use `core/spacer` for empty spacing elements, not empty `core/group` blocks.
 - No emojis anywhere in generated content.
 
@@ -31,8 +32,20 @@ Use these patterns:
 - **Full-bleed section, constrained inner content**: for a full-width hero, banner, or CTA with centered content, use an outer `core/group` with `{"align":"full","layout":{"type":"constrained"}}`, then place normal inner blocks inside it.
 - **Full-bleed section, full-bleed inner content**: for image grids, edge-to-edge galleries, and similar layouts, use outer and inner `core/group` blocks with `{"align":"full","layout":{"type":"default"}}`.
 - **Standard constrained content**: omit `align` and write normal blocks.
+- **Narrower constrained content**: set `layout.contentSize` on the parent group, e.g. `{"layout":{"type":"constrained","contentSize":"42rem"}}`. Never narrow a section by overriding `--wp--style--global--content-size` in CSS or by adding separate `max-width` rules to headings and paragraphs. One parent `contentSize` keeps child edges aligned in the editor and front end.
 
 The common failure is a hero or banner that was intended to be full-width but still renders in the narrow content column. Fix that in markup by adding `align: "full"` on the outer group or correcting the inner `layout` type, not by trying to force width in CSS.
+
+## Styling Ownership Examples
+
+| Goal | Prefer | Avoid |
+| --- | --- | --- |
+| Heading color | `{"textColor":"accent"}` | `.section-heading { color: ... }` |
+| Section background | `{"backgroundColor":"contrast","textColor":"base"}` | `.hero { background: ... }` when a palette slug works |
+| Narrow content column | `{"layout":{"type":"constrained","contentSize":"42rem"}}` | `max-width` rules on each child |
+| Space above a row | `{"style":{"spacing":{"margin":{"top":"var:preset|spacing|60"}}}}` | `.row { margin-top: ... }` |
+| Heading scale | `{"fontSize":"display"}` plus `theme.json` preset | `.heading { font-size: ... }` |
+| Decorative overlay | `className` plus `style.css` pseudo-element | Extra HTML or `core/html` wrappers |
 
 ## Root Block Gap
 
@@ -49,7 +62,7 @@ For long files over about 200 lines, write a small skeleton first and fill ancho
 
 ### Theme CSS
 
-For `style.css`, start with custom properties and anchor comments only:
+For `style.css`, start with custom properties and structural/effect anchor comments only. Per-section color, width, typography, and spacing should live in block attributes or `theme.json` whenever the editor exposes the control:
 
 ```css
 :root {
@@ -60,15 +73,14 @@ For `style.css`, start with custom properties and anchor comments only:
 }
 
 /* === reset === */
-/* === typography === */
-/* === hero === */
-/* === sections === */
-/* === cta === */
+/* === typography defaults and unsupported details === */
+/* === structural wrappers and effects === */
+/* === plugin cleanup === */
 /* === footer === */
 /* === responsive === */
 ```
 
-Keep the skeleton under 2KB. Fill one anchor per `Edit`, using the anchor line as `old_string` and replacing it with the anchor plus the new styles.
+Keep the skeleton under 2KB. Fill one anchor per `Edit`, using the anchor line as `old_string` and replacing it with the anchor plus the new styles. Do not create a CSS section rule for styling that can be represented as block attributes or `theme.json` presets.
 
 When `scaffold_theme` was used, do not `Write` over the scaffolded `style.css`; it already contains the required theme header. Use `Edit` to append the `:root` block and anchor comments below the existing content.
 
@@ -103,4 +115,4 @@ Do not use `--post_content-file=<host path>`. `wp_cli` runs inside the PHP-WASM 
 ## Validation
 
 - Validation is a mandatory gate, not a cleanup step. You MUST call `validate_blocks` and get a passing result for any block content you generate **before** that content reaches the live site — before `wp_cli post create/update`, before `wp_cli eval`, and before importing a scratch file. Never apply, import, or save block content you have not validated. A build that skips validation is incomplete, even if the page renders.
-- Run `validate_blocks` after every write or edit that creates or changes block content. Call it with `filePath` whenever the content lives in a file — including scratch files such as `<site>/tmp/page-<slug>.html` that you later import with `wp_cli eval`. The scratch file is the block content; validate the file, not just the eventual post. It first runs a static `core/html` policy check: if that reports invalid `core/html` blocks, editor validation is skipped — rewrite only those blocks as editable core or plugin blocks, then call `validate_blocks` again. Once the policy passes it validates in the live editor and applies safe serialization fixes directly to the file. If it says an auto-fix was applied, do not manually replace markup or call validation again unless you intentionally change block markup afterward. Use the diff only to inspect structural changes for CSS impact. Classes added or removed by the validator can affect layout and styling.
+- Run `validate_blocks` after every write or edit that creates or changes block content. Call it with `filePath` whenever the content lives in a file — including scratch files such as `<site>/tmp/page-<slug>.html` that you later import with `wp_cli eval`. The scratch file is the block content; validate the file, not just the eventual post. It first runs a static `core/html` policy check: if that reports invalid `core/html` blocks, editor validation is skipped — rewrite only those blocks as editable core or plugin blocks, then call `validate_blocks` again. Once the policy passes it validates in the live editor, applies safe serialization fixes directly to the file, and reports a style ownership audit for custom class CSS that duplicates editor-native color, type, spacing, or layout controls. If it says an auto-fix was applied, do not manually replace markup or call validation again unless you intentionally change block markup afterward. Use the diff and style audit to inspect structural and styling-layer changes. Classes added or removed by the validator can affect layout and styling.

@@ -11,9 +11,10 @@ import {
 	within,
 } from '@testing-library/react';
 import { Tooltip } from '@wordpress/ui';
+import { createRef } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
-import { Composer } from '.';
+import { Composer, type ComposerHandle } from '.';
 import type { ComposerSendAttachments } from './use-composer-attachments';
 import type { AiSessionSummary, LoadedAiSession, SessionEntry } from '@/data/core';
 import type { ComponentProps } from 'react';
@@ -184,6 +185,47 @@ describe( 'Composer menu', () => {
 		expect( preview.parentElement ).toBe( document.body );
 	} );
 
+	it( 'adds image files through the imperative handle and focuses the textbox', async () => {
+		const ref = createRef< ComposerHandle >();
+		renderComposer( { ref } );
+		const screenshot = new File( [ new Uint8Array( [ 1, 2, 3 ] ) ], 'screenshot.jpg', {
+			type: 'image/jpeg',
+		} );
+
+		await act( async () => {
+			await expect( ref.current?.addFiles( [ screenshot ] ) ).resolves.toBe( true );
+		} );
+
+		expect(
+			await screen.findByRole( 'button', { name: 'Remove attachment: screenshot.jpg' } )
+		).toBeInTheDocument();
+		await waitFor( () => expect( screen.getByRole( 'textbox' ) ).toHaveFocus() );
+	} );
+
+	it( 'adds path-based file attachments through the imperative handle', async () => {
+		const ref = createRef< ComposerHandle >();
+		renderComposer( { ref } );
+
+		act( () => {
+			expect(
+				ref.current?.addFileAttachments( [
+					{
+						id: 'console-log',
+						name: 'browser-console.txt',
+						path: '/tmp/studio-attachments/browser-console.txt',
+						mimeType: 'text/plain',
+						size: 123,
+					},
+				] )
+			).toBe( true );
+		} );
+
+		expect(
+			await screen.findByRole( 'button', { name: 'Remove attachment: browser-console.txt' } )
+		).toBeInTheDocument();
+		await waitFor( () => expect( screen.getByRole( 'textbox' ) ).toHaveFocus() );
+	} );
+
 	it( 'grows, clamps, and shrinks the textarea with draft content', async () => {
 		Object.defineProperty( window, 'innerHeight', {
 			configurable: true,
@@ -226,38 +268,6 @@ describe( 'Composer menu', () => {
 		await waitFor( () => {
 			expect( textarea ).toHaveStyle( { height: '48px' } );
 			expect( textarea ).toHaveStyle( { overflowY: 'hidden' } );
-		} );
-	} );
-
-	it( 'resizes the textarea when attachments change its padding', async () => {
-		const { container } = renderComposer();
-		const textarea = screen.getByRole( 'textbox' ) as HTMLTextAreaElement;
-		const textFile = new File( [ 'Attachment preview text' ], 'notes.txt', {
-			type: 'text/plain',
-		} );
-		const input = container.querySelector( 'input[type="file"]' ) as HTMLInputElement;
-		let scrollHeight = 92;
-		Object.defineProperty( textarea, 'scrollHeight', {
-			configurable: true,
-			get: () => scrollHeight,
-		} );
-
-		fireEvent.change( input, {
-			target: { files: [ textFile ] },
-		} );
-
-		const removeButton = await screen.findByRole( 'button', {
-			name: 'Remove attachment: notes.txt',
-		} );
-		await waitFor( () => {
-			expect( textarea ).toHaveStyle( { height: '92px' } );
-		} );
-
-		scrollHeight = 36;
-		fireEvent.click( removeButton );
-
-		await waitFor( () => {
-			expect( textarea ).toHaveStyle( { height: '48px' } );
 		} );
 	} );
 

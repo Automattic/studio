@@ -11,9 +11,21 @@ interface OnboardingLayoutProps {
 	 * the user isn't trapped in the flow.
 	 */
 	onClose?: () => void;
+	/** Disables the close button, e.g. while site creation is in flight. */
 	closeDisabled?: boolean;
-	width?: 'default' | 'wide';
+	/**
+	 * Content width variant. Defaults to a narrow column (`'default'`) sized
+	 * for forms and short cards; `'wide'` is used by pages that host grids of
+	 * content (e.g. the blueprint selector); `'full'` is for thumbnail-heavy
+	 * pages (the Connect a site picker) that scale with the window.
+	 */
+	width?: 'default' | 'wide' | 'full';
 	contentRef?: Ref< HTMLDivElement >;
+	/**
+	 * Decorative layer rendered behind the content (e.g. the dot-grid
+	 * backdrop). The caller positions it; it paints under the content and
+	 * close button by DOM order.
+	 */
 	background?: ReactNode;
 }
 
@@ -32,8 +44,8 @@ export function OnboardingLayout( {
 			<div
 				ref={ contentRef }
 				className={ `${ styles.content } ${ width === 'wide' ? styles.contentWide : '' } ${
-					onClose ? styles.contentWithClose : ''
-				}` }
+					width === 'full' ? styles.contentFull : ''
+				} ${ onClose ? styles.contentWithClose : '' }` }
 			>
 				{ children }
 			</div>

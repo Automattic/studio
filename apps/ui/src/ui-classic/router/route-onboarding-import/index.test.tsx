@@ -1,4 +1,6 @@
 import { BackupExtractEvents, ImporterEvents } from '@studio/common/lib/import-export-events';
+import { SITE_FILE_ACCESS_SITE_DIRECTORY } from '@studio/common/lib/site-file-access';
+import { SITE_RUNTIME_NATIVE_PHP } from '@studio/common/lib/site-runtime';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { clearPendingBackup, peekPendingBackup, setPendingBackup } from '@/lib/pending-backup';
@@ -80,11 +82,17 @@ vi.mock( '@/data/queries/use-sites', () => ( {
 	useDeleteSite: () => ( { mutateAsync: mocks.deleteSite } ),
 } ) );
 
+vi.mock( '@/hooks/use-seeded-site-name', () => ( {
+	useSeededSiteName: ( name: string | null ) => name,
+} ) );
+
 const selectedBackup = new File( [ 'backup' ], 'studio-backup-My Store-2026-07-17.zip' );
 const formValues: CreateSiteFormValues = {
 	name: 'My Store',
 	path: '/sites/my-store',
 	phpVersion: '8.3',
+	runtime: SITE_RUNTIME_NATIVE_PHP,
+	fileAccess: SITE_FILE_ACCESS_SITE_DIRECTORY,
 	wpVersion: 'latest',
 	enableHttps: false,
 	adminUsername: 'admin',

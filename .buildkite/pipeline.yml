@@ -176,7 +176,7 @@ steps:
     # Run this on `trunk` + non-draft PRs targeting `trunk` or `release/`.
     # Note: this job is set as a *required* CI check on GitHub for PRs targeting `trunk`. But the branch
     # protection settings set on `trunk` are _also_ copied to `release/` branch during `code_freeze`.
-    # That's why this jobs has to _also_ run on PRs targeting `release/`, not just `trunk`—otherwise the
+    # That's why this job has to _also_ run on PRs targeting `release/`, not just `trunk`—otherwise the
     # corresponding required CI check would never report on `release/` PRs and block them from merging.
     if: build.branch == 'trunk' || ((build.pull_request.base_branch == 'trunk' || build.pull_request.base_branch =~ /^release\//) && !build.pull_request.draft)
     notify:

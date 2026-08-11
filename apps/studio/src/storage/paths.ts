@@ -25,7 +25,12 @@ export function getUserDataFilePath(): string {
 }
 
 export const defaultSitePath = path.join(
-	process.env.E2E && process.env.E2E_HOME_PATH ? process.env.E2E_HOME_PATH : app.getPath( 'home' ),
+	// STUDIO_SIMULATED_HOME is set by src/lib/simulation-mode.ts before this
+	// module is evaluated.
+	process.env.STUDIO_SIMULATED_HOME ??
+		( process.env.E2E && process.env.E2E_HOME_PATH
+			? process.env.E2E_HOME_PATH
+			: app.getPath( 'home' ) ),
 	'Studio'
 );
 

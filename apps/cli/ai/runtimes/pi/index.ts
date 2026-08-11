@@ -10,6 +10,7 @@ import {
 } from '@earendil-works/pi-ai';
 import {
 	stream as streamAnthropic,
+	type AnthropicEffort,
 	type AnthropicOptions,
 } from '@earendil-works/pi-ai/api/anthropic-messages';
 import { streamSimple as streamOpenAiResponses } from '@earendil-works/pi-ai/api/openai-responses';
@@ -35,9 +36,11 @@ import { readGlobalInstructions } from '@studio/common/ai/global-instructions';
 import {
 	DEFAULT_MODEL,
 	getAiModelFamily,
+	getAiModelThinking,
 	type AiModelFamily,
 	type AiModelId,
 } from '@studio/common/ai/models';
+import { type AiResponseLength } from '@studio/common/ai/response-length';
 import {
 	getSiteRuntime,
 	SITE_RUNTIME_NATIVE_PHP,
@@ -45,6 +48,11 @@ import {
 } from '@studio/common/lib/site-runtime';
 import { getAiPayloadsPath, getConfigDirectory } from '@studio/common/lib/well-known-paths';
 import { type TSchema } from 'typebox';
+import { createResponseLengthExtension } from 'cli/ai/extensions/response-length';
+import {
+	createToolPermissionsExtension,
+	type PermissionRequestHandler,
+} from 'cli/ai/extensions/tool-permissions';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions, withChatArtifactEmission } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
@@ -89,9 +97,13 @@ export interface StudioAgentTurnConfig {
 	session: SessionManager;
 	env?: Record< string, string >;
 	model?: AiModelId;
+	responseLength?: AiResponseLength;
 	activeSite?: SiteInfo | null;
 	wpcomAccessToken?: string;
 	onAskUser?: AskUserHandler;
+	// Blocking confirmation for gated tools (see the tool-permissions
+	// extension). When absent, gated tools fail closed instead of running.
+	onRequestPermission?: PermissionRequestHandler;
 	onEvent: ( event: AgentSessionEvent ) => void;
 }
 
@@ -336,6 +348,12 @@ async function createStudioAgentSession(
 		cwd: STUDIO_SITES_ROOT,
 		agentDir: STUDIO_AGENT_DIR,
 		settingsManager,
+		// Inline factories load even with `noExtensions` — that flag only
+		// disables filesystem extension discovery.
+		extensionFactories: [
+			createResponseLengthExtension( config.responseLength ),
+			createToolPermissionsExtension( { onRequestPermission: config.onRequestPermission } ),
+		],
 		noExtensions: true,
 		noSkills: true,
 		noPromptTemplates: true,
@@ -399,6 +417,7 @@ function buildModel(
 			maxTokens: 32_000,
 		};
 	}
+	const thinking = getAiModelThinking( modelId );
 	// Without `compat.forceAdaptiveThinking` pi-ai sends the legacy
 	// `thinking: { type: 'enabled', budget_tokens }` shape, which Sonnet 5 /
 	// Opus 5 reject with a 400 — copy the thinking fields from pi's catalog.
@@ -409,17 +428,25 @@ function buildModel(
 		...common,
 		api: 'anthropic-messages',
 		provider: creds.useBearerAuth ? STUDIO_WPCOM_ANTHROPIC_PROVIDER : 'anthropic',
-		reasoning: true,
+		reasoning: thinking !== 'none',
 		// contextWindow/maxTokens intentionally stay below the catalog values.
 		contextWindow: 200_000,
-		// thinkingLevel 'high' reserves ~16384 of this budget for extended thinking
-		// (see adjustMaxTokensForThinking in pi-ai); keep enough headroom for visible
-		// output so single tool calls can emit a full-page HTML payload.
+		// On budget-thinking models, thinkingLevel 'high' reserves ~16384 of this
+		// budget for extended thinking (see adjustMaxTokensForThinking in pi-ai);
+		// keep enough headroom for visible output so single tool calls can emit a
+		// full-page HTML payload. Adaptive thinking reserves no fixed budget.
 		maxTokens: 32_000,
 		...( catalogModel?.thinkingLevelMap
 			? { thinkingLevelMap: catalogModel.thinkingLevelMap }
 			: {} ),
-		...( catalogModel?.compat ? { compat: catalogModel.compat } : {} ),
+		...( catalogModel?.compat || thinking === 'adaptive'
+			? {
+					compat: {
+						...( thinking === 'adaptive' ? { forceAdaptiveThinking: true } : {} ),
+						...catalogModel?.compat,
+					},
+			  }
+			: {} ),
 	};
 }
 
@@ -501,6 +528,76 @@ function escapePiConfigValue( value: string ): string {
 	return dollarEscaped.startsWith( '!' ) ? `$${ dollarEscaped }` : dollarEscaped;
 }
 
+// pi's `streamSimple` wrapper (api/anthropic-messages) maps the simple
+// `reasoning` level to the low-level thinking options — but it builds its own
+// SDK client, which would drop the wpcom bearer-auth client we inject below.
+// We call the low-level `streamAnthropic` instead, so we must mirror that
+// mapping here or extended thinking is silently never requested (the
+// low-level API ignores `reasoning`). Budgets match pi-ai's
+// `adjustMaxTokensForThinking` defaults (not exported).
+const THINKING_BUDGETS: Record< string, number > = {
+	minimal: 1024,
+	low: 2048,
+	medium: 8192,
+	high: 16384,
+};
+const MIN_VISIBLE_OUTPUT_TOKENS = 1024;
+
+// Mirrors pi-ai's `mapThinkingLevelToEffort` (not exported): an explicit
+// `thinkingLevelMap` entry wins, otherwise map the level to the closest
+// effort tier.
+function mapThinkingLevelToEffort(
+	model: Model< 'anthropic-messages' >,
+	level: NonNullable< SimpleStreamOptions[ 'reasoning' ] >
+): AnthropicEffort {
+	const mapped = model.thinkingLevelMap?.[ level ];
+	if ( typeof mapped === 'string' ) {
+		// ThinkingLevelMap values are plain strings; pi-ai forwards them as-is.
+		return mapped as AnthropicEffort;
+	}
+	switch ( level ) {
+		case 'minimal':
+		case 'low':
+			return 'low';
+		case 'medium':
+			return 'medium';
+		default:
+			return 'high';
+	}
+}
+
+function resolveThinkingOptions(
+	model: Model< 'anthropic-messages' >,
+	options?: SimpleStreamOptions
+): {
+	thinkingEnabled: boolean;
+	thinkingBudgetTokens?: number;
+	maxTokens?: number;
+	effort?: AnthropicEffort;
+} {
+	const reasoning = options?.reasoning;
+	if ( ! reasoning || ! model.reasoning ) {
+		return { thinkingEnabled: false };
+	}
+	// Adaptive-thinking models take an effort level instead of a token budget;
+	// sending `budget_tokens` to them is a 400. No max-tokens adjustment needed
+	// since adaptive thinking reserves no fixed budget.
+	if ( model.compat?.forceAdaptiveThinking === true ) {
+		return { thinkingEnabled: true, effort: mapThinkingLevelToEffort( model, reasoning ) };
+	}
+	const level = reasoning === 'xhigh' ? 'high' : reasoning;
+	let thinkingBudget = THINKING_BUDGETS[ level ] ?? THINKING_BUDGETS.high;
+	const baseMaxTokens = options?.maxTokens;
+	const maxTokens =
+		baseMaxTokens === undefined
+			? model.maxTokens
+			: Math.min( baseMaxTokens + thinkingBudget, model.maxTokens );
+	if ( maxTokens <= thinkingBudget ) {
+		thinkingBudget = Math.max( 0, maxTokens - MIN_VISIBLE_OUTPUT_TOKENS );
+	}
+	return { thinkingEnabled: true, thinkingBudgetTokens: thinkingBudget, maxTokens };
+}
+
 function createWpcomAnthropicProviderConfig(
 	model: Model< 'anthropic-messages' >,
 	creds: ResolvedCredentials
@@ -522,6 +619,7 @@ function createWpcomAnthropicProviderConfig(
 			return withUsageCapErrorRewrite(
 				streamAnthropic( m as Model< 'anthropic-messages' >, stripStaleImagesFromContext( ctx ), {
 					...( options as AnthropicOptions | undefined ),
+					...resolveThinkingOptions( m as Model< 'anthropic-messages' >, options ),
 					client: clientForPi,
 				} )
 			);

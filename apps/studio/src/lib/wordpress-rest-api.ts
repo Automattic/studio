@@ -16,16 +16,15 @@ export async function fetchSiteRest(
 		return createJsonResponse( 404, 'studio_site_not_found', `Site ${ siteId } not found.` );
 	}
 
-	const baseUrl =
-		server.details.port > 0
-			? `http://localhost:${ server.details.port }`
-			: server.server.url.replace( /\/+$/, '' );
+	const publicUrl = server.server.url.replace( /\/+$/, '' );
+	const baseUrl = server.details.port > 0 ? `http://localhost:${ server.details.port }` : publicUrl;
 
 	return fetchSiteRestShared(
 		{
 			siteId,
 			running: server.details.running,
 			baseUrl,
+			publicUrl,
 		},
 		request
 	);

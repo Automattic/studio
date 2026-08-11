@@ -102,6 +102,38 @@ describe( 'fetchSiteRest', () => {
 		] );
 	} );
 
+	it( 'translates selected-site public REST URLs to the loopback site port', async () => {
+		mockRunningSite( {
+			id: 'site-with-public-rest-url',
+			port: 8910,
+			publicUrl: 'https://example.wp.local',
+		} );
+		const fetchMock = mockRestFetch();
+
+		const response = await fetchSiteRest( mockIpcMainInvokeEvent, 'site-with-public-rest-url', {
+			url: 'https://example.wp.local/wp-json/wp/v2/pages?page=2',
+		} );
+
+		expect( response.status ).toBe( 200 );
+		expect( getRequestedUrls( fetchMock ) ).toContain(
+			'http://localhost:8910/wp-json/wp/v2/pages?page=2'
+		);
+		expect( getRequestedUrls( fetchMock ) ).not.toContain(
+			'https://example.wp.local/wp-json/wp/v2/pages?page=2'
+		);
+	} );
+
+	it( 'rejects REST URLs outside the selected site', async () => {
+		mockRunningSite();
+
+		const response = await fetchSiteRest( mockIpcMainInvokeEvent, 'site-id', {
+			url: 'https://other-site.wp.local/wp-json/wp/v2/pages',
+		} );
+
+		expect( response.status ).toBe( 400 );
+		expect( response.body ).toContain( 'REST URL must target the selected site REST API.' );
+	} );
+
 	it( 'skips the nonce request when auto-login returns no login cookie', async () => {
 		// A port the earlier tests have not auth-cached, so auth prep really runs.
 		mockRunningSite( { port: 8911 } );

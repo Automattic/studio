@@ -4,7 +4,7 @@ import {
 	type StudioCustomEntry,
 } from '@studio/common/ai/sessions/entry-types';
 import { getStudioCodeAiAccessState } from '@studio/common/lib/studio-assistant-quota';
-import { QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { Spinner } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { check, chevronDown, Icon as WpIcon } from '@wordpress/icons';
@@ -273,24 +273,37 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 		error: runError,
 		usageCapReached,
 		pendingQuestions,
+		pendingPermissions,
+		answeredPermissions,
 		pendingAnswers,
 		answeredQuestions,
 		queuedPrompts,
 		sendMessage,
 		interrupt,
 		answerQuestion,
+		answerPermission,
 		removeQueuedPrompt,
 	} = useAgentRun( sessionId );
 
+	// Sessions with no recorded model (fresh chats) start on the user's
+	// preferred default model rather than the built-in default.
+	const { data: preferredDefaultModel } = useQuery( {
+		queryKey: [ 'default-ai-model' ],
+		queryFn: () => getIpcApi().getDefaultAiModel(),
+	} );
 	const currentModel = useMemo(
-		() => resolveSessionModel( data?.entries ?? [] ),
-		[ data?.entries ]
+		() => resolveSessionModel( data?.entries ?? [], preferredDefaultModel ),
+		[ data?.entries, preferredDefaultModel ]
 	);
 	const pendingQuestionTexts = useMemo(
 		() => new Set( pendingQuestions.map( ( q ) => q.question ) ),
 		[ pendingQuestions ]
 	);
-	const composerBusy = hasActiveRun || pendingQuestions.length > 0;
+	const pendingPermissionIds = useMemo(
+		() => new Set( pendingPermissions.map( ( request ) => request.id ) ),
+		[ pendingPermissions ]
+	);
+	const composerBusy = hasActiveRun || pendingQuestions.length > 0 || pendingPermissions.length > 0;
 	const canEditLastUserMessage = useMemo(
 		() => ! composerBusy && ! isRunning && wasLastTurnInterrupted( data?.entries ?? [] ),
 		[ composerBusy, isRunning, data?.entries ]
@@ -450,7 +463,10 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 							pendingQuestions={ pendingQuestionTexts }
 							pendingAnswers={ pendingAnswers }
 							answeredQuestions={ answeredQuestions }
+							pendingPermissions={ pendingPermissionIds }
+							answeredPermissions={ answeredPermissions }
 							onAnswerQuestion={ answerQuestion }
+							onAnswerPermission={ answerPermission }
 							canEditLastUserMessage={ canEditLastUserMessage }
 							onEditUserMessage={ editAndResendMessage }
 						/>

@@ -1,16 +1,16 @@
 import { createRoute, redirect } from '@tanstack/react-router';
 import { isSiteSettingsTab } from '@/components/site-settings-view';
-import { dashboardLayoutRoute } from '../layout-dashboard';
+import { settingsLayoutRoute } from '../layout-settings';
 import type { SiteSettingsTabId } from '@/components/site-settings-view';
 
 interface SiteSettingsSearch {
+	// Tab selection is a `search` param so opening the route defaults to
+	// Settings and deep-links like `?tab=agent` stay human-readable.
 	tab?: SiteSettingsTabId;
 }
 
-// The settings screen moved into the site overview (same tab ids); this route
-// only keeps old deep links working.
 export const siteSettingsRoute = createRoute( {
-	getParentRoute: () => dashboardLayoutRoute,
+	getParentRoute: () => settingsLayoutRoute,
 	path: '/sites/$siteId/settings',
 	validateSearch: ( search: Record< string, unknown > ): SiteSettingsSearch => {
 		const value = search.tab;

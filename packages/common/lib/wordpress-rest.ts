@@ -6,6 +6,9 @@ export interface SiteRestTarget {
 	running: boolean;
 	// Loopback base the request is actually sent to, e.g. http://localhost:<port>.
 	baseUrl: string;
+	// The site's public base URL (custom domain / advertised url), used to
+	// recognise and translate REST URLs that target it.
+	publicUrl: string;
 }
 
 interface SiteRestAuth {
@@ -43,7 +46,7 @@ export async function fetchSiteRest(
 		);
 	}
 
-	return fetchSiteRestWithAuth( target, url, true );
+	return fetchSiteRestWithAuth( target, url, request, true );
 }
 
 export function createJsonResponse(
@@ -65,13 +68,19 @@ export function createJsonResponse(
 async function fetchSiteRestWithAuth(
 	target: SiteRestTarget,
 	url: URL,
+	request: SiteRestRequest,
 	allowAuthRefresh: boolean
 ): Promise< SiteRestResponse > {
-	const headers = await getRequestHeaders( target, target.baseUrl );
+	const headers = await getRequestHeaders( target, target.baseUrl, request.headers );
+	if ( request.data !== undefined && ! hasHeader( headers, 'content-type' ) ) {
+		headers[ 'Content-Type' ] = 'application/json';
+	}
 	let response: Response;
 	try {
 		response = await fetch( url, {
+			method: request.method ?? 'GET',
 			headers,
+			body: getRequestBody( request ),
 			redirect: 'follow',
 		} );
 	} catch ( error ) {
@@ -89,7 +98,7 @@ async function fetchSiteRestWithAuth(
 
 	if ( allowAuthRefresh && ( response.status === 401 || response.status === 403 ) ) {
 		siteRestAuthCache.delete( target.siteId );
-		return fetchSiteRestWithAuth( target, url, false );
+		return fetchSiteRestWithAuth( target, url, request, false );
 	}
 
 	return serializeResponse( response );
@@ -97,26 +106,52 @@ async function fetchSiteRestWithAuth(
 
 function getSiteRestUrl( target: SiteRestTarget, request: SiteRestRequest ) {
 	const restRoot = new URL( '/wp-json/', target.baseUrl );
+	const publicRestRoot = new URL( '/wp-json/', target.publicUrl );
 
-	// Resolve against the site's REST root, then reject anything that escapes
-	// it. Without this check an absolute URL in `path` (e.g. `http://evil/`)
-	// overrides the base, letting the request target an arbitrary host with
-	// the site's auth cookie + nonce attached (SSRF + credential leak).
-	const url = new URL( request.path.replace( /^\/+/, '' ), restRoot );
-	if ( ! isRestUrlForRoot( url, restRoot ) ) {
-		throw new Error( 'REST path must stay within the site REST API.' );
+	if ( request.path ) {
+		// Resolve against the site's REST root, then reject anything that escapes
+		// it. Without this check an absolute URL in `path` (e.g. `http://evil/`)
+		// overrides the base, letting the request target an arbitrary host with
+		// the site's auth cookie + nonce attached (SSRF + credential leak).
+		const url = new URL( request.path.replace( /^\/+/, '' ), restRoot );
+		if ( ! isRestUrlForRoot( url, restRoot ) ) {
+			throw new Error( 'REST path must stay within the site REST API.' );
+		}
+		return url;
 	}
-	return url;
+
+	if ( request.url ) {
+		const url = new URL( request.url );
+		if ( isRestUrlForRoot( url, restRoot ) ) {
+			return url;
+		}
+		if ( isRestUrlForRoot( url, publicRestRoot ) ) {
+			return translateRestUrl( url, publicRestRoot, restRoot );
+		}
+		throw new Error( 'REST URL must target the selected site REST API.' );
+	}
+
+	throw new Error( 'REST request requires a path or URL.' );
 }
 
 function isRestUrlForRoot( url: URL, restRoot: URL ) {
 	return url.origin === restRoot.origin && url.pathname.startsWith( restRoot.pathname );
 }
 
-async function getRequestHeaders( target: SiteRestTarget, baseUrl: string ) {
-	const headers: Record< string, string > = {
-		Accept: 'application/json, */*;q=0.1',
-	};
+function translateRestUrl( url: URL, fromRestRoot: URL, toRestRoot: URL ) {
+	const relativePath = url.pathname.slice( fromRestRoot.pathname.length );
+	const translatedUrl = new URL( relativePath, toRestRoot );
+	translatedUrl.search = url.search;
+	translatedUrl.hash = url.hash;
+	return translatedUrl;
+}
+
+async function getRequestHeaders(
+	target: SiteRestTarget,
+	baseUrl: string,
+	requestHeaders: Record< string, string > = {}
+) {
+	const headers = sanitizeRequestHeaders( requestHeaders );
 	const auth = await getSiteRestAuth( target, baseUrl );
 
 	if ( auth ) {
@@ -125,6 +160,39 @@ async function getRequestHeaders( target: SiteRestTarget, baseUrl: string ) {
 	}
 
 	return headers;
+}
+
+function sanitizeRequestHeaders( requestHeaders: Record< string, string > ) {
+	const headers: Record< string, string > = {
+		Accept: 'application/json, */*;q=0.1',
+	};
+
+	for ( const [ key, value ] of Object.entries( requestHeaders ) ) {
+		const lowerKey = key.toLowerCase();
+		if ( lowerKey === 'cookie' || lowerKey === 'host' ) {
+			continue;
+		}
+		headers[ key ] = value;
+	}
+
+	return headers;
+}
+
+function hasHeader( headers: Record< string, string >, headerName: string ) {
+	const normalizedHeaderName = headerName.toLowerCase();
+	return Object.keys( headers ).some( ( key ) => key.toLowerCase() === normalizedHeaderName );
+}
+
+function getRequestBody( request: SiteRestRequest ) {
+	if ( request.body !== undefined ) {
+		return request.body;
+	}
+
+	if ( request.data !== undefined ) {
+		return JSON.stringify( request.data );
+	}
+
+	return undefined;
 }
 
 async function getSiteRestAuth( target: SiteRestTarget, baseUrl: string ) {

@@ -3,6 +3,7 @@ import { generateUnifiedPatch } from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
 import { validateHtmlBlockPolicy } from 'cli/ai/block-content-policy';
 import { validateBlocks, type ValidationReportBase } from 'cli/ai/block-validator';
+import { auditStyleOwnership, formatStyleOwnershipAudit } from 'cli/ai/style-ownership-audit';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { emitProgress } from 'cli/logger';
 import { defineTool } from './define-tool';
@@ -39,9 +40,19 @@ function formatMarkdownFence( language: string, content: string ): string {
 	return `${ fence }${ language }\n${ content }\n${ fence }`;
 }
 
+async function appendStyleOwnershipAudit(
+	lines: string[],
+	blockContent: string,
+	sitePath: string
+): Promise< void > {
+	emitProgress( 'Checking style ownership…' );
+	const audit = await auditStyleOwnership( { blockContent, sitePath } );
+	lines.push( '', ...formatStyleOwnershipAudit( audit ) );
+}
+
 export const validateBlocksTool = defineTool(
 	'validate_blocks',
-	"Validates WordPress block content in two stages and returns a combined report. First runs a static core/html block policy check; if it finds invalid core/html blocks, it returns only those (rewrite them as editable core or plugin blocks and call again) without touching the editor. Once the policy check passes, it validates the content in the site's real block editor: with filePath it applies safe live-editor serialization fixes directly to the file and returns a CSS-review diff; with inline content it returns the exact fixed block content plus the diff. The site must be running.",
+	"Validates WordPress block content in two stages and returns a combined report. First runs a static core/html block policy check; if it finds invalid core/html blocks, it returns only those (rewrite them as editable core or plugin blocks and call again) without touching the editor. Once the policy check passes, it validates the content in the site's real block editor: with filePath it applies safe live-editor serialization fixes directly to the file and returns a CSS-review diff; with inline content it returns the exact fixed block content plus the diff. It also audits theme CSS for custom className rules that duplicate editor-native color, type, spacing, or layout controls. The site must be running.",
 	{
 		nameOrPath: Type.String( {
 			description: 'The site name or file system path — the site must be running',
@@ -117,13 +128,13 @@ export const validateBlocksTool = defineTool(
 
 			if ( report.invalidBlocks === 0 ) {
 				emitProgress( `${ fileName }: all ${ report.totalBlocks } blocks valid` );
-				return textResult(
-					[
-						htmlSummary,
-						`Validation: ${ report.validBlocks }/${ report.totalBlocks } blocks valid`,
-						'No editor serialization fixes needed.',
-					].join( '\n' )
-				);
+				const lines = [
+					htmlSummary,
+					`Validation: ${ report.validBlocks }/${ report.totalBlocks } blocks valid`,
+					'No editor serialization fixes needed.',
+				];
+				await appendStyleOwnershipAudit( lines, blockContent, site.path );
+				return textResult( lines.join( '\n' ) );
 			}
 
 			const invalidNames = report.results
@@ -139,6 +150,7 @@ export const validateBlocksTool = defineTool(
 				'Invalid blocks:',
 				...formatInvalidBlocks( report ),
 			];
+			let auditAlreadyAppended = false;
 
 			if ( report.proposedFix ) {
 				const fixedReport = report.proposedFix.report;
@@ -166,6 +178,8 @@ export const validateBlocksTool = defineTool(
 						);
 					}
 					lines.push( '', 'Diff for CSS review:', '```diff', diff, '```' );
+					await appendStyleOwnershipAudit( lines, fixedContent, site.path );
+					auditAlreadyAppended = true;
 				} else {
 					lines.push(
 						'',
@@ -176,6 +190,10 @@ export const validateBlocksTool = defineTool(
 				}
 			} else {
 				lines.push( '', 'No automatic editor serialization fix was available.' );
+			}
+
+			if ( ! auditAlreadyAppended ) {
+				await appendStyleOwnershipAudit( lines, blockContent, site.path );
 			}
 
 			return textResult( lines.join( '\n' ) );

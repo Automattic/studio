@@ -253,7 +253,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				.option( 'options', {
 					type: 'string',
 					description: __(
-						'Comma-separated sync options: all, sqls, uploads, plugins, themes, contents'
+						'Comma-separated sync options: all, sqls, paths, uploads, plugins, themes, contents'
 					),
 					coerce: ( val: string | undefined ) =>
 						val !== undefined ? parseSyncOptions( val ) : undefined,

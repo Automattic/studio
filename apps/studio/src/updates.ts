@@ -136,13 +136,14 @@ export function setupUpdates() {
 		console.log( 'Update available' );
 	} );
 
-	autoUpdater.on( 'update-downloaded', async ( _event, releaseNotes, releaseName ) => {
+	autoUpdater.on( 'update-downloaded', async ( _event, _releaseNotes, releaseName ) => {
 		updaterState = 'waiting-for-restart';
-		downloadedVersion = typeof releaseName === 'string' ? releaseName : null;
+		// Squirrel's releaseName is unreliable on Windows; null is normal.
+		downloadedVersion = typeof releaseName === 'string' && releaseName ? releaseName : null;
 		console.log( 'Update has been downloaded', { version: downloadedVersion } );
 		void sendIpcEventToRenderer( 'app-update-status', buildAppUpdateStatus() );
-		// The agentic UI surfaces this as a dismissable card in the sidebar, so a modal on top of
-		// it would be a duplicate interruption. Classic has no such affordance and still needs it.
+		// The agentic UI surfaces this as a persistent sidebar card. Classic has
+		// no equivalent affordance and still needs the blocking dialog.
 		if ( getPreferredStudioUiMode() !== 'agentic' ) {
 			await showUpdateReadyToInstallNotice();
 		}
@@ -461,6 +462,9 @@ function buildAppUpdateStatus(): AppUpdateStatus {
 	};
 }
 
+// IPC handlers for the agentic UI's update card. The renderer queries on
+// mount and subscribes to `app-update-status`, covering the case where the
+// download finished before the window existed.
 export async function getAppUpdateStatus( _event: IpcMainInvokeEvent ): Promise< AppUpdateStatus > {
 	return buildAppUpdateStatus();
 }

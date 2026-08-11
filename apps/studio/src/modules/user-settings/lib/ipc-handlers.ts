@@ -3,9 +3,27 @@ import {
 	readGlobalInstructionsFile,
 	writeGlobalInstructions,
 } from '@studio/common/ai/global-instructions';
+import { DEFAULT_MODEL, isAiModelId, type AiModelId } from '@studio/common/ai/models';
+import {
+	DEFAULT_RESPONSE_LENGTH,
+	isAiResponseLength,
+	type AiResponseLength,
+} from '@studio/common/ai/response-length';
+import {
+	supportsAlwaysAllow,
+	type ToolPermissionLevel,
+	type ToolPermissionOverrides,
+} from '@studio/common/ai/tool-permissions';
+import {
+	resolveActivitySoundPreferences,
+	type ActivitySoundPreferences,
+} from '@studio/common/lib/activity-sounds';
 import {
 	isAnalyticsOptedOut,
+	lockSharedConfig,
 	readSharedConfig,
+	saveSharedConfig,
+	unlockSharedConfig,
 	updateSharedConfig,
 } from '@studio/common/lib/shared-config';
 import { DEFAULT_TERMINAL } from 'src/constants';
@@ -136,7 +154,7 @@ export async function saveColorScheme(
 	event: IpcMainInvokeEvent,
 	colorScheme: 'system' | 'light' | 'dark'
 ) {
-	const previous = ( await loadUserData() ).colorScheme ?? 'light';
+	const previous = ( await loadUserData() ).colorScheme ?? 'system';
 	nativeTheme.themeSource = colorScheme;
 	await updateAppdata( { colorScheme } );
 	if ( colorScheme !== previous ) {
@@ -147,15 +165,150 @@ export async function saveColorScheme(
 	}
 }
 
+export async function getAgenticFeaturesEnabled(): Promise< boolean > {
+	const userData = await loadUserData();
+	return userData.agenticFeaturesEnabled ?? true;
+}
+
+export async function saveAgenticFeaturesEnabled(
+	_event: IpcMainInvokeEvent,
+	enabled: boolean
+): Promise< void > {
+	const previous = ( await loadUserData() ).agenticFeaturesEnabled ?? true;
+	await updateAppdata( { agenticFeaturesEnabled: enabled } );
+	if ( enabled !== previous ) {
+		await recordTracksEvent( TRACKS_EVENTS.SETTING_AGENTIC_FEATURES_CHANGE, {
+			enabled,
+			surface: 'settings',
+		} );
+	}
+}
+
+// Lives in shared.json (not app.json) because the CLI reads it on every
+// agent turn — see `resolveResponseLength` in `apps/cli/commands/ai/index.ts`.
+export async function getAgentResponseLength(): Promise< AiResponseLength > {
+	try {
+		const config = await readSharedConfig();
+		return config.agentResponseLength ?? DEFAULT_RESPONSE_LENGTH;
+	} catch {
+		return DEFAULT_RESPONSE_LENGTH;
+	}
+}
+
+export async function saveAgentResponseLength(
+	event: IpcMainInvokeEvent,
+	responseLength: AiResponseLength
+): Promise< void > {
+	if ( ! isAiResponseLength( responseLength ) ) {
+		throw new Error( `Unknown agent response length: ${ responseLength }` );
+	}
+	await updateSharedConfig( { agentResponseLength: responseLength } );
+}
+
+// Lives in shared.json (not app.json) because the CLI's permission extension
+// reads it on every gated tool call — see apps/cli/ai/permissions/policy.ts.
+export async function getToolPermissions(): Promise< ToolPermissionOverrides > {
+	try {
+		const config = await readSharedConfig();
+		return ( config.toolPermissions ?? {} ) as ToolPermissionOverrides;
+	} catch {
+		return {};
+	}
+}
+
+export async function saveToolPermission(
+	event: IpcMainInvokeEvent,
+	toolName: string,
+	level: ToolPermissionLevel
+): Promise< void > {
+	if ( ! supportsAlwaysAllow( toolName ) ) {
+		throw new Error( `Tool permission for ${ toolName } is not configurable` );
+	}
+	if ( level !== 'allow' && level !== 'ask' ) {
+		throw new Error( `Unknown tool permission level: ${ level }` );
+	}
+	// Read + merge + write under the shared-config lock: the nested map merge
+	// must not race a concurrent "Always allow" write from the CLI.
+	await lockSharedConfig();
+	try {
+		const config = await readSharedConfig();
+		await saveSharedConfig( {
+			...config,
+			toolPermissions: { ...config.toolPermissions, [ toolName ]: level },
+		} );
+	} finally {
+		await unlockSharedConfig();
+	}
+}
+
+// Lives in shared.json (not app.json) because the CLI reads it when a new
+// session starts — see `resolveDefaultModel` in `apps/cli/commands/ai/index.ts`.
+export async function getDefaultAiModel(): Promise< AiModelId > {
+	try {
+		const config = await readSharedConfig();
+		return config.defaultAiModel ?? DEFAULT_MODEL;
+	} catch {
+		return DEFAULT_MODEL;
+	}
+}
+
+export async function saveDefaultAiModel(
+	event: IpcMainInvokeEvent,
+	model: AiModelId
+): Promise< void > {
+	if ( ! isAiModelId( model ) ) {
+		throw new Error( `Unknown AI model: ${ model }` );
+	}
+	await updateSharedConfig( { defaultAiModel: model } );
+}
+
+export async function getChatNotificationsEnabled(): Promise< boolean > {
+	const userData = await loadUserData();
+	return userData.chatNotificationsEnabled ?? true;
+}
+
+export async function saveChatNotificationsEnabled(
+	event: IpcMainInvokeEvent,
+	enabled: boolean
+): Promise< void > {
+	await updateAppdata( { chatNotificationsEnabled: enabled } );
+}
+
+export async function getActivitySoundPreferences(): Promise< ActivitySoundPreferences > {
+	const userData = await loadUserData();
+	return resolveActivitySoundPreferences( userData.activitySoundPreferences );
+}
+
+export async function saveActivitySoundPreferences(
+	_event: IpcMainInvokeEvent,
+	preferences: ActivitySoundPreferences
+): Promise< void > {
+	await updateAppdata( {
+		activitySoundPreferences: resolveActivitySoundPreferences( preferences ),
+	} );
+}
+
 export async function getColorScheme(): Promise< 'system' | 'light' | 'dark' > {
 	const userData = await loadUserData();
-	const colorScheme = userData.colorScheme ?? 'light';
+	// Follow the OS appearance until the user explicitly picks a scheme.
+	const colorScheme = userData.colorScheme ?? 'system';
 	nativeTheme.themeSource = colorScheme;
 	return colorScheme;
 }
 
-// Analytics opt-out. Stored in shared.json so both Studio and the Studio CLI honor it. Default is
-// opted IN (analytics ON). See `docs/design-docs/analytics-tracks.md`.
+export async function getFrameColor(): Promise< string | null > {
+	const userData = await loadUserData();
+	return userData.frameColor ?? null;
+}
+
+// `null` clears the override, restoring the scheme-aware default chrome.
+export async function saveFrameColor(
+	_event: IpcMainInvokeEvent,
+	frameColor: string | null
+): Promise< void > {
+	await updateAppdata( { frameColor: frameColor ?? undefined } );
+}
+
 export async function getAnalyticsEnabled(): Promise< boolean > {
 	return ! ( await isAnalyticsOptedOut() );
 }
@@ -206,25 +359,6 @@ export async function getQuitSitesBehavior(): Promise< QuitSitesBehavior | undef
 	return userData.quitSitesBehavior;
 }
 
-export async function saveAgenticFeaturesEnabled(
-	_event: IpcMainInvokeEvent,
-	enabled: boolean
-): Promise< void > {
-	const previous = ( await loadUserData() ).agenticFeaturesEnabled ?? true;
-	await updateAppdata( { agenticFeaturesEnabled: enabled } );
-	if ( enabled !== previous ) {
-		await recordTracksEvent( TRACKS_EVENTS.SETTING_AGENTIC_FEATURES_CHANGE, {
-			enabled,
-			surface: 'settings',
-		} );
-	}
-}
-
-export async function getAgenticFeaturesEnabled(): Promise< boolean > {
-	const userData = await loadUserData();
-	return userData.agenticFeaturesEnabled ?? true;
-}
-
 export async function saveWapuuScore( _event: IpcMainInvokeEvent, score: number ): Promise< void > {
 	if ( ! Number.isFinite( score ) || score < 0 || score > 100_000 ) {
 		return;
@@ -246,7 +380,8 @@ export async function getWapuuScore(): Promise< number | undefined > {
 	return userData.wapuuScore;
 }
 
-// Agentic UI onboarding state (orientation guide seen-state, migration marker).
+// Agentic UI onboarding state (orientation guide, getting-started checklist,
+// and migration marker).
 // The blob is opaque to the desktop; the renderer owns its meaning.
 export async function getOnboardingHints(): Promise< OnboardingHintsState > {
 	const userData = await loadUserData();
@@ -260,7 +395,15 @@ async function persistOnboardingHints( partial: Partial< OnboardingHintsState > 
 	await lockAppdata();
 	try {
 		const userData = await loadUserData();
-		const merged: OnboardingHintsState = { ...( userData.onboardingHints ?? {} ), ...partial };
+		const current = userData.onboardingHints ?? {};
+		const merged: OnboardingHintsState = {
+			...current,
+			...partial,
+			completedItems: {
+				...( current.completedItems ?? {} ),
+				...( partial.completedItems ?? {} ),
+			},
+		};
 		await saveUserData( { ...userData, onboardingHints: merged } );
 	} finally {
 		await unlockAppdata();
@@ -282,7 +425,7 @@ export async function recordAgenticUiMigration(): Promise< void > {
 	await persistOnboardingHints( { migratedFromClassic: true } );
 }
 
-export async function getGlobalAgentInstructions(): Promise< string > {
+export async function getGlobalAgentInstructions( _event: IpcMainInvokeEvent ): Promise< string > {
 	return ( await readGlobalInstructionsFile() ) ?? '';
 }
 
@@ -293,6 +436,28 @@ export async function saveGlobalAgentInstructions(
 	await writeGlobalInstructions( content );
 }
 
+// Persistent-message dismissals (agentic UI update cards, announcements).
+// Ids are opaque to the desktop; the renderer owns their meaning.
+export async function getDismissedMessages(): Promise< string[] > {
+	const userData = await loadUserData();
+	return userData.dismissedMessages ?? [];
+}
+
+export async function dismissMessage( _event: IpcMainInvokeEvent, id: string ): Promise< void > {
+	if ( typeof id !== 'string' || ! id ) {
+		return;
+	}
+	await lockAppdata();
+	try {
+		const userData = await loadUserData();
+		const dismissed = userData.dismissedMessages ?? [];
+		if ( ! dismissed.includes( id ) ) {
+			await saveUserData( { ...userData, dismissedMessages: [ ...dismissed, id ] } );
+		}
+	} finally {
+		await unlockAppdata();
+	}
+}
 export function showUserSettings( event: IpcMainInvokeEvent, tabName?: UserSettingsTabName ) {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	sendIpcEventToRendererWithWindow( parentWindow, 'user-settings', { tabName } );

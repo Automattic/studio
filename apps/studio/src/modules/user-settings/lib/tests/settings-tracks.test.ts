@@ -78,13 +78,13 @@ it( 'saveColorScheme emits studio_setting_appearance_change with mode + surface 
 	expect( updateAppdata ).toHaveBeenCalledWith( { colorScheme: 'dark' } );
 } );
 
-it( 'saveColorScheme does not emit when the mode is unchanged (persisted default is light)', async () => {
+it( 'saveColorScheme does not emit when the mode is unchanged (persisted default is system)', async () => {
 	setPersisted( {} );
 
-	await saveColorScheme( event, 'light' );
+	await saveColorScheme( event, 'system' );
 
 	expect( mockRecord ).not.toHaveBeenCalled();
-	expect( updateAppdata ).toHaveBeenCalledWith( { colorScheme: 'light' } );
+	expect( updateAppdata ).toHaveBeenCalledWith( { colorScheme: 'system' } );
 } );
 
 it( 'saveUserLocale emits studio_setting_language_change with locale + surface when the locale changes', async () => {

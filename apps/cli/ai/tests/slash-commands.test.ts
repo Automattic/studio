@@ -37,7 +37,11 @@ vi.mock( 'cli/commands/auth/login', () => ( { runCommand: vi.fn() } ) );
 vi.mock( 'cli/commands/auth/logout', () => ( { runCommand: vi.fn() } ) );
 vi.mock( 'cli/commands/preview/create', () => ( { runCommand: vi.fn() } ) );
 vi.mock( 'cli/commands/preview/update', () => ( { runCommand: vi.fn() } ) );
-vi.mock( '@studio/common/lib/shared-config', () => ( { readAuthToken: vi.fn() } ) );
+vi.mock( '@studio/common/lib/shared-config', () => ( {
+	readAuthToken: vi.fn(),
+	readSharedConfig: vi.fn().mockResolvedValue( { version: 1 } ),
+	updateSharedConfig: vi.fn().mockResolvedValue( undefined ),
+} ) );
 
 vi.mock( 'cli/remote-session/daemon', () => {
 	return {
@@ -399,5 +403,88 @@ describe( '/model slash command', () => {
 		// Same model picked → no swap, no persist.
 		expect( ctx.currentModel ).toBe( 'gpt-5.6-sol' );
 		expect( persistMock ).not.toHaveBeenCalled();
+	} );
+} );
+
+const responseLengthCmd = AI_CHAT_SLASH_COMMANDS.find( ( c ) => c.name === 'response-length' );
+
+function buildResponseLengthCtx( askUserResponse?: string ): SlashCommandContext {
+	return {
+		ui: {
+			askUser: vi.fn().mockResolvedValue( { 0: askUserResponse } ),
+			showInfo: vi.fn(),
+			showError: vi.fn(),
+		} as never,
+		currentModel: 'gpt-5.6-sol',
+		currentProvider: 'wpcom',
+		showCapabilitiesOnConnect: false,
+		switchProvider: vi.fn().mockResolvedValue( undefined ),
+		prepareProviderSelection: vi.fn().mockResolvedValue( undefined ),
+		maybeAutoSwitchProvider: vi.fn().mockResolvedValue( undefined ),
+		persistSessionContext: vi.fn().mockResolvedValue( undefined ),
+		clearSession: vi.fn().mockResolvedValue( undefined ),
+	};
+}
+
+describe( '/response-length slash command', () => {
+	beforeEach( async () => {
+		const sharedConfig = await import( '@studio/common/lib/shared-config' );
+		( sharedConfig.readSharedConfig as ReturnType< typeof vi.fn > ).mockResolvedValue( {
+			version: 1,
+		} );
+		( sharedConfig.updateSharedConfig as ReturnType< typeof vi.fn > ).mockClear();
+	} );
+
+	it( 'is registered with a handler and level completions', () => {
+		expect( responseLengthCmd ).toBeDefined();
+		expect( typeof responseLengthCmd!.handler ).toBe( 'function' );
+		expect(
+			responseLengthCmd!.getArgumentCompletions!( '' )
+				?.map( ( i ) => i.value )
+				.sort()
+		).toEqual( [ 'compact', 'normal', 'verbose' ] );
+		expect( responseLengthCmd!.getArgumentCompletions!( 'com' )?.map( ( i ) => i.value ) ).toEqual(
+			[ 'compact' ]
+		);
+	} );
+
+	it( 'sets the level directly from an argument without prompting', async () => {
+		const sharedConfig = await import( '@studio/common/lib/shared-config' );
+		const ctx = buildResponseLengthCtx();
+
+		await responseLengthCmd!.handler!( '/response-length compact', ctx );
+
+		expect( ctx.ui.askUser ).not.toHaveBeenCalled();
+		expect( sharedConfig.updateSharedConfig ).toHaveBeenCalledWith( {
+			agentResponseLength: 'compact',
+		} );
+		expect( ctx.ui.showInfo ).toHaveBeenCalledWith( expect.stringContaining( 'Compact' ) );
+	} );
+
+	it( 'prompts with the current level marked and persists the picked one', async () => {
+		const sharedConfig = await import( '@studio/common/lib/shared-config' );
+		( sharedConfig.readSharedConfig as ReturnType< typeof vi.fn > ).mockResolvedValue( {
+			version: 1,
+			agentResponseLength: 'compact',
+		} );
+		const ctx = buildResponseLengthCtx( 'Verbose' );
+
+		await responseLengthCmd!.handler!( '/response-length', ctx );
+
+		const [ questions ] = ( ctx.ui.askUser as ReturnType< typeof vi.fn > ).mock.calls[ 0 ];
+		const labels = questions[ 0 ].options.map( ( o: { label: string } ) => o.label );
+		expect( labels ).toContain( 'Compact (current)' );
+		expect( sharedConfig.updateSharedConfig ).toHaveBeenCalledWith( {
+			agentResponseLength: 'verbose',
+		} );
+	} );
+
+	it( 'does not persist when the current level is re-selected', async () => {
+		const sharedConfig = await import( '@studio/common/lib/shared-config' );
+		const ctx = buildResponseLengthCtx( 'Normal (current)' );
+
+		await responseLengthCmd!.handler!( '/response-length', ctx );
+
+		expect( sharedConfig.updateSharedConfig ).not.toHaveBeenCalled();
 	} );
 } );

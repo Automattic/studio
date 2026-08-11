@@ -11,6 +11,23 @@ export const TRACKS_EVENTS = {
 	APP_LAUNCH: 'studio_app_launch',
 	SITE_START: 'studio_site_start',
 	SITE_CREATE: 'studio_site_created',
+	SITE_STOP: 'studio_site_stop',
+	SITE_DELETE: 'studio_site_delete',
+	SITE_OPEN_IN_BROWSER: 'studio_site_open_in_browser',
+	SITE_OPEN_IN_EDITOR: 'studio_site_open_in_editor',
+	SITE_OPEN_IN_TERMINAL: 'studio_site_open_in_terminal',
+	SITE_OPEN_WP_ADMIN: 'studio_site_open_wp_admin',
+	SITE_OPEN_CUSTOMIZE: 'studio_site_open_customize',
+	SITE_OPEN_PHPMYADMIN: 'studio_site_open_phpmyadmin',
+	SITE_OPEN_FOLDER: 'studio_site_open_folder',
+	SITE_IMPORT: 'studio_site_imported',
+	SITE_EXPORT: 'studio_site_exported',
+	PREVIEW_SITE_CREATE: 'studio_preview_site_create',
+	PREVIEW_SITE_UPDATE: 'studio_preview_site_update',
+	PREVIEW_SITE_DELETE: 'studio_preview_site_delete',
+	PREVIEW_SITE_DELETE_ALL: 'studio_preview_site_delete_all',
+	PREVIEW_SITE_OPEN: 'studio_preview_site_open',
+	PANEL_OPENED: 'studio_panel_opened',
 	SETTING_TELEMETRY_CHANGE: 'studio_setting_telemetry_change',
 	SETTING_APPEARANCE_CHANGE: 'studio_setting_appearance_change',
 	SETTING_LANGUAGE_CHANGE: 'studio_setting_language_change',
@@ -50,6 +67,38 @@ export type TracksUiVersion = 'v1' | 'v2';
 // the CLI from the presence of a blueprint; the other non-`new` values are threaded down from the
 // caller (import/sync from a renderer, duplicate from the desktop Main `copySite` handler).
 export type TracksSiteCreateFlowType = 'new' | 'blueprint' | 'import' | 'sync' | 'duplicate';
+
+// Where a site "open" action rendered the site content, sent as `browser` on the site-content open
+// events (open_in_browser/wp_admin/customize/phpmyadmin). Studio Classic (v1) always opens the OS
+// browser (`external`); the agentic UI (v2) can open its in-app preview panel (`internal`).
+export type TracksBrowserTarget = 'external' | 'internal';
+
+// The affordance a `studio_site_open_customize` event was launched from, sent as `entry_point`. Block
+// themes expose the site editor and its sub-views plus the media library; classic themes expose the
+// Customizer and (theme-dependent) Menus/Widgets screens.
+export type TracksCustomizeEntryPoint =
+	| 'editor'
+	| 'editor_styles'
+	| 'editor_patterns'
+	| 'editor_navigation'
+	| 'editor_templates'
+	| 'editor_pages'
+	| 'media_library'
+	| 'customizer'
+	| 'menus'
+	| 'widgets';
+
+// The site panel/tab a `studio_panel_opened` event refers to. Studio Classic emits the tab-strip names
+// (`sync`/`import-export`/`previews` are Classic-only); the agentic UI reuses the shared names —
+// `settings` for its General tab and `debugging` for its Debugging tab.
+export type TracksPanel =
+	| 'overview'
+	| 'settings'
+	| 'debugging'
+	| 'assistant'
+	| 'sync'
+	| 'import-export'
+	| 'previews';
 
 // Builds the Tracks pixel URL. Isolated so a param-name correction is a one-file change. These are
 // the reserved Tracks pixel params: `_en` event name, `_ut`/`_ui` identity, `_ts` timestamp (ms).

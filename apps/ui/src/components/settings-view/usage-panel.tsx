@@ -2,13 +2,14 @@ import {
 	clampQuotaFraction,
 	formatQuotaPercentage,
 	formatQuotaResetDate,
-	formatAiBlockedNotice,
+	getStudioCodeAiAccessState,
 } from '@studio/common/lib/studio-assistant-quota';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { moreHorizontal } from '@wordpress/icons';
 import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { SigninNotice } from '@/components/agentic-signin-banner';
+import { AiAccessRequiredNotice, AiBlockedNotice } from '@/components/ai-access-required-notice';
 import * as Menu from '@/components/menu';
 import { OfflineNotice } from '@/components/offline-banner';
 import { useConnector } from '@/data/core';
@@ -49,6 +50,7 @@ function UsageProgressBar( { fraction }: { fraction: number } ) {
 function AiCreditsSummary() {
 	const locale = useUserLocale();
 	const { data: quota, isLoading, isError } = useStudioAssistantQuota();
+	const accessState = quota ? getStudioCodeAiAccessState( quota ) : 'available';
 
 	let content;
 	if ( isLoading ) {
@@ -64,8 +66,16 @@ function AiCreditsSummary() {
 				{ __( 'Studio Code limits are temporarily unavailable.' ) }
 			</div>
 		);
-	} else if ( quota?.isStudioCodeAiBlocked ) {
-		content = <div className={ styles.previewUsageText }>{ formatAiBlockedNotice() }</div>;
+	} else if ( accessState !== 'available' ) {
+		content = (
+			<div className={ styles.previewUsageText }>
+				{ accessState === 'blocked' ? (
+					<AiBlockedNotice />
+				) : (
+					<AiAccessRequiredNotice quota={ quota } />
+				) }
+			</div>
+		);
 	} else if ( quota && quota.costCap > 0 ) {
 		const fraction = clampQuotaFraction( quota.costUsage, quota.costCap );
 		content = (
@@ -153,7 +163,7 @@ function PreviewSitesSummary( { userId }: { userId: number } ) {
 							}
 						/>
 						<Menu.Popup side="bottom" align="end">
-							<Menu.Item disabled={ isDisabled } onClick={ () => void handleDelete() }>
+							<Menu.Item destructive disabled={ isDisabled } onClick={ () => void handleDelete() }>
 								{ deletePreviewSitesLabel }
 							</Menu.Item>
 						</Menu.Popup>

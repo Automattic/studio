@@ -27,6 +27,7 @@ import { SiteData } from 'cli/lib/cli-config/core';
 import { updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
 import {
 	isProcessRunning,
+	listProcesses,
 	startProcess,
 	stopProcess,
 	getDaemonBus,
@@ -54,6 +55,20 @@ process.on( 'SIGTERM', () => abortController.abort() );
 
 export function getProcessName( siteId: string ): string {
 	return `${ SITE_PROCESS_PREFIX }${ siteId }`;
+}
+
+// Number of Studio site servers currently running, for the `running_site_count` Tracks prop. Queries
+// the daemon for online processes named with the site prefix. Best-effort: returns `undefined` if the
+// daemon can't be reached, so a telemetry read never fails the operation it annotates.
+export async function getRunningSiteCount(): Promise< number | undefined > {
+	try {
+		const processes = await listProcesses();
+		return processes.filter(
+			( proc ) => proc.status === 'online' && proc.name.startsWith( SITE_PROCESS_PREFIX )
+		).length;
+	} catch {
+		return undefined;
+	}
 }
 
 function getChildScriptPath( runtime: SiteRuntime ): string {
@@ -297,6 +312,7 @@ export async function startWordPressServer(
 	const phpErrorLogSizeAtStart = await fileSize( phpErrorLogPath );
 
 	const readyOrExit = await subscribeForReadyOrExit( processName );
+	const startedAt = Date.now();
 	try {
 		const processDesc = await startProcess( processName, wordPressServerChildPath, { runtime } );
 		await readyOrExit.waitFor( processDesc.pmId );
@@ -317,7 +333,12 @@ export async function startWordPressServer(
 		// so a short-lived `studio start` process doesn't exit before the event is sent, but wrapped in
 		// try/catch so best-effort telemetry can never block or fail the site start.
 		try {
-			await recordTracksEvent( TRACKS_EVENTS.SITE_START, { ...getTracksOrigin() } );
+			await recordTracksEvent( TRACKS_EVENTS.SITE_START, {
+				...getTracksOrigin(),
+				success: true,
+				time_ms: Date.now() - startedAt,
+				running_site_count: await getRunningSiteCount(),
+			} );
 		} catch {
 			// Best-effort telemetry — never block or fail a site start.
 		}
@@ -328,10 +349,41 @@ export async function startWordPressServer(
 		}
 		return runningProcess;
 	} catch ( error ) {
+		try {
+			await recordTracksEvent( TRACKS_EVENTS.SITE_START, {
+				...getTracksOrigin(),
+				success: false,
+				failure_reason: classifyStartFailure( error ),
+				time_ms: Date.now() - startedAt,
+			} );
+		} catch {
+			// Best-effort telemetry — never block or fail a site start.
+		}
 		throw await withCapturedPhpErrors( error, phpErrorLogPath, phpErrorLogSizeAtStart );
 	} finally {
 		readyOrExit.dispose();
 	}
+}
+
+// Coarse, low-cardinality classification of a start failure for the `failure_reason` Tracks prop.
+// Never send the raw error message: it can carry captured PHP output and filesystem paths (PII), and
+// its high cardinality would make the prop unqueryable.
+function classifyStartFailure( error: unknown ): string {
+	const message = error instanceof Error ? error.message : String( error );
+	const normalized = message.toLowerCase();
+	if ( normalized.includes( 'timeout' ) || normalized.includes( 'timed out' ) ) {
+		return 'timeout';
+	}
+	if ( normalized.includes( 'port' ) ) {
+		return 'port_unavailable';
+	}
+	if ( normalized.includes( 'php' ) ) {
+		return 'php_error';
+	}
+	if ( normalized.includes( 'exit' ) ) {
+		return 'process_exited';
+	}
+	return 'unknown';
 }
 
 async function clearStudioErrorLog( site: SiteData ): Promise< void > {

@@ -17,6 +17,7 @@ export function UserMenu( { onToggleSidebar }: Props ) {
 	const { data: user } = useAuthUser();
 	const navigate = useNavigate();
 	const themeIsDark = useColorScheme() === 'dark';
+	const hasGravatar = Boolean( user?.email.trim() );
 
 	return (
 		<div className={ styles.root }>
@@ -25,7 +26,7 @@ export function UserMenu( { onToggleSidebar }: Props ) {
 					className={ styles.userTrigger }
 					onClick={ () => void navigate( { to: '/settings' } ) }
 				>
-					{ user ? (
+					{ hasGravatar && user ? (
 						<Gravatar email={ user.email } isDark={ themeIsDark } />
 					) : (
 						<span className={ styles.settingsAvatar } aria-hidden="true">

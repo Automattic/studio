@@ -1,9 +1,16 @@
 import { createLocalConnector } from '@/data/core/connectors/local';
 import {
 	AGENT_COMPLETE_SESSION_ID,
+	AGENT_LONG_SESSION_ID,
+	AGENT_NEW_SESSION_ID,
+	AGENT_WORKING_SESSION_ID,
+	getMarketingActiveAgentRuns,
+	getMarketingConnectedSites,
+	getMarketingRemoteFileTree,
 	getMarketingSession,
 	getMarketingSessions,
 	getMarketingSites,
+	getMarketingSnapshots,
 	MERIDIAN_THUMBNAIL,
 	PRIMARY_SITE_ID,
 	PRIMARY_SITE_STORAGE,
@@ -59,10 +66,29 @@ export function createMarketingConnector(
 		primarySite.enableHttps = false;
 		primarySite.url = window.location.origin;
 	}
-	const sessions =
-		scenario.id === 'agent-complete-preview'
-			? getMarketingSessions()
-			: ( [] as AiSessionSummary[] );
+	const sessionIdsByScenario: Partial< Record< MarketingScenario[ 'id' ], readonly string[] > > = {
+		'agent-new-session': [ AGENT_NEW_SESSION_ID ],
+		'agent-working-preview': [ AGENT_WORKING_SESSION_ID ],
+		'agent-complete-preview': [ AGENT_COMPLETE_SESSION_ID ],
+		'agent-long-conversation': [ AGENT_LONG_SESSION_ID ],
+	};
+	const sessionIds = sessionIdsByScenario[ scenario.id ] ?? [];
+	const sessions: AiSessionSummary[] = getMarketingSessions( sessionIds );
+	const hasConnectedSite = [ 'connected-site-controls', 'selective-sync' ].includes( scenario.id );
+	const connectedSites = hasConnectedSite ? getMarketingConnectedSites() : [];
+	const snapshots = hasConnectedSite ? getMarketingSnapshots() : [];
+	// Keep signed-in preview data available without asking Gravatar for a remote image.
+	const authUser = hasConnectedSite
+		? {
+				id: 2_026_811,
+				email: '',
+				displayName: 'Alex Morgan',
+		  }
+		: null;
+	const activeAgentRuns =
+		scenario.id === 'agent-working-preview'
+			? getMarketingActiveAgentRuns( AGENT_WORKING_SESSION_ID )
+			: [];
 
 	const preferences: UserPreferences = {
 		editor: 'cursor',
@@ -107,10 +133,10 @@ export function createMarketingConnector(
 		reservesTrafficLightSpace: true,
 
 		async isAuthenticated() {
-			return false;
+			return authUser !== null;
 		},
 		async getAuthUser() {
-			return null;
+			return authUser ? { ...authUser } : null;
 		},
 		onAuthStateChanged: noopUnsubscribe,
 		async getOnboardingCompleted() {
@@ -152,17 +178,44 @@ export function createMarketingConnector(
 				},
 			];
 		},
-		async getConnectedWpcomSites() {
-			return [];
+		async getConnectedWpcomSites( localSiteId ) {
+			return connectedSites
+				.filter( ( site ) => ! localSiteId || site.localSiteId === localSiteId )
+				.map( ( site ) => ( { ...site } ) );
 		},
 		async getSnapshots() {
-			return [];
+			return snapshots.map( ( snapshot ) => ( { ...snapshot } ) );
 		},
 		async getSnapshotUsage() {
-			return { siteCount: 0, siteLimit: 5, siteCreationBlocked: false };
+			return {
+				siteCount: snapshots.length,
+				siteLimit: 5,
+				siteCreationBlocked: false,
+			};
 		},
 		async getStudioAssistantQuota() {
 			return null;
+		},
+		async getLatestRewindId() {
+			return scenario.id === 'selective-sync' ? '1786449600' : null;
+		},
+		async listRemoteFileTree() {
+			return scenario.id === 'selective-sync' ? getMarketingRemoteFileTree() : {};
+		},
+		async getHostingPhpVersion() {
+			return '8.3';
+		},
+		async listLocalFileTree() {
+			return [];
+		},
+		async getDirectorySize() {
+			return 0;
+		},
+		async getFileSize() {
+			return 0;
+		},
+		async getIsMultisite() {
+			return false;
 		},
 
 		async getSessions() {
@@ -173,20 +226,20 @@ export function createMarketingConnector(
 		},
 		async createSession( siteId ) {
 			const existing = sessions.find( ( session ) => session.ownerSiteId === siteId );
-			return existing
-				? { ...existing }
-				: {
-						id: AGENT_COMPLETE_SESSION_ID,
-						filePath: '/marketing/sessions/agent-complete.jsonl',
-						createdAt: '2026-08-08T14:00:00.000Z',
-						updatedAt: '2026-08-08T14:04:00.000Z',
-						ownerSiteId: siteId,
-						activeEnvironment: 'local',
-						eventCount: 0,
-				  };
+			if ( existing ) {
+				return { ...existing };
+			}
+			const site = sites.find( ( candidate ) => candidate.id === siteId );
+			const summary = getMarketingSession( AGENT_NEW_SESSION_ID ).summary;
+			return {
+				...summary,
+				ownerSiteId: site?.id,
+				ownerSitePath: site?.path,
+				ownerSiteName: site?.name,
+			};
 		},
 		async getActiveAgentRuns() {
-			return [];
+			return activeAgentRuns.map( ( run ) => ( { ...run } ) );
 		},
 		onAgentEvent: noopUnsubscribe,
 		onSessionPlacementUpdated: noopUnsubscribe,

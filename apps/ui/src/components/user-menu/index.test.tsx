@@ -57,6 +57,19 @@ describe( 'UserMenu', () => {
 		expect( navigateMock ).toHaveBeenCalledWith( { to: '/settings' } );
 	} );
 
+	it( 'shows the Settings icon when a signed-in user has no email', () => {
+		useAuthUserMock.mockReturnValue( {
+			data: { id: 1, displayName: 'Ada Lovelace', email: '' },
+		} as never );
+
+		render( <UserMenu onToggleSidebar={ onToggleSidebar } /> );
+
+		expect( screen.queryByTestId( 'gravatar' ) ).not.toBeInTheDocument();
+		expect(
+			screen.getByRole( 'button', { name: 'Settings' } ).querySelector( 'svg' )
+		).toBeInTheDocument();
+	} );
+
 	it( 'toggles the sidebar from the hide control', () => {
 		render( <UserMenu onToggleSidebar={ onToggleSidebar } /> );
 

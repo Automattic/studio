@@ -17,9 +17,28 @@ describe( 'capture presets', () => {
 		}
 	} );
 
-	it( 'includes the high-resolution source and store presets', () => {
+	it( 'includes the compact, wide, and store high-resolution presets', () => {
+		expect( CAPTURE_PRESETS[ 'raw-compact-2x' ] ).toMatchObject( {
+			viewport: { width: 900, height: 600 },
+			output: { width: 1800, height: 1200 },
+		} );
 		expect( CAPTURE_PRESETS[ 'raw-wide-2x' ].output ).toEqual( { width: 2880, height: 1800 } );
 		expect( CAPTURE_PRESETS[ 'store-4k' ].output ).toEqual( { width: 3840, height: 2160 } );
+	} );
+
+	it( 'selects compact and wide captures together without changing either preset', () => {
+		expect(
+			resolveSelection(
+				[ 'raw-wide-2x,raw-compact-2x' ],
+				Object.keys( CAPTURE_PRESETS ),
+				[ 'smoke' ],
+				'preset'
+			)
+		).toEqual( [ 'raw-wide-2x', 'raw-compact-2x' ] );
+		expect( CAPTURE_PRESETS[ 'raw-wide-2x' ].viewport ).toEqual( {
+			width: 1440,
+			height: 900,
+		} );
 	} );
 } );
 

@@ -1,8 +1,9 @@
 import path from 'node:path';
 import type { EffectivePanelLayout, PanelLayoutOverrides } from './layout.ts';
+import type { AppliedCapturePresentation, PresentationOverrides } from './presentation.ts';
 import type { CapturePreset, ScenarioId, Theme } from './presets.ts';
 
-export const MANIFEST_SCHEMA_VERSION = 2;
+export const MANIFEST_SCHEMA_VERSION = 3;
 
 export interface GitMetadata {
 	commit: string;
@@ -40,6 +41,10 @@ export interface CaptureManifestEntry {
 		requested: PanelLayoutOverrides;
 		effective: EffectivePanelLayout;
 	};
+	presentation: {
+		requested: PresentationOverrides;
+		effective: AppliedCapturePresentation;
+	};
 	diagnostics: CaptureDiagnostics;
 }
 
@@ -50,6 +55,7 @@ export interface CaptureManifest {
 	syntheticData: true;
 	determinism: {
 		fixedClock: string;
+		randomSeed: number;
 		locale: 'en-US';
 		timeZone: 'UTC';
 		reducedMotion: true;
@@ -65,6 +71,7 @@ interface CreateManifestOptions {
 	git: GitMetadata;
 	distDirectory: string;
 	fixedClock: string;
+	randomSeed: number;
 	captures: CaptureManifestEntry[];
 }
 
@@ -76,6 +83,7 @@ export function createManifest( options: CreateManifestOptions ): CaptureManifes
 		syntheticData: true,
 		determinism: {
 			fixedClock: options.fixedClock,
+			randomSeed: options.randomSeed,
 			locale: 'en-US',
 			timeZone: 'UTC',
 			reducedMotion: true,

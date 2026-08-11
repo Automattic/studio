@@ -29,6 +29,17 @@ npm run screenshots:marketing -- \
 	--output artifacts/marketing-screenshots/review
 ```
 
+Conversation scenarios can be exported at both the wide 1440 × 900 logical viewport and a compact
+900 × 600 desktop viewport in the same run. Both raw presets capture at 2× resolution:
+
+```sh
+npm run screenshots:marketing -- \
+	--scenario agent-new-session,agent-working-preview,agent-complete-preview,agent-long-conversation \
+	--theme light,dark \
+	--preset raw-wide-2x,raw-compact-2x \
+	--output artifacts/marketing-screenshots/conversations
+```
+
 Run `npm run screenshots:marketing -- --list` to see all accepted values and `--help` for the full
 CLI. When `--output` is omitted, results are written to
 `artifacts/marketing-screenshots/<commit>/`.
@@ -51,6 +62,49 @@ the effective post-layout values reported by the UI, including panel states and 
 widths. This makes clamping visible—for example, a requested sidebar width may resolve narrower in a
 small viewport.
 
+## Composer and conversation presentation
+
+The runner can prepare a marketing state after the scenario reports ready and before it captures.
+These controls use the Agentic UI's semantic DOM attributes, not pointer coordinates:
+
+| Flag                                  | Accepted values                                             |
+| ------------------------------------- | ----------------------------------------------------------- |
+| `--composer-text <text>`              | Any quoted draft text                                       |
+| `--composer-focus <state>`            | `focused` or `blurred`                                      |
+| `--conversation-anchor <anchor>`      | `start`, `end`, `first-message`, `last-message`, or `message:<text>` |
+| `--conversation-align <alignment>`    | `start`, `center`, `end`, or `nearest` for message anchors  |
+| `--conversation-occurrence <n>`       | `first` or `last` for a `message:<text>` anchor             |
+
+For example, this captures a focused custom draft without changing the scenario fixture:
+
+```sh
+npm run screenshots:marketing -- \
+	--scenario agent-new-session \
+	--composer-text "Design a welcoming homepage for this coffee shop." \
+	--composer-focus focused
+```
+
+And this positions a matching conversation message at the start of the visible transcript area:
+
+```sh
+npm run screenshots:marketing -- \
+	--scenario agent-complete-preview \
+	--conversation-anchor "message:ready to review" \
+	--conversation-align start \
+	--conversation-occurrence last
+```
+
+`message:<text>` is a case-sensitive substring match against `data-message-text`. The runner finds
+the message's scrollable ancestor and accounts for its computed top and bottom padding, including
+the overlaid header and composer; it does not depend on CSS-module class names or fixed offsets.
+The scenario catalog supplies the normal framing defaults: `agent-new-session` uses the approved
+focused draft, while `agent-working-preview`, `agent-complete-preview`, and
+`agent-long-conversation` are pinned to the end of their conversations. Scenario-specific semantic
+interactions also open the selective pull dialog and switch the responsive preview to its
+full-screen Desktop + Mobile mode. Explicit CLI values override the composer and conversation
+defaults. Requested and effective values, including completed interactions, the matched message,
+and resulting scroll metrics, are stored in `manifest.json`.
+
 ## UI readiness contract
 
 The marketing entry receives `scenario` and `theme` URL parameters. It must not report ready until
@@ -68,9 +122,10 @@ and fails on console errors, page errors, failed requests, missing images, readi
 incorrect PNG dimensions.
 
 Before navigation, the runner freezes `Date.now()`, `new Date()`, and `Date()` at
-`2026-08-11T12:00:00.000Z`; argument-based dates plus `Date.parse()` and `Date.UTC()` retain their
-native behavior. The browser timezone is fixed to UTC. The manifest records the clock, locale,
-timezone, and reduced-motion setting.
+`2026-08-11T12:00:00.000Z` and replaces `Math.random()` with a seeded generator; argument-based
+dates plus `Date.parse()` and `Date.UTC()` retain their native behavior. The browser timezone is
+fixed to UTC. The manifest records the clock, random seed, locale, timezone, and reduced-motion
+setting.
 
 Each run produces exact-dimension PNGs, `manifest.json`, and a standalone `contact-sheet.html`.
 Manifest entries label these outputs as synthetic, simulated browser renderer captures so they are

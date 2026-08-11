@@ -34,6 +34,12 @@ export const CAPTURE_PRESETS = {
 		viewport: { width: 900, height: 600 },
 		deviceScaleFactor: 1,
 	} ),
+	'raw-compact-2x': definePreset( {
+		id: 'raw-compact-2x',
+		description: 'High-resolution compact desktop source for narrow marketing layouts',
+		viewport: { width: 900, height: 600 },
+		deviceScaleFactor: 2,
+	} ),
 	'raw-default-2x': definePreset( {
 		id: 'raw-default-2x',
 		description: "Exact 2x capture of Studio's default 1100 by 820 window",

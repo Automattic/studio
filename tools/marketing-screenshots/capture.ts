@@ -23,6 +23,16 @@ import {
 } from './manifest.ts';
 import { validatePng } from './png.ts';
 import {
+	applyCapturePresentation,
+	parseComposerFocus,
+	parseConversationAlignment,
+	parseConversationAnchor,
+	parseConversationOccurrence,
+	resolveCapturePresentation,
+	type CapturePresentation,
+	type PresentationOverrides,
+} from './presentation.ts';
+import {
 	CAPTURE_PRESETS,
 	DEFAULT_PRESET_IDS,
 	DEFAULT_SCENARIO_IDS,
@@ -39,6 +49,7 @@ import { startStaticServer } from './static-server.ts';
 const READY_SELECTOR = '[data-marketing-screenshot-ready="true"]';
 const DEFAULT_TIMEOUT_MS = 30_000;
 const FIXED_CLOCK_ISO = '2026-08-11T12:00:00.000Z';
+const FIXED_RANDOM_SEED = 0x5eed1234;
 
 interface CliOptions {
 	scenarios?: string[];
@@ -52,6 +63,7 @@ interface CliOptions {
 	help: boolean;
 	list: boolean;
 	panelLayoutOverrides: PanelLayoutOverrides;
+	presentationOverrides: PresentationOverrides;
 }
 
 interface CaptureOptions {
@@ -63,6 +75,8 @@ interface CaptureOptions {
 	preset: CapturePreset;
 	timeoutMs: number;
 	panelLayoutOverrides: PanelLayoutOverrides;
+	presentationOverrides: PresentationOverrides;
+	presentation: CapturePresentation;
 }
 
 async function main(): Promise< void > {
@@ -102,6 +116,7 @@ async function main(): Promise< void > {
 	try {
 		browser = await chromium.launch( { headless: cli.headless } );
 		for ( const scenario of scenarios ) {
+			const presentation = resolveCapturePresentation( scenario, cli.presentationOverrides );
 			for ( const theme of themes ) {
 				for ( const presetId of presetIds ) {
 					const preset = CAPTURE_PRESETS[ presetId ];
@@ -116,6 +131,8 @@ async function main(): Promise< void > {
 							preset,
 							timeoutMs: cli.timeoutMs,
 							panelLayoutOverrides: cli.panelLayoutOverrides,
+							presentationOverrides: cli.presentationOverrides,
+							presentation,
 						} )
 					);
 				}
@@ -131,6 +148,7 @@ async function main(): Promise< void > {
 		git,
 		distDirectory: toPortablePath( path.relative( process.cwd(), distDirectory ) || '.' ),
 		fixedClock: FIXED_CLOCK_ISO,
+		randomSeed: FIXED_RANDOM_SEED,
 		captures,
 	} );
 	await mkdir( outputDirectory, { recursive: true } );
@@ -159,6 +177,8 @@ async function captureScreenshot( options: CaptureOptions ): Promise< CaptureMan
 		preset,
 		timeoutMs,
 		panelLayoutOverrides,
+		presentationOverrides,
+		presentation,
 	} = options;
 	const diagnostics: CaptureDiagnostics = {
 		consoleErrors: [],
@@ -178,7 +198,7 @@ async function captureScreenshot( options: CaptureOptions ): Promise< CaptureMan
 	} );
 
 	try {
-		await freezeClock( context );
+		await installDeterministicRuntime( context );
 		await installNetworkGuard( context, origin, externalRequests );
 		const page = await context.newPage();
 		installDiagnostics( page, diagnostics, externalRequests );
@@ -190,8 +210,9 @@ async function captureScreenshot( options: CaptureOptions ): Promise< CaptureMan
 		await page.goto( scenarioUrl.href, { waitUntil: 'domcontentloaded', timeout: timeoutMs } );
 		await disableMotion( page );
 		const readyMarker = await waitForReadyMarker( page, timeoutMs );
-		await waitForStableAssets( page );
 		await assertUsefulDocument( page );
+		const appliedPresentation = await applyCapturePresentation( page, presentation, timeoutMs );
+		await waitForStableAssets( page, timeoutMs );
 		await settlePaint( page );
 		const effectivePanelLayout = await readEffectivePanelLayout( page );
 		assertCleanDiagnostics( diagnostics );
@@ -234,6 +255,10 @@ async function captureScreenshot( options: CaptureOptions ): Promise< CaptureMan
 				requested: { ...panelLayoutOverrides },
 				effective: effectivePanelLayout,
 			},
+			presentation: {
+				requested: { ...presentationOverrides },
+				effective: appliedPresentation,
+			},
 			diagnostics,
 		};
 	} finally {
@@ -241,13 +266,14 @@ async function captureScreenshot( options: CaptureOptions ): Promise< CaptureMan
 	}
 }
 
-async function freezeClock( context: BrowserContext ): Promise< void > {
+async function installDeterministicRuntime( context: BrowserContext ): Promise< void > {
 	const fixedTimestamp = Date.parse( FIXED_CLOCK_ISO );
 	await context.addInitScript( {
 		content: `
 			(() => {
 				const NativeDate = globalThis.Date;
 				const fixedTimestamp = ${ fixedTimestamp };
+				let randomState = ${ FIXED_RANDOM_SEED } >>> 0;
 				function FrozenDate(...args) {
 					if (!new.target) {
 						return new NativeDate(fixedTimestamp).toString();
@@ -264,6 +290,13 @@ async function freezeClock( context: BrowserContext ): Promise< void > {
 				FrozenDate.parse = NativeDate.parse;
 				FrozenDate.UTC = NativeDate.UTC;
 				globalThis.Date = FrozenDate;
+				globalThis.Math.random = () => {
+					randomState = (randomState + 0x6d2b79f5) >>> 0;
+					let value = randomState;
+					value = Math.imul(value ^ (value >>> 15), value | 1);
+					value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+					return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+				};
 			})();
 		`,
 	} );
@@ -354,34 +387,48 @@ async function waitForReadyMarker( page: Page, timeoutMs: number ): Promise< str
 	return ( await marker.jsonValue() ) as string;
 }
 
-async function waitForStableAssets( page: Page ): Promise< void > {
-	await page.evaluate( async () => {
-		await document.fonts.ready;
-		await Promise.all(
-			Array.from( document.images, ( image ) => {
-				if ( image.complete ) {
-					return undefined;
-				}
-				return new Promise< void >( ( resolve ) => {
-					image.addEventListener( 'load', () => resolve(), { once: true } );
-					image.addEventListener( 'error', () => resolve(), { once: true } );
-				} );
-			} )
-		);
-	} );
+async function waitForStableAssets( page: Page, timeoutMs: number ): Promise< void > {
+	const frames = page.frames();
+	await Promise.all(
+		frames.map( async ( frame ) => {
+			await frame.waitForLoadState( 'load', { timeout: timeoutMs } );
+			await frame.evaluate( async () => {
+				await document.fonts.ready;
+				await Promise.all(
+					Array.from( document.images, ( image ) => {
+						if ( image.complete ) {
+							return undefined;
+						}
+						return new Promise< void >( ( resolve ) => {
+							image.addEventListener( 'load', () => resolve(), { once: true } );
+							image.addEventListener( 'error', () => resolve(), { once: true } );
+						} );
+					} )
+				);
+			} );
+		} )
+	);
 
-	const brokenImages = await page
-		.locator( 'img' )
-		.evaluateAll( ( images ) =>
-			images
-				.filter(
-					( image ) =>
-						! ( image as HTMLImageElement ).complete || ! ( image as HTMLImageElement ).naturalWidth
-				)
-				.map(
-					( image ) => ( image as HTMLImageElement ).currentSrc || ( image as HTMLImageElement ).src
-				)
-		);
+	const brokenImages = (
+		await Promise.all(
+			frames.map( ( frame ) =>
+				frame
+					.locator( 'img' )
+					.evaluateAll( ( images ) =>
+						images
+							.filter(
+								( image ) =>
+									! ( image as HTMLImageElement ).complete ||
+									! ( image as HTMLImageElement ).naturalWidth
+							)
+							.map(
+								( image ) =>
+									( image as HTMLImageElement ).currentSrc || ( image as HTMLImageElement ).src
+							)
+					)
+			)
+		)
+	).flat();
 	if ( brokenImages.length ) {
 		throw new Error( `Scenario contains unloaded images: ${ brokenImages.join( ', ' ) }` );
 	}
@@ -449,6 +496,7 @@ function parseArguments( arguments_: string[] ): CliOptions {
 		help: false,
 		list: false,
 		panelLayoutOverrides: {},
+		presentationOverrides: {},
 	};
 
 	for ( let index = 0; index < arguments_.length; index++ ) {
@@ -495,6 +543,25 @@ function parseArguments( arguments_: string[] ): CliOptions {
 				break;
 			case '--sidebar':
 				options.panelLayoutOverrides.sidebar = parseSidebarPanelState( readValue() );
+				break;
+			case '--composer-text':
+				options.presentationOverrides.composerText = readValue();
+				break;
+			case '--composer-focus':
+				options.presentationOverrides.composerFocus = parseComposerFocus( readValue() );
+				break;
+			case '--conversation-anchor':
+				options.presentationOverrides.conversationAnchor = parseConversationAnchor( readValue() );
+				break;
+			case '--conversation-align':
+				options.presentationOverrides.conversationAlignment = parseConversationAlignment(
+					readValue()
+				);
+				break;
+			case '--conversation-occurrence':
+				options.presentationOverrides.conversationOccurrence = parseConversationOccurrence(
+					readValue()
+				);
 				break;
 			case '--timeout': {
 				const timeout = Number( readValue() );
@@ -567,6 +634,13 @@ Options:
   --sidebar-width <px>       Expanded sidebar width, from 240 through 600 logical px
   --preview <state>          Override preview state: open or closed
   --sidebar <state>          Override sidebar state: expanded or collapsed
+  --composer-text <text>     Replace the composer draft before capture
+  --composer-focus <state>   Set composer focus: focused or blurred
+  --conversation-anchor <a>  Scroll to start, end, first-message, last-message,
+                             or a message:<text> substring
+  --conversation-align <a>   Message alignment: start, center, end, or nearest
+  --conversation-occurrence <n>
+                             Pick first or last match for a message:<text> anchor
   --timeout <ms>             Scenario-ready timeout (default: ${ DEFAULT_TIMEOUT_MS })
   --headful                  Show Chromium while capturing
   --list                     List scenarios, themes, and presets

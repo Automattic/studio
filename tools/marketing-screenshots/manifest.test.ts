@@ -38,6 +38,29 @@ const capture: CaptureManifestEntry = {
 			},
 		},
 	},
+	presentation: {
+		requested: {
+			composerText: 'Make the hero more welcoming.',
+			composerFocus: 'focused',
+			conversationAnchor: { kind: 'message', position: 'last' },
+			conversationAlignment: 'center',
+		},
+		effective: {
+			actions: [],
+			composer: {
+				text: 'Make the hero more welcoming.',
+				focus: 'focused',
+			},
+			conversation: {
+				anchor: { kind: 'message', position: 'last' },
+				alignment: 'center',
+				matchedMessageText: 'The update is ready to review.',
+				scrollTop: 240,
+				scrollHeight: 900,
+				clientHeight: 600,
+			},
+		},
+	},
 	diagnostics: {
 		consoleErrors: [],
 		pageErrors: [],
@@ -59,19 +82,27 @@ describe( 'capture manifest', () => {
 			git: { commit: 'abc123', dirty: false },
 			distDirectory: 'apps/ui/dist-marketing',
 			fixedClock: '2026-08-11T12:00:00.000Z',
+			randomSeed: 0x5eed1234,
 			captures: [ capture ],
 		} );
 
 		expect( manifest ).toMatchObject( {
-			schemaVersion: 2,
+			schemaVersion: 3,
 			syntheticData: true,
 			studio: { commit: 'abc123', dirty: false },
+			determinism: { randomSeed: 0x5eed1234 },
 			captures: [
 				{
 					scenario: 'site-overview',
 					captureTier: 'renderer',
 					panelLayout: {
 						requested: { previewWidthRatio: 0.4, sidebar: 'expanded' },
+					},
+					presentation: {
+						requested: {
+							composerText: 'Make the hero more welcoming.',
+							composerFocus: 'focused',
+						},
 					},
 				},
 			],
@@ -85,6 +116,7 @@ describe( 'capture manifest', () => {
 				git: { commit: '<abc123>', dirty: true },
 				distDirectory: 'apps/ui/dist-marketing',
 				fixedClock: '2026-08-11T12:00:00.000Z',
+				randomSeed: 0x5eed1234,
 				captures: [ capture ],
 			} )
 		);

@@ -10,18 +10,24 @@
 
 ### Implemented checkpoint
 
-The first runnable slice on this branch includes:
+The current runnable slice on this branch includes:
 
-- deterministic `add-site`, `site-overview`, and `agent-complete-preview` scenarios;
+- ten deterministic scenarios covering onboarding, site management, agent conversations, preview,
+  connected-site controls, and selective sync;
+- an eight-site synthetic portfolio, new/in-progress/completed/long agent sessions, and a synthetic
+  Pressable connection;
 - scenario-owned panel states and responsive sidebar/preview proportions, with per-run CLI overrides;
+- capture-time presentation controls for composer copy/focus, conversation position, and semantic UI
+  actions such as opening the selective-sync dialog and responsive preview;
 - explicit light and dark rendering with a fixed clock, locale, timezone, and reduced motion;
-- `smoke`, `raw-default-2x`, `raw-wide-2x`, and `store-4k` presets;
+- deterministic randomness and waits for fonts, images, and preview frames after presentation setup;
+- `smoke`, `raw-compact-2x`, `raw-default-2x`, `raw-wide-2x`, and `store-4k` presets;
 - a marketing-only static preview fixture with no account, site, or external network dependency;
 - exact-dimension PNG validation, diagnostics, a JSON manifest, and an HTML contact sheet; and
 - the one-command `npm run screenshots:marketing` build-and-capture workflow.
 
-The other scenarios, arbitrary one-off dimensions/composition, Git-ref orchestration, CI artifact
-publishing, and genuine per-OS Electron captures remain follow-up phases described below.
+Arbitrary one-off dimensions/composition, Git-ref orchestration, CI artifact publishing, and
+genuine per-OS Electron captures remain follow-up phases described below.
 
 ## Summary
 
@@ -460,7 +466,11 @@ the repository) so a large screenshot set is never copied into packaging work.
 | `agent-new-session`      | Selected site with an empty agent conversation and suggested prompts | Studio Code introduction             | Optional        |
 | `agent-working-preview`  | Credible in-progress agent conversation beside a live preview        | Landing-page hero and agent workflow | Required        |
 | `agent-complete-preview` | Completed task, concise result, and polished updated site preview    | Landing pages and Store              | Required        |
+| `agent-long-conversation` | Multi-turn conversation without sidebar or preview                  | Studio Code articles and docs        | None            |
+| `site-portfolio`         | Dense eight-site sidebar with a selected site overview               | Site-management marketing            | Thumbnail only  |
+| `connected-site-controls` | Local, preview, and synthetic Pressable environment controls        | Pressable and sync docs              | None            |
 | `selective-sync`         | Selective Sync UI connected to a synthetic Pressable site            | Pressable and sync docs              | None            |
+| `responsive-preview`     | Full-screen desktop and mobile previews of the same site             | Preview and responsive-design docs   | Required        |
 
 ### Version-one optional scenarios
 
@@ -474,9 +484,11 @@ the repository) so a large screenshot set is never copied into packaging work.
 
 ### Scenario-content guidelines
 
-- Use two or three distinct synthetic sites so the sidebar feels credible without becoming noisy.
+- Use up to eight distinct synthetic sites when the sidebar is part of the story, and fewer when it
+  would distract from the primary state.
 - Include running and stopped states only where they teach something.
 - Use short site names that remain readable at narrow widths.
+- Keep synthetic site-icon artwork square; do not bake rounded corners into fixture images or SVGs.
 - Agent messages should demonstrate Studio's WordPress expertise without promising unsupported
   behavior.
 - Tool activity should match real tool names and real UI rendering.
@@ -506,6 +518,7 @@ Raw source captures should normally use a device scale factor of 2.
 
 | ID               | Pixel output | Intended use                              |
 | ---------------- | ------------ | ----------------------------------------- |
+| `raw-compact-2x` | 1800 × 1200  | Compact 900 × 600 desktop conversation UI |
 | `raw-default-2x` | 2200 × 1640  | Exact 2× default Studio window            |
 | `raw-wide-2x`    | 2880 × 1800  | Flexible raw source                       |
 | `store-4k`       | 3840 × 2160  | Microsoft Store and 16:9 master           |

@@ -58,9 +58,42 @@ const scenarioDefinitions = {
 		preferredViewport: { width: 1440, height: 900, deviceScaleFactor: 2 },
 		panelLayout: {
 			sidebar: { state: 'expanded', width: 320 },
-			preview: { state: 'open', widthRatio: 0.48 },
+			preview: { state: 'open', widthRatio: 0.6 },
 		},
 		readySelector: 'button[aria-label="Open site in browser"]',
+	},
+	'site-portfolio': {
+		title: 'Multi-site portfolio',
+		description: 'A busy local site portfolio with a focused site overview.',
+		route: '/sites/meridian/overview',
+		preferredViewport: { width: 1440, height: 900, deviceScaleFactor: 2 },
+		panelLayout: {
+			sidebar: { state: 'expanded', width: 300 },
+			preview: { state: 'closed', widthRatio: 0.6 },
+		},
+		readySelector: 'button[aria-label="Open site in browser"]',
+	},
+	'agent-new-session': {
+		title: 'Start a Studio Code task',
+		description: 'A new Studio Code conversation with suggested tasks for an existing site.',
+		route: '/sessions/marketing-agent-new',
+		preferredViewport: { width: 1440, height: 900, deviceScaleFactor: 2 },
+		panelLayout: {
+			sidebar: { state: 'expanded', width: 300 },
+			preview: { state: 'closed', widthRatio: 0.6 },
+		},
+		readySelector: '[data-session-composer]',
+	},
+	'agent-working-preview': {
+		title: 'Studio Code working',
+		description: 'An active Studio Code task shown beside the site preview.',
+		route: '/sessions/marketing-agent-working',
+		preferredViewport: { width: 1600, height: 1000, deviceScaleFactor: 2 },
+		panelLayout: {
+			sidebar: { state: 'expanded', width: 300 },
+			preview: { state: 'open', widthRatio: 0.6 },
+		},
+		readySelector: '[role="status"][aria-label="Working…"]',
 	},
 	'agent-complete-preview': {
 		title: 'Completed Studio Code task',
@@ -68,10 +101,54 @@ const scenarioDefinitions = {
 		route: '/sessions/marketing-agent-complete',
 		preferredViewport: { width: 1600, height: 1000, deviceScaleFactor: 2 },
 		panelLayout: {
-			sidebar: { state: 'expanded', width: 320 },
-			preview: { state: 'open', widthRatio: 0.55 },
+			sidebar: { state: 'collapsed', width: 300 },
+			preview: { state: 'open', widthRatio: 0.6 },
 		},
 		readySelector: '[data-message-text]',
+	},
+	'agent-long-conversation': {
+		title: 'Long Studio Code conversation',
+		description: 'A multi-turn Studio Code conversation without the sidebar or site preview.',
+		route: '/sessions/marketing-agent-long',
+		preferredViewport: { width: 1440, height: 900, deviceScaleFactor: 2 },
+		panelLayout: {
+			sidebar: { state: 'collapsed', width: 300 },
+			preview: { state: 'closed', widthRatio: 0.6 },
+		},
+		readySelector: '[data-message-text]',
+	},
+	'connected-site-controls': {
+		title: 'Connected site controls',
+		description: 'Local, preview, and connected Pressable environments for a site.',
+		route: '/sites/meridian/overview?sync=pull',
+		preferredViewport: { width: 1440, height: 900, deviceScaleFactor: 2 },
+		panelLayout: {
+			sidebar: { state: 'expanded', width: 300 },
+			preview: { state: 'closed', widthRatio: 0.6 },
+		},
+		readySelector: 'button[aria-label="Pull from live"]',
+	},
+	'selective-sync': {
+		title: 'Selective pull from Pressable',
+		description: 'A selective sync dialog for pulling content from a connected Pressable site.',
+		route: '/sites/meridian/overview?sync=pull',
+		preferredViewport: { width: 1440, height: 900, deviceScaleFactor: 2 },
+		panelLayout: {
+			sidebar: { state: 'expanded', width: 300 },
+			preview: { state: 'closed', widthRatio: 0.6 },
+		},
+		readySelector: 'button[aria-label="Pull from live"]',
+	},
+	'responsive-preview': {
+		title: 'Responsive site preview',
+		description: 'A full-screen desktop and mobile preview of the local site.',
+		route: '/sites/meridian/overview',
+		preferredViewport: { width: 1920, height: 1080, deviceScaleFactor: 2 },
+		panelLayout: {
+			sidebar: { state: 'expanded', width: 300 },
+			preview: { state: 'open', widthRatio: 0.6 },
+		},
+		readySelector: '[aria-label="Site preview"] iframe',
 	},
 } as const;
 

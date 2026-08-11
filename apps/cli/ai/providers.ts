@@ -7,9 +7,9 @@ import {
 	getAiProviderModels,
 	type AiProviderId,
 } from '@studio/common/ai/providers';
+import { persistAnthropicApiKey, readAnthropicApiKey } from '@studio/common/ai/settings-store';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __ } from '@wordpress/i18n';
-import { readCliConfig, updateCliConfigWithPartial } from 'cli/lib/cli-config/core';
 import { LoggerError } from 'cli/logger';
 
 export const AI_PROVIDERS: Record< AiProviderId, string > = {
@@ -69,7 +69,7 @@ function defineProvider(
 async function resolveAnthropicApiKey( options?: {
 	force?: boolean;
 } ): Promise< string | undefined > {
-	const { anthropicApiKey: savedKey } = await readCliConfig();
+	const savedKey = await readAnthropicApiKey();
 	if ( savedKey && ! options?.force ) {
 		// Re-prompt only when Anthropic definitively rejects the saved key;
 		// an unreachable API must not lock the user out of their provider.
@@ -93,7 +93,7 @@ async function resolveAnthropicApiKey( options?: {
 	} );
 
 	const trimmedKey = apiKey.trim();
-	await updateCliConfigWithPartial( { anthropicApiKey: trimmedKey } );
+	await persistAnthropicApiKey( trimmedKey );
 	return trimmedKey;
 }
 
@@ -198,14 +198,13 @@ const AI_PROVIDER_DEFINITIONS: Record< AiProviderId, AiProviderDefinition > = {
 		autoFallbackWhenUnavailable: false,
 		isVisible: async () => true,
 		isReady: async () => {
-			const { anthropicApiKey } = await readCliConfig();
-			return Boolean( anthropicApiKey );
+			return Boolean( await readAnthropicApiKey() );
 		},
 		prepare: async ( options ) => {
 			await resolveAnthropicApiKey( options );
 		},
 		resolveEnv: async () => {
-			const { anthropicApiKey: apiKey } = await readCliConfig();
+			const apiKey = await readAnthropicApiKey();
 			if ( ! apiKey ) {
 				throw new LoggerError(
 					__(

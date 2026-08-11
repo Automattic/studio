@@ -1,3 +1,4 @@
+import { readAnthropicApiKey, readSelectedAiProvider } from '@studio/common/ai/settings-store';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { vi, type Mock } from 'vitest';
 import { resolveInitialAiProvider, saveSelectedAiProvider } from 'cli/ai/auth';
@@ -8,7 +9,6 @@ import {
 	listStudioSessionFiles,
 	openStudioSession,
 } from 'cli/ai/sessions/pi-session';
-import { readCliConfig } from 'cli/lib/cli-config/core';
 import { findSiteByFolder } from 'cli/lib/cli-config/sites';
 import { disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { isSiteRunning } from 'cli/lib/site-utils';
@@ -33,8 +33,9 @@ vi.mock( 'cli/ai/providers', () => ( {
 		defaultModel: 'claude-default',
 	} ),
 } ) );
-vi.mock( 'cli/lib/cli-config/core', () => ( {
-	readCliConfig: vi.fn(),
+vi.mock( '@studio/common/ai/settings-store', () => ( {
+	readAnthropicApiKey: vi.fn(),
+	readSelectedAiProvider: vi.fn().mockResolvedValue( 'wpcom' ),
 } ) );
 vi.mock( 'cli/lib/cli-config/sites', () => ( {
 	findSiteByFolder: vi.fn(),
@@ -97,7 +98,7 @@ describe( 'AI runCommand — Desktop (JSON mode) provider default', () => {
 	} );
 
 	it( 'defaults to the wpcom provider on first run when none is configured', async () => {
-		( readCliConfig as Mock ).mockResolvedValue( { aiProvider: undefined } );
+		( readSelectedAiProvider as Mock ).mockResolvedValue( undefined );
 		( resolveInitialAiProvider as Mock ).mockResolvedValue( 'wpcom' );
 
 		await runCommand( { adapter: new JsonAdapter(), initialMessage: 'hello' } );
@@ -108,7 +109,8 @@ describe( 'AI runCommand — Desktop (JSON mode) provider default', () => {
 	} );
 
 	it( 'does not override an already-configured provider', async () => {
-		( readCliConfig as Mock ).mockResolvedValue( { aiProvider: 'anthropic-api-key' } );
+		( readSelectedAiProvider as Mock ).mockResolvedValue( 'anthropic-api-key' );
+		( readAnthropicApiKey as Mock ).mockResolvedValue( 'saved-key' );
 		( resolveInitialAiProvider as Mock ).mockResolvedValue( 'anthropic-api-key' );
 
 		await runCommand( { adapter: new JsonAdapter(), initialMessage: 'hello' } );
@@ -124,7 +126,7 @@ describe( 'AI runCommand — resume by id restores session model', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		( readAuthToken as Mock ).mockResolvedValue( null );
-		( readCliConfig as Mock ).mockResolvedValue( { aiProvider: 'wpcom' } );
+		( readSelectedAiProvider as Mock ).mockResolvedValue( 'wpcom' );
 		( resolveInitialAiProvider as Mock ).mockResolvedValue( 'wpcom' );
 		stdoutSpy = vi.spyOn( process.stdout, 'write' ).mockImplementation( () => true );
 	} );
@@ -180,7 +182,7 @@ describe( 'AI runCommand — active site banner running state', () => {
 			getEntries: () => [],
 		} );
 		( readAuthToken as Mock ).mockResolvedValue( null );
-		( readCliConfig as Mock ).mockResolvedValue( { aiProvider: 'wpcom' } );
+		( readSelectedAiProvider as Mock ).mockResolvedValue( 'wpcom' );
 		( resolveInitialAiProvider as Mock ).mockResolvedValue( 'wpcom' );
 		stdoutSpy = vi.spyOn( process.stdout, 'write' ).mockImplementation( () => true );
 	} );

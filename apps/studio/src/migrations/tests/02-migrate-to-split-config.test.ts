@@ -287,7 +287,11 @@ describe( 'migrateAppConfig', () => {
 			await runMigration();
 
 			const shared = getWrittenJson( 'shared.json' );
-			expect( shared ).toEqual( { version: 1 } );
+			expect( shared ).toEqual( {
+				version: 1,
+				aiProvider: 'anthropic',
+				anthropicApiKey: 'sk-ant-test-key-123',
+			} );
 			expect( sharedConfigValidationSchema.safeParse( shared ).success ).toBe( true );
 		} );
 

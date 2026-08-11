@@ -7,6 +7,7 @@ import { type StudioChatImage } from '@studio/common/ai/chat-images';
 import { getAgentEndFailure } from '@studio/common/ai/json-events';
 import { DEFAULT_MODEL, resolveSessionModel, type AiModelId } from '@studio/common/ai/models';
 import { getAgentEndTurnResult } from '@studio/common/ai/session-events';
+import { readAnthropicApiKey, readSelectedAiProvider } from '@studio/common/ai/settings-store';
 import { buildSkillInvocationPrompt } from '@studio/common/ai/slash-commands';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
@@ -38,7 +39,6 @@ import { setLocalSiteSelectedCallback } from 'cli/ai/site-selection';
 import { getActiveSlashCommands, type SlashCommandContext } from 'cli/ai/slash-commands';
 import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
-import { readCliConfig } from 'cli/lib/cli-config/core';
 import { findSiteByFolder, findSiteById } from 'cli/lib/cli-config/sites';
 import { disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { isSiteRunning } from 'cli/lib/site-utils';
@@ -337,8 +337,7 @@ export async function runCommand( options: {
 		}
 	}
 
-	const config = await readCliConfig();
-	let showCapabilitiesOnConnect = ! config.aiProvider;
+	let showCapabilitiesOnConnect = ( await readSelectedAiProvider() ) === undefined;
 
 	// Studio Code Desktop defaults to WordPress.com provider.
 	if ( isJsonMode && showCapabilitiesOnConnect ) {
@@ -426,7 +425,7 @@ export async function runCommand( options: {
 		} else {
 			ui.setStatusMessage( __( 'Use /login to authenticate to WordPress.com' ) );
 		}
-	} else if ( currentProvider === 'anthropic-api-key' && ! config.anthropicApiKey ) {
+	} else if ( currentProvider === 'anthropic-api-key' && ! ( await readAnthropicApiKey() ) ) {
 		ui.showInfo( __( 'No Anthropic API key saved. Use /api-key to enter one.' ) );
 	}
 

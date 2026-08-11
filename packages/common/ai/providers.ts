@@ -1,8 +1,8 @@
 import { AI_MODELS, type AiModel, type AiModelFamily } from './models';
 
-// Kept in sync with `aiProviderSchema` in `apps/cli/lib/cli-config/core.ts`.
-// Adding a value here hard-breaks older CLIs reading `cli.json`, so treat the
-// list as append-only and coordinate with a config version bump if needed.
+// Persisted in shared.json (`aiProvider`), so treat the list as append-only:
+// readers narrow with `isAiProviderId` and fall back to the default on values
+// they don't know.
 export const AI_PROVIDER_IDS = [ 'wpcom', 'anthropic-api-key' ] as const;
 
 export type AiProviderId = ( typeof AI_PROVIDER_IDS )[ number ];

@@ -42,7 +42,20 @@ const cliSiteSchema = siteDetailsSchema.extend( {
 
 function buildSharedConfig( oldData: Record< string, unknown > ): Record< string, unknown > {
 	const parsed = sharedConfigExtractSchema.safeParse( oldData );
-	return { version: 1, ...( parsed.success ? parsed.data : {} ) };
+	const config: Record< string, unknown > = {
+		version: 1,
+		...( parsed.success ? parsed.data : {} ),
+	};
+
+	// AI provider settings live in shared.json (they used to target cli.json).
+	if ( typeof oldData.aiProvider === 'string' ) {
+		config.aiProvider = oldData.aiProvider;
+	}
+	if ( typeof oldData.anthropicApiKey === 'string' ) {
+		config.anthropicApiKey = oldData.anthropicApiKey;
+	}
+
+	return config;
 }
 
 function buildCliConfig( oldData: Record< string, unknown > ): Record< string, unknown > {
@@ -73,14 +86,6 @@ function buildCliConfig( oldData: Record< string, unknown > ): Record< string, u
 			},
 			[]
 		);
-	}
-
-	if ( typeof oldData.aiProvider === 'string' ) {
-		config.aiProvider = oldData.aiProvider;
-	}
-
-	if ( typeof oldData.anthropicApiKey === 'string' ) {
-		config.anthropicApiKey = oldData.anthropicApiKey;
 	}
 
 	return config;

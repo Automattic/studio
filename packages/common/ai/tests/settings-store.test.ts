@@ -13,7 +13,9 @@ describe( 'ai settings store', () => {
 	let configDir: string;
 	let previousDevConfigDir: string | undefined;
 
+	const sharedConfigPath = () => path.join( configDir, 'shared.json' );
 	const cliConfigPath = () => path.join( configDir, 'cli.json' );
+	const readShared = () => JSON.parse( fs.readFileSync( sharedConfigPath(), 'utf8' ) );
 
 	beforeEach( () => {
 		configDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-ai-settings-' ) );
@@ -41,7 +43,7 @@ describe( 'ai settings store', () => {
 		} );
 	} );
 
-	it( 'saves an accepted key without changing the provider', async () => {
+	it( 'saves an accepted key to shared.json without changing the provider', async () => {
 		const settings = await saveAnthropicApiKey( 'sk-ant-api03-testkey-abcd1234' );
 
 		expect( settings ).toEqual( {
@@ -49,9 +51,33 @@ describe( 'ai settings store', () => {
 			hasAnthropicApiKey: true,
 			anthropicApiKeyPreview: 'sk-ant-api03-tes...1234',
 		} );
-		expect( JSON.parse( fs.readFileSync( cliConfigPath(), 'utf8' ) ).anthropicApiKey ).toBe(
-			'sk-ant-api03-testkey-abcd1234'
+		expect( readShared().anthropicApiKey ).toBe( 'sk-ant-api03-testkey-abcd1234' );
+		expect( fs.existsSync( cliConfigPath() ) ).toBe( false );
+	} );
+
+	it( 'reads legacy values from cli.json and migrates them on write', async () => {
+		fs.writeFileSync(
+			cliConfigPath(),
+			JSON.stringify( {
+				version: 1,
+				sites: [],
+				snapshots: [],
+				aiProvider: 'anthropic-api-key',
+				anthropicApiKey: 'sk-ant-api03-legacykey-9999',
+			} )
 		);
+
+		await expect( readAiSettings() ).resolves.toMatchObject( {
+			provider: 'anthropic-api-key',
+			hasAnthropicApiKey: true,
+		} );
+
+		await setAiProvider( 'wpcom' );
+
+		expect( readShared() ).toMatchObject( {
+			aiProvider: 'wpcom',
+			anthropicApiKey: 'sk-ant-api03-legacykey-9999',
+		} );
 	} );
 
 	it( 'does not store a key Anthropic rejects, but stores an unverifiable one', async () => {
@@ -60,6 +86,7 @@ describe( 'ai settings store', () => {
 			InvalidAnthropicApiKeyError
 		);
 		await expect( readAiSettings() ).resolves.toMatchObject( { hasAnthropicApiKey: false } );
+		expect( fs.existsSync( sharedConfigPath() ) ).toBe( false );
 
 		vi.stubGlobal( 'fetch', vi.fn().mockRejectedValue( new Error( 'offline' ) ) );
 		await expect( saveAnthropicApiKey( 'sk-ant-api03-testkey-abcd1234' ) ).resolves.toMatchObject( {
@@ -73,9 +100,7 @@ describe( 'ai settings store', () => {
 		await expect( setAiProvider( 'anthropic-api-key' ) ).resolves.toMatchObject( {
 			provider: 'anthropic-api-key',
 		} );
-		expect( JSON.parse( fs.readFileSync( cliConfigPath(), 'utf8' ) ).aiProvider ).toBe(
-			'anthropic-api-key'
-		);
+		expect( readShared().aiProvider ).toBe( 'anthropic-api-key' );
 	} );
 
 	it( 'refuses the Anthropic provider without a saved key', async () => {
@@ -86,14 +111,12 @@ describe( 'ai settings store', () => {
 
 	it( 'clears the key, falls back to WordPress.com, and preserves unrelated fields', async () => {
 		fs.writeFileSync(
-			cliConfigPath(),
+			sharedConfigPath(),
 			JSON.stringify( {
 				version: 1,
-				sites: [ { id: 'site-1' } ],
-				snapshots: [],
 				anthropicApiKey: 'sk-ant-api03-testkey-abcd1234',
 				aiProvider: 'anthropic-api-key',
-				customField: 'kept',
+				locale: 'es',
 			} )
 		);
 
@@ -104,21 +127,15 @@ describe( 'ai settings store', () => {
 			hasAnthropicApiKey: false,
 			anthropicApiKeyPreview: null,
 		} );
-		const written = JSON.parse( fs.readFileSync( cliConfigPath(), 'utf8' ) );
+		const written = readShared();
 		expect( written.anthropicApiKey ).toBeUndefined();
-		expect( written ).toMatchObject( {
-			aiProvider: 'wpcom',
-			sites: [ { id: 'site-1' } ],
-			customField: 'kept',
-		} );
+		expect( written ).toMatchObject( { aiProvider: 'wpcom', locale: 'es' } );
 	} );
 
 	it( 'trims the key and treats a blank one as cleared', async () => {
 		const settings = await saveAnthropicApiKey( '  sk-ant-api03-testkey-abcd1234  ' );
 		expect( settings.anthropicApiKeyPreview ).toBe( 'sk-ant-api03-tes...1234' );
-		expect( JSON.parse( fs.readFileSync( cliConfigPath(), 'utf8' ) ).anthropicApiKey ).toBe(
-			'sk-ant-api03-testkey-abcd1234'
-		);
+		expect( readShared().anthropicApiKey ).toBe( 'sk-ant-api03-testkey-abcd1234' );
 
 		await expect( saveAnthropicApiKey( '   ' ) ).resolves.toMatchObject( {
 			hasAnthropicApiKey: false,

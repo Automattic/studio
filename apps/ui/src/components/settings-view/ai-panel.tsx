@@ -1,5 +1,7 @@
 import { FormToggle, TextControl } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
+import { error as errorIcon } from '@wordpress/icons';
+import { Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useState } from 'react';
 import { useConnector } from '@/data/core';
@@ -94,7 +96,17 @@ function AnthropicApiKeySection() {
 					/>
 				</div>
 			</section>
-			{ error && <p className={ styles.instructionsError }>{ error.message }</p> }
+			{ error && (
+				<p role="alert" className="components-validated-control__indicator is-invalid">
+					<Icon
+						className="components-validated-control__indicator-icon"
+						icon={ errorIcon }
+						size={ 16 }
+						fill="currentColor"
+					/>
+					{ error.message }
+				</p>
+			) }
 		</section>
 	);
 }

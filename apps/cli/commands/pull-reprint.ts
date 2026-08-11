@@ -475,13 +475,11 @@ export async function runCommand(
 			} );
 		}
 
-		// `flat-docroot --force` replaces the local wp-content — and with it the
-		// SQLite drop-in and mu-plugin — with a symlink into the scratch, and a
-		// full pull carries nothing local across (see preserveUnselectedLocalContent).
-		// The site still boots, because runtime.php wires SQLite on its own, but
-		// tools that expect the integration under wp-content (phpMyAdmin, `wp sqlite`)
-		// don't. `studio site start` would reinstall it, except it returns early
-		// while the server is running — which it is right after a pull.
+		// `flat-docroot --force` replaced wp-content — SQLite drop-in included —
+		// with a symlink into the scratch. runtime.php wires SQLite up separately
+		// so the site boots, but phpMyAdmin and `wp sqlite` read the integration
+		// from wp-content. `studio site start` would reinstall it, except it
+		// returns early while the server runs — which it does right after a pull.
 		await ensureSqliteIntegrationForImportedSite( site );
 
 		let runtimeStartOptions: StartServerOptions;

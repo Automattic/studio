@@ -1,6 +1,11 @@
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
+import type { TracksAiOutcome } from '@studio/common/lib/record-tracks-event';
 
-export type TurnStatus = 'success' | 'error' | 'max_turns' | 'interrupted';
+// Aliased rather than redeclared: the status is written to the session transcript *and* sent as
+// `outcome` on `studio_code_turn_completed`, and a value in one that the other doesn't know about
+// would ship an unregistered Tracks value. Defined this way round because `record-tracks-event.ts`
+// is intentionally dependency-free.
+export type TurnStatus = TracksAiOutcome;
 
 export interface AiSessionMetadata {
 	archived?: boolean;

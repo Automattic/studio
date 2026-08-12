@@ -106,8 +106,8 @@ export interface TracksAiIdentity {
 // (desktop UI vs CLI); this records the product, leaving room for future Studio AI clients.
 export type TracksAiClient = 'studio-code';
 
-// How an assistant turn ended, sent as `outcome` on `studio_code_turn_completed`. Mirrors the
-// session log's `TurnStatus` so the Tracks value and the transcript never disagree.
+// How an assistant turn ended, sent as `outcome` on `studio_code_turn_completed`. The session log's
+// `TurnStatus` is an alias of this, so the transcript and the event can't drift apart.
 export type TracksAiOutcome = 'success' | 'error' | 'interrupted' | 'max_turns';
 
 // Coarse size of the user's global agent instructions, sent as `length_bucket` on

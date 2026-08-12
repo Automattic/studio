@@ -41,7 +41,9 @@ export function SigninNotice() {
 				<h2 className={ styles.heading }>{ __( 'Sign in to do more with Studio' ) }</h2>
 				<ul className={ styles.benefits }>
 					<li>
-						{ __( 'Collaborate with an AI-powered expert that can help build and edit your site' ) }
+						{ __(
+							'Chat with an AI WordPress expert that helps build and edit your site alongside you'
+						) }
 					</li>
 					<li>{ __( 'Share your work instantly with preview links' ) }</li>
 					<li>{ __( "Publish to a real WordPress.com site when you're ready" ) }</li>

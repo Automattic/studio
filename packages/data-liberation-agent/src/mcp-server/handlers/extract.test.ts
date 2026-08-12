@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { mkdirSync, existsSync, readFileSync, rmSync, mkdtempSync } from 'node:fs';
+import { mkdirSync, existsSync, readFileSync, rmSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 // Avoid the network call in extractHandler's platform detection and force a
@@ -102,5 +102,31 @@ describe('extractHandler — compact result', () => {
     expect(out.failuresTruncated).toBeUndefined();
     expect(out.fullResultPath).toBeUndefined();
     expect(existsSync(join(dir, '.extract-result.json'))).toBe(false);
+  });
+
+  it('exports a portable website directory after screenshot capture', async () => {
+    const adapter = makeAdapter(0);
+    adapter.capture = {};
+    const screenshotter = await import('../../lib/screenshot/screenshotter.js');
+    const captureSpy = vi.spyOn(screenshotter, 'captureScreenshots').mockImplementation(async ({ outputDir }) => {
+      mkdirSync(join(outputDir, 'html'), { recursive: true });
+      mkdirSync(join(outputDir, 'screenshots'), { recursive: true });
+      writeFileSync(join(outputDir, 'html', 'homepage.html'), '<h1>Captured</h1>');
+      writeFileSync(join(outputDir, 'screenshots', 'manifest.json'), JSON.stringify({
+        version: 1,
+        entries: { [SITE]: { html: 'html/homepage.html' } },
+      }));
+      return { captured: 1, skipped: 0, failed: 0, browserRestarts: 0, durationMs: 1, manifestPath: join(outputDir, 'screenshots', 'manifest.json') };
+    });
+
+    const out = parse(await extractHandler(
+      { url: SITE, outputDir: dir, contentStatus: 'draft', screenshots: true },
+      makeCtx(adapter),
+    ));
+
+    expect(out.captureReceiptPath).toBe(join(dir, 'capture-receipt.json'));
+    expect(existsSync(join(dir, 'website', 'index.html'))).toBe(true);
+    expect(JSON.parse(readFileSync(join(dir, 'capture-receipt.json'), 'utf8')).schema).toBe('data-liberation/capture-receipt/v1');
+    captureSpy.mockRestore();
   });
 });

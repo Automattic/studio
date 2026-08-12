@@ -122,6 +122,18 @@ export const extractHandler: Handler = async (args, ctx) => {
       ...(screenshotResult ? { screenshots: screenshotResult } : {}),
     };
 
+    if (screenshotResult) {
+      const { exportWebsiteCapture } = await import('../../lib/capture-export.js');
+      result.captureReceiptPath = exportWebsiteCapture({
+        outputDir,
+        sourceUrl: args.url as string,
+        platform: detection.platform,
+        title: inventory.siteMeta?.title,
+        summary: result.summary as Record<string, unknown>,
+        failures: result.failures as Array<{ url: unknown; error: unknown }>,
+      });
+    }
+
     // A large site (one run hit ~132k chars) can push `failures` past the MCP
     // token cap. Cap only that array inline and spill the full result to
     // <outputDir>/.extract-result.json. summary (incl. failedUrls count),

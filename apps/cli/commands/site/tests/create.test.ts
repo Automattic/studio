@@ -476,7 +476,7 @@ describe( 'CLI: studio site create', () => {
 			expect( blueprint.staticSiteImport.code ).toContain(
 				"ABSPATH . '.studio-import/source.json'"
 			);
-			 expect( blueprint.staticSiteImport.code.length ).toBeLessThan( 10000 );
+			expect( blueprint.staticSiteImport.code.length ).toBeLessThan( 10000 );
 		} );
 
 		it( 'should create a basic site successfully', async () => {

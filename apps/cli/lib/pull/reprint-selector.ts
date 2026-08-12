@@ -12,10 +12,11 @@ import treeCheckbox from 'cli/lib/tree-checkbox';
 import type { RemoteFileEntry } from '@studio/common/lib/sync/sync-api';
 import type { TreeNode } from 'cli/lib/tree-checkbox';
 
-const CONTENT_DIR_TOKENS: Record< string, string > = {
-	plugins: ':wp-plugins:',
-	'mu-plugins': ':wp-mu-plugins:',
-	uploads: ':wp-uploads:',
+const WP_CONTENT_TOKEN = ':wp-content:';
+const CONTENT_DIRECTORY_TOKENS: Record< string, string > = {
+	':wp-plugins:': 'plugins',
+	':wp-mu-plugins:': 'mu-plugins',
+	':wp-uploads:': 'uploads',
 };
 
 export interface PullSelection {
@@ -26,9 +27,8 @@ export interface PullSelection {
 }
 
 /**
- * Resolve `--only` source values (Reprint tokens or absolute paths) to
- * absolute remote path prefixes. Tokens resolve to their conventional
- * location under the content directory, matching how the tree maps them.
+ * Resolve `--only` source values to absolute remote path prefixes for local
+ * content preservation. Reprint itself resolves these values before pulling.
  */
 export function resolveOnlyPathsToAbsolute(
 	fileOnlyPaths: string[],
@@ -36,17 +36,21 @@ export function resolveOnlyPathsToAbsolute(
 ): string[] {
 	const contentRoot = contentDir.replace( /\/+$/, '' );
 	return fileOnlyPaths.map( ( source ) => {
-		for ( const [ name, token ] of Object.entries( CONTENT_DIR_TOKENS ) ) {
+		if ( source === WP_CONTENT_TOKEN || source.startsWith( `${ WP_CONTENT_TOKEN }/` ) ) {
+			return `${ contentRoot }${ source.slice( WP_CONTENT_TOKEN.length ) }`;
+		}
+		for ( const [ token, directory ] of Object.entries( CONTENT_DIRECTORY_TOKENS ) ) {
 			if ( source === token || source.startsWith( `${ token }/` ) ) {
-				return `${ contentRoot }/${ name }${ source.slice( token.length ) }`;
+				return `${ contentRoot }/${ directory }${ source.slice( token.length ) }`;
 			}
 		}
 		return source;
 	} );
 }
 
-function valueToOnly( value: string, contentDir: string ): string {
-	return CONTENT_DIR_TOKENS[ value ] ?? `${ contentDir.replace( /\/+$/, '' ) }/${ value }`;
+function relativePathToOnly( value: string ): string {
+	const relativePath = value.replace( /^wp-content(?:\/|$)/, '' ).replace( /\/+$/, '' );
+	return relativePath ? `${ WP_CONTENT_TOKEN }/${ relativePath }` : WP_CONTENT_TOKEN;
 }
 
 /**
@@ -54,7 +58,7 @@ function valueToOnly( value: string, contentDir: string ): string {
  * `plugins/akismet`, or pass-through Reprint tokens/absolute paths) to
  * Reprint `--only` sources.
  */
-export function mapCliOnlyToReprint( values: string[], contentDir: string ): string[] {
+export function mapCliOnlyToReprint( values: string[] ): string[] {
 	return values
 		.map( ( value ) => value.trim() )
 		.filter( ( value ) => value.length > 0 )
@@ -62,8 +66,7 @@ export function mapCliOnlyToReprint( values: string[], contentDir: string ): str
 			if ( value.startsWith( ':' ) || value.startsWith( '/' ) ) {
 				return value;
 			}
-			const relative = value.replace( /^wp-content\//, '' ).replace( /\/+$/, '' );
-			return valueToOnly( relative, contentDir );
+			return relativePathToOnly( value );
 		} );
 }
 
@@ -72,10 +75,7 @@ export function mapCliOnlyToReprint( values: string[], contentDir: string ): str
  * directory and dropping its descendants. A checked `wp-content` root means
  * every file is selected and no `--only` is needed.
  */
-export function mapCheckedNodesToSelection(
-	selected: TreeNode[],
-	contentDir: string
-): PullSelection {
+export function mapCheckedNodesToSelection( selected: TreeNode[] ): PullSelection {
 	const checkedValues = new Set( selected.map( ( node ) => node.value ) );
 	const skipDatabase = ! checkedValues.has( 'database' );
 	const skipUploads = ! [ ...checkedValues ].some(
@@ -95,7 +95,7 @@ export function mapCheckedNodesToSelection(
 	} );
 
 	return {
-		fileOnlyPaths: maximal.map( ( node ) => valueToOnly( node.value, contentDir ) ),
+		fileOnlyPaths: maximal.map( ( node ) => relativePathToOnly( node.value ) ),
 		skipDatabase,
 		skipUploads,
 		hasAnyFile: fileNodes.length > 0,
@@ -105,7 +105,8 @@ export function mapCheckedNodesToSelection(
 /**
  * Reprint's `--only` values are directory roots. Keep the database toggle
  * and directory nodes, but never expose files that Reprint cannot pull
- * independently.
+ * independently. Jetpack represents directory paths with trailing slashes;
+ * use canonical values before the picker or selection logic sees them.
  */
 export function filterTreeToDirectories( tree: TreeNode[] ): TreeNode[] {
 	return tree.flatMap( ( node ) => {
@@ -118,6 +119,7 @@ export function filterTreeToDirectories( tree: TreeNode[] ): TreeNode[] {
 		return [
 			{
 				...node,
+				value: node.value.replace( /\/+$/, '' ),
 				children: node.children ? filterTreeToDirectories( node.children ) : undefined,
 			},
 		];
@@ -143,7 +145,6 @@ export async function fetchJetpackPullTree(
  */
 export async function selectPullItems(
 	tree: TreeNode[],
-	contentDir: string,
 	options: { allowDatabaseOnly?: boolean; token?: string; remoteSiteId?: number } = {}
 ): Promise< PullSelection | undefined > {
 	const selected = await treeCheckbox( {
@@ -159,7 +160,9 @@ export async function selectPullItems(
 							rewindId,
 							`/wp-content/${ node.value }`
 						);
-						return buildTreeFromRemote( filterEntriesToDirectories( entries ), node.depth + 1 );
+						return filterTreeToDirectories(
+							buildTreeFromRemote( filterEntriesToDirectories( entries ), node.depth + 1 )
+						);
 				  }
 				: undefined,
 	} );
@@ -168,7 +171,7 @@ export async function selectPullItems(
 		return undefined;
 	}
 
-	const selection = mapCheckedNodesToSelection( selected, contentDir );
+	const selection = mapCheckedNodesToSelection( selected );
 	if ( ! selection.hasAnyFile && ! options.allowDatabaseOnly ) {
 		console.log(
 			__(

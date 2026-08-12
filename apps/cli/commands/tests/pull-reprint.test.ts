@@ -1427,8 +1427,8 @@ describe( 'CLI: studio pull-reprint first-pull selective sync', () => {
 		const filesArgs = reprintSpy.mock.calls[ 2 ][ 2 ] as string[];
 		expect( filesArgs ).toContain( '--only=/wordpress/core/7.0' );
 		expect( filesArgs ).not.toContain( '--only=/wordpress/core' );
-		expect( filesArgs ).toContain( '--only=/srv/htdocs/wp-content/themes' );
-		expect( filesArgs ).toContain( '--only=/srv/htdocs/wp-content/plugins/jetpack' );
+		expect( filesArgs ).toContain( '--only=:wp-content:/themes' );
+		expect( filesArgs ).toContain( '--only=:wp-content:/plugins/jetpack' );
 
 		// The persisted sidecar records the healed selection a resume reuses.
 		const sidecar = JSON.parse(
@@ -1436,8 +1436,8 @@ describe( 'CLI: studio pull-reprint first-pull selective sync', () => {
 		);
 		expect( sidecar.fileOnlyPaths ).toEqual( [
 			'/wordpress/core/7.0',
-			'/srv/htdocs/wp-content/themes',
-			'/srv/htdocs/wp-content/plugins/jetpack',
+			':wp-content:/themes',
+			':wp-content:/plugins/jetpack',
 		] );
 		expect( sidecar.skipDatabase ).toBe( true );
 	} );

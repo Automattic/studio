@@ -680,7 +680,7 @@ async function applySelection( params: {
 					)
 				);
 			}
-			const mapped = mapCliOnlyToReprint( cliOnly, contentDir );
+			const mapped = mapCliOnlyToReprint( cliOnly );
 			const withCore = withCoreRootsOnFirstPull( mapped );
 			if ( withCore.length > 0 ) {
 				selection.fileOnlyPaths = withCore;
@@ -714,7 +714,7 @@ async function applySelection( params: {
 		savePullSelection( session, selection );
 		return selection;
 	}
-	const picked = await selectPullItems( tree, contentDir, {
+	const picked = await selectPullItems( tree, {
 		allowDatabaseOnly: isFirstPull,
 		token: wpComAccessToken,
 		remoteSiteId: wpComSiteId,

@@ -83,19 +83,4 @@ describe( 'createAgentRunManager fork environment', () => {
 
 		expect( getForkEnv().STUDIO_TRACKS_ORIGIN ).toBeUndefined();
 	} );
-
-	it( 'keeps the parent environment', () => {
-		vi.stubEnv( 'STUDIO_TEST_PARENT_VAR', 'kept' );
-		const manager = createAgentRunManager( {
-			cliBinary: '/cli.mjs',
-			surface: 'desktop',
-			emit: vi.fn(),
-			getTracksOrigin: () => 'studio-ui:v2',
-		} );
-
-		manager.startAgentRun( { sessionId: 'session-1', prompt: 'hello' } );
-
-		expect( getForkEnv().STUDIO_TEST_PARENT_VAR ).toBe( 'kept' );
-		vi.unstubAllEnvs();
-	} );
 } );

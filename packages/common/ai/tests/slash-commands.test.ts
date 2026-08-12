@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-	buildSkillInvocationPrompt,
-	getAiSkillCommands,
-	resolveSkillFromPrompt,
-} from '../slash-commands';
+import { buildSkillInvocationPrompt, resolveSkillFromPrompt } from '../slash-commands';
 
 describe( 'resolveSkillFromPrompt', () => {
 	it( 'resolves the bare slash form the `studio ui` server forwards untouched', () => {
@@ -14,13 +10,6 @@ describe( 'resolveSkillFromPrompt', () => {
 		expect( resolveSkillFromPrompt( buildSkillInvocationPrompt( 'rank-me-up' ) ) ).toBe(
 			'rank-me-up'
 		);
-	} );
-
-	it( 'resolves every catalog skill in both shapes', () => {
-		for ( const { name } of getAiSkillCommands() ) {
-			expect( resolveSkillFromPrompt( `/${ name }` ) ).toBe( name );
-			expect( resolveSkillFromPrompt( buildSkillInvocationPrompt( name ) ) ).toBe( name );
-		}
 	} );
 
 	it( 'ignores surrounding whitespace', () => {

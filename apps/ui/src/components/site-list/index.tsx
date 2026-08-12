@@ -20,10 +20,6 @@ import {
 } from 'react';
 import { AgentWorkingIndicator } from '@/components/agent-working-indicator';
 import { DeleteSiteDialog } from '@/components/delete-site-dialog';
-import {
-	useIndicatorPlayground,
-	type IndicatorPreviewChoice,
-} from '@/components/indicator-playground/context';
 import * as Menu from '@/components/menu';
 import { ReorderableList } from '@/components/reorderable-list';
 import { SidebarButton } from '@/components/sidebar-button';
@@ -95,13 +91,7 @@ function SiteAgentActivityTooltip( {
 	);
 }
 
-function SiteAgentActivityIndicator( {
-	activity,
-	preview = 'auto',
-}: {
-	activity: SiteRowActivity;
-	preview?: IndicatorPreviewChoice;
-} ) {
+function SiteAgentActivityIndicator( { activity }: { activity: SiteRowActivity } ) {
 	const [ exitingActivity, setExitingActivity ] = useState< SiteRowActivity >( 'idle' );
 
 	useEffect( () => {
@@ -118,8 +108,7 @@ function SiteAgentActivityIndicator( {
 	}, [ activity ] );
 
 	const renderedActivity = activity === 'idle' ? exitingActivity : activity;
-	const isWorkingPreview = preview === 'working';
-	const isVisible = preview === 'off' ? false : isWorkingPreview || activity !== 'idle';
+	const isVisible = activity !== 'idle';
 	const workingLabel = __( 'Working…' );
 	const pendingQuestionLabel = __( 'Needs an answer' );
 	const pendingQuestionAriaLabel = __( 'Studio needs an answer.' );
@@ -134,7 +123,7 @@ function SiteAgentActivityIndicator( {
 			) }
 			aria-hidden={ isVisible ? undefined : 'true' }
 		>
-			{ isWorkingPreview || renderedActivity === 'working' ? (
+			{ renderedActivity === 'working' ? (
 				<SiteAgentActivityTooltip label={ workingLabel } childProvidesLabel>
 					<AgentWorkingIndicator
 						className={ styles.siteAgentActivityPixels }
@@ -142,20 +131,20 @@ function SiteAgentActivityIndicator( {
 					/>
 				</SiteAgentActivityTooltip>
 			) : null }
-			{ ! isWorkingPreview && renderedActivity === 'pending-question' ? (
+			{ renderedActivity === 'pending-question' ? (
 				<SiteAgentActivityTooltip
 					label={ pendingQuestionLabel }
 					ariaLabel={ pendingQuestionAriaLabel }
 					className={ styles.siteAgentActivityQuestion }
 				/>
 			) : null }
-			{ ! isWorkingPreview && renderedActivity === 'new-message' ? (
+			{ renderedActivity === 'new-message' ? (
 				<SiteAgentActivityTooltip
 					label={ newMessageLabel }
 					className={ styles.siteAgentActivityMessage }
 				/>
 			) : null }
-			{ ! isWorkingPreview && renderedActivity === 'sync' ? (
+			{ renderedActivity === 'sync' ? (
 				<SiteAgentActivityTooltip label={ syncLabel } className={ styles.siteAgentActivitySync }>
 					<span className={ styles.siteAgentActivitySyncDots } aria-hidden="true">
 						<span className={ styles.siteAgentActivitySyncDot } />
@@ -521,7 +510,6 @@ function SiteSection( {
 	chatEnabled: boolean;
 } ) {
 	const { site, latestSession } = row;
-	const { sidebar: sidebarIndicatorPreview } = useIndicatorPlayground();
 	const navigate = useNavigate();
 	const connector = useConnector();
 	const sectionRef = useRef< HTMLElement >( null );
@@ -595,10 +583,7 @@ function SiteSection( {
 				trigger={
 					<header className={ styles.siteHeader } onClick={ handleOpenSite }>
 						<div className={ styles.siteText }>
-							<SiteAgentActivityIndicator
-								activity={ displayActivity }
-								preview={ isSelected ? sidebarIndicatorPreview : 'auto' }
-							/>
+							<SiteAgentActivityIndicator activity={ displayActivity } />
 							<SidebarButton
 								className={ styles.siteToggle }
 								onClick={ ( event ) => {

@@ -62,21 +62,21 @@ describe( 'getPreviewSplitLayout', () => {
 
 describe( 'panel opening plans', () => {
 	it( 'grows the window enough to preserve an open sidebar and a new preview', () => {
-		expect( getPreviewOpenPlan( 660, 420, false, 1200 ) ).toEqual( {
-			minimumWindowWidth: 880,
+		expect( getPreviewOpenPlan( 660, false, 1200 ) ).toEqual( {
+			minimumWindowWidth: 892,
 			closeOtherPanel: false,
 		} );
 	} );
 
 	it( 'collapses the sidebar when the display cannot fit all three columns', () => {
-		expect( getPreviewOpenPlan( 660, 420, false, 800 ) ).toEqual( {
+		expect( getPreviewOpenPlan( 660, false, 800 ) ).toEqual( {
 			minimumWindowWidth: 660,
 			closeOtherPanel: true,
 		} );
 	} );
 
 	it( 'grows a compact chat-only window to fit a preview split', () => {
-		expect( getPreviewOpenPlan( 420, 420, true, 1200 ) ).toEqual( {
+		expect( getPreviewOpenPlan( 420, true, 1200 ) ).toEqual( {
 			minimumWindowWidth: 640,
 			closeOtherPanel: false,
 		} );

@@ -46,10 +46,6 @@ export function PreviewSplitFrame( {
 }: PreviewSplitFrameProps ) {
 	const showPreview = previewOpen && preview != null;
 	const showFullscreen = showPreview && previewFullscreen;
-	const { rootRef, containerWidth, contentWidthVar, isResizing, handleProps } = usePreviewSplit( {
-		showPreview,
-	} );
-	const isSidebarCollapsed = useSidebarCollapsed();
 	const previousShowPreviewRef = useRef( showPreview );
 	const openedSinceMeasurementRef = useRef( false );
 	const reportedTooNarrowRef = useRef( false );
@@ -57,6 +53,10 @@ export function PreviewSplitFrame( {
 		openedSinceMeasurementRef.current = showPreview && ! previousShowPreviewRef.current;
 		previousShowPreviewRef.current = showPreview;
 	}, [ showPreview ] );
+	const { rootRef, containerWidth, contentWidthVar, isResizing, handleProps } = usePreviewSplit( {
+		showPreview,
+	} );
+	const isSidebarCollapsed = useSidebarCollapsed();
 
 	useEffect( () => {
 		if ( ! showPreview || showFullscreen || containerWidth === null ) {

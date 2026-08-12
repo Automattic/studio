@@ -1,6 +1,6 @@
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
 import { createRoute, Outlet, useRouterState } from '@tanstack/react-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
 	PreviewSplitFrame,
 	type PreviewSplitTooNarrowReason,
@@ -142,24 +142,33 @@ function DashboardLayoutContent() {
 	const showPreview = preview.open && supportsPreview && !! previewSite;
 	const previewFullscreen = preview.fullscreen && showPreview;
 	const { setOpen: setPreviewOpen } = preview;
+	const previousPreviewStateRef = useRef( { show: false, fullscreen: false } );
+	useLayoutEffect( () => {
+		const previous = previousPreviewStateRef.current;
+		previousPreviewStateRef.current = { show: showPreview, fullscreen: previewFullscreen };
+		const enteringSplit =
+			showPreview && ( ! previous.show || ( previous.fullscreen && ! previewFullscreen ) );
+		if ( ! enteringSplit || previewFullscreen ) {
+			return;
+		}
+		const plan = getPreviewOpenPlan(
+			getViewportWidth(),
+			sidebarCollapsed,
+			getAvailableWindowWidth()
+		);
+		if ( plan.closeOtherPanel ) {
+			setSidebarCollapsed( true );
+		}
+		void connector.ensureWindowWidth( plan.minimumWindowWidth );
+	}, [ connector, previewFullscreen, showPreview, sidebarCollapsed ] );
 	const handleNarrowPreview = useCallback(
-		( containerWidth: number, reason: PreviewSplitTooNarrowReason ) => {
+		( _containerWidth: number, reason: PreviewSplitTooNarrowReason ) => {
 			if ( reason === 'opened' ) {
-				const plan = getPreviewOpenPlan(
-					getViewportWidth(),
-					containerWidth,
-					sidebarCollapsed,
-					getAvailableWindowWidth()
-				);
-				if ( plan.closeOtherPanel ) {
-					setSidebarCollapsed( true );
-				}
-				void connector.ensureWindowWidth( plan.minimumWindowWidth );
 				return;
 			}
 			setPreviewOpen( false );
 		},
-		[ connector, setPreviewOpen, sidebarCollapsed ]
+		[ setPreviewOpen ]
 	);
 	const sidebarOpenPlan = getSidebarOpenPlan( showPreview, getAvailableWindowWidth() );
 	const handleSidebarCollapsedChange = useCallback(

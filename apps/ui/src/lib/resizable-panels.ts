@@ -32,11 +32,10 @@ export interface PanelOpenPlan {
 
 export function getPreviewOpenPlan(
 	viewportWidth: number,
-	previewContainerWidth: number,
 	sidebarCollapsed: boolean,
 	availableWindowWidth: number
 ): PanelOpenPlan {
-	const requiredWidth = viewportWidth + PREVIEW_SPLIT_MIN_WIDTH - previewContainerWidth;
+	const requiredWidth = sidebarCollapsed ? PREVIEW_SPLIT_MIN_WIDTH : ALL_PANELS_MIN_WIDTH;
 	const shouldCollapseSidebar = ! sidebarCollapsed && requiredWidth > availableWindowWidth;
 
 	return {

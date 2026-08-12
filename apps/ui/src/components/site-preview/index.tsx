@@ -1,3 +1,4 @@
+import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
 import { useQuery } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import { chevronLeft, chevronRight, moreVertical, pencil } from '@wordpress/icons';
@@ -10,7 +11,12 @@ import * as Menu from '@/components/menu';
 import { OpenInMenu } from '@/components/open-in-menu';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
-import { useIsSiteStarting, useStartSite } from '@/data/queries/use-sites';
+import {
+	useIsSiteBusy,
+	useIsSiteStarting,
+	useSiteOperation,
+	useStartSite,
+} from '@/data/queries/use-sites';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { useWindowControlsOverlay } from '@/hooks/use-window-controls-overlay';
 import { getSiteUrl } from '@/lib/get-site-url';
@@ -549,6 +555,8 @@ export function SitePreview( {
 	const { chatEnabled } = useAgenticFeatures();
 	const startSite = useStartSite();
 	const isStarting = useIsSiteStarting( site.id );
+	const isBusy = useIsSiteBusy( site );
+	const operation = useSiteOperation( site );
 	const siteUrl = getSiteUrl( site );
 	const canPreview = site.running;
 	const canUseWebview = isElectron();
@@ -1109,13 +1117,20 @@ export function SitePreview( {
 									</div>
 								) : null }
 								<p className={ styles.emptyText }>
-									{ __( 'Start the site to see a live preview.' ) }
+									{ operation
+										? sprintf(
+												/* translators: %s: an operation in progress, e.g. "Saving settings". */
+												__( '%s… the site can start once this finishes.' ),
+												getSiteOperationLabel( operation )
+										  )
+										: __( 'Start the site to see a live preview.' ) }
 								</p>
 								<Button
 									variant="solid"
 									tone="brand"
 									loading={ isStarting }
 									loadingAnnouncement={ __( 'Starting site' ) }
+									disabled={ isBusy }
 									onClick={ () => startSite.mutate( site.id ) }
 								>
 									<span className={ styles.startIcon } aria-hidden="true">

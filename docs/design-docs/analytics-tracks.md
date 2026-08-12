@@ -376,6 +376,10 @@ What fires depends on the build, so pick the right method:
   `packages/common/lib/tests/record-tracks-event.test.ts`, `apps/studio/src/lib/tests/tracks.test.ts`,
   and `apps/cli/lib/tests/tracks.test.ts`. These stub the build flag, so they verify the behavior
   without any build. Run: `npm test -- <path>`.
+- **Studio Code events in a dev run.** These fire from the CLI child the agent run-manager forks.
+  That fork normally discards the child's stdout (agent events travel over IPC), so its logging would
+  be invisible; in a dev run it inherits stdout instead, and the `Would have recorded…` lines appear
+  in the **Main-process terminal** — not the renderer console, and not the browser devtools.
 - **`studio_app_launch` in a dev run.** Fires from the desktop Main process, which has no
   `__ENABLE_CLI_TELEMETRY__` gate, so a plain `npm start` logs `Would have recorded… studio_app_launch`
   in the **Main-process terminal** (the shared core no-ops the network send in dev/E2E). Add

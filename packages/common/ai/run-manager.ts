@@ -77,6 +77,12 @@ export interface AgentRunManager {
 
 const INTERRUPT_FORCE_KILL_TIMEOUT_MS = 2000;
 
+// Matches the condition the Tracks core uses to log instead of send, so a dev run can see the
+// child's output. Never true in a packaged build.
+function isDevRun(): boolean {
+	return process.env.NODE_ENV === 'development' || Boolean( process.env.STUDIO_DEBUG_TRACKS );
+}
+
 function nowIso(): string {
 	return new Date().toISOString();
 }
@@ -185,8 +191,12 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 		const child = fork( cliBinary, args, {
 			// Agent events arrive over the Node IPC channel (via `process.send`
 			// in the child). stdout/stderr are ignored — the child's `emitEvent`
-			// falls back to stdout only when IPC isn't available.
-			stdio: [ 'ignore', 'ignore', 'ignore', 'ipc' ],
+			// falls back to stdout only when IPC isn't available. In dev they are
+			// inherited instead, so the child's logging (Tracks events, warnings)
+			// reaches the terminal running the app.
+			stdio: isDevRun()
+				? [ 'ignore', 'inherit', 'inherit', 'ipc' ]
+				: [ 'ignore', 'ignore', 'ignore', 'ipc' ],
 			execPath: nodeBinary,
 			execArgv,
 			env: {

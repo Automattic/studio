@@ -798,8 +798,8 @@ describe( 'SiteOverviewView', () => {
 
 		const titles = info.mock.calls
 			.map( ( [ title ] ) => title )
-			.filter( ( title ) => title.startsWith( 'Extracting backup…' ) );
-		expect( titles ).toEqual( [ 'Extracting backup… (10%)', 'Extracting backup… (20%)' ] );
+			.filter( ( title ) => title.startsWith( 'Extracting…' ) );
+		expect( titles ).toEqual( [ 'Extracting… (10%)', 'Extracting… (20%)' ] );
 	} );
 
 	it( 'shows a sign-in banner with a login action when signed out', () => {

@@ -197,8 +197,8 @@ describe( 'OnboardingImportPage', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'Import site' } ) );
 
 		await waitFor( () => {
-			expect( mocks.setProgress ).toHaveBeenCalledWith( 'Extracting backup… (25%)' );
-			expect( mocks.setProgress ).toHaveBeenCalledWith( 'Importing database… (50%)' );
+			expect( mocks.setProgress ).toHaveBeenCalledWith( 'Extracting… (25%)' );
+			expect( mocks.setProgress ).toHaveBeenCalledWith( 'Database… (50%)' );
 		} );
 	} );
 

@@ -51,6 +51,11 @@ export function useSiteBackupImport( site: SiteDetails ) {
 		setIsConfirming( false );
 		setIsImporting( true );
 		const toastId = `import-site-${ site.id }`;
+		// Extraction reports progress once per stream chunk, so a large backup
+		// fires thousands of events a second. Only re-show the toast when the
+		// rendered text actually changes — otherwise the store notifies its
+		// subscribers that fast and the app stops responding to clicks.
+		let lastMessage = '';
 		try {
 			const backupPath = await connector.getFilePath( file );
 			if ( ! backupPath ) {
@@ -61,7 +66,8 @@ export function useSiteBackupImport( site: SiteDetails ) {
 				backupPath,
 				onProgress: ( event ) => {
 					const message = getImportStatusMessage( event );
-					if ( message ) {
+					if ( message && message !== lastMessage ) {
+						lastMessage = message;
 						toast.info( message, { id: toastId, durationMs: PROGRESS_TOAST_TTL_MS } );
 					}
 				},
@@ -111,8 +117,9 @@ export function ImportSiteDialog( {
 			// background — an async handler would hold it open for the whole import.
 			onConfirm={ onConfirm }
 		>
+			{ /* Deliberately not `intent="irreversible"`: the importer moves the site's
+			     existing wp-content and database to the trash, not straight to deletion. */ }
 			<AlertDialog.Popup
-				intent="irreversible"
 				title={ sprintf( __( 'Overwrite %s?' ), site.name ) }
 				description={ __(
 					'Importing a backup will replace the existing files and database for your site.'

@@ -1,6 +1,8 @@
+import { BackupExtractEvents } from '@studio/common/lib/import-export-events';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Tooltip } from '@wordpress/ui';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useLogin } from '@/data/queries/use-auth-user';
@@ -29,6 +31,7 @@ import type {
 	SupportedEditor,
 	UserPreferences,
 } from '@/data/core';
+import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 
 const navigateMock = vi.fn();
 const siteDropdownMock = vi.hoisted( () => vi.fn() );
@@ -706,6 +709,36 @@ describe( 'SiteOverviewView', () => {
 
 		expect( screen.queryByRole( 'alertdialog' ) ).not.toBeInTheDocument();
 		expect( importSiteMock ).not.toHaveBeenCalled();
+	} );
+
+	// Extraction emits one progress event per stream chunk, so a large backup
+	// would otherwise notify every toast subscriber thousands of times a second.
+	it( 'only re-shows the progress toast when the status text changes', async () => {
+		const info = vi.spyOn( toast, 'info' );
+		let emitProgress: ( ( event: ImportEventTuple ) => void ) | undefined;
+		importSiteMock.mockImplementation( async ( { onProgress } ) => {
+			emitProgress = onProgress;
+		} );
+		renderView();
+
+		selectBackup( 'demo-site.tar.gz' );
+		fireEvent.click(
+			within( screen.getByRole( 'alertdialog' ) ).getByRole( 'button', { name: 'Import' } )
+		);
+		await waitFor( () => expect( emitProgress ).toBeDefined() );
+
+		// 500 chunks spanning two whole-percent steps of the same 10-file backup.
+		for ( let processedFiles = 1; processedFiles <= 500; processedFiles++ ) {
+			emitProgress?.( [
+				BackupExtractEvents.BACKUP_EXTRACT_PROGRESS,
+				{ processedFiles: processedFiles <= 250 ? 1 : 2, totalFiles: 10 },
+			] as ImportEventTuple );
+		}
+
+		const titles = info.mock.calls
+			.map( ( [ title ] ) => title )
+			.filter( ( title ) => title.startsWith( 'Extracting backup…' ) );
+		expect( titles ).toEqual( [ 'Extracting backup… (10%)', 'Extracting backup… (20%)' ] );
 	} );
 
 	it( 'shows a sign-in banner with a login action when signed out', () => {

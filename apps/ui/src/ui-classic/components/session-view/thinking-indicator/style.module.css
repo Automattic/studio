@@ -15,22 +15,10 @@
 	gap: var(--wpds-dimension-padding-xs);
 }
 
-.dot {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	width: 18px;
-	height: 18px;
+.indicator {
+	inline-size: 18px;
+	place-content: center;
 	flex-shrink: 0;
-}
-
-.dot::before {
-	content: "";
-	width: 8px;
-	height: 8px;
-	border-radius: 50%;
-	background-color: var(--wpds-color-fg-interactive-brand, #2563eb);
-	animation: pulse 1.2s ease-in-out infinite;
 }
 
 .label {
@@ -50,16 +38,4 @@
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
-}
-
-@keyframes pulse {
-	0%,
-	100% {
-		opacity: 0.35;
-		transform: scale(0.85);
-	}
-	50% {
-		opacity: 1;
-		transform: scale(1);
-	}
 }

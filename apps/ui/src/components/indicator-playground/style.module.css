@@ -1,0 +1,57 @@
+.panel {
+	position: fixed;
+	z-index: 10000;
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-gap-sm);
+	inline-size: 260px;
+	box-sizing: border-box;
+	padding: var(--wpds-dimension-padding-sm);
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: 8px;
+	background: var(--wpds-color-bg-surface-neutral);
+	box-shadow: var(--wpds-elevation-md);
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-sm);
+}
+
+.handle {
+	display: flex;
+	justify-content: space-between;
+	font-weight: 600;
+	cursor: grab;
+	user-select: none;
+	touch-action: none;
+}
+
+.handle:active {
+	cursor: grabbing;
+}
+
+.panel label {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-gap-xs);
+}
+
+.panel select,
+.panel button {
+	min-block-size: 32px;
+	box-sizing: border-box;
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: 4px;
+	background: var(--wpds-color-bg-surface-neutral-strong);
+	color: var(--wpds-color-fg-content-neutral);
+	font: inherit;
+}
+
+.panel select {
+	inline-size: 100%;
+	padding-inline: var(--wpds-dimension-padding-sm);
+}
+
+.panel button {
+	align-self: flex-end;
+	padding-inline: var(--wpds-dimension-padding-md);
+	cursor: pointer;
+}

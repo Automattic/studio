@@ -1,5 +1,7 @@
 import { randomThinkingMessage } from '@studio/common/ai/thinking-messages';
 import { useEffect, useState } from 'react';
+import { AgentWorkingIndicator } from '@/components/agent-working-indicator';
+import { useIndicatorPlayground } from '@/components/indicator-playground/context';
 import styles from './style.module.css';
 
 export function ThinkingIndicator( {
@@ -11,6 +13,7 @@ export function ThinkingIndicator( {
 	startedAt: number | null;
 	progressMessage: string | null;
 } ) {
+	const { conversation: preview } = useIndicatorPlayground();
 	const [ message, setMessage ] = useState( () => randomThinkingMessage() );
 	const [ elapsedSeconds, setElapsedSeconds ] = useState( 0 );
 
@@ -32,12 +35,14 @@ export function ThinkingIndicator( {
 		};
 	}, [ active, startedAt ] );
 
+	const isVisible = preview === 'auto' ? active : preview === 'working';
+
 	return (
 		<div className={ styles.root } role="status" aria-live="polite">
-			{ active ? (
+			{ isVisible ? (
 				<>
 					<div className={ styles.head }>
-						<span className={ styles.dot } aria-hidden="true" />
+						<AgentWorkingIndicator className={ styles.indicator } label={ null } ambient />
 						<span className={ styles.label }>{ message }</span>
 						{ elapsedSeconds > 0 ? (
 							<span className={ styles.elapsed }>{ `${ elapsedSeconds }s` }</span>

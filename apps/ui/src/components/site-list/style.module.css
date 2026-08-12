@@ -163,10 +163,10 @@
 }
 
 .siteAgentActivityPixels {
-	/* Slightly tighter than the chat indicator so the 3×2 grid sits inside
-	   the 14px activity slot. */
-	--agent-pixel-size: 2.5px;
-	--agent-pixel-gap: 2px;
+	--agent-indicator-size: var(--site-list-chat-status-size);
+	--thinking-cell-size: 2.1px;
+	--thinking-cell-gap: 1.68px;
+	--thinking-min-opacity: 0.45;
 }
 
 .siteAgentActivityQuestion {

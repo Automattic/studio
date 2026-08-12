@@ -12,25 +12,29 @@
 }
 
 #topmenucontainer {
+  background-color: var(--wpds-color-bg-surface-neutral);
   border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
 
   .navbar {
     min-height: $topbar-height;
-    padding-left: calc(20px + var(--wpds-dimension-padding-md));
+    padding: 0 0 0 calc(20px + var(--wpds-dimension-padding-md));
   }
 
   .navbar.bg-light {
-    background-color: transparent !important;
+    background-color: var(--wpds-color-bg-surface-neutral) !important;
   }
 }
 
 #topmenu {
   .nav-item {
-    border-bottom: 2px solid transparent;
-    margin-bottom: -1px;
+    position: relative;
   }
 
   .nav-link {
+    display: flex;
+    align-items: center;
+    height: $topbar-height;
+    padding: 0 var(--wpds-dimension-padding-md);
     color: var(--wpds-color-fg-content-neutral-weak);
     border-radius: 0;
   }
@@ -41,9 +45,19 @@
     color: var(--wpds-color-fg-content-neutral);
   }
 
-  .nav-item.active {
-    border-bottom-color: var(--wpds-color-bg-interactive-brand-strong);
+  .nav-item.active::after {
+    position: absolute;
+    right: var(--wpds-dimension-padding-md);
+    bottom: -1px;
+    left: var(--wpds-dimension-padding-md);
+    height: 2px;
+    background-color: var(--wpds-color-fg-content-neutral);
+    content: "";
   }
+}
+
+#floating_menubar {
+  background-color: var(--wpds-color-bg-surface-neutral);
 }
 
 .navbar-toggler {

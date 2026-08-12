@@ -40,6 +40,22 @@ tr.marked > th {
   outline-offset: -1px;
 }
 
+// phpMyAdmin applies Bootstrap's content-sized w-auto utility to its primary
+// data grids. Let compact tables fill the pane while wide result sets can
+// still overflow their responsive container horizontally.
+.table-responsive > table.data,
+.table_results,
+#tablestructure,
+#table_index {
+  width: 100% !important;
+}
+
+#page_content > .table-responsive-md,
+#fieldsForm > .table-responsive-md {
+  width: 100%;
+  max-width: 100%;
+}
+
 table.navigation {
   background: var(--wpds-color-bg-surface-neutral-weak);
   border-color: var(--wpds-color-stroke-surface-neutral);

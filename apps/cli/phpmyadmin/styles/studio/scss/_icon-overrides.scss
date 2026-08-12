@@ -1,3 +1,9 @@
+// Breadcrumbs always render icons even when phpMyAdmin's native action and
+// tab modes are text-only.
+.breadcrumb-navbar .breadcrumb-item > img.icon {
+  display: none;
+}
+
 // The bundled Bootstrap theme uses black sprite icons. Keep those upstream
 // assets and adapt them for dark surfaces instead of carrying a second copy.
 @media (prefers-color-scheme: dark) {

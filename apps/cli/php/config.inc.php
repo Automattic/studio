@@ -12,6 +12,14 @@ $cfg['environment'] = 'development';
 
 // Use phpMyAdmin's bundled Bootstrap theme as the base for Studio's stylesheet.
 $cfg['ThemeDefault'] = 'bootstrap';
+$cfg['ThemeManager'] = false;
+
+// Prefer text labels where phpMyAdmin normally repeats actions as both an icon
+// and text. Keep these fixed so session preferences cannot restore the icons.
+$cfg['TabsMode'] = 'text';
+$cfg['ActionLinksMode'] = 'text';
+$cfg['RowActionType'] = 'text';
+$cfg['UserprefsDisallow'] = ['TabsMode', 'ActionLinksMode', 'RowActionType', 'ThemeDefault'];
 
 // Start with the navigation panel collapsed: it holds only Recent and Favorites
 // here (the database tree stays empty under the SQLite adapter), and Studio
@@ -27,6 +35,8 @@ $cfg['CheckConfigurationPermissions'] = false;
 $cfg['VersionCheck'] = false;
 $cfg['ShowCreateDb'] = false;
 $cfg['ShowChgPassword'] = false;
+$cfg['ShowStats'] = false;
+$cfg['ShowColumnComments'] = false;
 
 // Cookie authentication secret.
 $cfg['blowfish_secret'] = 'r/g+J#&)L2&p!z5gUS)d(vEU#KAynq#g';

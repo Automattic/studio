@@ -27,6 +27,12 @@ describe( 'buildSystemPrompt', () => {
 	const previousScratchpadWidgetType = 'sd-' + 'artefact';
 	const studioUiOptions = { chatArtifactsEnabled: true, surface: 'desktop' } as const;
 
+	it( 'identifies Studio Code as available in the desktop app and CLI', () => {
+		expect( buildSystemPrompt() ).toContain(
+			"available in WordPress Studio's desktop app and CLI"
+		);
+	} );
+
 	it( 'includes Studio presentation rules when chat artifacts are enabled', () => {
 		const prompt = buildSystemPrompt( studioUiOptions );
 

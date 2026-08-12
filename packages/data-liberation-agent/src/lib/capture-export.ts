@@ -1,6 +1,15 @@
-import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+	copyFileSync,
+	existsSync,
+	mkdirSync,
+	readFileSync,
+	rmSync,
+	statSync,
+	writeFileSync,
+} from 'node:fs';
 import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 import { MediaStubStore } from './resume-state/index.js';
+import type { CapturedResourceManifest } from './screenshot/resource-capture.js';
 
 export const CAPTURE_RECEIPT_SCHEMA = 'data-liberation/capture-receipt/v1';
 
@@ -24,6 +33,22 @@ interface ExportCaptureOptions {
 	summary: Record< string, unknown >;
 	failures: Array< { url: unknown; error: unknown } >;
 }
+
+interface PortableDependency {
+	reference: string;
+	url: string;
+}
+
+interface MediaCandidate {
+	sourceUrl: string;
+	localPath: string;
+	references: string[];
+	bytes: number;
+	dimension: number;
+}
+
+const MAX_PORTABLE_MEDIA_BYTES = 5 * 1024 * 1024;
+const MAX_PORTABLE_MEDIA_DIMENSION = 2048;
 
 function pathWithin( root: string, candidate: string ): boolean {
 	const rel = relative( resolve( root ), resolve( candidate ) );
@@ -94,6 +119,34 @@ function containsMediaReference( content: string, reference: string ): boolean {
 	return false;
 }
 
+function mediaFamily( sourceUrl: string ): string {
+	const url = new URL( sourceUrl );
+	const parameters = [ ...url.searchParams.keys() ];
+	return parameters.length > 0 && parameters.every( ( key ) => key === 'w' || key === 'h' )
+		? `${ url.origin }${ url.pathname }`
+		: sourceUrl;
+}
+
+function mediaDimension( sourceUrl: string ): number {
+	const url = new URL( sourceUrl );
+	return Math.max(
+		Number( url.searchParams.get( 'w' ) ) || 0,
+		Number( url.searchParams.get( 'h' ) ) || 0
+	);
+}
+
+function selectMediaCandidate( candidates: MediaCandidate[] ): MediaCandidate {
+	const bounded = candidates.filter(
+		( candidate ) =>
+			candidate.bytes <= MAX_PORTABLE_MEDIA_BYTES &&
+			candidate.dimension <= MAX_PORTABLE_MEDIA_DIMENSION
+	);
+	return [ ...( bounded.length > 0 ? bounded : candidates ) ].sort(
+		( a, b ) =>
+			b.dimension - a.dimension || a.bytes - b.bytes || a.sourceUrl.localeCompare( b.sourceUrl )
+	)[ 0 ];
+}
+
 function routeInSourceScope( url: string, sourceUrl: string ): boolean {
 	const route = new URL( url );
 	const source = new URL( sourceUrl );
@@ -103,6 +156,62 @@ function routeInSourceScope( url: string, sourceUrl: string ): boolean {
 		route.origin === source.origin &&
 		( routePath === sourcePath || routePath.startsWith( `${ sourcePath }/` ) )
 	);
+}
+
+function capturedResources( outputDir: string ): CapturedResourceManifest {
+	const manifestPath = join( outputDir, 'resources', 'manifest.json' );
+	if ( ! existsSync( manifestPath ) ) return { version: 1, resources: {}, failures: [] };
+	try {
+		const manifest = JSON.parse( readFileSync( manifestPath, 'utf8' ) ) as CapturedResourceManifest;
+		return manifest.version === 1 && manifest.resources && Array.isArray( manifest.failures )
+			? manifest
+			: { version: 1, resources: {}, failures: [] };
+	} catch {
+		return {
+			version: 1,
+			resources: {},
+			failures: [ { url: manifestPath, error: 'captured resource manifest is invalid' } ],
+		};
+	}
+}
+
+function dependencyReferences(
+	html: string,
+	documentUrl: string,
+	siteUrl: string
+): PortableDependency[] {
+	const references = new Set< string >();
+	const add = ( reference: string | undefined ) => {
+		if ( reference ) references.add( reference.replace( /&amp;/g, '&' ) );
+	};
+
+	for ( const match of html.matchAll( /<script\b[^>]*\bsrc\s*=\s*["']([^"']+)["'][^>]*>/gi ) ) {
+		add( match[ 1 ] );
+	}
+	for ( const match of html.matchAll( /<link\b[^>]*>/gi ) ) {
+		const tag = match[ 0 ];
+		const rel = /\brel\s*=\s*["']([^"']+)["']/i.exec( tag )?.[ 1 ].toLowerCase() ?? '';
+		const as = /\bas\s*=\s*["']([^"']+)["']/i.exec( tag )?.[ 1 ].toLowerCase() ?? '';
+		if (
+			rel.split( /\s+/ ).some( ( value ) => value === 'stylesheet' || value === 'modulepreload' ) ||
+			( rel.split( /\s+/ ).includes( 'preload' ) && [ 'script', 'style', 'font' ].includes( as ) )
+		) {
+			add( /\bhref\s*=\s*["']([^"']+)["']/i.exec( tag )?.[ 1 ] );
+		}
+	}
+	for ( const match of html.matchAll( /\bimport\s+(?:[^"']*?\s+from\s+)?["']([^"']+)["']/g ) ) {
+		add( match[ 1 ] );
+	}
+
+	const siteOrigin = new URL( siteUrl ).origin;
+	return [ ...references ].flatMap( ( reference ) => {
+		try {
+			const url = new URL( reference, documentUrl );
+			return url.origin === siteOrigin ? [ { reference, url: url.href } ] : [];
+		} catch {
+			return [];
+		}
+	} );
 }
 
 export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
@@ -156,6 +265,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 	const retainedHtml = retainedEntries.map( ( entry ) => entry.html ).join( '\n' );
 	const mediaReplacements = new Map< string, string >();
 	const assets: Array< { sourceUrl: string; path: string } > = [];
+	const mediaFamilies = new Map< string, MediaCandidate[] >();
 	for ( const [ sourceUrl, stub ] of MediaStubStore.load( outputDir ).list() ) {
 		const references = mediaReferences( sourceUrl, options.sourceUrl );
 		if (
@@ -165,14 +275,71 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 			! references.some( ( reference ) => containsMediaReference( retainedHtml, reference ) )
 		)
 			continue;
-		const assetPath = join( 'media', basename( stub.localPath ) );
+		const candidate: MediaCandidate = {
+			sourceUrl,
+			localPath: stub.localPath,
+			references,
+			bytes: statSync( stub.localPath ).size,
+			dimension: mediaDimension( sourceUrl ),
+		};
+		const family = mediaFamily( sourceUrl );
+		mediaFamilies.set( family, [ ...( mediaFamilies.get( family ) ?? [] ), candidate ] );
+	}
+	for ( const candidates of mediaFamilies.values() ) {
+		const selected = selectMediaCandidate( candidates );
+		const assetPath = join( 'media', basename( selected.localPath ) );
 		const destination = join( websiteDir, assetPath );
 		mkdirSync( dirname( destination ), { recursive: true } );
-		copyFileSync( stub.localPath, destination );
-		for ( const reference of references ) {
-			mediaReplacements.set( reference, `/${ assetPath.replace( /\\/g, '/' ) }` );
+		copyFileSync( selected.localPath, destination );
+		for ( const candidate of candidates ) {
+			for ( const reference of candidate.references ) {
+				mediaReplacements.set( reference, `/${ assetPath.replace( /\\/g, '/' ) }` );
+			}
 		}
-		assets.push( { sourceUrl, path: join( 'website', assetPath ).replace( /\\/g, '/' ) } );
+		assets.push( {
+			sourceUrl: selected.sourceUrl,
+			path: join( 'website', assetPath ).replace( /\\/g, '/' ),
+		} );
+	}
+
+	const resourceManifest = capturedResources( outputDir );
+	const unresolvedDependencies: Array< { url: string; sourceUrl: string; error: string } > = [];
+	const copiedResources = new Set< string >();
+	for ( const entry of retainedEntries ) {
+		for ( const dependency of dependencyReferences( entry.html, entry.url, options.sourceUrl ) ) {
+			const resource = resourceManifest.resources[ dependency.url ];
+			if ( ! resource ) {
+				unresolvedDependencies.push( {
+					url: dependency.url,
+					sourceUrl: entry.url,
+					error: 'referenced same-origin dependency was not captured',
+				} );
+				continue;
+			}
+			if ( copiedResources.has( resource.path ) ) continue;
+			const source = resolve( outputDir, resource.path );
+			const relativePath = resource.path.replace( /^resources[\\/]/, '' );
+			const destination = resolve( websiteDir, relativePath );
+			if (
+				! pathWithin( outputDir, source ) ||
+				! pathWithin( websiteDir, destination ) ||
+				! existsSync( source )
+			) {
+				unresolvedDependencies.push( {
+					url: dependency.url,
+					sourceUrl: entry.url,
+					error: 'captured dependency file is unavailable',
+				} );
+				continue;
+			}
+			mkdirSync( dirname( destination ), { recursive: true } );
+			copyFileSync( source, destination );
+			copiedResources.add( resource.path );
+			assets.push( {
+				sourceUrl: dependency.url,
+				path: `website/${ relativePath.replace( /\\/g, '/' ) }`,
+			} );
+		}
 	}
 
 	const routes: Array< { url: string; path: string } > = [];
@@ -221,6 +388,8 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 			{
 				schema: 'data-liberation/capture-diagnostics/v1',
 				failures: options.failures,
+				resourceFailures: resourceManifest.failures,
+				unresolvedDependencies,
 				excludedRoutes,
 			},
 			null,

@@ -234,8 +234,8 @@ describe( 'PreviewSplitFrame', () => {
 		it( 'expands the preview to its maximum width on End', async () => {
 			const handle = await renderOpenAndSettle();
 			fireEvent.keyDown( handle, { key: 'End' } );
-			expect( handle ).toHaveAttribute( 'aria-valuenow', '720' );
-			expect( window.localStorage.getItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY ) ).toBe( '280' );
+			expect( handle ).toHaveAttribute( 'aria-valuenow', '680' );
+			expect( window.localStorage.getItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY ) ).toBe( '320' );
 		} );
 
 		it( 'steps the preview width with arrow keys, using a larger step with Shift', async () => {

@@ -161,14 +161,14 @@ describe( 'SidebarLayout', () => {
 	it( 'uses the coordinated minimum when reopening beside a preview', async () => {
 		const onCollapsedChange = vi.fn();
 		render(
-			<SidebarLayout collapsed onCollapsedChange={ onCollapsedChange } minimumExpandedWidth={ 880 }>
+			<SidebarLayout collapsed onCollapsedChange={ onCollapsedChange } minimumExpandedWidth={ 932 }>
 				<div>Content</div>
 			</SidebarLayout>
 		);
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Show sidebar' } ) );
 
-		expect( ensureWindowWidth ).toHaveBeenCalledWith( 880 );
+		expect( ensureWindowWidth ).toHaveBeenCalledWith( 932 );
 		await waitFor( () => expect( onCollapsedChange ).toHaveBeenCalledWith( false ) );
 	} );
 

@@ -8,7 +8,7 @@ export const SIDEBAR_PANEL_STORAGE_KEY = 'studio-ui-sidebar-width';
 export const PREVIEW_CONTENT_WIDTH_STORAGE_KEY = 'studio-ui-preview-content-width';
 export const PREVIEW_PANEL_DEFAULT_WIDTH = 520;
 export const PREVIEW_PANEL_MIN_WIDTH = 360;
-export const PREVIEW_PANEL_MIN_CONTENT_WIDTH = 280;
+export const PREVIEW_PANEL_MIN_CONTENT_WIDTH = 320;
 export const PREVIEW_SPLIT_MIN_WIDTH = PREVIEW_PANEL_MIN_WIDTH + PREVIEW_PANEL_MIN_CONTENT_WIDTH;
 
 export const SIDEBAR_PANEL_CONFIG: ResizablePanelConfig = {

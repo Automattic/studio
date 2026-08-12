@@ -3,7 +3,6 @@ import { createRoute, Outlet, useRouterState } from '@tanstack/react-router';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
 	PreviewSplitFrame,
-	type PreviewSplitTooNarrowReason,
 	type PreviewSplitFramePreviewProps,
 } from '@/components/preview-split-frame';
 import { SidebarLayout } from '@/components/sidebar-layout';
@@ -24,9 +23,11 @@ import {
 import { writeLastVisited } from '@/lib/last-visited';
 import {
 	getAvailableWindowWidth,
+	ALL_PANELS_MIN_WIDTH,
 	getPreviewOpenPlan,
 	getSidebarOpenPlan,
 	getViewportWidth,
+	PREVIEW_SPLIT_MIN_WIDTH,
 	SIDEBAR_AUTO_COLLAPSE_BREAKPOINT,
 } from '@/lib/resizable-panels';
 import { rootRoute } from '../layout-root';
@@ -161,15 +162,27 @@ function DashboardLayoutContent() {
 		}
 		void connector.ensureWindowWidth( plan.minimumWindowWidth );
 	}, [ connector, previewFullscreen, showPreview, sidebarCollapsed ] );
-	const handleNarrowPreview = useCallback(
-		( _containerWidth: number, reason: PreviewSplitTooNarrowReason ) => {
-			if ( reason === 'opened' ) {
-				return;
-			}
-			setPreviewOpen( false );
-		},
-		[ setPreviewOpen ]
-	);
+	useEffect( () => {
+		if ( ! showPreview || previewFullscreen ) {
+			return;
+		}
+		let timeoutId: number | undefined;
+		const scheduleWidthCheck = () => {
+			window.clearTimeout( timeoutId );
+			timeoutId = window.setTimeout( () => {
+				const minimumWidth = sidebarCollapsed ? PREVIEW_SPLIT_MIN_WIDTH : ALL_PANELS_MIN_WIDTH;
+				if ( getViewportWidth() < minimumWidth ) {
+					setPreviewOpen( false );
+				}
+			}, 150 );
+		};
+		scheduleWidthCheck();
+		window.addEventListener( 'resize', scheduleWidthCheck );
+		return () => {
+			window.removeEventListener( 'resize', scheduleWidthCheck );
+			window.clearTimeout( timeoutId );
+		};
+	}, [ previewFullscreen, setPreviewOpen, showPreview, sidebarCollapsed ] );
 	const sidebarOpenPlan = getSidebarOpenPlan( showPreview, getAvailableWindowWidth() );
 	const handleSidebarCollapsedChange = useCallback(
 		( nextCollapsed: boolean ) => {
@@ -228,7 +241,6 @@ function DashboardLayoutContent() {
 			<PreviewSplitFrame
 				previewOpen={ showPreview }
 				previewFullscreen={ previewFullscreen }
-				onSplitTooNarrow={ handleNarrowPreview }
 				preview={ renderPreview }
 			>
 				<Outlet />

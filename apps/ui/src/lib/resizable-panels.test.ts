@@ -30,13 +30,13 @@ describe( 'resizable panels', () => {
 } );
 
 describe( 'getPreviewSplitLayout', () => {
-	// Content floor 280, preview floor 360.
+	// Content floor 320, preview floor 360.
 	it( 'leaves a comfortable preferred width untouched on a wide frame', () => {
 		const layout = getPreviewSplitLayout( 1000, 600 );
 		expect( layout.contentWidth ).toBe( 600 );
 		expect( layout.previewWidth ).toBe( 400 );
 		expect( layout.previewMinWidth ).toBe( 360 );
-		expect( layout.previewMaxWidth ).toBe( 720 );
+		expect( layout.previewMaxWidth ).toBe( 680 );
 	} );
 
 	it( 'caps content so the preview keeps its minimum width', () => {
@@ -47,9 +47,9 @@ describe( 'getPreviewSplitLayout', () => {
 
 	it( 'floors content at its minimum so the preview cannot swallow it', () => {
 		// This is the regime where the old CSS-only clamp diverged: a preferred
-		// content below the 280 floor must be raised to 280, not left as-is.
-		expect( getPreviewSplitLayout( 1000, 100 ).contentWidth ).toBe( 280 );
-		expect( getPreviewSplitLayout( 1000, 100 ).previewWidth ).toBe( 720 );
+		// content below the 320 floor must be raised to 320, not left as-is.
+		expect( getPreviewSplitLayout( 1000, 100 ).contentWidth ).toBe( 320 );
+		expect( getPreviewSplitLayout( 1000, 100 ).previewWidth ).toBe( 680 );
 	} );
 
 	it( 'degrades gracefully when the frame is narrower than both floors', () => {
@@ -63,28 +63,28 @@ describe( 'getPreviewSplitLayout', () => {
 describe( 'panel opening plans', () => {
 	it( 'grows the window enough to preserve an open sidebar and a new preview', () => {
 		expect( getPreviewOpenPlan( 660, false, 1200 ) ).toEqual( {
-			minimumWindowWidth: 892,
+			minimumWindowWidth: 932,
 			closeOtherPanel: false,
 		} );
 	} );
 
 	it( 'collapses the sidebar when the display cannot fit all three columns', () => {
 		expect( getPreviewOpenPlan( 660, false, 800 ) ).toEqual( {
-			minimumWindowWidth: 660,
+			minimumWindowWidth: 680,
 			closeOtherPanel: true,
 		} );
 	} );
 
 	it( 'grows a compact chat-only window to fit a preview split', () => {
 		expect( getPreviewOpenPlan( 420, true, 1200 ) ).toEqual( {
-			minimumWindowWidth: 640,
+			minimumWindowWidth: 680,
 			closeOtherPanel: false,
 		} );
 	} );
 
 	it( 'preserves the preview when opening the sidebar fits on screen', () => {
 		expect( getSidebarOpenPlan( true, 1200 ) ).toEqual( {
-			minimumWindowWidth: 892,
+			minimumWindowWidth: 932,
 			closeOtherPanel: false,
 		} );
 	} );

@@ -409,6 +409,9 @@ describe( 'CLI: studio site create', () => {
 				'static_site_importer_ability_import_website_artifact'
 			);
 			expect( blueprint.staticSiteImport.code ).toContain(
+				"if ( ! function_exists( 'did_action' ) || ! did_action( 'plugins_loaded' ) )"
+			);
+			expect( blueprint.staticSiteImport.code ).not.toContain(
 				"if ( ! function_exists( 'add_action' ) )"
 			);
 			expect( blueprint.staticSiteImport.code ).not.toContain( "if ( ! defined( 'ABSPATH' ) )" );

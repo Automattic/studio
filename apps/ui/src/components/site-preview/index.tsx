@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import { chevronLeft, chevronRight, moreVertical } from '@wordpress/icons';
 import { ariaKeyShortcut, displayShortcut, isAppleOS, isKeyboardEvent } from '@wordpress/keycodes';
-import { Button, IconButton, Tooltip } from '@wordpress/ui';
+import { Button, IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DotGrid } from '@/components/dot-grid';
@@ -15,7 +15,7 @@ import { useIsSiteStarting, useStartSite } from '@/data/queries/use-sites';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { useWindowControlsOverlay } from '@/hooks/use-window-controls-overlay';
 import { getSiteUrl } from '@/lib/get-site-url';
-import { playIcon, refreshIcon } from '@/lib/icons';
+import { annotationIcon, playIcon, refreshIcon } from '@/lib/icons';
 import {
 	DATABASE_HOME_PATH,
 	getPathFromPreviewUrl,
@@ -919,25 +919,17 @@ export function SitePreview( {
 									</Button>
 								</>
 							) : (
-								<Tooltip.Root>
-									<Tooltip.Trigger
-										render={
-											<Button
-												variant="outline"
-												tone="neutral"
-												size="small"
-												className={ styles.annotateButton }
-												disabled={ ! canAnnotate }
-												onClick={ () => sendInspectorCommand( 'toggle-picking' ) }
-											/>
-										}
-									>
-										{ __( 'Annotate' ) }
-									</Tooltip.Trigger>
-									<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
-										{ __( 'Add notes for the agent' ) }
-									</Tooltip.Popup>
-								</Tooltip.Root>
+								<Button
+									variant="outline"
+									tone="neutral"
+									size="small"
+									className={ styles.annotateButton }
+									disabled={ ! canAnnotate }
+									onClick={ () => sendInspectorCommand( 'toggle-picking' ) }
+								>
+									<Button.Icon icon={ annotationIcon } size={ 16 } />
+									{ __( 'Annotate' ) }
+								</Button>
 							) }
 						</div>
 					) : null }

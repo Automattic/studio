@@ -1,3 +1,4 @@
+import { createCliInspectorPageScript } from '@studio/common/ai/inspector-page-script';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	INSPECTOR_BRIDGE_PREFIX,
@@ -13,6 +14,8 @@ describe( 'site preview inspector', () => {
 		document.body.replaceChildren();
 		delete ( window as Window & { __studioInspectorMounted?: boolean } ).__studioInspectorMounted;
 		delete ( window as Window & { __studioInspectorState?: unknown[] } ).__studioInspectorState;
+		delete ( window as Window & { __studioAnnotateDone?: unknown } ).__studioAnnotateDone;
+		localStorage.clear();
 	} );
 
 	it( 'keeps picking active while composing and after saving annotations', () => {
@@ -216,5 +219,57 @@ describe( 'site preview inspector', () => {
 				detail: { type: 'cancel', bridgeToken: BRIDGE_TOKEN },
 			} )
 		);
+	} );
+
+	it( 'keeps cross-page annotations while rendering only current-page overlays', () => {
+		vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+		const currentPathname = window.location.pathname;
+		( window as Window & { __studioInspectorState?: unknown[] } ).__studioInspectorState = [
+			{
+				id: 'current-page',
+				comment: 'Current note',
+				pathname: currentPathname,
+				documentRect: { left: 10, top: 10, width: 100, height: 40 },
+			},
+			{
+				id: 'other-page',
+				comment: 'Other note',
+				pathname: '/another-page/',
+				documentRect: { left: 20, top: 20, width: 120, height: 50 },
+			},
+		];
+
+		new Function( createInspectorPageScript( BRIDGE_TOKEN ) )();
+		const root = ( document.querySelector( '#__studio-inspector-host' ) as HTMLElement )
+			.shadowRoot as ShadowRoot;
+
+		expect( root.querySelectorAll( '.marker' ) ).toHaveLength( 1 );
+		expect( root.querySelectorAll( '.annotation-highlight' ) ).toHaveLength( 1 );
+		expect( root.querySelector( '.marker' ) ).toHaveTextContent( '1' );
+	} );
+
+	it( 'uses the shared inspector UI and persistent batch in the CLI browser', () => {
+		vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+		localStorage.setItem(
+			'studio-inspector-annotations-v1',
+			JSON.stringify( [
+				{
+					id: 'persisted-note',
+					comment: 'Persisted note',
+					pathname: window.location.pathname,
+					documentRect: { left: 10, top: 10, width: 100, height: 40 },
+				},
+			] )
+		);
+
+		new Function( createCliInspectorPageScript() )();
+		const root = ( document.querySelector( '#__studio-inspector-host' ) as HTMLElement )
+			.shadowRoot as ShadowRoot;
+
+		expect( root.querySelector( '.toolbar' ) ).not.toBeNull();
+		expect( root.querySelector( '.popup' ) ).toBeNull();
+		expect( root.querySelectorAll( '.marker' ) ).toHaveLength( 1 );
+		expect( root.querySelectorAll( '.annotation-highlight' ) ).toHaveLength( 1 );
+		expect( root.querySelector( '.submit' ) ).toHaveTextContent( 'Send to agent' );
 	} );
 } );

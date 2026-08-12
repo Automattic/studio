@@ -5,7 +5,7 @@
  * The inspector is a self-contained vanilla-DOM widget defined in
  * `./page-script.ts` — no React, no esm.sh, no external dependencies, no
  * page-CSS conflicts. The user clicks elements, types comments, and clicks
- * "Done" to send everything back to the CLI via `window.__studioAnnotateDone`.
+ * "Send to agent" to return everything via `window.__studioAnnotateDone`.
  */
 
 import { launchChromiumWithInstall } from 'cli/ai/browser-utils';
@@ -70,7 +70,7 @@ async function injectInspector( page: Page ): Promise< void > {
 }
 
 /**
- * Block until the user clicks "Done" in the inspector toolbar, then return
+ * Block until the user clicks "Send to agent" in the inspector toolbar, then return
  * the annotations. Reads from `window.__studioAnnotateDone` which the page
  * script populates from its in-memory state and localStorage.
  */
@@ -102,7 +102,7 @@ export async function waitForAnnotationsDone(
 
 	// Auto-close the browser once we've captured the annotations. This
 	// makes the lifecycle unambiguous from the user's point of view —
-	// clicking "Done" closes the window — and removes the failure mode
+	// clicking "Send to agent" closes the window — and removes the failure mode
 	// where a user re-annotates after the agent has already moved on, with
 	// the new payload sitting on `window.__studioAnnotateDone` but nobody
 	// polling for it. To start another round, the user just re-runs the
@@ -131,7 +131,7 @@ export async function openAnnotationBrowser( siteUrl: string ): Promise< string 
 		try {
 			await inspectorPage.bringToFront();
 			await injectInspector( inspectorPage );
-			return 'Inspector reattached to the open browser. Click "Annotate" to pick an element, then "Done" when finished.';
+			return 'Inspector reattached to the open browser. Click "Annotate" to pick an element, then "Send to agent" when finished.';
 		} catch {
 			await shutdownBrowser();
 		}
@@ -193,5 +193,5 @@ export async function openAnnotationBrowser( siteUrl: string ): Promise< string 
 
 	installProcessExitHook();
 
-	return `Annotation browser opened at ${ siteUrl }. Click "Annotate" in the bottom-right toolbar, click an element, type your feedback, then click "Done" when you're finished.`;
+	return `Annotation browser opened at ${ siteUrl }. Click "Annotate" in the bottom-right toolbar, click an element, type your feedback, then click "Send to agent" when you're finished.`;
 }

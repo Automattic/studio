@@ -40,7 +40,9 @@ export interface IpcEvents {
 	'sync-upload-progress': [ { selectedSiteId: string; remoteSiteId: number; progress: number } ];
 	'sync-upload-manually-paused': [ { selectedSiteId: string; remoteSiteId: number } ];
 	'sync-pull-progress': [ PullSiteProgress & { siteId: string } ];
-	'sync-push-phase': [ { selectedSiteId: string; remoteSiteId: number; phase: PushPhase } ];
+	'sync-push-phase': [
+		{ selectedSiteId: string; remoteSiteId: number; phase: PushPhase; progress?: number },
+	];
 	'snapshot-error': [ { operationId: crypto.UUID; data: SnapshotEventData } ];
 	'snapshot-fatal-error': [ { operationId: crypto.UUID; data: { message: string } } ];
 	'snapshot-output': [ { operationId: crypto.UUID; data: SnapshotEventData } ];

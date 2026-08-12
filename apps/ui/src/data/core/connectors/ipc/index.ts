@@ -559,17 +559,22 @@ export function createIpcConnector(): Connector {
 		async pushSiteToLive( siteId, remoteSiteId, options, onPhase ): Promise< void > {
 			// The agentic UI pushes via the shared `pushSite` (export → TUS
 			// upload → import) in both desktop and `studio ui`; the desktop runs
-			// it behind this single IPC handler. Resolves once the import is
-			// initiated (the remote import may still be running).
+			// it behind this single IPC handler. Resolves once the remote import
+			// has finished.
 			const unsubscribe = onPhase
 				? ipcListener.subscribe(
 						'sync-push-phase',
 						(
 							_event: unknown,
-							payload: { selectedSiteId: string; remoteSiteId: number; phase: PushPhase }
+							payload: {
+								selectedSiteId: string;
+								remoteSiteId: number;
+								phase: PushPhase;
+								progress?: number;
+							}
 						) => {
 							if ( payload.selectedSiteId === siteId && payload.remoteSiteId === remoteSiteId ) {
-								onPhase( payload.phase );
+								onPhase( payload.phase, payload.progress );
 							}
 						}
 				  )

@@ -305,7 +305,7 @@ export interface Connector {
 		siteId: string,
 		remoteSiteId: number,
 		options?: PushSyncOptions,
-		onPhase?: ( phase: PushPhase ) => void
+		onPhase?: ( phase: PushPhase, progress?: number ) => void
 	): Promise< void >;
 	// Pulls the connected WordPress.com site's database + wp-content back
 	// into the local Studio site, or only the selection described by

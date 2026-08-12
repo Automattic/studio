@@ -206,15 +206,21 @@ not drift.
 |---|---|---|
 | `ai_session_id` | The chat session | The session's `crypto.randomUUID()`. Always the **resolved** id — the IPC/HTTP boundary also accepts an id prefix or `latest`. |
 | `agent_name` | Agent runtime | `pi` |
-| `agent_version` | Agent runtime version | pi's exported `VERSION` (the loaded runtime, not the package.json pin) |
 | `client` | AI product | `studio-code` — `channel` still records the surface |
 | `ability_name` | Predefined skill invoked | `annotate`/`taxonomist`/`need-for-speed`/`rank-me-up`/`liberate`; absent for an ordinary message |
 | `outcome` | How a turn ended | `success`/`error`/`interrupted`/`max_turns` (mirrors the session log's `TurnStatus`) |
 
-`is_test` is **not sent.** Dev, E2E and CI runs are suppressed at the source (the gates in
-`__recordTracksEvent` and both app wrappers), so the prop could only ever be `false` — an always-false
-column is noise and would falsely imply test traffic is being tagged rather than dropped. It is still
-registered so the slot exists if the gates are ever relaxed.
+Two props from the data team's vocabulary are deliberately **not sent**:
+
+- **`is_test`** — dev, E2E and CI runs are suppressed at the source (the gates in
+  `__recordTracksEvent` and both app wrappers), so the prop could only ever be `false`. An
+  always-false column is noise and would falsely imply test traffic is being tagged rather than
+  dropped. Still registered, so the slot exists if the gates are ever relaxed.
+- **`agent_version`** — the pi runtime is pinned to an exact version per Studio release, so the
+  `app_version` common prop already determines it. Sending it would be a redundant column that has to
+  be kept in sync by hand: pi's own exported `VERSION` cannot be read from `packages/common`, since pi
+  is a devDependency there and the module exporting it probes the filesystem and shells out to the
+  package manager at import time.
 
 **Privacy.** These events never carry prompts, replies, raw error text (`errorMessage` can embed
 filesystem paths and site names), site names or paths, or the instructions content. `ability_name` is

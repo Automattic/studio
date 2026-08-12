@@ -99,7 +99,6 @@ export type TracksCustomizeEntryPoint =
 export interface TracksAiIdentity {
 	ai_session_id: string;
 	agent_name: string;
-	agent_version: string;
 	client: TracksAiClient;
 }
 

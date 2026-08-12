@@ -1,6 +1,3 @@
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { AGENT_NAME, getAiTracksIdentity } from '../tracks-identity';
 
@@ -9,27 +6,13 @@ describe( 'getAiTracksIdentity', () => {
 		expect( getAiTracksIdentity( 'session-uuid' ) ).toEqual( {
 			ai_session_id: 'session-uuid',
 			agent_name: AGENT_NAME,
-			agent_version: expect.stringMatching( /^\d+\.\d+\.\d+/ ),
 			client: 'studio-code',
 		} );
 	} );
 
-	// `agent_version` is a constant rather than pi's exported `VERSION`. pi is a *devDependency* of
-	// this package (it is bundled at build time, not resolved at runtime), so importing from it here
-	// would add a runtime import of a dev-only dependency; the module it lives in also probes the
-	// filesystem and shells out to the package manager at import time. This guards the copy against
-	// drifting when the dependency is upgraded.
-	it( 'matches the pinned pi-coding-agent dependency', () => {
-		const testDir = path.dirname( fileURLToPath( import.meta.url ) );
-		const manifest = JSON.parse(
-			readFileSync( path.join( testDir, '../../package.json' ), 'utf8' )
-		);
-		const pinned =
-			manifest.dependencies?.[ '@earendil-works/pi-coding-agent' ] ??
-			manifest.devDependencies?.[ '@earendil-works/pi-coding-agent' ];
-
-		// An exact pin, never a range — see the Playground/PHP-WASM note in AGENTS.md.
-		expect( pinned ).toMatch( /^\d+\.\d+\.\d+/ );
-		expect( getAiTracksIdentity( 'session-uuid' ).agent_version ).toBe( pinned );
+	// The pi runtime is pinned per Studio release, so `app_version` already determines the agent
+	// version. Sending it too would be a redundant column kept in sync by hand.
+	it( 'does not report an agent version', () => {
+		expect( getAiTracksIdentity( 'session-uuid' ) ).not.toHaveProperty( 'agent_version' );
 	} );
 } );

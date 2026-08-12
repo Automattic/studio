@@ -1,6 +1,5 @@
-import { getAiSkillCommands } from '@studio/common/ai/slash-commands';
 import { describe, expect, it } from 'vitest';
-import { getSlashCommandMatches } from './slash-autocomplete';
+import { getAiSkillCommands, getSlashCommandMatches } from '../slash-commands';
 
 describe( 'getSlashCommandMatches', () => {
 	it( 'is closed for an empty string', () => {

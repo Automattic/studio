@@ -103,9 +103,6 @@ export interface TracksAiIdentity {
 // Which AI product the event came from; `channel` still records the surface.
 export type TracksAiClient = 'studio-code';
 
-// Sent as `outcome` on `studio_code_turn_completed`. `TurnStatus` aliases this.
-export type TracksAiOutcome = 'success' | 'error' | 'interrupted' | 'max_turns';
-
 // Sent as `length_bucket`; bucketed because the instructions text is never sent.
 export type TracksInstructionsLengthBucket = 'empty' | 'short' | 'medium' | 'long';
 

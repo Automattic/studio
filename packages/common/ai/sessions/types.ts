@@ -1,8 +1,7 @@
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
-import type { TracksAiOutcome } from '@studio/common/lib/record-tracks-event';
 
-// Aliased so the transcript status and the `outcome` Tracks prop can't drift.
-export type TurnStatus = TracksAiOutcome;
+// Also sent as `outcome` on `studio_code_turn_completed`; register new values before adding them.
+export type TurnStatus = 'success' | 'error' | 'max_turns' | 'interrupted';
 
 export interface AiSessionMetadata {
 	archived?: boolean;

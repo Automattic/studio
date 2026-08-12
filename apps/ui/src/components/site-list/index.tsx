@@ -52,7 +52,7 @@ type SiteRow = {
 	sessionIds: string[];
 };
 
-type SiteRowActivity = SiteAgentActivity | 'new-message' | 'sync';
+type SiteRowActivity = SiteAgentActivity | 'new-message' | 'sync' | 'import';
 
 const ACTIVITY_EXIT_DURATION_MS = 180;
 
@@ -114,6 +114,7 @@ function SiteAgentActivityIndicator( { activity }: { activity: SiteRowActivity }
 	const pendingQuestionAriaLabel = __( 'Studio needs an answer.' );
 	const newMessageLabel = __( 'New message' );
 	const syncLabel = __( 'Syncing live site' );
+	const importLabel = __( 'Importing backup' );
 
 	return (
 		<span
@@ -144,8 +145,11 @@ function SiteAgentActivityIndicator( { activity }: { activity: SiteRowActivity }
 					className={ styles.siteAgentActivityMessage }
 				/>
 			) : null }
-			{ renderedActivity === 'sync' ? (
-				<SiteAgentActivityTooltip label={ syncLabel } className={ styles.siteAgentActivitySync }>
+			{ renderedActivity === 'sync' || renderedActivity === 'import' ? (
+				<SiteAgentActivityTooltip
+					label={ renderedActivity === 'import' ? importLabel : syncLabel }
+					className={ styles.siteAgentActivitySync }
+				>
 					<span className={ styles.siteAgentActivitySyncDots } aria-hidden="true">
 						<span className={ styles.siteAgentActivitySyncDot } />
 						<span className={ styles.siteAgentActivitySyncDot } />
@@ -531,11 +535,18 @@ function SiteSection( {
 	const { status } = deriveSiteStatus( site, isStarting, isStopping );
 	const agentActivity = useSiteAgentActivity( row.sessionIds );
 	const syncActivity = useSiteSyncActivity( site.id );
-	const isLiveSyncPending =
-		syncActivity?.kind === 'pending' &&
-		( syncActivity.direction === 'push' || syncActivity.direction === 'pull' );
-	const displayActivity = isLiveSyncPending
-		? 'sync'
+	// Import gets a row indicator of its own alongside push/pull: it is the only
+	// way to tell which site a long-running import belongs to when several are in
+	// flight, and it is a local operation, so it doesn't read as "syncing".
+	const pendingDirection = syncActivity?.kind === 'pending' ? syncActivity.direction : undefined;
+	const siteActivity =
+		pendingDirection === 'import'
+			? 'import'
+			: pendingDirection === 'push' || pendingDirection === 'pull'
+			? 'sync'
+			: undefined;
+	const displayActivity = siteActivity
+		? siteActivity
 		: agentActivity !== 'idle'
 		? agentActivity
 		: hasUnreadUpdate

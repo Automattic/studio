@@ -25,6 +25,9 @@ export function getSyncActivityLabel( activity: SyncActivity ): string {
 		if ( activity.direction === 'preview' ) {
 			return __( 'Publishing preview…' );
 		}
+		if ( activity.direction === 'import' ) {
+			return __( 'Importing backup…' );
+		}
 		return activity.direction === 'push' ? __( 'Pushing to live…' ) : __( 'Pulling from live…' );
 	}
 
@@ -32,11 +35,17 @@ export function getSyncActivityLabel( activity: SyncActivity ): string {
 		if ( activity.direction === 'preview' ) {
 			return __( 'Preview published' );
 		}
+		if ( activity.direction === 'import' ) {
+			return __( 'Backup imported' );
+		}
 		return activity.direction === 'push' ? __( 'Pushed to live' ) : __( 'Pulled from live' );
 	}
 
 	if ( activity.direction === 'preview' ) {
 		return __( 'Publishing preview failed' );
+	}
+	if ( activity.direction === 'import' ) {
+		return __( 'Importing backup failed' );
 	}
 	return activity.direction === 'push'
 		? __( 'Pushing to live failed' )

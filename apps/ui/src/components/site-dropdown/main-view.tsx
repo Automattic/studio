@@ -128,8 +128,10 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 	const { push: isPushPending, pull: isPullPending } = useIsSiteSyncing( site.id );
 	const isPreviewPending = publishPreviewSite.isPending;
 	// Preview / push / pull all mutate the same local site; running them
-	// concurrently would wedge the site runtime.
-	const isSyncing = isPreviewPending || isPushPending || isPullPending;
+	// concurrently would wedge the site runtime. An import replaces that site's
+	// files and database outright, so it locks them out too.
+	const isImporting = activity?.kind === 'pending' && activity.direction === 'import';
+	const isSyncing = isPreviewPending || isPushPending || isPullPending || isImporting;
 
 	const { localSublabel } = deriveSiteStatus( site, isStarting, isStopping );
 	const localSiteUrl = getSiteUrl( site );
@@ -462,7 +464,10 @@ function SyncActivityDetails( {
 		>
 			<div className={ styles.activityStatusTitle }>{ getSyncActivityLabel( activity ) }</div>
 			<div className={ styles.activityStatusMessage }>
-				{ activity.message ?? __( 'Preparing the live site…' ) }
+				{ activity.message ??
+					( activity.direction === 'import'
+						? __( 'Preparing the backup…' )
+						: __( 'Preparing the live site…' ) ) }
 			</div>
 		</div>
 	);

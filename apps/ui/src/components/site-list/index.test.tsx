@@ -690,6 +690,25 @@ describe( 'SiteList', () => {
 		);
 	} );
 
+	// Without a per-row indicator there is nothing to tell two concurrent imports
+	// apart — the toast that used to carry this named no site.
+	it( 'shows activity on the importing row only', () => {
+		useSiteAgentActivityMock.mockReturnValue( 'idle' );
+		useSiteSyncActivityMock.mockImplementation( ( siteId ) =>
+			siteId === 'running-site' ? { kind: 'pending', direction: 'import' } : null
+		);
+
+		render( <SiteList /> );
+
+		const importingRow = screen.getByText( 'Running Site' ).closest( 'section' )!;
+		const otherRow = screen.getByText( 'Stopped Site' ).closest( 'section' )!;
+
+		expect(
+			within( importingRow ).getByRole( 'status', { name: 'Importing backup' } )
+		).toBeInTheDocument();
+		expect( within( otherRow ).queryByRole( 'status' ) ).not.toBeInTheDocument();
+	} );
+
 	it( 'shows live sync activity before the site name while a site is syncing', () => {
 		useSiteAgentActivityMock.mockReturnValue( 'working' );
 		useSiteSyncActivityMock.mockImplementation( ( siteId ) =>

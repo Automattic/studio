@@ -3,7 +3,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Tooltip } from '@wordpress/ui';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useLogin } from '@/data/queries/use-auth-user';
@@ -37,6 +36,7 @@ import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 const navigateMock = vi.fn();
 const siteDropdownMock = vi.hoisted( () => vi.fn() );
 const importSiteFromBackup = vi.hoisted( () => vi.fn() );
+const reportSyncProgressMock = vi.hoisted( () => vi.fn() );
 const useSidebarCollapsedMock = vi.hoisted( () => vi.fn() );
 const useTrafficLightSpaceMock = vi.hoisted( () => vi.fn() );
 
@@ -122,6 +122,13 @@ vi.mock( '@/data/queries/use-wordpress-versions', () => ( {
 
 vi.mock( '@/hooks/use-offline', () => ( {
 	useOffline: vi.fn(),
+} ) );
+
+// Real store elsewhere — the pending/success entries drive the button states
+// these tests assert on. Only the progress reports are spied, to count them.
+vi.mock( '@/data/sync-activity', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@/data/sync-activity') >() ),
+	reportSyncProgress: reportSyncProgressMock,
 } ) );
 
 vi.mock( '@/hooks/use-sidebar-collapsed', () => ( {
@@ -753,7 +760,12 @@ describe( 'SiteOverviewView', () => {
 			],
 			isLoading: false,
 		} );
-		importSiteFromBackup.mockReturnValue( new Promise( () => {} ) );
+		let finishImport = () => {};
+		importSiteFromBackup.mockReturnValue(
+			new Promise< void >( ( resolve ) => {
+				finishImport = resolve;
+			} )
+		);
 		const { showSite } = renderView();
 
 		selectBackup( 'demo-site.tar.gz' );
@@ -770,12 +782,17 @@ describe( 'SiteOverviewView', () => {
 		showSite( 'site-1' );
 
 		expect( isManageButtonDisabled( 'Export entire site' ) ).toBe( true );
+
+		// Settle it so the shared activity store doesn't stay pending for site-1
+		// and bleed into the tests that follow.
+		finishImport();
+		await waitFor( () => expect( isManageButtonDisabled( 'Export entire site' ) ).toBe( false ) );
 	} );
 
 	// Extraction emits one progress event per stream chunk, so a large backup
-	// would otherwise notify every toast subscriber thousands of times a second.
-	it( 'only re-shows the progress toast when the status text changes', async () => {
-		const info = vi.spyOn( toast, 'info' );
+	// would otherwise notify every activity subscriber thousands of times a
+	// second and the app stops responding to clicks.
+	it( 'only reports progress when the status text changes', async () => {
 		let emitProgress: ( ( event: ImportEventTuple ) => void ) | undefined;
 		importSiteFromBackup.mockImplementation( async ( _siteId, _path, onProgress ) => {
 			emitProgress = onProgress;
@@ -796,10 +813,10 @@ describe( 'SiteOverviewView', () => {
 			] as ImportEventTuple );
 		}
 
-		const titles = info.mock.calls
-			.map( ( [ title ] ) => title )
-			.filter( ( title ) => title.endsWith( '· Extracting…' ) );
-		expect( titles ).toEqual( [ '10% · Extracting…', '20% · Extracting…' ] );
+		expect( reportSyncProgressMock.mock.calls ).toEqual( [
+			[ 'site-1', 'import', { message: '10% · Extracting…' } ],
+			[ 'site-1', 'import', { message: '20% · Extracting…' } ],
+		] );
 	} );
 
 	it( 'shows a sign-in banner with a login action when signed out', () => {

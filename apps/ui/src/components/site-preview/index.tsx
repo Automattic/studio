@@ -90,7 +90,7 @@ interface BrowserNavigationState {
 	title: string | null;
 }
 
-type BrowserShortcutCommandType = 'back' | 'forward' | 'reload' | 'hard-reload';
+type BrowserShortcutCommandType = 'back' | 'forward' | 'reload';
 
 // What the guest page can forward over the console bridge: the browser
 // commands it swallows, plus the full-preview toggle (the webview covers most
@@ -243,16 +243,26 @@ function getWebviewContentsId( webview: WebviewTag ): number {
 	return webContentsId;
 }
 
-// Chrome keeps cached 301s through every reload variant, and a redirect leaves
-// the webview's current entry on the other site — hence clear, then navigate.
-async function hardReload( webview: WebviewTag, url: string ): Promise< void > {
+// Reloading always drops the HTTP cache: it keeps edited CSS/JS from being
+// served stale, and it's the only way to shake a cached 301 (Chrome keeps those
+// through every reload variant). When such a redirect has already moved the
+// webview onto another origin, reload() would reload *that*, so navigate.
+async function reloadPreview(
+	webview: WebviewTag,
+	intendedUrl: string,
+	currentUrl: string
+): Promise< void > {
 	const { ipcApi } = window as PreviewWindow;
 	try {
 		await ipcApi?.clearWebviewCache?.( getWebviewContentsId( webview ) );
 	} catch {
 		// No IPC bridge, or the webview isn't ready.
 	}
-	await webview.loadURL( url ).catch( () => undefined );
+	if ( isOffOriginRedirect( currentUrl, intendedUrl ) ) {
+		await webview.loadURL( intendedUrl ).catch( () => undefined );
+		return;
+	}
+	webview.reload?.();
 }
 
 export function isOffOriginRedirect( settledUrl: string, intendedUrl: string ): boolean {
@@ -359,10 +369,8 @@ export function getBrowserShortcutCommand(
 	if ( event.defaultPrevented || event.repeat ) {
 		return null;
 	}
-	if ( isKeyboardEvent.primaryShift( event, 'r' ) ) {
-		return 'hard-reload';
-	}
-	if ( isKeyboardEvent.primary( event, 'r' ) ) {
+	// ⌘⇧R is accepted as an alias so the browser habit isn't a dead key.
+	if ( isKeyboardEvent.primary( event, 'r' ) || isKeyboardEvent.primaryShift( event, 'r' ) ) {
 		return 'reload';
 	}
 	if ( isKeyboardEvent.primary( event, '[' ) ) {
@@ -416,7 +424,6 @@ function isPreviewShortcutCommand( command: unknown ): command is PreviewShortcu
 		command === 'back' ||
 		command === 'forward' ||
 		command === 'reload' ||
-		command === 'hard-reload' ||
 		command === 'full-preview'
 	);
 }
@@ -431,7 +438,6 @@ function PreviewOverflowMenu( {
 	onMobileOrientationChange,
 	fullscreen,
 	onFullscreenChange,
-	onHardReload,
 }: {
 	viewportMode: ViewportMode;
 	onViewportModeChange: ( mode: ViewportMode ) => void;
@@ -439,7 +445,6 @@ function PreviewOverflowMenu( {
 	onMobileOrientationChange: ( orientation: MobileOrientation ) => void;
 	fullscreen: boolean;
 	onFullscreenChange?: ( value: boolean ) => void;
-	onHardReload: () => void;
 } ) {
 	const viewportLabels: Record< ViewportPreset[ 'id' ], string > = {
 		mobile: __( 'Mobile' ),
@@ -513,13 +518,6 @@ function PreviewOverflowMenu( {
 						</Menu.Item>
 					</>
 				) : null }
-				<Menu.Separator />
-				<Menu.Item
-					onClick={ onHardReload }
-					aria-keyshortcuts={ ariaKeyShortcut.primaryShift( 'r' ) }
-				>
-					{ __( 'Hard refresh' ) }
-				</Menu.Item>
 			</Menu.Popup>
 		</Menu.Root>
 	);
@@ -958,7 +956,6 @@ export function SitePreview( {
 							onMobileOrientationChange={ handleMobileOrientationChange }
 							fullscreen={ fullscreen }
 							onFullscreenChange={ onFullscreenChange }
-							onHardReload={ () => sendBrowserCommand( 'hard-reload' ) }
 						/>
 					) : null }
 				</div>
@@ -1012,9 +1009,7 @@ export function SitePreview( {
 									// by remounting; back/forward aren't reachable from the host.
 									<iframe
 										key={ `${ previewUrl }#${ reloadNonce }#${
-											browserCommand?.type === 'reload' || browserCommand?.type === 'hard-reload'
-												? browserCommand.id
-												: 0
+											browserCommand?.type === 'reload' ? browserCommand.id : 0
 										}` }
 										className={ styles.iframe }
 										style={ iframeStyle }
@@ -1366,7 +1361,7 @@ function WebviewSurface( {
 				if ( pendingLoadRef.current ) {
 					pendingLoadRef.current = false;
 					if ( isOffOriginRedirect( navigateEvent.url, urlRef.current ) ) {
-						void hardReload( webview, urlRef.current );
+						void reloadPreview( webview, urlRef.current, navigateEvent.url );
 					}
 				}
 			}
@@ -1459,9 +1454,7 @@ function WebviewSurface( {
 			} else if ( browserCommand.type === 'forward' && webview.canGoForward?.() ) {
 				webview.goForward?.();
 			} else if ( browserCommand.type === 'reload' ) {
-				webview.reload?.();
-			} else if ( browserCommand.type === 'hard-reload' ) {
-				void hardReload( webview, urlRef.current );
+				void reloadPreview( webview, urlRef.current, currentUrlRef.current );
 			}
 		} finally {
 			publishBrowserState();

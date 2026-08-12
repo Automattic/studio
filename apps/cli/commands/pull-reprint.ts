@@ -353,8 +353,8 @@ export async function runCommand(
 		} );
 		// Selective sync: apply `--only`/`--skip-*` flags, or prompt
 		// interactively with the wp-content folder tree + database toggle.
-		// A partial first-pull selection gets the core roots added and the
-		// unselected local content preserved. A resumed pull reuses the
+		// A partial first-pull selection gets the core roots added; the
+		// flatten step keeps whatever the pull left out. A resumed pull reuses the
 		// persisted choice without re-prompting. Runs before the site is
 		// marked `pulling` so a cancel is a clean no-op.
 		const selection = await applySelection( {

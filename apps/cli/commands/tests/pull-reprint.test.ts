@@ -353,13 +353,14 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 			`--state-dir=${ stateDirectory }`,
 			`--fs-root=${ rawDirectory }`,
 		] );
-		// The remote URL selects Reprint's pull state; --force only on a first
-		// pull (this call passed force=true) to overwrite the blank install.
+		// The remote URL selects Reprint's pull state; adopt only on a first
+		// pull (this call passed isFirstPull=true), so the blank install is
+		// replaced without losing wp-content entries only it has.
 		expect( flattenArgs ).toEqual( [
 			'flat-docroot',
 			'https://example.com/?reprint-api',
 			`--flatten-to=${ sitePath }`,
-			'--force',
+			'--on-flatten-to-conflict=adopt',
 			`--state-dir=${ stateDirectory }`,
 			`--fs-root=${ rawDirectory }`,
 		] );
@@ -450,7 +451,7 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 		const commands = reprint.mock.calls.map( ( call ) => ( call[ 2 ] as string[] )[ 0 ] );
 		expect( commands ).toEqual( [ 'pull-files', 'flat-docroot', 'apply-runtime' ] );
 		const flattenArgs = reprint.mock.calls[ 1 ][ 2 ] as string[];
-		expect( flattenArgs ).not.toContain( '--force' );
+		expect( flattenArgs ).not.toContain( '--on-flatten-to-conflict=adopt' );
 		const runtimeArgs = reprint.mock.calls[ 2 ][ 2 ] as string[];
 		expect( runtimeArgs ).toContain( '--target-engine=sqlite' );
 		expect( runtimeArgs ).toContain( `--target-sqlite-path=${ legacySqlitePath }` );
@@ -582,7 +583,7 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 			true
 		);
 
-		// Reprint owns recovery of its state and scratch. Studio must not
+		// Reprint owns recovery of its state and fs-root. Studio must not
 		// delete the raw tree or private state files behind its back.
 		expect( fs.readdirSync( rawDirectory ) ).toEqual( [ 'stale-blocker' ] );
 		expect( fs.existsSync( path.join( stateDirectory, '.import-remote-index.jsonl' ) ) ).toBe(
@@ -742,15 +743,16 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 		);
 
 		// With no content dir from preflight, the database target stays in
-		// the raw scratch directory so flat-docroot can link it later.
+		// the fs-root so flat-docroot can link it later.
 		const dbArgs = reprint.mock.calls[ 1 ][ 2 ] as string[];
 		expect( dbArgs[ 0 ] ).toBe( 'pull-db' );
 		expect( dbArgs ).toContain(
 			`--target-sqlite-path=${ path.join( rawDirectory, 'wp-content', 'database', '.ht.sqlite' ) }`
 		);
-		// A delta re-pull (force=false) omits --force on the flatten step.
+		// A delta re-pull (isFirstPull=false) leaves the flatten step in its
+		// default error mode, so it can never overwrite the live site.
 		const flattenArgs = reprint.mock.calls[ 2 ][ 2 ] as string[];
-		expect( flattenArgs ).not.toContain( '--force' );
+		expect( flattenArgs ).not.toContain( '--on-flatten-to-conflict=adopt' );
 		// The site + runtime dirs are always mounted for every fork.
 		const dbOptions = reprint.mock.calls[ 1 ][ 4 ] as { mounts?: unknown };
 		expect( dbOptions?.mounts ).toEqual( [
@@ -1104,7 +1106,7 @@ describe( 'CLI: studio pull-reprint requires an existing site', () => {
 		);
 
 		// The site lookup fails up front, so the remote is never contacted and
-		// no pull scratch directory is created.
+		// no pull directory is created.
 		expect( reprintSpy ).not.toHaveBeenCalled();
 		expect( fs.existsSync( pullsRoot() ) ).toBe( false );
 	} );
@@ -1138,12 +1140,12 @@ describe( 'CLI: studio pull-reprint requires an existing site', () => {
 		expect( logged ).toContain( 'Pulling "Existing Site"' );
 		expect( logged ).toContain( sitePath );
 
-		// The scratch directory is keyed by siteId; no Studio-owned progress
+		// The pull directory is keyed by siteId; no Studio-owned progress
 		// file is written — resume is by derivation.
 		expect( fs.existsSync( path.join( pullsRoot(), 'existing-id' ) ) ).toBe( true );
 		expect( fs.existsSync( path.join( pullsRoot(), 'existing-id', 'pull.json' ) ) ).toBe( false );
 
-		// No second site was created. The single record keeps its scratch
+		// No second site was created. The single record keeps its pull
 		// location (`technicalSiteDirectory`, recorded at pull start so `studio
 		// delete` can clean it up even though this pull never reached the
 		// linking step). Its status is untouched: the site is only marked
@@ -1198,7 +1200,7 @@ describe( 'CLI: studio pull-reprint delta re-pull of a completed pull', () => {
 		mockWpComPullSource();
 
 		const pullsRoot = path.join( fakeHome, '.studio', 'pulls' );
-		// Scratch is keyed by siteId now.
+		// The pull directory is keyed by siteId now.
 		const technicalSiteDirectory = path.join( pullsRoot, 'completed-id' );
 		const stateDirectory = path.join( technicalSiteDirectory, 'state' );
 		const sitePath = path.join( fakeHome, 'Studio', 'My-Completed-Site' );
@@ -1427,7 +1429,7 @@ describe( 'CLI: studio pull-reprint first-pull selective sync', () => {
 				}
 				if ( args[ 0 ] === 'flat-docroot' ) {
 					// Preservation runs before flattening: the unselected local
-					// plugin and the kept database are in the scratch by now.
+					// plugin and the kept database are in the fs-root by now.
 					const rawContent = path.join( rawDirectory, 'srv', 'htdocs', 'wp-content' );
 					expect(
 						fs.readFileSync(

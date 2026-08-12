@@ -128,19 +128,23 @@ const FILES_TO_DOWNLOAD: FileToDownload[] = [
 			`https://downloads.wordpress.org/plugin/wordpress-importer.${ WORDPRESS_IMPORTER_VERSION }.zip`,
 		destinationPath: WP_SERVER_FILES_PATH,
 	},
-	{
-		name: 'reprint',
-		description: `reprint.phar`,
-		getUrl: async () => {
-			const release = await fetchLatestGithubRelease( 'WordPress/reprint' );
-			const asset = release.assets.find( ( a ) => a.name === 'reprint.phar' );
-			if ( ! asset ) {
-				throw new Error( `No asset found in latest reprint release ${ release.tag_name }` );
-			}
-			return asset.browser_download_url;
-		},
-		destinationPath: path.join( WP_SERVER_FILES_PATH, 'reprint' ),
-	},
+	// Reprint is pinned to the phar committed at wp-files/reprint/reprint.phar
+	// while this branch tracks unreleased changes (--on-flatten-to-conflict).
+	// Downloading the latest release would overwrite it. Restore this entry
+	// once those changes ship; downloadFile() still knows how to place it.
+	// {
+	// 	name: 'reprint',
+	// 	description: `reprint.phar`,
+	// 	getUrl: async () => {
+	// 		const release = await fetchLatestGithubRelease( 'WordPress/reprint' );
+	// 		const asset = release.assets.find( ( a ) => a.name === 'reprint.phar' );
+	// 		if ( ! asset ) {
+	// 			throw new Error( `No asset found in latest reprint release ${ release.tag_name }` );
+	// 		}
+	// 		return asset.browser_download_url;
+	// 	},
+	// 	destinationPath: path.join( WP_SERVER_FILES_PATH, 'reprint' ),
+	// },
 ];
 
 async function downloadFile( file: FileToDownload ): Promise< void > {

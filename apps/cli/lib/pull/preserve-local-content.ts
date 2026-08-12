@@ -2,17 +2,17 @@
  * First-pull preservation of local wp-content.
  *
  * A first pull replaces the site's real `wp-content` directory with a
- * symlink into the pull scratch (`raw/<contentDir>`): `flat-docroot
+ * symlink into the fs-root (`raw/<contentDir>`): `flat-docroot
  * --force` recursively deletes whatever the symlink displaces. With a
  * partial selection, "unchecked items will not be changed" therefore
- * means *moving* the unchecked local entries into the scratch before
+ * means *moving* the unchecked local entries into the fs-root before
  * flattening, so they remain reachable through the symlinked layout.
  *
  * The move is presence- and selection-aware, applied recursively:
  *   - an entry covered by the selection belongs to the remote — never
  *     seeded, even when the remote copy hasn't materialized yet (the
  *     media library is deferred to the post-start tail);
- *   - an entry absent from the scratch is moved wholesale;
+ *   - an entry absent from the fs-root is moved wholesale;
  *   - a directory present on both sides recurses, so siblings of a
  *     selected subfolder (e.g. local `plugins/foo` next to selected
  *     `plugins/akismet`) survive;
@@ -29,7 +29,7 @@ import path from 'path';
 export interface PreserveLocalContentParams {
 	/** The site directory whose `wp-content` is about to be flattened. */
 	sitePath: string;
-	/** The pull scratch fs-root mirroring remote paths. */
+	/** The fs-root mirroring remote paths. */
 	rawDirectory: string;
 	/** Remote WP_CONTENT_DIR absolute path (from preflight). */
 	contentDir: string;
@@ -92,7 +92,7 @@ function seedEntry(
 }
 
 /**
- * Move the unselected local wp-content entries into the raw scratch so
+ * Move the unselected local wp-content entries into the fs-root so
  * the flattened site keeps them. No-ops unless the site's `wp-content`
  * is still a real directory (i.e. the site was never flattened), which
  * confines the move to first pulls regardless of how the pull was

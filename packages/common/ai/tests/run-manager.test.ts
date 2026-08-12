@@ -38,8 +38,7 @@ describe( 'createAgentRunManager fork environment', () => {
 		mockFork.mockImplementation( () => createChild() as never );
 	} );
 
-	// The forked CLI is what emits the Studio Code Tracks events, and it reads this env var to decide
-	// whether the run came from a UI. Without it, desktop chat is attributed to `channel: studio-cli`.
+	// Without this, desktop chat is attributed to `channel: studio-cli`.
 	it( 'passes the resolved tracks origin to the CLI child', () => {
 		const manager = createAgentRunManager( {
 			cliBinary: '/cli.mjs',
@@ -53,8 +52,7 @@ describe( 'createAgentRunManager fork environment', () => {
 		expect( getForkEnv().STUDIO_TRACKS_ORIGIN ).toBe( 'studio-ui:v2' );
 	} );
 
-	// The user can switch renderer without restarting, so a value captured once at wiring time would
-	// keep reporting the old one.
+	// The user can switch renderer without restarting.
 	it( 'resolves the origin per run rather than once', () => {
 		let uiVersion = 'v1';
 		const manager = createAgentRunManager( {

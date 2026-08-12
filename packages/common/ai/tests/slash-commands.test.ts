@@ -31,8 +31,7 @@ describe( 'resolveSkillFromPrompt', () => {
 		expect( resolveSkillFromPrompt( 'Fix the header on my site' ) ).toBeUndefined();
 	} );
 
-	// The resolved name is reported to analytics, so anything outside the catalog must not come back
-	// out — otherwise arbitrary prompt text would leak into an event prop.
+	// The name is reported to analytics, so prompt text must never leak out through it.
 	it( 'returns undefined for slash text that is not a known skill', () => {
 		expect( resolveSkillFromPrompt( '/not-a-skill' ) ).toBeUndefined();
 		expect( resolveSkillFromPrompt( '/rank-me-up extra words' ) ).toBeUndefined();

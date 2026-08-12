@@ -10,8 +10,7 @@ describe( 'getAiTracksIdentity', () => {
 		} );
 	} );
 
-	// The pi runtime is pinned per Studio release, so `app_version` already determines the agent
-	// version. Sending it too would be a redundant column kept in sync by hand.
+	// pi is pinned per Studio release, so `app_version` already determines it.
 	it( 'does not report an agent version', () => {
 		expect( getAiTracksIdentity( 'session-uuid' ) ).not.toHaveProperty( 'agent_version' );
 	} );

@@ -44,8 +44,7 @@ export function StudioCodePanel() {
 	const isDirty = saved !== undefined && content !== saved;
 
 	const pending = useRef< string | null >( null );
-	// The latest content and the value this visit to the tab started from, so leaving can save any
-	// un-flushed keystrokes and report the whole session as one change however many autosaves it took.
+	// Latest content, and the value this visit started from.
 	const latest = useRef< string | null >( null );
 	const sessionStart = useRef< string | null >( null );
 

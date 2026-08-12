@@ -55,9 +55,8 @@ export interface AgentRunManagerConfig {
 	emit: ( output: RunManagerOutput ) => void;
 	// Telemetry surface, so desktop and `studio ui` stats stay distinct.
 	surface: AgentSurface;
-	// `STUDIO_TRACKS_ORIGIN` for the forked CLI, which emits the chat events. Without it they fall
-	// back to `channel: studio-cli`. Called per fork, since the user can switch renderer mid-session.
-	// Unset by `studio ui` — see STU-2247.
+	// `STUDIO_TRACKS_ORIGIN` for the forked CLI, which emits the chat events; without it they fall
+	// back to `channel: studio-cli`. Called per fork, as the renderer can change. Unset by `studio ui`.
 	getTracksOrigin?: () => string;
 }
 

@@ -20,10 +20,9 @@ export function buildSkillInvocationPrompt( name: string ): string {
 	return `Run the /${ name } skill using the Skill tool.`;
 }
 
-// Which predefined skill a prompt invokes, or `undefined` for an ordinary message. Handles both
-// shapes that reach the agent: the bare `/rank-me-up`, and the sentence `buildSkillInvocationPrompt`
-// expands it into (desktop expands before forking the CLI; `studio ui` does not). Only catalog names
-// are returned — callers report this to analytics and must never echo arbitrary prompt text.
+// Which predefined skill a prompt invokes, or `undefined`. Handles both shapes that reach the agent:
+// the bare `/rank-me-up` and the sentence it expands into (desktop expands, `studio ui` doesn't).
+// Only catalog names are returned — callers report this to analytics.
 export function resolveSkillFromPrompt( prompt: string ): string | undefined {
 	const trimmed = prompt.trim();
 	const name = trimmed.startsWith( '/' )

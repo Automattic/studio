@@ -339,10 +339,8 @@ export async function createAiSession(
 		},
 	} );
 
-	// Unlike the other Studio Code events this fires from Main, because sessions are created
-	// in-process rather than by forking the CLI. Reused drafts are not creations, so they don't
-	// count. The `studio ui` server has no Tracks emitter, so browser-created sessions are missing
-	// here — see STU-2247.
+	// Fires from Main, not the CLI: sessions are created in-process. Reused drafts don't count.
+	// Missing for `studio ui`, which has no Tracks emitter — see STU-2247.
 	if ( created ) {
 		await recordTracksEvent( TRACKS_EVENTS.CODE_SESSION_CREATED, {
 			...getAiTracksIdentity( summary.id ),

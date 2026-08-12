@@ -538,9 +538,8 @@ export async function runCommand( options: {
 
 		await persistSessionContext();
 
-		// The CLI is the sole emitter of the Studio Code chat events: every surface (both desktop
-		// renderers, `studio ui`, and a standalone `studio code`) forks this process, and this is the
-		// only layer holding the provider, model and turn outcome together. `channel` separates them.
+		// Sole emitter of the chat events: every surface forks this process, and only this layer holds
+		// the provider, model and outcome together. `channel` separates them.
 		const tracksProps = {
 			...getTracksOrigin(),
 			...getAiTracksIdentity( sessionId ),
@@ -551,8 +550,7 @@ export async function runCommand( options: {
 		const turnStartedAt = Date.now();
 		void recordTracksEvent( TRACKS_EVENTS.CODE_MESSAGE_SENT, {
 			...tracksProps,
-			// The raw prompt, before site context is prepended — only ever a name from the skill
-			// catalog, never arbitrary prompt text.
+			// Raw prompt, before site context is prepended. Only ever a catalog name.
 			ability_name: resolveSkillFromPrompt( prompt ),
 			has_images: images.length > 0,
 			has_files: files.length > 0,
@@ -627,8 +625,7 @@ export async function runCommand( options: {
 						: {} ),
 				} )
 			);
-			// `errorMessage` is deliberately not sent: it is raw error text that can embed filesystem
-			// paths and site names. A coarse `failure_reason` needs its own vocabulary first.
+			// No `errorMessage`: raw error text can embed paths and site names.
 			void recordTracksEvent( TRACKS_EVENTS.CODE_TURN_COMPLETED, {
 				...tracksProps,
 				outcome: turnState.status,

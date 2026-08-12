@@ -88,8 +88,7 @@ describe( 'StudioCodePanel', () => {
 	} );
 
 	// The autosave means the stored value already matches by the time the user leaves, so the
-	// edit-session boundary has to carry the value the visit started from — otherwise Main sees no
-	// change and the edit goes uncounted.
+	// boundary has to carry the value the visit started from.
 	it( 'reports the edit session on unmount after the debounce already saved', () => {
 		const { unmount } = render( <StudioCodePanel /> );
 

@@ -92,26 +92,21 @@ export type TracksCustomizeEntryPoint =
 	| 'menus'
 	| 'widgets';
 
-// Studio Code (AI assistant) event vocabulary. Follows the data team's shared AI-event property
-// names so Studio's assistant metrics aggregate with other Automattic AI products — see the design
-// doc. `is_test` is deliberately absent: dev/E2E/CI runs are suppressed at the source (see the gates
-// in `__recordTracksEvent` and the app wrappers), so the prop could only ever be `false`.
+// Studio Code event vocabulary, using the data team's shared AI-event property names. No `is_test`:
+// dev/E2E/CI runs are suppressed at the source, so it could only ever be `false`.
 export interface TracksAiIdentity {
 	ai_session_id: string;
 	agent_name: string;
 	client: TracksAiClient;
 }
 
-// Which AI client product an assistant event came from. `channel` still records the surface
-// (desktop UI vs CLI); this records the product, leaving room for future Studio AI clients.
+// Which AI product the event came from; `channel` still records the surface.
 export type TracksAiClient = 'studio-code';
 
-// How an assistant turn ended, sent as `outcome` on `studio_code_turn_completed`. The session log's
-// `TurnStatus` is an alias of this, so the transcript and the event can't drift apart.
+// Sent as `outcome` on `studio_code_turn_completed`. `TurnStatus` aliases this.
 export type TracksAiOutcome = 'success' | 'error' | 'interrupted' | 'max_turns';
 
-// Coarse size of the user's global agent instructions, sent as `length_bucket` on
-// `studio_setting_instructions_change`. Bucketed because the instructions text itself is never sent.
+// Sent as `length_bucket`; bucketed because the instructions text is never sent.
 export type TracksInstructionsLengthBucket = 'empty' | 'short' | 'medium' | 'long';
 
 // The site panel/tab a `studio_panel_opened` event refers to. Studio Classic emits the tab-strip names

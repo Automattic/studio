@@ -24,8 +24,7 @@ const runManager = createAgentRunManager( {
 	cliBinary: getCliPath(),
 	nodeBinary: getBundledNodeBinaryPath(),
 	surface: 'desktop',
-	// Resolved per run: the CLI child emits the Studio Code Tracks events, and without this it would
-	// attribute desktop chat to `channel: studio-cli`.
+	// Resolved per run; without it the CLI child attributes desktop chat to `channel: studio-cli`.
 	getTracksOrigin: getTracksOriginEnv,
 	emit: ( output ) => {
 		const webContents = runWebContents.get( output.runId );

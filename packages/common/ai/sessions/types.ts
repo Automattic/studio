@@ -1,10 +1,7 @@
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 import type { TracksAiOutcome } from '@studio/common/lib/record-tracks-event';
 
-// Aliased rather than redeclared: the status is written to the session transcript *and* sent as
-// `outcome` on `studio_code_turn_completed`, and a value in one that the other doesn't know about
-// would ship an unregistered Tracks value. Defined this way round because `record-tracks-event.ts`
-// is intentionally dependency-free.
+// Aliased so the transcript status and the `outcome` Tracks prop can't drift.
 export type TurnStatus = TracksAiOutcome;
 
 export interface AiSessionMetadata {

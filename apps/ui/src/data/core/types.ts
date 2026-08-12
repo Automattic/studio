@@ -372,9 +372,8 @@ export interface Connector {
 	// The user's global Studio Code instructions, a markdown file injected into
 	// every agent session. Gated by `capabilities.agentInstructions`.
 	getAgentInstructions(): Promise< string >;
-	// `editSession` marks the save that ends an edit session (leaving the settings
-	// tab) and carries the value it started from, so the whole session counts as
-	// one change however many autosaves it took. Intermediate autosaves omit it.
+	// `editSession` marks the save that ends an edit session and carries the value
+	// it started from, so it counts as one change. Autosaves omit it.
 	saveAgentInstructions(
 		content: string,
 		options?: { editSession?: { previousContent: string } }

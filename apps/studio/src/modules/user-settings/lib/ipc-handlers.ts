@@ -287,8 +287,7 @@ export async function getGlobalAgentInstructions(): Promise< string > {
 	return ( await readGlobalInstructionsFile() ) ?? '';
 }
 
-// Coarse size bucket for `studio_setting_instructions_change`. The instructions text is never sent —
-// it is free-form user content.
+// Bucketed for `studio_setting_instructions_change`; the text itself is never sent.
 function getInstructionsLengthBucket( content: string ): TracksInstructionsLengthBucket {
 	const length = content.trim().length;
 	if ( length === 0 ) {
@@ -303,9 +302,8 @@ function getInstructionsLengthBucket( content: string ): TracksInstructionsLengt
 export async function saveGlobalAgentInstructions(
 	_event: IpcMainInvokeEvent,
 	content: string,
-	// Set when this save ends an edit session, to record the change. Only the renderer knows the value
-	// it started from: the agentic UI autosaves on a debounce, so by the time the user leaves the tab
-	// the file already matches. Omitted by intermediate autosaves, which write without recording.
+	// Set when this save ends an edit session. Only the renderer knows the value it started from,
+	// since the agentic UI autosaves on a debounce. Intermediate autosaves omit it.
 	options: { editSession?: { previousContent: string } } = {}
 ): Promise< void > {
 	await writeGlobalInstructions( content );

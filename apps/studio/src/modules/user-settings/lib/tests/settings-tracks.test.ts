@@ -230,10 +230,8 @@ it( 'saveAgenticFeaturesEnabled does not emit when unchanged (persisted default 
 	expect( mockRecord ).not.toHaveBeenCalled();
 } );
 
-// The instructions save is a special case in this family: the agentic UI autosaves on a debounce, so
-// by the time the user leaves the tab the file already holds the new text and Main has nothing to
-// compare against. The renderer therefore supplies the value the edit session started from, and
-// intermediate autosaves omit it entirely so one edit is counted once.
+// Special case in this family: the agentic UI autosaves on a debounce, so Main has nothing to
+// compare against and the renderer supplies the value the edit session started from.
 describe( 'saveGlobalAgentInstructions', () => {
 	it( 'emits studio_setting_instructions_change when an edit session changed the text', async () => {
 		await saveGlobalAgentInstructions( event, 'Always answer in French.', {

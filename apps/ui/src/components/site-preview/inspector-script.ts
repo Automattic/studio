@@ -243,7 +243,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 	/* ------------------------------------------------------------------
 	 * State + DOM
 	 * ---------------------------------------------------------------- */
-	let isPicking = false;
+	let isPicking = Boolean( window.__studioInspectorPicking );
 	let hoveredEl = null;
 	let activePopup = null; /* { id?, target, comment, fromPicker? } */
 	let annotations = Array.isArray( window.__studioInspectorState )
@@ -260,6 +260,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 	}
 
 	function sendState() {
+		window.__studioInspectorPicking = isPicking;
 		send( {
 			type: 'state',
 			isPicking,
@@ -386,8 +387,13 @@ export const INSPECTOR_PAGE_SCRIPT =
 	}
 
 	function submitAnnotations() {
-		if ( ! commitActivePopup() ) {
-			sendState();
+		if ( activePopup && ! ( activePopup.comment || '' ).trim() ) {
+			if ( annotations.length === 0 ) {
+				sendState();
+				return;
+			}
+			activePopup = null;
+		} else if ( ! commitActivePopup() ) {
 			return;
 		}
 		if ( annotations.length === 0 ) {
@@ -530,7 +536,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 			submit.disabled = ! state.comment.trim();
 		} );
 		ta.addEventListener( 'keydown', ( event ) => {
-			if ( event.key !== 'Enter' ) return;
+			if ( event.key !== 'Enter' || event.isComposing || event.keyCode === 229 ) return;
 			if ( event.metaKey || event.ctrlKey ) {
 				event.preventDefault();
 				const start = ta.selectionStart;

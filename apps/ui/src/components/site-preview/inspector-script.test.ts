@@ -11,6 +11,7 @@ describe( 'site preview inspector sessions', () => {
 		document.body.replaceChildren();
 		delete ( window as Window & { __studioInspectorMounted?: boolean } ).__studioInspectorMounted;
 		delete ( window as Window & { __studioInspectorState?: unknown[] } ).__studioInspectorState;
+		delete ( window as Window & { __studioInspectorPicking?: boolean } ).__studioInspectorPicking;
 	} );
 
 	it( 'saves several notes without leaving annotation mode', () => {
@@ -114,6 +115,39 @@ describe( 'site preview inspector sessions', () => {
 		expect(
 			( window as Window & { __studioInspectorState?: unknown[] } ).__studioInspectorState
 		).toEqual( [] );
+	} );
+
+	it( 'restores active annotation mode after navigation', () => {
+		const log = vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+		( window as Window & { __studioInspectorPicking?: boolean } ).__studioInspectorPicking = true;
+
+		new Function( INSPECTOR_PAGE_SCRIPT )();
+
+		expect( latestState( log ) ).toMatchObject( { isPicking: true } );
+	} );
+
+	it( 'submits saved notes when an empty draft popup is open', () => {
+		const log = vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+		document.body.innerHTML = '<h1 id="draft">Draft</h1>';
+		const draft = document.querySelector( '#draft' ) as HTMLElement;
+		vi.spyOn( draft, 'getBoundingClientRect' ).mockReturnValue( rect( 10, 10 ) );
+		( window as Window & { __studioInspectorState?: unknown[] } ).__studioInspectorState = [
+			{
+				id: 'saved',
+				comment: 'Saved note',
+				path: window.location.pathname + window.location.search,
+				documentRect: { left: 10, top: 10, width: 100, height: 40 },
+			},
+		];
+
+		new Function( INSPECTOR_PAGE_SCRIPT )();
+		command( 'toggle-picking' );
+		draft.dispatchEvent( new MouseEvent( 'click', { bubbles: true, cancelable: true } ) );
+		command( 'submit' );
+
+		const done = bridgeMessages( log ).find( ( message ) => message.type === 'done' );
+		expect( done?.annotations ).toEqual( [ expect.objectContaining( { comment: 'Saved note' } ) ] );
+		expect( latestState( log ) ).toMatchObject( { isPicking: false, annotationCount: 0 } );
 	} );
 } );
 

@@ -91,6 +91,7 @@ function hasBundledServerFiles( repoRoot: string ): boolean {
 		'wp-files/sqlite-command/command.php',
 		'wp-files/phpmyadmin/index.php',
 		'wp-files/phpmyadmin/themes/studio.css',
+		'wp-files/phpmyadmin/themes/studio.rtl.css',
 		'wp-files/reprint/reprint.phar',
 		'wp-files/skills/wp-plugin-development/SKILL.md',
 	];

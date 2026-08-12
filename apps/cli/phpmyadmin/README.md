@@ -13,8 +13,8 @@ phpMyAdmin's upstream `header.twig` and fails if its expected insertion point
 has changed.
 
 `apps/cli/php/config.inc.php` selects phpMyAdmin's bundled `bootstrap` theme as
-the default. A user's theme preference can still take precedence, but Studio's
-design layer is applied to every theme.
+the fixed base theme. Studio disables phpMyAdmin's theme picker so the design
+layer is always applied against the theme it targets.
 
 ## Working on the styles
 

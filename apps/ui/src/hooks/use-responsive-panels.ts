@@ -73,6 +73,10 @@ export function useResponsivePanels( {
 				actualWidth < minimumWidth
 			) {
 				setPreviewOpen( false );
+				return;
+			}
+			if ( operationId === operationIdRef.current && actualWidth !== null ) {
+				previewWidthArmedRef.current = true;
 			}
 		};
 

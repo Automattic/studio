@@ -99,9 +99,8 @@ export function getPreviewSplitLayout(
 	preferredContentWidth: number
 ): PreviewSplitLayout {
 	const width = Math.max( 0, Math.round( containerWidth ) );
-	const minContentWidth = Math.min( PREVIEW_PANEL_MIN_CONTENT_WIDTH, width );
-	const previewMaxWidth = Math.max( 0, width - minContentWidth );
-	const previewMinWidth = Math.min( PREVIEW_PANEL_MIN_WIDTH, previewMaxWidth );
+	const previewMinWidth = Math.min( PREVIEW_PANEL_MIN_WIDTH, width );
+	const previewMaxWidth = Math.max( previewMinWidth, width - PREVIEW_PANEL_MIN_CONTENT_WIDTH );
 	const contentWidth = Math.min(
 		width - previewMinWidth,
 		Math.max( width - previewMaxWidth, Math.round( preferredContentWidth ) )

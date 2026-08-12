@@ -50,12 +50,13 @@ describe( 'useResponsivePanels', () => {
 		expect( ensureWindowWidth ).toHaveBeenNthCalledWith( 2, 680 );
 	} );
 
-	it( 'does not close a preview while its opening resize is still settling', async () => {
+	it( 'closes the preview when the settled split is manually resized below its minimum', async () => {
 		setViewportWidth( 420 );
 		const setPreviewOpen = vi.fn();
+		const ensureWindowWidth = vi.fn().mockResolvedValue( 680 );
 		const { result } = renderHook( () =>
 			useResponsivePanels( {
-				connector: { ensureWindowWidth: vi.fn().mockResolvedValue( 680 ) },
+				connector: { ensureWindowWidth },
 				previewOpen: true,
 				previewFullscreen: false,
 				setPreviewOpen,
@@ -65,7 +66,7 @@ describe( 'useResponsivePanels', () => {
 		act( () => result.current.onPreviewContainerWidthChange( 420 ) );
 		expect( setPreviewOpen ).not.toHaveBeenCalled();
 
-		act( () => result.current.onPreviewContainerWidthChange( 680 ) );
+		await waitFor( () => expect( ensureWindowWidth ).toHaveBeenCalledWith( 680 ) );
 		act( () => result.current.onPreviewContainerWidthChange( 679 ) );
 		expect( setPreviewOpen ).toHaveBeenCalledWith( false );
 	} );

@@ -445,8 +445,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
-	// Unlike the desktop's `saveGlobalAgentInstructions`, this does not record
-	// `studio_setting_instructions_change` — this server has no Tracks emitter. See STU-2247.
+	// No `studio_setting_instructions_change` — this server has no Tracks emitter. See STU-2247.
 	api.post(
 		'/agent-instructions',
 		asyncHandler( async ( req: Request, res: Response ) => {

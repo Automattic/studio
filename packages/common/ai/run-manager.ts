@@ -55,11 +55,9 @@ export interface AgentRunManagerConfig {
 	emit: ( output: RunManagerOutput ) => void;
 	// Telemetry surface, so desktop and `studio ui` stats stay distinct.
 	surface: AgentSurface;
-	// Resolves `STUDIO_TRACKS_ORIGIN` for the forked CLI, which emits the Studio Code Tracks events
-	// (it is the only layer that knows the provider, model and turn outcome). Without it the child
-	// falls back to `channel: studio-cli`, so the desktop passes its renderer origin here. Called per
-	// fork rather than read once, because the user can switch renderer mid-session. Left unset by
-	// `studio ui`, whose runs are counted as CLI for now — see STU-2247.
+	// `STUDIO_TRACKS_ORIGIN` for the forked CLI, which emits the chat events. Without it they fall
+	// back to `channel: studio-cli`. Called per fork, since the user can switch renderer mid-session.
+	// Unset by `studio ui` — see STU-2247.
 	getTracksOrigin?: () => string;
 }
 

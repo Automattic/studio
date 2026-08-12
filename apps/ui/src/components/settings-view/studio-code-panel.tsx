@@ -68,10 +68,8 @@ export function StudioCodePanel() {
 		return () => clearTimeout( timer );
 	}, [ content, isDirty, save ] );
 
-	// Leaving the tab ends the edit session. Save once more — flushing any keystrokes the debounce
-	// hasn't written yet — and pass the value the session started from so the change is counted once
-	// rather than once per typing pause. When the debounce already wrote everything this is a no-op
-	// write that only carries the comparison.
+	// Leaving the tab ends the edit session: flush any un-written keystrokes and pass the value it
+	// started from, so the change counts once rather than once per typing pause.
 	useEffect(
 		() => () => {
 			const previousContent = sessionStart.current;

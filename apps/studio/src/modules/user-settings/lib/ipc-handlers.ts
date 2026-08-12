@@ -303,11 +303,9 @@ function getInstructionsLengthBucket( content: string ): TracksInstructionsLengt
 export async function saveGlobalAgentInstructions(
 	_event: IpcMainInvokeEvent,
 	content: string,
-	// Set when this save ends an edit session, to record the change. `previousContent` is the value
-	// the session started from, which only the renderer knows: the agentic UI autosaves on a debounce,
-	// so by the time the user leaves the tab the file already holds the new text and Main has nothing
-	// to compare against. Classic saves on an explicit button press and passes the last saved value.
-	// Omitting the option saves without recording anything, which is what the debounced writes do.
+	// Set when this save ends an edit session, to record the change. Only the renderer knows the value
+	// it started from: the agentic UI autosaves on a debounce, so by the time the user leaves the tab
+	// the file already matches. Omitted by intermediate autosaves, which write without recording.
 	options: { editSession?: { previousContent: string } } = {}
 ): Promise< void > {
 	await writeGlobalInstructions( content );

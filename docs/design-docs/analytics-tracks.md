@@ -149,22 +149,15 @@ where the sender actually runs — see Testing below for what fires in which bui
   (`createAiSession`). `createOrReuseAiSession` reuses an existing empty draft instead of piling up
   orphans, and returns a `created` flag so a reuse isn't counted as a creation.
 
-> **`studio ui` (the browser UI served by `apps/local`) emits nothing.** That server has no Tracks
-> wrapper of its own — no opt-out gating, install id, or common props — so this is one gap with three
-> visible symptoms, not three separate ones:
+> **`studio ui` (the browser UI served by `apps/local`) has no Tracks wrapper of its own**, so one gap
+> shows up three ways. Note the UI still works — only the analytics is missing. See
+> [STU-2247](https://linear.app/a8c/issue/STU-2247).
 >
-> | What | Effect under `studio ui` |
+> | Event | Under `studio ui` |
 > |---|---|
-> | `studio_code_message_sent` / `_turn_completed` | Emitted (the CLI fork does it) but **mis-bucketed** as `channel=studio-cli`, so that bucket mixes standalone-CLI and browser usage |
-> | `studio_code_session_created` | **Not emitted** — sessions are created in-process, and only Main records it |
-> | `studio_setting_instructions_change` | **Not emitted** — the local connector drops the `editSession` option and the HTTP route has no emitter |
->
-> The instructions case is the easiest to misread: `capabilities.agentInstructions` is `true` on the
-> local connector, so the settings panel mounts and runs the whole edit-session flow, and the option is
-> discarded at the connector boundary. TypeScript does not catch it — a narrower implementation is
-> assignable to the wider interface — and the panel's unit tests exercise the renderer only, so they
-> pass regardless. Instructions still **save** correctly in every case above; only the analytics is
-> missing. Tracked in [STU-2247](https://linear.app/a8c/issue/STU-2247).
+> | `studio_code_message_sent` / `_turn_completed` | Emitted by the CLI fork, but **mis-bucketed** as `channel=studio-cli` |
+> | `studio_code_session_created` | **Not emitted** — created in-process, and only Main records it |
+> | `studio_setting_instructions_change` | **Not emitted** — the local connector drops the `editSession` option |
 - **Renderer-originated events** go through the `recordAnalyticsEvent` IPC handler
   (`apps/studio/src/ipc-handlers.ts`). Both renderers share the same Main single entry point, and the
   desktop wrapper's `commonProps()` attaches `channel`/`ui_version` centrally — the `ui_version` is
@@ -210,17 +203,8 @@ not drift.
 | `ability_name` | Predefined skill invoked | `annotate`/`taxonomist`/`need-for-speed`/`rank-me-up`/`liberate`; absent for an ordinary message |
 | `outcome` | How a turn ended | `success`/`error`/`interrupted`/`max_turns` (mirrors the session log's `TurnStatus`) |
 
-Two props from the data team's vocabulary are deliberately **not sent**:
-
-- **`is_test`** — dev, E2E and CI runs are suppressed at the source (the gates in
-  `__recordTracksEvent` and both app wrappers), so the prop could only ever be `false`. An
-  always-false column is noise and would falsely imply test traffic is being tagged rather than
-  dropped. Still registered, so the slot exists if the gates are ever relaxed.
-- **`agent_version`** — the pi runtime is pinned to an exact version per Studio release, so the
-  `app_version` common prop already determines it. Sending it would be a redundant column that has to
-  be kept in sync by hand: pi's own exported `VERSION` cannot be read from `packages/common`, since pi
-  is a devDependency there and the module exporting it probes the filesystem and shells out to the
-  package manager at import time.
+`is_test` and `agent_version` are not sent: test runs are suppressed at the source rather than
+tagged, and pi is pinned per Studio release so `app_version` already determines it.
 
 **Privacy.** These events never carry prompts, replies, raw error text (`errorMessage` can embed
 filesystem paths and site names), site names or paths, or the instructions content. `ability_name` is

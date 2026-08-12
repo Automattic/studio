@@ -31,10 +31,8 @@ vi.mock( '@/data/queries/use-agent-instructions', () => ( {
 const useAgentInstructionsMock = vi.mocked( useAgentInstructions );
 const useSaveAgentInstructionsMock = vi.mocked( useSaveAgentInstructions );
 
-// These cover the renderer only. The panel reports the edit-session boundary the same way under both
-// connectors, but the IPC connector forwards `editSession` to Main (which records
-// `studio_setting_instructions_change`) while the `apps/local` connector drops it — that server has no
-// Tracks emitter. Passing tests here are not evidence the event fires under `studio ui`. See STU-2247.
+// Renderer only. The `apps/local` connector drops `editSession`, so these passing is not evidence the
+// Tracks event fires under `studio ui`. See STU-2247.
 describe( 'StudioCodePanel', () => {
 	const save = vi.fn();
 

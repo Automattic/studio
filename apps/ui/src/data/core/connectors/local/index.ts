@@ -745,12 +745,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			const { content } = await api< { content: string } >( '/agent-instructions' );
 			return content;
 		},
-		// The `editSession` option the settings panel passes on the save that ends an edit session is
-		// deliberately not forwarded: it exists only to record
-		// `studio_setting_instructions_change`, and this server has no Tracks emitter (no opt-out
-		// gating, install id, or common props), so there is nothing to record it with. Instructions
-		// still save normally — only the analytics event is missing. Same gap as the agent events —
-		// see STU-2247.
+		// Drops the panel's `editSession` option: it only drives a Tracks event, and this server has
+		// no emitter. Instructions still save. See STU-2247.
 		async saveAgentInstructions( content: string ): Promise< void > {
 			await api< void >( '/agent-instructions', {
 				method: 'POST',

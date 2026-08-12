@@ -1360,7 +1360,7 @@ describe( 'CLI: studio pull-reprint first-pull selective sync', () => {
 		return mod;
 	}
 
-	it( 'accepts --only/--skip-database on a first pull, adds core roots, and preserves unselected local content', async () => {
+	it( 'accepts --only/--skip-database on a first pull, adds core roots, and asks Reprint to adopt local content', async () => {
 		const { runCommand } = await loadRunCommandWithFakeHome();
 		mockWpComPullSource();
 
@@ -1428,19 +1428,10 @@ describe( 'CLI: studio pull-reprint first-pull selective sync', () => {
 					return { stdout: '{"ok":true}', stderr: '', exitCode: 0 };
 				}
 				if ( args[ 0 ] === 'flat-docroot' ) {
-					// Preservation runs before flattening: the unselected local
-					// plugin and the kept database are in the fs-root by now.
-					const rawContent = path.join( rawDirectory, 'srv', 'htdocs', 'wp-content' );
-					expect(
-						fs.readFileSync(
-							path.join( rawContent, 'plugins', 'local-plugin', 'plugin.php' ),
-							'utf-8'
-						)
-					).toBe( '<?php // local' );
-					expect(
-						fs.readFileSync( path.join( rawContent, 'database', '.ht.sqlite' ), 'utf-8' )
-					).toBe( 'local-db' );
-					throw new Error( 'stop after flat-docroot preservation checks' );
+					// Keeping the unselected local plugin and the kept database is
+					// Reprint's job now, through the adopt mode this asks for.
+					expect( args ).toContain( '--on-flatten-to-conflict=adopt' );
+					throw new Error( 'stop after flat-docroot' );
 				}
 				throw new Error( `Unexpected reprint command: ${ args[ 0 ] }` );
 			} );
@@ -1452,7 +1443,7 @@ describe( 'CLI: studio pull-reprint first-pull selective sync', () => {
 				only: [ 'themes', 'plugins/jetpack' ],
 				skipDatabase: true,
 			} )
-		).rejects.toThrow( /stop after flat-docroot preservation checks/ );
+		).rejects.toThrow( /stop after flat-docroot/ );
 
 		// No pull-db: the database was skipped. CLI selections do not need a
 		// remote tree lookup.

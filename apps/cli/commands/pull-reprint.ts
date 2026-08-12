@@ -39,7 +39,6 @@ import {
 	type ReprintProcessResult,
 	runReprintCommandUntilComplete,
 } from 'cli/lib/pull/migration-client';
-import { preserveUnselectedLocalContent } from 'cli/lib/pull/preserve-local-content';
 import {
 	getCoreRoots,
 	getReprintMetadata,
@@ -49,7 +48,6 @@ import {
 import {
 	fetchJetpackPullTree,
 	mapCliOnlyToReprint,
-	resolveOnlyPathsToAbsolute,
 	selectPullItems,
 } from 'cli/lib/pull/reprint-selector';
 import {
@@ -578,9 +576,9 @@ export async function runCommand(
  * export roots, and on a **first pull** the raw fs-root has no WordPress
  * core yet — so any partial first-pull selection gets the
  * preflight-detected core roots prepended. The unselected wp-content
- * folders (and a skipped database) keep their local contents: they are
- * carried into the fs-root before flattening (see
- * preserve-local-content.ts).
+ * folders (and a skipped database) keep their local contents: the
+ * flatten step adopts whatever the pull did not bring into the fs-root
+ * before it replaces the site's wp-content with a symlink.
  */
 async function applySelection( params: {
 	session: PullSession;
@@ -901,40 +899,22 @@ export function ensureScopedPullWpConfig(
  * Run the site-clone pipeline as separate reprint commands so the
  * selective-sync choice maps directly onto them:
  *
- *   1. `pull-files`    — preflight + file download. `--only` restricts the
- *      pull to the wp-content folders the user selected.
- *   2. `pull-db`       — SQL download + import into SQLite. **Skipped
- *      entirely** when the user excluded the database, leaving the local
- *      database untouched.
+ *   1. `pull-files`    — file download, restricted by `--only`.
+ *   2. `pull-db`       — SQL download and import. Skipped entirely when
+ *      the user excluded the database, leaving the local one untouched.
  *   3. `flat-docroot`  — reassemble the fs-root into the site directory.
- *      `--on-flatten-to-conflict=adopt` is passed only on the first pull,
- *      where the blank WordPress install `studio create` produced stands
- *      where the symlinks must go. adopt replaces it, but first moves the
- *      wp-content entries that only the site directory has into the
- *      fs-root, so a plugin or theme of the user's own survives and stays
- *      where a later push can still read it. A plugin or theme the pull
- *      also carries is left to the pull, so two versions never merge.
- *      A delta re-pull passes nothing: it refreshes existing symlinks and
- *      must not overwrite the live site.
- *   4. `apply-runtime` — server config, run last so it embeds the DB
- *      credentials `pull-db` wrote to state (or keeps the previous ones
- *      when the database was skipped).
+ *      `--on-flatten-to-conflict=adopt` only on a first pull, to replace
+ *      the blank install while keeping the wp-content entries it alone
+ *      has. A delta re-pull passes no mode, so it can never overwrite a
+ *      live site.
+ *   4. `apply-runtime` — server config, last so it embeds the database
+ *      credentials `pull-db` wrote to state.
  *
- * The SQLite target geometry:
- *   - If preflight exposed the remote `wp-content` (contentDir set),
- *     the database lands under `rawDirectory + contentDir`, an
- *     already-mounted host path that flat-docroot later symlinks into
- *     the flattened site.
- *   - Without that preflight path, a database pull uses
- *     `rawDirectory/wp-content`; a database-excluded pull keeps the
- *     existing database at `sitePath/wp-content`.
- *
- * The flattened site and runtime output directories are mounted up
- * front so the forks can write them onto the host filesystem. Each
- * command is individually resumable (exit code 2 → retry loop in
- * {@link runReprintCommandUntilComplete}) and idempotent, so the
- * orchestrator always re-invokes the sequence with no Studio-side
- * completion guard.
+ * The site and runtime output directories are mounted up front so the
+ * forks can write them onto the host filesystem. Every command is
+ * resumable (exit code 2 → retry loop in
+ * {@link runReprintCommandUntilComplete}) and idempotent, so this always
+ * re-invokes the whole sequence with no Studio-side completion guard.
  */
 export async function runFullPull(
 	runtime: SiteRuntime,
@@ -1020,19 +1000,6 @@ export async function runFullPull(
 		] );
 	}
 
-	// 3. Carry the unselected local wp-content entries (and a kept
-	// database) into the fs-root before flattening replaces the site's
-	// wp-content with a symlink into it. No-op once the site is flattened.
-	if ( contentDir ) {
-		preserveUnselectedLocalContent( {
-			sitePath: metadata.sitePath,
-			rawDirectory: metadata.rawDirectory,
-			contentDir,
-			selectedPrefixes: resolveOnlyPathsToAbsolute( selection.fileOnlyPaths ?? [], contentDir ),
-			skipDatabase: selection.skipDatabase,
-		} );
-	}
-
 	// A scoped pull can miss the real wp-config.php: on WP Cloud it lives
 	// at the document root — outside both the core roots and any
 	// wp-content selection — reachable only through a symlink under the
@@ -1041,7 +1008,7 @@ export async function runFullPull(
 		ensureScopedPullWpConfig( metadata, reprintMetadata );
 	}
 
-	// 4. Flatten the raw download into the site directory. Reprint uses the
+	// 3. Flatten the raw download into the site directory. Reprint uses the
 	// remote URL to locate the pull state, though this step makes no request.
 	await runStep( __( 'Flattening layout' ), [
 		'flat-docroot',
@@ -1052,7 +1019,7 @@ export async function runFullPull(
 		`--fs-root=${ metadata.rawDirectory }`,
 	] );
 
-	// 5. Runtime config — last. Supply the database target explicitly so
+	// 4. Runtime config — last. Supply the database target explicitly so
 	// Reprint can generate runtime configuration when pull-db was skipped.
 	// Reprint uses the remote URL to locate that state; --flat-document-root
 	// replaces --fs-root (they are mutually exclusive).

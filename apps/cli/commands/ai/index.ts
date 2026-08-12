@@ -52,7 +52,12 @@ import { findSiteByFolder, findSiteById } from 'cli/lib/cli-config/sites';
 import { disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { isSiteRunning } from 'cli/lib/site-utils';
 import { maybeShowTosNotice } from 'cli/lib/tos-notice';
-import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
+import {
+	getTracksOrigin,
+	recordTracksEvent,
+	TRACKS_EVENTS,
+	type TracksEventName,
+} from 'cli/lib/tracks';
 import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 import type { SessionManager } from '@earendil-works/pi-coding-agent';
@@ -61,6 +66,7 @@ import type {
 	StudioCustomEntryType,
 } from '@studio/common/ai/sessions/entry-types';
 import type { LoadedAiSession, TurnStatus } from '@studio/common/ai/sessions/types';
+import type { TracksProps } from '@studio/common/lib/record-tracks-event';
 import type { AskUserQuestion } from 'cli/ai/types';
 
 const logger = new Logger< string >();
@@ -74,6 +80,21 @@ function appendStudioEntry< T extends StudioCustomEntryType >(
 	data: StudioCustomEntryDataMap[ T ]
 ): string {
 	return sm.appendCustomEntry( customType, data );
+}
+
+// Awaited rather than fire-and-forget so JSON mode, which exits right after a turn, doesn't drop the
+// event — the wrapper does async work before the request is even issued. Errors are swallowed: one
+// call sits on the turn's critical path and the other in a `finally`, where a rejection would mask
+// the turn's own error.
+async function recordChatTracksEvent(
+	event: TracksEventName,
+	props: TracksProps
+): Promise< void > {
+	try {
+		await recordTracksEvent( event, props );
+	} catch {
+		// A lost analytics event must never break the chat.
+	}
 }
 
 function isPromptAbortError( error: unknown ): boolean {
@@ -548,7 +569,7 @@ export async function runCommand( options: {
 			model_family: getAiModelFamily( currentModel ),
 		};
 		const turnStartedAt = Date.now();
-		void recordTracksEvent( TRACKS_EVENTS.CODE_MESSAGE_SENT, {
+		await recordChatTracksEvent( TRACKS_EVENTS.CODE_MESSAGE_SENT, {
 			...tracksProps,
 			// Raw prompt, before site context is prepended. Only ever a catalog name.
 			ability_name: resolveSkillFromPrompt( prompt ),
@@ -626,7 +647,7 @@ export async function runCommand( options: {
 				} )
 			);
 			// No `errorMessage`: raw error text can embed paths and site names.
-			void recordTracksEvent( TRACKS_EVENTS.CODE_TURN_COMPLETED, {
+			await recordChatTracksEvent( TRACKS_EVENTS.CODE_TURN_COMPLETED, {
 				...tracksProps,
 				outcome: turnState.status,
 				duration_ms: Date.now() - turnStartedAt,

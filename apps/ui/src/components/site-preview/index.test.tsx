@@ -7,6 +7,7 @@ import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import {
 	getBrowserShortcutCommand,
+	isOffOriginRedirect,
 	getPathFromPreviewUrl,
 	getSimulatedViewport,
 	SitePreview,
@@ -224,10 +225,15 @@ describe( 'SitePreview', () => {
 		fireEvent.keyDown( document.body, { key: 'r', ctrlKey: true } );
 		expect( container.querySelector( 'iframe' ) ).not.toBe( initialIframe );
 
-		// Extra modifiers must not trigger the shortcut.
+		// Shift is the hard-reload chord, which reloads the fallback iframe too.
 		const reloadedIframe = container.querySelector( 'iframe' );
 		fireEvent.keyDown( document.body, { key: 'r', ctrlKey: true, shiftKey: true } );
-		expect( container.querySelector( 'iframe' ) ).toBe( reloadedIframe );
+		expect( container.querySelector( 'iframe' ) ).not.toBe( reloadedIframe );
+
+		// Extra modifiers must not trigger either shortcut.
+		const hardReloadedIframe = container.querySelector( 'iframe' );
+		fireEvent.keyDown( document.body, { key: 'r', ctrlKey: true, altKey: true } );
+		expect( container.querySelector( 'iframe' ) ).toBe( hardReloadedIframe );
 	} );
 
 	it( 'switches realms on primary-modifier number shortcuts', () => {
@@ -642,6 +648,10 @@ describe( 'getBrowserShortcutCommand', () => {
 		expect( getBrowserShortcutCommand( makeEvent( { key: 'r', ctrlKey: true } ) ) ).toBe(
 			'reload'
 		);
+		// Cmd+Shift+R reports an uppercase key; the chord must still match.
+		expect(
+			getBrowserShortcutCommand( makeEvent( { key: 'R', ctrlKey: true, shiftKey: true } ) )
+		).toBe( 'hard-reload' );
 		expect( getBrowserShortcutCommand( makeEvent( { key: '[', ctrlKey: true } ) ) ).toBe( 'back' );
 		expect( getBrowserShortcutCommand( makeEvent( { key: ']', ctrlKey: true } ) ) ).toBe(
 			'forward'
@@ -673,6 +683,32 @@ describe( 'getBrowserShortcutCommand', () => {
 				} )
 			)
 		).toBe( null );
+	} );
+} );
+
+describe( 'isOffOriginRedirect', () => {
+	it( 'flags a load that settled on another port', () => {
+		expect( isOffOriginRedirect( 'http://localhost:8931/', 'http://localhost:8932/' ) ).toBe(
+			true
+		);
+	} );
+
+	it( 'allows same-origin paths, including the auto-login hop', () => {
+		expect(
+			isOffOriginRedirect( 'http://localhost:8932/wp-admin/', 'http://localhost:8932/' )
+		).toBe( false );
+		expect(
+			isOffOriginRedirect(
+				'http://localhost:8932/studio-auto-login?redirect_to=%2Fwp-admin%2F',
+				'http://localhost:8932/'
+			)
+		).toBe( false );
+	} );
+
+	it( 'stays quiet on unparseable urls rather than triggering recovery', () => {
+		expect( isOffOriginRedirect( 'about:blank', 'http://localhost:8932/' ) ).toBe( true );
+		expect( isOffOriginRedirect( '', 'http://localhost:8932/' ) ).toBe( false );
+		expect( isOffOriginRedirect( 'http://localhost:8932/', '' ) ).toBe( false );
 	} );
 } );
 

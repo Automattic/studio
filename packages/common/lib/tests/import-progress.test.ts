@@ -31,10 +31,25 @@ describe( 'getImportStatusMessage', () => {
 		).toBe( '50% · Media uploads…' );
 	} );
 
-	// The toast clamps the title to one line, so overflow ellipsizes rather than
-	// wrapping. This keeps English clear of that clamp altogether: the sidebar is
-	// 240px at its narrowest, leaving ~166px of text — about 30 characters at
-	// 13px. Translations can still overflow, which is what the clamp is for.
+	// The toast rewrites this message in place as the import runs. Padding single
+	// digits keeps its width steady so it doesn't reflow on every tick.
+	it( 'pads the percentage to two digits', () => {
+		const at = ( done: number, total: number ) =>
+			getImportStatusMessage( [
+				BackupExtractEvents.BACKUP_EXTRACT_PROGRESS,
+				{ processedFiles: done, totalFiles: total },
+			] );
+
+		expect( at( 0, 100 ) ).toBe( '00% · Extracting…' );
+		expect( at( 5, 100 ) ).toBe( '05% · Extracting…' );
+		expect( at( 9, 100 ) ).toBe( '09% · Extracting…' );
+		expect( at( 10, 100 ) ).toBe( '10% · Extracting…' );
+		expect( at( 100, 100 ) ).toBe( '100% · Extracting…' );
+	} );
+
+	// The sidebar is 240px at its narrowest, leaving ~166px of text — about 30
+	// characters at 13px. English stays on one line; a longer translation may
+	// wrap to a second, which is fine as long as the width doesn't jitter.
 	it( 'keeps every status message short enough for one line in the toast', () => {
 		const progress = { processedFiles: 1, totalFiles: 3 };
 		const events: ImportEventTuple[] = [

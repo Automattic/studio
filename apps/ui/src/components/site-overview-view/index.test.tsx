@@ -796,18 +796,10 @@ describe( 'SiteOverviewView', () => {
 			] as ImportEventTuple );
 		}
 
-		const progressCalls = info.mock.calls.filter( ( [ title ] ) =>
-			title.endsWith( '· Extracting…' )
-		);
-		expect( progressCalls.map( ( [ title ] ) => title ) ).toEqual( [
-			'10% · Extracting…',
-			'20% · Extracting…',
-		] );
-		// Clamped to one line so a longer translation ellipsizes instead of
-		// growing the toast while the percentage ticks.
-		for ( const [ , options ] of progressCalls ) {
-			expect( options?.singleLine ).toBe( true );
-		}
+		const titles = info.mock.calls
+			.map( ( [ title ] ) => title )
+			.filter( ( title ) => title.endsWith( '· Extracting…' ) );
+		expect( titles ).toEqual( [ '10% · Extracting…', '20% · Extracting…' ] );
 	} );
 
 	it( 'shows a sign-in banner with a login action when signed out', () => {

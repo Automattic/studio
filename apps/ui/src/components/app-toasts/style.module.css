@@ -72,14 +72,6 @@
 	line-height: 16px;
 }
 
-/* Status text that ticks in place: a longer translation ellipsizes rather than
-   growing the toast to two or three lines mid-import. */
-.singleLine [class*='heading'] {
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-}
-
 .notice [class*='__description'] {
 	font-size: var(--wpds-typography-font-size-xs);
 	line-height: 16px;

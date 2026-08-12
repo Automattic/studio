@@ -57,7 +57,7 @@ export function AppToasts( {
 								<Notice.Root
 									key={ `${ item.intent }:${ !! item.description }:${ !! item.action }` }
 									intent={ item.intent }
-									className={ clsx( styles.notice, item.singleLine && styles.singleLine ) }
+									className={ styles.notice }
 								>
 									<Notice.Title>{ item.title }</Notice.Title>
 									{ item.description ? (

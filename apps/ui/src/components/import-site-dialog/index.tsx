@@ -98,11 +98,7 @@ export function useSiteBackupImport( site: SiteDetails ) {
 					const message = getImportStatusMessage( event );
 					if ( message && message !== lastMessage ) {
 						lastMessage = message;
-						toast.info( message, {
-							id: toastId,
-							durationMs: PROGRESS_TOAST_TTL_MS,
-							singleLine: true,
-						} );
+						toast.info( message, { id: toastId, durationMs: PROGRESS_TOAST_TTL_MS } );
 					}
 				},
 			} );

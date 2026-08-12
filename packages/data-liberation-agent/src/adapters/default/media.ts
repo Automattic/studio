@@ -11,6 +11,12 @@ function absolutize(src: string | undefined, baseUrl: string): string | null {
   }
 }
 
+function imageUrl(src: string | undefined, baseUrl: string): string | null {
+	const url = absolutize(src, baseUrl);
+	if (!url) return null;
+	return /\.(?:avif|gif|jpe?g|png|svg|webp)$/i.test(new URL(url).pathname) ? url : null;
+}
+
 /** Pull the URL out of each `srcset` candidate (URL + optional descriptor). */
 function srcsetUrls(srcset: string): string[] {
   return srcset
@@ -41,7 +47,8 @@ export function extractMediaUrls(html: string, baseUrl: string): string[] {
 	});
 	$('[style]').each((_, el) => {
 		for (const match of ($(el).attr('style') || '').matchAll(/url\(\s*(['"]?)([^'")]+)\1\s*\)/gi)) {
-			add(match[2]);
+			const url = imageUrl(match[2], baseUrl);
+			if (url) urls.add(url);
 		}
 	});
 	add($('meta[property="og:image"]').attr('content'));

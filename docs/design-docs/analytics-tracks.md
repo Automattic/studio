@@ -143,16 +143,15 @@ where the sender actually runs — see Testing below for what fires in which bui
   provider, model, resolved session id and turn outcome together. The desktop passes its origin to
   the fork via `STUDIO_TRACKS_ORIGIN` (the run-manager's injected `getTracksOrigin`, resolved per run
   because the user can switch renderer mid-session), exactly as for `studio_site_start`. `studio ui`
-  supplies no origin — see the note below.
+  supplies no origin — see below.
 - **`studio_code_session_created`** is the exception to the above: sessions are created *in-process*
   via `createOrReuseAiSession` rather than by forking the CLI, so it fires from desktop Main
   (`createAiSession`). `createOrReuseAiSession` reuses an existing empty draft instead of piling up
   orphans, and returns a `created` flag so a reuse isn't counted as a creation.
-
-> **`studio ui` (the browser UI served by `apps/local`) has no Tracks wrapper of its own**, so it
-> records nothing itself: only the chat events reach Tracks, via the CLI fork, and they land in
-> `channel=studio-cli` — that bucket therefore mixes standalone-CLI and browser usage. Everything
-> still works; only the analytics is missing. See [STU-2247](https://linear.app/a8c/issue/STU-2247).
+- **`studio ui`** (the browser UI served by `apps/local`) has no Tracks wrapper of its own, so it
+  records nothing itself: only the chat events reach Tracks, via the CLI fork, and they land in
+  `channel=studio-cli` — that bucket therefore mixes standalone-CLI and browser usage. Everything
+  still works; only the analytics is missing. See [STU-2247](https://linear.app/a8c/issue/STU-2247).
 - **Renderer-originated events** go through the `recordAnalyticsEvent` IPC handler
   (`apps/studio/src/ipc-handlers.ts`). Both renderers share the same Main single entry point, and the
   desktop wrapper's `commonProps()` attaches `channel`/`ui_version` centrally — the `ui_version` is

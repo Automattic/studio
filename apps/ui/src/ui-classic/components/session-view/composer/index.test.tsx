@@ -1,5 +1,5 @@
 import { DEFAULT_MODEL } from '@studio/common/ai/models';
-import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
+import { getAiSkillCommands } from '@studio/common/ai/slash-commands';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
 	act,
@@ -145,7 +145,7 @@ describe( 'Composer menu', () => {
 		fireEvent.keyDown( skillsItem, { key: 'ArrowRight' } );
 
 		await waitFor( () => {
-			expect( screen.getByText( AI_SKILL_COMMANDS[ 0 ].description ) ).toBeInTheDocument();
+			expect( screen.getByText( getAiSkillCommands()[ 0 ].description ) ).toBeInTheDocument();
 		} );
 	} );
 

@@ -39,8 +39,8 @@ const api: IpcApi = {
 			optionsToSync,
 			specificSelectionPaths
 		),
-	pushSiteToLive: ( selectedSiteId, remoteSiteId ) =>
-		ipcRendererInvoke( 'pushSiteToLive', selectedSiteId, remoteSiteId ),
+	pushSiteToLive: ( selectedSiteId, remoteSiteId, options ) =>
+		ipcRendererInvoke( 'pushSiteToLive', selectedSiteId, remoteSiteId, options ),
 	deleteSite: ( id, deleteFiles ) => ipcRendererInvoke( 'deleteSite', id, deleteFiles ),
 	copySite: ( sourceSiteId, newSiteId, siteName ) =>
 		ipcRendererInvoke( 'copySite', sourceSiteId, newSiteId, siteName ),
@@ -98,6 +98,7 @@ const api: IpcApi = {
 	getAppUpdateStatus: () => ipcRendererInvoke( 'getAppUpdateStatus' ),
 	installAppUpdate: () => ipcRendererInvoke( 'installAppUpdate' ),
 	getWpVersion: ( id ) => ipcRendererInvoke( 'getWpVersion', id ),
+	getSiteStorageUsage: ( id ) => ipcRendererInvoke( 'getSiteStorageUsage', id ),
 	getIsMultisite: ( id ) => ipcRendererInvoke( 'getIsMultisite', id ),
 	fetchSiteRestApi: ( siteId, request ) => ipcRendererInvoke( 'fetchSiteRestApi', siteId, request ),
 	generateProposedSitePath: ( siteName ) =>
@@ -151,8 +152,13 @@ const api: IpcApi = {
 	getConnectedWpcomSites: ( localSiteId ) =>
 		ipcRendererInvoke( 'getConnectedWpcomSites', localSiteId ),
 	fetchSyncableWpcomSites: () => ipcRendererInvoke( 'fetchSyncableWpcomSites' ),
-	pullSiteFromLive: ( siteId, remoteSiteId ) =>
-		ipcRendererInvoke( 'pullSiteFromLive', siteId, remoteSiteId ),
+	getHostingPhpVersion: ( remoteSiteId ) =>
+		ipcRendererInvoke( 'getHostingPhpVersion', remoteSiteId ),
+	getLatestRewindId: ( remoteSiteId ) => ipcRendererInvoke( 'getLatestRewindId', remoteSiteId ),
+	listRemoteFileTree: ( remoteSiteId, rewindId, treePath ) =>
+		ipcRendererInvoke( 'listRemoteFileTree', remoteSiteId, rewindId, treePath ),
+	pullSiteFromLive: ( siteId, remoteSiteId, options ) =>
+		ipcRendererInvoke( 'pullSiteFromLive', siteId, remoteSiteId, options ),
 	addSyncOperation: ( id, status ) => ipcRendererSend( 'addSyncOperation', id, status ),
 	clearSyncOperation: ( id ) => ipcRendererSend( 'clearSyncOperation', id ),
 	cancelSyncOperation: ( id ) => ipcRendererSend( 'cancelSyncOperation', id ),
@@ -188,6 +194,8 @@ const api: IpcApi = {
 	getAgenticFeaturesEnabled: () => ipcRendererInvoke( 'getAgenticFeaturesEnabled' ),
 	saveWapuuScore: ( score ) => ipcRendererInvoke( 'saveWapuuScore', score ),
 	getWapuuScore: () => ipcRendererInvoke( 'getWapuuScore' ),
+	getOnboardingHints: () => ipcRendererInvoke( 'getOnboardingHints' ),
+	saveOnboardingHints: ( partial ) => ipcRendererInvoke( 'saveOnboardingHints', partial ),
 	getUserEditor: () => ipcRendererInvoke( 'getUserEditor' ),
 	saveUserEditor: ( editor ) => ipcRendererInvoke( 'saveUserEditor', editor ),
 	comparePaths: ( path1, path2 ) => ipcRendererInvoke( 'comparePaths', path1, path2 ),
@@ -199,6 +207,7 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'extractBlueprintBundle', zipFilePath ),
 	cleanupBlueprintTempDir: ( tempDir ) => ipcRendererInvoke( 'cleanupBlueprintTempDir', tempDir ),
 	showSiteContextMenu: ( context ) => ipcRendererSend( 'showSiteContextMenu', context ),
+	showTextContextMenu: ( context ) => ipcRendererInvoke( 'showTextContextMenu', context ),
 	setWindowControlVisibility: ( visible ) =>
 		ipcRendererInvoke( 'setWindowControlVisibility', visible ),
 	setTitleBarBackdropEffect: ( enabled ) =>

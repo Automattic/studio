@@ -42,6 +42,16 @@
 	background: var(--wpds-color-bg-surface-neutral);
 }
 
+.itemDestructive {
+	color: var(--wpds-color-fg-interactive-error);
+}
+
+.itemDestructive[data-highlighted],
+.itemDestructive:hover {
+	background: var(--wpds-color-bg-interactive-error-active);
+	color: var(--wpds-color-fg-interactive-error-active);
+}
+
 .item[data-disabled] {
 	color: var(--wpds-color-fg-interactive-neutral-disabled);
 	cursor: not-allowed;

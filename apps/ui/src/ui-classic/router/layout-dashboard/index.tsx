@@ -9,6 +9,10 @@ import {
 import { SidebarLayout } from '@/components/sidebar-layout';
 import { SitePreview } from '@/components/site-preview';
 import { useConnector } from '@/data/core';
+import { useOrientationAutostart } from '@/data/onboarding/use-orientation-autostart';
+import { useOrientationReplay } from '@/data/onboarding/use-orientation-replay';
+import { useWhatsNewAutostart } from '@/data/onboarding/use-whats-new-autostart';
+import { useWhatsNewReplay } from '@/data/onboarding/use-whats-new-replay';
 import { useSession, useSessionEffectiveEnvironment } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
 import {
@@ -18,7 +22,13 @@ import {
 	useSessionPreviewUI,
 } from '@/hooks/use-session-ui';
 import { writeLastVisited } from '@/lib/last-visited';
-import { getViewportWidth, PREVIEW_SPLIT_MIN_WIDTH } from '@/lib/resizable-panels';
+import {
+	getAvailableWindowWidth,
+	getPreviewOpenPlan,
+	getSidebarOpenPlan,
+	getViewportWidth,
+	SIDEBAR_AUTO_COLLAPSE_BREAKPOINT,
+} from '@/lib/resizable-panels';
 import { rootRoute } from '../layout-root';
 
 // Session detail routes and the site overview host the preview; on every
@@ -53,6 +63,9 @@ function DashboardLayout() {
 // last previewed site loaded behind a closed panel.
 function DashboardLayoutContent() {
 	const connector = useConnector();
+	const [ sidebarCollapsed, setSidebarCollapsed ] = useState(
+		() => getViewportWidth() < SIDEBAR_AUTO_COLLAPSE_BREAKPOINT
+	);
 	const routePreviewContext = useRouterState( {
 		select: ( state ) => ( {
 			sessionId: getRouteSessionId( state.location.pathname ),
@@ -63,6 +76,13 @@ function DashboardLayoutContent() {
 	const { sessionId, overviewSiteId, newSessionSiteId } = routePreviewContext;
 	const { data: sites } = useSites();
 	const { data: sessionData } = useSession( sessionId );
+	// Open the orientation guide on first workbench arrival, and let Help ▸
+	// Getting Started replay it.
+	useOrientationAutostart();
+	useOrientationReplay();
+	// Same, for the per-release announcements behind Help ▸ What's New.
+	useWhatsNewAutostart();
+	useWhatsNewReplay();
 	const preview = useSessionPreviewUI();
 	const onAnnotationsDone = useSessionPreviewAnnotationsHandler();
 	const sessionSite = findAiSessionOwnerSite( sites, sessionData?.summary );
@@ -125,14 +145,31 @@ function DashboardLayoutContent() {
 	const handleNarrowPreview = useCallback(
 		( containerWidth: number, reason: PreviewSplitTooNarrowReason ) => {
 			if ( reason === 'opened' ) {
-				void connector.ensureWindowWidth(
-					getViewportWidth() + PREVIEW_SPLIT_MIN_WIDTH - containerWidth
+				const plan = getPreviewOpenPlan(
+					getViewportWidth(),
+					containerWidth,
+					sidebarCollapsed,
+					getAvailableWindowWidth()
 				);
+				if ( plan.closeOtherPanel ) {
+					setSidebarCollapsed( true );
+				}
+				void connector.ensureWindowWidth( plan.minimumWindowWidth );
 				return;
 			}
 			setPreviewOpen( false );
 		},
-		[ connector, setPreviewOpen ]
+		[ connector, setPreviewOpen, sidebarCollapsed ]
+	);
+	const sidebarOpenPlan = getSidebarOpenPlan( showPreview, getAvailableWindowWidth() );
+	const handleSidebarCollapsedChange = useCallback(
+		( nextCollapsed: boolean ) => {
+			if ( ! nextCollapsed && sidebarOpenPlan.closeOtherPanel ) {
+				setPreviewOpen( false );
+			}
+			setSidebarCollapsed( nextCollapsed );
+		},
+		[ setPreviewOpen, sidebarOpenPlan.closeOtherPanel ]
 	);
 	// Leave full preview when the route stops supporting a preview (settings,
 	// site settings…) so the user is never left staring at a hidden layout.
@@ -173,6 +210,9 @@ function DashboardLayoutContent() {
 
 	return (
 		<SidebarLayout
+			collapsed={ sidebarCollapsed }
+			onCollapsedChange={ handleSidebarCollapsedChange }
+			minimumExpandedWidth={ sidebarOpenPlan.minimumWindowWidth }
 			forceCollapsed={ previewFullscreen }
 			onForceCollapsedToggle={ exitPreviewFullscreen }
 		>

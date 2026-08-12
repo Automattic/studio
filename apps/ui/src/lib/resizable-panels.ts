@@ -20,6 +20,44 @@ export const SIDEBAR_PANEL_CONFIG: ResizablePanelConfig = {
 // Below this width, keeping the sidebar open would leave less than the
 // agentic window's compact 420px chat surface.
 export const SIDEBAR_AUTO_COLLAPSE_BREAKPOINT = SIDEBAR_PANEL_CONFIG.minWidth + 420;
+// Keep in sync with --panel-frame-gap in preview-split-frame/style.module.css.
+const PREVIEW_FRAME_END_GAP = 12;
+export const ALL_PANELS_MIN_WIDTH =
+	SIDEBAR_PANEL_CONFIG.minWidth + PREVIEW_SPLIT_MIN_WIDTH + PREVIEW_FRAME_END_GAP;
+
+export interface PanelOpenPlan {
+	minimumWindowWidth: number;
+	closeOtherPanel: boolean;
+}
+
+export function getPreviewOpenPlan(
+	viewportWidth: number,
+	previewContainerWidth: number,
+	sidebarCollapsed: boolean,
+	availableWindowWidth: number
+): PanelOpenPlan {
+	const requiredWidth = viewportWidth + PREVIEW_SPLIT_MIN_WIDTH - previewContainerWidth;
+	const shouldCollapseSidebar = ! sidebarCollapsed && requiredWidth > availableWindowWidth;
+
+	return {
+		minimumWindowWidth: shouldCollapseSidebar
+			? Math.max( viewportWidth, PREVIEW_SPLIT_MIN_WIDTH )
+			: Math.max( viewportWidth, requiredWidth ),
+		closeOtherPanel: shouldCollapseSidebar,
+	};
+}
+
+export function getSidebarOpenPlan(
+	previewOpen: boolean,
+	availableWindowWidth: number
+): PanelOpenPlan {
+	const preservePreview = previewOpen && ALL_PANELS_MIN_WIDTH <= availableWindowWidth;
+
+	return {
+		minimumWindowWidth: preservePreview ? ALL_PANELS_MIN_WIDTH : SIDEBAR_AUTO_COLLAPSE_BREAKPOINT,
+		closeOtherPanel: previewOpen && ! preservePreview,
+	};
+}
 
 export function getResizablePanelMaxWidth(
 	viewportWidth: number,
@@ -39,6 +77,13 @@ export function clampResizablePanelWidth(
 
 export function getViewportWidth(): number {
 	return typeof window === 'undefined' ? 0 : window.innerWidth;
+}
+
+export function getAvailableWindowWidth(): number {
+	if ( typeof window === 'undefined' ) {
+		return Number.POSITIVE_INFINITY;
+	}
+	return window.screen?.availWidth || Number.POSITIVE_INFINITY;
 }
 
 export function getStoredResizablePanelWidth(

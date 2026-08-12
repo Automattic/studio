@@ -8,6 +8,7 @@ import { AppToasts } from '@/components/app-toasts';
 import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { SidebarHeader } from '@/components/sidebar-header';
 import { SiteList } from '@/components/site-list';
+import { StudioBetaMenu } from '@/components/studio-beta-menu';
 import { UserMenu } from '@/components/user-menu';
 import { useConnector } from '@/data/core';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -36,6 +37,9 @@ const CHROME_BG_DARK = '#161616';
 
 interface SidebarLayoutProps {
 	children: ReactNode;
+	collapsed?: boolean;
+	onCollapsedChange?: ( collapsed: boolean ) => void;
+	minimumExpandedWidth?: number;
 	// Hides the sidebar without touching the user's own collapsed state, so
 	// clearing it restores whatever the sidebar was doing before (e.g. while
 	// the site preview is fullscreen). The floating "Show sidebar" toggle is
@@ -49,13 +53,18 @@ interface SidebarLayoutProps {
 
 export function SidebarLayout( {
 	children,
+	collapsed: controlledCollapsed,
+	onCollapsedChange,
+	minimumExpandedWidth = SIDEBAR_AUTO_COLLAPSE_BREAKPOINT,
 	forceCollapsed = false,
 	onForceCollapsedToggle,
 }: SidebarLayoutProps ) {
-	const [ collapsed, setCollapsed ] = useState(
+	const [ internalCollapsed, setInternalCollapsed ] = useState(
 		() => getViewportWidth() < SIDEBAR_AUTO_COLLAPSE_BREAKPOINT
 	);
+	const collapsed = controlledCollapsed ?? internalCollapsed;
 	const wasCompactRef = useRef( getViewportWidth() < SIDEBAR_AUTO_COLLAPSE_BREAKPOINT );
+	const rootRef = useRef< HTMLDivElement >( null );
 	const effectiveCollapsed = collapsed || forceCollapsed;
 	const connector = useConnector();
 	const reserveTrafficLightSpace = useTrafficLightSpace().start;
@@ -66,37 +75,74 @@ export function SidebarLayout( {
 		edge: 'right',
 		storageKey: SIDEBAR_PANEL_STORAGE_KEY,
 	} );
+	const updateCollapsed = useCallback(
+		( nextCollapsed: boolean ) => {
+			if ( controlledCollapsed === undefined ) {
+				setInternalCollapsed( nextCollapsed );
+			}
+			onCollapsedChange?.( nextCollapsed );
+		},
+		[ controlledCollapsed, onCollapsedChange ]
+	);
 	const toggleSidebar = useCallback( () => {
 		if ( forceCollapsed ) {
 			onForceCollapsedToggle?.();
-			setCollapsed( false );
+			void connector
+				.ensureWindowWidth( minimumExpandedWidth )
+				.finally( () => updateCollapsed( false ) );
 			return;
 		}
 		if ( collapsed ) {
-			void connector.ensureWindowWidth( SIDEBAR_AUTO_COLLAPSE_BREAKPOINT );
+			void connector
+				.ensureWindowWidth( minimumExpandedWidth )
+				.finally( () => updateCollapsed( false ) );
+			return;
 		}
-		setCollapsed( ( value ) => ! value );
-	}, [ collapsed, connector, forceCollapsed, onForceCollapsedToggle ] );
+		updateCollapsed( true );
+	}, [
+		collapsed,
+		connector,
+		forceCollapsed,
+		minimumExpandedWidth,
+		onForceCollapsedToggle,
+		updateCollapsed,
+	] );
 	const sidebarStyle = effectiveCollapsed
 		? undefined
 		: ( { '--sidebar-width': `${ sidebarResize.width }px` } as CSSProperties );
 
 	useEffect( () => connector.onToggleSidebar( toggleSidebar ), [ connector, toggleSidebar ] );
 	useEffect( () => {
-		const collapseWhenEnteringCompactWidth = () => {
-			const isCompact = getViewportWidth() < SIDEBAR_AUTO_COLLAPSE_BREAKPOINT;
+		const collapseWhenEnteringCompactWidth = ( width: number ) => {
+			const isCompact = width < SIDEBAR_AUTO_COLLAPSE_BREAKPOINT;
 			if ( isCompact && ! wasCompactRef.current ) {
-				setCollapsed( true );
+				updateCollapsed( true );
 			}
 			wasCompactRef.current = isCompact;
 		};
-		window.addEventListener( 'resize', collapseWhenEnteringCompactWidth );
-		return () => window.removeEventListener( 'resize', collapseWhenEnteringCompactWidth );
-	}, [] );
+		const root = rootRef.current;
+		if ( root && typeof ResizeObserver !== 'undefined' ) {
+			const observer = new ResizeObserver( ( entries ) => {
+				const width = entries[ 0 ]?.contentRect.width;
+				if ( width ) {
+					collapseWhenEnteringCompactWidth( width );
+				}
+			} );
+			observer.observe( root );
+			return () => observer.disconnect();
+		}
+		const handleWindowResize = () => collapseWhenEnteringCompactWidth( getViewportWidth() );
+		window.addEventListener( 'resize', handleWindowResize );
+		return () => window.removeEventListener( 'resize', handleWindowResize );
+	}, [ updateCollapsed ] );
 
 	return (
 		<SidebarCollapsedContext.Provider value={ effectiveCollapsed }>
-			<div className={ styles.root } style={ { '--app-chrome-bg': chromeBg } as CSSProperties }>
+			<div
+				ref={ rootRef }
+				className={ styles.root }
+				style={ { '--app-chrome-bg': chromeBg } as CSSProperties }
+			>
 				<aside
 					className={ clsx(
 						styles.sidebar,
@@ -119,6 +165,9 @@ export function SidebarLayout( {
 								{ ! effectiveCollapsed ? <AppToasts className={ styles.sidebarToasts } /> : null }
 								{ ! effectiveCollapsed ? (
 									<AppMessageCards className={ styles.sidebarCards } />
+								) : null }
+								{ ! effectiveCollapsed ? (
+									<StudioBetaMenu className={ styles.sidebarBeta } />
 								) : null }
 								<UserMenu onToggleSidebar={ toggleSidebar } />
 							</div>

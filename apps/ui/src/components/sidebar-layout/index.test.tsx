@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
 import { SidebarLayout } from './index';
@@ -11,6 +11,10 @@ vi.mock( '@/components/sidebar-header', () => ( {
 vi.mock( '@/components/app-message-cards', () => ( {
 	AppMessageCards: () => null,
 	AppMessageCardsDot: () => null,
+} ) );
+
+vi.mock( '@/components/studio-beta-menu', () => ( {
+	StudioBetaMenu: () => null,
 } ) );
 
 vi.mock( '@/components/site-list', () => ( {
@@ -59,6 +63,7 @@ describe( 'SidebarLayout', () => {
 
 	beforeEach( () => {
 		vi.clearAllMocks();
+		vi.stubGlobal( 'ResizeObserver', undefined );
 		originalInnerWidth = window.innerWidth;
 		Object.defineProperty( window, 'innerWidth', { configurable: true, value: 1024 } );
 		toggleSidebarListener = undefined;
@@ -76,9 +81,10 @@ describe( 'SidebarLayout', () => {
 			configurable: true,
 			value: originalInnerWidth,
 		} );
+		vi.unstubAllGlobals();
 	} );
 
-	it( 'toggles the sidebar when the connector emits the shortcut command', () => {
+	it( 'toggles the sidebar when the connector emits the shortcut command', async () => {
 		render(
 			<SidebarLayout>
 				<div>Content</div>
@@ -87,11 +93,11 @@ describe( 'SidebarLayout', () => {
 
 		expect( screen.queryByRole( 'button', { name: 'Show sidebar' } ) ).not.toBeInTheDocument();
 
-		act( () => toggleSidebarListener?.() );
+		await act( async () => toggleSidebarListener?.() );
 
 		expect( screen.getByRole( 'button', { name: 'Show sidebar' } ) ).toBeInTheDocument();
 
-		act( () => toggleSidebarListener?.() );
+		await act( async () => toggleSidebarListener?.() );
 
 		expect( screen.queryByRole( 'button', { name: 'Show sidebar' } ) ).not.toBeInTheDocument();
 	} );
@@ -150,5 +156,46 @@ describe( 'SidebarLayout', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'Show sidebar' } ) );
 
 		expect( ensureWindowWidth ).toHaveBeenCalledWith( 660 );
+	} );
+
+	it( 'uses the coordinated minimum when reopening beside a preview', async () => {
+		const onCollapsedChange = vi.fn();
+		render(
+			<SidebarLayout collapsed onCollapsedChange={ onCollapsedChange } minimumExpandedWidth={ 880 }>
+				<div>Content</div>
+			</SidebarLayout>
+		);
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Show sidebar' } ) );
+
+		expect( ensureWindowWidth ).toHaveBeenCalledWith( 880 );
+		await waitFor( () => expect( onCollapsedChange ).toHaveBeenCalledWith( false ) );
+	} );
+
+	it( 'observes the rendered layout width while the window is being resized', () => {
+		let resizeCallback: ResizeObserverCallback | undefined;
+		class ResizeObserverMock {
+			constructor( callback: ResizeObserverCallback ) {
+				resizeCallback = callback;
+			}
+			observe() {}
+			disconnect() {}
+		}
+		vi.stubGlobal( 'ResizeObserver', ResizeObserverMock );
+
+		render(
+			<SidebarLayout>
+				<div>Content</div>
+			</SidebarLayout>
+		);
+
+		act( () => {
+			resizeCallback?.(
+				[ { contentRect: { width: 659 } } as unknown as ResizeObserverEntry ],
+				{} as ResizeObserver
+			);
+		} );
+
+		expect( screen.getByRole( 'button', { name: 'Show sidebar' } ) ).toBeInTheDocument();
 	} );
 } );

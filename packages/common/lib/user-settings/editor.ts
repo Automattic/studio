@@ -13,7 +13,7 @@ export const SUPPORTED_EDITORS = [
 export type SupportedEditor = ( typeof SUPPORTED_EDITORS )[ number ];
 
 export type SupportedEditorConfig = {
-	label: string;
+	label: () => string;
 	url: ( path: string ) => string;
 	macOSBundleId: string;
 	winPaths: string[];
@@ -23,7 +23,7 @@ export type SupportedEditorConfig = {
 export const supportedEditorConfig: Record< SupportedEditor, SupportedEditorConfig > = {
 	antigravity: {
 		// translators: "Antigravity" is the brand name for an IDE and does not need to be translated
-		label: __( 'Antigravity' ),
+		label: () => __( 'Antigravity' ),
 		url: ( path: string ) => `antigravity://file/${ path }?windowId=_blank`,
 		macOSBundleId: 'com.google.antigravity',
 		winPaths: [
@@ -34,7 +34,7 @@ export const supportedEditorConfig: Record< SupportedEditor, SupportedEditorConf
 	},
 	vscode: {
 		// translators: "Visual Studio Code" is the brand name for an IDE and does not need to be translated
-		label: __( 'Visual Studio Code' ),
+		label: () => __( 'Visual Studio Code' ),
 		url: ( path: string ) => `vscode://file/${ path }?windowId=_blank`,
 		macOSBundleId: 'com.microsoft.VSCode',
 		winPaths: [
@@ -46,7 +46,7 @@ export const supportedEditorConfig: Record< SupportedEditor, SupportedEditorConf
 	},
 	phpstorm: {
 		// translators: "PhpStorm" is the brand name for an IDE and does not need to be translated
-		label: __( 'PhpStorm' ),
+		label: () => __( 'PhpStorm' ),
 		url: ( path: string ) => `phpstorm://open?file=${ path }`,
 		macOSBundleId: 'com.jetbrains.PhpStorm',
 		winPaths: [
@@ -57,7 +57,7 @@ export const supportedEditorConfig: Record< SupportedEditor, SupportedEditorConf
 	},
 	webstorm: {
 		// translators: "WebStorm" is the brand name for an IDE and does not need to be translated
-		label: __( 'WebStorm' ),
+		label: () => __( 'WebStorm' ),
 		url: ( path: string ) => `webstorm://open?file=${ path }`,
 		macOSBundleId: 'com.jetbrains.WebStorm',
 		winPaths: [
@@ -68,7 +68,7 @@ export const supportedEditorConfig: Record< SupportedEditor, SupportedEditorConf
 	},
 	windsurf: {
 		// translators: "Windsurf" is the brand name for an IDE and does not need to be translated
-		label: __( 'Windsurf' ),
+		label: () => __( 'Windsurf' ),
 		url: ( path: string ) => `windsurf://file/${ path }?windowId=_blank`,
 		macOSBundleId: 'com.exafunction.windsurf',
 		winPaths: [
@@ -79,7 +79,7 @@ export const supportedEditorConfig: Record< SupportedEditor, SupportedEditorConf
 	},
 	cursor: {
 		// translators: "Cursor" is the brand name for an IDE and does not need to be translated
-		label: __( 'Cursor' ),
+		label: () => __( 'Cursor' ),
 		url: ( path: string ) => `cursor://file/${ path }?windowId=_blank`,
 		macOSBundleId: 'com.todesktop.230313mzl4w4u92',
 		winPaths: [
@@ -90,7 +90,7 @@ export const supportedEditorConfig: Record< SupportedEditor, SupportedEditorConf
 	},
 	sublime: {
 		// translators: "Sublime Text" is the brand name for an IDE and does not need to be translated
-		label: __( 'Sublime Text' ),
+		label: () => __( 'Sublime Text' ),
 		url: ( path: string ) => `subl://open?url=file://${ path }`,
 		macOSBundleId: 'com.sublimetext.4',
 		winPaths: [
@@ -102,7 +102,7 @@ export const supportedEditorConfig: Record< SupportedEditor, SupportedEditorConf
 	},
 	zed: {
 		// translators: "Zed" is the brand name for an IDE and does not need to be translated
-		label: __( 'Zed' ),
+		label: () => __( 'Zed' ),
 		url: ( path: string ) => `zed://file/${ path }`,
 		macOSBundleId: 'dev.zed.Zed',
 		winPaths: [ '%LOCALAPPDATA%\\Programs\\Zed\\zed.exe' ],

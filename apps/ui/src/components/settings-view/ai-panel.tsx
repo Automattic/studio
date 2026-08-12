@@ -83,7 +83,7 @@ function AnthropicApiKeySection() {
 						onChange={ () => setProvider( usesAnthropic ? 'wpcom' : 'anthropic-api-key' ) }
 					/>
 				</div>
-				<div className={ styles.apiKeyControls }>
+				<div className={ clsx( styles.apiKeyControls, error && styles.apiKeyControlsError ) }>
 					<TextControl
 						__nextHasNoMarginBottom
 						__next40pxDefaultSize

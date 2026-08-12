@@ -253,6 +253,9 @@ describe( 'AiPanel', () => {
 		expect(
 			screen.getByText( 'Anthropic rejected this API key. Check the key and try again.' )
 		).toBeInTheDocument();
+		expect(
+			screen.getByLabelText( 'Anthropic API key' ).closest( '[class*="apiKeyControlsError"]' )
+		).not.toBeNull();
 	} );
 
 	it( 'switches the provider from the toggle', () => {

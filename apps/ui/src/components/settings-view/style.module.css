@@ -232,6 +232,15 @@
 	max-inline-size: 420px;
 }
 
+/* Match the error message below the field. The accent overrides keep the
+   border and focus ring red while the input is focused. */
+.apiKeyControlsError :global( input.components-text-control__input ) {
+	--wp-admin-theme-color: var( --wpds-color-stroke-surface-error-strong );
+	--wp-components-color-accent: var( --wpds-color-stroke-surface-error-strong );
+
+	border-color: var( --wpds-color-stroke-surface-error-strong );
+}
+
 .appearancePicker {
 	position: relative;
 	display: grid;

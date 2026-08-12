@@ -397,7 +397,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 	/* ------------------------------------------------------------------
 	 * State + DOM
 	 * ---------------------------------------------------------------- */
-	let isPicking = EMBEDDED_TOOLBAR ? false : Boolean( window.__studioInspectorPicking );
+	let isPicking = false;
 	let hoveredEl = null;
 	let activePopup = null; /* { id?, target, comment } */
 	function loadAnnotations() {
@@ -464,7 +464,6 @@ export const INSPECTOR_PAGE_SCRIPT =
 	}
 
 	function sendState() {
-		if ( ! EMBEDDED_TOOLBAR ) window.__studioInspectorPicking = isPicking;
 		send( {
 			type: 'state',
 			isPicking,

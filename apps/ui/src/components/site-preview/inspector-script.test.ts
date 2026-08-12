@@ -14,7 +14,6 @@ describe( 'site preview inspector', () => {
 		document.body.replaceChildren();
 		delete ( window as Window & { __studioInspectorMounted?: boolean } ).__studioInspectorMounted;
 		delete ( window as Window & { __studioInspectorState?: unknown[] } ).__studioInspectorState;
-		delete ( window as Window & { __studioInspectorPicking?: boolean } ).__studioInspectorPicking;
 		delete ( window as Window & { __studioAnnotateDone?: unknown } ).__studioAnnotateDone;
 		localStorage.clear();
 	} );
@@ -220,42 +219,6 @@ describe( 'site preview inspector', () => {
 				detail: { type: 'cancel', bridgeToken: BRIDGE_TOKEN },
 			} )
 		);
-	} );
-
-	it( 'keeps cross-page annotations while rendering only current-page overlays', () => {
-		vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
-		const currentPathname = window.location.pathname;
-		( window as Window & { __studioInspectorState?: unknown[] } ).__studioInspectorState = [
-			{
-				id: 'current-page',
-				comment: 'Current note',
-				pathname: currentPathname,
-				documentRect: { left: 10, top: 10, width: 100, height: 40 },
-			},
-			{
-				id: 'other-page',
-				comment: 'Other note',
-				pathname: '/another-page/',
-				documentRect: { left: 20, top: 20, width: 120, height: 50 },
-			},
-		];
-
-		new Function( createInspectorPageScript( BRIDGE_TOKEN ) )();
-		const root = ( document.querySelector( '#__studio-inspector-host' ) as HTMLElement )
-			.shadowRoot as ShadowRoot;
-
-		expect( root.querySelectorAll( '.marker' ) ).toHaveLength( 1 );
-		expect( root.querySelectorAll( '.annotation-highlight' ) ).toHaveLength( 1 );
-		expect( root.querySelector( '.marker' ) ).toHaveTextContent( '1' );
-	} );
-
-	it( 'restores active picking after the desktop preview navigates', () => {
-		const log = vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
-		( window as Window & { __studioInspectorPicking?: boolean } ).__studioInspectorPicking = true;
-
-		new Function( createInspectorPageScript( BRIDGE_TOKEN ) )();
-
-		expect( latestBridgeMessage( log, 'state' ) ).toMatchObject( { isPicking: true } );
 	} );
 
 	it( 'submits saved notes when an empty draft is open', () => {

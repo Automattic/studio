@@ -11,6 +11,10 @@ export interface ImportSiteInput {
 	onProgress?: ( event: ImportEventTuple ) => void;
 }
 
+// Keyed so any surface can ask which sites are mid-import, whichever surface
+// started it — the mutation outlives the component that kicked it off.
+export const IMPORT_SITE_MUTATION_KEY = [ 'import-site' ];
+
 // Imports a backup over an existing site, whether it was just created by the
 // import flow or has been around. The cached site list is invalidated so
 // metadata changed by the importer is picked up.
@@ -18,6 +22,7 @@ export function useImportSite() {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	return useMutation< void, Error, ImportSiteInput >( {
+		mutationKey: IMPORT_SITE_MUTATION_KEY,
 		mutationFn: ( { siteId, backupPath, onProgress } ) =>
 			connector.importSiteFromBackup( siteId, backupPath, onProgress ),
 		onSuccess: async () => {

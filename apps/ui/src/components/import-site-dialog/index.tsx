@@ -2,14 +2,16 @@ import { ACCEPTED_IMPORT_FILE_TYPES } from '@studio/common/constants';
 import { isSupportedBackupFilename } from '@studio/common/lib/backup-files';
 import { getErrorMessage } from '@studio/common/lib/error-formatting';
 import { getImportStatusMessage } from '@studio/common/lib/import-progress';
+import { useMutationState } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import { AlertDialog } from '@wordpress/ui';
 import { useState } from 'react';
 import { dismissToast, toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
-import { useImportSite } from '@/data/queries/use-import-site';
+import { IMPORT_SITE_MUTATION_KEY, useImportSite } from '@/data/queries/use-import-site';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
+import type { ImportSiteInput } from '@/data/queries/use-import-site';
 
 export const IMPORT_FILE_ACCEPT = ACCEPTED_IMPORT_FILE_TYPES.join( ',' );
 
@@ -17,14 +19,36 @@ export const IMPORT_FILE_ACCEPT = ACCEPTED_IMPORT_FILE_TYPES.join( ',' );
 // and `confirm` always clears it explicitly once the import settles.
 const PROGRESS_TOAST_TTL_MS = 10 * 60 * 1000;
 
+// `confirming` is tracked alongside the file rather than derived from it because
+// the popup stays mounted through its closing animation — dropping the file to
+// close would shrink the dialog mid-fade.
+interface PendingImport {
+	siteId: string;
+	file: File;
+	confirming: boolean;
+}
+
 export function useSiteBackupImport( site: SiteDetails ) {
 	const connector = useConnector();
 	const importSite = useImportSite();
-	const [ file, setFile ] = useState< File | null >( null );
-	// Tracked separately from `file` because the popup stays mounted through its
-	// closing animation — clearing the file to close would shrink it mid-fade.
-	const [ isConfirming, setIsConfirming ] = useState( false );
-	const [ isImporting, setIsImporting ] = useState( false );
+	// Everything here is stamped with a site id: the overview stays mounted when
+	// the user switches sites (the route only swaps the `$siteId` param), so a
+	// plain boolean would follow them and light up the next site's Import button.
+	const [ pending, setPending ] = useState< PendingImport | null >( null );
+	// Covers the upload that resolves the backup path, before the mutation — and
+	// so before `useMutationState` can see it.
+	const [ preparingSiteId, setPreparingSiteId ] = useState< string | null >( null );
+
+	// Read from the mutation cache rather than local state so the progress
+	// survives navigating away, and so an import started during onboarding is
+	// visible here too.
+	const importingSiteIds = useMutationState( {
+		filters: { mutationKey: IMPORT_SITE_MUTATION_KEY, status: 'pending' },
+		select: ( mutation ) => ( mutation.state.variables as ImportSiteInput | undefined )?.siteId,
+	} );
+
+	const active = pending?.siteId === site.id ? pending : null;
+	const isImporting = preparingSiteId === site.id || importingSiteIds.includes( site.id );
 
 	const selectFile = ( picked?: File ) => {
 		if ( ! picked ) {
@@ -40,17 +64,23 @@ export function useSiteBackupImport( site: SiteDetails ) {
 			);
 			return;
 		}
-		setFile( picked );
-		setIsConfirming( true );
+		setPending( { siteId: site.id, file: picked, confirming: true } );
 	};
 
+	const closeDialog = () =>
+		setPending( ( current ) =>
+			current?.siteId === site.id ? { ...current, confirming: false } : current
+		);
+
 	const confirm = async () => {
+		const file = active?.file;
 		if ( ! file || isImporting ) {
 			return;
 		}
-		setIsConfirming( false );
-		setIsImporting( true );
-		const toastId = `import-site-${ site.id }`;
+		const { id: siteId } = site;
+		closeDialog();
+		setPreparingSiteId( siteId );
+		const toastId = `import-site-${ siteId }`;
 		// Extraction reports progress once per stream chunk, so a large backup
 		// fires thousands of events a second. Only re-show the toast when the
 		// rendered text actually changes — otherwise the store notifies its
@@ -62,7 +92,7 @@ export function useSiteBackupImport( site: SiteDetails ) {
 				throw new Error( __( 'Unable to access the selected backup. Please try again.' ) );
 			}
 			await importSite.mutateAsync( {
-				siteId: site.id,
+				siteId,
 				backupPath,
 				onProgress: ( event ) => {
 					const message = getImportStatusMessage( event );
@@ -76,15 +106,17 @@ export function useSiteBackupImport( site: SiteDetails ) {
 			toast.error( __( 'Import failed' ), { description: getErrorMessage( error ) } );
 		} finally {
 			dismissToast( toastId );
-			setIsImporting( false );
+			setPreparingSiteId( ( current ) => ( current === siteId ? null : current ) );
+			// Drop the File so a large backup isn't held in memory for the session.
+			setPending( ( current ) => ( current?.siteId === siteId ? null : current ) );
 		}
 	};
 
 	return {
-		file,
-		isConfirming,
+		file: active?.file ?? null,
+		isConfirming: active?.confirming ?? false,
 		selectFile,
-		cancel: () => setIsConfirming( false ),
+		cancel: closeDialog,
 		confirm,
 		isImporting,
 	};

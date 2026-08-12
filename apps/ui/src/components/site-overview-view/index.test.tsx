@@ -1,4 +1,5 @@
 import { BackupExtractEvents } from '@studio/common/lib/import-export-events';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Tooltip } from '@wordpress/ui';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -35,7 +36,7 @@ import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 
 const navigateMock = vi.fn();
 const siteDropdownMock = vi.hoisted( () => vi.fn() );
-const importSiteMock = vi.hoisted( () => vi.fn() );
+const importSiteFromBackup = vi.hoisted( () => vi.fn() );
 const useSidebarCollapsedMock = vi.hoisted( () => vi.fn() );
 const useTrafficLightSpaceMock = vi.hoisted( () => vi.fn() );
 
@@ -89,6 +90,8 @@ vi.mock( '@/data/queries/use-create-site-helpers', () => ( {
 } ) );
 
 vi.mock( '@/data/queries/use-sites', () => ( {
+	// The real `useImportSite` invalidates this key on success.
+	SITES_QUERY_KEY: [ 'sites' ],
 	useCopySite: vi.fn(),
 	useExportDatabase: vi.fn(),
 	useExportFullSite: vi.fn(),
@@ -98,10 +101,6 @@ vi.mock( '@/data/queries/use-sites', () => ( {
 	useStartSite: vi.fn(),
 	useUpdateSite: vi.fn(),
 	useXdebugEnabledSite: vi.fn(),
-} ) );
-
-vi.mock( '@/data/queries/use-import-site', () => ( {
-	useImportSite: () => ( { mutateAsync: importSiteMock } ),
 } ) );
 
 vi.mock( '@/data/queries/use-site-thumbnail', () => ( {
@@ -174,14 +173,21 @@ describe( 'SiteOverviewView', () => {
 		openSiteInTerminal,
 		trackEvent,
 		getFilePath,
+		importSiteFromBackup,
 		capabilities: { openInOS } as ConnectorCapabilities,
 	} );
 
 	const preferencesStub = ( editor: SupportedEditor | null ) =>
 		( { editor, terminal: 'terminal' } ) as UserPreferences;
 
+	let queryClient: QueryClient;
+
 	beforeEach( () => {
 		vi.clearAllMocks();
+		queryClient = new QueryClient( {
+			defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
+		} );
+		importSiteFromBackup.mockResolvedValue( undefined );
 		useSidebarCollapsedMock.mockReturnValue( false );
 		useTrafficLightSpaceMock.mockReturnValue( { start: false, end: false } );
 		vi.stubGlobal( 'ResizeObserver', ResizeObserverMock );
@@ -246,18 +252,38 @@ describe( 'SiteOverviewView', () => {
 
 	function renderView(
 		activeTab: 'overview' | 'general' | 'debugging' = 'overview',
-		openSiteDropdown = false
+		openSiteDropdown = false,
+		siteId = 'site-1'
 	) {
-		return render(
-			<Tooltip.Provider>
-				<SiteOverviewView
-					siteId="site-1"
-					activeTab={ activeTab }
-					openSiteDropdown={ openSiteDropdown }
-					onTabChange={ onTabChange }
-				/>
-			</Tooltip.Provider>
+		const view = (
+			<QueryClientProvider client={ queryClient }>
+				<Tooltip.Provider>
+					<SiteOverviewView
+						siteId={ siteId }
+						activeTab={ activeTab }
+						openSiteDropdown={ openSiteDropdown }
+						onTabChange={ onTabChange }
+					/>
+				</Tooltip.Provider>
+			</QueryClientProvider>
 		);
+		const rendered = render( view );
+		return {
+			...rendered,
+			showSite: ( nextSiteId: string ) =>
+				rendered.rerender(
+					<QueryClientProvider client={ queryClient }>
+						<Tooltip.Provider>
+							<SiteOverviewView
+								siteId={ nextSiteId }
+								activeTab={ activeTab }
+								openSiteDropdown={ openSiteDropdown }
+								onTabChange={ onTabChange }
+							/>
+						</Tooltip.Provider>
+					</QueryClientProvider>
+				),
+		};
 	}
 
 	it( 'renders the tab strip with the about, customize, and manage sections', () => {
@@ -458,7 +484,7 @@ describe( 'SiteOverviewView', () => {
 			isLoading: false,
 		} );
 
-		const { rerender } = renderView( 'general' );
+		const { showSite } = renderView( 'general' );
 
 		fireEvent.change( screen.getByLabelText( 'WordPress version' ), {
 			target: { value: '6.7.2' },
@@ -469,11 +495,7 @@ describe( 'SiteOverviewView', () => {
 			data: [ createSite( { running: false, isWpAutoUpdating: false } ) ],
 			isLoading: false,
 		} );
-		rerender(
-			<Tooltip.Provider>
-				<SiteOverviewView siteId="site-1" activeTab="general" onTabChange={ onTabChange } />
-			</Tooltip.Provider>
-		);
+		showSite( 'site-1' );
 
 		expect( screen.getByLabelText( 'WordPress version' ) ).toHaveValue( '6.7.2' );
 	} );
@@ -696,8 +718,10 @@ describe( 'SiteOverviewView', () => {
 		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Import' } ) );
 
 		await waitFor( () =>
-			expect( importSiteMock ).toHaveBeenCalledWith(
-				expect.objectContaining( { siteId: 'site-1', backupPath: '/tmp/backup.tar.gz' } )
+			expect( importSiteFromBackup ).toHaveBeenCalledWith(
+				'site-1',
+				'/tmp/backup.tar.gz',
+				expect.any( Function )
 			)
 		);
 	} );
@@ -708,7 +732,44 @@ describe( 'SiteOverviewView', () => {
 		selectBackup( 'notes.txt' );
 
 		expect( screen.queryByRole( 'alertdialog' ) ).not.toBeInTheDocument();
-		expect( importSiteMock ).not.toHaveBeenCalled();
+		expect( importSiteFromBackup ).not.toHaveBeenCalled();
+	} );
+
+	// The buttons mark themselves with `aria-disabled` rather than the native
+	// attribute, so they stay focusable.
+	function isManageButtonDisabled( label: string ) {
+		const heading = screen.getByRole( 'heading', { name: 'Manage' } );
+		const button = within( heading.closest( 'section' )! ).getByText( label ).closest( 'button' )!;
+		return button.getAttribute( 'aria-disabled' ) === 'true';
+	}
+
+	// The overview stays mounted across sites — only the `$siteId` route param
+	// changes — so import progress must be tracked per site, not per component.
+	it( 'keeps the import indicator on the importing site when switching sites', async () => {
+		useSitesMock.mockReturnValue( {
+			data: [
+				createSite( { running: true } ),
+				createSite( { id: 'site-2', name: 'Other Site', running: true } ),
+			],
+			isLoading: false,
+		} );
+		importSiteFromBackup.mockReturnValue( new Promise( () => {} ) );
+		const { showSite } = renderView();
+
+		selectBackup( 'demo-site.tar.gz' );
+		fireEvent.click(
+			within( screen.getByRole( 'alertdialog' ) ).getByRole( 'button', { name: 'Import' } )
+		);
+		await waitFor( () => expect( isManageButtonDisabled( 'Export entire site' ) ).toBe( true ) );
+
+		showSite( 'site-2' );
+
+		expect( isManageButtonDisabled( 'Import' ) ).toBe( false );
+		expect( isManageButtonDisabled( 'Export entire site' ) ).toBe( false );
+
+		showSite( 'site-1' );
+
+		expect( isManageButtonDisabled( 'Export entire site' ) ).toBe( true );
 	} );
 
 	// Extraction emits one progress event per stream chunk, so a large backup
@@ -716,7 +777,7 @@ describe( 'SiteOverviewView', () => {
 	it( 'only re-shows the progress toast when the status text changes', async () => {
 		const info = vi.spyOn( toast, 'info' );
 		let emitProgress: ( ( event: ImportEventTuple ) => void ) | undefined;
-		importSiteMock.mockImplementation( async ( { onProgress } ) => {
+		importSiteFromBackup.mockImplementation( async ( _siteId, _path, onProgress ) => {
 			emitProgress = onProgress;
 		} );
 		renderView();

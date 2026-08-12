@@ -83,15 +83,18 @@ function routeOutputPath( url: string, sourceUrl: string, entrypointUrl: string 
 }
 
 function replaceAll( content: string, replacements: Map< string, string > ): string {
-	for ( const [ source, local ] of [ ...replacements ].sort(
-		( [ a ], [ b ] ) => b.length - a.length
-	) ) {
-		content = content.split( source ).join( local );
-		content = content
-			.split( source.replace( /&/g, '&amp;' ) )
-			.join( local.replace( /&/g, '&amp;' ) );
+	const values = new Map< string, string >();
+	for ( const [ source, local ] of replacements ) {
+		values.set( source, local );
+		values.set( source.replace( /&/g, '&amp;' ), local.replace( /&/g, '&amp;' ) );
 	}
-	return content;
+	const sources = [ ...values.keys() ].filter( Boolean ).sort( ( a, b ) => b.length - a.length );
+	if ( sources.length === 0 ) return content;
+	const pattern = new RegExp(
+		sources.map( ( source ) => source.replace( /[.*+?^${}()|[\]\\]/g, '\\$&' ) ).join( '|' ),
+		'g'
+	);
+	return content.replace( pattern, ( source ) => values.get( source ) ?? source );
 }
 
 function mediaReferences( sourceUrl: string, siteUrl: string ): string[] {
@@ -334,7 +337,11 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 				continue;
 			}
 			mkdirSync( dirname( destination ), { recursive: true } );
-			copyFileSync( source, destination );
+			if ( /^(?:application\/json|text\/)/i.test( resource.contentType ) ) {
+				writeFileSync( destination, replaceAll( readFileSync( source, 'utf8' ), mediaReplacements ) );
+			} else {
+				copyFileSync( source, destination );
+			}
 			copiedResources.add( resource.path );
 			assets.push( {
 				sourceUrl: dependency.url,

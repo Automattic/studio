@@ -36,10 +36,15 @@ export function extractMediaUrls(html: string, baseUrl: string): string[] {
     add($(el).attr('src'));
     for (const u of srcsetUrls($(el).attr('srcset') || '')) add(u);
   });
-  $('source').each((_, el) => {
-    for (const u of srcsetUrls($(el).attr('srcset') || '')) add(u);
-  });
-  add($('meta[property="og:image"]').attr('content'));
+	$('source').each((_, el) => {
+		for (const u of srcsetUrls($(el).attr('srcset') || '')) add(u);
+	});
+	$('[style]').each((_, el) => {
+		for (const match of ($(el).attr('style') || '').matchAll(/url\(\s*(['"]?)([^'")]+)\1\s*\)/gi)) {
+			add(match[2]);
+		}
+	});
+	add($('meta[property="og:image"]').attr('content'));
 
   return [...urls];
 }

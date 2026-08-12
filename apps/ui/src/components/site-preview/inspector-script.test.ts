@@ -149,6 +149,34 @@ describe( 'site preview inspector sessions', () => {
 		expect( done?.annotations ).toEqual( [ expect.objectContaining( { comment: 'Saved note' } ) ] );
 		expect( latestState( log ) ).toMatchObject( { isPicking: false, annotationCount: 0 } );
 	} );
+
+	it( 'does not save while text input is being composed', () => {
+		vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+		document.body.innerHTML = '<h1 id="composing">Composing</h1>';
+		const target = document.querySelector( '#composing' ) as HTMLElement;
+		vi.spyOn( target, 'getBoundingClientRect' ).mockReturnValue( rect( 10, 10 ) );
+
+		new Function( INSPECTOR_PAGE_SCRIPT )();
+		const root = ( document.querySelector( '#__studio-inspector-host' ) as HTMLElement )
+			.shadowRoot as ShadowRoot;
+		command( 'toggle-picking' );
+		target.dispatchEvent( new MouseEvent( 'click', { bubbles: true, cancelable: true } ) );
+
+		const textarea = root.querySelector( 'textarea' ) as HTMLTextAreaElement;
+		textarea.value = '入力中';
+		textarea.dispatchEvent( new InputEvent( 'input', { bubbles: true } ) );
+		textarea.dispatchEvent(
+			new KeyboardEvent( 'keydown', {
+				key: 'Enter',
+				isComposing: true,
+				bubbles: true,
+				cancelable: true,
+			} )
+		);
+
+		expect( root.querySelector( '.popup' ) ).toBeInTheDocument();
+		expect( root.querySelectorAll( '.marker' ) ).toHaveLength( 0 );
+	} );
 } );
 
 function command( type: string ) {

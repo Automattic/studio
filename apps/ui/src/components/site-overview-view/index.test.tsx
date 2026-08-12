@@ -104,10 +104,12 @@ vi.mock( '@/data/queries/use-sites', () => ( {
 } ) );
 
 vi.mock( '@/data/queries/use-site-thumbnail', () => ( {
+	siteThumbnailQueryKey: ( siteId: string ) => [ 'site-thumbnail', siteId ],
 	useSiteThumbnail: vi.fn(),
 } ) );
 
 vi.mock( '@/data/queries/use-site-storage-usage', () => ( {
+	siteStorageUsageQueryKey: ( siteId: string ) => [ 'site-storage-usage', siteId ],
 	useSiteStorageUsage: vi.fn(),
 } ) );
 
@@ -116,6 +118,7 @@ vi.mock( '@/data/queries/use-user-preferences', () => ( {
 } ) );
 
 vi.mock( '@/data/queries/use-wordpress-versions', () => ( {
+	WP_VERSION_QUERY_KEY: [ 'wp-version' ],
 	useWordPressVersions: vi.fn(),
 	useWpVersion: vi.fn(),
 } ) );
@@ -729,6 +732,31 @@ describe( 'SiteOverviewView', () => {
 				'site-1',
 				'/tmp/backup.tar.gz',
 				expect.any( Function )
+			)
+		);
+	} );
+
+	// An import replaces the site wholesale, so everything read off it is stale.
+	// Disk usage caches for five minutes and the overview never unmounts, so
+	// without an explicit invalidation it keeps showing pre-import numbers.
+	it( 'refetches the site details an import invalidates', async () => {
+		const staleKeys = [
+			[ 'sites' ],
+			[ 'wp-version', 'site-1' ],
+			[ 'site-storage-usage', 'site-1' ],
+			[ 'site-thumbnail', 'site-1' ],
+		];
+		renderView();
+		staleKeys.forEach( ( key ) => queryClient.setQueryData( key, 'before-import' ) );
+
+		selectBackup( 'demo-site.tar.gz' );
+		fireEvent.click(
+			within( screen.getByRole( 'alertdialog' ) ).getByRole( 'button', { name: 'Import' } )
+		);
+
+		await waitFor( () =>
+			staleKeys.forEach( ( key ) =>
+				expect( queryClient.getQueryState( key )?.isInvalidated ).toBe( true )
 			)
 		);
 	} );

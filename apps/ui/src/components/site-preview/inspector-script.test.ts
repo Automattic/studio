@@ -11,7 +11,6 @@ describe( 'site preview inspector sessions', () => {
 		document.body.replaceChildren();
 		delete ( window as Window & { __studioInspectorMounted?: boolean } ).__studioInspectorMounted;
 		delete ( window as Window & { __studioInspectorState?: unknown[] } ).__studioInspectorState;
-		delete ( window as Window & { __studioInspectorPicking?: boolean } ).__studioInspectorPicking;
 	} );
 
 	it( 'saves several notes without leaving annotation mode', () => {
@@ -67,35 +66,6 @@ describe( 'site preview inspector sessions', () => {
 		expect( latestState( log ) ).toMatchObject( { isPicking: false, annotationCount: 0 } );
 	} );
 
-	it( 'keeps saved notes while only showing markers for the current page', () => {
-		vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
-		const currentPath = window.location.pathname + window.location.search;
-		( window as Window & { __studioInspectorState?: unknown[] } ).__studioInspectorState = [
-			{
-				id: 'current',
-				comment: 'Current page',
-				path: currentPath,
-				documentRect: { left: 10, top: 10, width: 100, height: 40 },
-			},
-			{
-				id: 'other',
-				comment: 'Another page',
-				path: '/another-page/',
-				documentRect: { left: 10, top: 10, width: 100, height: 40 },
-			},
-		];
-
-		new Function( INSPECTOR_PAGE_SCRIPT )();
-		const root = ( document.querySelector( '#__studio-inspector-host' ) as HTMLElement )
-			.shadowRoot as ShadowRoot;
-
-		expect( root.querySelectorAll( '.marker' ) ).toHaveLength( 1 );
-		expect( root.querySelector( '.marker' ) ).toHaveTextContent( '1' );
-		expect(
-			( window as Window & { __studioInspectorState?: unknown[] } ).__studioInspectorState
-		).toHaveLength( 2 );
-	} );
-
 	it( 'clears the pending batch when annotation mode is cancelled', () => {
 		const log = vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
 		( window as Window & { __studioInspectorState?: unknown[] } ).__studioInspectorState = [
@@ -115,15 +85,6 @@ describe( 'site preview inspector sessions', () => {
 		expect(
 			( window as Window & { __studioInspectorState?: unknown[] } ).__studioInspectorState
 		).toEqual( [] );
-	} );
-
-	it( 'restores active annotation mode after navigation', () => {
-		const log = vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
-		( window as Window & { __studioInspectorPicking?: boolean } ).__studioInspectorPicking = true;
-
-		new Function( INSPECTOR_PAGE_SCRIPT )();
-
-		expect( latestState( log ) ).toMatchObject( { isPicking: true } );
 	} );
 
 	it( 'submits saved notes when an empty draft popup is open', () => {

@@ -243,7 +243,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 	/* ------------------------------------------------------------------
 	 * State + DOM
 	 * ---------------------------------------------------------------- */
-	let isPicking = Boolean( window.__studioInspectorPicking );
+	let isPicking = false;
 	let hoveredEl = null;
 	let activePopup = null; /* { id?, target, comment, fromPicker? } */
 	let annotations = Array.isArray( window.__studioInspectorState )
@@ -260,7 +260,6 @@ export const INSPECTOR_PAGE_SCRIPT =
 	}
 
 	function sendState() {
-		window.__studioInspectorPicking = isPicking;
 		send( {
 			type: 'state',
 			isPicking,

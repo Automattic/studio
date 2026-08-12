@@ -1192,7 +1192,6 @@ function WebviewSurface( {
 	const domReadyRef = useRef( false );
 	const currentUrlRef = useRef( url );
 	const storedAnnotationsRef = useRef< Annotation[] >( [] );
-	const storedIsPickingRef = useRef( false );
 	const lastReloadNonceRef = useRef( reloadNonce );
 	const progressTimerRef = useRef< ReturnType< typeof setInterval > | null >( null );
 	const progressResetTimerRef = useRef< ReturnType< typeof setTimeout > | null >( null );
@@ -1311,16 +1310,14 @@ function WebviewSurface( {
 			// window.__studioInspectorState before the IIFE runs so the
 			// freshly-injected inspector picks them up on init.
 			const stored = storedAnnotationsRef.current;
-			const preload = [
-				stored.length > 0 ? `window.__studioInspectorState=${ JSON.stringify( stored ) };` : '',
-				`window.__studioInspectorPicking=${ JSON.stringify( storedIsPickingRef.current ) };`,
-			].join( '' );
+			const preload =
+				stored.length > 0 ? `window.__studioInspectorState=${ JSON.stringify( stored ) };` : '';
 			webview
 				.executeJavaScript( preload + INSPECTOR_PAGE_SCRIPT, false )
 				.then( () => {
 					onInspectorStateRef.current?.( {
 						ready: true,
-						isPicking: storedIsPickingRef.current,
+						isPicking: false,
 						annotationCount: stored.length,
 					} );
 				} )
@@ -1348,7 +1345,6 @@ function WebviewSurface( {
 				return;
 			}
 			if ( parsed.type === 'state' ) {
-				storedIsPickingRef.current = Boolean( parsed.isPicking );
 				onInspectorStateRef.current?.( {
 					ready: true,
 					isPicking: Boolean( parsed.isPicking ),

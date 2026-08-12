@@ -25,7 +25,7 @@
 		"@tanstack/react-router": "^1.120.14",
 		"@wordpress/components": "^37.0.0",
 		"@wordpress/dataviews": "^17.2.0",
-		"@wordpress/element": "^8.3.0",
+		"@wordpress/element": "^8.5.0",
 		"@wordpress/html-entities": "^4.47.0",
 		"@wordpress/i18n": "^6.24.0",
 		"@wordpress/icons": "15.2.0",

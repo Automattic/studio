@@ -446,6 +446,39 @@ describe( 'CLI: studio site create', () => {
 			expect( blueprint.staticSiteImport.code ).toContain( sourceDir );
 		} );
 
+		it( 'should import only the website root from a Data Liberation capture directory', () => {
+			const captureDir = fs.mkdtempSync( path.join( '/tmp', 'studio-capture-test-' ) );
+			const websiteDir = fs.mkdtempSync( path.join( captureDir, 'website-' ) );
+			fs.writeFileSync( path.join( websiteDir, 'index.html' ), '<main>Captured site</main>' );
+			fs.writeFileSync( path.join( captureDir, 'diagnostics.json' ), '{"failures":[]}' );
+			fs.writeFileSync(
+				path.join( captureDir, 'capture-receipt.json' ),
+				JSON.stringify( {
+					schema: 'data-liberation/capture-receipt/v1',
+					websiteRoot: path.basename( websiteDir ),
+					entrypoint: `${ path.basename( websiteDir ) }/index.html`,
+				} )
+			);
+
+			const blueprint = buildCreateFromSourceBlueprint(
+				captureDir,
+				'Liberated Site',
+				'https://example.com/static-site-importer.zip'
+			);
+			const payload = JSON.parse( blueprint.staticSiteImport.source );
+
+			expect( payload.files ).toEqual( [
+				expect.objectContaining( { path: 'index.html' } ),
+			] );
+			expect( payload.files ).not.toEqual(
+				expect.arrayContaining( [ expect.objectContaining( { path: 'diagnostics.json' } ) ] )
+			);
+			expect( blueprint.staticSiteImport.code ).toContain(
+				"ABSPATH . '.studio-import/source.json'"
+			);
+			 expect( blueprint.staticSiteImport.code.length ).toBeLessThan( 10000 );
+		} );
+
 		it( 'should create a basic site successfully', async () => {
 			await runCommand( mockSitePath, { ...defaultTestOptions } );
 
@@ -551,6 +584,24 @@ describe( 'CLI: studio site create', () => {
 				expect.objectContaining( { path: mockSitePath } ),
 				[ 'eval-file', '.studio-import/import.php' ],
 				{}
+			);
+		} );
+
+		it( 'should fail when a successful WP-CLI process emits no import result receipt', async () => {
+			const blueprint = buildCreateFromSourceBlueprint(
+				'https://example.com/',
+				'Imported URL',
+				'https://example.com/static-site-importer.zip'
+			);
+			vi.spyOn( fs, 'existsSync' ).mockReturnValue( false );
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
+
+			await expect(
+				runCommand( mockSitePath, { ...defaultTestOptions, blueprint, noStart: true } )
+			).rejects.toThrow( 'Failed to import static site' );
+			expect( Logger.prototype.reportSuccess ).not.toHaveBeenCalledWith(
+				'Static site imported successfully'
 			);
 		} );
 
@@ -1000,6 +1051,12 @@ describe( 'CLI: studio site create', () => {
 				'Imported URL',
 				'https://example.com/static-site-importer.zip'
 			);
+			vi.spyOn( fs, 'existsSync' ).mockImplementation( ( filePath ) =>
+				filePath.toString().endsWith( 'result.json' )
+			);
+			vi.spyOn( fs, 'readFileSync' ).mockImplementation( ( filePath ) =>
+				filePath.toString().endsWith( 'result.json' ) ? '{"continuation":false}' : ''
+			);
 			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
 			const rmSpy = vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
 
@@ -1042,6 +1099,12 @@ describe( 'CLI: studio site create', () => {
 				'https://example.com/',
 				'Imported URL',
 				'https://example.com/static-site-importer.zip'
+			);
+			vi.spyOn( fs, 'existsSync' ).mockImplementation( ( filePath ) =>
+				filePath.toString().endsWith( 'result.json' )
+			);
+			vi.spyOn( fs, 'readFileSync' ).mockImplementation( ( filePath ) =>
+				filePath.toString().endsWith( 'result.json' ) ? '{"continuation":false}' : ''
 			);
 			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
 			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
@@ -1086,6 +1149,12 @@ describe( 'CLI: studio site create', () => {
 					},
 					[ Symbol.dispose ]: vi.fn(),
 				} as never );
+			vi.spyOn( fs, 'existsSync' ).mockImplementation( ( filePath ) =>
+				filePath.toString().endsWith( 'result.json' )
+			);
+			vi.spyOn( fs, 'readFileSync' ).mockImplementation( ( filePath ) =>
+				filePath.toString().endsWith( 'result.json' ) ? '{"continuation":false}' : ''
+			);
 			let persistedIdentity = '';
 			let persistedScript = '';
 			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( ( filePath, data ) => {

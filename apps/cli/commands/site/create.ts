@@ -100,6 +100,7 @@ const DEFAULT_STATIC_SITE_IMPORTER_PLUGIN_URL =
 const STATIC_SITE_IMPORT_CONTRACT = 'ssi-url-import-v4-plan-first';
 const STATIC_SITE_IMPORT_IDENTITY_FILE = 'static-site-importer.json';
 const STATIC_SITE_IMPORT_RESULT_FILE = 'result.json';
+const STATIC_SITE_IMPORT_SOURCE_FILE = 'source.json';
 const STATIC_SITE_IMPORT_STATE_FILE = 'state.json';
 const MAX_STATIC_SITE_IMPORT_INVOCATIONS = 10000;
 type StaticSiteImportIdentity = { url: string; contract: string; phase?: 'cleanup_pending' };
@@ -136,6 +137,7 @@ export type CreateCommandOptions = {
 		uri: string;
 		staticSiteImport?: {
 			code: string;
+			source: string;
 			identity?: StaticSiteImportIdentity;
 		};
 	};
@@ -281,11 +283,10 @@ function resolveStaticSiteImporterSource( sourcePath: string ): StaticSiteImport
 }
 
 function buildStaticSiteImporterPhp(
-	source: StaticSiteImporterSource,
+	sourcePath: string,
 	siteName: string,
 	storeImportResult: boolean
 ): string {
-	const sourceBase64 = Buffer.from( JSON.stringify( source.payload ) ).toString( 'base64' );
 	return `<?php
 if ( ! function_exists( 'add_action' ) ) {
 	require_once getcwd() . '/wp-load.php';
@@ -294,7 +295,9 @@ if ( ! function_exists( 'add_action' ) ) {
 require_once ABSPATH . 'wp-admin/includes/plugin.php';
 require_once ABSPATH . 'wp-admin/includes/file.php';
 
-$source = json_decode( base64_decode( ${ phpString( sourceBase64 ) } ), true );
+$source_path = ABSPATH . '.studio-import/${ STATIC_SITE_IMPORT_SOURCE_FILE }';
+$source_raw = is_file( $source_path ) ? file_get_contents( $source_path ) : false;
+$source = is_string( $source_raw ) ? json_decode( $source_raw, true ) : null;
 if ( ! is_array( $source ) ) {
 	throw new RuntimeException( 'Static Site Importer source payload could not be decoded.' );
 }
@@ -306,7 +309,7 @@ $input = array(
 	'overwrite'       => true,
 	'source_metadata' => array(
 		'source'      => 'studio-create-from',
-		'source_path' => ${ phpString( source.path ) },
+		'source_path' => ${ phpString( sourcePath ) },
 	),
 );
 $url_batch_run = array();
@@ -443,7 +446,7 @@ export function buildCreateFromSourceBlueprint(
 ): {
 	contents: BlueprintV1Declaration;
 	uri: string;
-	staticSiteImport: { code: string; identity?: StaticSiteImportIdentity };
+	staticSiteImport: { code: string; source: string; identity?: StaticSiteImportIdentity };
 } {
 	const source = resolveStaticSiteImporterSource( sourcePath );
 	const tempDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-create-from-' ) );
@@ -473,7 +476,8 @@ export function buildCreateFromSourceBlueprint(
 		contents: blueprint,
 		uri: blueprintPath,
 		staticSiteImport: {
-			code: buildStaticSiteImporterPhp( source, siteName, storeImportResult ),
+			code: buildStaticSiteImporterPhp( source.path, siteName, storeImportResult ),
+			source: JSON.stringify( source.payload ),
 			...( source.type === 'url'
 				? { identity: { url: source.path, contract: STATIC_SITE_IMPORT_CONTRACT } }
 				: {} ),
@@ -490,6 +494,9 @@ function cleanupSuccessfulStaticSiteImport( sitePath: string ): void {
 	fs.rmSync( path.join( sitePath, '.studio-import', STATIC_SITE_IMPORT_RESULT_FILE ), {
 		force: true,
 	} );
+	fs.rmSync( path.join( sitePath, '.studio-import', STATIC_SITE_IMPORT_SOURCE_FILE ), {
+		force: true,
+	} );
 	fs.rmSync( staticSiteImportIdentityPath( sitePath ), { force: true } );
 	fs.rmSync( path.join( sitePath, '.studio-import', STATIC_SITE_IMPORT_STATE_FILE ), {
 		force: true,
@@ -499,6 +506,7 @@ function cleanupSuccessfulStaticSiteImport( sitePath: string ): void {
 async function runStaticSiteImport(
 	site: SiteData,
 	code: string,
+	source: string,
 	identity?: StaticSiteImportIdentity
 ): Promise< boolean > {
 	const stagingDir = path.join( site.path, '.studio-import' );
@@ -506,6 +514,7 @@ async function runStaticSiteImport(
 	const scriptPath = path.join( stagingDir, scriptName );
 	const resultPath = path.join( stagingDir, STATIC_SITE_IMPORT_RESULT_FILE );
 	fs.mkdirSync( stagingDir, { recursive: true } );
+	fs.writeFileSync( path.join( stagingDir, STATIC_SITE_IMPORT_SOURCE_FILE ), source );
 	if ( identity ) {
 		fs.writeFileSync( staticSiteImportIdentityPath( site.path ), JSON.stringify( identity ) );
 	}
@@ -535,7 +544,10 @@ async function runStaticSiteImport(
 		}
 
 		if ( ! fs.existsSync( resultPath ) ) {
-			break;
+			throw new LoggerError(
+				__( 'Static site import completed without a result receipt.' ),
+				new Error( __( 'The importer did not write .studio-import/result.json.' ) )
+			);
 		}
 		let result: {
 			continuation?: boolean;
@@ -752,6 +764,7 @@ export async function runCommand(
 						: await runStaticSiteImport(
 								existingSite,
 								staticSiteImport.code,
+								staticSiteImport.source,
 								staticSiteImport.identity
 						  );
 				staticSiteImportResultObserved = true;
@@ -952,6 +965,7 @@ export async function runCommand(
 					staticSiteImportSucceeded = await runStaticSiteImport(
 						siteDetails,
 						staticSiteImport.code,
+						staticSiteImport.source,
 						staticSiteImport.identity
 					);
 				}
@@ -1001,6 +1015,7 @@ export async function runCommand(
 						staticSiteImportSucceeded = await runStaticSiteImport(
 							siteDetails,
 							staticSiteImport.code,
+							staticSiteImport.source,
 							staticSiteImport.identity
 						);
 					}

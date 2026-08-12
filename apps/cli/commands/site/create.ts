@@ -321,7 +321,7 @@ function buildStaticSiteImporterPhp(
 	storeImportResult: boolean
 ): string {
 	return `<?php
-if ( ! function_exists( 'add_action' ) ) {
+if ( ! function_exists( 'did_action' ) || ! did_action( 'plugins_loaded' ) ) {
 	require_once getcwd() . '/wp-load.php';
 }
 

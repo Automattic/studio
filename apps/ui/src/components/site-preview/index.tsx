@@ -79,7 +79,7 @@ interface InspectorState {
 
 interface InspectorCommand {
 	id: number;
-	type: 'toggle-picking' | 'submit';
+	type: 'toggle-picking' | 'cancel' | 'submit';
 }
 
 interface BrowserNavigationState {
@@ -925,26 +925,37 @@ export function SitePreview( {
 				<div className={ clsx( styles.headerSide, styles.headerSideEnd ) }>
 					{ canPreview && chatEnabled && connector.capabilities.annotatePreview ? (
 						<div className={ styles.annotationControls }>
-							<IconButton
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								icon={ pencil }
-								label={ inspectorState.isPicking ? __( 'Stop annotating' ) : __( 'Annotate' ) }
-								disabled={ ! canAnnotate }
-								aria-pressed={ inspectorState.isPicking }
-								onClick={ () => sendInspectorCommand( 'toggle-picking' ) }
-							/>
-							{ inspectorState.annotationCount > 0 ? (
+							{ inspectorState.isPicking ? (
+								<Button
+									variant="minimal"
+									tone="neutral"
+									size="small"
+									disabled={ ! canAnnotate }
+									onClick={ () => sendInspectorCommand( 'cancel' ) }
+								>
+									{ __( 'Cancel' ) }
+								</Button>
+							) : (
+								<IconButton
+									variant="minimal"
+									tone="neutral"
+									size="small"
+									icon={ pencil }
+									label={ __( 'Annotate' ) }
+									disabled={ ! canAnnotate }
+									onClick={ () => sendInspectorCommand( 'toggle-picking' ) }
+								/>
+							) }
+							{ inspectorState.isPicking && inspectorState.annotationCount > 0 ? (
 								<Button
 									variant="solid"
 									tone="brand"
 									size="small"
 									disabled={ ! canAnnotate }
-									aria-label={ __( 'Submit annotations' ) }
+									aria-label={ __( 'Send annotations to chat' ) }
 									onClick={ () => sendInspectorCommand( 'submit' ) }
 								>
-									{ __( 'Submit' ) }
+									{ __( 'Send to chat' ) }
 								</Button>
 							) : null }
 						</div>

@@ -17,7 +17,7 @@
  * The annotation controls live in the host toolbar (not in the page), and
  * drive the inspector by dispatching `INSPECTOR_COMMAND_EVENT` custom events
  * on the guest `window` via `webview.executeJavaScript()`:
- *   host -> guest: `{ "type": "toggle-picking" | "submit" | "report-state" }`
+ *   host -> guest: `{ "type": "toggle-picking" | "cancel" | "submit" | "report-state" }`
  *
  * Layout strategy: markers and the picking highlight use `position: absolute`
  * anchored at *document* coordinates (viewport rect + scroll offset). They
@@ -233,6 +233,8 @@ export const INSPECTOR_PAGE_SCRIPT =
 		.popup .cancel:hover { background: rgba(255,255,255,0.08); }
 		.popup .save { background: #fff; color: #1a1a1a; }
 		.popup .save[disabled] { opacity: 0.4; cursor: default; }
+		.popup .submit { background: rgba(255,255,255,0.12); color: #fff; }
+		.popup .submit[disabled] { opacity: 0.4; cursor: default; }
 	` +
 	'`' +
 	String.raw`;
@@ -351,13 +353,58 @@ export const INSPECTOR_PAGE_SCRIPT =
 		render();
 	}
 
+	function commitActivePopup() {
+		if ( ! activePopup ) return true;
+		const state = activePopup;
+		const trimmed = ( state.comment || '' ).trim();
+		if ( ! trimmed ) return false;
+		if ( state.id ) {
+			annotations = annotations.map( ( annotation ) =>
+				annotation.id === state.id
+					? Object.assign( {}, annotation, { comment: trimmed, updatedAt: Date.now() } )
+					: annotation
+			);
+		} else {
+			annotations = annotations.concat( [
+				{
+					id: uid(),
+					comment: trimmed,
+					selector: state.target.selector,
+					tag: state.target.tag,
+					nearbyText: state.target.nearbyText,
+					boundingBox: state.target.boundingBox,
+					documentRect: state.target.documentRect,
+					computedStyles: state.target.computedStyles,
+					path: window.location.pathname + window.location.search,
+					url: window.location.href,
+					timestamp: Date.now(),
+				},
+			] );
+		}
+		persistAnnotations();
+		return true;
+	}
+
 	function submitAnnotations() {
+		if ( ! commitActivePopup() ) {
+			sendState();
+			return;
+		}
 		if ( annotations.length === 0 ) {
 			sendState();
 			return;
 		}
 		const sent = annotations.slice();
 		send( { type: 'done', annotations: sent } );
+		annotations = [];
+		activePopup = null;
+		isPicking = false;
+		hoveredEl = null;
+		persistAnnotations();
+		render();
+	}
+
+	function cancelAnnotations() {
 		annotations = [];
 		activePopup = null;
 		isPicking = false;
@@ -374,6 +421,10 @@ export const INSPECTOR_PAGE_SCRIPT =
 		}
 		if ( command.type === 'submit' ) {
 			submitAnnotations();
+			return;
+		}
+		if ( command.type === 'cancel' ) {
+			cancelAnnotations();
 			return;
 		}
 		if ( command.type === 'report-state' ) {
@@ -447,12 +498,6 @@ export const INSPECTOR_PAGE_SCRIPT =
 
 		const closePopup = () => {
 			activePopup = null;
-			/* Picking does NOT auto-resume after save/cancel. Auto-resume was
-			 * convenient for chaining annotations but it silently blocks every
-			 * link click in the page (the picking handler calls
-			 * preventDefault), making the preview feel broken. The user
-			 * re-enters picking mode via the Annotate button. */
-			isPicking = false;
 			hoveredEl = null;
 			persistAnnotations();
 			render();
@@ -469,34 +514,38 @@ export const INSPECTOR_PAGE_SCRIPT =
 		save.textContent = state.id ? 'Update' : 'Save';
 		save.disabled = ! ( state.comment && state.comment.trim() );
 		save.addEventListener( 'click', () => {
-			const trimmed = ( state.comment || '' ).trim();
-			if ( ! trimmed ) return;
-			if ( state.id ) {
-				annotations = annotations.map( ( a ) =>
-					a.id === state.id
-						? Object.assign( {}, a, { comment: trimmed, updatedAt: Date.now() } )
-						: a
-				);
-			} else {
-				annotations = annotations.concat( [
-					{
-						id: uid(),
-						comment: trimmed,
-						selector: state.target.selector,
-						tag: state.target.tag,
-						nearbyText: state.target.nearbyText,
-						boundingBox: state.target.boundingBox,
-						documentRect: state.target.documentRect,
-						computedStyles: state.target.computedStyles,
-						path: window.location.pathname + window.location.search,
-						url: window.location.href,
-						timestamp: Date.now(),
-					},
-				] );
-			}
+			if ( ! commitActivePopup() ) return;
 			closePopup();
 		} );
 		actions.appendChild( save );
+
+		const submit = document.createElement( 'button' );
+		submit.className = 'submit';
+		submit.textContent = 'Send to chat';
+		submit.disabled = ! ( state.comment && state.comment.trim() );
+		submit.addEventListener( 'click', submitAnnotations );
+		actions.appendChild( submit );
+
+		ta.addEventListener( 'input', () => {
+			submit.disabled = ! state.comment.trim();
+		} );
+		ta.addEventListener( 'keydown', ( event ) => {
+			if ( event.key !== 'Enter' ) return;
+			if ( event.metaKey || event.ctrlKey ) {
+				event.preventDefault();
+				const start = ta.selectionStart;
+				const end = ta.selectionEnd;
+				ta.value = ta.value.slice( 0, start ) + '\n' + ta.value.slice( end );
+				state.comment = ta.value;
+				ta.setSelectionRange( start + 1, start + 1 );
+				save.disabled = ! state.comment.trim();
+				submit.disabled = save.disabled;
+				return;
+			}
+			if ( event.shiftKey ) return;
+			event.preventDefault();
+			save.click();
+		} );
 
 		popup.appendChild( actions );
 
@@ -507,7 +556,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 	}
 
 	function openPopupForAnnotation( ann ) {
-		isPicking = false;
+		isPicking = true;
 		hoveredEl = null;
 		activePopup = {
 			id: ann.id,
@@ -527,7 +576,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 
 	function openPopupForElement( el ) {
 		const viewport = el.getBoundingClientRect();
-		isPicking = false;
+		isPicking = true;
 		activePopup = {
 			fromPicker: true,
 			comment: '',
@@ -557,7 +606,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 	document.addEventListener(
 		'mousemove',
 		( e ) => {
-			if ( ! isPicking ) return;
+			if ( ! isPicking || activePopup ) return;
 			if ( isOurElement( e.target ) ) {
 				if ( hoveredEl !== null ) {
 					hoveredEl = null;
@@ -576,7 +625,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 	document.addEventListener(
 		'click',
 		( e ) => {
-			if ( ! isPicking ) return;
+			if ( ! isPicking || activePopup ) return;
 			if ( isOurElement( e.target ) ) return;
 			e.preventDefault();
 			e.stopPropagation();

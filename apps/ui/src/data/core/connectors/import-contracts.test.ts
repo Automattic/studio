@@ -23,6 +23,7 @@ describe( 'import connector contracts', () => {
 			alwaysStartServer: true,
 			showErrorModal: false,
 			showNotification: false,
+			suppressTracksEvent: true,
 		} );
 	} );
 

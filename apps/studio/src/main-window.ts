@@ -217,12 +217,7 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 
 	void loadRendererLocation( mainWindow, getRendererLocation( getPreferredStudioUiMode() ) );
 
-	// Open the DevTools if the user had it open last time they used the app.
-	// During development the dev tools default to open.
-	void loadUserData().then( ( userData ) => {
-		setupDevTools( mainWindow, userData.devToolsOpen );
-		initializePortFinder( SiteServer.getAllDetails() );
-	} );
+	initializePortFinder( SiteServer.getAllDetails() );
 
 	mainWindow.webContents.on( 'devtools-opened', async () => {
 		await updateAppdata( { devToolsOpen: true } );
@@ -233,6 +228,11 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 	} );
 
 	mainWindow.webContents.once( 'did-finish-load', () => {
+		// Attaching DevTools before the first load commits leaves the sandboxed renderer without its
+		// preload script, so the UI boots to a blank screen with no `window.ipcApi`.
+		// Open the DevTools if the user had it open last time they used the app.
+		// During development the dev tools default to open.
+		setupDevTools( mainWindow, userData.devToolsOpen );
 		void promptWindowsSpeedUpSites( { skipIfAlreadyPrompted: true } );
 	} );
 

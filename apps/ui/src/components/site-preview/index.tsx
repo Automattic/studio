@@ -64,7 +64,7 @@ interface SitePreviewProps {
 }
 
 interface InspectorEvent {
-	type: 'browser-command' | 'done' | 'state';
+	type: 'annotations-updated' | 'browser-command' | 'done' | 'state';
 	annotations?: Annotation[];
 	isPicking?: boolean;
 	annotationCount?: number;
@@ -90,7 +90,7 @@ interface BrowserNavigationState {
 	title: string | null;
 }
 
-type BrowserShortcutCommandType = 'back' | 'forward' | 'reload';
+type BrowserShortcutCommandType = 'back' | 'forward' | 'reload' | 'hard-reload';
 
 // What the guest page can forward over the console bridge: the browser
 // commands it swallows, plus the full-preview toggle (the webview covers most
@@ -231,6 +231,7 @@ interface PreviewWindow extends Window {
 			webContentsId: number,
 			viewport: PreviewViewport | null
 		) => Promise< void >;
+		clearWebviewCache?: ( webContentsId: number ) => Promise< void >;
 	};
 }
 
@@ -240,6 +241,26 @@ function getWebviewContentsId( webview: WebviewTag ): number {
 		throw new Error( 'Preview webview is not ready.' );
 	}
 	return webContentsId;
+}
+
+// Chrome keeps cached 301s through every reload variant, and a redirect leaves
+// the webview's current entry on the other site — hence clear, then navigate.
+async function hardReload( webview: WebviewTag, url: string ): Promise< void > {
+	const { ipcApi } = window as PreviewWindow;
+	try {
+		await ipcApi?.clearWebviewCache?.( getWebviewContentsId( webview ) );
+	} catch {
+		// No IPC bridge, or the webview isn't ready.
+	}
+	await webview.loadURL( url ).catch( () => undefined );
+}
+
+export function isOffOriginRedirect( settledUrl: string, intendedUrl: string ): boolean {
+	try {
+		return new URL( settledUrl ).origin !== new URL( intendedUrl ).origin;
+	} catch {
+		return false;
+	}
 }
 
 async function applyWebviewViewport(
@@ -338,6 +359,9 @@ export function getBrowserShortcutCommand(
 	if ( event.defaultPrevented || event.repeat ) {
 		return null;
 	}
+	if ( isKeyboardEvent.primaryShift( event, 'r' ) ) {
+		return 'hard-reload';
+	}
 	if ( isKeyboardEvent.primary( event, 'r' ) ) {
 		return 'reload';
 	}
@@ -392,6 +416,7 @@ function isPreviewShortcutCommand( command: unknown ): command is PreviewShortcu
 		command === 'back' ||
 		command === 'forward' ||
 		command === 'reload' ||
+		command === 'hard-reload' ||
 		command === 'full-preview'
 	);
 }
@@ -406,6 +431,7 @@ function PreviewOverflowMenu( {
 	onMobileOrientationChange,
 	fullscreen,
 	onFullscreenChange,
+	onHardReload,
 }: {
 	viewportMode: ViewportMode;
 	onViewportModeChange: ( mode: ViewportMode ) => void;
@@ -413,6 +439,7 @@ function PreviewOverflowMenu( {
 	onMobileOrientationChange: ( orientation: MobileOrientation ) => void;
 	fullscreen: boolean;
 	onFullscreenChange?: ( value: boolean ) => void;
+	onHardReload: () => void;
 } ) {
 	const viewportLabels: Record< ViewportPreset[ 'id' ], string > = {
 		mobile: __( 'Mobile' ),
@@ -486,6 +513,13 @@ function PreviewOverflowMenu( {
 						</Menu.Item>
 					</>
 				) : null }
+				<Menu.Separator />
+				<Menu.Item
+					onClick={ onHardReload }
+					aria-keyshortcuts={ ariaKeyShortcut.primaryShift( 'r' ) }
+				>
+					{ __( 'Hard refresh' ) }
+				</Menu.Item>
 			</Menu.Popup>
 		</Menu.Root>
 	);
@@ -924,6 +958,7 @@ export function SitePreview( {
 							onMobileOrientationChange={ handleMobileOrientationChange }
 							fullscreen={ fullscreen }
 							onFullscreenChange={ onFullscreenChange }
+							onHardReload={ () => sendBrowserCommand( 'hard-reload' ) }
 						/>
 					) : null }
 				</div>
@@ -977,7 +1012,9 @@ export function SitePreview( {
 									// by remounting; back/forward aren't reachable from the host.
 									<iframe
 										key={ `${ previewUrl }#${ reloadNonce }#${
-											browserCommand?.type === 'reload' ? browserCommand.id : 0
+											browserCommand?.type === 'reload' || browserCommand?.type === 'hard-reload'
+												? browserCommand.id
+												: 0
 										}` }
 										className={ styles.iframe }
 										style={ iframeStyle }
@@ -1143,6 +1180,7 @@ function WebviewSurface( {
 	const browserStateRef = useRef< BrowserNavigationState >( EMPTY_BROWSER_STATE );
 	const domReadyRef = useRef( false );
 	const currentUrlRef = useRef( url );
+	const storedAnnotationsRef = useRef< Annotation[] >( [] );
 	const lastReloadNonceRef = useRef( reloadNonce );
 	const progressTimerRef = useRef< ReturnType< typeof setInterval > | null >( null );
 	const progressResetTimerRef = useRef< ReturnType< typeof setTimeout > | null >( null );
@@ -1161,6 +1199,13 @@ function WebviewSurface( {
 	useEffect( () => {
 		onNavigateRef.current = onNavigate;
 	}, [ onNavigate ] );
+	// The url we want shown; `currentUrlRef` is where the webview actually landed.
+	const urlRef = useRef( url );
+	useEffect( () => {
+		urlRef.current = url;
+	}, [ url ] );
+	// Only loads we started (the mount-time `src` counts) are judged for redirects.
+	const pendingLoadRef = useRef( true );
 
 	const publishBrowserState = useCallback( ( patch: Partial< BrowserNavigationState > = {} ) => {
 		const webview = ref.current as WebviewTag | null;
@@ -1250,16 +1295,19 @@ function WebviewSurface( {
 			domReadyRef.current = true;
 			setReady( true );
 			publishDocumentTitle();
+			// If annotations were collected on a previous page, seed
+			// window.__studioInspectorState before the IIFE runs so the
+			// freshly-injected inspector picks them up on init.
+			const stored = storedAnnotationsRef.current;
+			const preload =
+				stored.length > 0 ? `window.__studioInspectorState=${ JSON.stringify( stored ) };` : '';
 			webview
-				.executeJavaScript( INSPECTOR_PAGE_SCRIPT, false )
+				.executeJavaScript( preload + INSPECTOR_PAGE_SCRIPT, false )
 				.then( () => {
-					// The injected script reports the real picking/count state
-					// through the console bridge; this just flips `ready` so the
-					// host controls enable without waiting for that round-trip.
 					onInspectorStateRef.current?.( {
 						ready: true,
 						isPicking: false,
-						annotationCount: 0,
+						annotationCount: stored.length,
 					} );
 				} )
 				.catch( () => {
@@ -1293,6 +1341,12 @@ function WebviewSurface( {
 				} );
 				return;
 			}
+			if ( parsed.type === 'annotations-updated' ) {
+				if ( Array.isArray( parsed.annotations ) ) {
+					storedAnnotationsRef.current = parsed.annotations;
+				}
+				return;
+			}
 			if ( parsed.type !== 'done' || ! parsed.annotations ) return;
 			onAnnotationsDoneRef.current?.( parsed.annotations );
 		};
@@ -1308,13 +1362,23 @@ function WebviewSurface( {
 			if ( typeof navigateEvent.url === 'string' ) {
 				currentUrlRef.current = navigateEvent.url;
 				onNavigateRef.current?.( navigateEvent.url );
+				// Once per load, so a site that legitimately redirects can't loop.
+				if ( pendingLoadRef.current ) {
+					pendingLoadRef.current = false;
+					if ( isOffOriginRedirect( navigateEvent.url, urlRef.current ) ) {
+						void hardReload( webview, urlRef.current );
+					}
+				}
 			}
 			didReadTitleAfterLoad = false;
 			publishBrowserState();
 		};
 		const handleStartLoading = () => {
 			didReadTitleAfterLoad = false;
-			onInspectorStateRef.current?.( EMPTY_INSPECTOR_STATE );
+			onInspectorStateRef.current?.( {
+				...EMPTY_INSPECTOR_STATE,
+				annotationCount: storedAnnotationsRef.current.length,
+			} );
 			publishBrowserState( { title: null } );
 			startProgress();
 		};
@@ -1366,6 +1430,7 @@ function WebviewSurface( {
 		if ( ! webview ) return;
 		currentUrlRef.current = url;
 		lastReloadNonceRef.current = reloadNonce;
+		pendingLoadRef.current = true;
 		webview.loadURL( url ).catch( () => undefined );
 	}, [ url, reloadNonce, ready ] );
 
@@ -1395,6 +1460,8 @@ function WebviewSurface( {
 				webview.goForward?.();
 			} else if ( browserCommand.type === 'reload' ) {
 				webview.reload?.();
+			} else if ( browserCommand.type === 'hard-reload' ) {
+				void hardReload( webview, urlRef.current );
 			}
 		} finally {
 			publishBrowserState();

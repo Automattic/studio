@@ -88,7 +88,10 @@ export const INSPECTOR_PAGE_SCRIPT =
 		const key = event.key.toLowerCase();
 		/* The host owns full preview, but in that mode this page covers most of
 		 * the window — so the chord is caught here and forwarded back. */
-		if ( event.shiftKey ) return key === 'f' ? 'full-preview' : null;
+		if ( event.shiftKey ) {
+			if ( key === 'f' ) return 'full-preview';
+			return key === 'r' ? 'hard-reload' : null;
+		}
 		if ( key === 'r' ) return 'reload';
 		if ( key === '[' ) return 'back';
 		if ( key === ']' ) return 'forward';
@@ -251,6 +254,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 
 	function persistAnnotations() {
 		window.__studioInspectorState = annotations;
+		send( { type: 'annotations-updated', annotations: annotations.slice() } );
 	}
 
 	function sendState() {
@@ -262,6 +266,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 	}
 
 	function syncMarkers() {
+		const currentPath = window.location.pathname + window.location.search;
 		const ids = new Set( annotations.map( ( a ) => a.id ) );
 		for ( const [ id, marker ] of markerNodes ) {
 			if ( ! ids.has( id ) ) {
@@ -270,7 +275,18 @@ export const INSPECTOR_PAGE_SCRIPT =
 			}
 		}
 		annotations.forEach( ( ann, idx ) => {
+			/* Only render markers for annotations made on the current page.
+			 * Annotations from other pages are preserved for submission but
+			 * their document-coordinate positions would be meaningless here. */
+			const onCurrentPage = ! ann.path || ann.path === currentPath;
 			let marker = markerNodes.get( ann.id );
+			if ( ! onCurrentPage ) {
+				if ( marker ) {
+					marker.remove();
+					markerNodes.delete( ann.id );
+				}
+				return;
+			}
 			if ( ! marker ) {
 				marker = document.createElement( 'div' );
 				marker.className = 'marker';
@@ -472,7 +488,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 						boundingBox: state.target.boundingBox,
 						documentRect: state.target.documentRect,
 						computedStyles: state.target.computedStyles,
-						pathname: window.location.pathname,
+						path: window.location.pathname + window.location.search,
 						url: window.location.href,
 						timestamp: Date.now(),
 					},

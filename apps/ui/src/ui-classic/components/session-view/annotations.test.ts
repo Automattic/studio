@@ -40,14 +40,14 @@ describe( 'formatAnnotationsAsPrompt', () => {
 				comment: 'Use more contrast',
 				tag: 'button',
 				nearbyText: 'Buy now',
-				pathname: '/pricing',
+				path: '/pricing',
 			},
 			{
 				id: 'a_2',
 				comment: 'Add more spacing',
 				tag: 'section',
 				nearbyText: 'Testimonials',
-				pathname: '/about',
+				path: '/about',
 			},
 		] );
 

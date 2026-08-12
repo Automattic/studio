@@ -408,6 +408,10 @@ describe( 'CLI: studio site create', () => {
 			expect( blueprint.staticSiteImport.code ).toContain(
 				'static_site_importer_ability_import_website_artifact'
 			);
+			expect( blueprint.staticSiteImport.code ).toContain(
+				"if ( ! function_exists( 'add_action' ) )"
+			);
+			expect( blueprint.staticSiteImport.code ).not.toContain( "if ( ! defined( 'ABSPATH' ) )" );
 			expect( blueprint.staticSiteImport.code ).not.toContain( 'delete_plugins' );
 			expect( blueprint.staticSiteImport.code ).not.toContain( 'studio_create_from_import_result' );
 		} );

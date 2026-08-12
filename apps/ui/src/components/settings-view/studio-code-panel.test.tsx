@@ -114,6 +114,28 @@ describe( 'StudioCodePanel', () => {
 		expect( save ).not.toHaveBeenCalled();
 	} );
 
+	// The cleanup must key off unmount, not the mutate callback's identity, or a re-render would end
+	// the edit session early and the real unmount would report the same edit a second time.
+	it( 'reports the edit session once even if the mutate callback changes identity', () => {
+		const { rerender, unmount } = render( <StudioCodePanel /> );
+
+		fireEvent.change( screen.getByLabelText( 'Instructions' ), {
+			target: { value: 'Answer in Spanish.' },
+		} );
+
+		useSaveAgentInstructionsMock.mockReturnValue( {
+			mutate: ( ...args: unknown[] ) => save( ...args ),
+			isError: false,
+		} as never );
+		rerender( <StudioCodePanel /> );
+
+		expect( save.mock.calls.filter( ( [ arg ] ) => arg.editSession ) ).toHaveLength( 0 );
+
+		unmount();
+
+		expect( save.mock.calls.filter( ( [ arg ] ) => arg.editSession ) ).toHaveLength( 1 );
+	} );
+
 	it( 'surfaces a save failure', () => {
 		useSaveAgentInstructionsMock.mockReturnValue( { mutate: save, isError: true } as never );
 

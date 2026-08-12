@@ -409,25 +409,33 @@ if ( isset( $source['url'] ) && function_exists( 'static_site_importer_ability_i
 	$input['require_proven_dynamic_client_assets'] = false;
 	$result = static_site_importer_ability_import_url( $input );
 } else {
+	if ( ! function_exists( 'static_site_importer_ability_import' ) ) {
+		throw new RuntimeException( 'Static Site Importer canonical import ability is unavailable.' );
+	}
+
 	if ( isset( $source['artifact'] ) && is_array( $source['artifact'] ) ) {
 		$artifact = $source['artifact'];
+		$metadata = $artifact;
+		unset( $metadata['schema'], $metadata['entrypoint'], $metadata['files'] );
+		$input['source'] = array(
+			'type'       => 'files',
+			'entrypoint' => (string) ( $artifact['entrypoint'] ?? '' ),
+			'files'      => isset( $artifact['files'] ) && is_array( $artifact['files'] ) ? $artifact['files'] : array(),
+			'metadata'   => $metadata,
+		);
+	} elseif ( isset( $source['archive'] ) && is_array( $source['archive'] ) ) {
+		$input['source'] = array(
+			'type' => 'zip',
+			'zip'  => $source['archive'],
+		);
 	} else {
-		if ( ! function_exists( 'static_site_importer_rest_source_artifact' ) ) {
-			throw new RuntimeException( 'Static Site Importer source artifact resolver is unavailable.' );
-		}
-
-		$artifact = static_site_importer_rest_source_artifact( $source );
-		if ( is_wp_error( $artifact ) ) {
-			throw new RuntimeException( 'Static Site Importer source resolution failed: ' . $artifact->get_error_message() );
-		}
+		$input['source'] = array(
+			'type'  => 'files',
+			'files' => isset( $source['files'] ) && is_array( $source['files'] ) ? $source['files'] : array(),
+		);
 	}
 
-	if ( ! function_exists( 'static_site_importer_ability_import_website_artifact' ) ) {
-		throw new RuntimeException( 'Static Site Importer website artifact import ability is unavailable.' );
-	}
-
-	$input['artifact'] = $artifact;
-	$result = static_site_importer_ability_import_website_artifact( $input );
+	$result = static_site_importer_ability_import( $input );
 }
 
 ${ storeImportResult ? "update_option( 'studio_create_from_import_result', $result, false );" : '' }

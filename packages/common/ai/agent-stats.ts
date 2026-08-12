@@ -12,6 +12,12 @@ import { captureException } from '@studio/common/lib/error-reporting';
 
 export type AgentSurface = 'desktop' | 'cliui';
 
+export const AGENT_SURFACE_ENV_VAR = 'STUDIO_AGENT_SURFACE';
+
+export function isAgentSurface( value: unknown ): value is AgentSurface {
+	return value === 'desktop' || value === 'cliui';
+}
+
 interface AgentStatGroups {
 	send: string;
 	run: string;

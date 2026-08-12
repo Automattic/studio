@@ -4,6 +4,7 @@ import {
 	getStudioWidgetPromptManifest,
 } from '@studio/common/ai/studio-widgets';
 import { SITE_RUNTIME_PLAYGROUND, type SiteRuntime } from '@studio/common/lib/site-runtime';
+import type { AgentSurface } from '@studio/common/ai/agent-stats';
 
 interface RemoteSiteContext {
 	name: string;
@@ -24,6 +25,9 @@ export interface BuildSystemPromptOptions {
 	// Runtime of the active local site. Playground (PHP WASM) needs extra WP-CLI
 	// constraints that the native PHP runtime does not. Defaults to native-php.
 	runtime?: SiteRuntime;
+	// The visual Studio surface hosting this conversation. Undefined for the
+	// standalone terminal experience.
+	surface?: AgentSurface;
 	// The user's global instructions (~/.studio/knowledge/instructions.md).
 	userInstructions?: string;
 }
@@ -31,9 +35,12 @@ export interface BuildSystemPromptOptions {
 export function buildSystemPrompt( options?: BuildSystemPromptOptions ): string {
 	const remoteSessionAddendum = options?.remoteSession ? `\n\n${ REMOTE_SESSION_GUIDANCE }` : '';
 	const userInstructionsSection = buildUserInstructionsSection( options?.userInstructions );
+	const interfaceSection = buildStudioInterfaceSection( options?.surface );
 
 	if ( options?.remoteSite ) {
 		return `${ buildRemoteIntro( options.remoteSite ) }
+
+${ interfaceSection }
 
 ${ REMOTE_CONTENT_GUIDELINES }
 
@@ -45,10 +52,33 @@ ${ REMOTE_DESIGN_GUIDELINES }${ remoteSessionAddendum }${ userInstructionsSectio
 		chatArtifactsEnabled: options?.chatArtifactsEnabled ?? false,
 		remoteSession: options?.remoteSession ?? false,
 		runtime: options?.runtime,
+		interfaceSection,
 	} ) }
 
 ${ LOCAL_SKILL_ROUTING }${ remoteSessionAddendum }${ userInstructionsSection }
 `;
+}
+
+function buildStudioInterfaceSection( surface?: AgentSurface ): string {
+	if ( ! surface ) {
+		return '';
+	}
+
+	const surfaceDescription =
+		surface === 'desktop'
+			? 'the WordPress Studio desktop app'
+			: "Studio's browser interface, launched with `studio ui`";
+
+	return `## Your Studio interface
+
+This conversation is running in ${ surfaceDescription }. The user has a visual Studio workspace around this chat, not the bare terminal interface. When they ask where to find something, prefer a short click path using the visible labels below. Do not send them to a CLI command unless they ask for a terminal workflow.
+
+- **Sidebar:** The sidebar lists local sites. The **Add site** (+) button is at the top and **Settings** is at the bottom. Clicking a site opens its latest Studio Code conversation (or starts one). Beside each site are a **Site overview** button and a status button that starts or stops it. Right-clicking a site opens quick actions such as site settings, duplicate, open folder/editor/terminal, WP Admin, phpMyAdmin, export, and delete.
+- **Site overview:** Open **Site overview** beside a site, then use the **Overview**, **Settings**, and **Debugging** tabs. Overview contains site details and common WordPress customization and management entry points.
+- **Chat and preview:** Studio Code is in the main workspace. A live site preview can appear alongside it and can be shown or hidden with **Show preview** / **Hide preview** in the bottom toolbar. The preview toolbar switches among the site front end, **WordPress** (WP Admin), and **Database**, and also provides browser navigation, reload, viewport, and full-preview controls.
+- **App settings:** Open **Settings** at the bottom of the sidebar. Its tabs are **Settings**, **AI**, **Usage**, **Keyboard**, **Skills**, and **MCP**.
+
+Some controls are conditional on the site running, authentication, platform, installed apps, theme type, or enabled features. Mention that condition when it explains why a user may not see a control. You can manage the site with your tools and refresh its preview, but do not claim that you clicked Studio's interface or can see the user's current screen.`;
 }
 
 function buildUserInstructionsSection( userInstructions?: string ): string {
@@ -124,6 +154,7 @@ function buildLocalIntro( options: {
 	chatArtifactsEnabled: boolean;
 	remoteSession: boolean;
 	runtime?: SiteRuntime;
+	interfaceSection: string;
 } ): string {
 	const postContentGuidance = getPostContentGuidance( options.runtime );
 	// Remote-bridge sessions also run without chat artifacts, but their user is
@@ -157,6 +188,8 @@ ${ getStudioWidgetPromptManifest() }`
 		: '';
 
 	return `${ AGENT_IDENTITY } You manage and modify local WordPress sites using your Studio tools and generate content for these sites.
+
+${ options.interfaceSection }
 
 IMPORTANT: You MUST use your Studio tools to manage WordPress sites. Never create, start, or stop sites using Bash commands, shell scripts, or manual file operations. Never run \`wp\` commands via Bash — always use the wp_cli tool instead. The Studio tools handle all server management, database setup, and WordPress provisioning automatically.
 IMPORTANT: ${ PLAN_DATA_GUARDRAIL }

@@ -31,6 +31,7 @@ import {
 	type SessionManager,
 	type ToolDefinition,
 } from '@earendil-works/pi-coding-agent';
+import { AGENT_SURFACE_ENV_VAR, isAgentSurface } from '@studio/common/ai/agent-stats';
 import { readGlobalInstructions } from '@studio/common/ai/global-instructions';
 import {
 	DEFAULT_MODEL,
@@ -304,6 +305,8 @@ async function createStudioAgentSession(
 	const isRemoteSite = Boolean( config.activeSite?.remote && config.activeSite?.wpcomSiteId );
 	const remoteSession = config.env.STUDIO_REMOTE_SESSION === '1';
 	const chatArtifactsEnabled = typeof process.send === 'function';
+	const surfaceValue = config.env[ AGENT_SURFACE_ENV_VAR ];
+	const surface = isAgentSurface( surfaceValue ) ? surfaceValue : undefined;
 	const [ userInstructions, runtime ] = await Promise.all( [
 		readGlobalInstructions(),
 		isRemoteSite ? undefined : resolveActiveSiteRuntime( config.activeSite ),
@@ -318,12 +321,14 @@ async function createStudioAgentSession(
 						id: config.activeSite!.wpcomSiteId!,
 					},
 					remoteSession,
+					surface,
 					userInstructions,
 			  }
 			: {
 					chatArtifactsEnabled,
 					remoteSession,
 					runtime,
+					surface,
 					userInstructions,
 			  }
 	);

@@ -52,6 +52,35 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).toContain( '- pdf:' );
 	} );
 
+	it.each( [
+		[ 'desktop', 'the WordPress Studio desktop app' ],
+		[ 'cliui', "Studio's browser interface, launched with `studio ui`" ],
+	] as const )( 'describes the %s interface and its navigation', ( surface, description ) => {
+		const prompt = buildSystemPrompt( { chatArtifactsEnabled: true, surface } );
+
+		expect( prompt ).toContain( '## Your Studio interface' );
+		expect( prompt ).toContain( description );
+		expect( prompt ).toContain( '**Add site** (+)' );
+		expect( prompt ).toContain( '**Site overview** button' );
+		expect( prompt ).toContain( '**Overview**, **Settings**, and **Debugging** tabs' );
+		expect( prompt ).toContain( '**Show preview** / **Hide preview**' );
+		expect( prompt ).toContain( '**AI**, **Usage**, **Keyboard**, **Skills**, and **MCP**' );
+	} );
+
+	it( 'includes interface navigation for remote-site conversations', () => {
+		const prompt = buildSystemPrompt( { remoteSite, surface: 'desktop' } );
+
+		expect( prompt ).toContain( '## Your Studio interface' );
+		expect( prompt ).toContain( 'the WordPress Studio desktop app' );
+	} );
+
+	it( 'omits visual interface navigation in the standalone terminal', () => {
+		const prompt = buildSystemPrompt( { chatArtifactsEnabled: false } );
+
+		expect( prompt ).not.toContain( '## Your Studio interface' );
+		expect( prompt ).not.toContain( '**Add site** (+)' );
+	} );
+
 	it( 'routes plugin-specific feature work to the plugin recommendations skill', () => {
 		const prompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
 

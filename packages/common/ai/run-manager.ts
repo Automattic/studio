@@ -3,7 +3,12 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { recordAgentRun, recordAgentSend, type AgentSurface } from '@studio/common/ai/agent-stats';
+import {
+	AGENT_SURFACE_ENV_VAR,
+	recordAgentRun,
+	recordAgentSend,
+	type AgentSurface,
+} from '@studio/common/ai/agent-stats';
 import {
 	getCreatedSiteFromArtifact,
 	setAiSessionSitePlacement,
@@ -180,7 +185,7 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 			stdio: [ 'ignore', 'ignore', 'ignore', 'ipc' ],
 			execPath: nodeBinary,
 			execArgv,
-			env: { ...process.env },
+			env: { ...process.env, [ AGENT_SURFACE_ENV_VAR ]: surface },
 		} );
 
 		const run: AgentRun = {

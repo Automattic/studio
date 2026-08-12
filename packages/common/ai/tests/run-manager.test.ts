@@ -26,15 +26,16 @@ function createChild() {
 	return child;
 }
 
-function getForkEnv(): NodeJS.ProcessEnv {
-	const options = mockFork.mock.calls[ 0 ][ 2 ] as { env: NodeJS.ProcessEnv };
+function getForkEnv( callIndex = 0 ): NodeJS.ProcessEnv {
+	const options = mockFork.mock.calls[ callIndex ][ 2 ] as { env: NodeJS.ProcessEnv };
 	return options.env;
 }
 
 describe( 'createAgentRunManager fork environment', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
-		mockFork.mockReturnValue( createChild() as never );
+		mockFork.mockReset();
+		mockFork.mockImplementation( () => createChild() as never );
 	} );
 
 	// The forked CLI is what emits the Studio Code Tracks events, and it reads this env var to decide
@@ -67,11 +68,9 @@ describe( 'createAgentRunManager fork environment', () => {
 		expect( getForkEnv().STUDIO_TRACKS_ORIGIN ).toBe( 'studio-ui:v1' );
 
 		uiVersion = 'v2';
-		mockFork.mockReturnValue( createChild() as never );
 		manager.startAgentRun( { sessionId: 'session-2', prompt: 'hello again' } );
 
-		const secondEnv = mockFork.mock.calls[ 1 ][ 2 ] as { env: NodeJS.ProcessEnv };
-		expect( secondEnv.env.STUDIO_TRACKS_ORIGIN ).toBe( 'studio-ui:v2' );
+		expect( getForkEnv( 1 ).STUDIO_TRACKS_ORIGIN ).toBe( 'studio-ui:v2' );
 	} );
 
 	// `studio ui` leaves it unset, so its runs fall through to `channel: studio-cli` — see STU-2247.
@@ -88,7 +87,7 @@ describe( 'createAgentRunManager fork environment', () => {
 	} );
 
 	it( 'keeps the parent environment', () => {
-		process.env.STUDIO_TEST_PARENT_VAR = 'kept';
+		vi.stubEnv( 'STUDIO_TEST_PARENT_VAR', 'kept' );
 		const manager = createAgentRunManager( {
 			cliBinary: '/cli.mjs',
 			surface: 'desktop',
@@ -99,6 +98,6 @@ describe( 'createAgentRunManager fork environment', () => {
 		manager.startAgentRun( { sessionId: 'session-1', prompt: 'hello' } );
 
 		expect( getForkEnv().STUDIO_TEST_PARENT_VAR ).toBe( 'kept' );
-		delete process.env.STUDIO_TEST_PARENT_VAR;
+		vi.unstubAllEnvs();
 	} );
 } );

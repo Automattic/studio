@@ -208,13 +208,13 @@ describe( 'MainView', () => {
 			activity: {
 				kind: 'pending',
 				direction: 'pull',
-				message: 'Creating remote backup… (24%)',
+				message: '24% · Creating remote backup…',
 				progress: 24,
 			},
 		} );
 
 		expect( screen.getByRole( 'status' ) ).toHaveTextContent( 'Pulling from live…' );
-		expect( screen.getByRole( 'status' ) ).toHaveTextContent( 'Creating remote backup… (24%)' );
+		expect( screen.getByRole( 'status' ) ).toHaveTextContent( '24% · Creating remote backup…' );
 	} );
 
 	it( 'shows detailed import progress in the open site status', () => {

@@ -1,11 +1,11 @@
-import { __, sprintf } from '@wordpress/i18n';
+import { __ } from '@wordpress/i18n';
 import { BackupExtractEvents, ImporterEvents, type ImportEventTuple } from './import-export-events';
+import { formatProgressLabel } from './progress-label';
 
-// These land in a toast pinned to the sidebar, which is only 240px wide at its
-// narrowest — roughly 166px of text — so the messages carrying a percentage drop
-// the verb to make room for it and lead with the number, the part that actually
-// changes. A longer translation may wrap to a second line; what it must not do
-// is reflow on every tick, so the percentage is padded to a fixed two digits.
+// These land in a per-site activity row that is only ~166px wide at the
+// narrowest sidebar, so the labels that carry a percentage drop the verb to
+// make room for it. `formatProgressLabel` handles the leading, zero-padded
+// number that keeps the width steady as the import ticks.
 const getWpContentTypeLabels = (): Record< string, string > => ( {
 	plugins: __( 'Plugins…' ),
 	themes: __( 'Themes…' ),
@@ -13,10 +13,7 @@ const getWpContentTypeLabels = (): Record< string, string > => ( {
 	other: __( 'Other files…' ),
 } );
 
-// `@wordpress/i18n`'s sprintf ignores width flags like `%02d`, so pad here and
-// interpolate as a string.
-const percent = ( done: number, total: number ): string =>
-	String( Math.round( ( done / total ) * 100 ) ).padStart( 2, '0' );
+const percentOf = ( done: number, total: number ) => ( done / total ) * 100;
 
 export function getImportStatusMessage( [ event, data ]: ImportEventTuple ): string | undefined {
 	switch ( event ) {
@@ -28,10 +25,9 @@ export function getImportStatusMessage( [ event, data ]: ImportEventTuple ): str
 				data.totalFiles !== undefined &&
 				data.totalFiles > 0
 			) {
-				return sprintf(
-					/* translators: %s: percentage complete, zero-padded to two digits. */
-					__( '%s%% · Extracting…' ),
-					percent( data.processedFiles, data.totalFiles )
+				return formatProgressLabel(
+					__( 'Extracting…' ),
+					percentOf( data.processedFiles, data.totalFiles )
 				);
 			}
 			return __( 'Extracting backup…' );
@@ -45,10 +41,9 @@ export function getImportStatusMessage( [ event, data ]: ImportEventTuple ): str
 				data.totalFiles !== undefined &&
 				data.totalFiles > 0
 			) {
-				return sprintf(
-					/* translators: %s: percentage complete, zero-padded to two digits. */
-					__( '%s%% · Database…' ),
-					percent( data.processedFiles, data.totalFiles )
+				return formatProgressLabel(
+					__( 'Database…' ),
+					percentOf( data.processedFiles, data.totalFiles )
 				);
 			}
 			return __( 'Importing database…' );
@@ -61,11 +56,9 @@ export function getImportStatusMessage( [ event, data ]: ImportEventTuple ): str
 				data.totalItems !== undefined &&
 				data.totalItems > 0
 			) {
-				return sprintf(
-					/* translators: %1$s: percentage complete, zero-padded to two digits. %2$s: what is being imported. */
-					__( '%1$s%% · %2$s' ),
-					percent( data.processedItems, data.totalItems ),
-					getWpContentTypeLabels()[ data.type ] || __( 'Files…' )
+				return formatProgressLabel(
+					getWpContentTypeLabels()[ data.type ] || __( 'Files…' ),
+					percentOf( data.processedItems, data.totalItems )
 				);
 			}
 			return __( 'Importing content…' );

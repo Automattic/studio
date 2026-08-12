@@ -36,7 +36,11 @@ import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { formatComposerTextQuote, watchComposerTextQuote } from '@/lib/composer-text-quote';
 import { AccessRequirements } from './access-requirements';
-import { formatAnnotationsAsPrompt, formatAnnotationsSubmittedMessage } from './annotations';
+import {
+	formatAnnotationsAsPrompt,
+	formatAnnotationsSubmittedMessage,
+	toVisualAnnotationSummaries,
+} from './annotations';
 import { Composer, ComposerSkeleton, type ComposerHandle } from './composer';
 import { Conversation } from './conversation';
 import { EmptyBackground } from './empty-background';
@@ -316,6 +320,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			if ( annotations.length === 0 ) return;
 			void sendMessage( formatAnnotationsAsPrompt( annotations ), {
 				displayMessage: formatAnnotationsSubmittedMessage( annotations.length ),
+				visualAnnotations: toVisualAnnotationSummaries( annotations ),
 			} );
 		},
 		[ sendMessage ]

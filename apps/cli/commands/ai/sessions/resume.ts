@@ -3,6 +3,7 @@ import { validateStudioChatFiles } from '@studio/common/ai/chat-files';
 import { validateStudioChatImages } from '@studio/common/ai/chat-images';
 import { resolveActiveSiteFromEntries } from '@studio/common/ai/sessions/active-site';
 import { listAiSessions, loadAiSession } from '@studio/common/ai/sessions/store';
+import { validateStudioVisualAnnotations } from '@studio/common/ai/visual-annotations';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { __ } from '@wordpress/i18n';
 import { JsonAdapter } from 'cli/ai/output-adapter';
@@ -24,6 +25,7 @@ async function readInputPayload( path: string ): Promise< StudioAiSessionInputPa
 		displayMessage: parsed.displayMessage,
 		images: validateStudioChatImages( parsed.images ),
 		files: validateStudioChatFiles( parsed.files ),
+		visualAnnotations: validateStudioVisualAnnotations( parsed.visualAnnotations ),
 	};
 }
 
@@ -79,6 +81,7 @@ export async function runCommand(
 		initialDisplayMessage: inputPayload?.displayMessage ?? options.displayMessage,
 		initialImages: inputPayload?.images,
 		initialFiles: inputPayload?.files,
+		initialVisualAnnotations: inputPayload?.visualAnnotations,
 		activeSite: resolvedSite,
 	} );
 }

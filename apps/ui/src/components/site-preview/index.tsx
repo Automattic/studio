@@ -1,6 +1,7 @@
+import { validateStudioInspectorAnnotations } from '@studio/common/ai/inspector-annotations';
 import { useQuery } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
-import { chevronLeft, chevronRight, moreVertical, pencil } from '@wordpress/icons';
+import { chevronLeft, chevronRight, moreVertical } from '@wordpress/icons';
 import { ariaKeyShortcut, displayShortcut, isAppleOS, isKeyboardEvent } from '@wordpress/keycodes';
 import { Button, IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
@@ -14,7 +15,7 @@ import { useIsSiteStarting, useStartSite } from '@/data/queries/use-sites';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { useWindowControlsOverlay } from '@/hooks/use-window-controls-overlay';
 import { getSiteUrl } from '@/lib/get-site-url';
-import { playIcon, refreshIcon } from '@/lib/icons';
+import { annotationIcon, playIcon, refreshIcon } from '@/lib/icons';
 import {
 	DATABASE_HOME_PATH,
 	getPathFromPreviewUrl,
@@ -29,7 +30,7 @@ import {
 import {
 	INSPECTOR_BRIDGE_PREFIX,
 	INSPECTOR_COMMAND_EVENT,
-	INSPECTOR_PAGE_SCRIPT,
+	createInspectorPageScript,
 } from './inspector-script';
 import styles from './style.module.css';
 import type { Annotation } from './types';
@@ -65,11 +66,14 @@ interface SitePreviewProps {
 
 interface InspectorEvent {
 	type: 'annotations-updated' | 'browser-command' | 'done' | 'state';
+	bridgeToken?: string;
 	annotations?: Annotation[];
 	isPicking?: boolean;
 	annotationCount?: number;
 	command?: PreviewShortcutCommandType;
 }
+
+const MAX_INSPECTOR_BRIDGE_MESSAGE_LENGTH = 1_100_000;
 
 interface InspectorState {
 	ready: boolean;
@@ -79,7 +83,7 @@ interface InspectorState {
 
 interface InspectorCommand {
 	id: number;
-	type: 'toggle-picking' | 'submit';
+	type: 'toggle-picking' | 'cancel' | 'submit';
 }
 
 interface BrowserNavigationState {
@@ -891,28 +895,42 @@ export function SitePreview( {
 				<div className={ clsx( styles.headerSide, styles.headerSideEnd ) }>
 					{ canPreview && chatEnabled && connector.capabilities.annotatePreview ? (
 						<div className={ styles.annotationControls }>
-							<IconButton
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								icon={ pencil }
-								label={ inspectorState.isPicking ? __( 'Stop annotating' ) : __( 'Annotate' ) }
-								disabled={ ! canAnnotate }
-								aria-pressed={ inspectorState.isPicking }
-								onClick={ () => sendInspectorCommand( 'toggle-picking' ) }
-							/>
-							{ inspectorState.annotationCount > 0 ? (
+							{ inspectorState.isPicking ? (
+								<>
+									<Button
+										variant="minimal"
+										tone="neutral"
+										size="small"
+										disabled={ ! canAnnotate }
+										onClick={ () => sendInspectorCommand( 'cancel' ) }
+									>
+										{ __( 'Cancel' ) }
+									</Button>
+									<Button
+										variant="solid"
+										tone="brand"
+										size="small"
+										className={ styles.sendAnnotations }
+										disabled={ ! canAnnotate || inspectorState.annotationCount === 0 }
+										aria-label={ __( 'Send annotations to chat' ) }
+										onClick={ () => sendInspectorCommand( 'submit' ) }
+									>
+										{ __( 'Send to chat' ) }
+									</Button>
+								</>
+							) : (
 								<Button
-									variant="solid"
-									tone="brand"
+									variant="outline"
+									tone="neutral"
 									size="small"
+									className={ styles.annotateButton }
 									disabled={ ! canAnnotate }
-									aria-label={ __( 'Submit annotations' ) }
-									onClick={ () => sendInspectorCommand( 'submit' ) }
+									onClick={ () => sendInspectorCommand( 'toggle-picking' ) }
 								>
-									{ __( 'Submit' ) }
+									<Button.Icon icon={ annotationIcon } size={ 16 } />
+									{ __( 'Annotate' ) }
 								</Button>
-							) : null }
+							) }
 						</div>
 					) : null }
 					<OpenInMenu key={ site.id } site={ site } browserPath={ getSafePath( path ) } />
@@ -1147,6 +1165,8 @@ function WebviewSurface( {
 	const lastReloadNonceRef = useRef( reloadNonce );
 	const progressTimerRef = useRef< ReturnType< typeof setInterval > | null >( null );
 	const progressResetTimerRef = useRef< ReturnType< typeof setTimeout > | null >( null );
+	const inspectorBridgeTokenRef = useRef( globalThis.crypto.randomUUID() );
+	const inspectorStateRef = useRef< InspectorState >( EMPTY_INSPECTOR_STATE );
 	useEffect( () => {
 		onAnnotationsDoneRef.current = onAnnotationsDone;
 	}, [ onAnnotationsDone ] );
@@ -1162,6 +1182,11 @@ function WebviewSurface( {
 	useEffect( () => {
 		onNavigateRef.current = onNavigate;
 	}, [ onNavigate ] );
+
+	const publishInspectorState = useCallback( ( state: InspectorState ) => {
+		inspectorStateRef.current = state;
+		onInspectorStateRef.current?.( state );
+	}, [] );
 
 	const publishBrowserState = useCallback( ( patch: Partial< BrowserNavigationState > = {} ) => {
 		const webview = ref.current as WebviewTag | null;
@@ -1258,9 +1283,12 @@ function WebviewSurface( {
 			const preload =
 				stored.length > 0 ? `window.__studioInspectorState=${ JSON.stringify( stored ) };` : '';
 			webview
-				.executeJavaScript( preload + INSPECTOR_PAGE_SCRIPT, false )
+				.executeJavaScript(
+					preload + createInspectorPageScript( inspectorBridgeTokenRef.current ),
+					false
+				)
 				.then( () => {
-					onInspectorStateRef.current?.( {
+					publishInspectorState( {
 						ready: true,
 						isPicking: false,
 						annotationCount: stored.length,
@@ -1276,6 +1304,7 @@ function WebviewSurface( {
 			const consoleEvent = event as WebviewConsoleEvent;
 			if ( typeof consoleEvent.message !== 'string' ) return;
 			if ( ! consoleEvent.message.startsWith( INSPECTOR_BRIDGE_PREFIX ) ) return;
+			if ( consoleEvent.message.length > MAX_INSPECTOR_BRIDGE_MESSAGE_LENGTH ) return;
 			let parsed: InspectorEvent | null = null;
 			try {
 				parsed = JSON.parse( consoleEvent.message.slice( INSPECTOR_BRIDGE_PREFIX.length ) );
@@ -1283,6 +1312,7 @@ function WebviewSurface( {
 				return;
 			}
 			if ( ! parsed ) return;
+			if ( parsed.bridgeToken !== inspectorBridgeTokenRef.current ) return;
 			if ( parsed.type === 'browser-command' ) {
 				if ( isPreviewShortcutCommand( parsed.command ) ) {
 					onBrowserCommandRef.current?.( parsed.command );
@@ -1290,21 +1320,39 @@ function WebviewSurface( {
 				return;
 			}
 			if ( parsed.type === 'state' ) {
-				onInspectorStateRef.current?.( {
+				const annotationCount =
+					typeof parsed.annotationCount === 'number' &&
+					Number.isInteger( parsed.annotationCount ) &&
+					parsed.annotationCount >= 0 &&
+					parsed.annotationCount <= 100
+						? parsed.annotationCount
+						: 0;
+				publishInspectorState( {
 					ready: true,
-					isPicking: Boolean( parsed.isPicking ),
-					annotationCount: typeof parsed.annotationCount === 'number' ? parsed.annotationCount : 0,
+					isPicking: parsed.isPicking === true,
+					annotationCount,
 				} );
 				return;
 			}
 			if ( parsed.type === 'annotations-updated' ) {
-				if ( Array.isArray( parsed.annotations ) ) {
-					storedAnnotationsRef.current = parsed.annotations;
+				if ( ! Array.isArray( parsed.annotations ) ) return;
+				if ( parsed.annotations.length === 0 ) {
+					storedAnnotationsRef.current = [];
+					return;
+				}
+				try {
+					storedAnnotationsRef.current = validateStudioInspectorAnnotations( parsed.annotations );
+				} catch {
+					return;
 				}
 				return;
 			}
 			if ( parsed.type !== 'done' || ! parsed.annotations ) return;
-			onAnnotationsDoneRef.current?.( parsed.annotations );
+			try {
+				onAnnotationsDoneRef.current?.( validateStudioInspectorAnnotations( parsed.annotations ) );
+			} catch {
+				return;
+			}
 		};
 		const handlePageTitleUpdated = ( event: Event ) => {
 			publishDocumentTitle( ( event as WebviewPageTitleUpdatedEvent ).title );
@@ -1324,7 +1372,7 @@ function WebviewSurface( {
 		};
 		const handleStartLoading = () => {
 			didReadTitleAfterLoad = false;
-			onInspectorStateRef.current?.( {
+			publishInspectorState( {
 				...EMPTY_INSPECTOR_STATE,
 				annotationCount: storedAnnotationsRef.current.length,
 			} );
@@ -1362,7 +1410,13 @@ function WebviewSurface( {
 			webview.removeEventListener( 'did-fail-load', handleStopLoading );
 			webview.removeEventListener( 'did-finish-load', handleStopLoading );
 		};
-	}, [ clearProgressTimers, finishProgress, publishBrowserState, startProgress ] );
+	}, [
+		clearProgressTimers,
+		finishProgress,
+		publishBrowserState,
+		publishInspectorState,
+		startProgress,
+	] );
 
 	// Navigation effect — gated on `ready` so the first call happens after
 	// `dom-ready` (the initial url is loaded by the `src` attribute on the
@@ -1386,7 +1440,10 @@ function WebviewSurface( {
 		if ( ! ready || ! inspectorCommand ) return;
 		const webview = ref.current as WebviewTag | null;
 		if ( ! webview ) return;
-		const detail = JSON.stringify( { type: inspectorCommand.type } );
+		const detail = JSON.stringify( {
+			type: inspectorCommand.type,
+			bridgeToken: inspectorBridgeTokenRef.current,
+		} );
 		webview
 			.executeJavaScript(
 				`window.dispatchEvent(new CustomEvent(${ JSON.stringify(

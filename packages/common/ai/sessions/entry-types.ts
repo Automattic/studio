@@ -4,6 +4,7 @@
 
 import type { StudioChatArtifactData } from '../chat-artifacts';
 import type { StudioChatImageAttachment } from '../chat-images';
+import type { StudioVisualAnnotationSummary } from '../visual-annotations';
 import type { CustomEntry, SessionEntry } from '@earendil-works/pi-coding-agent';
 
 export type StudioCustomEntryType =
@@ -79,6 +80,7 @@ export interface StudioUserPromptData {
 	source: 'prompt' | 'ask_user';
 	sitePath?: string;
 	attachments?: StudioChatAttachmentSummary[];
+	visualAnnotations?: StudioVisualAnnotationSummary[];
 }
 
 export interface StudioMessageEditedData {

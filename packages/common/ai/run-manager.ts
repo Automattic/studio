@@ -14,6 +14,7 @@ import type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-even
 import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
 import type { StudioAiSessionInputPayload, StudioChatImage } from '@studio/common/ai/chat-images';
 import type { JsonEvent } from '@studio/common/ai/json-events';
+import type { StudioVisualAnnotationSummary } from '@studio/common/ai/visual-annotations';
 
 /**
  * Runs the Studio Code agent as a CLI child process: forks the CLI
@@ -63,6 +64,7 @@ export interface StartAgentRunOptions {
 	displayMessage?: string;
 	images?: StudioChatImage[];
 	files?: StudioChatFileAttachment[];
+	visualAnnotations?: StudioVisualAnnotationSummary[];
 }
 
 export interface AgentRunManager {
@@ -151,7 +153,14 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 	}
 
 	function startAgentRun( options: StartAgentRunOptions ): { runId: string } {
-		const { sessionId, prompt, displayMessage, images = [], files = [] } = options;
+		const {
+			sessionId,
+			prompt,
+			displayMessage,
+			images = [],
+			files = [],
+			visualAnnotations,
+		} = options;
 
 		if ( runsBySessionId.has( sessionId ) ) {
 			throw new Error( `A run is already in progress for session ${ sessionId }` );
@@ -160,8 +169,8 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 		const runId = crypto.randomUUID();
 		const startedAt = Date.now();
 		const inputPayload =
-			images.length > 0 || files.length > 0
-				? writeInputPayloadFile( { prompt, displayMessage, images, files } )
+			images.length > 0 || files.length > 0 || ( visualAnnotations?.length ?? 0 ) > 0
+				? writeInputPayloadFile( { prompt, displayMessage, images, files, visualAnnotations } )
 				: undefined;
 		const args = [ 'code', 'sessions', 'resume', sessionId ];
 		if ( inputPayload ) {

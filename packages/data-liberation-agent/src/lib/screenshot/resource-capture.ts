@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, relative, resolve, sep } from 'node:path';
 import type { Page, Response } from 'playwright';
 
-const CAPTURED_RESOURCE_TYPES = new Set( [ 'script', 'stylesheet', 'font' ] );
+const CAPTURED_RESOURCE_TYPES = new Set( [ 'script', 'stylesheet', 'font', 'fetch' ] );
 
 export interface CapturedResourceEntry {
 	path: string;

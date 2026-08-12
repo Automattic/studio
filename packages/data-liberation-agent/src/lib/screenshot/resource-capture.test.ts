@@ -12,7 +12,7 @@ afterEach( () => {
 } );
 
 describe( 'CapturedResourceStore', () => {
-	it( 'captures same-origin scripts and records failed responses', async () => {
+	it( 'captures same-origin runtime dependencies and records failed responses', async () => {
 		const outputDir = mkdtempSync( join( tmpdir(), 'dla-resources-' ) );
 		dirs.push( outputDir );
 		const page = new EventEmitter();
@@ -26,6 +26,14 @@ describe( 'CapturedResourceStore', () => {
 			headers: () => ( { 'content-type': 'text/javascript' } ),
 			body: vi.fn().mockResolvedValue( Buffer.from( 'export const site = true;' ) ),
 			request: () => ( { resourceType: () => 'script' } ),
+		} );
+		page.emit( 'response', {
+			url: () => 'https://example.com/_json/site.json',
+			ok: () => true,
+			status: () => 200,
+			headers: () => ( { 'content-type': 'application/json' } ),
+			body: vi.fn().mockResolvedValue( Buffer.from( '{"site":true}' ) ),
+			request: () => ( { resourceType: () => 'fetch' } ),
 		} );
 		page.emit( 'response', {
 			url: () => 'https://example.com/styles/site.css',
@@ -55,12 +63,19 @@ describe( 'CapturedResourceStore', () => {
 				path: 'resources/_runtimes/site.js',
 				contentType: 'text/javascript',
 			},
+			'https://example.com/_json/site.json': {
+				path: 'resources/_json/site.json',
+				contentType: 'application/json',
+			},
 		} );
 		expect( manifest.failures ).toEqual( [
 			{ url: 'https://example.com/styles/site.css', error: 'HTTP 404' },
 		] );
 		expect( readFileSync( join( outputDir, 'resources', '_runtimes', 'site.js' ), 'utf8' ) ).toBe(
 			'export const site = true;'
+		);
+		expect( readFileSync( join( outputDir, 'resources', '_json', 'site.json' ), 'utf8' ) ).toBe(
+			'{"site":true}'
 		);
 	} );
 } );

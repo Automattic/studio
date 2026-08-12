@@ -101,11 +101,13 @@ describe( 'exportWebsiteCapture', () => {
 		mkdirSync( join( outputDir, 'html' ), { recursive: true } );
 		mkdirSync( join( outputDir, 'screenshots' ), { recursive: true } );
 		mkdirSync( join( outputDir, 'resources', '_runtimes' ), { recursive: true } );
+		mkdirSync( join( outputDir, 'resources', '_json' ), { recursive: true } );
 		writeFileSync(
 			join( outputDir, 'html', 'homepage.html' ),
-			'<link rel="preload" href="/_runtimes/site.js" as="script"><script type="module">import { Site } from "/_runtimes/site.js"; import "/_runtimes/missing.js";</script>'
+			'<link rel="preload" href="/_runtimes/site.js" as="script"><link rel="preload" href="/_json/site.json" as="fetch"><script type="module">import { Site } from "/_runtimes/site.js"; import "/_runtimes/missing.js";</script>'
 		);
 		writeFileSync( join( outputDir, 'resources', '_runtimes', 'site.js' ), 'export class Site {}' );
+		writeFileSync( join( outputDir, 'resources', '_json', 'site.json' ), '{"site":true}' );
 		writeFileSync(
 			join( outputDir, 'resources', 'manifest.json' ),
 			JSON.stringify( {
@@ -114,6 +116,10 @@ describe( 'exportWebsiteCapture', () => {
 					'https://example.com/_runtimes/site.js': {
 						path: 'resources/_runtimes/site.js',
 						contentType: 'text/javascript',
+					},
+					'https://example.com/_json/site.json': {
+						path: 'resources/_json/site.json',
+						contentType: 'application/json',
 					},
 				},
 				failures: [],
@@ -143,6 +149,13 @@ describe( 'exportWebsiteCapture', () => {
 		} );
 		expect( readFileSync( join( outputDir, 'website', '_runtimes', 'site.js' ), 'utf8' ) ).toBe(
 			'export class Site {}'
+		);
+		expect( receipt.assets ).toContainEqual( {
+			sourceUrl: 'https://example.com/_json/site.json',
+			path: 'website/_json/site.json',
+		} );
+		expect( readFileSync( join( outputDir, 'website', '_json', 'site.json' ), 'utf8' ) ).toBe(
+			'{"site":true}'
 		);
 		expect( diagnostics.unresolvedDependencies ).toEqual( [
 			expect.objectContaining( { url: 'https://example.com/_runtimes/missing.js' } ),

@@ -194,7 +194,8 @@ function dependencyReferences(
 		const as = /\bas\s*=\s*["']([^"']+)["']/i.exec( tag )?.[ 1 ].toLowerCase() ?? '';
 		if (
 			rel.split( /\s+/ ).some( ( value ) => value === 'stylesheet' || value === 'modulepreload' ) ||
-			( rel.split( /\s+/ ).includes( 'preload' ) && [ 'script', 'style', 'font' ].includes( as ) )
+			( rel.split( /\s+/ ).includes( 'preload' ) &&
+				[ 'script', 'style', 'font', 'fetch' ].includes( as ) )
 		) {
 			add( /\bhref\s*=\s*["']([^"']+)["']/i.exec( tag )?.[ 1 ] );
 		}

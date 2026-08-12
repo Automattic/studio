@@ -36,7 +36,7 @@ describe('extractMediaUrls', () => {
 	});
 
 	it('collects inline CSS url and image-set sources', () => {
-		const html = `<div style="background-image:image-set(url('/img/bg.png?w=1280') 1x, url(&quot;/img/bg.png?w=2560&quot;) 2x)"></div>`;
+		const html = `<div style="background-image:image-set(url('/img/bg.png?w=1280') 1x, url(&quot;/img/bg.png?w=2560&quot;) 2x);mask-image:url(#gradient);src:url('/font.woff2')"></div>`;
 		expect(extractMediaUrls(html, BASE)).toEqual([
 			'https://shop.fictional.test/img/bg.png?w=1280',
 			'https://shop.fictional.test/img/bg.png?w=2560',

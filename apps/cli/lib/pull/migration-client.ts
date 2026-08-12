@@ -49,7 +49,7 @@ export async function runReprintCommandUntilComplete(
 	stateDir: string,
 	fsRoot: string,
 	args: string[],
-	onProgress?: ( output: string ) => void,
+	onProgress?: ( output: string, fraction?: number ) => void,
 	options: {
 		mounts?: Array< { hostPath: string; vfsPath: string } >;
 		progressLabel?: string;
@@ -362,7 +362,7 @@ interface ProgressReporter {
 function createProgressReporter(
 	label: string,
 	startTime: number,
-	onProgress?: ( output: string ) => void
+	onProgress?: ( output: string, fraction?: number ) => void
 ): ProgressReporter {
 	let lineBuffer = '';
 	let snapshot: ProgressSnapshot = {};
@@ -379,7 +379,7 @@ function createProgressReporter(
 			snapshot = updateSnapshot( parsed, snapshot );
 			const msg = formatSnapshot( snapshot, label, elapsedSeconds() );
 			if ( msg ) {
-				onProgress( msg );
+				onProgress( msg, snapshotFraction( snapshot ) );
 			}
 		}
 	};
@@ -391,7 +391,7 @@ function createProgressReporter(
 		setInterval( () => {
 			const msg = formatSnapshot( snapshot, label, elapsedSeconds() );
 			if ( msg ) {
-				onProgress( msg );
+				onProgress( msg, snapshotFraction( snapshot ) );
 			}
 		}, 250 );
 
@@ -510,6 +510,24 @@ function updateSnapshot(
 	}
 
 	return next;
+}
+
+/**
+ * How far through the current reprint sub-command we are, as 0–1, or
+ * undefined when nothing in the snapshot is countable. Files are preferred:
+ * a step that moves files reports totals reliably, whereas byte totals are
+ * absent on some phases and statement counts only appear while the database
+ * is being applied. Callers map this onto an overall percentage.
+ */
+export function snapshotFraction( snapshot: ProgressSnapshot ): number | undefined {
+	const ratio = ( done?: number, total?: number ) =>
+		done !== undefined && total !== undefined && total > 0 ? done / total : undefined;
+
+	return (
+		ratio( snapshot.downloadedFiles, snapshot.totalFiles ) ??
+		ratio( snapshot.downloadedBytes, snapshot.totalBytes ) ??
+		ratio( snapshot.statementsExecuted, snapshot.statementsTotal )
+	);
 }
 
 /**

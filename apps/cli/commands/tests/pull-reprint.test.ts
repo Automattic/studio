@@ -12,7 +12,6 @@ import {
 	runFullPull,
 	downloadSkippedFiles,
 	ensureScopedPullWpConfig,
-	findMatchingWpComSite,
 	getReprintApiUrlForSite,
 	normalizeSiteUrl,
 	resolveSourceSite,
@@ -136,15 +135,6 @@ describe( 'CLI: studio pull-reprint helpers', () => {
 		expect(
 			getReprintApiUrlForSite( normalizeSiteUrl( 'https://example.com/?reprint-api' ), 'v2' )
 		).toBe( 'https://example.com/?reprint-api-jetpack' );
-	} );
-
-	it( 'matches WordPress.com sites by normalized URL or host', () => {
-		expect(
-			findMatchingWpComSite(
-				[ { id: 1, name: 'Example', url: 'https://example.wordpress.com/' } ],
-				'https://example.wordpress.com'
-			)
-		).toEqual( { id: 1, name: 'Example', url: 'https://example.wordpress.com/' } );
 	} );
 
 	it( 'invokes reprint to download skipped-earlier files', async () => {
@@ -893,7 +883,7 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 		setTTY( false );
 		vi.mocked( fetchSyncableSites ).mockResolvedValue( sites );
 
-		await expect( resolveSourceSite() ).rejects.toThrow( /Re-run with `--url/ );
+		await expect( resolveSourceSite() ).rejects.toThrow( /Re-run with `--remote-site/ );
 		expect( pickSyncSite ).not.toHaveBeenCalled();
 		expect( rotateReprintSecret ).not.toHaveBeenCalled();
 	} );
@@ -958,7 +948,7 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 		expect( source ).toMatchObject( { url: 'https://one.wordpress.com', wpComSite: sites[ 0 ] } );
 	} );
 
-	it( 'rotates a secret for a syncable site matched by --url', async () => {
+	it( 'rotates a secret for a syncable site matched by --remote-site URL', async () => {
 		setTTY( true );
 		vi.mocked( fetchSyncableSites ).mockResolvedValue( sites );
 
@@ -973,7 +963,21 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 		expect( pickSyncSite ).not.toHaveBeenCalled();
 	} );
 
-	it( 'rejects a needs-transfer site passed via --url with the hosting-features message', async () => {
+	it( 'resolves a site passed to --remote-site as a numeric WordPress.com ID', async () => {
+		setTTY( true );
+		vi.mocked( fetchSyncableSites ).mockResolvedValue( sites );
+
+		const source = await resolveSourceSite( '22' );
+
+		expect( source ).toMatchObject( {
+			url: 'https://two.wordpress.com',
+			wpComSite: sites[ 1 ],
+		} );
+		expect( rotateReprintSecret ).toHaveBeenCalledWith( 22, token.accessToken, 'v1' );
+		expect( pickSyncSite ).not.toHaveBeenCalled();
+	} );
+
+	it( 'rejects a needs-transfer site passed via --remote-site with the hosting-features message', async () => {
 		setTTY( true );
 		vi.mocked( fetchSyncableSites ).mockResolvedValue( [
 			syncSite( {
@@ -990,7 +994,7 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 		expect( rotateReprintSecret ).not.toHaveBeenCalled();
 	} );
 
-	it( 'rejects a needs-upgrade site passed via --url with the plan-upgrade message', async () => {
+	it( 'rejects a needs-upgrade site passed via --remote-site with the plan-upgrade message', async () => {
 		setTTY( true );
 		vi.mocked( fetchSyncableSites ).mockResolvedValue( [
 			syncSite( {
@@ -1007,7 +1011,7 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 		expect( rotateReprintSecret ).not.toHaveBeenCalled();
 	} );
 
-	it( 'reports the specific reason when the only site is not pullable (no --url)', async () => {
+	it( 'reports the specific reason when the only site is not pullable (no --remote-site)', async () => {
 		setTTY( true );
 		vi.mocked( fetchSyncableSites ).mockResolvedValue( [
 			syncSite( {
@@ -1025,12 +1029,12 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 		expect( rotateReprintSecret ).not.toHaveBeenCalled();
 	} );
 
-	it( 'rejects a URL that is not connected to the WordPress.com account', async () => {
+	it( 'rejects an identifier that is not connected to the WordPress.com account', async () => {
 		setTTY( true );
 		vi.mocked( fetchSyncableSites ).mockResolvedValue( sites );
 
 		await expect( resolveSourceSite( 'https://third-party.example' ) ).rejects.toThrow(
-			/not a WordPress\.com or Pressable site connected to your account/
+			/No site found matching "https:\/\/third-party\.example"/
 		);
 		expect( pickSyncSite ).not.toHaveBeenCalled();
 		expect( rotateReprintSecret ).not.toHaveBeenCalled();
@@ -1494,6 +1498,91 @@ describe( 'CLI: studio pull-reprint first-pull selective sync', () => {
 			},
 		] );
 		expect( sidecar.skipDatabase ).toBe( true );
+	} );
+
+	// The site directory is only rewritten from `preserveUnselectedLocalContent`
+	// onwards; every download before that lands in the scratch. `pulling` marks
+	// "half-written", so it must not be set while the site is still intact.
+	describe( 'the site is only marked as being written once it actually is', () => {
+		async function runPullFailingAt( failingStep: string ) {
+			const { runCommand } = await loadRunCommandWithFakeHome();
+			mockWpComPullSource();
+
+			const stateDirectory = path.join( fakeHome, '.studio', 'pulls', 'fresh-id', 'state' );
+			const sitePath = path.join( fakeHome, 'Studio', 'My-Fresh-Site' );
+
+			seedCliConfigSite( fakeHome, [
+				makeSiteRecord( {
+					id: 'fresh-id',
+					name: 'My Fresh Site',
+					path: sitePath,
+					status: 'ready',
+				} ),
+			] );
+
+			fs.mkdirSync( path.join( sitePath, 'wp-content', 'database' ), { recursive: true } );
+			fs.writeFileSync( path.join( sitePath, 'wp-content', 'database', '.ht.sqlite' ), 'local-db' );
+
+			fs.mkdirSync( stateDirectory, { recursive: true } );
+			fs.writeFileSync(
+				path.join( stateDirectory, '.import-state.json' ),
+				JSON.stringify( {
+					preflight: {
+						data: {
+							database: { wp: { paths_urls: { content_dir: '/srv/htdocs/wp-content' } } },
+							wp_detect: { roots: [ { path: '/wordpress/core/7.0' } ] },
+						},
+					},
+				} )
+			);
+
+			const migrationClientMod = await import( 'cli/lib/pull/migration-client' );
+			vi.spyOn( migrationClientMod, 'runReprintCommandUntilComplete' ).mockImplementation(
+				async ( _stateDir, _rawDir, args ) => {
+					if ( args[ 0 ] === failingStep ) {
+						throw new Error( `stop at ${ failingStep }` );
+					}
+					if ( args[ 0 ] === 'preflight' ) {
+						return {
+							stdout: JSON.stringify( {
+								data: {
+									ok: true,
+									database: { wp: { siteurl: 'https://example.com', table_prefix: 'wp_' } },
+									php: { version: '8.3' },
+								},
+							} ),
+							stderr: '',
+							exitCode: 0,
+						};
+					}
+					return { stdout: '{"ok":true}', stderr: '', exitCode: 0 };
+				}
+			);
+			vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+			vi.spyOn( console, 'error' ).mockImplementation( () => undefined );
+
+			await expect( runCommand( sitePath, 'https://example.com', false ) ).rejects.toThrow(
+				new RegExp( `stop at ${ failingStep }` )
+			);
+
+			return readSeededCliConfig( fakeHome ).sites.find( ( s ) => s.id === 'fresh-id' )!;
+		}
+
+		it( 'leaves a site untouched by a failed download as `ready`, not `pull-failed`', async () => {
+			// A dropped connection during pull-files is the likeliest failure,
+			// and the site is still the intact `studio create` install.
+			expect( ( await runPullFailingAt( 'pull-files' ) ).status ).toBe( 'ready' );
+		} );
+
+		it( 'still records the origin so the failed run can be resumed without --remote-site', async () => {
+			expect( ( await runPullFailingAt( 'pull-files' ) ).reprintOrigin ).toMatchObject( {
+				remoteUrl: 'https://example.com/',
+			} );
+		} );
+
+		it( 'marks `pull-failed` once the flatten has started rewriting the site', async () => {
+			expect( ( await runPullFailingAt( 'flat-docroot' ) ).status ).toBe( 'pull-failed' );
+		} );
 	} );
 } );
 

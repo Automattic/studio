@@ -27,6 +27,7 @@ import {
 } from 'src/hooks/use-sync-states-progress-info';
 import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
+import { getBetaFeatures } from 'src/lib/beta-features';
 import { download } from 'src/lib/download';
 import { getSyncBackupTempPath } from 'src/lib/get-sync-backup-temp-path';
 import { getAuthenticationToken } from 'src/lib/oauth';
@@ -522,12 +523,15 @@ export async function updateConnectedWpcomSites(
 	}
 }
 
-// Wraps the CLI `pull` command for apps/ui. The desktop renderer handles
+// Wraps the CLI pull commands for apps/ui. The desktop renderer handles
 // pull via `pullSiteThunk` + `pollPullBackupThunk` using its own WPCOM
 // client to initiate + poll + download — that polling lives in the
 // renderer sync slice with no end-to-end IPC equivalent to reuse. Calling
 // the CLI instead keeps apps/ui free of wpcom-client setup and mirrors the
-// simpler flow used by `push`. Exchanges everything (`--options all`).
+// simpler flow used by `push`. Exchanges everything.
+//
+// The `reprintPull` beta feature is read per pull, so toggling the menu item
+// takes effect on the next pull without reloading the renderer.
 export async function pullSiteFromLive(
 	event: IpcMainInvokeEvent,
 	siteId: string,
@@ -538,19 +542,18 @@ export async function pullSiteFromLive(
 	if ( ! site ) {
 		throw new Error( 'Site not found.' );
 	}
+	const { reprintPull } = await getBetaFeatures();
 	const window = BrowserWindow.fromWebContents( event.sender );
-	return pullSite(
-		executeCliCommand,
-		site.details.path,
-		remoteSiteId,
-		( progress ) => {
+	return pullSite( executeCliCommand, site.details.path, remoteSiteId, {
+		emit: ( progress ) => {
 			sendIpcEventToRendererWithWindow( window, 'sync-pull-progress', {
 				siteId,
 				...progress,
 			} );
 		},
-		options
-	);
+		engine: reprintPull ? 'reprint' : 'jetpack',
+		syncOptions: options,
+	} );
 }
 
 // Push for the agentic UI (apps/ui): the same shared `pushSite` the `studio ui`

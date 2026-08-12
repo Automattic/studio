@@ -6,6 +6,7 @@ import { initiateImport } from '@studio/common/lib/sync/sync-api';
 import { createTusUpload } from '@studio/common/lib/sync/tus-upload';
 import type { ExecuteCliCommand } from '@studio/common/lib/cli-process';
 import type {
+	PullEngine,
 	PullSiteProgress,
 	PullSyncOptions,
 	PushSyncOptions,
@@ -101,35 +102,57 @@ function getExportMode( optionsToSync: SyncOption[] | undefined ): 'full' | 'con
 }
 
 /**
- * Pull a local site from its connected WordPress.com live site via the CLI
- * `pull` command. Exchanges everything (`--options all`) unless selective
- * options are provided. Resolves on success, rejects on failure.
+ * Pull a local site from its connected WordPress.com live site via the CLI.
+ * `jetpack` runs `pull`, exchanging everything (`--options all`) unless
+ * selective options are provided; `reprint` runs `pull-reprint`, which pulls
+ * everything when driven non-interactively — except when it resumes a pull
+ * that was interrupted mid-flight, which reprint requires to keep its original
+ * content selection. Both commands take the same `--remote-site` identifier.
+ * Resolves on success, rejects on failure.
+ *
+ * `syncOptions` reaches the `jetpack` engine only: it selects by backup node
+ * id, whereas reprint selects by wp-content path (`--only`), so there is
+ * nothing to map it onto. A reprint pull ignores the selection and pulls
+ * everything.
+ *
+ * Only the arguments differ per engine. The progress parsing below is the
+ * CLI-wide `reportProgress` envelope plus the `(N%)` token that `pull`,
+ * `pull-reprint`, `push` and `import` all emit, so both engines share it.
  */
 export function pullSite(
 	executeCliCommand: ExecuteCliCommand,
 	siteFolder: string,
 	remoteSiteId: number,
-	emit?: ( output: PullSiteProgress ) => void,
-	options?: PullSyncOptions
+	{
+		emit,
+		engine = 'jetpack',
+		syncOptions,
+	}: {
+		emit?: ( output: PullSiteProgress ) => void;
+		engine?: PullEngine;
+		syncOptions?: PullSyncOptions;
+	} = {}
 ): Promise< void > {
+	const target = [ '--path', siteFolder, '--remote-site', String( remoteSiteId ) ];
+	const args =
+		engine === 'reprint'
+			? [ 'pull-reprint', ...target ]
+			: [
+					'pull',
+					...target,
+					'--options',
+					( syncOptions?.optionsToSync?.length ? syncOptions.optionsToSync : [ 'all' ] ).join(
+						','
+					),
+					// Pass each backup node id as its own argv value — ids can contain
+					// commas (e.g. themes `cjE6,ZjE6Lw==`), so a join/split would corrupt them.
+					...( syncOptions?.includePathList?.length
+						? [ '--include-path-list', ...syncOptions.includePathList ]
+						: [] ),
+			  ];
+
 	return new Promise( ( resolve, reject ) => {
-		const [ emitter ] = executeCliCommand(
-			[
-				'pull',
-				'--path',
-				siteFolder,
-				'--remote-site',
-				String( remoteSiteId ),
-				'--options',
-				( options?.optionsToSync?.length ? options.optionsToSync : [ 'all' ] ).join( ',' ),
-				// Pass each backup node id as its own argv value — ids can contain
-				// commas (e.g. themes `cjE6,ZjE6Lw==`), so a join/split would corrupt them.
-				...( options?.includePathList?.length
-					? [ '--include-path-list', ...options.includePathList ]
-					: [] ),
-			],
-			{ output: 'capture' }
-		);
+		const [ emitter ] = executeCliCommand( args, { output: 'capture' } );
 		emitter.on( 'data', ( { data } ) => {
 			const progress = data as { status?: unknown; message?: unknown } | null;
 			if ( progress?.status !== 'inprogress' || typeof progress.message !== 'string' ) {

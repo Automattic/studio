@@ -40,6 +40,7 @@ import {
 	runReprintCommandUntilComplete,
 } from 'cli/lib/pull/migration-client';
 import { preserveUnselectedLocalContent } from 'cli/lib/pull/preserve-local-content';
+import { overallPercent, PullStep, withPercent } from 'cli/lib/pull/pull-progress';
 import {
 	fetchReprintPullTree,
 	mapCliOnlyToReprint,
@@ -65,8 +66,13 @@ import {
 	loadImportedRuntimeStartOptionsNative,
 } from 'cli/lib/pull/runtime-start-options';
 import { buildAutoLoginUrl } from 'cli/lib/site-utils';
+import { ensureSqliteIntegrationForImportedSite } from 'cli/lib/sqlite-integration';
 import { fetchSyncableSites } from 'cli/lib/sync-api';
-import { getSyncSupportError, pickSyncSite } from 'cli/lib/sync-site-picker';
+import {
+	findSyncSiteByIdentifier,
+	getSyncSupportError,
+	pickSyncSite,
+} from 'cli/lib/sync-site-picker';
 import {
 	startWordPressServer,
 	stopWordPressServer,
@@ -88,9 +94,9 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		),
 		builder: ( builderYargs ) => {
 			return builderYargs
-				.option( 'url', {
+				.option( 'remote-site', {
 					type: 'string',
-					describe: __( 'URL of the remote WordPress site to pull from (remote source)' ),
+					description: __( 'Remote site URL or ID' ),
 				} )
 				.option( 'only', {
 					type: 'string',
@@ -119,15 +125,14 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 			const verbose = argv.verbose;
 
 			try {
-				await runCommand( argv.path, argv.url, verbose, {
+				await runCommand( argv.path, argv.remoteSite, verbose, {
 					only: argv.only as string[] | undefined,
 					skipDatabase: argv[ 'skip-database' ] as boolean,
 					skipUploads: argv[ 'skip-uploads' ] as boolean,
 				} );
 			} catch ( error ) {
 				if ( error instanceof PullError ) {
-					logger.spinner.fail( __( 'Pull failed' ) );
-					console.error( '\n' + chalk.bold.red( error.message ) );
+					logger.reportError( error );
 					if ( verbose && error.technicalDetails ) {
 						console.error( '\n' + chalk.dim( error.technicalDetails ) );
 					} else if ( error.technicalDetails ) {
@@ -285,15 +290,21 @@ class PullError extends LoggerError {
  */
 export async function runCommand(
 	localPath: string,
-	remoteUrl?: string,
+	remoteSite?: string,
 	verbose = false,
 	cliSelection: CliSelectionOptions = {}
 ): Promise< void > {
-	logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
+	logger.reportStart(
+		LoggerAction.LOAD_SITES,
+		withPercent( __( 'Loading site…' ), overallPercent( PullStep.SETUP ) )
+	);
 	const site = await getSiteByFolder( localPath );
 	logger.reportSuccess( __( 'Site loaded' ) );
 
-	const sourceSite = await resolveSourceSite( remoteUrl ?? site.reprintOrigin?.remoteUrl, verbose );
+	const sourceSite = await resolveSourceSite(
+		remoteSite ?? site.reprintOrigin?.remoteUrl,
+		verbose
+	);
 	if ( ! sourceSite ) {
 		return;
 	}
@@ -398,12 +409,22 @@ export async function runCommand(
 			remoteSiteUrl: preflight.siteurl || normalizedRemoteUrl,
 			tablePrefix: preflight.table_prefix || undefined,
 		};
-		site.status = 'pulling';
 		site.reprintOrigin = origin;
 		await updateSiteRecord( site.id, ( record ) => {
-			record.status = 'pulling';
 			record.reprintOrigin = origin;
 		} );
+
+		// `pulling` means "the site directory is half-written", so it is set
+		// only once the pull reaches the steps that rewrite it — not here.
+		// The downloads run entirely in the scratch, so a dropped connection
+		// (by far the likeliest failure) leaves the site intact and startable
+		// rather than stranding it in `pull-failed`.
+		const markSiteBeingWritten = async () => {
+			site.status = 'pulling';
+			await updateSiteRecord( site.id, ( record ) => {
+				record.status = 'pulling';
+			} );
+		};
 
 		// db-apply (run inside `pull-db`) rewrites the remote site URL to
 		// the local one the Studio server already serves —
@@ -422,7 +443,8 @@ export async function runCommand(
 			secret,
 			verbose,
 			! isRepull,
-			selection
+			selection,
+			markSiteBeingWritten
 		);
 
 		// The site record already exists (created via `studio create`) and its
@@ -430,7 +452,10 @@ export async function runCommand(
 		// wires the generated runtime Blueprint onto it so `studio start` and
 		// the daemon serve the imported runtime rather than the original blank
 		// install. Idempotent — re-writing the same value on a resume is harmless.
-		logger.reportStart( LoggerAction.CREATE_SITE, `Linking pulled files to "${ site.name }"…` );
+		logger.reportStart(
+			LoggerAction.CREATE_SITE,
+			withPercent( `Linking pulled files to "${ site.name }"…`, overallPercent( PullStep.LINK ) )
+		);
 		site.runtimeBlueprintPath = studioMetadata.runtimeBlueprintPath;
 		await updateSiteRecord( site.id, ( record ) => {
 			record.runtimeBlueprintPath = studioMetadata.runtimeBlueprintPath;
@@ -449,6 +474,13 @@ export async function runCommand(
 				record.adminPassword = adminPassword;
 			} );
 		}
+
+		// `flat-docroot --force` replaced wp-content — SQLite drop-in included —
+		// with a symlink into the scratch. runtime.php wires SQLite up separately
+		// so the site boots, but phpMyAdmin and `wp sqlite` read the integration
+		// from wp-content. `studio site start` would reinstall it, except it
+		// returns early while the server runs — which it does right after a pull.
+		await ensureSqliteIntegrationForImportedSite( site );
 
 		let runtimeStartOptions: StartServerOptions;
 		if ( getSiteRuntime( site ) === SITE_RUNTIME_NATIVE_PHP ) {
@@ -472,7 +504,10 @@ export async function runCommand(
 		const startOptionsPath = path.join( studioMetadata.runtimeDirectory, 'start-options.json' );
 		fs.writeFileSync( startOptionsPath, JSON.stringify( runtimeStartOptions, null, 2 ) + '\n' );
 
-		logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress server…' ) );
+		logger.reportStart(
+			LoggerAction.START_SITE,
+			withPercent( __( 'Starting WordPress server…' ), overallPercent( PullStep.START ) )
+		);
 
 		try {
 			await connectToDaemon();
@@ -551,6 +586,11 @@ export async function runCommand(
 		// again instead of silently reusing this run's choice.
 		clearPullSelection( studioMetadata );
 
+		// The percentage has to ride an in-progress message — `pullSite` only
+		// parses the token out of those, so the success below can't close the bar.
+		logger.reportProgress( withPercent( __( 'Pull complete' ), 100 ) );
+		logger.reportSuccess( __( 'Pull complete' ) );
+
 		site.importComplete = true;
 		site.status = 'ready';
 		await updateSiteRecord( site.id, ( record ) => {
@@ -595,8 +635,8 @@ export async function runCommand(
  * interactive prompt.
  *
  * Order of precedence:
- *   1. A selection persisted by a prior interrupted run → reuse it (the
- *      resume must keep the same `--only` set).
+ *   1. Resuming an unfinished pull → reuse the persisted selection (reprint
+ *      refuses to resume a files-pull whose `--only` set changed).
  *   2. `--only`/`--skip-*` flags → apply non-interactively.
  *   3. Non-interactive with no flags → pull everything.
  *   4. Interactive → the wp-content folder tree + database toggle.
@@ -642,9 +682,15 @@ async function applySelection( params: {
 		];
 	};
 
-	// Reuse the selection captured by a prior interrupted run. A folder
-	// selection can outlive the scratch that made it a delta (damage wipe):
-	// re-anchor it with the core roots so the fresh initial sync still
+	// Reuse the selection captured by a prior interrupted run. The sidecar is
+	// written when a selection is chosen and removed once the pull succeeds,
+	// so its presence already means "a prior run started and did not finish"
+	// — reprint refuses to resume a files-pull whose `--only` set changed, so
+	// the choice is reused rather than re-derived. It is announced because it
+	// silently overrides this run's flags (and a UI pull's full-pull intent).
+	//
+	// A folder selection can outlive the scratch that made it a delta (damage
+	// wipe): re-anchor it with the core roots so the fresh initial sync still
 	// downloads WordPress core.
 	const persisted = readPullSelection( session );
 	if ( persisted ) {
@@ -653,6 +699,9 @@ async function applySelection( params: {
 			persisted.fileOnlyPaths = healed.length > 0 ? healed : undefined;
 			savePullSelection( session, persisted );
 		}
+		console.log(
+			__( 'Resuming the interrupted pull, so its original content selection is reused.' )
+		);
 		return persisted;
 	}
 
@@ -807,7 +856,10 @@ async function runPreflight(
 		return JSON.parse( fs.readFileSync( preflightCachePath, 'utf-8' ) );
 	}
 
-	logger.reportStart( LoggerAction.PREFLIGHT, __( 'Initiating the migration…' ) );
+	logger.reportStart(
+		LoggerAction.PREFLIGHT,
+		withPercent( __( 'Initiating the migration…' ), overallPercent( PullStep.PREFLIGHT ) )
+	);
 
 	let preflightResult: ReprintProcessResult;
 	try {
@@ -1013,7 +1065,13 @@ export async function runFullPull(
 	secret: string,
 	verbose: boolean,
 	force: boolean,
-	selection: PullSelection = {}
+	selection: PullSelection = {},
+	/**
+	 * Invoked once, immediately before the first step that writes the site
+	 * directory. Everything up to here lands in the scratch, so a failure
+	 * leaves the local site untouched — this is where it stops being true.
+	 */
+	onBeforeSiteWrite?: () => Promise< void >
 ): Promise< void > {
 	const contentDir = getContentDirFromState( metadata.stateDirectory );
 	const sqlitePath = contentDir
@@ -1027,12 +1085,13 @@ export async function runFullPull(
 	const reprintRuntime = runtime === SITE_RUNTIME_NATIVE_PHP ? 'nginx-fpm' : 'playground-cli';
 	const onlyArgs = ( selection.fileOnlyPaths ?? [] ).map( ( onlyPath ) => `--only=${ onlyPath }` );
 
-	const runStep = ( progressLabel: string, args: string[] ) =>
+	const runStep = ( step: PullStep, progressLabel: string, args: string[] ) =>
 		runReprintCommandUntilComplete(
 			metadata.stateDirectory,
 			metadata.rawDirectory,
 			args,
-			( progress ) => logger.reportProgress( progress ),
+			( progress, fraction ) =>
+				logger.reportProgress( withPercent( progress, overallPercent( step, fraction ) ) ),
 			{
 				progressLabel,
 				mounts: [
@@ -1061,12 +1120,15 @@ export async function runFullPull(
 		resetEssentialFilesState( metadata.stateDirectory );
 	}
 
-	logger.reportStart( LoggerAction.DOWNLOAD_FILES, __( 'Pulling site…' ) );
+	logger.reportStart(
+		LoggerAction.DOWNLOAD_FILES,
+		withPercent( __( 'Pulling site…' ), overallPercent( PullStep.FILES ) )
+	);
 
 	// 1. Files. `--only` restricts the download to the selected wp-content
 	// folders; essential-files defers the media library to the post-start
 	// skipped-earlier pass.
-	await runStep( __( 'Pulling files' ), [
+	await runStep( PullStep.FILES, __( 'Pulling files' ), [
 		'pull-files',
 		apiUrl,
 		`--secret=${ secret }`,
@@ -1082,7 +1144,7 @@ export async function runFullPull(
 	// only from the target that db-apply persists — record it explicitly,
 	// pointing at the kept database.
 	if ( ! selection.skipDatabase ) {
-		await runStep( __( 'Pulling database' ), [
+		await runStep( PullStep.DATABASE, __( 'Pulling database' ), [
 			'pull-db',
 			apiUrl,
 			`--secret=${ secret }`,
@@ -1096,6 +1158,11 @@ export async function runFullPull(
 	} else {
 		setSqliteRuntimeTarget( metadata.stateDirectory, sqlitePath );
 	}
+
+	// Everything above landed in the scratch; from here on the site
+	// directory itself is rewritten — step 3 *moves* local wp-content
+	// entries out of it, and the flatten then replaces the directory.
+	await onBeforeSiteWrite?.();
 
 	// 3. Carry the unselected local wp-content entries (and a kept
 	// database) into the scratch before flattening replaces the site's
@@ -1126,7 +1193,7 @@ export async function runFullPull(
 
 	// 4. Flatten the raw download into the site directory. `-` is the URL
 	// placeholder for local commands.
-	await runStep( __( 'Flattening layout' ), [
+	await runStep( PullStep.FLATTEN, __( 'Flattening layout' ), [
 		'flat-docroot',
 		'-',
 		`--flatten-to=${ metadata.sitePath }`,
@@ -1138,7 +1205,7 @@ export async function runFullPull(
 	// 5. Runtime config — last, so it reads the DB credentials pull-db wrote
 	// to state. apply-runtime takes no URL positional, and
 	// --flat-document-root replaces --fs-root (they are mutually exclusive).
-	await runStep( __( 'Preparing runtime' ), [
+	await runStep( PullStep.RUNTIME, __( 'Preparing runtime' ), [
 		'apply-runtime',
 		`--runtime=${ reprintRuntime }`,
 		`--output-dir=${ metadata.runtimeDirectory }`,
@@ -1168,7 +1235,10 @@ export async function downloadSkippedFiles(
 	verbose: boolean,
 	selection: PullSelection = {}
 ): Promise< void > {
-	logger.reportStart( LoggerAction.DOWNLOAD_FILES, __( 'Downloading remaining files…' ) );
+	logger.reportStart(
+		LoggerAction.DOWNLOAD_FILES,
+		withPercent( __( 'Downloading remaining files…' ), overallPercent( PullStep.REMAINING ) )
+	);
 
 	// Studio's split pipeline runs pull-db between pull-files and this
 	// tail, and pull-db's prepare_repull() resets the skipped_pending flag
@@ -1199,7 +1269,10 @@ export async function downloadSkippedFiles(
 			`--state-dir=${ metadata.stateDirectory }`,
 			`--fs-root=${ metadata.rawDirectory }`,
 		],
-		( progress ) => logger.reportProgress( progress ),
+		( progress, fraction ) =>
+			logger.reportProgress(
+				withPercent( progress, overallPercent( PullStep.REMAINING, fraction ) )
+			),
 		{
 			progressLabel: __( 'Remaining files' ),
 			verboseCommands: verbose,
@@ -1222,54 +1295,23 @@ export function normalizeSiteUrl( url: string ): string {
 }
 
 /**
- * Finds the WordPress.com site in the user's connected list whose
- * public URL best matches `url`.  Matches on the full normalized URL
- * first, then falls back to host-only matching so `example.com` and
- * `example.com/blog` both resolve to the same WP.com site record.
- *
- * No existing Studio helper does this today — `getSiteByFolder` /
- * `getHostnameFromUrl` operate on local sites or return a string, and
- * `findSite` variants all key on site id.  Keep this one local to
- * pull-reprint; if a second caller ever needs the same shape, the
- * natural home would be `cli/lib/wpcom-sites`.
- */
-export function findMatchingWpComSite< T extends { url: string } >(
-	sites: T[],
-	url: string
-): T | undefined {
-	const normalizedUrl = normalizeSiteUrl( url );
-	const target = new URL( normalizedUrl );
-
-	return sites.find( ( site ) => {
-		try {
-			const normalizedSiteUrl = normalizeSiteUrl( site.url );
-			if ( normalizedSiteUrl === normalizedUrl ) {
-				return true;
-			}
-
-			return new URL( normalizedSiteUrl ).host === target.host;
-		} catch {
-			return false;
-		}
-	} );
-}
-
-/**
  * Resolves the **remote source** to pull from. A valid source must be
  * present in the user's WordPress.com Jetpack API site list, which also
  * includes Pressable sites on the same platform. Handles two input
  * patterns:
  *
- *   1. URL provided — resolve it against the connected WordPress.com/
- *      Pressable sites, enable the exporter, and rotate a fresh secret.
- *   2. No URL — among pullable (`syncable`) sites only: if the user has
+ *   1. Identifier provided — a site URL or WordPress.com site ID, resolved
+ *      against the connected WordPress.com/Pressable sites through the same
+ *      helper `pull` and `push` use, then the exporter is enabled and a fresh
+ *      secret is rotated.
+ *   2. No identifier — among pullable (`syncable`) sites only: if the user has
  *      exactly one, pick it; with several, show an interactive picker in a
  *      TTY (returning `null` if the user cancels) or error out when run
  *      non-interactively. Non-pullable sites (Simple, or missing hosting
  *      features) are surfaced as disabled in the picker.
  */
 export async function resolveSourceSite(
-	url?: string,
+	identifier?: string,
 	verbose = false
 ): Promise< PullSource | null > {
 	const token = await readAuthToken();
@@ -1290,18 +1332,11 @@ export async function resolveSourceSite(
 	let resolvedUrl: string;
 	let wpComSite: SyncSite;
 
-	if ( url ) {
-		const matched = findMatchingWpComSite( sites, url );
-		if ( ! matched ) {
-			throw new LoggerError(
-				__( 'This URL is not a WordPress.com or Pressable site connected to your account.' )
-			);
-		}
-		if ( matched.syncSupport !== 'syncable' ) {
-			throw getSyncSupportError( matched );
-		}
-		resolvedUrl = matched.url;
-		wpComSite = matched;
+	if ( identifier ) {
+		// Throws when nothing matches, when several sites share the hostname,
+		// or when the match isn't syncable.
+		wpComSite = findSyncSiteByIdentifier( sites, identifier );
+		resolvedUrl = wpComSite.url;
 	} else {
 		// Only sites that can run the reprint exporter — those with hosting
 		// features enabled (`syncable`) — are pull candidates.
@@ -1324,11 +1359,13 @@ export async function resolveSourceSite(
 		if ( pullableSites.length > 1 ) {
 			// In a real terminal, let the user pick interactively. Outside a
 			// TTY (CI, or Studio driving the command) there's no way to
-			// prompt, so exit with guidance to pass `--url` — the realistic
+			// prompt, so exit with guidance to pass `--remote-site` — the realistic
 			// non-TTY caller already does.
 			if ( ! process.stdin.isTTY ) {
 				throw new LoggerError(
-					__( 'Multiple WordPress.com sites are available. Re-run with `--url <site-url>`.' )
+					__(
+						'Multiple WordPress.com sites are available. Re-run with `--remote-site <site-url-or-id>`.'
+					)
 				);
 			}
 

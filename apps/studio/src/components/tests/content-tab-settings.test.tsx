@@ -38,7 +38,7 @@ const snapshotTestActions = {
 let testStore = createTestStore( {
 	preloadedState: {
 		betaFeatures: {
-			features: { remoteSession: false, enableAgenticUi: false },
+			features: { remoteSession: false, enableAgenticUi: false, reprintPull: false },
 			loading: false,
 		},
 	},
@@ -49,7 +49,7 @@ function createCustomTestStore() {
 	const store = createTestStore( {
 		preloadedState: {
 			betaFeatures: {
-				features: { remoteSession: false, enableAgenticUi: false },
+				features: { remoteSession: false, enableAgenticUi: false, reprintPull: false },
 				loading: false,
 			},
 		},

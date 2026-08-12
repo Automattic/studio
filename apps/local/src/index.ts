@@ -1114,18 +1114,15 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
-			await pullSite(
-				execute,
-				site.path,
-				remoteSiteId,
-				( progress ) => {
+			await pullSite( execute, site.path, remoteSiteId, {
+				emit: ( progress ) => {
 					sseSend( {
 						channel: 'sync-pull',
 						payload: { ...progress, siteId: req.params.id, remoteSiteId },
 					} );
 				},
-				options
-			);
+				syncOptions: options,
+			} );
 			res.sendStatus( 204 );
 		} )
 	);

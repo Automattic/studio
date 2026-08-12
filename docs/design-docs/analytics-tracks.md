@@ -142,17 +142,29 @@ where the sender actually runs — see Testing below for what fires in which bui
   module, and a standalone `studio code` directly — and that function is the one place holding the
   provider, model, resolved session id and turn outcome together. The desktop passes its origin to
   the fork via `STUDIO_TRACKS_ORIGIN` (the run-manager's injected `getTracksOrigin`, resolved per run
-  because the user can switch renderer mid-session), exactly as for `studio_site_start`.
-  **Caveat:** `studio ui` supplies no origin, so browser-hosted chat is currently counted as
-  `channel=studio-cli` — that bucket mixes standalone-CLI and browser-UI usage and the two cannot be
-  separated after the fact. Tracked in [STU-2247](https://linear.app/a8c/issue/STU-2247).
+  because the user can switch renderer mid-session), exactly as for `studio_site_start`. `studio ui`
+  supplies no origin — see the note below.
 - **`studio_code_session_created`** is the exception to the above: sessions are created *in-process*
   via `createOrReuseAiSession` rather than by forking the CLI, so it fires from desktop Main
   (`createAiSession`). `createOrReuseAiSession` reuses an existing empty draft instead of piling up
-  orphans, and returns a `created` flag so a reuse isn't counted as a creation. The `studio ui` server
-  creates sessions through the same shared function but has no Tracks wrapper of its own (no opt-out
-  gating, install id, or common props), so browser-created sessions are **not** counted — the same
-  STU-2247 gap.
+  orphans, and returns a `created` flag so a reuse isn't counted as a creation.
+
+> **`studio ui` (the browser UI served by `apps/local`) emits nothing.** That server has no Tracks
+> wrapper of its own — no opt-out gating, install id, or common props — so this is one gap with three
+> visible symptoms, not three separate ones:
+>
+> | What | Effect under `studio ui` |
+> |---|---|
+> | `studio_code_message_sent` / `_turn_completed` | Emitted (the CLI fork does it) but **mis-bucketed** as `channel=studio-cli`, so that bucket mixes standalone-CLI and browser usage |
+> | `studio_code_session_created` | **Not emitted** — sessions are created in-process, and only Main records it |
+> | `studio_setting_instructions_change` | **Not emitted** — the local connector drops the `editSession` option and the HTTP route has no emitter |
+>
+> The instructions case is the easiest to misread: `capabilities.agentInstructions` is `true` on the
+> local connector, so the settings panel mounts and runs the whole edit-session flow, and the option is
+> discarded at the connector boundary. TypeScript does not catch it — a narrower implementation is
+> assignable to the wider interface — and the panel's unit tests exercise the renderer only, so they
+> pass regardless. Instructions still **save** correctly in every case above; only the analytics is
+> missing. Tracked in [STU-2247](https://linear.app/a8c/issue/STU-2247).
 - **Renderer-originated events** go through the `recordAnalyticsEvent` IPC handler
   (`apps/studio/src/ipc-handlers.ts`). Both renderers share the same Main single entry point, and the
   desktop wrapper's `commonProps()` attaches `channel`/`ui_version` centrally — the `ui_version` is

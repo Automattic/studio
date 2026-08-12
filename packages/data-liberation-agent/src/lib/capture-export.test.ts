@@ -100,14 +100,19 @@ describe( 'exportWebsiteCapture', () => {
 		dirs.push( outputDir );
 		mkdirSync( join( outputDir, 'html' ), { recursive: true } );
 		mkdirSync( join( outputDir, 'screenshots' ), { recursive: true } );
+		mkdirSync( join( outputDir, 'media' ), { recursive: true } );
 		mkdirSync( join( outputDir, 'resources', '_runtimes' ), { recursive: true } );
 		mkdirSync( join( outputDir, 'resources', '_json' ), { recursive: true } );
 		writeFileSync(
 			join( outputDir, 'html', 'homepage.html' ),
-			'<link rel="preload" href="/_runtimes/site.js" as="script"><link rel="preload" href="/_json/site.json" as="fetch"><script type="module">import { Site } from "/_runtimes/site.js"; import "/_runtimes/missing.js";</script>'
+			'<img src="https://example.com/hero.png"><link rel="preload" href="/_runtimes/site.js" as="script"><link rel="preload" href="/_json/site.json" as="fetch"><script type="module">import { Site } from "/_runtimes/site.js"; import "/_runtimes/missing.js";</script>'
 		);
+		writeFileSync( join( outputDir, 'media', 'hero.png' ), 'png' );
 		writeFileSync( join( outputDir, 'resources', '_runtimes', 'site.js' ), 'export class Site {}' );
-		writeFileSync( join( outputDir, 'resources', '_json', 'site.json' ), '{"site":true}' );
+		writeFileSync(
+			join( outputDir, 'resources', '_json', 'site.json' ),
+			'{"image":"https://example.com/hero.png"}'
+		);
 		writeFileSync(
 			join( outputDir, 'resources', 'manifest.json' ),
 			JSON.stringify( {
@@ -132,6 +137,9 @@ describe( 'exportWebsiteCapture', () => {
 				entries: { 'https://example.com/': { html: 'html/homepage.html' } },
 			} )
 		);
+		const media = MediaStubStore.load( outputDir );
+		media.markSuccess( 'https://example.com/hero.png', join( outputDir, 'media', 'hero.png' ) );
+		media.flush();
 
 		const receiptPath = exportWebsiteCapture( {
 			outputDir,
@@ -155,7 +163,7 @@ describe( 'exportWebsiteCapture', () => {
 			path: 'website/_json/site.json',
 		} );
 		expect( readFileSync( join( outputDir, 'website', '_json', 'site.json' ), 'utf8' ) ).toBe(
-			'{"site":true}'
+			'{"image":"/media/hero.png"}'
 		);
 		expect( diagnostics.unresolvedDependencies ).toEqual( [
 			expect.objectContaining( { url: 'https://example.com/_runtimes/missing.js' } ),

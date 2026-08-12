@@ -73,21 +73,30 @@ export interface CreateStudioToolsOptions {
 	// by `STUDIO_REMOTE_SESSION=1`. Direct `studio code` invocations leave
 	// this off because the image would have nowhere to go.
 	remoteSession?: boolean;
+	// Whether refresh_browser has an attached Studio preview to reload. Omit
+	// for compatibility with non-agent consumers that manage this capability.
+	studioUiAttached?: boolean;
 }
 
 export function resolveStudioToolDefinitions(
 	options: CreateStudioToolsOptions = {}
 ): AnyStudioAgentTool[] {
-	const definitions =
-		options.emitChatArtifacts === true
-			? [ ...studioToolDefinitions, studioPresentTool ]
-			: studioToolDefinitions;
+	const emitChatArtifacts =
+		options.emitChatArtifacts === true &&
+		options.remoteSession !== true &&
+		options.studioUiAttached !== false;
+	const definitions = emitChatArtifacts
+		? [ ...studioToolDefinitions, studioPresentTool ]
+		: studioToolDefinitions;
 
 	return definitions.flatMap( ( candidate ) => {
 		if ( candidate.name === shareScreenshotTool.name && ! options.remoteSession ) {
 			return [];
 		}
-		return [ withChatArtifactEmission( candidate, options.emitChatArtifacts === true ) ];
+		if ( candidate.name === refreshBrowserTool.name && options.studioUiAttached === false ) {
+			return [];
+		}
+		return [ withChatArtifactEmission( candidate, emitChatArtifacts ) ];
 	} );
 }
 

@@ -307,6 +307,8 @@ async function createStudioAgentSession(
 	const chatArtifactsEnabled = typeof process.send === 'function';
 	const surfaceValue = config.env[ AGENT_SURFACE_ENV_VAR ];
 	const surface = isAgentSurface( surfaceValue ) ? surfaceValue : undefined;
+	const studioUiAttached = surface !== undefined && ! remoteSession;
+	const studioUiArtifactsEnabled = chatArtifactsEnabled && studioUiAttached;
 	const [ userInstructions, runtime ] = await Promise.all( [
 		readGlobalInstructions(),
 		isRemoteSite ? undefined : resolveActiveSiteRuntime( config.activeSite ),
@@ -320,12 +322,13 @@ async function createStudioAgentSession(
 						url: config.activeSite!.url ?? '',
 						id: config.activeSite!.wpcomSiteId!,
 					},
+					chatArtifactsEnabled: studioUiArtifactsEnabled,
 					remoteSession,
 					surface,
 					userInstructions,
 			  }
 			: {
-					chatArtifactsEnabled,
+					chatArtifactsEnabled: studioUiArtifactsEnabled,
 					remoteSession,
 					runtime,
 					surface,
@@ -333,7 +336,12 @@ async function createStudioAgentSession(
 			  }
 	);
 
-	const tools = buildAgentTools( config, chatArtifactsEnabled, remoteSession );
+	const tools = buildAgentTools(
+		config,
+		studioUiArtifactsEnabled,
+		remoteSession,
+		studioUiAttached
+	);
 	const toolDefinitions = tools.map( ( tool ) => toToolDefinition( tool, payloadGuardState ) );
 	const modelRuntime = await createModelRuntime( model, family, creds );
 	const settingsManager = createSettingsManager( config.env );
@@ -621,7 +629,8 @@ function toToolDefinition(
 function buildAgentTools(
 	config: ResolvedStudioAgentTurnConfig,
 	chatArtifactsEnabled: boolean,
-	remoteSession: boolean
+	remoteSession: boolean,
+	studioUiAttached: boolean
 ): AgentToolAny[] {
 	const isRemoteSite = Boolean(
 		config.activeSite?.remote && config.activeSite?.wpcomSiteId && config.wpcomAccessToken
@@ -675,6 +684,7 @@ function buildAgentTools(
 	const studioTools = resolveStudioToolDefinitions( {
 		emitChatArtifacts: chatArtifactsEnabled,
 		remoteSession,
+		studioUiAttached,
 	} ) as unknown as AgentToolAny[];
 	return [ ...studioTools, ...askUserTool, ...skillTool, ...piTools ];
 }

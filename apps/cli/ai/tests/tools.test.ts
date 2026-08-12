@@ -348,6 +348,26 @@ describe( 'Studio AI MCP tools', () => {
 		);
 	} );
 
+	it( 'omits refresh_browser when no Studio UI preview is attached', () => {
+		const names = resolveStudioToolDefinitions( { studioUiAttached: false } ).map(
+			( tool ) => tool.name
+		);
+
+		expect( names ).not.toContain( 'refresh_browser' );
+	} );
+
+	it( 'does not expose Studio UI presentation tools in remote sessions', () => {
+		const names = resolveStudioToolDefinitions( {
+			emitChatArtifacts: true,
+			remoteSession: true,
+			studioUiAttached: false,
+		} ).map( ( tool ) => tool.name );
+
+		expect( names ).toContain( 'share_screenshot' );
+		expect( names ).not.toContain( 'studio_present' );
+		expect( names ).not.toContain( 'refresh_browser' );
+	} );
+
 	it( 'keeps screenshot presentation guidance out of the screenshot tool description', () => {
 		const takeScreenshot = resolveStudioToolDefinitions( {
 			emitChatArtifacts: true,

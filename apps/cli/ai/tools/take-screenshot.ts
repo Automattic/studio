@@ -60,7 +60,7 @@ export const takeScreenshotTool = defineTool(
 		'Pass `colorScheme: "light"`, `colorScheme: "dark"`, or `colorScheme: "all"` to verify pages that respond to prefers-color-scheme. ' +
 		'Long pages are clipped at 8000 vertical pixels (a vision-model limit); the response reports the document height and whether more remains, and you can call again with `offset` to fetch the next slice. ' +
 		'Use this to verify the site looks correct after building it. ' +
-		'Captures are shown to the user in the chat by default; pass `display: false` for internal verification captures while iterating so the user only sees deliberate milestones. ' +
+		'When supported by the current environment, captures are emitted as Studio chat artifacts by default; pass `display: false` for internal verification captures while iterating. ' +
 		'Use `share_screenshot` instead only in remote sessions where you need to deliver the rendered page outside the Studio UI.',
 	{
 		url: Type.String( { description: 'The URL to screenshot' } ),
@@ -69,7 +69,7 @@ export const takeScreenshotTool = defineTool(
 		display: Type.Optional(
 			Type.Boolean( {
 				description:
-					'Whether to show the capture to the user in the chat. Defaults to true; set false for internal verification captures the user does not need to see.',
+					'Whether to emit the capture as a Studio chat artifact when the current environment supports it. Defaults to true; set false for internal verification.',
 			} )
 		),
 		offset: Type.Optional(

@@ -467,9 +467,7 @@ describe( 'CLI: studio site create', () => {
 			);
 			const payload = JSON.parse( blueprint.staticSiteImport.source );
 
-			expect( payload.files ).toEqual( [
-				expect.objectContaining( { path: 'index.html' } ),
-			] );
+			expect( payload.files ).toEqual( [ expect.objectContaining( { path: 'index.html' } ) ] );
 			expect( payload.files ).not.toEqual(
 				expect.arrayContaining( [ expect.objectContaining( { path: 'diagnostics.json' } ) ] )
 			);

@@ -236,10 +236,14 @@ function resolveCaptureWebsiteRoot( sourceDir: string ): string {
 	const websiteRoot = path.resolve( sourceDir, receipt.websiteRoot );
 	const relativeRoot = path.relative( captureRoot, websiteRoot );
 	if ( relativeRoot === '..' || relativeRoot.startsWith( `..${ path.sep }` ) ) {
-		throw new LoggerError( __( 'Data Liberation website root must stay inside the capture directory.' ) );
+		throw new LoggerError(
+			__( 'Data Liberation website root must stay inside the capture directory.' )
+		);
 	}
 	if ( ! fs.existsSync( websiteRoot ) || ! fs.statSync( websiteRoot ).isDirectory() ) {
-		throw new LoggerError( sprintf( __( 'Data Liberation capture root not found: %s' ), websiteRoot ) );
+		throw new LoggerError(
+			sprintf( __( 'Data Liberation capture root not found: %s' ), websiteRoot )
+		);
 	}
 
 	return websiteRoot;

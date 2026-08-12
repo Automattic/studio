@@ -20,17 +20,8 @@ describe( 'mapCheckedNodesToSelection', () => {
 		expect( mapCheckedNodesToSelection( selected ) ).toEqual( {
 			fileOnlyPaths: [],
 			skipDatabase: false,
-			skipUploads: false,
 			hasAnyFile: true,
 		} );
-	} );
-
-	it( 'skips the media library unless uploads (or everything) is selected', () => {
-		expect( mapCheckedNodesToSelection( [ checked( 'plugins' ) ] ).skipUploads ).toBe( true );
-		expect( mapCheckedNodesToSelection( [ checked( 'uploads' ) ] ).skipUploads ).toBe( false );
-		expect( mapCheckedNodesToSelection( [ checked( 'uploads/2026', 2 ) ] ).skipUploads ).toBe(
-			false
-		);
 	} );
 
 	it( 'flags --no-db when the database is unchecked', () => {

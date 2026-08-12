@@ -97,11 +97,6 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					describe: __( 'Do not pull the database (keeps the local one)' ),
 					default: false,
 				} )
-				.option( 'skip-uploads', {
-					type: 'boolean',
-					describe: __( 'Do not pull the media library (uploads)' ),
-					default: false,
-				} )
 				.option( 'verbose', {
 					type: 'boolean',
 					describe: __( 'Show detailed error information and executed commands' ),
@@ -115,7 +110,6 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				await runCommand( argv.path, argv.url, verbose, {
 					only: argv.only as string[] | undefined,
 					skipDatabase: argv[ 'skip-database' ] as boolean,
-					skipUploads: argv[ 'skip-uploads' ] as boolean,
 				} );
 			} catch ( error ) {
 				if ( error instanceof PullError ) {
@@ -171,15 +165,13 @@ interface PullSession {
  */
 interface PullSelection {
 	skipDatabase?: boolean;
-	skipUploads?: boolean;
 	fileOnlyPaths?: string[];
 }
 
-/** Raw selective-sync CLI flags (`--only`, `--skip-database`, `--skip-uploads`). */
+/** Raw selective-sync CLI flags (`--only`, `--skip-database`). */
 interface CliSelectionOptions {
 	only?: string[];
 	skipDatabase?: boolean;
-	skipUploads?: boolean;
 }
 
 /**
@@ -664,12 +656,11 @@ async function applySelection( params: {
 	};
 
 	const cliOnly = cli.only?.filter( ( value ) => value.trim().length > 0 ) ?? [];
-	const cliDriven = cliOnly.length > 0 || cli.skipDatabase || cli.skipUploads;
+	const cliDriven = cliOnly.length > 0 || cli.skipDatabase;
 
 	if ( cliDriven ) {
 		const selection: PullSelection = {
 			skipDatabase: !! cli.skipDatabase,
-			skipUploads: !! cli.skipUploads,
 		};
 		if ( cliOnly.length > 0 ) {
 			const contentDir = reprintMetadata.sourceSite.contentDirectory;
@@ -680,8 +671,7 @@ async function applySelection( params: {
 					)
 				);
 			}
-			const mapped = mapCliOnlyToReprint( cliOnly );
-			const withCore = withCoreRootsOnFirstPull( mapped );
+			const withCore = withCoreRootsOnFirstPull( mapCliOnlyToReprint( cliOnly ) );
 			if ( withCore.length > 0 ) {
 				selection.fileOnlyPaths = withCore;
 			}
@@ -725,7 +715,6 @@ async function applySelection( params: {
 	const fileOnlyPaths = withCoreRootsOnFirstPull( picked.fileOnlyPaths, ! picked.hasAnyFile );
 	const selection: PullSelection = {
 		skipDatabase: picked.skipDatabase,
-		skipUploads: picked.skipUploads,
 	};
 	if ( fileOnlyPaths.length > 0 ) {
 		selection.fileOnlyPaths = fileOnlyPaths;
@@ -1000,14 +989,11 @@ export async function runFullPull(
 
 	logger.reportStart( LoggerAction.DOWNLOAD_FILES, __( 'Pulling site…' ) );
 
-	// 1. Files. `--only` restricts the download to the selected wp-content
-	// folders; essential-files defers the media library to the post-start
-	// skipped-earlier pass.
+	// 1. Files. `--only` restricts the download to selected paths.
 	await runStep( __( 'Pulling files' ), [
 		'pull-files',
 		apiUrl,
 		`--secret=${ secret }`,
-		'--filter=essential-files',
 		...onlyArgs,
 		'--no-adaptive',
 		`--state-dir=${ metadata.stateDirectory }`,
@@ -1039,7 +1025,6 @@ export async function runFullPull(
 			contentDir,
 			selectedPrefixes: resolveOnlyPathsToAbsolute( selection.fileOnlyPaths ?? [], contentDir ),
 			skipDatabase: selection.skipDatabase,
-			skipUploads: selection.skipUploads,
 		} );
 	}
 

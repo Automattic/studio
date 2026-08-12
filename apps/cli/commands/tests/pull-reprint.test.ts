@@ -331,7 +331,6 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 			'pull-files',
 			'https://example.com/?reprint-api',
 			'--secret=hmac-secret',
-			'--filter=essential-files',
 			'--no-adaptive',
 			`--state-dir=${ stateDirectory }`,
 			`--fs-root=${ rawDirectory }`,
@@ -498,9 +497,50 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 		expect( filesArgs[ 0 ] ).toBe( 'pull-files' );
 		expect( filesArgs ).toContain( '--only=:wp-plugins:' );
 		expect( filesArgs ).toContain( '--only=/srv/htdocs/wp-content/plugins/akismet' );
+		expect( filesArgs ).not.toContain( '--filter=essential-files' );
 		// The database step still runs (only files were restricted).
 		const commands = reprint.mock.calls.map( ( call ) => ( call[ 2 ] as string[] )[ 0 ] );
 		expect( commands ).toContain( 'pull-db' );
+
+		fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
+	} );
+
+	it( 'uses only the selected directories when uploads are omitted', async () => {
+		const technicalSiteDirectory = fs.mkdtempSync(
+			path.join( os.tmpdir(), 'studio-import-pull-skip-uploads-' )
+		);
+		const stateDirectory = path.join( technicalSiteDirectory, 'state' );
+		const rawDirectory = path.join( technicalSiteDirectory, 'raw' );
+		fs.mkdirSync( stateDirectory, { recursive: true } );
+		fs.mkdirSync( rawDirectory, { recursive: true } );
+
+		const reprint = vi
+			.spyOn( migrationClient, 'runReprintCommandUntilComplete' )
+			.mockResolvedValue( { stdout: '{"ok":true}', stderr: '', exitCode: 0 } );
+
+		await runFullPull(
+			SITE_RUNTIME_PLAYGROUND,
+			{
+				stateDirectory,
+				rawDirectory,
+				sitePath: technicalSiteDirectory,
+				technicalSiteDirectory,
+				runtimeDirectory: path.join( technicalSiteDirectory, 'runtime' ),
+				runtimeBlueprintPath: path.join( technicalSiteDirectory, 'runtime', 'blueprint.json' ),
+				localUrl: 'http://localhost:8881',
+			},
+			'https://example.com/?reprint-api',
+			'hmac-secret',
+			false,
+			false,
+			{ fileOnlyPaths: [ ':wp-content:/plugins', ':wp-content:/themes' ] }
+		);
+
+		const filesArgs = reprint.mock.calls[ 0 ][ 2 ] as string[];
+		expect( filesArgs ).toContain( '--only=:wp-content:/plugins' );
+		expect( filesArgs ).toContain( '--only=:wp-content:/themes' );
+		expect( filesArgs ).not.toContain( '--exclude=:wp-uploads:' );
+		expect( filesArgs ).not.toContain( '--filter=essential-files' );
 
 		fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
 	} );
@@ -622,7 +662,6 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 			path.join( stateDirectory, 'selection.json' ),
 			JSON.stringify( {
 				skipDatabase: true,
-				skipUploads: true,
 				fileOnlyPaths: [ ':wp-plugins:', '/srv/htdocs/wp-content/plugins/akismet' ],
 			} )
 		);
@@ -1270,8 +1309,8 @@ describe( 'CLI: studio pull-reprint delta re-pull of a completed pull', () => {
 				}
 
 				if ( args[ 0 ] === 'pull-files' ) {
-					expect( args ).toEqual( expect.arrayContaining( [ '--filter=essential-files' ] ) );
-					throw new Error( 'stop after essential-files pull invocation' );
+					expect( args ).not.toContain( '--filter=essential-files' );
+					throw new Error( 'stop after files pull invocation' );
 				}
 
 				throw new Error( `Unexpected reprint command: ${ args[ 0 ] }` );
@@ -1280,7 +1319,7 @@ describe( 'CLI: studio pull-reprint delta re-pull of a completed pull', () => {
 		vi.spyOn( console, 'error' ).mockImplementation( () => undefined );
 
 		await expect( runCommand( sitePath, 'https://example.com', false ) ).rejects.toThrow(
-			/stop after essential-files pull invocation/
+			/stop after files pull invocation/
 		);
 
 		expect( reprintSpy.mock.calls.map( ( call ) => call[ 2 ][ 0 ] ) ).toEqual( [

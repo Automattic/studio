@@ -22,7 +22,6 @@ const CONTENT_DIRECTORY_TOKENS: Record< string, string > = {
 export interface PullSelection {
 	fileOnlyPaths: string[];
 	skipDatabase: boolean;
-	skipUploads: boolean;
 	hasAnyFile: boolean;
 }
 
@@ -78,12 +77,9 @@ export function mapCliOnlyToReprint( values: string[] ): string[] {
 export function mapCheckedNodesToSelection( selected: TreeNode[] ): PullSelection {
 	const checkedValues = new Set( selected.map( ( node ) => node.value ) );
 	const skipDatabase = ! checkedValues.has( 'database' );
-	const skipUploads = ! [ ...checkedValues ].some(
-		( value ) => value === 'wp-content' || value === 'uploads' || value.startsWith( 'uploads/' )
-	);
 
 	if ( checkedValues.has( 'wp-content' ) ) {
-		return { fileOnlyPaths: [], skipDatabase, skipUploads, hasAnyFile: true };
+		return { fileOnlyPaths: [], skipDatabase, hasAnyFile: true };
 	}
 
 	const fileNodes = selected.filter(
@@ -97,7 +93,6 @@ export function mapCheckedNodesToSelection( selected: TreeNode[] ): PullSelectio
 	return {
 		fileOnlyPaths: maximal.map( ( node ) => relativePathToOnly( node.value ) ),
 		skipDatabase,
-		skipUploads,
 		hasAnyFile: fileNodes.length > 0,
 	};
 }

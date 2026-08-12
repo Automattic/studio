@@ -146,6 +146,12 @@ export function __buildTracksPixelUrl(
 	return url.toString();
 }
 
+function omitUndefined( props: TracksProps ): TracksProps {
+	return Object.fromEntries(
+		Object.entries( props ).filter( ( [ , value ] ) => value !== undefined )
+	);
+}
+
 // Returns true if we attempted to record the event. Fire-and-forget, no-ops in E2E/dev like
 // `__bumpStat`.
 export function __recordTracksEvent(
@@ -160,7 +166,9 @@ export function __recordTracksEvent(
 	}
 
 	if ( process.env.E2E || process.env.NODE_ENV === 'development' ) {
-		console.info( `Would have recorded Tracks event: ${ eventName }`, props );
+		// Log what would actually be sent: the builder drops `undefined` props, so printing the raw
+		// object would show optional props as `undefined` and imply they were part of the request.
+		console.info( `Would have recorded Tracks event: ${ eventName }`, omitUndefined( props ) );
 		return false;
 	}
 

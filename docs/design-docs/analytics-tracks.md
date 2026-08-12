@@ -346,6 +346,13 @@ not counted at all — see [STU-2247](https://linear.app/a8c/issue/STU-2247).
 | `studio_code_turn_completed` | CLI `runAgentTurn` | `outcome` (`success`/`error`/`interrupted`/`max_turns`), `duration_ms`, plus the same `provider`/`model`/`model_family`. One per turn finishing. Partially overlaps the MC Stats `recordAgentRun` bump (`packages/common/ai/agent-stats.ts`), which is a bare counter with no model or duration breakdown. |
 | `studio_code_session_created` | Desktop Main (`createAiSession`) | `has_site` (boolean — whether the session is bound to a site; the site name and path are **never** sent). Emitted only when a session is actually created, not when an empty draft is reused. |
 
+**Reading `studio_code_session_created`:** it counts sessions that got *used*, not "new chat" clicks.
+`createOrReuseAiSession` hands back the newest un-prompted, un-archived draft instead of piling up
+orphans, so opening a new chat and leaving it empty emits nothing — however many times it is
+repeated. A session is only created once the previous one has a prompt in it. That makes the event a
+sound denominator for messages-per-session, but it will read lower than any UI-level count of the new
+chat affordance.
+
 ### How to add a new event
 
 1. Add the event name to `TRACKS_EVENTS` in `packages/common/lib/record-tracks-event.ts`.

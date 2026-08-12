@@ -336,12 +336,7 @@ async function createStudioAgentSession(
 			  }
 	);
 
-	const tools = buildAgentTools(
-		config,
-		studioUiArtifactsEnabled,
-		remoteSession,
-		studioUiAttached
-	);
+	const tools = buildAgentTools( config, studioUiArtifactsEnabled, remoteSession );
 	const toolDefinitions = tools.map( ( tool ) => toToolDefinition( tool, payloadGuardState ) );
 	const modelRuntime = await createModelRuntime( model, family, creds );
 	const settingsManager = createSettingsManager( config.env );
@@ -629,8 +624,7 @@ function toToolDefinition(
 function buildAgentTools(
 	config: ResolvedStudioAgentTurnConfig,
 	chatArtifactsEnabled: boolean,
-	remoteSession: boolean,
-	studioUiAttached: boolean
+	remoteSession: boolean
 ): AgentToolAny[] {
 	const isRemoteSite = Boolean(
 		config.activeSite?.remote && config.activeSite?.wpcomSiteId && config.wpcomAccessToken
@@ -684,7 +678,6 @@ function buildAgentTools(
 	const studioTools = resolveStudioToolDefinitions( {
 		emitChatArtifacts: chatArtifactsEnabled,
 		remoteSession,
-		studioUiAttached,
 	} ) as unknown as AgentToolAny[];
 	return [ ...studioTools, ...askUserTool, ...skillTool, ...piTools ];
 }

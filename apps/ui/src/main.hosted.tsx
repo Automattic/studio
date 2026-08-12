@@ -25,8 +25,6 @@ async function bootstrap() {
 
 	createRoot( document.getElementById( 'root' )! ).render(
 		<StrictMode>
-			{ /* Studio hosted stays on the agentic UI; it doesn't use the desk/agentic
-			     mode switcher. */ }
 			<App connector={ connector } forcedMode="classic" />
 		</StrictMode>
 	);

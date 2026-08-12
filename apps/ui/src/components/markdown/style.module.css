@@ -164,8 +164,8 @@
 	font-size: 0.85em;
 	line-height: 1.55;
 	overflow-x: auto;
-	/* Ensure code stays selectable even when an ancestor surface (e.g. the
-	   desks canvas) opts out of text selection. */
+	/* Ensure code stays selectable even when an ancestor interactive surface
+	   opts out of text selection. */
 	-webkit-user-select: text;
 	user-select: text;
 }

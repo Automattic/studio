@@ -9,13 +9,13 @@ import type { StudioChatArtifactWidgetDraft } from '@studio/common/ai/chat-artif
 
 const MAX_WIDGETS_PER_PRESENTATION = 8;
 
-const description = `Shows Studio desk widgets as inline visual artifacts in the chat UI.
-Use this after a meaningful user-visible result, such as a created page, useful preview path, content summary, reference link, media item, or draft scratchpad.
+const description = `Shows a live preview of the current local site in Studio.
+Use this after a meaningful user-visible result, such as a created site, useful preview path, or page state worth keeping in view.
 
 Presentation rules:
 ${ getStudioPresentationRulesPrompt() }
 
-Available widget types:
+Available artifact types:
 ${ getStudioWidgetPromptManifest() }`;
 
 export const studioPresentTool = defineTool(
@@ -25,7 +25,7 @@ export const studioPresentTool = defineTool(
 		widgets: Type.Array(
 			Type.Object( {
 				type: Type.String( {
-					description: 'The Studio widget type to present.',
+					description: 'The Studio artifact type to present.',
 				} ),
 				widgetProps: Type.Record( Type.String(), Type.Unknown(), {
 					description: 'Widget-specific props. Use the widget manifest in the tool description.',
@@ -37,7 +37,7 @@ export const studioPresentTool = defineTool(
 				),
 			} ),
 			{
-				description: 'One or more widgets to show in the chat artifact.',
+				description: 'One or more live preview artifacts to show in Studio.',
 				minItems: 1,
 				maxItems: MAX_WIDGETS_PER_PRESENTATION,
 			}

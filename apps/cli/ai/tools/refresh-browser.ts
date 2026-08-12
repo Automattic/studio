@@ -4,10 +4,10 @@ import { textResult } from './utils';
 
 export const refreshBrowserTool = defineTool(
 	'refresh_browser',
-	'Reloads the site preview browser in the Studio app so the user sees your latest changes. Call this after a change that alters what the site renders (content, options/settings, theme, plugins, activation). It reloads in place — never stop/start the site (site_stop/site_start) just to refresh the preview.',
+	'Requests a reload of the embedded site preview attached to a WordPress Studio desktop or `studio ui` conversation. It does not reload standalone browsers, including the browser opened by `open_annotation_browser`. Use it after a rendered change only when this conversation is running in one of those Studio interfaces. It reloads in place — never stop/start the site just to refresh the preview.',
 	{},
 	async () => {
 		emitEvent( { type: 'preview.reload', timestamp: new Date().toISOString() } );
-		return textResult( 'Reloaded the site preview.' );
+		return textResult( 'Requested a reload of the attached Studio site preview.' );
 	}
 );

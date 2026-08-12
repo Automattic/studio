@@ -1941,19 +1941,20 @@ export function toggleMinWindowWidth(
 export async function ensureMinWindowWidth(
 	event: IpcMainInvokeEvent,
 	minimumWidth: number
-): Promise< void > {
+): Promise< number | null > {
 	if ( ! Number.isFinite( minimumWidth ) || minimumWidth <= 0 ) {
-		return;
+		return null;
 	}
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	if ( ! parentWindow || parentWindow.isDestroyed() || event.sender.isDestroyed() ) {
-		return;
+		return null;
 	}
 	const [ currentWidth, currentHeight ] = parentWindow.getSize();
 	const nextWidth = Math.ceil( minimumWidth );
 	if ( currentWidth < nextWidth ) {
 		parentWindow.setSize( nextWidth, currentHeight );
 	}
+	return parentWindow.getSize()[ 0 ];
 }
 
 /**

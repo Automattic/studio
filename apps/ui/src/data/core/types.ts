@@ -493,7 +493,7 @@ export interface Connector {
 
 	// Window state (macOS fullscreen hides traffic lights, so the UI needs
 	// to reclaim the space we normally leave for them).
-	ensureWindowWidth( minimumWidth: number ): Promise< void >;
+	ensureWindowWidth( minimumWidth: number ): Promise< number | null >;
 	isFullscreen(): Promise< boolean >;
 	onFullscreenChange( listener: ( fullscreen: boolean ) => void ): () => void;
 

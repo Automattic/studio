@@ -39,7 +39,7 @@ interface SidebarLayoutProps {
 	children: ReactNode;
 	collapsed?: boolean;
 	onCollapsedChange?: ( collapsed: boolean ) => void;
-	minimumExpandedWidth?: number;
+	onExpand?: () => void;
 	// Hides the sidebar without touching the user's own collapsed state, so
 	// clearing it restores whatever the sidebar was doing before (e.g. while
 	// the site preview is fullscreen). The floating "Show sidebar" toggle is
@@ -55,7 +55,7 @@ export function SidebarLayout( {
 	children,
 	collapsed: controlledCollapsed,
 	onCollapsedChange,
-	minimumExpandedWidth = SIDEBAR_AUTO_COLLAPSE_BREAKPOINT,
+	onExpand,
 	forceCollapsed = false,
 	onForceCollapsedToggle,
 }: SidebarLayoutProps ) {
@@ -87,26 +87,18 @@ export function SidebarLayout( {
 	const toggleSidebar = useCallback( () => {
 		if ( forceCollapsed ) {
 			onForceCollapsedToggle?.();
-			void connector
-				.ensureWindowWidth( minimumExpandedWidth )
-				.finally( () => updateCollapsed( false ) );
 			return;
 		}
 		if ( collapsed ) {
-			void connector
-				.ensureWindowWidth( minimumExpandedWidth )
-				.finally( () => updateCollapsed( false ) );
+			if ( onExpand ) {
+				onExpand();
+			} else {
+				updateCollapsed( false );
+			}
 			return;
 		}
 		updateCollapsed( true );
-	}, [
-		collapsed,
-		connector,
-		forceCollapsed,
-		minimumExpandedWidth,
-		onForceCollapsedToggle,
-		updateCollapsed,
-	] );
+	}, [ collapsed, forceCollapsed, onExpand, onForceCollapsedToggle, updateCollapsed ] );
 	const sidebarStyle = effectiveCollapsed
 		? undefined
 		: ( { '--sidebar-width': `${ sidebarResize.width }px` } as CSSProperties );

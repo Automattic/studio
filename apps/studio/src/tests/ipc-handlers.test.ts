@@ -192,15 +192,20 @@ describe( 'isFullscreen', () => {
 describe( 'ensureMinWindowWidth', () => {
 	it( 'grows the sender window while preserving its height', async () => {
 		const setSize = vi.fn();
+		let width = 420;
 		vi.mocked( BrowserWindow.fromWebContents ).mockReturnValueOnce( {
 			isDestroyed: () => false,
-			getSize: () => [ 420, 700 ],
-			setSize,
+			getSize: () => [ width, 700 ],
+			setSize: ( nextWidth: number, height: number ) => {
+				width = nextWidth;
+				setSize( nextWidth, height );
+			},
 		} as unknown as BrowserWindow );
 
-		await ensureMinWindowWidth( mockIpcMainInvokeEvent, 640 );
+		const result = await ensureMinWindowWidth( mockIpcMainInvokeEvent, 640 );
 
 		expect( setSize ).toHaveBeenCalledWith( 640, 700 );
+		expect( result ).toBe( 640 );
 	} );
 
 	it( 'leaves an already-wide window unchanged', async () => {
@@ -211,9 +216,22 @@ describe( 'ensureMinWindowWidth', () => {
 			setSize,
 		} as unknown as BrowserWindow );
 
-		await ensureMinWindowWidth( mockIpcMainInvokeEvent, 640 );
+		const result = await ensureMinWindowWidth( mockIpcMainInvokeEvent, 640 );
 
 		expect( setSize ).not.toHaveBeenCalled();
+		expect( result ).toBe( 900 );
+	} );
+
+	it( 'returns the width the window manager actually applied', async () => {
+		vi.mocked( BrowserWindow.fromWebContents ).mockReturnValueOnce( {
+			isDestroyed: () => false,
+			getSize: () => [ 600, 700 ],
+			setSize: vi.fn(),
+		} as unknown as BrowserWindow );
+
+		const result = await ensureMinWindowWidth( mockIpcMainInvokeEvent, 640 );
+
+		expect( result ).toBe( 600 );
 	} );
 } );
 

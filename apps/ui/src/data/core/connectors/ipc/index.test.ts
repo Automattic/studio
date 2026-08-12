@@ -3,7 +3,7 @@ import { createIpcConnector } from './index';
 import type { SiteDetails } from '@/data/core';
 
 describe( 'createIpcConnector window sizing', () => {
-	const ensureMinWindowWidth = vi.fn().mockResolvedValue( undefined );
+	const ensureMinWindowWidth = vi.fn().mockResolvedValue( 640 );
 
 	beforeEach( () => {
 		vi.clearAllMocks();
@@ -16,9 +16,10 @@ describe( 'createIpcConnector window sizing', () => {
 	} );
 
 	it( 'asks the main process to grow the desktop window', async () => {
-		await createIpcConnector().ensureWindowWidth( 640 );
+		const result = await createIpcConnector().ensureWindowWidth( 640 );
 
 		expect( ensureMinWindowWidth ).toHaveBeenCalledWith( 640 );
+		expect( result ).toBe( 640 );
 	} );
 } );
 

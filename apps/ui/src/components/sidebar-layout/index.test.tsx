@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
 import { SidebarLayout } from './index';
@@ -59,8 +59,6 @@ const useConnectorMock = vi.mocked( useConnector, { partial: true } );
 describe( 'SidebarLayout', () => {
 	let toggleSidebarListener: ( () => void ) | undefined;
 	let originalInnerWidth: number;
-	const ensureWindowWidth = vi.fn().mockResolvedValue( undefined );
-
 	beforeEach( () => {
 		vi.clearAllMocks();
 		vi.stubGlobal( 'ResizeObserver', undefined );
@@ -68,7 +66,6 @@ describe( 'SidebarLayout', () => {
 		Object.defineProperty( window, 'innerWidth', { configurable: true, value: 1024 } );
 		toggleSidebarListener = undefined;
 		useConnectorMock.mockReturnValue( {
-			ensureWindowWidth,
 			onToggleSidebar: vi.fn( ( listener ) => {
 				toggleSidebarListener = listener;
 				return vi.fn();
@@ -104,8 +101,13 @@ describe( 'SidebarLayout', () => {
 
 	it( 'hands the sidebar shortcut to the forcing feature while force-collapsed', () => {
 		const onForceCollapsedToggle = vi.fn();
+		const onExpand = vi.fn();
 		render(
-			<SidebarLayout forceCollapsed onForceCollapsedToggle={ onForceCollapsedToggle }>
+			<SidebarLayout
+				forceCollapsed
+				onExpand={ onExpand }
+				onForceCollapsedToggle={ onForceCollapsedToggle }
+			>
 				<div>Content</div>
 			</SidebarLayout>
 		);
@@ -118,6 +120,7 @@ describe( 'SidebarLayout', () => {
 		act( () => toggleSidebarListener?.() );
 
 		expect( onForceCollapsedToggle ).toHaveBeenCalledTimes( 1 );
+		expect( onExpand ).not.toHaveBeenCalled();
 	} );
 
 	it( 'collapses when the window enters compact width', async () => {
@@ -145,31 +148,18 @@ describe( 'SidebarLayout', () => {
 		expect( screen.getByRole( 'button', { name: 'Show sidebar' } ) ).toBeInTheDocument();
 	} );
 
-	it( 'grows a compact window when reopening the sidebar', () => {
+	it( 'delegates reopening so the parent can coordinate the panels', () => {
 		Object.defineProperty( window, 'innerWidth', { configurable: true, value: 420 } );
+		const onExpand = vi.fn();
 		render(
-			<SidebarLayout>
+			<SidebarLayout onExpand={ onExpand }>
 				<div>Content</div>
 			</SidebarLayout>
 		);
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Show sidebar' } ) );
 
-		expect( ensureWindowWidth ).toHaveBeenCalledWith( 660 );
-	} );
-
-	it( 'uses the coordinated minimum when reopening beside a preview', async () => {
-		const onCollapsedChange = vi.fn();
-		render(
-			<SidebarLayout collapsed onCollapsedChange={ onCollapsedChange } minimumExpandedWidth={ 932 }>
-				<div>Content</div>
-			</SidebarLayout>
-		);
-
-		fireEvent.click( screen.getByRole( 'button', { name: 'Show sidebar' } ) );
-
-		expect( ensureWindowWidth ).toHaveBeenCalledWith( 932 );
-		await waitFor( () => expect( onCollapsedChange ).toHaveBeenCalledWith( false ) );
+		expect( onExpand ).toHaveBeenCalledOnce();
 	} );
 
 	it( 'observes the rendered layout width while the window is being resized', () => {

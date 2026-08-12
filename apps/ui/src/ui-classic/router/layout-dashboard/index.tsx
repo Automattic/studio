@@ -1,6 +1,6 @@
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
 import { createRoute, Outlet, useRouterState } from '@tanstack/react-router';
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
 	PreviewSplitFrame,
 	type PreviewSplitFramePreviewProps,
@@ -14,6 +14,7 @@ import { useWhatsNewAutostart } from '@/data/onboarding/use-whats-new-autostart'
 import { useWhatsNewReplay } from '@/data/onboarding/use-whats-new-replay';
 import { useSession, useSessionEffectiveEnvironment } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
+import { useResponsivePanels } from '@/hooks/use-responsive-panels';
 import {
 	pathForSite,
 	SessionUIProvider,
@@ -21,15 +22,6 @@ import {
 	useSessionPreviewUI,
 } from '@/hooks/use-session-ui';
 import { writeLastVisited } from '@/lib/last-visited';
-import {
-	getAvailableWindowWidth,
-	ALL_PANELS_MIN_WIDTH,
-	getPreviewOpenPlan,
-	getSidebarOpenPlan,
-	getViewportWidth,
-	PREVIEW_SPLIT_MIN_WIDTH,
-	SIDEBAR_AUTO_COLLAPSE_BREAKPOINT,
-} from '@/lib/resizable-panels';
 import { rootRoute } from '../layout-root';
 
 // Session detail routes and the site overview host the preview; on every
@@ -64,9 +56,6 @@ function DashboardLayout() {
 // last previewed site loaded behind a closed panel.
 function DashboardLayoutContent() {
 	const connector = useConnector();
-	const [ sidebarCollapsed, setSidebarCollapsed ] = useState(
-		() => getViewportWidth() < SIDEBAR_AUTO_COLLAPSE_BREAKPOINT
-	);
 	const routePreviewContext = useRouterState( {
 		select: ( state ) => ( {
 			sessionId: getRouteSessionId( state.location.pathname ),
@@ -143,56 +132,13 @@ function DashboardLayoutContent() {
 	const showPreview = preview.open && supportsPreview && !! previewSite;
 	const previewFullscreen = preview.fullscreen && showPreview;
 	const { setOpen: setPreviewOpen } = preview;
-	const previousPreviewStateRef = useRef( { show: false, fullscreen: false } );
-	useLayoutEffect( () => {
-		const previous = previousPreviewStateRef.current;
-		previousPreviewStateRef.current = { show: showPreview, fullscreen: previewFullscreen };
-		const enteringSplit =
-			showPreview && ( ! previous.show || ( previous.fullscreen && ! previewFullscreen ) );
-		if ( ! enteringSplit || previewFullscreen ) {
-			return;
-		}
-		const plan = getPreviewOpenPlan(
-			getViewportWidth(),
-			sidebarCollapsed,
-			getAvailableWindowWidth()
-		);
-		if ( plan.closeOtherPanel ) {
-			setSidebarCollapsed( true );
-		}
-		void connector.ensureWindowWidth( plan.minimumWindowWidth );
-	}, [ connector, previewFullscreen, showPreview, sidebarCollapsed ] );
-	useEffect( () => {
-		if ( ! showPreview || previewFullscreen ) {
-			return;
-		}
-		let timeoutId: number | undefined;
-		const scheduleWidthCheck = () => {
-			window.clearTimeout( timeoutId );
-			timeoutId = window.setTimeout( () => {
-				const minimumWidth = sidebarCollapsed ? PREVIEW_SPLIT_MIN_WIDTH : ALL_PANELS_MIN_WIDTH;
-				if ( getViewportWidth() < minimumWidth ) {
-					setPreviewOpen( false );
-				}
-			}, 150 );
-		};
-		scheduleWidthCheck();
-		window.addEventListener( 'resize', scheduleWidthCheck );
-		return () => {
-			window.removeEventListener( 'resize', scheduleWidthCheck );
-			window.clearTimeout( timeoutId );
-		};
-	}, [ previewFullscreen, setPreviewOpen, showPreview, sidebarCollapsed ] );
-	const sidebarOpenPlan = getSidebarOpenPlan( showPreview, getAvailableWindowWidth() );
-	const handleSidebarCollapsedChange = useCallback(
-		( nextCollapsed: boolean ) => {
-			if ( ! nextCollapsed && sidebarOpenPlan.closeOtherPanel ) {
-				setPreviewOpen( false );
-			}
-			setSidebarCollapsed( nextCollapsed );
-		},
-		[ setPreviewOpen, sidebarOpenPlan.closeOtherPanel ]
-	);
+	const { sidebarCollapsed, setSidebarCollapsed, openSidebar, onPreviewContainerWidthChange } =
+		useResponsivePanels( {
+			connector,
+			previewOpen: showPreview,
+			previewFullscreen,
+			setPreviewOpen,
+		} );
 	// Leave full preview when the route stops supporting a preview (settings,
 	// site settings…) so the user is never left staring at a hidden layout.
 	const { setFullscreen: setPreviewFullscreen } = preview;
@@ -201,10 +147,9 @@ function DashboardLayoutContent() {
 			setPreviewFullscreen( false );
 		}
 	}, [ supportsPreview, setPreviewFullscreen ] );
-	const exitPreviewFullscreen = useCallback(
-		() => setPreviewFullscreen( false ),
-		[ setPreviewFullscreen ]
-	);
+	const exitPreviewFullscreen = useCallback( () => {
+		void openSidebar().then( () => setPreviewFullscreen( false ) );
+	}, [ openSidebar, setPreviewFullscreen ] );
 	const renderPreview = useCallback(
 		( { collapsed }: PreviewSplitFramePreviewProps ) =>
 			previewSite ? (
@@ -233,8 +178,8 @@ function DashboardLayoutContent() {
 	return (
 		<SidebarLayout
 			collapsed={ sidebarCollapsed }
-			onCollapsedChange={ handleSidebarCollapsedChange }
-			minimumExpandedWidth={ sidebarOpenPlan.minimumWindowWidth }
+			onCollapsedChange={ setSidebarCollapsed }
+			onExpand={ openSidebar }
 			forceCollapsed={ previewFullscreen }
 			onForceCollapsedToggle={ exitPreviewFullscreen }
 		>
@@ -242,6 +187,7 @@ function DashboardLayoutContent() {
 				previewOpen={ showPreview }
 				previewFullscreen={ previewFullscreen }
 				preview={ renderPreview }
+				onContainerWidthChange={ onPreviewContainerWidthChange }
 			>
 				<Outlet />
 			</PreviewSplitFrame>

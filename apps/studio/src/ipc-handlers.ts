@@ -2638,4 +2638,11 @@ export async function setWebviewViewport(
 	} );
 }
 
+export async function clearWebviewCache(
+	event: IpcMainInvokeEvent,
+	webContentsId: number
+): Promise< void > {
+	await getOwnedWebviewContents( event, webContentsId ).session.clearCache();
+}
+
 export { showTextContextMenu } from 'src/text-context-menu';

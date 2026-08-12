@@ -20,12 +20,13 @@ describe( 'exportWebsiteCapture', () => {
 		mkdirSync( join( outputDir, 'media' ), { recursive: true } );
 		writeFileSync(
 			join( outputDir, 'html', 'homepage.html' ),
-			'<img src="https://cdn.example/logo.png"><img src="/hero.png?w=128"><h1>Home</h1>'
+			'<img src="https://cdn.example/logo.png"><img src="/hero.png?w=128" srcset="/hero.png?w=128 128w, /hero.png?w=4096 4096w"><h1>Home</h1>'
 		);
 		writeFileSync( join( outputDir, 'html', 'about.html' ), '<h1>About</h1>' );
 		writeFileSync( join( outputDir, 'media', 'logo.png' ), 'png' );
 		writeFileSync( join( outputDir, 'media', 'hero.png' ), 'base' );
 		writeFileSync( join( outputDir, 'media', 'hero-2.png' ), '128' );
+		writeFileSync( join( outputDir, 'media', 'hero-3.png' ), Buffer.alloc( 6 * 1024 * 1024 ) );
 		writeFileSync(
 			join( outputDir, 'screenshots', 'manifest.json' ),
 			JSON.stringify( {
@@ -43,6 +44,10 @@ describe( 'exportWebsiteCapture', () => {
 		media.markSuccess(
 			'https://example.com/hero.png?w=128',
 			join( outputDir, 'media', 'hero-2.png' )
+		);
+		media.markSuccess(
+			'https://example.com/hero.png?w=4096',
+			join( outputDir, 'media', 'hero-3.png' )
 		);
 		media.flush();
 
@@ -88,6 +93,60 @@ describe( 'exportWebsiteCapture', () => {
 		);
 		expect( existsSync( join( outputDir, 'artifact.json' ) ) ).toBe( false );
 		expect( existsSync( join( outputDir, 'diagnostics.json' ) ) ).toBe( true );
+	} );
+
+	it( 'exports referenced same-origin runtime dependencies and diagnoses missing ones', () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-capture-export-' ) );
+		dirs.push( outputDir );
+		mkdirSync( join( outputDir, 'html' ), { recursive: true } );
+		mkdirSync( join( outputDir, 'screenshots' ), { recursive: true } );
+		mkdirSync( join( outputDir, 'resources', '_runtimes' ), { recursive: true } );
+		writeFileSync(
+			join( outputDir, 'html', 'homepage.html' ),
+			'<link rel="preload" href="/_runtimes/site.js" as="script"><script type="module">import { Site } from "/_runtimes/site.js"; import "/_runtimes/missing.js";</script>'
+		);
+		writeFileSync( join( outputDir, 'resources', '_runtimes', 'site.js' ), 'export class Site {}' );
+		writeFileSync(
+			join( outputDir, 'resources', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				resources: {
+					'https://example.com/_runtimes/site.js': {
+						path: 'resources/_runtimes/site.js',
+						contentType: 'text/javascript',
+					},
+				},
+				failures: [],
+			} )
+		);
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				entries: { 'https://example.com/': { html: 'html/homepage.html' } },
+			} )
+		);
+
+		const receiptPath = exportWebsiteCapture( {
+			outputDir,
+			sourceUrl: 'https://example.com/',
+			platform: 'fake',
+			summary: {},
+			failures: [],
+		} );
+
+		const receipt = JSON.parse( readFileSync( receiptPath, 'utf8' ) );
+		const diagnostics = JSON.parse( readFileSync( join( outputDir, 'diagnostics.json' ), 'utf8' ) );
+		expect( receipt.assets ).toContainEqual( {
+			sourceUrl: 'https://example.com/_runtimes/site.js',
+			path: 'website/_runtimes/site.js',
+		} );
+		expect( readFileSync( join( outputDir, 'website', '_runtimes', 'site.js' ), 'utf8' ) ).toBe(
+			'export class Site {}'
+		);
+		expect( diagnostics.unresolvedDependencies ).toEqual( [
+			expect.objectContaining( { url: 'https://example.com/_runtimes/missing.js' } ),
+		] );
 	} );
 
 	it( 'rejects decoded route paths that escape the website directory', () => {

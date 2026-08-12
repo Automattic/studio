@@ -58,6 +58,14 @@
 	fill: currentColor;
 }
 
+/* The popup keeps `overflow: visible`, so this — the only row that fills to the
+   popup edge — has to round its own top corners or it squares off the popup's.
+   Inset by the border width so the curve nests inside it instead of cutting it. */
+.activityStatus:first-child {
+	border-top-left-radius: calc(var(--site-dropdown-radius) - var(--wpds-border-width-xs));
+	border-top-right-radius: calc(var(--site-dropdown-radius) - var(--wpds-border-width-xs));
+}
+
 .activityStatusPending {
 	background: var(--wpds-color-bg-surface-neutral);
 }

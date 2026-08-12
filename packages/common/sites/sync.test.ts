@@ -1,8 +1,16 @@
 import EventEmitter from 'node:events';
 import { describe, expect, it, vi } from 'vitest';
+import { killChild } from '@studio/common/lib/cli-process';
 import { canCancelPull, canCancelPush, isSyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { pullSite } from './sync';
 import type { ExecuteCliCommand } from '@studio/common/lib/cli-process';
+
+// How the child is killed is platform-specific and covered by
+// `lib/tests/cli-process.test.ts`; here we only care that a cancel asks for it.
+vi.mock( '@studio/common/lib/cli-process', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@studio/common/lib/cli-process') >() ),
+	killChild: vi.fn(),
+} ) );
 
 describe( 'pullSite', () => {
 	it( 'forwards live CLI messages and their percentage', async () => {
@@ -41,7 +49,7 @@ describe( 'pullSite', () => {
 
 	it( 'kills the CLI and rejects as cancelled when the signal aborts', async () => {
 		const emitter = new EventEmitter();
-		const child = { kill: vi.fn(), pid: 4242 };
+		const child = { pid: 4242 };
 		const execute = vi.fn( () => [ emitter, child ] ) as unknown as ExecuteCliCommand;
 		const controller = new AbortController();
 		const pulling = pullSite(
@@ -56,7 +64,7 @@ describe( 'pullSite', () => {
 		controller.abort();
 
 		await expect( pulling ).rejects.toSatisfy( isSyncCancelledError );
-		expect( child.kill ).toHaveBeenCalled();
+		expect( killChild ).toHaveBeenCalledWith( child );
 	} );
 
 	it( 'rejects immediately when the signal is already aborted', async () => {

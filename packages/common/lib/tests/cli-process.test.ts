@@ -3,6 +3,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { killChild } from '@studio/common/lib/cli-process';
 import type { ChildProcess } from 'node:child_process';
 
+// `killChild` branches on the platform: signals on POSIX, `taskkill /F /T` on
+// Windows. Pin it to POSIX so these run the same everywhere — on a Windows host
+// they would otherwise fire a real `taskkill` at whatever holds this pid.
+const originalPlatform = process.platform;
+function setPlatform( platform: NodeJS.Platform ) {
+	Object.defineProperty( process, 'platform', { value: platform, configurable: true } );
+}
+
 // A child that is still running: `kill()` records the signal but, like the real
 // CLI (which registers a SIGTERM handler that never exits), it does not die.
 function createStubbornChild() {
@@ -24,10 +32,12 @@ function createStubbornChild() {
 describe( 'killChild', () => {
 	beforeEach( () => {
 		vi.useFakeTimers();
+		setPlatform( 'darwin' );
 	} );
 
 	afterEach( () => {
 		vi.useRealTimers();
+		setPlatform( originalPlatform );
 	} );
 
 	it( 'escalates to SIGKILL when the child ignores SIGTERM', () => {

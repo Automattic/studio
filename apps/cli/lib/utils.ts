@@ -33,6 +33,51 @@ export function classifyPreviewFailure( error: unknown ): string {
 	return 'unknown';
 }
 
+// The known import/export failure points throw `LoggerError`s tagged with a machine-readable
+// `code`, which these classifiers return as the `failure_reason` Tracks prop. Classifying on the
+// code rather than the message keeps this locale-independent — messages are `__()`-translated
+// display text. Walks the `previousError` chain so a code survives generic wrapping.
+function findFailureCode( error: unknown ): string | undefined {
+	let current: unknown = error;
+	while ( current instanceof LoggerError ) {
+		if ( current.code ) {
+			return current.code;
+		}
+		current = current.previousError;
+	}
+	return undefined;
+}
+
+// System/library errors carry no code and are never translated, so they are matched by substring
+// on the full message chain — checked before the code walk so a disk-full error during any phase
+// wins over the phase's own bucket. Never send the raw message: it carries filesystem paths.
+function classifyFailure(
+	error: unknown,
+	untranslatedBuckets: Array< [ string[], string ] >
+): string {
+	const message = error instanceof Error ? error.message : String( error );
+	const normalized = message.toLowerCase();
+	for ( const [ substrings, bucket ] of untranslatedBuckets ) {
+		if ( substrings.some( ( substring ) => normalized.includes( substring ) ) ) {
+			return bucket;
+		}
+	}
+	return findFailureCode( error ) ?? 'unknown';
+}
+
+// Coarse classification of a site import failure for the `failure_reason` Tracks prop.
+export function classifyImportFailure( error: unknown ): string {
+	return classifyFailure( error, [
+		[ [ 'enospc', 'no space left' ], 'disk_full' ],
+		[ [ 'absolute path' ], 'invalid_zip' ],
+	] );
+}
+
+// Coarse classification of a site export failure for the `failure_reason` Tracks prop.
+export function classifyExportFailure( error: unknown ): string {
+	return classifyFailure( error, [ [ [ 'enospc', 'no space left' ], 'disk_full' ] ] );
+}
+
 export function normalizeHostname( hostname: string ): string {
 	return hostname
 		.trim()

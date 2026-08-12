@@ -17,6 +17,8 @@ export type {
 	OnboardingHintsState,
 	ProposedSitePath,
 	PullSiteProgress,
+	PullSyncOptions,
+	PushSyncOptions,
 	QuitSitesBehavior,
 	SelectedSiteFolder,
 	SessionEntry,

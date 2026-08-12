@@ -147,6 +147,10 @@
 	padding: var(--wpds-dimension-padding-sm) calc(var(--wpds-dimension-padding-lg) - var(--wpds-dimension-padding-sm)) 0;
 }
 
+/* --app-main-composer-height is published on the document by the session
+   view's chrome observer, so the shelf rides above the composer as it grows.
+   Views without a composer leave it unset and the shelf sits on the panel's
+   own footer band. */
 .floatingToasts {
 	position: absolute;
 	bottom: calc(52px + var(--app-main-composer-height, 0px));
@@ -155,4 +159,10 @@
 	z-index: 110;
 	pointer-events: auto;
 	-webkit-app-region: no-drag;
+}
+
+/* Fullscreen preview hides the chat column but leaves its composer measured,
+   so ignore that height and sit on the footer band like any composer-less view. */
+.floatingToastsOverPreview {
+	--app-main-composer-height: 0px;
 }

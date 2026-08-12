@@ -1,6 +1,6 @@
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 
-// Also sent as `outcome` on `studio_code_turn_completed`; register new values before adding them.
+// Also sent as `outcome` on `studio_code_turn_completed`.
 export type TurnStatus = 'success' | 'error' | 'max_turns' | 'interrupted';
 
 export interface AiSessionMetadata {

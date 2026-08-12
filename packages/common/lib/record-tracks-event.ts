@@ -92,8 +92,7 @@ export type TracksCustomizeEntryPoint =
 	| 'menus'
 	| 'widgets';
 
-// Studio Code event vocabulary, using the data team's shared AI-event property names. No `is_test`:
-// dev/E2E/CI runs are suppressed at the source, so it could only ever be `false`.
+// Studio Code event vocabulary, using the data team's shared AI-event property names.
 export interface TracksAiIdentity {
 	ai_session_id: string;
 	agent_name: string;

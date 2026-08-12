@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
-import { chevronLeft, chevronRight, moreVertical, pencil } from '@wordpress/icons';
+import { chevronLeft, chevronRight, moreVertical } from '@wordpress/icons';
 import { ariaKeyShortcut, displayShortcut, isAppleOS, isKeyboardEvent } from '@wordpress/keycodes';
 import { Button, IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
@@ -14,7 +14,7 @@ import { useIsSiteStarting, useStartSite } from '@/data/queries/use-sites';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { useWindowControlsOverlay } from '@/hooks/use-window-controls-overlay';
 import { getSiteUrl } from '@/lib/get-site-url';
-import { playIcon, refreshIcon } from '@/lib/icons';
+import { annotationIcon, playIcon, refreshIcon } from '@/lib/icons';
 import {
 	DATABASE_HOME_PATH,
 	getPathFromPreviewUrl,
@@ -29,7 +29,7 @@ import {
 import {
 	INSPECTOR_BRIDGE_PREFIX,
 	INSPECTOR_COMMAND_EVENT,
-	INSPECTOR_PAGE_SCRIPT,
+	createInspectorPageScript,
 } from './inspector-script';
 import styles from './style.module.css';
 import type { Annotation } from './types';
@@ -65,11 +65,14 @@ interface SitePreviewProps {
 
 interface InspectorEvent {
 	type: 'annotations-updated' | 'browser-command' | 'done' | 'state';
+	bridgeToken?: string;
 	annotations?: Annotation[];
 	isPicking?: boolean;
 	annotationCount?: number;
 	command?: PreviewShortcutCommandType;
 }
+
+const MAX_INSPECTOR_BRIDGE_MESSAGE_LENGTH = 1_100_000;
 
 interface InspectorState {
 	ready: boolean;
@@ -936,21 +939,24 @@ export function SitePreview( {
 									{ __( 'Cancel' ) }
 								</Button>
 							) : (
-								<IconButton
-									variant="minimal"
+								<Button
+									variant="outline"
 									tone="neutral"
 									size="small"
-									icon={ pencil }
-									label={ __( 'Annotate' ) }
+									className={ styles.annotateButton }
 									disabled={ ! canAnnotate }
 									onClick={ () => sendInspectorCommand( 'toggle-picking' ) }
-								/>
+								>
+									<Button.Icon icon={ annotationIcon } size={ 16 } />
+									{ __( 'Annotate' ) }
+								</Button>
 							) }
 							{ inspectorState.isPicking && inspectorState.annotationCount > 0 ? (
 								<Button
 									variant="solid"
 									tone="brand"
 									size="small"
+									className={ styles.sendAnnotations }
 									disabled={ ! canAnnotate }
 									aria-label={ __( 'Send annotations to chat' ) }
 									onClick={ () => sendInspectorCommand( 'submit' ) }
@@ -1193,6 +1199,7 @@ function WebviewSurface( {
 	const currentUrlRef = useRef( url );
 	const storedAnnotationsRef = useRef< Annotation[] >( [] );
 	const storedIsPickingRef = useRef( false );
+	const inspectorBridgeTokenRef = useRef( globalThis.crypto.randomUUID() );
 	const lastReloadNonceRef = useRef( reloadNonce );
 	const progressTimerRef = useRef< ReturnType< typeof setInterval > | null >( null );
 	const progressResetTimerRef = useRef< ReturnType< typeof setTimeout > | null >( null );
@@ -1316,7 +1323,10 @@ function WebviewSurface( {
 				`window.__studioInspectorPicking=${ JSON.stringify( storedIsPickingRef.current ) };`,
 			].join( '' );
 			webview
-				.executeJavaScript( preload + INSPECTOR_PAGE_SCRIPT, false )
+				.executeJavaScript(
+					preload + createInspectorPageScript( inspectorBridgeTokenRef.current ),
+					false
+				)
 				.then( () => {
 					onInspectorStateRef.current?.( {
 						ready: true,
@@ -1334,6 +1344,7 @@ function WebviewSurface( {
 			const consoleEvent = event as WebviewConsoleEvent;
 			if ( typeof consoleEvent.message !== 'string' ) return;
 			if ( ! consoleEvent.message.startsWith( INSPECTOR_BRIDGE_PREFIX ) ) return;
+			if ( consoleEvent.message.length > MAX_INSPECTOR_BRIDGE_MESSAGE_LENGTH ) return;
 			let parsed: InspectorEvent | null = null;
 			try {
 				parsed = JSON.parse( consoleEvent.message.slice( INSPECTOR_BRIDGE_PREFIX.length ) );
@@ -1341,6 +1352,7 @@ function WebviewSurface( {
 				return;
 			}
 			if ( ! parsed ) return;
+			if ( parsed.bridgeToken !== inspectorBridgeTokenRef.current ) return;
 			if ( parsed.type === 'browser-command' ) {
 				if ( isPreviewShortcutCommand( parsed.command ) ) {
 					onBrowserCommandRef.current?.( parsed.command );
@@ -1453,7 +1465,10 @@ function WebviewSurface( {
 		if ( ! ready || ! inspectorCommand ) return;
 		const webview = ref.current as WebviewTag | null;
 		if ( ! webview ) return;
-		const detail = JSON.stringify( { type: inspectorCommand.type } );
+		const detail = JSON.stringify( {
+			type: inspectorCommand.type,
+			bridgeToken: inspectorBridgeTokenRef.current,
+		} );
 		webview
 			.executeJavaScript(
 				`window.dispatchEvent(new CustomEvent(${ JSON.stringify(

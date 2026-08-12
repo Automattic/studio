@@ -1,167 +1,312 @@
+import { createCliInspectorPageScript } from '@studio/common/ai/inspector-page-script';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	INSPECTOR_BRIDGE_PREFIX,
 	INSPECTOR_COMMAND_EVENT,
-	INSPECTOR_PAGE_SCRIPT,
+	createInspectorPageScript,
 } from './inspector-script';
 
-describe( 'site preview inspector sessions', () => {
+const BRIDGE_TOKEN = 'test-inspector-bridge-token';
+
+describe( 'site preview inspector', () => {
 	afterEach( () => {
 		vi.restoreAllMocks();
 		document.body.replaceChildren();
 		delete ( window as Window & { __studioInspectorMounted?: boolean } ).__studioInspectorMounted;
 		delete ( window as Window & { __studioInspectorState?: unknown[] } ).__studioInspectorState;
 		delete ( window as Window & { __studioInspectorPicking?: boolean } ).__studioInspectorPicking;
+		delete ( window as Window & { __studioAnnotateDone?: unknown } ).__studioAnnotateDone;
+		localStorage.clear();
 	} );
 
-	it( 'saves several notes without leaving annotation mode', () => {
+	it( 'keeps picking active while composing and after saving annotations', () => {
 		const log = vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
-		document.body.innerHTML = '<h1 id="first">First</h1><p id="second">Second</p>';
+		document.body.innerHTML =
+			'<main><h1 id="first">First target</h1><p id="second">Second target</p></main>';
 		const first = document.querySelector( '#first' ) as HTMLElement;
 		const second = document.querySelector( '#second' ) as HTMLElement;
-		vi.spyOn( first, 'getBoundingClientRect' ).mockReturnValue( rect( 10, 10 ) );
-		vi.spyOn( second, 'getBoundingClientRect' ).mockReturnValue( rect( 10, 80 ) );
+		vi.spyOn( first, 'getBoundingClientRect' ).mockReturnValue( {
+			x: 10,
+			y: 0,
+			top: 0,
+			right: 210,
+			bottom: 50,
+			left: 10,
+			width: 200,
+			height: 50,
+			toJSON: () => ( {} ),
+		} );
+		vi.spyOn( second, 'getBoundingClientRect' ).mockReturnValue( {
+			x: 10,
+			y: 100,
+			top: 100,
+			right: 210,
+			bottom: 140,
+			left: 10,
+			width: 200,
+			height: 40,
+			toJSON: () => ( {} ),
+		} );
 
-		new Function( INSPECTOR_PAGE_SCRIPT )();
-		const root = ( document.querySelector( '#__studio-inspector-host' ) as HTMLElement )
-			.shadowRoot as ShadowRoot;
+		new Function( createInspectorPageScript( BRIDGE_TOKEN ) )();
+		const host = document.querySelector( '#__studio-inspector-host' ) as HTMLElement;
+		const root = host.shadowRoot as ShadowRoot;
+		const command = ( type: string ) =>
+			window.dispatchEvent(
+				new CustomEvent( INSPECTOR_COMMAND_EVENT, {
+					detail: { type, bridgeToken: BRIDGE_TOKEN },
+				} )
+			);
+		const stateMessages = () =>
+			log.mock.calls
+				.map( ( [ message ] ) => message )
+				.filter(
+					( message ): message is string =>
+						typeof message === 'string' && message.startsWith( INSPECTOR_BRIDGE_PREFIX )
+				)
+				.map( ( message ) => JSON.parse( message.slice( INSPECTOR_BRIDGE_PREFIX.length ) ) )
+				.filter( ( message ) => message.type === 'state' );
+
+		window.dispatchEvent(
+			new CustomEvent( INSPECTOR_COMMAND_EVENT, {
+				detail: { type: 'toggle-picking', bridgeToken: 'untrusted-page-token' },
+			} )
+		);
+		first.dispatchEvent( new MouseEvent( 'click', { bubbles: true, cancelable: true } ) );
+		expect( root.querySelector( '.popup' ) ).toBeNull();
+
 		command( 'toggle-picking' );
+		first.dispatchEvent( new MouseEvent( 'mousemove', { bubbles: true } ) );
 		first.dispatchEvent( new MouseEvent( 'click', { bubbles: true, cancelable: true } ) );
 
+		expect( root.querySelector( '.popup' ) ).not.toBeNull();
+		expect( root.querySelector( '.highlight' ) ).not.toBeNull();
+		expect( root.querySelectorAll( '.scrim' ) ).toHaveLength( 4 );
+		expect( document.documentElement ).toHaveStyle( { overflow: 'hidden' } );
+		const style = root.querySelector( 'style' )?.textContent ?? '';
+		expect( style ).toContain( 'border-radius: 8px 8px 20px 8px' );
+		expect( style ).toContain( 'backdrop-filter: blur(20px)' );
+		expect( style ).toContain( 'min-height: 24px' );
+		expect( style ).toContain( '0 0 0 1px rgba(0,0,0,0.9)' );
+		expect( style ).toContain( 'background: rgba(0,0,0,0.52)' );
+
 		const firstTextarea = root.querySelector( 'textarea' ) as HTMLTextAreaElement;
-		firstTextarea.value = 'First note';
+		firstTextarea.value = 'First line';
+		firstTextarea.dispatchEvent( new InputEvent( 'input', { bubbles: true } ) );
+		firstTextarea.setSelectionRange( firstTextarea.value.length, firstTextarea.value.length );
+		firstTextarea.dispatchEvent(
+			new KeyboardEvent( 'keydown', { key: 'Enter', metaKey: true, bubbles: true } )
+		);
+		expect( firstTextarea.value ).toBe( 'First line\n' );
+		firstTextarea.value += 'Second line';
 		firstTextarea.dispatchEvent( new InputEvent( 'input', { bubbles: true } ) );
 		firstTextarea.dispatchEvent(
 			new KeyboardEvent( 'keydown', { key: 'Enter', bubbles: true, cancelable: true } )
 		);
 
 		expect( root.querySelector( '.popup' ) ).toBeNull();
+		expect( root.querySelectorAll( '.scrim' ) ).toHaveLength( 0 );
+		expect( document.documentElement ).toHaveStyle( { overflow: '' } );
 		expect( root.querySelectorAll( '.marker' ) ).toHaveLength( 1 );
-		expect( latestState( log ) ).toMatchObject( { isPicking: true, annotationCount: 1 } );
+		expect( root.querySelector( '.marker' ) ).toHaveStyle( { top: '12px' } );
+		expect( root.querySelectorAll( '.annotation-highlight' ) ).toHaveLength( 1 );
+		expect( stateMessages().at( -1 ) ).toMatchObject( {
+			isPicking: true,
+			annotationCount: 1,
+		} );
 
 		second.dispatchEvent( new MouseEvent( 'click', { bubbles: true, cancelable: true } ) );
+		expect( root.querySelector( '.popup' ) ).not.toBeNull();
+		expect( root.querySelector( '.highlight' ) ).not.toBeNull();
 		const secondTextarea = root.querySelector( 'textarea' ) as HTMLTextAreaElement;
-		secondTextarea.value = 'First line';
+		secondTextarea.value = 'Second note';
 		secondTextarea.dispatchEvent( new InputEvent( 'input', { bubbles: true } ) );
-		secondTextarea.setSelectionRange( secondTextarea.value.length, secondTextarea.value.length );
-		secondTextarea.dispatchEvent(
-			new KeyboardEvent( 'keydown', {
-				key: 'Enter',
-				metaKey: true,
-				bubbles: true,
-				cancelable: true,
-			} )
-		);
-		expect( secondTextarea.value ).toBe( 'First line\n' );
-		secondTextarea.value += 'Second line';
-		secondTextarea.dispatchEvent( new InputEvent( 'input', { bubbles: true } ) );
+		expect( root.querySelector( '.send-to-chat' ) ).not.toBeNull();
 		command( 'submit' );
 
-		const done = bridgeMessages( log ).find( ( message ) => message.type === 'done' );
-		expect( done?.annotations ).toEqual(
+		expect( root.querySelector( '.popup' ) ).toBeNull();
+		expect( root.querySelectorAll( '.marker' ) ).toHaveLength( 0 );
+		expect( root.querySelectorAll( '.annotation-highlight' ) ).toHaveLength( 0 );
+		expect( stateMessages().at( -1 ) ).toMatchObject( {
+			isPicking: false,
+			annotationCount: 0,
+		} );
+		const doneMessage = log.mock.calls
+			.map( ( [ message ] ) => message )
+			.filter(
+				( message ): message is string =>
+					typeof message === 'string' && message.startsWith( INSPECTOR_BRIDGE_PREFIX )
+			)
+			.map( ( message ) => JSON.parse( message.slice( INSPECTOR_BRIDGE_PREFIX.length ) ) )
+			.find( ( message ) => message.type === 'done' );
+		expect( doneMessage.annotations ).toEqual(
 			expect.arrayContaining( [
-				expect.objectContaining( { comment: 'First note' } ),
 				expect.objectContaining( { comment: 'First line\nSecond line' } ),
+				expect.objectContaining( { comment: 'Second note' } ),
 			] )
 		);
-		expect( latestState( log ) ).toMatchObject( { isPicking: false, annotationCount: 0 } );
 	} );
 
-	it( 'keeps saved notes while only showing markers for the current page', () => {
+	it( 'cycles through overlapping elements at the selected point', () => {
 		vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
-		const currentPath = window.location.pathname + window.location.search;
+		document.body.innerHTML =
+			'<div id="front">Front container</div><img id="behind" alt="Floating art">';
+		const front = document.querySelector( '#front' ) as HTMLElement;
+		const behind = document.querySelector( '#behind' ) as HTMLElement;
+		const frontRect = {
+			x: 10,
+			y: 10,
+			top: 10,
+			right: 210,
+			bottom: 210,
+			left: 10,
+			width: 200,
+			height: 200,
+			toJSON: () => ( {} ),
+		};
+		const behindRect = {
+			...frontRect,
+			x: 40,
+			y: 40,
+			top: 40,
+			right: 140,
+			bottom: 140,
+			left: 40,
+			width: 100,
+			height: 100,
+		};
+		vi.spyOn( front, 'getBoundingClientRect' ).mockReturnValue( frontRect );
+		vi.spyOn( behind, 'getBoundingClientRect' ).mockReturnValue( behindRect );
+
+		new Function( createInspectorPageScript( BRIDGE_TOKEN ) )();
+		const root = ( document.querySelector( '#__studio-inspector-host' ) as HTMLElement )
+			.shadowRoot as ShadowRoot;
+		window.dispatchEvent(
+			new CustomEvent( INSPECTOR_COMMAND_EVENT, {
+				detail: { type: 'toggle-picking', bridgeToken: BRIDGE_TOKEN },
+			} )
+		);
+		front.dispatchEvent(
+			new MouseEvent( 'click', { bubbles: true, cancelable: true, clientX: 80, clientY: 80 } )
+		);
+
+		expect( root.querySelector( '.layer-count' )?.textContent ).toBe( '1/2' );
+		const initialPopup = root.querySelector( '.popup' ) as HTMLElement;
+		const initialPosition = {
+			left: initialPopup.style.left,
+			top: initialPopup.style.top,
+		};
+		(
+			root.querySelector( '[aria-label="Select next element at this point"]' ) as HTMLElement
+		 ).click();
+		expect( root.querySelector( '.target' )?.textContent ).toBe( 'img#behind' );
+		expect( root.querySelector( '.layer-count' )?.textContent ).toBe( '2/2' );
+		expect( root.querySelector( '.popup' ) ).toHaveStyle( initialPosition );
+
+		const handle = root.querySelector( '.target-row' ) as HTMLElement;
+		const popup = root.querySelector( '.popup' ) as HTMLElement;
+		const startingLeft = Number.parseFloat( popup.style.left );
+		handle.dispatchEvent(
+			new MouseEvent( 'mousedown', { bubbles: true, button: 0, clientX: 100, clientY: 100 } )
+		);
+		window.dispatchEvent(
+			new MouseEvent( 'mousemove', { bubbles: true, clientX: 130, clientY: 120 } )
+		);
+		window.dispatchEvent( new MouseEvent( 'mouseup', { bubbles: true } ) );
+		expect( Number.parseFloat( popup.style.left ) ).toBe( startingLeft + 30 );
+
+		window.dispatchEvent(
+			new CustomEvent( INSPECTOR_COMMAND_EVENT, {
+				detail: { type: 'cancel', bridgeToken: BRIDGE_TOKEN },
+			} )
+		);
+	} );
+
+	it( 'keeps cross-page annotations while rendering only current-page overlays', () => {
+		vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+		const currentPathname = window.location.pathname;
 		( window as Window & { __studioInspectorState?: unknown[] } ).__studioInspectorState = [
 			{
-				id: 'current',
-				comment: 'Current page',
-				path: currentPath,
+				id: 'current-page',
+				comment: 'Current note',
+				pathname: currentPathname,
 				documentRect: { left: 10, top: 10, width: 100, height: 40 },
 			},
 			{
-				id: 'other',
-				comment: 'Another page',
-				path: '/another-page/',
-				documentRect: { left: 10, top: 10, width: 100, height: 40 },
+				id: 'other-page',
+				comment: 'Other note',
+				pathname: '/another-page/',
+				documentRect: { left: 20, top: 20, width: 120, height: 50 },
 			},
 		];
 
-		new Function( INSPECTOR_PAGE_SCRIPT )();
+		new Function( createInspectorPageScript( BRIDGE_TOKEN ) )();
 		const root = ( document.querySelector( '#__studio-inspector-host' ) as HTMLElement )
 			.shadowRoot as ShadowRoot;
 
 		expect( root.querySelectorAll( '.marker' ) ).toHaveLength( 1 );
+		expect( root.querySelectorAll( '.annotation-highlight' ) ).toHaveLength( 1 );
 		expect( root.querySelector( '.marker' ) ).toHaveTextContent( '1' );
-		expect(
-			( window as Window & { __studioInspectorState?: unknown[] } ).__studioInspectorState
-		).toHaveLength( 2 );
 	} );
 
-	it( 'clears the pending batch when annotation mode is cancelled', () => {
-		const log = vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
-		( window as Window & { __studioInspectorState?: unknown[] } ).__studioInspectorState = [
-			{
-				id: 'saved',
-				comment: 'Saved note',
-				path: window.location.pathname + window.location.search,
-				documentRect: { left: 10, top: 10, width: 100, height: 40 },
-			},
-		];
-
-		new Function( INSPECTOR_PAGE_SCRIPT )();
-		command( 'toggle-picking' );
-		command( 'cancel' );
-
-		expect( latestState( log ) ).toMatchObject( { isPicking: false, annotationCount: 0 } );
-		expect(
-			( window as Window & { __studioInspectorState?: unknown[] } ).__studioInspectorState
-		).toEqual( [] );
-	} );
-
-	it( 'restores active annotation mode after navigation', () => {
+	it( 'restores active picking after the desktop preview navigates', () => {
 		const log = vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
 		( window as Window & { __studioInspectorPicking?: boolean } ).__studioInspectorPicking = true;
 
-		new Function( INSPECTOR_PAGE_SCRIPT )();
+		new Function( createInspectorPageScript( BRIDGE_TOKEN ) )();
 
-		expect( latestState( log ) ).toMatchObject( { isPicking: true } );
+		expect( latestBridgeMessage( log, 'state' ) ).toMatchObject( { isPicking: true } );
 	} );
 
-	it( 'submits saved notes when an empty draft popup is open', () => {
+	it( 'submits saved notes when an empty draft is open', () => {
 		const log = vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
 		document.body.innerHTML = '<h1 id="draft">Draft</h1>';
-		const draft = document.querySelector( '#draft' ) as HTMLElement;
-		vi.spyOn( draft, 'getBoundingClientRect' ).mockReturnValue( rect( 10, 10 ) );
+		const target = document.querySelector( '#draft' ) as HTMLElement;
+		vi.spyOn( target, 'getBoundingClientRect' ).mockReturnValue( rect( 10, 10 ) );
 		( window as Window & { __studioInspectorState?: unknown[] } ).__studioInspectorState = [
 			{
 				id: 'saved',
 				comment: 'Saved note',
-				path: window.location.pathname + window.location.search,
+				pathname: window.location.pathname,
 				documentRect: { left: 10, top: 10, width: 100, height: 40 },
 			},
 		];
 
-		new Function( INSPECTOR_PAGE_SCRIPT )();
-		command( 'toggle-picking' );
-		draft.dispatchEvent( new MouseEvent( 'click', { bubbles: true, cancelable: true } ) );
-		command( 'submit' );
+		new Function( createInspectorPageScript( BRIDGE_TOKEN ) )();
+		dispatchInspectorCommand( 'toggle-picking' );
+		target.dispatchEvent(
+			new MouseEvent( 'click', {
+				bubbles: true,
+				cancelable: true,
+				clientX: 20,
+				clientY: 20,
+			} )
+		);
+		dispatchInspectorCommand( 'submit' );
 
-		const done = bridgeMessages( log ).find( ( message ) => message.type === 'done' );
-		expect( done?.annotations ).toEqual( [ expect.objectContaining( { comment: 'Saved note' } ) ] );
-		expect( latestState( log ) ).toMatchObject( { isPicking: false, annotationCount: 0 } );
+		expect( latestBridgeMessage( log, 'done' )?.annotations ).toEqual( [
+			expect.objectContaining( { comment: 'Saved note' } ),
+		] );
 	} );
 
-	it( 'does not save while text input is being composed', () => {
+	it( 'does not save a note while text input is being composed', () => {
 		vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
 		document.body.innerHTML = '<h1 id="composing">Composing</h1>';
 		const target = document.querySelector( '#composing' ) as HTMLElement;
 		vi.spyOn( target, 'getBoundingClientRect' ).mockReturnValue( rect( 10, 10 ) );
 
-		new Function( INSPECTOR_PAGE_SCRIPT )();
+		new Function( createInspectorPageScript( BRIDGE_TOKEN ) )();
+		dispatchInspectorCommand( 'toggle-picking' );
+		target.dispatchEvent(
+			new MouseEvent( 'click', {
+				bubbles: true,
+				cancelable: true,
+				clientX: 20,
+				clientY: 20,
+			} )
+		);
 		const root = ( document.querySelector( '#__studio-inspector-host' ) as HTMLElement )
 			.shadowRoot as ShadowRoot;
-		command( 'toggle-picking' );
-		target.dispatchEvent( new MouseEvent( 'click', { bubbles: true, cancelable: true } ) );
-
 		const textarea = root.querySelector( 'textarea' ) as HTMLTextAreaElement;
 		textarea.value = '入力中';
 		textarea.dispatchEvent( new InputEvent( 'input', { bubbles: true } ) );
@@ -177,10 +322,107 @@ describe( 'site preview inspector sessions', () => {
 		expect( root.querySelector( '.popup' ) ).toBeInTheDocument();
 		expect( root.querySelectorAll( '.marker' ) ).toHaveLength( 0 );
 	} );
+
+	it( 'uses the shared inspector UI and persistent batch in the CLI browser', () => {
+		vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+		localStorage.setItem(
+			'studio-inspector-annotations-v1',
+			JSON.stringify( [
+				{
+					id: 'persisted-note',
+					comment: 'Persisted note',
+					pathname: window.location.pathname,
+					documentRect: { left: 10, top: 10, width: 100, height: 40 },
+				},
+			] )
+		);
+
+		new Function( createCliInspectorPageScript() )();
+		const root = ( document.querySelector( '#__studio-inspector-host' ) as HTMLElement )
+			.shadowRoot as ShadowRoot;
+
+		expect( root.querySelector( '.toolbar' ) ).not.toBeNull();
+		expect( root.querySelector( '.popup' ) ).toBeNull();
+		expect( root.querySelectorAll( '.marker' ) ).toHaveLength( 1 );
+		expect( root.querySelectorAll( '.annotation-highlight' ) ).toHaveLength( 1 );
+		expect( root.querySelector( '.submit' ) ).toHaveTextContent( 'Send to agent' );
+	} );
+
+	it( 'saves and submits several notes from the CLI browser', () => {
+		vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+		document.body.innerHTML = '<h1 id="first-cli">First</h1><p id="second-cli">Second</p>';
+		const first = document.querySelector( '#first-cli' ) as HTMLElement;
+		const second = document.querySelector( '#second-cli' ) as HTMLElement;
+		vi.spyOn( first, 'getBoundingClientRect' ).mockReturnValue( rect( 10, 10 ) );
+		vi.spyOn( second, 'getBoundingClientRect' ).mockReturnValue( rect( 10, 80 ) );
+
+		new Function( createCliInspectorPageScript() )();
+		const root = ( document.querySelector( '#__studio-inspector-host' ) as HTMLElement )
+			.shadowRoot as ShadowRoot;
+		( root.querySelector( '.toolbar button:not(.submit)' ) as HTMLButtonElement ).click();
+
+		for ( const [ target, comment ] of [
+			[ first, 'First CLI note' ],
+			[ second, 'Second CLI note' ],
+		] as const ) {
+			target.dispatchEvent(
+				new MouseEvent( 'click', {
+					bubbles: true,
+					cancelable: true,
+					clientX: 20,
+					clientY: target === first ? 20 : 90,
+				} )
+			);
+			const textarea = root.querySelector( 'textarea' ) as HTMLTextAreaElement;
+			textarea.value = comment;
+			textarea.dispatchEvent( new InputEvent( 'input', { bubbles: true } ) );
+			textarea.dispatchEvent(
+				new KeyboardEvent( 'keydown', {
+					key: 'Enter',
+					bubbles: true,
+					cancelable: true,
+				} )
+			);
+		}
+
+		( root.querySelector( '.submit' ) as HTMLButtonElement ).click();
+
+		const result = (
+			window as Window & {
+				__studioAnnotateDone?: { annotations: Array< { comment: string } > };
+			}
+		 ).__studioAnnotateDone;
+		expect( result?.annotations ).toEqual( [
+			expect.objectContaining( { comment: 'First CLI note' } ),
+			expect.objectContaining( { comment: 'Second CLI note' } ),
+		] );
+		expect(
+			JSON.parse( localStorage.getItem( 'studio-inspector-annotations-v1' ) ?? '[]' )
+		).toEqual( [] );
+	} );
 } );
 
-function command( type: string ) {
-	window.dispatchEvent( new CustomEvent( INSPECTOR_COMMAND_EVENT, { detail: { type } } ) );
+function dispatchInspectorCommand( type: string ) {
+	window.dispatchEvent(
+		new CustomEvent( INSPECTOR_COMMAND_EVENT, {
+			detail: { type, bridgeToken: BRIDGE_TOKEN },
+		} )
+	);
+}
+
+function latestBridgeMessage(
+	log: { mock: { calls: unknown[][] } },
+	type: string
+): { type: string; annotations?: unknown[]; isPicking?: boolean } | undefined {
+	return log.mock.calls
+		.map( ( call ) => call[ 0 ] )
+		.filter(
+			( message ): message is string =>
+				typeof message === 'string' && message.startsWith( INSPECTOR_BRIDGE_PREFIX )
+		)
+		.map( ( message ) => JSON.parse( message.slice( INSPECTOR_BRIDGE_PREFIX.length ) ) )
+		.filter( ( message ) => message.type === type )
+		.at( -1 );
 }
 
 function rect( left: number, top: number ): DOMRect {
@@ -195,24 +437,4 @@ function rect( left: number, top: number ): DOMRect {
 		height: 40,
 		toJSON: () => ( {} ),
 	} as DOMRect;
-}
-
-interface ConsoleLogSpy {
-	mock: { calls: unknown[][] };
-}
-
-function bridgeMessages( log: ConsoleLogSpy ): Array< Record< string, unknown > > {
-	return log.mock.calls
-		.map( ( call ) => call[ 0 ] )
-		.filter(
-			( message ): message is string =>
-				typeof message === 'string' && message.startsWith( INSPECTOR_BRIDGE_PREFIX )
-		)
-		.map( ( message ) => JSON.parse( message.slice( INSPECTOR_BRIDGE_PREFIX.length ) ) );
-}
-
-function latestState( log: ConsoleLogSpy ) {
-	return bridgeMessages( log )
-		.filter( ( message ) => message.type === 'state' )
-		.at( -1 );
 }

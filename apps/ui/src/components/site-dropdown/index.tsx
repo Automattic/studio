@@ -65,12 +65,8 @@ export function SiteDropdown( {
 	// dot — everything else about status lives inside MainView.
 	const isStarting = useIsSiteStarting( site.id );
 	const isStopping = useIsSiteStopping( site.id );
-	const { status, statusLabel } = deriveSiteStatus(
-		site,
-		isStarting,
-		isStopping,
-		useSiteOperation( site )
-	);
+	const operation = useSiteOperation( site );
+	const { status, statusLabel } = deriveSiteStatus( site, isStarting, isStopping, operation );
 
 	// Only needed here so the disconnect dialog can reference the current live
 	// site. MainView fetches the same data independently for its action row.

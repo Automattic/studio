@@ -49,7 +49,13 @@ export function getSnapshotHostname( snapshot: Snapshot ): string {
 }
 
 // Short status name for a site's toggle/tooltip: "Running", "Stopping",
-// "Exporting". Shared with the sidebar so the two can't word it differently.
+// "Saving settings". Shared with the sidebar so the two can't word it
+// differently.
+//
+// `starting`/`stopping` and `operation` overlap but neither covers the other:
+// the first two are this window's in-flight mutations, which land the moment
+// the user clicks, while `operation` is what the CLI recorded — a round-trip
+// later, but the only one that sees work the agent or another window started.
 export function getSiteStatusName( {
 	running,
 	starting,
@@ -111,7 +117,7 @@ function getLocalSublabel(
 	operation: SiteOperationKind | null
 ): string {
 	if ( operation ) {
-		// translators: %s: an operation in progress, e.g. "Exporting".
+		// translators: %s: an operation in progress, e.g. "Saving settings".
 		return sprintf( __( '%s…' ), getSiteOperationLabel( operation ) );
 	}
 	if ( status !== 'transitioning' ) {
@@ -126,10 +132,9 @@ export function deriveSiteStatus(
 	site: SiteDetails,
 	isStarting: boolean,
 	isStopping: boolean,
-	// From `useSiteOperation` — covers work this window didn't start (an agent
-	// export, another Studio window) plus an in-flight duplicate. Passed in
-	// rather than derived here for the same reason as the flags above: it's
-	// react-query state, and this stays a pure function.
+	// From `useSiteOperation`; see `getSiteStatusName` for why this doesn't
+	// replace the two flags above. Passed in rather than derived here because
+	// it's react-query state and this stays a pure function.
 	operation: SiteOperationKind | null
 ): { status: SiteStatus; statusLabel: string; localSublabel: string } {
 	const status = getStatus( site, isStarting, isStopping, operation );

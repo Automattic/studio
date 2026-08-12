@@ -247,7 +247,7 @@ function SiteStatusButton( {
 	const operation = useSiteOperation( site );
 	const { status } = deriveSiteStatus( site, isStarting, isStopping, operation );
 	// The recorded operation wins: it names work this window didn't start (an
-	// agent import, another Studio window) that local start/stop state can't see.
+	// agent restart, another Studio window) that local start/stop state can't see.
 	const statusName = getSiteStatusName( {
 		running: site.running,
 		starting: isStarting,

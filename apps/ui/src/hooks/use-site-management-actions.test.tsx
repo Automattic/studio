@@ -56,7 +56,7 @@ describe( 'useSiteManagementActions', () => {
 	it( 'disables every action while the CLI holds the site', () => {
 		const busySite = {
 			...site,
-			operations: [ { id: 'a', pid: 1, kind: 'import' as const } ],
+			operation: { pid: 1, kind: 'settings' as const },
 		};
 
 		const { result } = renderHook(

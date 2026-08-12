@@ -60,10 +60,10 @@ export function useSiteManagementActions(
 	// running disables both.
 	const isExporting = isExportingFullSite || isExportingDatabase;
 
-	// Every one of these reads or rewrites the site tree, so none can run while
-	// the CLI holds the site — including for work started by the agent or
-	// another window. The CLI would refuse them anyway; disabling here means the
-	// user sees that instead of clicking into a dead control.
+	// Every one of these reads or rewrites the site tree, so none should run
+	// while an operation holds the site — including work started by the agent or
+	// another window. Delete would be refused by the CLI; the rest are disabled
+	// here because reading a site mid-delete or mid-restart is not worth doing.
 	const isBusy = useIsSiteBusy( site );
 
 	return [

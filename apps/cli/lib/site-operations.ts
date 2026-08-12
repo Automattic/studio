@@ -1,4 +1,3 @@
-import { randomUUID } from 'crypto';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { getSiteOperationNoun } from '@studio/common/lib/site-operation-labels';
 import { __, sprintf } from '@wordpress/i18n';
@@ -17,7 +16,7 @@ import type { SiteOperation, SiteOperationKind } from '@studio/common/lib/site-o
 function siteBusyError( requested: SiteOperationKind, blockedBy: SiteOperationKind ): LoggerError {
 	return new LoggerError(
 		sprintf(
-			/* translators: 1: operation the user asked for, e.g. "a site start". 2: operation already running, e.g. "an import". */
+			/* translators: 1: operation the user asked for, e.g. "a site start". 2: operation already running, e.g. "a settings change". */
 			__(
 				'Cannot run %1$s: %2$s is already in progress for this site. Wait for it to finish and try again.'
 			),
@@ -39,13 +38,13 @@ function isProcessAlive( pid: number ): boolean {
 }
 
 /**
- * The site's operations minus any whose owning process has died. Every path
- * that reports a site to a client must filter through this — an entry left
- * behind by a crashed process would otherwise keep the site's actions
- * disabled in the UI.
+ * The site's operation, or undefined once its owning process has died. Every
+ * path that reports a site to a client must go through this — an entry left
+ * behind by a crashed process would otherwise keep the site's actions disabled
+ * in the UI.
  */
-export function getLiveSiteOperations( site: SiteData ): SiteOperation[] {
-	return ( site.operations ?? [] ).filter( ( operation ) => isProcessAlive( operation.pid ) );
+export function getLiveSiteOperation( site: SiteData ): SiteOperation | undefined {
+	return site.operation && isProcessAlive( site.operation.pid ) ? site.operation : undefined;
 }
 
 /**
@@ -55,7 +54,7 @@ export function getLiveSiteOperations( site: SiteData ): SiteOperation[] {
  * this through the same commands.
  */
 async function acquire( siteId: string, kind: SiteOperationKind ): Promise< SiteOperation > {
-	const operation: SiteOperation = { id: randomUUID(), pid: process.pid, kind };
+	const operation: SiteOperation = { pid: process.pid, kind };
 
 	try {
 		await lockCliConfig();
@@ -66,12 +65,12 @@ async function acquire( siteId: string, kind: SiteOperationKind ): Promise< Site
 			throw new LoggerError( __( 'Site not found' ) );
 		}
 
-		const [ blocking ] = getLiveSiteOperations( site );
+		const blocking = getLiveSiteOperation( site );
 		if ( blocking ) {
 			throw siteBusyError( kind, blocking.kind );
 		}
 
-		site.operations = [ operation ];
+		site.operation = operation;
 		await saveCliConfig( config );
 	} finally {
 		await unlockCliConfig();
@@ -91,13 +90,10 @@ async function release( siteId: string, operation: SiteOperation ): Promise< voi
 			return;
 		}
 
-		const remaining = getLiveSiteOperations( site ).filter(
-			( existing ) => existing.id !== operation.id
-		);
-		if ( remaining.length > 0 ) {
-			site.operations = remaining;
-		} else {
-			delete site.operations;
+		// Only clear our own: a reclaimed-then-reacquired site belongs to whoever
+		// holds it now.
+		if ( site.operation?.pid === operation.pid ) {
+			delete site.operation;
 		}
 		await saveCliConfig( config );
 	} finally {

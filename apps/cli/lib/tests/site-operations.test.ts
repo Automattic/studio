@@ -10,7 +10,7 @@ import {
 } from 'cli/lib/cli-config/core';
 import { emitCliEvent } from 'cli/lib/daemon-client';
 import { LoggerError } from 'cli/logger';
-import { getLiveSiteOperations, withSiteOperation } from '../site-operations';
+import { getLiveSiteOperation, withSiteOperation } from '../site-operations';
 
 vi.mock( 'cli/lib/cli-config/core', () => ( {
 	lockCliConfig: vi.fn(),
@@ -38,12 +38,12 @@ const site: SiteData = {
 
 let mockConfig: Awaited< ReturnType< typeof readCliConfig > >;
 
-function storedOperations() {
-	return mockConfig.sites[ 0 ].operations;
+function storedOperation() {
+	return mockConfig.sites[ 0 ].operation;
 }
 
 // A pid that is guaranteed not to be running, standing in for a client that
-// crashed while holding an operation.
+// crashed mid-operation.
 const DEAD_PID = 0x7ffffffe;
 
 beforeEach( () => {
@@ -57,51 +57,45 @@ beforeEach( () => {
 	} );
 } );
 
-describe( 'getLiveSiteOperations', () => {
-	it( 'drops operations whose owning process has died', () => {
+describe( 'getLiveSiteOperation', () => {
+	it( 'drops an operation whose owning process has died', () => {
 		expect(
-			getLiveSiteOperations( {
-				...site,
-				operations: [
-					{ id: 'dead', pid: DEAD_PID, kind: 'import' },
-					{ id: 'mine', pid: process.pid, kind: 'export' },
-				],
-			} )
-		).toEqual( [ { id: 'mine', pid: process.pid, kind: 'export' } ] );
+			getLiveSiteOperation( { ...site, operation: { pid: DEAD_PID, kind: 'delete' } } )
+		).toBeUndefined();
 	} );
 
-	it( 'returns an empty list for a site with no operations', () => {
-		expect( getLiveSiteOperations( site ) ).toEqual( [] );
+	it( 'keeps an operation whose owning process is alive', () => {
+		expect(
+			getLiveSiteOperation( { ...site, operation: { pid: process.pid, kind: 'settings' } } )
+		).toEqual( { pid: process.pid, kind: 'settings' } );
+	} );
+
+	it( 'returns undefined for an idle site', () => {
+		expect( getLiveSiteOperation( site ) ).toBeUndefined();
 	} );
 } );
 
 describe( 'withSiteOperation', () => {
 	it( 'records the operation while it runs and clears it afterwards', async () => {
-		await withSiteOperation( site.path, 'import', async () => {
-			expect( storedOperations() ).toEqual( [
-				{
-					id: expect.any( String ),
-					pid: process.pid,
-					kind: 'import',
-				},
-			] );
+		await withSiteOperation( site.path, 'settings', async () => {
+			expect( storedOperation() ).toEqual( { pid: process.pid, kind: 'settings' } );
 		} );
 
-		expect( storedOperations() ).toBeUndefined();
+		expect( storedOperation() ).toBeUndefined();
 	} );
 
 	it( 'releases the operation when the work throws', async () => {
 		await expect(
-			withSiteOperation( site.path, 'pull', async () => {
-				throw new Error( 'pull blew up' );
+			withSiteOperation( site.path, 'settings', async () => {
+				throw new Error( 'settings blew up' );
 			} )
-		).rejects.toThrow( 'pull blew up' );
+		).rejects.toThrow( 'settings blew up' );
 
-		expect( storedOperations() ).toBeUndefined();
+		expect( storedOperation() ).toBeUndefined();
 	} );
 
 	it( 'refuses a second operation while one is held', async () => {
-		await withSiteOperation( site.path, 'import', async () => {
+		await withSiteOperation( site.path, 'settings', async () => {
 			await expect(
 				withSiteOperation( site.path, 'start', async () => 'started' )
 			).rejects.toThrow( /already in progress/ );
@@ -109,46 +103,35 @@ describe( 'withSiteOperation', () => {
 	} );
 
 	it( 'refuses an operation while another holds the site', async () => {
-		await withSiteOperation( site.path, 'export', async () => {
-			await expect(
-				withSiteOperation( site.path, 'delete', async () => undefined )
-			).rejects.toThrow( /already in progress/ );
-		} );
-	} );
-
-	it( 'names both operations in the error so the agent can act on it', async () => {
-		await withSiteOperation( site.path, 'import', async () => {
-			await expect(
-				withSiteOperation( site.path, 'start', async () => undefined )
-			).rejects.toThrow( /site start.*import/ );
-		} );
-	} );
-
-	// Nothing is read-only: `export` and `push` both refresh the SQLite
-	// integration inside wp-content before they read the tree, so two of them
-	// on one site would delete and recreate the same files underneath.
-	it( 'refuses a second export while one is already running', async () => {
-		await withSiteOperation( site.path, 'export', async () => {
-			await expect( withSiteOperation( site.path, 'push', async () => 'pushed' ) ).rejects.toThrow(
+		await withSiteOperation( site.path, 'delete', async () => {
+			await expect( withSiteOperation( site.path, 'stop', async () => undefined ) ).rejects.toThrow(
 				/already in progress/
 			);
 		} );
 	} );
 
+	it( 'names both operations in the error so the agent can act on it', async () => {
+		await withSiteOperation( site.path, 'settings', async () => {
+			await expect(
+				withSiteOperation( site.path, 'start', async () => undefined )
+			).rejects.toThrow( /site start.*settings change/ );
+		} );
+	} );
+
 	it( 'reclaims an operation whose owning process is gone', async () => {
-		mockConfig.sites[ 0 ].operations = [ { id: 'dead', pid: DEAD_PID, kind: 'import' } ];
+		mockConfig.sites[ 0 ].operation = { pid: DEAD_PID, kind: 'delete' };
 
 		const result = await withSiteOperation( site.path, 'start', async () => 'started' );
 
 		expect( result ).toBe( 'started' );
-		expect( storedOperations() ).toBeUndefined();
+		expect( storedOperation() ).toBeUndefined();
 	} );
 
 	// Reusing SITE_EVENTS.UPDATED here made every acquire assert a running state
 	// and clear the desktop renderer's loading flag mid-operation, which broke
 	// stop/start badly enough to fail the startup performance metric.
 	it( 'announces operation changes without claiming to know the running state', async () => {
-		await withSiteOperation( site.path, 'export', async () => undefined );
+		await withSiteOperation( site.path, 'settings', async () => undefined );
 
 		const events = vi.mocked( emitCliEvent ).mock.calls.map( ( [ payload ] ) => payload.event );
 		expect( events ).toEqual( [ SITE_EVENTS.OPERATIONS_CHANGED, SITE_EVENTS.OPERATIONS_CHANGED ] );

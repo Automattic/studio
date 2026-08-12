@@ -1119,7 +1119,7 @@ export function SitePreview( {
 								<p className={ styles.emptyText }>
 									{ operation
 										? sprintf(
-												/* translators: %s: an operation in progress, e.g. "Exporting". */
+												/* translators: %s: an operation in progress, e.g. "Saving settings". */
 												__( '%s… the site can start once this finishes.' ),
 												getSiteOperationLabel( operation )
 										  )

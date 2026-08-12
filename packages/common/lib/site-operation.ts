@@ -2,10 +2,14 @@ import { z } from 'zod';
 
 /**
  * Studio-initiated operations that hold a site while they run. One at a time:
- * every one of them either owns the site's server process or writes inside its
- * directory — even the ones that look read-only, since `export` and `push`
- * refresh the SQLite integration (an `rm -rf` plus a copy under `wp-content`)
- * before they read anything.
+ * each either owns the site's server process or removes the site outright.
+ *
+ * Import, pull, export and push are deliberately excluded. Export and push
+ * never stop the server, so blocking a start during one only takes away a site
+ * the user could still be using. Import and pull do stop it, but a sync can run
+ * for tens of minutes, and holding the site for that long costs more than it
+ * protects — scoping a guard to just their local write window is tracked
+ * separately.
  *
  * Distinct from the site's `status` health field: `status` records durable
  * damage that must survive a crash (a half-written `pull-failed` site stays
@@ -22,33 +26,20 @@ export const SITE_OPERATIONS = [
 	'start',
 	'stop',
 	'delete',
-	'import',
-	'pull',
 	// `config set` restarts the server to apply a PHP/WordPress version or
 	// domain change, so it owns the site for the duration just like a start.
 	'settings',
-	'export',
-	'push',
 	'duplicate',
 ] as const;
 
 export type SiteOperationKind = ( typeof SITE_OPERATIONS )[ number ];
 
 export const siteOperationSchema = z.object( {
-	// Identifies which entry to clear on release, so a process can't drop a
-	// different operation that happens to share its PID.
-	id: z.string(),
-	// Owning process. Once it's gone the entry is stale and gets reclaimed, so a
-	// crashed client can never wedge a site.
+	// Owning process, and the only identity an operation needs: a site holds at
+	// most one at a time. Once the process is gone the entry is stale and gets
+	// reclaimed, so a crashed client can never wedge a site.
 	pid: z.number(),
 	kind: z.enum( SITE_OPERATIONS ),
 } );
 
 export type SiteOperation = z.infer< typeof siteOperationSchema >;
-
-/** The operation to describe a busy site by, or null when it's idle. */
-export function getBlockingOperation(
-	operations: SiteOperation[] | undefined
-): SiteOperationKind | null {
-	return operations?.[ 0 ]?.kind ?? null;
-}

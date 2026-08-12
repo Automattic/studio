@@ -29,7 +29,7 @@ import {
 	SITE_EVENTS_SOCKET_PATH,
 	getDaemonBus,
 } from 'cli/lib/daemon-client';
-import { getLiveSiteOperations } from 'cli/lib/site-operations';
+import { getLiveSiteOperation } from 'cli/lib/site-operations';
 import { isSiteRunning } from 'cli/lib/site-utils';
 import { SocketServer } from 'cli/lib/socket';
 import { SITE_PROCESS_PREFIX } from 'cli/lib/wordpress-server-manager';
@@ -38,12 +38,10 @@ import { Logger, LoggerError } from 'cli/logger';
 const logger = new Logger< LoggerAction >();
 
 function toSiteDetails( site: SiteData ) {
-	// Overrides rather than augments `...site` — see the note in `site list`.
-	const liveOperations = getLiveSiteOperations( site );
-
 	return siteDetailsSchema.parse( {
 		...site,
-		operations: liveOperations.length > 0 ? liveOperations : undefined,
+		// Overrides rather than augments `...site` — see the note in `site list`.
+		operation: getLiveSiteOperation( site ),
 		url: getSiteUrl( site ),
 	} );
 }

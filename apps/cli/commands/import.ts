@@ -24,7 +24,6 @@ import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/dae
 import { ImportExportEventEmitter } from 'cli/lib/import-export/events';
 import { DEFAULT_IMPORTER_OPTIONS, getImporter } from 'cli/lib/import-export/import/import-manager';
 import { getBackupFileType } from 'cli/lib/import-export/utils';
-import { withSiteOperation } from 'cli/lib/site-operations';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { classifyImportFailure, untildify } from 'cli/lib/utils';
@@ -260,17 +259,6 @@ export async function runCommand(
 	importFile: string,
 	alwaysStartServer = false,
 	suppressTracksEvent = false
-): Promise< void > {
-	return withSiteOperation( siteFolder, 'import', () =>
-		importSite( siteFolder, importFile, alwaysStartServer, suppressTracksEvent )
-	);
-}
-
-async function importSite(
-	siteFolder: string,
-	importFile: string,
-	alwaysStartServer: boolean,
-	suppressTracksEvent: boolean
 ): Promise< void > {
 	const startedAt = Date.now();
 	let site: SiteData | undefined;

@@ -106,9 +106,9 @@ export interface SiteDetails {
 		supportsMenus?: boolean;
 	};
 	siteIcon?: string | null;
-	// Studio operations currently holding the site, from the CLI. Present
-	// regardless of who started them — the user, the desktop app, or the agent.
-	operations?: SiteOperation[];
+	// The Studio operation currently holding the site, from the CLI. Present
+	// regardless of who started it — the user, the desktop app, or the agent.
+	operation?: SiteOperation;
 }
 
 export interface LocalMediaFile {

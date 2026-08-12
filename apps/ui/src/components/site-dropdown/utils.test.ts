@@ -29,20 +29,20 @@ describe( 'deriveSiteStatus', () => {
 		expect( localSublabel ).toBe( 'Starting…' );
 	} );
 
-	// An operation covers work this window didn't start — an agent export,
-	// another Studio window. Without it a running site reads as plain "running"
-	// while every control beside it is disabled.
+	// An operation covers work this window didn't start — an agent settings
+	// change, another Studio window. Without it a running site reads as plain
+	// "running" while every control beside it is disabled.
 	it( 'names an operation over the running state', () => {
 		const { status, statusLabel, localSublabel } = deriveSiteStatus(
 			createSite( { running: true } ),
 			false,
 			false,
-			'export'
+			'settings'
 		);
 
 		expect( status ).toBe( 'transitioning' );
-		expect( statusLabel ).toBe( 'Exporting' );
-		expect( localSublabel ).toBe( 'Exporting…' );
+		expect( statusLabel ).toBe( 'Saving settings' );
+		expect( localSublabel ).toBe( 'Saving settings…' );
 	} );
 
 	it( 'names a duplicate, which has no CLI operation behind it', () => {
@@ -68,8 +68,8 @@ describe( 'getSiteStatusName', () => {
 	} );
 
 	it( 'names an operation over everything else', () => {
-		expect( getSiteStatusName( { ...base, running: true, operation: 'export' } ) ).toBe(
-			'Exporting'
+		expect( getSiteStatusName( { ...base, running: true, operation: 'settings' } ) ).toBe(
+			'Saving settings'
 		);
 	} );
 } );

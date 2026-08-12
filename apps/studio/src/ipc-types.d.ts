@@ -55,7 +55,7 @@ interface StoppedSiteDetails {
 	landingPage?: string;
 	runtime?: SiteRuntime;
 	fileAccess?: SiteFileAccess;
-	operations?: SiteOperation[];
+	operation?: SiteOperation;
 }
 
 interface StartedSiteDetails extends StoppedSiteDetails {

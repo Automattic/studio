@@ -136,7 +136,7 @@ export function MainView( {
 
 	const isStarting = useIsSiteStarting( site.id );
 	const isStopping = useIsSiteStopping( site.id );
-	const isLocalTransitioning = useIsSiteBusy( site );
+	const isOperationInProgress = useIsSiteBusy( site );
 	const operation = useSiteOperation( site );
 	const { push: isPushPending, pull: isPullPending } = useIsSiteSyncing( site.id );
 	const isPreviewPending = publishPreviewSite.isPending;
@@ -146,7 +146,7 @@ export function MainView( {
 	// …and none of them can run while the CLI holds the site either. Gate the
 	// controls on both, so an operation the agent took disables them visibly rather
 	// than leaving buttons that swallow the click.
-	const isSiteBusy = isSyncing || isLocalTransitioning;
+	const isSiteBusy = isSyncing || isOperationInProgress;
 
 	const { localSublabel } = deriveSiteStatus( site, isStarting, isStopping, operation );
 	const localSiteUrl = getSiteUrl( site );
@@ -162,7 +162,7 @@ export function MainView( {
 		}
 		if ( operation ) {
 			return sprintf(
-				/* translators: 1: a sync action, e.g. "Pull from live". 2: an operation in progress, e.g. "Exporting". */
+				/* translators: 1: a sync action, e.g. "Pull from live". 2: an operation in progress, e.g. "Saving settings". */
 				__( '%1$s (%2$s)' ),
 				idle,
 				getSiteOperationLabel( operation )
@@ -204,22 +204,22 @@ export function MainView( {
 	};
 
 	const handleStartLocalClick = () => {
-		if ( isLocalTransitioning || isSyncing || site.running ) return;
+		if ( isOperationInProgress || isSyncing || site.running ) return;
 		startSite.mutate( site.id );
 	};
 
 	const handleStopLocalClick = () => {
-		if ( isLocalTransitioning || isSyncing || ! site.running ) return;
+		if ( isOperationInProgress || isSyncing || ! site.running ) return;
 		stopSite.mutate( site.id );
 	};
 
 	const handlePullClick = () => {
-		if ( ! liveSite || isSyncing || isLocalTransitioning ) return;
+		if ( ! liveSite || isSyncing || isOperationInProgress ) return;
 		onPullClick();
 	};
 
 	const handlePushClick = () => {
-		if ( ! liveSite || isSyncing || isLocalTransitioning ) return;
+		if ( ! liveSite || isSyncing || isOperationInProgress ) return;
 		onPushClick();
 	};
 
@@ -491,6 +491,18 @@ function SyncActivityDetails( {
 	);
 }
 
+// The toggle tracks where the site is heading, not where it is, so an in-flight
+// start reads as running before the server is actually up.
+function getTargetRunning( running: boolean, starting: boolean, stopping: boolean ): boolean {
+	if ( starting ) {
+		return true;
+	}
+	if ( stopping ) {
+		return false;
+	}
+	return running;
+}
+
 function LocalServerControl( {
 	running,
 	starting,
@@ -503,15 +515,15 @@ function LocalServerControl( {
 	running: boolean;
 	starting: boolean;
 	stopping: boolean;
-	// A CLI operation (an agent export, another window's import). Blocks the toggle
-	// and names itself in the tooltip, so a dead control explains why.
+	// A CLI operation (an agent settings change, another window's delete). Blocks
+	// the toggle and names itself in the tooltip, so a dead control explains why.
 	operation: SiteOperationKind | null;
 	disabled: boolean;
 	onStart: () => void;
 	onStop: () => void;
 } ) {
 	const pending = starting || stopping || operation !== null;
-	const targetRunning = starting ? true : stopping ? false : running;
+	const targetRunning = getTargetRunning( running, starting, stopping );
 	// aria-disabled rather than disabled: a natively disabled button suppresses
 	// the pointer events the tooltip listens for, hiding the status exactly
 	// while the site is transitioning.

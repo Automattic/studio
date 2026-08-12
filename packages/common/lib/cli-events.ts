@@ -35,9 +35,9 @@ export const siteDetailsSchema = z.object( {
 	technicalSiteDirectory: z.string().optional(),
 	runtimeBlueprintPath: z.string().optional(),
 	landingPage: z.string().optional(),
-	// In-flight Studio operations holding the site. The UI disables the actions
-	// these block, so it stays correct even when the agent started the work.
-	operations: z.array( siteOperationSchema ).optional(),
+	// The in-flight Studio operation holding the site, if any. The UI disables
+	// the actions it blocks, so it stays correct even when the agent started it.
+	operation: siteOperationSchema.optional(),
 } );
 
 export type SiteDetails = z.infer< typeof siteDetailsSchema >;

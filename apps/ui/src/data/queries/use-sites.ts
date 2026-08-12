@@ -1,5 +1,4 @@
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
-import { getBlockingOperation } from '@studio/common/lib/site-operation';
 import { getSiteOperationNoun } from '@studio/common/lib/site-operation-labels';
 import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
@@ -266,12 +265,10 @@ function isSiteMutating(
  */
 function getBusyMessage( queryClient: QueryClient, siteId: string, fallback: string ): string {
 	const sites = queryClient.getQueryData< SiteDetails[] >( SITES_QUERY_KEY );
-	const operation = getBlockingOperation(
-		sites?.find( ( site ) => site.id === siteId )?.operations
-	);
+	const operation = sites?.find( ( site ) => site.id === siteId )?.operation?.kind;
 	return operation
 		? sprintf(
-				/* translators: %s: an operation already running, e.g. "an export". */
+				/* translators: %s: an operation already running, e.g. "a settings change". */
 				__( 'This site is busy: %s is in progress. Try again once it finishes.' ),
 				getSiteOperationNoun( operation )
 		  )
@@ -297,7 +294,7 @@ export function useIsSiteStopping( siteId: string | undefined ): boolean {
  */
 export function useSiteOperation( site: SiteDetails | undefined ): SiteOperationKind | null {
 	const isDuplicating = useIsSiteMutating( site?.id, COPY_SITE_MUTATION_KEY );
-	return getBlockingOperation( site?.operations ) ?? ( isDuplicating ? 'duplicate' : null );
+	return site?.operation?.kind ?? ( isDuplicating ? 'duplicate' : null );
 }
 
 /**

@@ -79,7 +79,7 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 	if ( eventType === SITE_EVENTS.OPERATIONS_CHANGED ) {
 		const server = SiteServer.get( siteId ) ?? SiteServer.getByPath( site.path );
 		if ( server ) {
-			server.details = { ...server.details, operations: site.operations };
+			server.details = { ...server.details, operation: site.operation };
 		}
 		void sendIpcEventToRenderer( 'site-event', event );
 		return;

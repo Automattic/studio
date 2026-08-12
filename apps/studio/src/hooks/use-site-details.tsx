@@ -181,7 +181,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					return prevSites;
 				}
 				const nextSites = [ ...prevSites ];
-				nextSites[ index ] = { ...nextSites[ index ], operations: site.operations };
+				nextSites[ index ] = { ...nextSites[ index ], operation: site.operation };
 				return nextSites;
 			}
 

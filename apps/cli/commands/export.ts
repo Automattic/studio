@@ -10,7 +10,6 @@ import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { ImportExportEventEmitter } from 'cli/lib/import-export/events';
 import { getExporter } from 'cli/lib/import-export/export/export-manager';
 import { ExportOptions } from 'cli/lib/import-export/export/types';
-import { withSiteOperation } from 'cli/lib/site-operations';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { classifyExportFailure, untildify } from 'cli/lib/utils';
@@ -126,28 +125,6 @@ export async function runCommand(
 	includeOnlyPaths?: string[],
 	applyDeployIgnore = false,
 	suppressTracksEvent = false
-): Promise< void > {
-	return withSiteOperation( siteFolder, 'export', () =>
-		exportSite(
-			siteFolder,
-			exportPath,
-			mode,
-			splitDbDumpByTable,
-			includeOnlyPaths,
-			applyDeployIgnore,
-			suppressTracksEvent
-		)
-	);
-}
-
-async function exportSite(
-	siteFolder: string,
-	exportPath: string,
-	mode: 'full' | 'content' | 'db',
-	splitDbDumpByTable: boolean,
-	includeOnlyPaths: string[] | undefined,
-	applyDeployIgnore: boolean,
-	suppressTracksEvent: boolean
 ): Promise< void > {
 	const startedAt = Date.now();
 	try {

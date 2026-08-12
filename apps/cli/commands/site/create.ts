@@ -103,6 +103,7 @@ const STATIC_SITE_IMPORT_RESULT_FILE = 'result.json';
 const STATIC_SITE_IMPORT_SOURCE_FILE = 'source.json';
 const STATIC_SITE_IMPORT_STATE_FILE = 'state.json';
 const MAX_STATIC_SITE_IMPORT_INVOCATIONS = 10000;
+const DATA_LIBERATION_CAPTURE_RECEIPT_SCHEMA = 'data-liberation/capture-receipt/v1';
 type StaticSiteImportIdentity = { url: string; contract: string; phase?: 'cleanup_pending' };
 
 type StaticSiteImporterSource =
@@ -216,6 +217,34 @@ function collectSourceFiles( sourceDir: string ): Record< string, string >[] {
 	return files;
 }
 
+function resolveCaptureWebsiteRoot( sourceDir: string ): string {
+	const receiptPath = path.join( sourceDir, 'capture-receipt.json' );
+	if ( ! fs.existsSync( receiptPath ) ) {
+		return sourceDir;
+	}
+
+	const receipt = readSiteArtifact( receiptPath );
+	if ( receipt.schema !== DATA_LIBERATION_CAPTURE_RECEIPT_SCHEMA ) {
+		return sourceDir;
+	}
+
+	if ( typeof receipt.websiteRoot !== 'string' || ! receipt.websiteRoot.trim() ) {
+		throw new LoggerError( __( 'Data Liberation capture receipt must declare a website root.' ) );
+	}
+
+	const captureRoot = path.resolve( sourceDir );
+	const websiteRoot = path.resolve( sourceDir, receipt.websiteRoot );
+	const relativeRoot = path.relative( captureRoot, websiteRoot );
+	if ( relativeRoot === '..' || relativeRoot.startsWith( `..${ path.sep }` ) ) {
+		throw new LoggerError( __( 'Data Liberation website root must stay inside the capture directory.' ) );
+	}
+	if ( ! fs.existsSync( websiteRoot ) || ! fs.statSync( websiteRoot ).isDirectory() ) {
+		throw new LoggerError( sprintf( __( 'Data Liberation capture root not found: %s' ), websiteRoot ) );
+	}
+
+	return websiteRoot;
+}
+
 function resolveStaticSiteImporterSource( sourcePath: string ): StaticSiteImporterSource {
 	if ( isUrl( sourcePath ) ) {
 		return {
@@ -231,7 +260,7 @@ function resolveStaticSiteImporterSource( sourcePath: string ): StaticSiteImport
 
 	const stat = fs.statSync( sourcePath );
 	if ( stat.isDirectory() ) {
-		const files = collectSourceFiles( sourcePath );
+		const files = collectSourceFiles( resolveCaptureWebsiteRoot( sourcePath ) );
 		if ( files.length > 0 ) {
 			return {
 				type: 'source',

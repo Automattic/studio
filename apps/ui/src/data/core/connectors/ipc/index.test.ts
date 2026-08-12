@@ -108,6 +108,8 @@ describe( 'createIpcConnector Connect contracts', () => {
 	const getSiteDetails = vi.fn();
 	const getConnectedWpcomSites = vi.fn();
 	const pullSiteFromLive = vi.fn();
+	const pushSiteToLive = vi.fn();
+	const updateConnectedWpcomSites = vi.fn();
 	const subscribe = vi.fn();
 	const unsubscribe = vi.fn();
 
@@ -120,6 +122,8 @@ describe( 'createIpcConnector Connect contracts', () => {
 			getSiteDetails,
 			getConnectedWpcomSites,
 			pullSiteFromLive,
+			pushSiteToLive,
+			updateConnectedWpcomSites,
 		} );
 		vi.stubGlobal( 'ipcListener', { subscribe } );
 	} );
@@ -201,6 +205,37 @@ describe( 'createIpcConnector Connect contracts', () => {
 			action: 'initiateBackup',
 		} );
 		expect( unsubscribe ).toHaveBeenCalledOnce();
+	} );
+
+	// A cancelled sync never happened, so it must not stamp the connection's
+	// last-synced time — otherwise the site header would later read "Pushed 2
+	// minutes ago" for a push the user stopped.
+	it( 'does not record a sync time when the push is cancelled', async () => {
+		getConnectedWpcomSites.mockResolvedValue( [
+			{ id: 42, localSiteId: 'site-1', lastPushTimestamp: null },
+		] );
+		subscribe.mockImplementation( () => unsubscribe );
+		pushSiteToLive.mockResolvedValue( { cancelled: true } );
+
+		await expect( createIpcConnector().pushSiteToLive( 'site-1', 42 ) ).rejects.toSatisfy(
+			isSyncCancelledError
+		);
+
+		expect( updateConnectedWpcomSites ).not.toHaveBeenCalled();
+	} );
+
+	it( 'records the sync time once the push completes', async () => {
+		getConnectedWpcomSites.mockResolvedValue( [
+			{ id: 42, localSiteId: 'site-1', lastPushTimestamp: null },
+		] );
+		subscribe.mockImplementation( () => unsubscribe );
+		pushSiteToLive.mockResolvedValue( { cancelled: false } );
+
+		await createIpcConnector().pushSiteToLive( 'site-1', 42 );
+
+		expect( updateConnectedWpcomSites ).toHaveBeenCalledWith( [
+			expect.objectContaining( { id: 42, lastPushTimestamp: expect.any( String ) } ),
+		] );
 	} );
 
 	// The main process reports a user cancel as a result rather than rejecting, so

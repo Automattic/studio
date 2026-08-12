@@ -30,6 +30,9 @@
 .activityStatusNote {
 	color: var(--wpds-color-fg-content-neutral-weak);
 	font-size: var(--wpds-typography-font-size-xs);
+	/* Matches the smaller font size — inheriting the row's `sm` line height
+	   leaves this sentence too airy once it wraps onto a second line. */
+	line-height: var(--wpds-typography-line-height-xs);
 	text-wrap: pretty;
 }
 

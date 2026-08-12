@@ -149,15 +149,10 @@ where the sender actually runs — see Testing below for what fires in which bui
   (`createAiSession`). `createOrReuseAiSession` reuses an existing empty draft instead of piling up
   orphans, and returns a `created` flag so a reuse isn't counted as a creation.
 
-> **`studio ui` (the browser UI served by `apps/local`) has no Tracks wrapper of its own**, so one gap
-> shows up three ways. Note the UI still works — only the analytics is missing. See
-> [STU-2247](https://linear.app/a8c/issue/STU-2247).
->
-> | Event | Under `studio ui` |
-> |---|---|
-> | `studio_code_message_sent` / `_turn_completed` | Emitted by the CLI fork, but **mis-bucketed** as `channel=studio-cli` |
-> | `studio_code_session_created` | **Not emitted** — created in-process, and only Main records it |
-> | `studio_setting_instructions_change` | **Not emitted** — the local connector drops the `editSession` option |
+> **`studio ui` (the browser UI served by `apps/local`) has no Tracks wrapper of its own**, so it
+> records nothing itself: only the chat events reach Tracks, via the CLI fork, and they land in
+> `channel=studio-cli` — that bucket therefore mixes standalone-CLI and browser usage. Everything
+> still works; only the analytics is missing. See [STU-2247](https://linear.app/a8c/issue/STU-2247).
 - **Renderer-originated events** go through the `recordAnalyticsEvent` IPC handler
   (`apps/studio/src/ipc-handlers.ts`). Both renderers share the same Main single entry point, and the
   desktop wrapper's `commonProps()` attaches `channel`/`ui_version` centrally — the `ui_version` is

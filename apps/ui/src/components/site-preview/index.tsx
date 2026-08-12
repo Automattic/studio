@@ -10,6 +10,7 @@ import { DotGrid } from '@/components/dot-grid';
 import * as Menu from '@/components/menu';
 import { OpenInMenu } from '@/components/open-in-menu';
 import { useConnector } from '@/data/core';
+import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useIsSiteStarting, useStartSite } from '@/data/queries/use-sites';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { useWindowControlsOverlay } from '@/hooks/use-window-controls-overlay';
@@ -20,6 +21,7 @@ import {
 	getPathFromPreviewUrl,
 	getPreviewRealm,
 	getRealmNavigationPath,
+	getRealmOpenEvent,
 	PreviewAddressBar,
 	REALM_SHORTCUT_KEYS,
 	useDebouncedValue,
@@ -63,7 +65,7 @@ interface SitePreviewProps {
 }
 
 interface InspectorEvent {
-	type: 'browser-command' | 'done' | 'state';
+	type: 'annotations-updated' | 'browser-command' | 'done' | 'state';
 	bridgeToken?: string;
 	annotations?: Annotation[];
 	isPicking?: boolean;
@@ -514,6 +516,7 @@ export function SitePreview( {
 	onFullscreenChange,
 }: SitePreviewProps ) {
 	const connector = useConnector();
+	const { chatEnabled } = useAgenticFeatures();
 	const startSite = useStartSite();
 	const isStarting = useIsSiteStarting( site.id );
 	const siteUrl = getSiteUrl( site );
@@ -675,10 +678,12 @@ export function SitePreview( {
 			if ( getPreviewRealm( getSafePath( path ) ) === realm ) {
 				return;
 			}
+			// The agentic UI opens the realm in its in-app preview panel.
+			void connector.trackEvent( getRealmOpenEvent( realm ), { browser: 'internal' } );
 			const target = lastRealmPathsRef.current[ realm ];
 			onPathChange?.( getRealmNavigationPath( target, siteUrl ) );
 		},
-		[ onPathChange, path, siteUrl ]
+		[ connector, onPathChange, path, siteUrl ]
 	);
 
 	const browserShortcuts = useMemo(
@@ -888,7 +893,7 @@ export function SitePreview( {
 					) : null }
 				</div>
 				<div className={ clsx( styles.headerSide, styles.headerSideEnd ) }>
-					{ canPreview && connector.capabilities.annotatePreview ? (
+					{ canPreview && chatEnabled && connector.capabilities.annotatePreview ? (
 						<div className={ styles.annotationControls }>
 							{ inspectorState.isPicking ? (
 								<>
@@ -1164,6 +1169,7 @@ function WebviewSurface( {
 	const browserStateRef = useRef< BrowserNavigationState >( EMPTY_BROWSER_STATE );
 	const domReadyRef = useRef( false );
 	const currentUrlRef = useRef( url );
+	const storedAnnotationsRef = useRef< Annotation[] >( [] );
 	const lastReloadNonceRef = useRef( reloadNonce );
 	const progressTimerRef = useRef< ReturnType< typeof setInterval > | null >( null );
 	const progressResetTimerRef = useRef< ReturnType< typeof setTimeout > | null >( null );
@@ -1278,10 +1284,23 @@ function WebviewSurface( {
 			domReadyRef.current = true;
 			setReady( true );
 			publishDocumentTitle();
+			// If annotations were collected on a previous page, seed
+			// window.__studioInspectorState before the IIFE runs so the
+			// freshly-injected inspector picks them up on init.
+			const stored = storedAnnotationsRef.current;
+			const preload =
+				stored.length > 0 ? `window.__studioInspectorState=${ JSON.stringify( stored ) };` : '';
 			webview
-				.executeJavaScript( createInspectorPageScript( inspectorBridgeTokenRef.current ), false )
+				.executeJavaScript(
+					preload + createInspectorPageScript( inspectorBridgeTokenRef.current ),
+					false
+				)
 				.then( () => {
-					publishInspectorState( { ...inspectorStateRef.current, ready: true } );
+					publishInspectorState( {
+						ready: true,
+						isPicking: false,
+						annotationCount: stored.length,
+					} );
 				} )
 				.catch( () => {
 					// Transient injection failures (e.g. frame swapped mid-eval)
@@ -1323,6 +1342,19 @@ function WebviewSurface( {
 				} );
 				return;
 			}
+			if ( parsed.type === 'annotations-updated' ) {
+				if ( ! Array.isArray( parsed.annotations ) ) return;
+				if ( parsed.annotations.length === 0 ) {
+					storedAnnotationsRef.current = [];
+					return;
+				}
+				try {
+					storedAnnotationsRef.current = validateStudioInspectorAnnotations( parsed.annotations );
+				} catch {
+					return;
+				}
+				return;
+			}
 			if ( parsed.type !== 'done' || ! parsed.annotations ) return;
 			try {
 				onAnnotationsDoneRef.current?.( validateStudioInspectorAnnotations( parsed.annotations ) );
@@ -1348,7 +1380,10 @@ function WebviewSurface( {
 		};
 		const handleStartLoading = () => {
 			didReadTitleAfterLoad = false;
-			publishInspectorState( EMPTY_INSPECTOR_STATE );
+			publishInspectorState( {
+				...EMPTY_INSPECTOR_STATE,
+				annotationCount: storedAnnotationsRef.current.length,
+			} );
 			publishBrowserState( { title: null } );
 			startProgress();
 		};

@@ -10,6 +10,7 @@ import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { ImportExportEventEmitter } from 'cli/lib/import-export/events';
 import { DEFAULT_IMPORTER_OPTIONS, getImporter } from 'cli/lib/import-export/import/import-manager';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
+import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { runCommand } from '../import';
@@ -39,6 +40,10 @@ vi.mock( '@studio/common/lib/fs-utils', () => ( {
 	isWordPressDirectory: vi.fn(),
 	recursiveCopyDirectory: vi.fn(),
 } ) );
+vi.mock( 'cli/lib/tracks', async ( importActual ) => {
+	const actual = await importActual< typeof import('cli/lib/tracks') >();
+	return { ...actual, recordTracksEvent: vi.fn() };
+} );
 
 describe( 'CLI: studio import', () => {
 	const testSitePath = '/test/site';
@@ -191,5 +196,131 @@ describe( 'CLI: studio import', () => {
 
 		await expect( runCommand( testSitePath, testImportPath ) ).rejects.toThrow( 'import failed' );
 		expect( stopWordPressServer ).toHaveBeenCalledWith( testSite.id );
+	} );
+
+	it( 'keeps the import error cause when restore steps also fail', async () => {
+		vi.mocked( isServerRunning ).mockResolvedValue( { pid: 1234 } as never );
+		vi.mocked( getImporter ).mockReturnValue(
+			createImporter( async () => {
+				throw new LoggerError(
+					'Failed to extract backup',
+					new Error( 'unexpected end of file' ),
+					'extract'
+				);
+			} ) as never
+		);
+		vi.mocked( keepSqliteIntegrationUpdated ).mockRejectedValue( new Error( 'restart failed' ) );
+
+		await expect( runCommand( testSitePath, testImportPath ) ).rejects.toThrow(
+			'Failed to extract backup: unexpected end of file'
+		);
+	} );
+
+	it( 'records a success Tracks event with the importer type', async () => {
+		const importer = createImporter( async () => {
+			importer.emit( ImporterEvents.IMPORT_START, 'jetpack' );
+			return importResult;
+		} );
+		vi.mocked( getImporter ).mockReturnValue( importer as never );
+
+		await runCommand( testSitePath, testImportPath );
+
+		expect( recordTracksEvent ).toHaveBeenCalledTimes( 1 );
+		expect( recordTracksEvent ).toHaveBeenCalledWith(
+			TRACKS_EVENTS.SITE_IMPORT,
+			expect.objectContaining( {
+				success: true,
+				importer_type: 'jetpack',
+				time_ms: expect.any( Number ),
+				channel: 'studio-cli',
+			} )
+		);
+		expect( vi.mocked( recordTracksEvent ).mock.calls[ 0 ][ 1 ] ).not.toHaveProperty(
+			'failure_reason'
+		);
+	} );
+
+	it( 'records a failure Tracks event when no importer was selected', async () => {
+		vi.mocked( getImporter ).mockImplementation( () => {
+			throw new LoggerError(
+				'No suitable importer found for the provided backup contents',
+				undefined,
+				'no_importer_found'
+			);
+		} );
+
+		await expect( runCommand( testSitePath, testImportPath ) ).rejects.toThrow(
+			'No suitable importer'
+		);
+
+		expect( recordTracksEvent ).toHaveBeenCalledWith(
+			TRACKS_EVENTS.SITE_IMPORT,
+			expect.objectContaining( {
+				success: false,
+				importer_type: 'unknown',
+				failure_reason: 'no_importer_found',
+				time_ms: expect.any( Number ),
+			} )
+		);
+	} );
+
+	it( 'records the importer type on failures after the import started', async () => {
+		const importer = createImporter( async () => {
+			importer.emit( ImporterEvents.IMPORT_START, 'sql' );
+			throw new LoggerError(
+				'Database import failed: unexpected token',
+				undefined,
+				'database_import'
+			);
+		} );
+		vi.mocked( getImporter ).mockReturnValue( importer as never );
+
+		await expect( runCommand( testSitePath, testImportPath ) ).rejects.toThrow(
+			'Database import failed'
+		);
+
+		expect( recordTracksEvent ).toHaveBeenCalledWith(
+			TRACKS_EVENTS.SITE_IMPORT,
+			expect.objectContaining( {
+				success: false,
+				importer_type: 'sql',
+				failure_reason: 'database_import',
+			} )
+		);
+	} );
+
+	it( 'records a single Tracks event classified from the import error when restore steps also fail', async () => {
+		vi.mocked( isServerRunning ).mockResolvedValue( { pid: 1234 } as never );
+		vi.mocked( getImporter ).mockReturnValue(
+			createImporter( async () => {
+				throw new LoggerError( 'Database import failed: x', undefined, 'database_import' );
+			} ) as never
+		);
+		vi.mocked( keepSqliteIntegrationUpdated ).mockRejectedValue( new Error( 'restart failed' ) );
+
+		await expect( runCommand( testSitePath, testImportPath ) ).rejects.toThrow(
+			'Database import failed'
+		);
+
+		expect( recordTracksEvent ).toHaveBeenCalledTimes( 1 );
+		expect( recordTracksEvent ).toHaveBeenCalledWith(
+			TRACKS_EVENTS.SITE_IMPORT,
+			expect.objectContaining( { success: false, failure_reason: 'database_import' } )
+		);
+	} );
+
+	it( 'does not record a Tracks event when suppressed', async () => {
+		await runCommand( testSitePath, testImportPath, false, true );
+
+		vi.mocked( getImporter ).mockReturnValue(
+			createImporter( async () => {
+				throw new Error( 'import failed' );
+			} ) as never
+		);
+		await expect( runCommand( testSitePath, testImportPath, false, true ) ).rejects.toThrow(
+			'import failed'
+		);
+
+		expect( recordTracksEvent ).not.toHaveBeenCalled();
 	} );
 } );

@@ -1,12 +1,12 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { BackupExtractEvents, ImporterEvents, type ImportEventTuple } from './import-export-events';
 
-const WP_CONTENT_TYPE_LABELS: Record< string, string > = {
+const getWpContentTypeLabels = (): Record< string, string > => ( {
 	plugins: __( 'Importing plugins…' ),
 	themes: __( 'Importing themes…' ),
 	uploads: __( 'Importing media uploads…' ),
 	other: __( 'Importing other files…' ),
-};
+} );
 
 export function getImportStatusMessage( [ event, data ]: ImportEventTuple ): string | undefined {
 	switch ( event ) {
@@ -51,7 +51,7 @@ export function getImportStatusMessage( [ event, data ]: ImportEventTuple ): str
 			) {
 				return sprintf(
 					__( '%1$s (%2$d%%)' ),
-					WP_CONTENT_TYPE_LABELS[ data.type ] || __( 'Importing files…' ),
+					getWpContentTypeLabels()[ data.type ] || __( 'Importing files…' ),
 					Math.round( ( data.processedItems / data.totalItems ) * 100 )
 				);
 			}

@@ -382,11 +382,14 @@ export const INSPECTOR_PAGE_SCRIPT =
 	}
 
 	function persistAnnotations() {
+		let persistedAnnotations = [];
 		try {
-			window.__studioInspectorState = JSON.parse( JSON.stringify( annotations ) );
+			persistedAnnotations = JSON.parse( JSON.stringify( annotations ) );
 		} catch {
-			window.__studioInspectorState = [];
+			persistedAnnotations = [];
 		}
+		window.__studioInspectorState = persistedAnnotations;
+		send( { type: 'annotations-updated', annotations: persistedAnnotations } );
 	}
 
 	function sendState() {
@@ -398,6 +401,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 	}
 
 	function syncMarkers() {
+		const currentPathname = window.location.pathname;
 		const ids = new Set( annotations.map( ( a ) => a.id ) );
 		for ( const [ id, marker ] of markerNodes ) {
 			if ( ! ids.has( id ) ) {
@@ -406,7 +410,18 @@ export const INSPECTOR_PAGE_SCRIPT =
 			}
 		}
 		annotations.forEach( ( ann, idx ) => {
+			/* Only render markers for annotations made on the current page.
+			 * Annotations from other pages are preserved for submission but
+			 * their document-coordinate positions would be meaningless here. */
+			const onCurrentPage = ! ann.pathname || ann.pathname === currentPathname;
 			let marker = markerNodes.get( ann.id );
+			if ( ! onCurrentPage ) {
+				if ( marker ) {
+					marker.remove();
+					markerNodes.delete( ann.id );
+				}
+				return;
+			}
 			if ( ! marker ) {
 				marker = document.createElement( 'button' );
 				marker.type = 'button';

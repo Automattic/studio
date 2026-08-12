@@ -1,7 +1,9 @@
 import { getAuthenticationUrl, getSignUpUrl } from '@studio/common/lib/oauth';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
+import { readOnboardingHints, writeOnboardingHints } from '../browser-onboarding-hints';
 import { applyStoredSiteOrder, storeSiteOrder } from '../browser-site-order';
+import { readLastSeenVersion, writeLastSeenVersion } from '../browser-whats-new';
 import { buildPublishCheckoutUrl } from '../publish-checkout-url';
 import { UnsupportedError } from '../unsupported-error';
 import { readWapuuScore, writeWapuuScore } from '../wapuu-score-storage';
@@ -244,6 +246,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			annotatePreview: false,
 			readLocalMedia: false,
 			agentInstructions: true,
+			studioLogs: false,
 			switchToClassicUi: false,
 		},
 
@@ -362,6 +365,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		async getSiteThumbnail(): Promise< string | null > {
 			return null;
+		},
+		async getSiteStorageUsage( siteId ) {
+			return api( `/sites/${ encodeURIComponent( siteId ) }/storage` );
 		},
 
 		// Site creation — delegated to the CLI `create` on the local machine.
@@ -573,13 +579,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				method: 'POST',
 			} );
 		},
-		async pushSiteToLive( siteId, remoteSiteId ) {
+		async pushSiteToLive( siteId, remoteSiteId, options ) {
 			await api( `/sites/${ encodeURIComponent( siteId ) }/push`, {
 				method: 'POST',
-				body: JSON.stringify( { remoteSiteId } ),
+				body: JSON.stringify( { remoteSiteId, options } ),
 			} );
 		},
-		async pullSiteFromLive( siteId, remoteSiteId, onProgress ) {
+		async pullSiteFromLive( siteId, remoteSiteId, onProgress, options ) {
 			const listener = ( output: PullProgressSseOutput ) => {
 				if ( output.siteId === siteId ) {
 					onProgress?.( {
@@ -594,11 +600,43 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			try {
 				await api( `/sites/${ encodeURIComponent( siteId ) }/pull`, {
 					method: 'POST',
-					body: JSON.stringify( { remoteSiteId } ),
+					body: JSON.stringify( { remoteSiteId, options } ),
 				} );
 			} finally {
 				pullProgressListeners.delete( listener );
 			}
+		},
+		async getLatestRewindId( remoteSiteId ) {
+			return api< string | null >( `/wpcom/sites/${ remoteSiteId }/latest-rewind-id` );
+		},
+		async listRemoteFileTree( remoteSiteId, rewindId, path ) {
+			return api< Record< string, unknown > >(
+				`/wpcom/sites/${ remoteSiteId }/remote-file-tree?rewindId=${ encodeURIComponent(
+					rewindId
+				) }&path=${ encodeURIComponent( path ) }`
+			);
+		},
+		// Selective-sync local lookups: the server has no per-file endpoints yet,
+		// so degrade the same way the dialog does elsewhere without this data —
+		// category-level selection works; file trees, size estimates, and
+		// version warnings are simply absent.
+		async listLocalFileTree() {
+			return [];
+		},
+		async getDirectorySize() {
+			return 0;
+		},
+		async getFileSize() {
+			return 0;
+		},
+		async getIsMultisite() {
+			return undefined;
+		},
+		async getHostingPhpVersion( remoteSiteId ) {
+			const version = await api< string | null >(
+				`/wpcom/sites/${ remoteSiteId }/hosting-php-version`
+			);
+			return version ?? undefined;
 		},
 		getPublishCheckoutUrl( site ): string {
 			// The post-checkout auto-connect relies on the deep-link listener, which
@@ -780,6 +818,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			} );
 		},
 
+		// The CLI has no equivalent of the desktop's log file — site server output
+		// goes to `~/.studio/daemon/logs` and the rest to the terminal that ran
+		// `studio ui` — so there is nothing to open here.
+		async openStudioLogs() {
+			throw new UnsupportedError( 'openStudioLogs' );
+		},
+
 		// Analytics — no-op here. Tracks currently flows through the desktop IPC connector; the
 		// local (browser) target has no Main-process choke point yet. See the design doc.
 		async trackEvent() {
@@ -855,6 +900,26 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		async disableAgenticUi() {
 			// No-op in the browser.
+		},
+		async getOnboardingHints() {
+			return readOnboardingHints();
+		},
+		async setOnboardingHints( partial ) {
+			writeOnboardingHints( partial );
+		},
+		onShowGettingStarted() {
+			// No application menu in a browser tab.
+			return () => {};
+		},
+		onShowWhatsNew() {
+			// No application menu in a browser tab.
+			return () => {};
+		},
+		async getLastSeenVersion() {
+			return readLastSeenVersion();
+		},
+		async saveLastSeenVersion( version ) {
+			writeLastSeenVersion( version );
 		},
 		async getAppUpdateStatus() {
 			return { readyToInstall: false, version: null };

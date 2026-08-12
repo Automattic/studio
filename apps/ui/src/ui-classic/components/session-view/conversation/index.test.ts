@@ -62,6 +62,14 @@ describe( 'Assistant message copy button', () => {
 
 		const buttons = screen.getAllByRole( 'button', { name: 'Copy message' } );
 		expect( buttons ).toHaveLength( 1 );
+		expect( screen.getByText( 'First part.' ).closest( '[data-message-text]' ) ).toHaveAttribute(
+			'data-message-text',
+			'First part.\n\nSecond part.'
+		);
+		expect( screen.getByText( 'Second part.' ).closest( '[data-message-text]' ) ).toHaveAttribute(
+			'data-message-text',
+			'First part.\n\nSecond part.'
+		);
 
 		fireEvent.click( buttons[ 0 ] );
 		expect( connectorMocks.copyText ).toHaveBeenCalledWith( 'First part.\n\nSecond part.' );

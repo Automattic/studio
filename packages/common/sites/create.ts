@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { type TracksSiteCreateFlowType } from '@studio/common/lib/record-tracks-event';
 import { type SiteFileAccess } from '@studio/common/lib/site-file-access';
 import { siteModeFromRuntime, type SiteRuntime } from '@studio/common/lib/site-runtime';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
@@ -26,6 +27,9 @@ export interface SiteCreateOptions {
 	adminPassword?: string;
 	adminEmail?: string;
 	noStart?: boolean;
+	// Telemetry hint for the `studio_site_created` Tracks event. Not a functional site option — the
+	// CLI infers `blueprint` on its own, so only import/sync/duplicate are threaded through here.
+	flowType?: TracksSiteCreateFlowType;
 }
 
 /**
@@ -76,6 +80,9 @@ export function buildSiteCreateArgs( options: SiteCreateOptions ): {
 	}
 	if ( options.noStart ) {
 		args.push( '--no-start' );
+	}
+	if ( options.flowType ) {
+		args.push( '--flow-type', options.flowType );
 	}
 
 	let blueprintTempPath: string | undefined;

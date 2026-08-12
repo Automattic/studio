@@ -16,6 +16,7 @@ export {
 	type TracksEventName,
 	type TracksChannel,
 	type TracksUiVersion,
+	type TracksSiteCreateFlowType,
 } from '@studio/common/lib/record-tracks-event';
 
 async function commonProps(): Promise< TracksProps > {

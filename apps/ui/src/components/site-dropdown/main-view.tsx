@@ -1,3 +1,4 @@
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { isSnapshotExpired } from '@studio/common/lib/snapshots';
 import { useIsMutating } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
@@ -22,8 +23,6 @@ import { useSnapshots } from '@/data/queries/use-snapshots';
 import {
 	PULL_FROM_LIVE_MUTATION_KEY,
 	PUSH_TO_LIVE_MUTATION_KEY,
-	usePullSiteFromLive,
-	usePushSiteToLive,
 } from '@/data/queries/use-sync-site';
 import { getSiteUrl } from '@/lib/get-site-url';
 import styles from './main-view.module.css';
@@ -52,6 +51,10 @@ type Props = {
 	// Opens the disconnect-site confirmation dialog; owned by the parent so the
 	// dialog persists after the dropdown closes.
 	onDisconnectClick: () => void;
+	// Open the selective-sync dialog for pull/push; owned by the parent for the
+	// same reason as the disconnect dialog.
+	onPullClick: () => void;
+	onPushClick: () => void;
 };
 
 // Counts in-flight push/pull mutations for this site across hook instances.
@@ -100,7 +103,14 @@ function getLivePanelCopy( agenticEnabled: boolean, isOffline: boolean ): string
 	return __( 'Sign in to publish your site.' );
 }
 
-export function MainView( { site, activity, onSetupClick, onDisconnectClick }: Props ) {
+export function MainView( {
+	site,
+	activity,
+	onSetupClick,
+	onDisconnectClick,
+	onPullClick,
+	onPushClick,
+}: Props ) {
 	const connector = useConnector();
 	const { enabled: agenticEnabled, reason: agenticReason } = useAgenticFeatures();
 	const isOffline = agenticReason === 'offline';
@@ -118,8 +128,6 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 	const startSite = useStartSite();
 	const stopSite = useStopSite();
 	const publishPreviewSite = usePublishPreviewSite();
-	const pushSiteToLive = usePushSiteToLive();
-	const pullSiteFromLive = usePullSiteFromLive();
 
 	const isStarting = useIsSiteStarting( site.id );
 	const isStopping = useIsSiteStopping( site.id );
@@ -189,15 +197,12 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 
 	const handlePullClick = () => {
 		if ( ! liveSite || isSyncing ) return;
-		pullSiteFromLive.mutate( { siteId: site.id, remoteSiteId: liveSite.id } );
+		onPullClick();
 	};
 
 	const handlePushClick = () => {
 		if ( ! liveSite || isSyncing ) return;
-		pushSiteToLive.mutate(
-			{ siteId: site.id, remoteSiteId: liveSite.id },
-			{ onSuccess: () => openExternal( ensureProtocol( liveSite.url ) ) }
-		);
+		onPushClick();
 	};
 
 	const renderTooltipButton = ( {
@@ -211,7 +216,17 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 		</Tooltip.Root>
 	);
 
-	const renderUrlLink = ( { text, url, label }: { text: string; url: string; label: string } ) => (
+	const renderUrlLink = ( {
+		text,
+		url,
+		label,
+		onOpen,
+	}: {
+		text: string;
+		url: string;
+		label: string;
+		onOpen?: () => void;
+	} ) => (
 		<Tooltip.Root>
 			<Tooltip.Trigger
 				render={
@@ -219,7 +234,10 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 						type="button"
 						className={ styles.urlLink }
 						aria-label={ label }
-						onClick={ () => openExternal( url ) }
+						onClick={ () => {
+							onOpen?.();
+							openExternal( url );
+						} }
 					>
 						<span>{ text }</span>
 						<Icon icon={ external } size={ 12 } aria-hidden="true" />
@@ -253,6 +271,10 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 								text: localSublabel,
 								url: localSiteUrl,
 								label: __( 'Open Studio site in your browser' ),
+								onOpen: () =>
+									void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_IN_BROWSER, {
+										browser: 'external',
+									} ),
 						  } )
 						: localSublabel
 				}

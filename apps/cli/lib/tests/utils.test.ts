@@ -1,5 +1,11 @@
 import os from 'node:os';
-import { getPrettyPath, normalizeHostname } from 'cli/lib/utils';
+import {
+	classifyExportFailure,
+	classifyImportFailure,
+	getPrettyPath,
+	normalizeHostname,
+} from 'cli/lib/utils';
+import { LoggerError } from 'cli/logger';
 
 describe( 'normalizeHostname', () => {
 	it( 'should normalize a basic hostname', () => {
@@ -82,5 +88,99 @@ describe( 'getPrettyPath', () => {
 		expect( getPrettyPath( 'C:\\Users\\george\\Studio\\index.php' ) ).toBe(
 			'C:\\Users\\george\\Studio\\index.php'
 		);
+	} );
+} );
+
+describe( 'classifyImportFailure', () => {
+	it.each( [
+		[ 'bundled_wp_missing' ],
+		[ 'file_not_found' ],
+		[ 'no_backup_handler' ],
+		[ 'no_importer_found' ],
+		[ 'extract' ],
+		[ 'database_import' ],
+		[ 'wxr_import' ],
+	] )( 'returns the %s code carried by a LoggerError', ( code ) => {
+		expect( classifyImportFailure( new LoggerError( 'display text', undefined, code ) ) ).toBe(
+			code
+		);
+	} );
+
+	it( 'is locale-independent — classifies by code, not by the translated message', () => {
+		const error = new LoggerError(
+			'Datenbankimport fehlgeschlagen: FEHLER 123',
+			undefined,
+			'database_import'
+		);
+		expect( classifyImportFailure( error ) ).toBe( 'database_import' );
+	} );
+
+	it( 'walks the previousError chain for a code', () => {
+		const error = new LoggerError(
+			'Failed to import site',
+			new LoggerError( 'Database import failed: x', undefined, 'database_import' )
+		);
+		expect( classifyImportFailure( error ) ).toBe( 'database_import' );
+	} );
+
+	it.each( [
+		[ 'ENOSPC: no space left on device', 'disk_full' ],
+		[ 'Error: absolute path: /wp-content/index.php', 'invalid_zip' ],
+	] )( 'classifies untranslated system error %j as %s', ( message, expected ) => {
+		expect( classifyImportFailure( new Error( message ) ) ).toBe( expected );
+	} );
+
+	it( 'prefers disk_full over a coded wrapper when the chain contains ENOSPC', () => {
+		const error = new LoggerError(
+			'Failed to extract backup',
+			new Error( 'ENOSPC: no space left on device' ),
+			'extract'
+		);
+		expect( classifyImportFailure( error ) ).toBe( 'disk_full' );
+	} );
+
+	it( 'falls back to unknown', () => {
+		expect( classifyImportFailure( new Error( 'Something else entirely' ) ) ).toBe( 'unknown' );
+		expect( classifyImportFailure( new LoggerError( 'Uncoded logger error' ) ) ).toBe( 'unknown' );
+		expect( classifyImportFailure( undefined ) ).toBe( 'unknown' );
+	} );
+} );
+
+describe( 'classifyExportFailure', () => {
+	it.each( [ [ 'no_exporter_found' ], [ 'database_export' ], [ 'site_meta' ] ] )(
+		'returns the %s code carried by a LoggerError',
+		( code ) => {
+			expect( classifyExportFailure( new LoggerError( 'display text', undefined, code ) ) ).toBe(
+				code
+			);
+		}
+	);
+
+	it( 'classifies untranslated ENOSPC errors as disk_full, winning over a coded wrapper', () => {
+		expect( classifyExportFailure( new Error( 'ENOSPC: no space left on device' ) ) ).toBe(
+			'disk_full'
+		);
+		expect(
+			classifyExportFailure(
+				new LoggerError(
+					'Database export failed',
+					new Error( 'ENOSPC: no space left on device' ),
+					'database_export'
+				)
+			)
+		).toBe( 'disk_full' );
+	} );
+
+	it( 'falls back to unknown', () => {
+		expect( classifyExportFailure( new Error( 'Something else entirely' ) ) ).toBe( 'unknown' );
+		expect( classifyExportFailure( undefined ) ).toBe( 'unknown' );
+	} );
+
+	it( 'walks the previousError chain for a code', () => {
+		const error = new LoggerError(
+			'Failed to export site',
+			new LoggerError( 'Database export failed', undefined, 'database_export' )
+		);
+		expect( classifyExportFailure( error ) ).toBe( 'database_export' );
 	} );
 } );

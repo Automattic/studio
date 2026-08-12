@@ -1,4 +1,5 @@
 import { password } from '@inquirer/prompts';
+import { validateAnthropicApiKey } from '@studio/common/ai/anthropic-key';
 import {
 	AI_MODELS,
 	DEFAULT_MODEL,
@@ -78,22 +79,35 @@ async function resolveAnthropicApiKey( options?: {
 } ): Promise< string | undefined > {
 	const { anthropicApiKey: savedKey } = await readCliConfig();
 	if ( savedKey && ! options?.force ) {
-		return savedKey;
+		// Re-prompt only when Anthropic definitively rejects the saved key;
+		// an unreachable API must not lock the user out of their provider.
+		const validation = await validateAnthropicApiKey( savedKey );
+		if ( validation.status !== 'invalid' ) {
+			return savedKey;
+		}
 	}
 
 	const apiKey = await password( {
 		message: __( 'Enter your Anthropic API key (will be saved for future use):' ),
 		mask: '*',
-		validate: ( value ) => {
-			if ( ! value.trim() ) {
+		validate: async ( value ) => {
+			const trimmed = value.trim();
+			if ( ! trimmed ) {
 				return __( 'API key is required' );
 			}
-			return true;
+			const validation = await validateAnthropicApiKey( trimmed );
+			return validation.status === 'invalid' ? validation.message : true;
 		},
 	} );
 
-	await updateCliConfigWithPartial( { anthropicApiKey: apiKey } );
-	return apiKey;
+	const trimmedKey = apiKey.trim();
+	await updateCliConfigWithPartial( { anthropicApiKey: trimmedKey } );
+	return trimmedKey;
+}
+
+function getStudioUserAgent(): string {
+	const version = typeof __STUDIO_CLI_VERSION__ === 'string' ? __STUDIO_CLI_VERSION__ : '';
+	return version ? `WordPressStudio/${ version }` : 'WordPressStudio';
 }
 
 function buildAnthropicCustomHeaders( headers: Record< string, string > ): string {
@@ -161,6 +175,7 @@ const AI_PROVIDER_DEFINITIONS: Record< AiProviderId, AiProviderDefinition > = {
 			env.ANTHROPIC_BASE_URL = gatewayBaseUrl;
 			env.ANTHROPIC_AUTH_TOKEN = accessToken;
 			const anthropicHeaders: Record< string, string > = {
+				'User-Agent': getStudioUserAgent(),
 				'X-WPCOM-AI-Feature': WPCOM_AI_FEATURE_HEADER_ANTHROPIC,
 			};
 			if ( options?.sessionId ) {
@@ -176,6 +191,7 @@ const AI_PROVIDER_DEFINITIONS: Record< AiProviderId, AiProviderDefinition > = {
 			env.OPENAI_BASE_URL = `${ gatewayBaseUrl.replace( /\/+$/, '' ) }/v1`;
 			env.OPENAI_API_KEY = accessToken;
 			const openaiHeaders: Record< string, string > = {
+				'User-Agent': getStudioUserAgent(),
 				'X-WPCOM-AI-Feature': WPCOM_AI_FEATURE_HEADER_OPENAI,
 			};
 			if ( options?.sessionId ) {

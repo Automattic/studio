@@ -8,7 +8,7 @@ import {
 import fs from 'fs-extra';
 import { z } from 'zod';
 import { extractZip } from '../packages/common/lib/extract-zip.ts';
-import { buildPhpMyAdminTheme } from './build-phpmyadmin-theme.ts';
+import { buildPhpMyAdminStyle } from './build-phpmyadmin-style.ts';
 import { fetch, sharedDispatcher, throwForHttpStatus, withRetry } from './lib/with-retry.ts';
 
 const SQLITE_DATABASE_INTEGRATION_VERSION = 'v3.0.0-rc.8';
@@ -31,13 +31,18 @@ const WP_SERVER_FILES_PATH = path.join( import.meta.dirname, '..', 'wp-files' );
 // Pinned so builds are reproducible. Bump deliberately.
 const WORDPRESS_IMPORTER_VERSION = '0.9.5';
 const PHPMYADMIN_PATCH_FILES_PATH = path.join( import.meta.dirname, '..', 'apps', 'cli', 'php' );
-const PHPMYADMIN_LOCAL_PATCH_FILES = new Map< string, string >( [
+const PHPMYADMIN_LOCAL_FILES = new Map< string, string >( [
 	[ 'config.inc.php', path.join( PHPMYADMIN_PATCH_FILES_PATH, 'config.inc.php' ) ],
 	[
 		'libraries/classes/Dbal/DbiMysqli.php',
 		path.join( PHPMYADMIN_PATCH_FILES_PATH, 'DbiMysqli.php' ),
 	],
 ] );
+
+const PHPMYADMIN_THEME_STYLESHEET =
+	'  <link rel="stylesheet" type="text/css" href="{{ theme_path }}/css/theme{{ text_dir == \'rtl\' ? \'.rtl\' }}.css?{{ version }}">';
+const PHPMYADMIN_STUDIO_STYLESHEET =
+	'  <link rel="stylesheet" type="text/css" href="{{ base_dir }}themes/studio{{ text_dir == \'rtl\' ? \'.rtl\' }}.css?{{ version }}">';
 
 const partialGithubReleaseSchema = z.object( {
 	tag_name: z.string(),
@@ -206,14 +211,31 @@ async function downloadFile( file: FileToDownload ): Promise< void > {
 				const destFile = path.join( extractedPath, relativePath );
 				await fs.ensureDir( path.dirname( destFile ) );
 
-				const localPatchFile = PHPMYADMIN_LOCAL_PATCH_FILES.get( relativePath );
-				const patchData = localPatchFile ? await fs.readFile( localPatchFile, 'utf8' ) : step.data;
-				await fs.writeFile( destFile, patchData );
+				await fs.writeFile( destFile, step.data );
 			}
 		}
 
-		console.log( `[${ name }] Building Studio theme ...` );
-		await buildPhpMyAdminTheme( extractedPath );
+		for ( const [ relativePath, sourcePath ] of PHPMYADMIN_LOCAL_FILES ) {
+			const destinationPath = path.join( extractedPath, relativePath );
+			await fs.ensureDir( path.dirname( destinationPath ) );
+			await fs.copy( sourcePath, destinationPath, { overwrite: true } );
+		}
+
+		const headerPath = path.join( extractedPath, 'templates', 'header.twig' );
+		const header = await fs.readFile( headerPath, 'utf8' );
+		if ( ! header.includes( PHPMYADMIN_THEME_STYLESHEET ) ) {
+			throw new Error( 'Could not find the phpMyAdmin theme stylesheet in header.twig' );
+		}
+		await fs.writeFile(
+			headerPath,
+			header.replace(
+				PHPMYADMIN_THEME_STYLESHEET,
+				`${ PHPMYADMIN_THEME_STYLESHEET }\n${ PHPMYADMIN_STUDIO_STYLESHEET }`
+			)
+		);
+
+		console.log( `[${ name }] Building Studio stylesheet ...` );
+		await buildPhpMyAdminStyle( extractedPath );
 	} else {
 		console.log( `[${ name }] Extracting files from zip ...` );
 		await extractZip( zipPath, extractedPath );

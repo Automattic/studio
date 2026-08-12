@@ -1,0 +1,56 @@
+// The Bootstrap theme owns the tree's layout. These rules only adapt its
+// colors and the Studio-specific collapsed-sidebar affordance.
+#pma_navigation {
+  background-color: var(--wpds-color-bg-surface-neutral-weak);
+  border-right-color: var(--wpds-color-stroke-surface-neutral);
+  color: var(--wpds-color-fg-content-neutral);
+
+  #navipanellinks {
+    background-color: transparent;
+    border-color: var(--wpds-color-stroke-surface-neutral-weak);
+  }
+
+  a {
+    color: var(--wpds-color-fg-interactive-neutral);
+  }
+
+  li.activePointer,
+  li.selected,
+  #navipanellinks a:hover {
+    background-color: var(--wpds-color-bg-interactive-neutral-weak-active);
+    color: var(--wpds-color-fg-interactive-neutral);
+  }
+
+  select,
+  input {
+    background-color: var(--wpds-color-bg-surface-neutral-strong);
+    border-color: var(--wpds-color-stroke-interactive-neutral);
+    color: var(--wpds-color-fg-content-neutral);
+  }
+
+  #pma_navigation_tree div.block i,
+  #pma_navigation_tree div.block b,
+  #pma_navigation_tree .list_container {
+    border-color: var(--wpds-color-stroke-surface-neutral);
+  }
+}
+
+#pma_navigation_resizer:hover {
+  background-color: var(--wpds-color-stroke-focus-brand);
+}
+
+#pma_navigation_collapser {
+  width: 20px;
+  height: 32px;
+  line-height: 32px;
+  background-color: var(--wpds-color-bg-surface-neutral-weak);
+  border: 1px solid var(--wpds-color-stroke-surface-neutral);
+  border-left: 0;
+  border-radius: 0 var(--wpds-border-radius-md) var(--wpds-border-radius-md) 0;
+  color: var(--wpds-color-fg-content-neutral-weak);
+
+  &:hover {
+    background-color: var(--wpds-color-bg-interactive-neutral-weak-active);
+    color: var(--wpds-color-fg-content-neutral);
+  }
+}

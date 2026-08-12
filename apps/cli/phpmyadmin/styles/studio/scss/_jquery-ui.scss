@@ -1,0 +1,91 @@
+// jQuery UI ships a hard-coded light palette, so its shared surfaces and
+// interaction states need explicit color-mode overrides.
+.ui-widget {
+  font-family: var(--wpds-typography-font-family-body);
+}
+
+.ui-widget-content,
+.ui-datepicker,
+.ui-autocomplete,
+.ui-accordion .ui-accordion-content {
+  background: var(--wpds-color-bg-surface-neutral-strong);
+  border-color: var(--wpds-color-stroke-surface-neutral);
+  color: var(--wpds-color-fg-content-neutral);
+}
+
+.ui-widget-header,
+.ui-accordion .ui-accordion-header {
+  background: var(--wpds-color-bg-surface-neutral-weak);
+  border-color: var(--wpds-color-stroke-surface-neutral);
+  color: var(--wpds-color-fg-content-neutral);
+}
+
+.ui-widget-content a {
+  color: var(--wpds-color-fg-interactive-brand);
+}
+
+.ui-state-default,
+.ui-widget-content .ui-state-default,
+.ui-widget-header .ui-state-default,
+.ui-button {
+  background: transparent;
+  border-color: var(--wpds-color-stroke-interactive-neutral);
+  color: var(--wpds-color-fg-interactive-neutral);
+}
+
+.ui-state-hover,
+.ui-widget-content .ui-state-hover,
+.ui-widget-header .ui-state-hover,
+.ui-state-focus,
+.ui-widget-content .ui-state-focus,
+.ui-widget-header .ui-state-focus,
+.ui-button:hover,
+.ui-button:focus {
+  background: var(--wpds-color-bg-interactive-neutral-weak-active);
+  border-color: var(--wpds-color-stroke-interactive-neutral-active);
+  color: var(--wpds-color-fg-interactive-neutral-active);
+}
+
+.ui-state-active,
+.ui-widget-content .ui-state-active,
+.ui-widget-header .ui-state-active {
+  background: var(--wpds-color-bg-interactive-brand-strong);
+  border-color: var(--wpds-color-bg-interactive-brand-strong);
+  color: white;
+}
+
+.ui-datepicker,
+.ui-autocomplete {
+  box-shadow: var(--wpds-elevation-md);
+}
+
+.ui-datepicker th {
+  color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.ui-datepicker td a {
+  background: transparent;
+  color: var(--wpds-color-fg-interactive-neutral);
+}
+
+.ui-datepicker td.ui-datepicker-today a {
+  background: var(--wpds-color-bg-interactive-brand-weak-active);
+  color: var(--wpds-color-fg-interactive-brand);
+}
+
+.ui-datepicker td.ui-datepicker-current-day a {
+  background: var(--wpds-color-bg-interactive-brand-strong);
+  color: white;
+}
+
+.ui-tooltip {
+  background: var(--wpds-color-bg-surface-neutral-strong);
+  border-color: var(--wpds-color-stroke-surface-neutral);
+  box-shadow: var(--wpds-elevation-md);
+  color: var(--wpds-color-fg-content-neutral);
+  text-shadow: none;
+
+  * {
+    text-shadow: none;
+  }
+}

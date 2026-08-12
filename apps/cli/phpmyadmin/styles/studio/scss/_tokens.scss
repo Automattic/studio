@@ -1,0 +1,51 @@
+// Consume the canonical non-color WordPress Design System tokens. Color tokens
+// are repeated below only because phpMyAdmin cannot run ThemeProvider, which
+// normally computes them from the active background at runtime.
+@use "design-tokens.css";
+
+:root {
+  --wpds-border-radius-sm: 4px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --wpds-color-bg-interactive-brand-strong: #3858e9;
+    --wpds-color-bg-interactive-brand-strong-active: #4367f9;
+    --wpds-color-bg-interactive-brand-weak-active: #122062;
+    --wpds-color-bg-interactive-error-active: #36100c;
+    --wpds-color-bg-interactive-error-strong: #cc1818;
+    --wpds-color-bg-interactive-error-strong-active: #dd3029;
+    --wpds-color-bg-interactive-neutral-strong-disabled: #2d2d2d;
+    --wpds-color-bg-interactive-neutral-weak-active: #282828;
+    --wpds-color-bg-surface-error-weak: #36100c;
+    --wpds-color-bg-surface-info-weak: #021f3b;
+    --wpds-color-bg-surface-neutral: #1e1e1e;
+    --wpds-color-bg-surface-neutral-strong: #242424;
+    --wpds-color-bg-surface-neutral-weak: #171717;
+    --wpds-color-bg-surface-success-weak: #0d2412;
+    --wpds-color-bg-surface-warning-weak: #251d0d;
+    --wpds-color-bg-thumb-neutral-weak: #6e6e6e;
+    --wpds-color-fg-content-error: #ffe6e0;
+    --wpds-color-fg-content-info: #dcf3ff;
+    --wpds-color-fg-content-neutral: #f0f0f0;
+    --wpds-color-fg-content-neutral-weak: #b4b4b4;
+    --wpds-color-fg-content-success: #b9ffc6;
+    --wpds-color-fg-content-warning: #ffebb0;
+    --wpds-color-fg-interactive-brand: #8eb0ff;
+    --wpds-color-fg-interactive-brand-active: #8eb0ff;
+    --wpds-color-fg-interactive-error: #ff8879;
+    --wpds-color-fg-interactive-neutral: #f0f0f0;
+    --wpds-color-fg-interactive-neutral-active: #f0f0f0;
+    --wpds-color-fg-interactive-neutral-disabled: #6e6e6e;
+    --wpds-color-stroke-focus-brand: #8eb0ff;
+    --wpds-color-stroke-interactive-neutral: #6e6e6e;
+    --wpds-color-stroke-interactive-neutral-active: #8c8c8c;
+    --wpds-color-stroke-interactive-neutral-disabled: #343434;
+    --wpds-color-stroke-surface-error: #964d44;
+    --wpds-color-stroke-surface-info: #2c4e73;
+    --wpds-color-stroke-surface-neutral: #343434;
+    --wpds-color-stroke-surface-neutral-weak: #2e2e2e;
+    --wpds-color-stroke-surface-success: #426548;
+    --wpds-color-stroke-surface-warning: #837151;
+  }
+}

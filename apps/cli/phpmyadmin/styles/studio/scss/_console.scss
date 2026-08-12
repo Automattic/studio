@@ -1,0 +1,34 @@
+// phpMyAdmin's collapsed SQL console is fixed to the bottom edge. The bundled
+// theme hard-codes a light gray tab, so restate its small visible surface with
+// the same neutral tokens as Studio's other controls.
+#pma_console {
+  color: var(--wpds-color-fg-content-neutral);
+
+  .toolbar {
+    background-color: var(--wpds-color-bg-surface-neutral-weak);
+    border-color: var(--wpds-color-stroke-surface-neutral);
+    color: var(--wpds-color-fg-content-neutral);
+
+    &.collapsed {
+      border-color: var(--wpds-color-stroke-surface-neutral);
+      border-radius: 0 var(--wpds-border-radius-md) 0 0;
+    }
+
+    &.collapsed:not(:hover) {
+      border-top-color: var(--wpds-color-stroke-surface-neutral);
+      border-right-color: var(--wpds-color-stroke-surface-neutral);
+    }
+
+    .button:hover,
+    .button.active,
+    .switch_button:hover {
+      background-color: var(--wpds-color-bg-interactive-neutral-weak-active);
+    }
+  }
+
+  .content {
+    background-color: var(--wpds-color-bg-surface-neutral-strong);
+    border-color: var(--wpds-color-stroke-surface-neutral);
+    color: var(--wpds-color-fg-content-neutral);
+  }
+}

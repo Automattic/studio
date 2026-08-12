@@ -1,0 +1,54 @@
+.table {
+  --bs-table-bg: var(--wpds-color-bg-surface-neutral);
+  --bs-table-color: var(--wpds-color-fg-content-neutral);
+  --bs-table-border-color: var(--wpds-color-stroke-surface-neutral-weak);
+  --bs-table-striped-bg: var(--wpds-color-bg-surface-neutral-weak);
+  --bs-table-striped-color: var(--wpds-color-fg-content-neutral);
+  --bs-table-active-bg: var(--wpds-color-bg-interactive-neutral-weak-active);
+  --bs-table-active-color: var(--wpds-color-fg-content-neutral);
+  --bs-table-hover-bg: var(--wpds-color-bg-interactive-neutral-weak-active);
+  --bs-table-hover-color: var(--wpds-color-fg-content-neutral);
+
+  color: var(--wpds-color-fg-content-neutral);
+  text-shadow: none;
+
+  * {
+    text-shadow: none;
+  }
+
+  > thead > tr > * {
+    background-color: var(--wpds-color-bg-surface-neutral);
+    border-color: var(--wpds-color-stroke-surface-neutral);
+    color: var(--wpds-color-fg-content-neutral);
+  }
+
+  caption,
+  .no-rows {
+    color: var(--wpds-color-fg-content-neutral-weak);
+  }
+}
+
+.table > tbody > tr.marked > *,
+tr.marked > td,
+tr.marked > th {
+  background-color: var(--wpds-color-bg-interactive-brand-weak-active) !important;
+  color: var(--wpds-color-fg-content-neutral);
+}
+
+.table .cell-selected {
+  outline: 1px solid var(--wpds-color-stroke-focus-brand);
+  outline-offset: -1px;
+}
+
+table.navigation {
+  background: var(--wpds-color-bg-surface-neutral-weak);
+  border-color: var(--wpds-color-stroke-surface-neutral);
+  color: var(--wpds-color-fg-content-neutral);
+}
+
+@media only screen and (width >= 768px) {
+  .table th.position-sticky {
+    top: $breadcrumb-bar-height + $topbar-height;
+    background-color: var(--wpds-color-bg-surface-neutral);
+  }
+}

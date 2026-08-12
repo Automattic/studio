@@ -405,7 +405,11 @@ describe( 'CLI: studio site create', () => {
 					} ),
 				] )
 			);
+			expect( blueprint.staticSiteImport.code ).toContain( "$input['source'] = array(" );
 			expect( blueprint.staticSiteImport.code ).toContain(
+				'$result = static_site_importer_ability_import( $input );'
+			);
+			expect( blueprint.staticSiteImport.code ).not.toContain(
 				'static_site_importer_ability_import_website_artifact'
 			);
 			expect( blueprint.staticSiteImport.code ).toContain(
@@ -443,7 +447,8 @@ describe( 'CLI: studio site create', () => {
 				'https://example.com/static-site-importer.zip'
 			);
 
-			expect( blueprint.staticSiteImport.code ).toContain(
+			expect( blueprint.staticSiteImport.code ).toContain( "'type'  => 'files'" );
+			expect( blueprint.staticSiteImport.code ).not.toContain(
 				'static_site_importer_rest_source_artifact'
 			);
 			expect( blueprint.staticSiteImport.code ).toContain( sourceDir );

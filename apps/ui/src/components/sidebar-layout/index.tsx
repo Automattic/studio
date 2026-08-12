@@ -8,6 +8,7 @@ import { AppToasts } from '@/components/app-toasts';
 import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { SidebarHeader } from '@/components/sidebar-header';
 import { SiteList } from '@/components/site-list';
+import { StudioBetaMenu } from '@/components/studio-beta-menu';
 import { UserMenu } from '@/components/user-menu';
 import { useConnector } from '@/data/core';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -98,6 +99,9 @@ export function SidebarLayout( {
 								{ ! effectiveCollapsed ? (
 									<AppMessageCards className={ styles.sidebarCards } />
 								) : null }
+								{ ! effectiveCollapsed ? (
+									<StudioBetaMenu className={ styles.sidebarBeta } />
+								) : null }
 								<UserMenu onToggleSidebar={ toggleSidebar } />
 							</div>
 						</div>
@@ -142,7 +146,13 @@ export function SidebarLayout( {
 					) : null }
 					{ children }
 					{ effectiveCollapsed ? (
-						<AppToasts className={ styles.floatingToasts } fit="content" />
+						<AppToasts
+							className={ clsx(
+								styles.floatingToasts,
+								forceCollapsed && styles.floatingToastsOverPreview
+							) }
+							fit="content"
+						/>
 					) : null }
 				</main>
 				{ sidebarResize.isResizing ? <ResizeOverlay /> : null }

@@ -118,6 +118,24 @@ where the sender actually runs — see Testing below for what fires in which bui
   non-`new` values down as a `--flow-type` hint (built into the CLI args by `buildSiteCreateArgs` in
   `packages/common/sites/create.ts`). `channel`/`ui_version` resolve from `STUDIO_TRACKS_ORIGIN` exactly
   as for `studio_site_start`.
+- **`studio_preview_site_create`/`_update`/`_delete`/`_delete_all`** are emitted **only** by the CLI,
+  from the `preview` commands (`apps/cli/commands/preview/{create,update,delete}.ts`). Every desktop
+  Previews-tab action (create/update/delete/delete-all) delegates to the app-spawned CLI (via the
+  `SnapshotManager` fork in `packages/common/sites/snapshots.ts` and the direct `preview delete --all`
+  fork), so the CLI is the sole emitter and each action is counted once whether it originated in a UI or
+  standalone — `channel`/`ui_version` resolve from `STUDIO_TRACKS_ORIGIN` exactly as for
+  `studio_site_start`. The **`studio_preview_site_open`** event is the exception: opening a preview URL is
+  a renderer-only affordance with no CLI equivalent, so it fires from the renderer.
+- **`studio_site_imported`/`studio_site_exported`** are emitted **only** by the CLI, from the `import`
+  and `export` commands (`apps/cli/commands/import.ts`, `apps/cli/commands/export.ts`). The desktop
+  Import/Export tab, the agentic UI's export buttons, and standalone-CLI runs all funnel there —
+  `channel`/`ui_version` resolve from `STUDIO_TRACKS_ORIGIN` exactly as for `studio_site_start`. The
+  events deliberately mean **a user imported/exported a backup**: paths that reuse the same CLI
+  commands as an implementation detail — add-site-flow imports (Classic add-site, agentic onboarding
+  import, browser-UI import route), sync-pull imports, and sync-push exports — pass a hidden
+  `--suppress-tracks-event` flag and emit nothing. An aborted sync export also emits nothing (the CLI
+  process is SIGTERM'd before it can record). Runs in parallel with the MC Stats import/export
+  counters for now.
 - **Renderer-originated events** (future) go through the `recordAnalyticsEvent` IPC handler
   (`apps/studio/src/ipc-handlers.ts`). Both renderers share the same Main single entry point, and the
   desktop wrapper's `commonProps()` attaches `channel`/`ui_version` centrally — the `ui_version` is
@@ -168,8 +186,83 @@ start / creation is counted once whether it originated in a UI or the standalone
 | Event | Emitted from | Event-specific props |
 |---|---|---|
 | `studio_app_launch` | Desktop Main (`appBoot`) | `is_first_launch` |
-| `studio_site_start` | CLI site-start funnel | (none — `ui_version` comes from the wrapper via `STUDIO_TRACKS_ORIGIN`, only when `channel=studio-ui`) |
+| `studio_site_start` | CLI site-start funnel | `success` (boolean), `time_ms` (start duration). On success also `running_site_count` (running Studio sites after this one comes up). On failure instead `failure_reason` (coarse, low-cardinality: `timeout`/`port_unavailable`/`php_error`/`process_exited`/`unknown` — the raw error is never sent). |
 | `studio_site_created` | CLI site-create funnel | `flow_type` (`new`/`blueprint`/`import`/`sync`/`duplicate`), `php_version`, `wp_version` (resolved from disk; `-` if unknown), `custom_domain` (boolean — the domain string is **never** sent), `ssl_enabled` (boolean), `time_ms` (creation duration). Emitted once per **successful** creation. |
+
+#### Site operation events
+
+Day-to-day site actions. **Stop and delete are emitted by the CLI** (the sole funnel — the desktop
+delegates both to the CLI, so standalone-CLI usage is counted too; filter by `channel`). The **open**
+actions are emitted from the renderer (both Classic and agentic). `open_in_terminal` is the exception:
+it fires from Desktop Main (`openTerminalAtPath`) — a single funnel that also covers the agentic UI,
+whose connector routes through it. `open_in_editor` is *not* emitted in Main's `openAppAtPath`, because
+that handler is shared with single-file opens (AI skills, "Open <file>"); it fires at the three "open
+site in editor" affordances instead (Classic overview button + site-menu, and the agentic UI's
+`openSiteInEditor` connector method).
+
+The site-content open events (`open_in_browser`, `open_wp_admin`, `open_customize`,
+`open_phpmyadmin`) carry a **`browser`** prop recording where the content opened: `external` (the OS
+browser) or `internal` (the agentic UI's in-app preview panel). Studio Classic always opens the OS
+browser, so it always sends `external`. The agentic UI sends `internal` when it opens content in the
+preview panel — the overview Customize buttons, and switching the preview's realm tabs (front end →
+`open_in_browser`, WP Admin → `open_wp_admin`, database → `open_phpmyadmin`; re-selecting the active
+tab is a no-op and emits nothing) — and `external` when the affordance leaves Studio: the site-list
+"Open phpMyAdmin"/"Open WP admin" menu items, the site header's "open in your browser" link, and the
+preview's "Open in… → Browser" button. That last button fires the event matching whatever realm the
+preview is currently showing, so opening a WP Admin preview externally is an `open_wp_admin`
+(`external`), not an `open_in_browser`. Free-form navigation *within* the preview panel (typing in the
+address bar) is out of scope here and tracked separately. `studio_panel_opened` fires in **both**
+front-ends: Classic from its tab strip, and the agentic UI from its route navigations (the
+overview/settings/debugging tab switches, the site-list gear → overview, a site-name click → assistant
+or, when chat is unavailable, overview, and the context-menu "Site settings" → settings). The agentic
+UI's General settings tab reports `panel: settings` so it lines up with Classic's Settings panel; its
+Debugging tab reports `panel: debugging`. No site names, paths, or URLs are ever sent — only the
+enumerated prop values below.
+
+| Event | Emitted from | Event-specific props |
+|---|---|---|
+| `studio_site_stop` | CLI site-stop funnel | `running_site_count` (running Studio sites remaining after this stop). A "stop all" emits one event per stopped site, counting down to 0. |
+| `studio_site_delete` | CLI site-delete funnel | `delete_files` (boolean — whether the site's files were moved to trash). Emitted once per **successful** delete. |
+| `studio_site_open_in_browser` | Renderer (Classic + agentic) | `browser` (`external`/`internal`) |
+| `studio_site_open_in_editor` | Renderer (Classic + agentic) | `editor` (the resolved editor, e.g. `vscode`/`phpstorm`). Emitted at the "open site in editor" affordances, not in Main's `openAppAtPath` — that handler is shared with single-file opens (AI skills, "Open <file>"), which must not count as opening the site. |
+| `studio_site_open_in_terminal` | Desktop Main (`openTerminalAtPath`) | `terminal` (the resolved terminal, e.g. `terminal`/`iterm`/`ghostty`/`warp`) |
+| `studio_site_open_wp_admin` | Renderer (Classic + agentic) | `browser` (`external`/`internal`) |
+| `studio_site_open_customize` | Renderer (Classic + agentic) | `entry_point` — the affordance clicked: `editor`, `editor_styles`, `editor_patterns`, `editor_navigation`, `editor_templates`, `editor_pages`, `media_library` (block themes) or `customizer`, `menus`, `widgets` (classic themes). Plus `browser` (`external`/`internal`). |
+| `studio_site_open_phpmyadmin` | Renderer (Classic + agentic) | `browser` (`external`/`internal`) |
+| `studio_site_open_folder` | Renderer (Classic + agentic) | (none — opens the OS file manager) |
+| `studio_panel_opened` | Renderer (Classic tab strip + agentic route navigation) | `panel` — the panel opened. Classic: `overview`/`sync`/`settings`/`assistant`/`import-export`/`previews` (only on a genuine user tab switch, not programmatic changes or re-selecting the current tab). Agentic: `overview`/`settings`/`debugging`/`assistant` (`sync`/`import-export`/`previews` are Classic-only). |
+
+#### Import/export events
+
+Backup import/export, emitted by the **CLI** `import`/`export` commands (the sole funnel — the desktop
+and agentic UI delegate to the CLI, so standalone-CLI usage is counted too; filter by `channel`). Both
+events mean a **user-initiated** backup operation: add-site-flow imports, sync-pull imports, and
+sync-push exports suppress the event via a hidden `--suppress-tracks-event` flag (see "Which surface
+emits what"). No file names or paths are ever sent. `failure_reason` is coarse and low-cardinality:
+the known failure points throw `LoggerError`s tagged with a machine-readable `code`, which the
+classifier returns directly — the raw, `__()`-translated error message is never sent or matched on
+(it can carry filesystem paths, and its text varies by locale).
+
+| Event | Emitted from | Event-specific props |
+|---|---|---|
+| `studio_site_imported` | CLI `import` | `success` (boolean), `importer_type` (`jetpack`/`local`/`playground`/`sql`/`wpress`/`xml`, or `unknown` when the failure occurred before an importer started), `time_ms` (total command duration, incl. the server restart). On failure also `failure_reason` (`disk_full`/`file_not_found`/`no_backup_handler`/`no_importer_found`/`invalid_zip`/`extract`/`database_import`/`wxr_import`/`bundled_wp_missing`/`unknown`). |
+| `studio_site_exported` | CLI `export` | `success` (boolean), `export_type` (`full`/`content`/`db` — the `--mode` flag; sync pushes are suppressed, so in practice `content` appears only from standalone `studio export --mode content` runs), `time_ms` (export duration). On failure also `failure_reason` (`disk_full`/`no_exporter_found`/`database_export`/`site_meta`/`unknown`). |
+
+#### Preview site events
+
+Preview-site sharing (WordPress.com hosted previews, "snapshots" in code). Create/update/delete/delete-all
+are emitted by the **CLI** (the sole funnel — the desktop Previews tab delegates all four to the CLI, so
+standalone-CLI usage is counted too; filter by `channel`). **Open** fires from the **renderer** when the
+user clicks a preview's URL to visit it. No site names, paths, or URLs are ever sent. `failure_reason` is
+coarse and low-cardinality (the raw error is never sent).
+
+| Event | Emitted from | Event-specific props |
+|---|---|---|
+| `studio_preview_site_create` | CLI `preview create` | `success` (boolean), `time_ms` (creation duration). On failure also `failure_reason` (`auth_required`/`size_limit`/`expired`/`not_found`/`timeout`/`upload`/`unknown`). |
+| `studio_preview_site_update` | CLI `preview update` | `success` (boolean), `time_ms` (update duration). On failure also `failure_reason` (same vocabulary as create). |
+| `studio_preview_site_delete` | CLI `preview delete` (single) | (none). Emitted once per **successful** single delete. |
+| `studio_preview_site_delete_all` | CLI `preview delete --all` | `count` (number of the user's preview sites removed). Emitted once per **successful** delete-all (a single bulk server operation, not per site). |
+| `studio_preview_site_open` | Renderer (Classic Previews list) | (none — opens the preview URL in the OS browser) |
 
 #### Settings-change events
 

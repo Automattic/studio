@@ -17,6 +17,11 @@ export type ToastInput = {
 	description?: string;
 	action?: ToastAction;
 	durationMs?: number;
+	// Clamps the title to one line, ellipsizing the overflow. For status text
+	// that updates in place (import progress), where a translation growing to
+	// two or three lines would make the toast jump as it ticks. Leave off for
+	// anything the user has to read in full, like an error explanation.
+	singleLine?: boolean;
 };
 
 export type ToastMessage = {
@@ -26,6 +31,7 @@ export type ToastMessage = {
 	description?: string;
 	action?: ToastAction;
 	durationMs: number;
+	singleLine?: boolean;
 	// True while the exit transition plays. The toast stays in the visible
 	// list (so the renderer can animate it out) and is actually removed —
 	// and the queue promoted — TOAST_EXIT_MS later.
@@ -123,6 +129,7 @@ export function showToast( input: ToastInput ): string {
 		title: input.title,
 		description: input.description,
 		action: input.action,
+		singleLine: input.singleLine,
 		durationMs:
 			input.durationMs ?? ( intent === 'error' ? ERROR_TOAST_TTL_MS : DEFAULT_TOAST_TTL_MS ),
 	};

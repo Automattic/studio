@@ -2,8 +2,10 @@ import { __, sprintf } from '@wordpress/i18n';
 import { BackupExtractEvents, ImporterEvents, type ImportEventTuple } from './import-export-events';
 
 // These land in a toast pinned to the sidebar, which is only 240px wide at its
-// narrowest — roughly 166px of text. Anything longer wraps to a second line, so
-// the messages that carry a percentage drop the verb to make room for it.
+// narrowest — roughly 166px of text. The messages that carry a percentage drop
+// the verb to make room for it, and lead with the number: the toast clamps the
+// title to one line, so a translation that overflows loses the tail, and the
+// percentage is the part that actually changes.
 const getWpContentTypeLabels = (): Record< string, string > => ( {
 	plugins: __( 'Plugins…' ),
 	themes: __( 'Themes…' ),
@@ -22,7 +24,8 @@ export function getImportStatusMessage( [ event, data ]: ImportEventTuple ): str
 				data.totalFiles > 0
 			) {
 				return sprintf(
-					__( 'Extracting… (%d%%)' ),
+					/* translators: %d: percentage complete. */
+					__( '%d%% · Extracting…' ),
 					Math.round( ( data.processedFiles / data.totalFiles ) * 100 )
 				);
 			}
@@ -38,7 +41,8 @@ export function getImportStatusMessage( [ event, data ]: ImportEventTuple ): str
 				data.totalFiles > 0
 			) {
 				return sprintf(
-					__( 'Database… (%d%%)' ),
+					/* translators: %d: percentage complete. */
+					__( '%d%% · Database…' ),
 					Math.round( ( data.processedFiles / data.totalFiles ) * 100 )
 				);
 			}
@@ -53,9 +57,10 @@ export function getImportStatusMessage( [ event, data ]: ImportEventTuple ): str
 				data.totalItems > 0
 			) {
 				return sprintf(
-					__( '%1$s (%2$d%%)' ),
-					getWpContentTypeLabels()[ data.type ] || __( 'Files…' ),
-					Math.round( ( data.processedItems / data.totalItems ) * 100 )
+					/* translators: %1$d: percentage complete. %2$s: what is being imported. */
+					__( '%1$d%% · %2$s' ),
+					Math.round( ( data.processedItems / data.totalItems ) * 100 ),
+					getWpContentTypeLabels()[ data.type ] || __( 'Files…' )
 				);
 			}
 			return __( 'Importing content…' );

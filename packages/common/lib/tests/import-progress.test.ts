@@ -10,7 +10,7 @@ describe( 'getImportStatusMessage', () => {
 				BackupExtractEvents.BACKUP_EXTRACT_PROGRESS,
 				{ processedFiles: 1, totalFiles: 4 },
 			] )
-		).toBe( 'Extracting… (25%)' );
+		).toBe( '25% · Extracting…' );
 	} );
 
 	it( 'formats database progress', () => {
@@ -19,7 +19,7 @@ describe( 'getImportStatusMessage', () => {
 				ImporterEvents.IMPORT_DATABASE_PROGRESS,
 				{ processedFiles: 3, totalFiles: 4 },
 			] )
-		).toBe( 'Database… (75%)' );
+		).toBe( '75% · Database…' );
 	} );
 
 	it( 'formats WordPress content progress by type', () => {
@@ -28,11 +28,13 @@ describe( 'getImportStatusMessage', () => {
 				ImporterEvents.IMPORT_WP_CONTENT_PROGRESS,
 				{ type: 'uploads', processedItems: 1, totalItems: 2 },
 			] )
-		).toBe( 'Media uploads… (50%)' );
+		).toBe( '50% · Media uploads…' );
 	} );
 
-	// The sidebar toast is 240px at its narrowest, leaving ~166px of text before
-	// the title wraps to a second line — about 30 characters at 13px.
+	// The toast clamps the title to one line, so overflow ellipsizes rather than
+	// wrapping. This keeps English clear of that clamp altogether: the sidebar is
+	// 240px at its narrowest, leaving ~166px of text — about 30 characters at
+	// 13px. Translations can still overflow, which is what the clamp is for.
 	it( 'keeps every status message short enough for one line in the toast', () => {
 		const progress = { processedFiles: 1, totalFiles: 3 };
 		const events: ImportEventTuple[] = [

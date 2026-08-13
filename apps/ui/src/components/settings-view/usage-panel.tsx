@@ -163,7 +163,7 @@ function PreviewSitesSummary( { userId }: { userId: number } ) {
 							}
 						/>
 						<Menu.Popup side="bottom" align="end">
-							<Menu.Item disabled={ isDisabled } onClick={ () => void handleDelete() }>
+							<Menu.Item destructive disabled={ isDisabled } onClick={ () => void handleDelete() }>
 								{ deletePreviewSitesLabel }
 							</Menu.Item>
 						</Menu.Popup>
@@ -213,7 +213,7 @@ export function UsagePanel() {
 	return (
 		<div className={ styles.usagePanel }>
 			{ reason === 'offline' ? <OfflineNotice /> : null }
-			{ reason === 'signed-out' ? <SigninNotice /> : null }
+			{ reason === 'signed-out' ? <SigninNotice source="settings" /> : null }
 			<section
 				className={ clsx( styles.settingsPanelSection, unavailable && styles.usageDisabled ) }
 			>

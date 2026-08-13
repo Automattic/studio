@@ -7,6 +7,7 @@ import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import {
 	getBrowserShortcutCommand,
+	isOffOriginRedirect,
 	getPathFromPreviewUrl,
 	getSimulatedViewport,
 	SitePreview,
@@ -78,6 +79,7 @@ describe( 'SitePreview', () => {
 	it( 'shows the active realm name with the same tooltip as when inactive', async () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
 
@@ -105,6 +107,7 @@ describe( 'SitePreview', () => {
 	it( 'shows adjacent toolbar tooltips immediately while the delay group is active', async () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
 
@@ -161,6 +164,7 @@ describe( 'SitePreview', () => {
 	it( 'keeps the Open in… control in the toolbar while the site is stopped', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
 
@@ -172,6 +176,7 @@ describe( 'SitePreview', () => {
 	it( 'shows a refresh button that reloads the active preview surface', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
 
@@ -205,6 +210,7 @@ describe( 'SitePreview', () => {
 	it( 'reloads the preview on the primary-modifier+R shortcut', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
 
@@ -219,15 +225,21 @@ describe( 'SitePreview', () => {
 		fireEvent.keyDown( document.body, { key: 'r', ctrlKey: true } );
 		expect( container.querySelector( 'iframe' ) ).not.toBe( initialIframe );
 
-		// Extra modifiers must not trigger the shortcut.
+		// ⌘⇧R is an alias for the same reload.
 		const reloadedIframe = container.querySelector( 'iframe' );
 		fireEvent.keyDown( document.body, { key: 'r', ctrlKey: true, shiftKey: true } );
-		expect( container.querySelector( 'iframe' ) ).toBe( reloadedIframe );
+		expect( container.querySelector( 'iframe' ) ).not.toBe( reloadedIframe );
+
+		// Extra modifiers must not trigger the shortcut.
+		const aliasReloadedIframe = container.querySelector( 'iframe' );
+		fireEvent.keyDown( document.body, { key: 'r', ctrlKey: true, altKey: true } );
+		expect( container.querySelector( 'iframe' ) ).toBe( aliasReloadedIframe );
 	} );
 
 	it( 'switches realms on primary-modifier number shortcuts', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
 		const onPathChange = vi.fn();
@@ -253,9 +265,55 @@ describe( 'SitePreview', () => {
 		expect( onPathChange ).not.toHaveBeenCalled();
 	} );
 
+	it( 'records an internal-browser Tracks event when switching realms', () => {
+		const trackEvent = vi.fn().mockResolvedValue( undefined );
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent,
+			capabilities: CAPABILITIES,
+		} as never );
+
+		renderPreview(
+			<SitePreview
+				site={ createSite( { running: true } ) }
+				path="/"
+				reloadNonce={ 0 }
+				onPathChange={ vi.fn() }
+			/>
+		);
+
+		fireEvent.keyDown( document.body, { key: '2', ctrlKey: true } );
+		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_wp_admin', {
+			browser: 'internal',
+		} );
+	} );
+
+	it( 'does not record a realm switch when re-selecting the active realm', () => {
+		const trackEvent = vi.fn().mockResolvedValue( undefined );
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent,
+			capabilities: CAPABILITIES,
+		} as never );
+
+		renderPreview(
+			<SitePreview
+				site={ createSite( { running: true } ) }
+				path="/wp-admin/"
+				reloadNonce={ 0 }
+				onPathChange={ vi.fn() }
+			/>
+		);
+
+		// Already on the admin realm; its shortcut is a no-op.
+		fireEvent.keyDown( document.body, { key: '2', ctrlKey: true } );
+		expect( trackEvent ).not.toHaveBeenCalled();
+	} );
+
 	it( 'switches to the database realm on its shortcut', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
 		const onPathChange = vi.fn();
@@ -278,6 +336,7 @@ describe( 'SitePreview', () => {
 	it( 'hides the Annotate control when the host cannot annotate the preview', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
 
@@ -301,6 +360,25 @@ describe( 'SitePreview', () => {
 		);
 
 		expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeInTheDocument();
+	} );
+
+	it( 'shows a single annotate toggle while no notes are pending', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			capabilities: { ...CAPABILITIES, annotatePreview: true },
+		} as never );
+
+		renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+
+		// One command means no collapsed variant: a second control would be a
+		// duplicate of this one at every width, and a menu wrapping it would be
+		// a single-item dropdown.
+		expect( screen.getAllByRole( 'button', { name: 'Annotate' } ) ).toHaveLength( 1 );
+		expect(
+			screen.queryByRole( 'button', { name: 'Annotation options' } )
+		).not.toBeInTheDocument();
 	} );
 
 	it( 'hides the Annotate control when agentic features are off', () => {
@@ -333,6 +411,7 @@ describe( 'SitePreview', () => {
 	it( 'offers responsive modes from the More options menu while running', async () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
 
@@ -366,6 +445,7 @@ describe( 'SitePreview', () => {
 	it( 'toggles full preview from the More options menu', async () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
 		const onFullscreenChange = vi.fn();
@@ -403,6 +483,7 @@ describe( 'SitePreview', () => {
 	it( 'omits full preview when the host provides no toggle', async () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
 
@@ -419,6 +500,7 @@ describe( 'SitePreview', () => {
 	it( 'asks for full preview when the Desktop + Mobile comparison is picked', async () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
 		const onFullscreenChange = vi.fn();
@@ -441,6 +523,7 @@ describe( 'SitePreview', () => {
 	it( 'drops the comparison back to Fit pane when full preview ends', async () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
 		const queryClient = new QueryClient( {
@@ -475,6 +558,7 @@ describe( 'SitePreview', () => {
 	it( 'toggles full preview with the keyboard shortcut', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
 		const onFullscreenChange = vi.fn();
@@ -517,6 +601,7 @@ describe( 'SitePreview', () => {
 	it( 'hides the More options menu when the site is not running', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
 
@@ -528,6 +613,7 @@ describe( 'SitePreview', () => {
 	it( 'remembers the responsive mode per site during the session', async () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
 
@@ -581,6 +667,10 @@ describe( 'getBrowserShortcutCommand', () => {
 		expect( getBrowserShortcutCommand( makeEvent( { key: 'r', ctrlKey: true } ) ) ).toBe(
 			'reload'
 		);
+		// The ⌘⇧R alias reports an uppercase key; it must still map to reload.
+		expect(
+			getBrowserShortcutCommand( makeEvent( { key: 'R', ctrlKey: true, shiftKey: true } ) )
+		).toBe( 'reload' );
 		expect( getBrowserShortcutCommand( makeEvent( { key: '[', ctrlKey: true } ) ) ).toBe( 'back' );
 		expect( getBrowserShortcutCommand( makeEvent( { key: ']', ctrlKey: true } ) ) ).toBe(
 			'forward'
@@ -612,6 +702,32 @@ describe( 'getBrowserShortcutCommand', () => {
 				} )
 			)
 		).toBe( null );
+	} );
+} );
+
+describe( 'isOffOriginRedirect', () => {
+	it( 'flags a load that settled on another port', () => {
+		expect( isOffOriginRedirect( 'http://localhost:8931/', 'http://localhost:8932/' ) ).toBe(
+			true
+		);
+	} );
+
+	it( 'allows same-origin paths, including the auto-login hop', () => {
+		expect(
+			isOffOriginRedirect( 'http://localhost:8932/wp-admin/', 'http://localhost:8932/' )
+		).toBe( false );
+		expect(
+			isOffOriginRedirect(
+				'http://localhost:8932/studio-auto-login?redirect_to=%2Fwp-admin%2F',
+				'http://localhost:8932/'
+			)
+		).toBe( false );
+	} );
+
+	it( 'stays quiet on unparseable urls rather than triggering recovery', () => {
+		expect( isOffOriginRedirect( 'about:blank', 'http://localhost:8932/' ) ).toBe( true );
+		expect( isOffOriginRedirect( '', 'http://localhost:8932/' ) ).toBe( false );
+		expect( isOffOriginRedirect( 'http://localhost:8932/', '' ) ).toBe( false );
 	} );
 } );
 

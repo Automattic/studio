@@ -19,8 +19,10 @@ import {
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import { removeDomainFromHosts } from 'cli/lib/hosts-file';
+import { withSiteOperation } from 'cli/lib/site-operations';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { getSnapshotsFromConfig, deleteSnapshotFromConfig } from 'cli/lib/snapshots';
+import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
@@ -69,6 +71,10 @@ export async function runCommand(
 	siteFolder: string,
 	deleteFiles: boolean = true
 ): Promise< void > {
+	return withSiteOperation( siteFolder, 'delete', () => deleteSite( siteFolder, deleteFiles ) );
+}
+
+async function deleteSite( siteFolder: string, deleteFiles: boolean ): Promise< void > {
 	try {
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
 		await connectToDaemon();
@@ -161,6 +167,18 @@ export async function runCommand(
 		}
 
 		await emitCliEvent( { event: SITE_EVENTS.DELETED, data: { siteId: site.id } } );
+
+		// Tracks: the CLI is the sole emitter of site-delete, whether deleted standalone or by the
+		// desktop app (which delegates to `site delete` and passes its origin via STUDIO_TRACKS_ORIGIN).
+		// Best-effort — wrapped so telemetry can never fail a delete.
+		try {
+			await recordTracksEvent( TRACKS_EVENTS.SITE_DELETE, {
+				...getTracksOrigin(),
+				delete_files: deleteFiles,
+			} );
+		} catch {
+			// Best-effort telemetry — never block or fail a delete.
+		}
 	} finally {
 		await disconnectFromDaemon();
 	}

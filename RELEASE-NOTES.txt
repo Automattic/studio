@@ -3,7 +3,7 @@ Unreleased
 
 1.18.0
 =====
-<!-- Release notes generated using configuration in .github/release.yml at HEAD -->
+<!-- Release notes generated using configuration in .github/release.yml at 052d42f2dc4411aea908d7d342d18ee181786865 -->
 * Add Tracks analytics (Phase 1) alongside MC Stats #4162
 * Agentic UI: improve pull and push UX #4305
 * Agentic UI: Fix site menu alignment #4329
@@ -97,6 +97,62 @@ Unreleased
 * Agentic: Studio Code AI semi-open beta #4456
 * Agentic UI: Ensure that scheduled prompt is pinned at the bottom of the chat #4459
 * Agentic UI: Rework the new-user onboarding screens #4413
+* Agentic UI: Add an Open Studio Logs action to the pull error toast #4461
+* Agentic UI: Fix crash when a toast is replaced in place with a different shape #4443
+* Agentic UI: Point Reload and Toggle DevTools at the app window instead of the focused webview #4442
+* Agentic UI: add a native text context menu #4388
+* build(deps): bump anthropics/claude-code-action from 1.0.183 to 1.0.185 #4475
+* build(deps): bump the electron group with 2 updates #4476
+* build(deps-dev): bump typescript-eslint from 8.65.0 to 8.66.0 in the eslint group #4477
+* build(deps-dev): bump @testing-library/user-event from 14.6.1 to 14.6.3 in the testing group #4478
+* Studio Code: Add refetch for blocked accounts #4463
+* Tracks: site lifecycle & open-action events (STU-2115) #4464
+* Stop the Create Site button blinking on each keystroke in the agentic UI #4421
+* Fix 400 "thinking.type.enabled is not supported" when using a direct Anthropic API key #4480
+* Use `checkout_release_branch` from `a8c-ci-toolkit` #4472
+* build(deps): bump rubocop from 1.88.2 to 1.89.0 in the ruby-minor-and-patch group #4486
+* Tracks: preview site events (STU-2119) #4482
+* Agentic UI: Add a first-run orientation guide #4331
+* Add beta menu to the agentic sidebar #4485
+* Agentic UI: Show "What's New" #4414
+* Enforce lazy translations: add no-module-level-translations ESLint rule #4336
+* Agentic UI: Add Open in actions to the site overview #4469
+* Do not build data-liberation during building CLI #4492
+* Agentic UI: Add site overview About summary #4470
+* Agentic UI: Add disk usage to site overview #4473
+* Agentic UI: Preserve unsubmitted annotations when navigating in preview  #4460
+* Agentic UI: Use danger styling for site delete actions #4498
+* Add Manage and Preview welcome tour illustrations #4501
+* Tracks: import & export events (STU-2117) #4490
+* Agentic UI: Port selective sync #4377
+* Serve a PHP error page and auto-recover when a site fails to start #4246
+* Report why a Blueprint failed instead of the PHP exit code #4487
+* Leave no ghost site behind when creation fails #4489
+* Validate Anthropic API key in api-key and provider commands in Studio Code CLI #4504
+* Agentic UI: Keep app-wide toasts above the composer when the sidebar is closed #4497
+* Open DevTools after the renderer loads to fix the blank screen on a fresh config #4512
+* Require Node 24 in devEngines so it matches the npm >=11 requirement #4481
+* Honor the dependency cooldown in the apps/cli bundle install #4507
+* Agentic UI: Recover the site preview from cached cross-site redirects #4505
+* Clarify Studio Code's AI-powered collaboration in the sign-in banner #4493
+* Block conflicting site operations #4406
+* Agentic UI: Fix outer frame scrolling #4520
+* Agentic UI: Always clear the preview cache when reloading #4519
+* Agentic UI: Add backup import to the site overview #4500
+* Agentic UI: Close the create-site flow on Escape #4453
+* Tracks: Studio Code chat & instructions events (STU-2120) #4506
+* Agentic UI: Allow cancelling an in-flight push or pull #4510
+* Agentic UI: open slash-command dropdown when typing / in chat #4509
+* Agentic UI: Honor Reduce transparency and paint fallbacks for blurred surfaces #4528
+* Agentic UI: Show the preview URL in the site dropdown #4527
+* Agentic UI: Add multi-note annotation sessions #4521
+* Drop Blueprint features the native runner cannot accept #4488
+* Agentic UI: Scroll agent questions clear of the composer #4530
+* `pull-reprint`: stop touching internal Reprint state directly #4491
+* Agentic UI: Add Anthropic API key form to AI settings #4503
+* Tracks: onboarding & authentication events (STU-2114) #4532
+* Agentic UI: Keep the native window controls inside the frame on Windows and Linux #4499
+* Agentic UI: Wait for the remote import before reporting a push complete #4522
 * @jonathanbossenger made their first contribution in https://github.com/Automattic/studio/pull/4274
 * @ntwb made their first contribution in https://github.com/Automattic/studio/pull/4372
 * @richtabor made their first contribution in https://github.com/Automattic/studio/pull/3255

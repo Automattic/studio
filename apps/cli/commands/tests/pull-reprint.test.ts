@@ -360,14 +360,14 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 			`--fs-root=${ rawDirectory }`,
 		] );
 		// The merge runs on a first pull (this call passed isFirstPull=true)
-		// and takes the site directory, appending wp-content itself. It comes
-		// after pull-files, whose local index Reprint reads as the record of a
+		// and names the local wp-content directory itself. It comes after
+		// pull-files, whose local index Reprint reads as the record of a
 		// finished file pull, and before the flatten which would delete what
 		// only the blank install has.
 		expect( mergeArgs ).toEqual( [
 			'merge-wp-content',
 			'https://example.com/?reprint-api',
-			`--from=${ sitePath }`,
+			`--from=${ path.join( sitePath, 'wp-content' ) }`,
 			`--state-dir=${ stateDirectory }`,
 			`--fs-root=${ rawDirectory }`,
 		] );
@@ -1452,7 +1452,7 @@ describe( 'CLI: studio pull-reprint first-pull selective sync', () => {
 				if ( args[ 0 ] === 'merge-wp-content' ) {
 					// Keeping the unselected local plugin and the kept database is
 					// Reprint's job now, through the merge this asks for.
-					expect( args ).toContain( `--from=${ sitePath }` );
+					expect( args ).toContain( `--from=${ path.join( sitePath, 'wp-content' ) }` );
 					return { stdout: '{"moved":2}', stderr: '', exitCode: 0 };
 				}
 				if ( args[ 0 ] === 'flat-docroot' ) {

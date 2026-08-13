@@ -1019,7 +1019,7 @@ export async function runFullPull(
 		await runStep( __( 'Merging local content' ), [
 			'merge-wp-content',
 			apiUrl,
-			`--from=${ metadata.sitePath }`,
+			`--from=${ path.join( metadata.sitePath, 'wp-content' ) }`,
 			`--state-dir=${ metadata.stateDirectory }`,
 			`--fs-root=${ metadata.rawDirectory }`,
 		] );

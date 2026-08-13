@@ -44,27 +44,51 @@ export function StudioCodePanel() {
 	const isDirty = saved !== undefined && content !== saved;
 
 	const pending = useRef< string | null >( null );
+	// Latest content, and the value this visit started from.
+	const latest = useRef< string | null >( null );
+	const sessionStart = useRef< string | null >( null );
+	// Read through a ref so the cleanup below can run on unmount only.
+	const saveRef = useRef( save );
+
+	useEffect( () => {
+		saveRef.current = save;
+	}, [ save ] );
+
+	useEffect( () => {
+		if ( sessionStart.current === null && saved !== undefined ) {
+			sessionStart.current = saved;
+		}
+	}, [ saved ] );
 
 	useEffect( () => {
 		pending.current = isDirty ? content : null;
+		latest.current = content;
 		if ( ! isDirty ) {
 			return;
 		}
 		const timer = setTimeout( () => {
 			pending.current = null;
-			save( content );
+			save( { content } );
 		}, SAVE_DEBOUNCE_MS );
 		return () => clearTimeout( timer );
 	}, [ content, isDirty, save ] );
 
-	// Leaving the tab mid-debounce would otherwise drop the last keystrokes.
+	// Leaving the tab ends the edit session: flush any un-written keystrokes and pass the value it
+	// started from, so the change counts once rather than once per typing pause. No deps — this must
+	// run on unmount only, or an edit would be reported twice.
 	useEffect(
 		() => () => {
-			if ( pending.current !== null ) {
-				save( pending.current );
+			const previousContent = sessionStart.current;
+			if ( previousContent === null || latest.current === null ) {
+				return;
 			}
+			if ( pending.current === null && latest.current === previousContent ) {
+				return;
+			}
+			sessionStart.current = latest.current;
+			saveRef.current( { content: latest.current, editSession: { previousContent } } );
 		},
-		[ save ]
+		[]
 	);
 
 	if ( saved === undefined ) {

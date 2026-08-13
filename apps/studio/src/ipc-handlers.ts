@@ -42,6 +42,7 @@ import {
 	loadAiSession as loadAiSessionFromStore,
 } from '@studio/common/ai/sessions/store';
 import { expandSkillCommandPrompt } from '@studio/common/ai/slash-commands';
+import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import {
 	installSkillToSite,
 	removeSkillFromSite,
@@ -329,25 +330,32 @@ export async function createAiSession(
 	siteId?: string
 ): Promise< AiSessionSummary > {
 	const sessionsRoot = getSessionsDirectory();
-	if ( ! siteId ) {
-		return createOrReuseAiSession( sessionsRoot );
-	}
-
-	const server = SiteServer.get( siteId );
-	if ( ! server ) {
+	const server = siteId ? SiteServer.get( siteId ) : undefined;
+	if ( siteId && ! server ) {
 		throw new Error( `Site not found: ${ siteId }` );
 	}
 
 	// Binds the session to the site and reuses an existing empty draft for it
 	// instead of piling up orphans — the shared logic the `studio ui` server
 	// uses too.
-	return createOrReuseAiSession( sessionsRoot, {
-		site: {
+	const { created, ...summary } = await createOrReuseAiSession( sessionsRoot, {
+		site: server && {
 			id: server.details.id,
 			name: server.details.name,
 			path: server.details.path,
 		},
 	} );
+
+	// Fires from Main, not the CLI: sessions are created in-process. Reused drafts don't count.
+	// Missing for `studio ui`, which has no Tracks emitter — see STU-2247.
+	if ( created ) {
+		await recordTracksEvent( TRACKS_EVENTS.CODE_SESSION_CREATED, {
+			...getAiTracksIdentity( summary.id ),
+			has_site: Boolean( server ),
+		} );
+	}
+
+	return summary;
 }
 
 export async function updateAiSessionMetadata(
@@ -2620,6 +2628,13 @@ export async function setWebviewViewport(
 		mobile: mobile === true,
 		scale,
 	} );
+}
+
+export async function clearWebviewCache(
+	event: IpcMainInvokeEvent,
+	webContentsId: number
+): Promise< void > {
+	await getOwnedWebviewContents( event, webContentsId ).session.clearCache();
 }
 
 export { showTextContextMenu } from 'src/text-context-menu';

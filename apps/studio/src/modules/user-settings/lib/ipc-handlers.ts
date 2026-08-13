@@ -31,7 +31,7 @@ import {
 	unlockAppdata,
 	updateAppdata,
 } from 'src/storage/user-data';
-import type { AiProviderId } from '@studio/common/ai/providers';
+import type { AiProviderId, AiSettings } from '@studio/common/ai/providers';
 
 export function getInstalledAppsAndTerminals(): InstalledApps {
 	return {
@@ -296,12 +296,36 @@ export async function getAiSettings() {
 	return readAiSettings();
 }
 
+// Both handlers can move either field — clearing the key falls the provider back to WordPress.com —
+// so they emit one shared event describing the resulting state. The key itself is never sent; the
+// preview is compared only to notice a key being swapped for a different one.
+async function recordAiSettingsChange( previous: AiSettings, next: AiSettings ): Promise< void > {
+	const unchanged =
+		previous.provider === next.provider &&
+		previous.hasAnthropicApiKey === next.hasAnthropicApiKey &&
+		previous.anthropicApiKeyPreview === next.anthropicApiKeyPreview;
+	if ( unchanged ) {
+		return;
+	}
+	await recordTracksEvent( TRACKS_EVENTS.SETTING_AI_PROVIDER_CHANGE, {
+		provider: next.provider,
+		has_anthropic_api_key: next.hasAnthropicApiKey,
+		surface: 'settings',
+	} );
+}
+
 export async function saveAnthropicApiKey( _event: IpcMainInvokeEvent, key: string | null ) {
-	return saveAnthropicApiKeyToConfig( key );
+	const previous = await readAiSettings();
+	const settings = await saveAnthropicApiKeyToConfig( key );
+	await recordAiSettingsChange( previous, settings );
+	return settings;
 }
 
 export async function setAiProvider( _event: IpcMainInvokeEvent, provider: AiProviderId ) {
-	return setAiProviderInConfig( provider );
+	const previous = await readAiSettings();
+	const settings = await setAiProviderInConfig( provider );
+	await recordAiSettingsChange( previous, settings );
+	return settings;
 }
 
 export async function saveGlobalAgentInstructions(

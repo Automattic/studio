@@ -38,6 +38,7 @@ export const TRACKS_EVENTS = {
 	SETTING_CLI_CHANGE: 'studio_setting_cli_change',
 	SETTING_AGENTIC_FEATURES_CHANGE: 'studio_setting_agentic_features_change',
 	SETTING_UI_CHANGE: 'studio_setting_ui_change',
+	SETTING_AI_PROVIDER_CHANGE: 'studio_setting_ai_provider_change',
 } as const;
 
 export type TracksEventName = ( typeof TRACKS_EVENTS )[ keyof typeof TRACKS_EVENTS ];

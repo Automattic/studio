@@ -469,7 +469,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
-	// --- AI settings — provider + Anthropic API key in cli.json ---------------
+	// --- AI settings — provider + Anthropic API key in shared.json ------------
+	// No `studio_setting_ai_provider_change` — this server has no Tracks emitter. See STU-2247.
 	api.get(
 		'/ai-settings',
 		asyncHandler( async ( _req: Request, res: Response ) => {

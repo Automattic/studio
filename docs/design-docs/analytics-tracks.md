@@ -282,6 +282,7 @@ Sensitive values are never sent as strings (see `is_default` and the directory n
 | `studio_setting_cli_change` | `installStudioCli`/`uninstallStudioCli` | `installed` (boolean), `surface` (`settings`) |
 | `studio_setting_agentic_features_change` | `saveAgenticFeaturesEnabled` | `enabled` (boolean), `surface` (`settings`) |
 | `studio_setting_ui_change` | `updateBetaFeature` (`enableAgenticUi` key) | `type` (`classic`/`agentic`), `surface` (`settings`/`banner`/`menu`) — the switch has several entry points; the caller supplies the surface. Not emitted for the boot-time seeding migration (no surface). |
+| `studio_setting_ai_provider_change` | `saveAnthropicApiKey`/`setAiProvider` | `provider` (`wpcom`/`anthropic-api-key`), `has_anthropic_api_key` (boolean), `surface` (`settings`) — the API key is **never** sent. One event covers both handlers, since clearing the key also falls the provider back to WordPress.com. Browser-hosted `studio ui` writes these settings through `apps/local`, which has no Tracks emitter, so those changes go uncounted — see [STU-2247](https://linear.app/a8c/issue/STU-2247). |
 
 ### How to add a new event
 

@@ -10,7 +10,11 @@
    existing token-based row styles adapt without per-element overrides. */
 .popup {
 	--site-dropdown-radius: var(--wpds-border-radius-lg);
-	--site-dropdown-menu-surface: var(--wpds-color-background-interactive-neutral-strong-active);
+	/* Literal, not the matching wpds tokens: this block remaps those same
+	   tokens further down, and seeding from them would make each definition
+	   depend on itself. CSS resolves such a cycle to an invalid value, which
+	   renders the menu transparent. */
+	--site-dropdown-menu-surface: #1e1e1e;
 	--site-dropdown-menu-surface-subtle: color-mix(
 		in srgb,
 		var(--site-dropdown-menu-foreground) 7%,
@@ -21,7 +25,7 @@
 		var(--site-dropdown-menu-foreground) 13%,
 		var(--site-dropdown-menu-surface)
 	);
-	--site-dropdown-menu-foreground: var(--wpds-color-foreground-interactive-neutral-strong);
+	--site-dropdown-menu-foreground: #f0f0f0;
 	--site-dropdown-menu-foreground-weak: color-mix(
 		in srgb,
 		var(--site-dropdown-menu-foreground) 72%,

@@ -1,72 +1,14 @@
-import { existsSync } from 'fs';
 import path from 'path';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { Type } from 'typebox';
-import { ensurePlaywrightChromiumInstalled } from '../browser-utils';
+import {
+	callDataLiberationTool,
+	getDataLiberationEngineDir,
+	listDataLiberationTools,
+} from 'cli/lib/data-liberation-client';
 import { defineTool } from './define-tool';
 import { textResult } from './utils';
 
-const engineDir = path.join( import.meta.dirname, 'data-liberation-agent' );
-
-// Engine ops (extract/screenshot/reconstruct) routinely run for minutes; the MCP SDK's
-// 60 s default times them out (-32001) even though the engine keeps working.
-const ENGINE_CALL_TIMEOUT_MS = 600_000;
-
-let chromiumPromise: Promise< void > | null = null;
-
-function ensureEngineChromium(): Promise< void > {
-	if ( ! chromiumPromise ) {
-		chromiumPromise = ( async () => {
-			const { chromium } = await import( 'playwright' );
-			const problem = await ensurePlaywrightChromiumInstalled( chromium );
-			if ( problem ) {
-				chromiumPromise = null; // allow a retry on the next tool call
-				console.error(
-					`[data_liberation] ${ problem } Browser-dependent steps (extract/screenshot/reconstruct) may fail.`
-				);
-			}
-		} )();
-	}
-	return chromiumPromise;
-}
-
-let clientPromise: Promise< Client > | null = null;
-
-function getClient(): Promise< Client > {
-	if ( ! clientPromise ) {
-		clientPromise = connectClient().catch( ( error ) => {
-			clientPromise = null;
-			throw error;
-		} );
-	}
-	return clientPromise;
-}
-
-async function connectClient(): Promise< Client > {
-	if ( ! existsSync( path.join( engineDir, 'dist', 'mcp-server.bundle.mjs' ) ) ) {
-		throw new Error(
-			'Data Liberation engine is not compiled. Run `npm run cli:build` — it builds the ' +
-				'`data-liberation` MCP bundle and copies it into `dist/cli`.'
-		);
-	}
-
-	const transport = new StdioClientTransport( {
-		command: process.execPath,
-		args: [ path.join( engineDir, 'dist', 'mcp-server.bundle.mjs' ) ],
-		cwd: engineDir,
-		stderr: 'pipe',
-	} );
-	const client = new Client( { name: 'studio-code', version: '1.0.0' }, { capabilities: {} } );
-	await client.connect( transport );
-	return client;
-}
-
-interface DataLiberationResultContent {
-	type: string;
-	text?: string;
-	[ key: string ]: unknown;
-}
+const engineDir = getDataLiberationEngineDir();
 
 // The model sometimes sends `args` as a JSON-encoded STRING instead of an object;
 // forwarding that as MCP `arguments` fails the SDK schema ("expected record").
@@ -142,35 +84,15 @@ export const dataLiberationTool = defineTool(
 			);
 		}
 
-		const client = await getClient();
-
 		if ( args.tool === 'list' ) {
-			const listed = await client.listTools();
-			return textResult( JSON.stringify( listed.tools, null, 2 ) );
+			return textResult( JSON.stringify( await listDataLiberationTools(), null, 2 ) );
 		}
-
-		await ensureEngineChromium();
-
-		const result = await client.callTool(
-			{
-				name: args.tool,
-				arguments: normalizeArgs( args.args ),
-			},
-			undefined,
-			{ timeout: ENGINE_CALL_TIMEOUT_MS, resetTimeoutOnProgress: true }
+		return textResult(
+			JSON.stringify(
+				await callDataLiberationTool( args.tool, normalizeArgs( args.args ) ),
+				null,
+				2
+			)
 		);
-
-		const rawContent = Array.isArray( result.content )
-			? ( result.content as DataLiberationResultContent[] )
-			: [];
-		const text = rawContent
-			.map( ( part ) => ( part.type === 'text' ? part.text ?? '' : `[${ part.type }]` ) )
-			.join( '\n' );
-
-		if ( result.isError ) {
-			throw new Error( `Engine tool ${ args.tool } failed: ${ text }` );
-		}
-
-		return textResult( text );
 	}
 );

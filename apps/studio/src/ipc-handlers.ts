@@ -489,6 +489,12 @@ export async function setAiSessionProvider(
 		provider,
 		model,
 	} );
+	// The composer only calls this on a real switch; session ids are never sent.
+	await recordTracksEvent( TRACKS_EVENTS.SETTING_AI_PROVIDER_CHANGE, {
+		provider,
+		model,
+		surface: 'conversation',
+	} );
 }
 
 export interface SetSessionEnvironmentResult {

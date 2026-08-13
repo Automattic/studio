@@ -6,6 +6,7 @@ import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useLogin } from '@/data/queries/use-auth-user';
 import styles from './style.module.css';
 import type { AgenticFeatureReason } from '@/data/queries/use-agentic-features';
+import type { TracksAuthSource } from '@studio/common/lib/record-tracks-event';
 
 export function AgenticSigninBanner() {
 	const { enabled, reason } = useAgenticFeatures();
@@ -27,13 +28,14 @@ export function AgenticSigninBanner() {
 		return null;
 	}
 
-	return <SigninNotice />;
+	return <SigninNotice source="overview_tab" />;
 }
 
 // The banner without the route-aware behaviour, for surfaces that must stay
-// put once the user signs in (e.g. Settings).
-export function SigninNotice() {
-	const login = useLogin();
+// put once the user signs in (e.g. Settings). `source` is a prop rather than a
+// constant because this renders on more than one surface.
+export function SigninNotice( { source }: { source: TracksAuthSource } ) {
+	const login = useLogin( { source } );
 
 	return (
 		<section className={ styles.root } aria-label={ __( 'Sign in to Studio' ) }>

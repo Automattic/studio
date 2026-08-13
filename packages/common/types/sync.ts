@@ -95,13 +95,20 @@ export const syncSiteSchema = z.object( {
 export type SyncSite = z.infer< typeof syncSiteSchema >;
 
 // Phases a push moves through, named after the legacy renderer's push state
-// keys so both UIs gate cancellation on the same boundary.
-export type PushPhase = 'creatingBackup' | 'uploading' | 'applyingChanges';
+// keys so both UIs gate cancellation on the same boundary. The last three are
+// remote work, reported by polling the import endpoint.
+export type PushPhase =
+	| 'creatingBackup'
+	| 'uploading'
+	| 'creatingRemoteBackup'
+	| 'applyingChanges'
+	| 'finishing';
 
 // Progress a push reports for the UI (the desktop also exposes manual
 // pause/resume; that lives in its own registry on top of these signals).
+// `progress` is how far the current phase has got, when the remote reports it.
 export type PushOutput =
-	| { kind: 'phase'; phase: PushPhase }
+	| { kind: 'phase'; phase: PushPhase; progress?: number }
 	| { kind: 'upload-progress'; progress: number }
 	| { kind: 'network-paused'; error: string }
 	| { kind: 'resumed' };

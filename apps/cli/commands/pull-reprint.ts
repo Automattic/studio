@@ -902,12 +902,15 @@ export function ensureScopedPullWpConfig(
  *   1. `pull-files`    — file download, restricted by `--only`.
  *   2. `pull-db`       — SQL download and import. Skipped entirely when
  *      the user excluded the database, leaving the local one untouched.
- *   3. `flat-docroot`  — reassemble the fs-root into the site directory.
- *      `--on-flatten-to-conflict=adopt` only on a first pull, to replace
- *      the blank install while keeping the wp-content entries it alone
- *      has. A delta re-pull passes no mode, so it can never overwrite a
- *      live site.
- *   4. `apply-runtime` — server config, last so it embeds the database
+ *   3. `merge-wp-content` — move the wp-content entries the blank install
+ *      alone has into the fs-root, before step 4 deletes them. First pull
+ *      only: afterwards the site's wp-content is a symlink into the
+ *      fs-root, so there is nothing left of its own to move.
+ *   4. `flat-docroot`  — reassemble the fs-root into the site directory.
+ *      `--force` only on a first pull, where it replaces the blank
+ *      install. A delta re-pull passes it no flag, so it can never
+ *      overwrite a live site.
+ *   5. `apply-runtime` — server config, last so it embeds the database
  *      credentials `pull-db` wrote to state.
  *
  * The site and runtime output directories are mounted up front so the
@@ -1008,18 +1011,32 @@ export async function runFullPull(
 		ensureScopedPullWpConfig( metadata, reprintMetadata );
 	}
 
-	// 3. Flatten the raw download into the site directory. Reprint uses the
+	// 3. Fold the blank install's wp-content into the pulled one. The plugins,
+	// themes and uploads it alone has move into the fs-root, so the symlink
+	// step 4 puts in their place still reaches them. Reprint refuses to run
+	// this before the file pull has finished, so it has to follow step 1.
+	if ( isFirstPull ) {
+		await runStep( __( 'Merging local content' ), [
+			'merge-wp-content',
+			apiUrl,
+			`--from=${ metadata.sitePath }`,
+			`--state-dir=${ metadata.stateDirectory }`,
+			`--fs-root=${ metadata.rawDirectory }`,
+		] );
+	}
+
+	// 4. Flatten the raw download into the site directory. Reprint uses the
 	// remote URL to locate the pull state, though this step makes no request.
 	await runStep( __( 'Flattening layout' ), [
 		'flat-docroot',
 		apiUrl,
 		`--flatten-to=${ metadata.sitePath }`,
-		...( isFirstPull ? [ '--on-flatten-to-conflict=adopt' ] : [] ),
+		...( isFirstPull ? [ '--force' ] : [] ),
 		`--state-dir=${ metadata.stateDirectory }`,
 		`--fs-root=${ metadata.rawDirectory }`,
 	] );
 
-	// 4. Runtime config — last. Supply the database target explicitly so
+	// 5. Runtime config — last. Supply the database target explicitly so
 	// Reprint can generate runtime configuration when pull-db was skipped.
 	// Reprint uses the remote URL to locate that state; --flat-document-root
 	// replaces --fs-root (they are mutually exclusive).

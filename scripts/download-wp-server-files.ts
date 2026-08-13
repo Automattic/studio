@@ -129,7 +129,7 @@ const FILES_TO_DOWNLOAD: FileToDownload[] = [
 		destinationPath: WP_SERVER_FILES_PATH,
 	},
 	// Reprint is pinned to the phar committed at wp-files/reprint/reprint.phar
-	// while this branch tracks unreleased changes (--on-flatten-to-conflict).
+	// while this branch tracks unreleased changes (merge-wp-content).
 	// Downloading the latest release would overwrite it. Restore this entry
 	// once those changes ship; downloadFile() still knows how to place it.
 	// {

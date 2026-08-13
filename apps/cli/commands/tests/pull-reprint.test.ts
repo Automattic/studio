@@ -271,7 +271,7 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 		vi.restoreAllMocks();
 	} );
 
-	it( 'runs pull-files → pull-db → flat-docroot → apply-runtime with the sqlite target and mounts', async () => {
+	it( 'runs pull-files → pull-db → merge-wp-content → flat-docroot → apply-runtime with the sqlite target and mounts', async () => {
 		const technicalSiteDirectory = fs.mkdtempSync(
 			path.join( os.tmpdir(), 'studio-import-pull-' )
 		);
@@ -320,11 +320,17 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 		);
 
 		// The pipeline runs as separate commands so the selection can skip steps.
-		expect( reprint ).toHaveBeenCalledTimes( 4 );
+		expect( reprint ).toHaveBeenCalledTimes( 5 );
 		const commands = reprint.mock.calls.map( ( call ) => ( call[ 2 ] as string[] )[ 0 ] );
-		expect( commands ).toEqual( [ 'pull-files', 'pull-db', 'flat-docroot', 'apply-runtime' ] );
+		expect( commands ).toEqual( [
+			'pull-files',
+			'pull-db',
+			'merge-wp-content',
+			'flat-docroot',
+			'apply-runtime',
+		] );
 
-		const [ filesArgs, dbArgs, flattenArgs, runtimeArgs ] = reprint.mock.calls.map(
+		const [ filesArgs, dbArgs, mergeArgs, flattenArgs, runtimeArgs ] = reprint.mock.calls.map(
 			( call ) => call[ 2 ] as string[]
 		);
 		expect( filesArgs ).toEqual( [
@@ -353,14 +359,25 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 			`--state-dir=${ stateDirectory }`,
 			`--fs-root=${ rawDirectory }`,
 		] );
-		// The remote URL selects Reprint's pull state; adopt only on a first
-		// pull (this call passed isFirstPull=true), so the blank install is
-		// replaced without losing wp-content entries only it has.
+		// The merge runs on a first pull (this call passed isFirstPull=true)
+		// and takes the site directory, appending wp-content itself. It comes
+		// after pull-files, whose local index Reprint reads as the record of a
+		// finished file pull, and before the flatten which would delete what
+		// only the blank install has.
+		expect( mergeArgs ).toEqual( [
+			'merge-wp-content',
+			'https://example.com/?reprint-api',
+			`--from=${ sitePath }`,
+			`--state-dir=${ stateDirectory }`,
+			`--fs-root=${ rawDirectory }`,
+		] );
+		// The remote URL selects Reprint's pull state; --force only on a first
+		// pull, so the blank install is replaced but a live site never is.
 		expect( flattenArgs ).toEqual( [
 			'flat-docroot',
 			'https://example.com/?reprint-api',
 			`--flatten-to=${ sitePath }`,
-			'--on-flatten-to-conflict=adopt',
+			'--force',
 			`--state-dir=${ stateDirectory }`,
 			`--fs-root=${ rawDirectory }`,
 		] );
@@ -449,9 +466,12 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 		);
 
 		const commands = reprint.mock.calls.map( ( call ) => ( call[ 2 ] as string[] )[ 0 ] );
+		// A delta re-pull neither merges nor forces: the site's wp-content is
+		// already a symlink into the fs-root, and a live site must not be
+		// replaced.
 		expect( commands ).toEqual( [ 'pull-files', 'flat-docroot', 'apply-runtime' ] );
 		const flattenArgs = reprint.mock.calls[ 1 ][ 2 ] as string[];
-		expect( flattenArgs ).not.toContain( '--on-flatten-to-conflict=adopt' );
+		expect( flattenArgs ).not.toContain( '--force' );
 		const runtimeArgs = reprint.mock.calls[ 2 ][ 2 ] as string[];
 		expect( runtimeArgs ).toContain( '--target-engine=sqlite' );
 		expect( runtimeArgs ).toContain( `--target-sqlite-path=${ legacySqlitePath }` );
@@ -749,10 +769,12 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 		expect( dbArgs ).toContain(
 			`--target-sqlite-path=${ path.join( rawDirectory, 'wp-content', 'database', '.ht.sqlite' ) }`
 		);
-		// A delta re-pull (isFirstPull=false) leaves the flatten step in its
-		// default error mode, so it can never overwrite the live site.
+		// A delta re-pull (isFirstPull=false) skips the merge and leaves the
+		// flatten unforced, so it can never overwrite the live site.
+		const commands = reprint.mock.calls.map( ( call ) => ( call[ 2 ] as string[] )[ 0 ] );
+		expect( commands ).not.toContain( 'merge-wp-content' );
 		const flattenArgs = reprint.mock.calls[ 2 ][ 2 ] as string[];
-		expect( flattenArgs ).not.toContain( '--on-flatten-to-conflict=adopt' );
+		expect( flattenArgs ).not.toContain( '--force' );
 		// The site + runtime dirs are always mounted for every fork.
 		const dbOptions = reprint.mock.calls[ 1 ][ 4 ] as { mounts?: unknown };
 		expect( dbOptions?.mounts ).toEqual( [
@@ -1360,7 +1382,7 @@ describe( 'CLI: studio pull-reprint first-pull selective sync', () => {
 		return mod;
 	}
 
-	it( 'accepts --only/--skip-database on a first pull, adds core roots, and asks Reprint to adopt local content', async () => {
+	it( 'accepts --only/--skip-database on a first pull, adds core roots, and merges local content', async () => {
 		const { runCommand } = await loadRunCommandWithFakeHome();
 		mockWpComPullSource();
 
@@ -1427,10 +1449,14 @@ describe( 'CLI: studio pull-reprint first-pull selective sync', () => {
 				if ( args[ 0 ] === 'pull-files' ) {
 					return { stdout: '{"ok":true}', stderr: '', exitCode: 0 };
 				}
-				if ( args[ 0 ] === 'flat-docroot' ) {
+				if ( args[ 0 ] === 'merge-wp-content' ) {
 					// Keeping the unselected local plugin and the kept database is
-					// Reprint's job now, through the adopt mode this asks for.
-					expect( args ).toContain( '--on-flatten-to-conflict=adopt' );
+					// Reprint's job now, through the merge this asks for.
+					expect( args ).toContain( `--from=${ sitePath }` );
+					return { stdout: '{"moved":2}', stderr: '', exitCode: 0 };
+				}
+				if ( args[ 0 ] === 'flat-docroot' ) {
+					expect( args ).toContain( '--force' );
 					throw new Error( 'stop after flat-docroot' );
 				}
 				throw new Error( `Unexpected reprint command: ${ args[ 0 ] }` );
@@ -1451,6 +1477,7 @@ describe( 'CLI: studio pull-reprint first-pull selective sync', () => {
 			'preflight',
 			'import-metadata',
 			'pull-files',
+			'merge-wp-content',
 			'flat-docroot',
 		] );
 

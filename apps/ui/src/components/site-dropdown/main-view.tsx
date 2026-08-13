@@ -141,8 +141,11 @@ export function MainView( {
 	const { push: isPushPending, pull: isPullPending } = useIsSiteSyncing( site.id );
 	const isPreviewPending = publishPreviewSite.isPending;
 	// Preview / push / pull all mutate the same local site; running them
-	// concurrently would wedge the site runtime.
-	const isSyncing = isPreviewPending || isPushPending || isPullPending;
+	// concurrently would wedge the site runtime. An import replaces that site's
+	// files and database outright, so it locks them out too — and the CLI won't
+	// refuse it, since import is deliberately not a tracked site operation.
+	const isImporting = activity?.kind === 'pending' && activity.direction === 'import';
+	const isSyncing = isPreviewPending || isPushPending || isPullPending || isImporting;
 	// …and none of them can run while the CLI holds the site either. Gate the
 	// controls on both, so an operation the agent took disables them visibly rather
 	// than leaving buttons that swallow the click.
@@ -485,7 +488,10 @@ function SyncActivityDetails( {
 		>
 			<div className={ styles.activityStatusTitle }>{ getSyncActivityLabel( activity ) }</div>
 			<div className={ styles.activityStatusMessage }>
-				{ activity.message ?? __( 'Preparing the live site…' ) }
+				{ activity.message ??
+					( activity.direction === 'import'
+						? __( 'Preparing the backup…' )
+						: __( 'Preparing the live site…' ) ) }
 			</div>
 		</div>
 	);

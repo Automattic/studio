@@ -212,13 +212,32 @@ describe( 'MainView', () => {
 			activity: {
 				kind: 'pending',
 				direction: 'pull',
-				message: 'Creating remote backup… (24%)',
+				message: '24% · Creating remote backup…',
 				progress: 24,
 			},
 		} );
 
 		expect( screen.getByRole( 'status' ) ).toHaveTextContent( 'Pulling from live…' );
-		expect( screen.getByRole( 'status' ) ).toHaveTextContent( 'Creating remote backup… (24%)' );
+		expect( screen.getByRole( 'status' ) ).toHaveTextContent( '24% · Creating remote backup…' );
+	} );
+
+	it( 'shows detailed import progress in the open site status', () => {
+		renderMainView( {
+			activity: { kind: 'pending', direction: 'import', message: '24% · Media uploads…' },
+		} );
+
+		expect( screen.getByRole( 'status' ) ).toHaveTextContent( 'Importing backup…' );
+		expect( screen.getByRole( 'status' ) ).toHaveTextContent( '24% · Media uploads…' );
+	} );
+
+	// An import replaces the site's files and database, so letting a sync run
+	// alongside it would have them fighting over the same site.
+	it( 'blocks the live sync actions while an import is running', () => {
+		renderMainView( { activity: { kind: 'pending', direction: 'import' } } );
+
+		expect(
+			screen.getByRole( 'button', { name: 'Update preview site (sync in progress)' } )
+		).toHaveAttribute( 'aria-disabled', 'true' );
 	} );
 
 	it( 'updates the existing preview site while the snapshot is fresh', () => {

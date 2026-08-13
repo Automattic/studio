@@ -254,7 +254,7 @@ export interface Connector {
 	readBlueprintFile( filePath: string ): Promise< BlueprintV1Declaration >;
 
 	// Imports a backup into an already-created site and starts the usable site.
-	// `backupPath` comes from `getFilePath` for the current submission.
+	// `backupPath` comes from `getFilePath` for the currently selected file.
 	importSiteFromBackup(
 		siteId: string,
 		backupPath: string,

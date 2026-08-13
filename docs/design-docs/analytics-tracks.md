@@ -136,7 +136,45 @@ where the sender actually runs — see Testing below for what fires in which bui
   `--suppress-tracks-event` flag and emit nothing. An aborted sync export also emits nothing (the CLI
   process is SIGTERM'd before it can record). Runs in parallel with the MC Stats import/export
   counters for now.
-- **Renderer-originated events** (future) go through the `recordAnalyticsEvent` IPC handler
+- **`studio_code_message_sent`/`studio_code_turn_completed`** are emitted **only** by the CLI, from
+  `runAgentTurn` (`apps/cli/commands/ai/index.ts`). Every chat surface forks the CLI to run a turn —
+  both desktop renderers via `packages/common/ai/run-manager.ts`, the `studio ui` server via the same
+  module, and a standalone `studio code` directly — and that function is the one place holding the
+  provider, model, resolved session id and turn outcome together. The desktop passes its origin to
+  the fork via `STUDIO_TRACKS_ORIGIN` (the run-manager's injected `getTracksOrigin`, resolved per run
+  because the user can switch renderer mid-session), exactly as for `studio_site_start`. `studio ui`
+  supplies no origin — see below.
+- **`studio_code_session_created`** is the exception to the above: sessions are created *in-process*
+  via `createOrReuseAiSession` rather than by forking the CLI, so it fires from desktop Main
+  (`createAiSession`). `createOrReuseAiSession` reuses an existing empty draft instead of piling up
+  orphans, and returns a `created` flag so a reuse isn't counted as a creation.
+- **`studio_onboarding_complete`** fires from desktop Main (`saveOnboarding`), the single funnel both
+  front-ends reach — Studio Classic when the user skips or logs in, the agentic UI when the welcome tour
+  ends (`connector.setOnboardingCompleted`). It is emitted only on a genuine `false → true` transition, so
+  a re-save can't look like a second user finishing. Its `authenticated` prop is resolved in Main from the
+  stored token, which is what makes it the funnel's denominator (see the caveat below).
+- **`studio_wpcom_auth`** fires from desktop Main's **auth deep-link handler** — the one place every
+  desktop login outcome lands, from either renderer — and separately from the **CLI** `auth login`.
+  `source` and `account_type` are known only when auth *starts* (which affordance was clicked, and whether
+  we opened the login or the signup URL), but the outcome arrives later in a deep link carrying only a
+  token. `apps/studio/src/lib/auth-tracks-context.ts` bridges the two with a Main-process pending context,
+  consumed once by the deep-link handler and expiring after 15 minutes. When that link can't be made — the
+  app restarted mid-flow, a cold-start deep link, an expired context, or a second deep link after one
+  initiation — the event still fires, reporting `source: unknown` rather than guessing. Concurrent
+  attempts are last-write-wins: the tab a user finishes is almost always the last one they opened.
+  Both emitters record **after** the token is written, because the wrappers derive `is_a11n` from it.
+- **⚠️ `studio_wpcom_auth` counts outcomes that reached the app, not attempts.** If the user closes the
+  browser tab, or the WordPress.com page errors before redirecting, no deep link fires and **no event is
+  recorded at all**. So `success=false` captures only failures that made it back (a denied authorization,
+  a broken token exchange) — never silent abandonment. Computing conversion as
+  `success / (success + failure)` therefore reads optimistically high. For the onboarding funnel, use
+  `studio_onboarding_complete`'s `authenticated` prop as the denominator instead: it is the only signal
+  that counts users who walked away.
+- **`studio ui`** (the browser UI served by `apps/local`) has no Tracks wrapper of its own, so it
+  records nothing itself: only the chat events reach Tracks, via the CLI fork, and they land in
+  `channel=studio-cli` — that bucket therefore mixes standalone-CLI and browser usage. Everything
+  still works; only the analytics is missing. See [STU-2247](https://linear.app/a8c/issue/STU-2247).
+- **Renderer-originated events** go through the `recordAnalyticsEvent` IPC handler
   (`apps/studio/src/ipc-handlers.ts`). Both renderers share the same Main single entry point, and the
   desktop wrapper's `commonProps()` attaches `channel`/`ui_version` centrally — the `ui_version` is
   derived from the active renderer via `getPreferredUiVersion()`, so callers pass only event-specific
@@ -167,9 +205,33 @@ CLI wrapper resolves `channel`/`ui_version` from `STUDIO_TRACKS_ORIGIN`.
 supplies it per change (Main can't infer it) and it is meant to generalize to other settings-change
 events. Reserved for later phases (documented so future events conform): `outcome` (`success`/`error`).
 
-**AI / assistant events (Phase 2+).** Studio Code assistant usage events must use the data team's
-AI-event vocabulary: `ai_session_id`, `agent_name`, `agent_version`, `ability_name`, `outcome`,
-`client`, `is_test`.
+`source` plays the same role for `studio_wpcom_auth` — which login affordance the attempt started from —
+with a wider value set than `surface`, since logins are offered from far more places than settings
+changes. Like `surface`, the renderer supplies it (Main can't infer it) and it is threaded from the
+initiating call. `account_type` (`new`/`existing`) and `authenticated` (boolean) are Studio-custom props
+introduced with those events; register them alongside the events.
+
+**AI / assistant events.** Studio Code assistant events use the data team's AI-event vocabulary so
+they aggregate with other Automattic AI products. The shared identity props are built once by
+`getAiTracksIdentity()` (`packages/common/ai/tracks-identity.ts`) — it lives in `common` because the
+events are emitted from two places (the CLI for chat, Main for session creation) and the values must
+not drift.
+
+| Property | Meaning | Studio values |
+|---|---|---|
+| `ai_session_id` | The chat session | The session's `crypto.randomUUID()`. Always the **resolved** id — the IPC/HTTP boundary also accepts an id prefix or `latest`. |
+| `agent_name` | Agent runtime | `pi` |
+| `client` | AI product | `studio-code` — `channel` still records the surface |
+| `ability_name` | Predefined skill invoked | `annotate`/`taxonomist`/`need-for-speed`/`rank-me-up`/`liberate`; absent for an ordinary message |
+| `outcome` | How a turn ended | `success`/`error`/`interrupted`/`max_turns` (mirrors the session log's `TurnStatus`) |
+
+`is_test` and `agent_version` are not sent: test runs are suppressed at the source rather than
+tagged, and pi is pinned per Studio release so `app_version` already determines it.
+
+**Privacy.** These events never carry prompts, replies, raw error text (`errorMessage` can embed
+filesystem paths and site names), site names or paths, or the instructions content. `ability_name` is
+resolved against the skill catalog by `resolveSkillFromPrompt`, so arbitrary slash text a user typed
+can never reach an event prop.
 
 ## Event catalog
 
@@ -282,6 +344,86 @@ Sensitive values are never sent as strings (see `is_default` and the directory n
 | `studio_setting_cli_change` | `installStudioCli`/`uninstallStudioCli` | `installed` (boolean), `surface` (`settings`) |
 | `studio_setting_agentic_features_change` | `saveAgenticFeaturesEnabled` | `enabled` (boolean), `surface` (`settings`) |
 | `studio_setting_ui_change` | `updateBetaFeature` (`enableAgenticUi` key) | `type` (`classic`/`agentic`), `surface` (`settings`/`banner`/`menu`) — the switch has several entry points; the caller supplies the surface. Not emitted for the boot-time seeding migration (no surface). |
+| `studio_setting_instructions_change` | `saveGlobalAgentInstructions` | `has_content` (boolean), `length_bucket` (`empty`/`short` ≤200/`medium` ≤1000/`long`), `surface` (`settings`) — the instructions text is **never** sent. See the edit-session note below. |
+| `studio_setting_ai_provider_change` | `saveAnthropicApiKey`/`setAiProvider` | `provider` (`wpcom`/`anthropic-api-key`), `has_anthropic_api_key` (boolean), `surface` (`settings`) — the API key is **never** sent. One event covers both handlers, since clearing the key also falls the provider back to WordPress.com. Browser-hosted `studio ui` writes these settings through `apps/local`, which has no Tracks emitter, so those changes go uncounted — see [STU-2247](https://linear.app/a8c/issue/STU-2247). |
+
+`studio_setting_instructions_change` is the one settings event Main cannot detect on its own. Classic
+saves on an explicit button press, but the agentic UI autosaves on an 800 ms debounce, so by the time
+the user leaves the tab the file already holds the new text and there is nothing left to compare
+against — and a naive per-save event would report one edit as many changes. The renderer therefore
+owns the edit-session boundary: it passes `editSession.previousContent` (the value the visit to the
+tab started from) on the save that ends the session, and omits the option entirely on intermediate
+autosaves, which write without recording. Main emits only when that comparison shows a real change.
+
+#### Studio Code events
+
+Studio Code (AI assistant) usage. The chat events are emitted by the **CLI** (the sole funnel — every
+surface forks it to run a turn), `session_created` from **desktop Main** (sessions are created
+in-process). All carry the shared AI identity props described under "Property vocabulary" above.
+Browser-hosted `studio ui` chat currently lands in `channel=studio-cli` and its session creations are
+not counted at all — see [STU-2247](https://linear.app/a8c/issue/STU-2247).
+
+| Event | Emitted from | Event-specific props |
+|---|---|---|
+| `studio_code_message_sent` | CLI `runAgentTurn` | `provider` (`wpcom`/`anthropic-api-key` — the gateway serving the request, not the model vendor), `model` (e.g. `claude-sonnet-5`), `model_family` (`anthropic`/`openai`), `ability_name` (predefined skill, absent for an ordinary message), `has_images`, `has_files` (booleans). One per user turn dispatched. |
+| `studio_code_turn_completed` | CLI `runAgentTurn` | `outcome` (`success`/`error`/`interrupted`/`max_turns`), `duration_ms`, plus the same `provider`/`model`/`model_family`. One per turn finishing. Partially overlaps the MC Stats `recordAgentRun` bump (`packages/common/ai/agent-stats.ts`), which is a bare counter with no model or duration breakdown. |
+| `studio_code_session_created` | Desktop Main (`createAiSession`) | `has_site` (boolean — whether the session is bound to a site; the site name and path are **never** sent). Emitted only when a session is actually created, not when an empty draft is reused. |
+
+Both events carry `ai_session_id`, so turn position is a funnel rather than a prop: the first
+`studio_code_message_sent` after a `studio_code_session_created` with the same id is a conversation's
+opening turn, and counting them per id gives messages-per-session. (An `is_resumed` boolean was
+dropped for this reason — every UI turn resumes a session the desktop just created, so it was always
+`true` outside the standalone CLI.)
+
+**Reading `studio_code_session_created`:** it counts sessions that got *used*, not "new chat" clicks.
+`createOrReuseAiSession` hands back the newest un-prompted, un-archived draft instead of piling up
+orphans, so opening a new chat and leaving it empty emits nothing — however many times it is
+repeated. A session is only created once the previous one has a prompt in it. That makes the event a
+sound denominator for messages-per-session, but it will read lower than any UI-level count of the new
+chat affordance.
+
+#### Onboarding & authentication events
+
+First-run onboarding and WordPress.com login. `studio_onboarding_complete` and the desktop half of
+`studio_wpcom_auth` are emitted from **desktop Main** (the `saveOnboarding` handler and the auth deep-link
+handler respectively — each the single funnel both front-ends converge on); the CLI emits
+`studio_wpcom_auth` for its own `auth login` flow. No email addresses, user ids, tokens, or raw error text
+are ever sent.
+
+| Event | Emitted from | Event-specific props |
+|---|---|---|
+| `studio_onboarding_complete` | Desktop Main (`saveOnboarding`) | `authenticated` (boolean — whether the user holds a WordPress.com token at the moment onboarding completes). Emitted once, only on a genuine `false → true` transition. |
+| `studio_wpcom_auth` | Desktop Main (auth deep-link handler) + CLI `auth login` | `success` (boolean), `source` (`onboarding`/`sync_tab`/`previews_tab`/`assistant_tab`/`overview_tab`/`settings`/`top_bar`/`site_header`/`add_site`/`cli`/`unknown`), `account_type` (`new`/`existing`). On failure also `failure_reason` (`access_denied`/`token_error`/`profile_fetch_failed`/`unknown`). |
+
+**Reading these events.** Onboarding conversion is `AVG(authenticated)` over
+`studio_onboarding_complete` — a single event, no join and no dedupe needed, and it counts users who
+arrive already signed in (Classic completes onboarding for them automatically). Drop-off decomposes by
+joining the two events on the install id: a completion with `authenticated=false` and **no**
+`studio_wpcom_auth` row means the user never tried (a messaging problem), while one with a
+`success=false` row means they tried and it broke (an auth-flow problem). Per-attempt conversion is
+`studio_wpcom_auth WHERE source='onboarding'` — but read the abandonment caveat under "Which surface
+emits what" before treating it as a rate.
+
+**Reading `source`.** It records the affordance the login started from, not the app: `ui_version` already
+separates Classic from the agentic UI. `unknown` is structural, not an error — see the caveat above for
+when the initiation context can't be carried to the result. The two Settings surfaces in the agentic UI
+(Account and Usage) both report `settings`, and the site dropdown reports `site_header` for both its
+Preview and Live prompts.
+
+`onboarding` means **first-run** onboarding only — the agentic UI's welcome and tour. Its add-site flow
+also lives under an `/onboarding/*` route namespace (`/onboarding/connect` and friends), but a login
+started there is `add_site`, matching Studio Classic's add-site prompt. Watch for this when adding a
+`source`: the route path is not the surface.
+
+**CLI semantics differ.** `channel=studio-cli` rows never carry `account_type` (the CLI has no signup
+path) and can't produce `failure_reason=access_denied` (there is no in-app deny step — the user pastes a
+token). Account for this before aggregating across channels. The CLI's "already authenticated" early
+return emits nothing, since no authentication took place.
+
+Each `failure_reason` does mean the same thing in both channels, so the values themselves aggregate
+cleanly: `profile_fetch_failed` is always the `/me` lookup (the request or its schema), and `unknown` is
+always a failure neither emitter anticipated — in practice the config write. Only the availability of a
+reason differs, per above.
 
 ### How to add a new event
 
@@ -313,6 +455,10 @@ What fires depends on the build, so pick the right method:
   `packages/common/lib/tests/record-tracks-event.test.ts`, `apps/studio/src/lib/tests/tracks.test.ts`,
   and `apps/cli/lib/tests/tracks.test.ts`. These stub the build flag, so they verify the behavior
   without any build. Run: `npm test -- <path>`.
+- **Studio Code events in a dev run.** These fire from the CLI child the agent run-manager forks.
+  That fork normally discards the child's stdout (agent events travel over IPC), so its logging would
+  be invisible; in a dev run it inherits stdout instead, and the `Would have recorded…` lines appear
+  in the **Main-process terminal** — not the renderer console, and not the browser devtools.
 - **`studio_app_launch` in a dev run.** Fires from the desktop Main process, which has no
   `__ENABLE_CLI_TELEMETRY__` gate, so a plain `npm start` logs `Would have recorded… studio_app_launch`
   in the **Main-process terminal** (the shared core no-ops the network send in dev/E2E). Add

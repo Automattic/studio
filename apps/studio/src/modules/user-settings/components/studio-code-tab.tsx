@@ -49,7 +49,10 @@ export function StudioCodeTab() {
 		setIsSaving( true );
 		setError( null );
 		try {
-			await getIpcApi().saveGlobalAgentInstructions( content );
+			// The button only enables while dirty, so every save here closes an edit session.
+			await getIpcApi().saveGlobalAgentInstructions( content, {
+				editSession: { previousContent: savedContent },
+			} );
 			setSavedContent( content );
 			setJustSaved( true );
 		} catch ( err ) {

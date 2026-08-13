@@ -9,6 +9,7 @@ import {
 	useDeleteSite,
 	useExportDatabase,
 	useExportFullSite,
+	useIsSiteBusy,
 	useIsSiteStarting,
 	useIsSiteStopping,
 	useSites,
@@ -49,10 +50,16 @@ vi.mock( '@/data/queries/use-agent-run', () => ( {
 } ) );
 
 vi.mock( '@/data/queries/use-sites', () => ( {
+	COPY_SITE_MUTATION_KEY: [ 'copySite' ],
+	EXPORT_DATABASE_MUTATION_KEY: [ 'exportDatabase' ],
+	EXPORT_FULL_SITE_MUTATION_KEY: [ 'exportFullSite' ],
 	useCopySite: vi.fn(),
 	useDeleteSite: vi.fn(),
 	useExportDatabase: vi.fn(),
 	useExportFullSite: vi.fn(),
+	useIsSiteBusy: vi.fn(),
+	useIsSiteMutating: vi.fn(),
+	useSiteOperation: vi.fn(),
 	useIsSiteStarting: vi.fn(),
 	useIsSiteStopping: vi.fn(),
 	useSites: vi.fn(),
@@ -83,6 +90,7 @@ const useCopySiteMock = vi.mocked( useCopySite, { partial: true } );
 const useDeleteSiteMock = vi.mocked( useDeleteSite, { partial: true } );
 const useExportDatabaseMock = vi.mocked( useExportDatabase, { partial: true } );
 const useExportFullSiteMock = vi.mocked( useExportFullSite, { partial: true } );
+const useIsSiteBusyMock = vi.mocked( useIsSiteBusy );
 const useIsSiteStartingMock = vi.mocked( useIsSiteStarting );
 const useIsSiteStoppingMock = vi.mocked( useIsSiteStopping );
 const useSiteAgentActivityMock = vi.mocked( useSiteAgentActivity );
@@ -109,6 +117,7 @@ describe( 'SiteList', () => {
 			reason: null,
 			isReady: true,
 		} );
+		useIsSiteBusyMock.mockReturnValue( false );
 		useIsSiteStartingMock.mockReturnValue( false );
 		useIsSiteStoppingMock.mockReturnValue( false );
 		useSiteAgentActivityMock.mockReturnValue( 'idle' );
@@ -688,6 +697,25 @@ describe( 'SiteList', () => {
 		expect( indicator.compareDocumentPosition( siteName ) & Node.DOCUMENT_POSITION_FOLLOWING ).toBe(
 			Node.DOCUMENT_POSITION_FOLLOWING
 		);
+	} );
+
+	// Without a per-row indicator there is nothing to tell two concurrent imports
+	// apart — the toast that used to carry this named no site.
+	it( 'shows activity on the importing row only', () => {
+		useSiteAgentActivityMock.mockReturnValue( 'idle' );
+		useSiteSyncActivityMock.mockImplementation( ( siteId ) =>
+			siteId === 'running-site' ? { kind: 'pending', direction: 'import' } : null
+		);
+
+		render( <SiteList /> );
+
+		const importingRow = screen.getByText( 'Running Site' ).closest( 'section' )!;
+		const otherRow = screen.getByText( 'Stopped Site' ).closest( 'section' )!;
+
+		expect(
+			within( importingRow ).getByRole( 'status', { name: 'Importing backup' } )
+		).toBeInTheDocument();
+		expect( within( otherRow ).queryByRole( 'status' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'shows live sync activity before the site name while a site is syncing', () => {

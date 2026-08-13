@@ -17,6 +17,7 @@ vi.mock( '@studio/common/lib/remote-session', async () => {
 
 vi.mock( 'src/modules/cli/lib/execute-command', () => ( {
 	executeCliCommand: vi.fn(),
+	getTracksOriginEnv: vi.fn( () => 'studio-ui:v1' ),
 } ) );
 
 vi.mock( 'src/lib/bump-stats', async () => {

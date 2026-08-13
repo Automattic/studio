@@ -1,8 +1,8 @@
+import { getSlashCommandMatches } from '@studio/common/ai/slash-commands';
 import { __ } from '@wordpress/i18n';
 import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import motionStyles from '../floating-surface-motion/style.module.css';
 import menuStyles from '../menu/style.module.css';
-import { getSlashCommandMatches } from './slash-autocomplete';
 import styles from './style.module.css';
 import type { Dispatch, KeyboardEvent, ReactNode, RefObject, SetStateAction } from 'react';
 

@@ -19,7 +19,9 @@ import type { AiSessionSummary, LoadedAiSession, SessionEntry } from '@/data/cor
 import type { ComponentProps } from 'react';
 
 const connectorMocks = vi.hoisted( () => ( {
+	capabilities: { aiSettings: false },
 	createSession: vi.fn(),
+	getAiSettings: vi.fn(),
 	getFilePath: vi.fn( ( file: File ) => `/tmp/studio-attachments/${ file.name }` ),
 	setSessionModel: vi.fn(),
 } ) );
@@ -67,6 +69,24 @@ function firePointerEventWithClientY( element: Element, type: string, clientY: n
 describe( 'Composer menu', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
+		connectorMocks.capabilities.aiSettings = false;
+	} );
+
+	it( 'only offers the active provider’s models when an Anthropic API key is set', async () => {
+		connectorMocks.capabilities.aiSettings = true;
+		connectorMocks.getAiSettings.mockResolvedValue( {
+			provider: 'anthropic-api-key',
+			hasAnthropicApiKey: true,
+			anthropicApiKeyPreview: 'sk-ant-api03-tes...1234',
+		} );
+		renderComposer();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Select model' } ) );
+		await waitFor( () =>
+			expect( screen.getAllByRole( 'menuitemradio' ).map( ( item ) => item.textContent ) ).toEqual(
+				[ 'Sonnet 5', 'Opus 5' ]
+			)
+		);
 	} );
 
 	it( 'shows tooltips for the plus button and model picker', async () => {
@@ -190,7 +210,7 @@ describe( 'Composer menu', () => {
 			value: 1000,
 		} );
 		renderComposer();
-		const textarea = screen.getByRole( 'textbox' ) as HTMLTextAreaElement;
+		const textarea = screen.getByRole( 'combobox' ) as HTMLTextAreaElement;
 		let scrollHeight = 72;
 		Object.defineProperty( textarea, 'scrollHeight', {
 			configurable: true,
@@ -231,7 +251,7 @@ describe( 'Composer menu', () => {
 
 	it( 'resizes the textarea when attachments change its padding', async () => {
 		const { container } = renderComposer();
-		const textarea = screen.getByRole( 'textbox' ) as HTMLTextAreaElement;
+		const textarea = screen.getByRole( 'combobox' ) as HTMLTextAreaElement;
 		const textFile = new File( [ 'Attachment preview text' ], 'notes.txt', {
 			type: 'text/plain',
 		} );
@@ -267,7 +287,7 @@ describe( 'Composer menu', () => {
 			value: 1000,
 		} );
 		renderComposer();
-		const textarea = screen.getByRole( 'textbox' ) as HTMLTextAreaElement;
+		const textarea = screen.getByRole( 'combobox' ) as HTMLTextAreaElement;
 		const resizeHandle = screen.getByRole( 'separator', { name: 'Resize composer' } );
 		Object.defineProperty( textarea, 'scrollHeight', {
 			configurable: true,
@@ -317,7 +337,7 @@ describe( 'Composer menu', () => {
 		expect(
 			await screen.findByRole( 'button', { name: 'Remove attachment: pasted-image.png' } )
 		).toBeInTheDocument();
-		expect( screen.getByRole( 'textbox' ) ).toHaveFocus();
+		expect( screen.getByRole( 'combobox' ) ).toHaveFocus();
 	} );
 
 	it( 'ignores pastes inside open dialogs', () => {

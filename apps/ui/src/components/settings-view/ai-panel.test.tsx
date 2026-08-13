@@ -170,6 +170,7 @@ describe( 'AiPanel', () => {
 				anthropicApiKeyPreview: null,
 			} );
 			render( <AiPanel /> );
+			fireEvent.click( screen.getByRole( 'checkbox', { name: 'Use your Anthropic API key' } ) );
 
 			fireEvent.change( screen.getByLabelText( 'Anthropic API key' ), {
 				target: { value: '  sk-ant-test-1234  ' },
@@ -180,7 +181,7 @@ describe( 'AiPanel', () => {
 				vi.advanceTimersByTime( 800 );
 			} );
 
-			expect( saveKey ).toHaveBeenCalledWith( 'sk-ant-test-1234' );
+			expect( saveKey ).toHaveBeenCalledWith( 'sk-ant-test-1234', expect.any( Object ) );
 		} finally {
 			vi.useRealTimers();
 		}
@@ -204,23 +205,37 @@ describe( 'AiPanel', () => {
 				vi.advanceTimersByTime( 800 );
 			} );
 
-			expect( saveKey ).toHaveBeenCalledWith( null );
+			expect( saveKey ).toHaveBeenCalledWith( null, expect.any( Object ) );
 		} finally {
 			vi.useRealTimers();
 		}
 	} );
 
-	it( 'keeps the toggle disabled until a key has been saved', () => {
+	it( 'only shows the API key field while the setting is enabled', () => {
 		mockConnector( true, true );
 		mockAiSettings( {
 			provider: 'wpcom',
 			hasAnthropicApiKey: false,
 			anthropicApiKeyPreview: null,
 		} );
-		const { unmount } = render( <AiPanel /> );
+		render( <AiPanel /> );
 
-		expect( screen.getByRole( 'checkbox', { name: 'Use your Anthropic API key' } ) ).toBeDisabled();
-		unmount();
+		const toggle = screen.getByRole( 'checkbox', { name: 'Use your Anthropic API key' } );
+		expect( toggle ).toBeEnabled();
+		expect( screen.queryByLabelText( 'Anthropic API key' ) ).not.toBeInTheDocument();
+
+		fireEvent.click( toggle );
+
+		expect( toggle ).toBeChecked();
+		expect( screen.getByLabelText( 'Anthropic API key' ) ).toBeInTheDocument();
+
+		fireEvent.click( toggle );
+
+		expect( screen.queryByLabelText( 'Anthropic API key' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'keeps a saved API key hidden while WordPress.com is selected', () => {
+		mockConnector( true, true );
 
 		mockAiSettings( {
 			provider: 'wpcom',
@@ -230,6 +245,7 @@ describe( 'AiPanel', () => {
 		render( <AiPanel /> );
 
 		expect( screen.getByRole( 'checkbox', { name: 'Use your Anthropic API key' } ) ).toBeEnabled();
+		expect( screen.queryByLabelText( 'Anthropic API key' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'shows why saving the key failed', () => {
@@ -245,6 +261,7 @@ describe( 'AiPanel', () => {
 			error: new Error( 'Anthropic rejected this API key. Check the key and try again.' ),
 		} as never );
 		render( <AiPanel /> );
+		fireEvent.click( screen.getByRole( 'checkbox', { name: 'Use your Anthropic API key' } ) );
 
 		expect(
 			screen.getByText( 'Anthropic rejected this API key. Check the key and try again.' )

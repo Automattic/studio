@@ -70,7 +70,7 @@ export function AccountSection() {
 
 	return (
 		<aside className={ styles.accountAside }>
-			<section className={ clsx( styles.card, styles.accountCard ) }>
+			<section className={ styles.accountSection }>
 				<h2 className={ styles.cardTitle }>{ __( 'Account' ) }</h2>
 				<div className={ styles.accountIdentity }>
 					{ user ? (
@@ -116,8 +116,8 @@ export function AccountSection() {
 					</Button>
 				) }
 			</section>
-			<UsageSummary userId={ user?.id } />
-			<section className={ clsx( styles.card, styles.accountHelp ) }>
+			<UsageSummary userId={ user?.id } unframed />
+			<section className={ clsx( styles.accountSection, styles.accountHelp ) }>
 				<h2 className={ styles.cardTitle }>{ __( 'Help' ) }</h2>
 				<AccountHelpActions />
 			</section>

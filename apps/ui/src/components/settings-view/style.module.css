@@ -152,8 +152,9 @@
 	min-height: calc( 100dvh - 54px - 2 * var( --wpds-dimension-padding-2xl ) );
 }
 
-.accountCard,
-.accountHelp {
+.accountSection {
+	display: flex;
+	flex-direction: column;
 	gap: var( --wpds-dimension-padding-md );
 }
 
@@ -789,6 +790,12 @@
 	color: var( --wpds-color-fg-content-neutral-weak );
 	font-size: var( --wpds-typography-font-size-sm );
 	line-height: var( --wpds-typography-line-height-md );
+}
+
+.usageSummary {
+	display: flex;
+	flex-direction: column;
+	gap: var( --wpds-dimension-padding-lg );
 }
 
 .codeBlockWrap {

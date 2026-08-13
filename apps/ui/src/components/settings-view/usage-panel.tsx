@@ -232,9 +232,11 @@ export function UsagePanel() {
 export function UsageSummary( {
 	userId,
 	showDescription = false,
+	unframed = false,
 }: {
 	userId?: number;
 	showDescription?: boolean;
+	unframed?: boolean;
 } ) {
 	// Signed-out and offline figures cannot be refreshed, so the summary uses
 	// placeholders rather than presenting cached usage as current.
@@ -242,7 +244,13 @@ export function UsageSummary( {
 	const unavailable = reason !== null;
 
 	return (
-		<section className={ clsx( styles.card, unavailable && styles.usageDisabled ) }>
+		<section
+			className={ clsx(
+				styles.usageSummary,
+				! unframed && styles.card,
+				unavailable && styles.usageDisabled
+			) }
+		>
 			<div className={ styles.settingsPanelHeader }>
 				<h2>{ __( 'Usage' ) }</h2>
 				{ showDescription ? (

@@ -24,6 +24,7 @@ const connectorMocks = vi.hoisted( () => ( {
 	getAiSettings: vi.fn(),
 	getFilePath: vi.fn( ( file: File ) => `/tmp/studio-attachments/${ file.name }` ),
 	setSessionModel: vi.fn(),
+	setSessionProvider: vi.fn(),
 } ) );
 
 vi.mock( '@/data/core', () => ( {
@@ -72,21 +73,77 @@ describe( 'Composer menu', () => {
 		connectorMocks.capabilities.aiSettings = false;
 	} );
 
-	it( 'only offers the active provider’s models when an Anthropic API key is set', async () => {
+	it( 'offers the providers above the models the conversation’s provider serves', async () => {
 		connectorMocks.capabilities.aiSettings = true;
 		connectorMocks.getAiSettings.mockResolvedValue( {
-			provider: 'anthropic-api-key',
+			provider: 'wpcom',
 			hasAnthropicApiKey: true,
 			anthropicApiKeyPreview: 'sk-ant-api03-tes...1234',
+		} );
+		renderComposer( { entries: [ createSessionContextEntry( 'anthropic-api-key' ) ] } );
+
+		const trigger = screen.getByRole( 'button', { name: 'Select model' } );
+		await waitFor( () => expect( trigger ).toHaveTextContent( 'API · Sonnet 5' ) );
+
+		fireEvent.click( trigger );
+		await waitFor( () =>
+			expect( screen.getAllByRole( 'menuitemradio' ).map( ( item ) => item.textContent ) ).toEqual(
+				[ 'WordPress.com', 'Anthropic API', 'Sonnet 5', 'Opus 5' ]
+			)
+		);
+		expect( screen.getByRole( 'menuitemradio', { name: 'Anthropic API' } ) ).toBeChecked();
+	} );
+
+	it( 'omits the provider section until an Anthropic API key is saved', async () => {
+		connectorMocks.capabilities.aiSettings = true;
+		connectorMocks.getAiSettings.mockResolvedValue( {
+			provider: 'wpcom',
+			hasAnthropicApiKey: false,
+			anthropicApiKeyPreview: null,
 		} );
 		renderComposer();
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Select model' } ) );
 		await waitFor( () =>
 			expect( screen.getAllByRole( 'menuitemradio' ).map( ( item ) => item.textContent ) ).toEqual(
-				[ 'Sonnet 5', 'Opus 5' ]
+				[ 'Sonnet 5', 'Opus 5', 'GPT 5.6 Sol' ]
 			)
 		);
+	} );
+
+	it( 'pins the conversation to the picked provider, carrying a model it serves', async () => {
+		const queryClient = new QueryClient();
+		connectorMocks.capabilities.aiSettings = true;
+		connectorMocks.getAiSettings.mockResolvedValue( {
+			provider: 'wpcom',
+			hasAnthropicApiKey: true,
+			anthropicApiKeyPreview: 'sk-ant-api03-tes...1234',
+		} );
+		connectorMocks.setSessionProvider.mockResolvedValue( undefined );
+		queryClient.setQueryData( [ ...SESSIONS_QUERY_KEY, 'session-1' ], {
+			summary: createSummary(),
+			entries: [],
+		} );
+		renderComposer( { model: 'gpt-5.6-sol' }, queryClient );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Select model' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: 'Anthropic API' } ) );
+
+		await waitFor( () =>
+			expect( connectorMocks.setSessionProvider ).toHaveBeenCalledWith(
+				'session-1',
+				'anthropic-api-key',
+				'claude-sonnet-5'
+			)
+		);
+		expect(
+			queryClient.getQueryData< LoadedAiSession >( [ ...SESSIONS_QUERY_KEY, 'session-1' ] )?.entries
+		).toEqual( [
+			expect.objectContaining( {
+				customType: 'studio.session_context',
+				data: { provider: 'anthropic-api-key', model: 'claude-sonnet-5' },
+			} ),
+		] );
 	} );
 
 	it( 'shows tooltips for the plus button and model picker', async () => {
@@ -418,6 +475,17 @@ function createSummary( overrides: Partial< AiSessionSummary > = {} ): AiSession
 		eventCount: 0,
 		...overrides,
 	};
+}
+
+function createSessionContextEntry( provider: string ): SessionEntry {
+	return {
+		type: 'custom',
+		id: 'session-context-1',
+		parentId: null,
+		timestamp: '2026-06-26T12:00:00.000Z',
+		customType: 'studio.session_context',
+		data: { provider, model: 'claude-sonnet-5' },
+	} as SessionEntry;
 }
 
 function createUserPromptEntry(): SessionEntry {

@@ -57,8 +57,7 @@ export function useActivePersistentMessages(): {
 			} );
 		}
 
-		const usingExtraCredits = usage.purchasedTotal > 0;
-		const activeUsageFraction = usingExtraCredits ? usage.purchasedFraction : usage.monthlyFraction;
+		const activeUsageFraction = usage.combinedFraction;
 		const usagePercentage = Math.round( activeUsageFraction * 100 );
 		const usageTitle = sprintf(
 			/* translators: %s: percentage of the active AI credit pool used. */

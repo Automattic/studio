@@ -154,7 +154,7 @@ export function PurchaseCreditsDialog( {
 					<Dialog.Content>
 						<Dialog.Description>
 							{ __(
-								'Choose a one-time AI credit amount to check out securely on WordPress.com. Purchased AI credits do not expire and are used after your monthly allowance.'
+								'Choose a one-time AI credit amount to check out securely on WordPress.com. AI credits do not expire.'
 							) }
 						</Dialog.Description>
 						{ variant === 'cards' && (

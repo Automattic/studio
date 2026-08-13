@@ -17,7 +17,7 @@ import {
 	setUsageExplorationSignalBarThickness,
 	setUsageExplorationSignalOrientation,
 	setUsageExplorationSignalStackDirection,
-	spendExplorationPurchasedCredits,
+	spendExplorationCredits,
 	useUsageExploration,
 	type UsageSignalAlignment,
 	type UsageSignalOrientation,
@@ -29,7 +29,7 @@ import {
 } from '@/data/usage-exploration';
 import styles from './style.module.css';
 
-const MONTHLY_SCENARIOS: Array< { value: UsageExplorationScenario; label: string } > = [
+const BALANCE_SCENARIOS: Array< { value: UsageExplorationScenario; label: string } > = [
 	{ value: 'fresh', label: '0%' },
 	{ value: 'healthy', label: '36%' },
 	{ value: 'warning', label: '80%' },
@@ -37,13 +37,13 @@ const MONTHLY_SCENARIOS: Array< { value: UsageExplorationScenario; label: string
 	{ value: 'exhausted', label: '100%' },
 ];
 
-const PURCHASED_SCENARIOS: Array< { value: UsageExplorationScenario; label: string } > = [
-	{ value: 'extra-reserve', label: __( '500K reserve' ) },
-	{ value: 'extra-full', label: __( '500K available' ) },
-	{ value: 'extra-healthy', label: __( '320K' ) },
-	{ value: 'extra-warning', label: __( '100K' ) },
-	{ value: 'extra-critical', label: __( '50K' ) },
-	{ value: 'extra-exhausted', label: '0' },
+const TOP_UP_SCENARIOS: Array< { value: UsageExplorationScenario; label: string } > = [
+	{ value: 'extra-reserve', label: __( 'Added early' ) },
+	{ value: 'extra-full', label: '0%' },
+	{ value: 'extra-healthy', label: '36%' },
+	{ value: 'extra-warning', label: '80%' },
+	{ value: 'extra-critical', label: '90%' },
+	{ value: 'extra-exhausted', label: '100%' },
 ];
 
 function ScenarioRow( {
@@ -190,7 +190,7 @@ export function UsageExplorationControls() {
 					onClick={ () => setVisible( false ) }
 				/>
 			</div>
-			<ScenarioRow label={ __( 'Monthly' ) } options={ MONTHLY_SCENARIOS } selected={ scenario } />
+			<ScenarioRow label={ __( 'Balance' ) } options={ BALANCE_SCENARIOS } selected={ scenario } />
 			<div className={ styles.row }>
 				<span className={ styles.rowLabel }>{ __( 'Meter' ) }</span>
 				<div className={ styles.buttons }>
@@ -396,8 +396,8 @@ export function UsageExplorationControls() {
 				</>
 			) }
 			<ScenarioRow
-				label={ __( 'Purchased' ) }
-				options={ PURCHASED_SCENARIOS }
+				label={ __( 'After top-up' ) }
+				options={ TOP_UP_SCENARIOS }
 				selected={ scenario }
 			/>
 			<div className={ styles.row }>
@@ -426,9 +426,7 @@ export function UsageExplorationControls() {
 					<button
 						type="button"
 						className={ styles.stateButton }
-						onClick={ () =>
-							spendExplorationPurchasedCredits( dollarsFromCredits( creditAdjustment ) )
-						}
+						onClick={ () => spendExplorationCredits( dollarsFromCredits( creditAdjustment ) ) }
 					>
 						{ __( 'Use' ) }
 					</button>

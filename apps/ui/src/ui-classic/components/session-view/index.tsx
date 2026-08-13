@@ -247,8 +247,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const composerBusy = hasActiveRun || pendingQuestions.length > 0;
 	const usage = useUsageExploration();
 	const { isExhausted } = usage;
-	const usingExtraCredits = usage.purchasedTotal > 0;
-	const activeUsageFraction = usingExtraCredits ? usage.purchasedFraction : usage.monthlyFraction;
+	const activeUsageFraction = usage.combinedFraction;
 	const showUsageWarning = ! usage.isExhausted && activeUsageFraction >= 0.9;
 	const activeUsagePercentage = Math.round( activeUsageFraction * 100 );
 	const isEmpty = useMemo(
@@ -484,7 +483,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						</div>
 					) : null }
 					{ isExhausted && ! composerBusy ? (
-						<UsageLimitLock usingExtraCredits={ usingExtraCredits } />
+						<UsageLimitLock />
 					) : (
 						<Composer
 							ref={ composerRef }
@@ -500,10 +499,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 							onSwitchSession={ switchSession }
 							usageNotice={
 								showUsageWarning ? (
-									<UsageWarningStrip
-										percentage={ activeUsagePercentage }
-										usingExtraCredits={ usingExtraCredits }
-									/>
+									<UsageWarningStrip percentage={ activeUsagePercentage } />
 								) : undefined
 							}
 						/>

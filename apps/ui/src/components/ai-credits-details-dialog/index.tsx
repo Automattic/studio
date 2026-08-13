@@ -24,7 +24,7 @@ export function AiCreditsDetailsDialog( {
 						</span>
 						<span>
 							{ __(
-								'Your monthly allowance resets each month, and unused monthly AI credits do not carry over. Purchased AI credits do not expire and are used after your monthly allowance.'
+								'You get a welcome gift of 1.5 million AI credits. AI credits do not expire, including credits you purchase later.'
 							) }
 						</span>
 						<span>

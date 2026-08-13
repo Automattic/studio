@@ -891,89 +891,61 @@
 	gap: var( --wpds-dimension-padding-xs );
 }
 
-.creditMeterHeader {
+.creditMeterSummary {
 	display: flex;
 	align-items: baseline;
 	justify-content: space-between;
 	gap: var( --wpds-dimension-padding-md );
-	color: var( --wpds-color-fg-content-neutral );
-	font-size: var( --wpds-typography-font-size-sm );
-	font-weight: 500;
-	line-height: var( --wpds-typography-line-height-sm );
-}
-
-.creditMeterValue {
-	font-weight: 600;
-	font-variant-numeric: tabular-nums;
 }
 
 .creditMeterCredits {
 	color: var( --wpds-color-fg-content-neutral-weak );
-	font-size: var( --wpds-typography-font-size-xs );
+	font-size: var( --wpds-typography-font-size-sm );
 	font-variant-numeric: tabular-nums;
 	line-height: var( --wpds-typography-line-height-sm );
 }
 
-.extraCreditRow {
+.creditMeterAvailable {
+	flex: none;
+	color: var( --wpds-color-fg-content-neutral );
+	font-size: var( --wpds-typography-font-size-sm );
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+	line-height: var( --wpds-typography-line-height-sm );
+}
+
+.creditCallout {
 	display: flex;
-	flex-direction: column;
-	align-items: stretch;
-	gap: var( --wpds-dimension-padding-md );
+	align-items: center;
+	justify-content: space-between;
+	gap: var( --wpds-dimension-padding-lg );
+	padding: var( --wpds-dimension-padding-md );
+	border: var( --wpds-border-width-xs ) solid var( --wpds-color-stroke-surface-neutral );
+	border-radius: var( --wpds-border-radius-sm );
+	background: var( --wpds-color-bg-surface-neutral-weak );
+	color: var( --wpds-color-fg-content-neutral );
 }
 
-.extraCreditRow .creditMeter,
-.extraCreditRow .creditTopUpText {
-	inline-size: 100%;
-}
-
-.extraCreditSummary {
+.creditCalloutText {
 	display: flex;
 	flex-direction: column;
 	gap: 2px;
 	min-width: 0;
-}
-
-.extraCreditSummary strong {
 	color: var( --wpds-color-fg-content-neutral );
-	font-size: var( --wpds-typography-font-size-xs );
-	font-weight: 500;
-	line-height: var( --wpds-typography-line-height-sm );
-}
-
-.extraCreditSummary span {
-	color: var( --wpds-color-fg-content-neutral-weak );
-	font-size: var( --wpds-typography-font-size-xs );
-	font-variant-numeric: tabular-nums;
-	line-height: var( --wpds-typography-line-height-sm );
-}
-
-.extraCreditBalanceLine {
-	display: flex;
-	align-items: baseline;
-	flex-wrap: wrap;
-	gap: var( --wpds-dimension-gap-xs );
-}
-
-.extraCreditBalanceLine > strong {
 	font-size: var( --wpds-typography-font-size-sm );
-	font-weight: 600;
-	font-variant-numeric: tabular-nums;
-}
-
-.creditTopUpText {
-	min-width: 0;
-}
-
-.creditTopUpText strong {
-	color: var( --wpds-color-fg-content-neutral );
-	font-size: var( --wpds-typography-font-size-xs );
-	font-weight: 500;
 	line-height: var( --wpds-typography-line-height-sm );
 }
 
-.creditTopUpText p {
-	margin-block-start: 2px;
-	font-size: var( --wpds-typography-font-size-xs );
+.creditCalloutText strong {
+	font-weight: 600;
+}
+
+.creditCalloutText span {
+	color: var( --wpds-color-fg-content-neutral-weak );
+}
+
+.creditCallout .creditTopUpAction {
+	flex: none;
 }
 
 .creditTopUpButton {

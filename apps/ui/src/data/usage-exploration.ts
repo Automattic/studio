@@ -33,10 +33,12 @@ export interface UsageExplorationState {
 	meterIconSize: number;
 	ringSize: number;
 	ringStrokeWidth: number;
-	monthlyUsed: number;
-	monthlyLimit: number;
+	welcomeUsed: number;
+	welcomeTotal: number;
 	purchasedBalance: number;
 	purchasedTotal: number;
+	meterUsed: number;
+	meterTotal: number;
 }
 
 const STORAGE_KEY = 'studio-usage-exploration-state';
@@ -82,17 +84,94 @@ const SCENARIOS: Record<
 		| 'ringStrokeWidth'
 	>
 > = {
-	fresh: { monthlyUsed: 0, monthlyLimit: 50, purchasedBalance: 0, purchasedTotal: 0 },
-	healthy: { monthlyUsed: 18, monthlyLimit: 50, purchasedBalance: 0, purchasedTotal: 0 },
-	warning: { monthlyUsed: 40, monthlyLimit: 50, purchasedBalance: 0, purchasedTotal: 0 },
-	critical: { monthlyUsed: 45, monthlyLimit: 50, purchasedBalance: 0, purchasedTotal: 0 },
-	exhausted: { monthlyUsed: 50, monthlyLimit: 50, purchasedBalance: 0, purchasedTotal: 0 },
-	'extra-reserve': { monthlyUsed: 18, monthlyLimit: 50, purchasedBalance: 50, purchasedTotal: 50 },
-	'extra-full': { monthlyUsed: 50, monthlyLimit: 50, purchasedBalance: 50, purchasedTotal: 50 },
-	'extra-healthy': { monthlyUsed: 50, monthlyLimit: 50, purchasedBalance: 32, purchasedTotal: 50 },
-	'extra-warning': { monthlyUsed: 50, monthlyLimit: 50, purchasedBalance: 10, purchasedTotal: 50 },
-	'extra-critical': { monthlyUsed: 50, monthlyLimit: 50, purchasedBalance: 5, purchasedTotal: 50 },
-	'extra-exhausted': { monthlyUsed: 50, monthlyLimit: 50, purchasedBalance: 0, purchasedTotal: 50 },
+	fresh: {
+		welcomeUsed: 0,
+		welcomeTotal: 150,
+		purchasedBalance: 0,
+		purchasedTotal: 0,
+		meterUsed: 0,
+		meterTotal: 150,
+	},
+	healthy: {
+		welcomeUsed: 54,
+		welcomeTotal: 150,
+		purchasedBalance: 0,
+		purchasedTotal: 0,
+		meterUsed: 54,
+		meterTotal: 150,
+	},
+	warning: {
+		welcomeUsed: 120,
+		welcomeTotal: 150,
+		purchasedBalance: 0,
+		purchasedTotal: 0,
+		meterUsed: 120,
+		meterTotal: 150,
+	},
+	critical: {
+		welcomeUsed: 135,
+		welcomeTotal: 150,
+		purchasedBalance: 0,
+		purchasedTotal: 0,
+		meterUsed: 135,
+		meterTotal: 150,
+	},
+	exhausted: {
+		welcomeUsed: 150,
+		welcomeTotal: 150,
+		purchasedBalance: 0,
+		purchasedTotal: 0,
+		meterUsed: 150,
+		meterTotal: 150,
+	},
+	'extra-reserve': {
+		welcomeUsed: 54,
+		welcomeTotal: 150,
+		purchasedBalance: 50,
+		purchasedTotal: 50,
+		meterUsed: 0,
+		meterTotal: 146,
+	},
+	'extra-full': {
+		welcomeUsed: 150,
+		welcomeTotal: 150,
+		purchasedBalance: 50,
+		purchasedTotal: 50,
+		meterUsed: 0,
+		meterTotal: 50,
+	},
+	'extra-healthy': {
+		welcomeUsed: 150,
+		welcomeTotal: 150,
+		purchasedBalance: 32,
+		purchasedTotal: 50,
+		meterUsed: 18,
+		meterTotal: 50,
+	},
+	'extra-warning': {
+		welcomeUsed: 150,
+		welcomeTotal: 150,
+		purchasedBalance: 10,
+		purchasedTotal: 50,
+		meterUsed: 40,
+		meterTotal: 50,
+	},
+	'extra-critical': {
+		welcomeUsed: 150,
+		welcomeTotal: 150,
+		purchasedBalance: 5,
+		purchasedTotal: 50,
+		meterUsed: 45,
+		meterTotal: 50,
+	},
+	'extra-exhausted': {
+		welcomeUsed: 150,
+		welcomeTotal: 150,
+		purchasedBalance: 0,
+		purchasedTotal: 50,
+		meterUsed: 50,
+		meterTotal: 50,
+	},
 };
 
 function getInitialState(): UsageExplorationState {
@@ -328,43 +407,52 @@ export function setUsageExplorationRingStrokeWidth( ringStrokeWidth: number ) {
 }
 
 export function addExplorationCredits( amount: number ) {
-	const scenario = state.monthlyUsed < state.monthlyLimit ? 'extra-reserve' : 'extra-healthy';
+	const scenario = state.welcomeUsed < state.welcomeTotal ? 'extra-reserve' : 'extra-healthy';
 	const purchasedBalance = state.purchasedBalance + amount;
+	const welcomeBalance = Math.max( 0, state.welcomeTotal - state.welcomeUsed );
 	state = {
 		...state,
 		scenario,
 		purchasedBalance,
-		// A top-up establishes a fresh gauge baseline at the new combined balance.
 		purchasedTotal: purchasedBalance,
+		meterUsed: 0,
+		meterTotal: welcomeBalance + purchasedBalance,
 	};
 	window.localStorage.setItem( STORAGE_KEY, scenario );
 	emit();
 }
 
-export function spendExplorationPurchasedCredits( amount: number ) {
-	const purchasedBalance = Math.max( 0, state.purchasedBalance - amount );
-	const availableFraction = state.purchasedTotal > 0 ? purchasedBalance / state.purchasedTotal : 0;
-	let scenario: UsageExplorationScenario = 'extra-healthy';
-	if ( purchasedBalance <= 0 ) {
-		scenario = 'extra-exhausted';
-	} else if ( availableFraction <= 0.1 ) {
-		scenario = 'extra-critical';
-	} else if ( availableFraction <= 0.2 ) {
-		scenario = 'extra-warning';
+export function spendExplorationCredits( amount: number ) {
+	const welcomeBalance = Math.max( 0, state.welcomeTotal - state.welcomeUsed );
+	const welcomeSpend = Math.min( welcomeBalance, amount );
+	const purchasedSpend = Math.max( 0, amount - welcomeSpend );
+	const welcomeUsed = Math.min( state.welcomeTotal, state.welcomeUsed + welcomeSpend );
+	const purchasedBalance = Math.max( 0, state.purchasedBalance - purchasedSpend );
+	const meterUsed = Math.min( state.meterTotal, state.meterUsed + amount );
+	const usedFraction = state.meterTotal > 0 ? meterUsed / state.meterTotal : 1;
+	const hasTopUp = state.purchasedTotal > 0;
+	let scenario: UsageExplorationScenario = hasTopUp ? 'extra-healthy' : 'healthy';
+	if ( welcomeUsed >= state.welcomeTotal && purchasedBalance <= 0 ) {
+		scenario = hasTopUp ? 'extra-exhausted' : 'exhausted';
+	} else if ( usedFraction >= 0.9 ) {
+		scenario = hasTopUp ? 'extra-critical' : 'critical';
+	} else if ( usedFraction >= 0.8 ) {
+		scenario = hasTopUp ? 'extra-warning' : 'warning';
 	}
 	state = {
 		...state,
 		scenario,
-		monthlyUsed: state.monthlyLimit,
+		welcomeUsed,
 		purchasedBalance,
+		meterUsed,
 	};
 	window.localStorage.setItem( STORAGE_KEY, scenario );
 	emit();
 }
 
 export function useUsageExploration(): UsageExplorationState & {
-	monthlyFraction: number;
-	purchasedFraction: number;
+	combinedFraction: number;
+	welcomeBalance: number;
 	availableBalance: number;
 	isExhausted: boolean;
 } {
@@ -373,14 +461,13 @@ export function useUsageExploration(): UsageExplorationState & {
 		() => state,
 		() => state
 	);
-	const monthlyRemaining = Math.max( 0, snapshot.monthlyLimit - snapshot.monthlyUsed );
-	const availableBalance = monthlyRemaining + snapshot.purchasedBalance;
-	const purchasedUsed = snapshot.purchasedTotal - snapshot.purchasedBalance;
+	const welcomeBalance = Math.max( 0, snapshot.welcomeTotal - snapshot.welcomeUsed );
+	const availableBalance = welcomeBalance + snapshot.purchasedBalance;
 	return {
 		...snapshot,
-		monthlyFraction: Math.min( 1, snapshot.monthlyUsed / snapshot.monthlyLimit ),
-		purchasedFraction:
-			snapshot.purchasedTotal > 0 ? Math.min( 1, purchasedUsed / snapshot.purchasedTotal ) : 0,
+		combinedFraction:
+			snapshot.meterTotal > 0 ? Math.min( 1, snapshot.meterUsed / snapshot.meterTotal ) : 1,
+		welcomeBalance,
 		availableBalance,
 		isExhausted: availableBalance <= 0,
 	};

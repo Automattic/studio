@@ -8,7 +8,7 @@ import { useConnector } from '@/data/core';
 import { useUsageExploration } from '@/data/usage-exploration';
 import styles from './style.module.css';
 
-export function UsageLimitLock( { usingExtraCredits = false }: { usingExtraCredits?: boolean } ) {
+export function UsageLimitLock() {
 	const [ purchaseOpen, setPurchaseOpen ] = useState( false );
 	const connector = useConnector();
 	const { purchaseCreditsFlow } = useUsageExploration();
@@ -20,16 +20,8 @@ export function UsageLimitLock( { usingExtraCredits = false }: { usingExtraCredi
 		}
 		setPurchaseOpen( true );
 	};
-	const title = usingExtraCredits
-		? __( 'Purchased AI credits used' )
-		: __( 'Monthly AI credits used' );
-	const description = usingExtraCredits
-		? __(
-				"You've used all of your purchased AI credits. Add more to keep chatting, or wait until your monthly allowance resets on Sep 3."
-		  )
-		: __(
-				"You've used your monthly AI credit allowance. You'll get more AI credits on Sep 3, or you can add more to keep chatting."
-		  );
+	const title = __( 'No AI credits available' );
+	const description = __( "You've used your available AI credits. Add more to keep chatting." );
 
 	return (
 		<>

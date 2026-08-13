@@ -8,12 +8,7 @@ import { useConnector } from '@/data/core';
 import { useUsageExploration } from '@/data/usage-exploration';
 import styles from './style.module.css';
 
-export function UsageWarningStrip( {
-	percentage,
-}: {
-	percentage: number;
-	usingExtraCredits?: boolean;
-} ) {
+export function UsageWarningStrip( { percentage }: { percentage: number } ) {
 	const [ purchaseOpen, setPurchaseOpen ] = useState( false );
 	const connector = useConnector();
 	const { purchaseCreditsFlow } = useUsageExploration();

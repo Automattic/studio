@@ -57,7 +57,7 @@ function AiCreditsRing( {
 }
 
 function AiCreditsSignal( {
-	availableFraction,
+	usedFraction,
 	orientation,
 	alignment,
 	barCount,
@@ -65,7 +65,7 @@ function AiCreditsSignal( {
 	size,
 	stackDirection,
 }: {
-	availableFraction: number;
+	usedFraction: number;
 	orientation: 'horizontal' | 'vertical';
 	alignment: 'start' | 'center' | 'end';
 	barCount: number;
@@ -73,7 +73,7 @@ function AiCreditsSignal( {
 	size: number;
 	stackDirection: 'ascending' | 'descending';
 } ) {
-	const filledBars = Math.ceil( Math.max( 0, Math.min( 1, availableFraction ) ) * barCount );
+	const filledBars = Math.ceil( Math.max( 0, Math.min( 1, usedFraction ) ) * barCount );
 	const maxBarLength = size - 4;
 	const minBarLength = Math.max( 4, Math.round( maxBarLength * 0.375 ) );
 	const ascendingSizes = Array.from( { length: barCount }, ( _, index ) =>
@@ -123,16 +123,9 @@ export function UsageCreditsControl() {
 		notation: 'compact',
 		maximumFractionDigits: 0,
 	} );
-	const monthlyRemaining = Math.max( 0, usage.monthlyLimit - usage.monthlyUsed );
-	const monthlyAvailable = credits.format( creditsFromDollars( monthlyRemaining ) );
-	const monthlyTotal = credits.format( creditsFromDollars( usage.monthlyLimit ) );
-	const purchasedRemaining = credits.format( creditsFromDollars( usage.purchasedBalance ) );
-	const purchasedTotal = credits.format( creditsFromDollars( usage.purchasedTotal ) );
-	const isUsingPurchasedCredits = monthlyRemaining === 0 && usage.purchasedTotal > 0;
-	const activeAvailableFraction = isUsingPurchasedCredits
-		? usage.purchasedBalance / usage.purchasedTotal
-		: monthlyRemaining / usage.monthlyLimit;
-	const activeUsedFraction = 1 - activeAvailableFraction;
+	const availableCredits = credits.format( creditsFromDollars( usage.availableBalance ) );
+	const meterTotal = credits.format( creditsFromDollars( usage.meterTotal ) );
+	const activeUsedFraction = usage.combinedFraction;
 	const isCaution = activeUsedFraction >= 0.8 && activeUsedFraction < 0.9;
 	const isWarning = activeUsedFraction >= 0.9;
 	const opensExternalCheckout = usage.purchaseCreditsFlow === 'external';
@@ -144,20 +137,12 @@ export function UsageCreditsControl() {
 		setPurchaseOpen( true );
 	};
 
-	let tooltip: string = sprintf(
-		/* translators: 1: monthly AI credits available, 2: total monthly AI credit allowance. */
-		__( 'Monthly AI credits · %1$s / %2$s' ),
-		monthlyAvailable,
-		monthlyTotal
+	const tooltip = sprintf(
+		/* translators: 1: AI credits available, 2: current meter baseline. */
+		__( 'AI credits · %1$s / %2$s available' ),
+		availableCredits,
+		meterTotal
 	);
-	if ( isUsingPurchasedCredits ) {
-		tooltip = sprintf(
-			/* translators: 1: purchased AI credits available, 2: total purchased AI credits. */
-			__( 'Purchased AI credits · %1$s / %2$s' ),
-			purchasedRemaining,
-			purchasedTotal
-		);
-	}
 
 	return (
 		<>
@@ -185,7 +170,7 @@ export function UsageCreditsControl() {
 									/>
 								) : (
 									<AiCreditsSignal
-										availableFraction={ activeAvailableFraction }
+										usedFraction={ activeUsedFraction }
 										orientation={ usage.signalOrientation }
 										alignment={ usage.signalAlignment }
 										barCount={ usage.signalBarCount }
@@ -204,23 +189,13 @@ export function UsageCreditsControl() {
 				<Menu.Popup side="top" align="end" className={ styles.usageCreditsMenu }>
 					<div className={ styles.usageCreditsRows }>
 						<div className={ styles.usageCreditsRow }>
-							<span>{ __( 'Monthly AI credit allowance' ) }</span>
+							<span>{ __( 'AI credits' ) }</span>
 							<strong>
 								{ sprintf(
-									/* translators: 1: monthly AI credits available, 2: total monthly AI credit allowance. */
+									/* translators: 1: AI credits available, 2: current meter baseline. */
 									__( '%1$s / %2$s available' ),
-									monthlyAvailable,
-									monthlyTotal
-								) }
-							</strong>
-						</div>
-						<div className={ styles.usageCreditsRow }>
-							<span>{ __( 'Purchased AI credits' ) }</span>
-							<strong>
-								{ sprintf(
-									/* translators: %s: number of purchased AI credits available. */
-									__( '%s available' ),
-									purchasedRemaining
+									availableCredits,
+									meterTotal
 								) }
 							</strong>
 						</div>

@@ -49,11 +49,13 @@ function UsageProgressBar( {
 	fraction: number;
 	valueClassName?: string;
 } ) {
+	const percentage = Math.round( fraction * 10_000 ) / 100;
+
 	return (
 		<div className={ styles.progressTrack } data-testid="usage-progress-bar" aria-hidden="true">
 			<div
 				className={ clsx( styles.progressValue, valueClassName ) }
-				style={ { inlineSize: `${ fraction * 100 }%` } }
+				style={ { inlineSize: `${ percentage }%` } }
 			/>
 		</div>
 	);
@@ -73,16 +75,12 @@ function getMeterIntent( fraction: number ): string | undefined {
 }
 
 function CreditMeter( {
-	label,
 	remainingDollars,
-	usedDollars,
 	totalDollars,
 	fraction,
 	valueClassName,
 }: {
-	label: string;
 	remainingDollars: number;
-	usedDollars: number;
 	totalDollars: number;
 	fraction: number;
 	valueClassName?: string;
@@ -90,28 +88,29 @@ function CreditMeter( {
 	const locale = useUserLocale();
 	const credits = new Intl.NumberFormat( locale, { maximumFractionDigits: 0 } );
 	const remainingCredits = creditsFromDollars( remainingDollars );
+	const totalCredits = creditsFromDollars( totalDollars );
+	const usedCredits = Math.max( 0, totalCredits - remainingCredits );
 
 	return (
 		<div className={ styles.creditMeter }>
-			<div className={ styles.creditMeterHeader }>
-				<span>{ label }</span>
-				<span className={ styles.creditMeterValue }>
+			<div className={ styles.creditMeterSummary }>
+				<span className={ styles.creditMeterCredits }>
+					{ sprintf(
+						/* translators: 1: AI credits used, 2: current meter baseline. */
+						__( '%1$s of %2$s AI credits used' ),
+						credits.format( usedCredits ),
+						credits.format( totalCredits )
+					) }
+				</span>
+				<strong className={ styles.creditMeterAvailable }>
 					{ sprintf(
 						/* translators: %s: number of AI credits still available. */
 						__( '%s available' ),
 						credits.format( remainingCredits )
 					) }
-				</span>
+				</strong>
 			</div>
 			<UsageProgressBar fraction={ fraction } valueClassName={ valueClassName } />
-			<span className={ styles.creditMeterCredits }>
-				{ sprintf(
-					/* translators: 1: AI credits used, 2: total AI credits available. */
-					__( '%1$s of %2$s AI credits used' ),
-					credits.format( creditsFromDollars( usedDollars ) ),
-					credits.format( creditsFromDollars( totalDollars ) )
-				) }
-			</span>
 		</div>
 	);
 }
@@ -123,11 +122,8 @@ function AiCreditsSummary() {
 	const [ detailsOpen, setDetailsOpen ] = useState( false );
 	const { data: quota } = useStudioAssistantQuota();
 	const accessState = quota ? getStudioCodeAiAccessState( quota ) : 'available';
-	const monthlyRemaining = Math.max( 0, usage.monthlyLimit - usage.monthlyUsed );
-	const monthlyMeterIntent =
-		usage.purchasedTotal > 0 ? undefined : getMeterIntent( usage.monthlyFraction );
-	const purchasedUsed = Math.max( 0, usage.purchasedTotal - usage.purchasedBalance );
 	const opensExternalCheckout = usage.purchaseCreditsFlow === 'external';
+	const showWelcomeCredits = usage.purchasedTotal === 0 && usage.welcomeBalance > 0;
 	const openPurchaseCredits = () => {
 		if ( opensExternalCheckout ) {
 			void connector.openExternalUrl( PURCHASE_CREDITS_PROTOTYPE_URL );
@@ -135,6 +131,21 @@ function AiCreditsSummary() {
 		}
 		setPurchaseOpen( true );
 	};
+	const creditAction = (
+		<div className={ styles.creditTopUpAction }>
+			<Button
+				className={ styles.creditTopUpButton }
+				size="small"
+				variant="outline"
+				tone="neutral"
+				onClick={ openPurchaseCredits }
+			>
+				{ opensExternalCheckout ? __( 'Purchase AI credits' ) : __( 'Add AI credits' ) }
+				{ opensExternalCheckout ? <Icon icon={ external } size={ 14 } aria-hidden="true" /> : null }
+			</Button>
+			{ opensExternalCheckout ? <span>{ __( 'Checkout on WordPress.com' ) }</span> : null }
+		</div>
+	);
 
 	return (
 		<section className={ styles.usageSection }>
@@ -161,56 +172,27 @@ function AiCreditsSummary() {
 			) : (
 				<>
 					<CreditMeter
-						label={ __( 'Monthly AI credit allowance' ) }
-						remainingDollars={ monthlyRemaining }
-						usedDollars={ usage.monthlyUsed }
-						totalDollars={ usage.monthlyLimit }
-						fraction={ usage.monthlyFraction }
-						valueClassName={ monthlyMeterIntent }
+						remainingDollars={ usage.availableBalance }
+						totalDollars={ usage.meterTotal }
+						fraction={ usage.combinedFraction }
+						valueClassName={ getMeterIntent( usage.combinedFraction ) }
 					/>
-					<div className={ styles.extraCreditRow }>
-						{ usage.purchasedTotal > 0 ? (
-							<CreditMeter
-								label={ __( 'Purchased AI credits' ) }
-								remainingDollars={ usage.purchasedBalance }
-								usedDollars={ purchasedUsed }
-								totalDollars={ usage.purchasedTotal }
-								fraction={ usage.purchasedFraction }
-								valueClassName={ getMeterIntent( usage.purchasedFraction ) }
-							/>
-						) : (
-							<div className={ styles.creditTopUpText }>
-								<strong>
-									{ usage.isExhausted
-										? __( 'Keep chatting with AI credits' )
-										: __( 'Purchased AI credits' ) }
-								</strong>
-								<p>
-									{ usage.isExhausted
-										? __(
-												'Keep your work moving without waiting for your monthly allowance to reset.'
-										  )
-										: __(
-												'Keep AI credits ready so your work can continue after your monthly allowance runs out.'
-										  ) }
-								</p>
-							</div>
-						) }
-						<div className={ styles.creditTopUpAction }>
-							<Button
-								className={ styles.creditTopUpButton }
-								size="small"
-								variant="outline"
-								tone="neutral"
-								onClick={ openPurchaseCredits }
-							>
-								{ opensExternalCheckout ? __( 'Purchase AI credits' ) : __( 'Add AI credits' ) }
-								{ opensExternalCheckout ? (
-									<Icon icon={ external } size={ 14 } aria-hidden="true" />
-								) : null }
-							</Button>
-							{ opensExternalCheckout ? <span>{ __( 'Checkout on WordPress.com' ) }</span> : null }
+					<div className={ styles.creditCallout }>
+						<div className={ styles.creditCalloutText }>
+							<strong>
+								{ showWelcomeCredits
+									? __( '1.5 million AI credits are on us' )
+									: __( 'Keep creating with AI credits' ) }
+							</strong>
+							<span>
+								{ showWelcomeCredits
+									? __( "We've added free credits so you can try Studio Code." )
+									: usage.isExhausted
+									? __( 'Add more credits to continue working without interruption.' )
+									: __( 'Add more credits anytime to keep your work moving.' ) }
+							</span>
 						</div>
+						{ creditAction }
 					</div>
 					<PurchaseCreditsDialog open={ purchaseOpen } onOpenChange={ setPurchaseOpen } />
 				</>

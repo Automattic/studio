@@ -155,14 +155,14 @@ describe( 'SessionView', () => {
 
 		render( <SessionView sessionId="session-1" /> );
 
-		expect( screen.getByRole( 'alert' ) ).toHaveTextContent( 'Monthly AI credits used' );
+		expect( screen.getByRole( 'alert' ) ).toHaveTextContent( 'No AI credits available' );
 		expect( screen.getByRole( 'alert' ) ).toHaveTextContent(
-			"You've used your monthly AI credit allowance."
+			"You've used your available AI credits."
 		);
 		expect( screen.getByRole( 'button', { name: 'Add AI credits' } ) ).toBeInTheDocument();
 	} );
 
-	it( 'explains when purchased credits are exhausted', () => {
+	it( 'uses the same lockout after welcome and purchased credits are exhausted', () => {
 		setUsageExplorationScenario( 'extra-exhausted' );
 		useSessionMock.mockReturnValue( {
 			data: makeLoadedSession(),
@@ -172,9 +172,9 @@ describe( 'SessionView', () => {
 
 		render( <SessionView sessionId="session-1" /> );
 
-		expect( screen.getByRole( 'alert' ) ).toHaveTextContent( 'Purchased AI credits used' );
+		expect( screen.getByRole( 'alert' ) ).toHaveTextContent( 'No AI credits available' );
 		expect( screen.getByRole( 'alert' ) ).toHaveTextContent(
-			"You've used all of your purchased AI credits."
+			"You've used your available AI credits."
 		);
 	} );
 

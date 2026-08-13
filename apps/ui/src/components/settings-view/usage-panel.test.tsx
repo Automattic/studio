@@ -96,9 +96,10 @@ vi.mock( '@/components/ai-credits-details-dialog', () => ( {
 	AiCreditsDetailsDialog: ( { open }: { open: boolean } ) =>
 		open ? (
 			<div role="dialog" aria-label="How AI credits work">
-				Purchased AI credits do not expire and are used after your monthly allowance. Different
-				models use AI credits at different rates. AI credits measure Studio usage; they are
-				different from the tokens an AI provider uses to count pieces of text.
+				You get a welcome gift of 1.5 million AI credits. AI credits do not expire, including
+				credits you purchase later. Different models use AI credits at different rates. AI credits
+				measure Studio usage; they are different from the tokens an AI provider uses to count pieces
+				of text.
 			</div>
 		) : null,
 } ) );
@@ -169,9 +170,9 @@ describe( 'UsagePanel', () => {
 		render( <UsagePanel /> );
 
 		expect( screen.getByRole( 'heading', { name: 'Usage' } ) ).toBeInTheDocument();
-		expect( screen.getByText( '100,000 available' ) ).toBeInTheDocument();
-		expect( screen.getByText( '400,000 of 500,000 AI credits used' ) ).toBeInTheDocument();
-		expect( screen.getByText( 'Purchased AI credits' ) ).toBeInTheDocument();
+		expect( screen.getByText( '1,200,000 of 1,500,000 AI credits used' ) ).toBeInTheDocument();
+		expect( screen.getByText( '300,000 available' ) ).toBeInTheDocument();
+		expect( screen.getByText( '1.5 million AI credits are on us' ) ).toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Add AI credits' } ) ).toBeInTheDocument();
 		expect( screen.getByText( '2 of 10 active preview sites' ) ).toBeInTheDocument();
 		expect( useSnapshotsMock ).toHaveBeenCalledWith( 1 );
@@ -183,13 +184,11 @@ describe( 'UsagePanel', () => {
 		setUsageExplorationScenario( 'exhausted' );
 		render( <UsagePanel /> );
 
+		expect( screen.getByText( '1,500,000 of 1,500,000 AI credits used' ) ).toBeInTheDocument();
 		expect( screen.getByText( '0 available' ) ).toBeInTheDocument();
-		expect( screen.getByText( '500,000 of 500,000 AI credits used' ) ).toBeInTheDocument();
-		expect( screen.getByText( 'Keep chatting with AI credits' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Keep creating with AI credits' ) ).toBeInTheDocument();
 		expect(
-			screen.getByText(
-				'Keep your work moving without waiting for your monthly allowance to reset.'
-			)
+			screen.getByText( 'Add more credits to continue working without interruption.' )
 		).toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Add AI credits' } ) ).toBeInTheDocument();
 	} );
@@ -199,19 +198,25 @@ describe( 'UsagePanel', () => {
 
 		render( <UsagePanel /> );
 
-		expect( screen.getByText( '320,000 available' ) ).toBeInTheDocument();
 		expect( screen.queryByText( 'Recent activity' ) ).not.toBeInTheDocument();
+		expect( screen.getByText( 'Keep creating with AI credits' ) ).toBeInTheDocument();
+		expect(
+			screen.getByText( 'Add more credits anytime to keep your work moving.' )
+		).toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Add AI credits' } ) ).toBeInTheDocument();
-		expect( screen.getAllByTestId( 'usage-progress-bar' ) ).toHaveLength( 3 );
+		expect( screen.getAllByTestId( 'usage-progress-bar' ) ).toHaveLength( 2 );
 	} );
 
-	it( 'explains how monthly and purchased AI credits work', () => {
+	it( 'explains the welcome gift and how AI credits work', () => {
 		render( <UsagePanel /> );
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'How AI credits work' } ) );
 
 		expect( screen.getByRole( 'dialog', { name: 'How AI credits work' } ) ).toHaveTextContent(
-			'Purchased AI credits do not expire and are used after your monthly allowance.'
+			'You get a welcome gift of 1.5 million AI credits.'
+		);
+		expect( screen.getByRole( 'dialog', { name: 'How AI credits work' } ) ).toHaveTextContent(
+			'AI credits do not expire'
 		);
 		expect( screen.getByRole( 'dialog', { name: 'How AI credits work' } ) ).toHaveTextContent(
 			'Different models use AI credits at different rates.'
@@ -225,20 +230,17 @@ describe( 'UsagePanel', () => {
 		setUsageExplorationScenario( 'extra-exhausted' );
 		render( <UsagePanel /> );
 
-		expect( screen.getByText( 'Purchased AI credits' ) ).toBeInTheDocument();
-		expect( screen.getAllByText( '0 available' ) ).toHaveLength( 2 );
-		expect( screen.getAllByTestId( 'usage-progress-bar' ) ).toHaveLength( 3 );
+		expect( screen.getAllByTestId( 'usage-progress-bar' ) ).toHaveLength( 2 );
 	} );
 
-	it( 'shows extra credits held in reserve before the monthly allowance is used', () => {
+	it( 'resets the combined meter after credits are added', () => {
 		setUsageExplorationScenario( 'extra-reserve' );
 		render( <UsagePanel /> );
 
-		expect( screen.getByText( '320,000 available' ) ).toBeInTheDocument();
-		expect( screen.getByText( '180,000 of 500,000 AI credits used' ) ).toBeInTheDocument();
-		expect( screen.getByText( '500,000 available' ) ).toBeInTheDocument();
-		expect( screen.getByText( 'Purchased AI credits' ) ).toBeInTheDocument();
-		expect( screen.getAllByTestId( 'usage-progress-bar' ) ).toHaveLength( 3 );
+		expect( screen.getByText( '0 of 1,460,000 AI credits used' ) ).toBeInTheDocument();
+		expect( screen.queryByText( 'Welcome AI credits' ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( 'Purchased AI credits' ) ).not.toBeInTheDocument();
+		expect( screen.getAllByTestId( 'usage-progress-bar' ) ).toHaveLength( 2 );
 	} );
 
 	it( 'shows the suspension copy for an explicitly blocked account', () => {
@@ -325,8 +327,7 @@ describe( 'UsagePanel', () => {
 
 		render( <UsagePanel /> );
 
-		expect( screen.getByText( '100,000 available' ) ).toBeInTheDocument();
-		expect( screen.getByText( '400,000 of 500,000 AI credits used' ) ).toBeInTheDocument();
+		expect( screen.getByText( '1,200,000 of 1,500,000 AI credits used' ) ).toBeInTheDocument();
 	} );
 
 	it( 'confirms through the connector before deleting all preview sites', async () => {

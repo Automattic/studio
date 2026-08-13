@@ -1,26 +1,22 @@
 import { getSlashCommandMatches } from '@studio/common/ai/slash-commands';
 import { __ } from '@wordpress/i18n';
 import { useCallback, useEffect, useId, useMemo, useState } from 'react';
-import motionStyles from '../floating-surface-motion/style.module.css';
-import menuStyles from '../menu/style.module.css';
+import motionStyles from '@/components/floating-surface-motion/style.module.css';
+import menuStyles from '@/components/menu/style.module.css';
 import styles from './style.module.css';
 import type { Dispatch, KeyboardEvent, ReactNode, RefObject, SetStateAction } from 'react';
 
-// Matches the trailing `/token` (at the start of input or right after
-// whitespace) that drives the inline autocomplete. Shared by the insert,
+// The trailing `/token` that drives the autocomplete. Shared by the insert,
 // close-on-Escape, and toggle paths so they stay in sync.
 const TRAILING_SLASH_TOKEN = /(^|\s)\/[\w-]*$/;
 
 type FloatingPresenceStatus = 'starting' | 'open' | 'ending';
 
 /**
- * Drives the enter/exit transitions from `floating-surface-motion` for a plain
- * element. Base UI's `Menu.Popup` toggles `data-starting-style` /
- * `data-ending-style` itself, but our inline listbox is a plain `<ul>` (kept
- * plain so the textarea retains focus), so we reproduce that handshake: mount
- * with the starting styles applied, drop them on the next paint to animate in,
- * and keep the element mounted while the ending styles play out before
- * unmounting. Returns whether to render the element and its transition phase.
+ * Reproduces Base UI's `data-starting-style` / `data-ending-style` handshake
+ * for a plain element (the listbox stays a plain `<ul>` so the textarea keeps
+ * focus): mount with starting styles, drop them next paint, keep mounted while
+ * the exit transition plays.
  */
 function useFloatingPresence( open: boolean ): {
 	mounted: boolean;
@@ -73,10 +69,7 @@ interface SlashCommands {
 		'aria-controls': string | undefined;
 		'aria-activedescendant': string | undefined;
 	};
-	/**
-	 * Handle a textarea keydown. Returns `true` when the autocomplete consumed
-	 * the event (the caller should then stop processing it), `false` otherwise.
-	 */
+	/** Returns `true` when the autocomplete consumed the keydown. */
 	handleKeyDown: ( event: KeyboardEvent< HTMLTextAreaElement > ) => boolean;
 	/** Toolbar "/" button handler: opens the popup, or closes it if already open. */
 	toggle: () => void;
@@ -85,11 +78,9 @@ interface SlashCommands {
 }
 
 /**
- * Inline slash-command autocomplete for the composer textarea. Everything is
- * driven by the textarea value (via `getSlashCommandMatches`) so the textarea
- * keeps focus the whole time — a `Menu.Root` would steal it. Encapsulates the
- * open/highlight state, keyboard navigation, ARIA wiring, enter/exit animation,
- * and the rendered listbox, keeping the Composer component lean.
+ * Inline slash-command autocomplete for the composer textarea. Driven entirely
+ * by the textarea value so the textarea keeps focus — a `Menu.Root` would
+ * steal it.
  */
 export function useSlashCommands( {
 	value,
@@ -103,24 +94,22 @@ export function useSlashCommands( {
 	);
 	const [ highlightedIndex, setHighlightedIndex ] = useState( 0 );
 
-	// Whenever the filtered list changes, reset the highlight to the top.
+	// Reset the highlight when the filtered list changes.
 	const matchKey = slashMatches.map( ( command ) => command.name ).join( ',' );
 	useEffect( () => {
 		setHighlightedIndex( 0 );
 	}, [ matchKey ] );
 
-	// Mount/unmount transition so the listbox animates in and out (see
-	// `useFloatingPresence`). While exiting, `slashMatches` has already emptied,
-	// so retain the last visible set — updated during render, the supported
-	// pattern for deriving state — to animate out with its content intact.
+	// While exiting, `slashMatches` has already emptied, so retain the last
+	// visible set (updated during render) to animate out with content intact.
 	const presence = useFloatingPresence( slashOpen );
 	const [ popupMatches, setPopupMatches ] = useState( slashMatches );
 	if ( slashOpen && popupMatches !== slashMatches ) {
 		setPopupMatches( slashMatches );
 	}
 
-	// Accessibility: wire the textarea (combobox) to the listbox and its active
-	// option so screen readers announce the open state and the highlighted item.
+	// Wire the textarea (combobox) to the listbox and its active option so
+	// screen readers announce the open state and the highlighted item.
 	const listboxId = useId();
 	const optionId = useCallback( ( name: string ) => `${ listboxId }-${ name }`, [ listboxId ] );
 	const activeOptionId =
@@ -128,8 +117,6 @@ export function useSlashCommands( {
 			? optionId( slashMatches[ highlightedIndex ].name )
 			: undefined;
 
-	// Replace the trailing `/token` (at start or after whitespace) with the
-	// chosen command, preserving any earlier text and the leading whitespace.
 	const insertSlashCommand = useCallback(
 		( name: string ) => {
 			setValue( ( prev ) => prev.replace( TRAILING_SLASH_TOKEN, `$1/${ name } ` ) );
@@ -138,11 +125,8 @@ export function useSlashCommands( {
 		[ setValue, textareaRef ]
 	);
 
-	// Toolbar "/" button. Toggles the inline autocomplete: when closed it appends
-	// a "/" (preceded by a space when the input doesn't already end in
-	// whitespace) to open it, keeping whatever the user already typed; when
-	// already open, a second click strips the trailing "/token" to close it.
-	// Either way the textarea is refocused with the caret at the end.
+	// Toolbar toggle: appends a "/" to open (keeping any typed text), strips
+	// the trailing token to close, and refocuses with the caret at the end.
 	const toggle = useCallback( () => {
 		setValue( ( prev ) => {
 			if ( slashOpen ) {
@@ -190,9 +174,8 @@ export function useSlashCommands( {
 				return true;
 			}
 			if ( event.key === 'Escape' ) {
-				// Close the popup by dropping the unfinished `/token`, leaving any
-				// earlier text intact. stopPropagation keeps this Escape from also
-				// reaching the Escape-to-interrupt handler.
+				// stopPropagation keeps this Escape from also reaching the
+				// Escape-to-interrupt handler.
 				event.preventDefault();
 				event.stopPropagation();
 				setValue( ( prev ) => prev.replace( TRAILING_SLASH_TOKEN, '' ) );

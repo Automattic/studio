@@ -24,6 +24,7 @@ import {
 	deleteAiSession,
 	loadAiSession,
 } from '@studio/common/ai/sessions/store';
+import { expandSkillCommandPrompt } from '@studio/common/ai/slash-commands';
 import { DEFAULT_TOKEN_LIFETIME_MS } from '@studio/common/constants';
 import { createCliRunner } from '@studio/common/lib/cli-process';
 import {
@@ -1407,7 +1408,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		}
 		const { runId } = runManager.startAgentRun( {
 			sessionId: req.params.id,
-			prompt,
+			prompt: expandSkillCommandPrompt( prompt ),
 			displayMessage,
 		} );
 		res.json( { runId } );

@@ -24,12 +24,13 @@ vi.mock( '@wordpress/components', () => ( {
 	),
 	TextControl: ( props: {
 		value: string;
+		type?: string;
 		label?: string;
 		placeholder?: string;
 		onChange: ( value: string ) => void;
 	} ) => (
 		<input
-			type="password"
+			type={ props.type ?? 'text' }
 			aria-label={ props.label }
 			placeholder={ props.placeholder }
 			value={ props.value }
@@ -177,18 +178,43 @@ describe( 'AiPanel', () => {
 			mockAiSettings( {
 				provider: 'anthropic-api-key',
 				hasAnthropicApiKey: true,
-				anthropicApiKeyPreview: 'sk-ant-api03-tes...1234',
+				anthropicApiKeyPreview: 'sk-ant-api03-tes***1234',
 			} );
 			render( <AiPanel /> );
 
 			const input = screen.getByLabelText( 'Anthropic API key' );
-			fireEvent.change( input, { target: { value: 'sk-ant-test-1234' } } );
+			expect( input ).toHaveValue( 'sk-ant-api03-tes***1234' );
+
 			fireEvent.change( input, { target: { value: '' } } );
 			act( () => {
 				vi.advanceTimersByTime( 800 );
 			} );
 
 			expect( saveKey ).toHaveBeenCalledWith( null );
+		} finally {
+			vi.useRealTimers();
+		}
+	} );
+
+	it( 'never saves an edit of the obfuscated preview as a key', async () => {
+		vi.useFakeTimers();
+		try {
+			mockConnector( true, true );
+			mockAiSettings( {
+				provider: 'anthropic-api-key',
+				hasAnthropicApiKey: true,
+				anthropicApiKeyPreview: 'sk-ant-api03-tes***1234',
+			} );
+			render( <AiPanel /> );
+
+			fireEvent.change( screen.getByLabelText( 'Anthropic API key' ), {
+				target: { value: 'sk-ant-api03-tes***12' },
+			} );
+			act( () => {
+				vi.advanceTimersByTime( 800 );
+			} );
+
+			expect( saveKey ).not.toHaveBeenCalled();
 		} finally {
 			vi.useRealTimers();
 		}

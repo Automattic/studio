@@ -43,16 +43,25 @@ function AgenticFeaturesSection() {
 function AnthropicApiKeySection() {
 	const { data: settings } = useAiSettings();
 	const { mutate: saveKey, error } = useSaveAnthropicApiKey();
-	// `undefined` until the user types: the saved key never reaches the client,
-	// so the field shows a truncated preview of it as its placeholder.
+	// `undefined` until the user types. The saved key never reaches the client:
+	// the field displays its obfuscated preview (`sk-…***1234`) as the value, so
+	// clearing the field is how the key gets removed.
 	const [ draft, setDraft ] = useState< string | undefined >( undefined );
 
-	// An emptied field saves `null`, clearing the stored key.
-	useDebouncedSave( draft === undefined ? undefined : draft.trim() || null, saveKey );
+	// An emptied field saves `null`, clearing the stored key. A draft still
+	// containing the obfuscation marker is the preview (or an edit of it), never
+	// a real key — don't save it.
+	const pendingSave =
+		draft === undefined || draft.includes( '***' ) ? undefined : draft.trim() || null;
+	useDebouncedSave( pendingSave, saveKey );
 
 	if ( ! settings ) {
 		return null;
 	}
+
+	const value = draft ?? settings.anthropicApiKeyPreview ?? '';
+	// Show the stored preview readably; mask only while a new key is typed.
+	const showsPreview = draft === undefined || draft.includes( '***' );
 
 	return (
 		<section className={ styles.preferenceSectionGroup }>
@@ -69,11 +78,11 @@ function AnthropicApiKeySection() {
 					<TextControl
 						__nextHasNoMarginBottom
 						__next40pxDefaultSize
-						type="password"
+						type={ showsPreview ? 'text' : 'password' }
 						label={ __( 'Anthropic API key' ) }
 						hideLabelFromVision
-						placeholder={ settings.anthropicApiKeyPreview ?? __( 'Paste your API key: sk-…' ) }
-						value={ draft ?? '' }
+						placeholder={ __( 'Paste your API key: sk-…' ) }
+						value={ value }
 						onChange={ setDraft }
 					/>
 				</div>

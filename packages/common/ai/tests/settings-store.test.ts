@@ -48,7 +48,7 @@ describe( 'ai settings store', () => {
 		expect( settings ).toEqual( {
 			provider: 'wpcom',
 			hasAnthropicApiKey: true,
-			anthropicApiKeyPreview: 'sk-ant-api03-tes...1234',
+			anthropicApiKeyPreview: 'sk-ant-api03-tes***1234',
 		} );
 		expect( readShared().anthropicApiKey ).toBe( 'sk-ant-api03-testkey-abcd1234' );
 		expect( fs.existsSync( cliConfigPath() ) ).toBe( false );
@@ -118,7 +118,7 @@ describe( 'ai settings store', () => {
 
 	it( 'trims the key and treats a blank one as cleared', async () => {
 		const settings = await saveAnthropicApiKey( '  sk-ant-api03-testkey-abcd1234  ' );
-		expect( settings.anthropicApiKeyPreview ).toBe( 'sk-ant-api03-tes...1234' );
+		expect( settings.anthropicApiKeyPreview ).toBe( 'sk-ant-api03-tes***1234' );
 		expect( readShared().anthropicApiKey ).toBe( 'sk-ant-api03-testkey-abcd1234' );
 
 		await expect( saveAnthropicApiKey( '   ' ) ).resolves.toMatchObject( {
@@ -130,7 +130,7 @@ describe( 'ai settings store', () => {
 	it( 'previews a short key by its tail only, never most of the key', async () => {
 		const settings = await saveAnthropicApiKey( 'sk-short-key-1234' );
 
-		expect( settings.anthropicApiKeyPreview ).toBe( '...1234' );
+		expect( settings.anthropicApiKeyPreview ).toBe( '***1234' );
 	} );
 
 	it( 'treats an unknown stored provider as the default', async () => {

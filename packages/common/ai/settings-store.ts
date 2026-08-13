@@ -66,9 +66,9 @@ const KEY_SUFFIX_LENGTH = 4;
 // only its tail so most of it is not echoed back.
 function previewKey( key: string ): string {
 	if ( key.length <= KEY_PREFIX_LENGTH + KEY_SUFFIX_LENGTH ) {
-		return `...${ key.slice( -KEY_SUFFIX_LENGTH ) }`;
+		return `***${ key.slice( -KEY_SUFFIX_LENGTH ) }`;
 	}
-	return `${ key.slice( 0, KEY_PREFIX_LENGTH ) }...${ key.slice( -KEY_SUFFIX_LENGTH ) }`;
+	return `${ key.slice( 0, KEY_PREFIX_LENGTH ) }***${ key.slice( -KEY_SUFFIX_LENGTH ) }`;
 }
 
 function toAiSettings( config: AiProviderConfig ): AiSettings {

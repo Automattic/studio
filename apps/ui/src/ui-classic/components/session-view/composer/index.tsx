@@ -11,7 +11,14 @@ import {
 } from '@studio/common/ai/composer-attachment-preview';
 import { watchComposerFilePaste } from '@studio/common/ai/composer-attachments';
 import { AI_MODELS, getAiModelFamily, getAiModelLabel } from '@studio/common/ai/models';
-import { getAiProviderModels } from '@studio/common/ai/providers';
+import {
+	AI_PROVIDER_IDS,
+	AI_PROVIDER_LABELS,
+	DEFAULT_AI_PROVIDER,
+	getAiProviderModels,
+	resolveSessionProvider,
+	type AiProviderId,
+} from '@studio/common/ai/providers';
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
 import { getAiSkillCommands } from '@studio/common/ai/slash-commands';
 import { useQueryClient } from '@tanstack/react-query';
@@ -179,6 +186,19 @@ function createModelChangeEntry( modelId: AiModelId ): SessionEntry {
 	} as unknown as SessionEntry;
 }
 
+// Optimistic mirror of the `studio.session_context` entry the backend appends
+// for a provider switch, so the pill updates before the write lands.
+function createSessionContextEntry( provider: AiProviderId, model: AiModelId ): SessionEntry {
+	return {
+		type: 'custom',
+		id: Math.random().toString( 36 ).slice( 2, 10 ),
+		parentId: null,
+		timestamp: new Date().toISOString(),
+		customType: 'studio.session_context',
+		data: { provider, model },
+	} as unknown as SessionEntry;
+}
+
 /**
  * Invisible structural placeholder that mirrors Composer's outer DOM (shell +
  * textarea + toolbar) so the loading state can reserve the exact same vertical
@@ -314,11 +334,17 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 
-	// Only offer models the active AI provider can serve (a saved Anthropic API
-	// key restricts the picker to Anthropic models). Hosts without AI settings
-	// (capabilities.aiSettings false) keep the full list.
+	// The conversation's provider: its own pinned choice first, then the saved
+	// global selection. With a saved Anthropic key both providers are usable,
+	// so a picker lets the user move THIS conversation between them.
 	const { data: aiSettings } = useAiSettings();
-	const availableModels = aiSettings ? getAiProviderModels( aiSettings.provider ) : AI_MODELS;
+	const sessionProvider =
+		resolveSessionProvider( entries ?? [] ) ?? aiSettings?.provider ?? DEFAULT_AI_PROVIDER;
+	const canPickProvider = Boolean( aiSettings?.hasAnthropicApiKey && sessionId );
+
+	// Only offer models the conversation's provider can serve. Hosts without AI
+	// settings (capabilities.aiSettings false) keep the full list.
+	const availableModels = aiSettings ? getAiProviderModels( sessionProvider ) : AI_MODELS;
 
 	const slash = useSlashCommands( {
 		value,
@@ -571,6 +597,39 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 			} );
 		},
 		[ connector, queryClient, sessionId ]
+	);
+
+	// Pin THIS conversation to a provider. When the new provider can't serve
+	// the current model, the provider's default rides along in the same entry.
+	const handleProviderChange = useCallback(
+		( picked: AiProviderId ) => {
+			if ( ! sessionId || picked === sessionProvider ) {
+				return;
+			}
+			const providerModels = getAiProviderModels( picked );
+			const nextModel = providerModels.some( ( entry ) => entry.id === model )
+				? model
+				: providerModels[ 0 ]?.id ?? model;
+			queryClient.setQueryData< LoadedAiSession >(
+				[ ...SESSIONS_QUERY_KEY, sessionId ],
+				( prev ) =>
+					prev
+						? {
+								...prev,
+								entries: [
+									...( prev.entries ?? [] ),
+									createSessionContextEntry( picked, nextModel ),
+								],
+						  }
+						: prev
+			);
+			void connector.setSessionProvider( sessionId, picked, nextModel ).catch( () => {
+				void queryClient.invalidateQueries( {
+					queryKey: [ ...SESSIONS_QUERY_KEY, sessionId ],
+				} );
+			} );
+		},
+		[ connector, model, queryClient, sessionId, sessionProvider ]
 	);
 
 	const handleModelChange = useCallback(
@@ -973,6 +1032,43 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 							/>
 						</div>
 						<div className={ styles.rightActions }>
+							{ canPickProvider && (
+								<Menu.Root modal={ false }>
+									<Tooltip.Root>
+										<Menu.Trigger
+											render={
+												<Tooltip.Trigger
+													render={
+														<button
+															type="button"
+															className={ styles.pill }
+															aria-label={ __( 'Select AI provider' ) }
+														/>
+													}
+												>
+													<span>{ AI_PROVIDER_LABELS[ sessionProvider ] }</span>
+													<Icon icon={ chevronDownSmall } size={ 16 } />
+												</Tooltip.Trigger>
+											}
+										/>
+										<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+											{ __( 'Select AI provider for this conversation' ) }
+										</Tooltip.Popup>
+									</Tooltip.Root>
+									<Menu.Popup side="top" align="end">
+										<Menu.RadioGroup
+											value={ sessionProvider }
+											onValueChange={ ( value ) => handleProviderChange( value as AiProviderId ) }
+										>
+											{ AI_PROVIDER_IDS.map( ( id ) => (
+												<Menu.RadioItem key={ id } value={ id }>
+													{ AI_PROVIDER_LABELS[ id ] }
+												</Menu.RadioItem>
+											) ) }
+										</Menu.RadioGroup>
+									</Menu.Popup>
+								</Menu.Root>
+							) }
 							<Menu.Root modal={ false }>
 								<Tooltip.Root>
 									<Menu.Trigger

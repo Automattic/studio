@@ -24,6 +24,7 @@ const connectorMocks = vi.hoisted( () => ( {
 	getAiSettings: vi.fn(),
 	getFilePath: vi.fn( ( file: File ) => `/tmp/studio-attachments/${ file.name }` ),
 	setSessionModel: vi.fn(),
+	setSessionProvider: vi.fn(),
 } ) );
 
 vi.mock( '@/data/core', () => ( {
@@ -87,6 +88,50 @@ describe( 'Composer menu', () => {
 				[ 'Sonnet 5', 'Opus 5' ]
 			)
 		);
+	} );
+
+	it( 'offers a per-conversation provider picker when an Anthropic API key is saved', async () => {
+		connectorMocks.capabilities.aiSettings = true;
+		connectorMocks.getAiSettings.mockResolvedValue( {
+			provider: 'wpcom',
+			hasAnthropicApiKey: true,
+			anthropicApiKeyPreview: 'sk-ant-api03-tes...1234',
+		} );
+		connectorMocks.setSessionProvider.mockResolvedValue( undefined );
+		renderComposer();
+
+		const trigger = await screen.findByRole( 'button', { name: 'Select AI provider' } );
+		expect( trigger ).toHaveTextContent( 'WordPress.com' );
+
+		fireEvent.click( trigger );
+		const anthropicItem = await screen.findByRole( 'menuitemradio', {
+			name: 'Anthropic API key',
+		} );
+		fireEvent.click( anthropicItem );
+
+		// The default model already is an Anthropic one, so it rides along unchanged.
+		await waitFor( () =>
+			expect( connectorMocks.setSessionProvider ).toHaveBeenCalledWith(
+				'session-1',
+				'anthropic-api-key',
+				DEFAULT_MODEL
+			)
+		);
+	} );
+
+	it( 'hides the provider picker when no Anthropic API key is saved', async () => {
+		connectorMocks.capabilities.aiSettings = true;
+		connectorMocks.getAiSettings.mockResolvedValue( {
+			provider: 'wpcom',
+			hasAnthropicApiKey: false,
+			anthropicApiKeyPreview: null,
+		} );
+		renderComposer();
+
+		await screen.findByRole( 'button', { name: 'Select model' } );
+		expect(
+			screen.queryByRole( 'button', { name: 'Select AI provider' } )
+		).not.toBeInTheDocument();
 	} );
 
 	it( 'shows tooltips for the plus button and model picker', async () => {

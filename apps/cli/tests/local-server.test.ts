@@ -17,7 +17,6 @@ const mocks = vi.hoisted( () => ( {
 	measureSiteStorage: vi.fn(),
 	readAiSettings: vi.fn(),
 	saveAnthropicApiKey: vi.fn(),
-	setAiProvider: vi.fn(),
 } ) );
 
 vi.mock( '@studio/common/lib/cli-process', () => ( {
@@ -35,7 +34,6 @@ vi.mock( '@studio/common/ai/settings-store', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('@studio/common/ai/settings-store') >() ),
 	readAiSettings: mocks.readAiSettings,
 	saveAnthropicApiKey: mocks.saveAnthropicApiKey,
-	setAiProvider: mocks.setAiProvider,
 } ) );
 vi.mock( '@studio/common/ai/run-manager', () => ( {
 	createAgentRunManager: vi.fn( () => ( {
@@ -97,11 +95,6 @@ describe( 'local web server Connect contracts', () => {
 			provider: 'wpcom',
 			hasAnthropicApiKey: key !== null,
 			anthropicApiKeyPreview: key === null ? null : key.trim().slice( -4 ),
-		} ) );
-		mocks.setAiProvider.mockImplementation( async ( provider: string ) => ( {
-			provider,
-			hasAnthropicApiKey: true,
-			anthropicApiKeyPreview: '1234',
 		} ) );
 		server = await startLocalServer( {
 			cliBinary: '/mock/cli.mjs',
@@ -216,55 +209,30 @@ describe( 'local web server Connect contracts', () => {
 		expect( mocks.saveAnthropicApiKey ).not.toHaveBeenCalled();
 	} );
 
-	it( 'switches the AI provider', async () => {
+	it( 'rejects pinning a session to an unknown provider', async () => {
 		const response = await fetch(
-			`${ server.url.replace( 'localhost', '127.0.0.1' ) }/api/ai-settings/provider`,
+			`${ server.url.replace( 'localhost', '127.0.0.1' ) }/api/sessions/some-session/provider`,
 			{
-				method: 'PUT',
+				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify( { provider: 'anthropic-api-key' } ),
-			}
-		);
-
-		expect( response.status ).toBe( 200 );
-		await expect( response.json() ).resolves.toMatchObject( { provider: 'anthropic-api-key' } );
-		expect( mocks.setAiProvider ).toHaveBeenCalledWith( 'anthropic-api-key' );
-	} );
-
-	it( 'returns 400 with the message when Anthropic rejects the saved key', async () => {
-		mocks.setAiProvider.mockRejectedValueOnce(
-			new InvalidAnthropicApiKeyError(
-				'Anthropic rejected this API key. Check the key and try again.'
-			)
-		);
-
-		const response = await fetch(
-			`${ server.url.replace( 'localhost', '127.0.0.1' ) }/api/ai-settings/provider`,
-			{
-				method: 'PUT',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify( { provider: 'anthropic-api-key' } ),
+				body: JSON.stringify( { provider: 'claude-code', model: 'claude-sonnet-5' } ),
 			}
 		);
 
 		expect( response.status ).toBe( 400 );
-		await expect( response.json() ).resolves.toEqual( {
-			error: 'Anthropic rejected this API key. Check the key and try again.',
-		} );
 	} );
 
-	it( 'rejects an unknown AI provider', async () => {
+	it( 'rejects pinning a session to a model the provider cannot serve', async () => {
 		const response = await fetch(
-			`${ server.url.replace( 'localhost', '127.0.0.1' ) }/api/ai-settings/provider`,
+			`${ server.url.replace( 'localhost', '127.0.0.1' ) }/api/sessions/some-session/provider`,
 			{
-				method: 'PUT',
+				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify( { provider: 'claude-code' } ),
+				body: JSON.stringify( { provider: 'anthropic-api-key', model: 'gpt-5.6-sol' } ),
 			}
 		);
 
 		expect( response.status ).toBe( 400 );
-		expect( mocks.setAiProvider ).not.toHaveBeenCalled();
 	} );
 
 	it( 'delegates deletion to the CLI cascade', async () => {

@@ -6,7 +6,6 @@ import {
 import {
 	readAiSettings,
 	saveAnthropicApiKey as saveAnthropicApiKeyToConfig,
-	setAiProvider as setAiProviderInConfig,
 } from '@studio/common/ai/settings-store';
 import { type TracksInstructionsLengthBucket } from '@studio/common/lib/record-tracks-event';
 import {
@@ -32,7 +31,6 @@ import {
 	unlockAppdata,
 	updateAppdata,
 } from 'src/storage/user-data';
-import type { AiProviderId, AiSettings } from '@studio/common/ai/providers';
 
 export function getInstalledAppsAndTerminals(): InstalledApps {
 	return {
@@ -297,34 +295,20 @@ export async function getAiSettings() {
 	return readAiSettings();
 }
 
-// One event for both handlers: clearing the key also moves the provider back to WordPress.com.
 // The key is never sent; the preview comparison only detects a key being swapped.
-async function recordAiSettingsChange( previous: AiSettings, next: AiSettings ): Promise< void > {
-	const unchanged =
-		previous.provider === next.provider &&
-		previous.hasAnthropicApiKey === next.hasAnthropicApiKey &&
-		previous.anthropicApiKeyPreview === next.anthropicApiKeyPreview;
-	if ( unchanged ) {
-		return;
-	}
-	await recordTracksEvent( TRACKS_EVENTS.SETTING_AI_PROVIDER_CHANGE, {
-		provider: next.provider,
-		has_anthropic_api_key: next.hasAnthropicApiKey,
-		surface: 'settings',
-	} );
-}
-
 export async function saveAnthropicApiKey( _event: IpcMainInvokeEvent, key: string | null ) {
 	const previous = await readAiSettings();
 	const settings = await saveAnthropicApiKeyToConfig( key );
-	await recordAiSettingsChange( previous, settings );
-	return settings;
-}
-
-export async function setAiProvider( _event: IpcMainInvokeEvent, provider: AiProviderId ) {
-	const previous = await readAiSettings();
-	const settings = await setAiProviderInConfig( provider );
-	await recordAiSettingsChange( previous, settings );
+	const changed =
+		previous.hasAnthropicApiKey !== settings.hasAnthropicApiKey ||
+		previous.anthropicApiKeyPreview !== settings.anthropicApiKeyPreview;
+	if ( changed ) {
+		await recordTracksEvent( TRACKS_EVENTS.SETTING_AI_PROVIDER_CHANGE, {
+			provider: settings.provider,
+			has_anthropic_api_key: settings.hasAnthropicApiKey,
+			surface: 'settings',
+		} );
+	}
 	return settings;
 }
 

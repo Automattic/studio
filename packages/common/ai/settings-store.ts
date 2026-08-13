@@ -117,26 +117,6 @@ export async function saveAnthropicApiKey( key: string | null ): Promise< AiSett
 	);
 }
 
-/**
- * Selects the provider for new conversations. Switching to Anthropic refuses a
- * key Anthropic rejects, but accepts an unverifiable one. Existing sessions
- * keep the provider recorded in their session context.
- */
-export async function setAiProvider( provider: AiProviderId ): Promise< AiSettings > {
-	if ( provider === 'anthropic-api-key' ) {
-		const anthropicApiKey = await readAnthropicApiKey();
-		if ( ! anthropicApiKey ) {
-			throw new InvalidAnthropicApiKeyError( 'Add an Anthropic API key first.' );
-		}
-		const validation = await validateAnthropicApiKey( anthropicApiKey );
-		if ( validation.status === 'invalid' ) {
-			throw new InvalidAnthropicApiKeyError( validation.message );
-		}
-	}
-
-	return updateAiProviderConfig( { aiProvider: provider } );
-}
-
 /** Persists the provider without validation — for flows that already ran it. */
 export async function persistSelectedAiProvider( provider: AiProviderId ): Promise< void > {
 	await updateAiProviderConfig( { aiProvider: provider } );

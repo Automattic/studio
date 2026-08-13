@@ -735,6 +735,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				body: JSON.stringify( { model } ),
 			} );
 		},
+		async setSessionProvider( sessionId, provider, model ) {
+			await api( `/sessions/${ encodeURIComponent( sessionId ) }/provider`, {
+				method: 'POST',
+				body: JSON.stringify( { provider, model } ),
+			} );
+		},
 		async interruptAgentRun( runId ) {
 			await api( `/runs/${ encodeURIComponent( runId ) }/interrupt`, { method: 'POST' } );
 		},
@@ -845,12 +851,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			return api< AiSettings >( '/ai-settings', {
 				method: 'PUT',
 				body: JSON.stringify( { anthropicApiKey: key } ),
-			} );
-		},
-		async setAiProvider( provider: AiProviderId ): Promise< AiSettings > {
-			return api< AiSettings >( '/ai-settings/provider', {
-				method: 'PUT',
-				body: JSON.stringify( { provider } ),
 			} );
 		},
 

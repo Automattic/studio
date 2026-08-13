@@ -1,4 +1,6 @@
 import { AI_MODELS, type AiModelFamily } from './models';
+import { isStudioCustomEntryOfType } from './sessions/entry-types';
+import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 
 // The literal entries of AI_MODELS, so `id` stays the `AiModelId` union
 // instead of widening to `string` for callers that key off it.
@@ -12,6 +14,12 @@ export const AI_PROVIDER_IDS = [ 'wpcom', 'anthropic-api-key' ] as const;
 export type AiProviderId = ( typeof AI_PROVIDER_IDS )[ number ];
 
 export const DEFAULT_AI_PROVIDER: AiProviderId = 'wpcom';
+
+// Brand names, not translated.
+export const AI_PROVIDER_LABELS: Record< AiProviderId, string > = {
+	wpcom: 'WordPress.com',
+	'anthropic-api-key': 'Anthropic API key',
+};
 
 // Which model families each provider can service. `wpcom` relays both
 // Anthropic and OpenAI wire formats through the same proxy; direct-API
@@ -41,6 +49,25 @@ export function isAiProviderId( value: string ): value is AiProviderId {
 
 export function getAiProviderModels( provider: AiProviderId ): readonly AiProviderModel[] {
 	return PROVIDER_MODELS.get( provider ) ?? [];
+}
+
+/**
+ * The provider a session is pinned to: the most recent `studio.session_context`
+ * entry wins (the CLI writes one per turn, the UI one per explicit switch).
+ * Returns undefined when the session never recorded one — callers fall back to
+ * the saved global selection. Mirrors `resolveResumeSessionContext` in the CLI.
+ */
+export function resolveSessionProvider( entries: SessionEntry[] ): AiProviderId | undefined {
+	for ( let index = entries.length - 1; index >= 0; index -= 1 ) {
+		const entry = entries[ index ];
+		if ( isStudioCustomEntryOfType( entry, 'studio.session_context' ) ) {
+			const { provider } = entry.data ?? {};
+			if ( typeof provider === 'string' && isAiProviderId( provider ) ) {
+				return provider;
+			}
+		}
+	}
+	return undefined;
 }
 
 /**

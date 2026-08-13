@@ -6,7 +6,6 @@ import {
 	InvalidAnthropicApiKeyError,
 	readAiSettings,
 	saveAnthropicApiKey,
-	setAiProvider,
 } from '../settings-store';
 
 describe( 'ai settings store', () => {
@@ -21,7 +20,7 @@ describe( 'ai settings store', () => {
 		configDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-ai-settings-' ) );
 		previousDevConfigDir = process.env.DEV_CONFIG_DIR;
 		process.env.DEV_CONFIG_DIR = configDir;
-		// Selecting the Anthropic provider validates the key; default to "valid".
+		// Saving a key validates it against Anthropic; default to "valid".
 		vi.stubGlobal( 'fetch', vi.fn().mockResolvedValue( { ok: true, status: 200 } ) );
 	} );
 
@@ -72,11 +71,11 @@ describe( 'ai settings store', () => {
 			hasAnthropicApiKey: true,
 		} );
 
-		await setAiProvider( 'wpcom' );
+		await saveAnthropicApiKey( 'sk-ant-api03-newkey-0000' );
 
 		expect( readShared() ).toMatchObject( {
-			aiProvider: 'wpcom',
-			anthropicApiKey: 'sk-ant-api03-legacykey-9999',
+			aiProvider: 'anthropic-api-key',
+			anthropicApiKey: 'sk-ant-api03-newkey-0000',
 		} );
 	} );
 
@@ -92,21 +91,6 @@ describe( 'ai settings store', () => {
 		await expect( saveAnthropicApiKey( 'sk-ant-api03-testkey-abcd1234' ) ).resolves.toMatchObject( {
 			hasAnthropicApiKey: true,
 		} );
-	} );
-
-	it( 'selects the Anthropic provider once its key is accepted', async () => {
-		await saveAnthropicApiKey( 'sk-ant-api03-testkey-abcd1234' );
-
-		await expect( setAiProvider( 'anthropic-api-key' ) ).resolves.toMatchObject( {
-			provider: 'anthropic-api-key',
-		} );
-		expect( readShared().aiProvider ).toBe( 'anthropic-api-key' );
-	} );
-
-	it( 'refuses the Anthropic provider without a saved key', async () => {
-		await expect( setAiProvider( 'anthropic-api-key' ) ).rejects.toBeInstanceOf(
-			InvalidAnthropicApiKeyError
-		);
 	} );
 
 	it( 'clears the key, falls back to WordPress.com, and preserves unrelated fields', async () => {
@@ -147,21 +131,6 @@ describe( 'ai settings store', () => {
 		const settings = await saveAnthropicApiKey( 'sk-short-key-1234' );
 
 		expect( settings.anthropicApiKeyPreview ).toBe( '...1234' );
-	} );
-
-	it( 'refuses a rejected key on switch but accepts an unverifiable one', async () => {
-		await saveAnthropicApiKey( 'sk-ant-api03-testkey-abcd1234' );
-
-		vi.stubGlobal( 'fetch', vi.fn().mockResolvedValue( { ok: false, status: 401 } ) );
-		await expect( setAiProvider( 'anthropic-api-key' ) ).rejects.toBeInstanceOf(
-			InvalidAnthropicApiKeyError
-		);
-		await expect( readAiSettings() ).resolves.toMatchObject( { provider: 'wpcom' } );
-
-		vi.stubGlobal( 'fetch', vi.fn().mockRejectedValue( new Error( 'offline' ) ) );
-		await expect( setAiProvider( 'anthropic-api-key' ) ).resolves.toMatchObject( {
-			provider: 'anthropic-api-key',
-		} );
 	} );
 
 	it( 'treats an unknown stored provider as the default', async () => {

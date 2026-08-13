@@ -24,16 +24,3 @@ export function useSaveAnthropicApiKey() {
 		},
 	} );
 }
-
-// Rejects with the reason when the provider can't be used, leaving the previous
-// one in place.
-export function useSetAiProvider() {
-	const connector = useConnector();
-	const queryClient = useQueryClient();
-	return useMutation( {
-		mutationFn: ( provider: AiProviderId ) => connector.setAiProvider( provider ),
-		onSuccess: ( settings ) => {
-			queryClient.setQueryData< AiSettings >( AI_SETTINGS_QUERY_KEY, settings );
-		},
-	} );
-}

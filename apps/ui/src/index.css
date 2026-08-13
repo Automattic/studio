@@ -16,8 +16,13 @@
 	   app-chrome stacking contexts (sidebar header z-index: 1, floating
 	   toggle z-index: 30). Menus stay below modal surfaces; tooltips live
 	   above dialogs so help text on controls inside a modal still surfaces
-	   above the containing overlay. */
+	   above the containing overlay. Every layer needs a value: @wordpress/ui
+	   falls back to `initial` (auto), which loses to any positioned chrome. */
+	--wp-ui-popover-z-index: 700;
+	--wp-ui-autocomplete-z-index: 700;
+	--wp-ui-combobox-z-index: 700;
 	--wp-ui-dialog-z-index: 700;
+	--wp-ui-drawer-z-index: 700;
 	--wp-ui-select-z-index: 750;
 	--wp-ui-tooltip-z-index: 800;
 

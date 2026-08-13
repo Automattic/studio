@@ -8,6 +8,7 @@ import type { SiteEvent } from '@studio/common/lib/cli-events';
 import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 import type { SupportedLocale } from '@studio/common/lib/locale';
 import type {
+	TracksAuthSource,
 	TracksEventName,
 	TracksProps,
 	TracksSiteCreateFlowType,
@@ -184,7 +185,9 @@ export interface Connector {
 	agenticRequiresAuth: boolean;
 	isAuthenticated(): Promise< boolean >;
 	getAuthUser(): Promise< AuthUser | null >;
-	authenticate( signup?: boolean ): Promise< void >;
+	// `source` records the affordance the login started from, for `studio_wpcom_auth`. Only the IPC
+	// connector can report it — the browser connectors have no Main process to record through.
+	authenticate( signup?: boolean, source?: TracksAuthSource ): Promise< void >;
 	logout(): Promise< void >;
 	onAuthStateChanged?( listener: () => void ): () => void;
 

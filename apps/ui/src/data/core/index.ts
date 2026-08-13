@@ -18,6 +18,7 @@ export type {
 	ProposedSitePath,
 	PullSiteProgress,
 	PullSyncOptions,
+	PushPhase,
 	PushSyncOptions,
 	QuitSitesBehavior,
 	SelectedSiteFolder,

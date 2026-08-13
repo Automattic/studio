@@ -135,28 +135,45 @@ export interface CliRunner {
 	killAll(): void;
 }
 
+// How long a child gets to exit on SIGTERM before it is killed outright.
+const SIGKILL_GRACE_MS = 2000;
+
+// Only kills the child; its `close` handler still runs so awaiting callers
+// see a failure instead of hanging forever.
+export function killChild( child: ChildProcess ): void {
+	const pid = child.pid;
+
+	// `child.kill()` only terminates the forked CLI process; on Windows its
+	// php.exe descendants would orphan and keep their DLLs locked. `taskkill
+	// /T` walks the whole tree instead.
+	if ( process.platform === 'win32' && pid ) {
+		spawnSync( 'taskkill', [ '/F', '/T', '/PID', String( pid ) ], {
+			windowsHide: true,
+			stdio: 'ignore',
+		} );
+		return;
+	}
+
+	child.kill();
+
+	// SIGTERM is only a request, and the CLI ignores it: importing
+	// `wordpress-server-manager` registers a handler that aborts a controller
+	// without ever exiting, which replaces Node's default terminate. A child
+	// busy importing a site therefore survives `kill()` indefinitely — a
+	// cancelled sync would report "stopped" while still writing to the site.
+	// SIGKILL cannot be caught or ignored.
+	const forceKill = setTimeout( () => {
+		if ( child.exitCode === null && child.signalCode === null ) {
+			child.kill( 'SIGKILL' );
+		}
+	}, SIGKILL_GRACE_MS );
+	forceKill.unref?.();
+	child.once( 'exit', () => clearTimeout( forceKill ) );
+}
+
 export function createCliRunner( config: CliRunnerConfig ): CliRunner {
 	const { cliBinary, nodeBinary, execArgv = [ '--experimental-wasm-jspi' ], onError } = config;
 	const liveChildren = new Set< ChildProcess >();
-
-	// Only kills the child; its `close` handler still runs so awaiting callers
-	// see a failure instead of hanging forever.
-	function killChild( child: ChildProcess ): void {
-		const pid = child.pid;
-
-		// `child.kill()` only terminates the forked CLI process; on Windows its
-		// php.exe descendants would orphan and keep their DLLs locked. `taskkill
-		// /T` walks the whole tree instead.
-		if ( process.platform === 'win32' && pid ) {
-			spawnSync( 'taskkill', [ '/F', '/T', '/PID', String( pid ) ], {
-				windowsHide: true,
-				stdio: 'ignore',
-			} );
-			return;
-		}
-
-		child.kill();
-	}
 
 	function executeCliCommand(
 		args: string[],

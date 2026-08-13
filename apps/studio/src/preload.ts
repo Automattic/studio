@@ -39,8 +39,8 @@ const api: IpcApi = {
 			optionsToSync,
 			specificSelectionPaths
 		),
-	pushSiteToLive: ( selectedSiteId, remoteSiteId ) =>
-		ipcRendererInvoke( 'pushSiteToLive', selectedSiteId, remoteSiteId ),
+	pushSiteToLive: ( selectedSiteId, remoteSiteId, options ) =>
+		ipcRendererInvoke( 'pushSiteToLive', selectedSiteId, remoteSiteId, options ),
 	deleteSite: ( id, deleteFiles ) => ipcRendererInvoke( 'deleteSite', id, deleteFiles ),
 	copySite: ( sourceSiteId, newSiteId, siteName ) =>
 		ipcRendererInvoke( 'copySite', sourceSiteId, newSiteId, siteName ),
@@ -150,8 +150,13 @@ const api: IpcApi = {
 	getConnectedWpcomSites: ( localSiteId ) =>
 		ipcRendererInvoke( 'getConnectedWpcomSites', localSiteId ),
 	fetchSyncableWpcomSites: () => ipcRendererInvoke( 'fetchSyncableWpcomSites' ),
-	pullSiteFromLive: ( siteId, remoteSiteId ) =>
-		ipcRendererInvoke( 'pullSiteFromLive', siteId, remoteSiteId ),
+	getHostingPhpVersion: ( remoteSiteId ) =>
+		ipcRendererInvoke( 'getHostingPhpVersion', remoteSiteId ),
+	getLatestRewindId: ( remoteSiteId ) => ipcRendererInvoke( 'getLatestRewindId', remoteSiteId ),
+	listRemoteFileTree: ( remoteSiteId, rewindId, treePath ) =>
+		ipcRendererInvoke( 'listRemoteFileTree', remoteSiteId, rewindId, treePath ),
+	pullSiteFromLive: ( siteId, remoteSiteId, options ) =>
+		ipcRendererInvoke( 'pullSiteFromLive', siteId, remoteSiteId, options ),
 	addSyncOperation: ( id, status ) => ipcRendererSend( 'addSyncOperation', id, status ),
 	clearSyncOperation: ( id ) => ipcRendererSend( 'clearSyncOperation', id ),
 	cancelSyncOperation: ( id ) => ipcRendererSend( 'cancelSyncOperation', id ),
@@ -165,14 +170,15 @@ const api: IpcApi = {
 	readLocalMediaFile: ( path ) => ipcRendererInvoke( 'readLocalMediaFile', path ),
 	setWebviewViewport: ( webContentsId, viewport ) =>
 		ipcRendererInvoke( 'setWebviewViewport', webContentsId, viewport ),
+	clearWebviewCache: ( webContentsId ) => ipcRendererInvoke( 'clearWebviewCache', webContentsId ),
 	isFullscreen: () => ipcRendererInvoke( 'isFullscreen' ),
 	getAllCustomDomains: () => ipcRendererInvoke( 'getAllCustomDomains' ),
 	saveUserTerminal: ( preferredTerminal ) =>
 		ipcRendererInvoke( 'saveUserTerminal', preferredTerminal ),
 	getUserTerminal: () => ipcRendererInvoke( 'getUserTerminal' ),
 	getGlobalAgentInstructions: () => ipcRendererInvoke( 'getGlobalAgentInstructions' ),
-	saveGlobalAgentInstructions: ( content ) =>
-		ipcRendererInvoke( 'saveGlobalAgentInstructions', content ),
+	saveGlobalAgentInstructions: ( content, options ) =>
+		ipcRendererInvoke( 'saveGlobalAgentInstructions', content, options ),
 	previewColorScheme: ( colorScheme ) => ipcRendererInvoke( 'previewColorScheme', colorScheme ),
 	saveColorScheme: ( colorScheme ) => ipcRendererInvoke( 'saveColorScheme', colorScheme ),
 	getColorScheme: () => ipcRendererInvoke( 'getColorScheme' ),

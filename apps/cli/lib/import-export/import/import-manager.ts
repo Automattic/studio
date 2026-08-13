@@ -8,6 +8,7 @@ import {
 } from '@studio/common/lib/import-export-events';
 import { __ } from '@wordpress/i18n';
 import { SiteData } from 'cli/lib/cli-config/core';
+import { LoggerError } from 'cli/logger';
 import { ImportExportEventEmitter } from '../events';
 import { BackupHandlerFactory } from './handlers/backup-handler-factory';
 import {
@@ -60,7 +61,11 @@ class BackupImporter extends ImportExportEventEmitter implements Importer {
 	async import( site: SiteData ): Promise< ImporterResult > {
 		const backupHandler = BackupHandlerFactory.create( this.backupFile );
 		if ( ! backupHandler ) {
-			throw new Error( __( 'No suitable backup handler found for the provided backup file' ) );
+			throw new LoggerError(
+				__( 'No suitable backup handler found for the provided backup file' ),
+				undefined,
+				'no_backup_handler'
+			);
 		}
 
 		const extractionDirectory = await fs.promises.mkdtemp(
@@ -73,7 +78,11 @@ class BackupImporter extends ImportExportEventEmitter implements Importer {
 			const importer = selectImporter( fileList, extractionDirectory, this.importerOptions );
 
 			if ( ! importer ) {
-				throw new Error( __( 'No suitable importer found for the provided backup contents' ) );
+				throw new LoggerError(
+					__( 'No suitable importer found for the provided backup contents' ),
+					undefined,
+					'no_importer_found'
+				);
 			}
 			this.emit( ValidatorEvents.IMPORT_VALIDATION_COMPLETE );
 
@@ -85,7 +94,18 @@ class BackupImporter extends ImportExportEventEmitter implements Importer {
 				importer.on( eventName, ( data ) => this.emit( eventName, data ) );
 			}
 
-			await backupHandler.extractFiles( this.backupFile, extractionDirectory );
+			try {
+				await backupHandler.extractFiles( this.backupFile, extractionDirectory );
+			} catch ( error ) {
+				// Tag extraction failures for analytics at the single funnel every backup handler
+				// passes through, so the `extract` code is attached in both IPC and logger modes.
+				// Errors that already carry a code (e.g. the wpress handler's `file_not_found`)
+				// keep their more specific one.
+				if ( error instanceof LoggerError && error.code ) {
+					throw error;
+				}
+				throw new LoggerError( __( 'Failed to extract backup' ), error, 'extract' );
+			}
 
 			const result = await importer.import( site );
 

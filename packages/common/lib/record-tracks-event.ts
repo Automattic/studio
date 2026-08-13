@@ -20,6 +20,8 @@ export const TRACKS_EVENTS = {
 	SITE_OPEN_CUSTOMIZE: 'studio_site_open_customize',
 	SITE_OPEN_PHPMYADMIN: 'studio_site_open_phpmyadmin',
 	SITE_OPEN_FOLDER: 'studio_site_open_folder',
+	SITE_IMPORT: 'studio_site_imported',
+	SITE_EXPORT: 'studio_site_exported',
 	PREVIEW_SITE_CREATE: 'studio_preview_site_create',
 	PREVIEW_SITE_UPDATE: 'studio_preview_site_update',
 	PREVIEW_SITE_DELETE: 'studio_preview_site_delete',
@@ -36,6 +38,10 @@ export const TRACKS_EVENTS = {
 	SETTING_CLI_CHANGE: 'studio_setting_cli_change',
 	SETTING_AGENTIC_FEATURES_CHANGE: 'studio_setting_agentic_features_change',
 	SETTING_UI_CHANGE: 'studio_setting_ui_change',
+	SETTING_INSTRUCTIONS_CHANGE: 'studio_setting_instructions_change',
+	CODE_MESSAGE_SENT: 'studio_code_message_sent',
+	CODE_TURN_COMPLETED: 'studio_code_turn_completed',
+	CODE_SESSION_CREATED: 'studio_code_session_created',
 } as const;
 
 export type TracksEventName = ( typeof TRACKS_EVENTS )[ keyof typeof TRACKS_EVENTS ];
@@ -86,6 +92,19 @@ export type TracksCustomizeEntryPoint =
 	| 'menus'
 	| 'widgets';
 
+// Studio Code event vocabulary, using the data team's shared AI-event property names.
+export interface TracksAiIdentity {
+	ai_session_id: string;
+	agent_name: string;
+	client: TracksAiClient;
+}
+
+// Which AI product the event came from; `channel` still records the surface.
+export type TracksAiClient = 'studio-code';
+
+// Sent as `length_bucket`; bucketed because the instructions text is never sent.
+export type TracksInstructionsLengthBucket = 'empty' | 'short' | 'medium' | 'long';
+
 // The site panel/tab a `studio_panel_opened` event refers to. Studio Classic emits the tab-strip names
 // (`sync`/`import-export`/`previews` are Classic-only); the agentic UI reuses the shared names —
 // `settings` for its General tab and `debugging` for its Debugging tab.
@@ -126,6 +145,12 @@ export function __buildTracksPixelUrl(
 	return url.toString();
 }
 
+function omitUndefined( props: TracksProps ): TracksProps {
+	return Object.fromEntries(
+		Object.entries( props ).filter( ( [ , value ] ) => value !== undefined )
+	);
+}
+
 // Returns true if we attempted to record the event. Fire-and-forget, no-ops in E2E/dev like
 // `__bumpStat`.
 export function __recordTracksEvent(
@@ -140,7 +165,9 @@ export function __recordTracksEvent(
 	}
 
 	if ( process.env.E2E || process.env.NODE_ENV === 'development' ) {
-		console.info( `Would have recorded Tracks event: ${ eventName }`, props );
+		// Log what would actually be sent: the builder drops `undefined` props, so printing the raw
+		// object would show optional props as `undefined` and imply they were part of the request.
+		console.info( `Would have recorded Tracks event: ${ eventName }`, omitUndefined( props ) );
 		return false;
 	}
 

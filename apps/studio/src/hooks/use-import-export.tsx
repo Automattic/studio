@@ -126,6 +126,9 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 				await getIpcApi().importSite( selectedSite.id, filePath, {
 					alwaysStartServer: true,
 					showNotification: showImportNotification,
+					// `studio_site_imported` means a user-initiated import into an existing site —
+					// add-site-flow imports are not counted.
+					suppressTracksEvent: isNewSite,
 				} );
 			} catch ( error ) {
 				// The main process handles displaying the error modal, so we don't need any explicit error

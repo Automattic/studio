@@ -1,4 +1,4 @@
-import { ACCEPTED_IMPORT_FILE_TYPES } from '@studio/common/constants';
+import { ACCEPTED_ADD_SITE_FILE_TYPES } from '@studio/common/constants';
 import { isSupportedBackupFilename } from '@studio/common/lib/backup-files';
 import { createRoute, Link, useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
@@ -30,10 +30,12 @@ function ImportBackupCard() {
 	const handleFile = useCallback(
 		( file?: File ) => {
 			if ( ! file ) return;
-			if ( ! isSupportedBackupFilename( file.name ) ) {
+			// A .sql dump is a database without the files that go with it, so it can
+			// only be imported over an existing site — not used to create one.
+			if ( ! isSupportedBackupFilename( file.name, ACCEPTED_ADD_SITE_FILE_TYPES ) ) {
 				setError(
 					__(
-						'This file type is not supported. Please use a .zip, .gz, .gzip, .tar, .tar.gz, .wpress, .sql, or .xml file.'
+						'This file type is not supported. Please use a .zip, .gz, .gzip, .tar, .tar.gz, .wpress, or .xml file.'
 					)
 				);
 				return;
@@ -51,7 +53,7 @@ function ImportBackupCard() {
 			<input
 				ref={ inputRef }
 				type="file"
-				accept={ ACCEPTED_IMPORT_FILE_TYPES.join( ',' ) }
+				accept={ ACCEPTED_ADD_SITE_FILE_TYPES.join( ',' ) }
 				className={ styles.hiddenInput }
 				onChange={ ( event ) => {
 					handleFile( event.target.files?.[ 0 ] );

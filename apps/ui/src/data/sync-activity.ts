@@ -1,6 +1,10 @@
 import { useSyncExternalStore } from 'react';
 import type { PullSiteProgress } from '@/data/core';
 
+// Structurally what `PullSiteProgress` already is, named for the wider set of
+// operations that report through here.
+export type ActivityProgress = PullSiteProgress;
+
 // Tracks in-flight and recently completed live-site sync operations so the
 // Site Details header can surface a cross-page indicator. Uses a module-
 // level store (rather than React context) so the state survives component
@@ -10,7 +14,13 @@ import type { PullSiteProgress } from '@/data/core';
 // `preview` covers creating or refreshing the WordPress.com-hosted preview
 // snapshot. Grouped in here alongside push/pull so the dropdown's single
 // activity indicator can surface any live-sync-like operation consistently.
-export type SyncDirection = 'push' | 'pull' | 'preview';
+//
+// `import` is not a live-site operation at all, but it is the same shape of
+// thing from the UI's point of view: long-running, scoped to one site, and it
+// rewrites that site underneath you. It lives here so a site being imported
+// reads the same way in the sidebar and dropdown as one being pulled — and so
+// two concurrent imports stay told apart by site, which a global toast can't do.
+export type SyncDirection = 'push' | 'pull' | 'preview' | 'import';
 
 export type SyncActivity =
 	| { kind: 'pending'; direction: SyncDirection; message?: string; progress?: number }
@@ -62,8 +72,8 @@ export function reportSyncPending( siteId: string, direction: SyncDirection ): v
 
 export function reportSyncProgress(
 	siteId: string,
-	direction: Extract< SyncDirection, 'pull' >,
-	progress: PullSiteProgress
+	direction: Extract< SyncDirection, 'pull' | 'import' >,
+	progress: ActivityProgress
 ): void {
 	clearExpiryTimer( siteId );
 	entries.set( siteId, { kind: 'pending', direction, ...progress } );

@@ -64,7 +64,7 @@ async function renderPrompt( tree: TreeNode[] ) {
 }
 
 describe( 'treeCheckbox hint rows', () => {
-	it( 'renders the hint dimmed and without a checkbox', async () => {
+	it( 'renders without a checkbox and stays out of the selection', async () => {
 		const prompt = await renderPrompt( treeWithHint() );
 		const hintLine = prompt
 			.frame()
@@ -75,14 +75,7 @@ describe( 'treeCheckbox hint rows', () => {
 		// The checkbox glyphs used for selectable rows.
 		expect( hintLine ).not.toMatch( /[◉◯◐]/ );
 
-		await prompt.press( KEY.enter );
-		await prompt.answer;
-	} );
-
-	it( 'ignores space on a hint and keeps it out of the selection', async () => {
-		const prompt = await renderPrompt( treeWithHint() );
-
-		// plugins/ → hello.php → the hint row.
+		// plugins/ → hello.php → the hint row, where space must do nothing.
 		await prompt.press( KEY.down );
 		await prompt.press( KEY.down );
 		await prompt.press( KEY.space );

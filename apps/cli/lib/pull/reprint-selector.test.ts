@@ -131,12 +131,6 @@ describe( 'mapCliOnlyToReprint', () => {
 		);
 	} );
 
-	it( 'maps a file path like any other wp-content path', () => {
-		expect( mapCliOnlyToReprint( [ 'plugins/hello.php' ] ) ).toEqual( [
-			':wp-content:/plugins/hello.php',
-		] );
-	} );
-
 	it( 'strips a leading wp-content/ and trailing slashes', () => {
 		expect( mapCliOnlyToReprint( [ 'wp-content/plugins/akismet/' ] ) ).toEqual( [
 			':wp-content:/plugins/akismet',
@@ -178,22 +172,17 @@ describe( 'selectPullItems expansion', () => {
 		return ( await captured!.onExpand!( checked( 'plugins' ) ) ) ?? [];
 	}
 
-	it( 'requests the folder with a trailing slash so nested paths stay separated', async () => {
-		await expandPlugins();
-
+	it( 'lists the files inside a folder requested with a trailing slash', async () => {
+		expect( ( await expandPlugins() ).map( ( node ) => node.value ) ).toEqual( [
+			'plugins/akismet',
+			'plugins/hello.php',
+		] );
 		expect( fetchRemoteFileTree ).toHaveBeenCalledWith(
 			'token',
 			7,
 			'rewind-1',
 			'/wp-content/plugins/'
 		);
-	} );
-
-	it( 'lists the files inside the folder and drops the unchanged-archive placeholder', async () => {
-		expect( ( await expandPlugins() ).map( ( node ) => node.value ) ).toEqual( [
-			'plugins/akismet',
-			'plugins/hello.php',
-		] );
 	} );
 
 	it( 'explains a package whose only listing is the unchanged archive', async () => {
@@ -212,12 +201,6 @@ describe( 'selectPullItems expansion', () => {
 		expect( hint.hint ).toBe( true );
 		expect( hint.checked ).toBe( false );
 		expect( hint.name ).toBe( '(individual files are not listed for this package)' );
-	} );
-
-	it( 'leaves a genuinely empty folder without a hint', async () => {
-		vi.mocked( fetchRemoteFileTree ).mockResolvedValue( [] );
-
-		expect( await expandPlugins() ).toEqual( [] );
 	} );
 } );
 

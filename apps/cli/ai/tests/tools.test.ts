@@ -321,6 +321,7 @@ describe( 'Studio AI MCP tools', () => {
 		} ).find( ( tool ) => tool.name === 'studio_present' );
 		expect( namesWithArtifacts ).not.toContain( 'show_artifact' );
 		expect( namesWithArtifacts ).toContain( 'studio_present' );
+		expect( studioPresent?.description ).not.toMatch( /\bdesks?\b/i );
 		expect( namesWithArtifacts ).toContain( 'site_create' );
 		expect( namesWithArtifacts ).toContain( 'wp_cli' );
 		expect( studioPresent?.description ).toContain( '- site-code-scratchpad:' );

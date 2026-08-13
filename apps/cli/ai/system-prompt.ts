@@ -110,12 +110,12 @@ function buildStudioUiEnvironment( surface: AgentSurface, chatArtifactsEnabled: 
 
 Studio tools automatically show deterministic visual results such as a created site, page, post, or displayed screenshot. For internal screenshot checks while iterating, pass \`display: false\`; let only deliberate milestone captures appear in the conversation.
 
-You can also call \`studio_present\` to show desks widgets when a user-visible result or durable context benefits from a visual. Do not use it for routine inspection, low-level file reads, internal edits, or noisy intermediate steps.
+You can also call \`studio_present\` to show inline visual artifacts when a user-visible result or durable context benefits from a visual. Do not use it for routine inspection, low-level file reads, internal edits, or noisy intermediate steps.
 
 Presentation rules:
 ${ getStudioPresentationRulesPrompt() }
 
-Available desks widget types:
+Available visual artifact types:
 ${ getStudioWidgetPromptManifest() }`
 		: '';
 
@@ -210,7 +210,7 @@ function buildLocalIntro( options: {
 	const studioPresentToolBullet =
 		options.environment.kind === 'studio-ui' && options.environment.chatArtifactsEnabled
 			? `
-- studio_present: Show one or more Studio desks widgets as inline visual artifacts.`
+- studio_present: Show one or more inline visual artifacts in Studio.`
 			: '';
 	const refreshBrowserToolBullet = studioUiAttached
 		? `

@@ -37,6 +37,7 @@ describe( 'buildSystemPrompt', () => {
 		const prompt = buildSystemPrompt( studioUiOptions );
 
 		expect( prompt ).toContain( '### Visual artifacts' );
+		expect( prompt ).not.toMatch( /\bdesks?\b/i );
 		expect( prompt ).toContain( '- post-lists:' );
 		expect( prompt ).toContain( 'one post-collection widget' );
 		expect( prompt ).toContain( '- site-code-scratchpad:' );
@@ -192,6 +193,15 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).not.toContain( '- site-code-scratchpad:' );
 		expect( prompt ).not.toContain( '- saved-local-media:' );
 		expect( prompt ).not.toContain( '- screenshot-auto-artifact:' );
+		expect( prompt ).not.toContain( '- studio_present:' );
+	} );
+
+	it( 'omits Studio presentation rules without a visual surface', () => {
+		const prompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
+
+		expect( prompt ).toContain( '## Your environment: terminal' );
+		expect( prompt ).not.toContain( '### Visual artifacts' );
+		expect( prompt ).not.toContain( 'Available visual artifact types:' );
 		expect( prompt ).not.toContain( '- studio_present:' );
 	} );
 

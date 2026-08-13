@@ -159,6 +159,30 @@
 	color: var( --wpds-color-fg-content-error );
 }
 
+.instructionsTextarea {
+	box-sizing: border-box;
+	display: block;
+	inline-size: 100%;
+	min-block-size: 84px;
+	padding: var( --wpds-dimension-padding-md );
+	resize: vertical;
+	border: var( --wpds-border-width-xs ) solid var( --wpds-color-stroke-interactive-neutral );
+	border-radius: var( --wpds-border-radius-sm );
+	background: var( --wpds-color-bg-interactive-neutral-weak );
+	color: var( --wpds-color-fg-content-neutral );
+	font: inherit;
+	line-height: var( --wpds-typography-line-height-sm );
+}
+
+.instructionsTextarea::placeholder {
+	color: var( --wpds-color-fg-content-neutral-weak );
+}
+
+.instructionsTextarea:focus-visible {
+	outline: var( --wpds-border-width-focus ) solid var( --wpds-color-stroke-focus-brand );
+	outline-offset: 2px;
+}
+
 .preferenceSectionGroup {
 	box-sizing: border-box;
 	display: flex;

@@ -1,6 +1,7 @@
 import { GLOBAL_INSTRUCTIONS_MAX_LENGTH } from '@studio/common/ai/global-instructions';
-import { DataForm } from '@wordpress/dataviews';
+import { FormToggle } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
+import { clsx } from 'clsx';
 import { useEffect, useRef, useState } from 'react';
 import {
 	useAgentInstructions,
@@ -8,37 +9,16 @@ import {
 } from '@/data/queries/use-agent-instructions';
 import styles from './style.module.css';
 import { SAVE_DEBOUNCE_MS } from './use-debounced-save';
-import type { Field, Form } from '@wordpress/dataviews';
-
-interface FormData {
-	content: string;
-}
-
-const FIELDS: Field< FormData >[] = [
-	{
-		id: 'content',
-		type: 'text',
-		label: __( 'Instructions' ),
-		description: __(
-			'Global instructions for the Studio Code agent. They are included in every new conversation, across all sites.'
-		),
-		placeholder: __( 'e.g. Always answer in French. My sites are for restaurants.' ),
-		Edit: { control: 'textarea', rows: 12 },
-	},
-];
-
-const FORM: Form = {
-	layout: { type: 'regular', labelPosition: 'top' },
-	fields: [ 'content' ],
-};
 
 export function StudioCodePanel() {
 	const { data: saved } = useAgentInstructions();
 	const { mutate: save, isError } = useSaveAgentInstructions();
 	const [ edits, setEdits ] = useState< string | null >( null );
+	const [ userEnabled, setUserEnabled ] = useState< boolean | null >( null );
 
 	const content = edits ?? saved ?? '';
 	const isDirty = saved !== undefined && content !== saved;
+	const enabled = userEnabled ?? ( saved?.length ?? 0 ) > 0;
 
 	const pending = useRef< string | null >( null );
 	// Latest content, and the value this visit started from.
@@ -92,20 +72,50 @@ export function StudioCodePanel() {
 		return <div className={ styles.state }>{ __( 'Loading…' ) }</div>;
 	}
 
-	const showCounter = content.length >= GLOBAL_INSTRUCTIONS_MAX_LENGTH * 0.8;
+	const showCounter = enabled && content.length >= GLOBAL_INSTRUCTIONS_MAX_LENGTH * 0.8;
+
+	const handleToggle = () => {
+		if ( enabled ) {
+			setUserEnabled( false );
+			setEdits( '' );
+		} else {
+			setUserEnabled( true );
+		}
+	};
 
 	return (
-		<div className={ styles.preferencesPanel }>
-			<DataForm< FormData >
-				data={ { content } }
-				fields={ FIELDS }
-				form={ FORM }
-				onChange={ ( update ) =>
-					setEdits(
-						( ( update.content as string ) ?? '' ).slice( 0, GLOBAL_INSTRUCTIONS_MAX_LENGTH )
-					)
-				}
-			/>
+		<section className={ styles.preferenceSectionGroup }>
+			<section className={ styles.preferenceRow }>
+				<div className={ styles.preferenceText }>
+					<h2>{ __( 'Instructions' ) }</h2>
+					<p>
+						{ __(
+							'Global instructions for the Studio Code agent. They are included in every new conversation, across all sites.'
+						) }
+					</p>
+				</div>
+				<div className={ clsx( styles.preferenceControl, styles.toggleControl ) }>
+					<FormToggle
+						checked={ enabled }
+						aria-label={ __( 'Enable instructions' ) }
+						aria-controls="agent-instructions-editor"
+						onChange={ handleToggle }
+					/>
+				</div>
+			</section>
+			{ enabled ? (
+				<textarea
+					id="agent-instructions-editor"
+					className={ styles.instructionsTextarea }
+					aria-label={ __( 'Instructions' ) }
+					rows={ 3 }
+					placeholder={ __( 'e.g. Always answer in French. My sites are for restaurants.' ) }
+					value={ content }
+					onChange={ ( event ) =>
+						setEdits( event.target.value.slice( 0, GLOBAL_INSTRUCTIONS_MAX_LENGTH ) )
+					}
+				/>
+			) : null }
 			{ isError && (
 				<p className={ styles.instructionsError }>
 					{ __( 'Saving the instructions failed. Please try again.' ) }
@@ -118,6 +128,6 @@ export function StudioCodePanel() {
 					</span>
 				</div>
 			) }
-		</div>
+		</section>
 	);
 }

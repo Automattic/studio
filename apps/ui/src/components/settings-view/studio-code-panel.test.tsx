@@ -7,22 +7,6 @@ import {
 } from '@/data/queries/use-agent-instructions';
 import { StudioCodePanel } from './studio-code-panel';
 
-vi.mock( '@wordpress/dataviews', () => ( {
-	DataForm: ( {
-		data,
-		onChange,
-	}: {
-		data: { content: string };
-		onChange: ( update: { content: string } ) => void;
-	} ) => (
-		<textarea
-			aria-label="Instructions"
-			value={ data.content }
-			onChange={ ( event ) => onChange( { content: event.target.value } ) }
-		/>
-	),
-} ) );
-
 vi.mock( '@/data/queries/use-agent-instructions', () => ( {
 	useAgentInstructions: vi.fn(),
 	useSaveAgentInstructions: vi.fn(),
@@ -60,6 +44,32 @@ describe( 'StudioCodePanel', () => {
 
 		expect( save ).toHaveBeenCalledTimes( 1 );
 		expect( save ).toHaveBeenCalledWith( { content: 'Answer in Spanish.' } );
+	} );
+
+	it( 'starts disabled when no instructions are saved and reveals the editor when enabled', () => {
+		useAgentInstructionsMock.mockReturnValue( { data: '' } as never );
+
+		render( <StudioCodePanel /> );
+
+		const toggle = screen.getByRole( 'checkbox', { name: 'Enable instructions' } );
+		expect( toggle ).not.toBeChecked();
+		expect( screen.queryByLabelText( 'Instructions' ) ).not.toBeInTheDocument();
+
+		fireEvent.click( toggle );
+
+		expect( toggle ).toBeChecked();
+		expect( screen.getByLabelText( 'Instructions' ) ).toBeInTheDocument();
+	} );
+
+	it( 'clears saved instructions when disabled', () => {
+		render( <StudioCodePanel /> );
+
+		fireEvent.click( screen.getByRole( 'checkbox', { name: 'Enable instructions' } ) );
+		expect( screen.queryByLabelText( 'Instructions' ) ).not.toBeInTheDocument();
+
+		act( () => void vi.advanceTimersByTime( 800 ) );
+
+		expect( save ).toHaveBeenCalledWith( { content: '' } );
 	} );
 
 	it( 'flushes a pending edit when the panel unmounts mid-debounce', () => {

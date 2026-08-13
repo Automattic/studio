@@ -21,7 +21,7 @@
 }
 
 .userName {
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -29,7 +29,7 @@
 }
 
 .sidebarToggle {
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 	margin-inline-end: calc(-1 * var(--wpds-dimension-padding-sm));
 }
 
@@ -43,14 +43,14 @@
 .row:hover .sidebarToggle,
 .row:focus-within .userName,
 .row:focus-within .sidebarToggle {
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 }
 
 .userTrigger {
 	--user-menu-avatar-offset: 2px;
 
 	flex: 1;
-	font-weight: var(--wpds-typography-font-weight-regular);
+	font-weight: var(--wpds-typography-font-weight-default);
 	gap: calc(var(--wpds-dimension-gap-sm) + var(--user-menu-avatar-offset));
 	padding-inline-start: calc(var(--wpds-dimension-padding-sm) - var(--user-menu-avatar-offset));
 }
@@ -65,8 +65,8 @@
 	height: 20px;
 	border-radius: 50%;
 	flex-shrink: 0;
-	background-color: var(--wpds-color-bg-surface-neutral);
-	color: var(--wpds-color-fg-content-neutral-weak);
+	background-color: var(--wpds-color-background-surface-neutral);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 }
 
 .settingsAvatar svg {

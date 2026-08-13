@@ -12,19 +12,19 @@
 	flex-direction: column;
 	gap: 4px;
 	padding: var(--wpds-dimension-padding-md) var(--wpds-dimension-padding-lg);
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 	font-size: var(--wpds-typography-font-size-sm);
 	line-height: var(--wpds-typography-line-height-sm);
 }
 
 .activityStatusPending {
-	background: var(--wpds-color-bg-surface-neutral);
+	background: var(--wpds-color-background-surface-neutral);
 }
 
 .activityStatusError {
 	background: color-mix(
 		in srgb,
-		var(--wpds-color-fg-content-error, var(--wpds-color-fg-content-neutral)) 8%,
+		var(--wpds-color-foreground-content-error, var(--wpds-color-foreground-content-neutral)) 8%,
 		transparent
 	);
 }
@@ -36,13 +36,13 @@
 .activityStatusError .activityStatusTitle {
 	color: color-mix(
 		in srgb,
-		var(--site-dropdown-menu-foreground, var(--wpds-color-fg-content-neutral)) 72%,
-		var(--wpds-color-fg-content-error, var(--wpds-color-fg-content-neutral))
+		var(--site-dropdown-menu-foreground, var(--wpds-color-foreground-content-neutral)) 72%,
+		var(--wpds-color-foreground-content-error, var(--wpds-color-foreground-content-neutral))
 	);
 }
 
 .activityStatusMessage {
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 	white-space: pre-wrap;
 	word-break: break-word;
 }
@@ -54,7 +54,7 @@
 }
 
 .xdebugBadge_stopped {
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 }
 
 .xdebugGlyph {
@@ -74,12 +74,12 @@
 .localServerControl {
 	--local-server-track-bg: color-mix(
 		in srgb,
-		var(--wpds-color-fg-content-neutral) 14%,
+		var(--wpds-color-foreground-content-neutral) 14%,
 		transparent
 	);
 	--local-server-track-bg-hover: color-mix(
 		in srgb,
-		var(--wpds-color-fg-content-neutral) 22%,
+		var(--wpds-color-foreground-content-neutral) 22%,
 		transparent
 	);
 	--local-server-track-border: color-mix(
@@ -90,11 +90,11 @@
 	--local-server-track-border-hover: var(--wpds-color-stroke-surface-neutral);
 	--local-server-track-shadow: color-mix(
 		in srgb,
-		var(--wpds-color-fg-content-neutral) 6%,
+		var(--wpds-color-foreground-content-neutral) 6%,
 		transparent
 	);
-	--local-server-thumb-bg: var(--wpds-color-fg-content-neutral);
-	--local-server-thumb-color: var(--wpds-color-bg-surface-neutral-strong);
+	--local-server-thumb-bg: var(--wpds-color-foreground-content-neutral);
+	--local-server-thumb-color: var(--wpds-color-background-surface-neutral-strong);
 	--local-server-thumb-ring: color-mix(
 		in srgb,
 		var(--wpds-color-stroke-surface-neutral) 52%,
@@ -102,7 +102,7 @@
 	);
 	--local-server-thumb-shadow: color-mix(
 		in srgb,
-		var(--wpds-color-fg-content-neutral) 14%,
+		var(--wpds-color-foreground-content-neutral) 14%,
 		transparent
 	);
 
@@ -118,7 +118,7 @@
 	border-radius: 999px;
 	appearance: none;
 	background-color: var(--local-server-track-bg);
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 	cursor: var(--wpds-cursor-control);
 	box-shadow:
 		inset 0 0 0 var(--wpds-border-width-xs) var(--local-server-track-border),
@@ -153,7 +153,7 @@
 
 .localServerControl:focus-visible {
 	background-color: var(--local-server-track-bg);
-	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus-brand);
+	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus);
 	outline-offset: 2px;
 }
 
@@ -242,7 +242,7 @@
 }
 
 .urlLink:hover {
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 	text-decoration: underline;
 	text-underline-offset: 2px;
 }
@@ -279,14 +279,14 @@
 	font-size: var(--wpds-typography-font-size-md);
 	line-height: 1.25;
 	font-weight: 500;
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 }
 
 .environmentActionCopy {
 	margin: 0;
 	font-size: var(--wpds-typography-font-size-xs);
 	line-height: 1.4;
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 }
 
 .environmentActionButton {
@@ -306,7 +306,7 @@
 }
 
 .rowViewButton {
-	color: var(--wpds-color-fg-interactive-neutral);
+	color: var(--wpds-color-foreground-interactive-neutral);
 }
 
 .rowActionButton {
@@ -318,7 +318,7 @@
    the wp-ui layers and would override the design system's disabled dimming
    and the loading spinner's transparent-text state. */
 .rowActionButton:not([data-disabled]) {
-	color: var(--wpds-color-fg-interactive-neutral);
+	color: var(--wpds-color-foreground-interactive-neutral);
 }
 
 .rowActionButton svg {
@@ -328,8 +328,8 @@
 }
 
 .environmentActionButton_outline {
-	--wp-ui-button-background-color: var(--wpds-color-bg-surface-neutral-strong);
-	--wp-ui-button-background-color-active: var(--wpds-color-bg-surface-neutral);
+	--wp-ui-button-background-color: var(--wpds-color-background-surface-neutral-strong);
+	--wp-ui-button-background-color-active: var(--wpds-color-background-surface-neutral);
 	--wp-ui-button-border-color: var(--wpds-color-stroke-surface-neutral-weak);
 	--wp-ui-button-border-color-active: var(--wpds-color-stroke-surface-neutral);
 }
@@ -339,11 +339,11 @@
 	height: 28px;
 	padding: 0;
 	justify-content: center;
-	color: var(--wpds-color-fg-interactive-neutral);
+	color: var(--wpds-color-foreground-interactive-neutral);
 }
 
 .moreMenuTrigger:is([data-disabled], :disabled) {
-	color: var(--wpds-color-fg-interactive-neutral-disabled);
+	color: var(--wpds-color-foreground-interactive-neutral-disabled);
 }
 
 .moreMenuTrigger svg {

@@ -6,15 +6,15 @@
 .shell {
 	--composer-resting-fill: color-mix(
 		in srgb,
-		var(--wpds-color-bg-surface-neutral-weak, #f4f4f4) 82%,
+		var(--wpds-color-background-surface-neutral-weak, #f4f4f4) 82%,
 		transparent
 	);
 	--composer-resting-tint: color-mix(
 		in srgb,
-		var(--wpds-color-fg-content-neutral) 5%,
+		var(--wpds-color-foreground-content-neutral) 5%,
 		transparent
 	);
-	--composer-focus-ring: var(--wpds-color-fg-interactive-brand, #2563eb);
+	--composer-focus-ring: var(--wpds-color-foreground-interactive-brand, #2563eb);
 	--composer-border-radius: 8px 8px 20px 8px;
 	--composer-block-padding: var(--wpds-dimension-padding-md);
 	--composer-inline-padding: var(--wpds-dimension-padding-lg);
@@ -32,7 +32,7 @@
 }
 
 .shell:focus-within:not(:has(.resizeHandle:focus-visible)) {
-	background-color: var(--wpds-color-bg-surface-neutral-strong);
+	background-color: var(--wpds-color-background-surface-neutral-strong);
 	background-image: none;
 	backdrop-filter: none;
 	outline: 2px solid var(--composer-focus-ring);
@@ -89,8 +89,8 @@
 	align-items: center;
 	justify-content: center;
 	border-radius: var(--composer-border-radius);
-	background-color: var(--wpds-color-bg-surface-neutral-strong);
-	color: var(--wpds-color-fg-interactive-brand, #2563eb);
+	background-color: var(--wpds-color-background-surface-neutral-strong);
+	color: var(--wpds-color-foreground-interactive-brand, #2563eb);
 	font-size: var(--wpds-typography-font-size-sm);
 	pointer-events: none;
 }
@@ -140,13 +140,13 @@
 	overflow: hidden;
 	border: 1px solid var(--wpds-color-stroke-surface-neutral);
 	border-radius: 6px;
-	background-color: var(--wpds-color-bg-surface-neutral-strong);
+	background-color: var(--wpds-color-background-surface-neutral-strong);
 	color: inherit;
 }
 
 .attachmentItem:hover .attachmentTile,
 .attachmentItem:focus-within .attachmentTile {
-	border-color: var(--wpds-color-fg-interactive-brand, #2563eb);
+	border-color: var(--wpds-color-foreground-interactive-brand, #2563eb);
 }
 
 .attachmentPreviewImage,
@@ -163,8 +163,8 @@
 	box-sizing: border-box;
 	width: 100%;
 	margin: 0;
-	background-color: var(--wpds-color-bg-surface-neutral);
-	color: var(--wpds-color-fg-content-neutral);
+	background-color: var(--wpds-color-background-surface-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 	font-family: var(--wpds-typography-font-family-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
 	white-space: pre-wrap;
 	overflow-wrap: anywhere;
@@ -187,8 +187,8 @@
 	width: 100%;
 	height: 100%;
 	gap: 2px;
-	background-color: var(--wpds-color-bg-surface-neutral);
-	color: var(--wpds-color-fg-content-neutral-weak);
+	background-color: var(--wpds-color-background-surface-neutral);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 	font-size: 8px;
 	font-weight: 600;
 	line-height: 1;
@@ -208,7 +208,7 @@
 	padding: 0;
 	border: 1px solid var(--wpds-color-stroke-surface-neutral);
 	border-radius: 999px;
-	box-shadow: var(--wpds-elevation-small, 0 1px 2px rgb(0 0 0 / 16%));
+	box-shadow: 0 1px 2px rgb(0 0 0 / 16%);
 	cursor: pointer;
 	opacity: 0;
 	pointer-events: none;
@@ -219,9 +219,9 @@
 /* Doubled class keeps the native button background above generic button resets. */
 .attachmentRemove.attachmentRemove,
 .attachmentRemove.attachmentRemove:focus:not(:focus-visible) {
-	background: var(--wpds-color-bg-surface-neutral);
+	background: var(--wpds-color-background-surface-neutral);
 	border-color: var(--wpds-color-stroke-surface-neutral);
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 }
 
 .attachmentItem:hover .attachmentRemove,
@@ -239,7 +239,7 @@
 	overflow: hidden;
 	border: 1px solid var(--wpds-color-stroke-surface-neutral);
 	border-radius: 8px;
-	background-color: var(--wpds-color-bg-surface-neutral-strong);
+	background-color: var(--wpds-color-background-surface-neutral-strong);
 	box-shadow: 0 8px 24px rgb(0 0 0 / 18%);
 	animation: attachmentHoverPreviewIn 120ms ease-out;
 	pointer-events: none;
@@ -253,7 +253,7 @@
 	height: var(--attachment-hover-artwork-height);
 	overflow: hidden;
 	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
-	background-color: var(--wpds-color-bg-surface-neutral);
+	background-color: var(--wpds-color-background-surface-neutral);
 	user-select: none;
 }
 
@@ -261,7 +261,7 @@
 	width: 100%;
 	height: 100%;
 	overflow: hidden;
-	background-color: var(--wpds-color-bg-surface-neutral);
+	background-color: var(--wpds-color-background-surface-neutral);
 	user-select: none;
 }
 
@@ -280,7 +280,7 @@
 	flex-direction: column;
 	gap: 2px;
 	padding: 8px 10px;
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 	user-select: none;
 }
 
@@ -298,7 +298,7 @@
 	min-width: 0;
 	align-items: center;
 	gap: 5px;
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 	font-size: 11px;
 	line-height: 1.2;
 }
@@ -327,9 +327,9 @@
 .attachmentRemove.attachmentRemove:hover,
 .attachmentRemove.attachmentRemove:focus-visible,
 .attachmentRemove.attachmentRemove:active {
-	background: var(--wpds-color-bg-surface-neutral-weak, #f4f4f4);
+	background: var(--wpds-color-background-surface-neutral-weak, #f4f4f4);
 	border-color: var(--wpds-color-stroke-surface-neutral);
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 }
 
 .inputArea {
@@ -345,7 +345,7 @@
 		var(--wpds-dimension-padding-xs);
 	border: 0;
 	background: transparent;
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 	font-size: var(--wpds-typography-font-size-md);
 	line-height: 1.5;
 	width: 100%;
@@ -370,7 +370,7 @@
 	right: var(--composer-inline-padding);
 	left: var(--composer-inline-padding);
 	overflow: hidden;
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 	font-family: inherit;
 	font-size: var(--wpds-typography-font-size-md);
 	line-height: 1.5;
@@ -421,7 +421,7 @@
 	border: 0;
 	border-radius: var(--wpds-border-radius-sm, 4px);
 	background-color: transparent;
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 	cursor: pointer;
 	font: inherit;
 }
@@ -434,12 +434,12 @@
 .iconButton:hover:not(:disabled),
 .iconButton:focus-visible:not(:disabled) {
 	background-color: transparent;
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 }
 
 .iconButton:disabled {
 	cursor: not-allowed;
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 }
 
 .pill {
@@ -453,7 +453,7 @@
 	border: 0;
 	border-radius: var(--wpds-border-radius-sm, 4px);
 	background-color: transparent;
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 	font: inherit;
 	font-size: var(--wpds-typography-font-size-sm);
 	cursor: pointer;
@@ -470,7 +470,7 @@
 .pill:hover:not(:disabled),
 .pill:focus-visible:not(:disabled) {
 	background-color: transparent;
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 }
 
 .pill:disabled {
@@ -491,7 +491,7 @@
 
 .submenuChevron {
 	flex: 0 0 auto;
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 }
 
 .skillsMenuPopup {
@@ -512,14 +512,14 @@
 
 .skillMenuItemLabel {
 	overflow: hidden;
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 	font-weight: 500;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
 .skillMenuItemDescription {
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 	font-size: var(--wpds-typography-font-size-xs);
 	line-height: var(--wpds-typography-line-height-xs);
 	white-space: normal;
@@ -541,7 +541,7 @@
 }
 
 .sendButton {
-	background-color: var(--wpds-color-fg-interactive-brand, #2563eb);
+	background-color: var(--wpds-color-foreground-interactive-brand, #2563eb);
 	color: #fff;
 }
 
@@ -556,8 +556,8 @@
 }
 
 .stopButton {
-	background-color: var(--wpds-color-fg-content-neutral);
-	color: var(--wpds-color-bg-surface-neutral-strong);
+	background-color: var(--wpds-color-foreground-content-neutral);
+	color: var(--wpds-color-background-surface-neutral-strong);
 }
 
 .stopButton:hover,
@@ -595,7 +595,7 @@
 }
 
 .error {
-	color: var(--wpds-color-fg-content-error, #dc2626);
+	color: var(--wpds-color-foreground-content-error, #dc2626);
 	font-size: var(--wpds-typography-font-size-xs);
 }
 

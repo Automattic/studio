@@ -29,7 +29,7 @@
    .sidebar it would resolve against the outer light theme). */
 .sidebarThemeScope {
 	display: contents;
-	--sidebar-row-background: var(--wpds-color-bg-interactive-neutral-weak-active);
+	--sidebar-row-background: var(--wpds-color-background-interactive-neutral-weak-active);
 }
 
 /* While dragging the handle the width updates every frame; the collapse
@@ -101,7 +101,7 @@
 	margin-block: 12px;
 	margin-inline-start: -3px;
 	border-radius: 999px;
-	background-color: var(--wpds-color-fg-interactive-brand);
+	background-color: var(--wpds-color-foreground-interactive-brand);
 }
 
 /* Bottom-left of the main area. The 46px min-height and the negative bottom

@@ -12,7 +12,7 @@
 	height: 100vh;
 	padding: 40px 50px 20px;
 	overflow: hidden;
-	background: var(--wpds-color-bg-surface-neutral);
+	background: var(--wpds-color-background-surface-neutral);
 	/* New stacking context so the dot grid's negative z-index stays behind
 	   this page's content without escaping below ancestors. */
 	isolation: isolate;
@@ -150,7 +150,7 @@
 	background: linear-gradient(
 		to bottom,
 		transparent,
-		color-mix(in srgb, var(--wpds-color-bg-surface-neutral) 55%, transparent) 96px
+		color-mix(in srgb, var(--wpds-color-background-surface-neutral) 55%, transparent) 96px
 	);
 	-webkit-mask-image: linear-gradient(to bottom, transparent, black 96px);
 	mask-image: linear-gradient(to bottom, transparent, black 96px);
@@ -162,7 +162,7 @@
 }
 
 .subtitle {
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 	max-width: 440px;
 	margin: 0;
 }
@@ -171,7 +171,7 @@
 .legal {
 	max-width: 340px;
 	margin: 0;
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 	font-size: 12px;
 	line-height: 20px;
 	text-wrap: pretty;
@@ -184,7 +184,7 @@
 	border: none;
 	padding: 0;
 	font: inherit;
-	color: var(--wpds-color-fg-interactive-brand);
+	color: var(--wpds-color-foreground-interactive-brand);
 	text-decoration: underline;
 	cursor: pointer;
 	white-space: nowrap;
@@ -196,7 +196,7 @@
 }
 
 .linkButton:disabled {
-	color: var(--wpds-color-fg-interactive-neutral-disabled);
+	color: var(--wpds-color-foreground-interactive-neutral-disabled);
 	cursor: default;
 }
 
@@ -219,7 +219,7 @@
 	z-index: 1;
 	flex: 0 0 auto;
 	margin-top: 20px;
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 	font-size: var(--wpds-typography-font-size-sm);
 }
 
@@ -229,7 +229,7 @@
 	align-items: center;
 	gap: 8px;
 	font-size: 13px;
-	font-weight: var(--wpds-typography-font-weight-medium);
+	font-weight: var(--wpds-typography-font-weight-emphasis);
 }
 
 .identityAvatar {

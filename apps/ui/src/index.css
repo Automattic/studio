@@ -21,7 +21,7 @@
 	--wp-ui-select-z-index: 750;
 	--wp-ui-tooltip-z-index: 800;
 
-	/* Vivid status colors the wpds palette lacks: --wpds-color-fg-content-success
+	/* Vivid status colors the wpds palette lacks: --wpds-color-foreground-content-success
 	   resolves to #002900 (reads black at dot size) and there are no
 	   caution/accent equivalents. */
 	--studio-color-status-running: #16a34a;
@@ -36,8 +36,8 @@ body {
 	font-family: var( --wpds-typography-font-family-body );
 	font-size: var( --wpds-typography-font-size-md );
 	line-height: var( --wpds-typography-line-height-md );
-	background-color: var( --wpds-color-bg-surface-neutral );
-	color: var( --wpds-color-fg-content-neutral );
+	background-color: var( --wpds-color-background-surface-neutral );
+	color: var( --wpds-color-foreground-content-neutral );
 	color-scheme: light dark;
 	scrollbar-width: thin;
 	scrollbar-color: gray transparent;
@@ -75,7 +75,7 @@ body:lang( ckb ) [class*='components-'] {
    foreground so they match the surrounding UI in both schemes. */
 .components-base-control__help,
 [class*='dataforms-layouts'] [class*='description'] {
-	color: var( --wpds-color-fg-content-neutral-weak ) !important;
+	color: var( --wpds-color-foreground-content-neutral-weak ) !important;
 }
 
 /* Universal heading styles derived from the design system's font-size /
@@ -91,8 +91,8 @@ h4,
 h5,
 h6 {
 	font-family: var( --wpds-typography-font-family-heading );
-	font-weight: var( --wpds-typography-font-weight-regular );
-	color: var( --wpds-color-fg-content-neutral );
+	font-weight: var( --wpds-typography-font-weight-default );
+	color: var( --wpds-color-foreground-content-neutral );
 	margin: 0;
 }
 
@@ -180,8 +180,8 @@ a:focus:not( :focus-visible ),
 [data-wpds-theme-provider-id] [role='listbox'] [role='option'][data-highlighted]:not(
 		[aria-disabled='true']
 	) {
-	background-color: var( --wpds-color-bg-interactive-neutral-weak-active );
-	color: var( --wpds-color-fg-interactive-neutral );
+	background-color: var( --wpds-color-background-interactive-neutral-weak-active );
+	color: var( --wpds-color-foreground-interactive-neutral );
 }
 
 /* @wordpress/components' ComboboxControl (used by DataForm's adaptive
@@ -196,12 +196,12 @@ a:focus:not( :focus-visible ),
 
 .components-input-control__prefix svg,
 .components-input-control__suffix svg {
-	fill: var( --wpds-color-fg-content-neutral-weak );
+	fill: var( --wpds-color-foreground-content-neutral-weak );
 }
 
 select option {
-	background-color: var( --wpds-color-bg-surface-neutral );
-	color: var( --wpds-color-fg-content-neutral );
+	background-color: var( --wpds-color-background-surface-neutral );
+	color: var( --wpds-color-foreground-content-neutral );
 }
 
 /* @wordpress/components ships its RTL fixups in a separate style-rtl.css

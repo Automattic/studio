@@ -14,7 +14,7 @@
    and never settle into a chase. The negative delay backdates each cycle
    so every pixel is mid-breath on mount. */
 .pixel {
-	background-color: var(--wpds-color-fg-interactive-brand, #2563eb);
+	background-color: var(--wpds-color-foreground-interactive-brand, #2563eb);
 	opacity: 0.3;
 	animation: breathe var(--breathe-duration, 2.4s) ease-in-out infinite;
 	animation-delay: var(--breathe-delay, 0s);

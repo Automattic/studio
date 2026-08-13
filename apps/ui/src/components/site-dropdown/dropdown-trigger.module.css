@@ -1,8 +1,8 @@
 .trigger {
 	--site-dropdown-radius: var(--wpds-border-radius-lg);
-	--site-menu-active-fill: var(--wpds-color-bg-interactive-neutral-strong);
-	--site-menu-resting-fill: var(--wpds-color-bg-interactive-neutral-strong-active);
-	--site-menu-foreground: var(--wpds-color-fg-interactive-neutral-strong);
+	--site-menu-active-fill: var(--wpds-color-background-interactive-neutral-strong);
+	--site-menu-resting-fill: var(--wpds-color-background-interactive-neutral-strong-active);
+	--site-menu-foreground: var(--wpds-color-foreground-interactive-neutral-strong);
 	--wp-ui-button-background-color: var(--site-menu-resting-fill);
 	--wp-ui-button-background-color-active: var(--site-menu-active-fill);
 	--wp-ui-button-border-color: transparent;
@@ -98,7 +98,7 @@
 	color: color-mix(
 		in srgb,
 		var(--site-menu-foreground) 70%,
-		var(--wpds-color-fg-interactive-brand)
+		var(--wpds-color-foreground-interactive-brand)
 	);
 }
 
@@ -106,7 +106,7 @@
 	color: color-mix(
 		in srgb,
 		var(--site-menu-foreground) 72%,
-		var(--wpds-color-fg-content-success, var(--site-menu-foreground))
+		var(--wpds-color-foreground-content-success, var(--site-menu-foreground))
 	);
 }
 
@@ -114,7 +114,7 @@
 	color: color-mix(
 		in srgb,
 		var(--site-menu-foreground) 72%,
-		var(--wpds-color-fg-content-error, var(--site-menu-foreground))
+		var(--wpds-color-foreground-content-error, var(--site-menu-foreground))
 	);
 }
 
@@ -138,7 +138,7 @@
 
 .statusBadge_live {
 	background: #2563eb;
-	color: var(--wpds-color-fg-content-inverted, #fff);
+	color: #fff;
 }
 
 .statusBadge:not(.statusBadge_overlay).statusBadge_live {
@@ -152,7 +152,7 @@
 
 .statusBadge_stopped {
 	border-radius: 2px;
-	background: var(--wpds-color-fg-content-neutral-weak);
+	background: var(--wpds-color-foreground-content-neutral-weak);
 }
 
 .statusBadge_transitioning {
@@ -172,7 +172,7 @@
 }
 
 .dot_stopped {
-	background-color: var(--wpds-color-fg-content-neutral-weak);
+	background-color: var(--wpds-color-foreground-content-neutral-weak);
 }
 
 .dot_transitioning {
@@ -190,7 +190,7 @@
 	width: 1.5px;
 	height: 4px;
 	border-radius: 1px;
-	background: var(--wpds-color-bg-surface-neutral-strong);
+	background: var(--wpds-color-background-surface-neutral-strong);
 }
 
 .pauseMark {

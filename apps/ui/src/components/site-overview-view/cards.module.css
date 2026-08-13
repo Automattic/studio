@@ -4,7 +4,7 @@
 	box-sizing: border-box;
 	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
 	border-radius: var(--wpds-border-radius-md);
-	background: var(--wpds-color-bg-surface-neutral);
+	background: var(--wpds-color-background-surface-neutral);
 	min-width: 0;
 }
 
@@ -33,7 +33,7 @@
 	padding: 0;
 	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
 	border-radius: var(--wpds-border-radius-sm);
-	background: var(--wpds-color-bg-surface-neutral-strong);
+	background: var(--wpds-color-background-surface-neutral-strong);
 	cursor: var(--wpds-cursor-control);
 }
 
@@ -51,11 +51,11 @@
 	align-items: center;
 	justify-content: center;
 	gap: var(--wpds-dimension-padding-xs);
-	background: var(--wpds-color-bg-interactive-neutral-weak-active);
-	color: var(--wpds-color-fg-content-neutral);
+	background: var(--wpds-color-background-interactive-neutral-weak-active);
+	color: var(--wpds-color-foreground-content-neutral);
 	fill: currentColor;
 	font-size: var(--wpds-typography-font-size-xs);
-	font-weight: var(--wpds-typography-font-weight-medium);
+	font-weight: var(--wpds-typography-font-weight-emphasis);
 	opacity: 0;
 	transition: opacity 120ms ease;
 }
@@ -67,7 +67,7 @@
 }
 
 .thumbnail:focus-visible {
-	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus-brand);
+	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus);
 	outline-offset: 2px;
 }
 
@@ -86,7 +86,7 @@
 	overflow-wrap: anywhere;
 	font-size: var(--wpds-typography-font-size-sm);
 	line-height: var(--wpds-typography-line-height-sm);
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 }
 
 .themeMeta {
@@ -96,13 +96,13 @@
 	column-gap: var(--wpds-dimension-padding-xs);
 	font-size: var(--wpds-typography-font-size-xs);
 	line-height: var(--wpds-typography-line-height-xs);
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 }
 
 .tileLabel {
 	font-size: var(--wpds-typography-font-size-xs);
 	line-height: var(--wpds-typography-line-height-xs);
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 }
 
 .storageSection {
@@ -122,7 +122,7 @@
 .storageTotal {
 	font-size: var(--wpds-typography-font-size-xs);
 	line-height: var(--wpds-typography-line-height-xs);
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 }
 
 .storageInteractive {
@@ -130,7 +130,7 @@
 	--storage-plugins: light-dark(#c7367f, #d75c90);
 	--storage-themes: light-dark(#b26b00, #d39a38);
 	--storage-database: light-dark(#00918e, #22a79f);
-	--storage-other: var(--wpds-color-fg-content-neutral-weak);
+	--storage-other: var(--wpds-color-foreground-content-neutral-weak);
 
 	position: relative;
 	min-width: 0;
@@ -147,7 +147,7 @@
 .storageBar {
 	display: flex;
 	gap: 2px;
-	background: var(--wpds-color-bg-surface-neutral-weak);
+	background: var(--wpds-color-background-surface-neutral-weak);
 }
 
 .storageSegment {
@@ -157,7 +157,7 @@
 }
 
 .storageInteractive:focus-visible {
-	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus-brand);
+	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus);
 	outline-offset: 2px;
 }
 
@@ -194,9 +194,9 @@
 	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md);
 	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
 	border-radius: var(--wpds-border-radius-md);
-	background: var(--wpds-color-bg-surface-neutral-strong);
-	box-shadow: var(--wpds-elevation-sm);
-	color: var(--wpds-color-fg-content-neutral);
+	background: var(--wpds-color-background-surface-neutral-strong);
+	box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05), 0 2px 3px 0 rgba(0, 0, 0, 0.04), 0 6px 6px 0 rgba(0, 0, 0, 0.03), 0 8px 8px 0 rgba(0, 0, 0, 0.02);
+	color: var(--wpds-color-foreground-content-neutral);
 	opacity: 0;
 	visibility: hidden;
 	transform: translate(-50%, 4px);
@@ -240,15 +240,15 @@
 	min-width: 28px;
 	white-space: nowrap;
 	text-align: end;
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 }
 
 .storageSkeleton {
 	background: linear-gradient(
 		90deg,
-		var(--wpds-color-bg-surface-neutral-weak) 25%,
-		var(--wpds-color-bg-interactive-neutral-weak-active) 50%,
-		var(--wpds-color-bg-surface-neutral-weak) 75%
+		var(--wpds-color-background-surface-neutral-weak) 25%,
+		var(--wpds-color-background-interactive-neutral-weak-active) 50%,
+		var(--wpds-color-background-surface-neutral-weak) 75%
 	);
 	background-size: 200% 100%;
 	animation: storage-loading 1.4s ease-in-out infinite;

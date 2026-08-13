@@ -3,7 +3,7 @@
 	pointer-events: none;
 	overflow: hidden;
 	contain: paint;
-	--progressive-blur-surface-color: var(--wpds-color-bg-surface-neutral, Canvas);
+	--progressive-blur-surface-color: var(--wpds-color-background-surface-neutral, Canvas);
 	--progressive-blur-surface-strength: 78%;
 	--progressive-blur-surface-hold-stop: 58%;
 	--progressive-blur-surface-fade-stop: 100%;

@@ -13,11 +13,11 @@
 .popup {
 	min-width: 160px;
 	padding: var(--wpds-dimension-padding-xs);
-	background: var(--wpds-color-bg-surface-neutral-strong);
+	background: var(--wpds-color-background-surface-neutral-strong);
 	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral-weak);
 	border-radius: var(--wpds-border-radius-lg);
-	box-shadow: var(--wpds-elevation-md);
-	color: var(--wpds-color-fg-content-neutral);
+	box-shadow: 0 2px 3px 0 rgba(0, 0, 0, 0.05), 0 4px 5px 0 rgba(0, 0, 0, 0.04), 0 12px 12px 0 rgba(0, 0, 0, 0.03), 0 16px 16px 0 rgba(0, 0, 0, 0.02);
+	color: var(--wpds-color-foreground-content-neutral);
 	display: flex;
 	flex-direction: column;
 	gap: var(--wpds-dimension-padding-xs);
@@ -29,7 +29,7 @@
 	gap: var(--wpds-dimension-gap-sm);
 	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm);
 	border-radius: var(--wpds-border-radius-sm);
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 	font-size: var(--wpds-typography-font-size-sm);
 	line-height: var(--wpds-typography-line-height-sm);
 	cursor: var(--wpds-cursor-control);
@@ -39,21 +39,21 @@
 
 .item[data-highlighted],
 .item:hover {
-	background: var(--wpds-color-bg-surface-neutral);
+	background: var(--wpds-color-background-surface-neutral);
 }
 
 .itemDestructive {
-	color: var(--wpds-color-fg-interactive-error);
+	color: var(--wpds-color-foreground-interactive-error);
 }
 
 .itemDestructive[data-highlighted],
 .itemDestructive:hover {
-	background: var(--wpds-color-bg-interactive-error-active);
-	color: var(--wpds-color-fg-interactive-error-active);
+	background: var(--wpds-color-background-interactive-error-active);
+	color: var(--wpds-color-foreground-interactive-error-active);
 }
 
 .item[data-disabled] {
-	color: var(--wpds-color-fg-interactive-neutral-disabled);
+	color: var(--wpds-color-foreground-interactive-neutral-disabled);
 	cursor: not-allowed;
 }
 
@@ -72,7 +72,7 @@
 	width: 18px;
 	height: 18px;
 	flex-shrink: 0;
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 }
 
 .indicatorMark {
@@ -94,7 +94,7 @@
 
 .groupLabel {
 	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm) 0;
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 	font-size: var(--wpds-typography-font-size-xs);
 	line-height: var(--wpds-typography-line-height-sm);
 }

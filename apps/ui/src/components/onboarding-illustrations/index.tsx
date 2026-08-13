@@ -1,6 +1,6 @@
 import styles from './style.module.css';
 
-const STROKE = 'var(--wpds-color-fg-content-neutral)';
+const STROKE = 'var(--wpds-color-foreground-content-neutral)';
 
 export const illustrationHostClass = styles.host;
 

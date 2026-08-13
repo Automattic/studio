@@ -13,14 +13,14 @@
 }
 
 .prompt {
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 }
 
 .action {
 	padding: 0;
 	border: 0;
 	background: transparent;
-	color: var(--wpds-color-fg-interactive-brand);
+	color: var(--wpds-color-foreground-interactive-brand);
 	font: inherit;
 	font-weight: 500;
 	cursor: pointer;
@@ -48,8 +48,8 @@
 	padding: 8px 12px;
 	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-error);
 	border-radius: 4px;
-	background: var(--wpds-color-bg-surface-error-weak);
-	color: var(--wpds-color-fg-content-error);
+	background: var(--wpds-color-background-surface-error-weak);
+	color: var(--wpds-color-foreground-content-error);
 	text-align: center;
 }
 
@@ -61,8 +61,8 @@
 	align-items: center;
 	justify-content: center;
 	border: 2px dashed var(--wpds-color-stroke-interactive-brand, #3858e9);
-	background: var(--wpds-color-bg-surface-neutral-strong, #fff);
-	color: var(--wpds-color-fg-content-neutral, #1e1e1e);
+	background: var(--wpds-color-background-surface-neutral-strong, #fff);
+	color: var(--wpds-color-foreground-content-neutral, #1e1e1e);
 	font-size: 1.25rem;
 	font-weight: 600;
 	pointer-events: none;

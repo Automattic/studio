@@ -266,3 +266,39 @@ select option {
 		--surface-alpha: 100%;
 	}
 }
+
+html:active-view-transition-type(theme-details)::view-transition-old(root),
+html:active-view-transition-type(theme-details)::view-transition-new(root) {
+	animation: none;
+	mix-blend-mode: normal;
+}
+
+html:active-view-transition-type(theme-details)::view-transition-group(studio-theme-customize),
+html:active-view-transition-type(theme-details)::view-transition-group(studio-theme-open-in),
+html:active-view-transition-type(theme-details)::view-transition-group(studio-theme-manage),
+html:active-view-transition-type(theme-details)::view-transition-group(.studio-theme-shortcut) {
+	animation-duration: 220ms;
+	animation-timing-function: cubic-bezier( 0.2, 0, 0, 1 );
+}
+
+html:active-view-transition-type(theme-details)::view-transition-old(.studio-theme-shortcut) {
+	animation: studio-theme-shortcut-out 140ms ease-in both;
+}
+
+html:active-view-transition-type(theme-details)::view-transition-new(.studio-theme-shortcut) {
+	animation: studio-theme-shortcut-in 180ms 40ms ease-out both;
+}
+
+@keyframes studio-theme-shortcut-out {
+	to {
+		opacity: 0;
+		transform: scale( 0.96 );
+	}
+}
+
+@keyframes studio-theme-shortcut-in {
+	from {
+		opacity: 0;
+		transform: scale( 0.96 );
+	}
+}

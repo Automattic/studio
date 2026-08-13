@@ -1,7 +1,9 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
+import { flushSync } from 'react-dom';
 import { useConnector } from '@/data/core';
 import type { Connector, SiteDetails } from '@/data/core';
+import type { QueryClient } from '@tanstack/react-query';
 
 export type ThemeDetails = NonNullable< SiteDetails[ 'themeDetails' ] >;
 
@@ -21,6 +23,41 @@ export async function fetchThemeDetails( connector: Connector, siteId: string ) 
 	return ( await connector.getThemeDetails?.( siteId ) ) ?? null;
 }
 
+const activeThemeRefreshes = new Map< string, Promise< ThemeDetails | null > >();
+
+export function refreshThemeDetails(
+	connector: Connector,
+	queryClient: QueryClient,
+	siteId: string
+): Promise< ThemeDetails | null > {
+	const activeRefresh = activeThemeRefreshes.get( siteId );
+	if ( activeRefresh ) {
+		return activeRefresh;
+	}
+
+	const refresh = fetchThemeDetails( connector, siteId )
+		.then( ( details ) => {
+			const update = () => {
+				flushSync( () => queryClient.setQueryData( themeDetailsQueryKey( siteId ), details ) );
+			};
+			const reduceMotion = window.matchMedia?.( '(prefers-reduced-motion: reduce)' ).matches;
+			if ( ! reduceMotion && document.startViewTransition ) {
+				const transition = document.startViewTransition( {
+					types: [ 'theme-details' ],
+					update,
+				} );
+				void transition.finished.catch( () => undefined );
+			} else {
+				update();
+			}
+			return details;
+		} )
+		.finally( () => activeThemeRefreshes.delete( siteId ) );
+
+	activeThemeRefreshes.set( siteId, refresh );
+	return refresh;
+}
+
 /**
  * The site's active theme, resolving through the host when the site list did
  * not already carry the persisted details. Desktop delegates to the same
@@ -28,10 +65,11 @@ export async function fetchThemeDetails( connector: Connector, siteId: string ) 
  */
 export function useThemeDetails( site: SiteDetails ): ThemeDetailsStatus {
 	const connector = useConnector();
+	const queryClient = useQueryClient();
 	const persisted = site.themeDetails;
 	const canResolve = site.running && Boolean( connector.getThemeDetails );
 
-	const { data, isError, isPending, refetch } = useQuery( {
+	const { data, isError, isPending } = useQuery( {
 		queryKey: themeDetailsQueryKey( site.id ),
 		// React Query rejects `undefined` as data, and "the host doesn't know"
 		// is a legitimate answer here, so it travels as null.
@@ -46,12 +84,12 @@ export function useThemeDetails( site: SiteDetails ): ThemeDetailsStatus {
 			return;
 		}
 
-		const refreshThemeDetails = () => {
-			void refetch();
+		const handleFocus = () => {
+			void refreshThemeDetails( connector, queryClient, site.id ).catch( () => undefined );
 		};
-		window.addEventListener( 'focus', refreshThemeDetails );
-		return () => window.removeEventListener( 'focus', refreshThemeDetails );
-	}, [ canResolve, refetch ] );
+		window.addEventListener( 'focus', handleFocus );
+		return () => window.removeEventListener( 'focus', handleFocus );
+	}, [ canResolve, connector, queryClient, site.id ] );
 
 	if ( data ) {
 		return { state: 'ready', details: data };

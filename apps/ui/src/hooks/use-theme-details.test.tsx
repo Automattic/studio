@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
-import { useThemeDetails } from './use-theme-details';
+import { refreshThemeDetails, themeDetailsQueryKey, useThemeDetails } from './use-theme-details';
 import type { SiteDetails } from '@/data/core';
 import type { ReactNode } from 'react';
 
@@ -80,5 +80,32 @@ describe( 'useThemeDetails', () => {
 
 		expect( result.current ).toEqual( { state: 'ready', details: blockTheme } );
 		expect( getThemeDetails ).not.toHaveBeenCalled();
+	} );
+
+	it( 'transitions the complete theme-details cache update when supported', async () => {
+		getThemeDetails.mockResolvedValue( classicTheme );
+		const startViewTransition = vi.fn( ( options: StartViewTransitionOptions ) => {
+			options.update?.();
+			return {
+				finished: Promise.resolve(),
+				ready: Promise.resolve(),
+				updateCallbackDone: Promise.resolve(),
+				types: new Set(),
+				skipTransition: vi.fn(),
+			} as unknown as ViewTransition;
+		} );
+		Object.defineProperty( document, 'startViewTransition', {
+			configurable: true,
+			value: startViewTransition,
+		} );
+
+		await refreshThemeDetails( { getThemeDetails } as never, queryClient, 'site-1' );
+
+		expect( startViewTransition ).toHaveBeenCalledWith( {
+			types: [ 'theme-details' ],
+			update: expect.any( Function ),
+		} );
+		expect( queryClient.getQueryData( themeDetailsQueryKey( 'site-1' ) ) ).toEqual( classicTheme );
+		Reflect.deleteProperty( document, 'startViewTransition' );
 	} );
 } );

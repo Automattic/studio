@@ -640,6 +640,17 @@ describe( 'SiteOverviewView', () => {
 		expect( screen.queryByText( 'Widgets' ) ).not.toBeInTheDocument();
 		expect( screen.queryByText( 'Site Editor' ) ).not.toBeInTheDocument();
 	} );
+
+	it( 'gives theme shortcuts stable identities for layout transitions', () => {
+		renderView();
+
+		expect( screen.getByText( 'Site Editor' ).closest( 'button' ) ).toHaveStyle( {
+			viewTransitionName: 'studio-theme-site-editor',
+		} );
+		expect( screen.getByText( 'Media Library' ).closest( 'button' ) ).toHaveStyle( {
+			viewTransitionName: 'studio-theme-media',
+		} );
+	} );
 	it( 'holds theme-dependent shortcuts while theme details load', () => {
 		useThemeDetailsMock.mockReturnValue( { state: 'loading' } );
 

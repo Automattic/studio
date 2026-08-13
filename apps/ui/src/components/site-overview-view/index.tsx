@@ -66,6 +66,7 @@ interface OverviewButtonProps {
 	loadingAnnouncement?: string;
 	className?: string;
 	brandIcon?: boolean;
+	transitionName?: string;
 }
 
 function OverviewHeader( {
@@ -106,12 +107,18 @@ function OverviewButton( {
 	loadingAnnouncement,
 	className,
 	brandIcon,
+	transitionName,
 }: OverviewButtonProps ) {
 	return (
 		<Button
 			variant="minimal"
 			tone="neutral"
 			className={ `${ styles.overviewButton } ${ className ?? '' }` }
+			style={
+				transitionName
+					? { viewTransitionName: transitionName, viewTransitionClass: 'studio-theme-shortcut' }
+					: undefined
+			}
 			disabled={ disabled }
 			loading={ loading }
 			loadingAnnouncement={ loadingAnnouncement }
@@ -137,14 +144,19 @@ function OverviewButton( {
 function ButtonSection( {
 	title,
 	loadingCount = 0,
+	transitionName,
 	children,
 }: {
 	title: string;
 	loadingCount?: number;
+	transitionName?: string;
 	children: ReactNode;
 } ) {
 	return (
-		<section className={ styles.buttonSection }>
+		<section
+			className={ styles.buttonSection }
+			style={ transitionName ? { viewTransitionName: transitionName } : undefined }
+		>
 			<h2 className={ styles.columnHeading }>{ title }</h2>
 			<div className={ styles.buttonGrid } aria-busy={ loadingCount > 0 }>
 				{ loadingCount > 0
@@ -177,7 +189,7 @@ function OpenInSection( {
 	);
 
 	return (
-		<ButtonSection title={ __( 'Open in…' ) }>
+		<ButtonSection title={ __( 'Open in…' ) } transitionName="studio-theme-open-in">
 			{ apps.map( ( destination ) => (
 				<OverviewButton
 					key={ destination.id }
@@ -316,16 +328,19 @@ function SiteOverviewBody( {
 									<ButtonSection
 										title={ __( 'Customize' ) }
 										loadingCount={ themeStatus.state === 'loading' ? 7 : 0 }
+										transitionName="studio-theme-customize"
 									>
 										{ isBlockTheme ? (
 											<>
 												<OverviewButton
+													transitionName="studio-theme-site-editor"
 													icon={ <Icon icon={ desktop } size={ 18 } /> }
 													label={ __( 'Site Editor' ) }
 													disabled={ busy }
 													onClick={ () => openCustomize( '/wp-admin/site-editor.php', 'editor' ) }
 												/>
 												<OverviewButton
+													transitionName="studio-theme-styles"
 													icon={ <Icon icon={ stylesIcon } size={ 18 } /> }
 													label={ __( 'Styles' ) }
 													disabled={ busy }
@@ -337,6 +352,7 @@ function SiteOverviewBody( {
 													}
 												/>
 												<OverviewButton
+													transitionName="studio-theme-patterns"
 													icon={ <Icon icon={ symbolFilled } size={ 18 } /> }
 													label={ __( 'Patterns' ) }
 													disabled={ busy }
@@ -348,6 +364,7 @@ function SiteOverviewBody( {
 													}
 												/>
 												<OverviewButton
+													transitionName="studio-theme-navigation"
 													icon={ <Icon icon={ navigation } size={ 18 } /> }
 													label={ __( 'Navigation' ) }
 													disabled={ busy }
@@ -359,6 +376,7 @@ function SiteOverviewBody( {
 													}
 												/>
 												<OverviewButton
+													transitionName="studio-theme-templates"
 													icon={ <Icon icon={ layout } size={ 18 } /> }
 													label={ __( 'Templates' ) }
 													disabled={ busy }
@@ -370,6 +388,7 @@ function SiteOverviewBody( {
 													}
 												/>
 												<OverviewButton
+													transitionName="studio-theme-pages"
 													icon={ <Icon icon={ page } size={ 18 } /> }
 													label={ __( 'Pages' ) }
 													disabled={ busy }
@@ -384,6 +403,7 @@ function SiteOverviewBody( {
 										) : (
 											<>
 												<OverviewButton
+													transitionName="studio-theme-customizer"
 													icon={ <Icon icon={ pencil } size={ 18 } /> }
 													label={ __( 'Customizer' ) }
 													disabled={ busy }
@@ -391,6 +411,7 @@ function SiteOverviewBody( {
 												/>
 												{ themeDetails?.supportsMenus ? (
 													<OverviewButton
+														transitionName="studio-theme-menus"
 														icon={ <Icon icon={ navigation } size={ 18 } /> }
 														label={ __( 'Menus' ) }
 														disabled={ busy }
@@ -399,6 +420,7 @@ function SiteOverviewBody( {
 												) : null }
 												{ themeDetails?.supportsWidgets ? (
 													<OverviewButton
+														transitionName="studio-theme-widgets"
 														icon={ <Icon icon={ widget } size={ 18 } /> }
 														label={ __( 'Widgets' ) }
 														disabled={ busy }
@@ -408,6 +430,7 @@ function SiteOverviewBody( {
 											</>
 										) }
 										<OverviewButton
+											transitionName="studio-theme-media"
 											icon={ <Icon icon={ media } size={ 18 } /> }
 											label={ __( 'Media Library' ) }
 											disabled={ busy }
@@ -419,7 +442,7 @@ function SiteOverviewBody( {
 										<OpenInSection site={ site } busy={ busy } openSiteUrl={ openSiteUrl } />
 									) }
 
-									<ButtonSection title={ __( 'Manage' ) }>
+									<ButtonSection title={ __( 'Manage' ) } transitionName="studio-theme-manage">
 										{ managementActions.map( ( action ) => (
 											<OverviewButton
 												key={ action.id }

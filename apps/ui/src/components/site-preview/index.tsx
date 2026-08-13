@@ -25,7 +25,7 @@ import {
 	useSiteOperation,
 	useStartSite,
 } from '@/data/queries/use-sites';
-import { fetchThemeDetails, themeDetailsQueryKey } from '@/hooks/use-theme-details';
+import { refreshThemeDetails } from '@/hooks/use-theme-details';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { getSiteUrl } from '@/lib/get-site-url';
 import { playIcon, refreshIcon } from '@/lib/icons';
@@ -792,13 +792,7 @@ export function SitePreview( {
 	const handlePreviewNavigation = useCallback(
 		( url: string ) => {
 			if ( isThemeActivationUrl( url ) && connector.getThemeDetails ) {
-				void queryClient
-					.fetchQuery( {
-						queryKey: themeDetailsQueryKey( site.id ),
-						queryFn: () => fetchThemeDetails( connector, site.id ),
-						staleTime: 0,
-					} )
-					.catch( () => undefined );
+				void refreshThemeDetails( connector, queryClient, site.id ).catch( () => undefined );
 			}
 			const nextPath = getPathFromPreviewUrl( url, siteUrl );
 			if ( ! nextPath || nextPath === path ) {

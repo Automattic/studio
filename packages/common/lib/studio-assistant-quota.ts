@@ -97,6 +97,13 @@ export function formatQuotaResetDate( date: string, locale?: string ): string {
 	} ).format( new Date( date ) );
 }
 
+export function formatQuotaResetDateShort( date: string, locale?: string ): string {
+	return new Intl.DateTimeFormat( locale, {
+		day: 'numeric',
+		month: 'short',
+	} ).format( new Date( date ) );
+}
+
 /**
  * User-facing copy for an account whose Studio Code AI access was explicitly
  * blocked (access === "blocked", STU-2143/STU-2146). Shared by every surface

@@ -1,9 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
 	formatAiAccessRequiredNotice,
+	formatQuotaResetDateShort,
 	getStudioCodeAiAccessState,
 	studioAssistantQuotaSchema,
 } from '@studio/common/lib/studio-assistant-quota';
+
+describe( 'formatQuotaResetDateShort', () => {
+	it( 'formats a compact localized month and day', () => {
+		expect( formatQuotaResetDateShort( '2026-08-01T12:00:00Z', 'en-US' ) ).toBe( 'Aug 1' );
+	} );
+} );
 
 const baseResponse = {
 	cost_usage: 10,

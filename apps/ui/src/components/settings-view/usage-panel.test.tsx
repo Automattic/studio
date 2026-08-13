@@ -36,28 +36,6 @@ vi.mock( '@wordpress/ui', () => ( {
 		void size;
 		return <button { ...props }>{ loading ? loadingAnnouncement : children }</button>;
 	},
-	IconButton: ( { label, disabled }: { label: string; disabled?: boolean } ) => (
-		<button type="button" aria-label={ label } disabled={ disabled } />
-	),
-} ) );
-
-vi.mock( '@/components/menu', () => ( {
-	Root: ( { children }: { children: ReactNode } ) => <div>{ children }</div>,
-	Trigger: ( { render: trigger }: { render: ReactNode } ) => trigger,
-	Popup: ( { children }: { children: ReactNode } ) => <div>{ children }</div>,
-	Item: ( {
-		children,
-		disabled,
-		onClick,
-	}: {
-		children: ReactNode;
-		disabled?: boolean;
-		onClick?: () => void;
-	} ) => (
-		<button type="button" disabled={ disabled } onClick={ onClick }>
-			{ children }
-		</button>
-	),
 } ) );
 
 vi.mock( '@/data/core', () => ( {
@@ -146,12 +124,11 @@ describe( 'UsagePanel', () => {
 		render( <UsagePanel /> );
 
 		expect( screen.getByRole( 'heading', { name: 'Usage' } ) ).toBeInTheDocument();
-		expect(
-			screen.getByText(
-				'AI credits are currently free while Studio Code is in Alpha. Build, iterate, and experiment, but know that credits will eventually have a cost.'
-			)
-		).toBeInTheDocument();
-		expect( screen.getByText( '2 of 10 active preview sites' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Free during Alpha' ) ).toBeInTheDocument();
+		expect( screen.getByText( '2/10' ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Delete all preview sites' } ) ).toHaveTextContent(
+			'Reset'
+		);
 		expect( useSnapshotsMock ).toHaveBeenCalledWith( 1 );
 		expect( useSnapshotUsageMock ).toHaveBeenCalledWith( 1 );
 		expect( useDeleteAllSnapshotsMock ).toHaveBeenCalledWith( 1 );
@@ -165,14 +142,20 @@ describe( 'UsagePanel', () => {
 
 		render( <UsagePanel /> );
 
-		expect(
-			screen.getByText( '25% of monthly limit used (resets on August 1, 2026)' )
-		).toBeInTheDocument();
-		expect(
-			screen.queryByText(
-				'AI credits are currently free while Studio Code is in Alpha. Build, iterate, and experiment, but know that credits will eventually have a cost.'
-			)
-		).not.toBeInTheDocument();
+		expect( screen.getByText( '25%' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Resets Aug 1' ) ).toBeInTheDocument();
+		expect( screen.queryByText( 'Free during Alpha' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'rounds a fractional AI usage percentage up to a whole number', () => {
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: { costUsage: 7.01, costCap: 100, costResetDate: '2026-08-01T12:00:00' },
+			isLoading: false,
+		} as never );
+
+		render( <UsagePanel /> );
+
+		expect( screen.getByText( '8%' ) ).toBeInTheDocument();
 	} );
 
 	it( 'shows an unavailable message when the quota fetch fails', () => {
@@ -187,11 +170,7 @@ describe( 'UsagePanel', () => {
 		expect(
 			screen.getByText( 'Studio Code limits are temporarily unavailable.' )
 		).toBeInTheDocument();
-		expect(
-			screen.queryByText(
-				'AI credits are currently free while Studio Code is in Alpha. Build, iterate, and experiment, but know that credits will eventually have a cost.'
-			)
-		).not.toBeInTheDocument();
+		expect( screen.queryByText( 'Free during Alpha' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'falls back to the Alpha copy when the quota has no cost cap', () => {
@@ -202,11 +181,7 @@ describe( 'UsagePanel', () => {
 
 		render( <UsagePanel /> );
 
-		expect(
-			screen.getByText(
-				'AI credits are currently free while Studio Code is in Alpha. Build, iterate, and experiment, but know that credits will eventually have a cost.'
-			)
-		).toBeInTheDocument();
+		expect( screen.getByText( 'Free during Alpha' ) ).toBeInTheDocument();
 	} );
 
 	it( 'shows the suspension copy for an explicitly blocked account', () => {
@@ -293,9 +268,8 @@ describe( 'UsagePanel', () => {
 
 		render( <UsagePanel /> );
 
-		expect(
-			screen.getByText( '25% of monthly limit used (resets on August 1, 2026)' )
-		).toBeInTheDocument();
+		expect( screen.getByText( '25%' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Resets Aug 1' ) ).toBeInTheDocument();
 	} );
 
 	it( 'confirms through the connector before deleting all preview sites', async () => {
@@ -349,8 +323,8 @@ describe( 'UsagePanel', () => {
 
 		expect( screen.getByRole( 'status' ) ).toHaveTextContent( "You're offline" );
 		// Cached figures are stale and can't be refreshed, so they stay hidden.
-		expect( screen.queryByText( /of monthly limit used/ ) ).not.toBeInTheDocument();
-		expect( screen.queryByText( /active preview site/ ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( '25%' ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( '2/10' ) ).not.toBeInTheDocument();
 		expect( screen.getAllByRole( 'img', { name: 'Unavailable' } ) ).toHaveLength( 2 );
 		expect(
 			screen.queryByRole( 'button', { name: 'Delete all preview sites' } )
@@ -378,14 +352,10 @@ describe( 'UsagePanel', () => {
 		render( <UsagePanel /> );
 
 		expect( screen.getByLabelText( 'Sign in to Studio' ) ).toBeInTheDocument();
-		expect( screen.queryByText( /active preview site/ ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( '2/10' ) ).not.toBeInTheDocument();
 		expect( screen.getAllByRole( 'img', { name: 'Unavailable' } ) ).toHaveLength( 2 );
 		// Studio Code needs an account, so the Alpha pricing copy stays hidden.
-		expect(
-			screen.queryByText(
-				'AI credits are currently free while Studio Code is in Alpha. Build, iterate, and experiment, but know that credits will eventually have a cost.'
-			)
-		).not.toBeInTheDocument();
+		expect( screen.queryByText( 'Free during Alpha' ) ).not.toBeInTheDocument();
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Log in with WordPress.com' } ) );
 

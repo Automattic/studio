@@ -247,7 +247,7 @@ async function findSymlinksInDir( dir: string ): Promise< string[] > {
 // (so a single grant covers a whole symlinked plugin/theme, not just one file).
 export async function resolveSymlinkAllowlistEntry( linkPath: string ): Promise< string | null > {
 	try {
-		const real = await fs.promises.realpath( linkPath );
+		const real = fs.realpathSync.native( linkPath );
 		const stat = await fs.promises.stat( real );
 		return stat.isDirectory() ? real : path.dirname( real );
 	} catch {
@@ -257,7 +257,17 @@ export async function resolveSymlinkAllowlistEntry( linkPath: string ): Promise<
 }
 
 export async function collectSymlinkAllowlistEntries( dir: string ): Promise< string[] > {
-	const symlinks = await findSymlinksInDir( dir );
+	// Neither `find` nor the Node walk descends through a symlink, so a
+	// symlinked root would yield only the link itself. A Reprint-pulled site's
+	// wp-content is exactly that: a link into Reprint's fs-root directory.
+	let root = dir;
+	try {
+		root = fs.realpathSync.native( dir );
+	} catch {
+		// Missing or unreadable — findSymlinksInDir skips it the same way.
+	}
+
+	const symlinks = await findSymlinksInDir( root );
 	const resolved = await Promise.all( symlinks.map( resolveSymlinkAllowlistEntry ) );
 	return Array.from( new Set( resolved.filter( ( entry ): entry is string => entry !== null ) ) );
 }

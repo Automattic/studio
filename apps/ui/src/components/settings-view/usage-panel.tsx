@@ -213,7 +213,7 @@ export function UsagePanel() {
 	return (
 		<div className={ styles.usagePanel }>
 			{ reason === 'offline' ? <OfflineNotice /> : null }
-			{ reason === 'signed-out' ? <SigninNotice /> : null }
+			{ reason === 'signed-out' ? <SigninNotice source="settings" /> : null }
 			<section
 				className={ clsx( styles.settingsPanelSection, unavailable && styles.usageDisabled ) }
 			>

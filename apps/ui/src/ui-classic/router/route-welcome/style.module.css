@@ -150,7 +150,8 @@
 	background: linear-gradient(
 		to bottom,
 		transparent,
-		color-mix(in srgb, var(--wpds-color-bg-surface-neutral) 55%, transparent) 96px
+		color-mix(in srgb, var(--wpds-color-bg-surface-neutral) var(--surface-alpha, 55%), transparent)
+			96px
 	);
 	-webkit-mask-image: linear-gradient(to bottom, transparent, black 96px);
 	mask-image: linear-gradient(to bottom, transparent, black 96px);

@@ -1289,7 +1289,6 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 					{ sitePath: site.path, remoteSiteId, options, signal: release.signal }
 				);
 			} catch ( error ) {
-				// See the pull route — a cancel is reported, not raised as a 500.
 				if ( ! isSyncCancelledError( error ) ) {
 					throw error;
 				}

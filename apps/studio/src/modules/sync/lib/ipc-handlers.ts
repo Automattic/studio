@@ -42,7 +42,6 @@ import { SyncOption } from 'src/types';
  */
 const SYNC_ABORT_CONTROLLERS = new Map< string, AbortController >();
 
-// Agentic push/pull resolve with this instead of rejecting when the user cancels.
 type SyncOperationResult = { cancelled: boolean };
 
 /**
@@ -599,7 +598,6 @@ export async function pushSiteToLive(
 	if ( ! token?.accessToken ) {
 		throw new Error( 'No token found' );
 	}
-	// See `pullSiteFromLive` — same registry, so `cancelSyncOperation` covers both UIs.
 	const operationId = `${ selectedSiteId }-${ remoteSiteId }`;
 	const abortController = new AbortController();
 	SYNC_ABORT_CONTROLLERS.set( operationId, abortController );

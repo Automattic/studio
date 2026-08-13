@@ -83,8 +83,6 @@ type CancelSyncVariables = {
 	remoteSiteId: number;
 };
 
-// Stopping is best-effort: the push/pull mutation itself rejects with a
-// cancelled error and reports the outcome, so nothing is reported here.
 export function useCancelSync() {
 	const connector = useConnector();
 	return useMutation( {

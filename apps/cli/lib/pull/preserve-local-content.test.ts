@@ -83,6 +83,22 @@ describe( 'preserveUnselectedLocalContent', () => {
 		expect( rawFile( 'plugins/akismet/akismet.php' ) ).toBe( 'remote' );
 	} );
 
+	it( 'preserves siblings of a selected single-file plugin', () => {
+		writeLocal( 'plugins/local-plugin/plugin.php' );
+		writeLocal( 'plugins/hello.php', 'local' );
+		writeRaw( 'plugins/hello.php', 'remote' );
+
+		preserveUnselectedLocalContent( {
+			sitePath,
+			rawDirectory,
+			contentDir: CONTENT_DIR,
+			selectedPrefixes: [ `${ CONTENT_DIR }/plugins/hello.php` ],
+		} );
+
+		expect( rawFile( 'plugins/local-plugin/plugin.php' ) ).toBe( 'local' );
+		expect( rawFile( 'plugins/hello.php' ) ).toBe( 'remote' );
+	} );
+
 	it( 'lets a remote file win when both sides have it', () => {
 		writeLocal( 'index.php', 'local' );
 		writeRaw( 'index.php', 'remote' );

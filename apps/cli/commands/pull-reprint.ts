@@ -89,7 +89,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					type: 'string',
 					array: true,
 					describe: __(
-						'Restrict the pull to specific wp-content folders (e.g. plugins/akismet, themes, uploads); repeatable.'
+						'Restrict the pull to specific wp-content paths (e.g. plugins/akismet, plugins/hello.php, themes); repeatable.'
 					),
 				} )
 				.option( 'skip-database', {

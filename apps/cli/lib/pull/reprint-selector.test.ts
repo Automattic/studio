@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-	filterTreeToDirectories,
+	canonicalizeTreeValues,
 	mapCheckedNodesToSelection,
 	mapCliOnlyToReprint,
 	resolveOnlyPathsToAbsolute,
@@ -48,13 +48,24 @@ describe( 'mapCheckedNodesToSelection', () => {
 		).toEqual( [ ':wp-content:/plugins/akismet' ] );
 	} );
 
+	it( 'maps a single-file plugin to its own path and collapses it under a checked folder', () => {
+		expect(
+			mapCheckedNodesToSelection( [ checked( 'plugins/hello.php', 2 ) ] ).fileOnlyPaths
+		).toEqual( [ ':wp-content:/plugins/hello.php' ] );
+
+		expect(
+			mapCheckedNodesToSelection( [ checked( 'plugins' ), checked( 'plugins/hello.php', 2 ) ] )
+				.fileOnlyPaths
+		).toEqual( [ ':wp-content:/plugins' ] );
+	} );
+
 	it( 'reports no files selected when only the database is checked', () => {
 		expect( mapCheckedNodesToSelection( [ checked( 'database', 0 ) ] ).hasAnyFile ).toBe( false );
 	} );
 } );
 
-describe( 'filterTreeToDirectories', () => {
-	it( 'keeps the database toggle and canonical directory hierarchy while dropping files', () => {
+describe( 'canonicalizeTreeValues', () => {
+	it( 'strips trailing slashes from directories and keeps files in the tree', () => {
 		const tree: TreeNode[] = [
 			checked( 'database', 0 ),
 			{
@@ -65,7 +76,6 @@ describe( 'filterTreeToDirectories', () => {
 				expanded: true,
 				depth: 0,
 				children: [
-					checked( 'plugins/f26d-error.php', 2 ),
 					{
 						name: 'plugins/',
 						value: 'plugins/',
@@ -82,18 +92,20 @@ describe( 'filterTreeToDirectories', () => {
 								expanded: false,
 								depth: 2,
 							},
+							checked( 'plugins/hello.php', 2 ),
 						],
 					},
 				],
 			},
 		];
 
-		const filtered = filterTreeToDirectories( tree );
+		const canonical = canonicalizeTreeValues( tree );
 
-		expect( filtered.map( ( node ) => node.value ) ).toEqual( [ 'database', 'wp-content' ] );
-		expect( filtered[ 1 ].children?.map( ( node ) => node.value ) ).toEqual( [ 'plugins' ] );
-		expect( filtered[ 1 ].children?.[ 0 ].children?.map( ( node ) => node.value ) ).toEqual( [
+		expect( canonical.map( ( node ) => node.value ) ).toEqual( [ 'database', 'wp-content' ] );
+		expect( canonical[ 1 ].children?.map( ( node ) => node.value ) ).toEqual( [ 'plugins' ] );
+		expect( canonical[ 1 ].children?.[ 0 ].children?.map( ( node ) => node.value ) ).toEqual( [
 			'plugins/akismet',
+			'plugins/hello.php',
 		] );
 	} );
 } );
@@ -108,6 +120,12 @@ describe( 'mapCliOnlyToReprint', () => {
 				':wp-content:/uploads',
 			]
 		);
+	} );
+
+	it( 'maps a file path like any other wp-content path', () => {
+		expect( mapCliOnlyToReprint( [ 'plugins/hello.php' ] ) ).toEqual( [
+			':wp-content:/plugins/hello.php',
+		] );
 	} );
 
 	it( 'strips a leading wp-content/ and trailing slashes', () => {

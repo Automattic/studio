@@ -87,7 +87,7 @@ export function SidebarLayout( {
 					{ /* The sidebar sits on the dark window chrome in both color
 					     schemes, so its wpds tokens come from a nested dark theme
 					     scope. */ }
-					<ThemeProvider color={ { bg: chromeBg } }>
+					<ThemeProvider color={ { background: chromeBg } }>
 						<div className={ styles.sidebarThemeScope }>
 							<SidebarHeader />
 							<SiteList />
@@ -110,7 +110,7 @@ export function SidebarLayout( {
 				{ ! effectiveCollapsed ? (
 					// Same dark theme scope as the sidebar so the indicator's
 					// brand token resolves against the dark ramp.
-					<ThemeProvider color={ { bg: chromeBg } }>
+					<ThemeProvider color={ { background: chromeBg } }>
 						<ResizeHandle
 							className={ styles.resizeHandle }
 							label={ __( 'Resize sidebar' ) }

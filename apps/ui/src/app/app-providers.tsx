@@ -37,7 +37,7 @@ function SiteEventsBridge() {
 // browser, where there's no Electron `nativeTheme` to mirror it.
 function ThemedApp( { children }: PropsWithChildren ) {
 	const colorScheme = useColorScheme();
-	const themeColor = colorScheme === 'dark' ? { bg: '#1e1e1e' } : undefined;
+	const themeColor = colorScheme === 'dark' ? { background: '#1e1e1e' } : undefined;
 	useEffect( () => {
 		document.documentElement.style.colorScheme = colorScheme;
 	}, [ colorScheme ] );

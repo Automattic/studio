@@ -61,6 +61,10 @@ vi.mock( './studio-code-panel', () => ( {
 	StudioCodePanel: () => <div data-testid="studio-code-panel" />,
 } ) );
 
+vi.mock( './skills-panel', () => ( {
+	SkillsCard: () => <div data-testid="skills-card" />,
+} ) );
+
 const useConnectorMock = vi.mocked( useConnector );
 const useUserPreferencesMock = vi.mocked( useUserPreferences );
 const useSaveUserPreferencesMock = vi.mocked( useSaveUserPreferences );

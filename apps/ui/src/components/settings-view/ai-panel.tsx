@@ -11,6 +11,7 @@ import {
 	useSetAiProvider,
 } from '@/data/queries/use-ai-settings';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
+import { SkillsCard } from './skills-panel';
 import { StudioCodePanel } from './studio-code-panel';
 import styles from './style.module.css';
 import { useDebouncedSave } from './use-debounced-save';
@@ -118,6 +119,7 @@ export function AiPanel() {
 			<AgenticFeaturesSection />
 			{ connector.capabilities.aiSettings && <AnthropicApiKeySection /> }
 			{ connector.capabilities.agentInstructions && <StudioCodePanel /> }
+			<SkillsCard />
 		</div>
 	);
 }

@@ -17,13 +17,11 @@ import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { useWindowControlsOverlay } from '@/hooks/use-window-controls-overlay';
 import { AccountSection } from './account-section';
 import { AiPanel } from './ai-panel';
-import { KeyboardPanel } from './keyboard-panel';
-import { McpPanel } from './mcp-panel';
+import { KeyboardCard } from './keyboard-panel';
+import { McpCard } from './mcp-panel';
 import { UNSET, toPreferencesFormData, toPreferencesPatch } from './preferences';
-import { SkillsPanel } from './skills-panel';
 import { StudioCliSection } from './studio-cli-section';
 import styles from './style.module.css';
-import { UsagePanel } from './usage-panel';
 import { WapuuScore } from './wapuu-score';
 import type { PreferencesFormData } from './preferences';
 import type {
@@ -36,7 +34,7 @@ import type {
 } from '@/data/core';
 import type { ReactNode } from 'react';
 
-const SETTINGS_TABS = [ 'preferences', 'ai', 'usage', 'keyboard', 'skills', 'mcp' ] as const;
+const SETTINGS_TABS = [ 'preferences', 'ai' ] as const;
 
 type TabId = ( typeof SETTINGS_TABS )[ number ];
 
@@ -125,11 +123,7 @@ function SettingsHeader() {
 			<div className={ styles.headerTabs }>
 				<Tabs.List className={ styles.headerTabList }>
 					<Tabs.Tab tabId="preferences">{ __( 'Settings' ) }</Tabs.Tab>
-					<Tabs.Tab tabId="ai">{ __( 'AI' ) }</Tabs.Tab>
-					<Tabs.Tab tabId="usage">{ __( 'Usage' ) }</Tabs.Tab>
-					<Tabs.Tab tabId="keyboard">{ __( 'Keyboard' ) }</Tabs.Tab>
-					<Tabs.Tab tabId="skills">{ __( 'Skills' ) }</Tabs.Tab>
-					<Tabs.Tab tabId="mcp">{ __( 'MCP' ) }</Tabs.Tab>
+					<Tabs.Tab tabId="ai">{ __( 'Agent' ) }</Tabs.Tab>
 				</Tabs.List>
 			</div>
 			{ closeButton && ! closeAtStart ? (
@@ -351,7 +345,9 @@ function PreferencesPanel( {
 				</PreferenceRow>
 			</section>
 			<WapuuScore />
+			<KeyboardCard />
 			<StudioCliSection />
+			<McpCard />
 			<StudioExperienceSection />
 		</div>
 	);
@@ -472,26 +468,6 @@ export function SettingsView( {
 						<Tabs.Panel tabId="ai">
 							<SettingsLayout>
 								<AiPanel />
-							</SettingsLayout>
-						</Tabs.Panel>
-						<Tabs.Panel tabId="usage">
-							<SettingsLayout>
-								<UsagePanel />
-							</SettingsLayout>
-						</Tabs.Panel>
-						<Tabs.Panel tabId="keyboard">
-							<SettingsLayout>
-								<KeyboardPanel />
-							</SettingsLayout>
-						</Tabs.Panel>
-						<Tabs.Panel tabId="skills">
-							<SettingsLayout>
-								<SkillsPanel />
-							</SettingsLayout>
-						</Tabs.Panel>
-						<Tabs.Panel tabId="mcp">
-							<SettingsLayout>
-								<McpPanel />
 							</SettingsLayout>
 						</Tabs.Panel>
 					</div>

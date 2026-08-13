@@ -9,6 +9,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useOffline } from '@/hooks/use-offline';
 import { getLocalizedLink, REPORT_ISSUE_URL } from '@/lib/docs-links';
 import styles from './style.module.css';
+import { UsageSummary } from './usage-panel';
 
 function AccountHelpActions() {
 	const connector = useConnector();
@@ -115,6 +116,7 @@ export function AccountSection() {
 					</Button>
 				) }
 			</section>
+			<UsageSummary userId={ user?.id } />
 			<section className={ clsx( styles.card, styles.accountHelp ) }>
 				<h2 className={ styles.cardTitle }>{ __( 'Help' ) }</h2>
 				<AccountHelpActions />

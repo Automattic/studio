@@ -149,11 +149,16 @@
 	display: flex;
 	flex-direction: column;
 	gap: var( --wpds-dimension-padding-lg );
+	min-height: calc( 100dvh - 54px - 2 * var( --wpds-dimension-padding-2xl ) );
 }
 
 .accountCard,
 .accountHelp {
 	gap: var( --wpds-dimension-padding-md );
+}
+
+.accountHelp {
+	margin-block-start: auto;
 }
 
 .preferencesPanel {
@@ -765,19 +770,6 @@
 	margin: 0 auto;
 }
 
-.settingsPanelSection {
-	box-sizing: border-box;
-	display: flex;
-	flex-direction: column;
-	align-items: stretch;
-	gap: var( --wpds-dimension-padding-lg );
-	padding: var( --wpds-dimension-padding-lg ) var( --wpds-dimension-padding-xl )
-		var( --wpds-dimension-padding-xl );
-	border: 1px solid var( --wpds-color-stroke-surface-neutral );
-	border-radius: 8px;
-	background: color-mix( in srgb, var( --wpds-color-bg-surface-neutral-weak ) 56%, transparent );
-}
-
 .settingsPanelHeader {
 	display: flex;
 	flex-direction: column;
@@ -866,7 +858,12 @@
 	.accountAside {
 		position: static;
 		display: grid;
-		grid-template-columns: 1fr 1fr;
+		grid-template-columns: repeat( 3, minmax( 0, 1fr ) );
+		min-height: 0;
+	}
+
+	.accountHelp {
+		margin-block-start: 0;
 	}
 }
 

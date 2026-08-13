@@ -64,6 +64,10 @@ vi.mock( '@/hooks/use-offline', () => ( {
 	useOffline: vi.fn(),
 } ) );
 
+vi.mock( './usage-panel', () => ( {
+	UsageSummary: () => <section aria-label="Usage summary" />,
+} ) );
+
 const useConnectorMock = vi.mocked( useConnector );
 const useAuthUserMock = vi.mocked( useAuthUser );
 const useLoginMock = vi.mocked( useLogin );

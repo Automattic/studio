@@ -90,6 +90,7 @@ vi.mock( './ai-panel', () => ( {
 
 vi.mock( './skills-panel', () => ( {
 	SkillsPanel: () => null,
+	SkillsCard: () => null,
 } ) );
 
 vi.mock( './studio-cli-section', () => ( {
@@ -108,6 +109,7 @@ vi.mock( '@/hooks/use-color-scheme', () => ( {
 
 vi.mock( './mcp-panel', () => ( {
 	McpPanel: () => <div data-testid="mcp-panel" />,
+	McpCard: () => <div data-testid="mcp-card" />,
 } ) );
 
 vi.mock( '@/data/core/query-client', () => ( {
@@ -131,6 +133,7 @@ vi.mock( '@/data/queries/use-wapuu-score', () => ( {
 // own test file.
 vi.mock( './usage-panel', () => ( {
 	UsagePanel: () => null,
+	UsageSummary: () => null,
 } ) );
 
 vi.mock( '@/hooks/use-traffic-light-space', () => ( {
@@ -228,14 +231,14 @@ describe( 'SettingsView', () => {
 		expect( mutate ).toHaveBeenCalledWith( { quitSitesBehavior: 'stop' }, expect.any( Object ) );
 	} );
 
-	it( 'renders the AI tab with its panel', () => {
+	it( 'renders the Agent tab with its panel', () => {
 		render( <SettingsView activeTab="ai" onTabChange={ vi.fn() } /> );
 
-		expect( screen.getByRole( 'button', { name: 'AI' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Agent' } ) ).toBeInTheDocument();
 		expect( screen.getByTestId( 'ai-panel' ) ).toBeInTheDocument();
 	} );
 
-	it( 'offers the AI tab on every host, since chat can be toggled anywhere', () => {
+	it( 'offers the Agent tab on every host, since chat can be toggled anywhere', () => {
 		useConnectorMock.mockReturnValue( {
 			selectDefaultSiteDirectory,
 			capabilities: { agentInstructions: false, switchToClassicUi: false },
@@ -243,7 +246,7 @@ describe( 'SettingsView', () => {
 
 		render( <SettingsView activeTab="ai" onTabChange={ vi.fn() } /> );
 
-		expect( screen.getByRole( 'button', { name: 'AI' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Agent' } ) ).toBeInTheDocument();
 		expect( screen.getByTestId( 'ai-panel' ) ).toBeInTheDocument();
 	} );
 
@@ -265,15 +268,17 @@ describe( 'SettingsView', () => {
 		expect( screen.queryByRole( 'button', { name: 'Switch to classic' } ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'recognizes the keyboard tab id', () => {
-		expect( isSettingsTab( 'keyboard' ) ).toBe( true );
+	it( 'only recognizes the two top-level tab ids', () => {
+		expect( isSettingsTab( 'preferences' ) ).toBe( true );
+		expect( isSettingsTab( 'ai' ) ).toBe( true );
+		expect( isSettingsTab( 'keyboard' ) ).toBe( false );
 		expect( isSettingsTab( 'unknown' ) ).toBe( false );
 	} );
 
-	it( 'renders keyboard shortcut sections', () => {
-		render( <SettingsView activeTab="keyboard" onTabChange={ vi.fn() } /> );
+	it( 'renders keyboard shortcuts in the Settings tab', () => {
+		render( <SettingsView activeTab="preferences" onTabChange={ vi.fn() } /> );
 
-		expect( screen.getByRole( 'button', { name: 'Keyboard' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'heading', { name: 'Keyboard' } ) ).toBeInTheDocument();
 		expect( screen.getByRole( 'heading', { name: 'Composer' } ) ).toBeInTheDocument();
 		expect( screen.getByRole( 'heading', { name: 'Site preview' } ) ).toBeInTheDocument();
 		expect( screen.getByText( 'New chat' ) ).toBeInTheDocument();

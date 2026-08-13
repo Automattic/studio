@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useConnector } from '@/data/core';
-import type { AiProviderId, AiSettings } from '@studio/common/ai/providers';
+import type { AiSettings } from '@studio/common/ai/providers';
 
 export const AI_SETTINGS_QUERY_KEY = [ 'ai-settings' ] as const;
 

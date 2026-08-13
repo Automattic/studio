@@ -1,4 +1,4 @@
-import { AI_MODELS, type AiModelFamily } from './models';
+import { AI_MODELS, DEFAULT_MODEL, type AiModelFamily, type AiModelId } from './models';
 import { isStudioCustomEntryOfType } from './sessions/entry-types';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 
@@ -51,18 +51,27 @@ export function getAiProviderModels( provider: AiProviderId ): readonly AiProvid
 	return PROVIDER_MODELS.get( provider ) ?? [];
 }
 
+export function providerServesModel( provider: AiProviderId, model: AiModelId ): boolean {
+	return getAiProviderModels( provider ).some( ( entry ) => entry.id === model );
+}
+
+/** The model to fall back to when a provider can't serve the requested one. */
+export function getAiProviderDefaultModel( provider: AiProviderId ): AiModelId {
+	return getAiProviderModels( provider )[ 0 ]?.id ?? DEFAULT_MODEL;
+}
+
 /**
  * The provider a session is pinned to: the most recent `studio.session_context`
  * entry wins (the CLI writes one per turn, the UI one per explicit switch).
  * Returns undefined when the session never recorded one — callers fall back to
- * the saved global selection. Mirrors `resolveResumeSessionContext` in the CLI.
+ * the saved global selection.
  */
 export function resolveSessionProvider( entries: SessionEntry[] ): AiProviderId | undefined {
 	for ( let index = entries.length - 1; index >= 0; index -= 1 ) {
 		const entry = entries[ index ];
 		if ( isStudioCustomEntryOfType( entry, 'studio.session_context' ) ) {
-			const { provider } = entry.data ?? {};
-			if ( typeof provider === 'string' && isAiProviderId( provider ) ) {
+			const provider = entry.data?.provider;
+			if ( provider && isAiProviderId( provider ) ) {
 				return provider;
 			}
 		}

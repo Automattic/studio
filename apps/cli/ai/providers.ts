@@ -1,10 +1,12 @@
 import { password } from '@inquirer/prompts';
 import { validateAnthropicApiKey } from '@studio/common/ai/anthropic-key';
-import { DEFAULT_MODEL, type AiModelId } from '@studio/common/ai/models';
+import { type AiModelId } from '@studio/common/ai/models';
 import {
 	AI_PROVIDER_IDS,
 	DEFAULT_AI_PROVIDER,
+	getAiProviderDefaultModel,
 	getAiProviderModels,
+	providerServesModel,
 	type AiProviderId,
 } from '@studio/common/ai/providers';
 import { persistAnthropicApiKey, readAnthropicApiKey } from '@studio/common/ai/settings-store';
@@ -12,10 +14,7 @@ import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __ } from '@wordpress/i18n';
 import { LoggerError } from 'cli/logger';
 
-export const AI_PROVIDERS: Record< AiProviderId, string > = {
-	wpcom: 'WordPress.com',
-	'anthropic-api-key': 'Anthropic · API key',
-};
+export { AI_PROVIDER_LABELS as AI_PROVIDERS } from '@studio/common/ai/providers';
 
 export type { AiProviderId };
 export { DEFAULT_AI_PROVIDER };
@@ -59,9 +58,9 @@ function defineProvider(
 	return {
 		...partial,
 		availableModels,
-		defaultModel: availableModels[ 0 ] ?? DEFAULT_MODEL,
+		defaultModel: getAiProviderDefaultModel( partial.id ),
 		supportsModel( model ) {
-			return availableModels.includes( model );
+			return providerServesModel( partial.id, model );
 		},
 	};
 }
@@ -208,7 +207,7 @@ const AI_PROVIDER_DEFINITIONS: Record< AiProviderId, AiProviderDefinition > = {
 			if ( ! apiKey ) {
 				throw new LoggerError(
 					__(
-						'Anthropic API key required. Switch to Anthropic · API key with /provider to save one.'
+						'Anthropic API key required. Switch to Anthropic API key with /provider to save one.'
 					)
 				);
 			}

@@ -34,7 +34,7 @@ import type {
 	UserPreferences,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
-import type { AiProviderId, AiSettings } from '@studio/common/ai/providers';
+import type { AiSettings } from '@studio/common/ai/providers';
 import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 import type { PushOutput } from '@studio/common/types/sync';
 

@@ -309,7 +309,7 @@ describe( 'saveGlobalAgentInstructions', () => {
 
 // One event for both handlers: clearing the key also moves the provider back to WordPress.com.
 describe( 'AI provider settings', () => {
-	const keyPreview = 'sk-ant-api03-tes...1234';
+	const keyPreview = 'sk-ant-api03-tes***1234';
 	const wpcomWithoutKey = {
 		provider: 'wpcom',
 		hasAnthropicApiKey: false,

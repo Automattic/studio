@@ -8,7 +8,7 @@ import {
 	writeGlobalInstructions,
 } from '@studio/common/ai/global-instructions';
 import { isAiModelId } from '@studio/common/ai/models';
-import { getAiProviderModels, isAiProviderId } from '@studio/common/ai/providers';
+import { isAiProviderId, providerServesModel } from '@studio/common/ai/providers';
 import { createAgentRunManager } from '@studio/common/ai/run-manager';
 import {
 	createOrReuseAiSession,
@@ -1438,11 +1438,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 400 ).json( { error: `Unknown AI provider: ${ provider }` } );
 				return;
 			}
-			if (
-				! model ||
-				! isAiModelId( model ) ||
-				! getAiProviderModels( provider ).some( ( entry ) => entry.id === model )
-			) {
+			if ( ! model || ! isAiModelId( model ) || ! providerServesModel( provider, model ) ) {
 				res.status( 400 ).json( { error: `Model ${ model } is not served by ${ provider }` } );
 				return;
 			}

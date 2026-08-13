@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isAiModelId } from '@studio/common/ai/models';
-import { getAiProviderModels, isAiProviderId } from '@studio/common/ai/providers';
+import { isAiProviderId, providerServesModel } from '@studio/common/ai/providers';
 import {
 	appendModelChangeEntry,
 	appendStudioEntry,
@@ -307,11 +307,7 @@ api.post(
 			res.status( 400 ).json( { error: `Unknown AI provider: ${ provider }` } );
 			return;
 		}
-		if (
-			! model ||
-			! isAiModelId( model ) ||
-			! getAiProviderModels( provider ).some( ( entry ) => entry.id === model )
-		) {
+		if ( ! model || ! isAiModelId( model ) || ! providerServesModel( provider, model ) ) {
 			res.status( 400 ).json( { error: `Model ${ model } is not served by ${ provider }` } );
 			return;
 		}

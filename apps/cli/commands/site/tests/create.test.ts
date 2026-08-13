@@ -25,6 +25,7 @@ import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
 import { type SupportedPHPVersion } from '@studio/common/types/php-versions';
 import { Blueprint, BlueprintV1Declaration } from '@wp-playground/blueprints';
 import { vi, type MockInstance } from 'vitest';
+import yargs from 'yargs';
 import {
 	lockCliConfig,
 	readCliConfig,
@@ -45,7 +46,7 @@ import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
-import { buildCreateFromSourceBlueprint, runCommand } from '../create';
+import { buildCreateFromSourceBlueprint, registerCommand, runCommand } from '../create';
 
 vi.mock( '@studio/common/lib/fs-utils' );
 vi.mock( '@studio/common/lib/network-utils' );
@@ -309,6 +310,45 @@ describe( 'CLI: studio site create', () => {
 	} );
 
 	describe( 'Success Cases', () => {
+		it( 'captures a URL before passing its canonical artifact to site creation', async () => {
+			const captureDir = fs.mkdtempSync( path.join( '/tmp', 'studio-create-capture-' ) );
+			const artifactPath = path.join( captureDir, 'artifact.json' );
+			fs.writeFileSync(
+				artifactPath,
+				JSON.stringify( {
+					schema: 'blocks-engine/php-transformer/site-artifact/v1',
+					root: 'website',
+					entrypoint: 'website/index.html',
+					files: [ { path: 'website/index.html', content: '<main>Captured</main>' } ],
+				} )
+			);
+			const capture = vi.fn().mockResolvedValue( {
+				artifactPath,
+				outputDir: captureDir,
+				provenance: { provider: 'data-liberation/browser-capture' },
+			} );
+			const parser = registerCommand(
+				yargs( [] ).option( 'path', { type: 'string', default: mockSitePath } ),
+				{ capture }
+			).exitProcess( false );
+
+			await parser.parseAsync( [
+				'create',
+				'--from',
+				'https://example.com',
+				'--name',
+				'Captured Site',
+				'--capture-output',
+				captureDir,
+				'--skip-browser',
+			] );
+
+			expect( capture ).toHaveBeenCalledWith( 'https://example.com', captureDir, {
+				resume: false,
+			} );
+			expect( capture ).toHaveBeenCalledTimes( 1 );
+		} );
+
 		it( 'should prefer the canonical resumable plan-first URL import contract', () => {
 			const blueprint = buildCreateFromSourceBlueprint(
 				'https://example.com/',
@@ -483,6 +523,30 @@ describe( 'CLI: studio site create', () => {
 				"ABSPATH . '.studio-import/source.json'"
 			);
 			expect( blueprint.staticSiteImport.code.length ).toBeLessThan( 10000 );
+		} );
+
+		it( 'should preserve the canonical artifact envelope from a capture directory', () => {
+			const captureDir = fs.mkdtempSync( path.join( '/tmp', 'studio-artifact-capture-' ) );
+			const artifact = {
+				schema: 'blocks-engine/php-transformer/site-artifact/v1',
+				root: 'website',
+				entrypoint: 'website/index.html',
+				compiler_limits: { max_file_bytes: 10485760 },
+				files: [ { path: 'website/index.html', content: '<main>Captured site</main>' } ],
+			};
+			fs.writeFileSync( path.join( captureDir, 'artifact.json' ), JSON.stringify( artifact ) );
+
+			const blueprint = buildCreateFromSourceBlueprint(
+				captureDir,
+				'Artifact Capture',
+				'https://example.com/static-site-importer.zip'
+			);
+
+			expect( JSON.parse( blueprint.staticSiteImport.source ) ).toEqual( { artifact } );
+			expect( blueprint.staticSiteImport.code ).toContain( '$metadata = $artifact;' );
+			expect( blueprint.staticSiteImport.code ).toContain(
+				"unset( $metadata['schema'], $metadata['entrypoint'], $metadata['files'] );"
+			);
 		} );
 
 		it( 'should create a basic site successfully', async () => {

@@ -62,6 +62,7 @@ import {
 } from '@studio/common/types/php-versions';
 import { __, sprintf } from '@wordpress/i18n';
 import { isStepDefinition, type BlueprintV1Declaration } from '@wp-playground/blueprints';
+import { captureUrl } from 'cli/commands/capture';
 import { bumpStat, getPlatformMetric } from 'cli/lib/bump-stat';
 import {
 	lockCliConfig,
@@ -264,6 +265,19 @@ function resolveStaticSiteImporterSource( sourcePath: string ): StaticSiteImport
 
 	const stat = fs.statSync( sourcePath );
 	if ( stat.isDirectory() ) {
+		const artifactPath = path.join( sourcePath, 'artifact.json' );
+		if ( fs.existsSync( artifactPath ) ) {
+			const artifact = readSiteArtifact( artifactPath );
+			if ( artifact.schema === 'blocks-engine/php-transformer/site-artifact/v1' ) {
+				return {
+					type: 'website-artifact',
+					path: artifactPath,
+					artifact,
+					payload: { artifact },
+				};
+			}
+		}
+
 		const files = collectSourceFiles( resolveCaptureWebsiteRoot( sourcePath ) );
 		if ( files.length > 0 ) {
 			return {
@@ -1193,7 +1207,10 @@ function coerceWpVersion( value: string ) {
 	return value;
 }
 
-export const registerCommand = ( yargs: StudioArgv ) => {
+export const registerCommand = (
+	yargs: StudioArgv,
+	dependencies: { capture?: typeof captureUrl } = {}
+) => {
 	return yargs.command( {
 		command: 'create',
 		describe: __( 'Create a new site' ),
@@ -1261,6 +1278,16 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 
 						return path.resolve( untildify( value ) );
 					},
+				} )
+				.option( 'capture-output', {
+					type: 'string',
+					description: __( 'Directory for URL capture artifacts and diagnostics' ),
+					coerce: ( value ) => path.resolve( untildify( value ) ),
+				} )
+				.option( 'resume-capture', {
+					type: 'boolean',
+					description: __( 'Resume an interrupted URL capture' ),
+					default: false,
 				} )
 				.option( 'static-site-importer-url', {
 					type: 'string',
@@ -1516,41 +1543,56 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				flowType: parseFlowType( argv.flowType ),
 			};
 
-			if ( argv.from ) {
-				config.blueprint = buildCreateFromSourceBlueprint(
-					argv.from,
-					siteName || __( 'Imported Site' ),
-					argv.staticSiteImporterUrl,
-					argv.storeImportResult
-				);
-			} else if ( argv.blueprint ) {
-				if ( argv.blueprint.startsWith( 'http://' ) || argv.blueprint.startsWith( 'https://' ) ) {
-					config.blueprint = {
-						uri: argv.blueprint,
-						contents: await fetchBlueprint( argv.blueprint ),
-					};
-				} else {
-					const uri = path.resolve( untildify( argv.blueprint ) );
+			try {
+				let importSource = argv.from;
+				if ( importSource && isUrl( importSource ) ) {
+					const captureOutput =
+						argv.captureOutput ??
+						path.join( path.dirname( sitePath ), `${ path.basename( sitePath ) }-capture` );
+					logger.reportStart( LoggerAction.IMPORT_SITE, __( 'Capturing source website…' ) );
+					const capture = await ( dependencies.capture ?? captureUrl )(
+						importSource,
+						captureOutput,
+						{ resume: argv.resumeCapture }
+					);
+					logger.reportSuccess( __( 'Source website captured' ) );
+					importSource = capture.artifactPath;
+				}
 
-					config.blueprint = {
-						uri,
-						contents: readBlueprint( uri ),
-					};
+				if ( importSource ) {
+					config.blueprint = buildCreateFromSourceBlueprint(
+						importSource,
+						siteName || __( 'Imported Site' ),
+						argv.staticSiteImporterUrl,
+						argv.storeImportResult
+					);
+				} else if ( argv.blueprint ) {
+					if ( argv.blueprint.startsWith( 'http://' ) || argv.blueprint.startsWith( 'https://' ) ) {
+						config.blueprint = {
+							uri: argv.blueprint,
+							contents: await fetchBlueprint( argv.blueprint ),
+						};
+					} else {
+						const uri = path.resolve( untildify( argv.blueprint ) );
 
-					// When invoked by the desktop app, the blueprint contents come from a temp file
-					// but resources should be resolved relative to the original file location.
-					// For gallery blueprints the path is a URL; use it directly.
-					if ( argv.originalBlueprintPath ) {
-						const originalPath = argv.originalBlueprintPath;
-						config.blueprint.uri =
-							originalPath.startsWith( 'http://' ) || originalPath.startsWith( 'https://' )
-								? originalPath
-								: path.resolve( originalPath );
+						config.blueprint = {
+							uri,
+							contents: readBlueprint( uri ),
+						};
+
+						// When invoked by the desktop app, the blueprint contents come from a temp file
+						// but resources should be resolved relative to the original file location.
+						// For gallery blueprints the path is a URL; use it directly.
+						if ( argv.originalBlueprintPath ) {
+							const originalPath = argv.originalBlueprintPath;
+							config.blueprint.uri =
+								originalPath.startsWith( 'http://' ) || originalPath.startsWith( 'https://' )
+									? originalPath
+									: path.resolve( originalPath );
+						}
 					}
 				}
-			}
 
-			try {
 				await runCommand( sitePath, config );
 
 				if ( __ENABLE_CLI_TELEMETRY__ && ! argv.avoidTelemetry ) {

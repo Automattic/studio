@@ -53,10 +53,10 @@ export function SiteDropdown( {
 	const { data: snapshots } = useSnapshots();
 	const activity = useSiteSyncActivity( site.id );
 	const liveSite = useMemo( () => pickLiveSite( connectedSites ), [ connectedSites ] );
-	// Onboarding "publish" coachmark target. Disabled once a live site is
-	// connected, so the checklist item and the one-shot nudge silently skip
-	// already-connected sites (the anchor simply isn't registered).
-	const publishAnchor = useTourAnchor( 'publish-button', { disabled: Boolean( liveSite ) } );
+	// Onboarding "publish" coachmark target. Anchored to the site box because
+	// that's where publishing lives — there's no standalone Publish button yet
+	// (see STU-2162).
+	const publishAnchor = useTourAnchor( 'publish-button' );
 	const previewSnapshot = useMemo(
 		() => pickLatestSnapshot( snapshots, site.id ),
 		[ snapshots, site.id ]

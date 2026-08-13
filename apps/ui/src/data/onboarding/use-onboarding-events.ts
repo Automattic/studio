@@ -16,8 +16,8 @@ import type { CoachmarkContent } from './types';
 import type { OnboardingHintsState } from '@/data/core';
 
 // Fired once after the first successful agent edit (agentic mode only). Points
-// at the publish control; if that isn't present (a connected or plugin site,
-// where the anchor is absent) the coachmark layer aborts silently.
+// at the site box, where publishing lives (no standalone Publish button yet;
+// see STU-2162). Silently aborts only if that box isn't on screen.
 const PUBLISH_COACHMARK: CoachmarkContent = {
 	anchor: 'publish-button',
 	title: () => __( 'Ready to go live?' ),
@@ -97,8 +97,8 @@ export function useOnboardingEvents(): void {
 				void markChecklistItemComplete( connector, queryClient, 'first-agent-edit' );
 
 				// One-shot publish coachmark. Persist "shown" up front so it never
-				// fires twice; if the publish button isn't present (connected or
-				// plugin site) the coachmark layer aborts silently.
+				// fires twice; if the site box isn't on screen the coachmark layer
+				// aborts silently.
 				if (
 					agenticEnabledRef.current &&
 					! hintsRef.current?.publishCoachmarkShown &&

@@ -14,9 +14,9 @@ describe( 'getChecklistItems', () => {
 		expect( getChecklistItems( false ) ).toBe( OVERVIEW_CHECKLIST_ITEMS );
 	} );
 
-	it( 'ships five items per variant', () => {
-		expect( AGENTIC_CHECKLIST_ITEMS ).toHaveLength( 5 );
-		expect( OVERVIEW_CHECKLIST_ITEMS ).toHaveLength( 5 );
+	it( 'ships four items per variant', () => {
+		expect( AGENTIC_CHECKLIST_ITEMS ).toHaveLength( 4 );
+		expect( OVERVIEW_CHECKLIST_ITEMS ).toHaveLength( 4 );
 	} );
 
 	it( 'includes a chat item only in the agentic set', () => {
@@ -42,7 +42,7 @@ describe( 'deriveChecklistItems', () => {
 		};
 		const items = deriveChecklistItems( AGENTIC_CHECKLIST_ITEMS, hints );
 		expect( items.find( ( item ) => item.id === 'first-agent-edit' )?.completed ).toBe( true );
-		expect( items.find( ( item ) => item.id === 'publish-site' )?.completed ).toBe( false );
+		expect( items.find( ( item ) => item.id === 'visit-overview' )?.completed ).toBe( false );
 	} );
 } );
 

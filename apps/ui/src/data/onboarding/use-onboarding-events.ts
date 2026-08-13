@@ -11,7 +11,6 @@ import {
 	useOnboardingHints,
 	writeOnboardingHints,
 } from '@/data/queries/use-onboarding-hints';
-import { PUSH_TO_LIVE_MUTATION_KEY } from '@/data/queries/use-sync-site';
 import type { CoachmarkContent } from './types';
 import type { OnboardingHintsState } from '@/data/core';
 
@@ -29,19 +28,10 @@ const PUBLISH_COACHMARK: CoachmarkContent = {
 // agent's response landing in the conversation.
 const PUBLISH_COACHMARK_DELAY_MS = 1500;
 
-function sameMutationKey( key: unknown ): boolean {
-	return (
-		Array.isArray( key ) &&
-		key.length === PUSH_TO_LIVE_MUTATION_KEY.length &&
-		key.every( ( part, index ) => part === PUSH_TO_LIVE_MUTATION_KEY[ index ] )
-	);
-}
-
 /**
  * App-wide onboarding watchers. Mounted once inside the coachmark provider:
- * - completes "make a change with chat" on the first successful agent run and
- *   fires the one-shot publish coachmark;
- * - completes "publish" when a push to WordPress.com succeeds.
+ * completes "make a change with chat" on the first successful agent run and
+ * fires the one-shot publish coachmark.
  *
  * The Help ▸ Getting Started restore lives in useOrientationReplay, which also
  * owns reopening the guide.
@@ -124,20 +114,6 @@ export function useOnboardingEvents(): void {
 			}
 		};
 	}, [ store, connector, queryClient ] );
-
-	// Push to WordPress.com succeeded → complete the publish checklist item.
-	useEffect( () => {
-		return queryClient.getMutationCache().subscribe( ( event ) => {
-			const mutation = event?.mutation;
-			if (
-				mutation &&
-				sameMutationKey( mutation.options.mutationKey ) &&
-				mutation.state.status === 'success'
-			) {
-				void markChecklistItemComplete( connector, queryClient, 'publish-site' );
-			}
-		} );
-	}, [ queryClient, connector ] );
 }
 
 const OVERVIEW_PATH = /^\/sites\/[^/]+\/overview\b/;

@@ -560,7 +560,6 @@ export type ChecklistItemId =
 	| 'first-agent-edit'
 	| 'visit-overview'
 	| 'visit-site-settings'
-	| 'publish-site'
 	| 'visit-app-settings';
 
 // Persisted first-run onboarding state for the workbench. Separate from the

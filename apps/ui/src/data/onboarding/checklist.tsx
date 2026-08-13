@@ -80,17 +80,6 @@ const VISIT_SITE_SETTINGS_ITEM: ChecklistItemDef = {
 	},
 };
 
-const PUBLISH_ITEM: ChecklistItemDef = {
-	id: 'publish-site',
-	label: () => __( 'Publish to WordPress.com' ),
-	coachmark: {
-		anchor: 'publish-button',
-		title: () => __( 'Go live' ),
-		description: () => __( 'When you’re ready, publish puts your site on WordPress.com.' ),
-		placement: { side: 'bottom', align: 'end' },
-	},
-};
-
 const VISIT_APP_SETTINGS_ITEM: ChecklistItemDef = {
 	id: 'visit-app-settings',
 	label: () => __( 'Explore settings' ),
@@ -106,7 +95,6 @@ export const AGENTIC_CHECKLIST_ITEMS: ChecklistItemDef[] = [
 	CREATE_SITE_ITEM,
 	FIRST_AGENT_EDIT_ITEM,
 	VISIT_OVERVIEW_AGENTIC_ITEM,
-	PUBLISH_ITEM,
 	VISIT_APP_SETTINGS_ITEM,
 ];
 
@@ -114,7 +102,6 @@ export const OVERVIEW_CHECKLIST_ITEMS: ChecklistItemDef[] = [
 	CREATE_SITE_ITEM,
 	VISIT_OVERVIEW_OVERVIEW_ITEM,
 	VISIT_SITE_SETTINGS_ITEM,
-	PUBLISH_ITEM,
 	VISIT_APP_SETTINGS_ITEM,
 ];
 

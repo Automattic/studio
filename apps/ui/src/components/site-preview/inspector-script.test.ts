@@ -7,9 +7,11 @@ import {
 
 describe( 'site preview inspector sessions', () => {
 	afterEach( () => {
+		// Without this the previous inspector's document listeners stay live and
+		// answer the next test's commands alongside the instance under test.
+		( window as Window & { __studioInspectorDispose?: () => void } ).__studioInspectorDispose?.();
 		vi.restoreAllMocks();
 		document.body.replaceChildren();
-		delete ( window as Window & { __studioInspectorMounted?: boolean } ).__studioInspectorMounted;
 		delete ( window as Window & { __studioInspectorState?: unknown[] } ).__studioInspectorState;
 	} );
 
@@ -66,25 +68,34 @@ describe( 'site preview inspector sessions', () => {
 		expect( latestState( log ) ).toMatchObject( { isPicking: false, annotationCount: 0 } );
 	} );
 
-	it( 'clears the pending batch when annotation mode is cancelled', () => {
+	it( 'keeps saved notes when annotation mode is switched off', () => {
 		const log = vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
-		( window as Window & { __studioInspectorState?: unknown[] } ).__studioInspectorState = [
-			{
-				id: 'saved',
-				comment: 'Saved note',
-				path: window.location.pathname + window.location.search,
-				documentRect: { left: 10, top: 10, width: 100, height: 40 },
-			},
-		];
+		seedSavedNote();
 
 		new Function( INSPECTOR_PAGE_SCRIPT )();
 		command( 'toggle-picking' );
-		command( 'cancel' );
+		document.dispatchEvent(
+			new KeyboardEvent( 'keydown', { key: 'Escape', bubbles: true, cancelable: true } )
+		);
 
-		expect( latestState( log ) ).toMatchObject( { isPicking: false, annotationCount: 0 } );
+		expect( latestState( log ) ).toMatchObject( { isPicking: false, annotationCount: 1 } );
 		expect(
 			( window as Window & { __studioInspectorState?: unknown[] } ).__studioInspectorState
-		).toEqual( [] );
+		).toHaveLength( 1 );
+	} );
+
+	it( 'reopens an existing note without turning picking back on', () => {
+		const log = vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+		seedSavedNote();
+
+		new Function( INSPECTOR_PAGE_SCRIPT )();
+		const root = ( document.querySelector( '#__studio-inspector-host' ) as HTMLElement )
+			.shadowRoot as ShadowRoot;
+		const marker = root.querySelector( '.marker' ) as HTMLElement;
+		marker.dispatchEvent( new MouseEvent( 'click', { bubbles: true, cancelable: true } ) );
+
+		expect( root.querySelector( '.popup' ) ).toBeInTheDocument();
+		expect( latestState( log ) ).toMatchObject( { isPicking: false, annotationCount: 1 } );
 	} );
 
 	it( 'submits saved notes when an empty draft popup is open', () => {
@@ -92,14 +103,7 @@ describe( 'site preview inspector sessions', () => {
 		document.body.innerHTML = '<h1 id="draft">Draft</h1>';
 		const draft = document.querySelector( '#draft' ) as HTMLElement;
 		vi.spyOn( draft, 'getBoundingClientRect' ).mockReturnValue( rect( 10, 10 ) );
-		( window as Window & { __studioInspectorState?: unknown[] } ).__studioInspectorState = [
-			{
-				id: 'saved',
-				comment: 'Saved note',
-				path: window.location.pathname + window.location.search,
-				documentRect: { left: 10, top: 10, width: 100, height: 40 },
-			},
-		];
+		seedSavedNote();
 
 		new Function( INSPECTOR_PAGE_SCRIPT )();
 		command( 'toggle-picking' );
@@ -139,6 +143,18 @@ describe( 'site preview inspector sessions', () => {
 		expect( root.querySelectorAll( '.marker' ) ).toHaveLength( 0 );
 	} );
 } );
+
+function seedSavedNote() {
+	( window as Window & { __studioInspectorState?: unknown[] } ).__studioInspectorState = [
+		{
+			id: 'saved',
+			comment: 'Saved note',
+			tag: 'h1',
+			path: window.location.pathname + window.location.search,
+			documentRect: { left: 10, top: 10, width: 100, height: 40 },
+		},
+	];
+}
 
 function command( type: string ) {
 	window.dispatchEvent( new CustomEvent( INSPECTOR_COMMAND_EVENT, { detail: { type } } ) );

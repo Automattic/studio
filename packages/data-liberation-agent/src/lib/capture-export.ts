@@ -12,6 +12,7 @@ import { MediaStubStore } from './resume-state/index.js';
 import type { CapturedResourceManifest } from './screenshot/resource-capture.js';
 
 export const CAPTURE_RECEIPT_SCHEMA = 'data-liberation/capture-receipt/v1';
+export const WEBSITE_ARTIFACT_SCHEMA = 'blocks-engine/php-transformer/site-artifact/v1';
 
 interface CaptureManifestEntry {
 	html?: string;
@@ -37,6 +38,7 @@ interface ExportCaptureOptions {
 interface PortableDependency {
 	reference: string;
 	url: string;
+	kind: 'resource' | 'media' | 'css';
 }
 
 interface MediaCandidate {
@@ -49,6 +51,7 @@ interface MediaCandidate {
 
 const MAX_PORTABLE_MEDIA_BYTES = 5 * 1024 * 1024;
 const MAX_PORTABLE_MEDIA_DIMENSION = 2048;
+const TRANSPARENT_IMAGE_DATA_URL = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
 
 function pathWithin( root: string, candidate: string ): boolean {
 	const rel = relative( resolve( root ), resolve( candidate ) );
@@ -95,6 +98,24 @@ function replaceAll( content: string, replacements: Map< string, string > ): str
 		'g'
 	);
 	return content.replace( pattern, ( source ) => values.get( source ) ?? source );
+}
+
+function renderedHtml( html: string ): string {
+	return html.replace( /<noscript\b[^>]*>[\s\S]*?<\/noscript\s*>/gi, '' );
+}
+
+const RESPONSIVE_DOCUMENT_CSS =
+	'.data-liberation-mobile-document{display:none!important}@media(max-width:768px){.data-liberation-desktop-document{display:none!important}.data-liberation-mobile-document{display:contents!important}}';
+
+function responsiveHtml( desktopHtml: string, mobileHtml: string ): string {
+	const desktopBody = /<body\b[^>]*>([\s\S]*?)<\/body\s*>/i.exec( desktopHtml )?.[ 1 ];
+	const mobileBody = /<body\b[^>]*>([\s\S]*?)<\/body\s*>/i.exec( mobileHtml )?.[ 1 ];
+	if ( desktopBody === undefined || mobileBody === undefined ) return desktopHtml;
+
+	const responsiveBody = `<div class="data-liberation-desktop-document">${ desktopBody }</div><div class="data-liberation-mobile-document">${ mobileBody }</div>`;
+	return desktopHtml
+		.replace( /<\/head\s*>/i, `<style>${ RESPONSIVE_DOCUMENT_CSS }</style></head>` )
+		.replace( /(<body\b[^>]*>)[\s\S]*?(<\/body\s*>)/i, `$1${ responsiveBody }$2` );
 }
 
 function mediaReferences( sourceUrl: string, siteUrl: string ): string[] {
@@ -191,6 +212,25 @@ function dependencyReferences(
 	for ( const match of html.matchAll( /<script\b[^>]*\bsrc\s*=\s*["']([^"']+)["'][^>]*>/gi ) ) {
 		add( match[ 1 ] );
 	}
+	const mediaReferences = new Set< string >();
+	const cssReferences = new Set< string >();
+	for ( const match of html.matchAll(
+		/<(?:img|source|video|audio)\b[^>]*\bsrc\s*=\s*["']([^"']+)["'][^>]*>/gi
+	) ) {
+		mediaReferences.add( match[ 1 ].replace( /&amp;/g, '&' ) );
+		add( match[ 1 ] );
+	}
+	for ( const match of html.matchAll(
+		/<(?:img|source)\b[^>]*\bsrcset\s*=\s*["']([^"']+)["'][^>]*>/gi
+	) ) {
+		for ( const candidate of match[ 1 ].split( ',' ) ) {
+			const reference = candidate.trim().split( /\s+/, 1 )[ 0 ];
+			if ( reference ) {
+				mediaReferences.add( reference.replace( /&amp;/g, '&' ) );
+				add( reference );
+			}
+		}
+	}
 	for ( const match of html.matchAll( /<link\b[^>]*>/gi ) ) {
 		const tag = match[ 0 ];
 		const rel = /\brel\s*=\s*["']([^"']+)["']/i.exec( tag )?.[ 1 ].toLowerCase() ?? '';
@@ -206,15 +246,64 @@ function dependencyReferences(
 	for ( const match of html.matchAll( /\bimport\s+(?:[^"']*?\s+from\s+)?["']([^"']+)["']/g ) ) {
 		add( match[ 1 ] );
 	}
+	for ( const match of html.matchAll( /\burl\(\s*(?:["']([^"']+)["']|([^\s)'";]+))\s*\)/gi ) ) {
+		const reference = match[ 1 ] ?? match[ 2 ];
+		if ( reference && ! reference.startsWith( 'data:' ) ) {
+			cssReferences.add( reference.replace( /&amp;/g, '&' ) );
+			add( reference );
+		}
+	}
 
 	const siteOrigin = new URL( siteUrl ).origin;
 	return [ ...references ].flatMap( ( reference ) => {
 		try {
 			const url = new URL( reference, documentUrl );
-			return url.origin === siteOrigin ? [ { reference, url: url.href } ] : [];
+			return url.origin === siteOrigin
+				? [
+						{
+							reference,
+							url: url.href,
+							kind: mediaReferences.has( reference )
+								? 'media'
+								: cssReferences.has( reference )
+								? 'css'
+								: 'resource',
+						},
+				  ]
+				: [];
 		} catch {
 			return [];
 		}
+	} );
+}
+
+function removeDanglingMediaSource( html: string, reference: string ): string {
+	const normalizedReference = reference.replace( /&amp;/g, '&' );
+	return html.replace( /<(img|source|video|audio)\b[^>]*>/gi, ( tag ) => {
+		const element = /^<(\w+)/.exec( tag )?.[ 1 ].toLowerCase();
+		const src = /\bsrc\s*=\s*["']([^"']+)["']/i.exec( tag )?.[ 1 ].replace( /&amp;/g, '&' );
+		return src === normalizedReference
+			? element === 'img'
+				? tag.replace( /\s+src\s*=\s*["'][^"']*["']/i, ` src="${ TRANSPARENT_IMAGE_DATA_URL }"` )
+				: tag.replace( /\s+src\s*=\s*["'][^"']*["']/i, '' )
+			: tag;
+	} );
+}
+
+function replaceDanglingCssUrl( html: string, reference: string ): string {
+	return replaceAll( html, new Map( [ [ reference, 'data:application/octet-stream;base64,' ] ] ) );
+}
+
+function removeDanglingPreload( html: string, reference: string ): string {
+	const normalizedReference = reference.replace( /&amp;/g, '&' );
+	return html.replace( /<link\b[^>]*>/gi, ( tag ) => {
+		const rel = /\brel\s*=\s*["']([^"']+)["']/i.exec( tag )?.[ 1 ].toLowerCase() ?? '';
+		const href = /\bhref\s*=\s*["']([^"']+)["']/i.exec( tag )?.[ 1 ].replace( /&amp;/g, '&' );
+		const relations = rel.split( /\s+/ );
+		return href === normalizedReference &&
+			( relations.includes( 'preload' ) || relations.includes( 'modulepreload' ) )
+			? ''
+			: tag;
 	} );
 }
 
@@ -246,9 +335,14 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		if ( ! entry.html ) continue;
 		const htmlPath = resolve( outputDir, entry.html );
 		if ( ! pathWithin( outputDir, htmlPath ) || ! existsSync( htmlPath ) ) continue;
+		let html = renderedHtml( readFileSync( htmlPath, 'utf8' ) );
+		const mobileHtmlPath = resolve( outputDir, entry.html.replace( /^html[\\/]/, 'html-mobile/' ) );
+		if ( pathWithin( outputDir, mobileHtmlPath ) && existsSync( mobileHtmlPath ) ) {
+			html = responsiveHtml( html, renderedHtml( readFileSync( mobileHtmlPath, 'utf8' ) ) );
+		}
 		retainedEntries.push( {
 			url,
-			html: readFileSync( htmlPath, 'utf8' ),
+			html,
 			canonicalUrl: entry.metadata?.openGraph?.[ 'og:url' ],
 		} );
 	}
@@ -268,10 +362,20 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 
 	const retainedHtml = retainedEntries.map( ( entry ) => entry.html ).join( '\n' );
 	const mediaReplacements = new Map< string, string >();
+	const unresolvedMedia: Array< { url: string; error: string } > = [];
 	const assets: Array< { sourceUrl: string; path: string } > = [];
 	const mediaFamilies = new Map< string, MediaCandidate[] >();
 	for ( const [ sourceUrl, stub ] of MediaStubStore.load( outputDir ).list() ) {
 		const references = mediaReferences( sourceUrl, options.sourceUrl );
+		if (
+			stub.status === 'error' &&
+			references.some( ( reference ) => containsMediaReference( retainedHtml, reference ) )
+		) {
+			for ( const reference of references )
+				mediaReplacements.set( reference, TRANSPARENT_IMAGE_DATA_URL );
+			unresolvedMedia.push( { url: sourceUrl, error: stub.error ?? 'media download failed' } );
+			continue;
+		}
 		if (
 			stub.status !== 'success' ||
 			! stub.localPath ||
@@ -309,44 +413,73 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 	const resourceManifest = capturedResources( outputDir );
 	const unresolvedDependencies: Array< { url: string; sourceUrl: string; error: string } > = [];
 	const copiedResources = new Set< string >();
+	const copyingResources = new Set< string >();
+	const resourceReplacements = new Map< string, string >();
+	const copyResource = ( dependency: PortableDependency, sourceUrl: string ): boolean => {
+		const resource = resourceManifest.resources[ dependency.url ];
+		if ( ! resource ) {
+			unresolvedDependencies.push( {
+				url: dependency.url,
+				sourceUrl,
+				error: 'referenced same-origin dependency was not captured',
+			} );
+			return false;
+		}
+		const source = resolve( outputDir, resource.path );
+		const relativePath = resource.path.replace( /^resources[\\/]/, '' );
+		const destination = resolve( websiteDir, relativePath );
+		const portablePath = `/${ relativePath.replace( /\\/g, '/' ) }`;
+		resourceReplacements.set( dependency.reference, portablePath );
+		resourceReplacements.set( dependency.url, portablePath );
+		if ( copiedResources.has( resource.path ) ) return true;
+		if ( copyingResources.has( resource.path ) ) return true;
+		if (
+			! pathWithin( outputDir, source ) ||
+			! pathWithin( websiteDir, destination ) ||
+			! existsSync( source )
+		) {
+			unresolvedDependencies.push( {
+				url: dependency.url,
+				sourceUrl,
+				error: 'captured dependency file is unavailable',
+			} );
+			return false;
+		}
+
+		mkdirSync( dirname( destination ), { recursive: true } );
+		copyingResources.add( resource.path );
+		if ( /^(?:application\/json|text\/)/i.test( resource.contentType ) ) {
+			let content = replaceAll( readFileSync( source, 'utf8' ), mediaReplacements );
+			if ( /text\/css/i.test( resource.contentType ) ) {
+				for ( const nested of dependencyReferences( content, dependency.url, options.sourceUrl ) ) {
+					if ( ! copyResource( nested, dependency.url ) ) {
+						content = replaceDanglingCssUrl( content, nested.reference );
+					}
+				}
+			}
+			writeFileSync( destination, replaceAll( content, resourceReplacements ) );
+		} else {
+			copyFileSync( source, destination );
+		}
+		copyingResources.delete( resource.path );
+		copiedResources.add( resource.path );
+		assets.push( {
+			sourceUrl: dependency.url,
+			path: `website/${ relativePath.replace( /\\/g, '/' ) }`,
+		} );
+		return true;
+	};
 	for ( const entry of retainedEntries ) {
 		for ( const dependency of dependencyReferences( entry.html, entry.url, options.sourceUrl ) ) {
-			const resource = resourceManifest.resources[ dependency.url ];
-			if ( ! resource ) {
-				unresolvedDependencies.push( {
-					url: dependency.url,
-					sourceUrl: entry.url,
-					error: 'referenced same-origin dependency was not captured',
-				} );
-				continue;
+			if ( mediaReplacements.has( dependency.reference ) ) continue;
+			if ( ! copyResource( dependency, entry.url ) ) {
+				entry.html =
+					dependency.kind === 'media'
+						? removeDanglingMediaSource( entry.html, dependency.reference )
+						: dependency.kind === 'css'
+						? replaceDanglingCssUrl( entry.html, dependency.reference )
+						: removeDanglingPreload( entry.html, dependency.reference );
 			}
-			if ( copiedResources.has( resource.path ) ) continue;
-			const source = resolve( outputDir, resource.path );
-			const relativePath = resource.path.replace( /^resources[\\/]/, '' );
-			const destination = resolve( websiteDir, relativePath );
-			if (
-				! pathWithin( outputDir, source ) ||
-				! pathWithin( websiteDir, destination ) ||
-				! existsSync( source )
-			) {
-				unresolvedDependencies.push( {
-					url: dependency.url,
-					sourceUrl: entry.url,
-					error: 'captured dependency file is unavailable',
-				} );
-				continue;
-			}
-			mkdirSync( dirname( destination ), { recursive: true } );
-			if ( /^(?:application\/json|text\/)/i.test( resource.contentType ) ) {
-				writeFileSync( destination, replaceAll( readFileSync( source, 'utf8' ), mediaReplacements ) );
-			} else {
-				copyFileSync( source, destination );
-			}
-			copiedResources.add( resource.path );
-			assets.push( {
-				sourceUrl: dependency.url,
-				path: `website/${ relativePath.replace( /\\/g, '/' ) }`,
-			} );
 		}
 	}
 
@@ -367,7 +500,10 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 			throw new Error( `Captured route escapes the website directory: ${ url }` );
 		}
 		mkdirSync( dirname( destination ), { recursive: true } );
-		writeFileSync( destination, replaceAll( html, mediaReplacements ) );
+		writeFileSync(
+			destination,
+			replaceAll( replaceAll( html, mediaReplacements ), resourceReplacements )
+		);
 		routes.push( { url, path: `website/${ routePath }` } );
 	}
 
@@ -398,7 +534,66 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 				failures: options.failures,
 				resourceFailures: resourceManifest.failures,
 				unresolvedDependencies,
+				unresolvedMedia,
 				excludedRoutes,
+			},
+			null,
+			2
+		) }\n`
+	);
+
+	const artifactFiles: Array< {
+		path: string;
+		content?: string;
+		content_base64?: string;
+		encoding: 'utf8' | 'base64';
+	} > = routes.map( ( route ) => {
+		const relativePath = route.path.replace( /^website\//, '' );
+		return {
+			path: route.path,
+			content: readFileSync( join( websiteDir, relativePath ), 'utf8' ),
+			encoding: 'utf8',
+		};
+	} );
+	for ( const asset of assets ) {
+		const relativePath = asset.path.replace( /^website\//, '' );
+		const content = readFileSync( join( websiteDir, relativePath ) );
+		artifactFiles.push( {
+			path: asset.path,
+			content_base64: content.toString( 'base64' ),
+			encoding: 'base64',
+		} );
+	}
+	for ( const report of [ 'diagnostics.json', 'capture-receipt.json' ] ) {
+		artifactFiles.push( {
+			path: report,
+			content: readFileSync( join( outputDir, report ), 'utf8' ),
+			encoding: 'utf8',
+		} );
+	}
+	const artifactPath = join( outputDir, 'artifact.json' );
+	writeFileSync(
+		artifactPath,
+		`${ JSON.stringify(
+			{
+				schema: WEBSITE_ARTIFACT_SCHEMA,
+				artifact_type: 'website',
+				version: 1,
+				compiler_limits: {
+					max_file_bytes: 10 * 1024 * 1024,
+				},
+				id: `capture-${ Buffer.from( options.sourceUrl ).toString( 'base64url' ).slice( 0, 24 ) }`,
+				generated_at: new Date().toISOString(),
+				root: 'website',
+				entrypoint: 'website/index.html',
+				files: artifactFiles,
+				provenance: {
+					provider: 'data-liberation/browser-capture',
+					source_url: options.sourceUrl,
+					platform: options.platform,
+					...( options.title ? { title: options.title } : {} ),
+				},
+				reports: [ 'diagnostics.json', 'capture-receipt.json' ],
 			},
 			null,
 			2

@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { connectBrowser } from '../browser-kit/index.js';
 import { classifyUrl, type UrlType } from '../extraction/sitemap.js';
+import { assertPublicHttpUrl } from '../media-fetch/safe-fetch.js';
 import { CHROME_AUDIT_PROPERTIES } from '../replicate/chrome-audit-types.js';
 import { extractFull } from '../replicate/section-extract.js';
 import { SectionSpecsStore } from '../replicate/section-specs-store.js';
@@ -163,6 +164,7 @@ interface CapturePerViewportArgs {
 	 *  alt path's iframe mobile-DOM carry. Mutated in place; written once at run end. */
 	mobileHeights: Record< string, number >;
 	resourceStore: CapturedResourceStore;
+	publicUrlsOnly: boolean;
 }
 
 /** Sleep helper for navigation backoff. */
@@ -180,6 +182,21 @@ function navBackoffMs( attempt: number, retryAfter?: string ): number {
 	const raSec = retryAfter ? Number( retryAfter ) : NaN;
 	if ( Number.isFinite( raSec ) && raSec >= 0 ) return Math.min( raSec * 1000, cap );
 	return Math.min( 1000 * 2 ** ( attempt - 1 ), cap );
+}
+
+export async function capturePageHtml( page: Page ): Promise< string > {
+	await page.evaluate( () => {
+		for ( const media of document.querySelectorAll( 'audio, video' ) ) {
+			const source = media as HTMLMediaElement;
+			for ( const property of [ 'autoplay', 'loop', 'muted' ] as const ) {
+				if ( source[ property ] ) source.setAttribute( property, '' );
+			}
+			if ( source instanceof HTMLVideoElement && source.playsInline ) {
+				source.setAttribute( 'playsinline', '' );
+			}
+		}
+	} );
+	return page.content();
 }
 
 async function capturePerViewport( args: CapturePerViewportArgs ): Promise< void > {
@@ -202,11 +219,23 @@ async function capturePerViewport( args: CapturePerViewportArgs ): Promise< void
 		responsiveImages,
 		mobileHeights,
 		resourceStore,
+		publicUrlsOnly,
 	} = args;
 	const now = () => new Date().toISOString();
 	const isDesktop = viewport.id === 'desktop';
 
 	resourceStore.observe( page );
+	if ( publicUrlsOnly && page.route ) {
+		await page.route( '**/*', async ( route ) => {
+			try {
+				assertPublicHttpUrl( route.request().url() );
+			} catch {
+				await route.abort( 'blockedbyclient' );
+				return;
+			}
+			await route.continue();
+		} );
+	}
 
 	// --- navigation (with 429/503 backoff) ------------------------------------
 	// Shopify and other CDNs rate-limit aggressive concurrent capture with HTTP 429
@@ -307,7 +336,7 @@ async function capturePerViewport( args: CapturePerViewportArgs ): Promise< void
 	// --- html (desktop only) --------------------------------------------------
 	if ( isDesktop && plan.captureHtml ) {
 		try {
-			const html = await page.content();
+			const html = await capturePageHtml( page );
 			// Refuse to persist a corrupted capture: if the live DOM serialized more
 			// than one document (e.g. an AJAX page-loader prefetched and nested whole
 			// pages into the body), every section is duplicated + truncated downstream.
@@ -350,7 +379,10 @@ async function capturePerViewport( args: CapturePerViewportArgs ): Promise< void
 	// can't reflow to. Best-effort: a miss leaves the page desktop-only.
 	if ( ! isDesktop && plan.captureMobileHtml ) {
 		try {
-			const mhtml = ( await page.content() ).replace( /<script\b[^>]*>[\s\S]*?<\/script>/gi, '' );
+			const mhtml = ( await capturePageHtml( page ) ).replace(
+				/<script\b[^>]*>[\s\S]*?<\/script>/gi,
+				''
+			);
 			if ( ! isStackingArtifact( mhtml ) ) {
 				mkdirSync( dirname( plan.paths.htmlMobile ), { recursive: true } );
 				writeFileSync( plan.paths.htmlMobile, mhtml );
@@ -919,6 +951,7 @@ export async function captureScreenshots( opts: ScreenshotOpts ): Promise< Scree
 					responsiveImages,
 					mobileHeights,
 					resourceStore,
+					publicUrlsOnly: opts.publicUrlsOnly ?? false,
 					removeSelectors: opts.removeSelectors,
 					prepareCapture: opts.prepareCapture,
 				} );

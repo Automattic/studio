@@ -16,6 +16,7 @@ import type { Handler, HandlerContext, ToolResult } from './mcp-server/handler-t
 import { detectHandler } from './mcp-server/handlers/detect.js';
 import { discoverHandler } from './mcp-server/handlers/discover.js';
 import { inspectHandler } from './mcp-server/handlers/inspect.js';
+import { captureHandler } from './mcp-server/handlers/capture.js';
 import { extractHandler } from './mcp-server/handlers/extract.js';
 import { extractOneHandler } from './mcp-server/handlers/extract-one.js';
 import { mediaInstallHandler } from './mcp-server/handlers/media-install.js';
@@ -88,6 +89,19 @@ const server = new Server(
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: [
+	{
+	  name: 'liberate_capture',
+	  description: 'Auto-detect and capture a website as a canonical replayable website artifact.',
+	  inputSchema: {
+		type: 'object' as const,
+		properties: {
+		  url: { type: 'string', description: 'Public website URL to capture' },
+		  outputDir: { type: 'string', description: 'Directory for artifact and diagnostics' },
+		  resume: { type: 'boolean', description: 'Resume an interrupted capture' },
+		},
+		required: ['url', 'outputDir'],
+	  },
+	},
     {
       name: 'liberate_detect',
       description: 'Detect the platform of a website (GoDaddy Websites & Marketing, Hostinger, HubSpot, Shopify, Squarespace, Webflow, Weebly, Wix, or unknown)',
@@ -739,6 +753,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
 
 /** Tool name → handler module. */
 const handlers: Record<string, Handler> = {
+	liberate_capture: captureHandler,
   liberate_compare: compareHandler,
   liberate_data_model_scaffold: dataModelScaffoldHandler,
   liberate_design_foundation_save: designFoundationSaveHandler,

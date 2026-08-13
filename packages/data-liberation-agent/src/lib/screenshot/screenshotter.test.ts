@@ -22,7 +22,7 @@ vi.mock('../browser-kit/index.js', () => ({
   connectBrowser: vi.fn(),
 }));
 
-import { captureScreenshots, getHomepageUrl } from './screenshotter.js';
+import { capturePageHtml, captureScreenshots, getHomepageUrl } from './screenshotter.js';
 import { classifyUrl } from '../extraction/sitemap.js';
 import { connectBrowser } from '../browser-kit/index.js';
 
@@ -72,6 +72,17 @@ function makeMockBrowser(pageFactory = () => makeGoodPage()): MockBrowser {
 }
 
 describe('captureScreenshots', () => {
+	it('reflects property-only media state before serializing HTML', async () => {
+		const page = {
+			evaluate: vi.fn().mockResolvedValue(undefined),
+			content: vi.fn().mockResolvedValue('<html><video autoplay muted></video></html>'),
+		};
+
+		await expect(capturePageHtml(page as never)).resolves.toContain('<video autoplay muted>');
+		expect(page.evaluate).toHaveBeenCalledOnce();
+		expect(String(page.evaluate.mock.calls[0][0])).toContain('source.setAttribute(property');
+	});
+
   it('captures two viewports and one HTML per URL', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'ss-'));
     try {

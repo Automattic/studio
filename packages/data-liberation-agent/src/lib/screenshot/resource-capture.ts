@@ -1,8 +1,18 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { dirname, relative, resolve, sep } from 'node:path';
+import { safeFetch, type SafeFetchResult } from '../media-fetch/safe-fetch.js';
 import type { Page, Response } from 'playwright';
 
-const CAPTURED_RESOURCE_TYPES = new Set( [ 'script', 'stylesheet', 'font', 'fetch' ] );
+const CAPTURED_RESOURCE_TYPES = new Set( [
+	'script',
+	'stylesheet',
+	'font',
+	'fetch',
+	'image',
+	'media',
+] );
+const MAX_CAPTURED_RESOURCE_BYTES = 10 * 1024 * 1024;
 
 export interface CapturedResourceEntry {
 	path: string;
@@ -25,7 +35,7 @@ function pathWithin( root: string, candidate: string ): boolean {
 	return rel === '' || ( ! rel.startsWith( `..${ sep }` ) && rel !== '..' );
 }
 
-function resourcePath( url: URL ): string {
+function resourcePath( url: URL, contentType = '' ): string {
 	let pathname: string;
 	try {
 		pathname = decodeURIComponent( url.pathname );
@@ -36,7 +46,21 @@ function resourcePath( url: URL ): string {
 	if ( ! cleanPath || cleanPath.split( /[\\/]/ ).includes( '..' ) ) {
 		throw new Error( 'resource URL does not resolve to a safe file path' );
 	}
-	return cleanPath;
+	const querySuffix = url.search
+		? `-${ createHash( 'sha256' ).update( url.search ).digest( 'hex' ).slice( 0, 12 ) }`
+		: '';
+	if ( /\.[a-z0-9]+$/i.test( cleanPath ) ) {
+		return cleanPath.replace( /(\.[a-z0-9]+)$/i, `${ querySuffix }$1` );
+	}
+	const extension = new Map( [
+		[ 'video/mp4', '.mp4' ],
+		[ 'video/webm', '.webm' ],
+		[ 'video/ogg', '.ogv' ],
+		[ 'audio/mpeg', '.mp3' ],
+		[ 'audio/ogg', '.ogg' ],
+		[ 'audio/wav', '.wav' ],
+	] ).get( contentType.split( ';', 1 )[ 0 ].trim().toLowerCase() );
+	return extension ? `${ cleanPath }${ querySuffix }${ extension }` : `${ cleanPath }${ querySuffix }`;
 }
 
 export class CapturedResourceStore {
@@ -47,12 +71,19 @@ export class CapturedResourceStore {
 	private readonly captures = new Map< string, Promise< void > >();
 	private readonly pageCaptures = new WeakMap< Page, Set< Promise< void > > >();
 	private readonly listeners = new WeakMap< Page, ( response: Response ) => void >();
+	private readonly fetchMedia: ( url: string ) => Promise< SafeFetchResult >;
 
-	constructor( outputDir: string, sourceUrl: string ) {
+	constructor(
+		outputDir: string,
+		sourceUrl: string,
+		fetchMedia: ( url: string ) => Promise< SafeFetchResult > = ( url ) =>
+			safeFetch( url, { maxBytes: MAX_CAPTURED_RESOURCE_BYTES } )
+	) {
 		this.origin = new URL( sourceUrl ).origin;
 		this.resourceDir = resolve( outputDir, 'resources' );
 		this.manifestPath = resolve( outputDir, 'resources', 'manifest.json' );
 		this.manifest = this.loadManifest();
+		this.fetchMedia = fetchMedia;
 	}
 
 	observe( page: Page ): void {
@@ -81,7 +112,8 @@ export class CapturedResourceStore {
 
 	private capture( response: Response ): Promise< void > {
 		const request = response.request();
-		if ( ! CAPTURED_RESOURCE_TYPES.has( request.resourceType() ) ) return Promise.resolve();
+		const resourceType = request.resourceType();
+		if ( ! CAPTURED_RESOURCE_TYPES.has( resourceType ) ) return Promise.resolve();
 
 		let resourceUrl: URL;
 		try {
@@ -95,29 +127,50 @@ export class CapturedResourceStore {
 		const existing = this.captures.get( url );
 		if ( existing ) return existing;
 
-		const capture = this.captureResponse( response, resourceUrl ).catch( ( error: unknown ) => {
-			this.manifest.failures.push( {
-				url,
-				error: error instanceof Error ? error.message : String( error ),
-			} );
-		} );
+		const capture = this.captureResponse( response, resourceUrl, resourceType ).catch(
+			( error: unknown ) => {
+				this.manifest.failures.push( {
+					url,
+					error: error instanceof Error ? error.message : String( error ),
+				} );
+			}
+		);
 		this.captures.set( url, capture );
 		return capture;
 	}
 
-	private async captureResponse( response: Response, resourceUrl: URL ): Promise< void > {
-		if ( ! response.ok() ) throw new Error( `HTTP ${ response.status() }` );
-		const relativePath = resourcePath( resourceUrl );
+	private async captureResponse(
+		response: Response,
+		resourceUrl: URL,
+		resourceType: string
+	): Promise< void > {
+		const fetched =
+			resourceType === 'media' ? await this.fetchMedia( resourceUrl.href ) : undefined;
+		const status = fetched?.status ?? response.status();
+		if ( status < 200 || status >= 300 ) throw new Error( `HTTP ${ status }` );
+		const headers = fetched ? Object.fromEntries( fetched.headers.entries() ) : response.headers();
+		const declaredBytes = Number( headers[ 'content-length' ] );
+		if ( Number.isFinite( declaredBytes ) && declaredBytes > MAX_CAPTURED_RESOURCE_BYTES ) {
+			throw new Error(
+				`resource body ${ declaredBytes } bytes exceeds max ${ MAX_CAPTURED_RESOURCE_BYTES }`
+			);
+		}
+		const relativePath = resourcePath( resourceUrl, headers[ 'content-type' ] );
 		const destination = resolve( this.resourceDir, relativePath );
 		if ( ! pathWithin( this.resourceDir, destination ) ) {
 			throw new Error( 'resource path escapes the capture directory' );
 		}
-		const body = await response.body();
+		const body = fetched?.body ?? ( await response.body() );
+		if ( body.length > MAX_CAPTURED_RESOURCE_BYTES ) {
+			throw new Error(
+				`resource body ${ body.length } bytes exceeds max ${ MAX_CAPTURED_RESOURCE_BYTES }`
+			);
+		}
 		mkdirSync( dirname( destination ), { recursive: true } );
 		writeFileSync( destination, body );
 		this.manifest.resources[ resourceUrl.href ] = {
 			path: `resources/${ relativePath.replace( /\\/g, '/' ) }`,
-			contentType: response.headers()[ 'content-type' ] ?? '',
+			contentType: headers[ 'content-type' ] ?? '',
 		};
 	}
 

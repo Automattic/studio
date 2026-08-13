@@ -146,7 +146,9 @@ describe( 'extractHandler — compact result', () => {
 		);
 
 		expect( out.captureReceiptPath ).toBe( join( dir, 'capture-receipt.json' ) );
+		expect( out.artifactPath ).toBe( join( dir, 'artifact.json' ) );
 		expect( existsSync( join( dir, 'website', 'index.html' ) ) ).toBe( true );
+		expect( existsSync( join( dir, 'artifact.json' ) ) ).toBe( true );
 		expect( JSON.parse( readFileSync( join( dir, 'capture-receipt.json' ), 'utf8' ) ).schema ).toBe(
 			'data-liberation/capture-receipt/v1'
 		);

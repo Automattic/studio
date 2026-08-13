@@ -45,6 +45,8 @@ export interface ScreenshotOpts {
   settleMs?: number;                 // default: 1_000
   server?: Server;
   verbose?: boolean;
+  /** Reject non-public requests and redirect targets during browser capture. */
+  publicUrlsOnly?: boolean;
   /**
    * Capture design fragment + CSS/JS aggregates for page/post archetypes.
    * Default: false. When true, writes design/<slug>.fragment.html and

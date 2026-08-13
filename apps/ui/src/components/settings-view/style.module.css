@@ -1,5 +1,5 @@
 .root {
-	--settings-content-width: 760px;
+	--settings-content-width: 1040px;
 	--settings-form-width: 560px;
 	--settings-divider-border: 1px dotted
 		color-mix( in srgb, var( --wpds-color-stroke-surface-neutral ) 72%, transparent );
@@ -130,6 +130,30 @@
 	margin: 0 auto;
 	padding: var( --wpds-dimension-padding-2xl ) var( --wpds-dimension-padding-xl )
 		var( --wpds-dimension-padding-2xl );
+}
+
+.settingsLayout {
+	display: grid;
+	grid-template-columns: 240px minmax( 0, 1fr );
+	align-items: start;
+	gap: var( --wpds-dimension-padding-2xl );
+}
+
+.settingsMain {
+	min-width: 0;
+}
+
+.accountAside {
+	position: sticky;
+	top: var( --wpds-dimension-padding-2xl );
+	display: flex;
+	flex-direction: column;
+	gap: var( --wpds-dimension-padding-lg );
+}
+
+.accountCard,
+.accountHelp {
+	gap: var( --wpds-dimension-padding-md );
 }
 
 .preferencesPanel {
@@ -509,39 +533,11 @@
 	inline-size: 240px;
 }
 
-.accountSectionHeader {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: var( --wpds-dimension-padding-xl );
-	margin-block-end: var( --wpds-dimension-padding-xl );
-}
-
-.accountHeading {
-	margin-block-end: 0;
-}
-
 .accountActions {
 	display: flex;
-	gap: var( --wpds-dimension-padding-md );
-	flex-wrap: wrap;
-}
-
-.accountSummary {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: var( --wpds-dimension-padding-xl );
-	min-width: 0;
-}
-
-.accountButtons {
-	display: flex;
-	align-items: center;
-	justify-content: flex-end;
-	gap: var( --wpds-dimension-padding-sm );
-	flex-wrap: wrap;
-	flex-shrink: 0;
+	align-items: flex-start;
+	flex-direction: column;
+	gap: var( --wpds-dimension-padding-xs );
 }
 
 .accountIdentity {
@@ -862,6 +858,18 @@
 		0 0 0 calc( 2 * var( --wpds-border-width-focus ) ) var( --wpds-color-stroke-focus-brand );
 }
 
+@media ( max-width: 900px ) {
+	.settingsLayout {
+		grid-template-columns: 1fr;
+	}
+
+	.accountAside {
+		position: static;
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+	}
+}
+
 @media ( max-width: 640px ) {
 	.preferenceRow,
 	.field,
@@ -892,10 +900,8 @@
 		border-block-start: 1px solid var( --wpds-color-stroke-surface-neutral );
 	}
 
-	.accountSectionHeader,
-	.accountSummary {
-		align-items: flex-start;
-		flex-direction: column;
+	.accountAside {
+		grid-template-columns: 1fr;
 	}
 
 	.preferenceText h2 {

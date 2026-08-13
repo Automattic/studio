@@ -1,12 +1,8 @@
 /**
- * Moves `aiProvider` and `anthropicApiKey` from the CLI-owned `cli.json` into
- * the shared `shared.json`, where both Desktop and CLI now read them from.
- *
- * Earlier builds wrote both fields to cli.json. `settings-store.ts` still falls
- * back to reading them there, so nothing breaks before this runs; the migration
- * makes shared.json the single source and drops the stale copies. Values already
- * in shared.json win — they were written by a newer build, so the cli.json ones
- * are stale and only get removed.
+ * Moves `aiProvider` and `anthropicApiKey` from cli.json into shared.json,
+ * where Desktop and CLI now read them. Reads still fall back to cli.json
+ * (`settings-store.ts`), so nothing breaks before this runs. Values already
+ * in shared.json are newer and win; the cli.json copies are removed either way.
  */
 
 import {

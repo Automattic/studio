@@ -297,9 +297,8 @@ export async function getAiSettings() {
 	return readAiSettings();
 }
 
-// Both handlers can move either field — clearing the key falls the provider back to WordPress.com —
-// so they emit one shared event describing the resulting state. The key itself is never sent; the
-// preview is compared only to notice a key being swapped for a different one.
+// One event for both handlers: clearing the key also moves the provider back to WordPress.com.
+// The key is never sent; the preview comparison only detects a key being swapped.
 async function recordAiSettingsChange( previous: AiSettings, next: AiSettings ): Promise< void > {
 	const unchanged =
 		previous.provider === next.provider &&

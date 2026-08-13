@@ -311,9 +311,7 @@ describe( 'saveGlobalAgentInstructions', () => {
 	} );
 } );
 
-// Both handlers report the resulting state through one event, because clearing the key also moves
-// the provider back to WordPress.com. The key never leaves the store — only booleans and the
-// provider id are sent.
+// One event for both handlers: clearing the key also moves the provider back to WordPress.com.
 describe( 'AI provider settings', () => {
 	const keyPreview = 'sk-ant-api03-tes...1234';
 	const wpcomWithoutKey = {

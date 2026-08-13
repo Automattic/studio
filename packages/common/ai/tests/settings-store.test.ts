@@ -143,6 +143,12 @@ describe( 'ai settings store', () => {
 		} );
 	} );
 
+	it( 'previews a short key by its tail only, never most of the key', async () => {
+		const settings = await saveAnthropicApiKey( 'sk-short-key-1234' );
+
+		expect( settings.anthropicApiKeyPreview ).toBe( '...1234' );
+	} );
+
 	it( 'refuses a rejected key on switch but accepts an unverifiable one', async () => {
 		await saveAnthropicApiKey( 'sk-ant-api03-testkey-abcd1234' );
 

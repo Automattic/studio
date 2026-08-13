@@ -1,16 +1,23 @@
+import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
 import { useQuery } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
-import { chevronLeft, chevronRight, moreVertical } from '@wordpress/icons';
+import { chevronDown, chevronLeft, chevronRight, Icon, moreVertical } from '@wordpress/icons';
 import { ariaKeyShortcut, displayShortcut, isAppleOS, isKeyboardEvent } from '@wordpress/keycodes';
-import { Button, IconButton } from '@wordpress/ui';
+import { Button, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DotGrid } from '@/components/dot-grid';
 import * as Menu from '@/components/menu';
 import { OpenInMenu } from '@/components/open-in-menu';
+import splitStyles from '@/components/split-button/style.module.css';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
-import { useIsSiteStarting, useStartSite } from '@/data/queries/use-sites';
+import {
+	useIsSiteBusy,
+	useIsSiteStarting,
+	useSiteOperation,
+	useStartSite,
+} from '@/data/queries/use-sites';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { useWindowControlsOverlay } from '@/hooks/use-window-controls-overlay';
 import { getSiteUrl } from '@/lib/get-site-url';
@@ -82,7 +89,7 @@ interface InspectorState {
 
 interface InspectorCommand {
 	id: number;
-	type: 'toggle-picking' | 'cancel' | 'submit';
+	type: 'toggle-picking' | 'submit';
 }
 
 interface BrowserNavigationState {
@@ -93,7 +100,7 @@ interface BrowserNavigationState {
 	title: string | null;
 }
 
-type BrowserShortcutCommandType = 'back' | 'forward' | 'reload' | 'hard-reload';
+type BrowserShortcutCommandType = 'back' | 'forward' | 'reload';
 
 // What the guest page can forward over the console bridge: the browser
 // commands it swallows, plus the full-preview toggle (the webview covers most
@@ -246,16 +253,26 @@ function getWebviewContentsId( webview: WebviewTag ): number {
 	return webContentsId;
 }
 
-// Chrome keeps cached 301s through every reload variant, and a redirect leaves
-// the webview's current entry on the other site — hence clear, then navigate.
-async function hardReload( webview: WebviewTag, url: string ): Promise< void > {
+// Reloading always drops the HTTP cache: it keeps edited CSS/JS from being
+// served stale, and it's the only way to shake a cached 301 (Chrome keeps those
+// through every reload variant). When such a redirect has already moved the
+// webview onto another origin, reload() would reload *that*, so navigate.
+async function reloadPreview(
+	webview: WebviewTag,
+	intendedUrl: string,
+	currentUrl: string
+): Promise< void > {
 	const { ipcApi } = window as PreviewWindow;
 	try {
 		await ipcApi?.clearWebviewCache?.( getWebviewContentsId( webview ) );
 	} catch {
 		// No IPC bridge, or the webview isn't ready.
 	}
-	await webview.loadURL( url ).catch( () => undefined );
+	if ( isOffOriginRedirect( currentUrl, intendedUrl ) ) {
+		await webview.loadURL( intendedUrl ).catch( () => undefined );
+		return;
+	}
+	webview.reload?.();
 }
 
 export function isOffOriginRedirect( settledUrl: string, intendedUrl: string ): boolean {
@@ -362,10 +379,8 @@ export function getBrowserShortcutCommand(
 	if ( event.defaultPrevented || event.repeat ) {
 		return null;
 	}
-	if ( isKeyboardEvent.primaryShift( event, 'r' ) ) {
-		return 'hard-reload';
-	}
-	if ( isKeyboardEvent.primary( event, 'r' ) ) {
+	// ⌘⇧R is accepted as an alias so the browser habit isn't a dead key.
+	if ( isKeyboardEvent.primary( event, 'r' ) || isKeyboardEvent.primaryShift( event, 'r' ) ) {
 		return 'reload';
 	}
 	if ( isKeyboardEvent.primary( event, '[' ) ) {
@@ -419,7 +434,6 @@ function isPreviewShortcutCommand( command: unknown ): command is PreviewShortcu
 		command === 'back' ||
 		command === 'forward' ||
 		command === 'reload' ||
-		command === 'hard-reload' ||
 		command === 'full-preview'
 	);
 }
@@ -434,7 +448,6 @@ function PreviewOverflowMenu( {
 	onMobileOrientationChange,
 	fullscreen,
 	onFullscreenChange,
-	onHardReload,
 }: {
 	viewportMode: ViewportMode;
 	onViewportModeChange: ( mode: ViewportMode ) => void;
@@ -442,7 +455,6 @@ function PreviewOverflowMenu( {
 	onMobileOrientationChange: ( orientation: MobileOrientation ) => void;
 	fullscreen: boolean;
 	onFullscreenChange?: ( value: boolean ) => void;
-	onHardReload: () => void;
 } ) {
 	const viewportLabels: Record< ViewportPreset[ 'id' ], string > = {
 		mobile: __( 'Mobile' ),
@@ -516,15 +528,125 @@ function PreviewOverflowMenu( {
 						</Menu.Item>
 					</>
 				) : null }
-				<Menu.Separator />
-				<Menu.Item
-					onClick={ onHardReload }
-					aria-keyshortcuts={ ariaKeyShortcut.primaryShift( 'r' ) }
-				>
-					{ __( 'Hard refresh' ) }
-				</Menu.Item>
 			</Menu.Popup>
 		</Menu.Root>
+	);
+}
+
+// Annotation commands. With nothing pending there's only one command, so the
+// toolbar shows a bare toggle at every width. Once notes are waiting there are
+// two, and a narrow toolbar can't fit them inline — `style.module.css` swaps
+// the inline pair for a split button, so only one layout is ever in the a11y
+// tree.
+function PreviewAnnotationControls( {
+	isPicking,
+	annotationCount,
+	disabled,
+	onCommand,
+}: {
+	isPicking: boolean;
+	annotationCount: number;
+	disabled: boolean;
+	onCommand: ( type: InspectorCommand[ 'type' ] ) => void;
+} ) {
+	const toggleLabel = isPicking ? __( 'Stop annotating' ) : __( 'Annotate' );
+	const submitLabel = __( 'Send annotations to chat' );
+	const hasPending = annotationCount > 0;
+	return (
+		<>
+			<div
+				className={ clsx( styles.annotationControls, hasPending && styles.annotationControlsWide ) }
+			>
+				<IconButton
+					variant="minimal"
+					tone="neutral"
+					size="small"
+					icon={ annotationIcon }
+					label={ toggleLabel }
+					disabled={ disabled }
+					aria-pressed={ isPicking }
+					onClick={ () => onCommand( 'toggle-picking' ) }
+				/>
+				{ hasPending ? (
+					<Button
+						variant="solid"
+						tone="brand"
+						size="small"
+						disabled={ disabled }
+						aria-label={ submitLabel }
+						onClick={ () => onCommand( 'submit' ) }
+					>
+						{ __( 'Send to chat' ) }
+					</Button>
+				) : null }
+			</div>
+			{ hasPending ? (
+				<div className={ styles.annotationMenu }>
+					{ /* Two commands to offer, so it becomes a split button matching the
+						"Open in…" control beside it: the annotation icon still toggles directly,
+						the chevron opens the pair. Modal for the same reason as the
+						overflow menu — the webview swallows outside clicks, so the
+						backdrop is what dismisses it. */ }
+					<Menu.Root>
+						<div className={ splitStyles.splitTrigger }>
+							<Tooltip.Root>
+								<Tooltip.Trigger
+									render={
+										<Button
+											variant="minimal"
+											tone="neutral"
+											size="small"
+											className={ splitStyles.splitAction }
+											aria-label={ toggleLabel }
+											aria-pressed={ isPicking }
+											disabled={ disabled }
+											onClick={ () => onCommand( 'toggle-picking' ) }
+										/>
+									}
+								>
+									<Icon icon={ annotationIcon } size={ 18 } />
+								</Tooltip.Trigger>
+								<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
+									{ toggleLabel }
+								</Tooltip.Popup>
+							</Tooltip.Root>
+							<Tooltip.Root>
+								<Menu.Trigger
+									render={
+										<Tooltip.Trigger
+											render={
+												<Button
+													variant="minimal"
+													tone="neutral"
+													size="small"
+													className={ splitStyles.splitMenuButton }
+													aria-label={ __( 'Annotation options' ) }
+													disabled={ disabled }
+												/>
+											}
+										>
+											<Icon
+												icon={ chevronDown }
+												size={ 12 }
+												className={ splitStyles.chevron }
+												data-keep-size
+											/>
+										</Tooltip.Trigger>
+									}
+								/>
+								<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
+									{ __( 'Annotation options' ) }
+								</Tooltip.Popup>
+							</Tooltip.Root>
+						</div>
+						<Menu.Popup side="bottom" align="end">
+							<Menu.Item onClick={ () => onCommand( 'toggle-picking' ) }>{ toggleLabel }</Menu.Item>
+							<Menu.Item onClick={ () => onCommand( 'submit' ) }>{ submitLabel }</Menu.Item>
+						</Menu.Popup>
+					</Menu.Root>
+				</div>
+			) : null }
+		</>
 	);
 }
 
@@ -552,6 +674,8 @@ export function SitePreview( {
 	const { chatEnabled } = useAgenticFeatures();
 	const startSite = useStartSite();
 	const isStarting = useIsSiteStarting( site.id );
+	const isBusy = useIsSiteBusy( site );
+	const operation = useSiteOperation( site );
 	const siteUrl = getSiteUrl( site );
 	const canPreview = site.running;
 	const canUseWebview = isElectron();
@@ -927,44 +1051,12 @@ export function SitePreview( {
 				</div>
 				<div className={ clsx( styles.headerSide, styles.headerSideEnd ) }>
 					{ canPreview && chatEnabled && connector.capabilities.annotatePreview ? (
-						<div className={ styles.annotationControls }>
-							{ inspectorState.isPicking ? (
-								<Button
-									variant="minimal"
-									tone="neutral"
-									size="small"
-									disabled={ ! canAnnotate }
-									onClick={ () => sendInspectorCommand( 'cancel' ) }
-								>
-									{ __( 'Cancel' ) }
-								</Button>
-							) : (
-								<Button
-									variant="outline"
-									tone="neutral"
-									size="small"
-									className={ styles.annotateButton }
-									disabled={ ! canAnnotate }
-									onClick={ () => sendInspectorCommand( 'toggle-picking' ) }
-								>
-									<Button.Icon icon={ annotationIcon } size={ 16 } />
-									{ __( 'Annotate' ) }
-								</Button>
-							) }
-							{ inspectorState.isPicking && inspectorState.annotationCount > 0 ? (
-								<Button
-									variant="solid"
-									tone="brand"
-									size="small"
-									className={ styles.sendAnnotations }
-									disabled={ ! canAnnotate }
-									aria-label={ __( 'Send annotations to chat' ) }
-									onClick={ () => sendInspectorCommand( 'submit' ) }
-								>
-									{ __( 'Send to chat' ) }
-								</Button>
-							) : null }
-						</div>
+						<PreviewAnnotationControls
+							isPicking={ inspectorState.isPicking }
+							annotationCount={ inspectorState.annotationCount }
+							disabled={ ! canAnnotate }
+							onCommand={ sendInspectorCommand }
+						/>
 					) : null }
 					<OpenInMenu key={ site.id } site={ site } browserPath={ getSafePath( path ) } />
 					{ canPreview ? (
@@ -975,7 +1067,6 @@ export function SitePreview( {
 							onMobileOrientationChange={ handleMobileOrientationChange }
 							fullscreen={ fullscreen }
 							onFullscreenChange={ onFullscreenChange }
-							onHardReload={ () => sendBrowserCommand( 'hard-reload' ) }
 						/>
 					) : null }
 				</div>
@@ -1029,9 +1120,7 @@ export function SitePreview( {
 									// by remounting; back/forward aren't reachable from the host.
 									<iframe
 										key={ `${ previewUrl }#${ reloadNonce }#${
-											browserCommand?.type === 'reload' || browserCommand?.type === 'hard-reload'
-												? browserCommand.id
-												: 0
+											browserCommand?.type === 'reload' ? browserCommand.id : 0
 										}` }
 										className={ styles.iframe }
 										style={ iframeStyle }
@@ -1126,13 +1215,20 @@ export function SitePreview( {
 									</div>
 								) : null }
 								<p className={ styles.emptyText }>
-									{ __( 'Start the site to see a live preview.' ) }
+									{ operation
+										? sprintf(
+												/* translators: %s: an operation in progress, e.g. "Saving settings". */
+												__( '%s… the site can start once this finishes.' ),
+												getSiteOperationLabel( operation )
+										  )
+										: __( 'Start the site to see a live preview.' ) }
 								</p>
 								<Button
 									variant="solid"
 									tone="brand"
 									loading={ isStarting }
 									loadingAnnouncement={ __( 'Starting site' ) }
+									disabled={ isBusy }
 									onClick={ () => startSite.mutate( site.id ) }
 								>
 									<span className={ styles.startIcon } aria-hidden="true">
@@ -1389,7 +1485,7 @@ function WebviewSurface( {
 				if ( pendingLoadRef.current ) {
 					pendingLoadRef.current = false;
 					if ( isOffOriginRedirect( navigateEvent.url, urlRef.current ) ) {
-						void hardReload( webview, urlRef.current );
+						void reloadPreview( webview, urlRef.current, navigateEvent.url );
 					}
 				}
 			}
@@ -1485,9 +1581,7 @@ function WebviewSurface( {
 			} else if ( browserCommand.type === 'forward' && webview.canGoForward?.() ) {
 				webview.goForward?.();
 			} else if ( browserCommand.type === 'reload' ) {
-				webview.reload?.();
-			} else if ( browserCommand.type === 'hard-reload' ) {
-				void hardReload( webview, urlRef.current );
+				void reloadPreview( webview, urlRef.current, currentUrlRef.current );
 			}
 		} finally {
 			publishBrowserState();

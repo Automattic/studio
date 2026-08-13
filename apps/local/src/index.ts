@@ -24,6 +24,7 @@ import {
 	deleteAiSession,
 	loadAiSession,
 } from '@studio/common/ai/sessions/store';
+import { expandSkillCommandPrompt } from '@studio/common/ai/slash-commands';
 import { DEFAULT_TOKEN_LIFETIME_MS } from '@studio/common/constants';
 import { createCliRunner } from '@studio/common/lib/cli-process';
 import {
@@ -53,6 +54,7 @@ import {
 	updateSharedSession,
 } from '@studio/common/lib/shared-config';
 import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
+import { isSyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { fetchLatestRewindId, fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import { detectInstalledApps } from '@studio/common/lib/user-settings/installed-apps';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
@@ -163,6 +165,7 @@ function toSiteDetails( site: SiteListItem ) {
 		enableXdebug: site.enableXdebug,
 		enableDebugLog: site.enableDebugLog,
 		enableDebugDisplay: site.enableDebugDisplay,
+		operation: site.operation,
 		siteIcon: null,
 	};
 }
@@ -205,6 +208,22 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		for ( const client of sseClients ) {
 			client.write( `data: ${ data }\n\n` );
 		}
+	}
+
+	// In-flight push/pull, keyed the same way the desktop keys them
+	// (`${siteId}-${remoteSiteId}`), so `/sync/cancel` can abort one.
+	const SYNC_ABORT_CONTROLLERS = new Map< string, AbortController >();
+	function registerSyncAbort( siteId: string, remoteSiteId: number ) {
+		const key = `${ siteId }-${ remoteSiteId }`;
+		const controller = new AbortController();
+		SYNC_ABORT_CONTROLLERS.set( key, controller );
+		const release = () => {
+			if ( SYNC_ABORT_CONTROLLERS.get( key ) === controller ) {
+				SYNC_ABORT_CONTROLLERS.delete( key );
+			}
+		};
+		release.signal = controller.signal;
+		return release;
 	}
 
 	// Background watch for the WordPress.com site the user is about to create via
@@ -448,6 +467,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
+	// No `studio_setting_instructions_change` — this server has no Tracks emitter. See STU-2247.
 	api.post(
 		'/agent-instructions',
 		asyncHandler( async ( req: Request, res: Response ) => {
@@ -1114,18 +1134,48 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
-			await pullSite(
-				execute,
-				site.path,
-				remoteSiteId,
-				( progress ) => {
-					sseSend( {
-						channel: 'sync-pull',
-						payload: { ...progress, siteId: req.params.id, remoteSiteId },
-					} );
-				},
-				options
-			);
+			const release = registerSyncAbort( req.params.id, remoteSiteId );
+			try {
+				await pullSite(
+					execute,
+					site.path,
+					remoteSiteId,
+					( progress ) => {
+						sseSend( {
+							channel: 'sync-pull',
+							payload: { ...progress, siteId: req.params.id, remoteSiteId },
+						} );
+					},
+					options,
+					release.signal
+				);
+			} catch ( error ) {
+				// A user cancel is an intentional stop, not a server error — report it
+				// as a result so it doesn't surface as a 500.
+				if ( ! isSyncCancelledError( error ) ) {
+					throw error;
+				}
+				res.json( { cancelled: true } );
+				return;
+			} finally {
+				release();
+			}
+			res.json( { cancelled: false } );
+		} )
+	);
+
+	// Stop an in-flight push or pull. No-op when nothing is running for the site,
+	// and the operation itself refuses to stop once it has moved past its point
+	// of no return (see `canCancelPush` / `canCancelPull`).
+	api.post(
+		'/sites/:id/sync/cancel',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const { remoteSiteId } = req.body as { remoteSiteId?: number };
+			if ( ! remoteSiteId ) {
+				res.status( 400 ).json( { error: 'remoteSiteId is required' } );
+				return;
+			}
+			SYNC_ABORT_CONTROLLERS.get( `${ req.params.id }-${ remoteSiteId }` )?.abort();
 			res.sendStatus( 204 );
 		} )
 	);
@@ -1227,19 +1277,30 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
-			await pushSite(
-				{
-					executeCliCommand: execute,
-					accessToken: token.accessToken,
-					emit: ( output ) =>
-						sseSend( {
-							channel: 'sync',
-							payload: { ...output, siteId: req.params.id, remoteSiteId },
-						} ),
-				},
-				{ sitePath: site.path, remoteSiteId, options }
-			);
-			res.sendStatus( 204 );
+			const release = registerSyncAbort( req.params.id, remoteSiteId );
+			try {
+				await pushSite(
+					{
+						executeCliCommand: execute,
+						accessToken: token.accessToken,
+						emit: ( output ) =>
+							sseSend( {
+								channel: 'sync-push',
+								payload: { ...output, siteId: req.params.id, remoteSiteId },
+							} ),
+					},
+					{ sitePath: site.path, remoteSiteId, options, signal: release.signal }
+				);
+			} catch ( error ) {
+				if ( ! isSyncCancelledError( error ) ) {
+					throw error;
+				}
+				res.json( { cancelled: true } );
+				return;
+			} finally {
+				release();
+			}
+			res.json( { cancelled: false } );
 		} )
 	);
 
@@ -1288,7 +1349,11 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 					site = { id: found.id, name: found.name, path: found.path };
 				}
 			}
-			res.json( await createOrReuseAiSession( sessionsRoot, { site } ) );
+			// `created` is an analytics signal for the desktop, not part of the session shape.
+			const { created: _created, ...summary } = await createOrReuseAiSession( sessionsRoot, {
+				site,
+			} );
+			res.json( summary );
 		} )
 	);
 
@@ -1343,7 +1408,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		}
 		const { runId } = runManager.startAgentRun( {
 			sessionId: req.params.id,
-			prompt,
+			prompt: expandSkillCommandPrompt( prompt ),
 			displayMessage,
 		} );
 		res.json( { runId } );

@@ -225,15 +225,15 @@ describe( 'SitePreview', () => {
 		fireEvent.keyDown( document.body, { key: 'r', ctrlKey: true } );
 		expect( container.querySelector( 'iframe' ) ).not.toBe( initialIframe );
 
-		// Shift is the hard-reload chord, which reloads the fallback iframe too.
+		// ⌘⇧R is an alias for the same reload.
 		const reloadedIframe = container.querySelector( 'iframe' );
 		fireEvent.keyDown( document.body, { key: 'r', ctrlKey: true, shiftKey: true } );
 		expect( container.querySelector( 'iframe' ) ).not.toBe( reloadedIframe );
 
-		// Extra modifiers must not trigger either shortcut.
-		const hardReloadedIframe = container.querySelector( 'iframe' );
+		// Extra modifiers must not trigger the shortcut.
+		const aliasReloadedIframe = container.querySelector( 'iframe' );
 		fireEvent.keyDown( document.body, { key: 'r', ctrlKey: true, altKey: true } );
-		expect( container.querySelector( 'iframe' ) ).toBe( hardReloadedIframe );
+		expect( container.querySelector( 'iframe' ) ).toBe( aliasReloadedIframe );
 	} );
 
 	it( 'switches realms on primary-modifier number shortcuts', () => {
@@ -360,6 +360,25 @@ describe( 'SitePreview', () => {
 		);
 
 		expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeInTheDocument();
+	} );
+
+	it( 'shows a single annotate toggle while no notes are pending', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			capabilities: { ...CAPABILITIES, annotatePreview: true },
+		} as never );
+
+		renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+
+		// One command means no collapsed variant: a second control would be a
+		// duplicate of this one at every width, and a menu wrapping it would be
+		// a single-item dropdown.
+		expect( screen.getAllByRole( 'button', { name: 'Annotate' } ) ).toHaveLength( 1 );
+		expect(
+			screen.queryByRole( 'button', { name: 'Annotation options' } )
+		).not.toBeInTheDocument();
 	} );
 
 	it( 'hides the Annotate control when agentic features are off', () => {
@@ -648,10 +667,10 @@ describe( 'getBrowserShortcutCommand', () => {
 		expect( getBrowserShortcutCommand( makeEvent( { key: 'r', ctrlKey: true } ) ) ).toBe(
 			'reload'
 		);
-		// Cmd+Shift+R reports an uppercase key; the chord must still match.
+		// The ⌘⇧R alias reports an uppercase key; it must still map to reload.
 		expect(
 			getBrowserShortcutCommand( makeEvent( { key: 'R', ctrlKey: true, shiftKey: true } ) )
-		).toBe( 'hard-reload' );
+		).toBe( 'reload' );
 		expect( getBrowserShortcutCommand( makeEvent( { key: '[', ctrlKey: true } ) ) ).toBe( 'back' );
 		expect( getBrowserShortcutCommand( makeEvent( { key: ']', ctrlKey: true } ) ) ).toBe(
 			'forward'

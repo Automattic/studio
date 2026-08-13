@@ -49,11 +49,13 @@
 
 /* Matching flexible side tracks: because both flex from the same 0 basis,
    the address control between them sits at the toolbar's true center no
-   matter how many controls each side holds. */
+   matter how many controls each side holds. They keep their automatic
+   min-content floor, so a narrow toolbar shrinks the address segments
+   between them rather than letting the (non-shrinking) button groups
+   spill out of their track and over the address bar. */
 .headerSide {
 	display: flex;
 	flex: 1 1 0;
-	min-width: 0;
 	align-items: center;
 	gap: var(--wpds-dimension-padding-md);
 }
@@ -78,20 +80,25 @@
 	flex-shrink: 0;
 }
 
-.annotateButton {
-	gap: 8px;
-	border-color: var(--wpds-color-stroke-surface-neutral);
-	padding-inline: 10px 12px;
+.annotationMenu {
+	display: none;
+	align-items: center;
+	flex-shrink: 0;
 }
 
-.annotateButton svg {
-	width: 16px !important;
-	height: 16px !important;
-	flex: 0 0 16px;
-}
+/* Below this width the inline "Send to chat" button starts eating into the
+   address segments, so the pair folds into a split button. Only applies to
+   the pending-notes layout: a lone annotate toggle always fits. The query
+   measures the header's content box, so this trips at a ~532px pane — just
+   above the width where the segments begin to erode. */
+@container studio-preview-toolbar (max-width: 500px) {
+	.annotationControlsWide {
+		display: none;
+	}
 
-.sendAnnotations {
-	padding-inline: 14px;
+	.annotationMenu {
+		display: flex;
+	}
 }
 
 /* 2px bar overlapping the header's bottom border, like a browser's page-load

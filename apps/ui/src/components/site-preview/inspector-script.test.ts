@@ -10,12 +10,37 @@ const BRIDGE_TOKEN = 'test-inspector-bridge-token';
 
 describe( 'site preview inspector', () => {
 	afterEach( () => {
+		( window as Window & { __studioInspectorDispose?: () => void } ).__studioInspectorDispose?.();
 		vi.restoreAllMocks();
 		document.body.replaceChildren();
-		delete ( window as Window & { __studioInspectorMounted?: boolean } ).__studioInspectorMounted;
 		delete ( window as Window & { __studioInspectorState?: unknown[] } ).__studioInspectorState;
 		delete ( window as Window & { __studioAnnotateDone?: unknown } ).__studioAnnotateDone;
 		localStorage.clear();
+	} );
+
+	it( 'keeps saved notes when picking is switched off', () => {
+		const log = vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+		( window as Window & { __studioInspectorState?: unknown[] } ).__studioInspectorState = [
+			{
+				id: 'saved',
+				comment: 'Saved note',
+				tag: 'h1',
+				pathname: window.location.pathname,
+				documentRect: { left: 10, top: 10, width: 100, height: 40 },
+			},
+		];
+
+		new Function( createInspectorPageScript( BRIDGE_TOKEN ) )();
+		dispatchInspectorCommand( 'toggle-picking' );
+		dispatchInspectorCommand( 'toggle-picking' );
+
+		expect( latestBridgeMessage( log, 'state' ) ).toMatchObject( {
+			isPicking: false,
+			annotationCount: 1,
+		} );
+		expect(
+			( window as Window & { __studioInspectorState?: unknown[] } ).__studioInspectorState
+		).toHaveLength( 1 );
 	} );
 
 	it( 'keeps picking active while composing and after saving annotations', () => {
@@ -214,11 +239,7 @@ describe( 'site preview inspector', () => {
 		window.dispatchEvent( new MouseEvent( 'mouseup', { bubbles: true } ) );
 		expect( Number.parseFloat( popup.style.left ) ).toBe( startingLeft + 30 );
 
-		window.dispatchEvent(
-			new CustomEvent( INSPECTOR_COMMAND_EVENT, {
-				detail: { type: 'cancel', bridgeToken: BRIDGE_TOKEN },
-			} )
-		);
+		dispatchInspectorCommand( 'toggle-picking' );
 	} );
 
 	it( 'submits saved notes when an empty draft is open', () => {
@@ -309,6 +330,34 @@ describe( 'site preview inspector', () => {
 		expect( root.querySelectorAll( '.marker' ) ).toHaveLength( 1 );
 		expect( root.querySelectorAll( '.annotation-highlight' ) ).toHaveLength( 1 );
 		expect( root.querySelector( '.submit' ) ).toHaveTextContent( 'Send to agent' );
+	} );
+
+	it( 'keeps CLI notes when annotation mode is switched off', () => {
+		vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+		localStorage.setItem(
+			'studio-inspector-annotations-v1',
+			JSON.stringify( [
+				{
+					id: 'saved-cli-note',
+					comment: 'Saved CLI note',
+					pathname: window.location.pathname,
+					documentRect: { left: 10, top: 10, width: 100, height: 40 },
+				},
+			] )
+		);
+
+		new Function( createCliInspectorPageScript() )();
+		const root = ( document.querySelector( '#__studio-inspector-host' ) as HTMLElement )
+			.shadowRoot as ShadowRoot;
+		( root.querySelector( '.toolbar button:not(.submit)' ) as HTMLButtonElement ).click();
+		expect( root.querySelector( '.toolbar button:not(.submit)' ) ).toHaveTextContent(
+			'Stop annotating'
+		);
+		( root.querySelector( '.toolbar button:not(.submit)' ) as HTMLButtonElement ).click();
+		expect( root.querySelector( '.toolbar button:not(.submit)' ) ).toHaveTextContent( 'Annotate' );
+		expect(
+			JSON.parse( localStorage.getItem( 'studio-inspector-annotations-v1' ) ?? '[]' )
+		).toHaveLength( 1 );
 	} );
 
 	it( 'saves and submits several notes from the CLI browser', () => {

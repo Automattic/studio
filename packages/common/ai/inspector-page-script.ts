@@ -43,7 +43,8 @@ export const INSPECTOR_PAGE_SCRIPT =
 	const EMBEDDED_TOOLBAR = ` +
 	INSPECTOR_EMBEDDED_TOOLBAR_PLACEHOLDER +
 	String.raw`;
-	if ( window.__studioInspectorMounted ) {
+	const HOST_ID = '__studio-inspector-host';
+	if ( window.__studioInspectorMounted && document.getElementById( HOST_ID ) ) {
 		if ( ! EMBEDDED_TOOLBAR ) window.dispatchEvent(
 			new CustomEvent( '` +
 	INSPECTOR_COMMAND_EVENT +
@@ -51,7 +52,11 @@ export const INSPECTOR_PAGE_SCRIPT =
 		);
 		return;
 	}
+	if ( typeof window.__studioInspectorDispose === 'function' ) {
+		window.__studioInspectorDispose();
+	}
 	window.__studioInspectorMounted = true;
+	const teardown = new AbortController();
 
 	const BRIDGE_PREFIX = '` +
 	INSPECTOR_BRIDGE_PREFIX +
@@ -59,7 +64,6 @@ export const INSPECTOR_PAGE_SCRIPT =
 	const COMMAND_EVENT = '` +
 	INSPECTOR_COMMAND_EVENT +
 	String.raw`';
-	const HOST_ID = '__studio-inspector-host';
 	const STORAGE_KEY = 'studio-inspector-annotations-v1';
 	const MAX_ANNOTATIONS = 100;
 
@@ -432,6 +436,18 @@ export const INSPECTOR_PAGE_SCRIPT =
 	let popupNode = null;
 	let scrollLock = null;
 
+	window.__studioInspectorDispose = () => {
+		teardown.abort();
+		if ( scrollLock ) {
+			document.documentElement.style.overflow = scrollLock.documentOverflow;
+			document.body.style.overflow = scrollLock.bodyOverflow;
+			scrollLock = null;
+		}
+		host.remove();
+		delete window.__studioInspectorMounted;
+		delete window.__studioInspectorDispose;
+	};
+
 	function syncScrollLock() {
 		if ( activePopup && ! scrollLock ) {
 			scrollLock = {
@@ -646,11 +662,8 @@ export const INSPECTOR_PAGE_SCRIPT =
 		toolbar.className = 'toolbar';
 		const modeButton = document.createElement( 'button' );
 		modeButton.type = 'button';
-		modeButton.textContent = isPicking ? 'Cancel' : 'Annotate';
-		modeButton.addEventListener( 'click', () => {
-			if ( isPicking ) cancelAnnotations();
-			else togglePicking();
-		} );
+		modeButton.textContent = isPicking ? 'Stop annotating' : 'Annotate';
+		modeButton.addEventListener( 'click', togglePicking );
 		toolbar.appendChild( modeButton );
 		if ( annotations.length > 0 ) {
 			const count = document.createElement( 'span' );
@@ -774,15 +787,6 @@ export const INSPECTOR_PAGE_SCRIPT =
 		}, 1000 );
 	}
 
-	function cancelAnnotations() {
-		annotations = [];
-		activePopup = null;
-		isPicking = false;
-		hoveredEl = null;
-		persistAnnotations();
-		render();
-	}
-
 	if ( ! EMBEDDED_TOOLBAR ) window.addEventListener( COMMAND_EVENT, ( event ) => {
 		const command = event.detail || {};
 		if ( command.bridgeToken !== BRIDGE_TOKEN ) return;
@@ -794,14 +798,10 @@ export const INSPECTOR_PAGE_SCRIPT =
 			submitAnnotations();
 			return;
 		}
-		if ( command.type === 'cancel' ) {
-			cancelAnnotations();
-			return;
-		}
 		if ( command.type === 'report-state' ) {
 			sendState();
 		}
-	} );
+	}, { signal: teardown.signal } );
 
 	function buildPopup( state ) {
 		const popup = document.createElement( 'div' );
@@ -960,8 +960,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 		};
 		ta.addEventListener( 'input', () => {
 			state.comment = ta.value;
-			save.disabled = ! state.comment.trim();
-			sendToChat.disabled = save.disabled;
+			syncActions();
 			resizeTextarea();
 		} );
 		popup.appendChild( ta );
@@ -1008,7 +1007,6 @@ export const INSPECTOR_PAGE_SCRIPT =
 		sendToChat.type = 'button';
 		sendToChat.className = 'send-to-chat';
 		sendToChat.textContent = EMBEDDED_TOOLBAR ? 'Send to agent' : 'Send to chat';
-		sendToChat.disabled = ! ( state.comment && state.comment.trim() );
 		sendToChat.addEventListener( 'click', submitAnnotations );
 		actions.appendChild( sendToChat );
 
@@ -1017,12 +1015,17 @@ export const INSPECTOR_PAGE_SCRIPT =
 		save.className = 'save';
 		save.setAttribute( 'aria-label', state.id ? 'Update note' : 'Save note' );
 		save.title = state.id ? 'Update note' : 'Save note';
-		save.disabled = ! ( state.comment && state.comment.trim() );
 		save.addEventListener( 'click', () => {
 			if ( ! commitActivePopup() ) return;
 			closePopup();
 		} );
 		actions.appendChild( save );
+
+		function syncActions() {
+			save.disabled = ! ( state.comment && state.comment.trim() );
+			sendToChat.disabled = save.disabled && annotations.length === 0;
+		}
+		syncActions();
 
 		ta.addEventListener( 'keydown', ( event ) => {
 			if ( event.key !== 'Enter' || event.isComposing || event.keyCode === 229 ) return;
@@ -1033,8 +1036,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 				ta.value = ta.value.slice( 0, start ) + '\n' + ta.value.slice( end );
 				state.comment = ta.value;
 				ta.setSelectionRange( start + 1, start + 1 );
-				save.disabled = ! state.comment.trim();
-				sendToChat.disabled = save.disabled;
+				syncActions();
 				resizeTextarea();
 				return;
 			}
@@ -1052,7 +1054,6 @@ export const INSPECTOR_PAGE_SCRIPT =
 	}
 
 	function openPopupForAnnotation( ann ) {
-		isPicking = true;
 		hoveredEl = null;
 		activePopup = {
 			id: ann.id,
@@ -1177,7 +1178,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 				showHighlight( hoveredEl );
 			}
 		},
-		true
+		{ capture: true, signal: teardown.signal }
 	);
 
 	document.addEventListener(
@@ -1189,7 +1190,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 			e.stopPropagation();
 			openPopupForElement( e.target, e.clientX, e.clientY );
 		},
-		true
+		{ capture: true, signal: teardown.signal }
 	);
 
 	document.addEventListener(
@@ -1215,7 +1216,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 				render();
 			}
 		},
-		true
+		{ capture: true, signal: teardown.signal }
 	);
 
 	function syncOverlayPositions() {
@@ -1232,8 +1233,11 @@ export const INSPECTOR_PAGE_SCRIPT =
 		syncScrim();
 	}
 
-	window.addEventListener( 'scroll', syncOverlayPositions, true );
-	window.addEventListener( 'resize', syncOverlayPositions );
+	window.addEventListener( 'scroll', syncOverlayPositions, {
+		capture: true,
+		signal: teardown.signal,
+	} );
+	window.addEventListener( 'resize', syncOverlayPositions, { signal: teardown.signal } );
 
 	render();
 } )();

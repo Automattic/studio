@@ -41,10 +41,7 @@ import {
 	deleteAiSession as deleteAiSessionFromStore,
 	loadAiSession as loadAiSessionFromStore,
 } from '@studio/common/ai/sessions/store';
-import {
-	buildSkillInvocationPrompt,
-	resolveSkillFromPrompt,
-} from '@studio/common/ai/slash-commands';
+import { expandSkillCommandPrompt } from '@studio/common/ai/slash-commands';
 import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import {
 	installSkillToSite,
@@ -417,14 +414,6 @@ async function reconcileSessionEnvironmentBeforeRun( sessionId: string ): Promis
 		sitePath: ownerServer.details.path,
 		siteId: ownerServer.details.id,
 	} );
-}
-
-// Expand a bare skill-command slash prompt (e.g. `/rank-me-up`) into the
-// instruction the agent actually acts on. Mirrors the CLI's interactive main
-// loop so UI clients can send the short form and get the same behaviour.
-function expandSkillCommandPrompt( prompt: string ): string {
-	const name = resolveSkillFromPrompt( prompt );
-	return name ? buildSkillInvocationPrompt( name ) : prompt;
 }
 
 export async function continueAiSession(

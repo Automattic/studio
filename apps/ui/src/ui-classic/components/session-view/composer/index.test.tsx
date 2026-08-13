@@ -210,7 +210,7 @@ describe( 'Composer menu', () => {
 			value: 1000,
 		} );
 		renderComposer();
-		const textarea = screen.getByRole( 'textbox' ) as HTMLTextAreaElement;
+		const textarea = screen.getByRole( 'combobox' ) as HTMLTextAreaElement;
 		let scrollHeight = 72;
 		Object.defineProperty( textarea, 'scrollHeight', {
 			configurable: true,
@@ -251,7 +251,7 @@ describe( 'Composer menu', () => {
 
 	it( 'resizes the textarea when attachments change its padding', async () => {
 		const { container } = renderComposer();
-		const textarea = screen.getByRole( 'textbox' ) as HTMLTextAreaElement;
+		const textarea = screen.getByRole( 'combobox' ) as HTMLTextAreaElement;
 		const textFile = new File( [ 'Attachment preview text' ], 'notes.txt', {
 			type: 'text/plain',
 		} );
@@ -287,7 +287,7 @@ describe( 'Composer menu', () => {
 			value: 1000,
 		} );
 		renderComposer();
-		const textarea = screen.getByRole( 'textbox' ) as HTMLTextAreaElement;
+		const textarea = screen.getByRole( 'combobox' ) as HTMLTextAreaElement;
 		const resizeHandle = screen.getByRole( 'separator', { name: 'Resize composer' } );
 		Object.defineProperty( textarea, 'scrollHeight', {
 			configurable: true,
@@ -337,7 +337,7 @@ describe( 'Composer menu', () => {
 		expect(
 			await screen.findByRole( 'button', { name: 'Remove attachment: pasted-image.png' } )
 		).toBeInTheDocument();
-		expect( screen.getByRole( 'textbox' ) ).toHaveFocus();
+		expect( screen.getByRole( 'combobox' ) ).toHaveFocus();
 	} );
 
 	it( 'ignores pastes inside open dialogs', () => {

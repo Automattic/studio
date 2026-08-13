@@ -86,6 +86,7 @@ export const extractHandler: Handler = async ( args, ctx ) => {
 				primaryUrl: args.url as string,
 				removeSelectors: adapter.capture?.removeSelectors,
 				prepareCapture: adapter.capture?.prepare,
+				publicUrlsOnly: args.publicUrlsOnly === true,
 				server: ctx.server,
 			} );
 			session.setStage( 'finalizing' );
@@ -136,6 +137,11 @@ export const extractHandler: Handler = async ( args, ctx ) => {
 				summary: result.summary as Record< string, unknown >,
 				failures: result.failures as Array< { url: unknown; error: unknown } >,
 			} );
+			result.artifactPath = join( outputDir, 'artifact.json' );
+			result.provenance = {
+				provider: 'data-liberation/browser-capture',
+				platform: detection.platform,
+			};
 		}
 
 		// A large site (one run hit ~132k chars) can push `failures` past the MCP

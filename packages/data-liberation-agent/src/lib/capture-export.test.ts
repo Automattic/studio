@@ -2,7 +2,11 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { CAPTURE_RECEIPT_SCHEMA, exportWebsiteCapture } from './capture-export.js';
+import {
+	CAPTURE_RECEIPT_SCHEMA,
+	exportWebsiteCapture,
+	WEBSITE_ARTIFACT_SCHEMA,
+} from './capture-export.js';
 import { MediaStubStore } from './resume-state/index.js';
 
 const dirs: string[] = [];
@@ -16,13 +20,18 @@ describe( 'exportWebsiteCapture', () => {
 		const outputDir = mkdtempSync( join( tmpdir(), 'dla-capture-export-' ) );
 		dirs.push( outputDir );
 		mkdirSync( join( outputDir, 'html' ), { recursive: true } );
+		mkdirSync( join( outputDir, 'html-mobile' ), { recursive: true } );
 		mkdirSync( join( outputDir, 'screenshots' ), { recursive: true } );
 		mkdirSync( join( outputDir, 'media' ), { recursive: true } );
 		writeFileSync(
 			join( outputDir, 'html', 'homepage.html' ),
-			'<img src="https://cdn.example/logo.png"><img src="/hero.png?w=128" srcset="/hero.png?w=128 128w, /hero.png?w=4096 4096w"><h1>Home</h1>'
+			'<!doctype html><html><head></head><body><img src="https://cdn.example/logo.png"><img src="/hero.png?w=128" srcset="/hero.png?w=128 128w, /hero.png?w=4096 4096w"><h1>Home</h1><noscript><main>This site requires JavaScript</main></noscript></body></html>'
 		);
 		writeFileSync( join( outputDir, 'html', 'about.html' ), '<h1>About</h1>' );
+		writeFileSync(
+			join( outputDir, 'html-mobile', 'homepage.html' ),
+			'<!doctype html><html><head><style>.mobile{color:red}</style></head><body><main class="mobile"><h1>Mobile Home</h1></main></body></html>'
+		);
 		writeFileSync( join( outputDir, 'media', 'logo.png' ), 'png' );
 		writeFileSync( join( outputDir, 'media', 'hero.png' ), 'base' );
 		writeFileSync( join( outputDir, 'media', 'hero-2.png' ), '128' );
@@ -49,7 +58,15 @@ describe( 'exportWebsiteCapture', () => {
 			'https://example.com/hero.png?w=4096',
 			join( outputDir, 'media', 'hero-3.png' )
 		);
+		media.markFailure( 'https://example.com/missing.png?w=1280', 'HTTP 404' );
 		media.flush();
+		writeFileSync(
+			join( outputDir, 'html', 'homepage.html' ),
+			`${ readFileSync(
+				join( outputDir, 'html', 'homepage.html' ),
+				'utf8'
+			) }<div style="background-image:image-set(url('/missing.png?w=1280') 1x)"></div>`
+		);
 
 		const receiptPath = exportWebsiteCapture( {
 			outputDir,
@@ -85,14 +102,59 @@ describe( 'exportWebsiteCapture', () => {
 		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).not.toContain(
 			'/media/hero.png?w=128'
 		);
+		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).not.toContain(
+			'This site requires JavaScript'
+		);
+		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).toContain(
+			'class="data-liberation-desktop-document"'
+		);
+		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).toContain(
+			'class="data-liberation-mobile-document"'
+		);
+		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).toContain(
+			'Mobile Home'
+		);
+		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).toContain(
+			'@media(max-width:768px)'
+		);
+		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).toContain(
+			'data:image/gif;base64,'
+		);
 		expect( readFileSync( join( outputDir, 'website', 'about', 'index.html' ), 'utf8' ) ).toContain(
 			'About'
 		);
 		expect( readFileSync( join( outputDir, 'website', 'media', 'logo.png' ), 'utf8' ) ).toBe(
 			'png'
 		);
-		expect( existsSync( join( outputDir, 'artifact.json' ) ) ).toBe( false );
+		const artifact = JSON.parse( readFileSync( join( outputDir, 'artifact.json' ), 'utf8' ) );
+		expect( artifact ).toMatchObject( {
+			schema: WEBSITE_ARTIFACT_SCHEMA,
+			artifact_type: 'website',
+			compiler_limits: { max_file_bytes: 10 * 1024 * 1024 },
+			root: 'website',
+			entrypoint: 'website/index.html',
+			provenance: {
+				provider: 'data-liberation/browser-capture',
+				source_url: 'https://example.com/shop/',
+			},
+		} );
+		expect( artifact.files ).toEqual(
+			expect.arrayContaining( [
+				expect.objectContaining( { path: 'website/index.html', encoding: 'utf8' } ),
+				expect.objectContaining( {
+					path: 'website/media/logo.png',
+					encoding: 'base64',
+					content_base64: Buffer.from( 'png' ).toString( 'base64' ),
+				} ),
+			] )
+		);
 		expect( existsSync( join( outputDir, 'diagnostics.json' ) ) ).toBe( true );
+		expect(
+			JSON.parse( readFileSync( join( outputDir, 'diagnostics.json' ), 'utf8' ) ).unresolvedMedia
+		).toContainEqual( {
+			url: 'https://example.com/missing.png?w=1280',
+			error: 'HTTP 404',
+		} );
 	} );
 
 	it( 'exports referenced same-origin runtime dependencies and diagnoses missing ones', () => {
@@ -103,15 +165,30 @@ describe( 'exportWebsiteCapture', () => {
 		mkdirSync( join( outputDir, 'media' ), { recursive: true } );
 		mkdirSync( join( outputDir, 'resources', '_runtimes' ), { recursive: true } );
 		mkdirSync( join( outputDir, 'resources', '_json' ), { recursive: true } );
+		mkdirSync( join( outputDir, 'resources', '_fonts' ), { recursive: true } );
+		mkdirSync( join( outputDir, 'resources', '_videos' ), { recursive: true } );
+		mkdirSync( join( outputDir, 'resources', 'assets', 'css' ), { recursive: true } );
+		mkdirSync( join( outputDir, 'resources', 'assets', 'images' ), { recursive: true } );
 		writeFileSync(
 			join( outputDir, 'html', 'homepage.html' ),
-			'<img src="https://example.com/hero.png"><link rel="preload" href="/_runtimes/site.js" as="script"><link rel="preload" href="/_json/site.json" as="fetch"><script type="module">import { Site } from "/_runtimes/site.js"; import "/_runtimes/missing.js";</script>'
+			'<img src="https://example.com/hero.png"><img src="/assets/images/mobile-only.webp" srcset="/assets/images/mobile-only.webp 390w"><link rel="stylesheet" href="/assets/css/site.css"><link rel="preload" href="/_runtimes/site.js" as="script"><link rel="preload" href="/_json/site.json" as="fetch"><link rel="preload" href="/_json/missing.json" as="fetch"><style>@font-face{src:url("/_fonts/site.woff2")}@font-face{src:url("/_fonts/missing.woff2")}</style><video><source src="/_videos/hero"></video><video><source src="/_videos/missing"></video><script type="module">import { Site } from "/_runtimes/site.js"; import "/_runtimes/missing.js";</script>'
 		);
 		writeFileSync( join( outputDir, 'media', 'hero.png' ), 'png' );
 		writeFileSync( join( outputDir, 'resources', '_runtimes', 'site.js' ), 'export class Site {}' );
 		writeFileSync(
 			join( outputDir, 'resources', '_json', 'site.json' ),
 			'{"image":"https://example.com/hero.png"}'
+		);
+		writeFileSync( join( outputDir, 'resources', '_fonts', 'site.woff2' ), 'font' );
+		writeFileSync( join( outputDir, 'resources', '_videos', 'hero.mp4' ), 'video' );
+		writeFileSync(
+			join( outputDir, 'resources', 'assets', 'css', 'site.css' ),
+			'.hero{background:url("../images/hero.webp")}.missing{background:url("../images/missing.webp")}'
+		);
+		writeFileSync( join( outputDir, 'resources', 'assets', 'images', 'hero.webp' ), 'webp' );
+		writeFileSync(
+			join( outputDir, 'resources', 'assets', 'images', 'mobile-only.webp' ),
+			'mobile'
 		);
 		writeFileSync(
 			join( outputDir, 'resources', 'manifest.json' ),
@@ -125,6 +202,26 @@ describe( 'exportWebsiteCapture', () => {
 					'https://example.com/_json/site.json': {
 						path: 'resources/_json/site.json',
 						contentType: 'application/json',
+					},
+					'https://example.com/_fonts/site.woff2': {
+						path: 'resources/_fonts/site.woff2',
+						contentType: 'font/woff2',
+					},
+					'https://example.com/_videos/hero': {
+						path: 'resources/_videos/hero.mp4',
+						contentType: 'video/mp4',
+					},
+					'https://example.com/assets/css/site.css': {
+						path: 'resources/assets/css/site.css',
+						contentType: 'text/css',
+					},
+					'https://example.com/assets/images/hero.webp': {
+						path: 'resources/assets/images/hero.webp',
+						contentType: 'image/webp',
+					},
+					'https://example.com/assets/images/mobile-only.webp': {
+						path: 'resources/assets/images/mobile-only.webp',
+						contentType: 'image/webp',
 					},
 				},
 				failures: [],
@@ -165,9 +262,47 @@ describe( 'exportWebsiteCapture', () => {
 		expect( readFileSync( join( outputDir, 'website', '_json', 'site.json' ), 'utf8' ) ).toBe(
 			'{"image":"/media/hero.png"}'
 		);
-		expect( diagnostics.unresolvedDependencies ).toEqual( [
-			expect.objectContaining( { url: 'https://example.com/_runtimes/missing.js' } ),
-		] );
+		expect( readFileSync( join( outputDir, 'website', '_fonts', 'site.woff2' ), 'utf8' ) ).toBe(
+			'font'
+		);
+		expect(
+			readFileSync( join( outputDir, 'website', 'assets', 'css', 'site.css' ), 'utf8' )
+		).toBe(
+			'.hero{background:url("/assets/images/hero.webp")}.missing{background:url("data:application/octet-stream;base64,")}'
+		);
+		expect(
+			readFileSync( join( outputDir, 'website', 'assets', 'images', 'hero.webp' ), 'utf8' )
+		).toBe( 'webp' );
+		expect(
+			readFileSync( join( outputDir, 'website', 'assets', 'images', 'mobile-only.webp' ), 'utf8' )
+		).toBe( 'mobile' );
+		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).toContain(
+			'srcset="/assets/images/mobile-only.webp 390w"'
+		);
+		expect( diagnostics.unresolvedDependencies ).toEqual(
+			expect.arrayContaining( [
+				expect.objectContaining( { url: 'https://example.com/_json/missing.json' } ),
+				expect.objectContaining( { url: 'https://example.com/_runtimes/missing.js' } ),
+			] )
+		);
+		const html = readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' );
+		expect( html ).not.toContain( '/_json/missing.json' );
+		expect( html ).toContain( '<source src="/_videos/hero.mp4">' );
+		expect( readFileSync( join( outputDir, 'website', '_videos', 'hero.mp4' ), 'utf8' ) ).toBe(
+			'video'
+		);
+		expect( html ).toContain( '<source>' );
+		expect( html ).not.toContain( '/_videos/missing' );
+		expect( html ).not.toContain( '/_fonts/missing.woff2' );
+		expect( html ).toContain( 'data:application/octet-stream;base64,' );
+		expect( html ).toContain( 'import "/_runtimes/missing.js"' );
+		const artifact = JSON.parse( readFileSync( join( outputDir, 'artifact.json' ), 'utf8' ) );
+		expect( artifact.files ).toEqual(
+			expect.arrayContaining( [
+				expect.objectContaining( { path: 'diagnostics.json', encoding: 'utf8' } ),
+				expect.objectContaining( { path: 'capture-receipt.json', encoding: 'utf8' } ),
+			] )
+		);
 	} );
 
 	it( 'rejects decoded route paths that escape the website directory', () => {

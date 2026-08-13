@@ -575,7 +575,6 @@ export async function runCommand( options: {
 			ability_name: resolveSkillFromPrompt( prompt ),
 			has_images: images.length > 0,
 			has_files: files.length > 0,
-			is_resumed: Boolean( options.resumeSession || options.resumeSessionId ),
 		} );
 
 		// Studio marker for the typed prompt; pi appends the real UserMessage.

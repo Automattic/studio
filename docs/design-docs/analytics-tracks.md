@@ -336,9 +336,15 @@ not counted at all — see [STU-2247](https://linear.app/a8c/issue/STU-2247).
 
 | Event | Emitted from | Event-specific props |
 |---|---|---|
-| `studio_code_message_sent` | CLI `runAgentTurn` | `provider` (`wpcom`/`anthropic-api-key` — the gateway serving the request, not the model vendor), `model` (e.g. `claude-sonnet-5`), `model_family` (`anthropic`/`openai`), `ability_name` (predefined skill, absent for an ordinary message), `has_images`, `has_files`, `is_resumed` (booleans). One per user turn dispatched. |
+| `studio_code_message_sent` | CLI `runAgentTurn` | `provider` (`wpcom`/`anthropic-api-key` — the gateway serving the request, not the model vendor), `model` (e.g. `claude-sonnet-5`), `model_family` (`anthropic`/`openai`), `ability_name` (predefined skill, absent for an ordinary message), `has_images`, `has_files` (booleans). One per user turn dispatched. |
 | `studio_code_turn_completed` | CLI `runAgentTurn` | `outcome` (`success`/`error`/`interrupted`/`max_turns`), `duration_ms`, plus the same `provider`/`model`/`model_family`. One per turn finishing. Partially overlaps the MC Stats `recordAgentRun` bump (`packages/common/ai/agent-stats.ts`), which is a bare counter with no model or duration breakdown. |
 | `studio_code_session_created` | Desktop Main (`createAiSession`) | `has_site` (boolean — whether the session is bound to a site; the site name and path are **never** sent). Emitted only when a session is actually created, not when an empty draft is reused. |
+
+Both events carry `ai_session_id`, so turn position is a funnel rather than a prop: the first
+`studio_code_message_sent` after a `studio_code_session_created` with the same id is a conversation's
+opening turn, and counting them per id gives messages-per-session. (An `is_resumed` boolean was
+dropped for this reason — every UI turn resumes a session the desktop just created, so it was always
+`true` outside the standalone CLI.)
 
 **Reading `studio_code_session_created`:** it counts sessions that got *used*, not "new chat" clicks.
 `createOrReuseAiSession` hands back the newest un-prompted, un-archived draft instead of piling up

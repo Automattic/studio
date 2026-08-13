@@ -1,11 +1,20 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { fetchLatestRewindId, fetchRemoteFileTree } from 'cli/lib/sync-api';
+import treeCheckbox from 'cli/lib/tree-checkbox';
 import {
 	canonicalizeTreeValues,
 	mapCheckedNodesToSelection,
 	mapCliOnlyToReprint,
 	resolveOnlyPathsToAbsolute,
+	selectPullItems,
 } from './reprint-selector';
 import type { TreeNode } from 'cli/lib/tree-checkbox';
+
+vi.mock( 'cli/lib/sync-api', () => ( {
+	fetchLatestRewindId: vi.fn(),
+	fetchRemoteFileTree: vi.fn(),
+} ) );
+vi.mock( 'cli/lib/tree-checkbox', () => ( { default: vi.fn() } ) );
 
 const CONTENT_DIR = '/srv/htdocs/wp-content';
 
@@ -138,6 +147,52 @@ describe( 'mapCliOnlyToReprint', () => {
 		expect( mapCliOnlyToReprint( [ ':wp-uploads:', '/wordpress/plugins/akismet' ] ) ).toEqual( [
 			':wp-uploads:',
 			'/wordpress/plugins/akismet',
+		] );
+	} );
+} );
+
+describe( 'selectPullItems expansion', () => {
+	beforeEach( () => {
+		vi.mocked( fetchLatestRewindId ).mockResolvedValue( 'rewind-1' );
+		vi.mocked( fetchRemoteFileTree ).mockResolvedValue( [
+			{ name: 'akismet', isDirectory: true, pathId: '1', path: '/wp-content/plugins/akismet/' },
+			{ name: 'hello.php', isDirectory: false, pathId: '2', path: '/wp-content/plugins/hello.php' },
+			{
+				name: '*unchanged',
+				isDirectory: false,
+				pathId: '3',
+				path: '/wp-content/plugins/*unchanged',
+			},
+		] );
+	} );
+
+	async function expandPlugins(): Promise< TreeNode[] > {
+		let captured: Parameters< typeof treeCheckbox >[ 0 ] | undefined;
+		vi.mocked( treeCheckbox ).mockImplementation( async ( options ) => {
+			captured = options;
+			return [];
+		} );
+
+		await selectPullItems( [], { token: 'token', remoteSiteId: 7 } );
+
+		return ( await captured!.onExpand!( checked( 'plugins' ) ) ) ?? [];
+	}
+
+	it( 'requests the folder with a trailing slash so nested paths stay separated', async () => {
+		await expandPlugins();
+
+		expect( fetchRemoteFileTree ).toHaveBeenCalledWith(
+			'token',
+			7,
+			'rewind-1',
+			'/wp-content/plugins/'
+		);
+	} );
+
+	it( 'lists the files inside the folder and drops the unchanged-archive placeholder', async () => {
+		expect( ( await expandPlugins() ).map( ( node ) => node.value ) ).toEqual( [
+			'plugins/akismet',
+			'plugins/hello.php',
 		] );
 	} );
 } );

@@ -9,6 +9,7 @@ import { __ } from '@wordpress/i18n';
 import { fetchLatestRewindId, fetchRemoteFileTree } from 'cli/lib/sync-api';
 import { buildTreeFromRemote, fetchPullTree } from 'cli/lib/sync-selector';
 import treeCheckbox from 'cli/lib/tree-checkbox';
+import type { RemoteFileEntry } from '@studio/common/lib/sync/sync-api';
 import type { TreeNode } from 'cli/lib/tree-checkbox';
 
 const WP_CONTENT_TOKEN = ':wp-content:';
@@ -109,6 +110,15 @@ export function canonicalizeTreeValues( tree: TreeNode[] ): TreeNode[] {
 	} ) );
 }
 
+/**
+ * A plugin or theme directory the backup carries over unchanged is listed as
+ * a single `*unchanged` archive rather than the files inside it. It is not a
+ * path on the remote site, so it is not selectable.
+ */
+function toSelectableEntries( entries: RemoteFileEntry[] ): RemoteFileEntry[] {
+	return entries.filter( ( entry ) => entry.name !== '*unchanged' );
+}
+
 export async function fetchJetpackPullTree(
 	token: string,
 	remoteSiteId: number
@@ -133,13 +143,17 @@ export async function selectPullItems(
 			options.token && options.remoteSiteId
 				? async ( node ) => {
 						const rewindId = await fetchLatestRewindId( options.token!, options.remoteSiteId! );
+						// The listing appends each child's name to the requested path, so
+						// the trailing slash is what keeps nested values separated.
 						const entries = await fetchRemoteFileTree(
 							options.token!,
 							options.remoteSiteId!,
 							rewindId,
-							`/wp-content/${ node.value }`
+							`/wp-content/${ node.value }/`
 						);
-						return canonicalizeTreeValues( buildTreeFromRemote( entries, node.depth + 1 ) );
+						return canonicalizeTreeValues(
+							buildTreeFromRemote( toSelectableEntries( entries ), node.depth + 1 )
+						);
 				  }
 				: undefined,
 	} );

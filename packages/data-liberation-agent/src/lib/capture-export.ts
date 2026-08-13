@@ -204,23 +204,26 @@ function dependencyReferences(
 	documentUrl: string,
 	siteUrl: string
 ): PortableDependency[] {
+	const searchableHtml = html
+		.replace( /&quot;|&#34;|&#x22;/gi, '"' )
+		.replace( /&apos;|&#39;|&#x27;/gi, "'" );
 	const references = new Set< string >();
 	const add = ( reference: string | undefined ) => {
 		if ( reference ) references.add( reference.replace( /&amp;/g, '&' ) );
 	};
 
-	for ( const match of html.matchAll( /<script\b[^>]*\bsrc\s*=\s*["']([^"']+)["'][^>]*>/gi ) ) {
+	for ( const match of searchableHtml.matchAll( /<script\b[^>]*\bsrc\s*=\s*["']([^"']+)["'][^>]*>/gi ) ) {
 		add( match[ 1 ] );
 	}
 	const mediaReferences = new Set< string >();
 	const cssReferences = new Set< string >();
-	for ( const match of html.matchAll(
+	for ( const match of searchableHtml.matchAll(
 		/<(?:img|source|video|audio)\b[^>]*\bsrc\s*=\s*["']([^"']+)["'][^>]*>/gi
 	) ) {
 		mediaReferences.add( match[ 1 ].replace( /&amp;/g, '&' ) );
 		add( match[ 1 ] );
 	}
-	for ( const match of html.matchAll(
+	for ( const match of searchableHtml.matchAll(
 		/<(?:img|source)\b[^>]*\bsrcset\s*=\s*["']([^"']+)["'][^>]*>/gi
 	) ) {
 		for ( const candidate of match[ 1 ].split( ',' ) ) {
@@ -231,7 +234,7 @@ function dependencyReferences(
 			}
 		}
 	}
-	for ( const match of html.matchAll( /<link\b[^>]*>/gi ) ) {
+	for ( const match of searchableHtml.matchAll( /<link\b[^>]*>/gi ) ) {
 		const tag = match[ 0 ];
 		const rel = /\brel\s*=\s*["']([^"']+)["']/i.exec( tag )?.[ 1 ].toLowerCase() ?? '';
 		const as = /\bas\s*=\s*["']([^"']+)["']/i.exec( tag )?.[ 1 ].toLowerCase() ?? '';
@@ -243,10 +246,10 @@ function dependencyReferences(
 			add( /\bhref\s*=\s*["']([^"']+)["']/i.exec( tag )?.[ 1 ] );
 		}
 	}
-	for ( const match of html.matchAll( /\bimport\s+(?:[^"']*?\s+from\s+)?["']([^"']+)["']/g ) ) {
+	for ( const match of searchableHtml.matchAll( /\bimport\s+(?:[^"']*?\s+from\s+)?["']([^"']+)["']/g ) ) {
 		add( match[ 1 ] );
 	}
-	for ( const match of html.matchAll( /\burl\(\s*(?:["']([^"']+)["']|([^\s)'";]+))\s*\)/gi ) ) {
+	for ( const match of searchableHtml.matchAll( /\burl\(\s*(?:["']([^"']+)["']|([^\s)'";]+))\s*\)/gi ) ) {
 		const reference = match[ 1 ] ?? match[ 2 ];
 		if ( reference && ! reference.startsWith( 'data:' ) ) {
 			cssReferences.add( reference.replace( /&amp;/g, '&' ) );

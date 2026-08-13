@@ -360,12 +360,12 @@ $input = array(
 	),
 );
 $url_batch_run = array();
-$state_path = '';
+$state_path = ABSPATH . '.studio-import/${ STATIC_SITE_IMPORT_STATE_FILE }';
+$state_raw = is_file( $state_path ) ? file_get_contents( $state_path ) : false;
+$state = is_string( $state_raw ) ? json_decode( $state_raw, true ) : array();
+$state = is_array( $state ) ? $state : array();
 
 if ( isset( $source['url'] ) && function_exists( 'static_site_importer_ability_import' ) ) {
-	$state_path = ABSPATH . '.studio-import/${ STATIC_SITE_IMPORT_STATE_FILE }';
-	$state_raw = is_file( $state_path ) ? file_get_contents( $state_path ) : false;
-	$state = is_string( $state_raw ) ? json_decode( $state_raw, true ) : array();
 	$slug = sanitize_title( ${ phpString( siteName ) } );
 	if ( '' === $slug ) {
 		$slug = 'imported-site';
@@ -448,6 +448,12 @@ if ( isset( $source['url'] ) && function_exists( 'static_site_importer_ability_i
 			'files' => isset( $source['files'] ) && is_array( $source['files'] ) ? $source['files'] : array(),
 		);
 	}
+	if ( ! empty( $state['runtime_lifecycle_request_id'] ) ) {
+		$input['runtime_lifecycle_phase'] = 'resume';
+		$input['runtime_lifecycle_request_id'] = (string) $state['runtime_lifecycle_request_id'];
+	} else {
+		$input['runtime_lifecycle_phase'] = 'prepare';
+	}
 
 	$result = static_site_importer_ability_import( $input );
 }
@@ -457,11 +463,19 @@ ${ storeImportResult ? "update_option( 'studio_create_from_import_result', $resu
 if ( ! is_array( $result ) || empty( $result['success'] ) ) {
 	throw new RuntimeException( 'Static Site Importer import failed: ' . wp_json_encode( $result ) );
 }
+$import_result = isset( $result['result'] ) && is_array( $result['result'] ) ? $result['result'] : $result;
+if ( 'dependencies_prepared' === ( $import_result['status'] ?? '' ) ) {
+	$request_id = (string) ( $import_result['fresh_runtime']['request_id'] ?? '' );
+	if ( '' === $request_id || false === file_put_contents( $state_path, wp_json_encode( array( 'runtime_lifecycle_request_id' => $request_id ) ) ) ) {
+		throw new RuntimeException( 'Static Site Importer lifecycle state could not be saved.' );
+	}
+	file_put_contents( ABSPATH . '.studio-import/${ STATIC_SITE_IMPORT_RESULT_FILE }', wp_json_encode( array( 'continuation' => true ) ) );
+	return;
+}
 if ( '' !== $state_path && is_file( $state_path ) ) {
 	unlink( $state_path );
 }
 
-$import_result = isset( $result['result'] ) && is_array( $result['result'] ) ? $result['result'] : $result;
 $studio_result = array(
 	'continuation'     => ! empty( $import_result['continuation'] ),
 	'status'           => (string) ( $import_result['url_batch_run']['status'] ?? 'completed' ),

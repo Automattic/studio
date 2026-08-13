@@ -195,6 +195,30 @@ describe( 'selectPullItems expansion', () => {
 			'plugins/hello.php',
 		] );
 	} );
+
+	it( 'explains a package whose only listing is the unchanged archive', async () => {
+		vi.mocked( fetchRemoteFileTree ).mockResolvedValue( [
+			{
+				name: '*unchanged',
+				isDirectory: false,
+				pathId: '1',
+				path: '/wp-content/plugins/*unchanged',
+			},
+		] );
+
+		const [ hint, ...rest ] = await expandPlugins();
+
+		expect( rest ).toEqual( [] );
+		expect( hint.hint ).toBe( true );
+		expect( hint.checked ).toBe( false );
+		expect( hint.name ).toBe( '(individual files are not listed for this package)' );
+	} );
+
+	it( 'leaves a genuinely empty folder without a hint', async () => {
+		vi.mocked( fetchRemoteFileTree ).mockResolvedValue( [] );
+
+		expect( await expandPlugins() ).toEqual( [] );
+	} );
 } );
 
 describe( 'resolveOnlyPathsToAbsolute', () => {

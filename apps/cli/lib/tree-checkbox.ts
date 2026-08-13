@@ -26,6 +26,8 @@ export type TreeNode = {
 	children?: TreeNode[];
 	loading?: boolean;
 	pathId?: string;
+	/** A dimmed, unselectable row explaining something about its parent. */
+	hint?: boolean;
 };
 
 type TreeCheckboxConfig = {
@@ -70,6 +72,9 @@ function updateNodeAtPath(
 }
 
 function setCheckedRecursive( node: TreeNode, checked: boolean ): TreeNode {
+	if ( node.hint ) {
+		return node;
+	}
 	return {
 		...node,
 		checked,
@@ -79,13 +84,15 @@ function setCheckedRecursive( node: TreeNode, checked: boolean ): TreeNode {
 
 function propagateCheckedState( nodes: TreeNode[] ): TreeNode[] {
 	return nodes.map( ( node ) => {
-		if ( ! node.children?.length ) {
-			return { ...node, indeterminate: false };
+		const updatedChildren = node.children ? propagateCheckedState( node.children ) : undefined;
+		// Hints carry no selection, so a folder holding nothing else keeps its own state.
+		const selectable = updatedChildren?.filter( ( child ) => ! child.hint );
+		if ( ! selectable?.length ) {
+			return { ...node, children: updatedChildren, indeterminate: false };
 		}
 
-		const updatedChildren = propagateCheckedState( node.children );
-		const allChecked = updatedChildren.every( ( c ) => c.checked );
-		const noneChecked = updatedChildren.every( ( c ) => ! c.checked && ! c.indeterminate );
+		const allChecked = selectable.every( ( c ) => c.checked );
+		const noneChecked = selectable.every( ( c ) => ! c.checked && ! c.indeterminate );
 
 		return {
 			...node,
@@ -99,6 +106,9 @@ function propagateCheckedState( nodes: TreeNode[] ): TreeNode[] {
 function collectCheckedValues( nodes: TreeNode[] ): TreeNode[] {
 	const result: TreeNode[] = [];
 	for ( const node of nodes ) {
+		if ( node.hint ) {
+			continue;
+		}
 		if ( node.checked ) {
 			result.push( node );
 		}
@@ -159,7 +169,7 @@ export default createPrompt< TreeNode[], TreeCheckboxConfig >( ( config, done ) 
 
 		if ( isSpaceKey( key ) ) {
 			const item = flatItems[ active ];
-			if ( ! item ) {
+			if ( ! item || item.node.hint ) {
 				return;
 			}
 			const toggled = updateNodeAtPath( tree, item.path, ( node ) =>
@@ -206,7 +216,7 @@ export default createPrompt< TreeNode[], TreeCheckboxConfig >( ( config, done ) 
 						loading: false,
 						children: children.map( ( child ) => ( {
 							...child,
-							checked: node.checked,
+							checked: child.hint ? false : node.checked,
 						} ) ),
 					} ) );
 					setTree( updatedTree );
@@ -255,7 +265,7 @@ export default createPrompt< TreeNode[], TreeCheckboxConfig >( ( config, done ) 
 
 		// 'a' to toggle all
 		if ( key.name === 'a' ) {
-			const anyUnchecked = flatItems.some( ( item ) => ! item.node.checked );
+			const anyUnchecked = flatItems.some( ( item ) => ! item.node.hint && ! item.node.checked );
 			const newTree = tree.map( ( node ) => setCheckedRecursive( node, anyUnchecked ) );
 			setTree( newTree );
 		}
@@ -279,6 +289,11 @@ export default createPrompt< TreeNode[], TreeCheckboxConfig >( ( config, done ) 
 			const { node } = item;
 			const indent = '  '.repeat( node.depth );
 			const cursor = isActive ? chalk.cyan( figures.pointer ) : ' ';
+
+			if ( node.hint ) {
+				return `${ cursor } ${ indent }  ${ chalk.dim( node.name ) }`;
+			}
+
 			let check = figures.circle;
 			if ( node.checked ) {
 				check = chalk.green( figures.circleFilled );

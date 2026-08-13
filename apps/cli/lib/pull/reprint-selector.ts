@@ -111,12 +111,27 @@ export function canonicalizeTreeValues( tree: TreeNode[] ): TreeNode[] {
 }
 
 /**
- * A plugin or theme directory the backup carries over unchanged is listed as
- * a single `*unchanged` archive rather than the files inside it. It is not a
- * path on the remote site, so it is not selectable.
+ * A plugin or theme still identical to its WordPress.org release is listed as
+ * a single `*unchanged` archive rather than as the files inside it, so those
+ * files cannot be picked individually. The archive is not a path on the remote
+ * site; it is replaced with a hint so the folder does not just expand empty.
  */
+const UNCHANGED_ARCHIVE = '*unchanged';
+
 function toSelectableEntries( entries: RemoteFileEntry[] ): RemoteFileEntry[] {
-	return entries.filter( ( entry ) => entry.name !== '*unchanged' );
+	return entries.filter( ( entry ) => entry.name !== UNCHANGED_ARCHIVE );
+}
+
+function unlistedPackageHint( node: TreeNode ): TreeNode {
+	return {
+		name: __( '(individual files are not listed for this package)' ),
+		value: `${ node.value }/${ UNCHANGED_ARCHIVE }`,
+		isDirectory: false,
+		checked: false,
+		expanded: false,
+		depth: node.depth + 1,
+		hint: true,
+	};
 }
 
 export async function fetchJetpackPullTree(
@@ -151,9 +166,11 @@ export async function selectPullItems(
 							rewindId,
 							`/wp-content/${ node.value }/`
 						);
-						return canonicalizeTreeValues(
-							buildTreeFromRemote( toSelectableEntries( entries ), node.depth + 1 )
-						);
+						const selectable = toSelectableEntries( entries );
+						if ( selectable.length === 0 && entries.length > 0 ) {
+							return [ unlistedPackageHint( node ) ];
+						}
+						return canonicalizeTreeValues( buildTreeFromRemote( selectable, node.depth + 1 ) );
 				  }
 				: undefined,
 	} );

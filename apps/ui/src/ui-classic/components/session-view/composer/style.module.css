@@ -6,7 +6,7 @@
 .shell {
 	--composer-resting-fill: color-mix(
 		in srgb,
-		var(--wpds-color-bg-surface-neutral-weak, #f4f4f4) 82%,
+		var(--wpds-color-bg-surface-neutral-weak, #f4f4f4) var(--surface-alpha, 82%),
 		transparent
 	);
 	--composer-resting-tint: color-mix(

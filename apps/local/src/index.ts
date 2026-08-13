@@ -163,6 +163,7 @@ function toSiteDetails( site: SiteListItem ) {
 		enableXdebug: site.enableXdebug,
 		enableDebugLog: site.enableDebugLog,
 		enableDebugDisplay: site.enableDebugDisplay,
+		operation: site.operation,
 		siteIcon: null,
 	};
 }

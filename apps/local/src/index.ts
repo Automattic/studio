@@ -449,6 +449,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
+	// No `studio_setting_instructions_change` — this server has no Tracks emitter. See STU-2247.
 	api.post(
 		'/agent-instructions',
 		asyncHandler( async ( req: Request, res: Response ) => {
@@ -1289,7 +1290,11 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 					site = { id: found.id, name: found.name, path: found.path };
 				}
 			}
-			res.json( await createOrReuseAiSession( sessionsRoot, { site } ) );
+			// `created` is an analytics signal for the desktop, not part of the session shape.
+			const { created: _created, ...summary } = await createOrReuseAiSession( sessionsRoot, {
+				site,
+			} );
+			res.json( summary );
 		} )
 	);
 

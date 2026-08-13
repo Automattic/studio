@@ -415,7 +415,12 @@ export interface Connector {
 	// The user's global Studio Code instructions, a markdown file injected into
 	// every agent session. Gated by `capabilities.agentInstructions`.
 	getAgentInstructions(): Promise< string >;
-	saveAgentInstructions( content: string ): Promise< void >;
+	// `editSession` marks the save that ends an edit session and carries the value
+	// it started from, so it counts as one change. Autosaves omit it.
+	saveAgentInstructions(
+		content: string,
+		options?: { editSession?: { previousContent: string } }
+	): Promise< void >;
 
 	// Apps detected on disk (editors + terminals). Options in the preferences
 	// form are filtered against this so users can't pick something that isn't

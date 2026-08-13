@@ -136,7 +136,23 @@ where the sender actually runs — see Testing below for what fires in which bui
   `--suppress-tracks-event` flag and emit nothing. An aborted sync export also emits nothing (the CLI
   process is SIGTERM'd before it can record). Runs in parallel with the MC Stats import/export
   counters for now.
-- **Renderer-originated events** (future) go through the `recordAnalyticsEvent` IPC handler
+- **`studio_code_message_sent`/`studio_code_turn_completed`** are emitted **only** by the CLI, from
+  `runAgentTurn` (`apps/cli/commands/ai/index.ts`). Every chat surface forks the CLI to run a turn —
+  both desktop renderers via `packages/common/ai/run-manager.ts`, the `studio ui` server via the same
+  module, and a standalone `studio code` directly — and that function is the one place holding the
+  provider, model, resolved session id and turn outcome together. The desktop passes its origin to
+  the fork via `STUDIO_TRACKS_ORIGIN` (the run-manager's injected `getTracksOrigin`, resolved per run
+  because the user can switch renderer mid-session), exactly as for `studio_site_start`. `studio ui`
+  supplies no origin — see below.
+- **`studio_code_session_created`** is the exception to the above: sessions are created *in-process*
+  via `createOrReuseAiSession` rather than by forking the CLI, so it fires from desktop Main
+  (`createAiSession`). `createOrReuseAiSession` reuses an existing empty draft instead of piling up
+  orphans, and returns a `created` flag so a reuse isn't counted as a creation.
+- **`studio ui`** (the browser UI served by `apps/local`) has no Tracks wrapper of its own, so it
+  records nothing itself: only the chat events reach Tracks, via the CLI fork, and they land in
+  `channel=studio-cli` — that bucket therefore mixes standalone-CLI and browser usage. Everything
+  still works; only the analytics is missing. See [STU-2247](https://linear.app/a8c/issue/STU-2247).
+- **Renderer-originated events** go through the `recordAnalyticsEvent` IPC handler
   (`apps/studio/src/ipc-handlers.ts`). Both renderers share the same Main single entry point, and the
   desktop wrapper's `commonProps()` attaches `channel`/`ui_version` centrally — the `ui_version` is
   derived from the active renderer via `getPreferredUiVersion()`, so callers pass only event-specific
@@ -167,9 +183,27 @@ CLI wrapper resolves `channel`/`ui_version` from `STUDIO_TRACKS_ORIGIN`.
 supplies it per change (Main can't infer it) and it is meant to generalize to other settings-change
 events. Reserved for later phases (documented so future events conform): `outcome` (`success`/`error`).
 
-**AI / assistant events (Phase 2+).** Studio Code assistant usage events must use the data team's
-AI-event vocabulary: `ai_session_id`, `agent_name`, `agent_version`, `ability_name`, `outcome`,
-`client`, `is_test`.
+**AI / assistant events.** Studio Code assistant events use the data team's AI-event vocabulary so
+they aggregate with other Automattic AI products. The shared identity props are built once by
+`getAiTracksIdentity()` (`packages/common/ai/tracks-identity.ts`) — it lives in `common` because the
+events are emitted from two places (the CLI for chat, Main for session creation) and the values must
+not drift.
+
+| Property | Meaning | Studio values |
+|---|---|---|
+| `ai_session_id` | The chat session | The session's `crypto.randomUUID()`. Always the **resolved** id — the IPC/HTTP boundary also accepts an id prefix or `latest`. |
+| `agent_name` | Agent runtime | `pi` |
+| `client` | AI product | `studio-code` — `channel` still records the surface |
+| `ability_name` | Predefined skill invoked | `annotate`/`taxonomist`/`need-for-speed`/`rank-me-up`/`liberate`; absent for an ordinary message |
+| `outcome` | How a turn ended | `success`/`error`/`interrupted`/`max_turns` (mirrors the session log's `TurnStatus`) |
+
+`is_test` and `agent_version` are not sent: test runs are suppressed at the source rather than
+tagged, and pi is pinned per Studio release so `app_version` already determines it.
+
+**Privacy.** These events never carry prompts, replies, raw error text (`errorMessage` can embed
+filesystem paths and site names), site names or paths, or the instructions content. `ability_name` is
+resolved against the skill catalog by `resolveSkillFromPrompt`, so arbitrary slash text a user typed
+can never reach an event prop.
 
 ## Event catalog
 
@@ -282,6 +316,42 @@ Sensitive values are never sent as strings (see `is_default` and the directory n
 | `studio_setting_cli_change` | `installStudioCli`/`uninstallStudioCli` | `installed` (boolean), `surface` (`settings`) |
 | `studio_setting_agentic_features_change` | `saveAgenticFeaturesEnabled` | `enabled` (boolean), `surface` (`settings`) |
 | `studio_setting_ui_change` | `updateBetaFeature` (`enableAgenticUi` key) | `type` (`classic`/`agentic`), `surface` (`settings`/`banner`/`menu`) — the switch has several entry points; the caller supplies the surface. Not emitted for the boot-time seeding migration (no surface). |
+| `studio_setting_instructions_change` | `saveGlobalAgentInstructions` | `has_content` (boolean), `length_bucket` (`empty`/`short` ≤200/`medium` ≤1000/`long`), `surface` (`settings`) — the instructions text is **never** sent. See the edit-session note below. |
+
+`studio_setting_instructions_change` is the one settings event Main cannot detect on its own. Classic
+saves on an explicit button press, but the agentic UI autosaves on an 800 ms debounce, so by the time
+the user leaves the tab the file already holds the new text and there is nothing left to compare
+against — and a naive per-save event would report one edit as many changes. The renderer therefore
+owns the edit-session boundary: it passes `editSession.previousContent` (the value the visit to the
+tab started from) on the save that ends the session, and omits the option entirely on intermediate
+autosaves, which write without recording. Main emits only when that comparison shows a real change.
+
+#### Studio Code events
+
+Studio Code (AI assistant) usage. The chat events are emitted by the **CLI** (the sole funnel — every
+surface forks it to run a turn), `session_created` from **desktop Main** (sessions are created
+in-process). All carry the shared AI identity props described under "Property vocabulary" above.
+Browser-hosted `studio ui` chat currently lands in `channel=studio-cli` and its session creations are
+not counted at all — see [STU-2247](https://linear.app/a8c/issue/STU-2247).
+
+| Event | Emitted from | Event-specific props |
+|---|---|---|
+| `studio_code_message_sent` | CLI `runAgentTurn` | `provider` (`wpcom`/`anthropic-api-key` — the gateway serving the request, not the model vendor), `model` (e.g. `claude-sonnet-5`), `model_family` (`anthropic`/`openai`), `ability_name` (predefined skill, absent for an ordinary message), `has_images`, `has_files` (booleans). One per user turn dispatched. |
+| `studio_code_turn_completed` | CLI `runAgentTurn` | `outcome` (`success`/`error`/`interrupted`/`max_turns`), `duration_ms`, plus the same `provider`/`model`/`model_family`. One per turn finishing. Partially overlaps the MC Stats `recordAgentRun` bump (`packages/common/ai/agent-stats.ts`), which is a bare counter with no model or duration breakdown. |
+| `studio_code_session_created` | Desktop Main (`createAiSession`) | `has_site` (boolean — whether the session is bound to a site; the site name and path are **never** sent). Emitted only when a session is actually created, not when an empty draft is reused. |
+
+Both events carry `ai_session_id`, so turn position is a funnel rather than a prop: the first
+`studio_code_message_sent` after a `studio_code_session_created` with the same id is a conversation's
+opening turn, and counting them per id gives messages-per-session. (An `is_resumed` boolean was
+dropped for this reason — every UI turn resumes a session the desktop just created, so it was always
+`true` outside the standalone CLI.)
+
+**Reading `studio_code_session_created`:** it counts sessions that got *used*, not "new chat" clicks.
+`createOrReuseAiSession` hands back the newest un-prompted, un-archived draft instead of piling up
+orphans, so opening a new chat and leaving it empty emits nothing — however many times it is
+repeated. A session is only created once the previous one has a prompt in it. That makes the event a
+sound denominator for messages-per-session, but it will read lower than any UI-level count of the new
+chat affordance.
 
 ### How to add a new event
 
@@ -313,6 +383,10 @@ What fires depends on the build, so pick the right method:
   `packages/common/lib/tests/record-tracks-event.test.ts`, `apps/studio/src/lib/tests/tracks.test.ts`,
   and `apps/cli/lib/tests/tracks.test.ts`. These stub the build flag, so they verify the behavior
   without any build. Run: `npm test -- <path>`.
+- **Studio Code events in a dev run.** These fire from the CLI child the agent run-manager forks.
+  That fork normally discards the child's stdout (agent events travel over IPC), so its logging would
+  be invisible; in a dev run it inherits stdout instead, and the `Would have recorded…` lines appear
+  in the **Main-process terminal** — not the renderer console, and not the browser devtools.
 - **`studio_app_launch` in a dev run.** Fires from the desktop Main process, which has no
   `__ENABLE_CLI_TELEMETRY__` gate, so a plain `npm start` logs `Would have recorded… studio_app_launch`
   in the **Main-process terminal** (the shared core no-ops the network send in dev/E2E). Add

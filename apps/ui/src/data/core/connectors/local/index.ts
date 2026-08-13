@@ -777,6 +777,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			const { content } = await api< { content: string } >( '/agent-instructions' );
 			return content;
 		},
+		// Drops the panel's `editSession` option: it only drives a Tracks event, and this server has
+		// no emitter. Instructions still save. See STU-2247.
 		async saveAgentInstructions( content: string ): Promise< void > {
 			await api< void >( '/agent-instructions', {
 				method: 'POST',

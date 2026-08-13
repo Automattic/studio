@@ -86,6 +86,9 @@
 	color: var(--wpds-color-fg-content-neutral-weak);
 	white-space: pre-wrap;
 	word-break: break-word;
+	/* Rewritten in place as the percentage climbs, and this font's digits are
+	   not equal width — without this the text shifts on nearly every update. */
+	font-variant-numeric: tabular-nums;
 }
 
 .xdebugBadge {

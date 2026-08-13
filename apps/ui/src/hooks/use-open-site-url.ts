@@ -21,7 +21,11 @@ export function useOpenSiteUrl( site: SiteDetails ) {
 		if ( ! preview ) {
 			if ( ! site.running ) {
 				try {
-					await startSite.mutateAsync( site.id );
+					// Resolves false when the start was skipped — opening the URL
+					// then would just point the browser at a site that never came up.
+					if ( ! ( await startSite.mutateAsync( site.id ) ) ) {
+						return;
+					}
 				} catch {
 					return;
 				}

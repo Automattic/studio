@@ -122,6 +122,25 @@ describe( 'CLI: studio site list', () => {
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
+		// Both front ends disable a site's actions on what this reports, so an
+		// entry left behind by a crashed process must not survive into the payload.
+		it( 'should omit an operation whose owning process is gone', async () => {
+			vi.mocked( readCliConfig ).mockResolvedValue( {
+				...testCliConfig,
+				sites: [
+					{
+						...testCliConfig.sites[ 0 ],
+						operation: { pid: 0x7ffffffe, kind: 'delete' as const },
+					},
+				],
+			} );
+
+			await runCommand( 'json' );
+
+			const [ , json ] = mockReportKeyValuePair.mock.calls[ 0 ];
+			expect( JSON.parse( json )[ 0 ] ).not.toHaveProperty( 'operation' );
+		} );
+
 		it( 'should handle no sites found', async () => {
 			vi.mocked( readCliConfig ).mockResolvedValue( emptyCliConfig );
 

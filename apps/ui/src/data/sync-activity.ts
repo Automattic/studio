@@ -3,6 +3,10 @@ import { __ } from '@wordpress/i18n';
 import { useSyncExternalStore } from 'react';
 import type { PullSiteProgress, PushPhase } from '@/data/core';
 
+// Structurally what `PullSiteProgress` already is, named for the wider set of
+// operations that report through here.
+export type ActivityProgress = PullSiteProgress;
+
 // Tracks in-flight and recently completed live-site sync operations so the
 // Site Details header can surface a cross-page indicator. Uses a module-
 // level store (rather than React context) so the state survives component
@@ -12,7 +16,13 @@ import type { PullSiteProgress, PushPhase } from '@/data/core';
 // `preview` covers creating or refreshing the WordPress.com-hosted preview
 // snapshot. Grouped in here alongside push/pull so the dropdown's single
 // activity indicator can surface any live-sync-like operation consistently.
-export type SyncDirection = 'push' | 'pull' | 'preview';
+//
+// `import` is not a live-site operation at all, but it is the same shape of
+// thing from the UI's point of view: long-running, scoped to one site, and it
+// rewrites that site underneath you. It lives here so a site being imported
+// reads the same way in the sidebar and dropdown as one being pulled — and so
+// two concurrent imports stay told apart by site, which a global toast can't do.
+export type SyncDirection = 'push' | 'pull' | 'preview' | 'import';
 
 export type SyncActivity =
 	| {
@@ -74,8 +84,8 @@ export function reportSyncPending( siteId: string, direction: SyncDirection ): v
 
 export function reportSyncProgress(
 	siteId: string,
-	direction: Extract< SyncDirection, 'pull' >,
-	progress: PullSiteProgress
+	direction: Extract< SyncDirection, 'pull' | 'import' >,
+	progress: ActivityProgress
 ): void {
 	clearExpiryTimer( siteId );
 	entries.set( siteId, { kind: 'pending', direction, ...progress } );
@@ -151,7 +161,7 @@ export function useSiteSyncActivity( siteId: string | undefined ): SyncActivity 
 export function getSyncCancelLabels(
 	activity: SyncActivity | null
 ): { label: string; enabled: boolean } | null {
-	if ( activity?.kind !== 'pending' || activity.direction === 'preview' ) {
+	if ( activity?.kind !== 'pending' ) {
 		return null;
 	}
 
@@ -164,10 +174,14 @@ export function getSyncCancelLabels(
 				: __( 'Push can not be cancelled while applying changes to the remote site' ),
 		};
 	}
-	return {
-		enabled,
-		label: enabled
-			? __( 'Cancel pull' )
-			: __( 'Pull can not be cancelled while importing changes to your local site' ),
-	};
+	if ( activity.direction === 'pull' ) {
+		return {
+			enabled,
+			label: enabled
+				? __( 'Cancel pull' )
+				: __( 'Pull can not be cancelled while importing changes to your local site' ),
+		};
+	}
+	// Only push and pull can be stopped — a preview or an import offers nothing.
+	return null;
 }

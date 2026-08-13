@@ -73,6 +73,18 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 		return;
 	}
 
+	// This event says nothing about whether the site is running, so it must not
+	// go through the merge below — that one adopts the event's `running` as
+	// authoritative and fires the start/stop side effects off the transition.
+	if ( eventType === SITE_EVENTS.OPERATIONS_CHANGED ) {
+		const server = SiteServer.get( siteId ) ?? SiteServer.getByPath( site.path );
+		if ( server ) {
+			server.details = { ...server.details, operation: site.operation };
+		}
+		void sendIpcEventToRenderer( 'site-event', event );
+		return;
+	}
+
 	if ( eventType === SITE_EVENTS.CREATED ) {
 		const existingServer = SiteServer.get( siteId ) ?? SiteServer.getByPath( site.path );
 		if ( ! existingServer ) {

@@ -73,5 +73,8 @@ describe( 'getSyncCancelLabels', () => {
 		expect( getSyncCancelLabels( null ) ).toBeNull();
 		expect( getSyncCancelLabels( { kind: 'success', direction: 'pull' } ) ).toBeNull();
 		expect( getSyncCancelLabels( { kind: 'pending', direction: 'preview' } ) ).toBeNull();
+		// An import rewrites the site but isn't a sync — it must not fall through
+		// to the pull wording and offer a cancel this code cannot honour.
+		expect( getSyncCancelLabels( { kind: 'pending', direction: 'import' } ) ).toBeNull();
 	} );
 } );

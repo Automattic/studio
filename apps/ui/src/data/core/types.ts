@@ -11,6 +11,7 @@ import type {
 	TracksProps,
 	TracksSiteCreateFlowType,
 } from '@studio/common/lib/record-tracks-event';
+import type { SiteOperation } from '@studio/common/lib/site-operation';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
@@ -107,6 +108,9 @@ export interface SiteDetails {
 		supportsMenus?: boolean;
 	};
 	siteIcon?: string | null;
+	// The Studio operation currently holding the site, from the CLI. Present
+	// regardless of who started it — the user, the desktop app, or the agent.
+	operation?: SiteOperation;
 }
 
 export interface LocalMediaFile {
@@ -252,7 +256,7 @@ export interface Connector {
 	readBlueprintFile( filePath: string ): Promise< BlueprintV1Declaration >;
 
 	// Imports a backup into an already-created site and starts the usable site.
-	// `backupPath` comes from `getFilePath` for the current submission.
+	// `backupPath` comes from `getFilePath` for the currently selected file.
 	importSiteFromBackup(
 		siteId: string,
 		backupPath: string,

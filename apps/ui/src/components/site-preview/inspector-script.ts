@@ -88,7 +88,10 @@ export const INSPECTOR_PAGE_SCRIPT =
 		const key = event.key.toLowerCase();
 		/* The host owns full preview, but in that mode this page covers most of
 		 * the window — so the chord is caught here and forwarded back. */
-		if ( event.shiftKey ) return key === 'f' ? 'full-preview' : null;
+		if ( event.shiftKey ) {
+			if ( key === 'f' ) return 'full-preview';
+			return key === 'r' ? 'reload' : null;
+		}
 		if ( key === 'r' ) return 'reload';
 		if ( key === '[' ) return 'back';
 		if ( key === ']' ) return 'forward';

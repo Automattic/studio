@@ -21,6 +21,7 @@ vi.mock( '@/data/queries/use-snapshots', () => ( { useSnapshots: () => ( { data:
 vi.mock( '@/data/queries/use-sites', () => ( {
 	useIsSiteStarting: () => false,
 	useIsSiteStopping: () => false,
+	useSiteOperation: () => undefined,
 } ) );
 vi.mock( '@/data/queries/use-sync-site', () => ( {
 	usePullSiteFromLive: () => ( { mutate: pullMutate } ),

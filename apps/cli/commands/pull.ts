@@ -6,6 +6,7 @@ import {
 	addConnectedWpcomSite,
 	markConnectedWpcomSiteSynced,
 } from '@studio/common/lib/connected-sites';
+import { formatProgressLabel } from '@studio/common/lib/progress-label';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import {
 	SYNC_MAX_STALLED_ATTEMPTS,
@@ -104,7 +105,7 @@ export async function runCommand(
 		// Pull progress: Backup (0-50%) → Download (50-80%) → Import (80-100%)
 		logger.reportStart(
 			LoggerAction.INITIATE_BACKUP,
-			sprintf( __( 'Initializing remote backup… (%d%%)' ), 0 )
+			formatProgressLabel( __( 'Initializing remote backup…' ), 0 )
 		);
 		const backupId = await initiateBackup( token.accessToken, remoteSite.id, {
 			optionsToSync,
@@ -137,7 +138,9 @@ export async function runCommand(
 
 			// Backup phase: 0-50%
 			const backupProgress = Math.round( status.percent * 0.5 );
-			logger.reportProgress( sprintf( __( 'Creating remote backup… (%d%%)' ), backupProgress ) );
+			logger.reportProgress(
+				formatProgressLabel( __( 'Creating remote backup…' ), backupProgress )
+			);
 
 			await new Promise( ( resolve ) => setTimeout( resolve, SYNC_POLL_INTERVAL_MS ) );
 		}
@@ -165,7 +168,7 @@ export async function runCommand(
 		}
 
 		// Download phase: 50-80%
-		logger.reportProgress( sprintf( __( 'Downloading backup… (%d%%)' ), 50 ) );
+		logger.reportProgress( formatProgressLabel( __( 'Downloading backup…' ), 50 ) );
 		const tempDir = await fs.promises.mkdtemp( path.join( os.tmpdir(), 'studio-sync' ) );
 
 		try {

@@ -172,6 +172,20 @@ describe( 'handleAuthDeeplink', () => {
 			} );
 		} );
 
+		// Same failure as the CLI's config-write case, so it must classify the same way — otherwise
+		// `profile_fetch_failed` would mean two different things depending on channel.
+		it( 'classifies a failure to store the token as unknown', async () => {
+			setPendingAuthContext( 'settings', 'existing' );
+			vi.mocked( writeFile ).mockRejectedValue( new Error( 'disk full' ) );
+
+			await handleAuthDeeplink( successUrl() );
+
+			expect( lastAuthEventProps() ).toMatchObject( {
+				success: false,
+				failure_reason: 'unknown',
+			} );
+		} );
+
 		it( 'reports an unknown source when auth was not initiated in this session', async () => {
 			await handleAuthDeeplink( successUrl() );
 

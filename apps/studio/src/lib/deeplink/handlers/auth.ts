@@ -22,14 +22,17 @@ type StoredAuthToken = z.infer< typeof authTokenSchema >;
 class AuthCallbackError extends Error {
 	constructor(
 		message: string,
-		public readonly code: TracksAuthFailureReason
+		public readonly code: TracksAuthFailureReason,
+		public readonly originalError?: unknown
 	) {
 		super( message );
 	}
 }
 
+// Only tagged failures are classified. Anything else is genuinely unexpected — `unknown`, matching what
+// the CLI reports for its own untagged failures, so a reason means the same thing in both channels.
 function classifyAuthFailure( error: unknown ): TracksAuthFailureReason {
-	return error instanceof AuthCallbackError ? error.code : 'profile_fetch_failed';
+	return error instanceof AuthCallbackError ? error.code : 'unknown';
 }
 
 async function handleAuthCallback( hash: string ): Promise< StoredAuthToken > {
@@ -50,11 +53,21 @@ async function handleAuthCallback( hash: string ): Promise< StoredAuthToken > {
 	if ( isNaN( expiresIn ) || expiresIn === 0 || ! accessToken ) {
 		throw new AuthCallbackError( 'Error while getting token', 'token_error' );
 	}
-	const rawResponse = await wpcomFactory( accessToken, wpcomXhrRequest ).req.get(
-		'/me?fields=ID,email,display_name'
-	);
-
-	const response = meResponseSchema.parse( rawResponse );
+	let response;
+	try {
+		const rawResponse = await wpcomFactory( accessToken, wpcomXhrRequest ).req.get(
+			'/me?fields=ID,email,display_name'
+		);
+		response = meResponseSchema.parse( rawResponse );
+	} catch ( error ) {
+		// The request failing and the response not matching the schema are both "we couldn't read the
+		// profile". Rethrow tagged, preserving the original message for the renderer and Sentry.
+		throw new AuthCallbackError(
+			error instanceof Error ? error.message : String( error ),
+			'profile_fetch_failed',
+			error
+		);
+	}
 
 	return authTokenSchema.parse( {
 		expiresIn,
@@ -89,7 +102,12 @@ export async function handleAuthDeeplink( urlObject: URL ): Promise< void > {
 		void recordTracksEvent( TRACKS_EVENTS.WPCOM_AUTH, { ...authProps, success: true } );
 		void sendIpcEventToRenderer( 'auth-updated', { token: authResult } );
 	} catch ( error ) {
-		Sentry.captureException( error );
+		// Report the underlying error where we wrapped one, so Sentry keeps the original stack.
+		Sentry.captureException(
+			error instanceof AuthCallbackError && error.originalError !== undefined
+				? error.originalError
+				: error
+		);
 		void recordTracksEvent( TRACKS_EVENTS.WPCOM_AUTH, {
 			...authProps,
 			success: false,

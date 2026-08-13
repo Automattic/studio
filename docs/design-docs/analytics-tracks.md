@@ -419,6 +419,11 @@ path) and can't produce `failure_reason=access_denied` (there is no in-app deny 
 token). Account for this before aggregating across channels. The CLI's "already authenticated" early
 return emits nothing, since no authentication took place.
 
+Each `failure_reason` does mean the same thing in both channels, so the values themselves aggregate
+cleanly: `profile_fetch_failed` is always the `/me` lookup (the request or its schema), and `unknown` is
+always a failure neither emitter anticipated — in practice the config write. Only the availability of a
+reason differs, per above.
+
 ### How to add a new event
 
 1. Add the event name to `TRACKS_EVENTS` in `packages/common/lib/record-tracks-event.ts`.

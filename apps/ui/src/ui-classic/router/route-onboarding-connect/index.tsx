@@ -257,7 +257,9 @@ export function OnboardingConnectPage() {
 						siteId: localSiteId,
 						remoteSiteId: selectedSite.id,
 					} ),
-				startLocalSite: ( localSiteId ) => startSite.mutateAsync( localSiteId ),
+				startLocalSite: async ( localSiteId ) => {
+					await startSite.mutateAsync( localSiteId );
+				},
 				openLocalSite: ( localSiteId ) =>
 					navigate( {
 						to: '/sites/$siteId/overview',

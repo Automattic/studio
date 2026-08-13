@@ -1,6 +1,15 @@
 import { __ } from '@wordpress/i18n';
 import { copy, download, grid, trash } from '@wordpress/icons';
-import { useCopySite, useExportDatabase, useExportFullSite } from '@/data/queries/use-sites';
+import {
+	COPY_SITE_MUTATION_KEY,
+	EXPORT_DATABASE_MUTATION_KEY,
+	EXPORT_FULL_SITE_MUTATION_KEY,
+	useCopySite,
+	useExportDatabase,
+	useExportFullSite,
+	useIsSiteBusy,
+	useIsSiteMutating,
+} from '@/data/queries/use-sites';
 import type { SiteDetails } from '@/data/core';
 import type { ReactElement, SVGProps } from 'react';
 
@@ -40,18 +49,31 @@ export function useSiteManagementActions(
 	const exportFullSite = useExportFullSite();
 	const exportDatabase = useExportDatabase();
 
+	// Read from the mutation cache rather than each mutation's own `isPending`,
+	// so progress survives navigating away and back — the observers these hooks
+	// create die with the screen, the cache entries don't.
+	const isDuplicating = useIsSiteMutating( site.id, COPY_SITE_MUTATION_KEY );
+	const isExportingFullSite = useIsSiteMutating( site.id, EXPORT_FULL_SITE_MUTATION_KEY );
+	const isExportingDatabase = useIsSiteMutating( site.id, EXPORT_DATABASE_MUTATION_KEY );
+
 	// Full-site and database exports share one backend queue, so either
 	// running disables both.
-	const isExporting = exportFullSite.isPending || exportDatabase.isPending;
+	const isExporting = isExportingFullSite || isExportingDatabase;
+
+	// Every one of these reads or rewrites the site tree, so none should run
+	// while an operation holds the site — including work started by the agent or
+	// another window. Delete would be refused by the CLI; the rest are disabled
+	// here because reading a site mid-delete or mid-restart is not worth doing.
+	const isBusy = useIsSiteBusy( site );
 
 	return [
 		{
 			id: 'duplicate',
 			icon: copy,
 			label: __( 'Duplicate' ),
-			loading: copySite.isPending,
+			loading: isDuplicating,
 			loadingAnnouncement: __( 'Duplicating site' ),
-			disabled: copySite.isPending,
+			disabled: isBusy,
 			destructive: false,
 			run: () => copySite.mutate( site.id ),
 		},
@@ -59,9 +81,9 @@ export function useSiteManagementActions(
 			id: 'export',
 			icon: download,
 			label: __( 'Export entire site' ),
-			loading: exportFullSite.isPending,
+			loading: isExportingFullSite,
 			loadingAnnouncement: __( 'Exporting site' ),
-			disabled: isExporting,
+			disabled: isBusy || isExporting,
 			destructive: false,
 			run: () => exportFullSite.mutate( site.id ),
 		},
@@ -69,9 +91,9 @@ export function useSiteManagementActions(
 			id: 'export-db',
 			icon: grid,
 			label: __( 'Export database' ),
-			loading: exportDatabase.isPending,
+			loading: isExportingDatabase,
 			loadingAnnouncement: __( 'Exporting database' ),
-			disabled: isExporting,
+			disabled: isBusy || isExporting,
 			destructive: false,
 			run: () => exportDatabase.mutate( site.id ),
 		},
@@ -81,7 +103,8 @@ export function useSiteManagementActions(
 			label: __( 'Delete' ),
 			loading: false,
 			loadingAnnouncement: '',
-			disabled: false,
+			// Also blocked mid-export: the archive is still being read off disk.
+			disabled: isBusy || isExporting,
 			destructive: true,
 			run: onDelete,
 		},

@@ -8,6 +8,7 @@ import {
 	writeCliConfigFileRaw,
 } from '@studio/common/lib/cli-config-file';
 import { siteDetailsSchema } from '@studio/common/lib/cli-events';
+import { siteOperationSchema } from '@studio/common/lib/site-operation';
 import { getCliConfigPath } from '@studio/common/lib/well-known-paths';
 import { snapshotSchema } from '@studio/common/types/snapshot';
 import { __ } from '@wordpress/i18n';
@@ -54,6 +55,10 @@ const siteSchema = siteDetailsSchema
 		// first-full-pull vs. delta. Durable on the site record.
 		importComplete: z.boolean().optional(),
 		status: siteStatusSchema.default( 'ready' ).optional(),
+		// The in-flight Studio operation holding this site. Unlike `status`, it's
+		// transient: once its owning process is gone it's reclaimed on the next
+		// acquire. See `cli/lib/site-operations`.
+		operation: siteOperationSchema.optional(),
 	} )
 	.loose();
 

@@ -17,6 +17,7 @@ const mocks = vi.hoisted( () => ( {
 } ) );
 
 vi.mock( '@studio/common/lib/cli-process', () => ( {
+	killChild: vi.fn(),
 	createCliRunner: vi.fn( () => ( {
 		executeCliCommand: mocks.execute,
 		killAll: mocks.killAll,
@@ -199,10 +200,46 @@ describe( 'local web server Connect contracts', () => {
 		const eventChunk = new TextDecoder().decode( ( await reader.read() ).value );
 		await reader.cancel();
 
-		expect( response.status ).toBe( 204 );
+		expect( response.status ).toBe( 200 );
+		await expect( response.json() ).resolves.toEqual( { cancelled: false } );
 		expect( eventChunk ).toContain( '"channel":"sync-pull"' );
 		expect( eventChunk ).toContain( '"siteId":"local-a"' );
 		expect( eventChunk ).toContain( 'Creating remote backup… (18%)' );
+	} );
+
+	// A user cancel is reported as an outcome, not a 500 — the browser connector
+	// turns it back into a cancelled error.
+	it( 'reports a cancelled pull instead of failing the request', async () => {
+		// The CLI never finishes on its own here, so the request only settles if the
+		// cancel lands — which means we must not race it: wait until the pull has
+		// actually started before asking for it to stop.
+		let pullStarted: () => void = () => undefined;
+		const started = new Promise< void >( ( resolve ) => {
+			pullStarted = resolve;
+		} );
+		mocks.execute.mockImplementationOnce( () => {
+			const emitter = new EventEmitter();
+			queueMicrotask( pullStarted );
+			return [ emitter, { kill: () => undefined } ];
+		} );
+		const baseUrl = server.url.replace( 'localhost', '127.0.0.1' );
+
+		const pulling = fetch( `${ baseUrl }/api/sites/local-a/pull`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify( { remoteSiteId: 42 } ),
+		} );
+		await started;
+		const cancelled = await fetch( `${ baseUrl }/api/sites/local-a/sync/cancel`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify( { remoteSiteId: 42 } ),
+		} );
+
+		expect( cancelled.status ).toBe( 204 );
+		const response = await pulling;
+		expect( response.status ).toBe( 200 );
+		await expect( response.json() ).resolves.toEqual( { cancelled: true } );
 	} );
 
 	it( 'returns a signup URL that comes back through the local callback', async () => {

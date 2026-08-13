@@ -262,6 +262,15 @@
 	background: var(--wpds-color-background-surface-error-weak);
 }
 
+/* The rules above pin an explicit colour on the icon and label, which would
+   otherwise keep them at full strength while the button is disabled — the
+   control looks live and swallows the click. Higher specificity than the
+   destructive rule, so Delete mutes too. */
+.overviewButton:is([data-disabled], :disabled) .overviewButtonIcon,
+.overviewButton:is([data-disabled], :disabled) .overviewButtonLabel {
+	color: var(--wpds-color-foreground-interactive-neutral-disabled);
+}
+
 @media (max-width: 760px) {
 	.content {
 		padding: var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-md)

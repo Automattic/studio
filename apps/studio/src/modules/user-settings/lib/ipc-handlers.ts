@@ -3,6 +3,7 @@ import {
 	readGlobalInstructionsFile,
 	writeGlobalInstructions,
 } from '@studio/common/ai/global-instructions';
+import { type TracksInstructionsLengthBucket } from '@studio/common/lib/record-tracks-event';
 import {
 	isAnalyticsOptedOut,
 	readSharedConfig,
@@ -286,11 +287,36 @@ export async function getGlobalAgentInstructions(): Promise< string > {
 	return ( await readGlobalInstructionsFile() ) ?? '';
 }
 
+// Bucketed for `studio_setting_instructions_change`; the text itself is never sent.
+function getInstructionsLengthBucket( content: string ): TracksInstructionsLengthBucket {
+	const length = content.trim().length;
+	if ( length === 0 ) {
+		return 'empty';
+	}
+	if ( length <= 200 ) {
+		return 'short';
+	}
+	return length <= 1000 ? 'medium' : 'long';
+}
+
 export async function saveGlobalAgentInstructions(
 	_event: IpcMainInvokeEvent,
-	content: string
+	content: string,
+	// Set when this save ends an edit session. Only the renderer knows the value it started from,
+	// since the agentic UI autosaves on a debounce. Intermediate autosaves omit it.
+	options: { editSession?: { previousContent: string } } = {}
 ): Promise< void > {
 	await writeGlobalInstructions( content );
+
+	const previous = options.editSession?.previousContent;
+	if ( previous === undefined || previous === content ) {
+		return;
+	}
+	await recordTracksEvent( TRACKS_EVENTS.SETTING_INSTRUCTIONS_CHANGE, {
+		has_content: content.trim().length > 0,
+		length_bucket: getInstructionsLengthBucket( content ),
+		surface: 'settings',
+	} );
 }
 
 export function showUserSettings( event: IpcMainInvokeEvent, tabName?: UserSettingsTabName ) {

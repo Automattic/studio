@@ -90,7 +90,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 		 * the window — so the chord is caught here and forwarded back. */
 		if ( event.shiftKey ) {
 			if ( key === 'f' ) return 'full-preview';
-			return key === 'r' ? 'hard-reload' : null;
+			return key === 'r' ? 'reload' : null;
 		}
 		if ( key === 'r' ) return 'reload';
 		if ( key === '[' ) return 'back';

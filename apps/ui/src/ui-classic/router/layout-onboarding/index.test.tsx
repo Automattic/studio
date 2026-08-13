@@ -97,6 +97,77 @@ describe( 'OnboardingShellView', () => {
 		expect( screen.getByRole( 'heading', { name: 'Import' } ) ).toHaveFocus();
 	} );
 
+	it( 'closes on Escape', () => {
+		const onClose = vi.fn();
+		render(
+			<OnboardingShellView
+				hasSites
+				isWide={ false }
+				pathname="/onboarding/create"
+				onClose={ onClose }
+			>
+				<TestRoute />
+			</OnboardingShellView>
+		);
+		fireEvent.keyDown( document.body, { key: 'Escape' } );
+
+		expect( onClose ).toHaveBeenCalled();
+	} );
+
+	it( 'ignores Escape without sites', () => {
+		const onClose = vi.fn();
+		render(
+			<OnboardingShellView
+				hasSites={ false }
+				isWide={ false }
+				pathname="/onboarding/create"
+				onClose={ onClose }
+			>
+				<TestRoute />
+			</OnboardingShellView>
+		);
+		fireEvent.keyDown( document.body, { key: 'Escape' } );
+
+		expect( onClose ).not.toHaveBeenCalled();
+	} );
+
+	it( 'ignores Escape while a submit is in flight', () => {
+		const onClose = vi.fn();
+		render(
+			<OnboardingShellView
+				hasSites
+				isWide={ false }
+				pathname="/onboarding/create"
+				onClose={ onClose }
+			>
+				<TestRoute />
+			</OnboardingShellView>
+		);
+		fireEvent.click( screen.getByRole( 'button', { name: 'Create' } ) );
+		fireEvent.keyDown( document.body, { key: 'Escape' } );
+
+		expect( onClose ).not.toHaveBeenCalled();
+	} );
+
+	it( 'ignores Escape when a popup already consumed it', () => {
+		const onClose = vi.fn();
+		render(
+			<OnboardingShellView
+				hasSites
+				isWide={ false }
+				pathname="/onboarding/create"
+				onClose={ onClose }
+			>
+				<TestRoute />
+			</OnboardingShellView>
+		);
+		const event = new KeyboardEvent( 'keydown', { key: 'Escape', cancelable: true } );
+		event.preventDefault();
+		document.body.dispatchEvent( event );
+
+		expect( onClose ).not.toHaveBeenCalled();
+	} );
+
 	it( 'reserves content space when Close is visible', () => {
 		render(
 			<OnboardingShellView

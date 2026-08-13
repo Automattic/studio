@@ -58,7 +58,10 @@
 .main {
 	flex: 1;
 	min-width: 0;
-	overflow: auto;
+	/* Route panels own their scrolling. Keep this frame fixed so positioned
+	   chrome, such as the collapsed-sidebar toggle, cannot create an outer
+	   scroll range. */
+	overflow: hidden;
 	position: relative;
 	isolation: isolate;
 	background-color: var(--app-chrome-bg);

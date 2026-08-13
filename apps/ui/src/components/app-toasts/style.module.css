@@ -57,6 +57,10 @@
 	width: 100%;
 	box-sizing: border-box;
 	text-wrap: pretty;
+	/* Toasts rewrite themselves in place — import progress ticks through a
+	   percentage — and this font's digits are not equal width, so a counter
+	   would shift the text by a few pixels on nearly every update. */
+	font-variant-numeric: tabular-nums;
 	--wp-ui-notice-background-color: var(--wpds-color-background-surface-neutral-strong);
 	--wp-ui-notice-border-color: transparent;
 	--wp-ui-notice-text-color: var(--wpds-color-foreground-content-neutral);

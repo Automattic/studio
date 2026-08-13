@@ -225,15 +225,15 @@ describe( 'SitePreview', () => {
 		fireEvent.keyDown( document.body, { key: 'r', ctrlKey: true } );
 		expect( container.querySelector( 'iframe' ) ).not.toBe( initialIframe );
 
-		// Shift is the hard-reload chord, which reloads the fallback iframe too.
+		// ⌘⇧R is an alias for the same reload.
 		const reloadedIframe = container.querySelector( 'iframe' );
 		fireEvent.keyDown( document.body, { key: 'r', ctrlKey: true, shiftKey: true } );
 		expect( container.querySelector( 'iframe' ) ).not.toBe( reloadedIframe );
 
-		// Extra modifiers must not trigger either shortcut.
-		const hardReloadedIframe = container.querySelector( 'iframe' );
+		// Extra modifiers must not trigger the shortcut.
+		const aliasReloadedIframe = container.querySelector( 'iframe' );
 		fireEvent.keyDown( document.body, { key: 'r', ctrlKey: true, altKey: true } );
-		expect( container.querySelector( 'iframe' ) ).toBe( hardReloadedIframe );
+		expect( container.querySelector( 'iframe' ) ).toBe( aliasReloadedIframe );
 	} );
 
 	it( 'switches realms on primary-modifier number shortcuts', () => {
@@ -648,10 +648,10 @@ describe( 'getBrowserShortcutCommand', () => {
 		expect( getBrowserShortcutCommand( makeEvent( { key: 'r', ctrlKey: true } ) ) ).toBe(
 			'reload'
 		);
-		// Cmd+Shift+R reports an uppercase key; the chord must still match.
+		// The ⌘⇧R alias reports an uppercase key; it must still map to reload.
 		expect(
 			getBrowserShortcutCommand( makeEvent( { key: 'R', ctrlKey: true, shiftKey: true } ) )
-		).toBe( 'hard-reload' );
+		).toBe( 'reload' );
 		expect( getBrowserShortcutCommand( makeEvent( { key: '[', ctrlKey: true } ) ) ).toBe( 'back' );
 		expect( getBrowserShortcutCommand( makeEvent( { key: ']', ctrlKey: true } ) ) ).toBe(
 			'forward'

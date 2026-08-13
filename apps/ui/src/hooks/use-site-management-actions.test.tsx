@@ -3,6 +3,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
 import { useExportFullSite } from '@/data/queries/use-sites';
+import { reportSyncPending, reportSyncSuccess } from '@/data/sync-activity';
 import { useSiteManagementActions } from './use-site-management-actions';
 import type { Connector, SiteDetails } from '@/data/core';
 import type { ReactNode } from 'react';
@@ -70,6 +71,41 @@ describe( 'useSiteManagementActions', () => {
 			true,
 			true,
 		] );
+	} );
+
+	it( 'offers Import only where the surface can host the picker', () => {
+		expect( renderActions().result.current.map( ( action ) => action.id ) ).not.toContain(
+			'import'
+		);
+
+		const { result } = renderHook(
+			() => useSiteManagementActions( site, { onDelete: vi.fn(), onImport: vi.fn() } ),
+			{ wrapper }
+		);
+		expect( result.current.map( ( action ) => action.id ) ).toContain( 'import' );
+	} );
+
+	// Import is deliberately excluded from `SITE_OPERATIONS`, so `useIsSiteBusy`
+	// won't catch it and the CLI won't refuse the others. Duplicating a site
+	// mid-import would copy a half-replaced tree.
+	it( 'disables every action while the site is being imported into', () => {
+		reportSyncPending( site.id, 'import' );
+
+		const { result } = renderHook(
+			() => useSiteManagementActions( site, { onDelete: vi.fn(), onImport: vi.fn() } ),
+			{ wrapper }
+		);
+
+		expect( result.current.map( ( action ) => action.disabled ) ).toEqual( [
+			true,
+			true,
+			true,
+			true,
+			true,
+		] );
+		expect( result.current.find( ( action ) => action.id === 'import' )?.loading ).toBe( true );
+
+		reportSyncSuccess( site.id, 'import' );
 	} );
 
 	// The screen that starts an export can be navigated away from while it runs.

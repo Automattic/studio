@@ -273,6 +273,9 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async pushSiteToLive() {
 			throw new UnsupportedError( 'pushSiteToLive' );
 		},
+		async cancelSync() {
+			throw new UnsupportedError( 'cancelSync' );
+		},
 		async pullSiteFromLive() {
 			throw new UnsupportedError( 'pullSiteFromLive' );
 		},

@@ -6,6 +6,7 @@ import {
 	markConnectedWpcomSiteSynced,
 } from '@studio/common/lib/connected-sites';
 import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
+import { formatProgressLabel } from '@studio/common/lib/progress-label';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import {
 	SYNC_IGNORE_DEFAULTS,
@@ -155,7 +156,10 @@ export async function runCommand(
 			return ( originalEmit as ( ...a: any[] ) => boolean )( event, ...args );
 		};
 
-		logger.reportStart( LoggerAction.UPLOAD, sprintf( __( 'Uploading archive… (%d%%)' ), 20 ) );
+		logger.reportStart(
+			LoggerAction.UPLOAD,
+			formatProgressLabel( __( 'Uploading archive…' ), 20 )
+		);
 		const { promise: uploadPromise, abort: abortUpload } = createTusUpload( {
 			token: token.accessToken,
 			remoteSiteId: remoteSite.id,
@@ -163,7 +167,7 @@ export async function runCommand(
 			onProgress: ( percent ) => {
 				// Upload phase: 20-40%
 				const progress = Math.round( 20 + percent * 0.2 );
-				logger.reportProgress( sprintf( __( 'Uploading archive… (%d%%)' ), progress ) );
+				logger.reportProgress( formatProgressLabel( __( 'Uploading archive…' ), progress ) );
 			},
 		} );
 
@@ -190,7 +194,7 @@ export async function runCommand(
 		}
 
 		// Initiate import: 40%
-		logger.reportProgress( sprintf( __( 'Initiating import… (%d%%)' ), 40 ) );
+		logger.reportProgress( formatProgressLabel( __( 'Initiating import…' ), 40 ) );
 		await initiateImport( token.accessToken, remoteSite.id, attachmentId, {
 			optionsToSync,
 			specificSelectionPaths,
@@ -244,7 +248,7 @@ export async function runCommand(
 				stalledAttempts++;
 			}
 
-			logger.reportProgress( sprintf( '%s (%d%%)', statusMessage, roundedProgress ) );
+			logger.reportProgress( formatProgressLabel( statusMessage, roundedProgress ) );
 
 			await new Promise( ( resolve ) => setTimeout( resolve, SYNC_POLL_INTERVAL_MS ) );
 		}

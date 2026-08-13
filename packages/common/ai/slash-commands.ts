@@ -19,3 +19,15 @@ export const getAiSkillCommands = (): SkillSlashCommand[] => [
 export function buildSkillInvocationPrompt( name: string ): string {
 	return `Run the /${ name } skill using the Skill tool.`;
 }
+
+// Which predefined skill a prompt invokes, or `undefined`. Handles both shapes that reach the agent:
+// the bare `/rank-me-up` and the sentence it expands into (desktop expands, `studio ui` doesn't).
+// Only catalog names are returned — callers report this to analytics.
+export function resolveSkillFromPrompt( prompt: string ): string | undefined {
+	const trimmed = prompt.trim();
+	const name = trimmed.startsWith( '/' )
+		? trimmed.slice( 1 )
+		: getAiSkillCommands().find( ( cmd ) => buildSkillInvocationPrompt( cmd.name ) === trimmed )
+				?.name;
+	return getAiSkillCommands().find( ( cmd ) => cmd.name === name )?.name;
+}

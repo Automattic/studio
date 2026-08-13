@@ -4,7 +4,7 @@ import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels'
 import { isSnapshotExpired } from '@studio/common/lib/snapshots';
 import { useIsMutating } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
-import { arrowDown, arrowUp, copy, external, Icon, moreHorizontal } from '@wordpress/icons';
+import { arrowDown, arrowUp, close, copy, external, Icon, moreHorizontal } from '@wordpress/icons';
 import { Button, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useMemo } from 'react';
@@ -27,7 +27,9 @@ import { useSnapshots } from '@/data/queries/use-snapshots';
 import {
 	PULL_FROM_LIVE_MUTATION_KEY,
 	PUSH_TO_LIVE_MUTATION_KEY,
+	useCancelSync,
 } from '@/data/queries/use-sync-site';
+import { canCancelSyncActivity, getSyncCancelLabels } from '@/data/sync-activity';
 import { getSiteUrl } from '@/lib/get-site-url';
 import styles from './main-view.module.css';
 import { PopoverRow } from './popover-row';
@@ -133,6 +135,7 @@ export function MainView( {
 	const startSite = useStartSite();
 	const stopSite = useStopSite();
 	const publishPreviewSite = usePublishPreviewSite();
+	const cancelSync = useCancelSync();
 
 	const isStarting = useIsSiteStarting( site.id );
 	const isStopping = useIsSiteStopping( site.id );
@@ -141,8 +144,11 @@ export function MainView( {
 	const { push: isPushPending, pull: isPullPending } = useIsSiteSyncing( site.id );
 	const isPreviewPending = publishPreviewSite.isPending;
 	// Preview / push / pull all mutate the same local site; running them
-	// concurrently would wedge the site runtime.
-	const isSyncing = isPreviewPending || isPushPending || isPullPending;
+	// concurrently would wedge the site runtime. An import replaces that site's
+	// files and database outright, so it locks them out too — and the CLI won't
+	// refuse it, since import is deliberately not a tracked site operation.
+	const isImporting = activity?.kind === 'pending' && activity.direction === 'import';
+	const isSyncing = isPreviewPending || isPushPending || isPullPending || isImporting;
 	// …and none of them can run while the CLI holds the site either. Gate the
 	// controls on both, so an operation the agent took disables them visibly rather
 	// than leaving buttons that swallow the click.
@@ -269,7 +275,15 @@ export function MainView( {
 	return (
 		<div className={ styles.rows }>
 			{ activity?.kind === 'pending' || activity?.kind === 'error' ? (
-				<SyncActivityDetails activity={ activity } />
+				<SyncActivityDetails
+					activity={ activity }
+					onCancel={
+						liveSite && canCancelSyncActivity( activity )
+							? () => cancelSync.mutate( { siteId: site.id, remoteSiteId: liveSite.id } )
+							: undefined
+					}
+					canCancel={ canCancelSyncActivity( activity ) }
+				/>
 			) : null }
 
 			<PopoverRow
@@ -471,22 +485,55 @@ function XdebugBadge( { running }: { running: boolean } ) {
 
 function SyncActivityDetails( {
 	activity,
+	onCancel,
+	canCancel,
 }: {
 	activity: Extract< SyncActivity, { kind: 'pending' | 'error' } >;
+	onCancel?: () => void;
+	canCancel: boolean;
 } ) {
+	// Same wording as the classic renderer, and the same source the trigger's
+	// always-visible cancel uses, so the two never disagree.
+	const cancel = getSyncCancelLabels( activity );
+	const blockedLabel = cancel && ! cancel.enabled ? cancel.label : null;
+
 	return (
 		<div
 			className={ clsx(
 				styles.activityStatus,
 				activity.kind === 'error' ? styles.activityStatusError : styles.activityStatusPending
 			) }
-			role="status"
-			aria-live="polite"
 		>
-			<div className={ styles.activityStatusTitle }>{ getSyncActivityLabel( activity ) }</div>
-			<div className={ styles.activityStatusMessage }>
-				{ activity.message ?? __( 'Preparing the live site…' ) }
+			<div className={ styles.activityStatusText } role="status" aria-live="polite">
+				<div className={ styles.activityStatusTitle }>{ getSyncActivityLabel( activity ) }</div>
+				<div className={ styles.activityStatusMessage }>
+					{ activity.message ??
+						( activity.direction === 'import'
+							? __( 'Preparing the backup…' )
+							: __( 'Preparing the live site…' ) ) }
+				</div>
+				{ blockedLabel ? (
+					// Stating this inline rather than leaving it to the disabled
+					// button's tooltip: nobody hovers a control that looks inert.
+					<div className={ styles.activityStatusNote }>{ blockedLabel }</div>
+				) : null }
 			</div>
+			{ cancel ? (
+				// A plain Button, not an IconButton: IconButton always wraps itself in
+				// a Tooltip, and tooltips never render inside this menu anyway.
+				<Button
+					className={ styles.cancelSyncButton }
+					variant="minimal"
+					tone="neutral"
+					size="small"
+					aria-label={ cancel.label }
+					disabled={ ! cancel.enabled }
+					focusableWhenDisabled
+					onClick={ () => onCancel?.() }
+				>
+					<Icon icon={ close } size={ 20 } />
+				</Button>
+			) : null }
 		</div>
 	);
 }

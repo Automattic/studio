@@ -5,6 +5,7 @@ import {
 	STUDIO_ASSISTANT_QUOTA_URL,
 	studioAssistantQuotaSchema,
 } from '@studio/common/lib/studio-assistant-quota';
+import { SyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
 import { buildPublishCheckoutUrl } from '../publish-checkout-url';
@@ -22,6 +23,7 @@ import type {
 	LoadedAiSession,
 	AppUpdateStatus,
 	ProposedSitePath,
+	PushPhase,
 	QuitSitesBehavior,
 	SelectedSiteFolder,
 	SiteDetails,
@@ -567,13 +569,42 @@ export function createIpcConnector(): Connector {
 			);
 		},
 
-		async pushSiteToLive( siteId, remoteSiteId, options ): Promise< void > {
+		async pushSiteToLive( siteId, remoteSiteId, options, onPhase ): Promise< void > {
 			// The agentic UI pushes via the shared `pushSite` (export → TUS
 			// upload → import) in both desktop and `studio ui`; the desktop runs
 			// it behind this single IPC handler. Resolves once the import is
 			// initiated (the remote import may still be running).
-			await ipcApi.pushSiteToLive( siteId, remoteSiteId, options );
+			const unsubscribe = onPhase
+				? ipcListener.subscribe(
+						'sync-push-phase',
+						(
+							_event: unknown,
+							payload: { selectedSiteId: string; remoteSiteId: number; phase: PushPhase }
+						) => {
+							if ( payload.selectedSiteId === siteId && payload.remoteSiteId === remoteSiteId ) {
+								onPhase( payload.phase );
+							}
+						}
+				  )
+				: undefined;
+			let result: { cancelled?: boolean } | undefined;
+			try {
+				result = await ipcApi.pushSiteToLive( siteId, remoteSiteId, options );
+			} finally {
+				unsubscribe?.();
+			}
+			// The main process reports a cancel instead of rejecting, to keep it out
+			// of the logs as an error; turn it back into one for the caller.
+			if ( result?.cancelled ) {
+				throw new SyncCancelledError();
+			}
 			await markConnectedWpcomSiteSynced( siteId, remoteSiteId, 'push' );
+		},
+
+		async cancelSync( siteId, remoteSiteId ): Promise< void > {
+			// Same registry the classic renderer cancels through — the operation id
+			// is `${siteId}-${remoteSiteId}`.
+			ipcApi.cancelSyncOperation( `${ siteId }-${ remoteSiteId }` );
 		},
 
 		async pullSiteFromLive( siteId, remoteSiteId, onProgress, options ): Promise< void > {
@@ -582,21 +613,27 @@ export function createIpcConnector(): Connector {
 						'sync-pull-progress',
 						(
 							_event: unknown,
-							payload: { siteId: string; message: string; progress?: number }
+							payload: { siteId: string; message: string; progress?: number; action?: string }
 						) => {
 							if ( payload.siteId === siteId ) {
 								onProgress( {
 									message: payload.message,
 									...( payload.progress === undefined ? {} : { progress: payload.progress } ),
+									// Drives the cancel gate — without it every pull looks cancellable.
+									...( payload.action === undefined ? {} : { action: payload.action } ),
 								} );
 							}
 						}
 				  )
 				: undefined;
+			let result: { cancelled?: boolean } | undefined;
 			try {
-				await ipcApi.pullSiteFromLive( siteId, remoteSiteId, options );
+				result = await ipcApi.pullSiteFromLive( siteId, remoteSiteId, options );
 			} finally {
 				unsubscribe?.();
+			}
+			if ( result?.cancelled ) {
+				throw new SyncCancelledError();
 			}
 			await markConnectedWpcomSiteSynced( siteId, remoteSiteId, 'pull' );
 		},
@@ -818,8 +855,11 @@ export function createIpcConnector(): Connector {
 		async getAgentInstructions(): Promise< string > {
 			return ( await ipcApi.getGlobalAgentInstructions() ) as string;
 		},
-		async saveAgentInstructions( content: string ): Promise< void > {
-			await ipcApi.saveGlobalAgentInstructions( content );
+		async saveAgentInstructions(
+			content: string,
+			options: { editSession?: { previousContent: string } } = {}
+		): Promise< void > {
+			await ipcApi.saveGlobalAgentInstructions( content, options );
 		},
 
 		async getAiSettings(): Promise< AiSettings > {

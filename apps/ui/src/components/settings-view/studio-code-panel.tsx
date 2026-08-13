@@ -1,13 +1,13 @@
 import { GLOBAL_INSTRUCTIONS_MAX_LENGTH } from '@studio/common/ai/global-instructions';
 import { DataForm } from '@wordpress/dataviews';
 import { __ } from '@wordpress/i18n';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
 	useAgentInstructions,
 	useSaveAgentInstructions,
 } from '@/data/queries/use-agent-instructions';
 import styles from './style.module.css';
-import { useDebouncedSave } from './use-debounced-save';
+import { SAVE_DEBOUNCE_MS } from './use-debounced-save';
 import type { Field, Form } from '@wordpress/dataviews';
 
 interface FormData {
@@ -40,7 +40,53 @@ export function StudioCodePanel() {
 	const content = edits ?? saved ?? '';
 	const isDirty = saved !== undefined && content !== saved;
 
-	useDebouncedSave( isDirty ? content : undefined, save );
+	const pending = useRef< string | null >( null );
+	// Latest content, and the value this visit started from.
+	const latest = useRef< string | null >( null );
+	const sessionStart = useRef< string | null >( null );
+	// Read through a ref so the cleanup below can run on unmount only.
+	const saveRef = useRef( save );
+
+	useEffect( () => {
+		saveRef.current = save;
+	}, [ save ] );
+
+	useEffect( () => {
+		if ( sessionStart.current === null && saved !== undefined ) {
+			sessionStart.current = saved;
+		}
+	}, [ saved ] );
+
+	useEffect( () => {
+		pending.current = isDirty ? content : null;
+		latest.current = content;
+		if ( ! isDirty ) {
+			return;
+		}
+		const timer = setTimeout( () => {
+			pending.current = null;
+			save( { content } );
+		}, SAVE_DEBOUNCE_MS );
+		return () => clearTimeout( timer );
+	}, [ content, isDirty, save ] );
+
+	// Leaving the tab ends the edit session: flush any un-written keystrokes and pass the value it
+	// started from, so the change counts once rather than once per typing pause. No deps — this must
+	// run on unmount only, or an edit would be reported twice.
+	useEffect(
+		() => () => {
+			const previousContent = sessionStart.current;
+			if ( previousContent === null || latest.current === null ) {
+				return;
+			}
+			if ( pending.current === null && latest.current === previousContent ) {
+				return;
+			}
+			sessionStart.current = latest.current;
+			saveRef.current( { content: latest.current, editSession: { previousContent } } );
+		},
+		[]
+	);
 
 	if ( saved === undefined ) {
 		return <div className={ styles.state }>{ __( 'Loading…' ) }</div>;

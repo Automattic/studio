@@ -177,8 +177,8 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'saveUserTerminal', preferredTerminal ),
 	getUserTerminal: () => ipcRendererInvoke( 'getUserTerminal' ),
 	getGlobalAgentInstructions: () => ipcRendererInvoke( 'getGlobalAgentInstructions' ),
-	saveGlobalAgentInstructions: ( content ) =>
-		ipcRendererInvoke( 'saveGlobalAgentInstructions', content ),
+	saveGlobalAgentInstructions: ( content, options ) =>
+		ipcRendererInvoke( 'saveGlobalAgentInstructions', content, options ),
 	getAiSettings: () => ipcRendererInvoke( 'getAiSettings' ),
 	saveAnthropicApiKey: ( key ) => ipcRendererInvoke( 'saveAnthropicApiKey', key ),
 	setAiProvider: ( provider ) => ipcRendererInvoke( 'setAiProvider', provider ),

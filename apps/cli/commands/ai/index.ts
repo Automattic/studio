@@ -5,10 +5,19 @@ import {
 } from '@studio/common/ai/chat-files';
 import { type StudioChatImage } from '@studio/common/ai/chat-images';
 import { getAgentEndFailure } from '@studio/common/ai/json-events';
-import { DEFAULT_MODEL, resolveSessionModel, type AiModelId } from '@studio/common/ai/models';
+import {
+	DEFAULT_MODEL,
+	getAiModelFamily,
+	resolveSessionModel,
+	type AiModelId,
+} from '@studio/common/ai/models';
 import { getAgentEndTurnResult } from '@studio/common/ai/session-events';
 import { readAnthropicApiKey, readSelectedAiProvider } from '@studio/common/ai/settings-store';
-import { buildSkillInvocationPrompt } from '@studio/common/ai/slash-commands';
+import {
+	buildSkillInvocationPrompt,
+	resolveSkillFromPrompt,
+} from '@studio/common/ai/slash-commands';
+import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { __, sprintf } from '@wordpress/i18n';
@@ -43,6 +52,12 @@ import { findSiteByFolder, findSiteById } from 'cli/lib/cli-config/sites';
 import { disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { isSiteRunning } from 'cli/lib/site-utils';
 import { maybeShowTosNotice } from 'cli/lib/tos-notice';
+import {
+	getTracksOrigin,
+	recordTracksEvent,
+	TRACKS_EVENTS,
+	type TracksEventName,
+} from 'cli/lib/tracks';
 import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 import type { SessionManager } from '@earendil-works/pi-coding-agent';
@@ -51,6 +66,7 @@ import type {
 	StudioCustomEntryType,
 } from '@studio/common/ai/sessions/entry-types';
 import type { LoadedAiSession, TurnStatus } from '@studio/common/ai/sessions/types';
+import type { TracksProps } from '@studio/common/lib/record-tracks-event';
 import type { AskUserQuestion } from 'cli/ai/types';
 
 const logger = new Logger< string >();
@@ -64,6 +80,21 @@ function appendStudioEntry< T extends StudioCustomEntryType >(
 	data: StudioCustomEntryDataMap[ T ]
 ): string {
 	return sm.appendCustomEntry( customType, data );
+}
+
+// Awaited rather than fire-and-forget so JSON mode, which exits right after a turn, doesn't drop the
+// event — the wrapper does async work before the request is even issued. Errors are swallowed: one
+// call sits on the turn's critical path and the other in a `finally`, where a rejection would mask
+// the turn's own error.
+async function recordChatTracksEvent(
+	event: TracksEventName,
+	props: TracksProps
+): Promise< void > {
+	try {
+		await recordTracksEvent( event, props );
+	} catch {
+		// A lost analytics event must never break the chat.
+	}
 }
 
 function isPromptAbortError( error: unknown ): boolean {
@@ -527,6 +558,24 @@ export async function runCommand( options: {
 
 		await persistSessionContext();
 
+		// Sole emitter of the chat events: every surface forks this process, and only this layer holds
+		// the provider, model and outcome together. `channel` separates them.
+		const tracksProps = {
+			...getTracksOrigin(),
+			...getAiTracksIdentity( sessionId ),
+			provider: currentProvider,
+			model: currentModel,
+			model_family: getAiModelFamily( currentModel ),
+		};
+		const turnStartedAt = Date.now();
+		await recordChatTracksEvent( TRACKS_EVENTS.CODE_MESSAGE_SENT, {
+			...tracksProps,
+			// Raw prompt, before site context is prepended. Only ever a catalog name.
+			ability_name: resolveSkillFromPrompt( prompt ),
+			has_images: images.length > 0,
+			has_files: files.length > 0,
+		} );
+
 		// Studio marker for the typed prompt; pi appends the real UserMessage.
 		await append( ( s ) =>
 			appendStudioEntry( s, 'studio.user_prompt', {
@@ -595,6 +644,12 @@ export async function runCommand( options: {
 						: {} ),
 				} )
 			);
+			// No `errorMessage`: raw error text can embed paths and site names.
+			await recordChatTracksEvent( TRACKS_EVENTS.CODE_TURN_COMPLETED, {
+				...tracksProps,
+				outcome: turnState.status,
+				duration_ms: Date.now() - turnStartedAt,
+			} );
 			ui.endAgentTurn();
 		}
 

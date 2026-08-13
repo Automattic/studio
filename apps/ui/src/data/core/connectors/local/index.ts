@@ -1,4 +1,5 @@
 import { getAuthenticationUrl, getSignUpUrl } from '@studio/common/lib/oauth';
+import { SyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
 import { readOnboardingHints, writeOnboardingHints } from '../browser-onboarding-hints';
@@ -35,6 +36,7 @@ import type {
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { AiProviderId, AiSettings } from '@studio/common/ai/providers';
 import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
+import type { PushOutput } from '@studio/common/types/sync';
 
 // The in-app dark/light/system choice, persisted in the browser (there's no
 // Electron `nativeTheme` to mirror it) so it sticks across reloads.
@@ -73,6 +75,7 @@ type PullProgressSseOutput = PullSiteProgress & {
 	remoteSiteId: number;
 };
 type ImportSseOutput = { siteId: string; event: ImportEventTuple };
+type PushSseOutput = PushOutput & { siteId: string; remoteSiteId: number };
 
 // Envelope used by the backend's `/events` SSE stream so a single connection
 // can carry every live update consumed by the browser UI.
@@ -81,6 +84,7 @@ type ServerEvent =
 	| { channel: 'placement'; payload: AiSessionPlacementUpdatedEvent }
 	| { channel: 'snapshot'; payload: SnapshotSseOutput }
 	| { channel: 'sync-pull'; payload: PullProgressSseOutput }
+	| { channel: 'sync-push'; payload: PushSseOutput }
 	| { channel: 'import'; payload: ImportSseOutput }
 	| { channel: 'sync-connect'; payload: { remoteSiteId: number; studioSiteId: string } };
 
@@ -105,6 +109,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 	const placementListeners = new Set< ( event: AiSessionPlacementUpdatedEvent ) => void >();
 	const snapshotListeners = new Set< ( output: SnapshotSseOutput ) => void >();
 	const pullProgressListeners = new Set< ( output: PullProgressSseOutput ) => void >();
+	const pushOutputListeners = new Set< ( output: PushSseOutput ) => void >();
 	const importListeners = new Set< ( output: ImportSseOutput ) => void >();
 	const syncConnectListeners = new Set<
 		( event: { remoteSiteId: number; studioSiteId: string } ) => void
@@ -241,6 +246,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					snapshotListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				} else if ( parsed.channel === 'sync-pull' ) {
 					pullProgressListeners.forEach( ( listener ) => listener( parsed.payload ) );
+				} else if ( parsed.channel === 'sync-push' ) {
+					pushOutputListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				} else if ( parsed.channel === 'import' ) {
 					importListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				} else if ( parsed.channel === 'sync-connect' ) {
@@ -593,10 +600,35 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				method: 'POST',
 			} );
 		},
-		async pushSiteToLive( siteId, remoteSiteId, options ) {
-			await api( `/sites/${ encodeURIComponent( siteId ) }/push`, {
+		async pushSiteToLive( siteId, remoteSiteId, options, onPhase ) {
+			const listener = ( output: PushSseOutput ) => {
+				if ( output.siteId === siteId && output.kind === 'phase' ) {
+					onPhase?.( output.phase );
+				}
+			};
+			if ( onPhase ) {
+				pushOutputListeners.add( listener );
+			}
+			let result: { cancelled?: boolean } | undefined;
+			try {
+				result = await api( `/sites/${ encodeURIComponent( siteId ) }/push`, {
+					method: 'POST',
+					body: JSON.stringify( { remoteSiteId, options } ),
+				} );
+			} finally {
+				pushOutputListeners.delete( listener );
+			}
+			// The server reports a cancel instead of failing the request; turn it
+			// back into an error for the caller.
+			if ( result?.cancelled ) {
+				throw new SyncCancelledError();
+			}
+		},
+
+		async cancelSync( siteId, remoteSiteId ) {
+			await api( `/sites/${ encodeURIComponent( siteId ) }/sync/cancel`, {
 				method: 'POST',
-				body: JSON.stringify( { remoteSiteId, options } ),
+				body: JSON.stringify( { remoteSiteId } ),
 			} );
 		},
 		async pullSiteFromLive( siteId, remoteSiteId, onProgress, options ) {
@@ -605,19 +637,25 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					onProgress?.( {
 						message: output.message,
 						...( output.progress === undefined ? {} : { progress: output.progress } ),
+						// Drives the cancel gate — without it every pull looks cancellable.
+						...( output.action === undefined ? {} : { action: output.action } ),
 					} );
 				}
 			};
 			if ( onProgress ) {
 				pullProgressListeners.add( listener );
 			}
+			let result: { cancelled?: boolean } | undefined;
 			try {
-				await api( `/sites/${ encodeURIComponent( siteId ) }/pull`, {
+				result = await api( `/sites/${ encodeURIComponent( siteId ) }/pull`, {
 					method: 'POST',
 					body: JSON.stringify( { remoteSiteId, options } ),
 				} );
 			} finally {
 				pullProgressListeners.delete( listener );
+			}
+			if ( result?.cancelled ) {
+				throw new SyncCancelledError();
 			}
 		},
 		async getLatestRewindId( remoteSiteId ) {
@@ -791,6 +829,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			const { content } = await api< { content: string } >( '/agent-instructions' );
 			return content;
 		},
+		// Drops the panel's `editSession` option: it only drives a Tracks event, and this server has
+		// no emitter. Instructions still save. See STU-2247.
 		async saveAgentInstructions( content: string ): Promise< void > {
 			await api< void >( '/agent-instructions', {
 				method: 'POST',

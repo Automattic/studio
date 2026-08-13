@@ -2,6 +2,7 @@ import { act, renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	getSyncCancelLabels,
+	reportPushPhase,
 	reportSyncPending,
 	reportSyncProgress,
 	reportSyncSuccess,
@@ -39,6 +40,22 @@ describe( 'sync activity progress', () => {
 			vi.advanceTimersByTime( 30_000 );
 		} );
 		expect( result.current ).toBeNull();
+	} );
+
+	it( 'describes the phase a push is in, so it never reads as idle', () => {
+		const siteId = 'push-site';
+		const { result } = renderHook( () => useSiteSyncActivity( siteId ) );
+
+		act( () => reportSyncPending( siteId, 'push' ) );
+		act( () => reportPushPhase( siteId, 'creatingRemoteBackup', 40 ) );
+		expect( result.current ).toMatchObject( {
+			phase: 'creatingRemoteBackup',
+			message: 'Backing up remote site… (40%)',
+		} );
+
+		// The remote does not report a percentage for every phase.
+		act( () => reportPushPhase( siteId, 'finishing' ) );
+		expect( result.current ).toMatchObject( { phase: 'finishing', message: 'Almost there…' } );
 	} );
 } );
 

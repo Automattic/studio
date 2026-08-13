@@ -172,7 +172,7 @@ export function WelcomePage() {
 							</Button>
 						</>
 					) : (
-						<AuthActions />
+						<AuthActions source="onboarding" />
 					) }
 				</div>
 			</div>

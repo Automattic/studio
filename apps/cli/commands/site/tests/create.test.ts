@@ -449,6 +449,15 @@ describe( 'CLI: studio site create', () => {
 			expect( blueprint.staticSiteImport.code ).toContain(
 				'$result = static_site_importer_ability_import( $input );'
 			);
+			expect( blueprint.staticSiteImport.code ).toContain(
+				"$input['runtime_lifecycle_phase'] = 'prepare';"
+			);
+			expect( blueprint.staticSiteImport.code ).toContain(
+				"$input['runtime_lifecycle_phase'] = 'resume';"
+			);
+			expect( blueprint.staticSiteImport.code ).toContain(
+				"'dependencies_prepared' === ( $import_result['status'] ?? '' )"
+			);
 			expect( blueprint.staticSiteImport.code ).not.toContain(
 				'static_site_importer_ability_import_website_artifact'
 			);

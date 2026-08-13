@@ -2,6 +2,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { __ } from '@wordpress/i18n';
 import { openBrowser } from 'cli/lib/browser';
+import { getTracksOrigin, recordTracksEvent } from 'cli/lib/tracks';
 import { StudioArgv } from 'cli/types';
 
 export const registerCommand = ( yargs: StudioArgv ) => {
@@ -36,6 +37,10 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 			// `STUDIO_CLI_BIN` overrides it for development.
 			const cliBinary = process.env.STUDIO_CLI_BIN ?? process.argv[ 1 ];
 
+			// Everything forked from here inherits this, so browser usage isn't counted as
+			// bare CLI. `v2` because the browser serves `apps/ui`.
+			process.env.STUDIO_TRACKS_ORIGIN = 'studio-web:v2';
+
 			// The built browser UI (apps/ui `dist-local`) is copied next to the CLI
 			// bundle at build time. In dev it may be absent — the server then
 			// serves the API only and the UI is run via
@@ -50,6 +55,9 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				sitesRoot: STUDIO_SITES_ROOT,
 				port: argv.port as number | undefined,
 				uiDist,
+				// The CLI wrapper owns the opt-out and the common props.
+				recordTracksEvent: ( event, props ) =>
+					recordTracksEvent( event, { ...getTracksOrigin(), ...props } ),
 			} );
 
 			console.log( '' );

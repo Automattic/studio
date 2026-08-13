@@ -32,6 +32,7 @@ import {
 	setAiProvider,
 } from '@studio/common/ai/settings-store';
 import { expandSkillCommandPrompt } from '@studio/common/ai/slash-commands';
+import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import { DEFAULT_TOKEN_LIFETIME_MS } from '@studio/common/constants';
 import { createCliRunner } from '@studio/common/lib/cli-process';
 import {
@@ -53,6 +54,11 @@ import { importIpcEventSchema } from '@studio/common/lib/import-export-events';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { getAuthenticationUrl, getSignUpUrl } from '@studio/common/lib/oauth';
 import { decodePassword } from '@studio/common/lib/passwords';
+import {
+	getInstructionsLengthBucket,
+	isTracksEventName,
+	TRACKS_EVENTS,
+} from '@studio/common/lib/record-tracks-event';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import {
 	deleteSharedSession,
@@ -82,7 +88,9 @@ import express from 'express';
 import { rateLimit } from 'express-rate-limit';
 import { z } from 'zod';
 import { isEditor, isTerminal, openInEditor, openInTerminal, openPath } from './open-in-os';
+import type { AiSettings } from '@studio/common/ai/providers';
 import type { SiteListItem } from '@studio/common/lib/cli-events';
+import type { TracksEventName, TracksProps } from '@studio/common/lib/record-tracks-event';
 import type { EditSiteOptions } from '@studio/common/sites/edit';
 import type { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
 import type { Request, Response } from 'express';
@@ -119,6 +127,9 @@ export interface LocalServerOptions {
 	// Path to the built browser UI (apps/ui `dist-local`). Served when present
 	// so the server is the only process needed; omitted in dev (Vite serves it).
 	uiDist?: string;
+	// Injected by `studio ui` rather than imported, so this package doesn't depend
+	// on the CLI.
+	recordTracksEvent?: ( event: TracksEventName, props?: TracksProps ) => Promise< void >;
 }
 
 export interface LocalServer {
@@ -196,10 +207,40 @@ function asyncHandler( fn: ( req: Request, res: Response ) => Promise< void > ) 
 	};
 }
 
+// The server owns these; a client that could set them would disguise its origin.
+const CLIENT_RESERVED_TRACKS_PROPS = new Set( [ 'channel', 'ui_version' ] );
+
+// Browser props arrive as untyped JSON, without the structured-clone guarantees
+// IPC gives the desktop. Keep only what Tracks can send.
+function sanitizeTracksProps( value: unknown ): TracksProps {
+	if ( typeof value !== 'object' || value === null ) {
+		return {};
+	}
+	const props: TracksProps = {};
+	for ( const [ key, propValue ] of Object.entries( value ) ) {
+		if ( CLIENT_RESERVED_TRACKS_PROPS.has( key ) ) {
+			continue;
+		}
+		if (
+			typeof propValue === 'string' ||
+			typeof propValue === 'number' ||
+			typeof propValue === 'boolean'
+		) {
+			props[ key ] = propValue;
+		}
+	}
+	return props;
+}
+
 export async function startLocalServer( options: LocalServerOptions ): Promise< LocalServer > {
 	const { cliBinary, nodeBinary, sessionsRoot, sitesRoot, uiDist } = options;
 	const port = options.port ?? Number( process.env.STUDIO_LOCAL_SERVER_PORT ?? DEFAULT_PORT );
 	const host = options.host ?? '127.0.0.1';
+
+	// Analytics must never fail a user action, so every call is fire-and-forget.
+	function trackEvent( event: TracksEventName, props?: TracksProps ): void {
+		void options.recordTracksEvent?.( event, props ).catch( () => undefined );
+	}
 
 	const cliRunner = createCliRunner( { cliBinary, nodeBinary } );
 	const execute = cliRunner.executeCliCommand;
@@ -376,6 +417,23 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		res.json( { status: 'ok' } );
 	} );
 
+	// --- Analytics — the browser UI's equivalent of the desktop's IPC handler --
+	// Unknown names are dropped, not forwarded, as in `recordAnalyticsEvent`.
+	api.post( '/analytics/event', ( req: Request, res: Response ) => {
+		const eventName = req.body?.eventName;
+		if ( typeof eventName !== 'string' ) {
+			res.status( 400 ).json( { error: 'eventName required' } );
+			return;
+		}
+		if ( ! isTracksEventName( eventName ) ) {
+			console.warn( `Ignoring unknown analytics event name: ${ eventName }` );
+			res.status( 204 ).end();
+			return;
+		}
+		trackEvent( eventName, sanitizeTracksProps( req.body?.props ) );
+		res.status( 204 ).end();
+	} );
+
 	// --- Auth — the WordPress.com user the CLI is already logged in as ---------
 	// Read straight from the shared auth token (`~/.studio/shared.json`); the
 	// stored token carries the user's id/email/displayName, so no API call.
@@ -474,7 +532,6 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
-	// No `studio_setting_instructions_change` — this server has no Tracks emitter. See STU-2247.
 	api.post(
 		'/agent-instructions',
 		asyncHandler( async ( req: Request, res: Response ) => {
@@ -485,17 +542,43 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			}
 			await writeGlobalInstructions( content );
 			res.status( 204 ).end();
+
+			// Only a save that ends an edit session counts, not the debounced autosaves.
+			const previousContent = req.body?.editSession?.previousContent;
+			if ( typeof previousContent === 'string' && previousContent !== content ) {
+				trackEvent( TRACKS_EVENTS.SETTING_INSTRUCTIONS_CHANGE, {
+					has_content: content.trim().length > 0,
+					length_bucket: getInstructionsLengthBucket( content ),
+					surface: 'settings',
+				} );
+			}
 		} )
 	);
 
 	// --- AI settings — provider + Anthropic API key in shared.json ------------
-	// No `studio_setting_ai_provider_change` — this server has no Tracks emitter. See STU-2247.
 	api.get(
 		'/ai-settings',
 		asyncHandler( async ( _req: Request, res: Response ) => {
 			res.json( await readAiSettings() );
 		} )
 	);
+
+	// Clearing the key also falls the provider back to WordPress.com, so both writes
+	// report through one event, as on the desktop.
+	function trackAiSettingsChange( previous: AiSettings, next: AiSettings ): void {
+		const unchanged =
+			previous.provider === next.provider &&
+			previous.hasAnthropicApiKey === next.hasAnthropicApiKey &&
+			previous.anthropicApiKeyPreview === next.anthropicApiKeyPreview;
+		if ( unchanged ) {
+			return;
+		}
+		trackEvent( TRACKS_EVENTS.SETTING_AI_PROVIDER_CHANGE, {
+			provider: next.provider,
+			has_anthropic_api_key: next.hasAnthropicApiKey,
+			surface: 'settings',
+		} );
+	}
 
 	// Write-only: responses carry a truncated preview, never the key. A key
 	// Anthropic rejects answers 400 and is not stored.
@@ -507,7 +590,10 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 400 ).json( { error: 'anthropicApiKey must be a string or null' } );
 				return;
 			}
-			res.json( await saveAnthropicApiKey( key ) );
+			const previous = await readAiSettings();
+			const settings = await saveAnthropicApiKey( key );
+			res.json( settings );
+			trackAiSettingsChange( previous, settings );
 		} )
 	);
 
@@ -521,7 +607,10 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 400 ).json( { error: 'provider must be a known AI provider id' } );
 				return;
 			}
-			res.json( await setAiProvider( provider ) );
+			const previous = await readAiSettings();
+			const settings = await setAiProvider( provider );
+			res.json( settings );
+			trackAiSettingsChange( previous, settings );
 		} )
 	);
 
@@ -1393,11 +1482,19 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 					site = { id: found.id, name: found.name, path: found.path };
 				}
 			}
-			// `created` is an analytics signal for the desktop, not part of the session shape.
-			const { created: _created, ...summary } = await createOrReuseAiSession( sessionsRoot, {
+			// `created` is an analytics signal, not part of the session shape.
+			const { created, ...summary } = await createOrReuseAiSession( sessionsRoot, {
 				site,
 			} );
 			res.json( summary );
+
+			// Created in-process here, as in the desktop's Main. Reused drafts don't count.
+			if ( created ) {
+				trackEvent( TRACKS_EVENTS.CODE_SESSION_CREATED, {
+					...getAiTracksIdentity( summary.id ),
+					has_site: Boolean( site ),
+				} );
+			}
 		} )
 	);
 

@@ -71,7 +71,7 @@ describe( 'createAgentRunManager fork environment', () => {
 		expect( getForkEnv( 1 ).STUDIO_TRACKS_ORIGIN ).toBe( 'studio-ui:v2' );
 	} );
 
-	// `studio ui` leaves it unset, so its runs fall through to `channel: studio-cli` — see STU-2247.
+	// `studio ui` instead sets `STUDIO_TRACKS_ORIGIN` on its own process, which the fork inherits.
 	it( 'omits the origin when the host does not supply one', () => {
 		const manager = createAgentRunManager( {
 			cliBinary: '/cli.mjs',

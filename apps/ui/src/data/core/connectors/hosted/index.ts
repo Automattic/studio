@@ -435,8 +435,8 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			throw new UnsupportedError( 'openStudioLogs' );
 		},
 
-		// Analytics — no-op here. Tracks currently flows through the desktop IPC connector; the
-		// hosted (browser) target has no Main-process choke point yet. See the design doc.
+		// Deliberately a no-op: the anonymous per-install id `studio ui` records against
+		// doesn't carry over to a multi-user deployment, which needs its own consent model.
 		async trackEvent() {
 			// intentionally empty
 		},

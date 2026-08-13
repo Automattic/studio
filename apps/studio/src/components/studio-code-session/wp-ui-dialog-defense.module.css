@@ -18,4 +18,6 @@
 	--wpds-color-foreground-content-neutral: var(--color-frame-text);
 	--wpds-color-stroke-surface-neutral: var(--color-frame-border);
 	--wpds-color-foreground-interactive-neutral: var(--color-frame-text);
+	--wpds-color-foreground-interactive-neutral-strong: var(--color-frame-text);
+	--wpds-color-foreground-interactive-neutral-strong-active: var(--color-frame-text);
 }

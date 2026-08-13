@@ -66,6 +66,14 @@
 	--wpds-color-background-interactive-neutral-weak: transparent;
 	--wpds-color-background-interactive-neutral-weak-active: var(--site-dropdown-menu-hover);
 	--wpds-color-background-interactive-brand-weak-active: var(--site-dropdown-menu-hover);
+	/* Buttons resolve their hover through the -strong- ramp, which stays near
+	   black globally. This surface is theme-inverted, so without these the
+	   hover fill lands on the same near-black as the text. */
+	--wpds-color-background-interactive-neutral-strong: transparent;
+	--wpds-color-background-interactive-neutral-strong-active: var(--site-dropdown-menu-hover);
+	--wpds-color-foreground-interactive-neutral-strong: var(--site-dropdown-menu-foreground);
+	--wpds-color-foreground-interactive-neutral-strong-active: var(--site-dropdown-menu-foreground);
+	--wpds-color-foreground-interactive-neutral-strong-disabled: var(--site-dropdown-menu-foreground-disabled);
 	--wpds-color-foreground-interactive-brand: var(--site-dropdown-menu-brand);
 	--wpds-color-foreground-content-neutral: var(--site-dropdown-menu-foreground);
 	--wpds-color-foreground-content-neutral-weak: var(--site-dropdown-menu-foreground-weak);

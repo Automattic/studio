@@ -521,6 +521,11 @@ export interface Connector {
 	// when to actually leave the gap (see `useTrafficLightSpace`).
 	reservesTrafficLightSpace: boolean;
 
+	// Tells the host which surface the Windows/Linux window-controls overlay is
+	// sitting on, so it can repaint them to match (see
+	// `useWindowControlsSurface`). Only the Electron host has an overlay.
+	setWindowControlsSurface?( surface: 'chrome' | 'content' ): Promise< void >;
+
 	// Window state (macOS fullscreen hides traffic lights, so the UI needs
 	// to reclaim the space we normally leave for them).
 	isFullscreen(): Promise< boolean >;

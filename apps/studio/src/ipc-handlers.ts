@@ -159,6 +159,8 @@ import {
 	getMainWindow,
 	getTitleBarOverlayOptions,
 	loadMainWindowRenderer,
+	setAgenticControlsSurface,
+	type WindowControlsSurface,
 } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
 import { type InstructionFileType } from 'src/modules/agent-instructions/constants';
@@ -2458,6 +2460,20 @@ export async function setWindowControlVisibility( event: IpcMainInvokeEvent, vis
 			visible ? getTitleBarOverlayOptions() : getFrameTitleBarOverlayOptions()
 		);
 	}
+}
+
+// Repaints the window-controls overlay for whichever surface it is sitting on;
+// only the renderer knows when a full-window page is covering the chrome.
+export async function setWindowControlsSurface(
+	event: IpcMainInvokeEvent,
+	surface: WindowControlsSurface
+) {
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	if ( ! parentWindow || ( process.platform !== 'win32' && process.platform !== 'linux' ) ) {
+		return;
+	}
+	setAgenticControlsSurface( surface );
+	parentWindow.setTitleBarOverlay( getTitleBarOverlayOptions() );
 }
 
 export async function setTitleBarBackdropEffect( event: IpcMainInvokeEvent, enabled: boolean ) {

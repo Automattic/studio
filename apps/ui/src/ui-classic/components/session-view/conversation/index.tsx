@@ -150,6 +150,9 @@ interface PiToolResultLike {
 const HIDDEN_TOOL_ROWS = new Set( [ 'studio_present', 'AskUserQuestion' ] );
 const QUESTION_COLLAPSE_DELAY_MS = 650;
 const QUESTION_SCROLL_TOP_MARGIN_PX = 12;
+// Only a pre-layout fallback. The scroller spans the full column with the
+// composer floating over it, so the space to actually keep clear is the
+// scroller's reserved bottom padding, which tracks the live composer height.
 const QUESTION_SCROLL_BOTTOM_CLEARANCE_PX = 96;
 
 function usePrefersReducedMotion(): boolean {
@@ -957,6 +960,32 @@ function getNearestScrollContainer( element: HTMLElement ): HTMLElement | null {
 	return null;
 }
 
+function getReservedBottomSpace( container: HTMLElement | null ): number {
+	if ( ! container ) {
+		return QUESTION_SCROLL_BOTTOM_CLEARANCE_PX;
+	}
+	const paddingBottom = parseFloat( window.getComputedStyle( container ).paddingBottom );
+	return Number.isFinite( paddingBottom ) ? paddingBottom : QUESTION_SCROLL_BOTTOM_CLEARANCE_PX;
+}
+
+export function getQuestionScrollDelta( {
+	elementTop,
+	elementBottom,
+	containerTop,
+	containerBottom,
+	reservedBottomSpace,
+}: {
+	elementTop: number;
+	elementBottom: number;
+	containerTop: number;
+	containerBottom: number;
+	reservedBottomSpace: number;
+} ): number {
+	const topOverflow = elementTop - ( containerTop + QUESTION_SCROLL_TOP_MARGIN_PX );
+	const bottomOverflow = elementBottom - ( containerBottom - reservedBottomSpace );
+	return topOverflow < 0 ? topOverflow : Math.max( bottomOverflow, 0 );
+}
+
 function scrollElementIntoViewIfNeeded( element: HTMLElement, prefersReducedMotion: boolean ) {
 	const container = getNearestScrollContainer( element );
 	const elementRect = element.getBoundingClientRect();
@@ -968,10 +997,13 @@ function scrollElementIntoViewIfNeeded( element: HTMLElement, prefersReducedMoti
 				bottom: window.innerHeight || document.documentElement.clientHeight,
 				left: 0,
 		  };
-	const topOverflow = elementRect.top - ( containerRect.top + QUESTION_SCROLL_TOP_MARGIN_PX );
-	const bottomOverflow =
-		elementRect.bottom - ( containerRect.bottom - QUESTION_SCROLL_BOTTOM_CLEARANCE_PX );
-	const scrollDelta = topOverflow < 0 ? topOverflow : Math.max( bottomOverflow, 0 );
+	const scrollDelta = getQuestionScrollDelta( {
+		elementTop: elementRect.top,
+		elementBottom: elementRect.bottom,
+		containerTop: containerRect.top,
+		containerBottom: containerRect.bottom,
+		reservedBottomSpace: getReservedBottomSpace( container ),
+	} );
 
 	if ( scrollDelta !== 0 ) {
 		const behavior: ScrollBehavior = prefersReducedMotion ? 'auto' : 'smooth';

@@ -295,21 +295,12 @@
 }
 
 .rowActionButton,
-.rowViewButton,
 .environmentActionButton_outline {
 	border-radius: var(--wpds-border-radius-md);
 }
 
-.rowActionButton,
-.rowViewButton {
-	height: 28px;
-}
-
-.rowViewButton {
-	color: var(--wpds-color-fg-interactive-neutral);
-}
-
 .rowActionButton {
+	height: 28px;
 	width: 28px;
 	padding: 0;
 }

@@ -91,7 +91,6 @@ vi.mock( '@/data/queries/use-create-site-helpers', () => ( {
 } ) );
 
 vi.mock( '@/data/queries/use-sites', () => ( {
-	// The real `useImportSite` invalidates this key on success.
 	SITES_QUERY_KEY: [ 'sites' ],
 	COPY_SITE_MUTATION_KEY: [ 'copySite' ],
 	EXPORT_DATABASE_MUTATION_KEY: [ 'exportDatabase' ],
@@ -133,8 +132,6 @@ vi.mock( '@/hooks/use-offline', () => ( {
 	useOffline: vi.fn(),
 } ) );
 
-// Real store elsewhere — the pending/success entries drive the button states
-// these tests assert on. Only the progress reports are spied, to count them.
 vi.mock( '@/data/sync-activity', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('@/data/sync-activity') >() ),
 	reportSyncProgress: reportSyncProgressMock,
@@ -841,7 +838,6 @@ describe( 'SiteOverviewView', () => {
 		);
 		await waitFor( () => expect( emitProgress ).toBeDefined() );
 
-		// 500 chunks spanning two whole-percent steps of the same 10-file backup.
 		for ( let processedFiles = 1; processedFiles <= 500; processedFiles++ ) {
 			emitProgress?.( [
 				BackupExtractEvents.BACKUP_EXTRACT_PROGRESS,

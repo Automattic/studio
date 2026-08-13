@@ -960,12 +960,22 @@ function getNearestScrollContainer( element: HTMLElement ): HTMLElement | null {
 	return null;
 }
 
-function getReservedBottomSpace( container: HTMLElement | null ): number {
+function getPaddingBottom( element: HTMLElement ): number {
+	const paddingBottom = parseFloat( window.getComputedStyle( element ).paddingBottom );
+	return Number.isFinite( paddingBottom ) ? paddingBottom : 0;
+}
+
+function getReservedBottomSpace( element: HTMLElement, container: HTMLElement | null ): number {
 	if ( ! container ) {
 		return QUESTION_SCROLL_BOTTOM_CLEARANCE_PX;
 	}
-	const paddingBottom = parseFloat( window.getComputedStyle( container ).paddingBottom );
-	return Number.isFinite( paddingBottom ) ? paddingBottom : QUESTION_SCROLL_BOTTOM_CLEARANCE_PX;
+	// The scroller's padding holds content clear of the floating composer; the
+	// column's own trailing space keeps the card from settling flush against it.
+	let column = element;
+	while ( column.parentElement && column.parentElement !== container ) {
+		column = column.parentElement;
+	}
+	return getPaddingBottom( container ) + getPaddingBottom( column );
 }
 
 export function getQuestionScrollDelta( {
@@ -1002,7 +1012,7 @@ function scrollElementIntoViewIfNeeded( element: HTMLElement, prefersReducedMoti
 		elementBottom: elementRect.bottom,
 		containerTop: containerRect.top,
 		containerBottom: containerRect.bottom,
-		reservedBottomSpace: getReservedBottomSpace( container ),
+		reservedBottomSpace: getReservedBottomSpace( element, container ),
 	} );
 
 	if ( scrollDelta !== 0 ) {

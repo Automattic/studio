@@ -632,8 +632,10 @@ describe( 'Conversation turn-closed markers', () => {
 
 describe( 'getQuestionScrollDelta', () => {
 	// The scroller spans the full column, so its bottom sits *under* the
-	// floating composer; `reservedBottomSpace` is the padding holding content
-	// clear of it. Column runs 0-800 with a 140px-tall composer.
+	// floating composer. `reservedBottomSpace` is the scroller padding holding
+	// content clear of the composer plus the column's own trailing space, so a
+	// card settles where scrolling to the bottom would put it rather than flush.
+	// Column runs 0-800 with a 120px composer and 20px of trailing space.
 	const container = { containerTop: 0, containerBottom: 800, reservedBottomSpace: 140 };
 
 	it( 'scrolls a question hidden behind the composer fully clear of it', () => {

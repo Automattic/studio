@@ -1,14 +1,22 @@
 import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
 import { useQuery } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
-import { chevronLeft, chevronRight, moreVertical, pencil } from '@wordpress/icons';
+import {
+	chevronDown,
+	chevronLeft,
+	chevronRight,
+	Icon,
+	moreVertical,
+	pencil,
+} from '@wordpress/icons';
 import { ariaKeyShortcut, displayShortcut, isAppleOS, isKeyboardEvent } from '@wordpress/keycodes';
-import { Button, IconButton } from '@wordpress/ui';
+import { Button, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DotGrid } from '@/components/dot-grid';
 import * as Menu from '@/components/menu';
 import { OpenInMenu } from '@/components/open-in-menu';
+import splitStyles from '@/components/split-button/style.module.css';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import {
@@ -529,6 +537,123 @@ function PreviewOverflowMenu( {
 	);
 }
 
+// Annotation commands. With nothing pending there's only one command, so the
+// toolbar shows a bare toggle at every width. Once notes are waiting there are
+// two, and a narrow toolbar can't fit them inline — `style.module.css` swaps
+// the inline pair for a split button, so only one layout is ever in the a11y
+// tree.
+function PreviewAnnotationControls( {
+	isPicking,
+	annotationCount,
+	disabled,
+	onCommand,
+}: {
+	isPicking: boolean;
+	annotationCount: number;
+	disabled: boolean;
+	onCommand: ( type: InspectorCommand[ 'type' ] ) => void;
+} ) {
+	const toggleLabel = isPicking ? __( 'Stop annotating' ) : __( 'Annotate' );
+	const submitLabel = __( 'Send annotations to chat' );
+	const hasPending = annotationCount > 0;
+	return (
+		<>
+			<div
+				className={ clsx( styles.annotationControls, hasPending && styles.annotationControlsWide ) }
+			>
+				<IconButton
+					variant="minimal"
+					tone="neutral"
+					size="small"
+					icon={ pencil }
+					label={ toggleLabel }
+					disabled={ disabled }
+					aria-pressed={ isPicking }
+					onClick={ () => onCommand( 'toggle-picking' ) }
+				/>
+				{ hasPending ? (
+					<Button
+						variant="solid"
+						tone="brand"
+						size="small"
+						disabled={ disabled }
+						aria-label={ submitLabel }
+						onClick={ () => onCommand( 'submit' ) }
+					>
+						{ __( 'Send to chat' ) }
+					</Button>
+				) : null }
+			</div>
+			{ hasPending ? (
+				<div className={ styles.annotationMenu }>
+					{ /* Two commands to offer, so it becomes a split button matching the
+						"Open in…" control beside it: the pencil still toggles directly,
+						the chevron opens the pair. Modal for the same reason as the
+						overflow menu — the webview swallows outside clicks, so the
+						backdrop is what dismisses it. */ }
+					<Menu.Root>
+						<div className={ splitStyles.splitTrigger }>
+							<Tooltip.Root>
+								<Tooltip.Trigger
+									render={
+										<Button
+											variant="minimal"
+											tone="neutral"
+											size="small"
+											className={ splitStyles.splitAction }
+											aria-label={ toggleLabel }
+											aria-pressed={ isPicking }
+											disabled={ disabled }
+											onClick={ () => onCommand( 'toggle-picking' ) }
+										/>
+									}
+								>
+									<Icon icon={ pencil } size={ 18 } />
+								</Tooltip.Trigger>
+								<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
+									{ toggleLabel }
+								</Tooltip.Popup>
+							</Tooltip.Root>
+							<Tooltip.Root>
+								<Menu.Trigger
+									render={
+										<Tooltip.Trigger
+											render={
+												<Button
+													variant="minimal"
+													tone="neutral"
+													size="small"
+													className={ splitStyles.splitMenuButton }
+													aria-label={ __( 'Annotation options' ) }
+													disabled={ disabled }
+												/>
+											}
+										>
+											<Icon
+												icon={ chevronDown }
+												size={ 12 }
+												className={ splitStyles.chevron }
+												data-keep-size
+											/>
+										</Tooltip.Trigger>
+									}
+								/>
+								<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
+									{ __( 'Annotation options' ) }
+								</Tooltip.Popup>
+							</Tooltip.Root>
+						</div>
+						<Menu.Popup side="bottom" align="end">
+							<Menu.Item onClick={ () => onCommand( 'toggle-picking' ) }>{ toggleLabel }</Menu.Item>
+							<Menu.Item onClick={ () => onCommand( 'submit' ) }>{ submitLabel }</Menu.Item>
+						</Menu.Popup>
+					</Menu.Root>
+				</div>
+			) : null }
+		</>
+	);
+}
+
 function areBrowserStatesEqual( a: BrowserNavigationState, b: BrowserNavigationState ) {
 	return (
 		a.canGoBack === b.canGoBack &&
@@ -930,30 +1055,12 @@ export function SitePreview( {
 				</div>
 				<div className={ clsx( styles.headerSide, styles.headerSideEnd ) }>
 					{ canPreview && chatEnabled && connector.capabilities.annotatePreview ? (
-						<div className={ styles.annotationControls }>
-							<IconButton
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								icon={ pencil }
-								label={ inspectorState.isPicking ? __( 'Stop annotating' ) : __( 'Annotate' ) }
-								disabled={ ! canAnnotate }
-								aria-pressed={ inspectorState.isPicking }
-								onClick={ () => sendInspectorCommand( 'toggle-picking' ) }
-							/>
-							{ inspectorState.annotationCount > 0 ? (
-								<Button
-									variant="solid"
-									tone="brand"
-									size="small"
-									disabled={ ! canAnnotate }
-									aria-label={ __( 'Submit annotations' ) }
-									onClick={ () => sendInspectorCommand( 'submit' ) }
-								>
-									{ __( 'Submit' ) }
-								</Button>
-							) : null }
-						</div>
+						<PreviewAnnotationControls
+							isPicking={ inspectorState.isPicking }
+							annotationCount={ inspectorState.annotationCount }
+							disabled={ ! canAnnotate }
+							onCommand={ sendInspectorCommand }
+						/>
 					) : null }
 					<OpenInMenu key={ site.id } site={ site } browserPath={ getSafePath( path ) } />
 					{ canPreview ? (

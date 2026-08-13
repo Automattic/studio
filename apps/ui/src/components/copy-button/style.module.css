@@ -9,7 +9,11 @@
 	border: 0;
 	border-radius: var(--wpds-border-radius-sm, 4px);
 	background-color: var(--wpds-color-bg-surface-neutral);
-	background-color: color-mix(in srgb, var(--wpds-color-bg-surface-neutral) 82%, transparent);
+	background-color: color-mix(
+		in srgb,
+		var(--wpds-color-bg-surface-neutral) var(--surface-alpha, 82%),
+		transparent
+	);
 	backdrop-filter: blur(4px);
 	color: var(--wpds-color-fg-content-neutral-weak);
 	line-height: 1;

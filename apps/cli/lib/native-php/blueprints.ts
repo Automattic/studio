@@ -14,6 +14,28 @@ function isWriteAccessError( error: unknown ): boolean {
 	return code === 'EACCES' || code === 'EPERM' || code === 'EROFS';
 }
 
+// blueprints.phar fails the whole Blueprint on an unknown feature rather than ignoring it.
+const RUNNER_SUPPORTED_FEATURES = [ 'networking' ];
+
+// Studio picks the PHP binary, installs WordPress, and ships Intl, so these are already decided.
+export function normalizeBlueprintForRunner( contents: Record< string, unknown > ): void {
+	delete contents.preferredVersions;
+
+	const features = contents.features;
+	if ( ! features || typeof features !== 'object' ) {
+		return;
+	}
+
+	const supported = Object.fromEntries(
+		Object.entries( features ).filter( ( [ name ] ) => RUNNER_SUPPORTED_FEATURES.includes( name ) )
+	);
+	if ( Object.keys( supported ).length > 0 ) {
+		contents.features = supported;
+	} else {
+		delete contents.features;
+	}
+}
+
 // Fits a schema validation report (one line per offending property) without overflowing a toast.
 const MAX_BLUEPRINT_ERROR_LENGTH = 2000;
 
@@ -79,9 +101,7 @@ export async function runBlueprint(
 		...blueprint.contents.constants,
 		...defaultConstants,
 	};
-	// Native PHP selects PHP and installs WordPress before Blueprint execution.
-	// Passing preferredVersions makes blueprints.phar validate versions it does not manage here.
-	delete blueprint.contents.preferredVersions;
+	normalizeBlueprintForRunner( blueprint.contents );
 
 	// Co-locate the modified blueprint with the original so blueprints.phar can
 	// resolve sibling resources; fall back to a temp dir if that dir is read-only.

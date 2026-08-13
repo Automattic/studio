@@ -21,7 +21,8 @@ const useStartSiteMock = vi.mocked( useStartSite, { partial: true } );
 describe( 'useOpenSiteUrl', () => {
 	const openSiteUrl = vi.fn().mockResolvedValue( undefined );
 	const getSites = vi.fn();
-	const startSite = vi.fn().mockResolvedValue( undefined );
+	// Resolves true: the hook now treats false as "the start was skipped".
+	const startSite = vi.fn();
 	const onToggleSitePreview = vi.fn( () => () => {} );
 
 	const site = createSite( { running: true } );
@@ -30,7 +31,8 @@ describe( 'useOpenSiteUrl', () => {
 		vi.clearAllMocks();
 		// clearAllMocks leaves implementations in place, so reset the default
 		// each test overrides.
-		startSite.mockResolvedValue( undefined );
+		// True means the start actually happened; false means it was skipped.
+		startSite.mockResolvedValue( true );
 		useConnectorMock.mockReturnValue( { openSiteUrl, getSites, onToggleSitePreview } );
 		useStartSiteMock.mockReturnValue( { isPending: false, mutateAsync: startSite } );
 	} );

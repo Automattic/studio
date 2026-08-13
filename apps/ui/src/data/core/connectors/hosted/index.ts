@@ -21,6 +21,7 @@ import type {
 	UserPreferences,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
+import type { AiSettings } from '@studio/common/ai/providers';
 
 const AGENTIC_FEATURES_STORAGE_KEY = 'studio-hosted-agentic-features-enabled';
 
@@ -124,6 +125,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			annotatePreview: false,
 			readLocalMedia: false,
 			agentInstructions: false,
+			aiSettings: false,
 			studioLogs: false,
 			switchToClassicUi: false,
 		},
@@ -271,6 +273,9 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async pushSiteToLive() {
 			throw new UnsupportedError( 'pushSiteToLive' );
 		},
+		async cancelSync() {
+			throw new UnsupportedError( 'cancelSync' );
+		},
 		async pullSiteFromLive() {
 			throw new UnsupportedError( 'pullSiteFromLive' );
 		},
@@ -397,6 +402,15 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		},
 		async saveAgentInstructions(): Promise< void > {
 			throw new UnsupportedError( 'saveAgentInstructions' );
+		},
+		async getAiSettings(): Promise< AiSettings > {
+			throw new UnsupportedError( 'getAiSettings' );
+		},
+		async saveAnthropicApiKey(): Promise< AiSettings > {
+			throw new UnsupportedError( 'saveAnthropicApiKey' );
+		},
+		async setAiProvider(): Promise< AiSettings > {
+			throw new UnsupportedError( 'setAiProvider' );
 		},
 
 		async getInstalledApps(): Promise< InstalledApps > {

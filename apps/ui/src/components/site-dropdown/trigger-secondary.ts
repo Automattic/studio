@@ -25,6 +25,9 @@ export function getSyncActivityLabel( activity: SyncActivity ): string {
 		if ( activity.direction === 'preview' ) {
 			return __( 'Publishing preview…' );
 		}
+		if ( activity.direction === 'import' ) {
+			return __( 'Importing backup…' );
+		}
 		return activity.direction === 'push' ? __( 'Pushing to live…' ) : __( 'Pulling from live…' );
 	}
 
@@ -32,11 +35,24 @@ export function getSyncActivityLabel( activity: SyncActivity ): string {
 		if ( activity.direction === 'preview' ) {
 			return __( 'Preview published' );
 		}
+		if ( activity.direction === 'import' ) {
+			return __( 'Backup imported' );
+		}
 		return activity.direction === 'push' ? __( 'Pushed to live' ) : __( 'Pulled from live' );
+	}
+
+	if ( activity.kind === 'cancelled' ) {
+		if ( activity.direction === 'preview' ) {
+			return __( 'Preview publishing cancelled' );
+		}
+		return activity.direction === 'push' ? __( 'Push cancelled' ) : __( 'Pull cancelled' );
 	}
 
 	if ( activity.direction === 'preview' ) {
 		return __( 'Publishing preview failed' );
+	}
+	if ( activity.direction === 'import' ) {
+		return __( 'Importing backup failed' );
 	}
 	return activity.direction === 'push'
 		? __( 'Pushing to live failed' )
@@ -47,7 +63,12 @@ function getSyncActivityTone( activity: SyncActivity ): TriggerSecondaryTone {
 	if ( activity.kind === 'pending' ) {
 		return 'pending';
 	}
-	return activity.kind === 'success' ? 'success' : 'error';
+	if ( activity.kind === 'success' ) {
+		return 'success';
+	}
+	// A cancel is the user's own doing, not a failure — the legacy renderer
+	// likewise shows it without error styling.
+	return activity.kind === 'cancelled' ? 'neutral' : 'error';
 }
 
 function formatTimestampPhrase(

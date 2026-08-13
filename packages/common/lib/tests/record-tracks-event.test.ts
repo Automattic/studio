@@ -13,6 +13,12 @@ describe( 'isTracksEventName', () => {
 	it( 'accepts known event names', () => {
 		expect( isTracksEventName( TRACKS_EVENTS.APP_LAUNCH ) ).toBe( true );
 		expect( isTracksEventName( TRACKS_EVENTS.SITE_START ) ).toBe( true );
+		expect( isTracksEventName( TRACKS_EVENTS.CODE_MESSAGE_SENT ) ).toBe( true );
+		expect( isTracksEventName( TRACKS_EVENTS.CODE_TURN_COMPLETED ) ).toBe( true );
+		expect( isTracksEventName( TRACKS_EVENTS.CODE_SESSION_CREATED ) ).toBe( true );
+		expect( isTracksEventName( TRACKS_EVENTS.SETTING_INSTRUCTIONS_CHANGE ) ).toBe( true );
+		expect( isTracksEventName( TRACKS_EVENTS.ONBOARDING_COMPLETE ) ).toBe( true );
+		expect( isTracksEventName( TRACKS_EVENTS.WPCOM_AUTH ) ).toBe( true );
 	} );
 
 	it( 'rejects unknown or non-string values', () => {
@@ -117,5 +123,24 @@ describe( '__recordTracksEvent', () => {
 
 		expect( __recordTracksEvent( TRACKS_EVENTS.SITE_START, IDENTITY, {} ) ).toBe( false );
 		expect( fetch ).not.toHaveBeenCalled();
+	} );
+
+	// The dev log stands in for the request, so an optional prop that was never sent must not appear
+	// in it as `undefined`.
+	it( 'logs only the props that would be sent', () => {
+		delete process.env.E2E;
+		process.env.NODE_ENV = 'development';
+		const info = vi.spyOn( console, 'info' ).mockImplementation( () => {} );
+
+		__recordTracksEvent( TRACKS_EVENTS.CODE_MESSAGE_SENT, IDENTITY, {
+			model: 'claude-sonnet-5',
+			ability_name: undefined,
+		} );
+
+		// Checked via `Object.keys`: `toHaveBeenCalledWith` treats an explicit `undefined` value as
+		// equal to an absent key, so it would pass either way.
+		const logged = info.mock.calls[ 0 ][ 1 ] as Record< string, unknown >;
+		expect( Object.keys( logged ) ).toEqual( [ 'model' ] );
+		info.mockRestore();
 	} );
 } );

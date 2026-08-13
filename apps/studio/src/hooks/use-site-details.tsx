@@ -172,6 +172,19 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 				return prevSites;
 			}
 
+			// This event carries no verdict on whether the site is running, so it
+			// must not go through the merge below — that adopts the event's
+			// `running` wholesale, which would overwrite the real state mid-stop.
+			if ( eventType === SITE_EVENTS.OPERATIONS_CHANGED ) {
+				const index = prevSites.findIndex( ( s ) => s.id === siteId );
+				if ( index < 0 ) {
+					return prevSites;
+				}
+				const nextSites = [ ...prevSites ];
+				nextSites[ index ] = { ...nextSites[ index ], operation: site.operation };
+				return nextSites;
+			}
+
 			const siteDetails: SiteDetails = {
 				...site,
 				running,

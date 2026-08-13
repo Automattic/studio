@@ -9,6 +9,7 @@ import { getUserInfo } from 'cli/lib/api';
 import { openBrowser } from 'cli/lib/browser';
 import { emitCliEvent } from 'cli/lib/daemon-client';
 import { getAppLocale } from 'cli/lib/i18n';
+import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -56,11 +57,19 @@ export async function runCommand(): Promise< void > {
 	let accessToken: Awaited< ReturnType< typeof input > >;
 	let user: Awaited< ReturnType< typeof getUserInfo > >;
 
+	// `account_type` is absent throughout: the CLI has no signup path.
+	const authProps = { ...getTracksOrigin(), source: 'cli' as const };
+
 	try {
 		accessToken = await input( { message: __( 'Authentication token:' ) } );
 		user = await getUserInfo( accessToken );
 		logger.reportSuccess( __( 'Authentication completed successfully!' ) );
 	} catch ( error ) {
+		await recordTracksEvent( TRACKS_EVENTS.WPCOM_AUTH, {
+			...authProps,
+			success: false,
+			failure_reason: 'profile_fetch_failed',
+		} );
 		logger.reportError( new LoggerError( __( 'Authentication failed. Please try again.' ) ) );
 		return;
 	}
@@ -77,6 +86,11 @@ export async function runCommand(): Promise< void > {
 	try {
 		await updateSharedConfig( { authToken } );
 	} catch ( error ) {
+		await recordTracksEvent( TRACKS_EVENTS.WPCOM_AUTH, {
+			...authProps,
+			success: false,
+			failure_reason: 'unknown',
+		} );
 		if ( error instanceof LoggerError ) {
 			logger.reportError( error );
 		} else {
@@ -84,6 +98,9 @@ export async function runCommand(): Promise< void > {
 		}
 		return;
 	}
+
+	// After the token is stored — the wrapper reads it to resolve `is_a11n`.
+	await recordTracksEvent( TRACKS_EVENTS.WPCOM_AUTH, { ...authProps, success: true } );
 
 	try {
 		await emitCliEvent( { event: AUTH_EVENTS.LOGIN, data: { token: authToken } } );

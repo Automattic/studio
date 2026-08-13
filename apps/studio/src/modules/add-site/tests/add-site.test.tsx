@@ -217,7 +217,8 @@ describe( 'AddSite', () => {
 			expect.any( String ),
 			'admin@localhost.com',
 			'native-php',
-			'site-directory'
+			'site-directory',
+			undefined // flowType
 		);
 	} );
 
@@ -437,7 +438,8 @@ describe( 'AddSite', () => {
 			expect.any( String ),
 			'admin@localhost.com',
 			'native-php',
-			'site-directory'
+			'site-directory',
+			undefined // flowType
 		);
 	} );
 
@@ -491,7 +493,8 @@ describe( 'AddSite', () => {
 				expect.any( String ),
 				'admin@localhost.com',
 				'native-php',
-				'all-files'
+				'all-files',
+				undefined // flowType
 			);
 		} );
 	} );

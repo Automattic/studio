@@ -22,6 +22,19 @@ const RESTART_BACKOFF_MS = [ 500, 1000, 2000, 4000, 8000 ];
 const RESTART_BUDGET = 5;
 const RESTART_BUDGET_WINDOW_MS = 60_000;
 
+// Directories that never host plugin/theme symlinks but can hold thousands of
+// them (npm/pnpm link farms).
+const IGNORED_SCAN_DIRECTORY_NAMES = new Set( [ 'node_modules', '.git', '.DS_Store' ] );
+
+export function isIgnoredScanPath( entryPath: string ): boolean {
+	return (
+		entryPath
+			// chokidar normalizes all paths to use Posix separators
+			.split( path.posix.sep )
+			.some( ( segment ) => IGNORED_SCAN_DIRECTORY_NAMES.has( segment ) )
+	);
+}
+
 export class SymlinkWatcher extends EventEmitter< SymlinkWatcherEvents > {
 	private watcher: FSWatcher | null = null;
 	private watchPath: string | null = null;
@@ -76,8 +89,7 @@ export class SymlinkWatcher extends EventEmitter< SymlinkWatcherEvents > {
 			ignorePermissionErrors: true,
 			// Skip directories that produce noise and never host plugin/theme symlinks.
 			// chokidar v4+ no longer accepts globs by default — match against the path.
-			ignored: ( entryPath: string ) =>
-				/[\\/](node_modules|\.git|\.DS_Store)([\\/]|$)/.test( entryPath ),
+			ignored: isIgnoredScanPath,
 		} );
 
 		const onMaybeSymlink = async ( entryPath: string ) => {
@@ -182,9 +194,20 @@ export class SymlinkWatcher extends EventEmitter< SymlinkWatcherEvents > {
 	}
 }
 
+// Builds `find <dir> \( -name a -o -name b \) -prune -o -type l -print0`, so the
+// prune list is generated from IGNORED_SCAN_DIRECTORY_NAMES rather than hand-kept
+// in sync with the walker below. -print0 because newlines are legal in POSIX
+// filenames and would otherwise split one path into two.
+function buildFindArgs( dir: string ): string[] {
+	const nameTests = [ ...IGNORED_SCAN_DIRECTORY_NAMES ].flatMap( ( name, index ) =>
+		index === 0 ? [ '-name', name ] : [ '-o', '-name', name ]
+	);
+	return [ dir, '(', ...nameTests, ')', '-prune', '-o', '-type', 'l', '-print0' ];
+}
+
 function nativeFindSymlinksInDir( dir: string ): Promise< string[] > {
 	return new Promise( ( resolve, reject ) => {
-		const child = childProcess.spawn( 'find', [ dir, '-type', 'l' ] );
+		const child = childProcess.spawn( 'find', buildFindArgs( dir ) );
 		let output = '';
 		child.stdout.on( 'data', ( data ) => {
 			output += data.toString();
@@ -192,14 +215,13 @@ function nativeFindSymlinksInDir( dir: string ): Promise< string[] > {
 		child.on( 'close', ( code ) => {
 			if ( code !== 0 ) {
 				reject( new Error( `find exited with code ${ code }` ) );
-			} else {
-				const absolutePaths = output
-					.toString()
-					.split( '\n' )
-					.filter( Boolean )
-					.map( ( relative ) => path.resolve( dir, relative ) );
-				resolve( absolutePaths );
+				return;
 			}
+			const absolutePaths = output
+				.split( '\0' )
+				.filter( Boolean )
+				.map( ( entryPath ) => path.resolve( dir, entryPath ) );
+			resolve( absolutePaths );
 		} );
 		child.on( 'error', ( error ) => {
 			reject( error );
@@ -216,6 +238,9 @@ async function walkForSymlinks( dir: string, found: string[] ): Promise< void > 
 		return;
 	}
 	for ( const entry of entries ) {
+		if ( IGNORED_SCAN_DIRECTORY_NAMES.has( entry.name ) ) {
+			continue;
+		}
 		const fullPath = path.join( dir, entry.name );
 		if ( entry.isSymbolicLink() ) {
 			found.push( fullPath );

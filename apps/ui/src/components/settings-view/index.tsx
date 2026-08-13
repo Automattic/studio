@@ -52,7 +52,7 @@ function editorElements( installedApps: InstalledApps | undefined ) {
 	return SUPPORTED_EDITORS.filter( ( editor ) => ! installedApps || installedApps[ editor ] ).map(
 		( editor ) => ( {
 			value: editor,
-			label: supportedEditorConfig[ editor ].label,
+			label: supportedEditorConfig[ editor ].label(),
 		} )
 	);
 }
@@ -62,7 +62,7 @@ function terminalElements( installedApps: InstalledApps | undefined ) {
 		( terminal ) => ! installedApps || installedApps[ terminal ]
 	).map( ( terminal ) => ( {
 		value: terminal,
-		label: terminalConfig[ terminal ].name,
+		label: terminalConfig[ terminal ].name(),
 	} ) );
 }
 
@@ -116,9 +116,10 @@ function SettingsHeader() {
 			{ onClose ? (
 				<div className={ styles.headerEnd }>
 					<IconButton
+						className={ styles.headerClose }
 						variant="minimal"
 						tone="neutral"
-						size="small"
+						size="default"
 						icon={ close }
 						label={ __( 'Close settings' ) }
 						onClick={ onClose }

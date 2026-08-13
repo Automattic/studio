@@ -15,6 +15,7 @@ import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { simplifyErrorForDisplay, simplifyErrorToFirstSentence } from 'src/lib/error-formatting';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import type { TracksSiteCreateFlowType } from 'src/lib/tracks';
 import type { Blueprint } from 'src/stores/wpcom-api';
 
 // Safety-net poll interval; `site-event`s are the primary signal for running state.
@@ -40,7 +41,8 @@ interface SiteDetailsContext {
 		adminPassword?: string,
 		adminEmail?: string,
 		runtime?: SiteRuntime,
-		fileAccess?: SiteFileAccess
+		fileAccess?: SiteFileAccess,
+		flowType?: TracksSiteCreateFlowType
 	) => Promise< SiteDetails | void >;
 	copySite: ( sourceSiteId: string ) => Promise< SiteDetails | void >;
 	startServer: (
@@ -168,6 +170,19 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 			if ( ! site ) {
 				return prevSites;
+			}
+
+			// This event carries no verdict on whether the site is running, so it
+			// must not go through the merge below — that adopts the event's
+			// `running` wholesale, which would overwrite the real state mid-stop.
+			if ( eventType === SITE_EVENTS.OPERATIONS_CHANGED ) {
+				const index = prevSites.findIndex( ( s ) => s.id === siteId );
+				if ( index < 0 ) {
+					return prevSites;
+				}
+				const nextSites = [ ...prevSites ];
+				nextSites[ index ] = { ...nextSites[ index ], operation: site.operation };
+				return nextSites;
 			}
 
 			const siteDetails: SiteDetails = {
@@ -303,7 +318,8 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			adminPassword?: string,
 			adminEmail?: string,
 			runtime?: SiteRuntime,
-			fileAccess?: SiteFileAccess
+			fileAccess?: SiteFileAccess,
+			flowType?: TracksSiteCreateFlowType
 		) => {
 			// Function to handle error messages and cleanup
 			const showError = ( error?: unknown, hasBlueprint?: boolean ) => {
@@ -383,6 +399,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					adminPassword,
 					adminEmail,
 					noStart,
+					flowType,
 				} );
 				if ( ! newSite ) {
 					showError( undefined, !! blueprint );

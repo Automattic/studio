@@ -129,20 +129,13 @@ const FILES_TO_DOWNLOAD: FileToDownload[] = [
 		destinationPath: WP_SERVER_FILES_PATH,
 	},
 	// Reprint is pinned to the phar committed at wp-files/reprint/reprint.phar
-	// while this branch tracks unreleased changes (merge-wp-content).
-	// Downloading the latest release would overwrite it. Restore this entry
-	// once those changes ship; downloadFile() still knows how to place it.
+	// while this branch needs merge-wp-content (WordPress/reprint#571), which
+	// v0.9.4 does not carry. Restore this entry — with the version bumped to the
+	// release that includes it — before merging.
 	// {
 	// 	name: 'reprint',
 	// 	description: `reprint.phar`,
-	// 	getUrl: async () => {
-	// 		const release = await fetchLatestGithubRelease( 'WordPress/reprint' );
-	// 		const asset = release.assets.find( ( a ) => a.name === 'reprint.phar' );
-	// 		if ( ! asset ) {
-	// 			throw new Error( `No asset found in latest reprint release ${ release.tag_name }` );
-	// 		}
-	// 		return asset.browser_download_url;
-	// 	},
+	// 	getUrl: () => 'https://github.com/WordPress/reprint/releases/download/v0.9.4/reprint.phar',
 	// 	destinationPath: path.join( WP_SERVER_FILES_PATH, 'reprint' ),
 	// },
 ];

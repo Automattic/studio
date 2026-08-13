@@ -913,6 +913,15 @@ export function ensureScopedPullWpConfig(
  *   5. `apply-runtime` — server config, last so it embeds the database
  *      credentials `pull-db` wrote to state.
  *
+ * The SQLite target geometry:
+ *   - If preflight exposed the remote `wp-content` (contentDir set),
+ *     the database lands under `rawDirectory + contentDir`, an
+ *     already-mounted host path that flat-docroot later symlinks into
+ *     the flattened site.
+ *   - Without that preflight path, a database pull uses
+ *     `rawDirectory/wp-content`; a database-excluded pull keeps the
+ *     existing database at `sitePath/wp-content`.
+ *
  * The site and runtime output directories are mounted up front so the
  * forks can write them onto the host filesystem. Every command is
  * resumable (exit code 2 → retry loop in

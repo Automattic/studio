@@ -40,7 +40,11 @@ export function SigninNotice() {
 			<div className={ styles.text }>
 				<h2 className={ styles.heading }>{ __( 'Sign in to do more with Studio' ) }</h2>
 				<ul className={ styles.benefits }>
-					<li>{ __( 'Chat with a WordPress expert that builds and edits your site for you' ) }</li>
+					<li>
+						{ __(
+							'Chat with an AI WordPress expert that helps build and edit your site alongside you'
+						) }
+					</li>
 					<li>{ __( 'Share your work instantly with preview links' ) }</li>
 					<li>{ __( "Publish to a real WordPress.com site when you're ready" ) }</li>
 				</ul>

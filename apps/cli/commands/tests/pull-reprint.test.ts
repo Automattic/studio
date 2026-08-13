@@ -603,7 +603,7 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 			true
 		);
 
-		// Reprint owns recovery of its state and fs-root. Studio must not
+		// Reprint owns recovery of its state and scratch. Studio must not
 		// delete the raw tree or private state files behind its back.
 		expect( fs.readdirSync( rawDirectory ) ).toEqual( [ 'stale-blocker' ] );
 		expect( fs.existsSync( path.join( stateDirectory, '.import-remote-index.jsonl' ) ) ).toBe(
@@ -763,7 +763,7 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 		);
 
 		// With no content dir from preflight, the database target stays in
-		// the fs-root so flat-docroot can link it later.
+		// the raw scratch directory so flat-docroot can link it later.
 		const dbArgs = reprint.mock.calls[ 1 ][ 2 ] as string[];
 		expect( dbArgs[ 0 ] ).toBe( 'pull-db' );
 		expect( dbArgs ).toContain(

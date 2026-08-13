@@ -135,18 +135,10 @@ describe( 'AiPanel', () => {
 		expect( mutate ).toHaveBeenCalledWith( { agenticFeaturesEnabled: true } );
 	} );
 
-	it( 'shows the toggle even when the host cannot switch back to the classic UI', () => {
+	it( 'shows the global instructions editor when the host can reach the instructions file', () => {
 		mockConnector();
 		render( <AiPanel /> );
 
-		expect( screen.getByRole( 'checkbox', { name: 'Agentic features' } ) ).toBeInTheDocument();
-	} );
-
-	it( 'shows the global instructions editor alongside the agentic features toggle', () => {
-		mockConnector();
-		render( <AiPanel /> );
-
-		expect( screen.getByRole( 'checkbox', { name: 'Agentic features' } ) ).toBeInTheDocument();
 		expect( screen.getByTestId( 'studio-code-panel' ) ).toBeInTheDocument();
 	} );
 

@@ -146,7 +146,7 @@ describe( 'local web server Connect contracts', () => {
 		} );
 	} );
 
-	it( 'stores the trimmed Anthropic API key', async () => {
+	it( 'passes the Anthropic API key to the settings store untouched', async () => {
 		const response = await fetch(
 			`${ server.url.replace( 'localhost', '127.0.0.1' ) }/api/ai-settings`,
 			{

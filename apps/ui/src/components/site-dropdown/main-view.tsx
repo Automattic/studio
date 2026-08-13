@@ -121,7 +121,7 @@ export function MainView( {
 	const connector = useConnector();
 	const { enabled: agenticEnabled, reason: agenticReason } = useAgenticFeatures();
 	const isOffline = agenticReason === 'offline';
-	const login = useLogin();
+	const login = useLogin( { source: 'site_header' } );
 	const { data: snapshots } = useSnapshots();
 	const { data: connectedSites } = useConnectedWpcomSites( site.id );
 

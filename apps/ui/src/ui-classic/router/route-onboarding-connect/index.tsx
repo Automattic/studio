@@ -161,7 +161,7 @@ function SignedOutView() {
 					<span>{ __( 'Supports staging and production sites.' ) }</span>
 				</li>
 			</ul>
-			<AuthActions className={ styles.authActions } />
+			<AuthActions className={ styles.authActions } source="onboarding" />
 		</div>
 	);
 }

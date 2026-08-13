@@ -89,7 +89,7 @@ export function OnboardingConnectToWpcom( {
 								if ( isOffline ) {
 									return;
 								}
-								authenticate();
+								authenticate( 'onboarding' );
 							} }
 						>
 							{ __( 'Log in to WordPress.com' ) }
@@ -120,7 +120,7 @@ export function OnboardingConnectToWpcom( {
 								if ( isOffline ) {
 									return;
 								}
-								getIpcApi().authenticate( true );
+								getIpcApi().authenticate( true, 'onboarding' );
 							} }
 						>
 							{ __( 'Create a free account' ) }

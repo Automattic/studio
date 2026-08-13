@@ -10,7 +10,12 @@ import {
 	type ComposerAttachmentHoverPreviewState,
 } from '@studio/common/ai/composer-attachment-preview';
 import { watchComposerFilePaste } from '@studio/common/ai/composer-attachments';
-import { AI_MODELS, getAiModelFamily, getAiModelLabel } from '@studio/common/ai/models';
+import {
+	AI_MODELS,
+	getAiModelFamily,
+	getAiModelLabel,
+	getVisibleAiModels,
+} from '@studio/common/ai/models';
 import {
 	AI_PROVIDER_IDS,
 	AI_PROVIDER_LABELS,
@@ -23,6 +28,7 @@ import {
 } from '@studio/common/ai/providers';
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
 import { getAiSkillCommands } from '@studio/common/ai/slash-commands';
+import { isAutomatticianEmail } from '@studio/common/lib/automattician';
 import { useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import {
@@ -53,6 +59,7 @@ import { createPortal } from 'react-dom';
 import * as Menu from '@/components/menu';
 import { useConnector } from '@/data/core';
 import { useAiSettings } from '@/data/queries/use-ai-settings';
+import { useAuthUser } from '@/data/queries/use-auth-user';
 import {
 	primeSessionQueryData,
 	reconcilePrimedSessionQueryData,
@@ -356,6 +363,13 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 	// Only offer models the conversation's provider can serve. Hosts without AI
 	// settings (capabilities.aiSettings false) keep the full list.
 	const availableModels = aiSettings ? getAiProviderModels( sessionProvider ) : AI_MODELS;
+	const { data: authUser } = useAuthUser();
+	const visibleModelIds = new Set(
+		getVisibleAiModels( isAutomatticianEmail( authUser?.email ), model ).map(
+			( entry ) => entry.id
+		)
+	);
+	const offeredModels = availableModels.filter( ( entry ) => visibleModelIds.has( entry.id ) );
 
 	const slash = useSlashCommands( {
 		value,
@@ -1083,7 +1097,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 										value={ model }
 										onValueChange={ ( value ) => handleModelChange( value as AiModelId ) }
 									>
-										{ availableModels.map( ( { id, label } ) => (
+										{ offeredModels.map( ( { id, label } ) => (
 											<Menu.RadioItem key={ id } value={ id }>
 												{ label }
 											</Menu.RadioItem>

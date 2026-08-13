@@ -1,3 +1,4 @@
+import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
 import { useQuery } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import { chevronLeft, chevronRight, moreVertical, pencil } from '@wordpress/icons';
@@ -10,7 +11,12 @@ import * as Menu from '@/components/menu';
 import { OpenInMenu } from '@/components/open-in-menu';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
-import { useIsSiteStarting, useStartSite } from '@/data/queries/use-sites';
+import {
+	useIsSiteBusy,
+	useIsSiteStarting,
+	useSiteOperation,
+	useStartSite,
+} from '@/data/queries/use-sites';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { useWindowControlsOverlay } from '@/hooks/use-window-controls-overlay';
 import { getSiteUrl } from '@/lib/get-site-url';
@@ -64,7 +70,7 @@ interface SitePreviewProps {
 }
 
 interface InspectorEvent {
-	type: 'browser-command' | 'done' | 'state';
+	type: 'annotations-updated' | 'browser-command' | 'done' | 'state';
 	annotations?: Annotation[];
 	isPicking?: boolean;
 	annotationCount?: number;
@@ -231,6 +237,7 @@ interface PreviewWindow extends Window {
 			webContentsId: number,
 			viewport: PreviewViewport | null
 		) => Promise< void >;
+		clearWebviewCache?: ( webContentsId: number ) => Promise< void >;
 	};
 }
 
@@ -240,6 +247,36 @@ function getWebviewContentsId( webview: WebviewTag ): number {
 		throw new Error( 'Preview webview is not ready.' );
 	}
 	return webContentsId;
+}
+
+// Reloading always drops the HTTP cache: it keeps edited CSS/JS from being
+// served stale, and it's the only way to shake a cached 301 (Chrome keeps those
+// through every reload variant). When such a redirect has already moved the
+// webview onto another origin, reload() would reload *that*, so navigate.
+async function reloadPreview(
+	webview: WebviewTag,
+	intendedUrl: string,
+	currentUrl: string
+): Promise< void > {
+	const { ipcApi } = window as PreviewWindow;
+	try {
+		await ipcApi?.clearWebviewCache?.( getWebviewContentsId( webview ) );
+	} catch {
+		// No IPC bridge, or the webview isn't ready.
+	}
+	if ( isOffOriginRedirect( currentUrl, intendedUrl ) ) {
+		await webview.loadURL( intendedUrl ).catch( () => undefined );
+		return;
+	}
+	webview.reload?.();
+}
+
+export function isOffOriginRedirect( settledUrl: string, intendedUrl: string ): boolean {
+	try {
+		return new URL( settledUrl ).origin !== new URL( intendedUrl ).origin;
+	} catch {
+		return false;
+	}
 }
 
 async function applyWebviewViewport(
@@ -338,7 +375,8 @@ export function getBrowserShortcutCommand(
 	if ( event.defaultPrevented || event.repeat ) {
 		return null;
 	}
-	if ( isKeyboardEvent.primary( event, 'r' ) ) {
+	// ⌘⇧R is accepted as an alias so the browser habit isn't a dead key.
+	if ( isKeyboardEvent.primary( event, 'r' ) || isKeyboardEvent.primaryShift( event, 'r' ) ) {
 		return 'reload';
 	}
 	if ( isKeyboardEvent.primary( event, '[' ) ) {
@@ -515,6 +553,8 @@ export function SitePreview( {
 	const { chatEnabled } = useAgenticFeatures();
 	const startSite = useStartSite();
 	const isStarting = useIsSiteStarting( site.id );
+	const isBusy = useIsSiteBusy( site );
+	const operation = useSiteOperation( site );
 	const siteUrl = getSiteUrl( site );
 	const canPreview = site.running;
 	const canUseWebview = isElectron();
@@ -1072,13 +1112,20 @@ export function SitePreview( {
 									</div>
 								) : null }
 								<p className={ styles.emptyText }>
-									{ __( 'Start the site to see a live preview.' ) }
+									{ operation
+										? sprintf(
+												/* translators: %s: an operation in progress, e.g. "Saving settings". */
+												__( '%s… the site can start once this finishes.' ),
+												getSiteOperationLabel( operation )
+										  )
+										: __( 'Start the site to see a live preview.' ) }
 								</p>
 								<Button
 									variant="solid"
 									tone="brand"
 									loading={ isStarting }
 									loadingAnnouncement={ __( 'Starting site' ) }
+									disabled={ isBusy }
 									onClick={ () => startSite.mutate( site.id ) }
 								>
 									<span className={ styles.startIcon } aria-hidden="true">
@@ -1143,6 +1190,7 @@ function WebviewSurface( {
 	const browserStateRef = useRef< BrowserNavigationState >( EMPTY_BROWSER_STATE );
 	const domReadyRef = useRef( false );
 	const currentUrlRef = useRef( url );
+	const storedAnnotationsRef = useRef< Annotation[] >( [] );
 	const lastReloadNonceRef = useRef( reloadNonce );
 	const progressTimerRef = useRef< ReturnType< typeof setInterval > | null >( null );
 	const progressResetTimerRef = useRef< ReturnType< typeof setTimeout > | null >( null );
@@ -1161,6 +1209,13 @@ function WebviewSurface( {
 	useEffect( () => {
 		onNavigateRef.current = onNavigate;
 	}, [ onNavigate ] );
+	// The url we want shown; `currentUrlRef` is where the webview actually landed.
+	const urlRef = useRef( url );
+	useEffect( () => {
+		urlRef.current = url;
+	}, [ url ] );
+	// Only loads we started (the mount-time `src` counts) are judged for redirects.
+	const pendingLoadRef = useRef( true );
 
 	const publishBrowserState = useCallback( ( patch: Partial< BrowserNavigationState > = {} ) => {
 		const webview = ref.current as WebviewTag | null;
@@ -1250,16 +1305,19 @@ function WebviewSurface( {
 			domReadyRef.current = true;
 			setReady( true );
 			publishDocumentTitle();
+			// If annotations were collected on a previous page, seed
+			// window.__studioInspectorState before the IIFE runs so the
+			// freshly-injected inspector picks them up on init.
+			const stored = storedAnnotationsRef.current;
+			const preload =
+				stored.length > 0 ? `window.__studioInspectorState=${ JSON.stringify( stored ) };` : '';
 			webview
-				.executeJavaScript( INSPECTOR_PAGE_SCRIPT, false )
+				.executeJavaScript( preload + INSPECTOR_PAGE_SCRIPT, false )
 				.then( () => {
-					// The injected script reports the real picking/count state
-					// through the console bridge; this just flips `ready` so the
-					// host controls enable without waiting for that round-trip.
 					onInspectorStateRef.current?.( {
 						ready: true,
 						isPicking: false,
-						annotationCount: 0,
+						annotationCount: stored.length,
 					} );
 				} )
 				.catch( () => {
@@ -1293,6 +1351,12 @@ function WebviewSurface( {
 				} );
 				return;
 			}
+			if ( parsed.type === 'annotations-updated' ) {
+				if ( Array.isArray( parsed.annotations ) ) {
+					storedAnnotationsRef.current = parsed.annotations;
+				}
+				return;
+			}
 			if ( parsed.type !== 'done' || ! parsed.annotations ) return;
 			onAnnotationsDoneRef.current?.( parsed.annotations );
 		};
@@ -1308,13 +1372,23 @@ function WebviewSurface( {
 			if ( typeof navigateEvent.url === 'string' ) {
 				currentUrlRef.current = navigateEvent.url;
 				onNavigateRef.current?.( navigateEvent.url );
+				// Once per load, so a site that legitimately redirects can't loop.
+				if ( pendingLoadRef.current ) {
+					pendingLoadRef.current = false;
+					if ( isOffOriginRedirect( navigateEvent.url, urlRef.current ) ) {
+						void reloadPreview( webview, urlRef.current, navigateEvent.url );
+					}
+				}
 			}
 			didReadTitleAfterLoad = false;
 			publishBrowserState();
 		};
 		const handleStartLoading = () => {
 			didReadTitleAfterLoad = false;
-			onInspectorStateRef.current?.( EMPTY_INSPECTOR_STATE );
+			onInspectorStateRef.current?.( {
+				...EMPTY_INSPECTOR_STATE,
+				annotationCount: storedAnnotationsRef.current.length,
+			} );
 			publishBrowserState( { title: null } );
 			startProgress();
 		};
@@ -1366,6 +1440,7 @@ function WebviewSurface( {
 		if ( ! webview ) return;
 		currentUrlRef.current = url;
 		lastReloadNonceRef.current = reloadNonce;
+		pendingLoadRef.current = true;
 		webview.loadURL( url ).catch( () => undefined );
 	}, [ url, reloadNonce, ready ] );
 
@@ -1394,7 +1469,7 @@ function WebviewSurface( {
 			} else if ( browserCommand.type === 'forward' && webview.canGoForward?.() ) {
 				webview.goForward?.();
 			} else if ( browserCommand.type === 'reload' ) {
-				webview.reload?.();
+				void reloadPreview( webview, urlRef.current, currentUrlRef.current );
 			}
 		} finally {
 			publishBrowserState();

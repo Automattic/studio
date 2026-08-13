@@ -148,7 +148,13 @@ export function SidebarLayout( {
 					) : null }
 					{ children }
 					{ effectiveCollapsed ? (
-						<AppToasts className={ styles.floatingToasts } fit="content" />
+						<AppToasts
+							className={ clsx(
+								styles.floatingToasts,
+								forceCollapsed && styles.floatingToastsOverPreview
+							) }
+							fit="content"
+						/>
 					) : null }
 				</main>
 				{ sidebarResize.isResizing ? <ResizeOverlay /> : null }

@@ -1,6 +1,6 @@
 import { getAiModelFamily } from '@studio/common/ai/models';
 import { getAiModelLabel, type AiModelId } from '@studio/common/ai/models';
-import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
+import { getAiSkillCommands } from '@studio/common/ai/slash-commands';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __, sprintf } from '@wordpress/i18n';
 import { getAvailableAiProviders, isAiProviderReady } from 'cli/ai/auth';
@@ -615,5 +615,5 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 		description: __( 'Exit the chat' ),
 		handler: async () => 'break',
 	},
-	...AI_SKILL_COMMANDS,
+	...getAiSkillCommands(),
 ];

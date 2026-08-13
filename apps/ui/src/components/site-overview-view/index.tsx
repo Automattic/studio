@@ -22,17 +22,24 @@ import { AgenticSigninBanner } from '@/components/agentic-signin-banner';
 import { useTourAnchor } from '@/components/coachmarks/anchor-registry';
 import { DeleteSiteDialog } from '@/components/delete-site-dialog';
 import { OfflineBanner } from '@/components/offline-banner';
+import { useOpenInDestinations } from '@/components/open-in-menu/use-open-in-destinations';
 import { PreviewToggleButton } from '@/components/preview-toggle-button';
 import { ProgressiveBlur } from '@/components/progressive-blur';
 import { SiteDropdown } from '@/components/site-dropdown';
+import { DATABASE_HOME_PATH } from '@/components/site-preview/address-bar';
 import { isSiteSettingsTab, SiteSettingsForm } from '@/components/site-settings-view';
 import * as Tabs from '@/components/tabs';
 import { useConnector } from '@/data/core';
-import { useIsSiteStarting, useIsSiteStopping, useSites } from '@/data/queries/use-sites';
+import { useIsSiteBusy, useSites } from '@/data/queries/use-sites';
+import { useUserPreferences } from '@/data/queries/use-user-preferences';
+import { useWpVersion } from '@/data/queries/use-wordpress-versions';
 import { useOpenSiteUrl } from '@/hooks/use-open-site-url';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useSiteManagementActions } from '@/hooks/use-site-management-actions';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
+import { databaseLogo } from '@/lib/logos';
+import { AboutSection } from './about-section';
+import { OverviewCard } from './overview-card';
 import styles from './style.module.css';
 import type { SiteSettingsTabId } from '@/components/site-settings-view';
 import type { SiteDetails } from '@/data/core';
@@ -53,6 +60,7 @@ interface OverviewButtonProps {
 	loading?: boolean;
 	loadingAnnouncement?: string;
 	className?: string;
+	brandIcon?: boolean;
 }
 
 function OverviewHeader( {
@@ -92,6 +100,7 @@ function OverviewButton( {
 	loading,
 	loadingAnnouncement,
 	className,
+	brandIcon,
 }: OverviewButtonProps ) {
 	return (
 		<Button
@@ -103,10 +112,19 @@ function OverviewButton( {
 			loadingAnnouncement={ loadingAnnouncement }
 			onClick={ onClick }
 		>
-			<span className={ styles.overviewButtonIcon } aria-hidden="true">
+			<span
+				className={
+					brandIcon
+						? `${ styles.overviewButtonIcon } ${ styles.brandIcon }`
+						: styles.overviewButtonIcon
+				}
+				aria-hidden="true"
+			>
 				{ icon }
 			</span>
-			<span className={ styles.overviewButtonLabel }>{ label }</span>
+			<span className={ styles.overviewButtonLabel } title={ label }>
+				{ label }
+			</span>
 		</Button>
 	);
 }
@@ -114,9 +132,57 @@ function OverviewButton( {
 function ButtonSection( { title, children }: { title: string; children: ReactNode } ) {
 	return (
 		<section className={ styles.buttonSection }>
-			<h2>{ title }</h2>
+			<h2 className={ styles.columnHeading }>{ title }</h2>
 			<div className={ styles.buttonGrid }>{ children }</div>
 		</section>
+	);
+}
+
+function OpenInSection( {
+	site,
+	busy,
+	openSiteUrl,
+}: {
+	site: SiteDetails;
+	busy: boolean;
+	openSiteUrl: ( url: string ) => Promise< void >;
+} ) {
+	const connector = useConnector();
+	const { data: preferences } = useUserPreferences();
+	const destinations = useOpenInDestinations( site, '/' );
+	const editorConfigured = Boolean( preferences?.editor );
+
+	const apps = destinations.filter(
+		( destination ) =>
+			destination.id !== 'browser' && ( destination.id !== 'editor' || editorConfigured )
+	);
+
+	return (
+		<ButtonSection title={ __( 'Open in…' ) }>
+			{ apps.map( ( destination ) => (
+				<OverviewButton
+					key={ destination.id }
+					brandIcon
+					icon={ <Icon icon={ destination.logo } size={ 18 } /> }
+					label={ destination.label }
+					disabled={ destination.disabled }
+					onClick={ destination.open }
+				/>
+			) ) }
+			<OverviewButton
+				brandIcon
+				icon={ <Icon icon={ databaseLogo } size={ 18 } /> }
+				label={ __( 'phpMyAdmin' ) }
+				disabled={ busy }
+				onClick={ () => {
+					// Opens in the in-app preview panel, not the OS browser.
+					void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_PHPMYADMIN, {
+						browser: 'internal',
+					} );
+					void openSiteUrl( DATABASE_HOME_PATH );
+				} }
+			/>
+		</ButtonSection>
 	);
 }
 
@@ -164,22 +230,21 @@ function SiteOverviewBody( {
 	onTabChange: ( tab: SiteSettingsTabId ) => void;
 } ) {
 	const navigate = useNavigate();
-	const isStarting = useIsSiteStarting( site.id );
-	const isStopping = useIsSiteStopping( site.id );
+	const connector = useConnector();
 	const [ deleteOpen, setDeleteOpen ] = useState( false );
 	const managementActions = useSiteManagementActions( site, {
 		onDelete: () => setDeleteOpen( true ),
 	} );
 
-	const busy = isStarting || isStopping;
+	const busy = useIsSiteBusy( site );
 	const themeDetails = site.themeDetails;
 	const isBlockTheme = themeDetails?.isBlockTheme === true;
+	const { data: wpVersion } = useWpVersion( site.id );
 
 	// Opens WordPress screens in the in-app preview panel (starting the site
 	// first when needed) rather than the external browser.
 	const openSiteUrl = useOpenSiteUrl( site );
 
-	const connector = useConnector();
 	const openCustomize = ( url: string, entryPoint: TracksCustomizeEntryPoint ) => {
 		// The agentic UI opens customize screens in its in-app preview panel, not the OS browser.
 		void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_CUSTOMIZE, {
@@ -220,6 +285,12 @@ function SiteOverviewBody( {
 							<Tabs.Panel tabId="overview" className={ styles.panel }>
 								<OfflineBanner />
 								<AgenticSigninBanner />
+								<div className={ styles.cardColumn }>
+									<h2 className={ styles.columnHeading }>{ __( 'About' ) }</h2>
+									<OverviewCard>
+										<AboutSection site={ site } wpVersion={ wpVersion } />
+									</OverviewCard>
+								</div>
 								<div className={ styles.actionsColumn }>
 									<ButtonSection title={ __( 'Customize' ) }>
 										{ isBlockTheme ? (
@@ -319,6 +390,10 @@ function SiteOverviewBody( {
 											onClick={ () => openCustomize( '/wp-admin/upload.php', 'media_library' ) }
 										/>
 									</ButtonSection>
+
+									{ connector.capabilities.openInOS && (
+										<OpenInSection site={ site } busy={ busy } openSiteUrl={ openSiteUrl } />
+									) }
 
 									<ButtonSection title={ __( 'Manage' ) }>
 										{ managementActions.map( ( action ) => (

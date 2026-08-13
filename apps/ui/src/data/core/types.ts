@@ -11,13 +11,21 @@ import type {
 	TracksProps,
 	TracksSiteCreateFlowType,
 } from '@studio/common/lib/record-tracks-event';
+import type { SiteOperation } from '@studio/common/lib/site-operation';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
+import type { SiteStorageUsage } from '@studio/common/sites/storage-usage';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
-import type { PullSiteProgress, SyncSite } from '@studio/common/types/sync';
+import type {
+	PullSiteProgress,
+	PullSyncOptions,
+	PushSyncOptions,
+	SyncSite,
+} from '@studio/common/types/sync';
+import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { SiteRestRequest, SiteRestResponse } from '@studio/common/types/wordpress-rest';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
@@ -39,11 +47,17 @@ export type {
 } from '@studio/common/ai/sessions/entry-types';
 export type { AiModelId } from '@studio/common/ai/models';
 export type { Snapshot } from '@studio/common/types/snapshot';
-export type { PullSiteProgress, SyncSite } from '@studio/common/types/sync';
+export type {
+	PullSiteProgress,
+	PullSyncOptions,
+	PushSyncOptions,
+	SyncSite,
+} from '@studio/common/types/sync';
 export type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 export type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 export type { SupportedLocale } from '@studio/common/lib/locale';
 export type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
+export type { SiteStorageUsage } from '@studio/common/sites/storage-usage';
 
 export type InstalledApps = Record< SupportedEditor | SupportedTerminal, boolean >;
 
@@ -92,6 +106,9 @@ export interface SiteDetails {
 		supportsMenus?: boolean;
 	};
 	siteIcon?: string | null;
+	// The Studio operation currently holding the site, from the CLI. Present
+	// regardless of who started it — the user, the desktop app, or the agent.
+	operation?: SiteOperation;
 }
 
 export interface LocalMediaFile {
@@ -196,6 +213,9 @@ export interface Connector {
 	// Cached screenshot thumbnail captured by the desktop app while the site
 	// was running. Returns null when the site has not produced a thumbnail yet.
 	getSiteThumbnail( siteId: string ): Promise< string | null >;
+	// Size of the local site's files, grouped for the overview's disk summary.
+	// Hosted sites return null because their storage is not on this machine.
+	getSiteStorageUsage( siteId: string ): Promise< SiteStorageUsage | null >;
 
 	// Exports a site as a full backup archive (files + database). Prompts the
 	// user for a destination via a save-as dialog; resolves with the chosen
@@ -277,16 +297,44 @@ export interface Connector {
 	// are no longer available until the user reconnects.
 	disconnectWpcomSite( localSiteId: string, remoteSiteId: number ): Promise< void >;
 	// Pushes the local site to a previously connected WordPress.com site.
-	// Replaces the remote contents with the local database and wp-content.
-	pushSiteToLive( siteId: string, remoteSiteId: number ): Promise< void >;
+	// Replaces the remote contents with the local database and wp-content,
+	// or only the selection described by `options` when provided.
+	pushSiteToLive(
+		siteId: string,
+		remoteSiteId: number,
+		options?: PushSyncOptions
+	): Promise< void >;
 	// Pulls the connected WordPress.com site's database + wp-content back
-	// into the local Studio site. Stops the local server while the backup
+	// into the local Studio site, or only the selection described by
+	// `options` when provided. Stops the local server while the backup
 	// imports and restarts it on completion.
 	pullSiteFromLive(
 		siteId: string,
 		remoteSiteId: number,
-		onProgress?: ( progress: PullSiteProgress ) => void
+		onProgress?: ( progress: PullSiteProgress ) => void,
+		options?: PullSyncOptions
 	): Promise< void >;
+	// Latest rewind (backup) id of the connected live site, or `null` when no
+	// backup exists yet. Selective pull browses the backup tree under this id.
+	getLatestRewindId( remoteSiteId: number ): Promise< string | null >;
+	// Raw contents of a remote backup directory (rewind backup `ls`), keyed by
+	// entry name. Entries are validated and mapped to tree nodes by the UI.
+	listRemoteFileTree(
+		remoteSiteId: number,
+		rewindId: string,
+		path: string
+	): Promise< Record< string, unknown > >;
+	// PHP version of the live site's hosting environment, used to warn about
+	// version mismatches before pushing. `undefined` when unavailable.
+	getHostingPhpVersion( remoteSiteId: number ): Promise< string | undefined >;
+	// Local-site lookups for the selective-sync dialog. The desktop answers
+	// from the main process; browser connectors degrade gracefully (empty
+	// tree / zero sizes / unknown versions) so category-level selection still
+	// works without per-file data.
+	listLocalFileTree( siteId: string, path: string, depth: number ): Promise< RawDirectoryEntry[] >;
+	getDirectorySize( siteId: string, path: string[] ): Promise< number >;
+	getFileSize( siteId: string, path: string[] ): Promise< number >;
+	getIsMultisite( siteId: string ): Promise< boolean | undefined >;
 	// URL to open in the browser when the user wants to publish a site that
 	// isn't connected to WordPress.com yet (checkout + deep-link back to the
 	// desktop app). Returns `undefined` when the connector can't provide one.

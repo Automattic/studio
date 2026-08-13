@@ -7,6 +7,7 @@ import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import {
 	getBrowserShortcutCommand,
+	isOffOriginRedirect,
 	getPathFromPreviewUrl,
 	getSimulatedViewport,
 	SitePreview,
@@ -224,10 +225,15 @@ describe( 'SitePreview', () => {
 		fireEvent.keyDown( document.body, { key: 'r', ctrlKey: true } );
 		expect( container.querySelector( 'iframe' ) ).not.toBe( initialIframe );
 
-		// Extra modifiers must not trigger the shortcut.
+		// ⌘⇧R is an alias for the same reload.
 		const reloadedIframe = container.querySelector( 'iframe' );
 		fireEvent.keyDown( document.body, { key: 'r', ctrlKey: true, shiftKey: true } );
-		expect( container.querySelector( 'iframe' ) ).toBe( reloadedIframe );
+		expect( container.querySelector( 'iframe' ) ).not.toBe( reloadedIframe );
+
+		// Extra modifiers must not trigger the shortcut.
+		const aliasReloadedIframe = container.querySelector( 'iframe' );
+		fireEvent.keyDown( document.body, { key: 'r', ctrlKey: true, altKey: true } );
+		expect( container.querySelector( 'iframe' ) ).toBe( aliasReloadedIframe );
 	} );
 
 	it( 'switches realms on primary-modifier number shortcuts', () => {
@@ -354,6 +360,25 @@ describe( 'SitePreview', () => {
 		);
 
 		expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeInTheDocument();
+	} );
+
+	it( 'shows a single annotate toggle while no notes are pending', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			capabilities: { ...CAPABILITIES, annotatePreview: true },
+		} as never );
+
+		renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+
+		// One command means no collapsed variant: a second control would be a
+		// duplicate of this one at every width, and a menu wrapping it would be
+		// a single-item dropdown.
+		expect( screen.getAllByRole( 'button', { name: 'Annotate' } ) ).toHaveLength( 1 );
+		expect(
+			screen.queryByRole( 'button', { name: 'Annotation options' } )
+		).not.toBeInTheDocument();
 	} );
 
 	it( 'hides the Annotate control when agentic features are off', () => {
@@ -642,6 +667,10 @@ describe( 'getBrowserShortcutCommand', () => {
 		expect( getBrowserShortcutCommand( makeEvent( { key: 'r', ctrlKey: true } ) ) ).toBe(
 			'reload'
 		);
+		// The ⌘⇧R alias reports an uppercase key; it must still map to reload.
+		expect(
+			getBrowserShortcutCommand( makeEvent( { key: 'R', ctrlKey: true, shiftKey: true } ) )
+		).toBe( 'reload' );
 		expect( getBrowserShortcutCommand( makeEvent( { key: '[', ctrlKey: true } ) ) ).toBe( 'back' );
 		expect( getBrowserShortcutCommand( makeEvent( { key: ']', ctrlKey: true } ) ) ).toBe(
 			'forward'
@@ -673,6 +702,32 @@ describe( 'getBrowserShortcutCommand', () => {
 				} )
 			)
 		).toBe( null );
+	} );
+} );
+
+describe( 'isOffOriginRedirect', () => {
+	it( 'flags a load that settled on another port', () => {
+		expect( isOffOriginRedirect( 'http://localhost:8931/', 'http://localhost:8932/' ) ).toBe(
+			true
+		);
+	} );
+
+	it( 'allows same-origin paths, including the auto-login hop', () => {
+		expect(
+			isOffOriginRedirect( 'http://localhost:8932/wp-admin/', 'http://localhost:8932/' )
+		).toBe( false );
+		expect(
+			isOffOriginRedirect(
+				'http://localhost:8932/studio-auto-login?redirect_to=%2Fwp-admin%2F',
+				'http://localhost:8932/'
+			)
+		).toBe( false );
+	} );
+
+	it( 'stays quiet on unparseable urls rather than triggering recovery', () => {
+		expect( isOffOriginRedirect( 'about:blank', 'http://localhost:8932/' ) ).toBe( true );
+		expect( isOffOriginRedirect( '', 'http://localhost:8932/' ) ).toBe( false );
+		expect( isOffOriginRedirect( 'http://localhost:8932/', '' ) ).toBe( false );
 	} );
 } );
 

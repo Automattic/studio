@@ -4,6 +4,7 @@ import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { usePreviewSplit } from '@/hooks/use-preview-split';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
+import { useWindowControlsOverlay } from '@/hooks/use-window-controls-overlay';
 import styles from './style.module.css';
 
 // Keep in sync with the content-column transition duration in style.module.css.
@@ -39,6 +40,9 @@ export function PreviewSplitFrame( {
 		showPreview,
 	} );
 	const isSidebarCollapsed = useSidebarCollapsed();
+	// The chrome gap above the frame is where the native window controls land on
+	// Windows/Linux, so it has to be at least as tall as they are.
+	const windowControls = useWindowControlsOverlay();
 
 	useEffect( () => {
 		onContainerWidthChange?.( showPreview && ! showFullscreen ? containerWidth : null );
@@ -87,6 +91,7 @@ export function PreviewSplitFrame( {
 		// Fullscreen collapses the content column; the split geometry keeps its
 		// last width so leaving fullscreen restores the previous split.
 		'--preview-frame-content-width': showFullscreen ? '0px' : contentWidthVar,
+		...( windowControls && { '--panel-frame-gap-top': `${ windowControls.height }px` } ),
 	} as CSSProperties;
 	// Keep the zero-width column visible while it animates shut, then hide it
 	// so the (still mounted) chat can't be reached by focus or a screen reader.

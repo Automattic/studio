@@ -1,18 +1,31 @@
+import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
 import { useQuery } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
-import { chevronLeft, chevronRight, moreVertical, pencil } from '@wordpress/icons';
+import {
+	chevronDown,
+	chevronLeft,
+	chevronRight,
+	Icon,
+	moreVertical,
+	pencil,
+} from '@wordpress/icons';
 import { ariaKeyShortcut, displayShortcut, isAppleOS, isKeyboardEvent } from '@wordpress/keycodes';
-import { Button, IconButton } from '@wordpress/ui';
+import { Button, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DotGrid } from '@/components/dot-grid';
 import * as Menu from '@/components/menu';
 import { OpenInMenu } from '@/components/open-in-menu';
+import splitStyles from '@/components/split-button/style.module.css';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
-import { useIsSiteStarting, useStartSite } from '@/data/queries/use-sites';
+import {
+	useIsSiteBusy,
+	useIsSiteStarting,
+	useSiteOperation,
+	useStartSite,
+} from '@/data/queries/use-sites';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
-import { useWindowControlsOverlay } from '@/hooks/use-window-controls-overlay';
 import { getSiteUrl } from '@/lib/get-site-url';
 import { playIcon, refreshIcon } from '@/lib/icons';
 import {
@@ -231,6 +244,7 @@ interface PreviewWindow extends Window {
 			webContentsId: number,
 			viewport: PreviewViewport | null
 		) => Promise< void >;
+		clearWebviewCache?: ( webContentsId: number ) => Promise< void >;
 	};
 }
 
@@ -240,6 +254,36 @@ function getWebviewContentsId( webview: WebviewTag ): number {
 		throw new Error( 'Preview webview is not ready.' );
 	}
 	return webContentsId;
+}
+
+// Reloading always drops the HTTP cache: it keeps edited CSS/JS from being
+// served stale, and it's the only way to shake a cached 301 (Chrome keeps those
+// through every reload variant). When such a redirect has already moved the
+// webview onto another origin, reload() would reload *that*, so navigate.
+async function reloadPreview(
+	webview: WebviewTag,
+	intendedUrl: string,
+	currentUrl: string
+): Promise< void > {
+	const { ipcApi } = window as PreviewWindow;
+	try {
+		await ipcApi?.clearWebviewCache?.( getWebviewContentsId( webview ) );
+	} catch {
+		// No IPC bridge, or the webview isn't ready.
+	}
+	if ( isOffOriginRedirect( currentUrl, intendedUrl ) ) {
+		await webview.loadURL( intendedUrl ).catch( () => undefined );
+		return;
+	}
+	webview.reload?.();
+}
+
+export function isOffOriginRedirect( settledUrl: string, intendedUrl: string ): boolean {
+	try {
+		return new URL( settledUrl ).origin !== new URL( intendedUrl ).origin;
+	} catch {
+		return false;
+	}
 }
 
 async function applyWebviewViewport(
@@ -338,7 +382,8 @@ export function getBrowserShortcutCommand(
 	if ( event.defaultPrevented || event.repeat ) {
 		return null;
 	}
-	if ( isKeyboardEvent.primary( event, 'r' ) ) {
+	// ⌘⇧R is accepted as an alias so the browser habit isn't a dead key.
+	if ( isKeyboardEvent.primary( event, 'r' ) || isKeyboardEvent.primaryShift( event, 'r' ) ) {
 		return 'reload';
 	}
 	if ( isKeyboardEvent.primary( event, '[' ) ) {
@@ -491,6 +536,123 @@ function PreviewOverflowMenu( {
 	);
 }
 
+// Annotation commands. With nothing pending there's only one command, so the
+// toolbar shows a bare toggle at every width. Once notes are waiting there are
+// two, and a narrow toolbar can't fit them inline — `style.module.css` swaps
+// the inline pair for a split button, so only one layout is ever in the a11y
+// tree.
+function PreviewAnnotationControls( {
+	isPicking,
+	annotationCount,
+	disabled,
+	onCommand,
+}: {
+	isPicking: boolean;
+	annotationCount: number;
+	disabled: boolean;
+	onCommand: ( type: InspectorCommand[ 'type' ] ) => void;
+} ) {
+	const toggleLabel = isPicking ? __( 'Stop annotating' ) : __( 'Annotate' );
+	const submitLabel = __( 'Send annotations to chat' );
+	const hasPending = annotationCount > 0;
+	return (
+		<>
+			<div
+				className={ clsx( styles.annotationControls, hasPending && styles.annotationControlsWide ) }
+			>
+				<IconButton
+					variant="minimal"
+					tone="neutral"
+					size="small"
+					icon={ pencil }
+					label={ toggleLabel }
+					disabled={ disabled }
+					aria-pressed={ isPicking }
+					onClick={ () => onCommand( 'toggle-picking' ) }
+				/>
+				{ hasPending ? (
+					<Button
+						variant="solid"
+						tone="brand"
+						size="small"
+						disabled={ disabled }
+						aria-label={ submitLabel }
+						onClick={ () => onCommand( 'submit' ) }
+					>
+						{ __( 'Send to chat' ) }
+					</Button>
+				) : null }
+			</div>
+			{ hasPending ? (
+				<div className={ styles.annotationMenu }>
+					{ /* Two commands to offer, so it becomes a split button matching the
+						"Open in…" control beside it: the pencil still toggles directly,
+						the chevron opens the pair. Modal for the same reason as the
+						overflow menu — the webview swallows outside clicks, so the
+						backdrop is what dismisses it. */ }
+					<Menu.Root>
+						<div className={ splitStyles.splitTrigger }>
+							<Tooltip.Root>
+								<Tooltip.Trigger
+									render={
+										<Button
+											variant="minimal"
+											tone="neutral"
+											size="small"
+											className={ splitStyles.splitAction }
+											aria-label={ toggleLabel }
+											aria-pressed={ isPicking }
+											disabled={ disabled }
+											onClick={ () => onCommand( 'toggle-picking' ) }
+										/>
+									}
+								>
+									<Icon icon={ pencil } size={ 18 } />
+								</Tooltip.Trigger>
+								<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
+									{ toggleLabel }
+								</Tooltip.Popup>
+							</Tooltip.Root>
+							<Tooltip.Root>
+								<Menu.Trigger
+									render={
+										<Tooltip.Trigger
+											render={
+												<Button
+													variant="minimal"
+													tone="neutral"
+													size="small"
+													className={ splitStyles.splitMenuButton }
+													aria-label={ __( 'Annotation options' ) }
+													disabled={ disabled }
+												/>
+											}
+										>
+											<Icon
+												icon={ chevronDown }
+												size={ 12 }
+												className={ splitStyles.chevron }
+												data-keep-size
+											/>
+										</Tooltip.Trigger>
+									}
+								/>
+								<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
+									{ __( 'Annotation options' ) }
+								</Tooltip.Popup>
+							</Tooltip.Root>
+						</div>
+						<Menu.Popup side="bottom" align="end">
+							<Menu.Item onClick={ () => onCommand( 'toggle-picking' ) }>{ toggleLabel }</Menu.Item>
+							<Menu.Item onClick={ () => onCommand( 'submit' ) }>{ submitLabel }</Menu.Item>
+						</Menu.Popup>
+					</Menu.Root>
+				</div>
+			) : null }
+		</>
+	);
+}
+
 function areBrowserStatesEqual( a: BrowserNavigationState, b: BrowserNavigationState ) {
 	return (
 		a.canGoBack === b.canGoBack &&
@@ -515,10 +677,11 @@ export function SitePreview( {
 	const { chatEnabled } = useAgenticFeatures();
 	const startSite = useStartSite();
 	const isStarting = useIsSiteStarting( site.id );
+	const isBusy = useIsSiteBusy( site );
+	const operation = useSiteOperation( site );
 	const siteUrl = getSiteUrl( site );
 	const canPreview = site.running;
 	const canUseWebview = isElectron();
-	const windowControls = useWindowControlsOverlay();
 	const trafficLightSpace = useTrafficLightSpace();
 	const previewUrl = `${ siteUrl }${ getSafePath( path ) }`;
 	const siteThumbnail = useQuery( {
@@ -822,17 +985,11 @@ export function SitePreview( {
 					fullscreen && trafficLightSpace.start && styles.headerTrafficLights
 				) }
 				style={
-					windowControls
-						? {
-								minHeight: windowControls.height,
-								paddingInlineEnd: windowControls.controlsWidth + 12,
-						  }
-						: // In RTL the preview pane sits at the physical left, so the
-						// header's end-side controls land under the macOS traffic
-						// lights — pad past them.
-						trafficLightSpace.end
-						? { paddingInlineEnd: 96 }
-						: undefined
+					// In RTL the preview pane sits at the physical left, so the
+					// header's end-side controls land under the macOS traffic
+					// lights — pad past them. Windows/Linux need nothing: their
+					// controls sit in the chrome band above the frame.
+					trafficLightSpace.end ? { paddingInlineEnd: 96 } : undefined
 				}
 			>
 				{ /* Equal-flex side tracks keep the address control truly centered
@@ -890,30 +1047,12 @@ export function SitePreview( {
 				</div>
 				<div className={ clsx( styles.headerSide, styles.headerSideEnd ) }>
 					{ canPreview && chatEnabled && connector.capabilities.annotatePreview ? (
-						<div className={ styles.annotationControls }>
-							<IconButton
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								icon={ pencil }
-								label={ inspectorState.isPicking ? __( 'Stop annotating' ) : __( 'Annotate' ) }
-								disabled={ ! canAnnotate }
-								aria-pressed={ inspectorState.isPicking }
-								onClick={ () => sendInspectorCommand( 'toggle-picking' ) }
-							/>
-							{ inspectorState.annotationCount > 0 ? (
-								<Button
-									variant="solid"
-									tone="brand"
-									size="small"
-									disabled={ ! canAnnotate }
-									aria-label={ __( 'Submit annotations' ) }
-									onClick={ () => sendInspectorCommand( 'submit' ) }
-								>
-									{ __( 'Submit' ) }
-								</Button>
-							) : null }
-						</div>
+						<PreviewAnnotationControls
+							isPicking={ inspectorState.isPicking }
+							annotationCount={ inspectorState.annotationCount }
+							disabled={ ! canAnnotate }
+							onCommand={ sendInspectorCommand }
+						/>
 					) : null }
 					<OpenInMenu key={ site.id } site={ site } browserPath={ getSafePath( path ) } />
 					{ canPreview ? (
@@ -1072,13 +1211,20 @@ export function SitePreview( {
 									</div>
 								) : null }
 								<p className={ styles.emptyText }>
-									{ __( 'Start the site to see a live preview.' ) }
+									{ operation
+										? sprintf(
+												/* translators: %s: an operation in progress, e.g. "Saving settings". */
+												__( '%s… the site can start once this finishes.' ),
+												getSiteOperationLabel( operation )
+										  )
+										: __( 'Start the site to see a live preview.' ) }
 								</p>
 								<Button
 									variant="solid"
 									tone="brand"
 									loading={ isStarting }
 									loadingAnnouncement={ __( 'Starting site' ) }
+									disabled={ isBusy }
 									onClick={ () => startSite.mutate( site.id ) }
 								>
 									<span className={ styles.startIcon } aria-hidden="true">
@@ -1162,6 +1308,13 @@ function WebviewSurface( {
 	useEffect( () => {
 		onNavigateRef.current = onNavigate;
 	}, [ onNavigate ] );
+	// The url we want shown; `currentUrlRef` is where the webview actually landed.
+	const urlRef = useRef( url );
+	useEffect( () => {
+		urlRef.current = url;
+	}, [ url ] );
+	// Only loads we started (the mount-time `src` counts) are judged for redirects.
+	const pendingLoadRef = useRef( true );
 
 	const publishBrowserState = useCallback( ( patch: Partial< BrowserNavigationState > = {} ) => {
 		const webview = ref.current as WebviewTag | null;
@@ -1318,6 +1471,13 @@ function WebviewSurface( {
 			if ( typeof navigateEvent.url === 'string' ) {
 				currentUrlRef.current = navigateEvent.url;
 				onNavigateRef.current?.( navigateEvent.url );
+				// Once per load, so a site that legitimately redirects can't loop.
+				if ( pendingLoadRef.current ) {
+					pendingLoadRef.current = false;
+					if ( isOffOriginRedirect( navigateEvent.url, urlRef.current ) ) {
+						void reloadPreview( webview, urlRef.current, navigateEvent.url );
+					}
+				}
 			}
 			didReadTitleAfterLoad = false;
 			publishBrowserState();
@@ -1379,6 +1539,7 @@ function WebviewSurface( {
 		if ( ! webview ) return;
 		currentUrlRef.current = url;
 		lastReloadNonceRef.current = reloadNonce;
+		pendingLoadRef.current = true;
 		webview.loadURL( url ).catch( () => undefined );
 	}, [ url, reloadNonce, ready ] );
 
@@ -1407,7 +1568,7 @@ function WebviewSurface( {
 			} else if ( browserCommand.type === 'forward' && webview.canGoForward?.() ) {
 				webview.goForward?.();
 			} else if ( browserCommand.type === 'reload' ) {
-				webview.reload?.();
+				void reloadPreview( webview, urlRef.current, currentUrlRef.current );
 			}
 		} finally {
 			publishBrowserState();

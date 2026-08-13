@@ -84,7 +84,7 @@ function NoAuthSyncTab() {
 							if ( isOffline ) {
 								return;
 							}
-							authenticate();
+							authenticate( 'sync_tab' );
 						} }
 					>
 						{ __( 'Log in to WordPress.com' ) }
@@ -109,7 +109,7 @@ function NoAuthSyncTab() {
 								if ( isOffline ) {
 									return;
 								}
-								getIpcApi().authenticate( true );
+								getIpcApi().authenticate( true, 'sync_tab' );
 							} }
 						>
 							{ __( 'Create a free account' ) }

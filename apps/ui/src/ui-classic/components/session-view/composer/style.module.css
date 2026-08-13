@@ -33,7 +33,7 @@
 }
 
 :global(html[data-color-scheme='dark']) .shell {
-	--composer-resting-tint-strength: 8%;
+	--composer-resting-tint-strength: 10%;
 }
 
 .shell:focus-within:not(:has(.resizeHandle:focus-visible)) {

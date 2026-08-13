@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { useConnector } from '@/data/core';
 import type { Connector, SiteDetails } from '@/data/core';
@@ -37,19 +37,7 @@ export function refreshThemeDetails(
 
 	const refresh = fetchThemeDetails( connector, siteId )
 		.then( ( details ) => {
-			const update = () => {
-				flushSync( () => queryClient.setQueryData( themeDetailsQueryKey( siteId ), details ) );
-			};
-			const reduceMotion = window.matchMedia?.( '(prefers-reduced-motion: reduce)' ).matches;
-			if ( ! reduceMotion && document.startViewTransition ) {
-				const transition = document.startViewTransition( {
-					types: [ 'theme-details' ],
-					update,
-				} );
-				void transition.finished.catch( () => undefined );
-			} else {
-				update();
-			}
+			queryClient.setQueryData( themeDetailsQueryKey( siteId ), details );
 			return details;
 		} )
 		.finally( () => activeThemeRefreshes.delete( siteId ) );
@@ -91,17 +79,53 @@ export function useThemeDetails( site: SiteDetails ): ThemeDetailsStatus {
 		return () => window.removeEventListener( 'focus', handleFocus );
 	}, [ canResolve, connector, queryClient, site.id ] );
 
-	if ( data ) {
-		return { state: 'ready', details: data };
-	}
-	if ( persisted ) {
-		return { state: 'ready', details: persisted };
-	}
-	if ( ! canResolve ) {
+	const resolvedStatus = useMemo< ThemeDetailsStatus >( () => {
+		if ( data ) {
+			return { state: 'ready', details: data };
+		}
+		if ( persisted ) {
+			return { state: 'ready', details: persisted };
+		}
+		if ( ! canResolve ) {
+			return { state: 'unknown' };
+		}
+		if ( isPending && ! isError ) {
+			return { state: 'loading' };
+		}
 		return { state: 'unknown' };
-	}
-	if ( isPending && ! isError ) {
-		return { state: 'loading' };
-	}
-	return { state: 'unknown' };
+	}, [ canResolve, data, isError, isPending, persisted ] );
+	const resolvedKey =
+		resolvedStatus.state === 'ready'
+			? [
+					resolvedStatus.details.slug,
+					resolvedStatus.details.isBlockTheme,
+					resolvedStatus.details.supportsMenus,
+					resolvedStatus.details.supportsWidgets,
+			  ].join( ':' )
+			: resolvedStatus.state;
+	const [ displayed, setDisplayed ] = useState( () => ( {
+		siteId: site.id,
+		key: resolvedKey,
+		status: resolvedStatus,
+	} ) );
+
+	useLayoutEffect( () => {
+		if ( displayed.siteId === site.id && displayed.key === resolvedKey ) {
+			return;
+		}
+
+		const next = { siteId: site.id, key: resolvedKey, status: resolvedStatus };
+		const reduceMotion = window.matchMedia?.( '(prefers-reduced-motion: reduce)' ).matches;
+		if ( displayed.siteId === site.id && ! reduceMotion && document.startViewTransition ) {
+			const transition = document.startViewTransition( {
+				types: [ 'theme-details' ],
+				update: () => flushSync( () => setDisplayed( next ) ),
+			} );
+			void transition.finished.catch( () => undefined );
+			return;
+		}
+		setDisplayed( next );
+	}, [ displayed, resolvedKey, resolvedStatus, site.id ] );
+
+	return displayed.siteId === site.id ? displayed.status : resolvedStatus;
 }

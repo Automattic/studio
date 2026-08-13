@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
-import { refreshThemeDetails, themeDetailsQueryKey, useThemeDetails } from './use-theme-details';
+import { themeDetailsQueryKey, useThemeDetails } from './use-theme-details';
 import type { SiteDetails } from '@/data/core';
 import type { ReactNode } from 'react';
 
@@ -85,7 +85,7 @@ describe( 'useThemeDetails', () => {
 	it( 'transitions the complete theme-details cache update when supported', async () => {
 		getThemeDetails.mockResolvedValue( classicTheme );
 		const startViewTransition = vi.fn( ( options: StartViewTransitionOptions ) => {
-			options.update?.();
+			void Promise.resolve().then( () => options.update?.() );
 			return {
 				finished: Promise.resolve(),
 				ready: Promise.resolve(),
@@ -99,7 +99,11 @@ describe( 'useThemeDetails', () => {
 			value: startViewTransition,
 		} );
 
-		await refreshThemeDetails( { getThemeDetails } as never, queryClient, 'site-1' );
+		const { result } = renderHook( () => useThemeDetails( createSite() ), { wrapper } );
+		await act( () => window.dispatchEvent( new Event( 'focus' ) ) );
+		await waitFor( () =>
+			expect( result.current ).toEqual( { state: 'ready', details: classicTheme } )
+		);
 
 		expect( startViewTransition ).toHaveBeenCalledWith( {
 			types: [ 'theme-details' ],

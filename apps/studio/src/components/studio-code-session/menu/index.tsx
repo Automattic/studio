@@ -1,12 +1,8 @@
 import { Menu as BaseMenu } from '@base-ui/react/menu';
-import { privateApis } from '@wordpress/theme';
 import { forwardRef } from 'react';
 import motionStyles from '../floating-surface-motion/style.module.css';
-import { unlock } from '../lock-unlock';
 import styles from './style.module.css';
 import type { ComponentPropsWithoutRef, ElementRef, ReactNode } from 'react';
-
-const { ThemeProvider } = unlock( privateApis );
 
 export const Root = BaseMenu.Root;
 export const Trigger = BaseMenu.Trigger;
@@ -44,18 +40,11 @@ export function Popup( {
 				alignOffset={ alignOffset }
 				className={ styles.positioner }
 			>
-				{ /* Portals mount into document.body, escaping the app-root
-					ThemeProvider's `data-wpds-density='compact'` wrapper and
-					breaking the global SVG-shrink rule in `index.css`. Re-
-					establish the density context here so icons inside the
-					popup render at 16px like the rest of the app. */ }
-				<ThemeProvider density="compact">
-					<BaseMenu.Popup
-						className={ `${ styles.popup } ${ motionStyles.motion } ${ className ?? '' }` }
-					>
-						{ children }
-					</BaseMenu.Popup>
-				</ThemeProvider>
+				<BaseMenu.Popup
+					className={ `${ styles.popup } ${ motionStyles.motion } ${ className ?? '' }` }
+				>
+					{ children }
+				</BaseMenu.Popup>
 			</BaseMenu.Positioner>
 		</BaseMenu.Portal>
 	);

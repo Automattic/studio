@@ -158,17 +158,16 @@ a:focus:not( :focus-visible ),
 	border-color: var( --wp-ui-button-border-color );
 }
 
-/* Compact density: shrink icons to match the tighter spacing tokens.
-   @wordpress/icons draws SVGs at 24x24 by default; the theme's compact
-   density only shrinks padding/gap tokens, not icon sizes. Override the
-   svg width/height attributes with CSS until the design system exposes
-   a density-aware icon token. Ideally this lives in ThemeProvider. */
-[data-wpds-density='compact'] [data-ui-mode='classic'] svg {
+/* Shrink icons to match the tighter spacing tokens. @wordpress/icons draws
+   SVGs at 24x24 by default, and nothing scales them down for us. Override the
+   svg width/height attributes with CSS until the design system exposes an
+   icon size token. */
+[data-ui-mode='classic'] svg {
 	width: 16px;
 	height: 16px;
 }
 
-[data-wpds-density='compact'] [data-ui-mode='classic'] svg[data-keep-size] {
+[data-ui-mode='classic'] svg[data-keep-size] {
 	width: auto;
 	height: auto;
 }

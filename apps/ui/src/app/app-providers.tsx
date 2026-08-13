@@ -42,7 +42,7 @@ function ThemedApp( { children }: PropsWithChildren ) {
 		document.documentElement.style.colorScheme = colorScheme;
 	}, [ colorScheme ] );
 	return (
-		<ThemeProvider isRoot color={ themeColor } density="compact">
+		<ThemeProvider isRoot color={ themeColor }>
 			<Tooltip.Provider>
 				<OnboardingGuideProvider>{ children }</OnboardingGuideProvider>
 			</Tooltip.Provider>

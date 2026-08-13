@@ -3,7 +3,6 @@ import { TRACKS_EVENTS, type TracksEventName } from '@studio/common/lib/record-t
 import { __ } from '@wordpress/i18n';
 import { globe, help, home, page as pageIcon, post as postIcon, wordpress } from '@wordpress/icons';
 import { ariaKeyShortcut, displayShortcut } from '@wordpress/keycodes';
-import { privateApis } from '@wordpress/theme';
 import { Icon, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -12,12 +11,9 @@ import { useSiteFrontLinks } from '@/data/queries/use-site-front-links';
 import { useSiteSearch } from '@/data/queries/use-site-search';
 import { useCustomizeLinks } from '@/hooks/use-customize-links';
 import { databaseIcon } from '@/lib/icons';
-import { unlock } from '@/lock-unlock';
 import styles from './address-bar.module.css';
 import type { SiteDetails } from '@/data/core';
 import type { KeyboardEvent as ReactKeyboardEvent, ReactElement, RefObject, SVGProps } from 'react';
-
-const { ThemeProvider } = unlock( privateApis );
 
 export function getPathFromPreviewUrl( url: string, baseUrl: string ) {
 	try {
@@ -580,71 +576,63 @@ export function PreviewAddressBar( {
 					sideOffset={ 4 }
 					className={ styles.positioner }
 				>
-					{ /* Portals mount into document.body, escaping the app-root
-						ThemeProvider's density wrapper — re-establish it so icons
-						inside the popup render at their normal size (same fix as
-						the shared menu component). */ }
-					<ThemeProvider density="compact">
-						<Autocomplete.Popup className={ `${ styles.popup } ${ motionStyles.motion }` }>
-							<Autocomplete.Input
-								ref={ selectOnMount }
-								className={ styles.input }
-								placeholder={
-									searchEnabled
-										? __( 'Type a path, or search pages and posts' )
-										: __( 'Type a path' )
-								}
-								aria-label={ __( 'Address and search' ) }
-								onKeyDown={ handleInputKeyDown }
-							/>
-							<Autocomplete.List className={ styles.list }>
-								{ ( group: AddressGroup ) => (
-									<Autocomplete.Group
-										key={ group.value || 'results' }
-										items={ group.items }
-										className={ styles.group }
-									>
-										{ group.value ? (
-											<Autocomplete.GroupLabel className={ styles.groupLabel }>
-												{ group.value }
-											</Autocomplete.GroupLabel>
-										) : null }
-										<Autocomplete.Collection>
-											{ ( item: AddressItem ) => (
-												<Autocomplete.Item
-													key={ item.id }
-													value={ item }
+					<Autocomplete.Popup className={ `${ styles.popup } ${ motionStyles.motion }` }>
+						<Autocomplete.Input
+							ref={ selectOnMount }
+							className={ styles.input }
+							placeholder={
+								searchEnabled ? __( 'Type a path, or search pages and posts' ) : __( 'Type a path' )
+							}
+							aria-label={ __( 'Address and search' ) }
+							onKeyDown={ handleInputKeyDown }
+						/>
+						<Autocomplete.List className={ styles.list }>
+							{ ( group: AddressGroup ) => (
+								<Autocomplete.Group
+									key={ group.value || 'results' }
+									items={ group.items }
+									className={ styles.group }
+								>
+									{ group.value ? (
+										<Autocomplete.GroupLabel className={ styles.groupLabel }>
+											{ group.value }
+										</Autocomplete.GroupLabel>
+									) : null }
+									<Autocomplete.Collection>
+										{ ( item: AddressItem ) => (
+											<Autocomplete.Item
+												key={ item.id }
+												value={ item }
+												className={ clsx(
+													styles.item,
+													item.id === currentDestinationId && styles.itemCurrent
+												) }
+												aria-current={ item.id === currentDestinationId ? 'page' : undefined }
+												onClick={ () => navigateTo( item.path ) }
+											>
+												<span
 													className={ clsx(
-														styles.item,
-														item.id === currentDestinationId && styles.itemCurrent
+														styles.itemIcon,
+														item.kind === 'destination' && styles.itemIconDestination
 													) }
-													aria-current={ item.id === currentDestinationId ? 'page' : undefined }
-													onClick={ () => navigateTo( item.path ) }
+													aria-hidden="true"
 												>
-													<span
-														className={ clsx(
-															styles.itemIcon,
-															item.kind === 'destination' && styles.itemIconDestination
-														) }
-														aria-hidden="true"
-													>
-														<Icon icon={ item.icon } size={ 16 } />
-													</span>
-													<span className={ styles.itemTitle }>{ item.title }</span>
-													<span className={ styles.itemPath }>{ item.path }</span>
-												</Autocomplete.Item>
-											) }
-										</Autocomplete.Collection>
-									</Autocomplete.Group>
-								) }
-							</Autocomplete.List>
-							{ status ? (
-								<div className={ styles.status } role="status">
-									{ status }
-								</div>
-							) : null }
-						</Autocomplete.Popup>
-					</ThemeProvider>
+													<Icon icon={ item.icon } size={ 16 } />
+												</span>
+												<span className={ styles.itemTitle }>{ item.title }</span>
+												<span className={ styles.itemPath }>{ item.path }</span>
+											</Autocomplete.Item>
+										) }
+									</Autocomplete.Collection>
+								</Autocomplete.Group>
+							) }
+						</Autocomplete.List>
+						{ status ? (
+							<div className={ styles.status } role="status">
+								{ status }
+							</div>
+						) : null }
+					</Autocomplete.Popup>
 				</Autocomplete.Positioner>
 			</Autocomplete.Portal>
 		</Autocomplete.Root>

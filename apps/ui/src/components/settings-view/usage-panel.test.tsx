@@ -33,13 +33,28 @@ vi.mock( '@wordpress/ui', () => ( {
 		size?: string;
 	} ) => {
 		void tone;
-		void variant;
 		void size;
-		return <button { ...props }>{ loading ? loadingAnnouncement : children }</button>;
+		return (
+			<button { ...props } data-variant={ variant }>
+				{ loading ? loadingAnnouncement : children }
+			</button>
+		);
 	},
-	IconButton: ( { label, disabled }: { label: string; disabled?: boolean } ) => (
-		<button type="button" aria-label={ label } disabled={ disabled } />
-	),
+	IconButton: ( {
+		label,
+		disabled,
+		onClick,
+	}: {
+		label: string;
+		disabled?: boolean;
+		onClick?: () => void;
+	} ) => <button type="button" aria-label={ label } disabled={ disabled } onClick={ onClick } />,
+	Tooltip: {
+		Root: ( { children }: { children: ReactNode } ) => <>{ children }</>,
+		Trigger: ( { render }: { render: ReactNode } ) => render,
+		Popup: ( { children }: { children: ReactNode } ) => <span>{ children }</span>,
+		Positioner: () => null,
+	},
 } ) );
 
 vi.mock( '@/components/menu', () => ( {
@@ -172,12 +187,35 @@ describe( 'UsagePanel', () => {
 		expect( screen.getByRole( 'heading', { name: 'Usage' } ) ).toBeInTheDocument();
 		expect( screen.getByText( '1,200,000 of 1,500,000 AI credits used' ) ).toBeInTheDocument();
 		expect( screen.getByText( '300,000 available' ) ).toBeInTheDocument();
-		expect( screen.getByText( '1.5 million AI credits are on us' ) ).toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: 'Add AI credits' } ) ).toBeInTheDocument();
+		expect(
+			screen.getByText( "Top up now so your next build doesn't stop short." )
+		).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Add AI credits' } ) ).toHaveAttribute(
+			'data-variant',
+			'outline'
+		);
 		expect( screen.getByText( '2 of 10 active preview sites' ) ).toBeInTheDocument();
 		expect( useSnapshotsMock ).toHaveBeenCalledWith( 1 );
 		expect( useSnapshotUsageMock ).toHaveBeenCalledWith( 1 );
 		expect( useDeleteAllSnapshotsMock ).toHaveBeenCalledWith( 1 );
+	} );
+
+	it( 'shows the welcome-credit message before the usage warnings', () => {
+		setUsageExplorationScenario( 'fresh' );
+		render( <UsagePanel /> );
+
+		expect(
+			screen.getByText( 'Your first 1.5 million AI credits are on us.' )
+		).toBeInTheDocument();
+	} );
+
+	it( 'updates the credit callout at 90% usage', () => {
+		setUsageExplorationScenario( 'critical' );
+		render( <UsagePanel /> );
+
+		expect(
+			screen.getByText( "You're on a roll. Top up now and keep building." )
+		).toBeInTheDocument();
 	} );
 
 	it( 'renders the exhausted exploration state', () => {
@@ -186,11 +224,13 @@ describe( 'UsagePanel', () => {
 
 		expect( screen.getByText( '1,500,000 of 1,500,000 AI credits used' ) ).toBeInTheDocument();
 		expect( screen.getByText( '0 available' ) ).toBeInTheDocument();
-		expect( screen.getByText( 'Keep creating with AI credits' ) ).toBeInTheDocument();
 		expect(
-			screen.getByText( 'Add more credits to continue working without interruption.' )
+			screen.getByText( 'Your next idea is ready when you are. Top up to bring it to life.' )
 		).toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: 'Add AI credits' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Add AI credits' } ) ).toHaveAttribute(
+			'data-variant',
+			'solid'
+		);
 	} );
 
 	it( 'shows purchased credits as a balance without an activity ledger', () => {
@@ -199,9 +239,8 @@ describe( 'UsagePanel', () => {
 		render( <UsagePanel /> );
 
 		expect( screen.queryByText( 'Recent activity' ) ).not.toBeInTheDocument();
-		expect( screen.getByText( 'Keep creating with AI credits' ) ).toBeInTheDocument();
 		expect(
-			screen.getByText( 'Add more credits anytime to keep your work moving.' )
+			screen.getByText( 'Keep the ideas flowing. Stock up for whatever you build next.' )
 		).toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Add AI credits' } ) ).toBeInTheDocument();
 		expect( screen.getAllByTestId( 'usage-progress-bar' ) ).toHaveLength( 2 );

@@ -3,8 +3,8 @@ import {
 	getStudioCodeAiAccessState,
 } from '@studio/common/lib/studio-assistant-quota';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { external, Icon, moreHorizontal } from '@wordpress/icons';
-import { Button, IconButton } from '@wordpress/ui';
+import { external, help, Icon, moreHorizontal } from '@wordpress/icons';
+import { Button, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useState } from 'react';
 import { SigninNotice } from '@/components/agentic-signin-banner';
@@ -124,6 +124,18 @@ function AiCreditsSummary() {
 	const accessState = quota ? getStudioCodeAiAccessState( quota ) : 'available';
 	const opensExternalCheckout = usage.purchaseCreditsFlow === 'external';
 	const showWelcomeCredits = usage.purchasedTotal === 0 && usage.welcomeBalance > 0;
+	let creditCalloutMessage: string = showWelcomeCredits
+		? __( 'Your first 1.5 million AI credits are on us.' )
+		: __( 'Keep the ideas flowing. Stock up for whatever you build next.' );
+	if ( usage.isExhausted ) {
+		creditCalloutMessage = __(
+			'Your next idea is ready when you are. Top up to bring it to life.'
+		);
+	} else if ( usage.combinedFraction >= 0.9 ) {
+		creditCalloutMessage = __( "You're on a roll. Top up now and keep building." );
+	} else if ( usage.combinedFraction >= 0.8 ) {
+		creditCalloutMessage = __( "Top up now so your next build doesn't stop short." );
+	}
 	const openPurchaseCredits = () => {
 		if ( opensExternalCheckout ) {
 			void connector.openExternalUrl( PURCHASE_CREDITS_PROTOTYPE_URL );
@@ -136,8 +148,8 @@ function AiCreditsSummary() {
 			<Button
 				className={ styles.creditTopUpButton }
 				size="small"
-				variant="outline"
-				tone="neutral"
+				variant={ usage.isExhausted ? 'solid' : 'outline' }
+				tone={ usage.isExhausted ? 'brand' : 'neutral' }
 				onClick={ openPurchaseCredits }
 			>
 				{ opensExternalCheckout ? __( 'Purchase AI credits' ) : __( 'Add AI credits' ) }
@@ -150,16 +162,27 @@ function AiCreditsSummary() {
 	return (
 		<section className={ styles.usageSection }>
 			<div className={ styles.usageSectionHeader }>
-				<h2>{ __( 'AI credits' ) }</h2>
-				<Button
-					className={ styles.aiCreditsDetailsButton }
-					size="small"
-					variant="minimal"
-					tone="neutral"
-					onClick={ () => setDetailsOpen( true ) }
-				>
-					{ __( 'How AI credits work' ) }
-				</Button>
+				<div className={ styles.aiCreditsHeading }>
+					<h2>{ __( 'AI credits' ) }</h2>
+					<Tooltip.Root>
+						<Tooltip.Trigger
+							render={
+								<IconButton
+									className={ styles.aiCreditsDetailsButton }
+									icon={ help }
+									label={ __( 'How AI credits work' ) }
+									size="small"
+									variant="minimal"
+									tone="neutral"
+									onClick={ () => setDetailsOpen( true ) }
+								/>
+							}
+						/>
+						<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+							{ __( 'How AI credits work' ) }
+						</Tooltip.Popup>
+					</Tooltip.Root>
+				</div>
 			</div>
 			{ accessState !== 'available' ? (
 				<div className={ styles.previewUsageText }>
@@ -178,21 +201,8 @@ function AiCreditsSummary() {
 						valueClassName={ getMeterIntent( usage.combinedFraction ) }
 					/>
 					<div className={ styles.creditCallout }>
-						<div className={ styles.creditCalloutText }>
-							<strong>
-								{ showWelcomeCredits
-									? __( '1.5 million AI credits are on us' )
-									: __( 'Keep creating with AI credits' ) }
-							</strong>
-							<span>
-								{ showWelcomeCredits
-									? __( "We've added free credits so you can try Studio Code." )
-									: usage.isExhausted
-									? __( 'Add more credits to continue working without interruption.' )
-									: __( 'Add more credits anytime to keep your work moving.' ) }
-							</span>
-						</div>
 						{ creditAction }
+						<span className={ styles.creditCalloutText }>{ creditCalloutMessage }</span>
 					</div>
 					<PurchaseCreditsDialog open={ purchaseOpen } onOpenChange={ setPurchaseOpen } />
 				</>

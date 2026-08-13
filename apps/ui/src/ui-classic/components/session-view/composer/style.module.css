@@ -570,6 +570,33 @@
 	white-space: nowrap;
 }
 
+.usageCreditsMenuTrack {
+	overflow: hidden;
+	inline-size: 100%;
+	block-size: 4px;
+	margin-block-start: var( --wpds-dimension-gap-xs );
+	border-radius: 999px;
+	background: var( --wpds-color-stroke-surface-neutral );
+}
+
+.usageCreditsMenuValue {
+	block-size: 100%;
+	border-radius: inherit;
+	background: var( --wpds-color-bg-interactive-brand-strong );
+}
+
+.usageCreditsMenuValue[data-caution] {
+	background: var( --wpds-color-fg-content-warning-weak );
+}
+
+.usageCreditsMenuValue[data-warning] {
+	background: var( --wpds-color-fg-content-error-weak );
+}
+
+.usageCreditsMenuValue[data-exhausted] {
+	background: var( --wpds-color-fg-content-error );
+}
+
 .iconButton:disabled {
 	cursor: not-allowed;
 	color: var(--wpds-color-fg-content-neutral-weak);

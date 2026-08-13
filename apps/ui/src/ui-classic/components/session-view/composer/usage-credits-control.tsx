@@ -198,6 +198,15 @@ export function UsageCreditsControl() {
 									meterTotal
 								) }
 							</strong>
+							<div className={ styles.usageCreditsMenuTrack } aria-hidden="true">
+								<div
+									className={ styles.usageCreditsMenuValue }
+									data-caution={ isCaution || undefined }
+									data-warning={ isWarning || undefined }
+									data-exhausted={ usage.isExhausted || undefined }
+									style={ { inlineSize: `${ activeUsedFraction * 100 }%` } }
+								/>
+							</div>
 						</div>
 					</div>
 					<Menu.Separator />

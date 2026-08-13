@@ -23,27 +23,42 @@ export async function fetchThemeDetails( connector: Connector, siteId: string ) 
 	return ( await connector.getThemeDetails?.( siteId ) ) ?? null;
 }
 
-const activeThemeRefreshes = new Map< string, Promise< ThemeDetails | null > >();
+const themeRefreshVersions = new Map< string, number >();
 
 export function refreshThemeDetails(
 	connector: Connector,
 	queryClient: QueryClient,
 	siteId: string
 ): Promise< ThemeDetails | null > {
-	const activeRefresh = activeThemeRefreshes.get( siteId );
-	if ( activeRefresh ) {
-		return activeRefresh;
-	}
+	const refreshVersion = ( themeRefreshVersions.get( siteId ) ?? 0 ) + 1;
+	themeRefreshVersions.set( siteId, refreshVersion );
 
-	const refresh = fetchThemeDetails( connector, siteId )
+	return fetchThemeDetails( connector, siteId )
 		.then( ( details ) => {
+			if ( themeRefreshVersions.get( siteId ) !== refreshVersion ) {
+				return details;
+			}
 			queryClient.setQueryData( themeDetailsQueryKey( siteId ), details );
 			return details;
 		} )
-		.finally( () => activeThemeRefreshes.delete( siteId ) );
+		.finally( () => {
+			if ( themeRefreshVersions.get( siteId ) === refreshVersion ) {
+				themeRefreshVersions.delete( siteId );
+			}
+		} );
+}
 
-	activeThemeRefreshes.set( siteId, refresh );
-	return refresh;
+function getThemeDetailsStatusKey( status: ThemeDetailsStatus ): string {
+	if ( status.state !== 'ready' ) {
+		return status.state;
+	}
+	return JSON.stringify( [
+		status.details.name,
+		status.details.slug,
+		status.details.isBlockTheme,
+		status.details.supportsMenus,
+		status.details.supportsWidgets,
+	] );
 }
 
 /**
@@ -94,15 +109,7 @@ export function useThemeDetails( site: SiteDetails ): ThemeDetailsStatus {
 		}
 		return { state: 'unknown' };
 	}, [ canResolve, data, isError, isPending, persisted ] );
-	const resolvedKey =
-		resolvedStatus.state === 'ready'
-			? [
-					resolvedStatus.details.slug,
-					resolvedStatus.details.isBlockTheme,
-					resolvedStatus.details.supportsMenus,
-					resolvedStatus.details.supportsWidgets,
-			  ].join( ':' )
-			: resolvedStatus.state;
+	const resolvedKey = getThemeDetailsStatusKey( resolvedStatus );
 	const [ displayed, setDisplayed ] = useState( () => ( {
 		siteId: site.id,
 		key: resolvedKey,
@@ -117,12 +124,16 @@ export function useThemeDetails( site: SiteDetails ): ThemeDetailsStatus {
 		const next = { siteId: site.id, key: resolvedKey, status: resolvedStatus };
 		const reduceMotion = window.matchMedia?.( '(prefers-reduced-motion: reduce)' ).matches;
 		if ( displayed.siteId === site.id && ! reduceMotion && document.startViewTransition ) {
-			const transition = document.startViewTransition( {
-				types: [ 'theme-details' ],
-				update: () => flushSync( () => setDisplayed( next ) ),
-			} );
-			void transition.finished.catch( () => undefined );
-			return;
+			try {
+				const transition = document.startViewTransition( {
+					types: [ 'theme-details' ],
+					update: () => flushSync( () => setDisplayed( next ) ),
+				} );
+				void transition.finished.catch( () => undefined );
+				return;
+			} catch {
+				// Fall through when the document cannot start a transition.
+			}
 		}
 		setDisplayed( next );
 	}, [ displayed, resolvedKey, resolvedStatus, site.id ] );

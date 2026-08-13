@@ -161,7 +161,7 @@ function ButtonSection( {
 			<div className={ styles.buttonGrid } aria-busy={ loadingCount > 0 }>
 				{ loadingCount > 0
 					? Array.from( { length: loadingCount }, ( _, index ) => (
-							<div key={ index } className={ styles.buttonSkeleton } />
+							<div key={ index } className={ styles.buttonSkeleton } aria-hidden="true" />
 					  ) )
 					: children }
 			</div>

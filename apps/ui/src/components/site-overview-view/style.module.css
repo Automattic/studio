@@ -272,9 +272,9 @@
 }
 
 .buttonSkeleton {
-	width: 96px;
-	height: 32px;
-	border-radius: 4px;
+	width: 100%;
+	height: 36px;
+	border-radius: var(--wpds-border-radius-sm);
 	background: var(--wpds-color-bg-surface-neutral-weak);
 	animation: buttonSkeletonPulse 1.6s ease-in-out infinite;
 }

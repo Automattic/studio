@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { useConnector } from '@/data/core';
-import type { SiteDetails } from '@/data/core';
+import type { Connector, SiteDetails } from '@/data/core';
 
 export type ThemeDetails = NonNullable< SiteDetails[ 'themeDetails' ] >;
 
@@ -17,6 +17,10 @@ export type ThemeDetailsStatus =
 
 export const themeDetailsQueryKey = ( siteId: string ) => [ 'theme-details', siteId ] as const;
 
+export async function fetchThemeDetails( connector: Connector, siteId: string ) {
+	return ( await connector.getThemeDetails?.( siteId ) ) ?? null;
+}
+
 /**
  * The site's active theme, resolving through the host when the site list did
  * not already carry the persisted details. Desktop delegates to the same
@@ -31,7 +35,7 @@ export function useThemeDetails( site: SiteDetails ): ThemeDetailsStatus {
 		queryKey: themeDetailsQueryKey( site.id ),
 		// React Query rejects `undefined` as data, and "the host doesn't know"
 		// is a legitimate answer here, so it travels as null.
-		queryFn: async () => ( await connector.getThemeDetails?.( site.id ) ) ?? null,
+		queryFn: () => fetchThemeDetails( connector, site.id ),
 		enabled: ! persisted && canResolve,
 		staleTime: 30_000,
 		retry: false,

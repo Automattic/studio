@@ -5,9 +5,11 @@ import { Tooltip } from '@wordpress/ui';
 import { describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
+import { themeDetailsQueryKey } from '@/hooks/use-theme-details';
 import {
 	getBrowserShortcutCommand,
 	isOffOriginRedirect,
+	isThemeActivationUrl,
 	getPathFromPreviewUrl,
 	getSimulatedViewport,
 	SitePreview,
@@ -56,11 +58,12 @@ function renderPreview( children: ReactNode ) {
 			mutations: { retry: false },
 		},
 	} );
-	return render(
+	const renderResult = render(
 		<QueryClientProvider client={ queryClient }>
 			<Tooltip.Provider>{ children }</Tooltip.Provider>
 		</QueryClientProvider>
 	);
+	return { ...renderResult, queryClient };
 }
 
 function createSite( overrides: Partial< SiteDetails > = {} ): SiteDetails {
@@ -76,6 +79,47 @@ function createSite( overrides: Partial< SiteDetails > = {} ): SiteDetails {
 }
 
 describe( 'SitePreview', () => {
+	it( 'recognizes WordPress theme activation navigations', () => {
+		expect(
+			isThemeActivationUrl( 'http://localhost:8881/wp-admin/themes.php?activated=true' )
+		).toBe( true );
+		expect(
+			isThemeActivationUrl(
+				'http://localhost:8881/wp-admin/themes.php?action=activate&stylesheet=twentythirteen'
+			)
+		).toBe( true );
+		expect( isThemeActivationUrl( 'http://localhost:8881/wp-admin/themes.php' ) ).toBe( false );
+		expect( isThemeActivationUrl( 'not a URL' ) ).toBe( false );
+	} );
+
+	it( 'refreshes theme details after activation inside the preview', async () => {
+		const themeDetails = {
+			name: 'Twenty Thirteen',
+			path: '/wp-content/themes/twentythirteen',
+			slug: 'twentythirteen',
+			isBlockTheme: false,
+		};
+		const getThemeDetails = vi.fn().mockResolvedValue( themeDetails );
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			getThemeDetails,
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+		const { container, queryClient } = renderPreview(
+			<SitePreview
+				site={ createSite( { running: true } ) }
+				path="/wp-admin/themes.php?activated=true"
+				reloadNonce={ 0 }
+			/>
+		);
+
+		fireEvent.load( container.querySelector( 'iframe' )! );
+
+		await waitFor( () => expect( getThemeDetails ).toHaveBeenCalledWith( 'site-1' ) );
+		expect( queryClient.getQueryData( themeDetailsQueryKey( 'site-1' ) ) ).toEqual( themeDetails );
+	} );
+
 	it( 'shows the active realm name with the same tooltip as when inactive', async () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),

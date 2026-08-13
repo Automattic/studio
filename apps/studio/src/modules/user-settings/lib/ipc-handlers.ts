@@ -3,6 +3,7 @@ import {
 	readGlobalInstructionsFile,
 	writeGlobalInstructions,
 } from '@studio/common/ai/global-instructions';
+import { type TracksInstructionsLengthBucket } from '@studio/common/lib/record-tracks-event';
 import {
 	isAnalyticsOptedOut,
 	readSharedConfig,
@@ -17,6 +18,7 @@ import { SUPPORTED_EDITORS, SupportedEditor } from 'src/modules/user-settings/li
 import { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 import { UserSettingsTabName } from 'src/modules/user-settings/user-settings-types';
 import { defaultSitePath, ensureWritableDirectory } from 'src/storage/paths';
+import { OnboardingHintsState } from 'src/storage/storage-types';
 import {
 	loadUserData,
 	lockAppdata,
@@ -245,15 +247,76 @@ export async function getWapuuScore(): Promise< number | undefined > {
 	return userData.wapuuScore;
 }
 
+// Agentic UI onboarding state (orientation guide seen-state, migration marker).
+// The blob is opaque to the desktop; the renderer owns its meaning.
+export async function getOnboardingHints(): Promise< OnboardingHintsState > {
+	const userData = await loadUserData();
+	return userData.onboardingHints ?? {};
+}
+
+async function persistOnboardingHints( partial: Partial< OnboardingHintsState > ): Promise< void > {
+	if ( ! partial || typeof partial !== 'object' ) {
+		return;
+	}
+	await lockAppdata();
+	try {
+		const userData = await loadUserData();
+		const merged: OnboardingHintsState = { ...( userData.onboardingHints ?? {} ), ...partial };
+		await saveUserData( { ...userData, onboardingHints: merged } );
+	} finally {
+		await unlockAppdata();
+	}
+}
+
+export async function saveOnboardingHints(
+	_event: IpcMainInvokeEvent,
+	partial: Partial< OnboardingHintsState >
+): Promise< void > {
+	await persistOnboardingHints( partial );
+}
+
+// Marks that the user reached the agentic workbench by opting in from classic
+// Studio, so the orientation guide can greet them as a migrating user. Fresh
+// installs get the agentic UI seeded on by default (migration 09) and never
+// hit this path, so they stay "new".
+export async function recordAgenticUiMigration(): Promise< void > {
+	await persistOnboardingHints( { migratedFromClassic: true } );
+}
+
 export async function getGlobalAgentInstructions(): Promise< string > {
 	return ( await readGlobalInstructionsFile() ) ?? '';
 }
 
+// Bucketed for `studio_setting_instructions_change`; the text itself is never sent.
+function getInstructionsLengthBucket( content: string ): TracksInstructionsLengthBucket {
+	const length = content.trim().length;
+	if ( length === 0 ) {
+		return 'empty';
+	}
+	if ( length <= 200 ) {
+		return 'short';
+	}
+	return length <= 1000 ? 'medium' : 'long';
+}
+
 export async function saveGlobalAgentInstructions(
 	_event: IpcMainInvokeEvent,
-	content: string
+	content: string,
+	// Set when this save ends an edit session. Only the renderer knows the value it started from,
+	// since the agentic UI autosaves on a debounce. Intermediate autosaves omit it.
+	options: { editSession?: { previousContent: string } } = {}
 ): Promise< void > {
 	await writeGlobalInstructions( content );
+
+	const previous = options.editSession?.previousContent;
+	if ( previous === undefined || previous === content ) {
+		return;
+	}
+	await recordTracksEvent( TRACKS_EVENTS.SETTING_INSTRUCTIONS_CHANGE, {
+		has_content: content.trim().length > 0,
+		length_bucket: getInstructionsLengthBucket( content ),
+		surface: 'settings',
+	} );
 }
 
 export function showUserSettings( event: IpcMainInvokeEvent, tabName?: UserSettingsTabName ) {

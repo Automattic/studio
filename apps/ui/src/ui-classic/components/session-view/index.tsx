@@ -1,5 +1,6 @@
 import { resolveSessionModel } from '@studio/common/ai/models';
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
+import { getStudioCodeAiAccessState } from '@studio/common/lib/studio-assistant-quota';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { arrowDown } from '@wordpress/icons';
@@ -33,6 +34,7 @@ import { useSessionCommands } from '@/hooks/use-session-commands';
 import { SessionUIProvider, useSessionPreviewAnnotations } from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
+import { formatComposerTextQuote, watchComposerTextQuote } from '@/lib/composer-text-quote';
 import { AccessRequirements } from './access-requirements';
 import { formatAnnotationsAsPrompt, formatAnnotationsSubmittedMessage } from './annotations';
 import { Composer, ComposerSkeleton, type ComposerHandle } from './composer';
@@ -138,17 +140,30 @@ function SessionFrame( {
 				'--classic-header-height',
 				`${ headerRef.current?.offsetHeight ?? 0 }px`
 			);
-			root.style.setProperty(
-				'--classic-composer-height',
-				`${ composerRef.current?.offsetHeight ?? 0 }px`
+			const composerHeight = composerRef.current?.offsetHeight ?? 0;
+			root.style.setProperty( '--classic-composer-height', `${ composerHeight }px` );
+			// The collapsed-sidebar toast shelf lives in the layout's <main>, an
+			// ancestor of this root, so it can't inherit the value from here.
+			// Publishing it on the document lets the shelf ride above the composer
+			// however it grows — wrapped text, attachments, or the resize handle.
+			document.documentElement.style.setProperty(
+				'--app-main-composer-height',
+				`${ composerHeight }px`
 			);
 		};
 
 		updateChromeSize();
 
+		// Views without a composer must fall back to the shelf's 0px default.
+		const clearComposerHeight = () =>
+			document.documentElement.style.removeProperty( '--app-main-composer-height' );
+
 		if ( typeof ResizeObserver === 'undefined' ) {
 			window.addEventListener( 'resize', updateChromeSize );
-			return () => window.removeEventListener( 'resize', updateChromeSize );
+			return () => {
+				window.removeEventListener( 'resize', updateChromeSize );
+				clearComposerHeight();
+			};
 		}
 
 		const resizeObserver = new ResizeObserver( updateChromeSize );
@@ -159,7 +174,10 @@ function SessionFrame( {
 			resizeObserver.observe( composerRef.current );
 		}
 
-		return () => resizeObserver.disconnect();
+		return () => {
+			resizeObserver.disconnect();
+			clearComposerHeight();
+		};
 	}, [] );
 
 	return (
@@ -249,6 +267,13 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	);
 	const scrollRef = useRef< HTMLDivElement >( null );
 	const composerRef = useRef< ComposerHandle >( null );
+	useEffect(
+		() =>
+			watchComposerTextQuote( ( text ) => {
+				composerRef.current?.appendDraft( formatComposerTextQuote( text ) );
+			} ),
+		[]
+	);
 	const [ isScrolledAway, setIsScrolledAway ] = useState( false );
 	const hasSession = !! data;
 
@@ -421,7 +446,10 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 
 	// Fail open when the quota is unavailable (offline, error, older server) —
 	// the WordPress.com proxy enforces the same gate server-side.
-	if ( quota && ! quota.hasPaymentMethod ) {
+	if (
+		quota &&
+		( getStudioCodeAiAccessState( quota ) !== 'available' || ! quota.hasPaymentMethod )
+	) {
 		return (
 			<SessionFrame
 				header={ <SessionHeader summary={ data.summary } /> }
@@ -429,6 +457,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			>
 				<EmptyBackground />
 				<AccessRequirements
+					quota={ quota }
 					isRechecking={ isQuotaFetching }
 					onRecheck={ () => void refetchQuota() }
 				/>
@@ -461,11 +490,6 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 							/>
 						</div>
 					) : null }
-					<QueuedPrompts
-						prompts={ queuedPrompts }
-						onRemove={ removeQueuedPrompt }
-						onEdit={ reopenQueuedPrompt }
-					/>
 					<Composer
 						ref={ composerRef }
 						busy={ composerBusy }
@@ -518,6 +542,11 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 					pendingQuestions={ pendingQuestionTexts }
 					pendingAnswers={ pendingAnswers }
 					onAnswerQuestion={ answerQuestion }
+				/>
+				<QueuedPrompts
+					prompts={ queuedPrompts }
+					onRemove={ removeQueuedPrompt }
+					onEdit={ reopenQueuedPrompt }
 				/>
 			</div>
 		</SessionFrame>

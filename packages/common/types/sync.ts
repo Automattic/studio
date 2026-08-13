@@ -94,9 +94,25 @@ export const syncSiteSchema = z.object( {
 
 export type SyncSite = z.infer< typeof syncSiteSchema >;
 
+// Phases a push moves through, named after the legacy renderer's push state
+// keys so both UIs gate cancellation on the same boundary.
+export type PushPhase = 'creatingBackup' | 'uploading' | 'applyingChanges';
+
+// Progress a push reports for the UI (the desktop also exposes manual
+// pause/resume; that lives in its own registry on top of these signals).
+export type PushOutput =
+	| { kind: 'phase'; phase: PushPhase }
+	| { kind: 'upload-progress'; progress: number }
+	| { kind: 'network-paused'; error: string }
+	| { kind: 'resumed' };
+
 export type PullSiteProgress = {
 	message: string;
 	progress?: number;
+	// The CLI `LoggerAction` behind this message. Used to tell the remote-side
+	// phases (backup, download) from the local import, which must not be
+	// cancelled midway — see `canCancelPull`.
+	action?: string;
 };
 
 // Pull backup API schemas
@@ -157,3 +173,15 @@ export const syncOptionSchema = z.enum( [
 	'contents',
 ] );
 export type SyncOption = z.infer< typeof syncOptionSchema >;
+
+// Selective-sync selections carried from the UI down to the CLI/export layer.
+// Push selects local paths (relative, e.g. "wp-content/plugins/foo"); pull
+// selects remote backup node ids returned by the rewind backup `ls` endpoint.
+export type PushSyncOptions = {
+	optionsToSync?: SyncOption[];
+	specificSelectionPaths?: string[];
+};
+export type PullSyncOptions = {
+	optionsToSync?: SyncOption[];
+	includePathList?: string[];
+};

@@ -12,7 +12,7 @@ import {
 import { watchComposerFilePaste } from '@studio/common/ai/composer-attachments';
 import { AI_MODELS, getAiModelFamily, getAiModelLabel } from '@studio/common/ai/models';
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
-import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
+import { getAiSkillCommands } from '@studio/common/ai/slash-commands';
 import { useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import {
@@ -54,6 +54,7 @@ import {
 	type ComposerAttachment,
 	type ComposerSendAttachments,
 } from './use-composer-attachments';
+import { useSlashCommands } from './use-slash-commands';
 import type {
 	AiModelId,
 	LoadedAiSession,
@@ -310,6 +311,13 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const resizeDragRef = useRef< { startY: number; startHeight: number } | null >( null );
 	const connector = useConnector();
 	const queryClient = useQueryClient();
+
+	const slash = useSlashCommands( {
+		value,
+		setValue,
+		textareaRef,
+		previewPrompt: null,
+	} );
 
 	// File/image attachments (attach button + drag-and-drop). Images ride as
 	// base64 content blocks; other files are referenced by disk path.
@@ -855,9 +863,13 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 							className={ styles.input }
 							placeholder={ placeholder }
 							value={ value }
+							{ ...slash.comboboxProps }
 							onChange={ ( event ) => setValue( event.target.value ) }
 							onPaste={ pasteHandlers.onPaste }
 							onKeyDown={ ( event ) => {
+								if ( slash.handleKeyDown( event ) ) {
+									return;
+								}
 								if ( event.key === 'Escape' && busy ) {
 									event.preventDefault();
 									void onInterrupt();
@@ -884,6 +896,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 							} }
 							rows={ 2 }
 						/>
+						{ slash.popup }
 					</div>
 					<div className={ styles.toolbar }>
 						<div className={ styles.leftActions }>
@@ -921,7 +934,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 											/>
 										</Menu.SubmenuTrigger>
 										<Menu.Popup side="right" align="start" className={ styles.skillsMenuPopup }>
-											{ AI_SKILL_COMMANDS.map( ( command ) => (
+											{ getAiSkillCommands().map( ( command ) => (
 												<Menu.Item
 													key={ command.name }
 													className={ styles.skillMenuItem }

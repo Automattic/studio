@@ -56,8 +56,10 @@ vi.mock( '@/data/queries/use-preview-site', () => ( {
 } ) );
 
 vi.mock( '@/data/queries/use-sites', () => ( {
+	useIsSiteBusy: () => transitions.starting || transitions.stopping,
 	useIsSiteStarting: () => transitions.starting,
 	useIsSiteStopping: () => transitions.stopping,
+	useSiteOperation: () => null,
 	useStartSite: () => ( { mutate: startSiteMutate } ),
 	useStopSite: () => ( { mutate: stopSiteMutate } ),
 } ) );
@@ -66,11 +68,14 @@ vi.mock( '@/data/queries/use-snapshots', () => ( {
 	useSnapshots: () => ( { data: snapshots } ),
 } ) );
 
+const cancelSyncMutate = vi.fn();
+
 vi.mock( '@/data/queries/use-sync-site', () => ( {
 	PULL_FROM_LIVE_MUTATION_KEY: [ 'pull-site-from-live' ],
 	PUSH_TO_LIVE_MUTATION_KEY: [ 'push-site-to-live' ],
 	usePullSiteFromLive: () => ( { mutate: vi.fn() } ),
 	usePushSiteToLive: () => ( { mutate: vi.fn() } ),
+	useCancelSync: () => ( { mutate: cancelSyncMutate } ),
 } ) );
 
 const liveSite: SyncSite = {
@@ -111,6 +116,8 @@ function renderMainView( {
 					activity={ activity }
 					onSetupClick={ vi.fn() }
 					onDisconnectClick={ vi.fn() }
+					onPullClick={ vi.fn() }
+					onPushClick={ vi.fn() }
 				/>
 			</Menu.Popup>
 		</Menu.Root>
@@ -122,6 +129,7 @@ describe( 'MainView', () => {
 		vi.mocked( useIsMutating ).mockImplementation( () => 0 );
 		connector.copyText.mockReset();
 		connector.openExternalUrl.mockReset();
+		cancelSyncMutate.mockReset();
 		publishPreviewMutate.mockReset();
 		startSiteMutate.mockReset();
 		stopSiteMutate.mockReset();
@@ -208,13 +216,32 @@ describe( 'MainView', () => {
 			activity: {
 				kind: 'pending',
 				direction: 'pull',
-				message: 'Creating remote backup… (24%)',
+				message: '24% · Creating remote backup…',
 				progress: 24,
 			},
 		} );
 
 		expect( screen.getByRole( 'status' ) ).toHaveTextContent( 'Pulling from live…' );
-		expect( screen.getByRole( 'status' ) ).toHaveTextContent( 'Creating remote backup… (24%)' );
+		expect( screen.getByRole( 'status' ) ).toHaveTextContent( '24% · Creating remote backup…' );
+	} );
+
+	it( 'shows detailed import progress in the open site status', () => {
+		renderMainView( {
+			activity: { kind: 'pending', direction: 'import', message: '24% · Media uploads…' },
+		} );
+
+		expect( screen.getByRole( 'status' ) ).toHaveTextContent( 'Importing backup…' );
+		expect( screen.getByRole( 'status' ) ).toHaveTextContent( '24% · Media uploads…' );
+	} );
+
+	// An import replaces the site's files and database, so letting a sync run
+	// alongside it would have them fighting over the same site.
+	it( 'blocks the live sync actions while an import is running', () => {
+		renderMainView( { activity: { kind: 'pending', direction: 'import' } } );
+
+		expect(
+			screen.getByRole( 'button', { name: 'Update preview site (sync in progress)' } )
+		).toHaveAttribute( 'aria-disabled', 'true' );
 	} );
 
 	it( 'updates the existing preview site while the snapshot is fresh', () => {
@@ -258,6 +285,65 @@ describe( 'MainView', () => {
 		const pullButton = screen.getByRole( 'button', { name: 'Pull from live' } );
 		expect( pullButton.getAttribute( 'aria-disabled' ) ).not.toBe( 'true' );
 		expect( screen.getByRole( 'button', { name: 'Push to live' } ) ).toBeInTheDocument();
+	} );
+
+	it( 'offers to stop an in-flight push and reports the site being stopped', () => {
+		connectedSites.splice( 0, connectedSites.length, liveSite );
+
+		renderMainView( {
+			activity: { kind: 'pending', direction: 'push', phase: 'uploading' },
+		} );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Cancel push' } ) );
+
+		expect( cancelSyncMutate ).toHaveBeenCalledWith( {
+			siteId: site.id,
+			remoteSiteId: liveSite.id,
+		} );
+		expect( screen.getByRole( 'status' ) ).not.toHaveTextContent( 'can not be cancelled' );
+	} );
+
+	it( 'stops offering to cancel a push once the remote import has started', () => {
+		connectedSites.splice( 0, connectedSites.length, liveSite );
+
+		renderMainView( {
+			activity: { kind: 'pending', direction: 'push', phase: 'applyingChanges' },
+		} );
+
+		const blocked = screen.getByRole( 'button', {
+			name: 'Push can not be cancelled while applying changes to the remote site',
+		} );
+		fireEvent.click( blocked );
+
+		expect( blocked ).toHaveAttribute( 'aria-disabled', 'true' );
+		expect( cancelSyncMutate ).not.toHaveBeenCalled();
+	} );
+
+	it( 'stops offering to cancel a pull once the local import has started', () => {
+		connectedSites.splice( 0, connectedSites.length, liveSite );
+
+		renderMainView( {
+			activity: {
+				kind: 'pending',
+				direction: 'pull',
+				action: 'import',
+				message: 'Importing backup…',
+			},
+		} );
+
+		// The reason doubles as the accessible name, so it reaches the tooltip and
+		// screen readers instead of a bare "Cancel pull" that then does nothing.
+		expect(
+			screen.getByRole( 'button', {
+				name: 'Pull can not be cancelled while importing changes to your local site',
+			} )
+		).toHaveAttribute( 'aria-disabled', 'true' );
+
+		// And stated in the panel itself — a tooltip on a disabled control is a
+		// dead end, since nothing invites you to hover it.
+		expect( screen.getByRole( 'status' ) ).toHaveTextContent(
+			'Pull can not be cancelled while importing changes to your local site'
+		);
 	} );
 
 	it( 'reflects an in-flight pull on both live sync controls', () => {

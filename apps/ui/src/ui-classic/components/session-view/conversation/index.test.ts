@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { createElement, useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { Conversation, entriesToRenderItems } from './index';
+import { Conversation, entriesToRenderItems, getQuestionScrollDelta } from './index';
 import type { LoadedAiSession, SessionEntry } from '@/data/core';
 import type { StudioChatArtifactWidgetDraft } from '@studio/common/ai/chat-artifacts';
 
@@ -62,6 +62,14 @@ describe( 'Assistant message copy button', () => {
 
 		const buttons = screen.getAllByRole( 'button', { name: 'Copy message' } );
 		expect( buttons ).toHaveLength( 1 );
+		expect( screen.getByText( 'First part.' ).closest( '[data-message-text]' ) ).toHaveAttribute(
+			'data-message-text',
+			'First part.\n\nSecond part.'
+		);
+		expect( screen.getByText( 'Second part.' ).closest( '[data-message-text]' ) ).toHaveAttribute(
+			'data-message-text',
+			'First part.\n\nSecond part.'
+		);
 
 		fireEvent.click( buttons[ 0 ] );
 		expect( connectorMocks.copyText ).toHaveBeenCalledWith( 'First part.\n\nSecond part.' );
@@ -619,6 +627,39 @@ describe( 'Conversation turn-closed markers', () => {
 
 	it( 'renders no marker for successful turns', () => {
 		expect( entriesToRenderItems( [ turnClosedEntry( 'success' ) ] ) ).toEqual( [] );
+	} );
+} );
+
+describe( 'getQuestionScrollDelta', () => {
+	// The scroller spans the full column, so its bottom sits *under* the
+	// floating composer. `reservedBottomSpace` is the scroller padding holding
+	// content clear of the composer plus the column's own trailing space, so a
+	// card settles where scrolling to the bottom would put it rather than flush.
+	// Column runs 0-800 with a 120px composer and 20px of trailing space.
+	const container = { containerTop: 0, containerBottom: 800, reservedBottomSpace: 140 };
+
+	it( 'scrolls a question hidden behind the composer fully clear of it', () => {
+		// Card ends at 700, i.e. 40px below the composer's top edge at 660.
+		const delta = getQuestionScrollDelta( {
+			...container,
+			elementTop: 500,
+			elementBottom: 700,
+		} );
+
+		expect( delta ).toBe( 40 );
+		expect( 700 - delta ).toBeLessThanOrEqual( 800 - 140 );
+	} );
+
+	it( 'leaves a question that already clears the composer alone', () => {
+		expect( getQuestionScrollDelta( { ...container, elementTop: 400, elementBottom: 600 } ) ).toBe(
+			0
+		);
+	} );
+
+	it( 'scrolls up to a question cut off at the top, ignoring the bottom clearance', () => {
+		expect( getQuestionScrollDelta( { ...container, elementTop: 4, elementBottom: 300 } ) ).toBe(
+			-8
+		);
 	} );
 } );
 

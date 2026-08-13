@@ -85,6 +85,7 @@ import { Markdown } from '@/components/markdown';
 import { useConnector, type LoadedAiSession } from '@/data/core';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useLocalMediaDataUrl } from '@/data/queries/use-local-media';
+import { MESSAGE_TEXT_ATTRIBUTE, QUOTABLE_TEXT_ATTRIBUTE } from '@/hooks/use-text-context-menu';
 import { refreshIcon } from '@/lib/icons';
 import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
@@ -104,7 +105,7 @@ type RenderItem =
 			text: string;
 			attachments?: StudioChatAttachmentSummary[];
 	  }
-	| { kind: 'assistant-text'; key: string; text: string; copyText?: string }
+	| { kind: 'assistant-text'; key: string; text: string; messageText: string; copyText?: string }
 	| {
 			kind: 'tool-use';
 			key: string;
@@ -149,6 +150,9 @@ interface PiToolResultLike {
 const HIDDEN_TOOL_ROWS = new Set( [ 'studio_present', 'AskUserQuestion' ] );
 const QUESTION_COLLAPSE_DELAY_MS = 650;
 const QUESTION_SCROLL_TOP_MARGIN_PX = 12;
+// Only a pre-layout fallback. The scroller spans the full column with the
+// composer floating over it, so the space to actually keep clear is the
+// scroller's reserved bottom padding, which tracks the live composer height.
 const QUESTION_SCROLL_BOTTOM_CLEARANCE_PX = 96;
 
 function usePrefersReducedMotion(): boolean {
@@ -286,6 +290,7 @@ export function entriesToRenderItems(
 							kind: 'assistant-text',
 							key: `${ entryIndex }:${ blockIndex }:text`,
 							text,
+							messageText: fullMessageText,
 							copyText: block === lastTextBlock ? fullMessageText : undefined,
 						} );
 					}
@@ -413,7 +418,7 @@ function UserTurn( {
 	attachments?: StudioChatAttachmentSummary[];
 } ) {
 	return (
-		<div className={ styles.userTurn }>
+		<div className={ styles.userTurn } { ...{ [ MESSAGE_TEXT_ATTRIBUTE ]: text } }>
 			<div className={ styles.userText }>{ text }</div>
 			{ attachments && attachments.length > 0 ? (
 				<ul className={ styles.userAttachments }>
@@ -447,11 +452,13 @@ function UserTurn( {
 
 function AssistantText( {
 	text,
+	messageText,
 	copyText,
 	showActions,
 	onToggleSelect,
 }: {
 	text: string;
+	messageText: string;
 	copyText?: string;
 	showActions: boolean;
 	onToggleSelect: () => void;
@@ -478,6 +485,10 @@ function AssistantText( {
 		<div
 			className={ styles.assistantTurn }
 			data-actions-open={ showActions ? 'true' : undefined }
+			{ ...{
+				[ MESSAGE_TEXT_ATTRIBUTE ]: messageText,
+				[ QUOTABLE_TEXT_ATTRIBUTE ]: true,
+			} }
 			onClick={ copyText ? handleClick : undefined }
 		>
 			<Markdown>{ text }</Markdown>
@@ -949,6 +960,42 @@ function getNearestScrollContainer( element: HTMLElement ): HTMLElement | null {
 	return null;
 }
 
+function getPaddingBottom( element: HTMLElement ): number {
+	const paddingBottom = parseFloat( window.getComputedStyle( element ).paddingBottom );
+	return Number.isFinite( paddingBottom ) ? paddingBottom : 0;
+}
+
+function getReservedBottomSpace( element: HTMLElement, container: HTMLElement | null ): number {
+	if ( ! container ) {
+		return QUESTION_SCROLL_BOTTOM_CLEARANCE_PX;
+	}
+	// The scroller's padding holds content clear of the floating composer; the
+	// column's own trailing space keeps the card from settling flush against it.
+	let column = element;
+	while ( column.parentElement && column.parentElement !== container ) {
+		column = column.parentElement;
+	}
+	return getPaddingBottom( container ) + getPaddingBottom( column );
+}
+
+export function getQuestionScrollDelta( {
+	elementTop,
+	elementBottom,
+	containerTop,
+	containerBottom,
+	reservedBottomSpace,
+}: {
+	elementTop: number;
+	elementBottom: number;
+	containerTop: number;
+	containerBottom: number;
+	reservedBottomSpace: number;
+} ): number {
+	const topOverflow = elementTop - ( containerTop + QUESTION_SCROLL_TOP_MARGIN_PX );
+	const bottomOverflow = elementBottom - ( containerBottom - reservedBottomSpace );
+	return topOverflow < 0 ? topOverflow : Math.max( bottomOverflow, 0 );
+}
+
 function scrollElementIntoViewIfNeeded( element: HTMLElement, prefersReducedMotion: boolean ) {
 	const container = getNearestScrollContainer( element );
 	const elementRect = element.getBoundingClientRect();
@@ -960,10 +1007,13 @@ function scrollElementIntoViewIfNeeded( element: HTMLElement, prefersReducedMoti
 				bottom: window.innerHeight || document.documentElement.clientHeight,
 				left: 0,
 		  };
-	const topOverflow = elementRect.top - ( containerRect.top + QUESTION_SCROLL_TOP_MARGIN_PX );
-	const bottomOverflow =
-		elementRect.bottom - ( containerRect.bottom - QUESTION_SCROLL_BOTTOM_CLEARANCE_PX );
-	const scrollDelta = topOverflow < 0 ? topOverflow : Math.max( bottomOverflow, 0 );
+	const scrollDelta = getQuestionScrollDelta( {
+		elementTop: elementRect.top,
+		elementBottom: elementRect.bottom,
+		containerTop: containerRect.top,
+		containerBottom: containerRect.bottom,
+		reservedBottomSpace: getReservedBottomSpace( element, container ),
+	} );
 
 	if ( scrollDelta !== 0 ) {
 		const behavior: ScrollBehavior = prefersReducedMotion ? 'auto' : 'smooth';
@@ -1276,6 +1326,7 @@ export function Conversation( {
 							<AssistantText
 								key={ item.key }
 								text={ item.text }
+								messageText={ item.messageText }
 								copyText={ item.copyText }
 								showActions={ selectedKey === item.key || item.key === latestActionableKey }
 								onToggleSelect={ () =>

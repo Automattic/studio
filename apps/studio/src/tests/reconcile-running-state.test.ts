@@ -9,6 +9,7 @@ import { SiteServer, reconcileSitesRunningState } from 'src/site-server';
 // `vi.mock` calls are hoisted above the imports above, so SiteServer sees the mocked CLI plumbing.
 vi.mock( 'src/modules/cli/lib/execute-command', () => ( {
 	executeCliCommand: vi.fn().mockReturnValue( [ new EventEmitter(), { kill: vi.fn() } ] ),
+	getTracksOriginEnv: vi.fn( () => 'studio-ui:v1' ),
 } ) );
 vi.mock( '@sentry/electron/main', () => ( {
 	captureException: vi.fn(),
@@ -103,5 +104,26 @@ describe( 'reconcileSitesRunningState', () => {
 
 		await expect( reconcileSitesRunningState() ).resolves.toBeUndefined();
 		expect( SiteServer.get( 'list-failed' )?.details.running ).toBe( true );
+	} );
+
+	it( 'keeps a site running while it serves a PHP-error page, even though the CLI reports it stopped', async () => {
+		SiteServer.register( {
+			id: 'in-recovery',
+			name: 'in-recovery',
+			path: '/sites/in-recovery',
+			port: 8885,
+			phpVersion: '8.3',
+			running: true,
+			url: 'http://localhost:8885',
+		} );
+		const server = SiteServer.get( 'in-recovery' );
+		if ( server ) {
+			server.inErrorRecovery = true;
+		}
+		mockListSites.mockResolvedValue( [ cliItem( 'in-recovery', false ) ] );
+
+		await reconcileSitesRunningState();
+
+		expect( SiteServer.get( 'in-recovery' )?.details.running ).toBe( true );
 	} );
 } );

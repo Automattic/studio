@@ -17,6 +17,11 @@ export const AUTO_UPDATE_INTERVAL_MS = 60 * 60 * 1000;
 export const NIGHTLY_UPDATE_TTL_MS = 24 * 60 * 60 * 1000;
 export const MACOS_TRAFFIC_LIGHT_POSITION = { x: 20, y: 20 };
 export const WINDOWS_TITLEBAR_HEIGHT = 44;
+// The agentic UI has no title bar of its own to fill, so the controls get their
+// own reserved band (see `WindowTitlebar`) and every pixel of it is empty
+// space. Match Windows 11's native caption-button height rather than the
+// taller strip the classic UI needs for its own top bar.
+export const AGENTIC_TITLEBAR_HEIGHT = 32;
 export const EMPTY_SITE_PLAYGROUND_URL = 'https://playground.wordpress.net/';
 export const ABOUT_WINDOW_WIDTH = 300;
 export const ABOUT_WINDOW_HEIGHT = 350;
@@ -67,8 +72,6 @@ export const IPC_VOID_HANDLERS = [
 	'authenticate',
 ] as const;
 
-// What's New
-// Flip to `true` when shipping new modal content so users who haven't seen the
-// current app version get the modal once. Keep at `false` otherwise — the modal
-// will only auto-show for first-time users of Studio.
-export const FORCE_SHOW_WHATS_NEW = false;
+// What's New. Defined in @studio/common so the agentic UI reads the same switch;
+// re-exported here so existing imports keep working.
+export { FORCE_SHOW_WHATS_NEW } from '@studio/common/lib/whats-new';

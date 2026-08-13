@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { useConnector } from '@/data/core';
 import type { SiteDetails } from '@/data/core';
 
@@ -26,7 +27,7 @@ export function useThemeDetails( site: SiteDetails ): ThemeDetailsStatus {
 	const persisted = site.themeDetails;
 	const canResolve = site.running && Boolean( connector.getThemeDetails );
 
-	const query = useQuery( {
+	const { data, isError, isPending, refetch } = useQuery( {
 		queryKey: themeDetailsQueryKey( site.id ),
 		// React Query rejects `undefined` as data, and "the host doesn't know"
 		// is a legitimate answer here, so it travels as null.
@@ -36,16 +37,28 @@ export function useThemeDetails( site: SiteDetails ): ThemeDetailsStatus {
 		retry: false,
 	} );
 
+	useEffect( () => {
+		if ( ! canResolve ) {
+			return;
+		}
+
+		const refreshThemeDetails = () => {
+			void refetch();
+		};
+		window.addEventListener( 'focus', refreshThemeDetails );
+		return () => window.removeEventListener( 'focus', refreshThemeDetails );
+	}, [ canResolve, refetch ] );
+
+	if ( data ) {
+		return { state: 'ready', details: data };
+	}
 	if ( persisted ) {
 		return { state: 'ready', details: persisted };
-	}
-	if ( query.data ) {
-		return { state: 'ready', details: query.data };
 	}
 	if ( ! canResolve ) {
 		return { state: 'unknown' };
 	}
-	if ( query.isPending && ! query.isError ) {
+	if ( isPending && ! isError ) {
 		return { state: 'loading' };
 	}
 	return { state: 'unknown' };

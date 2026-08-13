@@ -528,13 +528,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 					getDraft={ () => composerRef.current?.getDraft() ?? { text: '', hasAttachments: false } }
 				/>
 			) : null }
-			<div
-				className={ clsx(
-					styles.classicColumn,
-					styles.classicConversationSpacing,
-					pendingQuestions.length > 0 && styles.classicConversationWithQuestions
-				) }
-			>
+			<div className={ clsx( styles.classicColumn, styles.classicConversationSpacing ) }>
 				<Conversation
 					data={ data }
 					isRunning={ isRunning }

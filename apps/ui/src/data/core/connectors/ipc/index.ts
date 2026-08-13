@@ -37,6 +37,7 @@ import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { StoredAuthToken } from '@studio/common/lib/auth-token-schema';
 import type { SiteEvent } from '@studio/common/lib/cli-events';
 import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
+import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 function generateBackupFilename( siteName: string ): string {
@@ -553,16 +554,16 @@ export function createIpcConnector(): Connector {
 			);
 		},
 
-		async pushSiteToLive( siteId, remoteSiteId ): Promise< void > {
+		async pushSiteToLive( siteId, remoteSiteId, options ): Promise< void > {
 			// The agentic UI pushes via the shared `pushSite` (export → TUS
 			// upload → import) in both desktop and `studio ui`; the desktop runs
 			// it behind this single IPC handler. Resolves once the import is
 			// initiated (the remote import may still be running).
-			await ipcApi.pushSiteToLive( siteId, remoteSiteId );
+			await ipcApi.pushSiteToLive( siteId, remoteSiteId, options );
 			await markConnectedWpcomSiteSynced( siteId, remoteSiteId, 'push' );
 		},
 
-		async pullSiteFromLive( siteId, remoteSiteId, onProgress ): Promise< void > {
+		async pullSiteFromLive( siteId, remoteSiteId, onProgress, options ): Promise< void > {
 			const unsubscribe = onProgress
 				? ipcListener.subscribe(
 						'sync-pull-progress',
@@ -580,11 +581,42 @@ export function createIpcConnector(): Connector {
 				  )
 				: undefined;
 			try {
-				await ipcApi.pullSiteFromLive( siteId, remoteSiteId );
+				await ipcApi.pullSiteFromLive( siteId, remoteSiteId, options );
 			} finally {
 				unsubscribe?.();
 			}
 			await markConnectedWpcomSiteSynced( siteId, remoteSiteId, 'pull' );
+		},
+
+		async getLatestRewindId( remoteSiteId ): Promise< string | null > {
+			return ( await ipcApi.getLatestRewindId( remoteSiteId ) ) as string | null;
+		},
+
+		async listRemoteFileTree( remoteSiteId, rewindId, path ): Promise< Record< string, unknown > > {
+			return ( await ipcApi.listRemoteFileTree( remoteSiteId, rewindId, path ) ) as Record<
+				string,
+				unknown
+			>;
+		},
+
+		async getHostingPhpVersion( remoteSiteId ): Promise< string | undefined > {
+			return ( await ipcApi.getHostingPhpVersion( remoteSiteId ) ) as string | undefined;
+		},
+
+		async listLocalFileTree( siteId, path, depth ): Promise< RawDirectoryEntry[] > {
+			return ( await ipcApi.listLocalFileTree( siteId, path, depth ) ) as RawDirectoryEntry[];
+		},
+
+		async getDirectorySize( siteId, path ): Promise< number > {
+			return ( await ipcApi.getDirectorySize( siteId, path ) ) as number;
+		},
+
+		async getFileSize( siteId, path ): Promise< number > {
+			return ( await ipcApi.getFileSize( siteId, path ) ) as number;
+		},
+
+		async getIsMultisite( siteId ): Promise< boolean | undefined > {
+			return ( await ipcApi.getIsMultisite( siteId ) ) as boolean | undefined;
 		},
 
 		getPublishCheckoutUrl( site ): string {

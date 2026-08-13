@@ -56,8 +56,10 @@ vi.mock( '@/data/queries/use-preview-site', () => ( {
 } ) );
 
 vi.mock( '@/data/queries/use-sites', () => ( {
+	useIsSiteBusy: () => transitions.starting || transitions.stopping,
 	useIsSiteStarting: () => transitions.starting,
 	useIsSiteStopping: () => transitions.stopping,
+	useSiteOperation: () => null,
 	useStartSite: () => ( { mutate: startSiteMutate } ),
 	useStopSite: () => ( { mutate: stopSiteMutate } ),
 } ) );
@@ -111,6 +113,8 @@ function renderMainView( {
 					activity={ activity }
 					onSetupClick={ vi.fn() }
 					onDisconnectClick={ vi.fn() }
+					onPullClick={ vi.fn() }
+					onPushClick={ vi.fn() }
 				/>
 			</Menu.Popup>
 		</Menu.Root>

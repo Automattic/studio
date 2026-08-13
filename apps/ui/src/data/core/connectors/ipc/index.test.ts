@@ -184,7 +184,7 @@ describe( 'createIpcConnector Connect contracts', () => {
 
 		await createIpcConnector().pullSiteFromLive( 'site-1', 42, onProgress );
 
-		expect( pullSiteFromLive ).toHaveBeenCalledWith( 'site-1', 42 );
+		expect( pullSiteFromLive ).toHaveBeenCalledWith( 'site-1', 42, undefined );
 		expect( onProgress ).toHaveBeenCalledOnce();
 		expect( onProgress ).toHaveBeenCalledWith( {
 			message: 'Downloading backup… (50%)',

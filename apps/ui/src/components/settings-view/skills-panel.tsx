@@ -9,6 +9,7 @@ import {
 	useRemoveWordPressSkill,
 	useWordPressSkills,
 } from '@/data/queries/use-wordpress-skills';
+import { SettingsCard } from './settings-card';
 import styles from './style.module.css';
 import type { SkillStatus } from '@/data/core';
 
@@ -28,10 +29,10 @@ function SkillRow( {
 	onToggle: () => void;
 } ) {
 	return (
-		<li className={ styles.skillRow }>
-			<div className={ styles.skillDetails }>
-				<span className={ styles.skillName }>{ skill.displayName }</span>
-				<span className={ styles.skillDescription }>{ skill.description }</span>
+		<li className={ styles.listRow }>
+			<div className={ styles.listItemText }>
+				<span className={ styles.listItemTitle }>{ skill.displayName }</span>
+				<span className={ styles.listItemDescription }>{ skill.description }</span>
 			</div>
 			<FormToggle
 				checked={ checked }
@@ -69,41 +70,42 @@ export function SkillsPanel() {
 
 	return (
 		<div className={ styles.skillsPanel }>
-			<section className={ styles.settingsPanelSection }>
-				<div className={ styles.settingsPanelHeader }>
-					<div className={ styles.skillsHeaderRow }>
-						<h2>{ __( 'Skills' ) }</h2>
-						{ availableSkills.length > 0 ? (
-							<Button
-								type="button"
-								variant="outline"
-								tone="neutral"
-								size="compact"
-								disabled={ installAllSkills.isPending }
-								loading={ installAllSkills.isPending }
-								loadingAnnouncement={ __( 'Installing all skills' ) }
-								onClick={ () =>
-									installAllSkills.mutate( availableSkills.map( ( skill ) => skill.id ) )
-								}
-							>
-								{ __( 'Install all' ) }
-							</Button>
-						) : null }
-					</div>
-					<p>
+			<SettingsCard
+				title={ __( 'Skills' ) }
+				description={
+					<>
 						{ __(
 							'Skills are reusable instructions that teach agents how to complete specialized WordPress tasks. Enable the ones you want Studio to add to sites so agents have the right context before they start working.'
 						) }{ ' ' }
 						<LearnMoreLink docsLinksKey="docsSkills" />
-					</p>
-				</div>
+					</>
+				}
+				actions={
+					availableSkills.length > 0 ? (
+						<Button
+							type="button"
+							variant="outline"
+							tone="neutral"
+							size="compact"
+							disabled={ installAllSkills.isPending }
+							loading={ installAllSkills.isPending }
+							loadingAnnouncement={ __( 'Installing all skills' ) }
+							onClick={ () =>
+								installAllSkills.mutate( availableSkills.map( ( skill ) => skill.id ) )
+							}
+						>
+							{ __( 'Install all' ) }
+						</Button>
+					) : undefined
+				}
+			>
 				{ visibleError ? <div className={ styles.errorMessage }>{ visibleError }</div> : null }
 				{ isLoading ? <div className={ styles.state }>{ __( 'Loading skills…' ) }</div> : null }
 				{ ! isLoading && skillList.length === 0 ? (
 					<div className={ styles.state }>{ __( 'No skills are available.' ) }</div>
 				) : null }
 				{ skillList.length > 0 ? (
-					<ul className={ styles.skillList }>
+					<ul className={ styles.list }>
 						{ skillList.map( ( skill ) => (
 							<SkillRow
 								key={ skill.id }
@@ -115,7 +117,7 @@ export function SkillsPanel() {
 						) ) }
 					</ul>
 				) : null }
-			</section>
+			</SettingsCard>
 		</div>
 	);
 }

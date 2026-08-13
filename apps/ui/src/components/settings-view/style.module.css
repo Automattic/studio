@@ -195,6 +195,126 @@
 	background: color-mix( in srgb, var( --wpds-color-bg-surface-neutral-weak ) 56%, transparent );
 }
 
+.card {
+	box-sizing: border-box;
+	display: flex;
+	flex-direction: column;
+	gap: var( --wpds-dimension-padding-lg );
+	padding: var( --wpds-dimension-padding-lg ) var( --wpds-dimension-padding-xl )
+		var( --wpds-dimension-padding-xl );
+	border: 1px solid var( --wpds-color-stroke-surface-neutral );
+	border-radius: 8px;
+	background: color-mix( in srgb, var( --wpds-color-bg-surface-neutral-weak ) 56%, transparent );
+}
+
+.cardHeader {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: var( --wpds-dimension-padding-xl );
+}
+
+.cardHeaderText {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	gap: var( --wpds-dimension-padding-xs );
+	min-width: 0;
+}
+
+.cardTitle {
+	margin: 0;
+	color: var( --wpds-color-fg-content-neutral );
+	font-size: var( --wpds-typography-font-size-lg );
+	font-weight: 600;
+	line-height: var( --wpds-typography-line-height-md );
+}
+
+.cardDescription {
+	margin: 0;
+	color: var( --wpds-color-fg-content-neutral-weak );
+	font-size: var( --wpds-typography-font-size-sm );
+	line-height: var( --wpds-typography-line-height-sm );
+}
+
+.cardHeaderActions {
+	display: flex;
+	align-items: center;
+	gap: var( --wpds-dimension-padding-md );
+	flex-shrink: 0;
+	flex-wrap: wrap;
+	min-block-size: 32px;
+}
+
+.list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.field {
+	display: grid;
+	grid-template-columns: minmax( 0, 1fr ) max-content;
+	align-items: center;
+	column-gap: var( --wpds-dimension-padding-xl );
+	padding-block: var( --settings-row-padding-block );
+	border-bottom: var( --settings-divider-border );
+}
+
+.field:first-child {
+	padding-block-start: 0;
+}
+
+.field:last-child {
+	padding-block-end: 0;
+	border-bottom: 0;
+}
+
+.fieldLabel {
+	color: var( --wpds-color-fg-content-neutral );
+	font-size: var( --wpds-typography-font-size-md );
+	font-weight: 400;
+	line-height: var( --wpds-typography-line-height-sm );
+}
+
+.listRow {
+	display: grid;
+	grid-template-columns: minmax( 0, 1fr ) auto;
+	align-items: center;
+	column-gap: var( --wpds-dimension-padding-xl );
+	padding-block: var( --wpds-dimension-padding-lg );
+	border-bottom: var( --settings-divider-border );
+}
+
+.listRow:first-child {
+	padding-block-start: 0;
+}
+
+.listRow:last-child {
+	padding-block-end: 0;
+	border-bottom: 0;
+}
+
+.listItemText {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.listItemTitle {
+	color: var( --wpds-color-fg-content-neutral );
+	font-size: var( --wpds-typography-font-size-sm );
+	font-weight: 600;
+	line-height: var( --wpds-typography-line-height-sm );
+}
+
+.listItemDescription {
+	color: var( --wpds-color-fg-content-neutral-weak );
+	font-size: var( --wpds-typography-font-size-sm );
+	line-height: var( --wpds-typography-line-height-sm );
+}
+
 .preferenceSectionHeading {
 	margin: 0 0 var( --wpds-dimension-padding-md );
 	color: var( --wpds-color-fg-content-neutral );
@@ -566,31 +686,36 @@
 	line-height: var( --wpds-typography-line-height-sm );
 }
 
-.shortcutList {
-	list-style: none;
+.shortcutGroup {
+	display: flex;
+	flex-direction: column;
+	gap: var( --wpds-dimension-padding-sm );
+}
+
+.shortcutGroupTitle {
 	margin: 0;
-	padding: 0;
-}
-
-.shortcutRow {
-	display: grid;
-	grid-template-columns: minmax( 0, 1fr ) auto;
-	align-items: center;
-	column-gap: var( --wpds-dimension-padding-xl );
-	padding-block: var( --settings-row-padding-block );
-	border-bottom: var( --settings-divider-border );
-}
-
-.shortcutRow:last-child {
-	padding-block-end: 0;
-	border-bottom: 0;
-}
-
-.shortcutName {
 	color: var( --wpds-color-fg-content-neutral );
 	font-size: var( --wpds-typography-font-size-md );
-	font-weight: 400;
+	font-weight: 600;
 	line-height: var( --wpds-typography-line-height-sm );
+}
+
+.shortcutColumns {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	margin-inline: calc( -1 * var( --wpds-dimension-padding-xl ) );
+	padding-inline: var( --wpds-dimension-padding-xl );
+	padding-block-start: var( --wpds-dimension-padding-lg );
+	border-block-start: 1px solid var( --wpds-color-stroke-surface-neutral );
+}
+
+.shortcutColumns > .shortcutGroup:first-child {
+	padding-inline-end: var( --wpds-dimension-padding-2xl );
+}
+
+.shortcutColumns > .shortcutGroup + .shortcutGroup {
+	padding-inline-start: var( --wpds-dimension-padding-2xl );
+	border-inline-start: 1px solid var( --wpds-color-stroke-surface-neutral );
 }
 
 .shortcutKeys {
@@ -678,63 +803,6 @@
 	line-height: var( --wpds-typography-line-height-md );
 }
 
-.skillsHeaderRow {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: var( --wpds-dimension-padding-md );
-	/* Compact wpds Button height, reserved so the header doesn't jump when
-	   the Install all button appears or disappears. */
-	min-block-size: 32px;
-}
-
-.skillList {
-	list-style: none;
-	margin: 0;
-	padding: 0;
-	border-top: 1px solid var( --wpds-color-stroke-surface-neutral );
-}
-
-.skillRow {
-	display: grid;
-	grid-template-columns: minmax( 0, 1fr ) auto;
-	align-items: center;
-	gap: var( --wpds-dimension-padding-xl );
-	padding-block: var( --wpds-dimension-padding-lg );
-	border-bottom: 1px solid var( --wpds-color-stroke-surface-neutral );
-}
-
-.skillRow:last-child {
-	border-bottom: 0;
-}
-
-.skillDetails {
-	display: flex;
-	flex-direction: column;
-	gap: 2px;
-	min-width: 0;
-}
-
-.skillName {
-	color: var( --wpds-color-fg-content-neutral );
-	font-size: var( --wpds-typography-font-size-sm );
-	font-weight: 600;
-	line-height: var( --wpds-typography-line-height-sm );
-}
-
-.skillDescription {
-	color: var( --wpds-color-fg-content-neutral-weak );
-	font-size: var( --wpds-typography-font-size-sm );
-	line-height: var( --wpds-typography-line-height-sm );
-}
-
-.sectionIntro {
-	margin: 0 0 var( --wpds-dimension-padding-lg );
-	color: var( --wpds-color-fg-content-neutral-weak );
-	font-size: var( --wpds-typography-font-size-sm );
-	line-height: var( --wpds-typography-line-height-md );
-}
-
 .codeBlockWrap {
 	position: relative;
 }
@@ -795,10 +863,33 @@
 }
 
 @media ( max-width: 640px ) {
-	.preferenceRow {
+	.preferenceRow,
+	.field,
+	.listRow {
 		align-items: stretch;
 		grid-template-columns: 1fr;
 		row-gap: var( --wpds-dimension-padding-sm );
+	}
+
+	.cardHeader {
+		flex-direction: column;
+		gap: var( --wpds-dimension-padding-md );
+	}
+
+	.shortcutColumns {
+		grid-template-columns: 1fr;
+		gap: var( --wpds-dimension-padding-lg );
+	}
+
+	.shortcutColumns > .shortcutGroup:first-child,
+	.shortcutColumns > .shortcutGroup + .shortcutGroup {
+		padding-inline: 0;
+		border-inline-start: 0;
+	}
+
+	.shortcutColumns > .shortcutGroup + .shortcutGroup {
+		padding-block-start: var( --wpds-dimension-padding-lg );
+		border-block-start: 1px solid var( --wpds-color-stroke-surface-neutral );
 	}
 
 	.accountSectionHeader,
@@ -811,10 +902,6 @@
 		white-space: normal;
 	}
 
-	.skillRow {
-		align-items: stretch;
-		grid-template-columns: 1fr;
-	}
 }
 
 .wapuuScoreHeading {

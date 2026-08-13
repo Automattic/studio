@@ -140,17 +140,30 @@ function SessionFrame( {
 				'--classic-header-height',
 				`${ headerRef.current?.offsetHeight ?? 0 }px`
 			);
-			root.style.setProperty(
-				'--classic-composer-height',
-				`${ composerRef.current?.offsetHeight ?? 0 }px`
+			const composerHeight = composerRef.current?.offsetHeight ?? 0;
+			root.style.setProperty( '--classic-composer-height', `${ composerHeight }px` );
+			// The collapsed-sidebar toast shelf lives in the layout's <main>, an
+			// ancestor of this root, so it can't inherit the value from here.
+			// Publishing it on the document lets the shelf ride above the composer
+			// however it grows — wrapped text, attachments, or the resize handle.
+			document.documentElement.style.setProperty(
+				'--app-main-composer-height',
+				`${ composerHeight }px`
 			);
 		};
 
 		updateChromeSize();
 
+		// Views without a composer must fall back to the shelf's 0px default.
+		const clearComposerHeight = () =>
+			document.documentElement.style.removeProperty( '--app-main-composer-height' );
+
 		if ( typeof ResizeObserver === 'undefined' ) {
 			window.addEventListener( 'resize', updateChromeSize );
-			return () => window.removeEventListener( 'resize', updateChromeSize );
+			return () => {
+				window.removeEventListener( 'resize', updateChromeSize );
+				clearComposerHeight();
+			};
 		}
 
 		const resizeObserver = new ResizeObserver( updateChromeSize );
@@ -161,7 +174,10 @@ function SessionFrame( {
 			resizeObserver.observe( composerRef.current );
 		}
 
-		return () => resizeObserver.disconnect();
+		return () => {
+			resizeObserver.disconnect();
+			clearComposerHeight();
+		};
 	}, [] );
 
 	return (

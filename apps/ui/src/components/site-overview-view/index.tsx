@@ -34,7 +34,7 @@ import { DATABASE_HOME_PATH } from '@/components/site-preview/address-bar';
 import { isSiteSettingsTab, SiteSettingsForm } from '@/components/site-settings-view';
 import * as Tabs from '@/components/tabs';
 import { useConnector } from '@/data/core';
-import { useIsSiteStarting, useIsSiteStopping, useSites } from '@/data/queries/use-sites';
+import { useIsSiteBusy, useSites } from '@/data/queries/use-sites';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useWpVersion } from '@/data/queries/use-wordpress-versions';
 import { useOpenSiteUrl } from '@/hooks/use-open-site-url';
@@ -235,18 +235,15 @@ function SiteOverviewBody( {
 } ) {
 	const navigate = useNavigate();
 	const connector = useConnector();
-	const isStarting = useIsSiteStarting( site.id );
-	const isStopping = useIsSiteStopping( site.id );
 	const [ deleteOpen, setDeleteOpen ] = useState( false );
 	const importInputRef = useRef< HTMLInputElement >( null );
 	const backupImport = useSiteBackupImport( site );
 	const managementActions = useSiteManagementActions( site, {
 		onDelete: () => setDeleteOpen( true ),
 		onImport: () => importInputRef.current?.click(),
-		isImporting: backupImport.isImporting,
 	} );
 
-	const busy = isStarting || isStopping;
+	const busy = useIsSiteBusy( site );
 	const themeDetails = site.themeDetails;
 	const isBlockTheme = themeDetails?.isBlockTheme === true;
 	const { data: wpVersion } = useWpVersion( site.id );

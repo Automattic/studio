@@ -23,18 +23,17 @@ import { DeleteSiteDialog } from '@/components/delete-site-dialog';
 import * as Menu from '@/components/menu';
 import { ReorderableList } from '@/components/reorderable-list';
 import { SidebarButton } from '@/components/sidebar-button';
-import { deriveSiteStatus } from '@/components/site-dropdown/utils';
+import { deriveSiteStatus, getSiteStatusName } from '@/components/site-dropdown/utils';
 import { XdebugIcon } from '@/components/xdebug-icon';
 import { useConnector } from '@/data/core';
 import { useSiteAgentActivity, type SiteAgentActivity } from '@/data/queries/use-agent-run';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useSessions } from '@/data/queries/use-sessions';
 import {
-	useCopySite,
-	useExportDatabase,
-	useExportFullSite,
+	useIsSiteBusy,
 	useIsSiteStarting,
 	useIsSiteStopping,
+	useSiteOperation,
 	useSites,
 	useStartSite,
 	useStopSite,
@@ -42,6 +41,11 @@ import {
 } from '@/data/queries/use-sites';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSiteSyncActivity } from '@/data/sync-activity';
+import {
+	useSiteManagementActions,
+	type SiteManagementAction,
+	type SiteManagementActionId,
+} from '@/hooks/use-site-management-actions';
 import { getSiteUrl } from '@/lib/get-site-url';
 import styles from './style.module.css';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
@@ -243,16 +247,17 @@ function SiteStatusButton( {
 } ) {
 	const startSite = useStartSite();
 	const stopSite = useStopSite();
-	const { status } = deriveSiteStatus( site, isStarting, isStopping );
-	const busy = isStarting || isStopping;
-	const statusName =
-		status === 'running'
-			? __( 'Running' )
-			: status === 'transitioning'
-			? isStopping
-				? __( 'Stopping' )
-				: __( 'Starting' )
-			: __( 'Stopped' );
+	const busy = useIsSiteBusy( site );
+	const operation = useSiteOperation( site );
+	const { status } = deriveSiteStatus( site, isStarting, isStopping, operation );
+	// The recorded operation wins: it names work this window didn't start (an
+	// agent restart, another Studio window) that local start/stop state can't see.
+	const statusName = getSiteStatusName( {
+		running: site.running,
+		starting: isStarting,
+		stopping: isStopping,
+		operation,
+	} );
 	const xdebug = Boolean( site.enableXdebug );
 	const tooltipLabel = xdebug
 		? sprintf( __( 'Site status: %s. Xdebug enabled' ), statusName )
@@ -337,13 +342,11 @@ function SiteActionsMenu( {
 	site,
 	sessionIds,
 	isStarting,
-	isStopping,
 	trigger,
 }: {
 	site: SiteDetails;
 	sessionIds: string[];
 	isStarting: boolean;
-	isStopping: boolean;
 	trigger: ReactElement;
 } ) {
 	const navigate = useNavigate();
@@ -352,12 +355,14 @@ function SiteActionsMenu( {
 	const { data: userPreferences } = useUserPreferences();
 	const startSite = useStartSite();
 	const stopSite = useStopSite();
-	const copySite = useCopySite();
-	const exportFullSite = useExportFullSite();
-	const exportDatabase = useExportDatabase();
-	const busy = isStarting || isStopping;
-	const isExporting = exportFullSite.isPending || exportDatabase.isPending;
+	const busy = useIsSiteBusy( site );
 	const [ deleteOpen, setDeleteOpen ] = useState( false );
+	// Same source as the overview screen's Manage section, so the two can't drift
+	// on what's blocked or what's in flight. Only the labels differ here.
+	const manage = useSiteManagementActions( site, { onDelete: () => setDeleteOpen( true ) } );
+	const manageById = Object.fromEntries(
+		manage.map( ( action ) => [ action.id, action ] )
+	) as Record< SiteManagementActionId, SiteManagementAction >;
 
 	const stopMenuEventPropagation = (
 		event: MouseEvent< HTMLElement > | ReactPointerEvent< HTMLElement >
@@ -444,8 +449,11 @@ function SiteActionsMenu( {
 					>
 						{ __( 'Site settings' ) }
 					</Menu.Item>
-					<Menu.Item disabled={ copySite.isPending } onClick={ () => copySite.mutate( site.id ) }>
-						{ copySite.isPending ? __( 'Duplicating…' ) : __( 'Duplicate site' ) }
+					<Menu.Item
+						disabled={ manageById.duplicate.disabled }
+						onClick={ manageById.duplicate.run }
+					>
+						{ manageById.duplicate.loading ? __( 'Duplicating…' ) : __( 'Duplicate site' ) }
 					</Menu.Item>
 					<Menu.Separator />
 					<Menu.Item onClick={ handleOpenFolder }>{ __( 'Open folder' ) }</Menu.Item>
@@ -474,17 +482,20 @@ function SiteActionsMenu( {
 						{ __( 'Open WP admin' ) }
 					</Menu.Item>
 					<Menu.Separator />
-					<Menu.Item disabled={ isExporting } onClick={ () => exportFullSite.mutate( site.id ) }>
-						{ exportFullSite.isPending ? __( 'Exporting…' ) : __( 'Export entire site' ) }
+					<Menu.Item disabled={ manageById.export.disabled } onClick={ manageById.export.run }>
+						{ manageById.export.loading ? __( 'Exporting…' ) : __( 'Export entire site' ) }
 					</Menu.Item>
-					<Menu.Item disabled={ isExporting } onClick={ () => exportDatabase.mutate( site.id ) }>
-						{ exportDatabase.isPending ? __( 'Exporting…' ) : __( 'Export database' ) }
+					<Menu.Item
+						disabled={ manageById[ 'export-db' ].disabled }
+						onClick={ manageById[ 'export-db' ].run }
+					>
+						{ manageById[ 'export-db' ].loading ? __( 'Exporting…' ) : __( 'Export database' ) }
 					</Menu.Item>
 					<Menu.Separator />
 					<Menu.Item
-						destructive
-						onClick={ () => setDeleteOpen( true ) }
-						disabled={ busy || copySite.isPending || isExporting }
+						destructive={ manageById.delete.destructive }
+						onClick={ manageById.delete.run }
+						disabled={ manageById.delete.disabled }
 					>
 						{ __( 'Delete site' ) }
 					</Menu.Item>
@@ -532,7 +543,7 @@ function SiteSection( {
 	}, [ isActive ] );
 	const isStarting = useIsSiteStarting( site.id );
 	const isStopping = useIsSiteStopping( site.id );
-	const { status } = deriveSiteStatus( site, isStarting, isStopping );
+	const { status } = deriveSiteStatus( site, isStarting, isStopping, useSiteOperation( site ) );
 	const agentActivity = useSiteAgentActivity( row.sessionIds );
 	const syncActivity = useSiteSyncActivity( site.id );
 	// Import gets a row indicator of its own alongside push/pull: it is the only
@@ -590,7 +601,6 @@ function SiteSection( {
 				site={ site }
 				sessionIds={ row.sessionIds }
 				isStarting={ isStarting }
-				isStopping={ isStopping }
 				trigger={
 					<header className={ styles.siteHeader } onClick={ handleOpenSite }>
 						<div className={ styles.siteText }>

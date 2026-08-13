@@ -1,6 +1,16 @@
 import { __ } from '@wordpress/i18n';
 import { copy, download, grid, trash, upload } from '@wordpress/icons';
-import { useCopySite, useExportDatabase, useExportFullSite } from '@/data/queries/use-sites';
+import {
+	COPY_SITE_MUTATION_KEY,
+	EXPORT_DATABASE_MUTATION_KEY,
+	EXPORT_FULL_SITE_MUTATION_KEY,
+	useCopySite,
+	useExportDatabase,
+	useExportFullSite,
+	useIsSiteBusy,
+	useIsSiteMutating,
+} from '@/data/queries/use-sites';
+import { useSiteSyncActivity } from '@/data/sync-activity';
 import type { SiteDetails } from '@/data/core';
 import type { ReactElement, SVGProps } from 'react';
 
@@ -31,55 +41,74 @@ export interface SiteManagementAction {
  * Import and Delete both need surface-owned UI (a file picker plus an overwrite
  * confirmation, and a confirmation dialog whose "deleted" navigation differs per
  * surface), so this hook doesn't own either: pass `onImport` / `onDelete` and the
- * matching action's `run` calls them. `isImporting` comes back in from the surface
- * running the import so exports and imports can block each other.
+ * matching action's `run` calls them. Import is omitted entirely on surfaces
+ * that don't pass `onImport`, since they have nowhere to host that UI.
  */
 export function useSiteManagementActions(
 	site: SiteDetails,
-	{
-		onDelete,
-		onImport,
-		isImporting,
-	}: { onDelete: () => void; onImport: () => void; isImporting: boolean }
+	{ onDelete, onImport }: { onDelete: () => void; onImport?: () => void }
 ): SiteManagementAction[] {
 	const copySite = useCopySite();
 	const exportFullSite = useExportFullSite();
 	const exportDatabase = useExportDatabase();
 
+	// Read from the mutation cache rather than each mutation's own `isPending`,
+	// so progress survives navigating away and back — the observers these hooks
+	// create die with the screen, the cache entries don't.
+	const isDuplicating = useIsSiteMutating( site.id, COPY_SITE_MUTATION_KEY );
+	const isExportingFullSite = useIsSiteMutating( site.id, EXPORT_FULL_SITE_MUTATION_KEY );
+	const isExportingDatabase = useIsSiteMutating( site.id, EXPORT_DATABASE_MUTATION_KEY );
+
 	// Full-site and database exports share one backend queue, so either
-	// running disables both. An import rewrites the files being read, so it
-	// blocks exports too — and vice versa.
-	const isExporting = exportFullSite.isPending || exportDatabase.isPending;
-	const isBusy = isExporting || isImporting;
+	// running disables both.
+	const isExporting = isExportingFullSite || isExportingDatabase;
+
+	// Every one of these reads or rewrites the site tree, so none should run
+	// while an operation holds the site — including work started by the agent or
+	// another window. Delete would be refused by the CLI; the rest are disabled
+	// here because reading a site mid-delete or mid-restart is not worth doing.
+	const isBusy = useIsSiteBusy( site );
+
+	// Import is deliberately not a `SITE_OPERATIONS` kind — a sync can hold a
+	// site for tens of minutes, which costs more than it protects — so the CLI
+	// won't refuse these. Guard the write window here instead: an import
+	// replaces the files and database the others read from.
+	const activity = useSiteSyncActivity( site.id );
+	const isImporting = activity?.kind === 'pending' && activity.direction === 'import';
+	const isWriting = isBusy || isImporting;
 
 	return [
 		{
 			id: 'duplicate',
 			icon: copy,
 			label: __( 'Duplicate' ),
-			loading: copySite.isPending,
+			loading: isDuplicating,
 			loadingAnnouncement: __( 'Duplicating site' ),
-			disabled: copySite.isPending,
+			disabled: isWriting,
 			destructive: false,
 			run: () => copySite.mutate( site.id ),
 		},
-		{
-			id: 'import',
-			icon: upload,
-			label: __( 'Import' ),
-			loading: isImporting,
-			loadingAnnouncement: __( 'Importing site' ),
-			disabled: isBusy,
-			destructive: false,
-			run: onImport,
-		},
+		...( onImport
+			? [
+					{
+						id: 'import' as const,
+						icon: upload,
+						label: __( 'Import' ),
+						loading: isImporting,
+						loadingAnnouncement: __( 'Importing site' ),
+						disabled: isWriting || isExporting,
+						destructive: false,
+						run: onImport,
+					},
+			  ]
+			: [] ),
 		{
 			id: 'export',
 			icon: download,
 			label: __( 'Export entire site' ),
-			loading: exportFullSite.isPending,
+			loading: isExportingFullSite,
 			loadingAnnouncement: __( 'Exporting site' ),
-			disabled: isBusy,
+			disabled: isWriting || isExporting,
 			destructive: false,
 			run: () => exportFullSite.mutate( site.id ),
 		},
@@ -87,9 +116,9 @@ export function useSiteManagementActions(
 			id: 'export-db',
 			icon: grid,
 			label: __( 'Export database' ),
-			loading: exportDatabase.isPending,
+			loading: isExportingDatabase,
 			loadingAnnouncement: __( 'Exporting database' ),
-			disabled: isBusy,
+			disabled: isWriting || isExporting,
 			destructive: false,
 			run: () => exportDatabase.mutate( site.id ),
 		},
@@ -99,7 +128,8 @@ export function useSiteManagementActions(
 			label: __( 'Delete' ),
 			loading: false,
 			loadingAnnouncement: '',
-			disabled: false,
+			// Also blocked mid-export: the archive is still being read off disk.
+			disabled: isWriting || isExporting,
 			destructive: true,
 			run: onDelete,
 		},

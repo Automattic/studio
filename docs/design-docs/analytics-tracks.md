@@ -409,6 +409,11 @@ when the initiation context can't be carried to the result. The two Settings sur
 (Account and Usage) both report `settings`, and the site dropdown reports `site_header` for both its
 Preview and Live prompts.
 
+`onboarding` means **first-run** onboarding only — the agentic UI's welcome and tour. Its add-site flow
+also lives under an `/onboarding/*` route namespace (`/onboarding/connect` and friends), but a login
+started there is `add_site`, matching Studio Classic's add-site prompt. Watch for this when adding a
+`source`: the route path is not the surface.
+
 **CLI semantics differ.** `channel=studio-cli` rows never carry `account_type` (the CLI has no signup
 path) and can't produce `failure_reason=access_denied` (there is no in-app deny step — the user pastes a
 token). Account for this before aggregating across channels. The CLI's "already authenticated" early

@@ -161,7 +161,9 @@ function SignedOutView() {
 					<span>{ __( 'Supports staging and production sites.' ) }</span>
 				</li>
 			</ul>
-			<AuthActions className={ styles.authActions } source="onboarding" />
+			{ /* Despite the `/onboarding/connect` path, this is the add-site flow's
+			     "connect a site" step, not first-run onboarding. */ }
+			<AuthActions className={ styles.authActions } source="add_site" />
 		</div>
 	);
 }

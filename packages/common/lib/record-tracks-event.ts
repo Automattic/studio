@@ -39,6 +39,7 @@ export const TRACKS_EVENTS = {
 	SETTING_AGENTIC_FEATURES_CHANGE: 'studio_setting_agentic_features_change',
 	SETTING_UI_CHANGE: 'studio_setting_ui_change',
 	SETTING_INSTRUCTIONS_CHANGE: 'studio_setting_instructions_change',
+	SETTING_AI_PROVIDER_CHANGE: 'studio_setting_ai_provider_change',
 	CODE_MESSAGE_SENT: 'studio_code_message_sent',
 	CODE_TURN_COMPLETED: 'studio_code_turn_completed',
 	CODE_SESSION_CREATED: 'studio_code_session_created',

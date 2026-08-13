@@ -2,6 +2,7 @@ import type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-even
 import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
 import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { AiModelId } from '@studio/common/ai/models';
+import type { AiProviderId, AiSettings } from '@studio/common/ai/providers';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
 import type { SiteEvent } from '@studio/common/lib/cli-events';
 import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
@@ -154,6 +155,9 @@ export interface ConnectorCapabilities {
 	// (~/.studio/knowledge/instructions.md). False when hosted remotely, which
 	// hides the Studio Code settings tab.
 	agentInstructions: boolean;
+	// The host can read/write the AI provider settings in the CLI config. False
+	// (hosted) hides the Anthropic API key section in AI settings.
+	aiSettings: boolean;
 	// The host keeps a Studio log file the user can open (`openStudioLogs`).
 	// Only the desktop app does — the CLI writes site server output to
 	// `~/.studio/daemon/logs` and everything else to the terminal that started
@@ -428,6 +432,13 @@ export interface Connector {
 		content: string,
 		options?: { editSession?: { previousContent: string } }
 	): Promise< void >;
+
+	// AI provider settings stored in the CLI config, gated by
+	// `capabilities.aiSettings`. Clearing the key (null) also falls back to
+	// WordPress.com; `setAiProvider` rejects when the Anthropic key can't be used.
+	getAiSettings(): Promise< AiSettings >;
+	saveAnthropicApiKey( key: string | null ): Promise< AiSettings >;
+	setAiProvider( provider: AiProviderId ): Promise< AiSettings >;
 
 	// Apps detected on disk (editors + terminals). Options in the preferences
 	// form are filtered against this so users can't pick something that isn't

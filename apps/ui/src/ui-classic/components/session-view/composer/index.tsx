@@ -11,6 +11,7 @@ import {
 } from '@studio/common/ai/composer-attachment-preview';
 import { watchComposerFilePaste } from '@studio/common/ai/composer-attachments';
 import { AI_MODELS, getAiModelFamily, getAiModelLabel } from '@studio/common/ai/models';
+import { getAiProviderModels } from '@studio/common/ai/providers';
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
 import { getAiSkillCommands } from '@studio/common/ai/slash-commands';
 import { useQueryClient } from '@tanstack/react-query';
@@ -41,6 +42,7 @@ import {
 import { createPortal } from 'react-dom';
 import * as Menu from '@/components/menu';
 import { useConnector } from '@/data/core';
+import { useAiSettings } from '@/data/queries/use-ai-settings';
 import {
 	primeSessionQueryData,
 	reconcilePrimedSessionQueryData,
@@ -311,6 +313,12 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const resizeDragRef = useRef< { startY: number; startHeight: number } | null >( null );
 	const connector = useConnector();
 	const queryClient = useQueryClient();
+
+	// Only offer models the active AI provider can serve (a saved Anthropic API
+	// key restricts the picker to Anthropic models). Hosts without AI settings
+	// (capabilities.aiSettings false) keep the full list.
+	const { data: aiSettings } = useAiSettings();
+	const availableModels = aiSettings ? getAiProviderModels( aiSettings.provider ) : AI_MODELS;
 
 	const slash = useSlashCommands( {
 		value,
@@ -992,7 +1000,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 										value={ model }
 										onValueChange={ ( value ) => handleModelChange( value as AiModelId ) }
 									>
-										{ AI_MODELS.map( ( { id, label } ) => (
+										{ availableModels.map( ( { id, label } ) => (
 											<Menu.RadioItem key={ id } value={ id }>
 												{ label }
 											</Menu.RadioItem>

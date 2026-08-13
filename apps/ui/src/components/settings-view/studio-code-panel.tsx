@@ -7,6 +7,7 @@ import {
 	useSaveAgentInstructions,
 } from '@/data/queries/use-agent-instructions';
 import styles from './style.module.css';
+import { SAVE_DEBOUNCE_MS } from './use-debounced-save';
 import type { Field, Form } from '@wordpress/dataviews';
 
 interface FormData {
@@ -30,10 +31,6 @@ const FORM: Form = {
 	layout: { type: 'regular', labelPosition: 'top' },
 	fields: [ 'content' ],
 };
-
-// Long enough that a normal typing burst lands as one write, short enough that
-// the save still feels immediate when the user pauses.
-const SAVE_DEBOUNCE_MS = 800;
 
 export function StudioCodePanel() {
 	const { data: saved } = useAgentInstructions();

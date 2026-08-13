@@ -34,6 +34,7 @@ import type {
 	UserPreferences,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
+import type { AiProviderId, AiSettings } from '@studio/common/ai/providers';
 import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 import type { PushOutput } from '@studio/common/types/sync';
 
@@ -128,8 +129,20 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		} );
 		if ( ! response.ok ) {
 			const text = await response.text().catch( () => '' );
+			// Server errors carry a user-facing `{ error }` body — surface that
+			// message directly instead of the transport line.
+			let serverError: string | undefined;
+			try {
+				const payload: unknown = JSON.parse( text );
+				if ( payload && typeof payload === 'object' && 'error' in payload ) {
+					serverError = typeof payload.error === 'string' ? payload.error : undefined;
+				}
+			} catch {
+				// Not JSON; fall through to the transport error.
+			}
 			throw new Error(
-				`${ init?.method ?? 'GET' } ${ path } failed (${ response.status }): ${ text }`
+				serverError ??
+					`${ init?.method ?? 'GET' } ${ path } failed (${ response.status }): ${ text }`
 			);
 		}
 		if ( response.status === 204 ) {
@@ -253,6 +266,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			annotatePreview: false,
 			readLocalMedia: false,
 			agentInstructions: true,
+			aiSettings: true,
 			studioLogs: false,
 			switchToClassicUi: false,
 		},
@@ -821,6 +835,22 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			await api< void >( '/agent-instructions', {
 				method: 'POST',
 				body: JSON.stringify( { content } ),
+			} );
+		},
+
+		async getAiSettings(): Promise< AiSettings > {
+			return api< AiSettings >( '/ai-settings' );
+		},
+		async saveAnthropicApiKey( key: string | null ): Promise< AiSettings > {
+			return api< AiSettings >( '/ai-settings', {
+				method: 'PUT',
+				body: JSON.stringify( { anthropicApiKey: key } ),
+			} );
+		},
+		async setAiProvider( provider: AiProviderId ): Promise< AiSettings > {
+			return api< AiSettings >( '/ai-settings/provider', {
+				method: 'PUT',
+				body: JSON.stringify( { provider } ),
 			} );
 		},
 

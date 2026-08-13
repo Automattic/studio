@@ -8,6 +8,7 @@ import {
 	writeGlobalInstructions,
 } from '@studio/common/ai/global-instructions';
 import { isAiModelId } from '@studio/common/ai/models';
+import { isAiProviderId } from '@studio/common/ai/providers';
 import { createAgentRunManager } from '@studio/common/ai/run-manager';
 import {
 	createOrReuseAiSession,
@@ -24,6 +25,12 @@ import {
 	deleteAiSession,
 	loadAiSession,
 } from '@studio/common/ai/sessions/store';
+import {
+	InvalidAnthropicApiKeyError,
+	readAiSettings,
+	saveAnthropicApiKey,
+	setAiProvider,
+} from '@studio/common/ai/settings-store';
 import { expandSkillCommandPrompt } from '@studio/common/ai/slash-commands';
 import { DEFAULT_TOKEN_LIFETIME_MS } from '@studio/common/constants';
 import { createCliRunner } from '@studio/common/lib/cli-process';
@@ -478,6 +485,43 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			}
 			await writeGlobalInstructions( content );
 			res.status( 204 ).end();
+		} )
+	);
+
+	// --- AI settings — provider + Anthropic API key in shared.json ------------
+	// No `studio_setting_ai_provider_change` — this server has no Tracks emitter. See STU-2247.
+	api.get(
+		'/ai-settings',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			res.json( await readAiSettings() );
+		} )
+	);
+
+	// Write-only: responses carry a truncated preview, never the key. A key
+	// Anthropic rejects answers 400 and is not stored.
+	api.put(
+		'/ai-settings',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const key = req.body?.anthropicApiKey;
+			if ( key !== null && typeof key !== 'string' ) {
+				res.status( 400 ).json( { error: 'anthropicApiKey must be a string or null' } );
+				return;
+			}
+			res.json( await saveAnthropicApiKey( key ) );
+		} )
+	);
+
+	// Answers 400 when Anthropic rejects the saved key, so the UI keeps its
+	// toggle off.
+	api.put(
+		'/ai-settings/provider',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const provider = req.body?.provider;
+			if ( typeof provider !== 'string' || ! isAiProviderId( provider ) ) {
+				res.status( 400 ).json( { error: 'provider must be a known AI provider id' } );
+				return;
+			}
+			res.json( await setAiProvider( provider ) );
 		} )
 	);
 
@@ -1456,6 +1500,10 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	}
 
 	app.use( ( err: unknown, _req: Request, res: Response, _next: ( e?: unknown ) => void ) => {
+		if ( err instanceof InvalidAnthropicApiKeyError ) {
+			res.status( 400 ).json( { error: err.message } );
+			return;
+		}
 		const message = err instanceof Error ? err.message : String( err );
 		res.status( 500 ).json( { error: message } );
 	} );

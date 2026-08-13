@@ -1,3 +1,4 @@
+import { getErrorMessage, stripIpcErrorPrefix } from '@studio/common/lib/error-formatting';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import {
@@ -36,6 +37,7 @@ import type {
 	UserPreferences,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
+import type { AiProviderId, AiSettings } from '@studio/common/ai/providers';
 import type { StoredAuthToken } from '@studio/common/lib/auth-token-schema';
 import type { SiteEvent } from '@studio/common/lib/cli-events';
 import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
@@ -87,6 +89,16 @@ export function createIpcConnector(): Connector {
 	// The IPC connector only runs in Electron, so `navigator` reflects the
 	// desktop OS.
 	const isMacOS = /mac/i.test( navigator.platform || navigator.userAgent );
+
+	// Unwrap Electron's IPC error envelope so user-facing messages (e.g. why a
+	// key was rejected) can be shown as-is.
+	async function unwrapIpcError< T >( call: Promise< T > ): Promise< T > {
+		try {
+			return await call;
+		} catch ( error ) {
+			throw new Error( stripIpcErrorPrefix( getErrorMessage( error ) ?? String( error ) ) );
+		}
+	}
 
 	// Fetches an authenticated WordPress.com endpoint with the stored OAuth
 	// token. Resolves `null` when signed out so callers can degrade gracefully.
@@ -217,6 +229,7 @@ export function createIpcConnector(): Connector {
 			annotatePreview: true,
 			readLocalMedia: true,
 			agentInstructions: true,
+			aiSettings: true,
 			studioLogs: true,
 			switchToClassicUi: true,
 		},
@@ -847,6 +860,16 @@ export function createIpcConnector(): Connector {
 			options: { editSession?: { previousContent: string } } = {}
 		): Promise< void > {
 			await ipcApi.saveGlobalAgentInstructions( content, options );
+		},
+
+		async getAiSettings(): Promise< AiSettings > {
+			return ( await ipcApi.getAiSettings() ) as AiSettings;
+		},
+		async saveAnthropicApiKey( key: string | null ): Promise< AiSettings > {
+			return unwrapIpcError( ipcApi.saveAnthropicApiKey( key ) );
+		},
+		async setAiProvider( provider: AiProviderId ): Promise< AiSettings > {
+			return unwrapIpcError( ipcApi.setAiProvider( provider ) );
 		},
 
 		async getInstalledApps(): Promise< InstalledApps > {

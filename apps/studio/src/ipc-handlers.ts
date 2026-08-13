@@ -57,6 +57,7 @@ import { parseCliError, errorMessageContains } from '@studio/common/lib/cli-erro
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
+import { stripIpcErrorPrefix } from '@studio/common/lib/error-formatting';
 import {
 	calculateDirectorySizeForArchive,
 	isWordPressDirectory,
@@ -258,6 +259,7 @@ export {
 
 export {
 	getAgenticFeaturesEnabled,
+	getAiSettings,
 	getAnalyticsEnabled,
 	getColorScheme,
 	getGlobalAgentInstructions,
@@ -271,10 +273,12 @@ export {
 	previewColorScheme,
 	saveAgenticFeaturesEnabled,
 	saveAnalyticsEnabled,
+	saveAnthropicApiKey,
 	saveColorScheme,
 	saveGlobalAgentInstructions,
 	saveOnboardingHints,
 	saveQuitSitesBehavior,
+	setAiProvider,
 	saveUserEditor,
 	saveUserLocale,
 	saveUserTerminal,
@@ -1852,11 +1856,7 @@ export async function showErrorMessageBox(
 
 	if ( error ) {
 		const simplifiedError = simplifyErrorForDisplay( error );
-		// Remove prepended error message added by IPC handler
-		const filteredError = simplifiedError?.message?.replace(
-			/Error invoking remote method '\w+': Error:/g,
-			''
-		);
+		const filteredError = stripIpcErrorPrefix( simplifiedError?.message ?? '' );
 		detail = `${ message }\n\n${ filteredError }`;
 	}
 

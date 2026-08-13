@@ -292,8 +292,7 @@ export function isThemeActivationUrl( url: string ): boolean {
 		const parsed = new URL( url );
 		return (
 			parsed.pathname.endsWith( '/wp-admin/themes.php' ) &&
-			( parsed.searchParams.get( 'activated' ) === 'true' ||
-				parsed.searchParams.get( 'action' ) === 'activate' )
+			parsed.searchParams.get( 'activated' ) === 'true'
 		);
 	} catch {
 		return false;

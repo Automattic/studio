@@ -87,7 +87,7 @@ describe( 'SitePreview', () => {
 			isThemeActivationUrl(
 				'http://localhost:8881/wp-admin/themes.php?action=activate&stylesheet=twentythirteen'
 			)
-		).toBe( true );
+		).toBe( false );
 		expect( isThemeActivationUrl( 'http://localhost:8881/wp-admin/themes.php' ) ).toBe( false );
 		expect( isThemeActivationUrl( 'not a URL' ) ).toBe( false );
 	} );

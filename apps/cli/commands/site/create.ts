@@ -592,20 +592,15 @@ function cleanupSuccessfulStaticSiteImport( sitePath: string ): void {
 	fs.rmSync( path.join( sitePath, '.studio-import', STATIC_SITE_IMPORT_STATE_FILE ), {
 		force: true,
 	} );
-	fs.rmSync(
-		path.join( sitePath, '.studio-import', STATIC_SITE_IMPORT_CANONICAL_DOCUMENTS_FILE ),
-		{ force: true }
-	);
-	fs.rmSync(
-		path.join( sitePath, '.studio-import', STATIC_SITE_IMPORT_CANONICAL_UPDATES_FILE ),
-		{ force: true }
-	);
+	fs.rmSync( path.join( sitePath, '.studio-import', STATIC_SITE_IMPORT_CANONICAL_DOCUMENTS_FILE ), {
+		force: true,
+	} );
+	fs.rmSync( path.join( sitePath, '.studio-import', STATIC_SITE_IMPORT_CANONICAL_UPDATES_FILE ), {
+		force: true,
+	} );
 }
 
-async function canonicalizeStaticSiteImport(
-	site: SiteData,
-	stagingDir: string
-): Promise< void > {
+async function canonicalizeStaticSiteImport( site: SiteData, stagingDir: string ): Promise< void > {
 	const documentsPath = path.join( stagingDir, STATIC_SITE_IMPORT_CANONICAL_DOCUMENTS_FILE );
 	if ( ! fs.existsSync( documentsPath ) ) {
 		throw new Error( 'Static site import completed without its canonicalization handoff.' );

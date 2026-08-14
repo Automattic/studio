@@ -2,7 +2,7 @@ import { API_KEY_PREVIEW_MARKER } from '@studio/common/ai/providers';
 import { FormToggle, TextControl } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { error as errorIcon } from '@wordpress/icons';
-import { Icon } from '@wordpress/ui';
+import { Button, Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useState } from 'react';
 import { useConnector } from '@/data/core';
@@ -45,15 +45,19 @@ function AnthropicApiKeySection() {
 	const { data: settings } = useAiSettings();
 	const { mutate: saveKey, error } = useSaveAnthropicApiKey();
 	// `undefined` until the user types. The saved key never reaches the client:
-	// the field displays its obfuscated preview (`sk-…***1234`) as the value, so
-	// clearing the field is how the key gets removed.
+	// the field shows its obfuscated preview (`sk-…***1234`) read-only, and the
+	// Remove button is how the key gets deleted — an editable preview would let
+	// a stray edit save a truncated fragment as the key.
 	const [ draft, setDraft ] = useState< string | undefined >( undefined );
 
-	// A draft still carrying the marker is the preview (or an edit of it), never
-	// a real key: don't save it, and leave it legible instead of masking it.
-	const isPreview = draft === undefined || draft.includes( API_KEY_PREVIEW_MARKER );
-	// An emptied field saves `null`, clearing the stored key.
-	useDebouncedSave( isPreview ? undefined : draft.trim() || null, saveKey );
+	const showsPreview = draft === undefined && Boolean( settings?.anthropicApiKeyPreview );
+	// An emptied field saves `null`; the marker check is a belt-and-braces
+	// guard so preview text can never be stored as a key.
+	const pendingSave =
+		draft === undefined || draft.includes( API_KEY_PREVIEW_MARKER )
+			? undefined
+			: draft.trim() || null;
+	useDebouncedSave( pendingSave, saveKey );
 
 	if ( ! settings ) {
 		return null;
@@ -71,16 +75,24 @@ function AnthropicApiKeySection() {
 					</p>
 				</div>
 				<div className={ clsx( styles.apiKeyControls, error && styles.apiKeyControlsError ) }>
-					<TextControl
-						__nextHasNoMarginBottom
-						__next40pxDefaultSize
-						type={ isPreview ? 'text' : 'password' }
-						label={ __( 'Anthropic API key' ) }
-						hideLabelFromVision
-						placeholder={ __( 'Paste your API key: sk-…' ) }
-						value={ draft ?? settings.anthropicApiKeyPreview ?? '' }
-						onChange={ setDraft }
-					/>
+					<div className={ styles.apiKeyFieldRow }>
+						<TextControl
+							__nextHasNoMarginBottom
+							__next40pxDefaultSize
+							type={ showsPreview ? 'text' : 'password' }
+							label={ __( 'Anthropic API key' ) }
+							hideLabelFromVision
+							placeholder={ __( 'Paste your API key: sk-…' ) }
+							value={ showsPreview ? settings.anthropicApiKeyPreview ?? '' : draft ?? '' }
+							readOnly={ showsPreview }
+							onChange={ setDraft }
+						/>
+						{ showsPreview && (
+							<Button variant="outline" onClick={ () => saveKey( null ) }>
+								{ __( 'Remove' ) }
+							</Button>
+						) }
+					</div>
 				</div>
 			</section>
 			{ error && (

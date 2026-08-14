@@ -370,9 +370,13 @@ export async function runCommand( options: {
 
 	let showCapabilitiesOnConnect = ( await readSelectedAiProvider() ) === undefined;
 
-	// Studio Code Desktop defaults to WordPress.com provider.
+	// Studio Code Desktop defaults to WordPress.com provider. A session pinned
+	// to a provider keeps its pin — switchProvider would append a session
+	// context entry overriding it.
 	if ( isJsonMode && showCapabilitiesOnConnect ) {
-		await switchProvider( 'wpcom', false );
+		if ( ! resumeContext.provider ) {
+			await switchProvider( 'wpcom', false );
+		}
 		showCapabilitiesOnConnect = false;
 	}
 

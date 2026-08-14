@@ -27,6 +27,7 @@ vi.mock( '@wordpress/components', () => ( {
 		type?: string;
 		label?: string;
 		placeholder?: string;
+		readOnly?: boolean;
 		onChange: ( value: string ) => void;
 	} ) => (
 		<input
@@ -34,6 +35,7 @@ vi.mock( '@wordpress/components', () => ( {
 			aria-label={ props.label }
 			placeholder={ props.placeholder }
 			value={ props.value }
+			readOnly={ props.readOnly }
 			onChange={ ( event ) => props.onChange( event.target.value ) }
 		/>
 	),
@@ -184,11 +186,9 @@ describe( 'AiPanel', () => {
 
 			const input = screen.getByLabelText( 'Anthropic API key' );
 			expect( input ).toHaveValue( 'sk-ant-api03-tes***1234' );
+			expect( input ).toHaveAttribute( 'readonly' );
 
-			fireEvent.change( input, { target: { value: '' } } );
-			act( () => {
-				vi.advanceTimersByTime( 800 );
-			} );
+			fireEvent.click( screen.getByRole( 'button', { name: 'Remove' } ) );
 
 			expect( saveKey ).toHaveBeenCalledWith( null );
 		} finally {
@@ -196,28 +196,29 @@ describe( 'AiPanel', () => {
 		}
 	} );
 
-	it( 'never saves an edit of the obfuscated preview as a key', async () => {
-		vi.useFakeTimers();
-		try {
-			mockConnector( true, true );
-			mockAiSettings( {
-				provider: 'anthropic-api-key',
-				hasAnthropicApiKey: true,
-				anthropicApiKeyPreview: 'sk-ant-api03-tes***1234',
-			} );
-			render( <AiPanel /> );
+	it( 'shows the saved key read-only so the preview can never be saved as a key', () => {
+		mockConnector( true, true );
+		mockAiSettings( {
+			provider: 'anthropic-api-key',
+			hasAnthropicApiKey: true,
+			anthropicApiKeyPreview: 'sk-ant-api03-tes***1234',
+		} );
+		render( <AiPanel /> );
 
-			fireEvent.change( screen.getByLabelText( 'Anthropic API key' ), {
-				target: { value: 'sk-ant-api03-tes***12' },
-			} );
-			act( () => {
-				vi.advanceTimersByTime( 800 );
-			} );
+		expect( screen.getByLabelText( 'Anthropic API key' ) ).toHaveAttribute( 'readonly' );
+	} );
 
-			expect( saveKey ).not.toHaveBeenCalled();
-		} finally {
-			vi.useRealTimers();
-		}
+	it( 'offers no Remove button when no key is saved', () => {
+		mockConnector( true, true );
+		mockAiSettings( {
+			provider: 'wpcom',
+			hasAnthropicApiKey: false,
+			anthropicApiKeyPreview: null,
+		} );
+		render( <AiPanel /> );
+
+		expect( screen.getByLabelText( 'Anthropic API key' ) ).not.toHaveAttribute( 'readonly' );
+		expect( screen.queryByRole( 'button', { name: 'Remove' } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'shows why saving the key failed', () => {

@@ -117,6 +117,35 @@ describe( 'Composer menu', () => {
 				DEFAULT_MODEL
 			)
 		);
+		expect( connectorMocks.setSessionModel ).not.toHaveBeenCalled();
+	} );
+
+	it( 'routes a provider switch that would cross model families through the confirm dialog', async () => {
+		connectorMocks.capabilities.aiSettings = true;
+		connectorMocks.getAiSettings.mockResolvedValue( {
+			provider: 'wpcom',
+			hasAnthropicApiKey: true,
+			anthropicApiKeyPreview: 'sk-ant-api03-tes***1234',
+		} );
+		const userPrompt = {
+			type: 'custom',
+			id: 'p1',
+			parentId: null,
+			timestamp: '2026-01-01T00:00:00.000Z',
+			customType: 'studio.user_prompt',
+			data: { prompt: 'hi' },
+		} as unknown as SessionEntry;
+		renderComposer( {
+			model: 'gpt-5.6-sol',
+			entries: [ userPrompt ],
+			onSwitchSession: vi.fn(),
+		} );
+
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Select AI provider' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: 'Anthropic API key' } ) );
+
+		expect( await screen.findByText( 'Start a new chat?' ) ).toBeInTheDocument();
+		expect( connectorMocks.setSessionProvider ).not.toHaveBeenCalled();
 	} );
 
 	it( 'hides the provider picker when no Anthropic API key is saved', async () => {

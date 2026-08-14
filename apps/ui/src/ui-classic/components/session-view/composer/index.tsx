@@ -229,7 +229,7 @@ function ComposerPillMenu( {
 	tooltip?: string;
 	triggerLabel: string;
 	value: string;
-	options: readonly { id: string; label: string }[];
+	options: readonly { id: string; label: string; disabled?: boolean }[];
 	onChange: ( value: string ) => void;
 } ) {
 	return (
@@ -250,7 +250,7 @@ function ComposerPillMenu( {
 			<Menu.Popup side="top" align="end">
 				<Menu.RadioGroup value={ value } onValueChange={ onChange }>
 					{ options.map( ( option ) => (
-						<Menu.RadioItem key={ option.id } value={ option.id }>
+						<Menu.RadioItem key={ option.id } value={ option.id } disabled={ option.disabled }>
 							{ option.label }
 						</Menu.RadioItem>
 					) ) }
@@ -401,7 +401,21 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const { data: aiSettings } = useAiSettings();
 	const pinnedProvider = useMemo( () => resolveSessionProvider( entries ?? [] ), [ entries ] );
 	const sessionProvider = pinnedProvider ?? aiSettings?.provider ?? DEFAULT_AI_PROVIDER;
-	const canPickProvider = Boolean( aiSettings?.hasAnthropicApiKey && sessionId );
+	const hasAnthropicApiKey = Boolean( aiSettings?.hasAnthropicApiKey );
+	// Keep the picker when a pinned conversation lost its key, so the user can
+	// switch back to WordPress.com instead of being stranded.
+	const canPickProvider = Boolean(
+		sessionId && ( hasAnthropicApiKey || sessionProvider === 'anthropic-api-key' )
+	);
+	const providerOptions = useMemo(
+		() =>
+			AI_PROVIDER_OPTIONS.map( ( option ) =>
+				option.id === 'anthropic-api-key' && ! hasAnthropicApiKey
+					? { ...option, disabled: true }
+					: option
+			),
+		[ hasAnthropicApiKey ]
+	);
 
 	// Only offer models the conversation's provider can serve. Hosts without AI
 	// settings (capabilities.aiSettings false) keep the full list.
@@ -432,7 +446,10 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 	// Cross-family swap state. We hold the picked model here while the
 	// confirmation dialog is open; nothing is persisted until the user
 	// confirms.
-	const [ pendingFamilyChange, setPendingFamilyChange ] = useState< AiModelId | null >( null );
+	const [ pendingFamilyChange, setPendingFamilyChange ] = useState< {
+		model: AiModelId;
+		provider?: AiProviderId;
+	} | null >( null );
 	const [ familySwitchInFlight, setFamilySwitchInFlight ] = useState( false );
 
 	const setComposerManualTextareaHeight = useCallback( ( height: number | null ) => {
@@ -663,8 +680,18 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		[ appendEntryOptimistically, connector ]
 	);
 
+	const sessionHasTurns = useMemo(
+		() =>
+			( entries ?? [] ).some( ( entry ) =>
+				isStudioCustomEntryOfType( entry, 'studio.user_prompt' )
+			),
+		[ entries ]
+	);
+
 	// Pin THIS conversation to a provider. When the new provider can't serve
 	// the current model, the provider's default rides along in the same entry.
+	// A switch that would cross model families goes through the same confirm
+	// dialog as a cross-family model pick.
 	const handleProviderChange = useCallback(
 		( picked: AiProviderId ) => {
 			if ( picked === sessionProvider ) {
@@ -673,6 +700,14 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 			const nextModel = providerServesModel( picked, model )
 				? model
 				: getAiProviderDefaultModel( picked );
+			if (
+				getAiModelFamily( nextModel ) !== getAiModelFamily( model ) &&
+				onSwitchSession &&
+				sessionHasTurns
+			) {
+				setPendingFamilyChange( { model: nextModel, provider: picked } );
+				return;
+			}
 			// pi resumes from its own `model_change` record, so a switch that
 			// also changes the model writes one alongside the context entry.
 			appendEntryOptimistically( createSessionContextEntry( picked, nextModel ), async ( id ) => {
@@ -682,7 +717,14 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 				}
 			} );
 		},
-		[ appendEntryOptimistically, connector, model, sessionProvider ]
+		[
+			appendEntryOptimistically,
+			connector,
+			model,
+			onSwitchSession,
+			sessionHasTurns,
+			sessionProvider,
+		]
 	);
 
 	const handleModelChange = useCallback(
@@ -696,20 +738,17 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 			// with the agent's actual memory. We skip the prompt when the
 			// session has no user turns yet, or when the parent cannot switch
 			// to a freshly created session.
-			const hasTurns = ( entries ?? [] ).some( ( entry ) =>
-				isStudioCustomEntryOfType( entry, 'studio.user_prompt' )
-			);
 			if (
 				getAiModelFamily( model ) !== getAiModelFamily( picked ) &&
 				onSwitchSession &&
-				hasTurns
+				sessionHasTurns
 			) {
-				setPendingFamilyChange( picked );
+				setPendingFamilyChange( { model: picked } );
 				return;
 			}
 			applySameFamilyModel( picked );
 		},
-		[ applySameFamilyModel, entries, model, onSwitchSession ]
+		[ applySameFamilyModel, model, onSwitchSession, sessionHasTurns ]
 	);
 
 	const cancelFamilyChange = useCallback( () => {
@@ -723,7 +762,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		if ( ! pendingFamilyChange || ! onSwitchSession ) {
 			return;
 		}
-		const pickedModel = pendingFamilyChange;
+		const { model: pickedModel, provider: pickedProvider } = pendingFamilyChange;
 		setFamilySwitchInFlight( true );
 		try {
 			const newSession = await connector.createSession( ownerSiteId );
@@ -752,6 +791,12 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 									entries: [ createModelChangeEntry( pickedModel ) ],
 							  }
 				);
+			}
+			if ( pickedProvider ) {
+				// Best-effort like the model write: the new view can re-pick.
+				await connector
+					.setSessionProvider( newSession.id, pickedProvider, pickedModel )
+					.catch( () => {} );
 			}
 			await reconcilePrimedSessionQueryData( queryClient, newSession.id );
 			setPendingFamilyChange( null );
@@ -1091,7 +1136,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 									tooltip={ __( 'Select AI provider for this conversation' ) }
 									triggerLabel={ AI_PROVIDER_LABELS[ sessionProvider ] }
 									value={ sessionProvider }
-									options={ AI_PROVIDER_OPTIONS }
+									options={ providerOptions }
 									onChange={ ( value ) => handleProviderChange( value as AiProviderId ) }
 								/>
 							) }
@@ -1151,7 +1196,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 			</div>
 			<FamilySwitchConfirmDialog
 				currentModel={ model }
-				pendingModel={ pendingFamilyChange }
+				pendingModel={ pendingFamilyChange?.model ?? null }
 				inFlight={ familySwitchInFlight }
 				onCancel={ cancelFamilyChange }
 				onConfirm={ () => void confirmFamilyChange() }

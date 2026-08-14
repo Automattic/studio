@@ -1,5 +1,7 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { ChatIllustration } from './chat';
+import { OverviewIllustration } from './overview';
+import { PreviewIllustration } from './preview';
 import { Stage } from './primitives';
 import { SitesIllustration } from './sites';
 import styles from './style.module.css';
@@ -14,6 +16,8 @@ import type { ComponentType } from 'react';
 const SCENES: Partial< Record< GuideIllustrationId, ComponentType > > = {
 	sites: SitesIllustration,
 	chat: ChatIllustration,
+	overview: OverviewIllustration,
+	preview: PreviewIllustration,
 };
 
 // Illustrations with a dark full-bleed background; the modal uses this to flip

@@ -79,15 +79,30 @@ describe( 'OnboardingHomePage', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: /Import from a backup/ } ) );
 
 		expect( click ).toHaveBeenCalledOnce();
-		expect( input.accept ).toContain( '.sql' );
+		expect( input.accept ).toContain( '.zip' );
 		expect( input.accept ).toContain( '.xml' );
+		// A database dump has no files to go with it, so it can only be imported
+		// over an existing site.
+		expect( input.accept ).not.toContain( '.sql' );
+	} );
+
+	it( 'rejects a .sql dump, which can only be imported over an existing site', () => {
+		const { container } = render( <OnboardingHomePage /> );
+		const input = container.querySelector< HTMLInputElement >( 'input[type="file"]' );
+		if ( ! input ) throw new Error( 'Backup input not found' );
+
+		fireEvent.change( input, { target: { files: [ new File( [ 'dump' ], 'client-site.sql' ) ] } } );
+
+		expect( peekPendingBackup() ).toBeNull();
+		expect( mocks.navigate ).not.toHaveBeenCalled();
+		expect( screen.getByRole( 'alert' ) ).toHaveTextContent( 'This file type is not supported' );
 	} );
 
 	it( 'hands a selected backup File to the import form', () => {
 		const { container } = render( <OnboardingHomePage /> );
 		const input = container.querySelector< HTMLInputElement >( 'input[type="file"]' );
 		if ( ! input ) throw new Error( 'Backup input not found' );
-		const file = new File( [ 'backup' ], 'client-site.sql' );
+		const file = new File( [ 'backup' ], 'client-site.tar.gz' );
 
 		fireEvent.change( input, { target: { files: [ file ] } } );
 
@@ -97,7 +112,7 @@ describe( 'OnboardingHomePage', () => {
 
 	it( 'hands a dropped backup File to the import form', () => {
 		render( <OnboardingHomePage /> );
-		const file = new File( [ 'backup' ], 'client-site.sql' );
+		const file = new File( [ 'backup' ], 'client-site.tar.gz' );
 
 		fireEvent.drop( screen.getByRole( 'button', { name: /Import from a backup/ } ), {
 			dataTransfer: { files: [ file ] },

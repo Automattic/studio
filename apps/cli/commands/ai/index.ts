@@ -148,9 +148,8 @@ export async function runCommand( options: {
 	const resumeContext = resolveResumeSessionContext( options.resumeSession );
 	let currentProvider: AiProviderId =
 		resumeContext.provider ?? ( await resolveInitialAiProvider() );
-	// A pin whose provider can't run (e.g. the Anthropic key was removed) falls
-	// back to WordPress.com for this run; the pin itself is left in place so a
-	// restored key revives it.
+	// A pin whose provider can't run (e.g. its key was removed) falls back to
+	// WordPress.com for this run only; the pin stays so a restored key revives it.
 	if (
 		resumeContext.provider &&
 		resumeContext.provider !== DEFAULT_AI_PROVIDER &&
@@ -233,10 +232,9 @@ export async function runCommand( options: {
 		};
 	}
 
-	// Per-turn records deliberately omit `provider`: a `session_context` entry
-	// carrying one is a user pin, and only an explicit switch writes it —
-	// otherwise every turn would rewrite the pin with the effective provider
-	// (e.g. wpcom while the Anthropic key is missing).
+	// Omits `provider` on purpose: an entry carrying one is a user pin
+	// (persistProviderPin), and a per-turn write would overwrite it with the
+	// effective provider.
 	async function persistSessionContext(): Promise< void > {
 		await append( ( sm ) =>
 			appendStudioEntry( sm, 'studio.session_context', {

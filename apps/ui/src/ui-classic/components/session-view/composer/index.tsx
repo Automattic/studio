@@ -613,9 +613,9 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		[ appendEntryOptimistically, connector ]
 	);
 
-	// Pin THIS conversation to a provider. When the new provider can't serve
-	// the current model, the provider's default rides along in the same entry —
-	// `resolveSessionModel` reads it, so the model section re-filters too.
+	// Pin this conversation to a provider. If it can't serve the current model,
+	// its default model rides along in the same entry, so the model section
+	// re-filters via `resolveSessionModel`.
 	const handleProviderChange = useCallback(
 		( picked: AiProviderId ) => {
 			if ( picked === sessionProvider ) {

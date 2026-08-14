@@ -355,7 +355,7 @@ export async function createAiSession(
 	} );
 
 	// Fires from Main, not the CLI: sessions are created in-process. Reused drafts don't count.
-	// Missing for `studio ui`, which has no Tracks emitter — see STU-2247.
+	// `studio ui` emits the same event from its own session route.
 	if ( created ) {
 		await recordTracksEvent( TRACKS_EVENTS.CODE_SESSION_CREATED, {
 			...getAiTracksIdentity( summary.id ),

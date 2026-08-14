@@ -62,6 +62,7 @@ import {
 } from '@studio/common/types/php-versions';
 import { __, sprintf } from '@wordpress/i18n';
 import { isStepDefinition, type BlueprintV1Declaration } from '@wp-playground/blueprints';
+import { canonicalizeBlocks } from 'cli/ai/block-validator';
 import { captureUrl } from 'cli/commands/capture';
 import { bumpStat, getPlatformMetric } from 'cli/lib/bump-stat';
 import {
@@ -71,7 +72,7 @@ import {
 	SiteData,
 	unlockCliConfig,
 } from 'cli/lib/cli-config/core';
-import { removeSiteFromConfig } from 'cli/lib/cli-config/sites';
+import { getSiteUrl, removeSiteFromConfig } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import {
 	getAiInstructionsPath,
@@ -91,7 +92,11 @@ import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/track
 import { StatsGroup } from 'cli/lib/types/bump-stats';
 import { untildify } from 'cli/lib/utils';
 import { ValidationError } from 'cli/lib/validation-error';
-import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
+import {
+	runBlueprint,
+	startWordPressServer,
+	stopWordPressServer,
+} from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -103,6 +108,8 @@ const STATIC_SITE_IMPORT_IDENTITY_FILE = 'static-site-importer.json';
 const STATIC_SITE_IMPORT_RESULT_FILE = 'result.json';
 const STATIC_SITE_IMPORT_SOURCE_FILE = 'source.json';
 const STATIC_SITE_IMPORT_STATE_FILE = 'state.json';
+const STATIC_SITE_IMPORT_CANONICAL_DOCUMENTS_FILE = 'client-canonical-documents.json';
+const STATIC_SITE_IMPORT_CANONICAL_UPDATES_FILE = 'client-canonical-updates.json';
 const MAX_STATIC_SITE_IMPORT_INVOCATIONS = 10000;
 const DATA_LIBERATION_CAPTURE_RECEIPT_SCHEMA = 'data-liberation/capture-receipt/v1';
 type StaticSiteImportIdentity = { url: string; contract: string; phase?: 'cleanup_pending' };
@@ -475,9 +482,24 @@ if ( 'dependencies_prepared' === ( $import_result['status'] ?? '' ) ) {
 if ( '' !== $state_path && is_file( $state_path ) ) {
 	unlink( $state_path );
 }
+$canonical_documents = array();
+foreach ( array_unique( array_map( 'intval', array_values( isset( $import_result['pages'] ) && is_array( $import_result['pages'] ) ? $import_result['pages'] : array() ) ) ) as $post_id ) {
+	$post = get_post( $post_id );
+	if ( $post instanceof WP_Post ) {
+		$canonical_documents[] = array(
+			'post_id' => $post_id,
+			'content' => (string) $post->post_content,
+			'sha256'  => hash( 'sha256', (string) $post->post_content ),
+		);
+	}
+}
+if ( ! empty( $canonical_documents ) && false === file_put_contents( ABSPATH . '.studio-import/${ STATIC_SITE_IMPORT_CANONICAL_DOCUMENTS_FILE }', wp_json_encode( $canonical_documents ) ) ) {
+	throw new RuntimeException( 'Static Site Importer client canonicalization handoff could not be saved.' );
+}
 
 $studio_result = array(
-	'continuation'     => ! empty( $import_result['continuation'] ),
+	'continuation'             => ! empty( $import_result['continuation'] ),
+	'canonicalization_pending' => ! empty( $canonical_documents ),
 	'status'           => (string) ( $import_result['url_batch_run']['status'] ?? 'completed' ),
 	'completed_routes' => (int) ( $import_result['url_batch_run']['completed_routes'] ?? 0 ),
 	'total_routes'     => (int) ( $import_result['url_batch_run']['total_routes'] ?? 0 ),
@@ -570,6 +592,92 @@ function cleanupSuccessfulStaticSiteImport( sitePath: string ): void {
 	fs.rmSync( path.join( sitePath, '.studio-import', STATIC_SITE_IMPORT_STATE_FILE ), {
 		force: true,
 	} );
+	fs.rmSync(
+		path.join( sitePath, '.studio-import', STATIC_SITE_IMPORT_CANONICAL_DOCUMENTS_FILE ),
+		{ force: true }
+	);
+	fs.rmSync(
+		path.join( sitePath, '.studio-import', STATIC_SITE_IMPORT_CANONICAL_UPDATES_FILE ),
+		{ force: true }
+	);
+}
+
+async function canonicalizeStaticSiteImport(
+	site: SiteData,
+	stagingDir: string
+): Promise< void > {
+	const documentsPath = path.join( stagingDir, STATIC_SITE_IMPORT_CANONICAL_DOCUMENTS_FILE );
+	if ( ! fs.existsSync( documentsPath ) ) {
+		throw new Error( 'Static site import completed without its canonicalization handoff.' );
+	}
+
+	const documents = JSON.parse( fs.readFileSync( documentsPath, 'utf-8' ) ) as Array< {
+		post_id: number;
+		content: string;
+		sha256: string;
+	} >;
+	if ( ! Array.isArray( documents ) || documents.length === 0 ) {
+		throw new Error( 'Static site import returned an invalid canonicalization handoff.' );
+	}
+
+	const updates = [];
+	const siteUrl = getSiteUrl( site );
+	for ( const document of documents ) {
+		if (
+			! Number.isInteger( document.post_id ) ||
+			document.post_id <= 0 ||
+			typeof document.content !== 'string' ||
+			document.sha256 !== crypto.createHash( 'sha256' ).update( document.content ).digest( 'hex' )
+		) {
+			throw new Error( 'Static site import returned a corrupt canonicalization document.' );
+		}
+		const content = await canonicalizeBlocks( document.content, siteUrl );
+		if ( content !== document.content ) {
+			updates.push( {
+				post_id: document.post_id,
+				before_sha256: document.sha256,
+				after_sha256: crypto.createHash( 'sha256' ).update( content ).digest( 'hex' ),
+				content,
+			} );
+		}
+	}
+
+	if ( updates.length > 0 ) {
+		const updatesPath = path.join( stagingDir, STATIC_SITE_IMPORT_CANONICAL_UPDATES_FILE );
+		fs.writeFileSync( updatesPath, JSON.stringify( updates ) );
+		await using command = await runWpCliCommandWithMessaging( site, [
+			'eval',
+			`$path = ABSPATH . '.studio-import/${ STATIC_SITE_IMPORT_CANONICAL_UPDATES_FILE }';
+$documents = json_decode( (string) file_get_contents( $path ), true );
+if ( ! is_array( $documents ) ) {
+	throw new RuntimeException( 'Client canonicalization updates are invalid.' );
+}
+foreach ( $documents as $document ) {
+	$post = get_post( (int) ( $document['post_id'] ?? 0 ) );
+	if ( ! $post instanceof WP_Post || ! hash_equals( (string) ( $document['before_sha256'] ?? '' ), hash( 'sha256', (string) $post->post_content ) ) ) {
+		throw new RuntimeException( 'Client canonicalization preimage changed before persistence.' );
+	}
+	$result = wp_update_post( array( 'ID' => $post->ID, 'post_content' => wp_slash( (string) ( $document['content'] ?? '' ) ) ), true );
+	$updated = get_post( $post->ID );
+	if ( is_wp_error( $result ) || ! $updated instanceof WP_Post || ! hash_equals( (string) ( $document['after_sha256'] ?? '' ), hash( 'sha256', (string) $updated->post_content ) ) ) {
+		throw new RuntimeException( 'Client canonicalization did not persist exact target-registry bytes.' );
+	}
+}`,
+		] );
+		const [ exitCode, stdout, stderr ] = await Promise.all( [
+			command.response.exitCode,
+			command.response.stdoutText,
+			command.response.stderrText,
+		] );
+		if ( exitCode !== 0 ) {
+			throw new Error(
+				stderr.trim() || stdout.trim() || sprintf( __( 'WP-CLI exited with code %d.' ), exitCode )
+			);
+		}
+		fs.rmSync( updatesPath, { force: true } );
+	}
+
+	fs.rmSync( documentsPath, { force: true } );
 }
 
 async function runStaticSiteImport(
@@ -620,6 +728,7 @@ async function runStaticSiteImport(
 		}
 		let result: {
 			continuation?: boolean;
+			canonicalization_pending?: boolean;
 			completed_routes?: number;
 			total_routes?: number;
 		};
@@ -631,6 +740,22 @@ async function runStaticSiteImport(
 			fs.rmSync( resultPath, { force: true } );
 		}
 		if ( ! result.continuation ) {
+			if ( result.canonicalization_pending ) {
+				const startForCanonicalization = ! site.running;
+				if ( startForCanonicalization ) {
+					await connectToDaemon();
+					await startWordPressServer( site, logger );
+					site.running = true;
+				}
+				try {
+					await canonicalizeStaticSiteImport( site, stagingDir );
+				} finally {
+					if ( startForCanonicalization ) {
+						await stopWordPressServer( site.id );
+						site.running = false;
+					}
+				}
+			}
 			break;
 		}
 		logger.reportSuccess(

@@ -344,11 +344,13 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const queryClient = useQueryClient();
 
 	// The conversation's provider: its own pinned choice first, then the saved
-	// global selection. A saved Anthropic key makes both providers usable, so
-	// the menu can move THIS conversation between them.
+	// global selection. Without a saved Anthropic key the pin is unusable, so
+	// WordPress.com wins regardless — the CLI applies the same rule on resume.
 	const { data: aiSettings } = useAiSettings();
 	const pinnedProvider = useMemo( () => resolveSessionProvider( entries ?? [] ), [ entries ] );
-	const sessionProvider = pinnedProvider ?? aiSettings?.provider ?? DEFAULT_AI_PROVIDER;
+	const sessionProvider = aiSettings?.hasAnthropicApiKey
+		? pinnedProvider ?? aiSettings.provider
+		: DEFAULT_AI_PROVIDER;
 	const canPickProvider = Boolean( aiSettings?.hasAnthropicApiKey && sessionId );
 
 	// Only offer models the conversation's provider can serve. Hosts without AI

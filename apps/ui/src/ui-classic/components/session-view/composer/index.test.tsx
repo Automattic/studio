@@ -94,6 +94,26 @@ describe( 'Composer menu', () => {
 		expect( screen.getByRole( 'menuitemradio', { name: 'Anthropic API' } ) ).toBeChecked();
 	} );
 
+	it( 'falls back to WordPress.com when a pinned conversation has no key', async () => {
+		connectorMocks.capabilities.aiSettings = true;
+		connectorMocks.getAiSettings.mockResolvedValue( {
+			provider: 'wpcom',
+			hasAnthropicApiKey: false,
+			anthropicApiKeyPreview: null,
+		} );
+		renderComposer( { entries: [ createSessionContextEntry( 'anthropic-api-key' ) ] } );
+
+		const trigger = screen.getByRole( 'button', { name: 'Select model' } );
+		await waitFor( () => expect( trigger ).not.toHaveTextContent( 'API ·' ) );
+
+		fireEvent.click( trigger );
+		await waitFor( () =>
+			expect( screen.getAllByRole( 'menuitemradio' ).map( ( item ) => item.textContent ) ).toEqual(
+				[ 'Sonnet 5', 'Opus 5', 'GPT 5.6 Sol' ]
+			)
+		);
+	} );
+
 	it( 'omits the provider section until an Anthropic API key is saved', async () => {
 		connectorMocks.capabilities.aiSettings = true;
 		connectorMocks.getAiSettings.mockResolvedValue( {

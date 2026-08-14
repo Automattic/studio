@@ -34,7 +34,12 @@ import { closeSharedBrowser } from 'cli/ai/browser-utils';
 import { setChatArtifactCallback } from 'cli/ai/chat-artifacts';
 import { startDaemonStatusPolling } from 'cli/ai/daemon-status-poll';
 import { type AiOutputAdapter, JsonAdapter } from 'cli/ai/output-adapter';
-import { AI_PROVIDERS, getAiProviderDefinition, type AiProviderId } from 'cli/ai/providers';
+import {
+	AI_PROVIDERS,
+	DEFAULT_AI_PROVIDER,
+	getAiProviderDefinition,
+	type AiProviderId,
+} from 'cli/ai/providers';
 import { runStudioAgentTurn } from 'cli/ai/runtimes/pi';
 import { setScreenshotDirectoryProvider } from 'cli/ai/screenshot-storage';
 import { resolveResumeSessionContext } from 'cli/ai/sessions/context';
@@ -143,6 +148,16 @@ export async function runCommand( options: {
 	const resumeContext = resolveResumeSessionContext( options.resumeSession );
 	let currentProvider: AiProviderId =
 		resumeContext.provider ?? ( await resolveInitialAiProvider() );
+	// A pin whose provider can't run (e.g. the Anthropic key was removed) falls
+	// back to WordPress.com for this run; the pin itself is left in place so a
+	// restored key revives it.
+	if (
+		resumeContext.provider &&
+		resumeContext.provider !== DEFAULT_AI_PROVIDER &&
+		! ( await isAiProviderReady( resumeContext.provider ) )
+	) {
+		currentProvider = DEFAULT_AI_PROVIDER;
+	}
 	let currentModel: AiModelId = resumeContext.model ?? DEFAULT_MODEL;
 	ui.currentProvider = currentProvider;
 	ui.currentModel = currentModel;

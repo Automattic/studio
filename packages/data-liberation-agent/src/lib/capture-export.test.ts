@@ -30,7 +30,7 @@ describe( 'exportWebsiteCapture', () => {
 		writeFileSync( join( outputDir, 'html', 'about.html' ), '<h1>About</h1>' );
 		writeFileSync(
 			join( outputDir, 'html-mobile', 'homepage.html' ),
-			'<!doctype html><html><head><style>.mobile{color:red}</style></head><body><main class="mobile"><h1>Mobile Home</h1></main></body></html>'
+			'<!doctype html><html><head><style>.mobile{color:red}</style></head><body><main class="mobile"><h1>Mobile Home</h1><p>Mobile only</p></main></body></html>'
 		);
 		writeFileSync( join( outputDir, 'media', 'logo.png' ), 'png' );
 		writeFileSync( join( outputDir, 'media', 'hero.png' ), 'base' );
@@ -155,6 +155,39 @@ describe( 'exportWebsiteCapture', () => {
 			url: 'https://example.com/missing.png?w=1280',
 			error: 'HTTP 404',
 		} );
+	} );
+
+	it( 'keeps one authoring body when responsive captures differ only in presentation', () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-capture-export-' ) );
+		dirs.push( outputDir );
+		mkdirSync( join( outputDir, 'html' ), { recursive: true } );
+		mkdirSync( join( outputDir, 'html-mobile' ), { recursive: true } );
+		mkdirSync( join( outputDir, 'screenshots' ), { recursive: true } );
+		writeFileSync( join( outputDir, 'html', 'homepage.html' ), '<!doctype html><html><head></head><body><main class="desktop" style="width:900px"><img src="/hero-large.jpg"><h1>Home</h1></main></body></html>' );
+		writeFileSync( join( outputDir, 'html-mobile', 'homepage.html' ), '<!doctype html><html><head></head><body><main class="mobile" style="width:390px"><img src="/hero-small.jpg"><h1>Home</h1><div class="runtime-mount"></div></main></body></html>' );
+		writeFileSync( join( outputDir, 'screenshots', 'manifest.json' ), JSON.stringify( { version: 1, entries: { 'https://example.com/': { html: 'html/homepage.html' } } } ) );
+
+		exportWebsiteCapture( { outputDir, sourceUrl: 'https://example.com/', platform: 'fake', summary: {}, failures: [] } );
+		const html = readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' );
+		expect( html ).not.toContain( 'data-liberation-desktop-document' );
+		expect( html ).not.toContain( 'data-liberation-mobile-document' );
+		expect( html ).toContain( 'class="desktop"' );
+		expect( html ).not.toContain( 'class="mobile"' );
+	} );
+
+	it( 'removes fixed provider acquisition chrome and its matching body reservation', () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-capture-export-' ) );
+		dirs.push( outputDir );
+		mkdirSync( join( outputDir, 'html' ), { recursive: true } );
+		mkdirSync( join( outputDir, 'screenshots' ), { recursive: true } );
+		writeFileSync( join( outputDir, 'html', 'homepage.html' ), '<!doctype html><html><head></head><body style="min-height:100%;padding-bottom:62px !important"><main><h1>Home</h1></main><div id="provider-promo" style="position:fixed !important;height:62px !important;bottom:0 !important"><a href="https://provider.example/signup">Powered by Provider. Create your own unique website. Get Started</a></div></body></html>' );
+		writeFileSync( join( outputDir, 'screenshots', 'manifest.json' ), JSON.stringify( { version: 1, entries: { 'https://example.com/': { html: 'html/homepage.html' } } } ) );
+
+		exportWebsiteCapture( { outputDir, sourceUrl: 'https://example.com/', platform: 'fake', summary: {}, failures: [] } );
+		const html = readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' );
+		expect( html ).not.toContain( 'provider-promo' );
+		expect( html ).not.toContain( 'padding-bottom:62px' );
+		expect( html ).toContain( '<h1>Home</h1>' );
 	} );
 
 	it( 'exports referenced same-origin runtime dependencies and diagnoses missing ones', () => {

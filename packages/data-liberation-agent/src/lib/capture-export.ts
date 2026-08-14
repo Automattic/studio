@@ -8,6 +8,7 @@ import {
 	writeFileSync,
 } from 'node:fs';
 import { basename, dirname, join, relative, resolve, sep } from 'node:path';
+import * as cheerio from 'cheerio';
 import { MediaStubStore } from './resume-state/index.js';
 import type { CapturedResourceManifest } from './screenshot/resource-capture.js';
 
@@ -101,7 +102,22 @@ function replaceAll( content: string, replacements: Map< string, string > ): str
 }
 
 function renderedHtml( html: string ): string {
-	return html.replace( /<noscript\b[^>]*>[\s\S]*?<\/noscript\s*>/gi, '' );
+	const $ = cheerio.load( html.replace( /<noscript\b[^>]*>[\s\S]*?<\/noscript\s*>/gi, '' ) );
+	$( '*' ).each( ( _index, element ) => {
+		const node = $( element );
+		const style = node.attr( 'style' ) ?? '';
+		if ( ! /(?:^|;)\s*position\s*:\s*fixed\s*!important/i.test( style ) ) return;
+		const text = node.text().replace( /\s+/g, ' ' ).trim();
+		const links = node.find( 'a[href]' ).map( ( _i, link ) => $( link ).attr( 'href' ) ?? '' ).get().join( ' ' );
+		if ( ! /\bpowered by\b|\bcreate your own (?:unique )?website\b/i.test( text ) || ! /\b(?:signup|get started)\b/i.test( `${ text } ${ links }` ) ) return;
+		const height = /(?:^|;)\s*height\s*:\s*(\d+(?:\.\d+)?)px\s*!important/i.exec( style )?.[ 1 ];
+		const bodyStyle = $( 'body' ).attr( 'style' ) ?? '';
+		if ( height && new RegExp( `(?:^|;)\\s*padding-bottom\\s*:\\s*${ height }px\\s*!important`, 'i' ).test( bodyStyle ) ) {
+			$( 'body' ).attr( 'style', bodyStyle.replace( new RegExp( `(?:^|;)\\s*padding-bottom\\s*:\\s*${ height }px\\s*!important`, 'i' ), '' ).replace( /^\s*;|;\s*$/g, '' ).trim() );
+		}
+		node.remove();
+	} );
+	return $.html();
 }
 
 const RESPONSIVE_DOCUMENT_CSS =
@@ -111,11 +127,40 @@ function responsiveHtml( desktopHtml: string, mobileHtml: string ): string {
 	const desktopBody = /<body\b[^>]*>([\s\S]*?)<\/body\s*>/i.exec( desktopHtml )?.[ 1 ];
 	const mobileBody = /<body\b[^>]*>([\s\S]*?)<\/body\s*>/i.exec( mobileHtml )?.[ 1 ];
 	if ( desktopBody === undefined || mobileBody === undefined ) return desktopHtml;
+	if ( responsiveBodySignature( desktopBody ) === responsiveBodySignature( mobileBody ) ) return desktopHtml;
 
 	const responsiveBody = `<div class="data-liberation-desktop-document">${ desktopBody }</div><div class="data-liberation-mobile-document">${ mobileBody }</div>`;
 	return desktopHtml
 		.replace( /<\/head\s*>/i, `<style>${ RESPONSIVE_DOCUMENT_CSS }</style></head>` )
 		.replace( /(<body\b[^>]*>)[\s\S]*?(<\/body\s*>)/i, `$1${ responsiveBody }$2` );
+}
+
+function responsiveBodySignature( body: string ): string {
+	const $ = cheerio.load( `<body>${ body }</body>` );
+	$( 'script,style,noscript' ).remove();
+	$( '*' ).each( ( _index, element ) => {
+		const node = $( element );
+		for ( const attribute of Object.keys( 'attribs' in element ? element.attribs : {} ) ) {
+			if ( attribute === 'style' || attribute === 'class' ) {
+				node.removeAttr( attribute );
+			}
+		}
+		if ( node.is( 'img,source,video,audio' ) ) {
+			node.removeAttr( 'src' ).removeAttr( 'srcset' ).removeAttr( 'sizes' );
+		}
+	} );
+	let removedEmptyMount = true;
+	while ( removedEmptyMount ) {
+		removedEmptyMount = false;
+		$( 'div,span' ).each( ( _index, element ) => {
+			const node = $( element );
+			if ( Object.keys( 'attribs' in element ? element.attribs : {} ).length === 0 && node.children().length === 0 && node.text().trim() === '' ) {
+				node.remove();
+				removedEmptyMount = true;
+			}
+		} );
+	}
+	return ( $( 'body' ).html() ?? '' ).replace( />\s+</g, '><' ).replace( /\s+/g, ' ' ).trim();
 }
 
 function mediaReferences( sourceUrl: string, siteUrl: string ): string[] {

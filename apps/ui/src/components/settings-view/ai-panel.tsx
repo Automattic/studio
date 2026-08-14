@@ -84,7 +84,7 @@ function AnthropicApiKeySection() {
 					<h2>{ __( 'Use your Anthropic API key' ) }</h2>
 					<p>
 						{ __(
-							'Save a key to bill against your Anthropic account. Each conversation then picks its provider from the model menu.'
+							'Use your own API key, which bills against your Anthropic account, then select your preferred provider for each conversation from the models menu.'
 						) }
 					</p>
 				</div>

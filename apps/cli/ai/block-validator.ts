@@ -26,10 +26,7 @@ export interface ValidationReport extends ValidationReportBase {
 }
 
 /** Serialize content exactly as the target site's registered editor would save it. */
-export async function canonicalizeBlocks(
-	content: string,
-	siteUrl: string
-): Promise< string > {
+export async function canonicalizeBlocks( content: string, siteUrl: string ): Promise< string > {
 	const editorPage = getEditorPage( siteUrl );
 
 	try {

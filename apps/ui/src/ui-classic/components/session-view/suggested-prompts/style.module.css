@@ -40,22 +40,24 @@
 	inset: -96px 0 0;
 	pointer-events: none;
 	backdrop-filter: blur(var(--frost-radius));
-	mask-image: linear-gradient(
+	--frost-ramp: linear-gradient(
 		to bottom,
 		transparent 0,
 		transparent var(--frost-start),
 		black var(--frost-end),
-		black calc(100% - 96px),
-		transparent calc(100% - 16px)
+		black 100%
 	);
-	-webkit-mask-image: linear-gradient(
+	--frost-edge-fade: linear-gradient(
 		to bottom,
-		transparent 0,
-		transparent var(--frost-start),
-		black var(--frost-end),
+		black 0,
 		black calc(100% - 96px),
-		transparent calc(100% - 16px)
+		transparent calc(100% - 16px),
+		transparent 100%
 	);
+	mask-image: var(--frost-ramp), var(--frost-edge-fade);
+	mask-composite: intersect;
+	-webkit-mask-image: var(--frost-ramp), var(--frost-edge-fade);
+	-webkit-mask-composite: source-in;
 }
 
 .frostSoft {

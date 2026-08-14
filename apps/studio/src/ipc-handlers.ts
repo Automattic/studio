@@ -22,6 +22,7 @@ import * as Sentry from '@sentry/electron/main';
 import { validateStudioChatFiles } from '@studio/common/ai/chat-files';
 import { validateStudioChatImages } from '@studio/common/ai/chat-images';
 import { isAiModelId } from '@studio/common/ai/models';
+import { isAiProviderId, providerServesModel } from '@studio/common/ai/providers';
 import { deriveEffectiveEnvironment } from '@studio/common/ai/sessions/effective-site';
 import {
 	createOrReuseAiSession,
@@ -472,6 +473,24 @@ export async function setAiSessionModel(
 		throw new Error( `Unknown AI model: ${ model }` );
 	}
 	await appendModelChangeEntry( getSessionsDirectory(), sessionId, '', model );
+}
+
+export async function setAiSessionProvider(
+	_event: IpcMainInvokeEvent,
+	sessionId: string,
+	provider: string,
+	model: string
+): Promise< void > {
+	if ( ! isAiProviderId( provider ) ) {
+		throw new Error( `Unknown AI provider: ${ provider }` );
+	}
+	if ( ! isAiModelId( model ) || ! providerServesModel( provider, model ) ) {
+		throw new Error( `Model ${ model } is not served by provider ${ provider }` );
+	}
+	await appendStudioEntry( getSessionsDirectory(), sessionId, 'studio.session_context', {
+		provider,
+		model,
+	} );
 }
 
 export interface SetSessionEnvironmentResult {

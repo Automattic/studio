@@ -23,12 +23,19 @@ export function isSyncCancelledError( error: unknown ): boolean {
 	return message.includes( SYNC_CANCELLED_MESSAGE );
 }
 
+// The phases where the work is still local — the export and the upload. Like
+// `PULL_REMOTE_ACTIONS` below this is an allow-list, so the remote phases added
+// after the import starts stay uncancellable by default. Matches the legacy
+// renderer's `isKeyUploading` set.
+const CANCELLABLE_PUSH_PHASES: PushPhase[] = [ 'creatingBackup', 'uploading' ];
+
 /**
  * A push can be stopped until the remote import is initiated. After that the
  * live site is already being changed and stopping locally would not undo it.
  */
 export function canCancelPush( phase: PushPhase | undefined ): boolean {
-	return phase !== 'applyingChanges';
+	// No phase reported yet: the export has not started.
+	return phase === undefined || CANCELLABLE_PUSH_PHASES.includes( phase );
 }
 
 // Everything the CLI's `pull` reports before it touches the local site. The

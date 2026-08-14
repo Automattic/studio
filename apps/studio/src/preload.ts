@@ -51,7 +51,7 @@ const api: IpcApi = {
 	disconnectWpcomSites: ( ...args ) => ipcRendererInvoke( 'disconnectWpcomSites', ...args ),
 	updateConnectedWpcomSites: ( ...args ) =>
 		ipcRendererInvoke( 'updateConnectedWpcomSites', ...args ),
-	authenticate: ( isSignup ) => ipcRendererSend( 'authenticate', isSignup ),
+	authenticate: ( isSignup, source ) => ipcRendererSend( 'authenticate', isSignup, source ),
 	exportSite: ( site, destinationPath, options ) =>
 		ipcRendererInvoke( 'exportSite', site, destinationPath, options ),
 	isAuthenticated: () => ipcRendererInvoke( 'isAuthenticated' ),
@@ -214,6 +214,7 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'setWindowControlVisibility', visible ),
 	setTitleBarBackdropEffect: ( enabled ) =>
 		ipcRendererInvoke( 'setTitleBarBackdropEffect', enabled ),
+	setWindowControlsSurface: ( surface ) => ipcRendererInvoke( 'setWindowControlsSurface', surface ),
 	updateSitesSortOrder: ( updates ) => ipcRendererInvoke( 'updateSitesSortOrder', updates ),
 	getRemoteSessionDaemonStatus: () => ipcRendererInvoke( 'getRemoteSessionDaemonStatus' ),
 	startRemoteSessionDaemon: () => ipcRendererInvoke( 'startRemoteSessionDaemon' ),

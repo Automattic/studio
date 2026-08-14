@@ -2,14 +2,34 @@ import EventEmitter from 'node:events';
 import { describe, expect, it, vi } from 'vitest';
 import { killChild } from '@studio/common/lib/cli-process';
 import { canCancelPull, canCancelPush, isSyncCancelledError } from '@studio/common/lib/sync/cancel';
-import { pullSite } from './sync';
+import { pollImportStatus } from '@studio/common/lib/sync/sync-api';
+import { pullSite, pushSite } from './sync';
 import type { ExecuteCliCommand } from '@studio/common/lib/cli-process';
+import type { ImportResponse } from '@studio/common/types/sync';
 
 // How the child is killed is platform-specific and covered by
 // `lib/tests/cli-process.test.ts`; here we only care that a cancel asks for it.
 vi.mock( '@studio/common/lib/cli-process', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('@studio/common/lib/cli-process') >() ),
 	killChild: vi.fn(),
+} ) );
+
+vi.mock( '@studio/common/lib/sync/sync-api', () => ( {
+	initiateImport: vi.fn(),
+	pollImportStatus: vi.fn(),
+} ) );
+
+vi.mock( '@studio/common/lib/sync/tus-upload', () => ( {
+	createTusUpload: vi.fn( () => ( {
+		promise: Promise.resolve( 'attachment-1' ),
+		abort: vi.fn(),
+	} ) ),
+} ) );
+
+// Poll back to back rather than waiting 3s between each status.
+vi.mock( '@studio/common/lib/sync/constants', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@studio/common/lib/sync/constants') >() ),
+	SYNC_POLL_INTERVAL_MS: 0,
 } ) );
 
 describe( 'pullSite', () => {
@@ -104,12 +124,93 @@ describe( 'pullSite', () => {
 	} );
 } );
 
+describe( 'pushSite', () => {
+	function startPush( statuses: ImportResponse[] ) {
+		const emitter = new EventEmitter();
+		const execute = vi.fn( () => {
+			// The handlers are attached right after this returns.
+			queueMicrotask( () => emitter.emit( 'success' ) );
+			return [ emitter, {} ];
+		} ) as unknown as ExecuteCliCommand;
+
+		vi.mocked( pollImportStatus ).mockReset();
+		for ( const status of statuses ) {
+			vi.mocked( pollImportStatus ).mockResolvedValueOnce( status );
+		}
+
+		const emit = vi.fn();
+		const pushing = pushSite(
+			{ executeCliCommand: execute, accessToken: 'token', emit },
+			{ sitePath: '/sites/local', remoteSiteId: 42 }
+		);
+		return { emit, pushing };
+	}
+
+	const working = ( status: string, progress: Partial< ImportResponse > = {} ) =>
+		( {
+			status,
+			success: true,
+			backup_progress: null,
+			import_progress: null,
+			...progress,
+		} ) as ImportResponse;
+
+	it( 'polls the remote import to completion instead of resolving once it starts', async () => {
+		const { emit, pushing } = startPush( [
+			working( 'initial_backup_started', { backup_progress: 40 } ),
+			working( 'archive_import_started', { import_progress: 20 } ),
+			working( 'archive_import_finished' ),
+			working( 'finished' ),
+		] );
+
+		await pushing;
+
+		// Resolving at initiate — the bug — would stop this list at the first
+		// `creatingRemoteBackup`, before any of the polled phases.
+		expect( emit.mock.calls.map( ( [ output ] ) => output ) ).toEqual( [
+			{ kind: 'phase', phase: 'creatingBackup' },
+			{ kind: 'phase', phase: 'uploading' },
+			{ kind: 'phase', phase: 'creatingRemoteBackup' },
+			{ kind: 'phase', phase: 'creatingRemoteBackup', progress: 40 },
+			{ kind: 'phase', phase: 'applyingChanges', progress: 20 },
+			{ kind: 'phase', phase: 'finishing' },
+		] );
+		expect( pollImportStatus ).toHaveBeenCalledTimes( 4 );
+	} );
+
+	it( 'rejects with the reason the remote import failed', async () => {
+		const failure = ( error: string, vp_restore_message: string | null = null ): ImportResponse =>
+			( {
+				status: 'failed',
+				success: false,
+				error,
+				error_data: { vp_restore_status: null, vp_restore_message, vp_rewind_id: null },
+			} ) as ImportResponse;
+
+		await expect(
+			startPush( [ failure( 'Import failed', 'Error importing SQL dump' ) ] ).pushing
+		).rejects.toThrow( /database failed to import/i );
+
+		await expect( startPush( [ failure( 'Import timed out' ) ] ).pushing ).rejects.toThrow(
+			/timed out while importing/i
+		);
+
+		await expect( startPush( [ failure( 'Something else' ) ] ).pushing ).rejects.toThrow(
+			/went wrong while updating the live site/i
+		);
+	} );
+} );
+
 describe( 'cancellable phases', () => {
 	it( 'allows stopping a push until the remote import is initiated', () => {
 		expect( canCancelPush( 'creatingBackup' ) ).toBe( true );
 		expect( canCancelPush( 'uploading' ) ).toBe( true );
 		expect( canCancelPush( undefined ) ).toBe( true );
+
+		// Everything from the import onwards is the live site being rebuilt.
+		expect( canCancelPush( 'creatingRemoteBackup' ) ).toBe( false );
 		expect( canCancelPush( 'applyingChanges' ) ).toBe( false );
+		expect( canCancelPush( 'finishing' ) ).toBe( false );
 	} );
 
 	it( 'allows stopping a pull until the CLI starts writing the local site', () => {

@@ -2,15 +2,22 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { __ } from '@wordpress/i18n';
 import { killChild } from '@studio/common/lib/cli-process';
 import { SyncCancelledError } from '@studio/common/lib/sync/cancel';
-import { initiateImport } from '@studio/common/lib/sync/sync-api';
+import {
+	SYNC_MAX_STALLED_ATTEMPTS,
+	SYNC_POLL_INTERVAL_MS,
+} from '@studio/common/lib/sync/constants';
+import { initiateImport, pollImportStatus } from '@studio/common/lib/sync/sync-api';
 import { createTusUpload } from '@studio/common/lib/sync/tus-upload';
 import type { ExecuteCliCommand } from '@studio/common/lib/cli-process';
 import type {
+	ImportResponse,
 	PullSiteProgress,
 	PullSyncOptions,
 	PushOutput,
+	PushPhase,
 	PushSyncOptions,
 	SyncOption,
 } from '@studio/common/types/sync';
@@ -36,9 +43,9 @@ function throwIfCancelled( signal: AbortSignal | undefined ): void {
 
 /**
  * Push a local site to its connected WordPress.com live site: export a full
- * archive via the CLI, TUS-upload it (shared {@link createTusUpload}), then
- * initiate the remote import (shared {@link initiateImport}). Resolves once the
- * import is initiated; rejects on any failure.
+ * archive via the CLI, TUS-upload it (shared {@link createTusUpload}), initiate
+ * the remote import (shared {@link initiateImport}), then wait for that import
+ * to finish. Resolves once the live site is updated; rejects on any failure.
  */
 export async function pushSite(
 	ctx: PushSiteContext,
@@ -121,11 +128,86 @@ export async function pushSite(
 		// Point of no return: once the remote import is initiated, cancelling
 		// locally would leave the live site mid-import anyway, so the UI stops
 		// offering it from here on.
-		ctx.emit?.( { kind: 'phase', phase: 'applyingChanges' } );
+		ctx.emit?.( { kind: 'phase', phase: 'creatingRemoteBackup' } );
 		await initiateImport( ctx.accessToken, params.remoteSiteId, attachmentId, params.options );
+		await waitForImport( ctx, params.remoteSiteId );
 	} finally {
 		await fs.promises.rm( dir, { recursive: true, force: true } ).catch( () => undefined );
 	}
+}
+
+/**
+ * Wait for the remote import to finish, reporting the phase it is in.
+ *
+ * WordPress.com takes a safety backup of the live site before importing, which
+ * routinely takes longer than the upload itself. Without this the push would
+ * report success while the live site was still being rebuilt, and a second push
+ * would be rejected with "another import is already in progress". Mirrors the
+ * legacy renderer's `pollPushProgressThunk`.
+ */
+async function waitForImport( ctx: PushSiteContext, remoteSiteId: number ): Promise< void > {
+	let lastReport = '';
+	let stalledPolls = 0;
+
+	while ( stalledPolls < SYNC_MAX_STALLED_ATTEMPTS ) {
+		await new Promise( ( resolve ) => setTimeout( resolve, SYNC_POLL_INTERVAL_MS ) );
+
+		const response = await pollImportStatus( ctx.accessToken, remoteSiteId );
+
+		if ( response.status === 'failed' ) {
+			throw new Error( getImportFailureMessage( response ) );
+		}
+		if ( ! response.success ) {
+			throw new Error( __( 'Something went wrong while updating the live site.' ) );
+		}
+		if ( response.status === 'finished' ) {
+			return;
+		}
+
+		const { phase, progress } = getImportPhase( response );
+		ctx.emit?.( { kind: 'phase', phase, progress } );
+
+		const report = `${ phase }:${ progress ?? '' }`;
+		stalledPolls = report === lastReport ? stalledPolls + 1 : 0;
+		lastReport = report;
+	}
+
+	// The remote reports its own timeouts as a `failed` status, so reaching here
+	// means it went quiet rather than gave up. Bail instead of polling forever.
+	throw new Error(
+		__( 'The live site stopped reporting progress. Check the site and try again.' )
+	);
+}
+
+function getImportPhase(
+	response: Extract< ImportResponse, { status: Exclude< ImportResponse[ 'status' ], 'failed' > } >
+): { phase: PushPhase; progress?: number } {
+	switch ( response.status ) {
+		case 'archive_import_started':
+			return { phase: 'applyingChanges', progress: response.import_progress ?? undefined };
+		case 'archive_import_finished':
+			return { phase: 'finishing' };
+		default:
+			return { phase: 'creatingRemoteBackup', progress: response.backup_progress ?? undefined };
+	}
+}
+
+// Mirrors the legacy renderer's push failure copy (`pollPushProgressThunk`):
+// a failed SQL import and a timeout need different things from the user.
+function getImportFailureMessage(
+	response: Extract< ImportResponse, { status: 'failed' } >
+): string {
+	if ( /importing sql dump/i.test( response.error_data?.vp_restore_message ?? '' ) ) {
+		return __(
+			'The database failed to import on the live site. Review your database and try again.'
+		);
+	}
+	if ( response.error === 'Import timed out' ) {
+		return __(
+			'The live site timed out while importing, likely because the site is too large. Try reducing its content or files.'
+		);
+	}
+	return __( 'Something went wrong while updating the live site.' );
 }
 
 // Mirrors the legacy renderer's export-mode derivation

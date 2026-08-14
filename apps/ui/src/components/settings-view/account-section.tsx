@@ -62,7 +62,7 @@ function AccountHelpActions() {
 
 export function AccountSection() {
 	const { data: user, isLoading } = useAuthUser();
-	const login = useLogin();
+	const login = useLogin( { source: 'settings' } );
 	const logout = useLogout();
 	const themeIsDark = useColorScheme() === 'dark';
 	const isOffline = useOffline();

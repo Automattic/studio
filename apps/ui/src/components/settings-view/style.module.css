@@ -43,6 +43,14 @@
 	pointer-events: none;
 }
 
+/* Holding the close button rather than the traffic-light spacer, so it has to
+   take clicks back and mirror .headerEnd's inset. */
+.headerStartClose {
+	align-items: center;
+	pointer-events: auto;
+	padding-inline-start: var( --wpds-dimension-padding-lg );
+}
+
 .headerTabs {
 	grid-column: 2;
 	align-self: stretch;

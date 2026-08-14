@@ -1300,7 +1300,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 
 	// Push the local site to its connected WordPress.com live site. Long-running
 	// (export → upload → import); progress streams on the SSE `sync` channel.
-	// Resolves once the import is initiated.
+	// Responds once the remote import has finished.
 	api.post(
 		'/sites/:id/push',
 		asyncHandler( async ( req: Request, res: Response ) => {

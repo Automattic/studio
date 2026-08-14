@@ -26,7 +26,6 @@ import {
 	useStartSite,
 } from '@/data/queries/use-sites';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
-import { useWindowControlsOverlay } from '@/hooks/use-window-controls-overlay';
 import { getSiteUrl } from '@/lib/get-site-url';
 import { playIcon, refreshIcon } from '@/lib/icons';
 import {
@@ -683,7 +682,6 @@ export function SitePreview( {
 	const siteUrl = getSiteUrl( site );
 	const canPreview = site.running;
 	const canUseWebview = isElectron();
-	const windowControls = useWindowControlsOverlay();
 	const trafficLightSpace = useTrafficLightSpace();
 	const previewUrl = `${ siteUrl }${ getSafePath( path ) }`;
 	const siteThumbnail = useQuery( {
@@ -987,17 +985,11 @@ export function SitePreview( {
 					fullscreen && trafficLightSpace.start && styles.headerTrafficLights
 				) }
 				style={
-					windowControls
-						? {
-								minHeight: windowControls.height,
-								paddingInlineEnd: windowControls.controlsWidth + 12,
-						  }
-						: // In RTL the preview pane sits at the physical left, so the
-						// header's end-side controls land under the macOS traffic
-						// lights — pad past them.
-						trafficLightSpace.end
-						? { paddingInlineEnd: 96 }
-						: undefined
+					// In RTL the preview pane sits at the physical left, so the
+					// header's end-side controls land under the macOS traffic
+					// lights — pad past them. Windows/Linux need nothing: their
+					// controls sit in the chrome band above the frame.
+					trafficLightSpace.end ? { paddingInlineEnd: 96 } : undefined
 				}
 			>
 				{ /* Equal-flex side tracks keep the address control truly centered

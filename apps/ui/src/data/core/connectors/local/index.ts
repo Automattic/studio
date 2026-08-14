@@ -603,7 +603,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async pushSiteToLive( siteId, remoteSiteId, options, onPhase ) {
 			const listener = ( output: PushSseOutput ) => {
 				if ( output.siteId === siteId && output.kind === 'phase' ) {
-					onPhase?.( output.phase );
+					onPhase?.( output.phase, output.progress );
 				}
 			};
 			if ( onPhase ) {

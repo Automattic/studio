@@ -8,7 +8,7 @@ import {
 	writeGlobalInstructions,
 } from '@studio/common/ai/global-instructions';
 import { isAiModelId } from '@studio/common/ai/models';
-import { isAiProviderId } from '@studio/common/ai/providers';
+import { isAiProviderId, providerServesModel } from '@studio/common/ai/providers';
 import { createAgentRunManager } from '@studio/common/ai/run-manager';
 import {
 	createOrReuseAiSession,
@@ -22,6 +22,7 @@ import {
 } from '@studio/common/ai/sessions/placement';
 import {
 	appendModelChangeEntry,
+	appendStudioEntry,
 	deleteAiSession,
 	loadAiSession,
 } from '@studio/common/ai/sessions/store';
@@ -1537,6 +1538,26 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				return;
 			}
 			await appendModelChangeEntry( sessionsRoot, req.params.id, '', model );
+			res.sendStatus( 204 );
+		} )
+	);
+
+	api.post(
+		'/sessions/:id/provider',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const { provider, model } = req.body as { provider?: string; model?: string };
+			if ( ! provider || ! isAiProviderId( provider ) ) {
+				res.status( 400 ).json( { error: `Unknown AI provider: ${ provider }` } );
+				return;
+			}
+			if ( ! model || ! isAiModelId( model ) || ! providerServesModel( provider, model ) ) {
+				res.status( 400 ).json( { error: `Model ${ model } is not served by ${ provider }` } );
+				return;
+			}
+			await appendStudioEntry( sessionsRoot, req.params.id, 'studio.session_context', {
+				provider,
+				model,
+			} );
 			res.sendStatus( 204 );
 		} )
 	);

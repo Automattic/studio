@@ -735,6 +735,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				body: JSON.stringify( { model } ),
 			} );
 		},
+		async setSessionProvider( sessionId, provider, model ) {
+			await api( `/sessions/${ encodeURIComponent( sessionId ) }/provider`, {
+				method: 'POST',
+				body: JSON.stringify( { provider, model } ),
+			} );
+		},
 		async interruptAgentRun( runId ) {
 			await api( `/runs/${ encodeURIComponent( runId ) }/interrupt`, { method: 'POST' } );
 		},

@@ -395,6 +395,14 @@ export interface Connector {
 	// on the next turn; the change survives reloads because it's written to the
 	// session JSONL.
 	setSessionModel( sessionId: string, model: AiModelId ): Promise< void >;
+	// Pin the session to an AI provider (with the model it should use there).
+	// Same mechanism as setSessionModel: an entry in the session JSONL that the
+	// CLI resume honors on the next turn.
+	setSessionProvider(
+		sessionId: string,
+		provider: AiProviderId,
+		model: AiModelId
+	): Promise< void >;
 	interruptAgentRun( runId: string ): Promise< void >;
 	answerAgentQuestion( runId: string, answers: Record< string, string > ): Promise< void >;
 	onAgentEvent( listener: ( event: AgentRunEvent ) => void ): () => void;
@@ -433,12 +441,10 @@ export interface Connector {
 		options?: { editSession?: { previousContent: string } }
 	): Promise< void >;
 
-	// AI provider settings stored in the CLI config, gated by
-	// `capabilities.aiSettings`. Clearing the key (null) also falls back to
-	// WordPress.com; `setAiProvider` rejects when the Anthropic key can't be used.
+	// AI settings, gated by `capabilities.aiSettings`. Clearing the key (null)
+	// also falls the default provider back to WordPress.com.
 	getAiSettings(): Promise< AiSettings >;
 	saveAnthropicApiKey( key: string | null ): Promise< AiSettings >;
-	setAiProvider( provider: AiProviderId ): Promise< AiSettings >;
 
 	// Apps detected on disk (editors + terminals). Options in the preferences
 	// form are filtered against this so users can't pick something that isn't

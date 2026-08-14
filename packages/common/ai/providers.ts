@@ -1,4 +1,6 @@
-import { AI_MODELS, type AiModelFamily } from './models';
+import { AI_MODELS, DEFAULT_MODEL, type AiModelFamily, type AiModelId } from './models';
+import { isStudioCustomEntryOfType } from './sessions/entry-types';
+import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 
 // The literal entries of AI_MODELS, so `id` stays the `AiModelId` union
 // instead of widening to `string` for callers that key off it.
@@ -12,6 +14,12 @@ export const AI_PROVIDER_IDS = [ 'wpcom', 'anthropic-api-key' ] as const;
 export type AiProviderId = ( typeof AI_PROVIDER_IDS )[ number ];
 
 export const DEFAULT_AI_PROVIDER: AiProviderId = 'wpcom';
+
+// Brand names, not translated.
+export const AI_PROVIDER_LABELS: Record< AiProviderId, string > = {
+	wpcom: 'WordPress.com',
+	'anthropic-api-key': 'Anthropic API key',
+};
 
 // Which model families each provider can service. `wpcom` relays both
 // Anthropic and OpenAI wire formats through the same proxy; direct-API
@@ -43,6 +51,36 @@ export function getAiProviderModels( provider: AiProviderId ): readonly AiProvid
 	return PROVIDER_MODELS.get( provider ) ?? [];
 }
 
+export function providerServesModel( provider: AiProviderId, model: AiModelId ): boolean {
+	return getAiProviderModels( provider ).some( ( entry ) => entry.id === model );
+}
+
+/** The model to fall back to when a provider can't serve the requested one. */
+export function getAiProviderDefaultModel( provider: AiProviderId ): AiModelId {
+	return getAiProviderModels( provider )[ 0 ]?.id ?? DEFAULT_MODEL;
+}
+
+/**
+ * The provider a session is pinned to: the most recent `studio.session_context`
+ * entry wins (the CLI writes one per turn, the UI one per explicit switch).
+ * An entry naming a provider we no longer know is skipped rather than treated
+ * as the pin, so a retired id falls through to the last one we can still serve.
+ * Returns undefined when the session recorded none — callers fall back to the
+ * saved global selection.
+ */
+export function resolveSessionProvider( entries: SessionEntry[] ): AiProviderId | undefined {
+	for ( let index = entries.length - 1; index >= 0; index -= 1 ) {
+		const entry = entries[ index ];
+		if ( isStudioCustomEntryOfType( entry, 'studio.session_context' ) ) {
+			const provider = entry.data?.provider;
+			if ( provider && isAiProviderId( provider ) ) {
+				return provider;
+			}
+		}
+	}
+	return undefined;
+}
+
 /**
  * The AI provider settings exposed to the settings UI. The Anthropic API key
  * itself never leaves the server — only its presence and a short suffix for
@@ -51,6 +89,13 @@ export function getAiProviderModels( provider: AiProviderId ): readonly AiProvid
 export interface AiSettings {
 	provider: AiProviderId;
 	hasAnthropicApiKey: boolean;
-	/** Truncated key for display (`sk-ant-…abcd`), or null when none is saved. */
+	/** Truncated key for display (`sk-ant-…***abcd`), or null when none is saved. */
 	anthropicApiKeyPreview: string | null;
 }
+
+/**
+ * Stands in for the elided middle of `anthropicApiKeyPreview`. The settings
+ * field shows the preview as its value, so it also tells the UI that what it
+ * holds is a preview rather than a real key it should save.
+ */
+export const API_KEY_PREVIEW_MARKER = '***';

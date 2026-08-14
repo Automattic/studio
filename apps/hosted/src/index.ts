@@ -2,8 +2,10 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isAiModelId } from '@studio/common/ai/models';
+import { isAiProviderId, providerServesModel } from '@studio/common/ai/providers';
 import {
 	appendModelChangeEntry,
+	appendStudioEntry,
 	createAiSession,
 	deleteAiSession,
 	listAiSessions,
@@ -293,6 +295,23 @@ api.post(
 			return;
 		}
 		await appendModelChangeEntry( root, req.params.id, '', model );
+		res.sendStatus( 204 );
+	} )
+);
+
+api.post(
+	'/sessions/:id/provider',
+	asyncHandler( async ( req: Request, res: Response ) => {
+		const { provider, model } = req.body as { provider?: string; model?: string };
+		if ( ! provider || ! isAiProviderId( provider ) ) {
+			res.status( 400 ).json( { error: `Unknown AI provider: ${ provider }` } );
+			return;
+		}
+		if ( ! model || ! isAiModelId( model ) || ! providerServesModel( provider, model ) ) {
+			res.status( 400 ).json( { error: `Model ${ model } is not served by ${ provider }` } );
+			return;
+		}
+		await appendStudioEntry( root, req.params.id, 'studio.session_context', { provider, model } );
 		res.sendStatus( 204 );
 	} )
 );

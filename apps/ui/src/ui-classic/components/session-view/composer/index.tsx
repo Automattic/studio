@@ -11,7 +11,16 @@ import {
 } from '@studio/common/ai/composer-attachment-preview';
 import { watchComposerFilePaste } from '@studio/common/ai/composer-attachments';
 import { AI_MODELS, getAiModelFamily, getAiModelLabel } from '@studio/common/ai/models';
-import { getAiProviderModels } from '@studio/common/ai/providers';
+import {
+	AI_PROVIDER_IDS,
+	AI_PROVIDER_LABELS,
+	DEFAULT_AI_PROVIDER,
+	getAiProviderDefaultModel,
+	getAiProviderModels,
+	providerServesModel,
+	resolveSessionProvider,
+	type AiProviderId,
+} from '@studio/common/ai/providers';
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
 import { getAiSkillCommands } from '@studio/common/ai/slash-commands';
 import { useQueryClient } from '@tanstack/react-query';
@@ -32,6 +41,7 @@ import {
 	useEffect,
 	useImperativeHandle,
 	useLayoutEffect,
+	useMemo,
 	useRef,
 	useState,
 	type ChangeEvent,
@@ -168,15 +178,86 @@ function toComposerDraftAttachments( {
 	];
 }
 
-function createModelChangeEntry( modelId: AiModelId ): SessionEntry {
+// The id only has to be unique within the cached transcript: these entries are
+// optimistic stand-ins, replaced by the real ones on the next fetch.
+function newEntryFields() {
 	return {
-		type: 'model_change',
 		id: Math.random().toString( 36 ).slice( 2, 10 ),
 		parentId: null,
 		timestamp: new Date().toISOString(),
+	};
+}
+
+function createModelChangeEntry( modelId: AiModelId ): SessionEntry {
+	return {
+		type: 'model_change',
+		...newEntryFields(),
 		provider: '',
 		modelId,
 	} as unknown as SessionEntry;
+}
+
+function createSessionContextEntry( provider: AiProviderId, model: AiModelId ): SessionEntry {
+	return {
+		type: 'custom',
+		...newEntryFields(),
+		customType: 'studio.session_context',
+		data: { provider, model },
+	} as unknown as SessionEntry;
+}
+
+// Brand names, so no translation and no reason to rebuild per render.
+const AI_PROVIDER_OPTIONS = AI_PROVIDER_IDS.map( ( id ) => ( {
+	id,
+	label: AI_PROVIDER_LABELS[ id ],
+} ) );
+
+/**
+ * One of the toolbar's dropdown pills (provider, model): a labelled trigger with
+ * a tooltip and a single-choice popup, so both stay in step on placement and
+ * accessible naming.
+ */
+function ComposerPillMenu( {
+	label,
+	tooltip = label,
+	triggerLabel,
+	value,
+	options,
+	onChange,
+}: {
+	label: string;
+	tooltip?: string;
+	triggerLabel: string;
+	value: string;
+	options: readonly { id: string; label: string }[];
+	onChange: ( value: string ) => void;
+} ) {
+	return (
+		<Menu.Root modal={ false }>
+			<Tooltip.Root>
+				<Menu.Trigger
+					render={
+						<Tooltip.Trigger
+							render={ <button type="button" className={ styles.pill } aria-label={ label } /> }
+						>
+							<span>{ triggerLabel }</span>
+							<Icon icon={ chevronDownSmall } size={ 16 } />
+						</Tooltip.Trigger>
+					}
+				/>
+				<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>{ tooltip }</Tooltip.Popup>
+			</Tooltip.Root>
+			<Menu.Popup side="top" align="end">
+				<Menu.RadioGroup value={ value } onValueChange={ onChange }>
+					{ options.map( ( option ) => (
+						<Menu.RadioItem key={ option.id } value={ option.id }>
+							{ option.label }
+						</Menu.RadioItem>
+					) ) }
+				</Menu.RadioGroup>
+			</Menu.Popup>
+		</Menu.Root>
+	);
 }
 
 /**
@@ -314,11 +395,17 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 
-	// Only offer models the active AI provider can serve (a saved Anthropic API
-	// key restricts the picker to Anthropic models). Hosts without AI settings
-	// (capabilities.aiSettings false) keep the full list.
+	// The conversation's provider: its own pinned choice first, then the saved
+	// global selection. With a saved Anthropic key both providers are usable,
+	// so a picker lets the user move THIS conversation between them.
 	const { data: aiSettings } = useAiSettings();
-	const availableModels = aiSettings ? getAiProviderModels( aiSettings.provider ) : AI_MODELS;
+	const pinnedProvider = useMemo( () => resolveSessionProvider( entries ?? [] ), [ entries ] );
+	const sessionProvider = pinnedProvider ?? aiSettings?.provider ?? DEFAULT_AI_PROVIDER;
+	const canPickProvider = Boolean( aiSettings?.hasAnthropicApiKey && sessionId );
+
+	// Only offer models the conversation's provider can serve. Hosts without AI
+	// settings (capabilities.aiSettings false) keep the full list.
+	const availableModels = aiSettings ? getAiProviderModels( sessionProvider ) : AI_MODELS;
 
 	const slash = useSlashCommands( {
 		value,
@@ -548,29 +635,54 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		[ addFiles ]
 	);
 
-	// Same-family swap: optimistic `model_change` entry; refetch on write fail.
-	const applySameFamilyModel = useCallback(
-		( picked: AiModelId ) => {
+	// Show the entry right away, then write it; refetch on write fail so the
+	// transcript falls back to what actually landed.
+	const appendEntryOptimistically = useCallback(
+		( entry: SessionEntry, write: ( id: string ) => Promise< void > ) => {
 			if ( ! sessionId ) {
 				return;
 			}
-			queryClient.setQueryData< LoadedAiSession >(
-				[ ...SESSIONS_QUERY_KEY, sessionId ],
-				( prev ) =>
-					prev
-						? {
-								...prev,
-								entries: [ ...( prev.entries ?? [] ), createModelChangeEntry( picked ) ],
-						  }
-						: prev
+			const queryKey = [ ...SESSIONS_QUERY_KEY, sessionId ];
+			queryClient.setQueryData< LoadedAiSession >( queryKey, ( prev ) =>
+				prev ? { ...prev, entries: [ ...( prev.entries ?? [] ), entry ] } : prev
 			);
-			void connector.setSessionModel( sessionId, picked ).catch( () => {
-				void queryClient.invalidateQueries( {
-					queryKey: [ ...SESSIONS_QUERY_KEY, sessionId ],
-				} );
+			void write( sessionId ).catch( () => {
+				void queryClient.invalidateQueries( { queryKey } );
 			} );
 		},
-		[ connector, queryClient, sessionId ]
+		[ queryClient, sessionId ]
+	);
+
+	// Same-family swap: optimistic `model_change` entry.
+	const applySameFamilyModel = useCallback(
+		( picked: AiModelId ) => {
+			appendEntryOptimistically( createModelChangeEntry( picked ), ( id ) =>
+				connector.setSessionModel( id, picked )
+			);
+		},
+		[ appendEntryOptimistically, connector ]
+	);
+
+	// Pin THIS conversation to a provider. When the new provider can't serve
+	// the current model, the provider's default rides along in the same entry.
+	const handleProviderChange = useCallback(
+		( picked: AiProviderId ) => {
+			if ( picked === sessionProvider ) {
+				return;
+			}
+			const nextModel = providerServesModel( picked, model )
+				? model
+				: getAiProviderDefaultModel( picked );
+			// pi resumes from its own `model_change` record, so a switch that
+			// also changes the model writes one alongside the context entry.
+			appendEntryOptimistically( createSessionContextEntry( picked, nextModel ), async ( id ) => {
+				await connector.setSessionProvider( id, picked, nextModel );
+				if ( nextModel !== model ) {
+					await connector.setSessionModel( id, nextModel );
+				}
+			} );
+		},
+		[ appendEntryOptimistically, connector, model, sessionProvider ]
 	);
 
 	const handleModelChange = useCallback(
@@ -973,41 +1085,23 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 							/>
 						</div>
 						<div className={ styles.rightActions }>
-							<Menu.Root modal={ false }>
-								<Tooltip.Root>
-									<Menu.Trigger
-										render={
-											<Tooltip.Trigger
-												render={
-													<button
-														type="button"
-														className={ styles.pill }
-														aria-label={ __( 'Select model' ) }
-													/>
-												}
-											>
-												<span>{ getAiModelLabel( model ) }</span>
-												<Icon icon={ chevronDownSmall } size={ 16 } />
-											</Tooltip.Trigger>
-										}
-									/>
-									<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-										{ __( 'Select model' ) }
-									</Tooltip.Popup>
-								</Tooltip.Root>
-								<Menu.Popup side="top" align="end">
-									<Menu.RadioGroup
-										value={ model }
-										onValueChange={ ( value ) => handleModelChange( value as AiModelId ) }
-									>
-										{ availableModels.map( ( { id, label } ) => (
-											<Menu.RadioItem key={ id } value={ id }>
-												{ label }
-											</Menu.RadioItem>
-										) ) }
-									</Menu.RadioGroup>
-								</Menu.Popup>
-							</Menu.Root>
+							{ canPickProvider && (
+								<ComposerPillMenu
+									label={ __( 'Select AI provider' ) }
+									tooltip={ __( 'Select AI provider for this conversation' ) }
+									triggerLabel={ AI_PROVIDER_LABELS[ sessionProvider ] }
+									value={ sessionProvider }
+									options={ AI_PROVIDER_OPTIONS }
+									onChange={ ( value ) => handleProviderChange( value as AiProviderId ) }
+								/>
+							) }
+							<ComposerPillMenu
+								label={ __( 'Select model' ) }
+								triggerLabel={ getAiModelLabel( model ) }
+								value={ model }
+								options={ availableModels }
+								onChange={ ( value ) => handleModelChange( value as AiModelId ) }
+							/>
 							{ busy ? (
 								<Tooltip.Root>
 									<Tooltip.Trigger

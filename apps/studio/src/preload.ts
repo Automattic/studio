@@ -181,7 +181,6 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'saveGlobalAgentInstructions', content, options ),
 	getAiSettings: () => ipcRendererInvoke( 'getAiSettings' ),
 	saveAnthropicApiKey: ( key ) => ipcRendererInvoke( 'saveAnthropicApiKey', key ),
-	setAiProvider: ( provider ) => ipcRendererInvoke( 'setAiProvider', provider ),
 	previewColorScheme: ( colorScheme ) => ipcRendererInvoke( 'previewColorScheme', colorScheme ),
 	saveColorScheme: ( colorScheme ) => ipcRendererInvoke( 'saveColorScheme', colorScheme ),
 	getColorScheme: () => ipcRendererInvoke( 'getColorScheme' ),
@@ -256,6 +255,8 @@ const api: IpcApi = {
 	listActiveAiAgentRuns: () => ipcRendererInvoke( 'listActiveAiAgentRuns' ),
 	setAiSessionModel: ( sessionId, model ) =>
 		ipcRendererInvoke( 'setAiSessionModel', sessionId, model ),
+	setAiSessionProvider: ( sessionId, provider, model ) =>
+		ipcRendererInvoke( 'setAiSessionProvider', sessionId, provider, model ),
 	interruptAiAgentRun: ( runId ) => ipcRendererInvoke( 'interruptAiAgentRun', runId ),
 	answerAiAgentQuestion: ( runId, answers ) =>
 		ipcRendererInvoke( 'answerAiAgentQuestion', runId, answers ),

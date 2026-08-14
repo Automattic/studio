@@ -2,11 +2,7 @@ import '@testing-library/jest-dom/vitest';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
-import {
-	useAiSettings,
-	useSaveAnthropicApiKey,
-	useSetAiProvider,
-} from '@/data/queries/use-ai-settings';
+import { useAiSettings, useSaveAnthropicApiKey } from '@/data/queries/use-ai-settings';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { AiPanel } from './ai-panel';
 import type { AiSettings } from '@studio/common/ai/providers';
@@ -28,12 +24,13 @@ vi.mock( '@wordpress/components', () => ( {
 	),
 	TextControl: ( props: {
 		value: string;
+		type?: string;
 		label?: string;
 		placeholder?: string;
 		onChange: ( value: string ) => void;
 	} ) => (
 		<input
-			type="password"
+			type={ props.type ?? 'text' }
 			aria-label={ props.label }
 			placeholder={ props.placeholder }
 			value={ props.value }
@@ -54,7 +51,6 @@ vi.mock( '@/data/queries/use-user-preferences', () => ( {
 vi.mock( '@/data/queries/use-ai-settings', () => ( {
 	useAiSettings: vi.fn(),
 	useSaveAnthropicApiKey: vi.fn(),
-	useSetAiProvider: vi.fn(),
 } ) );
 
 vi.mock( './studio-code-panel', () => ( {
@@ -66,13 +62,11 @@ const useUserPreferencesMock = vi.mocked( useUserPreferences );
 const useSaveUserPreferencesMock = vi.mocked( useSaveUserPreferences );
 const useAiSettingsMock = vi.mocked( useAiSettings );
 const useSaveAnthropicApiKeyMock = vi.mocked( useSaveAnthropicApiKey );
-const useSetAiProviderMock = vi.mocked( useSetAiProvider );
 
 describe( 'AiPanel', () => {
 	const disableAgenticUi = vi.fn( () => Promise.resolve() );
 	const mutate = vi.fn();
 	const saveKey = vi.fn();
-	const setProvider = vi.fn();
 
 	function mockConnector( agentInstructions = true, aiSettings = false ) {
 		useConnectorMock.mockReturnValue( {
@@ -97,11 +91,6 @@ describe( 'AiPanel', () => {
 		useSaveUserPreferencesMock.mockReturnValue( { mutate } as never );
 		useSaveAnthropicApiKeyMock.mockReturnValue( {
 			mutate: saveKey,
-			isPending: false,
-			error: null,
-		} as never );
-		useSetAiProviderMock.mockReturnValue( {
-			mutate: setProvider,
 			isPending: false,
 			error: null,
 		} as never );
@@ -153,7 +142,7 @@ describe( 'AiPanel', () => {
 		mockConnector( true, false );
 		render( <AiPanel /> );
 
-		expect( screen.queryByText( 'Use your Anthropic API key' ) ).not.toBeInTheDocument();
+		expect( screen.queryByLabelText( 'Anthropic API key' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'saves the trimmed key after the user stops typing', async () => {
@@ -189,12 +178,13 @@ describe( 'AiPanel', () => {
 			mockAiSettings( {
 				provider: 'anthropic-api-key',
 				hasAnthropicApiKey: true,
-				anthropicApiKeyPreview: 'sk-ant-api03-tes...1234',
+				anthropicApiKeyPreview: 'sk-ant-api03-tes***1234',
 			} );
 			render( <AiPanel /> );
 
 			const input = screen.getByLabelText( 'Anthropic API key' );
-			fireEvent.change( input, { target: { value: 'sk-ant-test-1234' } } );
+			expect( input ).toHaveValue( 'sk-ant-api03-tes***1234' );
+
 			fireEvent.change( input, { target: { value: '' } } );
 			act( () => {
 				vi.advanceTimersByTime( 800 );
@@ -206,26 +196,28 @@ describe( 'AiPanel', () => {
 		}
 	} );
 
-	it( 'keeps the toggle disabled until a key has been saved', () => {
-		mockConnector( true, true );
-		mockAiSettings( {
-			provider: 'wpcom',
-			hasAnthropicApiKey: false,
-			anthropicApiKeyPreview: null,
-		} );
-		const { unmount } = render( <AiPanel /> );
+	it( 'never saves an edit of the obfuscated preview as a key', async () => {
+		vi.useFakeTimers();
+		try {
+			mockConnector( true, true );
+			mockAiSettings( {
+				provider: 'anthropic-api-key',
+				hasAnthropicApiKey: true,
+				anthropicApiKeyPreview: 'sk-ant-api03-tes***1234',
+			} );
+			render( <AiPanel /> );
 
-		expect( screen.getByRole( 'checkbox', { name: 'Use your Anthropic API key' } ) ).toBeDisabled();
-		unmount();
+			fireEvent.change( screen.getByLabelText( 'Anthropic API key' ), {
+				target: { value: 'sk-ant-api03-tes***12' },
+			} );
+			act( () => {
+				vi.advanceTimersByTime( 800 );
+			} );
 
-		mockAiSettings( {
-			provider: 'wpcom',
-			hasAnthropicApiKey: true,
-			anthropicApiKeyPreview: 'sk-ant-api03-tes...1234',
-		} );
-		render( <AiPanel /> );
-
-		expect( screen.getByRole( 'checkbox', { name: 'Use your Anthropic API key' } ) ).toBeEnabled();
+			expect( saveKey ).not.toHaveBeenCalled();
+		} finally {
+			vi.useRealTimers();
+		}
 	} );
 
 	it( 'shows why saving the key failed', () => {
@@ -248,49 +240,5 @@ describe( 'AiPanel', () => {
 		expect(
 			screen.getByLabelText( 'Anthropic API key' ).closest( '[class*="apiKeyControlsError"]' )
 		).not.toBeNull();
-	} );
-
-	it( 'switches the provider from the toggle', () => {
-		mockConnector( true, true );
-		mockAiSettings( {
-			provider: 'wpcom',
-			hasAnthropicApiKey: true,
-			anthropicApiKeyPreview: 'sk-ant-api03-tes...1234',
-		} );
-		render( <AiPanel /> );
-
-		const toggle = screen.getByRole( 'checkbox', { name: 'Use your Anthropic API key' } );
-		fireEvent.click( toggle );
-		expect( setProvider ).toHaveBeenCalledWith( 'anthropic-api-key' );
-
-		mockAiSettings( {
-			provider: 'anthropic-api-key',
-			hasAnthropicApiKey: true,
-			anthropicApiKeyPreview: 'sk-ant-api03-tes...1234',
-		} );
-		render( <AiPanel /> );
-		fireEvent.click(
-			screen.getAllByRole( 'checkbox', { name: 'Use your Anthropic API key' } )[ 1 ]
-		);
-		expect( setProvider ).toHaveBeenLastCalledWith( 'wpcom' );
-	} );
-
-	it( 'shows why enabling the provider failed', () => {
-		mockConnector( true, true );
-		mockAiSettings( {
-			provider: 'wpcom',
-			hasAnthropicApiKey: true,
-			anthropicApiKeyPreview: 'sk-ant-api03-tes...1234',
-		} );
-		useSetAiProviderMock.mockReturnValue( {
-			mutate: setProvider,
-			isPending: false,
-			error: new Error( 'Anthropic rejected this API key. Check the key and try again.' ),
-		} as never );
-		render( <AiPanel /> );
-
-		expect(
-			screen.getByText( 'Anthropic rejected this API key. Check the key and try again.' )
-		).toBeInTheDocument();
 	} );
 } );

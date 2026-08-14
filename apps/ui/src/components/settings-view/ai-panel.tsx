@@ -1,3 +1,4 @@
+import { API_KEY_PREVIEW_MARKER } from '@studio/common/ai/providers';
 import { FormToggle, TextControl } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { error as errorIcon } from '@wordpress/icons';
@@ -5,11 +6,7 @@ import { Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useState } from 'react';
 import { useConnector } from '@/data/core';
-import {
-	useAiSettings,
-	useSaveAnthropicApiKey,
-	useSetAiProvider,
-} from '@/data/queries/use-ai-settings';
+import { useAiSettings, useSaveAnthropicApiKey } from '@/data/queries/use-ai-settings';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { StudioCodePanel } from './studio-code-panel';
 import styles from './style.module.css';
@@ -46,52 +43,42 @@ function AgenticFeaturesSection() {
 
 function AnthropicApiKeySection() {
 	const { data: settings } = useAiSettings();
-	const { mutate: saveKey, isPending: isSaving, error: saveError } = useSaveAnthropicApiKey();
-	const { mutate: setProvider, isPending: isSwitching, error: switchError } = useSetAiProvider();
-	// `undefined` until the user types: the saved key never reaches the client,
-	// so the field shows a truncated preview of it as its placeholder.
+	const { mutate: saveKey, error } = useSaveAnthropicApiKey();
+	// `undefined` until the user types. The saved key never reaches the client:
+	// the field displays its obfuscated preview (`sk-…***1234`) as the value, so
+	// clearing the field is how the key gets removed.
 	const [ draft, setDraft ] = useState< string | undefined >( undefined );
 
+	// A draft still carrying the marker is the preview (or an edit of it), never
+	// a real key: don't save it, and leave it legible instead of masking it.
+	const isPreview = draft === undefined || draft.includes( API_KEY_PREVIEW_MARKER );
 	// An emptied field saves `null`, clearing the stored key.
-	useDebouncedSave( draft === undefined ? undefined : draft.trim() || null, saveKey );
+	useDebouncedSave( isPreview ? undefined : draft.trim() || null, saveKey );
 
 	if ( ! settings ) {
 		return null;
 	}
 
-	const usesAnthropic = settings.provider === 'anthropic-api-key';
-	const error = saveError ?? switchError;
-
 	return (
 		<section className={ styles.preferenceSectionGroup }>
 			<section className={ clsx( styles.preferenceRow, styles.apiKeyRow ) }>
 				<div className={ styles.preferenceText }>
-					<h2>{ __( 'Use your Anthropic API key' ) }</h2>
+					<h2>{ __( 'Anthropic API key' ) }</h2>
 					<p>
 						{ __(
-							'Use your own API key, which bills against your Anthropic account. When off, Studio uses your WordPress.com AI credits.'
+							'Add your own API key to pick Anthropic as the provider in a conversation. It bills against your Anthropic account; without it Studio uses your WordPress.com AI credits.'
 						) }
 					</p>
-				</div>
-				<div className={ clsx( styles.preferenceControl, styles.toggleControl ) }>
-					<FormToggle
-						checked={ usesAnthropic }
-						disabled={
-							isSaving || isSwitching || ( ! usesAnthropic && ! settings.hasAnthropicApiKey )
-						}
-						aria-label={ __( 'Use your Anthropic API key' ) }
-						onChange={ () => setProvider( usesAnthropic ? 'wpcom' : 'anthropic-api-key' ) }
-					/>
 				</div>
 				<div className={ clsx( styles.apiKeyControls, error && styles.apiKeyControlsError ) }>
 					<TextControl
 						__nextHasNoMarginBottom
 						__next40pxDefaultSize
-						type="password"
+						type={ isPreview ? 'text' : 'password' }
 						label={ __( 'Anthropic API key' ) }
 						hideLabelFromVision
-						placeholder={ settings.anthropicApiKeyPreview ?? __( 'Paste your API key: sk-…' ) }
-						value={ draft ?? '' }
+						placeholder={ __( 'Paste your API key: sk-…' ) }
+						value={ draft ?? settings.anthropicApiKeyPreview ?? '' }
 						onChange={ setDraft }
 					/>
 				</div>

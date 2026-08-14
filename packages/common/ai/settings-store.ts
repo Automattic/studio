@@ -2,6 +2,7 @@ import { readCliConfigFileRaw } from '../lib/cli-config-file';
 import { readSharedConfig, updateSharedConfig } from '../lib/shared-config';
 import { validateAnthropicApiKey } from './anthropic-key';
 import {
+	API_KEY_PREVIEW_MARKER,
 	DEFAULT_AI_PROVIDER,
 	isAiProviderId,
 	type AiProviderId,
@@ -65,10 +66,11 @@ const KEY_SUFFIX_LENGTH = 4;
 // Enough to recognise the key, never enough to use it; a short key shows
 // only its tail so most of it is not echoed back.
 function previewKey( key: string ): string {
+	const tail = `${ API_KEY_PREVIEW_MARKER }${ key.slice( -KEY_SUFFIX_LENGTH ) }`;
 	if ( key.length <= KEY_PREFIX_LENGTH + KEY_SUFFIX_LENGTH ) {
-		return `...${ key.slice( -KEY_SUFFIX_LENGTH ) }`;
+		return tail;
 	}
-	return `${ key.slice( 0, KEY_PREFIX_LENGTH ) }...${ key.slice( -KEY_SUFFIX_LENGTH ) }`;
+	return `${ key.slice( 0, KEY_PREFIX_LENGTH ) }${ tail }`;
 }
 
 function toAiSettings( config: AiProviderConfig ): AiSettings {
@@ -115,26 +117,6 @@ export async function saveAnthropicApiKey( key: string | null ): Promise< AiSett
 			? { anthropicApiKey: trimmed }
 			: { anthropicApiKey: undefined, aiProvider: DEFAULT_AI_PROVIDER }
 	);
-}
-
-/**
- * Selects the provider for new conversations. Switching to Anthropic refuses a
- * key Anthropic rejects, but accepts an unverifiable one. Existing sessions
- * keep the provider recorded in their session context.
- */
-export async function setAiProvider( provider: AiProviderId ): Promise< AiSettings > {
-	if ( provider === 'anthropic-api-key' ) {
-		const anthropicApiKey = await readAnthropicApiKey();
-		if ( ! anthropicApiKey ) {
-			throw new InvalidAnthropicApiKeyError( 'Add an Anthropic API key first.' );
-		}
-		const validation = await validateAnthropicApiKey( anthropicApiKey );
-		if ( validation.status === 'invalid' ) {
-			throw new InvalidAnthropicApiKeyError( validation.message );
-		}
-	}
-
-	return updateAiProviderConfig( { aiProvider: provider } );
 }
 
 /** Persists the provider without validation — for flows that already ran it. */

@@ -176,7 +176,7 @@ function resolveCredentials(
 		return {
 			ok: false,
 			reason:
-				'Anthropic provider selected but neither ANTHROPIC_AUTH_TOKEN nor ANTHROPIC_API_KEY is set. On the WordPress.com provider this means the wpcom access token is missing — run /login to authenticate. Otherwise switch to the Anthropic · API key provider with /provider and save a key.',
+				'Anthropic provider selected but neither ANTHROPIC_AUTH_TOKEN nor ANTHROPIC_API_KEY is set. On the WordPress.com provider this means the wpcom access token is missing — run /login to authenticate. Otherwise switch to the Anthropic API key provider with /provider and save a key.',
 		};
 	}
 	const baseURL = env.ANTHROPIC_BASE_URL?.trim() || 'https://api.anthropic.com';

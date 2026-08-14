@@ -117,6 +117,26 @@ function renderedHtml( html: string ): string {
 		}
 		node.remove();
 	} );
+	$( 'div,section,aside,footer' ).each( ( _index, element ) => {
+		const node = $( element );
+		const rendered = node.clone();
+		rendered.find( 'script,style,noscript' ).remove();
+		if ( rendered.find( 'img,video,audio,iframe,form,input,button,a[href]' ).length > 0 || rendered.text().trim() !== '' ) return;
+		if ( node.parents( 'main,article' ).length > 0 ) return;
+		const style = node.attr( 'style' ) ?? '';
+		const idAndClass = `${ node.attr( 'id' ) ?? '' } ${ node.attr( 'class' ) ?? '' }`;
+		if ( /(?:^|;)\s*(?:position\s*:\s*(?:fixed|absolute)|bottom\s*:)/i.test( style ) || /(?:account.*app|app.*account|footer|modal|mount|portal|popup|toast)/i.test( idAndClass ) ) {
+			node.remove();
+		}
+	} );
+	const allLinks = $( 'body a[href]' ).map( ( _index, link ) => $( link ).attr( 'href' ) ?? '' ).get();
+	$( 'body > div,body > nav' ).each( ( _index, element ) => {
+		const node = $( element );
+		const style = `${ node.attr( 'style' ) ?? '' };${ node.children().first().attr( 'style' ) ?? '' }`;
+		const links = node.find( 'a[href]' ).map( ( _i, link ) => $( link ).attr( 'href' ) ?? '' ).get();
+		if ( links.length === 0 || ! /(?:^|;)\s*display\s*:\s*none/i.test( style ) ) return;
+		if ( links.every( ( href ) => allLinks.filter( ( candidate ) => candidate === href ).length > 1 ) ) node.remove();
+	} );
 	return $.html();
 }
 
@@ -147,6 +167,12 @@ function responsiveBodySignature( body: string ): string {
 		}
 		if ( node.is( 'img,source,video,audio' ) ) {
 			node.removeAttr( 'src' ).removeAttr( 'srcset' ).removeAttr( 'sizes' );
+		}
+		if ( node.is( 'form,iframe' ) ) {
+			for ( const attribute of [ 'id', 'name', 'target' ] ) {
+				const value = node.attr( attribute );
+				if ( value && /(?:target|frame)[-_]?\d{6,}$/i.test( value ) ) node.attr( attribute, 'capture-target');
+			}
 		}
 	} );
 	let removedEmptyMount = true;

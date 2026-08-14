@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { useConnector } from '@/data/core';
+import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
 import type { Connector, SiteDetails } from '@/data/core';
 import type { QueryClient } from '@tanstack/react-query';
 
@@ -39,6 +40,13 @@ export function refreshThemeDetails(
 				return details;
 			}
 			queryClient.setQueryData( themeDetailsQueryKey( siteId ), details );
+			queryClient.setQueryData< SiteDetails[] >(
+				SITES_QUERY_KEY,
+				( sites ) =>
+					sites?.map( ( site ) =>
+						site.id === siteId ? { ...site, themeDetails: details ?? undefined } : site
+					)
+			);
 			return details;
 		} )
 		.finally( () => {
@@ -95,11 +103,11 @@ export function useThemeDetails( site: SiteDetails ): ThemeDetailsStatus {
 	}, [ canResolve, connector, queryClient, site.id ] );
 
 	const resolvedStatus = useMemo< ThemeDetailsStatus >( () => {
-		if ( data ) {
-			return { state: 'ready', details: data };
-		}
 		if ( persisted ) {
 			return { state: 'ready', details: persisted };
+		}
+		if ( data ) {
+			return { state: 'ready', details: data };
 		}
 		if ( ! canResolve ) {
 			return { state: 'unknown' };

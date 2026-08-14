@@ -12,6 +12,7 @@ import {
 	navigation,
 	page,
 	pencil,
+	post,
 	styles as stylesIcon,
 	symbolFilled,
 	widget,
@@ -326,11 +327,28 @@ function SiteOverviewBody( {
 								</div>
 								<div className={ styles.actionsColumn }>
 									<ButtonSection
-										title={ __( 'Customize' ) }
+										title={ __( 'Shortcuts' ) }
 										loadingCount={ themeStatus.state === 'loading' ? 7 : 0 }
-										transitionName="studio-theme-customize"
+										transitionName="studio-theme-shortcuts"
 									>
-										{ isBlockTheme ? (
+										{ ! themeDetails ? (
+											<>
+												<OverviewButton
+													transitionName="studio-theme-posts"
+													icon={ <Icon icon={ post } size={ 18 } /> }
+													label={ __( 'Posts' ) }
+													disabled={ busy }
+													onClick={ () => void openSiteUrl( '/wp-admin/edit.php' ) }
+												/>
+												<OverviewButton
+													transitionName="studio-theme-pages"
+													icon={ <Icon icon={ page } size={ 18 } /> }
+													label={ __( 'Pages' ) }
+													disabled={ busy }
+													onClick={ () => void openSiteUrl( '/wp-admin/edit.php?post_type=page' ) }
+												/>
+											</>
+										) : isBlockTheme ? (
 											<>
 												<OverviewButton
 													transitionName="studio-theme-site-editor"

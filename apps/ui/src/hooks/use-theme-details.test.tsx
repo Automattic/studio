@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
+import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
 import { refreshThemeDetails, themeDetailsQueryKey, useThemeDetails } from './use-theme-details';
 import type { SiteDetails } from '@/data/core';
 import type { ReactNode } from 'react';
@@ -63,17 +64,29 @@ describe( 'useThemeDetails', () => {
 
 	it( 'refreshes persisted theme details whenever the window regains focus', async () => {
 		getThemeDetails.mockResolvedValue( classicTheme );
-		const { result } = renderHook( () => useThemeDetails( createSite() ), { wrapper } );
+		const { result, rerender } = renderHook( ( { site } ) => useThemeDetails( site ), {
+			wrapper,
+			initialProps: { site: createSite() },
+		} );
 
 		expect( result.current ).toEqual( { state: 'ready', details: blockTheme } );
 		expect( getThemeDetails ).not.toHaveBeenCalled();
 
 		await act( () => window.dispatchEvent( new Event( 'focus' ) ) );
+		await waitFor( () => expect( getThemeDetails ).toHaveBeenCalledWith( 'site-1' ) );
+		rerender( { site: createSite( { themeDetails: classicTheme } ) } );
 
 		await waitFor( () =>
 			expect( result.current ).toEqual( { state: 'ready', details: classicTheme } )
 		);
-		expect( getThemeDetails ).toHaveBeenCalledWith( 'site-1' );
+	} );
+
+	it( 'prefers persisted site details over stale query data', () => {
+		queryClient.setQueryData( themeDetailsQueryKey( 'site-1' ), classicTheme );
+
+		const { result } = renderHook( () => useThemeDetails( createSite() ), { wrapper } );
+
+		expect( result.current ).toEqual( { state: 'ready', details: blockTheme } );
 	} );
 
 	it( 'does not refresh a stopped site', async () => {
@@ -104,8 +117,15 @@ describe( 'useThemeDetails', () => {
 			value: startViewTransition,
 		} );
 
-		const { result } = renderHook( () => useThemeDetails( createSite() ), { wrapper } );
+		const { result, rerender } = renderHook( ( { site } ) => useThemeDetails( site ), {
+			wrapper,
+			initialProps: { site: createSite() },
+		} );
 		await act( () => window.dispatchEvent( new Event( 'focus' ) ) );
+		await waitFor( () =>
+			expect( queryClient.getQueryData( themeDetailsQueryKey( 'site-1' ) ) ).toEqual( classicTheme )
+		);
+		rerender( { site: createSite( { themeDetails: classicTheme } ) } );
 		await waitFor( () =>
 			expect( result.current ).toEqual( { state: 'ready', details: classicTheme } )
 		);
@@ -117,6 +137,10 @@ describe( 'useThemeDetails', () => {
 		expect( queryClient.getQueryData( themeDetailsQueryKey( 'site-1' ) ) ).toEqual( classicTheme );
 
 		await act( () => window.dispatchEvent( new Event( 'focus' ) ) );
+		await waitFor( () =>
+			expect( queryClient.getQueryData( themeDetailsQueryKey( 'site-1' ) ) ).toEqual( blockTheme )
+		);
+		rerender( { site: createSite( { themeDetails: blockTheme } ) } );
 		await waitFor( () =>
 			expect( result.current ).toEqual( { state: 'ready', details: blockTheme } )
 		);
@@ -132,8 +156,15 @@ describe( 'useThemeDetails', () => {
 		} );
 		vi.stubGlobal( 'matchMedia', vi.fn().mockReturnValue( { matches: true } ) );
 
-		const { result } = renderHook( () => useThemeDetails( createSite() ), { wrapper } );
+		const { result, rerender } = renderHook( ( { site } ) => useThemeDetails( site ), {
+			wrapper,
+			initialProps: { site: createSite() },
+		} );
 		await act( () => window.dispatchEvent( new Event( 'focus' ) ) );
+		await waitFor( () =>
+			expect( queryClient.getQueryData( themeDetailsQueryKey( 'site-1' ) ) ).toEqual( classicTheme )
+		);
+		rerender( { site: createSite( { themeDetails: classicTheme } ) } );
 		await waitFor( () =>
 			expect( result.current ).toEqual( { state: 'ready', details: classicTheme } )
 		);
@@ -147,6 +178,7 @@ describe( 'useThemeDetails', () => {
 			resolveFirstRefresh = resolve;
 		} );
 		getThemeDetails.mockReturnValueOnce( firstRefresh ).mockResolvedValueOnce( blockTheme );
+		queryClient.setQueryData( SITES_QUERY_KEY, [ createSite( { themeDetails: classicTheme } ) ] );
 
 		const older = refreshThemeDetails( { getThemeDetails } as never, queryClient, 'site-1' );
 		const newer = refreshThemeDetails( { getThemeDetails } as never, queryClient, 'site-1' );
@@ -155,5 +187,8 @@ describe( 'useThemeDetails', () => {
 		await older;
 
 		expect( queryClient.getQueryData( themeDetailsQueryKey( 'site-1' ) ) ).toEqual( blockTheme );
+		expect(
+			queryClient.getQueryData< SiteDetails[] >( SITES_QUERY_KEY )?.[ 0 ].themeDetails
+		).toEqual( blockTheme );
 	} );
 } );

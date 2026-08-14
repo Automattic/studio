@@ -309,7 +309,7 @@ describe( 'SiteOverviewView', () => {
 		};
 	}
 
-	it( 'renders the tab strip with the about, customize, and manage sections', () => {
+	it( 'renders the tab strip with the about, shortcuts, and manage sections', () => {
 		renderView();
 
 		expect( siteDropdownMock ).toHaveBeenCalledWith(
@@ -319,7 +319,7 @@ describe( 'SiteOverviewView', () => {
 		expect( screen.getByRole( 'tab', { name: 'Settings' } ) ).toBeVisible();
 		expect( screen.getByRole( 'tab', { name: 'Debugging' } ) ).toBeVisible();
 		expect( screen.getByRole( 'heading', { name: 'About' } ) ).toBeVisible();
-		expect( screen.getByRole( 'heading', { name: 'Customize' } ) ).toBeVisible();
+		expect( screen.getByRole( 'heading', { name: 'Shortcuts' } ) ).toBeVisible();
 		expect( screen.getByRole( 'heading', { name: 'Manage' } ) ).toBeVisible();
 		expect( screen.getByText( 'Site Editor' ) ).toBeVisible();
 		expect( screen.getByText( 'Templates' ) ).toBeVisible();
@@ -662,13 +662,21 @@ describe( 'SiteOverviewView', () => {
 		expect( container.querySelectorAll( `.${ styles.buttonSkeleton }` ) ).toHaveLength( 7 );
 	} );
 
-	it( 'retains the Classic fallback when theme details are unavailable', () => {
+	it( 'shows theme-independent shortcuts when theme details are unavailable', () => {
 		useThemeDetailsMock.mockReturnValue( { state: 'unknown' } );
 
 		renderView();
 
-		expect( screen.getByText( 'Customizer' ) ).toBeVisible();
+		expect( screen.getByText( 'Posts' ) ).toBeVisible();
+		expect( screen.getByText( 'Pages' ) ).toBeVisible();
+		expect( screen.getByText( 'Media Library' ) ).toBeVisible();
+		expect( screen.queryByText( 'Customizer' ) ).not.toBeInTheDocument();
 		expect( screen.queryByText( 'Site Editor' ) ).not.toBeInTheDocument();
+
+		fireEvent.click( screen.getByText( 'Posts' ).closest( 'button' )! );
+		fireEvent.click( screen.getByText( 'Pages' ).closest( 'button' )! );
+		expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/wp-admin/edit.php' );
+		expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/wp-admin/edit.php?post_type=page' );
 	} );
 
 	it( 'offers the configured apps and phpMyAdmin under Open in…', () => {

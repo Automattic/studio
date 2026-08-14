@@ -273,7 +273,7 @@ html:active-view-transition-type(theme-details)::view-transition-new(root) {
 	mix-blend-mode: normal;
 }
 
-html:active-view-transition-type(theme-details)::view-transition-group(studio-theme-customize),
+html:active-view-transition-type(theme-details)::view-transition-group(studio-theme-shortcuts),
 html:active-view-transition-type(theme-details)::view-transition-group(studio-theme-open-in),
 html:active-view-transition-type(theme-details)::view-transition-group(studio-theme-manage),
 html:active-view-transition-type(theme-details)::view-transition-group(.studio-theme-shortcut) {

@@ -40,42 +40,19 @@ function AgenticFeaturesSection() {
 	);
 }
 
-// Whether `small` can be produced from `big` purely by deleting characters.
-function isSubsequenceOf( small: string, big: string ): boolean {
-	let matched = 0;
-	for ( const char of big ) {
-		if ( matched < small.length && char === small[ matched ] ) {
-			matched += 1;
-		}
-	}
-	return matched === small.length;
-}
-
 function AnthropicApiKeySection() {
 	const { data: settings } = useAiSettings();
 	const { mutate: saveKey, error } = useSaveAnthropicApiKey();
-	// `undefined` until the user types. The saved key never reaches the client:
-	// while one exists the field shows its truncated preview as an editable
-	// value, so deleting the whole value is how the key gets removed.
+	// `undefined` until the user types: the saved key never reaches the client,
+	// so the field shows a truncated preview of it as its placeholder.
 	const [ draft, setDraft ] = useState< string | undefined >( undefined );
 
-	const preview = settings?.anthropicApiKeyPreview ?? '';
-	// Mid-deletion states of the preview (still a subsequence of it) must not
-	// be saved — offline, a truncated fragment would silently replace the real
-	// key. Only a fully emptied field (clear → null) or a typed replacement
-	// counts.
-	const isPreviewRemnant =
-		draft !== undefined && draft !== '' && preview !== '' && isSubsequenceOf( draft, preview );
-	useDebouncedSave(
-		draft === undefined || isPreviewRemnant ? undefined : draft.trim() || null,
-		saveKey
-	);
+	// An emptied field saves `null`, clearing the stored key.
+	useDebouncedSave( draft === undefined ? undefined : draft.trim() || null, saveKey );
 
 	if ( ! settings ) {
 		return null;
 	}
-
-	const showsPreview = draft === undefined || isPreviewRemnant;
 
 	return (
 		<section className={ styles.preferenceSectionGroup }>
@@ -92,11 +69,11 @@ function AnthropicApiKeySection() {
 					<TextControl
 						__nextHasNoMarginBottom
 						__next40pxDefaultSize
-						type={ showsPreview ? 'text' : 'password' }
+						type="password"
 						label={ __( 'Anthropic API key' ) }
 						hideLabelFromVision
-						placeholder={ __( 'Paste your API key: sk-…' ) }
-						value={ draft ?? preview }
+						placeholder={ settings.anthropicApiKeyPreview ?? __( 'Paste your API key: sk-…' ) }
+						value={ draft ?? '' }
 						onChange={ setDraft }
 					/>
 				</div>

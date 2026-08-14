@@ -24,18 +24,15 @@ vi.mock( '@wordpress/components', () => ( {
 	),
 	TextControl: ( props: {
 		value: string;
-		type?: string;
 		label?: string;
 		placeholder?: string;
-		readOnly?: boolean;
 		onChange: ( value: string ) => void;
 	} ) => (
 		<input
-			type={ props.type ?? 'text' }
+			type="password"
 			aria-label={ props.label }
 			placeholder={ props.placeholder }
 			value={ props.value }
-			readOnly={ props.readOnly }
 			onChange={ ( event ) => props.onChange( event.target.value ) }
 		/>
 	),
@@ -173,7 +170,7 @@ describe( 'AiPanel', () => {
 		}
 	} );
 
-	it( 'removes the saved key by clearing the shown value', async () => {
+	it( 'clears the saved key when the field is emptied', async () => {
 		vi.useFakeTimers();
 		try {
 			mockConnector( true, true );
@@ -185,61 +182,13 @@ describe( 'AiPanel', () => {
 			render( <AiPanel /> );
 
 			const input = screen.getByLabelText( 'Anthropic API key' );
-			expect( input ).toHaveValue( 'sk-ant-api03-tes...1234' );
-
+			fireEvent.change( input, { target: { value: 'sk-ant-test-1234' } } );
 			fireEvent.change( input, { target: { value: '' } } );
 			act( () => {
 				vi.advanceTimersByTime( 800 );
 			} );
 
 			expect( saveKey ).toHaveBeenCalledWith( null );
-		} finally {
-			vi.useRealTimers();
-		}
-	} );
-
-	it( 'never saves a partially deleted preview as a key', async () => {
-		vi.useFakeTimers();
-		try {
-			mockConnector( true, true );
-			mockAiSettings( {
-				provider: 'anthropic-api-key',
-				hasAnthropicApiKey: true,
-				anthropicApiKeyPreview: 'sk-ant-api03-tes...1234',
-			} );
-			render( <AiPanel /> );
-
-			const input = screen.getByLabelText( 'Anthropic API key' );
-			fireEvent.change( input, { target: { value: 'sk-ant-api03-tes..1234' } } );
-			act( () => {
-				vi.advanceTimersByTime( 800 );
-			} );
-
-			expect( saveKey ).not.toHaveBeenCalled();
-		} finally {
-			vi.useRealTimers();
-		}
-	} );
-
-	it( 'saves a replacement key typed over the preview', async () => {
-		vi.useFakeTimers();
-		try {
-			mockConnector( true, true );
-			mockAiSettings( {
-				provider: 'anthropic-api-key',
-				hasAnthropicApiKey: true,
-				anthropicApiKeyPreview: 'sk-ant-api03-tes...1234',
-			} );
-			render( <AiPanel /> );
-
-			fireEvent.change( screen.getByLabelText( 'Anthropic API key' ), {
-				target: { value: 'sk-ant-api03-replacement-key-9999' },
-			} );
-			act( () => {
-				vi.advanceTimersByTime( 800 );
-			} );
-
-			expect( saveKey ).toHaveBeenCalledWith( 'sk-ant-api03-replacement-key-9999' );
 		} finally {
 			vi.useRealTimers();
 		}

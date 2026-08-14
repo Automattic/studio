@@ -18,6 +18,7 @@ import {
 import { runCommand as runListPreviewCommand } from 'cli/commands/preview/list';
 import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
+import { runCommand as runDeleteSiteCommand } from 'cli/commands/site/delete';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { runWpCliCommandWithMessaging } from 'cli/lib/run-wp-cli-command';
@@ -346,6 +347,78 @@ describe( 'Studio AI MCP tools', () => {
 		expect( emitEventMock ).toHaveBeenCalledWith(
 			expect.objectContaining( { type: 'preview.reload' } )
 		);
+	} );
+
+	describe( 'site_delete confirmation', () => {
+		const getConfirmingDeleteTool = (
+			confirmSiteDeletion: ( details: {
+				name: string;
+				path: string;
+			} ) => Promise< { confirmed: true; deleteFiles: boolean } | { confirmed: false } >
+		) => {
+			const tool = resolveStudioToolDefinitions( { confirmSiteDeletion } ).find(
+				( candidate ) => candidate.name === 'site_delete'
+			);
+			expect( tool ).toBeDefined();
+			return tool as ReturnType< typeof resolveStudioToolDefinitions >[ number ];
+		};
+
+		it( 'deletes without asking when no confirmation handler is wired', async () => {
+			const result = await getTool( 'site_delete' ).rawHandler( {
+				nameOrPath: 'My Site',
+			} as never );
+
+			expect( runDeleteSiteCommand ).toHaveBeenCalledWith( mockSite.path, true );
+			expect( getTextContent( result ) ).toBe( 'Site "My Site" deleted.' );
+		} );
+
+		it( 'deletes and trashes files when the user confirms with trash', async () => {
+			const confirm = vi.fn().mockResolvedValue( { confirmed: true, deleteFiles: true } );
+			const result = await executeTool( getConfirmingDeleteTool( confirm ), {
+				nameOrPath: 'My Site',
+			} );
+
+			expect( confirm ).toHaveBeenCalledWith( {
+				name: 'My Site',
+				path: mockSite.path,
+			} );
+			expect( runDeleteSiteCommand ).toHaveBeenCalledWith( mockSite.path, true );
+			expect( getTextContent( result ) ).toBe( 'Site "My Site" deleted.' );
+		} );
+
+		it( 'deletes and keeps files when the user confirms with keep', async () => {
+			const confirm = vi.fn().mockResolvedValue( { confirmed: true, deleteFiles: false } );
+			const result = await executeTool( getConfirmingDeleteTool( confirm ), {
+				nameOrPath: 'My Site',
+			} );
+
+			expect( runDeleteSiteCommand ).toHaveBeenCalledWith( mockSite.path, false );
+			expect( getTextContent( result ) ).toBe( 'Site "My Site" deleted.' );
+		} );
+
+		it( 'does not delete when the user declines', async () => {
+			const confirm = vi.fn().mockResolvedValue( { confirmed: false } );
+			const result = await executeTool( getConfirmingDeleteTool( confirm ), {
+				nameOrPath: 'My Site',
+			} );
+
+			expect( confirm ).toHaveBeenCalledOnce();
+			expect( runDeleteSiteCommand ).not.toHaveBeenCalled();
+			expect( getTextContent( result ) ).toBe(
+				'Site deletion cancelled. "My Site" was not deleted.'
+			);
+		} );
+
+		it( 'uses the confirmation choice even when the agent suggested deleteFiles', async () => {
+			const confirm = vi.fn().mockResolvedValue( { confirmed: true, deleteFiles: false } );
+			const result = await executeTool( getConfirmingDeleteTool( confirm ), {
+				nameOrPath: 'My Site',
+				deleteFiles: true,
+			} );
+
+			expect( runDeleteSiteCommand ).toHaveBeenCalledWith( mockSite.path, false );
+			expect( getTextContent( result ) ).toBe( 'Site "My Site" deleted.' );
+		} );
 	} );
 
 	it( 'keeps screenshot presentation guidance out of the screenshot tool description', () => {

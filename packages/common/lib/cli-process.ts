@@ -1,5 +1,6 @@
 import { fork, spawnSync, type ChildProcess, type StdioOptions } from 'node:child_process';
 import { z } from 'zod';
+import { isDevRun } from '@studio/common/lib/dev-run';
 import { TypedEventEmitter } from '@studio/common/lib/typed-event-emitter';
 
 /** Spawns the Studio CLI binary and relays its lifecycle as typed events. */
@@ -188,7 +189,10 @@ export function createCliRunner( config: CliRunnerConfig ): CliRunner {
 		if ( options.output === 'capture' ) {
 			stdio = [ 'ignore', 'pipe', 'pipe', 'ipc' ];
 		} else if ( options.output === 'ignore' ) {
-			stdio = [ 'ignore', 'ignore', 'ignore', 'ipc' ];
+			// A dev run inherits the child's logging so it reaches the host's terminal.
+			stdio = isDevRun()
+				? [ 'ignore', 'inherit', 'inherit', 'ipc' ]
+				: [ 'ignore', 'ignore', 'ignore', 'ipc' ];
 		}
 
 		const child = fork( cliBinary, [ ...args, '--avoid-telemetry' ], {
@@ -220,6 +224,11 @@ export function createCliRunner( config: CliRunnerConfig ): CliRunner {
 			// large structured payloads on stdout that would otherwise spam the
 			// console every time snapshots are fetched.
 			const logPrefix = options.logPrefix ? `[CLI - ${ options.logPrefix }]` : null;
+			// Without a prefix a dev run would see nothing, so echo the analytics output
+			// only — never a JSON payload. The "Would have recorded" line is followed by a
+			// pretty-printed props object, so echoing continues until it closes.
+			const echoAnalytics = ! logPrefix && isDevRun();
+			let echoingAnalytics = false;
 			child.stdout?.on( 'data', ( data: Buffer ) => {
 				const text = data.toString();
 				stdout += text;
@@ -227,6 +236,19 @@ export function createCliRunner( config: CliRunnerConfig ): CliRunner {
 					const trimmed = text.trimEnd();
 					if ( trimmed ) {
 						console.log( `${ logPrefix } ${ trimmed }` );
+					}
+				} else if ( echoAnalytics ) {
+					for ( const line of text.split( '\n' ) ) {
+						if ( ! echoingAnalytics ) {
+							// A props object opens on the same line and closes on its own `}`.
+							echoingAnalytics = line.includes( 'Tracks event' ) && line.endsWith( '{' );
+							if ( ! line.includes( 'Tracks event' ) ) {
+								continue;
+							}
+						} else if ( line.startsWith( '}' ) ) {
+							echoingAnalytics = false;
+						}
+						console.log( `[CLI] ${ line.trimEnd() }` );
 					}
 				}
 			} );

@@ -8,6 +8,7 @@ import {
 import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
 import { formatProgressLabel } from '@studio/common/lib/progress-label';
 import { readAuthToken } from '@studio/common/lib/shared-config';
+import { buildSyncEventProps } from '@studio/common/lib/sync/build-sync-event-props';
 import {
 	SYNC_IGNORE_DEFAULTS,
 	SYNC_MAX_STALLED_ATTEMPTS,
@@ -31,9 +32,13 @@ import {
 } from 'cli/lib/sync-api';
 import { selectSyncItemsForPush } from 'cli/lib/sync-selector';
 import { findSyncSiteByIdentifier, pickSyncSite } from 'cli/lib/sync-site-picker';
+import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
+import { findFailureCode } from 'cli/lib/utils';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 import { handleExportEvents } from './export';
+import type { SyncEventProps } from '@studio/common/lib/sync/build-sync-event-props';
+import type { SyncSite } from '@studio/common/types/sync';
 
 const logger = new Logger< LoggerAction >();
 
@@ -42,10 +47,50 @@ export async function runCommand(
 	syncOptions?: SyncOption[],
 	remoteSiteIdentifier?: string
 ): Promise< void > {
+	const startedAt = Date.now();
+	// The remote site is only known part-way through, but the setup steps before
+	// it (auth, site load, remote-site fetch) can fail too — `runPush` reports the
+	// site back through this ref so those failures are still recorded, just with
+	// `sync_type: unknown`.
+	const pushed: PushOutcome = {};
+
+	try {
+		await runPush( siteFolder, syncOptions, remoteSiteIdentifier, pushed );
+	} catch ( error ) {
+		await recordSyncPushEvent(
+			buildSyncEventProps( {
+				startedAt,
+				site: pushed.remoteSite,
+				error,
+				hint: { code: findFailureCode( error ) },
+			} )
+		);
+		throw error;
+	}
+
+	// Backing out of the site picker or the item selector returns without
+	// completing — a cancel, which emits nothing.
+	if ( pushed.completed ) {
+		await recordSyncPushEvent( buildSyncEventProps( { startedAt, site: pushed.remoteSite } ) );
+	}
+}
+
+type PushOutcome = { remoteSite?: SyncSite; completed?: boolean };
+
+async function runPush(
+	siteFolder: string,
+	syncOptions: SyncOption[] | undefined,
+	remoteSiteIdentifier: string | undefined,
+	pushed: PushOutcome
+): Promise< void > {
+	let remoteSite: SyncSite | undefined;
+
 	const token = await readAuthToken();
 	if ( ! token ) {
 		throw new LoggerError(
-			__( 'Authentication required. Please log in with `studio auth login`.' )
+			__( 'Authentication required. Please log in with `studio auth login`.' ),
+			undefined,
+			'auth'
 		);
 	}
 
@@ -64,7 +109,6 @@ export async function runCommand(
 	const remoteSites = await fetchSyncableSites( token.accessToken );
 	logger.spinner.stop();
 
-	let remoteSite;
 	if ( remoteSiteIdentifier ) {
 		remoteSite = findSyncSiteByIdentifier( remoteSites, remoteSiteIdentifier );
 	} else {
@@ -73,6 +117,7 @@ export async function runCommand(
 			return;
 		}
 	}
+	pushed.remoteSite = remoteSite;
 
 	let optionsToSync: SyncOption[];
 	let specificSelectionPaths: string[] | undefined;
@@ -125,7 +170,11 @@ export async function runCommand(
 		} );
 
 		if ( ! exporter ) {
-			throw new LoggerError( __( 'No suitable exporter found for the provided backup file' ) );
+			throw new LoggerError(
+				__( 'No suitable exporter found for the provided backup file' ),
+				undefined,
+				'local_export'
+			);
 		}
 
 		handleExportEvents( exporter );
@@ -139,7 +188,9 @@ export async function runCommand(
 						'The archive exceeds the %d GB size limit. Please reduce the size of your site and try again.'
 					),
 					SYNC_PUSH_SIZE_LIMIT_GB
-				)
+				),
+				undefined,
+				'size_limit'
 			);
 		}
 
@@ -209,7 +260,11 @@ export async function runCommand(
 			const status = await pollImportStatus( token.accessToken, remoteSite.id );
 
 			if ( status.status === 'failed' ) {
-				throw new LoggerError( sprintf( __( 'Import failed on %s' ), remoteSite.name ) );
+				throw new LoggerError(
+					sprintf( __( 'Import failed on %s' ), remoteSite.name ),
+					undefined,
+					'remote_import'
+				);
 			}
 
 			if ( status.status === 'finished' ) {
@@ -255,7 +310,9 @@ export async function runCommand(
 
 		if ( ! importFinished ) {
 			throw new LoggerError(
-				sprintf( __( 'Import timed out on %s — no progress detected' ), remoteSite.name )
+				sprintf( __( 'Import timed out on %s — no progress detected' ), remoteSite.name ),
+				undefined,
+				'timeout'
 			);
 		}
 
@@ -271,8 +328,17 @@ export async function runCommand(
 		logger.reportSuccess(
 			sprintf( __( 'Successfully pushed to %1$s (%2$s)' ), remoteSite.name, remoteSite.url )
 		);
+		pushed.completed = true;
 	} finally {
 		fs.rmSync( tempDir, { recursive: true, force: true } );
+	}
+}
+
+async function recordSyncPushEvent( props: SyncEventProps ): Promise< void > {
+	try {
+		await recordTracksEvent( TRACKS_EVENTS.SYNC_PUSH, { ...props, ...getTracksOrigin() } );
+	} catch {
+		// Best-effort telemetry — never block or fail the push.
 	}
 }
 

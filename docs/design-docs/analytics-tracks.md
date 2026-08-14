@@ -139,6 +139,18 @@ where the sender actually runs — see Testing below for what fires in which bui
   `--suppress-tracks-event` flag and emit nothing. An aborted sync export also emits nothing (the CLI
   process is SIGTERM'd before it can record). Runs in parallel with the MC Stats import/export
   counters for now.
+- **`studio_sync_*`** are the deliberate exception to the CLI-is-the-sole-emitter pattern. Sync has
+  **three independent implementations** — Classic's Redux thunks and pollers
+  (`apps/studio/src/stores/sync/sync-operations-slice.ts`), the agentic UI's mutation hooks
+  (`apps/ui/src/data/queries/use-sync-site.ts`, shared by desktop and `studio ui`), and the CLI
+  `push`/`pull` commands — sharing only the connected-sites storage and the WordPress.com endpoints.
+  Classic never invokes the CLI for either operation, so there is no funnel to emit from; each surface
+  emits its own event and `channel`/`ui_version` identify it. The one overlap is **pull**: an
+  agentic-UI pull *is* a forked `studio pull`, so `pullSite` (`packages/common/sites/sync.ts`) passes
+  the same hidden `--suppress-tracks-event` flag the add-site and sync-pull import paths use — a
+  `channel=studio-cli` `studio_sync_pull` row is therefore always a genuine standalone run. Push needs
+  no flag: an agentic-UI push runs the CLI `export` command, not CLI `push`. **Cancels emit nothing**
+  at all, so `success=false` always means a real failure.
 - **`studio_code_message_sent`/`studio_code_turn_completed`** are emitted **only** by the CLI, from
   `runAgentTurn` (`apps/cli/commands/ai/index.ts`). Every chat surface forks the CLI to run a turn —
   both desktop renderers via `packages/common/ai/run-manager.ts`, the `studio ui` server via the same
@@ -218,6 +230,12 @@ with a wider value set than `surface`, since logins are offered from far more pl
 changes. Like `surface`, the renderer supplies it (Main can't infer it) and it is threaded from the
 initiating call. `account_type` (`new`/`existing`) and `authenticated` (boolean) are Studio-custom props
 introduced with those events; register them alongside the events.
+
+`sync_type` (`pressable`/`wpcom`/`unknown`) and `num_of_sites` (an integer count of the live sites
+connected to one local site) are Studio-custom props introduced with the sync events; register them
+alongside those events. `success`, `time_ms`, and `failure_reason` follow the conventions already
+established by the import/export and preview-site events — a coarse, low-cardinality bucket enum for
+the reason, never the raw error.
 
 **AI / assistant events.** Studio Code assistant events use the data team's AI-event vocabulary so
 they aggregate with other Automattic AI products. The shared identity props are built once by
@@ -333,6 +351,53 @@ coarse and low-cardinality (the raw error is never sent).
 | `studio_preview_site_delete` | CLI `preview delete` (single) | (none). Emitted once per **successful** single delete. |
 | `studio_preview_site_delete_all` | CLI `preview delete --all` | `count` (number of the user's preview sites removed). Emitted once per **successful** delete-all (a single bulk server operation, not per site). |
 | `studio_preview_site_open` | Renderer (Classic Previews list) | (none — opens the preview URL in the OS browser) |
+
+#### Sync events
+
+Push/pull with WordPress.com and Pressable, plus the connection funnel. Unlike import/export and
+preview sites, sync has **no single funnel**: three independent implementations (Classic's Redux
+thunks and pollers, the agentic UI's mutation hooks, and the CLI `push`/`pull` commands) share only
+the connected-sites storage and the WordPress.com endpoints. Each emits its own event — filter by
+`channel`/`ui_version` to separate them. See "Which surface emits what" for the one overlap (pull)
+and how it's deduplicated.
+
+**Cancels emit nothing at all** — not `success=false`. Backing out of the site picker, declining the
+size-limit warning, aborting a download, and Ctrl-C'ing the CLI all produce no row. So `success=false`
+always means a genuine failure and the success rate is clean, but total sync *attempts* undercount by
+the cancel volume.
+
+`studio_sync_create_site` and `studio_sync_publish_site` fire at the **handoff to WordPress.com
+checkout, not at completion** — the user may abandon it. The completion signal arrives later as a
+`studio_sync_connect` via the `wp-studio://` deep link, so the gap between them is the funnel; neither
+checkout event is a success count. Which of the two fires is decided by the checkout parameters rather
+than the button label: `section=studio-sync` is a create, `section=publish-site` + `autoOpenPush` is a
+publish. That means the agentic UI's "Create a new WordPress.com site" button in the publish picker
+reports as a **publish** (it uses the publish parameters), while its onboarding "Create a WordPress.com
+site" button reports as a create.
+
+No site names, URLs, paths, or raw error text are ever sent — `failure_reason` is a fixed bucket enum.
+
+| Event | Emitted from | Event-specific props |
+|---|---|---|
+| `studio_sync_pull` | Classic slice + agentic UI hook + CLI `pull` (standalone only) | `success` (boolean), `sync_type`, `time_ms` (full pull duration, incl. the remote backup and the local import). On failure also `failure_reason`. |
+| `studio_sync_push` | Classic slice + agentic UI hook + CLI `push` | `success` (boolean), `sync_type`, `time_ms` (full push duration, incl. the local export, upload, and the remote import). On failure also `failure_reason`. |
+| `studio_sync_connect` | Classic site-selection handler + agentic UI (publish picker, deep-link listener, onboarding connect) | `success` (boolean), `num_of_sites` (live sites connected to this local site **after** this connect, so a first connection reports 1). On failure also `failure_reason`. |
+| `studio_sync_disconnect` | Classic sync tab + agentic UI disconnect dialog | (none) |
+| `studio_sync_create_site` | Classic Create-site button + agentic UI onboarding connect | (none — opens WordPress.com checkout) |
+| `studio_sync_publish_site` | Classic Publish-site button + agentic UI publish picker | (none — opens WordPress.com checkout) |
+
+`sync_type` is the kind of live site the sync exchanged data with: `pressable`, `wpcom`, or `unknown`
+(the connected site wasn't available at emit time — a deep-link connection whose site lookup missed
+never learns the hosting kind, and reporting the placeholder's hardcoded value would invent data).
+
+`failure_reason` names the step that broke: `size_limit`, `sql_import`, `timeout`, `remote_backup`,
+`remote_import`, `upload`, `network`, `payload_too_large`, `auth`, `not_found`, `local_import`,
+`local_export`, `disk_full`, `storage_write`, `site_fetch`, `unknown`. Classified by
+`classifySyncFailure` (`packages/common/lib/sync/classify-sync-failure.ts`), shared by all three
+surfaces. It prefers a bucket the call site is certain of, then the HTTP status, then an
+**untranslated** substring match (`ENOSPC`, `ECONNRESET`, …), then the phase the sync was in. Only
+untranslated system/library substrings are matched — `__()` display text is locale-dependent and
+embeds site names and filesystem paths.
 
 #### Settings-change events
 

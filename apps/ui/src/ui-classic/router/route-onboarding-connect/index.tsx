@@ -1,3 +1,5 @@
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
+import { classifySyncFailure } from '@studio/common/lib/sync/classify-sync-failure';
 import { createRoute, useNavigate } from '@tanstack/react-router';
 import { Spinner, VisuallyHidden } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
@@ -248,10 +250,25 @@ export function OnboardingConnectPage() {
 						flowType: 'sync',
 					} ),
 				persistConnection: async ( localSiteId ) => {
-					await connector.connectWpcomSite( localSiteId, {
-						...selectedSite,
-						localSiteId,
-						syncSupport: 'already-connected',
+					try {
+						await connector.connectWpcomSite( localSiteId, {
+							...selectedSite,
+							localSiteId,
+							syncSupport: 'already-connected',
+						} );
+					} catch ( error ) {
+						void connector.trackEvent( TRACKS_EVENTS.SYNC_CONNECT, {
+							success: false,
+							failure_reason: classifySyncFailure( error, { phase: 'storage_write' } ),
+							num_of_sites: 0,
+						} );
+						throw error;
+					}
+					// The local site is created by this same flow, so it always ends up
+					// with exactly this one connection.
+					void connector.trackEvent( TRACKS_EVENTS.SYNC_CONNECT, {
+						success: true,
+						num_of_sites: 1,
 					} );
 				},
 				pullRemoteSite: ( localSiteId ) =>
@@ -380,7 +397,11 @@ export function OnboardingConnectPage() {
 						type="button"
 						variant="minimal"
 						tone="brand"
-						onClick={ () => void connector.openExternalUrl( createWpcomSiteUrl.toString() ) }
+						onClick={ () => {
+							// `section=studio-sync`, no `autoOpenPush` — a create, not a publish.
+							void connector.trackEvent( TRACKS_EVENTS.SYNC_CREATE_SITE );
+							void connector.openExternalUrl( createWpcomSiteUrl.toString() );
+						} }
 					>
 						<span>{ __( 'Create a WordPress.com site' ) }</span>
 						<Icon icon={ external } size={ 14 } />

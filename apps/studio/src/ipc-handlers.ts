@@ -41,10 +41,7 @@ import {
 	deleteAiSession as deleteAiSessionFromStore,
 	loadAiSession as loadAiSessionFromStore,
 } from '@studio/common/ai/sessions/store';
-import {
-	buildSkillInvocationPrompt,
-	resolveSkillFromPrompt,
-} from '@studio/common/ai/slash-commands';
+import { expandSkillCommandPrompt } from '@studio/common/ai/slash-commands';
 import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import {
 	installSkillToSite,
@@ -60,6 +57,7 @@ import { parseCliError, errorMessageContains } from '@studio/common/lib/cli-erro
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
+import { stripIpcErrorPrefix } from '@studio/common/lib/error-formatting';
 import {
 	calculateDirectorySizeForArchive,
 	isWordPressDirectory,
@@ -109,6 +107,7 @@ import { measureSiteStorage, type SiteStorageUsage } from '@studio/common/sites/
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
 import { MACOS_TRAFFIC_LIGHT_POSITION, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
+import { setPendingAuthContext } from 'src/lib/auth-tracks-context';
 import {
 	getBetaFeatures as getBetaFeaturesFromLib,
 	updateBetaFeature as updateBetaFeatureInLib,
@@ -147,6 +146,7 @@ import { setAgenticUiEnabled } from 'src/lib/studio-ui-mode';
 import {
 	recordTracksEvent,
 	TRACKS_EVENTS,
+	type TracksAuthSource,
 	type TracksChannel,
 	type TracksSiteCreateFlowType,
 	type TracksUiVersion,
@@ -159,6 +159,8 @@ import {
 	getMainWindow,
 	getTitleBarOverlayOptions,
 	loadMainWindowRenderer,
+	setAgenticControlsSurface,
+	type WindowControlsSurface,
 } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
 import { type InstructionFileType } from 'src/modules/agent-instructions/constants';
@@ -261,6 +263,7 @@ export {
 
 export {
 	getAgenticFeaturesEnabled,
+	getAiSettings,
 	getAnalyticsEnabled,
 	getColorScheme,
 	getGlobalAgentInstructions,
@@ -274,10 +277,12 @@ export {
 	previewColorScheme,
 	saveAgenticFeaturesEnabled,
 	saveAnalyticsEnabled,
+	saveAnthropicApiKey,
 	saveColorScheme,
 	saveGlobalAgentInstructions,
 	saveOnboardingHints,
 	saveQuitSitesBehavior,
+	setAiProvider,
 	saveUserEditor,
 	saveUserLocale,
 	saveUserTerminal,
@@ -413,14 +418,6 @@ async function reconcileSessionEnvironmentBeforeRun( sessionId: string ): Promis
 		sitePath: ownerServer.details.path,
 		siteId: ownerServer.details.id,
 	} );
-}
-
-// Expand a bare skill-command slash prompt (e.g. `/rank-me-up`) into the
-// instruction the agent actually acts on. Mirrors the CLI's interactive main
-// loop so UI clients can send the short form and get the same behaviour.
-function expandSkillCommandPrompt( prompt: string ): string {
-	const name = resolveSkillFromPrompt( prompt );
-	return name ? buildSkillInvocationPrompt( name ) : prompt;
 }
 
 export async function continueAiSession(
@@ -1323,7 +1320,14 @@ export function logRendererMessage(
 	writeLogToFile( level, processId, ...args );
 }
 
-export async function authenticate( event: IpcMainInvokeEvent, isSignup = false ) {
+export async function authenticate(
+	event: IpcMainInvokeEvent,
+	isSignup = false,
+	source: TracksAuthSource = 'unknown'
+) {
+	// The result arrives later, in a deep link that knows neither of these. Stash them for it.
+	setPendingAuthContext( source, isSignup ? 'new' : 'existing' );
+
 	const locale = await getUserLocaleWithFallback();
 	const authUrl = isSignup ? oauthClient.getSignUpUrl( locale ) : getAuthenticationUrl( locale );
 	void shellOpenExternalWrapper( authUrl );
@@ -1610,7 +1614,18 @@ export async function getOnboardingData( _event: IpcMainInvokeEvent ): Promise< 
 }
 
 export async function saveOnboarding( event: IpcMainInvokeEvent, onboardingCompleted: boolean ) {
+	const { onboardingCompleted: previous = false } = await loadUserData();
 	await updateAppdata( { onboardingCompleted } );
+
+	// Both front-ends funnel through here (Classic on skip/login, the agentic UI when the tour ends), so
+	// this is the one place a completion can be counted. Only on a real transition — a re-save must not
+	// look like a second user finishing onboarding.
+	if ( onboardingCompleted && ! previous ) {
+		await recordTracksEvent( TRACKS_EVENTS.ONBOARDING_COMPLETE, {
+			// Whether they leave onboarding with an account, which is what "skipped" really meant.
+			authenticated: await oauthClient.isAuthenticated(),
+		} );
+	}
 }
 
 export async function getBetaFeatures( _event: IpcMainInvokeEvent ): Promise< BetaFeatures > {
@@ -1863,11 +1878,7 @@ export async function showErrorMessageBox(
 
 	if ( error ) {
 		const simplifiedError = simplifyErrorForDisplay( error );
-		// Remove prepended error message added by IPC handler
-		const filteredError = simplifiedError?.message?.replace(
-			/Error invoking remote method '\w+': Error:/g,
-			''
-		);
+		const filteredError = stripIpcErrorPrefix( simplifiedError?.message ?? '' );
 		detail = `${ message }\n\n${ filteredError }`;
 	}
 
@@ -2449,6 +2460,20 @@ export async function setWindowControlVisibility( event: IpcMainInvokeEvent, vis
 			visible ? getTitleBarOverlayOptions() : getFrameTitleBarOverlayOptions()
 		);
 	}
+}
+
+// Repaints the window-controls overlay for whichever surface it is sitting on;
+// only the renderer knows when a full-window page is covering the chrome.
+export async function setWindowControlsSurface(
+	event: IpcMainInvokeEvent,
+	surface: WindowControlsSurface
+) {
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	if ( ! parentWindow || ( process.platform !== 'win32' && process.platform !== 'linux' ) ) {
+		return;
+	}
+	setAgenticControlsSurface( surface );
+	parentWindow.setTitleBarOverlay( getTitleBarOverlayOptions() );
 }
 
 export async function setTitleBarBackdropEffect( event: IpcMainInvokeEvent, enabled: boolean ) {

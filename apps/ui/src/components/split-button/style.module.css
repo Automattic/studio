@@ -1,0 +1,48 @@
+/* Shared chrome for the preview toolbar's split buttons: a primary action
+   fused to a narrow chevron tab that opens the full menu. Used by the
+   "Open in…" control and the collapsed annotation control, which sit next
+   to each other and have to read as the same kind of thing. */
+.splitTrigger {
+	display: inline-flex;
+	align-items: center;
+	gap: 1px;
+	flex: 0 0 auto;
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral-weak);
+	/* The buttons' own radius plus the border width, so the halves' rounded
+	   outer corners nest flush against the frame. */
+	border-radius: calc(var(--wpds-border-radius-sm) + var(--wpds-border-width-xs));
+	-webkit-app-region: no-drag;
+}
+
+/* Size the halves so the pair reads as one compact button: normal padding
+   on the outer edges, almost none along the shared seam, and a very narrow
+   chevron tab. Squaring off the shared corners makes the hover fills read
+   as one control split in two. */
+.splitAction {
+	--wp-ui-button-min-width: unset;
+
+	padding-inline: var(--wpds-dimension-padding-xs) 1px;
+	border-start-end-radius: 0;
+	border-end-end-radius: 0;
+}
+
+.splitMenuButton {
+	--wp-ui-button-min-width: unset;
+
+	padding-inline: 1px 3px;
+	border-start-start-radius: 0;
+	border-end-start-radius: 0;
+}
+
+.chevron {
+	color: var(--wpds-color-foreground-content-neutral-weak);
+	fill: currentColor;
+}
+
+/* Map the foreground color onto @wordpress/icons SVGs, which ship without a
+   fill attribute and would otherwise render with the black SVG default. The
+   brand logos declare their own fill (`currentColor` or `none` for the
+   stroke-drawn ones), so scope the rule to leave them alone. */
+.splitAction svg:not([fill]) {
+	fill: currentColor;
+}

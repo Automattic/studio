@@ -39,9 +39,12 @@ export const TRACKS_EVENTS = {
 	SETTING_AGENTIC_FEATURES_CHANGE: 'studio_setting_agentic_features_change',
 	SETTING_UI_CHANGE: 'studio_setting_ui_change',
 	SETTING_INSTRUCTIONS_CHANGE: 'studio_setting_instructions_change',
+	SETTING_AI_PROVIDER_CHANGE: 'studio_setting_ai_provider_change',
 	CODE_MESSAGE_SENT: 'studio_code_message_sent',
 	CODE_TURN_COMPLETED: 'studio_code_turn_completed',
 	CODE_SESSION_CREATED: 'studio_code_session_created',
+	ONBOARDING_COMPLETE: 'studio_onboarding_complete',
+	WPCOM_AUTH: 'studio_wpcom_auth',
 } as const;
 
 export type TracksEventName = ( typeof TRACKS_EVENTS )[ keyof typeof TRACKS_EVENTS ];
@@ -116,6 +119,36 @@ export type TracksPanel =
 	| 'sync'
 	| 'import-export'
 	| 'previews';
+
+// Where a WordPress.com login was started from, sent as `source` on `studio_wpcom_auth`. The value is
+// captured at initiation (the renderer affordance the user clicked) and carried to the deep-link result;
+// `unknown` covers the cases where that link is broken — an app restart mid-flow, a cold-start deep link,
+// or a context that outlived its TTL. `cli` is the standalone `studio auth login` flow.
+export type TracksAuthSource =
+	| 'onboarding'
+	| 'sync_tab'
+	| 'previews_tab'
+	| 'assistant_tab'
+	| 'overview_tab'
+	| 'settings'
+	| 'top_bar'
+	| 'site_header'
+	| 'add_site'
+	| 'cli'
+	| 'unknown';
+
+// Whether the user signed up or logged in with an existing account. Known only at initiation (the
+// desktop opens a different URL for each); absent on CLI events, which have no signup path.
+export type TracksAuthAccountType = 'new' | 'existing';
+
+// Coarse, low-cardinality auth failure classification. The raw error is never sent — it can embed the
+// OAuth URL and the user's email. `access_denied` is the user declining on WordPress.com; the other two
+// are the token-exchange and profile-fetch steps failing.
+export type TracksAuthFailureReason =
+	| 'access_denied'
+	| 'token_error'
+	| 'profile_fetch_failed'
+	| 'unknown';
 
 // Builds the Tracks pixel URL. Isolated so a param-name correction is a one-file change. These are
 // the reserved Tracks pixel params: `_en` event name, `_ut`/`_ui` identity, `_ts` timestamp (ms).

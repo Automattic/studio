@@ -121,7 +121,7 @@ export function MainView( {
 	const connector = useConnector();
 	const { enabled: agenticEnabled, reason: agenticReason } = useAgenticFeatures();
 	const isOffline = agenticReason === 'offline';
-	const login = useLogin();
+	const login = useLogin( { source: 'site_header' } );
 	const { data: snapshots } = useSnapshots();
 	const { data: connectedSites } = useConnectedWpcomSites( site.id );
 
@@ -229,17 +229,6 @@ export function MainView( {
 		onPushClick();
 	};
 
-	const renderTooltipButton = ( {
-		tooltip,
-		children,
-		...props
-	}: ButtonProps & { tooltip: string } ) => (
-		<Tooltip.Root>
-			<Tooltip.Trigger render={ <Button { ...props }>{ children }</Button> } />
-			<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>{ tooltip }</Tooltip.Popup>
-		</Tooltip.Root>
-	);
-
 	const renderUrlLink = ( {
 		text,
 		url,
@@ -326,18 +315,13 @@ export function MainView( {
 			{ previewSnapshot && ! isPreviewExpired ? (
 				<PopoverRow
 					label={ __( 'Preview' ) }
-					sublabel={ __( 'Ready to share for feedback.' ) }
+					sublabel={ renderUrlLink( {
+						text: stripProtocol( previewSnapshot.url ),
+						url: ensureProtocol( previewSnapshot.url ),
+						label: __( 'Open preview site in your browser' ),
+					} ) }
 					action={
 						<div className={ styles.rowActions }>
-							{ renderTooltipButton( {
-								tooltip: __( 'Open preview site in your browser' ),
-								variant: 'minimal',
-								tone: 'neutral',
-								size: 'small',
-								className: styles.rowViewButton,
-								onClick: () => openExternal( ensureProtocol( previewSnapshot.url ) ),
-								children: __( 'View' ),
-							} ) }
 							<IconButton
 								variant="minimal"
 								tone="neutral"

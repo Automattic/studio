@@ -1,5 +1,5 @@
 import { canCancelPull, canCancelPush } from '@studio/common/lib/sync/cancel';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { useSyncExternalStore } from 'react';
 import type { PullSiteProgress, PushPhase } from '@/data/core';
 
@@ -92,13 +92,28 @@ export function reportSyncProgress(
 	emit();
 }
 
-export function reportPushPhase( siteId: string, phase: PushPhase ): void {
+// Same wording as the classic renderer's push states, so a user moving between
+// the two UIs reads the same thing. The percentage goes in the message because
+// that is how a pull already reads here — the CLI puts it in its own text.
+function getPushPhaseMessage( phase: PushPhase, progress?: number ): string {
+	const message = {
+		creatingBackup: __( 'Creating backup…' ),
+		uploading: __( 'Uploading site…' ),
+		creatingRemoteBackup: __( 'Backing up remote site…' ),
+		applyingChanges: __( 'Applying changes…' ),
+		finishing: __( 'Almost there…' ),
+	}[ phase ];
+
+	return progress ? sprintf( '%1$s (%2$d%%)', message, Math.round( progress ) ) : message;
+}
+
+export function reportPushPhase( siteId: string, phase: PushPhase, progress?: number ): void {
 	const current = entries.get( siteId );
 	if ( current?.kind !== 'pending' || current.direction !== 'push' ) {
 		return;
 	}
 	clearExpiryTimer( siteId );
-	entries.set( siteId, { ...current, phase } );
+	entries.set( siteId, { ...current, phase, message: getPushPhaseMessage( phase, progress ) } );
 	emit();
 }
 

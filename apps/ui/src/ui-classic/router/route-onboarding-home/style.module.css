@@ -21,7 +21,7 @@
 	border-radius: 12px;
 	background: color-mix(
 		in srgb,
-		var(--wpds-color-background-surface-neutral-strong) 50%,
+		var(--wpds-color-background-surface-neutral-strong) var(--surface-alpha, 50%),
 		transparent
 	);
 	backdrop-filter: blur(12px);

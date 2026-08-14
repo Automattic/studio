@@ -362,6 +362,25 @@ describe( 'SitePreview', () => {
 		expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeInTheDocument();
 	} );
 
+	it( 'shows a single annotate toggle while no notes are pending', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			capabilities: { ...CAPABILITIES, annotatePreview: true },
+		} as never );
+
+		renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+
+		// One command means no collapsed variant: a second control would be a
+		// duplicate of this one at every width, and a menu wrapping it would be
+		// a single-item dropdown.
+		expect( screen.getAllByRole( 'button', { name: 'Annotate' } ) ).toHaveLength( 1 );
+		expect(
+			screen.queryByRole( 'button', { name: 'Annotation options' } )
+		).not.toBeInTheDocument();
+	} );
+
 	it( 'hides the Annotate control when agentic features are off', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),

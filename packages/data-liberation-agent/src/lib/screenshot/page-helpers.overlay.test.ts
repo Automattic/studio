@@ -8,6 +8,7 @@ import {
   scoreOverlay,
   OVERLAY_THRESHOLD,
   isConsentBanner,
+  isProviderPromotion,
   selectOverlayTargets,
   dismissOverlays,
   type OverlayCandidate,
@@ -91,6 +92,21 @@ describe('isConsentBanner', () => {
   });
 });
 
+describe('isProviderPromotion', () => {
+  it('flags fixed hosting acquisition chrome', () => {
+    expect(isProviderPromotion(benign({
+      selector: 'div#provider-footer-signup',
+      text: 'powered by provider create your own unique website get started',
+      coverageRatio: 0.03,
+    }))).toBe(true);
+  });
+
+  it('keeps authored calls to action and provider credits without signup intent', () => {
+    expect(isProviderPromotion(benign({ text: 'get started with our photography packages' }))).toBe(false);
+    expect(isProviderPromotion(benign({ text: 'powered by renewable energy' }))).toBe(false);
+  });
+});
+
 describe('selectOverlayTargets', () => {
   it('returns takeovers (highest score first) then consent banners, dropping benign chrome', () => {
     const detection: OverlayDetection = {
@@ -115,6 +131,19 @@ describe('selectOverlayTargets', () => {
       candidates: [benign({ idx: 0 }), benign({ idx: 1, selector: 'footer.site' })],
     };
     expect(selectOverlayTargets(detection)).toEqual([]);
+  });
+
+  it('removes hosting provider self-promotion without treating site chrome as a takeover', () => {
+    const detection: OverlayDetection = {
+      scrollLock: { active: false },
+      candidates: [
+        benign({ idx: 0, selector: 'header.site' }),
+        benign({ idx: 1, selector: 'div#provider-footer-signup', text: 'powered by provider create your own website get started', coverageRatio: 0.03 }),
+      ],
+    };
+    expect(selectOverlayTargets(detection)).toEqual([
+      expect.objectContaining({ idx: 1, kind: 'provider-promotion', signals: expect.arrayContaining(['provider-promotion']) }),
+    ]);
   });
 
   it('routes an above-threshold candidate that also reads as consent to takeovers (not consent)', () => {

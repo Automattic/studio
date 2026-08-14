@@ -498,6 +498,11 @@
 	white-space: nowrap;
 }
 
+.pillProviderPrefix {
+	color: var(--wpds-color-fg-content-neutral);
+	font-weight: 600;
+}
+
 .pill:hover:not(:disabled),
 .pill:focus-visible:not(:disabled) {
 	background-color: transparent;

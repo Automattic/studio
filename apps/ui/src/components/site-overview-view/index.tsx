@@ -331,24 +331,7 @@ function SiteOverviewBody( {
 										loadingCount={ themeStatus.state === 'loading' ? 7 : 0 }
 										transitionName="studio-theme-shortcuts"
 									>
-										{ ! themeDetails ? (
-											<>
-												<OverviewButton
-													transitionName="studio-theme-posts"
-													icon={ <Icon icon={ post } size={ 18 } /> }
-													label={ __( 'Posts' ) }
-													disabled={ busy }
-													onClick={ () => void openSiteUrl( '/wp-admin/edit.php' ) }
-												/>
-												<OverviewButton
-													transitionName="studio-theme-pages"
-													icon={ <Icon icon={ page } size={ 18 } /> }
-													label={ __( 'Pages' ) }
-													disabled={ busy }
-													onClick={ () => void openSiteUrl( '/wp-admin/edit.php?post_type=page' ) }
-												/>
-											</>
-										) : isBlockTheme ? (
+										{ isBlockTheme ? (
 											<>
 												<OverviewButton
 													transitionName="studio-theme-site-editor"
@@ -405,20 +388,8 @@ function SiteOverviewBody( {
 														)
 													}
 												/>
-												<OverviewButton
-													transitionName="studio-theme-pages"
-													icon={ <Icon icon={ page } size={ 18 } /> }
-													label={ __( 'Pages' ) }
-													disabled={ busy }
-													onClick={ () =>
-														openCustomize(
-															'/wp-admin/site-editor.php?path=%2Fpage',
-															'editor_pages'
-														)
-													}
-												/>
 											</>
-										) : (
+										) : themeDetails ? (
 											<>
 												<OverviewButton
 													transitionName="studio-theme-customizer"
@@ -446,7 +417,21 @@ function SiteOverviewBody( {
 													/>
 												) : null }
 											</>
-										) }
+										) : null }
+										<OverviewButton
+											transitionName="studio-theme-posts"
+											icon={ <Icon icon={ post } size={ 18 } /> }
+											label={ __( 'Posts' ) }
+											disabled={ busy }
+											onClick={ () => void openSiteUrl( '/wp-admin/edit.php' ) }
+										/>
+										<OverviewButton
+											transitionName="studio-theme-pages"
+											icon={ <Icon icon={ page } size={ 18 } /> }
+											label={ __( 'Pages' ) }
+											disabled={ busy }
+											onClick={ () => void openSiteUrl( '/wp-admin/edit.php?post_type=page' ) }
+										/>
 										<OverviewButton
 											transitionName="studio-theme-media"
 											icon={ <Icon icon={ media } size={ 18 } /> }

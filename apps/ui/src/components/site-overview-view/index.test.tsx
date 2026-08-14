@@ -323,6 +323,8 @@ describe( 'SiteOverviewView', () => {
 		expect( screen.getByRole( 'heading', { name: 'Manage' } ) ).toBeVisible();
 		expect( screen.getByText( 'Site Editor' ) ).toBeVisible();
 		expect( screen.getByText( 'Templates' ) ).toBeVisible();
+		expect( screen.getByText( 'Posts' ) ).toBeVisible();
+		expect( screen.getByText( 'Pages' ) ).toBeVisible();
 		expect( screen.getByText( 'Media Library' ) ).toBeVisible();
 		expect( screen.queryByText( 'Customizer' ) ).not.toBeInTheDocument();
 		expect( screen.getByText( 'Duplicate' ) ).toBeVisible();
@@ -637,6 +639,9 @@ describe( 'SiteOverviewView', () => {
 
 		expect( screen.getByText( 'Customizer' ) ).toBeVisible();
 		expect( screen.getByText( 'Menus' ) ).toBeVisible();
+		expect( screen.getByText( 'Posts' ) ).toBeVisible();
+		expect( screen.getByText( 'Pages' ) ).toBeVisible();
+		expect( screen.getByText( 'Media Library' ) ).toBeVisible();
 		expect( screen.queryByText( 'Widgets' ) ).not.toBeInTheDocument();
 		expect( screen.queryByText( 'Site Editor' ) ).not.toBeInTheDocument();
 	} );
@@ -724,11 +729,15 @@ describe( 'SiteOverviewView', () => {
 		renderView();
 
 		fireEvent.click( screen.getByText( 'Site Editor' ).closest( 'button' )! );
+		fireEvent.click( screen.getByText( 'Posts' ).closest( 'button' )! );
+		fireEvent.click( screen.getByText( 'Pages' ).closest( 'button' )! );
 		fireEvent.click( screen.getByText( 'Media Library' ).closest( 'button' )! );
 
 		await waitFor( () =>
 			expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/wp-admin/site-editor.php' )
 		);
+		expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/wp-admin/edit.php' );
+		expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/wp-admin/edit.php?post_type=page' );
 		expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/wp-admin/upload.php' );
 	} );
 

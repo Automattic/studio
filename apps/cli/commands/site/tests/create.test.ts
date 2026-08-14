@@ -458,6 +458,12 @@ describe( 'CLI: studio site create', () => {
 			expect( blueprint.staticSiteImport.code ).toContain(
 				"'dependencies_prepared' === ( $import_result['status'] ?? '' )"
 			);
+			expect( blueprint.staticSiteImport.code ).toContain(
+				"'canonicalization_pending' => ! empty( $canonical_documents )"
+			);
+			expect( blueprint.staticSiteImport.code ).toContain(
+				"'sha256'  => hash( 'sha256', (string) $post->post_content )"
+			);
 			expect( blueprint.staticSiteImport.code ).not.toContain(
 				'static_site_importer_ability_import_website_artifact'
 			);

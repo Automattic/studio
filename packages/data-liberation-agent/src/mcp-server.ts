@@ -10,8 +10,6 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
-import type { PlatformAdapter } from './types.js';
-
 import type { Handler, HandlerContext, ToolResult } from './mcp-server/handler-types.js';
 import { detectHandler } from './mcp-server/handlers/detect.js';
 import { discoverHandler } from './mcp-server/handlers/discover.js';
@@ -54,22 +52,7 @@ import { validateArtifactsHandler } from './mcp-server/handlers/validate-artifac
 import { refineReportHandler } from './mcp-server/handlers/refine-report.js';
 import { NEW_TOOL_SCHEMAS } from './mcp-server/handlers/tool-schemas.js';
 
-// Static adapter imports — add new adapters here (alphabetical)
-import { defaultAdapter } from './adapters/default/index.js';
-import { godaddyWmAdapter } from './adapters/godaddy-wm/index.js';
-import { hostingerAdapter } from './adapters/hostinger/index.js';
-import { hubspotAdapter } from './adapters/hubspot/index.js';
-import { shopifyAdapter } from './adapters/shopify/index.js';
-import { squarespaceAdapter } from './adapters/squarespace/index.js';
-import { webflowAdapter } from './adapters/webflow/index.js';
-import { weeblyAdapter } from './adapters/weebly/index.js';
-import { wixAdapter } from './adapters/wix/index.js';
-import { resolveAdapter } from './adapters/resolve-adapter.js';
-const adapters: PlatformAdapter[] = [defaultAdapter, godaddyWmAdapter, hostingerAdapter, hubspotAdapter, shopifyAdapter, squarespaceAdapter, webflowAdapter, weeblyAdapter, wixAdapter];
-
-function findAdapter(platform: string): PlatformAdapter | null {
-  return resolveAdapter(adapters, platform);
-}
+import { adapters, findAdapter } from './adapters/index.js';
 
 function textResult(data: unknown): ToolResult {
   return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };

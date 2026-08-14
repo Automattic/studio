@@ -84,7 +84,7 @@
 		"@wp-playground/blueprints": "3.1.45",
 		"cli-table3": "^0.6.5",
 		"date-fns": "^4.1.0",
-		"electron": "43.3.0",
+		"electron": "43.4.0",
 		"electron-devtools-installer": "^4.0.0",
 		"electron-vite": "6.0.0-beta.1",
 		"immer": "^11.0.1",

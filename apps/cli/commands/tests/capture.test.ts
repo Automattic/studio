@@ -23,19 +23,19 @@ describe( 'CLI: studio capture', () => {
 				files: [ { path: 'website/index.html', content: '<main>Captured</main>' } ],
 			} )
 		);
-		const callTool = vi.fn().mockResolvedValue( {
+		const capture = vi.fn().mockResolvedValue( {
 			artifactPath,
 			provenance: { provider: 'data-liberation/browser-capture', platform: 'wix' },
 		} );
 
 		await expect(
-			captureUrl( 'https://example.com', outputDir, { resume: true, callTool } )
+			captureUrl( 'https://example.com', outputDir, { resume: true, capture } )
 		).resolves.toEqual( {
 			artifactPath,
 			outputDir,
 			provenance: { provider: 'data-liberation/browser-capture', platform: 'wix' },
 		} );
-		expect( callTool ).toHaveBeenCalledWith( 'liberate_capture', {
+		expect( capture ).toHaveBeenCalledWith( {
 			url: 'https://example.com/',
 			outputDir,
 			resume: true,
@@ -56,7 +56,7 @@ describe( 'CLI: studio capture', () => {
 
 		await expect(
 			captureUrl( 'https://example.com', outputDir, {
-				callTool: vi.fn().mockResolvedValue( { artifactPath } ),
+				capture: vi.fn().mockResolvedValue( { artifactPath } ),
 			} )
 		).rejects.toThrow( 'invalid website artifact' );
 	} );

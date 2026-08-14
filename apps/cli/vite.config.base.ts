@@ -77,8 +77,17 @@ export function buildLocalUiPlugin() {
 // Copy the committed data-liberation-agent/dist into the dist/cli/data-liberation-agent.
 function copyDataLiberationEngine( outDir: string ) {
 	const serverBundlePath = resolve( dataLiberationSourcePath, 'dist', 'mcp-server.bundle.mjs' );
+	const captureBundlePath = resolve(
+		dataLiberationSourcePath,
+		'dist',
+		'capture-engine.bundle.mjs'
+	);
 	const scriptsDistPath = resolve( dataLiberationSourcePath, 'dist', 'scripts' );
-	if ( ! existsSync( serverBundlePath ) || ! existsSync( scriptsDistPath ) ) {
+	if (
+		! existsSync( serverBundlePath ) ||
+		! existsSync( captureBundlePath ) ||
+		! existsSync( scriptsDistPath )
+	) {
 		throw new Error(
 			'Data Liberation engine bundles are missing under packages/data-liberation-agent/dist/. ' +
 				'Run `npm -w data-liberation run build:mcp-bundle` and commit the updated artifacts.'
@@ -88,6 +97,7 @@ function copyDataLiberationEngine( outDir: string ) {
 	const engineOutDir = resolve( outDir, 'data-liberation-agent' );
 	mkdirSync( resolve( engineOutDir, 'dist' ), { recursive: true } );
 	copyFileSync( serverBundlePath, resolve( engineOutDir, 'dist', 'mcp-server.bundle.mjs' ) );
+	copyFileSync( captureBundlePath, resolve( engineOutDir, 'dist', 'capture-engine.bundle.mjs' ) );
 	cpSync( resolve( dataLiberationSourcePath, 'skills' ), resolve( engineOutDir, 'skills' ), {
 		recursive: true,
 	} );

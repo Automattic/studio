@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { __, sprintf } from '@wordpress/i18n';
-import { callDataLiberationTool } from 'cli/lib/data-liberation-client';
+import { callDataLiberationCapture } from 'cli/lib/data-liberation-client';
 import { untildify } from 'cli/lib/utils';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
@@ -14,7 +14,7 @@ export interface CaptureResult {
 
 interface CaptureCommandOptions {
 	resume?: boolean;
-	callTool?: typeof callDataLiberationTool;
+	capture?: typeof callDataLiberationCapture;
 }
 
 const logger = new Logger();
@@ -35,7 +35,7 @@ export async function captureUrl(
 	}
 
 	fs.mkdirSync( outputDir, { recursive: true } );
-	const result = ( await ( options.callTool ?? callDataLiberationTool )( 'liberate_capture', {
+	const result = ( await ( options.capture ?? callDataLiberationCapture )( {
 		url: parsed.href,
 		outputDir,
 		resume: options.resume ?? false,

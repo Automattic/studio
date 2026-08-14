@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { ensurePlaywrightChromiumInstalled } from 'cli/ai/browser-utils';
@@ -74,4 +75,26 @@ export async function callDataLiberationTool(
 	} finally {
 		await client.close();
 	}
+}
+
+export async function callDataLiberationCapture(
+	args: Record< string, unknown >,
+	engineDir = getDataLiberationEngineDir()
+): Promise< unknown > {
+	const { chromium } = await import( 'playwright' );
+	const browserProblem = await ensurePlaywrightChromiumInstalled( chromium );
+	if ( browserProblem ) {
+		throw new Error( browserProblem );
+	}
+
+	const bundle = path.join( engineDir, 'dist', 'capture-engine.bundle.mjs' );
+	if ( ! existsSync( bundle ) ) {
+		throw new Error(
+			'Data Liberation capture engine is not compiled. Run `npm run cli:build` and try again.'
+		);
+	}
+	const engine = ( await import( /* @vite-ignore */ pathToFileURL( bundle ).href ) ) as {
+		captureWebsite: ( captureArgs: Record< string, unknown > ) => Promise< unknown >;
+	};
+	return engine.captureWebsite( args );
 }

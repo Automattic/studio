@@ -233,7 +233,19 @@ export async function runCommand( options: {
 		};
 	}
 
+	// Per-turn records deliberately omit `provider`: a `session_context` entry
+	// carrying one is a user pin, and only an explicit switch writes it —
+	// otherwise every turn would rewrite the pin with the effective provider
+	// (e.g. wpcom while the Anthropic key is missing).
 	async function persistSessionContext(): Promise< void > {
+		await append( ( sm ) =>
+			appendStudioEntry( sm, 'studio.session_context', {
+				model: currentModel,
+			} )
+		);
+	}
+
+	async function persistProviderPin(): Promise< void > {
 		await append( ( sm ) =>
 			appendStudioEntry( sm, 'studio.session_context', {
 				provider: currentProvider,
@@ -332,7 +344,7 @@ export async function runCommand( options: {
 		}
 
 		await saveSelectedAiProvider( currentProvider );
-		await persistSessionContext();
+		await persistProviderPin();
 		if ( announce ) {
 			ui.showInfo(
 				sprintf(

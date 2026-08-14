@@ -403,6 +403,31 @@ describe( 'AI runCommand — pinned provider falls back when unusable', () => {
 		expect( resolveAiEnvironment ).toHaveBeenCalledWith( 'wpcom', expect.anything() );
 	} );
 
+	it( 'never rewrites the pin on disk during a fallback run', async () => {
+		const appendCustomEntry = vi.fn(
+			( _type: string, _data: { provider?: string } ) => 'entry-id'
+		);
+		( openStudioSession as Mock ).mockResolvedValue( {
+			appendCustomEntry,
+			getSessionId: () => 'pinned-session',
+			getEntries: () => [],
+		} );
+		( resolveResumeSessionContext as Mock ).mockReturnValue( {
+			provider: 'anthropic-api-key',
+			model: 'claude-sonnet-5',
+		} );
+		( isAiProviderReady as Mock ).mockResolvedValue( false );
+
+		await runCommand( { adapter: new JsonAdapter(), initialMessage: 'hello', resumeSession } );
+
+		const contextWrites = appendCustomEntry.mock.calls.filter(
+			( [ type ] ) => type === 'studio.session_context'
+		);
+		expect( contextWrites.length ).toBeGreaterThan( 0 );
+		// Per-turn records carry only the model; a provider here would clobber the pin.
+		expect( contextWrites.every( ( [ , data ] ) => data.provider === undefined ) ).toBe( true );
+	} );
+
 	it( 'keeps the pin when no global provider was ever saved (Desktop first run)', async () => {
 		( readSelectedAiProvider as Mock ).mockResolvedValue( undefined );
 		( resolveResumeSessionContext as Mock ).mockReturnValue( {

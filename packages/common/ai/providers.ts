@@ -62,9 +62,11 @@ export function getAiProviderDefaultModel( provider: AiProviderId ): AiModelId {
 
 /**
  * The provider a session is pinned to: the most recent `studio.session_context`
- * entry wins (the CLI writes one per turn, the UI one per explicit switch).
- * Returns undefined when the session never recorded one — callers fall back to
- * the saved global selection.
+ * entry that names a provider wins. Only explicit switches (UI picker, CLI
+ * `/provider`) record a provider — the CLI's per-turn entries carry just the
+ * model, so pins survive turns run under a fallback provider. Returns
+ * undefined when the session was never pinned — callers fall back to the
+ * saved global selection.
  */
 export function resolveSessionProvider( entries: SessionEntry[] ): AiProviderId | undefined {
 	for ( let index = entries.length - 1; index >= 0; index -= 1 ) {

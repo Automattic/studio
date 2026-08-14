@@ -403,6 +403,21 @@ describe( 'AI runCommand — pinned provider falls back when unusable', () => {
 		expect( resolveAiEnvironment ).toHaveBeenCalledWith( 'wpcom', expect.anything() );
 	} );
 
+	it( 'keeps the pin when no global provider was ever saved (Desktop first run)', async () => {
+		( readSelectedAiProvider as Mock ).mockResolvedValue( undefined );
+		( resolveResumeSessionContext as Mock ).mockReturnValue( {
+			provider: 'anthropic-api-key',
+			model: 'claude-sonnet-5',
+		} );
+		( isAiProviderReady as Mock ).mockResolvedValue( true );
+
+		await runCommand( { adapter: new JsonAdapter(), initialMessage: 'hello', resumeSession } );
+
+		expect( resolveAiEnvironment ).toHaveBeenCalledWith( 'anthropic-api-key', expect.anything() );
+		// The Desktop wpcom default must not overwrite the pin on disk.
+		expect( saveSelectedAiProvider ).not.toHaveBeenCalled();
+	} );
+
 	it( 'honors the pin while its provider is usable', async () => {
 		( resolveResumeSessionContext as Mock ).mockReturnValue( {
 			provider: 'anthropic-api-key',

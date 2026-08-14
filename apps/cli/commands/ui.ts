@@ -2,7 +2,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { __ } from '@wordpress/i18n';
 import { openBrowser } from 'cli/lib/browser';
-import { getTracksOrigin, recordTracksEvent } from 'cli/lib/tracks';
+import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { StudioArgv } from 'cli/types';
 
 export const registerCommand = ( yargs: StudioArgv ) => {
@@ -59,6 +59,14 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				recordTracksEvent: ( event, props ) =>
 					recordTracksEvent( event, { ...getTracksOrigin(), ...props } ),
 			} );
+
+			// The browser UI's equivalent of the desktop's `appBoot` launch event. No
+			// `is_first_launch`: the marker the desktop reads lives in its own `app.json`,
+			// and the install id is shared, so neither can tell a first browser launch
+			// from a first desktop one.
+			void recordTracksEvent( TRACKS_EVENTS.APP_LAUNCH, { ...getTracksOrigin() } ).catch(
+				() => undefined
+			);
 
 			console.log( '' );
 			console.log( __( 'WordPress Studio is running at:' ) );

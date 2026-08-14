@@ -103,7 +103,10 @@ where the sender actually runs — see Testing below for what fires in which bui
 ### Which surface emits what
 
 - **`studio_app_launch`** fires once per launch from the desktop Main process (`apps/studio/src/index.ts`
-  `appBoot`), in parallel with the MC Stats launch bumps.
+  `appBoot`), in parallel with the MC Stats launch bumps, and once per `studio ui` server start
+  (`apps/cli/commands/ui.ts`). Only the desktop sends `is_first_launch`: the marker it derives that from
+  lives in its own `app.json`, and the install id is shared with the CLI, so neither can tell a first
+  browser launch from a first desktop one.
 - **`studio_site_start`** is emitted **only** by the CLI, from the `recordSiteRuntimeUsage()` funnel in
   `apps/cli/lib/wordpress-server-manager.ts` — the single point every site start passes through. Every
   desktop site start delegates to the app-spawned CLI, so the CLI is the sole emitter and a start is
@@ -252,7 +255,7 @@ start / creation is counted once whether it originated in a UI or the standalone
 
 | Event | Emitted from | Event-specific props |
 |---|---|---|
-| `studio_app_launch` | Desktop Main (`appBoot`) | `is_first_launch` |
+| `studio_app_launch` | Desktop Main (`appBoot`); `studio ui` server start | `is_first_launch` (desktop only) |
 | `studio_site_start` | CLI site-start funnel | `success` (boolean), `time_ms` (start duration). On success also `running_site_count` (running Studio sites after this one comes up). On failure instead `failure_reason` (coarse, low-cardinality: `timeout`/`port_unavailable`/`php_error`/`process_exited`/`unknown` — the raw error is never sent). |
 | `studio_site_created` | CLI site-create funnel | `flow_type` (`new`/`blueprint`/`import`/`sync`/`duplicate`), `php_version`, `wp_version` (resolved from disk; `-` if unknown), `custom_domain` (boolean — the domain string is **never** sent), `ssl_enabled` (boolean), `time_ms` (creation duration). Emitted once per **successful** creation. |
 
@@ -503,10 +506,11 @@ What fires depends on the build, so pick the right method:
     node apps/cli/dist/cli/main.mjs ui --no-open
   ```
 
-  Then drive the UI at `http://localhost:8081`. Everything prints in the terminal that ran `studio ui`,
-  with `channel: studio-web`, `ui_version: v2`:
-  - Events the server records itself (renderer events posted to `/api/analytics/event`, settings
-    changes, session creation) log directly.
+  `studio_app_launch` logs as the server comes up; drive the UI at `http://localhost:8081` for the
+  rest. Everything prints in the terminal that ran `studio ui`, with `channel: studio-web`,
+  `ui_version: v2`:
+  - Events the server records itself (the launch event, renderer events posted to
+    `/api/analytics/event`, settings changes, session creation) log directly.
   - Events from forked CLI children (site start/stop, import/export, preview CRUD) log because
     `createCliRunner` inherits the child's stdio in a dev run — `NODE_ENV=development` or
     `STUDIO_DEBUG_TRACKS` — and echoes Tracks lines from commands that capture output.

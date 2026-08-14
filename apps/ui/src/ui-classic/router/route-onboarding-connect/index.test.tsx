@@ -20,6 +20,7 @@ const mocks = vi.hoisted( () => ( {
 	generateNumberedSiteName: vi.fn(),
 	generateProposedSitePath: vi.fn(),
 	connectWpcomSite: vi.fn(),
+	trackEvent: vi.fn(),
 	createSite: vi.fn(),
 	deleteSite: vi.fn(),
 	pullSite: vi.fn(),
@@ -43,6 +44,7 @@ vi.mock( '@/data/core', () => ( {
 		generateProposedSitePath: mocks.generateProposedSitePath,
 		connectWpcomSite: mocks.connectWpcomSite,
 		openExternalUrl: mocks.openExternalUrl,
+		trackEvent: mocks.trackEvent,
 	} ),
 } ) );
 

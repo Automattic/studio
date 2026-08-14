@@ -1,0 +1,284 @@
+/* Full-window welcome canvas: centered content above a real footer row
+   (legal left, actions right). The footer is a flex sibling rather than
+   pinned, so a short window shrinks the content instead of letting it
+   collide with the legal text — the app can be resized to 600px tall. */
+.page {
+	/* No global border-box reset in this app — without it the padding adds
+	   to the 100vh and the document scrolls, pushing the footer offscreen. */
+	box-sizing: border-box;
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	height: 100vh;
+	padding: 40px 50px 20px;
+	overflow: hidden;
+	background: var(--wpds-color-bg-surface-neutral);
+	/* New stacking context so the dot grid's negative z-index stays behind
+	   this page's content without escaping below ancestors. */
+	isolation: isolate;
+}
+
+/* Takes whatever height the footer doesn't need, and centres within it. */
+.contentArea {
+	flex: 1 1 auto;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+}
+
+.footer {
+	/* Positioned for the same reason as .analyticsPreference: the content
+	   scrim's backdrop-filter would otherwise blur the footer along with the
+	   dot grid behind it. */
+	position: relative;
+	z-index: 1;
+	flex: 0 0 auto;
+	display: flex;
+	align-items: flex-end;
+	justify-content: space-between;
+	gap: 24px;
+	padding-top: 16px;
+}
+
+/* Decorative dot-grid backdrop, same treatment as the onboarding shell. */
+.pageDotGrid {
+	position: fixed;
+	inset: 0;
+	overflow: hidden;
+	pointer-events: none;
+	z-index: -1;
+}
+
+/* Window drag strips along the chromeless edges — same pattern as
+   onboarding-layout. Interactive elements overlapping them stay clickable
+   via the global no-drag rule. */
+.dragEdge {
+	position: fixed;
+	pointer-events: none;
+	-webkit-app-region: drag;
+}
+
+.dragEdgeTop {
+	top: 0;
+	left: 0;
+	right: 0;
+	height: 36px;
+}
+
+.dragEdgeLeft {
+	top: 36px;
+	left: 0;
+	bottom: 0;
+	width: 16px;
+}
+
+.dragEdgeBottom {
+	left: 16px;
+	right: 0;
+	bottom: 0;
+	height: 16px;
+}
+
+.skipButton {
+	position: absolute;
+	top: 16px;
+	right: 16px;
+}
+
+.content {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	text-align: center;
+	max-width: 640px;
+	text-wrap: pretty;
+}
+
+/* Layout stage for the toy: sized for the 380px logo itself; the canvas is
+   wider/taller (logo + particle padding) and spills past this box without
+   clipping (contained={false}), so displaced pixels roam freely. */
+.logoToy {
+	position: relative;
+	width: 780px;
+	height: 420px;
+}
+
+/* The toy reacts to hover/click but isn't a control — don't advertise it
+   with a pointer cursor (the shared canvas style sets one). */
+.logoToy canvas {
+	cursor: default;
+}
+
+/* Text block pulled up over the lower part of the toy. Decorative copy:
+   not selectable, and transparent to the pointer so hovering "through" it
+   still drives the toy's particles underneath. */
+.contentBody {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 12px;
+	margin-top: -140px;
+	padding-top: 40px;
+	pointer-events: none;
+	user-select: none;
+}
+
+/* The absolutely-positioned scrim would otherwise paint above its static
+   siblings; positioning them keeps the text on top (later DOM order). */
+.contentBody > :not(.contentScrim) {
+	position: relative;
+}
+
+/* Progressive blur behind the overlapping text — same pattern as the
+   onboarding footer scrim: the backdrop blur fades in from the top so the
+   toy's particles soften under the text without a hard edge.
+   Oversized on purpose: it reaches past the viewport on the sides and
+   bottom and lets .page's overflow clipping trim it, so the blur covers
+   everything below the title (text, footer, buttons) while the dot grid
+   behind it stays soft. */
+.contentScrim {
+	position: absolute;
+	top: -56px;
+	left: -100vw;
+	right: -100vw;
+	bottom: -100vh;
+	pointer-events: none;
+	backdrop-filter: blur(12px);
+	background: linear-gradient(
+		to bottom,
+		transparent,
+		color-mix(in srgb, var(--wpds-color-bg-surface-neutral) var(--surface-alpha, 55%), transparent)
+			96px
+	);
+	-webkit-mask-image: linear-gradient(to bottom, transparent, black 96px);
+	mask-image: linear-gradient(to bottom, transparent, black 96px);
+}
+
+.title {
+	margin: 0;
+	text-wrap: balance;
+}
+
+.subtitle {
+	color: var(--wpds-color-fg-content-neutral-weak);
+	max-width: 440px;
+	margin: 0;
+}
+
+/* Bottom-left, opposite the action buttons — one footer row with them. */
+.legal {
+	max-width: 340px;
+	margin: 0;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: 12px;
+	line-height: 20px;
+	text-wrap: pretty;
+}
+
+/* Same treatment as the shared learn-more link (a button that opens an
+   external URL through the connector). */
+.linkButton {
+	background: none;
+	border: none;
+	padding: 0;
+	font: inherit;
+	color: var(--wpds-color-fg-interactive-brand);
+	text-decoration: underline;
+	cursor: pointer;
+	white-space: nowrap;
+}
+
+.linkButton:hover,
+.linkButton:focus-visible {
+	text-decoration: none;
+}
+
+.linkButton:disabled {
+	color: var(--wpds-color-fg-interactive-neutral-disabled);
+	cursor: default;
+}
+
+.footerActions {
+	display: flex;
+	align-items: center;
+	gap: 16px;
+}
+
+.footerActions > * {
+	flex-shrink: 0;
+	white-space: nowrap;
+}
+
+/* Sits just below the benefits card, centered in the content column.
+   Positioned so it paints above the content scrim (a positioned element
+   with backdrop-filter) instead of being washed out behind it. */
+.analyticsPreference {
+	position: relative;
+	z-index: 1;
+	flex: 0 0 auto;
+	margin-top: 20px;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+}
+
+/* Signed-in identity shown in place of the auth buttons. */
+.identity {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 13px;
+	font-weight: var(--wpds-typography-font-weight-medium);
+}
+
+.identityAvatar {
+	width: 24px;
+	height: 24px;
+}
+
+/* The toy is the only part with slack, so it absorbs the loss as the window
+   gets shorter (down to the app's 600px minimum). The canvas is sized by
+   `min(100%, …)`, so shrinking the stage scales it down; the text block's
+   overlap eases off with it. */
+/* Narrow windows leave the legal text and the account actions competing for
+   one row, with only the flex gap between them. Give the row more air and
+   let the legal wrap earlier so the two halves stay visually separate. */
+@media (max-width: 950px) {
+	.footer {
+		gap: 40px;
+		padding-top: 24px;
+	}
+
+	.legal {
+		max-width: 250px;
+	}
+}
+
+@media (max-height: 800px) {
+	.logoToy {
+		width: 620px;
+		height: 320px;
+	}
+
+	.contentBody {
+		margin-top: -110px;
+	}
+}
+
+@media (max-height: 700px) {
+	.logoToy {
+		width: 480px;
+		height: 230px;
+	}
+
+	.contentBody {
+		margin-top: -80px;
+		padding-top: 28px;
+	}
+
+	.contentScrim {
+		top: -40px;
+	}
+}

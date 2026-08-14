@@ -4,11 +4,8 @@ import type { SiteRestRequest, SiteRestResponse } from '@studio/common/types/wor
 export interface SiteRestTarget {
 	siteId: string;
 	running: boolean;
-	// Loopback base the request is actually sent to, e.g. http://127.0.0.1:<port>.
+	// Loopback base the request is actually sent to, e.g. http://localhost:<port>.
 	baseUrl: string;
-	// The site's public base URL (custom domain / advertised url), used to
-	// recognise and translate REST URLs that target it.
-	publicUrl: string;
 }
 
 interface SiteRestAuth {
@@ -18,6 +15,9 @@ interface SiteRestAuth {
 }
 
 const siteRestAuthCache = new Map< string, SiteRestAuth >();
+// Base URLs whose auth prep failed, per site — retried only when the base
+// changes (port move), so a broken site logs one warn, not one per keystroke.
+const siteRestAuthFailures = new Map< string, string >();
 
 /** Proxy a WordPress REST request to a running local site. */
 export async function fetchSiteRest(
@@ -43,7 +43,7 @@ export async function fetchSiteRest(
 		);
 	}
 
-	return fetchSiteRestWithAuth( target, url, request, true );
+	return fetchSiteRestWithAuth( target, url, true );
 }
 
 export function createJsonResponse(
@@ -65,23 +65,31 @@ export function createJsonResponse(
 async function fetchSiteRestWithAuth(
 	target: SiteRestTarget,
 	url: URL,
-	request: SiteRestRequest,
 	allowAuthRefresh: boolean
 ): Promise< SiteRestResponse > {
-	const headers = await getRequestHeaders( target, target.baseUrl, request.headers );
-	if ( request.data !== undefined && ! hasHeader( headers, 'content-type' ) ) {
-		headers[ 'Content-Type' ] = 'application/json';
+	const headers = await getRequestHeaders( target, target.baseUrl );
+	let response: Response;
+	try {
+		response = await fetch( url, {
+			headers,
+			redirect: 'follow',
+		} );
+	} catch ( error ) {
+		// A site can be marked running while nothing listens on its port
+		// (stale state, crashed server). Degrade to a response instead of
+		// rejecting through the IPC handler.
+		return createJsonResponse(
+			502,
+			'studio_site_unreachable',
+			`Site ${ target.siteId } did not respond: ${
+				error instanceof Error ? error.message : String( error )
+			}`
+		);
 	}
-	const response = await fetch( url, {
-		method: request.method ?? 'GET',
-		headers,
-		body: getRequestBody( request ),
-		redirect: 'follow',
-	} );
 
 	if ( allowAuthRefresh && ( response.status === 401 || response.status === 403 ) ) {
 		siteRestAuthCache.delete( target.siteId );
-		return fetchSiteRestWithAuth( target, url, request, false );
+		return fetchSiteRestWithAuth( target, url, false );
 	}
 
 	return serializeResponse( response );
@@ -89,52 +97,26 @@ async function fetchSiteRestWithAuth(
 
 function getSiteRestUrl( target: SiteRestTarget, request: SiteRestRequest ) {
 	const restRoot = new URL( '/wp-json/', target.baseUrl );
-	const publicRestRoot = new URL( '/wp-json/', target.publicUrl );
 
-	if ( request.path ) {
-		// Resolve against the site's REST root, then reject anything that escapes
-		// it. Without this check an absolute URL in `path` (e.g. `http://evil/`)
-		// overrides the base, letting the request target an arbitrary host with
-		// the site's auth cookie + nonce attached (SSRF + credential leak).
-		const url = new URL( request.path.replace( /^\/+/, '' ), restRoot );
-		if ( ! isRestUrlForRoot( url, restRoot ) ) {
-			throw new Error( 'REST path must stay within the site REST API.' );
-		}
-		return url;
+	// Resolve against the site's REST root, then reject anything that escapes
+	// it. Without this check an absolute URL in `path` (e.g. `http://evil/`)
+	// overrides the base, letting the request target an arbitrary host with
+	// the site's auth cookie + nonce attached (SSRF + credential leak).
+	const url = new URL( request.path.replace( /^\/+/, '' ), restRoot );
+	if ( ! isRestUrlForRoot( url, restRoot ) ) {
+		throw new Error( 'REST path must stay within the site REST API.' );
 	}
-
-	if ( request.url ) {
-		const url = new URL( request.url );
-		if ( isRestUrlForRoot( url, restRoot ) ) {
-			return url;
-		}
-		if ( isRestUrlForRoot( url, publicRestRoot ) ) {
-			return translateRestUrl( url, publicRestRoot, restRoot );
-		}
-		throw new Error( 'REST URL must target the selected site REST API.' );
-	}
-
-	throw new Error( 'REST request requires a path or URL.' );
+	return url;
 }
 
 function isRestUrlForRoot( url: URL, restRoot: URL ) {
 	return url.origin === restRoot.origin && url.pathname.startsWith( restRoot.pathname );
 }
 
-function translateRestUrl( url: URL, fromRestRoot: URL, toRestRoot: URL ) {
-	const relativePath = url.pathname.slice( fromRestRoot.pathname.length );
-	const translatedUrl = new URL( relativePath, toRestRoot );
-	translatedUrl.search = url.search;
-	translatedUrl.hash = url.hash;
-	return translatedUrl;
-}
-
-async function getRequestHeaders(
-	target: SiteRestTarget,
-	baseUrl: string,
-	requestHeaders: Record< string, string > = {}
-) {
-	const headers = sanitizeRequestHeaders( requestHeaders );
+async function getRequestHeaders( target: SiteRestTarget, baseUrl: string ) {
+	const headers: Record< string, string > = {
+		Accept: 'application/json, */*;q=0.1',
+	};
 	const auth = await getSiteRestAuth( target, baseUrl );
 
 	if ( auth ) {
@@ -145,43 +127,13 @@ async function getRequestHeaders(
 	return headers;
 }
 
-function sanitizeRequestHeaders( requestHeaders: Record< string, string > ) {
-	const headers: Record< string, string > = {
-		Accept: 'application/json, */*;q=0.1',
-	};
-
-	for ( const [ key, value ] of Object.entries( requestHeaders ) ) {
-		const lowerKey = key.toLowerCase();
-		if ( lowerKey === 'cookie' || lowerKey === 'host' ) {
-			continue;
-		}
-		headers[ key ] = value;
-	}
-
-	return headers;
-}
-
-function hasHeader( headers: Record< string, string >, headerName: string ) {
-	const normalizedHeaderName = headerName.toLowerCase();
-	return Object.keys( headers ).some( ( key ) => key.toLowerCase() === normalizedHeaderName );
-}
-
-function getRequestBody( request: SiteRestRequest ) {
-	if ( request.body !== undefined ) {
-		return request.body;
-	}
-
-	if ( request.data !== undefined ) {
-		return JSON.stringify( request.data );
-	}
-
-	return undefined;
-}
-
 async function getSiteRestAuth( target: SiteRestTarget, baseUrl: string ) {
 	const cached = siteRestAuthCache.get( target.siteId );
 	if ( cached?.baseUrl === baseUrl ) {
 		return cached;
+	}
+	if ( siteRestAuthFailures.get( target.siteId ) === baseUrl ) {
+		return null;
 	}
 
 	try {
@@ -192,9 +144,11 @@ async function getSiteRestAuth( target: SiteRestTarget, baseUrl: string ) {
 			cookie,
 			nonce,
 		};
+		siteRestAuthFailures.delete( target.siteId );
 		siteRestAuthCache.set( target.siteId, auth );
 		return auth;
 	} catch ( error ) {
+		siteRestAuthFailures.set( target.siteId, baseUrl );
 		console.warn( `Failed to prepare REST auth for site ${ target.siteId }:`, error );
 		return null;
 	}
@@ -209,8 +163,10 @@ async function getAutoLoginCookie( baseUrl: string ) {
 		.map( ( cookie ) => cookie.split( ';' )[ 0 ] )
 		.filter( Boolean );
 
-	if ( cookies.length === 0 ) {
-		throw new Error( 'Auto-login did not return authentication cookies.' );
+	// Without a real login cookie the nonce endpoint 400s (admin-ajax has no
+	// logged-out `rest-nonce` handler) — fail here so we skip that request.
+	if ( ! cookies.some( ( cookie ) => cookie.startsWith( 'wordpress_logged_in_' ) ) ) {
+		throw new Error( 'Auto-login did not return a login cookie.' );
 	}
 
 	return cookies.join( '; ' );

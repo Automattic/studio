@@ -6,6 +6,7 @@ import { readFile } from 'atomically';
 import { vol } from 'memfs';
 import { vi } from 'vitest';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
+import { setAgenticUiEnabled } from 'src/lib/studio-ui-mode';
 import {
 	createMainWindow,
 	getExistingMainWindow,
@@ -36,6 +37,7 @@ vi.mock( 'electron', () => {
 		loadFile = vi.fn().mockResolvedValue( undefined );
 		loadURL = vi.fn().mockResolvedValue( undefined );
 		setBackgroundColor = vi.fn();
+		setTitleBarOverlay = vi.fn();
 		getBounds = vi.fn().mockReturnValue( { x: 0, y: 0, width: 800, height: 600 } );
 
 		on = vi.fn().mockImplementation( ( event: string, handler: ( ...args: any[] ) => void ) => {
@@ -76,6 +78,9 @@ vi.mock( 'electron', () => {
 		},
 		nativeTheme: {
 			themeSource: 'light',
+			shouldUseDarkColors: false,
+			on: vi.fn(),
+			removeListener: vi.fn(),
 		},
 		screen: {
 			getAllDisplays: vi.fn().mockReturnValue( [] ),
@@ -173,6 +178,7 @@ describe( 'getExistingMainWindow', () => {
 
 describe( 'renderer selection', () => {
 	afterEach( () => {
+		setAgenticUiEnabled( false );
 		__resetMainWindow();
 	} );
 
@@ -185,7 +191,7 @@ describe( 'renderer selection', () => {
 	} );
 
 	it( 'loads the UI dev server when the agentic UI flag is enabled', async () => {
-		process.env.ENABLE_AGENTIC_UI = 'true';
+		setAgenticUiEnabled( true );
 		process.env.ELECTRON_UI_RENDERER_URL = 'http://localhost:5200';
 
 		const createdWindow = await createMainWindow();

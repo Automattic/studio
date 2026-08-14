@@ -1,7 +1,10 @@
 import fs from 'fs';
+import { deleteAiSessionsForSite } from '@studio/common/ai/sessions/manage';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
+import { removeAllConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
 import { readAuthToken, type StoredAuthToken } from '@studio/common/lib/shared-config';
+import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import trash from 'trash';
@@ -16,8 +19,10 @@ import {
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import { removeDomainFromHosts } from 'cli/lib/hosts-file';
+import { withSiteOperation } from 'cli/lib/site-operations';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { getSnapshotsFromConfig, deleteSnapshotFromConfig } from 'cli/lib/snapshots';
+import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
@@ -66,6 +71,10 @@ export async function runCommand(
 	siteFolder: string,
 	deleteFiles: boolean = true
 ): Promise< void > {
+	return withSiteOperation( siteFolder, 'delete', () => deleteSite( siteFolder, deleteFiles ) );
+}
+
+async function deleteSite( siteFolder: string, deleteFiles: boolean ): Promise< void > {
 	try {
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
 		await connectToDaemon();
@@ -116,6 +125,30 @@ export async function runCommand(
 			await unlockCliConfig();
 		}
 
+		try {
+			await removeAllConnectedWpcomSitesForLocalSite( site.id );
+		} catch ( error ) {
+			logger.reportError(
+				new LoggerError(
+					__( 'Failed to remove WordPress.com connections. Proceeding anyway…' ),
+					error
+				),
+				false
+			);
+		}
+
+		try {
+			await deleteAiSessionsForSite( getSessionsDirectory(), {
+				id: site.id,
+				path: site.path,
+			} );
+		} catch ( error ) {
+			logger.reportError(
+				new LoggerError( __( 'Failed to delete chat sessions. Proceeding anyway…' ), error ),
+				false
+			);
+		}
+
 		if ( deleteFiles ) {
 			// Imported sites have both a visible site directory and a
 			// hidden technical directory under ~/.studio/imports; delete
@@ -134,6 +167,18 @@ export async function runCommand(
 		}
 
 		await emitCliEvent( { event: SITE_EVENTS.DELETED, data: { siteId: site.id } } );
+
+		// Tracks: the CLI is the sole emitter of site-delete, whether deleted standalone or by the
+		// desktop app (which delegates to `site delete` and passes its origin via STUDIO_TRACKS_ORIGIN).
+		// Best-effort — wrapped so telemetry can never fail a delete.
+		try {
+			await recordTracksEvent( TRACKS_EVENTS.SITE_DELETE, {
+				...getTracksOrigin(),
+				delete_files: deleteFiles,
+			} );
+		} catch {
+			// Best-effort telemetry — never block or fail a delete.
+		}
 	} finally {
 		await disconnectFromDaemon();
 	}

@@ -1,8 +1,9 @@
 import { emitChatArtifactWidgets } from 'cli/ai/chat-artifacts';
 import { createPreviewTool } from './create-preview';
 import { createSiteTool } from './create-site';
+import { dataLiberationTool } from './data-liberation';
 import { deletePreviewTool } from './delete-preview';
-import { deleteSiteTool } from './delete-site';
+import { createDeleteSiteTool, deleteSiteTool, type ConfirmSiteDeletion } from './delete-site';
 import { exportSiteTool } from './export-site';
 import { importSiteTool } from './import-site';
 import { inspectDesignTool } from './inspect-design';
@@ -15,6 +16,7 @@ import { openAnnotationBrowserTool } from './open-annotation-browser';
 import { pullSiteTool } from './pull-site';
 import { pushSiteTool } from './push-site';
 import { auditSeoTool } from './rank-me-up';
+import { refreshBrowserTool } from './refresh-browser';
 import { scaffoldThemeTool } from './scaffold-theme';
 import { shareScreenshotTool } from './share-screenshot';
 import { getSiteInfoTool } from './site-info';
@@ -26,7 +28,7 @@ import { updatePreviewTool } from './update-preview';
 import { validateBlocksTool } from './validate-blocks';
 import { waitForAnnotationsTool } from './wait-for-annotations';
 import { runWpCliTool } from './wp-cli';
-import type { AnyStudioAgentTool } from './define-tool';
+import type { AnyStudioAgentTool, StudioToolResultDetails } from './define-tool';
 
 export { captureCommandOutput } from './utils';
 
@@ -42,12 +44,14 @@ export const studioToolDefinitions: AnyStudioAgentTool[] = [
 	updatePreviewTool,
 	deletePreviewTool,
 	runWpCliTool,
+	refreshBrowserTool,
 	scaffoldThemeTool,
 	validateBlocksTool,
 	takeScreenshotTool,
 	inspectDesignTool,
 	shareScreenshotTool,
 	installTaxonomyScriptsTool,
+	dataLiberationTool,
 	auditPerformanceTool,
 	auditSeoTool,
 	listConnectedRemoteSitesTool,
@@ -69,6 +73,11 @@ export interface CreateStudioToolsOptions {
 	// by `STUDIO_REMOTE_SESSION=1`. Direct `studio code` invocations leave
 	// this off because the image would have nowhere to go.
 	remoteSession?: boolean;
+	// When provided, site_delete asks the user to confirm before the
+	// irreversible deletion runs. Wired from the agent's AskUserQuestion
+	// handler; omitted for MCP/headless runs where the host owns its own
+	// approval flow.
+	confirmSiteDeletion?: ConfirmSiteDeletion;
 }
 
 export function resolveStudioToolDefinitions(
@@ -79,26 +88,46 @@ export function resolveStudioToolDefinitions(
 			? [ ...studioToolDefinitions, studioPresentTool ]
 			: studioToolDefinitions;
 
+	// Gate the irreversible site deletion behind an explicit confirmation when a
+	// handler is available (interactive agent). MCP/headless callers omit it and
+	// keep the plain tool.
+	const confirmingDeleteSiteTool =
+		options.confirmSiteDeletion !== undefined
+			? ( createDeleteSiteTool( options.confirmSiteDeletion ) as AnyStudioAgentTool )
+			: undefined;
+
 	return definitions.flatMap( ( candidate ) => {
 		if ( candidate.name === shareScreenshotTool.name && ! options.remoteSession ) {
 			return [];
 		}
-		return [ withChatArtifactEmission( candidate, options.emitChatArtifacts === true ) ];
+		const tool =
+			candidate.name === deleteSiteTool.name && confirmingDeleteSiteTool
+				? confirmingDeleteSiteTool
+				: candidate;
+		return [ withChatArtifactEmission( tool, options.emitChatArtifacts === true ) ];
 	} );
 }
 
-function withChatArtifactEmission< TTool extends AnyStudioAgentTool >(
+export function withChatArtifactEmission< TTool extends AnyStudioAgentTool >(
 	tool: TTool,
 	emitChatArtifacts: boolean
 ): TTool {
+	if ( ! emitChatArtifacts ) {
+		return tool;
+	}
 	return {
 		...tool,
-		execute: async ( _toolCallId, params ) => {
-			const result = await tool.rawHandler( params );
-			if ( emitChatArtifacts ) {
-				await emitChatArtifactWidgets( result.studioArtifacts );
+		execute: async ( toolCallId, params, signal, onUpdate ) => {
+			const result = await tool.execute( toolCallId, params, signal, onUpdate );
+			const details = result.details as StudioToolResultDetails | undefined;
+			try {
+				await emitChatArtifactWidgets( details?.studioArtifacts );
+			} catch ( error ) {
+				// Artifacts are presentation-only; a failed emit (e.g. session file
+				// unwritable) must never turn a successful tool result into an error.
+				console.warn( `[chat-artifacts] failed to emit artifact for ${ tool.name }:`, error );
 			}
-			return { content: result.content, details: undefined };
+			return result;
 		},
 	};
 }

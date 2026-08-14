@@ -1,4 +1,5 @@
 import { __ } from '@wordpress/i18n';
+import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
 import { lockAppdata, unlockAppdata, loadUserData, saveUserData } from 'src/storage/user-data';
 
 export interface BetaFeatureDefinition {
@@ -13,6 +14,7 @@ export interface BetaFeatureDefinition {
  */
 const BETA_FEATURE_DEFAULTS: Record< keyof BetaFeatures, boolean > = {
 	remoteSession: false,
+	enableAgenticUi: false,
 };
 
 /**
@@ -26,6 +28,12 @@ export function getBetaFeaturesDefinition(): Record< keyof BetaFeatures, BetaFea
 			key: 'remoteSession',
 			default: BETA_FEATURE_DEFAULTS.remoteSession,
 			description: __( 'Control Studio from Telegram via the remote-session daemon.' ),
+		},
+		enableAgenticUi: {
+			label: __( 'New Studio experience' ),
+			key: 'enableAgenticUi',
+			default: BETA_FEATURE_DEFAULTS.enableAgenticUi,
+			description: __( 'A redesigned interface with AI-powered site building.' ),
 		},
 	};
 }
@@ -44,9 +52,15 @@ export async function getBetaFeatures(): Promise< BetaFeatures > {
 	return buildBetaFeatures( userData.betaFeatures );
 }
 
+// Where a UI-mode switch was triggered from. Passed through to the Tracks event so we can tell the
+// Settings toggle from the "Try it" banner and the app menu. Omitted for non-user writes (e.g. the
+// boot-time migration), which must not emit an event.
+export type AgenticUiSurface = 'settings' | 'banner' | 'menu';
+
 export async function updateBetaFeature(
 	key: keyof BetaFeatures,
-	value: boolean
+	value: boolean,
+	surface?: AgenticUiSurface
 ): Promise< void > {
 	try {
 		await lockAppdata();
@@ -59,5 +73,12 @@ export async function updateBetaFeature(
 		await saveUserData( userData );
 	} finally {
 		await unlockAppdata();
+	}
+
+	if ( key === 'enableAgenticUi' && surface ) {
+		await recordTracksEvent( TRACKS_EVENTS.SETTING_UI_CHANGE, {
+			type: value ? 'agentic' : 'classic',
+			surface,
+		} );
 	}
 }

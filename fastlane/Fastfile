@@ -17,7 +17,6 @@ UI.user_error!('Please run fastlane via `bundle exec`') unless FastlaneCore::Hel
 # Constants and Environment Variables
 ########################################################################
 PROJECT_ROOT_FOLDER = File.dirname(File.expand_path(__dir__))
-SECRETS_FOLDER = File.join(Dir.home, '.configure', 'studio', 'secrets')
 BUILDS_FOLDER = File.join(PROJECT_ROOT_FOLDER, 'apps', 'studio', 'out')
 PHP_CLI_BUILDS_FOLDER = File.join(PROJECT_ROOT_FOLDER, 'out', 'php-binaries')
 # Standalone Studio CLI bundles (studio-cli-<platform>-<arch>.tgz) from `npm run cli:bundle`
@@ -36,11 +35,10 @@ POT_FILE_PATH = File.join(PROJECT_ROOT_FOLDER, 'i18n', 'bundle-strings.pot')
 
 # GlotPress project URL and output directory for Studio UI translations (Jed 1.x JSON)
 GLOTPRESS_PROJECT_URL = 'https://translate.wordpress.com/projects/studio'
-TRANSLATIONS_DIR = File.join(PROJECT_ROOT_FOLDER, 'tools', 'common', 'translations')
+TRANSLATIONS_DIR = File.join(PROJECT_ROOT_FOLDER, 'packages', 'common', 'translations')
 
 APPLE_TEAM_ID = 'PZYM8XX95Q'
 APPLE_BUNDLE_IDENTIFIER = 'com.automattic.studio'
-APPLE_API_KEY_PATH = File.join(SECRETS_FOLDER, 'app_store_connect_fastlane_api_key.json')
 
 # Site ID for WordPress.com Studio in the Apps CDN
 WPCOM_STUDIO_SITE_ID = '239164481'
@@ -64,7 +62,7 @@ before_all do |_lane|
 end
 
 desc 'Download the development signing certificates to this machine'
-lane :set_up_signing do |_options|
+lane :set_up_signing do |readonly: true|
   sync_code_signing(
     platform: 'macos',
     app_identifier: APPLE_BUNDLE_IDENTIFIER,
@@ -72,8 +70,8 @@ lane :set_up_signing do |_options|
     type: 'developer_id',
     storage_mode: 's3',
     s3_bucket: 'a8c-fastlane-match',
-    api_key_path: APPLE_API_KEY_PATH,
-    readonly: true
+    readonly: readonly,
+    api_key: readonly ? nil : app_store_connect_api_key
   )
 end
 
@@ -82,7 +80,7 @@ lane :notarize_binary do
   Dir[File.join(BUILDS_FOLDER, '**', 'Studio.app')].each do |path|
     notarize(
       package: path,
-      api_key_path: APPLE_API_KEY_PATH,
+      api_key: app_store_connect_api_key,
       print_log: true
     )
   end
@@ -91,7 +89,7 @@ lane :notarize_binary do
     notarize(
       bundle_id: APPLE_BUNDLE_IDENTIFIER,
       package: path,
-      api_key_path: APPLE_API_KEY_PATH,
+      api_key: app_store_connect_api_key,
       print_log: true
     )
   end
@@ -110,7 +108,7 @@ lane :generate_pot_file do |commit_message: nil, skip_confirm: false|
   sh('mkdir', '-p', File.dirname(POT_FILE_PATH))
   sh(
     'npx', 'wp-babel-makepot',
-    "#{PROJECT_ROOT_FOLDER}/{apps/studio/src,apps/cli,packages/common}/**/*.{js,jsx,ts,tsx}",
+    "#{PROJECT_ROOT_FOLDER}/{apps/studio/src,apps/cli,apps/ui/src,packages/common}/**/*.{js,jsx,ts,tsx}",
     '--ignore', "#{PROJECT_ROOT_FOLDER}/apps/cli/node_modules/**/*,**/*.d.ts",
     '--base', PROJECT_ROOT_FOLDER,
     '--dir', pot_dir,
@@ -128,7 +126,7 @@ lane :generate_pot_file do |commit_message: nil, skip_confirm: false|
 end
 
 desc 'Ship the binary to internal testers'
-lane :distribute_dev_build do |_options|
+lane :distribute_dev_build do
   distribute_builds
 end
 
@@ -166,7 +164,13 @@ lane :distribute_release_build do |version: read_package_json_version|
     success: true,
     slack_url: get_required_env('SLACK_WEBHOOK'),
     payload: {
-      ':studio-app-icon-mac: Release available for': builds.each_value.map { |b| "[#{b[:name]}](#{b[:cdn_url]})" }.join(', ')
+      # Link only the installers users download: "Full Install" builds plus the Linux .debs
+      # (tagged "Update" but the sole Linux installer). Skip the Mac/Windows "Update" payloads,
+      # and the unsigned Appx builds (grabbed from Buildkite for the Microsoft Store publish).
+      ':studio-app-icon-mac: Release available for': builds.each_value
+        .reject { |b| b[:install_type] == 'Update' && !b[:platform].to_s.start_with?('Linux') }
+        .reject { |b| b[:platform].to_s.start_with?('Microsoft Store') }
+        .map { |b| "[#{b[:name]}](#{b[:cdn_url]})" }.join(', ')
     },
     default_payloads: []
   )
@@ -292,13 +296,14 @@ lane :publish_npm_package do |version: nil, skip_confirm: false|
   trigger_npm_publish(ref: release_tag, npm_tag: npm_tag)
 end
 
-desc 'Upload or update Studio PHP CLI binaries on Apps CDN'
-lane :publish_php_cli_binaries do |version:, artifacts_dir: PHP_CLI_BUILDS_FOLDER, visibility: 'internal', error_on_duplicate: false, output_file: nil|
+desc 'Upload immutable Studio PHP CLI packages to Apps CDN'
+lane :publish_php_cli_binaries do |version:, package_version:, artifacts_dir: PHP_CLI_BUILDS_FOLDER,
+                                   visibility: 'internal', output_file: nil|
   upload_php_cli_binaries_to_apps_cdn(
     version:,
+    package_version:,
     artifacts_dir:,
     visibility:,
-    error_on_duplicate: error_on_duplicate.to_s != 'false',
     output_file:
   )
 end
@@ -325,6 +330,7 @@ end
 # - Creates a `release/<version>` branch from trunk
 # - Extracts translatable strings and commits them to the release branch (for GlotPress import)
 # - Generates draft release notes from merged PRs and commits them to the release branch
+# - Copies trunk's branch protection settings onto the release branch
 # - Creates a backmerge PR from the release branch to trunk (so wpcom cron can import strings to GlotPress)
 #
 # The first beta is triggered separately via {new_beta_release}.
@@ -341,6 +347,7 @@ lane :code_freeze do |version:, skip_confirm: false, github_username: nil|
     - Create a new `#{branch_name}` branch from `#{MAIN_BRANCH}`
     - Extract translatable strings and commit to `#{branch_name}`
     - Generate draft release notes from merged PRs
+    - Protect `#{branch_name}` with the same settings as `#{MAIN_BRANCH}`
     - Create a backmerge PR from `#{branch_name}` to `#{MAIN_BRANCH}`
   PROMPT
   next unless skip_confirm || UI.confirm('Continue?')
@@ -365,6 +372,13 @@ lane :code_freeze do |version:, skip_confirm: false, github_username: nil|
   )
 
   push_to_git_remote(set_upstream: true)
+
+  # Copy GitHub branch protection settings (CI required checks etc) from `trunk` on the new `release/*` branch.
+  copy_branch_protection(
+    repository: GITHUB_REPO,
+    from_branch: MAIN_BRANCH,
+    to_branch: branch_name
+  )
 
   # Create backmerge PR so that the .pot strings file reaches trunk for GlotPress import
   create_backmerge_pr(source_branch: branch_name, github_username: github_username)
@@ -470,6 +484,7 @@ end
 #
 # - Publishes the draft GitHub release created by {distribute_release_build}
 # - Creates a backmerge PR from the release branch to trunk (with intermediate branch for conflicts)
+# - Unprotects and deletes the release branch
 #
 # @param version [String] The version to publish (e.g., '1.7.4')
 # @param skip_confirm [Boolean] Skip interactive confirmation prompts (default: false)
@@ -485,7 +500,7 @@ lane :publish_release do |version:, skip_confirm: false, github_username: nil|
     - Make CDN builds public (change visibility from Internal to External)
     - Publish the draft GitHub release for v#{version}
     - Create a backmerge PR from `#{release_branch}` into `#{MAIN_BRANCH}`
-    - Delete the `#{release_branch}` branch after creating the backmerge PR
+    - Remove the branch protection from `#{release_branch}` and delete it
   PROMPT
   next unless skip_confirm || UI.confirm('Continue?')
 
@@ -503,6 +518,9 @@ lane :publish_release do |version:, skip_confirm: false, github_username: nil|
 
   create_backmerge_pr(source_branch: release_branch, github_username: github_username)
 
+  # The release is out, so the release branch is no longer necessary. Remove the branch protection
+  # to delete the release branch.
+  remove_branch_protection(repository: GITHUB_REPO, branch: release_branch)
   Fastlane::Helper::GitHelper.delete_remote_branch_if_exists!(release_branch)
   Fastlane::Helper::GitHelper.checkout_and_pull(MAIN_BRANCH)
   Fastlane::Helper::GitHelper.delete_local_branch_if_exists!(release_branch)
@@ -919,11 +937,16 @@ def read_sha256_sidecar(file_path:)
   sha
 end
 
-def upload_php_cli_binaries_to_apps_cdn(version:, artifacts_dir:, visibility:, error_on_duplicate:, output_file: nil, dry_run: DRY_RUN)
+def upload_php_cli_binaries_to_apps_cdn(version:, package_version:, artifacts_dir:, visibility:,
+                                        output_file: nil, dry_run: DRY_RUN)
   normalized_visibility = visibility.to_s.downcase
   unless %w[internal external].include?(normalized_visibility)
     UI.user_error!("visibility must be 'internal' or 'external'")
   end
+  unless package_version.match?(/\A[a-z0-9][a-z0-9._-]{0,63}\z/)
+    UI.user_error!('package_version must be a 1-64 character lowercase package identifier')
+  end
+  package_id = "#{version}-#{package_version}"
 
   builds = {}
   php_cli_cdn_builds(version:).each do |build|
@@ -931,8 +954,8 @@ def upload_php_cli_binaries_to_apps_cdn(version:, artifacts_dir:, visibility:, e
     UI.user_error!("File #{file_path} does not exist") unless File.exist?(file_path)
 
     sha = read_sha256_sidecar(file_path:)
-    release_notes = "PHP #{version} CLI binary for #{build[:name]}"
-    UI.message("Uploading or updating PHP CLI binary: #{build[:file_name]}")
+    release_notes = "PHP #{version} CLI package #{package_id} for #{build[:name]}"
+    UI.message("Uploading immutable PHP CLI package: #{build[:file_name]} as #{package_id}")
     media_url = nil
 
     if dry_run
@@ -944,10 +967,12 @@ def upload_php_cli_binaries_to_apps_cdn(version:, artifacts_dir:, visibility:, e
       UI.message('           build type: Production')
       UI.message('           install type: Full Install')
       UI.message("           visibility: #{normalized_visibility.capitalize}")
-      UI.message("           version: #{version}")
+      UI.message("           PHP version: #{version}")
+      UI.message("           package version: #{package_version}")
+      UI.message("           package/CDN ID: #{package_id}")
       UI.message("           release notes: #{release_notes}")
       UI.message("           sha: #{sha}")
-      UI.message("           error on duplicate: #{error_on_duplicate}")
+      UI.message('           error on duplicate: true')
     else
       result = upload_build_to_apps_cdn(
         site_id: WPCOM_STUDIO_SITE_ID,
@@ -956,18 +981,18 @@ def upload_php_cli_binaries_to_apps_cdn(version:, artifacts_dir:, visibility:, e
         build_type: 'Production',
         install_type: 'Full Install',
         visibility: normalized_visibility.capitalize,
-        version:,
+        version: package_id,
         build_number: nil,
         release_notes:,
         sha:,
         file_path:,
-        error_on_duplicate:
+        error_on_duplicate: true
       )
       media_url = result[:media_url] || result['media_url']
       UI.user_error!('Apps CDN upload response did not include media_url') if media_url.to_s.empty?
 
       UI.message('--------------------------------')
-      UI.message("✅ Uploaded or updated PHP CLI binary: #{file_path} to #{media_url}")
+      UI.message("✅ Uploaded PHP CLI package: #{file_path} to #{media_url}")
     end
 
     builds[build[:file_name]] = {

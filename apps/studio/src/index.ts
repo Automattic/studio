@@ -41,6 +41,8 @@ import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import { maybePromptNightlySwitch, startNightlyPromptPoller } from 'src/lib/nightly-prompt';
 import { getSentryReleaseInfo } from 'src/lib/sentry-release';
+import { setAgenticUiEnabled } from 'src/lib/studio-ui-mode';
+import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
 import { setupLogging } from 'src/logging';
 import { createMainWindow, getCurrentRendererUrl, getMainWindow } from 'src/main-window';
 import { migrations } from 'src/migrations';
@@ -375,7 +377,8 @@ async function appBoot() {
 		await runMigrations( migrations ).catch( Sentry.captureException );
 
 		await setupSentryUserId();
-		await getBetaFeatures();
+		const betaFeatures = await getBetaFeatures();
+		setAgenticUiEnabled( betaFeatures.enableAgenticUi );
 
 		// Fetch data from CLI and subscribe to CLI events before starting the user data
 		// watcher. The watcher can trigger getMainWindow() which creates the window early,
@@ -408,6 +411,15 @@ async function appBoot() {
 			getPlatformMetric(),
 			'monthly'
 		).catch( ( err ) => Sentry.captureException( err ) );
+
+		// Tracks: structured launch event, runs in parallel with the MC Stats bumps above.
+		// `is_first_launch` intentionally reuses `lastBumpStats` — it's a durable pre-existing marker,
+		// so existing users read false and fresh installs read true. If the MC Stats launch bumps are
+		// ever removed, migrate this to another durable per-install marker (e.g. `sentryUserId`) or a
+		// dedicated flag, or it will silently report true on every launch. See the analytics design doc.
+		void recordTracksEvent( TRACKS_EVENTS.APP_LAUNCH, {
+			is_first_launch: ! userData.lastBumpStats,
+		} ).catch( ( err ) => Sentry.captureException( err ) );
 
 		await autoInstallWindowsCliIfNeeded();
 		await autoInstallMacOSCliIfNeeded();
@@ -503,33 +515,34 @@ async function appBoot() {
 					return;
 				}
 
-				const quitChoices: { label: string; behavior: QuitSitesBehavior }[] = [
-					{ label: __( 'Stop' ), behavior: 'stop' },
-					{ label: __( 'Auto-start' ), behavior: 'stop-and-auto-start' },
-					{ label: __( 'Keep running' ), behavior: 'leave-running' },
-				];
-				const cancelButtonIndex = quitChoices.length;
-				const defaultButtonIndex = quitChoices.findIndex(
-					( choice ) => choice.behavior === 'leave-running'
-				);
+				const STOP_SITES_BUTTON_INDEX = 0;
+				const KEEP_RUNNING_BUTTON_INDEX = 1;
+				const CANCEL_BUTTON_INDEX = 2;
 
 				const { response, checkboxChecked } = await dialog.showMessageBox( {
 					type: 'question',
-					message: _n( 'You have a running site', 'You have running sites', runningSiteCount ),
-					detail: __(
-						'Choose what to do with your running sites when Studio quits:\n\n• Keep running — sites stay running after Studio closes.\n• Auto-start — sites stop now and start again when you reopen Studio.\n• Stop — sites stop now and stay stopped.'
+					message: _n( 'Keep the site running?', 'Keep the sites running?', runningSiteCount ),
+					detail: _n(
+						'Your site can stay available in the background after Studio quits.',
+						'Your sites can stay available in the background after Studio quits.',
+						runningSiteCount
 					),
-					buttons: [ ...quitChoices.map( ( choice ) => choice.label ), __( 'Cancel' ) ],
-					checkboxLabel: __( "Don't ask again" ),
-					cancelId: cancelButtonIndex,
-					defaultId: defaultButtonIndex,
+					buttons: [
+						_n( 'Stop site', 'Stop sites', runningSiteCount ),
+						_n( 'Keep site running', 'Keep sites running', runningSiteCount ),
+						__( 'Cancel' ),
+					],
+					checkboxLabel: __( 'Remember my choice' ),
+					cancelId: CANCEL_BUTTON_INDEX,
+					defaultId: STOP_SITES_BUTTON_INDEX,
 				} );
 
-				if ( response === cancelButtonIndex ) {
+				if ( response === CANCEL_BUTTON_INDEX ) {
 					return;
 				}
 
-				const { behavior } = quitChoices[ response ];
+				const behavior: QuitSitesBehavior =
+					response === KEEP_RUNNING_BUTTON_INDEX ? 'leave-running' : 'stop';
 
 				if ( checkboxChecked ) {
 					await updateAppdata( { quitSitesBehavior: behavior } );

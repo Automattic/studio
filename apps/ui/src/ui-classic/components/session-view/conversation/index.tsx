@@ -1,4 +1,18 @@
 import {
+	getLocalMediaPath,
+	getMediaAltText,
+	getSafeMediaUrl,
+	isRenderableMediaWidget,
+	isStudioChatArtifactData,
+	stripMediaWidgetPayloadLines,
+	type StudioChatArtifactWidgetDraft,
+} from '@studio/common/ai/chat-artifacts';
+import {
+	isAiAccessRequiredError,
+	isAiBlockedError,
+	isUsageCapError,
+} from '@studio/common/ai/json-events';
+import {
 	isStudioCustomEntryOfType,
 	type StudioChatAttachmentSummary,
 	type StudioCustomEntry,
@@ -7,9 +21,11 @@ import {
 	getInputString,
 	getToolDetail,
 	getToolDisplayName,
+	getToolResultDiff,
 	splitCommandArgs,
 	type NormalizedToolResult,
 } from '@studio/common/ai/tools';
+import { formatUsageCapNotice } from '@studio/common/lib/studio-assistant-quota';
 import { __, sprintf } from '@wordpress/i18n';
 import {
 	blockDefault,
@@ -54,11 +70,25 @@ import {
 } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import {
+	useEffect,
+	useId,
+	useMemo,
+	useRef,
+	useState,
+	type ReactNode,
+	MouseEvent as ReactMouseEvent,
+} from 'react';
+import { AiAccessRequiredNotice, AiBlockedNotice } from '@/components/ai-access-required-notice';
+import { CopyButton } from '@/components/copy-button';
 import { Markdown } from '@/components/markdown';
+import { useConnector, type LoadedAiSession } from '@/data/core';
+import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
+import { useLocalMediaDataUrl } from '@/data/queries/use-local-media';
+import { MESSAGE_TEXT_ATTRIBUTE, QUOTABLE_TEXT_ATTRIBUTE } from '@/hooks/use-text-context-menu';
+import { refreshIcon } from '@/lib/icons';
 import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
-import type { LoadedAiSession } from '@/data/core';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 
 interface AgentQuestionRenderItem {
@@ -75,7 +105,7 @@ type RenderItem =
 			text: string;
 			attachments?: StudioChatAttachmentSummary[];
 	  }
-	| { kind: 'assistant-text'; key: string; text: string }
+	| { kind: 'assistant-text'; key: string; text: string; messageText: string; copyText?: string }
 	| {
 			kind: 'tool-use';
 			key: string;
@@ -88,7 +118,13 @@ type RenderItem =
 			key: string;
 			questions: AgentQuestionRenderItem[];
 	  }
-	| { kind: 'interrupted-marker'; key: string };
+	| {
+			kind: 'chat-artifact';
+			key: string;
+			widgets: StudioChatArtifactWidgetDraft[];
+	  }
+	| { kind: 'interrupted-marker'; key: string }
+	| { kind: 'error-marker'; key: string; message: string };
 
 interface PiAssistantContentBlock {
 	type: 'text' | 'toolCall' | 'thinking';
@@ -107,12 +143,16 @@ interface PiToolResultLike {
 	role: 'toolResult';
 	toolCallId: string;
 	content?: Array< { type: string; text?: string } >;
+	details?: unknown;
 	isError?: boolean;
 }
 
 const HIDDEN_TOOL_ROWS = new Set( [ 'studio_present', 'AskUserQuestion' ] );
 const QUESTION_COLLAPSE_DELAY_MS = 650;
 const QUESTION_SCROLL_TOP_MARGIN_PX = 12;
+// Only a pre-layout fallback. The scroller spans the full column with the
+// composer floating over it, so the space to actually keep clear is the
+// scroller's reserved bottom padding, which tracks the live composer height.
 const QUESTION_SCROLL_BOTTOM_CLEARANCE_PX = 96;
 
 function usePrefersReducedMotion(): boolean {
@@ -185,7 +225,10 @@ function resolveBatchedAnswerForQuestion(
 	return optionLabels.has( answer ) ? answer : undefined;
 }
 
-export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
+export function entriesToRenderItems(
+	entries: SessionEntry[],
+	options: { canReadLocalMedia?: boolean } = {}
+): RenderItem[] {
 	// First pass: collect tool_call_id → tool_result pairings so each
 	// `toolCall` row can render its output inline.
 	const resultsByToolCallId = new Map< string, NormalizedToolResult >();
@@ -198,8 +241,11 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 			.map( ( b ) => b.text as string )
 			.join( '\n' );
 		resultsByToolCallId.set( message.toolCallId, {
-			text,
+			// Old transcripts embed media widget payload markers in screenshot
+			// results; strip them from every tool's display text.
+			text: stripMediaWidgetPayloadLines( text ),
 			isError: message.isError === true,
+			diff: message.isError === true ? undefined : getToolResultDiff( message.details ),
 		} );
 	}
 
@@ -225,6 +271,17 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 			if ( ! message || message.role !== 'assistant' || ! Array.isArray( message.content ) ) {
 				continue;
 			}
+			// A single assistant message can hold several text blocks split by tool
+			// calls. Copy must yield the whole message, so join every text block and
+			// hang one copy button off the last one rather than one per fragment.
+			const textBlocks = message.content.filter(
+				( block ) => block.type === 'text' && typeof block.text === 'string' && block.text.trim()
+			);
+			const fullMessageText = textBlocks
+				.map( ( block ) => ( block.text as string ).trim() )
+				.join( '\n\n' );
+			const lastTextBlock = textBlocks[ textBlocks.length - 1 ];
+
 			message.content.forEach( ( block, blockIndex ) => {
 				if ( block.type === 'text' && typeof block.text === 'string' ) {
 					const text = block.text.trim();
@@ -233,6 +290,8 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 							kind: 'assistant-text',
 							key: `${ entryIndex }:${ blockIndex }:text`,
 							text,
+							messageText: fullMessageText,
+							copyText: block === lastTextBlock ? fullMessageText : undefined,
 						} );
 					}
 				} else if (
@@ -287,12 +346,42 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 			continue;
 		}
 
+		if ( isStudioCustomEntryOfType( entry, 'studio.chat_artifact' ) ) {
+			const data = ( entry as StudioCustomEntry< 'studio.chat_artifact' > ).data;
+			// Guard against malformed persisted entries so one bad line can't
+			// take down the whole transcript.
+			if ( ! isStudioChatArtifactData( data ) ) {
+				continue;
+			}
+			const widgets = data.widgets.filter(
+				( widget ) =>
+					isRenderableMediaWidget( widget ) &&
+					// Without local media access (browser builds), only widgets
+					// with a renderable remote URL are worth showing.
+					( options.canReadLocalMedia !== false || Boolean( getSafeMediaUrl( widget ) ) )
+			);
+			if ( widgets.length > 0 ) {
+				items.push( {
+					kind: 'chat-artifact',
+					key: `${ entryIndex }:chat-artifact`,
+					widgets,
+				} );
+			}
+			continue;
+		}
+
 		if ( isStudioCustomEntryOfType( entry, 'studio.turn_closed' ) ) {
 			const data = ( entry as StudioCustomEntry< 'studio.turn_closed' > ).data;
 			if ( data?.status === 'interrupted' ) {
 				items.push( {
 					kind: 'interrupted-marker',
 					key: `${ entryIndex }:interrupted`,
+				} );
+			} else if ( data?.status === 'error' ) {
+				items.push( {
+					kind: 'error-marker',
+					key: `${ entryIndex }:error`,
+					message: data.errorMessage ?? '',
 				} );
 			}
 			continue;
@@ -329,7 +418,7 @@ function UserTurn( {
 	attachments?: StudioChatAttachmentSummary[];
 } ) {
 	return (
-		<div className={ styles.userTurn }>
+		<div className={ styles.userTurn } { ...{ [ MESSAGE_TEXT_ATTRIBUTE ]: text } }>
 			<div className={ styles.userText }>{ text }</div>
 			{ attachments && attachments.length > 0 ? (
 				<ul className={ styles.userAttachments }>
@@ -361,8 +450,59 @@ function UserTurn( {
 	);
 }
 
-function AssistantText( { text }: { text: string } ) {
-	return <Markdown>{ text }</Markdown>;
+function AssistantText( {
+	text,
+	messageText,
+	copyText,
+	showActions,
+	onToggleSelect,
+}: {
+	text: string;
+	messageText: string;
+	copyText?: string;
+	showActions: boolean;
+	onToggleSelect: () => void;
+} ) {
+	const handleClick = ( event: ReactMouseEvent< HTMLDivElement > ) => {
+		// Links and the buttons inside code blocks or the action row own their
+		// clicks; only bare message content toggles the actions.
+		if ( ( event.target as HTMLElement | null )?.closest( 'a, button' ) ) {
+			return;
+		}
+		// A click that ends a text drag is a selection, not a tap.
+		const selection = window.getSelection();
+		if ( selection && ! selection.isCollapsed && selection.toString().trim() ) {
+			return;
+		}
+		onToggleSelect();
+	};
+
+	return (
+		// Clicking the message is a mouse convenience for revealing its actions;
+		// keyboard users reach the same buttons by tabbing to them, which opens
+		// the row via :focus-within. Deliberately no button role — the message
+		// holds links, and nesting them inside a control would be invalid.
+		<div
+			className={ styles.assistantTurn }
+			data-actions-open={ showActions ? 'true' : undefined }
+			{ ...{
+				[ MESSAGE_TEXT_ATTRIBUTE ]: messageText,
+				[ QUOTABLE_TEXT_ATTRIBUTE ]: true,
+			} }
+			onClick={ copyText ? handleClick : undefined }
+		>
+			<Markdown>{ text }</Markdown>
+			{ copyText ? (
+				<div className={ styles.messageActions }>
+					<div className={ styles.messageActionsClip }>
+						<div className={ styles.messageActionsRow }>
+							<CopyButton text={ copyText } label={ __( 'Copy message' ) } />
+						</div>
+					</div>
+				</div>
+			) : null }
+		</div>
+	);
 }
 
 const TOOL_DETAIL_MAX_LENGTH = 96;
@@ -515,6 +655,8 @@ function getToolIcon( name: string, input: Record< string, unknown > | undefined
 			return capturePhoto;
 		case 'inspect_design':
 			return search;
+		case 'refresh_browser':
+			return refreshIcon;
 		case 'share_screenshot':
 			return share;
 		case 'validate_blocks':
@@ -553,6 +695,26 @@ function getToolIcon( name: string, input: Record< string, unknown > | undefined
 	}
 }
 
+function DiffBlock( { diff }: { diff: string } ) {
+	const lines = diff.replace( /\n$/, '' ).split( '\n' );
+	return (
+		<pre className={ styles.toolDiff }>
+			{ lines.map( ( line, index ) => (
+				<span
+					key={ index }
+					className={ clsx(
+						styles.diffLine,
+						line.startsWith( '+' ) && styles.diffLineAdded,
+						line.startsWith( '-' ) && styles.diffLineRemoved
+					) }
+				>
+					{ line.length > 0 ? line : ' ' }
+				</span>
+			) ) }
+		</pre>
+	);
+}
+
 function ToolIcon( { name, input }: { name: string; input?: Record< string, unknown > } ) {
 	return (
 		<Icon
@@ -578,7 +740,8 @@ function ToolUseRow( {
 	const resultText = result?.text?.trim() ?? '';
 	const hasOutput = resultText.length > 0;
 	const hasInput = display.inputText.length > 0;
-	const hasExpandableDetails = hasInput || hasOutput;
+	const hasDiff = Boolean( result?.diff );
+	const hasExpandableDetails = hasInput || hasOutput || hasDiff;
 	const [ expanded, setExpanded ] = useState( false );
 	const [ detailsMounted, setDetailsMounted ] = useState( false );
 	useEffect( () => {
@@ -643,11 +806,53 @@ function ToolUseRow( {
 									{ resultText }
 								</pre>
 							) : null }
+							{ hasDiff ? <DiffBlock diff={ result!.diff! } /> : null }
 						</div>
 					</div>
 				</div>
 			) : null }
 		</div>
+	);
+}
+
+function ChatArtifact( { widgets }: { widgets: StudioChatArtifactWidgetDraft[] } ) {
+	return (
+		<div className={ styles.mediaArtifactGrid }>
+			{ widgets.map( ( widget, index ) => (
+				<MediaArtifactImage key={ `${ widget.type }:${ index }` } widget={ widget } />
+			) ) }
+		</div>
+	);
+}
+
+function MediaArtifactImage( { widget }: { widget: StudioChatArtifactWidgetDraft } ) {
+	const connector = useConnector();
+	const localPath = connector.capabilities.readLocalMedia ? getLocalMediaPath( widget ) : null;
+	const safeUrl = getSafeMediaUrl( widget );
+	const localFileQuery = useLocalMediaDataUrl( localPath );
+
+	const src = localPath ? localFileQuery.data ?? null : safeUrl;
+
+	if ( localFileQuery.isError || ( ! localPath && ! safeUrl ) ) {
+		return (
+			<div className={ styles.mediaArtifactUnavailable } role="status">
+				{ __( 'Image unavailable' ) }
+			</div>
+		);
+	}
+
+	if ( ! src ) {
+		return <div className={ styles.mediaArtifactLoading } aria-hidden="true" />;
+	}
+
+	return (
+		<figure className={ styles.mediaArtifactItem }>
+			<img
+				className={ styles.mediaArtifactImage }
+				src={ src }
+				alt={ getMediaAltText( widget, __( 'Image' ) ) }
+			/>
+		</figure>
 	);
 }
 
@@ -755,6 +960,42 @@ function getNearestScrollContainer( element: HTMLElement ): HTMLElement | null {
 	return null;
 }
 
+function getPaddingBottom( element: HTMLElement ): number {
+	const paddingBottom = parseFloat( window.getComputedStyle( element ).paddingBottom );
+	return Number.isFinite( paddingBottom ) ? paddingBottom : 0;
+}
+
+function getReservedBottomSpace( element: HTMLElement, container: HTMLElement | null ): number {
+	if ( ! container ) {
+		return QUESTION_SCROLL_BOTTOM_CLEARANCE_PX;
+	}
+	// The scroller's padding holds content clear of the floating composer; the
+	// column's own trailing space keeps the card from settling flush against it.
+	let column = element;
+	while ( column.parentElement && column.parentElement !== container ) {
+		column = column.parentElement;
+	}
+	return getPaddingBottom( container ) + getPaddingBottom( column );
+}
+
+export function getQuestionScrollDelta( {
+	elementTop,
+	elementBottom,
+	containerTop,
+	containerBottom,
+	reservedBottomSpace,
+}: {
+	elementTop: number;
+	elementBottom: number;
+	containerTop: number;
+	containerBottom: number;
+	reservedBottomSpace: number;
+} ): number {
+	const topOverflow = elementTop - ( containerTop + QUESTION_SCROLL_TOP_MARGIN_PX );
+	const bottomOverflow = elementBottom - ( containerBottom - reservedBottomSpace );
+	return topOverflow < 0 ? topOverflow : Math.max( bottomOverflow, 0 );
+}
+
 function scrollElementIntoViewIfNeeded( element: HTMLElement, prefersReducedMotion: boolean ) {
 	const container = getNearestScrollContainer( element );
 	const elementRect = element.getBoundingClientRect();
@@ -766,10 +1007,13 @@ function scrollElementIntoViewIfNeeded( element: HTMLElement, prefersReducedMoti
 				bottom: window.innerHeight || document.documentElement.clientHeight,
 				left: 0,
 		  };
-	const topOverflow = elementRect.top - ( containerRect.top + QUESTION_SCROLL_TOP_MARGIN_PX );
-	const bottomOverflow =
-		elementRect.bottom - ( containerRect.bottom - QUESTION_SCROLL_BOTTOM_CLEARANCE_PX );
-	const scrollDelta = topOverflow < 0 ? topOverflow : Math.max( bottomOverflow, 0 );
+	const scrollDelta = getQuestionScrollDelta( {
+		elementTop: elementRect.top,
+		elementBottom: elementRect.bottom,
+		containerTop: containerRect.top,
+		containerBottom: containerRect.bottom,
+		reservedBottomSpace: getReservedBottomSpace( element, container ),
+	} );
 
 	if ( scrollDelta !== 0 ) {
 		const behavior: ScrollBehavior = prefersReducedMotion ? 'auto' : 'smooth';
@@ -995,6 +1239,30 @@ function AgentQuestionBatch( {
 	);
 }
 
+// In-flow marker for a turn that ended in an error. The monthly usage cap
+// gets dedicated copy — with the reset date once the quota query resolves —
+// instead of the raw provider message.
+function TurnErrorMarker( { message }: { message: string } ) {
+	const isUsageCap = isUsageCapError( message );
+	const isAccessRequired = isAiAccessRequiredError( message );
+	const { data: quota } = useStudioAssistantQuota( { enabled: isUsageCap || isAccessRequired } );
+	let text: ReactNode;
+	if ( isAiBlockedError( message ) ) {
+		text = <AiBlockedNotice />;
+	} else if ( isAccessRequired ) {
+		text = <AiAccessRequiredNotice quota={ quota } />;
+	} else if ( isUsageCap ) {
+		text = formatUsageCapNotice( quota?.costResetDate );
+	} else {
+		text = message || __( 'Something went wrong and this turn was stopped. Please try again.' );
+	}
+	return (
+		<div className={ styles.errorMarker } role="alert">
+			{ text }
+		</div>
+	);
+}
+
 export function Conversation( {
 	data,
 	isRunning,
@@ -1011,11 +1279,39 @@ export function Conversation( {
 	onAnswerQuestion: ( question: string, label: string ) => void;
 } ) {
 	const entries = data.entries;
-	const items = useMemo( () => entriesToRenderItems( entries ), [ entries ] );
+	const canReadLocalMedia = useConnector().capabilities.readLocalMedia;
+	const items = useMemo(
+		() => entriesToRenderItems( entries, { canReadLocalMedia } ),
+		[ entries, canReadLocalMedia ]
+	);
 	const progressMessage = useMemo(
 		() => ( isRunning ? findLatestProgressMessage( entries ) : null ),
 		[ entries, isRunning ]
 	);
+
+	// One selected message at a time, so picking a new one closes the last.
+	const [ selectedKey, setSelectedKey ] = useState< string | null >( null );
+	const sessionId = data.summary.id;
+	useEffect( () => {
+		setSelectedKey( null );
+	}, [ sessionId ] );
+
+	// The newest reply keeps its actions open, so copying the answer you just
+	// got never depends on discovering that messages can be clicked. Held back
+	// until the turn settles — mid-run the last text block keeps moving as new
+	// blocks stream in, and the row would hop down the transcript with it.
+	const latestActionableKey = useMemo( () => {
+		if ( isRunning ) {
+			return null;
+		}
+		for ( let index = items.length - 1; index >= 0; index -= 1 ) {
+			const item = items[ index ];
+			if ( item.kind === 'assistant-text' && item.copyText ) {
+				return item.key;
+			}
+		}
+		return null;
+	}, [ isRunning, items ] );
 
 	return (
 		<div className={ styles.root }>
@@ -1026,7 +1322,18 @@ export function Conversation( {
 							<UserTurn key={ item.key } text={ item.text } attachments={ item.attachments } />
 						);
 					case 'assistant-text':
-						return <AssistantText key={ item.key } text={ item.text } />;
+						return (
+							<AssistantText
+								key={ item.key }
+								text={ item.text }
+								messageText={ item.messageText }
+								copyText={ item.copyText }
+								showActions={ selectedKey === item.key || item.key === latestActionableKey }
+								onToggleSelect={ () =>
+									setSelectedKey( ( current ) => ( current === item.key ? null : item.key ) )
+								}
+							/>
+						);
 					case 'tool-use':
 						return (
 							<ToolUseRow
@@ -1046,12 +1353,16 @@ export function Conversation( {
 								onAnswer={ onAnswerQuestion }
 							/>
 						);
+					case 'chat-artifact':
+						return <ChatArtifact key={ item.key } widgets={ item.widgets } />;
 					case 'interrupted-marker':
 						return (
 							<div key={ item.key } className={ styles.interruptedMarker } role="status">
 								{ __( 'Interrupted by you' ) }
 							</div>
 						);
+					case 'error-marker':
+						return <TurnErrorMarker key={ item.key } message={ item.message } />;
 					default:
 						return null;
 				}

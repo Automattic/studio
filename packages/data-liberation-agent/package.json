@@ -8,7 +8,8 @@
   },
   "scripts": {
     "import": "tsx src/cli.ts import",
-    "build": "tsc && node scripts/copy-runtime-assets.mjs",
+    "build": "tsc && node scripts/copy-runtime-assets.mjs && node scripts/build-mcp-bundle.mjs",
+    "build:mcp-bundle": "node scripts/build-mcp-bundle.mjs",
     "copy-runtime-assets": "node scripts/copy-runtime-assets.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -24,8 +25,8 @@
     "node": ">=22.0.0"
   },
   "dependencies": {
-    "@automattic/blocks-engine": "file:vendor/automattic-blocks-engine-0.2.2.tgz",
-    "@modelcontextprotocol/sdk": "^1.27.0",
+    "@automattic/blocks-engine": "^0.2.2",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "@wordpress/block-serialization-default-parser": "^5.47.0",
     "acorn": "^8.17.0",
     "cheerio": "^1.2.0",
@@ -37,7 +38,7 @@
     "pixelmatch": "^5.3.0",
     "playwright": "^1.44.0",
     "pngjs": "^7.0.0",
-    "postcss": "^8.5.15",
+    "postcss": "^8.5.23",
     "postcss-selector-parser": "^7.1.1",
     "react": "^19.2.4",
     "zod": "^4.3.6"
@@ -47,10 +48,11 @@
     "@types/pixelmatch": "^5.2.6",
     "@types/pngjs": "^6.0.5",
     "@types/react": "^19.2.14",
+    "esbuild": "^0.28.0",
     "jsdom": "^26.1.0",
     "single-file-cli": "^2.0.83",
     "tsx": "^4.19.0",
     "typescript": "~6.0.3",
-    "vitest": "^3.0.0"
+    "vitest": "^4.1.10"
   }
 }

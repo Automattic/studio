@@ -9,9 +9,11 @@ import {
 	watchComposerAttachmentTextScroll,
 	type ComposerAttachmentHoverPreviewState,
 } from '@studio/common/ai/composer-attachment-preview';
+import { watchComposerFilePaste } from '@studio/common/ai/composer-attachments';
 import { AI_MODELS, getAiModelFamily, getAiModelLabel } from '@studio/common/ai/models';
+import { getAiProviderModels } from '@studio/common/ai/providers';
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
-import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
+import { getAiSkillCommands } from '@studio/common/ai/slash-commands';
 import { useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import {
@@ -40,6 +42,7 @@ import {
 import { createPortal } from 'react-dom';
 import * as Menu from '@/components/menu';
 import { useConnector } from '@/data/core';
+import { useAiSettings } from '@/data/queries/use-ai-settings';
 import {
 	primeSessionQueryData,
 	reconcilePrimedSessionQueryData,
@@ -53,6 +56,7 @@ import {
 	type ComposerAttachment,
 	type ComposerSendAttachments,
 } from './use-composer-attachments';
+import { useSlashCommands } from './use-slash-commands';
 import type {
 	AiModelId,
 	LoadedAiSession,
@@ -68,10 +72,6 @@ const COMPOSER_TEXTAREA_MAX_VIEWPORT_RATIO = 0.4;
 const COMPOSER_TEXTAREA_MANUAL_MAX_HEIGHT = 560;
 const COMPOSER_TEXTAREA_MANUAL_MAX_VIEWPORT_RATIO = 0.7;
 const COMPOSER_TEXTAREA_RESIZE_STEP = 16;
-const PLACEHOLDER_SCRAMBLE_DURATION_MS = 420;
-const PLACEHOLDER_SCRAMBLE_STAGGER_MS = 12;
-const PLACEHOLDER_SCRAMBLE_TICK_MS = 32;
-const PLACEHOLDER_SCRAMBLE_CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789!?*+-=';
 
 function AttachmentHoverTextPreview( { text }: { text: string } ) {
 	const viewportRef = useRef< HTMLDivElement | null >( null );
@@ -228,6 +228,9 @@ export interface ComposerHandle {
 		text: string,
 		attachments?: { images?: StudioChatImage[]; files?: StudioChatFileAttachment[] }
 	): void;
+	// What replaceDraft would discard — lets callers decide whether the
+	// replacement warrants a confirmation.
+	getDraft(): { text: string; hasAttachments: boolean };
 }
 
 function shouldShellFocusTextarea( target: EventTarget ) {
@@ -280,83 +283,6 @@ function resizeComposerTextarea(
 	return nextHeight;
 }
 
-function getScrambleCharacter( index: number, elapsed: number ) {
-	const characterIndex =
-		( index * 7 + Math.floor( elapsed / PLACEHOLDER_SCRAMBLE_TICK_MS ) ) %
-		PLACEHOLDER_SCRAMBLE_CHARS.length;
-	return PLACEHOLDER_SCRAMBLE_CHARS.charAt( characterIndex );
-}
-
-function useScrambledPlaceholder( targetText: string, shouldAnimate: boolean ) {
-	const [ displayText, setDisplayText ] = useState( targetText );
-	const previousTargetRef = useRef( targetText );
-
-	useEffect( () => {
-		const previousText = previousTargetRef.current;
-		previousTargetRef.current = targetText;
-
-		if ( previousText === targetText || ! shouldAnimate ) {
-			setDisplayText( targetText );
-			return;
-		}
-
-		if ( window.matchMedia?.( '(prefers-reduced-motion: reduce)' ).matches ) {
-			setDisplayText( targetText );
-			return;
-		}
-
-		const maxLength = Math.max( previousText.length, targetText.length );
-		const startTime = performance.now();
-		let animationFrame = 0;
-
-		const renderFrame = ( now: number ) => {
-			const elapsed = now - startTime;
-			let isComplete = true;
-			let nextText = '';
-
-			for ( let index = 0; index < maxLength; index++ ) {
-				const previousCharacter = previousText.charAt( index );
-				const targetCharacter = targetText.charAt( index );
-				const characterElapsed = elapsed - index * PLACEHOLDER_SCRAMBLE_STAGGER_MS;
-
-				if ( characterElapsed <= 0 ) {
-					nextText += previousCharacter;
-					isComplete = false;
-					continue;
-				}
-
-				if ( characterElapsed >= PLACEHOLDER_SCRAMBLE_DURATION_MS ) {
-					nextText += targetCharacter;
-					continue;
-				}
-
-				isComplete = false;
-				nextText +=
-					previousCharacter === ' ' && targetCharacter === ' '
-						? ' '
-						: getScrambleCharacter( index, elapsed );
-			}
-
-			setDisplayText( nextText.trimEnd() );
-
-			if ( isComplete ) {
-				setDisplayText( targetText );
-				return;
-			}
-
-			animationFrame = window.requestAnimationFrame( renderFrame );
-		};
-
-		animationFrame = window.requestAnimationFrame( renderFrame );
-
-		return () => {
-			window.cancelAnimationFrame( animationFrame );
-		};
-	}, [ targetText, shouldAnimate ] );
-
-	return displayText;
-}
-
 export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Composer(
 	{
 		busy,
@@ -387,6 +313,19 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const resizeDragRef = useRef< { startY: number; startHeight: number } | null >( null );
 	const connector = useConnector();
 	const queryClient = useQueryClient();
+
+	// Only offer models the active AI provider can serve (a saved Anthropic API
+	// key restricts the picker to Anthropic models). Hosts without AI settings
+	// (capabilities.aiSettings false) keep the full list.
+	const { data: aiSettings } = useAiSettings();
+	const availableModels = aiSettings ? getAiProviderModels( aiSettings.provider ) : AI_MODELS;
+
+	const slash = useSlashCommands( {
+		value,
+		setValue,
+		textareaRef,
+		previewPrompt: null,
+	} );
 
 	// File/image attachments (attach button + drag-and-drop). Images ride as
 	// base64 content blocks; other files are referenced by disk path.
@@ -422,6 +361,13 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		}
 	}, [ autoFocus, sessionId ] );
 
+	useEffect( () => {
+		return watchComposerFilePaste( ( files ) => {
+			void addFiles( files );
+			textareaRef.current?.focus();
+		} );
+	}, [ addFiles ] );
+
 	useLayoutEffect( () => {
 		const nextHeight = resizeComposerTextarea( textareaRef.current, manualTextareaHeight );
 		if ( nextHeight !== null ) {
@@ -444,20 +390,6 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 			window.visualViewport?.removeEventListener( 'resize', handleViewportResize );
 		};
 	}, [ setComposerManualTextareaHeight ] );
-
-	useEffect( () => {
-		if ( value.length > 0 ) {
-			return;
-		}
-		const interval = window.setInterval( () => {
-			setPlaceholderIndex( ( current ) => current + 1 );
-		}, 5000 );
-		return () => window.clearInterval( interval );
-	}, [ value ] );
-
-	useEffect( () => {
-		setPlaceholderIndex( 0 );
-	}, [ busy ] );
 
 	useImperativeHandle(
 		ref,
@@ -488,8 +420,11 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 					node.setSelectionRange( len, len );
 				} );
 			},
+			getDraft() {
+				return { text: value, hasAttachments: attachments.length > 0 };
+			},
 		} ),
-		[ restoreAttachments ]
+		[ restoreAttachments, value, attachments ]
 	);
 
 	const send = useCallback( async () => {
@@ -503,6 +438,9 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		const sentAttachments = attachments;
 		setValue( '' );
 		clearAttachments();
+		// A send is the only thing that swaps the suggestion; it is static
+		// otherwise, so the empty composer never changes under the user.
+		setPlaceholderIndex( ( current ) => current + 1 );
 		try {
 			await onSend( prompt, toComposerSendAttachments( sentAttachments ) );
 		} catch {
@@ -726,8 +664,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 				__( 'What are we tuning now?' ),
 		  ];
 	const placeholder = placeholderOptions[ placeholderIndex % placeholderOptions.length ];
-	const showAnimatedPlaceholder = value.length === 0;
-	const animatedPlaceholder = useScrambledPlaceholder( placeholder, showAnimatedPlaceholder );
+	const showPlaceholderText = value.length === 0;
 	const composerResizeMaxHeight = getComposerTextareaMaxHeight( true );
 	const sendAriaLabel = busy ? __( 'Queue' ) : __( 'Send' );
 	const sendShortcutLabel = __( 'Return to send' );
@@ -754,6 +691,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		<>
 			<div className={ styles.root }>
 				<div
+					data-session-composer
 					className={ clsx(
 						styles.shell,
 						isDraggingOver && styles.shellDragging,
@@ -779,7 +717,9 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 						onPointerCancel={ finishComposerResize }
 						onLostPointerCapture={ finishComposerResize }
 						onKeyDown={ handleComposerResizeKeyDown }
-					/>
+					>
+						<span className={ styles.resizeHandleIndicator } aria-hidden="true" />
+					</div>
 					{ isDraggingOver ? (
 						<div className={ styles.dropOverlay } aria-hidden="true">
 							{ __( 'Drop files to attach' ) }
@@ -921,9 +861,9 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 							hasAttachments && styles.inputAreaWithAttachments
 						) }
 					>
-						{ showAnimatedPlaceholder ? (
+						{ showPlaceholderText ? (
 							<div className={ styles.placeholderText } aria-hidden="true">
-								{ animatedPlaceholder }
+								{ placeholder }
 							</div>
 						) : null }
 						<textarea
@@ -931,9 +871,13 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 							className={ styles.input }
 							placeholder={ placeholder }
 							value={ value }
+							{ ...slash.comboboxProps }
 							onChange={ ( event ) => setValue( event.target.value ) }
 							onPaste={ pasteHandlers.onPaste }
 							onKeyDown={ ( event ) => {
+								if ( slash.handleKeyDown( event ) ) {
+									return;
+								}
 								if ( event.key === 'Escape' && busy ) {
 									event.preventDefault();
 									void onInterrupt();
@@ -960,32 +904,31 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 							} }
 							rows={ 2 }
 						/>
+						{ slash.popup }
 					</div>
 					<div className={ styles.toolbar }>
 						<div className={ styles.leftActions }>
 							<Menu.Root modal={ false }>
-								<Tooltip.Provider delay={ 0 }>
-									<Tooltip.Root>
-										<Menu.Trigger
-											render={
-												<Tooltip.Trigger
-													render={
-														<button
-															type="button"
-															className={ styles.iconButton }
-															aria-label={ __( 'Add skill or attachment' ) }
-														/>
-													}
-												>
-													<Icon icon={ plus } size={ 16 } />
-												</Tooltip.Trigger>
-											}
-										/>
-										<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-											{ __( 'Add skill or attachment' ) }
-										</Tooltip.Popup>
-									</Tooltip.Root>
-								</Tooltip.Provider>
+								<Tooltip.Root>
+									<Menu.Trigger
+										render={
+											<Tooltip.Trigger
+												render={
+													<button
+														type="button"
+														className={ styles.iconButton }
+														aria-label={ __( 'Add skill or attachment' ) }
+													/>
+												}
+											>
+												<Icon icon={ plus } size={ 16 } />
+											</Tooltip.Trigger>
+										}
+									/>
+									<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+										{ __( 'Add skill or attachment' ) }
+									</Tooltip.Popup>
+								</Tooltip.Root>
 								<Menu.Popup side="top" align="start" className={ styles.commandsMenuPopup }>
 									<Menu.Item onClick={ openFilePicker }>{ __( 'Upload attachment' ) }</Menu.Item>
 									<Menu.SubmenuRoot>
@@ -999,7 +942,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 											/>
 										</Menu.SubmenuTrigger>
 										<Menu.Popup side="right" align="start" className={ styles.skillsMenuPopup }>
-											{ AI_SKILL_COMMANDS.map( ( command ) => (
+											{ getAiSkillCommands().map( ( command ) => (
 												<Menu.Item
 													key={ command.name }
 													className={ styles.skillMenuItem }
@@ -1031,35 +974,33 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 						</div>
 						<div className={ styles.rightActions }>
 							<Menu.Root modal={ false }>
-								<Tooltip.Provider delay={ 0 }>
-									<Tooltip.Root>
-										<Menu.Trigger
-											render={
-												<Tooltip.Trigger
-													render={
-														<button
-															type="button"
-															className={ styles.pill }
-															aria-label={ __( 'Select model' ) }
-														/>
-													}
-												>
-													<span>{ getAiModelLabel( model ) }</span>
-													<Icon icon={ chevronDownSmall } size={ 16 } />
-												</Tooltip.Trigger>
-											}
-										/>
-										<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-											{ __( 'Select model' ) }
-										</Tooltip.Popup>
-									</Tooltip.Root>
-								</Tooltip.Provider>
+								<Tooltip.Root>
+									<Menu.Trigger
+										render={
+											<Tooltip.Trigger
+												render={
+													<button
+														type="button"
+														className={ styles.pill }
+														aria-label={ __( 'Select model' ) }
+													/>
+												}
+											>
+												<span>{ getAiModelLabel( model ) }</span>
+												<Icon icon={ chevronDownSmall } size={ 16 } />
+											</Tooltip.Trigger>
+										}
+									/>
+									<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+										{ __( 'Select model' ) }
+									</Tooltip.Popup>
+								</Tooltip.Root>
 								<Menu.Popup side="top" align="end">
 									<Menu.RadioGroup
 										value={ model }
 										onValueChange={ ( value ) => handleModelChange( value as AiModelId ) }
 									>
-										{ AI_MODELS.map( ( { id, label } ) => (
+										{ availableModels.map( ( { id, label } ) => (
 											<Menu.RadioItem key={ id } value={ id }>
 												{ label }
 											</Menu.RadioItem>
@@ -1068,47 +1009,43 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 								</Menu.Popup>
 							</Menu.Root>
 							{ busy ? (
-								<Tooltip.Provider delay={ 0 }>
-									<Tooltip.Root>
-										<Tooltip.Trigger
-											render={
-												<button
-													type="button"
-													className={ styles.stopButton }
-													onClick={ () => void onInterrupt() }
-													aria-label={ isInterrupting ? __( 'Stopping' ) : __( 'Stop' ) }
-													aria-busy={ isInterrupting }
-												/>
-											}
-										>
-											<span className={ styles.stopGlyph } aria-hidden="true" />
-										</Tooltip.Trigger>
-										<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-											{ stopTooltipLabel }
-										</Tooltip.Popup>
-									</Tooltip.Root>
-								</Tooltip.Provider>
-							) : null }
-							<Tooltip.Provider delay={ 0 }>
 								<Tooltip.Root>
 									<Tooltip.Trigger
 										render={
 											<button
 												type="button"
-												className={ styles.sendButton }
-												onClick={ () => void send() }
-												disabled={ ! canSend }
-												aria-label={ sendAriaLabel }
+												className={ styles.stopButton }
+												onClick={ () => void onInterrupt() }
+												aria-label={ isInterrupting ? __( 'Stopping' ) : __( 'Stop' ) }
+												aria-busy={ isInterrupting }
 											/>
 										}
 									>
-										<Icon icon={ arrowUp } size={ 18 } />
+										<span className={ styles.stopGlyph } aria-hidden="true" />
 									</Tooltip.Trigger>
 									<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-										{ sendShortcutLabel }
+										{ stopTooltipLabel }
 									</Tooltip.Popup>
 								</Tooltip.Root>
-							</Tooltip.Provider>
+							) : null }
+							<Tooltip.Root>
+								<Tooltip.Trigger
+									render={
+										<button
+											type="button"
+											className={ styles.sendButton }
+											onClick={ () => void send() }
+											disabled={ ! canSend }
+											aria-label={ sendAriaLabel }
+										/>
+									}
+								>
+									<Icon icon={ arrowUp } size={ 18 } />
+								</Tooltip.Trigger>
+								<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+									{ sendShortcutLabel }
+								</Tooltip.Popup>
+							</Tooltip.Root>
 						</div>
 					</div>
 				</div>

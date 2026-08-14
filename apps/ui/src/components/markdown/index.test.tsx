@@ -1,9 +1,12 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { Tooltip } from '@wordpress/ui';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { CODE_TEXT_ATTRIBUTE } from '@/hooks/use-text-context-menu';
 import { Markdown } from '.';
 
-const { copyText } = vi.hoisted( () => ( { copyText: vi.fn() } ) );
+const { copyText } = vi.hoisted( () => ( {
+	copyText: vi.fn( () => Promise.resolve() ),
+} ) );
 
 vi.mock( '@/data/core', () => ( {
 	useConnector: () => ( {
@@ -30,6 +33,10 @@ describe( 'Markdown', () => {
 
 		const button = screen.getByRole( 'button', { name: 'Copy code' } );
 		expect( button ).toBeInTheDocument();
+		expect( button.closest( `[${ CODE_TEXT_ATTRIBUTE }]` ) ).toHaveAttribute(
+			CODE_TEXT_ATTRIBUTE,
+			'const a = 1;'
+		);
 
 		fireEvent.click( button );
 

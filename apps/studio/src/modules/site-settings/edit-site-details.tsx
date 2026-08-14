@@ -471,7 +471,9 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 														disabled={ isEditingSite }
 														value={ selectedRuntime }
 														options={ [
+															/* translators: PHP runtime option, paired with "Sandbox". The compiled PHP binary that Studio bundles and runs natively on the machine. */
 															{ label: __( 'Native' ), value: SITE_RUNTIME_NATIVE_PHP },
+															/* translators: PHP runtime option, paired with "Native". Runs the site in an isolated WordPress Playground sandbox. */
 															{ label: __( 'Sandbox' ), value: SITE_RUNTIME_PLAYGROUND },
 														] }
 														onChange={ ( value ) => setSelectedRuntime( value ) }

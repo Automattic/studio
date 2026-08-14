@@ -6,6 +6,30 @@ import type { NativePhpSupportedVersion } from '@studio/common/lib/php-binary-me
 
 type ErrorLogger = ( ...args: Parameters< typeof console.error > ) => void;
 
+// The tail, because PHP reports the fatal last, and capped so a chatty process (the Blueprint
+// runner emits a progress line per step) can't grow the buffer without bound.
+export const MAX_CAPTURED_OUTPUT_CHARS = 64 * 1024;
+
+// Carries the output so callers can report why PHP exited, not just that it did.
+export class PhpCommandError extends Error {
+	constructor(
+		message: string,
+		readonly exitCode: number | null,
+		readonly stdout: string,
+		readonly stderr: string
+	) {
+		super( message );
+		this.name = 'PhpCommandError';
+	}
+}
+
+function appendBounded( buffer: string, chunk: string ): string {
+	const combined = buffer + chunk;
+	return combined.length > MAX_CAPTURED_OUTPUT_CHARS
+		? combined.slice( combined.length - MAX_CAPTURED_OUTPUT_CHARS )
+		: combined;
+}
+
 // Makes a PHP child a process-group leader on POSIX so its subtree can be signalled via the
 // negative PID. On Windows we reap with `taskkill /T` instead, so a new group isn't needed.
 export const DETACH_FOR_GROUP_KILL = process.platform !== 'win32';
@@ -47,17 +71,13 @@ export function spawnPhpProcess(
 		autoPrependFile,
 	}: SpawnPhpProcessOptions
 ): ChildProcess {
-	const defaultArgs = getDefaultPhpArgs(
-		phpVersion,
-		onlyPathsThatPhpCanAccess,
+	const defaultArgs = getDefaultPhpArgs( phpVersion, {
+		openBasedir: onlyPathsThatPhpCanAccess,
 		disallowRiskyFunctions,
-		enableXdebug
-	);
-	// Run a PHP file before the main script on every request — used to inject
-	// reprint's generated runtime.php (constants, SQLite loader, upload proxy)
-	// into imported sites without modifying their wp-config.php.
-	const prependArgs = autoPrependFile ? [ '-d', `auto_prepend_file=${ autoPrependFile }` ] : [];
-	const phpArgs = [ ...defaultArgs, ...prependArgs, ...args ];
+		enableXdebug,
+		autoPrependFile,
+	} );
+	const phpArgs = [ ...defaultArgs, ...args ];
 	const phpScriptProcess = spawn( getPhpBinaryPath( phpVersion ), phpArgs, {
 		cwd: siteFolder,
 		env: env ? { ...process.env, ...env } : process.env,
@@ -169,20 +189,18 @@ export async function runPhpCommand(
 		} );
 		const reportActivity = () => process.send?.( { topic: 'activity' } );
 
+		// `capture` callers parse the whole stdout; other modes keep a tail only to explain a failure.
+		const capturing = options.mode === 'capture';
 		let stdout = '';
 		phpScriptProcess.stdout?.on( 'data', ( chunk ) => {
 			reportActivity();
-			if ( options.mode === 'capture' ) {
-				stdout += chunk.toString();
-			}
+			stdout = capturing ? stdout + chunk.toString() : appendBounded( stdout, chunk.toString() );
 		} );
 
 		let stderr = '';
 		phpScriptProcess.stderr?.on( 'data', ( chunk ) => {
 			reportActivity();
-			if ( options.mode === 'capture' ) {
-				stderr += chunk.toString();
-			}
+			stderr = capturing ? stderr + chunk.toString() : appendBounded( stderr, chunk.toString() );
 		} );
 
 		phpScriptProcess.once( 'error', ( error: Error ) => {
@@ -194,7 +212,7 @@ export async function runPhpCommand(
 				return;
 			}
 
-			reject( new Error( `PHP command failed (code: ${ code })` ) );
+			reject( new PhpCommandError( `PHP command failed (code: ${ code })`, code, stdout, stderr ) );
 		} );
 	} );
 }

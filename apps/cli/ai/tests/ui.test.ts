@@ -1,5 +1,5 @@
-import { Container } from '@earendil-works/pi-tui';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { Container, resetCapabilitiesCache, setCapabilities } from '@earendil-works/pi-tui';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AiChatUI } from 'cli/ai/ui';
 import { openBrowser } from 'cli/lib/browser';
 import { readCliConfig } from 'cli/lib/cli-config/core';
@@ -256,6 +256,7 @@ describe( 'AiChatUI.handleEvent', () => {
 		ui.hideLoader = hideLoader;
 		ui.showError = showError;
 		ui.showInfo = showInfo;
+		ui.showUsageCapResetDate = vi.fn( async () => undefined );
 		ui.currentProvider = 'wpcom';
 		ui.currentMarkdown = { setText: vi.fn() };
 		ui.currentResponseText = 'previous content';
@@ -264,13 +265,16 @@ describe( 'AiChatUI.handleEvent', () => {
 		ui.handleEvent(
 			buildAssistantMessageEnd( {
 				stopReason: 'error',
-				errorMessage: 'API Error: 429 {"error":{"message":"You have exceeded your AI usage cap."}}',
+				errorMessage: 'Monthly usage limit reached: 429 {"error":{"type":"rate_limit_error"}}',
 			} )
 		);
 
 		expect( hideLoader ).toHaveBeenCalled();
-		expect( showError ).toHaveBeenCalledWith( expect.stringContaining( 'AI usage cap reached' ) );
-		expect( showInfo ).toHaveBeenCalledWith( expect.stringContaining( '/provider' ) );
+		expect( showError ).toHaveBeenCalledWith(
+			expect.stringContaining( 'You’ve reached your monthly AI usage limit' )
+		);
+		expect( showInfo ).not.toHaveBeenCalled();
+		expect( ui.showUsageCapResetDate ).toHaveBeenCalled();
 		expect( ui.usageCapReached ).toBe( true );
 		expect( ui.currentMarkdown ).toBeNull();
 		expect( ui.currentResponseText ).toBe( '' );
@@ -591,6 +595,42 @@ describe( 'AiChatUI.handleEvent', () => {
 		expect( showInfo ).not.toHaveBeenCalled();
 	} );
 
+	it( 'keeps the turn alive on agent_end when the session will auto-retry', () => {
+		const ui = Object.create( AiChatUI.prototype ) as {
+			handleEvent: ( e: unknown ) => unknown;
+			[ key: string ]: unknown;
+		};
+		ui.hideLoader = vi.fn();
+		ui.showError = vi.fn();
+
+		ui.handleEvent( { type: 'agent_end', willRetry: true, messages: [] } );
+
+		expect( ui.hideLoader ).not.toHaveBeenCalled();
+		expect( ui.showError ).not.toHaveBeenCalled();
+	} );
+
+	it( 'shows a retry loader message on auto_retry_start', () => {
+		const ui = Object.create( AiChatUI.prototype ) as {
+			handleEvent: ( e: unknown ) => unknown;
+			[ key: string ]: unknown;
+		};
+		ui.showLoader = vi.fn();
+		ui.showInfo = vi.fn();
+
+		ui.handleEvent( {
+			type: 'auto_retry_start',
+			attempt: 2,
+			maxAttempts: 3,
+			delayMs: 4000,
+			errorMessage: 'API Error: 529 overloaded\nsecond line',
+		} );
+
+		expect( ui.showInfo ).toHaveBeenCalledWith( 'API Error: 529 overloaded' );
+		expect( ui.showLoader ).toHaveBeenCalledWith(
+			'Temporary provider error — retrying in 4s (attempt 2 of 3)…'
+		);
+	} );
+
 	it( 'does not trip the cap branch when an assistant error has no 429 marker', () => {
 		const ui = Object.create( AiChatUI.prototype ) as {
 			handleEvent: ( e: unknown ) => unknown;
@@ -616,5 +656,84 @@ describe( 'AiChatUI.handleEvent', () => {
 		expect( showError ).not.toHaveBeenCalled();
 		expect( showInfo ).not.toHaveBeenCalled();
 		expect( ui.usageCapReached ).toBe( false );
+	} );
+} );
+
+describe( 'AiChatUI.renderToolResultImages', () => {
+	// 1x1 transparent PNG.
+	const TINY_PNG =
+		'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+
+	function createUiStub() {
+		const ui = Object.create( AiChatUI.prototype ) as {
+			renderToolResultImages: ( result: unknown, target: Container ) => void;
+			[ key: string ]: unknown;
+		};
+		ui.tui = { requestRender: vi.fn() };
+		return ui;
+	}
+
+	afterEach( () => {
+		resetCapabilitiesCache();
+	} );
+
+	it( 'renders image blocks inline when the terminal supports an image protocol', () => {
+		setCapabilities( { images: 'iterm2', trueColor: true, hyperlinks: true } );
+		const ui = createUiStub();
+		const target = new Container();
+
+		ui.renderToolResultImages(
+			{ content: [ { type: 'image', data: TINY_PNG, mimeType: 'image/png' } ] },
+			target
+		);
+
+		expect( target.render( 120 ).join( '\n' ) ).toContain( '1337;File=' );
+	} );
+
+	it( 'renders nothing when the terminal has no image protocol', () => {
+		setCapabilities( { images: null, trueColor: false, hyperlinks: false } );
+		const ui = createUiStub();
+		const target = new Container();
+
+		ui.renderToolResultImages(
+			{ content: [ { type: 'image', data: TINY_PNG, mimeType: 'image/png' } ] },
+			target
+		);
+
+		expect( target.render( 120 ) ).toHaveLength( 0 );
+	} );
+
+	it( 'skips non-PNG images on kitty-protocol terminals', () => {
+		setCapabilities( { images: 'kitty', trueColor: true, hyperlinks: true } );
+		const ui = createUiStub();
+		const target = new Container();
+
+		ui.renderToolResultImages(
+			{ content: [ { type: 'image', data: TINY_PNG, mimeType: 'image/jpeg' } ] },
+			target
+		);
+
+		expect( target.render( 120 ) ).toHaveLength( 0 );
+	} );
+} );
+
+describe( 'AiChatUI.getToolResultContent', () => {
+	it( 'strips legacy media widget payload lines from replayed tool results', () => {
+		const ui = Object.create( AiChatUI.prototype ) as {
+			getToolResultContent: ( result: unknown ) => {
+				content: Array< { type: string; text?: string } >;
+			};
+		};
+
+		const result = ui.getToolResultContent( {
+			content: [
+				{
+					type: 'text',
+					text: 'Screenshot captured — desktop.\nmediaWidgetPayload={"type":"media"}',
+				},
+			],
+		} );
+
+		expect( result.content[ 0 ].text ).toBe( 'Screenshot captured — desktop.' );
 	} );
 } );

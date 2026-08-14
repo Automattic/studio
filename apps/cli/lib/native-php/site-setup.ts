@@ -1,13 +1,20 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { DEFAULT_LOCALE } from '@studio/common/lib/locale';
 import { escapePhpSingleQuotedString } from '@studio/common/lib/mu-plugins';
 import { decodePassword } from '@studio/common/lib/passwords';
+import { type NativePhpSupportedVersion } from '@studio/common/lib/php-binary-metadata';
 import { getWpCliPharPath } from 'cli/lib/dependency-management/paths';
+import { ensurePhpBinaryAvailable } from '../dependency-management/php-binary';
 import { runPhpCommand } from './php-process';
-import type { NativePhpSupportedVersion } from '@studio/common/lib/php-binary-metadata';
+import { getFullyResolvedTmpDirPath } from './tmp-dir';
 import type { ServerConfig } from 'cli/lib/types/wordpress-server-ipc';
+
+const WP_CONFIG_TRANSFORMER_PATH = path.resolve(
+	import.meta.dirname,
+	'php',
+	'wp-config-transformer.php'
+);
 
 const DEFAULT_WP_CONFIG_CONSTANTS = { DB_NAME: 'wordpress' } as const;
 
@@ -16,8 +23,7 @@ type Logger = ( ...args: Parameters< typeof console.log > ) => void;
 export async function ensureWpConfig(
 	siteFolder: string,
 	phpVersion: NativePhpSupportedVersion,
-	signal: AbortSignal,
-	wpConfigTransformerPath: string,
+	signal?: AbortSignal,
 	config?: Pick< ServerConfig, 'enableDebugLog' | 'enableDebugDisplay' >
 ): Promise< void > {
 	const wpConfigPath = path.join( siteFolder, 'wp-config.php' );
@@ -46,13 +52,14 @@ $transformer->to_file( $wp_config_path );
 		WP_DEBUG_LOG: enableDebugLog,
 		WP_DEBUG_DISPLAY: enableDebugDisplay,
 	};
+	await ensurePhpBinaryAvailable( phpVersion );
 
 	try {
 		await runPhpCommand(
 			[
 				'-r',
 				ensureWpConfigScript,
-				wpConfigTransformerPath,
+				WP_CONFIG_TRANSFORMER_PATH,
 				wpConfigPath,
 				JSON.stringify( constants ),
 			],
@@ -99,7 +106,9 @@ export function writeSiteUrlPrependFile(
 	siteUrl: string,
 	originalAutoPrependFile?: string
 ): string {
-	const dir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-siteurl-prepend-' ) );
+	const dir = fs.mkdtempSync(
+		path.join( getFullyResolvedTmpDirPath(), 'studio-siteurl-prepend-' )
+	);
 	const prependPath = path.join( dir, 'prepend.php' );
 	fs.writeFileSync( prependPath, getSiteUrlPrependContent( siteUrl, originalAutoPrependFile ) );
 	return prependPath;

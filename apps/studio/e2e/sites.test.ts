@@ -1,6 +1,6 @@
 import path from 'path';
 import { test, expect } from '@playwright/test';
-import { arePathsEqual, pathExists } from '@studio/common/lib/fs-utils';
+import { arePathsEqual, pathExists, recursiveCopyDirectory } from '@studio/common/lib/fs-utils';
 import {
 	RecommendedPHPVersion as DEFAULT_PHP_VERSION,
 	SupportedPHPVersions as ALLOWED_PHP_VERSIONS,
@@ -42,6 +42,30 @@ async function completeOnboardingWithParams( customSiteName?: string, customFold
 		siteName,
 		localPath,
 	};
+}
+
+type PersistedSite = { id: string; path: string };
+
+async function getPersistedSite( siteName: string ): Promise< PersistedSite | undefined > {
+	const cliConfig = await fs
+		.readJson( path.join( session.cliConfigPath, 'cli.json' ) )
+		.catch( () => ( { sites: [] } ) );
+	return cliConfig.sites.find( ( s: { name: string } ) => s.name === siteName );
+}
+
+/**
+ * The sidebar can show a copied site (optimistic placeholder, then the IPC
+ * result) slightly before the CLI's cli.json write is observable, so poll the
+ * on-disk config instead of sampling it once.
+ */
+async function waitForPersistedSite( siteName: string ): Promise< PersistedSite > {
+	await expect
+		.poll( async () => Boolean( await getPersistedSite( siteName ) ), {
+			message: `site "${ siteName }" was never persisted to cli.json`,
+			timeout: 30_000,
+		} )
+		.toBe( true );
+	return ( await getPersistedSite( siteName ) ) as PersistedSite;
 }
 
 /**
@@ -262,8 +286,10 @@ test.describe( 'Sites', () => {
 		const originalSite = new SiteContent( session.mainWindow, DEFAULT_SITE_NAME );
 		await expect( originalSite.runningButton ).toBeAttached( { timeout: 120_000 } );
 
-		// Copy the full install into a folder not yet associated with any site.
-		await fs.copy( originalPath, existingDir );
+		// Copy the full install into a folder not yet associated with any site. The
+		// source site is running, so recursiveCopyDirectory (unlike fs.copy) tolerates
+		// its SQLite journal/cache files vanishing mid-copy.
+		await recursiveCopyDirectory( originalPath, existingDir );
 
 		const sidebar = new MainSidebar( session.mainWindow );
 		const modal = await sidebar.openAddSiteModal();
@@ -293,7 +319,9 @@ test.describe( 'Sites', () => {
 		const originalSite = new SiteContent( session.mainWindow, DEFAULT_SITE_NAME );
 		await expect( originalSite.runningButton ).toBeAttached( { timeout: 120_000 } );
 
-		await fs.copy( originalPath, existingDir );
+		// The source site is running, so recursiveCopyDirectory (unlike fs.copy)
+		// tolerates its SQLite journal/cache files vanishing mid-copy.
+		await recursiveCopyDirectory( originalPath, existingDir );
 
 		// Configure the existing wp-config.php for a real MySQL database. The custom
 		// connection identity (host/user/password) must survive adoption — Studio
@@ -345,11 +373,7 @@ test.describe( 'Sites', () => {
 		const copiedSiteContent = new SiteContent( session.mainWindow, expectedCopyName );
 		await expect( copiedSiteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
 
-		const cliConfig = await fs.readJson( path.join( session.cliConfigPath, 'cli.json' ) );
-		const copiedSite = cliConfig.sites.find(
-			( s: { name: string } ) => s.name === expectedCopyName
-		);
-		expect( copiedSite ).toBeDefined();
+		const copiedSite = await waitForPersistedSite( expectedCopyName );
 		expect( await pathExists( path.join( copiedSite.path, 'wp-config.php' ) ) ).toBe( true );
 	} );
 } );
@@ -405,12 +429,7 @@ test.describe( 'Sites without cleanup in-between', () => {
 		const copiedSiteContent = new SiteContent( session.mainWindow, expectedCopyName );
 		await expect( copiedSiteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
 
-		const updatedCliConfig = await fs.readJson( cliConfigFile );
-		const copiedSite = updatedCliConfig.sites.find(
-			( s: { name: string } ) => s.name === expectedCopyName
-		);
-		expect( copiedSite ).toBeDefined();
-
+		const copiedSite = await waitForPersistedSite( expectedCopyName );
 		expect( await pathExists( path.join( copiedSite.path, 'wp-config.php' ) ) ).toBe( true );
 
 		const copiedThumbnailPath = path.join( thumbnailsDir, `${ copiedSite.id }.png` );

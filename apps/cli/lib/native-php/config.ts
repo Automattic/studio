@@ -6,6 +6,7 @@ import { NativePhpSupportedVersion } from '@studio/common/lib/php-binary-metadat
 import { writeFile } from 'atomically';
 import semver from 'semver';
 import { getPhpBinaryPath } from '../dependency-management/paths';
+import { getFullyResolvedTmpDirPath } from './tmp-dir';
 
 // Disabled to shrink the attack surface available to PHP code running inside a
 // Studio site. Each entry falls into one of:
@@ -161,6 +162,7 @@ export function getNativePhpIniContents( phpVersion: NativePhpSupportedVersion )
 	);
 	const directives: string[] = [
 		'memory_limit=512M',
+		'max_execution_time=0',
 		'post_max_size=2G',
 		'upload_max_filesize=2G',
 		'display_errors=1',
@@ -215,13 +217,7 @@ function getOpcacheRootDir(): string {
 		return opcacheRootDir;
 	}
 
-	// Resolve to the long-form path on Windows. `os.tmpdir()` can return an 8.3
-	// short name (e.g. C:\Users\BUILDK~1\AppData\…) when the user has a long
-	// username, and PHP's INI scanner treats `~` as a special token, breaking
-	// `-d opcache.file_cache=<path>` parsing.
-	const tmpRoot =
-		process.platform === 'win32' ? fs.realpathSync.native( os.tmpdir() ) : os.tmpdir();
-	opcacheRootDir = fs.mkdtempSync( path.join( tmpRoot, 'studio-opcache-' ) );
+	opcacheRootDir = fs.mkdtempSync( path.join( getFullyResolvedTmpDirPath(), 'studio-opcache-' ) );
 	const dirToClean = opcacheRootDir;
 	process.once( 'exit', () => {
 		try {
@@ -233,11 +229,21 @@ function getOpcacheRootDir(): string {
 	return opcacheRootDir;
 }
 
+type DefaultPhpArgsOptions = {
+	openBasedir?: string[];
+	disallowRiskyFunctions?: boolean;
+	enableXdebug?: boolean;
+	autoPrependFile?: string;
+};
+
 export function getDefaultPhpArgs(
 	phpVersion: NativePhpSupportedVersion,
-	openBasedir: string[] = [],
-	disallowRiskyFunctions: boolean = false,
-	enableXdebug: boolean = false
+	{
+		openBasedir = [],
+		disallowRiskyFunctions = false,
+		enableXdebug = false,
+		autoPrependFile,
+	}: DefaultPhpArgsOptions = {}
 ): string[] {
 	// Partition the file_cache directory by PHP version to match the cache_id
 	// already pinned in php.ini — opcache's on-disk script blob format isn't
@@ -266,7 +272,12 @@ export function getDefaultPhpArgs(
 			'-d',
 			`zend_extension="${ path.join( getExtensionDir( phpVersion ), getXdebugFilename() ) }"`,
 			'-d',
-			'xdebug.mode=debug'
+			'xdebug.mode=debug',
+			// Override Xdebug's default `trigger` mode
+			// (https://xdebug.org/docs/all_settings#start_with_request):
+			// enabling Xdebug for a site means every request starts debugging.
+			'-d',
+			'xdebug.start_with_request=yes'
 		);
 	}
 
@@ -276,6 +287,13 @@ export function getDefaultPhpArgs(
 
 	if ( disallowRiskyFunctions ) {
 		args.push( '-d', `disable_functions=${ PHP_DEFAULT_DISABLED_FUNCTIONS.join( ',' ) }` );
+	}
+
+	// Run a PHP file before the main script — used to inject reprint's generated
+	// runtime.php (constants, SQLite loader, upload proxy) into imported sites
+	// without modifying their wp-config.php.
+	if ( autoPrependFile ) {
+		args.push( '-d', `auto_prepend_file="${ toPhpIniPath( autoPrependFile ) }"` );
 	}
 
 	return args;

@@ -56,6 +56,7 @@ export enum SiteCommandLoggerAction {
 }
 
 export enum PullReprintCommandLoggerAction {
+	LOAD_SITES = 'loadSites',
 	PREFLIGHT = 'preflight',
 	LOAD_WPCOM_SITES = 'loadWpComSites',
 	ROTATE_SECRET = 'rotateSecret',

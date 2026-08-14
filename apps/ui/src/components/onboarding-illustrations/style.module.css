@@ -1,0 +1,205 @@
+.spin,
+.hoverSpinReverse {
+	transform-box: fill-box;
+	transform-origin: center;
+}
+
+.spin {
+	animation: spin 20s linear infinite;
+}
+
+.host:hover .hoverSpinReverse {
+	animation: spin 24s linear infinite reverse;
+}
+
+.themeStroke {
+	transition: stroke 0.15s ease;
+}
+
+.themeFill {
+	transition: fill 0.15s ease;
+}
+
+.host:hover .themeStroke {
+	stroke: var(--wpds-color-stroke-interactive-brand);
+}
+
+.host:hover .themeFill {
+	fill: var(--wpds-color-fg-interactive-brand);
+}
+
+.host:hover .arrowNudge {
+	animation: arrow-nudge 1.2s ease-in-out infinite;
+}
+
+.host:hover .cardShift {
+	animation: card-shift 3s ease-in-out infinite;
+}
+
+/* Site-list startup sequence (SiteListIllustration): the middle row plays a
+   one-shot boot — off, pulsing amber behind a spinning dashed ring, then
+   steady green with a ping. Played once and held; a loop read as a crash. */
+.startingDot {
+	fill: #16a34a;
+	animation: site-turn-on 7s forwards;
+}
+
+.startingRing {
+	transform-box: fill-box;
+	transform-origin: center;
+	opacity: 0;
+	animation: starting-ring 7s forwards, spin 20s linear infinite;
+}
+
+.startupPing {
+	transform-box: fill-box;
+	transform-origin: center;
+	opacity: 0;
+	animation: startup-ping 7s ease-out forwards;
+}
+
+/* Agent pixel field (agent-pixel-field.tsx): a fixed 880-wide logical canvas
+   that scales down responsively on narrow windows. The canvas is interactive
+   (pointer scatter, click ripples) but isn't a control. */
+.pixelField {
+	display: block;
+	width: min(880px, calc(100vw - 100px));
+	height: auto;
+	cursor: default;
+}
+
+@keyframes site-turn-on {
+	0%,
+	20% {
+		fill: #a16207;
+		opacity: 0;
+	}
+
+	24%,
+	64% {
+		fill: #a16207;
+	}
+
+	24% {
+		opacity: 1;
+	}
+
+	29% {
+		opacity: 0.25;
+	}
+
+	34% {
+		opacity: 1;
+	}
+
+	39% {
+		opacity: 0.25;
+	}
+
+	44% {
+		opacity: 1;
+	}
+
+	49% {
+		opacity: 0.25;
+	}
+
+	54% {
+		opacity: 1;
+	}
+
+	59% {
+		opacity: 0.25;
+	}
+
+	64% {
+		opacity: 1;
+	}
+
+	72%,
+	100% {
+		fill: #16a34a;
+		opacity: 1;
+	}
+}
+
+@keyframes starting-ring {
+	0%,
+	18% {
+		opacity: 0;
+	}
+
+	23%,
+	64% {
+		opacity: 1;
+	}
+
+	71%,
+	100% {
+		opacity: 0;
+	}
+}
+
+/* Sonar ping when the site lands running: a green ring expands out from
+   the dot and dissolves. */
+@keyframes startup-ping {
+	0%,
+	71% {
+		opacity: 0;
+		transform: scale(0.7);
+	}
+
+	73% {
+		opacity: 0.9;
+	}
+
+	88%,
+	100% {
+		opacity: 0;
+		transform: scale(3);
+	}
+}
+
+@keyframes spin {
+	from {
+		transform: rotate(0deg);
+	}
+
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+@keyframes arrow-nudge {
+	0%,
+	100% {
+		transform: translateY(0);
+	}
+
+	50% {
+		transform: translateY(2px);
+	}
+}
+
+@keyframes card-shift {
+	0%,
+	100% {
+		transform: translate(0, 0);
+	}
+
+	50% {
+		transform: translate(-3px, -3px);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.spin,
+	.host:hover .hoverSpinReverse,
+	.host:hover .arrowNudge,
+	.host:hover .cardShift,
+	.startingDot,
+	.startingRing,
+	.startupPing {
+		animation: none;
+	}
+}

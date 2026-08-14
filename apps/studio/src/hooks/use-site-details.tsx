@@ -15,7 +15,11 @@ import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { simplifyErrorForDisplay, simplifyErrorToFirstSentence } from 'src/lib/error-formatting';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import type { TracksSiteCreateFlowType } from 'src/lib/tracks';
 import type { Blueprint } from 'src/stores/wpcom-api';
+
+// Safety-net poll interval; `site-event`s are the primary signal for running state.
+const RUNNING_STATE_POLL_INTERVAL_MS = 10_000;
 
 interface SiteDetailsContext {
 	selectedSite: SiteDetails | null;
@@ -37,7 +41,8 @@ interface SiteDetailsContext {
 		adminPassword?: string,
 		adminEmail?: string,
 		runtime?: SiteRuntime,
-		fileAccess?: SiteFileAccess
+		fileAccess?: SiteFileAccess,
+		flowType?: TracksSiteCreateFlowType
 	) => Promise< SiteDetails | void >;
 	copySite: ( sourceSiteId: string ) => Promise< SiteDetails | void >;
 	startServer: (
@@ -167,6 +172,19 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 				return prevSites;
 			}
 
+			// This event carries no verdict on whether the site is running, so it
+			// must not go through the merge below — that adopts the event's
+			// `running` wholesale, which would overwrite the real state mid-stop.
+			if ( eventType === SITE_EVENTS.OPERATIONS_CHANGED ) {
+				const index = prevSites.findIndex( ( s ) => s.id === siteId );
+				if ( index < 0 ) {
+					return prevSites;
+				}
+				const nextSites = [ ...prevSites ];
+				nextSites[ index ] = { ...nextSites[ index ], operation: site.operation };
+				return nextSites;
+			}
+
 			const siteDetails: SiteDetails = {
 				...site,
 				running,
@@ -212,6 +230,29 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			const { [ siteId ]: _, ...rest } = prev;
 			return rest;
 		} );
+	}, [] );
+
+	// Re-query authoritative running state and adopt it for sites we already know about. Membership
+	// stays owned by `site-event`s, so this never adds/removes (e.g. drops a mid-creation site).
+	const reconcileRunningState = useCallback( async () => {
+		try {
+			const data = await getIpcApi().reconcileSites();
+			setSites( ( prev ) => {
+				const authoritativeById = new Map( data.map( ( site ) => [ site.id, site ] ) );
+				let changed = false;
+				const next = prev.map( ( site ) => {
+					const authoritative = authoritativeById.get( site.id );
+					if ( ! authoritative || authoritative.running === site.running ) {
+						return site;
+					}
+					changed = true;
+					return authoritative;
+				} );
+				return changed ? next : prev;
+			} );
+		} catch ( error ) {
+			console.error( 'Error reconciling site running state:', error );
+		}
 	}, [] );
 
 	const onDeleteSite = useCallback(
@@ -277,7 +318,8 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			adminPassword?: string,
 			adminEmail?: string,
 			runtime?: SiteRuntime,
-			fileAccess?: SiteFileAccess
+			fileAccess?: SiteFileAccess,
+			flowType?: TracksSiteCreateFlowType
 		) => {
 			// Function to handle error messages and cleanup
 			const showError = ( error?: unknown, hasBlueprint?: boolean ) => {
@@ -357,6 +399,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					adminPassword,
 					adminEmail,
 					noStart,
+					flowType,
 				} );
 				if ( ! newSite ) {
 					showError( undefined, !! blueprint );
@@ -493,6 +536,14 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 								showOpenLogs: false,
 							} );
 						}
+					} else if ( error instanceof Error && error.message.includes( 'MAINTENANCE_MODE' ) ) {
+						getIpcApi().showErrorMessageBox( {
+							title: sprintf( __( "'%s' is in maintenance mode" ), siteName ),
+							message: __(
+								'WordPress is currently performing an update. The maintenance lock should expire automatically within 10 minutes. Please wait for the update to finish and try starting the site again.'
+							),
+							showOpenLogs: false,
+						} );
 					} else {
 						const errorToShow = simplifyErrorForDisplay( error );
 						getIpcApi().showErrorMessageBox( {
@@ -506,12 +557,14 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					}
 					await getIpcApi().stopServer( id );
 				}
+				// Adopt the resulting state now rather than waiting on a `site-event` that may not arrive.
+				await reconcileRunningState();
 			} finally {
 				clearLoadingForSite( id );
 			}
 			return { capacityLimitReached };
 		},
-		[ startLoadingForSite, clearLoadingForSite ]
+		[ startLoadingForSite, clearLoadingForSite, reconcileRunningState ]
 	);
 
 	const startServers = useCallback(
@@ -648,16 +701,36 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [] );
 
+	// Safety net for missed/dropped `site-event`s: reconcile on an interval while visible, and
+	// immediately on regaining focus, so the UI self-corrects with no user action.
+	useEffect( () => {
+		const reconcileIfVisible = () => {
+			if ( document.visibilityState === 'visible' ) {
+				void reconcileRunningState();
+			}
+		};
+
+		const interval = setInterval( reconcileIfVisible, RUNNING_STATE_POLL_INTERVAL_MS );
+		document.addEventListener( 'visibilitychange', reconcileIfVisible );
+
+		return () => {
+			clearInterval( interval );
+			document.removeEventListener( 'visibilitychange', reconcileIfVisible );
+		};
+	}, [ reconcileRunningState ] );
+
 	const stopServer = useCallback(
 		async ( id: string ) => {
 			startLoadingForSite( id );
 			try {
 				await getIpcApi().stopServer( id );
+				// Flip the button immediately instead of waiting on a `site-event` that may be missed.
+				await reconcileRunningState();
 			} finally {
 				clearLoadingForSite( id );
 			}
 		},
-		[ startLoadingForSite, clearLoadingForSite ]
+		[ startLoadingForSite, clearLoadingForSite, reconcileRunningState ]
 	);
 
 	const stopAllRunningSites = useCallback( async () => {

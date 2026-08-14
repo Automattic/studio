@@ -1,3 +1,8 @@
+import {
+	SITE_RUNTIME_NATIVE_PHP,
+	SITE_RUNTIME_PLAYGROUND,
+	type SiteRuntime,
+} from '@studio/common/lib/site-runtime';
 import { describe, expect, it } from 'vitest';
 import { loadSkills } from '../skills';
 import { buildSystemPrompt } from '../system-prompt';
@@ -36,9 +41,8 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).toContain( 'For generated SVGs, write a complete .svg file' );
 		expect( prompt ).toContain( 'Do not present generated SVG code as a drawing widget' );
 		expect( prompt ).not.toContain( '- drawing:' );
-		expect( prompt ).toContain( '- screenshot-local-media:' );
-		expect( prompt ).toContain( 'present the actual captured PNG' );
-		expect( prompt ).toContain( 'Do not substitute a site-preview widget for a screenshot' );
+		expect( prompt ).toContain( '- screenshot-auto-artifact:' );
+		expect( prompt ).toContain( 'Never call studio_present for a screenshot' );
 		expect( prompt ).toContain( 'site-preview is for live previews, not captured screenshots' );
 		expect( prompt ).toContain( '- theme:' );
 		expect( prompt ).toContain( '- theme-template:' );
@@ -46,6 +50,16 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).toContain( '- theme-pattern:' );
 		expect( prompt ).toContain( '- color:' );
 		expect( prompt ).toContain( '- pdf:' );
+	} );
+
+	it( 'guards site deletion via the tool confirmation, not an extra AskUserQuestion', () => {
+		const prompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
+
+		expect( prompt ).toContain( 'Deleting a site is destructive and irreversible' );
+		expect( prompt ).toContain( 'do NOT call `AskUserQuestion` yourself before invoking it' );
+		expect( prompt ).toContain(
+			'Never treat an ambiguous or corrective request — "undo", "undo that", "revert my last change", "start over", "remove that" — as a request to delete a site'
+		);
 	} );
 
 	it( 'routes plugin-specific feature work to the plugin recommendations skill', () => {
@@ -104,13 +118,94 @@ describe( 'buildSystemPrompt', () => {
 		expect( missingSkillNames ).toEqual( [] );
 	} );
 
+	it( 'gives Playground sites the inline post_content guidance', () => {
+		const prompt = buildSystemPrompt( { runtime: SITE_RUNTIME_PLAYGROUND } );
+
+		expect( prompt ).toContain( 'rewrite large content to a virtual temp file' );
+		expect( prompt ).toContain( 'cannot read your machine' );
+		expect( prompt ).not.toContain( 'write the validated markup to a scratch file' );
+	} );
+
+	it( 'lets native PHP sites use a scratch file for post_content', () => {
+		const prompt = buildSystemPrompt( { runtime: SITE_RUNTIME_NATIVE_PHP } );
+
+		expect( prompt ).toContain( 'write the validated markup to a scratch file' );
+		expect( prompt ).toContain( 'wp post create <file>' );
+		expect( prompt ).not.toContain( 'virtual temp file' );
+		expect( prompt ).not.toContain( 'cannot read your machine' );
+	} );
+
+	it( 'defaults to native PHP post_content guidance when no runtime is given', () => {
+		const prompt = buildSystemPrompt( {} );
+
+		expect( prompt ).toContain( 'write the validated markup to a scratch file' );
+		expect( prompt ).not.toContain( 'virtual temp file' );
+	} );
+
+	it( 'keeps the shared no-shell post_content rule for both runtimes', () => {
+		const runtimes: SiteRuntime[] = [ SITE_RUNTIME_PLAYGROUND, SITE_RUNTIME_NATIVE_PHP ];
+		for ( const runtime of runtimes ) {
+			const prompt = buildSystemPrompt( { runtime } );
+			expect( prompt ).toContain( 'takes literal arguments, not shell commands' );
+		}
+	} );
+
 	it( 'omits Studio presentation rules when chat artifacts are disabled', () => {
 		const prompt = buildSystemPrompt( { chatArtifactsEnabled: false } );
 
 		expect( prompt ).not.toContain( '## Visual artifacts' );
 		expect( prompt ).not.toContain( '- site-code-scratchpad:' );
 		expect( prompt ).not.toContain( '- saved-local-media:' );
-		expect( prompt ).not.toContain( '- screenshot-local-media:' );
+		expect( prompt ).not.toContain( '- screenshot-auto-artifact:' );
 		expect( prompt ).not.toContain( 'studio_present' );
+	} );
+
+	it( 'warns that terminal users may not see screenshots when chat artifacts are disabled', () => {
+		const prompt = buildSystemPrompt( { chatArtifactsEnabled: false } );
+
+		expect( prompt ).toContain( '## Screenshots' );
+		expect( prompt ).toContain( 'Do not respond as though the user is looking at the capture' );
+	} );
+
+	it( 'omits the terminal screenshot caveat when chat artifacts are enabled', () => {
+		const prompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
+
+		expect( prompt ).not.toContain( 'Do not respond as though the user is looking at the capture' );
+	} );
+
+	it( 'appends the user global instructions for local and remote sessions', () => {
+		const variants = [ { chatArtifactsEnabled: true }, { remoteSite } ];
+		for ( const variant of variants ) {
+			const prompt = buildSystemPrompt( {
+				...variant,
+				userInstructions: 'Always answer in French.',
+			} );
+			expect( prompt ).toContain( "## User's global instructions" );
+			expect( prompt ).toContain( 'Always answer in French.' );
+		}
+	} );
+
+	it( 'omits the global instructions section when none are set', () => {
+		const prompts = [ buildSystemPrompt( {} ), buildSystemPrompt( { remoteSite } ) ];
+		for ( const prompt of prompts ) {
+			expect( prompt ).not.toContain( "## User's global instructions" );
+		}
+	} );
+
+	it( 'truncates oversized global instructions with a visible notice', () => {
+		const prompt = buildSystemPrompt( { userInstructions: 'a'.repeat( 20_000 ) } );
+
+		expect( prompt ).toContain( 'was truncated here' );
+		expect( prompt ).not.toContain( 'a'.repeat( 17_000 ) );
+	} );
+
+	it( 'omits the terminal screenshot caveat for remote-bridge sessions', () => {
+		// The Telegram user cannot open local file paths; delivery is covered
+		// by the remote-session share_screenshot guidance instead.
+		const prompt = buildSystemPrompt( { chatArtifactsEnabled: false, remoteSession: true } );
+
+		expect( prompt ).not.toContain( '## Screenshots' );
+		expect( prompt ).not.toContain( 'Do not respond as though the user is looking at the capture' );
+		expect( prompt ).toContain( '## Telegram remote session' );
 	} );
 } );

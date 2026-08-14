@@ -351,12 +351,12 @@ function buildModelCtx(
 		// `as never` keeps this test framework-agnostic — we don't need a
 		// real AiChatUI, just the methods the /model handler touches.
 		ui: {
-			currentModel: overrides.currentModel ?? 'gpt-5.5',
+			currentModel: overrides.currentModel ?? 'gpt-5.6-sol',
 			askUser: vi.fn().mockResolvedValue( { 0: overrides.askUserResponse } ),
 			showInfo: vi.fn(),
 			showError: vi.fn(),
 		} as never,
-		currentModel: overrides.currentModel ?? 'gpt-5.5',
+		currentModel: overrides.currentModel ?? 'gpt-5.6-sol',
 		currentProvider: 'wpcom',
 		showCapabilitiesOnConnect: false,
 		switchProvider: vi.fn().mockResolvedValue( undefined ),
@@ -372,32 +372,32 @@ describe( '/model slash command', () => {
 	// Locks in the labelToId-map matcher introduced in slash-commands.ts.
 	// The previous implementation used `selectedLabel.startsWith( label )`,
 	// which silently picked the wrong id whenever one model's label was a
-	// prefix of another's (e.g. "GPT 5.5" prefix of "GPT 5.5 Pro"). We don't
+	// prefix of another's (e.g. "GPT 5.6" prefix of "GPT 5.6 Sol"). We don't
 	// currently expose any prefix-colliding labels, but the fix is general
 	// and we want the regression coverage to survive future additions.
 	it( 'resolves the picked model exactly by label, not by prefix', async () => {
 		expect( modelHandler ).toBeDefined();
 		const { ctx, persistMock } = buildModelCtx( {
-			currentModel: 'gpt-5.5',
-			askUserResponse: 'Sonnet 4.6',
+			currentModel: 'gpt-5.6-sol',
+			askUserResponse: 'Sonnet 5',
 		} );
 
 		await modelHandler!( '/model', ctx );
 
-		expect( ctx.currentModel ).toBe( 'claude-sonnet-4-6' );
+		expect( ctx.currentModel ).toBe( 'claude-sonnet-5' );
 		expect( persistMock ).toHaveBeenCalledTimes( 1 );
 	} );
 
 	it( 'still resolves the picked model when its label carries the "(current)" suffix', async () => {
 		const { ctx, persistMock } = buildModelCtx( {
-			currentModel: 'gpt-5.5',
-			askUserResponse: 'GPT 5.5 (current)',
+			currentModel: 'gpt-5.6-sol',
+			askUserResponse: 'GPT 5.6 Sol (current)',
 		} );
 
 		await modelHandler!( '/model', ctx );
 
 		// Same model picked → no swap, no persist.
-		expect( ctx.currentModel ).toBe( 'gpt-5.5' );
+		expect( ctx.currentModel ).toBe( 'gpt-5.6-sol' );
 		expect( persistMock ).not.toHaveBeenCalled();
 	} );
 } );

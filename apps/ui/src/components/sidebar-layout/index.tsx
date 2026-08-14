@@ -1,86 +1,153 @@
 import { __ } from '@wordpress/i18n';
+import { privateApis } from '@wordpress/theme';
 import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useState } from 'react';
+import { AppMessageCards, AppMessageCardsDot } from '@/components/app-message-cards';
+import { AppToasts } from '@/components/app-toasts';
 import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { SidebarHeader } from '@/components/sidebar-header';
 import { SiteList } from '@/components/site-list';
+import { StudioBetaMenu } from '@/components/studio-beta-menu';
 import { UserMenu } from '@/components/user-menu';
 import { useConnector } from '@/data/core';
-import { useFullscreen } from '@/hooks/use-fullscreen';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useResizablePanel } from '@/hooks/use-resizable-panel';
 import { SidebarCollapsedContext } from '@/hooks/use-sidebar-collapsed';
+import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { drawerIcon } from '@/lib/icons';
 import { SIDEBAR_PANEL_CONFIG, SIDEBAR_PANEL_STORAGE_KEY } from '@/lib/resizable-panels';
+import { chromeBackground } from '@/lib/window-chrome';
+import { unlock } from '@/lock-unlock';
 import styles from './style.module.css';
 import type { CSSProperties, ReactNode } from 'react';
 
-export function SidebarLayout( { children }: { children: ReactNode } ) {
+const { ThemeProvider } = unlock( privateApis );
+
+interface SidebarLayoutProps {
+	children: ReactNode;
+	// Hides the sidebar without touching the user's own collapsed state, so
+	// clearing it restores whatever the sidebar was doing before (e.g. while
+	// the site preview is fullscreen). The floating "Show sidebar" toggle is
+	// suppressed too — the forcing feature owns the exit affordance.
+	forceCollapsed?: boolean;
+	// Called when the user asks to toggle the sidebar while it is force-
+	// collapsed (the app-menu shortcut), so the forcing feature can stand down.
+	// The sidebar expands alongside it.
+	onForceCollapsedToggle?: () => void;
+}
+
+export function SidebarLayout( {
+	children,
+	forceCollapsed = false,
+	onForceCollapsedToggle,
+}: SidebarLayoutProps ) {
 	const [ collapsed, setCollapsed ] = useState( false );
+	const effectiveCollapsed = collapsed || forceCollapsed;
 	const connector = useConnector();
-	const isFullscreen = useFullscreen();
+	const reserveTrafficLightSpace = useTrafficLightSpace().start;
+	const colorScheme = useColorScheme();
+	const chromeBg = chromeBackground( colorScheme );
 	const sidebarResize = useResizablePanel( {
 		config: SIDEBAR_PANEL_CONFIG,
 		edge: 'right',
 		storageKey: SIDEBAR_PANEL_STORAGE_KEY,
 	} );
 	const toggleSidebar = useCallback( () => {
+		if ( forceCollapsed ) {
+			onForceCollapsedToggle?.();
+			setCollapsed( false );
+			return;
+		}
 		setCollapsed( ( value ) => ! value );
-	}, [] );
-	const sidebarStyle = collapsed
+	}, [ forceCollapsed, onForceCollapsedToggle ] );
+	const sidebarStyle = effectiveCollapsed
 		? undefined
 		: ( { '--sidebar-width': `${ sidebarResize.width }px` } as CSSProperties );
 
 	useEffect( () => connector.onToggleSidebar( toggleSidebar ), [ connector, toggleSidebar ] );
 
 	return (
-		<SidebarCollapsedContext.Provider value={ collapsed }>
-			<div className={ styles.root }>
+		<SidebarCollapsedContext.Provider value={ effectiveCollapsed }>
+			<div className={ styles.root } style={ { '--app-chrome-bg': chromeBg } as CSSProperties }>
 				<aside
 					className={ clsx(
 						styles.sidebar,
-						collapsed && styles.sidebarCollapsed,
+						effectiveCollapsed && styles.sidebarCollapsed,
 						sidebarResize.isResizing && styles.sidebarResizing
 					) }
 					style={ sidebarStyle }
 				>
-					<SidebarHeader onToggleSidebar={ toggleSidebar } />
-					<SiteList />
-					<div className={ styles.sidebarFooter }>
-						<UserMenu />
-					</div>
+					{ /* The sidebar sits on the dark window chrome in both color
+					     schemes, so its wpds tokens come from a nested dark theme
+					     scope. */ }
+					<ThemeProvider color={ { bg: chromeBg } }>
+						<div className={ styles.sidebarThemeScope }>
+							<SidebarHeader />
+							<SiteList />
+							<div className={ styles.sidebarFooter }>
+								{ /* Toasts sit above the persistent cards: the footer is
+								     bottom-anchored, so a transient toast arriving below a card
+								     would shove it up and drop it back on expiry. */ }
+								{ ! effectiveCollapsed ? <AppToasts className={ styles.sidebarToasts } /> : null }
+								{ ! effectiveCollapsed ? (
+									<AppMessageCards className={ styles.sidebarCards } />
+								) : null }
+								{ ! effectiveCollapsed ? (
+									<StudioBetaMenu className={ styles.sidebarBeta } />
+								) : null }
+								<UserMenu onToggleSidebar={ toggleSidebar } />
+							</div>
+						</div>
+					</ThemeProvider>
 				</aside>
-				{ ! collapsed ? (
-					<ResizeHandle
-						className={ styles.resizeHandle }
-						label={ __( 'Resize sidebar' ) }
-						minWidth={ sidebarResize.minWidth }
-						maxWidth={ sidebarResize.maxWidth }
-						width={ sidebarResize.width }
-						isResizing={ sidebarResize.isResizing }
-						onResizeStart={ sidebarResize.handleResizeStart }
-						onKeyDown={ sidebarResize.handleKeyDown }
-					/>
+				{ ! effectiveCollapsed ? (
+					// Same dark theme scope as the sidebar so the indicator's
+					// brand token resolves against the dark ramp.
+					<ThemeProvider color={ { bg: chromeBg } }>
+						<ResizeHandle
+							className={ styles.resizeHandle }
+							label={ __( 'Resize sidebar' ) }
+							minWidth={ sidebarResize.minWidth }
+							maxWidth={ sidebarResize.maxWidth }
+							width={ sidebarResize.width }
+							isResizing={ sidebarResize.isResizing }
+							onResizeStart={ sidebarResize.handleResizeStart }
+							onKeyDown={ sidebarResize.handleKeyDown }
+						/>
+					</ThemeProvider>
 				) : null }
 				<main className={ styles.main }>
-					{ collapsed ? (
+					{ effectiveCollapsed && ! forceCollapsed ? (
 						<div
 							className={ clsx(
 								styles.floatingToggle,
-								isFullscreen && styles.floatingToggleFullscreen
+								! reserveTrafficLightSpace && styles.floatingToggleFlush
 							) }
 						>
-							<IconButton
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								icon={ drawerIcon }
-								label={ __( 'Show sidebar' ) }
-								onClick={ toggleSidebar }
-							/>
+							<span className={ styles.floatingToggleButton }>
+								<IconButton
+									variant="minimal"
+									tone="neutral"
+									size="small"
+									icon={ drawerIcon }
+									label={ __( 'Show sidebar' ) }
+									onClick={ toggleSidebar }
+								/>
+								<AppMessageCardsDot />
+							</span>
 						</div>
 					) : null }
 					{ children }
+					{ effectiveCollapsed ? (
+						<AppToasts
+							className={ clsx(
+								styles.floatingToasts,
+								forceCollapsed && styles.floatingToastsOverPreview
+							) }
+							fit="content"
+						/>
+					) : null }
 				</main>
 				{ sidebarResize.isResizing ? <ResizeOverlay /> : null }
 			</div>

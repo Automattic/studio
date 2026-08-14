@@ -3,6 +3,7 @@ import {
 	isStudioCustomEntryOfType,
 	type StudioCustomEntry,
 } from '@studio/common/ai/sessions/entry-types';
+import { getStudioCodeAiAccessState } from '@studio/common/lib/studio-assistant-quota';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { Spinner } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
@@ -28,8 +29,10 @@ import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useGetStudioAssistantQuota } from 'src/stores/wpcom-api';
+import { AccessRequirements } from './access-requirements';
 import { clearSessionDraft, Composer, ComposerSkeleton } from './composer';
-import { Conversation } from './conversation';
+import { Conversation, wasLastTurnInterrupted } from './conversation';
 import { unlock } from './lock-unlock';
 import { queryClient } from './query-client';
 import { QueuedPrompts } from './queued-prompts';
@@ -82,6 +85,23 @@ function SessionFrame( {
 				</div>
 			</div>
 		</div>
+	);
+}
+
+function SessionLoadingFrame() {
+	return (
+		<SessionFrame
+			header={ <div className={ styles.header } /> }
+			composer={
+				<div className={ styles.classicColumn }>
+					<ComposerSkeleton />
+				</div>
+			}
+		>
+			<div className={ styles.loading } role="status" aria-live="polite">
+				<Spinner className={ styles.loadingSpinner } />
+			</div>
+		</SessionFrame>
 	);
 }
 
@@ -140,7 +160,7 @@ function NoAuth() {
 								if ( isOffline ) {
 									return;
 								}
-								authenticate();
+								authenticate( 'assistant_tab' );
 							} }
 						>
 							{ __( 'Log in to WordPress.com' ) }
@@ -165,7 +185,7 @@ function NoAuth() {
 									if ( isOffline ) {
 										return;
 									}
-									getIpcApi().authenticate( true );
+									getIpcApi().authenticate( true, 'assistant_tab' );
 								} }
 							>
 								{ __( 'Create a free account' ) }
@@ -251,6 +271,7 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 		isInterrupting,
 		startedAt,
 		error: runError,
+		usageCapReached,
 		pendingQuestions,
 		pendingAnswers,
 		answeredQuestions,
@@ -270,6 +291,18 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 		[ pendingQuestions ]
 	);
 	const composerBusy = hasActiveRun || pendingQuestions.length > 0;
+	const canEditLastUserMessage = useMemo(
+		() => ! composerBusy && ! isRunning && wasLastTurnInterrupted( data?.entries ?? [] ),
+		[ composerBusy, isRunning, data?.entries ]
+	);
+	const editAndResendMessage = useCallback(
+		async ( entryId: string, newText: string ) => {
+			if ( ! sessionId ) return;
+			await getIpcApi().markAiMessageEdited( sessionId, entryId );
+			await sendMessage( newText );
+		},
+		[ sessionId, sendMessage ]
+	);
 	const scrollRef = useRef< HTMLDivElement >( null );
 	// Whether new content should keep the view pinned to the bottom. Disabled
 	// when the user scrolls up to read history, re-enabled when they return.
@@ -342,25 +375,21 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 	// disappearing and reappearing mid-prompt.
 	let body: ReactNode;
 	if ( ! sessionId || isLoading ) {
-		body = (
-			<SessionFrame
-				header={ <div className={ styles.header } /> }
-				composer={
-					<div className={ styles.classicColumn }>
-						<ComposerSkeleton />
-					</div>
-				}
-			>
-				<div className={ styles.loading } role="status" aria-live="polite">
-					<Spinner className={ styles.loadingSpinner } />
-				</div>
-			</SessionFrame>
-		);
+		body = <SessionLoadingFrame />;
 	} else if ( ! data ) {
 		body = (
-			<div className={ styles.state }>
-				<h1>{ __( 'Session not found' ) }</h1>
-				<p>{ sessionId }</p>
+			<div className="p-8 flex flex-col max-w-3xl">
+				<div className="a8c-subtitle mb-1">{ __( 'Session not found' ) }</div>
+				<div className="w-[40ch] text-frame-text-secondary a8c-body">
+					{ __(
+						'This conversation is no longer available. Start a new one to keep building with Studio Code.'
+					) }
+				</div>
+				<div className="mt-6">
+					<Button variant="primary" onClick={ handleNewConversation }>
+						{ __( 'Start a new conversation' ) }
+					</Button>
+				</div>
 			</div>
 		);
 	} else {
@@ -391,7 +420,8 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 						<Composer
 							busy={ composerBusy }
 							isInterrupting={ isInterrupting }
-							error={ runError }
+							error={ usageCapReached ? null : runError }
+							usageCapMessage={ usageCapReached ? runError : null }
 							model={ currentModel }
 							onSend={ sendMessage }
 							onInterrupt={ interrupt }
@@ -421,6 +451,8 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 							pendingAnswers={ pendingAnswers }
 							answeredQuestions={ answeredQuestions }
 							onAnswerQuestion={ answerQuestion }
+							canEditLastUserMessage={ canEditLastUserMessage }
+							onEditUserMessage={ editAndResendMessage }
 						/>
 					) }
 				</div>
@@ -442,9 +474,34 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 
 function SessionGate( { selectedSite }: { selectedSite: SiteDetails } ) {
 	const { isAuthenticated } = useAuth();
+	const {
+		data: quota,
+		isLoading: isQuotaLoading,
+		isFetching: isQuotaFetching,
+		refetch: refetchQuota,
+	} = useGetStudioAssistantQuota( undefined, { skip: ! isAuthenticated } );
 
 	if ( ! isAuthenticated ) {
 		return <NoAuth />;
+	}
+
+	if ( isQuotaLoading ) {
+		return <SessionLoadingFrame />;
+	}
+
+	// Fail open when the quota is unavailable (offline, error, older server) —
+	// the WordPress.com proxy enforces the same gate server-side.
+	if (
+		quota &&
+		( getStudioCodeAiAccessState( quota ) !== 'available' || ! quota.hasPaymentMethod )
+	) {
+		return (
+			<AccessRequirements
+				quota={ quota }
+				isRechecking={ isQuotaFetching }
+				onRecheck={ refetchQuota }
+			/>
+		);
 	}
 
 	return <SessionContent selectedSite={ selectedSite } />;

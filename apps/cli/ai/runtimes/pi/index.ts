@@ -1,10 +1,20 @@
 import fs from 'fs';
 import Anthropic from '@anthropic-ai/sdk';
 import { type AgentTool } from '@earendil-works/pi-agent-core';
-import { type Model, type SimpleStreamOptions } from '@earendil-works/pi-ai';
-import { streamAnthropic, type AnthropicOptions } from '@earendil-works/pi-ai/anthropic';
 import {
-	AuthStorage,
+	type Credential,
+	type CredentialInfo,
+	type CredentialStore,
+	type Model,
+	type SimpleStreamOptions,
+} from '@earendil-works/pi-ai';
+import {
+	stream as streamAnthropic,
+	type AnthropicOptions,
+} from '@earendil-works/pi-ai/api/anthropic-messages';
+import { streamSimple as streamOpenAiResponses } from '@earendil-works/pi-ai/api/openai-responses';
+import { ANTHROPIC_MODELS } from '@earendil-works/pi-ai/providers/anthropic.models';
+import {
 	createAgentSession,
 	createBashTool,
 	createEditTool,
@@ -14,28 +24,36 @@ import {
 	createReadTool,
 	createWriteTool,
 	DefaultResourceLoader,
-	ModelRegistry,
+	ModelRuntime,
 	SettingsManager,
 	type AgentSession,
 	type AgentSessionEvent,
 	type SessionManager,
 	type ToolDefinition,
 } from '@earendil-works/pi-coding-agent';
+import { readGlobalInstructions } from '@studio/common/ai/global-instructions';
 import {
 	DEFAULT_MODEL,
 	getAiModelFamily,
 	type AiModelFamily,
 	type AiModelId,
 } from '@studio/common/ai/models';
+import {
+	getSiteRuntime,
+	SITE_RUNTIME_NATIVE_PHP,
+	type SiteRuntime,
+} from '@studio/common/lib/site-runtime';
 import { getAiPayloadsPath, getConfigDirectory } from '@studio/common/lib/well-known-paths';
+import { type TSchema } from 'typebox';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
-import { resolveStudioToolDefinitions } from 'cli/ai/tools';
+import { resolveStudioToolDefinitions, withChatArtifactEmission } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
 import { createSiteTool } from 'cli/ai/tools/create-site';
 import { pullSiteTool } from 'cli/ai/tools/pull-site';
 import { createSkillTool } from 'cli/ai/tools/skill';
 import { takeScreenshotTool } from 'cli/ai/tools/take-screenshot';
 import { createWpcomRequestTool } from 'cli/ai/tools/wpcom-request';
+import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { stripStaleImagesFromContext } from './strip-stale-images';
 import {
@@ -45,15 +63,18 @@ import {
 	type StudioToolPayloadGuardState,
 	updateStudioToolPayloadGuardState,
 } from './tool-safety';
+import { withUsageCapErrorRewrite } from './usage-cap';
 import type { StudioChatImage } from '@studio/common/ai/chat-images';
+import type { ConfirmSiteDeletion } from 'cli/ai/tools/delete-site';
 import type { AskUserHandler, SiteInfo } from 'cli/ai/types';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AgentToolAny = AgentTool< any >;
-type StudioModel = Model< 'openai-completions' > | Model< 'anthropic-messages' >;
-type ProviderConfigInput = Parameters< ModelRegistry[ 'registerProvider' ] >[ 1 ];
+type StudioModel = Model< 'openai-responses' > | Model< 'anthropic-messages' >;
+type ProviderConfigInput = Parameters< ModelRuntime[ 'registerProvider' ] >[ 1 ];
 
 const STUDIO_WPCOM_ANTHROPIC_PROVIDER = 'studio-wpcom-anthropic';
+const STUDIO_WPCOM_OPENAI_PROVIDER = 'studio-wpcom-openai';
 const STUDIO_AGENT_DIR = STUDIO_SITES_ROOT;
 const STUDIO_WPCOM_BODY_FILES_ROOT = getConfigDirectory();
 const STUDIO_WPCOM_BODY_FILES_DIR = getAiPayloadsPath();
@@ -255,6 +276,25 @@ async function runAgentSessionTurn(
 	}
 }
 
+// Resolve the runtime of the active local site so the system prompt can drop
+// Playground-specific WP-CLI guidance for native PHP sites. The active site
+// (a SiteInfo) doesn't carry the runtime, so look it up by path in the CLI
+// config. Falls back to native-php (the default runtime) for unknown, remote,
+// or unreadable sites.
+async function resolveActiveSiteRuntime(
+	activeSite: SiteInfo | null | undefined
+): Promise< SiteRuntime > {
+	if ( ! activeSite || activeSite.remote || ! activeSite.path ) {
+		return SITE_RUNTIME_NATIVE_PHP;
+	}
+	try {
+		const site = await getSiteByFolder( activeSite.path );
+		return getSiteRuntime( site );
+	} catch {
+		return SITE_RUNTIME_NATIVE_PHP;
+	}
+}
+
 async function createStudioAgentSession(
 	config: ResolvedStudioAgentTurnConfig,
 	family: AiModelFamily,
@@ -265,6 +305,10 @@ async function createStudioAgentSession(
 	const isRemoteSite = Boolean( config.activeSite?.remote && config.activeSite?.wpcomSiteId );
 	const remoteSession = config.env.STUDIO_REMOTE_SESSION === '1';
 	const chatArtifactsEnabled = typeof process.send === 'function';
+	const [ userInstructions, runtime ] = await Promise.all( [
+		readGlobalInstructions(),
+		isRemoteSite ? undefined : resolveActiveSiteRuntime( config.activeSite ),
+	] );
 
 	const systemPrompt = buildSystemPrompt(
 		isRemoteSite
@@ -275,13 +319,19 @@ async function createStudioAgentSession(
 						id: config.activeSite!.wpcomSiteId!,
 					},
 					remoteSession,
+					userInstructions,
 			  }
-			: { chatArtifactsEnabled, remoteSession }
+			: {
+					chatArtifactsEnabled,
+					remoteSession,
+					runtime,
+					userInstructions,
+			  }
 	);
 
 	const tools = buildAgentTools( config, chatArtifactsEnabled, remoteSession );
 	const toolDefinitions = tools.map( ( tool ) => toToolDefinition( tool, payloadGuardState ) );
-	const { authStorage, modelRegistry } = createModelRegistry( model, family, creds );
+	const modelRuntime = await createModelRuntime( model, family, creds );
 	const settingsManager = createSettingsManager( config.env );
 	const resourceLoader = new DefaultResourceLoader( {
 		cwd: STUDIO_SITES_ROOT,
@@ -293,14 +343,14 @@ async function createStudioAgentSession(
 		noThemes: true,
 		noContextFiles: true,
 		systemPrompt,
+		appendSystemPrompt: [],
 	} );
 	await resourceLoader.reload();
 
 	const result = await createAgentSession( {
 		cwd: STUDIO_SITES_ROOT,
 		agentDir: STUDIO_AGENT_DIR,
-		authStorage,
-		modelRegistry,
+		modelRuntime,
 		model,
 		thinkingLevel: 'medium',
 		sessionManager: config.session,
@@ -330,46 +380,114 @@ function buildModel(
 	};
 
 	if ( family === 'openai' ) {
+		// GPT-5.6 models reject function tools on /v1/chat/completions unless
+		// reasoning is disabled; the Responses API supports tools + reasoning.
+		// GPT-5.6 Sol's real context window is 1.05M tokens, but we declare
+		// 272K — the threshold where OpenAI's 2x long-context pricing kicks
+		// in — so compaction keeps sessions below it. Understating the window
+		// is also load-bearing for correctness: pi clamps max output tokens to
+		// the declared window minus its (post-compaction, sometimes stale)
+		// context estimate, and a too-small window can clamp all the way down
+		// to 1, which the API rejects with a 400.
+		// The openai family always rides the wpcom proxy (Studio has no
+		// direct-OpenAI provider), so it always uses the custom provider.
 		return {
 			...common,
-			api: 'openai-completions',
-			provider: 'openai',
-			reasoning: false,
-			contextWindow: 200_000,
-			maxTokens: 16_384,
+			api: 'openai-responses',
+			provider: STUDIO_WPCOM_OPENAI_PROVIDER,
+			reasoning: true,
+			contextWindow: 272_000,
+			maxTokens: 32_000,
 		};
 	}
+	// Without `compat.forceAdaptiveThinking` pi-ai sends the legacy
+	// `thinking: { type: 'enabled', budget_tokens }` shape, which Sonnet 5 /
+	// Opus 5 reject with a 400 — copy the thinking fields from pi's catalog.
+	const catalogModel = (
+		ANTHROPIC_MODELS as Partial< Record< string, Model< 'anthropic-messages' > > >
+	 )[ modelId ];
 	return {
 		...common,
 		api: 'anthropic-messages',
 		provider: creds.useBearerAuth ? STUDIO_WPCOM_ANTHROPIC_PROVIDER : 'anthropic',
 		reasoning: true,
+		// contextWindow/maxTokens intentionally stay below the catalog values.
 		contextWindow: 200_000,
 		// thinkingLevel 'high' reserves ~16384 of this budget for extended thinking
 		// (see adjustMaxTokensForThinking in pi-ai); keep enough headroom for visible
 		// output so single tool calls can emit a full-page HTML payload.
 		maxTokens: 32_000,
+		...( catalogModel?.thinkingLevelMap
+			? { thinkingLevelMap: catalogModel.thinkingLevelMap }
+			: {} ),
+		...( catalogModel?.compat ? { compat: catalogModel.compat } : {} ),
 	};
 }
 
-function createModelRegistry(
+// In-memory credential store so the runtime never reads or writes an auth.json
+// on disk. Studio resolves credentials from the environment on every turn and
+// injects them via runtime API keys or registered provider configs, so nothing
+// needs to be persisted.
+class InMemoryCredentialStore implements CredentialStore {
+	private readonly credentials = new Map< string, Credential >();
+
+	async read( providerId: string ): Promise< Credential | undefined > {
+		return this.credentials.get( providerId );
+	}
+
+	async list(): Promise< readonly CredentialInfo[] > {
+		return [ ...this.credentials.entries() ].map( ( [ providerId, credential ] ) => ( {
+			providerId,
+			type: credential.type,
+		} ) );
+	}
+
+	async modify(
+		providerId: string,
+		fn: ( current: Credential | undefined ) => Promise< Credential | undefined >
+	): Promise< Credential | undefined > {
+		const next = await fn( this.credentials.get( providerId ) );
+		if ( next ) {
+			this.credentials.set( providerId, next );
+		}
+		return next;
+	}
+
+	async delete( providerId: string ): Promise< void > {
+		this.credentials.delete( providerId );
+	}
+}
+
+async function createModelRuntime(
 	model: StudioModel,
 	family: AiModelFamily,
 	creds: ResolvedCredentials
-): { authStorage: AuthStorage; modelRegistry: ModelRegistry } {
-	const authStorage = AuthStorage.inMemory();
-	const modelRegistry = ModelRegistry.inMemory( authStorage );
+): Promise< ModelRuntime > {
+	const modelRuntime = await ModelRuntime.create( {
+		credentials: new InMemoryCredentialStore(),
+		modelsPath: null,
+	} );
 
 	if ( family === 'anthropic' && creds.useBearerAuth ) {
-		modelRegistry.registerProvider(
+		modelRuntime.registerProvider(
 			STUDIO_WPCOM_ANTHROPIC_PROVIDER,
 			createWpcomAnthropicProviderConfig( model as Model< 'anthropic-messages' >, creds )
 		);
-		return { authStorage, modelRegistry };
+		return modelRuntime;
 	}
 
-	authStorage.setRuntimeApiKey( family, creds.apiKey );
-	return { authStorage, modelRegistry };
+	if ( family === 'openai' ) {
+		modelRuntime.registerProvider(
+			STUDIO_WPCOM_OPENAI_PROVIDER,
+			createWpcomOpenAiProviderConfig( model as Model< 'openai-responses' >, creds )
+		);
+		return modelRuntime;
+	}
+
+	// allowNetwork: false — the default refresh fetches remote model catalogs
+	// (unused here) with no timeout guard, blocking the turn on slow networks.
+	await modelRuntime.setRuntimeApiKey( family, creds.apiKey, { allowNetwork: false } );
+	return modelRuntime;
 }
 
 // pi (>= 0.78) parses `registerProvider` config values (apiKey, headers) as
@@ -402,13 +520,11 @@ function createWpcomAnthropicProviderConfig(
 				defaultHeaders: options?.headers,
 			} );
 			const clientForPi = client as unknown as AnthropicOptions[ 'client' ];
-			return streamAnthropic(
-				m as Model< 'anthropic-messages' >,
-				stripStaleImagesFromContext( ctx ),
-				{
+			return withUsageCapErrorRewrite(
+				streamAnthropic( m as Model< 'anthropic-messages' >, stripStaleImagesFromContext( ctx ), {
 					...( options as AnthropicOptions | undefined ),
 					client: clientForPi,
-				}
+				} )
 			);
 		},
 		models: [
@@ -424,16 +540,53 @@ function createWpcomAnthropicProviderConfig(
 				maxTokens: model.maxTokens,
 				headers: creds.extraHeaders,
 				compat: model.compat,
+				thinkingLevelMap: model.thinkingLevelMap,
+			},
+		],
+	};
+}
+
+// The wpcom OpenAI path only needs pi's stock Responses streaming; the custom
+// provider exists to wrap the stream with the usage-cap 429 rewrite.
+function createWpcomOpenAiProviderConfig(
+	model: Model< 'openai-responses' >,
+	creds: ResolvedCredentials
+): ProviderConfigInput {
+	return {
+		baseUrl: creds.baseURL,
+		apiKey: escapePiConfigValue( creds.apiKey ),
+		api: 'openai-responses',
+		headers: creds.extraHeaders,
+		streamSimple: ( m, ctx, options?: SimpleStreamOptions ) =>
+			withUsageCapErrorRewrite(
+				streamOpenAiResponses( m as Model< 'openai-responses' >, ctx, options )
+			),
+		models: [
+			{
+				id: model.id,
+				name: model.name,
+				api: 'openai-responses',
+				baseUrl: model.baseUrl,
+				reasoning: model.reasoning,
+				input: model.input,
+				cost: model.cost,
+				contextWindow: model.contextWindow,
+				maxTokens: model.maxTokens,
+				headers: creds.extraHeaders,
+				compat: model.compat,
 			},
 		],
 	};
 }
 
 function createSettingsManager( _env: Record< string, string > ): SettingsManager {
-	return SettingsManager.inMemory( {
-		defaultThinkingLevel: 'high',
-		compaction: STUDIO_COMPACTION_SETTINGS,
-	} );
+	return SettingsManager.inMemory(
+		{
+			defaultThinkingLevel: 'high',
+			compaction: STUDIO_COMPACTION_SETTINGS,
+		},
+		{ projectTrusted: false }
+	);
 }
 
 function toToolDefinition(
@@ -477,7 +630,10 @@ function buildAgentTools(
 	const skillToolDef = createSkillTool();
 	const skillTool: AgentToolAny[] = skillToolDef ? [ skillToolDef ] : [];
 
-	const renameTool = ( tool: AgentToolAny, name: string ): AgentToolAny => ( {
+	const renameTool = < S extends TSchema >(
+		tool: AgentTool< S >,
+		name: string
+	): AgentTool< S > => ( {
 		...tool,
 		name,
 		label: name,
@@ -491,11 +647,12 @@ function buildAgentTools(
 	];
 
 	if ( isRemoteSite ) {
+		const remoteStudioTools = [ takeScreenshotTool, createSiteTool, pullSiteTool ].map( ( tool ) =>
+			withChatArtifactEmission( tool, chatArtifactsEnabled )
+		);
 		return [
 			createWpcomRequestTool( config.wpcomAccessToken!, config.activeSite!.wpcomSiteId! ),
-			takeScreenshotTool,
-			createSiteTool,
-			pullSiteTool,
+			...remoteStudioTools,
 			...remoteScratchTools,
 			...askUserTool,
 			...skillTool,
@@ -514,8 +671,81 @@ function buildAgentTools(
 	const studioTools = resolveStudioToolDefinitions( {
 		emitChatArtifacts: chatArtifactsEnabled,
 		remoteSession,
+		confirmSiteDeletion: config.onAskUser
+			? buildSiteDeletionConfirm( config.onAskUser )
+			: undefined,
 	} ) as unknown as AgentToolAny[];
 	return [ ...studioTools, ...askUserTool, ...skillTool, ...piTools ];
+}
+
+// Two-step confirmation for site deletion:
+// 1. Choose what happens to the files (trash / keep / cancel)
+// 2. Final safety gate naming the site (delete / cancel)
+// Cancelling at either step leaves the site intact.
+const DELETE_AND_TRASH_LABEL = 'Delete and trash files';
+const DELETE_AND_KEEP_LABEL = 'Delete and keep files';
+const CONFIRM_DELETE_LABEL = 'Delete site';
+
+function buildSiteDeletionConfirm( onAskUser: AskUserHandler ): ConfirmSiteDeletion {
+	return async ( { name } ) => {
+		// Step 1: file handling choice
+		const fileQuestion = `What should happen to the files for "${ name }"?`;
+		const fileAnswers = await onAskUser( [
+			{
+				question: fileQuestion,
+				options: [
+					{
+						label: DELETE_AND_TRASH_LABEL,
+						description: `Remove "${ name }" from Studio and move its files to the trash.`,
+					},
+					{
+						label: DELETE_AND_KEEP_LABEL,
+						description: `Remove "${ name }" from Studio but keep its files on disk.`,
+					},
+					{
+						label: 'Cancel',
+						description: 'Keep the site. Nothing will be deleted.',
+					},
+				],
+				allowFreeForm: true,
+			},
+		] );
+		const fileChoice = fileAnswers[ fileQuestion ];
+		let deleteFiles: boolean;
+		if ( fileChoice === DELETE_AND_TRASH_LABEL ) {
+			deleteFiles = true;
+		} else if ( fileChoice === DELETE_AND_KEEP_LABEL ) {
+			deleteFiles = false;
+		} else {
+			return { confirmed: false };
+		}
+
+		// Step 2: final confirmation
+		const confirmQuestion = `Permanently delete the site "${ name }"? This cannot be undone.`;
+		const confirmAnswers = await onAskUser( [
+			{
+				question: confirmQuestion,
+				options: [
+					{
+						label: CONFIRM_DELETE_LABEL,
+						description: deleteFiles
+							? `Permanently remove "${ name }" and move its files to the trash.`
+							: `Permanently remove "${ name }" from Studio. Its files will stay on disk.`,
+					},
+					{
+						label: 'Cancel',
+						description: 'Keep the site. Nothing will be deleted.',
+					},
+				],
+				allowFreeForm: true,
+			},
+		] );
+		if ( confirmAnswers[ confirmQuestion ] !== CONFIRM_DELETE_LABEL ) {
+			return { confirmed: false };
+		}
+
+		return { confirmed: true, deleteFiles };
+	};
 }
 
 function parseJsonHeaderEnv( value: string | undefined ): Record< string, string > | undefined {

@@ -5,8 +5,8 @@ import {
 	LatestNativePhpSupportedVersion,
 	NativePhpSupportedVersions,
 	type NativePhpSupportedVersion,
-} from '@studio/common/types/php-versions';
-import phpBinaryCdnMetadataJson from './php-binary-cdn-metadata.json';
+} from '../types/php-versions.ts';
+import phpBinaryCdnMetadataModule from './php-binary-cdn-metadata.mjs';
 
 export { NativePhpSupportedVersions, type NativePhpSupportedVersion };
 
@@ -52,15 +52,21 @@ const phpBinaryCdnMetadataSchema = z.object( {
 		z.string(),
 		z.object( {
 			version: z.string().regex( /^\d+\.\d+\.\d+$/ ),
+			packageVersion: z
+				.string()
+				.regex( /^[a-z0-9][a-z0-9._-]{0,63}$/ )
+				.optional(),
 			artifacts: z.record( z.string(), phpBinaryArtifactSchema ),
 		} )
 	),
 } );
 
-const phpBinaryCdnMetadata = phpBinaryCdnMetadataSchema.parse( phpBinaryCdnMetadataJson );
+const phpBinaryCdnMetadata = phpBinaryCdnMetadataSchema.parse( phpBinaryCdnMetadataModule );
 
 export type PhpBinaryDownloadInfo = z.infer< typeof phpBinaryArtifactSchema > & {
 	patchVersion: string;
+	packageVersion?: string;
+	packageId: string;
 };
 
 export function getEffectivePhpBinaryArch( platform: NodeJS.Platform, arch: string ): string {
@@ -73,6 +79,24 @@ export function getConfiguredPhpBinaryVersion(
 	return version in phpBinaryCdnMetadata.versions
 		? phpBinaryCdnMetadata.versions[ version ]?.version
 		: undefined;
+}
+
+export function getConfiguredPhpBinaryPackageVersion(
+	version: NativePhpSupportedVersion
+): string | undefined {
+	return phpBinaryCdnMetadata.versions[ version ]?.packageVersion;
+}
+
+export function getConfiguredPhpBinaryPackageId(
+	version: NativePhpSupportedVersion
+): string | undefined {
+	const versionMetadata = phpBinaryCdnMetadata.versions[ version ];
+	if ( ! versionMetadata ) {
+		return undefined;
+	}
+	return versionMetadata.packageVersion
+		? `${ versionMetadata.version }-${ versionMetadata.packageVersion }`
+		: versionMetadata.version;
 }
 
 export function getPhpBinaryDownloadInfo(
@@ -93,6 +117,10 @@ export function getPhpBinaryDownloadInfo(
 
 	return {
 		patchVersion: versionMetadata.version,
+		packageVersion: versionMetadata.packageVersion,
+		packageId: versionMetadata.packageVersion
+			? `${ versionMetadata.version }-${ versionMetadata.packageVersion }`
+			: versionMetadata.version,
 		url: artifact.url,
 		sha: artifact.sha,
 	};

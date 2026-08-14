@@ -6,18 +6,23 @@ import { SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { enableReprintExporter, rotateReprintSecret } from 'cli/lib/api';
 import * as migrationClient from 'cli/lib/pull/migration-client';
-import { shouldRestartFilesSyncIndex } from 'cli/lib/pull/reprint-state';
+import { emptyReprintMetadata } from 'cli/lib/pull/reprint-metadata';
 import { fetchSyncableSites } from 'cli/lib/sync-api';
 import { pickSyncSite } from 'cli/lib/sync-site-picker';
 import {
 	runFullPull,
-	downloadSkippedFiles,
+	ensureScopedPullWpConfig,
 	findMatchingWpComSite,
 	getReprintApiUrlForSite,
 	normalizeSiteUrl,
 	resolveSourceSite,
 } from '../pull-reprint';
 import type { SyncSite } from '@studio/common/types/sync';
+
+// This file contains integration-style tests that reload the CLI module graph
+// and perform multiple atomic config writes. Those can exceed the default
+// timeout on CI.
+vi.setConfig( { testTimeout: 15_000 } );
 
 vi.mock( '@studio/common/lib/shared-config', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('@studio/common/lib/shared-config') >() ),
@@ -55,6 +60,35 @@ function makeSiteRecord( over: Record< string, unknown > = {} ): Record< string,
 	};
 }
 
+function mockWpComPullSource( url = 'https://example.com' ): SyncSite {
+	const token = {
+		accessToken: 'access-token',
+		id: 1,
+		email: 'user@example.com',
+		displayName: 'User',
+		expiresIn: 1209600,
+		expirationTime: Date.now() + 1209600000,
+	};
+	const site: SyncSite = {
+		id: 22,
+		name: 'Example',
+		url,
+		localSiteId: '',
+		isStaging: false,
+		isPressable: false,
+		syncSupport: 'syncable',
+		lastPullTimestamp: null,
+		lastPushTimestamp: null,
+	};
+
+	vi.mocked( readAuthToken ).mockResolvedValue( token );
+	vi.mocked( fetchSyncableSites ).mockResolvedValue( [ site ] );
+	vi.mocked( rotateReprintSecret ).mockResolvedValue( 'hmac-secret' );
+	vi.mocked( enableReprintExporter ).mockResolvedValue( 'v1' );
+
+	return site;
+}
+
 /** Seeds `~/.studio/cli.json` (under the fake home) with the given sites. */
 function seedCliConfigSite( homeDir: string, sites: Record< string, unknown >[] ): void {
 	const configDir = path.join( homeDir, '.studio' );
@@ -86,10 +120,22 @@ describe( 'CLI: studio pull-reprint helpers', () => {
 		expect( normalizeSiteUrl( 'https://example.com/?reprint-api' ) ).toBe( 'https://example.com/' );
 	} );
 
+	it( 'strips the v2 site export API marker from the canonical site URL', () => {
+		expect( normalizeSiteUrl( 'https://example.com/?reprint-api-jetpack' ) ).toBe(
+			'https://example.com/'
+		);
+	} );
+
 	it( 'adds the site export API marker exactly once to the importer URL', () => {
 		expect(
 			getReprintApiUrlForSite( normalizeSiteUrl( 'https://example.com/?reprint-api' ) )
 		).toBe( 'https://example.com/?reprint-api' );
+	} );
+
+	it( 'emits the Jetpack marker for a v2 surface', () => {
+		expect(
+			getReprintApiUrlForSite( normalizeSiteUrl( 'https://example.com/?reprint-api' ), 'v2' )
+		).toBe( 'https://example.com/?reprint-api-jetpack' );
 	} );
 
 	it( 'matches WordPress.com sites by normalized URL or host', () => {
@@ -101,97 +147,120 @@ describe( 'CLI: studio pull-reprint helpers', () => {
 		).toEqual( { id: 1, name: 'Example', url: 'https://example.wordpress.com/' } );
 	} );
 
-	it( 'restarts files-sync indexing only when the saved state has no resumable cursor', () => {
-		const stateDirectory = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-import-state-' ) );
+	it( 'synthesizes a wp-config when a scoped pull left only an empty symlink target', () => {
+		const technicalSiteDirectory = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-wpconfig-' ) );
+		const stateDirectory = path.join( technicalSiteDirectory, 'state' );
+		const rawDirectory = path.join( technicalSiteDirectory, 'raw' );
+		const rawAbspath = path.join( rawDirectory, 'wordpress', 'core', '7.0' );
+		fs.mkdirSync( stateDirectory, { recursive: true } );
+		fs.mkdirSync( rawAbspath, { recursive: true } );
+		fs.mkdirSync( path.join( rawDirectory, 'srv', 'htdocs' ), { recursive: true } );
 
-		try {
-			fs.writeFileSync(
-				path.join( stateDirectory, '.import-state.json' ),
-				JSON.stringify( {
-					command: 'files-sync',
-					status: 'in_progress',
-					stage: 'index',
-					cursor: null,
-				} )
-			);
-			fs.writeFileSync(
-				path.join( stateDirectory, '.import-remote-index.jsonl' ),
-				'{"type":"file"}\n'
-			);
+		fs.writeFileSync(
+			path.join( stateDirectory, '.import-state.json' ),
+			JSON.stringify( {
+				preflight: {
+					data: {
+						database: {
+							wp: {
+								table_prefix: 'wp_abc123_',
+								paths_urls: { abspath: '/wordpress/core/7.0' },
+							},
+						},
+					},
+				},
+			} )
+		);
 
-			expect( shouldRestartFilesSyncIndex( stateDirectory ) ).toBe( true );
+		// The WP Cloud layout a scoped pull recreates: parent-of-ABSPATH
+		// wp-config.php is a symlink to a document-root file that was never
+		// fetched (empty placeholder).
+		fs.writeFileSync( path.join( rawDirectory, 'srv', 'htdocs', 'wp-config.php' ), '' );
+		fs.symlinkSync(
+			'../../srv/htdocs/wp-config.php',
+			path.join( rawDirectory, 'wordpress', 'core', 'wp-config.php' )
+		);
 
-			fs.writeFileSync(
-				path.join( stateDirectory, '.import-state.json' ),
-				JSON.stringify( {
-					command: 'files-sync',
-					status: 'in_progress',
-					stage: 'index',
-					cursor: { path: 'saved' },
-				} )
-			);
+		const metadata = { stateDirectory, rawDirectory } as never;
+		ensureScopedPullWpConfig( metadata, {
+			...emptyReprintMetadata,
+			sourceSite: {
+				...emptyReprintMetadata.sourceSite,
+				wordpressAbsolutePath: '/wordpress/core/7.0',
+				tablePrefix: 'wp_abc123_',
+			},
+		} );
 
-			expect( shouldRestartFilesSyncIndex( stateDirectory ) ).toBe( false );
-		} finally {
-			fs.rmSync( stateDirectory, { recursive: true, force: true } );
-		}
+		// Written through the symlink into its target, with the remote prefix.
+		const written = fs.readFileSync(
+			path.join( rawDirectory, 'srv', 'htdocs', 'wp-config.php' ),
+			'utf-8'
+		);
+		expect( written ).toContain( "$table_prefix = 'wp_abc123_';" );
+		expect( written ).toContain( "require_once ABSPATH . 'wp-settings.php';" );
+
+		// A non-empty config is left alone on a second run.
+		fs.writeFileSync(
+			path.join( rawDirectory, 'srv', 'htdocs', 'wp-config.php' ),
+			'<?php // real remote config'
+		);
+		ensureScopedPullWpConfig( metadata, {
+			...emptyReprintMetadata,
+			sourceSite: {
+				...emptyReprintMetadata.sourceSite,
+				wordpressAbsolutePath: '/wordpress/core/7.0',
+				tablePrefix: 'wp_abc123_',
+			},
+		} );
+		expect(
+			fs.readFileSync( path.join( rawDirectory, 'srv', 'htdocs', 'wp-config.php' ), 'utf-8' )
+		).toBe( '<?php // real remote config' );
+
+		fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
 	} );
 
-	it( 'rewrites the reprint state before downloading skipped-earlier files', async () => {
+	it( 'escapes backslashes and quotes when writing the table prefix', () => {
 		const technicalSiteDirectory = fs.mkdtempSync(
-			path.join( os.tmpdir(), 'studio-import-skipped-' )
+			path.join( os.tmpdir(), 'studio-wpconfig-esc-' )
 		);
 		const stateDirectory = path.join( technicalSiteDirectory, 'state' );
 		const rawDirectory = path.join( technicalSiteDirectory, 'raw' );
 		fs.mkdirSync( stateDirectory, { recursive: true } );
-		fs.mkdirSync( rawDirectory, { recursive: true } );
+		fs.mkdirSync( path.join( rawDirectory, 'wordpress', 'core', '7.0' ), { recursive: true } );
 
-		// Pre-existing state from a previous db-apply run + a non-empty
-		// skipped-download list is the signal that there's a tail of files
-		// to fetch.
 		fs.writeFileSync(
 			path.join( stateDirectory, '.import-state.json' ),
 			JSON.stringify( {
-				command: 'db-apply',
-				status: 'complete',
-				stage: 'sql',
-				filter: 'skipped-earlier',
-				preflight: { data: { ok: true } },
+				preflight: {
+					data: {
+						database: {
+							wp: {
+								table_prefix: "wp\\x'_",
+								paths_urls: { abspath: '/wordpress/core/7.0' },
+							},
+						},
+					},
+				},
 			} )
 		);
-		fs.writeFileSync(
-			path.join( stateDirectory, '.import-download-list-skipped.jsonl' ),
-			'{"path":"foo"}\n'
-		);
 
-		vi.spyOn( migrationClient, 'runReprintCommandUntilComplete' ).mockResolvedValue( {
-			stdout: '{"ok":true}',
-			stderr: '',
-			exitCode: 0,
+		ensureScopedPullWpConfig( { stateDirectory, rawDirectory } as never, {
+			...emptyReprintMetadata,
+			sourceSite: {
+				...emptyReprintMetadata.sourceSite,
+				wordpressAbsolutePath: '/wordpress/core/7.0',
+				tablePrefix: "wp\\x'_",
+			},
 		} );
 
-		await downloadSkippedFiles(
-			SITE_RUNTIME_PLAYGROUND,
-			{
-				normalizedUrl: 'https://example.com/',
-				stateDirectory,
-				rawDirectory,
-			} as never,
-			'https://example.com/?reprint-api',
-			'hmac-secret',
-			false
+		// With no config at either candidate, it writes to the parent-of-ABSPATH
+		// location wp-load falls back to.
+		const written = fs.readFileSync(
+			path.join( rawDirectory, 'wordpress', 'core', 'wp-config.php' ),
+			'utf-8'
 		);
-
-		// Reprint state was rewritten to the shape reprint's next
-		// files-sync call expects when resuming into skipped-earlier.
-		const nextState = JSON.parse(
-			fs.readFileSync( path.join( stateDirectory, '.import-state.json' ), 'utf-8' )
-		);
-		expect( nextState.command ).toBe( 'files-sync' );
-		expect( nextState.status ).toBe( 'complete' );
-		expect( nextState.stage ).toBeNull();
-		expect( nextState.filter ).toBe( 'essential-files' );
-		expect( nextState.preflight ).toEqual( { data: { ok: true } } );
+		// Backslash doubled, quote escaped — a valid PHP single-quoted literal.
+		expect( written ).toContain( "$table_prefix = 'wp\\\\x\\'_';" );
 
 		fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
 	} );
@@ -202,7 +271,7 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 		vi.restoreAllMocks();
 	} );
 
-	it( 'runs one reprint pull with sqlite under the content dir, mounts the site + runtime, and advances the stage', async () => {
+	it( 'runs pull-files → pull-db → flat-docroot → apply-runtime with the sqlite target and mounts', async () => {
 		const technicalSiteDirectory = fs.mkdtempSync(
 			path.join( os.tmpdir(), 'studio-import-pull-' )
 		);
@@ -212,27 +281,6 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 		const runtimeDirectory = path.join( technicalSiteDirectory, 'runtime' );
 		fs.mkdirSync( stateDirectory, { recursive: true } );
 		fs.mkdirSync( rawDirectory, { recursive: true } );
-
-		// Preflight reported the remote site's wp-content path at
-		// database.wp.paths_urls.content_dir; the pull's db-apply stage targets
-		// an sqlite file under rawDirectory + that path so flat-docroot can
-		// symlink it into the flattened site.
-		fs.writeFileSync(
-			path.join( stateDirectory, '.import-state.json' ),
-			JSON.stringify( {
-				preflight: {
-					data: {
-						database: {
-							wp: {
-								paths_urls: {
-									content_dir: '/srv/htdocs/wp-content',
-								},
-							},
-						},
-					},
-				},
-			} )
-		);
 
 		const reprint = vi
 			.spyOn( migrationClient, 'runReprintCommandUntilComplete' )
@@ -259,47 +307,394 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 			metadata,
 			'https://example.com/?reprint-api',
 			'hmac-secret',
-			false
+			false,
+			true,
+			{},
+			{
+				...emptyReprintMetadata,
+				sourceSite: {
+					...emptyReprintMetadata.sourceSite,
+					contentDirectory: '/srv/htdocs/wp-content',
+				},
+			}
 		);
 
-		expect( reprint ).toHaveBeenCalledTimes( 1 );
-		const [ passedState, passedRaw, passedArgs, , passedOptions ] = reprint.mock.calls[ 0 ];
-		expect( passedState ).toBe( stateDirectory );
-		expect( passedRaw ).toBe( rawDirectory );
-		expect( passedArgs ).toEqual( [
-			'pull',
+		// The pipeline runs as separate commands so the selection can skip steps.
+		expect( reprint ).toHaveBeenCalledTimes( 4 );
+		const commands = reprint.mock.calls.map( ( call ) => ( call[ 2 ] as string[] )[ 0 ] );
+		expect( commands ).toEqual( [ 'pull-files', 'pull-db', 'flat-docroot', 'apply-runtime' ] );
+
+		const [ filesArgs, dbArgs, flattenArgs, runtimeArgs ] = reprint.mock.calls.map(
+			( call ) => call[ 2 ] as string[]
+		);
+		expect( filesArgs ).toEqual( [
+			'pull-files',
 			'https://example.com/?reprint-api',
 			'--secret=hmac-secret',
-			'--filter=essential-files',
-			'--target-engine=sqlite',
-			`--target-sqlite-path=${ rawDirectory }/srv/htdocs/wp-content/database/.ht.sqlite`,
-			'--new-site-url=http://localhost:8881',
-			`--flatten-to=${ sitePath }`,
-			'--runtime=playground-cli',
-			'--start-runtime=none',
-			`--output-dir=${ runtimeDirectory }`,
 			'--no-adaptive',
 			`--state-dir=${ stateDirectory }`,
 			`--fs-root=${ rawDirectory }`,
-			'--force',
 		] );
-		// The flattened site and runtime output dirs are mounted up front so
-		// the single fork can write them to the host filesystem.
-		expect( passedOptions?.mounts ).toEqual( [
-			{ hostPath: sitePath, vfsPath: sitePath },
-			{ hostPath: runtimeDirectory, vfsPath: runtimeDirectory },
+		expect( dbArgs ).toEqual( [
+			'pull-db',
+			'https://example.com/?reprint-api',
+			'--secret=hmac-secret',
+			'--target-engine=sqlite',
+			`--target-sqlite-path=${ path.join(
+				rawDirectory,
+				'srv',
+				'htdocs',
+				'wp-content',
+				'database',
+				'.ht.sqlite'
+			) }`,
+			'--new-site-url=http://localhost:8881',
+			'--no-adaptive',
+			`--state-dir=${ stateDirectory }`,
+			`--fs-root=${ rawDirectory }`,
+		] );
+		// The remote URL selects Reprint's pull state; --force only on a first
+		// pull (this call passed force=true) to overwrite the blank install.
+		expect( flattenArgs ).toEqual( [
+			'flat-docroot',
+			'https://example.com/?reprint-api',
+			`--flatten-to=${ sitePath }`,
+			'--force',
+			`--state-dir=${ stateDirectory }`,
+			`--fs-root=${ rawDirectory }`,
+		] );
+		// The remote URL selects Reprint's pull state; --flat-document-root replaces --fs-root.
+		expect( runtimeArgs ).toEqual( [
+			'apply-runtime',
+			'https://example.com/?reprint-api',
+			'--runtime=playground-cli',
+			'--target-engine=sqlite',
+			`--target-sqlite-path=${ path.join(
+				rawDirectory,
+				'srv',
+				'htdocs',
+				'wp-content',
+				'database',
+				'.ht.sqlite'
+			) }`,
+			`--output-dir=${ runtimeDirectory }`,
+			`--flat-document-root=${ sitePath }`,
+			`--state-dir=${ stateDirectory }`,
 		] );
 
-		// Stage is bumped + persisted so a resumed run skips the pull.
-		const persisted = JSON.parse(
-			fs.readFileSync( path.join( technicalSiteDirectory, 'pull.json' ), 'utf-8' )
-		);
-		expect( persisted.stage ).toBe( 'pulled' );
+		// Every step mounts the flattened site and runtime output dirs so the
+		// forks can write them to the host filesystem.
+		for ( const call of reprint.mock.calls ) {
+			expect( ( call[ 4 ] as { mounts?: unknown } )?.mounts ).toEqual( [
+				{ hostPath: sitePath, vfsPath: sitePath },
+				{ hostPath: runtimeDirectory, vfsPath: runtimeDirectory },
+			] );
+		}
+
+		// No Studio-owned progress file is written: resume is by derivation
+		// (reprint's own `.import-state.json` + the site's `status`), so the
+		// pull is always re-invoked rather than skipped via a stage cursor.
+		expect( fs.existsSync( path.join( technicalSiteDirectory, 'pull.json' ) ) ).toBe( false );
 
 		fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
 	} );
 
-	it( 'falls back to the flattened wp-content sqlite path when preflight exposes no content dir', async () => {
+	it( 'uses an existing legacy sqlite path when the database is excluded', async () => {
+		const technicalSiteDirectory = fs.mkdtempSync(
+			path.join( os.tmpdir(), 'studio-import-pull-nodb-' )
+		);
+		const stateDirectory = path.join( technicalSiteDirectory, 'state' );
+		const rawDirectory = path.join( technicalSiteDirectory, 'raw' );
+		const sitePath = path.join( technicalSiteDirectory, 'site' );
+		fs.mkdirSync( stateDirectory, { recursive: true } );
+		fs.mkdirSync( rawDirectory, { recursive: true } );
+		fs.writeFileSync(
+			path.join( stateDirectory, '.import-state.json' ),
+			JSON.stringify( {
+				preflight: {
+					data: {
+						database: {
+							wp: { paths_urls: { content_dir: '/srv/htdocs/wp-content' } },
+						},
+					},
+				},
+			} )
+		);
+		fs.writeFileSync( path.join( stateDirectory, '.import-index.jsonl' ), '{"path":"a"}\n' );
+		const legacySqlitePath = path.join( rawDirectory, 'wp-content', 'database', '.ht.sqlite' );
+		fs.mkdirSync( path.dirname( legacySqlitePath ), { recursive: true } );
+		fs.writeFileSync( legacySqlitePath, '' );
+
+		const reprint = vi
+			.spyOn( migrationClient, 'runReprintCommandUntilComplete' )
+			.mockResolvedValue( { stdout: '{"ok":true}', stderr: '', exitCode: 0 } );
+
+		await runFullPull(
+			SITE_RUNTIME_PLAYGROUND,
+			{
+				sitePath,
+				technicalSiteDirectory,
+				rawDirectory,
+				stateDirectory,
+				runtimeDirectory: path.join( technicalSiteDirectory, 'runtime' ),
+				runtimeBlueprintPath: path.join( technicalSiteDirectory, 'runtime', 'blueprint.json' ),
+				localUrl: 'http://localhost:8881',
+			} as never,
+			'https://example.com/?reprint-api',
+			'hmac-secret',
+			false,
+			false,
+			{ skipDatabase: true }
+		);
+
+		const commands = reprint.mock.calls.map( ( call ) => ( call[ 2 ] as string[] )[ 0 ] );
+		expect( commands ).toEqual( [ 'pull-files', 'flat-docroot', 'apply-runtime' ] );
+		const flattenArgs = reprint.mock.calls[ 1 ][ 2 ] as string[];
+		expect( flattenArgs ).not.toContain( '--force' );
+		const runtimeArgs = reprint.mock.calls[ 2 ][ 2 ] as string[];
+		expect( runtimeArgs ).toContain( '--target-engine=sqlite' );
+		expect( runtimeArgs ).toContain( `--target-sqlite-path=${ legacySqlitePath }` );
+
+		fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
+	} );
+
+	it( 'threads --only into pull-files for a folder-restricted pull', async () => {
+		const technicalSiteDirectory = fs.mkdtempSync(
+			path.join( os.tmpdir(), 'studio-import-pull-only-' )
+		);
+		const stateDirectory = path.join( technicalSiteDirectory, 'state' );
+		const rawDirectory = path.join( technicalSiteDirectory, 'raw' );
+		fs.mkdirSync( stateDirectory, { recursive: true } );
+		fs.mkdirSync( rawDirectory, { recursive: true } );
+		fs.writeFileSync(
+			path.join( stateDirectory, '.import-state.json' ),
+			JSON.stringify( { preflight: { data: {} } } )
+		);
+
+		const reprint = vi
+			.spyOn( migrationClient, 'runReprintCommandUntilComplete' )
+			.mockResolvedValue( { stdout: '{"ok":true}', stderr: '', exitCode: 0 } );
+
+		await runFullPull(
+			SITE_RUNTIME_PLAYGROUND,
+			{
+				sitePath: path.join( technicalSiteDirectory, 'site' ),
+				technicalSiteDirectory,
+				rawDirectory,
+				stateDirectory,
+				runtimeDirectory: path.join( technicalSiteDirectory, 'runtime' ),
+				runtimeBlueprintPath: path.join( technicalSiteDirectory, 'runtime', 'blueprint.json' ),
+				localUrl: 'http://localhost:8881',
+			} as never,
+			'https://example.com/?reprint-api',
+			'hmac-secret',
+			false,
+			false,
+			{ fileOnlyPaths: [ ':wp-plugins:', '/srv/htdocs/wp-content/plugins/akismet' ] }
+		);
+
+		const filesArgs = reprint.mock.calls[ 0 ][ 2 ] as string[];
+		expect( filesArgs[ 0 ] ).toBe( 'pull-files' );
+		expect( filesArgs ).toContain( '--only=:wp-plugins:' );
+		expect( filesArgs ).toContain( '--only=/srv/htdocs/wp-content/plugins/akismet' );
+		expect( filesArgs ).not.toContain( '--filter=essential-files' );
+		// The database step still runs (only files were restricted).
+		const commands = reprint.mock.calls.map( ( call ) => ( call[ 2 ] as string[] )[ 0 ] );
+		expect( commands ).toContain( 'pull-db' );
+
+		fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
+	} );
+
+	it( 'uses only the selected directories when uploads are omitted', async () => {
+		const technicalSiteDirectory = fs.mkdtempSync(
+			path.join( os.tmpdir(), 'studio-import-pull-skip-uploads-' )
+		);
+		const stateDirectory = path.join( technicalSiteDirectory, 'state' );
+		const rawDirectory = path.join( technicalSiteDirectory, 'raw' );
+		fs.mkdirSync( stateDirectory, { recursive: true } );
+		fs.mkdirSync( rawDirectory, { recursive: true } );
+
+		const reprint = vi
+			.spyOn( migrationClient, 'runReprintCommandUntilComplete' )
+			.mockResolvedValue( { stdout: '{"ok":true}', stderr: '', exitCode: 0 } );
+
+		await runFullPull(
+			SITE_RUNTIME_PLAYGROUND,
+			{
+				stateDirectory,
+				rawDirectory,
+				sitePath: technicalSiteDirectory,
+				technicalSiteDirectory,
+				runtimeDirectory: path.join( technicalSiteDirectory, 'runtime' ),
+				runtimeBlueprintPath: path.join( technicalSiteDirectory, 'runtime', 'blueprint.json' ),
+				localUrl: 'http://localhost:8881',
+			},
+			'https://example.com/?reprint-api',
+			'hmac-secret',
+			false,
+			false,
+			{ fileOnlyPaths: [ ':wp-content:/plugins', ':wp-content:/themes' ] }
+		);
+
+		const filesArgs = reprint.mock.calls[ 0 ][ 2 ] as string[];
+		expect( filesArgs ).toContain( '--only=:wp-content:/plugins' );
+		expect( filesArgs ).toContain( '--only=:wp-content:/themes' );
+		expect( filesArgs ).not.toContain( '--exclude=:wp-uploads:' );
+		expect( filesArgs ).not.toContain( '--filter=essential-files' );
+
+		fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
+	} );
+
+	it( 'leaves a damaged raw scratch for Reprint to recover', async () => {
+		const technicalSiteDirectory = fs.mkdtempSync(
+			path.join( os.tmpdir(), 'studio-import-pull-damaged-' )
+		);
+		const stateDirectory = path.join( technicalSiteDirectory, 'state' );
+		const rawDirectory = path.join( technicalSiteDirectory, 'raw' );
+		fs.mkdirSync( stateDirectory, { recursive: true } );
+		fs.mkdirSync( rawDirectory, { recursive: true } );
+		fs.writeFileSync(
+			path.join( stateDirectory, '.import-state.json' ),
+			JSON.stringify( { command: 'files-pull', status: 'complete', preflight: { data: {} } } )
+		);
+		// Damage: raw holds leftovers but the local index is gone.
+		fs.writeFileSync( path.join( rawDirectory, 'stale-blocker' ), 'junk' );
+		fs.writeFileSync( path.join( stateDirectory, '.import-remote-index.jsonl' ), '{"p":1}\n' );
+
+		const reprint = vi
+			.spyOn( migrationClient, 'runReprintCommandUntilComplete' )
+			.mockResolvedValue( { stdout: '{"ok":true}', stderr: '', exitCode: 0 } );
+
+		await runFullPull(
+			SITE_RUNTIME_PLAYGROUND,
+			{
+				sitePath: path.join( technicalSiteDirectory, 'site' ),
+				technicalSiteDirectory,
+				rawDirectory,
+				stateDirectory,
+				runtimeDirectory: path.join( technicalSiteDirectory, 'runtime' ),
+				runtimeBlueprintPath: path.join( technicalSiteDirectory, 'runtime', 'blueprint.json' ),
+				localUrl: 'http://localhost:8881',
+			} as never,
+			'https://example.com/?reprint-api',
+			'hmac-secret',
+			false,
+			true
+		);
+
+		// Reprint owns recovery of its state and scratch. Studio must not
+		// delete the raw tree or private state files behind its back.
+		expect( fs.readdirSync( rawDirectory ) ).toEqual( [ 'stale-blocker' ] );
+		expect( fs.existsSync( path.join( stateDirectory, '.import-remote-index.jsonl' ) ) ).toBe(
+			true
+		);
+		expect(
+			JSON.parse( fs.readFileSync( path.join( stateDirectory, '.import-state.json' ), 'utf-8' ) )
+		).toEqual( { command: 'files-pull', status: 'complete', preflight: { data: {} } } );
+		// The pull is still passed to Reprint in its default mode.
+		const filesArgs = reprint.mock.calls[ 0 ][ 2 ] as string[];
+		expect( filesArgs[ 0 ] ).toBe( 'pull-files' );
+		expect( filesArgs.some( ( a ) => a.includes( 'preserve-local' ) ) ).toBe( false );
+
+		fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
+	} );
+
+	it( 'keeps an intact raw scratch (local index present) for a delta pull', async () => {
+		const technicalSiteDirectory = fs.mkdtempSync(
+			path.join( os.tmpdir(), 'studio-import-pull-delta-' )
+		);
+		const stateDirectory = path.join( technicalSiteDirectory, 'state' );
+		const rawDirectory = path.join( technicalSiteDirectory, 'raw' );
+		fs.mkdirSync( stateDirectory, { recursive: true } );
+		fs.mkdirSync( rawDirectory, { recursive: true } );
+		fs.writeFileSync(
+			path.join( stateDirectory, '.import-state.json' ),
+			JSON.stringify( { preflight: { data: {} } } )
+		);
+		fs.writeFileSync( path.join( stateDirectory, '.import-index.jsonl' ), '{"path":"a"}\n' );
+		fs.writeFileSync( path.join( rawDirectory, 'existing-file' ), 'keep me' );
+
+		vi.spyOn( migrationClient, 'runReprintCommandUntilComplete' ).mockResolvedValue( {
+			stdout: '{"ok":true}',
+			stderr: '',
+			exitCode: 0,
+		} );
+
+		await runFullPull(
+			SITE_RUNTIME_PLAYGROUND,
+			{
+				sitePath: path.join( technicalSiteDirectory, 'site' ),
+				technicalSiteDirectory,
+				rawDirectory,
+				stateDirectory,
+				runtimeDirectory: path.join( technicalSiteDirectory, 'runtime' ),
+				runtimeBlueprintPath: path.join( technicalSiteDirectory, 'runtime', 'blueprint.json' ),
+				localUrl: 'http://localhost:8881',
+			} as never,
+			'https://example.com/?reprint-api',
+			'hmac-secret',
+			false,
+			false
+		);
+
+		expect( fs.readFileSync( path.join( rawDirectory, 'existing-file' ), 'utf-8' ) ).toBe(
+			'keep me'
+		);
+		expect( fs.existsSync( path.join( stateDirectory, '.import-index.jsonl' ) ) ).toBe( true );
+
+		fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
+	} );
+
+	it( 'ignores the selection sidecar unless the resolved selection is passed in', async () => {
+		const technicalSiteDirectory = fs.mkdtempSync(
+			path.join( os.tmpdir(), 'studio-import-pull-sidecar-' )
+		);
+		const stateDirectory = path.join( technicalSiteDirectory, 'state' );
+		const rawDirectory = path.join( technicalSiteDirectory, 'raw' );
+		fs.mkdirSync( stateDirectory, { recursive: true } );
+		fs.mkdirSync( rawDirectory, { recursive: true } );
+		fs.writeFileSync(
+			path.join( stateDirectory, '.import-state.json' ),
+			JSON.stringify( { preflight: { data: {} } } )
+		);
+		// Selection captured in the sidecar, but the pull must ignore it for now.
+		fs.writeFileSync(
+			path.join( stateDirectory, 'selection.json' ),
+			JSON.stringify( {
+				skipDatabase: true,
+				fileOnlyPaths: [ ':wp-plugins:', '/srv/htdocs/wp-content/plugins/akismet' ],
+			} )
+		);
+
+		const reprint = vi
+			.spyOn( migrationClient, 'runReprintCommandUntilComplete' )
+			.mockResolvedValue( { stdout: '{"ok":true}', stderr: '', exitCode: 0 } );
+
+		await runFullPull(
+			SITE_RUNTIME_PLAYGROUND,
+			{
+				sitePath: path.join( technicalSiteDirectory, 'site' ),
+				technicalSiteDirectory,
+				rawDirectory,
+				stateDirectory,
+				runtimeDirectory: path.join( technicalSiteDirectory, 'runtime' ),
+				runtimeBlueprintPath: path.join( technicalSiteDirectory, 'runtime', 'blueprint.json' ),
+				localUrl: 'http://localhost:8881',
+			} as never,
+			'https://example.com/?reprint-api',
+			'hmac-secret',
+			false,
+			true
+		);
+
+		const passedArgs = reprint.mock.calls[ 0 ][ 2 ] as string[];
+		expect( passedArgs ).not.toContain( '--no-db' );
+		expect( passedArgs.some( ( a ) => a.startsWith( '--only' ) ) ).toBe( false );
+
+		fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
+	} );
+
+	it( 'uses the raw wp-content sqlite path for a database pull when preflight exposes no content dir', async () => {
 		const technicalSiteDirectory = fs.mkdtempSync(
 			path.join( os.tmpdir(), 'studio-import-pull-fallback-' )
 		);
@@ -335,22 +730,30 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 			remoteSiteUrl: 'https://example.com',
 		} as never;
 
+		// force=false models a delta re-pull, which must not force-overwrite
+		// the live site.
 		await runFullPull(
 			SITE_RUNTIME_PLAYGROUND,
 			metadata,
 			'https://example.com/?reprint-api',
 			'hmac-secret',
+			false,
 			false
 		);
 
-		const [ , , passedArgs, , passedOptions ] = reprint.mock.calls[ 0 ];
-		// With no content dir from preflight, the sqlite target falls back to
-		// the flattened site's wp-content.
-		expect( passedArgs ).toContain(
-			`--target-sqlite-path=${ sitePath }/wp-content/database/.ht.sqlite`
+		// With no content dir from preflight, the database target stays in
+		// the raw scratch directory so flat-docroot can link it later.
+		const dbArgs = reprint.mock.calls[ 1 ][ 2 ] as string[];
+		expect( dbArgs[ 0 ] ).toBe( 'pull-db' );
+		expect( dbArgs ).toContain(
+			`--target-sqlite-path=${ path.join( rawDirectory, 'wp-content', 'database', '.ht.sqlite' ) }`
 		);
-		// The site + runtime dirs are always mounted for the single fork.
-		expect( passedOptions?.mounts ).toEqual( [
+		// A delta re-pull (force=false) omits --force on the flatten step.
+		const flattenArgs = reprint.mock.calls[ 2 ][ 2 ] as string[];
+		expect( flattenArgs ).not.toContain( '--force' );
+		// The site + runtime dirs are always mounted for every fork.
+		const dbOptions = reprint.mock.calls[ 1 ][ 4 ] as { mounts?: unknown };
+		expect( dbOptions?.mounts ).toEqual( [
 			{ hostPath: sitePath, vfsPath: sitePath },
 			{ hostPath: runtimeDirectory, vfsPath: runtimeDirectory },
 		] );
@@ -358,7 +761,7 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 		fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
 	} );
 
-	it( 'propagates the reprint error and leaves the stage before "pulled" for a safe resume', async () => {
+	it( 'propagates the reprint error and writes no progress file (resume is by derivation)', async () => {
 		const technicalSiteDirectory = fs.mkdtempSync(
 			path.join( os.tmpdir(), 'studio-import-pull-fail-' )
 		);
@@ -399,13 +802,13 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 				metadata as never,
 				'https://example.com/?reprint-api',
 				'hmac-secret',
-				false
+				false,
+				true
 			)
 		).rejects.toThrow( 'reprint exited with code 1' );
 
-		// Stage must NOT advance to 'pulled' — otherwise a resume would skip
-		// the pull even though the site never finished importing.
-		expect( metadata.stage ).toBe( 'initialized' );
+		// No progress file is written on failure either — a re-run resumes by
+		// re-invoking the idempotent pull, not by reading a stage cursor.
 		expect( fs.existsSync( path.join( technicalSiteDirectory, 'pull.json' ) ) ).toBe( false );
 
 		fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
@@ -441,10 +844,6 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 		syncSite( { id: 22, name: 'Two', url: 'https://two.wordpress.com', isStaging: true } ),
 	];
 
-	// A local site with no stored origin, so the cached-secret short-circuit
-	// is skipped and resolution proceeds to the WordPress.com path.
-	const localSite = makeSiteRecord() as never;
-
 	const originalIsTTY = process.stdin.isTTY;
 
 	function setTTY( value: boolean ): void {
@@ -458,6 +857,7 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 		vi.clearAllMocks();
 		vi.mocked( readAuthToken ).mockResolvedValue( token );
 		vi.mocked( rotateReprintSecret ).mockResolvedValue( 'fresh-secret' );
+		vi.mocked( enableReprintExporter ).mockResolvedValue( 'v1' );
 	} );
 
 	afterEach( () => {
@@ -470,26 +870,40 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 		vi.mocked( fetchSyncableSites ).mockResolvedValue( sites );
 		vi.mocked( pickSyncSite ).mockResolvedValue( sites[ 1 ] );
 
-		const source = await resolveSourceSite( localSite );
+		const source = await resolveSourceSite();
 
 		expect( pickSyncSite ).toHaveBeenCalledWith( sites, expect.any( String ) );
 		expect( source ).toMatchObject( {
 			url: 'https://two.wordpress.com',
 			secret: 'fresh-secret',
+			surface: 'v1',
 			wpComSite: sites[ 1 ],
 		} );
-		// A fresh secret is rotated for the picked site only.
-		expect( rotateReprintSecret ).toHaveBeenCalledWith( 22, token.accessToken );
+		// A fresh secret is rotated for the picked site only, keyed to its surface.
+		expect( rotateReprintSecret ).toHaveBeenCalledWith( 22, token.accessToken, 'v1' );
 	} );
 
-	it( 'returns null without rotating a secret when the user cancels the picker', async () => {
+	it( 'threads a v2 surface into the rotate call and the resolved source', async () => {
+		setTTY( true );
+		vi.mocked( fetchSyncableSites ).mockResolvedValue( sites );
+		vi.mocked( enableReprintExporter ).mockResolvedValue( 'v2' );
+
+		const source = await resolveSourceSite( 'https://two.wordpress.com' );
+
+		expect( source ).toMatchObject( { surface: 'v2' } );
+		expect( enableReprintExporter ).toHaveBeenCalledWith( 22, token.accessToken, false );
+		expect( rotateReprintSecret ).toHaveBeenCalledWith( 22, token.accessToken, 'v2' );
+	} );
+
+	it( 'returns null without provisioning when the user cancels the picker', async () => {
 		setTTY( true );
 		vi.mocked( fetchSyncableSites ).mockResolvedValue( sites );
 		vi.mocked( pickSyncSite ).mockResolvedValue( undefined );
 
-		const source = await resolveSourceSite( localSite );
+		const source = await resolveSourceSite();
 
 		expect( source ).toBeNull();
+		expect( enableReprintExporter ).not.toHaveBeenCalled();
 		expect( rotateReprintSecret ).not.toHaveBeenCalled();
 	} );
 
@@ -497,7 +911,7 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 		setTTY( false );
 		vi.mocked( fetchSyncableSites ).mockResolvedValue( sites );
 
-		await expect( resolveSourceSite( localSite ) ).rejects.toThrow( /Re-run with `--url/ );
+		await expect( resolveSourceSite() ).rejects.toThrow( /Re-run with `--url/ );
 		expect( pickSyncSite ).not.toHaveBeenCalled();
 		expect( rotateReprintSecret ).not.toHaveBeenCalled();
 	} );
@@ -506,7 +920,7 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 		setTTY( true );
 		vi.mocked( fetchSyncableSites ).mockResolvedValue( [ sites[ 0 ] ] );
 
-		const source = await resolveSourceSite( localSite );
+		const source = await resolveSourceSite();
 
 		expect( pickSyncSite ).not.toHaveBeenCalled();
 		expect( source ).toMatchObject( {
@@ -520,8 +934,8 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 		setTTY( true );
 		vi.mocked( fetchSyncableSites ).mockResolvedValue( [] );
 
-		await expect( resolveSourceSite( localSite ) ).rejects.toThrow(
-			/No pullable WordPress\.com sites/
+		await expect( resolveSourceSite() ).rejects.toThrow(
+			/No pullable WordPress\.com or Pressable sites/
 		);
 		expect( pickSyncSite ).not.toHaveBeenCalled();
 	} );
@@ -538,7 +952,7 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 		vi.mocked( fetchSyncableSites ).mockResolvedValue( all );
 		vi.mocked( pickSyncSite ).mockResolvedValue( sites[ 1 ] );
 
-		const source = await resolveSourceSite( localSite );
+		const source = await resolveSourceSite();
 
 		// pickSyncSite itself disables non-syncable entries, so it receives the
 		// full list rather than a pre-filtered one.
@@ -556,7 +970,7 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 		} );
 		vi.mocked( fetchSyncableSites ).mockResolvedValue( [ nonSyncable, sites[ 0 ] ] );
 
-		const source = await resolveSourceSite( localSite );
+		const source = await resolveSourceSite();
 
 		expect( pickSyncSite ).not.toHaveBeenCalled();
 		expect( source ).toMatchObject( { url: 'https://one.wordpress.com', wpComSite: sites[ 0 ] } );
@@ -566,46 +980,18 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 		setTTY( true );
 		vi.mocked( fetchSyncableSites ).mockResolvedValue( sites );
 
-		const source = await resolveSourceSite( localSite, 'https://two.wordpress.com' );
+		const source = await resolveSourceSite( 'https://two.wordpress.com' );
 
 		expect( source ).toMatchObject( {
 			url: 'https://two.wordpress.com',
 			secret: 'fresh-secret',
 			wpComSite: sites[ 1 ],
 		} );
-		expect( rotateReprintSecret ).toHaveBeenCalledWith( 22, token.accessToken );
+		expect( rotateReprintSecret ).toHaveBeenCalledWith( 22, token.accessToken, 'v1' );
 		expect( pickSyncSite ).not.toHaveBeenCalled();
 	} );
 
-	it( 'reuses the secret stored on the site origin for a matching --url, skipping rotation', async () => {
-		setTTY( true );
-		const siteWithOrigin = makeSiteRecord( {
-			reprintOrigin: { remoteUrl: 'https://two.wordpress.com/', secret: 'stored-secret' },
-		} ) as never;
-
-		const source = await resolveSourceSite( siteWithOrigin, 'https://two.wordpress.com' );
-
-		expect( source ).toEqual( { url: 'https://two.wordpress.com', secret: 'stored-secret' } );
-		// The cached origin short-circuits before any WordPress.com round-trip.
-		expect( fetchSyncableSites ).not.toHaveBeenCalled();
-		expect( rotateReprintSecret ).not.toHaveBeenCalled();
-	} );
-
-	it( 'ignores the stored origin secret when --url points at a different remote', async () => {
-		setTTY( true );
-		vi.mocked( fetchSyncableSites ).mockResolvedValue( sites );
-		const siteWithOrigin = makeSiteRecord( {
-			reprintOrigin: { remoteUrl: 'https://old.wordpress.com/', secret: 'stored-secret' },
-		} ) as never;
-
-		const source = await resolveSourceSite( siteWithOrigin, 'https://two.wordpress.com' );
-
-		// Origin URL mismatch → fall through to rotating a fresh WP.com secret.
-		expect( source ).toMatchObject( { secret: 'fresh-secret', wpComSite: sites[ 1 ] } );
-		expect( rotateReprintSecret ).toHaveBeenCalledWith( 22, token.accessToken );
-	} );
-
-	it( 'rejects a non-syncable site passed via --url with a clear message', async () => {
+	it( 'rejects a needs-transfer site passed via --url with the hosting-features message', async () => {
 		setTTY( true );
 		vi.mocked( fetchSyncableSites ).mockResolvedValue( [
 			syncSite( {
@@ -616,23 +1002,56 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 			} ),
 		] );
 
-		await expect(
-			resolveSourceSite( localSite, 'https://only-simple.example.com' )
-		).rejects.toThrow( /cannot be pulled/ );
+		await expect( resolveSourceSite( 'https://only-simple.example.com' ) ).rejects.toThrow(
+			/hosting features to be enabled.*hosting-features\/44/
+		);
 		expect( rotateReprintSecret ).not.toHaveBeenCalled();
 	} );
 
-	it( 'bypasses the picker entirely when --url and --secret are provided', async () => {
+	it( 'rejects a needs-upgrade site passed via --url with the plan-upgrade message', async () => {
 		setTTY( true );
+		vi.mocked( fetchSyncableSites ).mockResolvedValue( [
+			syncSite( {
+				id: 55,
+				name: 'Free',
+				url: 'https://free.example.com',
+				syncSupport: 'needs-upgrade',
+			} ),
+		] );
 
-		const source = await resolveSourceSite( localSite, 'https://self-hosted.example', 'my-secret' );
+		await expect( resolveSourceSite( 'https://free.example.com' ) ).rejects.toThrow(
+			/plan with hosting features.*plans\/55/
+		);
+		expect( rotateReprintSecret ).not.toHaveBeenCalled();
+	} );
 
-		expect( source ).toEqual( {
-			url: 'https://self-hosted.example',
-			secret: 'my-secret',
-		} );
-		expect( fetchSyncableSites ).not.toHaveBeenCalled();
+	it( 'reports the specific reason when the only site is not pullable (no --url)', async () => {
+		setTTY( true );
+		vi.mocked( fetchSyncableSites ).mockResolvedValue( [
+			syncSite( {
+				id: 66,
+				name: 'Simple',
+				url: 'https://lone-simple.example.com',
+				syncSupport: 'needs-transfer',
+			} ),
+		] );
+
+		await expect( resolveSourceSite() ).rejects.toThrow(
+			/hosting features to be enabled.*hosting-features\/66/
+		);
 		expect( pickSyncSite ).not.toHaveBeenCalled();
+		expect( rotateReprintSecret ).not.toHaveBeenCalled();
+	} );
+
+	it( 'rejects a URL that is not connected to the WordPress.com account', async () => {
+		setTTY( true );
+		vi.mocked( fetchSyncableSites ).mockResolvedValue( sites );
+
+		await expect( resolveSourceSite( 'https://third-party.example' ) ).rejects.toThrow(
+			/not a WordPress\.com or Pressable site connected to your account/
+		);
+		expect( pickSyncSite ).not.toHaveBeenCalled();
+		expect( rotateReprintSecret ).not.toHaveBeenCalled();
 	} );
 } );
 
@@ -680,9 +1099,9 @@ describe( 'CLI: studio pull-reprint requires an existing site', () => {
 		const migrationClientMod = await import( 'cli/lib/pull/migration-client' );
 		const reprintSpy = vi.spyOn( migrationClientMod, 'runReprintCommandUntilComplete' );
 
-		await expect(
-			runCommand( sitePath, 'https://example.com', 'hmac-secret', false )
-		).rejects.toThrow( /No Studio site found/ );
+		await expect( runCommand( sitePath, 'https://example.com', false ) ).rejects.toThrow(
+			'The specified directory is not added to Studio.'
+		);
 
 		// The site lookup fails up front, so the remote is never contacted and
 		// no pull scratch directory is created.
@@ -692,6 +1111,7 @@ describe( 'CLI: studio pull-reprint requires an existing site', () => {
 
 	it( 'pulls into the site resolved by --path, sourcing identity from the record and creating no new site', async () => {
 		const { runCommand } = await loadRunCommandWithFakeHome();
+		mockWpComPullSource();
 		const sitePath = path.join( fakeHome, 'Studio', 'Existing-Site' );
 		seedCliConfigSite( fakeHome, [
 			makeSiteRecord( { id: 'existing-id', name: 'Existing Site', path: sitePath } ),
@@ -707,9 +1127,7 @@ describe( 'CLI: studio pull-reprint requires an existing site', () => {
 		const logSpy = vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
 		vi.spyOn( console, 'error' ).mockImplementation( () => undefined );
 
-		await expect(
-			runCommand( sitePath, 'https://example.com', 'hmac-secret', false )
-		).rejects.toThrow();
+		await expect( runCommand( sitePath, 'https://example.com', false ) ).rejects.toThrow();
 
 		// The pipeline reached the remote (preflight is its first reprint call).
 		expect( reprintSpy ).toHaveBeenCalled();
@@ -720,17 +1138,25 @@ describe( 'CLI: studio pull-reprint requires an existing site', () => {
 		expect( logged ).toContain( 'Pulling "Existing Site"' );
 		expect( logged ).toContain( sitePath );
 
-		// The scratch directory is keyed by siteId, and pull.json holds only
-		// transient progress — identity/layout are derived from the record.
-		const progress = JSON.parse(
-			fs.readFileSync( path.join( pullsRoot(), 'existing-id', 'pull.json' ), 'utf-8' )
-		);
-		expect( progress ).toEqual( { version: 1, stage: 'initialized' } );
+		// The scratch directory is keyed by siteId; no Studio-owned progress
+		// file is written — resume is by derivation.
+		expect( fs.existsSync( path.join( pullsRoot(), 'existing-id' ) ) ).toBe( true );
+		expect( fs.existsSync( path.join( pullsRoot(), 'existing-id', 'pull.json' ) ) ).toBe( false );
 
-		// No second site was created; the single record is untouched.
+		// No second site was created. The single record keeps its scratch
+		// location (`technicalSiteDirectory`, recorded at pull start so `studio
+		// delete` can clean it up even though this pull never reached the
+		// linking step). Its status is untouched: the site is only marked
+		// `pulling`/`pull-failed` once preflight succeeds and the pull starts
+		// writing into the site directory, so a preflight-stage failure leaves
+		// the record as it was (`ready`).
 		const config = readSeededCliConfig( fakeHome );
 		expect( config.sites ).toHaveLength( 1 );
 		expect( config.sites[ 0 ].id ).toBe( 'existing-id' );
+		expect( config.sites[ 0 ].status ).toBe( 'ready' );
+		expect( config.sites[ 0 ].technicalSiteDirectory ).toBe(
+			path.join( pullsRoot(), 'existing-id' )
+		);
 	} );
 } );
 
@@ -767,8 +1193,9 @@ describe( 'CLI: studio pull-reprint delta re-pull of a completed pull', () => {
 		return mod;
 	}
 
-	it( 'resets a completed pull for a delta re-run instead of exiting early', async () => {
+	it( 'runs a delta re-pull for a site that already completed a full import', async () => {
 		const { runCommand } = await loadRunCommandWithFakeHome();
+		mockWpComPullSource();
 
 		const pullsRoot = path.join( fakeHome, '.studio', 'pulls' );
 		// Scratch is keyed by siteId now.
@@ -777,13 +1204,20 @@ describe( 'CLI: studio pull-reprint delta re-pull of a completed pull', () => {
 		const sitePath = path.join( fakeHome, 'Studio', 'My-Completed-Site' );
 
 		// The local site is resolved by --path against the CLI config record.
+		// `importComplete: true` is the durable marker that a full pull already
+		// happened — it (not a pull.json stage) is what makes this a delta.
 		seedCliConfigSite( fakeHome, [
-			makeSiteRecord( { id: 'completed-id', name: 'My Completed Site', path: sitePath } ),
+			makeSiteRecord( {
+				id: 'completed-id',
+				name: 'My Completed Site',
+				path: sitePath,
+				importComplete: true,
+				status: 'ready',
+			} ),
 		] );
 
-		// Seed a completed pull whose site directory is non-empty (it holds
-		// the previous pull's output) and whose preflight response is cached.
-		// pull.json now carries only transient progress.
+		// Seed the prior pull's non-empty site directory and a cached preflight
+		// response. There is no pull.json any more.
 		fs.mkdirSync( stateDirectory, { recursive: true } );
 		fs.mkdirSync( sitePath, { recursive: true } );
 		fs.writeFileSync( path.join( sitePath, 'wp-config.php' ), '<?php // flattened output' );
@@ -791,14 +1225,10 @@ describe( 'CLI: studio pull-reprint delta re-pull of a completed pull', () => {
 			path.join( stateDirectory, 'preflight.json' ),
 			JSON.stringify( { siteurl: 'https://example.com' } )
 		);
-		fs.writeFileSync(
-			path.join( technicalSiteDirectory, 'pull.json' ),
-			JSON.stringify( { version: 1, stage: 'completed' } )
-		);
 
 		// Fail the first reprint invocation so the re-pull stops right after
-		// the stage reset — we assert on the persisted state, not on a
-		// full pipeline run.
+		// the preflight cache is dropped — we assert on the persisted state,
+		// not on a full pipeline run.
 		const migrationClientMod = await import( 'cli/lib/pull/migration-client' );
 		const reprintSpy = vi
 			.spyOn( migrationClientMod, 'runReprintCommandUntilComplete' )
@@ -806,24 +1236,20 @@ describe( 'CLI: studio pull-reprint delta re-pull of a completed pull', () => {
 		const logSpy = vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
 		vi.spyOn( console, 'error' ).mockImplementation( () => undefined );
 
-		await expect(
-			runCommand( sitePath, 'https://example.com', 'hmac-secret', false )
-		).rejects.toThrow();
+		await expect( runCommand( sitePath, undefined, false ) ).rejects.toThrow();
 
-		// The old behavior exited early without ever invoking reprint; the
-		// re-pull must re-enter the pipeline (preflight is its first call).
+		// A delta re-pull re-enters the pipeline (preflight is its first call)
+		// rather than short-circuiting on the existing import.
 		expect( reprintSpy ).toHaveBeenCalled();
 		expect( reprintSpy.mock.calls[ 0 ][ 2 ][ 0 ] ).toBe( 'preflight' );
 
-		// The stage machine was reset in the (reduced) progress file.
-		const progress = JSON.parse(
-			fs.readFileSync( path.join( technicalSiteDirectory, 'pull.json' ), 'utf-8' )
-		);
-		expect( progress ).toEqual( { version: 1, stage: 'initialized' } );
-
-		// The durable importComplete marker was backfilled onto the site record.
 		const config = readSeededCliConfig( fakeHome );
+		// The durable importComplete marker is preserved across the re-pull…
 		expect( config.sites[ 0 ].importComplete ).toBe( true );
+		// …and a preflight-stage failure leaves the site's status untouched: it
+		// is only marked `pulling`/`pull-failed` once preflight succeeds and the
+		// re-pull begins writing into the site directory.
+		expect( config.sites[ 0 ].status ).toBe( 'ready' );
 
 		// The cached preflight was dropped so connectivity is re-verified.
 		expect( fs.existsSync( path.join( stateDirectory, 'preflight.json' ) ) ).toBe( false );
@@ -831,50 +1257,25 @@ describe( 'CLI: studio pull-reprint delta re-pull of a completed pull', () => {
 		// The non-empty site directory was not clobbered.
 		expect( fs.existsSync( path.join( sitePath, 'wp-config.php' ) ) ).toBe( true );
 
-		// The user sees update messaging, not a no-op success.
+		// The user sees delta-update messaging, not a no-op success.
 		expect( logSpy.mock.calls.flat().join( '\n' ) ).toContain( 'Updating "My Completed Site"' );
 	} );
 
-	it( 'normalizes stale skipped-earlier reprint state before starting an essential-files re-pull', async () => {
+	it( 'runs an essential-files reprint pull for a completed site without forcing', async () => {
 		const { runCommand } = await loadRunCommandWithFakeHome();
+		mockWpComPullSource();
 
-		const pullsRoot = path.join( fakeHome, '.studio', 'pulls' );
-		const technicalSiteDirectory = path.join( pullsRoot, 'stale-filter-id' );
-		const stateDirectory = path.join( technicalSiteDirectory, 'state' );
 		const sitePath = path.join( fakeHome, 'Studio', 'Stale-Filter-Site' );
 
 		seedCliConfigSite( fakeHome, [
-			makeSiteRecord( { id: 'stale-filter-id', name: 'Stale Filter Site', path: sitePath } ),
+			makeSiteRecord( {
+				id: 'stale-filter-id',
+				name: 'Stale Filter Site',
+				path: sitePath,
+				importComplete: true,
+				status: 'ready',
+			} ),
 		] );
-
-		fs.mkdirSync( stateDirectory, { recursive: true } );
-		fs.mkdirSync( sitePath, { recursive: true } );
-		fs.writeFileSync(
-			path.join( technicalSiteDirectory, 'pull.json' ),
-			JSON.stringify( { version: 1, stage: 'completed' } )
-		);
-		fs.writeFileSync(
-			path.join( stateDirectory, '.import-state.json' ),
-			JSON.stringify( {
-				command: 'files-pull',
-				status: 'in_progress',
-				filter: 'skipped-earlier',
-				preflight: {
-					data: {
-						database: {
-							wp: {
-								paths_urls: { content_dir: '/srv/htdocs/wp-content' },
-							},
-						},
-					},
-				},
-			} )
-		);
-		fs.writeFileSync( path.join( stateDirectory, '.import-index.jsonl' ), '{"path":"old"}\n' );
-		fs.writeFileSync(
-			path.join( stateDirectory, '.import-download-list-skipped.jsonl' ),
-			'{"path":"tail"}\n'
-		);
 
 		const migrationClientMod = await import( 'cli/lib/pull/migration-client' );
 		const reprintSpy = vi
@@ -899,29 +1300,17 @@ describe( 'CLI: studio pull-reprint delta re-pull of a completed pull', () => {
 					};
 				}
 
-				if ( args[ 0 ] === 'pull' ) {
-					const state = JSON.parse(
-						fs.readFileSync( path.join( stateDirectory, '.import-state.json' ), 'utf-8' )
-					);
-					expect( state ).toMatchObject( {
-						command: 'files-pull',
-						status: 'complete',
-						stage: null,
-						filter: 'essential-files',
-						preflight: {
-							data: {
-								database: {
-									wp: {
-										paths_urls: { content_dir: '/srv/htdocs/wp-content' },
-									},
-								},
-							},
-						},
-					} );
-					expect( fs.existsSync( path.join( stateDirectory, '.import-index.jsonl' ) ) ).toBe(
-						true
-					);
-					throw new Error( 'stop after essential-files state normalization' );
+				if ( args[ 0 ] === 'import-metadata' ) {
+					return {
+						stdout: JSON.stringify( emptyReprintMetadata ),
+						stderr: '',
+						exitCode: 0,
+					};
+				}
+
+				if ( args[ 0 ] === 'pull-files' ) {
+					expect( args ).not.toContain( '--filter=essential-files' );
+					throw new Error( 'stop after files pull invocation' );
 				}
 
 				throw new Error( `Unexpected reprint command: ${ args[ 0 ] }` );
@@ -929,42 +1318,20 @@ describe( 'CLI: studio pull-reprint delta re-pull of a completed pull', () => {
 		vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
 		vi.spyOn( console, 'error' ).mockImplementation( () => undefined );
 
-		await expect(
-			runCommand( sitePath, 'https://example.com', 'hmac-secret', false )
-		).rejects.toThrow( /stop after essential-files state normalization/ );
+		await expect( runCommand( sitePath, 'https://example.com', false ) ).rejects.toThrow(
+			/stop after files pull invocation/
+		);
 
 		expect( reprintSpy.mock.calls.map( ( call ) => call[ 2 ][ 0 ] ) ).toEqual( [
 			'preflight',
-			'pull',
+			'import-metadata',
+			'pull-files',
 		] );
 	} );
 } );
 
-describe( 'CLI: studio pull-reprint preflight retry re-enables the exporter', () => {
+describe( 'CLI: studio pull-reprint first-pull selective sync', () => {
 	let fakeHome: string;
-
-	const token = {
-		accessToken: 'access-token',
-		id: 1,
-		email: 'user@example.com',
-		displayName: 'User',
-		expiresIn: 1209600,
-		expirationTime: Date.now() + 1209600000,
-	};
-
-	const sites: SyncSite[] = [
-		{
-			id: 22,
-			name: 'Example',
-			url: 'https://example.com',
-			localSiteId: '',
-			isStaging: false,
-			isPressable: false,
-			syncSupport: 'syncable',
-			lastPullTimestamp: null,
-			lastPushTimestamp: null,
-		},
-	];
 
 	afterEach( () => {
 		vi.restoreAllMocks();
@@ -975,7 +1342,7 @@ describe( 'CLI: studio pull-reprint preflight retry re-enables the exporter', ()
 	} );
 
 	async function loadRunCommandWithFakeHome() {
-		fakeHome = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-pull-retry-home-' ) );
+		fakeHome = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-pull-first-selective-' ) );
 
 		vi.resetModules();
 		vi.doMock( 'os', async () => {
@@ -991,62 +1358,127 @@ describe( 'CLI: studio pull-reprint preflight retry re-enables the exporter', ()
 		return mod;
 	}
 
-	it( 're-enables the exporter (not just rotates the secret) before retrying a failed preflight', async () => {
-		const { runCommand, normalizeSiteUrl } = await loadRunCommandWithFakeHome();
+	it( 'accepts --only/--skip-database on a first pull, adds core roots, and preserves unselected local content', async () => {
+		const { runCommand } = await loadRunCommandWithFakeHome();
+		mockWpComPullSource();
 
-		// Seed a site whose stored origin holds a cached secret but no
-		// wpComSite/wpComToken — exactly the delta-re-pull shape that makes
-		// resolveSourceSite short-circuit on the cached secret and skip the
-		// happy-path exporter enable.
-		const normalizedUrl = normalizeSiteUrl( 'https://example.com' );
 		const pullsRoot = path.join( fakeHome, '.studio', 'pulls' );
-		const technicalSiteDirectory = path.join( pullsRoot, 'retry-id' );
+		const technicalSiteDirectory = path.join( pullsRoot, 'fresh-id' );
 		const stateDirectory = path.join( technicalSiteDirectory, 'state' );
-		const sitePath = path.join( fakeHome, 'Studio', 'My-Retry-Site' );
+		const rawDirectory = path.join( technicalSiteDirectory, 'raw' );
+		const sitePath = path.join( fakeHome, 'Studio', 'My-Fresh-Site' );
 
-		// The local site (with its cached origin secret) is resolved by --path.
 		seedCliConfigSite( fakeHome, [
 			makeSiteRecord( {
-				id: 'retry-id',
-				name: 'My Retry Site',
+				id: 'fresh-id',
+				name: 'My Fresh Site',
 				path: sitePath,
-				importComplete: true,
-				reprintOrigin: { remoteUrl: normalizedUrl, secret: 'cached-secret' },
+				status: 'ready',
 			} ),
 		] );
 
-		fs.mkdirSync( stateDirectory, { recursive: true } );
-		fs.mkdirSync( sitePath, { recursive: true } );
-		fs.writeFileSync( path.join( sitePath, 'wp-config.php' ), '<?php // flattened output' );
+		// The `studio create` install this first pull runs against: a real
+		// wp-content with local changes plus the SQLite database.
+		fs.mkdirSync( path.join( sitePath, 'wp-content', 'plugins', 'local-plugin' ), {
+			recursive: true,
+		} );
 		fs.writeFileSync(
-			path.join( technicalSiteDirectory, 'pull.json' ),
-			JSON.stringify( { version: 1, stage: 'initialized' } )
+			path.join( sitePath, 'wp-content', 'plugins', 'local-plugin', 'plugin.php' ),
+			'<?php // local'
 		);
+		fs.mkdirSync( path.join( sitePath, 'wp-content', 'database' ), { recursive: true } );
+		fs.writeFileSync( path.join( sitePath, 'wp-content', 'database', '.ht.sqlite' ), 'local-db' );
 
-		vi.mocked( readAuthToken ).mockResolvedValue( token );
-		vi.mocked( fetchSyncableSites ).mockResolvedValue( sites );
-		vi.mocked( rotateReprintSecret ).mockResolvedValue( 'fresh-secret' );
-		vi.mocked( enableReprintExporter ).mockResolvedValue( undefined );
+		fs.mkdirSync( stateDirectory, { recursive: true } );
 
-		// Every preflight attempt fails (the closed wpcomsh gate returns HTML),
-		// so the command ultimately rejects — but the retry path must still
-		// rotate the secret AND re-enable the exporter before giving up.
 		const migrationClientMod = await import( 'cli/lib/pull/migration-client' );
-		vi.spyOn( migrationClientMod, 'runReprintCommandUntilComplete' ).mockRejectedValue(
-			new Error( 'preflight failed: HTML response' )
-		);
+		const reprintSpy = vi
+			.spyOn( migrationClientMod, 'runReprintCommandUntilComplete' )
+			.mockImplementation( async ( _stateDir, _rawDir, args ) => {
+				if ( args[ 0 ] === 'preflight' ) {
+					return {
+						stdout: JSON.stringify( {
+							data: {
+								ok: true,
+								database: { wp: { siteurl: 'https://example.com', table_prefix: 'wp_' } },
+								php: { version: '8.3' },
+							},
+						} ),
+						stderr: '',
+						exitCode: 0,
+					};
+				}
+				if ( args[ 0 ] === 'import-metadata' ) {
+					return {
+						stdout: JSON.stringify( {
+							...emptyReprintMetadata,
+							sourceSite: {
+								...emptyReprintMetadata.sourceSite,
+								contentDirectory: '/srv/htdocs/wp-content',
+								wordpressRoots: [ '/wordpress/core/7.0', '/wordpress/core' ],
+							},
+						} ),
+						stderr: '',
+						exitCode: 0,
+					};
+				}
+				if ( args[ 0 ] === 'pull-files' ) {
+					return { stdout: '{"ok":true}', stderr: '', exitCode: 0 };
+				}
+				if ( args[ 0 ] === 'flat-docroot' ) {
+					// Preservation runs before flattening: the unselected local
+					// plugin and the kept database are in the scratch by now.
+					const rawContent = path.join( rawDirectory, 'srv', 'htdocs', 'wp-content' );
+					expect(
+						fs.readFileSync(
+							path.join( rawContent, 'plugins', 'local-plugin', 'plugin.php' ),
+							'utf-8'
+						)
+					).toBe( '<?php // local' );
+					expect(
+						fs.readFileSync( path.join( rawContent, 'database', '.ht.sqlite' ), 'utf-8' )
+					).toBe( 'local-db' );
+					throw new Error( 'stop after flat-docroot preservation checks' );
+				}
+				throw new Error( `Unexpected reprint command: ${ args[ 0 ] }` );
+			} );
 		vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
 		vi.spyOn( console, 'error' ).mockImplementation( () => undefined );
 
 		await expect(
-			runCommand( sitePath, 'https://example.com', undefined, false )
-		).rejects.toThrow();
+			runCommand( sitePath, 'https://example.com', false, {
+				only: [ 'themes', 'plugins/jetpack' ],
+				skipDatabase: true,
+			} )
+		).rejects.toThrow( /stop after flat-docroot preservation checks/ );
 
-		// The fix: the retry resolves the WP.com site, rotates the secret, AND
-		// re-opens the exporter gate. Without the enable call the retry would
-		// hit the same closed window and fail identically.
-		expect( rotateReprintSecret ).toHaveBeenCalledWith( 22, token.accessToken );
-		expect( enableReprintExporter ).toHaveBeenCalledWith( 22, token.accessToken, false );
+		// No pull-db: the database was skipped. CLI selections do not need a
+		// remote tree lookup.
+		expect( reprintSpy.mock.calls.map( ( call ) => call[ 2 ][ 0 ] ) ).toEqual( [
+			'preflight',
+			'import-metadata',
+			'pull-files',
+			'flat-docroot',
+		] );
+
+		// The include-list carries the live core root (the ancestor root
+		// holding other core versions is dropped) plus the selection.
+		const filesArgs = reprintSpy.mock.calls[ 2 ][ 2 ] as string[];
+		expect( filesArgs ).toContain( '--only=/wordpress/core/7.0' );
+		expect( filesArgs ).not.toContain( '--only=/wordpress/core' );
+		expect( filesArgs ).toContain( '--only=:wp-content:/themes' );
+		expect( filesArgs ).toContain( '--only=:wp-content:/plugins/jetpack' );
+
+		// The persisted sidecar records the healed selection a resume reuses.
+		const sidecar = JSON.parse(
+			fs.readFileSync( path.join( stateDirectory, 'selection.json' ), 'utf-8' )
+		);
+		expect( sidecar.fileOnlyPaths ).toEqual( [
+			'/wordpress/core/7.0',
+			':wp-content:/themes',
+			':wp-content:/plugins/jetpack',
+		] );
+		expect( sidecar.skipDatabase ).toBe( true );
 	} );
 } );
 

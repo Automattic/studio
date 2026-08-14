@@ -31,7 +31,7 @@ function buildTreeFromLocal( entries: RawDirectoryEntry[], depth: number = 1 ): 
 	);
 }
 
-function buildTreeFromRemote( entries: RemoteFileEntry[], depth: number = 1 ): TreeNode[] {
+export function buildTreeFromRemote( entries: RemoteFileEntry[], depth: number = 1 ): TreeNode[] {
 	return sortNodes(
 		entries.map( ( entry ) => ( {
 			name: entry.name + ( entry.isDirectory ? '/' : '' ),
@@ -45,7 +45,7 @@ function buildTreeFromRemote( entries: RemoteFileEntry[], depth: number = 1 ): T
 	);
 }
 
-function buildRootTree( wpContentChildren: TreeNode[] ): TreeNode[] {
+export function buildRootTree( wpContentChildren: TreeNode[] ): TreeNode[] {
 	return [
 		{
 			name: __( 'Database' ),

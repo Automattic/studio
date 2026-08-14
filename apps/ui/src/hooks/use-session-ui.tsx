@@ -27,8 +27,22 @@ import type { Annotation } from '@/components/site-preview/types';
 
 interface PreviewUIState {
 	open: boolean;
-	path: string;
+	// Full preview: the preview fills the window (sidebar and chat hidden).
+	// Only meaningful while `open`; closing the panel always clears it.
+	fullscreen: boolean;
 	reloadNonce: number;
+	// Currently previewed site.
+	siteId: string | null;
+	// Last visited path per site, so switching back restores it. In-memory only.
+	pathsBySiteId: Record< string, string >;
+}
+
+// The path a site's preview shows: its last visited path, or home.
+export function pathForSite(
+	pathsBySiteId: Record< string, string >,
+	siteId: string | null | undefined
+): string {
+	return siteId ? pathsBySiteId[ siteId ] ?? '/' : '/';
 }
 
 export interface SessionUIState {
@@ -38,11 +52,14 @@ export interface SessionUIState {
 export type SessionUIAction =
 	| { type: 'preview/set-open'; value: boolean }
 	| { type: 'preview/toggle' }
+	| { type: 'preview/set-fullscreen'; value: boolean }
 	| { type: 'preview/navigate'; path: string }
-	| { type: 'preview/update-path'; path: string };
+	| { type: 'preview/reload' }
+	| { type: 'preview/update-path'; path: string }
+	| { type: 'preview/set-site'; siteId: string };
 
 const INITIAL_STATE: SessionUIState = {
-	preview: { open: true, path: '/', reloadNonce: 0 },
+	preview: { open: true, fullscreen: false, reloadNonce: 0, siteId: null, pathsBySiteId: {} },
 };
 
 function reducer( state: SessionUIState, action: SessionUIAction ): SessionUIState {
@@ -50,24 +67,71 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 		case 'preview/set-open':
 			return state.preview.open === action.value
 				? state
-				: { ...state, preview: { ...state.preview, open: action.value } };
+				: {
+						...state,
+						// Closing the panel leaves full preview; reopening starts split.
+						preview: {
+							...state.preview,
+							open: action.value,
+							fullscreen: action.value && state.preview.fullscreen,
+						},
+				  };
 		case 'preview/toggle':
-			return { ...state, preview: { ...state.preview, open: ! state.preview.open } };
+			return {
+				...state,
+				preview: { ...state.preview, open: ! state.preview.open, fullscreen: false },
+			};
+		case 'preview/set-fullscreen':
+			return state.preview.fullscreen === action.value
+				? state
+				: {
+						...state,
+						preview: {
+							...state.preview,
+							fullscreen: action.value,
+							// Entering full preview reveals the panel it expands.
+							open: action.value || state.preview.open,
+						},
+				  };
 		case 'preview/navigate':
 			return {
 				...state,
 				preview: {
 					...state.preview,
-					path: action.path,
+					pathsBySiteId: rememberPath( state.preview, action.path ),
 					reloadNonce: state.preview.reloadNonce + 1,
 					open: true,
 				},
 			};
-		case 'preview/update-path':
-			return state.preview.path === action.path
+		case 'preview/reload':
+			// Reload the current path in place (bump the nonce). Reveal the
+			// panel so the agent-triggered refresh is actually visible.
+			return {
+				...state,
+				preview: {
+					...state.preview,
+					reloadNonce: state.preview.reloadNonce + 1,
+					open: true,
+				},
+			};
+		case 'preview/update-path': {
+			const pathsBySiteId = rememberPath( state.preview, action.path );
+			return pathsBySiteId === state.preview.pathsBySiteId
 				? state
-				: { ...state, preview: { ...state.preview, path: action.path } };
+				: { ...state, preview: { ...state.preview, pathsBySiteId } };
+		}
+		case 'preview/set-site':
+			return state.preview.siteId === action.siteId
+				? state
+				: { ...state, preview: { ...state.preview, siteId: action.siteId } };
 	}
+}
+
+function rememberPath( preview: PreviewUIState, path: string ): Record< string, string > {
+	if ( ! preview.siteId || preview.pathsBySiteId[ preview.siteId ] === path ) {
+		return preview.pathsBySiteId;
+	}
+	return { ...preview.pathsBySiteId, [ preview.siteId ]: path };
 }
 
 // Split contexts so that hooks which only need to dispatch (like
@@ -114,14 +178,6 @@ function SessionUIProviderRoot( { children }: { children: ReactNode } ) {
 	);
 }
 
-function useSessionUIState(): SessionUIState {
-	const value = useContext( SessionUIStateContext );
-	if ( ! value ) {
-		throw new Error( 'useSessionUIState must be used within a SessionUIProvider' );
-	}
-	return value;
-}
-
 export function useSessionUIDispatch(): Dispatch< SessionUIAction > {
 	const value = useContext( SessionUIDispatchContext );
 	if ( ! value ) {
@@ -132,43 +188,67 @@ export function useSessionUIDispatch(): Dispatch< SessionUIAction > {
 
 export interface SessionPreviewUI {
 	readonly open: boolean;
+	readonly fullscreen: boolean;
 	readonly path: string;
 	readonly reloadNonce: number;
+	readonly siteId: string | null;
+	readonly pathsBySiteId: Record< string, string >;
 	setOpen: ( value: boolean ) => void;
 	toggle: () => void;
+	setFullscreen: ( value: boolean ) => void;
 	updatePath: ( path: string ) => void;
+	setSite: ( siteId: string ) => void;
+}
+
+// Like `useSessionPreviewUI`, but usable outside the dashboard layout —
+// returns null when no SessionUIProvider is mounted, so callers can fall
+// back to non-preview behavior (e.g. opening the external browser).
+export function useOptionalSessionPreviewUI(): SessionPreviewUI | null {
+	const state = useContext( SessionUIStateContext );
+	const dispatch = useContext( SessionUIDispatchContext );
+	const setOpen = useCallback(
+		( value: boolean ) => dispatch?.( { type: 'preview/set-open', value } ),
+		[ dispatch ]
+	);
+	const toggle = useCallback( () => dispatch?.( { type: 'preview/toggle' } ), [ dispatch ] );
+	const setFullscreen = useCallback(
+		( value: boolean ) => dispatch?.( { type: 'preview/set-fullscreen', value } ),
+		[ dispatch ]
+	);
+	const updatePath = useCallback(
+		( path: string ) => dispatch?.( { type: 'preview/update-path', path } ),
+		[ dispatch ]
+	);
+	const setSite = useCallback(
+		( siteId: string ) => dispatch?.( { type: 'preview/set-site', siteId } ),
+		[ dispatch ]
+	);
+	return useMemo( () => {
+		if ( ! state || ! dispatch ) {
+			return null;
+		}
+		return {
+			open: state.preview.open,
+			fullscreen: state.preview.fullscreen,
+			path: pathForSite( state.preview.pathsBySiteId, state.preview.siteId ),
+			reloadNonce: state.preview.reloadNonce,
+			siteId: state.preview.siteId,
+			pathsBySiteId: state.preview.pathsBySiteId,
+			setOpen,
+			toggle,
+			setFullscreen,
+			updatePath,
+			setSite,
+		};
+	}, [ state, dispatch, setOpen, toggle, setFullscreen, updatePath, setSite ] );
 }
 
 export function useSessionPreviewUI(): SessionPreviewUI {
-	const state = useSessionUIState();
-	const dispatch = useSessionUIDispatch();
-	const setOpen = useCallback(
-		( value: boolean ) => dispatch( { type: 'preview/set-open', value } ),
-		[ dispatch ]
-	);
-	const toggle = useCallback( () => dispatch( { type: 'preview/toggle' } ), [ dispatch ] );
-	const updatePath = useCallback(
-		( path: string ) => dispatch( { type: 'preview/update-path', path } ),
-		[ dispatch ]
-	);
-	return useMemo(
-		() => ( {
-			open: state.preview.open,
-			path: state.preview.path,
-			reloadNonce: state.preview.reloadNonce,
-			setOpen,
-			toggle,
-			updatePath,
-		} ),
-		[
-			state.preview.open,
-			state.preview.path,
-			state.preview.reloadNonce,
-			setOpen,
-			toggle,
-			updatePath,
-		]
-	);
+	const ui = useOptionalSessionPreviewUI();
+	if ( ! ui ) {
+		throw new Error( 'useSessionPreviewUI must be used within a SessionUIProvider' );
+	}
+	return ui;
 }
 
 // Registers the on-screen session's annotations handler (its "send to chat")

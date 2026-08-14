@@ -9,7 +9,7 @@
 		"benchmark": "ts-node ./benchmark.ts"
 	},
 	"dependencies": {
-		"@wp-playground/cli": "3.1.38",
+		"@wp-playground/cli": "3.1.45",
 		"chalk": "^5.3.0",
 		"playwright": "^1.58.1",
 		"ts-node": "^10.9.2",

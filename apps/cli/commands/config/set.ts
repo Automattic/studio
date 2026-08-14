@@ -39,11 +39,12 @@ import {
 	saveCliConfig,
 	unlockCliConfig,
 } from 'cli/lib/cli-config/core';
-import { getSiteByFolder, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
+import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import { updateDomainInHosts } from 'cli/lib/hosts-file';
 import { validateSupportedPhpVersion } from 'cli/lib/php-versions';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
+import { withSiteOperation } from 'cli/lib/site-operations';
 import { setupCustomDomain } from 'cli/lib/site-utils';
 import { ValidationError } from 'cli/lib/validation-error';
 import {
@@ -73,6 +74,14 @@ export interface SetCommandOptions {
 }
 
 export async function runCommand( sitePath: string, options: SetCommandOptions ): Promise< void > {
+	const validated = validateSetOptions( options );
+	return withSiteOperation( sitePath, 'settings', () => setSiteConfig( sitePath, validated ) );
+}
+
+// Runs before the operation is recorded, so an invalid edit fails without
+// touching the config file or briefly blocking the site. Returns the
+// options with `adminEmail` normalized (blank means "leave it alone").
+function validateSetOptions( options: SetCommandOptions ): SetCommandOptions {
 	const {
 		name,
 		domain,
@@ -126,6 +135,12 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 		throw new LoggerError( __( 'Admin password cannot be empty.' ) );
 	}
 
+	// Static check, so it belongs out here with the rest. The runtime-specific
+	// PHP check further down needs the site record and has to stay inside.
+	if ( options.php !== undefined ) {
+		validateSupportedPhpVersion( options.php );
+	}
+
 	if ( adminEmail !== undefined ) {
 		if ( ! adminEmail.trim() ) {
 			adminEmail = undefined;
@@ -136,6 +151,26 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 			}
 		}
 	}
+
+	return { ...options, adminEmail };
+}
+
+async function setSiteConfig( sitePath: string, options: SetCommandOptions ): Promise< void > {
+	const {
+		name,
+		domain,
+		https,
+		php,
+		wp,
+		runtime,
+		fileAccess,
+		xdebug,
+		adminUsername,
+		adminPassword,
+		adminEmail,
+		debugLog,
+		debugDisplay,
+	} = options;
 
 	try {
 		logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
@@ -351,10 +386,7 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 			}
 
 			logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress server…' ) );
-			const processDesc = await startWordPressServer( site, logger );
-			if ( processDesc.status === 'online' ) {
-				await updateSiteLatestCliPid( site.id, processDesc.pid );
-			}
+			await startWordPressServer( site, logger );
 			logger.reportSuccess( __( 'WordPress server started' ) );
 		}
 

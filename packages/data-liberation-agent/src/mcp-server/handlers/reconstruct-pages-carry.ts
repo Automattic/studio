@@ -10,11 +10,10 @@
 // The pure helper `assembleCarryTheme` is unit-tested; the IO handler is not.
 //
 
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
 import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import type { Handler } from '../handler-types.js';
+import { studioExecFileAsync } from '../../lib/studio-cli.js';
 import { ensurePlugin, type ExecFn } from '../../lib/preview/ensure-plugin.js';
 import type { SectionSpec } from '../../lib/replicate/section-extract.js';
 import { reconstructPageCarry } from '../../lib/replicate/page-reconstruct-carry.js';
@@ -540,12 +539,11 @@ export const reconstructPagesCarryHandler: Handler = async (args, ctx) => {
   // WooCommerce auto-install: store templates only render correctly when WooCommerce
   // is installed and active. Mirror the Jetpack pattern exactly — warning-not-fatal,
   // wooEnsured tally. Called once when products are present; skipped otherwise.
-  const execFileAsync = promisify(execFile);
   let wooEnsured = false;
   let wooWarning: string | undefined;
   if (hasProducts) {
     const wpExec: ExecFn = (sitePath, wpArgs) =>
-      execFileAsync('studio', ['wp', '--path', sitePath, ...wpArgs], {
+      studioExecFileAsync(['wp', '--path', sitePath, ...wpArgs], {
         timeout: 300_000,
         maxBuffer: 16 * 1024 * 1024,
       }).then((o) => o.stdout);
@@ -637,7 +635,7 @@ export const reconstructPagesCarryHandler: Handler = async (args, ctx) => {
       writeReplicaFilesToHost({ wpRoot, blockPlugins: [plugin] });
       editableHtmlPluginSlug = plugin.slug;
       try {
-        await execFileAsync('studio', ['wp', '--path', studioSitePath, 'plugin', 'activate', plugin.slug], {
+        await studioExecFileAsync(['wp', '--path', studioSitePath, 'plugin', 'activate', plugin.slug], {
           timeout: 120_000,
           maxBuffer: 16 * 1024 * 1024,
         });

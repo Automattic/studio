@@ -1,32 +1,50 @@
 import fs from 'fs';
-import path from 'path';
 import {
-	CLI_CONFIG_LOCKFILE_NAME,
-	LOCKFILE_STALE_TIME,
-	LOCKFILE_WAIT_TIME,
-} from '@studio/common/constants';
+	CLI_CONFIG_VERSION,
+	ensureCliConfigDirectory,
+	lockCliConfigFile,
+	readCliConfigFileRaw,
+	unlockCliConfigFile,
+	writeCliConfigFileRaw,
+} from '@studio/common/lib/cli-config-file';
 import { siteDetailsSchema } from '@studio/common/lib/cli-events';
-import { hideDirectoryOnWindows } from '@studio/common/lib/hide-dir-windows';
-import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
-import { getCliConfigPath, getConfigDirectory } from '@studio/common/lib/well-known-paths';
+import { siteOperationSchema } from '@studio/common/lib/site-operation';
+import { getCliConfigPath } from '@studio/common/lib/well-known-paths';
 import { snapshotSchema } from '@studio/common/types/snapshot';
 import { __ } from '@wordpress/i18n';
-import { readFile, writeFile } from 'atomically';
 import { z } from 'zod';
 import { StatsMetric } from 'cli/lib/types/bump-stats';
 import { LoggerError } from 'cli/logger';
 
 /**
  * Durable origin of a site that was populated by `studio pull-reprint`:
- * where it syncs from and the credential needed to talk to that remote.
- * Present only on reprint-pulled sites.
+ * where it syncs from. Present only on reprint-pulled sites.
  */
 export const reprintOriginSchema = z.object( {
 	remoteUrl: z.string(),
 	remoteSiteUrl: z.string().optional(),
 	tablePrefix: z.string().optional(),
-	secret: z.string(),
 } );
+
+/**
+ * Health of a site's local install.
+ *
+ *   - `ready`        a normal, fully-written site (the default; `site
+ *                    create` produces one and a successful pull restores
+ *                    one).
+ *   - `pulling`      a reprint pull is in flight (or was interrupted
+ *                    mid-flight) — the site directory may be partially
+ *                    written and must not be trusted as a healthy site.
+ *   - `pull-failed`  the last reprint pull errored or was killed; the
+ *                    site is half-written. Recovered by re-running
+ *                    `pull-reprint --path <site>` (idempotent) or `site
+ *                    delete`.
+ *
+ * Absent on records created before this field existed; readers treat a
+ * missing value as `ready`.
+ */
+export const siteStatusSchema = z.enum( [ 'ready', 'pulling', 'pull-failed' ] );
+export type SiteStatus = z.infer< typeof siteStatusSchema >;
 
 const siteSchema = siteDetailsSchema
 	.extend( {
@@ -34,19 +52,22 @@ const siteSchema = siteDetailsSchema
 		latestCliPid: z.number().optional(),
 		reprintOrigin: reprintOriginSchema.optional(),
 		// True once a full reprint pull has completed at least once; selects
-		// first-full-pull vs. delta and survives loss of the transient pull.json.
+		// first-full-pull vs. delta. Durable on the site record.
 		importComplete: z.boolean().optional(),
+		status: siteStatusSchema.default( 'ready' ).optional(),
+		// The in-flight Studio operation holding this site. Unlike `status`, it's
+		// transient: once its owning process is gone it's reclaimed on the next
+		// acquire. See `cli/lib/site-operations`.
+		operation: siteOperationSchema.optional(),
 	} )
 	.loose();
 
 // Schema updates must maintain backwards compatibility. If a breaking change is needed,
-// increment CLI_CONFIG_VERSION and add a data migration function.
-const CLI_CONFIG_VERSION = 1;
+// increment CLI_CONFIG_VERSION (in @studio/common/lib/cli-config-file) and add a data migration
+// function.
 
 // IMPORTANT: Always consider that independently installed versions of the CLI (from npm) may also
 // read this file, and any updates to this schema may require updating the `version` field.
-export const aiProviderSchema = z.enum( [ 'wpcom', 'anthropic-api-key' ] );
-
 export const updateCheckSchema = z.object( {
 	lastChecked: z.number(),
 	latestVersion: z.string(),
@@ -56,8 +77,6 @@ const cliConfigSchema = z.looseObject( {
 	version: z.literal( CLI_CONFIG_VERSION ),
 	sites: z.array( siteSchema ).default( () => [] ),
 	snapshots: z.array( snapshotSchema ).default( () => [] ),
-	aiProvider: aiProviderSchema.optional(),
-	anthropicApiKey: z.string().optional(),
 	lastBumpStats: z
 		.record( z.string(), z.partialRecord( z.enum( StatsMetric ), z.number() ) )
 		.optional(),
@@ -83,16 +102,13 @@ const DEFAULT_CLI_CONFIG: CliConfig = {
 };
 
 export async function readCliConfig(): Promise< CliConfig > {
-	const configPath = getCliConfigPath();
-
-	if ( ! fs.existsSync( configPath ) ) {
+	if ( ! fs.existsSync( getCliConfigPath() ) ) {
 		return structuredClone( DEFAULT_CLI_CONFIG );
 	}
 
 	let data: Record< string, unknown >;
 	try {
-		const fileContent = await readFile( configPath, { encoding: 'utf8' } );
-		data = JSON.parse( fileContent );
+		data = await readCliConfigFileRaw();
 	} catch ( error ) {
 		throw new LoggerError( __( 'Failed to read CLI config file.' ), error );
 	}
@@ -121,24 +137,11 @@ export async function readCliConfig(): Promise< CliConfig > {
 	}
 }
 
-async function ensureConfigDirectory(): Promise< void > {
-	const configDir = getConfigDirectory();
-	if ( ! fs.existsSync( configDir ) ) {
-		fs.mkdirSync( configDir, { recursive: true } );
-		await hideDirectoryOnWindows( configDir );
-	}
-}
-
 export async function saveCliConfig( config: CliConfig ): Promise< void > {
 	try {
 		config.version = CLI_CONFIG_VERSION;
-
-		await ensureConfigDirectory();
-
-		const configPath = getCliConfigPath();
-		const fileContent = JSON.stringify( config, null, 2 ) + '\n';
-
-		await writeFile( configPath, fileContent, { encoding: 'utf8' } );
+		await ensureCliConfigDirectory();
+		await writeCliConfigFileRaw( config );
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {
 			throw error;
@@ -147,19 +150,8 @@ export async function saveCliConfig( config: CliConfig ): Promise< void > {
 	}
 }
 
-const LOCKFILE_PATH = path.join( getConfigDirectory(), CLI_CONFIG_LOCKFILE_NAME );
-
-export async function lockCliConfig(): Promise< void > {
-	// The lockfile lives inside the config directory. On a first run that directory may not exist
-	// yet (e.g. telemetry bumps fire before `setupServerFiles()` creates it), and `lockfile.lock`
-	// would reject with ENOENT instead of waiting. Ensure the directory exists before locking.
-	await ensureConfigDirectory();
-	await lockFileAsync( LOCKFILE_PATH, { wait: LOCKFILE_WAIT_TIME, stale: LOCKFILE_STALE_TIME } );
-}
-
-export async function unlockCliConfig(): Promise< void > {
-	await unlockFileAsync( LOCKFILE_PATH );
-}
+export const lockCliConfig = lockCliConfigFile;
+export const unlockCliConfig = unlockCliConfigFile;
 
 export async function updateCliConfigWithPartial(
 	update: Partial< Omit< CliConfig, 'version' | 'sites' > >

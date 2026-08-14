@@ -103,6 +103,10 @@ function readFileAsDataUrl( file: File ): Promise< string > {
 	return readBlobWithFileReader( file, 'readAsDataURL' );
 }
 
+export function readBlobAsDataUrl( blob: Blob ): Promise< string > {
+	return readBlobWithFileReader( blob, 'readAsDataURL' );
+}
+
 async function readBlobTextPreview( blob: Blob ): Promise< string > {
 	const text = await readBlobWithFileReader( blob, 'readAsText' );
 	// The preview slice may cut through the final multibyte character.
@@ -221,6 +225,34 @@ export function getComposerClipboardFiles( dataTransfer: DataTransfer ): File[] 
 		.map( ( item ) => item.getAsFile() )
 		.filter( ( file ): file is File => file !== null )
 		.map( normalizePastedFile );
+}
+
+/**
+ * Listen for file pastes anywhere in the document (e.g. with focus on the
+ * conversation), like other AI chat tools, and hand the clipboard files to
+ * `onFiles`. A composer textarea's own paste handler prevents default first,
+ * so `defaultPrevented` avoids double-adding; pastes inside open dialogs are
+ * left alone. Returns an unsubscribe function.
+ */
+export function watchComposerFilePaste( onFiles: ( files: File[] ) => void ): () => void {
+	const onPaste = ( event: ClipboardEvent ) => {
+		if ( event.defaultPrevented || ! event.clipboardData ) {
+			return;
+		}
+		if ( event.target instanceof Element && event.target.closest( '[role="dialog"]' ) ) {
+			return;
+		}
+		const files = getComposerClipboardFiles( event.clipboardData );
+		if ( files.length === 0 ) {
+			return;
+		}
+		event.preventDefault();
+		onFiles( files );
+	};
+	document.addEventListener( 'paste', onPaste );
+	return () => {
+		document.removeEventListener( 'paste', onPaste );
+	};
 }
 
 function addUniqueError( errors: string[], error: string ): void {

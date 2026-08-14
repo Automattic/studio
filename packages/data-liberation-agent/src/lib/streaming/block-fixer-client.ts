@@ -21,10 +21,11 @@
 //   had before the fixer existed.
 //
 
-import { spawn, type ChildProcess } from 'node:child_process';
+import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import * as http from 'node:http';
-import { join } from 'node:path';
+import { createRequire } from 'node:module';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export interface FixResult {
@@ -49,6 +50,19 @@ export interface BlockFixerStartOpts {
   healthTimeoutMs?: number;
   /** Optional logger for lifecycle events; defaults to no-op. */
   log?: (msg: string) => void;
+}
+
+/** True when the source sidecar's key deps resolve from its directory —
+ * i.e. we're in a checkout with node_modules, not a bare plugin install. */
+function sidecarDepsResolvable(sidecarDir: string): boolean {
+  try {
+    const req = createRequire(join(sidecarDir, 'package.json'));
+    req.resolve('@wordpress/block-library/package.json');
+    req.resolve('jsdom/package.json');
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 const DEFAULT_PORT = 3201;
@@ -98,14 +112,22 @@ export class BlockFixerClient {
   }
 
   private async startInner(opts: BlockFixerStartOpts): Promise<void> {
-    // Resolve scripts/block-fixer/fix-server.js relative to this file.
-    // src/lib/streaming/block-fixer-client.ts → ../../../scripts/block-fixer
+    // Resolve the sidecar relative to this file (src/lib/streaming/ → package
+    // root; the bundle build rewrites import.meta.url back to this source
+    // path, so the derivation holds inside the committed bundles too).
+    // The sidecar's deps live in a nested install (never hoisted — React-18
+    // isolation from Ink's React 19) that a plugin install doesn't ship;
+    // restore it from the committed package-lock.json on first use.
     const here = fileURLToPath(import.meta.url);
     const repoRoot = join(here, '..', '..', '..', '..');
     const serverPath = join(repoRoot, 'scripts', 'block-fixer', 'fix-server.js');
+    const sidecarDir = dirname(serverPath);
 
     if (!existsSync(serverPath)) {
       this.log(`[block-fixer] server script missing at ${serverPath} — fix() will passthrough`);
+      return;
+    }
+    if (!sidecarDepsResolvable(sidecarDir) && !this.installSidecarDeps(sidecarDir)) {
       return;
     }
 
@@ -118,8 +140,8 @@ export class BlockFixerClient {
       env.BLOCK_FIXER_WORKERS = String(opts.workers);
     }
 
-    this.child = spawn('node', [serverPath], {
-      cwd: join(repoRoot, 'scripts', 'block-fixer'),
+    this.child = spawn(process.execPath, [serverPath], {
+      cwd: dirname(serverPath),
       env,
       stdio: ['ignore', 'ignore', 'pipe'],
       detached: false,
@@ -157,6 +179,33 @@ export class BlockFixerClient {
       await new Promise((r) => setTimeout(r, HEALTH_POLL_INTERVAL_MS));
     }
     this.log(`[block-fixer] /health did not respond within timeout — fix() will passthrough`);
+  }
+
+  /**
+   * One-time restore of the sidecar's nested node_modules from its committed
+   * package-lock.json (integrity-pinned; lifecycle scripts not needed, so
+   * --ignore-scripts). Returns true when the deps resolve afterwards; on any
+   * failure logs and returns false so fix() falls back to passthrough.
+   */
+  private installSidecarDeps(sidecarDir: string): boolean {
+    this.log(`[block-fixer] sidecar deps missing — running npm ci in ${sidecarDir}`);
+    const result = spawnSync('npm', ['ci', '--ignore-scripts', '--no-audit', '--no-fund'], {
+      cwd: sidecarDir,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      encoding: 'utf8',
+      timeout: 300_000,
+      shell: process.platform === 'win32',
+    });
+    if (result.status !== 0 || !sidecarDepsResolvable(sidecarDir)) {
+      const detail = (result.stderr || result.error?.message || '').trim().split('\n').slice(-3).join(' ');
+      this.log(
+        `[block-fixer] npm ci failed (${detail || 'unknown error'}) — fix() will passthrough. ` +
+          `Retry manually: cd "${sidecarDir}" && npm ci`,
+      );
+      return false;
+    }
+    this.log('[block-fixer] sidecar deps installed');
+    return true;
   }
 
   /**

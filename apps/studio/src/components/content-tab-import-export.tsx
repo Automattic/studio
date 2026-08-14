@@ -1,4 +1,5 @@
 import { ACCEPTED_IMPORT_FILE_TYPES } from '@studio/common/constants';
+import { isSupportedBackupFilename } from '@studio/common/lib/backup-files';
 import { speak } from '@wordpress/a11y';
 import { Notice } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
@@ -161,11 +162,7 @@ const InitialImportButton = ( {
 };
 
 const isValidImportFile = ( file: File ): boolean => {
-	const fileName = file.name.toLowerCase();
-	return (
-		ACCEPTED_IMPORT_FILE_TYPES.some( ( ext ) => fileName.endsWith( ext ) ) ||
-		fileName.endsWith( '.sql' )
-	);
+	return isSupportedBackupFilename( file.name );
 };
 
 const ImportSite = ( {
@@ -199,7 +196,7 @@ const ImportSite = ( {
 			if ( ! isValidImportFile( file ) ) {
 				setFileError(
 					__(
-						'This file type is not supported. Please use a .zip, .gz, .tar, .tar.gz, .wpress, or .sql file.'
+						'This file type is not supported. Please use a .zip, .gz, .tar, .tar.gz, .wpress, .sql, or .xml file.'
 					)
 				);
 				return;
@@ -257,7 +254,7 @@ const ImportSite = ( {
 			<div className="text-frame-text-secondary a8c-body mb-4">
 				{ createInterpolateElement(
 					__(
-						'Import a Jetpack backup, a full-site backup in another format, or a .sql database file. <learn_more_link />'
+						'Import a Jetpack backup, a full-site backup in another format, a .sql database file, or a WordPress export (.xml) file. <learn_more_link />'
 					),
 					{
 						learn_more_link: <LearnMoreLink docsLinksKey="docsImportExport" />,
@@ -329,7 +326,7 @@ const ImportSite = ( {
 				className="hidden"
 				type="file"
 				data-testid="backup-file"
-				accept={ `${ ACCEPTED_IMPORT_FILE_TYPES.join( ',' ) },.sql` }
+				accept={ ACCEPTED_IMPORT_FILE_TYPES.join( ',' ) }
 				onChange={ onFileSelected }
 			/>
 		</div>

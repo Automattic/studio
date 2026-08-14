@@ -186,44 +186,6 @@
 	z-index: 1;
 }
 
-.copyButton {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	width: 1.75rem;
-	height: 1.75rem;
-	margin: 0;
-	padding: 0;
-	border: 0;
-	border-radius: var(--wpds-border-radius-sm, 4px);
-	background-color: var(--color-frame-bg);
-	background-color: color-mix(in srgb, var(--color-frame-bg) 82%, transparent);
-	-webkit-backdrop-filter: blur(4px);
-	backdrop-filter: blur(4px);
-	color: var(--color-frame-text-secondary);
-	line-height: 1;
-	cursor: pointer;
-	transition: color 0.12s ease, background-color 0.12s ease;
-}
-
-.copyButton:hover,
-.copyButton:focus-visible {
-	color: var(--color-frame-text);
-	background-color: var(--color-frame-surface-alt);
-}
-
-.visuallyHidden {
-	position: absolute;
-	width: 1px;
-	height: 1px;
-	padding: 0;
-	margin: -1px;
-	overflow: hidden;
-	clip: rect(0, 0, 0, 0);
-	white-space: nowrap;
-	border: 0;
-}
-
 .tableWrap {
 	margin: 0 0 1em;
 	overflow-x: auto;

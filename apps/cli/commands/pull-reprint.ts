@@ -25,7 +25,7 @@ import {
 	shouldSetAdminCredentials,
 	toUrlSearchParams,
 } from 'cli/lib/admin-credentials';
-import { enableReprintExporter, rotateReprintSecret } from 'cli/lib/api';
+import { enableReprintExporter, rotateReprintSecret, type ReprintSurface } from 'cli/lib/api';
 import {
 	lockCliConfig,
 	readCliConfig,
@@ -33,18 +33,25 @@ import {
 	type SiteData,
 	unlockCliConfig,
 } from 'cli/lib/cli-config/core';
-import { findSiteByFolder, getSiteUrl, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
+import { getSiteByFolder, getSiteUrl, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, isProcessRunning } from 'cli/lib/daemon-client';
 import {
 	type ReprintProcessResult,
 	runReprintCommandUntilComplete,
 } from 'cli/lib/pull/migration-client';
+import { preserveUnselectedLocalContent } from 'cli/lib/pull/preserve-local-content';
 import {
-	getContentDirFromState,
-	hasSkippedFiles,
-	readReprintState,
-	writeReprintState,
-} from 'cli/lib/pull/reprint-state';
+	getCoreRoots,
+	getReprintMetadata,
+	emptyReprintMetadata,
+	type ReprintMetadata,
+} from 'cli/lib/pull/reprint-metadata';
+import {
+	fetchJetpackPullTree,
+	mapCliOnlyToReprint,
+	resolveOnlyPathsToAbsolute,
+	selectPullItems,
+} from 'cli/lib/pull/reprint-selector';
 import {
 	ensureImportedSiteSqliteReady,
 	loadImportedRuntimeStartOptions,
@@ -52,10 +59,11 @@ import {
 } from 'cli/lib/pull/runtime-start-options';
 import { buildAutoLoginUrl } from 'cli/lib/site-utils';
 import { fetchSyncableSites } from 'cli/lib/sync-api';
-import { pickSyncSite } from 'cli/lib/sync-site-picker';
-import { getPrettyPath } from 'cli/lib/utils';
+import { getSyncSupportError, pickSyncSite } from 'cli/lib/sync-site-picker';
 import {
 	startWordPressServer,
+	stopWordPressServer,
+	isServerRunning,
 	StartServerOptions,
 	getProcessName,
 } from 'cli/lib/wordpress-server-manager';
@@ -68,18 +76,26 @@ const logger = new Logger< LoggerAction >();
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: 'pull-reprint',
-		describe: __( 'Pull a remote WordPress site using the reprint pull tool' ),
+		describe: __(
+			'Pull a remote WordPress site into an existing local site (run `studio create` first; remove with `studio delete`)'
+		),
 		builder: ( builderYargs ) => {
 			return builderYargs
 				.option( 'url', {
 					type: 'string',
 					describe: __( 'URL of the remote WordPress site to pull from (remote source)' ),
 				} )
-				.option( 'secret', {
+				.option( 'only', {
 					type: 'string',
+					array: true,
 					describe: __(
-						'Shared HMAC secret configured in the migration plugin on the remote source'
+						'Restrict the pull to specific wp-content folders (e.g. plugins/akismet, themes, uploads); repeatable.'
 					),
+				} )
+				.option( 'skip-database', {
+					type: 'boolean',
+					describe: __( 'Do not pull the database (keeps the local one)' ),
+					default: false,
 				} )
 				.option( 'verbose', {
 					type: 'boolean',
@@ -88,15 +104,13 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				} );
 		},
 		handler: async ( argv ) => {
-			const verbose = argv.verbose as boolean;
+			const verbose = argv.verbose;
 
 			try {
-				await runCommand(
-					argv.path as string,
-					argv.url as string | undefined,
-					argv.secret as string | undefined,
-					verbose
-				);
+				await runCommand( argv.path, argv.url, verbose, {
+					only: argv.only as string[] | undefined,
+					skipDatabase: argv[ 'skip-database' ] as boolean,
+				} );
 			} catch ( error ) {
 				if ( error instanceof PullError ) {
 					logger.spinner.fail( __( 'Pull failed' ) );
@@ -117,41 +131,24 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 };
 
 /**
- * Where Studio stores the transient progress file and the raw
- * filesystem scratch space for each pulled site.  Each site's pull
- * lives in a subdirectory keyed by its `siteId` (see
- * {@link getPullTechnicalDirectory}).
+ * Where Studio stores the raw filesystem scratch space for each pulled
+ * site — reprint's `.import-state.json`, the preflight cache, and the
+ * raw/runtime working dirs.  Each site's pull lives in a subdirectory
+ * keyed by its `siteId` (see {@link getPullTechnicalDirectory}); there is
+ * no Studio-owned progress file. `studio delete` removes this scratch.
  */
 const PULLS_ROOT = path.join( os.homedir(), '.studio', 'pulls' );
 
-const pullStageOrder = [
-	'initialized',
-	'pulled',
-	'site-registered',
-	'site-started',
-	'completed',
-] as const;
-
 /**
- * The furthest stage the pull pipeline has completed.  Rerunning the
- * command picks up at the first stage after this one, so every phase
- * must only advance here after its output is safely on disk.
+ * The on-disk scratch layout for a site's pull, all derived from the
+ * site's identity (`siteId`) and layout (`SiteData`).  There is no
+ * Studio-owned progress file: "where do I continue from?" is computed
+ * from observable state (reprint's own `.import-state.json` cursor,
+ * whether the server is running, whether skipped files remain) and the
+ * durable {@link SiteData} flags (`status`, `importComplete`), not from
+ * a written stage cursor.
  */
-type PullStage = ( typeof pullStageOrder )[ number ];
-
-/**
- * Version the stored progress file format to gracefully change it over time.
- */
-const PULL_METADATA_VERSION = 1;
-
-interface PullProgress {
-	version: number;
-	stage: PullStage;
-}
-
-interface PullSessionMetadata {
-	version: number;
-	stage: PullStage;
+interface PullSession {
 	sitePath: string;
 	localUrl: string;
 	technicalSiteDirectory: string;
@@ -162,18 +159,64 @@ interface PullSessionMetadata {
 }
 
 /**
+ * The user's selective-sync choice for the pull in flight (interactive
+ * selector or `--only`/`--skip-*` flags). An empty object means "pull
+ * everything".
+ */
+interface PullSelection {
+	skipDatabase?: boolean;
+	fileOnlyPaths?: string[];
+}
+
+/** Raw selective-sync CLI flags (`--only`, `--skip-database`). */
+interface CliSelectionOptions {
+	only?: string[];
+	skipDatabase?: boolean;
+}
+
+/**
+ * The selection is the one piece of per-pull state that cannot be derived
+ * from observable state: it is user input, and a resumed pull must reuse
+ * the exact same choice (reprint refuses to resume a files-pull whose
+ * `--only` set changed mid-flight). It lives in a small sidecar file in
+ * the scratch directory — written when chosen, deleted when the pull
+ * completes so the next pull asks again. It is NOT a progress cursor.
+ */
+const SELECTION_FILE = 'selection.json';
+
+function getSelectionPath( session: PullSession ): string {
+	return path.join( session.stateDirectory, SELECTION_FILE );
+}
+
+function readPullSelection( session: PullSession ): PullSelection | null {
+	try {
+		return JSON.parse( fs.readFileSync( getSelectionPath( session ), 'utf-8' ) );
+	} catch {
+		return null; // missing or unreadable → no prior selection
+	}
+}
+
+function savePullSelection( session: PullSession, selection: PullSelection ): void {
+	fs.mkdirSync( session.stateDirectory, { recursive: true } );
+	fs.writeFileSync( getSelectionPath( session ), JSON.stringify( selection, null, 2 ) + '\n' );
+}
+
+function clearPullSelection( session: PullSession ): void {
+	fs.rmSync( getSelectionPath( session ), { force: true } );
+}
+
+/**
  * Normalized result of turning CLI arguments into something the pull
- * pipeline can act on: a remote URL to fetch from and the HMAC secret
- * the exporter will check.  For WordPress.com sources we also stash
- * the matched `SyncSite` and auth token so the preflight failure
- * path can rotate a fresh secret without loading the full site list a
- * second time.
+ * pipeline can act on: a WordPress.com/Pressable site URL to fetch from,
+ * the HMAC secret the exporter will check, and the API identity needed to
+ * enable the exporter.
  */
 interface PullSource {
 	secret: string;
+	surface: ReprintSurface;
 	url: string;
-	wpComSite?: SyncSite;
-	wpComToken?: StoredAuthToken;
+	wpComSite: SyncSite;
+	wpComToken: StoredAuthToken;
 }
 
 class PullError extends LoggerError {
@@ -189,88 +232,79 @@ class PullError extends LoggerError {
  * Orchestrates a single end-to-end pull with Reprint.phar. Pipeline:
  *
  *   resolveSourceSite (remote source only) →
- *   getPullSessionMetadata →
- *   runPreflight (with secret-rotate retry on WP.com) →
+ *   getPullSession (scratch layout from siteId) →
+ *   runPreflight →
  *   saveReprintOrigin (durable origin onto SiteData) →
- *   runFullPull (one `reprint pull`: files-pull → db-pull → db-apply →
- *     flat-docroot → apply-runtime) →
+ *   runFullPull (pull-files → pull-db (unless the database is
+ *     excluded) → flat-docroot → apply-runtime) →
  *   linkPulledRuntimeToSite (wire the generated runtime onto the
  *     existing site record) →
- *   startWordPressServer →
- *   downloadSkippedFiles.
+ *   startWordPressServer.
  *
  * The local site is resolved by `--path` against an existing
  * `SiteData` record (created via `studio create`); this command never
- * creates or deletes a site.  Each Studio stage persists to `pull.json`
- * (see {@link recordCompletedStage}), so a crash resumes at the next
- * stage; within the pull, reprint resumes its own pipeline from its
- * last completed sub-stage.  Teardown is owned entirely by `studio
- * delete`; this command has no abort/rollback verb (Ctrl-C stops the
- * foreground pull, and re-running it resumes idempotently).
+ * creates or deletes a site.  There is no Studio-owned progress file:
+ * the site is marked `status: 'pulling'` up front and every phase is
+ * idempotent, so a crash (or `Ctrl-C`) just leaves the site `pulling`
+ * and re-running resumes by derivation — reprint resumes its own
+ * pipeline from Reprint's own state, and the server-start phase keys off
+ * whether the process is already running. A pull that errors or is killed lands the
+ * site in `status: 'pull-failed'`; success returns it to `status:
+ * 'ready'`.  Teardown is owned entirely by `studio delete`; this command
+ * has no abort/rollback verb.
  *
- * Re-running after a pull reached 'completed' performs a delta
- * re-pull: Studio's stage machine resets to 'initialized' and reprint
- * resets its own sub-command state via prepare_repull().  Each phase is
- * incremental — files re-sync as a delta (re-index + diff), the
- * database is fully re-downloaded and re-applied (the dump is
- * idempotent, so edits, inserts, and deletes all propagate).
+ * Re-running after a full pull already completed (`SiteData.importComplete`)
+ * performs a delta re-pull: reprint resets its own sub-command state via
+ * prepare_repull().  Each phase is incremental — files re-sync as a delta
+ * (re-index + diff), the database is fully re-downloaded and re-applied
+ * (the dump is idempotent, so edits, inserts, and deletes all propagate).
  */
 export async function runCommand(
 	localPath: string,
 	remoteUrl?: string,
-	remoteSecret?: string,
-	verbose = false
+	verbose = false,
+	cliSelection: CliSelectionOptions = {}
 ): Promise< void > {
-	// The local site must already exist (created via `studio create`).
-	// pull-reprint refreshes an existing site from a remote source; it
-	// owns neither the creation nor the naming of the local site.
-	const site = await findSiteByFolder( localPath );
-	if ( ! site ) {
-		throw new LoggerError(
-			sprintf(
-				// translators: %s: the local site path.
-				__( 'No Studio site found at %s. Run `studio create` first.' ),
-				getPrettyPath( localPath )
-			)
-		);
-	}
+	logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
+	const site = await getSiteByFolder( localPath );
+	logger.reportSuccess( __( 'Site loaded' ) );
 
-	const sourceSite = await resolveSourceSite( site, remoteUrl, remoteSecret, verbose );
+	const sourceSite = await resolveSourceSite( remoteUrl ?? site.reprintOrigin?.remoteUrl, verbose );
 	if ( ! sourceSite ) {
 		return;
 	}
 
 	const { url: sourceSiteUrl } = sourceSite;
-	let secret = sourceSite.secret;
+	const secret = sourceSite.secret;
 	const normalizedRemoteUrl = normalizeSiteUrl( sourceSiteUrl );
-	const { created, studioMetadata } = await getPullSessionMetadata( site );
-	const apiUrl = getReprintApiUrlForSite( normalizedRemoteUrl );
+	const studioMetadata = getPullSession( site );
+	// `resolveSourceSite` already probed the exporter and enabled it; the
+	// detected surface decides the importer query var (v1 `?reprint-api` vs v2
+	// `?reprint-api-jetpack`) just as it decided the rotate route for the secret.
+	const apiUrl = getReprintApiUrlForSite( normalizedRemoteUrl, sourceSite.surface );
 
-	// A previously completed pull re-runs as a delta sync: reset the
-	// stage machine so every phase executes again. Reprint does the
+	// "Full pull vs. delta" is derived from the durable site flag, not a
+	// stage cursor: a site that has already completed a full pull
+	// (`importComplete`) re-runs as a delta sync. Reprint does the
 	// incremental work against the preserved state directory — files
 	// re-sync as a delta (re-index + diff), the database is fully
 	// re-downloaded and re-applied (the dump is idempotent, so remote
 	// edits, inserts, and deletes all land locally).
-	const isRepull = studioMetadata.stage === 'completed';
-	if ( isRepull ) {
-		studioMetadata.stage = 'initialized';
-		savePullProgress( studioMetadata );
-		// A completed pull.json implies a full pull happened; backfill the
-		// durable marker in case it predates the importComplete flag.
-		await markImportComplete( site );
+	const isRepull = Boolean( site.importComplete );
 
-		// Re-verify connectivity (and give the secret-rotation retry path
-		// a chance to run) instead of trusting the cached preflight from
-		// the original pull, which may be days old.
+	// Resume vs. fresh is derived from observable on-disk state: a
+	// non-empty reprint state directory means a prior run already started
+	// pulling into this site. Computed before the mkdir below so the
+	// freshly-created (empty) directory doesn't read as a resume.
+	const hadScratch =
+		fs.existsSync( studioMetadata.stateDirectory ) &&
+		fs.readdirSync( studioMetadata.stateDirectory ).length > 0;
+
+	if ( isRepull ) {
+		// Re-verify connectivity instead of trusting the cached preflight
+		// from the original pull, which may be days old.
 		fs.rmSync( path.join( studioMetadata.stateDirectory, 'preflight.json' ), { force: true } );
 	}
-
-	// The target site pre-exists (created via `studio create`), so its
-	// directory legitimately holds the blank WordPress install. The pull's
-	// flatten stage overwrites it with the remote site's files; an
-	// interrupted pull can therefore leave the site partially written.
-	// Crash atomicity is a deferred follow-up (see the refactor overview).
 
 	// Create the `~/.studio/pulls/<siteId>` directory structure for the
 	// pull session scratch space.
@@ -279,11 +313,10 @@ export async function runCommand(
 	fs.mkdirSync( studioMetadata.runtimeDirectory, { recursive: true } );
 	fs.mkdirSync( studioMetadata.sitePath, { recursive: true } );
 
-	const isResume = ! created || fs.readdirSync( studioMetadata.stateDirectory ).length > 0;
 	if ( isRepull ) {
 		console.log( `Updating "${ site.name }" from ${ normalizedRemoteUrl } (delta sync)` );
 		console.log( '' );
-	} else if ( isResume ) {
+	} else if ( hadScratch ) {
 		console.log( `Resuming previous pull of "${ site.name }" from ${ normalizedRemoteUrl }` );
 		console.log( '' );
 	} else {
@@ -293,126 +326,101 @@ export async function runCommand(
 	console.log( `Site directory: ${ studioMetadata.sitePath }` );
 	console.log( '' );
 
+	let wasRunning = false;
 	try {
-		// Activate the reprint exporter on the target site before any
-		// direct request.  wpcomsh gates the ?reprint-api endpoint on
-		// a `reprint_exporter_enabled` timestamp set within the last
-		// 60 minutes; without this the first preflight would be refused.
-		// Runs on every pull (including resumes) since the sliding
-		// window may have expired between runs.
-		if ( sourceSite.wpComSite && sourceSite.wpComToken ) {
-			await enableReprintExporter(
-				sourceSite.wpComSite.id,
-				sourceSite.wpComToken.accessToken,
-				verbose
-			);
+		wasRunning = Boolean( await isServerRunning( site.id ) );
+	} finally {
+		await disconnectFromDaemon();
+	}
+
+	site.technicalSiteDirectory = studioMetadata.technicalSiteDirectory;
+	await updateSiteRecord( site.id, ( record ) => {
+		record.technicalSiteDirectory = studioMetadata.technicalSiteDirectory;
+	} );
+
+	try {
+		const preflight = await runPreflight(
+			SITE_RUNTIME_NATIVE_PHP,
+			studioMetadata,
+			apiUrl,
+			secret,
+			verbose
+		);
+		const reprintMetadata = await getReprintMetadata( {
+			apiUrl,
+			stateDirectory: studioMetadata.stateDirectory,
+			rawDirectory: studioMetadata.rawDirectory,
+			runtime: SITE_RUNTIME_NATIVE_PHP,
+			verbose,
+		} );
+		// Selective sync: apply `--only`/`--skip-*` flags, or prompt
+		// interactively with the wp-content folder tree + database toggle.
+		// A partial first-pull selection gets the core roots added and the
+		// unselected local content preserved. A resumed pull reuses the
+		// persisted choice without re-prompting. Runs before the site is
+		// marked `pulling` so a cancel is a clean no-op.
+		const selection = await applySelection( {
+			session: studioMetadata,
+			isFirstPull: ! site.importComplete || ! reprintMetadata.hasLocalIndex,
+			reprintMetadata,
+			cli: cliSelection,
+			wpComAccessToken: sourceSite.wpComToken.accessToken,
+			wpComSiteId: sourceSite.wpComSite.id,
+		} );
+		if ( ! selection ) {
+			console.log( __( 'Cancelled.' ) );
+			return;
 		}
 
-		let preflight;
-		try {
-			preflight = await runPreflight(
-				SITE_RUNTIME_NATIVE_PHP,
-				studioMetadata,
-				apiUrl,
-				secret,
-				verbose
-			);
-		} catch ( preflightError ) {
-			// Preflight against ?reprint-api can fail for two reasons we can
-			// recover from on WP.com: the stored secret expired, or the
-			// wpcomsh exporter gate (`reprint_exporter_enabled`, a 60-minute
-			// sliding window) closed since the last run.  A cached-secret
-			// resume skips the happy-path enable above, so this is the common
-			// case on a delta re-pull.  Resolve the WP.com site (loading the
-			// site list only now, if we haven't already), then both rotate the
-			// secret AND re-enable the exporter before retrying.
-			if ( sourceSite.wpComSite && sourceSite.wpComToken ) {
-				secret = await rotateReprintSecret(
-					sourceSite.wpComSite.id,
-					sourceSite.wpComToken.accessToken
-				);
-			} else {
-				let token: StoredAuthToken | null;
-				try {
-					token = await readAuthToken();
-				} catch {
-					token = null;
-				}
-				if ( ! token ) {
-					throw preflightError;
-				}
-				const sites = await fetchSyncableSites( token.accessToken );
-				const matched = findMatchingWpComSite( sites, sourceSiteUrl );
-				// Only syncable sites (hosting features enabled) can run the
-				// reprint exporter and rotate a secret.
-				if ( ! matched || matched.syncSupport !== 'syncable' ) {
-					throw preflightError;
-				}
-				sourceSite.wpComSite = matched;
-				sourceSite.wpComToken = token;
-				secret = await rotateReprintSecret( matched.id, token.accessToken );
-			}
-			// Rotating the secret does not bump `reprint_exporter_enabled`, so
-			// re-open the gate explicitly; otherwise the retry hits the same
-			// closed window and ?reprint-api falls through to an HTML page.
-			await enableReprintExporter(
-				sourceSite.wpComSite.id,
-				sourceSite.wpComToken.accessToken,
-				verbose
-			);
-			preflight = await runPreflight(
-				SITE_RUNTIME_NATIVE_PHP,
-				studioMetadata,
-				apiUrl,
-				secret,
-				verbose
-			);
-		}
-		// Persist the durable origin onto the site record (not pull.json):
-		// where it syncs from, the remote's self-reported siteurl, the table
-		// prefix, and the (possibly rotated) secret a resume will reuse.
+		// Persist the durable origin onto the site record: where it syncs
+		// from, the remote's self-reported siteurl, and the table prefix.
+		// The Reprint secret is intentionally rotated for each run, not
+		// stored for later reuse.
 		const origin = {
 			remoteUrl: normalizedRemoteUrl,
 			remoteSiteUrl: preflight.siteurl || normalizedRemoteUrl,
 			tablePrefix: preflight.table_prefix || undefined,
-			secret,
 		};
+		site.status = 'pulling';
 		site.reprintOrigin = origin;
 		await updateSiteRecord( site.id, ( record ) => {
+			record.status = 'pulling';
 			record.reprintOrigin = origin;
 		} );
 
-		// db-apply (run inside the composite `pull`) rewrites the remote
-		// site URL to the local one the Studio server already serves —
+		// db-apply (run inside `pull-db`) rewrites the remote site URL to
+		// the local one the Studio server already serves —
 		// `studioMetadata.localUrl` comes from the existing site's port, so
 		// no port allocation is needed here.
 
-		// A single `reprint pull` runs the whole pipeline in one PHP-WASM
-		// fork: files-pull → db-pull → db-apply → flat-docroot →
-		// apply-runtime. reprint owns the stage ordering internally and, on
-		// a delta re-pull, resets its own sub-command state via
-		// prepare_repull().
-		if ( ! hasPullCompletedStage( studioMetadata, 'pulled' ) ) {
-			normalizeReprintStateForEssentialFilesPull( studioMetadata.stateDirectory );
-			await runFullPull( SITE_RUNTIME_NATIVE_PHP, studioMetadata, apiUrl, secret, verbose );
-		}
+		// The pull pipeline runs as separate reprint commands (pull-files →
+		// pull-db → flat-docroot → apply-runtime) so the selection can skip
+		// the database step entirely; see runFullPull. Always re-invoked:
+		// every command is idempotent and reprint resumes its own pipeline
+		// from `.import-state.json`, so there is no Studio-side guard.
+		await runFullPull(
+			SITE_RUNTIME_NATIVE_PHP,
+			studioMetadata,
+			apiUrl,
+			secret,
+			verbose,
+			! isRepull,
+			selection,
+			reprintMetadata
+		);
 
-		// The site record already exists (created via `studio create`); the
-		// pull only needs to wire the generated technical directory and
-		// runtime Blueprint onto it so `studio start` and the daemon serve
-		// the imported runtime rather than the original blank install.
-		if ( ! hasPullCompletedStage( studioMetadata, 'site-registered' ) ) {
-			logger.reportStart( LoggerAction.CREATE_SITE, `Linking pulled files to "${ site.name }"…` );
-			site.technicalSiteDirectory = studioMetadata.technicalSiteDirectory;
-			site.runtimeBlueprintPath = studioMetadata.runtimeBlueprintPath;
-			await updateSiteRecord( site.id, ( record ) => {
-				record.technicalSiteDirectory = studioMetadata.technicalSiteDirectory;
-				record.runtimeBlueprintPath = studioMetadata.runtimeBlueprintPath;
-			} );
-			logger.reportSuccess( `Site "${ site.name }" updated` );
-			recordCompletedStage( studioMetadata, 'site-registered' );
-			logger.reportKeyValuePair( 'id', site.id );
-		}
+		// The site record already exists (created via `studio create`) and its
+		// `technicalSiteDirectory` was recorded at pull start; the pull now
+		// wires the generated runtime Blueprint onto it so `studio start` and
+		// the daemon serve the imported runtime rather than the original blank
+		// install. Idempotent — re-writing the same value on a resume is harmless.
+		logger.reportStart( LoggerAction.CREATE_SITE, `Linking pulled files to "${ site.name }"…` );
+		site.runtimeBlueprintPath = studioMetadata.runtimeBlueprintPath;
+		await updateSiteRecord( site.id, ( record ) => {
+			record.runtimeBlueprintPath = studioMetadata.runtimeBlueprintPath;
+		} );
+		logger.reportSuccess( `Site "${ site.name }" updated` );
+		logger.reportKeyValuePair( 'id', site.id );
 
 		// Imported sites' databases come from the remote dump, which lacks
 		// the local admin user. Without this, the auto-login mu-plugin can't
@@ -426,31 +434,49 @@ export async function runCommand(
 			} );
 		}
 
-		if ( ! hasPullCompletedStage( studioMetadata, 'site-started' ) ) {
-			let runtimeStartOptions: StartServerOptions;
-			if ( getSiteRuntime( site ) === SITE_RUNTIME_NATIVE_PHP ) {
-				runtimeStartOptions = loadImportedRuntimeStartOptionsNative(
-					studioMetadata.technicalSiteDirectory,
-					studioMetadata.runtimeDirectory
-				);
-			} else {
-				await ensureImportedSiteSqliteReady( studioMetadata.runtimeBlueprintPath );
-				runtimeStartOptions = await loadImportedRuntimeStartOptions(
-					studioMetadata.runtimeBlueprintPath
+		let runtimeStartOptions: StartServerOptions;
+		if ( getSiteRuntime( site ) === SITE_RUNTIME_NATIVE_PHP ) {
+			const nativeStartOptions = loadImportedRuntimeStartOptionsNative( studioMetadata );
+			if ( ! nativeStartOptions ) {
+				throw new LoggerError(
+					`Missing runtime.php in ${ studioMetadata.runtimeDirectory }. Re-run \`studio pull-reprint\` to regenerate the runtime configuration.`
 				);
 			}
+			runtimeStartOptions = nativeStartOptions;
+		} else {
+			await ensureImportedSiteSqliteReady(
+				studioMetadata.runtimeBlueprintPath,
+				reprintMetadata.sourceSite.contentDirectory
+			);
+			runtimeStartOptions = await loadImportedRuntimeStartOptions(
+				studioMetadata.runtimeBlueprintPath,
+				reprintMetadata.sourceSite.extraDirectories
+			);
+		}
 
-			// Persist the computed start options so `studio site start` and
-			// the daemon can re-read them without recomputing (which spins
-			// up PHP WASM to extract runtime.php constants).
-			const startOptionsPath = path.join( studioMetadata.runtimeDirectory, 'start-options.json' );
-			fs.writeFileSync( startOptionsPath, JSON.stringify( runtimeStartOptions, null, 2 ) + '\n' );
+		// Persist the computed start options so `studio site start` and
+		// the daemon can re-read them without recomputing (which spins
+		// up PHP WASM to extract runtime.php constants).
+		const startOptionsPath = path.join( studioMetadata.runtimeDirectory, 'start-options.json' );
+		fs.writeFileSync( startOptionsPath, JSON.stringify( runtimeStartOptions, null, 2 ) + '\n' );
 
-			logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress server…' ) );
+		logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress server…' ) );
 
-			try {
-				await connectToDaemon();
+		try {
+			await connectToDaemon();
 
+			const runningProcess = await isProcessRunning( getProcessName( site.id ) );
+
+			if ( ! isRepull && wasRunning ) {
+				// The live process is still serving the blank install whose
+				// runtime the pull just replaced on disk, so restart it to load
+				// the imported runtime.
+				if ( runningProcess ) {
+					await stopWordPressServer( site.id );
+				}
+				await startWordPressServer( site, logger, runtimeStartOptions );
+				logger.reportSuccess( __( 'WordPress server restarted' ) );
+			} else {
 				// On a re-pull, the site's server is often already running.
 				// The synced files and database are picked up live (PHP
 				// opens them per request), so there's nothing to restart —
@@ -462,7 +488,6 @@ export async function runCommand(
 				// A connection failure means the daemon's view is stale and
 				// the server is actually down, so fall through to a start
 				// (which re-applies the credentials itself).
-				const runningProcess = await isProcessRunning( getProcessName( site.id ) );
 				const credentialsResult = runningProcess
 					? await reapplyAdminCredentials( site )
 					: 'unreachable';
@@ -474,24 +499,18 @@ export async function runCommand(
 					if ( runningProcess.status === 'online' ) {
 						await updateSiteLatestCliPid( site.id, runningProcess.pid );
 					}
-					recordCompletedStage( studioMetadata, 'site-started' );
 				} else {
-					const processDesc = await startWordPressServer( site, logger, runtimeStartOptions );
+					await startWordPressServer( site, logger, runtimeStartOptions );
 					logger.reportSuccess( __( 'WordPress server started' ) );
-
-					if ( processDesc.status === 'online' ) {
-						await updateSiteLatestCliPid( site.id, processDesc.pid );
-					}
-					recordCompletedStage( studioMetadata, 'site-started' );
 				}
-			} catch ( serverError ) {
-				throw new LoggerError(
-					__( 'Failed to start the WordPress server for the pulled site.' ),
-					serverError
-				);
-			} finally {
-				await disconnectFromDaemon();
 			}
+		} catch ( serverError ) {
+			throw new LoggerError(
+				__( 'Failed to start the WordPress server for the pulled site.' ),
+				serverError
+			);
+		} finally {
+			await disconnectFromDaemon();
 		}
 
 		if ( studioMetadata.localUrl ) {
@@ -501,35 +520,36 @@ export async function runCommand(
 			printSiteUrls( studioMetadata.localUrl );
 		}
 
-		if ( ! hasPullCompletedStage( studioMetadata, 'completed' ) ) {
-			if ( hasSkippedFiles( studioMetadata.stateDirectory ) ) {
-				await downloadSkippedFiles(
-					getSiteRuntime( site ),
-					studioMetadata,
-					apiUrl,
-					secret,
-					verbose
-				);
-			}
+		// The pull is done: drop the selection sidecar so the next pull asks
+		// again instead of silently reusing this run's choice.
+		clearPullSelection( studioMetadata );
 
-			recordCompletedStage( studioMetadata, 'completed' );
-			// A full pull just finished — record the durable marker that
-			// drives first-full-pull vs. delta decisions independent of
-			// the transient pull.json.
-			await markImportComplete( site );
+		site.importComplete = true;
+		site.status = 'ready';
+		await updateSiteRecord( site.id, ( record ) => {
+			record.importComplete = true;
+			record.status = 'ready';
+		} );
+
+		console.log( '' );
+		console.log( `Site "${ site.name }" pulled successfully.` );
+		console.log( '' );
+		if ( studioMetadata.localUrl ) {
+			printSiteUrls( studioMetadata.localUrl );
 		}
 
-		printCompletionMessage( site, studioMetadata.localUrl );
 		process.exit( 0 );
 	} catch ( error ) {
-		const resumeCommand = [
-			'studio pull-reprint',
-			`--path "${ localPath }"`,
-			`--url ${ normalizedRemoteUrl }`,
-		];
-		if ( remoteSecret ) {
-			resumeCommand.push( '--secret <secret>' );
+		// Mark the site `pull-failed` if the error was thrown after it was
+		// marked `pulling`.
+		if ( site.status === 'pulling' ) {
+			site.status = 'pull-failed';
+			await updateSiteRecord( site.id, ( record ) => {
+				record.status = 'pull-failed';
+			} );
 		}
+
+		const resumeCommand = [ 'studio pull-reprint', `--path "${ localPath }"` ];
 		console.log( '' );
 		console.log( 'To resume this pull, re-run the same command:' );
 		console.log( `  ${ resumeCommand.join( ' ' ) }` );
@@ -543,19 +563,179 @@ export async function runCommand(
 }
 
 /**
+ * Resolve the selective-sync choice for this pull. Returns the selection
+ * (empty object = pull everything) or `null` when the user cancelled the
+ * interactive prompt.
+ *
+ * Order of precedence:
+ *   1. A selection persisted by a prior interrupted run → reuse it (the
+ *      resume must keep the same `--only` set).
+ *   2. `--only`/`--skip-*` flags → apply non-interactively.
+ *   3. Non-interactive with no flags → pull everything.
+ *   4. Interactive → the wp-content folder tree + database toggle.
+ *
+ * reprint's `--only` is an include-list that *replaces* the default
+ * export roots, and on a **first pull** the raw fs-root has no WordPress
+ * core yet — so any partial first-pull selection gets the
+ * preflight-detected core roots prepended. The unselected wp-content
+ * folders (and a skipped database) keep their local contents: they are
+ * carried into the scratch before flattening (see
+ * preserve-local-content.ts).
+ */
+async function applySelection( params: {
+	session: PullSession;
+	isFirstPull: boolean;
+	reprintMetadata: ReprintMetadata;
+	cli: CliSelectionOptions;
+	wpComAccessToken: string;
+	wpComSiteId: number;
+} ): Promise< PullSelection | null > {
+	const { session, isFirstPull, reprintMetadata, cli, wpComAccessToken, wpComSiteId } = params;
+
+	// A partial first-pull `--only` set must include the core roots. When
+	// preflight did not expose them, fall back to a full file pull rather
+	// than assemble a coreless, unbootable site. `databaseOnly` marks the
+	// "no folders selected" case, which still needs core on a first pull.
+	const withCoreRootsOnFirstPull = ( fileOnlyPaths: string[], databaseOnly = false ): string[] => {
+		if ( ! isFirstPull || ( fileOnlyPaths.length === 0 && ! databaseOnly ) ) {
+			return fileOnlyPaths;
+		}
+		const coreRoots = getCoreRoots( reprintMetadata );
+		if ( coreRoots.length === 0 ) {
+			console.log(
+				__(
+					'Could not determine where WordPress core lives on the remote site; pulling all files instead of the selection.'
+				)
+			);
+			return [];
+		}
+		return [
+			...coreRoots,
+			...fileOnlyPaths.filter( ( onlyPath ) => ! coreRoots.includes( onlyPath ) ),
+		];
+	};
+
+	// Reuse the selection captured by a prior interrupted run. A folder
+	// selection can outlive the scratch that made it a delta (damage wipe):
+	// re-anchor it with the core roots so the fresh initial sync still
+	// downloads WordPress core.
+	const persisted = readPullSelection( session );
+	if ( persisted ) {
+		const healed = withCoreRootsOnFirstPull( persisted.fileOnlyPaths ?? [] );
+		if ( healed.length !== ( persisted.fileOnlyPaths?.length ?? 0 ) ) {
+			persisted.fileOnlyPaths = healed.length > 0 ? healed : undefined;
+			savePullSelection( session, persisted );
+		}
+		return persisted;
+	}
+
+	// Keeping the local database is only possible when one exists — a
+	// `studio create` site that was never started has no SQLite file yet
+	// (it is created on first boot), and the pull would end on WordPress's
+	// database-connection error page.
+	const assertLocalDatabaseAvailable = ( selection: PullSelection ): void => {
+		if ( ! selection.skipDatabase ) {
+			return;
+		}
+		const contentDir = reprintMetadata.sourceSite.contentDirectory;
+		const rawContentPath = contentDir
+			? path.join( session.rawDirectory, ...contentDir.split( '/' ).filter( Boolean ) )
+			: path.join( session.rawDirectory, 'wp-content' );
+		const candidates = [
+			path.join( session.sitePath, 'wp-content', 'database', '.ht.sqlite' ),
+			path.join( rawContentPath, 'database', '.ht.sqlite' ),
+			path.join( session.rawDirectory, 'wp-content', 'database', '.ht.sqlite' ),
+		];
+		if ( ! candidates.some( ( candidate ) => fs.existsSync( candidate ) ) ) {
+			throw new LoggerError(
+				__(
+					'The local site has no database yet (it is created the first time the site starts), so the database cannot be excluded from this pull. Include the database, or start the site once and pull again.'
+				)
+			);
+		}
+	};
+
+	const cliOnly = cli.only?.filter( ( value ) => value.trim().length > 0 ) ?? [];
+	const cliDriven = cliOnly.length > 0 || cli.skipDatabase;
+
+	if ( cliDriven ) {
+		const selection: PullSelection = {
+			skipDatabase: !! cli.skipDatabase,
+		};
+		if ( cliOnly.length > 0 ) {
+			const contentDir = reprintMetadata.sourceSite.contentDirectory;
+			if ( ! contentDir ) {
+				throw new LoggerError(
+					__(
+						'Could not determine the remote wp-content path from preflight state, so --only cannot be used for this site. Run a full pull, or try again.'
+					)
+				);
+			}
+			const withCore = withCoreRootsOnFirstPull( mapCliOnlyToReprint( cliOnly ) );
+			if ( withCore.length > 0 ) {
+				selection.fileOnlyPaths = withCore;
+			}
+		}
+		assertLocalDatabaseAvailable( selection );
+		savePullSelection( session, selection );
+		return selection;
+	}
+
+	if ( ! process.stdin.isTTY ) {
+		// Non-interactive with no flags → pull everything. Persisted anyway so
+		// a later interactive resume cannot change `--only` mid-flight.
+		const selection: PullSelection = {};
+		savePullSelection( session, selection );
+		return selection;
+	}
+
+	// The wp-content folder tree + database toggle. On a first pull a
+	// database-only choice is meaningful (core + local files + remote
+	// database); on a delta it is rejected inside selectPullItems.
+	const contentDir = reprintMetadata.sourceSite.contentDirectory;
+	if ( ! contentDir ) {
+		const selection: PullSelection = {};
+		savePullSelection( session, selection );
+		return selection;
+	}
+	const tree = await fetchJetpackPullTree( wpComAccessToken, wpComSiteId );
+	if ( tree.length === 0 ) {
+		const selection: PullSelection = {};
+		savePullSelection( session, selection );
+		return selection;
+	}
+	const picked = await selectPullItems( tree, {
+		allowDatabaseOnly: isFirstPull,
+		token: wpComAccessToken,
+		remoteSiteId: wpComSiteId,
+	} );
+	if ( ! picked ) {
+		return null;
+	}
+	const fileOnlyPaths = withCoreRootsOnFirstPull( picked.fileOnlyPaths, ! picked.hasAnyFile );
+	const selection: PullSelection = {
+		skipDatabase: picked.skipDatabase,
+	};
+	if ( fileOnlyPaths.length > 0 ) {
+		selection.fileOnlyPaths = fileOnlyPaths;
+	}
+	assertLocalDatabaseAvailable( selection );
+	savePullSelection( session, selection );
+	return selection;
+}
+
+/**
  * Runs `reprint preflight` against the remote site and caches the
  * response envelope at `stateDirectory/preflight.json`.
  *
- * The first direct request to the site happens here — a failure from
- * an expired secret or a disabled exporter surfaces as a recognizable
- * PullError that the pull orchestrator turns into a secret-rotation
- * retry (for WP.com sources) or a user-facing abort.  Returns the
- * handful of site-identity fields runCommand needs to record on the
- * metadata before the download stages begin.
+ * The first direct request to the site happens here. Failures surface as
+ * recognizable PullErrors with technical details for verbose output.
+ * Returns the handful of site-identity fields runCommand needs to record
+ * on the metadata before the download stages begin.
  */
 async function runPreflight(
 	runtime: SiteRuntime,
-	sessionMetadata: PullSessionMetadata,
+	sessionMetadata: PullSession,
 	sourceSiteApiUrl: string,
 	sourceSiteSecret: string,
 	verbose = false
@@ -643,40 +823,6 @@ async function runPreflight(
 }
 
 /**
- * Answers "has this pull already finished the given pipeline stage?".
- *
- * Pull stages are strictly ordered (see {@link pullStageOrder}:
- * initialized → essential-files-complete → flattened → db-downloaded →
- * db-applied → runtime-generated → site-registered → site-started →
- * completed), and `metadata.stage` always holds the last one that
- * reached disk via {@link recordCompletedStage}.  Every phase in
- * runCommand uses this as its resume guard — when it returns true the
- * phase is skipped on re-run.
- */
-function hasPullCompletedStage( metadata: PullSessionMetadata, stage: PullStage ): boolean {
-	return pullStageOrder.indexOf( metadata.stage ) >= pullStageOrder.indexOf( stage );
-}
-
-/**
- * Reprint refuses to resume a files sync with a different --filter than
- * the one stored in its state. A completed Studio pull may leave that
- * state on the post-pull skipped-earlier pass; mark that pass complete
- * and restore the filter expected by the next essential-files pull
- * without deleting the cursor/index files reprint needs for deltas.
- */
-function normalizeReprintStateForEssentialFilesPull( stateDirectory: string ): void {
-	const reprintState = readReprintState( stateDirectory );
-	if ( reprintState?.filter && reprintState.filter !== 'essential-files' ) {
-		writeReprintState( stateDirectory, {
-			...reprintState,
-			status: 'complete',
-			stage: null,
-			filter: 'essential-files',
-		} );
-	}
-}
-
-/**
  * The `~/.studio/pulls/<siteId>` scratch root for a site's pull. Keyed
  * by `siteId` (not a URL hash) so it follows the site, not the remote.
  */
@@ -684,174 +830,239 @@ function getPullTechnicalDirectory( siteId: string ): string {
 	return path.join( PULLS_ROOT, siteId );
 }
 
-function getMetadataPath( technicalSiteDirectory: string ): string {
-	return path.join( technicalSiteDirectory, 'pull.json' );
-}
-
 /**
- * Persist the transient pull progress file (`pull.json`) so a rerun
- * resumes from the last completed Studio-side stage rather than starting
- * over.  Written atomically via a temp file + rename so a crash mid-write
- * leaves the previous snapshot intact.
+ * Make sure the wp-config.php that wp-load.php will read exists and is
+ * non-empty after a `--only`-scoped pull.
  *
- * Distinct from reprint's own `.import-state.json` (read/written by
- * {@link readReprintState} in `reprint-state.ts`): that file is
- * reprint.phar's internal cursor for an individual command — what file
- * it was syncing, which byte it stopped at, what the preflight returned.
- * `pull.json` is Studio's higher-level pipeline state — which of the
- * {@link pullStageOrder} stages have finished.  Everything else the next
- * run needs lives on the {@link SiteData} record.
+ * WordPress resolves symlinks, so a pulled site boots through the raw
+ * scratch: wp-load looks for wp-config.php in the raw ABSPATH, then in
+ * its parent. On WP Cloud the parent copy is a symlink to
+ * `<document_root>/wp-config.php`, which sits outside every `--only`
+ * prefix of a scoped pull — the link is recreated but its target is
+ * never fetched. When both candidates are missing or empty, write a
+ * minimal config: wp-load defines ABSPATH before loading it and the
+ * generated runtime prepend defines the database constants, so only the
+ * table prefix and the wp-settings handoff are needed.
  */
-function savePullProgress( metadata: PullSessionMetadata ): void {
-	fs.mkdirSync( metadata.technicalSiteDirectory, { recursive: true } );
-	const metadataPath = getMetadataPath( metadata.technicalSiteDirectory );
-	const progress: PullProgress = { version: metadata.version, stage: metadata.stage };
-	const tempPath = `${ metadataPath }.tmp`;
-	fs.writeFileSync( tempPath, JSON.stringify( progress, null, 2 ) + '\n' );
-	fs.renameSync( tempPath, metadataPath );
-}
+export function ensureScopedPullWpConfig(
+	metadata: PullSession,
+	reprintMetadata: ReprintMetadata = emptyReprintMetadata
+): void {
+	const abspath = reprintMetadata.sourceSite.wordpressAbsolutePath;
+	if ( ! abspath ) {
+		return;
+	}
 
-function readPullProgress( technicalSiteDirectory: string ): PullProgress | null {
-	let raw: string;
-	try {
-		raw = fs.readFileSync( getMetadataPath( technicalSiteDirectory ), 'utf-8' );
-	} catch ( error: unknown ) {
-		if ( ( error as NodeJS.ErrnoException ).code === 'ENOENT' ) {
-			return null;
+	const segments = abspath.split( '/' ).filter( Boolean );
+	const rawAbspath = path.join( metadata.rawDirectory, ...segments );
+	const candidates = [ path.join( rawAbspath, 'wp-config.php' ) ];
+	if ( segments.length > 0 ) {
+		candidates.push( path.join( path.dirname( rawAbspath ), 'wp-config.php' ) );
+	}
+
+	for ( const candidate of candidates ) {
+		try {
+			// statSync follows symlinks: a dangling link falls through to
+			// the catch, an empty target reports size 0.
+			if ( fs.statSync( candidate ).size > 0 ) {
+				return;
+			}
+		} catch {
+			// Missing — keep looking.
 		}
-		throw error;
 	}
 
-	const progress = JSON.parse( raw ) as PullProgress;
-	if ( progress.version !== PULL_METADATA_VERSION ) {
-		return null;
-	}
-	return progress;
+	const tablePrefix = reprintMetadata.sourceSite.tablePrefix ?? 'wp_';
+	// Escape for a PHP single-quoted string: backslashes first, then single
+	// quotes (both are the only special characters there).
+	const escapedTablePrefix = tablePrefix.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" );
+	// Written to the last candidate wp-load checks; writeFileSync follows
+	// an existing symlink and creates its target.
+	const target = candidates[ candidates.length - 1 ];
+	fs.mkdirSync( path.dirname( target ), { recursive: true } );
+	fs.writeFileSync(
+		target,
+		[
+			'<?php',
+			'/**',
+			' * Generated by Studio: the remote wp-config.php was outside the',
+			" * scoped pull's selection. Database constants come from the",
+			' * runtime prepend; ABSPATH is defined by wp-load.php.',
+			' */',
+			`$table_prefix = '${ escapedTablePrefix }';`,
+			'',
+			"require_once ABSPATH . 'wp-settings.php';",
+			'',
+		].join( '\n' )
+	);
 }
 
 /**
- * Run reprint's composite `pull` command: the whole site-clone
- * pipeline (preflight → files-pull → db-pull → db-apply →
- * flat-docroot → apply-runtime) in a single child process, with
- * reprint owning the stage ordering and, when the prior pull already
- * completed, resetting its own sub-command state for a delta re-pull
- * via prepare_repull().
+ * Run the site-clone pipeline as separate reprint commands so the
+ * selective-sync choice maps directly onto them:
+ *
+ *   1. `pull-files`    — preflight + file download. `--only` restricts the
+ *      pull to the wp-content folders the user selected.
+ *   2. `pull-db`       — SQL download + import into SQLite. **Skipped
+ *      entirely** when the user excluded the database, leaving the local
+ *      database untouched.
+ *   3. `flat-docroot`  — reassemble the raw download into the site
+ *      directory. `--force` is passed only on the first pull, where it
+ *      overwrites the blank WordPress install `studio create` produced;
+ *      a delta re-pull refreshes existing symlinks and must not
+ *      force-overwrite the live site.
+ *   4. `apply-runtime` — server config, run last so it embeds the DB
+ *      credentials `pull-db` wrote to state (or keeps the previous ones
+ *      when the database was skipped).
  *
  * The SQLite target geometry:
  *   - If preflight exposed the remote `wp-content` (contentDir set),
  *     the database lands under `rawDirectory + contentDir`, an
  *     already-mounted host path that flat-docroot later symlinks into
  *     the flattened site.
- *   - Otherwise it falls back to `sitePath/wp-content`.
+ *   - Without that preflight path, a database pull uses
+ *     `rawDirectory/wp-content`; a database-excluded pull keeps the
+ *     existing database at `sitePath/wp-content`.
  *
- * The flattened site (`--flatten-to`) and runtime output
- * (`--output-dir`) directories are mounted up front so the single
- * fork can write them onto the host filesystem.  `ensurePort` must
- * run first so `--new-site-url` points at the local server.
- *
- * Advances the pull stage to 'pulled'.
+ * The flattened site and runtime output directories are mounted up
+ * front so the forks can write them onto the host filesystem. Each
+ * command is individually resumable (exit code 2 → retry loop in
+ * {@link runReprintCommandUntilComplete}) and idempotent, so the
+ * orchestrator always re-invokes the sequence with no Studio-side
+ * completion guard.
  */
 export async function runFullPull(
 	runtime: SiteRuntime,
-	metadata: PullSessionMetadata,
+	metadata: PullSession,
 	apiUrl: string,
 	secret: string,
-	verbose: boolean
+	verbose: boolean,
+	force: boolean,
+	selection: PullSelection = {},
+	reprintMetadata: ReprintMetadata = emptyReprintMetadata
 ): Promise< void > {
-	const contentDir = getContentDirFromState( metadata.stateDirectory );
-	const sqlitePath = contentDir
-		? `${ metadata.rawDirectory }${ contentDir }/database/.ht.sqlite`
-		: `${ metadata.sitePath }/wp-content/database/.ht.sqlite`;
+	const contentDir = reprintMetadata.sourceSite.contentDirectory;
+	let importedSqlitePath: string;
+	if ( contentDir ) {
+		importedSqlitePath = path.join(
+			metadata.rawDirectory,
+			...contentDir.split( '/' ).filter( Boolean ),
+			'database',
+			'.ht.sqlite'
+		);
+	} else if ( selection.skipDatabase ) {
+		importedSqlitePath = path.join( metadata.sitePath, 'wp-content', 'database', '.ht.sqlite' );
+	} else {
+		importedSqlitePath = path.join( metadata.rawDirectory, 'wp-content', 'database', '.ht.sqlite' );
+	}
+
+	let sqlitePath = importedSqlitePath;
+	if ( selection.skipDatabase ) {
+		const existingSqlitePath = [
+			importedSqlitePath,
+			path.join( metadata.sitePath, 'wp-content', 'database', '.ht.sqlite' ),
+			path.join( metadata.rawDirectory, 'wp-content', 'database', '.ht.sqlite' ),
+		].find( ( candidate ) => fs.existsSync( candidate ) );
+		if ( existingSqlitePath ) {
+			sqlitePath = existingSqlitePath;
+		}
+	}
 	const reprintRuntime = runtime === SITE_RUNTIME_NATIVE_PHP ? 'nginx-fpm' : 'playground-cli';
+	const onlyArgs = ( selection.fileOnlyPaths ?? [] ).map( ( onlyPath ) => `--only=${ onlyPath }` );
+
+	const runStep = ( progressLabel: string, args: string[] ) =>
+		runReprintCommandUntilComplete(
+			metadata.stateDirectory,
+			metadata.rawDirectory,
+			args,
+			( progress ) => logger.reportProgress( progress ),
+			{
+				progressLabel,
+				mounts: [
+					{ hostPath: metadata.sitePath, vfsPath: metadata.sitePath },
+					{ hostPath: metadata.runtimeDirectory, vfsPath: metadata.runtimeDirectory },
+				],
+				verboseCommands: verbose,
+				runtime,
+			}
+		);
 
 	logger.reportStart( LoggerAction.DOWNLOAD_FILES, __( 'Pulling site…' ) );
-	await runReprintCommandUntilComplete(
-		metadata.stateDirectory,
-		metadata.rawDirectory,
-		[
-			'pull',
+
+	// 1. Files. `--only` restricts the download to selected paths.
+	await runStep( __( 'Pulling files' ), [
+		'pull-files',
+		apiUrl,
+		`--secret=${ secret }`,
+		...onlyArgs,
+		'--no-adaptive',
+		`--state-dir=${ metadata.stateDirectory }`,
+		`--fs-root=${ metadata.rawDirectory }`,
+	] );
+
+	// 2. Database — only when selected.
+	if ( ! selection.skipDatabase ) {
+		await runStep( __( 'Pulling database' ), [
+			'pull-db',
 			apiUrl,
 			`--secret=${ secret }`,
-			'--filter=essential-files',
 			'--target-engine=sqlite',
 			`--target-sqlite-path=${ sqlitePath }`,
 			`--new-site-url=${ metadata.localUrl! }`,
-			`--flatten-to=${ metadata.sitePath }`,
-			`--runtime=${ reprintRuntime }`,
-			'--start-runtime=none',
-			`--output-dir=${ metadata.runtimeDirectory }`,
 			'--no-adaptive',
 			`--state-dir=${ metadata.stateDirectory }`,
 			`--fs-root=${ metadata.rawDirectory }`,
-			'--force',
-		],
-		( progress ) => logger.reportProgress( progress ),
-		{
-			progressLabel: __( 'Pulling site' ),
-			mounts: [
-				{ hostPath: metadata.sitePath, vfsPath: metadata.sitePath },
-				{ hostPath: metadata.runtimeDirectory, vfsPath: metadata.runtimeDirectory },
-			],
-			verboseCommands: verbose,
-			runtime,
-		}
-	);
-	logger.reportSuccess( __( 'Site pulled' ) );
-	recordCompletedStage( metadata, 'pulled' );
-}
+		] );
+	}
 
-/**
- * Second-phase file sync: fetch the wp-content entries that the
- * essential-files pass deliberately skipped (unused plugins/themes,
- * large caches).  Runs after the site is already up so the user can
- * poke around while the tail downloads in the background.
- *
- * When reprint is already mid-way through a skipped-earlier run
- * (status=partial, stage=fetch-skipped), the state file already
- * encodes the resumption point — overwriting it would break reprint's
- * internal validation, so we leave the state alone in that case.
- */
-export async function downloadSkippedFiles(
-	runtime: SiteRuntime,
-	metadata: PullSessionMetadata,
-	apiUrl: string,
-	secret: string,
-	verbose: boolean
-): Promise< void > {
-	const reprintState = readReprintState( metadata.stateDirectory );
-	const isResumingSkipped =
-		reprintState?.stage === 'fetch-skipped' && reprintState?.status !== 'complete';
-
-	// Rewrite the reprint state so the next files-sync understands it
-	// should download the entries the essential-files pass skipped.  No-op
-	// when reprint is already mid-way through that run (its state file
-	// encodes the resume cursor; overwriting would break validation) or
-	// when no skipped entries exist.
-	if ( ! isResumingSkipped && hasSkippedFiles( metadata.stateDirectory ) ) {
-		writeReprintState( metadata.stateDirectory, {
-			...reprintState,
-			command: 'files-sync',
-			status: 'complete',
-			stage: null,
-			filter: 'essential-files',
+	// 3. Carry the unselected local wp-content entries (and a kept
+	// database) into the scratch before flattening replaces the site's
+	// wp-content with a symlink into it. No-op once the site is flattened.
+	if ( contentDir ) {
+		preserveUnselectedLocalContent( {
+			sitePath: metadata.sitePath,
+			rawDirectory: metadata.rawDirectory,
+			contentDir,
+			selectedPrefixes: resolveOnlyPathsToAbsolute( selection.fileOnlyPaths ?? [], contentDir ),
+			skipDatabase: selection.skipDatabase,
 		} );
 	}
 
-	logger.reportStart( LoggerAction.DOWNLOAD_FILES, __( 'Downloading remaining files…' ) );
-	await runReprintCommandUntilComplete(
-		metadata.stateDirectory,
-		metadata.rawDirectory,
-		buildFilesSyncArgs( metadata, apiUrl, secret, [
-			...( isResumingSkipped ? [] : [ '--filter=skipped-earlier' ] ),
-		] ),
-		( progress ) => logger.reportProgress( progress ),
-		{
-			progressLabel: __( 'Remaining files' ),
-			verboseCommands: verbose,
-			runtime,
-		}
-	);
-	logger.reportSuccess( __( 'Remaining files downloaded' ) );
+	// A scoped pull can miss the real wp-config.php: on WP Cloud it lives
+	// at the document root — outside both the core roots and any
+	// wp-content selection — reachable only through a symlink under the
+	// core root. Synthesize a minimal one so WordPress can boot.
+	if ( ( selection.fileOnlyPaths ?? [] ).length > 0 ) {
+		ensureScopedPullWpConfig( metadata, reprintMetadata );
+	}
+
+	// 4. Flatten the raw download into the site directory. Reprint uses the
+	// remote URL to locate the pull state, though this step makes no request.
+	await runStep( __( 'Flattening layout' ), [
+		'flat-docroot',
+		apiUrl,
+		`--flatten-to=${ metadata.sitePath }`,
+		...( force ? [ '--force' ] : [] ),
+		`--state-dir=${ metadata.stateDirectory }`,
+		`--fs-root=${ metadata.rawDirectory }`,
+	] );
+
+	// 5. Runtime config — last. Supply the database target explicitly so
+	// Reprint can generate runtime configuration when pull-db was skipped.
+	// Reprint uses the remote URL to locate that state; --flat-document-root
+	// replaces --fs-root (they are mutually exclusive).
+	await runStep( __( 'Preparing runtime' ), [
+		'apply-runtime',
+		apiUrl,
+		`--runtime=${ reprintRuntime }`,
+		'--target-engine=sqlite',
+		`--target-sqlite-path=${ sqlitePath }`,
+		`--output-dir=${ metadata.runtimeDirectory }`,
+		`--flat-document-root=${ metadata.sitePath }`,
+		`--state-dir=${ metadata.stateDirectory }`,
+	] );
+
+	logger.reportSuccess( __( 'Site pulled' ) );
 }
 
 export function normalizeSiteUrl( url: string ): string {
@@ -862,6 +1073,7 @@ export function normalizeSiteUrl( url: string ): string {
 	normalized.hash = '';
 	normalized.pathname = normalized.pathname.replace( /\/+$/, '' ) || '/';
 	normalized.searchParams.delete( 'reprint-api' );
+	normalized.searchParams.delete( 'reprint-api-jetpack' );
 	return normalized.toString();
 }
 
@@ -899,62 +1111,28 @@ export function findMatchingWpComSite< T extends { url: string } >(
 }
 
 /**
- * Resolves the **remote source** to pull from — never the local site,
- * which `runCommand` resolves separately by `--path` and passes in as
- * `site` (used only to read its cached origin secret).  Returns the
- * remote `url`/`secret` (plus the matched WordPress.com site + token
- * when applicable).  Handles three input patterns:
+ * Resolves the **remote source** to pull from. A valid source must be
+ * present in the user's WordPress.com Jetpack API site list, which also
+ * includes Pressable sites on the same platform. Handles two input
+ * patterns:
  *
- *   1. `--url` + `--secret` — trusted pair, used as-is (self-hosted
- *      sites and arbitrary URLs).
- *   2. A site with a saved `reprintOrigin` (set by a previous pull),
- *      with either no `--url` or a `--url` that matches that origin —
- *      reuse the saved remote URL and HMAC secret so a re-pull needs no
- *      remote re-selection or secret re-rotation. An explicit `--secret`
- *      still overrides the stored one. If the stored secret is stale,
- *      preflight 403s and the WP.com retry path rotates a fresh one.
- *   3. `--url` with no matching stored secret — resolve it against the
- *      connected WordPress.com sites and rotate a fresh secret.
- *   4. No `--url` and no saved origin — among pullable (`syncable`)
- *      sites only: if the user has exactly one, pick it; with several,
- *      show an interactive picker in a TTY (returning `null` if the user
- *      cancels) or error out when run non-interactively. Non-pullable
- *      sites (Simple, or missing hosting features) are surfaced as
- *      disabled in the picker.
+ *   1. URL provided — resolve it against the connected WordPress.com/
+ *      Pressable sites, enable the exporter, and rotate a fresh secret.
+ *   2. No URL — among pullable (`syncable`) sites only: if the user has
+ *      exactly one, pick it; with several, show an interactive picker in a
+ *      TTY (returning `null` if the user cancels) or error out when run
+ *      non-interactively. Non-pullable sites (Simple, or missing hosting
+ *      features) are surfaced as disabled in the picker.
  */
 export async function resolveSourceSite(
-	site: SiteData,
 	url?: string,
-	providedSecret?: string,
-	_verbose = false
+	verbose = false
 ): Promise< PullSource | null > {
-	// When the caller provides an explicit secret, use it directly.
-	if ( url && providedSecret ) {
-		return { url, secret: providedSecret };
-	}
-
-	// Reuse the site's saved origin from its last successful pull when no
-	// `--url` is given (default to the same remote) or when `--url` points
-	// at that same remote — so a re-pull doesn't force the user to
-	// re-select the remote or re-rotate the secret on every run. An
-	// explicit `--secret` still overrides the stored one.
-	if (
-		site.reprintOrigin &&
-		( ! url || normalizeSiteUrl( url ) === site.reprintOrigin.remoteUrl )
-	) {
-		return {
-			url: url ?? site.reprintOrigin.remoteUrl,
-			secret: providedSecret ?? site.reprintOrigin.secret,
-		};
-	}
-
-	// Need the full site list: either no URL was given (interactive pick) or
-	// no stored secret exists and we need the site ID to rotate one.
 	const token = await readAuthToken();
 	if ( ! token ) {
 		throw new LoggerError(
 			__(
-				'WordPress.com authentication is required. Run `studio auth login` to pull a connected WordPress.com site, or provide both `--url` and `--secret` for a non-WordPress.com site.'
+				'WordPress.com authentication is required. Run `studio auth login` to pull a WordPress.com or Pressable site.'
 			)
 		);
 	}
@@ -972,32 +1150,29 @@ export async function resolveSourceSite(
 		const matched = findMatchingWpComSite( sites, url );
 		if ( ! matched ) {
 			throw new LoggerError(
-				__(
-					'No secret was provided, and this URL is not one of your connected WordPress.com sites. Provide `--secret` for a non-WordPress.com site.'
-				)
+				__( 'This URL is not a WordPress.com or Pressable site connected to your account.' )
 			);
 		}
 		if ( matched.syncSupport !== 'syncable' ) {
-			throw new LoggerError(
-				sprintf(
-					// translators: %s: the site URL.
-					__(
-						'%s cannot be pulled. Pulling requires a WordPress.com site with hosting features enabled, or a self-hosted site (with `--url` and `--secret`).'
-					),
-					matched.url
-				)
-			);
+			throw getSyncSupportError( matched );
 		}
-		resolvedUrl = url;
+		resolvedUrl = matched.url;
 		wpComSite = matched;
 	} else {
 		// Only sites that can run the reprint exporter — those with hosting
 		// features enabled (`syncable`) — are pull candidates.
 		const pullableSites = sites.filter( ( site ) => site.syncSupport === 'syncable' );
 		if ( pullableSites.length === 0 ) {
+			// When the account has exactly one site and it can't be pulled
+			// (e.g. a lone Business-plan site awaiting Atomic transfer), report
+			// the specific condition and next step rather than a generic
+			// "nothing to pull" message.
+			if ( sites.length === 1 ) {
+				throw getSyncSupportError( sites[ 0 ] );
+			}
 			throw new LoggerError(
 				__(
-					'No pullable WordPress.com sites found. Pulling requires a WordPress.com site with hosting features; provide both `--url` and `--secret` to pull a self-hosted site.'
+					'No pullable WordPress.com or Pressable sites found. Pulling requires a site with hosting features enabled.'
 				)
 			);
 		}
@@ -1033,33 +1208,29 @@ export async function resolveSourceSite(
 		}
 	}
 
+	// Provision the exporter and learn the site's export surface, then rotate a
+	// fresh secret for that surface. Deciding the surface here (once) is what
+	// keeps the rotate route and the importer query var in agreement.
+	const surface = await enableReprintExporter( wpComSite.id, token.accessToken, verbose );
 	return {
 		url: resolvedUrl,
-		secret: await rotateReprintSecret( wpComSite.id, token.accessToken ),
+		surface,
+		secret: await rotateReprintSecret( wpComSite.id, token.accessToken, surface ),
 		wpComSite,
 		wpComToken: token,
 	};
 }
 
 /**
- * Builds (or resumes) the working pull state for refreshing an existing
- * Studio `site`.
- *
- * Identity and layout come from the {@link SiteData} record (the scratch
- * directory is keyed by `site.id`); the only thing read from disk is the
- * transient {@link PullProgress} (`pull.json`), so `created` reflects
- * whether a prior in-flight pull exists for this site.
+ * Derives the on-disk scratch layout for refreshing an existing Studio
+ * `site`. Pure: identity and layout come entirely from the
+ * {@link SiteData} record (the scratch directory is keyed by `site.id`)
+ * — nothing is read from or written to disk. Resume state is computed
+ * later from observable state, not from a stored cursor.
  */
-export async function getPullSessionMetadata( site: SiteData ) {
+export function getPullSession( site: SiteData ): PullSession {
 	const technicalSiteDirectory = getPullTechnicalDirectory( site.id );
-	const existing = readPullProgress( technicalSiteDirectory );
-	const progress: PullProgress = existing ?? {
-		version: PULL_METADATA_VERSION,
-		stage: 'initialized',
-	};
-	const metadata = {
-		version: progress.version,
-		stage: progress.stage,
+	return {
 		sitePath: site.path,
 		localUrl: getSiteUrl( site ),
 		technicalSiteDirectory,
@@ -1068,56 +1239,19 @@ export async function getPullSessionMetadata( site: SiteData ) {
 		runtimeDirectory: path.join( technicalSiteDirectory, 'runtime' ),
 		runtimeBlueprintPath: path.join( technicalSiteDirectory, 'runtime', 'blueprint.json' ),
 	};
-
-	if ( ! existing ) {
-		savePullProgress( metadata );
-	}
-	return { created: ! existing, studioMetadata: metadata };
 }
 
 /**
- * Returns the `?reprint-api` endpoint URL on a remote site for the
- * given normalized site URL.  The reprint-exporter plugin mounts its
- * API on that query-arg marker instead of a REST route so the exporter
- * intercepts requests before WordPress's full bootstrap runs.
+ * Returns the export endpoint URL on a remote site for the given normalized
+ * site URL.  The reprint exporter mounts its API on a query-arg marker instead
+ * of a REST route so it intercepts requests before WordPress's full bootstrap
+ * runs.  The marker depends on the export surface: v2 (the Jetpack surface)
+ * uses `?reprint-api-jetpack`, v1 `?reprint-api`.
  */
-export function getReprintApiUrlForSite( siteUrl: string ): string {
+export function getReprintApiUrlForSite( siteUrl: string, surface: ReprintSurface = 'v1' ): string {
 	const apiUrl = new URL( siteUrl );
-	apiUrl.search = '?reprint-api';
+	apiUrl.search = surface === 'v2' ? '?reprint-api-jetpack' : '?reprint-api';
 	return apiUrl.toString();
-}
-
-function buildFilesSyncArgs(
-	metadata: Pick< PullSessionMetadata, 'stateDirectory' | 'rawDirectory' >,
-	apiUrl: string,
-	secret: string,
-	extraArgs: string[] = []
-): string[] {
-	return [
-		'files-sync',
-		apiUrl,
-		`--secret=${ secret }`,
-		...extraArgs,
-		// Per-batch ceiling — one sub-process yields after 30 s and the
-		// client reconnects to continue.  Not a total-time budget; a slow
-		// or high-latency sync just makes more round-trips.  Kept well
-		// under common proxy/LB idle timeouts (~60 s).
-		'--max-exec=30',
-		'--no-adaptive',
-		`--state-dir=${ metadata.stateDirectory }`,
-		`--fs-root=${ metadata.rawDirectory }`,
-	];
-}
-
-/**
- * Advance the pull to the given stage AND persist the progress file to
- * disk so a crash here resumes from the stage that just finished.  Every
- * phase function calls this once at the end — it's the single seam where
- * in-memory progress becomes durable resume state.
- */
-function recordCompletedStage( metadata: PullSessionMetadata, stage: PullStage ): void {
-	metadata.stage = stage;
-	savePullProgress( metadata );
 }
 
 /**
@@ -1142,20 +1276,6 @@ async function updateSiteRecord(
 	} finally {
 		await unlockCliConfig();
 	}
-}
-
-/**
- * Mark the site as having completed a full pull at least once (durable,
- * survives loss of `pull.json`).  Idempotent.
- */
-async function markImportComplete( site: SiteData ): Promise< void > {
-	if ( site.importComplete ) {
-		return;
-	}
-	site.importComplete = true;
-	await updateSiteRecord( site.id, ( record ) => {
-		record.importComplete = true;
-	} );
 }
 
 /**
@@ -1222,13 +1342,4 @@ function printSiteUrls( localUrl: string ): void {
 		)
 	);
 	console.log( '' );
-}
-
-function printCompletionMessage( site: SiteData, localUrl: string ): void {
-	console.log( '' );
-	console.log( `Site "${ site.name }" pulled successfully.` );
-	console.log( '' );
-	if ( localUrl ) {
-		printSiteUrls( localUrl );
-	}
 }

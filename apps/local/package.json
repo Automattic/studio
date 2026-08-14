@@ -1,0 +1,31 @@
+{
+	"name": "@studio/local",
+	"author": "Automattic Inc.",
+	"version": "0.0.0",
+	"productName": "Studio Local Server",
+	"description": "Local Studio web server (HTTP/SSE) bundled into the CLI and launched by `studio ui`",
+	"license": "GPL-2.0-or-later",
+	"private": true,
+	"type": "module",
+	"engines": {
+		"node": ">=22.0.0"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/Automattic/studio.git",
+		"directory": "apps/local"
+	},
+	"scripts": {
+		"lint": "eslint .",
+		"test": "vitest run",
+		"typecheck": "tsc -p tsconfig.json --noEmit"
+	},
+	"dependencies": {
+		"express": "^4.22.0",
+		"express-rate-limit": "^8.5.2"
+	},
+	"devDependencies": {
+		"@studio/common": "file:../../packages/common",
+		"@types/express": "^4.17.23"
+	}
+}

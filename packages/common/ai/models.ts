@@ -13,20 +13,19 @@ export interface AiModel {
 }
 
 // Pro / o-series OpenAI variants (`gpt-*-pro`, `o[1-9]*`) are intentionally
-// excluded: they're reasoning-only models that, with our current Chat
-// Completions path through the wpcom AI proxy, return HTTP 400 ("only
-// supported in v1/responses"). Re-enable once we either route them through
-// `/v1/responses` server-side or extend the proxy/SDK timeout window for
-// reasoning turns.
+// excluded: their long reasoning turns can exceed the proxy/SDK timeout
+// window. (Routing is no longer a blocker — the OpenAI family now goes
+// through the proxy's `/v1/responses` path, which supports reasoning models
+// and function tools.)
 export const AI_MODELS = [
-	{ id: 'claude-sonnet-4-6', label: 'Sonnet 4.6', family: 'anthropic' },
-	{ id: 'claude-opus-4-8', label: 'Opus 4.8', family: 'anthropic' },
-	{ id: 'gpt-5.5', label: 'GPT 5.5', family: 'openai' },
+	{ id: 'claude-sonnet-5', label: 'Sonnet 5', family: 'anthropic' },
+	{ id: 'claude-opus-5', label: 'Opus 5', family: 'anthropic' },
+	{ id: 'gpt-5.6-sol', label: 'GPT 5.6 Sol', family: 'openai' },
 ] as const satisfies readonly AiModel[];
 
 export type AiModelId = ( typeof AI_MODELS )[ number ][ 'id' ];
 
-export const DEFAULT_MODEL: AiModelId = 'claude-sonnet-4-6';
+export const DEFAULT_MODEL: AiModelId = 'claude-sonnet-5';
 
 // Module-scoped lookup so `getAiModelFamily` / `getAiModelLabel` are O(1)
 // and don't re-scan the array per call. Keyed by id; values are the same

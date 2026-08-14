@@ -8,6 +8,7 @@ import {
 	arePathsEqual,
 	recursiveCopyDirectory,
 } from '@studio/common/lib/fs-utils';
+import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { isOnline } from '@studio/common/lib/network-utils';
 import { portFinder } from '@studio/common/lib/port-finder';
 import { normalizeLineEndings } from '@studio/common/lib/remove-default-db-constants';
@@ -39,6 +40,7 @@ import { copyLanguagePackToSite } from 'cli/lib/language-packs';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
+import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
@@ -91,6 +93,11 @@ vi.mock( 'cli/lib/site-utils' );
 vi.mock( '@studio/common/lib/agent-skills' );
 vi.mock( 'cli/lib/sqlite-integration' );
 vi.mock( 'cli/lib/wordpress-server-manager' );
+vi.mock( 'cli/lib/tracks', async ( importActual ) => {
+	const actual = await importActual< typeof import('cli/lib/tracks') >();
+	return { ...actual, recordTracksEvent: vi.fn() };
+} );
+vi.mock( '@studio/common/lib/get-wordpress-version' );
 
 describe( 'CLI: studio site create', () => {
 	const mockSitePath = '/test/site/new-site';
@@ -170,7 +177,7 @@ describe( 'CLI: studio site create', () => {
 		vi.mocked( saveCliConfig ).mockResolvedValue( undefined );
 		vi.mocked( lockCliConfig ).mockResolvedValue( undefined );
 		vi.mocked( unlockCliConfig ).mockResolvedValue( undefined );
-		vi.mocked( keepSqliteIntegrationUpdated ).mockResolvedValue( true );
+		vi.mocked( keepSqliteIntegrationUpdated ).mockResolvedValue( undefined );
 		vi.mocked( connectToDaemon ).mockResolvedValue( undefined );
 		vi.mocked( disconnectFromDaemon ).mockResolvedValue( undefined );
 		vi.mocked( updateServerFiles ).mockResolvedValue( true );
@@ -184,6 +191,7 @@ describe( 'CLI: studio site create', () => {
 		vi.mocked( isOnline ).mockResolvedValue( true );
 		vi.mocked( getPreferredSiteLanguage ).mockResolvedValue( 'en' );
 		vi.mocked( copyLanguagePackToSite ).mockResolvedValue( false );
+		vi.mocked( getWordPressVersion ).mockReturnValue( '6.5' );
 	} );
 
 	afterEach( () => {
@@ -303,15 +311,6 @@ describe( 'CLI: studio site create', () => {
 			expect( logSiteDetails ).toHaveBeenCalled();
 			expect( openSiteInBrowser ).toHaveBeenCalled();
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
-		} );
-
-		it( 'should skip SQLite integration when it is already configured', async () => {
-			vi.mocked( keepSqliteIntegrationUpdated ).mockResolvedValue( false );
-
-			await runCommand( mockSitePath, { ...defaultTestOptions } );
-
-			expect( keepSqliteIntegrationUpdated ).toHaveBeenCalledWith( mockSitePath );
-			expect( loggerReportSuccessSpy ).toHaveBeenCalledWith( 'SQLite integration skipped' );
 		} );
 
 		it( 'should persist the runtime and file access on the created site', async () => {
@@ -1034,6 +1033,104 @@ $table_prefix = 'wp_';
 			await runCommand( mockSitePath, { ...defaultTestOptions } );
 
 			expect( updateServerFiles ).not.toHaveBeenCalled();
+		} );
+	} );
+
+	describe( 'Tracks: studio_site_created', () => {
+		const mockRecord = vi.mocked( recordTracksEvent );
+
+		const testBlueprint: Blueprint = { steps: [] };
+
+		it( 'emits flow_type "new" with config + timing for a plain create', async () => {
+			await runCommand( mockSitePath, { ...defaultTestOptions } );
+
+			expect( mockRecord ).toHaveBeenCalledTimes( 1 );
+			expect( mockRecord ).toHaveBeenCalledWith(
+				TRACKS_EVENTS.SITE_CREATE,
+				expect.objectContaining( {
+					flow_type: 'new',
+					php_version: '8.3',
+					wp_version: '6.5',
+					custom_domain: false,
+					ssl_enabled: false,
+					channel: 'studio-cli',
+				} )
+			);
+			const props = mockRecord.mock.calls[ 0 ][ 1 ] as Record< string, unknown >;
+			expect( typeof props.time_ms ).toBe( 'number' );
+			expect( props.time_ms as number ).toBeGreaterThanOrEqual( 0 );
+		} );
+
+		it( 'derives flow_type "blueprint" from a blueprint when no flowType is given', async () => {
+			await runCommand( mockSitePath, {
+				...defaultTestOptions,
+				blueprint: { uri: '/home/test/blueprint.json', contents: testBlueprint },
+			} );
+
+			expect( mockRecord ).toHaveBeenCalledWith(
+				TRACKS_EVENTS.SITE_CREATE,
+				expect.objectContaining( { flow_type: 'blueprint' } )
+			);
+		} );
+
+		it.each( [ 'import', 'sync', 'duplicate' ] as const )(
+			'passes through flow_type "%s"',
+			async ( flowType ) => {
+				await runCommand( mockSitePath, { ...defaultTestOptions, flowType } );
+
+				expect( mockRecord ).toHaveBeenCalledWith(
+					TRACKS_EVENTS.SITE_CREATE,
+					expect.objectContaining( { flow_type: flowType } )
+				);
+			}
+		);
+
+		it( 'an explicit flowType wins over blueprint inference', async () => {
+			await runCommand( mockSitePath, {
+				...defaultTestOptions,
+				flowType: 'duplicate',
+				blueprint: { uri: '/home/test/blueprint.json', contents: testBlueprint },
+			} );
+
+			expect( mockRecord ).toHaveBeenCalledWith(
+				TRACKS_EVENTS.SITE_CREATE,
+				expect.objectContaining( { flow_type: 'duplicate' } )
+			);
+		} );
+
+		it( 'reports custom_domain/ssl_enabled as booleans and never sends the domain string', async () => {
+			await runCommand( mockSitePath, {
+				...defaultTestOptions,
+				customDomain: 'mysite.local',
+				enableHttps: true,
+			} );
+
+			expect( mockRecord ).toHaveBeenCalledWith(
+				TRACKS_EVENTS.SITE_CREATE,
+				expect.objectContaining( { custom_domain: true, ssl_enabled: true } )
+			);
+			const props = mockRecord.mock.calls[ 0 ][ 1 ];
+			expect( JSON.stringify( props ) ).not.toContain( 'mysite.local' );
+		} );
+
+		it( 'reports wp_version resolved from disk', async () => {
+			vi.mocked( getWordPressVersion ).mockReturnValue( '6.7.1' );
+
+			await runCommand( mockSitePath, { ...defaultTestOptions } );
+
+			expect( getWordPressVersion ).toHaveBeenCalledWith( mockSitePath );
+			expect( mockRecord ).toHaveBeenCalledWith(
+				TRACKS_EVENTS.SITE_CREATE,
+				expect.objectContaining( { wp_version: '6.7.1' } )
+			);
+		} );
+
+		it( 'does not emit when creation fails before completion', async () => {
+			vi.mocked( startWordPressServer ).mockRejectedValue( new Error( 'Server start failed' ) );
+
+			await expect( runCommand( mockSitePath, { ...defaultTestOptions } ) ).rejects.toThrow();
+
+			expect( mockRecord ).not.toHaveBeenCalled();
 		} );
 	} );
 } );

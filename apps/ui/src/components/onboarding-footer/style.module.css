@@ -1,0 +1,35 @@
+.scrim {
+	position: fixed;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	height: 88px;
+	pointer-events: none;
+	z-index: 5;
+	background: linear-gradient(
+		to top,
+		var(--wpds-color-bg-surface-neutral) 10%,
+		color-mix(in srgb, var(--wpds-color-bg-surface-neutral) var(--surface-alpha, 80%), transparent)
+			55%,
+		transparent
+	);
+	backdrop-filter: blur(10px);
+	-webkit-mask-image: linear-gradient(to top, black 45%, transparent);
+	mask-image: linear-gradient(to top, black 45%, transparent);
+}
+
+.actions {
+	position: fixed;
+	bottom: 20px;
+	left: 20px;
+	right: 20px;
+	z-index: 6;
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 12px;
+}
+
+.actions > :first-child {
+	margin-right: auto;
+}

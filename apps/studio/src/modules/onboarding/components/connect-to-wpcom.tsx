@@ -1,4 +1,4 @@
-import { __experimentalHeading as Heading, Icon } from '@wordpress/components';
+import { __experimentalHeading as Heading, CheckboxControl, Icon } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { check } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
@@ -12,7 +12,15 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { useI18nLocale } from 'src/stores';
 
-export function OnboardingConnectToWpcom( { onSkip }: { onSkip: () => void } ) {
+export function OnboardingConnectToWpcom( {
+	onSkip,
+	analyticsEnabled,
+	onAnalyticsEnabledChange,
+}: {
+	onSkip: () => void;
+	analyticsEnabled: boolean;
+	onAnalyticsEnabledChange: ( value: boolean ) => void;
+} ) {
 	const { __ } = useI18n();
 	const isOffline = useOffline();
 	const offlineMessage = __( "You're currently offline." );
@@ -39,13 +47,13 @@ export function OnboardingConnectToWpcom( { onSkip }: { onSkip: () => void } ) {
 						__( 'Get smart suggestions from Studio Code' ),
 					].map( ( text ) => (
 						<div key={ text } className="text-frame-text-secondary a8c-body flex items-start">
-							<Icon className="fill-frame-theme me-2 shrink-0" icon={ check } />
+							<Icon className="fill-frame-theme me-2 mt-0.5 shrink-0" icon={ check } />
 							{ text }
 						</div>
 					) ) }
 				</div>
 
-				<div data-testid="onboarding-legal" className="text-frame-text-secondary text-xs leading-5">
+				<div data-testid="onboarding-legal" className="text-frame-text-secondary text-xs leading-4">
 					{ createInterpolateElement(
 						__(
 							'By continuing, you agree to our <tos_link>Terms of Service</tos_link> and have read our <privacy_link>Privacy Policy</privacy_link>.'
@@ -81,7 +89,7 @@ export function OnboardingConnectToWpcom( { onSkip }: { onSkip: () => void } ) {
 								if ( isOffline ) {
 									return;
 								}
-								authenticate();
+								authenticate( 'onboarding' );
 							} }
 						>
 							{ __( 'Log in to WordPress.com' ) }
@@ -112,7 +120,7 @@ export function OnboardingConnectToWpcom( { onSkip }: { onSkip: () => void } ) {
 								if ( isOffline ) {
 									return;
 								}
-								getIpcApi().authenticate( true );
+								getIpcApi().authenticate( true, 'onboarding' );
 							} }
 						>
 							{ __( 'Create a free account' ) }
@@ -120,6 +128,17 @@ export function OnboardingConnectToWpcom( { onSkip }: { onSkip: () => void } ) {
 						</Button>
 					</div>
 				</Tooltip>
+			</div>
+
+			<div className="shrink-0 -mx-6">
+				<CheckboxControl
+					__nextHasNoMarginBottom
+					id="onboarding-analytics-toggle"
+					className="onboarding-analytics-checkbox"
+					label={ __( 'Help improve Studio by sharing anonymous usage statistics' ) }
+					checked={ analyticsEnabled }
+					onChange={ onAnalyticsEnabledChange }
+				/>
 			</div>
 		</div>
 	);

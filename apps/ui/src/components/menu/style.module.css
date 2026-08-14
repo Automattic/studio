@@ -42,6 +42,16 @@
 	background: var(--wpds-color-bg-surface-neutral);
 }
 
+.itemDestructive {
+	color: var(--wpds-color-fg-interactive-error);
+}
+
+.itemDestructive[data-highlighted],
+.itemDestructive:hover {
+	background: var(--wpds-color-bg-interactive-error-active);
+	color: var(--wpds-color-fg-interactive-error-active);
+}
+
 .item[data-disabled] {
 	color: var(--wpds-color-fg-interactive-neutral-disabled);
 	cursor: not-allowed;
@@ -80,6 +90,13 @@
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+}
+
+.groupLabel {
+	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm) 0;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-sm);
 }
 
 .separator {

@@ -1,4 +1,4 @@
-import { RecommendedPHPVersion, PressablePHPVersion } from './types/php-versions';
+import { RecommendedPHPVersion, PressablePHPVersion } from './types/php-versions.ts';
 
 // Time constants
 export const HOUR_MS = 1000 * 60 * 60;
@@ -19,6 +19,7 @@ export const APP_CONFIG_LOCKFILE_NAME = 'app.json.lock';
 export const CLI_CONFIG_LOCKFILE_NAME = 'cli.json.lock';
 export const SHARED_CONFIG_LOCKFILE_NAME = 'shared.json.lock';
 export const REMOTE_SESSION_STATE_LOCKFILE_NAME = 'remote-session-state.lock';
+export const SESSIONS_MIGRATION_LOCKFILE_NAME = 'sessions-migration.lock';
 export const LOCKFILE_STALE_TIME = 5000;
 export const LOCKFILE_WAIT_TIME = 5000;
 
@@ -43,7 +44,17 @@ export const PRESSABLE_PHP_VERSION: typeof PressablePHPVersion = PressablePHPVer
 export const SQLITE_FILENAME = 'sqlite-database-integration' as const;
 
 // Import file constants
-export const ACCEPTED_IMPORT_FILE_TYPES = [ '.zip', '.gz', '.gzip', '.tar', '.tar.gz', '.wpress' ];
+export const ACCEPTED_ADD_SITE_FILE_TYPES = [
+	'.zip',
+	'.gz',
+	'.gzip',
+	'.tar',
+	'.tar.gz',
+	'.wpress',
+	'.xml',
+];
+
+export const ACCEPTED_IMPORT_FILE_TYPES = [ ...ACCEPTED_ADD_SITE_FILE_TYPES, '.sql' ];
 
 // Archiver options
 export const ARCHIVER_OPTIONS = {

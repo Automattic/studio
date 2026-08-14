@@ -91,17 +91,24 @@ function Authentication() {
 	}
 
 	return (
-		<Button
-			onClick={ () => getIpcApi().authenticate( false ) }
-			aria-label={ __( 'Log in to Studio with WordPress.com' ) }
-			variant="icon"
-			className="flex gap-x-2 justify-between w-full text-white !rounded-lg !px-2 !py-1.5 h-auto active:!text-white hover:!text-white hover:underline items-center"
-			disabled={ isOffline }
+		<Tooltip
+			disabled={ ! isOffline }
+			icon={ offlineIcon }
+			text={ __( 'Logging in requires an internet connection.' ) }
+			placement="bottom-end"
 		>
-			<WordPressLogo />
+			<Button
+				onClick={ () => getIpcApi().authenticate( false, 'top_bar' ) }
+				aria-label={ __( 'Log in to Studio with WordPress.com' ) }
+				variant="icon"
+				className="flex gap-x-2 justify-between w-full text-white !rounded-lg !px-2 !py-1.5 h-auto active:!text-white hover:!text-white hover:underline items-center"
+				disabled={ isOffline }
+			>
+				<WordPressLogo />
 
-			<div className="text-s text-right">{ __( 'Log in' ) }</div>
-		</Button>
+				<div className="text-s text-right">{ __( 'Log in' ) }</div>
+			</Button>
+		</Tooltip>
 	);
 }
 

@@ -1,4 +1,6 @@
-import { SessionManager } from '@earendil-works/pi-coding-agent';
+import { ANTHROPIC_MODELS } from '@earendil-works/pi-ai/providers/anthropic.models';
+import { ModelRegistry, SessionManager } from '@earendil-works/pi-coding-agent';
+import { AI_MODELS } from '@studio/common/ai/models';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { runStudioAgentTurn, type StudioAgentTurnConfig } from 'cli/ai/runtimes/pi';
 import type { AgentSessionEvent, CreateAgentSessionOptions } from '@earendil-works/pi-coding-agent';
@@ -65,9 +67,9 @@ const DEFAULT_MOCK_EVENTS: AgentSessionEvent[] = [
 		message: {
 			role: 'assistant',
 			content: [ { type: 'text', text: 'mocked openai response' } ],
-			api: 'openai-completions',
+			api: 'openai-responses',
 			provider: 'openai',
-			model: 'gpt-5.5',
+			model: 'gpt-5.6-sol',
 			usage: {
 				input: 0,
 				output: 0,
@@ -85,9 +87,9 @@ const DEFAULT_MOCK_EVENTS: AgentSessionEvent[] = [
 		message: {
 			role: 'assistant',
 			content: [ { type: 'text', text: 'mocked openai response' } ],
-			api: 'openai-completions',
+			api: 'openai-responses',
 			provider: 'openai',
-			model: 'gpt-5.5',
+			model: 'gpt-5.6-sol',
 			usage: {
 				input: 0,
 				output: 0,
@@ -115,9 +117,9 @@ const assistantMessage = (
 		message: {
 			role: 'assistant',
 			content,
-			api: 'openai-completions',
+			api: 'openai-responses',
 			provider: 'openai',
-			model: 'gpt-5.5',
+			model: 'gpt-5.6-sol',
 			usage: {
 				input: 0,
 				output: 0,
@@ -224,7 +226,7 @@ describe( 'pi runtime', () => {
 		const events = await runRuntime( {
 			prompt: 'hello',
 			env: {},
-			model: 'gpt-5.5',
+			model: 'gpt-5.6-sol',
 			session: newSession(),
 		} );
 
@@ -249,7 +251,7 @@ describe( 'pi runtime', () => {
 				OPENAI_API_KEY: 'sk-test',
 				OPENAI_BASE_URL: 'https://proxy.example.com/v1',
 			},
-			model: 'gpt-5.5',
+			model: 'gpt-5.6-sol',
 			session: newSession(),
 		} );
 
@@ -265,7 +267,7 @@ describe( 'pi runtime', () => {
 				OPENAI_API_KEY: 'sk-test',
 				OPENAI_BASE_URL: 'https://proxy.example.com/v1',
 			},
-			model: 'gpt-5.5',
+			model: 'gpt-5.6-sol',
 			session: newSession(),
 		} );
 
@@ -279,7 +281,7 @@ describe( 'pi runtime', () => {
 				OPENAI_API_KEY: 'sk-test',
 				OPENAI_BASE_URL: 'https://proxy.example.com/v1',
 			},
-			model: 'gpt-5.5',
+			model: 'gpt-5.6-sol',
 			session: newSession(),
 		} );
 
@@ -336,7 +338,7 @@ describe( 'pi runtime', () => {
 				OPENAI_API_KEY: 'sk-test',
 				OPENAI_BASE_URL: 'https://proxy.example.com/v1',
 			},
-			model: 'gpt-5.5',
+			model: 'gpt-5.6-sol',
 			session: newSession(),
 			activeSite: {
 				name: 'Remote',
@@ -367,7 +369,7 @@ describe( 'pi runtime', () => {
 				OPENAI_API_KEY: 'sk-test',
 				OPENAI_BASE_URL: 'https://proxy.example.com/v1',
 			},
-			model: 'gpt-5.5',
+			model: 'gpt-5.6-sol',
 			session: newSession(),
 		} );
 
@@ -388,7 +390,7 @@ describe( 'pi runtime', () => {
 		const session = newSession();
 		const otherOpenAiModel = 'gpt-test-other' as AiModelId;
 
-		await runRuntime( { prompt: 'hi', env, model: 'gpt-5.5', session } );
+		await runRuntime( { prompt: 'hi', env, model: 'gpt-5.6-sol', session } );
 		await runRuntime( { prompt: 'follow-up', env, model: otherOpenAiModel, session } );
 		await runRuntime( {
 			prompt: 'still on the second model',
@@ -398,7 +400,7 @@ describe( 'pi runtime', () => {
 		} );
 
 		expect( mocks.createdSessions.map( ( s ) => s.state.model.id ) ).toEqual( [
-			'gpt-5.5',
+			'gpt-5.6-sol',
 			otherOpenAiModel,
 			otherOpenAiModel,
 		] );
@@ -413,7 +415,7 @@ describe( 'pi runtime', () => {
 				ANTHROPIC_CUSTOM_HEADERS:
 					'X-WPCOM-AI-Feature: studio-assistant-anthropic\nX-WPCOM-Session-ID: session-1',
 			},
-			model: 'claude-sonnet-4-6',
+			model: 'claude-sonnet-5',
 			session: newSession(),
 		} );
 
@@ -422,7 +424,9 @@ describe( 'pi runtime', () => {
 		expect( options.model?.api ).toBe( 'anthropic-messages' );
 		expect( options.model?.maxTokens ).toBe( 32_000 );
 		expect( options.model?.input ).toEqual( [ 'text', 'image' ] );
-		const auth = await options.modelRegistry!.getApiKeyAndHeaders( options.model! );
+		expect( options.model?.compat ).toMatchObject( { forceAdaptiveThinking: true } );
+		const modelRegistry = new ModelRegistry( options.modelRuntime! );
+		const auth = await modelRegistry.getApiKeyAndHeaders( options.model! );
 		expect( auth ).toMatchObject( {
 			ok: true,
 			apiKey: 'wpcom-token',
@@ -431,6 +435,54 @@ describe( 'pi runtime', () => {
 				'X-WPCOM-Session-ID': 'session-1',
 			},
 		} );
+	} );
+
+	// Without `compat.forceAdaptiveThinking`, pi-ai sends a thinking shape that
+	// Sonnet 5 / Opus 5 reject with a 400.
+	it( 'marks direct-key Anthropic models as adaptive-thinking', async () => {
+		await runRuntime( {
+			prompt: 'hello',
+			env: { ANTHROPIC_API_KEY: 'sk-ant-test' },
+			model: 'claude-sonnet-5',
+			session: newSession(),
+		} );
+
+		const model = mocks.createdSessions[ 0 ].options.model!;
+		expect( model.provider ).toBe( 'anthropic' );
+		expect( model.compat ).toMatchObject( { forceAdaptiveThinking: true } );
+		expect( model.thinkingLevelMap ).toEqual( { xhigh: 'xhigh', max: 'max' } );
+		// Studio's conservative limits are intentionally not taken from pi's catalog.
+		expect( model.maxTokens ).toBe( 32_000 );
+		expect( model.contextWindow ).toBe( 200_000 );
+	} );
+
+	it( 'copies per-model compat from the pi catalog', async () => {
+		await runRuntime( {
+			prompt: 'hello',
+			env: { ANTHROPIC_API_KEY: 'sk-ant-test' },
+			model: 'claude-opus-5',
+			session: newSession(),
+		} );
+
+		const model = mocks.createdSessions[ 0 ].options.model!;
+		expect( model.compat ).toMatchObject( {
+			forceAdaptiveThinking: true,
+			supportsTemperature: false,
+		} );
+	} );
+
+	// A Studio model missing from the pinned pi-ai catalog would silently fall
+	// back to the rejected thinking shape.
+	it( 'has a pi catalog entry with adaptive-thinking compat for every Anthropic model', () => {
+		const anthropicIds = AI_MODELS.filter( ( m ) => m.family === 'anthropic' ).map( ( m ) => m.id );
+		expect( anthropicIds.length ).toBeGreaterThan( 0 );
+		for ( const id of anthropicIds ) {
+			const catalogModel = ( ANTHROPIC_MODELS as Record< string, { compat?: object } > )[ id ];
+			expect( catalogModel, `missing pi catalog entry for ${ id }` ).toBeDefined();
+			expect( catalogModel.compat, `missing compat for ${ id }` ).toMatchObject( {
+				forceAdaptiveThinking: true,
+			} );
+		}
 	} );
 
 	// pi parses registerProvider config values as templates, so a wpcom token
@@ -447,13 +499,14 @@ describe( 'pi runtime', () => {
 				ANTHROPIC_BASE_URL: 'https://proxy.example.com',
 				ANTHROPIC_CUSTOM_HEADERS: 'X-WPCOM-AI-Feature: studio-assistant-anthropic',
 			},
-			model: 'claude-sonnet-4-6',
+			model: 'claude-sonnet-5',
 			session: newSession(),
 		} );
 
 		const options = mocks.createdSessions[ 0 ].options;
-		expect( options.modelRegistry!.hasConfiguredAuth( options.model! ) ).toBe( true );
-		const auth = await options.modelRegistry!.getApiKeyAndHeaders( options.model! );
+		const modelRegistry = new ModelRegistry( options.modelRuntime! );
+		expect( modelRegistry.hasConfiguredAuth( options.model! ) ).toBe( true );
+		const auth = await modelRegistry.getApiKeyAndHeaders( options.model! );
 		expect( auth ).toMatchObject( { ok: true, apiKey: tokenWithDollar } );
 	} );
 
@@ -469,7 +522,7 @@ describe( 'pi runtime', () => {
 					OPENAI_BASE_URL: 'https://proxy.example.com/v1',
 					STUDIO_OPENAI_DEFAULT_HEADERS: '{not json',
 				},
-				model: 'gpt-5.5',
+				model: 'gpt-5.6-sol',
 				session: newSession(),
 			} );
 

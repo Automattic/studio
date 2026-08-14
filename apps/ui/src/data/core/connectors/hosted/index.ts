@@ -1,37 +1,36 @@
-import { fetchStudioBlueprints } from '@studio/common/lib/studio-blueprints-api';
+import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
+import { __ } from '@wordpress/i18n';
+import { readOnboardingHints, writeOnboardingHints } from '../browser-onboarding-hints';
+import { applyStoredSiteOrder, storeSiteOrder } from '../browser-site-order';
+import { readLastSeenVersion, writeLastSeenVersion } from '../browser-whats-new';
+import { UnsupportedError } from '../unsupported-error';
+import { readWapuuScore, writeWapuuScore } from '../wapuu-score-storage';
 import type {
 	ActiveAgentRun,
 	AiSessionPlacementUpdatedEvent,
 	AiSessionSummary,
+	AppGlobals,
 	AuthUser,
 	Connector,
-	FeaturedBlueprint,
 	InstalledApps,
 	LoadedAiSession,
 	SiteDetails,
 	Snapshot,
+	SnapshotUsage,
 	SyncSite,
 	UserPreferences,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
+import type { AiSettings } from '@studio/common/ai/providers';
+
+const AGENTIC_FEATURES_STORAGE_KEY = 'studio-hosted-agentic-features-enabled';
 
 export interface HostedConnectorOptions {
 	// Base URL of the Studio hosted backend (`apps/hosted`), e.g. http://localhost:8088.
 	apiBaseUrl: string;
 }
 
-/**
- * Thrown by connector methods that have no meaning in a browser (native file
- * dialogs, opening an editor/terminal, etc.). Callers in the UI already wrap
- * these affordances in try/catch, so throwing keeps the surface honest without
- * breaking the app.
- */
-export class WebUnsupportedError extends Error {
-	constructor( operation: string ) {
-		super( `"${ operation }" is not available in Studio Web.` );
-		this.name = 'WebUnsupportedError';
-	}
-}
+const WAPUU_SCORE_STORAGE_KEY = 'studio-hosted-wapuu-score';
 
 // Envelope used by the backend's `/events` SSE stream so a single connection
 // can carry both agent-run events and session-placement updates.
@@ -54,7 +53,7 @@ type ServerEvent =
  * surface it exercises is implemented for real (AI sessions and runs, the site
  * list, featured blueprints, external links). Desktop-only capabilities either
  * return benign defaults (so mount-time queries don't throw) or throw
- * `WebUnsupportedError` for user-triggered actions.
+ * `UnsupportedError` for user-triggered actions.
  */
 export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ): Connector {
 	// The backend namespaces its API under /api so the SPA's real-path routes
@@ -117,9 +116,24 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			};
 		},
 
+		// Remote browser host: no native dialogs, no access to the user's machine,
+		// and a cross-origin iframe preview that can't host the annotation inspector.
+		capabilities: {
+			nativeFolderPicker: false,
+			nativeSaveDialog: false,
+			openInOS: false,
+			annotatePreview: false,
+			readLocalMedia: false,
+			agentInstructions: false,
+			aiSettings: false,
+			studioLogs: false,
+			switchToClassicUi: false,
+		},
+
 		// Auth — runs unauthenticated, like the desktop app. WordPress.com login
 		// in the browser is a follow-up (explored in the PR linked above).
 		requiresAuth: false,
+		agenticRequiresAuth: false,
 		async isAuthenticated() {
 			return true;
 		},
@@ -135,63 +149,74 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		onAuthStateChanged() {
 			return () => {};
 		},
+		async getOnboardingCompleted() {
+			return true;
+		},
+		async setOnboardingCompleted() {
+			// No-op.
+		},
 
 		// Sites
 		async getSites(): Promise< SiteDetails[] > {
-			lastSites = await api< SiteDetails[] >( '/sites' );
+			lastSites = applyStoredSiteOrder( await api< SiteDetails[] >( '/sites' ) );
 			return lastSites;
 		},
 		async createSite() {
-			throw new WebUnsupportedError( 'createSite' );
+			throw new UnsupportedError( 'createSite' );
 		},
 		async deleteSite() {
-			throw new WebUnsupportedError( 'deleteSite' );
+			throw new UnsupportedError( 'deleteSite' );
 		},
 		async copySite(): Promise< SiteDetails > {
-			throw new WebUnsupportedError( 'copySite' );
+			throw new UnsupportedError( 'copySite' );
 		},
 		async startSite() {
-			throw new WebUnsupportedError( 'startSite' );
+			throw new UnsupportedError( 'startSite' );
 		},
 		async stopSite() {
-			throw new WebUnsupportedError( 'stopSite' );
+			throw new UnsupportedError( 'stopSite' );
 		},
 		async updateSite() {
-			throw new WebUnsupportedError( 'updateSite' );
+			throw new UnsupportedError( 'updateSite' );
+		},
+		async updateSitesSortOrder( updates ) {
+			storeSiteOrder( updates );
 		},
 		async refreshSiteIcon() {
 			// No-op: icons come back with getSites().
 		},
+		async getSiteThumbnail(): Promise< string | null > {
+			return null;
+		},
+		async getSiteStorageUsage(): Promise< null > {
+			return null;
+		},
 		async exportFullSite(): Promise< string | null > {
-			throw new WebUnsupportedError( 'exportFullSite' );
+			throw new UnsupportedError( 'exportFullSite' );
 		},
 		async exportDatabase(): Promise< string | null > {
-			throw new WebUnsupportedError( 'exportDatabase' );
+			throw new UnsupportedError( 'exportDatabase' );
 		},
 		async generateProposedSiteName(): Promise< string > {
-			throw new WebUnsupportedError( 'generateProposedSiteName' );
+			throw new UnsupportedError( 'generateProposedSiteName' );
+		},
+		async generateNumberedSiteName() {
+			throw new UnsupportedError( 'generateNumberedSiteName' );
 		},
 		async generateProposedSitePath() {
-			throw new WebUnsupportedError( 'generateProposedSitePath' );
+			throw new UnsupportedError( 'generateProposedSitePath' );
 		},
 		async selectSiteFolder() {
-			throw new WebUnsupportedError( 'selectSiteFolder' );
+			throw new UnsupportedError( 'selectSiteFolder' );
 		},
 		async comparePaths() {
-			throw new WebUnsupportedError( 'comparePaths' );
+			throw new UnsupportedError( 'comparePaths' );
 		},
 
-		// Featured blueprints — public endpoint, same source as the desktop app.
-		async getFeaturedBlueprints( locale ): Promise< FeaturedBlueprint[] > {
-			const blueprints = await fetchStudioBlueprints( locale );
-			return blueprints.map( ( blueprint ) => ( {
-				slug: blueprint.slug,
-				title: blueprint.title,
-				excerpt: blueprint.excerpt,
-				image: blueprint.image,
-				playgroundUrl: blueprint.playground_url,
-				blueprint: blueprint.blueprint as FeaturedBlueprint[ 'blueprint' ],
-			} ) );
+		getWordPressVersions: fetchWordPressVersions,
+
+		async getWpVersion(): Promise< string > {
+			throw new UnsupportedError( 'getWpVersion' );
 		},
 
 		async getFilePath() {
@@ -199,24 +224,36 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			return '';
 		},
 		async readLocalMediaFile() {
-			throw new WebUnsupportedError( 'readLocalMediaFile' );
+			throw new UnsupportedError( 'readLocalMediaFile' );
 		},
 		async extractBlueprintBundle() {
-			throw new WebUnsupportedError( 'extractBlueprintBundle' );
+			throw new UnsupportedError( 'extractBlueprintBundle' );
 		},
 		async cleanupBlueprintTempDir() {
 			// No-op.
 		},
-		async importSiteFromBackup(): Promise< SiteDetails > {
-			throw new WebUnsupportedError( 'importSiteFromBackup' );
+		async readBlueprintFile() {
+			throw new UnsupportedError( 'readBlueprintFile' );
+		},
+		async importSiteFromBackup(): Promise< void > {
+			throw new UnsupportedError( 'importSiteFromBackup' );
 		},
 
 		// Preview snapshots / sync — out of scope for this increment.
 		async getSnapshots(): Promise< Snapshot[] > {
 			return [];
 		},
+		async getSnapshotUsage(): Promise< SnapshotUsage | null > {
+			return { siteCount: 0, siteLimit: 10, siteCreationBlocked: false };
+		},
+		async getStudioAssistantQuota() {
+			return null;
+		},
+		async deleteAllSnapshots() {
+			// No-op: hosted mode does not create WordPress.com preview sites.
+		},
 		async publishPreviewSite(): Promise< { url: string } > {
-			throw new WebUnsupportedError( 'publishPreviewSite' );
+			throw new UnsupportedError( 'publishPreviewSite' );
 		},
 		async getConnectedWpcomSites(): Promise< SyncSite[] > {
 			return [];
@@ -225,19 +262,43 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			return [];
 		},
 		async connectWpcomSite() {
-			throw new WebUnsupportedError( 'connectWpcomSite' );
+			throw new UnsupportedError( 'connectWpcomSite' );
 		},
 		async disconnectWpcomSite() {
-			throw new WebUnsupportedError( 'disconnectWpcomSite' );
+			throw new UnsupportedError( 'disconnectWpcomSite' );
 		},
 		onSyncConnectSite() {
 			return () => {};
 		},
 		async pushSiteToLive() {
-			throw new WebUnsupportedError( 'pushSiteToLive' );
+			throw new UnsupportedError( 'pushSiteToLive' );
+		},
+		async cancelSync() {
+			throw new UnsupportedError( 'cancelSync' );
 		},
 		async pullSiteFromLive() {
-			throw new WebUnsupportedError( 'pullSiteFromLive' );
+			throw new UnsupportedError( 'pullSiteFromLive' );
+		},
+		async getLatestRewindId(): Promise< string | null > {
+			throw new UnsupportedError( 'getLatestRewindId' );
+		},
+		async listRemoteFileTree(): Promise< Record< string, unknown > > {
+			throw new UnsupportedError( 'listRemoteFileTree' );
+		},
+		async getHostingPhpVersion(): Promise< string | undefined > {
+			throw new UnsupportedError( 'getHostingPhpVersion' );
+		},
+		async listLocalFileTree(): Promise< never > {
+			throw new UnsupportedError( 'listLocalFileTree' );
+		},
+		async getDirectorySize(): Promise< never > {
+			throw new UnsupportedError( 'getDirectorySize' );
+		},
+		async getFileSize(): Promise< never > {
+			throw new UnsupportedError( 'getFileSize' );
+		},
+		async getIsMultisite(): Promise< never > {
+			throw new UnsupportedError( 'getIsMultisite' );
 		},
 		getPublishCheckoutUrl() {
 			return undefined;
@@ -309,45 +370,116 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 				editor: null,
 				terminal: null,
 				colorScheme: 'system',
+				quitSitesBehavior: undefined,
 				locale: undefined,
+				analyticsEnabled: true,
+				defaultSiteDirectory: '',
+				studioCliInstalled: false,
+				studioCliExternallyManaged: false,
+				agenticFeaturesEnabled:
+					window.localStorage.getItem( AGENTIC_FEATURES_STORAGE_KEY ) !== 'false',
 			};
 		},
-		async setUserPreferences() {
-			// No-op: preferences aren't persisted in the browser yet.
+		async setUserPreferences( partial ) {
+			// The rest aren't persisted in the browser yet; this one has to
+			// stick or the AI settings toggle would silently snap back.
+			if ( typeof partial.agenticFeaturesEnabled === 'boolean' ) {
+				window.localStorage.setItem(
+					AGENTIC_FEATURES_STORAGE_KEY,
+					String( partial.agenticFeaturesEnabled )
+				);
+			}
 		},
+		async getAppGlobals(): Promise< AppGlobals > {
+			return { platform: 'browser', isWindowsStore: false };
+		},
+		async selectDefaultSiteDirectory(): Promise< string | null > {
+			// No native folder picker in a browser.
+			return null;
+		},
+		async getAgentInstructions(): Promise< string > {
+			throw new UnsupportedError( 'getAgentInstructions' );
+		},
+		async saveAgentInstructions(): Promise< void > {
+			throw new UnsupportedError( 'saveAgentInstructions' );
+		},
+		async getAiSettings(): Promise< AiSettings > {
+			throw new UnsupportedError( 'getAiSettings' );
+		},
+		async saveAnthropicApiKey(): Promise< AiSettings > {
+			throw new UnsupportedError( 'saveAnthropicApiKey' );
+		},
+		async setAiProvider(): Promise< AiSettings > {
+			throw new UnsupportedError( 'setAiProvider' );
+		},
+
 		async getInstalledApps(): Promise< InstalledApps > {
 			return {} as InstalledApps;
 		},
 
 		async fetchSiteRest() {
-			throw new WebUnsupportedError( 'fetchSiteRest' );
+			throw new UnsupportedError( 'fetchSiteRest' );
 		},
 
 		// Filesystem / native integrations — not available in a browser.
 		async openSiteFolder() {
-			throw new WebUnsupportedError( 'openSiteFolder' );
+			throw new UnsupportedError( 'openSiteFolder' );
 		},
 		async openSiteInEditor() {
-			throw new WebUnsupportedError( 'openSiteInEditor' );
+			throw new UnsupportedError( 'openSiteInEditor' );
 		},
 		async openSiteInTerminal() {
-			throw new WebUnsupportedError( 'openSiteInTerminal' );
+			throw new UnsupportedError( 'openSiteInTerminal' );
+		},
+		async openStudioLogs() {
+			throw new UnsupportedError( 'openStudioLogs' );
+		},
+
+		// Deliberately a no-op: the anonymous per-install id `studio ui` records against
+		// doesn't carry over to a multi-user deployment, which needs its own consent model.
+		async trackEvent() {
+			// intentionally empty
 		},
 
 		// External links work natively in the browser.
 		async openExternalUrl( url ) {
 			window.open( url, '_blank', 'noopener,noreferrer' );
 		},
+		async getWapuuScore() {
+			return readWapuuScore( WAPUU_SCORE_STORAGE_KEY );
+		},
+		async saveWapuuScore( score ) {
+			writeWapuuScore( WAPUU_SCORE_STORAGE_KEY, score );
+		},
+		async popupAppMenu() {},
+		showsAppMenuButton: false,
 		async copyText( text ) {
 			await navigator.clipboard.writeText( text );
+		},
+		async confirmDeleteAllPreviewSites() {
+			return window.confirm(
+				__(
+					'All preview sites that exist for your WordPress.com account, along with all posts, pages, comments, and media, will be lost.'
+				)
+			);
 		},
 		async openSiteUrl( siteId, relativeUrl = '' ) {
 			const sites = lastSites ?? ( await api< SiteDetails[] >( '/sites' ) );
 			const target = new URL( relativeUrl || '/', findSiteUrl( sites, siteId ) ).toString();
 			window.open( target, '_blank', 'noopener,noreferrer' );
 		},
+		async getWordPressSkillsStatusAllSites() {
+			return [];
+		},
+		async installWordPressSkillToAllSites() {
+			// No-op: hosted mode does not install local WordPress skills.
+		},
+		async removeWordPressSkillFromAllSites() {
+			// No-op: hosted mode does not install local WordPress skills.
+		},
 
 		// Window chrome — no traffic lights in a browser tab.
+		reservesTrafficLightSpace: false,
 		async isFullscreen() {
 			return false;
 		},
@@ -363,6 +495,49 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		},
 		onToggleSidebar() {
 			// No application menu in a browser tab.
+			return () => {};
+		},
+		onAddSite() {
+			// No application menu in a browser tab.
+			return () => {};
+		},
+		onAddSiteWithBlueprint() {
+			return () => {};
+		},
+		onOpenSettings() {
+			// No application menu in a browser tab.
+			return () => {};
+		},
+		async disableAgenticUi() {
+			// No-op in the browser.
+		},
+		async getOnboardingHints() {
+			return readOnboardingHints();
+		},
+		async setOnboardingHints( partial ) {
+			writeOnboardingHints( partial );
+		},
+		onShowGettingStarted() {
+			// No application menu on the hosted surface.
+			return () => {};
+		},
+		onShowWhatsNew() {
+			// No application menu on the hosted surface.
+			return () => {};
+		},
+		async getLastSeenVersion() {
+			return readLastSeenVersion();
+		},
+		async saveLastSeenVersion( version ) {
+			writeLastSeenVersion( version );
+		},
+		async getAppUpdateStatus() {
+			return { readyToInstall: false, version: null };
+		},
+		async installAppUpdate() {
+			// No-op.
+		},
+		onAppUpdateStatusChanged() {
 			return () => {};
 		},
 	};

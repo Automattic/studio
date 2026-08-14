@@ -4,10 +4,22 @@ import {
 	type StudioChatFileAttachment,
 } from '@studio/common/ai/chat-files';
 import { type StudioChatImage } from '@studio/common/ai/chat-images';
-import { DEFAULT_MODEL, resolveSessionModel, type AiModelId } from '@studio/common/ai/models';
+import { getAgentEndFailure } from '@studio/common/ai/json-events';
+import {
+	DEFAULT_MODEL,
+	getAiModelFamily,
+	resolveSessionModel,
+	type AiModelId,
+} from '@studio/common/ai/models';
 import { getAgentEndTurnResult } from '@studio/common/ai/session-events';
-import { buildSkillInvocationPrompt } from '@studio/common/ai/slash-commands';
+import { readAnthropicApiKey, readSelectedAiProvider } from '@studio/common/ai/settings-store';
+import {
+	buildSkillInvocationPrompt,
+	resolveSkillFromPrompt,
+} from '@studio/common/ai/slash-commands';
+import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import { readAuthToken } from '@studio/common/lib/shared-config';
+import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { __, sprintf } from '@wordpress/i18n';
 import {
 	getAvailableAiProviders,
@@ -24,8 +36,8 @@ import { startDaemonStatusPolling } from 'cli/ai/daemon-status-poll';
 import { type AiOutputAdapter, JsonAdapter } from 'cli/ai/output-adapter';
 import { AI_PROVIDERS, getAiProviderDefinition, type AiProviderId } from 'cli/ai/providers';
 import { runStudioAgentTurn } from 'cli/ai/runtimes/pi';
+import { setScreenshotDirectoryProvider } from 'cli/ai/screenshot-storage';
 import { resolveResumeSessionContext } from 'cli/ai/sessions/context';
-import { getAiSessionsRootDirectory } from 'cli/ai/sessions/paths';
 import {
 	createStudioSession,
 	listStudioSessionFiles,
@@ -36,9 +48,16 @@ import { setLocalSiteSelectedCallback } from 'cli/ai/site-selection';
 import { getActiveSlashCommands, type SlashCommandContext } from 'cli/ai/slash-commands';
 import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
-import { readCliConfig } from 'cli/lib/cli-config/core';
-import { findSiteByFolder } from 'cli/lib/cli-config/sites';
+import { findSiteByFolder, findSiteById } from 'cli/lib/cli-config/sites';
+import { disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { isSiteRunning } from 'cli/lib/site-utils';
 import { maybeShowTosNotice } from 'cli/lib/tos-notice';
+import {
+	getTracksOrigin,
+	recordTracksEvent,
+	TRACKS_EVENTS,
+	type TracksEventName,
+} from 'cli/lib/tracks';
 import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 import type { SessionManager } from '@earendil-works/pi-coding-agent';
@@ -47,6 +66,7 @@ import type {
 	StudioCustomEntryType,
 } from '@studio/common/ai/sessions/entry-types';
 import type { LoadedAiSession, TurnStatus } from '@studio/common/ai/sessions/types';
+import type { TracksProps } from '@studio/common/lib/record-tracks-event';
 import type { AskUserQuestion } from 'cli/ai/types';
 
 const logger = new Logger< string >();
@@ -60,6 +80,21 @@ function appendStudioEntry< T extends StudioCustomEntryType >(
 	data: StudioCustomEntryDataMap[ T ]
 ): string {
 	return sm.appendCustomEntry( customType, data );
+}
+
+// Awaited rather than fire-and-forget so JSON mode, which exits right after a turn, doesn't drop the
+// event — the wrapper does async work before the request is even issued. Errors are swallowed: one
+// call sits on the turn's critical path and the other in a `finally`, where a rejection would mask
+// the turn's own error.
+async function recordChatTracksEvent(
+	event: TracksEventName,
+	props: TracksProps
+): Promise< void > {
+	try {
+		await recordTracksEvent( event, props );
+	} catch {
+		// A lost analytics event must never break the chat.
+	}
 }
 
 function isPromptAbortError( error: unknown ): boolean {
@@ -95,9 +130,9 @@ export async function runCommand( options: {
 	resumeSessionId?: string;
 	showLegacyCommandNotice?: boolean;
 	activeSite?: {
+		id?: string;
 		name: string;
 		path: string;
-		running?: boolean;
 		remote?: boolean;
 		url?: string;
 		wpcomSiteId?: number;
@@ -113,9 +148,11 @@ export async function runCommand( options: {
 	ui.currentModel = currentModel;
 	if ( options.activeSite ) {
 		ui.activeSite = {
+			id: options.activeSite.id,
 			name: options.activeSite.name,
 			path: options.activeSite.path,
-			running: options.activeSite.running ?? false,
+			// Placeholder — turn dispatch resolves the live state before each prompt.
+			running: false,
 			remote: options.activeSite.remote,
 			url: options.activeSite.url,
 			wpcomSiteId: options.activeSite.wpcomSiteId,
@@ -138,7 +175,7 @@ export async function runCommand( options: {
 		if ( options.resumeSession ) {
 			session = await openStudioSession( options.resumeSession.summary.filePath );
 		} else if ( options.resumeSessionId ) {
-			const files = await listStudioSessionFiles( getAiSessionsRootDirectory() );
+			const files = await listStudioSessionFiles( getSessionsDirectory() );
 			let match: string | undefined;
 			for ( const file of files ) {
 				try {
@@ -200,11 +237,24 @@ export async function runCommand( options: {
 		append( ( sm ) => appendStudioEntry( sm, 'studio.chat_artifact', artifact ) )
 	);
 
+	// Persist screenshots next to the session file (`<session>.screenshots/`)
+	// so artifacts in the transcript keep rendering after OS temp cleanup;
+	// `deleteAiSession` removes the sidecar together with the session.
+	setScreenshotDirectoryProvider( async () => {
+		const sm = await ensureSession();
+		const sessionFile = sm.getSessionFile();
+		if ( ! sessionFile?.endsWith( '.jsonl' ) ) {
+			return null;
+		}
+		return `${ sessionFile.slice( 0, -'.jsonl'.length ) }.screenshots`;
+	} );
+
 	ui.onSiteSelected = ( site ) => {
 		void append( ( sm ) =>
 			appendStudioEntry( sm, 'studio.site_selected', {
 				siteName: site.name,
 				sitePath: site.path,
+				siteId: site.id,
 				remote: site.remote,
 				url: site.url,
 				wpcomSiteId: site.wpcomSiteId,
@@ -220,6 +270,7 @@ export async function runCommand( options: {
 						appendStudioEntry( sm, 'studio.site_selected', {
 							siteName: site.name,
 							sitePath: site.path,
+							siteId: site.id,
 						} )
 					);
 			  }
@@ -317,8 +368,7 @@ export async function runCommand( options: {
 		}
 	}
 
-	const config = await readCliConfig();
-	let showCapabilitiesOnConnect = ! config.aiProvider;
+	let showCapabilitiesOnConnect = ( await readSelectedAiProvider() ) === undefined;
 
 	// Studio Code Desktop defaults to WordPress.com provider.
 	if ( isJsonMode && showCapabilitiesOnConnect ) {
@@ -406,7 +456,7 @@ export async function runCommand( options: {
 		} else {
 			ui.setStatusMessage( __( 'Use /login to authenticate to WordPress.com' ) );
 		}
-	} else if ( currentProvider === 'anthropic-api-key' && ! config.anthropicApiKey ) {
+	} else if ( currentProvider === 'anthropic-api-key' && ! ( await readAnthropicApiKey() ) ) {
 		ui.showInfo( __( 'No Anthropic API key saved. Use /api-key to enter one.' ) );
 	}
 
@@ -462,6 +512,29 @@ export async function runCommand( options: {
 		// Remote (WordPress.com) sites only have a URL and site ID; local sites have a filesystem path and running state.
 		let enrichedPrompt = prompt;
 		const site = ui.activeSite;
+		// The stored running flag can be absent or stale — the session event log
+		// carries no running state, replay hardcodes false, and the site can be
+		// started/stopped mid-session — so ask the daemon before every turn.
+		// Resolve by id when the session recorded one, so a folder reused by a
+		// newer site can't redirect the turn; the registry record also refreshes
+		// a moved site's current name/path. Old events only carry the path.
+		if ( site && ! site.remote ) {
+			const siteData = site.id
+				? await findSiteById( site.id )
+				: await findSiteByFolder( site.path );
+			if ( siteData ) {
+				site.id = siteData.id;
+				site.name = siteData.name;
+				site.path = siteData.path;
+				site.running = await isSiteRunning( siteData );
+			} else {
+				site.running = false;
+			}
+			// isSiteRunning leaves a DaemonBus socket open, which keeps headless
+			// (--json) runs alive after turn.completed; close it so the process
+			// can exit naturally.
+			await disconnectFromDaemon();
+		}
 		if ( site?.remote && site?.url ) {
 			enrichedPrompt = `[Active site: "${ site.name }" (ID: ${ site.wpcomSiteId }) at ${ site.url } (WordPress.com)]\n\n${ prompt }`;
 		} else if ( site ) {
@@ -485,6 +558,24 @@ export async function runCommand( options: {
 
 		await persistSessionContext();
 
+		// Sole emitter of the chat events: every surface forks this process, and only this layer holds
+		// the provider, model and outcome together. `channel` separates them.
+		const tracksProps = {
+			...getTracksOrigin(),
+			...getAiTracksIdentity( sessionId ),
+			provider: currentProvider,
+			model: currentModel,
+			model_family: getAiModelFamily( currentModel ),
+		};
+		const turnStartedAt = Date.now();
+		await recordChatTracksEvent( TRACKS_EVENTS.CODE_MESSAGE_SENT, {
+			...tracksProps,
+			// Raw prompt, before site context is prepended. Only ever a catalog name.
+			ability_name: resolveSkillFromPrompt( prompt ),
+			has_images: images.length > 0,
+			has_files: files.length > 0,
+		} );
+
 		// Studio marker for the typed prompt; pi appends the real UserMessage.
 		await append( ( s ) =>
 			appendStudioEntry( s, 'studio.user_prompt', {
@@ -495,7 +586,7 @@ export async function runCommand( options: {
 			} )
 		);
 
-		const turnState: { status: TurnStatus } = { status: 'interrupted' };
+		const turnState: { status: TurnStatus; errorMessage?: string } = { status: 'interrupted' };
 
 		const agentQuery = runStudioAgentTurn( {
 			prompt: enrichedPrompt,
@@ -508,7 +599,9 @@ export async function runCommand( options: {
 			onAskUser: ( questions ) => askUserAndPersistAnswers( questions ),
 			onEvent: ( event ) => {
 				ui.handleEvent( event );
-				if ( event.type !== 'agent_end' ) {
+				// An `agent_end` with `willRetry` is not final — the session
+				// restarts the turn after a backoff.
+				if ( event.type !== 'agent_end' || event.willRetry ) {
 					return;
 				}
 				const result = getAgentEndTurnResult( event );
@@ -517,6 +610,7 @@ export async function runCommand( options: {
 				} else {
 					turnState.status = result.success ? 'success' : 'error';
 				}
+				turnState.errorMessage = getAgentEndFailure( event )?.message || undefined;
 			},
 		} );
 
@@ -543,8 +637,19 @@ export async function runCommand( options: {
 			await consumeAgentTurnResult;
 		} finally {
 			await append( ( s ) =>
-				appendStudioEntry( s, 'studio.turn_closed', { status: turnState.status } )
+				appendStudioEntry( s, 'studio.turn_closed', {
+					status: turnState.status,
+					...( turnState.status === 'error' && turnState.errorMessage
+						? { errorMessage: turnState.errorMessage }
+						: {} ),
+				} )
 			);
+			// No `errorMessage`: raw error text can embed paths and site names.
+			await recordChatTracksEvent( TRACKS_EVENTS.CODE_TURN_COMPLETED, {
+				...tracksProps,
+				outcome: turnState.status,
+				duration_ms: Date.now() - turnStartedAt,
+			} );
 			ui.endAgentTurn();
 		}
 
@@ -632,6 +737,7 @@ export async function runCommand( options: {
 					appendStudioEntry( sm, 'studio.site_selected', {
 						siteName: site.name,
 						sitePath: site.path,
+						siteId: site.id,
 						remote: site.remote,
 						url: site.url,
 						wpcomSiteId: site.wpcomSiteId,
@@ -780,13 +886,13 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				}
 
 				const sitePath = typeof argv.path === 'string' ? argv.path : undefined;
-				let activeSite: { name: string; path: string } | undefined;
+				let activeSite: { id?: string; name: string; path: string } | undefined;
 				if ( sitePath && typedArgv.siteName ) {
 					activeSite = { name: typedArgv.siteName, path: sitePath };
 				} else if ( sitePath ) {
 					const matchedSite = await findSiteByFolder( sitePath );
 					if ( matchedSite ) {
-						activeSite = { name: matchedSite.name, path: matchedSite.path };
+						activeSite = { id: matchedSite.id, name: matchedSite.name, path: matchedSite.path };
 					}
 				}
 				await runCommand( {

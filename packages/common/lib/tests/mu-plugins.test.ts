@@ -115,6 +115,51 @@ describe( 'writeStudioMuPluginsForNativePhpRuntime', () => {
 		expect( generatedPlugins ).toContain( '0-enable-auto-updates.php' );
 		expect( generatedPlugins ).not.toContain( '0-disable-auto-updates.php' );
 	} );
+
+	it( 'should reuse the existing mu-plugins directory when contents are up to date', async () => {
+		const firstDir = await writeStudioMuPluginsForNativePhpRuntime( sitePath, false );
+		const secondDir = await writeStudioMuPluginsForNativePhpRuntime( sitePath, false );
+
+		expect( secondDir ).toBe( firstDir );
+	} );
+
+	it( 'should regenerate mu-plugins when an existing file has stale content', async () => {
+		const firstDir = await writeStudioMuPluginsForNativePhpRuntime( sitePath, false );
+
+		const pluginFilename = '0-deactivate-jetpack-modules.php';
+		const expectedContent = await readFile( join( firstDir, pluginFilename ), 'utf8' );
+		writeFileSync( join( firstDir, pluginFilename ), '<?php // stale content from older Studio' );
+
+		const secondDir = await writeStudioMuPluginsForNativePhpRuntime( sitePath, false );
+		const regeneratedContent = await readFile( join( secondDir, pluginFilename ), 'utf8' );
+
+		expect( secondDir ).not.toBe( firstDir );
+		expect( regeneratedContent ).toBe( expectedContent );
+	} );
+
+	it( 'should disable Jetpack modules that affect local development', async () => {
+		await writeStudioMuPluginsForNativePhpRuntime( sitePath, false );
+
+		const loaderPath = join(
+			sitePath,
+			'wp-content',
+			'mu-plugins',
+			STUDIO_LOADER_MU_PLUGIN_FILENAME
+		);
+		const loaderContent = await readFile( loaderPath, 'utf8' );
+		const muPluginsDir = loaderContent.match( /\$studio_mu_plugins_dir = '([^']+)';/ )?.[ 1 ];
+
+		expect( muPluginsDir ).toBeTruthy();
+
+		const content = await readFile(
+			join( muPluginsDir as string, '0-deactivate-jetpack-modules.php' ),
+			'utf8'
+		);
+
+		expect( content ).toContain( "add_filter( 'jetpack_active_modules'" );
+		expect( content ).toContain( "$disabled_modules = array( 'protect', 'stats' );" );
+		expect( content ).toContain( 'array_diff( $active, $disabled_modules )' );
+	} );
 } );
 
 describe( 'getMuPlugins error capture', () => {

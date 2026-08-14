@@ -83,8 +83,11 @@ type UserDataSafeKeys =
 	| 'cliAutoInstalled'
 	| 'cliUserUninstalled'
 	| 'wapuuScore'
+	| 'onboardingHints'
 	| 'lastNightlyUpdateCheck'
-	| 'nightlyPromptResult';
+	| 'nightlyPromptResult'
+	| 'agenticUiBannerDismissed'
+	| 'agenticFeaturesEnabled';
 
 type PartialUserDataWithSafeKeysToUpdate = Partial< Pick< UserData, UserDataSafeKeys > >;
 

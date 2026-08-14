@@ -1,11 +1,6 @@
 export interface SiteRestRequest {
-	path?: string;
-	url?: string;
-	method?: string;
-	headers?: Record< string, string >;
-	body?: string | ArrayBuffer;
-	data?: unknown;
-	parse?: boolean;
+	// Path within the site's REST API, resolved against `/wp-json/`.
+	path: string;
 }
 
 export interface SiteRestResponse {

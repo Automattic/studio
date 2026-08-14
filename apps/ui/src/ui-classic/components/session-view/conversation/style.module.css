@@ -209,6 +209,32 @@
 	color: var(--wpds-color-fg-content-error, #dc2626);
 }
 
+.toolDiff {
+	margin: 0;
+	display: flex;
+	flex-direction: column;
+	font-family: var(--wpds-typography-font-family-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: 1.5;
+	white-space: pre-wrap;
+	word-wrap: break-word;
+	overflow: visible;
+}
+
+.diffLine {
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.diffLineAdded {
+	color: var(--wpds-color-fg-content-success);
+	background-color: var(--wpds-color-bg-surface-success-weak);
+}
+
+.diffLineRemoved {
+	color: var(--wpds-color-fg-content-error);
+	background-color: var(--wpds-color-bg-surface-error-weak);
+}
+
 .toolLabel {
 	color: var(--tool-text-color);
 	font-weight: 400;
@@ -242,6 +268,57 @@
 	fill: var(--tool-icon-color);
 }
 
+.mediaArtifactGrid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+	gap: var(--wpds-dimension-padding-sm);
+	width: min(100%, 680px);
+}
+
+.mediaArtifactItem {
+	margin: 0;
+	min-width: 0;
+}
+
+.mediaArtifactImage {
+	display: block;
+	width: 100%;
+	max-height: min(520px, 58vh);
+	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: var(--wpds-border-radius-md, 8px);
+	background-color: var(--wpds-color-bg-surface-neutral-weak);
+	object-fit: contain;
+}
+
+.mediaArtifactLoading,
+.mediaArtifactUnavailable {
+	box-sizing: border-box;
+	min-height: 180px;
+	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: var(--wpds-border-radius-md, 8px);
+	background-color: var(--wpds-color-bg-surface-neutral-weak);
+}
+
+.mediaArtifactLoading {
+	background-image: linear-gradient(
+		90deg,
+		transparent,
+		color-mix(in srgb, var(--wpds-color-fg-content-neutral) 8%, transparent),
+		transparent
+	);
+	background-size: 200% 100%;
+	animation: mediaArtifactLoading 1.2s ease-in-out infinite;
+}
+
+.mediaArtifactUnavailable {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: var(--wpds-dimension-padding-md);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+}
+
 @keyframes toolDetailsExpand {
 	from {
 		grid-template-rows: 0fr;
@@ -256,10 +333,21 @@
 	}
 }
 
+@keyframes mediaArtifactLoading {
+	from {
+		background-position: 200% 0;
+	}
+
+	to {
+		background-position: -200% 0;
+	}
+}
+
 @media (prefers-reduced-motion: reduce) {
 	.toolRowButton,
 	.toolDetailsShell,
-	.toolDetailsShell[data-expanded='true'] {
+	.toolDetailsShell[data-expanded='true'],
+	.mediaArtifactLoading {
 		animation: none;
 		transform: none;
 		transition: none;
@@ -582,4 +670,62 @@
 	color: var(--wpds-color-fg-content-neutral-weak);
 	font-size: var(--wpds-typography-font-size-xs);
 	text-align: center;
+}
+
+.errorMarker {
+	align-self: center;
+	max-width: 100%;
+	margin: var(--wpds-dimension-padding-sm) 0;
+	padding: 4px 12px;
+	border-radius: var(--wpds-dimension-radius-md, 8px);
+	background-color: color-mix(in srgb, var(--wpds-color-fg-content-error) 8%, transparent);
+	color: var(--wpds-color-fg-content-error);
+	font-size: var(--wpds-typography-font-size-xs);
+	text-align: center;
+	overflow-wrap: anywhere;
+}
+
+/* Action footer for an assistant message: open on the newest reply, and on any
+   older one the reader clicks. A closed turn reserves no space for it. */
+.messageActions {
+	display: grid;
+	grid-template-rows: 0fr;
+	/* Optical alignment of the 16px glyph with the text column. It lives out
+	   here rather than on the row so the negative offset doesn't drag the
+	   button past the clip's edge; the row's inline padding cancels the extra
+	   -sm so the net shift is still (16px - button) / 2. */
+	margin-inline-start: calc((16px - 1.75rem) / 2 - var(--wpds-dimension-padding-sm));
+	opacity: 0;
+	transition:
+		grid-template-rows 180ms cubic-bezier(0.2, 0, 0, 1),
+		opacity 120ms ease;
+}
+
+/* :focus-within keeps the row reachable by keyboard — tabbing to the copy
+   button opens it without a click. */
+.assistantTurn[data-actions-open='true'] .messageActions,
+.assistantTurn:focus-within .messageActions {
+	grid-template-rows: 1fr;
+	opacity: 1;
+}
+
+.messageActionsClip {
+	min-height: 0;
+	overflow: hidden;
+}
+
+/* The clip cuts on every side, so the row carries enough padding for the
+   buttons' hover backgrounds and focus rings to sit fully inside it. */
+.messageActionsRow {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-xs);
+	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm)
+		var(--wpds-dimension-padding-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.messageActions {
+		transition: none;
+	}
 }

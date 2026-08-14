@@ -24,7 +24,11 @@ export const sitesEndpointSiteSchema = z.object( {
 		.object( {
 			created_at: z.string(),
 			wpcom_staging_blog_ids: z.array( z.number() ),
-			software_version: z.string(),
+			// WordPress.com only returns software_version for Atomic/Jetpack
+			// sites; Simple sites (e.g. Business plans not yet transferred to
+			// Atomic, or Free/Personal plans) omit it. Requiring it here would
+			// silently drop every Simple site from the synced-sites list.
+			software_version: z.string().optional(),
 		} )
 		.optional(),
 	capabilities: z
@@ -90,6 +94,34 @@ export const syncSiteSchema = z.object( {
 
 export type SyncSite = z.infer< typeof syncSiteSchema >;
 
+// Phases a push moves through, named after the legacy renderer's push state
+// keys so both UIs gate cancellation on the same boundary. The last three are
+// remote work, reported by polling the import endpoint.
+export type PushPhase =
+	| 'creatingBackup'
+	| 'uploading'
+	| 'creatingRemoteBackup'
+	| 'applyingChanges'
+	| 'finishing';
+
+// Progress a push reports for the UI (the desktop also exposes manual
+// pause/resume; that lives in its own registry on top of these signals).
+// `progress` is how far the current phase has got, when the remote reports it.
+export type PushOutput =
+	| { kind: 'phase'; phase: PushPhase; progress?: number }
+	| { kind: 'upload-progress'; progress: number }
+	| { kind: 'network-paused'; error: string }
+	| { kind: 'resumed' };
+
+export type PullSiteProgress = {
+	message: string;
+	progress?: number;
+	// The CLI `LoggerAction` behind this message. Used to tell the remote-side
+	// phases (backup, download) from the local import, which must not be
+	// cancelled midway — see `canCancelPull`.
+	action?: string;
+};
+
 // Pull backup API schemas
 export const pullSiteResponseSchema = z.object( {
 	success: z.boolean(),
@@ -148,3 +180,15 @@ export const syncOptionSchema = z.enum( [
 	'contents',
 ] );
 export type SyncOption = z.infer< typeof syncOptionSchema >;
+
+// Selective-sync selections carried from the UI down to the CLI/export layer.
+// Push selects local paths (relative, e.g. "wp-content/plugins/foo"); pull
+// selects remote backup node ids returned by the rewind backup `ls` endpoint.
+export type PushSyncOptions = {
+	optionsToSync?: SyncOption[];
+	specificSelectionPaths?: string[];
+};
+export type PullSyncOptions = {
+	optionsToSync?: SyncOption[];
+	includePathList?: string[];
+};

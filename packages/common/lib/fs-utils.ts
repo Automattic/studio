@@ -47,7 +47,9 @@ export function calculateDirectorySizeForArchive(
 								totalSize += stats.size;
 							}
 						} catch ( error ) {
-							console.warn( `Error processing ${ filePath }:`, error );
+							// Dangling symlink or unreadable entry. Skip it (uncounted)
+							// rather than failing the size calculation.
+							console.warn( `Skipping ${ filePath }: ${ error }` );
 						}
 					} )
 				);
@@ -68,6 +70,21 @@ export function isWordPressDirectory( projectPath: string ): boolean {
 		fs.existsSync( path.join( projectPath, 'wp-includes' ) ) &&
 		fs.existsSync( path.join( projectPath, 'wp-load.php' ) )
 	);
+}
+
+// Resolve `candidate` under `root`, returning the normalized path when it is `root`
+// or a descendant, or `null` when it escapes (e.g. via `../`). Callers with
+// untrusted input must use the returned value for filesystem access, not the raw input.
+export function confineToRoot( root: string, candidate: string ): string | null {
+	const resolvedRoot = path.resolve( root );
+	const resolvedCandidate = path.resolve( resolvedRoot, candidate );
+	if (
+		resolvedCandidate === resolvedRoot ||
+		resolvedCandidate.startsWith( resolvedRoot + path.sep )
+	) {
+		return resolvedCandidate;
+	}
+	return null;
 }
 
 // Compare paths, preferring inode comparison when both paths exist on disk.
@@ -98,27 +115,37 @@ export async function pathExists( path: string ): Promise< boolean > {
 	}
 }
 
+// The source may be mutated while copying (e.g. duplicating a running site whose
+// SQLite journal and cache files come and go), so entries that disappear between
+// enumeration and copy are skipped rather than failing the whole copy. A missing
+// top-level source still throws.
 export async function recursiveCopyDirectory(
 	source: string,
 	destination: string
 ): Promise< void > {
-	await fsPromises.mkdir( destination, { recursive: true } );
-
 	const entries = await fsPromises.readdir( source, { withFileTypes: true } );
 
+	await fsPromises.mkdir( destination, { recursive: true } );
+
 	await Promise.all(
-		entries.map( ( entry ) => {
+		entries.map( async ( entry ) => {
 			const sourcePath = path.join( source, entry.name );
 			const destinationPath = path.join( destination, entry.name );
 
-			if ( entry.isDirectory() ) {
-				return recursiveCopyDirectory( sourcePath, destinationPath );
-			}
-			if ( entry.isFile() ) {
-				return fsPromises.cp( sourcePath, destinationPath, {
-					mode: fs.constants.COPYFILE_FICLONE,
-					preserveTimestamps: true,
-				} );
+			try {
+				if ( entry.isDirectory() ) {
+					await recursiveCopyDirectory( sourcePath, destinationPath );
+				} else if ( entry.isFile() ) {
+					await fsPromises.cp( sourcePath, destinationPath, {
+						mode: fs.constants.COPYFILE_FICLONE,
+						preserveTimestamps: true,
+					} );
+				}
+			} catch ( error ) {
+				if ( isErrnoException( error ) && error.code === 'ENOENT' ) {
+					return;
+				}
+				throw error;
 			}
 		} )
 	);

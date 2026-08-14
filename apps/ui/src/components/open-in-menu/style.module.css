@@ -1,0 +1,20 @@
+.popup {
+	min-width: 180px;
+}
+
+.itemIcon {
+	display: grid;
+	place-items: center;
+	flex: 0 0 18px;
+	width: 18px;
+	height: 18px;
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+/* Map the foreground color onto @wordpress/icons SVGs, which ship without a
+   fill attribute and would otherwise render with the black SVG default. The
+   brand logos declare their own fill (`currentColor` or `none` for the
+   stroke-drawn ones), so scope the rule to leave them alone. */
+.itemIcon svg:not([fill]) {
+	fill: currentColor;
+}

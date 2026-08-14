@@ -12,13 +12,14 @@ Unreleased
 * Studio Code: Replaced Opus 4.8 with Opus 5, surfaced the payment-method requirement before the first prompt, and showed a clear notice when AI is disabled or the account is blocked #4342, #4422, #4386, #4463, #4493
 * Studio Code: Fixed a 400 error when using a direct Anthropic API key, validated the key in the api-key and provider CLI commands, and sent a custom user agent on AI requests #4480, #4504, #4437
 * Improved analytics across the app #4162, #4532, #4464, #4490, #4482, #4434, #4506, #4457, #4420, #4395, #4418, #4358
-* Made site startup more resilient with a PHP error page and auto-recovery when a site fails to start, a real reason when a Blueprint fails, no ghost site left behind when creation fails, and blocking of conflicting site operations #4246, #4487, #4489, #4406
+* Made site startup and creation more resilient: a site with a fatal PHP error now starts and shows the error, a failed Blueprint reports the real reason instead of the PHP exit code, and a failed creation no longer leaves a ghost site behind #4246, #4487, #4489
+* Fixed sites getting into a broken state when two operations ran at once, such as starting a site while it was still stopping #4406
 * Fixed a stuck Start/Stop indicator and the inverted play/pause glyphs on the site status toggle #4253, #4374
 * Fixed site URLs not updating on native PHP imports and an ENAMETOOLONG error from open_basedir, raised max_execution_time, and dropped Blueprint features the native runner cannot accept #4454, #4432, #4274, #4488
 * Added Spotlight keywords for improved discoverability, and dropped the restart popup when an update is ready #3255, #4405
-* Updated the bundled PHP binaries and the SQLite database integration to v3.0.0-rc.8, pinned Reprint to v0.9.2, and pointed CLI Reprint provisioning at the v1/v2-aware export endpoints #4438, #4440, #4439, #4436, #4417, #4431, #4375, #4491
-* Updated multiple dependencies, including WP Playground, Electron, the pi (agent) packages, the MCP SDK, tar, postcss and undici, resolving several Dependabot alerts #4230, #4327, #4357, #4383, #4384, #4428, #4416
-* Misc and maintenance improvements #4456, #4313, #4379, #4378, #4340, #4394, #4393, #4372, #4399, #4419, #4290, #4472, #4336, #4492, #4481, #4507, #4512, #4396, #4330, #4324, #4371
+* Updated the bundled PHP binaries and the SQLite database integration to v3.0.0-rc.8 #4438, #4440, #4439, #4436, #4417
+* Updated multiple dependencies, including WP Playground, Electron and the pi (agent) packages, resolving several security alerts #4230, #4327, #4357, #4383, #4384, #4428, #4416
+* Misc and maintenance improvements #4456, #4375, #4431, #4491, #4313, #4379, #4378, #4340, #4394, #4393, #4372, #4399, #4419, #4290, #4472, #4336, #4492, #4481, #4507, #4512, #4396, #4330, #4324, #4371
 
 1.17.0
 =====

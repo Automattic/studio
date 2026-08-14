@@ -4,6 +4,7 @@
 }
 
 .shell {
+	--composer-resting-tint-strength: 5%;
 	--composer-resting-fill: color-mix(
 		in srgb,
 		var(--wpds-color-bg-surface-neutral-weak, #f4f4f4) var(--surface-alpha, 82%),
@@ -11,7 +12,7 @@
 	);
 	--composer-resting-tint: color-mix(
 		in srgb,
-		var(--wpds-color-fg-content-neutral) 5%,
+		var(--wpds-color-fg-content-neutral) var(--composer-resting-tint-strength),
 		transparent
 	);
 	--composer-focus-ring: var(--wpds-color-fg-interactive-brand, #2563eb);
@@ -29,6 +30,10 @@
 	padding: 0;
 	outline: 0 solid transparent;
 	transition: outline-color 80ms ease, outline-width 80ms ease;
+}
+
+:global(html[data-color-scheme='dark']) .shell {
+	--composer-resting-tint-strength: 10%;
 }
 
 .shell:focus-within:not(:has(.resizeHandle:focus-visible)) {

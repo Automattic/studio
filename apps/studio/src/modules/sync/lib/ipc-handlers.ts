@@ -612,6 +612,7 @@ export async function pushSiteToLive(
 							selectedSiteId,
 							remoteSiteId,
 							phase: output.phase,
+							progress: output.progress,
 						} );
 					} else if ( output.kind === 'upload-progress' ) {
 						void sendIpcEventToRenderer( 'sync-upload-progress', {

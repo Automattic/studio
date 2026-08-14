@@ -34,7 +34,7 @@ export function resolveResumeSessionContext(
 
 		if ( isStudioCustomEntryOfType( entry, 'studio.session_context' ) ) {
 			const data = entry.data;
-			if ( data && isAiProviderId( data.provider ) ) {
+			if ( data?.provider && isAiProviderId( data.provider ) ) {
 				context.provider = data.provider;
 				break;
 			}

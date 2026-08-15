@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useConnector } from '@/data/core';
 
-export const AGENT_INSTRUCTIONS_QUERY_KEY = [ 'agent-instructions' ] as const;
+// Versioned because persisted query caches from older builds stored a bare string.
+export const AGENT_INSTRUCTIONS_QUERY_KEY = [ 'agent-instructions', 2 ] as const;
 
 type AgentInstructions = { content: string; enabled: boolean };
 

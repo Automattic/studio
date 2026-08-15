@@ -4,11 +4,6 @@ import { isErrnoException } from '../lib/is-errno-exception';
 import { readSharedConfig, updateSharedConfig } from '../lib/shared-config';
 import { getGlobalInstructionsPath } from '../lib/well-known-paths';
 
-// Keep the always-injected instructions small enough that they can't crowd out
-// the rest of the system prompt. The prompt builder truncates anything longer;
-// the settings UIs cap their textareas at the same length.
-export const GLOBAL_INSTRUCTIONS_MAX_LENGTH = 16_000;
-
 /**
  * Read the user's global agent instructions (`~/.studio/knowledge/instructions.md`)
  * for injection into the system prompt. Returns `undefined` when the file is

@@ -403,11 +403,14 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			// No native folder picker in a browser.
 			return null;
 		},
-		async getAgentInstructions(): Promise< string > {
+		async getAgentInstructions(): Promise< { content: string; enabled: boolean } > {
 			throw new UnsupportedError( 'getAgentInstructions' );
 		},
 		async saveAgentInstructions(): Promise< void > {
 			throw new UnsupportedError( 'saveAgentInstructions' );
+		},
+		async setAgentInstructionsEnabled(): Promise< void > {
+			throw new UnsupportedError( 'setAgentInstructionsEnabled' );
 		},
 		async getAiSettings(): Promise< AiSettings > {
 			throw new UnsupportedError( 'getAiSettings' );

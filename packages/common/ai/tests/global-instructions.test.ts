@@ -4,8 +4,10 @@ import path from 'path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
 	readGlobalInstructions,
+	readGlobalInstructionsEnabled,
 	readGlobalInstructionsFile,
 	writeGlobalInstructions,
+	writeGlobalInstructionsEnabled,
 } from '../global-instructions';
 
 describe( 'global-instructions', () => {
@@ -38,6 +40,28 @@ describe( 'global-instructions', () => {
 
 	it( 'round-trips written instructions, trimmed for the prompt', async () => {
 		await writeGlobalInstructions( '\nAlways answer in French.\n' );
+		expect( await readGlobalInstructions() ).toBe( 'Always answer in French.' );
+	} );
+
+	it( 'defaults to enabled when existing instructions have content', async () => {
+		await writeGlobalInstructions( 'Always answer in French.' );
+		expect( await readGlobalInstructionsEnabled() ).toBe( true );
+	} );
+
+	it( 'preserves instructions while disabling their prompt injection', async () => {
+		await writeGlobalInstructions( 'Always answer in French.' );
+		await writeGlobalInstructionsEnabled( false );
+
+		expect( await readGlobalInstructions() ).toBeUndefined();
+		expect( await readGlobalInstructionsFile() ).toBe( 'Always answer in French.' );
+		expect( await readGlobalInstructionsEnabled() ).toBe( false );
+	} );
+
+	it( 'restores preserved instructions when re-enabled', async () => {
+		await writeGlobalInstructions( 'Always answer in French.' );
+		await writeGlobalInstructionsEnabled( false );
+		await writeGlobalInstructionsEnabled( true );
+
 		expect( await readGlobalInstructions() ).toBe( 'Always answer in French.' );
 	} );
 

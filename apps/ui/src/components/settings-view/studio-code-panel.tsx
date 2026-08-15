@@ -6,19 +6,21 @@ import { useEffect, useRef, useState } from 'react';
 import {
 	useAgentInstructions,
 	useSaveAgentInstructions,
+	useSetAgentInstructionsEnabled,
 } from '@/data/queries/use-agent-instructions';
 import styles from './style.module.css';
 import { SAVE_DEBOUNCE_MS } from './use-debounced-save';
 
 export function StudioCodePanel() {
-	const { data: saved } = useAgentInstructions();
+	const { data: settings } = useAgentInstructions();
 	const { mutate: save, isError } = useSaveAgentInstructions();
+	const setEnabled = useSetAgentInstructionsEnabled();
 	const [ edits, setEdits ] = useState< string | null >( null );
-	const [ userEnabled, setUserEnabled ] = useState< boolean | null >( null );
 
+	const saved = settings?.content;
 	const content = edits ?? saved ?? '';
 	const isDirty = saved !== undefined && content !== saved;
-	const enabled = userEnabled ?? ( saved?.length ?? 0 ) > 0;
+	const enabled = settings?.enabled ?? false;
 
 	const pending = useRef< string | null >( null );
 	// Latest content, and the value this visit started from.
@@ -68,19 +70,14 @@ export function StudioCodePanel() {
 		[]
 	);
 
-	if ( saved === undefined ) {
+	if ( settings === undefined ) {
 		return <div className={ styles.state }>{ __( 'Loading…' ) }</div>;
 	}
 
 	const showCounter = enabled && content.length >= GLOBAL_INSTRUCTIONS_MAX_LENGTH * 0.8;
 
 	const handleToggle = () => {
-		if ( enabled ) {
-			setUserEnabled( false );
-			setEdits( '' );
-		} else {
-			setUserEnabled( true );
-		}
+		setEnabled.mutate( ! enabled );
 	};
 
 	return (
@@ -119,6 +116,11 @@ export function StudioCodePanel() {
 			{ isError && (
 				<p className={ styles.instructionsError }>
 					{ __( 'Saving the instructions failed. Please try again.' ) }
+				</p>
+			) }
+			{ setEnabled.isError && (
+				<p className={ styles.instructionsError }>
+					{ __( 'Updating the instructions setting failed. Please try again.' ) }
 				</p>
 			) }
 			{ showCounter && (

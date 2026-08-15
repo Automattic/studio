@@ -4,26 +4,36 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	useAgentInstructions,
 	useSaveAgentInstructions,
+	useSetAgentInstructionsEnabled,
 } from '@/data/queries/use-agent-instructions';
 import { StudioCodePanel } from './studio-code-panel';
 
 vi.mock( '@/data/queries/use-agent-instructions', () => ( {
 	useAgentInstructions: vi.fn(),
 	useSaveAgentInstructions: vi.fn(),
+	useSetAgentInstructionsEnabled: vi.fn(),
 } ) );
 
 const useAgentInstructionsMock = vi.mocked( useAgentInstructions );
 const useSaveAgentInstructionsMock = vi.mocked( useSaveAgentInstructions );
+const useSetAgentInstructionsEnabledMock = vi.mocked( useSetAgentInstructionsEnabled );
 
 // These assert the panel supplies `editSession`, not that an event was recorded.
 describe( 'StudioCodePanel', () => {
 	const save = vi.fn();
+	const setEnabled = vi.fn();
 
 	beforeEach( () => {
 		vi.clearAllMocks();
 		vi.useFakeTimers();
-		useAgentInstructionsMock.mockReturnValue( { data: 'Answer in French.' } as never );
+		useAgentInstructionsMock.mockReturnValue( {
+			data: { content: 'Answer in French.', enabled: true },
+		} as never );
 		useSaveAgentInstructionsMock.mockReturnValue( { mutate: save, isError: false } as never );
+		useSetAgentInstructionsEnabledMock.mockReturnValue( {
+			mutate: setEnabled,
+			isError: false,
+		} as never );
 	} );
 
 	afterEach( () => {
@@ -46,29 +56,41 @@ describe( 'StudioCodePanel', () => {
 	} );
 
 	it( 'starts disabled when no instructions are saved and reveals the editor when enabled', () => {
-		useAgentInstructionsMock.mockReturnValue( { data: '' } as never );
+		useAgentInstructionsMock.mockReturnValue( { data: { content: '', enabled: false } } as never );
 
-		render( <StudioCodePanel /> );
+		const { rerender } = render( <StudioCodePanel /> );
 
 		const toggle = screen.getByRole( 'checkbox', { name: 'Enable instructions' } );
 		expect( toggle ).not.toBeChecked();
 		expect( screen.queryByLabelText( 'Instructions' ) ).not.toBeInTheDocument();
 
 		fireEvent.click( toggle );
+		expect( setEnabled ).toHaveBeenCalledWith( true );
 
+		useAgentInstructionsMock.mockReturnValue( { data: { content: '', enabled: true } } as never );
+		rerender( <StudioCodePanel /> );
 		expect( toggle ).toBeChecked();
 		expect( screen.getByLabelText( 'Instructions' ) ).toBeInTheDocument();
 	} );
 
-	it( 'clears saved instructions when disabled', () => {
-		render( <StudioCodePanel /> );
+	it( 'preserves saved instructions when disabled and restores them when enabled again', () => {
+		const { rerender } = render( <StudioCodePanel /> );
 
 		fireEvent.click( screen.getByRole( 'checkbox', { name: 'Enable instructions' } ) );
+		expect( setEnabled ).toHaveBeenCalledWith( false );
+		expect( save ).not.toHaveBeenCalled();
+
+		useAgentInstructionsMock.mockReturnValue( {
+			data: { content: 'Answer in French.', enabled: false },
+		} as never );
+		rerender( <StudioCodePanel /> );
 		expect( screen.queryByLabelText( 'Instructions' ) ).not.toBeInTheDocument();
 
-		act( () => void vi.advanceTimersByTime( 800 ) );
-
-		expect( save ).toHaveBeenCalledWith( { content: '' } );
+		useAgentInstructionsMock.mockReturnValue( {
+			data: { content: 'Answer in French.', enabled: true },
+		} as never );
+		rerender( <StudioCodePanel /> );
+		expect( screen.getByLabelText( 'Instructions' ) ).toHaveValue( 'Answer in French.' );
 	} );
 
 	it( 'flushes a pending edit when the panel unmounts mid-debounce', () => {
@@ -152,6 +174,19 @@ describe( 'StudioCodePanel', () => {
 
 		expect(
 			screen.getByText( 'Saving the instructions failed. Please try again.' )
+		).toBeInTheDocument();
+	} );
+
+	it( 'surfaces an enabled-state failure', () => {
+		useSetAgentInstructionsEnabledMock.mockReturnValue( {
+			mutate: setEnabled,
+			isError: true,
+		} as never );
+
+		render( <StudioCodePanel /> );
+
+		expect(
+			screen.getByText( 'Updating the instructions setting failed. Please try again.' )
 		).toBeInTheDocument();
 	} );
 } );

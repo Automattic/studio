@@ -1,4 +1,4 @@
-import { GLOBAL_INSTRUCTIONS_MAX_LENGTH } from '@studio/common/ai/global-instructions';
+import { GLOBAL_INSTRUCTIONS_MAX_LENGTH } from '@studio/common/ai/global-instructions-constants';
 import { getErrorMessage } from '@studio/common/lib/error-formatting';
 import { TextareaControl } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';

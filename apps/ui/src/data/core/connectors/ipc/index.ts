@@ -862,14 +862,21 @@ export function createIpcConnector(): Connector {
 			return response?.path ?? null;
 		},
 
-		async getAgentInstructions(): Promise< string > {
-			return ( await ipcApi.getGlobalAgentInstructions() ) as string;
+		async getAgentInstructions(): Promise< { content: string; enabled: boolean } > {
+			const [ content, enabled ] = await Promise.all( [
+				ipcApi.getGlobalAgentInstructions(),
+				ipcApi.getGlobalAgentInstructionsEnabled(),
+			] );
+			return { content: content as string, enabled: enabled as boolean };
 		},
 		async saveAgentInstructions(
 			content: string,
 			options: { editSession?: { previousContent: string } } = {}
 		): Promise< void > {
 			await ipcApi.saveGlobalAgentInstructions( content, options );
+		},
+		async setAgentInstructionsEnabled( enabled: boolean ): Promise< void > {
+			await ipcApi.saveGlobalAgentInstructionsEnabled( enabled );
 		},
 
 		async getAiSettings(): Promise< AiSettings > {

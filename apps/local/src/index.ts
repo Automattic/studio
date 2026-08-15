@@ -4,8 +4,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import {
+	readGlobalInstructionsEnabled,
 	readGlobalInstructionsFile,
 	writeGlobalInstructions,
+	writeGlobalInstructionsEnabled,
 } from '@studio/common/ai/global-instructions';
 import { isAiModelId } from '@studio/common/ai/models';
 import { isAiProviderId, providerServesModel } from '@studio/common/ai/providers';
@@ -529,24 +531,34 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.get(
 		'/agent-instructions',
 		asyncHandler( async ( _req: Request, res: Response ) => {
-			res.json( { content: ( await readGlobalInstructionsFile() ) ?? '' } );
+			const content = ( await readGlobalInstructionsFile() ) ?? '';
+			res.json( { content, enabled: await readGlobalInstructionsEnabled( content ) } );
 		} )
 	);
 
 	api.post(
 		'/agent-instructions',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const content = req.body?.content;
-			if ( typeof content !== 'string' ) {
-				res.status( 400 ).json( { error: 'content required' } );
+			const { content, enabled } = req.body ?? {};
+			if ( typeof content !== 'string' && typeof enabled !== 'boolean' ) {
+				res.status( 400 ).json( { error: 'content or enabled required' } );
 				return;
 			}
-			await writeGlobalInstructions( content );
+			if ( typeof content === 'string' ) {
+				await writeGlobalInstructions( content );
+			}
+			if ( typeof enabled === 'boolean' ) {
+				await writeGlobalInstructionsEnabled( enabled );
+			}
 			res.status( 204 ).end();
 
 			// Only a save that ends an edit session counts, not the debounced autosaves.
 			const previousContent = req.body?.editSession?.previousContent;
-			if ( typeof previousContent === 'string' && previousContent !== content ) {
+			if (
+				typeof content === 'string' &&
+				typeof previousContent === 'string' &&
+				previousContent !== content
+			) {
 				trackEvent( TRACKS_EVENTS.SETTING_INSTRUCTIONS_CHANGE, {
 					has_content: content.trim().length > 0,
 					length_bucket: getInstructionsLengthBucket( content ),

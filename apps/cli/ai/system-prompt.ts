@@ -1,4 +1,4 @@
-import { GLOBAL_INSTRUCTIONS_MAX_LENGTH } from '@studio/common/ai/global-instructions';
+import { GLOBAL_INSTRUCTIONS_MAX_LENGTH } from '@studio/common/ai/global-instructions-constants';
 import {
 	getStudioPresentationRulesPrompt,
 	getStudioWidgetPromptManifest,

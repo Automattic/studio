@@ -3,6 +3,8 @@ import { useConnector } from '@/data/core';
 
 export const AGENT_INSTRUCTIONS_QUERY_KEY = [ 'agent-instructions' ] as const;
 
+type AgentInstructions = { content: string; enabled: boolean };
+
 export function useAgentInstructions() {
 	const connector = useConnector();
 	return useQuery( {
@@ -25,7 +27,34 @@ export function useSaveAgentInstructions() {
 			editSession?: { previousContent: string };
 		} ) => connector.saveAgentInstructions( content, { editSession } ).then( () => content ),
 		onSuccess: ( content ) => {
-			queryClient.setQueryData< string >( AGENT_INSTRUCTIONS_QUERY_KEY, content );
+			queryClient.setQueryData< AgentInstructions >(
+				AGENT_INSTRUCTIONS_QUERY_KEY,
+				( current ) => ( {
+					content,
+					enabled: current?.enabled ?? false,
+				} )
+			);
+		},
+	} );
+}
+
+export function useSetAgentInstructionsEnabled() {
+	const connector = useConnector();
+	const queryClient = useQueryClient();
+	return useMutation( {
+		mutationFn: ( enabled: boolean ) => connector.setAgentInstructionsEnabled( enabled ),
+		onMutate: async ( enabled ) => {
+			await queryClient.cancelQueries( { queryKey: AGENT_INSTRUCTIONS_QUERY_KEY } );
+			const previous = queryClient.getQueryData< AgentInstructions >(
+				AGENT_INSTRUCTIONS_QUERY_KEY
+			);
+			queryClient.setQueryData< AgentInstructions >( AGENT_INSTRUCTIONS_QUERY_KEY, ( current ) =>
+				current ? { ...current, enabled } : current
+			);
+			return previous;
+		},
+		onError: ( _error, _enabled, previous ) => {
+			queryClient.setQueryData( AGENT_INSTRUCTIONS_QUERY_KEY, previous );
 		},
 	} );
 }

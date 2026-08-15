@@ -831,9 +831,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			return { platform: 'browser', isWindowsStore: false };
 		},
 
-		async getAgentInstructions(): Promise< string > {
-			const { content } = await api< { content: string } >( '/agent-instructions' );
-			return content;
+		async getAgentInstructions(): Promise< { content: string; enabled: boolean } > {
+			return api< { content: string; enabled: boolean } >( '/agent-instructions' );
 		},
 		async saveAgentInstructions(
 			content: string,
@@ -842,6 +841,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			await api< void >( '/agent-instructions', {
 				method: 'POST',
 				body: JSON.stringify( { content, editSession: options.editSession } ),
+			} );
+		},
+		async setAgentInstructionsEnabled( enabled: boolean ): Promise< void > {
+			await api< void >( '/agent-instructions', {
+				method: 'POST',
+				body: JSON.stringify( { enabled } ),
 			} );
 		},
 

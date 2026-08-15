@@ -174,7 +174,14 @@ export async function saveDatabaseAppearance(
 	_event: IpcMainInvokeEvent,
 	appearance: DatabaseAppearance
 ): Promise< void > {
+	const previous = await readDatabaseAppearance();
 	await persistDatabaseAppearance( appearance );
+	if ( appearance !== previous ) {
+		await recordTracksEvent( TRACKS_EVENTS.SETTING_DATABASE_APPEARANCE_CHANGE, {
+			appearance,
+			surface: 'settings',
+		} );
+	}
 }
 
 // Analytics opt-out. Stored in shared.json so both Studio and the Studio CLI honor it. Default is

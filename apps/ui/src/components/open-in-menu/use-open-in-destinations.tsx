@@ -80,8 +80,12 @@ export function useOpenInDestinations(
 				// This destination leaves Studio for the OS browser, carrying whatever the
 				// preview is currently showing — so the event matches the active realm
 				// (front end / WP Admin / phpMyAdmin) rather than always the front end.
-				void connector.trackEvent( getRealmOpenEvent( getPreviewRealm( browserPath ) ), {
+				const realm = getPreviewRealm( browserPath );
+				void connector.trackEvent( getRealmOpenEvent( realm ), {
 					browser: 'external',
+					...( realm === 'database'
+						? { appearance: userPreferences?.databaseAppearance ?? 'studio' }
+						: {} ),
 				} );
 				// Routed through the host rather than `openExternalUrl` so the
 				// URL goes via /studio-auto-login; opening it raw drops the

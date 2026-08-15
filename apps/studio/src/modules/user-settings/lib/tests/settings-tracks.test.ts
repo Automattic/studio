@@ -8,11 +8,16 @@ import {
 	saveAnthropicApiKey as saveAnthropicApiKeyToConfig,
 	setAiProvider as setAiProviderInConfig,
 } from '@studio/common/ai/settings-store';
+import {
+	getDatabaseAppearance,
+	saveDatabaseAppearance as persistDatabaseAppearance,
+} from '@studio/common/lib/database-appearance';
 import { readSharedConfig, updateSharedConfig } from '@studio/common/lib/shared-config';
 import { vi } from 'vitest';
 import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
 import {
 	saveColorScheme,
+	saveDatabaseAppearance,
 	saveUserLocale,
 	saveUserEditor,
 	saveUserTerminal,
@@ -38,6 +43,10 @@ vi.mock( '@studio/common/lib/shared-config', () => ( {
 	isAnalyticsOptedOut: vi.fn(),
 	readSharedConfig: vi.fn(),
 	updateSharedConfig: vi.fn(),
+} ) );
+vi.mock( '@studio/common/lib/database-appearance', () => ( {
+	getDatabaseAppearance: vi.fn(),
+	saveDatabaseAppearance: vi.fn(),
 } ) );
 vi.mock( 'src/storage/user-data', () => ( {
 	loadUserData: vi.fn(),
@@ -67,6 +76,8 @@ const mockSaveAnthropicApiKey = vi.mocked( saveAnthropicApiKeyToConfig );
 const mockSetAiProvider = vi.mocked( setAiProviderInConfig );
 const mockLoadUserData = vi.mocked( loadUserData );
 const mockReadSharedConfig = vi.mocked( readSharedConfig );
+const mockGetDatabaseAppearance = vi.mocked( getDatabaseAppearance );
+const mockPersistDatabaseAppearance = vi.mocked( persistDatabaseAppearance );
 const event = {} as IpcMainInvokeEvent;
 
 // The persisted appdata / shared-config the handler reads to detect a real change.
@@ -85,6 +96,7 @@ beforeEach( () => {
 	vi.clearAllMocks();
 	setPersisted();
 	setPersistedLocale();
+	mockGetDatabaseAppearance.mockResolvedValue( 'studio' );
 } );
 
 it( 'saveColorScheme emits studio_setting_appearance_change with mode + surface when the mode changes', async () => {
@@ -106,6 +118,23 @@ it( 'saveColorScheme does not emit when the mode is unchanged (persisted default
 
 	expect( mockRecord ).not.toHaveBeenCalled();
 	expect( updateAppdata ).toHaveBeenCalledWith( { colorScheme: 'light' } );
+} );
+
+it( 'saveDatabaseAppearance emits a change event with the selected appearance', async () => {
+	await saveDatabaseAppearance( event, 'phpmyadmin' );
+
+	expect( mockPersistDatabaseAppearance ).toHaveBeenCalledWith( 'phpmyadmin' );
+	expect( mockRecord ).toHaveBeenCalledWith( TRACKS_EVENTS.SETTING_DATABASE_APPEARANCE_CHANGE, {
+		appearance: 'phpmyadmin',
+		surface: 'settings',
+	} );
+} );
+
+it( 'saveDatabaseAppearance does not emit when the appearance is unchanged', async () => {
+	await saveDatabaseAppearance( event, 'studio' );
+
+	expect( mockPersistDatabaseAppearance ).toHaveBeenCalledWith( 'studio' );
+	expect( mockRecord ).not.toHaveBeenCalled();
 } );
 
 it( 'saveUserLocale emits studio_setting_language_change with locale + surface when the locale changes', async () => {

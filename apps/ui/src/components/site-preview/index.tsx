@@ -863,11 +863,16 @@ export function SitePreview( {
 				return;
 			}
 			// The agentic UI opens the realm in its in-app preview panel.
-			void connector.trackEvent( getRealmOpenEvent( realm ), { browser: 'internal' } );
+			void connector.trackEvent( getRealmOpenEvent( realm ), {
+				browser: 'internal',
+				...( realm === 'database'
+					? { appearance: userPreferences?.databaseAppearance ?? 'studio' }
+					: {} ),
+			} );
 			const target = lastRealmPathsRef.current[ realm ];
 			onPathChange?.( getRealmNavigationPath( target, siteUrl ) );
 		},
-		[ connector, onPathChange, path, siteUrl ]
+		[ connector, onPathChange, path, siteUrl, userPreferences?.databaseAppearance ]
 	);
 
 	const browserShortcuts = useMemo(

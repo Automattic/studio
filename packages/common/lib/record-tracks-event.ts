@@ -30,6 +30,7 @@ export const TRACKS_EVENTS = {
 	PANEL_OPENED: 'studio_panel_opened',
 	SETTING_TELEMETRY_CHANGE: 'studio_setting_telemetry_change',
 	SETTING_APPEARANCE_CHANGE: 'studio_setting_appearance_change',
+	SETTING_DATABASE_APPEARANCE_CHANGE: 'studio_setting_database_appearance_change',
 	SETTING_LANGUAGE_CHANGE: 'studio_setting_language_change',
 	SETTING_CODE_EDITOR_CHANGE: 'studio_setting_code_editor_change',
 	SETTING_TERMINAL_CHANGE: 'studio_setting_terminal_change',

@@ -652,6 +652,7 @@ describe( 'SiteOverviewView', () => {
 		);
 		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_phpmyadmin', {
 			browser: 'internal',
+			appearance: 'studio',
 		} );
 	} );
 

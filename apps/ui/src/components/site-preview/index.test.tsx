@@ -288,6 +288,30 @@ describe( 'SitePreview', () => {
 		} );
 	} );
 
+	it( 'records the selected appearance when switching to the database realm', () => {
+		const trackEvent = vi.fn().mockResolvedValue( undefined );
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent,
+			capabilities: CAPABILITIES,
+		} as never );
+
+		renderPreview(
+			<SitePreview
+				site={ createSite( { running: true } ) }
+				path="/"
+				reloadNonce={ 0 }
+				onPathChange={ vi.fn() }
+			/>
+		);
+
+		fireEvent.keyDown( document.body, { key: '3', ctrlKey: true } );
+		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_phpmyadmin', {
+			browser: 'internal',
+			appearance: 'studio',
+		} );
+	} );
+
 	it( 'does not record a realm switch when re-selecting the active realm', () => {
 		const trackEvent = vi.fn().mockResolvedValue( undefined );
 		useConnectorMock.mockReturnValue( {

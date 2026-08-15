@@ -198,6 +198,17 @@ describe( 'OpenInMenu', () => {
 		} );
 	} );
 
+	it( 'records the selected appearance when opening a database preview externally', () => {
+		renderMenu( { running: true }, '/phpmyadmin/index.php?route=/database/structure&db=wordpress' );
+
+		fireEvent.click( destination( 'Browser' ) );
+
+		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_phpmyadmin', {
+			browser: 'external',
+			appearance: 'studio',
+		} );
+	} );
+
 	it( 'offers no phpMyAdmin destination', () => {
 		// The preview's address bar owns the database realm; navigating there
 		// from here strands it with no segment to represent it.

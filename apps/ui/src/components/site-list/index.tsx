@@ -396,7 +396,10 @@ function SiteActionsMenu( {
 	};
 
 	const handleOpenPhpMyAdmin = () => {
-		void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_PHPMYADMIN, { browser: 'external' } );
+		void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_PHPMYADMIN, {
+			browser: 'external',
+			appearance: userPreferences?.databaseAppearance ?? 'studio',
+		} );
 		void connector.openExternalUrl(
 			`${ getSiteUrl( site ) }${ getDatabaseHomePath(
 				userPreferences?.databaseAppearance ?? 'studio'

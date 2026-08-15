@@ -182,6 +182,7 @@ function OpenInSection( {
 					// Opens in the in-app preview panel, not the OS browser.
 					void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_PHPMYADMIN, {
 						browser: 'internal',
+						appearance: preferences?.databaseAppearance ?? 'studio',
 					} );
 					void openSiteUrl( getDatabaseHomePath( preferences?.databaseAppearance ?? 'studio' ) );
 				} }

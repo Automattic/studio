@@ -10,33 +10,46 @@ session_save_path($session_dir);
 // Enable development environment to display detailed error messages.
 $cfg['environment'] = 'development';
 
-// Use phpMyAdmin's bundled Bootstrap theme as the base for Studio's stylesheet.
-$cfg['ThemeDefault'] = 'bootstrap';
-$cfg['ThemeManager'] = false;
+$studio_database_cookie = 'studio_database';
+$studio_database_enabled = ($_COOKIE[$studio_database_cookie] ?? '1') !== '0';
+if (isset($_GET[$studio_database_cookie])) {
+    $studio_database_enabled = $_GET[$studio_database_cookie] !== '0';
+    setcookie($studio_database_cookie, $studio_database_enabled ? '1' : '0', [
+        'path' => '/phpmyadmin',
+        'samesite' => 'Lax',
+    ]);
+}
+define('STUDIO_DATABASE_ENABLED', $studio_database_enabled);
 
-// Prefer text labels where phpMyAdmin normally repeats actions as both an icon
-// and text. Keep these fixed so session preferences cannot restore the icons.
-$cfg['TabsMode'] = 'text';
-$cfg['ActionLinksMode'] = 'text';
-$cfg['RowActionType'] = 'text';
-$cfg['UserprefsDisallow'] = ['TabsMode', 'ActionLinksMode', 'RowActionType', 'ThemeDefault'];
+if ($studio_database_enabled) {
+    // Use phpMyAdmin's bundled Bootstrap theme as the base for Studio's stylesheet.
+    $cfg['ThemeDefault'] = 'bootstrap';
+    $cfg['ThemeManager'] = false;
 
-// Start with the navigation panel collapsed: it holds only Recent and Favorites
-// here (the database tree stays empty under the SQLite adapter), and Studio
-// renders phpMyAdmin inside a preview pane where 240px is expensive. The
-// collapser arrow reopens it. Note that reopening lasts for the page view only
-// — without phpMyAdmin configuration storage, preferences live in the session,
-// and persistOption() discards any value equal to the built-in default of 240.
-// A width set by dragging the resizer is kept.
-$cfg['NavigationWidth'] = 0;
+    // Prefer text labels where phpMyAdmin normally repeats actions as both an icon
+    // and text. Keep these fixed so session preferences cannot restore the icons.
+    $cfg['TabsMode'] = 'text';
+    $cfg['ActionLinksMode'] = 'text';
+    $cfg['RowActionType'] = 'text';
+    $cfg['UserprefsDisallow'] = ['TabsMode', 'ActionLinksMode', 'RowActionType', 'ThemeDefault'];
+
+    // Start with the navigation panel collapsed: it holds only Recent and Favorites
+    // here (the database tree stays empty under the SQLite adapter), and Studio
+    // renders phpMyAdmin inside a preview pane where 240px is expensive. The
+    // collapser arrow reopens it. Note that reopening lasts for the page view only
+    // — without phpMyAdmin configuration storage, preferences live in the session,
+    // and persistOption() discards any value equal to the built-in default of 240.
+    // A width set by dragging the resizer is kept.
+    $cfg['NavigationWidth'] = 0;
+    $cfg['ShowStats'] = false;
+    $cfg['ShowColumnComments'] = false;
+}
 
 // Playground-specific configuration.
 $cfg['CheckConfigurationPermissions'] = false;
 $cfg['VersionCheck'] = false;
 $cfg['ShowCreateDb'] = false;
 $cfg['ShowChgPassword'] = false;
-$cfg['ShowStats'] = false;
-$cfg['ShowColumnComments'] = false;
 
 // Cookie authentication secret.
 $cfg['blowfish_secret'] = 'r/g+J#&)L2&p!z5gUS)d(vEU#KAynq#g';

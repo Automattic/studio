@@ -759,6 +759,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 
 		// User preferences are persisted in the browser; `locale` follows the app.
 		async getUserPreferences(): Promise< UserPreferences > {
+			const { appearance: databaseAppearance } = await api< {
+				appearance: UserPreferences[ 'databaseAppearance' ];
+			} >( '/preferences/database-appearance' );
 			const stored = window.localStorage.getItem( COLOR_SCHEME_STORAGE_KEY );
 			const colorScheme: ColorScheme =
 				stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'system';
@@ -781,6 +784,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				studioCliExternallyManaged: false,
 				agenticFeaturesEnabled:
 					window.localStorage.getItem( AGENTIC_FEATURES_STORAGE_KEY ) !== 'false',
+				databaseAppearance,
 			};
 		},
 		async setUserPreferences( partial ) {
@@ -813,6 +817,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					AGENTIC_FEATURES_STORAGE_KEY,
 					String( partial.agenticFeaturesEnabled )
 				);
+			}
+			if ( partial.databaseAppearance ) {
+				await api< void >( '/preferences/database-appearance', {
+					method: 'PUT',
+					body: JSON.stringify( { appearance: partial.databaseAppearance } ),
+				} );
 			}
 		},
 		// Detected on the machine the server runs on (the desktop's installed-app

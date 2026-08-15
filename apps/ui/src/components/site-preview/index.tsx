@@ -25,11 +25,13 @@ import {
 	useSiteOperation,
 	useStartSite,
 } from '@/data/queries/use-sites';
+import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { getSiteUrl } from '@/lib/get-site-url';
 import { playIcon, refreshIcon } from '@/lib/icons';
 import {
 	DATABASE_HOME_PATH,
+	getDatabaseHomePath,
 	getPathFromPreviewUrl,
 	getPreviewRealm,
 	getRealmNavigationPath,
@@ -312,11 +314,13 @@ const SITE_THUMBNAIL_QUERY_KEY = [ 'site-preview-thumbnail' ] as const;
 
 // Where each realm segment lands before its per-realm memory has anything
 // better: site root, WP Admin dashboard, and phpMyAdmin's WordPress database.
-const DEFAULT_REALM_PATHS: Record< PreviewRealm, string > = {
-	frontend: '/',
-	admin: '/wp-admin/',
-	database: DATABASE_HOME_PATH,
-};
+function getDefaultRealmPaths( databasePath = DATABASE_HOME_PATH ): Record< PreviewRealm, string > {
+	return {
+		frontend: '/',
+		admin: '/wp-admin/',
+		database: databasePath,
+	};
+}
 
 function safeWebviewBoolean( webview: WebviewTag | null, method: 'canGoBack' | 'canGoForward' ) {
 	try {
@@ -674,6 +678,8 @@ export function SitePreview( {
 	onFullscreenChange,
 }: SitePreviewProps ) {
 	const connector = useConnector();
+	const { data: userPreferences } = useUserPreferences();
+	const databaseHomePath = getDatabaseHomePath( userPreferences?.databaseAppearance ?? 'studio' );
 	const { chatEnabled } = useAgenticFeatures();
 	const startSite = useStartSite();
 	const isStarting = useIsSiteStarting( site.id );
@@ -784,12 +790,20 @@ export function SitePreview( {
 		},
 		[ onPathChange, path, siteUrl ]
 	);
-	const handleBrowserStateChange = useCallback( ( state: BrowserNavigationState ) => {
-		setBrowserState( ( current ) => ( areBrowserStatesEqual( current, state ) ? current : state ) );
-	}, [] );
-	const handleInspectorState = useCallback( ( state: InspectorState ) => {
-		setInspectorState( state );
-	}, [] );
+	const handleBrowserStateChange = useCallback(
+		( state: BrowserNavigationState ) => {
+			setBrowserState( ( current ) =>
+				areBrowserStatesEqual( current, state ) ? current : state
+			);
+		},
+		[ setBrowserState ]
+	);
+	const handleInspectorState = useCallback(
+		( state: InspectorState ) => {
+			setInspectorState( state );
+		},
+		[ setInspectorState ]
+	);
 	const sendBrowserCommand = useCallback( ( type: BrowserCommand[ 'type' ] ) => {
 		commandIdRef.current += 1;
 		setBrowserCommand( { id: commandIdRef.current, type } );
@@ -816,12 +830,23 @@ export function SitePreview( {
 	// front-end page, and vice versa. Admin targets go through the site's
 	// /studio-auto-login endpoint so they never land on the login form.
 	const lastRealmPathsRef = useRef< Record< PreviewRealm, string > >( {
-		...DEFAULT_REALM_PATHS,
+		...getDefaultRealmPaths( databaseHomePath ),
 	} );
 	useEffect( () => {
 		// Reset the per-realm memory when the preview moves to another site.
-		lastRealmPathsRef.current = { ...DEFAULT_REALM_PATHS };
-	}, [ site.id ] );
+		lastRealmPathsRef.current = getDefaultRealmPaths( databaseHomePath );
+	}, [ databaseHomePath, site.id ] );
+	const previousDatabaseHomePathRef = useRef( databaseHomePath );
+	useEffect( () => {
+		if ( previousDatabaseHomePathRef.current === databaseHomePath ) {
+			return;
+		}
+		previousDatabaseHomePathRef.current = databaseHomePath;
+		lastRealmPathsRef.current.database = databaseHomePath;
+		if ( getPreviewRealm( getSafePath( path ) ) === 'database' ) {
+			onPathChange?.( databaseHomePath );
+		}
+	}, [ databaseHomePath, onPathChange, path ] );
 	useEffect( () => {
 		const safePath = getSafePath( path );
 		// Auto-login is a transient hop, not a place to return to.
@@ -869,7 +894,7 @@ export function SitePreview( {
 				onFullscreenChange?.( true );
 			}
 		},
-		[ onFullscreenChange, site.id ]
+		[ onFullscreenChange, setViewportMode, site.id ]
 	);
 	const handleMobileOrientationChange = useCallback(
 		( orientation: MobileOrientation ) => {
@@ -879,7 +904,7 @@ export function SitePreview( {
 				orientation,
 			};
 		},
-		[ site.id ]
+		[ setMobileOrientation, site.id ]
 	);
 
 	// The comparison is a full-preview mode: leaving full preview (or landing

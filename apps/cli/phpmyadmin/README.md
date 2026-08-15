@@ -8,13 +8,14 @@ with Studio without maintaining a fork of the upstream theme.
 
 `scripts/download-wp-server-files.ts` downloads phpMyAdmin, applies Studio's
 local files from `apps/cli/php/`, and builds `themes/studio.css` plus its RTL
-variant. The download step inserts that stylesheet after the active theme in
-phpMyAdmin's upstream `header.twig` and fails if its expected insertion point
-has changed.
+variant. phpMyAdmin's supported custom-header include loads the stylesheet after
+the active theme when the Studio database appearance is enabled.
 
 `apps/cli/php/config.inc.php` selects phpMyAdmin's bundled `bootstrap` theme as
 the fixed base theme. Studio disables phpMyAdmin's theme picker so the design
-layer is always applied against the theme it targets.
+layer is always applied against the theme it targets. Choosing phpMyAdmin in
+Studio's global settings restores phpMyAdmin's default theme and interface
+options instead.
 
 ## Working on the styles
 

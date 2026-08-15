@@ -33,16 +33,12 @@ const WORDPRESS_IMPORTER_VERSION = '0.9.5';
 const PHPMYADMIN_PATCH_FILES_PATH = path.join( import.meta.dirname, '..', 'apps', 'cli', 'php' );
 const PHPMYADMIN_LOCAL_FILES = new Map< string, string >( [
 	[ 'config.inc.php', path.join( PHPMYADMIN_PATCH_FILES_PATH, 'config.inc.php' ) ],
+	[ 'config.header.inc.php', path.join( PHPMYADMIN_PATCH_FILES_PATH, 'config.header.inc.php' ) ],
 	[
 		'libraries/classes/Dbal/DbiMysqli.php',
 		path.join( PHPMYADMIN_PATCH_FILES_PATH, 'DbiMysqli.php' ),
 	],
 ] );
-
-const PHPMYADMIN_THEME_STYLESHEET =
-	'  <link rel="stylesheet" type="text/css" href="{{ theme_path }}/css/theme{{ text_dir == \'rtl\' ? \'.rtl\' }}.css?{{ version }}">';
-const PHPMYADMIN_STUDIO_STYLESHEET =
-	'  <link rel="stylesheet" type="text/css" href="{{ base_dir }}themes/studio{{ text_dir == \'rtl\' ? \'.rtl\' }}.css?{{ version }}">';
 
 const partialGithubReleaseSchema = z.object( {
 	tag_name: z.string(),
@@ -220,19 +216,6 @@ async function downloadFile( file: FileToDownload ): Promise< void > {
 			await fs.ensureDir( path.dirname( destinationPath ) );
 			await fs.copy( sourcePath, destinationPath, { overwrite: true } );
 		}
-
-		const headerPath = path.join( extractedPath, 'templates', 'header.twig' );
-		const header = await fs.readFile( headerPath, 'utf8' );
-		if ( ! header.includes( PHPMYADMIN_THEME_STYLESHEET ) ) {
-			throw new Error( 'Could not find the phpMyAdmin theme stylesheet in header.twig' );
-		}
-		await fs.writeFile(
-			headerPath,
-			header.replace(
-				PHPMYADMIN_THEME_STYLESHEET,
-				`${ PHPMYADMIN_THEME_STYLESHEET }\n${ PHPMYADMIN_STUDIO_STYLESHEET }`
-			)
-		);
 
 		console.log( `[${ name }] Building Studio stylesheet ...` );
 		await buildPhpMyAdminStyle( extractedPath );

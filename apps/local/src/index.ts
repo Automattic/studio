@@ -41,6 +41,10 @@ import {
 	removeConnectedWpcomSite,
 } from '@studio/common/lib/connected-sites';
 import {
+	getDatabaseAppearance,
+	saveDatabaseAppearance,
+} from '@studio/common/lib/database-appearance';
+import {
 	arePathsEqual,
 	confineToRoot,
 	isEmptyDir,
@@ -484,6 +488,26 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				return;
 			}
 			await writeGlobalInstructions( content );
+			res.status( 204 ).end();
+		} )
+	);
+
+	api.get(
+		'/preferences/database-appearance',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			res.json( { appearance: await getDatabaseAppearance() } );
+		} )
+	);
+
+	api.put(
+		'/preferences/database-appearance',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const appearance = req.body?.appearance;
+			if ( appearance !== 'studio' && appearance !== 'phpmyadmin' ) {
+				res.status( 400 ).json( { error: 'appearance must be studio or phpmyadmin' } );
+				return;
+			}
+			await saveDatabaseAppearance( appearance );
 			res.status( 204 ).end();
 		} )
 	);

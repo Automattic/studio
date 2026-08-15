@@ -33,6 +33,7 @@ describe( 'settings preference helpers', () => {
 			locale: 'en',
 			analyticsEnabled: true,
 			defaultSiteDirectory: '/Users/example/Studio',
+			databaseAppearance: 'studio',
 		} );
 	} );
 
@@ -48,6 +49,9 @@ describe( 'settings preference helpers', () => {
 		} );
 		expect( toPreferencesPatch( { defaultSiteDirectory: '/Users/example/Sites' } ) ).toEqual( {
 			defaultSiteDirectory: '/Users/example/Sites',
+		} );
+		expect( toPreferencesPatch( { databaseAppearance: 'phpmyadmin' } ) ).toEqual( {
+			databaseAppearance: 'phpmyadmin',
 		} );
 	} );
 
@@ -71,6 +75,7 @@ describe( 'settings preference helpers', () => {
 				quitSitesBehavior: 'stop-and-auto-start',
 				locale: 'es',
 				defaultSiteDirectory: '/Users/example/Sites',
+				databaseAppearance: 'phpmyadmin',
 			} )
 		).toEqual( {
 			editor: null,
@@ -79,6 +84,7 @@ describe( 'settings preference helpers', () => {
 			quitSitesBehavior: 'stop-and-auto-start',
 			locale: 'es',
 			defaultSiteDirectory: '/Users/example/Sites',
+			databaseAppearance: 'phpmyadmin',
 		} );
 	} );
 } );

@@ -7,6 +7,7 @@ export type {
 	AppUpdateStatus,
 	AuthUser,
 	ColorScheme,
+	DatabaseAppearance,
 	Connector,
 	ConnectorCapabilities,
 	CreateSiteParams,

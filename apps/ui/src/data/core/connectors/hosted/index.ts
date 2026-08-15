@@ -378,6 +378,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 				studioCliExternallyManaged: false,
 				agenticFeaturesEnabled:
 					window.localStorage.getItem( AGENTIC_FEATURES_STORAGE_KEY ) !== 'false',
+				databaseAppearance: 'studio',
 			};
 		},
 		async setUserPreferences( partial ) {

@@ -329,7 +329,7 @@ describe( 'SitePreview', () => {
 
 		fireEvent.keyDown( document.body, { key: '3', ctrlKey: true } );
 		expect( onPathChange ).toHaveBeenCalledWith(
-			'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
+			'/phpmyadmin/index.php?route=/database/structure&db=wordpress&studio_database=1'
 		);
 	} );
 

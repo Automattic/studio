@@ -8,6 +8,10 @@ import {
 	saveAnthropicApiKey as saveAnthropicApiKeyToConfig,
 	setAiProvider as setAiProviderInConfig,
 } from '@studio/common/ai/settings-store';
+import {
+	getDatabaseAppearance as readDatabaseAppearance,
+	saveDatabaseAppearance as persistDatabaseAppearance,
+} from '@studio/common/lib/database-appearance';
 import { type TracksInstructionsLengthBucket } from '@studio/common/lib/record-tracks-event';
 import {
 	isAnalyticsOptedOut,
@@ -33,6 +37,7 @@ import {
 	updateAppdata,
 } from 'src/storage/user-data';
 import type { AiProviderId, AiSettings } from '@studio/common/ai/providers';
+import type { DatabaseAppearance } from '@studio/common/lib/database-appearance';
 
 export function getInstalledAppsAndTerminals(): InstalledApps {
 	return {
@@ -159,6 +164,17 @@ export async function getColorScheme(): Promise< 'system' | 'light' | 'dark' > {
 	const colorScheme = userData.colorScheme ?? 'light';
 	nativeTheme.themeSource = colorScheme;
 	return colorScheme;
+}
+
+export async function getDatabaseAppearance(): Promise< DatabaseAppearance > {
+	return readDatabaseAppearance();
+}
+
+export async function saveDatabaseAppearance(
+	_event: IpcMainInvokeEvent,
+	appearance: DatabaseAppearance
+): Promise< void > {
+	await persistDatabaseAppearance( appearance );
 }
 
 // Analytics opt-out. Stored in shared.json so both Studio and the Studio CLI honor it. Default is

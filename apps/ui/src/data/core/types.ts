@@ -5,6 +5,7 @@ import type { AiModelId } from '@studio/common/ai/models';
 import type { AiProviderId, AiSettings } from '@studio/common/ai/providers';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
 import type { SiteEvent } from '@studio/common/lib/cli-events';
+import type { DatabaseAppearance } from '@studio/common/lib/database-appearance';
 import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 import type { SupportedLocale } from '@studio/common/lib/locale';
 import type {
@@ -60,6 +61,7 @@ export type {
 export type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 export type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 export type { SupportedLocale } from '@studio/common/lib/locale';
+export type { DatabaseAppearance } from '@studio/common/lib/database-appearance';
 export type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 export type { SiteStorageUsage } from '@studio/common/sites/storage-usage';
 
@@ -632,6 +634,8 @@ export interface UserPreferences {
 	// Whether chat/agent features are offered at all. Unrelated to which
 	// renderer is running — switching to the classic UI is `disableAgenticUi`.
 	agenticFeaturesEnabled: boolean;
+	// Optional for backwards-compatible persisted query caches; absent means Studio.
+	databaseAppearance?: DatabaseAppearance;
 }
 
 export interface AppGlobals {

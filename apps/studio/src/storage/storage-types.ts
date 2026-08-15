@@ -1,6 +1,7 @@
 import { StatsMetric } from 'src/lib/bump-stats';
 import { SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import type { AiSessionSitePlacement } from '@studio/common/ai/sessions/placement';
+import type { DatabaseAppearance } from '@studio/common/lib/database-appearance';
 import type { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 
 export interface WindowBounds {
@@ -57,6 +58,7 @@ export interface UserData {
 	// Whether chat/agent features are offered inside the new UI. Distinct from
 	// `betaFeatures.enableAgenticUi`, which picks the renderer (new vs classic).
 	agenticFeaturesEnabled?: boolean;
+	databaseAppearance?: DatabaseAppearance;
 	/** Agentic UI onboarding state (orientation tour, getting-started checklist). Opaque blob owned by the renderer. */
 	onboardingHints?: OnboardingHintsState;
 }

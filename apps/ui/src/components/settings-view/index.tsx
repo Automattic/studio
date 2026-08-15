@@ -28,6 +28,7 @@ import { WapuuScore } from './wapuu-score';
 import type { PreferencesFormData } from './preferences';
 import type {
 	ColorScheme,
+	DatabaseAppearance,
 	InstalledApps,
 	QuitSitesBehavior,
 	SupportedEditor,
@@ -90,6 +91,11 @@ const QUIT_SITES_BEHAVIOR_ELEMENTS: {
 const LOCALE_ELEMENTS: { value: SupportedLocale; label: string }[] = Object.entries(
 	supportedLocaleNames
 ).map( ( [ value, label ] ) => ( { value: value as SupportedLocale, label } ) );
+
+const DATABASE_APPEARANCE_ELEMENTS: { value: DatabaseAppearance; label: string }[] = [
+	{ value: 'studio', label: __( 'Studio' ) },
+	{ value: 'phpmyadmin', label: __( 'phpMyAdmin' ) },
+];
 
 function SettingsHeader() {
 	// Settings renders fullscreen, so only the macOS traffic lights need
@@ -347,6 +353,17 @@ function PreferencesPanel( {
 						label={ __( 'Help improve Studio by sharing anonymous usage statistics' ) }
 						checked={ data.analyticsEnabled }
 						onChange={ ( analyticsEnabled ) => onChange( { analyticsEnabled } ) }
+					/>
+				</PreferenceRow>
+				<PreferenceRow
+					title={ __( 'Database appearance' ) }
+					description={ __( "Choose Studio or phpMyAdmin's default interface." ) }
+				>
+					<PreferenceSelect
+						label={ __( 'Database appearance' ) }
+						value={ data.databaseAppearance }
+						options={ DATABASE_APPEARANCE_ELEMENTS }
+						onChange={ ( databaseAppearance ) => onChange( { databaseAppearance } ) }
 					/>
 				</PreferenceRow>
 			</section>

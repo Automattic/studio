@@ -185,6 +185,9 @@ const api: IpcApi = {
 	previewColorScheme: ( colorScheme ) => ipcRendererInvoke( 'previewColorScheme', colorScheme ),
 	saveColorScheme: ( colorScheme ) => ipcRendererInvoke( 'saveColorScheme', colorScheme ),
 	getColorScheme: () => ipcRendererInvoke( 'getColorScheme' ),
+	getDatabaseAppearance: () => ipcRendererInvoke( 'getDatabaseAppearance' ),
+	saveDatabaseAppearance: ( appearance ) =>
+		ipcRendererInvoke( 'saveDatabaseAppearance', appearance ),
 	getAnalyticsEnabled: () => ipcRendererInvoke( 'getAnalyticsEnabled' ),
 	saveAnalyticsEnabled: ( enabled, source ) =>
 		ipcRendererInvoke( 'saveAnalyticsEnabled', enabled, source ),

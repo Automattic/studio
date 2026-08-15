@@ -1,6 +1,7 @@
 import { isSupportedLocale } from '@studio/common/lib/locale';
 import type {
 	ColorScheme,
+	DatabaseAppearance,
 	QuitSitesBehavior,
 	SupportedEditor,
 	SupportedLocale,
@@ -22,6 +23,7 @@ export interface PreferencesFormData {
 	locale: SupportedLocale;
 	analyticsEnabled: boolean;
 	defaultSiteDirectory: string;
+	databaseAppearance: DatabaseAppearance;
 }
 
 // The saved locale can be any string the main process resolved (including ones
@@ -42,6 +44,7 @@ export function toPreferencesFormData( prefs: UserPreferences ): PreferencesForm
 		// before this field existed) so the toggle never renders a false negative.
 		analyticsEnabled: prefs.analyticsEnabled ?? true,
 		defaultSiteDirectory: prefs.defaultSiteDirectory,
+		databaseAppearance: prefs.databaseAppearance ?? 'studio',
 	};
 }
 
@@ -69,6 +72,9 @@ export function toPreferencesPatch(
 	if ( update.analyticsEnabled !== undefined ) patch.analyticsEnabled = update.analyticsEnabled;
 	if ( update.defaultSiteDirectory !== undefined ) {
 		patch.defaultSiteDirectory = update.defaultSiteDirectory;
+	}
+	if ( update.databaseAppearance !== undefined ) {
+		patch.databaseAppearance = update.databaseAppearance;
 	}
 
 	return patch;

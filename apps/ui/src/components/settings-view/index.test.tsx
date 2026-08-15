@@ -228,6 +228,19 @@ describe( 'SettingsView', () => {
 		expect( mutate ).toHaveBeenCalledWith( { quitSitesBehavior: 'stop' }, expect.any( Object ) );
 	} );
 
+	it( 'saves the database appearance on change', () => {
+		render( <SettingsView activeTab="preferences" onTabChange={ vi.fn() } /> );
+
+		fireEvent.change( screen.getByLabelText( 'Database appearance' ), {
+			target: { value: 'phpmyadmin' },
+		} );
+
+		expect( mutate ).toHaveBeenCalledWith(
+			{ databaseAppearance: 'phpmyadmin' },
+			expect.any( Object )
+		);
+	} );
+
 	it( 'renders the AI tab with its panel', () => {
 		render( <SettingsView activeTab="ai" onTabChange={ vi.fn() } /> );
 

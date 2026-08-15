@@ -18,3 +18,15 @@
 	justify-content: flex-end;
 	gap: var(--wpds-dimension-padding-sm);
 }
+
+.credentialActions {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-gap-xs);
+}
+
+@container overview (max-width: 600px) {
+	.form :global( .dataforms-layouts-row__field ) > div {
+		flex-direction: column !important;
+	}
+}

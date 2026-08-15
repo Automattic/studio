@@ -52,6 +52,16 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).toContain( '- pdf:' );
 	} );
 
+	it( 'guards site deletion via the tool confirmation, not an extra AskUserQuestion', () => {
+		const prompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
+
+		expect( prompt ).toContain( 'Deleting a site is destructive and irreversible' );
+		expect( prompt ).toContain( 'do NOT call `AskUserQuestion` yourself before invoking it' );
+		expect( prompt ).toContain(
+			'Never treat an ambiguous or corrective request — "undo", "undo that", "revert my last change", "start over", "remove that" — as a request to delete a site'
+		);
+	} );
+
 	it( 'routes plugin-specific feature work to the plugin recommendations skill', () => {
 		const prompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
 

@@ -1,12 +1,57 @@
-// Same glyph as Classic's `XDebugIcon` (apps/studio/src/components/icons/
-// xdebug-icon.tsx), recolored via `currentColor` for the wpds theme.
-export function XdebugIcon( { className }: { className?: string } ) {
+import { clsx } from 'clsx';
+import styles from './style.module.css';
+
+type XdebugMotion = 'antennae' | 'both' | 'legs';
+type XdebugCrawl = 'in' | 'out';
+
+interface XdebugIconProps {
+	active?: boolean;
+	className?: string;
+	crawl?: XdebugCrawl;
+	interactive?: boolean;
+	motion?: XdebugMotion;
+}
+
+export function XdebugIcon( {
+	active = false,
+	className,
+	crawl,
+	interactive = false,
+	motion,
+}: XdebugIconProps ) {
 	return (
-		<svg className={ className } viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-			<path
-				d="M14.5002 10.4214C14.9651 10.4215 15.3419 10.7983 15.342 11.2632V11.7075L16.6741 11.1333C16.9089 11.0319 17.1821 11.1397 17.2834 11.3745C17.3848 11.6094 17.2761 11.8825 17.0413 11.9839L15.342 12.7163V14.6313L16.97 15.5581C17.1923 15.6846 17.2703 15.9676 17.1438 16.1899C17.0173 16.4121 16.7342 16.4902 16.512 16.3638L15.2219 15.6294C14.8413 16.9968 13.5886 18.0005 12.0999 18.0005C10.6204 18.0004 9.37355 17.0092 8.98462 15.6548L7.7395 16.3638C7.51719 16.4902 7.23416 16.4122 7.10767 16.1899C6.9812 15.9676 7.05914 15.6846 7.28149 15.5581L8.85767 14.6616V12.6802L7.24243 11.9839C7.00757 11.8825 6.89985 11.6094 7.00122 11.3745C7.10268 11.1398 7.37485 11.032 7.60962 11.1333L8.85767 11.6714V11.2632C8.85782 10.7984 9.23464 10.4216 9.69946 10.4214H14.5002ZM13.7483 6.18896C13.8999 5.98302 14.1897 5.93884 14.3958 6.09033C14.6016 6.24192 14.6458 6.53181 14.4944 6.73779L13.7874 7.69873C14.1762 8.09284 14.4163 8.62971 14.4163 9.24268C14.4161 9.48774 14.1995 9.66352 13.9543 9.66357H10.2454C10.0003 9.66345 9.78462 9.48769 9.78442 9.24268C9.78442 8.65527 10.0041 8.13759 10.3645 7.74854L9.62134 6.73779C9.46987 6.53179 9.5141 6.24192 9.71997 6.09033C9.92601 5.93883 10.2159 5.98299 10.3674 6.18896L11.1213 7.21338C11.4188 7.08356 11.7499 7.01026 12.0999 7.01025C12.4248 7.01025 12.7342 7.07232 13.0149 7.18506L13.7483 6.18896Z"
-				fill="currentColor"
-			/>
+		<svg
+			className={ clsx( styles.icon, className ) }
+			viewBox="0 0 24 24"
+			aria-hidden="true"
+			focusable="false"
+			data-active={ active || undefined }
+			data-crawl={ crawl }
+			data-interactive={ interactive || undefined }
+			data-motion={ motion }
+		>
+			<g className={ styles.creature }>
+				<path
+					className={ styles.body }
+					d="M9.699 10.421H14.5C14.965 10.421 15.342 10.798 15.342 11.263V14.631C15.342 16.492 13.891 18 12.1 18C10.309 18 8.858 16.492 8.858 14.631V11.263C8.858 10.798 9.235 10.421 9.699 10.421Z"
+					fill="currentColor"
+				/>
+				<g className={ styles.legs }>
+					<path className={ styles.legOne } d="M9.05 11.76L7.43 11.06" />
+					<path className={ styles.legTwo } d="M9.06 14.75L7.51 15.64" />
+					<path className={ styles.legThree } d="M15.15 11.76L16.77 11.06" />
+					<path className={ styles.legFour } d="M15.14 14.75L16.69 15.64" />
+				</g>
+				<path
+					className={ styles.head }
+					d="M9.784 9.243C9.784 7.955 10.821 7.01 12.1 7.01C13.379 7.01 14.416 7.955 14.416 9.243C14.416 9.488 14.2 9.664 13.954 9.664H10.245C10 9.664 9.785 9.488 9.784 9.243Z"
+					fill="currentColor"
+				/>
+				<g className={ styles.antennae }>
+					<path className={ styles.antennaOne } d="M10.79 7.52L9.99 6.43" />
+					<path className={ styles.antennaTwo } d="M13.4 7.5L14.12 6.43" />
+				</g>
+			</g>
 		</svg>
 	);
 }

@@ -460,7 +460,7 @@ function XdebugBadge( { running }: { running: boolean } ) {
 					/>
 				}
 			>
-				<XdebugIcon className={ styles.xdebugGlyph } />
+				<XdebugIcon className={ styles.xdebugGlyph } active={ running } />
 			</Tooltip.Trigger>
 			<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>{ label }</Tooltip.Popup>
 		</Tooltip.Root>

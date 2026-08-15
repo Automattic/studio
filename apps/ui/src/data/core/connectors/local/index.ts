@@ -735,6 +735,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				body: JSON.stringify( { model } ),
 			} );
 		},
+		async setSessionProvider( sessionId, provider, model ) {
+			await api( `/sessions/${ encodeURIComponent( sessionId ) }/provider`, {
+				method: 'POST',
+				body: JSON.stringify( { provider, model } ),
+			} );
+		},
 		async interruptAgentRun( runId ) {
 			await api( `/runs/${ encodeURIComponent( runId ) }/interrupt`, { method: 'POST' } );
 		},
@@ -839,12 +845,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			const { content } = await api< { content: string } >( '/agent-instructions' );
 			return content;
 		},
-		// Drops the panel's `editSession` option: it only drives a Tracks event, and this server has
-		// no emitter. Instructions still save. See STU-2247.
-		async saveAgentInstructions( content: string ): Promise< void > {
+		async saveAgentInstructions(
+			content: string,
+			options: { editSession?: { previousContent: string } } = {}
+		): Promise< void > {
 			await api< void >( '/agent-instructions', {
 				method: 'POST',
-				body: JSON.stringify( { content } ),
+				body: JSON.stringify( { content, editSession: options.editSession } ),
 			} );
 		},
 
@@ -901,10 +908,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			throw new UnsupportedError( 'openStudioLogs' );
 		},
 
-		// Analytics — no-op here. Tracks currently flows through the desktop IPC connector; the
-		// local (browser) target has no Main-process choke point yet. See the design doc.
-		async trackEvent() {
-			// intentionally empty
+		// The server attaches the origin and common props. Callers fire and forget, so a
+		// failure here must not become an unhandled rejection.
+		async trackEvent( eventName, props = {} ) {
+			await api< void >( '/analytics/event', {
+				method: 'POST',
+				body: JSON.stringify( { eventName, props } ),
+			} ).catch( () => undefined );
 		},
 
 		// External links work natively in the browser.

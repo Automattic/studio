@@ -714,6 +714,10 @@ export function createIpcConnector(): Connector {
 			await ipcApi.setAiSessionModel( sessionId, model );
 		},
 
+		async setSessionProvider( sessionId, provider, model ) {
+			await ipcApi.setAiSessionProvider( sessionId, provider, model );
+		},
+
 		async interruptAgentRun( runId ) {
 			await ipcApi.interruptAiAgentRun( runId );
 		},

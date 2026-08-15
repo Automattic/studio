@@ -1,7 +1,9 @@
 import { BrowserWindow, IpcMainInvokeEvent, nativeTheme } from 'electron';
 import {
+	readGlobalInstructionsEnabled,
 	readGlobalInstructionsFile,
 	writeGlobalInstructions,
+	writeGlobalInstructionsEnabled,
 } from '@studio/common/ai/global-instructions';
 import {
 	readAiSettings,
@@ -291,6 +293,17 @@ export async function recordAgenticUiMigration(): Promise< void > {
 
 export async function getGlobalAgentInstructions(): Promise< string > {
 	return ( await readGlobalInstructionsFile() ) ?? '';
+}
+
+export async function getGlobalAgentInstructionsEnabled(): Promise< boolean > {
+	return readGlobalInstructionsEnabled();
+}
+
+export async function saveGlobalAgentInstructionsEnabled(
+	_event: IpcMainInvokeEvent,
+	enabled: boolean
+): Promise< void > {
+	await writeGlobalInstructionsEnabled( enabled );
 }
 
 export async function getAiSettings() {

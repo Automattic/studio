@@ -246,6 +246,18 @@ describe( 'SessionView', () => {
 		expect( container.querySelector( '[class*="fadeInQuick"]' ) ).toBeNull();
 	} );
 
+	it( 'fades the chat surface behind the composer', () => {
+		useSessionMock.mockReturnValue( {
+			data: makeLoadedSession(),
+			isLoading: false,
+			error: null,
+		} );
+
+		const { container } = render( <SessionView sessionId="session-1" /> );
+
+		expect( container.querySelectorAll( '[class*="fadeToSurface"]' ) ).toHaveLength( 2 );
+	} );
+
 	it( 'ignores an unverified email when a payment method exists', () => {
 		useSessionMock.mockReturnValue( {
 			data: makeLoadedSession(),

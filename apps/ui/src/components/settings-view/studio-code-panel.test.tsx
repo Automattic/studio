@@ -15,8 +15,7 @@ vi.mock( '@/data/queries/use-agent-instructions', () => ( {
 const useAgentInstructionsMock = vi.mocked( useAgentInstructions );
 const useSaveAgentInstructionsMock = vi.mocked( useSaveAgentInstructions );
 
-// Renderer only. The `apps/local` connector drops `editSession`, so these passing is not evidence the
-// Tracks event fires under `studio ui`. See STU-2247.
+// These assert the panel supplies `editSession`, not that an event was recorded.
 describe( 'StudioCodePanel', () => {
 	const save = vi.fn();
 

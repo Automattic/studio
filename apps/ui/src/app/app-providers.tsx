@@ -40,6 +40,7 @@ function ThemedApp( { children }: PropsWithChildren ) {
 	const themeColor = colorScheme === 'dark' ? { bg: '#1e1e1e' } : undefined;
 	useEffect( () => {
 		document.documentElement.style.colorScheme = colorScheme;
+		document.documentElement.dataset.colorScheme = colorScheme;
 	}, [ colorScheme ] );
 	return (
 		<ThemeProvider isRoot color={ themeColor } density="compact">

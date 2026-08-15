@@ -3,7 +3,7 @@ import { createPreviewTool } from './create-preview';
 import { createSiteTool } from './create-site';
 import { dataLiberationTool } from './data-liberation';
 import { deletePreviewTool } from './delete-preview';
-import { deleteSiteTool } from './delete-site';
+import { createDeleteSiteTool, deleteSiteTool, type ConfirmSiteDeletion } from './delete-site';
 import { exportSiteTool } from './export-site';
 import { importSiteTool } from './import-site';
 import { inspectDesignTool } from './inspect-design';
@@ -73,6 +73,11 @@ export interface CreateStudioToolsOptions {
 	// by `STUDIO_REMOTE_SESSION=1`. Direct `studio code` invocations leave
 	// this off because the image would have nowhere to go.
 	remoteSession?: boolean;
+	// When provided, site_delete asks the user to confirm before the
+	// irreversible deletion runs. Wired from the agent's AskUserQuestion
+	// handler; omitted for MCP/headless runs where the host owns its own
+	// approval flow.
+	confirmSiteDeletion?: ConfirmSiteDeletion;
 }
 
 export function resolveStudioToolDefinitions(
@@ -83,11 +88,23 @@ export function resolveStudioToolDefinitions(
 			? [ ...studioToolDefinitions, studioPresentTool ]
 			: studioToolDefinitions;
 
+	// Gate the irreversible site deletion behind an explicit confirmation when a
+	// handler is available (interactive agent). MCP/headless callers omit it and
+	// keep the plain tool.
+	const confirmingDeleteSiteTool =
+		options.confirmSiteDeletion !== undefined
+			? ( createDeleteSiteTool( options.confirmSiteDeletion ) as AnyStudioAgentTool )
+			: undefined;
+
 	return definitions.flatMap( ( candidate ) => {
 		if ( candidate.name === shareScreenshotTool.name && ! options.remoteSession ) {
 			return [];
 		}
-		return [ withChatArtifactEmission( candidate, options.emitChatArtifacts === true ) ];
+		const tool =
+			candidate.name === deleteSiteTool.name && confirmingDeleteSiteTool
+				? confirmingDeleteSiteTool
+				: candidate;
+		return [ withChatArtifactEmission( tool, options.emitChatArtifacts === true ) ];
 	} );
 }
 

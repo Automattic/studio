@@ -3,13 +3,9 @@ import { __ } from '@wordpress/i18n';
 import { error as errorIcon } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { useConnector } from '@/data/core';
-import {
-	useAiSettings,
-	useSaveAnthropicApiKey,
-	useSetAiProvider,
-} from '@/data/queries/use-ai-settings';
+import { useAiSettings, useSaveAnthropicApiKey } from '@/data/queries/use-ai-settings';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { StudioCodePanel } from './studio-code-panel';
 import styles from './style.module.css';
@@ -46,55 +42,17 @@ function AgenticFeaturesSection() {
 
 function AnthropicApiKeySection() {
 	const { data: settings } = useAiSettings();
-	const { mutate: saveKey, isPending: isSaving, error: saveError } = useSaveAnthropicApiKey();
-	const { mutate: setProvider, isPending: isSwitching, error: switchError } = useSetAiProvider();
+	const { mutate: saveKey, error } = useSaveAnthropicApiKey();
 	// `undefined` until the user types: the saved key never reaches the client,
 	// so the field shows a truncated preview of it as its placeholder.
 	const [ draft, setDraft ] = useState< string | undefined >( undefined );
-	const [ isConfiguring, setIsConfiguring ] = useState( false );
-	const usesAnthropic = settings?.provider === 'anthropic-api-key';
-	const enabled = usesAnthropic || isConfiguring;
-	const saveDraft = useCallback(
-		( key: string | null ) => {
-			saveKey( key, {
-				onSuccess: () => {
-					if ( key ) {
-						setProvider( 'anthropic-api-key', {
-							onSuccess: () => setIsConfiguring( false ),
-						} );
-					} else {
-						setIsConfiguring( false );
-					}
-				},
-			} );
-		},
-		[ saveKey, setProvider ]
-	);
 
 	// An emptied field saves `null`, clearing the stored key.
-	useDebouncedSave( enabled && draft !== undefined ? draft.trim() || null : undefined, saveDraft );
+	useDebouncedSave( draft === undefined ? undefined : draft.trim() || null, saveKey );
 
 	if ( ! settings ) {
 		return null;
 	}
-
-	const error = saveError ?? switchError;
-	const handleToggle = () => {
-		if ( usesAnthropic ) {
-			setProvider( 'wpcom' );
-			return;
-		}
-		if ( isConfiguring ) {
-			setDraft( undefined );
-			setIsConfiguring( false );
-			return;
-		}
-		if ( settings.hasAnthropicApiKey ) {
-			setProvider( 'anthropic-api-key' );
-			return;
-		}
-		setIsConfiguring( true );
-	};
 
 	return (
 		<section className={ styles.preferenceSectionGroup }>
@@ -103,32 +61,22 @@ function AnthropicApiKeySection() {
 					<h2>{ __( 'Use your Anthropic API key' ) }</h2>
 					<p>
 						{ __(
-							'Use your own API key, which bills against your Anthropic account. When off, Studio uses your WordPress.com AI credits.'
+							'Use your own API key, which bills against your Anthropic account, then select your preferred provider for each conversation from the models menu.'
 						) }
 					</p>
 				</div>
-				<div className={ clsx( styles.preferenceControl, styles.toggleControl ) }>
-					<FormToggle
-						checked={ enabled }
-						disabled={ isSaving || isSwitching }
-						aria-label={ __( 'Use your Anthropic API key' ) }
-						onChange={ handleToggle }
+				<div className={ clsx( styles.apiKeyControls, error && styles.apiKeyControlsError ) }>
+					<TextControl
+						__nextHasNoMarginBottom
+						__next40pxDefaultSize
+						type="password"
+						label={ __( 'Anthropic API key' ) }
+						hideLabelFromVision
+						placeholder={ settings.anthropicApiKeyPreview ?? __( 'Paste your API key: sk-…' ) }
+						value={ draft ?? '' }
+						onChange={ setDraft }
 					/>
 				</div>
-				{ enabled ? (
-					<div className={ clsx( styles.apiKeyControls, error && styles.apiKeyControlsError ) }>
-						<TextControl
-							__nextHasNoMarginBottom
-							__next40pxDefaultSize
-							type="password"
-							label={ __( 'Anthropic API key' ) }
-							hideLabelFromVision
-							placeholder={ settings.anthropicApiKeyPreview ?? __( 'Paste your API key: sk-…' ) }
-							value={ draft ?? '' }
-							onChange={ setDraft }
-						/>
-					</div>
-				) : null }
 			</section>
 			{ error && (
 				<p role="alert" className="components-validated-control__indicator is-invalid">

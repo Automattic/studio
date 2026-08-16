@@ -528,12 +528,18 @@ describe( 'CLI: studio site create', () => {
 					name: 'design.fig',
 					staged_path: path.join( '.studio-import', 'source.fig' ),
 				},
+				transform_options: {
+					multi_page: true,
+				},
 			} );
 			expect( blueprint.staticSiteImport.source ).not.toContain(
 				Buffer.from( 'figma-source-bytes' ).toString( 'base64' )
 			);
 			expect( blueprint.staticSiteImport.code ).toContain(
 				'static_site_importer_ability_import_figma( $input )'
+			);
+			expect( blueprint.staticSiteImport.code ).toContain(
+				"$input['transform_options'] = isset( $source['transform_options'] )"
 			);
 
 			const copySpy = vi.spyOn( fs, 'copyFileSync' ).mockImplementation( () => {} );

@@ -346,6 +346,9 @@ function resolveStaticSiteImporterSource(
 					name: path.basename( sourcePath ),
 					staged_path: stagedFigmaPath,
 				},
+				transform_options: {
+					multi_page: true,
+				},
 			},
 		};
 	}
@@ -457,6 +460,7 @@ if ( isset( $source['url'] ) && function_exists( 'static_site_importer_ability_i
 		throw new RuntimeException( 'Static Site Importer Figma import ability is unavailable.' );
 	}
 	$input['source'] = $source;
+	$input['transform_options'] = isset( $source['transform_options'] ) && is_array( $source['transform_options'] ) ? $source['transform_options'] : array();
 	if ( ! empty( $state['runtime_lifecycle_request_id'] ) ) {
 		$input['runtime_lifecycle_phase'] = 'resume';
 		$input['runtime_lifecycle_request_id'] = (string) $state['runtime_lifecycle_request_id'];

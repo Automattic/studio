@@ -509,6 +509,53 @@ describe( 'CLI: studio site create', () => {
 			expect( blueprint.staticSiteImport.code ).toContain( sourceDir );
 		} );
 
+		it( 'should stage Figma files for the dedicated SSI import ability', async () => {
+			const sourceDir = fs.mkdtempSync( path.join( '/tmp', 'studio-figma-source-test-' ) );
+			const sourcePath = path.join( sourceDir, 'design.fig' );
+			fs.writeFileSync( sourcePath, 'figma-source-bytes' );
+			const blueprint = buildCreateFromSourceBlueprint(
+				sourcePath,
+				'Imported Figma',
+				'https://example.com/static-site-importer.zip'
+			);
+
+			expect( blueprint.staticSiteImport.stagedSource ).toEqual( {
+				sourcePath,
+				targetName: 'source.fig',
+			} );
+			expect( JSON.parse( blueprint.staticSiteImport.source ) ).toEqual( {
+				figma_file: {
+					name: 'design.fig',
+					staged_path: path.join( '.studio-import', 'source.fig' ),
+				},
+			} );
+			expect( blueprint.staticSiteImport.source ).not.toContain(
+				Buffer.from( 'figma-source-bytes' ).toString( 'base64' )
+			);
+			expect( blueprint.staticSiteImport.code ).toContain(
+				'static_site_importer_ability_import_figma( $input )'
+			);
+
+			const copySpy = vi.spyOn( fs, 'copyFileSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs, 'existsSync' ).mockImplementation( ( filePath ) =>
+				filePath.toString().endsWith( 'result.json' )
+			);
+			vi.spyOn( fs, 'readFileSync' ).mockImplementation( ( filePath ) =>
+				filePath.toString().endsWith( 'result.json' )
+					? JSON.stringify( { continuation: false } )
+					: ''
+			);
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
+
+			await runCommand( mockSitePath, { ...defaultTestOptions, blueprint } );
+
+			expect( copySpy ).toHaveBeenCalledWith(
+				sourcePath,
+				path.join( mockSitePath, '.studio-import', 'source.fig' )
+			);
+		} );
+
 		it( 'should import only the website root from a Data Liberation capture directory', () => {
 			const captureDir = fs.mkdtempSync( path.join( '/tmp', 'studio-capture-test-' ) );
 			const websiteDir = fs.mkdtempSync( path.join( captureDir, 'website-' ) );

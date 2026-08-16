@@ -147,6 +147,10 @@ export type CreateCommandOptions = {
 		staticSiteImport?: {
 			code: string;
 			source: string;
+			stagedSource?: {
+				sourcePath: string;
+				targetName: string;
+			};
 			identity?: StaticSiteImportIdentity;
 		};
 	};
@@ -257,7 +261,10 @@ function resolveCaptureWebsiteRoot( sourceDir: string ): string {
 	return websiteRoot;
 }
 
-function resolveStaticSiteImporterSource( sourcePath: string ): StaticSiteImporterSource {
+function resolveStaticSiteImporterSource(
+	sourcePath: string,
+	stagedFigmaPath?: string
+): StaticSiteImporterSource {
 	if ( isUrl( sourcePath ) ) {
 		return {
 			type: 'url',
@@ -322,6 +329,22 @@ function resolveStaticSiteImporterSource( sourcePath: string ): StaticSiteImport
 				archive: {
 					name: path.basename( sourcePath ),
 					content_base64: fs.readFileSync( sourcePath ).toString( 'base64' ),
+				},
+			},
+		};
+	}
+
+	if ( extension === '.fig' ) {
+		if ( ! stagedFigmaPath ) {
+			throw new LoggerError( __( 'A staging path is required for Figma imports.' ) );
+		}
+		return {
+			type: 'source',
+			path: sourcePath,
+			payload: {
+				figma_file: {
+					name: path.basename( sourcePath ),
+					staged_path: stagedFigmaPath,
 				},
 			},
 		};
@@ -429,6 +452,18 @@ if ( isset( $source['url'] ) && function_exists( 'static_site_importer_ability_i
 	);
 	$input['require_proven_dynamic_client_assets'] = false;
 	$result = static_site_importer_ability_import_url( $input );
+} elseif ( isset( $source['figma_file'] ) ) {
+	if ( ! function_exists( 'static_site_importer_ability_import_figma' ) ) {
+		throw new RuntimeException( 'Static Site Importer Figma import ability is unavailable.' );
+	}
+	$input['source'] = $source;
+	if ( ! empty( $state['runtime_lifecycle_request_id'] ) ) {
+		$input['runtime_lifecycle_phase'] = 'resume';
+		$input['runtime_lifecycle_request_id'] = (string) $state['runtime_lifecycle_request_id'];
+	} else {
+		$input['runtime_lifecycle_phase'] = 'prepare';
+	}
+	$result = static_site_importer_ability_import_figma( $input );
 } else {
 	if ( ! function_exists( 'static_site_importer_ability_import' ) ) {
 		throw new RuntimeException( 'Static Site Importer canonical import ability is unavailable.' );
@@ -537,9 +572,19 @@ export function buildCreateFromSourceBlueprint(
 ): {
 	contents: BlueprintV1Declaration;
 	uri: string;
-	staticSiteImport: { code: string; source: string; identity?: StaticSiteImportIdentity };
+	staticSiteImport: {
+		code: string;
+		source: string;
+		stagedSource?: { sourcePath: string; targetName: string };
+		identity?: StaticSiteImportIdentity;
+	};
 } {
-	const source = resolveStaticSiteImporterSource( sourcePath );
+	const stagedFigmaName =
+		path.extname( sourcePath ).toLowerCase() === '.fig' ? 'source.fig' : undefined;
+	const source = resolveStaticSiteImporterSource(
+		sourcePath,
+		stagedFigmaName ? path.join( '.studio-import', stagedFigmaName ) : undefined
+	);
 	const tempDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-create-from-' ) );
 	const blueprintPath = path.join( tempDir, 'blueprint.json' );
 	const blueprint: BlueprintV1Declaration = {
@@ -569,6 +614,7 @@ export function buildCreateFromSourceBlueprint(
 		staticSiteImport: {
 			code: buildStaticSiteImporterPhp( source.path, siteName, storeImportResult ),
 			source: JSON.stringify( source.payload ),
+			...( stagedFigmaName ? { stagedSource: { sourcePath, targetName: stagedFigmaName } } : {} ),
 			...( source.type === 'url'
 				? { identity: { url: source.path, contract: STATIC_SITE_IMPORT_CONTRACT } }
 				: {} ),
@@ -588,6 +634,7 @@ function cleanupSuccessfulStaticSiteImport( sitePath: string ): void {
 	fs.rmSync( path.join( sitePath, '.studio-import', STATIC_SITE_IMPORT_SOURCE_FILE ), {
 		force: true,
 	} );
+	fs.rmSync( path.join( sitePath, '.studio-import', 'source.fig' ), { force: true } );
 	fs.rmSync( staticSiteImportIdentityPath( sitePath ), { force: true } );
 	fs.rmSync( path.join( sitePath, '.studio-import', STATIC_SITE_IMPORT_STATE_FILE ), {
 		force: true,
@@ -679,6 +726,7 @@ async function runStaticSiteImport(
 	site: SiteData,
 	code: string,
 	source: string,
+	stagedSource?: { sourcePath: string; targetName: string },
 	identity?: StaticSiteImportIdentity
 ): Promise< boolean > {
 	const stagingDir = path.join( site.path, '.studio-import' );
@@ -686,6 +734,9 @@ async function runStaticSiteImport(
 	const scriptPath = path.join( stagingDir, scriptName );
 	const resultPath = path.join( stagingDir, STATIC_SITE_IMPORT_RESULT_FILE );
 	fs.mkdirSync( stagingDir, { recursive: true } );
+	if ( stagedSource ) {
+		fs.copyFileSync( stagedSource.sourcePath, path.join( stagingDir, stagedSource.targetName ) );
+	}
 	fs.writeFileSync( path.join( stagingDir, STATIC_SITE_IMPORT_SOURCE_FILE ), source );
 	if ( identity ) {
 		fs.writeFileSync( staticSiteImportIdentityPath( site.path ), JSON.stringify( identity ) );
@@ -954,6 +1005,7 @@ export async function runCommand(
 								existingSite,
 								staticSiteImport.code,
 								staticSiteImport.source,
+								staticSiteImport.stagedSource,
 								staticSiteImport.identity
 						  );
 				staticSiteImportResultObserved = true;
@@ -1155,6 +1207,7 @@ export async function runCommand(
 						siteDetails,
 						staticSiteImport.code,
 						staticSiteImport.source,
+						staticSiteImport.stagedSource,
 						staticSiteImport.identity
 					);
 				}
@@ -1205,6 +1258,7 @@ export async function runCommand(
 							siteDetails,
 							staticSiteImport.code,
 							staticSiteImport.source,
+							staticSiteImport.stagedSource,
 							staticSiteImport.identity
 						);
 					}

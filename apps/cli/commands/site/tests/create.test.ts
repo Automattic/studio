@@ -541,6 +541,10 @@ describe( 'CLI: studio site create', () => {
 			expect( blueprint.staticSiteImport.code ).toContain(
 				"$input['transform_options'] = isset( $source['transform_options'] )"
 			);
+			expect( blueprint.staticSiteImport.code ).toContain(
+				'static_site_importer_studio_failure_message'
+			);
+			expect( blueprint.staticSiteImport.code ).not.toContain( 'wp_json_encode( $result )' );
 
 			const copySpy = vi.spyOn( fs, 'copyFileSync' ).mockImplementation( () => {} );
 			vi.spyOn( fs, 'existsSync' ).mockImplementation( ( filePath ) =>

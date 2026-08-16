@@ -15,6 +15,7 @@ import { captureDesignForUrl, captureMobileBodyFragment } from './design-capture
 import { countBodyTags, isStackingArtifact } from './document-integrity.js';
 import { collectMobileChromeLayout } from './dom-capture.js';
 import { generateChromeCss, type BakedLayoutMap } from './fixups.js';
+import { sanitizeFrozenHtml } from './freeze.js';
 import { JsAggregator } from './js-aggregator.js';
 import { ManifestQueue, type ManifestEntry, type FailureEntry } from './manifest-queue.js';
 import { validateOutputDir, planArtifacts, type ArtifactPlan } from './output-layout.js';
@@ -379,10 +380,7 @@ async function capturePerViewport( args: CapturePerViewportArgs ): Promise< void
 	// can't reflow to. Best-effort: a miss leaves the page desktop-only.
 	if ( ! isDesktop && plan.captureMobileHtml ) {
 		try {
-			const mhtml = ( await capturePageHtml( page ) ).replace(
-				/<script\b[^>]*>[\s\S]*?<\/script>/gi,
-				''
-			);
+			const mhtml = sanitizeFrozenHtml( await capturePageHtml( page ) );
 			if ( ! isStackingArtifact( mhtml ) ) {
 				mkdirSync( dirname( plan.paths.htmlMobile ), { recursive: true } );
 				writeFileSync( plan.paths.htmlMobile, mhtml );

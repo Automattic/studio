@@ -398,6 +398,16 @@ $state_raw = is_file( $state_path ) ? file_get_contents( $state_path ) : false;
 $state = is_string( $state_raw ) ? json_decode( $state_raw, true ) : array();
 $state = is_array( $state ) ? $state : array();
 
+function static_site_importer_studio_failure_message( $result, string $fallback ): string {
+	if ( ! is_array( $result ) || ! is_array( $result['error'] ?? null ) ) {
+		return $fallback;
+	}
+	$code = is_scalar( $result['error']['code'] ?? null ) ? sanitize_key( (string) $result['error']['code'] ) : '';
+	$message = is_scalar( $result['error']['message'] ?? null ) ? sanitize_text_field( (string) $result['error']['message'] ) : '';
+	$detail = implode( ': ', array_filter( array( $code, $message ) ) );
+	return '' !== $detail ? $fallback . ': ' . substr( $detail, 0, 1000 ) : $fallback;
+}
+
 if ( isset( $source['url'] ) && function_exists( 'static_site_importer_ability_import' ) ) {
 	$slug = sanitize_title( ${ phpString( siteName ) } );
 	if ( '' === $slug ) {
@@ -414,7 +424,7 @@ if ( isset( $source['url'] ) && function_exists( 'static_site_importer_ability_i
 	}
 	$result = static_site_importer_ability_import( $input );
 	if ( ! is_array( $result ) || empty( $result['success'] ) ) {
-		throw new RuntimeException( 'Static Site Importer planning failed: ' . wp_json_encode( $result ) );
+		throw new RuntimeException( static_site_importer_studio_failure_message( $result, 'Static Site Importer planning failed' ) );
 	}
 	$url_batch_run = isset( $result['url_batch_run'] ) && is_array( $result['url_batch_run'] ) ? $result['url_batch_run'] : array();
 	if ( ! empty( $result['continuation'] ) ) {
@@ -507,7 +517,7 @@ if ( isset( $source['url'] ) && function_exists( 'static_site_importer_ability_i
 ${ storeImportResult ? "update_option( 'studio_create_from_import_result', $result, false );" : '' }
 
 if ( ! is_array( $result ) || empty( $result['success'] ) ) {
-	throw new RuntimeException( 'Static Site Importer import failed: ' . wp_json_encode( $result ) );
+	throw new RuntimeException( static_site_importer_studio_failure_message( $result, 'Static Site Importer import failed' ) );
 }
 $import_result = isset( $result['result'] ) && is_array( $result['result'] ) ? $result['result'] : $result;
 if ( 'dependencies_prepared' === ( $import_result['status'] ?? '' ) ) {

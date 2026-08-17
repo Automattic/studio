@@ -9,6 +9,9 @@
 	height: 100%;
 	min-height: 0;
 	min-width: 0;
+	/* All scrolling lives in .scroll; prevent the outer contentColumn
+	   (preview-split-frame) from seeing overflow and drawing a second bar. */
+	overflow: hidden;
 	color: var(--wpds-color-fg-content-neutral);
 	background: var(--wpds-color-bg-surface-neutral);
 }

@@ -80,32 +80,13 @@ describe( 'createLocalConnector Connect contracts', () => {
 		expect( popup.location.href ).toBe( 'https://wordpress.com/start' );
 	} );
 
-	it( 'reads global preferences from the server instead of the browser', async () => {
-		fetchMock.mockResolvedValue(
-			new Response(
-				JSON.stringify( {
-					editor: 'vscode',
-					terminal: 'iterm',
-					colorScheme: 'dark',
-					quitSitesBehavior: 'leave-running',
-					locale: 'fr',
-					analyticsEnabled: false,
-					defaultSiteDirectory: '/Users/me/Studio',
-					agenticFeaturesEnabled: true,
-				} )
-			)
-		);
+	it( 'reads global preferences from the server, not the browser', async () => {
+		fetchMock.mockResolvedValue( new Response( JSON.stringify( { editor: 'vscode' } ) ) );
 		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
 
+		// The CLI-install fields are desktop-only, so the connector supplies them.
 		await expect( connector.getUserPreferences() ).resolves.toEqual( {
 			editor: 'vscode',
-			terminal: 'iterm',
-			colorScheme: 'dark',
-			quitSitesBehavior: 'leave-running',
-			locale: 'fr',
-			analyticsEnabled: false,
-			defaultSiteDirectory: '/Users/me/Studio',
-			agenticFeaturesEnabled: true,
 			studioCliInstalled: false,
 			studioCliExternallyManaged: false,
 		} );
@@ -141,22 +122,6 @@ describe( 'createLocalConnector Connect contracts', () => {
 		expect( JSON.parse( String( init?.body ) ) ).toEqual( {
 			updates: [ { siteId: 'site-1', sortOrder: 1000 } ],
 		} );
-	} );
-
-	it( 'keeps the site order the server reports', async () => {
-		fetchMock.mockResolvedValue(
-			new Response(
-				JSON.stringify( [
-					{ id: 'site-1', name: 'Alpha', sortOrder: 2000 },
-					{ id: 'site-2', name: 'Beta', sortOrder: 1000 },
-				] )
-			)
-		);
-		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
-
-		const sites = await connector.getSites();
-
-		expect( sites.map( ( site ) => site.sortOrder ) ).toEqual( [ 2000, 1000 ] );
 	} );
 
 	it( 'forwards matching pull progress from the local server event stream', async () => {

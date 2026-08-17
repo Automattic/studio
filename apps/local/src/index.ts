@@ -173,9 +173,8 @@ const AUTH_CALLBACK_HTML = `<!DOCTYPE html>
 </script></body></html>`;
 
 // The agentic UI's SiteDetails shape. The CLI's `site list` already reports
-// nearly all of it; thumbnails/theme details are desktop-only enrichments.
-// `sortOrder` is one such enrichment, kept in app.json and merged in by callers
-// so the sidebar order matches the desktop app's.
+// nearly all of it; thumbnails/theme details/`sortOrder` are desktop-only
+// enrichments, merged in by callers.
 function toSiteDetails( site: SiteListItem, sortOrder?: number ) {
 	return {
 		id: site.id,
@@ -254,8 +253,6 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		void options.recordTracksEvent?.( event, props ).catch( () => undefined );
 	}
 
-	// What the preference reader can't work out for itself: where sites live and
-	// what this machine has installed (for the unset-editor fallback).
 	function preferencesContext(): UserPreferencesContext {
 		return { sitesRoot, installedApps: detectInstalledApps() };
 	}
@@ -644,8 +641,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
-	// Manual sidebar order, shared with the desktop app via app.json. Declared
-	// before `/sites/:id/*` so the literal path wins the match.
+	// Declared before `/sites/:id/*` so the literal path wins the match.
 	api.post(
 		'/sites/sort-order',
 		asyncHandler( async ( req: Request, res: Response ) => {
@@ -1194,7 +1190,6 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.post(
 		'/sites/:id/open-in-editor',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			// The preference lives in app.json; the browser no longer sends it.
 			const editor =
 				req.body?.editor ?? ( await readUserPreferences( preferencesContext() ) ).editor;
 			if ( typeof editor !== 'string' || ! isEditor( editor ) ) {

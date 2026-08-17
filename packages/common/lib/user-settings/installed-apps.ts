@@ -195,9 +195,8 @@ export function detectInstalledApps(): InstalledApps {
 	return apps;
 }
 
-// What an unset editor preference resolves to: the first supported editor the
-// user actually has. Shared so the desktop and the `studio ui` server offer the
-// same fallback.
+// What an unset editor preference resolves to, shared so the desktop and the
+// `studio ui` server offer the same fallback.
 export function getFirstInstalledEditor( installedApps: InstalledApps ): SupportedEditor | null {
 	return SUPPORTED_EDITORS.find( ( editor ) => installedApps[ editor ] ) ?? null;
 }

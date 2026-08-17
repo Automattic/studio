@@ -35,8 +35,6 @@ import type { PushOutput } from '@studio/common/types/sync';
 
 const WAPUU_SCORE_STORAGE_KEY = 'studio-local-wapuu-score';
 
-// What the server reports from the machine's Studio config; the CLI-install
-// fields are desktop-only and filled in by the connector.
 type ServerUserPreferences = Omit<
 	UserPreferences,
 	'studioCliInstalled' | 'studioCliExternallyManaged'
@@ -453,7 +451,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				body: JSON.stringify( { site, wpVersion } ),
 			} );
 		},
-		// Shares the desktop's manual order: the server keeps it in app.json.
 		async updateSitesSortOrder( updates ) {
 			await api( '/sites/sort-order', { method: 'POST', body: JSON.stringify( { updates } ) } );
 		},
@@ -751,22 +748,19 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			return () => placementListeners.delete( listener );
 		},
 
-		// Global preferences come from the machine's own Studio config (app.json
-		// and shared.json), the same files the desktop app reads, so both front
-		// ends show one set of values.
+		// Preferences come from the machine's own Studio config, the same files
+		// the desktop reads, so both front ends show one set of values.
 		async getUserPreferences(): Promise< UserPreferences > {
 			const preferences = await api< ServerUserPreferences >( '/user-preferences' );
 			return {
 				...preferences,
-				// The browser target neither installs nor manages the Studio CLI —
-				// it's already running inside it.
+				// This target is already running inside the CLI, not managing it.
 				studioCliInstalled: false,
 				studioCliExternallyManaged: false,
 			};
 		},
 		async setUserPreferences( partial ) {
 			// JSON drops `undefined` keys, so a clear has to travel as null.
-			// The server validates the result and ignores fields it doesn't own.
 			const patch = Object.fromEntries(
 				Object.entries( partial ).map( ( [ key, value ] ) => [ key, value ?? null ] )
 			);
@@ -823,9 +817,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async openSiteFolder( siteId ) {
 			await api( `/sites/${ encodeURIComponent( siteId ) }/open-folder`, { method: 'POST' } );
 		},
-		// The editor/terminal preference lives in the machine's Studio config, so
-		// the server resolves it (a 400 means none is configured, and callers
-		// route the user to Settings — matching the desktop contract).
+		// The server resolves the preference; a 400 means none is configured and
+		// callers route the user to Settings, matching the desktop contract.
 		async openSiteInEditor( siteId ) {
 			await api( `/sites/${ encodeURIComponent( siteId ) }/open-in-editor`, { method: 'POST' } );
 		},

@@ -73,6 +73,15 @@ import express from 'express';
 import { rateLimit } from 'express-rate-limit';
 import { z } from 'zod';
 import { isEditor, isTerminal, openInEditor, openInTerminal, openPath } from './open-in-os';
+import {
+	getPreferredEditor,
+	getPreferredTerminal,
+	readSiteSortOrders,
+	readUserPreferences,
+	userPreferencesPatchSchema,
+	writeSiteSortOrders,
+	writeUserPreferences,
+} from './user-preferences';
 import type { SiteListItem } from '@studio/common/lib/cli-events';
 import type { EditSiteOptions } from '@studio/common/sites/edit';
 import type { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
@@ -145,7 +154,9 @@ const AUTH_CALLBACK_HTML = `<!DOCTYPE html>
 
 // The agentic UI's SiteDetails shape. The CLI's `site list` already reports
 // nearly all of it; thumbnails/theme details are desktop-only enrichments.
-function toSiteDetails( site: SiteListItem ) {
+// `sortOrder` is one such enrichment, kept in app.json and merged in by callers
+// so the sidebar order matches the desktop app's.
+function toSiteDetails( site: SiteListItem, sortOrder?: number ) {
 	return {
 		id: site.id,
 		name: site.name,
@@ -164,6 +175,7 @@ function toSiteDetails( site: SiteListItem ) {
 		enableDebugLog: site.enableDebugLog,
 		enableDebugDisplay: site.enableDebugDisplay,
 		operation: site.operation,
+		sortOrder,
 		siteIcon: null,
 	};
 }
@@ -467,8 +479,30 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.get(
 		'/sites',
 		asyncHandler( async ( _req: Request, res: Response ) => {
-			const sites = await listSites( execute );
-			res.json( sites.map( toSiteDetails ) );
+			const [ sites, sortOrders ] = await Promise.all( [
+				listSites( execute ),
+				readSiteSortOrders(),
+			] );
+			res.json( sites.map( ( site ) => toSiteDetails( site, sortOrders.get( site.id ) ) ) );
+		} )
+	);
+
+	// Manual sidebar order, shared with the desktop app via app.json. Declared
+	// before `/sites/:id/*` so the literal path wins the match.
+	api.post(
+		'/sites/sort-order',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const parsed = z
+				.object( {
+					updates: z.array( z.object( { siteId: z.string(), sortOrder: z.number() } ) ),
+				} )
+				.safeParse( req.body );
+			if ( ! parsed.success ) {
+				res.status( 400 ).json( { error: 'updates required' } );
+				return;
+			}
+			await writeSiteSortOrders( parsed.data.updates );
+			res.status( 204 ).end();
 		} )
 	);
 
@@ -736,8 +770,12 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 					emitter.on( 'error', ( { error } ) => reject( error ) );
 				} );
 			}
-			const refreshed = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
-			res.json( toSiteDetails( refreshed ?? current ) );
+			const [ sites, sortOrders ] = await Promise.all( [
+				listSites( execute ),
+				readSiteSortOrders(),
+			] );
+			const refreshed = sites.find( ( s ) => s.id === req.params.id );
+			res.json( toSiteDetails( refreshed ?? current, sortOrders.get( req.params.id ) ) );
 		} )
 	);
 
@@ -962,6 +1000,27 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
+	// --- Global preferences — the same app.json/shared.json the desktop uses ---
+	api.get(
+		'/user-preferences',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			res.json( await readUserPreferences( sitesRoot ) );
+		} )
+	);
+
+	api.patch(
+		'/user-preferences',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const parsed = userPreferencesPatchSchema.safeParse( req.body ?? {} );
+			if ( ! parsed.success ) {
+				res.status( 400 ).json( { error: 'Invalid preferences' } );
+				return;
+			}
+			await writeUserPreferences( parsed.data );
+			res.status( 204 ).end();
+		} )
+	);
+
 	api.post(
 		'/sites/:id/open-folder',
 		asyncHandler( async ( req: Request, res: Response ) => {
@@ -978,7 +1037,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.post(
 		'/sites/:id/open-in-editor',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const editor = req.body?.editor;
+			// The preference lives in app.json; the browser no longer sends it.
+			const editor = req.body?.editor ?? ( await getPreferredEditor() );
 			if ( typeof editor !== 'string' || ! isEditor( editor ) ) {
 				res.status( 400 ).json( { error: `Unsupported editor: ${ String( editor ) }` } );
 				return;
@@ -996,7 +1056,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.post(
 		'/sites/:id/open-in-terminal',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const requested = req.body?.terminal;
+			const requested = req.body?.terminal ?? ( await getPreferredTerminal() );
 			// No preference (or an unknown one) falls back to the system terminal.
 			const terminal =
 				typeof requested === 'string' && isTerminal( requested ) ? requested : 'terminal';

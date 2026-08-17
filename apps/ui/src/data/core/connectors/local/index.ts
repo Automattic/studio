@@ -2,7 +2,6 @@ import { getAuthenticationUrl, getSignUpUrl } from '@studio/common/lib/oauth';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
 import { readOnboardingHints, writeOnboardingHints } from '../browser-onboarding-hints';
-import { applyStoredSiteOrder, storeSiteOrder } from '../browser-site-order';
 import { readLastSeenVersion, writeLastSeenVersion } from '../browser-whats-new';
 import { buildPublishCheckoutUrl } from '../publish-checkout-url';
 import { UnsupportedError } from '../unsupported-error';
@@ -13,44 +12,32 @@ import type {
 	AiSessionSummary,
 	AppGlobals,
 	AuthUser,
-	ColorScheme,
 	Connector,
 	ExtractedBlueprintBundle,
 	InstalledApps,
 	LoadedAiSession,
 	LocalMediaFile,
 	ProposedSitePath,
-	QuitSitesBehavior,
 	PullSiteProgress,
 	SelectedSiteFolder,
 	SiteDetails,
 	Snapshot,
 	SnapshotUsage,
 	StudioAssistantQuota,
-	SupportedEditor,
-	SupportedTerminal,
 	SyncSite,
 	UserPreferences,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 
-// The in-app dark/light/system choice, persisted in the browser (there's no
-// Electron `nativeTheme` to mirror it) so it sticks across reloads.
-const COLOR_SCHEME_STORAGE_KEY = 'studio-local-color-scheme';
-// Editor/terminal choices live in the browser too (no Electron user-settings
-// store); the server reads them back from each open request.
-const EDITOR_STORAGE_KEY = 'studio-local-editor';
-const TERMINAL_STORAGE_KEY = 'studio-local-terminal';
-const QUIT_SITES_BEHAVIOR_STORAGE_KEY = 'studio-local-quit-sites-behavior';
 const WAPUU_SCORE_STORAGE_KEY = 'studio-local-wapuu-score';
-const AGENTIC_FEATURES_STORAGE_KEY = 'studio-local-agentic-features-enabled';
 
-function parseQuitSitesBehavior( value: string | null ): QuitSitesBehavior | undefined {
-	return value === 'leave-running' || value === 'stop-and-auto-start' || value === 'stop'
-		? value
-		: undefined;
-}
+// What the server reports from the machine's Studio config; the CLI-install
+// fields are desktop-only and filled in by the connector.
+type ServerUserPreferences = Omit<
+	UserPreferences,
+	'studioCliInstalled' | 'studioCliExternallyManaged'
+>;
 
 export interface LocalConnectorOptions {
 	// Base URL of the local Studio server started by `studio ui`, e.g.
@@ -351,7 +338,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 
 		// Sites — the local machine's real Studio sites, served by the CLI.
 		async getSites(): Promise< SiteDetails[] > {
-			lastSites = applyStoredSiteOrder( await api< SiteDetails[] >( '/sites' ) );
+			lastSites = await api< SiteDetails[] >( '/sites' );
 			return lastSites;
 		},
 		async startSite( id ) {
@@ -445,8 +432,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				body: JSON.stringify( { site, wpVersion } ),
 			} );
 		},
+		// Shares the desktop's manual order: the server keeps it in app.json.
 		async updateSitesSortOrder( updates ) {
-			storeSiteOrder( updates );
+			await api( '/sites/sort-order', { method: 'POST', body: JSON.stringify( { updates } ) } );
 		},
 		// Export downloads the archive in the browser (no native Save-As dialog).
 		async exportFullSite( siteId ): Promise< string | null > {
@@ -705,63 +693,29 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			return () => placementListeners.delete( listener );
 		},
 
-		// User preferences are persisted in the browser; `locale` follows the app.
+		// Global preferences come from the machine's own Studio config (app.json
+		// and shared.json), the same files the desktop app reads, so both front
+		// ends show one set of values.
 		async getUserPreferences(): Promise< UserPreferences > {
-			const stored = window.localStorage.getItem( COLOR_SCHEME_STORAGE_KEY );
-			const colorScheme: ColorScheme =
-				stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'system';
-			const quitSitesBehavior = parseQuitSitesBehavior(
-				window.localStorage.getItem( QUIT_SITES_BEHAVIOR_STORAGE_KEY )
-			);
+			const preferences = await api< ServerUserPreferences >( '/user-preferences' );
 			return {
-				editor:
-					( window.localStorage.getItem( EDITOR_STORAGE_KEY ) as SupportedEditor | null ) || null,
-				terminal:
-					( window.localStorage.getItem( TERMINAL_STORAGE_KEY ) as SupportedTerminal | null ) ||
-					null,
-				colorScheme,
-				quitSitesBehavior,
-				locale: undefined,
-				// Analytics doesn't flow through the browser target in Phase 1; report enabled.
-				analyticsEnabled: true,
-				defaultSiteDirectory: '',
+				...preferences,
+				// The browser target neither installs nor manages the Studio CLI —
+				// it's already running inside it.
 				studioCliInstalled: false,
 				studioCliExternallyManaged: false,
-				agenticFeaturesEnabled:
-					window.localStorage.getItem( AGENTIC_FEATURES_STORAGE_KEY ) !== 'false',
 			};
 		},
 		async setUserPreferences( partial ) {
-			if ( partial.colorScheme ) {
-				window.localStorage.setItem( COLOR_SCHEME_STORAGE_KEY, partial.colorScheme );
+			if ( Object.keys( partial ).length === 0 ) {
+				return;
 			}
-			if ( partial.editor !== undefined ) {
-				if ( partial.editor ) {
-					window.localStorage.setItem( EDITOR_STORAGE_KEY, partial.editor );
-				} else {
-					window.localStorage.removeItem( EDITOR_STORAGE_KEY );
-				}
-			}
-			if ( partial.terminal !== undefined ) {
-				if ( partial.terminal ) {
-					window.localStorage.setItem( TERMINAL_STORAGE_KEY, partial.terminal );
-				} else {
-					window.localStorage.removeItem( TERMINAL_STORAGE_KEY );
-				}
-			}
-			if ( 'quitSitesBehavior' in partial ) {
-				if ( partial.quitSitesBehavior ) {
-					window.localStorage.setItem( QUIT_SITES_BEHAVIOR_STORAGE_KEY, partial.quitSitesBehavior );
-				} else {
-					window.localStorage.removeItem( QUIT_SITES_BEHAVIOR_STORAGE_KEY );
-				}
-			}
-			if ( typeof partial.agenticFeaturesEnabled === 'boolean' ) {
-				window.localStorage.setItem(
-					AGENTIC_FEATURES_STORAGE_KEY,
-					String( partial.agenticFeaturesEnabled )
-				);
-			}
+			// JSON drops `undefined` keys, so an explicit clear travels as null.
+			// The server validates the result and ignores fields it doesn't own.
+			const patch = Object.fromEntries(
+				Object.entries( partial ).map( ( [ key, value ] ) => [ key, value ?? null ] )
+			);
+			await api( '/user-preferences', { method: 'PATCH', body: JSON.stringify( patch ) } );
 		},
 		// Detected on the machine the server runs on (the desktop's installed-app
 		// detection, server-side) so the preferences picker offers only what's there.
@@ -797,23 +751,14 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async openSiteFolder( siteId ) {
 			await api( `/sites/${ encodeURIComponent( siteId ) }/open-folder`, { method: 'POST' } );
 		},
+		// The editor/terminal preference lives in the machine's Studio config, so
+		// the server resolves it (a 400 means none is configured, and callers
+		// route the user to Settings — matching the desktop contract).
 		async openSiteInEditor( siteId ) {
-			const editor = window.localStorage.getItem( EDITOR_STORAGE_KEY );
-			if ( ! editor ) {
-				// Matches the desktop contract: callers route the user to Settings.
-				throw new Error( 'No preferred editor configured.' );
-			}
-			await api( `/sites/${ encodeURIComponent( siteId ) }/open-in-editor`, {
-				method: 'POST',
-				body: JSON.stringify( { editor } ),
-			} );
+			await api( `/sites/${ encodeURIComponent( siteId ) }/open-in-editor`, { method: 'POST' } );
 		},
 		async openSiteInTerminal( siteId ) {
-			const terminal = window.localStorage.getItem( TERMINAL_STORAGE_KEY ) ?? undefined;
-			await api( `/sites/${ encodeURIComponent( siteId ) }/open-in-terminal`, {
-				method: 'POST',
-				body: JSON.stringify( { terminal } ),
-			} );
+			await api( `/sites/${ encodeURIComponent( siteId ) }/open-in-terminal`, { method: 'POST' } );
 		},
 
 		// The CLI has no equivalent of the desktop's log file — site server output

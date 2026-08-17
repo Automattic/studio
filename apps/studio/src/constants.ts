@@ -25,7 +25,7 @@ export const BUG_REPORT_URL =
 export const FEATURE_REQUEST_URL =
 	'https://github.com/Automattic/studio/issues/new?assignees=&labels=%5BType%5D+Feature+Request&projects=&template=feature_request.yml&title=Feature+Request%3A';
 export const WPCOM_PROFILE_URL = 'https://wordpress.com/me';
-export const DEFAULT_TERMINAL = 'terminal';
+export { DEFAULT_TERMINAL } from '@studio/common/lib/user-settings/terminal';
 
 export const SYNC_OPTIONS = {
 	// Options sent for pull and push

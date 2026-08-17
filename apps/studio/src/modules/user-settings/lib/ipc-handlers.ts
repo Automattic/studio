@@ -9,12 +9,13 @@ import {
 	readSharedConfig,
 	updateSharedConfig,
 } from '@studio/common/lib/shared-config';
+import { getFirstInstalledEditor } from '@studio/common/lib/user-settings/installed-apps';
 import { DEFAULT_TERMINAL } from 'src/constants';
 import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { isInstalled } from 'src/lib/is-installed';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
-import { SUPPORTED_EDITORS, SupportedEditor } from 'src/modules/user-settings/lib/editor';
+import { SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 import { UserSettingsTabName } from 'src/modules/user-settings/user-settings-types';
 import { defaultSitePath, ensureWritableDirectory } from 'src/storage/paths';
@@ -113,17 +114,8 @@ export async function getUserLocale() {
 }
 
 export async function getUserEditor(): Promise< SupportedEditor | null > {
-	function getDefaultInstalledEditor(): SupportedEditor | null {
-		const installedApps = getInstalledAppsAndTerminals();
-		for ( const editor of SUPPORTED_EDITORS ) {
-			if ( installedApps[ editor ] ) {
-				return editor;
-			}
-		}
-		return null;
-	}
 	const userData = await loadUserData();
-	return userData.preferredEditor ?? getDefaultInstalledEditor();
+	return userData.preferredEditor ?? getFirstInstalledEditor( getInstalledAppsAndTerminals() );
 }
 
 export async function previewColorScheme(

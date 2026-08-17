@@ -80,6 +80,85 @@ describe( 'createLocalConnector Connect contracts', () => {
 		expect( popup.location.href ).toBe( 'https://wordpress.com/start' );
 	} );
 
+	it( 'reads global preferences from the server instead of the browser', async () => {
+		fetchMock.mockResolvedValue(
+			new Response(
+				JSON.stringify( {
+					editor: 'vscode',
+					terminal: 'iterm',
+					colorScheme: 'dark',
+					quitSitesBehavior: 'leave-running',
+					locale: 'fr',
+					analyticsEnabled: false,
+					defaultSiteDirectory: '/Users/me/Studio',
+					agenticFeaturesEnabled: true,
+				} )
+			)
+		);
+		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
+
+		await expect( connector.getUserPreferences() ).resolves.toEqual( {
+			editor: 'vscode',
+			terminal: 'iterm',
+			colorScheme: 'dark',
+			quitSitesBehavior: 'leave-running',
+			locale: 'fr',
+			analyticsEnabled: false,
+			defaultSiteDirectory: '/Users/me/Studio',
+			agenticFeaturesEnabled: true,
+			studioCliInstalled: false,
+			studioCliExternallyManaged: false,
+		} );
+		expect( fetchMock ).toHaveBeenCalledWith(
+			'http://localhost:8081/api/user-preferences',
+			expect.any( Object )
+		);
+	} );
+
+	it( 'sends cleared preferences as null so the server can unset them', async () => {
+		fetchMock.mockResolvedValue( new Response( null, { status: 204 } ) );
+		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
+
+		await connector.setUserPreferences( { editor: null, quitSitesBehavior: undefined } );
+
+		const [ url, init ] = fetchMock.mock.calls[ 0 ];
+		expect( String( url ) ).toBe( 'http://localhost:8081/api/user-preferences' );
+		expect( init?.method ).toBe( 'PATCH' );
+		expect( JSON.parse( String( init?.body ) ) ).toEqual( {
+			editor: null,
+			quitSitesBehavior: null,
+		} );
+	} );
+
+	it( 'persists the manual site order on the server', async () => {
+		fetchMock.mockResolvedValue( new Response( null, { status: 204 } ) );
+		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
+
+		await connector.updateSitesSortOrder( [ { siteId: 'site-1', sortOrder: 1000 } ] );
+
+		const [ url, init ] = fetchMock.mock.calls[ 0 ];
+		expect( String( url ) ).toBe( 'http://localhost:8081/api/sites/sort-order' );
+		expect( JSON.parse( String( init?.body ) ) ).toEqual( {
+			updates: [ { siteId: 'site-1', sortOrder: 1000 } ],
+		} );
+	} );
+
+	it( 'keeps the site order the server reports', async () => {
+		fetchMock.mockResolvedValue(
+			new Response(
+				JSON.stringify( [
+					{ id: 'site-1', name: 'Alpha', sortOrder: 2000 },
+					{ id: 'site-2', name: 'Beta', sortOrder: 1000 },
+				] )
+			)
+		);
+		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
+
+		const sites = await connector.getSites();
+
+		expect( sites.map( ( site ) => site.sortOrder ) ).toEqual( [ 2000, 1000 ] );
+	} );
+
 	it( 'forwards matching pull progress from the local server event stream', async () => {
 		let onMessage: ( ( event: MessageEvent ) => void ) | null = null;
 		class MockEventSource {

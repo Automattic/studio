@@ -172,7 +172,6 @@ export async function runBlueprint(
 				`--site-path=${ config.sitePath }`,
 				`--site-url=${ config.absoluteUrl ?? `http://localhost:${ config.port }` }`,
 				'--db-engine=sqlite',
-				`--db-path=${ path.join( config.sitePath, 'wp-content', 'database', '.ht.sqlite' ) }`,
 			],
 			{
 				phpVersion,

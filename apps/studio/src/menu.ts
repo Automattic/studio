@@ -17,6 +17,7 @@ import { __ } from '@wordpress/i18n';
 import { openAboutWindow } from 'src/about-menu/open-about-menu';
 import { BUG_REPORT_URL, FEATURE_REQUEST_URL } from 'src/constants';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
+import { applyAppZoomCommand } from 'src/lib/app-zoom';
 import {
 	BetaFeatureDefinition,
 	getBetaFeatures,
@@ -431,17 +432,13 @@ async function getAppMenu(
 					void sendIpcEventToRenderer( 'toggle-site-preview' );
 				},
 				onResetZoom: () => {
-					void withAppWebContents( ( contents ) => contents.setZoomLevel( 0 ) );
+					void withAppWebContents( ( contents ) => applyAppZoomCommand( contents, 'reset' ) );
 				},
 				onZoomIn: () => {
-					void withAppWebContents( ( contents ) =>
-						contents.setZoomLevel( contents.getZoomLevel() + 0.5 )
-					);
+					void withAppWebContents( ( contents ) => applyAppZoomCommand( contents, 'in' ) );
 				},
 				onZoomOut: () => {
-					void withAppWebContents( ( contents ) =>
-						contents.setZoomLevel( contents.getZoomLevel() - 0.5 )
-					);
+					void withAppWebContents( ( contents ) => applyAppZoomCommand( contents, 'out' ) );
 				},
 			} ),
 		},

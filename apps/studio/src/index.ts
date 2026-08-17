@@ -29,6 +29,7 @@ import {
 	hasActiveSyncOperations,
 	hasUploadingPushOperations,
 } from 'src/lib/active-sync-operations';
+import { applyAppZoomCommand, getAppZoomCommand } from 'src/lib/app-zoom';
 import { getBetaFeatures } from 'src/lib/beta-features';
 import {
 	bumpStat,
@@ -204,6 +205,20 @@ async function appBoot() {
 	// and exempted from the renderer-origin restriction below.
 	app.on( 'web-contents-created', ( _event, contents ) => {
 		const isSitePreviewWebview = contents.getType() === 'webview';
+		if ( isSitePreviewWebview ) {
+			contents.on( 'before-input-event', ( event, input ) => {
+				const zoomCommand = getAppZoomCommand( input );
+				if ( ! zoomCommand ) {
+					return;
+				}
+				event.preventDefault();
+				void getMainWindow().then( ( window ) => {
+					if ( ! window.isDestroyed() && ! window.webContents.isDestroyed() ) {
+						applyAppZoomCommand( window.webContents, zoomCommand );
+					}
+				} );
+			} );
+		}
 
 		contents.on( 'will-navigate', ( event, navigationUrl ) => {
 			if ( isSitePreviewWebview ) {

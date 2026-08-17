@@ -135,6 +135,16 @@ function renderThemeJson(): string {
 				},
 			},
 		},
+		// `page.html` renders the post title as the page's h1. A designed page whose
+		// hero carries its own heading needs a way to opt out of that title without
+		// removing it from `page.html`, which every ordinary page still wants.
+		customTemplates: [
+			{
+				name: 'page-no-title',
+				title: 'Page (no title)',
+				postTypes: [ 'page' ],
+			},
+		],
 	};
 	return JSON.stringify( data, null, '\t' ) + '\n';
 }
@@ -278,6 +288,17 @@ const TEMPLATE_PAGE = `<!-- wp:template-part {"slug":"header"} /-->
 <!-- wp:template-part {"slug":"footer"} /-->
 `;
 
+const TEMPLATE_PAGE_NO_TITLE = `<!-- wp:template-part {"slug":"header"} /-->
+
+<!-- wp:group {"tagName":"main"} -->
+<main class="wp-block-group">
+	<!-- wp:post-content {"layout":{"type":"constrained"}} /-->
+</main>
+<!-- /wp:group -->
+
+<!-- wp:template-part {"slug":"footer"} /-->
+`;
+
 const TEMPLATE_ARCHIVE = `<!-- wp:template-part {"slug":"header"} /-->
 
 <!-- wp:group {"tagName":"main"} -->
@@ -365,6 +386,7 @@ export const scaffoldThemeTool = defineTool(
 		'Drops in style.css (theme header plus a reset zeroing the default block gap between top-level template sections), ' +
 		'theme.json (appearanceTools, a content/wide layout width, and root-padding-aware horizontal padding so content never touches the viewport edge), ' +
 		'functions.php (frontend + editor style enqueue), default templates (index, single, page, archive, 404), ' +
+		'a registered page-no-title template to assign to designed pages whose content carries its own heading, ' +
 		'header/footer parts, and empty assets/fonts and patterns directories. ' +
 		'Use when the user wants to start a new custom theme — the agent fills in design-specific content afterwards. ' +
 		'Pass parentTheme to scaffold a child theme of an installed theme instead — required when customizing a third-party theme, whose files must never be edited directly. ' +
@@ -478,6 +500,7 @@ export const scaffoldThemeTool = defineTool(
 					[ path.join( 'templates', 'index.html' ), TEMPLATE_INDEX ],
 					[ path.join( 'templates', 'single.html' ), TEMPLATE_SINGLE ],
 					[ path.join( 'templates', 'page.html' ), TEMPLATE_PAGE ],
+					[ path.join( 'templates', 'page-no-title.html' ), TEMPLATE_PAGE_NO_TITLE ],
 					[ path.join( 'templates', 'archive.html' ), TEMPLATE_ARCHIVE ],
 					[ path.join( 'templates', '404.html' ), TEMPLATE_404 ],
 					[ path.join( 'parts', 'header.html' ), PART_HEADER ],

@@ -1526,6 +1526,7 @@ describe( 'Studio AI MCP tools', () => {
 				'templates/index.html',
 				'templates/single.html',
 				'templates/page.html',
+				'templates/page-no-title.html',
 				'templates/archive.html',
 				'templates/404.html',
 				'parts/header.html',
@@ -1572,6 +1573,29 @@ describe( 'Studio AI MCP tools', () => {
 			 )?.padding;
 			expect( rootPadding?.left ).toBeTruthy();
 			expect( rootPadding?.right ).toBeTruthy();
+
+			// The no-title template is only assignable to a page if it is registered
+			// here, so the file and the registration have to stay in step.
+			const customTemplates = themeJson.customTemplates as Array< Record< string, unknown > >;
+			expect( customTemplates ).toEqual(
+				expect.arrayContaining( [
+					expect.objectContaining( { name: 'page-no-title', postTypes: [ 'page' ] } ),
+				] )
+			);
+
+			// A designed page opts out of the template's h1 by switching template, so
+			// page.html must keep the title and page-no-title.html must omit it.
+			const pageTemplate = await readFile(
+				path.join( themeDir, 'templates', 'page.html' ),
+				'utf8'
+			);
+			expect( pageTemplate ).toContain( 'wp:post-title' );
+			const pageNoTitleTemplate = await readFile(
+				path.join( themeDir, 'templates', 'page-no-title.html' ),
+				'utf8'
+			);
+			expect( pageNoTitleTemplate ).not.toContain( 'wp:post-title' );
+			expect( pageNoTitleTemplate ).toContain( 'wp:post-content' );
 
 			const functionsPhp = await readFile( path.join( themeDir, 'functions.php' ), 'utf8' );
 			expect( functionsPhp ).toContain( "'acme-studio-style'" );

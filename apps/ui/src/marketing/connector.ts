@@ -45,6 +45,13 @@ function cloneSite( site: SiteDetails ): SiteDetails {
 	};
 }
 
+export interface MarketingConnectorOptions {
+	/** Origin of the isolated real WordPress site used by native captures. */
+	previewOrigin?: string;
+	/** Enable Electron-only preview annotation controls for native captures. */
+	annotatePreview?: boolean;
+}
+
 /**
  * Return a complete Connector whose data is fully deterministic and whose
  * unsupported methods fail closed. The local connector supplies the complete
@@ -55,7 +62,8 @@ function cloneSite( site: SiteDetails ): SiteDetails {
 export function createMarketingConnector(
 	scenario: MarketingScenario,
 	theme: MarketingTheme,
-	panelLayout: MarketingPanelLayout = scenario.panelLayout
+	panelLayout: MarketingPanelLayout = scenario.panelLayout,
+	options: MarketingConnectorOptions = {}
 ): Connector {
 	const localConnector = createLocalConnector( { apiBaseUrl: 'http://127.0.0.1:0' } );
 	const sites = scenario.id === 'add-site' ? [] : getMarketingSites();
@@ -64,7 +72,7 @@ export function createMarketingConnector(
 		primarySite.running = true;
 		primarySite.customDomain = undefined;
 		primarySite.enableHttps = false;
-		primarySite.url = window.location.origin;
+		primarySite.url = options.previewOrigin ?? window.location.origin;
 	}
 	const sessionIdsByScenario: Partial< Record< MarketingScenario[ 'id' ], readonly string[] > > = {
 		'agent-new-session': [ AGENT_NEW_SESSION_ID ],
@@ -121,7 +129,8 @@ export function createMarketingConnector(
 			nativeFolderPicker: false,
 			nativeSaveDialog: false,
 			openInOS: true,
-			annotatePreview: false,
+			annotatePreview:
+				Boolean( options.annotatePreview ) && /\bElectron\//.test( navigator.userAgent ),
 			readLocalMedia: false,
 			agentInstructions: true,
 			studioLogs: false,
@@ -223,6 +232,9 @@ export function createMarketingConnector(
 		},
 		async getSession( sessionId ) {
 			return getMarketingSession( sessionId );
+		},
+		async continueSession( sessionId ) {
+			return { runId: `marketing-${ sessionId }-run` };
 		},
 		async createSession( siteId ) {
 			const existing = sessions.find( ( session ) => session.ownerSiteId === siteId );

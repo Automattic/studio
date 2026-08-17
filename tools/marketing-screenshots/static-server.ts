@@ -47,12 +47,18 @@ export async function startStaticServer( distDirectory: string ): Promise< Stati
 			return;
 		}
 
-		let pathname: string;
+		let requestedUrl: URL;
 		try {
-			pathname = decodeURIComponent( new URL( request.url ?? '/', 'http://localhost' ).pathname );
+			requestedUrl = new URL( request.url ?? '/', 'http://localhost' );
 		} catch {
 			response.writeHead( 400 );
 			response.end( 'Bad request' );
+			return;
+		}
+		const pathname = decodeURIComponent( requestedUrl.pathname );
+		if ( pathname.startsWith( '/wp-admin' ) || pathname.startsWith( '/phpmyadmin' ) ) {
+			response.writeHead( 404 );
+			response.end( 'Not found' );
 			return;
 		}
 
@@ -72,7 +78,7 @@ export async function startStaticServer( distDirectory: string ): Promise< Stati
 
 		const isMarketingPreviewRequest =
 			pathname === '/' &&
-			request.headers[ 'sec-fetch-dest' ] === 'iframe' &&
+			[ 'iframe', 'embed' ].includes( request.headers[ 'sec-fetch-dest' ] ?? '' ) &&
 			isFile( marketingPreviewPath );
 		let filePath = isMarketingPreviewRequest ? marketingPreviewPath : candidate;
 		if ( ! isMarketingPreviewRequest && ( pathname === '/' || ! isFile( candidate ) ) ) {

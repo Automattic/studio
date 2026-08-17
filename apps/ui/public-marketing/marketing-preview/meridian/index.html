@@ -16,6 +16,13 @@
 				box-sizing: border-box;
 			}
 
+			html,
+			body {
+				width: 100%;
+				max-width: 100%;
+				overflow-x: hidden;
+			}
+
 			body {
 				min-width: 320px;
 				margin: 0;
@@ -84,6 +91,7 @@
 			.hero-copy {
 				position: relative;
 				z-index: 1;
+				min-width: 0;
 				align-self: center;
 				padding: clamp( 52px, 8vw, 110px ) 5vw;
 			}
@@ -135,6 +143,7 @@
 				position: relative;
 				z-index: 1;
 				display: grid;
+				min-width: 0;
 				place-items: center;
 			}
 
@@ -245,6 +254,33 @@
 
 				.principles {
 					grid-template-columns: 1fr;
+				}
+			}
+
+			@media ( max-width: 900px ) {
+				.hero {
+					min-height: 560px;
+					grid-template-columns: 1fr;
+				}
+
+				.hero-copy {
+					align-self: center;
+					padding: 48px 7vw;
+				}
+
+				h1 {
+					max-width: 540px;
+					font-size: clamp( 38px, 6vw, 48px );
+					line-height: 1.04;
+				}
+
+				.intro {
+					max-width: 440px;
+					font-size: 18px;
+				}
+
+				.product-stage {
+					display: none;
 				}
 			}
 		</style>

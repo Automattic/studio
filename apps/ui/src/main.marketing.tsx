@@ -33,6 +33,17 @@ function getTheme( value: string | null ): MarketingTheme {
 	throw new Error( `Unknown marketing screenshot theme: ${ value }` );
 }
 
+function getPreviewOrigin( value: string | null ): string | undefined {
+	if ( value === null ) {
+		return undefined;
+	}
+	const origin = new URL( value );
+	if ( origin.protocol !== 'http:' || ! [ '127.0.0.1', 'localhost' ].includes( origin.hostname ) ) {
+		throw new Error( 'Marketing preview origin must be an HTTP loopback address.' );
+	}
+	return origin.origin;
+}
+
 function nextPaint(): Promise< void > {
 	return new Promise( ( resolve ) => {
 		requestAnimationFrame( () => requestAnimationFrame( () => resolve() ) );
@@ -169,6 +180,8 @@ async function bootstrap() {
 		scenario.panelLayout,
 		requestedUrl.searchParams
 	);
+	const previewOrigin = getPreviewOrigin( requestedUrl.searchParams.get( 'previewOrigin' ) );
+	const annotatePreview = requestedUrl.searchParams.get( 'annotatePreview' ) === 'true';
 
 	document.documentElement.dataset.marketingScreenshotScenario = scenario.id;
 	document.documentElement.dataset.marketingScreenshotTheme = theme;
@@ -180,7 +193,10 @@ async function bootstrap() {
 	const appliedPanelLayout = applyMarketingPanelLayout( panelLayout, window.innerWidth );
 	window.__STUDIO_MARKETING_PANEL_LAYOUT__ = appliedPanelLayout;
 
-	const connector = createMarketingConnector( scenario, theme, panelLayout );
+	const connector = createMarketingConnector( scenario, theme, panelLayout, {
+		previewOrigin,
+		annotatePreview,
+	} );
 	await Promise.all( [ connector.init?.(), applyLocale( connector ) ] );
 
 	const scenarioUrl = new URL( scenario.route, window.location.origin );

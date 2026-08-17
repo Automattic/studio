@@ -240,6 +240,9 @@ describe( 'marketing screenshot connector', () => {
 		const session = await completeAgentConnector.getSession( 'marketing-agent-complete' );
 		expect( session.summary.ownerSiteName ).toBe( 'Meridian Coffee' );
 		expect( session.entries ).toHaveLength( 7 );
+		expect(
+			await completeAgentConnector.continueSession( 'marketing-agent-complete', 'annotation data' )
+		).toEqual( { runId: 'marketing-marketing-agent-complete-run' } );
 		expect( await longAgentConnector.getSessions() ).toEqual( [
 			expect.objectContaining( { id: 'marketing-agent-long', eventCount: 13 } ),
 		] );
@@ -330,6 +333,19 @@ describe( 'marketing screenshot connector', () => {
 			enableHttps: false,
 			url: window.location.origin,
 		} );
+	} );
+
+	it( 'can point native captures at an isolated real WordPress origin', async () => {
+		const connector = createMarketingConnector(
+			getMarketingScenario( 'agent-complete-preview' ),
+			'light',
+			undefined,
+			{ previewOrigin: 'http://localhost:43210' }
+		);
+		const previewSite = ( await connector.getSites() ).find( ( site ) => site.id === 'meridian' );
+
+		expect( previewSite?.url ).toBe( 'http://localhost:43210' );
+		expect( connector.capabilities.annotatePreview ).toBe( false );
 	} );
 
 	it( 'applies requested initial closed panel states once', () => {

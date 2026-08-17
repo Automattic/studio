@@ -2,7 +2,7 @@
 
 ## Status
 
-- **State:** Working renderer vertical slice, ready for review and iteration
+- **State:** Working renderer catalog plus real Electron annotation vertical slice
 - **Implementation branch:** `add-marketing-screenshot-system`
 - **Primary consumers:** Studio Marketing and partner teams updating WordPress.com, Pressable,
   Automattic for Agencies, Microsoft Store, documentation, and launch materials
@@ -23,11 +23,16 @@ The current runnable slice on this branch includes:
 - deterministic randomness and waits for fonts, images, and preview frames after presentation setup;
 - `smoke`, `raw-compact-2x`, `raw-default-2x`, `raw-wide-2x`, and `store-4k` presets;
 - a marketing-only static preview fixture with no account, site, or external network dependency;
+- an isolated Electron annotation runner backed by a temporary real Studio WordPress site, genuine
+  WP Admin, and genuine phpMyAdmin;
+- composed-window capture through Electron, avoiding the incorrect `<webview>` scaling produced by
+  host-page screenshots;
 - exact-dimension PNG validation, diagnostics, a JSON manifest, and an HTML contact sheet; and
-- the one-command `npm run screenshots:marketing` build-and-capture workflow.
+- the `npm run screenshots:marketing` renderer workflow and
+  `npm run screenshots:marketing:native` real-preview workflow.
 
 Arbitrary one-off dimensions/composition, Git-ref orchestration, CI artifact publishing, and
-genuine per-OS Electron captures remain follow-up phases described below.
+matching Windows/Linux native hosts remain follow-up phases described below.
 
 ## Summary
 
@@ -178,10 +183,23 @@ use different connectors while sharing the same React component tree.
 
 - Electron uses a `<webview>` for a running site's preview.
 - A normal browser uses an `<iframe>` fallback.
-- Marketing preview pages must be deterministic local fixtures served by the capture harness. They
-  must not depend on a live Studio site port, external URL, or mutable production website.
-- A small native-capture set may later use a real Playground site to validate the true `<webview>`
-  integration.
+- Browser-renderer preview pages are deterministic local fixtures served by the capture harness.
+  They do not depend on a live Studio site port, external URL, or mutable production website.
+- Native annotation masters use a temporary real WordPress site created by the built Studio CLI.
+  The runner uses isolated config, site, Electron user-data, and process-manager directories, and it
+  installs the checked-in Meridian Marketing theme under `wp-content` before capture.
+- The native static server must not provide replacement wp-admin or phpMyAdmin pages. Those routes
+  are accepted only when the real guest DOM proves that WordPress and phpMyAdmin are running.
+- The capture-only host must not read `~/.studio`, saved window bounds, running site ports,
+  authentication, or the developer's site list. Exact content bounds and scale factor are inputs,
+  and the runner rejects output whose pixel dimensions do not match the selected preset.
+- A native Fit-pane capture is valid only when the guest CSS viewport exactly matches the preview
+  panel's content box. The runner must reject device emulation, zoom, transforms, horizontal
+  document overflow, and major frontend regions outside that viewport; the real theme must respond
+  to the panel width.
+- Electron `<webview>` content is a separate compositor surface. Playwright `page.screenshot()` is
+  forbidden for native masters because it can save the guest at a different scale or crop than the
+  visible window. Use `BrowserWindow.webContents.capturePage()` for the composed window pixels.
 
 ### Existing build and isolation support
 
@@ -277,8 +295,9 @@ flowchart LR
     D --> F["Playwright renderer capture"]
     F --> G["Raw and exact-size compositions"]
     G --> H["Manifest and contact sheet"]
-    D -.->|later| I["Real Electron window on native runner"]
-    I --> J["Native platform deliverables"]
+    D --> I["Capture-only Electron window"]
+    K["Isolated real Studio WordPress site"] --> I
+    I --> J["Composed annotation captures"]
 ```
 
 ### 1. Marketing-only UI target
@@ -378,9 +397,10 @@ Preview scenarios will use static same-origin fixture sites served by the market
 Each fixture should represent a polished but neutral WordPress site and include only the pages needed
 by the scenario.
 
-The first implementation should avoid creating a full Playground site for every renderer capture.
-That would increase runtime and introduce variability without improving the pixels visible inside the
-preview frame. A real Playground fixture belongs in the later native-fidelity suite.
+Renderer captures avoid creating a full Playground site because it would increase runtime without
+improving those synthetic browser-preview pixels. The native annotation command deliberately takes
+the other path: it provisions a fresh real site for each run so the frontend, authentication,
+wp-admin, database, phpMyAdmin, and inspector bridge are exercised together.
 
 ### 4. Explicit readiness contract
 
@@ -597,21 +617,26 @@ That is valuable deterministic Linux renderer coverage, but it is not an authent
 other desktop) window and shadow. Until a real desktop runner or VM is provisioned, those outputs
 must be labeled headless Linux renderer captures rather than native Linux marketing captures.
 
-### Proposed native strategy
+### Implemented native strategy and remaining platform work
 
-1. Compare `page.screenshot()`, `webContents.capturePage()`, and OS-level window capture on each
-   target host before choosing the adapter.
-2. Reuse the deterministic scenario data where practical.
-3. Launch Electron with isolated `E2E_*` directories and an explicit Agentic UI preference.
-4. Set exact window bounds after launch and verify the content bounds.
-5. Capture the complete application window through a small OS-specific adapter.
-6. Validate the resulting dimensions and crop bounds.
-7. Generate light and dark variants on the same runner.
+The macOS development-host vertical slice now:
 
-The exact capture APIs require a spike. `webContents.capturePage()` is useful for renderer pixels but
-does not guarantee native window chrome. `BrowserWindow.getMediaSourceId()` may provide a stable
-native window handle, but OS-level window capture can still require permissions or display
-configuration, especially on macOS and headless Linux.
+1. Builds the current Studio CLI and marketing UI.
+2. Creates a real WordPress site through the CLI with isolated `DEV_CONFIG_DIR`,
+   `E2E_APP_DATA_PATH`, and `STUDIO_PROCESS_MANAGER_HOME` directories.
+3. Installs the checked-in Meridian Marketing block theme and verifies the site responds.
+4. Launches a capture-only Electron BrowserWindow with fresh user data and exact content bounds.
+5. Drives the real annotation inspector through ready, picking, draft, saved, and submitted states.
+6. Verifies the genuine WP Admin and phpMyAdmin DOMs.
+7. Captures with `BrowserWindow.webContents.capturePage()`, validates exact PNG dimensions, and
+   writes a manifest and contact sheet.
+8. Stops the isolated site daemon and removes all temporary site and config data.
+
+The capture comparison found that Playwright `page.screenshot()` is not valid for this UI: the host
+renderer and its `<webview>` guest can be sampled with different scale/compositor behavior, producing
+a PNG that is wrong even while the visible application window is correct. Electron `capturePage()`
+captures the correctly composed content surface. It still does not prove external OS shadow or all
+platform chrome; Windows/Linux and packaged-app fidelity remain separate work.
 
 The spike should begin with an actual development BrowserWindow because it is cheaper than full
 Forge packaging. A packaged, unsigned application should be compared before declaring that the
@@ -734,17 +759,19 @@ reading personal Studio data or accessing external services.
 **Exit criterion:** Alex can generate the complete reviewed renderer set from `origin/trunk` into one
 folder and select assets by scenario, theme, and preset.
 
-### Phase 3: Native macOS spike
+### Phase 3: Electron annotation capture on macOS — implemented vertical slice
 
-- Launch the true Electron application with isolated data.
-- Compare browser-page, `capturePage`, and OS-level window-capture results.
+- Launch a capture-only Electron application shell with isolated data.
+- Create a real isolated Studio WordPress site for the preview surface.
+- Compare browser-page and `capturePage` results and retain the correctly composed capture path.
 - Test OS-level full-window capture on a macOS development machine and Buildkite Mac agent.
 - Compare development and packaged Electron windows for visible differences.
 - Capture default, wide, light, and dark variants.
 - Document permissions and known pixel differences.
 
-**Exit criterion:** A clean macOS runner can produce a repeatable full-window image with native
-traffic lights.
+**Current result:** A macOS development checkout can produce repeatable, exact-size composed-window
+annotation screenshots in light and dark with no personal Studio data. Packaged-app chrome, genuine
+traffic lights/shadow, and unattended CI remain follow-up acceptance work.
 
 ### Phase 4: Windows and Linux native captures
 
@@ -834,8 +861,9 @@ pixel-perfect pass/fail thresholds, and use human contact-sheet review for marke
 
 **Risk:** macOS screen-recording permissions or Linux display setup blocks unattended capture.
 
-**Mitigation:** Keep native capture out of the first implementation branch and prove each runner in a
-small spike before promising it as a routine output.
+**Mitigation:** The current branch uses Electron composed-window capture with no OS screen-recording
+permission. Treat genuine external window chrome/shadow as a separate per-platform adapter and prove
+each runner before promising it as routine output.
 
 ### Linux CI does not represent a normal Linux desktop
 

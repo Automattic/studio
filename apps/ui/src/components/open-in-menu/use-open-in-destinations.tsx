@@ -1,3 +1,4 @@
+import { captureException } from '@studio/common/lib/error-reporting';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { terminalConfig } from '@studio/common/lib/user-settings/terminal';
@@ -5,6 +6,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { code, external } from '@wordpress/icons';
 import { getPreviewRealm, getRealmOpenEvent } from '@/components/site-preview/address-bar';
+import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { editorLogos, finderLogo, folderLogo, terminalLogo, terminalLogos } from '@/lib/logos';
@@ -127,6 +129,8 @@ export function useOpenInDestinations(
 				onOpen?.( 'terminal' );
 				void connector.openSiteInTerminal( site.id ).catch( ( error ) => {
 					console.error( 'Failed to open site in terminal:', error );
+					captureException( error );
+					toast.error( __( 'Could not open the terminal.' ) );
 				} );
 			},
 		},

@@ -8,6 +8,7 @@ import {
 	writeGlobalInstructions,
 } from '@studio/common/ai/global-instructions';
 import { isAiModelId } from '@studio/common/ai/models';
+import { isAiProviderId, providerServesModel } from '@studio/common/ai/providers';
 import { createAgentRunManager } from '@studio/common/ai/run-manager';
 import {
 	createOrReuseAiSession,
@@ -21,9 +22,18 @@ import {
 } from '@studio/common/ai/sessions/placement';
 import {
 	appendModelChangeEntry,
+	appendStudioEntry,
 	deleteAiSession,
 	loadAiSession,
 } from '@studio/common/ai/sessions/store';
+import {
+	InvalidAnthropicApiKeyError,
+	readAiSettings,
+	saveAnthropicApiKey,
+	setAiProvider,
+} from '@studio/common/ai/settings-store';
+import { expandSkillCommandPrompt } from '@studio/common/ai/slash-commands';
+import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import { DEFAULT_TOKEN_LIFETIME_MS } from '@studio/common/constants';
 import { createCliRunner } from '@studio/common/lib/cli-process';
 import {
@@ -45,6 +55,11 @@ import { importIpcEventSchema } from '@studio/common/lib/import-export-events';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { getAuthenticationUrl, getSignUpUrl } from '@studio/common/lib/oauth';
 import { decodePassword } from '@studio/common/lib/passwords';
+import {
+	getInstructionsLengthBucket,
+	isTracksEventName,
+	TRACKS_EVENTS,
+} from '@studio/common/lib/record-tracks-event';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import {
 	deleteSharedSession,
@@ -53,9 +68,12 @@ import {
 	updateSharedSession,
 } from '@studio/common/lib/shared-config';
 import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
-import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
+import { isSyncCancelledError } from '@studio/common/lib/sync/cancel';
+import { fetchLatestRewindId, fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import { detectInstalledApps } from '@studio/common/lib/user-settings/installed-apps';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
+import wpcomFactory from '@studio/common/lib/wpcom-factory';
+import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import {
 	cleanupBlueprintTempDir,
 	extractBlueprintUpload,
@@ -65,13 +83,17 @@ import { buildSiteSetArgs } from '@studio/common/sites/edit';
 import { startSite, stopSite } from '@studio/common/sites/lifecycle';
 import { listSites } from '@studio/common/sites/list';
 import { createSnapshotManager, fetchSnapshots } from '@studio/common/sites/snapshots';
+import { measureSiteStorage } from '@studio/common/sites/storage-usage';
 import { pullSite, pushSite } from '@studio/common/sites/sync';
 import express from 'express';
 import { rateLimit } from 'express-rate-limit';
+import { z } from 'zod';
 import { isEditor, isTerminal, openInEditor, openInTerminal, openPath } from './open-in-os';
+import type { AiSettings } from '@studio/common/ai/providers';
 import type { SiteListItem } from '@studio/common/lib/cli-events';
+import type { TracksEventName, TracksProps } from '@studio/common/lib/record-tracks-event';
 import type { EditSiteOptions } from '@studio/common/sites/edit';
-import type { SyncSite } from '@studio/common/types/sync';
+import type { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
 import type { Request, Response } from 'express';
 
 /**
@@ -106,6 +128,9 @@ export interface LocalServerOptions {
 	// Path to the built browser UI (apps/ui `dist-local`). Served when present
 	// so the server is the only process needed; omitted in dev (Vite serves it).
 	uiDist?: string;
+	// Injected by `studio ui` rather than imported, so this package doesn't depend
+	// on the CLI.
+	recordTracksEvent?: ( event: TracksEventName, props?: TracksProps ) => Promise< void >;
 }
 
 export interface LocalServer {
@@ -159,6 +184,7 @@ function toSiteDetails( site: SiteListItem ) {
 		enableXdebug: site.enableXdebug,
 		enableDebugLog: site.enableDebugLog,
 		enableDebugDisplay: site.enableDebugDisplay,
+		operation: site.operation,
 		siteIcon: null,
 	};
 }
@@ -182,10 +208,40 @@ function asyncHandler( fn: ( req: Request, res: Response ) => Promise< void > ) 
 	};
 }
 
+// The server owns these; a client that could set them would disguise its origin.
+const CLIENT_RESERVED_TRACKS_PROPS = new Set( [ 'channel', 'ui_version' ] );
+
+// Browser props arrive as untyped JSON, without the structured-clone guarantees
+// IPC gives the desktop. Keep only what Tracks can send.
+function sanitizeTracksProps( value: unknown ): TracksProps {
+	if ( typeof value !== 'object' || value === null ) {
+		return {};
+	}
+	const props: TracksProps = {};
+	for ( const [ key, propValue ] of Object.entries( value ) ) {
+		if ( CLIENT_RESERVED_TRACKS_PROPS.has( key ) ) {
+			continue;
+		}
+		if (
+			typeof propValue === 'string' ||
+			typeof propValue === 'number' ||
+			typeof propValue === 'boolean'
+		) {
+			props[ key ] = propValue;
+		}
+	}
+	return props;
+}
+
 export async function startLocalServer( options: LocalServerOptions ): Promise< LocalServer > {
 	const { cliBinary, nodeBinary, sessionsRoot, sitesRoot, uiDist } = options;
 	const port = options.port ?? Number( process.env.STUDIO_LOCAL_SERVER_PORT ?? DEFAULT_PORT );
 	const host = options.host ?? '127.0.0.1';
+
+	// Analytics must never fail a user action, so every call is fire-and-forget.
+	function trackEvent( event: TracksEventName, props?: TracksProps ): void {
+		void options.recordTracksEvent?.( event, props ).catch( () => undefined );
+	}
 
 	const cliRunner = createCliRunner( { cliBinary, nodeBinary } );
 	const execute = cliRunner.executeCliCommand;
@@ -201,6 +257,22 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		for ( const client of sseClients ) {
 			client.write( `data: ${ data }\n\n` );
 		}
+	}
+
+	// In-flight push/pull, keyed the same way the desktop keys them
+	// (`${siteId}-${remoteSiteId}`), so `/sync/cancel` can abort one.
+	const SYNC_ABORT_CONTROLLERS = new Map< string, AbortController >();
+	function registerSyncAbort( siteId: string, remoteSiteId: number ) {
+		const key = `${ siteId }-${ remoteSiteId }`;
+		const controller = new AbortController();
+		SYNC_ABORT_CONTROLLERS.set( key, controller );
+		const release = () => {
+			if ( SYNC_ABORT_CONTROLLERS.get( key ) === controller ) {
+				SYNC_ABORT_CONTROLLERS.delete( key );
+			}
+		};
+		release.signal = controller.signal;
+		return release;
 	}
 
 	// Background watch for the WordPress.com site the user is about to create via
@@ -346,6 +418,23 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		res.json( { status: 'ok' } );
 	} );
 
+	// --- Analytics — the browser UI's equivalent of the desktop's IPC handler --
+	// Unknown names are dropped, not forwarded, as in `recordAnalyticsEvent`.
+	api.post( '/analytics/event', ( req: Request, res: Response ) => {
+		const eventName = req.body?.eventName;
+		if ( typeof eventName !== 'string' ) {
+			res.status( 400 ).json( { error: 'eventName required' } );
+			return;
+		}
+		if ( ! isTracksEventName( eventName ) ) {
+			console.warn( `Ignoring unknown analytics event name: ${ eventName }` );
+			res.status( 204 ).end();
+			return;
+		}
+		trackEvent( eventName, sanitizeTracksProps( req.body?.props ) );
+		res.status( 204 ).end();
+	} );
+
 	// --- Auth — the WordPress.com user the CLI is already logged in as ---------
 	// Read straight from the shared auth token (`~/.studio/shared.json`); the
 	// stored token carries the user's id/email/displayName, so no API call.
@@ -454,6 +543,75 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			}
 			await writeGlobalInstructions( content );
 			res.status( 204 ).end();
+
+			// Only a save that ends an edit session counts, not the debounced autosaves.
+			const previousContent = req.body?.editSession?.previousContent;
+			if ( typeof previousContent === 'string' && previousContent !== content ) {
+				trackEvent( TRACKS_EVENTS.SETTING_INSTRUCTIONS_CHANGE, {
+					has_content: content.trim().length > 0,
+					length_bucket: getInstructionsLengthBucket( content ),
+					surface: 'settings',
+				} );
+			}
+		} )
+	);
+
+	// --- AI settings — provider + Anthropic API key in shared.json ------------
+	api.get(
+		'/ai-settings',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			res.json( await readAiSettings() );
+		} )
+	);
+
+	// Clearing the key also falls the provider back to WordPress.com, so both writes
+	// report through one event, as on the desktop.
+	function trackAiSettingsChange( previous: AiSettings, next: AiSettings ): void {
+		const unchanged =
+			previous.provider === next.provider &&
+			previous.hasAnthropicApiKey === next.hasAnthropicApiKey &&
+			previous.anthropicApiKeyPreview === next.anthropicApiKeyPreview;
+		if ( unchanged ) {
+			return;
+		}
+		trackEvent( TRACKS_EVENTS.SETTING_AI_PROVIDER_CHANGE, {
+			provider: next.provider,
+			has_anthropic_api_key: next.hasAnthropicApiKey,
+			surface: 'settings',
+		} );
+	}
+
+	// Write-only: responses carry a truncated preview, never the key. A key
+	// Anthropic rejects answers 400 and is not stored.
+	api.put(
+		'/ai-settings',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const key = req.body?.anthropicApiKey;
+			if ( key !== null && typeof key !== 'string' ) {
+				res.status( 400 ).json( { error: 'anthropicApiKey must be a string or null' } );
+				return;
+			}
+			const previous = await readAiSettings();
+			const settings = await saveAnthropicApiKey( key );
+			res.json( settings );
+			trackAiSettingsChange( previous, settings );
+		} )
+	);
+
+	// Answers 400 when Anthropic rejects the saved key, so the UI keeps its
+	// toggle off.
+	api.put(
+		'/ai-settings/provider',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const provider = req.body?.provider;
+			if ( typeof provider !== 'string' || ! isAiProviderId( provider ) ) {
+				res.status( 400 ).json( { error: 'provider must be a known AI provider id' } );
+				return;
+			}
+			const previous = await readAiSettings();
+			const settings = await setAiProvider( provider );
+			res.json( settings );
+			trackAiSettingsChange( previous, settings );
 		} )
 	);
 
@@ -504,6 +662,19 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				return;
 			}
 			res.json( { wpVersion: getWordPressVersion( site.path ) } );
+		} )
+	);
+
+	api.get(
+		'/sites/:id/storage',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const sites = await listSites( execute );
+			const site = sites.find( ( candidate ) => candidate.id === req.params.id );
+			if ( ! site ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			res.json( await measureSiteStorage( site.path ) );
 		} )
 	);
 
@@ -891,7 +1062,16 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			try {
 				await new Promise< void >( ( resolve, reject ) => {
 					const [ emitter ] = execute(
-						[ 'import', '--path', site.path, upload.path, '--start-server' ],
+						// Onboarding imports are part of the add-site flow, which `studio_site_imported`
+						// deliberately does not count.
+						[
+							'import',
+							'--path',
+							site.path,
+							upload.path,
+							'--start-server',
+							'--suppress-tracks-event',
+						],
 						{ output: 'capture' }
 					);
 					emitter.on( 'data', ( { data } ) => {
@@ -1075,7 +1255,10 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.post(
 		'/sites/:id/pull',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const { remoteSiteId } = req.body as { remoteSiteId?: number };
+			const { remoteSiteId, options } = req.body as {
+				remoteSiteId?: number;
+				options?: PullSyncOptions;
+			};
 			if ( ! remoteSiteId ) {
 				res.status( 400 ).json( { error: 'remoteSiteId is required' } );
 				return;
@@ -1085,23 +1268,135 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
-			await pullSite( execute, site.path, remoteSiteId, ( progress ) => {
-				sseSend( {
-					channel: 'sync-pull',
-					payload: { ...progress, siteId: req.params.id, remoteSiteId },
-				} );
-			} );
+			const release = registerSyncAbort( req.params.id, remoteSiteId );
+			try {
+				await pullSite(
+					execute,
+					site.path,
+					remoteSiteId,
+					( progress ) => {
+						sseSend( {
+							channel: 'sync-pull',
+							payload: { ...progress, siteId: req.params.id, remoteSiteId },
+						} );
+					},
+					options,
+					release.signal
+				);
+			} catch ( error ) {
+				// A user cancel is an intentional stop, not a server error — report it
+				// as a result so it doesn't surface as a 500.
+				if ( ! isSyncCancelledError( error ) ) {
+					throw error;
+				}
+				res.json( { cancelled: true } );
+				return;
+			} finally {
+				release();
+			}
+			res.json( { cancelled: false } );
+		} )
+	);
+
+	// Stop an in-flight push or pull. No-op when nothing is running for the site,
+	// and the operation itself refuses to stop once it has moved past its point
+	// of no return (see `canCancelPush` / `canCancelPull`).
+	api.post(
+		'/sites/:id/sync/cancel',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const { remoteSiteId } = req.body as { remoteSiteId?: number };
+			if ( ! remoteSiteId ) {
+				res.status( 400 ).json( { error: 'remoteSiteId is required' } );
+				return;
+			}
+			SYNC_ABORT_CONTROLLERS.get( `${ req.params.id }-${ remoteSiteId }` )?.abort();
 			res.sendStatus( 204 );
+		} )
+	);
+
+	// Selective-sync lookups for the agentic UI's sync dialog: the latest
+	// backup (rewind) id, the remote backup file tree under it, and the live
+	// site's hosting PHP version.
+	api.get(
+		'/wpcom/sites/:remoteSiteId/latest-rewind-id',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const token = await readAuthToken();
+			if ( ! token?.accessToken ) {
+				res.status( 401 ).json( { error: 'Authentication required.' } );
+				return;
+			}
+			// No backup yet (or lookup failure) rejects and surfaces as a 500 via
+			// the error middleware — the dialog needs the error state to disable
+			// per-item selection and force a full sync, like the classic renderer.
+			res.json( await fetchLatestRewindId( token.accessToken, Number( req.params.remoteSiteId ) ) );
+		} )
+	);
+
+	api.get(
+		'/wpcom/sites/:remoteSiteId/remote-file-tree',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const token = await readAuthToken();
+			if ( ! token?.accessToken ) {
+				res.status( 401 ).json( { error: 'Authentication required.' } );
+				return;
+			}
+			const { rewindId, path: treePath } = req.query as { rewindId?: string; path?: string };
+			if ( ! rewindId || ! treePath ) {
+				res.status( 400 ).json( { error: 'rewindId and path are required' } );
+				return;
+			}
+			const wpcom = wpcomFactory( token.accessToken, wpcomXhrRequest );
+			const rawResponse = await wpcom.req.post( {
+				path: `/sites/${ Number( req.params.remoteSiteId ) }/rewind/backup/ls`,
+				apiNamespace: 'wpcom/v2',
+				body: { backup_id: rewindId, path: treePath },
+			} );
+			const parsed = z
+				.object( {
+					ok: z.boolean(),
+					error: z.string().optional(),
+					contents: z.record( z.string(), z.unknown() ).optional(),
+				} )
+				.parse( rawResponse );
+			if ( ! parsed.ok ) {
+				res.status( 502 ).json( { error: parsed.error || 'Failed to fetch remote file tree' } );
+				return;
+			}
+			res.json( parsed.contents ?? {} );
+		} )
+	);
+
+	api.get(
+		'/wpcom/sites/:remoteSiteId/hosting-php-version',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const token = await readAuthToken();
+			if ( ! token?.accessToken ) {
+				res.status( 401 ).json( { error: 'Authentication required.' } );
+				return;
+			}
+			try {
+				const wpcom = wpcomFactory( token.accessToken, wpcomXhrRequest );
+				const response = await wpcom.req.get( {
+					apiNamespace: 'wpcom/v2',
+					path: `/sites/${ Number( req.params.remoteSiteId ) }/hosting/php-version`,
+				} );
+				res.json( z.string().parse( response ) );
+			} catch {
+				res.json( null );
+			}
 		} )
 	);
 
 	// Push the local site to its connected WordPress.com live site. Long-running
 	// (export → upload → import); progress streams on the SSE `sync` channel.
-	// Resolves once the import is initiated.
+	// Responds once the remote import has finished.
 	api.post(
 		'/sites/:id/push',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const { remoteSiteId } = req.body as { remoteSiteId?: number };
+			const { remoteSiteId, options } = req.body as {
+				remoteSiteId?: number;
+				options?: PushSyncOptions;
+			};
 			if ( ! remoteSiteId ) {
 				res.status( 400 ).json( { error: 'remoteSiteId is required' } );
 				return;
@@ -1116,19 +1411,30 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
-			await pushSite(
-				{
-					executeCliCommand: execute,
-					accessToken: token.accessToken,
-					emit: ( output ) =>
-						sseSend( {
-							channel: 'sync',
-							payload: { ...output, siteId: req.params.id, remoteSiteId },
-						} ),
-				},
-				{ sitePath: site.path, remoteSiteId }
-			);
-			res.sendStatus( 204 );
+			const release = registerSyncAbort( req.params.id, remoteSiteId );
+			try {
+				await pushSite(
+					{
+						executeCliCommand: execute,
+						accessToken: token.accessToken,
+						emit: ( output ) =>
+							sseSend( {
+								channel: 'sync-push',
+								payload: { ...output, siteId: req.params.id, remoteSiteId },
+							} ),
+					},
+					{ sitePath: site.path, remoteSiteId, options, signal: release.signal }
+				);
+			} catch ( error ) {
+				if ( ! isSyncCancelledError( error ) ) {
+					throw error;
+				}
+				res.json( { cancelled: true } );
+				return;
+			} finally {
+				release();
+			}
+			res.json( { cancelled: false } );
 		} )
 	);
 
@@ -1177,7 +1483,19 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 					site = { id: found.id, name: found.name, path: found.path };
 				}
 			}
-			res.json( await createOrReuseAiSession( sessionsRoot, { site } ) );
+			// `created` is an analytics signal, not part of the session shape.
+			const { created, ...summary } = await createOrReuseAiSession( sessionsRoot, {
+				site,
+			} );
+			res.json( summary );
+
+			// Created in-process here, as in the desktop's Main. Reused drafts don't count.
+			if ( created ) {
+				trackEvent( TRACKS_EVENTS.CODE_SESSION_CREATED, {
+					...getAiTracksIdentity( summary.id ),
+					has_site: Boolean( site ),
+				} );
+			}
 		} )
 	);
 
@@ -1224,6 +1542,26 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
+	api.post(
+		'/sessions/:id/provider',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const { provider, model } = req.body as { provider?: string; model?: string };
+			if ( ! provider || ! isAiProviderId( provider ) ) {
+				res.status( 400 ).json( { error: `Unknown AI provider: ${ provider }` } );
+				return;
+			}
+			if ( ! model || ! isAiModelId( model ) || ! providerServesModel( provider, model ) ) {
+				res.status( 400 ).json( { error: `Model ${ model } is not served by ${ provider }` } );
+				return;
+			}
+			await appendStudioEntry( sessionsRoot, req.params.id, 'studio.session_context', {
+				provider,
+				model,
+			} );
+			res.sendStatus( 204 );
+		} )
+	);
+
 	api.post( '/sessions/:id/messages', ( req: Request, res: Response ) => {
 		const { prompt, displayMessage } = req.body as { prompt?: string; displayMessage?: string };
 		if ( ! prompt ) {
@@ -1232,7 +1570,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		}
 		const { runId } = runManager.startAgentRun( {
 			sessionId: req.params.id,
-			prompt,
+			prompt: expandSkillCommandPrompt( prompt ),
 			displayMessage,
 		} );
 		res.json( { runId } );
@@ -1280,6 +1618,10 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	}
 
 	app.use( ( err: unknown, _req: Request, res: Response, _next: ( e?: unknown ) => void ) => {
+		if ( err instanceof InvalidAnthropicApiKeyError ) {
+			res.status( 400 ).json( { error: err.message } );
+			return;
+		}
 		const message = err instanceof Error ? err.message : String( err );
 		res.status( 500 ).json( { error: message } );
 	} );

@@ -1,4 +1,5 @@
 import { getAuthenticationUrl, getSignUpUrl } from '@studio/common/lib/oauth';
+import { SyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
 import { readOnboardingHints, writeOnboardingHints } from '../browser-onboarding-hints';
@@ -33,7 +34,9 @@ import type {
 	UserPreferences,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
+import type { AiProviderId, AiSettings } from '@studio/common/ai/providers';
 import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
+import type { PushOutput } from '@studio/common/types/sync';
 
 // The in-app dark/light/system choice, persisted in the browser (there's no
 // Electron `nativeTheme` to mirror it) so it sticks across reloads.
@@ -72,6 +75,7 @@ type PullProgressSseOutput = PullSiteProgress & {
 	remoteSiteId: number;
 };
 type ImportSseOutput = { siteId: string; event: ImportEventTuple };
+type PushSseOutput = PushOutput & { siteId: string; remoteSiteId: number };
 
 // Envelope used by the backend's `/events` SSE stream so a single connection
 // can carry every live update consumed by the browser UI.
@@ -80,6 +84,7 @@ type ServerEvent =
 	| { channel: 'placement'; payload: AiSessionPlacementUpdatedEvent }
 	| { channel: 'snapshot'; payload: SnapshotSseOutput }
 	| { channel: 'sync-pull'; payload: PullProgressSseOutput }
+	| { channel: 'sync-push'; payload: PushSseOutput }
 	| { channel: 'import'; payload: ImportSseOutput }
 	| { channel: 'sync-connect'; payload: { remoteSiteId: number; studioSiteId: string } };
 
@@ -104,6 +109,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 	const placementListeners = new Set< ( event: AiSessionPlacementUpdatedEvent ) => void >();
 	const snapshotListeners = new Set< ( output: SnapshotSseOutput ) => void >();
 	const pullProgressListeners = new Set< ( output: PullProgressSseOutput ) => void >();
+	const pushOutputListeners = new Set< ( output: PushSseOutput ) => void >();
 	const importListeners = new Set< ( output: ImportSseOutput ) => void >();
 	const syncConnectListeners = new Set<
 		( event: { remoteSiteId: number; studioSiteId: string } ) => void
@@ -123,8 +129,20 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		} );
 		if ( ! response.ok ) {
 			const text = await response.text().catch( () => '' );
+			// Server errors carry a user-facing `{ error }` body — surface that
+			// message directly instead of the transport line.
+			let serverError: string | undefined;
+			try {
+				const payload: unknown = JSON.parse( text );
+				if ( payload && typeof payload === 'object' && 'error' in payload ) {
+					serverError = typeof payload.error === 'string' ? payload.error : undefined;
+				}
+			} catch {
+				// Not JSON; fall through to the transport error.
+			}
 			throw new Error(
-				`${ init?.method ?? 'GET' } ${ path } failed (${ response.status }): ${ text }`
+				serverError ??
+					`${ init?.method ?? 'GET' } ${ path } failed (${ response.status }): ${ text }`
 			);
 		}
 		if ( response.status === 204 ) {
@@ -228,6 +246,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					snapshotListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				} else if ( parsed.channel === 'sync-pull' ) {
 					pullProgressListeners.forEach( ( listener ) => listener( parsed.payload ) );
+				} else if ( parsed.channel === 'sync-push' ) {
+					pushOutputListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				} else if ( parsed.channel === 'import' ) {
 					importListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				} else if ( parsed.channel === 'sync-connect' ) {
@@ -246,6 +266,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			annotatePreview: false,
 			readLocalMedia: false,
 			agentInstructions: true,
+			aiSettings: true,
 			studioLogs: false,
 			switchToClassicUi: false,
 		},
@@ -365,6 +386,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		async getSiteThumbnail(): Promise< string | null > {
 			return null;
+		},
+		async getSiteStorageUsage( siteId ) {
+			return api( `/sites/${ encodeURIComponent( siteId ) }/storage` );
 		},
 
 		// Site creation — delegated to the CLI `create` on the local machine.
@@ -576,32 +600,95 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				method: 'POST',
 			} );
 		},
-		async pushSiteToLive( siteId, remoteSiteId ) {
-			await api( `/sites/${ encodeURIComponent( siteId ) }/push`, {
+		async pushSiteToLive( siteId, remoteSiteId, options, onPhase ) {
+			const listener = ( output: PushSseOutput ) => {
+				if ( output.siteId === siteId && output.kind === 'phase' ) {
+					onPhase?.( output.phase, output.progress );
+				}
+			};
+			if ( onPhase ) {
+				pushOutputListeners.add( listener );
+			}
+			let result: { cancelled?: boolean } | undefined;
+			try {
+				result = await api( `/sites/${ encodeURIComponent( siteId ) }/push`, {
+					method: 'POST',
+					body: JSON.stringify( { remoteSiteId, options } ),
+				} );
+			} finally {
+				pushOutputListeners.delete( listener );
+			}
+			// The server reports a cancel instead of failing the request; turn it
+			// back into an error for the caller.
+			if ( result?.cancelled ) {
+				throw new SyncCancelledError();
+			}
+		},
+
+		async cancelSync( siteId, remoteSiteId ) {
+			await api( `/sites/${ encodeURIComponent( siteId ) }/sync/cancel`, {
 				method: 'POST',
 				body: JSON.stringify( { remoteSiteId } ),
 			} );
 		},
-		async pullSiteFromLive( siteId, remoteSiteId, onProgress ) {
+		async pullSiteFromLive( siteId, remoteSiteId, onProgress, options ) {
 			const listener = ( output: PullProgressSseOutput ) => {
 				if ( output.siteId === siteId ) {
 					onProgress?.( {
 						message: output.message,
 						...( output.progress === undefined ? {} : { progress: output.progress } ),
+						// Drives the cancel gate — without it every pull looks cancellable.
+						...( output.action === undefined ? {} : { action: output.action } ),
 					} );
 				}
 			};
 			if ( onProgress ) {
 				pullProgressListeners.add( listener );
 			}
+			let result: { cancelled?: boolean } | undefined;
 			try {
-				await api( `/sites/${ encodeURIComponent( siteId ) }/pull`, {
+				result = await api( `/sites/${ encodeURIComponent( siteId ) }/pull`, {
 					method: 'POST',
-					body: JSON.stringify( { remoteSiteId } ),
+					body: JSON.stringify( { remoteSiteId, options } ),
 				} );
 			} finally {
 				pullProgressListeners.delete( listener );
 			}
+			if ( result?.cancelled ) {
+				throw new SyncCancelledError();
+			}
+		},
+		async getLatestRewindId( remoteSiteId ) {
+			return api< string | null >( `/wpcom/sites/${ remoteSiteId }/latest-rewind-id` );
+		},
+		async listRemoteFileTree( remoteSiteId, rewindId, path ) {
+			return api< Record< string, unknown > >(
+				`/wpcom/sites/${ remoteSiteId }/remote-file-tree?rewindId=${ encodeURIComponent(
+					rewindId
+				) }&path=${ encodeURIComponent( path ) }`
+			);
+		},
+		// Selective-sync local lookups: the server has no per-file endpoints yet,
+		// so degrade the same way the dialog does elsewhere without this data —
+		// category-level selection works; file trees, size estimates, and
+		// version warnings are simply absent.
+		async listLocalFileTree() {
+			return [];
+		},
+		async getDirectorySize() {
+			return 0;
+		},
+		async getFileSize() {
+			return 0;
+		},
+		async getIsMultisite() {
+			return undefined;
+		},
+		async getHostingPhpVersion( remoteSiteId ) {
+			const version = await api< string | null >(
+				`/wpcom/sites/${ remoteSiteId }/hosting-php-version`
+			);
+			return version ?? undefined;
 		},
 		getPublishCheckoutUrl( site ): string {
 			// The post-checkout auto-connect relies on the deep-link listener, which
@@ -646,6 +733,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			await api( `/sessions/${ encodeURIComponent( sessionId ) }/model`, {
 				method: 'POST',
 				body: JSON.stringify( { model } ),
+			} );
+		},
+		async setSessionProvider( sessionId, provider, model ) {
+			await api( `/sessions/${ encodeURIComponent( sessionId ) }/provider`, {
+				method: 'POST',
+				body: JSON.stringify( { provider, model } ),
 			} );
 		},
 		async interruptAgentRun( runId ) {
@@ -742,10 +835,29 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			const { content } = await api< { content: string } >( '/agent-instructions' );
 			return content;
 		},
-		async saveAgentInstructions( content: string ): Promise< void > {
+		async saveAgentInstructions(
+			content: string,
+			options: { editSession?: { previousContent: string } } = {}
+		): Promise< void > {
 			await api< void >( '/agent-instructions', {
 				method: 'POST',
-				body: JSON.stringify( { content } ),
+				body: JSON.stringify( { content, editSession: options.editSession } ),
+			} );
+		},
+
+		async getAiSettings(): Promise< AiSettings > {
+			return api< AiSettings >( '/ai-settings' );
+		},
+		async saveAnthropicApiKey( key: string | null ): Promise< AiSettings > {
+			return api< AiSettings >( '/ai-settings', {
+				method: 'PUT',
+				body: JSON.stringify( { anthropicApiKey: key } ),
+			} );
+		},
+		async setAiProvider( provider: AiProviderId ): Promise< AiSettings > {
+			return api< AiSettings >( '/ai-settings/provider', {
+				method: 'PUT',
+				body: JSON.stringify( { provider } ),
 			} );
 		},
 
@@ -786,10 +898,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			throw new UnsupportedError( 'openStudioLogs' );
 		},
 
-		// Analytics — no-op here. Tracks currently flows through the desktop IPC connector; the
-		// local (browser) target has no Main-process choke point yet. See the design doc.
-		async trackEvent() {
-			// intentionally empty
+		// The server attaches the origin and common props. Callers fire and forget, so a
+		// failure here must not become an unhandled rejection.
+		async trackEvent( eventName, props = {} ) {
+			await api< void >( '/analytics/event', {
+				method: 'POST',
+				body: JSON.stringify( { eventName, props } ),
+			} ).catch( () => undefined );
 		},
 
 		// External links work natively in the browser.

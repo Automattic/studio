@@ -1,4 +1,7 @@
 .root {
+	--overview-content-width: 1120px;
+	--overview-card-column-width: 320px;
+
 	/* Anchor for the footer toolbar + its progressive blur. */
 	position: relative;
 	display: flex;
@@ -62,11 +65,21 @@
 
 .tabsBarInner {
 	min-width: 0;
-	max-width: 760px;
+	max-width: var(--overview-content-width);
 }
 
 .panel {
 	outline: none;
+	display: grid;
+	grid-template-columns: minmax(0, var(--overview-card-column-width)) minmax(0, 1fr);
+	align-items: start;
+	gap: var(--wpds-dimension-padding-3xl);
+	width: 100%;
+	min-width: 0;
+}
+
+.panel > :not(.cardColumn, .actionsColumn) {
+	grid-column: 1 / -1;
 }
 
 .scroll {
@@ -109,67 +122,101 @@
 }
 
 .content {
+	container-type: inline-size;
+	container-name: overview;
+
 	box-sizing: border-box;
 	width: 100%;
-	max-width: 760px;
+	max-width: var(--overview-content-width);
 	/* Extra bottom padding keeps the last content clear of the overlaid
 	   footer toolbar. */
 	padding: var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-xl)
 		calc(var(--wpds-dimension-padding-2xl) + 46px);
 }
 
-.buttonSection h2 {
-	margin: 0 0 var(--wpds-dimension-padding-md);
+.columnHeading {
+	margin: 0;
 	font-size: var(--wpds-typography-font-size-sm);
 	line-height: var(--wpds-typography-line-height-sm);
 	font-weight: var(--wpds-typography-font-weight-medium);
 	color: var(--wpds-color-fg-content-neutral);
 }
 
-/* Each section is a full-width row (Customize, then Manage), stacked. */
+.cardColumn {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-md);
+	min-width: 0;
+}
+
+@container overview (max-width: 760px) {
+	.panel {
+		grid-template-columns: minmax(0, 1fr);
+		gap: var(--wpds-dimension-padding-2xl);
+	}
+
+	.panel > :not(.cardColumn, .actionsColumn) {
+		order: 0;
+	}
+
+	.cardColumn {
+		order: 2;
+	}
+
+	.actionsColumn {
+		order: 1;
+	}
+}
+
+/* Each section is a full-width row (Customize, Open in…, Manage), stacked. */
 .actionsColumn {
 	display: flex;
 	flex-direction: column;
 	width: 100%;
 	min-width: 0;
-	gap: var(--wpds-dimension-padding-xl);
+	gap: var(--wpds-dimension-padding-3xl);
 }
 
 .buttonSection {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-md);
 	width: 100%;
 }
 
-/* Buttons flow across the row and wrap to the next line as the panel narrows. */
+/* Equal-width cells reflow as the panel narrows, keeping every section aligned. */
 .buttonGrid {
-	display: flex;
-	flex-wrap: wrap;
-	gap: var(--wpds-dimension-padding-xs);
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+	gap: var(--wpds-dimension-padding-md);
 }
 
 .overviewButton {
-	--wp-ui-button-height: 32px;
+	--wp-ui-button-height: 36px;
+	--wp-ui-button-border-color: var(--wpds-color-stroke-surface-neutral);
+	--wp-ui-button-border-color-active: var(--wpds-color-stroke-interactive-neutral);
 
 	display: inline-flex;
 	align-items: center;
 	justify-content: flex-start;
-	/* Never squeeze a button until its label wraps — wrap the whole button to
-	   the next row instead. */
-	flex: 0 0 auto;
-	gap: var(--wpds-dimension-padding-xs);
+	width: 100%;
+	gap: var(--wpds-dimension-padding-sm);
 	min-width: 0;
-	padding: 0 var(--wpds-dimension-padding-sm);
-	border: 0;
-	border-radius: 4px;
+	padding: 0 var(--wpds-dimension-padding-md);
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: var(--wpds-border-radius-sm);
 	background: transparent;
 	color: var(--wpds-color-fg-content-neutral);
 	text-align: start;
 }
 
 .overviewButton:not([data-disabled]):is(:hover, :focus-visible) {
-	background: var(
-		--wpds-color-bg-interactive-neutral-weak-active,
-		var(--wpds-color-bg-surface-neutral-weak)
-	);
+	border-color: var(--wpds-color-stroke-interactive-neutral);
+	background: var(--wpds-color-bg-interactive-neutral-weak-active);
+}
+
+.overviewButton[data-disabled] {
+	border-color: var(--wpds-color-stroke-surface-neutral-weak);
 }
 
 .overviewButtonIcon {
@@ -181,13 +228,19 @@
 	color: currentColor;
 }
 
-.overviewButtonIcon svg {
+.overviewButtonIcon:not(.brandIcon) svg {
 	color: currentColor;
 	fill: currentColor;
 }
 
+.brandIcon svg {
+	color: currentColor;
+}
+
 .overviewButtonLabel {
+	overflow: hidden;
 	white-space: nowrap;
+	text-overflow: ellipsis;
 	font-size: var(--wpds-typography-font-size-sm);
 	line-height: var(--wpds-typography-line-height-sm);
 	color: var(--wpds-color-fg-content-neutral);
@@ -195,7 +248,27 @@
 
 .destructiveButton .overviewButtonIcon,
 .destructiveButton .overviewButtonLabel {
-	color: var(--wpds-color-fg-content-error, var(--wpds-color-fg-content-neutral));
+	color: var(--wpds-color-fg-content-error);
+}
+
+.destructiveButton {
+	--wp-ui-button-background-color-active: var(--wpds-color-bg-surface-error-weak);
+	--wp-ui-button-border-color-active: var(--wpds-color-stroke-surface-error);
+	--wp-ui-button-foreground-color-active: var(--wpds-color-fg-content-error);
+}
+
+.destructiveButton:not([data-disabled]):is(:hover, :focus-visible, :active) {
+	border-color: var(--wpds-color-stroke-surface-error);
+	background: var(--wpds-color-bg-surface-error-weak);
+}
+
+/* The rules above pin an explicit colour on the icon and label, which would
+   otherwise keep them at full strength while the button is disabled — the
+   control looks live and swallows the click. Higher specificity than the
+   destructive rule, so Delete mutes too. */
+.overviewButton:is([data-disabled], :disabled) .overviewButtonIcon,
+.overviewButton:is([data-disabled], :disabled) .overviewButtonLabel {
+	color: var(--wpds-color-fg-interactive-neutral-disabled);
 }
 
 @media (max-width: 760px) {

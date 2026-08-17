@@ -2,11 +2,13 @@ import type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-even
 import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
 import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { AiModelId } from '@studio/common/ai/models';
+import type { AiProviderId, AiSettings } from '@studio/common/ai/providers';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
 import type { SiteEvent } from '@studio/common/lib/cli-events';
 import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 import type { SupportedLocale } from '@studio/common/lib/locale';
 import type {
+	TracksAuthSource,
 	TracksEventName,
 	TracksProps,
 	TracksSiteCreateFlowType,
@@ -22,6 +24,7 @@ import type { Snapshot } from '@studio/common/types/snapshot';
 import type {
 	PullSiteProgress,
 	PullSyncOptions,
+	PushPhase,
 	PushSyncOptions,
 	SyncSite,
 } from '@studio/common/types/sync';
@@ -50,6 +53,7 @@ export type { Snapshot } from '@studio/common/types/snapshot';
 export type {
 	PullSiteProgress,
 	PullSyncOptions,
+	PushPhase,
 	PushSyncOptions,
 	SyncSite,
 } from '@studio/common/types/sync';
@@ -152,6 +156,9 @@ export interface ConnectorCapabilities {
 	// (~/.studio/knowledge/instructions.md). False when hosted remotely, which
 	// hides the Studio Code settings tab.
 	agentInstructions: boolean;
+	// The host can read/write the AI provider settings in the CLI config. False
+	// (hosted) hides the Anthropic API key section in AI settings.
+	aiSettings: boolean;
 	// The host keeps a Studio log file the user can open (`openStudioLogs`).
 	// Only the desktop app does — the CLI writes site server output to
 	// `~/.studio/daemon/logs` and everything else to the terminal that started
@@ -178,7 +185,9 @@ export interface Connector {
 	agenticRequiresAuth: boolean;
 	isAuthenticated(): Promise< boolean >;
 	getAuthUser(): Promise< AuthUser | null >;
-	authenticate( signup?: boolean ): Promise< void >;
+	// `source` records the affordance the login started from, for `studio_wpcom_auth`. Only the IPC
+	// connector can report it — the browser connectors have no Main process to record through.
+	authenticate( signup?: boolean, source?: TracksAuthSource ): Promise< void >;
 	logout(): Promise< void >;
 	onAuthStateChanged?( listener: () => void ): () => void;
 
@@ -302,7 +311,8 @@ export interface Connector {
 	pushSiteToLive(
 		siteId: string,
 		remoteSiteId: number,
-		options?: PushSyncOptions
+		options?: PushSyncOptions,
+		onPhase?: ( phase: PushPhase, progress?: number ) => void
 	): Promise< void >;
 	// Pulls the connected WordPress.com site's database + wp-content back
 	// into the local Studio site, or only the selection described by
@@ -314,6 +324,10 @@ export interface Connector {
 		onProgress?: ( progress: PullSiteProgress ) => void,
 		options?: PullSyncOptions
 	): Promise< void >;
+	// Stops an in-flight push or pull, rejecting the operation with a cancelled
+	// error. A no-op once the operation is past the point where stopping is safe
+	// (`canCancelPush` / `canCancelPull`), and when nothing is running.
+	cancelSync( siteId: string, remoteSiteId: number ): Promise< void >;
 	// Latest rewind (backup) id of the connected live site, or `null` when no
 	// backup exists yet. Selective pull browses the backup tree under this id.
 	getLatestRewindId( remoteSiteId: number ): Promise< string | null >;
@@ -384,6 +398,14 @@ export interface Connector {
 	// on the next turn; the change survives reloads because it's written to the
 	// session JSONL.
 	setSessionModel( sessionId: string, model: AiModelId ): Promise< void >;
+	// Pin the session to an AI provider, with the model it should use there.
+	// Same mechanism as setSessionModel: an entry in the session JSONL the CLI
+	// honors on resume.
+	setSessionProvider(
+		sessionId: string,
+		provider: AiProviderId,
+		model: AiModelId
+	): Promise< void >;
 	interruptAgentRun( runId: string ): Promise< void >;
 	answerAgentQuestion( runId: string, answers: Record< string, string > ): Promise< void >;
 	onAgentEvent( listener: ( event: AgentRunEvent ) => void ): () => void;
@@ -421,6 +443,13 @@ export interface Connector {
 		content: string,
 		options?: { editSession?: { previousContent: string } }
 	): Promise< void >;
+
+	// AI provider settings stored in the CLI config, gated by
+	// `capabilities.aiSettings`. Clearing the key (null) also falls back to
+	// WordPress.com; `setAiProvider` rejects when the Anthropic key can't be used.
+	getAiSettings(): Promise< AiSettings >;
+	saveAnthropicApiKey( key: string | null ): Promise< AiSettings >;
+	setAiProvider( provider: AiProviderId ): Promise< AiSettings >;
 
 	// Apps detected on disk (editors + terminals). Options in the preferences
 	// form are filtered against this so users can't pick something that isn't
@@ -499,6 +528,11 @@ export interface Connector {
 	// `isFullscreen` — macOS hides the traffic lights in fullscreen — to decide
 	// when to actually leave the gap (see `useTrafficLightSpace`).
 	reservesTrafficLightSpace: boolean;
+
+	// Tells the host which surface the Windows/Linux window-controls overlay is
+	// sitting on, so it can repaint them to match (see
+	// `useWindowControlsSurface`). Only the Electron host has an overlay.
+	setWindowControlsSurface?( surface: 'chrome' | 'content' ): Promise< void >;
 
 	// Window state (macOS fullscreen hides traffic lights, so the UI needs
 	// to reclaim the space we normally leave for them).

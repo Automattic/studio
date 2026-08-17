@@ -4,9 +4,19 @@
 	overflow: hidden;
 	contain: paint;
 	--progressive-blur-surface-color: var(--wpds-color-bg-surface-neutral, Canvas);
-	--progressive-blur-surface-strength: 78%;
 	--progressive-blur-surface-hold-stop: 58%;
 	--progressive-blur-surface-fade-stop: 100%;
+
+	/* The blur layers paint nothing once `backdrop-filter` is off, and this
+	   scrim is all that keeps the content scrolling underneath from colliding
+	   with the text on top. It stays invisible (0%) for callers that don't ask
+	   for it, but `--surface-alpha` forces it opaque under reduced
+	   transparency — so every caller gets a readable surface, opted in or not. */
+	--progressive-blur-surface-strength: var(--surface-alpha, 0%);
+}
+
+.fadeToSurface {
+	--progressive-blur-surface-strength: var(--surface-alpha, 78%);
 }
 
 .down {

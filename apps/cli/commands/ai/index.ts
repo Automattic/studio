@@ -12,6 +12,7 @@ import {
 	type AiModelId,
 } from '@studio/common/ai/models';
 import { getAgentEndTurnResult } from '@studio/common/ai/session-events';
+import { readAnthropicApiKey, readSelectedAiProvider } from '@studio/common/ai/settings-store';
 import {
 	buildSkillInvocationPrompt,
 	resolveSkillFromPrompt,
@@ -33,7 +34,12 @@ import { closeSharedBrowser } from 'cli/ai/browser-utils';
 import { setChatArtifactCallback } from 'cli/ai/chat-artifacts';
 import { startDaemonStatusPolling } from 'cli/ai/daemon-status-poll';
 import { type AiOutputAdapter, JsonAdapter } from 'cli/ai/output-adapter';
-import { AI_PROVIDERS, getAiProviderDefinition, type AiProviderId } from 'cli/ai/providers';
+import {
+	AI_PROVIDERS,
+	DEFAULT_AI_PROVIDER,
+	getAiProviderDefinition,
+	type AiProviderId,
+} from 'cli/ai/providers';
 import { runStudioAgentTurn } from 'cli/ai/runtimes/pi';
 import { setScreenshotDirectoryProvider } from 'cli/ai/screenshot-storage';
 import { resolveResumeSessionContext } from 'cli/ai/sessions/context';
@@ -47,7 +53,6 @@ import { setLocalSiteSelectedCallback } from 'cli/ai/site-selection';
 import { getActiveSlashCommands, type SlashCommandContext } from 'cli/ai/slash-commands';
 import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
-import { readCliConfig } from 'cli/lib/cli-config/core';
 import { findSiteByFolder, findSiteById } from 'cli/lib/cli-config/sites';
 import { disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { isSiteRunning } from 'cli/lib/site-utils';
@@ -143,6 +148,15 @@ export async function runCommand( options: {
 	const resumeContext = resolveResumeSessionContext( options.resumeSession );
 	let currentProvider: AiProviderId =
 		resumeContext.provider ?? ( await resolveInitialAiProvider() );
+	// A pin whose provider can't run (e.g. its key was removed) falls back to
+	// WordPress.com for this run only; the pin stays so a restored key revives it.
+	if (
+		resumeContext.provider &&
+		resumeContext.provider !== DEFAULT_AI_PROVIDER &&
+		! ( await isAiProviderReady( resumeContext.provider ) )
+	) {
+		currentProvider = DEFAULT_AI_PROVIDER;
+	}
 	let currentModel: AiModelId = resumeContext.model ?? DEFAULT_MODEL;
 	ui.currentProvider = currentProvider;
 	ui.currentModel = currentModel;
@@ -218,7 +232,18 @@ export async function runCommand( options: {
 		};
 	}
 
+	// Omits `provider` on purpose: an entry carrying one is a user pin
+	// (persistProviderPin), and a per-turn write would overwrite it with the
+	// effective provider.
 	async function persistSessionContext(): Promise< void > {
+		await append( ( sm ) =>
+			appendStudioEntry( sm, 'studio.session_context', {
+				model: currentModel,
+			} )
+		);
+	}
+
+	async function persistProviderPin(): Promise< void > {
 		await append( ( sm ) =>
 			appendStudioEntry( sm, 'studio.session_context', {
 				provider: currentProvider,
@@ -317,7 +342,7 @@ export async function runCommand( options: {
 		}
 
 		await saveSelectedAiProvider( currentProvider );
-		await persistSessionContext();
+		await persistProviderPin();
 		if ( announce ) {
 			ui.showInfo(
 				sprintf(
@@ -368,12 +393,14 @@ export async function runCommand( options: {
 		}
 	}
 
-	const config = await readCliConfig();
-	let showCapabilitiesOnConnect = ! config.aiProvider;
+	let showCapabilitiesOnConnect = ( await readSelectedAiProvider() ) === undefined;
 
-	// Studio Code Desktop defaults to WordPress.com provider.
+	// Studio Code Desktop defaults to WordPress.com provider — unless the
+	// session is pinned, which must survive the run untouched.
 	if ( isJsonMode && showCapabilitiesOnConnect ) {
-		await switchProvider( 'wpcom', false );
+		if ( ! resumeContext.provider ) {
+			await switchProvider( 'wpcom', false );
+		}
 		showCapabilitiesOnConnect = false;
 	}
 
@@ -457,7 +484,7 @@ export async function runCommand( options: {
 		} else {
 			ui.setStatusMessage( __( 'Use /login to authenticate to WordPress.com' ) );
 		}
-	} else if ( currentProvider === 'anthropic-api-key' && ! config.anthropicApiKey ) {
+	} else if ( currentProvider === 'anthropic-api-key' && ! ( await readAnthropicApiKey() ) ) {
 		ui.showInfo( __( 'No Anthropic API key saved. Use /api-key to enter one.' ) );
 	}
 

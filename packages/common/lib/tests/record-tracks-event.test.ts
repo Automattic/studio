@@ -17,6 +17,8 @@ describe( 'isTracksEventName', () => {
 		expect( isTracksEventName( TRACKS_EVENTS.CODE_TURN_COMPLETED ) ).toBe( true );
 		expect( isTracksEventName( TRACKS_EVENTS.CODE_SESSION_CREATED ) ).toBe( true );
 		expect( isTracksEventName( TRACKS_EVENTS.SETTING_INSTRUCTIONS_CHANGE ) ).toBe( true );
+		expect( isTracksEventName( TRACKS_EVENTS.ONBOARDING_COMPLETE ) ).toBe( true );
+		expect( isTracksEventName( TRACKS_EVENTS.WPCOM_AUTH ) ).toBe( true );
 	} );
 
 	it( 'rejects unknown or non-string values', () => {

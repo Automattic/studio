@@ -4,17 +4,19 @@ import { clsx } from 'clsx';
 import { useLogin } from '@/data/queries/use-auth-user';
 import { useOffline } from '@/hooks/use-offline';
 import styles from './style.module.css';
+import type { TracksAuthSource } from '@studio/common/lib/record-tracks-event';
 
 interface AuthActionsProps {
 	className?: string;
+	source: TracksAuthSource;
 }
 
 // Shared by the welcome, tour and connect screens so the sign-in prompts
 // can't drift apart.
-export function AuthActions( { className }: AuthActionsProps ) {
+export function AuthActions( { className, source }: AuthActionsProps ) {
 	const isOffline = useOffline();
-	const login = useLogin();
-	const signup = useLogin( { signup: true } );
+	const login = useLogin( { source } );
+	const signup = useLogin( { signup: true, source } );
 	const authError = login.error ?? signup.error;
 	const offlineMessage = __( "You're currently offline." );
 	const arrow = (

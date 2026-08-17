@@ -51,7 +51,7 @@ const api: IpcApi = {
 	disconnectWpcomSites: ( ...args ) => ipcRendererInvoke( 'disconnectWpcomSites', ...args ),
 	updateConnectedWpcomSites: ( ...args ) =>
 		ipcRendererInvoke( 'updateConnectedWpcomSites', ...args ),
-	authenticate: ( isSignup ) => ipcRendererSend( 'authenticate', isSignup ),
+	authenticate: ( isSignup, source ) => ipcRendererSend( 'authenticate', isSignup, source ),
 	exportSite: ( site, destinationPath, options ) =>
 		ipcRendererInvoke( 'exportSite', site, destinationPath, options ),
 	isAuthenticated: () => ipcRendererInvoke( 'isAuthenticated' ),
@@ -179,6 +179,9 @@ const api: IpcApi = {
 	getGlobalAgentInstructions: () => ipcRendererInvoke( 'getGlobalAgentInstructions' ),
 	saveGlobalAgentInstructions: ( content, options ) =>
 		ipcRendererInvoke( 'saveGlobalAgentInstructions', content, options ),
+	getAiSettings: () => ipcRendererInvoke( 'getAiSettings' ),
+	saveAnthropicApiKey: ( key ) => ipcRendererInvoke( 'saveAnthropicApiKey', key ),
+	setAiProvider: ( provider ) => ipcRendererInvoke( 'setAiProvider', provider ),
 	previewColorScheme: ( colorScheme ) => ipcRendererInvoke( 'previewColorScheme', colorScheme ),
 	saveColorScheme: ( colorScheme ) => ipcRendererInvoke( 'saveColorScheme', colorScheme ),
 	getColorScheme: () => ipcRendererInvoke( 'getColorScheme' ),
@@ -211,6 +214,7 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'setWindowControlVisibility', visible ),
 	setTitleBarBackdropEffect: ( enabled ) =>
 		ipcRendererInvoke( 'setTitleBarBackdropEffect', enabled ),
+	setWindowControlsSurface: ( surface ) => ipcRendererInvoke( 'setWindowControlsSurface', surface ),
 	updateSitesSortOrder: ( updates ) => ipcRendererInvoke( 'updateSitesSortOrder', updates ),
 	getRemoteSessionDaemonStatus: () => ipcRendererInvoke( 'getRemoteSessionDaemonStatus' ),
 	startRemoteSessionDaemon: () => ipcRendererInvoke( 'startRemoteSessionDaemon' ),
@@ -253,6 +257,8 @@ const api: IpcApi = {
 	listActiveAiAgentRuns: () => ipcRendererInvoke( 'listActiveAiAgentRuns' ),
 	setAiSessionModel: ( sessionId, model ) =>
 		ipcRendererInvoke( 'setAiSessionModel', sessionId, model ),
+	setAiSessionProvider: ( sessionId, provider, model ) =>
+		ipcRendererInvoke( 'setAiSessionProvider', sessionId, provider, model ),
 	interruptAiAgentRun: ( runId ) => ipcRendererInvoke( 'interruptAiAgentRun', runId ),
 	answerAiAgentQuestion: ( runId, answers ) =>
 		ipcRendererInvoke( 'answerAiAgentQuestion', runId, answers ),

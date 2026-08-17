@@ -3,6 +3,11 @@
  */
 import { IpcMainInvokeEvent } from 'electron';
 import { writeGlobalInstructions } from '@studio/common/ai/global-instructions';
+import {
+	readAiSettings,
+	saveAnthropicApiKey as saveAnthropicApiKeyToConfig,
+	setAiProvider as setAiProviderInConfig,
+} from '@studio/common/ai/settings-store';
 import { readSharedConfig, updateSharedConfig } from '@studio/common/lib/shared-config';
 import { vi } from 'vitest';
 import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
@@ -15,6 +20,8 @@ import {
 	saveQuitSitesBehavior,
 	saveAgenticFeaturesEnabled,
 	saveGlobalAgentInstructions,
+	saveAnthropicApiKey,
+	setAiProvider,
 } from 'src/modules/user-settings/lib/ipc-handlers';
 import { defaultSitePath } from 'src/storage/paths';
 import { loadUserData, updateAppdata } from 'src/storage/user-data';
@@ -48,8 +55,16 @@ vi.mock( '@studio/common/ai/global-instructions', () => ( {
 	readGlobalInstructionsFile: vi.fn(),
 	writeGlobalInstructions: vi.fn(),
 } ) );
+vi.mock( '@studio/common/ai/settings-store', () => ( {
+	readAiSettings: vi.fn(),
+	saveAnthropicApiKey: vi.fn(),
+	setAiProvider: vi.fn(),
+} ) );
 
 const mockRecord = vi.mocked( recordTracksEvent );
+const mockReadAiSettings = vi.mocked( readAiSettings );
+const mockSaveAnthropicApiKey = vi.mocked( saveAnthropicApiKeyToConfig );
+const mockSetAiProvider = vi.mocked( setAiProviderInConfig );
 const mockLoadUserData = vi.mocked( loadUserData );
 const mockReadSharedConfig = vi.mocked( readSharedConfig );
 const event = {} as IpcMainInvokeEvent;
@@ -293,5 +308,113 @@ describe( 'saveGlobalAgentInstructions', () => {
 			length_bucket: 'empty',
 			surface: 'settings',
 		} );
+	} );
+} );
+
+// One event for both handlers: clearing the key also moves the provider back to WordPress.com.
+describe( 'AI provider settings', () => {
+	const keyPreview = 'sk-ant-api03-tes...1234';
+	const wpcomWithoutKey = {
+		provider: 'wpcom',
+		hasAnthropicApiKey: false,
+		anthropicApiKeyPreview: null,
+	} as const;
+	const anthropicWithKey = {
+		provider: 'anthropic-api-key',
+		hasAnthropicApiKey: true,
+		anthropicApiKeyPreview: keyPreview,
+	} as const;
+
+	it( 'emits studio_setting_ai_provider_change when a key is added', async () => {
+		mockReadAiSettings.mockResolvedValue( wpcomWithoutKey );
+		mockSaveAnthropicApiKey.mockResolvedValue( {
+			provider: 'wpcom',
+			hasAnthropicApiKey: true,
+			anthropicApiKeyPreview: keyPreview,
+		} );
+
+		await saveAnthropicApiKey( event, 'sk-ant-api03-testkey-1234' );
+
+		expect( mockRecord ).toHaveBeenCalledWith( TRACKS_EVENTS.SETTING_AI_PROVIDER_CHANGE, {
+			provider: 'wpcom',
+			has_anthropic_api_key: true,
+			surface: 'settings',
+		} );
+	} );
+
+	it( 'never sends the key itself', async () => {
+		mockReadAiSettings.mockResolvedValue( wpcomWithoutKey );
+		mockSaveAnthropicApiKey.mockResolvedValue( anthropicWithKey );
+
+		await saveAnthropicApiKey( event, 'sk-ant-api03-testkey-1234' );
+
+		const props = JSON.stringify( mockRecord.mock.calls[ 0 ][ 1 ] );
+		expect( props ).not.toContain( 'testkey' );
+		expect( props ).not.toContain( '1234' );
+	} );
+
+	it( 'reports a cleared key falling back to WordPress.com', async () => {
+		mockReadAiSettings.mockResolvedValue( anthropicWithKey );
+		mockSaveAnthropicApiKey.mockResolvedValue( wpcomWithoutKey );
+
+		await saveAnthropicApiKey( event, null );
+
+		expect( mockRecord ).toHaveBeenCalledWith( TRACKS_EVENTS.SETTING_AI_PROVIDER_CHANGE, {
+			provider: 'wpcom',
+			has_anthropic_api_key: false,
+			surface: 'settings',
+		} );
+	} );
+
+	it( 'emits when a saved key is swapped for a different one', async () => {
+		mockReadAiSettings.mockResolvedValue( anthropicWithKey );
+		mockSaveAnthropicApiKey.mockResolvedValue( {
+			provider: 'anthropic-api-key',
+			hasAnthropicApiKey: true,
+			anthropicApiKeyPreview: 'sk-ant-api03-tes...9999',
+		} );
+
+		await saveAnthropicApiKey( event, 'sk-ant-api03-otherkey-9999' );
+
+		expect( mockRecord ).toHaveBeenCalledWith( TRACKS_EVENTS.SETTING_AI_PROVIDER_CHANGE, {
+			provider: 'anthropic-api-key',
+			has_anthropic_api_key: true,
+			surface: 'settings',
+		} );
+	} );
+
+	it( 'does not emit when re-saving the same key', async () => {
+		mockReadAiSettings.mockResolvedValue( anthropicWithKey );
+		mockSaveAnthropicApiKey.mockResolvedValue( anthropicWithKey );
+
+		await saveAnthropicApiKey( event, 'sk-ant-api03-testkey-1234' );
+
+		expect( mockRecord ).not.toHaveBeenCalled();
+	} );
+
+	it( 'emits the provider setAiProvider switched to', async () => {
+		mockReadAiSettings.mockResolvedValue( {
+			provider: 'wpcom',
+			hasAnthropicApiKey: true,
+			anthropicApiKeyPreview: keyPreview,
+		} );
+		mockSetAiProvider.mockResolvedValue( anthropicWithKey );
+
+		await setAiProvider( event, 'anthropic-api-key' );
+
+		expect( mockRecord ).toHaveBeenCalledWith( TRACKS_EVENTS.SETTING_AI_PROVIDER_CHANGE, {
+			provider: 'anthropic-api-key',
+			has_anthropic_api_key: true,
+			surface: 'settings',
+		} );
+	} );
+
+	it( 'does not emit when the provider is already selected', async () => {
+		mockReadAiSettings.mockResolvedValue( anthropicWithKey );
+		mockSetAiProvider.mockResolvedValue( anthropicWithKey );
+
+		await setAiProvider( event, 'anthropic-api-key' );
+
+		expect( mockRecord ).not.toHaveBeenCalled();
 	} );
 } );

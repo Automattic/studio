@@ -9,12 +9,61 @@
 
 .activityStatus {
 	display: flex;
-	flex-direction: column;
-	gap: 4px;
+	/* Pin the cancel button to the top: centring drifts it down the block as the
+	   progress message and the "can't cancel" reason wrap. */
+	align-items: flex-start;
+	gap: var(--wpds-dimension-padding-md);
 	padding: var(--wpds-dimension-padding-md) var(--wpds-dimension-padding-lg);
 	color: var(--wpds-color-fg-content-neutral);
 	font-size: var(--wpds-typography-font-size-sm);
 	line-height: var(--wpds-typography-line-height-sm);
+}
+
+.activityStatusText {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	min-width: 0;
+	flex: 1;
+}
+
+.activityStatusNote {
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	/* Matches the smaller font size — inheriting the row's `sm` line height
+	   leaves this sentence too airy once it wraps onto a second line. */
+	line-height: var(--wpds-typography-line-height-xs);
+	text-wrap: pretty;
+}
+
+/* Matches .moreMenuTrigger: the popup is an inverted surface, so the design
+   system's own disabled colour lands on the wrong background and the button
+   reads as enabled. */
+.cancelSyncButton {
+	flex: 0 0 auto;
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	justify-content: center;
+	color: var(--wpds-color-fg-interactive-neutral);
+}
+
+.cancelSyncButton:is([data-disabled], :disabled) {
+	color: var(--wpds-color-fg-interactive-neutral-disabled);
+}
+
+.cancelSyncButton svg {
+	width: 14px;
+	height: 14px;
+	fill: currentColor;
+}
+
+/* The popup keeps `overflow: visible`, so this — the only row that fills to the
+   popup edge — has to round its own top corners or it squares off the popup's.
+   Inset by the border width so the curve nests inside it instead of cutting it. */
+.activityStatus:first-child {
+	border-top-left-radius: calc(var(--site-dropdown-radius) - var(--wpds-border-width-xs));
+	border-top-right-radius: calc(var(--site-dropdown-radius) - var(--wpds-border-width-xs));
 }
 
 .activityStatusPending {
@@ -298,21 +347,12 @@
 }
 
 .rowActionButton,
-.rowViewButton,
 .environmentActionButton_outline {
 	border-radius: var(--wpds-border-radius-md);
 }
 
-.rowActionButton,
-.rowViewButton {
-	height: 28px;
-}
-
-.rowViewButton {
-	color: var(--wpds-color-fg-interactive-neutral);
-}
-
 .rowActionButton {
+	height: 28px;
 	width: 28px;
 	padding: 0;
 }

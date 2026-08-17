@@ -97,10 +97,9 @@ describe( 'preserveUnselectedLocalContent', () => {
 		expect( rawFile( 'index.php' ) ).toBe( 'remote' );
 	} );
 
-	it( 'treats an empty selection as everything-selected but still honors the skip toggles', () => {
+	it( 'treats an empty selection as everything-selected but still honors the database toggle', () => {
 		writeLocal( 'plugins/local-plugin/plugin.php' );
 		writeLocal( 'database/.ht.sqlite', 'local-db' );
-		writeLocal( 'uploads/2026/photo.jpg', 'local-photo' );
 
 		const moved = preserveUnselectedLocalContent( {
 			sitePath,
@@ -108,15 +107,13 @@ describe( 'preserveUnselectedLocalContent', () => {
 			contentDir: CONTENT_DIR,
 			selectedPrefixes: [],
 			skipDatabase: true,
-			skipUploads: true,
 		} );
 
 		// Full file selection → plugins belong to the remote…
 		expect( rawFile( 'plugins/local-plugin/plugin.php' ) ).toBeNull();
-		// …but the kept database and media library move across.
-		expect( moved ).toBe( 2 );
+		// …but the kept database moves across.
+		expect( moved ).toBe( 1 );
 		expect( rawFile( 'database/.ht.sqlite' ) ).toBe( 'local-db' );
-		expect( rawFile( 'uploads/2026/photo.jpg' ) ).toBe( 'local-photo' );
 	} );
 
 	it( 'keeps the pulled database when the database was selected', () => {

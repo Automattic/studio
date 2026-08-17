@@ -109,7 +109,7 @@ export function OnboardingTourPage() {
 					<p className={ styles.tourAuthText }>
 						{ __( 'AI features require a free WordPress.com account.' ) }
 					</p>
-					<AuthActions />
+					<AuthActions source="onboarding" />
 				</div>
 			) }
 			<OnboardingFooter>

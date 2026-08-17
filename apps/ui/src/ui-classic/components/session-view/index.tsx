@@ -191,7 +191,7 @@ function SessionFrame( {
 			<ProgressiveBlur direction="down" className={ styles.headerBlur } fadeToSurface />
 			{ composer ? (
 				<>
-					<ProgressiveBlur direction="up" className={ styles.composerBlur } />
+					<ProgressiveBlur direction="up" className={ styles.composerBlur } fadeToSurface />
 					<div
 						ref={ composerRef }
 						className={ clsx( styles.composerOuter, styles.classicComposerOuter ) }
@@ -528,13 +528,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 					getDraft={ () => composerRef.current?.getDraft() ?? { text: '', hasAttachments: false } }
 				/>
 			) : null }
-			<div
-				className={ clsx(
-					styles.classicColumn,
-					styles.classicConversationSpacing,
-					pendingQuestions.length > 0 && styles.classicConversationWithQuestions
-				) }
-			>
+			<div className={ clsx( styles.classicColumn, styles.classicConversationSpacing ) }>
 				<Conversation
 					data={ data }
 					isRunning={ isRunning }

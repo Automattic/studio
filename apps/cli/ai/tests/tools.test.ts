@@ -1552,7 +1552,26 @@ describe( 'Studio AI MCP tools', () => {
 				await readFile( path.join( themeDir, 'theme.json' ), 'utf8' )
 			) as Record< string, unknown >;
 			expect( themeJson.version ).toBe( 3 );
-			expect( ( themeJson.settings as Record< string, unknown > ).appearanceTools ).toBe( true );
+			const themeSettings = themeJson.settings as Record< string, unknown >;
+			expect( themeSettings.appearanceTools ).toBe( true );
+
+			// Without a declared content width WordPress drops the max-width from its
+			// constrained-layout rules, and without root padding nothing insets the
+			// content — either gap renders text against the viewport edge. Assert the
+			// keys carry a value rather than a specific one, so the scaffold stays
+			// free to retune the widths and gutter.
+			const layout = themeSettings.layout as Record< string, unknown >;
+			expect( layout?.contentSize ).toBeTruthy();
+			expect( layout?.wideSize ).toBeTruthy();
+			expect( themeSettings.useRootPaddingAwareAlignments ).toBe( true );
+
+			const rootPadding = (
+				( themeJson.styles as Record< string, Record< string, unknown > > )?.spacing as
+					| Record< string, Record< string, unknown > >
+					| undefined
+			 )?.padding;
+			expect( rootPadding?.left ).toBeTruthy();
+			expect( rootPadding?.right ).toBeTruthy();
 
 			const functionsPhp = await readFile( path.join( themeDir, 'functions.php' ), 'utf8' );
 			expect( functionsPhp ).toContain( "'acme-studio-style'" );

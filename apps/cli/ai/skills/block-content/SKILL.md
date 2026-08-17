@@ -24,7 +24,9 @@ Use this skill before writing or editing page content, post content, templates, 
 
 ## Layout Cascade
 
-WordPress constrains children of `core/post-content` and any constrained-layout container to `theme.json`'s `settings.layout.contentSize`, which is about 700px by default. Custom CSS such as `.hero { width: 100% }` does not override core layout selectors like `.is-layout-constrained > *:not(.alignwide):not(.alignfull)` because they are more specific.
+WordPress constrains children of `core/post-content` and any constrained-layout container to `theme.json`'s `settings.layout.contentSize`. Custom CSS such as `.hero { width: 100% }` does not override core layout selectors like `.is-layout-constrained > *:not(.alignwide):not(.alignfull)` because they are more specific.
+
+**There is no core default for `contentSize`.** When the active theme's `theme.json` declares neither `settings.layout.contentSize` nor `wideSize`, WordPress omits the `max-width` declaration from those constrained-layout rules altogether — `layout: {"type":"constrained"}` then constrains nothing and every block runs the full width of its container. Themes created with `scaffold_theme` declare both, along with `useRootPaddingAwareAlignments` and `styles.spacing.padding` for the horizontal gutter. Keep all three when you edit `theme.json`; retune the values to suit the design, but do not drop them. In a theme that lacks them, add them there rather than patching widths and padding section by section in CSS.
 
 Use these patterns:
 

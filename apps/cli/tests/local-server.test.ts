@@ -267,6 +267,35 @@ describe( 'local web server Connect contracts', () => {
 		expect( mocks.setAiProvider ).not.toHaveBeenCalled();
 	} );
 
+	it( 'rejects pinning a session to an unknown AI provider', async () => {
+		const response = await fetch(
+			`${ server.url.replace( 'localhost', '127.0.0.1' ) }/api/sessions/session-1/provider`,
+			{
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify( { provider: 'claude-code', model: 'claude-sonnet-5' } ),
+			}
+		);
+
+		expect( response.status ).toBe( 400 );
+		await expect( response.json() ).resolves.toEqual( {
+			error: 'Unknown AI provider: claude-code',
+		} );
+	} );
+
+	it( 'rejects pinning a session to a model its provider cannot serve', async () => {
+		const response = await fetch(
+			`${ server.url.replace( 'localhost', '127.0.0.1' ) }/api/sessions/session-1/provider`,
+			{
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify( { provider: 'anthropic-api-key', model: 'gpt-5.6-sol' } ),
+			}
+		);
+
+		expect( response.status ).toBe( 400 );
+	} );
+
 	it( 'delegates deletion to the CLI cascade', async () => {
 		const response = await fetch(
 			`${ server.url.replace( 'localhost', '127.0.0.1' ) }/api/sites/local-a`,

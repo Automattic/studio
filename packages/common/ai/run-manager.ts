@@ -14,6 +14,7 @@ import {
 	setAiSessionSitePlacement,
 	type AiSessionPlacementUpdatedEvent,
 } from '@studio/common/ai/sessions/placement';
+import { isDevRun } from '@studio/common/lib/dev-run';
 import { captureException } from '@studio/common/lib/error-reporting';
 import type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
@@ -81,12 +82,6 @@ export interface AgentRunManager {
 }
 
 const INTERRUPT_FORCE_KILL_TIMEOUT_MS = 2000;
-
-// Matches the condition the Tracks core uses to log instead of send, so a dev run can see the
-// child's output. Never true in a packaged build.
-function isDevRun(): boolean {
-	return process.env.NODE_ENV === 'development' || Boolean( process.env.STUDIO_DEBUG_TRACKS );
-}
 
 function nowIso(): string {
 	return new Date().toISOString();

@@ -1,5 +1,6 @@
 import { ANTHROPIC_MODELS } from '@earendil-works/pi-ai/providers/anthropic.models';
 import { ModelRegistry, SessionManager } from '@earendil-works/pi-coding-agent';
+import { AGENT_SURFACE_ENV_VAR } from '@studio/common/ai/agent-stats';
 import { AI_MODELS } from '@studio/common/ai/models';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { runStudioAgentTurn, type StudioAgentTurnConfig } from 'cli/ai/runtimes/pi';
@@ -260,6 +261,29 @@ describe( 'pi runtime', () => {
 		expect( final.type ).toBe( 'agent_end' );
 	} );
 
+	it( 'ignores an inherited Studio surface without an attached IPC UI', async () => {
+		const send = process.send;
+		process.send = undefined;
+		try {
+			await runRuntime( {
+				prompt: 'hello',
+				env: {
+					OPENAI_API_KEY: 'sk-test',
+					OPENAI_BASE_URL: 'https://proxy.example.com/v1',
+					[ AGENT_SURFACE_ENV_VAR ]: 'desktop',
+				},
+				model: 'gpt-5.6-sol',
+				session: newSession(),
+			} );
+
+			const prompt = mocks.createdSessions[ 0 ].options.resourceLoader?.getSystemPrompt();
+			expect( prompt ).toContain( '## Your environment: terminal' );
+			expect( prompt ).not.toContain( '## Your environment: Studio interface' );
+		} finally {
+			process.send = send;
+		}
+	} );
+
 	it( 'advertises image input support so screenshot tool results can be analyzed', async () => {
 		await runRuntime( {
 			prompt: 'hello',
@@ -272,6 +296,92 @@ describe( 'pi runtime', () => {
 		} );
 
 		expect( mocks.createdSessions[ 0 ].options.model?.input ).toEqual( [ 'text', 'image' ] );
+	} );
+
+	const HOSTED_ENV = {
+		STUDIO_HOSTED_API_KEY: 'wpcom-token',
+		STUDIO_HOSTED_BASE_URL: 'https://proxy.example.com/v1',
+	};
+
+	it( 'routes hosted models to the wpcom Chat Completions path', async () => {
+		await runRuntime( {
+			prompt: 'hello',
+			env: {
+				...HOSTED_ENV,
+				STUDIO_HOSTED_DEFAULT_HEADERS: JSON.stringify( {
+					'X-WPCOM-AI-Feature': 'studio-assistant-hosted',
+					'X-WPCOM-Session-ID': 'session-2',
+				} ),
+			},
+			model: 'moonshotai/Kimi-K2.6',
+			session: newSession(),
+		} );
+
+		const options = mocks.createdSessions[ 0 ].options;
+		expect( options.model?.id ).toBe( 'moonshotai/Kimi-K2.6' );
+		expect( options.model?.provider ).toBe( 'studio-wpcom-hosted' );
+		expect( options.model?.api ).toBe( 'openai-completions' );
+	} );
+
+	// Without these the request carries OpenAI-only fields these upstreams
+	// reject: pi infers them from the base URL, which for us reads as OpenAI.
+	it( 'declares hosted compat overrides the proxy URL cannot be detected from', async () => {
+		await runRuntime( {
+			prompt: 'hello',
+			env: HOSTED_ENV,
+			model: 'moonshotai/Kimi-K3',
+			session: newSession(),
+		} );
+
+		expect( mocks.createdSessions[ 0 ].options.model?.compat ).toMatchObject( {
+			supportsStore: false,
+			supportsDeveloperRole: false,
+			supportsReasoningEffort: false,
+			supportsStrictMode: false,
+			maxTokensField: 'max_tokens',
+		} );
+	} );
+
+	it( 'advertises image input per model rather than per family', async () => {
+		await runRuntime( {
+			prompt: 'hello',
+			env: HOSTED_ENV,
+			model: 'moonshotai/Kimi-K2.6',
+			session: newSession(),
+		} );
+		await runRuntime( {
+			prompt: 'hello',
+			env: HOSTED_ENV,
+			model: 'zai-org/GLM-5.2',
+			session: newSession(),
+		} );
+
+		expect( mocks.createdSessions[ 0 ].options.model?.input ).toEqual( [ 'text', 'image' ] );
+		expect( mocks.createdSessions[ 1 ].options.model?.input ).toEqual( [ 'text' ] );
+	} );
+
+	// pi drops image blocks from tool results on a text-only model but still
+	// delivers the result text, so the model would describe a capture it never saw.
+	it( 'withholds take_screenshot from models that cannot see images', async () => {
+		await runRuntime( {
+			prompt: 'hello',
+			env: HOSTED_ENV,
+			model: 'moonshotai/Kimi-K2.6',
+			session: newSession(),
+		} );
+		await runRuntime( {
+			prompt: 'hello',
+			env: HOSTED_ENV,
+			model: 'zai-org/GLM-5.2',
+			session: newSession(),
+		} );
+
+		const toolNames = ( index: number ) =>
+			( ( mocks.createdSessions[ index ].options.customTools ?? [] ) as { name: string }[] ).map(
+				( tool ) => tool.name
+			);
+		expect( toolNames( 0 ) ).toContain( 'take_screenshot' );
+		expect( toolNames( 1 ) ).not.toContain( 'take_screenshot' );
 	} );
 
 	it( 'rejects oversized direct Write, Edit, and Bash payloads', async () => {

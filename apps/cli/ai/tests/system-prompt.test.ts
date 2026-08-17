@@ -79,7 +79,7 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).toContain( '**AI**, **Usage**, **Keyboard**, **Skills**, and **MCP**' );
 	} );
 
-	it( 'includes interface navigation for remote-site conversations', () => {
+	it( 'includes interface navigation without local presentation tools for remote sites', () => {
 		const prompt = buildSystemPrompt( {
 			remoteSite,
 			chatArtifactsEnabled: true,
@@ -88,7 +88,8 @@ describe( 'buildSystemPrompt', () => {
 
 		expect( prompt ).toContain( '## Your environment: Studio interface' );
 		expect( prompt ).toContain( 'the WordPress Studio desktop app' );
-		expect( prompt ).toContain( '### Visual artifacts' );
+		expect( prompt ).not.toContain( '### Visual artifacts' );
+		expect( prompt ).not.toContain( 'studio_present' );
 	} );
 
 	it( 'omits visual interface navigation in the standalone terminal', () => {
@@ -99,6 +100,16 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).not.toContain( '**Add site** (+)' );
 		expect( prompt ).not.toContain( '- refresh_browser:' );
 		expect( prompt ).not.toContain( 'call refresh_browser so the attached Studio preview' );
+	} );
+
+	it( 'guards site deletion via the tool confirmation, not an extra AskUserQuestion', () => {
+		const prompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
+
+		expect( prompt ).toContain( 'Deleting a site is destructive and irreversible' );
+		expect( prompt ).toContain( 'do NOT call `AskUserQuestion` yourself before invoking it' );
+		expect( prompt ).toContain(
+			'Never treat an ambiguous or corrective request — "undo", "undo that", "revert my last change", "start over", "remove that" — as a request to delete a site'
+		);
 	} );
 
 	it( 'routes plugin-specific feature work to the plugin recommendations skill', () => {

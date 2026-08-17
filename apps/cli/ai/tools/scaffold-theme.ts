@@ -113,6 +113,27 @@ function renderThemeJson(): string {
 		version: 3,
 		settings: {
 			appearanceTools: true,
+			// Without these, WordPress omits the max-width declaration from the
+			// constrained-layout rules entirely, so `layout: constrained` stops
+			// constraining anything and every block runs the full viewport width.
+			layout: {
+				contentSize: '720px',
+				wideSize: '1200px',
+			},
+			// Puts the horizontal padding below on `.has-global-padding` (every
+			// constrained block) rather than on `.wp-site-blocks`, so section
+			// backgrounds still reach the viewport edge while their content does not.
+			useRootPaddingAwareAlignments: true,
+		},
+		styles: {
+			spacing: {
+				padding: {
+					top: '0px',
+					right: 'clamp(1.25rem, 5vw, 3rem)',
+					bottom: '0px',
+					left: 'clamp(1.25rem, 5vw, 3rem)',
+				},
+			},
 		},
 	};
 	return JSON.stringify( data, null, '\t' ) + '\n';
@@ -341,7 +362,8 @@ const PART_FOOTER = `<!-- wp:group {"layout":{"type":"constrained"},"style":{"sp
 export const scaffoldThemeTool = defineTool(
 	'scaffold_theme',
 	'Scaffolds a minimal block theme into the given site at wp-content/themes/<slug>/ and activates it by default. ' +
-		'Drops in style.css (theme header plus a reset zeroing the default block gap between top-level template sections), theme.json (appearanceTools only), ' +
+		'Drops in style.css (theme header plus a reset zeroing the default block gap between top-level template sections), ' +
+		'theme.json (appearanceTools, a content/wide layout width, and root-padding-aware horizontal padding so content never touches the viewport edge), ' +
 		'functions.php (frontend + editor style enqueue), default templates (index, single, page, archive, 404), ' +
 		'header/footer parts, and empty assets/fonts and patterns directories. ' +
 		'Use when the user wants to start a new custom theme — the agent fills in design-specific content afterwards. ' +

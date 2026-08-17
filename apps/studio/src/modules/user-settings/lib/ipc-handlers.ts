@@ -8,7 +8,7 @@ import {
 	saveAnthropicApiKey as saveAnthropicApiKeyToConfig,
 	setAiProvider as setAiProviderInConfig,
 } from '@studio/common/ai/settings-store';
-import { type TracksInstructionsLengthBucket } from '@studio/common/lib/record-tracks-event';
+import { getInstructionsLengthBucket } from '@studio/common/lib/record-tracks-event';
 import {
 	isAnalyticsOptedOut,
 	readSharedConfig,
@@ -326,18 +326,6 @@ export async function setAiProvider( _event: IpcMainInvokeEvent, provider: AiPro
 	const settings = await setAiProviderInConfig( provider );
 	await recordAiSettingsChange( previous, settings );
 	return settings;
-}
-
-// Bucketed for `studio_setting_instructions_change`; the text itself is never sent.
-function getInstructionsLengthBucket( content: string ): TracksInstructionsLengthBucket {
-	const length = content.trim().length;
-	if ( length === 0 ) {
-		return 'empty';
-	}
-	if ( length <= 200 ) {
-		return 'short';
-	}
-	return length <= 1000 ? 'medium' : 'long';
 }
 
 export async function saveGlobalAgentInstructions(

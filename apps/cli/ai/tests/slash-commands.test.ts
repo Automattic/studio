@@ -37,7 +37,10 @@ vi.mock( 'cli/commands/auth/login', () => ( { runCommand: vi.fn() } ) );
 vi.mock( 'cli/commands/auth/logout', () => ( { runCommand: vi.fn() } ) );
 vi.mock( 'cli/commands/preview/create', () => ( { runCommand: vi.fn() } ) );
 vi.mock( 'cli/commands/preview/update', () => ( { runCommand: vi.fn() } ) );
-vi.mock( '@studio/common/lib/shared-config', () => ( { readAuthToken: vi.fn() } ) );
+vi.mock( '@studio/common/lib/shared-config', () => ( {
+	readAuthToken: vi.fn(),
+	isAutomatticianFromToken: vi.fn().mockResolvedValue( true ),
+} ) );
 
 vi.mock( 'cli/remote-session/daemon', () => {
 	return {

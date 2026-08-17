@@ -24,7 +24,9 @@ Use this skill before writing or editing page content, post content, templates, 
 
 ## Layout Cascade
 
-WordPress constrains children of `core/post-content` and any constrained-layout container to `theme.json`'s `settings.layout.contentSize`, which is about 700px by default. Custom CSS such as `.hero { width: 100% }` does not override core layout selectors like `.is-layout-constrained > *:not(.alignwide):not(.alignfull)` because they are more specific.
+WordPress constrains children of `core/post-content` and any constrained-layout container to `theme.json`'s `settings.layout.contentSize`. Custom CSS such as `.hero { width: 100% }` does not override core layout selectors like `.is-layout-constrained > *:not(.alignwide):not(.alignfull)` because they are more specific.
+
+**There is no core default for `contentSize`.** When the active theme's `theme.json` declares neither `settings.layout.contentSize` nor `wideSize`, WordPress omits the `max-width` declaration from those constrained-layout rules altogether — `layout: {"type":"constrained"}` then constrains nothing and every block runs the full width of its container. Themes created with `scaffold_theme` declare both, along with `useRootPaddingAwareAlignments` and `styles.spacing.padding` for the horizontal gutter. Keep all three when you edit `theme.json`; retune the values to suit the design, but do not drop them. In a theme that lacks them, add them there rather than patching widths and padding section by section in CSS.
 
 Use these patterns:
 
@@ -42,6 +44,25 @@ WordPress inserts `margin-block-start: var(--wp--style--block-gap)` between the 
 - When working in a theme without that reset, add the same rule to the theme's `style.css` instead of compensating with negative margins or guessing at the extra space.
 - Do not zero the gap by setting `styles.spacing.blockGap: "0"` in `theme.json` — that value cascades as the default gap inside every flow and constrained layout and collapses content rhythm site-wide.
 - When you want visible space between top-level sections, add it deliberately (padding on the sections) so the spacing is designed, not inherited.
+
+## Page Titles
+
+`templates/page.html` renders `core/post-title` as the page's `h1`, above `core/post-content`. Page content must not repeat that title — a designed hero with its own heading stacked under the template's title gives the page a stray "Home" above the hero and **two `h1` elements**, which is an accessibility and SEO problem, not just a visual duplication.
+
+Pick one of the two per page:
+
+- **Ordinary page** (Privacy Policy, Terms, a plain About): let the template's title stand and start the page content at `h2`.
+- **Designed page** whose hero carries its own heading (home, landing, anything built from sections): assign the no-title template. Themes from `scaffold_theme` ship `templates/page-no-title.html`, registered in `theme.json` under `customTemplates`. Assign it to the page after creating it:
+
+```text
+wp_cli post meta update <id> _wp_page_template page-no-title
+```
+
+Do **not** solve this by deleting `core/post-title` from `page.html` — every ordinary page then renders untitled, and a missing `h1` is worse than a duplicated one. In a theme with no no-title template, add one (a copy of `page.html` without the title group) and register it in `customTemplates` rather than stripping the title.
+
+A site's home page is the usual case for this: with a static front page and no `front-page.html`, WordPress falls through to `page.html`, so the page least likely to want a title block gets one by default.
+
+**Do not add a `front-page.html` to solve it.** That template overrides *every* other template for the front page — the hierarchy is `front-page → home → index` — and it applies whether the front page shows a static page or the latest posts. One containing `core/post-content` therefore breaks a blog-first site, whose front page belongs to `home.html`/`index.html`. Assigning `page-no-title` to the home page achieves the same result with no hierarchy side effects. Add a `front-page.html` only when the front page needs a structure that genuinely differs from a page's, and the site's front page is definitely static.
 
 ## Skeleton-First Recipes
 

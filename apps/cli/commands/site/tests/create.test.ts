@@ -213,6 +213,54 @@ describe( 'CLI: studio site create', () => {
 	} );
 
 	describe( 'Validation Errors', () => {
+		it( 'validates and resolves the local Static Site Importer zip option', async () => {
+			const pluginDir = fs.mkdtempSync( path.join( '/tmp', 'studio-ssi-plugin-' ) );
+			const createParser = () =>
+				registerCommand(
+					yargs( [] ).option( 'path', { type: 'string', default: mockSitePath } )
+				).exitProcess( false );
+
+			expect( () =>
+				createParser().parse( [
+					'create',
+					'--from',
+					'/tmp/source',
+					'--static-site-importer-path',
+					path.join( pluginDir, 'missing.zip' ),
+				] )
+			).toThrow( 'Must be an existing regular .zip file' );
+			expect( () =>
+				createParser().parse( [
+					'create',
+					'--from',
+					'/tmp/source',
+					'--static-site-importer-path',
+					path.join( pluginDir, 'not-a-zip.txt' ),
+				] )
+			).toThrow( 'Must be a .zip file' );
+		} );
+
+		it( 'rejects simultaneous local and URL Static Site Importer inputs', async () => {
+			const pluginDir = fs.mkdtempSync( path.join( '/tmp', 'studio-ssi-plugin-' ) );
+			const pluginPath = path.join( pluginDir, 'static-site-importer.zip' );
+			fs.writeFileSync( pluginPath, 'plugin-bytes' );
+			const parser = registerCommand(
+				yargs( [] ).option( 'path', { type: 'string', default: mockSitePath } )
+			).exitProcess( false );
+
+			expect( () =>
+				parser.parse( [
+					'create',
+					'--from',
+					'/tmp/source',
+					'--static-site-importer-path',
+					pluginPath,
+					'--static-site-importer-url',
+					'https://example.com/static-site-importer.zip',
+				] )
+			).toThrow( 'mutually exclusive' );
+		} );
+
 		it( 'should error if directory exists and is not empty nor a WordPress site', async () => {
 			vi.mocked( pathExists ).mockResolvedValue( true );
 			vi.mocked( isEmptyDir ).mockResolvedValue( false );
@@ -310,6 +358,76 @@ describe( 'CLI: studio site create', () => {
 	} );
 
 	describe( 'Success Cases', () => {
+		it( 'bundles a local Static Site Importer zip until Blueprint execution finishes', async () => {
+			const sourceDir = fs.mkdtempSync( path.join( '/tmp', 'studio-source-test-' ) );
+			const pluginDir = fs.mkdtempSync( path.join( '/tmp', 'studio-ssi-plugin-' ) );
+			const pluginPath = path.join( pluginDir, 'static-site-importer.zip' );
+			fs.writeFileSync( path.join( sourceDir, 'index.html' ), '<main>Source</main>' );
+			fs.writeFileSync( pluginPath, 'plugin-bytes' );
+			const copySpy = vi.spyOn( fs, 'copyFileSync' );
+			const rmSpy = vi.spyOn( fs, 'rmSync' );
+			vi.mocked( runBlueprint ).mockImplementation( async ( _site, _logger, options ) => {
+				const bundlePath = path.dirname( options.blueprintUri! );
+				const blueprint = JSON.parse( fs.readFileSync( options.blueprintUri!, 'utf8' ) );
+				expect( blueprint.steps[ 0 ].pluginData ).toEqual( {
+					resource: 'bundled',
+					path: 'static-site-importer.zip',
+				} );
+				expect(
+					fs.readFileSync( path.join( bundlePath, 'static-site-importer.zip' ), 'utf8' )
+				).toBe( 'plugin-bytes' );
+			} );
+			const parser = registerCommand(
+				yargs( [] ).option( 'path', { type: 'string', default: mockSitePath } )
+			).exitProcess( false );
+
+			await parser.parseAsync( [
+				'create',
+				'--from',
+				sourceDir,
+				'--static-site-importer-path',
+				pluginPath,
+				'--no-start',
+				'--skip-browser',
+			] );
+
+			const bundlePath = path.dirname( copySpy.mock.calls[ 0 ][ 1 ] as string );
+			expect( copySpy ).toHaveBeenCalledWith(
+				pluginPath,
+				path.join( bundlePath, 'static-site-importer.zip' )
+			);
+			expect( rmSpy ).toHaveBeenCalledWith( bundlePath, { recursive: true, force: true } );
+			expect( rmSpy ).not.toHaveBeenCalledWith( pluginPath, expect.anything() );
+		} );
+
+		it( 'removes the bundled Blueprint when Blueprint execution fails', async () => {
+			const sourceDir = fs.mkdtempSync( path.join( '/tmp', 'studio-source-test-' ) );
+			const pluginDir = fs.mkdtempSync( path.join( '/tmp', 'studio-ssi-plugin-' ) );
+			const pluginPath = path.join( pluginDir, 'static-site-importer.zip' );
+			fs.writeFileSync( path.join( sourceDir, 'index.html' ), '<main>Source</main>' );
+			fs.writeFileSync( pluginPath, 'plugin-bytes' );
+			const copySpy = vi.spyOn( fs, 'copyFileSync' );
+			const rmSpy = vi.spyOn( fs, 'rmSync' );
+			vi.mocked( runBlueprint ).mockRejectedValue( new Error( 'Blueprint failed' ) );
+			const parser = registerCommand(
+				yargs( [] ).option( 'path', { type: 'string', default: mockSitePath } )
+			).exitProcess( false );
+
+			await parser.parseAsync( [
+				'create',
+				'--from',
+				sourceDir,
+				'--static-site-importer-path',
+				pluginPath,
+				'--no-start',
+				'--skip-browser',
+			] );
+
+			const bundlePath = path.dirname( copySpy.mock.calls[ 0 ][ 1 ] as string );
+			expect( rmSpy ).toHaveBeenCalledWith( bundlePath, { recursive: true, force: true } );
+			expect( rmSpy ).not.toHaveBeenCalledWith( pluginPath, expect.anything() );
+		} );
+
 		it( 'captures a URL before passing its canonical artifact to site creation', async () => {
 			const captureDir = fs.mkdtempSync( path.join( '/tmp', 'studio-create-capture-' ) );
 			const artifactPath = path.join( captureDir, 'artifact.json' );

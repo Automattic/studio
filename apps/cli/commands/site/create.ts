@@ -132,6 +132,8 @@ type StaticSiteImporterSource =
 			payload: Record< string, unknown >;
 	  };
 
+type StaticSiteImporterPlugin = string | { path: string };
+
 export type CreateCommandOptions = {
 	name?: string;
 	siteId?: string;
@@ -152,6 +154,7 @@ export type CreateCommandOptions = {
 				targetName: string;
 			};
 			identity?: StaticSiteImportIdentity;
+			bundlePath?: string;
 		};
 	};
 	adminUsername?: string;
@@ -581,7 +584,7 @@ function phpString( value: string ): string {
 export function buildCreateFromSourceBlueprint(
 	sourcePath: string,
 	siteName: string,
-	staticSiteImporterPluginUrl = DEFAULT_STATIC_SITE_IMPORTER_PLUGIN_URL,
+	staticSiteImporterPlugin: StaticSiteImporterPlugin = DEFAULT_STATIC_SITE_IMPORTER_PLUGIN_URL,
 	storeImportResult = false
 ): {
 	contents: BlueprintV1Declaration;
@@ -591,6 +594,7 @@ export function buildCreateFromSourceBlueprint(
 		source: string;
 		stagedSource?: { sourcePath: string; targetName: string };
 		identity?: StaticSiteImportIdentity;
+		bundlePath?: string;
 	};
 } {
 	const stagedFigmaName =
@@ -601,6 +605,10 @@ export function buildCreateFromSourceBlueprint(
 	);
 	const tempDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-create-from-' ) );
 	const blueprintPath = path.join( tempDir, 'blueprint.json' );
+	const pluginData =
+		typeof staticSiteImporterPlugin === 'string'
+			? { resource: 'url' as const, url: staticSiteImporterPlugin }
+			: { resource: 'bundled' as const, path: 'static-site-importer.zip' };
 	const blueprint: BlueprintV1Declaration = {
 		landingPage: '/',
 		features: {
@@ -609,10 +617,7 @@ export function buildCreateFromSourceBlueprint(
 		steps: [
 			{
 				step: 'installPlugin',
-				pluginData: {
-					resource: 'url',
-					url: staticSiteImporterPluginUrl,
-				},
+				pluginData,
 				options: {
 					activate: true,
 					targetFolderName: 'static-site-importer',
@@ -621,7 +626,18 @@ export function buildCreateFromSourceBlueprint(
 		],
 	};
 
-	fs.writeFileSync( blueprintPath, `${ JSON.stringify( blueprint, null, 2 ) }\n` );
+	try {
+		if ( typeof staticSiteImporterPlugin !== 'string' ) {
+			fs.copyFileSync(
+				staticSiteImporterPlugin.path,
+				path.join( tempDir, 'static-site-importer.zip' )
+			);
+		}
+		fs.writeFileSync( blueprintPath, `${ JSON.stringify( blueprint, null, 2 ) }\n` );
+	} catch ( error ) {
+		fs.rmSync( tempDir, { recursive: true, force: true } );
+		throw error;
+	}
 	return {
 		contents: blueprint,
 		uri: blueprintPath,
@@ -632,6 +648,7 @@ export function buildCreateFromSourceBlueprint(
 			...( source.type === 'url'
 				? { identity: { url: source.path, contract: STATIC_SITE_IMPORT_CONTRACT } }
 				: {} ),
+			bundlePath: tempDir,
 		},
 	};
 }
@@ -1494,7 +1511,35 @@ export const registerCommand = (
 				.option( 'static-site-importer-url', {
 					type: 'string',
 					describe: __( 'Static Site Importer plugin zip URL for --from imports' ),
-					default: DEFAULT_STATIC_SITE_IMPORTER_PLUGIN_URL,
+					defaultDescription: DEFAULT_STATIC_SITE_IMPORTER_PLUGIN_URL,
+					conflicts: 'static-site-importer-path',
+				} )
+				.option( 'static-site-importer-path', {
+					type: 'string',
+					describe: __( 'Local Static Site Importer plugin zip for --from imports' ),
+					conflicts: 'static-site-importer-url',
+					coerce: ( value ) => {
+						const pluginPath = path.resolve( untildify( value ) );
+						if ( path.extname( pluginPath ).toLowerCase() !== '.zip' ) {
+							throw new ValidationError(
+								'static-site-importer-path',
+								value,
+								__( 'Must be a .zip file' )
+							);
+						}
+						try {
+							if ( ! fs.statSync( pluginPath ).isFile() ) {
+								throw new Error();
+							}
+						} catch {
+							throw new ValidationError(
+								'static-site-importer-path',
+								value,
+								__( 'Must be an existing regular .zip file' )
+							);
+						}
+						return pluginPath;
+					},
 				} )
 				.option( 'store-import-result', {
 					type: 'boolean',
@@ -1765,7 +1810,9 @@ export const registerCommand = (
 					config.blueprint = buildCreateFromSourceBlueprint(
 						importSource,
 						siteName || __( 'Imported Site' ),
-						argv.staticSiteImporterUrl,
+						argv.staticSiteImporterPath
+							? { path: argv.staticSiteImporterPath }
+							: argv.staticSiteImporterUrl ?? DEFAULT_STATIC_SITE_IMPORTER_PLUGIN_URL,
 						argv.storeImportResult
 					);
 				} else if ( argv.blueprint ) {
@@ -1795,7 +1842,16 @@ export const registerCommand = (
 					}
 				}
 
-				await runCommand( sitePath, config );
+				try {
+					await runCommand( sitePath, config );
+				} finally {
+					if ( config.blueprint?.staticSiteImport?.bundlePath ) {
+						fs.rmSync( config.blueprint.staticSiteImport.bundlePath, {
+							recursive: true,
+							force: true,
+						} );
+					}
+				}
 
 				if ( __ENABLE_CLI_TELEMETRY__ && ! argv.avoidTelemetry ) {
 					bumpStat(

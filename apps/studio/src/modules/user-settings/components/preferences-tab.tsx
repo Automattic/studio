@@ -42,7 +42,23 @@ function AgenticUiCallout() {
 	const betaFeatures = useBetaFeatures();
 
 	if ( betaFeatures.enableAgenticUi ) {
-		return null;
+		return (
+			<div className="relative overflow-hidden rounded-md p-4 border border-[var(--color-frame-border)] bg-[var(--color-frame-bg)]">
+				<div className="relative flex items-center justify-between gap-4">
+					<div>
+						<p className="m-0 font-semibold text-[var(--color-frame-text)]">
+							{ __( 'You are using the new Studio experience' ) }
+						</p>
+						<p className="m-0 mt-1 text-xs text-[var(--color-frame-text-secondary)]">
+							{ __( 'A redesigned interface with AI-powered site building.' ) }
+						</p>
+					</div>
+					<Button variant="tertiary" onClick={ () => getIpcApi().disableAgenticUi( 'settings' ) }>
+						{ __( 'Switch to classic' ) }
+					</Button>
+				</div>
+			</div>
+		);
 	}
 
 	return (

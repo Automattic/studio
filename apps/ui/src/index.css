@@ -233,3 +233,36 @@ select option {
 		scroll-behavior: auto !important;
 	}
 }
+
+/* Honor the user's reduced-transparency preference (macOS: Accessibility →
+   Display → Reduce transparency), and degrade the same way where
+   `backdrop-filter` isn't supported at all.
+
+   Blur is structural in this app, not decoration: headers, footers, scrims
+   and the composer rely on it to obscure the content scrolling underneath
+   them. Dropping the blur without painting the surface would leave text
+   stacked on text, so both are handled together — `--surface-alpha` is the
+   lever. Translucent surfaces mix their fill with
+   `var( --surface-alpha, <their own resting alpha> )`, so forcing it to 100%
+   here turns every one of them opaque while leaving the resting design
+   untouched everywhere else. */
+@media ( prefers-reduced-transparency: reduce ) {
+	:root {
+		--surface-alpha: 100%;
+	}
+
+	/* Class-scoped rules out-specify a `*`-targeted rule, hence `!important`
+	   — same reasoning as the reduced-motion block above. */
+	*,
+	*::before,
+	*::after {
+		-webkit-backdrop-filter: none !important;
+		backdrop-filter: none !important;
+	}
+}
+
+@supports not ( backdrop-filter: blur( 1px ) ) {
+	:root {
+		--surface-alpha: 100%;
+	}
+}

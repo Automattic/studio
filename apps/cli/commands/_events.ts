@@ -29,6 +29,7 @@ import {
 	SITE_EVENTS_SOCKET_PATH,
 	getDaemonBus,
 } from 'cli/lib/daemon-client';
+import { getLiveSiteOperation } from 'cli/lib/site-operations';
 import { isSiteRunning } from 'cli/lib/site-utils';
 import { SocketServer } from 'cli/lib/socket';
 import { SITE_PROCESS_PREFIX } from 'cli/lib/wordpress-server-manager';
@@ -39,6 +40,8 @@ const logger = new Logger< LoggerAction >();
 function toSiteDetails( site: SiteData ) {
 	return siteDetailsSchema.parse( {
 		...site,
+		// Overrides rather than augments `...site` — see the note in `site list`.
+		operation: getLiveSiteOperation( site ),
 		url: getSiteUrl( site ),
 	} );
 }
@@ -138,6 +141,7 @@ export async function runCommand(): Promise< void > {
 				case SITE_EVENTS.CREATED:
 				case SITE_EVENTS.UPDATED:
 				case SITE_EVENTS.DELETED:
+				case SITE_EVENTS.OPERATIONS_CHANGED:
 					void emitSiteEvent( parsed.event, parsed.data.siteId );
 					break;
 			}

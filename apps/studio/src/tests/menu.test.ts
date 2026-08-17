@@ -15,6 +15,9 @@ function buildTestViewMenuItems(
 		devTools: [],
 		onToggleSidebar: vi.fn(),
 		onToggleSitePreview: vi.fn(),
+		onResetZoom: vi.fn(),
+		onZoomIn: vi.fn(),
+		onZoomOut: vi.fn(),
 		...overrides,
 	} );
 }
@@ -83,5 +86,23 @@ describe( 'buildViewMenuItems', () => {
 			'Toggle Fullscreen',
 			'Float on Top of All Other Windows',
 		] );
+	} );
+
+	it.each( [
+		[ 'Actual Size', 'CommandOrControl+0', 'onResetZoom' ],
+		[ 'Zoom In', 'CommandOrControl+Plus', 'onZoomIn' ],
+		[ 'Zoom Out', 'CommandOrControl+-', 'onZoomOut' ],
+	] as const )( 'targets the app for %s', ( label, accelerator, callbackName ) => {
+		const callback = vi.fn();
+		const item = buildTestViewMenuItems( { [ callbackName ]: callback } ).find(
+			( candidate ) => candidate.label === label
+		);
+
+		expect( item ).toMatchObject( { accelerator } );
+		expect( item?.role ).toBeUndefined();
+
+		item?.click?.( {} as never, undefined as never, undefined as never );
+
+		expect( callback ).toHaveBeenCalledTimes( 1 );
 	} );
 } );

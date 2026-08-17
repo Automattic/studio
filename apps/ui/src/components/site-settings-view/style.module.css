@@ -25,6 +25,10 @@
 	gap: var(--wpds-dimension-gap-xs);
 }
 
+.emailControl:dir(rtl) :global(.components-input-control__input) {
+	text-align: right;
+}
+
 @container overview (max-width: 600px) {
 	.form :global( .dataforms-layouts-row__field ) > div {
 		flex-direction: column !important;

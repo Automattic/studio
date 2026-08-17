@@ -81,6 +81,7 @@ function CopyableCredentialControl< Item >( {
 			value={ value }
 			help={ field.description }
 			onChange={ handleChange }
+			className={ kind === 'email' ? styles.emailControl : undefined }
 			hideLabelFromVision={ hideLabelFromVision }
 			type={ isPassword && ! isPasswordVisible ? 'password' : kind === 'email' ? 'email' : 'text' }
 			disabled={ disabled }

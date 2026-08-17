@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Tooltip } from '@wordpress/ui';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import settingsStyles from '@/components/site-settings-view/style.module.css';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useLogin } from '@/data/queries/use-auth-user';
@@ -456,6 +457,17 @@ describe( 'SiteOverviewView', () => {
 		expect( screen.getByLabelText( 'Admin password' ) ).toBeRequired();
 		expect( screen.getByLabelText( 'Admin email' ) ).toBeRequired();
 		expect( screen.queryByText( /\(Required\)/ ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'marks the admin email control for RTL alignment', () => {
+		renderView( 'general' );
+
+		expect(
+			screen.getByLabelText( 'Admin email' ).closest( '.components-input-control' )
+		).toHaveClass( settingsStyles.emailControl );
+		expect(
+			screen.getByLabelText( 'Admin username' ).closest( '.components-input-control' )
+		).not.toHaveClass( settingsStyles.emailControl );
 	} );
 
 	it( 'renders the WordPress version dropdown with latest preselected for auto-updating sites', () => {

@@ -20,6 +20,7 @@ import {
 	WINDOWS_TITLEBAR_HEIGHT,
 } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
+import { applyAppZoomCommand, getAppZoomCommand } from 'src/lib/app-zoom';
 import { getPreferredStudioUiMode, type StudioUiMode } from 'src/lib/studio-ui-mode';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { removeMenu } from 'src/menu';
@@ -219,7 +220,14 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 		mainWindow.on( 'closed', () => nativeTheme.removeListener( 'updated', updateTitleBarOverlay ) );
 	}
 
-	mainWindow.webContents.on( 'before-input-event', ( event, input ) => {
+	const mainWebContents = mainWindow.webContents;
+	mainWebContents.on( 'before-input-event', ( event, input ) => {
+		const zoomCommand = getAppZoomCommand( input );
+		if ( zoomCommand ) {
+			event.preventDefault();
+			applyAppZoomCommand( mainWebContents, zoomCommand );
+			return;
+		}
 		if ( isToggleSidebarShortcut( input ) ) {
 			event.preventDefault();
 			sendIpcEventToRendererWithWindow( mainWindow, 'toggle-sidebar' );

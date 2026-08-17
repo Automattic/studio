@@ -49,6 +49,8 @@ vi.mock( 'electron', () => {
 
 		webContents = {
 			isDestroyed: vi.fn().mockReturnValue( false ),
+			getZoomLevel: vi.fn().mockReturnValue( 0 ),
+			setZoomLevel: vi.fn(),
 			send: vi.fn(),
 			on: vi.fn().mockImplementation( ( event: string, handler: ( ...args: any[] ) => void ) => {
 				if ( ! mockWebContentsEventHandlers.has( event ) ) {
@@ -259,6 +261,29 @@ describe( 'sidebar shortcut', () => {
 			createdWindow,
 			'toggle-sidebar'
 		);
+	} );
+
+	it( 'handles app zoom shortcuts without relying on the application menu', async () => {
+		const createdWindow = await createMainWindow();
+		const handlers = mockWebContentsEventHandlers.get( 'before-input-event' );
+		const event = { preventDefault: vi.fn() };
+
+		handlers![ 0 ]( event, {
+			type: 'keyDown',
+			key: '+',
+			code: 'Equal',
+			isAutoRepeat: false,
+			isComposing: false,
+			shift: true,
+			control: process.platform !== 'darwin',
+			alt: false,
+			meta: process.platform === 'darwin',
+			location: 0,
+			modifiers: [],
+		} as Electron.Input );
+
+		expect( event.preventDefault ).toHaveBeenCalled();
+		expect( createdWindow.webContents.setZoomLevel ).toHaveBeenCalledWith( 0.5 );
 	} );
 } );
 

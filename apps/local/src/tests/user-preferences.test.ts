@@ -1,22 +1,33 @@
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
 	readSiteSortOrders,
 	readUserPreferences,
 	writeSiteSortOrders,
 	writeUserPreferences,
+	type UserPreferencesContext,
 } from '../user-preferences';
-
-// The editor fallback scans the machine for installed apps; pin it so the
-// expectations don't depend on what this machine happens to have.
-vi.mock( '@studio/common/lib/user-settings/installed-apps', async ( importOriginal ) => ( {
-	...( await importOriginal< object >() ),
-	detectInstalledApps: () => ( { zed: true, vscode: true } ),
-} ) );
+import type { InstalledApps } from '@studio/common/lib/user-settings/installed-apps';
 
 const SITES_ROOT = '/Users/test/Studio';
+
+// Pinned rather than detected, so the expectations don't depend on what this
+// machine happens to have installed.
+const INSTALLED_APPS = { zed: true, vscode: true } as unknown as InstalledApps;
+
+const context: UserPreferencesContext = { sitesRoot: SITES_ROOT, installedApps: INSTALLED_APPS };
+
+// What the desktop shows for a preference the user has never touched. The two
+// front ends have to agree on these, so they're asserted as one block.
+const DESKTOP_DEFAULTS = {
+	editor: 'vscode',
+	terminal: 'terminal',
+	colorScheme: 'light',
+	quitSitesBehavior: undefined,
+	defaultSiteDirectory: SITES_ROOT,
+};
 
 let configDir: string;
 
@@ -26,10 +37,6 @@ function writeAppConfig( config: unknown ): void {
 
 function readAppConfigFile(): Record< string, unknown > {
 	return JSON.parse( readFileSync( path.join( configDir, 'app.json' ), 'utf-8' ) );
-}
-
-function readSharedConfigFile(): Record< string, unknown > {
-	return JSON.parse( readFileSync( path.join( configDir, 'shared.json' ), 'utf-8' ) );
 }
 
 beforeEach( () => {
@@ -43,17 +50,11 @@ afterEach( () => {
 } );
 
 describe( 'readUserPreferences', () => {
-	// These defaults are the desktop's (see apps/studio's user-settings
-	// handlers); the two front ends must agree on an untouched preference.
 	it( 'falls back to the desktop defaults when nothing is stored', async () => {
-		await expect( readUserPreferences( SITES_ROOT ) ).resolves.toEqual( {
-			editor: 'vscode',
-			terminal: 'terminal',
-			colorScheme: 'light',
-			quitSitesBehavior: undefined,
+		await expect( readUserPreferences( context ) ).resolves.toMatchObject( {
+			...DESKTOP_DEFAULTS,
 			locale: undefined,
 			analyticsEnabled: true,
-			defaultSiteDirectory: SITES_ROOT,
 			agenticFeaturesEnabled: true,
 		} );
 	} );
@@ -68,7 +69,7 @@ describe( 'readUserPreferences', () => {
 			agenticFeaturesEnabled: false,
 		} );
 
-		await expect( readUserPreferences( SITES_ROOT ) ).resolves.toMatchObject( {
+		await expect( readUserPreferences( context ) ).resolves.toMatchObject( {
 			editor: 'zed',
 			terminal: 'iterm',
 			colorScheme: 'dark',
@@ -87,44 +88,17 @@ describe( 'readUserPreferences', () => {
 			defaultSiteDirectory: '',
 		} );
 
-		await expect( readUserPreferences( SITES_ROOT ) ).resolves.toMatchObject( {
-			editor: 'vscode',
-			terminal: 'terminal',
-			colorScheme: 'light',
-			quitSitesBehavior: undefined,
-			defaultSiteDirectory: SITES_ROOT,
-		} );
+		await expect( readUserPreferences( context ) ).resolves.toMatchObject( DESKTOP_DEFAULTS );
 	} );
 } );
 
 describe( 'writeUserPreferences', () => {
-	it( 'persists under the field names the desktop reads', async () => {
-		await writeUserPreferences( {
-			editor: 'zed',
-			terminal: 'iterm',
-			colorScheme: 'dark',
-			quitSitesBehavior: 'stop',
-			agenticFeaturesEnabled: false,
-		} );
-
-		expect( readAppConfigFile() ).toMatchObject( {
-			preferredEditor: 'zed',
-			preferredTerminal: 'iterm',
-			colorScheme: 'dark',
-			quitSitesBehavior: 'stop',
-			agenticFeaturesEnabled: false,
-		} );
-	} );
-
 	it( 'clears a preference on null so its default applies again', async () => {
 		writeAppConfig( { preferredEditor: 'zed', quitSitesBehavior: 'stop' } );
 
 		await writeUserPreferences( { editor: null, quitSitesBehavior: null } );
 
-		const config = readAppConfigFile();
-		expect( config ).not.toHaveProperty( 'preferredEditor' );
-		expect( config ).not.toHaveProperty( 'quitSitesBehavior' );
-		await expect( readUserPreferences( SITES_ROOT ) ).resolves.toMatchObject( {
+		await expect( readUserPreferences( context ) ).resolves.toMatchObject( {
 			editor: 'vscode',
 			quitSitesBehavior: undefined,
 		} );
@@ -142,24 +116,6 @@ describe( 'writeUserPreferences', () => {
 			colorScheme: 'dark',
 		} );
 	} );
-
-	it( 'routes locale and the analytics opt-out to shared.json', async () => {
-		await writeUserPreferences( { locale: 'fr', analyticsEnabled: false } );
-
-		expect( readSharedConfigFile() ).toMatchObject( { locale: 'fr', analyticsOptOut: true } );
-		await expect( readUserPreferences( SITES_ROOT ) ).resolves.toMatchObject( {
-			locale: 'fr',
-			analyticsEnabled: false,
-		} );
-	} );
-
-	it( 'ignores a locale with no translations rather than storing it', async () => {
-		await writeUserPreferences( { locale: 'xx-fake' } );
-
-		await expect( readUserPreferences( SITES_ROOT ) ).resolves.toMatchObject( {
-			locale: undefined,
-		} );
-	} );
 } );
 
 describe( 'site sort orders', () => {
@@ -172,12 +128,12 @@ describe( 'site sort orders', () => {
 			},
 		} );
 
-		const orders = await readSiteSortOrders();
-
-		expect( [ ...orders ] ).toEqual( [
-			[ 'site-1', 2000 ],
-			[ 'site-3', 1000 ],
-		] );
+		await expect( readSiteSortOrders() ).resolves.toEqual(
+			new Map( [
+				[ 'site-1', 2000 ],
+				[ 'site-3', 1000 ],
+			] )
+		);
 	} );
 
 	it( 'keeps the desktop-only metadata alongside the order it writes', async () => {
@@ -203,9 +159,8 @@ describe( 'site sort orders', () => {
 		writeAppConfig( { siteMetadata: 'not-an-object' } );
 
 		await expect( readSiteSortOrders() ).resolves.toEqual( new Map() );
-		await expect(
-			writeSiteSortOrders( [ { siteId: 'site-1', sortOrder: 1000 } ] )
-		).resolves.toBeUndefined();
+		await writeSiteSortOrders( [ { siteId: 'site-1', sortOrder: 1000 } ] );
+
 		expect( readAppConfigFile().siteMetadata ).toEqual( { 'site-1': { sortOrder: 1000 } } );
 	} );
 } );

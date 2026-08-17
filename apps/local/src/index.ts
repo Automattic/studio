@@ -90,14 +90,13 @@ import { rateLimit } from 'express-rate-limit';
 import { z } from 'zod';
 import { isEditor, isTerminal, openInEditor, openInTerminal, openPath } from './open-in-os';
 import {
-	getPreferredEditor,
-	getPreferredTerminal,
 	readSiteSortOrders,
 	readUserPreferences,
 	userPreferencesPatchSchema,
 	writeSiteSortOrders,
 	writeUserPreferences,
 } from './user-preferences';
+import type { UserPreferencesContext } from './user-preferences';
 import type { AiSettings } from '@studio/common/ai/providers';
 import type { SiteListItem } from '@studio/common/lib/cli-events';
 import type { TracksEventName, TracksProps } from '@studio/common/lib/record-tracks-event';
@@ -253,6 +252,12 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	// Analytics must never fail a user action, so every call is fire-and-forget.
 	function trackEvent( event: TracksEventName, props?: TracksProps ): void {
 		void options.recordTracksEvent?.( event, props ).catch( () => undefined );
+	}
+
+	// What the preference reader can't work out for itself: where sites live and
+	// what this machine has installed (for the unset-editor fallback).
+	function preferencesContext(): UserPreferencesContext {
+		return { sitesRoot, installedApps: detectInstalledApps() };
 	}
 
 	const cliRunner = createCliRunner( { cliBinary, nodeBinary } );
@@ -1156,7 +1161,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.get(
 		'/user-preferences',
 		asyncHandler( async ( _req: Request, res: Response ) => {
-			res.json( await readUserPreferences( sitesRoot ) );
+			res.json( await readUserPreferences( preferencesContext() ) );
 		} )
 	);
 
@@ -1190,7 +1195,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		'/sites/:id/open-in-editor',
 		asyncHandler( async ( req: Request, res: Response ) => {
 			// The preference lives in app.json; the browser no longer sends it.
-			const editor = req.body?.editor ?? ( await getPreferredEditor() );
+			const editor =
+				req.body?.editor ?? ( await readUserPreferences( preferencesContext() ) ).editor;
 			if ( typeof editor !== 'string' || ! isEditor( editor ) ) {
 				res.status( 400 ).json( { error: `Unsupported editor: ${ String( editor ) }` } );
 				return;
@@ -1208,7 +1214,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.post(
 		'/sites/:id/open-in-terminal',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const requested = req.body?.terminal ?? ( await getPreferredTerminal() );
+			const requested =
+				req.body?.terminal ?? ( await readUserPreferences( preferencesContext() ) ).terminal;
 			// No preference (or an unknown one) falls back to the system terminal.
 			const terminal =
 				typeof requested === 'string' && isTerminal( requested ) ? requested : 'terminal';

@@ -248,9 +248,13 @@ export async function getOrCreateAnalyticsInstallId(): Promise< string > {
 }
 
 // True when the user has opted out of Tracks analytics. Default is opted IN (analytics ON).
-export async function isAnalyticsOptedOut(): Promise< boolean > {
-	const config = await readSharedConfig();
+// Takes an already-read config, for callers that hold one and shouldn't re-read the file.
+export function isAnalyticsOptedOutInConfig( config: SharedConfig ): boolean {
 	return config.analyticsOptOut === true;
+}
+
+export async function isAnalyticsOptedOut(): Promise< boolean > {
+	return isAnalyticsOptedOutInConfig( await readSharedConfig() );
 }
 
 // Best-effort Automattician flag for the shared `is_a11n` Tracks property, derived from the stored

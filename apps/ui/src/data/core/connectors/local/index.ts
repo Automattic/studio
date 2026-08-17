@@ -765,10 +765,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			};
 		},
 		async setUserPreferences( partial ) {
-			if ( Object.keys( partial ).length === 0 ) {
-				return;
-			}
-			// JSON drops `undefined` keys, so an explicit clear travels as null.
+			// JSON drops `undefined` keys, so a clear has to travel as null.
 			// The server validates the result and ignores fields it doesn't own.
 			const patch = Object.fromEntries(
 				Object.entries( partial ).map( ( [ key, value ] ) => [ key, value ?? null ] )

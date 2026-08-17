@@ -1,16 +1,22 @@
 import { readAppConfig, updateAppConfig } from '@studio/common/lib/app-config';
 import { isSupportedLocale } from '@studio/common/lib/locale';
-import { readSharedConfig, updateSharedConfig } from '@studio/common/lib/shared-config';
-import { SUPPORTED_EDITORS } from '@studio/common/lib/user-settings/editor';
 import {
-	detectInstalledApps,
-	getFirstInstalledEditor,
-} from '@studio/common/lib/user-settings/installed-apps';
+	isAnalyticsOptedOutInConfig,
+	readSharedConfig,
+	updateSharedConfig,
+} from '@studio/common/lib/shared-config';
+import { SUPPORTED_EDITORS } from '@studio/common/lib/user-settings/editor';
+import { getFirstInstalledEditor } from '@studio/common/lib/user-settings/installed-apps';
+import {
+	DEFAULT_COLOR_SCHEME,
+	QUIT_SITES_BEHAVIORS,
+	SUPPORTED_COLOR_SCHEMES,
+} from '@studio/common/lib/user-settings/preferences';
 import { DEFAULT_TERMINAL, SUPPORTED_TERMINALS } from '@studio/common/lib/user-settings/terminal';
 import { z } from 'zod';
-import type { AppConfig } from '@studio/common/lib/app-config';
-import type { SharedConfig } from '@studio/common/lib/shared-config';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
+import type { InstalledApps } from '@studio/common/lib/user-settings/installed-apps';
+import type { ColorScheme, QuitSitesBehavior } from '@studio/common/lib/user-settings/preferences';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 
 /**
@@ -24,14 +30,6 @@ import type { SupportedTerminal } from '@studio/common/lib/user-settings/termina
  * the user has never touched reads the same on either side.
  */
 
-const editorSchema = z.enum( SUPPORTED_EDITORS );
-const terminalSchema = z.enum( SUPPORTED_TERMINALS );
-const colorSchemeSchema = z.enum( [ 'system', 'light', 'dark' ] );
-const quitSitesBehaviorSchema = z.enum( [ 'stop', 'stop-and-auto-start', 'leave-running' ] );
-
-export type ColorScheme = z.infer< typeof colorSchemeSchema >;
-export type QuitSitesBehavior = z.infer< typeof quitSitesBehaviorSchema >;
-
 export interface UserPreferences {
 	editor: SupportedEditor | null;
 	terminal: SupportedTerminal | null;
@@ -43,14 +41,34 @@ export interface UserPreferences {
 	agenticFeaturesEnabled: boolean;
 }
 
+// What `readUserPreferences` needs from the server. Both are passed in rather
+// than resolved here so this stays a pure reader over the config files.
+export interface UserPreferencesContext {
+	// Where the server creates sites — the default-site-directory fallback
+	// (the desktop's `defaultSitePath`).
+	sitesRoot: string;
+	// Editors/terminals present on this machine, for the unset-editor fallback.
+	installedApps: InstalledApps;
+}
+
+// Built once: `.catch()`/`.optional()` each return a fresh schema, and these
+// resolve on every preferences request.
+const editorSchema = z.enum( SUPPORTED_EDITORS );
+const terminalWithDefault = z.enum( SUPPORTED_TERMINALS ).catch( DEFAULT_TERMINAL );
+const colorSchemeWithDefault = z.enum( SUPPORTED_COLOR_SCHEMES ).catch( DEFAULT_COLOR_SCHEME );
+const optionalQuitSitesBehavior = z.enum( QUIT_SITES_BEHAVIORS ).optional().catch( undefined );
+const nonEmptyString = z.string().nonempty();
+
 // `null` clears a preference. JSON drops `undefined` keys, so an explicit clear
 // (no preferred editor, "ask every time" on quit) has to travel as null.
 export const userPreferencesPatchSchema = z.object( {
 	editor: editorSchema.nullish(),
-	terminal: terminalSchema.nullish(),
-	colorScheme: colorSchemeSchema.nullish(),
-	quitSitesBehavior: quitSitesBehaviorSchema.nullish(),
-	locale: z.string().nullish(),
+	terminal: z.enum( SUPPORTED_TERMINALS ).nullish(),
+	colorScheme: z.enum( SUPPORTED_COLOR_SCHEMES ).nullish(),
+	quitSitesBehavior: z.enum( QUIT_SITES_BEHAVIORS ).nullish(),
+	// Only locales we ship translations for, so the route rejects the rest
+	// instead of returning 204 for a write it silently drops.
+	locale: z.string().refine( isSupportedLocale ).nullish(),
 	analyticsEnabled: z.boolean().nullish(),
 	defaultSiteDirectory: z.string().nullish(),
 	agenticFeaturesEnabled: z.boolean().nullish(),
@@ -60,61 +78,39 @@ export type UserPreferencesPatch = z.infer< typeof userPreferencesPatchSchema >;
 
 // Which `app.json` field each patch key persists to. Also answers "does this
 // patch touch app.json at all", so the lock is only taken when it must be.
-const APP_CONFIG_KEYS = {
-	editor: 'preferredEditor',
-	terminal: 'preferredTerminal',
-	colorScheme: 'colorScheme',
-	quitSitesBehavior: 'quitSitesBehavior',
-	defaultSiteDirectory: 'defaultSiteDirectory',
-	agenticFeaturesEnabled: 'agenticFeaturesEnabled',
-} as const;
+const APP_CONFIG_KEYS = [
+	[ 'editor', 'preferredEditor' ],
+	[ 'terminal', 'preferredTerminal' ],
+	[ 'colorScheme', 'colorScheme' ],
+	[ 'quitSitesBehavior', 'quitSitesBehavior' ],
+	[ 'defaultSiteDirectory', 'defaultSiteDirectory' ],
+	[ 'agenticFeaturesEnabled', 'agenticFeaturesEnabled' ],
+] as const satisfies readonly ( readonly [ keyof UserPreferencesPatch, string ] )[];
 
-// The desktop falls back to the first installed editor when the user has never
-// picked one, so the browser has to resolve it the same way or the picker would
-// read as empty next to a desktop that shows a choice.
-function readEditor( config: AppConfig ): SupportedEditor | null {
-	const stored = editorSchema.safeParse( config.preferredEditor );
-	return stored.success ? stored.data : getFirstInstalledEditor( detectInstalledApps() );
-}
-
-export async function getPreferredEditor(): Promise< SupportedEditor | null > {
-	return readEditor( await readAppConfig() );
-}
-
-export async function getPreferredTerminal(): Promise< SupportedTerminal > {
-	const config = await readAppConfig();
-	return terminalSchema.catch( DEFAULT_TERMINAL ).parse( config.preferredTerminal );
-}
-
-/**
- * @param sitesRoot Where the server creates sites, used as the
- * default-site-directory fallback (the desktop's `defaultSitePath`).
- */
-export async function readUserPreferences( sitesRoot: string ): Promise< UserPreferences > {
+export async function readUserPreferences( {
+	sitesRoot,
+	installedApps,
+}: UserPreferencesContext ): Promise< UserPreferences > {
 	const [ config, shared ] = await Promise.all( [ readAppConfig(), readSharedConfig() ] );
-	const defaultSiteDirectory = z.string().nonempty().catch( sitesRoot );
+	const storedEditor = editorSchema.safeParse( config.preferredEditor );
 
 	return {
-		editor: readEditor( config ),
-		terminal: terminalSchema.catch( DEFAULT_TERMINAL ).parse( config.preferredTerminal ),
-		colorScheme: colorSchemeSchema.catch( 'light' ).parse( config.colorScheme ),
-		quitSitesBehavior: quitSitesBehaviorSchema
-			.optional()
-			.catch( undefined )
-			.parse( config.quitSitesBehavior ),
+		// The desktop falls back to the first installed editor when the user has
+		// never picked one; the browser has to match or the picker would read as
+		// empty next to a desktop that shows a choice.
+		editor: storedEditor.success ? storedEditor.data : getFirstInstalledEditor( installedApps ),
+		terminal: terminalWithDefault.parse( config.preferredTerminal ),
+		colorScheme: colorSchemeWithDefault.parse( config.colorScheme ),
+		quitSitesBehavior: optionalQuitSitesBehavior.parse( config.quitSitesBehavior ),
 		locale: shared.locale,
-		// Absent means opted in — see `docs/design-docs/analytics-tracks.md`.
-		analyticsEnabled: shared.analyticsOptOut !== true,
-		defaultSiteDirectory: defaultSiteDirectory.parse( config.defaultSiteDirectory ),
+		analyticsEnabled: ! isAnalyticsOptedOutInConfig( shared ),
+		defaultSiteDirectory: nonEmptyString.safeParse( config.defaultSiteDirectory ).data ?? sitesRoot,
 		agenticFeaturesEnabled: config.agenticFeaturesEnabled !== false,
 	};
 }
 
 export async function writeUserPreferences( patch: UserPreferencesPatch ): Promise< void > {
-	const appEntries = Object.entries( APP_CONFIG_KEYS ).filter( ( [ key ] ) => key in patch ) as [
-		keyof typeof APP_CONFIG_KEYS,
-		string,
-	][];
+	const appEntries = APP_CONFIG_KEYS.filter( ( [ key ] ) => key in patch );
 
 	if ( appEntries.length > 0 ) {
 		await updateAppConfig( ( config ) => {
@@ -132,10 +128,9 @@ export async function writeUserPreferences( patch: UserPreferencesPatch ): Promi
 	}
 
 	// One write, so a patch touching both fields takes the lockfile once.
-	const sharedPatch: Partial< SharedConfig > = {};
-	const locale = patch.locale ?? undefined;
-	if ( isSupportedLocale( locale ) ) {
-		sharedPatch.locale = locale;
+	const sharedPatch: Partial< Parameters< typeof updateSharedConfig >[ 0 ] > = {};
+	if ( patch.locale ) {
+		sharedPatch.locale = patch.locale;
 	}
 	if ( typeof patch.analyticsEnabled === 'boolean' ) {
 		sharedPatch.analyticsOptOut = ! patch.analyticsEnabled;
@@ -149,6 +144,10 @@ export async function writeUserPreferences( patch: UserPreferencesPatch ): Promi
  * The desktop's manual sidebar order, kept per site in `app.json`. The CLI's
  * `site list` doesn't carry it, so the browser has to read it from there too —
  * otherwise the sidebar falls back to alphabetical and disagrees with the app.
+ *
+ * Parsed rather than cast: the schema is lossless for the desktop-only fields
+ * stored alongside `sortOrder` (site icon, theme details) but keeps malformed
+ * metadata from throwing mid-write.
  */
 const siteMetadataSchema = z
 	.record( z.string(), z.object( { sortOrder: z.number().optional() } ).loose().catch( {} ) )
@@ -156,20 +155,19 @@ const siteMetadataSchema = z
 
 export async function readSiteSortOrders(): Promise< Map< string, number > > {
 	const siteMetadata = siteMetadataSchema.parse( ( await readAppConfig() ).siteMetadata );
-	return new Map(
-		Object.entries( siteMetadata ).flatMap( ( [ siteId, { sortOrder } ] ) =>
-			sortOrder === undefined ? [] : [ [ siteId, sortOrder ] as [ string, number ] ]
-		)
-	);
+	const sortOrders = new Map< string, number >();
+	for ( const [ siteId, { sortOrder } ] of Object.entries( siteMetadata ) ) {
+		if ( sortOrder !== undefined ) {
+			sortOrders.set( siteId, sortOrder );
+		}
+	}
+	return sortOrders;
 }
 
 export async function writeSiteSortOrders(
 	updates: { siteId: string; sortOrder: number }[]
 ): Promise< void > {
 	await updateAppConfig( ( config ) => {
-		// Parsed, not cast: the schema is lossless for the desktop-only fields
-		// alongside `sortOrder` (site icon, theme details) but keeps a malformed
-		// `siteMetadata` from throwing mid-write.
 		const siteMetadata = siteMetadataSchema.parse( config.siteMetadata );
 		for ( const { siteId, sortOrder } of updates ) {
 			siteMetadata[ siteId ] = { ...siteMetadata[ siteId ], sortOrder };

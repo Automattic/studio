@@ -5,11 +5,7 @@ import { Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useState } from 'react';
 import { useConnector } from '@/data/core';
-import {
-	useAiSettings,
-	useSaveAnthropicApiKey,
-	useSetAiProvider,
-} from '@/data/queries/use-ai-settings';
+import { useAiSettings, useSaveAnthropicApiKey } from '@/data/queries/use-ai-settings';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { StudioCodePanel } from './studio-code-panel';
 import styles from './style.module.css';
@@ -46,8 +42,7 @@ function AgenticFeaturesSection() {
 
 function AnthropicApiKeySection() {
 	const { data: settings } = useAiSettings();
-	const { mutate: saveKey, isPending: isSaving, error: saveError } = useSaveAnthropicApiKey();
-	const { mutate: setProvider, isPending: isSwitching, error: switchError } = useSetAiProvider();
+	const { mutate: saveKey, error } = useSaveAnthropicApiKey();
 	// `undefined` until the user types: the saved key never reaches the client,
 	// so the field shows a truncated preview of it as its placeholder.
 	const [ draft, setDraft ] = useState< string | undefined >( undefined );
@@ -59,9 +54,6 @@ function AnthropicApiKeySection() {
 		return null;
 	}
 
-	const usesAnthropic = settings.provider === 'anthropic-api-key';
-	const error = saveError ?? switchError;
-
 	return (
 		<section className={ styles.preferenceSectionGroup }>
 			<section className={ clsx( styles.preferenceRow, styles.apiKeyRow ) }>
@@ -69,19 +61,9 @@ function AnthropicApiKeySection() {
 					<h2>{ __( 'Use your Anthropic API key' ) }</h2>
 					<p>
 						{ __(
-							'Use your own API key, which bills against your Anthropic account. When off, Studio uses your WordPress.com AI credits.'
+							'Use your own API key, which bills against your Anthropic account, then select your preferred provider for each conversation from the models menu.'
 						) }
 					</p>
-				</div>
-				<div className={ clsx( styles.preferenceControl, styles.toggleControl ) }>
-					<FormToggle
-						checked={ usesAnthropic }
-						disabled={
-							isSaving || isSwitching || ( ! usesAnthropic && ! settings.hasAnthropicApiKey )
-						}
-						aria-label={ __( 'Use your Anthropic API key' ) }
-						onChange={ () => setProvider( usesAnthropic ? 'wpcom' : 'anthropic-api-key' ) }
-					/>
 				</div>
 				<div className={ clsx( styles.apiKeyControls, error && styles.apiKeyControlsError ) }>
 					<TextControl

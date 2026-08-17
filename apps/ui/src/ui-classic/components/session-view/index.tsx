@@ -191,7 +191,7 @@ function SessionFrame( {
 			<ProgressiveBlur direction="down" className={ styles.headerBlur } fadeToSurface />
 			{ composer ? (
 				<>
-					<ProgressiveBlur direction="up" className={ styles.composerBlur } />
+					<ProgressiveBlur direction="up" className={ styles.composerBlur } fadeToSurface />
 					<div
 						ref={ composerRef }
 						className={ clsx( styles.composerOuter, styles.classicComposerOuter ) }

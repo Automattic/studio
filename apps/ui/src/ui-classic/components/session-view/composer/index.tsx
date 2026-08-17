@@ -10,10 +10,25 @@ import {
 	type ComposerAttachmentHoverPreviewState,
 } from '@studio/common/ai/composer-attachment-preview';
 import { watchComposerFilePaste } from '@studio/common/ai/composer-attachments';
-import { AI_MODELS, getAiModelFamily, getAiModelLabel } from '@studio/common/ai/models';
-import { getAiProviderModels } from '@studio/common/ai/providers';
+import {
+	AI_MODELS,
+	getAiModelFamily,
+	getAiModelLabel,
+	getVisibleAiModels,
+} from '@studio/common/ai/models';
+import {
+	AI_PROVIDER_IDS,
+	AI_PROVIDER_LABELS,
+	DEFAULT_AI_PROVIDER,
+	getAiProviderDefaultModel,
+	getAiProviderModels,
+	providerServesModel,
+	resolveSessionProvider,
+	type AiProviderId,
+} from '@studio/common/ai/providers';
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
 import { getAiSkillCommands } from '@studio/common/ai/slash-commands';
+import { isAutomatticianEmail } from '@studio/common/lib/automattician';
 import { useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import {
@@ -32,6 +47,7 @@ import {
 	useEffect,
 	useImperativeHandle,
 	useLayoutEffect,
+	useMemo,
 	useRef,
 	useState,
 	type ChangeEvent,
@@ -43,6 +59,7 @@ import { createPortal } from 'react-dom';
 import * as Menu from '@/components/menu';
 import { useConnector } from '@/data/core';
 import { useAiSettings } from '@/data/queries/use-ai-settings';
+import { useAuthUser } from '@/data/queries/use-auth-user';
 import {
 	primeSessionQueryData,
 	reconcilePrimedSessionQueryData,
@@ -179,6 +196,25 @@ function createModelChangeEntry( modelId: AiModelId ): SessionEntry {
 	} as unknown as SessionEntry;
 }
 
+// Optimistic mirror of the `studio.session_context` entry the backend appends
+// for a provider switch, so the pill updates before the write lands.
+function createSessionContextEntry( provider: AiProviderId, model: AiModelId ): SessionEntry {
+	return {
+		type: 'custom',
+		id: Math.random().toString( 36 ).slice( 2, 10 ),
+		parentId: null,
+		timestamp: new Date().toISOString(),
+		customType: 'studio.session_context',
+		data: { provider, model },
+	} as unknown as SessionEntry;
+}
+
+// Brand names, so no translation and no per-render rebuild.
+const AI_PROVIDER_OPTIONS = AI_PROVIDER_IDS.map( ( id ) => ( {
+	id,
+	label: AI_PROVIDER_LABELS[ id ],
+} ) );
+
 /**
  * Invisible structural placeholder that mirrors Composer's outer DOM (shell +
  * textarea + toolbar) so the loading state can reserve the exact same vertical
@@ -314,11 +350,26 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 
-	// Only offer models the active AI provider can serve (a saved Anthropic API
-	// key restricts the picker to Anthropic models). Hosts without AI settings
-	// (capabilities.aiSettings false) keep the full list.
+	// The conversation's provider: its own pinned choice first, then the saved
+	// global selection. Without a saved Anthropic key the pin is unusable, so
+	// WordPress.com wins regardless — the CLI applies the same rule on resume.
 	const { data: aiSettings } = useAiSettings();
-	const availableModels = aiSettings ? getAiProviderModels( aiSettings.provider ) : AI_MODELS;
+	const pinnedProvider = useMemo( () => resolveSessionProvider( entries ?? [] ), [ entries ] );
+	const sessionProvider = aiSettings?.hasAnthropicApiKey
+		? pinnedProvider ?? aiSettings.provider
+		: DEFAULT_AI_PROVIDER;
+	const canPickProvider = Boolean( aiSettings?.hasAnthropicApiKey && sessionId );
+
+	// Only offer models the conversation's provider can serve. Hosts without AI
+	// settings (capabilities.aiSettings false) keep the full list.
+	const availableModels = aiSettings ? getAiProviderModels( sessionProvider ) : AI_MODELS;
+	const { data: authUser } = useAuthUser();
+	const visibleModelIds = new Set(
+		getVisibleAiModels( isAutomatticianEmail( authUser?.email ), model ).map(
+			( entry ) => entry.id
+		)
+	);
+	const offeredModels = availableModels.filter( ( entry ) => visibleModelIds.has( entry.id ) );
 
 	const slash = useSlashCommands( {
 		value,
@@ -548,29 +599,50 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		[ addFiles ]
 	);
 
-	// Same-family swap: optimistic `model_change` entry; refetch on write fail.
-	const applySameFamilyModel = useCallback(
-		( picked: AiModelId ) => {
+	// Show the entry right away, then write it; refetch on write fail so the
+	// transcript falls back to what actually landed.
+	const appendEntryOptimistically = useCallback(
+		( entry: SessionEntry, write: ( id: string ) => Promise< void > ) => {
 			if ( ! sessionId ) {
 				return;
 			}
-			queryClient.setQueryData< LoadedAiSession >(
-				[ ...SESSIONS_QUERY_KEY, sessionId ],
-				( prev ) =>
-					prev
-						? {
-								...prev,
-								entries: [ ...( prev.entries ?? [] ), createModelChangeEntry( picked ) ],
-						  }
-						: prev
+			const queryKey = [ ...SESSIONS_QUERY_KEY, sessionId ];
+			queryClient.setQueryData< LoadedAiSession >( queryKey, ( prev ) =>
+				prev ? { ...prev, entries: [ ...( prev.entries ?? [] ), entry ] } : prev
 			);
-			void connector.setSessionModel( sessionId, picked ).catch( () => {
-				void queryClient.invalidateQueries( {
-					queryKey: [ ...SESSIONS_QUERY_KEY, sessionId ],
-				} );
+			void write( sessionId ).catch( () => {
+				void queryClient.invalidateQueries( { queryKey } );
 			} );
 		},
-		[ connector, queryClient, sessionId ]
+		[ queryClient, sessionId ]
+	);
+
+	// Same-family swap: optimistic `model_change` entry.
+	const applySameFamilyModel = useCallback(
+		( picked: AiModelId ) => {
+			appendEntryOptimistically( createModelChangeEntry( picked ), ( id ) =>
+				connector.setSessionModel( id, picked )
+			);
+		},
+		[ appendEntryOptimistically, connector ]
+	);
+
+	// Pin this conversation to a provider. If it can't serve the current model,
+	// its default model rides along in the same entry, so the model section
+	// re-filters via `resolveSessionModel`.
+	const handleProviderChange = useCallback(
+		( picked: AiProviderId ) => {
+			if ( picked === sessionProvider ) {
+				return;
+			}
+			const nextModel = providerServesModel( picked, model )
+				? model
+				: getAiProviderDefaultModel( picked );
+			appendEntryOptimistically( createSessionContextEntry( picked, nextModel ), ( id ) =>
+				connector.setSessionProvider( id, picked, nextModel )
+			);
+		},
+		[ appendEntryOptimistically, connector, model, sessionProvider ]
 	);
 
 	const handleModelChange = useCallback(
@@ -986,7 +1058,17 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 													/>
 												}
 											>
-												<span>{ getAiModelLabel( model ) }</span>
+												<span>
+													{ sessionProvider === 'anthropic-api-key' ? (
+														<>
+															<strong className={ styles.pillProviderPrefix }>
+																{ __( 'API' ) }
+															</strong>
+															{ ' · ' }
+														</>
+													) : null }
+													{ getAiModelLabel( model ) }
+												</span>
 												<Icon icon={ chevronDownSmall } size={ 16 } />
 											</Tooltip.Trigger>
 										}
@@ -996,11 +1078,26 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 									</Tooltip.Popup>
 								</Tooltip.Root>
 								<Menu.Popup side="top" align="end">
+									{ canPickProvider ? (
+										<>
+											<Menu.RadioGroup
+												value={ sessionProvider }
+												onValueChange={ ( value ) => handleProviderChange( value as AiProviderId ) }
+											>
+												{ AI_PROVIDER_OPTIONS.map( ( { id, label } ) => (
+													<Menu.RadioItem key={ id } value={ id }>
+														{ label }
+													</Menu.RadioItem>
+												) ) }
+											</Menu.RadioGroup>
+											<Menu.Separator />
+										</>
+									) : null }
 									<Menu.RadioGroup
 										value={ model }
 										onValueChange={ ( value ) => handleModelChange( value as AiModelId ) }
 									>
-										{ availableModels.map( ( { id, label } ) => (
+										{ offeredModels.map( ( { id, label } ) => (
 											<Menu.RadioItem key={ id } value={ id }>
 												{ label }
 											</Menu.RadioItem>

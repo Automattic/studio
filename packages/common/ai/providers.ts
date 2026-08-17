@@ -21,11 +21,11 @@ export const AI_PROVIDER_LABELS: Record< AiProviderId, string > = {
 	'anthropic-api-key': 'Anthropic API',
 };
 
-// Which model families each provider can service. `wpcom` relays both
-// Anthropic and OpenAI wire formats through the same proxy; direct-API
-// providers are restricted to their own family.
+// Which model families each provider can service. `wpcom` relays the
+// Anthropic, OpenAI, and hosted wire formats through the same proxy;
+// direct-API providers are restricted to their own family.
 const PROVIDER_MODEL_FAMILIES: Record< AiProviderId, readonly AiModelFamily[] > = {
-	wpcom: [ 'anthropic', 'openai' ],
+	wpcom: [ 'anthropic', 'openai', 'hosted' ],
 	'anthropic-api-key': [ 'anthropic' ],
 };
 

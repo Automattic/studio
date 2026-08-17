@@ -136,6 +136,9 @@ export function buildViewMenuItems( {
 	devTools,
 	onToggleSidebar,
 	onToggleSitePreview,
+	onResetZoom,
+	onZoomIn,
+	onZoomOut,
 }: {
 	needsOnboarding: boolean;
 	isDevelopment: boolean;
@@ -143,6 +146,9 @@ export function buildViewMenuItems( {
 	devTools: MenuItemConstructorOptions[];
 	onToggleSidebar: () => void;
 	onToggleSitePreview: () => void;
+	onResetZoom: () => void;
+	onZoomIn: () => void;
+	onZoomOut: () => void;
 } ): MenuItemConstructorOptions[] {
 	return [
 		{
@@ -164,15 +170,18 @@ export function buildViewMenuItems( {
 		...( isDevelopment ? devTools : [] ),
 		{
 			label: __( 'Actual Size' ),
-			role: 'resetZoom',
+			accelerator: 'CommandOrControl+0',
+			click: onResetZoom,
 		},
 		{
 			label: __( 'Zoom In' ),
-			role: 'zoomIn',
+			accelerator: 'CommandOrControl+Plus',
+			click: onZoomIn,
 		},
 		{
 			label: __( 'Zoom Out' ),
-			role: 'zoomOut',
+			accelerator: 'CommandOrControl+-',
+			click: onZoomOut,
 		},
 		{ type: 'separator' },
 		{
@@ -420,6 +429,19 @@ async function getAppMenu(
 				},
 				onToggleSitePreview: () => {
 					void sendIpcEventToRenderer( 'toggle-site-preview' );
+				},
+				onResetZoom: () => {
+					void withAppWebContents( ( contents ) => contents.setZoomLevel( 0 ) );
+				},
+				onZoomIn: () => {
+					void withAppWebContents( ( contents ) =>
+						contents.setZoomLevel( contents.getZoomLevel() + 0.5 )
+					);
+				},
+				onZoomOut: () => {
+					void withAppWebContents( ( contents ) =>
+						contents.setZoomLevel( contents.getZoomLevel() - 0.5 )
+					);
 				},
 			} ),
 		},

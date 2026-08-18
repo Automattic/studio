@@ -826,6 +826,8 @@
 .usageDisabled .settingsPanelHeader h2,
 .usageDisabled .settingsPanelHeader p,
 .usageDisabled .usageSectionHeader h2,
+.usageDisabled .usageMeta,
+.usageDisabled .gaugeValue,
 .usageDisabled .previewUsageText,
 .usageDisabled .usageSection p {
 	color: var( --wpds-color-fg-interactive-neutral-disabled );
@@ -883,6 +885,21 @@
 	line-height: var( --wpds-typography-line-height-sm );
 }
 
+.usageSectionHeaderEnd {
+	display: flex;
+	align-items: center;
+	gap: var( --wpds-dimension-padding-sm );
+	min-width: 0;
+}
+
+.usageMeta,
+.gaugeValue {
+	color: var( --wpds-color-fg-content-neutral-weak );
+	font-size: var( --wpds-typography-font-size-sm );
+	line-height: var( --wpds-typography-line-height-sm );
+	white-space: nowrap;
+}
+
 .usageSection p {
 	margin: 0;
 	color: var( --wpds-color-fg-content-neutral-weak );
@@ -904,14 +921,21 @@
 	background: var( --wpds-color-stroke-surface-neutral );
 }
 
+.gauge {
+	display: flex;
+	align-items: center;
+	gap: var( --wpds-dimension-padding-md );
+}
+
+.gauge .progressTrack {
+	flex: 1;
+	min-width: 0;
+}
+
 .progressValue {
 	block-size: 100%;
 	border-radius: inherit;
 	background: var( --wpds-color-fg-interactive-brand );
-}
-
-.previewActionsButton {
-	flex-shrink: 0;
 }
 
 .usageSectionAction {

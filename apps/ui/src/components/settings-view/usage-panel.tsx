@@ -1,16 +1,14 @@
 import {
 	clampQuotaFraction,
 	formatQuotaPercentage,
-	formatQuotaResetDate,
+	formatQuotaResetDateShort,
 	getStudioCodeAiAccessState,
 } from '@studio/common/lib/studio-assistant-quota';
-import { __, _n, sprintf } from '@wordpress/i18n';
-import { moreHorizontal } from '@wordpress/icons';
-import { IconButton } from '@wordpress/ui';
+import { __, sprintf } from '@wordpress/i18n';
+import { Button } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { SigninNotice } from '@/components/agentic-signin-banner';
 import { AiAccessRequiredNotice, AiBlockedNotice } from '@/components/ai-access-required-notice';
-import * as Menu from '@/components/menu';
 import { OfflineNotice } from '@/components/offline-banner';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
@@ -23,27 +21,61 @@ import {
 } from '@/data/queries/use-snapshots';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import styles from './style.module.css';
+import type { ReactNode } from 'react';
 
 const DEFAULT_PREVIEW_SITE_LIMIT = 10;
 
 // Stands in for a figure we can't read: a hatched bar fills the row the real
 // meter would occupy, so the section reads as disabled, not empty.
-function UnavailableSection( { title }: { title: string } ) {
+function UnavailableBar() {
+	return <div className={ styles.unavailableBar } role="img" aria-label={ __( 'Unavailable' ) } />;
+}
+
+function Gauge( { fraction, value }: { fraction: number; value?: string } ) {
+	const percentage = Math.min( 100, Math.max( 0, fraction * 100 ) );
+
+	return (
+		<div className={ styles.gauge }>
+			<div className={ styles.progressTrack } data-testid="usage-progress-bar" aria-hidden="true">
+				<div className={ styles.progressValue } style={ { inlineSize: `${ percentage }%` } } />
+			</div>
+			{ value !== undefined ? <span className={ styles.gaugeValue }>{ value }</span> : null }
+		</div>
+	);
+}
+
+function UsageSection( {
+	title,
+	meta,
+	action,
+	children,
+}: {
+	title: string;
+	meta?: string;
+	action?: ReactNode;
+	children: ReactNode;
+} ) {
 	return (
 		<section className={ styles.usageSection }>
 			<div className={ styles.usageSectionHeader }>
 				<h2>{ title }</h2>
+				{ meta || action ? (
+					<div className={ styles.usageSectionHeaderEnd }>
+						{ meta ? <span className={ styles.usageMeta }>{ meta }</span> : null }
+						{ action }
+					</div>
+				) : null }
 			</div>
-			<div className={ styles.unavailableBar } role="img" aria-label={ __( 'Unavailable' ) } />
+			{ children }
 		</section>
 	);
 }
 
-function UsageProgressBar( { fraction }: { fraction: number } ) {
+function UnavailableSection( { title }: { title: string } ) {
 	return (
-		<div className={ styles.progressTrack } data-testid="usage-progress-bar" aria-hidden="true">
-			<div className={ styles.progressValue } style={ { inlineSize: `${ fraction * 100 }%` } } />
-		</div>
+		<UsageSection title={ title }>
+			<UnavailableBar />
+		</UsageSection>
 	);
 }
 
@@ -52,67 +84,64 @@ function AiCreditsSummary() {
 	const { data: quota, isLoading, isError } = useStudioAssistantQuota();
 	const accessState = quota ? getStudioCodeAiAccessState( quota ) : 'available';
 
-	let content;
 	if ( isLoading ) {
-		content = (
-			<>
-				<div className={ styles.previewUsageText }>{ __( 'Loading…' ) }</div>
-				<UsageProgressBar fraction={ 0 } />
-			</>
+		return (
+			<UsageSection title={ __( 'AI credits' ) }>
+				<Gauge fraction={ 0 } value={ __( 'Loading…' ) } />
+			</UsageSection>
 		);
-	} else if ( isError ) {
-		content = (
-			<div className={ styles.previewUsageText }>
-				{ __( 'Studio Code limits are temporarily unavailable.' ) }
-			</div>
-		);
-	} else if ( accessState !== 'available' ) {
-		content = (
-			<div className={ styles.previewUsageText }>
-				{ accessState === 'blocked' ? (
-					<AiBlockedNotice />
-				) : (
-					<AiAccessRequiredNotice quota={ quota } />
-				) }
-			</div>
-		);
-	} else if ( quota && quota.costCap > 0 ) {
-		const fraction = clampQuotaFraction( quota.costUsage, quota.costCap );
-		content = (
-			<>
-				<div className={ styles.previewUsageText }>
-					{ sprintf(
-						/* translators: %1$s: percentage of monthly limit used (e.g. 7.5%). %2$s: date the limit resets (e.g. July 1, 2026). */
-						__( '%1$s of monthly limit used (resets on %2$s)' ),
-						formatQuotaPercentage( fraction, locale ),
-						formatQuotaResetDate( quota.costResetDate, locale )
-					) }
-				</div>
-				<UsageProgressBar fraction={ fraction } />
-			</>
-		);
-	} else {
-		content = (
-			<>
-				<p>
-					{ __(
-						'AI credits are currently free while Studio Code is in Alpha. Build, iterate, and experiment, but know that credits will eventually have a cost.'
-					) }
+	}
+
+	if ( isError ) {
+		return (
+			<UsageSection title={ __( 'AI credits' ) }>
+				<p className={ styles.previewUsageText }>
+					{ __( 'Studio Code limits are temporarily unavailable.' ) }
 				</p>
-				<div className={ clsx( styles.progressTrack, styles.aiCreditsTrack ) } aria-hidden="true">
-					<div className={ styles.aiCreditsMeterValue } />
+			</UsageSection>
+		);
+	}
+
+	if ( accessState !== 'available' ) {
+		return (
+			<UsageSection title={ __( 'AI credits' ) }>
+				<div className={ styles.previewUsageText }>
+					{ accessState === 'blocked' ? (
+						<AiBlockedNotice />
+					) : (
+						<AiAccessRequiredNotice quota={ quota } />
+					) }
 				</div>
-			</>
+			</UsageSection>
+		);
+	}
+
+	if ( quota && quota.costCap > 0 ) {
+		const fraction = clampQuotaFraction( quota.costUsage, quota.costCap );
+		const wholePercent = Math.ceil( Number( ( fraction * 100 ).toFixed( 4 ) ) );
+		return (
+			<UsageSection
+				title={ __( 'AI credits' ) }
+				meta={ sprintf(
+					/* translators: %s: date the monthly limit resets (e.g. Aug 1). */
+					__( 'Resets %s' ),
+					formatQuotaResetDateShort( quota.costResetDate, locale )
+				) }
+			>
+				<Gauge
+					fraction={ fraction }
+					value={ formatQuotaPercentage( wholePercent / 100, locale ) }
+				/>
+			</UsageSection>
 		);
 	}
 
 	return (
-		<section className={ styles.usageSection }>
-			<div className={ styles.usageSectionHeader }>
-				<h2>{ __( 'AI credits' ) }</h2>
+		<UsageSection title={ __( 'AI credits' ) } meta={ __( 'Free during Alpha' ) }>
+			<div className={ clsx( styles.progressTrack, styles.aiCreditsTrack ) } aria-hidden="true">
+				<div className={ styles.aiCreditsMeterValue } />
 			</div>
-			{ content }
-		</section>
+		</UsageSection>
 	);
 }
 
@@ -129,10 +158,6 @@ function PreviewSitesSummary( { userId }: { userId: number } ) {
 	// Empty while loading: a bar still filled from the previous figure would
 	// contradict the "Loading…" row next to it.
 	const fraction = isLoadingPreviewUsage ? 0 : clampQuotaFraction( siteCount, siteLimit );
-	const deletePreviewSitesLabel = deleteAllSnapshots.isPending
-		? __( 'Deleting all preview sites…' )
-		: __( 'Delete all preview sites' );
-
 	const handleDelete = async () => {
 		if ( isDisabled ) {
 			return;
@@ -143,62 +168,51 @@ function PreviewSitesSummary( { userId }: { userId: number } ) {
 		}
 	};
 
-	return (
-		<section className={ styles.usageSection }>
-			<div className={ styles.usageSectionHeader }>
-				<h2>{ __( 'Preview sites' ) }</h2>
-				{ ! snapshotCreationBlocked ? (
-					<Menu.Root modal={ false }>
-						<Menu.Trigger
-							render={
-								<IconButton
-									variant="minimal"
-									tone="neutral"
-									size="small"
-									icon={ moreHorizontal }
-									label={ __( 'Preview site actions' ) }
-									className={ styles.previewActionsButton }
-									disabled={ isDisabled }
-								/>
-							}
-						/>
-						<Menu.Popup side="bottom" align="end">
-							<Menu.Item destructive disabled={ isDisabled } onClick={ () => void handleDelete() }>
-								{ deletePreviewSitesLabel }
-							</Menu.Item>
-						</Menu.Popup>
-					</Menu.Root>
-				) : null }
-			</div>
-			{ snapshotCreationBlocked ? (
-				<div className={ styles.previewUsageText }>
+	if ( snapshotCreationBlocked ) {
+		return (
+			<UsageSection title={ __( 'Preview sites' ) }>
+				<p className={ styles.previewUsageText }>
 					{ __( 'Preview sites are not available for your account.' ) }
-				</div>
-			) : (
-				<>
-					<div className={ styles.previewUsageText }>
-						{ isLoadingPreviewUsage
-							? __( 'Loading…' )
-							: sprintf(
-									/* translators: 1: number of active preview sites, 2: maximum allowed */
-									_n(
-										'%1$d of %2$d active preview site',
-										'%1$d of %2$d active preview sites',
-										siteCount
-									),
-									siteCount,
-									siteLimit
-							  ) }
-					</div>
-					<UsageProgressBar fraction={ fraction } />
-				</>
-			) }
+				</p>
+			</UsageSection>
+		);
+	}
+
+	const value = isLoadingPreviewUsage
+		? __( 'Loading…' )
+		: sprintf(
+				/* translators: 1: number of active preview sites, 2: maximum allowed. */
+				__( '%1$d/%2$d' ),
+				siteCount,
+				siteLimit
+		  );
+
+	return (
+		<UsageSection
+			title={ __( 'Preview sites' ) }
+			action={
+				<Button
+					type="button"
+					variant="minimal"
+					tone="neutral"
+					size="small"
+					aria-label={ __( 'Delete all preview sites' ) }
+					disabled={ isDisabled }
+					loading={ deleteAllSnapshots.isPending }
+					loadingAnnouncement={ __( 'Deleting all preview sites…' ) }
+					onClick={ () => void handleDelete() }
+				>
+					{ __( 'Reset' ) }
+				</Button>
+			}
+		>
+			<Gauge fraction={ fraction } value={ value } />
 			{ deleteAllSnapshots.error ? (
 				<div className={ styles.errorMessage }>
 					{ __( 'An error occurred while deleting all preview sites. Please try again.' ) }
 				</div>
 			) : null }
-		</section>
+		</UsageSection>
 	);
 }
 

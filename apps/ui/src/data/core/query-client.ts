@@ -36,7 +36,7 @@ const maxAge = 1000 * 60 * 60 * 24; // 24 hours
 const [ , persistPromise ] = persistQueryClient( {
 	queryClient,
 	persister,
-	buster: '4', // Bump when query data shape changes.
+	buster: '5', // Bump when query data shape or persistence policy changes.
 	maxAge,
 	dehydrateOptions: {
 		shouldRedactErrors: () => false,

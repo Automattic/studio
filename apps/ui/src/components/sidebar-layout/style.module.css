@@ -160,7 +160,18 @@
 	position: absolute;
 	bottom: calc(52px + var(--app-main-composer-height, 0px));
 	inset-inline-start: var(--wpds-dimension-padding-xl);
-	width: min(320px, calc(100% - 2 * var(--wpds-dimension-padding-xl)));
+	/* The session publishes the actual width of its inline-end controls (change
+	   tracker and scroll-to-latest), so this inline-start shelf never covers them. */
+	width: min(
+		320px,
+		max(
+			0px,
+			calc(
+				100% - 2 * var(--wpds-dimension-padding-xl) -
+					var(--app-main-composer-end-overlay-width, 0px)
+			)
+		)
+	);
 	z-index: 110;
 	pointer-events: auto;
 	-webkit-app-region: no-drag;

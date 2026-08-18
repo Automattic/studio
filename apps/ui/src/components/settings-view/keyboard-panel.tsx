@@ -91,18 +91,24 @@ function ShortcutGroup( { section }: { section: ShortcutSection } ) {
 }
 
 export function KeyboardPanel() {
+	return (
+		<div className={ styles.preferencesPanel }>
+			<KeyboardCard />
+		</div>
+	);
+}
+
+export function KeyboardCard() {
 	const [ generalSection, ...columnSections ] = getShortcutSections( isAppleOS() );
 
 	return (
-		<div className={ styles.preferencesPanel }>
-			<SettingsCard title={ __( 'Keyboard' ) }>
-				<ShortcutGroup section={ generalSection } />
-				<div className={ styles.shortcutColumns }>
-					{ columnSections.map( ( section ) => (
-						<ShortcutGroup key={ section.title } section={ section } />
-					) ) }
-				</div>
-			</SettingsCard>
-		</div>
+		<SettingsCard title={ __( 'Keyboard' ) }>
+			<ShortcutGroup section={ generalSection } />
+			<div className={ styles.shortcutColumns }>
+				{ columnSections.map( ( section ) => (
+					<ShortcutGroup key={ section.title } section={ section } />
+				) ) }
+			</div>
+		</SettingsCard>
 	);
 }

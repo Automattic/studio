@@ -218,39 +218,60 @@ function PreviewSitesSummary( { userId }: { userId: number } ) {
 
 export function UsagePanel() {
 	const { data: user } = useAuthUser();
-	// Same signed-out/offline split the rest of the app banners use. Either way
-	// the figures can't be read or refreshed, so the card goes disabled rather
-	// than presenting a stale number as current.
 	const { reason } = useAgenticFeatures();
-	const unavailable = reason !== null;
 
 	return (
 		<div className={ styles.usagePanel }>
 			{ reason === 'offline' ? <OfflineNotice /> : null }
 			{ reason === 'signed-out' ? <SigninNotice source="settings" /> : null }
-			<section
-				className={ clsx( styles.settingsPanelSection, unavailable && styles.usageDisabled ) }
-			>
-				<div className={ styles.settingsPanelHeader }>
-					<h2>{ __( 'Usage' ) }</h2>
-					<p>{ __( 'Track your preview site usage and Studio Code AI credits.' ) }</p>
-				</div>
-				{ unavailable ? (
-					<>
-						<UnavailableSection title={ __( 'AI credits' ) } />
-						<UnavailableSection title={ __( 'Preview sites' ) } />
-					</>
-				) : (
-					<>
-						<AiCreditsSummary />
-						{ user ? (
-							<PreviewSitesSummary userId={ user.id } />
-						) : (
-							<UnavailableSection title={ __( 'Preview sites' ) } />
-						) }
-					</>
-				) }
-			</section>
+			<UsageSummary userId={ user?.id } showDescription />
 		</div>
+	);
+}
+
+export function UsageSummary( {
+	userId,
+	showDescription = false,
+	unframed = false,
+}: {
+	userId?: number;
+	showDescription?: boolean;
+	unframed?: boolean;
+} ) {
+	// Signed-out and offline figures cannot be refreshed, so the summary uses
+	// placeholders rather than presenting cached usage as current.
+	const { reason } = useAgenticFeatures();
+	const unavailable = reason !== null;
+
+	return (
+		<section
+			className={ clsx(
+				styles.usageSummary,
+				! unframed && styles.card,
+				unavailable && styles.usageDisabled
+			) }
+		>
+			<div className={ styles.settingsPanelHeader }>
+				<h2>{ __( 'Usage' ) }</h2>
+				{ showDescription ? (
+					<p>{ __( 'Track your preview site usage and Studio Code AI credits.' ) }</p>
+				) : null }
+			</div>
+			{ unavailable ? (
+				<>
+					<UnavailableSection title={ __( 'AI credits' ) } />
+					<UnavailableSection title={ __( 'Preview sites' ) } />
+				</>
+			) : (
+				<>
+					<AiCreditsSummary />
+					{ userId ? (
+						<PreviewSitesSummary userId={ userId } />
+					) : (
+						<UnavailableSection title={ __( 'Preview sites' ) } />
+					) }
+				</>
+			) }
+		</section>
 	);
 }

@@ -517,12 +517,14 @@ function SiteSection( {
 	isContextActive,
 	hasUnreadUpdate,
 	chatEnabled,
+	onSiteOpen,
 }: {
 	row: SiteRow;
 	isChatActive: boolean;
 	isContextActive: boolean;
 	hasUnreadUpdate: boolean;
 	chatEnabled: boolean;
+	onSiteOpen?: () => void;
 } ) {
 	const { site, latestSession } = row;
 	const navigate = useNavigate();
@@ -564,6 +566,7 @@ function SiteSection( {
 		? 'new-message'
 		: 'idle';
 	const handleOpenSite = () => {
+		onSiteOpen?.();
 		// Without chat (signed out, offline, or switched off in Settings →
 		// AI) there's no session to open; the overview is the site's home.
 		if ( ! chatEnabled ) {
@@ -645,7 +648,13 @@ function findSessionSiteKey(
 	return rows.find( ( row ) => row.sessionIds.includes( activeSessionId ) )?.site.id;
 }
 
-export function SiteList() {
+export function SiteList( {
+	className,
+	onSiteOpen,
+}: {
+	className?: string;
+	onSiteOpen?: () => void;
+} = {} ) {
 	const { data: sites, isLoading: sitesLoading } = useSites();
 	const { data: sessions, isLoading: sessionsLoading } = useSessions();
 	const { chatEnabled } = useAgenticFeatures();
@@ -747,6 +756,7 @@ export function SiteList() {
 			isContextActive={ row.site.id === activeContextSiteKey }
 			hasUnreadUpdate={ unreadSiteIds.has( row.site.id ) }
 			chatEnabled={ chatEnabled }
+			onSiteOpen={ onSiteOpen }
 		/>
 	);
 
@@ -771,5 +781,5 @@ export function SiteList() {
 		);
 	}
 
-	return <div className={ styles.root }>{ listContent }</div>;
+	return <div className={ clsx( styles.root, className ) }>{ listContent }</div>;
 }

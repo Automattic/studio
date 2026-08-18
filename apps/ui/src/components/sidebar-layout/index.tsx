@@ -1,10 +1,11 @@
 import { __ } from '@wordpress/i18n';
 import { privateApis } from '@wordpress/theme';
-import { IconButton } from '@wordpress/ui';
+import { Button, Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useState } from 'react';
 import { AppMessageCards, AppMessageCardsDot } from '@/components/app-message-cards';
 import { AppToasts } from '@/components/app-toasts';
+import { CollapsedSiteSwitcher } from '@/components/collapsed-site-switcher';
 import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { SidebarHeader } from '@/components/sidebar-header';
 import { SiteList } from '@/components/site-list';
@@ -125,17 +126,22 @@ export function SidebarLayout( {
 								! reserveTrafficLightSpace && styles.floatingToggleFlush
 							) }
 						>
-							<span className={ styles.floatingToggleButton }>
-								<IconButton
-									variant="minimal"
-									tone="neutral"
-									size="small"
-									icon={ drawerIcon }
-									label={ __( 'Show sidebar' ) }
-									onClick={ toggleSidebar }
-								/>
-								<AppMessageCardsDot />
-							</span>
+							<CollapsedSiteSwitcher backgroundColor={ chromeBg }>
+								<span className={ styles.floatingToggleButton }>
+									<Button
+										type="button"
+										variant="minimal"
+										tone="neutral"
+										size="small"
+										className={ styles.floatingToggleControl }
+										aria-label={ __( 'Show sidebar' ) }
+										onClick={ toggleSidebar }
+									>
+										<Icon icon={ drawerIcon } size={ 24 } className={ styles.floatingToggleIcon } />
+									</Button>
+									<AppMessageCardsDot />
+								</span>
+							</CollapsedSiteSwitcher>
 						</div>
 					) : null }
 					{ children }

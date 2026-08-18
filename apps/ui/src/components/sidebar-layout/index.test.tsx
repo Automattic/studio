@@ -13,6 +13,10 @@ vi.mock( '@/components/app-message-cards', () => ( {
 	AppMessageCardsDot: () => null,
 } ) );
 
+vi.mock( '@/components/collapsed-site-switcher', () => ( {
+	CollapsedSiteSwitcher: ( { children }: { children: ReactNode } ) => children,
+} ) );
+
 vi.mock( '@/components/studio-beta-menu', () => ( {
 	StudioBetaMenu: () => null,
 } ) );

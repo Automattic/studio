@@ -142,6 +142,16 @@
 	display: inline-flex;
 }
 
+.floatingToggleControl {
+	--wp-ui-button-aspect-ratio: 1;
+	--wp-ui-button-padding-inline: 0;
+	--wp-ui-button-min-width: unset;
+}
+
+.floatingToggleIcon {
+	margin: -1px;
+}
+
 /* The drawer icon depicts the sidebar edge; mirror it when the sidebar sits
    on the right. */
 .floatingToggleButton:dir(rtl) svg {

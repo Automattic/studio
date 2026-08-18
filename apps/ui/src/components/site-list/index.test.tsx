@@ -441,6 +441,7 @@ describe( 'SiteList', () => {
 	} );
 
 	it( 'opens the latest active chat when a site is clicked', () => {
+		const onSiteOpen = vi.fn();
 		useSessionsMock.mockReturnValue( {
 			data: [
 				createSession( {
@@ -459,7 +460,7 @@ describe( 'SiteList', () => {
 			isLoading: false,
 		} );
 
-		render( <SiteList /> );
+		render( <SiteList onSiteOpen={ onSiteOpen } /> );
 
 		expect( screen.queryByText( 'Latest visible chat' ) ).not.toBeInTheDocument();
 
@@ -472,6 +473,7 @@ describe( 'SiteList', () => {
 			to: '/sessions/$sessionId',
 			params: { sessionId: 'latest-chat' },
 		} );
+		expect( onSiteOpen ).toHaveBeenCalledTimes( 1 );
 	} );
 
 	it( 'keeps the site list order instead of sorting by recent chat activity', () => {

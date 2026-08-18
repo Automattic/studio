@@ -1,0 +1,75 @@
+.root {
+	position: relative;
+	display: inline-flex;
+}
+
+.trigger {
+	display: inline-flex;
+}
+
+.popup {
+	position: absolute;
+	inset-block-end: 100%;
+	inset-inline-start: 0;
+	box-sizing: border-box;
+	width: 272px;
+	max-width: calc(100vw - 2 * var(--wpds-dimension-padding-xl));
+	opacity: 0;
+	visibility: hidden;
+	pointer-events: none;
+	transform: translateY(4px);
+	transition:
+		opacity 100ms ease,
+		transform 100ms ease,
+		visibility 0s linear 120ms;
+	-webkit-app-region: no-drag;
+}
+
+.root.hoverOpen .popup {
+	opacity: 1;
+	visibility: visible;
+	pointer-events: auto;
+	transform: translateY(0);
+	transition-delay: 180ms;
+}
+
+.root:focus-within .popup {
+	opacity: 1;
+	visibility: visible;
+	pointer-events: auto;
+	transform: translateY(0);
+	transition-delay: 0ms;
+}
+
+.root.dismissed .popup {
+	opacity: 0;
+	visibility: hidden;
+	pointer-events: none;
+	transform: translateY(4px);
+	transition-delay: 0ms;
+}
+
+.popupThemeScope {
+	--sidebar-row-background: var(--wpds-color-bg-interactive-neutral-weak-active);
+
+	display: block;
+	box-sizing: border-box;
+	min-height: 100%;
+	max-height: min(236px, calc(100vh - 80px));
+	overflow-y: auto;
+	padding-block: var(--wpds-dimension-padding-sm);
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral-weak);
+	border-radius: var(--wpds-border-radius-lg);
+	box-shadow: var(--wpds-elevation-md);
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.siteList {
+	padding-block-end: var(--wpds-dimension-padding-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.popup {
+		transition: none;
+	}
+}

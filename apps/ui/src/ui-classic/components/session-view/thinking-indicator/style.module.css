@@ -43,6 +43,52 @@
 	font-variant-numeric: tabular-nums;
 }
 
+.elapsedContent,
+.timePart,
+.digits {
+	display: inline-flex;
+	align-items: baseline;
+}
+
+.elapsedContent {
+	gap: 4px;
+}
+
+.timePart {
+	gap: 1px;
+	white-space: nowrap;
+}
+
+.digit {
+	position: relative;
+	display: inline-grid;
+	place-items: center;
+	width: 0.62em;
+	height: 1.25em;
+	overflow: hidden;
+	vertical-align: -0.19em;
+}
+
+.digit > span,
+.digitTransition > span {
+	grid-area: 1 / 1;
+	width: 100%;
+	text-align: center;
+}
+
+.digitTransition {
+	display: grid;
+	place-items: center;
+}
+
+.digitOutgoing {
+	animation: digit-out 250ms cubic-bezier(0.2, 0.75, 0.2, 1) forwards;
+}
+
+.digitIncoming {
+	animation: digit-in 250ms cubic-bezier(0.2, 0.75, 0.2, 1) forwards;
+}
+
 .progress {
 	padding-left: calc(18px + var(--wpds-dimension-padding-xs));
 	color: var(--wpds-color-fg-content-neutral-weak);
@@ -61,5 +107,34 @@
 	50% {
 		opacity: 1;
 		transform: scale(1);
+	}
+}
+
+@keyframes digit-out {
+	from {
+		opacity: 1;
+		transform: translateY(0);
+	}
+	to {
+		opacity: 0;
+		transform: translateY(-112%);
+	}
+}
+
+@keyframes digit-in {
+	from {
+		opacity: 0;
+		transform: translateY(112%);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.digitOutgoing,
+	.digitIncoming {
+		animation-duration: 0.01ms;
 	}
 }

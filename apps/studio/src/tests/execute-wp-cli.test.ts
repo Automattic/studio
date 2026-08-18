@@ -4,6 +4,7 @@ import { vi } from 'vitest';
 // Mock executeCliCommand before importing SiteServer
 vi.mock( 'src/modules/cli/lib/execute-command', () => ( {
 	executeCliCommand: vi.fn().mockReturnValue( [ new EventEmitter(), { kill: vi.fn() } ] ),
+	getTracksOriginEnv: vi.fn( () => 'studio-ui:v1' ),
 } ) );
 vi.mock( 'src/constants', () => ( {
 	WP_CLI_DEFAULT_RESPONSE_TIMEOUT: 100, // Short timeout for tests

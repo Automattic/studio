@@ -90,7 +90,7 @@ export function AgenticUiBanner( { onDismiss }: AgenticUiBannerProps ) {
 					</p>
 					<Button
 						variant="primary"
-						onClick={ () => getIpcApi().enableAgenticUi() }
+						onClick={ () => getIpcApi().enableAgenticUi( 'banner' ) }
 						className="mt-4 justify-center w-full pointer-events-auto"
 					>
 						{ __( 'Try it' ) }

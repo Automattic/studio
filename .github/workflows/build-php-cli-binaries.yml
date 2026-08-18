@@ -15,7 +15,7 @@ on:
       xdebug_version:
         description: Xdebug version to package
         required: true
-        default: 3.5.1
+        default: 3.5.3
       spc_ref:
         # Pinned to PR #1204, which enables SQLITE_ENABLE_COLUMN_METADATA on
         # Unix builds so PDO populates getColumnMeta()['table'] (fixes
@@ -607,6 +607,18 @@ jobs:
         uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
         with:
           bundler-cache: true
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install dependencies
+        # The metadata script and the formatting it runs afterwards need the repo's dev dependencies.
+        # `--ignore-scripts` skips the postinstall downloads (WordPress files, PHP binaries), which
+        # this job never uses.
+        run: npm ci --ignore-scripts
 
       - name: Download PHP CLI artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8

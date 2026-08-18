@@ -50,7 +50,15 @@ export function AppToasts( {
 								onMouseEnter={ () => pauseToastExpiry( item.id ) }
 								onMouseLeave={ () => resumeToastExpiry( item.id ) }
 							>
-								<Notice.Root intent={ item.intent } className={ styles.notice }>
+								{ /* Keyed on the notice's shape, not just its id: a toast that is
+							     replaced in place — a running sync becoming its result —
+							     can gain or lose a description, and reusing the same Notice
+							     across that change misaligns its internal hooks. */ }
+								<Notice.Root
+									key={ `${ item.intent }:${ !! item.description }:${ !! item.action }` }
+									intent={ item.intent }
+									className={ styles.notice }
+								>
 									<Notice.Title>{ item.title }</Notice.Title>
 									{ item.description ? (
 										<Notice.Description>{ item.description }</Notice.Description>

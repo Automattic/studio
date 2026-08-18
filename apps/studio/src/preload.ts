@@ -170,6 +170,8 @@ const api: IpcApi = {
 	readLocalMediaFile: ( path ) => ipcRendererInvoke( 'readLocalMediaFile', path ),
 	setWebviewViewport: ( webContentsId, viewport ) =>
 		ipcRendererInvoke( 'setWebviewViewport', webContentsId, viewport ),
+	setWebviewColorScheme: ( webContentsId, colorScheme ) =>
+		ipcRendererInvoke( 'setWebviewColorScheme', webContentsId, colorScheme ),
 	clearWebviewCache: ( webContentsId ) => ipcRendererInvoke( 'clearWebviewCache', webContentsId ),
 	isFullscreen: () => ipcRendererInvoke( 'isFullscreen' ),
 	getAllCustomDomains: () => ipcRendererInvoke( 'getAllCustomDomains' ),

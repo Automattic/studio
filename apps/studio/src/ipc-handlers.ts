@@ -2685,6 +2685,22 @@ export async function setWebviewViewport(
 	} );
 }
 
+export async function setWebviewColorScheme(
+	event: IpcMainInvokeEvent,
+	webContentsId: number,
+	colorScheme: 'system' | 'light' | 'dark'
+): Promise< void > {
+	const target = getOwnedWebviewContents( event, webContentsId );
+	if ( colorScheme !== 'system' && colorScheme !== 'light' && colorScheme !== 'dark' ) {
+		throw new Error( 'Unsupported webview color scheme.' );
+	}
+	attachDebuggerIfNeeded( target );
+	await sendDebuggerCommand( target, 'Emulation.setEmulatedMedia', {
+		features:
+			colorScheme === 'system' ? [] : [ { name: 'prefers-color-scheme', value: colorScheme } ],
+	} );
+}
+
 export async function clearWebviewCache(
 	event: IpcMainInvokeEvent,
 	webContentsId: number

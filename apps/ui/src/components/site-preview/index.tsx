@@ -177,6 +177,7 @@ const DESKTOP_PRESET = VIEWPORT_PRESETS[ 2 ];
 // The phone frame's orientation, shared by the mobile preset and the split
 // view. Landscape rotates the frame a quarter turn (844×390).
 type MobileOrientation = 'portrait' | 'landscape';
+type PreviewColorScheme = 'system' | 'light' | 'dark';
 
 const MOBILE_PRESET_LANDSCAPE: ViewportPreset = {
 	...MOBILE_PRESET,
@@ -245,6 +246,10 @@ interface PreviewWindow extends Window {
 			webContentsId: number,
 			viewport: PreviewViewport | null
 		) => Promise< void >;
+		setWebviewColorScheme?: (
+			webContentsId: number,
+			colorScheme: PreviewColorScheme
+		) => Promise< void >;
 		clearWebviewCache?: ( webContentsId: number ) => Promise< void >;
 	};
 }
@@ -305,6 +310,14 @@ async function applyWebviewViewport(
 ): Promise< void > {
 	const { ipcApi } = window as PreviewWindow;
 	await ipcApi?.setWebviewViewport?.( getWebviewContentsId( webview ), viewport );
+}
+
+async function applyWebviewColorScheme(
+	webview: WebviewTag,
+	colorScheme: PreviewColorScheme
+): Promise< void > {
+	const { ipcApi } = window as PreviewWindow;
+	await ipcApi?.setWebviewColorScheme?.( getWebviewContentsId( webview ), colorScheme );
 }
 
 const EMPTY_BROWSER_STATE: BrowserNavigationState = {
@@ -462,6 +475,8 @@ function PreviewOverflowMenu( {
 	onViewportModeChange,
 	mobileOrientation,
 	onMobileOrientationChange,
+	colorScheme,
+	onColorSchemeChange,
 	fullscreen,
 	onFullscreenChange,
 }: {
@@ -469,6 +484,8 @@ function PreviewOverflowMenu( {
 	onViewportModeChange: ( mode: ViewportMode ) => void;
 	mobileOrientation: MobileOrientation;
 	onMobileOrientationChange: ( orientation: MobileOrientation ) => void;
+	colorScheme: PreviewColorScheme;
+	onColorSchemeChange: ( colorScheme: PreviewColorScheme ) => void;
 	fullscreen: boolean;
 	onFullscreenChange?: ( value: boolean ) => void;
 } ) {
@@ -536,6 +553,18 @@ function PreviewOverflowMenu( {
 						</Menu.Group>
 					</>
 				) : null }
+				<Menu.Separator />
+				<Menu.Group>
+					<Menu.GroupLabel>{ __( 'Appearance' ) }</Menu.GroupLabel>
+					<Menu.RadioGroup
+						value={ colorScheme }
+						onValueChange={ ( next ) => onColorSchemeChange( next as PreviewColorScheme ) }
+					>
+						<Menu.RadioItem value="system">{ __( 'System' ) }</Menu.RadioItem>
+						<Menu.RadioItem value="light">{ __( 'Light' ) }</Menu.RadioItem>
+						<Menu.RadioItem value="dark">{ __( 'Dark' ) }</Menu.RadioItem>
+					</Menu.RadioGroup>
+				</Menu.Group>
 				{ onFullscreenChange ? (
 					<>
 						<Menu.Separator />
@@ -715,6 +744,7 @@ export function SitePreview( {
 	// Orientation of the phone frame, wherever it shows (mobile preset and
 	// the split view's phone pane).
 	const [ mobileOrientation, setMobileOrientation ] = useState< MobileOrientation >( 'portrait' );
+	const [ colorScheme, setColorScheme ] = useState< PreviewColorScheme >( 'system' );
 	const [ paneSize, setPaneSize ] = useState< { width: number; height: number } | null >( null );
 	const rootRef = useRef< HTMLElement | null >( null );
 	const paneRef = useRef< HTMLDivElement | null >( null );
@@ -787,6 +817,7 @@ export function SitePreview( {
 					transformOrigin: 'top left',
 			  }
 			: undefined;
+	const iframeColorSchemeStyle: CSSProperties = colorScheme === 'system' ? {} : { colorScheme };
 
 	const handlePreviewNavigation = useCallback(
 		( url: string ) => {
@@ -871,15 +902,25 @@ export function SitePreview( {
 		[]
 	);
 
-	// Per-site viewport memory (session-lived, like the parent's per-site
-	// path memory): returning to a site restores its last responsive mode.
-	const viewportBySiteRef = useRef<
-		Record< string, { mode?: ViewportMode; orientation?: MobileOrientation } >
+	// Per-site preview option memory (session-lived, like the parent's per-site
+	// path memory): returning to a site restores its last browser setup.
+	const previewOptionsBySiteRef = useRef<
+		Record<
+			string,
+			{
+				mode?: ViewportMode;
+				orientation?: MobileOrientation;
+				colorScheme?: PreviewColorScheme;
+			}
+		>
 	>( {} );
 	const handleViewportModeChange = useCallback(
 		( mode: ViewportMode ) => {
 			setViewportMode( mode );
-			viewportBySiteRef.current[ site.id ] = { ...viewportBySiteRef.current[ site.id ], mode };
+			previewOptionsBySiteRef.current[ site.id ] = {
+				...previewOptionsBySiteRef.current[ site.id ],
+				mode,
+			};
 			// Two frames side by side need the room — a desktop page beside a
 			// phone is unreadable in the narrow panel.
 			if ( mode === 'split' ) {
@@ -891,9 +932,19 @@ export function SitePreview( {
 	const handleMobileOrientationChange = useCallback(
 		( orientation: MobileOrientation ) => {
 			setMobileOrientation( orientation );
-			viewportBySiteRef.current[ site.id ] = {
-				...viewportBySiteRef.current[ site.id ],
+			previewOptionsBySiteRef.current[ site.id ] = {
+				...previewOptionsBySiteRef.current[ site.id ],
 				orientation,
+			};
+		},
+		[ site.id ]
+	);
+	const handleColorSchemeChange = useCallback(
+		( nextColorScheme: PreviewColorScheme ) => {
+			setColorScheme( nextColorScheme );
+			previewOptionsBySiteRef.current[ site.id ] = {
+				...previewOptionsBySiteRef.current[ site.id ],
+				colorScheme: nextColorScheme,
 			};
 		},
 		[ site.id ]
@@ -912,9 +963,10 @@ export function SitePreview( {
 	useEffect( () => {
 		setBrowserState( EMPTY_BROWSER_STATE );
 		setInspectorState( EMPTY_INSPECTOR_STATE );
-		const remembered = viewportBySiteRef.current[ site.id ];
+		const remembered = previewOptionsBySiteRef.current[ site.id ];
 		setViewportMode( remembered?.mode ?? 'fit' );
 		setMobileOrientation( remembered?.orientation ?? 'portrait' );
+		setColorScheme( remembered?.colorScheme ?? 'system' );
 	}, [ site.id ] );
 
 	// The simulated viewport is derived from the pane's size, so it has to
@@ -1078,6 +1130,8 @@ export function SitePreview( {
 							onViewportModeChange={ handleViewportModeChange }
 							mobileOrientation={ mobileOrientation }
 							onMobileOrientationChange={ handleMobileOrientationChange }
+							colorScheme={ colorScheme }
+							onColorSchemeChange={ handleColorSchemeChange }
 							fullscreen={ fullscreen }
 							onFullscreenChange={ onFullscreenChange }
 						/>
@@ -1127,6 +1181,7 @@ export function SitePreview( {
 										onBrowserCommand={ handleForwardedShortcut }
 										onNavigate={ handlePreviewNavigation }
 										viewport={ previewViewport }
+										colorScheme={ colorScheme }
 									/>
 								) : (
 									// Non-Electron fallback: plain iframe, no inspector. Reloads
@@ -1136,7 +1191,7 @@ export function SitePreview( {
 											browserCommand?.type === 'reload' ? browserCommand.id : 0
 										}` }
 										className={ styles.iframe }
-										style={ iframeStyle }
+										style={ { ...iframeStyle, ...iframeColorSchemeStyle } }
 										src={ previewUrl }
 										title={ site.name }
 										onLoad={ ( event ) => {
@@ -1173,6 +1228,7 @@ export function SitePreview( {
 												url={ previewUrl }
 												reloadNonce={ reloadNonce }
 												viewport={ splitMobileViewport }
+												colorScheme={ colorScheme }
 												browserCommand={ browserCommand?.type === 'reload' ? browserCommand : null }
 												onNavigate={ handlePreviewNavigation }
 											/>
@@ -1188,8 +1244,9 @@ export function SitePreview( {
 																height: splitMobileViewport.height,
 																transform: `scale(${ splitMobileViewport.scale })`,
 																transformOrigin: 'top left',
+																...iframeColorSchemeStyle,
 														  }
-														: undefined
+														: iframeColorSchemeStyle
 												}
 												src={ previewUrl }
 												title={ sprintf(
@@ -1274,6 +1331,7 @@ interface WebviewSurfaceProps {
 	onNavigate?: ( url: string ) => void;
 	// Simulated guest viewport, or null for the webview's natural size.
 	viewport?: PreviewViewport | null;
+	colorScheme?: PreviewColorScheme;
 }
 
 /**
@@ -1295,6 +1353,7 @@ function WebviewSurface( {
 	onBrowserCommand,
 	onNavigate,
 	viewport = null,
+	colorScheme = 'system',
 }: WebviewSurfaceProps ) {
 	const ref = useRef< HTMLElement | null >( null );
 	const [ ready, setReady ] = useState( false );
@@ -1609,6 +1668,13 @@ function WebviewSurface( {
 		appliedViewportRef.current = Boolean( debouncedViewport );
 		void applyWebviewViewport( webview, debouncedViewport ).catch( () => undefined );
 	}, [ debouncedViewport, ready ] );
+
+	useEffect( () => {
+		if ( ! ready ) return;
+		const webview = ref.current as WebviewTag | null;
+		if ( ! webview ) return;
+		void applyWebviewColorScheme( webview, colorScheme ).catch( () => undefined );
+	}, [ colorScheme, ready ] );
 
 	return (
 		<>

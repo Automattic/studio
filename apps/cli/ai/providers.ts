@@ -30,6 +30,7 @@ const DEFAULT_WPCOM_AI_GATEWAY_BASE_URL = 'https://public-api.wordpress.com/wpco
 // the existing slugs so no server-side allowlist change is required.
 const WPCOM_AI_FEATURE_HEADER_ANTHROPIC = 'studio-assistant-anthropic';
 const WPCOM_AI_FEATURE_HEADER_OPENAI = 'studio-assistant';
+const WPCOM_AI_FEATURE_HEADER_HOSTED = 'studio-assistant-hosted';
 
 export interface ResolveAiEnvironmentOptions {
 	sessionId?: string;
@@ -136,6 +137,9 @@ function createBaseEnvironment(): Record< string, string > {
 	delete env.OPENAI_API_KEY;
 	delete env.OPENAI_BASE_URL;
 	delete env.STUDIO_OPENAI_DEFAULT_HEADERS;
+	delete env.STUDIO_HOSTED_API_KEY;
+	delete env.STUDIO_HOSTED_BASE_URL;
+	delete env.STUDIO_HOSTED_DEFAULT_HEADERS;
 
 	return env;
 }
@@ -189,6 +193,23 @@ const AI_PROVIDER_DEFINITIONS: Record< AiProviderId, AiProviderDefinition > = {
 				openaiHeaders[ 'X-WPCOM-Session-ID' ] = options.sessionId;
 			}
 			env.STUDIO_OPENAI_DEFAULT_HEADERS = JSON.stringify( openaiHeaders );
+
+			// Hosted third-party models (Kimi, GLM, DeepSeek) speak the OpenAI
+			// Chat Completions dialect, so they share the /v1 prefix with the
+			// OpenAI path and are told apart by the feature header. The vars are
+			// Studio-namespaced because, unlike Anthropic and OpenAI, this family
+			// has no direct-API provider — nothing but this function should be
+			// able to satisfy it.
+			env.STUDIO_HOSTED_BASE_URL = env.OPENAI_BASE_URL;
+			env.STUDIO_HOSTED_API_KEY = accessToken;
+			const hostedHeaders: Record< string, string > = {
+				'User-Agent': getStudioUserAgent(),
+				'X-WPCOM-AI-Feature': WPCOM_AI_FEATURE_HEADER_HOSTED,
+			};
+			if ( options?.sessionId ) {
+				hostedHeaders[ 'X-WPCOM-Session-ID' ] = options.sessionId;
+			}
+			env.STUDIO_HOSTED_DEFAULT_HEADERS = JSON.stringify( hostedHeaders );
 
 			return env;
 		},

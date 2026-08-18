@@ -1,5 +1,5 @@
 import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import {
 	chevronDown,
@@ -26,6 +26,7 @@ import {
 	useStartSite,
 } from '@/data/queries/use-sites';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
+import { refreshThemeDetails } from '@/hooks/use-theme-details';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { getSiteUrl } from '@/lib/get-site-url';
 import { playIcon, refreshIcon } from '@/lib/icons';
@@ -283,6 +284,18 @@ async function reloadPreview(
 export function isOffOriginRedirect( settledUrl: string, intendedUrl: string ): boolean {
 	try {
 		return new URL( settledUrl ).origin !== new URL( intendedUrl ).origin;
+	} catch {
+		return false;
+	}
+}
+
+export function isThemeActivationUrl( url: string ): boolean {
+	try {
+		const parsed = new URL( url );
+		return (
+			parsed.pathname.endsWith( '/wp-admin/themes.php' ) &&
+			parsed.searchParams.get( 'activated' ) === 'true'
+		);
 	} catch {
 		return false;
 	}
@@ -678,6 +691,7 @@ export function SitePreview( {
 	onFullscreenChange,
 }: SitePreviewProps ) {
 	const connector = useConnector();
+	const queryClient = useQueryClient();
 	const { data: userPreferences } = useUserPreferences();
 	const databaseHomePath = getDatabaseHomePath( userPreferences?.databaseAppearance ?? 'studio' );
 	const { chatEnabled } = useAgenticFeatures();
@@ -782,13 +796,16 @@ export function SitePreview( {
 
 	const handlePreviewNavigation = useCallback(
 		( url: string ) => {
+			if ( isThemeActivationUrl( url ) && connector.getThemeDetails ) {
+				void refreshThemeDetails( connector, queryClient, site.id ).catch( () => undefined );
+			}
 			const nextPath = getPathFromPreviewUrl( url, siteUrl );
 			if ( ! nextPath || nextPath === path ) {
 				return;
 			}
 			onPathChange?.( nextPath );
 		},
-		[ onPathChange, path, siteUrl ]
+		[ connector, onPathChange, path, queryClient, site.id, siteUrl ]
 	);
 	const handleBrowserStateChange = useCallback(
 		( state: BrowserNavigationState ) => {

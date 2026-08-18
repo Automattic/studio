@@ -12,6 +12,7 @@ import {
 	navigation,
 	page,
 	pencil,
+	post,
 	styles as stylesIcon,
 	symbolFilled,
 	widget,
@@ -40,9 +41,11 @@ import { useWpVersion } from '@/data/queries/use-wordpress-versions';
 import { useOpenSiteUrl } from '@/hooks/use-open-site-url';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useSiteManagementActions } from '@/hooks/use-site-management-actions';
+import { useThemeDetails } from '@/hooks/use-theme-details';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { databaseLogo } from '@/lib/logos';
 import { AboutSection } from './about-section';
+import { AdminSection } from './admin-section';
 import { OverviewCard } from './overview-card';
 import styles from './style.module.css';
 import type { SiteSettingsTabId } from '@/components/site-settings-view';
@@ -65,6 +68,7 @@ interface OverviewButtonProps {
 	loadingAnnouncement?: string;
 	className?: string;
 	brandIcon?: boolean;
+	transitionName?: string;
 }
 
 function OverviewHeader( {
@@ -105,12 +109,18 @@ function OverviewButton( {
 	loadingAnnouncement,
 	className,
 	brandIcon,
+	transitionName,
 }: OverviewButtonProps ) {
 	return (
 		<Button
 			variant="minimal"
 			tone="neutral"
 			className={ `${ styles.overviewButton } ${ className ?? '' }` }
+			style={
+				transitionName
+					? { viewTransitionName: transitionName, viewTransitionClass: 'studio-theme-shortcut' }
+					: undefined
+			}
 			disabled={ disabled }
 			loading={ loading }
 			loadingAnnouncement={ loadingAnnouncement }
@@ -133,11 +143,30 @@ function OverviewButton( {
 	);
 }
 
-function ButtonSection( { title, children }: { title: string; children: ReactNode } ) {
+function ButtonSection( {
+	title,
+	loadingCount = 0,
+	transitionName,
+	children,
+}: {
+	title: string;
+	loadingCount?: number;
+	transitionName?: string;
+	children: ReactNode;
+} ) {
 	return (
-		<section className={ styles.buttonSection }>
+		<section
+			className={ styles.buttonSection }
+			style={ transitionName ? { viewTransitionName: transitionName } : undefined }
+		>
 			<h2 className={ styles.columnHeading }>{ title }</h2>
-			<div className={ styles.buttonGrid }>{ children }</div>
+			<div className={ styles.buttonGrid } aria-busy={ loadingCount > 0 }>
+				{ loadingCount > 0
+					? Array.from( { length: loadingCount }, ( _, index ) => (
+							<div key={ index } className={ styles.buttonSkeleton } aria-hidden="true" />
+					  ) )
+					: children }
+			</div>
 		</section>
 	);
 }
@@ -162,7 +191,7 @@ function OpenInSection( {
 	);
 
 	return (
-		<ButtonSection title={ __( 'Open in…' ) }>
+		<ButtonSection title={ __( 'Open in…' ) } transitionName="studio-theme-open-in">
 			{ apps.map( ( destination ) => (
 				<OverviewButton
 					key={ destination.id }
@@ -243,9 +272,9 @@ function SiteOverviewBody( {
 		onDelete: () => setDeleteOpen( true ),
 		onImport: () => importInputRef.current?.click(),
 	} );
-
+	const themeStatus = useThemeDetails( site );
+	const themeDetails = themeStatus.state === 'ready' ? themeStatus.details : undefined;
 	const busy = useIsSiteBusy( site );
-	const themeDetails = site.themeDetails;
 	const isBlockTheme = themeDetails?.isBlockTheme === true;
 	const { data: wpVersion } = useWpVersion( site.id );
 
@@ -291,20 +320,34 @@ function SiteOverviewBody( {
 								<div className={ styles.cardColumn }>
 									<h2 className={ styles.columnHeading }>{ __( 'About' ) }</h2>
 									<OverviewCard>
-										<AboutSection site={ site } wpVersion={ wpVersion } />
+										<AboutSection
+											site={ site }
+											wpVersion={ wpVersion }
+											themeDetails={ themeDetails }
+										/>
+									</OverviewCard>
+									<h2 className={ styles.columnHeading }>{ __( 'WP Admin' ) }</h2>
+									<OverviewCard>
+										<AdminSection site={ site } />
 									</OverviewCard>
 								</div>
 								<div className={ styles.actionsColumn }>
-									<ButtonSection title={ __( 'Customize' ) }>
+									<ButtonSection
+										title={ __( 'Shortcuts' ) }
+										loadingCount={ themeStatus.state === 'loading' ? 7 : 0 }
+										transitionName="studio-theme-shortcuts"
+									>
 										{ isBlockTheme ? (
 											<>
 												<OverviewButton
+													transitionName="studio-theme-site-editor"
 													icon={ <Icon icon={ desktop } size={ 18 } /> }
 													label={ __( 'Site Editor' ) }
 													disabled={ busy }
 													onClick={ () => openCustomize( '/wp-admin/site-editor.php', 'editor' ) }
 												/>
 												<OverviewButton
+													transitionName="studio-theme-styles"
 													icon={ <Icon icon={ stylesIcon } size={ 18 } /> }
 													label={ __( 'Styles' ) }
 													disabled={ busy }
@@ -316,6 +359,7 @@ function SiteOverviewBody( {
 													}
 												/>
 												<OverviewButton
+													transitionName="studio-theme-patterns"
 													icon={ <Icon icon={ symbolFilled } size={ 18 } /> }
 													label={ __( 'Patterns' ) }
 													disabled={ busy }
@@ -327,6 +371,7 @@ function SiteOverviewBody( {
 													}
 												/>
 												<OverviewButton
+													transitionName="studio-theme-navigation"
 													icon={ <Icon icon={ navigation } size={ 18 } /> }
 													label={ __( 'Navigation' ) }
 													disabled={ busy }
@@ -338,6 +383,7 @@ function SiteOverviewBody( {
 													}
 												/>
 												<OverviewButton
+													transitionName="studio-theme-templates"
 													icon={ <Icon icon={ layout } size={ 18 } /> }
 													label={ __( 'Templates' ) }
 													disabled={ busy }
@@ -348,21 +394,11 @@ function SiteOverviewBody( {
 														)
 													}
 												/>
-												<OverviewButton
-													icon={ <Icon icon={ page } size={ 18 } /> }
-													label={ __( 'Pages' ) }
-													disabled={ busy }
-													onClick={ () =>
-														openCustomize(
-															'/wp-admin/site-editor.php?path=%2Fpage',
-															'editor_pages'
-														)
-													}
-												/>
 											</>
-										) : (
+										) : themeDetails ? (
 											<>
 												<OverviewButton
+													transitionName="studio-theme-customizer"
 													icon={ <Icon icon={ pencil } size={ 18 } /> }
 													label={ __( 'Customizer' ) }
 													disabled={ busy }
@@ -370,6 +406,7 @@ function SiteOverviewBody( {
 												/>
 												{ themeDetails?.supportsMenus ? (
 													<OverviewButton
+														transitionName="studio-theme-menus"
 														icon={ <Icon icon={ navigation } size={ 18 } /> }
 														label={ __( 'Menus' ) }
 														disabled={ busy }
@@ -378,6 +415,7 @@ function SiteOverviewBody( {
 												) : null }
 												{ themeDetails?.supportsWidgets ? (
 													<OverviewButton
+														transitionName="studio-theme-widgets"
 														icon={ <Icon icon={ widget } size={ 18 } /> }
 														label={ __( 'Widgets' ) }
 														disabled={ busy }
@@ -385,8 +423,23 @@ function SiteOverviewBody( {
 													/>
 												) : null }
 											</>
-										) }
+										) : null }
 										<OverviewButton
+											transitionName="studio-theme-posts"
+											icon={ <Icon icon={ post } size={ 18 } /> }
+											label={ __( 'Posts' ) }
+											disabled={ busy }
+											onClick={ () => void openSiteUrl( '/wp-admin/edit.php' ) }
+										/>
+										<OverviewButton
+											transitionName="studio-theme-pages"
+											icon={ <Icon icon={ page } size={ 18 } /> }
+											label={ __( 'Pages' ) }
+											disabled={ busy }
+											onClick={ () => void openSiteUrl( '/wp-admin/edit.php?post_type=page' ) }
+										/>
+										<OverviewButton
+											transitionName="studio-theme-media"
 											icon={ <Icon icon={ media } size={ 18 } /> }
 											label={ __( 'Media Library' ) }
 											disabled={ busy }
@@ -398,7 +451,7 @@ function SiteOverviewBody( {
 										<OpenInSection site={ site } busy={ busy } openSiteUrl={ openSiteUrl } />
 									) }
 
-									<ButtonSection title={ __( 'Manage' ) }>
+									<ButtonSection title={ __( 'Manage' ) } transitionName="studio-theme-manage">
 										{ managementActions.map( ( action ) => (
 											<OverviewButton
 												key={ action.id }

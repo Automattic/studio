@@ -450,6 +450,12 @@ export function createIpcConnector(): Connector {
 			return ipcApi.getSiteStorageUsage( siteId );
 		},
 
+		async getThemeDetails( siteId ): Promise< SiteDetails[ 'themeDetails' ] > {
+			// `false` skips the loading event consumed by Classic; this UI tracks
+			// the same request through React Query.
+			return ( await ipcApi.loadThemeDetails( siteId, false ) ) as SiteDetails[ 'themeDetails' ];
+		},
+
 		async exportFullSite( siteId ): Promise< string | null > {
 			const sites = ( await ipcApi.getSiteDetails() ) as SiteDetails[];
 			const site = sites.find( ( candidate ) => candidate.id === siteId );

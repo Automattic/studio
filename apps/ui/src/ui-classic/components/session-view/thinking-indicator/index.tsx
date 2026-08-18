@@ -2,6 +2,20 @@ import { randomThinkingMessage } from '@studio/common/ai/thinking-messages';
 import { useEffect, useState } from 'react';
 import styles from './style.module.css';
 
+export function formatElapsedTime( elapsedSeconds: number ): string {
+	const hours = Math.floor( elapsedSeconds / 3600 );
+	const minutes = Math.floor( ( elapsedSeconds % 3600 ) / 60 );
+	const seconds = elapsedSeconds % 60;
+
+	return [
+		hours > 0 ? `${ hours }h` : null,
+		minutes > 0 ? `${ minutes }m` : null,
+		seconds > 0 ? `${ seconds }s` : null,
+	]
+		.filter( ( part ): part is string => part !== null )
+		.join( ' ' );
+}
+
 export function ThinkingIndicator( {
 	active,
 	startedAt,
@@ -40,7 +54,9 @@ export function ThinkingIndicator( {
 						<span className={ styles.dot } aria-hidden="true" />
 						<span className={ styles.label }>{ message }</span>
 						{ elapsedSeconds > 0 ? (
-							<span className={ styles.elapsed }>{ `${ elapsedSeconds }s` }</span>
+							<span className={ styles.elapsed } dir="ltr">
+								{ formatElapsedTime( elapsedSeconds ) }
+							</span>
 						) : null }
 					</div>
 					{ progressMessage ? (

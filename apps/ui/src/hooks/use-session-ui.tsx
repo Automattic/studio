@@ -27,6 +27,7 @@ import type { Annotation } from '@/components/site-preview/types';
 
 interface PreviewUIState {
 	open: boolean;
+	surface: 'site' | 'review';
 	// Full preview: the preview fills the window (sidebar and chat hidden).
 	// Only meaningful while `open`; closing the panel always clears it.
 	fullscreen: boolean;
@@ -52,6 +53,8 @@ export interface SessionUIState {
 export type SessionUIAction =
 	| { type: 'preview/set-open'; value: boolean }
 	| { type: 'preview/toggle' }
+	| { type: 'preview/show-review' }
+	| { type: 'preview/show-site' }
 	| { type: 'preview/set-fullscreen'; value: boolean }
 	| { type: 'preview/navigate'; path: string }
 	| { type: 'preview/reload' }
@@ -59,7 +62,14 @@ export type SessionUIAction =
 	| { type: 'preview/set-site'; siteId: string };
 
 const INITIAL_STATE: SessionUIState = {
-	preview: { open: true, fullscreen: false, reloadNonce: 0, siteId: null, pathsBySiteId: {} },
+	preview: {
+		open: true,
+		surface: 'site',
+		fullscreen: false,
+		reloadNonce: 0,
+		siteId: null,
+		pathsBySiteId: {},
+	},
 };
 
 function reducer( state: SessionUIState, action: SessionUIAction ): SessionUIState {
@@ -81,6 +91,15 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 				...state,
 				preview: { ...state.preview, open: ! state.preview.open, fullscreen: false },
 			};
+		case 'preview/show-review':
+			return {
+				...state,
+				preview: { ...state.preview, open: true, surface: 'review' },
+			};
+		case 'preview/show-site':
+			return state.preview.surface === 'site'
+				? state
+				: { ...state, preview: { ...state.preview, surface: 'site' } };
 		case 'preview/set-fullscreen':
 			return state.preview.fullscreen === action.value
 				? state
@@ -188,6 +207,7 @@ export function useSessionUIDispatch(): Dispatch< SessionUIAction > {
 
 export interface SessionPreviewUI {
 	readonly open: boolean;
+	readonly surface: 'site' | 'review';
 	readonly fullscreen: boolean;
 	readonly path: string;
 	readonly reloadNonce: number;
@@ -195,6 +215,8 @@ export interface SessionPreviewUI {
 	readonly pathsBySiteId: Record< string, string >;
 	setOpen: ( value: boolean ) => void;
 	toggle: () => void;
+	showReview: () => void;
+	showSite: () => void;
 	setFullscreen: ( value: boolean ) => void;
 	updatePath: ( path: string ) => void;
 	setSite: ( siteId: string ) => void;
@@ -211,6 +233,11 @@ export function useOptionalSessionPreviewUI(): SessionPreviewUI | null {
 		[ dispatch ]
 	);
 	const toggle = useCallback( () => dispatch?.( { type: 'preview/toggle' } ), [ dispatch ] );
+	const showReview = useCallback(
+		() => dispatch?.( { type: 'preview/show-review' } ),
+		[ dispatch ]
+	);
+	const showSite = useCallback( () => dispatch?.( { type: 'preview/show-site' } ), [ dispatch ] );
 	const setFullscreen = useCallback(
 		( value: boolean ) => dispatch?.( { type: 'preview/set-fullscreen', value } ),
 		[ dispatch ]
@@ -229,6 +256,7 @@ export function useOptionalSessionPreviewUI(): SessionPreviewUI | null {
 		}
 		return {
 			open: state.preview.open,
+			surface: state.preview.surface,
 			fullscreen: state.preview.fullscreen,
 			path: pathForSite( state.preview.pathsBySiteId, state.preview.siteId ),
 			reloadNonce: state.preview.reloadNonce,
@@ -236,11 +264,23 @@ export function useOptionalSessionPreviewUI(): SessionPreviewUI | null {
 			pathsBySiteId: state.preview.pathsBySiteId,
 			setOpen,
 			toggle,
+			showReview,
+			showSite,
 			setFullscreen,
 			updatePath,
 			setSite,
 		};
-	}, [ state, dispatch, setOpen, toggle, setFullscreen, updatePath, setSite ] );
+	}, [
+		state,
+		dispatch,
+		setOpen,
+		toggle,
+		showReview,
+		showSite,
+		setFullscreen,
+		updatePath,
+		setSite,
+	] );
 }
 
 export function useSessionPreviewUI(): SessionPreviewUI {

@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
+	ChangesReview,
 	ChangesTracker,
 	countDiffLines,
 	formatChangeCount,
@@ -97,6 +98,75 @@ describe( 'countDiffLines', () => {
 	} );
 } );
 
+describe( 'ChangesReview', () => {
+	it( 'expands and collapses file diffs', async () => {
+		const entries = [
+			toolCallEntry( 'edit-1', 'Edit', { path: '/sites/demo/index.php' } ),
+			toolResultEntry( 'edit-1', '@@ -1 +1 @@\n-old\n+new' ),
+			toolCallEntry( 'edit-2', 'Edit', { path: '/sites/demo/theme.css' } ),
+			toolResultEntry( 'edit-2', '@@ -1 +1 @@\n-red\n+blue' ),
+		];
+
+		render( <ChangesReview changes={ getSessionFileChanges( entries, '/sites/demo' ) } /> );
+
+		const indexDiff = await screen.findByLabelText( 'Diff for index.php' );
+		const indexButton = screen.getByRole( 'button', { name: /index\.php/ } );
+		const themeButton = screen.getByRole( 'button', { name: /theme\.css/ } );
+		expect( indexDiff ).toHaveTextContent( '-old' );
+		expect( indexDiff ).toHaveTextContent( '+new' );
+		expect( indexButton ).toHaveAttribute( 'aria-expanded', 'true' );
+		expect( themeButton ).toHaveAttribute( 'aria-expanded', 'false' );
+
+		fireEvent.click( themeButton );
+		const themeDiff = await screen.findByLabelText( 'Diff for theme.css' );
+		expect( themeDiff ).toHaveTextContent( '-red' );
+		expect( themeDiff ).toHaveTextContent( '+blue' );
+		expect( indexButton ).toHaveAttribute( 'aria-expanded', 'true' );
+		expect( themeButton ).toHaveAttribute( 'aria-expanded', 'true' );
+
+		fireEvent.click( indexButton );
+		expect( indexButton ).toHaveAttribute( 'aria-expanded', 'false' );
+		expect( screen.queryByLabelText( 'Diff for index.php' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'caps long previews until Show more is pressed', () => {
+		const diff = Array.from( { length: 50 }, ( _, index ) => `+line ${ index + 1 }` ).join( '\n' );
+		const entries = [
+			toolCallEntry( 'edit-1', 'Edit', { path: '/sites/demo/index.php' } ),
+			toolResultEntry( 'edit-1', diff ),
+		];
+
+		render( <ChangesReview changes={ getSessionFileChanges( entries, '/sites/demo' ) } /> );
+
+		const indexDiff = screen.getByLabelText( 'Diff for index.php' );
+		expect( indexDiff ).toHaveTextContent( '+line 40' );
+		expect( indexDiff ).not.toHaveTextContent( '+line 41' );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Show more' } ) );
+		expect( indexDiff ).toHaveTextContent( '+line 50' );
+		expect( screen.getByRole( 'button', { name: 'Show less' } ) ).toBeInTheDocument();
+	} );
+
+	it( 'navigates between changed files', () => {
+		const entries = [
+			toolCallEntry( 'edit-1', 'Edit', { path: '/sites/demo/index.php' } ),
+			toolResultEntry( 'edit-1', '-old\n+new' ),
+			toolCallEntry( 'edit-2', 'Edit', { path: '/sites/demo/theme.css' } ),
+			toolResultEntry( 'edit-2', '-red\n+blue' ),
+		];
+
+		render( <ChangesReview changes={ getSessionFileChanges( entries, '/sites/demo' ) } /> );
+
+		expect( screen.getByText( '1 of 2' ) ).toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Next changed file' } ) );
+		expect( screen.getByText( '2 of 2' ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: /theme\.css/ } ) ).toHaveAttribute(
+			'aria-expanded',
+			'true'
+		);
+	} );
+} );
+
 describe( 'formatChangeCount', () => {
 	it( 'uses locale-specific number separators', () => {
 		expect( formatChangeCount( 1468, 'en-US' ) ).toBe( '1,468' );
@@ -105,6 +175,26 @@ describe( 'formatChangeCount', () => {
 } );
 
 describe( 'ChangesTracker', () => {
+	it( 'opens the review surface from the file summary', async () => {
+		const onOpenReview = vi.fn();
+		const entries = [
+			toolCallEntry( 'edit-1', 'Edit', { path: '/sites/demo/index.php' } ),
+			toolResultEntry( 'edit-1', '@@ -1 +1 @@\n-old\n+new' ),
+		];
+
+		render(
+			<ChangesTracker
+				entries={ entries }
+				ownerSitePath="/sites/demo"
+				onOpenReview={ onOpenReview }
+			/>
+		);
+		fireEvent.click( screen.getByRole( 'button', { name: 'View changed files: 1 file' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Review changes' } ) );
+
+		expect( onOpenReview ).toHaveBeenCalledOnce();
+	} );
+
 	it( 'opens a per-file summary from the pill', async () => {
 		const entries = [
 			toolCallEntry( 'edit-1', 'Edit', {
@@ -113,7 +203,9 @@ describe( 'ChangesTracker', () => {
 			toolResultEntry( 'edit-1', '@@ -1 +1 @@\n-old\n+new' ),
 		];
 
-		render( <ChangesTracker entries={ entries } ownerSitePath="/sites/demo" /> );
+		render(
+			<ChangesTracker entries={ entries } ownerSitePath="/sites/demo" onOpenReview={ vi.fn() } />
+		);
 		fireEvent.click( screen.getByRole( 'button', { name: 'View changed files: 1 file' } ) );
 
 		const popup = await screen.findByRole( 'dialog' );
@@ -139,7 +231,9 @@ describe( 'ChangesTracker', () => {
 		];
 
 		try {
-			render( <ChangesTracker entries={ entries } ownerSitePath="/sites/demo" /> );
+			render(
+				<ChangesTracker entries={ entries } ownerSitePath="/sites/demo" onOpenReview={ vi.fn() } />
+			);
 			expect( screen.getByText( '+1,468' ) ).toBeVisible();
 		} finally {
 			document.documentElement.lang = originalLanguage;
@@ -147,7 +241,7 @@ describe( 'ChangesTracker', () => {
 	} );
 
 	it( 'does not render without successful file changes', () => {
-		const { container } = render( <ChangesTracker entries={ [] } /> );
+		const { container } = render( <ChangesTracker entries={ [] } onOpenReview={ vi.fn() } /> );
 		expect( container ).toBeEmptyDOMElement();
 	} );
 } );

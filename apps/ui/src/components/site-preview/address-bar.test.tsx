@@ -48,14 +48,20 @@ function renderAddressBar( {
 	fetchSiteRest = vi.fn().mockResolvedValue( createSearchResponse( [] ) ),
 	onNavigate = vi.fn(),
 	onSwitchRealm = vi.fn(),
+	onSwitchReview = vi.fn(),
 	path = '/',
+	reviewActive = false,
+	reviewAvailable = false,
 	searchEnabled = true,
 	site = SITE,
 }: {
 	fetchSiteRest?: Mock;
 	onNavigate?: Mock;
 	onSwitchRealm?: Mock;
+	onSwitchReview?: Mock;
 	path?: string;
+	reviewActive?: boolean;
+	reviewAvailable?: boolean;
 	searchEnabled?: boolean;
 	site?: SiteDetails;
 } = {} ) {
@@ -74,11 +80,14 @@ function renderAddressBar( {
 					anchorRef={ { current: document.body } }
 					onNavigate={ onNavigate }
 					onSwitchRealm={ onSwitchRealm }
+					onSwitchReview={ onSwitchReview }
+					reviewActive={ reviewActive }
+					reviewAvailable={ reviewAvailable }
 				/>
 			</Tooltip.Provider>
 		</QueryClientProvider>
 	);
-	return { fetchSiteRest, onNavigate, onSwitchRealm };
+	return { fetchSiteRest, onNavigate, onSwitchRealm, onSwitchReview };
 }
 
 async function openOmnibox( activeRealmTitle = 'Example Site' ) {
@@ -207,6 +216,24 @@ describe( 'PreviewAddressBar', () => {
 		expect(
 			screen.queryByRole( 'button', { name: 'View site front end' } )
 		).not.toBeInTheDocument();
+	} );
+
+	it( 'shows and activates the review segment when changes are available', () => {
+		const { onSwitchReview } = renderAddressBar( { reviewAvailable: true } );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Review changes' } ) );
+		expect( onSwitchReview ).toHaveBeenCalledOnce();
+	} );
+
+	it( 'returns to a site realm from the active review segment', () => {
+		const { onSwitchRealm } = renderAddressBar( {
+			reviewAvailable: true,
+			reviewActive: true,
+		} );
+
+		expect( screen.getByText( 'Review' ) ).toBeVisible();
+		fireEvent.click( screen.getByRole( 'button', { name: 'View site front end' } ) );
+		expect( onSwitchRealm ).toHaveBeenCalledWith( 'frontend' );
 	} );
 
 	it( 'always offers the database segment', () => {

@@ -1,6 +1,6 @@
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
 import { createRoute, Outlet, useRouterState } from '@tanstack/react-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
 	PreviewSplitFrame,
 	type PreviewSplitFramePreviewProps,
@@ -20,6 +20,7 @@ import {
 	useSessionPreviewUI,
 } from '@/hooks/use-session-ui';
 import { writeLastVisited } from '@/lib/last-visited';
+import { getSessionFileChanges } from '../../components/session-view/changes-tracker';
 import { rootRoute } from '../layout-root';
 
 // Session detail routes and the site overview host the preview; on every
@@ -73,6 +74,14 @@ function DashboardLayoutContent() {
 	const preview = useSessionPreviewUI();
 	const onAnnotationsDone = useSessionPreviewAnnotationsHandler();
 	const sessionSite = findAiSessionOwnerSite( sites, sessionData?.summary );
+	const sessionChanges = useMemo(
+		() =>
+			getSessionFileChanges(
+				sessionData?.entries ?? [],
+				sessionSite?.path ?? sessionData?.summary.ownerSitePath
+			),
+		[ sessionData?.entries, sessionData?.summary.ownerSitePath, sessionSite?.path ]
+	);
 	const effectiveEnvironment = useSessionEffectiveEnvironment(
 		sessionData?.summary,
 		sessionSite?.id
@@ -128,6 +137,12 @@ function DashboardLayoutContent() {
 	const previewPath = pathForSite( preview.pathsBySiteId, previewSiteId );
 	const showPreview = preview.open && supportsPreview && !! previewSite;
 	const previewFullscreen = preview.fullscreen && showPreview;
+	const reviewActive = preview.surface === 'review' && sessionChanges.length > 0;
+	useEffect( () => {
+		if ( preview.surface === 'review' && sessionChanges.length === 0 ) {
+			preview.showSite();
+		}
+	}, [ preview, sessionChanges.length ] );
 	// Leave full preview when the route stops supporting a preview (settings,
 	// site settings…) so the user is never left staring at a hidden layout.
 	const { setFullscreen: setPreviewFullscreen } = preview;
@@ -152,15 +167,21 @@ function DashboardLayoutContent() {
 					collapsed={ collapsed }
 					fullscreen={ previewFullscreen }
 					onFullscreenChange={ setPreviewFullscreen }
+					changes={ sessionChanges }
+					reviewActive={ reviewActive }
+					onReviewActiveChange={ ( active ) =>
+						active ? preview.showReview() : preview.showSite()
+					}
 				/>
 			) : null,
 		[
 			onAnnotationsDone,
+			preview,
 			previewFullscreen,
 			previewPath,
-			preview.reloadNonce,
-			preview.updatePath,
 			previewSite,
+			reviewActive,
+			sessionChanges,
 			setPreviewFullscreen,
 		]
 	);

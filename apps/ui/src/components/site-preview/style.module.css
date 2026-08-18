@@ -148,6 +148,10 @@
 	overflow: hidden;
 }
 
+.previewViewportHidden {
+	display: none;
+}
+
 /* While simulating a viewport, the preset's frame floats centered with
    breathing room; the padding is excluded from the measured pane, so the
    frame's fit-to-pane scale accounts for it automatically. */

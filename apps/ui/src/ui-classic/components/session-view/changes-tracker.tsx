@@ -1,9 +1,14 @@
 import { getToolResultDiff } from '@studio/common/ai/tools';
 import { _n, __, sprintf } from '@wordpress/i18n';
-import { Button, Popover, Tooltip, VisuallyHidden } from '@wordpress/ui';
+import { arrowDown, arrowUp, chevronDownSmall } from '@wordpress/icons';
+import { Button, Icon, IconButton, Popover, Tooltip, VisuallyHidden } from '@wordpress/ui';
 import { useId, useMemo, useRef, useState } from 'react';
 import styles from './changes-tracker.module.css';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
+
+const MAX_RENDERED_DIFF_LINES = 5000;
+const MAX_RENDERED_DIFF_LINES_PER_EDGE = MAX_RENDERED_DIFF_LINES / 2;
+const MAX_PREVIEW_DIFF_LINES = 40;
 
 interface FileToolCall {
 	path: string;
@@ -16,6 +21,7 @@ export interface SessionFileChange {
 	displayPath: string;
 	additions: number;
 	deletions: number;
+	diff: string;
 }
 
 function getFilePath( input: Record< string, unknown > ): string | undefined {
@@ -149,10 +155,211 @@ export function getSessionFileChanges(
 			displayPath: getDisplayPath( normalizedPath, ownerSitePath ),
 			additions: ( previous?.additions ?? 0 ) + counts.additions,
 			deletions: ( previous?.deletions ?? 0 ) + counts.deletions,
+			diff: previous ? `${ previous.diff }\n\n${ diff }` : diff,
 		} );
 	}
 
 	return [ ...changes.values() ];
+}
+
+function DiffLine( { line }: { line: string } ) {
+	const isHeader = line.startsWith( '+++' ) || line.startsWith( '---' );
+	const className =
+		! isHeader && line.startsWith( '+' )
+			? styles.diffAddition
+			: ! isHeader && line.startsWith( '-' )
+			? styles.diffDeletion
+			: styles.diffContext;
+	return <span className={ className }>{ line || ' ' }</span>;
+}
+
+function ChangeDiff( { change }: { change: SessionFileChange } ) {
+	const [ showAll, setShowAll ] = useState( false );
+	const diffLines = change.diff.split( '\n' );
+	const previewIsTruncated = diffLines.length > MAX_PREVIEW_DIFF_LINES;
+	const renderedDiffLines = showAll ? diffLines : diffLines.slice( 0, MAX_PREVIEW_DIFF_LINES );
+	const omittedDiffLineCount = Math.max( 0, renderedDiffLines.length - MAX_RENDERED_DIFF_LINES );
+	const leadingDiffLines = omittedDiffLineCount
+		? renderedDiffLines.slice( 0, MAX_RENDERED_DIFF_LINES_PER_EDGE )
+		: renderedDiffLines;
+	const trailingDiffLines = omittedDiffLineCount
+		? renderedDiffLines.slice( -MAX_RENDERED_DIFF_LINES_PER_EDGE )
+		: [];
+
+	return (
+		<div className={ styles.diffPanel }>
+			<pre className={ styles.diff } dir="ltr">
+				{ leadingDiffLines.map( ( line, index ) => (
+					<DiffLine key={ `start-${ index }` } line={ line } />
+				) ) }
+				{ omittedDiffLineCount > 0 && (
+					<span className={ styles.diffTruncated }>
+						{ sprintf(
+							_n( '%d diff line omitted.', '%d diff lines omitted.', omittedDiffLineCount ),
+							omittedDiffLineCount
+						) }
+					</span>
+				) }
+				{ trailingDiffLines.map( ( line, index ) => (
+					<DiffLine key={ `end-${ index }` } line={ line } />
+				) ) }
+			</pre>
+			{ previewIsTruncated && (
+				<div className={ styles.showMore }>
+					<Button
+						variant="minimal"
+						tone="neutral"
+						size="small"
+						onClick={ () => setShowAll( ( current ) => ! current ) }
+					>
+						{ showAll ? __( 'Show less' ) : __( 'Show more' ) }
+					</Button>
+				</div>
+			) }
+		</div>
+	);
+}
+
+export function ChangesReview( { changes }: { changes: SessionFileChange[] } ) {
+	const reviewId = useId();
+	const listRef = useRef< HTMLDivElement >( null );
+	const sectionRefs = useRef< Array< HTMLElement | null > >( [] );
+	const [ activePath, setActivePath ] = useState( changes[ 0 ]?.path );
+	const [ expandedPaths, setExpandedPaths ] = useState(
+		() => new Set( changes[ 0 ] ? [ changes[ 0 ].path ] : [] )
+	);
+	const activeIndex = Math.max(
+		0,
+		changes.findIndex( ( change ) => change.path === activePath )
+	);
+
+	if ( changes.length === 0 ) {
+		return null;
+	}
+
+	const toggleChange = ( path: string ) => {
+		setActivePath( path );
+		setExpandedPaths( ( current ) => {
+			const next = new Set( current );
+			if ( next.has( path ) ) {
+				next.delete( path );
+			} else {
+				next.add( path );
+			}
+			return next;
+		} );
+	};
+
+	const navigateToChange = ( index: number ) => {
+		const change = changes[ index ];
+		if ( ! change ) {
+			return;
+		}
+		setActivePath( change.path );
+		setExpandedPaths( ( current ) => new Set( current ).add( change.path ) );
+		window.requestAnimationFrame( () => {
+			sectionRefs.current[ index ]?.scrollIntoView?.( {
+				behavior: 'auto',
+				block: 'start',
+			} );
+		} );
+	};
+
+	const handleListScroll = () => {
+		const list = listRef.current;
+		if ( ! list ) {
+			return;
+		}
+		const threshold = list.scrollTop + 80;
+		let visibleIndex = 0;
+		for ( let index = 0; index < sectionRefs.current.length; index += 1 ) {
+			const section = sectionRefs.current[ index ];
+			if ( section && section.offsetTop <= threshold ) {
+				visibleIndex = index;
+			}
+		}
+		setActivePath( changes[ visibleIndex ]?.path );
+	};
+
+	return (
+		<div className={ styles.review }>
+			<nav className={ styles.reviewNav } aria-label={ __( 'Changed file navigation' ) }>
+				<IconButton
+					variant="minimal"
+					tone="neutral"
+					size="small"
+					icon={ arrowUp }
+					label={ __( 'Previous changed file' ) }
+					disabled={ activeIndex === 0 }
+					onClick={ () => navigateToChange( activeIndex - 1 ) }
+				/>
+				<span className={ styles.reviewNavPosition } aria-live="polite">
+					{ sprintf( __( '%1$d of %2$d' ), activeIndex + 1, changes.length ) }
+				</span>
+				<IconButton
+					variant="minimal"
+					tone="neutral"
+					size="small"
+					icon={ arrowDown }
+					label={ __( 'Next changed file' ) }
+					disabled={ activeIndex === changes.length - 1 }
+					onClick={ () => navigateToChange( activeIndex + 1 ) }
+				/>
+			</nav>
+			<div
+				ref={ listRef }
+				className={ styles.changeList }
+				aria-label={ __( 'Files changed' ) }
+				onScroll={ handleListScroll }
+			>
+				{ changes.map( ( change, index ) => {
+					const { directory, fileName } = getPathParts( change.displayPath );
+					const isExpanded = expandedPaths.has( change.path );
+					const panelId = `${ reviewId }-change-${ index }`;
+					return (
+						<section
+							key={ change.path }
+							ref={ ( node ) => {
+								sectionRefs.current[ index ] = node;
+							} }
+							className={ styles.changeSection }
+							data-active={ activeIndex === index || undefined }
+						>
+							<button
+								type="button"
+								className={ styles.changeHeader }
+								aria-expanded={ isExpanded }
+								aria-controls={ panelId }
+								onClick={ () => toggleChange( change.path ) }
+							>
+								<Icon className={ styles.disclosureIcon } icon={ chevronDownSmall } size={ 18 } />
+								<span className={ styles.fileIdentity } dir="ltr" title={ change.displayPath }>
+									<span className={ styles.fileName }>{ fileName }</span>
+									{ directory ? <DirectoryPath directory={ directory } /> : null }
+								</span>
+								<span className={ styles.lineCounts }>
+									<span className={ styles.additions }>
+										+{ formatChangeCount( change.additions ) }
+									</span>
+									<span className={ styles.deletions }>
+										-{ formatChangeCount( change.deletions ) }
+									</span>
+								</span>
+							</button>
+							{ isExpanded && (
+								<div
+									id={ panelId }
+									aria-label={ sprintf( __( 'Diff for %s' ), change.displayPath ) }
+								>
+									<ChangeDiff change={ change } />
+								</div>
+							) }
+						</section>
+					);
+				} ) }
+			</div>
+		</div>
+	);
 }
 
 export function formatChangeCount( count: number, locale?: string ): string {
@@ -165,9 +372,11 @@ export function formatChangeCount( count: number, locale?: string ): string {
 export function ChangesTracker( {
 	entries,
 	ownerSitePath,
+	onOpenReview,
 }: {
 	entries: SessionEntry[];
 	ownerSitePath?: string;
+	onOpenReview: () => void;
 } ) {
 	const changes = useMemo(
 		() => getSessionFileChanges( entries, ownerSitePath ),
@@ -250,6 +459,20 @@ export function ChangesTracker( {
 								</div>
 							);
 						} ) }
+					</div>
+					<div className={ styles.popupFooter }>
+						<Button
+							variant="minimal"
+							tone="neutral"
+							size="small"
+							className={ styles.reviewAction }
+							onClick={ () => {
+								setOpen( false );
+								onOpenReview();
+							} }
+						>
+							{ __( 'Review changes' ) }
+						</Button>
 					</div>
 				</Popover.Popup>
 			</Popover.Root>

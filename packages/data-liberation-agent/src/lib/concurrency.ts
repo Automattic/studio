@@ -29,3 +29,21 @@ export async function mapPool<T, R>(
   await Promise.all(Array.from({ length: workers }, () => worker()));
   return results;
 }
+
+/**
+ * Race a promise against a hard deadline, rejecting with `label` when the time is up.
+ * The underlying operation is NOT cancelled — the caller abandons it — so use
+ * this to put a time limit on awaits that can otherwise fail to settle (e.g. Playwright
+ * protocol calls against a frozen renderer, which have no default timeout).
+ */
+export async function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+  });
+  try {
+    return await Promise.race([p, timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}

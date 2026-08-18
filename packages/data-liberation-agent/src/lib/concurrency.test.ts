@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { mapPool } from './concurrency.js';
+import { mapPool, withTimeout } from './concurrency.js';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -41,5 +41,22 @@ describe('mapPool', () => {
 
   it('floors concurrency at 1 (0 / negative still runs serially)', async () => {
     expect(await mapPool([1, 2, 3], 0, async (x) => x * 2)).toEqual([2, 4, 6]);
+  });
+});
+
+describe('withTimeout', () => {
+  it('resolves with the promise value when it settles in time', async () => {
+    expect(await withTimeout(Promise.resolve(42), 1000, 'fast')).toBe(42);
+  });
+
+  it('propagates the promise rejection when it rejects in time', async () => {
+    await expect(withTimeout(Promise.reject(new Error('boom')), 1000, 'rejecting'))
+      .rejects.toThrow('boom');
+  });
+
+  it('rejects with the label when the promise never settles', async () => {
+    const never = new Promise<void>(() => {});
+    await expect(withTimeout(never, 10, 'stuck call'))
+      .rejects.toThrow('stuck call timed out after 10ms');
   });
 });

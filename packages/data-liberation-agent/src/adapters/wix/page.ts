@@ -3,6 +3,12 @@ import { isExecutionContextDestroyed, ROUTE_PIN_INIT_SCRIPT } from './runtime.js
 import { emptyMeta, extractImageUrls, deriveContent, extractFeaturedImageFromJsonLd } from './content.js';
 import { extractGalleryFromHtml } from './gallery.js';
 import { slugify } from '../../lib/url/index.js';
+import { withTimeout } from '../../lib/concurrency.js';
+
+/** Hard deadline for renderer-bound Playwright calls (evaluate/content/CDP).
+ *  Playwright gives them NO default timeout, so a frozen renderer would
+ *  otherwise leave the await pending forever and block the extraction loop. */
+const RENDERER_CALL_TIMEOUT_MS = 30_000;
 
 /**
  * Plain GET of a page's served HTML. Used as the last-resort fallback when
@@ -73,11 +79,11 @@ export async function extractWixPage(
   // (already swallowed) call sites' own try/catch — kept for symmetry.
   const evaluateWithRetry = async <T>(fn: (arg?: unknown) => unknown): Promise<T> => {
     try {
-      return (await p.evaluate(fn)) as T;
+      return (await withTimeout(p.evaluate(fn), RENDERER_CALL_TIMEOUT_MS, 'wix evaluate')) as T;
     } catch (err) {
       if (!isExecutionContextDestroyed(err)) throw err;
       await settle(8_000, 1_500);
-      return (await p.evaluate(fn)) as T;
+      return (await withTimeout(p.evaluate(fn), RENDERER_CALL_TIMEOUT_MS, 'wix evaluate')) as T;
     }
   };
 
@@ -137,7 +143,7 @@ export async function extractWixPage(
     // Scroll through the page to trigger lazy-loaded gallery thumbnails so
     // images below the fold make it into the live DOM read. Best-effort.
     try {
-      await p.evaluate(async () => {
+      await withTimeout(p.evaluate(async () => {
         const step = 800;
         const total = document.documentElement.scrollHeight;
         for (let y = 0; y < total; y += step) {
@@ -145,7 +151,7 @@ export async function extractWixPage(
           await new Promise((r) => setTimeout(r, 120));
         }
         window.scrollTo(0, 0);
-      });
+      }), 60_000, 'wix lazy-load scroll');
       await settle(3_000, 500);
     } catch {
       // scroll failed (e.g. context destroyed) — non-fatal; the DOM read and
@@ -323,10 +329,11 @@ export async function extractWixPage(
   let accessibility: Array<{ role: string; name: string; description?: string }> | null =
     null;
   try {
-    const client = await p.context().newCDPSession(page);
-    const axResult = (await client.send('Accessibility.getFullAXTree', {
+    const client = await withTimeout(
+      p.context().newCDPSession(page), RENDERER_CALL_TIMEOUT_MS, 'wix CDP session');
+    const axResult = (await withTimeout(client.send('Accessibility.getFullAXTree', {
       depth: 10,
-    })) as { nodes?: Array<{ role?: { value: string }; name?: { value: string }; description?: { value: string } }> };
+    }), RENDERER_CALL_TIMEOUT_MS, 'wix AX tree')) as { nodes?: Array<{ role?: { value: string }; name?: { value: string }; description?: { value: string } }> };
     const textNodes = (axResult.nodes || [])
       .filter((n) =>
         [
@@ -356,7 +363,7 @@ export async function extractWixPage(
 
   let pageHtml = '';
   try {
-    pageHtml = await p.content();
+    pageHtml = await withTimeout(p.content(), RENDERER_CALL_TIMEOUT_MS, 'wix page content');
   } catch {
     // content() failed (e.g. context destroyed). Fall back to a plain GET of
     // the served HTML — Wix server-renders the page (and the Pro Gallery's

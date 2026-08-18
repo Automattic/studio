@@ -11,6 +11,12 @@ import type { WooProductCsvBuilder, WooProduct } from '../lib/woo-csv/index.js';
 import { AdaptiveTuner, TUNER_DEFAULTS } from '../lib/extraction/adaptive-tuner.js';
 import type { AdaptiveTunerConfig, TunerState } from '../lib/extraction/adaptive-tuner.js';
 import { claimSlug, pageSlugFromUrl } from '../lib/url/index.js';
+import { withTimeout } from '../lib/concurrency.js';
+
+/** Time limit for one extractPage call. An adapter await that never settles
+ *  (a frozen browser, a dead socket) would otherwise block the whole loop;
+ *  when the time is up the URL is logged as failed and the run continues. */
+const PAGE_EXTRACT_TIMEOUT_MS = 5 * 60_000;
 
 // ---------------------------------------------------------------------------
 // Strip non-content tags from HTML
@@ -468,7 +474,8 @@ async function runExtractionLoopInner(opts: ExtractionLoopOpts): Promise<Extract
       batch.map(async (url): Promise<FetchResult> => {
         const pageStart = Date.now();
         try {
-          const pageData = await extractPage(url);
+          const pageData = await withTimeout(
+            extractPage(url), PAGE_EXTRACT_TIMEOUT_MS, `extractPage ${url}`);
           return { url, pageData, elapsedMs: Date.now() - pageStart, error: null };
         } catch (err) {
           return { url, pageData: null, elapsedMs: Date.now() - pageStart, error: err instanceof Error ? err.message : String(err) };

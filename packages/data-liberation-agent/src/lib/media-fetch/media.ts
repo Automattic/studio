@@ -10,6 +10,7 @@ import {
 } from './safe-fetch.js';
 import { Transform } from 'stream';
 import { isRiskySvg, rasterizeSvg } from './svg-raster.js';
+import { withTimeout } from '../concurrency.js';
 
 export interface DownloadResult {
   url: string;
@@ -340,7 +341,9 @@ export async function downloadMedia(
         const ext = extname(filename);
         const pngFilename = safeFilename(`${filename.slice(0, -ext.length)}.png`, seenNames);
         const pngPath = resolveMediaPath(pngFilename, outputDir);
-        const raster = await rasterizeSvg(destPath, pngPath);
+        // Time-limited: rasterizeSvg makes Playwright calls without default
+        // timeouts (newContext/newPage/evaluate) — a frozen raster browser         // must degrade to rasterError, not hang the media loop.
+        const raster = await withTimeout(rasterizeSvg(destPath, pngPath), 60_000, `svg raster ${filename}`);
         svgExtras = raster.ok
           ? { svgRisky, rasterPath: pngPath }
           : { svgRisky, rasterError: raster.error };

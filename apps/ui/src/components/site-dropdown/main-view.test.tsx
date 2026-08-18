@@ -27,6 +27,12 @@ const {
 	stopSiteMutate: vi.fn(),
 } ) );
 
+let snapshotUsage: {
+	siteCount: number;
+	siteLimit: number;
+	siteCreationBlocked: boolean;
+} | null = null;
+
 vi.mock( '@tanstack/react-query', async ( importOriginal ) => {
 	const actual = await importOriginal< typeof import('@tanstack/react-query') >();
 	return {
@@ -66,6 +72,7 @@ vi.mock( '@/data/queries/use-sites', () => ( {
 
 vi.mock( '@/data/queries/use-snapshots', () => ( {
 	useSnapshots: () => ( { data: snapshots } ),
+	useSnapshotUsage: () => ( { data: snapshotUsage } ),
 } ) );
 
 const cancelSyncMutate = vi.fn();
@@ -141,6 +148,7 @@ describe( 'MainView', () => {
 			localSiteId: site.id,
 			date: Date.now(),
 		} );
+		snapshotUsage = null;
 		connectedSites.splice( 0, connectedSites.length );
 	} );
 
@@ -244,6 +252,15 @@ describe( 'MainView', () => {
 		).toHaveAttribute( 'aria-disabled', 'true' );
 	} );
 
+	it( 'keeps the update button busy when activity reports a pending preview', () => {
+		renderMainView( { activity: { kind: 'pending', direction: 'preview' } } );
+
+		expect( screen.getByRole( 'button', { name: 'Updating preview…' } ) ).toHaveAttribute(
+			'aria-disabled',
+			'true'
+		);
+	} );
+
 	it( 'updates the existing preview site while the snapshot is fresh', () => {
 		renderMainView();
 
@@ -317,6 +334,36 @@ describe( 'MainView', () => {
 
 		expect( blocked ).toHaveAttribute( 'aria-disabled', 'true' );
 		expect( cancelSyncMutate ).not.toHaveBeenCalled();
+	} );
+
+	it( 'disables the Share button when the preview site limit is reached', () => {
+		snapshots.splice( 0, snapshots.length );
+		snapshotUsage = { siteCount: 10, siteLimit: 10, siteCreationBlocked: false };
+
+		renderMainView();
+
+		expect(
+			screen.getByText( "You've used all 10 preview sites available on your account." )
+		).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Share' } ) ).toHaveAttribute(
+			'aria-disabled',
+			'true'
+		);
+	} );
+
+	it( 'disables the Share button when preview site creation is blocked', () => {
+		snapshots.splice( 0, snapshots.length );
+		snapshotUsage = { siteCount: 0, siteLimit: 10, siteCreationBlocked: true };
+
+		renderMainView();
+
+		expect(
+			screen.getByText( 'Preview sites are not available for your account.' )
+		).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Share' } ) ).toHaveAttribute(
+			'aria-disabled',
+			'true'
+		);
 	} );
 
 	it( 'stops offering to cancel a pull once the local import has started', () => {

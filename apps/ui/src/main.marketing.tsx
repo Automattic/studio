@@ -33,9 +33,9 @@ function getTheme( value: string | null ): MarketingTheme {
 	throw new Error( `Unknown marketing screenshot theme: ${ value }` );
 }
 
-function getPreviewOrigin( value: string | null ): string | undefined {
+function getPreviewOrigin( value: string | null ): string {
 	if ( value === null ) {
-		return undefined;
+		throw new Error( 'Marketing screenshots require an isolated WordPress preview origin.' );
 	}
 	const origin = new URL( value );
 	if ( origin.protocol !== 'http:' || ! [ '127.0.0.1', 'localhost' ].includes( origin.hostname ) ) {
@@ -118,6 +118,9 @@ async function waitForImages(): Promise< void > {
 }
 
 function isFrameReady( frame: HTMLIFrameElement ): boolean {
+	if ( frame.dataset.previewLoaded === 'true' ) {
+		return true;
+	}
 	try {
 		return (
 			frame.contentWindow?.location.href !== 'about:blank' &&

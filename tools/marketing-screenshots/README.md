@@ -1,8 +1,10 @@
 # Studio marketing screenshot runner
 
-This tool captures deterministic screenshots from the marketing-only Agentic UI build. It serves
-`apps/ui/dist-marketing` on a loopback-only dynamic port, launches Chromium, and creates a fresh
-browser context for every scenario, theme, and preset combination.
+This tool captures deterministic screenshots from the marketing-only Agentic UI build. It creates
+an isolated WordPress + SQLite site through the Studio CLI, installs the checked-in Meridian
+Marketing theme, serves `apps/ui/dist-marketing` on a loopback-only dynamic port, and launches a
+fresh Chromium context for every scenario, theme, and preset combination. The Studio scenario data
+is curated, but every visible site-preview pixel comes from the real WordPress site.
 
 The top-level command builds the marketing target and then captures it:
 
@@ -10,7 +12,7 @@ The top-level command builds the marketing target and then captures it:
 npm run screenshots:marketing
 ```
 
-For iteration against an existing `apps/ui/dist-marketing` build, skip rebuilding with:
+For iteration after the CLI and `apps/ui/dist-marketing` builds are current, skip rebuilding with:
 
 ```sh
 npm run screenshots:marketing:capture
@@ -67,13 +69,13 @@ small viewport.
 The runner can prepare a marketing state after the scenario reports ready and before it captures.
 These controls use the Agentic UI's semantic DOM attributes, not pointer coordinates:
 
-| Flag                                  | Accepted values                                             |
-| ------------------------------------- | ----------------------------------------------------------- |
-| `--composer-text <text>`              | Any quoted draft text                                       |
-| `--composer-focus <state>`            | `focused` or `blurred`                                      |
-| `--conversation-anchor <anchor>`      | `start`, `end`, `first-message`, `last-message`, or `message:<text>` |
-| `--conversation-align <alignment>`    | `start`, `center`, `end`, or `nearest` for message anchors  |
-| `--conversation-occurrence <n>`       | `first` or `last` for a `message:<text>` anchor             |
+| Flag                               | Accepted values                                                      |
+| ---------------------------------- | -------------------------------------------------------------------- |
+| `--composer-text <text>`           | Any quoted draft text                                                |
+| `--composer-focus <state>`         | `focused` or `blurred`                                               |
+| `--conversation-anchor <anchor>`   | `start`, `end`, `first-message`, `last-message`, or `message:<text>` |
+| `--conversation-align <alignment>` | `start`, `center`, `end`, or `nearest` for message anchors           |
+| `--conversation-occurrence <n>`    | `first` or `last` for a `message:<text>` anchor                      |
 
 For example, this captures a focused custom draft without changing the scenario fixture:
 
@@ -117,9 +119,9 @@ window.__STUDIO_MARKETING_SCREENSHOT_READY__ = true;
 ```
 
 The DOM attribute is the primary contract; the window property is a diagnostic fallback. The runner
-also waits for document fonts and images, disables motion, blocks all non-loopback network access,
-and fails on console errors, page errors, failed requests, missing images, readiness timeouts, or
-incorrect PNG dimensions.
+also waits for the real WordPress frame, document fonts, and images; disables motion; allows only
+the two dynamically allocated loopback origins; and fails on console errors, page errors, failed
+requests, missing images, readiness timeouts, or incorrect PNG dimensions.
 
 Before navigation, the runner freezes `Date.now()`, `new Date()`, and `Date()` at
 `2026-08-11T12:00:00.000Z` and replaces `Math.random()` with a seeded generator; argument-based
@@ -128,8 +130,23 @@ fixed to UTC. The manifest records the clock, random seed, locale, timezone, and
 setting.
 
 Each run produces exact-dimension PNGs, `manifest.json`, and a standalone `contact-sheet.html`.
-Manifest entries label these outputs as synthetic, simulated browser renderer captures so they are
-not mistaken for genuine native operating-system windows.
+Manifest entries label the host as a simulated browser renderer so it is not mistaken for a genuine
+native operating-system window. That label describes the Studio host, not the preview: the preview
+is the isolated WordPress site in both capture tiers.
+
+## One real demo site
+
+The Meridian Coffee block theme under
+`tools/marketing-screenshots/wordpress-fixture/meridian-marketing` is the only demo-site
+implementation. Do not add a static HTML substitute, a replacement WP Admin, or a replacement
+database page. Both runners provision the same theme through the built Studio CLI:
+
+- Chromium shows the site in Studio's normal browser `<iframe>` fallback.
+- Electron shows the same site in the real `<webview>` and can navigate to its genuine WP Admin and
+  phpMyAdmin routes.
+
+If a capture cannot create or reach that site, it must fail. It must never fall back to an app-shell
+route or handcrafted site HTML.
 
 ## Native preview and annotation captures
 
@@ -181,29 +198,35 @@ masters. A normal launch reads the developer's `~/.studio` data, real site list,
 saved window bounds, and saved preview geometry. Such a capture is diagnostic-only and must not be
 published or added to a contact sheet.
 
-Native marketing captures must use `npm run screenshots:marketing:native`. That command:
+Marketing captures must use `npm run screenshots:marketing` or
+`npm run screenshots:marketing:native`. Both commands:
 
-- loads `main.marketing.tsx` and `createMarketingConnector()`, so the sidebar can only contain the
+- load `main.marketing.tsx` and `createMarketingConnector()`, so the sidebar can only contain the
   standardized Meridian Coffee, Juniper Journal, Atlas Creative, Lantern Books, Northstar Yoga,
   Harbor & Pine, Fieldwork Studio, and Common Table fixtures;
-- creates a real WordPress + SQLite site with the built Studio CLI, so the preview, WP Admin, login,
+- create a real WordPress + SQLite site with the built Studio CLI, so the preview, WP Admin, login,
   database, and phpMyAdmin routes are product behavior rather than replacement HTML;
-- installs only the checked-in Meridian Marketing theme under `wp-content`; it never edits
+- install only the checked-in Meridian Marketing theme under `wp-content`; it never edits
   WordPress core;
-- uses fresh temporary CLI config, app-data, site, Electron user-data, and process-manager daemon
-  directories, then stops the daemon and removes all temporary data after the run;
+- use fresh temporary CLI config, app-data, site, and process-manager daemon directories, then stop
+  the daemon and remove all temporary data after the run;
 - may reuse the read-only WordPress bundle under `~/.studio/server-files` to avoid a download, but
   never reads `~/.studio/cli.json`, `~/.studio/app.json`, `~/Studio`, saved sites, or authentication;
-- uses a small capture-only Electron main process rather than launching the normal Studio app;
+- use the marketing-only connector rather than launching the normal Studio app;
+
+The native command additionally:
+
+- uses fresh temporary Electron user data and a small capture-only Electron main process;
 - sets the logical window size explicitly and verifies the native display scale factor without
   overriding it (overriding Electron's scale factor causes `<webview>` guest content to render at
   the wrong viewport size); and
 - asserts that the WordPress tab contains the genuine `wp-admin` DOM, the Database tab contains the
   genuine phpMyAdmin DOM, and every PNG has the selected preset's exact dimensions.
 
-There are no static wp-admin or database fixtures. The loopback static server used for renderer
-captures deliberately returns 404 for those routes. If either native tab is not the real application,
-the capture command must fail.
+The loopback server serves only the built Agentic UI shell and its assets. It deliberately returns
+404 for same-origin WP Admin and database routes; the preview, WP Admin, and phpMyAdmin must come
+from the isolated WordPress origin. If either native tab is not the real application, the capture
+command must fail.
 
 Before sharing native output, confirm that the sidebar contains the standardized portfolio and that
 the preview address belongs to Meridian Coffee. If either is untrue, stop: the wrong capture path was

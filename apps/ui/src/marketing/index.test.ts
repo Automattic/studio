@@ -6,10 +6,24 @@ import {
 import {
 	MARKETING_SCENARIO_IDS,
 	applyMarketingPanelLayout,
-	createMarketingConnector,
+	createMarketingConnector as createBaseMarketingConnector,
 	getMarketingScenario,
 	resolveMarketingPanelLayout,
 } from './index';
+
+const TEST_WORDPRESS_ORIGIN = 'http://localhost:43210';
+
+function createMarketingConnector(
+	scenario: Parameters< typeof createBaseMarketingConnector >[ 0 ],
+	theme: Parameters< typeof createBaseMarketingConnector >[ 1 ],
+	panelLayout?: Parameters< typeof createBaseMarketingConnector >[ 2 ],
+	options: Parameters< typeof createBaseMarketingConnector >[ 3 ] = {}
+) {
+	return createBaseMarketingConnector( scenario, theme, panelLayout, {
+		previewOrigin: TEST_WORDPRESS_ORIGIN,
+		...options,
+	} );
+}
 
 describe( 'marketing screenshot scenarios', () => {
 	it( 'registers stable routes and readiness selectors', () => {
@@ -302,7 +316,7 @@ describe( 'marketing screenshot connector', () => {
 		);
 	} );
 
-	it( 'keeps onboarding empty and preview scenarios backed by the local fixture', async () => {
+	it( 'keeps onboarding empty and points site scenarios at WordPress', async () => {
 		const onboardingConnector = createMarketingConnector(
 			getMarketingScenario( 'add-site' ),
 			'light'
@@ -318,7 +332,7 @@ describe( 'marketing screenshot connector', () => {
 		);
 		expect( previewSite ).toMatchObject( {
 			running: true,
-			url: window.location.origin,
+			url: TEST_WORDPRESS_ORIGIN,
 		} );
 		const connectedConnector = createMarketingConnector(
 			getMarketingScenario( 'connected-site-controls' ),
@@ -331,11 +345,11 @@ describe( 'marketing screenshot connector', () => {
 			running: true,
 			customDomain: undefined,
 			enableHttps: false,
-			url: window.location.origin,
+			url: TEST_WORDPRESS_ORIGIN,
 		} );
 	} );
 
-	it( 'can point native captures at an isolated real WordPress origin', async () => {
+	it( 'can point captures at an isolated real WordPress origin', async () => {
 		const connector = createMarketingConnector(
 			getMarketingScenario( 'agent-complete-preview' ),
 			'light',

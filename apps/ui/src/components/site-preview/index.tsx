@@ -984,6 +984,7 @@ export function SitePreview( {
 										src={ previewUrl }
 										title={ site.name }
 										onLoad={ ( event ) => {
+											event.currentTarget.dataset.previewLoaded = 'true';
 											handlePreviewNavigation( event.currentTarget.src );
 											setBrowserState( ( current ) => {
 												const next = {
@@ -1036,6 +1037,9 @@ export function SitePreview( {
 														: undefined
 												}
 												src={ previewUrl }
+												onLoad={ ( event ) => {
+													event.currentTarget.dataset.previewLoaded = 'true';
+												} }
 												title={ sprintf(
 													/* translators: %s: site name */
 													__( '%s (mobile)' ),

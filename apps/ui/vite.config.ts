@@ -37,19 +37,10 @@ const active = isBrowser ? browserConfig[ target as BrowserTarget ] : undefined;
 
 // In dev and preview, Vite otherwise serves the root Electron `index.html` (or
 // no root document at all for a multi-page build). Rewrite document navigation
-// to the active browser target so client-side routes and refreshes work. The
-// marketing-only iframe root resolves to its deterministic preview fixture.
+// to the active browser target so client-side routes and refreshes work.
 function rewriteBrowserDocumentRequest( req: IncomingMessage ): void {
 	const accept = req.headers.accept ?? '';
 	const [ pathname ] = ( req.url ?? '' ).split( '?' );
-	if (
-		target === 'marketing' &&
-		pathname === '/' &&
-		req.headers[ 'sec-fetch-dest' ] === 'iframe'
-	) {
-		req.url = '/marketing-preview/meridian/index.html';
-		return;
-	}
 	const isInternal =
 		pathname.startsWith( '/@' ) ||
 		pathname.startsWith( '/src/' ) ||
@@ -79,7 +70,6 @@ const browserDevEntryPlugin: Plugin = {
 
 export default defineConfig( {
 	plugins: [ react(), dsTokenFallbacks(), ...( isBrowser ? [ browserDevEntryPlugin ] : [] ) ],
-	...( target === 'marketing' ? { publicDir: resolve( __dirname, 'public-marketing' ) } : {} ),
 	css: {
 		postcss: {
 			plugins: [ dsTokenFallbacksPostcss ],

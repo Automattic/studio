@@ -44,6 +44,7 @@ import {
 	type ScenarioId,
 	type Theme,
 } from './presets.ts';
+import { createRealWordPressSite, type RealWordPressSite } from './real-site.ts';
 import { startStaticServer } from './static-server.ts';
 
 const READY_SELECTOR = '[data-marketing-screenshot-ready="true"]';
@@ -68,7 +69,8 @@ interface CliOptions {
 
 interface CaptureOptions {
 	browser: Browser;
-	origin: string;
+	appOrigin: string;
+	previewOrigin: string;
 	outputDirectory: string;
 	scenario: ScenarioId;
 	theme: Theme;
@@ -109,11 +111,15 @@ async function main(): Promise< void > {
 		cli.outputDirectory ??
 			path.join( 'artifacts', 'marketing-screenshots', git.commit.slice( 0, 12 ) )
 	);
-	const server = await startStaticServer( distDirectory );
+	let server: Awaited< ReturnType< typeof startStaticServer > > | undefined;
+	let realSite: RealWordPressSite | undefined;
 	let browser: Browser | undefined;
 	const captures: CaptureManifestEntry[] = [];
 
 	try {
+		process.stdout.write( 'Provisioning the isolated Meridian Coffee WordPress site…\n' );
+		realSite = await createRealWordPressSite();
+		server = await startStaticServer( distDirectory );
 		browser = await chromium.launch( { headless: cli.headless } );
 		for ( const scenario of scenarios ) {
 			const presentation = resolveCapturePresentation( scenario, cli.presentationOverrides );
@@ -124,7 +130,8 @@ async function main(): Promise< void > {
 					captures.push(
 						await captureScreenshot( {
 							browser,
-							origin: server.origin,
+							appOrigin: server.origin,
+							previewOrigin: realSite.origin,
 							outputDirectory,
 							scenario,
 							theme,
@@ -140,7 +147,8 @@ async function main(): Promise< void > {
 		}
 	} finally {
 		await browser?.close();
-		await server.close();
+		await server?.close();
+		await realSite?.close();
 	}
 
 	const manifest = createManifest( {
@@ -170,7 +178,8 @@ async function main(): Promise< void > {
 async function captureScreenshot( options: CaptureOptions ): Promise< CaptureManifestEntry > {
 	const {
 		browser,
-		origin,
+		appOrigin,
+		previewOrigin,
 		outputDirectory,
 		scenario,
 		theme,
@@ -199,12 +208,13 @@ async function captureScreenshot( options: CaptureOptions ): Promise< CaptureMan
 
 	try {
 		await installDeterministicRuntime( context );
-		await installNetworkGuard( context, origin, externalRequests );
+		await installNetworkGuard( context, [ appOrigin, previewOrigin ], externalRequests );
 		const page = await context.newPage();
 		installDiagnostics( page, diagnostics, externalRequests );
-		const scenarioUrl = new URL( '/', origin );
+		const scenarioUrl = new URL( '/', appOrigin );
 		scenarioUrl.searchParams.set( 'scenario', scenario );
 		scenarioUrl.searchParams.set( 'theme', theme );
+		scenarioUrl.searchParams.set( 'previewOrigin', previewOrigin );
 		addPanelLayoutSearchParams( scenarioUrl, panelLayoutOverrides );
 
 		await page.goto( scenarioUrl.href, { waitUntil: 'domcontentloaded', timeout: timeoutMs } );
@@ -304,13 +314,17 @@ async function installDeterministicRuntime( context: BrowserContext ): Promise< 
 
 async function installNetworkGuard(
 	context: BrowserContext,
-	origin: string,
+	allowedOrigins: readonly string[],
 	externalRequests: Set< string >
 ): Promise< void > {
+	const allowed = new Set( allowedOrigins );
 	await context.route( '**/*', async ( route ) => {
 		const requestUrl = route.request().url();
 		const parsedUrl = new URL( requestUrl );
-		if ( [ 'http:', 'https:' ].includes( parsedUrl.protocol ) && parsedUrl.origin !== origin ) {
+		if (
+			[ 'http:', 'https:' ].includes( parsedUrl.protocol ) &&
+			! allowed.has( parsedUrl.origin )
+		) {
 			externalRequests.add( requestUrl );
 			await route.abort( 'blockedbyclient' );
 			return;

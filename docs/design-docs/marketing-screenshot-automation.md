@@ -22,9 +22,10 @@ The current runnable slice on this branch includes:
 - explicit light and dark rendering with a fixed clock, locale, timezone, and reduced motion;
 - deterministic randomness and waits for fonts, images, and preview frames after presentation setup;
 - `smoke`, `raw-compact-2x`, `raw-default-2x`, `raw-wide-2x`, and `store-4k` presets;
-- a marketing-only static preview fixture with no account, site, or external network dependency;
-- an isolated Electron annotation runner backed by a temporary real Studio WordPress site, genuine
-  WP Admin, and genuine phpMyAdmin;
+- a single checked-in Meridian Coffee WordPress theme provisioned into a temporary real Studio site
+  for both browser and Electron previews;
+- an isolated Electron annotation runner backed by that site, genuine WP Admin, and genuine
+  phpMyAdmin;
 - composed-window capture through Electron, avoiding the incorrect `<webview>` scaling produced by
   host-page screenshots;
 - exact-dimension PNG validation, diagnostics, a JSON manifest, and an HTML contact sheet; and
@@ -53,7 +54,8 @@ The most consequential decisions are:
 1. Approve a deterministic renderer generator as the first implementation branch, with native
    platform capture following in separate spikes.
 2. Approve the six required version-one scenarios, especially the completed agent-plus-preview hero.
-3. Approve synthetic fixture content rather than live accounts, AI runs, and mutable local sites.
+3. Approve curated Studio scenario content and the isolated Meridian WordPress fixture rather than
+   live accounts, AI runs, or personal sites.
 4. Approve a small canonical preset set plus arbitrary one-off dimensions.
 5. Decide where approved outputs are promoted after generation and how long CI artifacts remain.
 6. Decide whether the first public refresh requires genuine macOS imagery or can start with renderer
@@ -183,13 +185,13 @@ use different connectors while sharing the same React component tree.
 
 - Electron uses a `<webview>` for a running site's preview.
 - A normal browser uses an `<iframe>` fallback.
-- Browser-renderer preview pages are deterministic local fixtures served by the capture harness.
-  They do not depend on a live Studio site port, external URL, or mutable production website.
-- Native annotation masters use a temporary real WordPress site created by the built Studio CLI.
-  The runner uses isolated config, site, Electron user-data, and process-manager directories, and it
-  installs the checked-in Meridian Marketing theme under `wp-content` before capture.
-- The native static server must not provide replacement wp-admin or phpMyAdmin pages. Those routes
-  are accepted only when the real guest DOM proves that WordPress and phpMyAdmin are running.
+- Both renderer and native previews use a temporary real WordPress site created by the built Studio
+  CLI. The runners use isolated config, site, Electron user-data where applicable, and
+  process-manager directories, and install the checked-in Meridian Marketing theme under
+  `wp-content` before capture.
+- The Agentic UI server must not provide replacement frontend, WP Admin, or phpMyAdmin pages. Those
+  surfaces are accepted only from the isolated WordPress origin; native admin/database captures
+  additionally verify the real guest DOM.
 - The capture-only host must not read `~/.studio`, saved window bounds, running site ports,
   authentication, or the developer's site list. Exact content bounds and scale factor are inputs,
   and the runner rejects output whose pixel dimensions do not match the selected preset.
@@ -290,13 +292,14 @@ Routine captures must:
 flowchart LR
     A["Git ref or current checkout"] --> B["Isolated build"]
     C["Typed scenario registry"] --> D["Marketing-only Agentic UI target"]
-    E["Synthetic data and preview fixtures"] --> D
+    E["Curated Studio scenario data"] --> D
     B --> D
+    K["Isolated real Studio WordPress site"] --> D
     D --> F["Playwright renderer capture"]
     F --> G["Raw and exact-size compositions"]
     G --> H["Manifest and contact sheet"]
     D --> I["Capture-only Electron window"]
-    K["Isolated real Studio WordPress site"] --> I
+    K --> I
     I --> J["Composed annotation captures"]
 ```
 
@@ -317,9 +320,7 @@ apps/ui/
       scenario-context.tsx
       scenarios.ts
       types.ts
-      fixtures/
-        preview-sites/
-        thumbnails/
+      fixtures.ts
 tools/
   marketing-screenshots/
     README.md
@@ -391,16 +392,17 @@ the intended composition stable across capture presets while retaining the produ
 clamps. The runner can override those defaults for one-off exports with `--preview-width-ratio`,
 `--sidebar-width`, `--preview`, and `--sidebar`.
 
-### 3. Deterministic preview fixtures
+### 3. Isolated WordPress fixture
 
-Preview scenarios will use static same-origin fixture sites served by the marketing Vite server.
-Each fixture should represent a polished but neutral WordPress site and include only the pages needed
-by the scenario.
+The checked-in Meridian Marketing block theme is the only demo-site implementation. Each run
+creates a temporary site through the built Studio CLI, installs that theme, and points every
+preview-capable scenario at its loopback origin.
 
-Renderer captures avoid creating a full Playground site because it would increase runtime without
-improving those synthetic browser-preview pixels. The native annotation command deliberately takes
-the other path: it provisions a fresh real site for each run so the frontend, authentication,
-wp-admin, database, phpMyAdmin, and inspector bridge are exercised together.
+The browser tier loads the real site through Studio's normal `<iframe>` fallback. The native tier
+loads the same site through Electron's `<webview>` and can exercise authentication, WP Admin,
+phpMyAdmin, and the inspector bridge. The Agentic UI server never substitutes handcrafted frontend,
+admin, or database HTML. Site creation is slower than a static fixture, but it prevents the two
+capture tiers from drifting and keeps every publishable preview grounded in actual WordPress.
 
 ### 4. Explicit readiness contract
 
@@ -479,18 +481,18 @@ the repository) so a large screenshot set is never copied into packaging work.
 
 ### Version-one required scenarios
 
-| ID                       | Visible state                                                        | Primary use                          | Preview fixture |
-| ------------------------ | -------------------------------------------------------------------- | ------------------------------------ | --------------- |
-| `add-site`               | Empty Studio state with create, connect, and import choices          | Onboarding and docs                  | None            |
-| `site-overview`          | Sidebar with several sites and a selected running site's overview    | General product and site management  | Thumbnail only  |
-| `agent-new-session`      | Selected site with an empty agent conversation and suggested prompts | Studio Code introduction             | Optional        |
-| `agent-working-preview`  | Credible in-progress agent conversation beside a live preview        | Landing-page hero and agent workflow | Required        |
-| `agent-complete-preview` | Completed task, concise result, and polished updated site preview    | Landing pages and Store              | Required        |
-| `agent-long-conversation` | Multi-turn conversation without sidebar or preview                  | Studio Code articles and docs        | None            |
-| `site-portfolio`         | Dense eight-site sidebar with a selected site overview               | Site-management marketing            | Thumbnail only  |
-| `connected-site-controls` | Local, preview, and synthetic Pressable environment controls        | Pressable and sync docs              | None            |
-| `selective-sync`         | Selective Sync UI connected to a synthetic Pressable site            | Pressable and sync docs              | None            |
-| `responsive-preview`     | Full-screen desktop and mobile previews of the same site             | Preview and responsive-design docs   | Required        |
+| ID                        | Visible state                                                        | Primary use                          | Preview fixture |
+| ------------------------- | -------------------------------------------------------------------- | ------------------------------------ | --------------- |
+| `add-site`                | Empty Studio state with create, connect, and import choices          | Onboarding and docs                  | None            |
+| `site-overview`           | Sidebar with several sites and a selected running site's overview    | General product and site management  | Thumbnail only  |
+| `agent-new-session`       | Selected site with an empty agent conversation and suggested prompts | Studio Code introduction             | Optional        |
+| `agent-working-preview`   | Credible in-progress agent conversation beside a live preview        | Landing-page hero and agent workflow | Required        |
+| `agent-complete-preview`  | Completed task, concise result, and polished updated site preview    | Landing pages and Store              | Required        |
+| `agent-long-conversation` | Multi-turn conversation without sidebar or preview                   | Studio Code articles and docs        | None            |
+| `site-portfolio`          | Dense eight-site sidebar with a selected site overview               | Site-management marketing            | Thumbnail only  |
+| `connected-site-controls` | Local, preview, and synthetic Pressable environment controls         | Pressable and sync docs              | None            |
+| `selective-sync`          | Selective Sync UI connected to a synthetic Pressable site            | Pressable and sync docs              | None            |
+| `responsive-preview`      | Full-screen desktop and mobile previews of the same site             | Preview and responsive-design docs   | Required        |
 
 ### Version-one optional scenarios
 
@@ -750,7 +752,7 @@ reading personal Studio data or accessing external services.
 ### Phase 2: Complete the renderer catalog and export presets
 
 - Implement all required scenarios.
-- Add deterministic preview fixtures.
+- Add the deterministic isolated WordPress fixture.
 - Add exact-size compositions and arbitrary-size options.
 - Add PNG contact sheet, diagnostics, dimension validation, and content revisioning.
 - Add the ref/worktree wrapper.
@@ -805,7 +807,7 @@ Expected changes:
 
 - marketing-only Vite entry and build target;
 - marketing connector and typed scenario registry;
-- synthetic preview and thumbnail fixtures;
+- the isolated Meridian WordPress theme and curated thumbnail data;
 - Playwright capture/ref orchestration;
 - manifests, contact sheets, diagnostics, and presets;
 - unit tests for scenarios, configuration, and manifest generation;
@@ -816,9 +818,9 @@ Native platform automation should follow in separate branches after the macOS sp
 permissions and capture-API questions. Separating the work avoids making the reliable renderer tool
 wait on OS-specific infrastructure.
 
-Because the eventual native/CI system crosses build, Electron, tooling, and infrastructure
-boundaries, that work should begin as a draft Proof of Concept with a companion issue. The
-renderer-only generator can remain the smaller, reviewable first implementation branch.
+Because the native/CI system crosses build, Electron, tooling, and infrastructure boundaries, this
+work should remain a draft Proof of Concept until its architecture and operating ownership are
+reviewed.
 
 ## Risks and mitigations
 
@@ -836,12 +838,12 @@ run it through normal typechecking, and exercise every required scenario in CI.
 **Mitigation:** Build scenarios from actual routes and production component contracts. Require a
 Studio product reviewer for scenario-content changes.
 
-### Preview fixture and app state disagree
+### WordPress fixture and app state disagree
 
 **Risk:** The agent claims to have made a change that the preview does not show.
 
-**Mitigation:** Keep agent messages and preview fixture revisions together in one scenario directory
-and review them as one unit.
+**Mitigation:** Review agent-message changes alongside the checked-in WordPress theme and its
+generated preview captures.
 
 ### Hidden persistence contaminates captures
 

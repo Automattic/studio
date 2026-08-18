@@ -7,8 +7,8 @@
 			"palette": [
 				{ "slug": "forest", "color": "#173f35", "name": "Forest" },
 				{ "slug": "cream", "color": "#fffaf0", "name": "Cream" },
-				{ "slug": "coffee", "color": "#cf9363", "name": "Coffee" },
-				{ "slug": "sand", "color": "#e9dfcc", "name": "Sand" },
+				{ "slug": "coffee", "color": "#cf8b56", "name": "Coffee" },
+				{ "slug": "sand", "color": "#e7dfcd", "name": "Sand" },
 				{ "slug": "gold", "color": "#e6be75", "name": "Gold" }
 			]
 		},

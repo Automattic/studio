@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -17,13 +17,11 @@ afterEach( async () => {
 } );
 
 describe( 'marketing screenshot static server', () => {
-	it( 'isolates the renderer shell from the synthetic browser-preview page', async () => {
+	it( 'serves only the renderer shell and its assets', async () => {
 		temporaryDirectory = await mkdtemp( path.join( os.tmpdir(), 'studio-marketing-server-' ) );
-		const previewDirectory = path.join( temporaryDirectory, 'marketing-preview', 'meridian' );
-		await mkdir( previewDirectory, { recursive: true } );
 		await Promise.all( [
 			writeFile( path.join( temporaryDirectory, 'index.marketing.html' ), 'renderer shell' ),
-			writeFile( path.join( previewDirectory, 'index.html' ), 'Meridian frontend' ),
+			writeFile( path.join( temporaryDirectory, 'app.js' ), 'renderer asset' ),
 		] );
 		server = await startStaticServer( temporaryDirectory );
 
@@ -34,7 +32,10 @@ describe( 'marketing screenshot static server', () => {
 			fetch( server.origin, { headers: { 'sec-fetch-dest': 'iframe' } } ).then( ( response ) =>
 				response.text()
 			)
-		).resolves.toBe( 'Meridian frontend' );
+		).resolves.toBe( 'renderer shell' );
+		await expect(
+			fetch( `${ server.origin }/app.js` ).then( ( response ) => response.text() )
+		).resolves.toBe( 'renderer asset' );
 		await expect( fetch( `${ server.origin }/wp-admin/` ) ).resolves.toMatchObject( {
 			status: 404,
 		} );

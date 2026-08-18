@@ -62,7 +62,7 @@
 		"e2e": "npx playwright install && npx playwright test",
 		"e2e:fixtures": "node --experimental-strip-types ./scripts/prepare-e2e-fixtures.ts",
 		"test:metrics": "npx playwright test --config=./tools/metrics/playwright.metrics.config.ts",
-		"screenshots:marketing": "npm -w @studio/ui run build:marketing && node --experimental-strip-types ./tools/marketing-screenshots/capture.ts",
+		"screenshots:marketing": "npm run cli:build && npm -w @studio/ui run build:marketing && node --experimental-strip-types ./tools/marketing-screenshots/capture.ts",
 		"screenshots:marketing:capture": "node --experimental-strip-types ./tools/marketing-screenshots/capture.ts",
 		"screenshots:marketing:native": "npm run cli:build && npm -w @studio/ui run build:marketing && node --experimental-strip-types ./tools/marketing-screenshots/native-capture.ts",
 		"screenshots:marketing:native:capture": "node --experimental-strip-types ./tools/marketing-screenshots/native-capture.ts",

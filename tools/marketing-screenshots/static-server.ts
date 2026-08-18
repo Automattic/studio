@@ -31,8 +31,6 @@ export async function startStaticServer( distDirectory: string ): Promise< Stati
 	const indexPath = [ 'index.marketing.html', 'index.html' ]
 		.map( ( fileName ) => path.join( root, fileName ) )
 		.find( isFile );
-	const marketingPreviewPath = path.join( root, 'marketing-preview', 'meridian', 'index.html' );
-
 	if ( ! indexPath ) {
 		throw new Error(
 			`Marketing UI build not found in ${ root }. Expected index.marketing.html or index.html; ` +
@@ -76,12 +74,8 @@ export async function startStaticServer( distDirectory: string ): Promise< Stati
 			return;
 		}
 
-		const isMarketingPreviewRequest =
-			pathname === '/' &&
-			[ 'iframe', 'embed' ].includes( request.headers[ 'sec-fetch-dest' ] ?? '' ) &&
-			isFile( marketingPreviewPath );
-		let filePath = isMarketingPreviewRequest ? marketingPreviewPath : candidate;
-		if ( ! isMarketingPreviewRequest && ( pathname === '/' || ! isFile( candidate ) ) ) {
+		let filePath = candidate;
+		if ( pathname === '/' || ! isFile( candidate ) ) {
 			const hasFileExtension = path.extname( pathname ) !== '';
 			if ( pathname !== '/' && hasFileExtension ) {
 				response.writeHead( 404 );

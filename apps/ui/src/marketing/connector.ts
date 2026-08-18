@@ -46,7 +46,7 @@ function cloneSite( site: SiteDetails ): SiteDetails {
 }
 
 export interface MarketingConnectorOptions {
-	/** Origin of the isolated real WordPress site used by native captures. */
+	/** Origin of the isolated real WordPress site used by every preview capture. */
 	previewOrigin?: string;
 	/** Enable Electron-only preview annotation controls for native captures. */
 	annotatePreview?: boolean;
@@ -69,10 +69,13 @@ export function createMarketingConnector(
 	const sites = scenario.id === 'add-site' ? [] : getMarketingSites();
 	const primarySite = sites.find( ( site ) => site.id === PRIMARY_SITE_ID );
 	if ( primarySite ) {
+		if ( ! options.previewOrigin ) {
+			throw new Error( 'Marketing site scenarios require a real WordPress preview origin.' );
+		}
 		primarySite.running = true;
 		primarySite.customDomain = undefined;
 		primarySite.enableHttps = false;
-		primarySite.url = options.previewOrigin ?? window.location.origin;
+		primarySite.url = options.previewOrigin;
 	}
 	const sessionIdsByScenario: Partial< Record< MarketingScenario[ 'id' ], readonly string[] > > = {
 		'agent-new-session': [ AGENT_NEW_SESSION_ID ],

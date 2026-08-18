@@ -1,12 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 import { isErrnoException } from '../lib/is-errno-exception';
+import { readSharedConfig, updateSharedConfig } from '../lib/shared-config';
 import { getGlobalInstructionsPath } from '../lib/well-known-paths';
-
-// Keep the always-injected instructions small enough that they can't crowd out
-// the rest of the system prompt. The prompt builder truncates anything longer;
-// the settings UIs cap their textareas at the same length.
-export const GLOBAL_INSTRUCTIONS_MAX_LENGTH = 16_000;
 
 /**
  * Read the user's global agent instructions (`~/.studio/knowledge/instructions.md`)
@@ -15,16 +11,15 @@ export const GLOBAL_INSTRUCTIONS_MAX_LENGTH = 16_000;
  * instructions.
  */
 export async function readGlobalInstructions(): Promise< string | undefined > {
-	let content: string;
-	try {
-		content = await fs.promises.readFile( getGlobalInstructionsPath(), 'utf8' );
-	} catch ( error ) {
-		if ( ! isErrnoException( error ) || error.code !== 'ENOENT' ) {
-			console.error( '[global-instructions] Failed to read instructions file:', error );
-		}
+	const content = await readGlobalInstructionsFile().catch( ( error ) => {
+		console.error( '[global-instructions] Failed to read instructions file:', error );
+		return null;
+	} );
+	const trimmed = content?.trim();
+	if ( ! trimmed || ! ( await readGlobalInstructionsEnabled( content ) ) ) {
 		return undefined;
 	}
-	return content.trim() || undefined;
+	return trimmed;
 }
 
 /**
@@ -47,4 +42,17 @@ export async function writeGlobalInstructions( content: string ): Promise< void 
 	const filePath = getGlobalInstructionsPath();
 	await fs.promises.mkdir( path.dirname( filePath ), { recursive: true } );
 	await fs.promises.writeFile( filePath, content, 'utf8' );
+}
+
+export async function readGlobalInstructionsEnabled( content?: string | null ): Promise< boolean > {
+	const config = await readSharedConfig();
+	if ( config.agentInstructionsEnabled !== undefined ) {
+		return config.agentInstructionsEnabled;
+	}
+	const currentContent = content ?? ( await readGlobalInstructionsFile() );
+	return Boolean( currentContent?.trim() );
+}
+
+export async function writeGlobalInstructionsEnabled( enabled: boolean ): Promise< void > {
+	await updateSharedConfig( { agentInstructionsEnabled: enabled } );
 }

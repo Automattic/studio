@@ -439,13 +439,14 @@ export interface Connector {
 
 	// The user's global Studio Code instructions, a markdown file injected into
 	// every agent session. Gated by `capabilities.agentInstructions`.
-	getAgentInstructions(): Promise< string >;
+	getAgentInstructions(): Promise< { content: string; enabled: boolean } >;
 	// `editSession` marks the save that ends an edit session and carries the value
 	// it started from, so it counts as one change. Autosaves omit it.
 	saveAgentInstructions(
 		content: string,
 		options?: { editSession?: { previousContent: string } }
 	): Promise< void >;
+	setAgentInstructionsEnabled( enabled: boolean ): Promise< void >;
 
 	// AI provider settings stored in the CLI config, gated by
 	// `capabilities.aiSettings`. Clearing the key (null) also falls back to

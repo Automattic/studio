@@ -51,6 +51,9 @@ export const sharedConfigSchema = z
 		// parse; readers narrow with `isAiProviderId`.
 		aiProvider: z.string().optional(),
 		anthropicApiKey: z.string().optional(),
+		// Whether global agent instructions are injected into new sessions. When
+		// absent, existing installations fall back to whether the file has content.
+		agentInstructionsEnabled: z.boolean().optional(),
 		// Anonymous install identifier for Tracks analytics, shared by Studio and the Studio CLI.
 		// See `docs/design-docs/analytics-tracks.md`.
 		analyticsInstallId: z.string().optional(),

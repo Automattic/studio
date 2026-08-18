@@ -244,6 +244,15 @@ describe( 'MainView', () => {
 		).toHaveAttribute( 'aria-disabled', 'true' );
 	} );
 
+	it( 'keeps the update button busy when activity reports a pending preview', () => {
+		renderMainView( { activity: { kind: 'pending', direction: 'preview' } } );
+
+		expect( screen.getByRole( 'button', { name: 'Updating preview…' } ) ).toHaveAttribute(
+			'aria-disabled',
+			'true'
+		);
+	} );
+
 	it( 'updates the existing preview site while the snapshot is fresh', () => {
 		renderMainView();
 

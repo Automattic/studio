@@ -142,7 +142,9 @@ export function MainView( {
 	const isOperationInProgress = useIsSiteBusy( site );
 	const operation = useSiteOperation( site );
 	const { push: isPushPending, pull: isPullPending } = useIsSiteSyncing( site.id );
-	const isPreviewPending = publishPreviewSite.isPending;
+	const isPreviewPending =
+		publishPreviewSite.isPending ||
+		( activity?.kind === 'pending' && activity.direction === 'preview' );
 	// Preview / push / pull all mutate the same local site; running them
 	// concurrently would wedge the site runtime. An import replaces that site's
 	// files and database outright, so it locks them out too — and the CLI won't

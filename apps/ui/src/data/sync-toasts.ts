@@ -1,6 +1,7 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { showToast } from '@/data/app-messages';
-import type { PullSiteProgress, PushSiteProgress } from '@/data/core';
+import type { ToastAction } from '@/data/app-messages';
+import type { PullSiteProgress, PushPhase } from '@/data/core';
 import type { SyncDirection } from '@/data/sync-activity';
 
 // A push or pull can run for minutes, and the site header only has room to
@@ -78,22 +79,25 @@ export function startSyncToast( siteId: string, direction: SyncDirection ): void
  * Push describes itself by phase rather than by a backend string, so the copy
  * stays translatable and consistent with the rest of the app.
  */
-export function updatePushToast( siteId: string, progress: PushSiteProgress ): void {
+export function updatePushToast( siteId: string, phase: PushPhase, progress?: number ): void {
 	const description = ( () => {
-		if ( progress.phase === 'uploading' ) {
-			return progress.progress === undefined
+		if ( phase === 'uploading' ) {
+			return progress === undefined
 				? __( 'Uploading…' )
 				: sprintf(
 						// translators: %d: upload progress percentage.
 						__( 'Uploading… %d%%' ),
-						Math.round( progress.progress )
+						Math.round( progress )
 				  );
 		}
-		if ( progress.phase === 'paused' ) {
-			return __( 'Upload paused — waiting for the network' );
+		if ( phase === 'creatingRemoteBackup' ) {
+			return __( 'Backing up the live site' );
 		}
-		if ( progress.phase === 'importing' ) {
+		if ( phase === 'applyingChanges' ) {
 			return __( 'Applying changes on WordPress.com' );
+		}
+		if ( phase === 'finishing' ) {
+			return __( 'Almost there…' );
 		}
 		return __( 'Preparing your site' );
 	} )();
@@ -138,7 +142,12 @@ export function updatePullToast( siteId: string, progress: PullSiteProgress ): v
  */
 export function finishSyncToast(
 	siteId: string,
-	outcome: { intent: 'success' | 'error'; title: string; description?: string }
+	outcome: {
+		intent: 'success' | 'error';
+		title: string;
+		description?: string;
+		action?: ToastAction;
+	}
 ): void {
 	clearProgressThrottle( siteId );
 	showToast( { id: toastId( siteId ), ...outcome } );

@@ -1,3 +1,5 @@
+import type { TracksUiVersion } from '@studio/common/lib/record-tracks-event';
+
 export type StudioUiMode = 'default' | 'agentic';
 
 // Which renderer the app is currently running, seeded at boot from `betaFeatures.enableAgenticUi`
@@ -11,4 +13,10 @@ export function setAgenticUiEnabled( enabled: boolean ): void {
 
 export function getPreferredStudioUiMode(): StudioUiMode {
 	return agenticUiEnabled ? 'agentic' : 'default';
+}
+
+// The active renderer's Tracks `ui_version`. Single source of truth for the mode→version mapping,
+// shared by the desktop Tracks wrapper's `commonProps()` and the CLI origin env.
+export function getPreferredUiVersion(): TracksUiVersion {
+	return getPreferredStudioUiMode() === 'agentic' ? 'v2' : 'v1';
 }

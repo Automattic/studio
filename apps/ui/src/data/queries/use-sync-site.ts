@@ -1,9 +1,12 @@
+import { isSyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
 import { useConnector } from '@/data/core';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
 import {
+	reportPushPhase,
+	reportSyncCancelled,
 	reportSyncError,
 	reportSyncPending,
 	reportSyncProgress,
@@ -35,9 +38,10 @@ export function usePushSiteToLive() {
 	return useMutation( {
 		mutationKey: PUSH_TO_LIVE_MUTATION_KEY,
 		mutationFn: ( { siteId, remoteSiteId, options }: PushToLiveVariables ) =>
-			connector.pushSiteToLive( siteId, remoteSiteId, options, ( progress ) =>
-				updatePushToast( siteId, progress )
-			),
+			connector.pushSiteToLive( siteId, remoteSiteId, options, ( phase, progress ) => {
+				reportPushPhase( siteId, phase, progress );
+				updatePushToast( siteId, phase, progress );
+			} ),
 		onMutate: ( { siteId } ) => {
 			reportSyncPending( siteId, 'push' );
 			startSyncToast( siteId, 'push' );
@@ -50,6 +54,11 @@ export function usePushSiteToLive() {
 			finishSyncToast( siteId, { intent: 'success', title: __( 'Push complete' ) } );
 		},
 		onError: ( error, { siteId } ) => {
+			if ( isSyncCancelledError( error ) ) {
+				reportSyncCancelled( siteId, 'push' );
+				finishSyncToast( siteId, { intent: 'success', title: __( 'Push cancelled' ) } );
+				return;
+			}
 			const message = error instanceof Error ? error.message : String( error );
 			reportSyncError( siteId, 'push', message );
 			finishSyncToast( siteId, { intent: 'error', title: __( "Push didn't complete" ) } );
@@ -72,6 +81,22 @@ export function useDisconnectWpcomSite() {
 			void queryClient.invalidateQueries( {
 				queryKey: connectedWpcomSitesQueryKey( siteId ),
 			} );
+		},
+	} );
+}
+
+type CancelSyncVariables = {
+	siteId: string;
+	remoteSiteId: number;
+};
+
+export function useCancelSync() {
+	const connector = useConnector();
+	return useMutation( {
+		mutationFn: ( { siteId, remoteSiteId }: CancelSyncVariables ) =>
+			connector.cancelSync( siteId, remoteSiteId ),
+		onError: ( error ) => {
+			console.error( 'Failed to cancel sync:', error );
 		},
 	} );
 }
@@ -112,14 +137,36 @@ export function usePullSiteFromLive() {
 			finishSyncToast( siteId, { intent: 'success', title: __( 'Pull complete' ) } );
 		},
 		onError: ( _error, { siteId } ) => {
-			const message = __(
-				"Studio couldn't copy the live site. Try again. If the problem continues, check Studio Logs for details."
-			);
+			if ( isSyncCancelledError( _error ) ) {
+				reportSyncCancelled( siteId, 'pull' );
+				// The CLI restarts the site server on its way out, so the local
+				// site may have been stopped and started again.
+				void queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
+				finishSyncToast( siteId, { intent: 'success', title: __( 'Pull cancelled' ) } );
+				return;
+			}
+			// Only point at the logs where the user can actually open them.
+			const canOpenLogs = connector.capabilities.studioLogs;
+			const message = canOpenLogs
+				? __(
+						"Studio couldn't copy the live site. Try again. If the problem continues, check Studio Logs for details."
+				  )
+				: __( "Studio couldn't copy the live site. Try again." );
 			reportSyncError( siteId, 'pull', message );
 			finishSyncToast( siteId, {
 				intent: 'error',
 				title: __( "Pull didn't complete" ),
 				description: message,
+				action: canOpenLogs
+					? {
+							label: __( 'Open Studio Logs' ),
+							onClick: () => {
+								void connector.openStudioLogs().catch( ( error ) => {
+									console.error( 'Failed to open Studio logs:', error );
+								} );
+							},
+					  }
+					: undefined,
 			} );
 		},
 	} );

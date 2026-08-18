@@ -1,8 +1,14 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
+import { deriveSiteStatus, getSiteStatusName } from '@/components/site-toolbar/utils';
 import { XdebugIcon } from '@/components/xdebug-icon';
-import { useStartSite, useStopSite } from '@/data/queries/use-sites';
+import {
+	useIsSiteBusy,
+	useSiteOperation,
+	useStartSite,
+	useStopSite,
+} from '@/data/queries/use-sites';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 import type { MouseEvent } from 'react';
@@ -47,16 +53,15 @@ export function SiteStatusButton( {
 }: SiteStatusButtonProps ) {
 	const startSite = useStartSite();
 	const stopSite = useStopSite();
-	const status = deriveSiteRunStatus( { site, isStarting, isStopping } );
-	const busy = isStarting || isStopping;
-	const statusName =
-		status === 'running'
-			? __( 'Running' )
-			: status === 'transitioning'
-			? isStopping
-				? __( 'Stopping' )
-				: __( 'Starting' )
-			: __( 'Stopped' );
+	const operation = useSiteOperation( site );
+	const busy = useIsSiteBusy( site );
+	const { status } = deriveSiteStatus( site, isStarting, isStopping, operation );
+	const statusName = getSiteStatusName( {
+		running: site.running,
+		starting: isStarting,
+		stopping: isStopping,
+		operation,
+	} );
 	const xdebug = Boolean( site.enableXdebug );
 	const tooltipLabel = xdebug
 		? sprintf( __( 'Site status: %s. Xdebug enabled' ), statusName )

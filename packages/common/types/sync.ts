@@ -94,22 +94,32 @@ export const syncSiteSchema = z.object( {
 
 export type SyncSite = z.infer< typeof syncSiteSchema >;
 
+// Phases a push moves through, named after the legacy renderer's push state
+// keys so both UIs gate cancellation on the same boundary. The last three are
+// remote work, reported by polling the import endpoint.
+export type PushPhase =
+	| 'creatingBackup'
+	| 'uploading'
+	| 'creatingRemoteBackup'
+	| 'applyingChanges'
+	| 'finishing';
+
+// Progress a push reports for the UI (the desktop also exposes manual
+// pause/resume; that lives in its own registry on top of these signals).
+// `progress` is how far the current phase has got, when the remote reports it.
+export type PushOutput =
+	| { kind: 'phase'; phase: PushPhase; progress?: number }
+	| { kind: 'upload-progress'; progress: number }
+	| { kind: 'network-paused'; error: string }
+	| { kind: 'resumed' };
+
 export type PullSiteProgress = {
 	message: string;
 	progress?: number;
-};
-
-// A push moves through fixed phases; unlike pull it has no server-reported
-// message, so the phase names the step. `progress` is the byte fraction of the
-// upload.
-export const pushSitePhases = [ 'exporting', 'uploading', 'paused', 'importing' ] as const;
-
-export type PushSitePhase = ( typeof pushSitePhases )[ number ];
-
-export type PushSiteProgress = {
-	phase: PushSitePhase;
-	// 0–100, present during `uploading` and `paused`.
-	progress?: number;
+	// The CLI `LoggerAction` behind this message. Used to tell the remote-side
+	// phases (backup, download) from the local import, which must not be
+	// cancelled midway — see `canCancelPull`.
+	action?: string;
 };
 
 // Pull backup API schemas

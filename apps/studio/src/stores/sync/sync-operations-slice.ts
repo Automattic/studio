@@ -969,6 +969,7 @@ const pollPullBackupThunk = createTypedAsyncThunk(
 					removeBackupOnComplete: true,
 					showErrorModal: false,
 					showNotification: false,
+					suppressTracksEvent: true,
 				} );
 
 				// The import runs locally and is intentionally not aborted on logout, but if the

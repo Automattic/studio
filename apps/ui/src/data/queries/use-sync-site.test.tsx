@@ -45,6 +45,7 @@ describe( 'usePullSiteFromLive', () => {
 		vi.clearAllMocks();
 		finishPull = () => {};
 		useConnectorMock.mockReturnValue( {
+			capabilities: { studioLogs: true },
 			pullSiteFromLive: vi.fn( async ( _siteId, _remoteSiteId, onProgress ) => {
 				onProgress?.( { message: 'Creating remote backup… (24%)', progress: 24 } );
 				await new Promise< void >( ( resolve ) => {
@@ -74,7 +75,10 @@ describe( 'usePullSiteFromLive', () => {
 	} );
 
 	it( 'replaces connector details with an actionable pull error', async () => {
+		const openStudioLogs = vi.fn().mockResolvedValue( undefined );
 		useConnectorMock.mockReturnValue( {
+			capabilities: { studioLogs: true },
+			openStudioLogs,
 			pullSiteFromLive: vi
 				.fn()
 				.mockRejectedValue(
@@ -102,6 +106,36 @@ describe( 'usePullSiteFromLive', () => {
 			intent: 'error',
 			title: "Pull didn't complete",
 			description: message,
+			action: { label: 'Open Studio Logs', onClick: expect.any( Function ) },
 		} );
+
+		vi.mocked( finishSyncToast ).mock.calls[ 0 ][ 1 ].action?.onClick();
+		expect( openStudioLogs ).toHaveBeenCalled();
+	} );
+
+	it( 'omits the logs hint when the host has no Studio log file', async () => {
+		useConnectorMock.mockReturnValue( {
+			capabilities: { studioLogs: false },
+			pullSiteFromLive: vi.fn().mockRejectedValue( new Error( 'nope' ) ),
+		} as unknown as Connector );
+		const queryClient = new QueryClient( {
+			defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+		} );
+		render(
+			<QueryClientProvider client={ queryClient }>
+				<Harness />
+			</QueryClientProvider>
+		);
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Pull' } ) );
+
+		await waitFor( () =>
+			expect( finishSyncToast ).toHaveBeenCalledWith( 'site-1', {
+				intent: 'error',
+				title: "Pull didn't complete",
+				description: "Studio couldn't copy the live site. Try again.",
+				action: undefined,
+			} )
+		);
 	} );
 } );

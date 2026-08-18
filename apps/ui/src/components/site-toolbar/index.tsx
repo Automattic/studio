@@ -1,3 +1,4 @@
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { useIsMutating } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
 import { external, Icon, moreVertical } from '@wordpress/icons';
@@ -66,7 +67,7 @@ export function SiteToolbar( { site, className, openPullOnLoad = false }: SiteTo
 	// including this one. A second one in the header only earns its place once
 	// the sidebar is out of view.
 	const showRunState = useSidebarCollapsed();
-	const login = useLogin();
+	const login = useLogin( { source: 'site_header' } );
 	const pushSiteToLive = usePushSiteToLive();
 	const pullSiteFromLive = usePullSiteFromLive();
 
@@ -161,7 +162,12 @@ export function SiteToolbar( { site, className, openPullOnLoad = false }: SiteTo
 										<button
 											type="button"
 											className={ styles.siteUrl }
-											onClick={ () => openExternal( localSiteUrl ) }
+											onClick={ () => {
+												void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_IN_BROWSER, {
+													browser: 'external',
+												} );
+												openExternal( localSiteUrl );
+											} }
 										>
 											<span>{ localSiteLabel }</span>
 											<Icon

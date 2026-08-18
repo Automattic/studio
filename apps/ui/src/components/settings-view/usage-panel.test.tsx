@@ -209,6 +209,95 @@ describe( 'UsagePanel', () => {
 		).toBeInTheDocument();
 	} );
 
+	it( 'shows the suspension copy for an explicitly blocked account', () => {
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: {
+				costUsage: 0,
+				costCap: 100,
+				costResetDate: '2026-08-01T12:00:00',
+				studioCodeAiHasAccess: false,
+				studioCodeAiAccess: 'blocked',
+			},
+			isLoading: false,
+		} as never );
+
+		render( <UsagePanel /> );
+
+		expect(
+			screen.getByText( /Studio Code AI is blocked for this WordPress.com account/ )
+		).toBeInTheDocument();
+		expect( screen.getByRole( 'link', { name: 'contact WordPress.com support' } ) ).toHaveAttribute(
+			'href',
+			'https://wordpress.com/support/contact/'
+		);
+	} );
+
+	it( 'shows the request-access copy, not the suspension copy, for an ungranted default account', () => {
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: {
+				costUsage: 0,
+				costCap: 100,
+				costResetDate: '2026-08-01T12:00:00',
+				studioCodeAiHasAccess: false,
+				studioCodeAiAccess: 'default',
+			},
+			isLoading: false,
+		} as never );
+
+		render( <UsagePanel /> );
+
+		expect(
+			screen.getByText( /Studio Code AI is currently available through limited beta access/ )
+		).toBeInTheDocument();
+		expect(
+			screen.getByRole( 'link', { name: 'developer.wordpress.com/studio/studio-code-beta' } )
+		).toHaveAttribute( 'href', 'https://developer.wordpress.com/studio/studio-code-beta/' );
+		expect(
+			screen.queryByText( /Studio Code AI is blocked for this WordPress.com account/ )
+		).not.toBeInTheDocument();
+	} );
+
+	it( 'tells an ungranted account with spend this cycle that beta access is now required', () => {
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: {
+				costUsage: 3,
+				costCap: 100,
+				costResetDate: '2026-08-01T12:00:00',
+				studioCodeAiHasAccess: false,
+				studioCodeAiAccess: 'default',
+			},
+			isLoading: false,
+		} as never );
+
+		render( <UsagePanel /> );
+
+		expect(
+			screen.getByText( /Thanks for participating in the Studio Code AI beta/ )
+		).toBeInTheDocument();
+		expect(
+			screen.getByRole( 'link', { name: 'developer.wordpress.com/studio/studio-code-beta' } )
+		).toBeInTheDocument();
+	} );
+
+	it( 'shows normal usage when access is granted through a default-allow policy', () => {
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: {
+				costUsage: 25,
+				costCap: 100,
+				costResetDate: '2026-08-01T12:00:00',
+				studioCodeAiHasAccess: true,
+				studioCodeAiAccess: 'default',
+			},
+			isLoading: false,
+		} as never );
+
+		render( <UsagePanel /> );
+
+		expect(
+			screen.getByText( '25% of monthly limit used (resets on August 1, 2026)' )
+		).toBeInTheDocument();
+	} );
+
 	it( 'confirms through the connector before deleting all preview sites', async () => {
 		render( <UsagePanel /> );
 

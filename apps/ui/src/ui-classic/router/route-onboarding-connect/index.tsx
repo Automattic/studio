@@ -5,6 +5,7 @@ import { check, chevronLeft, external, search } from '@wordpress/icons';
 import { Badge, Button, Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { AuthActions } from '@/components/auth-actions';
 import {
 	presentRemoteSites,
 	searchRemoteSites,
@@ -13,7 +14,7 @@ import {
 import { OnboardingFooter } from '@/components/onboarding-footer';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
-import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
+import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useCreateSite, useDeleteSite, useSites, useStartSite } from '@/data/queries/use-sites';
 import { usePullSiteFromLive } from '@/data/queries/use-sync-site';
 import { useUserLocale } from '@/data/queries/use-user-locale';
@@ -148,11 +149,6 @@ function RemoteSiteCard( {
 }
 
 function SignedOutView() {
-	const isOffline = useOffline();
-	const login = useLogin();
-	const signup = useLogin( { signup: true } );
-	const authError = login.error ?? signup.error;
-
 	return (
 		<div className={ styles.signedOut }>
 			<ul className={ styles.benefits }>
@@ -169,40 +165,9 @@ function SignedOutView() {
 					<span>{ __( 'Supports staging and production sites.' ) }</span>
 				</li>
 			</ul>
-			<div className={ styles.authActions }>
-				<Button
-					type="button"
-					variant="minimal"
-					tone="neutral"
-					disabled={ isOffline || login.isPending }
-					loading={ signup.isPending }
-					onClick={ () => signup.mutate() }
-				>
-					<span>{ __( 'Sign up' ) }</span>
-					<Icon icon={ external } size={ 14 } aria-hidden="true" />
-				</Button>
-				<Button
-					type="button"
-					variant="solid"
-					tone="brand"
-					disabled={ isOffline || signup.isPending }
-					loading={ login.isPending }
-					onClick={ () => login.mutate() }
-				>
-					<span>{ __( 'Log in with WordPress.com' ) }</span>
-					<Icon icon={ external } size={ 14 } aria-hidden="true" />
-				</Button>
-			</div>
-			{ isOffline && (
-				<p className={ styles.hint }>{ __( "You're offline. Reconnect to sign in." ) }</p>
-			) }
-			{ authError && (
-				<p role="alert" className={ styles.error }>
-					{ authError instanceof Error
-						? authError.message
-						: __( 'Authentication failed. Please try again.' ) }
-				</p>
-			) }
+			{ /* Despite the `/onboarding/connect` path, this is the add-site flow's
+			     "connect a site" step, not first-run onboarding. */ }
+			<AuthActions className={ styles.authActions } source="add_site" />
 		</div>
 	);
 }
@@ -284,6 +249,7 @@ export function OnboardingConnectPage() {
 						name,
 						path,
 						skipStart: true,
+						flowType: 'sync',
 					} ),
 				persistConnection: async ( localSiteId ) => {
 					await connector.connectWpcomSite( localSiteId, {
@@ -297,7 +263,9 @@ export function OnboardingConnectPage() {
 						siteId: localSiteId,
 						remoteSiteId: selectedSite.id,
 					} ),
-				startLocalSite: ( localSiteId ) => startSite.mutateAsync( localSiteId ),
+				startLocalSite: async ( localSiteId ) => {
+					await startSite.mutateAsync( localSiteId );
+				},
 				openLocalSite: ( localSiteId ) =>
 					navigate( {
 						to: '/sites/$siteId/overview',

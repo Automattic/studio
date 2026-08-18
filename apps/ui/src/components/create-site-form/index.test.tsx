@@ -6,6 +6,7 @@ import { useConnector } from '@/data/core';
 import { usePathValidator } from '@/data/queries/use-create-site-helpers';
 import { useSites } from '@/data/queries/use-sites';
 import { useWordPressVersions } from '@/data/queries/use-wordpress-versions';
+import { useOffline } from '@/hooks/use-offline';
 import { CreateSiteForm } from './index';
 import type { CreateSiteFormValues } from './index';
 
@@ -31,10 +32,15 @@ vi.mock( '@/data/queries/use-wordpress-versions', () => ( {
 	useWordPressVersions: vi.fn(),
 } ) );
 
+vi.mock( '@/hooks/use-offline', () => ( {
+	useOffline: vi.fn(),
+} ) );
+
 const useConnectorMock = vi.mocked( useConnector, { partial: true } );
 const usePathValidatorMock = vi.mocked( usePathValidator, { partial: true } );
 const useSitesMock = vi.mocked( useSites, { partial: true } );
 const useWordPressVersionsMock = vi.mocked( useWordPressVersions, { partial: true } );
+const useOfflineMock = vi.mocked( useOffline );
 
 function deferred< T >() {
 	let resolve!: ( value: T ) => void;
@@ -108,11 +114,14 @@ describe( 'CreateSiteForm', () => {
 				annotatePreview: false,
 				readLocalMedia: false,
 				agentInstructions: false,
+				aiSettings: false,
+				studioLogs: false,
 				switchToClassicUi: false,
 			},
 		} );
 		useSitesMock.mockReturnValue( { data: [] } );
 		useWordPressVersionsMock.mockReturnValue( { data: undefined } );
+		useOfflineMock.mockReturnValue( false );
 		usePathValidatorMock.mockReturnValue( {
 			generateProposedPath: vi.fn( async ( name: string ) => ( {
 				path: `/sites/${ name }`,
@@ -162,7 +171,10 @@ describe( 'CreateSiteForm', () => {
 
 		rerenderWith( { name: 'Suggested site' } );
 		expect( screen.queryByText( '1 error found' ) ).not.toBeInTheDocument();
-		expect( screen.getByTestId( 'create-site-submit' ) ).toHaveAttribute( 'aria-disabled', 'true' );
+		expect( screen.getByTestId( 'create-site-submit' ) ).toHaveAttribute(
+			'aria-disabled',
+			'false'
+		);
 
 		await act( async () => {
 			pending.resolve( { path: '/sites/suggested', isEmpty: true, isWordPress: false } );
@@ -259,7 +271,10 @@ describe( 'CreateSiteForm', () => {
 		renderForm( { name: 'First' } );
 		await waitFor( () => expect( generateProposedPath ).toHaveBeenCalledWith( 'First' ) );
 		fireEvent.change( screen.getByLabelText( /Site name/ ), { target: { value: 'Second' } } );
-		expect( screen.getByTestId( 'create-site-submit' ) ).toHaveAttribute( 'aria-disabled', 'true' );
+		expect( screen.getByTestId( 'create-site-submit' ) ).toHaveAttribute(
+			'aria-disabled',
+			'false'
+		);
 		await waitFor( () => expect( generateProposedPath ).toHaveBeenCalledWith( 'Second' ) );
 
 		await act( async () => {
@@ -306,6 +321,40 @@ describe( 'CreateSiteForm', () => {
 
 		expect( refreshedGenerator ).not.toHaveBeenCalled();
 		expect( screen.getByLabelText( 'Local path' ) ).toHaveValue( '/sites/created-site' );
+	} );
+
+	it( 'keeps the submit button enabled while typing and queues a submit until the path resolves', async () => {
+		const pending = deferred< {
+			path: string;
+			isEmpty: boolean;
+			isWordPress: boolean;
+		} >();
+		usePathValidatorMock.mockReturnValue( {
+			generateProposedPath: vi.fn( () => pending.promise ),
+			selectPath: vi.fn(),
+		} );
+		const onSubmit = vi.fn();
+		renderForm( undefined, onSubmit );
+		fireEvent.change( screen.getByLabelText( /Site name/ ), {
+			target: { value: 'My site' },
+		} );
+		expect( screen.getByTestId( 'create-site-submit' ) ).toHaveAttribute(
+			'aria-disabled',
+			'false'
+		);
+
+		fireEvent.click( screen.getByTestId( 'create-site-submit' ) );
+		expect( onSubmit ).not.toHaveBeenCalled();
+
+		await act( async () => {
+			pending.resolve( { path: '/sites/my-site', isEmpty: true, isWordPress: false } );
+			await pending.promise;
+		} );
+		await waitFor( () =>
+			expect( onSubmit ).toHaveBeenCalledWith(
+				expect.objectContaining( { path: '/sites/my-site' } )
+			)
+		);
 	} );
 
 	it( 'preserves a manual path when automatic generation is still pending', async () => {
@@ -380,6 +429,8 @@ describe( 'CreateSiteForm', () => {
 				annotatePreview: false,
 				readLocalMedia: false,
 				agentInstructions: false,
+				aiSettings: false,
+				studioLogs: false,
 				switchToClassicUi: false,
 			},
 		} );
@@ -435,6 +486,29 @@ describe( 'CreateSiteForm', () => {
 		openAdvancedSettings();
 
 		expect( screen.getByLabelText( 'WordPress version' ).tagName ).toBe( 'SELECT' );
+	} );
+
+	it( 'locks the WordPress version to a disabled "latest" select while offline', async () => {
+		useOfflineMock.mockReturnValue( true );
+		renderForm( { name: 'Offline site', wpVersion: '6.7' } );
+		openAdvancedSettings();
+
+		const select = screen.getByLabelText( 'WordPress version' );
+		expect( select.tagName ).toBe( 'SELECT' );
+		expect( select ).toBeDisabled();
+		await waitFor( () => expect( select ).toHaveValue( DEFAULT_WORDPRESS_VERSION ) );
+
+		const trigger = select.closest( 'div[style*="pointer-events"]' )?.parentElement as HTMLElement;
+		fireEvent.mouseEnter( trigger );
+		fireEvent.mouseMove( trigger, { movementX: 1, movementY: 1 } );
+		// Tooltips use Base UI's default open delay, so wait long enough for the popup.
+		expect(
+			await screen.findByText(
+				'Changing WordPress version requires an internet connection.',
+				{},
+				{ timeout: 2000 }
+			)
+		).toBeVisible();
 	} );
 
 	it( 'supports an external submission gate', async () => {

@@ -6,6 +6,11 @@ import { Badge, Button, Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AuthActions } from '@/components/auth-actions';
+import {
+	presentRemoteSites,
+	searchRemoteSites,
+	type ConnectSiteGroup,
+} from '@/components/connect-site-picker/site-presentation';
 import { OnboardingFooter } from '@/components/onboarding-footer';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
@@ -19,7 +24,6 @@ import { getLocalizedLink } from '@/lib/docs-links';
 import { onboardingLayoutRoute, useOnboardingProgress } from '../layout-onboarding';
 import sharedStyles from '../layout-onboarding/style.module.css';
 import { ConnectSiteLifecycleError, runConnectSiteLifecycle } from './connect-site';
-import { presentRemoteSites, searchRemoteSites, type ConnectSiteGroup } from './site-presentation';
 import styles from './style.module.css';
 import type { SyncSite } from '@/data/core';
 

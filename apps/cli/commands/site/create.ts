@@ -15,6 +15,7 @@ import {
 	pathExists,
 	recursiveCopyDirectory,
 } from '@studio/common/lib/fs-utils';
+import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { normalizeLandingPage } from '@studio/common/lib/landing-page';
 import { DEFAULT_LOCALE } from '@studio/common/lib/locale';
 import { isOnline } from '@studio/common/lib/network-utils';
@@ -25,6 +26,7 @@ import {
 	validateAdminUsername,
 } from '@studio/common/lib/passwords';
 import { portFinder } from '@studio/common/lib/port-finder';
+import { type TracksSiteCreateFlowType } from '@studio/common/lib/record-tracks-event';
 import {
 	hasDefaultDbBlock,
 	removeDbConstants,
@@ -81,6 +83,7 @@ import { generateSiteName } from 'cli/lib/site-name';
 import { getDefaultSitePath } from 'cli/lib/site-paths';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
+import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { StatsGroup } from 'cli/lib/types/bump-stats';
 import { untildify } from 'cli/lib/utils';
 import { ValidationError } from 'cli/lib/validation-error';
@@ -109,7 +112,20 @@ export type CreateCommandOptions = {
 	noStart: boolean;
 	skipBrowser: boolean;
 	skipLogDetails: boolean;
+	flowType?: TracksSiteCreateFlowType;
 };
+
+const SITE_CREATE_FLOW_TYPES: readonly TracksSiteCreateFlowType[] = [
+	'new',
+	'blueprint',
+	'import',
+	'sync',
+	'duplicate',
+];
+
+function parseFlowType( value: string | undefined ): TracksSiteCreateFlowType | undefined {
+	return SITE_CREATE_FLOW_TYPES.find( ( flowType ) => flowType === value );
+}
 
 export async function runCommand(
 	sitePath: string,
@@ -141,6 +157,8 @@ export async function runCommand(
 			logger.reportError( loggerError, false );
 		}
 	}
+
+	const createStartedAt = Date.now();
 
 	try {
 		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating site configuration…' ) );
@@ -431,6 +449,24 @@ export async function runCommand(
 		logger.reportKeyValuePair( 'id', siteDetails.id );
 		logger.reportKeyValuePair( 'port', String( siteDetails.port ) );
 		logger.reportKeyValuePair( 'running', String( siteDetails.running ) );
+
+		// Tracks: the CLI is the sole emitter of site-creation, so every path a site comes into
+		// existence (new/blueprint/import/sync/duplicate, app-spawned or standalone) is counted once.
+		// Fires only on success; wrapped so best-effort telemetry can never fail a site creation.
+		try {
+			await recordTracksEvent( TRACKS_EVENTS.SITE_CREATE, {
+				flow_type: options.flowType ?? ( blueprint ? 'blueprint' : 'new' ),
+				php_version: siteDetails.phpVersion,
+				wp_version: getWordPressVersion( sitePath ),
+				custom_domain: !! options.customDomain,
+				ssl_enabled: !! options.enableHttps,
+				time_ms: Date.now() - createStartedAt,
+				...getTracksOrigin(),
+			} );
+		} catch {
+			// Best-effort telemetry — never block or fail a site creation.
+		}
+
 		await emitCliEvent( { event: SITE_EVENTS.CREATED, data: { siteId: siteDetails.id } } );
 	} finally {
 		await disconnectFromDaemon();
@@ -598,6 +634,12 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					type: 'boolean',
 					describe: __( 'Skip printing site URL and admin credentials after creating' ),
 					default: false,
+				} )
+				.option( 'flow-type', {
+					// Internal telemetry hint for the `studio_site_created` Tracks event, set by the
+					// desktop app when it spawns the CLI. Hidden from `--help`.
+					type: 'string',
+					hidden: true,
 				} );
 		},
 		handler: async ( argv ) => {
@@ -797,6 +839,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				noStart: ! argv.start,
 				skipBrowser: !! argv.skipBrowser,
 				skipLogDetails: !! argv.skipLogDetails,
+				flowType: parseFlowType( argv.flowType ),
 			};
 
 			if ( argv.blueprint ) {

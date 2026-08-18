@@ -24,12 +24,16 @@ function canSend(): boolean {
 
 export class LoggerError extends Error {
 	previousError?: Error;
+	// Machine-readable failure code for analytics classification (see `classifyImportFailure` /
+	// `classifyExportFailure`). The message is `__()`-translated display text and unsafe to match on.
+	readonly code?: string;
 	private errorMessage: string;
 
-	constructor( message: string, previousError?: unknown ) {
+	constructor( message: string, previousError?: unknown, code?: string ) {
 		super();
 		this.name = 'LoggerError';
 		this.errorMessage = message;
+		this.code = code;
 
 		if ( previousError instanceof Error ) {
 			this.previousError = previousError;

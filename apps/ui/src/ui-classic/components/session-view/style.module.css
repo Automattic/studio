@@ -160,10 +160,6 @@
 	padding-bottom: var(--wpds-dimension-padding-2xl);
 }
 
-.classicConversationWithQuestions {
-	padding-bottom: calc(var(--wpds-dimension-padding-2xl) + 96px);
-}
-
 .classicComposerOuter {
 	padding: 0 var(--classic-composer-outer-inline-padding) 0;
 }
@@ -422,4 +418,20 @@
 .classicComposerArchiveItem:focus-visible {
 	background: var(--wpds-color-bg-interactive-neutral-weak-active);
 	outline: none;
+}
+
+/* Composer fade-in after the entitlement check resolves. No fill mode:
+   natural opacity is 1, and index.css's reduced-motion clamp covers it. */
+.fadeInQuick {
+	animation: fade-in-quick 180ms ease-out;
+}
+
+@keyframes fade-in-quick {
+	from {
+		opacity: 0;
+	}
+
+	to {
+		opacity: 1;
+	}
 }

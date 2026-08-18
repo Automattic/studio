@@ -15,6 +15,9 @@ const DOCS_LINKS = {
 	docsMcp: {
 		en: 'https://developer.wordpress.com/docs/developer-tools/studio/mcp-on-studio/',
 	},
+	docsPhpRuntimes: {
+		en: 'https://developer.wordpress.com/docs/developer-tools/studio/php-runtimes/',
+	},
 	docsSites: {
 		en: 'https://developer.wordpress.com/docs/developer-tools/studio/sites/',
 		es: 'https://developer.wordpress.com/es/docs/herramientas-para-desarrolladores/studio/sitios/',
@@ -29,9 +32,18 @@ const DOCS_LINKS = {
 		en: 'https://developer.wordpress.com/docs/developer-tools/studio/',
 		es: 'https://developer.wordpress.com/es/docs/herramientas-para-desarrolladores/studio/',
 	},
+	docsStudioCode: {
+		en: 'https://developer.wordpress.com/docs/developer-tools/studio/studio-code/',
+	},
 	docsSyncSupportedSites: {
 		en: 'https://developer.wordpress.com/docs/developer-tools/studio/sync/#supported-sites',
 		es: 'https://developer.wordpress.com/es/docs/herramientas-para-desarrolladores/studio/sync/#sitios-compatibles',
+	},
+	a8cTos: {
+		en: 'https://wordpress.com/tos/',
+	},
+	a8cPrivacyPolicy: {
+		en: 'https://automattic.com/privacy/',
 	},
 } as const satisfies Record< string, TranslatedLink >;
 

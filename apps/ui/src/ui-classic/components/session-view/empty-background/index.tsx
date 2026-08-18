@@ -2,9 +2,8 @@ import { useEffect, useRef } from 'react';
 import styles from './style.module.css';
 import logoSrc from './wordpress-logo.webp';
 
-const SIZE = 320;
-const PAD = 130;
-const CANVAS_SIZE = SIZE + PAD * 2;
+const DEFAULT_LOGO_SIZE = 320;
+const DEFAULT_PADDING = 130;
 const RES = 6;
 const RECT_SIZE = 4;
 const MAX_DPR = 2;
@@ -93,7 +92,25 @@ type ActiveRipple = {
 	maxRadiusSquared: number;
 };
 
-export function EmptyBackground() {
+interface EmptyBackgroundProps {
+	/** Rendered logo size in CSS pixels. */
+	logoSize?: number;
+	/** Room around the logo for displaced particles to roam. */
+	padding?: number;
+	/**
+	 * Default true: clip painting to the host box (`contain: paint`). Set
+	 * false when the host box is smaller than the canvas so the effect can
+	 * spread beyond it without getting cut off.
+	 */
+	contained?: boolean;
+}
+
+export function EmptyBackground( {
+	logoSize = DEFAULT_LOGO_SIZE,
+	padding = DEFAULT_PADDING,
+	contained = true,
+}: EmptyBackgroundProps = {} ) {
+	const canvasSize = logoSize + padding * 2;
 	const canvasRef = useRef< HTMLCanvasElement >( null );
 
 	useEffect( () => {
@@ -104,9 +121,9 @@ export function EmptyBackground() {
 
 		const canvasElement = canvas;
 		const dpr = Math.min( window.devicePixelRatio || 1, MAX_DPR );
-		canvasElement.width = Math.round( CANVAS_SIZE * dpr );
-		canvasElement.height = Math.round( CANVAS_SIZE * dpr );
-		canvasElement.style.setProperty( '--empty-background-canvas-size', `${ CANVAS_SIZE }px` );
+		canvasElement.width = Math.round( canvasSize * dpr );
+		canvasElement.height = Math.round( canvasSize * dpr );
+		canvasElement.style.setProperty( '--empty-background-canvas-size', `${ canvasSize }px` );
 
 		const ctx = canvasElement.getContext( '2d', { alpha: true } );
 		if ( ! ctx ) {
@@ -127,6 +144,8 @@ export function EmptyBackground() {
 		const bounds = {
 			left: 0,
 			top: 0,
+			right: 0,
+			bottom: 0,
 			scale: 1,
 		};
 
@@ -164,7 +183,9 @@ export function EmptyBackground() {
 			const rect = canvasElement.getBoundingClientRect();
 			bounds.left = rect.left;
 			bounds.top = rect.top;
-			bounds.scale = rect.width > 0 ? CANVAS_SIZE / rect.width : 1;
+			bounds.right = rect.right;
+			bounds.bottom = rect.bottom;
+			bounds.scale = rect.width > 0 ? canvasSize / rect.width : 1;
 		}
 
 		function clearScheduledWave() {
@@ -195,7 +216,7 @@ export function EmptyBackground() {
 		}
 
 		function drawStatic() {
-			context.clearRect( 0, 0, CANVAS_SIZE, CANVAS_SIZE );
+			context.clearRect( 0, 0, canvasSize, canvasSize );
 			context.fillStyle = BASE_COLOR;
 
 			for ( let i = 0; i < particles.length; i++ ) {
@@ -285,7 +306,7 @@ export function EmptyBackground() {
 			const pointerEase = scaleEasingForFrameFactor( POINTER_EASE, frameFactor );
 			const spring = SPRING * frameFactor;
 			const damping = Math.pow( DAMPING, frameFactor );
-			context.clearRect( 0, 0, CANVAS_SIZE, CANVAS_SIZE );
+			context.clearRect( 0, 0, canvasSize, canvasSize );
 
 			const activeRipples: ActiveRipple[] = [];
 			for ( let i = ripples.length - 1; i >= 0; i-- ) {
@@ -488,11 +509,11 @@ export function EmptyBackground() {
 			offCtx.drawImage( img, 0, 0 );
 			const { data } = offCtx.getImageData( 0, 0, img.width, img.height );
 
-			const scale = Math.min( SIZE / img.width, SIZE / img.height ) * 0.92;
+			const scale = Math.min( logoSize / img.width, logoSize / img.height ) * 0.92;
 			const drawW = img.width * scale;
 			const drawH = img.height * scale;
-			const offsetX = ( CANVAS_SIZE - drawW ) / 2;
-			const offsetY = ( CANVAS_SIZE - drawH ) / 2;
+			const offsetX = ( canvasSize - drawW ) / 2;
+			const offsetY = ( canvasSize - drawH ) / 2;
 
 			for ( let y = 0; y < drawH; y += RES ) {
 				for ( let x = 0; x < drawW; x += RES ) {
@@ -573,22 +594,30 @@ export function EmptyBackground() {
 				mouseY = targetMouseY;
 			}
 		};
-		const onMove = ( event: MouseEvent ) => {
-			setPointerFromEvent( event );
-			ensureLoop();
-		};
-		const onEnter = ( event: MouseEvent ) => {
-			hover = true;
-			updateBounds();
-			setPointerFromEvent( event );
-			ensureLoop();
-		};
 		const onLeave = () => {
 			hover = false;
 			mouseX = -9999;
 			mouseY = -9999;
 			targetMouseX = -9999;
 			targetMouseY = -9999;
+			ensureLoop();
+		};
+		const onWindowMove = ( event: MouseEvent ) => {
+			const isOverCanvas =
+				event.clientX >= bounds.left &&
+				event.clientX <= bounds.right &&
+				event.clientY >= bounds.top &&
+				event.clientY <= bounds.bottom;
+
+			if ( ! isOverCanvas ) {
+				if ( hover ) {
+					onLeave();
+				}
+				return;
+			}
+
+			hover = true;
+			setPointerFromEvent( event );
 			ensureLoop();
 		};
 		const onClick = ( event: MouseEvent ) => {
@@ -617,9 +646,8 @@ export function EmptyBackground() {
 		};
 
 		updateBounds();
-		canvasElement.addEventListener( 'mousemove', onMove, { passive: true } );
-		canvasElement.addEventListener( 'mouseenter', onEnter, { passive: true } );
-		canvasElement.addEventListener( 'mouseleave', onLeave, { passive: true } );
+		window.addEventListener( 'mousemove', onWindowMove, { passive: true } );
+		window.addEventListener( 'blur', onLeave );
 		canvasElement.addEventListener( 'click', onClick );
 		document.addEventListener( 'visibilitychange', onVisibilityChange );
 		reducedMotionQuery?.addEventListener( 'change', onReducedMotionChange );
@@ -627,6 +655,12 @@ export function EmptyBackground() {
 		const resizeObserver =
 			typeof ResizeObserver !== 'undefined' ? new ResizeObserver( () => updateBounds() ) : null;
 		resizeObserver?.observe( canvasElement );
+		// The canvas holds its fixed size while the column resizes around it, so it
+		// only ever moves — observe the wrapper, which does resize, or bounds go
+		// stale when the preview panel, sidebar, or window changes width.
+		if ( canvasElement.parentElement ) {
+			resizeObserver?.observe( canvasElement.parentElement );
+		}
 
 		const intersectionObserver =
 			typeof IntersectionObserver !== 'undefined'
@@ -641,19 +675,21 @@ export function EmptyBackground() {
 			cancelled = true;
 			cancelLoop();
 			clearScheduledWave();
-			canvasElement.removeEventListener( 'mousemove', onMove );
-			canvasElement.removeEventListener( 'mouseenter', onEnter );
-			canvasElement.removeEventListener( 'mouseleave', onLeave );
+			window.removeEventListener( 'mousemove', onWindowMove );
+			window.removeEventListener( 'blur', onLeave );
 			canvasElement.removeEventListener( 'click', onClick );
 			document.removeEventListener( 'visibilitychange', onVisibilityChange );
 			reducedMotionQuery?.removeEventListener( 'change', onReducedMotionChange );
 			resizeObserver?.disconnect();
 			intersectionObserver?.disconnect();
 		};
-	}, [] );
+	}, [ canvasSize, logoSize ] );
 
 	return (
-		<div className={ styles.root } aria-hidden="true">
+		<div
+			className={ contained ? styles.root : `${ styles.root } ${ styles.spill }` }
+			aria-hidden="true"
+		>
 			<canvas ref={ canvasRef } className={ styles.canvas } />
 		</div>
 	);

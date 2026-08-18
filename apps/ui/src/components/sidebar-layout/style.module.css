@@ -22,6 +22,7 @@
 	   inner wrapper. */
 	overflow-y: auto;
 	transition: width 150ms ease;
+	-webkit-app-region: drag;
 }
 
 /* Inside the sidebar's dark ThemeProvider; generates no box, but declares
@@ -49,6 +50,7 @@
 	bottom: 0;
 	z-index: 1;
 	background-color: var(--app-chrome-bg);
+	-webkit-app-region: no-drag;
 }
 
 .sidebarCollapsed {
@@ -58,7 +60,10 @@
 .main {
 	flex: 1;
 	min-width: 0;
-	overflow: auto;
+	/* Route panels own their scrolling. Keep this frame fixed so positioned
+	   chrome, such as the collapsed-sidebar toggle, cannot create an outer
+	   scroll range. */
+	overflow: hidden;
 	position: relative;
 	isolation: isolate;
 	background-color: var(--app-chrome-bg);
@@ -80,6 +85,15 @@
 
 .sidebarCards {
 	padding: var(--wpds-dimension-padding-sm) calc(var(--wpds-dimension-padding-lg) - var(--wpds-dimension-padding-sm)) 0;
+}
+
+/* The beta affordance stays in normal footer flow, below transient/persistent
+   messages and above Settings, so it never overlays a toast or checklist.
+   Margin, not padding: this class lands on the bubble itself, which owns its
+   own padding. */
+.sidebarBeta {
+	margin: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-lg)
+		var(--wpds-dimension-padding-xs);
 }
 
 /* Sidebar-specific indicator treatment: match the content card's vertical
@@ -138,6 +152,10 @@
 	padding: var(--wpds-dimension-padding-sm) calc(var(--wpds-dimension-padding-lg) - var(--wpds-dimension-padding-sm)) 0;
 }
 
+/* --app-main-composer-height is published on the document by the session
+   view's chrome observer, so the shelf rides above the composer as it grows.
+   Views without a composer leave it unset and the shelf sits on the panel's
+   own footer band. */
 .floatingToasts {
 	position: absolute;
 	bottom: calc(52px + var(--app-main-composer-height, 0px));
@@ -146,4 +164,10 @@
 	z-index: 110;
 	pointer-events: auto;
 	-webkit-app-region: no-drag;
+}
+
+/* Fullscreen preview hides the chat column but leaves its composer measured,
+   so ignore that height and sit on the footer band like any composer-less view. */
+.floatingToastsOverPreview {
+	--app-main-composer-height: 0px;
 }

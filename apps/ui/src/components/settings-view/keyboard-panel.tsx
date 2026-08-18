@@ -1,5 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { isAppleOS } from '@wordpress/keycodes';
+import { SettingsCard } from './settings-card';
 import styles from './style.module.css';
 
 type ShortcutSection = {
@@ -73,22 +74,35 @@ function ShortcutKeys( { keys }: { keys: string[] } ) {
 	);
 }
 
+function ShortcutGroup( { section }: { section: ShortcutSection } ) {
+	return (
+		<div className={ styles.shortcutGroup }>
+			<h3 className={ styles.shortcutGroupTitle }>{ section.title }</h3>
+			<ul className={ styles.list }>
+				{ section.shortcuts.map( ( shortcut ) => (
+					<li key={ shortcut.label } className={ styles.field }>
+						<span className={ styles.fieldLabel }>{ shortcut.label }</span>
+						<ShortcutKeys keys={ shortcut.keys } />
+					</li>
+				) ) }
+			</ul>
+		</div>
+	);
+}
+
 export function KeyboardPanel() {
+	const [ generalSection, ...columnSections ] = getShortcutSections( isAppleOS() );
+
 	return (
 		<div className={ styles.preferencesPanel }>
-			{ getShortcutSections( isAppleOS() ).map( ( section ) => (
-				<section key={ section.title } className={ styles.preferenceSectionGroup }>
-					<h2 className={ styles.preferenceSectionHeading }>{ section.title }</h2>
-					<ul className={ styles.shortcutList }>
-						{ section.shortcuts.map( ( shortcut ) => (
-							<li key={ shortcut.label } className={ styles.shortcutRow }>
-								<span className={ styles.shortcutName }>{ shortcut.label }</span>
-								<ShortcutKeys keys={ shortcut.keys } />
-							</li>
-						) ) }
-					</ul>
-				</section>
-			) ) }
+			<SettingsCard title={ __( 'Keyboard' ) }>
+				<ShortcutGroup section={ generalSection } />
+				<div className={ styles.shortcutColumns }>
+					{ columnSections.map( ( section ) => (
+						<ShortcutGroup key={ section.title } section={ section } />
+					) ) }
+				</div>
+			</SettingsCard>
 		</div>
 	);
 }

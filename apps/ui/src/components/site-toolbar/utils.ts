@@ -1,9 +1,36 @@
 import { type SiteOperationKind } from '@studio/common/lib/site-operation';
 import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
 import { __, sprintf } from '@wordpress/i18n';
+import { formatRelativeTime } from '@/lib/format-relative-time';
 import { getSiteDisplayUrl } from '@/lib/get-site-url';
 import type { SiteRunStatus } from '@/components/site-status-button';
 import type { SiteDetails, Snapshot, SyncSite } from '@/data/core';
+
+const MINUTE_MS = 60_000;
+
+/**
+ * The shortest readable age: "3s", "4m", "2h", "6d". Seconds matter here — a
+ * sync is often checked moments after it lands, and "just now" holds for a
+ * whole minute. Returns null for timestamps we can't read.
+ */
+export function formatSyncTimestamp( isoTimestamp: string | null | undefined ): string | null {
+	if ( ! isoTimestamp ) {
+		return null;
+	}
+	const timestampMs = Date.parse( isoTimestamp );
+	if ( ! Number.isFinite( timestampMs ) ) {
+		return null;
+	}
+	const elapsedMs = Math.max( 0, Date.now() - timestampMs );
+	if ( elapsedMs < MINUTE_MS ) {
+		return sprintf(
+			// translators: %d: number of seconds, compact relative time (e.g. "3s").
+			__( '%ds' ),
+			Math.max( 1, Math.floor( elapsedMs / 1000 ) )
+		);
+	}
+	return formatRelativeTime( new Date( timestampMs ).toISOString() ) || null;
+}
 
 export function stripProtocol( url: string ): string {
 	return url.replace( /^https?:\/\//, '' ).replace( /\/$/, '' );

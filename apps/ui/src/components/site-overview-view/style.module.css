@@ -29,7 +29,9 @@
 	/* Hug the panel's top-left corner with the same breathing room the
 	   preview toolbar gives its controls. */
 	padding-block: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-sm);
-	padding-inline: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-2xl);
+	/* The toolbar owns its own inline padding and pins its actions to the panel
+	   edge; the host only needs the left inset. */
+	padding-inline: var(--wpds-dimension-padding-sm) 0;
 	min-height: 46px;
 	font-size: var(--wpds-typography-font-size-sm);
 	color: var(--wpds-color-fg-content-neutral);

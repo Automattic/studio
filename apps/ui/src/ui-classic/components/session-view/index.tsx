@@ -92,9 +92,9 @@ function SessionHeader( { summary }: SessionHeaderProps ) {
 					<span className={ styles.headerEnv }>
 						{ effectiveEnvironment === 'live' ? __( 'Live' ) : __( 'Local' ) }
 					</span>
+					<span className={ styles.headerSpacer } aria-hidden="true" />
 				</>
 			) }
-			<span className={ styles.headerSpacer } aria-hidden="true" />
 		</div>
 	);
 }

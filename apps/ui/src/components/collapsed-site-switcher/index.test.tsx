@@ -73,8 +73,9 @@ describe( 'CollapsedSiteSwitcher', () => {
 		const root = screen.getByRole( 'navigation', { name: 'Sites' } ).parentElement?.parentElement;
 		expect( root ).toBeInTheDocument();
 
-		fireEvent.keyDown( root!, { key: 'Escape' } );
+		const eventWasNotCancelled = fireEvent.keyDown( root!, { key: 'Escape' } );
 
+		expect( eventWasNotCancelled ).toBe( false );
 		expect( root ).toHaveAttribute( 'data-dismissed', 'true' );
 		expect( screen.getByRole( 'button', { name: 'Show sidebar' } ) ).toHaveFocus();
 	} );

@@ -71,6 +71,8 @@ export function CollapsedSiteSwitcher( {
 	};
 	const handleKeyDown = ( event: KeyboardEvent< HTMLDivElement > ) => {
 		if ( event.key === 'Escape' ) {
+			event.preventDefault();
+			event.stopPropagation();
 			dismiss();
 		}
 	};

@@ -15,10 +15,10 @@ import { useConnector } from '@/data/core';
 export { toComposerSendAttachments };
 export type { ComposerAttachment, ComposerSendAttachments };
 
-export function useComposerAttachments() {
+export function useComposerAttachments( initialAttachments: ComposerAttachment[] = [] ) {
 	const connector = useConnector();
-	const [ attachments, setAttachments ] = useState< ComposerAttachment[] >( [] );
-	const attachmentsRef = useRef< ComposerAttachment[] >( [] );
+	const [ attachments, setAttachments ] = useState< ComposerAttachment[] >( initialAttachments );
+	const attachmentsRef = useRef< ComposerAttachment[] >( initialAttachments );
 	const [ error, setError ] = useState< string | null >( null );
 	const [ isDraggingOver, setIsDraggingOver ] = useState( false );
 

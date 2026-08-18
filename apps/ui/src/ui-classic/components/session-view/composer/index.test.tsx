@@ -13,6 +13,7 @@ import {
 import { Tooltip } from '@wordpress/ui';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
+import { clearComposerDrafts } from './draft-store';
 import { Composer } from '.';
 import type { ComposerSendAttachments } from './use-composer-attachments';
 import type { AiSessionSummary, LoadedAiSession, SessionEntry } from '@/data/core';
@@ -50,15 +51,19 @@ function renderComposer(
 	props: Partial< ComponentProps< typeof Composer > > = {},
 	queryClient = new QueryClient()
 ) {
+	const renderTree = ( nextProps: Partial< ComponentProps< typeof Composer > > = {} ) => (
+		<QueryClientProvider client={ queryClient }>
+			<Tooltip.Provider delay={ 0 }>
+				<Composer { ...defaultProps } sessionId="session-1" { ...nextProps } />
+			</Tooltip.Provider>
+		</QueryClientProvider>
+	);
+	const rendered = render( renderTree( props ) );
 	return {
-		...render(
-			<QueryClientProvider client={ queryClient }>
-				<Tooltip.Provider delay={ 0 }>
-					<Composer { ...defaultProps } sessionId="session-1" { ...props } />
-				</Tooltip.Provider>
-			</QueryClientProvider>
-		),
+		...rendered,
 		queryClient,
+		rerenderComposer: ( nextProps: Partial< ComponentProps< typeof Composer > > = {} ) =>
+			rendered.rerender( renderTree( nextProps ) ),
 	};
 }
 
@@ -76,6 +81,7 @@ function firePointerEventWithClientY( element: Element, type: string, clientY: n
 describe( 'Composer menu', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
+		clearComposerDrafts();
 		connectorMocks.capabilities.aiSettings = false;
 	} );
 
@@ -285,6 +291,54 @@ describe( 'Composer menu', () => {
 		const preview = await screen.findByRole( 'tooltip' );
 		expect( preview ).toHaveTextContent( 'notes.txt' );
 		expect( preview.parentElement ).toBe( document.body );
+	} );
+
+	it( 'restores text and attachments independently for each session', async () => {
+		const firstSession = renderComposer();
+		fireEvent.change( screen.getByRole( 'combobox' ), {
+			target: { value: 'Keep this draft for session one' },
+		} );
+		const textFile = new File( [ 'Attachment text' ], 'notes.txt', {
+			type: 'text/plain',
+		} );
+		fireEvent.change(
+			firstSession.container.querySelector( 'input[type="file"]' ) as HTMLInputElement,
+			{ target: { files: [ textFile ] } }
+		);
+		await screen.findByRole( 'button', { name: 'Remove attachment: notes.txt' } );
+		firstSession.rerenderComposer( { sessionId: 'session-2' } );
+		expect( screen.getByRole( 'combobox' ) ).toHaveValue( '' );
+		expect(
+			screen.queryByRole( 'button', { name: 'Remove attachment: notes.txt' } )
+		).not.toBeInTheDocument();
+		fireEvent.change( screen.getByRole( 'combobox' ), {
+			target: { value: 'A different draft for session two' },
+		} );
+
+		firstSession.rerenderComposer();
+		expect( screen.getByRole( 'combobox' ) ).toHaveValue( 'Keep this draft for session one' );
+		expect(
+			screen.getByRole( 'button', { name: 'Remove attachment: notes.txt' } )
+		).toBeInTheDocument();
+	} );
+
+	it( 'clears the cached draft after sending', async () => {
+		const onSend = vi.fn().mockResolvedValue( undefined );
+		const firstRender = renderComposer( { onSend } );
+		fireEvent.change( screen.getByRole( 'combobox' ), {
+			target: { value: 'Send and clear this draft' },
+		} );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Send' } ) );
+		await waitFor( () =>
+			expect( onSend ).toHaveBeenCalledWith( 'Send and clear this draft', {
+				files: [],
+				images: [],
+			} )
+		);
+		firstRender.unmount();
+
+		renderComposer();
+		expect( screen.getByRole( 'combobox' ) ).toHaveValue( '' );
 	} );
 
 	it( 'grows, clamps, and shrinks the textarea with draft content', async () => {

@@ -66,6 +66,7 @@ import {
 	SESSIONS_QUERY_KEY,
 } from '@/data/queries/use-sessions';
 import { AiCreditsControl } from './ai-credits-control';
+import { clearComposerDraft, getComposerDraft, saveComposerDraft } from './draft-store';
 import { FamilySwitchConfirmDialog } from './family-switch-confirm-dialog';
 import styles from './style.module.css';
 import {
@@ -320,7 +321,7 @@ function resizeComposerTextarea(
 	return nextHeight;
 }
 
-export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Composer(
+const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function ComposerContent(
 	{
 		busy,
 		isInterrupting = false,
@@ -336,7 +337,8 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 	},
 	ref
 ) {
-	const [ value, setValue ] = useState( '' );
+	const [ initialDraft ] = useState( () => getComposerDraft( sessionId ) );
+	const [ value, setValue ] = useState( initialDraft.text );
 	const [ placeholderIndex, setPlaceholderIndex ] = useState( 0 );
 	const [ hoverPreview, setHoverPreview ] = useState< ComposerAttachmentHoverPreviewState | null >(
 		null
@@ -346,6 +348,9 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const [ isResizingComposer, setIsResizingComposer ] = useState( false );
 	const textareaRef = useRef< HTMLTextAreaElement | null >( null );
 	const fileInputRef = useRef< HTMLInputElement | null >( null );
+	const latestDraftRef = useRef( initialDraft );
+	const draftEffectInitializedRef = useRef( false );
+	const draftChangedRef = useRef( false );
 	const manualTextareaHeightRef = useRef< number | null >( null );
 	const resizeDragRef = useRef< { startY: number; startHeight: number } | null >( null );
 	const connector = useConnector();
@@ -391,8 +396,27 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		restore: restoreAttachments,
 		dragHandlers,
 		pasteHandlers,
-	} = useComposerAttachments();
+	} = useComposerAttachments( initialDraft.attachments );
 	const hasAttachments = attachments.length > 0;
+
+	useEffect( () => {
+		const draft = { text: value, attachments };
+		latestDraftRef.current = draft;
+		if ( draftEffectInitializedRef.current ) {
+			draftChangedRef.current = true;
+			saveComposerDraft( sessionId, draft );
+		} else {
+			draftEffectInitializedRef.current = true;
+		}
+	}, [ attachments, sessionId, value ] );
+	useEffect(
+		() => () => {
+			if ( draftChangedRef.current ) {
+				saveComposerDraft( sessionId, latestDraftRef.current );
+			}
+		},
+		[ sessionId ]
+	);
 
 	// Cross-family swap state. We hold the picked model here while the
 	// confirmation dialog is open; nothing is persisted until the user
@@ -488,6 +512,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		}
 		const prompt = trimmed || __( 'Please review the attached files.' );
 		const sentAttachments = attachments;
+		clearComposerDraft( sessionId );
 		setValue( '' );
 		clearAttachments();
 		// A send is the only thing that swaps the suggestion; it is static
@@ -503,7 +528,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 			setValue( trimmed );
 			restoreAttachments( sentAttachments );
 		}
-	}, [ value, attachments, clearAttachments, restoreAttachments, onSend ] );
+	}, [ value, attachments, clearAttachments, restoreAttachments, onSend, sessionId ] );
 
 	const openFilePicker = useCallback( () => {
 		fileInputRef.current?.click();
@@ -1164,3 +1189,9 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		</>
 	);
 } );
+
+export const Composer = forwardRef< ComposerHandle, ComposerProps >(
+	function Composer( props, ref ) {
+		return <ComposerContent key={ props.sessionId } { ...props } ref={ ref } />;
+	}
+);

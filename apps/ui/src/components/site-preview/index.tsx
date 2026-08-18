@@ -30,6 +30,10 @@ import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { getSiteUrl } from '@/lib/get-site-url';
 import { playIcon, refreshIcon } from '@/lib/icons';
 import {
+	ChangesReview,
+	type SessionFileChange,
+} from '@/ui-classic/components/session-view/changes-tracker';
+import {
 	DATABASE_HOME_PATH,
 	getPathFromPreviewUrl,
 	getPreviewRealm,
@@ -75,6 +79,9 @@ interface SitePreviewProps {
 	fullscreen?: boolean;
 	// Enters/leaves full preview. The "•••" menu only offers it when provided.
 	onFullscreenChange?: ( value: boolean ) => void;
+	changes?: SessionFileChange[];
+	reviewActive?: boolean;
+	onReviewActiveChange?: ( value: boolean ) => void;
 }
 
 interface InspectorEvent {
@@ -685,6 +692,9 @@ export function SitePreview( {
 	collapsed = false,
 	fullscreen = false,
 	onFullscreenChange,
+	changes = [],
+	reviewActive = false,
+	onReviewActiveChange,
 }: SitePreviewProps ) {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
@@ -849,6 +859,7 @@ export function SitePreview( {
 	}, [ path ] );
 	const handleSwitchRealm = useCallback(
 		( realm: PreviewRealm ) => {
+			onReviewActiveChange?.( false );
 			// Re-selecting the active realm (e.g. via its shortcut) is a no-op —
 			// don't bounce the current page through another auto-login hop.
 			if ( getPreviewRealm( getSafePath( path ) ) === realm ) {
@@ -859,7 +870,7 @@ export function SitePreview( {
 			const target = lastRealmPathsRef.current[ realm ];
 			onPathChange?.( getRealmNavigationPath( target, siteUrl ) );
 		},
-		[ connector, onPathChange, path, siteUrl ]
+		[ connector, onPathChange, onReviewActiveChange, path, siteUrl ]
 	);
 
 	const browserShortcuts = useMemo(
@@ -1012,7 +1023,7 @@ export function SitePreview( {
 				{ /* Equal-flex side tracks keep the address control truly centered
 					in the toolbar regardless of what each side holds. */ }
 				<div className={ styles.headerSide }>
-					{ canPreview ? (
+					{ canPreview && ! reviewActive ? (
 						<IconButton
 							variant="minimal"
 							tone="neutral"
@@ -1030,16 +1041,18 @@ export function SitePreview( {
 				<div ref={ locationRef } className={ styles.browserLocation }>
 					{ canPreview ? (
 						<>
-							<IconButton
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								icon={ chevronLeft }
-								label={ __( 'Back' ) }
-								shortcut={ browserShortcuts.back }
-								disabled={ ! browserState.canGoBack }
-								onClick={ () => sendBrowserCommand( 'back' ) }
-							/>
+							{ ! reviewActive ? (
+								<IconButton
+									variant="minimal"
+									tone="neutral"
+									size="small"
+									icon={ chevronLeft }
+									label={ __( 'Back' ) }
+									shortcut={ browserShortcuts.back }
+									disabled={ ! browserState.canGoBack }
+									onClick={ () => sendBrowserCommand( 'back' ) }
+								/>
+							) : null }
 							<PreviewAddressBar
 								site={ site }
 								siteUrl={ siteUrl }
@@ -1048,22 +1061,30 @@ export function SitePreview( {
 								anchorRef={ locationRef }
 								onNavigate={ ( nextPath ) => onPathChange?.( nextPath ) }
 								onSwitchRealm={ handleSwitchRealm }
+								reviewAvailable={ changes.length > 0 }
+								reviewActive={ reviewActive }
+								onSwitchReview={ () => onReviewActiveChange?.( true ) }
 							/>
-							<IconButton
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								icon={ chevronRight }
-								label={ __( 'Forward' ) }
-								shortcut={ browserShortcuts.forward }
-								disabled={ ! browserState.canGoForward }
-								onClick={ () => sendBrowserCommand( 'forward' ) }
-							/>
+							{ ! reviewActive ? (
+								<IconButton
+									variant="minimal"
+									tone="neutral"
+									size="small"
+									icon={ chevronRight }
+									label={ __( 'Forward' ) }
+									shortcut={ browserShortcuts.forward }
+									disabled={ ! browserState.canGoForward }
+									onClick={ () => sendBrowserCommand( 'forward' ) }
+								/>
+							) : null }
 						</>
 					) : null }
 				</div>
 				<div className={ clsx( styles.headerSide, styles.headerSideEnd ) }>
-					{ canPreview && chatEnabled && connector.capabilities.annotatePreview ? (
+					{ canPreview &&
+					! reviewActive &&
+					chatEnabled &&
+					connector.capabilities.annotatePreview ? (
 						<PreviewAnnotationControls
 							isPicking={ inspectorState.isPicking }
 							annotationCount={ inspectorState.annotationCount }
@@ -1071,8 +1092,10 @@ export function SitePreview( {
 							onCommand={ sendInspectorCommand }
 						/>
 					) : null }
-					<OpenInMenu key={ site.id } site={ site } browserPath={ getSafePath( path ) } />
-					{ canPreview ? (
+					{ ! reviewActive ? (
+						<OpenInMenu key={ site.id } site={ site } browserPath={ getSafePath( path ) } />
+					) : null }
+					{ canPreview && ! reviewActive ? (
 						<PreviewOverflowMenu
 							viewportMode={ viewportMode }
 							onViewportModeChange={ handleViewportModeChange }
@@ -1083,17 +1106,19 @@ export function SitePreview( {
 						/>
 					) : null }
 				</div>
-				{ showLoadingProgress ? (
+				{ showLoadingProgress && ! reviewActive ? (
 					<div className={ styles.loadingProgress } aria-hidden="true">
 						<span style={ { transform: `scaleX(${ Math.min( progress, 1 ) })` } } />
 					</div>
 				) : null }
 			</div>
 			<div className={ styles.body }>
+				{ reviewActive && changes.length > 0 ? <ChangesReview changes={ changes } /> : null }
 				<div
 					ref={ paneRef }
 					className={ clsx(
 						styles.previewViewport,
+						reviewActive && styles.previewViewportHidden,
 						previewViewport && styles.previewViewportSimulated
 					) }
 				>

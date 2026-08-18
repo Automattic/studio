@@ -1,7 +1,15 @@
 import { Autocomplete } from '@base-ui/react/autocomplete';
 import { TRACKS_EVENTS, type TracksEventName } from '@studio/common/lib/record-tracks-event';
 import { __ } from '@wordpress/i18n';
-import { globe, help, home, page as pageIcon, post as postIcon, wordpress } from '@wordpress/icons';
+import {
+	globe,
+	help,
+	home,
+	page as pageIcon,
+	post as postIcon,
+	seen,
+	wordpress,
+} from '@wordpress/icons';
 import { ariaKeyShortcut, displayShortcut } from '@wordpress/keycodes';
 import { privateApis } from '@wordpress/theme';
 import { Icon, Tooltip } from '@wordpress/ui';
@@ -249,6 +257,9 @@ interface PreviewAddressBarProps {
 	// Called when the user clicks an inactive segment; the host navigates to
 	// its remembered path for that realm.
 	onSwitchRealm: ( realm: PreviewRealm ) => void;
+	reviewAvailable?: boolean;
+	reviewActive?: boolean;
+	onSwitchReview?: () => void;
 }
 
 /**
@@ -266,6 +277,9 @@ export function PreviewAddressBar( {
 	anchorRef,
 	onNavigate,
 	onSwitchRealm,
+	reviewAvailable = false,
+	reviewActive = false,
+	onSwitchReview,
 }: PreviewAddressBarProps ) {
 	const [ open, setOpen ] = useState( false );
 	const [ inputValue, setInputValue ] = useState( '' );
@@ -295,7 +309,7 @@ export function PreviewAddressBar( {
 			current && current.left === left && current.width === width ? current : { left, width }
 		);
 	}, [] );
-	useLayoutEffect( measureIndicator, [ measureIndicator, realm, site.name ] );
+	useLayoutEffect( measureIndicator, [ measureIndicator, realm, reviewActive, site.name ] );
 	useEffect( () => {
 		const root = segmentsRef.current;
 		if ( ! root || typeof ResizeObserver === 'undefined' ) {
@@ -534,7 +548,7 @@ export function PreviewAddressBar( {
 					}
 				/>
 				{ REALM_SEGMENTS.map( ( segment ) => {
-					const isActive = segment.realm === realm;
+					const isActive = ! reviewActive && segment.realm === realm;
 					const content = (
 						<>
 							<span className={ styles.segmentIcon } aria-hidden="true">
@@ -571,6 +585,29 @@ export function PreviewAddressBar( {
 						</Tooltip.Root>
 					);
 				} ) }
+				{ reviewAvailable ? (
+					<Tooltip.Root>
+						<Tooltip.Trigger
+							render={
+								<button
+									type="button"
+									className={ styles.segment }
+									data-active={ reviewActive || undefined }
+									aria-label={ reviewActive ? undefined : __( 'Review changes' ) }
+									onClick={ reviewActive ? undefined : onSwitchReview }
+								/>
+							}
+						>
+							<span className={ styles.segmentIcon } aria-hidden="true">
+								<Icon icon={ seen } size={ 16 } />
+							</span>
+							<span className={ styles.segmentTitle }>{ __( 'Review' ) }</span>
+						</Tooltip.Trigger>
+						<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
+							{ __( 'Review changes' ) }
+						</Tooltip.Popup>
+					</Tooltip.Root>
+				) : null }
 			</div>
 			<Autocomplete.Portal>
 				<Autocomplete.Positioner

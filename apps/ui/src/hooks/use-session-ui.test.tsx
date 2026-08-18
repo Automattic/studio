@@ -22,6 +22,18 @@ function wrapper( { children }: { children: ReactNode } ) {
 }
 
 describe( 'useSessionPreviewUI site switching', () => {
+	it( 'opens the preview on the review surface and returns to the site', () => {
+		const { result } = renderHook( () => useSessionPreviewUI(), { wrapper } );
+
+		act( () => result.current.setOpen( false ) );
+		act( () => result.current.showReview() );
+		expect( result.current.open ).toBe( true );
+		expect( result.current.surface ).toBe( 'review' );
+
+		act( () => result.current.showSite() );
+		expect( result.current.surface ).toBe( 'site' );
+	} );
+
 	it( 'opens a never-previewed site at home instead of the previous site path', () => {
 		const { result } = renderHook( () => useSessionPreviewUI(), { wrapper } );
 

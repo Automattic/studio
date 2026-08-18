@@ -31,7 +31,11 @@ import {
 } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
 import { useSessionCommands } from '@/hooks/use-session-commands';
-import { SessionUIProvider, useSessionPreviewAnnotations } from '@/hooks/use-session-ui';
+import {
+	SessionUIProvider,
+	useSessionPreviewAnnotations,
+	useSessionPreviewUI,
+} from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { formatComposerTextQuote, watchComposerTextQuote } from '@/lib/composer-text-quote';
@@ -274,6 +278,7 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 
 function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const navigate = useNavigate();
+	const preview = useSessionPreviewUI();
 	const { data, isLoading, error } = useSession( sessionId );
 	const { data: sites } = useSites();
 	const { data: sessions } = useSessions();
@@ -527,6 +532,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 							<ChangesTracker
 								entries={ data.entries }
 								ownerSitePath={ ownerSite?.path ?? data.summary.ownerSitePath }
+								onOpenReview={ preview.showReview }
 							/>
 						</div>
 						<span

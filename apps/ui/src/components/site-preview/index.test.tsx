@@ -79,6 +79,39 @@ function createSite( overrides: Partial< SiteDetails > = {} ): SiteDetails {
 }
 
 describe( 'SitePreview', () => {
+	it( 'shows chat changes on the review surface and returns to the site', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+		const onReviewActiveChange = vi.fn();
+
+		renderPreview(
+			<SitePreview
+				site={ createSite( { running: true } ) }
+				path="/"
+				reloadNonce={ 0 }
+				reviewActive
+				onReviewActiveChange={ onReviewActiveChange }
+				changes={ [
+					{
+						path: '/site/index.php',
+						displayPath: 'index.php',
+						additions: 1,
+						deletions: 1,
+						diff: '@@ -1 +1 @@\n-old\n+new',
+					},
+				] }
+			/>
+		);
+
+		expect( screen.getByLabelText( 'Diff for index.php' ) ).toHaveTextContent( '+new' );
+		expect( screen.queryByRole( 'button', { name: 'Refresh' } ) ).not.toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'button', { name: 'View site front end' } ) );
+		expect( onReviewActiveChange ).toHaveBeenCalledWith( false );
+	} );
+
 	it( 'recognizes WordPress theme activation navigations', () => {
 		expect(
 			isThemeActivationUrl( 'http://localhost:8881/wp-admin/themes.php?activated=true' )

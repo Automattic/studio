@@ -25,6 +25,7 @@ import {
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useWordPressVersions, useWpVersion } from '@/data/queries/use-wordpress-versions';
 import { useOffline } from '@/hooks/use-offline';
+import { useThemeDetails } from '@/hooks/use-theme-details';
 import styles from './style.module.css';
 import { SiteOverviewView } from './index';
 import type {
@@ -133,6 +134,10 @@ vi.mock( '@/hooks/use-offline', () => ( {
 	useOffline: vi.fn(),
 } ) );
 
+vi.mock( '@/hooks/use-theme-details', () => ( {
+	useThemeDetails: vi.fn(),
+} ) );
+
 vi.mock( '@/data/sync-activity', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('@/data/sync-activity') >() ),
 	reportSyncProgress: reportSyncProgressMock,
@@ -162,6 +167,7 @@ const useSitesMock = vi.mocked( useSites, { partial: true } );
 const useStartSiteMock = vi.mocked( useStartSite, { partial: true } );
 const useUpdateSiteMock = vi.mocked( useUpdateSite, { partial: true } );
 const useOfflineMock = vi.mocked( useOffline );
+const useThemeDetailsMock = vi.mocked( useThemeDetails );
 const useUserPreferencesMock = vi.mocked( useUserPreferences, { partial: true } );
 const useWordPressVersionsMock = vi.mocked( useWordPressVersions, { partial: true } );
 const useWpVersionMock = vi.mocked( useWpVersion, { partial: true } );
@@ -221,8 +227,10 @@ describe( 'SiteOverviewView', () => {
 				dispatchEvent: vi.fn(),
 			} ) ),
 		} );
-
 		useConnectorMock.mockReturnValue( connectorStub() );
+		useThemeDetailsMock.mockImplementation( ( site ) =>
+			site.themeDetails ? { state: 'ready', details: site.themeDetails } : { state: 'unknown' }
+		);
 		useUserPreferencesMock.mockReturnValue( { data: preferencesStub( 'vscode' ) } );
 		useAgenticFeaturesMock.mockReturnValue( {
 			enabled: true,
@@ -237,6 +245,8 @@ describe( 'SiteOverviewView', () => {
 			isLoading: false,
 		} );
 		useIsSiteBusyMock.mockReturnValue( false );
+		useIsSiteStartingMock.mockReturnValue( false );
+		useIsSiteStoppingMock.mockReturnValue( false );
 		useSiteThumbnailMock.mockReturnValue( {
 			data: 'data:image/png;base64,site-thumbnail',
 		} );
@@ -251,8 +261,6 @@ describe( 'SiteOverviewView', () => {
 			},
 			isPending: false,
 		} );
-		useIsSiteStartingMock.mockReturnValue( false );
-		useIsSiteStoppingMock.mockReturnValue( false );
 		useStartSiteMock.mockReturnValue( {
 			isPending: false,
 			mutate: startSite,
@@ -304,7 +312,7 @@ describe( 'SiteOverviewView', () => {
 		};
 	}
 
-	it( 'renders the tab strip with the about, customize, and manage sections', () => {
+	it( 'renders the tab strip with the about, shortcuts, and manage sections', () => {
 		renderView();
 
 		expect( siteDropdownMock ).toHaveBeenCalledWith(
@@ -314,10 +322,12 @@ describe( 'SiteOverviewView', () => {
 		expect( screen.getByRole( 'tab', { name: 'Settings' } ) ).toBeVisible();
 		expect( screen.getByRole( 'tab', { name: 'Debugging' } ) ).toBeVisible();
 		expect( screen.getByRole( 'heading', { name: 'About' } ) ).toBeVisible();
-		expect( screen.getByRole( 'heading', { name: 'Customize' } ) ).toBeVisible();
+		expect( screen.getByRole( 'heading', { name: 'Shortcuts' } ) ).toBeVisible();
 		expect( screen.getByRole( 'heading', { name: 'Manage' } ) ).toBeVisible();
 		expect( screen.getByText( 'Site Editor' ) ).toBeVisible();
 		expect( screen.getByText( 'Templates' ) ).toBeVisible();
+		expect( screen.getByText( 'Posts' ) ).toBeVisible();
+		expect( screen.getByText( 'Pages' ) ).toBeVisible();
 		expect( screen.getByText( 'Media Library' ) ).toBeVisible();
 		expect( screen.queryByText( 'Customizer' ) ).not.toBeInTheDocument();
 		expect( screen.getByText( 'Duplicate' ) ).toBeVisible();
@@ -687,8 +697,49 @@ describe( 'SiteOverviewView', () => {
 
 		expect( screen.getByText( 'Customizer' ) ).toBeVisible();
 		expect( screen.getByText( 'Menus' ) ).toBeVisible();
+		expect( screen.getByText( 'Posts' ) ).toBeVisible();
+		expect( screen.getByText( 'Pages' ) ).toBeVisible();
+		expect( screen.getByText( 'Media Library' ) ).toBeVisible();
 		expect( screen.queryByText( 'Widgets' ) ).not.toBeInTheDocument();
 		expect( screen.queryByText( 'Site Editor' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'gives theme shortcuts stable identities for layout transitions', () => {
+		renderView();
+
+		expect( screen.getByText( 'Site Editor' ).closest( 'button' ) ).toHaveStyle( {
+			viewTransitionName: 'studio-theme-site-editor',
+		} );
+		expect( screen.getByText( 'Media Library' ).closest( 'button' ) ).toHaveStyle( {
+			viewTransitionName: 'studio-theme-media',
+		} );
+	} );
+	it( 'holds theme-dependent shortcuts while theme details load', () => {
+		useThemeDetailsMock.mockReturnValue( { state: 'loading' } );
+
+		const { container } = renderView();
+
+		expect( screen.queryByText( 'Site Editor' ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( 'Customizer' ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( 'Media Library' ) ).not.toBeInTheDocument();
+		expect( container.querySelectorAll( `.${ styles.buttonSkeleton }` ) ).toHaveLength( 7 );
+	} );
+
+	it( 'shows theme-independent shortcuts when theme details are unavailable', () => {
+		useThemeDetailsMock.mockReturnValue( { state: 'unknown' } );
+
+		renderView();
+
+		expect( screen.getByText( 'Posts' ) ).toBeVisible();
+		expect( screen.getByText( 'Pages' ) ).toBeVisible();
+		expect( screen.getByText( 'Media Library' ) ).toBeVisible();
+		expect( screen.queryByText( 'Customizer' ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( 'Site Editor' ) ).not.toBeInTheDocument();
+
+		fireEvent.click( screen.getByText( 'Posts' ).closest( 'button' )! );
+		fireEvent.click( screen.getByText( 'Pages' ).closest( 'button' )! );
+		expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/wp-admin/edit.php' );
+		expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/wp-admin/edit.php?post_type=page' );
 	} );
 
 	it( 'offers the configured apps and phpMyAdmin under Open in…', () => {
@@ -736,11 +787,15 @@ describe( 'SiteOverviewView', () => {
 		renderView();
 
 		fireEvent.click( screen.getByText( 'Site Editor' ).closest( 'button' )! );
+		fireEvent.click( screen.getByText( 'Posts' ).closest( 'button' )! );
+		fireEvent.click( screen.getByText( 'Pages' ).closest( 'button' )! );
 		fireEvent.click( screen.getByText( 'Media Library' ).closest( 'button' )! );
 
 		await waitFor( () =>
 			expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/wp-admin/site-editor.php' )
 		);
+		expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/wp-admin/edit.php' );
+		expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/wp-admin/edit.php?post_type=page' );
 		expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/wp-admin/upload.php' );
 	} );
 

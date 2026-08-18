@@ -4,7 +4,7 @@ import path from 'path';
 import { buildAiSessionFileName } from './file-naming';
 import { migrateLegacyFileInPlace } from './migration';
 import { getAiSessionsDirectoryForDate } from './paths';
-import { readAiSessionSummaryFromEntries } from './summary';
+import { readAiSessionSummaryFromEntries, readAiSessionSummaryFromFile } from './summary';
 import type { StudioCustomEntryDataMap, StudioCustomEntryType } from './entry-types';
 import type { AiSessionSummary, LoadedAiSession } from './types';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
@@ -14,6 +14,7 @@ import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 export async function readPiFileEntries( filePath: string ): Promise< SessionEntry[] > {
 	let content: string;
 	try {
+		await migrateLegacyFileInPlace( filePath, '~/Studio' );
 		content = await fs.readFile( filePath, 'utf8' );
 	} catch ( error ) {
 		if ( ( error as NodeJS.ErrnoException ).code === 'ENOENT' ) return [];
@@ -21,11 +22,8 @@ export async function readPiFileEntries( filePath: string ): Promise< SessionEnt
 	}
 	if ( ! content.trim() ) return [];
 
-	await migrateLegacyFileInPlace( filePath, '~/Studio' );
-	const refreshed = await fs.readFile( filePath, 'utf8' );
-
 	const entries: SessionEntry[] = [];
-	for ( const line of refreshed.split( '\n' ) ) {
+	for ( const line of content.split( '\n' ) ) {
 		const trimmed = line.trim();
 		if ( ! trimmed ) continue;
 		try {
@@ -36,6 +34,15 @@ export async function readPiFileEntries( filePath: string ): Promise< SessionEnt
 	}
 	return entries;
 }
+
+interface SessionSummaryCacheEntry {
+	size: number;
+	mtimeMs: number;
+	summary: AiSessionSummary | undefined;
+}
+
+const sessionSummaryCache = new Map< string, SessionSummaryCacheEntry >();
+const activeSessionListings = new Map< string, Promise< AiSessionSummary[] > >();
 
 async function listSessionFilesRecursively( directory: string ): Promise< string[] > {
 	try {
@@ -123,21 +130,52 @@ async function pruneEmptySessionDirectories(
 }
 
 export async function listAiSessions( rootDirectory: string ): Promise< AiSessionSummary[] > {
-	const sessionFiles = await listSessionFilesRecursively( rootDirectory );
-	const results = await Promise.allSettled(
-		sessionFiles.map( async ( filePath ) => {
-			const entries = await readPiFileEntries( filePath );
-			return readAiSessionSummaryFromEntries( filePath, entries );
-		} )
-	);
+	const activeListing = activeSessionListings.get( rootDirectory );
+	if ( activeListing ) return activeListing;
 
-	const sessions = results
-		.filter(
-			( result ): result is PromiseFulfilledResult< AiSessionSummary | undefined > =>
-				result.status === 'fulfilled'
-		)
-		.map( ( result ) => result.value )
-		.filter( ( session ): session is AiSessionSummary => !! session );
+	const listing = listAiSessionsUncached( rootDirectory );
+	activeSessionListings.set( rootDirectory, listing );
+	try {
+		return await listing;
+	} finally {
+		if ( activeSessionListings.get( rootDirectory ) === listing ) {
+			activeSessionListings.delete( rootDirectory );
+		}
+	}
+}
+
+async function listAiSessionsUncached( rootDirectory: string ): Promise< AiSessionSummary[] > {
+	const sessionFiles = await listSessionFilesRecursively( rootDirectory );
+	const sessions: AiSessionSummary[] = [];
+	const sessionFileSet = new Set( sessionFiles );
+
+	for ( const filePath of sessionFiles ) {
+		try {
+			const stats = await fs.stat( filePath );
+			const cached = sessionSummaryCache.get( filePath );
+			let summary: AiSessionSummary | undefined;
+			if ( cached && cached.size === stats.size && cached.mtimeMs === stats.mtimeMs ) {
+				summary = cached.summary;
+			} else {
+				summary = await readAiSessionSummaryFromFile( filePath );
+				const refreshedStats = await fs.stat( filePath );
+				sessionSummaryCache.set( filePath, {
+					size: refreshedStats.size,
+					mtimeMs: refreshedStats.mtimeMs,
+					summary,
+				} );
+			}
+			if ( summary ) sessions.push( summary );
+		} catch {
+			// Ignore files that disappear or cannot be parsed while listing.
+		}
+	}
+
+	for ( const cachedPath of sessionSummaryCache.keys() ) {
+		if ( cachedPath.startsWith( rootDirectory + path.sep ) && ! sessionFileSet.has( cachedPath ) ) {
+			sessionSummaryCache.delete( cachedPath );
+		}
+	}
 
 	return sessions.sort( ( a, b ) => Date.parse( b.updatedAt ) - Date.parse( a.updatedAt ) );
 }

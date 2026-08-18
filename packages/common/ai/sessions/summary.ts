@@ -1,5 +1,8 @@
+import { createReadStream } from 'fs';
 import fs from 'fs/promises';
+import readline from 'readline';
 import { isStudioCustomEntryOfType } from './entry-types';
+import { migrateLegacyFileInPlace } from './migration';
 import type { AiSessionSummary } from './types';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 
@@ -20,6 +23,18 @@ interface PiAssistantMessageLike {
 }
 
 const ASSISTANT_REPLY_PREVIEW_MAX_LENGTH = 180;
+
+interface AiSessionSummaryState {
+	header?: PiSessionHeader;
+	updatedAt?: string;
+	firstPrompt?: string;
+	assistantReplyPreview?: string;
+	selectedSiteName?: string;
+	activeEnvironment: 'local' | 'live';
+	lastSelectedWpcomSiteId?: number;
+	endReason?: 'error' | 'stopped';
+	entryCount: number;
+}
 
 function isPiHeader( value: unknown ): value is PiSessionHeader {
 	return (
@@ -65,61 +80,62 @@ function getAssistantReplyPreview( entry: SessionEntry ): string | undefined {
 	return `${ text.slice( 0, ASSISTANT_REPLY_PREVIEW_MAX_LENGTH ).trimEnd() }...`;
 }
 
-export async function readAiSessionSummaryFromEntries(
-	filePath: string,
-	fileEntries: Array< SessionEntry | PiSessionHeader >
-): Promise< AiSessionSummary | undefined > {
-	if ( fileEntries.length === 0 ) return undefined;
+function createSummaryState(): AiSessionSummaryState {
+	return { activeEnvironment: 'local', entryCount: 0 };
+}
 
-	const header = fileEntries.find( isPiHeader );
-	const createdAt = header?.timestamp;
-	let updatedAt = header?.timestamp;
-	const sessionId = header?.id ?? '';
-	let firstPrompt: string | undefined;
-	let assistantReplyPreview: string | undefined;
-	let selectedSiteName: string | undefined;
-	let activeEnvironment: 'local' | 'live' = 'local';
-	let lastSelectedWpcomSiteId: number | undefined;
-	let endReason: 'error' | 'stopped' | undefined;
-	let entryCount = 0;
-
-	for ( const entry of fileEntries ) {
-		if ( isPiHeader( entry ) ) continue;
-		entryCount += 1;
-		const ts = entry.timestamp;
-		if ( typeof ts === 'string' ) updatedAt = ts;
-
-		const replyPreview = getAssistantReplyPreview( entry );
-		if ( replyPreview ) {
-			assistantReplyPreview = replyPreview;
-		}
-
-		if ( isStudioCustomEntryOfType( entry, 'studio.site_selected' ) ) {
-			const data = entry.data;
-			if ( ! data ) continue;
-			selectedSiteName = data.siteName;
-			const isLive = data.remote === true;
-			activeEnvironment = isLive ? 'live' : 'local';
-			lastSelectedWpcomSiteId = isLive ? data.wpcomSiteId : undefined;
-			continue;
-		}
-
-		if ( isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) ) {
-			const data = entry.data;
-			if ( data && data.source === 'prompt' && ! firstPrompt ) {
-				firstPrompt = data.text;
-			}
-			continue;
-		}
-
-		if ( isStudioCustomEntryOfType( entry, 'studio.turn_closed' ) ) {
-			const status = entry.data?.status;
-			if ( status === 'error' ) endReason = 'error';
-			else if ( status === 'interrupted' ) endReason = 'stopped';
-			continue;
-		}
+function addEntryToSummary(
+	state: AiSessionSummaryState,
+	entry: SessionEntry | PiSessionHeader
+): void {
+	if ( isPiHeader( entry ) ) {
+		state.header ??= entry;
+		state.updatedAt ??= entry.timestamp;
+		return;
 	}
 
+	state.entryCount += 1;
+	const ts = entry.timestamp;
+	if ( typeof ts === 'string' ) state.updatedAt = ts;
+
+	const replyPreview = getAssistantReplyPreview( entry );
+	if ( replyPreview ) {
+		state.assistantReplyPreview = replyPreview;
+	}
+
+	if ( isStudioCustomEntryOfType( entry, 'studio.site_selected' ) ) {
+		const data = entry.data;
+		if ( ! data ) return;
+		state.selectedSiteName = data.siteName;
+		const isLive = data.remote === true;
+		state.activeEnvironment = isLive ? 'live' : 'local';
+		state.lastSelectedWpcomSiteId = isLive ? data.wpcomSiteId : undefined;
+		return;
+	}
+
+	if ( isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) ) {
+		const data = entry.data;
+		if ( data && data.source === 'prompt' && ! state.firstPrompt ) {
+			state.firstPrompt = data.text;
+		}
+		return;
+	}
+
+	if ( isStudioCustomEntryOfType( entry, 'studio.turn_closed' ) ) {
+		const status = entry.data?.status;
+		if ( status === 'error' ) state.endReason = 'error';
+		else if ( status === 'interrupted' ) state.endReason = 'stopped';
+	}
+}
+
+async function finishSummary(
+	filePath: string,
+	state: AiSessionSummaryState
+): Promise< AiSessionSummary | undefined > {
+	if ( ! state.header && state.entryCount === 0 ) return undefined;
+
+	const createdAt = state.header?.timestamp;
+	const sessionId = state.header?.id ?? '';
 	const stats = await fs.stat( filePath );
 	const fallbackTimestamp = stats.mtime.toISOString();
 
@@ -127,16 +143,51 @@ export async function readAiSessionSummaryFromEntries(
 		id: sessionId,
 		filePath,
 		createdAt: createdAt ?? fallbackTimestamp,
-		updatedAt: updatedAt ?? createdAt ?? fallbackTimestamp,
-		firstPrompt,
-		assistantReplyPreview,
+		updatedAt: state.updatedAt ?? createdAt ?? fallbackTimestamp,
+		firstPrompt: state.firstPrompt,
+		assistantReplyPreview: state.assistantReplyPreview,
 		ownerSiteId: undefined,
 		ownerSitePath: undefined,
 		ownerSiteName: undefined,
-		selectedSiteName,
-		activeEnvironment,
-		lastSelectedWpcomSiteId,
-		endReason,
-		eventCount: entryCount,
+		selectedSiteName: state.selectedSiteName,
+		activeEnvironment: state.activeEnvironment,
+		lastSelectedWpcomSiteId: state.lastSelectedWpcomSiteId,
+		endReason: state.endReason,
+		eventCount: state.entryCount,
 	};
+}
+
+export async function readAiSessionSummaryFromEntries(
+	filePath: string,
+	fileEntries: Array< SessionEntry | PiSessionHeader >
+): Promise< AiSessionSummary | undefined > {
+	const state = createSummaryState();
+	for ( const entry of fileEntries ) {
+		addEntryToSummary( state, entry );
+	}
+	return finishSummary( filePath, state );
+}
+
+export async function readAiSessionSummaryFromFile(
+	filePath: string
+): Promise< AiSessionSummary | undefined > {
+	await migrateLegacyFileInPlace( filePath, '~/Studio' );
+
+	const state = createSummaryState();
+	const lines = readline.createInterface( {
+		input: createReadStream( filePath, { encoding: 'utf8' } ),
+		crlfDelay: Infinity,
+	} );
+
+	for await ( const line of lines ) {
+		const trimmed = line.trim();
+		if ( ! trimmed ) continue;
+		try {
+			addEntryToSummary( state, JSON.parse( trimmed ) as SessionEntry | PiSessionHeader );
+		} catch {
+			// malformed line
+		}
+	}
+
+	return finishSummary( filePath, state );
 }

@@ -72,7 +72,7 @@ export function SiteToolbar( { site, className, openPullOnLoad = false }: SiteTo
 	// including this one. A second one in the header only earns its place once
 	// the sidebar is out of view.
 	const showRunState = useSidebarCollapsed();
-	const login = useLogin();
+	const login = useLogin( { source: 'site_header' } );
 	const pushSiteToLive = usePushSiteToLive();
 	const pullSiteFromLive = usePullSiteFromLive();
 

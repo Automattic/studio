@@ -46,8 +46,10 @@ export interface StudioTurnClosedData {
 	errorMessage?: string;
 }
 
+// `provider` marks an explicit user pin; the CLI's per-turn records carry
+// only the model so a fallback run never rewrites the pin.
 export interface StudioSessionContextData {
-	provider: string;
+	provider?: string;
 	model: string;
 }
 

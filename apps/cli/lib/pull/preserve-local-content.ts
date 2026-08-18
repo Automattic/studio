@@ -18,10 +18,10 @@
  *     `plugins/akismet`) survive;
  *   - a file present on both sides stays remote — the user asked for it.
  *
- * `skipDatabase`/`skipUploads` override coverage for their directories:
+ * `skipDatabase` overrides coverage for its directory:
  * "pull all files but keep my database" selects everything
  * (`selectedPrefixes` empty) yet must still carry the local
- * `wp-content/database` (and, symmetrically, `uploads`) across.
+ * `wp-content/database` across.
  */
 import fs from 'fs';
 import path from 'path';
@@ -37,8 +37,6 @@ export interface PreserveLocalContentParams {
 	selectedPrefixes: string[];
 	/** True when the database is not pulled — keep the local one. */
 	skipDatabase?: boolean;
-	/** True when the media library is not pulled — keep the local one. */
-	skipUploads?: boolean;
 }
 
 type CoveredBySelection = ( absolutePath: string ) => boolean;
@@ -101,8 +99,7 @@ function seedEntry(
  * classified. Returns the number of entries moved.
  */
 export function preserveUnselectedLocalContent( params: PreserveLocalContentParams ): number {
-	const { sitePath, rawDirectory, contentDir, selectedPrefixes, skipDatabase, skipUploads } =
-		params;
+	const { sitePath, rawDirectory, contentDir, selectedPrefixes, skipDatabase } = params;
 
 	const localContent = path.join( sitePath, 'wp-content' );
 	let localStats: fs.Stats;
@@ -129,9 +126,6 @@ export function preserveUnselectedLocalContent( params: PreserveLocalContentPara
 	const forcedLocal = new Set< string >();
 	if ( skipDatabase ) {
 		forcedLocal.add( 'database' );
-	}
-	if ( skipUploads ) {
-		forcedLocal.add( 'uploads' );
 	}
 
 	let moved = 0;

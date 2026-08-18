@@ -1,5 +1,6 @@
 import {
 	__recordTracksEvent,
+	isTracksChannel,
 	type TracksChannel,
 	type TracksEventName,
 	type TracksProps,
@@ -23,19 +24,15 @@ export interface TracksOrigin {
 	ui_version?: TracksUiVersion;
 }
 
-// Resolves the event origin from `STUDIO_TRACKS_ORIGIN`, set by the desktop app when it spawns the CLI
-// (e.g. `studio-ui:v1`, `studio-ui:v2`). Absent for a standalone CLI invocation, which is
-// `studio-cli`. See `docs/design-docs/analytics-tracks.md`.
+// Resolves the origin from `STUDIO_TRACKS_ORIGIN`, a `<channel>:<ui_version>` string set by the host
+// that spawned the CLI (e.g. `studio-ui:v2`, `studio-web:v2`). Absent or unrecognized means a
+// standalone invocation. See `docs/design-docs/analytics-tracks.md`.
 export function getTracksOrigin(): TracksOrigin {
-	const raw = process.env.STUDIO_TRACKS_ORIGIN;
-	if ( raw?.startsWith( 'studio-ui' ) ) {
-		const [ , version ] = raw.split( ':' );
-		return {
-			channel: 'studio-ui',
-			ui_version: version === 'v2' ? 'v2' : 'v1',
-		};
+	const [ channel, version ] = ( process.env.STUDIO_TRACKS_ORIGIN ?? '' ).split( ':' );
+	if ( ! isTracksChannel( channel ) || channel === 'studio-cli' ) {
+		return { channel: 'studio-cli' };
 	}
-	return { channel: 'studio-cli' };
+	return { channel, ui_version: version === 'v2' ? 'v2' : 'v1' };
 }
 
 async function commonProps(): Promise< TracksProps > {

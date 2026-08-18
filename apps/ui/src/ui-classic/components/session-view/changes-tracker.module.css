@@ -1,0 +1,38 @@
+.anchor {
+	display: flex;
+	pointer-events: auto;
+	-webkit-app-region: no-drag;
+}
+
+.summary {
+	box-sizing: border-box;
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-gap-xs);
+	block-size: 28px;
+	padding: 2px var(--wpds-dimension-padding-md);
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral-weak);
+	border-radius: 999px;
+	background: var(--wpds-color-bg-surface-neutral-strong);
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-sm);
+	font-weight: var(--wpds-typography-font-weight-regular);
+	line-height: var(--wpds-typography-line-height-sm);
+}
+
+.lineCounts {
+	display: flex;
+	gap: var(--wpds-dimension-gap-xs);
+	flex-shrink: 0;
+	direction: ltr;
+	font-variant-numeric: tabular-nums;
+	unicode-bidi: isolate;
+}
+
+.additions {
+	color: var(--wpds-color-stroke-surface-success-strong);
+}
+
+.deletions {
+	color: var(--wpds-color-stroke-surface-error-strong);
+}

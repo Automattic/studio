@@ -67,6 +67,10 @@ export function useSession( sessionId: string | undefined ) {
 		queryKey: [ ...SESSIONS_QUERY_KEY, sessionId ],
 		queryFn: () => connector.getSession( sessionId! ),
 		enabled: !! sessionId,
+		// The JSONL transcript is authoritative across launches. Persisting this
+		// infinitely-fresh query can resurrect a pre-run snapshot after an abrupt
+		// renderer exit and hide tool results that were already written to disk.
+		meta: { persist: false },
 		// `useAgentRun` mutates the cache during a live run and invalidates
 		// explicitly on `run.exited`. Any implicit refetch would race those
 		// cache writes and flicker the transcript.

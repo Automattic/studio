@@ -350,10 +350,18 @@ function PreferencesPanel( {
 					/>
 				</PreferenceRow>
 			</section>
-			<AccountSection />
 			<WapuuScore />
 			<StudioCliSection />
 			<StudioExperienceSection />
+		</div>
+	);
+}
+
+function SettingsLayout( { children }: { children: ReactNode } ) {
+	return (
+		<div className={ styles.settingsLayout }>
+			<AccountSection />
+			<div className={ styles.settingsMain }>{ children }</div>
 		</div>
 	);
 }
@@ -450,29 +458,41 @@ export function SettingsView( {
 				<div className={ styles.scroll }>
 					<div className={ styles.contentBlock }>
 						<Tabs.Panel tabId="preferences">
-							<PreferencesPanel
-								data={ data }
-								installedApps={ installedApps }
-								saveError={ savePreferences.isError }
-								onColorSchemeChange={ handleColorSchemeChange }
-								onDefaultSiteDirectorySelect={ () => void handleSelectDefaultDirectory() }
-								onChange={ handleChange }
-							/>
+							<SettingsLayout>
+								<PreferencesPanel
+									data={ data }
+									installedApps={ installedApps }
+									saveError={ savePreferences.isError }
+									onColorSchemeChange={ handleColorSchemeChange }
+									onDefaultSiteDirectorySelect={ () => void handleSelectDefaultDirectory() }
+									onChange={ handleChange }
+								/>
+							</SettingsLayout>
 						</Tabs.Panel>
 						<Tabs.Panel tabId="ai">
-							<AiPanel />
+							<SettingsLayout>
+								<AiPanel />
+							</SettingsLayout>
 						</Tabs.Panel>
 						<Tabs.Panel tabId="usage">
-							<UsagePanel />
+							<SettingsLayout>
+								<UsagePanel />
+							</SettingsLayout>
 						</Tabs.Panel>
 						<Tabs.Panel tabId="keyboard">
-							<KeyboardPanel />
+							<SettingsLayout>
+								<KeyboardPanel />
+							</SettingsLayout>
 						</Tabs.Panel>
 						<Tabs.Panel tabId="skills">
-							<SkillsPanel />
+							<SettingsLayout>
+								<SkillsPanel />
+							</SettingsLayout>
 						</Tabs.Panel>
 						<Tabs.Panel tabId="mcp">
-							<McpPanel />
+							<SettingsLayout>
+								<McpPanel />
+							</SettingsLayout>
 						</Tabs.Panel>
 					</div>
 				</div>

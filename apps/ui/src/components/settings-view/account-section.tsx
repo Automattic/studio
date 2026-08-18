@@ -68,14 +68,9 @@ export function AccountSection() {
 	const isOffline = useOffline();
 
 	return (
-		<section className={ styles.preferenceSectionGroup }>
-			<div className={ styles.accountSectionHeader }>
-				<h2 className={ clsx( styles.preferenceSectionHeading, styles.accountHeading ) }>
-					{ __( 'Account' ) }
-				</h2>
-				<AccountHelpActions />
-			</div>
-			<div className={ styles.accountSummary }>
+		<aside className={ styles.accountAside }>
+			<section className={ styles.accountSection }>
+				<h2 className={ styles.cardTitle }>{ __( 'Account' ) }</h2>
 				<div className={ styles.accountIdentity }>
 					{ user ? (
 						<Gravatar
@@ -94,23 +89,23 @@ export function AccountSection() {
 					</div>
 				</div>
 				{ user ? (
-					<div className={ styles.accountButtons }>
-						<Button
-							type="button"
-							variant="outline"
-							tone="neutral"
-							loading={ logout.isPending }
-							loadingAnnouncement={ __( 'Logging out' ) }
-							onClick={ () => logout.mutate() }
-						>
-							{ __( 'Log out' ) }
-						</Button>
-					</div>
+					<Button
+						type="button"
+						variant="outline"
+						tone="neutral"
+						size="small"
+						loading={ logout.isPending }
+						loadingAnnouncement={ __( 'Logging out' ) }
+						onClick={ () => logout.mutate() }
+					>
+						{ __( 'Log out' ) }
+					</Button>
 				) : (
 					<Button
 						type="button"
 						variant="outline"
 						tone="neutral"
+						size="small"
 						disabled={ isLoading || isOffline }
 						loading={ login.isPending }
 						loadingAnnouncement={ __( 'Logging in' ) }
@@ -119,7 +114,11 @@ export function AccountSection() {
 						{ __( 'Log in' ) }
 					</Button>
 				) }
-			</div>
-		</section>
+			</section>
+			<section className={ clsx( styles.accountSection, styles.accountHelp ) }>
+				<h2 className={ styles.cardTitle }>{ __( 'Help' ) }</h2>
+				<AccountHelpActions />
+			</section>
+		</aside>
 	);
 }

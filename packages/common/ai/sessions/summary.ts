@@ -1,8 +1,7 @@
-import { createReadStream } from 'fs';
 import fs from 'fs/promises';
-import readline from 'readline';
 import { isStudioCustomEntryOfType } from './entry-types';
-import { migrateLegacyFileInPlace } from './migration';
+import { readJsonlLines } from './jsonl';
+import { detectSessionFormat, migrateLegacyFileInPlace } from './migration';
 import type { AiSessionSummary } from './types';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 
@@ -23,6 +22,11 @@ interface PiAssistantMessageLike {
 }
 
 const ASSISTANT_REPLY_PREVIEW_MAX_LENGTH = 180;
+
+// Summaries are cached for the life of the process, so `firstPrompt` — used
+// only as a title/preview — must not pin an arbitrarily large pasted prompt
+// in memory.
+const FIRST_PROMPT_MAX_LENGTH = 500;
 
 interface AiSessionSummaryState {
 	header?: PiSessionHeader;
@@ -73,21 +77,26 @@ function getAssistantReplyPreview( entry: SessionEntry ): string | undefined {
 		return undefined;
 	}
 
-	if ( text.length <= ASSISTANT_REPLY_PREVIEW_MAX_LENGTH ) {
-		return text;
-	}
-
-	return `${ text.slice( 0, ASSISTANT_REPLY_PREVIEW_MAX_LENGTH ).trimEnd() }...`;
+	return truncatePreview( text, ASSISTANT_REPLY_PREVIEW_MAX_LENGTH );
 }
 
 function createSummaryState(): AiSessionSummaryState {
 	return { activeEnvironment: 'local', entryCount: 0 };
 }
 
+function truncatePreview( text: string, maxLength: number ): string {
+	if ( text.length <= maxLength ) return text;
+	return `${ text.slice( 0, maxLength ).trimEnd() }...`;
+}
+
 function addEntryToSummary(
 	state: AiSessionSummaryState,
 	entry: SessionEntry | PiSessionHeader
 ): void {
+	// JSON lines can parse to null or primitives; those are malformed entries,
+	// not events, and must not inflate the entry count.
+	if ( ! entry || typeof entry !== 'object' ) return;
+
 	if ( isPiHeader( entry ) ) {
 		state.header ??= entry;
 		state.updatedAt ??= entry.timestamp;
@@ -116,7 +125,7 @@ function addEntryToSummary(
 	if ( isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) ) {
 		const data = entry.data;
 		if ( data && data.source === 'prompt' && ! state.firstPrompt ) {
-			state.firstPrompt = data.text;
+			state.firstPrompt = truncatePreview( data.text, FIRST_PROMPT_MAX_LENGTH );
 		}
 		return;
 	}
@@ -134,16 +143,16 @@ async function finishSummary(
 ): Promise< AiSessionSummary | undefined > {
 	if ( ! state.header && state.entryCount === 0 ) return undefined;
 
-	const createdAt = state.header?.timestamp;
 	const sessionId = state.header?.id ?? '';
-	const stats = await fs.stat( filePath );
-	const fallbackTimestamp = stats.mtime.toISOString();
+	// Stat only when the header is missing a timestamp — the common case
+	// needs no filesystem round-trip here.
+	const createdAt = state.header?.timestamp ?? ( await fs.stat( filePath ) ).mtime.toISOString();
 
 	return {
 		id: sessionId,
 		filePath,
-		createdAt: createdAt ?? fallbackTimestamp,
-		updatedAt: state.updatedAt ?? createdAt ?? fallbackTimestamp,
+		createdAt,
+		updatedAt: state.updatedAt ?? createdAt,
 		firstPrompt: state.firstPrompt,
 		assistantReplyPreview: state.assistantReplyPreview,
 		ownerSiteId: undefined,
@@ -168,26 +177,40 @@ export async function readAiSessionSummaryFromEntries(
 	return finishSummary( filePath, state );
 }
 
-export async function readAiSessionSummaryFromFile(
+// Sentinel: the scan stopped at a legacy-format first line.
+const LEGACY_FORMAT = Symbol( 'legacy-format' );
+
+async function scanSummary(
 	filePath: string
-): Promise< AiSessionSummary | undefined > {
-	await migrateLegacyFileInPlace( filePath, '~/Studio' );
-
+): Promise< AiSessionSummary | undefined | typeof LEGACY_FORMAT > {
 	const state = createSummaryState();
-	const lines = readline.createInterface( {
-		input: createReadStream( filePath, { encoding: 'utf8' } ),
-		crlfDelay: Infinity,
-	} );
+	let isFirstLine = true;
 
-	for await ( const line of lines ) {
-		const trimmed = line.trim();
-		if ( ! trimmed ) continue;
+	for await ( const line of readJsonlLines( filePath ) ) {
+		if ( isFirstLine ) {
+			isFirstLine = false;
+			if ( detectSessionFormat( line ) === 'legacy' ) return LEGACY_FORMAT;
+		}
 		try {
-			addEntryToSummary( state, JSON.parse( trimmed ) as SessionEntry | PiSessionHeader );
+			addEntryToSummary( state, JSON.parse( line ) as SessionEntry | PiSessionHeader );
 		} catch {
 			// malformed line
 		}
 	}
 
 	return finishSummary( filePath, state );
+}
+
+export async function readAiSessionSummaryFromFile(
+	filePath: string
+): Promise< AiSessionSummary | undefined > {
+	const summary = await scanSummary( filePath );
+	if ( summary !== LEGACY_FORMAT ) return summary;
+
+	// Rare case: the scan hit a legacy file. Migrate it in place, then rescan.
+	// Detecting from the line the scan already read keeps pi files — the
+	// common case — to a single open with no separate probe.
+	await migrateLegacyFileInPlace( filePath );
+	const rescanned = await scanSummary( filePath );
+	return rescanned === LEGACY_FORMAT ? undefined : rescanned;
 }

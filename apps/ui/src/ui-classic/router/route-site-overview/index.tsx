@@ -39,7 +39,7 @@ function SiteOverviewPage() {
 		<SiteOverviewView
 			siteId={ siteId }
 			activeTab={ activeTab }
-			openSiteDropdown={ sync === 'pull' }
+			openPullOnLoad={ sync === 'pull' }
 			onTabChange={ ( next ) => {
 				void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, {
 					panel: siteSettingsTabToPanel( next ),

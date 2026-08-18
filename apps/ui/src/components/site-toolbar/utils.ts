@@ -2,7 +2,7 @@ import { type SiteOperationKind } from '@studio/common/lib/site-operation';
 import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
 import { __, sprintf } from '@wordpress/i18n';
 import { getSiteDisplayUrl } from '@/lib/get-site-url';
-import type { SiteStatus } from './dropdown-trigger';
+import type { SiteRunStatus } from '@/components/site-status-button';
 import type { SiteDetails, Snapshot, SyncSite } from '@/data/core';
 
 export function stripProtocol( url: string ): string {
@@ -13,6 +13,26 @@ export function ensureProtocol( url: string ): string {
 	return /^https?:\/\//.test( url ) ? url : `https://${ url }`;
 }
 
+/**
+ * Connections in the order a picker should list them: production first, then
+ * staging, each group alphabetical so the list doesn't reshuffle between
+ * fetches.
+ */
+export function sortConnections( connectedSites: SyncSite[] | undefined ): SyncSite[] {
+	return [ ...( connectedSites ?? [] ) ].sort( ( a, b ) => {
+		if ( a.isStaging !== b.isStaging ) {
+			return a.isStaging ? 1 : -1;
+		}
+		return a.name.localeCompare( b.name );
+	} );
+}
+
+/** What to call a connection in a list where its sibling is right beside it. */
+export function getConnectionLabel( connectedSite: SyncSite ): string {
+	return connectedSite.isStaging ? __( 'Staging' ) : __( 'Production' );
+}
+
+/** The single connection the header's sync and disconnect actions target. */
 export function pickLiveSite( connectedSites: SyncSite[] | undefined ): SyncSite | undefined {
 	if ( ! connectedSites || connectedSites.length === 0 ) {
 		return undefined;
@@ -84,7 +104,7 @@ function getStatus(
 	isStarting: boolean,
 	isStopping: boolean,
 	operation: SiteOperationKind | null
-): SiteStatus {
+): SiteRunStatus {
 	if ( operation || isStarting || isStopping ) {
 		return 'transitioning';
 	}
@@ -93,7 +113,7 @@ function getStatus(
 
 // Sentence form, read out by the status dot's aria-label.
 function getStatusLabel(
-	status: SiteStatus,
+	status: SiteRunStatus,
 	isStopping: boolean,
 	operation: SiteOperationKind | null
 ): string {
@@ -112,7 +132,7 @@ function getStatusLabel(
 // The local-site row's second line: what's happening, or where the site lives.
 function getLocalSublabel(
 	site: SiteDetails,
-	status: SiteStatus,
+	status: SiteRunStatus,
 	isStopping: boolean,
 	operation: SiteOperationKind | null
 ): string {
@@ -127,7 +147,7 @@ function getLocalSublabel(
 }
 
 // Derives the running/transitioning/stopped status plus the user-visible
-// labels for the local-site row, so the dropdown consumes it in one line.
+// labels for local-site controls.
 export function deriveSiteStatus(
 	site: SiteDetails,
 	isStarting: boolean,
@@ -136,7 +156,7 @@ export function deriveSiteStatus(
 	// replace the two flags above. Passed in rather than derived here because
 	// it's react-query state and this stays a pure function.
 	operation: SiteOperationKind | null
-): { status: SiteStatus; statusLabel: string; localSublabel: string } {
+): { status: SiteRunStatus; statusLabel: string; localSublabel: string } {
 	const status = getStatus( site, isStarting, isStopping, operation );
 
 	return {

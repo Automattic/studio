@@ -4,6 +4,7 @@ import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { SNAPSHOTS_QUERY_KEY } from '@/data/queries/use-snapshots';
 import { reportSyncError, reportSyncPending, reportSyncSuccess } from '@/data/sync-activity';
+import { finishSyncToast, startSyncToast } from '@/data/sync-toasts';
 
 type PublishPreviewVariables = {
 	siteId: string;
@@ -21,16 +22,17 @@ export function usePublishPreviewSite() {
 			connector.publishPreviewSite( siteId, existingHostname ),
 		onMutate: ( { siteId } ) => {
 			reportSyncPending( siteId, 'preview' );
+			startSyncToast( siteId, 'preview' );
 		},
 		onSuccess: ( _result, { siteId } ) => {
 			reportSyncSuccess( siteId, 'preview' );
 			void queryClient.invalidateQueries( { queryKey: SNAPSHOTS_QUERY_KEY } );
-			toast.success( __( 'Preview site published' ) );
+			finishSyncToast( siteId, { intent: 'success', title: __( 'Preview link published' ) } );
 		},
 		onError: ( error, { siteId } ) => {
 			const message = error instanceof Error ? error.message : String( error );
 			reportSyncError( siteId, 'preview', message );
-			toast.error( __( 'Failed to publish preview site' ) );
+			finishSyncToast( siteId, { intent: 'error', title: __( 'Failed to publish preview link' ) } );
 		},
 	} );
 }

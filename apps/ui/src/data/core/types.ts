@@ -284,6 +284,8 @@ export interface Connector {
 	// quota source) so callers can fall back to static copy.
 	getStudioAssistantQuota(): Promise< StudioAssistantQuota | null >;
 	deleteAllSnapshots(): Promise< void >;
+	// Delete a single WordPress.com preview snapshot by its hostname.
+	deletePreviewSite( hostname: string ): Promise< void >;
 	// Asks the user to confirm deleting every preview site on their account.
 	// Resolves `true` only when they explicitly confirm.
 	confirmDeleteAllPreviewSites(): Promise< boolean >;

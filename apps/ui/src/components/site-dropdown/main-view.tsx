@@ -23,7 +23,7 @@ import {
 	useStartSite,
 	useStopSite,
 } from '@/data/queries/use-sites';
-import { useSnapshots } from '@/data/queries/use-snapshots';
+import { useSnapshotUsage, useSnapshots } from '@/data/queries/use-snapshots';
 import {
 	PULL_FROM_LIVE_MUTATION_KEY,
 	PUSH_TO_LIVE_MUTATION_KEY,
@@ -87,9 +87,20 @@ function useIsSiteSyncing( siteId: string ): { push: boolean; pull: boolean } {
 function getPreviewPanelCopy(
 	agenticEnabled: boolean,
 	isOffline: boolean,
-	isPreviewExpired: boolean
+	isPreviewExpired: boolean,
+	snapshotUsage?: { siteCount: number; siteLimit: number; siteCreationBlocked: boolean } | null
 ): string {
 	if ( agenticEnabled ) {
+		if ( snapshotUsage?.siteCreationBlocked ) {
+			return __( 'Preview sites are not available for your account.' );
+		}
+		if ( snapshotUsage && snapshotUsage.siteCount >= snapshotUsage.siteLimit ) {
+			return sprintf(
+				/* translators: %d: maximum number of preview sites allowed */
+				__( "You've used all %d preview sites available on your account." ),
+				snapshotUsage.siteLimit
+			);
+		}
 		return isPreviewExpired
 			? __( 'The previous preview has expired.' )
 			: __( 'Share a review link for this version.' );
@@ -123,6 +134,7 @@ export function MainView( {
 	const isOffline = agenticReason === 'offline';
 	const login = useLogin( { source: 'site_header' } );
 	const { data: snapshots } = useSnapshots();
+	const { data: snapshotUsage } = useSnapshotUsage();
 	const { data: connectedSites } = useConnectedWpcomSites( site.id );
 
 	const previewSnapshot = useMemo(
@@ -155,6 +167,10 @@ export function MainView( {
 	// controls on both, so an operation the agent took disables them visibly rather
 	// than leaving buttons that swallow the click.
 	const isSiteBusy = isSyncing || isOperationInProgress;
+
+	const isPreviewLimitReached =
+		snapshotUsage?.siteCreationBlocked === true ||
+		( snapshotUsage?.siteCount ?? 0 ) >= ( snapshotUsage?.siteLimit ?? Infinity );
 
 	const { localSublabel } = deriveSiteStatus( site, isStarting, isStopping, operation );
 	const localSiteUrl = getSiteUrl( site );
@@ -356,13 +372,13 @@ export function MainView( {
 			) : (
 				<EnvironmentActionPanel
 					title={ __( 'Preview' ) }
-					copy={ getPreviewPanelCopy( agenticEnabled, isOffline, isPreviewExpired ) }
+					copy={ getPreviewPanelCopy( agenticEnabled, isOffline, isPreviewExpired, snapshotUsage ) }
 					buttonLabel={ isPreviewExpired ? __( 'Share a new one' ) : __( 'Share' ) }
 					variant="outline"
 					tone="neutral"
 					loading={ isPreviewPending }
 					loadingAnnouncement={ __( 'Creating preview' ) }
-					disabled={ isSiteBusy || ! agenticEnabled }
+					disabled={ isSiteBusy || ! agenticEnabled || isPreviewLimitReached }
 					onClick={ handlePreviewClick }
 				/>
 			) }

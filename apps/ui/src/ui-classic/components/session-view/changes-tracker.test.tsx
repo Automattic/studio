@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import {
 	ChangesTracker,
@@ -42,7 +42,7 @@ function toolResultEntry( id: string, diff?: string, isError = false ): SessionE
 }
 
 describe( 'getSessionFileChanges', () => {
-	it( 'aggregates successful file edits by normalized path', () => {
+	it( 'aggregates successful file edits and makes site paths relative', () => {
 		const entries = [
 			toolCallEntry( 'edit-1', 'Edit', { path: '/sites/demo/wp-content/theme.css' } ),
 			toolResultEntry( 'edit-1', '@@ -1 +1 @@\n-old\n+new' ),
@@ -52,14 +52,14 @@ describe( 'getSessionFileChanges', () => {
 			toolResultEntry( 'write-1' ),
 		];
 
-		expect( getSessionFileChanges( entries ) ).toEqual( [
+		expect( getSessionFileChanges( entries, '/sites/demo' ) ).toEqual( [
 			expect.objectContaining( {
-				path: '/sites/demo/wp-content/theme.css',
+				displayPath: 'wp-content/theme.css',
 				additions: 2,
 				deletions: 1,
 			} ),
 			expect.objectContaining( {
-				path: '/sites/demo/index.php',
+				displayPath: 'index.php',
 				additions: 1,
 				deletions: 0,
 			} ),
@@ -72,7 +72,7 @@ describe( 'getSessionFileChanges', () => {
 			toolResultEntry( 'edit-1', '-old\n+new', true ),
 		];
 
-		expect( getSessionFileChanges( entries ) ).toEqual( [] );
+		expect( getSessionFileChanges( entries, '/sites/demo' ) ).toEqual( [] );
 	} );
 
 	it( 'counts each tool call at most once', () => {
@@ -82,7 +82,7 @@ describe( 'getSessionFileChanges', () => {
 			toolResultEntry( 'edit-1', '-old\n+new' ),
 		];
 
-		expect( getSessionFileChanges( entries ) ).toEqual( [
+		expect( getSessionFileChanges( entries, '/sites/demo' ) ).toEqual( [
 			expect.objectContaining( { additions: 1, deletions: 1 } ),
 		] );
 	} );
@@ -105,7 +105,7 @@ describe( 'formatChangeCount', () => {
 } );
 
 describe( 'ChangesTracker', () => {
-	it( 'renders a display-only summary pill', () => {
+	it( 'opens a per-file summary from the pill', async () => {
 		const entries = [
 			toolCallEntry( 'edit-1', 'Edit', {
 				path: '/sites/demo/wp-content/themes/twentytwentyfive-child/templates/front-page.html',
@@ -113,12 +113,18 @@ describe( 'ChangesTracker', () => {
 			toolResultEntry( 'edit-1', '@@ -1 +1 @@\n-old\n+new' ),
 		];
 
-		render( <ChangesTracker entries={ entries } /> );
+		render( <ChangesTracker entries={ entries } ownerSitePath="/sites/demo" /> );
+		fireEvent.click( screen.getByRole( 'button', { name: 'View changed files: 1 file' } ) );
 
-		expect( screen.getByText( '1 file' ) ).toBeVisible();
-		expect( screen.getByText( '+1' ) ).toBeVisible();
-		expect( screen.getByText( '-1' ) ).toBeVisible();
-		expect( screen.queryByRole( 'button' ) ).not.toBeInTheDocument();
+		const popup = await screen.findByRole( 'dialog' );
+		expect( within( popup ).getByText( 'front-page.html' ) ).toBeVisible();
+		expect(
+			within( popup ).getByLabelText( 'wp-content/themes/twentytwentyfive-child/templates' )
+		).toBeVisible();
+		expect( within( popup ).getByText( 'wp-content/themes/twentytwentyfive-child' ) ).toBeVisible();
+		expect( within( popup ).getByText( '/templates' ) ).toBeVisible();
+		expect( within( popup ).getByText( '+1' ) ).toBeVisible();
+		expect( within( popup ).getByText( '-1' ) ).toBeVisible();
 	} );
 
 	it( 'formats totals in the pill using the active locale', () => {
@@ -133,7 +139,7 @@ describe( 'ChangesTracker', () => {
 		];
 
 		try {
-			render( <ChangesTracker entries={ entries } /> );
+			render( <ChangesTracker entries={ entries } ownerSitePath="/sites/demo" /> );
 			expect( screen.getByText( '+1,468' ) ).toBeVisible();
 		} finally {
 			document.documentElement.lang = originalLanguage;

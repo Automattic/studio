@@ -4,20 +4,15 @@
 	-webkit-app-region: no-drag;
 }
 
-.summary {
-	box-sizing: border-box;
-	display: flex;
-	align-items: center;
-	gap: var(--wpds-dimension-gap-xs);
-	block-size: 28px;
-	padding: 2px var(--wpds-dimension-padding-md);
-	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral-weak);
+.trigger {
+	--wp-ui-button-font-weight: var(--wpds-typography-font-weight-regular);
+	--wp-ui-button-height: 28px;
+	--wp-ui-button-padding-block: 2px;
+	--wp-ui-button-padding-inline: var(--wpds-dimension-padding-md);
+	--wp-ui-button-background-color: var(--wpds-color-bg-surface-neutral-strong);
+	--wp-ui-button-border-color: var(--wpds-color-stroke-surface-neutral-weak);
+
 	border-radius: 999px;
-	background: var(--wpds-color-bg-surface-neutral-strong);
-	color: var(--wpds-color-fg-content-neutral);
-	font-size: var(--wpds-typography-font-size-sm);
-	font-weight: var(--wpds-typography-font-weight-regular);
-	line-height: var(--wpds-typography-line-height-sm);
 }
 
 .lineCounts {
@@ -35,4 +30,76 @@
 
 .deletions {
 	color: var(--wpds-color-stroke-surface-error-strong);
+}
+
+.popup {
+	width: 400px;
+	max-width: calc(100vw - (var(--wpds-dimension-padding-lg) * 2));
+	padding: var(--wpds-dimension-padding-xs) !important;
+}
+
+.fileList {
+	max-height: min(288px, 50vh);
+	overflow-y: auto;
+}
+
+.fileRow {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: var(--wpds-dimension-gap-md);
+	min-height: 48px;
+	padding-block: var(--wpds-dimension-padding-xs);
+	padding-inline: var(--wpds-dimension-padding-sm);
+}
+
+.fileRow > .lineCounts {
+	padding-block-start: 2px;
+}
+
+.fileIdentity {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	gap: 0;
+	min-width: 0;
+	color: var(--wpds-color-fg-content-neutral);
+	font-family: var(--wpds-typography-font-family-body);
+}
+
+.fileName {
+	overflow: hidden;
+	font-size: var(--wpds-typography-font-size-sm);
+	font-weight: var(--wpds-typography-font-weight-medium);
+	line-height: var(--wpds-typography-line-height-sm);
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	unicode-bidi: isolate;
+}
+
+.fileDirectory {
+	display: flex;
+	min-width: 0;
+	max-width: 100%;
+	overflow: hidden;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-xs);
+	white-space: nowrap;
+	unicode-bidi: isolate;
+}
+
+.directoryStart {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.directoryEnd {
+	flex-shrink: 0;
+	max-width: 55%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }

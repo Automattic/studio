@@ -7,7 +7,7 @@ export interface Annotation {
 	tag?: string;
 	nearbyText?: string;
 	url?: string;
-	pathname?: string;
+	path?: string;
 	timestamp?: number;
 	[ key: string ]: unknown;
 }

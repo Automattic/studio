@@ -1,5 +1,6 @@
 import { resolveSessionModel } from '@studio/common/ai/models';
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
+import { getStudioCodeAiAccessState } from '@studio/common/lib/studio-assistant-quota';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { arrowDown } from '@wordpress/icons';
@@ -21,6 +22,7 @@ import { SiteIcon } from '@/components/site-icon';
 import { type Annotation } from '@/components/site-preview/types';
 import { SiteToolbar } from '@/components/site-toolbar';
 import { useAgentRun } from '@/data/queries/use-agent-run';
+import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import {
 	useCreateSession,
 	useSession,
@@ -32,6 +34,8 @@ import { useSessionCommands } from '@/hooks/use-session-commands';
 import { SessionUIProvider, useSessionPreviewAnnotations } from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
+import { formatComposerTextQuote, watchComposerTextQuote } from '@/lib/composer-text-quote';
+import { AccessRequirements } from './access-requirements';
 import { formatAnnotationsAsPrompt, formatAnnotationsSubmittedMessage } from './annotations';
 import { Composer, ComposerSkeleton, type ComposerHandle } from './composer';
 import { Conversation } from './conversation';
@@ -131,17 +135,30 @@ function SessionFrame( {
 				'--classic-header-height',
 				`${ headerRef.current?.offsetHeight ?? 0 }px`
 			);
-			root.style.setProperty(
-				'--classic-composer-height',
-				`${ composerRef.current?.offsetHeight ?? 0 }px`
+			const composerHeight = composerRef.current?.offsetHeight ?? 0;
+			root.style.setProperty( '--classic-composer-height', `${ composerHeight }px` );
+			// The collapsed-sidebar toast shelf lives in the layout's <main>, an
+			// ancestor of this root, so it can't inherit the value from here.
+			// Publishing it on the document lets the shelf ride above the composer
+			// however it grows — wrapped text, attachments, or the resize handle.
+			document.documentElement.style.setProperty(
+				'--app-main-composer-height',
+				`${ composerHeight }px`
 			);
 		};
 
 		updateChromeSize();
 
+		// Views without a composer must fall back to the shelf's 0px default.
+		const clearComposerHeight = () =>
+			document.documentElement.style.removeProperty( '--app-main-composer-height' );
+
 		if ( typeof ResizeObserver === 'undefined' ) {
 			window.addEventListener( 'resize', updateChromeSize );
-			return () => window.removeEventListener( 'resize', updateChromeSize );
+			return () => {
+				window.removeEventListener( 'resize', updateChromeSize );
+				clearComposerHeight();
+			};
 		}
 
 		const resizeObserver = new ResizeObserver( updateChromeSize );
@@ -152,7 +169,10 @@ function SessionFrame( {
 			resizeObserver.observe( composerRef.current );
 		}
 
-		return () => resizeObserver.disconnect();
+		return () => {
+			resizeObserver.disconnect();
+			clearComposerHeight();
+		};
 	}, [] );
 
 	return (
@@ -164,13 +184,17 @@ function SessionFrame( {
 				{ children }
 			</div>
 			<ProgressiveBlur direction="down" className={ styles.headerBlur } fadeToSurface />
-			<ProgressiveBlur direction="up" className={ styles.composerBlur } />
-			<div
-				ref={ composerRef }
-				className={ clsx( styles.composerOuter, styles.classicComposerOuter ) }
-			>
-				{ composer }
-			</div>
+			{ composer ? (
+				<>
+					<ProgressiveBlur direction="up" className={ styles.composerBlur } fadeToSurface />
+					<div
+						ref={ composerRef }
+						className={ clsx( styles.composerOuter, styles.classicComposerOuter ) }
+					>
+						{ composer }
+					</div>
+				</>
+			) : null }
 			{ footer ? (
 				<div
 					className={ clsx(
@@ -238,6 +262,13 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	);
 	const scrollRef = useRef< HTMLDivElement >( null );
 	const composerRef = useRef< ComposerHandle >( null );
+	useEffect(
+		() =>
+			watchComposerTextQuote( ( text ) => {
+				composerRef.current?.appendDraft( formatComposerTextQuote( text ) );
+			} ),
+		[]
+	);
 	const [ isScrolledAway, setIsScrolledAway ] = useState( false );
 	const hasSession = !! data;
 
@@ -349,6 +380,31 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		return () => cancelAnimationFrame( id );
 	}, [ sessionId, data, isRunning, pendingQuestions.length, queuedPrompts.length ] );
 
+	const {
+		data: quota,
+		isLoading: isQuotaLoading,
+		isFetching: isQuotaFetching,
+		refetch: refetchQuota,
+	} = useStudioAssistantQuota();
+
+	// Fade the composer and prompts in only right after the entitlement check
+	// resolves; ordinary session loads and switches render instantly. The
+	// render-time latch has the class on from the first post-resolve frame;
+	// the timeout retires it so later remounts don't animate.
+	const [ sawQuotaLoading, setSawQuotaLoading ] = useState( false );
+	if ( isQuotaLoading && ! sawQuotaLoading ) {
+		setSawQuotaLoading( true );
+	}
+	const fadeAfterQuotaCheck = sawQuotaLoading && ! isQuotaLoading;
+	useEffect( () => {
+		if ( ! fadeAfterQuotaCheck ) {
+			return;
+		}
+		// Outlives the 180ms fade so a mid-animation re-render can't strip it.
+		const id = setTimeout( () => setSawQuotaLoading( false ), 300 );
+		return () => clearTimeout( id );
+	}, [ fadeAfterQuotaCheck ] );
+
 	// The open session can vanish out from under this view — most commonly when
 	// its site is deleted, which removes the transcript from disk. Bounce to the
 	// root (the next available site) rather than flashing the dead-end "Session
@@ -360,7 +416,10 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		}
 	}, [ notFound, navigate ] );
 
-	if ( isLoading || notFound || ! data ) {
+	// isQuotaLoading holds the composer back until the entitlement check
+	// resolves, so the view settles once — gate or chat — with no composer
+	// flash. Signed-out and failed quota queries report isLoading false.
+	if ( isLoading || notFound || ! data || isQuotaLoading ) {
 		// Use the same SessionFrame with an empty header and a structural
 		// ComposerSkeleton so the scroll area has the exact same dimensions
 		// as the loaded view — otherwise the EmptyBackground canvas jumps
@@ -380,12 +439,39 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		);
 	}
 
+	// Fail open when the quota is unavailable (offline, error, older server) —
+	// the WordPress.com proxy enforces the same gate server-side.
+	if (
+		quota &&
+		( getStudioCodeAiAccessState( quota ) !== 'available' || ! quota.hasPaymentMethod )
+	) {
+		return (
+			<SessionFrame
+				header={ <SessionHeader summary={ data.summary } /> }
+				footer={ <div aria-hidden /> }
+			>
+				<EmptyBackground />
+				<AccessRequirements
+					quota={ quota }
+					isRechecking={ isQuotaFetching }
+					onRecheck={ () => void refetchQuota() }
+				/>
+			</SessionFrame>
+		);
+	}
+
 	return (
 		<SessionFrame
 			scrollRef={ scrollRef }
 			header={ <SessionHeader summary={ data.summary } /> }
 			composer={
-				<div className={ clsx( styles.classicColumn, styles.classicComposerColumn ) }>
+				<div
+					className={ clsx(
+						styles.classicColumn,
+						styles.classicComposerColumn,
+						fadeAfterQuotaCheck && styles.fadeInQuick
+					) }
+				>
 					{ isScrolledAway ? (
 						<div className={ styles.scrollToLatestWrap }>
 							<IconButton
@@ -399,11 +485,6 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 							/>
 						</div>
 					) : null }
-					<QueuedPrompts
-						prompts={ queuedPrompts }
-						onRemove={ removeQueuedPrompt }
-						onEdit={ reopenQueuedPrompt }
-					/>
 					<Composer
 						ref={ composerRef }
 						busy={ composerBusy }
@@ -436,18 +517,13 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			{ isEmpty ? <EmptyBackground /> : null }
 			{ isEmpty && ownerSite ? (
 				<SuggestedPrompts
+					fadeIn={ fadeAfterQuotaCheck }
 					siteName={ ownerSite.name }
 					onPick={ ( prompt ) => composerRef.current?.replaceDraft( prompt ) }
 					getDraft={ () => composerRef.current?.getDraft() ?? { text: '', hasAttachments: false } }
 				/>
 			) : null }
-			<div
-				className={ clsx(
-					styles.classicColumn,
-					styles.classicConversationSpacing,
-					pendingQuestions.length > 0 && styles.classicConversationWithQuestions
-				) }
-			>
+			<div className={ clsx( styles.classicColumn, styles.classicConversationSpacing ) }>
 				<Conversation
 					data={ data }
 					isRunning={ isRunning }
@@ -455,6 +531,11 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 					pendingQuestions={ pendingQuestionTexts }
 					pendingAnswers={ pendingAnswers }
 					onAnswerQuestion={ answerQuestion }
+				/>
+				<QueuedPrompts
+					prompts={ queuedPrompts }
+					onRemove={ removeQueuedPrompt }
+					onEdit={ reopenQueuedPrompt }
 				/>
 			</div>
 		</SessionFrame>

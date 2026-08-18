@@ -1,15 +1,15 @@
 import interpolateComponents from '@automattic/interpolate-components';
+import cliIllustration from '@studio/common/assets/whats-new/cli.svg';
+import darkModeIllustration from '@studio/common/assets/whats-new/dark-mode.svg';
+import nativePhpIllustration from '@studio/common/assets/whats-new/native-php.svg';
+import phpMyAdminIllustration from '@studio/common/assets/whats-new/phpmyadmin.svg';
+import studioCodeIllustration from '@studio/common/assets/whats-new/studio-code.svg';
 import { Guide } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
 import { ReactNode } from 'react';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
-import cliIllustration from 'src/modules/whats-new/assets/cli-illustration.svg';
-import darkModeIllustration from 'src/modules/whats-new/assets/dark-mode-illustration.svg';
-import nativePhpIllustration from 'src/modules/whats-new/assets/native-php-illustration.svg';
-import phpMyAdminIllustration from 'src/modules/whats-new/assets/phpmyadmin-illustration.svg';
-import studioCodeIllustration from 'src/modules/whats-new/assets/studio-code-illustration.svg';
 import { useI18nLocale } from 'src/stores';
 
 interface WhatsNewPage {

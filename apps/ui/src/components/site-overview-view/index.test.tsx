@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Tooltip } from '@wordpress/ui';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import settingsStyles from '@/components/site-settings-view/style.module.css';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useLogin } from '@/data/queries/use-auth-user';
@@ -172,6 +173,7 @@ describe( 'SiteOverviewView', () => {
 	const openSiteInEditor = vi.fn().mockResolvedValue( undefined );
 	const openSiteInTerminal = vi.fn().mockResolvedValue( undefined );
 	const trackEvent = vi.fn().mockResolvedValue( undefined );
+	const copyText = vi.fn().mockResolvedValue( undefined );
 	const startSite = vi.fn().mockResolvedValue( undefined );
 	const copySite = vi.fn();
 	const exportFullSite = vi.fn();
@@ -186,6 +188,7 @@ describe( 'SiteOverviewView', () => {
 		openSiteInEditor,
 		openSiteInTerminal,
 		trackEvent,
+		copyText,
 		getFilePath,
 		importSiteFromBackup,
 		capabilities: { openInOS } as ConnectorCapabilities,
@@ -410,6 +413,61 @@ describe( 'SiteOverviewView', () => {
 
 		expect( screen.getByDisplayValue( 'Demo Site' ) ).toBeVisible();
 		expect( screen.getByRole( 'button', { name: 'Save settings' } ) ).toBeVisible();
+	} );
+
+	it( 'copies the admin credentials from the settings form', async () => {
+		renderView( 'general' );
+
+		const copyUsername = screen.getByRole( 'button', { name: 'Copy admin username' } );
+		expect( copyUsername ).toHaveAttribute( 'data-variant', 'plain' );
+		fireEvent.click( copyUsername );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Copy admin password' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Copy admin email' } ) );
+
+		await waitFor( () => {
+			expect( copyUsername ).toHaveAttribute( 'data-copied', 'true' );
+			expect( copyText ).toHaveBeenNthCalledWith( 1, 'admin' );
+			expect( copyText ).toHaveBeenNthCalledWith( 2, 'password' );
+			expect( copyText ).toHaveBeenNthCalledWith( 3, 'admin@example.com' );
+		} );
+	} );
+
+	it( 'keeps the admin password visibility toggle', () => {
+		renderView( 'general' );
+
+		const password = screen.getByLabelText( 'Admin password' );
+		const showPassword = screen.getByRole( 'button', { name: 'Show password' } );
+		const copyPassword = screen.getByRole( 'button', { name: 'Copy admin password' } );
+		expect( password ).toHaveAttribute( 'type', 'password' );
+		expect(
+			showPassword.compareDocumentPosition( copyPassword ) & Node.DOCUMENT_POSITION_FOLLOWING
+		).toBeTruthy();
+
+		fireEvent.click( showPassword );
+
+		expect( password ).toHaveAttribute( 'type', 'text' );
+		expect( screen.getByRole( 'button', { name: 'Hide password' } ) ).toBeVisible();
+	} );
+
+	it( 'does not repeat required in the settings field labels', () => {
+		renderView( 'general' );
+
+		expect( screen.getByLabelText( 'Site name' ) ).toBeRequired();
+		expect( screen.getByLabelText( 'Admin username' ) ).toBeRequired();
+		expect( screen.getByLabelText( 'Admin password' ) ).toBeRequired();
+		expect( screen.getByLabelText( 'Admin email' ) ).toBeRequired();
+		expect( screen.queryByText( /\(Required\)/ ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'marks the admin email control for RTL alignment', () => {
+		renderView( 'general' );
+
+		expect(
+			screen.getByLabelText( 'Admin email' ).closest( '.components-input-control' )
+		).toHaveClass( settingsStyles.emailControl );
+		expect(
+			screen.getByLabelText( 'Admin username' ).closest( '.components-input-control' )
+		).not.toHaveClass( settingsStyles.emailControl );
 	} );
 
 	it( 'renders the WordPress version dropdown with latest preselected for auto-updating sites', () => {

@@ -45,6 +45,7 @@ import { useThemeDetails } from '@/hooks/use-theme-details';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { databaseLogo } from '@/lib/logos';
 import { AboutSection } from './about-section';
+import { AdminSection } from './admin-section';
 import { OverviewCard } from './overview-card';
 import styles from './style.module.css';
 import type { SiteSettingsTabId } from '@/components/site-settings-view';
@@ -323,6 +324,10 @@ function SiteOverviewBody( {
 											wpVersion={ wpVersion }
 											themeDetails={ themeDetails }
 										/>
+									</OverviewCard>
+									<h2 className={ styles.columnHeading }>{ __( 'WP Admin' ) }</h2>
+									<OverviewCard>
+										<AdminSection site={ site } />
 									</OverviewCard>
 								</div>
 								<div className={ styles.actionsColumn }>

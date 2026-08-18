@@ -328,8 +328,9 @@ export async function extractWixPage(
 
   let accessibility: Array<{ role: string; name: string; description?: string }> | null =
     null;
+  let client: Awaited<ReturnType<ReturnType<(typeof p)['context']>['newCDPSession']>> | null = null;
   try {
-    const client = await withTimeout(
+    client = await withTimeout(
       p.context().newCDPSession(page), RENDERER_CALL_TIMEOUT_MS, 'wix CDP session');
     const axResult = (await withTimeout(client.send('Accessibility.getFullAXTree', {
       depth: 10,
@@ -356,9 +357,16 @@ export async function extractWixPage(
       }))
       .filter((n) => n.name);
     accessibility = textNodes;
-    await client.detach();
   } catch {
     // CDP session failed
+  } finally {
+    // Detach even when send() timed out or threw, so failed AX reads don't
+    // pile up attached sessions on the shared browser.
+    if (client) {
+      await withTimeout(client.detach(), RENDERER_CALL_TIMEOUT_MS, 'wix CDP detach').catch(
+        () => {}
+      );
+    }
   }
 
   let pageHtml = '';

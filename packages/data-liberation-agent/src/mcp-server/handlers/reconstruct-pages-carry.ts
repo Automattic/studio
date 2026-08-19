@@ -89,9 +89,15 @@ export interface WxrPage {
   postContent: string;
 }
 
+export interface PortableCarryPage extends WxrPage {
+  /** Complete reconstructed page body for site-neutral artifact consumers. */
+  bodyHtml: string;
+}
+
 export interface AssembleOutput {
   themeFiles: ThemeFile[];
   wxrPages: WxrPage[];
+  portablePages: PortableCarryPage[];
   /** Slugs of pages whose reconstruction threw (e.g. carryHtml's injection gate on
    *  un-strippable markup). Skipped so one bad page doesn't crash the whole build. */
   skipped: string[];
@@ -248,6 +254,36 @@ export function assembleCarryTheme(input: AssembleInput): AssembleOutput {
   // the source. Taken from the home page's carried HTML.
   const bodyClasses = extractBodyClasses(homeReco?.p.bodyHtml ?? '');
 
+  // Rebuild each complete carried document without a WordPress destination. The
+  // wrapper carries the same classes functions.php adds to <body>; portable CSS
+  // consumers can neutralize the element name while retaining identical scope.
+  const portablePages: PortableCarryPage[] = recos.map(({ p, r }) => {
+    const chromeKey = ensureKey(r);
+    const variant = variants[orderedKeys.indexOf(chromeKey)];
+    const content = r.scaffold
+      ? [
+          r.scaffold.openWrap,
+          variant?.headerIsland ?? r.headerIsland,
+          r.scaffold.midBefore,
+          r.mainIsland,
+          r.scaffold.midAfter,
+          variant?.footerIsland ?? r.footerIsland,
+          r.scaffold.closeWrap,
+        ].join('\n')
+      : [variant?.headerIsland ?? r.headerIsland, r.mainIsland, variant?.footerIsland ?? r.footerIsland]
+          .filter(Boolean)
+          .join('\n');
+    const classes = ['lib-carry-site', `lib-carry-page-${p.slug}`, ...bodyClasses].join(' ');
+    return {
+      slug: p.slug,
+      title: p.title,
+      isHome: p.isHome,
+      postType: p.postType,
+      postContent: r.mainIsland,
+      bodyHtml: `<div class="${classes}">\n${content}\n</div>`,
+    };
+  });
+
   // Store header for the WooCommerce templates. Product / shop / category-archive
   // pages have no carried island, so isolate a header from a representative INTERIOR
   // page (its solid header — the home page's is often a transparent overlay that
@@ -309,7 +345,7 @@ export function assembleCarryTheme(input: AssembleInput): AssembleOutput {
     );
   }
 
-  return { themeFiles, wxrPages, skipped, warnings };
+  return { themeFiles, wxrPages, portablePages, skipped, warnings };
 }
 
 // ---------------------------------------------------------------------------

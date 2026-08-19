@@ -137,9 +137,12 @@ export const extractHandler: Handler = async ( args, ctx ) => {
 				summary: result.summary as Record< string, unknown >,
 				failures: result.failures as Array< { url: unknown; error: unknown } >,
 			} );
-			result.artifactPath = join( outputDir, 'artifact.json' );
+			const artifactPath = join( outputDir, 'artifact.json' );
+			result.artifactPath = artifactPath;
+			const { projectPortableCarryArtifact } = await import( '../../lib/portable-carry-artifact.js' );
+			projectPortableCarryArtifact( outputDir, artifactPath );
 			result.provenance = {
-				provider: 'data-liberation/browser-capture',
+				provider: 'data-liberation/carry-reconstruction',
 				platform: detection.platform,
 			};
 		}

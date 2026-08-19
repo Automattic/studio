@@ -53,6 +53,10 @@ describe('assembleCarryTheme', () => {
     const home = out.wxrPages.find((p) => p.slug === 'home')!;
     expect(home.postContent).toContain('<!-- wp:html ');
     expect(home.postContent).toContain('class="hero"');
+    const portable = out.portablePages.find((p) => p.slug === 'home')!;
+    expect(portable.bodyHtml).toContain('lib-carry-site lib-carry-page-home');
+    expect(portable.bodyHtml).toContain('<header class="h">H</header>');
+    expect(portable.bodyHtml).toContain('<footer class="f">F</footer>');
   });
 
   it('threads a page mobile-DOM into a dual-viewport island', () => {

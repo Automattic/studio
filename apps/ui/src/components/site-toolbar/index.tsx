@@ -40,6 +40,7 @@ import { useSiteSyncActivity } from '@/data/sync-activity';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { getSiteDisplayUrl, getSiteUrl } from '@/lib/get-site-url';
 import { DisconnectSiteDialog } from './disconnect-site-dialog';
+import { LearnMoreDialog } from './learn-more-dialog';
 import { PublishPickerView } from './publish-picker-view';
 import styles from './style.module.css';
 import {
@@ -101,6 +102,7 @@ export function SiteToolbar( { site, className, openPullOnLoad = false }: SiteTo
 	const [ syncDialogType, setSyncDialogType ] = useState< 'push' | 'pull' | null >( null );
 	const [ publishOpen, setPublishOpen ] = useState( false );
 	const [ disconnectOpen, setDisconnectOpen ] = useState( false );
+	const [ learnMoreOpen, setLearnMoreOpen ] = useState( false );
 	const [ shareMenuOpen, setShareMenuOpen ] = useState( false );
 	const [ siteMenuOpen, setSiteMenuOpen ] = useState( false );
 	const [ publishedPreviewUrl, setPublishedPreviewUrl ] = useState< string | undefined >();
@@ -378,6 +380,10 @@ export function SiteToolbar( { site, className, openPullOnLoad = false }: SiteTo
 										{ __( 'Pull…' ) }
 									</Menu.Item>
 								</div>
+								<Menu.Separator />
+								<Menu.Item onClick={ () => setLearnMoreOpen( true ) }>
+									{ __( 'Learn more' ) }
+								</Menu.Item>
 							</Menu.Popup>
 						</Menu.Root>
 						<Menu.Root>
@@ -418,7 +424,11 @@ export function SiteToolbar( { site, className, openPullOnLoad = false }: SiteTo
 						/>
 						{ publishOpen ? (
 							<Menu.Popup side="bottom" align="end" className={ styles.publishMenu }>
-								<PublishPickerView site={ site } onClose={ () => setPublishOpen( false ) } />
+								<PublishPickerView
+									site={ site }
+									onLearnMore={ () => setLearnMoreOpen( true ) }
+									onClose={ () => setPublishOpen( false ) }
+								/>
 							</Menu.Popup>
 						) : null }
 					</Menu.Root>
@@ -444,6 +454,8 @@ export function SiteToolbar( { site, className, openPullOnLoad = false }: SiteTo
 					onOpenChange={ setDisconnectOpen }
 				/>
 			) : null }
+
+			<LearnMoreDialog open={ learnMoreOpen } onOpenChange={ setLearnMoreOpen } />
 		</div>
 	);
 }

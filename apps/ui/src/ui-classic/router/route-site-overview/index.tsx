@@ -70,10 +70,13 @@ export const siteOverviewRoute = createRoute( {
 		return validated;
 	},
 	beforeLoad: async ( { params, context } ) => {
-		const sites = await context.queryClient.fetchQuery( {
-			queryKey: SITES_QUERY_KEY,
-			queryFn: () => context.connector.getSites(),
-		} );
+		const cachedSites = context.queryClient.getQueryData< SiteDetails[] >( SITES_QUERY_KEY );
+		const sites = cachedSites?.some( ( site ) => site.id === params.siteId )
+			? cachedSites
+			: ( await context.queryClient.fetchQuery( {
+					queryKey: SITES_QUERY_KEY,
+					queryFn: () => context.connector.getSites(),
+			  } ) ) ?? [];
 		if ( ! sites.some( ( site: SiteDetails ) => site.id === params.siteId ) ) {
 			throw redirect( { to: '/' } );
 		}

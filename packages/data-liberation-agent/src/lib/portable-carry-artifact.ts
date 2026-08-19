@@ -5,7 +5,7 @@ import {
 	type CarryPageInput,
 } from '../mcp-server/handlers/reconstruct-pages-carry.js';
 import { tag, wxrSource } from './replicate/carry-page-list.js';
-import { buildPageLinkMap } from './replicate/page-link-map.js';
+import { buildInternalLinkMap } from './streaming/internal-link-rewrite.js';
 
 interface ArtifactFile {
 	path: string;
@@ -146,9 +146,12 @@ export function projectPortableCarryArtifact( outputDir: string, artifactPath: s
 		themeName: 'Liberated (Carry)',
 		pages,
 		mediaUrlMap: new Map(),
-		linkMap: buildPageLinkMap(
-			outputDir,
-			capturedRoutes.map( ( route ) => route.url )
+		linkMap: buildInternalLinkMap(
+			capturedRoutes.map( ( route ) => ( {
+				from: new URL( route.url ).pathname,
+				to: `/${ route.path.replace( /^website\//, '' ) }`,
+			} ) ),
+			{ siteOrigins: capturedRoutes.map( ( route ) => new URL( route.url ).hostname ) }
 		),
 	} );
 	if ( assembled.skipped.length > 0 || assembled.portablePages.length !== pages.length ) {

@@ -43,7 +43,7 @@ describe( 'projectPortableCarryArtifact', () => {
 					{
 						path: 'website/index.html',
 						content:
-							'<header class="header">Header</header><main><section class="hero">Hero</section></main><footer>Footer</footer>',
+							'<header class="header"><a href="/">Header</a></header><main><section class="hero">Hero</section></main><footer>Footer</footer>',
 					},
 					{
 						path: 'website/product/item/index.html',
@@ -70,6 +70,7 @@ describe( 'projectPortableCarryArtifact', () => {
 		);
 		expect( files.get( 'website/index.html' )?.content ).toContain( 'Header' );
 		expect( files.get( 'website/index.html' )?.content ).toContain( 'Footer' );
+		expect( files.get( 'website/index.html' )?.content ).toContain( 'href="/index.html"' );
 		expect( files.get( 'website/product/item/index.html' )?.content ).toContain(
 			'lib-carry-page-item'
 		);

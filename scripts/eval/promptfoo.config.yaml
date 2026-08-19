@@ -125,9 +125,13 @@ tests:
         for both desktop and mobile, then briefly report whether the
         screenshots were captured.
     assert:
+      # The runner records the image content blocks the tool returned to the
+      # model (`toolResults[].images`) — unlike the chat artifacts, they are
+      # emitted even when the agent passes `display: false`, so the check can't
+      # be dodged by an internal-verification capture.
       - type: javascript
         value: |
-          return import('node:fs').then(({ readFileSync, existsSync }) => {
+          return Promise.all([import('node:fs'), import('node:buffer')]).then(([{ readFileSync }, { Buffer }]) => {
             const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
             if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
             const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
@@ -150,28 +154,19 @@ tests:
 
             const result = (d.toolResults || []).find(r => r.toolUseId === call.id);
             if (!result || result.isError) {
-              return { pass: false, score: 0, reason: `take_screenshot failed: ${JSON.stringify(result)}` };
+              return { pass: false, score: 0, reason: `take_screenshot failed: ${JSON.stringify(result).slice(0, 500)}` };
             }
-            const rawPayloads = (result.text || '').split('mediaWidgetPayloads=')[1];
-            if (!rawPayloads) {
-              return { pass: false, score: 0, reason: `screenshot result did not include mediaWidgetPayloads: ${(result.text || '').slice(0, 500)}` };
-            }
-
-            let payloads;
-            try {
-              payloads = JSON.parse(rawPayloads);
-            } catch (error) {
-              return { pass: false, score: 0, reason: `could not parse mediaWidgetPayloads JSON: ${error instanceof Error ? error.message : String(error)}` };
-            }
-            if (!Array.isArray(payloads) || payloads.length !== 2) {
-              return { pass: false, score: 0, reason: `expected two screenshot media payloads, got ${JSON.stringify(payloads).slice(0, 500)}` };
+            const images = result.images || [];
+            if (images.length !== 2) {
+              return { pass: false, score: 0, reason: `expected two screenshot image payloads (desktop + mobile), got ${images.length}` };
             }
 
-            // take_screenshot emits JPEG; key the expected width by viewport so
-            // the check survives a future format change rather than the extension.
+            // Image blocks carry no viewport label, so identify each capture by
+            // its pixel width (keyed by viewport, so the check survives a future
+            // image-format change).
             const expectedWidths = new Map([
-              ['desktop', 1040],
-              ['mobile', 390],
+              [1040, 'desktop'],
+              [390, 'mobile'],
             ]);
             // Read pixel dimensions from a PNG or JPEG buffer; null if neither.
             const readImageSize = (buf) => {
@@ -198,25 +193,20 @@ tests:
               return null;
             };
             const seen = [];
-            for (const payload of payloads) {
-              const source = payload.widgetProps?.source;
-              const viewport = (source?.name || '').replace(/^screenshot-/, '').replace(/\.(png|jpe?g)$/i, '');
-              const expectedWidth = expectedWidths.get(viewport);
-              if (!expectedWidth) {
-                return { pass: false, score: 0, reason: `unexpected screenshot payload source: ${JSON.stringify(source)}` };
-              }
-              if (typeof source.path !== 'string' || !existsSync(source.path)) {
-                return { pass: false, score: 0, reason: `screenshot file is missing: ${JSON.stringify(source)}` };
-              }
-              const size = readImageSize(readFileSync(source.path));
-              if (!size || size.width !== expectedWidth || size.height < 600) {
+            for (const image of images) {
+              const size = readImageSize(Buffer.from(image.data, 'base64'));
+              const viewport = size ? expectedWidths.get(size.width) : undefined;
+              if (!viewport || size.height < 600) {
                 return {
                   pass: false,
                   score: 0,
-                  reason: `${source.name} did not look like the expected screenshot: ${JSON.stringify(size)}`,
+                  reason: `image payload did not look like a desktop/mobile screenshot: ${JSON.stringify(size)}`,
                 };
               }
-              seen.push(source.name);
+              if (seen.includes(viewport)) {
+                return { pass: false, score: 0, reason: `two ${viewport} screenshots instead of desktop + mobile` };
+              }
+              seen.push(viewport);
             }
             return { pass: true, score: 1, reason: `captured valid screenshots: ${seen.join(', ')}` };
           });

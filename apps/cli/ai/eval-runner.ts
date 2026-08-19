@@ -197,19 +197,40 @@ function extractToolResult( event: AgentSessionEvent ): {
 	toolUseId: string;
 	isError: boolean;
 	text?: string;
+	images?: Array< { mimeType: string; data: string } >;
+	details?: unknown;
 } | null {
 	if ( event.type !== 'tool_execution_end' ) {
 		return null;
 	}
-	const result = event.result as { content?: Array< { type: string; text?: string } > } | undefined;
+	const result = event.result as
+		| {
+				content?: Array< { type: string; text?: string; data?: string; mimeType?: string } >;
+				details?: unknown;
+		  }
+		| undefined;
 	let text: string | undefined;
+	let images: Array< { mimeType: string; data: string } > | undefined;
 	if ( result?.content && Array.isArray( result.content ) ) {
 		const textBlock = result.content.find(
 			( b ): b is { type: 'text'; text: string } => b.type === 'text' && typeof b.text === 'string'
 		);
 		if ( textBlock ) text = textBlock.text;
+		const imageBlocks = result.content.filter(
+			( b ): b is { type: 'image'; data: string; mimeType?: string } =>
+				b.type === 'image' && typeof b.data === 'string'
+		);
+		if ( imageBlocks.length > 0 ) {
+			images = imageBlocks.map( ( b ) => ( { mimeType: b.mimeType ?? '', data: b.data } ) );
+		}
 	}
-	return { toolUseId: event.toolCallId, isError: event.isError, text };
+	return {
+		toolUseId: event.toolCallId,
+		isError: event.isError,
+		text,
+		images,
+		details: result?.details,
+	};
 }
 
 function readInput(): EvalRunnerInput {
@@ -277,6 +298,8 @@ async function runEval( input: EvalRunnerInput ) {
 		toolName: string | null;
 		isError: boolean;
 		text?: string;
+		images?: Array< { mimeType: string; data: string } >;
+		details?: unknown;
 	}[] = [];
 	const toolEvents: ToolEvent[] = [];
 	const textSegments: string[] = [];
@@ -358,6 +381,8 @@ async function runEval( input: EvalRunnerInput ) {
 					toolName: toolNameById.get( id ) ?? null,
 					isError: tr.isError,
 					...( tr.text ? { text: tr.text } : {} ),
+					...( tr.images ? { images: tr.images } : {} ),
+					...( tr.details !== undefined ? { details: tr.details } : {} ),
 				} );
 			}
 		}

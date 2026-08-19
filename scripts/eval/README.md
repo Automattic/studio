@@ -19,7 +19,7 @@ Run one named test with `npm run eval -- --filter-pattern "preview sites"` (rege
 - **identity** — Agent identifies itself correctly (verified by an LLM judge).
 - **global-instructions** — Agent follows the user's global instructions (`~/.studio/knowledge/instructions.md`). Seeds the file with a sentinel-token rule and asserts the reply carries the token; the file's prior content is restored after the turn.
 - **site-creation** — Agent calls `site_create` and it succeeds.
-- **screenshot-all-timing** — Agent creates a minimal site and visually verifies the homepage on desktop and mobile. Asserts the agent uses one `take_screenshot` call with `viewport: "all"`, returns valid desktop/mobile PNG payloads, and keeps the screenshot tool under 15s.
+- **screenshot-all-timing** — Agent creates a minimal site and visually verifies the homepage on desktop and mobile. Asserts the agent uses one `take_screenshot` call with `viewport: "all"`, returns valid desktop and mobile image payloads, and keeps the screenshot tool under 15s.
 - **single-page-build-turn-cadence** — Agent builds a simple one-page site. Asserts (a) the default flow scaffolds a fresh blank theme (`scaffold_theme` without `parentTheme`, successfully), (b) every individual turn stays under 60s (wall-clock between successive assistant messages) and (c) no `wp_cli` call uses `--post_content-file=` (which silently fails inside PHP-WASM).
 - **jetpack-catchall-slideshow** — Agent reaches for Jetpack on a slideshow request. Asserts the generated page content uses a `jetpack/*` block (i.e. the catch-all rule fired instead of the agent falling back to raw HTML).
 - **differentiate-preview-vs-remote** — Regression for STU-1775. Seeds one connected WordPress.com remote site and one preview site for a local site, then asserts the `site_connected_remote_sites` and `preview_list` tools tag their output with a `type` discriminator (`wpcom-remote` / `preview`) and that the agent's prose keeps the two categories distinct (preview sites are never described as connected WordPress.com remote sites).
@@ -28,7 +28,7 @@ Run one named test with `npm run eval -- --filter-pattern "preview sites"` (rege
 
 ## Adding tests
 
-Tests live in `promptfoo.config.yaml`. The runner returns raw JSON (`toolCalls`, `toolResults`, `toolEvents`, `textSegments`, `questions`, `turnDurationsMs`) — write assertions in the YAML, not in the runner.
+Tests live in `promptfoo.config.yaml`. The runner returns raw JSON (`toolCalls`, `toolResults`, `toolEvents`, `textSegments`, `questions`, `turnDurationsMs`) — write assertions in the YAML, not in the runner. Each `toolResults` entry carries the result's text block plus any image content blocks (`images`, base64) and structured `details` (e.g. `studioArtifacts`).
 
 ### Seeding fixtures
 

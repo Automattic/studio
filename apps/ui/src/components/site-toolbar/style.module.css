@@ -1,0 +1,234 @@
+.toolbar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--wpds-dimension-gap-md);
+	padding-inline-start: 7px;
+	/* Fills whatever header row hosts it, so the action stays pinned to the
+	   panel's right edge, and takes the row's full height so the actions have a
+	   top to align to. */
+	flex: 1;
+	align-self: stretch;
+	min-width: 0;
+	/* The window drags by the toolbar's empty space; its controls opt back out
+	   below so clicks reach them. */
+	-webkit-app-region: drag;
+}
+
+.identity {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-gap-md);
+	min-width: 0;
+}
+
+.siteIcon {
+	flex: 0 0 auto;
+	inline-size: 32px;
+	block-size: 32px;
+	border-radius: var(--wpds-border-radius-sm);
+}
+
+.identityText {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.siteName {
+	font-size: var(--wpds-typography-font-size-md);
+	font-weight: 600;
+	line-height: 1.25;
+	color: var(--wpds-color-fg-content-neutral);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.siteUrlStatic {
+	min-width: 0;
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: 1.25;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.actions {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-gap-lg);
+	flex: 0 0 auto;
+	/* Pinned to the top of the header rather than centred against the site's
+	   two-line identity block so it lines up with the preview toolbar. */
+	align-self: flex-start;
+	padding-block-start: 3px;
+	-webkit-app-region: no-drag;
+}
+
+.syncMenu {
+	width: 240px;
+}
+
+.menuIntro {
+	margin: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm)
+		var(--wpds-dimension-padding-sm);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: 1.4;
+}
+
+.primaryAction {
+	min-width: 72px;
+}
+
+.publishMenu {
+	min-width: 0;
+	width: 240px;
+}
+
+/* --- Primary action ------------------------------------------------------ */
+
+.action {
+	position: relative;
+	/* A stable floor so the label can change without the toolbar reflowing
+	   around it. */
+	min-width: 64px;
+	justify-content: center;
+	/* Keeps the progress fill inside the button's rounded edge. */
+	overflow: hidden;
+	transition: min-width 200ms ease;
+}
+
+/* Fills from the leading edge as the sync advances. Drawn from the button's
+   own foreground so it works on the solid and the outline button alike. */
+.actionProgress {
+	position: absolute;
+	inset-block: 0;
+	inset-inline-start: 0;
+	inline-size: var(--action-progress, 0%);
+	background: color-mix(in srgb, currentColor 22%, transparent);
+	transition: inline-size 400ms ease;
+	pointer-events: none;
+}
+
+.actionLabel {
+	display: inline-flex;
+	align-items: center;
+	animation: actionLabelIn 200ms ease both;
+}
+
+@keyframes actionLabelIn {
+	from {
+		opacity: 0;
+		transform: translateY(3px);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+
+/* --- Details menu -------------------------------------------------------- */
+
+.menu {
+	min-width: 240px;
+	max-width: 320px;
+}
+
+.previewUrlRow {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-gap-xs);
+}
+
+.previewUrl {
+	flex: 1;
+	min-width: 0;
+	overflow-wrap: anywhere;
+	font-size: var(--wpds-typography-font-size-sm);
+}
+
+.shareActions {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-gap-xs);
+}
+
+.shareAction {
+	flex: 1;
+	justify-content: center;
+}
+
+.shareCopy {
+	display: flex;
+	flex: 0 0 auto;
+}
+
+.previewDescription {
+	margin: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm) 0;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: 1.35;
+}
+
+.shareMenu {
+	width: max-content;
+	min-width: 220px;
+	max-width: 420px;
+}
+
+.menuDetail {
+	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: 1.5;
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.menuDetailError {
+	color: var(--wpds-color-fg-content-error);
+}
+
+/* Names the list of connections a push or pull could run against. */
+.menuGroupLabel {
+	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md)
+		var(--wpds-dimension-padding-xs);
+	font-size: var(--wpds-typography-font-size-xs);
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.menuItemStack {
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+	min-width: 0;
+}
+
+.menuItemSub {
+	font-size: var(--wpds-typography-font-size-xs);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.menuItemMeta {
+	margin-inline-start: auto;
+	padding-inline-start: var(--wpds-dimension-padding-md);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.action,
+	.actionProgress {
+		transition: none;
+	}
+
+	.actionLabel {
+		animation: none;
+	}
+}

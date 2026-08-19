@@ -9,7 +9,7 @@ interface SiteWorkspaceProps {
 	activeView: 'chat' | 'overview';
 	sessionId?: string;
 	overviewTab: SiteSettingsTabId;
-	openSiteDropdown?: boolean;
+	openPullOnLoad?: boolean;
 	onOverviewTabChange: ( tab: SiteSettingsTabId ) => void;
 }
 
@@ -18,7 +18,7 @@ export function SiteWorkspace( {
 	activeView,
 	sessionId,
 	overviewTab,
-	openSiteDropdown = false,
+	openPullOnLoad = false,
 	onOverviewTabChange,
 }: SiteWorkspaceProps ) {
 	const [ retainedSessionId, setRetainedSessionId ] = useState( sessionId );
@@ -60,7 +60,7 @@ export function SiteWorkspace( {
 					<SiteOverviewView
 						siteId={ siteId }
 						activeTab={ renderedOverviewTab }
-						openSiteDropdown={ overviewActive && openSiteDropdown }
+						openPullOnLoad={ overviewActive && openPullOnLoad }
 						onTabChange={ onOverviewTabChange }
 					/>
 				</div>

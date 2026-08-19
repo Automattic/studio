@@ -52,8 +52,8 @@ describe( 'deriveSiteStatus', () => {
 	} );
 } );
 
-// Shared by the site dropdown's toggle and the sidebar's status button, so the
-// two can't drift on how a busy site is described.
+// Shared by the site toolbar and sidebar status controls so they cannot drift
+// on how a busy site is described.
 describe( 'getSiteStatusName', () => {
 	const base = { running: false, starting: false, stopping: false, operation: null };
 

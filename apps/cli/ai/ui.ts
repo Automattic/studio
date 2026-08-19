@@ -2110,31 +2110,33 @@ export class AiChatUI implements AiOutputAdapter {
 				// surfaces both via `stopReason: 'error'` with the upstream body
 				// in `errorMessage`. Out of credits gets its own copy: waiting
 				// for the reset doesn't clear it — buying credits does.
-				if ( message.stopReason === 'error' && this.currentProvider === 'wpcom' ) {
-					const outOfCredits = isOutOfCreditsError( message.errorMessage );
-					if ( outOfCredits || isUsageCapError( message.errorMessage ) ) {
-						this.hideLoader();
-						this.usageCapReached = true;
-						this.showError( outOfCredits ? formatOutOfCreditsNotice() : formatUsageCapNotice() );
-						if ( outOfCredits ) {
-							// The terminal can't render a link, so print the URL as-is —
-							// it stays copyable and most terminals auto-link it.
-							this.showInfo(
-								sprintf(
-									/* translators: %s: URL of the page where the user can buy AI credits. */
-									__( 'Add credits at %s' ),
-									ADD_AI_CREDITS_URL
-								)
-							);
-						} else {
-							// Async on purpose: the reset date needs a wpcom round trip
-							// and must not block rendering the cap notice.
-							void this.showUsageCapResetDate();
-						}
-						this.currentMarkdown = null;
-						this.currentResponseText = '';
-						return;
+				const outOfCredits = isOutOfCreditsError( message.errorMessage );
+				if (
+					message.stopReason === 'error' &&
+					this.currentProvider === 'wpcom' &&
+					( outOfCredits || isUsageCapError( message.errorMessage ) )
+				) {
+					this.hideLoader();
+					this.usageCapReached = true;
+					this.showError( outOfCredits ? formatOutOfCreditsNotice() : formatUsageCapNotice() );
+					if ( outOfCredits ) {
+						// The terminal can't render a link, so print the URL as-is —
+						// it stays copyable and most terminals auto-link it.
+						this.showInfo(
+							sprintf(
+								/* translators: %s: URL of the page where the user can buy AI credits. */
+								__( 'Add credits at %s' ),
+								ADD_AI_CREDITS_URL
+							)
+						);
+					} else {
+						// Async on purpose: the reset date needs a wpcom round trip
+						// and must not block rendering the cap notice.
+						void this.showUsageCapResetDate();
 					}
+					this.currentMarkdown = null;
+					this.currentResponseText = '';
+					return;
 				}
 
 				for ( const block of message.content ) {

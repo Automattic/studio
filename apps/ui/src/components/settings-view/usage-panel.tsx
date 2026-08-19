@@ -6,7 +6,7 @@ import {
 	getStudioCodeAiAccessState,
 } from '@studio/common/lib/studio-assistant-quota';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { external, help, Icon, moreHorizontal } from '@wordpress/icons';
+import { external, help, moreHorizontal } from '@wordpress/icons';
 import { Button, IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useState } from 'react';
@@ -122,7 +122,7 @@ function AiCreditsSummary() {
 					onClick={ () => void connector.openExternalUrl( ADD_AI_CREDITS_URL ) }
 				>
 					{ __( 'Add AI credits' ) }
-					<Icon icon={ external } size={ 14 } aria-hidden="true" />
+					<Button.Icon icon={ external } size={ 12 } />
 				</Button>
 			</>
 		);

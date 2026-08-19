@@ -16,27 +16,30 @@ import { UsagePanel } from './usage-panel';
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
 vi.mock( '@wordpress/ui', () => ( {
-	Button: ( {
-		children,
-		loading,
-		loadingAnnouncement,
-		tone,
-		variant,
-		size,
-		...props
-	}: ButtonHTMLAttributes< HTMLButtonElement > & {
-		children?: ReactNode;
-		loading?: boolean;
-		loadingAnnouncement?: string;
-		tone?: string;
-		variant?: string;
-		size?: string;
-	} ) => {
-		void tone;
-		void variant;
-		void size;
-		return <button { ...props }>{ loading ? loadingAnnouncement : children }</button>;
-	},
+	Button: Object.assign(
+		( {
+			children,
+			loading,
+			loadingAnnouncement,
+			tone,
+			variant,
+			size,
+			...props
+		}: ButtonHTMLAttributes< HTMLButtonElement > & {
+			children?: ReactNode;
+			loading?: boolean;
+			loadingAnnouncement?: string;
+			tone?: string;
+			variant?: string;
+			size?: string;
+		} ) => {
+			void tone;
+			void variant;
+			void size;
+			return <button { ...props }>{ loading ? loadingAnnouncement : children }</button>;
+		},
+		{ Icon: () => null }
+	),
 	IconButton: ( {
 		label,
 		disabled,

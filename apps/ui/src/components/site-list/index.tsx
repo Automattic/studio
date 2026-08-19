@@ -251,9 +251,13 @@ function sortSitesByManualOrder( sites: SiteDetails[], manualOrder: string[] ): 
 
 function SiteOverviewButton( {
 	site,
+	isOverviewActive,
+	onBackToChat,
 	onSiteOpen,
 }: {
 	site: SiteDetails;
+	isOverviewActive: boolean;
+	onBackToChat: () => void;
 	onSiteOpen?: () => void;
 } ) {
 	const navigate = useNavigate();
@@ -266,9 +270,17 @@ function SiteOverviewButton( {
 			size="small"
 			icon={ settings }
 			label={ __( 'Site overview' ) }
+			aria-pressed={ isOverviewActive }
 			className={ styles.siteAction }
 			onClick={ ( event ) => {
 				event.stopPropagation();
+				// Going back to chat runs handleOpenSite, which already
+				// notifies onSiteOpen; only the overview navigation needs
+				// the explicit call.
+				if ( isOverviewActive ) {
+					onBackToChat();
+					return;
+				}
 				onSiteOpen?.();
 				void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'overview' } );
 				void navigate( {
@@ -677,7 +689,12 @@ function SiteSection( {
 						</div>
 						<div className={ styles.siteActions } data-reorder-exclude>
 							{ chatEnabled ? (
-								<SiteOverviewButton site={ site } onSiteOpen={ onSiteOpen } />
+								<SiteOverviewButton
+									site={ site }
+									isOverviewActive={ isContextActive }
+									onBackToChat={ handleOpenSite }
+									onSiteOpen={ onSiteOpen }
+								/>
 							) : null }
 							<SiteStatusButton site={ site } isStarting={ isStarting } isStopping={ isStopping } />
 						</div>

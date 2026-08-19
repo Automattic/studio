@@ -334,6 +334,30 @@ describe( 'SiteList', () => {
 		} );
 	} );
 
+	it( 'shows the overview shortcut as pressed and toggles back to chat', () => {
+		paramsMock = { siteId: 'stopped-site' };
+		pathnameMock = '/sites/stopped-site/overview';
+
+		render( <SiteList /> );
+
+		const stoppedRow = screen.getByText( 'Stopped Site' ).closest( 'section' )!;
+		const overviewButton = within( stoppedRow ).getByRole( 'button', {
+			name: 'Site overview',
+		} );
+		expect( overviewButton ).toHaveAttribute( 'aria-pressed', 'true' );
+
+		fireEvent.click( overviewButton );
+
+		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_panel_opened', {
+			panel: 'assistant',
+		} );
+		expect( navigateMock ).toHaveBeenCalledTimes( 1 );
+		expect( navigateMock ).toHaveBeenLastCalledWith( {
+			to: '/sites/$siteId/new',
+			params: { siteId: 'stopped-site' },
+		} );
+	} );
+
 	it( 'dims stopped site titles without dimming running sites', () => {
 		render( <SiteList /> );
 

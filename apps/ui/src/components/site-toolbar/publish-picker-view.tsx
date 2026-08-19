@@ -15,9 +15,10 @@ import type { SiteDetails, SyncSite } from '@/data/core';
 type Props = {
 	site: SiteDetails;
 	onClose: () => void;
+	onLearnMore: () => void;
 };
 
-export function PublishPickerView( { site, onClose }: Props ) {
+export function PublishPickerView( { site, onClose, onLearnMore }: Props ) {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	const pickableSites = usePickableWpcomSites();
@@ -145,6 +146,9 @@ export function PublishPickerView( { site, onClose }: Props ) {
 			>
 				<span>{ __( 'Create a site…' ) }</span>
 				<Icon className={ styles.menuIcon } icon={ external } size={ 14 } aria-hidden="true" />
+			</Menu.Item>
+			<Menu.Item onClick={ onLearnMore }>
+				<span>{ __( 'Learn more' ) }</span>
 			</Menu.Item>
 		</>
 	);

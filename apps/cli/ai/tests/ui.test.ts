@@ -1,4 +1,5 @@
 import { Container, resetCapabilitiesCache, setCapabilities } from '@earendil-works/pi-tui';
+import { ADD_AI_CREDITS_URL } from '@studio/common/lib/studio-assistant-quota';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AiChatUI } from 'cli/ai/ui';
 import { openBrowser } from 'cli/lib/browser';
@@ -315,6 +316,8 @@ describe( 'AiChatUI.handleEvent', () => {
 		expect( showError ).not.toHaveBeenCalledWith(
 			expect.stringContaining( 'monthly AI usage limit' )
 		);
+		// The terminal can't render links — the buy URL is printed as-is.
+		expect( showInfo ).toHaveBeenCalledWith( expect.stringContaining( ADD_AI_CREDITS_URL ) );
 		expect( ui.showUsageCapResetDate ).not.toHaveBeenCalled();
 		expect( ui.usageCapReached ).toBe( true );
 		expect( ui.currentMarkdown ).toBeNull();

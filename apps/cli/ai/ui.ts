@@ -34,6 +34,7 @@ import { getToolDetail, getToolDisplayName, getToolResultPreview } from '@studio
 import chalk from '@studio/common/lib/chalk';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import {
+	ADD_AI_CREDITS_URL,
 	fetchStudioAssistantQuota,
 	formatOutOfCreditsNotice,
 	formatQuotaResetDate,
@@ -2115,7 +2116,17 @@ export class AiChatUI implements AiOutputAdapter {
 						this.hideLoader();
 						this.usageCapReached = true;
 						this.showError( outOfCredits ? formatOutOfCreditsNotice() : formatUsageCapNotice() );
-						if ( ! outOfCredits ) {
+						if ( outOfCredits ) {
+							// The terminal can't render a link, so print the URL as-is —
+							// it stays copyable and most terminals auto-link it.
+							this.showInfo(
+								sprintf(
+									/* translators: %s: URL of the page where the user can buy AI credits. */
+									__( 'Add credits at %s' ),
+									ADD_AI_CREDITS_URL
+								)
+							);
+						} else {
 							// Async on purpose: the reset date needs a wpcom round trip
 							// and must not block rendering the cap notice.
 							void this.showUsageCapResetDate();

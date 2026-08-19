@@ -21,6 +21,7 @@ import {
 	addConnectedWpcomSite,
 	removeConnectedWpcomSite,
 } from '@studio/common/lib/connected-sites';
+import { readAuthToken } from '@studio/common/lib/shared-config';
 import { getGlobalInstructionsPath } from '@studio/common/lib/well-known-paths';
 import { snapshotSchema } from '@studio/common/types/snapshot';
 import { syncSiteSchema, type SyncSite } from '@studio/common/types/sync';
@@ -89,6 +90,11 @@ async function seedFixtures( seed: EvalSeed ): Promise< () => Promise< void > > 
 		await writeGlobalInstructions( globalInstructions );
 	}
 
+	// preview_list scopes snapshots to the authenticated user (getSnapshotsFromConfig
+	// filters on snapshot.userId), so a seeded snapshot is invisible unless it carries
+	// the current user's id. Fixtures omit it — they can't know the id — so stamp it here.
+	const authUserId = ( await readAuthToken() )?.id;
+
 	if ( localSite || snapshots.length > 0 ) {
 		try {
 			await lockCliConfig();
@@ -104,7 +110,11 @@ async function seedFixtures( seed: EvalSeed ): Promise< () => Promise< void > > 
 				} );
 			}
 			for ( const snapshot of snapshots ) {
-				config.snapshots.push( snapshot );
+				config.snapshots.push(
+					snapshot.userId === undefined && authUserId !== undefined
+						? { ...snapshot, userId: authUserId }
+						: snapshot
+				);
 			}
 			await saveCliConfig( config );
 		} finally {

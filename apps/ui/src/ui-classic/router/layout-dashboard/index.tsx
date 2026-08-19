@@ -71,10 +71,10 @@ function DashboardLayoutContent() {
 				isSiteSettingsTab( state.location.search.tab )
 					? state.location.search.tab
 					: undefined,
-			openSiteDropdown: state.location.search.sync === 'pull',
+			openPullOnLoad: state.location.search.sync === 'pull',
 		} ),
 	} );
-	const { sessionId, overviewSiteId, newSessionSiteId, overviewTab, openSiteDropdown } =
+	const { sessionId, overviewSiteId, newSessionSiteId, overviewTab, openPullOnLoad } =
 		routePreviewContext;
 	const [ overviewTabsBySite, setOverviewTabsBySite ] = useState<
 		Record< string, SiteSettingsTabId >
@@ -217,7 +217,7 @@ function DashboardLayoutContent() {
 				activeView={ activeWorkspaceView }
 				sessionId={ sessionId }
 				overviewTab={ activeOverviewTab }
-				openSiteDropdown={ openSiteDropdown }
+				openPullOnLoad={ openPullOnLoad }
 				onOverviewTabChange={ ( next ) => {
 					setOverviewTabsBySite( ( current ) => ( {
 						...current,

@@ -29,7 +29,7 @@
 	/* Hug the panel's top-left corner with the same breathing room the
 	   preview toolbar gives its controls. */
 	padding-block: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-sm);
-	padding-inline: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-2xl);
+	padding-inline: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md);
 	min-height: 46px;
 	font-size: var(--wpds-typography-font-size-sm);
 	color: var(--wpds-color-fg-content-neutral);
@@ -40,13 +40,7 @@
    ui-classic/components/session-view/style.module.css so the site menu sits
    in the same spot when switching between chat and overview. */
 .headerSidebarCollapsed {
-	padding-top: calc(
-		var(--wpds-dimension-padding-xl) + var(--wpds-dimension-padding-2xl) +
-			var(--wpds-dimension-padding-lg)
-	);
-	/* With the sidebar hidden the panel goes full-bleed, putting this header
-	   at the window's left edge — give the site menu more breathing room. */
-	padding-inline-start: var(--wpds-dimension-padding-xl);
+	padding-inline-start: 94px;
 }
 
 .tabsFrame {

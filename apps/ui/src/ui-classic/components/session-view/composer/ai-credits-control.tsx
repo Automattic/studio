@@ -4,8 +4,8 @@ import {
 } from '@studio/common/lib/studio-assistant-quota';
 import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
-import { chartBar, external, Icon } from '@wordpress/icons';
-import { Tooltip } from '@wordpress/ui';
+import { chartBar, external } from '@wordpress/icons';
+import { Icon, Tooltip } from '@wordpress/ui';
 import { useState } from 'react';
 import { AiCreditsDetailsDialog } from '@/components/ai-credits-details-dialog';
 import * as Menu from '@/components/menu';

@@ -2,6 +2,7 @@ import {
 	ADD_AI_CREDITS_URL,
 	getStudioCodeAiAccessState,
 } from '@studio/common/lib/studio-assistant-quota';
+import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import { chartBar, external } from '@wordpress/icons';
@@ -10,7 +11,10 @@ import { useState } from 'react';
 import { AiCreditsDetailsDialog } from '@/components/ai-credits-details-dialog';
 import * as Menu from '@/components/menu';
 import { useConnector } from '@/data/core';
-import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
+import {
+	ASSISTANT_QUOTA_QUERY_KEY,
+	useStudioAssistantQuota,
+} from '@/data/queries/use-assistant-quota';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import styles from './style.module.css';
 
@@ -18,6 +22,7 @@ export function AiCreditsControl() {
 	const connector = useConnector();
 	const locale = useUserLocale();
 	const navigate = useNavigate();
+	const queryClient = useQueryClient();
 	const [ menuOpen, setMenuOpen ] = useState( false );
 	const [ detailsOpen, setDetailsOpen ] = useState( false );
 	const { data: quota } = useStudioAssistantQuota();
@@ -38,7 +43,18 @@ export function AiCreditsControl() {
 
 	return (
 		<>
-			<Menu.Root modal={ false } open={ menuOpen } onOpenChange={ setMenuOpen }>
+			<Menu.Root
+				modal={ false }
+				open={ menuOpen }
+				onOpenChange={ ( open ) => {
+					setMenuOpen( open );
+					// The control never remounts, so opening the menu is its chance
+					// to pull a balance changed outside the app (e.g. a purchase).
+					if ( open ) {
+						void queryClient.invalidateQueries( { queryKey: ASSISTANT_QUOTA_QUERY_KEY } );
+					}
+				} }
+			>
 				<Tooltip.Root disabled={ menuOpen }>
 					<Menu.Trigger
 						render={

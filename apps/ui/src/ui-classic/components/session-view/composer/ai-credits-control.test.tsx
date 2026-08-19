@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import { ADD_AI_CREDITS_URL } from '@studio/common/lib/studio-assistant-quota';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Tooltip } from '@wordpress/ui';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -20,6 +21,7 @@ vi.mock( '@/data/core', () => ( {
 } ) );
 
 vi.mock( '@/data/queries/use-assistant-quota', () => ( {
+	ASSISTANT_QUOTA_QUERY_KEY: [ 'assistant-quota' ],
 	useStudioAssistantQuota: vi.fn(),
 } ) );
 
@@ -34,11 +36,13 @@ vi.mock( '@/components/ai-credits-details-dialog', () => ( {
 
 const useStudioAssistantQuotaMock = vi.mocked( useStudioAssistantQuota );
 
-function renderControl() {
+function renderControl( queryClient = new QueryClient() ) {
 	return render(
-		<Tooltip.Provider delay={ 0 }>
-			<AiCreditsControl />
-		</Tooltip.Provider>
+		<QueryClientProvider client={ queryClient }>
+			<Tooltip.Provider delay={ 0 }>
+				<AiCreditsControl />
+			</Tooltip.Provider>
+		</QueryClientProvider>
 	);
 }
 
@@ -133,6 +137,17 @@ describe( 'AiCreditsControl', () => {
 		await waitFor( () =>
 			expect( screen.getByRole( 'dialog' ) ).toHaveTextContent( 'How AI credits work' )
 		);
+	} );
+
+	it( 'marks the quota stale when the menu opens so the balance refreshes', async () => {
+		const queryClient = new QueryClient();
+		const invalidateSpy = vi.spyOn( queryClient, 'invalidateQueries' );
+
+		renderControl( queryClient );
+
+		await openMenu();
+
+		expect( invalidateSpy ).toHaveBeenCalledWith( { queryKey: [ 'assistant-quota' ] } );
 	} );
 
 	it( 'navigates to the usage settings tab from the menu', async () => {

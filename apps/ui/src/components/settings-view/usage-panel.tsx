@@ -54,7 +54,13 @@ function AiCreditsSummary() {
 	const locale = useUserLocale();
 	const connector = useConnector();
 	const [ detailsOpen, setDetailsOpen ] = useState( false );
-	const { data: quota, isLoading, isError } = useStudioAssistantQuota();
+	// The balance may have changed outside the app (e.g. a credits purchase on
+	// WordPress.com), so opening the panel always fetches a fresh figure.
+	const {
+		data: quota,
+		isLoading,
+		isError,
+	} = useStudioAssistantQuota( { refetchOnMount: 'always' } );
 	const accessState = quota ? getStudioCodeAiAccessState( quota ) : 'available';
 	// The server includes the per-pool balances only when AI credits are
 	// enabled for the account (STU-2235); their absence — not a 0 — means the

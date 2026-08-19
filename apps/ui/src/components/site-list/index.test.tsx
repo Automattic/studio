@@ -15,6 +15,7 @@ import {
 	useSites,
 	useStartSite,
 	useStopSite,
+	useToggleSiteRunning,
 	useUpdateSitesSortOrder,
 } from '@/data/queries/use-sites';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
@@ -65,6 +66,7 @@ vi.mock( '@/data/queries/use-sites', () => ( {
 	useSites: vi.fn(),
 	useStartSite: vi.fn(),
 	useStopSite: vi.fn(),
+	useToggleSiteRunning: vi.fn(),
 	useUpdateSitesSortOrder: vi.fn(),
 } ) );
 
@@ -98,6 +100,7 @@ const useSessionsMock = vi.mocked( useSessions, { partial: true } );
 const useSitesMock = vi.mocked( useSites, { partial: true } );
 const useStartSiteMock = vi.mocked( useStartSite, { partial: true } );
 const useStopSiteMock = vi.mocked( useStopSite, { partial: true } );
+const useToggleSiteRunningMock = vi.mocked( useToggleSiteRunning );
 const useUpdateSitesSortOrderMock = vi.mocked( useUpdateSitesSortOrder, { partial: true } );
 const useSiteSyncActivityMock = vi.mocked( useSiteSyncActivity );
 const useUserPreferencesMock = vi.mocked( useUserPreferences, { partial: true } );
@@ -136,6 +139,12 @@ describe( 'SiteList', () => {
 		useExportFullSiteMock.mockReturnValue( { isPending: false, mutate: vi.fn() } );
 		useStartSiteMock.mockReturnValue( { isPending: false, mutate: startSite } );
 		useStopSiteMock.mockReturnValue( { isPending: false, mutate: stopSite } );
+		// Mirrors the real hook's behavior over the startSite/stopSite spies so
+		// assertions on those keep working.
+		useToggleSiteRunningMock.mockImplementation( ( site ) => ( {
+			busy: false,
+			toggle: () => ( site.running ? stopSite( site.id ) : startSite( site.id ) ),
+		} ) );
 		useUpdateSitesSortOrderMock.mockReturnValue( {
 			isPending: false,
 			mutate: updateSitesSortOrder,

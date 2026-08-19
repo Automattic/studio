@@ -310,6 +310,27 @@ export function useIsSiteBusy( site: SiteDetails | undefined ): boolean {
 }
 
 /**
+ * The start/stop toggle every site control shares: no-ops while the site is
+ * busy, otherwise starts a stopped site and stops a running one.
+ */
+export function useToggleSiteRunning( site: SiteDetails ): { busy: boolean; toggle: () => void } {
+	const startSite = useStartSite();
+	const stopSite = useStopSite();
+	const busy = useIsSiteBusy( site );
+	const toggle = () => {
+		if ( busy ) {
+			return;
+		}
+		if ( site.running ) {
+			stopSite.mutate( site.id );
+		} else {
+			startSite.mutate( site.id );
+		}
+	};
+	return { busy, toggle };
+}
+
+/**
  * Keeps the cached site list in sync with main-process events (site created,
  * updated, started, stopped, deleted). Mount once near the app root.
  */

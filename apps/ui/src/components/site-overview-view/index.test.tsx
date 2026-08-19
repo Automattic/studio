@@ -37,7 +37,7 @@ import type {
 import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 
 const navigateMock = vi.fn();
-const siteDropdownMock = vi.hoisted( () => vi.fn() );
+const siteToolbarMock = vi.hoisted( () => vi.fn() );
 const importSiteFromBackup = vi.hoisted( () => vi.fn() );
 const reportSyncProgressMock = vi.hoisted( () => vi.fn() );
 const useSidebarCollapsedMock = vi.hoisted( () => vi.fn() );
@@ -64,14 +64,9 @@ vi.mock( '@/components/delete-site-dialog', () => ( {
 		open ? <div role="dialog">Delete dialog</div> : null,
 } ) );
 
-vi.mock( '@/components/site-dropdown', () => ( {
-	SiteDropdown: ( props: {
-		site: SiteDetails;
-		showSiteIcon?: boolean;
-		showStatus?: boolean;
-		defaultOpen?: boolean;
-	} ) => {
-		siteDropdownMock( props );
+vi.mock( '@/components/site-toolbar', () => ( {
+	SiteToolbar: ( props: { site: SiteDetails; className?: string; openPullOnLoad?: boolean } ) => {
+		siteToolbarMock( props );
 		return <div>{ props.site.name }</div>;
 	},
 } ) );
@@ -278,7 +273,7 @@ describe( 'SiteOverviewView', () => {
 
 	function renderView(
 		activeTab: 'overview' | 'general' | 'debugging' = 'overview',
-		openSiteDropdown = false,
+		openPullOnLoad = false,
 		siteId = 'site-1'
 	) {
 		const view = (
@@ -287,7 +282,7 @@ describe( 'SiteOverviewView', () => {
 					<SiteOverviewView
 						siteId={ siteId }
 						activeTab={ activeTab }
-						openSiteDropdown={ openSiteDropdown }
+						openPullOnLoad={ openPullOnLoad }
 						onTabChange={ onTabChange }
 					/>
 				</Tooltip.Provider>
@@ -303,7 +298,7 @@ describe( 'SiteOverviewView', () => {
 							<SiteOverviewView
 								siteId={ nextSiteId }
 								activeTab={ activeTab }
-								openSiteDropdown={ openSiteDropdown }
+								openPullOnLoad={ openPullOnLoad }
 								onTabChange={ onTabChange }
 							/>
 						</Tooltip.Provider>
@@ -315,8 +310,8 @@ describe( 'SiteOverviewView', () => {
 	it( 'renders the tab strip with the about, shortcuts, and manage sections', () => {
 		renderView();
 
-		expect( siteDropdownMock ).toHaveBeenCalledWith(
-			expect.objectContaining( { showSiteIcon: true, showStatus: false } )
+		expect( siteToolbarMock ).toHaveBeenCalledWith(
+			expect.objectContaining( { site: expect.objectContaining( { id: 'site-1' } ) } )
 		);
 		expect( screen.getByRole( 'tab', { name: 'Overview' } ) ).toBeVisible();
 		expect( screen.getByRole( 'tab', { name: 'Settings' } ) ).toBeVisible();
@@ -410,11 +405,11 @@ describe( 'SiteOverviewView', () => {
 		expect( onTabChange ).toHaveBeenCalledWith( 'general' );
 	} );
 
-	it( 'opens site status when requested by the route', () => {
+	it( 'opens the pull dialog when requested by the route', () => {
 		renderView( 'overview', true );
 
-		expect( siteDropdownMock ).toHaveBeenCalledWith(
-			expect.objectContaining( { defaultOpen: true } )
+		expect( siteToolbarMock ).toHaveBeenCalledWith(
+			expect.objectContaining( { openPullOnLoad: true } )
 		);
 	} );
 

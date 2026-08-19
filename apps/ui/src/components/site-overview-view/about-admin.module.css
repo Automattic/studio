@@ -1,0 +1,109 @@
+.menuTrigger {
+	flex: 0 0 auto;
+	width: 1.75rem;
+	min-width: 0;
+	height: 1.75rem;
+	padding: 0;
+}
+
+.value {
+	display: flex;
+	align-items: baseline;
+	min-width: 0;
+	/* Left-aligns the username with "Flavor" and the WP/PHP meta line above —
+	   the button's own horizontal padding provides the click target instead. */
+	margin-left: -2px;
+	/* The copy buttons' own 2px vertical padding otherwise adds extra visual
+	   space above this line beyond the column's `gap`, making it look bigger
+	   than the gap between the other lines. */
+	margin-top: -2px;
+	margin-bottom: -2px;
+}
+
+.copyText {
+	appearance: none;
+	flex: 0 1 auto;
+	max-width: 100%;
+	margin: 0;
+	padding: 2px;
+	border: 0;
+	border-radius: var(--wpds-border-radius-sm);
+	background: transparent;
+	color: var(--wpds-color-fg-content-neutral);
+	font: inherit;
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	text-align: left;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	cursor: var(--wpds-cursor-control);
+	transition: color 0.12s ease, background-color 0.12s ease;
+}
+
+/* The username must always stay legible, so it never shrinks or truncates. */
+.value > .copyText:first-of-type {
+	flex: 0 0 auto;
+}
+
+/* Revealed passwords are long random strings — let them take the remaining
+   width and wrap so the full value is visible. While hidden, the dots keep
+   their natural width instead of stretching across the row. */
+.copyText.wrap {
+	flex: 1 1 auto;
+	min-width: 0;
+	white-space: normal;
+	overflow-wrap: anywhere;
+}
+
+.copyText:hover,
+.copyText:focus-visible {
+	background: var(--wpds-color-bg-surface-neutral-weak);
+}
+
+.copyText:focus-visible {
+	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus-brand);
+	outline-offset: 1px;
+}
+
+.copyText[data-copied='true'] {
+	color: var(--wpds-color-fg-content-success);
+}
+
+.copyText:disabled {
+	color: var(--wpds-color-fg-content-neutral-weak);
+	cursor: not-allowed;
+}
+
+.sep {
+	flex: 0 0 auto;
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.menu {
+	min-width: 220px;
+}
+
+.menuItemText {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.menuItemSub {
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-xs);
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.visuallyHidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
+}

@@ -158,7 +158,7 @@ export const RadioItem = forwardRef< ElementRef< typeof BaseMenu.RadioItem >, Ra
 		return (
 			<BaseMenu.RadioItem
 				ref={ ref }
-				className={ `${ styles.item } ${ styles.radioItem } ${ className ?? '' }` }
+				className={ `${ styles.item } ${ styles.indicatorItem } ${ className ?? '' }` }
 				{ ...props }
 			>
 				<span className={ styles.indicator } aria-hidden="true">
@@ -179,6 +179,36 @@ export const RadioItem = forwardRef< ElementRef< typeof BaseMenu.RadioItem >, Ra
 		);
 	}
 );
+
+type CheckboxItemProps = ComponentPropsWithoutRef< typeof BaseMenu.CheckboxItem >;
+
+export const CheckboxItem = forwardRef<
+	ElementRef< typeof BaseMenu.CheckboxItem >,
+	CheckboxItemProps
+>( function CheckboxItem( { className, children, ...props }, ref ) {
+	return (
+		<BaseMenu.CheckboxItem
+			ref={ ref }
+			className={ `${ styles.item } ${ styles.indicatorItem } ${ className ?? '' }` }
+			{ ...props }
+		>
+			<span className={ styles.indicator } aria-hidden="true">
+				<BaseMenu.CheckboxItemIndicator className={ styles.indicatorMark } keepMounted>
+					<svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+						<path
+							d="M5 12l5 5L20 7"
+							stroke="currentColor"
+							strokeWidth="2"
+							strokeLinecap="round"
+							strokeLinejoin="round"
+						/>
+					</svg>
+				</BaseMenu.CheckboxItemIndicator>
+			</span>
+			<span className={ styles.itemLabel }>{ children }</span>
+		</BaseMenu.CheckboxItem>
+	);
+} );
 
 export function GroupLabel( { children }: { children: ReactNode } ) {
 	return <BaseMenu.GroupLabel className={ styles.groupLabel }>{ children }</BaseMenu.GroupLabel>;

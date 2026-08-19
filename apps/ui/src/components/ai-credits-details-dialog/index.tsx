@@ -24,7 +24,7 @@ export function AiCreditsDetailsDialog( {
 						</span>
 						<span>
 							{ __(
-								'You get a welcome gift of 1.5 million free AI credits. AI credits do not expire, including credits you purchase later.'
+								'You start with a welcome gift of free AI credits. AI credits do not expire, including credits you purchase later.'
 							) }
 						</span>
 						<span>

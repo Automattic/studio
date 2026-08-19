@@ -245,11 +245,13 @@ describe( 'SiteList', () => {
 	} );
 
 	it( 'opens site settings from the site actions menu', async () => {
-		render( <SiteList /> );
+		const onSiteOpen = vi.fn();
+		render( <SiteList onSiteOpen={ onSiteOpen } /> );
 
 		fireEvent.contextMenu( screen.getByText( 'Stopped Site' ) );
 		fireEvent.click( await screen.findByText( 'Site settings' ) );
 
+		expect( onSiteOpen ).toHaveBeenCalledTimes( 1 );
 		expect( navigateMock ).toHaveBeenCalledTimes( 1 );
 		expect( navigateMock ).toHaveBeenLastCalledWith( {
 			to: '/sites/$siteId/overview',
@@ -316,10 +318,12 @@ describe( 'SiteList', () => {
 	} );
 
 	it( 'opens the site overview from the row gear without opening the latest chat', () => {
-		render( <SiteList /> );
+		const onSiteOpen = vi.fn();
+		render( <SiteList onSiteOpen={ onSiteOpen } /> );
 
 		fireEvent.click( screen.getAllByRole( 'button', { name: 'Site overview' } )[ 0 ] );
 
+		expect( onSiteOpen ).toHaveBeenCalledTimes( 1 );
 		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_panel_opened', {
 			panel: 'overview',
 		} );

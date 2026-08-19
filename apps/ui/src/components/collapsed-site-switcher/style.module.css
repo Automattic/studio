@@ -1,60 +1,24 @@
-.root {
-	position: relative;
-	display: inline-flex;
-}
-
-.trigger {
-	display: inline-flex;
+/* The positioner portals into document.body, so without a z-index it loses
+   to app chrome that creates stacking contexts (same rationale as the menu
+   popup's positioner). 100 floats it above the collapsed-mode toggle and
+   toast shelf while staying below tooltips, which render later in DOM
+   order. */
+.positioner {
+	z-index: 100;
+	outline: none;
 }
 
 .popup {
-	position: absolute;
-	inset-block-end: 100%;
-	inset-inline-start: 0;
 	box-sizing: border-box;
 	width: 272px;
 	max-width: calc(100vw - 2 * var(--wpds-dimension-padding-xl));
-	opacity: 0;
-	visibility: hidden;
-	pointer-events: none;
-	transform: translateY(4px);
-	transition:
-		opacity 100ms ease,
-		transform 100ms ease,
-		visibility 0s linear 120ms;
-	-webkit-app-region: no-drag;
 }
 
-.root.hoverOpen .popup {
-	opacity: 1;
-	visibility: visible;
-	pointer-events: auto;
-	transform: translateY(0);
-	transition-delay: 180ms;
-}
-
-.root:focus-within .popup {
-	opacity: 1;
-	visibility: visible;
-	pointer-events: auto;
-	transform: translateY(0);
-	transition-delay: 0ms;
-}
-
-.root.dismissed .popup {
-	opacity: 0;
-	visibility: hidden;
-	pointer-events: none;
-	transform: translateY(4px);
-	transition-delay: 0ms;
-}
-
-.popupThemeScope {
-	--sidebar-row-background: var(--wpds-color-bg-interactive-neutral-weak-active);
-
-	display: block;
+/* Same surface chrome as the menu popup (weak stroke, lg radius,
+   elevation-md), over the window-chrome background the component supplies
+   inline. Tokens resolve against the dark theme scope wrapping this node. */
+.surface {
 	box-sizing: border-box;
-	min-height: 100%;
 	max-height: min(236px, calc(100vh - 80px));
 	overflow-y: auto;
 	padding-block: var(--wpds-dimension-padding-sm);
@@ -64,12 +28,9 @@
 	color: var(--wpds-color-fg-content-neutral);
 }
 
-.siteList {
+/* Tighter bottom edge than the expanded sidebar. The descendant selector
+   outranks site-list's own `.root` padding shorthand, so the override does
+   not depend on stylesheet injection order. */
+.surface .siteList {
 	padding-block-end: var(--wpds-dimension-padding-sm);
-}
-
-@media (prefers-reduced-motion: reduce) {
-	.popup {
-		transition: none;
-	}
 }

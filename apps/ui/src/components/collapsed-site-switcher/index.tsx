@@ -1,111 +1,63 @@
 import { __ } from '@wordpress/i18n';
 import { privateApis } from '@wordpress/theme';
+import { Popover, VisuallyHidden } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import {
-	useEffect,
-	useRef,
-	useState,
-	type FocusEvent,
-	type KeyboardEvent,
-	type ReactNode,
-} from 'react';
+import { useState, type ReactElement } from 'react';
+import motionStyles from '@/components/floating-surface-motion/style.module.css';
 import { SiteList } from '@/components/site-list';
 import { unlock } from '@/lock-unlock';
 import styles from './style.module.css';
 
 const { ThemeProvider } = unlock( privateApis );
+
+// A short pause before opening so incidental pointer travel across the
+// toggle doesn't flash the list, and a longer grace period before closing
+// so brief hover gaps don't dismiss it.
+const HOVER_OPEN_DELAY_MS = 180;
 const HOVER_CLOSE_DELAY_MS = 350;
 
 export function CollapsedSiteSwitcher( {
 	backgroundColor,
-	children,
+	trigger,
 }: {
 	backgroundColor: string;
-	children: ReactNode;
+	trigger: ReactElement< Record< string, unknown > >;
 } ) {
-	const rootRef = useRef< HTMLDivElement >( null );
-	const closeTimerRef = useRef< number | undefined >( undefined );
-	const [ dismissed, setDismissed ] = useState( false );
-	const [ hoverOpen, setHoverOpen ] = useState( false );
-
-	const clearCloseTimer = () => {
-		if ( closeTimerRef.current !== undefined ) {
-			window.clearTimeout( closeTimerRef.current );
-			closeTimerRef.current = undefined;
-		}
-	};
-
-	useEffect(
-		() => () => {
-			if ( closeTimerRef.current !== undefined ) {
-				window.clearTimeout( closeTimerRef.current );
-			}
-		},
-		[]
-	);
-
-	const openFromHover = () => {
-		clearCloseTimer();
-		setHoverOpen( true );
-	};
-
-	const scheduleHoverClose = () => {
-		clearCloseTimer();
-		closeTimerRef.current = window.setTimeout( () => {
-			setHoverOpen( false );
-			closeTimerRef.current = undefined;
-		}, HOVER_CLOSE_DELAY_MS );
-	};
-
-	const dismiss = () => {
-		clearCloseTimer();
-		setHoverOpen( false );
-		setDismissed( true );
-		rootRef.current?.querySelector< HTMLButtonElement >( 'button[aria-label]' )?.focus();
-	};
-
-	const handleBlur = ( event: FocusEvent< HTMLDivElement > ) => {
-		if ( ! event.currentTarget.contains( event.relatedTarget ) ) {
-			setDismissed( false );
-		}
-	};
-	const handleKeyDown = ( event: KeyboardEvent< HTMLDivElement > ) => {
-		if ( event.key === 'Escape' ) {
-			event.preventDefault();
-			event.stopPropagation();
-			dismiss();
-		}
-	};
+	const [ open, setOpen ] = useState( false );
 
 	return (
-		<div
-			ref={ rootRef }
-			className={ clsx(
-				styles.root,
-				hoverOpen && styles.hoverOpen,
-				dismissed && styles.dismissed
-			) }
-			data-dismissed={ dismissed || undefined }
-			data-hover-open={ hoverOpen || undefined }
-			onBlur={ handleBlur }
-			onKeyDown={ handleKeyDown }
-			onMouseEnter={ openFromHover }
-			onMouseLeave={ scheduleHoverClose }
-		>
-			<span className={ styles.trigger } onMouseEnter={ () => setDismissed( false ) }>
-				{ children }
-			</span>
-			<div className={ styles.popup }>
-				<ThemeProvider color={ { bg: backgroundColor } }>
-					<nav
-						className={ styles.popupThemeScope }
-						aria-label={ __( 'Sites' ) }
-						style={ { backgroundColor } }
-					>
-						<SiteList className={ styles.siteList } onSiteOpen={ dismiss } />
-					</nav>
+		<Popover.Root open={ open } onOpenChange={ setOpen }>
+			<Popover.Trigger
+				openOnHover
+				delay={ HOVER_OPEN_DELAY_MS }
+				closeDelay={ HOVER_CLOSE_DELAY_MS }
+				render={ trigger }
+			/>
+			<Popover.Popup
+				variant="unstyled"
+				className={ clsx( styles.popup, motionStyles.motion ) }
+				positioner={
+					<Popover.Positioner
+						side="top"
+						align="start"
+						sideOffset={ 8 }
+						className={ styles.positioner }
+					/>
+				}
+			>
+				<VisuallyHidden render={ <Popover.Title /> }>{ __( 'Sites' ) }</VisuallyHidden>
+				{ /* Same dark theme scope as the expanded sidebar so the list
+				     renders identically on the window-chrome background. */ }
+				<ThemeProvider density="compact" color={ { bg: backgroundColor } }>
+					<div className={ styles.surface } style={ { backgroundColor } }>
+						<SiteList
+							className={ styles.siteList }
+							reorderable={ false }
+							onSiteOpen={ () => setOpen( false ) }
+						/>
+					</div>
 				</ThemeProvider>
-			</div>
-		</div>
+			</Popover.Popup>
+		</Popover.Root>
 	);
 }

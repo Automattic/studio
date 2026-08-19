@@ -9,14 +9,19 @@ import { settings } from '@wordpress/icons';
 import { IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import {
+	createContext,
+	Fragment,
+	useContext,
 	useEffect,
 	useMemo,
 	useRef,
 	useState,
+	type Dispatch,
 	type MouseEvent,
 	type PointerEvent as ReactPointerEvent,
 	type ReactElement,
 	type ReactNode,
+	type SetStateAction,
 } from 'react';
 import { AgentWorkingIndicator } from '@/components/agent-working-indicator';
 import { DeleteSiteDialog } from '@/components/delete-site-dialog';
@@ -59,6 +64,38 @@ type SiteRow = {
 type SiteRowActivity = SiteAgentActivity | 'new-message' | 'sync' | 'import';
 
 const ACTIVITY_EXIT_DURATION_MS = 180;
+
+type SeenSessionTimestamps = {
+	initialized: boolean;
+	timestamps: Record< string, number >;
+};
+
+type SeenSessionTimestampsState = [
+	SeenSessionTimestamps,
+	Dispatch< SetStateAction< SeenSessionTimestamps > >,
+];
+
+const EMPTY_SEEN_SESSION_TIMESTAMPS: SeenSessionTimestamps = {
+	initialized: false,
+	timestamps: {},
+};
+
+const SeenSessionTimestampsContext = createContext< SeenSessionTimestampsState | null >( null );
+
+/**
+ * Shares the "which session updates has the user already seen" bookkeeping
+ * between SiteList instances — the expanded sidebar and the collapsed-sidebar
+ * switcher popover. Without it, each instance seeds its own state on mount,
+ * marking every site as seen and hiding the other's unread indicators.
+ */
+export function SeenSessionTimestampsProvider( { children }: { children: ReactNode } ) {
+	const state = useState< SeenSessionTimestamps >( EMPTY_SEEN_SESSION_TIMESTAMPS );
+	return (
+		<SeenSessionTimestampsContext.Provider value={ state }>
+			{ children }
+		</SeenSessionTimestampsContext.Provider>
+	);
+}
 
 function SiteAgentActivityTooltip( {
 	label,
@@ -212,7 +249,13 @@ function sortSitesByManualOrder( sites: SiteDetails[], manualOrder: string[] ): 
 	);
 }
 
-function SiteOverviewButton( { site }: { site: SiteDetails } ) {
+function SiteOverviewButton( {
+	site,
+	onSiteOpen,
+}: {
+	site: SiteDetails;
+	onSiteOpen?: () => void;
+} ) {
 	const navigate = useNavigate();
 	const connector = useConnector();
 
@@ -226,6 +269,7 @@ function SiteOverviewButton( { site }: { site: SiteDetails } ) {
 			className={ styles.siteAction }
 			onClick={ ( event ) => {
 				event.stopPropagation();
+				onSiteOpen?.();
 				void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'overview' } );
 				void navigate( {
 					to: '/sites/$siteId/overview',
@@ -343,11 +387,13 @@ function SiteActionsMenu( {
 	sessionIds,
 	isStarting,
 	trigger,
+	onSiteOpen,
 }: {
 	site: SiteDetails;
 	sessionIds: string[];
 	isStarting: boolean;
 	trigger: ReactElement;
+	onSiteOpen?: () => void;
 } ) {
 	const navigate = useNavigate();
 	const params = useParams( { strict: false } ) as { sessionId?: string; siteId?: string };
@@ -439,6 +485,7 @@ function SiteActionsMenu( {
 					<Menu.Separator />
 					<Menu.Item
 						onClick={ () => {
+							onSiteOpen?.();
 							void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'settings' } );
 							void navigate( {
 								to: '/sites/$siteId/overview',
@@ -604,6 +651,7 @@ function SiteSection( {
 				site={ site }
 				sessionIds={ row.sessionIds }
 				isStarting={ isStarting }
+				onSiteOpen={ onSiteOpen }
 				trigger={
 					<header className={ styles.siteHeader } onClick={ handleOpenSite }>
 						<div className={ styles.siteText }>
@@ -628,7 +676,9 @@ function SiteSection( {
 							</SidebarButton>
 						</div>
 						<div className={ styles.siteActions } data-reorder-exclude>
-							{ chatEnabled ? <SiteOverviewButton site={ site } /> : null }
+							{ chatEnabled ? (
+								<SiteOverviewButton site={ site } onSiteOpen={ onSiteOpen } />
+							) : null }
 							<SiteStatusButton site={ site } isStarting={ isStarting } isStopping={ isStopping } />
 						</div>
 					</header>
@@ -651,10 +701,13 @@ function findSessionSiteKey(
 export function SiteList( {
 	className,
 	onSiteOpen,
+	reorderable = true,
 }: {
 	className?: string;
 	onSiteOpen?: () => void;
-} = {} ) {
+	/** The collapsed-sidebar switcher renders a read-only order. */
+	reorderable?: boolean;
+} ) {
 	const { data: sites, isLoading: sitesLoading } = useSites();
 	const { data: sessions, isLoading: sessionsLoading } = useSessions();
 	const { chatEnabled } = useAgenticFeatures();
@@ -664,11 +717,9 @@ export function SiteList( {
 	const activeSiteId = params.siteId;
 	const [ manualSiteOrder, setManualSiteOrder ] = useState< string[] >( [] );
 	const updateSitesSortOrder = useUpdateSitesSortOrder();
-	const [ seenSiteSessionTimestampsInitialized, setSeenSiteSessionTimestampsInitialized ] =
-		useState( false );
-	const [ seenSiteSessionTimestamps, setSeenSiteSessionTimestamps ] = useState<
-		Record< string, number >
-	>( {} );
+	const sharedSeenState = useContext( SeenSessionTimestampsContext );
+	const localSeenState = useState< SeenSessionTimestamps >( EMPTY_SEEN_SESSION_TIMESTAMPS );
+	const [ seenSessionTimestamps, setSeenSessionTimestamps ] = sharedSeenState ?? localSeenState;
 
 	const orderedSites = useMemo(
 		() => sortSitesByManualOrder( sortSites( [ ...( sites ?? [] ) ] ), manualSiteOrder ),
@@ -689,19 +740,19 @@ export function SiteList( {
 		if ( sitesLoading || sessionsLoading || rows.length === 0 ) {
 			return;
 		}
-		const shouldSeedSeenTimestamps = ! seenSiteSessionTimestampsInitialized;
-		setSeenSiteSessionTimestamps( ( current ) => {
-			let next = current;
+		setSeenSessionTimestamps( ( current ) => {
+			const shouldSeedSeenTimestamps = ! current.initialized;
+			let timestamps = current.timestamps;
 			let changed = false;
 
 			const updateSeenTimestamp = ( siteId: string, timestamp: number ) => {
-				if ( timestamp <= ( next[ siteId ] ?? 0 ) ) {
+				if ( timestamp <= ( timestamps[ siteId ] ?? 0 ) ) {
 					return;
 				}
-				if ( next === current ) {
-					next = { ...current };
+				if ( timestamps === current.timestamps ) {
+					timestamps = { ...current.timestamps };
 				}
-				next[ siteId ] = timestamp;
+				timestamps[ siteId ] = timestamp;
 				changed = true;
 			};
 
@@ -715,20 +766,14 @@ export function SiteList( {
 				}
 			}
 
-			return changed ? next : current;
+			if ( ! changed && current.initialized ) {
+				return current;
+			}
+			return { initialized: true, timestamps };
 		} );
-		if ( ! seenSiteSessionTimestampsInitialized ) {
-			setSeenSiteSessionTimestampsInitialized( true );
-		}
-	}, [
-		activeChatSiteKey,
-		rows,
-		seenSiteSessionTimestampsInitialized,
-		sessionsLoading,
-		sitesLoading,
-	] );
+	}, [ activeChatSiteKey, rows, sessionsLoading, setSeenSessionTimestamps, sitesLoading ] );
 	const unreadSiteIds = useMemo( () => {
-		if ( ! seenSiteSessionTimestampsInitialized ) {
+		if ( ! seenSessionTimestamps.initialized ) {
 			return new Set< string >();
 		}
 		const unread = new Set< string >();
@@ -737,12 +782,12 @@ export function SiteList( {
 				continue;
 			}
 			const latestTimestamp = getTimestamp( row.latestSession );
-			if ( latestTimestamp > ( seenSiteSessionTimestamps[ row.site.id ] ?? 0 ) ) {
+			if ( latestTimestamp > ( seenSessionTimestamps.timestamps[ row.site.id ] ?? 0 ) ) {
 				unread.add( row.site.id );
 			}
 		}
 		return unread;
-	}, [ activeChatSiteKey, rows, seenSiteSessionTimestamps, seenSiteSessionTimestampsInitialized ] );
+	}, [ activeChatSiteKey, rows, seenSessionTimestamps ] );
 
 	const persistOrder = ( nextSiteIds: string[] ) => {
 		setManualSiteOrder( nextSiteIds );
@@ -765,6 +810,14 @@ export function SiteList( {
 		listContent = <p className={ styles.empty }>{ __( 'Loading…' ) }</p>;
 	} else if ( rows.length === 0 ) {
 		listContent = <p className={ styles.empty }>{ __( 'No sites yet' ) }</p>;
+	} else if ( ! reorderable ) {
+		listContent = (
+			<div className={ styles.sites }>
+				{ rows.map( ( row ) => (
+					<Fragment key={ row.site.id }>{ renderSiteRow( row ) }</Fragment>
+				) ) }
+			</div>
+		);
 	} else {
 		listContent = (
 			<ReorderableList

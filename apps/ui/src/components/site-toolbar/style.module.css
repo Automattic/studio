@@ -15,18 +15,102 @@
 	-webkit-app-region: drag;
 }
 
+/* The identity is a menu trigger, but seated exactly where the plain block
+   sat: the padding that carries the hover fill is cancelled by a matching
+   negative margin, so only the fill grows, not the layout. */
 .identity {
 	display: flex;
 	align-items: center;
 	gap: var(--wpds-dimension-gap-md);
 	min-width: 0;
+	padding: var(--wpds-dimension-padding-xs);
+	margin: calc(-1 * var(--wpds-dimension-padding-xs));
+	border: 0;
+	border-radius: var(--wpds-border-radius-md);
+	background: transparent;
+	text-align: start;
+	cursor: var(--wpds-cursor-control);
+	-webkit-app-region: no-drag;
+	transition: background-color 100ms ease;
+}
+
+.identity:hover {
+	background: var(--wpds-color-bg-interactive-neutral-weak-active);
+}
+
+.identity:focus-visible {
+	outline: 2px solid var(--wpds-color-stroke-interactive-brand);
+	outline-offset: -2px;
+}
+
+.siteIconWrap {
+	position: relative;
+	display: inline-flex;
+	flex: 0 0 auto;
 }
 
 .siteIcon {
-	flex: 0 0 auto;
 	inline-size: 32px;
 	block-size: 32px;
 	border-radius: var(--wpds-border-radius-sm);
+}
+
+/* Only applied when the dot shows (sidebar hidden): punch a real hole in the
+   icon where the dot sits — a genuine cutout, not a ring drawn on top — 2px
+   wider than the dot and centred on the hostname line, not the icon corner. */
+.siteIconCutout {
+	--status-cutout: radial-gradient(
+		circle 6px at calc(100% - 1px) 24px,
+		transparent 0 6px,
+		#000 6.5px
+	);
+	-webkit-mask: var(--status-cutout);
+	mask: var(--status-cutout);
+}
+
+/* Positions the run-state dot inside the icon's cutout, vertically centred on
+   the hostname line and nudged to the icon's right edge. Non-interactive. */
+.statusBadge {
+	position: absolute;
+	inset-inline-end: -5px;
+	inset-block-start: 18px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	inline-size: 12px;
+	block-size: 12px;
+}
+
+.statusDot {
+	inline-size: 8px;
+	block-size: 8px;
+	border-radius: 50%;
+}
+
+.statusDot_running {
+	background: var(--studio-color-status-running);
+}
+
+.statusDot_stopped {
+	background: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.statusDot_transitioning {
+	background: var(--studio-color-status-transitioning);
+}
+
+.statusBadgeBlink {
+	animation: statusBadgeBlink 1s ease-in-out infinite;
+}
+
+@keyframes statusBadgeBlink {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.25;
+	}
 }
 
 .identityText {
@@ -69,6 +153,28 @@
 
 .syncMenu {
 	width: 240px;
+}
+
+.siteMenu {
+	min-width: 240px;
+}
+
+.siteMenuDetail {
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md);
+}
+
+.siteMenuDetailLabel {
+	font-size: var(--wpds-typography-font-size-xs);
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.siteMenuDetailValue {
+	font-size: var(--wpds-typography-font-size-sm);
+	color: var(--wpds-color-fg-content-neutral);
+	word-break: break-all;
 }
 
 .menuIntro {
@@ -244,11 +350,16 @@
 @media (prefers-reduced-motion: reduce) {
 	.action,
 	.actionProgress,
-	.menuChevron {
+	.menuChevron,
+	.identity {
 		transition: none;
 	}
 
 	.actionLabel {
+		animation: none;
+	}
+
+	.statusBadgeBlink {
 		animation: none;
 	}
 }

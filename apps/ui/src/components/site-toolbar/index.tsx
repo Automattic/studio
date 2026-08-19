@@ -22,6 +22,12 @@ import {
 	PUBLISH_PREVIEW_MUTATION_KEY,
 	usePublishPreviewSite,
 } from '@/data/queries/use-preview-site';
+import {
+	useIsSiteStarting,
+	useIsSiteStopping,
+	useSiteOperation,
+	useToggleSiteRunning,
+} from '@/data/queries/use-sites';
 import { useSnapshots, useSnapshotUsage } from '@/data/queries/use-snapshots';
 import {
 	PULL_FROM_LIVE_MUTATION_KEY,
@@ -30,11 +36,13 @@ import {
 	usePushSiteToLive,
 } from '@/data/queries/use-sync-site';
 import { useSiteSyncActivity } from '@/data/sync-activity';
-import { getSiteDisplayUrl } from '@/lib/get-site-url';
+import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
+import { getSiteDisplayUrl, getSiteUrl } from '@/lib/get-site-url';
 import { DisconnectSiteDialog } from './disconnect-site-dialog';
 import { PublishPickerView } from './publish-picker-view';
 import styles from './style.module.css';
 import {
+	deriveSiteStatus,
 	ensureProtocol,
 	getSnapshotHostname,
 	pickLatestSnapshot,
@@ -68,9 +76,9 @@ function useIsSiteBusy( siteId: string ): boolean {
 }
 
 /**
- * The site's permanent header: who you're working on on the left, its actions
- * on the right. Replaces the old site dropdown, whose actions were hidden
- * behind a trigger that read as a status indicator.
+ * The site's permanent header: who you're working on and what state it's in on
+ * the left, its actions on the right. Replaces the old site dropdown, whose
+ * actions were hidden behind a trigger that read as a status indicator.
  *
  * A connected site gets a Sync menu (push/pull) and Share; an unconnected one
  * gets Publish to connect a WordPress.com site. Signed-out users see Log in.
@@ -78,17 +86,25 @@ function useIsSiteBusy( siteId: string ): boolean {
 export function SiteToolbar( { site, className, openPullOnLoad = false }: SiteToolbarProps ) {
 	const connector = useConnector();
 	const { enabled: agenticEnabled, reason: agenticReason } = useAgenticFeatures();
+	// The sidebar's site rows already carry a run-state dot, so the header only
+	// shows its own once the sidebar is hidden.
+	const showRunState = useSidebarCollapsed();
 	const login = useLogin( { source: 'site_header' } );
 	const pushSiteToLive = usePushSiteToLive();
 	const pullSiteFromLive = usePullSiteFromLive();
 	const publishPreviewSite = usePublishPreviewSite();
+	const { toggle: toggleSiteRunning } = useToggleSiteRunning( site );
+	const operation = useSiteOperation( site );
 
 	const [ syncDialogType, setSyncDialogType ] = useState< 'push' | 'pull' | null >( null );
 	const [ publishOpen, setPublishOpen ] = useState( false );
 	const [ disconnectOpen, setDisconnectOpen ] = useState( false );
 	const [ shareMenuOpen, setShareMenuOpen ] = useState( false );
+	const [ siteMenuOpen, setSiteMenuOpen ] = useState( false );
 	const [ publishedPreviewUrl, setPublishedPreviewUrl ] = useState< string | undefined >();
 
+	const isStarting = useIsSiteStarting( site.id );
+	const isStopping = useIsSiteStopping( site.id );
 	const isBusy = useIsSiteBusy( site.id );
 	const syncActivity = useSiteSyncActivity( site.id );
 	const isPreviewPending =
@@ -183,19 +199,64 @@ export function SiteToolbar( { site, className, openPullOnLoad = false }: SiteTo
 		);
 	};
 
+	const localSiteUrl = getSiteUrl( site );
+	const canOpenLocalSite = site.running && ! isStopping;
+	const { status, statusLabel, localSublabel } = deriveSiteStatus(
+		site,
+		isStarting,
+		isStopping,
+		operation
+	);
+
 	return (
 		<div className={ clsx( styles.toolbar, className ) }>
-			<div className={ styles.identity }>
-				<SiteIcon
-					className={ styles.siteIcon }
-					seed={ `${ site.id }:${ site.name }:${ site.path }` }
-					imageSrc={ site.siteIcon }
+			<Menu.Root open={ siteMenuOpen } onOpenChange={ setSiteMenuOpen }>
+				<Menu.Trigger
+					render={
+						<button type="button" className={ styles.identity }>
+							<span className={ styles.siteIconWrap }>
+								<SiteIcon
+									className={ clsx( styles.siteIcon, showRunState && styles.siteIconCutout ) }
+									seed={ `${ site.id }:${ site.name }:${ site.path }` }
+									imageSrc={ site.siteIcon }
+								/>
+								{ showRunState ? (
+									<span
+										className={ clsx(
+											styles.statusBadge,
+											status === 'transitioning' && styles.statusBadgeBlink
+										) }
+										role="img"
+										aria-label={ statusLabel }
+									>
+										<span
+											className={ clsx( styles.statusDot, styles[ `statusDot_${ status }` ] ) }
+											aria-hidden="true"
+										/>
+									</span>
+								) : null }
+							</span>
+							<span className={ styles.identityText }>
+								<span className={ styles.siteName }>{ site.name }</span>
+								<span className={ styles.siteUrlStatic }>{ localSublabel }</span>
+							</span>
+						</button>
+					}
 				/>
-				<div className={ styles.identityText }>
-					<span className={ styles.siteName }>{ site.name }</span>
-					<span className={ styles.siteUrlStatic }>{ getSiteDisplayUrl( site ) }</span>
-				</div>
-			</div>
+				<Menu.Popup side="bottom" align="start" className={ styles.siteMenu }>
+					<Menu.Item disabled={ isStarting || isStopping } onClick={ toggleSiteRunning }>
+						{ site.running ? __( 'Stop site' ) : __( 'Start site' ) }
+					</Menu.Item>
+					<Menu.Item disabled={ ! canOpenLocalSite } onClick={ () => openExternal( localSiteUrl ) }>
+						{ __( 'Open in browser' ) }
+					</Menu.Item>
+					<Menu.Separator />
+					<div className={ styles.siteMenuDetail }>
+						<span className={ styles.siteMenuDetailLabel }>{ __( 'Local address' ) }</span>
+						<span className={ styles.siteMenuDetailValue }>{ getSiteDisplayUrl( site ) }</span>
+					</div>
+				</Menu.Popup>
+			</Menu.Root>
 
 			<div className={ styles.actions }>
 				{ ! isSignedOut ? (

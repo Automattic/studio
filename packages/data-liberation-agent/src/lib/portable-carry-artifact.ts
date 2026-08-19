@@ -85,6 +85,13 @@ function portableCss( css: string ): string {
 	return css.replace( /body\.lib-carry-site/g, '.lib-carry-site' );
 }
 
+function portableBodyHtml( html: string ): string {
+	// Browser captures can retain document-only metadata inside the body. The
+	// portable artifact emits its own head, so carrying these tags creates
+	// duplicate canonical/icon declarations and ambiguous local references.
+	return html.replace( /<link\b[^>]*>/gi, '' );
+}
+
 function escapeHtml( value: string ): string {
 	return value
 		.replace( /&/g, '&amp;' )
@@ -133,7 +140,7 @@ export function projectPortableCarryArtifact( outputDir: string, artifactPath: s
 					title: metadata?.title || documentTitle( fileContent( routeFile ), slug ),
 					isHome,
 					postType: metadata?.postType ?? 'page',
-					bodyHtml: fileContent( routeFile ),
+					bodyHtml: portableBodyHtml( fileContent( routeFile ) ),
 					css: sourceCss,
 				} satisfies CarryPageInput,
 			},

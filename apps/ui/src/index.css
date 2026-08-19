@@ -158,6 +158,28 @@ a:focus:not( :focus-visible ),
 	border-color: var( --wp-ui-button-border-color );
 }
 
+/* Same intent for @wordpress/components' CheckboxControl, which draws its ring
+   with a `:focus` box-shadow: an AlertDialog auto-focuses the first tabbable
+   control on open, so the checkbox would light up before the user touches
+   anything. Its companion transparent outline (a forced-colors affordance) has
+   to go too — Chrome counts it as scrollable overflow, which is enough to make
+   a dialog body scroll and grow a separator. */
+input[type='checkbox']:focus:not( :focus-visible ) {
+	box-shadow: none;
+	outline: none;
+}
+
+/* @wordpress/ui's AlertDialog footer stacks an actions row and an optional
+   error message in a column, and relies on its own `align-items: stretch`
+   beating the shared overlay `.footer` row rule — same specificity, same
+   cascade layer, so whichever stylesheet lands last wins. Vite's dev server
+   injects them in the opposite order to the production bundle, leaving the
+   action buttons shrink-wrapped and centered instead of pinned to the inline
+   end. Restore the intended layout regardless of injection order. */
+[data-wp-ui-overlay-modal] [class*='__footer-column'] {
+	align-items: stretch;
+}
+
 /* Compact density: shrink icons to match the tighter spacing tokens.
    @wordpress/icons draws SVGs at 24x24 by default; the theme's compact
    density only shrinks padding/gap tokens, not icon sizes. Override the

@@ -99,6 +99,13 @@ export function SidebarLayout( {
 
 	useEffect( () => connector.onToggleSidebar( toggleSidebar ), [ connector, toggleSidebar ] );
 	useEffect( () => {
+		// When a parent controls the collapsed state it owns the responsive
+		// behavior too (see useResponsivePanels), and coordinates it with the
+		// window resizing that opening a panel triggers. Only drive the
+		// uncontrolled fallback from here.
+		if ( controlledCollapsed !== undefined ) {
+			return;
+		}
 		const collapseWhenEnteringCompactWidth = ( width: number ) => {
 			const isCompact = width < SIDEBAR_AUTO_COLLAPSE_BREAKPOINT;
 			if ( isCompact && ! wasCompactRef.current ) {
@@ -120,7 +127,7 @@ export function SidebarLayout( {
 		const handleWindowResize = () => collapseWhenEnteringCompactWidth( getViewportWidth() );
 		window.addEventListener( 'resize', handleWindowResize );
 		return () => window.removeEventListener( 'resize', handleWindowResize );
-	}, [ updateCollapsed ] );
+	}, [ controlledCollapsed, updateCollapsed ] );
 
 	return (
 		<SidebarCollapsedContext.Provider value={ effectiveCollapsed }>

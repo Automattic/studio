@@ -190,43 +190,43 @@ describe( 'isFullscreen', () => {
 } );
 
 describe( 'ensureMinWindowWidth', () => {
-	it( 'grows the sender window while preserving its height', async () => {
-		const setSize = vi.fn();
+	it( 'grows the sender window content while preserving its height', async () => {
+		const setContentSize = vi.fn();
 		let width = 420;
 		vi.mocked( BrowserWindow.fromWebContents ).mockReturnValueOnce( {
 			isDestroyed: () => false,
-			getSize: () => [ width, 700 ],
-			setSize: ( nextWidth: number, height: number ) => {
+			getContentSize: () => [ width, 700 ],
+			setContentSize: ( nextWidth: number, height: number ) => {
 				width = nextWidth;
-				setSize( nextWidth, height );
+				setContentSize( nextWidth, height );
 			},
 		} as unknown as BrowserWindow );
 
 		const result = await ensureMinWindowWidth( mockIpcMainInvokeEvent, 640 );
 
-		expect( setSize ).toHaveBeenCalledWith( 640, 700 );
+		expect( setContentSize ).toHaveBeenCalledWith( 640, 700 );
 		expect( result ).toBe( 640 );
 	} );
 
 	it( 'leaves an already-wide window unchanged', async () => {
-		const setSize = vi.fn();
+		const setContentSize = vi.fn();
 		vi.mocked( BrowserWindow.fromWebContents ).mockReturnValueOnce( {
 			isDestroyed: () => false,
-			getSize: () => [ 900, 700 ],
-			setSize,
+			getContentSize: () => [ 900, 700 ],
+			setContentSize,
 		} as unknown as BrowserWindow );
 
 		const result = await ensureMinWindowWidth( mockIpcMainInvokeEvent, 640 );
 
-		expect( setSize ).not.toHaveBeenCalled();
+		expect( setContentSize ).not.toHaveBeenCalled();
 		expect( result ).toBe( 900 );
 	} );
 
-	it( 'returns the width the window manager actually applied', async () => {
+	it( 'returns the content width the window manager actually applied', async () => {
 		vi.mocked( BrowserWindow.fromWebContents ).mockReturnValueOnce( {
 			isDestroyed: () => false,
-			getSize: () => [ 600, 700 ],
-			setSize: vi.fn(),
+			getContentSize: () => [ 600, 700 ],
+			setContentSize: vi.fn(),
 		} as unknown as BrowserWindow );
 
 		const result = await ensureMinWindowWidth( mockIpcMainInvokeEvent, 640 );

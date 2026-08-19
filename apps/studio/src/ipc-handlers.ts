@@ -1963,12 +1963,16 @@ export async function ensureMinWindowWidth(
 	if ( ! parentWindow || parentWindow.isDestroyed() || event.sender.isDestroyed() ) {
 		return null;
 	}
-	const [ currentWidth, currentHeight ] = parentWindow.getSize();
+	// Measure and resize the content area, not the whole window. The renderer's
+	// responsive math is entirely in CSS pixels (`window.innerWidth`); on Windows
+	// and Linux the window frame makes that differ from the outer window size, so
+	// growing (and reporting) the content width is what keeps the two in sync.
+	const [ currentWidth, currentHeight ] = parentWindow.getContentSize();
 	const nextWidth = Math.ceil( minimumWidth );
 	if ( currentWidth < nextWidth ) {
-		parentWindow.setSize( nextWidth, currentHeight );
+		parentWindow.setContentSize( nextWidth, currentHeight );
 	}
-	return parentWindow.getSize()[ 0 ];
+	return parentWindow.getContentSize()[ 0 ];
 }
 
 /**

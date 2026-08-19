@@ -98,6 +98,91 @@ describe( 'useResponsivePanels', () => {
 		expect( result.current.sidebarCollapsed ).toBe( false );
 	} );
 
+	it( 'collapses the sidebar when the window is dragged below the breakpoint', () => {
+		setViewportWidth( 900 );
+		const { result } = renderHook( () =>
+			useResponsivePanels( {
+				connector: { ensureWindowWidth: vi.fn().mockResolvedValue( 900 ) },
+				previewOpen: false,
+				previewFullscreen: false,
+				setPreviewOpen: vi.fn(),
+			} )
+		);
+
+		expect( result.current.sidebarCollapsed ).toBe( false );
+
+		act( () => {
+			setViewportWidth( 600 );
+			window.dispatchEvent( new Event( 'resize' ) );
+		} );
+
+		expect( result.current.sidebarCollapsed ).toBe( true );
+	} );
+
+	it( 'keeps the sidebar open while a panel grow is still widening the window', async () => {
+		setViewportWidth( 700 );
+		let resolveGrow: ( ( width: number ) => void ) | undefined;
+		const ensureWindowWidth = vi.fn(
+			() =>
+				new Promise< number >( ( resolve ) => {
+					resolveGrow = resolve;
+				} )
+		);
+		const { result } = renderHook( () =>
+			useResponsivePanels( {
+				connector: { ensureWindowWidth },
+				previewOpen: true,
+				previewFullscreen: false,
+				setPreviewOpen: vi.fn(),
+			} )
+		);
+
+		// Opening the preview grows the window for both panels; the sidebar stays
+		// open until that resolves.
+		expect( result.current.sidebarCollapsed ).toBe( false );
+
+		// A stale, still-narrow resize arriving mid-grow must not collapse the
+		// panel we are in the middle of making room for.
+		act( () => {
+			setViewportWidth( 600 );
+			window.dispatchEvent( new Event( 'resize' ) );
+		} );
+		expect( result.current.sidebarCollapsed ).toBe( false );
+
+		await act( async () => {
+			resolveGrow?.( 932 );
+		} );
+		expect( result.current.sidebarCollapsed ).toBe( false );
+	} );
+
+	it( 'ignores a stale narrow resize that lands right after opening the sidebar', async () => {
+		setViewportWidth( 420 );
+		const ensureWindowWidth = vi.fn().mockResolvedValue( 660 );
+		const { result } = renderHook( () =>
+			useResponsivePanels( {
+				connector: { ensureWindowWidth },
+				previewOpen: false,
+				previewFullscreen: false,
+				setPreviewOpen: vi.fn(),
+			} )
+		);
+
+		expect( result.current.sidebarCollapsed ).toBe( true );
+
+		await act( async () => {
+			await result.current.openSidebar();
+		} );
+		expect( result.current.sidebarCollapsed ).toBe( false );
+
+		// The window has grown, but the renderer's matching resize event lands
+		// late and still reports the old narrow width. The grow guard must keep
+		// the just-opened sidebar from snapping shut.
+		act( () => {
+			window.dispatchEvent( new Event( 'resize' ) );
+		} );
+		expect( result.current.sidebarCollapsed ).toBe( false );
+	} );
+
 	it( 'reserves room for the split before leaving fullscreen to show the sidebar', async () => {
 		setViewportWidth( 420 );
 		const ensureWindowWidth = vi.fn().mockResolvedValue( 932 );

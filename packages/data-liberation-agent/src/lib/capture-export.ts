@@ -12,6 +12,7 @@ import {
 } from 'node:fs';
 import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path';
 import * as cheerio from 'cheerio';
+import { rewriteMediaUrls } from './streaming/media-url-rewrite.js';
 import { MediaStubStore } from './resume-state/index.js';
 import type { CapturedResourceManifest } from './screenshot/resource-capture.js';
 
@@ -792,7 +793,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		mkdirSync( dirname( destination ), { recursive: true } );
 		writeFileSync(
 			destination,
-			replaceAll( replaceAll( html, mediaReplacements ), resourceReplacements )
+			replaceAll( rewriteMediaUrls( html, mediaReplacements ), resourceReplacements )
 		);
 		routes.push( { url, path: `website/${ routePath }` } );
 	}

@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { themeDetailsQueryKey } from '@/hooks/use-theme-details';
+import { DATABASE_HOME_PATH } from './address-bar';
 import {
 	getBrowserShortcutCommand,
 	isOffOriginRedirect,
@@ -484,6 +485,32 @@ describe( 'SitePreview', () => {
 		await waitFor( () =>
 			expect( screen.queryByText( 'Responsive mode' ) ).not.toBeInTheDocument()
 		);
+	} );
+
+	it( 'disables the responsive mode controls while previewing the database realm', async () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+
+		renderPreview(
+			<SitePreview
+				site={ createSite( { running: true } ) }
+				path={ DATABASE_HOME_PATH }
+				reloadNonce={ 0 }
+			/>
+		);
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'More options' } ) );
+
+		expect( await screen.findByText( 'Responsive mode' ) ).toBeVisible();
+		const fitPane = screen.getByRole( 'menuitemradio', { name: 'Fit pane' } );
+		expect( fitPane ).toHaveAttribute( 'aria-disabled', 'true' );
+
+		// Disabled radio items swallow the click — the mode doesn't change.
+		fireEvent.click( screen.getByRole( 'menuitemradio', { name: 'Mobile · 390×844' } ) );
+		expect( fitPane ).toBeChecked();
 	} );
 
 	it( 'toggles full preview from the More options menu', async () => {

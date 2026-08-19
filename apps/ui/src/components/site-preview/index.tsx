@@ -460,6 +460,7 @@ function isPreviewShortcutCommand( command: unknown ): command is PreviewShortcu
 function PreviewOverflowMenu( {
 	viewportMode,
 	onViewportModeChange,
+	viewportControlsDisabled,
 	mobileOrientation,
 	onMobileOrientationChange,
 	fullscreen,
@@ -467,6 +468,11 @@ function PreviewOverflowMenu( {
 }: {
 	viewportMode: ViewportMode;
 	onViewportModeChange: ( mode: ViewportMode ) => void;
+	// The database realm (phpMyAdmin) isn't a responsive surface, so the
+	// simulated-viewport controls are disabled rather than hidden — the
+	// chosen mode is kept for when the preview returns to the front end or
+	// WP Admin.
+	viewportControlsDisabled: boolean;
 	mobileOrientation: MobileOrientation;
 	onMobileOrientationChange: ( orientation: MobileOrientation ) => void;
 	fullscreen: boolean;
@@ -508,6 +514,7 @@ function PreviewOverflowMenu( {
 					<Menu.RadioGroup
 						value={ viewportMode }
 						onValueChange={ ( next ) => onViewportModeChange( next as ViewportMode ) }
+						disabled={ viewportControlsDisabled }
 					>
 						<Menu.RadioItem value="fit">{ __( 'Fit pane' ) }</Menu.RadioItem>
 						{ VIEWPORT_PRESETS.map( ( preset ) => (
@@ -529,6 +536,7 @@ function PreviewOverflowMenu( {
 							<Menu.RadioGroup
 								value={ mobileOrientation }
 								onValueChange={ ( next ) => onMobileOrientationChange( next as MobileOrientation ) }
+								disabled={ viewportControlsDisabled }
 							>
 								<Menu.RadioItem value="portrait">{ __( 'Portrait' ) }</Menu.RadioItem>
 								<Menu.RadioItem value="landscape">{ __( 'Landscape' ) }</Menu.RadioItem>
@@ -725,10 +733,14 @@ export function SitePreview( {
 		? Math.max( browserState.progress, 0.12 )
 		: browserState.progress;
 	const showLoadingProgress = canPreview && progress > 0;
+	// phpMyAdmin isn't a responsive surface: keep the simulated viewport from
+	// applying while the database realm is open, without losing the chosen
+	// mode for when the preview returns to the front end or WP Admin.
+	const isDatabaseRealm = getPreviewRealm( getSafePath( path ) ) === 'database';
 	// Presets are module constants, so this stays referentially stable per
 	// mode + orientation.
-	const activePreset = getActivePreset( viewportMode, mobileOrientation );
-	const splitPreview = viewportMode === 'split';
+	const activePreset = isDatabaseRealm ? null : getActivePreset( viewportMode, mobileOrientation );
+	const splitPreview = ! isDatabaseRealm && viewportMode === 'split';
 	// The split view's phone pane: the mobile preset (in its current
 	// orientation) scaled to fit the pane height, and capped at half the
 	// pane's width so a landscape frame can't crowd out the primary view.
@@ -1076,6 +1088,7 @@ export function SitePreview( {
 						<PreviewOverflowMenu
 							viewportMode={ viewportMode }
 							onViewportModeChange={ handleViewportModeChange }
+							viewportControlsDisabled={ isDatabaseRealm }
 							mobileOrientation={ mobileOrientation }
 							onMobileOrientationChange={ handleMobileOrientationChange }
 							fullscreen={ fullscreen }

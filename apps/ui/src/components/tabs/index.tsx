@@ -32,12 +32,19 @@ import { clsx } from 'clsx';
 import { forwardRef } from 'react';
 import { unlock } from '@/lock-unlock';
 import styles from './style.module.css';
-import type { ComponentPropsWithoutRef, ComponentType, ElementRef, ReactNode } from 'react';
+import type {
+	ComponentPropsWithoutRef,
+	ComponentType,
+	ElementRef,
+	MouseEventHandler,
+	ReactNode,
+} from 'react';
 
 type RootProps = {
 	selectedTabId?: string | null;
 	onSelect?: ( tabId: string | null | undefined ) => void;
 	orientation?: 'horizontal' | 'vertical';
+	className?: string;
 	children: ReactNode;
 };
 
@@ -51,6 +58,10 @@ type TabProps = {
 	className?: string;
 	children: ReactNode;
 	disabled?: boolean;
+	'aria-label'?: string;
+	'aria-expanded'?: boolean;
+	'aria-haspopup'?: 'menu';
+	onClick?: MouseEventHandler< HTMLButtonElement >;
 };
 
 type PanelProps = {

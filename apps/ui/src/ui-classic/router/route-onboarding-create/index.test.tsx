@@ -1,4 +1,5 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
+import { forwardRef, useImperativeHandle } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CreateSitePage } from './index';
 import type { SelectedBlueprint } from '@/components/blueprint-upload';
@@ -8,10 +9,18 @@ const mocks = vi.hoisted( () => ( {
 	navigate: vi.fn( async () => undefined ),
 	setProgress: vi.fn(),
 	mutateAsync: vi.fn(),
+	deleteSite: vi.fn( async () => undefined ),
 	cleanup: vi.fn( async () => undefined ),
 	proposedName: 'My Studio Site',
+	chatEnabled: true,
 	formProps: null as Record< string, unknown > | null,
 	uploadProps: null as Record< string, unknown > | null,
+	generation: vi.fn( async ( _options: unknown ) => ( {
+		session: { id: 'session-1' },
+		sessionIds: [],
+		runIds: [],
+	} ) ),
+	submission: null as { prompt: string; attachments: Record< string, unknown > } | null,
 } ) );
 
 vi.mock( '@tanstack/react-router', async ( importOriginal ) => {
@@ -44,6 +53,7 @@ vi.mock( '@/components/create-site-form', () => ( {
 				>
 					Submit
 				</button>
+				{ props.children as React.ReactNode }
 				{ props.submitError ? <p>{ String( props.submitError ) }</p> : null }
 			</>
 		);
@@ -54,9 +64,16 @@ vi.mock( '@/data/core', async ( importOriginal ) => {
 	const actual = await importOriginal< typeof import('@/data/core') >();
 	return {
 		...actual,
-		useConnector: () => ( { cleanupBlueprintTempDir: mocks.cleanup } ),
+		useConnector: () => ( {
+			cleanupBlueprintTempDir: mocks.cleanup,
+			deleteSite: mocks.deleteSite,
+		} ),
 	};
 } );
+
+vi.mock( '@/data/queries/use-agentic-features', () => ( {
+	useAgenticFeatures: () => ( { chatEnabled: mocks.chatEnabled } ),
+} ) );
 
 vi.mock( '@/data/queries/use-create-site-helpers', () => ( {
 	useExistingCustomDomains: () => [],
@@ -66,6 +83,27 @@ vi.mock( '@/data/queries/use-create-site-helpers', () => ( {
 vi.mock( '@/data/queries/use-sites', () => ( {
 	useSites: () => ( { data: [] } ),
 	useCreateSite: () => ( { mutateAsync: mocks.mutateAsync, isPending: false } ),
+} ) );
+
+vi.mock( '@/ui-classic/components/session-view/composer', () => ( {
+	Composer: forwardRef< unknown, Record< string, unknown > >( function MockComposer( props, ref ) {
+		useImperativeHandle( ref, () => ( { getSubmission: () => mocks.submission } ) );
+		return (
+			<input
+				data-testid="composer"
+				onChange={ ( event ) =>
+					( props.onDraftChange as ( text: string, hasAttachments: boolean ) => void )(
+						event.target.value,
+						false
+					)
+				}
+			/>
+		);
+	} ),
+} ) );
+
+vi.mock( './generation', () => ( {
+	startConcurrentDesignGeneration: ( options: unknown ) => mocks.generation( options ),
 } ) );
 
 const formValues: CreateSiteFormValues = {
@@ -96,39 +134,48 @@ describe( 'CreateSitePage', () => {
 		mocks.formProps = null;
 		mocks.uploadProps = null;
 		mocks.proposedName = 'My Studio Site';
+		mocks.chatEnabled = true;
+		mocks.submission = null;
 		mocks.mutateAsync.mockResolvedValue( { id: 'site-1' } );
+		mocks.generation.mockResolvedValue( {
+			session: { id: 'session-1' },
+			sessionIds: [],
+			runIds: [],
+		} );
 	} );
 
-	it( 'creates a blank site without a Blueprint payload', async () => {
+	it( 'creates a blank site without a brief or Blueprint payload', async () => {
 		render( <CreateSitePage /> );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Submit' } ) );
 
-		await waitFor( () => expect( mocks.mutateAsync ).toHaveBeenCalledOnce() );
+		await vi.waitFor( () => expect( mocks.mutateAsync ).toHaveBeenCalledOnce() );
 		expect( mocks.mutateAsync.mock.calls[ 0 ][ 0 ] ).not.toHaveProperty( 'blueprint' );
+		expect( mocks.mutateAsync.mock.calls[ 0 ][ 0 ] ).not.toHaveProperty( 'flowType' );
 		expect( mocks.navigate ).toHaveBeenCalledWith( {
 			to: '/sites/$siteId/new',
 			params: { siteId: 'site-1' },
 		} );
 	} );
 
-	it( 'keeps the submitted suggestions visible until navigation completes', async () => {
-		let finishNavigation: () => void = () => undefined;
-		mocks.navigate.mockImplementationOnce(
-			() =>
-				new Promise< undefined >( ( resolve ) => {
-					finishNavigation = () => resolve( undefined );
-				} )
+	it( 'shows the AI brief composer when chat is enabled and no Blueprint is selected', () => {
+		render( <CreateSitePage /> );
+		expect( screen.getByTestId( 'composer' ) ).toBeInTheDocument();
+	} );
+
+	it( 'hides the AI brief composer when chat is disabled', () => {
+		mocks.chatEnabled = false;
+		render( <CreateSitePage /> );
+		expect( screen.queryByTestId( 'composer' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'hides the AI brief composer once a Blueprint is selected', () => {
+		render( <CreateSitePage /> );
+		act( () =>
+			( mocks.uploadProps?.onSelect as ( value: SelectedBlueprint ) => void )(
+				blueprint( 'Selected' )
+			)
 		);
-		const { rerender } = render( <CreateSitePage /> );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Submit' } ) );
-		await waitFor( () => expect( mocks.navigate ).toHaveBeenCalledOnce() );
-
-		mocks.proposedName = 'My Next Studio Site';
-		rerender( <CreateSitePage /> );
-
-		expect( mocks.formProps?.initialValues ).toEqual( { name: 'My Studio Site' } );
-		expect( mocks.formProps?.isSubmitting ).toBe( true );
-		await act( async () => finishNavigation() );
+		expect( screen.queryByTestId( 'composer' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'replaces and removes Blueprints while cleaning extracted temporary files', async () => {
@@ -176,5 +223,34 @@ describe( 'CreateSitePage', () => {
 		);
 		expect( mocks.cleanup ).toHaveBeenCalledWith( '/tmp/selected' );
 		expect( mocks.formProps?.submitLabel ).toBeUndefined();
+	} );
+
+	it( 'runs the AI design generation flow when a brief is provided and no Blueprint is selected', async () => {
+		mocks.submission = { prompt: 'A bakery site', attachments: {} };
+		render( <CreateSitePage /> );
+
+		fireEvent.change( screen.getByTestId( 'composer' ), { target: { value: 'A bakery site' } } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Submit' } ) );
+
+		await vi.waitFor( () => expect( mocks.mutateAsync ).toHaveBeenCalledOnce() );
+		expect( mocks.mutateAsync ).toHaveBeenCalledWith(
+			expect.objectContaining( { flowType: 'ai' } )
+		);
+		await vi.waitFor( () => expect( mocks.generation ).toHaveBeenCalledOnce() );
+		expect( mocks.navigate ).toHaveBeenCalledWith( {
+			to: '/sessions/$sessionId',
+			params: { sessionId: 'session-1' },
+		} );
+	} );
+
+	it( 'falls back to a plain create when the brief is empty even with chat enabled', async () => {
+		mocks.submission = { prompt: '', attachments: {} };
+		render( <CreateSitePage /> );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Submit' } ) );
+
+		await vi.waitFor( () => expect( mocks.mutateAsync ).toHaveBeenCalledOnce() );
+		expect( mocks.mutateAsync.mock.calls[ 0 ][ 0 ] ).not.toHaveProperty( 'flowType' );
+		expect( mocks.generation ).not.toHaveBeenCalled();
 	} );
 } );

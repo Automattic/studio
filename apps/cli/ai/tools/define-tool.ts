@@ -31,7 +31,8 @@ export interface StudioToolResultDetails {
 }
 
 export type ToolHandler< TProps extends TProperties > = (
-	args: Static< TObject< TProps > >
+	args: Static< TObject< TProps > >,
+	signal?: AbortSignal
 ) => Promise< ToolResult >;
 
 export type StudioAgentTool< TProps extends TProperties = TProperties > = AgentTool<
@@ -72,8 +73,8 @@ export function defineTool< TProps extends TProperties >(
 		parameters,
 		label: name,
 		rawHandler: handler,
-		execute: async ( _toolCallId, params ) => {
-			const result = await handler( params as never );
+		execute: async ( _toolCallId, params, signal ) => {
+			const result = await handler( params as never, signal );
 			const details: StudioToolResultDetails | undefined = result.studioArtifacts?.length
 				? { studioArtifacts: result.studioArtifacts }
 				: undefined;

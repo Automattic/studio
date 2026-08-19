@@ -191,6 +191,15 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async getSiteStorageUsage(): Promise< null > {
 			return null;
 		},
+		async initializeDesignProject() {
+			throw new UnsupportedError( 'initializeDesignProject' );
+		},
+		async getDesignProject() {
+			throw new UnsupportedError( 'getDesignProject' );
+		},
+		async selectDesignArtifact() {
+			throw new UnsupportedError( 'selectDesignArtifact' );
+		},
 		async exportFullSite(): Promise< string | null > {
 			throw new UnsupportedError( 'exportFullSite' );
 		},

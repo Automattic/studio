@@ -43,6 +43,25 @@
 	outline: 2px solid var(--composer-focus-ring);
 }
 
+/* The 'field' appearance drops the floating chat-pill look (tinted fill,
+   blur, thick focus outline) for the plain border/radius/fill of a standard
+   WPDS text input, so the composer reads as one more field alongside its
+   siblings in a settings-style form. */
+.shellField {
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-interactive-neutral);
+	border-radius: 2px;
+	background-color: var(--wpds-color-bg-interactive-neutral-weak);
+	background-image: none;
+	backdrop-filter: none;
+}
+
+.shellField:focus-within:not(:has(.resizeHandle:focus-visible)) {
+	background-color: var(--wpds-color-bg-interactive-neutral-weak);
+	border-color: var(--wpds-color-stroke-focus-brand);
+	box-shadow: 0 0 0 1px var(--wpds-color-stroke-focus-brand);
+	outline: none;
+}
+
 .shellDragging {
 	outline: 2px dashed var(--composer-focus-ring);
 }
@@ -418,6 +437,15 @@
 
 .inputAreaWithAttachments .placeholderText {
 	top: var(--wpds-dimension-padding-xs);
+}
+
+/* The 'field' appearance is a static, single placeholder sentence (not the
+   chat composer's cycling one-liners), so let it wrap like a normal
+   textarea placeholder instead of truncating with an ellipsis. */
+.shellField .placeholderText {
+	overflow: visible;
+	text-overflow: clip;
+	white-space: normal;
 }
 
 .toolbar {

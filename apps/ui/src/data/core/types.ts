@@ -4,6 +4,7 @@ import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { AiModelId } from '@studio/common/ai/models';
 import type { AiProviderId, AiSettings } from '@studio/common/ai/providers';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
+import type { DesignProject } from '@studio/common/design-project';
 import type { SiteEvent } from '@studio/common/lib/cli-events';
 import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 import type { SupportedLocale } from '@studio/common/lib/locale';
@@ -230,6 +231,13 @@ export interface Connector {
 	// Size of the local site's files, grouped for the overview's disk summary.
 	// Hosted sites return null because their storage is not on this machine.
 	getSiteStorageUsage( siteId: string ): Promise< SiteStorageUsage | null >;
+	initializeDesignProject(
+		siteId: string,
+		brief: string,
+		sessionId?: string
+	): Promise< DesignProject >;
+	getDesignProject( siteId: string ): Promise< DesignProject | null >;
+	selectDesignArtifact( siteId: string, artifactId: string ): Promise< DesignProject >;
 
 	// Exports a site as a full backup archive (files + database). Prompts the
 	// user for a destination via a save-as dialog; resolves with the chosen

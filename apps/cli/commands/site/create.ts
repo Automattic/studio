@@ -121,6 +121,7 @@ const SITE_CREATE_FLOW_TYPES: readonly TracksSiteCreateFlowType[] = [
 	'import',
 	'sync',
 	'duplicate',
+	'ai',
 ];
 
 function parseFlowType( value: string | undefined ): TracksSiteCreateFlowType | undefined {

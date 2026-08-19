@@ -1,11 +1,15 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
+import { useDesignProject } from '@/data/queries/use-design-project';
 import { useSession } from '@/data/queries/use-sessions';
 import { isScrolledAwayFromLatest, SessionView } from './index';
 import type { LoadedAiSession } from '@/data/core';
 
-const { navigateMock } = vi.hoisted( () => ( { navigateMock: vi.fn() } ) );
+const { navigateMock, sitesState } = vi.hoisted( () => ( {
+	navigateMock: vi.fn(),
+	sitesState: { data: [] as Array< Record< string, unknown > > },
+} ) );
 
 vi.mock( '@tanstack/react-router', () => ( {
 	useNavigate: () => navigateMock,
@@ -19,11 +23,15 @@ vi.mock( '@/data/queries/use-sessions', () => ( {
 } ) );
 
 vi.mock( '@/data/queries/use-sites', () => ( {
-	useSites: () => ( { data: [] } ),
+	useSites: () => sitesState,
 } ) );
 
 vi.mock( '@/data/queries/use-assistant-quota', () => ( {
 	useStudioAssistantQuota: vi.fn(),
+} ) );
+
+vi.mock( '@/data/queries/use-design-project', () => ( {
+	useDesignProject: vi.fn(),
 } ) );
 
 vi.mock( '@/data/core', async ( importOriginal ) => ( {
@@ -68,8 +76,25 @@ vi.mock( './conversation', () => ( {
 	Conversation: () => <div />,
 } ) );
 
+vi.mock( '@/components/site-dropdown', () => ( {
+	SiteDropdown: () => <div data-testid="site-dropdown" />,
+} ) );
+
+vi.mock( '@/components/preview-toggle-button', () => ( {
+	PreviewToggleButton: () => <button type="button">Toggle preview</button>,
+} ) );
+
+vi.mock( './empty-background', () => ( {
+	EmptyBackground: () => <div data-testid="empty-background" />,
+} ) );
+
+vi.mock( './suggested-prompts', () => ( {
+	SuggestedPrompts: () => <div data-testid="suggested-prompts" />,
+} ) );
+
 const useSessionMock = vi.mocked( useSession, { partial: true } );
 const useStudioAssistantQuotaMock = vi.mocked( useStudioAssistantQuota, { partial: true } );
+const useDesignProjectMock = vi.mocked( useDesignProject, { partial: true } );
 
 function makeQuota( overrides: Partial< { hasPaymentMethod: boolean; emailVerified: boolean } > ) {
 	return {
@@ -105,6 +130,8 @@ function setScrollMetrics(
 describe( 'SessionView', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
+		sitesState.data = [];
+		useDesignProjectMock.mockReturnValue( { data: undefined } );
 		// Entitled account by default; individual tests override.
 		useStudioAssistantQuotaMock.mockReturnValue( {
 			data: makeQuota( {} ),
@@ -112,6 +139,45 @@ describe( 'SessionView', () => {
 			isFetching: false,
 			refetch: vi.fn(),
 		} );
+	} );
+
+	it( 'hides empty-chat suggestions and the composer during initial design generation', () => {
+		sitesState.data = [
+			{
+				id: 'site-1',
+				name: 'Test Site',
+				path: '/Users/example/Studio/test-site',
+				running: true,
+				port: 8881,
+				phpVersion: '8.3',
+			},
+		];
+		useSessionMock.mockReturnValue( {
+			data: {
+				...makeLoadedSession(),
+				summary: {
+					...makeLoadedSession().summary,
+					ownerSiteId: 'site-1',
+					ownerSitePath: '/Users/example/Studio/test-site',
+					ownerSiteName: 'Test Site',
+				},
+			},
+			isLoading: false,
+			error: null,
+		} );
+		useDesignProjectMock.mockReturnValue( {
+			data: {
+				sessionId: 'session-1',
+				phase: 'briefing',
+				artifacts: [],
+			},
+		} as never );
+
+		render( <SessionView sessionId="session-1" /> );
+
+		expect( screen.queryByTestId( 'composer' ) ).not.toBeInTheDocument();
+		expect( screen.queryByTestId( 'empty-background' ) ).not.toBeInTheDocument();
+		expect( screen.queryByTestId( 'suggested-prompts' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'redirects to the root instead of flashing the error when the session is gone', async () => {

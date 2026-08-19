@@ -375,6 +375,21 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async getSiteStorageUsage( siteId ) {
 			return api( `/sites/${ encodeURIComponent( siteId ) }/storage` );
 		},
+		async initializeDesignProject( siteId, brief, sessionId ) {
+			return api( `/sites/${ encodeURIComponent( siteId ) }/design-project`, {
+				method: 'POST',
+				body: JSON.stringify( { brief, sessionId } ),
+			} );
+		},
+		async getDesignProject( siteId ) {
+			return api( `/sites/${ encodeURIComponent( siteId ) }/design-project` );
+		},
+		async selectDesignArtifact( siteId, artifactId ) {
+			return api( `/sites/${ encodeURIComponent( siteId ) }/design-project/select`, {
+				method: 'POST',
+				body: JSON.stringify( { artifactId } ),
+			} );
+		},
 
 		// Site creation — delegated to the CLI `create` on the local machine.
 		async createSite( params ): Promise< SiteDetails > {
@@ -391,6 +406,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					adminPassword: params.adminPassword,
 					adminEmail: params.adminEmail,
 					skipStart: params.skipStart,
+					flowType: params.flowType,
 					// The server writes this to a temp file and passes --blueprint to
 					// the CLI (featured blueprint JSON, or an uploaded bundle's filePath).
 					blueprint: params.blueprint,

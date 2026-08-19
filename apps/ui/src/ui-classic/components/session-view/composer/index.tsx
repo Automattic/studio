@@ -250,6 +250,15 @@ interface ComposerProps {
 	ownerSiteId?: string;
 	onSwitchSession?: ( sessionId: string ) => void;
 	autoFocus?: boolean;
+	mode?: 'conversation' | 'draft';
+	// 'chat' (default) is the floating, tinted pill used in conversations.
+	// 'field' matches the border/radius/fill of a standard WPDS text input —
+	// for contexts (e.g. a settings form) where the composer sits alongside
+	// other plain fields and shouldn't stand out as a distinct chat surface.
+	appearance?: 'chat' | 'field';
+	placeholder?: string;
+	onDraftChange?: ( text: string, hasAttachments: boolean ) => void;
+	onModelChange?: ( model: AiModelId ) => void;
 }
 
 /**
@@ -267,6 +276,7 @@ export interface ComposerHandle {
 	// What replaceDraft would discard — lets callers decide whether the
 	// replacement warrants a confirmation.
 	getDraft(): { text: string; hasAttachments: boolean };
+	getSubmission(): { prompt: string; attachments: ComposerSendAttachments };
 }
 
 function shouldShellFocusTextarea( target: EventTarget ) {
@@ -332,6 +342,11 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		ownerSiteId,
 		onSwitchSession,
 		autoFocus = false,
+		mode = 'conversation',
+		appearance = 'chat',
+		placeholder: placeholderOverride,
+		onDraftChange,
+		onModelChange,
 	},
 	ref
 ) {
@@ -474,9 +489,19 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 			getDraft() {
 				return { text: value, hasAttachments: attachments.length > 0 };
 			},
+			getSubmission() {
+				return {
+					prompt: value.trim() || __( 'Please use the attached media as design references.' ),
+					attachments: toComposerSendAttachments( attachments ),
+				};
+			},
 		} ),
 		[ restoreAttachments, value, attachments ]
 	);
+
+	useEffect( () => {
+		onDraftChange?.( value, attachments.length > 0 );
+	}, [ attachments.length, onDraftChange, value ] );
 
 	const send = useCallback( async () => {
 		const trimmed = value.trim();
@@ -650,6 +675,10 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 			if ( picked === model ) {
 				return;
 			}
+			if ( onModelChange ) {
+				onModelChange( picked );
+				return;
+			}
 			// Cross-family switch: defer until the user confirms in the dialog
 			// — the runtimes don't share a transcript, so continuing the same
 			// JSONL across families would make the on-screen history disagree
@@ -669,7 +698,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 			}
 			applySameFamilyModel( picked );
 		},
-		[ applySameFamilyModel, entries, model, onSwitchSession ]
+		[ applySameFamilyModel, entries, model, onModelChange, onSwitchSession ]
 	);
 
 	const cancelFamilyChange = useCallback( () => {
@@ -735,7 +764,8 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 				__( 'Drop the next idea here…' ),
 				__( 'What are we tuning now?' ),
 		  ];
-	const placeholder = placeholderOptions[ placeholderIndex % placeholderOptions.length ];
+	const placeholder =
+		placeholderOverride ?? placeholderOptions[ placeholderIndex % placeholderOptions.length ];
 	const showPlaceholderText = value.length === 0;
 	const composerResizeMaxHeight = getComposerTextareaMaxHeight( true );
 	const sendAriaLabel = busy ? __( 'Queue' ) : __( 'Send' );
@@ -766,6 +796,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 					data-session-composer
 					className={ clsx(
 						styles.shell,
+						appearance === 'field' && styles.shellField,
 						isDraggingOver && styles.shellDragging,
 						isResizingComposer && styles.shellResizing
 					) }
@@ -950,7 +981,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 								if ( slash.handleKeyDown( event ) ) {
 									return;
 								}
-								if ( event.key === 'Escape' && busy ) {
+								if ( mode === 'conversation' && event.key === 'Escape' && busy ) {
 									event.preventDefault();
 									void onInterrupt();
 									return;
@@ -969,7 +1000,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 									} );
 									return;
 								}
-								if ( event.key === 'Enter' && ! event.shiftKey ) {
+								if ( mode === 'conversation' && event.key === 'Enter' && ! event.shiftKey ) {
 									event.preventDefault();
 									void send();
 								}
@@ -989,7 +1020,11 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 													<button
 														type="button"
 														className={ styles.iconButton }
-														aria-label={ __( 'Add skill or attachment' ) }
+														aria-label={
+															mode === 'draft'
+																? __( 'Upload attachment' )
+																: __( 'Add skill or attachment' )
+														}
 													/>
 												}
 											>
@@ -998,42 +1033,46 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 										}
 									/>
 									<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-										{ __( 'Add skill or attachment' ) }
+										{ mode === 'draft'
+											? __( 'Upload attachment' )
+											: __( 'Add skill or attachment' ) }
 									</Tooltip.Popup>
 								</Tooltip.Root>
 								<Menu.Popup side="top" align="start" className={ styles.commandsMenuPopup }>
 									<Menu.Item onClick={ openFilePicker }>{ __( 'Upload attachment' ) }</Menu.Item>
-									<Menu.SubmenuRoot>
-										<Menu.SubmenuTrigger className={ styles.skillsSubmenuTrigger }>
-											<span>{ __( 'Skills' ) }</span>
-											<Icon
-												icon={ chevronRightSmall }
-												size={ 16 }
-												className={ styles.submenuChevron }
-												aria-hidden="true"
-											/>
-										</Menu.SubmenuTrigger>
-										<Menu.Popup side="right" align="start" className={ styles.skillsMenuPopup }>
-											{ getAiSkillCommands().map( ( command ) => (
-												<Menu.Item
-													key={ command.name }
-													className={ styles.skillMenuItem }
-													onClick={ () => {
-														void onSend( `/${ command.name }` );
-													} }
-												>
-													<span className={ styles.skillMenuItemBody }>
-														<span className={ styles.skillMenuItemLabel }>
-															{ formatSkillLabel( command.name ) }
+									{ mode === 'conversation' ? (
+										<Menu.SubmenuRoot>
+											<Menu.SubmenuTrigger className={ styles.skillsSubmenuTrigger }>
+												<span>{ __( 'Skills' ) }</span>
+												<Icon
+													icon={ chevronRightSmall }
+													size={ 16 }
+													className={ styles.submenuChevron }
+													aria-hidden="true"
+												/>
+											</Menu.SubmenuTrigger>
+											<Menu.Popup side="right" align="start" className={ styles.skillsMenuPopup }>
+												{ getAiSkillCommands().map( ( command ) => (
+													<Menu.Item
+														key={ command.name }
+														className={ styles.skillMenuItem }
+														onClick={ () => {
+															void onSend( `/${ command.name }` );
+														} }
+													>
+														<span className={ styles.skillMenuItemBody }>
+															<span className={ styles.skillMenuItemLabel }>
+																{ formatSkillLabel( command.name ) }
+															</span>
+															<span className={ styles.skillMenuItemDescription }>
+																{ command.description }
+															</span>
 														</span>
-														<span className={ styles.skillMenuItemDescription }>
-															{ command.description }
-														</span>
-													</span>
-												</Menu.Item>
-											) ) }
-										</Menu.Popup>
-									</Menu.SubmenuRoot>
+													</Menu.Item>
+												) ) }
+											</Menu.Popup>
+										</Menu.SubmenuRoot>
+									) : null }
 								</Menu.Popup>
 							</Menu.Root>
 							<input
@@ -1105,7 +1144,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 									</Menu.RadioGroup>
 								</Menu.Popup>
 							</Menu.Root>
-							{ busy ? (
+							{ mode === 'conversation' && busy ? (
 								<Tooltip.Root>
 									<Tooltip.Trigger
 										render={
@@ -1125,24 +1164,26 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 									</Tooltip.Popup>
 								</Tooltip.Root>
 							) : null }
-							<Tooltip.Root>
-								<Tooltip.Trigger
-									render={
-										<button
-											type="button"
-											className={ styles.sendButton }
-											onClick={ () => void send() }
-											disabled={ ! canSend }
-											aria-label={ sendAriaLabel }
-										/>
-									}
-								>
-									<Icon icon={ arrowUp } size={ 18 } />
-								</Tooltip.Trigger>
-								<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-									{ sendShortcutLabel }
-								</Tooltip.Popup>
-							</Tooltip.Root>
+							{ mode === 'conversation' ? (
+								<Tooltip.Root>
+									<Tooltip.Trigger
+										render={
+											<button
+												type="button"
+												className={ styles.sendButton }
+												onClick={ () => void send() }
+												disabled={ ! canSend }
+												aria-label={ sendAriaLabel }
+											/>
+										}
+									>
+										<Icon icon={ arrowUp } size={ 18 } />
+									</Tooltip.Trigger>
+									<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+										{ sendShortcutLabel }
+									</Tooltip.Popup>
+								</Tooltip.Root>
+							) : null }
 						</div>
 					</div>
 				</div>
@@ -1152,13 +1193,15 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 					</div>
 				) : null }
 			</div>
-			<FamilySwitchConfirmDialog
-				currentModel={ model }
-				pendingModel={ pendingFamilyChange }
-				inFlight={ familySwitchInFlight }
-				onCancel={ cancelFamilyChange }
-				onConfirm={ () => void confirmFamilyChange() }
-			/>
+			{ mode === 'conversation' ? (
+				<FamilySwitchConfirmDialog
+					currentModel={ model }
+					pendingModel={ pendingFamilyChange }
+					inFlight={ familySwitchInFlight }
+					onCancel={ cancelFamilyChange }
+					onConfirm={ () => void confirmFamilyChange() }
+				/>
+			) : null }
 		</>
 	);
 } );

@@ -449,6 +449,15 @@ export function createIpcConnector(): Connector {
 		async getSiteStorageUsage( siteId ) {
 			return ipcApi.getSiteStorageUsage( siteId );
 		},
+		async initializeDesignProject( siteId, brief, sessionId ) {
+			return ipcApi.initializeDesignProjectForSite( siteId, brief, sessionId );
+		},
+		async getDesignProject( siteId ) {
+			return ipcApi.getDesignProjectForSite( siteId );
+		},
+		async selectDesignArtifact( siteId, artifactId ) {
+			return ipcApi.selectDesignArtifactForSite( siteId, artifactId );
+		},
 
 		async getThemeDetails( siteId ): Promise< SiteDetails[ 'themeDetails' ] > {
 			// `false` skips the loading event consumed by Classic; this UI tracks

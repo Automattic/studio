@@ -104,3 +104,7 @@ export function getBundledWxrImportScriptPath(): string {
 export function getBundledWordPressImporterPath(): string {
 	return path.join( getWpFilesPath(), 'wordpress-importer' );
 }
+
+export function getBundledStaticSiteImporterPath(): string {
+	return path.join( getWpFilesPath(), 'static-site-importer' );
+}

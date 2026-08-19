@@ -23,6 +23,7 @@ import { SiteIcon } from '@/components/site-icon';
 import { type Annotation } from '@/components/site-preview/types';
 import { useAgentRun } from '@/data/queries/use-agent-run';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
+import { useDesignProject } from '@/data/queries/use-design-project';
 import {
 	useCreateSession,
 	useSession,
@@ -31,7 +32,11 @@ import {
 } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
 import { useSessionCommands } from '@/hooks/use-session-commands';
-import { SessionUIProvider, useSessionPreviewAnnotations } from '@/hooks/use-session-ui';
+import {
+	SessionUIProvider,
+	useSessionPreviewAnnotations,
+	type AnnotationSubmissionContext,
+} from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { formatComposerTextQuote, watchComposerTextQuote } from '@/lib/composer-text-quote';
@@ -234,6 +239,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const { data: sessions } = useSessions();
 	const { mutateAsync: createSession, isPending: isCreatingSession } = useCreateSession();
 	const ownerSite = findAiSessionOwnerSite( sites, data?.summary );
+	const { data: designProject } = useDesignProject( ownerSite?.id );
 	const effectiveEnvironment = useSessionEffectiveEnvironment( data?.summary, ownerSite?.id );
 	const {
 		isRunning,
@@ -258,6 +264,10 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		[ pendingQuestions ]
 	);
 	const composerBusy = hasActiveRun || pendingQuestions.length > 0;
+	const isCreatingInitialDesigns =
+		designProject?.sessionId === sessionId &&
+		designProject.artifacts.length < 3 &&
+		[ 'briefing', 'generating-directions', 'directions' ].includes( designProject.phase );
 	const isEmpty = useMemo(
 		() =>
 			! ( data?.entries ?? [] ).some(
@@ -332,9 +342,9 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		: [];
 
 	const handleAnnotationsDone = useCallback(
-		( annotations: Annotation[] ) => {
+		( annotations: Annotation[], context?: AnnotationSubmissionContext ) => {
 			if ( annotations.length === 0 ) return;
-			void sendMessage( formatAnnotationsAsPrompt( annotations ), {
+			void sendMessage( formatAnnotationsAsPrompt( annotations, context ), {
 				displayMessage: formatAnnotationsSubmittedMessage( annotations.length ),
 			} );
 		},
@@ -481,43 +491,45 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			scrollRef={ scrollRef }
 			header={ <SessionHeader summary={ data.summary } /> }
 			composer={
-				<div
-					className={ clsx(
-						styles.classicColumn,
-						styles.classicComposerColumn,
-						fadeAfterQuotaCheck && styles.fadeInQuick
-					) }
-				>
-					{ isScrolledAway ? (
-						<div className={ styles.scrollToLatestWrap }>
-							<IconButton
-								className={ styles.scrollToLatestButton }
-								icon={ arrowDown }
-								label={ __( 'Scroll to latest message' ) }
-								size="small"
-								variant="minimal"
-								tone="neutral"
-								onClick={ scrollToLatest }
-							/>
-						</div>
-					) : null }
-					<Composer
-						ref={ composerRef }
-						busy={ composerBusy }
-						isInterrupting={ isInterrupting }
-						error={ runError }
-						model={ currentModel }
-						onSend={ sendMessage }
-						onInterrupt={ interrupt }
-						sessionId={ sessionId }
-						entries={ data.entries }
-						ownerSiteId={ ownerSite?.id }
-						onSwitchSession={ switchSession }
-					/>
-				</div>
+				isCreatingInitialDesigns ? undefined : (
+					<div
+						className={ clsx(
+							styles.classicColumn,
+							styles.classicComposerColumn,
+							fadeAfterQuotaCheck && styles.fadeInQuick
+						) }
+					>
+						{ isScrolledAway ? (
+							<div className={ styles.scrollToLatestWrap }>
+								<IconButton
+									className={ styles.scrollToLatestButton }
+									icon={ arrowDown }
+									label={ __( 'Scroll to latest message' ) }
+									size="small"
+									variant="minimal"
+									tone="neutral"
+									onClick={ scrollToLatest }
+								/>
+							</div>
+						) : null }
+						<Composer
+							ref={ composerRef }
+							busy={ composerBusy }
+							isInterrupting={ isInterrupting }
+							error={ runError }
+							model={ currentModel }
+							onSend={ sendMessage }
+							onInterrupt={ interrupt }
+							sessionId={ sessionId }
+							entries={ data.entries }
+							ownerSiteId={ ownerSite?.id }
+							onSwitchSession={ switchSession }
+						/>
+					</div>
+				)
 			}
 			footer={
-				ownerSite ? (
+				ownerSite && ! isCreatingInitialDesigns ? (
 					<SessionChatActions
 						archivedSessions={ archivedSiteSessionHistory }
 						currentSessionId={ sessionId }
@@ -530,8 +542,8 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			}
 			footerEnd={ canTogglePreview ? <PreviewToggleButton /> : null }
 		>
-			{ isEmpty ? <EmptyBackground /> : null }
-			{ isEmpty && ownerSite ? (
+			{ isEmpty && ! isCreatingInitialDesigns ? <EmptyBackground /> : null }
+			{ isEmpty && ownerSite && ! isCreatingInitialDesigns ? (
 				<SuggestedPrompts
 					fadeIn={ fadeAfterQuotaCheck }
 					siteName={ ownerSite.name }

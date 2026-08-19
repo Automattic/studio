@@ -28,7 +28,7 @@ import { DeleteSiteDialog } from '@/components/delete-site-dialog';
 import * as Menu from '@/components/menu';
 import { ReorderableList } from '@/components/reorderable-list';
 import { SidebarButton } from '@/components/sidebar-button';
-import { deriveSiteStatus, getSiteStatusName } from '@/components/site-dropdown/utils';
+import { deriveSiteStatus, getSiteStatusName } from '@/components/site-toolbar/utils';
 import { XdebugIcon } from '@/components/xdebug-icon';
 import { useConnector } from '@/data/core';
 import { useSiteAgentActivity, type SiteAgentActivity } from '@/data/queries/use-agent-run';

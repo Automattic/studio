@@ -1,0 +1,125 @@
+.status,
+.statusError {
+	margin: 0;
+	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: 1.35;
+}
+
+.status {
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.statusError {
+	color: var(--wpds-color-fg-content-error);
+}
+
+.emptyState {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-gap-xs);
+	margin: 0;
+	padding: var(--wpds-dimension-padding-sm);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: 1.4;
+}
+
+.emptyState strong {
+	color: var(--wpds-color-fg-content-neutral);
+	font-weight: 600;
+}
+
+.loadingStatus {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--wpds-dimension-gap-sm);
+	padding: var(--wpds-dimension-padding-md);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	text-align: center;
+}
+
+.loadingLine {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--wpds-dimension-gap-sm);
+}
+
+.spinner.spinner {
+	flex: 0 0 auto;
+	width: 16px;
+	height: 16px;
+	margin: 0;
+}
+
+.loadingHint {
+	line-height: 1.35;
+}
+
+.loadError {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-gap-xs);
+	padding: var(--wpds-dimension-padding-sm);
+	color: var(--wpds-color-fg-content-error);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: 1.4;
+}
+
+.loadError strong {
+	font-weight: 600;
+}
+
+.siteList {
+	max-height: min(320px, calc(100vh - 160px));
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	scrollbar-gutter: stable;
+}
+
+.sectionLabel {
+	margin: 0;
+	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm) 0;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-sm);
+}
+
+.siteItem {
+	min-width: 0;
+}
+
+.siteText {
+	display: flex;
+	flex-direction: column;
+	gap: 0;
+	min-width: 0;
+}
+
+.siteName,
+.siteUrl {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.siteName {
+	color: var(--wpds-color-fg-content-neutral);
+	font-weight: 600;
+}
+
+.siteUrl {
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+}
+
+.createItem {
+	justify-content: space-between;
+}
+
+.menuIcon {
+	fill: currentColor;
+}

@@ -18,9 +18,9 @@ import {
 } from 'react';
 import { PreviewToggleButton } from '@/components/preview-toggle-button';
 import { ProgressiveBlur } from '@/components/progressive-blur';
-import { SiteDropdown } from '@/components/site-dropdown';
 import { SiteIcon } from '@/components/site-icon';
 import { type Annotation } from '@/components/site-preview/types';
+import { SiteToolbar } from '@/components/site-toolbar';
 import { useAgentRun } from '@/data/queries/use-agent-run';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import {
@@ -83,12 +83,7 @@ function SessionHeader( { summary }: SessionHeaderProps ) {
 			) }
 		>
 			{ site ? (
-				<SiteDropdown
-					site={ site }
-					activeEnvironment={ effectiveEnvironment }
-					showSiteIcon
-					showStatus={ sidebarCollapsed }
-				/>
+				<SiteToolbar site={ site } />
 			) : (
 				<>
 					<SiteIcon className={ styles.headerSiteIcon } seed={ siteName } />
@@ -97,9 +92,9 @@ function SessionHeader( { summary }: SessionHeaderProps ) {
 					<span className={ styles.headerEnv }>
 						{ effectiveEnvironment === 'live' ? __( 'Live' ) : __( 'Local' ) }
 					</span>
+					<span className={ styles.headerSpacer } aria-hidden="true" />
 				</>
 			) }
-			<span className={ styles.headerSpacer } aria-hidden="true" />
 		</div>
 	);
 }

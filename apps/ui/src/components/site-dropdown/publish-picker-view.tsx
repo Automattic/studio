@@ -3,13 +3,13 @@ import { __ } from '@wordpress/i18n';
 import { chevronLeft, plus } from '@wordpress/icons';
 import { Icon, IconButton } from '@wordpress/ui';
 import { useEffect, useState } from 'react';
+import { stripProtocol } from '@/components/site-toolbar/utils';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
 import { usePickableWpcomSites } from '@/data/queries/use-wpcom-sites';
 import { getWpcomLoadErrorDetail } from '@/lib/wpcom-load-error';
 import styles from './publish-picker-view.module.css';
-import { stripProtocol } from './utils';
 import type { SiteDetails, SyncSite } from '@/data/core';
 
 type Props = {

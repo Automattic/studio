@@ -7,6 +7,13 @@ import {
 import { registerSelectiveSyncConnector } from '@/components/selective-sync/lib/get-ipc-api';
 import { SyncDialog } from '@/components/selective-sync/sync-dialog';
 import '@/components/selective-sync/selective-sync.css';
+import { DisconnectSiteDialog } from '@/components/site-toolbar/disconnect-site-dialog';
+import {
+	deriveSiteStatus,
+	ensureProtocol,
+	pickLatestSnapshot,
+	pickLiveSite,
+} from '@/components/site-toolbar/utils';
 import { useConnector } from '@/data/core';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import { useIsSiteStarting, useIsSiteStopping, useSiteOperation } from '@/data/queries/use-sites';
@@ -14,13 +21,11 @@ import { useSnapshots } from '@/data/queries/use-snapshots';
 import { usePullSiteFromLive, usePushSiteToLive } from '@/data/queries/use-sync-site';
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { getSiteDisplayUrl } from '@/lib/get-site-url';
-import { DisconnectSiteDialog } from './disconnect-site-dialog';
 import { DropdownTrigger } from './dropdown-trigger';
 import { MainView } from './main-view';
 import { PublishPickerView } from './publish-picker-view';
 import styles from './style.module.css';
 import { getSiteDropdownSecondary } from './trigger-secondary';
-import { deriveSiteStatus, ensureProtocol, pickLatestSnapshot, pickLiveSite } from './utils';
 import type { TreeNode } from '@/components/selective-sync/tree-view';
 import type { SiteDetails } from '@/data/core';
 

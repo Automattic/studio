@@ -488,6 +488,9 @@ if ( isset( $source['url'] ) && function_exists( 'static_site_importer_ability_i
 
 	if ( isset( $source['artifact'] ) && is_array( $source['artifact'] ) ) {
 		$artifact = $source['artifact'];
+		if ( in_array( $artifact['theme_materialization'] ?? '', array( 'block', 'classic' ), true ) ) {
+			$input['theme_materialization'] = (string) $artifact['theme_materialization'];
+		}
 		$metadata = $artifact;
 		unset( $metadata['schema'], $metadata['entrypoint'], $metadata['files'] );
 		$input['source'] = array(

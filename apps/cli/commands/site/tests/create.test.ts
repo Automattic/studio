@@ -467,6 +467,30 @@ describe( 'CLI: studio site create', () => {
 			expect( capture ).toHaveBeenCalledTimes( 1 );
 		} );
 
+		it( 'forwards an artifact-declared classic materialization strategy', () => {
+			const artifactDir = fs.mkdtempSync( path.join( '/tmp', 'studio-classic-artifact-' ) );
+			const artifactPath = path.join( artifactDir, 'artifact.json' );
+			fs.writeFileSync(
+				artifactPath,
+				JSON.stringify( {
+					schema: 'blocks-engine/php-transformer/site-artifact/v1',
+					entrypoint: 'website/index.html',
+					theme_materialization: 'classic',
+					files: [ { path: 'website/index.html', content: '<main>Home</main>' } ],
+				} )
+			);
+
+			const blueprint = buildCreateFromSourceBlueprint(
+				artifactPath,
+				'Classic Site',
+				'https://example.com/static-site-importer.zip'
+			);
+
+			expect( blueprint.staticSiteImport.code ).toContain(
+				"$input['theme_materialization'] = (string) $artifact['theme_materialization'];"
+			);
+		} );
+
 		it( 'should prefer the canonical resumable plan-first URL import contract', () => {
 			const blueprint = buildCreateFromSourceBlueprint(
 				'https://example.com/',

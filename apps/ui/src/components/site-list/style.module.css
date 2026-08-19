@@ -275,6 +275,13 @@
 	outline-offset: -2px;
 }
 
+.siteAction[aria-pressed='true'] {
+	--wp-ui-button-background-color: var(--wpds-color-fg-content-neutral);
+	--wp-ui-button-background-color-active: var(--wpds-color-fg-content-neutral);
+	--wp-ui-button-foreground-color: var(--wpds-color-bg-surface-neutral);
+	--wp-ui-button-foreground-color-active: var(--wpds-color-bg-surface-neutral);
+}
+
 /* Collapsed, only the trailing status button shows; hover/focus/active
    reveals the overview button next to it. The header carries
    `data-popup-open` while its right-click menu is open (Base UI sets it on

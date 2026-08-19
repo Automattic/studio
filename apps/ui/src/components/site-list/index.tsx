@@ -212,7 +212,15 @@ function sortSitesByManualOrder( sites: SiteDetails[], manualOrder: string[] ): 
 	);
 }
 
-function SiteOverviewButton( { site }: { site: SiteDetails } ) {
+function SiteOverviewButton( {
+	site,
+	isOverviewActive,
+	onBackToChat,
+}: {
+	site: SiteDetails;
+	isOverviewActive: boolean;
+	onBackToChat: () => void;
+} ) {
 	const navigate = useNavigate();
 	const connector = useConnector();
 
@@ -223,9 +231,14 @@ function SiteOverviewButton( { site }: { site: SiteDetails } ) {
 			size="small"
 			icon={ settings }
 			label={ __( 'Site overview' ) }
+			aria-pressed={ isOverviewActive }
 			className={ styles.siteAction }
 			onClick={ ( event ) => {
 				event.stopPropagation();
+				if ( isOverviewActive ) {
+					onBackToChat();
+					return;
+				}
 				void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'overview' } );
 				void navigate( {
 					to: '/sites/$siteId/overview',
@@ -625,7 +638,13 @@ function SiteSection( {
 							</SidebarButton>
 						</div>
 						<div className={ styles.siteActions } data-reorder-exclude>
-							{ chatEnabled ? <SiteOverviewButton site={ site } /> : null }
+							{ chatEnabled ? (
+								<SiteOverviewButton
+									site={ site }
+									isOverviewActive={ isContextActive }
+									onBackToChat={ handleOpenSite }
+								/>
+							) : null }
 							<SiteStatusButton site={ site } isStarting={ isStarting } isStopping={ isStopping } />
 						</div>
 					</header>

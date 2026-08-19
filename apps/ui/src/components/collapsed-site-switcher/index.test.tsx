@@ -2,6 +2,10 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { CollapsedSiteSwitcher } from './index';
 
+vi.mock( '@wordpress/keycodes', () => ( {
+	isAppleOS: () => true,
+} ) );
+
 vi.mock( '@/components/site-list', () => ( {
 	SiteList: ( { className, onSiteOpen }: { className?: string; onSiteOpen?: () => void } ) => (
 		<div className={ className } data-testid="site-list">
@@ -10,10 +14,11 @@ vi.mock( '@/components/site-list', () => ( {
 	),
 } ) );
 
-function renderSwitcher() {
+function renderSwitcher( onToggleSidebar: () => void = () => {} ) {
 	render(
 		<CollapsedSiteSwitcher
 			backgroundColor="#1e1e1e"
+			onToggleSidebar={ onToggleSidebar }
 			trigger={ <button aria-label="Show sidebar">Toggle</button> }
 		/>
 	);
@@ -29,7 +34,7 @@ describe( 'CollapsedSiteSwitcher', () => {
 		fireEvent.click( trigger );
 
 		expect( screen.getByTestId( 'site-list' ) ).toBeInTheDocument();
-		expect( screen.getByTestId( 'site-list' ).parentElement ).toHaveStyle( {
+		expect( screen.getByTestId( 'site-list' ).parentElement?.parentElement ).toHaveStyle( {
 			backgroundColor: '#1e1e1e',
 		} );
 	} );
@@ -60,5 +65,16 @@ describe( 'CollapsedSiteSwitcher', () => {
 
 		expect( eventWasCancelled ).toBe( false );
 		expect( screen.queryByTestId( 'site-list' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'opens the full sidebar and shows the Cmd+B hint for the CTA', () => {
+		const onToggleSidebar = vi.fn();
+		const trigger = renderSwitcher( onToggleSidebar );
+		fireEvent.click( trigger );
+
+		const cta = screen.getByRole( 'button', { name: 'Open sidebar Command B' } );
+		fireEvent.click( cta );
+
+		expect( onToggleSidebar ).toHaveBeenCalledTimes( 1 );
 	} );
 } );

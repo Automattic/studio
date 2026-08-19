@@ -133,6 +133,7 @@ export function SidebarLayout( {
 								<span className={ styles.floatingToggleButton }>
 									<CollapsedSiteSwitcher
 										backgroundColor={ chromeBg }
+										onToggleSidebar={ toggleSidebar }
 										trigger={
 											// Not IconButton: its unconditional tooltip would
 											// fight the hover-opened switcher popover. The

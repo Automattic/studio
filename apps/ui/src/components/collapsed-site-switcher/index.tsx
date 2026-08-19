@@ -1,4 +1,5 @@
 import { __ } from '@wordpress/i18n';
+import { isAppleOS } from '@wordpress/keycodes';
 import { privateApis } from '@wordpress/theme';
 import { Popover, VisuallyHidden } from '@wordpress/ui';
 import { clsx } from 'clsx';
@@ -19,11 +20,16 @@ const HOVER_CLOSE_DELAY_MS = 350;
 export function CollapsedSiteSwitcher( {
 	backgroundColor,
 	trigger,
+	onToggleSidebar,
 }: {
 	backgroundColor: string;
 	trigger: ReactElement< Record< string, unknown > >;
+	onToggleSidebar: () => void;
 } ) {
 	const [ open, setOpen ] = useState( false );
+	const isApple = isAppleOS();
+	const modifierKey = isApple ? '⌘' : 'Ctrl';
+	const modifierAriaLabel = isApple ? __( 'Command' ) : __( 'Control' );
 
 	return (
 		<Popover.Root open={ open } onOpenChange={ setOpen }>
@@ -50,11 +56,24 @@ export function CollapsedSiteSwitcher( {
 				     renders identically on the window-chrome background. */ }
 				<ThemeProvider density="compact" color={ { bg: backgroundColor } }>
 					<div className={ styles.surface } style={ { backgroundColor } }>
-						<SiteList
-							className={ styles.siteList }
-							reorderable={ false }
-							onSiteOpen={ () => setOpen( false ) }
-						/>
+						<div className={ styles.scrollArea }>
+							<SiteList
+								className={ styles.siteList }
+								reorderable={ false }
+								onSiteOpen={ () => setOpen( false ) }
+							/>
+						</div>
+						<button type="button" className={ styles.openSidebarCta } onClick={ onToggleSidebar }>
+							<span>{ __( 'Open sidebar' ) }</span>
+							<span className={ styles.shortcutKeys } aria-label={ `${ modifierAriaLabel } B` }>
+								<kbd className={ styles.shortcutKey } aria-hidden="true">
+									{ modifierKey }
+								</kbd>
+								<kbd className={ styles.shortcutKey } aria-hidden="true">
+									B
+								</kbd>
+							</span>
+						</button>
 					</div>
 				</ThemeProvider>
 			</Popover.Popup>

@@ -1,6 +1,13 @@
 import { buildChatAttachmentSummaries } from '@studio/common/ai/chat-attachments';
-import { getAgentEndFailure, isUsageCapError } from '@studio/common/ai/json-events';
-import { formatUsageCapNotice } from '@studio/common/lib/studio-assistant-quota';
+import {
+	getAgentEndFailure,
+	isOutOfCreditsError,
+	isUsageCapError,
+} from '@studio/common/ai/json-events';
+import {
+	formatOutOfCreditsNotice,
+	formatUsageCapNotice,
+} from '@studio/common/lib/studio-assistant-quota';
 import { useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
 import {
@@ -119,6 +126,20 @@ const initialState: State = {
 	answeredQuestions: {},
 	queuedPrompts: [],
 };
+
+// Rewrites the WordPress.com proxy's quota refusals to their dedicated copy.
+// Both ride the composer's non-blocking banner (`usageCapReached`) so the user
+// can keep typing — out of credits (STU-2236) resolves by buying credits, the
+// monthly cap by waiting for the reset.
+function toQuotaAwareError( rawMessage: string ): { message: string; usageCapReached: boolean } {
+	if ( isOutOfCreditsError( rawMessage ) ) {
+		return { message: formatOutOfCreditsNotice(), usageCapReached: true };
+	}
+	if ( isUsageCapError( rawMessage ) ) {
+		return { message: formatUsageCapNotice(), usageCapReached: true };
+	}
+	return { message: rawMessage, usageCapReached: false };
+}
 
 type Action =
 	| { type: 'hydrate_active_run'; runId: string; startedAt: number; interrupting: boolean }
@@ -353,12 +374,9 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					} );
 					return;
 				case 'error': {
-					const isUsageCap = isUsageCapError( event.message );
-					const message = isUsageCap ? formatUsageCapNotice() : event.message;
 					dispatchSession( payload.sessionId, {
 						type: 'error_set',
-						message,
-						usageCapReached: isUsageCap,
+						...toQuotaAwareError( event.message ),
 					} );
 					return;
 				}
@@ -557,9 +575,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					return [ ...entries.slice( 0, idx ), ...entries.slice( idx + 1 ) ];
 				} );
 				const rawMessage = err instanceof Error ? err.message : String( err );
-				const isUsageCap = isUsageCapError( rawMessage );
-				const message = isUsageCap ? formatUsageCapNotice() : rawMessage;
-				dispatchSession( sessionId, { type: 'error_set', message, usageCapReached: isUsageCap } );
+				dispatchSession( sessionId, { type: 'error_set', ...toQuotaAwareError( rawMessage ) } );
 				throw err;
 			}
 		},

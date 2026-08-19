@@ -26,7 +26,7 @@ import {
 	Spacer,
 } from '@earendil-works/pi-tui';
 import { stripMediaWidgetPayloadLines } from '@studio/common/ai/chat-artifacts';
-import { isUsageCapError } from '@studio/common/ai/json-events';
+import { isOutOfCreditsError, isUsageCapError } from '@studio/common/ai/json-events';
 import { DEFAULT_MODEL, getAiModelLabel, type AiModelId } from '@studio/common/ai/models';
 import { findLastAssistant } from '@studio/common/ai/session-events';
 import { randomThinkingMessage } from '@studio/common/ai/thinking-messages';
@@ -35,6 +35,7 @@ import chalk from '@studio/common/lib/chalk';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import {
 	fetchStudioAssistantQuota,
+	formatOutOfCreditsNotice,
 	formatQuotaResetDate,
 	formatUsageCapNotice,
 } from '@studio/common/lib/studio-assistant-quota';
@@ -1414,10 +1415,10 @@ export class AiChatUI implements AiOutputAdapter {
 	}
 
 	/**
-	 * Returns true when the current/last turn surfaced the AI usage cap
-	 * message to the user. Lets callers suppress redundant downstream
-	 * errors (e.g. the SDK's "process exited with code 1" that follows
-	 * the upstream 429).
+	 * Returns true when the current/last turn surfaced a quota refusal
+	 * notice — the usage cap or out-of-credits — to the user. Lets callers
+	 * suppress redundant downstream errors (e.g. the SDK's "process exited
+	 * with code 1" that follows the upstream 429/402).
 	 */
 	hasErrorBeenSurfaced(): boolean {
 		return this.usageCapReached;
@@ -2103,23 +2104,26 @@ export class AiChatUI implements AiOutputAdapter {
 					return;
 				}
 
-				// Detect the AI usage cap response from the WordPress.com proxy.
-				// On wpcom a 429 is always a cap issue — pi-ai surfaces it via
-				// `stopReason: 'error'` with the upstream body in `errorMessage`.
-				if (
-					message.stopReason === 'error' &&
-					this.currentProvider === 'wpcom' &&
-					isUsageCapError( message.errorMessage )
-				) {
-					this.hideLoader();
-					this.usageCapReached = true;
-					this.showError( formatUsageCapNotice() );
-					// Async on purpose: the reset date needs a wpcom round trip and
-					// must not block rendering the cap notice.
-					void this.showUsageCapResetDate();
-					this.currentMarkdown = null;
-					this.currentResponseText = '';
-					return;
+				// Detect the WordPress.com proxy's quota refusals — the monthly
+				// usage cap (429) and out-of-credits (402, STU-2236). pi-ai
+				// surfaces both via `stopReason: 'error'` with the upstream body
+				// in `errorMessage`. Out of credits gets its own copy: waiting
+				// for the reset doesn't clear it — buying credits does.
+				if ( message.stopReason === 'error' && this.currentProvider === 'wpcom' ) {
+					const outOfCredits = isOutOfCreditsError( message.errorMessage );
+					if ( outOfCredits || isUsageCapError( message.errorMessage ) ) {
+						this.hideLoader();
+						this.usageCapReached = true;
+						this.showError( outOfCredits ? formatOutOfCreditsNotice() : formatUsageCapNotice() );
+						if ( ! outOfCredits ) {
+							// Async on purpose: the reset date needs a wpcom round trip
+							// and must not block rendering the cap notice.
+							void this.showUsageCapResetDate();
+						}
+						this.currentMarkdown = null;
+						this.currentResponseText = '';
+						return;
+					}
 				}
 
 				for ( const block of message.content ) {

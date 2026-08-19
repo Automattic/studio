@@ -1,6 +1,8 @@
 import {
+	ADD_AI_CREDITS_URL,
 	formatAiAccessRequiredNotice,
 	formatAiBlockedNotice,
+	formatOutOfCreditsNoticeWithLink,
 	STUDIO_CODE_AI_BETA_APPLY_URL,
 	WPCOM_SUPPORT_CONTACT_URL,
 	type StudioAssistantQuota,
@@ -41,5 +43,13 @@ export function AiAccessRequiredNotice( {
 export function AiBlockedNotice() {
 	return createInterpolateElement( formatAiBlockedNotice(), {
 		supportLink: <NoticeLink url={ WPCOM_SUPPORT_CONTACT_URL } />,
+	} );
+}
+
+// Both AI credit pools are empty (STU-2236); buying credits is the fix, so
+// the notice links straight to the checkout.
+export function OutOfCreditsNotice() {
+	return createInterpolateElement( formatOutOfCreditsNoticeWithLink(), {
+		buyLink: <NoticeLink url={ ADD_AI_CREDITS_URL } />,
 	} );
 }

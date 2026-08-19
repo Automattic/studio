@@ -127,20 +127,6 @@ const initialState: State = {
 	queuedPrompts: [],
 };
 
-// Rewrites the WordPress.com proxy's quota refusals to their dedicated copy.
-// Both ride the composer's non-blocking banner (`usageCapReached`) so the user
-// can keep typing — out of credits (STU-2236) resolves by buying credits, the
-// monthly cap by waiting for the reset.
-function toQuotaAwareError( rawMessage: string ): { message: string; usageCapReached: boolean } {
-	if ( isOutOfCreditsError( rawMessage ) ) {
-		return { message: formatOutOfCreditsNotice(), usageCapReached: true };
-	}
-	if ( isUsageCapError( rawMessage ) ) {
-		return { message: formatUsageCapNotice(), usageCapReached: true };
-	}
-	return { message: rawMessage, usageCapReached: false };
-}
-
 type Action =
 	| { type: 'hydrate_active_run'; runId: string; startedAt: number; interrupting: boolean }
 	| { type: 'send_pending'; startedAt: number }
@@ -374,9 +360,21 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					} );
 					return;
 				case 'error': {
+					const isUsageCap = isUsageCapError( event.message );
+					// Out of credits (STU-2236) rides the same non-blocking banner
+					// as the cap, with its own copy: buying credits is the fix, not
+					// waiting for the monthly reset.
+					const isOutOfCredits = isOutOfCreditsError( event.message );
+					let message = event.message;
+					if ( isOutOfCredits ) {
+						message = formatOutOfCreditsNotice();
+					} else if ( isUsageCap ) {
+						message = formatUsageCapNotice();
+					}
 					dispatchSession( payload.sessionId, {
 						type: 'error_set',
-						...toQuotaAwareError( event.message ),
+						message,
+						usageCapReached: isUsageCap || isOutOfCredits,
 					} );
 					return;
 				}
@@ -575,7 +573,19 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					return [ ...entries.slice( 0, idx ), ...entries.slice( idx + 1 ) ];
 				} );
 				const rawMessage = err instanceof Error ? err.message : String( err );
-				dispatchSession( sessionId, { type: 'error_set', ...toQuotaAwareError( rawMessage ) } );
+				const isUsageCap = isUsageCapError( rawMessage );
+				const isOutOfCredits = isOutOfCreditsError( rawMessage );
+				let message = rawMessage;
+				if ( isOutOfCredits ) {
+					message = formatOutOfCreditsNotice();
+				} else if ( isUsageCap ) {
+					message = formatUsageCapNotice();
+				}
+				dispatchSession( sessionId, {
+					type: 'error_set',
+					message,
+					usageCapReached: isUsageCap || isOutOfCredits,
+				} );
 				throw err;
 			}
 		},

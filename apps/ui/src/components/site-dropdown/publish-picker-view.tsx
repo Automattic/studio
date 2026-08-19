@@ -2,10 +2,12 @@ import { useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
 import { chevronLeft, plus } from '@wordpress/icons';
 import { Icon, IconButton } from '@wordpress/ui';
+import { useEffect, useState } from 'react';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
 import { usePickableWpcomSites } from '@/data/queries/use-wpcom-sites';
+import { getWpcomLoadErrorDetail } from '@/lib/wpcom-load-error';
 import styles from './publish-picker-view.module.css';
 import { stripProtocol } from './utils';
 import type { SiteDetails, SyncSite } from '@/data/core';
@@ -23,12 +25,34 @@ export function PublishPickerView( { site, onClose }: Props ) {
 	const queryClient = useQueryClient();
 	const { data: authUser } = useAuthUser();
 	const pickableSites = usePickableWpcomSites();
+	const isLoading =
+		pickableSites.data === undefined && ( pickableSites.isLoading || pickableSites.isFetching );
+	const loadFailed = !! pickableSites.error && pickableSites.data === undefined;
+	const [ connectingId, setConnectingId ] = useState< number | null >( null );
+	const [ connectError, setConnectError ] = useState( '' );
+	const [ slowLoading, setSlowLoading ] = useState( false );
+
+	// Large accounts can take a while; surface a hint so a long load doesn't
+	// read as a hang.
+	useEffect( () => {
+		if ( ! isLoading ) {
+			setSlowLoading( false );
+			return;
+		}
+		const timer = window.setTimeout( () => setSlowLoading( true ), 6_000 );
+		return () => window.clearTimeout( timer );
+	}, [ isLoading ] );
 
 	const openExternal = ( url: string ) => {
 		void connector.openExternalUrl( url );
 	};
 
 	const handlePickSite = async ( pickedSite: SyncSite ) => {
+		if ( connectingId !== null ) {
+			return;
+		}
+		setConnectingId( pickedSite.id );
+		setConnectError( '' );
 		try {
 			await connector.connectWpcomSite( site.id, {
 				...pickedSite,
@@ -40,7 +64,13 @@ export function PublishPickerView( { site, onClose }: Props ) {
 			} );
 			onClose();
 		} catch ( error ) {
-			console.error( 'Failed to connect WordPress.com site:', error );
+			setConnectError(
+				error instanceof Error && error.message
+					? error.message
+					: __( 'Failed to connect the site. Please try again.' )
+			);
+		} finally {
+			setConnectingId( null );
 		}
 	};
 
@@ -70,10 +100,34 @@ export function PublishPickerView( { site, onClose }: Props ) {
 				/>
 				<span className={ styles.title }>{ __( 'Publish this site' ) }</span>
 			</div>
+			{ connectError ? (
+				<p role="alert" className={ styles.statusError }>
+					{ connectError }
+				</p>
+			) : null }
 			{ authUser ? (
 				<div className={ styles.body }>
-					{ pickableSites.isLoading ? (
-						<div className={ styles.status }>{ __( 'Loading sites…' ) }</div>
+					{ isLoading ? (
+						<div role="status" className={ styles.status }>
+							<span>{ __( 'Loading sites…' ) }</span>
+							{ slowLoading ? (
+								<span className={ styles.statusHint }>
+									{ __( 'Large accounts can take a little longer.' ) }
+								</span>
+							) : null }
+						</div>
+					) : loadFailed ? (
+						<div role="alert" className={ styles.loadError }>
+							<strong>{ __( 'Couldn’t load your WordPress.com sites.' ) }</strong>
+							<span>{ getWpcomLoadErrorDetail( pickableSites.error ) }</span>
+							<button
+								type="button"
+								className={ styles.retry }
+								onClick={ () => void pickableSites.refetch() }
+							>
+								{ __( 'Retry' ) }
+							</button>
+						</div>
 					) : pickableSites.data && pickableSites.data.length > 0 ? (
 						<ul className={ styles.list }>
 							{ pickableSites.data.map( ( candidate ) => (
@@ -81,9 +135,14 @@ export function PublishPickerView( { site, onClose }: Props ) {
 									<button
 										type="button"
 										className={ styles.item }
+										disabled={ connectingId !== null }
 										onClick={ () => void handlePickSite( candidate ) }
 									>
-										<span className={ styles.itemName }>{ candidate.name || candidate.url }</span>
+										<span className={ styles.itemName }>
+											{ connectingId === candidate.id
+												? __( 'Connecting…' )
+												: candidate.name || candidate.url }
+										</span>
 										<span className={ styles.itemUrl }>{ stripProtocol( candidate.url ) }</span>
 									</button>
 								</li>
@@ -96,7 +155,12 @@ export function PublishPickerView( { site, onClose }: Props ) {
 					) }
 				</div>
 			) : null }
-			<button type="button" className={ styles.create } onClick={ handleCreateNew }>
+			<button
+				type="button"
+				className={ styles.create }
+				disabled={ connectingId !== null }
+				onClick={ handleCreateNew }
+			>
 				<Icon icon={ plus } size={ 16 } />
 				<span>{ __( 'Create a new WordPress.com site' ) }</span>
 			</button>

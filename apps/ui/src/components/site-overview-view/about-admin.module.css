@@ -8,7 +8,7 @@
 
 .value {
 	display: flex;
-	align-items: baseline;
+	flex-direction: column;
 	min-width: 0;
 	/* Left-aligns the username with "Flavor" and the WP/PHP meta line above —
 	   the button's own horizontal padding provides the click target instead. */
@@ -18,6 +18,18 @@
 	   than the gap between the other lines. */
 	margin-top: -2px;
 	margin-bottom: -2px;
+}
+
+/* A revealed password drops to its own full-width line below "admin :"
+   instead of wrapping mid-value into a narrow hanging indent. */
+.value.stacked {
+	gap: 2px;
+}
+
+.usernameRow {
+	display: flex;
+	align-items: baseline;
+	min-width: 0;
 }
 
 .copyText {
@@ -42,16 +54,14 @@
 }
 
 /* The username must always stay legible, so it never shrinks or truncates. */
-.value > .copyText:first-of-type {
+.usernameRow > .copyText:first-of-type {
 	flex: 0 0 auto;
 }
 
-/* Revealed passwords are long random strings — let them take the remaining
-   width and wrap so the full value is visible. While hidden, the dots keep
-   their natural width instead of stretching across the row. */
+/* The revealed password is a long random string on its own full-width line
+   (see .stacked) — wrap it so the full value is visible instead of clipping. */
 .copyText.wrap {
-	flex: 1 1 auto;
-	min-width: 0;
+	width: 100%;
 	white-space: normal;
 	overflow-wrap: anywhere;
 }

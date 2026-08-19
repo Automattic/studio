@@ -154,18 +154,34 @@ export function LoginValueLine( {
 	passwordHidden,
 }: Pick< AboutLoginState, 'username' | 'password' | 'passwordHidden' > ) {
 	return (
-		<div className={ styles.value }>
-			<CopyText value={ username } display={ username } copyLabel={ __( 'Copy admin username' ) } />
-			<span className={ styles.sep } aria-hidden="true">
-				:
-			</span>
-			<CopyText
-				value={ password }
-				display={ passwordHidden ? '•'.repeat( 8 ) : password || '—' }
-				copyLabel={ __( 'Copy admin password' ) }
-				wrap={ ! passwordHidden }
-				disabled={ ! password }
-			/>
+		<div className={ passwordHidden ? styles.value : `${ styles.value } ${ styles.stacked }` }>
+			<div className={ styles.usernameRow }>
+				<CopyText
+					value={ username }
+					display={ username }
+					copyLabel={ __( 'Copy admin username' ) }
+				/>
+				<span className={ styles.sep } aria-hidden="true">
+					:
+				</span>
+				{ passwordHidden ? (
+					<CopyText
+						value={ password }
+						display={ '•'.repeat( 8 ) }
+						copyLabel={ __( 'Copy admin password' ) }
+						disabled={ ! password }
+					/>
+				) : null }
+			</div>
+			{ passwordHidden ? null : (
+				<CopyText
+					value={ password }
+					display={ password || '—' }
+					copyLabel={ __( 'Copy admin password' ) }
+					wrap
+					disabled={ ! password }
+				/>
+			) }
 		</div>
 	);
 }

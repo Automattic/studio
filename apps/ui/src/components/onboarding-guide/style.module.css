@@ -31,8 +31,12 @@
 	background: rgb(0 0 0 / 70%);
 }
 
-/* Over a dark full-bleed illustration the default (dark) icon vanishes; force a
-   light icon so Skip stays legible. */
+/* This artwork stays dark in both themes, so match the dark theme's neutral
+   hover fill and keep the icon light in both themes. */
+.closeOnDark {
+	--wp-ui-button-background-color-active: #282828;
+}
+
 .closeOnDark,
 .closeOnDark svg {
 	color: #fff;

@@ -65,10 +65,16 @@ export interface TracksIdentity {
 
 export type TracksProps = Record< string, string | number | boolean | undefined >;
 
-// Shared origin vocabulary — which application/renderer an event came from. Kept here so the desktop
-// and CLI wrappers stay in sync. See `docs/design-docs/analytics-tracks.md`.
-export type TracksChannel = 'studio-ui' | 'studio-cli';
+// Which application an event came from: the Electron app, the browser UI served by `studio ui`, or a
+// bare terminal invocation. Orthogonal to `ui_version`, which is the renderer chrome.
+// See `docs/design-docs/analytics-tracks.md`.
+export const TRACKS_CHANNELS = [ 'studio-ui', 'studio-cli', 'studio-web' ] as const;
+export type TracksChannel = ( typeof TRACKS_CHANNELS )[ number ];
 export type TracksUiVersion = 'v1' | 'v2';
+
+export function isTracksChannel( value: unknown ): value is TracksChannel {
+	return TRACKS_CHANNELS.includes( value as TracksChannel );
+}
 
 // The path a site came into existence through, for `studio_site_created`. `blueprint` is inferred by
 // the CLI from the presence of a blueprint; the other non-`new` values are threaded down from the
@@ -107,6 +113,17 @@ export type TracksAiClient = 'studio-code';
 
 // Sent as `length_bucket`; bucketed because the instructions text is never sent.
 export type TracksInstructionsLengthBucket = 'empty' | 'short' | 'medium' | 'long';
+
+export function getInstructionsLengthBucket( content: string ): TracksInstructionsLengthBucket {
+	const length = content.trim().length;
+	if ( length === 0 ) {
+		return 'empty';
+	}
+	if ( length <= 200 ) {
+		return 'short';
+	}
+	return length <= 1000 ? 'medium' : 'long';
+}
 
 // The site panel/tab a `studio_panel_opened` event refers to. Studio Classic emits the tab-strip names
 // (`sync`/`import-export`/`previews` are Classic-only); the agentic UI reuses the shared names —

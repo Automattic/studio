@@ -28,11 +28,19 @@ export function formatBytes( bytes: number ): string {
 	}`;
 }
 
-export function AboutSection( { site, wpVersion }: { site: SiteDetails; wpVersion?: string } ) {
+export function AboutSection( {
+	site,
+	wpVersion,
+	themeDetails = site.themeDetails,
+}: {
+	site: SiteDetails;
+	wpVersion?: string;
+	themeDetails?: SiteDetails[ 'themeDetails' ];
+} ) {
 	const connector = useConnector();
 	const startSite = useStartSite();
 	const isStarting = useIsSiteStarting( site.id );
-	const themeName = site.themeDetails?.name || site.themeDetails?.slug || '—';
+	const themeName = themeDetails?.name || themeDetails?.slug || '—';
 	const thumbnail = useSiteThumbnail( site.id );
 	const storage = useSiteStorageUsage( site.id );
 	const wpLabel = wpVersion

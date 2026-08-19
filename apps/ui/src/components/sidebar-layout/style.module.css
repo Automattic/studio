@@ -22,6 +22,7 @@
 	   inner wrapper. */
 	overflow-y: auto;
 	transition: width 150ms ease;
+	-webkit-app-region: drag;
 }
 
 /* Inside the sidebar's dark ThemeProvider; generates no box, but declares
@@ -49,6 +50,7 @@
 	bottom: 0;
 	z-index: 1;
 	background-color: var(--app-chrome-bg);
+	-webkit-app-region: no-drag;
 }
 
 .sidebarCollapsed {

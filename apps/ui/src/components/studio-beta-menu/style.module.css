@@ -13,7 +13,11 @@
 	width: max-content;
 	max-width: 100%;
 	box-sizing: border-box;
-	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md);
+	/* Fixed, not token-driven: @wordpress/theme 1.x dropped the `compact`
+	   density scale these tokens used to resolve through, so padding-sm/md
+	   now render at 2x the old size. Pin the old compact values (4px/8px)
+	   directly until the app has its own compact-scale tokens. */
+	padding: 4px 8px;
 	appearance: none;
 	background-color: var(--beta-bubble-bg);
 	border: var(--wpds-border-width-xs) solid var(--beta-bubble-border);

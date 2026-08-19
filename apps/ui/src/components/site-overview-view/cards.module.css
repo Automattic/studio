@@ -243,6 +243,29 @@
 	color: var(--wpds-color-foreground-content-neutral-weak);
 }
 
+.credentialRow {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.credentialValue {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-xs);
+	min-width: 0;
+}
+
+.credentialText {
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	color: var(--wpds-color-foreground-content-neutral);
+}
+
 .storageSkeleton {
 	background: linear-gradient(
 		90deg,

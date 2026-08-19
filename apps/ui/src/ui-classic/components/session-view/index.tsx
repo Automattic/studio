@@ -301,6 +301,10 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		updateIsScrolledAway();
 	}, [ data, pendingQuestions.length, queuedPrompts.length, updateIsScrolledAway ] );
 
+	useLayoutEffect( () => {
+		setIsScrolledAway( false );
+	}, [ sessionId ] );
+
 	const scrollToLatest = useCallback( () => {
 		const node = scrollRef.current;
 		if ( ! node ) {
@@ -375,7 +379,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 
 	useLayoutEffect( () => {
 		const node = scrollRef.current;
-		if ( ! node || pendingQuestions.length > 0 ) {
+		if ( ! node || isScrolledAway || pendingQuestions.length > 0 ) {
 			return;
 		}
 		node.scrollTop = node.scrollHeight;
@@ -383,7 +387,14 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			node.scrollTop = node.scrollHeight;
 		} );
 		return () => cancelAnimationFrame( id );
-	}, [ sessionId, data, isRunning, pendingQuestions.length, queuedPrompts.length ] );
+	}, [
+		sessionId,
+		data,
+		isRunning,
+		isScrolledAway,
+		pendingQuestions.length,
+		queuedPrompts.length,
+	] );
 
 	const {
 		data: quota,

@@ -58,15 +58,7 @@ export function buildUsageCapErrorMessage( originalMessage: string ): string {
 	return `${ USAGE_CAP_ERROR_PREFIX }: ${ originalMessage }`;
 }
 
-// The proxy has stamped the cap with `cost_cap_exceeded` (#3102) and later
-// `studio_cap_exceeded` (STU-2236) — match both so either wire format maps to
-// the cap state.
-const COST_CAP_CODE_PATTERN = /\b(?:cost|studio)_cap_exceeded\b/i;
-
-const USAGE_CAP_PATTERN = new RegExp(
-	`(?:${ USAGE_CAP_ERROR_PREFIX }|${ COST_CAP_CODE_PATTERN.source })`,
-	'i'
-);
+const USAGE_CAP_PATTERN = new RegExp( `(?:${ USAGE_CAP_ERROR_PREFIX }|cost_cap_exceeded)`, 'i' );
 
 /**
  * Returns true when an error message indicates the user hit the AI usage cap:
@@ -86,7 +78,7 @@ export function isUsageCapError( message: string | undefined | null ): boolean {
  * alone can't tell the two apart — the `cost_cap_exceeded` code can.
  */
 export function isCostCapErrorMessage( message: string | undefined | null ): boolean {
-	return COST_CAP_CODE_PATTERN.test( message ?? '' );
+	return /\bcost_cap_exceeded\b/i.test( message ?? '' );
 }
 
 /**

@@ -56,7 +56,6 @@ describe( 'isUsageCapError', () => {
 		expect(
 			isUsageCapError( 'OpenAI API error (429): {"error":{"code":"cost_cap_exceeded"}}' )
 		).toBe( true );
-		expect( isUsageCapError( '429 studio_cap_exceeded: Monthly cost cap exceeded.' ) ).toBe( true );
 	} );
 
 	// STU-2236: both credit pools empty is its own state — the fix is buying
@@ -98,7 +97,7 @@ describe( 'isOutOfCreditsError', () => {
 	} );
 
 	it( 'does not match the cap refusal or unrelated errors', () => {
-		expect( isOutOfCreditsError( '429 studio_cap_exceeded: Monthly cost cap exceeded.' ) ).toBe(
+		expect( isOutOfCreditsError( '429 cost_cap_exceeded: Monthly cost cap exceeded.' ) ).toBe(
 			false
 		);
 		expect( isOutOfCreditsError( buildUsageCapErrorMessage( '429 exceeded' ) ) ).toBe( false );

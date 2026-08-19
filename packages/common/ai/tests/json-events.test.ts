@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
 	buildUsageCapErrorMessage,
 	getAgentEndFailure,
-	isHttp429ErrorMessage,
 	isAiAccessRequiredError,
 	isAiBlockedError,
 	isUsageCapError,
@@ -44,32 +43,6 @@ function agentEnd(
 	return { type: 'agent_end', willRetry, messages } as unknown as AgentSessionEvent;
 }
 
-describe( 'isHttp429ErrorMessage', () => {
-	it.each( [
-		// Anthropic SDK: "<status> <message or JSON body>".
-		'429 {"type":"error","error":{"type":"rate_limit_error","message":"exceeded"}}',
-		'429 Number of requests has exceeded your monthly limit',
-		'429 status code (no body)',
-		// pi-ai OpenAI Responses formatting.
-		'OpenAI API error (429): {"error":{"message":"exceeded"}}',
-		// Legacy Claude Code SDK formatting.
-		'API Error: 429 {"error":"exceeded"}',
-	] )( 'matches %s', ( message ) => {
-		expect( isHttp429ErrorMessage( message ) ).toBe( true );
-	} );
-
-	it.each( [
-		'500 internal server error',
-		'Request took 429 ms',
-		'API Error: 500 upstream failure',
-		undefined,
-		null,
-		'',
-	] )( 'does not match %s', ( message ) => {
-		expect( isHttp429ErrorMessage( message ) ).toBe( false );
-	} );
-} );
-
 describe( 'isUsageCapError', () => {
 	it( 'matches the canonical runtime-stamped prefix', () => {
 		expect( isUsageCapError( buildUsageCapErrorMessage( '429 exceeded' ) ) ).toBe( true );
@@ -78,10 +51,18 @@ describe( 'isUsageCapError', () => {
 		);
 	} );
 
-	it( 'matches legacy Claude Code SDK formats', () => {
-		expect( isUsageCapError( 'API Error: 429 {"error":"x"}' ) ).toBe( true );
-		expect( isUsageCapError( 'Request failed with status code 429' ) ).toBe( true );
-		expect( isUsageCapError( '{"status": 429}' ) ).toBe( true );
+	it( 'matches an un-rewritten proxy cost-cap code', () => {
+		expect(
+			isUsageCapError( 'OpenAI API error (429): {"error":{"code":"cost_cap_exceeded"}}' )
+		).toBe( true );
+	} );
+
+	// A hosted upstream 429s for its own token-per-minute limits, which
+	// retrying clears — those must not read as the monthly cap.
+	it( 'does not match a 429 without the cost-cap code', () => {
+		expect( isUsageCapError( 'API Error: 429 {"error":"x"}' ) ).toBe( false );
+		expect( isUsageCapError( 'Request failed with status code 429' ) ).toBe( false );
+		expect( isUsageCapError( '{"status": 429}' ) ).toBe( false );
 	} );
 
 	it( 'does not match raw un-rewritten 429s (non-wpcom rate limits)', () => {

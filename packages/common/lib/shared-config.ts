@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME, SHARED_CONFIG_LOCKFILE_NAME } from '../constants';
 import { syncSiteSchema } from '../types/sync';
 import { authTokenSchema, type StoredAuthToken } from './auth-token-schema';
+import { isAutomatticianEmail } from './automattician';
 import { hideDirectoryOnWindows } from './hide-dir-windows';
 import { lockFileAsync, unlockFileAsync } from './lockfile';
 import { getConfigDirectory, getSharedConfigPath } from './well-known-paths';
@@ -248,16 +249,18 @@ export async function getOrCreateAnalyticsInstallId(): Promise< string > {
 }
 
 // True when the user has opted out of Tracks analytics. Default is opted IN (analytics ON).
-export async function isAnalyticsOptedOut(): Promise< boolean > {
-	const config = await readSharedConfig();
+// Takes an already-read config, for callers that hold one and shouldn't re-read the file.
+export function isAnalyticsOptedOutInConfig( config: SharedConfig ): boolean {
 	return config.analyticsOptOut === true;
+}
+
+export async function isAnalyticsOptedOut(): Promise< boolean > {
+	return isAnalyticsOptedOutInConfig( await readSharedConfig() );
 }
 
 // Best-effort Automattician flag for the shared `is_a11n` Tracks property, derived from the stored
 // auth token's email domain. Returns false when logged out. Kept synchronous-friendly (no network
 // call) so it can run on every event; the authoritative team-membership check lives elsewhere.
 export async function isAutomatticianFromToken(): Promise< boolean > {
-	const token = await readAuthToken();
-	const email = token?.email?.toLowerCase() ?? '';
-	return email.endsWith( '@a8c.com' ) || email.endsWith( '@automattic.com' );
+	return isAutomatticianEmail( ( await readAuthToken() )?.email );
 }

@@ -5,6 +5,7 @@ type BrowserSession = Awaited<ReturnType<typeof launchBrowser>>;
 
 const CLOSE_TIMEOUT_MS = 10_000;
 const LAUNCH_SETTLE_TIMEOUT_MS = 5_000;
+const LAUNCH_TIMEOUT_MS = 60_000;
 
 export interface BrowserLease {
   acquire(): Promise<{ page: unknown }>;
@@ -40,6 +41,15 @@ export function createManagedBrowser(opts: {
   const boundedClose = (session: BrowserSession): Promise<void> =>
     withTimeout(session.close(), CLOSE_TIMEOUT_MS, 'managed browser close').catch(() => {});
 
+  // A late session from a hung launch can get a close scheduled by several
+  // paths (timed-out acquires, reset()/end()'s settle) — close it exactly once.
+  const disposed = new WeakSet<BrowserSession>();
+  const disposeOnce = (session: BrowserSession): Promise<void> => {
+    if (disposed.has(session)) return Promise.resolve();
+    disposed.add(session);
+    return boundedClose(session);
+  };
+
   // Bounded even when the launch itself hangs: after the deadline the pending
   // session is abandoned and closed whenever it eventually arrives.
   const closeSession = async (p: Promise<BrowserSession>): Promise<void> => {
@@ -47,9 +57,9 @@ export function createManagedBrowser(opts: {
       p,
       LAUNCH_SETTLE_TIMEOUT_MS,
       'managed browser launch settle',
-      boundedClose
+      disposeOnce
     ).catch(() => null);
-    if (session) await boundedClose(session);
+    if (session) await disposeOnce(session);
   };
 
   const isDead = (session: BrowserSession): boolean =>
@@ -70,7 +80,7 @@ export function createManagedBrowser(opts: {
       }
       let session: BrowserSession;
       try {
-        session = await attempt;
+        session = await withTimeout(attempt, LAUNCH_TIMEOUT_MS, 'managed browser launch', disposeOnce);
       } catch (err) {
         if (launching === attempt) launching = null;
         throw err;

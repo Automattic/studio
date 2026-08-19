@@ -8,7 +8,7 @@ import { withTimeout } from '../../lib/concurrency.js';
 /** Hard deadline for renderer-bound Playwright calls (evaluate/content/CDP).
  *  Playwright gives them NO default timeout, so a frozen renderer would
  *  otherwise leave the await pending forever and block the extraction loop. */
-const RENDERER_CALL_TIMEOUT_MS = 30_000;
+export const RENDERER_CALL_TIMEOUT_MS = 30_000;
 
 /**
  * Plain GET of a page's served HTML. Used as the last-resort fallback when

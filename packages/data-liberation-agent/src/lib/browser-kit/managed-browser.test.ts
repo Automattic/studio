@@ -213,6 +213,58 @@ describe('createManagedBrowser', () => {
     expect(s1.close).toHaveBeenCalledTimes(1);
   });
 
+  it('acquire rejects when the launch hangs, closes the late session once, and relaunches next time', async () => {
+    vi.useFakeTimers();
+    try {
+      let resolveLaunch!: (s: unknown) => void;
+      const s2 = fakeSession();
+      mockLaunch
+        .mockReturnValueOnce(new Promise((r) => { resolveLaunch = r; }))
+        .mockResolvedValueOnce(s2);
+      const managed = createManagedBrowser({});
+
+      const pending = managed.openLease().acquire();
+      const pendingRejects = expect(pending).rejects.toThrow('timed out');
+      await vi.advanceTimersByTimeAsync(60_000);
+      await pendingRejects;
+
+      const s1 = fakeSession();
+      resolveLaunch(s1);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(s1.close).toHaveBeenCalledTimes(1);
+
+      expect((await managed.openLease().acquire()).page).toBe(s2.page);
+      expect(mockLaunch).toHaveBeenCalledTimes(2);
+      expect(s1.close).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('reset() during a hung launch plus the launch timeout close the late session exactly once', async () => {
+    vi.useFakeTimers();
+    try {
+      let resolveLaunch!: (s: unknown) => void;
+      mockLaunch.mockReturnValueOnce(new Promise((r) => { resolveLaunch = r; }));
+      const managed = createManagedBrowser({});
+
+      const pending = managed.openLease().acquire();
+      const pendingRejects = expect(pending).rejects.toThrow('timed out');
+      const resetDone = managed.reset();
+      await vi.advanceTimersByTimeAsync(5_000);
+      await expect(resetDone).resolves.toBeUndefined();
+      await vi.advanceTimersByTimeAsync(60_000);
+      await pendingRejects;
+
+      const s1 = fakeSession();
+      resolveLaunch(s1);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(s1.close).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('end() resolves even when the close hangs', async () => {
     vi.useFakeTimers();
     try {

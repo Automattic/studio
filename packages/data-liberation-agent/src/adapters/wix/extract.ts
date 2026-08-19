@@ -36,11 +36,11 @@ export async function extract(
       inv.urls.filter((u) => u.type === 'product').map((u) => u.url)
     );
 
-    const managed = createManagedBrowser({ cdpPort: wixOpts.cdpPort });
+    const managedBrowser = createManagedBrowser({ cdpPort: wixOpts.cdpPort });
 
     try {
       // Fail fast on a broken browser setup before the loop starts.
-      await managed.openLease().acquire();
+      await managedBrowser.openLease().acquire();
       const result = await runExtractionLoop({
         urls: inv.urls,
         navigation: inv.navigation,
@@ -56,9 +56,9 @@ export async function extract(
         csvBuilder,
         onPageExtracted: wixOpts.onPageExtracted as never,
         maxPageConcurrency: 1,
-        onExtractTimeout: () => managed.reset(),
+        onExtractTimeout: () => managedBrowser.reset(),
         extractPage: async (url: string) => {
-          const lease = managed.openLease();
+          const lease = managedBrowser.openLease();
           const { page } = await lease.acquire();
           const pageData = await extractWixPage(page, url);
           if (!lease.isValid()) {
@@ -122,6 +122,6 @@ export async function extract(
 
       return result;
     } finally {
-      await managed.end();
+      await managedBrowser.end();
     }
   }

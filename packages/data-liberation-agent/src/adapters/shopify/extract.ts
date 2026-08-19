@@ -208,7 +208,7 @@ export async function extract(
   // Lazy browser for the CDP/headed fallback on 403s. Prefer a user-provided
   // CDP port; otherwise auto-launch headed Chromium (headed bypasses
   // Cloudflare bot detection that blocks headless).
-  const managed = createManagedBrowser(
+  const managedBrowser = createManagedBrowser(
     shopifyOpts.cdpPort ? { cdpPort: shopifyOpts.cdpPort } : { headed: true }
   );
 
@@ -230,9 +230,9 @@ export async function extract(
     session,
     onPageExtracted: shopifyOpts.onPageExtracted as never,
     maxPageConcurrency: 1,
-    onExtractTimeout: () => managed.reset(),
+    onExtractTimeout: () => managedBrowser.reset(),
     extractPage: async (url: string) => {
-      const lease = managed.openLease();
+      const lease = managedBrowser.openLease();
       // Tier 1: Try JSON API — append .json to URL
       let title = '';
       let content = '';
@@ -456,6 +456,6 @@ export async function extract(
     }
     throw err;
   } finally {
-    await managed.end();
+    await managedBrowser.end();
   }
 }

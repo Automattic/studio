@@ -102,7 +102,7 @@ export async function extract(
   const delayMs = sqOpts.delay != null ? sqOpts.delay : 300;
 
   // Lazy browser — launched only if a page needs DOM fallback.
-  const managed = createManagedBrowser({ cdpPort: sqOpts.cdpPort });
+  const managedBrowser = createManagedBrowser({ cdpPort: sqOpts.cdpPort });
 
   const outputDir = sqOpts.outputDir || '';
   const csvBuilder = new WooProductCsvBuilder();
@@ -126,9 +126,9 @@ export async function extract(
       csvBuilder,
       onPageExtracted: sqOpts.onPageExtracted as never,
       maxPageConcurrency: 1,
-      onExtractTimeout: () => managed.reset(),
+      onExtractTimeout: () => managedBrowser.reset(),
       extractPage: async (url: string) => {
-        const lease = managed.openLease();
+        const lease = managedBrowser.openLease();
         const json = await fetchSqsJson(url);
 
         const item = json?.item;
@@ -226,6 +226,6 @@ export async function extract(
 
     return result;
   } finally {
-    await managed.end();
+    await managedBrowser.end();
   }
 }

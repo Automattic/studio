@@ -21,6 +21,7 @@ import {
 	addConnectedWpcomSite,
 	removeConnectedWpcomSite,
 } from '@studio/common/lib/connected-sites';
+import { readAuthToken } from '@studio/common/lib/shared-config';
 import { getGlobalInstructionsPath } from '@studio/common/lib/well-known-paths';
 import { snapshotSchema } from '@studio/common/types/snapshot';
 import { syncSiteSchema, type SyncSite } from '@studio/common/types/sync';
@@ -89,6 +90,11 @@ async function seedFixtures( seed: EvalSeed ): Promise< () => Promise< void > > 
 		await writeGlobalInstructions( globalInstructions );
 	}
 
+	// preview_list scopes snapshots to the authenticated user (getSnapshotsFromConfig
+	// filters on snapshot.userId), so a seeded snapshot is invisible unless it carries
+	// the current user's id. Fixtures omit it — they can't know the id — so stamp it here.
+	const authUserId = ( await readAuthToken() )?.id;
+
 	if ( localSite || snapshots.length > 0 ) {
 		try {
 			await lockCliConfig();
@@ -104,7 +110,11 @@ async function seedFixtures( seed: EvalSeed ): Promise< () => Promise< void > > 
 				} );
 			}
 			for ( const snapshot of snapshots ) {
-				config.snapshots.push( snapshot );
+				config.snapshots.push(
+					snapshot.userId === undefined && authUserId !== undefined
+						? { ...snapshot, userId: authUserId }
+						: snapshot
+				);
 			}
 			await saveCliConfig( config );
 		} finally {
@@ -197,19 +207,40 @@ function extractToolResult( event: AgentSessionEvent ): {
 	toolUseId: string;
 	isError: boolean;
 	text?: string;
+	images?: Array< { mimeType: string; data: string } >;
+	details?: unknown;
 } | null {
 	if ( event.type !== 'tool_execution_end' ) {
 		return null;
 	}
-	const result = event.result as { content?: Array< { type: string; text?: string } > } | undefined;
+	const result = event.result as
+		| {
+				content?: Array< { type: string; text?: string; data?: string; mimeType?: string } >;
+				details?: unknown;
+		  }
+		| undefined;
 	let text: string | undefined;
+	let images: Array< { mimeType: string; data: string } > | undefined;
 	if ( result?.content && Array.isArray( result.content ) ) {
 		const textBlock = result.content.find(
 			( b ): b is { type: 'text'; text: string } => b.type === 'text' && typeof b.text === 'string'
 		);
 		if ( textBlock ) text = textBlock.text;
+		const imageBlocks = result.content.filter(
+			( b ): b is { type: 'image'; data: string; mimeType?: string } =>
+				b.type === 'image' && typeof b.data === 'string'
+		);
+		if ( imageBlocks.length > 0 ) {
+			images = imageBlocks.map( ( b ) => ( { mimeType: b.mimeType ?? '', data: b.data } ) );
+		}
 	}
-	return { toolUseId: event.toolCallId, isError: event.isError, text };
+	return {
+		toolUseId: event.toolCallId,
+		isError: event.isError,
+		text,
+		images,
+		details: result?.details,
+	};
 }
 
 function readInput(): EvalRunnerInput {
@@ -277,6 +308,8 @@ async function runEval( input: EvalRunnerInput ) {
 		toolName: string | null;
 		isError: boolean;
 		text?: string;
+		images?: Array< { mimeType: string; data: string } >;
+		details?: unknown;
 	}[] = [];
 	const toolEvents: ToolEvent[] = [];
 	const textSegments: string[] = [];
@@ -358,6 +391,8 @@ async function runEval( input: EvalRunnerInput ) {
 					toolName: toolNameById.get( id ) ?? null,
 					isError: tr.isError,
 					...( tr.text ? { text: tr.text } : {} ),
+					...( tr.images ? { images: tr.images } : {} ),
+					...( tr.details !== undefined ? { details: tr.details } : {} ),
 				} );
 			}
 		}

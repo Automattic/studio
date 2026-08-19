@@ -9,6 +9,7 @@
 }
 
 .cardSection {
+	position: relative;
 	display: flex;
 	flex-direction: column;
 	gap: var(--wpds-dimension-padding-md);
@@ -196,9 +197,16 @@
 	padding: 0;
 }
 
+.themeMenuAnchor {
+	position: absolute;
+	top: var(--wpds-dimension-padding-lg);
+	right: var(--wpds-dimension-padding-lg);
+	z-index: 1;
+}
+
 .themeSummary {
 	display: flex;
-	align-items: center;
+	align-items: flex-start;
 	gap: var(--wpds-dimension-padding-md);
 	min-width: 0;
 }
@@ -257,12 +265,18 @@
 
 .themeDetails {
 	display: flex;
+	flex: 1 1 auto;
 	flex-direction: column;
-	gap: 2px;
+	gap: var(--wpds-dimension-padding-xs);
 	min-width: 0;
 }
 
 .themeValue {
+	/* Clears the absolutely positioned login menu button in the card's
+	   top-right corner. Scoped to this line only — the one line at that
+	   height — so the longer WP/PHP meta line below keeps its full width and
+	   doesn't wrap. */
+	padding-right: 2rem;
 	overflow-wrap: anywhere;
 	font-size: var(--wpds-typography-font-size-sm);
 	line-height: var(--wpds-typography-line-height-sm);
@@ -421,29 +435,6 @@
 	white-space: nowrap;
 	text-align: end;
 	color: var(--wpds-color-foreground-content-neutral-weak);
-}
-
-.credentialRow {
-	display: flex;
-	flex-direction: column;
-	gap: 2px;
-	min-width: 0;
-}
-
-.credentialValue {
-	display: flex;
-	align-items: center;
-	gap: var(--wpds-dimension-padding-xs);
-	min-width: 0;
-}
-
-.credentialText {
-	overflow: hidden;
-	white-space: nowrap;
-	text-overflow: ellipsis;
-	font-size: var(--wpds-typography-font-size-sm);
-	line-height: var(--wpds-typography-line-height-sm);
-	color: var(--wpds-color-foreground-content-neutral);
 }
 
 .storageSkeleton {

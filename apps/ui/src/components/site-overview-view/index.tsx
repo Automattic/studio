@@ -41,7 +41,6 @@ import { useSiteManagementActions } from '@/hooks/use-site-management-actions';
 import { useThemeDetails } from '@/hooks/use-theme-details';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { AboutSection } from './about-section';
-import { AdminSection } from './admin-section';
 import { ConnectionsSection } from './connections-section';
 import { OverviewCard } from './overview-card';
 import { PreviewSitesSection } from './preview-sites-section';
@@ -254,10 +253,6 @@ function SiteOverviewBody( {
 									</OverviewCard>
 									<OverviewCard>
 										<PreviewSitesSection site={ site } />
-									</OverviewCard>
-									<h2 className={ styles.columnHeading }>{ __( 'WP Admin' ) }</h2>
-									<OverviewCard>
-										<AdminSection site={ site } />
 									</OverviewCard>
 								</div>
 								<div className={ styles.actionsColumn }>

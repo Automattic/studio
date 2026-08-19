@@ -366,6 +366,55 @@ describe( 'SiteOverviewView', () => {
 		};
 	}
 
+	it( 'copies the admin username from the About login line', async () => {
+		renderView( 'overview' );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Copy admin username' } ) );
+		await waitFor( () => expect( copyText ).toHaveBeenCalledWith( 'admin' ) );
+	} );
+
+	it( 'reveals and copies the password from the About admin controls', async () => {
+		useSitesMock.mockReturnValue( {
+			data: [ createSite( { running: true, adminPassword: btoa( 'secret-pw' ) } ) ],
+			isLoading: false,
+		} );
+		renderView( 'overview' );
+
+		// Password renders as masked dots until revealed from the overflow menu.
+		expect( screen.getByText( '•'.repeat( 8 ) ) ).toBeVisible();
+		expect( screen.queryByText( 'secret-pw' ) ).not.toBeInTheDocument();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Login options' } ) );
+		// Checked by default (password hidden) — unchecking reveals it.
+		fireEvent.click( await screen.findByRole( 'menuitemcheckbox', { name: 'Hide password' } ) );
+
+		const revealed = await screen.findByText( 'secret-pw' );
+		expect( revealed ).toBeVisible();
+		fireEvent.click( revealed );
+		await waitFor( () => expect( copyText ).toHaveBeenCalledWith( 'secret-pw' ) );
+
+		// The menu stays open throughout (closeOnClick is false) — checking the
+		// box again re-hides the password without reopening the menu.
+		fireEvent.click( screen.getByRole( 'menuitemcheckbox', { name: 'Hide password' } ) );
+		await waitFor( () => expect( screen.queryByText( 'secret-pw' ) ).not.toBeInTheDocument() );
+		expect( screen.getByText( '•'.repeat( 8 ) ) ).toBeVisible();
+	} );
+
+	it( 'disables copying the password when the site has none set', () => {
+		renderView( 'overview' );
+
+		expect( screen.getByRole( 'button', { name: 'Copy admin password' } ) ).toBeDisabled();
+	} );
+
+	it( 'copies the admin email from the Login options menu', async () => {
+		renderView( 'overview' );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Login options' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Copy email' } ) );
+
+		await waitFor( () => expect( copyText ).toHaveBeenCalledWith( 'admin@example.com' ) );
+	} );
+
 	it( 'renders the tab strip with the about, shortcuts, and manage sections', () => {
 		renderView();
 
@@ -400,7 +449,6 @@ describe( 'SiteOverviewView', () => {
 
 		renderView();
 
-		expect( screen.getByText( 'Theme' ) ).toBeVisible();
 		expect( screen.getByText( 'Twenty Twenty-Six' ) ).toBeVisible();
 		expect( screen.getByText( 'WP v6.8.2' ) ).toBeVisible();
 		expect( screen.getByText( 'PHP v8.4' ) ).toBeVisible();

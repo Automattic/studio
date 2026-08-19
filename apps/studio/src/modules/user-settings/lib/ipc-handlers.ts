@@ -4,6 +4,12 @@ import {
 	writeGlobalInstructions,
 } from '@studio/common/ai/global-instructions';
 import {
+	readAiSettings,
+	saveAnthropicApiKey as saveAnthropicApiKeyToConfig,
+	setAiProvider as setAiProviderInConfig,
+} from '@studio/common/ai/settings-store';
+import { getInstructionsLengthBucket } from '@studio/common/lib/record-tracks-event';
+import {
 	isAnalyticsOptedOut,
 	readSharedConfig,
 	updateSharedConfig,
@@ -26,6 +32,7 @@ import {
 	unlockAppdata,
 	updateAppdata,
 } from 'src/storage/user-data';
+import type { AiProviderId, AiSettings } from '@studio/common/ai/providers';
 
 export function getInstalledAppsAndTerminals(): InstalledApps {
 	return {
@@ -286,11 +293,59 @@ export async function getGlobalAgentInstructions(): Promise< string > {
 	return ( await readGlobalInstructionsFile() ) ?? '';
 }
 
+export async function getAiSettings() {
+	return readAiSettings();
+}
+
+// One event for both handlers: clearing the key also moves the provider back to WordPress.com.
+// The key is never sent; the preview comparison only detects a key being swapped.
+async function recordAiSettingsChange( previous: AiSettings, next: AiSettings ): Promise< void > {
+	const unchanged =
+		previous.provider === next.provider &&
+		previous.hasAnthropicApiKey === next.hasAnthropicApiKey &&
+		previous.anthropicApiKeyPreview === next.anthropicApiKeyPreview;
+	if ( unchanged ) {
+		return;
+	}
+	await recordTracksEvent( TRACKS_EVENTS.SETTING_AI_PROVIDER_CHANGE, {
+		provider: next.provider,
+		has_anthropic_api_key: next.hasAnthropicApiKey,
+		surface: 'settings',
+	} );
+}
+
+export async function saveAnthropicApiKey( _event: IpcMainInvokeEvent, key: string | null ) {
+	const previous = await readAiSettings();
+	const settings = await saveAnthropicApiKeyToConfig( key );
+	await recordAiSettingsChange( previous, settings );
+	return settings;
+}
+
+export async function setAiProvider( _event: IpcMainInvokeEvent, provider: AiProviderId ) {
+	const previous = await readAiSettings();
+	const settings = await setAiProviderInConfig( provider );
+	await recordAiSettingsChange( previous, settings );
+	return settings;
+}
+
 export async function saveGlobalAgentInstructions(
 	_event: IpcMainInvokeEvent,
-	content: string
+	content: string,
+	// Set when this save ends an edit session. Only the renderer knows the value it started from,
+	// since the agentic UI autosaves on a debounce. Intermediate autosaves omit it.
+	options: { editSession?: { previousContent: string } } = {}
 ): Promise< void > {
 	await writeGlobalInstructions( content );
+
+	const previous = options.editSession?.previousContent;
+	if ( previous === undefined || previous === content ) {
+		return;
+	}
+	await recordTracksEvent( TRACKS_EVENTS.SETTING_INSTRUCTIONS_CHANGE, {
+		has_content: content.trim().length > 0,
+		length_bucket: getInstructionsLengthBucket( content ),
+		surface: 'settings',
+	} );
 }
 
 export function showUserSettings( event: IpcMainInvokeEvent, tabName?: UserSettingsTabName ) {

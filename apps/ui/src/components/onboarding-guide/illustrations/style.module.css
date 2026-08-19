@@ -24,6 +24,602 @@
 	background: color-mix(in srgb, var(--wpds-color-fg-interactive-brand) 8%, transparent);
 }
 
+/* ---- Overview scene ---- */
+
+.overviewScene {
+	position: absolute;
+	inset: 0;
+	display: grid;
+	place-items: center;
+	overflow: hidden;
+	background: var(--wpds-color-bg-surface-neutral-weak);
+}
+
+.overviewPanel {
+	position: relative;
+	width: 422px;
+	height: 188px;
+	transform-origin: center;
+	will-change: transform;
+}
+
+.overviewContent {
+	display: grid;
+	grid-template-columns: 160px 1fr;
+	gap: 10px;
+}
+
+.overviewActions {
+	display: flex;
+	min-width: 0;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.overviewContent h3 {
+	margin: 0 0 4px;
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: 6px;
+	font-weight: var(--wpds-typography-font-weight-medium);
+	line-height: 1;
+}
+
+.overviewGrid {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 3px;
+}
+
+.overviewAboutCard {
+	box-sizing: border-box;
+	padding: 7px;
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: 3px;
+	color: var(--wpds-color-fg-content-neutral);
+	transition: border-color 120ms ease;
+}
+
+.overviewThemeSummary {
+	display: flex;
+	align-items: flex-start;
+	gap: 6px;
+}
+
+.overviewThumbnail {
+	position: relative;
+	width: 35px;
+	height: 27px;
+	flex: 0 0 35px;
+	overflow: hidden;
+	border-radius: 2px;
+	background: #16161a;
+}
+
+.overviewThumbnailTitle,
+.overviewThumbnailCopy,
+.overviewThumbnailButton {
+	position: absolute;
+	left: 5px;
+	display: block;
+	border-radius: 99px;
+	background: #d8d8de;
+}
+
+.overviewThumbnailTitle {
+	top: 6px;
+	width: 15px;
+	height: 2px;
+}
+
+.overviewThumbnailCopy {
+	top: 10px;
+	width: 22px;
+	height: 1px;
+	opacity: 0.55;
+}
+
+.overviewThumbnailButton {
+	top: 16px;
+	width: 9px;
+	height: 3px;
+	opacity: 0.8;
+}
+
+.overviewThemeDetails {
+	display: flex;
+	min-width: 0;
+	flex-direction: column;
+	gap: 2px;
+	font-size: 5px;
+	line-height: 1.2;
+}
+
+.overviewThemeDetails > span,
+.overviewThemeDetails small {
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: 4.5px;
+}
+
+.overviewThemeDetails strong {
+	overflow: hidden;
+	font-size: 5.5px;
+	font-weight: var(--wpds-typography-font-weight-medium);
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.overviewStorage {
+	margin-top: 8px;
+}
+
+.overviewStorageHeading {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 4px;
+	font-size: 5px;
+}
+
+.overviewStorageHeading strong {
+	font-weight: var(--wpds-typography-font-weight-medium);
+}
+
+.overviewStorageBar {
+	display: flex;
+	gap: 1px;
+	height: 4px;
+	overflow: hidden;
+	border-radius: 99px;
+	background: var(--wpds-color-bg-surface-neutral-strong);
+}
+
+.overviewStorageBar span {
+	display: block;
+}
+
+.overviewStorageBar [data-storage='plugins'] {
+	width: 18%;
+	background: light-dark(#c7367f, #d75c90);
+}
+
+.overviewStorageBar [data-storage='themes'] {
+	width: 48%;
+	background: light-dark(#b26b00, #d39a38);
+}
+
+.overviewStorageBar [data-storage='database'] {
+	width: 8%;
+	background: light-dark(#00918e, #22a79f);
+}
+
+.overviewStorageBar [data-storage='other'] {
+	width: 26%;
+	background: var(--wpds-color-bg-surface-neutral-strong);
+}
+
+.overviewAction {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	box-sizing: border-box;
+	height: 18px;
+	min-width: 0;
+	padding-block: 0;
+	padding-inline: 6px 3px;
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: 3px;
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: 6px;
+	white-space: nowrap;
+	transition: border-color 120ms ease;
+}
+
+.overviewActionIcon {
+	display: grid;
+	place-items: center;
+	width: 10px;
+	height: 10px;
+	flex: 0 0 10px;
+}
+
+.overviewActionIcon svg {
+	display: block;
+	width: 10px;
+	height: 10px;
+	fill: none;
+	stroke: currentColor;
+	stroke-width: 1.1;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+}
+
+.overviewActionIcon[data-icon-style='brand'] svg {
+	fill: currentColor;
+	stroke: none;
+}
+
+.overviewActionIcon[data-icon-style='database'] svg {
+	fill: none;
+	stroke: currentColor;
+	stroke-width: 1.5;
+}
+
+.overviewCursor {
+	position: absolute;
+	top: 0;
+	left: 0;
+	transform-origin: 4px 3px;
+	filter: drop-shadow(0 2px 3px rgb(0 0 0 / 25%));
+	will-change: transform, opacity;
+}
+
+/* ---- Preview scene ---- */
+
+.previewTabsScene {
+	position: absolute;
+	inset: 0;
+	display: grid;
+	place-items: center;
+	overflow: hidden;
+	background: var(--wpds-color-bg-surface-neutral-weak);
+}
+
+.previewSequence {
+	position: absolute;
+	inset: 0;
+	transform: scale(1.35);
+	transform-origin: center;
+}
+
+.previewToolbar {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	transition: transform 50ms linear;
+	will-change: transform;
+}
+
+.previewTabs {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	gap: 2px;
+	box-sizing: border-box;
+	height: 32px;
+	padding: 2px;
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: 999px;
+	background: var(--wpds-color-bg-interactive-neutral-weak);
+}
+
+.previewTabsIndicator {
+	position: absolute;
+	top: 2px;
+	bottom: 2px;
+	left: 0;
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--wpds-color-fg-content-neutral) 14%, transparent);
+	transition:
+		width 200ms ease,
+		transform 200ms ease;
+}
+
+.previewTab {
+	position: relative;
+	z-index: 1;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0;
+	box-sizing: border-box;
+	width: 34px;
+	height: 26px;
+	padding: 0 9px;
+	overflow: hidden;
+	border-radius: 999px;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	font-weight: var(--wpds-typography-font-weight-medium);
+	line-height: 16px;
+	white-space: nowrap;
+	transition:
+		width 200ms ease,
+		color 200ms ease,
+		gap 200ms ease;
+}
+
+.previewTabActive {
+	gap: 6px;
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.previewTabActive[data-realm='frontend'] {
+	width: 150px;
+	padding-inline: 5px 9px;
+}
+
+.previewTabActive[data-realm='admin'] {
+	width: 108px;
+	padding-inline: 9px 12px;
+}
+
+.previewTabActive[data-realm='database'] {
+	width: 104px;
+	padding-inline: 9px 12px;
+}
+
+.previewTabIcon {
+	display: grid;
+	flex: 0 0 16px;
+	place-items: center;
+	width: 16px;
+	height: 16px;
+}
+
+.previewTabIcon svg {
+	display: block;
+	width: 16px;
+	height: 16px;
+}
+
+.previewTabTitle {
+	max-width: 0;
+	overflow: hidden;
+	opacity: 0;
+	transition:
+		max-width 200ms ease,
+		opacity 120ms ease;
+}
+
+.previewTabActive .previewTabTitle {
+	max-width: 120px;
+	opacity: 1;
+	transition-delay: 60ms;
+}
+
+.previewTabsCursor {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	z-index: 5;
+	transform-origin: 4px 3px;
+	filter: drop-shadow(0 2px 3px rgb(0 0 0 / 25%));
+	will-change: transform, opacity;
+}
+
+.previewAnnotateControl {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	will-change: opacity;
+}
+
+.previewAnnotateButton {
+	display: grid;
+	flex: 0 0 32px;
+	place-items: center;
+	width: 40px;
+	height: 40px;
+	border-radius: var(--wpds-border-radius-sm);
+	color: var(--wpds-color-fg-content-neutral);
+	transition:
+		background 160ms ease,
+		color 160ms ease;
+}
+
+.previewAnnotateButton svg {
+	display: block;
+	width: 20px;
+	height: 20px;
+	fill: currentColor;
+}
+
+.previewAnnotateButtonActive {
+	background: color-mix(in srgb, var(--wpds-color-fg-content-neutral) 14%, transparent);
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.previewAnnotateTooltip {
+	position: absolute;
+	bottom: calc(100% + 6px);
+	left: 50%;
+	padding: 7px 12px;
+	border-radius: var(--wpds-border-radius-sm);
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
+	background: var(--wpds-color-bg-surface-neutral-strong);
+	box-shadow: var(--wpds-elevation-sm);
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: 11px;
+	font-weight: 500;
+	line-height: 1;
+	transform: translateX(-50%);
+	white-space: nowrap;
+}
+
+.previewSkeletonPage {
+	position: absolute;
+	top: calc(50% - 41px);
+	left: 50%;
+	box-sizing: border-box;
+	width: 190px;
+	height: 82px;
+	padding: 14px;
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: 5px;
+	background: var(--wpds-color-bg-surface-neutral-strong);
+	transform: translateX(-50%);
+}
+
+.previewSkeletonTitle,
+.previewSkeletonCopy,
+.previewSkeletonCta {
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--wpds-color-fg-content-neutral) 18%, transparent);
+}
+
+.previewSkeletonTitle {
+	width: 92px;
+	height: 9px;
+	margin-bottom: 9px;
+}
+
+.previewSkeletonCopy {
+	width: 134px;
+	height: 5px;
+}
+
+.previewSkeletonCta {
+	position: absolute;
+	bottom: 12px;
+	left: 50%;
+	box-sizing: border-box;
+	width: 60px;
+	height: 14px;
+	transform: translateX(-50%);
+	transition:
+		background 160ms ease,
+		box-shadow 160ms ease;
+}
+
+.previewSkeletonCtaPicking {
+	background: color-mix(in srgb, var(--wpds-color-fg-interactive-brand) 12%, transparent);
+	box-shadow: 0 0 0 2px var(--wpds-color-stroke-focus-brand);
+}
+
+.previewCommentComposer {
+	position: absolute;
+	z-index: 2;
+	top: calc(50% - 58px);
+	left: calc(50% + 80px);
+	display: flex;
+	box-sizing: border-box;
+	width: 240px;
+	flex-direction: column;
+	gap: 5px;
+	padding: 8px;
+	border-radius: 9px;
+	background: #1a1a1a;
+	box-shadow:
+		0 2px 12px rgb(0 0 0 / 30%),
+		0 0 0 1px rgb(255 255 255 / 8%);
+	color: #fff;
+	margin-left: -120px;
+	transform: scale(0.72);
+	transform-origin: top center;
+}
+
+.previewCommentTarget {
+	overflow: hidden;
+	color: rgb(255 255 255 / 50%);
+	font-size: 8px;
+	line-height: 1;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.previewCommentTextarea {
+	box-sizing: border-box;
+	min-height: 52px;
+	padding: 7px;
+	border: 1px solid #2563eb;
+	border-radius: 4px;
+	background: rgb(255 255 255 / 5%);
+	color: #fff;
+	font-size: 9px;
+	line-height: 1.4;
+}
+
+.previewCommentCaret {
+	display: inline-block;
+	width: 1px;
+	height: 9px;
+	margin-inline-start: 1px;
+	background: currentColor;
+	vertical-align: -1px;
+	animation: previewCommentCaret 800ms step-end infinite;
+}
+
+@keyframes previewCommentCaret {
+	50% {
+		opacity: 0;
+	}
+}
+
+.previewCommentActions {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 6px;
+	font-size: 8px;
+	line-height: 1;
+}
+
+.previewCommentCancel,
+.previewCommentSave {
+	display: grid;
+	place-items: center;
+	height: 22px;
+	padding: 0 10px;
+	border-radius: 11px;
+	font-weight: 600;
+}
+
+.previewCommentCancel {
+	color: rgb(255 255 255 / 70%);
+}
+
+.previewCommentSave {
+	background: #fff;
+	color: #1a1a1a;
+}
+
+.previewAnnotationMarker {
+	position: absolute;
+	display: grid;
+	place-items: center;
+	box-sizing: border-box;
+	width: 18px;
+	height: 18px;
+	border: 1px solid #fff;
+	border-radius: 50%;
+	background: #2563eb;
+	box-shadow: 0 1px 4px rgb(0 0 0 / 30%);
+	color: #fff;
+	font-size: 8px;
+	font-weight: 700;
+	line-height: 1;
+	transform-origin: center;
+}
+
+.previewAnnotationMarkerOne {
+	top: 56px;
+	left: calc(50% + 30px);
+}
+
+.previewAnnotationMarkerTwo {
+	top: 14px;
+	left: 106px;
+}
+
+.previewAnnotationMarkerThree {
+	top: 32px;
+	left: 148px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.previewTabsIndicator,
+	.previewTab,
+	.previewTabTitle,
+	.previewAnnotateButton {
+		transition: none;
+	}
+
+	.previewCommentCaret {
+		animation: none;
+	}
+}
 /* ---- Sites scene ---- */
 
 .sitesScene {
@@ -407,6 +1003,10 @@
 /* The choreography timeline already rests on a static frame under reduced
    motion; only the small looping CSS effects need silencing. */
 @media (prefers-reduced-motion: reduce) {
+	.overviewAction {
+		transition: none;
+	}
+
 	.streamCaret,
 	.composerCaret {
 		animation: none;

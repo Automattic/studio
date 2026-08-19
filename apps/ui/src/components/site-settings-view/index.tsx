@@ -23,9 +23,15 @@ import {
 } from '@/components/site-fields';
 import * as Tabs from '@/components/tabs';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
-import { useUpdateSite, useXdebugEnabledSite } from '@/data/queries/use-sites';
+import { useIsSiteBusy, useUpdateSite, useXdebugEnabledSite } from '@/data/queries/use-sites';
 import { useWordPressVersions, useWpVersion } from '@/data/queries/use-wordpress-versions';
 import { useOffline } from '@/hooks/use-offline';
+import {
+	AdminEmailControl,
+	AdminPasswordControl,
+	AdminUsernameControl,
+	SiteNameControl,
+} from './copyable-credential-control';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 import type { TracksPanel } from '@studio/common/lib/record-tracks-event';
@@ -147,7 +153,7 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 
 	const fields = useMemo< Field< FormData >[] >(
 		() => [
-			siteNameField< FormData >(),
+			{ ...siteNameField< FormData >(), Edit: SiteNameControl },
 			phpVersionField< FormData >(),
 			wpVersionField< FormData >( DEFAULT_WORDPRESS_VERSION, wpVersions, {
 				latestValue: '',
@@ -155,9 +161,9 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 					installedWpVersion && installedWpVersion !== '-' ? installedWpVersion : undefined,
 				offline: isOffline,
 			} ),
-			adminUsernameField< FormData >(),
-			adminPasswordField< FormData >(),
-			adminEmailField< FormData >(),
+			{ ...adminUsernameField< FormData >(), Edit: AdminUsernameControl },
+			{ ...adminPasswordField< FormData >(), Edit: AdminPasswordControl },
+			{ ...adminEmailField< FormData >(), Edit: AdminEmailControl },
 			customDomainToggleField< FormData >(),
 			customDomainField< FormData >( existingDomainNames ),
 			{
@@ -239,7 +245,11 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 	);
 
 	const xdebugBlocked = data.enableXdebug && !! xdebugConflictSiteName && ! site.enableXdebug;
-	const canSubmit = isValid && ! isUnchanged && ! updateSite.isPending && ! xdebugBlocked;
+	// Saving restarts the server to apply a PHP/WordPress/domain change, so the
+	// CLI refuses it while anything else holds the site.
+	const isBusy = useIsSiteBusy( site );
+	const canSubmit =
+		isValid && ! isUnchanged && ! updateSite.isPending && ! xdebugBlocked && ! isBusy;
 
 	const handleSubmit = ( event: FormEvent ) => {
 		event.preventDefault();

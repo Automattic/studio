@@ -116,52 +116,57 @@ export async function extractWixPage(
   };
 
   p.on('response', responseHandler);
-
-  // Pin the route before navigation so Wix's Pro Gallery can't fire the
-  // hydration-time client-side navigation that destroys our execution
-  // context mid-evaluate. Best-effort — `addInitScript` may be unavailable
-  // on some Page shapes, and the script can't always override the native
-  // `location` setter; the retry + HTML-fallback layers below are the real
-  // safety net.
   try {
-    await p.addInitScript(ROUTE_PIN_INIT_SCRIPT);
-  } catch {
-    // older/foreign page shape — proceed without route pinning
-  }
-
-  try {
-    // Wix's analytics, chat widgets, and tracking pixels keep firing
-    // requests indefinitely, so `networkidle` never resolves on many
-    // pages — especially product pages — and the 30s budget is
-    // exhausted by background telemetry. `domcontentloaded` + a bounded
-    // networkidle (best-effort) + a short fixed delay catches Wix's lazy
-    // hydration without hanging. The networkidle attempt also lets the Pro
-    // Gallery finish its hydration navigation *before* we evaluate, instead
-    // of having it fire mid-extract.
-    await p.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
-    await settle(6_000, 4000);
-    // Scroll through the page to trigger lazy-loaded gallery thumbnails so
-    // images below the fold make it into the live DOM read. Best-effort.
+    // Pin the route before navigation so Wix's Pro Gallery can't fire the
+    // hydration-time client-side navigation that destroys our execution
+    // context mid-evaluate. Best-effort — `addInitScript` may be unavailable
+    // on some Page shapes, and the script can't always override the native
+    // `location` setter; the retry + HTML-fallback layers below are the real
+    // safety net.
     try {
-      await withTimeout(p.evaluate(async () => {
-        const step = 800;
-        const total = document.documentElement.scrollHeight;
-        for (let y = 0; y < total; y += step) {
-          window.scrollTo(0, y);
-          await new Promise((r) => setTimeout(r, 120));
-        }
-        window.scrollTo(0, 0);
-      }), 60_000, 'wix lazy-load scroll');
-      await settle(3_000, 500);
+      await withTimeout(
+        p.addInitScript(ROUTE_PIN_INIT_SCRIPT), RENDERER_CALL_TIMEOUT_MS, 'wix addInitScript');
     } catch {
-      // scroll failed (e.g. context destroyed) — non-fatal; the DOM read and
-      // HTML fallback still recover what's already present.
+      // older/foreign page shape — proceed without route pinning
     }
-  } catch {
-    // Navigation may timeout on heavy Wix pages
-  }
 
-  p.off('response', responseHandler);
+    try {
+      // Wix's analytics, chat widgets, and tracking pixels keep firing
+      // requests indefinitely, so `networkidle` never resolves on many
+      // pages — especially product pages — and the 30s budget is
+      // exhausted by background telemetry. `domcontentloaded` + a bounded
+      // networkidle (best-effort) + a short fixed delay catches Wix's lazy
+      // hydration without hanging. The networkidle attempt also lets the Pro
+      // Gallery finish its hydration navigation *before* we evaluate, instead
+      // of having it fire mid-extract.
+      await p.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+      await settle(6_000, 4000);
+      // Scroll through the page to trigger lazy-loaded gallery thumbnails so
+      // images below the fold make it into the live DOM read. Best-effort.
+      try {
+        await withTimeout(p.evaluate(async () => {
+          const step = 800;
+          const total = document.documentElement.scrollHeight;
+          for (let y = 0; y < total; y += step) {
+            window.scrollTo(0, y);
+            await new Promise((r) => setTimeout(r, 120));
+          }
+          window.scrollTo(0, 0);
+        }), 60_000, 'wix lazy-load scroll');
+        await settle(3_000, 500);
+      } catch {
+        // scroll failed (e.g. context destroyed) — non-fatal; the DOM read and
+        // HTML fallback still recover what's already present.
+      }
+    } catch {
+      // Navigation may timeout on heavy Wix pages
+    }
+  } finally {
+    // Never leave the capture listener attached to the shared page — an
+    // unexpected throw above would otherwise keep it running for every
+    // later URL extracted on this page.
+    p.off('response', responseHandler);
+  }
 
   // Tracks whether the live in-page evaluate path failed (context destroyed
   // even after one retry). When true we lean on the served-HTML fallback.
@@ -330,8 +335,11 @@ export async function extractWixPage(
     null;
   let client: Awaited<ReturnType<ReturnType<(typeof p)['context']>['newCDPSession']>> | null = null;
   try {
+    // A session that resolves after the deadline never reaches `client`, so
+    // the finally below can't see it — detach it via the late-resolve hook.
     client = await withTimeout(
-      p.context().newCDPSession(page), RENDERER_CALL_TIMEOUT_MS, 'wix CDP session');
+      p.context().newCDPSession(page), RENDERER_CALL_TIMEOUT_MS, 'wix CDP session',
+      (c) => { void c.detach().catch(() => {}); });
     const axResult = (await withTimeout(client.send('Accessibility.getFullAXTree', {
       depth: 10,
     }), RENDERER_CALL_TIMEOUT_MS, 'wix AX tree')) as { nodes?: Array<{ role?: { value: string }; name?: { value: string }; description?: { value: string } }> };

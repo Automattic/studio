@@ -133,11 +133,13 @@ export async function extractDefault(
   // closed after use, so concurrent batch fetches stay isolated and memory
   // stays bounded across long runs.
   let browser: Browser | null = null;
+  let closeBrowser: (() => Promise<void>) | null = null;
   let pwContext: BrowserContext | null = null;
   if (useRender) {
     try {
       const launched = await launchBrowser({ cdpPort: o.cdpPort });
       browser = launched.browser as unknown as Browser;
+      closeBrowser = launched.close;
       pwContext = browser.contexts()[0] || (await browser.newContext());
     } catch {
       browser = null;
@@ -177,6 +179,6 @@ export async function extractDefault(
 
     return result;
   } finally {
-    await browser?.close().catch(() => {});
+    await closeBrowser?.().catch(() => {});
   }
 }

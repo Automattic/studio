@@ -30,20 +30,43 @@ export async function mapPool<T, R>(
   return results;
 }
 
+/** Deadline rejection from withTimeout; `label` tells whose deadline fired. */
+export class TimeoutError extends Error {
+  readonly label: string;
+  constructor(label: string, ms: number) {
+    super(`${label} timed out after ${ms}ms`);
+    this.name = 'TimeoutError';
+    this.label = label;
+  }
+}
+
 /**
- * Race a promise against a hard deadline, rejecting with `label` when the time is up.
- * The underlying operation is NOT cancelled — the caller abandons it — so use
- * this to put a time limit on awaits that can otherwise fail to settle (e.g. Playwright
- * protocol calls against a frozen renderer, which have no default timeout).
+ * Race a promise against a hard deadline, rejecting with a labeled TimeoutError.
+ * The operation is NOT cancelled — the caller abandons it — so use this to bound
+ * awaits that may never settle (e.g. Playwright calls against a frozen renderer).
+ * `onLateResolve` disposes a value that resolves after the deadline; its errors
+ * and late rejections are swallowed.
  */
-export async function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+export async function withTimeout<T>(
+  p: Promise<T>,
+  ms: number,
+  label: string,
+  onLateResolve?: (value: T) => void | Promise<void>,
+): Promise<T> {
   let timer: NodeJS.Timeout | undefined;
+  let timedOut = false;
   const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+    timer = setTimeout(() => {
+      timedOut = true;
+      reject(new TimeoutError(label, ms));
+    }, ms);
   });
   try {
     return await Promise.race([p, timeout]);
   } finally {
     if (timer) clearTimeout(timer);
+    if (timedOut && onLateResolve) {
+      p.then(onLateResolve).catch(() => {});
+    }
   }
 }

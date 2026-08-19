@@ -1,7 +1,14 @@
+import { withTimeout } from '../concurrency.js';
+
+type PwPage = { close(): Promise<void> };
+
+const CLOSE_TIMEOUT_MS = 3_000;
+
 type PwBrowser = {
-  contexts(): Array<{ newPage(): Promise<unknown> }>;
-  newContext(opts?: Record<string, unknown>): Promise<{ newPage(): Promise<unknown> }>;
+  contexts(): Array<{ newPage(): Promise<PwPage> }>;
+  newContext(opts?: Record<string, unknown>): Promise<{ newPage(): Promise<PwPage> }>;
   close(): Promise<void>;
+  isConnected(): boolean;
 };
 
 export async function getPlaywright(): Promise<typeof import('playwright')> {
@@ -40,28 +47,27 @@ export async function launchBrowser(opts: { cdpPort?: number; headed?: boolean }
   page: unknown;
   close: () => Promise<void>;
 }> {
-  const pw = await getPlaywright();
+  const raw = await connectBrowser(opts);
+  const browser = raw as unknown as PwBrowser;
 
-  let browser: PwBrowser;
-  let page: unknown;
-
-  if (opts.cdpPort) {
-    const raw = await pw.chromium.connectOverCDP(
-      `http://127.0.0.1:${opts.cdpPort}`
-    );
-    browser = raw as unknown as PwBrowser;
-    const ctx = browser.contexts()[0] || (await browser.newContext());
+  let page: PwPage;
+  try {
+    const ctx = opts.cdpPort
+      ? browser.contexts()[0] || (await browser.newContext())
+      : await browser.newContext();
     page = await ctx.newPage();
-  } else {
-    const raw = await pw.chromium.launch({ headless: !opts.headed });
-    browser = raw as unknown as PwBrowser;
-    const ctx = await browser.newContext();
-    page = await ctx.newPage();
+  } catch (err) {
+    await withTimeout(browser.close(), CLOSE_TIMEOUT_MS, 'browser close').catch(() => {});
+    throw err;
   }
 
   return {
     browser,
     page,
-    close: () => browser.close(),
+    close: async () => {
+      // Under CDP, browser.close() only disconnects — close our tab first.
+      await withTimeout(page.close(), CLOSE_TIMEOUT_MS, 'page close').catch(() => {});
+      await withTimeout(browser.close(), CLOSE_TIMEOUT_MS, 'browser close').catch(() => {});
+    },
   };
 }

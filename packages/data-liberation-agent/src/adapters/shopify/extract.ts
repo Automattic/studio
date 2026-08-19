@@ -8,6 +8,7 @@ import {
 } from '../../lib/extraction/shopify-graphql.js';
 import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { runExtractionLoop } from '../shared.js';
+import { createManagedBrowser } from '../../lib/browser-kit/index.js';
 import { slugify } from '../../lib/url/index.js';
 import { extractMeta, extractHeading, IMAGE_EXTENSIONS } from '../../lib/html-extract/index.js';
 import { WooProductCsvBuilder } from '../../lib/woo-csv/index.js';
@@ -204,20 +205,12 @@ export async function extract(
     inv.urls.filter((u) => u.type === 'product').map((u) => u.url)
   );
 
-  // Lazy-init browser session for CDP/headed fallback on 403s
-  let browserSession: { page: unknown; close: () => Promise<void> } | null = null;
-  async function getBrowserPage(): Promise<unknown> {
-    if (!browserSession) {
-      const { launchBrowser } = await import('../../lib/browser-kit/index.js');
-      // Prefer user-provided CDP port; otherwise auto-launch headed Chromium
-      // (headed bypasses Cloudflare bot detection that blocks headless)
-      const session = await launchBrowser(
-        shopifyOpts.cdpPort ? { cdpPort: shopifyOpts.cdpPort } : { headed: true }
-      );
-      browserSession = { page: session.page, close: () => session.close() };
-    }
-    return browserSession.page;
-  }
+  // Lazy browser for the CDP/headed fallback on 403s. Prefer a user-provided
+  // CDP port; otherwise auto-launch headed Chromium (headed bypasses
+  // Cloudflare bot detection that blocks headless).
+  const managed = createManagedBrowser(
+    shopifyOpts.cdpPort ? { cdpPort: shopifyOpts.cdpPort } : { headed: true }
+  );
 
   let result;
   try {
@@ -236,7 +229,10 @@ export async function extract(
     csvBuilder,
     session,
     onPageExtracted: shopifyOpts.onPageExtracted as never,
+    maxPageConcurrency: 1,
+    onExtractTimeout: () => managed.reset(),
     extractPage: async (url: string) => {
+      const lease = managed.openLease();
       // Tier 1: Try JSON API — append .json to URL
       let title = '';
       let content = '';
@@ -349,7 +345,7 @@ export async function extract(
         // Uses CDP if cdpPort provided, otherwise auto-launches headed Chromium
         if (needsBrowser && !html) {
           try {
-            const page = await getBrowserPage() as import('playwright').Page;
+            const page = (await lease.acquire()).page as import('playwright').Page;
             await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
             html = await page.content();
           } catch {
@@ -460,6 +456,6 @@ export async function extract(
     }
     throw err;
   } finally {
-    if (browserSession) await (browserSession as { close: () => Promise<void> }).close();
+    await managed.end();
   }
 }

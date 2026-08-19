@@ -11,11 +11,12 @@ import type { WooProductCsvBuilder, WooProduct } from '../lib/woo-csv/index.js';
 import { AdaptiveTuner, TUNER_DEFAULTS } from '../lib/extraction/adaptive-tuner.js';
 import type { AdaptiveTunerConfig, TunerState } from '../lib/extraction/adaptive-tuner.js';
 import { claimSlug, pageSlugFromUrl } from '../lib/url/index.js';
-import { withTimeout } from '../lib/concurrency.js';
+import { withTimeout, TimeoutError } from '../lib/concurrency.js';
 
-/** Time limit for one extractPage call. An adapter await that never settles
- *  (a frozen browser, a dead socket) would otherwise block the whole loop;
- *  when the time is up the URL is logged as failed and the run continues. */
+/** Default time limit for one extractPage call (see extractTimeoutMs). An
+ *  adapter await that never settles (a frozen browser, a dead socket) would
+ *  otherwise block the whole loop; when the time is up the URL is logged as
+ *  failed and the run continues. */
 const PAGE_EXTRACT_TIMEOUT_MS = 5 * 60_000;
 
 // ---------------------------------------------------------------------------
@@ -291,6 +292,14 @@ export interface ExtractionLoopOpts {
    * implicit 3-URL cap.
    */
   limit?: number;
+  /** Watchdog budget for one extractPage call. Defaults to 5 minutes. */
+  extractTimeoutMs?: number;
+  /** Called after an extractPage watchdog timeout. The abandoned call can still
+   *  touch shared adapter state — dispose/recreate it here. Errors are logged and swallowed. */
+  onExtractTimeout?: () => Promise<void>;
+  /** Hard cap on the tuner's page-fetch batch size. Adapters whose extractPage
+   *  shares one browser page must pass 1. */
+  maxPageConcurrency?: number;
   /** Optional per-adapter tuner configuration overrides */
   tunerConfig?: AdaptiveTunerConfig;
 }
@@ -337,8 +346,12 @@ async function runExtractionLoopInner(opts: ExtractionLoopOpts): Promise<Extract
     extractProduct,
     onPageExtracted,
     limit,
+    extractTimeoutMs,
+    onExtractTimeout,
+    maxPageConcurrency,
     tunerConfig,
   } = opts;
+  const pageExtractTimeoutMs = extractTimeoutMs ?? PAGE_EXTRACT_TIMEOUT_MS;
 
   // Seed discovered counts from the inventory so the session reflects
   // what the adapter found before extraction began.
@@ -457,11 +470,12 @@ async function runExtractionLoopInner(opts: ExtractionLoopOpts): Promise<Extract
     pageData: ExtractedPage | null;
     elapsedMs: number;
     error: string | null;
+    timedOut: boolean;
   }
 
   let cursor = 0;
   while (cursor < urls.length) {
-    const batchSize = tuner.getPageConcurrency();
+    const batchSize = Math.max(1, Math.min(tuner.getPageConcurrency(), maxPageConcurrency ?? Infinity));
     const batch = urls.slice(cursor, cursor + batchSize);
 
     // Phase 1: Log what we're about to fetch
@@ -473,15 +487,25 @@ async function runExtractionLoopInner(opts: ExtractionLoopOpts): Promise<Extract
     const fetchResults: FetchResult[] = await Promise.all(
       batch.map(async (url): Promise<FetchResult> => {
         const pageStart = Date.now();
+        const watchdogLabel = `extractPage ${url}`;
         try {
           const pageData = await withTimeout(
-            extractPage(url), PAGE_EXTRACT_TIMEOUT_MS, `extractPage ${url}`);
-          return { url, pageData, elapsedMs: Date.now() - pageStart, error: null };
+            extractPage(url), pageExtractTimeoutMs, watchdogLabel);
+          return { url, pageData, elapsedMs: Date.now() - pageStart, error: null, timedOut: false };
         } catch (err) {
-          return { url, pageData: null, elapsedMs: Date.now() - pageStart, error: err instanceof Error ? err.message : String(err) };
+          const timedOut = err instanceof TimeoutError && err.label === watchdogLabel;
+          return { url, pageData: null, elapsedMs: Date.now() - pageStart, error: err instanceof Error ? err.message : String(err), timedOut };
         }
       })
     );
+
+    if (onExtractTimeout && fetchResults.some((r) => r.timedOut)) {
+      try {
+        await onExtractTimeout();
+      } catch (err) {
+        sendLog(`  [warn] onExtractTimeout failed: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
 
     // Phase 3: Feed timing to tuner — treat batch errors as a single
     // compound event to avoid multiplicative backoff (N errors in one

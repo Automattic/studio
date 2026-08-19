@@ -2,7 +2,7 @@ import type { WxrBuilder } from '../../lib/wxr/index.js';
 import type { ExtractionLog } from '../../lib/resume-state/index.js';
 import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { runExtractionLoop } from '../shared.js';
-import { launchBrowser } from '../../lib/browser-kit/index.js';
+import { createManagedBrowser } from '../../lib/browser-kit/index.js';
 import { WooProductCsvBuilder } from '../../lib/woo-csv/index.js';
 import type { WixAdapterOpts, Inventory } from './types.js';
 import { extractWixPage } from './page.js';
@@ -36,10 +36,11 @@ export async function extract(
       inv.urls.filter((u) => u.type === 'product').map((u) => u.url)
     );
 
-    // Launch browser for Wix-specific page extraction
-    const { page, close } = await launchBrowser({ cdpPort: wixOpts.cdpPort });
+    const managed = createManagedBrowser({ cdpPort: wixOpts.cdpPort });
 
     try {
+      // Fail fast on a broken browser setup before the loop starts.
+      await managed.openLease().acquire();
       const result = await runExtractionLoop({
         urls: inv.urls,
         navigation: inv.navigation,
@@ -54,8 +55,15 @@ export async function extract(
         server: context.server,
         csvBuilder,
         onPageExtracted: wixOpts.onPageExtracted as never,
+        maxPageConcurrency: 1,
+        onExtractTimeout: () => managed.reset(),
         extractPage: async (url: string) => {
+          const lease = managed.openLease();
+          const { page } = await lease.acquire();
           const pageData = await extractWixPage(page, url);
+          if (!lease.isValid()) {
+            throw new Error(`extraction abandoned by watchdog: ${url}`);
+          }
 
           // Check if this is a product page and try to extract product data
           const isProduct = productUrls.has(url) || /\/product-page\//.test(url) || /\/store\//.test(url);
@@ -114,6 +122,6 @@ export async function extract(
 
       return result;
     } finally {
-      await close();
+      await managed.end();
     }
   }

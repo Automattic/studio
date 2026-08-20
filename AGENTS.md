@@ -143,6 +143,7 @@ For in-depth information, see these docs:
 - **Custom Domains/SSL**: `docs/design-docs/custom-domains-and-ssl.md` - Proxy server, certificates, hosts file
 - **Analytics (Tracks)**: `docs/design-docs/analytics-tracks.md` - Tracks vs MC Stats, anonymous identity, opt-out, event catalog
 - **Localization**: `docs/localization.md` - GlotPress workflow, translation process
+- **wp-lsp Agent Integration**: `docs/design-docs/wp-lsp-agent.md` - WordPress language server in Studio Code, Lsp tool, post-edit diagnostics, impact measurement
 - **Release Process**: `docs/release-process.md` - ReleasesV2 + Fastlane lifecycle, running lanes locally
 - **Overview**: `README.md` - Features, download links, contribution guidelines
 

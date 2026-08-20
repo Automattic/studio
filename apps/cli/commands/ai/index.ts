@@ -33,6 +33,7 @@ import {
 import { closeSharedBrowser } from 'cli/ai/browser-utils';
 import { setChatArtifactCallback } from 'cli/ai/chat-artifacts';
 import { startDaemonStatusPolling } from 'cli/ai/daemon-status-poll';
+import { shutdownAllLspServers } from 'cli/ai/lsp/pool';
 import { type AiOutputAdapter, JsonAdapter } from 'cli/ai/output-adapter';
 import {
 	AI_PROVIDERS,
@@ -708,6 +709,7 @@ export async function runCommand( options: {
 			setLocalSiteSelectedCallback( null );
 			ui.stop();
 			await closeSharedBrowser();
+			await shutdownAllLspServers();
 		}
 		return;
 	}

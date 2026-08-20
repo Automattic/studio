@@ -24,6 +24,8 @@ export interface BuildSystemPromptOptions {
 	// Runtime of the active local site. Playground (PHP WASM) needs extra WP-CLI
 	// constraints that the native PHP runtime does not. Defaults to native-php.
 	runtime?: SiteRuntime;
+	// True when the wp-lsp language server (and its Lsp tool) is available.
+	lspEnabled?: boolean;
 	// The user's global instructions (~/.studio/knowledge/instructions.md).
 	userInstructions?: string;
 }
@@ -45,6 +47,7 @@ ${ REMOTE_DESIGN_GUIDELINES }${ remoteSessionAddendum }${ userInstructionsSectio
 		chatArtifactsEnabled: options?.chatArtifactsEnabled ?? false,
 		remoteSession: options?.remoteSession ?? false,
 		runtime: options?.runtime,
+		lspEnabled: options?.lspEnabled ?? false,
 	} ) }
 
 ${ LOCAL_SKILL_ROUTING }${ remoteSessionAddendum }${ userInstructionsSection }
@@ -124,6 +127,7 @@ function buildLocalIntro( options: {
 	chatArtifactsEnabled: boolean;
 	remoteSession: boolean;
 	runtime?: SiteRuntime;
+	lspEnabled: boolean;
 } ): string {
 	const postContentGuidance = getPostContentGuidance( options.runtime );
 	// Remote-bridge sessions also run without chat artifacts, but their user is
@@ -154,6 +158,21 @@ ${ getStudioWidgetPromptManifest() }`
 	const studioPresentToolBullet = options.chatArtifactsEnabled
 		? `
 - studio_present: Show one or more Studio desks widgets as inline visual artifacts.`
+		: '';
+	const lspToolBullet = options.lspEnabled
+		? `
+- Lsp: Exact WordPress code intelligence for PHP files (definitions, references, hook callbacks, call hierarchy, hover docs, diagnostics). See "Code intelligence".`
+		: '';
+	const lspSection = options.lspEnabled
+		? `
+
+## Code intelligence
+
+The active site's PHP (plus the JS half of blocks and hooks) is indexed by wp-lsp, a WordPress language server.
+
+- Prefer the \`Lsp\` tool over Grep when tracing any WordPress identifier: hook names, string callbacks, post type / taxonomy / shortcode slugs, block names, script and style handles, option and meta keys, functions, classes, and methods. Grep returns every textual match; Lsp returns the resolved answer — for example every callback attached to a hook, in priority order, including \`[ $this, 'method' ]\` ones.
+- Typical flow: Read the file to spot the identifier, then call Lsp with the operation and the identifier's 1-based line and column.
+- After every Edit or Write of a PHP file, wp-lsp problems in that file (unknown hook names, wrong callback argument counts, deprecated hooks, text-domain mismatches, unknown methods and properties) are appended to the tool result automatically. Fix them before moving on — the rules are high-precision, so a reported problem is almost always real.`
 		: '';
 
 	return `${ AGENT_IDENTITY } You manage and modify local WordPress sites using your Studio tools and generate content for these sites.
@@ -223,7 +242,7 @@ For long CSS or page-content files (>~200 lines), load the \`block-content\` ski
 - site_pull: Pull a WordPress.com site to a local site. Requires authentication. Specify the remote site URL or ID and sync options.
 - site_import: Import a backup file (.zip, .tar.gz, .sql, .wpress, .xml WordPress export) into a local site.
 - site_export: Export a local site to a backup file. Supports full-site (.zip, .tar.gz) or database-only (.sql) exports.
-${ studioPresentToolBullet }${ automaticArtifactSection }
+${ studioPresentToolBullet }${ lspToolBullet }${ automaticArtifactSection }${ lspSection }
 
 ## General rules
 

@@ -215,6 +215,39 @@ async function appBoot() {
 				event.preventDefault();
 			}
 		} );
+		// Electron never renders Chromium's `beforeunload` dialog — it emits this
+		// event instead, and cancels the unload unless we call `preventDefault()`.
+		// Without it, unsaved-changes guards (the block editor's, most visibly)
+		// block navigation in the preview with no way for the user to respond.
+		contents.on( 'will-prevent-unload', ( event ) => {
+			if ( ! isSitePreviewWebview ) {
+				return;
+			}
+
+			if ( process.env.E2E ) {
+				event.preventDefault();
+				return;
+			}
+
+			const LEAVE_BUTTON_INDEX = 0;
+			const STAY_BUTTON_INDEX = 1;
+			const options: MessageBoxSyncOptions = {
+				type: 'question',
+				message: __( 'Leave page with unsaved changes?' ),
+				detail: __( 'Changes you made may not be saved.' ),
+				buttons: [ __( 'Leave' ), __( 'Stay' ) ],
+				cancelId: STAY_BUTTON_INDEX,
+				defaultId: STAY_BUTTON_INDEX,
+			};
+			const parentWindow = BrowserWindow.getFocusedWindow();
+			const clickedButtonIndex = parentWindow
+				? dialog.showMessageBoxSync( parentWindow, options )
+				: dialog.showMessageBoxSync( options );
+
+			if ( clickedButtonIndex === LEAVE_BUTTON_INDEX ) {
+				event.preventDefault();
+			}
+		} );
 		contents.setWindowOpenHandler( ( details ) => {
 			// Site-preview popups (target="_blank", admin-bar links, …) open
 			// in the user's browser rather than spawning a new Electron window.

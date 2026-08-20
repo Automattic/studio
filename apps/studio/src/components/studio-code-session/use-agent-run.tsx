@@ -1,6 +1,13 @@
 import { buildChatAttachmentSummaries } from '@studio/common/ai/chat-attachments';
-import { getAgentEndFailure, isUsageCapError } from '@studio/common/ai/json-events';
-import { formatUsageCapNotice } from '@studio/common/lib/studio-assistant-quota';
+import {
+	getAgentEndFailure,
+	isOutOfCreditsError,
+	isUsageCapError,
+} from '@studio/common/ai/json-events';
+import {
+	formatOutOfCreditsNotice,
+	formatUsageCapNotice,
+} from '@studio/common/lib/studio-assistant-quota';
 import { useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
 import {
@@ -354,11 +361,20 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					return;
 				case 'error': {
 					const isUsageCap = isUsageCapError( event.message );
-					const message = isUsageCap ? formatUsageCapNotice() : event.message;
+					// Out of credits (STU-2236) rides the same non-blocking banner
+					// as the cap, with its own copy: buying credits is the fix, not
+					// waiting for the monthly reset.
+					const isOutOfCredits = isOutOfCreditsError( event.message );
+					let message = event.message;
+					if ( isOutOfCredits ) {
+						message = formatOutOfCreditsNotice();
+					} else if ( isUsageCap ) {
+						message = formatUsageCapNotice();
+					}
 					dispatchSession( payload.sessionId, {
 						type: 'error_set',
 						message,
-						usageCapReached: isUsageCap,
+						usageCapReached: isUsageCap || isOutOfCredits,
 					} );
 					return;
 				}
@@ -558,8 +574,18 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 				} );
 				const rawMessage = err instanceof Error ? err.message : String( err );
 				const isUsageCap = isUsageCapError( rawMessage );
-				const message = isUsageCap ? formatUsageCapNotice() : rawMessage;
-				dispatchSession( sessionId, { type: 'error_set', message, usageCapReached: isUsageCap } );
+				const isOutOfCredits = isOutOfCreditsError( rawMessage );
+				let message = rawMessage;
+				if ( isOutOfCredits ) {
+					message = formatOutOfCreditsNotice();
+				} else if ( isUsageCap ) {
+					message = formatUsageCapNotice();
+				}
+				dispatchSession( sessionId, {
+					type: 'error_set',
+					message,
+					usageCapReached: isUsageCap || isOutOfCredits,
+				} );
 				throw err;
 			}
 		},

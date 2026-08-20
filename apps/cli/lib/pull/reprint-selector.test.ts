@@ -3,11 +3,8 @@ import {
 	filterTreeToDirectories,
 	mapCheckedNodesToSelection,
 	mapCliOnlyToReprint,
-	resolveOnlyPathsToAbsolute,
 } from './reprint-selector';
 import type { TreeNode } from 'cli/lib/tree-checkbox';
-
-const CONTENT_DIR = '/srv/htdocs/wp-content';
 
 /** Minimal checked node — mapCheckedNodesToSelection only reads `value`. */
 function checked( value: string, depth = 1 ): TreeNode {
@@ -120,22 +117,6 @@ describe( 'mapCliOnlyToReprint', () => {
 		expect( mapCliOnlyToReprint( [ ':wp-uploads:', '/wordpress/plugins/akismet' ] ) ).toEqual( [
 			':wp-uploads:',
 			'/wordpress/plugins/akismet',
-		] );
-	} );
-} );
-
-describe( 'resolveOnlyPathsToAbsolute', () => {
-	it( 'resolves wp-content tokens to content-dir paths', () => {
-		expect(
-			resolveOnlyPathsToAbsolute(
-				[ ':wp-content:/plugins', ':wp-content:/uploads/2026', ':wp-plugins:', '/wordpress/core' ],
-				CONTENT_DIR
-			)
-		).toEqual( [
-			`${ CONTENT_DIR }/plugins`,
-			`${ CONTENT_DIR }/uploads/2026`,
-			`${ CONTENT_DIR }/plugins`,
-			'/wordpress/core',
 		] );
 	} );
 } );

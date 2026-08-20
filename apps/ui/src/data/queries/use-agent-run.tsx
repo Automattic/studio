@@ -13,6 +13,7 @@ import {
 	type PropsWithChildren,
 } from 'react';
 import { useConnector } from '@/data/core';
+import { ASSISTANT_QUOTA_QUERY_KEY } from '@/data/queries/use-assistant-quota';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import type {
 	AgentEvent,
@@ -395,6 +396,9 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					}
 					dispatchSession( payload.sessionId, { type: 'run_ended' } );
 					subscribedRunIdsBySessionRef.current.delete( payload.sessionId );
+					// The finished run consumed AI credits; refresh the balance shown
+					// in the composer and in Settings → Usage.
+					void queryClient.invalidateQueries( { queryKey: ASSISTANT_QUOTA_QUERY_KEY } );
 					if ( ! hasQueuedFollowUp ) {
 						// Refetch to replace optimistic entries with disk-backed ones.
 						// `cancelRefetch: false` so a run ending as its site is deleted

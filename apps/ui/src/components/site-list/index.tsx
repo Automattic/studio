@@ -35,13 +35,11 @@ import { useSiteAgentActivity, type SiteAgentActivity } from '@/data/queries/use
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useSessions } from '@/data/queries/use-sessions';
 import {
-	useIsSiteBusy,
 	useIsSiteStarting,
 	useIsSiteStopping,
 	useSiteOperation,
 	useSites,
-	useStartSite,
-	useStopSite,
+	useToggleSiteRunning,
 	useUpdateSitesSortOrder,
 } from '@/data/queries/use-sites';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
@@ -301,9 +299,7 @@ function SiteStatusButton( {
 	isStarting: boolean;
 	isStopping: boolean;
 } ) {
-	const startSite = useStartSite();
-	const stopSite = useStopSite();
-	const busy = useIsSiteBusy( site );
+	const { busy, toggle } = useToggleSiteRunning( site );
 	const operation = useSiteOperation( site );
 	const { status } = deriveSiteStatus( site, isStarting, isStopping, operation );
 	// The recorded operation wins: it names work this window didn't start (an
@@ -322,14 +318,7 @@ function SiteStatusButton( {
 	const label = busy ? tooltipLabel : sprintf( __( '%1$s. %2$s' ), tooltipLabel, actionLabel );
 	const handleClick = ( event: MouseEvent< HTMLButtonElement > ) => {
 		event.stopPropagation();
-		if ( busy ) {
-			return;
-		}
-		if ( site.running ) {
-			stopSite.mutate( site.id );
-		} else {
-			startSite.mutate( site.id );
-		}
+		toggle();
 	};
 
 	return (
@@ -411,9 +400,7 @@ function SiteActionsMenu( {
 	const params = useParams( { strict: false } ) as { sessionId?: string; siteId?: string };
 	const connector = useConnector();
 	const { data: userPreferences } = useUserPreferences();
-	const startSite = useStartSite();
-	const stopSite = useStopSite();
-	const busy = useIsSiteBusy( site );
+	const { busy, toggle } = useToggleSiteRunning( site );
 	const [ deleteOpen, setDeleteOpen ] = useState( false );
 	// Same source as the overview screen's Manage section, so the two can't drift
 	// on what's blocked or what's in flight. Only the labels differ here.
@@ -485,15 +472,13 @@ function SiteActionsMenu( {
 					onClick={ stopMenuEventPropagation }
 					onPointerDown={ stopMenuEventPropagation }
 				>
-					{ site.running ? (
-						<Menu.Item disabled={ busy } onClick={ () => stopSite.mutate( site.id ) }>
-							{ __( 'Stop site' ) }
-						</Menu.Item>
-					) : (
-						<Menu.Item disabled={ busy } onClick={ () => startSite.mutate( site.id ) }>
-							{ isStarting ? __( 'Starting…' ) : __( 'Start site' ) }
-						</Menu.Item>
-					) }
+					<Menu.Item disabled={ busy } onClick={ toggle }>
+						{ site.running
+							? __( 'Stop site' )
+							: isStarting
+							? __( 'Starting…' )
+							: __( 'Start site' ) }
+					</Menu.Item>
 					<Menu.Separator />
 					<Menu.Item
 						onClick={ () => {

@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
-import { useAutoStartSites, useStartSite, useStopSite } from './use-sites';
+import { useAutoStartSites, useStartSite, useStopSite, useToggleSiteRunning } from './use-sites';
 import type { Connector, SiteDetails } from '@/data/core';
 import type { ReactNode } from 'react';
 
@@ -131,5 +131,60 @@ describe( 'useStartSite', () => {
 
 		await expect( result.current.start.mutateAsync( 'site-1' ) ).resolves.toBe( true );
 		expect( startSite ).toHaveBeenCalledWith( 'site-1' );
+	} );
+} );
+
+describe( 'useToggleSiteRunning', () => {
+	const startSite = vi.fn( () => Promise.resolve() );
+	const stopSite = vi.fn( () => Promise.resolve() );
+
+	beforeEach( () => {
+		vi.clearAllMocks();
+		useConnectorMock.mockReturnValue( {
+			getSites: vi.fn( () => Promise.resolve( [] ) ),
+			startSite,
+			stopSite,
+		} as unknown as Connector );
+	} );
+
+	function renderToggle( site: SiteDetails ) {
+		const queryClient = new QueryClient( {
+			defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+		} );
+		return renderHook( () => useToggleSiteRunning( site ), {
+			wrapper: ( { children }: { children: ReactNode } ) => (
+				<QueryClientProvider client={ queryClient }>{ children }</QueryClientProvider>
+			),
+		} ).result;
+	}
+
+	it( 'starts a stopped site', async () => {
+		const result = renderToggle( createSite( { running: false } ) );
+
+		result.current.toggle();
+
+		await waitFor( () => expect( startSite ).toHaveBeenCalledWith( 'site-1' ) );
+		expect( stopSite ).not.toHaveBeenCalled();
+	} );
+
+	it( 'stops a running site', async () => {
+		const result = renderToggle( createSite( { running: true } ) );
+
+		result.current.toggle();
+
+		await waitFor( () => expect( stopSite ).toHaveBeenCalledWith( 'site-1' ) );
+		expect( startSite ).not.toHaveBeenCalled();
+	} );
+
+	it( 'no-ops while an operation already owns the site', () => {
+		const result = renderToggle(
+			createSite( { running: false, operation: { pid: 1, kind: 'start' } } )
+		);
+
+		expect( result.current.busy ).toBe( true );
+		result.current.toggle();
+
+		expect( startSite ).not.toHaveBeenCalled();
+		expect( stopSite ).not.toHaveBeenCalled();
 	} );
 } );

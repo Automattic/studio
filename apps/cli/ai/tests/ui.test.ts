@@ -316,7 +316,6 @@ describe( 'AiChatUI.handleEvent', () => {
 		expect( showError ).not.toHaveBeenCalledWith(
 			expect.stringContaining( 'monthly AI usage limit' )
 		);
-		// The terminal can't render links — the buy URL is printed as-is.
 		expect( showInfo ).toHaveBeenCalledWith( expect.stringContaining( ADD_AI_CREDITS_URL ) );
 		expect( ui.showUsageCapResetDate ).not.toHaveBeenCalled();
 		expect( ui.usageCapReached ).toBe( true );

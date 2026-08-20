@@ -36,8 +36,6 @@ export function AiBlockedNotice() {
 	} );
 }
 
-// Both AI credit pools are empty (STU-2236); buying credits is the fix, so
-// the notice links straight to the checkout.
 export function OutOfCreditsNotice() {
 	return createInterpolateElement( formatOutOfCreditsNoticeWithLink(), {
 		buyLink: <NoticeLink url={ ADD_AI_CREDITS_URL } />,

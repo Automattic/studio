@@ -180,6 +180,52 @@ input[type='checkbox']:focus:not( :focus-visible ) {
 	align-items: stretch;
 }
 
+/* @wordpress/ui's `AlertDialog.Popup` hardcodes its Cancel button as
+   `variant="minimal"` with no way to pass `tone`, so it defaults to brand —
+   a blue-tinted "secondary" button style the app doesn't use anywhere else:
+   every other Cancel/Back/Close in the app explicitly passes
+   `tone="neutral"`. `role="alertdialog"` is set by Base UI itself (vs.
+   `role="dialog"` for the plain `Dialog`), so this only reaches the two
+   AlertDialog Cancel buttons — matching values already used by
+   `tone="neutral"` `variant="minimal"` elsewhere. */
+[role='alertdialog'] button:first-child {
+	--wp-ui-button-background-color: var( --wpds-color-bg-interactive-neutral-weak );
+	--wp-ui-button-background-color-active: var( --wpds-color-bg-interactive-neutral-weak-active );
+	--wp-ui-button-background-color-disabled: var( --wpds-color-bg-interactive-neutral-weak-disabled );
+	--wp-ui-button-foreground-color: var( --wpds-color-fg-interactive-neutral );
+	--wp-ui-button-foreground-color-active: var( --wpds-color-fg-interactive-neutral-active );
+	--wp-ui-button-foreground-color-disabled: var( --wpds-color-fg-interactive-neutral-disabled );
+}
+
+/* @wordpress/ui's Button loading spinner centers itself with
+   `inset-inline-start: 50%` (direction-aware) plus a `transform:
+   translate(-50%, -50%)` baked into its spin keyframes — the translate half
+   is a physical shift, not a direction-aware one. In LTR the two agree; in
+   RTL they fight, landing the spinner a full diameter left of center.
+   Recenter the horizontal axis with `margin-inline-start` instead, which
+   does flip with direction, and point the animation at our own keyframes
+   that only rotate and recenter the (direction-safe) vertical axis. */
+[class*='__button']::before {
+	margin-inline-start: calc( var( --wp-ui-button-font-size ) * -0.5 );
+	transform: translateY( -50% );
+}
+
+@media not ( prefers-reduced-motion ) {
+	[class*='__is-loading']::before {
+		animation-name: studio-button-spin;
+	}
+}
+
+@keyframes studio-button-spin {
+	from {
+		transform: translateY( -50% ) rotate( 0deg );
+	}
+
+	to {
+		transform: translateY( -50% ) rotate( 360deg );
+	}
+}
+
 /* Compact density: shrink icons to match the tighter spacing tokens.
    @wordpress/icons draws SVGs at 24x24 by default; the theme's compact
    density only shrinks padding/gap tokens, not icon sizes. Override the

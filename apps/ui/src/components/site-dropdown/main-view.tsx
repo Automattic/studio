@@ -9,6 +9,15 @@ import { Button, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useMemo } from 'react';
 import * as Menu from '@/components/menu';
+import {
+	deriveSiteStatus,
+	getSiteStatusName,
+	ensureProtocol,
+	getSnapshotHostname,
+	pickLatestSnapshot,
+	pickLiveSite,
+	stripProtocol,
+} from '@/components/site-toolbar/utils';
 import { XdebugIcon } from '@/components/xdebug-icon';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
@@ -34,15 +43,6 @@ import { getSiteUrl } from '@/lib/get-site-url';
 import styles from './main-view.module.css';
 import { PopoverRow } from './popover-row';
 import { getSyncActivityLabel } from './trigger-secondary';
-import {
-	deriveSiteStatus,
-	getSiteStatusName,
-	ensureProtocol,
-	getSnapshotHostname,
-	pickLatestSnapshot,
-	pickLiveSite,
-	stripProtocol,
-} from './utils';
 import type { SiteDetails } from '@/data/core';
 import type { SyncActivity } from '@/data/sync-activity';
 import type { ComponentProps } from 'react';

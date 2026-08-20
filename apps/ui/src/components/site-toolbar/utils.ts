@@ -2,8 +2,9 @@ import { type SiteOperationKind } from '@studio/common/lib/site-operation';
 import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
 import { __, sprintf } from '@wordpress/i18n';
 import { getSiteDisplayUrl } from '@/lib/get-site-url';
-import type { SiteStatus } from './dropdown-trigger';
 import type { SiteDetails, Snapshot, SyncSite } from '@/data/core';
+
+export type SiteRunStatus = 'running' | 'stopped' | 'transitioning';
 
 export function stripProtocol( url: string ): string {
 	return url.replace( /^https?:\/\//, '' ).replace( /\/$/, '' );
@@ -84,7 +85,7 @@ function getStatus(
 	isStarting: boolean,
 	isStopping: boolean,
 	operation: SiteOperationKind | null
-): SiteStatus {
+): SiteRunStatus {
 	if ( operation || isStarting || isStopping ) {
 		return 'transitioning';
 	}
@@ -93,7 +94,7 @@ function getStatus(
 
 // Sentence form, read out by the status dot's aria-label.
 function getStatusLabel(
-	status: SiteStatus,
+	status: SiteRunStatus,
 	isStopping: boolean,
 	operation: SiteOperationKind | null
 ): string {
@@ -112,7 +113,7 @@ function getStatusLabel(
 // The local-site row's second line: what's happening, or where the site lives.
 function getLocalSublabel(
 	site: SiteDetails,
-	status: SiteStatus,
+	status: SiteRunStatus,
 	isStopping: boolean,
 	operation: SiteOperationKind | null
 ): string {
@@ -136,7 +137,7 @@ export function deriveSiteStatus(
 	// replace the two flags above. Passed in rather than derived here because
 	// it's react-query state and this stays a pure function.
 	operation: SiteOperationKind | null
-): { status: SiteStatus; statusLabel: string; localSublabel: string } {
+): { status: SiteRunStatus; statusLabel: string; localSublabel: string } {
 	const status = getStatus( site, isStarting, isStopping, operation );
 
 	return {

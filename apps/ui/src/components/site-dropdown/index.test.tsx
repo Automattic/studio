@@ -31,7 +31,9 @@ vi.mock( '@/data/sync-activity', () => ( { useSiteSyncActivity: () => null } ) )
 vi.mock( '@/components/selective-sync/lib/get-ipc-api', () => ( {
 	registerSelectiveSyncConnector: vi.fn(),
 } ) );
-vi.mock( './disconnect-site-dialog', () => ( { DisconnectSiteDialog: () => null } ) );
+vi.mock( '@/components/site-toolbar/disconnect-site-dialog', () => ( {
+	DisconnectSiteDialog: () => null,
+} ) );
 vi.mock( '@/components/selective-sync/lib/convert-tree-to-sync-options', () => ( {
 	convertTreeToPullOptions: () => ( { optionsToSync: [ 'all' ], include_path_list: [] } ),
 	convertTreeToPushOptions: () => ( { optionsToSync: [ 'all' ] } ),

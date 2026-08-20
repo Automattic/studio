@@ -10,13 +10,16 @@ type PublishPreviewVariables = {
 	existingHostname?: string;
 };
 
+export const PUBLISH_PREVIEW_MUTATION_KEY = [ 'publishPreviewSite' ] as const;
+
 // Creates or refreshes the WordPress.com-hosted preview snapshot for a
-// local site. Reports lifecycle into the shared sync-activity store so the
-// site-dropdown indicator can render the pending / success / error states.
+// local site. Reports lifecycle into the shared sync-activity store so
+// sync-activity consumers can render the pending / success / error states.
 export function usePublishPreviewSite() {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	return useMutation( {
+		mutationKey: PUBLISH_PREVIEW_MUTATION_KEY,
 		mutationFn: ( { siteId, existingHostname }: PublishPreviewVariables ) =>
 			connector.publishPreviewSite( siteId, existingHostname ),
 		onMutate: ( { siteId } ) => {

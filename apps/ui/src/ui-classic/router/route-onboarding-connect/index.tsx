@@ -161,7 +161,9 @@ function SignedOutView() {
 					<span>{ __( 'Supports staging and production sites.' ) }</span>
 				</li>
 			</ul>
-			<AuthActions className={ styles.authActions } />
+			{ /* Despite the `/onboarding/connect` path, this is the add-site flow's
+			     "connect a site" step, not first-run onboarding. */ }
+			<AuthActions className={ styles.authActions } source="add_site" />
 		</div>
 	);
 }
@@ -257,7 +259,9 @@ export function OnboardingConnectPage() {
 						siteId: localSiteId,
 						remoteSiteId: selectedSite.id,
 					} ),
-				startLocalSite: ( localSiteId ) => startSite.mutateAsync( localSiteId ),
+				startLocalSite: async ( localSiteId ) => {
+					await startSite.mutateAsync( localSiteId );
+				},
 				openLocalSite: ( localSiteId ) =>
 					navigate( {
 						to: '/sites/$siteId/overview',

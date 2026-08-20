@@ -89,6 +89,8 @@ function makeQuota( overrides: Partial< { hasPaymentMethod: boolean; emailVerifi
 		hasPaymentMethod: true,
 		studioCodeAiHasAccess: true,
 		studioCodeAiAccess: 'granted',
+		allowanceRemaining: undefined,
+		purchasedRemaining: undefined,
 		...overrides,
 	};
 }
@@ -329,6 +331,18 @@ describe( 'SessionView', () => {
 		expect( container.querySelector( '[class*="fadeInQuick"]' ) ).toBeNull();
 	} );
 
+	it( 'fades the chat surface behind the composer', () => {
+		useSessionMock.mockReturnValue( {
+			data: makeLoadedSession(),
+			isLoading: false,
+			error: null,
+		} );
+
+		const { container } = render( <SessionView sessionId="session-1" /> );
+
+		expect( container.querySelectorAll( '[class*="fadeToSurface"]' ) ).toHaveLength( 2 );
+	} );
+
 	it( 'ignores an unverified email when a payment method exists', () => {
 		useSessionMock.mockReturnValue( {
 			data: makeLoadedSession(),
@@ -361,6 +375,31 @@ describe( 'SessionView', () => {
 		render( <SessionView sessionId="session-1" /> );
 
 		expect( screen.queryByText( 'Studio Code Beta' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'publishes the composer height for the collapsed-sidebar toast shelf', () => {
+		useSessionMock.mockReturnValue( {
+			data: makeLoadedSession(),
+			isLoading: false,
+			error: null,
+		} );
+
+		const { container, unmount } = render( <SessionView sessionId="session-1" /> );
+
+		const composer = container.querySelector( '[class*="composerOuter"]' ) as HTMLDivElement;
+		expect( composer ).not.toBeNull();
+		Object.defineProperty( composer, 'offsetHeight', { value: 120, configurable: true } );
+		fireEvent( window, new Event( 'resize' ) );
+
+		expect( document.documentElement.style.getPropertyValue( '--app-main-composer-height' ) ).toBe(
+			'120px'
+		);
+
+		unmount();
+
+		expect( document.documentElement.style.getPropertyValue( '--app-main-composer-height' ) ).toBe(
+			''
+		);
 	} );
 } );
 

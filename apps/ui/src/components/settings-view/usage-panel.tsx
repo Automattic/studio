@@ -1,4 +1,5 @@
 import {
+	ADD_AI_CREDITS_URL,
 	clampQuotaFraction,
 	getStudioCodeAiAccessState,
 } from '@studio/common/lib/studio-assistant-quota';
@@ -117,11 +118,21 @@ function CreditMeter( {
 
 function AiCreditsSummary() {
 	const usage = useUsageExploration();
+	const locale = useUserLocale();
 	const connector = useConnector();
 	const [ purchaseOpen, setPurchaseOpen ] = useState( false );
 	const [ detailsOpen, setDetailsOpen ] = useState( false );
-	const { data: quota } = useStudioAssistantQuota();
+	const { data: quota, isLoading, isError } = useStudioAssistantQuota();
 	const accessState = quota ? getStudioCodeAiAccessState( quota ) : 'available';
+	// The server includes the per-pool balances only when AI credits are
+	// enabled for the account (STU-2235); their absence — not a 0 — means the
+	// pre-credits design should render.
+	const showsCreditBalances =
+		! isLoading &&
+		! isError &&
+		accessState === 'available' &&
+		!! quota &&
+		( quota.allowanceRemaining !== undefined || quota.purchasedRemaining !== undefined );
 	const opensExternalCheckout = usage.purchaseCreditsFlow === 'external';
 	const showWelcomeCredits = usage.purchasedTotal === 0 && usage.welcomeBalance > 0;
 	let creditCalloutMessage: string = showWelcomeCredits
@@ -159,6 +170,90 @@ function AiCreditsSummary() {
 		</div>
 	);
 
+	let content;
+	if ( isLoading ) {
+		content = (
+			<>
+				<div className={ styles.previewUsageText }>{ __( 'Loading…' ) }</div>
+				<UsageProgressBar fraction={ 0 } />
+			</>
+		);
+	} else if ( isError ) {
+		content = (
+			<div className={ styles.previewUsageText }>
+				{ __( 'Studio Code limits are temporarily unavailable.' ) }
+			</div>
+		);
+	} else if ( accessState !== 'available' ) {
+		content = (
+			<div className={ styles.previewUsageText }>
+				{ accessState === 'blocked' ? (
+					<AiBlockedNotice />
+				) : (
+					<AiAccessRequiredNotice quota={ quota } />
+				) }
+			</div>
+		);
+	} else if ( quota && showsCreditBalances ) {
+		// Real per-pool balances (STU-2235): show the exact figures the server
+		// returns, with their own "Add AI credits" link straight to the real
+		// WordPress.com checkout rather than the prototype's purchase flow.
+		const credits = new Intl.NumberFormat( locale );
+		const allowanceRemaining = quota.allowanceRemaining ?? 0;
+		const purchasedRemaining = quota.purchasedRemaining ?? 0;
+		content = (
+			<>
+				<div className={ styles.creditBalances }>
+					{ allowanceRemaining > 0 ? (
+						<div className={ styles.previewUsageText }>
+							{ sprintf(
+								/* translators: %s: number of free AI credits remaining (e.g. 960,000). */
+								__( 'Free credits remaining: %s' ),
+								credits.format( allowanceRemaining )
+							) }
+						</div>
+					) : null }
+					<div className={ styles.previewUsageText }>
+						{ sprintf(
+							/* translators: %s: number of purchased AI credits remaining (e.g. 150,000). */
+							__( 'Purchased credits remaining: %s' ),
+							credits.format( purchasedRemaining )
+						) }
+					</div>
+				</div>
+				<Button
+					className={ styles.usageSectionAction }
+					size="small"
+					variant="outline"
+					tone="neutral"
+					onClick={ () => void connector.openExternalUrl( ADD_AI_CREDITS_URL ) }
+				>
+					{ __( 'Add AI credits' ) }
+					<Button.Icon icon={ external } size={ 12 } />
+				</Button>
+			</>
+		);
+	} else {
+		// The prototype's scenario-driven meter, used whenever the account
+		// isn't on the real per-pool credit balances yet (including the plain
+		// Alpha/legacy cost-cap states) so the exploration stays reviewable.
+		content = (
+			<>
+				<CreditMeter
+					remainingDollars={ usage.availableBalance }
+					totalDollars={ usage.meterTotal }
+					fraction={ usage.combinedFraction }
+					valueClassName={ getMeterIntent( usage.combinedFraction ) }
+				/>
+				<div className={ styles.creditCallout }>
+					{ creditAction }
+					<span className={ styles.creditCalloutText }>{ creditCalloutMessage }</span>
+				</div>
+				<PurchaseCreditsDialog open={ purchaseOpen } onOpenChange={ setPurchaseOpen } />
+			</>
+		);
+	}
+
 	return (
 		<section className={ styles.usageSection }>
 			<div className={ styles.usageSectionHeader }>
@@ -184,29 +279,7 @@ function AiCreditsSummary() {
 					</Tooltip.Root>
 				</div>
 			</div>
-			{ accessState !== 'available' ? (
-				<div className={ styles.previewUsageText }>
-					{ accessState === 'blocked' ? (
-						<AiBlockedNotice />
-					) : (
-						<AiAccessRequiredNotice quota={ quota } />
-					) }
-				</div>
-			) : (
-				<>
-					<CreditMeter
-						remainingDollars={ usage.availableBalance }
-						totalDollars={ usage.meterTotal }
-						fraction={ usage.combinedFraction }
-						valueClassName={ getMeterIntent( usage.combinedFraction ) }
-					/>
-					<div className={ styles.creditCallout }>
-						{ creditAction }
-						<span className={ styles.creditCalloutText }>{ creditCalloutMessage }</span>
-					</div>
-					<PurchaseCreditsDialog open={ purchaseOpen } onOpenChange={ setPurchaseOpen } />
-				</>
-			) }
+			{ content }
 			<AiCreditsDetailsDialog open={ detailsOpen } onOpenChange={ setDetailsOpen } />
 		</section>
 	);
@@ -259,7 +332,7 @@ function PreviewSitesSummary( { userId }: { userId: number } ) {
 							}
 						/>
 						<Menu.Popup side="bottom" align="end">
-							<Menu.Item disabled={ isDisabled } onClick={ () => void handleDelete() }>
+							<Menu.Item destructive disabled={ isDisabled } onClick={ () => void handleDelete() }>
 								{ deletePreviewSitesLabel }
 							</Menu.Item>
 						</Menu.Popup>
@@ -309,7 +382,7 @@ export function UsagePanel() {
 	return (
 		<div className={ styles.usagePanel }>
 			{ reason === 'offline' ? <OfflineNotice /> : null }
-			{ reason === 'signed-out' ? <SigninNotice /> : null }
+			{ reason === 'signed-out' ? <SigninNotice source="settings" /> : null }
 			<section
 				className={ clsx( styles.settingsPanelSection, unavailable && styles.usageDisabled ) }
 			>

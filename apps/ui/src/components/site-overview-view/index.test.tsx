@@ -1,14 +1,20 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { BackupExtractEvents } from '@studio/common/lib/import-export-events';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Tooltip } from '@wordpress/ui';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import settingsStyles from '@/components/site-settings-view/style.module.css';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useLogin } from '@/data/queries/use-auth-user';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
+import { useSiteStorageUsage } from '@/data/queries/use-site-storage-usage';
+import { useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
 import {
 	useCopySite,
 	useExportDatabase,
 	useExportFullSite,
+	useIsSiteBusy,
 	useIsSiteStarting,
 	useIsSiteStopping,
 	useSites,
@@ -19,6 +25,7 @@ import {
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useWordPressVersions, useWpVersion } from '@/data/queries/use-wordpress-versions';
 import { useOffline } from '@/hooks/use-offline';
+import { useThemeDetails } from '@/hooks/use-theme-details';
 import styles from './style.module.css';
 import { SiteOverviewView } from './index';
 import type {
@@ -27,9 +34,12 @@ import type {
 	SupportedEditor,
 	UserPreferences,
 } from '@/data/core';
+import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 
 const navigateMock = vi.fn();
 const siteDropdownMock = vi.hoisted( () => vi.fn() );
+const importSiteFromBackup = vi.hoisted( () => vi.fn() );
+const reportSyncProgressMock = vi.hoisted( () => vi.fn() );
 const useSidebarCollapsedMock = vi.hoisted( () => vi.fn() );
 const useTrafficLightSpaceMock = vi.hoisted( () => vi.fn() );
 
@@ -83,9 +93,15 @@ vi.mock( '@/data/queries/use-create-site-helpers', () => ( {
 } ) );
 
 vi.mock( '@/data/queries/use-sites', () => ( {
+	SITES_QUERY_KEY: [ 'sites' ],
+	COPY_SITE_MUTATION_KEY: [ 'copySite' ],
+	EXPORT_DATABASE_MUTATION_KEY: [ 'exportDatabase' ],
+	EXPORT_FULL_SITE_MUTATION_KEY: [ 'exportFullSite' ],
 	useCopySite: vi.fn(),
 	useExportDatabase: vi.fn(),
 	useExportFullSite: vi.fn(),
+	useIsSiteBusy: vi.fn(),
+	useIsSiteMutating: vi.fn(),
 	useIsSiteStarting: vi.fn(),
 	useIsSiteStopping: vi.fn(),
 	useSites: vi.fn(),
@@ -94,17 +110,37 @@ vi.mock( '@/data/queries/use-sites', () => ( {
 	useXdebugEnabledSite: vi.fn(),
 } ) );
 
+vi.mock( '@/data/queries/use-site-thumbnail', () => ( {
+	siteThumbnailQueryKey: ( siteId: string ) => [ 'site-thumbnail', siteId ],
+	useSiteThumbnail: vi.fn(),
+} ) );
+
+vi.mock( '@/data/queries/use-site-storage-usage', () => ( {
+	siteStorageUsageQueryKey: ( siteId: string ) => [ 'site-storage-usage', siteId ],
+	useSiteStorageUsage: vi.fn(),
+} ) );
+
 vi.mock( '@/data/queries/use-user-preferences', () => ( {
 	useUserPreferences: vi.fn(),
 } ) );
 
 vi.mock( '@/data/queries/use-wordpress-versions', () => ( {
+	WP_VERSION_QUERY_KEY: [ 'wp-version' ],
 	useWordPressVersions: vi.fn(),
 	useWpVersion: vi.fn(),
 } ) );
 
 vi.mock( '@/hooks/use-offline', () => ( {
 	useOffline: vi.fn(),
+} ) );
+
+vi.mock( '@/hooks/use-theme-details', () => ( {
+	useThemeDetails: vi.fn(),
+} ) );
+
+vi.mock( '@/data/sync-activity', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@/data/sync-activity') >() ),
+	reportSyncProgress: reportSyncProgressMock,
 } ) );
 
 vi.mock( '@/hooks/use-sidebar-collapsed', () => ( {
@@ -122,12 +158,16 @@ const useExistingCustomDomainsMock = vi.mocked( useExistingCustomDomains, { part
 const useCopySiteMock = vi.mocked( useCopySite, { partial: true } );
 const useExportDatabaseMock = vi.mocked( useExportDatabase, { partial: true } );
 const useExportFullSiteMock = vi.mocked( useExportFullSite, { partial: true } );
+const useIsSiteBusyMock = vi.mocked( useIsSiteBusy );
 const useIsSiteStartingMock = vi.mocked( useIsSiteStarting );
 const useIsSiteStoppingMock = vi.mocked( useIsSiteStopping );
+const useSiteThumbnailMock = vi.mocked( useSiteThumbnail, { partial: true } );
+const useSiteStorageUsageMock = vi.mocked( useSiteStorageUsage, { partial: true } );
 const useSitesMock = vi.mocked( useSites, { partial: true } );
 const useStartSiteMock = vi.mocked( useStartSite, { partial: true } );
 const useUpdateSiteMock = vi.mocked( useUpdateSite, { partial: true } );
 const useOfflineMock = vi.mocked( useOffline );
+const useThemeDetailsMock = vi.mocked( useThemeDetails );
 const useUserPreferencesMock = vi.mocked( useUserPreferences, { partial: true } );
 const useWordPressVersionsMock = vi.mocked( useWordPressVersions, { partial: true } );
 const useWpVersionMock = vi.mocked( useWpVersion, { partial: true } );
@@ -139,11 +179,14 @@ describe( 'SiteOverviewView', () => {
 	const openSiteInEditor = vi.fn().mockResolvedValue( undefined );
 	const openSiteInTerminal = vi.fn().mockResolvedValue( undefined );
 	const trackEvent = vi.fn().mockResolvedValue( undefined );
+	const copyText = vi.fn().mockResolvedValue( undefined );
 	const startSite = vi.fn().mockResolvedValue( undefined );
 	const copySite = vi.fn();
 	const exportFullSite = vi.fn();
 	const exportDatabase = vi.fn();
 	const onTabChange = vi.fn();
+
+	const getFilePath = vi.fn().mockResolvedValue( '/tmp/backup.tar.gz' );
 
 	const connectorStub = ( openInOS = true ) => ( {
 		openSiteUrl,
@@ -151,14 +194,23 @@ describe( 'SiteOverviewView', () => {
 		openSiteInEditor,
 		openSiteInTerminal,
 		trackEvent,
+		copyText,
+		getFilePath,
+		importSiteFromBackup,
 		capabilities: { openInOS } as ConnectorCapabilities,
 	} );
 
 	const preferencesStub = ( editor: SupportedEditor | null ) =>
 		( { editor, terminal: 'terminal' } ) as UserPreferences;
 
+	let queryClient: QueryClient;
+
 	beforeEach( () => {
 		vi.clearAllMocks();
+		queryClient = new QueryClient( {
+			defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
+		} );
+		importSiteFromBackup.mockResolvedValue( undefined );
 		useSidebarCollapsedMock.mockReturnValue( false );
 		useTrafficLightSpaceMock.mockReturnValue( { start: false, end: false } );
 		vi.stubGlobal( 'ResizeObserver', ResizeObserverMock );
@@ -175,8 +227,10 @@ describe( 'SiteOverviewView', () => {
 				dispatchEvent: vi.fn(),
 			} ) ),
 		} );
-
 		useConnectorMock.mockReturnValue( connectorStub() );
+		useThemeDetailsMock.mockImplementation( ( site ) =>
+			site.themeDetails ? { state: 'ready', details: site.themeDetails } : { state: 'unknown' }
+		);
 		useUserPreferencesMock.mockReturnValue( { data: preferencesStub( 'vscode' ) } );
 		useAgenticFeaturesMock.mockReturnValue( {
 			enabled: true,
@@ -190,8 +244,23 @@ describe( 'SiteOverviewView', () => {
 			data: [ createSite( { running: true } ) ],
 			isLoading: false,
 		} );
+		useIsSiteBusyMock.mockReturnValue( false );
 		useIsSiteStartingMock.mockReturnValue( false );
 		useIsSiteStoppingMock.mockReturnValue( false );
+		useSiteThumbnailMock.mockReturnValue( {
+			data: 'data:image/png;base64,site-thumbnail',
+		} );
+		useSiteStorageUsageMock.mockReturnValue( {
+			data: {
+				total: 800,
+				uploads: 400,
+				plugins: 200,
+				themes: 100,
+				database: 50,
+				other: 50,
+			},
+			isPending: false,
+		} );
 		useStartSiteMock.mockReturnValue( {
 			isPending: false,
 			mutate: startSite,
@@ -209,21 +278,41 @@ describe( 'SiteOverviewView', () => {
 
 	function renderView(
 		activeTab: 'overview' | 'general' | 'debugging' = 'overview',
-		openSiteDropdown = false
+		openSiteDropdown = false,
+		siteId = 'site-1'
 	) {
-		return render(
-			<Tooltip.Provider>
-				<SiteOverviewView
-					siteId="site-1"
-					activeTab={ activeTab }
-					openSiteDropdown={ openSiteDropdown }
-					onTabChange={ onTabChange }
-				/>
-			</Tooltip.Provider>
+		const view = (
+			<QueryClientProvider client={ queryClient }>
+				<Tooltip.Provider>
+					<SiteOverviewView
+						siteId={ siteId }
+						activeTab={ activeTab }
+						openSiteDropdown={ openSiteDropdown }
+						onTabChange={ onTabChange }
+					/>
+				</Tooltip.Provider>
+			</QueryClientProvider>
 		);
+		const rendered = render( view );
+		return {
+			...rendered,
+			showSite: ( nextSiteId: string ) =>
+				rendered.rerender(
+					<QueryClientProvider client={ queryClient }>
+						<Tooltip.Provider>
+							<SiteOverviewView
+								siteId={ nextSiteId }
+								activeTab={ activeTab }
+								openSiteDropdown={ openSiteDropdown }
+								onTabChange={ onTabChange }
+							/>
+						</Tooltip.Provider>
+					</QueryClientProvider>
+				),
+		};
 	}
 
-	it( 'renders the tab strip with the customize and manage sections', () => {
+	it( 'renders the tab strip with the about, shortcuts, and manage sections', () => {
 		renderView();
 
 		expect( siteDropdownMock ).toHaveBeenCalledWith(
@@ -232,17 +321,74 @@ describe( 'SiteOverviewView', () => {
 		expect( screen.getByRole( 'tab', { name: 'Overview' } ) ).toBeVisible();
 		expect( screen.getByRole( 'tab', { name: 'Settings' } ) ).toBeVisible();
 		expect( screen.getByRole( 'tab', { name: 'Debugging' } ) ).toBeVisible();
-		expect( screen.getByRole( 'heading', { name: 'Customize' } ) ).toBeVisible();
+		expect( screen.getByRole( 'heading', { name: 'About' } ) ).toBeVisible();
+		expect( screen.getByRole( 'heading', { name: 'Shortcuts' } ) ).toBeVisible();
 		expect( screen.getByRole( 'heading', { name: 'Manage' } ) ).toBeVisible();
 		expect( screen.getByText( 'Site Editor' ) ).toBeVisible();
 		expect( screen.getByText( 'Templates' ) ).toBeVisible();
+		expect( screen.getByText( 'Posts' ) ).toBeVisible();
+		expect( screen.getByText( 'Pages' ) ).toBeVisible();
 		expect( screen.getByText( 'Media Library' ) ).toBeVisible();
 		expect( screen.queryByText( 'Customizer' ) ).not.toBeInTheDocument();
 		expect( screen.getByText( 'Duplicate' ) ).toBeVisible();
+		expect( screen.getByText( 'Import' ) ).toBeVisible();
 		expect( screen.getByText( 'Export entire site' ) ).toBeVisible();
 		expect( screen.getByText( 'Export database' ) ).toBeVisible();
 		expect( screen.getByText( 'Delete' ) ).toBeVisible();
 		expect( screen.queryByDisplayValue( 'Demo Site' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'summarizes the site theme and runtime versions', async () => {
+		useWpVersionMock.mockReturnValue( { data: '6.8.2' } );
+
+		renderView();
+
+		expect( screen.getByText( 'Theme' ) ).toBeVisible();
+		expect( screen.getByText( 'Twenty Twenty-Six' ) ).toBeVisible();
+		expect( screen.getByText( 'WP v6.8.2' ) ).toBeVisible();
+		expect( screen.getByText( 'PHP v8.4' ) ).toBeVisible();
+		expect( await screen.findByRole( 'img', { name: 'Screenshot of Demo Site' } ) ).toHaveAttribute(
+			'src',
+			'data:image/png;base64,site-thumbnail'
+		);
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Open site in browser' } ) );
+		await waitFor( () =>
+			expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/', { autoLogin: false } )
+		);
+	} );
+
+	it( 'shows the total disk usage and an accessible category breakdown', () => {
+		renderView();
+
+		expect( screen.getByText( 'Disk' ) ).toBeVisible();
+		expect( screen.getByText( '800 B' ) ).toBeVisible();
+		expect(
+			screen.getByRole( 'group', {
+				name: 'Disk usage breakdown: Media — 400 B (50%), Plugins — 200 B (25%), Themes — 100 B (13%), Database — 50 B (6%), Other — 50 B (6%)',
+			} )
+		).toBeVisible();
+		expect( screen.getByText( 'Media' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Plugins' ) ).toBeInTheDocument();
+	} );
+
+	it( 'indicates when disk usage is still being measured', () => {
+		useSiteStorageUsageMock.mockReturnValue( { data: undefined, isPending: true } );
+
+		renderView();
+
+		expect( screen.getByText( 'Measuring…' ) ).toBeVisible();
+	} );
+
+	it( 'keeps the browser action available without a cached thumbnail', () => {
+		useSiteThumbnailMock.mockReturnValue( { data: null } );
+
+		renderView();
+
+		expect( screen.getByRole( 'button', { name: 'Open site in browser' } ) ).toBeVisible();
+		expect(
+			screen.queryByRole( 'img', { name: 'Screenshot of Demo Site' } )
+		).not.toBeInTheDocument();
 	} );
 
 	it( 'offsets the site menu below macOS traffic lights when the sidebar is collapsed', () => {
@@ -277,6 +423,61 @@ describe( 'SiteOverviewView', () => {
 
 		expect( screen.getByDisplayValue( 'Demo Site' ) ).toBeVisible();
 		expect( screen.getByRole( 'button', { name: 'Save settings' } ) ).toBeVisible();
+	} );
+
+	it( 'copies the admin credentials from the settings form', async () => {
+		renderView( 'general' );
+
+		const copyUsername = screen.getByRole( 'button', { name: 'Copy admin username' } );
+		expect( copyUsername ).toHaveAttribute( 'data-variant', 'plain' );
+		fireEvent.click( copyUsername );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Copy admin password' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Copy admin email' } ) );
+
+		await waitFor( () => {
+			expect( copyUsername ).toHaveAttribute( 'data-copied', 'true' );
+			expect( copyText ).toHaveBeenNthCalledWith( 1, 'admin' );
+			expect( copyText ).toHaveBeenNthCalledWith( 2, 'password' );
+			expect( copyText ).toHaveBeenNthCalledWith( 3, 'admin@example.com' );
+		} );
+	} );
+
+	it( 'keeps the admin password visibility toggle', () => {
+		renderView( 'general' );
+
+		const password = screen.getByLabelText( 'Admin password' );
+		const showPassword = screen.getByRole( 'button', { name: 'Show password' } );
+		const copyPassword = screen.getByRole( 'button', { name: 'Copy admin password' } );
+		expect( password ).toHaveAttribute( 'type', 'password' );
+		expect(
+			showPassword.compareDocumentPosition( copyPassword ) & Node.DOCUMENT_POSITION_FOLLOWING
+		).toBeTruthy();
+
+		fireEvent.click( showPassword );
+
+		expect( password ).toHaveAttribute( 'type', 'text' );
+		expect( screen.getByRole( 'button', { name: 'Hide password' } ) ).toBeVisible();
+	} );
+
+	it( 'does not repeat required in the settings field labels', () => {
+		renderView( 'general' );
+
+		expect( screen.getByLabelText( 'Site name' ) ).toBeRequired();
+		expect( screen.getByLabelText( 'Admin username' ) ).toBeRequired();
+		expect( screen.getByLabelText( 'Admin password' ) ).toBeRequired();
+		expect( screen.getByLabelText( 'Admin email' ) ).toBeRequired();
+		expect( screen.queryByText( /\(Required\)/ ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'marks the admin email control for RTL alignment', () => {
+		renderView( 'general' );
+
+		expect(
+			screen.getByLabelText( 'Admin email' ).closest( '.components-input-control' )
+		).toHaveClass( settingsStyles.emailControl );
+		expect(
+			screen.getByLabelText( 'Admin username' ).closest( '.components-input-control' )
+		).not.toHaveClass( settingsStyles.emailControl );
 	} );
 
 	it( 'renders the WordPress version dropdown with latest preselected for auto-updating sites', () => {
@@ -366,7 +567,7 @@ describe( 'SiteOverviewView', () => {
 			isLoading: false,
 		} );
 
-		const { rerender } = renderView( 'general' );
+		const { showSite } = renderView( 'general' );
 
 		fireEvent.change( screen.getByLabelText( 'WordPress version' ), {
 			target: { value: '6.7.2' },
@@ -377,11 +578,7 @@ describe( 'SiteOverviewView', () => {
 			data: [ createSite( { running: false, isWpAutoUpdating: false } ) ],
 			isLoading: false,
 		} );
-		rerender(
-			<Tooltip.Provider>
-				<SiteOverviewView siteId="site-1" activeTab="general" onTabChange={ onTabChange } />
-			</Tooltip.Provider>
-		);
+		showSite( 'site-1' );
 
 		expect( screen.getByLabelText( 'WordPress version' ) ).toHaveValue( '6.7.2' );
 	} );
@@ -500,8 +697,49 @@ describe( 'SiteOverviewView', () => {
 
 		expect( screen.getByText( 'Customizer' ) ).toBeVisible();
 		expect( screen.getByText( 'Menus' ) ).toBeVisible();
+		expect( screen.getByText( 'Posts' ) ).toBeVisible();
+		expect( screen.getByText( 'Pages' ) ).toBeVisible();
+		expect( screen.getByText( 'Media Library' ) ).toBeVisible();
 		expect( screen.queryByText( 'Widgets' ) ).not.toBeInTheDocument();
 		expect( screen.queryByText( 'Site Editor' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'gives theme shortcuts stable identities for layout transitions', () => {
+		renderView();
+
+		expect( screen.getByText( 'Site Editor' ).closest( 'button' ) ).toHaveStyle( {
+			viewTransitionName: 'studio-theme-site-editor',
+		} );
+		expect( screen.getByText( 'Media Library' ).closest( 'button' ) ).toHaveStyle( {
+			viewTransitionName: 'studio-theme-media',
+		} );
+	} );
+	it( 'holds theme-dependent shortcuts while theme details load', () => {
+		useThemeDetailsMock.mockReturnValue( { state: 'loading' } );
+
+		const { container } = renderView();
+
+		expect( screen.queryByText( 'Site Editor' ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( 'Customizer' ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( 'Media Library' ) ).not.toBeInTheDocument();
+		expect( container.querySelectorAll( `.${ styles.buttonSkeleton }` ) ).toHaveLength( 7 );
+	} );
+
+	it( 'shows theme-independent shortcuts when theme details are unavailable', () => {
+		useThemeDetailsMock.mockReturnValue( { state: 'unknown' } );
+
+		renderView();
+
+		expect( screen.getByText( 'Posts' ) ).toBeVisible();
+		expect( screen.getByText( 'Pages' ) ).toBeVisible();
+		expect( screen.getByText( 'Media Library' ) ).toBeVisible();
+		expect( screen.queryByText( 'Customizer' ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( 'Site Editor' ) ).not.toBeInTheDocument();
+
+		fireEvent.click( screen.getByText( 'Posts' ).closest( 'button' )! );
+		fireEvent.click( screen.getByText( 'Pages' ).closest( 'button' )! );
+		expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/wp-admin/edit.php' );
+		expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/wp-admin/edit.php?post_type=page' );
 	} );
 
 	it( 'offers the configured apps and phpMyAdmin under Open in…', () => {
@@ -549,11 +787,15 @@ describe( 'SiteOverviewView', () => {
 		renderView();
 
 		fireEvent.click( screen.getByText( 'Site Editor' ).closest( 'button' )! );
+		fireEvent.click( screen.getByText( 'Posts' ).closest( 'button' )! );
+		fireEvent.click( screen.getByText( 'Pages' ).closest( 'button' )! );
 		fireEvent.click( screen.getByText( 'Media Library' ).closest( 'button' )! );
 
 		await waitFor( () =>
 			expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/wp-admin/site-editor.php' )
 		);
+		expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/wp-admin/edit.php' );
+		expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/wp-admin/edit.php?post_type=page' );
 		expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/wp-admin/upload.php' );
 	} );
 
@@ -582,6 +824,144 @@ describe( 'SiteOverviewView', () => {
 		expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument();
 		fireEvent.click( screen.getByText( 'Delete' ).closest( 'button' )! );
 		expect( screen.getByRole( 'dialog' ) ).toBeVisible();
+	} );
+
+	function selectBackup( name: string ) {
+		const input = screen.getByTestId( 'import-backup-file' );
+		Object.defineProperty( input, 'files', {
+			configurable: true,
+			value: [ new File( [ 'backup' ], name ) ],
+		} );
+		fireEvent.change( input );
+	}
+
+	it( 'imports a backup after confirming the overwrite', async () => {
+		renderView();
+
+		selectBackup( 'demo-site.tar.gz' );
+
+		const dialog = screen.getByRole( 'alertdialog' );
+		expect( dialog ).toHaveTextContent( 'Overwrite Demo Site?' );
+		expect( dialog ).toHaveTextContent( 'demo-site.tar.gz' );
+		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Import' } ) );
+
+		await waitFor( () =>
+			expect( importSiteFromBackup ).toHaveBeenCalledWith(
+				'site-1',
+				'/tmp/backup.tar.gz',
+				expect.any( Function )
+			)
+		);
+	} );
+
+	// An import replaces the site wholesale, so everything read off it is stale.
+	// Disk usage caches for five minutes and the overview never unmounts, so
+	// without an explicit invalidation it keeps showing pre-import numbers.
+	it( 'refetches the site details an import invalidates', async () => {
+		const staleKeys = [
+			[ 'sites' ],
+			[ 'wp-version', 'site-1' ],
+			[ 'site-storage-usage', 'site-1' ],
+			[ 'site-thumbnail', 'site-1' ],
+		];
+		renderView();
+		staleKeys.forEach( ( key ) => queryClient.setQueryData( key, 'before-import' ) );
+
+		selectBackup( 'demo-site.tar.gz' );
+		fireEvent.click(
+			within( screen.getByRole( 'alertdialog' ) ).getByRole( 'button', { name: 'Import' } )
+		);
+
+		await waitFor( () =>
+			staleKeys.forEach( ( key ) =>
+				expect( queryClient.getQueryState( key )?.isInvalidated ).toBe( true )
+			)
+		);
+	} );
+
+	it( 'rejects an unsupported backup file without opening the overwrite dialog', () => {
+		renderView();
+
+		selectBackup( 'notes.txt' );
+
+		expect( screen.queryByRole( 'alertdialog' ) ).not.toBeInTheDocument();
+		expect( importSiteFromBackup ).not.toHaveBeenCalled();
+	} );
+
+	// The buttons mark themselves with `aria-disabled` rather than the native
+	// attribute, so they stay focusable.
+	function isManageButtonDisabled( label: string ) {
+		const heading = screen.getByRole( 'heading', { name: 'Manage' } );
+		const button = within( heading.closest( 'section' )! ).getByText( label ).closest( 'button' )!;
+		return button.getAttribute( 'aria-disabled' ) === 'true';
+	}
+
+	// The overview stays mounted across sites — only the `$siteId` route param
+	// changes — so import progress must be tracked per site, not per component.
+	it( 'keeps the import indicator on the importing site when switching sites', async () => {
+		useSitesMock.mockReturnValue( {
+			data: [
+				createSite( { running: true } ),
+				createSite( { id: 'site-2', name: 'Other Site', running: true } ),
+			],
+			isLoading: false,
+		} );
+		let finishImport = () => {};
+		importSiteFromBackup.mockReturnValue(
+			new Promise< void >( ( resolve ) => {
+				finishImport = resolve;
+			} )
+		);
+		const { showSite } = renderView();
+
+		selectBackup( 'demo-site.tar.gz' );
+		fireEvent.click(
+			within( screen.getByRole( 'alertdialog' ) ).getByRole( 'button', { name: 'Import' } )
+		);
+		await waitFor( () => expect( isManageButtonDisabled( 'Export entire site' ) ).toBe( true ) );
+
+		showSite( 'site-2' );
+
+		expect( isManageButtonDisabled( 'Import' ) ).toBe( false );
+		expect( isManageButtonDisabled( 'Export entire site' ) ).toBe( false );
+
+		showSite( 'site-1' );
+
+		expect( isManageButtonDisabled( 'Export entire site' ) ).toBe( true );
+
+		// Settle it so the shared activity store doesn't stay pending for site-1
+		// and bleed into the tests that follow.
+		finishImport();
+		await waitFor( () => expect( isManageButtonDisabled( 'Export entire site' ) ).toBe( false ) );
+	} );
+
+	// Extraction emits one progress event per stream chunk, so a large backup
+	// would otherwise notify every activity subscriber thousands of times a
+	// second and the app stops responding to clicks.
+	it( 'only reports progress when the status text changes', async () => {
+		let emitProgress: ( ( event: ImportEventTuple ) => void ) | undefined;
+		importSiteFromBackup.mockImplementation( async ( _siteId, _path, onProgress ) => {
+			emitProgress = onProgress;
+		} );
+		renderView();
+
+		selectBackup( 'demo-site.tar.gz' );
+		fireEvent.click(
+			within( screen.getByRole( 'alertdialog' ) ).getByRole( 'button', { name: 'Import' } )
+		);
+		await waitFor( () => expect( emitProgress ).toBeDefined() );
+
+		for ( let processedFiles = 1; processedFiles <= 500; processedFiles++ ) {
+			emitProgress?.( [
+				BackupExtractEvents.BACKUP_EXTRACT_PROGRESS,
+				{ processedFiles: processedFiles <= 250 ? 1 : 2, totalFiles: 10 },
+			] as ImportEventTuple );
+		}
+
+		expect( reportSyncProgressMock.mock.calls ).toEqual( [
+			[ 'site-1', 'import', { message: '10% · Extracting…' } ],
+			[ 'site-1', 'import', { message: '20% · Extracting…' } ],
+		] );
 	} );
 
 	it( 'shows a sign-in banner with a login action when signed out', () => {

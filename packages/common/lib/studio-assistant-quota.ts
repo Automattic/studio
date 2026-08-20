@@ -18,7 +18,11 @@ export const studioAssistantQuotaSchema = z
 	.object( {
 		cost_usage: z.number(),
 		cost_cap: z.number(),
-		cost_reset_date: z.string(),
+		// Optional on purpose: the monthly reset is being retired server-side and
+		// the field is currently a hardcoded stand-in, so it can disappear from the
+		// response at any time. Every surface must read it as "reset date unknown"
+		// and drop the reset sentence rather than break.
+		cost_reset_date: z.string().optional(),
 		// Entitlement gates (STU-2174); older servers omit both fields. Default to
 		// true so a stale server never locks the UI — the proxy still enforces.
 		email_verified: z.boolean().optional(),

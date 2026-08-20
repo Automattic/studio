@@ -193,6 +193,18 @@ describe( 'UsagePanel', () => {
 		).not.toBeInTheDocument();
 	} );
 
+	it( 'drops the reset sentence when the server no longer reports a reset date', () => {
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: { costUsage: 25, costCap: 100, costResetDate: undefined },
+			isLoading: false,
+		} as never );
+
+		render( <UsagePanel /> );
+
+		expect( screen.getByText( '25% of monthly limit used' ) ).toBeInTheDocument();
+		expect( screen.queryByText( /resets on/ ) ).not.toBeInTheDocument();
+	} );
+
 	it( 'shows an unavailable message when the quota fetch fails', () => {
 		useStudioAssistantQuotaMock.mockReturnValue( {
 			data: undefined,

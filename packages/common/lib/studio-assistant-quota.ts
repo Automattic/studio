@@ -8,6 +8,10 @@ export const ADD_PAYMENT_METHOD_URL = 'https://my.wordpress.com/me/billing/payme
 
 export const WPCOM_SUPPORT_CONTACT_URL = 'https://wordpress.com/support/contact/';
 
+// Placeholder until the WordPress.com checkout page for Studio AI credits
+// exists (STU-2292).
+export const ADD_AI_CREDITS_URL = 'https://wordpress.com/checkout/studio-ai-credits';
+
 export const studioAssistantQuotaSchema = z
 	.object( {
 		cost_usage: z.number(),
@@ -24,6 +28,12 @@ export const studioAssistantQuotaSchema = z
 		// server-side values never fail the parse).
 		studio_code_ai_has_access: z.boolean().optional(),
 		studio_code_ai_access: z.string().optional(),
+		// Remaining AI credits per pool (STU-2235). The server omits both fields
+		// when the AI Credits feature is off for the account — the UI keys the
+		// credit-balance design off their presence, so `undefined` (not 0) must
+		// mean "feature off, keep the old design".
+		allowance_remaining: z.number().optional(),
+		purchased_remaining: z.number().optional(),
 	} )
 	.transform( ( data ) => ( {
 		costUsage: data.cost_usage,
@@ -33,6 +43,8 @@ export const studioAssistantQuotaSchema = z
 		hasPaymentMethod: data.has_payment_method ?? true,
 		studioCodeAiHasAccess: data.studio_code_ai_has_access,
 		studioCodeAiAccess: data.studio_code_ai_access,
+		allowanceRemaining: data.allowance_remaining,
+		purchasedRemaining: data.purchased_remaining,
 	} ) );
 
 export type StudioAssistantQuota = z.infer< typeof studioAssistantQuotaSchema >;
@@ -172,4 +184,28 @@ export function formatUsageCapNotice( resetDate?: string | null, locale?: string
 		);
 	}
 	return __( 'You’ve reached your monthly AI usage limit. Try again later.' );
+}
+
+/**
+ * User-facing copy for having exhausted both AI credit pools — the free
+ * monthly allowance and purchased credits (STU-2236). Shared by every surface
+ * so the wording stays consistent. Deliberately never mentions the monthly
+ * reset: unlike the usage cap, waiting doesn't fix this state — buying
+ * credits does.
+ */
+export function formatOutOfCreditsNotice(): string {
+	return __( 'You’re out of AI credits. Add more credits to continue using Studio Code.' );
+}
+
+/**
+ * Linked variant of the out-of-credits notice for surfaces that can render a
+ * purchase link. Wraps the call-to-action in a `<buyLink>` token: render it
+ * with `createInterpolateElement`, pointing the token at
+ * `ADD_AI_CREDITS_URL`.
+ */
+export function formatOutOfCreditsNoticeWithLink(): string {
+	return __(
+		/* translators: <buyLink> and </buyLink> wrap the link to buy AI credits and must be kept as-is. */
+		'You’re out of AI credits. <buyLink>Add AI credits</buyLink> to continue using Studio Code.'
+	);
 }

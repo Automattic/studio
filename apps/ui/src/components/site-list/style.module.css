@@ -12,6 +12,11 @@
 	   the pending indicator is always the vivid on-dark value. */
 	--site-list-pending-indicator-bg: var(--studio-color-status-attention);
 	--site-list-sync-indicator-bg: var(--studio-color-status-sync);
+	/* Row hover/active/drag background. Declared here (not on an ancestor) so
+	   every mount point gets it; it resolves against whatever theme scope
+	   wraps the list — the dark chrome scope in both the sidebar and the
+	   collapsed switcher. */
+	--sidebar-row-background: var(--wpds-color-bg-interactive-neutral-weak-active);
 
 	/* Pull the row shape slightly left, then add the inset back inside rows so
 	   labels keep their column while selected rows have breathing room. */
@@ -273,6 +278,13 @@
 .siteAction {
 	flex-shrink: 0;
 	outline-offset: -2px;
+}
+
+.siteAction[aria-pressed='true'] {
+	--wp-ui-button-background-color: var(--wpds-color-fg-content-neutral);
+	--wp-ui-button-background-color-active: var(--wpds-color-fg-content-neutral);
+	--wp-ui-button-foreground-color: var(--wpds-color-bg-surface-neutral);
+	--wp-ui-button-foreground-color-active: var(--wpds-color-bg-surface-neutral);
 }
 
 /* Collapsed, only the trailing status button shows; hover/focus/active

@@ -13,38 +13,10 @@ import type { RemoteFileEntry } from '@studio/common/lib/sync/sync-api';
 import type { TreeNode } from 'cli/lib/tree-checkbox';
 
 const WP_CONTENT_TOKEN = ':wp-content:';
-const CONTENT_DIRECTORY_TOKENS: Record< string, string > = {
-	':wp-plugins:': 'plugins',
-	':wp-mu-plugins:': 'mu-plugins',
-	':wp-uploads:': 'uploads',
-};
-
 export interface PullSelection {
 	fileOnlyPaths: string[];
 	skipDatabase: boolean;
 	hasAnyFile: boolean;
-}
-
-/**
- * Resolve `--only` source values to absolute remote path prefixes for local
- * content preservation. Reprint itself resolves these values before pulling.
- */
-export function resolveOnlyPathsToAbsolute(
-	fileOnlyPaths: string[],
-	contentDir: string
-): string[] {
-	const contentRoot = contentDir.replace( /\/+$/, '' );
-	return fileOnlyPaths.map( ( source ) => {
-		if ( source === WP_CONTENT_TOKEN || source.startsWith( `${ WP_CONTENT_TOKEN }/` ) ) {
-			return `${ contentRoot }${ source.slice( WP_CONTENT_TOKEN.length ) }`;
-		}
-		for ( const [ token, directory ] of Object.entries( CONTENT_DIRECTORY_TOKENS ) ) {
-			if ( source === token || source.startsWith( `${ token }/` ) ) {
-				return `${ contentRoot }/${ directory }${ source.slice( token.length ) }`;
-			}
-		}
-		return source;
-	} );
 }
 
 function relativePathToOnly( value: string ): string {

@@ -224,11 +224,6 @@ async function appBoot() {
 				return;
 			}
 
-			if ( process.env.E2E ) {
-				event.preventDefault();
-				return;
-			}
-
 			const LEAVE_BUTTON_INDEX = 0;
 			const STAY_BUTTON_INDEX = 1;
 			const options: MessageBoxSyncOptions = {

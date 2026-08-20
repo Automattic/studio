@@ -13,10 +13,15 @@ export const LAST_SEEN_VERSION_QUERY_KEY = [ 'whats-new-last-seen-version' ] as 
 // replace FORCE_SHOW_WHATS_NEW — worth doing, but not in this PR.
 const BROWSER_VERSION = 'browser';
 
-// The version both the comparison and the write should use.
-export function useWhatsNewVersion(): string {
+// The version both the comparison and the write should use. Undefined until the
+// app globals have loaded — falling back to BROWSER_VERSION early would let the
+// desktop app record 'browser' as the seen marker.
+export function useWhatsNewVersion(): string | undefined {
 	const { data: appGlobals } = useAppGlobals();
-	return appGlobals?.appVersion ?? BROWSER_VERSION;
+	if ( ! appGlobals ) {
+		return undefined;
+	}
+	return appGlobals.appVersion ?? BROWSER_VERSION;
 }
 
 export function useLastSeenVersion() {

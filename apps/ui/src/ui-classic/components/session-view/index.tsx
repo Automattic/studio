@@ -30,6 +30,7 @@ import {
 	useSessions,
 } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
+import { useUsageExploration } from '@/data/usage-exploration';
 import { useSessionCommands } from '@/hooks/use-session-commands';
 import { SessionUIProvider, useSessionPreviewAnnotations } from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
@@ -44,6 +45,8 @@ import { QueuedPrompts } from './queued-prompts';
 import { getSiteSessionHistory, SessionChatActions } from './session-chat-actions';
 import styles from './style.module.css';
 import { SuggestedPrompts } from './suggested-prompts';
+import { UsageLimitLock } from './usage-limit-lock';
+import { UsageWarningStrip } from './usage-warning-strip';
 import type { AiSessionSummary } from '@/data/core';
 
 // Slack below the bottom edge that still counts as "at the latest message",
@@ -258,6 +261,11 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		[ pendingQuestions ]
 	);
 	const composerBusy = hasActiveRun || pendingQuestions.length > 0;
+	const usage = useUsageExploration();
+	const { isExhausted } = usage;
+	const activeUsageFraction = usage.combinedFraction;
+	const showUsageWarning = ! usage.isExhausted && activeUsageFraction >= 0.9;
+	const activeUsagePercentage = Math.round( activeUsageFraction * 100 );
 	const isEmpty = useMemo(
 		() =>
 			! ( data?.entries ?? [] ).some(
@@ -501,19 +509,28 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 							/>
 						</div>
 					) : null }
-					<Composer
-						ref={ composerRef }
-						busy={ composerBusy }
-						isInterrupting={ isInterrupting }
-						error={ runError }
-						model={ currentModel }
-						onSend={ sendMessage }
-						onInterrupt={ interrupt }
-						sessionId={ sessionId }
-						entries={ data.entries }
-						ownerSiteId={ ownerSite?.id }
-						onSwitchSession={ switchSession }
-					/>
+					{ isExhausted && ! composerBusy ? (
+						<UsageLimitLock />
+					) : (
+						<Composer
+							ref={ composerRef }
+							busy={ composerBusy }
+							isInterrupting={ isInterrupting }
+							error={ runError }
+							model={ currentModel }
+							onSend={ sendMessage }
+							onInterrupt={ interrupt }
+							sessionId={ sessionId }
+							entries={ data.entries }
+							ownerSiteId={ ownerSite?.id }
+							onSwitchSession={ switchSession }
+							usageNotice={
+								showUsageWarning ? (
+									<UsageWarningStrip percentage={ activeUsagePercentage } />
+								) : undefined
+							}
+						/>
+					) }
 				</div>
 			}
 			footer={
@@ -525,13 +542,14 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						onNewChat={ startNewChat }
 						onSwitchSession={ switchSession }
 						sessions={ siteSessionHistory }
+						showNewChat={ ! isExhausted }
 					/>
 				) : null
 			}
 			footerEnd={ canTogglePreview ? <PreviewToggleButton /> : null }
 		>
 			{ isEmpty ? <EmptyBackground /> : null }
-			{ isEmpty && ownerSite ? (
+			{ isEmpty && ownerSite && ! isExhausted ? (
 				<SuggestedPrompts
 					fadeIn={ fadeAfterQuotaCheck }
 					siteName={ ownerSite.name }

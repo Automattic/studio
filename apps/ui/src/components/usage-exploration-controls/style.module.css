@@ -1,0 +1,120 @@
+.root {
+	position: fixed;
+	inset-inline-start: 50%;
+	inset-block-end: var( --wpds-dimension-padding-lg );
+	z-index: 100001;
+	display: flex;
+	box-sizing: border-box;
+	max-width: calc( 100vw - 32px );
+	flex-direction: column;
+	gap: var( --wpds-dimension-gap-xs );
+	padding: var( --wpds-dimension-padding-sm );
+	border: var( --wpds-border-width-xs ) solid var( --wpds-color-stroke-surface-neutral );
+	border-radius: var( --wpds-border-radius-lg );
+	background: var( --wpds-color-bg-surface-neutral-strong );
+	box-shadow: var( --wpds-elevation-md );
+	color: var( --wpds-color-fg-content-neutral );
+	font-size: var( --wpds-typography-font-size-xs );
+	transform: translateX( -50% );
+}
+
+.header,
+.row,
+.buttons {
+	display: flex;
+	align-items: center;
+}
+
+.header {
+	justify-content: space-between;
+	min-height: 28px;
+	cursor: grab;
+	touch-action: none;
+	user-select: none;
+}
+
+.header:active {
+	cursor: grabbing;
+}
+
+.header strong {
+	font-weight: 600;
+}
+
+.row {
+	gap: var( --wpds-dimension-gap-sm );
+}
+
+.rowLabel {
+	width: 64px;
+	flex: none;
+	color: var( --wpds-color-fg-content-neutral-weak );
+}
+
+.buttons {
+	min-width: 0;
+	flex-wrap: wrap;
+	gap: var( --wpds-dimension-gap-xs );
+}
+
+.stateButton {
+	min-height: 26px;
+	padding: 3px 8px;
+	border: var( --wpds-border-width-xs ) solid var( --wpds-color-stroke-surface-neutral );
+	border-radius: 999px;
+	background: var( --wpds-color-bg-surface-neutral-strong );
+	color: var( --wpds-color-fg-content-neutral-weak );
+	cursor: var( --wpds-cursor-control );
+	font: inherit;
+}
+
+.stateButton:hover {
+	border-color: var( --wpds-color-stroke-interactive-neutral );
+	color: var( --wpds-color-fg-content-neutral );
+}
+
+.stateButton[data-selected] {
+	border-color: var( --wpds-color-stroke-interactive-brand );
+	background: var( --wpds-color-bg-interactive-brand-weak );
+	color: var( --wpds-color-fg-interactive-brand );
+}
+
+.stateButton:focus-visible {
+	outline: var( --wpds-border-width-focus ) solid var( --wpds-color-stroke-focus-brand );
+	outline-offset: 2px;
+}
+
+.numberInput {
+	box-sizing: border-box;
+	width: 56px;
+	height: 28px;
+	padding-inline: var( --wpds-dimension-padding-xs );
+	border: var( --wpds-border-width-xs ) solid var( --wpds-color-stroke-interactive-neutral );
+	border-radius: var( --wpds-border-radius-sm );
+	background: var( --wpds-color-bg-surface-neutral-strong );
+	color: var( --wpds-color-fg-content-neutral );
+	font: inherit;
+}
+
+.creditInput {
+	box-sizing: border-box;
+	width: 96px;
+	height: 28px;
+	padding-inline: var( --wpds-dimension-padding-xs );
+	border: var( --wpds-border-width-xs ) solid var( --wpds-color-stroke-interactive-neutral );
+	border-radius: var( --wpds-border-radius-sm );
+	background: var( --wpds-color-bg-surface-neutral-strong );
+	color: var( --wpds-color-fg-content-neutral );
+	font: inherit;
+}
+
+.numberInput:focus-visible,
+.creditInput:focus-visible {
+	outline: var( --wpds-border-width-focus ) solid var( --wpds-color-stroke-focus-brand );
+	outline-offset: 2px;
+}
+
+.shortcut {
+	align-self: flex-end;
+	color: var( --wpds-color-fg-content-neutral-weak );
+}

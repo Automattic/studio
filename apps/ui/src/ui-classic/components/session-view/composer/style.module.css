@@ -16,7 +16,9 @@
 		transparent
 	);
 	--composer-focus-ring: var(--wpds-color-fg-interactive-brand, #2563eb);
-	--composer-border-radius: 8px 8px 20px 8px;
+	--composer-corner-radius: 8px;
+	--composer-border-radius: var( --composer-corner-radius ) var( --composer-corner-radius ) 20px
+		var( --composer-corner-radius );
 	--composer-block-padding: var(--wpds-dimension-padding-md);
 	--composer-inline-padding: var(--wpds-dimension-padding-lg);
 
@@ -471,6 +473,164 @@
 .iconButton:focus-visible:not(:disabled) {
 	background-color: transparent;
 	color: var(--wpds-color-fg-content-neutral);
+}
+
+.usageCreditsButton {
+	display: inline-flex;
+	flex: 0 0 28px;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	border: 0;
+	border-radius: var( --wpds-border-radius-sm );
+	background: transparent;
+	color: var( --wpds-color-fg-content-neutral );
+	cursor: var( --wpds-cursor-control );
+}
+
+.usageCreditsButton:hover,
+.usageCreditsButton:focus-visible,
+.usageCreditsButton[data-popup-open] {
+	color: var( --wpds-color-fg-content-neutral );
+}
+
+.usageCreditsRingTrack {
+	stroke: var( --wpds-color-stroke-surface-neutral );
+}
+
+.usageCreditsRingValue {
+	stroke: var( --wpds-color-bg-interactive-brand-strong );
+}
+
+.usageCreditsButton[data-caution] .usageCreditsRingValue {
+	stroke: var( --wpds-color-fg-content-warning-weak );
+}
+
+.usageCreditsButton[data-warning] .usageCreditsRingValue {
+	stroke: var( --wpds-color-fg-content-error-weak );
+}
+
+.usageCreditsButton[data-exhausted] .usageCreditsRingValue {
+	stroke: var( --wpds-color-fg-content-error );
+}
+
+.usageCreditsSignal {
+	display: flex;
+	width: 20px;
+	height: 20px;
+	align-items: center;
+	justify-content: center;
+	gap: 2px;
+}
+
+.usageCreditsSignal[data-orientation='horizontal'] {
+	flex-direction: row;
+}
+
+.usageCreditsSignal[data-orientation='vertical'] {
+	flex-direction: column;
+}
+
+.usageCreditsSignal[data-orientation='horizontal'][data-alignment='start'] {
+	align-items: flex-start;
+}
+
+.usageCreditsSignal[data-orientation='horizontal'][data-alignment='end'] {
+	align-items: flex-end;
+}
+
+.usageCreditsSignal[data-orientation='vertical'][data-alignment='start'] {
+	align-items: flex-start;
+}
+
+.usageCreditsSignal[data-orientation='vertical'][data-alignment='end'] {
+	align-items: flex-end;
+}
+
+.usageCreditsSignalBar {
+	border-radius: 999px;
+	background: color-mix( in srgb, currentColor 18%, transparent );
+}
+
+.usageCreditsSignalBar[data-filled] {
+	background: var( --wpds-color-fg-content-neutral-weak );
+}
+
+.usageCreditsButton[data-caution] .usageCreditsSignalBar[data-filled] {
+	background: var( --wpds-color-fg-content-warning-weak );
+	filter: none;
+}
+
+.usageCreditsButton[data-warning] .usageCreditsSignalBar[data-filled] {
+	background: var( --wpds-color-fg-content-error-weak );
+	filter: none;
+}
+
+.usageCreditsButton[data-exhausted] .usageCreditsSignalBar[data-filled] {
+	background: var( --wpds-color-fg-content-error );
+}
+
+@media not ( prefers-reduced-motion ) {
+	.usageCreditsRingValue {
+		transition: stroke-dashoffset 180ms ease;
+	}
+}
+
+.usageCreditsMenu {
+	width: 200px;
+}
+
+.usageCreditsRows {
+	display: flex;
+	flex-direction: column;
+	gap: var( --wpds-dimension-gap-sm );
+	padding: var( --wpds-dimension-padding-sm );
+}
+
+.usageCreditsRow {
+	display: flex;
+	flex-direction: column;
+	gap: 0;
+	font-size: var( --wpds-typography-font-size-sm );
+	line-height: var( --wpds-typography-line-height-sm );
+}
+
+.usageCreditsRow span {
+	color: var( --wpds-color-fg-content-neutral-weak );
+}
+
+.usageCreditsRow strong {
+	font-weight: 500;
+	white-space: nowrap;
+}
+
+.usageCreditsMenuTrack {
+	overflow: hidden;
+	inline-size: 100%;
+	block-size: 4px;
+	margin-block-start: var( --wpds-dimension-gap-xs );
+	border-radius: 999px;
+	background: var( --wpds-color-stroke-surface-neutral );
+}
+
+.usageCreditsMenuValue {
+	block-size: 100%;
+	border-radius: inherit;
+	background: var( --wpds-color-bg-interactive-brand-strong );
+}
+
+.usageCreditsMenuValue[data-caution] {
+	background: var( --wpds-color-fg-content-warning-weak );
+}
+
+.usageCreditsMenuValue[data-warning] {
+	background: var( --wpds-color-fg-content-error-weak );
+}
+
+.usageCreditsMenuValue[data-exhausted] {
+	background: var( --wpds-color-fg-content-error );
 }
 
 .iconButton:disabled {

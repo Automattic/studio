@@ -1,17 +1,19 @@
 import {
 	clampQuotaFraction,
-	formatQuotaPercentage,
-	formatQuotaResetDate,
 	getStudioCodeAiAccessState,
 } from '@studio/common/lib/studio-assistant-quota';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { moreHorizontal } from '@wordpress/icons';
-import { IconButton } from '@wordpress/ui';
+import { external, help, Icon, moreHorizontal } from '@wordpress/icons';
+import { Button, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
+import { useState } from 'react';
 import { SigninNotice } from '@/components/agentic-signin-banner';
 import { AiAccessRequiredNotice, AiBlockedNotice } from '@/components/ai-access-required-notice';
+import { AiCreditsDetailsDialog } from '@/components/ai-credits-details-dialog';
 import * as Menu from '@/components/menu';
 import { OfflineNotice } from '@/components/offline-banner';
+import { PurchaseCreditsDialog } from '@/components/purchase-credits-dialog';
+import { PURCHASE_CREDITS_PROTOTYPE_URL } from '@/components/purchase-credits-dialog/events';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
@@ -22,6 +24,7 @@ import {
 	useSnapshots,
 } from '@/data/queries/use-snapshots';
 import { useUserLocale } from '@/data/queries/use-user-locale';
+import { creditsFromDollars, useUsageExploration } from '@/data/usage-exploration';
 import styles from './style.module.css';
 
 const DEFAULT_PREVIEW_SITE_LIMIT = 10;
@@ -39,79 +42,172 @@ function UnavailableSection( { title }: { title: string } ) {
 	);
 }
 
-function UsageProgressBar( { fraction }: { fraction: number } ) {
+function UsageProgressBar( {
+	fraction,
+	valueClassName,
+}: {
+	fraction: number;
+	valueClassName?: string;
+} ) {
+	const percentage = Math.round( fraction * 10_000 ) / 100;
+
 	return (
 		<div className={ styles.progressTrack } data-testid="usage-progress-bar" aria-hidden="true">
-			<div className={ styles.progressValue } style={ { inlineSize: `${ fraction * 100 }%` } } />
+			<div
+				className={ clsx( styles.progressValue, valueClassName ) }
+				style={ { inlineSize: `${ percentage }%` } }
+			/>
+		</div>
+	);
+}
+
+function getMeterIntent( fraction: number ): string | undefined {
+	if ( fraction >= 1 ) {
+		return styles.progressValueExhausted;
+	}
+	if ( fraction >= 0.9 ) {
+		return styles.progressValueCritical;
+	}
+	if ( fraction >= 0.8 ) {
+		return styles.progressValueWarning;
+	}
+	return undefined;
+}
+
+function CreditMeter( {
+	remainingDollars,
+	totalDollars,
+	fraction,
+	valueClassName,
+}: {
+	remainingDollars: number;
+	totalDollars: number;
+	fraction: number;
+	valueClassName?: string;
+} ) {
+	const locale = useUserLocale();
+	const credits = new Intl.NumberFormat( locale, { maximumFractionDigits: 0 } );
+	const remainingCredits = creditsFromDollars( remainingDollars );
+	const totalCredits = creditsFromDollars( totalDollars );
+	const usedCredits = Math.max( 0, totalCredits - remainingCredits );
+
+	return (
+		<div className={ styles.creditMeter }>
+			<div className={ styles.creditMeterSummary }>
+				<span className={ styles.creditMeterCredits }>
+					{ sprintf(
+						/* translators: 1: AI credits used, 2: current meter baseline. */
+						__( '%1$s of %2$s AI credits used' ),
+						credits.format( usedCredits ),
+						credits.format( totalCredits )
+					) }
+				</span>
+				<strong className={ styles.creditMeterAvailable }>
+					{ sprintf(
+						/* translators: %s: number of AI credits still available. */
+						__( '%s available' ),
+						credits.format( remainingCredits )
+					) }
+				</strong>
+			</div>
+			<UsageProgressBar fraction={ fraction } valueClassName={ valueClassName } />
 		</div>
 	);
 }
 
 function AiCreditsSummary() {
-	const locale = useUserLocale();
-	const { data: quota, isLoading, isError } = useStudioAssistantQuota();
+	const usage = useUsageExploration();
+	const connector = useConnector();
+	const [ purchaseOpen, setPurchaseOpen ] = useState( false );
+	const [ detailsOpen, setDetailsOpen ] = useState( false );
+	const { data: quota } = useStudioAssistantQuota();
 	const accessState = quota ? getStudioCodeAiAccessState( quota ) : 'available';
-
-	let content;
-	if ( isLoading ) {
-		content = (
-			<>
-				<div className={ styles.previewUsageText }>{ __( 'Loading…' ) }</div>
-				<UsageProgressBar fraction={ 0 } />
-			</>
+	const opensExternalCheckout = usage.purchaseCreditsFlow === 'external';
+	const showWelcomeCredits = usage.purchasedTotal === 0 && usage.welcomeBalance > 0;
+	let creditCalloutMessage: string = showWelcomeCredits
+		? __( 'Your first 1.5 million AI credits are on us.' )
+		: __( 'Keep the ideas flowing. Stock up for whatever you build next.' );
+	if ( usage.isExhausted ) {
+		creditCalloutMessage = __(
+			'Your next idea is ready when you are. Top up to bring it to life.'
 		);
-	} else if ( isError ) {
-		content = (
-			<div className={ styles.previewUsageText }>
-				{ __( 'Studio Code limits are temporarily unavailable.' ) }
-			</div>
-		);
-	} else if ( accessState !== 'available' ) {
-		content = (
-			<div className={ styles.previewUsageText }>
-				{ accessState === 'blocked' ? (
-					<AiBlockedNotice />
-				) : (
-					<AiAccessRequiredNotice quota={ quota } />
-				) }
-			</div>
-		);
-	} else if ( quota && quota.costCap > 0 ) {
-		const fraction = clampQuotaFraction( quota.costUsage, quota.costCap );
-		content = (
-			<>
-				<div className={ styles.previewUsageText }>
-					{ sprintf(
-						/* translators: %1$s: percentage of monthly limit used (e.g. 7.5%). %2$s: date the limit resets (e.g. July 1, 2026). */
-						__( '%1$s of monthly limit used (resets on %2$s)' ),
-						formatQuotaPercentage( fraction, locale ),
-						formatQuotaResetDate( quota.costResetDate, locale )
-					) }
-				</div>
-				<UsageProgressBar fraction={ fraction } />
-			</>
-		);
-	} else {
-		content = (
-			<>
-				<p>
-					{ __(
-						'AI credits are currently free while Studio Code is in Alpha. Build, iterate, and experiment, but know that credits will eventually have a cost.'
-					) }
-				</p>
-				<div className={ clsx( styles.progressTrack, styles.aiCreditsTrack ) } aria-hidden="true">
-					<div className={ styles.aiCreditsMeterValue } />
-				</div>
-			</>
-		);
+	} else if ( usage.combinedFraction >= 0.9 ) {
+		creditCalloutMessage = __( "You're on a roll. Top up now and keep building." );
+	} else if ( usage.combinedFraction >= 0.8 ) {
+		creditCalloutMessage = __( "Top up now so your next build doesn't stop short." );
 	}
+	const openPurchaseCredits = () => {
+		if ( opensExternalCheckout ) {
+			void connector.openExternalUrl( PURCHASE_CREDITS_PROTOTYPE_URL );
+			return;
+		}
+		setPurchaseOpen( true );
+	};
+	const creditAction = (
+		<div className={ styles.creditTopUpAction }>
+			<Button
+				className={ styles.creditTopUpButton }
+				size="small"
+				variant={ usage.isExhausted ? 'solid' : 'outline' }
+				tone={ usage.isExhausted ? 'brand' : 'neutral' }
+				onClick={ openPurchaseCredits }
+			>
+				{ opensExternalCheckout ? __( 'Purchase AI credits' ) : __( 'Add AI credits' ) }
+				{ opensExternalCheckout ? <Icon icon={ external } size={ 14 } aria-hidden="true" /> : null }
+			</Button>
+			{ opensExternalCheckout ? <span>{ __( 'Checkout on WordPress.com' ) }</span> : null }
+		</div>
+	);
 
 	return (
 		<section className={ styles.usageSection }>
 			<div className={ styles.usageSectionHeader }>
-				<h2>{ __( 'AI credits' ) }</h2>
+				<div className={ styles.aiCreditsHeading }>
+					<h2>{ __( 'AI credits' ) }</h2>
+					<Tooltip.Root>
+						<Tooltip.Trigger
+							render={
+								<IconButton
+									className={ styles.aiCreditsDetailsButton }
+									icon={ help }
+									label={ __( 'How AI credits work' ) }
+									size="small"
+									variant="minimal"
+									tone="neutral"
+									onClick={ () => setDetailsOpen( true ) }
+								/>
+							}
+						/>
+						<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+							{ __( 'How AI credits work' ) }
+						</Tooltip.Popup>
+					</Tooltip.Root>
+				</div>
 			</div>
-			{ content }
+			{ accessState !== 'available' ? (
+				<div className={ styles.previewUsageText }>
+					{ accessState === 'blocked' ? (
+						<AiBlockedNotice />
+					) : (
+						<AiAccessRequiredNotice quota={ quota } />
+					) }
+				</div>
+			) : (
+				<>
+					<CreditMeter
+						remainingDollars={ usage.availableBalance }
+						totalDollars={ usage.meterTotal }
+						fraction={ usage.combinedFraction }
+						valueClassName={ getMeterIntent( usage.combinedFraction ) }
+					/>
+					<div className={ styles.creditCallout }>
+						{ creditAction }
+						<span className={ styles.creditCalloutText }>{ creditCalloutMessage }</span>
+					</div>
+					<PurchaseCreditsDialog open={ purchaseOpen } onOpenChange={ setPurchaseOpen } />
+				</>
+			) }
+			<AiCreditsDetailsDialog open={ detailsOpen } onOpenChange={ setDetailsOpen } />
 		</section>
 	);
 }

@@ -54,6 +54,7 @@ import {
 	type KeyboardEvent,
 	type MouseEvent,
 	type PointerEvent,
+	type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
 import * as Menu from '@/components/menu';
@@ -67,6 +68,7 @@ import {
 } from '@/data/queries/use-sessions';
 import { FamilySwitchConfirmDialog } from './family-switch-confirm-dialog';
 import styles from './style.module.css';
+import { UsageCreditsControl } from './usage-credits-control';
 import {
 	toComposerSendAttachments,
 	useComposerAttachments,
@@ -250,6 +252,7 @@ interface ComposerProps {
 	ownerSiteId?: string;
 	onSwitchSession?: ( sessionId: string ) => void;
 	autoFocus?: boolean;
+	usageNotice?: ReactNode;
 }
 
 /**
@@ -332,6 +335,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		ownerSiteId,
 		onSwitchSession,
 		autoFocus = false,
+		usageNotice,
 	},
 	ref
 ) {
@@ -774,6 +778,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 					onDragLeave={ dragHandlers.onDragLeave }
 					onDrop={ dragHandlers.onDrop }
 				>
+					{ usageNotice }
 					<div
 						className={ styles.resizeHandle }
 						role="separator"
@@ -1045,6 +1050,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 							/>
 						</div>
 						<div className={ styles.rightActions }>
+							<UsageCreditsControl />
 							<Menu.Root modal={ false }>
 								<Tooltip.Root>
 									<Menu.Trigger

@@ -54,6 +54,7 @@ interface SessionChatActionsProps {
 	onNewChat: () => void;
 	onSwitchSession: ( sessionId: string ) => void;
 	sessions: AiSessionSummary[];
+	showNewChat?: boolean;
 }
 
 export function SessionChatActions( {
@@ -63,6 +64,7 @@ export function SessionChatActions( {
 	onNewChat,
 	onSwitchSession,
 	sessions,
+	showNewChat = true,
 }: SessionChatActionsProps ) {
 	const updateSessionMetadata = useUpdateSessionMetadata();
 	const [ archiveDialogOpen, setArchiveDialogOpen ] = useState( false );
@@ -82,6 +84,7 @@ export function SessionChatActions( {
 	useEffect( () => {
 		const handleKeyDown = ( event: KeyboardEvent ) => {
 			if (
+				! showNewChat ||
 				event.defaultPrevented ||
 				event.repeat ||
 				isCreatingSession ||
@@ -96,7 +99,7 @@ export function SessionChatActions( {
 
 		document.addEventListener( 'keydown', handleKeyDown, { capture: true } );
 		return () => document.removeEventListener( 'keydown', handleKeyDown, { capture: true } );
-	}, [ isCreatingSession, onNewChat ] );
+	}, [ isCreatingSession, onNewChat, showNewChat ] );
 
 	return (
 		<div className={ styles.classicComposerFooter }>
@@ -226,32 +229,34 @@ export function SessionChatActions( {
 						</Dialog.Footer>
 					</Dialog.Popup>
 				</Dialog.Root>
-				<Tooltip.Root>
-					<Tooltip.Trigger
-						render={
-							<Button
-								type="button"
-								className={ styles.classicComposerTextButton }
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								onClick={ onNewChat }
-								disabled={ isCreatingSession }
-								aria-busy={ isCreatingSession || undefined }
-								aria-keyshortcuts={ ariaKeyShortcut.primary( NEW_CHAT_SHORTCUT_KEY ) }
-							/>
-						}
-					>
-						<span>{ isCreatingSession ? __( 'Starting new chat' ) : __( 'New chat' ) }</span>
-					</Tooltip.Trigger>
-					<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-						{ sprintf(
-							// translators: %s: keyboard shortcut for starting a new chat.
-							__( 'New chat %s' ),
-							displayShortcut.primary( NEW_CHAT_SHORTCUT_KEY )
-						) }
-					</Tooltip.Popup>
-				</Tooltip.Root>
+				{ showNewChat ? (
+					<Tooltip.Root>
+						<Tooltip.Trigger
+							render={
+								<Button
+									type="button"
+									className={ styles.classicComposerTextButton }
+									variant="minimal"
+									tone="neutral"
+									size="small"
+									onClick={ onNewChat }
+									disabled={ isCreatingSession }
+									aria-busy={ isCreatingSession || undefined }
+									aria-keyshortcuts={ ariaKeyShortcut.primary( NEW_CHAT_SHORTCUT_KEY ) }
+								/>
+							}
+						>
+							<span>{ isCreatingSession ? __( 'Starting new chat' ) : __( 'New chat' ) }</span>
+						</Tooltip.Trigger>
+						<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+							{ sprintf(
+								// translators: %s: keyboard shortcut for starting a new chat.
+								__( 'New chat %s' ),
+								displayShortcut.primary( NEW_CHAT_SHORTCUT_KEY )
+							) }
+						</Tooltip.Popup>
+					</Tooltip.Root>
+				) : null }
 			</div>
 		</div>
 	);

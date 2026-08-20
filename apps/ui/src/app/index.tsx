@@ -1,4 +1,5 @@
 import { AppProviders } from '@/app/app-providers';
+import { UsageExplorationControls } from '@/components/usage-exploration-controls';
 import { ClassicUiApp } from '@/ui-classic/app';
 import '@wordpress/components/build-style/style.css';
 import '@wordpress/dataviews/build-style/style.css';
@@ -15,6 +16,7 @@ export function App( { connector }: AppProps ) {
 	return (
 		<AppProviders connector={ connector }>
 			<ClassicUiApp connector={ connector } />
+			<UsageExplorationControls />
 		</AppProviders>
 	);
 }

@@ -61,6 +61,34 @@ describe( 'getStudioCodeAiAccessState', () => {
 	} );
 } );
 
+describe( 'studioAssistantQuotaSchema per-pool balances', () => {
+	it( 'parses the remaining balance per pool when present', () => {
+		const quota = studioAssistantQuotaSchema.parse( {
+			...baseResponse,
+			allowance_remaining: 960000,
+			purchased_remaining: 150000,
+		} );
+		expect( quota.allowanceRemaining ).toBe( 960000 );
+		expect( quota.purchasedRemaining ).toBe( 150000 );
+	} );
+
+	it( 'keeps zero balances distinct from absent fields', () => {
+		const quota = studioAssistantQuotaSchema.parse( {
+			...baseResponse,
+			allowance_remaining: 0,
+			purchased_remaining: 0,
+		} );
+		expect( quota.allowanceRemaining ).toBe( 0 );
+		expect( quota.purchasedRemaining ).toBe( 0 );
+	} );
+
+	it( 'leaves the balances undefined when the server omits them (feature off)', () => {
+		const quota = studioAssistantQuotaSchema.parse( baseResponse );
+		expect( quota.allowanceRemaining ).toBeUndefined();
+		expect( quota.purchasedRemaining ).toBeUndefined();
+	} );
+} );
+
 describe( 'formatAiAccessRequiredNotice', () => {
 	it( 'tells accounts with spend this billing cycle that beta access is now required', () => {
 		expect( formatAiAccessRequiredNotice( { costUsage: 3 } ) ).toBe(

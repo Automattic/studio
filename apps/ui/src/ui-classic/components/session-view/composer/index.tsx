@@ -65,6 +65,7 @@ import {
 	reconcilePrimedSessionQueryData,
 	SESSIONS_QUERY_KEY,
 } from '@/data/queries/use-sessions';
+import { AiCreditsControl } from './ai-credits-control';
 import { FamilySwitchConfirmDialog } from './family-switch-confirm-dialog';
 import styles from './style.module.css';
 import {
@@ -1045,6 +1046,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 							/>
 						</div>
 						<div className={ styles.rightActions }>
+							<AiCreditsControl />
 							<Menu.Root modal={ false }>
 								<Tooltip.Root>
 									<Menu.Trigger

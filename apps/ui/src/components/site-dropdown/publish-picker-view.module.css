@@ -29,6 +29,7 @@
 	padding: var(--wpds-dimension-padding-lg);
 	color: var(--wpds-color-fg-content-neutral-weak);
 	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
 	text-align: center;
 }
 
@@ -41,6 +42,7 @@
 	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-lg);
 	color: var(--wpds-color-fg-content-error);
 	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
 }
 
 .loadError {
@@ -50,6 +52,7 @@
 	gap: var(--wpds-dimension-gap-xs);
 	padding: var(--wpds-dimension-padding-lg);
 	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
 	color: var(--wpds-color-fg-content-neutral-weak);
 }
 

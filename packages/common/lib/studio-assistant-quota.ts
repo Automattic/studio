@@ -185,3 +185,27 @@ export function formatUsageCapNotice( resetDate?: string | null, locale?: string
 	}
 	return __( 'You’ve reached your monthly AI usage limit. Try again later.' );
 }
+
+/**
+ * User-facing copy for having exhausted both AI credit pools — the free
+ * monthly allowance and purchased credits (STU-2236). Shared by every surface
+ * so the wording stays consistent. Deliberately never mentions the monthly
+ * reset: unlike the usage cap, waiting doesn't fix this state — buying
+ * credits does.
+ */
+export function formatOutOfCreditsNotice(): string {
+	return __( 'You’re out of AI credits. Add more credits to continue using Studio Code.' );
+}
+
+/**
+ * Linked variant of the out-of-credits notice for surfaces that can render a
+ * purchase link. Wraps the call-to-action in a `<buyLink>` token: render it
+ * with `createInterpolateElement`, pointing the token at
+ * `ADD_AI_CREDITS_URL`.
+ */
+export function formatOutOfCreditsNoticeWithLink(): string {
+	return __(
+		/* translators: <buyLink> and </buyLink> wrap the link to buy AI credits and must be kept as-is. */
+		'You’re out of AI credits. <buyLink>Add AI credits</buyLink> to continue using Studio Code.'
+	);
+}

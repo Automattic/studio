@@ -1,6 +1,8 @@
 import {
+	ADD_AI_CREDITS_URL,
 	formatAiAccessRequiredNotice,
 	formatAiBlockedNotice,
+	formatOutOfCreditsNoticeWithLink,
 	STUDIO_CODE_AI_BETA_APPLY_URL,
 	WPCOM_SUPPORT_CONTACT_URL,
 	type StudioAssistantQuota,
@@ -31,5 +33,11 @@ export function AiAccessRequiredNotice( {
 export function AiBlockedNotice() {
 	return createInterpolateElement( formatAiBlockedNotice(), {
 		supportLink: <NoticeLink url={ WPCOM_SUPPORT_CONTACT_URL } />,
+	} );
+}
+
+export function OutOfCreditsNotice() {
+	return createInterpolateElement( formatOutOfCreditsNoticeWithLink(), {
+		buyLink: <NoticeLink url={ ADD_AI_CREDITS_URL } />,
 	} );
 }

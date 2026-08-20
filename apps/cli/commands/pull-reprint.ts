@@ -992,6 +992,7 @@ export async function runFullPull(
 		apiUrl,
 		`--secret=${ secret }`,
 		...onlyArgs,
+		'--mode=mirror',
 		'--no-adaptive',
 		`--state-dir=${ metadata.stateDirectory }`,
 		`--fs-root=${ metadata.rawDirectory }`,

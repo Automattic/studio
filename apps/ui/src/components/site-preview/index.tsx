@@ -1565,7 +1565,13 @@ function WebviewSurface( {
 		// a load the guest refuses — an unsaved-changes guard, a dead url —
 		// must leave the host showing the page that's actually on screen.
 		webview.loadURL( url ).catch( () => {
+			// A newer load we started, or one the guest committed on its own
+			// (a link click, a back navigation), owns the address bar now —
+			// both can abort this load, and neither should be rolled back.
 			if ( loadGenerationRef.current !== generation ) {
+				return;
+			}
+			if ( currentUrlRef.current !== previousUrl ) {
 				return;
 			}
 			pendingLoadRef.current = false;

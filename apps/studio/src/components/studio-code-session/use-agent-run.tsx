@@ -279,6 +279,11 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 	const ignoredRunIdsRef = useRef< Set< string > >( new Set() );
 	const interruptRequestsBySessionRef = useRef< Map< string, Promise< void > > >( new Map() );
 	const interruptPendingStartSessionIdsRef = useRef< Set< string > >( new Set() );
+	// Sessions with a `startRun` in flight. Set synchronously so a run ending
+	// mid-start can't mistake the session for idle.
+	const startingRunSessionIdsRef = useRef< Set< string > >( new Set() );
+	// Sessions whose disk catch-up was postponed because a run had claimed them.
+	const pendingRefetchSessionIdsRef = useRef< Set< string > >( new Set() );
 
 	useEffect( () => {
 		statesRef.current = states;
@@ -287,6 +292,30 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 	const dispatchSession = useCallback( ( sessionId: string, action: Action ) => {
 		dispatch( { sessionId, action } );
 	}, [] );
+
+	// A refetch replaces the cached transcript with what is on disk. The CLI
+	// child appends a turn's entries as it goes, so while a run is starting or
+	// already in flight the cache is ahead of the file — refetching then drops
+	// the optimistic entries, most visibly the user's own prompt. So only catch
+	// up with disk once nothing is about to write to this session.
+	const refetchSessionsIfIdle = useCallback(
+		( sessionId: string ) => {
+			const isSessionClaimed =
+				startingRunSessionIdsRef.current.has( sessionId ) ||
+				subscribedRunIdsBySessionRef.current.has( sessionId ) ||
+				( statesRef.current[ sessionId ]?.queuedPrompts.length ?? 0 ) > 0;
+			if ( isSessionClaimed ) {
+				// Postpone rather than drop: if the claiming run then fails to
+				// start, this is the only signal that the previous run left
+				// entries on disk, and the transcript would keep missing them.
+				pendingRefetchSessionIdsRef.current.add( sessionId );
+				return;
+			}
+			pendingRefetchSessionIdsRef.current.delete( sessionId );
+			void queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY } );
+		},
+		[ queryClient ]
+	);
 
 	const updateCache = useCallback(
 		( sessionId: string, updater: ( entries: SessionEntry[] ) => SessionEntry[] ) => {
@@ -335,9 +364,16 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 
 	const handleAgentEvent = useCallback(
 		( _event: unknown, payload: AgentRunEvent ) => {
+			// An abandoned run (interrupted, or superseded by a newer one) must
+			// not touch this session's state — a replacement run may already be
+			// starting. `run.exited` is the run's genuinely last event, so the
+			// marker has to survive `run.interrupted`, which precedes it.
 			if ( ignoredRunIdsRef.current.has( payload.runId ) ) {
-				if ( payload.event.type === 'run.exited' || payload.event.type === 'run.interrupted' ) {
+				if ( payload.event.type === 'run.exited' ) {
 					ignoredRunIdsRef.current.delete( payload.runId );
+					// Nothing took its place, so pick up whatever the child
+					// actually wrote before it went away.
+					refetchSessionsIfIdle( payload.sessionId );
 				}
 				return;
 			}
@@ -403,10 +439,9 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					}
 					dispatchSession( payload.sessionId, { type: 'run_ended' } );
 					subscribedRunIdsBySessionRef.current.delete( payload.sessionId );
-					// Refetch to replace optimistic entries with disk-backed ones.
-					void queryClient.invalidateQueries( {
-						queryKey: SESSIONS_QUERY_KEY,
-					} );
+					// Refetch to replace optimistic entries with disk-backed ones,
+					// unless a queued follow-up is already taking the session over.
+					refetchSessionsIfIdle( payload.sessionId );
 					return;
 				case 'message': {
 					const inner = event.message;
@@ -515,7 +550,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					return;
 			}
 		},
-		[ dispatchSession, queryClient, updateCache ]
+		[ dispatchSession, refetchSessionsIfIdle, updateCache ]
 	);
 
 	useIpcListener( 'ai-agent-event', handleAgentEvent );
@@ -523,6 +558,10 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 	const startRun = useCallback(
 		async ( sessionId: string, prompt: string, options: SendMessageOptions = {} ) => {
 			const displayMessage = options.displayMessage ?? prompt;
+			// Claim the session before the first `await`: the previous run can
+			// exit while this one is still starting, and its terminal event must
+			// not read the session as idle and refetch over these entries.
+			startingRunSessionIdsRef.current.add( sessionId );
 			dispatchSession( sessionId, { type: 'error_set', message: null } );
 
 			const optimisticEntry: SessionEntry = {
@@ -587,9 +626,16 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					usageCapReached: isUsageCap || isOutOfCredits,
 				} );
 				throw err;
+			} finally {
+				startingRunSessionIdsRef.current.delete( sessionId );
+				// Retry a catch-up this start had postponed. Still a no-op while
+				// the run holds the session; the run's own exit flushes it then.
+				if ( pendingRefetchSessionIdsRef.current.has( sessionId ) ) {
+					refetchSessionsIfIdle( sessionId );
+				}
 			}
 		},
-		[ dispatchSession, updateCache ]
+		[ dispatchSession, refetchSessionsIfIdle, updateCache ]
 	);
 
 	const interrupt = useCallback(

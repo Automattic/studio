@@ -579,7 +579,7 @@ export async function interruptAiAgentRun(
 	_event: IpcMainInvokeEvent,
 	runId: string
 ): Promise< void > {
-	interruptAgentRun( runId );
+	await interruptAgentRun( runId );
 }
 
 export async function answerAiAgentQuestion(

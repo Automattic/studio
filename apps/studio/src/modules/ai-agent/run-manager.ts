@@ -62,7 +62,7 @@ export function startAgentRun( options: StartAgentRunOptions ): { runId: string 
 	const result = runManager.startAgentRun( { sessionId, prompt, displayMessage, images, files } );
 	runWebContents.set( result.runId, webContents );
 	// Abort the run if the window that started it goes away.
-	webContents.once( 'destroyed', () => runManager.interruptAgentRun( result.runId ) );
+	webContents.once( 'destroyed', () => void runManager.interruptAgentRun( result.runId ) );
 	return result;
 }
 
@@ -70,8 +70,10 @@ export function listActiveAgentRuns(): ActiveAgentRun[] {
 	return runManager.listActiveAgentRuns();
 }
 
-export function interruptAgentRun( runId: string ): void {
-	runManager.interruptAgentRun( runId );
+// Resolves once the interrupted child has exited; the renderer waits on this
+// before starting the session's next run.
+export function interruptAgentRun( runId: string ): Promise< void > {
+	return runManager.interruptAgentRun( runId );
 }
 
 export function answerAgentRun( runId: string, answers: Record< string, string > ): void {

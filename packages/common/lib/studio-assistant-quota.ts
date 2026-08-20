@@ -8,9 +8,11 @@ export const ADD_PAYMENT_METHOD_URL = 'https://my.wordpress.com/me/billing/payme
 
 export const WPCOM_SUPPORT_CONTACT_URL = 'https://wordpress.com/support/contact/';
 
-// Placeholder until the WordPress.com checkout page for Studio AI credits
-// exists (STU-2292).
-export const ADD_AI_CREDITS_URL = 'https://wordpress.com/checkout/studio-ai-credits';
+// WordPress.com checkout for a Studio Code AI credits top-up (STU-2299). The
+// `:-q-<n>` suffix is checkout's quantity syntax, in the same 1/10000 USD units
+// the quota reports — 100000 is the $10 top-up, the only one offered in v1.
+export const ADD_AI_CREDITS_URL =
+	'https://wordpress.com/checkout/wpcom/studio-code-ai-credits:-q-100000';
 
 export const studioAssistantQuotaSchema = z
 	.object( {

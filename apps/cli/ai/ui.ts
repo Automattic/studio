@@ -1427,8 +1427,8 @@ export class AiChatUI implements AiOutputAdapter {
 
 	// Follows the usage-cap notice with the date the monthly limit resets,
 	// fetched from the WordPress.com quota endpoint. Silently skips when
-	// signed out or the quota can't be fetched — the cap notice on its own is
-	// already actionable.
+	// signed out, the quota can't be fetched, or the server no longer reports a
+	// reset date — the cap notice on its own is already actionable.
 	private async showUsageCapResetDate(): Promise< void > {
 		const token = await readAuthToken();
 		if ( ! token?.accessToken ) {

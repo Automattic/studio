@@ -41,6 +41,25 @@ describe( 'PromptInfo', () => {
 		expect( screen.getByRole( 'progressbar' ) ).toBeInTheDocument();
 	} );
 
+	it( 'drops the reset sentence when the server no longer reports a reset date', () => {
+		vi.mocked( useGetStudioAssistantQuota, { partial: true } ).mockReturnValue( {
+			data: {
+				costUsage: 33392,
+				costCap: 20000000,
+				costResetDate: undefined,
+			},
+			isError: false,
+			isLoading: false,
+			refetch: vi.fn(),
+		} );
+
+		render( <PromptInfo /> );
+
+		expect( screen.getByText( '0.17% of monthly limit used' ) ).toBeInTheDocument();
+		expect( screen.queryByText( /resets on/ ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'progressbar' ) ).toBeInTheDocument();
+	} );
+
 	it( 'shows unavailable message when cost cap is missing', () => {
 		vi.mocked( useGetStudioAssistantQuota, { partial: true } ).mockReturnValue( {
 			data: {

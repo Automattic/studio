@@ -33,6 +33,15 @@ export function PromptInfo() {
 		assistantQuota && assistantQuota.costCap > 0 && ! isOffline && ! isError && ! isDenied
 			? assistantQuota
 			: undefined;
+	const usedPercentage = assistantQuotaWithCostCap
+		? formatQuotaPercentage(
+				clampQuotaFraction(
+					assistantQuotaWithCostCap.costUsage,
+					assistantQuotaWithCostCap.costCap
+				),
+				locale
+		  )
+		: '';
 
 	return (
 		<div className="flex gap-3 flex-col">
@@ -49,18 +58,18 @@ export function PromptInfo() {
 								) }
 								{ ! isOffline && ! isDenied && isLoading && __( 'Loading Studio Code limits…' ) }
 								{ assistantQuotaWithCostCap &&
-									sprintf(
-										/* translators: %1$s: percentage of monthly limit used (e.g. 7.5%). %2$s: date the limit resets (e.g. July 1, 2026). */
-										__( '%1$s of monthly limit used (resets on %2$s)' ),
-										formatQuotaPercentage(
-											clampQuotaFraction(
-												assistantQuotaWithCostCap.costUsage,
-												assistantQuotaWithCostCap.costCap
-											),
-											locale
-										),
-										formatQuotaResetDate( assistantQuotaWithCostCap.costResetDate, locale )
-									) }
+									( assistantQuotaWithCostCap.costResetDate
+										? sprintf(
+												/* translators: %1$s: percentage of monthly limit used (e.g. 7.5%). %2$s: date the limit resets (e.g. July 1, 2026). */
+												__( '%1$s of monthly limit used (resets on %2$s)' ),
+												usedPercentage,
+												formatQuotaResetDate( assistantQuotaWithCostCap.costResetDate, locale )
+										  )
+										: sprintf(
+												/* translators: %s: percentage of monthly limit used (e.g. 7.5%). */
+												__( '%s of monthly limit used' ),
+												usedPercentage
+										  ) ) }
 								{ ! isLoading &&
 									! isOffline &&
 									! isDenied &&

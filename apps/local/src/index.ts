@@ -1643,8 +1643,10 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		res.json( runManager.listActiveAgentRuns() );
 	} );
 
-	api.post( '/runs/:runId/interrupt', ( req: Request, res: Response ) => {
-		runManager.interruptAgentRun( req.params.runId );
+	api.post( '/runs/:runId/interrupt', async ( req: Request, res: Response ) => {
+		// Responds only once the child is gone, so the UI can safely start the
+		// session's next run when this resolves.
+		await runManager.interruptAgentRun( req.params.runId );
 		res.sendStatus( 204 );
 	} );
 

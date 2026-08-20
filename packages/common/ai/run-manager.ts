@@ -35,6 +35,10 @@ interface AgentRun {
 	interruptAttempts: number;
 	eventQueue: Promise< void >;
 	startedAt: number;
+	// Resolves once the child process is gone, so callers can wait for the
+	// session's JSONL to have exactly one writer again.
+	exited: Promise< void >;
+	resolveExited: () => void;
 }
 
 // Everything a run produces for the UI. The host maps each kind to its transport
@@ -72,7 +76,9 @@ export interface StartAgentRunOptions {
 export interface AgentRunManager {
 	startAgentRun( options: StartAgentRunOptions ): { runId: string };
 	listActiveAgentRuns(): ActiveAgentRun[];
-	interruptAgentRun( runId: string ): void;
+	// Resolves once the interrupted child has exited, so the caller can start
+	// the next run for the session without two children writing one transcript.
+	interruptAgentRun( runId: string ): Promise< void >;
 	answerAgentRun( runId: string, answers: Record< string, string > ): void;
 }
 
@@ -200,6 +206,11 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 			},
 		} );
 
+		let resolveExited = () => {};
+		const exited = new Promise< void >( ( resolve ) => {
+			resolveExited = resolve;
+		} );
+
 		const run: AgentRun = {
 			runId,
 			sessionId,
@@ -208,6 +219,8 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 			interruptAttempts: 0,
 			eventQueue: Promise.resolve(),
 			startedAt,
+			exited,
+			resolveExited,
 		};
 
 		runsBySessionId.set( sessionId, run );
@@ -229,6 +242,10 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 		} );
 
 		const cleanup = ( code: number | null ) => {
+			// The child is gone, so everything it was going to write to the
+			// session JSONL has landed. Release anyone waiting to start the next
+			// run for this session.
+			run.resolveExited();
 			runsBySessionId.delete( sessionId );
 			runsById.delete( runId );
 
@@ -257,6 +274,9 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 
 		child.on( 'error', ( error ) => {
 			captureException( error );
+			// A child that fails to spawn emits `error` without `exit`, so
+			// release the waiters here too rather than leaving them hanging.
+			run.resolveExited();
 			sendEvent( run, {
 				type: 'error',
 				timestamp: nowIso(),
@@ -278,10 +298,15 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 		} ) );
 	}
 
-	function interruptAgentRun( runId: string ): void {
+	// Resolves once the run is actually over. Callers use that to sequence the
+	// next run for the session: two CLI children resuming the same session id
+	// would both append to its JSONL from independently tracked leaf pointers,
+	// forking the entry tree. The `INTERRUPT_FORCE_KILL_TIMEOUT_MS` fallback
+	// below guarantees the wait is bounded.
+	function interruptAgentRun( runId: string ): Promise< void > {
 		const run = runsById.get( runId );
 		if ( ! run ) {
-			return;
+			return Promise.resolve();
 		}
 		run.interrupted = true;
 		run.interruptAttempts += 1;
@@ -293,7 +318,7 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 		// not landing fast enough, so skip the grace period.
 		if ( run.interruptAttempts > 1 ) {
 			run.child.kill( 'SIGKILL' );
-			return;
+			return run.exited;
 		}
 
 		// First click: tell the child to interrupt via the Agent SDK and exit
@@ -309,10 +334,11 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 					run.child.kill( 'SIGKILL' );
 				}
 			}, INTERRUPT_FORCE_KILL_TIMEOUT_MS ).unref();
-			return;
+			return run.exited;
 		}
 
 		run.child.kill( 'SIGKILL' );
+		return run.exited;
 	}
 
 	function answerAgentRun( runId: string, answers: Record< string, string > ): void {

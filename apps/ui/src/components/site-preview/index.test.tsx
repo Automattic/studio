@@ -378,6 +378,81 @@ describe( 'SitePreview', () => {
 		);
 	} );
 
+	it( 'keeps the front end and WP Admin on one shared surface', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+		const queryClient = new QueryClient( {
+			defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+		} );
+		const ui = ( path: string ) => (
+			<QueryClientProvider client={ queryClient }>
+				<Tooltip.Provider>
+					<SitePreview site={ createSite( { running: true } ) } path={ path } reloadNonce={ 0 } />
+				</Tooltip.Provider>
+			</QueryClientProvider>
+		);
+
+		const { container, rerender } = render( ui( '/' ) );
+		expect( container.querySelectorAll( 'iframe' ) ).toHaveLength( 1 );
+
+		// The two realms that link to each other and share a login stay a single
+		// surface, so history and session carry across them.
+		rerender( ui( '/wp-admin/' ) );
+		expect( container.querySelectorAll( 'iframe' ) ).toHaveLength( 1 );
+	} );
+
+	it( 'gives the database its own surface and reveals it without reloading', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+		const onPathChange = vi.fn();
+		const queryClient = new QueryClient( {
+			defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+		} );
+		const ui = ( path: string ) => (
+			<QueryClientProvider client={ queryClient }>
+				<Tooltip.Provider>
+					<SitePreview
+						site={ createSite( { running: true } ) }
+						path={ path }
+						reloadNonce={ 0 }
+						onPathChange={ onPathChange }
+					/>
+				</Tooltip.Provider>
+			</QueryClientProvider>
+		);
+
+		const { container, rerender } = render( ui( '/' ) );
+		const siteSurface = container.querySelector( 'iframe' );
+
+		// The database mounts alongside the site surface rather than replacing it,
+		// and the site layer is hidden rather than torn down.
+		rerender( ui( DATABASE_HOME_PATH ) );
+		expect( container.querySelectorAll( 'iframe' ) ).toHaveLength( 2 );
+		expect( siteSurface?.closest( '[inert]' ) ).not.toBeNull();
+		const databaseSurface = container.querySelectorAll( 'iframe' )[ 1 ];
+
+		// Leaving and returning is a visibility swap: both elements survive, so
+		// neither the site nor the database reloads, and the database is
+		// reactivated at its own path instead of being renavigated.
+		rerender( ui( '/' ) );
+		expect( container.querySelector( 'iframe' ) ).toBe( siteSurface );
+		expect( siteSurface?.closest( '[inert]' ) ).toBeNull();
+
+		onPathChange.mockClear();
+		fireEvent.keyDown( document.body, { key: '3', ctrlKey: true } );
+		expect( onPathChange ).toHaveBeenCalledWith( DATABASE_HOME_PATH );
+
+		rerender( ui( DATABASE_HOME_PATH ) );
+		expect( container.querySelectorAll( 'iframe' ) ).toHaveLength( 2 );
+		expect( container.querySelectorAll( 'iframe' )[ 1 ] ).toBe( databaseSurface );
+	} );
+
 	it( 'hides the Annotate control when the host cannot annotate the preview', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),

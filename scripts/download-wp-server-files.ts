@@ -128,16 +128,12 @@ const FILES_TO_DOWNLOAD: FileToDownload[] = [
 			`https://downloads.wordpress.org/plugin/wordpress-importer.${ WORDPRESS_IMPORTER_VERSION }.zip`,
 		destinationPath: WP_SERVER_FILES_PATH,
 	},
-	// Reprint is pinned to the phar committed at wp-files/reprint/reprint.phar
-	// while this branch needs merge-wp-content (WordPress/reprint#571), which
-	// v0.9.4 does not carry. Restore this entry — with the version bumped to the
-	// release that includes it — before merging.
-	// {
-	// 	name: 'reprint',
-	// 	description: `reprint.phar`,
-	// 	getUrl: () => 'https://github.com/WordPress/reprint/releases/download/v0.9.4/reprint.phar',
-	// 	destinationPath: path.join( WP_SERVER_FILES_PATH, 'reprint' ),
-	// },
+	{
+		name: 'reprint',
+		description: `reprint.phar`,
+		getUrl: () => 'https://github.com/WordPress/reprint/releases/download/v0.10.1/reprint.phar',
+		destinationPath: path.join( WP_SERVER_FILES_PATH, 'reprint' ),
+	},
 ];
 
 async function downloadFile( file: FileToDownload ): Promise< void > {

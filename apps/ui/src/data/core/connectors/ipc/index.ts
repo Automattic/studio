@@ -1051,6 +1051,10 @@ export function createIpcConnector(): Connector {
 			return ipcListener.subscribe( 'user-settings', () => listener() );
 		},
 
+		onAiCreditsPurchased( listener ) {
+			return ipcListener.subscribe( 'ai-credits-purchased', () => listener() );
+		},
+
 		async disableAgenticUi(): Promise< void > {
 			await ipcApi.disableAgenticUi();
 		},

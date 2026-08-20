@@ -28,7 +28,18 @@ function getCategory( relativePath: string ): StorageCategory {
 	return match?.[ 1 ] ?? 'other';
 }
 
-export async function measureSiteStorage( sitePath: string ): Promise< SiteStorageUsage > {
+/**
+ * Walks the site directory and totals its files by category.
+ *
+ * A site is typically thousands of files, so this is not cheap and the caller
+ * is often gone before it finishes — pass `signal` to stop the walk when the
+ * result is no longer wanted. Aborting rejects with the signal's reason rather
+ * than returning a partial total.
+ */
+export async function measureSiteStorage(
+	sitePath: string,
+	{ signal }: { signal?: AbortSignal } = {}
+): Promise< SiteStorageUsage > {
 	const usage: SiteStorageUsage = {
 		total: 0,
 		uploads: 0,
@@ -41,6 +52,7 @@ export async function measureSiteStorage( sitePath: string ): Promise< SiteStora
 	const files: Array< { path: string; category: StorageCategory } > = [];
 
 	for ( let index = 0; index < directories.length; index++ ) {
+		signal?.throwIfAborted();
 		const directory = directories[ index ];
 		let entries;
 		try {
@@ -65,6 +77,7 @@ export async function measureSiteStorage( sitePath: string ): Promise< SiteStora
 	let nextFile = 0;
 	async function measureNextFile(): Promise< void > {
 		while ( nextFile < files.length ) {
+			signal?.throwIfAborted();
 			const file = files[ nextFile++ ];
 			try {
 				const stats = await fs.stat( file.path );

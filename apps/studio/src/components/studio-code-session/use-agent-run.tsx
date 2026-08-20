@@ -275,6 +275,8 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 	// Sessions with a `startRun` in flight. Set synchronously so a run ending
 	// mid-start can't mistake the session for idle.
 	const startingRunSessionIdsRef = useRef< Set< string > >( new Set() );
+	// Sessions whose disk catch-up was postponed because a run had claimed them.
+	const pendingRefetchSessionIdsRef = useRef< Set< string > >( new Set() );
 
 	useEffect( () => {
 		statesRef.current = states;
@@ -296,8 +298,13 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 				subscribedRunIdsBySessionRef.current.has( sessionId ) ||
 				( statesRef.current[ sessionId ]?.queuedPrompts.length ?? 0 ) > 0;
 			if ( isSessionClaimed ) {
+				// Postpone rather than drop: if the claiming run then fails to
+				// start, this is the only signal that the previous run left
+				// entries on disk, and the transcript would keep missing them.
+				pendingRefetchSessionIdsRef.current.add( sessionId );
 				return;
 			}
+			pendingRefetchSessionIdsRef.current.delete( sessionId );
 			void queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY } );
 		},
 		[ queryClient ]
@@ -595,9 +602,14 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 				throw err;
 			} finally {
 				startingRunSessionIdsRef.current.delete( sessionId );
+				// Retry a catch-up this start had postponed. Still a no-op while
+				// the run holds the session; the run's own exit flushes it then.
+				if ( pendingRefetchSessionIdsRef.current.has( sessionId ) ) {
+					refetchSessionsIfIdle( sessionId );
+				}
 			}
 		},
-		[ dispatchSession, updateCache ]
+		[ dispatchSession, refetchSessionsIfIdle, updateCache ]
 	);
 
 	const interrupt = useCallback(

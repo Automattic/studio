@@ -66,9 +66,11 @@ describe( 'useAgentRun queued handoff', () => {
 	>;
 	// Held open so tests can decide when the new run's id becomes known.
 	let resolveContinueSession: ( () => void ) | null;
+	let rejectContinueSession: ( () => void ) | null;
 
 	beforeEach( () => {
 		resolveContinueSession = null;
+		rejectContinueSession = null;
 		connector = {
 			continueSession: vi.fn().mockResolvedValue( { runId: 'run-next' } ),
 			getActiveAgentRuns: vi.fn().mockResolvedValue( [] ),
@@ -311,6 +313,79 @@ describe( 'useAgentRun queued handoff', () => {
 		expect( invalidateSpy ).toHaveBeenCalledWith(
 			{ queryKey: SESSIONS_QUERY_KEY },
 			{ cancelRefetch: false }
+		);
+	} );
+
+	// The deferred catch-up must actually happen: if the start that postponed it
+	// then fails, nothing else would ever pull in what the old child wrote.
+	it( 'flushes a postponed refetch when the replacement run fails to start', async () => {
+		connector.continueSession = vi.fn(
+			() =>
+				new Promise( ( _resolve, reject ) => {
+					rejectContinueSession = () => reject( new Error( 'CLI unavailable' ) );
+				} )
+		);
+		const queryClient = createQueryClient();
+		queryClient.setQueryData< LoadedAiSession >(
+			[ ...SESSIONS_QUERY_KEY, 'session-1' ],
+			createLoadedSession()
+		);
+		const invalidateSpy = vi.spyOn( queryClient, 'invalidateQueries' );
+
+		renderWithAgentRun( queryClient );
+
+		await waitFor( () => expect( connector.onAgentEvent ).toHaveBeenCalled() );
+
+		act( () => {
+			agentListener( {
+				sessionId: 'session-1',
+				runId: 'run-old',
+				event: { type: 'run.started', timestamp: '2026-06-24T12:00:00.000Z' },
+			} );
+		} );
+		await waitFor( () => expect( screen.getByTestId( 'phase' ) ).toHaveTextContent( 'active' ) );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Queue' } ) );
+		await waitFor( () => expect( screen.getByTestId( 'queued' ) ).toHaveTextContent( '1' ) );
+
+		await act( async () => {
+			fireEvent.click( screen.getByRole( 'button', { name: 'Stop' } ) );
+		} );
+		await waitFor( () => expect( connector.continueSession ).toHaveBeenCalled() );
+
+		act( () => {
+			agentListener( {
+				sessionId: 'session-1',
+				runId: 'run-old',
+				event: { type: 'run.interrupted', timestamp: '2026-06-24T12:00:02.000Z' },
+			} );
+			agentListener( {
+				sessionId: 'session-1',
+				runId: 'run-old',
+				event: {
+					type: 'run.exited',
+					timestamp: '2026-06-24T12:00:02.100Z',
+					status: 'error',
+					code: 143,
+				},
+			} );
+		} );
+
+		// Postponed while the queued prompt was mid-start.
+		expect( invalidateSpy ).not.toHaveBeenCalledWith(
+			expect.objectContaining( { queryKey: SESSIONS_QUERY_KEY } ),
+			expect.anything()
+		);
+
+		await act( async () => {
+			rejectContinueSession?.();
+		} );
+
+		await waitFor( () =>
+			expect( invalidateSpy ).toHaveBeenCalledWith(
+				{ queryKey: SESSIONS_QUERY_KEY },
+				{ cancelRefetch: false }
+			)
 		);
 	} );
 } );

@@ -290,6 +290,8 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 	// Sessions with a `startRun` in flight. Set synchronously so a run ending
 	// mid-start can't mistake the session for idle.
 	const startingRunSessionIdsRef = useRef< Set< string > >( new Set() );
+	// Sessions whose disk catch-up was postponed because a run had claimed them.
+	const pendingRefetchSessionIdsRef = useRef< Set< string > >( new Set() );
 
 	const dispatchSession = useCallback(
 		( sessionId: string, action: Action ) => {
@@ -327,8 +329,13 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 				subscribedRunIdsBySessionRef.current.has( sessionId ) ||
 				( stateStore.getState()[ sessionId ] ?? initialState ).queuedPrompts.length > 0;
 			if ( isSessionClaimed ) {
+				// Postpone rather than drop: if the claiming run then fails to
+				// start, this is the only signal that the previous run left
+				// entries on disk, and the transcript would keep missing them.
+				pendingRefetchSessionIdsRef.current.add( sessionId );
 				return;
 			}
+			pendingRefetchSessionIdsRef.current.delete( sessionId );
 			// `cancelRefetch: false` so a run ending as its site is deleted can't
 			// cancel the redirect route's in-flight fetch (which would throw a
 			// CancelledError into the router's error boundary).
@@ -608,9 +615,14 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 				throw err;
 			} finally {
 				startingRunSessionIdsRef.current.delete( sessionId );
+				// Retry a catch-up this start had postponed. Still a no-op while
+				// the run holds the session; the run's own exit flushes it then.
+				if ( pendingRefetchSessionIdsRef.current.has( sessionId ) ) {
+					refetchSessionsIfIdle( sessionId );
+				}
 			}
 		},
-		[ connector, dispatchSession, queryClient, updateCache ]
+		[ connector, dispatchSession, queryClient, refetchSessionsIfIdle, updateCache ]
 	);
 
 	const interrupt = useCallback(

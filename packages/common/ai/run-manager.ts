@@ -241,7 +241,15 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 			}
 		} );
 
+		// Bound to both `exit` and `close` because neither covers every ending: a
+		// normal ending emits `exit` first, while a child that fails to spawn
+		// emits `close` and never `exit`. Runs once, whichever arrives first.
+		let cleanedUp = false;
 		const cleanup = ( code: number | null ) => {
+			if ( cleanedUp ) {
+				return;
+			}
+			cleanedUp = true;
 			// The child is gone, so everything it was going to write to the
 			// session JSONL has landed. Release anyone waiting to start the next
 			// run for this session.
@@ -272,11 +280,11 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 			} );
 		};
 
+		// Deliberately does not end the run: `error` also fires for a failed
+		// `send()` or `kill()`, with the child still alive and still writing to
+		// the session file. Only `exit`/`close` mean it is actually gone.
 		child.on( 'error', ( error ) => {
 			captureException( error );
-			// A child that fails to spawn emits `error` without `exit`, so
-			// release the waiters here too rather than leaving them hanging.
-			run.resolveExited();
 			sendEvent( run, {
 				type: 'error',
 				timestamp: nowIso(),
@@ -285,6 +293,7 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 		} );
 
 		child.on( 'exit', cleanup );
+		child.on( 'close', cleanup );
 
 		return { runId };
 	}

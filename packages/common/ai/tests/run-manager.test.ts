@@ -146,8 +146,8 @@ describe( 'createAgentRunManager interrupt', () => {
 		await expect( manager.interruptAgentRun( runId ) ).resolves.toBeUndefined();
 	} );
 
-	// A child that fails to spawn emits `error` without `exit`; without this the
-	// queued follow-up would wait forever.
+	// A child that fails to spawn emits `close` and never `exit`; without that
+	// fallback the queued follow-up would wait forever.
 	it( 'resolves when the child fails to spawn', async () => {
 		const child = createConnectedChild();
 		mockFork.mockImplementation( () => child as never );
@@ -160,7 +160,53 @@ describe( 'createAgentRunManager interrupt', () => {
 		const { runId } = manager.startAgentRun( { sessionId: 'session-1', prompt: 'hello' } );
 		const interrupted = manager.interruptAgentRun( runId );
 		child.emit( 'error', new Error( 'spawn ENOENT' ) );
+		child.emit( 'close', null );
 
 		await expect( interrupted ).resolves.toBeUndefined();
+	} );
+
+	// `error` also fires for a failed `send()`/`kill()` while the child is very
+	// much alive. Treating it as the end would let the next run fork a second
+	// CLI child onto the same session file.
+	it( 'does not resolve on an error from a child that is still running', async () => {
+		const child = createConnectedChild();
+		mockFork.mockImplementation( () => child as never );
+		const manager = createAgentRunManager( {
+			cliBinary: '/cli.mjs',
+			surface: 'desktop',
+			emit: vi.fn(),
+		} );
+
+		const { runId } = manager.startAgentRun( { sessionId: 'session-1', prompt: 'hello' } );
+
+		let resolved = false;
+		void manager.interruptAgentRun( runId ).then( () => {
+			resolved = true;
+		} );
+		child.emit( 'error', new Error( 'channel closed' ) );
+		await Promise.resolve();
+
+		expect( resolved ).toBe( false );
+	} );
+
+	// Both events fire for a normal ending, but the run only ends once.
+	it( 'ends the run once when exit and close both fire', async () => {
+		const child = createConnectedChild();
+		mockFork.mockImplementation( () => child as never );
+		const emit = vi.fn();
+		const manager = createAgentRunManager( {
+			cliBinary: '/cli.mjs',
+			surface: 'desktop',
+			emit,
+		} );
+
+		manager.startAgentRun( { sessionId: 'session-1', prompt: 'hello' } );
+		child.emit( 'exit', 0 );
+		child.emit( 'close', 0 );
+		await vi.waitFor( () =>
+			expect(
+				emit.mock.calls.filter( ( [ output ] ) => output.event?.event?.type === 'run.exited' )
+			).toHaveLength( 1 )
+		);
 	} );
 } );

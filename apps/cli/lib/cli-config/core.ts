@@ -1,18 +1,17 @@
 import fs from 'fs';
-import path from 'path';
 import {
-	CLI_CONFIG_LOCKFILE_NAME,
-	LOCKFILE_STALE_TIME,
-	LOCKFILE_WAIT_TIME,
-} from '@studio/common/constants';
+	CLI_CONFIG_VERSION,
+	ensureCliConfigDirectory,
+	lockCliConfigFile,
+	readCliConfigFileRaw,
+	unlockCliConfigFile,
+	writeCliConfigFileRaw,
+} from '@studio/common/lib/cli-config-file';
 import { siteDetailsSchema } from '@studio/common/lib/cli-events';
-import { hideDirectoryOnWindows } from '@studio/common/lib/hide-dir-windows';
-import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
 import { siteOperationSchema } from '@studio/common/lib/site-operation';
-import { getCliConfigPath, getConfigDirectory } from '@studio/common/lib/well-known-paths';
+import { getCliConfigPath } from '@studio/common/lib/well-known-paths';
 import { snapshotSchema } from '@studio/common/types/snapshot';
 import { __ } from '@wordpress/i18n';
-import { readFile, writeFile } from 'atomically';
 import { z } from 'zod';
 import { StatsMetric } from 'cli/lib/types/bump-stats';
 import { LoggerError } from 'cli/logger';
@@ -64,13 +63,11 @@ const siteSchema = siteDetailsSchema
 	.loose();
 
 // Schema updates must maintain backwards compatibility. If a breaking change is needed,
-// increment CLI_CONFIG_VERSION and add a data migration function.
-const CLI_CONFIG_VERSION = 1;
+// increment CLI_CONFIG_VERSION (in @studio/common/lib/cli-config-file) and add a data migration
+// function.
 
 // IMPORTANT: Always consider that independently installed versions of the CLI (from npm) may also
 // read this file, and any updates to this schema may require updating the `version` field.
-export const aiProviderSchema = z.enum( [ 'wpcom', 'anthropic-api-key' ] );
-
 export const updateCheckSchema = z.object( {
 	lastChecked: z.number(),
 	latestVersion: z.string(),
@@ -80,8 +77,6 @@ const cliConfigSchema = z.looseObject( {
 	version: z.literal( CLI_CONFIG_VERSION ),
 	sites: z.array( siteSchema ).default( () => [] ),
 	snapshots: z.array( snapshotSchema ).default( () => [] ),
-	aiProvider: aiProviderSchema.optional(),
-	anthropicApiKey: z.string().optional(),
 	lastBumpStats: z
 		.record( z.string(), z.partialRecord( z.enum( StatsMetric ), z.number() ) )
 		.optional(),
@@ -107,16 +102,13 @@ const DEFAULT_CLI_CONFIG: CliConfig = {
 };
 
 export async function readCliConfig(): Promise< CliConfig > {
-	const configPath = getCliConfigPath();
-
-	if ( ! fs.existsSync( configPath ) ) {
+	if ( ! fs.existsSync( getCliConfigPath() ) ) {
 		return structuredClone( DEFAULT_CLI_CONFIG );
 	}
 
 	let data: Record< string, unknown >;
 	try {
-		const fileContent = await readFile( configPath, { encoding: 'utf8' } );
-		data = JSON.parse( fileContent );
+		data = await readCliConfigFileRaw();
 	} catch ( error ) {
 		throw new LoggerError( __( 'Failed to read CLI config file.' ), error );
 	}
@@ -145,24 +137,11 @@ export async function readCliConfig(): Promise< CliConfig > {
 	}
 }
 
-async function ensureConfigDirectory(): Promise< void > {
-	const configDir = getConfigDirectory();
-	if ( ! fs.existsSync( configDir ) ) {
-		fs.mkdirSync( configDir, { recursive: true } );
-		await hideDirectoryOnWindows( configDir );
-	}
-}
-
 export async function saveCliConfig( config: CliConfig ): Promise< void > {
 	try {
 		config.version = CLI_CONFIG_VERSION;
-
-		await ensureConfigDirectory();
-
-		const configPath = getCliConfigPath();
-		const fileContent = JSON.stringify( config, null, 2 ) + '\n';
-
-		await writeFile( configPath, fileContent, { encoding: 'utf8' } );
+		await ensureCliConfigDirectory();
+		await writeCliConfigFileRaw( config );
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {
 			throw error;
@@ -171,28 +150,8 @@ export async function saveCliConfig( config: CliConfig ): Promise< void > {
 	}
 }
 
-// Resolved per call, not at module load: `getConfigDirectory()` reads
-// DEV_CONFIG_DIR, so pinning it at import time would bake in whatever the
-// environment looked like when this module was first pulled in — and would
-// throw outright for any importer that loads before the home path resolves.
-function getLockfilePath(): string {
-	return path.join( getConfigDirectory(), CLI_CONFIG_LOCKFILE_NAME );
-}
-
-export async function lockCliConfig(): Promise< void > {
-	// The lockfile lives inside the config directory. On a first run that directory may not exist
-	// yet (e.g. telemetry bumps fire before `setupServerFiles()` creates it), and `lockfile.lock`
-	// would reject with ENOENT instead of waiting. Ensure the directory exists before locking.
-	await ensureConfigDirectory();
-	await lockFileAsync( getLockfilePath(), {
-		wait: LOCKFILE_WAIT_TIME,
-		stale: LOCKFILE_STALE_TIME,
-	} );
-}
-
-export async function unlockCliConfig(): Promise< void > {
-	await unlockFileAsync( getLockfilePath() );
-}
+export const lockCliConfig = lockCliConfigFile;
+export const unlockCliConfig = unlockCliConfigFile;
 
 export async function updateCliConfigWithPartial(
 	update: Partial< Omit< CliConfig, 'version' | 'sites' > >

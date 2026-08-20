@@ -43,6 +43,14 @@
 	pointer-events: none;
 }
 
+/* Holding the close button rather than the traffic-light spacer, so it has to
+   take clicks back and mirror .headerEnd's inset. */
+.headerStartClose {
+	align-items: center;
+	pointer-events: auto;
+	padding-inline-start: var( --wpds-dimension-padding-lg );
+}
+
 .headerTabs {
 	grid-column: 2;
 	align-self: stretch;
@@ -224,6 +232,29 @@
 	justify-content: flex-end;
 	min-width: 0;
 	inline-size: 100%;
+}
+
+/* Description and toggle share the top line; the key field spans both columns
+   underneath. */
+.apiKeyRow {
+	row-gap: var( --wpds-dimension-padding-md );
+}
+
+.apiKeyControls {
+	grid-column: 1 / -1;
+}
+
+.apiKeyControls :global( .components-base-control ) {
+	max-inline-size: 420px;
+}
+
+/* Match the error message below the field. The accent overrides keep the
+   border and focus ring red while the input is focused. */
+.apiKeyControlsError :global( input.components-text-control__input ) {
+	--wp-admin-theme-color: var( --wpds-color-stroke-surface-error-strong );
+	--wp-components-color-accent: var( --wpds-color-stroke-surface-error-strong );
+
+	border-color: var( --wpds-color-stroke-surface-error-strong );
 }
 
 .appearancePicker {
@@ -885,6 +916,28 @@
 
 .usageSectionAction {
 	align-self: flex-start;
+}
+
+.aiCreditsHeading {
+	display: flex;
+	align-items: center;
+	gap: var( --wpds-dimension-padding-xs );
+}
+
+.aiCreditsDetailsButton {
+	flex: none;
+}
+
+.aiCreditsDetailsButton svg {
+	inline-size: 16px;
+	block-size: 16px;
+}
+
+.creditBalances {
+	display: flex;
+	flex-direction: column;
+	gap: var( --wpds-dimension-padding-xs );
+	font-variant-numeric: tabular-nums;
 }
 
 .aiCreditsTrack {

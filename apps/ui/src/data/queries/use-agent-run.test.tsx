@@ -120,7 +120,13 @@ describe( 'useAgentRun queued handoff', () => {
 			)
 		);
 
-		expect( invalidateSpy ).not.toHaveBeenCalled();
+		expect( invalidateSpy ).not.toHaveBeenCalledWith(
+			expect.objectContaining( { queryKey: SESSIONS_QUERY_KEY } ),
+			expect.anything()
+		);
+		// The old run still consumed AI credits, so the balance refreshes even
+		// while the queued prompt takes over.
+		expect( invalidateSpy ).toHaveBeenCalledWith( { queryKey: [ 'assistant-quota' ] } );
 		expect(
 			queryClient
 				.getQueryData< LoadedAiSession >( [ ...SESSIONS_QUERY_KEY, 'session-1' ] )
@@ -164,5 +170,6 @@ describe( 'useAgentRun queued handoff', () => {
 			{ queryKey: SESSIONS_QUERY_KEY },
 			{ cancelRefetch: false }
 		);
+		expect( invalidateSpy ).toHaveBeenCalledWith( { queryKey: [ 'assistant-quota' ] } );
 	} );
 } );

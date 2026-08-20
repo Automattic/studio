@@ -2,7 +2,16 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import onboardingLayoutStyles from '@/components/onboarding-layout/style.module.css';
+import { ConnectorProvider } from '@/data/core';
 import { OnboardingShellView, useOnboardingProgress } from './index';
+import type { Connector } from '@/data/core';
+import type { ReactNode } from 'react';
+
+// FullscreenChrome reports which surface the window controls sit on; the stub
+// is enough because the browser has no overlay to repaint.
+function Providers( { children }: { children: ReactNode } ) {
+	return <ConnectorProvider connector={ {} as Connector }>{ children }</ConnectorProvider>;
+}
 
 vi.mock( '@/components/dot-grid', () => ( {
 	DotGrid: () => <canvas data-testid="dot-grid" />,
@@ -37,7 +46,8 @@ describe( 'OnboardingShellView', () => {
 				onClose={ vi.fn() }
 			>
 				<TestRoute />
-			</OnboardingShellView>
+			</OnboardingShellView>,
+			{ wrapper: Providers }
 		);
 		fireEvent.click( screen.getByRole( 'button', { name: 'Create' } ) );
 
@@ -58,7 +68,8 @@ describe( 'OnboardingShellView', () => {
 				onClose={ vi.fn() }
 			>
 				<TestRoute />
-			</OnboardingShellView>
+			</OnboardingShellView>,
+			{ wrapper: Providers }
 		);
 		fireEvent.click( screen.getByRole( 'button', { name: 'Create' } ) );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Fail' } ) );
@@ -80,7 +91,8 @@ describe( 'OnboardingShellView', () => {
 				onClose={ vi.fn() }
 			>
 				<h1>Create</h1>
-			</OnboardingShellView>
+			</OnboardingShellView>,
+			{ wrapper: Providers }
 		);
 		expect( screen.getByRole( 'heading', { name: 'Create' } ) ).toHaveFocus();
 
@@ -107,7 +119,8 @@ describe( 'OnboardingShellView', () => {
 				onClose={ onClose }
 			>
 				<TestRoute />
-			</OnboardingShellView>
+			</OnboardingShellView>,
+			{ wrapper: Providers }
 		);
 		fireEvent.keyDown( document.body, { key: 'Escape' } );
 
@@ -124,7 +137,8 @@ describe( 'OnboardingShellView', () => {
 				onClose={ onClose }
 			>
 				<TestRoute />
-			</OnboardingShellView>
+			</OnboardingShellView>,
+			{ wrapper: Providers }
 		);
 		fireEvent.keyDown( document.body, { key: 'Escape' } );
 
@@ -141,7 +155,8 @@ describe( 'OnboardingShellView', () => {
 				onClose={ onClose }
 			>
 				<TestRoute />
-			</OnboardingShellView>
+			</OnboardingShellView>,
+			{ wrapper: Providers }
 		);
 		fireEvent.click( screen.getByRole( 'button', { name: 'Create' } ) );
 		fireEvent.keyDown( document.body, { key: 'Escape' } );
@@ -159,7 +174,8 @@ describe( 'OnboardingShellView', () => {
 				onClose={ onClose }
 			>
 				<TestRoute />
-			</OnboardingShellView>
+			</OnboardingShellView>,
+			{ wrapper: Providers }
 		);
 		const event = new KeyboardEvent( 'keydown', { key: 'Escape', cancelable: true } );
 		event.preventDefault();
@@ -177,7 +193,8 @@ describe( 'OnboardingShellView', () => {
 				onClose={ vi.fn() }
 			>
 				<h1>Create</h1>
-			</OnboardingShellView>
+			</OnboardingShellView>,
+			{ wrapper: Providers }
 		);
 
 		const content = screen.getByRole( 'heading', { name: 'Create' } ).parentElement?.parentElement;

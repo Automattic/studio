@@ -1,3 +1,4 @@
+import { getErrorMessage, stripIpcErrorPrefix } from '@studio/common/lib/error-formatting';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import {
@@ -36,9 +37,11 @@ import type {
 	UserPreferences,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
+import type { AiProviderId, AiSettings } from '@studio/common/ai/providers';
 import type { StoredAuthToken } from '@studio/common/lib/auth-token-schema';
 import type { SiteEvent } from '@studio/common/lib/cli-events';
 import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
+import type { TracksAuthSource } from '@studio/common/lib/record-tracks-event';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
@@ -87,6 +90,16 @@ export function createIpcConnector(): Connector {
 	// The IPC connector only runs in Electron, so `navigator` reflects the
 	// desktop OS.
 	const isMacOS = /mac/i.test( navigator.platform || navigator.userAgent );
+
+	// Unwrap Electron's IPC error envelope so user-facing messages (e.g. why a
+	// key was rejected) can be shown as-is.
+	async function unwrapIpcError< T >( call: Promise< T > ): Promise< T > {
+		try {
+			return await call;
+		} catch ( error ) {
+			throw new Error( stripIpcErrorPrefix( getErrorMessage( error ) ?? String( error ) ) );
+		}
+	}
 
 	// Fetches an authenticated WordPress.com endpoint with the stored OAuth
 	// token. Resolves `null` when signed out so callers can degrade gracefully.
@@ -217,6 +230,7 @@ export function createIpcConnector(): Connector {
 			annotatePreview: true,
 			readLocalMedia: true,
 			agentInstructions: true,
+			aiSettings: true,
 			studioLogs: true,
 			switchToClassicUi: true,
 		},
@@ -241,8 +255,8 @@ export function createIpcConnector(): Connector {
 			};
 		},
 
-		async authenticate( signup = false ): Promise< void > {
-			await ipcApi.authenticate( signup );
+		async authenticate( signup = false, source: TracksAuthSource = 'unknown' ): Promise< void > {
+			await ipcApi.authenticate( signup, source );
 		},
 
 		async logout(): Promise< void > {
@@ -436,6 +450,12 @@ export function createIpcConnector(): Connector {
 			return ipcApi.getSiteStorageUsage( siteId );
 		},
 
+		async getThemeDetails( siteId ): Promise< SiteDetails[ 'themeDetails' ] > {
+			// `false` skips the loading event consumed by Classic; this UI tracks
+			// the same request through React Query.
+			return ( await ipcApi.loadThemeDetails( siteId, false ) ) as SiteDetails[ 'themeDetails' ];
+		},
+
 		async exportFullSite( siteId ): Promise< string | null > {
 			const sites = ( await ipcApi.getSiteDetails() ) as SiteDetails[];
 			const site = sites.find( ( candidate ) => candidate.id === siteId );
@@ -559,17 +579,22 @@ export function createIpcConnector(): Connector {
 		async pushSiteToLive( siteId, remoteSiteId, options, onPhase ): Promise< void > {
 			// The agentic UI pushes via the shared `pushSite` (export → TUS
 			// upload → import) in both desktop and `studio ui`; the desktop runs
-			// it behind this single IPC handler. Resolves once the import is
-			// initiated (the remote import may still be running).
+			// it behind this single IPC handler. Resolves once the remote import
+			// has finished.
 			const unsubscribe = onPhase
 				? ipcListener.subscribe(
 						'sync-push-phase',
 						(
 							_event: unknown,
-							payload: { selectedSiteId: string; remoteSiteId: number; phase: PushPhase }
+							payload: {
+								selectedSiteId: string;
+								remoteSiteId: number;
+								phase: PushPhase;
+								progress?: number;
+							}
 						) => {
 							if ( payload.selectedSiteId === siteId && payload.remoteSiteId === remoteSiteId ) {
-								onPhase( payload.phase );
+								onPhase( payload.phase, payload.progress );
 							}
 						}
 				  )
@@ -693,6 +718,10 @@ export function createIpcConnector(): Connector {
 
 		async setSessionModel( sessionId, model ) {
 			await ipcApi.setAiSessionModel( sessionId, model );
+		},
+
+		async setSessionProvider( sessionId, provider, model ) {
+			await ipcApi.setAiSessionProvider( sessionId, provider, model );
 		},
 
 		async interruptAgentRun( runId ) {
@@ -849,6 +878,16 @@ export function createIpcConnector(): Connector {
 			await ipcApi.saveGlobalAgentInstructions( content, options );
 		},
 
+		async getAiSettings(): Promise< AiSettings > {
+			return ( await ipcApi.getAiSettings() ) as AiSettings;
+		},
+		async saveAnthropicApiKey( key: string | null ): Promise< AiSettings > {
+			return unwrapIpcError( ipcApi.saveAnthropicApiKey( key ) );
+		},
+		async setAiProvider( provider: AiProviderId ): Promise< AiSettings > {
+			return unwrapIpcError( ipcApi.setAiProvider( provider ) );
+		},
+
 		async getInstalledApps(): Promise< InstalledApps > {
 			return ( await ipcApi.getInstalledAppsAndTerminals() ) as InstalledApps;
 		},
@@ -955,6 +994,10 @@ export function createIpcConnector(): Connector {
 		// macOS overlays the traffic lights on the content (so we reserve
 		// space for them); Windows and Linux don't.
 		reservesTrafficLightSpace: isMacOS,
+
+		async setWindowControlsSurface( surface ) {
+			await ipcApi.setWindowControlsSurface( surface );
+		},
 
 		async isFullscreen(): Promise< boolean > {
 			return ipcApi.isFullscreen();

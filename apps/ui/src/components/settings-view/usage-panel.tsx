@@ -1,15 +1,18 @@
 import {
+	ADD_AI_CREDITS_URL,
 	clampQuotaFraction,
 	formatQuotaPercentage,
 	formatQuotaResetDate,
 	getStudioCodeAiAccessState,
 } from '@studio/common/lib/studio-assistant-quota';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { moreHorizontal } from '@wordpress/icons';
-import { IconButton } from '@wordpress/ui';
+import { external, help, moreHorizontal } from '@wordpress/icons';
+import { Button, IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
+import { useState } from 'react';
 import { SigninNotice } from '@/components/agentic-signin-banner';
 import { AiAccessRequiredNotice, AiBlockedNotice } from '@/components/ai-access-required-notice';
+import { AiCreditsDetailsDialog } from '@/components/ai-credits-details-dialog';
 import * as Menu from '@/components/menu';
 import { OfflineNotice } from '@/components/offline-banner';
 import { useConnector } from '@/data/core';
@@ -49,8 +52,25 @@ function UsageProgressBar( { fraction }: { fraction: number } ) {
 
 function AiCreditsSummary() {
 	const locale = useUserLocale();
-	const { data: quota, isLoading, isError } = useStudioAssistantQuota();
+	const connector = useConnector();
+	const [ detailsOpen, setDetailsOpen ] = useState( false );
+	// The balance may have changed outside the app (e.g. a credits purchase on
+	// WordPress.com), so opening the panel always fetches a fresh figure.
+	const {
+		data: quota,
+		isLoading,
+		isError,
+	} = useStudioAssistantQuota( { refetchOnMount: 'always' } );
 	const accessState = quota ? getStudioCodeAiAccessState( quota ) : 'available';
+	// The server includes the per-pool balances only when AI credits are
+	// enabled for the account (STU-2235); their absence — not a 0 — means the
+	// pre-credits design should render.
+	const showsCreditBalances =
+		! isLoading &&
+		! isError &&
+		accessState === 'available' &&
+		!! quota &&
+		( quota.allowanceRemaining !== undefined || quota.purchasedRemaining !== undefined );
 
 	let content;
 	if ( isLoading ) {
@@ -75,6 +95,42 @@ function AiCreditsSummary() {
 					<AiAccessRequiredNotice quota={ quota } />
 				) }
 			</div>
+		);
+	} else if ( quota && showsCreditBalances ) {
+		const credits = new Intl.NumberFormat( locale );
+		const allowanceRemaining = quota.allowanceRemaining ?? 0;
+		const purchasedRemaining = quota.purchasedRemaining ?? 0;
+		content = (
+			<>
+				<div className={ styles.creditBalances }>
+					{ allowanceRemaining > 0 ? (
+						<div className={ styles.previewUsageText }>
+							{ sprintf(
+								/* translators: %s: number of free AI credits remaining (e.g. 960,000). */
+								__( 'Free credits remaining: %s' ),
+								credits.format( allowanceRemaining )
+							) }
+						</div>
+					) : null }
+					<div className={ styles.previewUsageText }>
+						{ sprintf(
+							/* translators: %s: number of purchased AI credits remaining (e.g. 150,000). */
+							__( 'Purchased credits remaining: %s' ),
+							credits.format( purchasedRemaining )
+						) }
+					</div>
+				</div>
+				<Button
+					className={ styles.usageSectionAction }
+					size="small"
+					variant="outline"
+					tone="neutral"
+					onClick={ () => void connector.openExternalUrl( ADD_AI_CREDITS_URL ) }
+				>
+					{ __( 'Add AI credits' ) }
+					<Button.Icon icon={ external } size={ 12 } />
+				</Button>
+			</>
 		);
 	} else if ( quota && quota.costCap > 0 ) {
 		const fraction = clampQuotaFraction( quota.costUsage, quota.costCap );
@@ -109,9 +165,25 @@ function AiCreditsSummary() {
 	return (
 		<section className={ styles.usageSection }>
 			<div className={ styles.usageSectionHeader }>
-				<h2>{ __( 'AI credits' ) }</h2>
+				<div className={ styles.aiCreditsHeading }>
+					<h2>{ __( 'AI credits' ) }</h2>
+					{ showsCreditBalances ? (
+						<IconButton
+							className={ styles.aiCreditsDetailsButton }
+							icon={ help }
+							label={ __( 'How AI credits work' ) }
+							size="small"
+							variant="minimal"
+							tone="neutral"
+							onClick={ () => setDetailsOpen( true ) }
+						/>
+					) : null }
+				</div>
 			</div>
 			{ content }
+			{ showsCreditBalances ? (
+				<AiCreditsDetailsDialog open={ detailsOpen } onOpenChange={ setDetailsOpen } />
+			) : null }
 		</section>
 	);
 }
@@ -213,7 +285,7 @@ export function UsagePanel() {
 	return (
 		<div className={ styles.usagePanel }>
 			{ reason === 'offline' ? <OfflineNotice /> : null }
-			{ reason === 'signed-out' ? <SigninNotice /> : null }
+			{ reason === 'signed-out' ? <SigninNotice source="settings" /> : null }
 			<section
 				className={ clsx( styles.settingsPanelSection, unavailable && styles.usageDisabled ) }
 			>

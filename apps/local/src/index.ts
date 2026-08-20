@@ -8,6 +8,7 @@ import {
 	writeGlobalInstructions,
 } from '@studio/common/ai/global-instructions';
 import { isAiModelId } from '@studio/common/ai/models';
+import { isAiProviderId, providerServesModel } from '@studio/common/ai/providers';
 import { createAgentRunManager } from '@studio/common/ai/run-manager';
 import {
 	createOrReuseAiSession,
@@ -21,10 +22,18 @@ import {
 } from '@studio/common/ai/sessions/placement';
 import {
 	appendModelChangeEntry,
+	appendStudioEntry,
 	deleteAiSession,
 	loadAiSession,
 } from '@studio/common/ai/sessions/store';
+import {
+	InvalidAnthropicApiKeyError,
+	readAiSettings,
+	saveAnthropicApiKey,
+	setAiProvider,
+} from '@studio/common/ai/settings-store';
 import { expandSkillCommandPrompt } from '@studio/common/ai/slash-commands';
+import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import { DEFAULT_TOKEN_LIFETIME_MS } from '@studio/common/constants';
 import { createCliRunner } from '@studio/common/lib/cli-process';
 import {
@@ -46,6 +55,11 @@ import { importIpcEventSchema } from '@studio/common/lib/import-export-events';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { getAuthenticationUrl, getSignUpUrl } from '@studio/common/lib/oauth';
 import { decodePassword } from '@studio/common/lib/passwords';
+import {
+	getInstructionsLengthBucket,
+	isTracksEventName,
+	TRACKS_EVENTS,
+} from '@studio/common/lib/record-tracks-event';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import {
 	deleteSharedSession,
@@ -75,7 +89,17 @@ import express from 'express';
 import { rateLimit } from 'express-rate-limit';
 import { z } from 'zod';
 import { isEditor, isTerminal, openInEditor, openInTerminal, openPath } from './open-in-os';
+import {
+	readSiteSortOrders,
+	readUserPreferences,
+	userPreferencesPatchSchema,
+	writeSiteSortOrders,
+	writeUserPreferences,
+} from './user-preferences';
+import type { UserPreferencesContext } from './user-preferences';
+import type { AiSettings } from '@studio/common/ai/providers';
 import type { SiteListItem } from '@studio/common/lib/cli-events';
+import type { TracksEventName, TracksProps } from '@studio/common/lib/record-tracks-event';
 import type { EditSiteOptions } from '@studio/common/sites/edit';
 import type { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
 import type { Request, Response } from 'express';
@@ -112,6 +136,9 @@ export interface LocalServerOptions {
 	// Path to the built browser UI (apps/ui `dist-local`). Served when present
 	// so the server is the only process needed; omitted in dev (Vite serves it).
 	uiDist?: string;
+	// Injected by `studio ui` rather than imported, so this package doesn't depend
+	// on the CLI.
+	recordTracksEvent?: ( event: TracksEventName, props?: TracksProps ) => Promise< void >;
 }
 
 export interface LocalServer {
@@ -146,8 +173,9 @@ const AUTH_CALLBACK_HTML = `<!DOCTYPE html>
 </script></body></html>`;
 
 // The agentic UI's SiteDetails shape. The CLI's `site list` already reports
-// nearly all of it; thumbnails/theme details are desktop-only enrichments.
-function toSiteDetails( site: SiteListItem ) {
+// nearly all of it; thumbnails/theme details/`sortOrder` are desktop-only
+// enrichments, merged in by callers.
+function toSiteDetails( site: SiteListItem, sortOrder?: number ) {
 	return {
 		id: site.id,
 		name: site.name,
@@ -166,6 +194,7 @@ function toSiteDetails( site: SiteListItem ) {
 		enableDebugLog: site.enableDebugLog,
 		enableDebugDisplay: site.enableDebugDisplay,
 		operation: site.operation,
+		sortOrder,
 		siteIcon: null,
 	};
 }
@@ -189,10 +218,44 @@ function asyncHandler( fn: ( req: Request, res: Response ) => Promise< void > ) 
 	};
 }
 
+// The server owns these; a client that could set them would disguise its origin.
+const CLIENT_RESERVED_TRACKS_PROPS = new Set( [ 'channel', 'ui_version' ] );
+
+// Browser props arrive as untyped JSON, without the structured-clone guarantees
+// IPC gives the desktop. Keep only what Tracks can send.
+function sanitizeTracksProps( value: unknown ): TracksProps {
+	if ( typeof value !== 'object' || value === null ) {
+		return {};
+	}
+	const props: TracksProps = {};
+	for ( const [ key, propValue ] of Object.entries( value ) ) {
+		if ( CLIENT_RESERVED_TRACKS_PROPS.has( key ) ) {
+			continue;
+		}
+		if (
+			typeof propValue === 'string' ||
+			typeof propValue === 'number' ||
+			typeof propValue === 'boolean'
+		) {
+			props[ key ] = propValue;
+		}
+	}
+	return props;
+}
+
 export async function startLocalServer( options: LocalServerOptions ): Promise< LocalServer > {
 	const { cliBinary, nodeBinary, sessionsRoot, sitesRoot, uiDist } = options;
 	const port = options.port ?? Number( process.env.STUDIO_LOCAL_SERVER_PORT ?? DEFAULT_PORT );
 	const host = options.host ?? '127.0.0.1';
+
+	// Analytics must never fail a user action, so every call is fire-and-forget.
+	function trackEvent( event: TracksEventName, props?: TracksProps ): void {
+		void options.recordTracksEvent?.( event, props ).catch( () => undefined );
+	}
+
+	function preferencesContext(): UserPreferencesContext {
+		return { sitesRoot, installedApps: detectInstalledApps() };
+	}
 
 	const cliRunner = createCliRunner( { cliBinary, nodeBinary } );
 	const execute = cliRunner.executeCliCommand;
@@ -369,6 +432,23 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		res.json( { status: 'ok' } );
 	} );
 
+	// --- Analytics — the browser UI's equivalent of the desktop's IPC handler --
+	// Unknown names are dropped, not forwarded, as in `recordAnalyticsEvent`.
+	api.post( '/analytics/event', ( req: Request, res: Response ) => {
+		const eventName = req.body?.eventName;
+		if ( typeof eventName !== 'string' ) {
+			res.status( 400 ).json( { error: 'eventName required' } );
+			return;
+		}
+		if ( ! isTracksEventName( eventName ) ) {
+			console.warn( `Ignoring unknown analytics event name: ${ eventName }` );
+			res.status( 204 ).end();
+			return;
+		}
+		trackEvent( eventName, sanitizeTracksProps( req.body?.props ) );
+		res.status( 204 ).end();
+	} );
+
 	// --- Auth — the WordPress.com user the CLI is already logged in as ---------
 	// Read straight from the shared auth token (`~/.studio/shared.json`); the
 	// stored token carries the user's id/email/displayName, so no API call.
@@ -467,7 +547,6 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
-	// No `studio_setting_instructions_change` — this server has no Tracks emitter. See STU-2247.
 	api.post(
 		'/agent-instructions',
 		asyncHandler( async ( req: Request, res: Response ) => {
@@ -478,6 +557,75 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			}
 			await writeGlobalInstructions( content );
 			res.status( 204 ).end();
+
+			// Only a save that ends an edit session counts, not the debounced autosaves.
+			const previousContent = req.body?.editSession?.previousContent;
+			if ( typeof previousContent === 'string' && previousContent !== content ) {
+				trackEvent( TRACKS_EVENTS.SETTING_INSTRUCTIONS_CHANGE, {
+					has_content: content.trim().length > 0,
+					length_bucket: getInstructionsLengthBucket( content ),
+					surface: 'settings',
+				} );
+			}
+		} )
+	);
+
+	// --- AI settings — provider + Anthropic API key in shared.json ------------
+	api.get(
+		'/ai-settings',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			res.json( await readAiSettings() );
+		} )
+	);
+
+	// Clearing the key also falls the provider back to WordPress.com, so both writes
+	// report through one event, as on the desktop.
+	function trackAiSettingsChange( previous: AiSettings, next: AiSettings ): void {
+		const unchanged =
+			previous.provider === next.provider &&
+			previous.hasAnthropicApiKey === next.hasAnthropicApiKey &&
+			previous.anthropicApiKeyPreview === next.anthropicApiKeyPreview;
+		if ( unchanged ) {
+			return;
+		}
+		trackEvent( TRACKS_EVENTS.SETTING_AI_PROVIDER_CHANGE, {
+			provider: next.provider,
+			has_anthropic_api_key: next.hasAnthropicApiKey,
+			surface: 'settings',
+		} );
+	}
+
+	// Write-only: responses carry a truncated preview, never the key. A key
+	// Anthropic rejects answers 400 and is not stored.
+	api.put(
+		'/ai-settings',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const key = req.body?.anthropicApiKey;
+			if ( key !== null && typeof key !== 'string' ) {
+				res.status( 400 ).json( { error: 'anthropicApiKey must be a string or null' } );
+				return;
+			}
+			const previous = await readAiSettings();
+			const settings = await saveAnthropicApiKey( key );
+			res.json( settings );
+			trackAiSettingsChange( previous, settings );
+		} )
+	);
+
+	// Answers 400 when Anthropic rejects the saved key, so the UI keeps its
+	// toggle off.
+	api.put(
+		'/ai-settings/provider',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const provider = req.body?.provider;
+			if ( typeof provider !== 'string' || ! isAiProviderId( provider ) ) {
+				res.status( 400 ).json( { error: 'provider must be a known AI provider id' } );
+				return;
+			}
+			const previous = await readAiSettings();
+			const settings = await setAiProvider( provider );
+			res.json( settings );
+			trackAiSettingsChange( previous, settings );
 		} )
 	);
 
@@ -485,8 +633,29 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.get(
 		'/sites',
 		asyncHandler( async ( _req: Request, res: Response ) => {
-			const sites = await listSites( execute );
-			res.json( sites.map( toSiteDetails ) );
+			const [ sites, sortOrders ] = await Promise.all( [
+				listSites( execute ),
+				readSiteSortOrders(),
+			] );
+			res.json( sites.map( ( site ) => toSiteDetails( site, sortOrders.get( site.id ) ) ) );
+		} )
+	);
+
+	// Declared before `/sites/:id/*` so the literal path wins the match.
+	api.post(
+		'/sites/sort-order',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const parsed = z
+				.object( {
+					updates: z.array( z.object( { siteId: z.string(), sortOrder: z.number() } ) ),
+				} )
+				.safeParse( req.body );
+			if ( ! parsed.success ) {
+				res.status( 400 ).json( { error: 'updates required' } );
+				return;
+			}
+			await writeSiteSortOrders( parsed.data.updates );
+			res.status( 204 ).end();
 		} )
 	);
 
@@ -754,8 +923,12 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 					emitter.on( 'error', ( { error } ) => reject( error ) );
 				} );
 			}
-			const refreshed = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
-			res.json( toSiteDetails( refreshed ?? current ) );
+			const [ sites, sortOrders ] = await Promise.all( [
+				listSites( execute ),
+				readSiteSortOrders(),
+			] );
+			const refreshed = sites.find( ( s ) => s.id === req.params.id );
+			res.json( toSiteDetails( refreshed ?? current, sortOrders.get( req.params.id ) ) );
 		} )
 	);
 
@@ -980,6 +1153,27 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
+	// --- Global preferences — the same app.json/shared.json the desktop uses ---
+	api.get(
+		'/user-preferences',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			res.json( await readUserPreferences( preferencesContext() ) );
+		} )
+	);
+
+	api.patch(
+		'/user-preferences',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const parsed = userPreferencesPatchSchema.safeParse( req.body ?? {} );
+			if ( ! parsed.success ) {
+				res.status( 400 ).json( { error: 'Invalid preferences' } );
+				return;
+			}
+			await writeUserPreferences( parsed.data );
+			res.status( 204 ).end();
+		} )
+	);
+
 	api.post(
 		'/sites/:id/open-folder',
 		asyncHandler( async ( req: Request, res: Response ) => {
@@ -996,7 +1190,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.post(
 		'/sites/:id/open-in-editor',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const editor = req.body?.editor;
+			const editor =
+				req.body?.editor ?? ( await readUserPreferences( preferencesContext() ) ).editor;
 			if ( typeof editor !== 'string' || ! isEditor( editor ) ) {
 				res.status( 400 ).json( { error: `Unsupported editor: ${ String( editor ) }` } );
 				return;
@@ -1014,7 +1209,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.post(
 		'/sites/:id/open-in-terminal',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const requested = req.body?.terminal;
+			const requested =
+				req.body?.terminal ?? ( await readUserPreferences( preferencesContext() ) ).terminal;
 			// No preference (or an unknown one) falls back to the system terminal.
 			const terminal =
 				typeof requested === 'string' && isTerminal( requested ) ? requested : 'terminal';
@@ -1255,7 +1451,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 
 	// Push the local site to its connected WordPress.com live site. Long-running
 	// (export → upload → import); progress streams on the SSE `sync` channel.
-	// Resolves once the import is initiated.
+	// Responds once the remote import has finished.
 	api.post(
 		'/sites/:id/push',
 		asyncHandler( async ( req: Request, res: Response ) => {
@@ -1349,11 +1545,19 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 					site = { id: found.id, name: found.name, path: found.path };
 				}
 			}
-			// `created` is an analytics signal for the desktop, not part of the session shape.
-			const { created: _created, ...summary } = await createOrReuseAiSession( sessionsRoot, {
+			// `created` is an analytics signal, not part of the session shape.
+			const { created, ...summary } = await createOrReuseAiSession( sessionsRoot, {
 				site,
 			} );
 			res.json( summary );
+
+			// Created in-process here, as in the desktop's Main. Reused drafts don't count.
+			if ( created ) {
+				trackEvent( TRACKS_EVENTS.CODE_SESSION_CREATED, {
+					...getAiTracksIdentity( summary.id ),
+					has_site: Boolean( site ),
+				} );
+			}
 		} )
 	);
 
@@ -1396,6 +1600,26 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				return;
 			}
 			await appendModelChangeEntry( sessionsRoot, req.params.id, '', model );
+			res.sendStatus( 204 );
+		} )
+	);
+
+	api.post(
+		'/sessions/:id/provider',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const { provider, model } = req.body as { provider?: string; model?: string };
+			if ( ! provider || ! isAiProviderId( provider ) ) {
+				res.status( 400 ).json( { error: `Unknown AI provider: ${ provider }` } );
+				return;
+			}
+			if ( ! model || ! isAiModelId( model ) || ! providerServesModel( provider, model ) ) {
+				res.status( 400 ).json( { error: `Model ${ model } is not served by ${ provider }` } );
+				return;
+			}
+			await appendStudioEntry( sessionsRoot, req.params.id, 'studio.session_context', {
+				provider,
+				model,
+			} );
 			res.sendStatus( 204 );
 		} )
 	);
@@ -1456,6 +1680,10 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	}
 
 	app.use( ( err: unknown, _req: Request, res: Response, _next: ( e?: unknown ) => void ) => {
+		if ( err instanceof InvalidAnthropicApiKeyError ) {
+			res.status( 400 ).json( { error: err.message } );
+			return;
+		}
 		const message = err instanceof Error ? err.message : String( err );
 		res.status( 500 ).json( { error: message } );
 	} );

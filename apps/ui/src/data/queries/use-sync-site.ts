@@ -33,8 +33,8 @@ export function usePushSiteToLive() {
 	return useMutation( {
 		mutationKey: PUSH_TO_LIVE_MUTATION_KEY,
 		mutationFn: ( { siteId, remoteSiteId, options }: PushToLiveVariables ) =>
-			connector.pushSiteToLive( siteId, remoteSiteId, options, ( phase ) =>
-				reportPushPhase( siteId, phase )
+			connector.pushSiteToLive( siteId, remoteSiteId, options, ( phase, progress ) =>
+				reportPushPhase( siteId, phase, progress )
 			),
 		onMutate: ( { siteId } ) => {
 			reportSyncPending( siteId, 'push' );

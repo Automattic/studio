@@ -3,18 +3,24 @@ import {
 	readGlobalInstructionsFile,
 	writeGlobalInstructions,
 } from '@studio/common/ai/global-instructions';
-import { type TracksInstructionsLengthBucket } from '@studio/common/lib/record-tracks-event';
+import {
+	readAiSettings,
+	saveAnthropicApiKey as saveAnthropicApiKeyToConfig,
+	setAiProvider as setAiProviderInConfig,
+} from '@studio/common/ai/settings-store';
+import { getInstructionsLengthBucket } from '@studio/common/lib/record-tracks-event';
 import {
 	isAnalyticsOptedOut,
 	readSharedConfig,
 	updateSharedConfig,
 } from '@studio/common/lib/shared-config';
+import { getFirstInstalledEditor } from '@studio/common/lib/user-settings/installed-apps';
 import { DEFAULT_TERMINAL } from 'src/constants';
 import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { isInstalled } from 'src/lib/is-installed';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
-import { SUPPORTED_EDITORS, SupportedEditor } from 'src/modules/user-settings/lib/editor';
+import { SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 import { UserSettingsTabName } from 'src/modules/user-settings/user-settings-types';
 import { defaultSitePath, ensureWritableDirectory } from 'src/storage/paths';
@@ -27,6 +33,7 @@ import {
 	unlockAppdata,
 	updateAppdata,
 } from 'src/storage/user-data';
+import type { AiProviderId, AiSettings } from '@studio/common/ai/providers';
 
 export function getInstalledAppsAndTerminals(): InstalledApps {
 	return {
@@ -113,17 +120,8 @@ export async function getUserLocale() {
 }
 
 export async function getUserEditor(): Promise< SupportedEditor | null > {
-	function getDefaultInstalledEditor(): SupportedEditor | null {
-		const installedApps = getInstalledAppsAndTerminals();
-		for ( const editor of SUPPORTED_EDITORS ) {
-			if ( installedApps[ editor ] ) {
-				return editor;
-			}
-		}
-		return null;
-	}
 	const userData = await loadUserData();
-	return userData.preferredEditor ?? getDefaultInstalledEditor();
+	return userData.preferredEditor ?? getFirstInstalledEditor( getInstalledAppsAndTerminals() );
 }
 
 export async function previewColorScheme(
@@ -287,16 +285,39 @@ export async function getGlobalAgentInstructions(): Promise< string > {
 	return ( await readGlobalInstructionsFile() ) ?? '';
 }
 
-// Bucketed for `studio_setting_instructions_change`; the text itself is never sent.
-function getInstructionsLengthBucket( content: string ): TracksInstructionsLengthBucket {
-	const length = content.trim().length;
-	if ( length === 0 ) {
-		return 'empty';
+export async function getAiSettings() {
+	return readAiSettings();
+}
+
+// One event for both handlers: clearing the key also moves the provider back to WordPress.com.
+// The key is never sent; the preview comparison only detects a key being swapped.
+async function recordAiSettingsChange( previous: AiSettings, next: AiSettings ): Promise< void > {
+	const unchanged =
+		previous.provider === next.provider &&
+		previous.hasAnthropicApiKey === next.hasAnthropicApiKey &&
+		previous.anthropicApiKeyPreview === next.anthropicApiKeyPreview;
+	if ( unchanged ) {
+		return;
 	}
-	if ( length <= 200 ) {
-		return 'short';
-	}
-	return length <= 1000 ? 'medium' : 'long';
+	await recordTracksEvent( TRACKS_EVENTS.SETTING_AI_PROVIDER_CHANGE, {
+		provider: next.provider,
+		has_anthropic_api_key: next.hasAnthropicApiKey,
+		surface: 'settings',
+	} );
+}
+
+export async function saveAnthropicApiKey( _event: IpcMainInvokeEvent, key: string | null ) {
+	const previous = await readAiSettings();
+	const settings = await saveAnthropicApiKeyToConfig( key );
+	await recordAiSettingsChange( previous, settings );
+	return settings;
+}
+
+export async function setAiProvider( _event: IpcMainInvokeEvent, provider: AiProviderId ) {
+	const previous = await readAiSettings();
+	const settings = await setAiProviderInConfig( provider );
+	await recordAiSettingsChange( previous, settings );
+	return settings;
 }
 
 export async function saveGlobalAgentInstructions(

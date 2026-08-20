@@ -2,11 +2,13 @@ import type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-even
 import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
 import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { AiModelId } from '@studio/common/ai/models';
+import type { AiProviderId, AiSettings } from '@studio/common/ai/providers';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
 import type { SiteEvent } from '@studio/common/lib/cli-events';
 import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 import type { SupportedLocale } from '@studio/common/lib/locale';
 import type {
+	TracksAuthSource,
 	TracksEventName,
 	TracksProps,
 	TracksSiteCreateFlowType,
@@ -14,6 +16,7 @@ import type {
 import type { SiteOperation } from '@studio/common/lib/site-operation';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
+import type { ColorScheme, QuitSitesBehavior } from '@studio/common/lib/user-settings/preferences';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { SiteStorageUsage } from '@studio/common/sites/storage-usage';
@@ -56,6 +59,7 @@ export type {
 	SyncSite,
 } from '@studio/common/types/sync';
 export type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
+export type { ColorScheme, QuitSitesBehavior } from '@studio/common/lib/user-settings/preferences';
 export type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 export type { SupportedLocale } from '@studio/common/lib/locale';
 export type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
@@ -154,6 +158,9 @@ export interface ConnectorCapabilities {
 	// (~/.studio/knowledge/instructions.md). False when hosted remotely, which
 	// hides the Studio Code settings tab.
 	agentInstructions: boolean;
+	// The host can read/write the AI provider settings in the CLI config. False
+	// (hosted) hides the Anthropic API key section in AI settings.
+	aiSettings: boolean;
 	// The host keeps a Studio log file the user can open (`openStudioLogs`).
 	// Only the desktop app does — the CLI writes site server output to
 	// `~/.studio/daemon/logs` and everything else to the terminal that started
@@ -180,7 +187,9 @@ export interface Connector {
 	agenticRequiresAuth: boolean;
 	isAuthenticated(): Promise< boolean >;
 	getAuthUser(): Promise< AuthUser | null >;
-	authenticate( signup?: boolean ): Promise< void >;
+	// `source` records the affordance the login started from, for `studio_wpcom_auth`. Only the IPC
+	// connector can report it — the browser connectors have no Main process to record through.
+	authenticate( signup?: boolean, source?: TracksAuthSource ): Promise< void >;
 	logout(): Promise< void >;
 	onAuthStateChanged?( listener: () => void ): () => void;
 
@@ -215,6 +224,9 @@ export interface Connector {
 	// Cached screenshot thumbnail captured by the desktop app while the site
 	// was running. Returns null when the site has not produced a thumbnail yet.
 	getSiteThumbnail( siteId: string ): Promise< string | null >;
+	// Resolves active theme details when the host exposes that capability.
+	// Desktop reuses the same IPC flow as the Classic UI.
+	getThemeDetails?( siteId: string ): Promise< SiteDetails[ 'themeDetails' ] >;
 	// Size of the local site's files, grouped for the overview's disk summary.
 	// Hosted sites return null because their storage is not on this machine.
 	getSiteStorageUsage( siteId: string ): Promise< SiteStorageUsage | null >;
@@ -305,7 +317,7 @@ export interface Connector {
 		siteId: string,
 		remoteSiteId: number,
 		options?: PushSyncOptions,
-		onPhase?: ( phase: PushPhase ) => void
+		onPhase?: ( phase: PushPhase, progress?: number ) => void
 	): Promise< void >;
 	// Pulls the connected WordPress.com site's database + wp-content back
 	// into the local Studio site, or only the selection described by
@@ -391,6 +403,14 @@ export interface Connector {
 	// on the next turn; the change survives reloads because it's written to the
 	// session JSONL.
 	setSessionModel( sessionId: string, model: AiModelId ): Promise< void >;
+	// Pin the session to an AI provider, with the model it should use there.
+	// Same mechanism as setSessionModel: an entry in the session JSONL the CLI
+	// honors on resume.
+	setSessionProvider(
+		sessionId: string,
+		provider: AiProviderId,
+		model: AiModelId
+	): Promise< void >;
 	interruptAgentRun( runId: string ): Promise< void >;
 	answerAgentQuestion( runId: string, answers: Record< string, string > ): Promise< void >;
 	onAgentEvent( listener: ( event: AgentRunEvent ) => void ): () => void;
@@ -409,6 +429,10 @@ export interface Connector {
 	// the granular main-process handlers inside the connector so the UI has a
 	// single query + mutation to work with.
 	getUserPreferences(): Promise< UserPreferences >;
+	// A key absent from the patch is left alone; a key present with `null` or
+	// `undefined` clears the preference back to its default. Connectors differ
+	// in how they encode that (IPC tests key presence, HTTP sends null), so
+	// callers must not rely on one connector's leniency.
 	setUserPreferences(
 		partial: Partial< WritableUserPreferences >,
 		source?: PreferenceChangeSource
@@ -428,6 +452,13 @@ export interface Connector {
 		content: string,
 		options?: { editSession?: { previousContent: string } }
 	): Promise< void >;
+
+	// AI provider settings stored in the CLI config, gated by
+	// `capabilities.aiSettings`. Clearing the key (null) also falls back to
+	// WordPress.com; `setAiProvider` rejects when the Anthropic key can't be used.
+	getAiSettings(): Promise< AiSettings >;
+	saveAnthropicApiKey( key: string | null ): Promise< AiSettings >;
+	setAiProvider( provider: AiProviderId ): Promise< AiSettings >;
 
 	// Apps detected on disk (editors + terminals). Options in the preferences
 	// form are filtered against this so users can't pick something that isn't
@@ -506,6 +537,11 @@ export interface Connector {
 	// `isFullscreen` — macOS hides the traffic lights in fullscreen — to decide
 	// when to actually leave the gap (see `useTrafficLightSpace`).
 	reservesTrafficLightSpace: boolean;
+
+	// Tells the host which surface the Windows/Linux window-controls overlay is
+	// sitting on, so it can repaint them to match (see
+	// `useWindowControlsSurface`). Only the Electron host has an overlay.
+	setWindowControlsSurface?( surface: 'chrome' | 'content' ): Promise< void >;
 
 	// Window state (macOS fullscreen hides traffic lights, so the UI needs
 	// to reclaim the space we normally leave for them).
@@ -591,9 +627,6 @@ export interface SkillStatus {
 	description: string;
 	installed: boolean;
 }
-
-export type ColorScheme = 'system' | 'light' | 'dark';
-export type QuitSitesBehavior = 'stop' | 'stop-and-auto-start' | 'leave-running';
 
 export interface UserPreferences {
 	editor: SupportedEditor | null;

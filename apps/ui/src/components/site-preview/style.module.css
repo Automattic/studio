@@ -139,6 +139,50 @@
 	overflow: hidden;
 }
 
+.contentOverride {
+	display: flex;
+	flex: 1;
+	min-width: 0;
+	min-height: 0;
+}
+
+.previewDeck {
+	position: relative;
+	display: flex;
+	flex: 1;
+	min-width: 0;
+	min-height: 0;
+	overflow: hidden;
+}
+
+.previewSlide {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	min-width: 0;
+	min-height: 0;
+	transform: translate3d( var( --studio-preview-slide-offset ), 0, 0 );
+	transition: transform 200ms cubic-bezier( 0.2, 0, 0, 1 );
+	visibility: hidden;
+	will-change: transform;
+}
+
+.previewSlide[data-visible='true'] {
+	visibility: visible;
+}
+
+.previewSlide[data-active='true'] {
+	z-index: 1;
+}
+
+.previewSlide:dir( rtl ) {
+	transform: translate3d( calc( 0% - var( --studio-preview-slide-offset ) ), 0, 0 );
+}
+
+.previewSlide[aria-hidden='true'] {
+	pointer-events: none;
+}
+
 .previewViewport {
 	position: relative;
 	display: flex;
@@ -230,6 +274,12 @@
 @keyframes sitePreviewSpin {
 	to {
 		transform: rotate(360deg);
+	}
+}
+
+@media ( prefers-reduced-motion: reduce ) {
+	.previewSlide {
+		transition: none;
 	}
 }
 

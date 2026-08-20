@@ -1,5 +1,6 @@
 import { _n, sprintf } from '@wordpress/i18n';
 import type { Annotation } from '@/components/site-preview/types';
+import type { AnnotationSubmissionContext } from '@/hooks/use-session-ui';
 
 function describeCount( count: number ): string {
 	return count === 1 ? '1 visual annotation' : `${ count } visual annotations`;
@@ -24,17 +25,31 @@ function stringifyAnnotation( annotation: Annotation ): string {
  * Builds the submitted annotation prompt for the agent. The prompt mirrors the
  * CLI `/annotate` workflow: act on the submitted annotations directly.
  */
-export function formatAnnotationsAsPrompt( annotations: Annotation[] ): string {
+export function formatAnnotationsAsPrompt(
+	annotations: Annotation[],
+	context?: AnnotationSubmissionContext
+): string {
 	const lines: string[] = [
 		`The user submitted ${ describeCount( annotations.length ) } from the site preview.`,
 		'',
+	];
+
+	if ( context ) {
+		lines.push(
+			`These annotations belong to the design direction "${ context.designArtifactLabel }" with exact artifact ID \`${ context.designArtifactId }\`.`,
+			`Create a new immutable revision of this same direction. When calling \`design_artifact_finalize\`, pass \`parentArtifactId: "${ context.designArtifactId }"\` and keep the label "${ context.designArtifactLabel }" without a version suffix.`,
+			''
+		);
+	}
+
+	lines.push(
 		'Make the requested changes. When there are several annotations, address them in the order they were submitted.',
 		'',
 		'When you reference an annotation for the user, identify the element by what is visible on the page rather than by selector. Use selectors and raw annotation data only for implementation.',
 		'',
 		'## Submitted Annotations',
-		'',
-	];
+		''
+	);
 
 	annotations.forEach( ( annotation, index ) => {
 		const tag = annotation.tag ? `<${ annotation.tag }>` : 'element';

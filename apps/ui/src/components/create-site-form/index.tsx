@@ -66,6 +66,10 @@ interface CreateSiteFormProps {
 	submitLabel?: string;
 	cancelLabel?: string;
 	loadingAnnouncement?: string;
+	// Rendered between the basic fields and the Advanced settings toggle —
+	// lets callers (e.g. the AI brief composer) slot content into the form
+	// without every consumer having to carry it.
+	children?: React.ReactNode;
 }
 
 interface FormData {
@@ -402,6 +406,7 @@ export function CreateSiteForm( {
 	submitLabel,
 	cancelLabel,
 	loadingAnnouncement,
+	children,
 }: CreateSiteFormProps ) {
 	const formRef = useRef< HTMLFormElement >( null );
 	const initialSuggestedFields = getSuggestedFields( initialValues ?? {} );
@@ -654,6 +659,8 @@ export function CreateSiteForm( {
 					onChange={ handleChange }
 					validity={ validity }
 				/>
+
+				{ children }
 
 				<Button
 					type="button"

@@ -1,0 +1,181 @@
+.list {
+	position: relative;
+	box-sizing: border-box;
+	display: inline-flex;
+	align-items: center;
+	gap: 2px !important;
+	min-width: 0;
+	max-width: min( 720px, 100% );
+	height: 32px;
+	margin: 0;
+	padding: 2px;
+	overflow-x: auto;
+	border: 1px solid var( --wpds-color-stroke-surface-neutral );
+	border-radius: 999px;
+	background-color: var( --wpds-color-bg-interactive-neutral-weak );
+	scrollbar-width: none;
+}
+
+.list::-webkit-scrollbar {
+	display: none;
+}
+
+.list::before {
+	display: none;
+}
+
+.indicator {
+	position: absolute;
+	top: 2px;
+	bottom: 2px;
+	left: 0;
+	border-radius: 999px;
+	background: color-mix( in srgb, var( --wpds-color-fg-content-neutral ) 14%, transparent );
+}
+
+.indicatorReady {
+	transition:
+		transform 200ms ease,
+		width 200ms ease;
+}
+
+.list :global( [role='tab'] ) {
+	position: relative;
+	z-index: 1;
+	box-sizing: border-box;
+	display: inline-flex;
+	flex: 0 0 auto;
+	align-items: center;
+	justify-content: center;
+	height: 26px !important;
+	margin: 0;
+	padding: 0 10px !important;
+	border: 0;
+	border-radius: 999px;
+	background: transparent;
+	color: var( --wpds-color-fg-content-neutral-weak );
+	font-family: inherit;
+	font-size: var( --wpds-typography-font-size-xs ) !important;
+	font-weight: 600 !important;
+	line-height: 16px;
+	cursor: pointer;
+	transition: color 200ms ease;
+}
+
+.list :global( [role='tab']:not( [aria-selected='true'] ):hover ) {
+	color: var( --wpds-color-fg-content-neutral );
+}
+
+.list :global( [role='tab'][aria-selected='true'] ) {
+	color: var( --wpds-color-fg-content-neutral );
+}
+
+.list :global( [role='tab']:focus-visible ) {
+	outline: 2px solid var( --wpds-color-stroke-focus-brand );
+	outline-offset: 1px;
+}
+
+.tabIcon {
+	display: none;
+	width: 16px;
+	height: 16px;
+	flex-shrink: 0;
+	align-items: center;
+	justify-content: center;
+}
+
+.tabIcon svg {
+	display: block;
+	width: 100%;
+	height: 100%;
+}
+
+.tabTitle {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.versionChevron {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 12px;
+	height: 12px;
+	margin-inline-start: 4px;
+}
+
+.versionMenu {
+	position: fixed;
+	z-index: 100;
+	display: flex;
+	min-width: 176px;
+	flex-direction: column;
+	gap: var( --wpds-dimension-padding-xs );
+	padding: var( --wpds-dimension-padding-xs );
+	border: var( --wpds-border-width-xs ) solid var( --wpds-color-stroke-surface-neutral-weak );
+	border-radius: var( --wpds-border-radius-lg );
+	background: var( --wpds-color-bg-surface-neutral-strong );
+	box-shadow: var( --wpds-elevation-md );
+	color: var( --wpds-color-fg-content-neutral );
+	transform: translateX( -50% );
+}
+
+.versionMenuLabel {
+	padding: var( --wpds-dimension-padding-xs ) var( --wpds-dimension-padding-sm ) 0;
+	color: var( --wpds-color-fg-content-neutral-weak );
+	font-size: var( --wpds-typography-font-size-xs );
+	line-height: var( --wpds-typography-line-height-sm );
+}
+
+.versionMenuItem {
+	display: flex;
+	align-items: center;
+	gap: var( --wpds-dimension-gap-sm );
+	padding: var( --wpds-dimension-padding-xs ) var( --wpds-dimension-padding-sm );
+	border: 0;
+	border-radius: var( --wpds-border-radius-sm );
+	background: transparent;
+	color: var( --wpds-color-fg-content-neutral );
+	font: inherit;
+	font-size: var( --wpds-typography-font-size-sm );
+	line-height: var( --wpds-typography-line-height-sm );
+	cursor: var( --wpds-cursor-control );
+}
+
+.versionMenuItem:hover,
+.versionMenuItem:focus-visible {
+	background: var( --wpds-color-bg-surface-neutral );
+	outline: none;
+}
+
+.versionCheck {
+	display: inline-flex;
+	width: 18px;
+	height: 18px;
+	align-items: center;
+	justify-content: center;
+}
+
+@container studio-preview-toolbar ( max-width: 680px ) {
+	.tabIcon {
+		display: inline-flex;
+	}
+
+	.list :global( [role='tab']:not( [aria-selected='true'] ) ) .tabTitle {
+		display: none;
+	}
+
+	.list :global( [role='tab'][aria-selected='true'] ) .tabTitle {
+		margin-inline-start: 6px;
+		max-width: 180px;
+	}
+}
+
+@media ( prefers-reduced-motion: reduce ) {
+	.indicator,
+	.list :global( [role='tab'] ) {
+		transition: none;
+	}
+}

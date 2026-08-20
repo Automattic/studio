@@ -11,12 +11,13 @@ import {
 	within,
 } from '@testing-library/react';
 import { Tooltip } from '@wordpress/ui';
+import { createRef, type ComponentProps } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { Composer } from '.';
+import type { ComposerHandle } from '.';
 import type { ComposerSendAttachments } from './use-composer-attachments';
 import type { AiSessionSummary, LoadedAiSession, SessionEntry } from '@/data/core';
-import type { ComponentProps } from 'react';
 
 // The AI credits control inside the composer reads the router; the quota it
 // also needs stays undefined here, so the control itself renders nothing.
@@ -188,6 +189,47 @@ describe( 'Composer menu', () => {
 		fireEvent.pointerEnter( screen.getByRole( 'button', { name: 'Select model' } ) );
 		fireEvent.mouseEnter( screen.getByRole( 'button', { name: 'Select model' } ) );
 		expect( await screen.findByText( 'Select model' ) ).toBeInTheDocument();
+	} );
+
+	it( 'supports an externally submitted design brief with attachments and model selection', async () => {
+		const composerRef = createRef< ComposerHandle >();
+		const onDraftChange = vi.fn();
+		const onModelChange = vi.fn();
+		const { container } = renderComposer( {
+			ref: composerRef,
+			mode: 'draft',
+			sessionId: undefined,
+			placeholder: 'Describe the site',
+			onDraftChange,
+			onModelChange,
+		} );
+
+		expect( screen.queryByRole( 'button', { name: 'Send' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'Stop' } ) ).not.toBeInTheDocument();
+		fireEvent.change( screen.getByPlaceholderText( 'Describe the site' ), {
+			target: { value: 'A bright ceramics portfolio' },
+		} );
+		await waitFor( () =>
+			expect( onDraftChange ).toHaveBeenLastCalledWith( 'A bright ceramics portfolio', false )
+		);
+
+		const image = new File( [ 'image-bytes' ], 'moodboard.png', { type: 'image/png' } );
+		fireEvent.change( container.querySelector( 'input[type="file"]' ) as HTMLInputElement, {
+			target: { files: [ image ] },
+		} );
+		await screen.findByRole( 'button', { name: 'Remove attachment: moodboard.png' } );
+		expect( composerRef.current?.getSubmission() ).toMatchObject( {
+			prompt: 'A bright ceramics portfolio',
+			attachments: { images: [ expect.objectContaining( { name: 'moodboard.png' } ) ], files: [] },
+		} );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Select model' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: 'GPT 5.6 Sol' } ) );
+		expect( onModelChange ).toHaveBeenCalledWith( 'gpt-5.6-sol' );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Upload attachment' } ) );
+		expect( await screen.findByRole( 'menuitem', { name: 'Upload attachment' } ) ).toBeVisible();
+		expect( screen.queryByRole( 'menuitem', { name: /Skills/ } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'shows a tooltip for the stop button while busy', async () => {

@@ -79,7 +79,7 @@ export function isTracksChannel( value: unknown ): value is TracksChannel {
 // The path a site came into existence through, for `studio_site_created`. `blueprint` is inferred by
 // the CLI from the presence of a blueprint; the other non-`new` values are threaded down from the
 // caller (import/sync from a renderer, duplicate from the desktop Main `copySite` handler).
-export type TracksSiteCreateFlowType = 'new' | 'blueprint' | 'import' | 'sync' | 'duplicate';
+export type TracksSiteCreateFlowType = 'new' | 'blueprint' | 'import' | 'sync' | 'duplicate' | 'ai';
 
 // Where a site "open" action rendered the site content, sent as `browser` on the site-content open
 // events (open_in_browser/wp_admin/customize/phpmyadmin). Studio Classic (v1) always opens the OS

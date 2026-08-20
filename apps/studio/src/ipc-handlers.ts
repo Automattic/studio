@@ -45,6 +45,11 @@ import {
 import { expandSkillCommandPrompt } from '@studio/common/ai/slash-commands';
 import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import {
+	initializeDesignProject,
+	readDesignProject,
+	selectDesignArtifact,
+} from '@studio/common/design-project';
+import {
 	installSkillToSite,
 	removeSkillFromSite,
 	updateManagedInstructionFiles,
@@ -789,6 +794,36 @@ export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< Sit
 	);
 
 	return sites;
+}
+
+function getDesignProjectSite( siteId: string ): SiteDetails {
+	const site = SiteServer.getAllDetails().find( ( candidate ) => candidate.id === siteId );
+	if ( ! site ) {
+		throw new Error( `Site ${ siteId } not found.` );
+	}
+	return site;
+}
+
+export async function initializeDesignProjectForSite(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	brief: string,
+	sessionId?: string
+) {
+	const site = getDesignProjectSite( siteId );
+	return initializeDesignProject( { sitePath: site.path, siteId, brief, sessionId } );
+}
+
+export async function getDesignProjectForSite( _event: IpcMainInvokeEvent, siteId: string ) {
+	return readDesignProject( getDesignProjectSite( siteId ).path );
+}
+
+export async function selectDesignArtifactForSite(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	artifactId: string
+) {
+	return selectDesignArtifact( getDesignProjectSite( siteId ).path, artifactId );
 }
 
 // Re-query running state before returning details, so the renderer can self-correct a missed event.

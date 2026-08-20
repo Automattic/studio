@@ -12,7 +12,7 @@ import {
 import { ariaKeyShortcut, displayShortcut, isAppleOS, isKeyboardEvent } from '@wordpress/keycodes';
 import { Button, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { DotGrid } from '@/components/dot-grid';
 import * as Menu from '@/components/menu';
 import { OpenInMenu } from '@/components/open-in-menu';
@@ -48,7 +48,7 @@ import {
 import styles from './style.module.css';
 import type { Annotation } from './types';
 import type { SiteDetails } from '@/data/core';
-import type { CSSProperties } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 
 export type { Annotation } from './types';
 export { getPathFromPreviewUrl } from './address-bar';
@@ -75,6 +75,20 @@ interface SitePreviewProps {
 	fullscreen?: boolean;
 	// Enters/leaves full preview. The "•••" menu only offers it when provided.
 	onFullscreenChange?: ( value: boolean ) => void;
+	// Replaces the normal site / WordPress / database location control while
+	// retaining the browser toolbar's navigation and action controls.
+	locationContent?: ReactNode;
+	// Replaces the guest page while retaining the browser toolbar. Used for
+	// browser-native overview surfaces such as the design comparison grid.
+	contentOverride?: ReactNode;
+	// Resets the guest surface's navigation history without remounting the
+	// surrounding browser toolbar.
+	navigationKey?: string;
+	// Keeps a small set of related preview pages mounted so switching between
+	// them can slide instantly instead of navigating and reloading one surface.
+	cachedPreviews?: readonly { key: string; path: string; position?: number }[];
+	activePreviewKey?: string;
+	contentOverrideActive?: boolean;
 }
 
 interface InspectorEvent {
@@ -685,6 +699,12 @@ export function SitePreview( {
 	collapsed = false,
 	fullscreen = false,
 	onFullscreenChange,
+	locationContent,
+	contentOverride,
+	navigationKey,
+	cachedPreviews,
+	activePreviewKey,
+	contentOverrideActive,
 }: SitePreviewProps ) {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
@@ -696,6 +716,7 @@ export function SitePreview( {
 	const siteUrl = getSiteUrl( site );
 	const canPreview = site.running;
 	const canUseWebview = isElectron();
+	const isContentOverrideActive = contentOverrideActive ?? contentOverride !== undefined;
 	const trafficLightSpace = useTrafficLightSpace();
 	const previewUrl = `${ siteUrl }${ getSafePath( path ) }`;
 	const siteThumbnail = useQuery( {
@@ -787,6 +808,27 @@ export function SitePreview( {
 					transformOrigin: 'top left',
 			  }
 			: undefined;
+	const activeSlideIndex = isContentOverrideActive
+		? 0
+		: Math.max(
+				1,
+				cachedPreviews?.find( ( preview ) => preview.key === activePreviewKey )?.position ??
+					( cachedPreviews?.findIndex( ( preview ) => preview.key === activePreviewKey ) ?? 0 ) + 1
+		  );
+	const getSlideStyle = ( index: number ) =>
+		( {
+			'--studio-preview-slide-offset': `${ ( index - activeSlideIndex ) * 100 }%`,
+		} ) as CSSProperties;
+	const activeDeckKey = isContentOverrideActive ? '__content-override__' : activePreviewKey;
+	const previousDeckKeyRef = useRef( activeDeckKey );
+	const [ outgoingDeckKey, setOutgoingDeckKey ] = useState< string | undefined >();
+	useLayoutEffect( () => {
+		if ( previousDeckKeyRef.current === activeDeckKey ) return;
+		setOutgoingDeckKey( previousDeckKeyRef.current );
+		previousDeckKeyRef.current = activeDeckKey;
+		const timeout = window.setTimeout( () => setOutgoingDeckKey( undefined ), 220 );
+		return () => window.clearTimeout( timeout );
+	}, [ activeDeckKey ] );
 
 	const handlePreviewNavigation = useCallback(
 		( url: string ) => {
@@ -815,6 +857,9 @@ export function SitePreview( {
 		commandIdRef.current += 1;
 		setInspectorCommand( { id: commandIdRef.current, type } );
 	}, [] );
+	useEffect( () => {
+		setBrowserState( EMPTY_BROWSER_STATE );
+	}, [ navigationKey ] );
 	// Shortcuts the guest page swallowed and forwarded back over the console
 	// bridge: browser commands go to the webview, full preview to the host.
 	const handleForwardedShortcut = useCallback(
@@ -1012,7 +1057,7 @@ export function SitePreview( {
 				{ /* Equal-flex side tracks keep the address control truly centered
 					in the toolbar regardless of what each side holds. */ }
 				<div className={ styles.headerSide }>
-					{ canPreview ? (
+					{ canPreview && ! isContentOverrideActive ? (
 						<IconButton
 							variant="minimal"
 							tone="neutral"
@@ -1028,42 +1073,51 @@ export function SitePreview( {
 					with the place they navigate; symmetric widths keep the segments
 					(and the omnibox popup anchored to this element) centered. */ }
 				<div ref={ locationRef } className={ styles.browserLocation }>
-					{ canPreview ? (
+					{ canPreview || locationContent ? (
 						<>
-							<IconButton
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								icon={ chevronLeft }
-								label={ __( 'Back' ) }
-								shortcut={ browserShortcuts.back }
-								disabled={ ! browserState.canGoBack }
-								onClick={ () => sendBrowserCommand( 'back' ) }
-							/>
-							<PreviewAddressBar
-								site={ site }
-								siteUrl={ siteUrl }
-								path={ getSafePath( path ) }
-								searchEnabled={ canUseWebview }
-								anchorRef={ locationRef }
-								onNavigate={ ( nextPath ) => onPathChange?.( nextPath ) }
-								onSwitchRealm={ handleSwitchRealm }
-							/>
-							<IconButton
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								icon={ chevronRight }
-								label={ __( 'Forward' ) }
-								shortcut={ browserShortcuts.forward }
-								disabled={ ! browserState.canGoForward }
-								onClick={ () => sendBrowserCommand( 'forward' ) }
-							/>
+							{ canPreview && ! isContentOverrideActive ? (
+								<IconButton
+									variant="minimal"
+									tone="neutral"
+									size="small"
+									icon={ chevronLeft }
+									label={ __( 'Back' ) }
+									shortcut={ browserShortcuts.back }
+									disabled={ ! browserState.canGoBack }
+									onClick={ () => sendBrowserCommand( 'back' ) }
+								/>
+							) : null }
+							{ locationContent ?? (
+								<PreviewAddressBar
+									site={ site }
+									siteUrl={ siteUrl }
+									path={ getSafePath( path ) }
+									searchEnabled={ canUseWebview }
+									anchorRef={ locationRef }
+									onNavigate={ ( nextPath ) => onPathChange?.( nextPath ) }
+									onSwitchRealm={ handleSwitchRealm }
+								/>
+							) }
+							{ canPreview && ! isContentOverrideActive ? (
+								<IconButton
+									variant="minimal"
+									tone="neutral"
+									size="small"
+									icon={ chevronRight }
+									label={ __( 'Forward' ) }
+									shortcut={ browserShortcuts.forward }
+									disabled={ ! browserState.canGoForward }
+									onClick={ () => sendBrowserCommand( 'forward' ) }
+								/>
+							) : null }
 						</>
 					) : null }
 				</div>
 				<div className={ clsx( styles.headerSide, styles.headerSideEnd ) }>
-					{ canPreview && chatEnabled && connector.capabilities.annotatePreview ? (
+					{ canPreview &&
+					! isContentOverrideActive &&
+					chatEnabled &&
+					connector.capabilities.annotatePreview ? (
 						<PreviewAnnotationControls
 							isPicking={ inspectorState.isPicking }
 							annotationCount={ inspectorState.annotationCount }
@@ -1071,8 +1125,10 @@ export function SitePreview( {
 							onCommand={ sendInspectorCommand }
 						/>
 					) : null }
-					<OpenInMenu key={ site.id } site={ site } browserPath={ getSafePath( path ) } />
-					{ canPreview ? (
+					{ ! isContentOverrideActive ? (
+						<OpenInMenu key={ site.id } site={ site } browserPath={ getSafePath( path ) } />
+					) : null }
+					{ canPreview && ! isContentOverrideActive ? (
 						<PreviewOverflowMenu
 							viewportMode={ viewportMode }
 							onViewportModeChange={ handleViewportModeChange }
@@ -1083,24 +1139,265 @@ export function SitePreview( {
 						/>
 					) : null }
 				</div>
-				{ showLoadingProgress ? (
+				{ showLoadingProgress && ! isContentOverrideActive ? (
 					<div className={ styles.loadingProgress } aria-hidden="true">
 						<span style={ { transform: `scaleX(${ Math.min( progress, 1 ) })` } } />
 					</div>
 				) : null }
 			</div>
 			<div className={ styles.body }>
-				<div
-					ref={ paneRef }
-					className={ clsx(
-						styles.previewViewport,
-						previewViewport && styles.previewViewportSimulated
-					) }
-				>
-					{ canPreview ? (
-						<>
-							{ previewViewport ? (
-								<div className={ styles.viewportGrid } aria-hidden="true">
+				{ cachedPreviews && canPreview ? (
+					<div ref={ paneRef } className={ styles.previewDeck }>
+						{ contentOverride !== undefined ? (
+							<div
+								className={ styles.previewSlide }
+								style={ getSlideStyle( 0 ) }
+								aria-hidden={ ! isContentOverrideActive }
+								data-visible={
+									isContentOverrideActive || outgoingDeckKey === '__content-override__'
+								}
+							>
+								<div className={ styles.contentOverride }>{ contentOverride }</div>
+							</div>
+						) : null }
+						{ cachedPreviews.map( ( cachedPreview, index ) => {
+							const isActive = ! isContentOverrideActive && cachedPreview.key === activePreviewKey;
+							const cachedPreviewUrl = `${ siteUrl }${ getSafePath( cachedPreview.path ) }`;
+							return (
+								<div
+									key={ cachedPreview.key }
+									className={ styles.previewSlide }
+									style={ getSlideStyle( cachedPreview.position ?? index + 1 ) }
+									aria-hidden={ ! isActive }
+									data-visible={ isActive || outgoingDeckKey === cachedPreview.key }
+									data-active={ isActive }
+								>
+									<div
+										className={ clsx(
+											styles.previewViewport,
+											previewViewport && styles.previewViewportSimulated
+										) }
+									>
+										{ previewViewport ? (
+											<div className={ styles.viewportGrid } aria-hidden="true">
+												<DotGrid
+													spacing={ 32 }
+													crossSize={ 5 }
+													crossThickness={ 0.75 }
+													opacity={ 0.16 }
+													intro={ false }
+												/>
+											</div>
+										) : null }
+										<div
+											className={ clsx(
+												styles.surfaceFrame,
+												previewViewport && styles.deviceFrame
+											) }
+											style={ frameStyle }
+										>
+											{ canUseWebview ? (
+												<WebviewSurface
+													key={ cachedPreview.key }
+													url={ cachedPreviewUrl }
+													reloadNonce={ reloadNonce }
+													active={ isActive }
+													onAnnotationsDone={ isActive ? onAnnotationsDone : undefined }
+													onInspectorState={ isActive ? handleInspectorState : undefined }
+													inspectorCommand={ isActive ? inspectorCommand : null }
+													browserCommand={ isActive ? browserCommand : null }
+													onBrowserStateChange={ isActive ? handleBrowserStateChange : undefined }
+													onBrowserCommand={ isActive ? handleForwardedShortcut : undefined }
+													onNavigate={ isActive ? handlePreviewNavigation : undefined }
+													viewport={ previewViewport }
+												/>
+											) : (
+												<iframe
+													key={ `${ cachedPreviewUrl }#${ reloadNonce }` }
+													className={ styles.iframe }
+													style={ iframeStyle }
+													src={ cachedPreviewUrl }
+													title={ site.name }
+													onLoad={ ( event ) => {
+														if ( ! isActive ) return;
+														handlePreviewNavigation( event.currentTarget.src );
+														setBrowserState( ( current ) => ( {
+															...current,
+															loading: false,
+															progress: 0,
+															title: getIframeTitle( event.currentTarget ),
+														} ) );
+													} }
+												/>
+											) }
+										</div>
+										{ splitPreview && splitMobileViewport ? (
+											<div className={ styles.splitMobilePane }>
+												<div
+													className={ clsx( styles.surfaceFrame, styles.deviceFrame ) }
+													style={ {
+														flex: '0 0 auto',
+														width: splitMobileViewport.width * splitMobileViewport.scale,
+														height: splitMobileViewport.height * splitMobileViewport.scale,
+													} }
+												>
+													{ canUseWebview ? (
+														<WebviewSurface
+															key={ `${ cachedPreview.key }-mobile` }
+															url={ cachedPreviewUrl }
+															reloadNonce={ reloadNonce }
+															viewport={ splitMobileViewport }
+															browserCommand={
+																isActive && browserCommand?.type === 'reload'
+																	? browserCommand
+																	: null
+															}
+															onNavigate={ isActive ? handlePreviewNavigation : undefined }
+														/>
+													) : (
+														<iframe
+															key={ `${ cachedPreviewUrl }#${ reloadNonce }-mobile` }
+															className={ styles.iframe }
+															style={ {
+																flex: '0 0 auto',
+																width: splitMobileViewport.width,
+																height: splitMobileViewport.height,
+																transform: `scale(${ splitMobileViewport.scale })`,
+																transformOrigin: 'top left',
+															} }
+															src={ cachedPreviewUrl }
+															title={ sprintf( __( '%s (mobile)' ), site.name ) }
+														/>
+													) }
+												</div>
+											</div>
+										) : null }
+									</div>
+								</div>
+							);
+						} ) }
+					</div>
+				) : contentOverride !== undefined ? (
+					<div className={ styles.contentOverride }>{ contentOverride }</div>
+				) : (
+					<div
+						ref={ paneRef }
+						className={ clsx(
+							styles.previewViewport,
+							previewViewport && styles.previewViewportSimulated
+						) }
+					>
+						{ canPreview ? (
+							<>
+								{ previewViewport ? (
+									<div className={ styles.viewportGrid } aria-hidden="true">
+										<DotGrid
+											spacing={ 32 }
+											crossSize={ 5 }
+											crossThickness={ 0.75 }
+											opacity={ 0.16 }
+											intro={ false }
+										/>
+									</div>
+								) : null }
+								<div
+									className={ clsx( styles.surfaceFrame, previewViewport && styles.deviceFrame ) }
+									style={ frameStyle }
+								>
+									{ canUseWebview ? (
+										<WebviewSurface
+											key={ navigationKey ?? site.id }
+											url={ previewUrl }
+											reloadNonce={ reloadNonce }
+											onAnnotationsDone={ onAnnotationsDone }
+											onInspectorState={ handleInspectorState }
+											inspectorCommand={ inspectorCommand }
+											browserCommand={ browserCommand }
+											onBrowserStateChange={ handleBrowserStateChange }
+											onBrowserCommand={ handleForwardedShortcut }
+											onNavigate={ handlePreviewNavigation }
+											viewport={ previewViewport }
+										/>
+									) : (
+										// Non-Electron fallback: plain iframe, no inspector. Reloads
+										// by remounting; back/forward aren't reachable from the host.
+										<iframe
+											key={ `${ previewUrl }#${ reloadNonce }#${
+												browserCommand?.type === 'reload' ? browserCommand.id : 0
+											}` }
+											className={ styles.iframe }
+											style={ iframeStyle }
+											src={ previewUrl }
+											title={ site.name }
+											onLoad={ ( event ) => {
+												handlePreviewNavigation( event.currentTarget.src );
+												setBrowserState( ( current ) => {
+													const next = {
+														...current,
+														loading: false,
+														progress: 0,
+														title: getIframeTitle( event.currentTarget ),
+													};
+													return areBrowserStatesEqual( current, next ) ? current : next;
+												} );
+											} }
+										/>
+									) }
+								</div>
+								{ splitPreview && splitMobileViewport ? (
+									// The comparison's phone pane: a lean companion surface that
+									// follows the primary's navigation (shared `path`) but keeps
+									// annotations and history on the primary pane.
+									<div className={ styles.splitMobilePane }>
+										<div
+											className={ clsx( styles.surfaceFrame, styles.deviceFrame ) }
+											style={ {
+												flex: '0 0 auto',
+												width: splitMobileViewport.width * splitMobileViewport.scale,
+												height: splitMobileViewport.height * splitMobileViewport.scale,
+											} }
+										>
+											{ canUseWebview ? (
+												<WebviewSurface
+													key={ `${ navigationKey ?? site.id }-mobile` }
+													url={ previewUrl }
+													reloadNonce={ reloadNonce }
+													viewport={ splitMobileViewport }
+													browserCommand={
+														browserCommand?.type === 'reload' ? browserCommand : null
+													}
+													onNavigate={ handlePreviewNavigation }
+												/>
+											) : (
+												<iframe
+													key={ `${ previewUrl }#${ reloadNonce }` }
+													className={ styles.iframe }
+													style={
+														splitMobileViewport.scale !== 1
+															? {
+																	flex: '0 0 auto',
+																	width: splitMobileViewport.width,
+																	height: splitMobileViewport.height,
+																	transform: `scale(${ splitMobileViewport.scale })`,
+																	transformOrigin: 'top left',
+															  }
+															: undefined
+													}
+													src={ previewUrl }
+													title={ sprintf(
+														/* translators: %s: site name */
+														__( '%s (mobile)' ),
+														site.name
+													) }
+												/>
+											) }
+										</div>
+									</div>
+								) : null }
+							</>
+						) : (
+							<div className={ styles.empty }>
+								<div className={ styles.emptyGrid } aria-hidden="true">
 									<DotGrid
 										spacing={ 32 }
 										crossSize={ 5 }
@@ -1109,150 +1406,46 @@ export function SitePreview( {
 										intro={ false }
 									/>
 								</div>
-							) : null }
-							<div
-								className={ clsx( styles.surfaceFrame, previewViewport && styles.deviceFrame ) }
-								style={ frameStyle }
-							>
-								{ canUseWebview ? (
-									<WebviewSurface
-										key={ site.id }
-										url={ previewUrl }
-										reloadNonce={ reloadNonce }
-										onAnnotationsDone={ onAnnotationsDone }
-										onInspectorState={ handleInspectorState }
-										inspectorCommand={ inspectorCommand }
-										browserCommand={ browserCommand }
-										onBrowserStateChange={ handleBrowserStateChange }
-										onBrowserCommand={ handleForwardedShortcut }
-										onNavigate={ handlePreviewNavigation }
-										viewport={ previewViewport }
-									/>
-								) : (
-									// Non-Electron fallback: plain iframe, no inspector. Reloads
-									// by remounting; back/forward aren't reachable from the host.
-									<iframe
-										key={ `${ previewUrl }#${ reloadNonce }#${
-											browserCommand?.type === 'reload' ? browserCommand.id : 0
-										}` }
-										className={ styles.iframe }
-										style={ iframeStyle }
-										src={ previewUrl }
-										title={ site.name }
-										onLoad={ ( event ) => {
-											handlePreviewNavigation( event.currentTarget.src );
-											setBrowserState( ( current ) => {
-												const next = {
-													...current,
-													loading: false,
-													progress: 0,
-													title: getIframeTitle( event.currentTarget ),
-												};
-												return areBrowserStatesEqual( current, next ) ? current : next;
-											} );
-										} }
-									/>
-								) }
-							</div>
-							{ splitPreview && splitMobileViewport ? (
-								// The comparison's phone pane: a lean companion surface that
-								// follows the primary's navigation (shared `path`) but keeps
-								// annotations and history on the primary pane.
-								<div className={ styles.splitMobilePane }>
-									<div
-										className={ clsx( styles.surfaceFrame, styles.deviceFrame ) }
-										style={ {
-											flex: '0 0 auto',
-											width: splitMobileViewport.width * splitMobileViewport.scale,
-											height: splitMobileViewport.height * splitMobileViewport.scale,
-										} }
-									>
-										{ canUseWebview ? (
-											<WebviewSurface
-												key={ `${ site.id }-mobile` }
-												url={ previewUrl }
-												reloadNonce={ reloadNonce }
-												viewport={ splitMobileViewport }
-												browserCommand={ browserCommand?.type === 'reload' ? browserCommand : null }
-												onNavigate={ handlePreviewNavigation }
-											/>
-										) : (
-											<iframe
-												key={ `${ previewUrl }#${ reloadNonce }` }
-												className={ styles.iframe }
-												style={
-													splitMobileViewport.scale !== 1
-														? {
-																flex: '0 0 auto',
-																width: splitMobileViewport.width,
-																height: splitMobileViewport.height,
-																transform: `scale(${ splitMobileViewport.scale })`,
-																transformOrigin: 'top left',
-														  }
-														: undefined
-												}
-												src={ previewUrl }
-												title={ sprintf(
+								<div className={ styles.emptyContent }>
+									{ siteThumbnail.data ? (
+										<div className={ styles.emptyThumbnail }>
+											<img
+												src={ siteThumbnail.data }
+												alt={ sprintf(
 													/* translators: %s: site name */
-													__( '%s (mobile)' ),
+													__( 'Screenshot of %s' ),
 													site.name
 												) }
 											/>
-										) }
-									</div>
+										</div>
+									) : null }
+									<p className={ styles.emptyText }>
+										{ operation
+											? sprintf(
+													/* translators: %s: an operation in progress, e.g. "Saving settings". */
+													__( '%s… the site can start once this finishes.' ),
+													getSiteOperationLabel( operation )
+											  )
+											: __( 'Start the site to see a live preview.' ) }
+									</p>
+									<Button
+										variant="solid"
+										tone="brand"
+										loading={ isStarting }
+										loadingAnnouncement={ __( 'Starting site' ) }
+										disabled={ isBusy }
+										onClick={ () => startSite.mutate( site.id ) }
+									>
+										<span className={ styles.startIcon } aria-hidden="true">
+											{ playIcon }
+										</span>
+										{ __( 'Start site' ) }
+									</Button>
 								</div>
-							) : null }
-						</>
-					) : (
-						<div className={ styles.empty }>
-							<div className={ styles.emptyGrid } aria-hidden="true">
-								<DotGrid
-									spacing={ 32 }
-									crossSize={ 5 }
-									crossThickness={ 0.75 }
-									opacity={ 0.16 }
-									intro={ false }
-								/>
 							</div>
-							<div className={ styles.emptyContent }>
-								{ siteThumbnail.data ? (
-									<div className={ styles.emptyThumbnail }>
-										<img
-											src={ siteThumbnail.data }
-											alt={ sprintf(
-												/* translators: %s: site name */
-												__( 'Screenshot of %s' ),
-												site.name
-											) }
-										/>
-									</div>
-								) : null }
-								<p className={ styles.emptyText }>
-									{ operation
-										? sprintf(
-												/* translators: %s: an operation in progress, e.g. "Saving settings". */
-												__( '%s… the site can start once this finishes.' ),
-												getSiteOperationLabel( operation )
-										  )
-										: __( 'Start the site to see a live preview.' ) }
-								</p>
-								<Button
-									variant="solid"
-									tone="brand"
-									loading={ isStarting }
-									loadingAnnouncement={ __( 'Starting site' ) }
-									disabled={ isBusy }
-									onClick={ () => startSite.mutate( site.id ) }
-								>
-									<span className={ styles.startIcon } aria-hidden="true">
-										{ playIcon }
-									</span>
-									{ __( 'Start site' ) }
-								</Button>
-							</div>
-						</div>
-					) }
-				</div>
+						) }
+					</div>
+				) }
 			</div>
 		</aside>
 	);
@@ -1272,6 +1465,7 @@ interface WebviewSurfaceProps {
 	onBrowserStateChange?: ( state: BrowserNavigationState ) => void;
 	onBrowserCommand?: ( type: PreviewShortcutCommandType ) => void;
 	onNavigate?: ( url: string ) => void;
+	active?: boolean;
 	// Simulated guest viewport, or null for the webview's natural size.
 	viewport?: PreviewViewport | null;
 }
@@ -1294,6 +1488,7 @@ function WebviewSurface( {
 	onBrowserStateChange,
 	onBrowserCommand,
 	onNavigate,
+	active = true,
 	viewport = null,
 }: WebviewSurfaceProps ) {
 	const ref = useRef< HTMLElement | null >( null );
@@ -1304,6 +1499,7 @@ function WebviewSurface( {
 	const onBrowserCommandRef = useRef( onBrowserCommand );
 	const onNavigateRef = useRef( onNavigate );
 	const browserStateRef = useRef< BrowserNavigationState >( EMPTY_BROWSER_STATE );
+	const inspectorStateRef = useRef< InspectorState >( EMPTY_INSPECTOR_STATE );
 	const domReadyRef = useRef( false );
 	const currentUrlRef = useRef( url );
 	const storedAnnotationsRef = useRef< Annotation[] >( [] );
@@ -1325,6 +1521,11 @@ function WebviewSurface( {
 	useEffect( () => {
 		onNavigateRef.current = onNavigate;
 	}, [ onNavigate ] );
+	useEffect( () => {
+		if ( ! active ) return;
+		onBrowserStateChange?.( browserStateRef.current );
+		onInspectorState?.( inspectorStateRef.current );
+	}, [ active, onBrowserStateChange, onInspectorState ] );
 	// The url we want shown; `currentUrlRef` is where the webview actually landed.
 	const urlRef = useRef( url );
 	useEffect( () => {
@@ -1354,6 +1555,10 @@ function WebviewSurface( {
 		}
 		browserStateRef.current = next;
 		onBrowserStateChangeRef.current?.( next );
+	}, [] );
+	const publishInspectorState = useCallback( ( state: InspectorState ) => {
+		inspectorStateRef.current = state;
+		onInspectorStateRef.current?.( state );
 	}, [] );
 
 	const clearProgressTimers = useCallback( () => {
@@ -1430,7 +1635,7 @@ function WebviewSurface( {
 			webview
 				.executeJavaScript( preload + INSPECTOR_PAGE_SCRIPT, false )
 				.then( () => {
-					onInspectorStateRef.current?.( {
+					publishInspectorState( {
 						ready: true,
 						isPicking: false,
 						annotationCount: stored.length,
@@ -1460,7 +1665,7 @@ function WebviewSurface( {
 				return;
 			}
 			if ( parsed.type === 'state' ) {
-				onInspectorStateRef.current?.( {
+				publishInspectorState( {
 					ready: true,
 					isPicking: Boolean( parsed.isPicking ),
 					annotationCount: typeof parsed.annotationCount === 'number' ? parsed.annotationCount : 0,
@@ -1501,7 +1706,7 @@ function WebviewSurface( {
 		};
 		const handleStartLoading = () => {
 			didReadTitleAfterLoad = false;
-			onInspectorStateRef.current?.( {
+			publishInspectorState( {
 				...EMPTY_INSPECTOR_STATE,
 				annotationCount: storedAnnotationsRef.current.length,
 			} );
@@ -1539,7 +1744,13 @@ function WebviewSurface( {
 			webview.removeEventListener( 'did-fail-load', handleStopLoading );
 			webview.removeEventListener( 'did-finish-load', handleStopLoading );
 		};
-	}, [ clearProgressTimers, finishProgress, publishBrowserState, startProgress ] );
+	}, [
+		clearProgressTimers,
+		finishProgress,
+		publishBrowserState,
+		publishInspectorState,
+		startProgress,
+	] );
 
 	// Navigation effect — gated on `ready` so the first call happens after
 	// `dom-ready` (the initial url is loaded by the `src` attribute on the

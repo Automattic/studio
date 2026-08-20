@@ -4,7 +4,7 @@ import path from 'path';
 import { buildAiSessionFileName } from './file-naming';
 import { migrateLegacyFileInPlace } from './migration';
 import { getAiSessionsDirectoryForDate } from './paths';
-import { readAiSessionSummaryFromEntries } from './summary';
+import { readAiSessionSummaryFromEntries, readAiSessionSummaryFromFile } from './summary';
 import type { StudioCustomEntryDataMap, StudioCustomEntryType } from './entry-types';
 import type { AiSessionSummary, LoadedAiSession } from './types';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
@@ -12,17 +12,14 @@ import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 // Migrates the file in place on first read, then parses the (now-pi-format)
 // JSONL into pi `SessionEntry` records.
 export async function readPiFileEntries( filePath: string ): Promise< SessionEntry[] > {
-	let content: string;
 	try {
-		content = await fs.readFile( filePath, 'utf8' );
+		await migrateLegacyFileInPlace( filePath, '~/Studio' );
 	} catch ( error ) {
 		if ( ( error as NodeJS.ErrnoException ).code === 'ENOENT' ) return [];
 		throw error;
 	}
-	if ( ! content.trim() ) return [];
-
-	await migrateLegacyFileInPlace( filePath, '~/Studio' );
 	const refreshed = await fs.readFile( filePath, 'utf8' );
+	if ( ! refreshed.trim() ) return [];
 
 	const entries: SessionEntry[] = [];
 	for ( const line of refreshed.split( '\n' ) ) {
@@ -122,24 +119,59 @@ async function pruneEmptySessionDirectories(
 	}
 }
 
-export async function listAiSessions( rootDirectory: string ): Promise< AiSessionSummary[] > {
-	const sessionFiles = await listSessionFilesRecursively( rootDirectory );
-	const results = await Promise.allSettled(
-		sessionFiles.map( async ( filePath ) => {
-			const entries = await readPiFileEntries( filePath );
-			return readAiSessionSummaryFromEntries( filePath, entries );
-		} )
-	);
+interface CachedSessionSummary {
+	fingerprint: string;
+	summary: AiSessionSummary | undefined;
+}
 
-	const sessions = results
-		.filter(
-			( result ): result is PromiseFulfilledResult< AiSessionSummary | undefined > =>
-				result.status === 'fulfilled'
-		)
-		.map( ( result ) => result.value )
-		.filter( ( session ): session is AiSessionSummary => !! session );
+const summaryCache = new Map< string, CachedSessionSummary >();
+const activeListings = new Map< string, Promise< AiSessionSummary[] > >();
+
+async function listAiSessionsUncached( rootDirectory: string ): Promise< AiSessionSummary[] > {
+	const sessionFiles = await listSessionFilesRecursively( rootDirectory );
+	const liveFiles = new Set( sessionFiles );
+	const sessions: AiSessionSummary[] = [];
+
+	// Session logs can contain large tool results and image payloads. Process one
+	// file at a time so listing never holds every transcript in memory at once.
+	for ( const filePath of sessionFiles ) {
+		try {
+			const stats = await fs.stat( filePath );
+			const fingerprint = `${ stats.size }:${ stats.mtimeMs }`;
+			const cached = summaryCache.get( filePath );
+			const summary =
+				cached?.fingerprint === fingerprint
+					? cached.summary
+					: await readAiSessionSummaryFromFile( filePath );
+			if ( cached?.fingerprint !== fingerprint ) {
+				summaryCache.set( filePath, { fingerprint, summary } );
+			}
+			if ( summary ) sessions.push( summary );
+		} catch {
+			// A malformed or concurrently removed session should not hide the rest.
+		}
+	}
+
+	for ( const filePath of summaryCache.keys() ) {
+		if ( filePath.startsWith( rootDirectory + path.sep ) && ! liveFiles.has( filePath ) ) {
+			summaryCache.delete( filePath );
+		}
+	}
 
 	return sessions.sort( ( a, b ) => Date.parse( b.updatedAt ) - Date.parse( a.updatedAt ) );
+}
+
+export async function listAiSessions( rootDirectory: string ): Promise< AiSessionSummary[] > {
+	const activeListing = activeListings.get( rootDirectory );
+	if ( activeListing ) return activeListing;
+
+	const listing = listAiSessionsUncached( rootDirectory );
+	activeListings.set( rootDirectory, listing );
+	try {
+		return await listing;
+	} finally {
+		activeListings.delete( rootDirectory );
+	}
 }
 
 export async function loadAiSession(

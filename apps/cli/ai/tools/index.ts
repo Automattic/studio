@@ -4,6 +4,13 @@ import { createSiteTool } from './create-site';
 import { dataLiberationTool } from './data-liberation';
 import { deletePreviewTool } from './delete-preview';
 import { createDeleteSiteTool, deleteSiteTool, type ConfirmSiteDeletion } from './delete-site';
+import {
+	designArtifactAcceptTool,
+	designArtifactFinalizeTool,
+	designProjectStatusTool,
+	designProjectWaitTool,
+	materializeDesignArtifactTool,
+} from './design-project';
 import { exportSiteTool } from './export-site';
 import { importSiteTool } from './import-site';
 import { inspectDesignTool } from './inspect-design';
@@ -52,6 +59,11 @@ export const studioToolDefinitions: AnyStudioAgentTool[] = [
 	shareScreenshotTool,
 	installTaxonomyScriptsTool,
 	dataLiberationTool,
+	designProjectStatusTool,
+	designProjectWaitTool,
+	designArtifactFinalizeTool,
+	designArtifactAcceptTool,
+	materializeDesignArtifactTool,
 	auditPerformanceTool,
 	auditSeoTool,
 	listConnectedRemoteSitesTool,

@@ -12,6 +12,7 @@ import {
 	DropBackupIllustration,
 	illustrationHostClass,
 } from '@/components/onboarding-illustrations';
+import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useSites } from '@/data/queries/use-sites';
 import { useOffline } from '@/hooks/use-offline';
 import { setPendingBackup } from '@/lib/pending-backup';
@@ -99,6 +100,7 @@ export function OnboardingHomePage() {
 	const navigate = useNavigate();
 	const { data: sites } = useSites();
 	const isOffline = useOffline();
+	const { chatEnabled } = useAgenticFeatures();
 
 	return (
 		<div className={ styles.page }>
@@ -110,11 +112,13 @@ export function OnboardingHomePage() {
 				<Link to="/onboarding/create" className={ cardClass }>
 					<BuildNewSiteIllustration />
 					<div className={ styles.cardText }>
-						<h3 className={ styles.cardTitle }>{ __( 'Create a new site' ) }</h3>
+						<h3 className={ styles.cardTitle }>{ __( 'Create a site' ) }</h3>
 						<p className={ styles.cardBody }>
-							{ __(
-								'Start from scratch or use a Blueprint. Perfect for theme and plugin development.'
-							) }
+							{ chatEnabled
+								? __( 'Describe it with AI, start from a Blueprint, or build it from scratch.' )
+								: __(
+										'Start from scratch or use a Blueprint. Perfect for theme and plugin development.'
+								  ) }
 						</p>
 					</div>
 				</Link>

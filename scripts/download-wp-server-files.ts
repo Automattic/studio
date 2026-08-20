@@ -29,6 +29,7 @@ const WP_SERVER_FILES_PATH = path.join( import.meta.dirname, '..', 'wp-files' );
 
 // Pinned so builds are reproducible. Bump deliberately.
 const WORDPRESS_IMPORTER_VERSION = '0.9.5';
+const STATIC_SITE_IMPORTER_VERSION = 'v1.5.0';
 const PHPMYADMIN_PATCH_FILES_PATH = path.join( import.meta.dirname, '..', 'apps', 'cli', 'php' );
 const PHPMYADMIN_LOCAL_PATCH_FILES = new Map< string, string >( [
 	[ 'config.inc.php', path.join( PHPMYADMIN_PATCH_FILES_PATH, 'config.inc.php' ) ],
@@ -126,6 +127,13 @@ const FILES_TO_DOWNLOAD: FileToDownload[] = [
 		description: `wordpress-importer ${ WORDPRESS_IMPORTER_VERSION }`,
 		getUrl: () =>
 			`https://downloads.wordpress.org/plugin/wordpress-importer.${ WORDPRESS_IMPORTER_VERSION }.zip`,
+		destinationPath: WP_SERVER_FILES_PATH,
+	},
+	{
+		name: 'static-site-importer',
+		description: `static-site-importer ${ STATIC_SITE_IMPORTER_VERSION }`,
+		getUrl: () =>
+			`https://github.com/Automattic/static-site-importer/releases/download/${ STATIC_SITE_IMPORTER_VERSION }/static-site-importer.zip`,
 		destinationPath: WP_SERVER_FILES_PATH,
 	},
 	{

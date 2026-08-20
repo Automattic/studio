@@ -2,7 +2,9 @@
 // handles any later pi-internal version bumps from here.
 
 import crypto from 'crypto';
+import { createReadStream } from 'fs';
 import fs from 'fs/promises';
+import readline from 'readline';
 
 // Must match pi-coding-agent's `CURRENT_SESSION_VERSION`. If pi bumps it,
 // pi's `migrateSessionEntries` will bring our v3 output forward on open.
@@ -420,10 +422,23 @@ export function migrateLegacyEvents( events: LegacyEvent[], cwd: string ): PiFil
 // Migrate the on-disk file in place. Reads the legacy JSONL, transforms,
 // and rewrites atomically (`.tmp` + rename). No-ops for already-pi files.
 export async function migrateLegacyFileInPlace( filePath: string, cwd: string ): Promise< void > {
-	const content = await fs.readFile( filePath, 'utf8' );
-	const firstLine = content.split( '\n' ).find( ( line ) => line.trim().length > 0 );
+	let firstLine: string | undefined;
+	const stream = createReadStream( filePath, { encoding: 'utf8' } );
+	const reader = readline.createInterface( {
+		input: stream,
+		crlfDelay: Infinity,
+	} );
+	for await ( const line of reader ) {
+		if ( line.trim() ) {
+			firstLine = line;
+			break;
+		}
+	}
+	reader.close();
+	stream.destroy();
 	if ( detectSessionFormat( firstLine ) !== 'legacy' ) return;
 
+	const content = await fs.readFile( filePath, 'utf8' );
 	const events = parseLegacyLines( content );
 	const fileEntries = migrateLegacyEvents( events, cwd );
 

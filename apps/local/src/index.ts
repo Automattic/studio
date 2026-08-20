@@ -35,6 +35,11 @@ import {
 import { expandSkillCommandPrompt } from '@studio/common/ai/slash-commands';
 import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import { DEFAULT_TOKEN_LIFETIME_MS } from '@studio/common/constants';
+import {
+	initializeDesignProject,
+	readDesignProject,
+	selectDesignArtifact,
+} from '@studio/common/design-project';
 import { createCliRunner } from '@studio/common/lib/cli-process';
 import {
 	addConnectedWpcomSite,
@@ -99,7 +104,11 @@ import {
 import type { UserPreferencesContext } from './user-preferences';
 import type { AiSettings } from '@studio/common/ai/providers';
 import type { SiteListItem } from '@studio/common/lib/cli-events';
-import type { TracksEventName, TracksProps } from '@studio/common/lib/record-tracks-event';
+import type {
+	TracksEventName,
+	TracksProps,
+	TracksSiteCreateFlowType,
+} from '@studio/common/lib/record-tracks-event';
 import type { EditSiteOptions } from '@studio/common/sites/edit';
 import type { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
 import type { Request, Response } from 'express';
@@ -713,6 +722,56 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
+	api.get(
+		'/sites/:id/design-project',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const site = ( await listSites( execute ) ).find(
+				( candidate ) => candidate.id === req.params.id
+			);
+			if ( ! site ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			res.json( await readDesignProject( site.path ) );
+		} )
+	);
+
+	api.post(
+		'/sites/:id/design-project',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const site = ( await listSites( execute ) ).find(
+				( candidate ) => candidate.id === req.params.id
+			);
+			if ( ! site ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			const brief = typeof req.body?.brief === 'string' ? req.body.brief : '';
+			const sessionId = typeof req.body?.sessionId === 'string' ? req.body.sessionId : undefined;
+			res.json(
+				await initializeDesignProject( { sitePath: site.path, siteId: site.id, brief, sessionId } )
+			);
+		} )
+	);
+
+	api.post(
+		'/sites/:id/design-project/select',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const site = ( await listSites( execute ) ).find(
+				( candidate ) => candidate.id === req.params.id
+			);
+			if ( ! site ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			if ( typeof req.body?.artifactId !== 'string' ) {
+				res.status( 400 ).json( { error: 'artifactId is required' } );
+				return;
+			}
+			res.json( await selectDesignArtifact( site.path, req.body.artifactId ) );
+		} )
+	);
+
 	// --- Site creation helpers + create ---------------------------------------
 	// Pure server-side filesystem logic (the server runs on the user's machine),
 	// plus the CLI `create`. The browser has no native folder picker, so the UI
@@ -776,6 +835,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				adminPassword?: string;
 				adminEmail?: string;
 				skipStart?: boolean;
+				flowType?: TracksSiteCreateFlowType;
 				// Optional Blueprint to apply on creation: `blueprint` is the parsed
 				// blueprint JSON; `filePath` (set for uploaded ZIP bundles) lets the
 				// CLI resolve relative assets.
@@ -806,6 +866,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 					adminPassword: body.adminPassword,
 					adminEmail: body.adminEmail,
 					noStart: body.skipStart,
+					flowType: body.flowType,
 					blueprint: body.blueprint?.blueprint,
 					originalBlueprintPath: body.blueprint?.filePath,
 				} );

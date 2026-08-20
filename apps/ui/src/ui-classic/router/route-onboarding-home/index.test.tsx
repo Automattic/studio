@@ -31,6 +31,11 @@ vi.mock( '@/hooks/use-offline', () => ( {
 	useOffline: () => mocks.isOffline,
 } ) );
 
+const useAgenticFeaturesMock = vi.fn( () => ( { chatEnabled: true } ) );
+vi.mock( '@/data/queries/use-agentic-features', () => ( {
+	useAgenticFeatures: () => useAgenticFeaturesMock(),
+} ) );
+
 describe( 'OnboardingHomePage', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
@@ -46,7 +51,7 @@ describe( 'OnboardingHomePage', () => {
 		expect(
 			screen.getByText( 'Start fresh or bring an existing site into your Studio.' )
 		).toBeInTheDocument();
-		const create = screen.getByRole( 'link', { name: /Create a new site/ } );
+		const create = screen.getByRole( 'link', { name: /Create a site/ } );
 		const connect = screen.getByRole( 'link', { name: /Connect a site/ } );
 		const importBackup = screen.getByRole( 'button', { name: /Import from a backup/ } );
 
@@ -57,6 +62,17 @@ describe( 'OnboardingHomePage', () => {
 		expect( connect.compareDocumentPosition( importBackup ) ).toBe(
 			Node.DOCUMENT_POSITION_FOLLOWING
 		);
+	} );
+
+	it( 'describes the create card differently when chat is disabled', () => {
+		useAgenticFeaturesMock.mockReturnValueOnce( { chatEnabled: false } );
+		render( <OnboardingHomePage /> );
+
+		expect(
+			screen.getByText(
+				'Start from scratch or use a Blueprint. Perfect for theme and plugin development.'
+			)
+		).toBeInTheDocument();
 	} );
 
 	it( 'marks Connect unavailable while offline', () => {

@@ -213,6 +213,11 @@ For long CSS or page-content files (>~200 lines), load the \`block-content\` ski
 - wp_cli: Run WP-CLI commands on a running site
 - refresh_browser: Reload the in-app site preview so the user sees your latest changes. Reloads in place; never stop/start the site to refresh the preview.
 - scaffold_theme: Scaffold a minimal block theme (style.css, theme.json, functions.php with frontend + editor enqueue, default templates and parts, empty assets/fonts and patterns dirs) into a site and activate it. Use as the first step when starting a new custom theme; the agent fills design-specific content afterwards. Pass parentTheme with an installed theme's slug to scaffold a child theme instead of editing that theme's files. Block themes only.
+- design_project_status: Read the persistent AI design-project phase, brief, artifacts, and selection.
+- design_project_wait: Wait for parallel design workers to register the requested number of artifacts.
+- design_artifact_finalize: Safely finalize and register a generated HTML design direction in the gallery.
+- design_artifact_accept: Accept the selected immutable design after an explicit user decision.
+- materialize_design_artifact: Convert the accepted design into an editable native WordPress site with Static Site Importer.
 - validate_blocks: Validate block content in two stages and return a combined report. First a static core/html policy check; if it finds invalid core/html blocks it returns only those (rewrite them as editable core or plugin blocks and call again) and skips the editor. Once it passes, validates in the running site's real block editor: with filePath, applies safe editor fixes directly to the file and returns a CSS-review diff; with inline content, returns exact fixed block content plus the diff. Requires a site name or path. Call after every file write/edit that contains block content.
 - take_screenshot: Take a full-page screenshot of a URL (supports desktop, mobile, or \`viewport: "all"\` for both). Use this to visually check the site after building it.
 - inspect_design: Inspect the rendered DOM and computed styles of a page by CSS selector to root-cause visual issues. Pair with take_screenshot when verifying or polishing a design.
@@ -305,6 +310,8 @@ const REMOTE_DESIGN_GUIDELINES = `## Design capabilities by plan
 const PLAN_DATA_GUARDRAIL = `For ANY question about WordPress.com or Pressable plans, pricing, upgrades, or what a plan tier includes (plugins, themes, custom code, SSH, hosting, storage, etc.), you MUST load the \`hosting-plans-helper\` skill and answer only from the data it fetches. Do NOT answer from memory: your training knowledge of plan names, prices, and feature-tier gating is stale and frequently wrong. In particular, do not claim a tier lacks a feature (e.g. that Personal or Premium cannot install plugins) based on memory — check the fetched per-tier feature list, which is the only source of truth. If you cannot fetch the data, say you cannot verify current plan details and point the user to https://wordpress.com/pricing; never guess.`;
 
 const LOCAL_SKILL_ROUTING = `## Skill routing
+
+For a Studio Create with AI design project, load the \`site-creator\` skill first and follow the complete workflow returned by the Skill tool. Do not search the user's site or filesystem for the skill or any reference files.
 
 For any site creation, redesign, landing page, homepage, layout, style, CSS, typography, color, or motion work, load the \`visual-design\` skill before writing design files or block markup.
 

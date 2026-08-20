@@ -1,0 +1,278 @@
+.root,
+.tabsRoot,
+.content,
+.option {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	min-height: 0;
+	height: 100%;
+}
+
+.root {
+	background: var( --wpds-color-bg-surface-neutral );
+	color: var( --wpds-color-fg-content-neutral );
+}
+
+.content {
+	flex: 1;
+}
+
+.overview {
+	position: relative;
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+	padding: var( --wpds-dimension-padding-2xl );
+	background: var( --wpds-color-bg-surface-neutral );
+}
+
+.overviewContent {
+	position: relative;
+	z-index: 1;
+	width: 100%;
+	max-width: 1280px;
+	margin-inline: auto;
+}
+
+.overviewGrid {
+	position: absolute;
+	inset: 0;
+	color: var( --wpds-color-fg-content-neutral );
+	pointer-events: none;
+}
+
+.grid {
+	display: grid;
+	grid-template-columns: repeat( auto-fit, minmax( min( 360px, 100% ), 1fr ) );
+	gap: var( --wpds-dimension-padding-xl );
+	align-items: start;
+}
+
+.grid > .card {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	padding: 0;
+	border: 0;
+	border-radius: 0;
+	background: transparent;
+	color: var( --wpds-color-fg-content-neutral );
+	box-shadow: none;
+	font: inherit;
+	text-align: start;
+	cursor: pointer;
+}
+
+.card:focus-visible {
+	outline: var( --wpds-border-width-focus ) solid var( --wpds-color-stroke-focus-brand );
+	outline-offset: 2px;
+}
+
+.cardPreview {
+	position: relative;
+	width: 100%;
+	aspect-ratio: 16 / 11;
+	overflow: hidden;
+	background: var( --wpds-color-bg-surface-neutral-strong );
+	pointer-events: none;
+}
+
+.cardPreview iframe {
+	position: absolute;
+	inset: 0;
+	width: 160%;
+	height: 160%;
+	border: 0;
+	background: white;
+	transform: scale( 0.625 );
+	transform-origin: top left;
+}
+
+.cardPreview iframe:dir( rtl ) {
+	transform-origin: top right;
+}
+
+.cardDetails {
+	display: flex;
+	align-items: center;
+	min-height: 32px;
+	padding: var( --wpds-dimension-padding-xs ) 0;
+}
+
+.optionDetails span {
+	color: var( --wpds-color-fg-content-neutral-weak );
+	font-size: var( --wpds-typography-font-size-sm );
+}
+
+.cardDetails strong {
+	font-size: var( --wpds-typography-font-size-md );
+}
+
+.option {
+	flex: 1;
+}
+
+.browser {
+	position: relative;
+	flex: 1;
+	min-height: 0;
+}
+
+.building {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: var( --wpds-dimension-padding-md );
+	padding: var( --wpds-dimension-padding-xl );
+	background: color-mix( in srgb, var( --wpds-color-bg-surface-neutral ) 88%, transparent );
+	font-weight: 500;
+	text-align: center;
+}
+
+.footer {
+	position: absolute;
+	bottom: var( --wpds-dimension-padding-lg );
+	left: 50%;
+	z-index: 4;
+	display: flex;
+	align-items: center;
+	gap: var( --wpds-dimension-padding-lg );
+	box-sizing: border-box;
+	width: min( calc( 100% - var( --wpds-dimension-padding-2xl ) ), 640px );
+	padding: var( --wpds-dimension-padding-md ) var( --wpds-dimension-padding-lg );
+	border: var( --wpds-border-width-xs ) solid var( --wpds-color-stroke-surface-neutral );
+	border-radius: var( --wpds-border-radius-md );
+	background: color-mix( in srgb, var( --wpds-color-bg-surface-neutral-strong ) 94%, transparent );
+	box-shadow: var( --wpds-elevation-md );
+	transform: translateX( -50% );
+	-webkit-backdrop-filter: blur( 16px );
+	backdrop-filter: blur( 16px );
+}
+
+.optionDetails {
+	display: flex;
+	flex: 1;
+	min-width: 0;
+	flex-direction: column;
+}
+
+.optionDetails strong,
+.optionDetails span {
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.optionDetails strong {
+	white-space: nowrap;
+}
+
+.optionDetails span {
+	line-height: var( --wpds-typography-line-height-sm );
+}
+
+.actionError {
+	margin: 0;
+	color: var( --wpds-color-fg-content-error );
+	font-size: var( --wpds-typography-font-size-sm );
+}
+
+.empty {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	height: 100%;
+	padding: var( --wpds-dimension-padding-2xl );
+	background: var( --wpds-color-bg-surface-neutral );
+	color: var( --wpds-color-fg-content-neutral );
+	text-align: center;
+	overflow: hidden;
+}
+
+.emptyCopy {
+	position: relative;
+	z-index: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: min( 680px, calc( 100% - var( --wpds-dimension-padding-2xl ) ) );
+	min-height: 230px;
+}
+
+.emptyFrost {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	-webkit-backdrop-filter: blur( var( --empty-frost-radius ) );
+	backdrop-filter: blur( var( --empty-frost-radius ) );
+	-webkit-mask-image: radial-gradient( ellipse at center, black 0%, black var( --empty-frost-hold ), transparent 76% );
+	mask-image: radial-gradient( ellipse at center, black 0%, black var( --empty-frost-hold ), transparent 76% );
+}
+
+.emptyFrostSoft {
+	--empty-frost-radius: 2px;
+	--empty-frost-hold: 8%;
+}
+
+.emptyFrostMedium {
+	--empty-frost-radius: 6px;
+	--empty-frost-hold: 18%;
+}
+
+.emptyFrostStrong {
+	--empty-frost-radius: 14px;
+	--empty-frost-hold: 30%;
+}
+
+.emptyFrostIntense {
+	--empty-frost-radius: 28px;
+	--empty-frost-hold: 42%;
+}
+
+.emptyCopyContent {
+	position: relative;
+	display: flex;
+	align-items: center;
+	flex-direction: column;
+	max-width: 560px;
+	padding: var( --wpds-dimension-padding-2xl );
+}
+
+.emptyCopyContent h2 {
+	margin: var( --wpds-dimension-padding-lg ) 0 var( --wpds-dimension-padding-xs );
+}
+
+.emptyCopyContent p {
+	margin: 0;
+	color: var( --wpds-color-fg-content-neutral-weak );
+}
+
+@media ( prefers-reduced-transparency: reduce ) {
+	.emptyCopy {
+		border-radius: var( --wpds-border-radius-lg );
+		background: var( --wpds-color-bg-surface-neutral );
+	}
+
+	.emptyFrost {
+		display: none;
+	}
+}
+
+@media ( max-width: 720px ) {
+	.overview {
+		padding: var( --wpds-dimension-padding-lg );
+	}
+
+	.footer {
+		align-items: stretch;
+		flex-direction: column;
+	}
+
+	.footer button {
+		align-self: flex-end;
+	}
+}

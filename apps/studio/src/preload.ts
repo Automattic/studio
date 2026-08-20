@@ -99,6 +99,11 @@ const api: IpcApi = {
 	installAppUpdate: () => ipcRendererInvoke( 'installAppUpdate' ),
 	getWpVersion: ( id ) => ipcRendererInvoke( 'getWpVersion', id ),
 	getSiteStorageUsage: ( id ) => ipcRendererInvoke( 'getSiteStorageUsage', id ),
+	initializeDesignProjectForSite: ( siteId, brief, sessionId ) =>
+		ipcRendererInvoke( 'initializeDesignProjectForSite', siteId, brief, sessionId ),
+	getDesignProjectForSite: ( siteId ) => ipcRendererInvoke( 'getDesignProjectForSite', siteId ),
+	selectDesignArtifactForSite: ( siteId, artifactId ) =>
+		ipcRendererInvoke( 'selectDesignArtifactForSite', siteId, artifactId ),
 	getIsMultisite: ( id ) => ipcRendererInvoke( 'getIsMultisite', id ),
 	fetchSiteRestApi: ( siteId, request ) => ipcRendererInvoke( 'fetchSiteRestApi', siteId, request ),
 	generateProposedSitePath: ( siteName ) =>

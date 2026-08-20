@@ -2,6 +2,7 @@ import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { createRoute, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
 import { useCallback, useEffect, useState } from 'react';
+import { DesignGallery } from '@/components/design-gallery';
 import {
 	PreviewSplitFrame,
 	type PreviewSplitFramePreviewProps,
@@ -15,6 +16,7 @@ import { useOrientationReplay } from '@/data/onboarding/use-orientation-replay';
 import { useWhatsNewAutostart } from '@/data/onboarding/use-whats-new-autostart';
 import { useWhatsNewReplay } from '@/data/onboarding/use-whats-new-replay';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
+import { useDesignProject } from '@/data/queries/use-design-project';
 import { useSession, useSessionEffectiveEnvironment } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
 import {
@@ -150,6 +152,8 @@ function DashboardLayoutContent() {
 		: undefined;
 	const previewSite = routeSite ?? lastPreviewSite;
 	const previewSiteId = previewSite?.id;
+	const { data: designProject } = useDesignProject( previewSiteId );
+	const showDesignGallery = !! designProject && designProject.phase !== 'materialized';
 	const { setSite: setPreviewSite } = preview;
 	useEffect( () => {
 		if ( previewSiteId ) {
@@ -175,7 +179,17 @@ function DashboardLayoutContent() {
 	);
 	const renderPreview = useCallback(
 		( { collapsed }: PreviewSplitFramePreviewProps ) =>
-			previewSite ? (
+			previewSite && showDesignGallery ? (
+				<DesignGallery
+					site={ previewSite }
+					project={ designProject }
+					sessionId={ sessionId }
+					onAnnotationsDone={ onAnnotationsDone }
+					collapsed={ collapsed }
+					fullscreen={ previewFullscreen }
+					onFullscreenChange={ setPreviewFullscreen }
+				/>
+			) : previewSite ? (
 				<SitePreview
 					site={ previewSite }
 					path={ previewPath }
@@ -194,7 +208,10 @@ function DashboardLayoutContent() {
 			preview.reloadNonce,
 			preview.updatePath,
 			previewSite,
+			designProject,
+			sessionId,
 			setPreviewFullscreen,
+			showDesignGallery,
 		]
 	);
 	const activeWorkspaceView = sessionId ? 'chat' : overviewSiteId ? 'overview' : undefined;

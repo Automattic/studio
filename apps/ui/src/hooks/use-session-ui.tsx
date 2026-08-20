@@ -13,6 +13,16 @@ import {
 import { useConnector } from '@/data/core';
 import type { Annotation } from '@/components/site-preview/types';
 
+export interface AnnotationSubmissionContext {
+	designArtifactId: string;
+	designArtifactLabel: string;
+}
+
+export type SessionPreviewAnnotationsHandler = (
+	annotations: Annotation[],
+	context?: AnnotationSubmissionContext
+) => void;
+
 // Dashboard-scoped UI store (mounted once in the dashboard layout, shared by
 // every route under it). Holds the slices of UI state that the chat agent
 // can influence (preview panel today; future: composer, conversation pane,
@@ -141,7 +151,7 @@ const SessionUIDispatchContext = createContext< Dispatch< SessionUIAction > | nu
 // Ref (not state) so registering/unregistering the handler never re-renders
 // the tree; the dashboard-level preview reads it lazily on submit.
 const SessionUIPreviewAnnotationsContext = createContext< MutableRefObject<
-	( ( annotations: Annotation[] ) => void ) | undefined
+	SessionPreviewAnnotationsHandler | undefined
 > | null >( null );
 
 export function SessionUIProvider( { children }: { children: ReactNode } ) {
@@ -255,7 +265,7 @@ export function useSessionPreviewUI(): SessionPreviewUI {
 // with the shared store, so the dashboard-level preview can submit
 // annotations to whichever session is currently displayed.
 export function useSessionPreviewAnnotations(
-	onAnnotationsDone: ( annotations: Annotation[] ) => void,
+	onAnnotationsDone: SessionPreviewAnnotationsHandler,
 	enabled: boolean
 ): void {
 	const ref = useContext( SessionUIPreviewAnnotationsContext );
@@ -275,12 +285,16 @@ export function useSessionPreviewAnnotations(
 	}, [ enabled, onAnnotationsDone, ref ] );
 }
 
-export function useSessionPreviewAnnotationsHandler(): ( annotations: Annotation[] ) => void {
+export function useSessionPreviewAnnotationsHandler(): SessionPreviewAnnotationsHandler {
 	const ref = useContext( SessionUIPreviewAnnotationsContext );
 	if ( ! ref ) {
 		throw new Error(
 			'useSessionPreviewAnnotationsHandler must be used within a SessionUIProvider'
 		);
 	}
-	return useCallback( ( annotations: Annotation[] ) => ref.current?.( annotations ), [ ref ] );
+	return useCallback(
+		( annotations: Annotation[], context?: AnnotationSubmissionContext ) =>
+			ref.current?.( annotations, context ),
+		[ ref ]
+	);
 }

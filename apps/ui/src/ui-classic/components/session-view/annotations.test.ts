@@ -58,4 +58,15 @@ describe( 'formatAnnotationsAsPrompt', () => {
 		expect( prompt ).toContain( '- Page: /pricing' );
 		expect( prompt ).toContain( '- Page: /about' );
 	} );
+
+	it( 'carries the exact design artifact into a refinement request', () => {
+		const prompt = formatAnnotationsAsPrompt(
+			[ { id: 'a_1', comment: 'Increase the contrast', tag: 'h1' } ],
+			{ designArtifactId: 'direction-4-abc123', designArtifactLabel: 'VHS Terminal' }
+		);
+
+		expect( prompt ).toContain( 'exact artifact ID `direction-4-abc123`' );
+		expect( prompt ).toContain( 'parentArtifactId: "direction-4-abc123"' );
+		expect( prompt ).toContain( 'keep the label "VHS Terminal" without a version suffix' );
+	} );
 } );

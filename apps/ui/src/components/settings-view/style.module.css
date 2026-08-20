@@ -918,6 +918,28 @@
 	align-self: flex-start;
 }
 
+.aiCreditsHeading {
+	display: flex;
+	align-items: center;
+	gap: var( --wpds-dimension-padding-xs );
+}
+
+.aiCreditsDetailsButton {
+	flex: none;
+}
+
+.aiCreditsDetailsButton svg {
+	inline-size: 16px;
+	block-size: 16px;
+}
+
+.creditBalances {
+	display: flex;
+	flex-direction: column;
+	gap: var( --wpds-dimension-padding-xs );
+	font-variant-numeric: tabular-nums;
+}
+
 .aiCreditsTrack {
 	position: relative;
 	background: color-mix(

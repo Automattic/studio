@@ -8,6 +8,10 @@ export const ADD_PAYMENT_METHOD_URL = 'https://my.wordpress.com/me/billing/payme
 
 export const WPCOM_SUPPORT_CONTACT_URL = 'https://wordpress.com/support/contact/';
 
+// Placeholder until the WordPress.com checkout page for Studio AI credits
+// exists (STU-2292).
+export const ADD_AI_CREDITS_URL = 'https://wordpress.com/checkout/studio-ai-credits';
+
 export const studioAssistantQuotaSchema = z
 	.object( {
 		cost_usage: z.number(),
@@ -24,6 +28,12 @@ export const studioAssistantQuotaSchema = z
 		// server-side values never fail the parse).
 		studio_code_ai_has_access: z.boolean().optional(),
 		studio_code_ai_access: z.string().optional(),
+		// Remaining AI credits per pool (STU-2235). The server omits both fields
+		// when the AI Credits feature is off for the account — the UI keys the
+		// credit-balance design off their presence, so `undefined` (not 0) must
+		// mean "feature off, keep the old design".
+		allowance_remaining: z.number().optional(),
+		purchased_remaining: z.number().optional(),
 	} )
 	.transform( ( data ) => ( {
 		costUsage: data.cost_usage,
@@ -33,6 +43,8 @@ export const studioAssistantQuotaSchema = z
 		hasPaymentMethod: data.has_payment_method ?? true,
 		studioCodeAiHasAccess: data.studio_code_ai_has_access,
 		studioCodeAiAccess: data.studio_code_ai_access,
+		allowanceRemaining: data.allowance_remaining,
+		purchasedRemaining: data.purchased_remaining,
 	} ) );
 
 export type StudioAssistantQuota = z.infer< typeof studioAssistantQuotaSchema >;

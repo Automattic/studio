@@ -13,8 +13,6 @@ import {
 	useIsSiteStarting,
 	useIsSiteStopping,
 	useSites,
-	useStartSite,
-	useStopSite,
 	useToggleSiteRunning,
 	useUpdateSitesSortOrder,
 } from '@/data/queries/use-sites';
@@ -64,8 +62,6 @@ vi.mock( '@/data/queries/use-sites', () => ( {
 	useIsSiteStarting: vi.fn(),
 	useIsSiteStopping: vi.fn(),
 	useSites: vi.fn(),
-	useStartSite: vi.fn(),
-	useStopSite: vi.fn(),
 	useToggleSiteRunning: vi.fn(),
 	useUpdateSitesSortOrder: vi.fn(),
 } ) );
@@ -98,8 +94,6 @@ const useIsSiteStoppingMock = vi.mocked( useIsSiteStopping );
 const useSiteAgentActivityMock = vi.mocked( useSiteAgentActivity );
 const useSessionsMock = vi.mocked( useSessions, { partial: true } );
 const useSitesMock = vi.mocked( useSites, { partial: true } );
-const useStartSiteMock = vi.mocked( useStartSite, { partial: true } );
-const useStopSiteMock = vi.mocked( useStopSite, { partial: true } );
 const useToggleSiteRunningMock = vi.mocked( useToggleSiteRunning );
 const useUpdateSitesSortOrderMock = vi.mocked( useUpdateSitesSortOrder, { partial: true } );
 const useSiteSyncActivityMock = vi.mocked( useSiteSyncActivity );
@@ -137,14 +131,24 @@ describe( 'SiteList', () => {
 		useDeleteSiteMock.mockReturnValue( { isPending: false, mutate: vi.fn() } );
 		useExportDatabaseMock.mockReturnValue( { isPending: false, mutate: vi.fn() } );
 		useExportFullSiteMock.mockReturnValue( { isPending: false, mutate: vi.fn() } );
-		useStartSiteMock.mockReturnValue( { isPending: false, mutate: startSite } );
-		useStopSiteMock.mockReturnValue( { isPending: false, mutate: stopSite } );
-		// Mirrors the real hook's behavior over the startSite/stopSite spies so
-		// assertions on those keep working.
-		useToggleSiteRunningMock.mockImplementation( ( site ) => ( {
-			busy: false,
-			toggle: () => ( site.running ? stopSite( site.id ) : startSite( site.id ) ),
-		} ) );
+		// Mirrors the real hook's behavior over the startSite/stopSite spies —
+		// including the busy no-op — so assertions on those keep working.
+		useToggleSiteRunningMock.mockImplementation( ( site ) => {
+			const busy = useIsSiteBusyMock( site );
+			return {
+				busy,
+				toggle: () => {
+					if ( busy ) {
+						return;
+					}
+					if ( site.running ) {
+						stopSite( site.id );
+					} else {
+						startSite( site.id );
+					}
+				},
+			};
+		} );
 		useUpdateSitesSortOrderMock.mockReturnValue( {
 			isPending: false,
 			mutate: updateSitesSortOrder,
@@ -212,6 +216,20 @@ describe( 'SiteList', () => {
 
 		expect( runningButton.querySelectorAll( 'svg' ) ).toHaveLength( 1 );
 		expect( actionGlyph?.querySelector( 'span' ) ).toBeInTheDocument();
+	} );
+
+	it( 'does not start or stop a site while it is busy', () => {
+		useIsSiteBusyMock.mockReturnValue( true );
+		render( <SiteList /> );
+
+		// Busy drops the action suffix from the label (see getSiteStatusName).
+		const stoppedButton = screen.getByRole( 'button', { name: 'Site status: Stopped' } );
+		expect( stoppedButton ).toHaveAttribute( 'aria-disabled', 'true' );
+
+		fireEvent.click( stoppedButton );
+
+		expect( startSite ).not.toHaveBeenCalled();
+		expect( stopSite ).not.toHaveBeenCalled();
 	} );
 
 	it( 'opens site actions from a row right-click without opening the latest chat', async () => {

@@ -472,15 +472,13 @@ function SiteActionsMenu( {
 					onClick={ stopMenuEventPropagation }
 					onPointerDown={ stopMenuEventPropagation }
 				>
-					{ site.running ? (
-						<Menu.Item disabled={ busy } onClick={ toggle }>
-							{ __( 'Stop site' ) }
-						</Menu.Item>
-					) : (
-						<Menu.Item disabled={ busy } onClick={ toggle }>
-							{ isStarting ? __( 'Starting…' ) : __( 'Start site' ) }
-						</Menu.Item>
-					) }
+					<Menu.Item disabled={ busy } onClick={ toggle }>
+						{ site.running
+							? __( 'Stop site' )
+							: isStarting
+							? __( 'Starting…' )
+							: __( 'Start site' ) }
+					</Menu.Item>
 					<Menu.Separator />
 					<Menu.Item
 						onClick={ () => {

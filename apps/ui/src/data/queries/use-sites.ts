@@ -310,8 +310,9 @@ export function useIsSiteBusy( site: SiteDetails | undefined ): boolean {
 }
 
 /**
- * The start/stop toggle every site control shares: no-ops while the site is
- * busy, otherwise starts a stopped site and stops a running one.
+ * The start/stop toggle the sidebar's status button and row menu share:
+ * no-ops while the site is busy, otherwise starts a stopped site and stops a
+ * running one.
  */
 export function useToggleSiteRunning( site: SiteDetails ): { busy: boolean; toggle: () => void } {
 	const startSite = useStartSite();

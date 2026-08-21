@@ -348,9 +348,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const [ isResizingComposer, setIsResizingComposer ] = useState( false );
 	const textareaRef = useRef< HTMLTextAreaElement | null >( null );
 	const fileInputRef = useRef< HTMLInputElement | null >( null );
-	const latestDraftRef = useRef( initialDraft );
 	const draftEffectInitializedRef = useRef( false );
-	const draftChangedRef = useRef( false );
 	const manualTextareaHeightRef = useRef< number | null >( null );
 	const resizeDragRef = useRef< { startY: number; startHeight: number } | null >( null );
 	const connector = useConnector();
@@ -400,23 +398,12 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const hasAttachments = attachments.length > 0;
 
 	useEffect( () => {
-		const draft = { text: value, attachments };
-		latestDraftRef.current = draft;
 		if ( draftEffectInitializedRef.current ) {
-			draftChangedRef.current = true;
-			saveComposerDraft( sessionId, draft );
+			saveComposerDraft( sessionId, { text: value, attachments } );
 		} else {
 			draftEffectInitializedRef.current = true;
 		}
 	}, [ attachments, sessionId, value ] );
-	useEffect(
-		() => () => {
-			if ( draftChangedRef.current ) {
-				saveComposerDraft( sessionId, latestDraftRef.current );
-			}
-		},
-		[ sessionId ]
-	);
 
 	// Cross-family swap state. We hold the picked model here while the
 	// confirmation dialog is open; nothing is persisted until the user
@@ -525,6 +512,9 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			// surfaces the error message via `error`. Queued sends never throw from
 			// onSend (the parent swallows the failure and clears the queue instead),
 			// so this path only trips for direct sends from the idle state.
+			// Saved directly (not left to the state-sync effect) so the retry isn't
+			// lost if the user already switched away from this session.
+			saveComposerDraft( sessionId, { text: trimmed, attachments: sentAttachments } );
 			setValue( trimmed );
 			restoreAttachments( sentAttachments );
 		}

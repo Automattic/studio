@@ -341,6 +341,47 @@ describe( 'Composer menu', () => {
 		expect( screen.getByRole( 'combobox' ) ).toHaveValue( '' );
 	} );
 
+	it( 'restores the cached draft after a failed send', async () => {
+		const onSend = vi.fn().mockRejectedValue( new Error( 'network error' ) );
+		const firstRender = renderComposer( { onSend } );
+		fireEvent.change( screen.getByRole( 'combobox' ), {
+			target: { value: 'Retry this draft' },
+		} );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Send' } ) );
+		await waitFor( () =>
+			expect( screen.getByRole( 'combobox' ) ).toHaveValue( 'Retry this draft' )
+		);
+		firstRender.unmount();
+
+		renderComposer();
+		expect( screen.getByRole( 'combobox' ) ).toHaveValue( 'Retry this draft' );
+	} );
+
+	it( 'caches a failed send for retry even if the session was switched away first', async () => {
+		let rejectSend: ( error: Error ) => void = () => {};
+		const onSend = vi.fn(
+			() =>
+				new Promise< void >( ( _resolve, reject ) => {
+					rejectSend = reject;
+				} )
+		);
+		const firstRender = renderComposer( { onSend } );
+		fireEvent.change( screen.getByRole( 'combobox' ), {
+			target: { value: 'Retry after switching away' },
+		} );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Send' } ) );
+		await waitFor( () => expect( onSend ).toHaveBeenCalled() );
+
+		firstRender.unmount();
+		await act( async () => {
+			rejectSend( new Error( 'network error' ) );
+			await Promise.resolve();
+		} );
+
+		renderComposer();
+		expect( screen.getByRole( 'combobox' ) ).toHaveValue( 'Retry after switching away' );
+	} );
+
 	it( 'grows, clamps, and shrinks the textarea with draft content', async () => {
 		Object.defineProperty( window, 'innerHeight', {
 			configurable: true,

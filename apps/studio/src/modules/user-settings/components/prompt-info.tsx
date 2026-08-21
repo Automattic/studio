@@ -1,15 +1,19 @@
 import {
+	ADD_AI_CREDITS_URL,
 	clampQuotaFraction,
 	formatQuotaPercentage,
 	formatQuotaResetDate,
 	getStudioCodeAiAccessState,
 } from '@studio/common/lib/studio-assistant-quota';
 import { sprintf } from '@wordpress/i18n';
+import { external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { AiAccessRequiredNotice, AiBlockedNotice } from 'src/components/ai-access-required-notice';
+import Button from 'src/components/button';
 import ProgressBar from 'src/components/progress-bar';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useI18nLocale } from 'src/stores';
 import { useGetStudioAssistantQuota } from 'src/stores/wpcom-api';
 
@@ -29,9 +33,6 @@ export function PromptInfo() {
 			? getStudioCodeAiAccessState( assistantQuota )
 			: 'available';
 	const isDenied = accessState !== 'available';
-	// The server includes the per-pool balances only when AI credits are
-	// enabled for the account (STU-2235); their absence — not a 0 — means the
-	// pre-credits monthly-limit design should render.
 	const creditBalances =
 		assistantQuota &&
 		! isOffline &&
@@ -79,7 +80,7 @@ export function PromptInfo() {
 								) }
 								{ ! isOffline && ! isDenied && isLoading && __( 'Loading Studio Code limits…' ) }
 								{ creditBalances && (
-									<span className="flex flex-col gap-1 tabular-nums">
+									<span className="flex flex-col gap-1 tabular-nums text-left">
 										{ creditBalances.allowance > 0 && (
 											<span>
 												{ sprintf(
@@ -126,6 +127,18 @@ export function PromptInfo() {
 							value={ assistantQuotaWithCostCap.costUsage }
 							maxValue={ assistantQuotaWithCostCap.costCap }
 						/>
+					) }
+					{ creditBalances && (
+						<Button
+							className="self-start"
+							variant="secondary"
+							icon={ external }
+							iconPosition="right"
+							iconSize={ 16 }
+							onClick={ () => void getIpcApi().openURL( ADD_AI_CREDITS_URL ) }
+						>
+							{ __( 'Add AI credits' ) }
+						</Button>
 					) }
 				</div>
 				<div className="h-6 w-6"></div>

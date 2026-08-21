@@ -1,15 +1,19 @@
 import {
+	ADD_AI_CREDITS_URL,
 	clampQuotaFraction,
 	formatQuotaPercentage,
 	formatQuotaResetDate,
 	getStudioCodeAiAccessState,
 } from '@studio/common/lib/studio-assistant-quota';
 import { sprintf } from '@wordpress/i18n';
+import { external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { AiAccessRequiredNotice, AiBlockedNotice } from 'src/components/ai-access-required-notice';
+import Button from 'src/components/button';
 import ProgressBar from 'src/components/progress-bar';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useI18nLocale } from 'src/stores';
 import { useGetStudioAssistantQuota } from 'src/stores/wpcom-api';
 
@@ -29,8 +33,25 @@ export function PromptInfo() {
 			? getStudioCodeAiAccessState( assistantQuota )
 			: 'available';
 	const isDenied = accessState !== 'available';
+	const creditBalances =
+		assistantQuota &&
+		! isOffline &&
+		! isError &&
+		! isDenied &&
+		( assistantQuota.allowanceRemaining !== undefined ||
+			assistantQuota.purchasedRemaining !== undefined )
+			? {
+					allowance: assistantQuota.allowanceRemaining ?? 0,
+					purchased: assistantQuota.purchasedRemaining ?? 0,
+			  }
+			: undefined;
 	const assistantQuotaWithCostCap =
-		assistantQuota && assistantQuota.costCap > 0 && ! isOffline && ! isError && ! isDenied
+		assistantQuota &&
+		assistantQuota.costCap > 0 &&
+		! isOffline &&
+		! isError &&
+		! isDenied &&
+		! creditBalances
 			? assistantQuota
 			: undefined;
 	const usedPercentage = assistantQuotaWithCostCap
@@ -42,6 +63,7 @@ export function PromptInfo() {
 				locale
 		  )
 		: '';
+	const credits = new Intl.NumberFormat( locale );
 
 	return (
 		<div className="flex gap-3 flex-col">
@@ -57,6 +79,26 @@ export function PromptInfo() {
 									<AiAccessRequiredNotice quota={ assistantQuota } />
 								) }
 								{ ! isOffline && ! isDenied && isLoading && __( 'Loading Studio Code limits…' ) }
+								{ creditBalances && (
+									<span className="flex flex-col gap-1 tabular-nums text-left">
+										{ creditBalances.allowance > 0 && (
+											<span>
+												{ sprintf(
+													/* translators: %s: number of free AI credits remaining (e.g. 960,000). */
+													__( 'Free credits remaining: %s' ),
+													credits.format( creditBalances.allowance )
+												) }
+											</span>
+										) }
+										<span>
+											{ sprintf(
+												/* translators: %s: number of purchased AI credits remaining (e.g. 150,000). */
+												__( 'Purchased credits remaining: %s' ),
+												credits.format( creditBalances.purchased )
+											) }
+										</span>
+									</span>
+								) }
 								{ assistantQuotaWithCostCap &&
 									( assistantQuotaWithCostCap.costResetDate
 										? sprintf(
@@ -74,6 +116,7 @@ export function PromptInfo() {
 									! isOffline &&
 									! isDenied &&
 									! assistantQuotaWithCostCap &&
+									! creditBalances &&
 									__( 'Studio Code limits are temporarily unavailable.' ) }
 							</span>
 						</div>
@@ -84,6 +127,18 @@ export function PromptInfo() {
 							value={ assistantQuotaWithCostCap.costUsage }
 							maxValue={ assistantQuotaWithCostCap.costCap }
 						/>
+					) }
+					{ creditBalances && (
+						<Button
+							className="self-start"
+							variant="secondary"
+							icon={ external }
+							iconPosition="right"
+							iconSize={ 16 }
+							onClick={ () => void getIpcApi().openURL( ADD_AI_CREDITS_URL ) }
+						>
+							{ __( 'Add AI credits' ) }
+						</Button>
 					) }
 				</div>
 				<div className="h-6 w-6"></div>

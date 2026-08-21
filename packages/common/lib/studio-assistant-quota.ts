@@ -11,21 +11,38 @@ export const WPCOM_SUPPORT_CONTACT_URL = 'https://wordpress.com/support/contact/
 // Deeplink host checkout returns to once the top-up completes or is cancelled,
 // handled by `ai-credits-purchased` in the desktop deeplink router. Checkout
 // builds the full `wp-studio://` URL itself, so only the host travels in the
-// `studioReturnTo` parameter. Unreachable from `studio ui` in a browser, which
-// has no custom scheme.
+// `studioReturnTo` parameter.
 export const AI_CREDITS_PURCHASED_RETURN_TO = 'ai-credits-purchased';
 
-// Checkout requires a site id, but a credits top-up isn't tied to a site — this
-// placeholder satisfies the parameter without pointing anywhere.
+// Checkout wants a site id alongside the return destination, but a credits
+// top-up isn't tied to a site — this placeholder satisfies the parameter
+// without pointing anywhere.
 const CHECKOUT_PLACEHOLDER_SITE_ID = 'b4b08783-91cd-4aa1-b2ee-28575c26a762';
 
 // WordPress.com checkout for a Studio Code AI credits top-up (STU-2299). The
 // `:-q-<n>` suffix is checkout's quantity syntax, in the same 1/10000 USD units
 // the quota reports — 100000 is the $10 top-up, the only one offered in v1.
+// Bare by default: checkout stays on WordPress.com when it's done.
 export const ADD_AI_CREDITS_URL =
-	'https://wordpress.com/checkout/wpcom/studio-code-ai-credits:-q-100000' +
-	`?studioSiteId=${ CHECKOUT_PLACEHOLDER_SITE_ID }` +
-	`&studioReturnTo=${ AI_CREDITS_PURCHASED_RETURN_TO }`;
+	'https://wordpress.com/checkout/wpcom/studio-code-ai-credits:-q-100000';
+
+/**
+ * Checkout URL for the surface the user is buying from. Only the desktop app
+ * registers the `wp-studio://` scheme, so only it may ask checkout to send the
+ * user back — the CLI has nothing to return to (see the OAuth flow, which uses
+ * a copy/paste page there for the same reason), and pointing a plain browser
+ * at an unopenable scheme is worse than leaving the user on WordPress.com.
+ * Everywhere else gets the bare URL, down to the return-only site id.
+ */
+export function getAddAiCreditsUrl( { returnsToDesktop }: { returnsToDesktop: boolean } ): string {
+	if ( ! returnsToDesktop ) {
+		return ADD_AI_CREDITS_URL;
+	}
+	return (
+		`${ ADD_AI_CREDITS_URL }?studioSiteId=${ CHECKOUT_PLACEHOLDER_SITE_ID }` +
+		`&studioReturnTo=${ AI_CREDITS_PURCHASED_RETURN_TO }`
+	);
+}
 
 export const studioAssistantQuotaSchema = z
 	.object( {

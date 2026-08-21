@@ -12,6 +12,7 @@ import {
 } from 'node:fs';
 import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path';
 import * as cheerio from 'cheerio';
+import { scopeCss } from './replicate/css-scope.js';
 import { MediaStubStore } from './resume-state/index.js';
 import { rewriteMediaUrls } from './streaming/media-url-rewrite.js';
 import type { CapturedResourceManifest } from './screenshot/resource-capture.js';
@@ -38,6 +39,7 @@ interface ExportCaptureOptions {
 	title?: string;
 	summary: Record< string, unknown >;
 	failures: Array< { url: unknown; error: unknown } >;
+	discoveryDiagnostics?: Array< { code: string; url: string; reason: string } >;
 }
 
 interface PortableDependency {
@@ -91,6 +93,30 @@ function routeOutputPath( url: string, sourceUrl: string, entrypointUrl: string 
 	if ( ! cleanPath ) return 'index.html';
 	if ( /\.[a-z0-9]+$/i.test( cleanPath ) ) return cleanPath;
 	return join( cleanPath, 'index.html' );
+}
+
+function rewriteCapturedRouteLinks(
+	html: string,
+	documentUrl: string,
+	routes: Map< string, string >
+): string {
+	const $ = cheerio.load( html );
+	$( 'a[href],area[href]' ).each( ( _index, element ) => {
+		const link = $( element );
+		const href = link.attr( 'href' ) ?? '';
+		if ( ! /^(?:https?:)?\/\//i.test( href ) ) return;
+
+		let resolved: URL;
+		try {
+			resolved = new URL( href, documentUrl );
+		} catch {
+			return;
+		}
+		const route = routes.get( normalizedUrl( resolved.href ) );
+		if ( ! route ) return;
+		link.attr( 'href', `${ route }${ resolved.search }${ resolved.hash }` );
+	} );
+	return $.html();
 }
 
 function replaceAll( content: string, replacements: Map< string, string > ): string {
@@ -191,15 +217,55 @@ const RESPONSIVE_DOCUMENT_CSS =
 
 function responsiveHtml( desktopHtml: string, mobileHtml: string ): string {
 	const desktopBody = /<body\b[^>]*>([\s\S]*?)<\/body\s*>/i.exec( desktopHtml )?.[ 1 ];
-	const mobileBody = /<body\b[^>]*>([\s\S]*?)<\/body\s*>/i.exec( mobileHtml )?.[ 1 ];
+	const mobileBodyMatch = /<body\b([^>]*)>([\s\S]*?)<\/body\s*>/i.exec( mobileHtml );
+	const mobileBody = mobileBodyMatch?.[ 2 ];
 	if ( desktopBody === undefined || mobileBody === undefined ) return desktopHtml;
 	if ( responsiveBodySignature( desktopBody ) === responsiveBodySignature( mobileBody ) )
 		return desktopHtml;
 
-	const responsiveBody = `<div class="data-liberation-desktop-document">${ desktopBody }</div><div class="data-liberation-mobile-document">${ mobileBody }</div>`;
-	return desktopHtml
-		.replace( /<\/head\s*>/i, `<style>${ RESPONSIVE_DOCUMENT_CSS }</style></head>` )
-		.replace( /(<body\b[^>]*>)[\s\S]*?(<\/body\s*>)/i, `$1${ responsiveBody }$2` );
+	const mobileBodyClass = /\bclass\s*=\s*(["'])(.*?)\1/i.exec(
+		mobileBodyMatch?.[ 1 ] ?? ''
+	)?.[ 2 ];
+	const mobileWrapperClass = [ 'data-liberation-mobile-document', mobileBodyClass ]
+		.filter( Boolean )
+		.join( ' ' );
+	const responsiveBody = `<div class="data-liberation-desktop-document">${ desktopBody }</div><div class="${ mobileWrapperClass }">${ mobileBody }</div>`;
+	const mobileStyles = responsiveMobileStyles( mobileHtml );
+	return scopedStyles( desktopHtml, '(min-width:769px)' )
+		.replace(
+			/<\/head\s*>/i,
+			`<style>${ RESPONSIVE_DOCUMENT_CSS }</style>${ mobileStyles }</head>`
+		)
+		.replace(
+			/(<body\b[^>]*>)[\s\S]*?(<\/body\s*>)/i,
+			( _match, openingBody: string, closingBody: string ) =>
+				`${ openingBody }${ responsiveBody }${ closingBody }`
+		);
+}
+
+function responsiveMobileStyles( mobileHtml: string ): string {
+	return [ ...mobileHtml.matchAll( /<style\b[^>]*>([\s\S]*?)<\/style\s*>/gi ) ]
+		.map( ( match ) => match[ 1 ].trim() )
+		.filter( Boolean )
+		.map(
+			( style ) =>
+				`<style media="(max-width:768px)">${ scopeCss( style, {
+					scope: '.data-liberation-mobile-document',
+				} ) }</style>`
+		)
+		.join( '' );
+}
+
+function scopedStyles( html: string, media: string ): string {
+	return html.replace( /<style\b([^>]*)>/gi, ( tag, attributes: string ) => {
+		const existingMedia = /\bmedia\s*=\s*(["'])(.*?)\1/i.exec( attributes );
+		if ( ! existingMedia ) return `<style${ attributes } media="${ media }">`;
+		const combined = `${ media } and (${ existingMedia[ 2 ] })`;
+		return tag.replace(
+			existingMedia[ 0 ],
+			`media=${ existingMedia[ 1 ] }${ combined }${ existingMedia[ 1 ] }`
+		);
+	} );
 }
 
 function responsiveBodySignature( body: string ): string {
@@ -320,11 +386,46 @@ function mediaFamily( sourceUrl: string ): string {
 		: sourceUrl;
 }
 
+function retainedMediaReferencesByFamily(
+	entries: Array< { url: string; html: string } >
+): Map< string, string[] > {
+	const families = new Map< string, string[] >();
+	const add = ( reference: string, documentUrl: string ) => {
+		try {
+			const family = mediaFamily( new URL( reference.replace( /&amp;/g, '&' ), documentUrl ).href );
+			families.set( family, [
+				...( families.get( family ) ?? [] ),
+				reference.replace( /&amp;/g, '&' ),
+			] );
+		} catch {
+			// Non-URL media sources, such as data URLs, need no localization.
+		}
+	};
+	for ( const { url, html } of entries ) {
+		const $ = cheerio.load( html );
+		$( 'img,source,video,audio' ).each( ( _index, element ) => {
+			const node = $( element );
+			const src = node.attr( 'src' );
+			if ( src ) add( src, url );
+			const srcset = node.attr( 'srcset' );
+			if ( ! srcset ) return;
+			const urls =
+				srcset.match( /https?:\/\/[^\s"'<>]+/g ) ??
+				srcset.split( ',' ).map( ( value ) => value.trim().split( /\s+/, 1 )[ 0 ] );
+			for ( const candidate of urls ) if ( candidate ) add( candidate, url );
+		} );
+	}
+	return families;
+}
+
 function mediaDimension( sourceUrl: string ): number {
 	const url = new URL( sourceUrl );
-	const pathDimensions = [ ...url.pathname.matchAll( /(?:^|[/,])(?:w|h)_(\d+)/gi ) ].map(
-		( match ) => Number( match[ 1 ] ) || 0
-	);
+	const finalTransformation = [
+		...url.pathname.matchAll( /\/v1\/(?:fill|fit|crop)\/([^/]+)/gi ),
+	].at( -1 )?.[ 1 ];
+	const pathDimensions = [
+		...( finalTransformation ?? url.pathname ).matchAll( /(?:^|[,/])(?:w|h)_(\d+)/gi ),
+	].map( ( match ) => Number( match[ 1 ] ) || 0 );
 	return Math.max(
 		Number( url.searchParams.get( 'w' ) ) || 0,
 		Number( url.searchParams.get( 'h' ) ) || 0,
@@ -592,25 +693,25 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 	const assets: Array< { sourceUrl: string; path: string } > = [];
 	const renderedMediaReferences = capturedMediaReferences( retainedEntries );
 	const mediaFamilies = new Map< string, MediaCandidate[] >();
+	const retainedMediaFamilies = retainedMediaReferencesByFamily( retainedEntries );
+	const failedMedia: Array< { sourceUrl: string; error: string; references: string[] } > = [];
 	for ( const [ sourceUrl, stub ] of MediaStubStore.load( outputDir ).list() ) {
 		const references = mediaReferences( sourceUrl, options.sourceUrl );
-		if (
-			stub.status === 'error' &&
-			references.some( ( reference ) => containsMediaReference( retainedHtml, reference ) )
-		) {
-			for ( const reference of references )
-				mediaReplacements.set( reference, TRANSPARENT_IMAGE_DATA_URL );
-			unresolvedMedia.push( { url: sourceUrl, error: stub.error ?? 'media download failed' } );
+		const family = mediaFamily( sourceUrl );
+		const isReferenced =
+			retainedMediaFamilies.has( family ) ||
+			references.some( ( reference ) => containsMediaReference( retainedHtml, reference ) );
+		if ( stub.status === 'error' && isReferenced ) {
+			failedMedia.push( { sourceUrl, error: stub.error ?? 'media download failed', references } );
 			continue;
 		}
 		if (
 			stub.status !== 'success' ||
 			! stub.localPath ||
 			! existsSync( stub.localPath ) ||
-			! references.some( ( reference ) => containsMediaReference( retainedHtml, reference ) )
+			! isReferenced
 		)
 			continue;
-		const family = mediaFamily( sourceUrl );
 		const candidate: MediaCandidate = {
 			sourceUrl,
 			localPath: stub.localPath,
@@ -650,9 +751,13 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		}
 	}
 	let retainedExternalMediaCount = 0;
+	const localizedMediaFamilies = new Set< string >();
 	for ( const candidates of mediaFamilies.values() ) {
+		const family = mediaFamily( candidates[ 0 ].sourceUrl );
 		const selected = selectMediaCandidate( candidates );
 		if ( ! selected ) {
+			for ( const reference of retainedMediaFamilies.get( family ) ?? [] )
+				mediaReplacements.set( reference, candidates[ 0 ].sourceUrl );
 			for ( const candidate of candidates ) {
 				for ( const reference of candidate.references ) {
 					mediaReplacements.set( reference, candidate.sourceUrl );
@@ -683,6 +788,9 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		const destination = join( websiteDir, assetPath );
 		mkdirSync( dirname( destination ), { recursive: true } );
 		copyFileSync( selected.localPath, destination );
+		localizedMediaFamilies.add( family );
+		for ( const reference of retainedMediaFamilies.get( family ) ?? [] )
+			mediaReplacements.set( reference, `/${ assetPath.replace( /\\/g, '/' ) }` );
 		for ( const candidate of candidates ) {
 			for ( const reference of candidate.references ) {
 				mediaReplacements.set( reference, `/${ assetPath.replace( /\\/g, '/' ) }` );
@@ -699,6 +807,15 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		retained_external_count: retainedExternalMediaCount,
 		max_bytes: MAX_PORTABLE_MEDIA_TOTAL_BYTES,
 	};
+	for ( const { sourceUrl, error, references } of failedMedia ) {
+		const family = mediaFamily( sourceUrl );
+		if ( localizedMediaFamilies.has( family ) ) continue;
+		for ( const reference of retainedMediaFamilies.get( family ) ?? [] )
+			mediaReplacements.set( reference, TRANSPARENT_IMAGE_DATA_URL );
+		for ( const reference of references )
+			mediaReplacements.set( reference, TRANSPARENT_IMAGE_DATA_URL );
+		unresolvedMedia.push( { url: sourceUrl, error } );
+	}
 
 	const resourceManifest = capturedResources( outputDir );
 	const unresolvedDependencies: Array< { url: string; sourceUrl: string; error: string } > = [];
@@ -779,8 +896,9 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 	}
 
 	const routes: Array< { url: string; path: string } > = [];
+	const portableRouteLinks = new Map< string, string >();
 	const claimedPaths = new Set< string >();
-	for ( const { url, html } of retainedEntries ) {
+	for ( const { url, canonicalUrl } of retainedEntries ) {
 		const routePath = routeOutputPath( url, options.sourceUrl, entrypointUrl ).replace(
 			/\\/g,
 			'/'
@@ -789,7 +907,17 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 			throw new Error( `Captured routes resolve to the same website path: ${ routePath }` );
 		}
 		claimedPaths.add( routePath );
+		const portablePath = `/${ routePath }`;
+		portableRouteLinks.set( normalizedUrl( url ), portablePath );
+		if ( canonicalUrl ) portableRouteLinks.set( normalizedUrl( canonicalUrl ), portablePath );
+		routes.push( { url, path: `website/${ routePath }` } );
+	}
 
+	for ( const { url, html } of retainedEntries ) {
+		const routePath = routeOutputPath( url, options.sourceUrl, entrypointUrl ).replace(
+			/\\/g,
+			'/'
+		);
 		const destination = join( websiteDir, routePath );
 		if ( ! pathWithin( websiteDir, destination ) ) {
 			throw new Error( `Captured route escapes the website directory: ${ url }` );
@@ -797,9 +925,14 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		mkdirSync( dirname( destination ), { recursive: true } );
 		writeFileSync(
 			destination,
-			replaceAll( rewriteMediaUrls( html, mediaReplacements ), resourceReplacements )
+			replaceAll(
+				rewriteMediaUrls(
+					rewriteCapturedRouteLinks( html, url, portableRouteLinks ),
+					mediaReplacements
+				),
+				resourceReplacements
+			)
 		);
-		routes.push( { url, path: `website/${ routePath }` } );
 	}
 
 	const receiptPath = join( outputDir, 'capture-receipt.json' );
@@ -828,6 +961,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 			{
 				schema: 'data-liberation/capture-diagnostics/v1',
 				failures: options.failures,
+				discoveryDiagnostics: options.discoveryDiagnostics ?? [],
 				resourceFailures: resourceManifest.failures,
 				unresolvedDependencies,
 				unresolvedMedia,

@@ -369,7 +369,7 @@ describe( 'exportWebsiteCapture', () => {
 		mkdirSync( join( outputDir, 'resources', 'assets', 'images' ), { recursive: true } );
 		writeFileSync(
 			join( outputDir, 'html', 'homepage.html' ),
-			'<img src="https://example.com/hero.png"><img src="/assets/images/mobile-only.webp" srcset="/assets/images/mobile-only.webp 390w"><link rel="stylesheet" href="/assets/css/site.css"><link rel="preload" href="/_runtimes/site.js" as="script"><link rel="preload" href="/_json/site.json" as="fetch"><link rel="preload" href="/_json/missing.json" as="fetch"><style>@font-face{src:url("/_fonts/site.woff2")}@font-face{src:url("/_fonts/missing.woff2")}.hero{background:url(&quot;/assets/images/missing-background.webp&quot;)}</style><video><source src="/_videos/hero"></video><video><source src="/_videos/missing"></video><script type="module">import { Site } from "/_runtimes/site.js"; import "/_runtimes/missing.js";</script>'
+			'<img src="https://example.com/hero.png"><img src="/assets/images/mobile-only.webp" srcset="/assets/images/mobile-only.webp 390w"><link rel="stylesheet" href="/assets/css/site.css"><link rel="preload" href="/_runtimes/site.js" as="script"><link rel="preload" href="/_json/site.json" as="fetch"><link rel="preload" href="/_json/missing.json" as="fetch"><style>@font-face{src:url("/_fonts/site.woff2")}@font-face{src:url("/_fonts/missing.woff2")}.hero{background:url(&quot;/assets/images/missing-background.webp&quot;)}</style><video><source src="/_videos/hero"></video><video><source src="/_videos/missing"></video><script src="/_runtimes/site.js" defer></script><script src="/_runtimes/missing-script.js" defer></script><script type="module">import { Site } from "/_runtimes/site.js"; import "/_runtimes/missing.js";</script>'
 		);
 		writeFileSync( join( outputDir, 'media', 'hero.png' ), 'png' );
 		writeFileSync( join( outputDir, 'resources', '_runtimes', 'site.js' ), 'export class Site {}' );
@@ -481,6 +481,9 @@ describe( 'exportWebsiteCapture', () => {
 			expect.arrayContaining( [
 				expect.objectContaining( { url: 'https://example.com/_json/missing.json' } ),
 				expect.objectContaining( { url: 'https://example.com/_runtimes/missing.js' } ),
+				expect.objectContaining( {
+					url: 'https://example.com/_runtimes/missing-script.js',
+				} ),
 			] )
 		);
 		const html = readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' );
@@ -495,6 +498,8 @@ describe( 'exportWebsiteCapture', () => {
 		expect( html ).not.toContain( '/_fonts/missing.woff2' );
 		expect( html ).toContain( 'data:application/octet-stream;base64,' );
 		expect( html ).toContain( 'import "/_runtimes/missing.js"' );
+		expect( html ).toContain( '<script src="/_runtimes/site.js"' );
+		expect( html ).not.toContain( '/_runtimes/missing-script.js' );
 		const artifact = JSON.parse( readFileSync( join( outputDir, 'artifact.json' ), 'utf8' ) );
 		expect( artifact.files ).toEqual(
 			expect.arrayContaining( [

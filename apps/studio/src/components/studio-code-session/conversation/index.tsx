@@ -11,6 +11,7 @@ import { readBlobAsDataUrl } from '@studio/common/ai/composer-attachments';
 import {
 	isAiAccessRequiredError,
 	isAiBlockedError,
+	isOutOfCreditsError,
 	isUsageCapError,
 } from '@studio/common/ai/json-events';
 import {
@@ -29,7 +30,11 @@ import { __ } from '@wordpress/i18n';
 import { image, page } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { AiAccessRequiredNotice, AiBlockedNotice } from 'src/components/ai-access-required-notice';
+import {
+	AiAccessRequiredNotice,
+	AiBlockedNotice,
+	OutOfCreditsNotice,
+} from 'src/components/ai-access-required-notice';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useGetStudioAssistantQuota } from 'src/stores/wpcom-api';
@@ -651,9 +656,11 @@ function AgentQuestion( {
 	);
 }
 
-// In-flow marker for a turn that ended in an error. The monthly usage cap
-// gets dedicated copy — with the reset date once the quota query resolves —
-// instead of the raw provider message.
+// In-flow marker for a turn that ended in an error. The proxy's quota
+// refusals get dedicated copy instead of the raw provider message: the
+// monthly usage cap shows the reset date once the quota query resolves, and
+// out-of-credits (STU-2236) points at buying credits — waiting doesn't fix
+// that one.
 function TurnErrorMarker( { message }: { message: string } ) {
 	const isUsageCap = isUsageCapError( message );
 	const isAccessRequired = isAiAccessRequiredError( message );
@@ -665,6 +672,8 @@ function TurnErrorMarker( { message }: { message: string } ) {
 		text = <AiBlockedNotice />;
 	} else if ( isAccessRequired ) {
 		text = <AiAccessRequiredNotice quota={ quota } />;
+	} else if ( isOutOfCreditsError( message ) ) {
+		text = <OutOfCreditsNotice />;
 	} else if ( isUsageCap ) {
 		text = formatUsageCapNotice( quota?.costResetDate );
 	} else {

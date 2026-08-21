@@ -1,13 +1,14 @@
 import { Autocomplete } from '@base-ui/react/autocomplete';
 import { TRACKS_EVENTS, type TracksEventName } from '@studio/common/lib/record-tracks-event';
 import { __ } from '@wordpress/i18n';
-import { globe, help, home, page as pageIcon, post as postIcon, wordpress } from '@wordpress/icons';
+import { help, home, page as pageIcon, post as postIcon, wordpress } from '@wordpress/icons';
 import { ariaKeyShortcut, displayShortcut } from '@wordpress/keycodes';
 import { privateApis } from '@wordpress/theme';
 import { Icon, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import motionStyles from '@/components/floating-surface-motion/style.module.css';
+import { SiteIcon } from '@/components/site-icon';
 import { useSiteFrontLinks } from '@/data/queries/use-site-front-links';
 import { useSiteSearch } from '@/data/queries/use-site-search';
 import { useCustomizeLinks } from '@/hooks/use-customize-links';
@@ -165,11 +166,11 @@ export const REALM_SHORTCUT_KEYS: Record< PreviewRealm, string > = {
 // title (resolved in the render), like a browser tab for the site itself.
 const REALM_SEGMENTS: {
 	realm: PreviewRealm;
-	icon: IconElement;
+	icon: IconElement | null;
 	title: string | null;
 	label: string;
 }[] = [
-	{ realm: 'frontend', icon: globe, title: null, label: __( 'View site front end' ) },
+	{ realm: 'frontend', icon: null, title: null, label: __( 'View site front end' ) },
 	{ realm: 'admin', icon: wordpress, title: __( 'WordPress' ), label: __( 'View WP Admin' ) },
 	{ realm: 'database', icon: databaseIcon, title: __( 'Database' ), label: __( 'View database' ) },
 ];
@@ -538,7 +539,14 @@ export function PreviewAddressBar( {
 					const content = (
 						<>
 							<span className={ styles.segmentIcon } aria-hidden="true">
-								<Icon icon={ segment.icon } size={ 16 } />
+								{ segment.realm === 'frontend' ? (
+									<SiteIcon
+										seed={ `${ site.id }:${ site.name }:${ site.path }` }
+										imageSrc={ site.siteIcon }
+									/>
+								) : (
+									<Icon icon={ segment.icon as IconElement } size={ 16 } />
+								) }
 							</span>
 							<span className={ styles.segmentTitle }>{ segment.title ?? site.name }</span>
 						</>

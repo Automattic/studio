@@ -148,14 +148,35 @@
 	overflow: hidden;
 }
 
+/* One stacked layer per visited realm (front end / WP Admin / database). Each
+   holds that realm's own surface at its own size, so switching segments never
+   resizes or reloads anything — it just changes which layer is visible. */
+.realmLayer {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	min-width: 0;
+	min-height: 0;
+	overflow: hidden;
+}
+
 /* While simulating a viewport, the preset's frame floats centered with
-   breathing room; the padding is excluded from the measured pane, so the
-   frame's fit-to-pane scale accounts for it automatically. */
-.previewViewportSimulated {
+   breathing room. The padding is mirrored by PREVIEW_PANE_PADDING, which is
+   subtracted from the measured pane before the frame's fit-to-pane scale.
+   Only this mode centers: an unsimulated surface must stay stretched, or its
+   frame collapses to the webview's intrinsic height. */
+.realmLayerSimulated {
 	align-items: safe center;
 	justify-content: safe center;
 	padding: 16px;
 	background-color: var(--wpds-color-bg-surface-neutral);
+}
+
+/* Kept mounted and laid out — so the guest holds its size, scroll position and
+   viewport emulation — but out of sight and out of reach. */
+.realmLayerHidden {
+	visibility: hidden;
+	pointer-events: none;
 }
 
 /* The letterbox behind simulated viewports carries a dot grid so it reads

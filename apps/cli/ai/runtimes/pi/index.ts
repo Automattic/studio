@@ -533,9 +533,9 @@ async function createModelRuntime(
 		return modelRuntime;
 	}
 
-	// allowNetwork: false — the default refresh fetches remote model catalogs
-	// (unused here) with no timeout guard, blocking the turn on slow networks.
-	await modelRuntime.setRuntimeApiKey( family, creds.apiKey, { allowNetwork: false } );
+	// No catalog refresh: since pi 0.84 setRuntimeApiKey no longer fetches
+	// remote model catalogs (unused here anyway).
+	await modelRuntime.setRuntimeApiKey( family, creds.apiKey );
 	return modelRuntime;
 }
 

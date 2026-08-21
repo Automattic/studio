@@ -1,5 +1,6 @@
 import {
-	TUI,
+	type TUI,
+	TuiMainScreen,
 	ProcessTerminal,
 	Editor,
 	Input,
@@ -476,7 +477,7 @@ export class AiChatUI implements AiOutputAdapter {
 
 	constructor() {
 		const terminal = new ProcessTerminal();
-		this.tui = new TUI( terminal, true );
+		this.tui = new TuiMainScreen( terminal, true );
 
 		this.messages = new Container();
 		this.tui.addChild( this.messages );

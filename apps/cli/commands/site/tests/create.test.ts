@@ -467,6 +467,33 @@ describe( 'CLI: studio site create', () => {
 			expect( capture ).toHaveBeenCalledTimes( 1 );
 		} );
 
+		it( 'retains the URL resume identity after capture produces an artifact', () => {
+			const artifactDir = fs.mkdtempSync( path.join( '/tmp', 'studio-captured-artifact-' ) );
+			const artifactPath = path.join( artifactDir, 'artifact.json' );
+			fs.writeFileSync(
+				artifactPath,
+				JSON.stringify( {
+					schema: 'blocks-engine/php-transformer/site-artifact/v1',
+					entrypoint: 'website/index.html',
+					files: [ { path: 'website/index.html', content: '<main>Captured</main>' } ],
+				} )
+			);
+
+			const blueprint = buildCreateFromSourceBlueprint(
+				artifactPath,
+				'Captured Site',
+				'https://example.com/static-site-importer.zip',
+				false,
+				'admin',
+				'https://example.com/'
+			);
+
+			expect( blueprint.staticSiteImport.identity ).toEqual( {
+				url: 'https://example.com/',
+				contract: 'ssi-url-import-v4-plan-first',
+			} );
+		} );
+
 		it( 'forwards an artifact-declared classic materialization strategy', () => {
 			const artifactDir = fs.mkdtempSync( path.join( '/tmp', 'studio-classic-artifact-' ) );
 			const artifactPath = path.join( artifactDir, 'artifact.json' );

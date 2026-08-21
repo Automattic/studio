@@ -647,7 +647,8 @@ export function buildCreateFromSourceBlueprint(
 	siteName: string,
 	staticSiteImporterPlugin: StaticSiteImporterPlugin = DEFAULT_STATIC_SITE_IMPORTER_PLUGIN_URL,
 	storeImportResult = false,
-	adminUsername = 'admin'
+	adminUsername = 'admin',
+	sourceUrl?: string
 ): {
 	contents: BlueprintV1Declaration;
 	uri: string;
@@ -707,8 +708,8 @@ export function buildCreateFromSourceBlueprint(
 			code: buildStaticSiteImporterPhp( source.path, siteName, storeImportResult, adminUsername ),
 			source: JSON.stringify( source.payload ),
 			...( stagedFigmaName ? { stagedSource: { sourcePath, targetName: stagedFigmaName } } : {} ),
-			...( source.type === 'url'
-				? { identity: { url: source.path, contract: STATIC_SITE_IMPORT_CONTRACT } }
+			...( source.type === 'url' || sourceUrl
+				? { identity: { url: sourceUrl ?? source.path, contract: STATIC_SITE_IMPORT_CONTRACT } }
 				: {} ),
 			bundlePath: tempDir,
 		},
@@ -1854,16 +1855,15 @@ export const registerCommand = (
 
 			try {
 				let importSource = argv.from;
-				if ( importSource && isUrl( importSource ) ) {
+				const sourceUrl = importSource && isUrl( importSource ) ? importSource : undefined;
+				if ( sourceUrl ) {
 					const captureOutput =
 						argv.captureOutput ??
 						path.join( path.dirname( sitePath ), `${ path.basename( sitePath ) }-capture` );
 					logger.reportStart( LoggerAction.IMPORT_SITE, __( 'Capturing source website…' ) );
-					const capture = await ( dependencies.capture ?? captureUrl )(
-						importSource,
-						captureOutput,
-						{ resume: argv.resumeCapture }
-					);
+					const capture = await ( dependencies.capture ?? captureUrl )( sourceUrl, captureOutput, {
+						resume: argv.resumeCapture,
+					} );
 					logger.reportSuccess( __( 'Source website captured' ) );
 					importSource = capture.artifactPath;
 				}
@@ -1876,7 +1876,8 @@ export const registerCommand = (
 							? { path: argv.staticSiteImporterPath }
 							: argv.staticSiteImporterUrl ?? DEFAULT_STATIC_SITE_IMPORTER_PLUGIN_URL,
 						argv.storeImportResult,
-						adminUsername ?? 'admin'
+						adminUsername ?? 'admin',
+						sourceUrl
 					);
 				} else if ( argv.blueprint ) {
 					if ( argv.blueprint.startsWith( 'http://' ) || argv.blueprint.startsWith( 'https://' ) ) {

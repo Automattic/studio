@@ -286,10 +286,6 @@ interface ToolUseResultContent {
 	isError?: boolean;
 }
 
-// A single tool call's transcript block: header row plus the progress lines
-// streamed via `tool_execution_update` events addressed by toolCallId, so
-// concurrent tool calls can't collide. `showToolResult` appends the result
-// preview as extra children.
 class ToolCallComponent extends Container {
 	readonly toolName: string;
 	readonly input: Record< string, unknown >;
@@ -315,8 +311,6 @@ class ToolCallComponent extends Container {
 		this.addChild( this.rowText );
 	}
 
-	// Execution can start well after the row rendered (queued behind other
-	// tools); restart the clock so elapsed time reflects the execution.
 	markExecutionStarted(): void {
 		this.startedAtMs = this.now();
 	}
@@ -373,8 +367,6 @@ export class AiChatUI implements AiOutputAdapter {
 	private replayMode = false;
 	private replayTimestampMs: number | null = null;
 	private pendingToolCalls = new Map< string, ToolCallComponent >();
-	// Results already rendered at `tool_execution_end`, so `turn_end` doesn't
-	// render them twice.
 	private renderedToolResultIds = new Set< string >();
 	currentModel: AiModelId = DEFAULT_MODEL;
 	currentProvider: AiProviderId = DEFAULT_AI_PROVIDER;
@@ -1126,8 +1118,6 @@ export class AiChatUI implements AiOutputAdapter {
 		this.tui.requestRender();
 	}
 
-	// Transcript record of a tool/agent question once answered; while open, the
-	// question lives only in the picker chrome.
 	private echoAnsweredQuestion( question: string, answer: string ): void {
 		this.messages.addChild(
 			new Text( '\n' + chalk.bold( question ) + '\n' + chalk.blue( '→' ) + ' ' + answer, 1, 0 )
@@ -1355,8 +1345,6 @@ export class AiChatUI implements AiOutputAdapter {
 
 	private fallbackProgressText: Text | null = null;
 
-	// Progress with no tool attribution (slash commands, auth flows); tool
-	// progress renders inside its ToolCallComponent via tool_execution_update.
 	setLoaderMessage( message: string, update?: boolean ): void {
 		if ( ! message ) {
 			return;
@@ -1910,8 +1898,6 @@ export class AiChatUI implements AiOutputAdapter {
 		);
 	}
 
-	// Live turns render each result at `tool_execution_end`; this covers the
-	// rest (replayed sessions and results with no execution event).
 	renderToolResults( results: readonly ToolResultMessage[] ): void {
 		for ( const toolResult of results ) {
 			const toolCallId = toolResult.toolCallId;
@@ -1967,8 +1953,6 @@ export class AiChatUI implements AiOutputAdapter {
 			}
 		}
 
-		// askUser already echoed the question + answer to the transcript; the
-		// raw answers JSON would duplicate them.
 		if ( toolCall?.toolName !== 'AskUserQuestion' || isError ) {
 			this.renderToolResultText( typedResult.content, toolCall, isError, target );
 		}
@@ -2021,10 +2005,6 @@ export class AiChatUI implements AiOutputAdapter {
 
 		for ( const q of questions ) {
 			if ( q.options.length > 0 ) {
-				// pi-style: the question renders inside the picker chrome, not in
-				// the transcript — a tool may still be streaming output above, and
-				// appending here would interleave out of order. The transcript gets
-				// one compact question + answer echo after the user picks.
 				this.hideEditor();
 				this.optionPickerQuestion = q.question;
 				// Use SelectList for option-based questions.
@@ -2080,8 +2060,6 @@ export class AiChatUI implements AiOutputAdapter {
 				answers[ q.question ] = selected;
 				this.echoAnsweredQuestion( q.question, selected );
 			} else {
-				// Free-form text input: the question must stay visible while the
-				// user types in the regular editor, so it goes to the transcript.
 				this.messages.addChild( new Text( '\n' + chalk.bold( q.question ), 1, 0 ) );
 				this.tui.requestRender();
 				const answer = await this.waitForInput();

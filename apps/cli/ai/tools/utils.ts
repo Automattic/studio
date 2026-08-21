@@ -75,8 +75,6 @@ export async function captureCommandOutput(
 		consoleOutput += args.map( String ).join( ' ' ) + '\n';
 	};
 	process.exitCode = undefined;
-	// The command runs with a per-call logger so progress stays attributed to
-	// this invocation even when several tools run concurrently.
 	const logger = new Logger< string >( {
 		onProgress: ( message, update ) => {
 			// `update: true` is a rolling refresh of the same line (e.g. "(74%)" →

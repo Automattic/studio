@@ -99,8 +99,7 @@ export class JsonAdapter implements AiOutputAdapter {
 	}
 
 	showProgress( _message: string ): void {
-		// No-op in JSON mode — tool progress travels as tool_execution_update
-		// session events; showProgress only backs interactive slash commands.
+		// No-op in JSON mode
 	}
 
 	setBusy( _active: boolean ): void {
@@ -124,7 +123,7 @@ export class JsonAdapter implements AiOutputAdapter {
 	}
 
 	setLoaderMessage( _message: string, _update?: boolean ): void {
-		// No-op in JSON mode (see showProgress).
+		// No-op in JSON mode
 	}
 
 	beginAgentTurn( sessionId?: string ): void {

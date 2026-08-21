@@ -31,9 +31,6 @@ export interface StudioToolResultDetails {
 	studioArtifacts?: StudioChatArtifactWidgetDraft[];
 }
 
-// Per-invocation tool context. `onProgress` reports a progress line for this
-// specific tool call (emitted as a `tool_execution_update` event carrying the
-// toolCallId); `update: true` marks a rolling refresh of the previous line.
 export interface ToolContext {
 	onProgress: ( message: string, update?: boolean ) => void;
 }

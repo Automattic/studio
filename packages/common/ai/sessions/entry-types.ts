@@ -29,8 +29,6 @@ export interface StudioSiteSelectedData {
 
 export interface StudioToolProgressData {
 	message: string;
-	// Tool call the progress line belongs to. Absent on entries written before
-	// per-tool attribution existed and on progress with no tool context.
 	toolCallId?: string;
 }
 

@@ -38,12 +38,7 @@ export class LoggerError extends Error {
 
 export class Logger< T extends string > {
 	public spinner: Spinner;
-	// Typed `string`, not `T`: keeping T out of property positions lets a
-	// `Logger<string>` flow into APIs expecting a specific action enum (the
-	// per-tool loggers threaded by agent tools don't care about actions).
 	private currentAction: string | null = null;
-	// Per-instance progress sink; outranks the IPC channel because an
-	// explicitly threaded callback is more specific than the process channel.
 	private onProgress: ProgressCallback | null;
 
 	constructor( options?: { onProgress?: ProgressCallback } ) {

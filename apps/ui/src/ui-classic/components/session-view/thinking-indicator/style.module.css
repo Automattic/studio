@@ -1,40 +1,50 @@
 .root {
+	max-block-size: 0;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	opacity: 0;
+	transform: translateY(-4px);
+	transition: max-block-size 240ms cubic-bezier(0.2, 0, 0, 1), opacity 160ms ease-out,
+		transform 240ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.rootVisible {
+	max-block-size: calc(1.5em * 2 + 2px);
+	opacity: 1;
+	transform: translateY(0);
+}
+
+.content {
 	display: flex;
 	flex-direction: column;
-	gap: 2px;
-	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-sm);
-	/* Reserves space so mounting / unmounting the inner content doesn't
-	   shift the surrounding layout. Holds ~one head line + one progress line. */
-	min-height: calc(1.5em * 2 + 2px);
+	gap: 0;
+	min-block-size: calc(1.5em * 2 + 2px);
 }
 
 .head {
 	display: flex;
 	align-items: center;
-	gap: var(--wpds-dimension-padding-xs);
+	gap: calc(var(--wpds-dimension-padding-xs) - 2px);
+	min-width: 0;
+	padding: 2px 0;
+	font-size: var(--wpds-typography-font-size-md);
+	line-height: 1.55;
+	white-space: nowrap;
 }
 
-.dot {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	width: 18px;
-	height: 18px;
+.indicator {
+	inline-size: 18px;
 	flex-shrink: 0;
+	transform: translateX(-1px);
 }
 
-.dot::before {
-	content: "";
-	width: 8px;
-	height: 8px;
-	border-radius: 50%;
-	background-color: var(--wpds-color-fg-interactive-brand, #2563eb);
-	animation: pulse 1.2s ease-in-out infinite;
+.root:not(.rootVisible) .indicator * {
+	animation-play-state: paused;
 }
 
 .label {
-	font-style: italic;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 .elapsed {
@@ -64,8 +74,8 @@
 	display: inline-grid;
 	place-items: center;
 	width: 0.62em;
-	height: 1.5em;
-	line-height: 1.5em;
+	height: 1.55em;
+	line-height: 1.55em;
 	overflow: hidden;
 }
 
@@ -92,24 +102,13 @@
 }
 
 .progress {
-	padding-left: calc(18px + var(--wpds-dimension-padding-xs));
+	padding-left: calc(16px + var(--wpds-dimension-padding-xs));
+	margin-block-start: -3px;
 	color: var(--wpds-color-fg-content-neutral-weak);
 	opacity: 0.8;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
-}
-
-@keyframes pulse {
-	0%,
-	100% {
-		opacity: 0.35;
-		transform: scale(0.85);
-	}
-	50% {
-		opacity: 1;
-		transform: scale(1);
-	}
 }
 
 @keyframes digit-out {
@@ -135,8 +134,16 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+	.root {
+		transition: none;
+	}
+
 	.digitOutgoing,
 	.digitIncoming {
-		animation-duration: 0.01ms;
+		animation: none;
+	}
+
+	.digitOutgoing {
+		opacity: 0;
 	}
 }

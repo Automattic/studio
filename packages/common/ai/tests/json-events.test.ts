@@ -4,6 +4,7 @@ import {
 	getAgentEndFailure,
 	isAiAccessRequiredError,
 	isAiBlockedError,
+	isOutOfCreditsError,
 	isUsageCapError,
 	USAGE_CAP_ERROR_PREFIX,
 } from '../json-events';
@@ -57,6 +58,16 @@ describe( 'isUsageCapError', () => {
 		).toBe( true );
 	} );
 
+	// STU-2236: both credit pools empty is its own state — the fix is buying
+	// credits, not waiting for the reset — so it must not read as the cap.
+	it( 'does not match the out-of-credits refusal', () => {
+		expect(
+			isUsageCapError(
+				"402 studio_out_of_credits: You've used your free monthly AI allowance and have no credits left."
+			)
+		).toBe( false );
+	} );
+
 	// A hosted upstream 429s for its own token-per-minute limits, which
 	// retrying clears — those must not read as the monthly cap.
 	it( 'does not match a 429 without the cost-cap code', () => {
@@ -68,6 +79,32 @@ describe( 'isUsageCapError', () => {
 	it( 'does not match raw un-rewritten 429s (non-wpcom rate limits)', () => {
 		expect( isUsageCapError( '429 rate limited' ) ).toBe( false );
 		expect( isUsageCapError( 'OpenAI API error (429): rate limited' ) ).toBe( false );
+	} );
+} );
+
+describe( 'isOutOfCreditsError', () => {
+	it( 'matches the load-bearing code token wherever it appears in the message', () => {
+		expect(
+			isOutOfCreditsError(
+				"studio_out_of_credits: You've used your free monthly AI allowance and have no credits left. Buy credits in WordPress Studio to continue."
+			)
+		).toBe( true );
+		expect(
+			isOutOfCreditsError(
+				'402 {"code":"studio_out_of_credits","message":"studio_out_of_credits: You\'ve used your free monthly AI allowance and have no credits left.","data":{"status":402}}'
+			)
+		).toBe( true );
+	} );
+
+	it( 'does not match the cap refusal or unrelated errors', () => {
+		expect( isOutOfCreditsError( '429 cost_cap_exceeded: Monthly cost cap exceeded.' ) ).toBe(
+			false
+		);
+		expect( isOutOfCreditsError( buildUsageCapErrorMessage( '429 exceeded' ) ) ).toBe( false );
+		expect( isOutOfCreditsError( '402 payment required' ) ).toBe( false );
+		expect( isOutOfCreditsError( '500 internal server error' ) ).toBe( false );
+		expect( isOutOfCreditsError( undefined ) ).toBe( false );
+		expect( isOutOfCreditsError( null ) ).toBe( false );
 	} );
 } );
 

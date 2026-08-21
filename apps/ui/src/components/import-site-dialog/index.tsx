@@ -15,6 +15,7 @@ import {
 	reportSyncSuccess,
 	useSiteSyncActivity,
 } from '@/data/sync-activity';
+import { useConfirmOnEnter } from '@/hooks/use-confirm-on-enter';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 
@@ -134,6 +135,9 @@ export function ImportSiteDialog( {
 	onCancel,
 	onConfirm,
 }: ImportSiteDialogProps ) {
+	const confirmLabel = __( 'Import' );
+	const handleKeyDown = useConfirmOnEnter( confirmLabel );
+
 	return (
 		<AlertDialog.Root
 			open={ open }
@@ -149,11 +153,12 @@ export function ImportSiteDialog( {
 			{ /* Deliberately not `intent="irreversible"`: the importer moves the site's
 			     existing wp-content and database to the trash, not straight to deletion. */ }
 			<AlertDialog.Popup
+				onKeyDown={ handleKeyDown }
 				title={ sprintf( __( 'Overwrite %s?' ), site.name ) }
 				description={ __(
 					'Importing a backup will replace the existing files and database for your site.'
 				) }
-				confirmButtonText={ __( 'Import' ) }
+				confirmButtonText={ confirmLabel }
 			>
 				{ file ? <p className={ styles.fileName }>{ file.name }</p> : null }
 			</AlertDialog.Popup>

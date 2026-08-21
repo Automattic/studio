@@ -1,4 +1,5 @@
 import { Container, resetCapabilitiesCache, setCapabilities } from '@earendil-works/pi-tui';
+import { ADD_AI_CREDITS_URL } from '@studio/common/lib/studio-assistant-quota';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AiChatUI } from 'cli/ai/ui';
 import { openBrowser } from 'cli/lib/browser';
@@ -275,6 +276,48 @@ describe( 'AiChatUI.handleEvent', () => {
 		);
 		expect( showInfo ).not.toHaveBeenCalled();
 		expect( ui.showUsageCapResetDate ).toHaveBeenCalled();
+		expect( ui.usageCapReached ).toBe( true );
+		expect( ui.currentMarkdown ).toBeNull();
+		expect( ui.currentResponseText ).toBe( '' );
+	} );
+
+	// STU-2236: distinct copy — no "try again later"/reset-date framing, and no
+	// reset-date fetch, because only buying credits clears this state.
+	it( 'surfaces the out-of-credits message when an assistant error carries the 402 marker', () => {
+		const ui = Object.create( AiChatUI.prototype ) as {
+			handleEvent: ( e: unknown ) => unknown;
+			[ key: string ]: unknown;
+		};
+		const hideLoader = vi.fn();
+		const showError = vi.fn();
+		const showInfo = vi.fn();
+
+		ui.hideLoader = hideLoader;
+		ui.showError = showError;
+		ui.showInfo = showInfo;
+		ui.showUsageCapResetDate = vi.fn( async () => undefined );
+		ui.currentProvider = 'wpcom';
+		ui.currentMarkdown = { setText: vi.fn() };
+		ui.currentResponseText = 'previous content';
+		ui.usageCapReached = false;
+
+		ui.handleEvent(
+			buildAssistantMessageEnd( {
+				stopReason: 'error',
+				errorMessage:
+					'402 {"code":"studio_out_of_credits","message":"studio_out_of_credits: You\'ve used your free monthly AI allowance and have no credits left. Buy credits in WordPress Studio to continue.","data":{"status":402}}',
+			} )
+		);
+
+		expect( hideLoader ).toHaveBeenCalled();
+		expect( showError ).toHaveBeenCalledWith(
+			expect.stringContaining( 'You’re out of AI credits' )
+		);
+		expect( showError ).not.toHaveBeenCalledWith(
+			expect.stringContaining( 'monthly AI usage limit' )
+		);
+		expect( showInfo ).toHaveBeenCalledWith( expect.stringContaining( ADD_AI_CREDITS_URL ) );
+		expect( ui.showUsageCapResetDate ).not.toHaveBeenCalled();
 		expect( ui.usageCapReached ).toBe( true );
 		expect( ui.currentMarkdown ).toBeNull();
 		expect( ui.currentResponseText ).toBe( '' );

@@ -1,6 +1,7 @@
 import { StatsMetric } from 'src/lib/bump-stats';
 import { SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import type { AiSessionSitePlacement } from '@studio/common/ai/sessions/placement';
+import type { QuitSitesBehavior } from '@studio/common/lib/user-settings/preferences';
 import type { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 
 export interface WindowBounds {
@@ -11,7 +12,7 @@ export interface WindowBounds {
 	isFullScreen?: boolean;
 }
 
-export type QuitSitesBehavior = 'stop' | 'stop-and-auto-start' | 'leave-running';
+export type { QuitSitesBehavior };
 
 export interface AppdataSiteData {
 	themeDetails?: SiteDetails[ 'themeDetails' ];

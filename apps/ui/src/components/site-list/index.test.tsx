@@ -245,11 +245,13 @@ describe( 'SiteList', () => {
 	} );
 
 	it( 'opens site settings from the site actions menu', async () => {
-		render( <SiteList /> );
+		const onSiteOpen = vi.fn();
+		render( <SiteList onSiteOpen={ onSiteOpen } /> );
 
 		fireEvent.contextMenu( screen.getByText( 'Stopped Site' ) );
 		fireEvent.click( await screen.findByText( 'Site settings' ) );
 
+		expect( onSiteOpen ).toHaveBeenCalledTimes( 1 );
 		expect( navigateMock ).toHaveBeenCalledTimes( 1 );
 		expect( navigateMock ).toHaveBeenLastCalledWith( {
 			to: '/sites/$siteId/overview',
@@ -316,10 +318,12 @@ describe( 'SiteList', () => {
 	} );
 
 	it( 'opens the site overview from the row gear without opening the latest chat', () => {
-		render( <SiteList /> );
+		const onSiteOpen = vi.fn();
+		render( <SiteList onSiteOpen={ onSiteOpen } /> );
 
 		fireEvent.click( screen.getAllByRole( 'button', { name: 'Site overview' } )[ 0 ] );
 
+		expect( onSiteOpen ).toHaveBeenCalledTimes( 1 );
 		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_panel_opened', {
 			panel: 'overview',
 		} );
@@ -465,6 +469,7 @@ describe( 'SiteList', () => {
 	} );
 
 	it( 'opens the latest active chat when a site is clicked', () => {
+		const onSiteOpen = vi.fn();
 		useSessionsMock.mockReturnValue( {
 			data: [
 				createSession( {
@@ -483,7 +488,7 @@ describe( 'SiteList', () => {
 			isLoading: false,
 		} );
 
-		render( <SiteList /> );
+		render( <SiteList onSiteOpen={ onSiteOpen } /> );
 
 		expect( screen.queryByText( 'Latest visible chat' ) ).not.toBeInTheDocument();
 
@@ -496,6 +501,7 @@ describe( 'SiteList', () => {
 			to: '/sessions/$sessionId',
 			params: { sessionId: 'latest-chat' },
 		} );
+		expect( onSiteOpen ).toHaveBeenCalledTimes( 1 );
 	} );
 
 	it( 'keeps the site list order instead of sorting by recent chat activity', () => {

@@ -1,5 +1,7 @@
 import { randomThinkingMessage } from '@studio/common/ai/thinking-messages';
+import { clsx } from 'clsx';
 import { useEffect, useState } from 'react';
+import { AgentWorkingIndicator } from '@/components/agent-working-indicator';
 import styles from './style.module.css';
 
 export function ThinkingIndicator( {
@@ -15,39 +17,45 @@ export function ThinkingIndicator( {
 	const [ elapsedSeconds, setElapsedSeconds ] = useState( 0 );
 
 	useEffect( () => {
-		if ( ! active || startedAt === null ) {
+		if ( ! active ) {
 			return;
 		}
 		setMessage( randomThinkingMessage() );
-		setElapsedSeconds( Math.floor( ( Date.now() - startedAt ) / 1000 ) );
 		const labelInterval = window.setInterval( () => {
 			setMessage( randomThinkingMessage() );
 		}, 4000 );
-		const tickInterval = window.setInterval( () => {
-			setElapsedSeconds( Math.floor( ( Date.now() - startedAt ) / 1000 ) );
-		}, 1000 );
-		return () => {
-			window.clearInterval( labelInterval );
-			window.clearInterval( tickInterval );
+		return () => window.clearInterval( labelInterval );
+	}, [ active ] );
+
+	useEffect( () => {
+		if ( ! active || startedAt === null ) {
+			return;
+		}
+		const updateElapsed = () => {
+			setElapsedSeconds( Math.max( 0, Math.floor( ( Date.now() - startedAt ) / 1000 ) ) );
 		};
+		updateElapsed();
+		const tickInterval = window.setInterval( () => {
+			updateElapsed();
+		}, 1000 );
+		return () => window.clearInterval( tickInterval );
 	}, [ active, startedAt ] );
 
 	return (
-		<div className={ styles.root } role="status" aria-live="polite">
-			{ active ? (
-				<>
-					<div className={ styles.head }>
-						<span className={ styles.dot } aria-hidden="true" />
-						<span className={ styles.label }>{ message }</span>
-						{ elapsedSeconds > 0 ? (
-							<span className={ styles.elapsed }>{ `${ elapsedSeconds }s` }</span>
-						) : null }
-					</div>
-					{ progressMessage ? (
-						<span className={ styles.progress }>{ progressMessage }</span>
-					) : null }
-				</>
-			) : null }
+		<div
+			className={ clsx( styles.root, active && styles.rootVisible ) }
+			role="status"
+			aria-live="polite"
+			aria-hidden={ active ? undefined : 'true' }
+		>
+			<div className={ styles.content }>
+				<div className={ styles.head }>
+					<AgentWorkingIndicator className={ styles.indicator } label={ null } ambient />
+					<span className={ styles.label }>{ message }</span>
+					<span className={ styles.elapsed }>{ `${ elapsedSeconds }s` }</span>
+				</div>
+				{ progressMessage ? <span className={ styles.progress }>{ progressMessage }</span> : null }
+			</div>
 		</div>
 	);
 }

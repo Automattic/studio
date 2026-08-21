@@ -82,6 +82,19 @@ export function isCostCapErrorMessage( message: string | undefined | null ): boo
 }
 
 /**
+ * Returns true when the WordPress.com proxy refused the request because both
+ * AI credit pools are empty — the free monthly allowance is used up and no
+ * purchased credits remain (STU-2236). The proxy's 402 repeats the
+ * `studio_out_of_credits` code inside its message text; as with the other
+ * refusal codes, the AI SDKs surface only the message string, so the token is
+ * the load-bearing marker. Distinct from the monthly cap on purpose: waiting
+ * for the reset doesn't clear this state — the user has to buy credits.
+ */
+export function isOutOfCreditsError( message: string | undefined | null ): boolean {
+	return /studio_out_of_credits/i.test( message ?? '' );
+}
+
+/**
  * Returns true when an error message reports the per-account Studio Code AI
  * kill switch (STU-2143). The WordPress.com proxy's 403 must carry the
  * `studio_code_ai_disabled` code inside its `message` text — the AI SDKs

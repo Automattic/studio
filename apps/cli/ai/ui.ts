@@ -2054,6 +2054,8 @@ export class AiChatUI implements AiOutputAdapter {
 					};
 				} );
 
+				this.showEditor();
+
 				if ( ! selected ) {
 					return answers;
 				}

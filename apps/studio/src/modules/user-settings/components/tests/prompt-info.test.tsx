@@ -60,6 +60,68 @@ describe( 'PromptInfo', () => {
 		expect( screen.getByRole( 'progressbar' ) ).toBeInTheDocument();
 	} );
 
+	it( 'shows both credit balances when the account has AI credits', () => {
+		vi.mocked( useGetStudioAssistantQuota, { partial: true } ).mockReturnValue( {
+			data: {
+				costUsage: 33392,
+				costCap: 20000000,
+				costResetDate: '2026-07-01T00:00:00+00:00',
+				allowanceRemaining: 960000,
+				purchasedRemaining: 150000,
+			},
+			isError: false,
+			isLoading: false,
+			refetch: vi.fn(),
+		} );
+
+		render( <PromptInfo /> );
+
+		expect( screen.getByText( 'Free credits remaining: 960,000' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Purchased credits remaining: 150,000' ) ).toBeInTheDocument();
+		expect( screen.queryByText( /monthly limit used/ ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'progressbar' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'hides the free pool once it is spent, and keeps a zero purchased balance', () => {
+		vi.mocked( useGetStudioAssistantQuota, { partial: true } ).mockReturnValue( {
+			data: {
+				costUsage: 33392,
+				costCap: 20000000,
+				costResetDate: '2026-07-01T00:00:00+00:00',
+				allowanceRemaining: 0,
+				purchasedRemaining: 0,
+			},
+			isError: false,
+			isLoading: false,
+			refetch: vi.fn(),
+		} );
+
+		render( <PromptInfo /> );
+
+		expect( screen.queryByText( /Free credits remaining/ ) ).not.toBeInTheDocument();
+		expect( screen.getByText( 'Purchased credits remaining: 0' ) ).toBeInTheDocument();
+	} );
+
+	it( 'keeps the monthly limit design when the account has no AI credits', () => {
+		vi.mocked( useGetStudioAssistantQuota, { partial: true } ).mockReturnValue( {
+			data: {
+				costUsage: 33392,
+				costCap: 20000000,
+				costResetDate: '2026-07-01T00:00:00+00:00',
+			},
+			isError: false,
+			isLoading: false,
+			refetch: vi.fn(),
+		} );
+
+		render( <PromptInfo /> );
+
+		expect( screen.queryByText( /credits remaining/ ) ).not.toBeInTheDocument();
+		expect(
+			screen.getByText( '0.17% of monthly limit used (resets on July 1, 2026)' )
+		).toBeInTheDocument();
+	} );
+
 	it( 'shows unavailable message when cost cap is missing', () => {
 		vi.mocked( useGetStudioAssistantQuota, { partial: true } ).mockReturnValue( {
 			data: {

@@ -601,6 +601,12 @@ describe( 'CLI: studio site create', () => {
 				"'dependencies_prepared' === ( $import_result['status'] ?? '' )"
 			);
 			expect( blueprint.staticSiteImport.code ).toContain(
+				"$input['runtime_lifecycle_checkpoint'] = (string) $state['runtime_lifecycle_checkpoint'];"
+			);
+			expect( blueprint.staticSiteImport.code ).toContain(
+				"$import_result['fresh_runtime']['lifecycle_checkpoint_id']"
+			);
+			expect( blueprint.staticSiteImport.code ).toContain(
 				"'canonicalization_pending' => ! empty( $canonical_documents )"
 			);
 			expect( blueprint.staticSiteImport.code ).toContain(

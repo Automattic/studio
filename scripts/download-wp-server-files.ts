@@ -29,6 +29,7 @@ const WP_SERVER_FILES_PATH = path.join( import.meta.dirname, '..', 'wp-files' );
 
 // Pinned so builds are reproducible. Bump deliberately.
 const WORDPRESS_IMPORTER_VERSION = '0.9.5';
+const WP_LSP_VERSION = 'v0.2.0';
 const PHPMYADMIN_PATCH_FILES_PATH = path.join( import.meta.dirname, '..', 'apps', 'cli', 'php' );
 const PHPMYADMIN_LOCAL_PATCH_FILES = new Map< string, string >( [
 	[ 'config.inc.php', path.join( PHPMYADMIN_PATCH_FILES_PATH, 'config.inc.php' ) ],
@@ -133,6 +134,13 @@ const FILES_TO_DOWNLOAD: FileToDownload[] = [
 		description: `reprint.phar`,
 		getUrl: () => 'https://github.com/WordPress/reprint/releases/download/v0.10.1/reprint.phar',
 		destinationPath: path.join( WP_SERVER_FILES_PATH, 'reprint' ),
+	},
+	{
+		name: 'wp-lsp',
+		description: `wp-lsp ${ WP_LSP_VERSION }`,
+		getUrl: () =>
+			`https://github.com/draganescu/wp-lsp/releases/download/${ WP_LSP_VERSION }/wp-lsp.zip`,
+		destinationPath: path.join( WP_SERVER_FILES_PATH, 'wp-lsp' ),
 	},
 ];
 

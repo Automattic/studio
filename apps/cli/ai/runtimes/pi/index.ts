@@ -47,10 +47,13 @@ import {
 } from '@studio/common/lib/site-runtime';
 import { getAiPayloadsPath, getConfigDirectory } from '@studio/common/lib/well-known-paths';
 import { type TSchema } from 'typebox';
+import { collectEditToolDiagnostics } from 'cli/ai/lsp/diagnostics';
+import { isWpLspAvailable } from 'cli/ai/lsp/pool';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions, withChatArtifactEmission } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
 import { createSiteTool } from 'cli/ai/tools/create-site';
+import { lspTool } from 'cli/ai/tools/lsp';
 import { pullSiteTool } from 'cli/ai/tools/pull-site';
 import { createSkillTool } from 'cli/ai/tools/skill';
 import { takeScreenshotTool } from 'cli/ai/tools/take-screenshot';
@@ -347,6 +350,7 @@ async function createStudioAgentSession(
 					chatArtifactsEnabled,
 					remoteSession,
 					runtime,
+					lspEnabled: isWpLspAvailable(),
 					userInstructions,
 			  }
 	);
@@ -662,7 +666,19 @@ function toToolDefinition(
 			if ( payloadLimitViolation ) {
 				throw new Error( payloadLimitViolation );
 			}
-			return tool.execute( toolCallId, params, signal, onUpdate );
+			const result = await tool.execute( toolCallId, params, signal, onUpdate );
+			// wp-lsp reports problems in a just-edited PHP file straight into the
+			// tool result so the model can correct itself in the same turn.
+			if ( ! signal?.aborted ) {
+				const diagnosticsText = await collectEditToolDiagnostics( tool.name, params );
+				if ( diagnosticsText ) {
+					return {
+						...result,
+						content: [ ...result.content, { type: 'text', text: diagnosticsText } ],
+					};
+				}
+			}
+			return result;
 		},
 	};
 }
@@ -735,7 +751,16 @@ function buildAgentTools(
 			? buildSiteDeletionConfirm( config.onAskUser )
 			: undefined,
 	} ) as unknown as AgentToolAny[];
-	return withoutUnusableTools( [ ...studioTools, ...askUserTool, ...skillTool, ...piTools ] );
+	// Lsp needs the bundled wp-lsp server and local site files, so it only
+	// exists for local sites and only when the dependency is installed.
+	const lspTools: AgentToolAny[] = isWpLspAvailable() ? [ lspTool as unknown as AgentToolAny ] : [];
+	return withoutUnusableTools( [
+		...studioTools,
+		...lspTools,
+		...askUserTool,
+		...skillTool,
+		...piTools,
+	] );
 }
 
 // Two-step confirmation for site deletion:

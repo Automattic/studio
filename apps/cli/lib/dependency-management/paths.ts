@@ -81,6 +81,12 @@ export function getPhpMyAdminPath(): string {
 	return path.join( getWpFilesPath(), 'phpmyadmin' );
 }
 
+// wp-lsp (the WordPress language server) ships read-only with the CLI bundle. It runs on
+// the bundled native PHP binary; its writable stub cache lives under the config directory.
+export function getWpLspPath(): string {
+	return path.join( getWpFilesPath(), 'wp-lsp' );
+}
+
 export function getBlueprintsPharPath(): string {
 	return path.join( getWpFilesPath(), 'blueprints', 'blueprints.phar' );
 }

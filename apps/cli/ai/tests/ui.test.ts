@@ -1,12 +1,15 @@
-import { Container, resetCapabilitiesCache, setCapabilities } from '@earendil-works/pi-tui';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { initTheme, ToolExecutionComponent } from '@earendil-works/pi-coding-agent';
+import { Container } from '@earendil-works/pi-tui';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ADD_AI_CREDITS_URL } from '@studio/common/lib/studio-assistant-quota';
-import { setExpandedDeep, toolResultRenderers } from 'cli/ai/tool-result-renderers';
+import { toolResultRenderers } from 'cli/ai/tool-result-renderers';
 import { AiChatUI } from 'cli/ai/ui';
 import { openBrowser } from 'cli/lib/browser';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { isSiteRunning } from 'cli/lib/site-utils';
+
+initTheme();
 
 const ANSI_PATTERN = new RegExp( String.fromCharCode( 27 ) + '\\[[0-9;]*m', 'g' );
 
@@ -484,12 +487,9 @@ describe( 'AiChatUI.handleEvent', () => {
 		expect( joined ).toContain( 'WordPress.com API GET /posts' );
 		expect( joined ).toContain( 'GET /posts: Returned 2 posts' );
 		expect( joined ).toContain( 'Full API response hidden' );
-		expect( joined ).toContain( 'Run npm test' );
+		expect( joined ).toContain( '$ npm test' );
 		expect( joined ).toContain( '2 tests passed' );
-		expect( joined ).toContain( 'Duration 1s' );
-		expect( joined ).toContain( 'Read theme/style.css' );
-		expect( joined ).toContain( 'Read 2 lines' );
-		expect( joined ).toContain( 'File contents hidden' );
+		expect( joined ).toContain( 'style.css' );
 		expect( joined ).not.toContain( '"posts"' );
 		expect( joined ).not.toContain( '.wp-site-blocks' );
 	} );
@@ -682,12 +682,16 @@ describe( 'AiChatUI.handleEvent', () => {
 		} );
 
 		const collapsed = renderedContainerText( messages );
-		expect( collapsed ).toContain( '... (2 earlier lines · ctrl+o to expand)' );
+		expect( collapsed ).toContain( 'earlier lines' );
 		expect( collapsed ).toContain( 'line 7' );
 		expect( collapsed ).not.toContain( 'line 1' );
 		expect( collapsed ).toContain( 'Full skill body hidden' );
 
-		setExpandedDeep( messages, true );
+		for ( const child of messages.children ) {
+			if ( child instanceof ToolExecutionComponent ) {
+				child.setExpanded( true );
+			}
+		}
 
 		const expanded = renderedContainerText( messages );
 		expect( expanded ).toContain( 'line 1' );
@@ -832,83 +836,34 @@ describe( 'AiChatUI.handleEvent', () => {
 		expect( showInfo ).not.toHaveBeenCalled();
 		expect( ui.usageCapReached ).toBe( false );
 	} );
-} );
 
-describe( 'AiChatUI.renderToolResultImages', () => {
-	// 1x1 transparent PNG.
-	const TINY_PNG =
-		'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
-
-	function createUiStub() {
-		const ui = Object.create( AiChatUI.prototype ) as {
-			renderToolResultImages: ( result: unknown, target: Container ) => void;
-			[ key: string ]: unknown;
-		};
-		ui.tui = { requestRender: vi.fn() };
-		return ui;
-	}
-
-	afterEach( () => {
-		resetCapabilitiesCache();
-	} );
-
-	it( 'renders image blocks inline when the terminal supports an image protocol', () => {
-		setCapabilities( { images: 'iterm2', trueColor: true, hyperlinks: true } );
-		const ui = createUiStub();
-		const target = new Container();
-
-		ui.renderToolResultImages(
-			{ content: [ { type: 'image', data: TINY_PNG, mimeType: 'image/png' } ] },
-			target
-		);
-
-		expect( target.render( 120 ).join( '\n' ) ).toContain( '1337;File=' );
-	} );
-
-	it( 'renders nothing when the terminal has no image protocol', () => {
-		setCapabilities( { images: null, trueColor: false, hyperlinks: false } );
-		const ui = createUiStub();
-		const target = new Container();
-
-		ui.renderToolResultImages(
-			{ content: [ { type: 'image', data: TINY_PNG, mimeType: 'image/png' } ] },
-			target
-		);
-
-		expect( target.render( 120 ) ).toHaveLength( 0 );
-	} );
-
-	it( 'skips non-PNG images on kitty-protocol terminals', () => {
-		setCapabilities( { images: 'kitty', trueColor: true, hyperlinks: true } );
-		const ui = createUiStub();
-		const target = new Container();
-
-		ui.renderToolResultImages(
-			{ content: [ { type: 'image', data: TINY_PNG, mimeType: 'image/jpeg' } ] },
-			target
-		);
-
-		expect( target.render( 120 ) ).toHaveLength( 0 );
-	} );
-} );
-
-describe( 'AiChatUI.getToolResultContent', () => {
-	it( 'strips legacy media widget payload lines from replayed tool results', () => {
-		const ui = Object.create( AiChatUI.prototype ) as {
-			getToolResultContent: ( result: unknown ) => {
-				content: Array< { type: string; text?: string } >;
-			};
-		};
-
-		const result = ui.getToolResultContent( {
-			content: [
+	it( 'strips legacy media widget payload lines from tool results', () => {
+		const { ui, messages } = makeRenderUi();
+		ui.handleEvent( {
+			type: 'message_end',
+			message: {
+				role: 'assistant',
+				content: [ { type: 'toolCall', id: 'toolu_shot', name: 'take_screenshot', arguments: {} } ],
+			},
+		} );
+		ui.handleEvent( {
+			type: 'turn_end',
+			toolResults: [
 				{
-					type: 'text',
-					text: 'Screenshot captured — desktop.\nmediaWidgetPayload={"type":"media"}',
+					toolCallId: 'toolu_shot',
+					isError: false,
+					content: [
+						{
+							type: 'text',
+							text: 'Screenshot captured — desktop.\nmediaWidgetPayload={"type":"media"}',
+						},
+					],
 				},
 			],
 		} );
 
-		expect( result.content[ 0 ].text ).toBe( 'Screenshot captured — desktop.' );
+		const joined = renderedContainerText( messages );
+		expect( joined ).toContain( 'Screenshot captured' );
+		expect( joined ).not.toContain( 'mediaWidgetPayload' );
 	} );
 } );

@@ -1,4 +1,10 @@
 import {
+	getMarkdownTheme,
+	initTheme,
+	ToolExecutionComponent,
+	type AgentSessionEvent,
+} from '@earendil-works/pi-coding-agent';
+import {
 	type TUI,
 	TuiMainScreen,
 	ProcessTerminal,
@@ -18,21 +24,14 @@ import {
 	type Focusable,
 	type EditorTheme,
 	type EditorOptions,
-	type MarkdownTheme,
 	visibleWidth,
 	truncateToWidth,
 	CURSOR_MARKER,
-	getCapabilities,
-	Image,
-	Spacer,
 } from '@earendil-works/pi-tui';
-import { stripMediaWidgetPayloadLines } from '@studio/common/ai/chat-artifacts';
 import { isOutOfCreditsError, isUsageCapError } from '@studio/common/ai/json-events';
 import { DEFAULT_MODEL, getAiModelLabel, type AiModelId } from '@studio/common/ai/models';
 import { findLastAssistant } from '@studio/common/ai/session-events';
 import { randomThinkingMessage } from '@studio/common/ai/thinking-messages';
-import { getStudioToolProgress } from '@studio/common/ai/tool-progress';
-import { getToolDetail, getToolDisplayName } from '@studio/common/ai/tools';
 import chalk from '@studio/common/lib/chalk';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import {
@@ -51,21 +50,16 @@ import { buildOptionPickerLines } from 'cli/ai/option-picker';
 import { type AiOutputAdapter } from 'cli/ai/output-adapter';
 import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, type AiProviderId } from 'cli/ai/providers';
 import { getActiveSlashCommands } from 'cli/ai/slash-commands';
-import {
-	ExpandableText,
-	formatToolOutputLines,
-	renderGenericToolResult,
-	setExpandedDeep,
-	toolResultRenderers,
-} from 'cli/ai/tool-result-renderers';
+import { getToolRenderDefinition } from 'cli/ai/tool-render-definitions';
+import { formatToolOutputLines } from 'cli/ai/tool-result-renderers';
 import { getWpComSites } from 'cli/lib/api';
 import { openBrowser } from 'cli/lib/browser';
 import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
+import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { getSitesRunningStatus, isSiteRunning } from 'cli/lib/site-utils';
 import { formatTosNoticeLines } from 'cli/lib/tos-notice';
 import type { ToolResultMessage } from '@earendil-works/pi-ai';
-import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import type { AskUserQuestion, SiteInfo } from 'cli/ai/types';
 
 const SITE_PICKER_TAB_LOCAL = 'local' as const;
@@ -236,23 +230,6 @@ class PromptEditor implements Component, Focusable {
 	}
 }
 
-const markdownTheme: MarkdownTheme = {
-	heading: ( text ) => chalk.bold( text ),
-	link: ( text ) => chalk.cyan.underline( text ),
-	linkUrl: ( text ) => chalk.dim( text ),
-	code: ( text ) => chalk.yellow( text ),
-	codeBlock: ( text ) => text,
-	codeBlockBorder: ( text ) => chalk.dim( text ),
-	quote: ( text ) => chalk.italic( text ),
-	quoteBorder: ( text ) => chalk.dim( text ),
-	hr: ( text ) => chalk.dim( text ),
-	listBullet: ( text ) => chalk.cyan( text ),
-	bold: ( text ) => chalk.bold( text ),
-	italic: ( text ) => chalk.italic( text ),
-	strikethrough: ( text ) => chalk.strikethrough( text ),
-	underline: ( text ) => chalk.underline( text ),
-};
-
 const editorTheme: EditorTheme = {
 	borderColor: ( text ) => chalk.white( text ),
 	selectList: {
@@ -263,76 +240,6 @@ const editorTheme: EditorTheme = {
 		noMatch: ( text ) => chalk.dim( text ),
 	},
 };
-
-function formatToolName( name: string, input?: Record< string, unknown > ): string {
-	const displayName = chalk.bold( getToolDisplayName( name, input ) );
-	const detail = getToolDetail( name, input );
-	if ( detail ) {
-		return displayName + ' ' + chalk.dim( detail );
-	}
-	return displayName;
-}
-
-interface ToolUseResultContent {
-	// Text blocks of a pi `ToolResultMessage`; image blocks render separately.
-	content: Array< { type: string; text?: string } >;
-	isError?: boolean;
-}
-
-class ToolCallComponent extends Container {
-	readonly toolName: string;
-	readonly input: Record< string, unknown >;
-	readonly label: string;
-	private startedAtMs: number;
-	private rowText: Text;
-	private progressText: Text | null = null;
-	private progressLines: string[] = [];
-
-	constructor(
-		toolName: string,
-		input: Record< string, unknown >,
-		label: string,
-		private formatHeader: ( isError: boolean, label: string, startedAtMs: number | null ) => string,
-		private now: () => number
-	) {
-		super();
-		this.toolName = toolName;
-		this.input = input;
-		this.label = label;
-		this.startedAtMs = now();
-		this.rowText = new Text( formatHeader( false, label, null ), 0, 0 );
-		this.addChild( this.rowText );
-	}
-
-	markExecutionStarted(): void {
-		this.startedAtMs = this.now();
-	}
-
-	addProgress( message: string, update: boolean ): void {
-		const lastLine = this.progressLines[ this.progressLines.length - 1 ];
-		if ( update && this.progressLines.length > 0 ) {
-			this.progressLines[ this.progressLines.length - 1 ] = message;
-		} else if ( lastLine !== message ) {
-			this.progressLines.push( message );
-		} else {
-			return;
-		}
-
-		const formatted = formatToolOutputLines(
-			this.progressLines.map( ( progressLine ) => chalk.dim( progressLine ) )
-		);
-		if ( this.progressText ) {
-			this.progressText.setText( formatted );
-		} else {
-			this.progressText = new Text( formatted, 0, 0 );
-			this.addChild( this.progressText );
-		}
-	}
-
-	finalize( isError: boolean ): void {
-		this.rowText.setText( this.formatHeader( isError, this.label, this.startedAtMs ) );
-	}
-}
 
 export class AiChatUI implements AiOutputAdapter {
 	private tui: TUI;
@@ -360,7 +267,10 @@ export class AiChatUI implements AiOutputAdapter {
 	private siteSelectedCallback: ( ( site: SiteInfo ) => void ) | null = null;
 	private replayMode = false;
 	private replayTimestampMs: number | null = null;
-	private pendingToolCalls = new Map< string, ToolCallComponent >();
+	private pendingToolCalls = new Map<
+		string,
+		{ component: ToolExecutionComponent; toolName: string; input: Record< string, unknown > }
+	>();
 	private renderedToolResultIds = new Set< string >();
 	currentModel: AiModelId = DEFAULT_MODEL;
 	currentProvider: AiProviderId = DEFAULT_AI_PROVIDER;
@@ -476,6 +386,7 @@ export class AiChatUI implements AiOutputAdapter {
 	}
 
 	constructor() {
+		initTheme();
 		const terminal = new ProcessTerminal();
 		this.tui = new TuiMainScreen( terminal, true );
 
@@ -671,7 +582,11 @@ export class AiChatUI implements AiOutputAdapter {
 			}
 			if ( matchesKey( data, 'ctrl+o' ) && this.hasExpandableOutput ) {
 				this.toolOutputExpanded = ! this.toolOutputExpanded;
-				setExpandedDeep( this.messages, this.toolOutputExpanded );
+				for ( const child of this.messages.children ) {
+					if ( child instanceof ToolExecutionComponent ) {
+						child.setExpanded( this.toolOutputExpanded );
+					}
+				}
 				this.updateHints();
 				this.tui.requestRender();
 				return { consume: true };
@@ -1671,103 +1586,27 @@ export class AiChatUI implements AiOutputAdapter {
 		}
 	}
 
-	// Appends a tool result rendered by `renderFn`. When the collapsed and
-	// expanded states differ, the block joins the session-wide ctrl+o toggle
-	// and inherits its current state.
-	private addToolResultText( renderFn: ( expanded: boolean ) => string, target: Container ): void {
-		if ( renderFn( false ) === renderFn( true ) ) {
-			target.addChild( new Text( renderFn( false ), 0, 0 ) );
-		} else {
-			target.addChild( new ExpandableText( renderFn, this.toolOutputExpanded ) );
-			this.hasExpandableOutput = true;
-			this.updateHints();
-		}
-		this.tui.requestRender();
-	}
-
-	private getToolResultContent( result: ToolResultMessage ): ToolUseResultContent {
-		const blocks: Array< { type: string; text?: string } > = [];
-		for ( const block of result.content ) {
-			if ( block.type === 'text' && typeof block.text === 'string' ) {
-				// Old transcripts embed media widget payload markers in screenshot
-				// results; strip them from replayed tool output like the desktop
-				// conversation UIs do.
-				blocks.push( { type: 'text', text: stripMediaWidgetPayloadLines( block.text ) } );
-			}
-		}
-		return {
-			content: blocks,
-			isError: result.isError,
-		};
-	}
-
-	private formatToolUseLine(
-		isError: boolean,
-		label: string,
-		startedAtMs: number | null = null
-	): string {
-		const elapsed = startedAtMs === null ? 0 : this.nowMs() - startedAtMs;
-		const elapsedSeconds = Math.max( elapsed, 0 ) / 1000;
-		const elapsedStr =
-			elapsed > 0 || this.replayMode ? chalk.dim( ` (${ elapsedSeconds.toFixed( 1 ) }s)` ) : '';
-		const statusIcon = isError ? chalk.red( '⏺' ) : '⏺';
-
-		return '\n ' + statusIcon + ' ' + label + elapsedStr;
-	}
-
-	private renderToolUseLine(
-		isError: boolean,
-		label: string,
-		startedAtMs: number | null = null,
-		target: Container = this.messages
-	): Text {
-		const rowText = new Text( this.formatToolUseLine( isError, label, startedAtMs ), 0, 0 );
-		target.addChild( rowText );
-		return rowText;
-	}
-
-	private renderToolResultText(
-		content: string | Array< { type: string; text?: string } >,
-		toolCall?: ToolCallComponent,
-		isError = false,
-		target: Container = this.messages,
-		details?: unknown
-	): void {
-		let text: string;
-		if ( typeof content === 'string' ) {
-			text = content;
-		} else {
-			text = content
-				.filter( ( block ) => block.type === 'text' && block.text )
-				.map( ( block ) => block.text )
-				.join( '\n' );
-		}
-
-		const renderer = toolCall ? toolResultRenderers[ toolCall.toolName ] : undefined;
-		if ( renderer ) {
-			const context = { input: toolCall?.input ?? {}, text, isError, details };
-			if ( renderer( context, false ) !== null ) {
-				this.addToolResultText( ( expanded ) => renderer( context, expanded ) ?? '', target );
-				return;
-			}
-		}
-		if ( ! text ) {
-			return;
-		}
-		this.addToolResultText( ( expanded ) => renderGenericToolResult( text, expanded ), target );
-	}
-
+	// Live turns render results at `tool_execution_end`; this covers the rest
+	// (replayed sessions and results with no execution event).
 	renderToolResults( results: readonly ToolResultMessage[] ): void {
 		for ( const toolResult of results ) {
 			const toolCallId = toolResult.toolCallId;
 			if ( this.renderedToolResultIds.delete( toolCallId ) ) {
 				continue;
 			}
-			const toolCall = this.pendingToolCalls.get( toolCallId );
-			this.showToolResult( toolResult, toolCall );
-			if ( toolCall ) {
+			let pending = this.pendingToolCalls.get( toolCallId );
+			if ( ! pending ) {
+				const component = this.createToolComponent( 'tool', toolCallId, {} );
+				this.messages.addChild( component );
+				pending = { component, toolName: 'tool', input: {} };
+			} else {
 				this.pendingToolCalls.delete( toolCallId );
 			}
+			this.applyToolResult( pending, {
+				content: toolResult.content,
+				details: toolResult.details,
+				isError: toolResult.isError === true,
+			} );
 		}
 		if ( results.length > 0 ) {
 			this.currentMarkdown = null;
@@ -1775,60 +1614,40 @@ export class AiChatUI implements AiOutputAdapter {
 		}
 	}
 
-	private showToolResult( result: ToolResultMessage, toolCall?: ToolCallComponent ): void {
-		const typedResult = this.getToolResultContent( result );
-		const isError = typedResult.isError === true;
-		const label = toolCall?.label ?? chalk.bold( __( 'Tool' ) );
-		let target: Container = this.messages;
-		if ( toolCall ) {
-			toolCall.finalize( isError );
-			target = toolCall;
-		}
-
-		// Auto-select the site that was operated on
-		if ( ! isError && toolCall ) {
-			void this.autoSelectSiteFromToolResult( toolCall.toolName, toolCall.input );
-		}
-
-		if ( ! toolCall ) {
-			this.renderToolUseLine( isError, label, null, target );
-		}
-
-		if ( toolCall?.toolName !== 'AskUserQuestion' || isError ) {
-			this.renderToolResultText( typedResult.content, toolCall, isError, target, result.details );
-		}
-		this.renderToolResultImages( result, target );
-		this.tui.requestRender();
+	private createToolComponent(
+		name: string,
+		toolCallId: string,
+		input: Record< string, unknown >
+	): ToolExecutionComponent {
+		const component = new ToolExecutionComponent(
+			name,
+			toolCallId,
+			input,
+			{ showImages: true, imageWidthCells: 60 },
+			getToolRenderDefinition( name ),
+			this.tui,
+			STUDIO_SITES_ROOT
+		);
+		component.setArgsComplete();
+		component.setExpanded( this.toolOutputExpanded );
+		this.hasExpandableOutput = true;
+		this.updateHints();
+		return component;
 	}
 
-	// Render image blocks (e.g. take_screenshot captures) inline when the
-	// terminal supports an image protocol. Elsewhere the saved-file progress
-	// line is the user's only handle on the capture.
-	private renderToolResultImages( result: ToolResultMessage, target: Container ): void {
-		const { images } = getCapabilities();
-		if ( ! images ) {
-			return;
+	private applyToolResult(
+		pending: {
+			component: ToolExecutionComponent;
+			toolName: string;
+			input: Record< string, unknown >;
+		},
+		result: { content: unknown; details?: unknown; isError: boolean }
+	): void {
+		pending.component.updateResult( result as never );
+		if ( ! result.isError ) {
+			void this.autoSelectSiteFromToolResult( pending.toolName, pending.input );
 		}
-		for ( const block of result.content ) {
-			if ( block.type !== 'image' || ! block.data || ! block.mimeType ) {
-				continue;
-			}
-			// The kitty graphics protocol only renders PNG and screenshots are
-			// JPEG; converting would need an optional WASM dependency we don't
-			// ship, so those terminals keep the saved-file link instead.
-			if ( images === 'kitty' && block.mimeType !== 'image/png' ) {
-				continue;
-			}
-			target.addChild( new Spacer( 1 ) );
-			target.addChild(
-				new Image(
-					block.data,
-					block.mimeType,
-					{ fallbackColor: ( value ) => chalk.dim( value ) },
-					{ maxWidthCells: 60 }
-				)
-			);
-		}
+		this.tui.requestRender();
 	}
 
 	/**
@@ -1986,7 +1805,7 @@ export class AiChatUI implements AiOutputAdapter {
 						}
 						if ( ! this.hasShownResponseMarker ) {
 							this.hasShownResponseMarker = true;
-							this.currentMarkdown = new Markdown( '\n', 1, 0, markdownTheme );
+							this.currentMarkdown = new Markdown( '\n', 1, 0, getMarkdownTheme() );
 							this.messages.addChild( this.currentMarkdown );
 						}
 						if ( this.currentResponseText && ! this.currentResponseText.endsWith( '\n' ) ) {
@@ -1999,16 +1818,9 @@ export class AiChatUI implements AiOutputAdapter {
 						this.tui.requestRender();
 					} else if ( block.type === 'toolCall' ) {
 						const input = ( block.arguments ?? {} ) as Record< string, unknown >;
-						const toolCall = new ToolCallComponent(
-							block.name,
-							input,
-							formatToolName( block.name, input ),
-							( isError, label, startedAtMs ) =>
-								this.formatToolUseLine( isError, label, startedAtMs ),
-							() => this.nowMs()
-						);
-						this.messages.addChild( toolCall );
-						this.pendingToolCalls.set( block.id, toolCall );
+						const component = this.createToolComponent( block.name, block.id, input );
+						this.messages.addChild( component );
+						this.pendingToolCalls.set( block.id, { component, toolName: block.name, input } );
 					}
 				}
 				if ( ! this.replayMode && ! this.loaderVisible ) {
@@ -2022,40 +1834,33 @@ export class AiChatUI implements AiOutputAdapter {
 				return;
 			}
 			case 'tool_execution_start': {
-				this.pendingToolCalls.get( event.toolCallId )?.markExecutionStarted();
+				this.pendingToolCalls.get( event.toolCallId )?.component.markExecutionStarted();
 				return;
 			}
 			case 'tool_execution_update': {
-				const progress = getStudioToolProgress( event.partialResult );
-				if ( ! progress ) {
+				const pending = this.pendingToolCalls.get( event.toolCallId );
+				if ( ! pending ) {
 					return;
 				}
-				const toolCall = this.pendingToolCalls.get( event.toolCallId );
-				if ( ! toolCall ) {
-					return;
-				}
-				toolCall.addProgress( progress.message, progress.update === true );
+				pending.component.updateResult(
+					{ ...( event.partialResult as object ), isError: false } as never,
+					true
+				);
 				this.tui.requestRender();
 				return;
 			}
 			case 'tool_execution_end': {
-				const toolCall = this.pendingToolCalls.get( event.toolCallId );
-				if ( ! toolCall ) {
+				const pending = this.pendingToolCalls.get( event.toolCallId );
+				if ( ! pending ) {
 					return;
 				}
 				this.pendingToolCalls.delete( event.toolCallId );
 				this.renderedToolResultIds.add( event.toolCallId );
-				const result = event.result as { content?: unknown; details?: unknown } | undefined;
-				this.showToolResult(
-					{
-						role: 'toolResult',
-						toolCallId: event.toolCallId,
-						content: result?.content ?? [],
-						details: result?.details,
-						isError: event.isError,
-					} as unknown as ToolResultMessage,
-					toolCall
-				);
+				this.applyToolResult( pending, {
+					content: ( event.result as { content?: unknown } | undefined )?.content ?? [],
+					details: ( event.result as { details?: unknown } | undefined )?.details,
+					isError: event.isError,
+				} );
 				return;
 			}
 			case 'auto_retry_start': {

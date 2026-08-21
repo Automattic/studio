@@ -1,5 +1,3 @@
-import { Container, Text } from '@earendil-works/pi-tui';
-import { getToolResultDiff } from '@studio/common/ai/tools';
 import chalk from '@studio/common/lib/chalk';
 import { __, _n, sprintf } from '@wordpress/i18n';
 
@@ -25,39 +23,6 @@ export type ToolResultRenderer = (
 	context: ToolResultRenderContext,
 	expanded: boolean
 ) => string | null;
-
-// Text block that re-renders itself when the session-wide ctrl+o expansion
-// state changes.
-export class ExpandableText extends Text {
-	constructor(
-		private readonly renderFn: ( expanded: boolean ) => string,
-		expanded: boolean
-	) {
-		super( renderFn( expanded ), 0, 0 );
-	}
-
-	setExpanded( expanded: boolean ): void {
-		this.setText( this.renderFn( expanded ) );
-	}
-}
-
-export function setExpandedDeep( container: Container, expanded: boolean ): void {
-	for ( const child of container.children ) {
-		if ( child instanceof ExpandableText ) {
-			child.setExpanded( expanded );
-		} else if ( child instanceof Container ) {
-			setExpandedDeep( child, expanded );
-		}
-	}
-}
-
-function countLines( text: string ): number {
-	if ( text.length === 0 ) {
-		return 0;
-	}
-	const normalized = text.endsWith( '\n' ) ? text.slice( 0, -1 ) : text;
-	return normalized.split( '\n' ).length;
-}
 
 function firstNonEmptyLine( text: string ): string {
 	return (
@@ -139,23 +104,6 @@ function headPreview( lines: string[], expanded: boolean ): string {
 			)
 		)
 	);
-}
-
-// Tail-biased collapsed preview: an "earlier lines" hint plus the last lines.
-function tailPreview( lines: string[], expanded: boolean ): string {
-	if ( expanded || lines.length <= COLLAPSE_THRESHOLD_LINES ) {
-		return formatToolOutputLines( lines );
-	}
-	return formatToolOutputLines( [
-		chalk.dim(
-			sprintf(
-				/* translators: %d: number of hidden lines */
-				__( '... (%d earlier lines · ctrl+o to expand)' ),
-				lines.length - COLLAPSE_THRESHOLD_LINES
-			)
-		),
-		...lines.slice( -COLLAPSE_THRESHOLD_LINES ),
-	] );
 }
 
 function summaryWithDetail(
@@ -314,130 +262,10 @@ const renderSiteCreateResult: ToolResultRenderer = ( { text, isError }, expanded
 	);
 };
 
-const renderFileErrorResult = ( text: string, expanded: boolean ): string | null =>
-	! text
-		? null
-		: summaryWithDetail(
-				[ firstNonEmptyLine( text ) || __( 'File operation failed' ) ],
-				text,
-				__( 'Full file error hidden · ctrl+o to expand' ),
-				expanded,
-				{ isError: true }
-		  );
-
-const renderReadResult: ToolResultRenderer = ( { text, isError }, expanded ) => {
-	if ( isError || ! text ) {
-		return renderFileErrorResult( text, expanded );
-	}
-	const lines = countLines( text );
-	return summaryWithDetail(
-		[ sprintf( _n( 'Read %d line', 'Read %d lines', lines ), lines ) ],
-		text,
-		__( 'File contents hidden · ctrl+o to expand' ),
-		expanded
-	);
-};
-
-const renderWriteResult: ToolResultRenderer = ( { input, text, isError }, expanded ) => {
-	if ( isError ) {
-		return renderFileErrorResult( text, expanded );
-	}
-	const summary = formatToolOutputLines( [ chalk.dim( __( 'File written' ) ) ] );
-	if ( typeof input.content !== 'string' ) {
-		if ( ! text ) {
-			return null;
-		}
-		return summaryWithDetail(
-			[ __( 'File written' ) ],
-			text,
-			__( 'Full tool output hidden · ctrl+o to expand' ),
-			expanded
-		);
-	}
-	const lines = input.content.split( '\n' );
-	const numWidth = String( lines.length ).length;
-	const numbered = lines.map(
-		( line, i ) => chalk.dim( String( i + 1 ).padStart( numWidth ) ) + ' ' + chalk.green( line )
-	);
-	return summary + '\n' + headPreview( numbered, expanded );
-};
-
-const renderEditResult: ToolResultRenderer = ( { text, isError, details }, expanded ) => {
-	if ( isError ) {
-		return renderFileErrorResult( text, expanded );
-	}
-	const diff = getToolResultDiff( details );
-	if ( ! diff ) {
-		if ( ! text ) {
-			return null;
-		}
-		return summaryWithDetail(
-			[ __( 'File edited' ) ],
-			text,
-			__( 'Full tool output hidden · ctrl+o to expand' ),
-			expanded
-		);
-	}
-
-	const rawLines = diff.replace( /\n$/, '' ).split( '\n' );
-	const coloredLines = rawLines.map( ( line ) => {
-		if ( line.startsWith( '+' ) ) {
-			return chalk.green( line );
-		}
-		if ( line.startsWith( '-' ) ) {
-			return chalk.red( line );
-		}
-		return chalk.dim( line );
-	} );
-	const summary = formatToolOutputLines( [ chalk.dim( __( 'File edited' ) ) ] );
-	if ( expanded || rawLines.length <= COLLAPSE_THRESHOLD_LINES ) {
-		return summary + '\n' + formatToolOutputLines( coloredLines );
-	}
-
-	// Window the collapsed view around the first change so the +/- lines
-	// are visible instead of the diff's leading context lines.
-	const firstChanged = rawLines.findIndex(
-		( line ) => line.startsWith( '+' ) || line.startsWith( '-' )
-	);
-	const start = Math.max(
-		0,
-		Math.min( firstChanged - 1, rawLines.length - COLLAPSE_THRESHOLD_LINES )
-	);
-	const windowLines = coloredLines.slice( start, start + COLLAPSE_THRESHOLD_LINES );
-	return (
-		summary +
-		'\n' +
-		formatToolOutputLines( windowLines ) +
-		'\n     ' +
-		chalk.dim(
-			sprintf(
-				/* translators: %d: number of hidden lines */
-				__( '... %d more lines · ctrl+o to expand' ),
-				rawLines.length - windowLines.length
-			)
-		)
-	);
-};
-
-const renderBashResult: ToolResultRenderer = ( { text, isError }, expanded ) => {
-	if ( ! text.trim() ) {
-		return null;
-	}
-	const lines = text
-		.replace( /\n$/, '' )
-		.split( '\n' )
-		.map( ( line ) => ( isError ? chalk.red( line ) : chalk.dim( line ) ) );
-	return tailPreview( lines, expanded );
-};
-
 export const toolResultRenderers: Record< string, ToolResultRenderer > = {
 	site_create: renderSiteCreateResult,
 	Skill: renderSkillResult,
 	wpcom_request: renderWpcomResult,
-	Read: renderReadResult,
-	Write: renderWriteResult,
-	Edit: renderEditResult,
-	Bash: renderBashResult,
 	validate_blocks: ( { text }, expanded ) =>
 		text ? renderGenericToolResult( text, expanded, 2000 ) : null,
 };

@@ -389,6 +389,7 @@ export class AiChatUI implements AiOutputAdapter {
 	private optionPickerItemCount = 0;
 	private optionPickerInput: Input | null = null;
 	private optionPickerItems: SelectItem[] = [];
+	private optionPickerQuestion = '';
 	private static readonly OTHER_VALUE = '__other__';
 	private static readonly OPTION_PICKER_THEME: SelectListTheme = {
 		selectedPrefix: ( text: string ) => chalk.blue( text ),
@@ -1118,7 +1119,19 @@ export class AiChatUI implements AiOutputAdapter {
 			lines[ lines.length - 1 ] = `${ chalk.blue( '→' ) } ${ display }`;
 		}
 
-		this.optionPickerContainer.addChild( new Text( lines.join( '\n' ), 1, 0 ) );
+		const question = this.optionPickerQuestion
+			? '\n' + chalk.bold( this.optionPickerQuestion ) + '\n'
+			: '';
+		this.optionPickerContainer.addChild( new Text( question + lines.join( '\n' ), 1, 0 ) );
+		this.tui.requestRender();
+	}
+
+	// Transcript record of a tool/agent question once answered; while open, the
+	// question lives only in the picker chrome.
+	private echoAnsweredQuestion( question: string, answer: string ): void {
+		this.messages.addChild(
+			new Text( '\n' + chalk.bold( question ) + '\n' + chalk.blue( '→' ) + ' ' + answer, 1, 0 )
+		);
 		this.tui.requestRender();
 	}
 
@@ -1154,6 +1167,7 @@ export class AiChatUI implements AiOutputAdapter {
 		this.optionPickerHasFreeForm = false;
 		this.optionPickerItemCount = 0;
 		this.optionPickerItems = [];
+		this.optionPickerQuestion = '';
 		this.deactivateOptionPickerOther();
 		this.tui.requestRender();
 	}
@@ -1953,7 +1967,11 @@ export class AiChatUI implements AiOutputAdapter {
 			}
 		}
 
-		this.renderToolResultText( typedResult.content, toolCall, isError, target );
+		// askUser already echoed the question + answer to the transcript; the
+		// raw answers JSON would duplicate them.
+		if ( toolCall?.toolName !== 'AskUserQuestion' || isError ) {
+			this.renderToolResultText( typedResult.content, toolCall, isError, target );
+		}
 		this.renderToolResultImages( result, target );
 		this.tui.requestRender();
 	}
@@ -2002,14 +2020,15 @@ export class AiChatUI implements AiOutputAdapter {
 		const answers: Record< string, string > = {};
 
 		for ( const q of questions ) {
-			// Display the question
-			this.messages.addChild( new Text( '\n' + chalk.bold( q.question ), 1, 0 ) );
-			this.tui.requestRender();
-
 			if ( q.options.length > 0 ) {
+				// pi-style: the question renders inside the picker chrome, not in
+				// the transcript — a tool may still be streaming output above, and
+				// appending here would interleave out of order. The transcript gets
+				// one compact question + answer echo after the user picks.
+				this.hideEditor();
+				this.optionPickerQuestion = q.question;
 				// Use SelectList for option-based questions.
 				// When allowFreeForm is true, append an "Other" option with inline input.
-				this.hideEditor();
 				const selectItems: SelectItem[] = q.options.map( ( opt, i ) => ( {
 					value: opt.label,
 					label: `${ i + 1 }. ${ opt.label }`,
@@ -2059,13 +2078,18 @@ export class AiChatUI implements AiOutputAdapter {
 					return answers;
 				}
 				answers[ q.question ] = selected;
+				this.echoAnsweredQuestion( q.question, selected );
 			} else {
-				// Free-form text input
+				// Free-form text input: the question must stay visible while the
+				// user types in the regular editor, so it goes to the transcript.
+				this.messages.addChild( new Text( '\n' + chalk.bold( q.question ), 1, 0 ) );
+				this.tui.requestRender();
 				const answer = await this.waitForInput();
 				if ( ! answer ) {
 					return answers;
 				}
 				answers[ q.question ] = answer;
+				this.messages.addChild( new Text( chalk.blue( '→' ) + ' ' + answer, 1, 0 ) );
 			}
 		}
 

@@ -606,7 +606,7 @@ function dependencyReferences(
 
 function removeDanglingMediaSource( html: string, reference: string ): string {
 	const normalizedReference = reference.replace( /&amp;/g, '&' );
-	return html.replace( /<(img|source|video|audio)\b[^>]*>/gi, ( tag ) => {
+	const withoutSources = html.replace( /<(img|source|video|audio)\b[^>]*>/gi, ( tag ) => {
 		const element = /^<(\w+)/.exec( tag )?.[ 1 ].toLowerCase();
 		const src = /\bsrc\s*=\s*["']([^"']+)["']/i.exec( tag )?.[ 1 ].replace( /&amp;/g, '&' );
 		return src === normalizedReference
@@ -615,6 +615,13 @@ function removeDanglingMediaSource( html: string, reference: string ): string {
 				: tag.replace( /\s+src\s*=\s*["'][^"']*["']/i, '' )
 			: tag;
 	} );
+	return replaceAll(
+		withoutSources,
+		new Map( [
+			[ reference, TRANSPARENT_IMAGE_DATA_URL ],
+			[ normalizedReference, TRANSPARENT_IMAGE_DATA_URL ],
+		] )
+	);
 }
 
 function replaceDanglingCssUrl( html: string, reference: string ): string {

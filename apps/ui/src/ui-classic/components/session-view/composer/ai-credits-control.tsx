@@ -1,7 +1,4 @@
-import {
-	ADD_AI_CREDITS_URL,
-	getStudioCodeAiAccessState,
-} from '@studio/common/lib/studio-assistant-quota';
+import { getStudioCodeAiAccessState } from '@studio/common/lib/studio-assistant-quota';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
@@ -16,10 +13,12 @@ import {
 	useStudioAssistantQuota,
 } from '@/data/queries/use-assistant-quota';
 import { useUserLocale } from '@/data/queries/use-user-locale';
+import { useAddAiCreditsUrl } from '@/hooks/use-add-ai-credits-url';
 import styles from './style.module.css';
 
 export function AiCreditsControl() {
 	const connector = useConnector();
+	const addAiCreditsUrl = useAddAiCreditsUrl();
 	const locale = useUserLocale();
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
@@ -91,7 +90,7 @@ export function AiCreditsControl() {
 						</strong>
 					</div>
 					<Menu.Separator />
-					<Menu.Item onClick={ () => void connector.openExternalUrl( ADD_AI_CREDITS_URL ) }>
+					<Menu.Item onClick={ () => void connector.openExternalUrl( addAiCreditsUrl ) }>
 						{ __( 'Add AI credits' ) }
 						<Icon icon={ external } size={ 14 } aria-hidden="true" />
 					</Menu.Item>

@@ -1,5 +1,5 @@
 import {
-	ADD_AI_CREDITS_URL,
+	getAddAiCreditsUrl,
 	clampQuotaFraction,
 	formatQuotaPercentage,
 	formatQuotaResetDate,
@@ -126,7 +126,9 @@ export function PromptInfo() {
 							icon={ external }
 							iconPosition="right"
 							iconSize={ 16 }
-							onClick={ () => void getIpcApi().openURL( ADD_AI_CREDITS_URL ) }
+							onClick={ () =>
+								void getIpcApi().openURL( getAddAiCreditsUrl( { returnsToDesktop: true } ) )
+							}
 						>
 							{ __( 'Add AI credits' ) }
 						</Button>

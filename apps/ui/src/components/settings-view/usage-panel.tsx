@@ -1,5 +1,4 @@
 import {
-	ADD_AI_CREDITS_URL,
 	clampQuotaFraction,
 	formatQuotaPercentage,
 	formatQuotaResetDate,
@@ -25,6 +24,7 @@ import {
 	useSnapshots,
 } from '@/data/queries/use-snapshots';
 import { useUserLocale } from '@/data/queries/use-user-locale';
+import { useAddAiCreditsUrl } from '@/hooks/use-add-ai-credits-url';
 import styles from './style.module.css';
 
 const DEFAULT_PREVIEW_SITE_LIMIT = 10;
@@ -53,6 +53,7 @@ function UsageProgressBar( { fraction }: { fraction: number } ) {
 function AiCreditsSummary() {
 	const locale = useUserLocale();
 	const connector = useConnector();
+	const addAiCreditsUrl = useAddAiCreditsUrl();
 	const [ detailsOpen, setDetailsOpen ] = useState( false );
 	// The balance may have changed outside the app (e.g. a credits purchase on
 	// WordPress.com), so opening the panel always fetches a fresh figure.
@@ -125,7 +126,7 @@ function AiCreditsSummary() {
 					size="small"
 					variant="outline"
 					tone="neutral"
-					onClick={ () => void connector.openExternalUrl( ADD_AI_CREDITS_URL ) }
+					onClick={ () => void connector.openExternalUrl( addAiCreditsUrl ) }
 				>
 					{ __( 'Add AI credits' ) }
 					<Button.Icon icon={ external } size={ 12 } />

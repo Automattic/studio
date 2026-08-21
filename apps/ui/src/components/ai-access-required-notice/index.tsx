@@ -1,5 +1,4 @@
 import {
-	ADD_AI_CREDITS_URL,
 	formatAiAccessRequiredNotice,
 	formatAiBlockedNotice,
 	formatOutOfCreditsNoticeWithLink,
@@ -9,6 +8,7 @@ import {
 } from '@studio/common/lib/studio-assistant-quota';
 import { createInterpolateElement } from '@wordpress/element';
 import { useConnector } from '@/data/core';
+import { useAddAiCreditsUrl } from '@/hooks/use-add-ai-credits-url';
 import type { ReactNode } from 'react';
 
 // Electron swallows plain `target="_blank"` navigations — route clicks
@@ -47,7 +47,8 @@ export function AiBlockedNotice() {
 }
 
 export function OutOfCreditsNotice() {
+	const addAiCreditsUrl = useAddAiCreditsUrl();
 	return createInterpolateElement( formatOutOfCreditsNoticeWithLink(), {
-		buyLink: <NoticeLink url={ ADD_AI_CREDITS_URL } />,
+		buyLink: <NoticeLink url={ addAiCreditsUrl } />,
 	} );
 }

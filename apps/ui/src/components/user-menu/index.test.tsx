@@ -40,7 +40,7 @@ describe( 'UserMenu', () => {
 
 		expect( screen.getByTestId( 'gravatar' ) ).toBeInTheDocument();
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Settings' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'App settings' } ) );
 
 		expect( navigateMock ).toHaveBeenCalledWith( { to: '/settings' } );
 	} );
@@ -52,7 +52,7 @@ describe( 'UserMenu', () => {
 
 		expect( screen.queryByTestId( 'gravatar' ) ).not.toBeInTheDocument();
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Settings' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'App settings' } ) );
 
 		expect( navigateMock ).toHaveBeenCalledWith( { to: '/settings' } );
 	} );

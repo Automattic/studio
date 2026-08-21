@@ -15,13 +15,17 @@ import type { SiteDetails } from '@/data/core';
 export function useOpenSiteUrl( site: SiteDetails ) {
 	const connector = useConnector();
 	const preview = useOptionalSessionPreviewUI();
-	const startSite = useStartSite();
+	const startSite = useStartSite( { silent: true } );
 
 	return async ( relativeUrl: string ) => {
 		if ( ! preview ) {
 			if ( ! site.running ) {
 				try {
-					await startSite.mutateAsync( site.id );
+					// Resolves false when the start was skipped — opening the URL
+					// then would just point the browser at a site that never came up.
+					if ( ! ( await startSite.mutateAsync( site.id ) ) ) {
+						return;
+					}
 				} catch {
 					return;
 				}

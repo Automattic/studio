@@ -1,0 +1,109 @@
+/* The positioner portals into document.body, so without a z-index it loses
+   to app chrome that creates stacking contexts (same rationale as the menu
+   popup's positioner). The floating toast shelf (.floatingToasts in
+   sidebar-layout) is z-index: 110 and sits in the same collapsed-mode
+   corner, so this needs to clear that, not just the z-index: 100 toggle. */
+.positioner {
+	z-index: 120;
+	outline: none;
+}
+
+.popup {
+	box-sizing: border-box;
+	width: 272px;
+	max-width: calc(100vw - 2 * var(--wpds-dimension-padding-xl));
+}
+
+/* Same surface chrome as the menu popup (weak stroke, lg radius,
+   elevation-md), over the window-chrome background the component supplies
+   inline. Tokens resolve against the dark theme scope wrapping this node.
+   A flex column so the "Open sidebar" CTA stays pinned below the scrolling
+   list instead of scrolling out of view with it. */
+.surface {
+	display: flex;
+	flex-direction: column;
+	box-sizing: border-box;
+	overflow: hidden;
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral-weak);
+	border-radius: var(--wpds-border-radius-lg);
+	box-shadow: var(--wpds-elevation-md);
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.scrollArea {
+	box-sizing: border-box;
+	max-height: min(236px, calc(100vh - 80px));
+	overflow-y: auto;
+	padding-block: var(--wpds-dimension-padding-md);
+}
+
+/* Tighter bottom edge than the expanded sidebar. The descendant selector
+   outranks site-list's own `.root` padding shorthand, so the override does
+   not depend on stylesheet injection order. */
+.scrollArea .siteList {
+	padding-block-end: var(--wpds-dimension-padding-sm);
+}
+
+/* Same fix as .headerClose in settings-view/style.module.css: this popup
+   portals outside the [data-ui-mode='classic'] container, so the global
+   compact-density rule in index.css that shrinks default-24px icons to
+   16px doesn't reach here — the icons render at their unshrunk native
+   size instead of matching the expanded sidebar. */
+.surface svg {
+	width: 16px;
+	height: 16px;
+}
+
+/* Persistent affordance for the trigger's other purpose — opening the full
+   sidebar — since hover already spends the click for the site list. Sits
+   outside the scrolling area so it stays visible regardless of list length. */
+.openSidebarCta {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--wpds-dimension-padding-sm);
+	flex-shrink: 0;
+	box-sizing: border-box;
+	width: 100%;
+	padding-block: var(--wpds-dimension-padding-md);
+	/* Matches the site rows' title column, which is inset further than a
+	   plain padding-md — see --site-list-row-leading-inset/-outer-inset and
+	   --site-list-label-inline-offset in site-list/style.module.css. */
+	padding-inline-start: var(--wpds-dimension-padding-xl);
+	padding-inline-end: var(--wpds-dimension-padding-md);
+	border: none;
+	border-block-start: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral-weak);
+	background: none;
+	color: inherit;
+	font: inherit;
+	font-size: var(--wpds-typography-font-size-sm);
+	cursor: pointer;
+}
+
+.openSidebarCta:hover {
+	background-color: var(--wpds-color-bg-interactive-neutral-weak-active);
+}
+
+.shortcutKeys {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-xs);
+}
+
+.shortcutKey {
+	box-sizing: border-box;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-inline-size: 22px;
+	min-block-size: 22px;
+	padding: 0 var(--wpds-dimension-padding-xs);
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: var(--wpds-border-radius-sm);
+	background: var(--wpds-color-bg-surface-neutral);
+	color: var(--wpds-color-fg-content-neutral);
+	font-family: var(--wpds-typography-font-family-body);
+	font-size: var(--wpds-typography-font-size-xs);
+	font-weight: 500;
+	line-height: 1;
+}

@@ -39,7 +39,13 @@ export const INSPECTOR_PAGE_SCRIPT =
 		);
 		return;
 	}
+	/* A stale instance can outlive its host element (the mount flag is per
+	 * document, its listeners are not), so retire it before taking over. */
+	if ( typeof window.__studioInspectorDispose === 'function' ) {
+		window.__studioInspectorDispose();
+	}
 	window.__studioInspectorMounted = true;
+	const teardown = new AbortController();
 
 	const BRIDGE_PREFIX = '` +
 	INSPECTOR_BRIDGE_PREFIX +
@@ -88,7 +94,10 @@ export const INSPECTOR_PAGE_SCRIPT =
 		const key = event.key.toLowerCase();
 		/* The host owns full preview, but in that mode this page covers most of
 		 * the window — so the chord is caught here and forwarded back. */
-		if ( event.shiftKey ) return key === 'f' ? 'full-preview' : null;
+		if ( event.shiftKey ) {
+			if ( key === 'f' ) return 'full-preview';
+			return key === 'r' ? 'reload' : null;
+		}
 		if ( key === 'r' ) return 'reload';
 		if ( key === '[' ) return 'back';
 		if ( key === ']' ) return 'forward';
@@ -176,6 +185,13 @@ export const INSPECTOR_PAGE_SCRIPT =
 	document.body.appendChild( host );
 	const root = host.attachShadow( { mode: 'open' } );
 
+	window.__studioInspectorDispose = () => {
+		teardown.abort();
+		host.remove();
+		delete window.__studioInspectorMounted;
+		delete window.__studioInspectorDispose;
+	};
+
 	const style = document.createElement( 'style' );
 	style.textContent = ` +
 	'`' +
@@ -219,10 +235,13 @@ export const INSPECTOR_PAGE_SCRIPT =
 			padding: 8px; font: 13px/1.4 inherit; outline: none;
 		}
 		.popup textarea:focus { border-color: #2563eb; }
-		.popup .actions { display: flex; justify-content: flex-end; gap: 6px; }
+		.popup .actions { display: flex; justify-content: flex-end; gap: 4px; }
+		/* Sized so Delete/Cancel/Update/Send to chat all fit one row of the
+		   320px popup; nowrap keeps a tight fit from wrapping a label onto a
+		   second line instead of the row overflowing visibly. */
 		.popup button {
-			padding: 6px 12px; border-radius: 16px; border: none;
-			font: 600 12px/1 inherit; cursor: pointer;
+			padding: 6px 8px; border-radius: 16px; border: none;
+			font: 600 11px/1 inherit; white-space: nowrap; cursor: pointer;
 		}
 		.popup .delete { background: transparent; color: rgba(255,255,255,0.5); margin-right: auto; }
 		.popup .delete:hover { color: #ef4444; }
@@ -230,6 +249,8 @@ export const INSPECTOR_PAGE_SCRIPT =
 		.popup .cancel:hover { background: rgba(255,255,255,0.08); }
 		.popup .save { background: #fff; color: #1a1a1a; }
 		.popup .save[disabled] { opacity: 0.4; cursor: default; }
+		.popup .submit { background: rgba(255,255,255,0.12); color: #fff; }
+		.popup .submit[disabled] { opacity: 0.4; cursor: default; }
 	` +
 	'`' +
 	String.raw`;
@@ -348,13 +369,55 @@ export const INSPECTOR_PAGE_SCRIPT =
 		render();
 	}
 
+	function commitActivePopup() {
+		if ( ! activePopup ) return true;
+		const state = activePopup;
+		const trimmed = ( state.comment || '' ).trim();
+		if ( ! trimmed ) return false;
+		if ( state.id ) {
+			annotations = annotations.map( ( annotation ) =>
+				annotation.id === state.id
+					? Object.assign( {}, annotation, { comment: trimmed, updatedAt: Date.now() } )
+					: annotation
+			);
+		} else {
+			annotations = annotations.concat( [
+				{
+					id: uid(),
+					comment: trimmed,
+					selector: state.target.selector,
+					tag: state.target.tag,
+					nearbyText: state.target.nearbyText,
+					boundingBox: state.target.boundingBox,
+					documentRect: state.target.documentRect,
+					computedStyles: state.target.computedStyles,
+					path: window.location.pathname + window.location.search,
+					url: window.location.href,
+					timestamp: Date.now(),
+				},
+			] );
+		}
+		persistAnnotations();
+		return true;
+	}
+
+	function hasDraft() {
+		return !! ( activePopup && ( activePopup.comment || '' ).trim() );
+	}
+
 	function submitAnnotations() {
-		if ( annotations.length === 0 ) {
+		if ( annotations.length === 0 && ! hasDraft() ) {
 			sendState();
 			return;
 		}
-		const sent = annotations.slice();
-		send( { type: 'done', annotations: sent } );
+		/* An untouched popup is a draft the user never filled in — drop it
+		 * rather than blocking the notes they did save. */
+		if ( hasDraft() ) {
+			commitActivePopup();
+		} else {
+			activePopup = null;
+		}
+		send( { type: 'done', annotations: annotations.slice() } );
 		annotations = [];
 		activePopup = null;
 		isPicking = false;
@@ -363,20 +426,24 @@ export const INSPECTOR_PAGE_SCRIPT =
 		render();
 	}
 
-	window.addEventListener( COMMAND_EVENT, ( event ) => {
-		const command = event.detail || {};
-		if ( command.type === 'toggle-picking' ) {
-			togglePicking();
-			return;
-		}
-		if ( command.type === 'submit' ) {
-			submitAnnotations();
-			return;
-		}
-		if ( command.type === 'report-state' ) {
-			sendState();
-		}
-	} );
+	window.addEventListener(
+		COMMAND_EVENT,
+		( event ) => {
+			const command = event.detail || {};
+			if ( command.type === 'toggle-picking' ) {
+				togglePicking();
+				return;
+			}
+			if ( command.type === 'submit' ) {
+				submitAnnotations();
+				return;
+			}
+			if ( command.type === 'report-state' ) {
+				sendState();
+			}
+		},
+		{ signal: teardown.signal }
+	);
 
 	function buildPopup( state ) {
 		const popup = document.createElement( 'div' );
@@ -416,13 +483,10 @@ export const INSPECTOR_PAGE_SCRIPT =
 			( state.target.nearbyText ? ' — ' + state.target.nearbyText : '' );
 		popup.appendChild( target );
 
+		state.comment = state.comment || '';
 		const ta = document.createElement( 'textarea' );
 		ta.placeholder = 'What should change about this element?';
-		ta.value = state.comment || '';
-		ta.addEventListener( 'input', () => {
-			state.comment = ta.value;
-			save.disabled = ! state.comment.trim();
-		} );
+		ta.value = state.comment;
 		popup.appendChild( ta );
 		setTimeout( () => ta.focus(), 0 );
 
@@ -444,12 +508,6 @@ export const INSPECTOR_PAGE_SCRIPT =
 
 		const closePopup = () => {
 			activePopup = null;
-			/* Picking does NOT auto-resume after save/cancel. Auto-resume was
-			 * convenient for chaining annotations but it silently blocks every
-			 * link click in the page (the picking handler calls
-			 * preventDefault), making the preview feel broken. The user
-			 * re-enters picking mode via the Annotate button. */
-			isPicking = false;
 			hoveredEl = null;
 			persistAnnotations();
 			render();
@@ -464,36 +522,46 @@ export const INSPECTOR_PAGE_SCRIPT =
 		const save = document.createElement( 'button' );
 		save.className = 'save';
 		save.textContent = state.id ? 'Update' : 'Save';
-		save.disabled = ! ( state.comment && state.comment.trim() );
 		save.addEventListener( 'click', () => {
-			const trimmed = ( state.comment || '' ).trim();
-			if ( ! trimmed ) return;
-			if ( state.id ) {
-				annotations = annotations.map( ( a ) =>
-					a.id === state.id
-						? Object.assign( {}, a, { comment: trimmed, updatedAt: Date.now() } )
-						: a
-				);
-			} else {
-				annotations = annotations.concat( [
-					{
-						id: uid(),
-						comment: trimmed,
-						selector: state.target.selector,
-						tag: state.target.tag,
-						nearbyText: state.target.nearbyText,
-						boundingBox: state.target.boundingBox,
-						documentRect: state.target.documentRect,
-						computedStyles: state.target.computedStyles,
-						path: window.location.pathname + window.location.search,
-						url: window.location.href,
-						timestamp: Date.now(),
-					},
-				] );
-			}
+			if ( ! commitActivePopup() ) return;
 			closePopup();
 		} );
 		actions.appendChild( save );
+
+		const submit = document.createElement( 'button' );
+		submit.className = 'submit';
+		submit.textContent = 'Send to chat';
+		submit.addEventListener( 'click', submitAnnotations );
+		actions.appendChild( submit );
+
+		function syncActions() {
+			save.disabled = ! state.comment.trim();
+			/* Sending stays available while notes are already saved, even if
+			 * this popup is an untouched draft — submit discards it. */
+			submit.disabled = save.disabled && annotations.length === 0;
+		}
+		syncActions();
+
+		ta.addEventListener( 'input', () => {
+			state.comment = ta.value;
+			syncActions();
+		} );
+		ta.addEventListener( 'keydown', ( event ) => {
+			if ( event.key !== 'Enter' || event.isComposing || event.keyCode === 229 ) return;
+			if ( event.metaKey || event.ctrlKey ) {
+				event.preventDefault();
+				const start = ta.selectionStart;
+				const end = ta.selectionEnd;
+				ta.value = ta.value.slice( 0, start ) + '\n' + ta.value.slice( end );
+				state.comment = ta.value;
+				ta.setSelectionRange( start + 1, start + 1 );
+				syncActions();
+				return;
+			}
+			if ( event.shiftKey ) return;
+			event.preventDefault();
+			save.click();
+		} );
 
 		popup.appendChild( actions );
 
@@ -503,8 +571,10 @@ export const INSPECTOR_PAGE_SCRIPT =
 		return popup;
 	}
 
+	/* Editing an existing note leaves picking mode alone: markers stay
+	 * clickable when picking is off, and silently switching it on would
+	 * swallow every subsequent link click in the page. */
 	function openPopupForAnnotation( ann ) {
-		isPicking = false;
 		hoveredEl = null;
 		activePopup = {
 			id: ann.id,
@@ -524,7 +594,6 @@ export const INSPECTOR_PAGE_SCRIPT =
 
 	function openPopupForElement( el ) {
 		const viewport = el.getBoundingClientRect();
-		isPicking = false;
 		activePopup = {
 			fromPicker: true,
 			comment: '',
@@ -554,7 +623,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 	document.addEventListener(
 		'mousemove',
 		( e ) => {
-			if ( ! isPicking ) return;
+			if ( ! isPicking || activePopup ) return;
 			if ( isOurElement( e.target ) ) {
 				if ( hoveredEl !== null ) {
 					hoveredEl = null;
@@ -567,19 +636,19 @@ export const INSPECTOR_PAGE_SCRIPT =
 				showHighlight( hoveredEl );
 			}
 		},
-		true
+		{ capture: true, signal: teardown.signal }
 	);
 
 	document.addEventListener(
 		'click',
 		( e ) => {
-			if ( ! isPicking ) return;
+			if ( ! isPicking || activePopup ) return;
 			if ( isOurElement( e.target ) ) return;
 			e.preventDefault();
 			e.stopPropagation();
 			openPopupForElement( e.target );
 		},
-		true
+		{ capture: true, signal: teardown.signal }
 	);
 
 	document.addEventListener(
@@ -604,7 +673,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 				render();
 			}
 		},
-		true
+		{ capture: true, signal: teardown.signal }
 	);
 
 	render();

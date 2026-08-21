@@ -1,8 +1,10 @@
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
+import { type SiteOperationKind } from '@studio/common/lib/site-operation';
+import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
 import { isSnapshotExpired } from '@studio/common/lib/snapshots';
 import { useIsMutating } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
-import { arrowDown, arrowUp, copy, external, Icon, moreHorizontal } from '@wordpress/icons';
+import { arrowDown, arrowUp, close, copy, external, Icon, moreHorizontal } from '@wordpress/icons';
 import { Button, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useMemo } from 'react';
@@ -14,22 +16,27 @@ import { useLogin } from '@/data/queries/use-auth-user';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import { usePublishPreviewSite } from '@/data/queries/use-preview-site';
 import {
+	useIsSiteBusy,
 	useIsSiteStarting,
 	useIsSiteStopping,
+	useSiteOperation,
 	useStartSite,
 	useStopSite,
 } from '@/data/queries/use-sites';
-import { useSnapshots } from '@/data/queries/use-snapshots';
+import { useSnapshotUsage, useSnapshots } from '@/data/queries/use-snapshots';
 import {
 	PULL_FROM_LIVE_MUTATION_KEY,
 	PUSH_TO_LIVE_MUTATION_KEY,
+	useCancelSync,
 } from '@/data/queries/use-sync-site';
+import { canCancelSyncActivity, getSyncCancelLabels } from '@/data/sync-activity';
 import { getSiteUrl } from '@/lib/get-site-url';
 import styles from './main-view.module.css';
 import { PopoverRow } from './popover-row';
 import { getSyncActivityLabel } from './trigger-secondary';
 import {
 	deriveSiteStatus,
+	getSiteStatusName,
 	ensureProtocol,
 	getSnapshotHostname,
 	pickLatestSnapshot,
@@ -80,9 +87,20 @@ function useIsSiteSyncing( siteId: string ): { push: boolean; pull: boolean } {
 function getPreviewPanelCopy(
 	agenticEnabled: boolean,
 	isOffline: boolean,
-	isPreviewExpired: boolean
+	isPreviewExpired: boolean,
+	snapshotUsage?: { siteCount: number; siteLimit: number; siteCreationBlocked: boolean } | null
 ): string {
 	if ( agenticEnabled ) {
+		if ( snapshotUsage?.siteCreationBlocked ) {
+			return __( 'Preview sites are not available for your account.' );
+		}
+		if ( snapshotUsage && snapshotUsage.siteCount >= snapshotUsage.siteLimit ) {
+			return sprintf(
+				/* translators: %d: maximum number of preview sites allowed */
+				__( "You've used all %d preview sites available on your account." ),
+				snapshotUsage.siteLimit
+			);
+		}
 		return isPreviewExpired
 			? __( 'The previous preview has expired.' )
 			: __( 'Share a review link for this version.' );
@@ -114,8 +132,9 @@ export function MainView( {
 	const connector = useConnector();
 	const { enabled: agenticEnabled, reason: agenticReason } = useAgenticFeatures();
 	const isOffline = agenticReason === 'offline';
-	const login = useLogin();
+	const login = useLogin( { source: 'site_header' } );
 	const { data: snapshots } = useSnapshots();
+	const { data: snapshotUsage } = useSnapshotUsage();
 	const { data: connectedSites } = useConnectedWpcomSites( site.id );
 
 	const previewSnapshot = useMemo(
@@ -128,17 +147,32 @@ export function MainView( {
 	const startSite = useStartSite();
 	const stopSite = useStopSite();
 	const publishPreviewSite = usePublishPreviewSite();
+	const cancelSync = useCancelSync();
 
 	const isStarting = useIsSiteStarting( site.id );
 	const isStopping = useIsSiteStopping( site.id );
-	const isLocalTransitioning = isStarting || isStopping;
+	const isOperationInProgress = useIsSiteBusy( site );
+	const operation = useSiteOperation( site );
 	const { push: isPushPending, pull: isPullPending } = useIsSiteSyncing( site.id );
-	const isPreviewPending = publishPreviewSite.isPending;
+	const isPreviewPending =
+		publishPreviewSite.isPending ||
+		( activity?.kind === 'pending' && activity.direction === 'preview' );
 	// Preview / push / pull all mutate the same local site; running them
-	// concurrently would wedge the site runtime.
-	const isSyncing = isPreviewPending || isPushPending || isPullPending;
+	// concurrently would wedge the site runtime. An import replaces that site's
+	// files and database outright, so it locks them out too — and the CLI won't
+	// refuse it, since import is deliberately not a tracked site operation.
+	const isImporting = activity?.kind === 'pending' && activity.direction === 'import';
+	const isSyncing = isPreviewPending || isPushPending || isPullPending || isImporting;
+	// …and none of them can run while the CLI holds the site either. Gate the
+	// controls on both, so an operation the agent took disables them visibly rather
+	// than leaving buttons that swallow the click.
+	const isSiteBusy = isSyncing || isOperationInProgress;
 
-	const { localSublabel } = deriveSiteStatus( site, isStarting, isStopping );
+	const isPreviewLimitReached =
+		snapshotUsage?.siteCreationBlocked === true ||
+		( snapshotUsage?.siteCount ?? 0 ) >= ( snapshotUsage?.siteLimit ?? Infinity );
+
+	const { localSublabel } = deriveSiteStatus( site, isStarting, isStopping, operation );
 	const localSiteUrl = getSiteUrl( site );
 	const canOpenLocalSite = site.running && ! isStopping;
 
@@ -149,6 +183,14 @@ export function MainView( {
 	const getSyncActionLabel = ( idle: string, pending: string, isPending: boolean ): string => {
 		if ( isPending ) {
 			return pending;
+		}
+		if ( operation ) {
+			return sprintf(
+				/* translators: 1: a sync action, e.g. "Pull from live". 2: an operation in progress, e.g. "Saving settings". */
+				__( '%1$s (%2$s)' ),
+				idle,
+				getSiteOperationLabel( operation )
+			);
 		}
 		if ( isSyncing ) {
 			// translators: %s: a sync action, e.g. "Pull from live".
@@ -186,35 +228,24 @@ export function MainView( {
 	};
 
 	const handleStartLocalClick = () => {
-		if ( isLocalTransitioning || isSyncing || site.running ) return;
+		if ( isOperationInProgress || isSyncing || site.running ) return;
 		startSite.mutate( site.id );
 	};
 
 	const handleStopLocalClick = () => {
-		if ( isLocalTransitioning || isSyncing || ! site.running ) return;
+		if ( isOperationInProgress || isSyncing || ! site.running ) return;
 		stopSite.mutate( site.id );
 	};
 
 	const handlePullClick = () => {
-		if ( ! liveSite || isSyncing ) return;
+		if ( ! liveSite || isSyncing || isOperationInProgress ) return;
 		onPullClick();
 	};
 
 	const handlePushClick = () => {
-		if ( ! liveSite || isSyncing ) return;
+		if ( ! liveSite || isSyncing || isOperationInProgress ) return;
 		onPushClick();
 	};
-
-	const renderTooltipButton = ( {
-		tooltip,
-		children,
-		...props
-	}: ButtonProps & { tooltip: string } ) => (
-		<Tooltip.Root>
-			<Tooltip.Trigger render={ <Button { ...props }>{ children }</Button> } />
-			<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>{ tooltip }</Tooltip.Popup>
-		</Tooltip.Root>
-	);
 
 	const renderUrlLink = ( {
 		text,
@@ -251,7 +282,15 @@ export function MainView( {
 	return (
 		<div className={ styles.rows }>
 			{ activity?.kind === 'pending' || activity?.kind === 'error' ? (
-				<SyncActivityDetails activity={ activity } />
+				<SyncActivityDetails
+					activity={ activity }
+					onCancel={
+						liveSite && canCancelSyncActivity( activity )
+							? () => cancelSync.mutate( { siteId: site.id, remoteSiteId: liveSite.id } )
+							: undefined
+					}
+					canCancel={ canCancelSyncActivity( activity ) }
+				/>
 			) : null }
 
 			<PopoverRow
@@ -283,6 +322,7 @@ export function MainView( {
 						running={ site.running }
 						starting={ isStarting }
 						stopping={ isStopping }
+						operation={ operation }
 						disabled={ isSyncing }
 						onStart={ handleStartLocalClick }
 						onStop={ handleStopLocalClick }
@@ -293,18 +333,13 @@ export function MainView( {
 			{ previewSnapshot && ! isPreviewExpired ? (
 				<PopoverRow
 					label={ __( 'Preview' ) }
-					sublabel={ __( 'Ready to share for feedback.' ) }
+					sublabel={ renderUrlLink( {
+						text: stripProtocol( previewSnapshot.url ),
+						url: ensureProtocol( previewSnapshot.url ),
+						label: __( 'Open preview site in your browser' ),
+					} ) }
 					action={
 						<div className={ styles.rowActions }>
-							{ renderTooltipButton( {
-								tooltip: __( 'Open preview site in your browser' ),
-								variant: 'minimal',
-								tone: 'neutral',
-								size: 'small',
-								className: styles.rowViewButton,
-								onClick: () => openExternal( ensureProtocol( previewSnapshot.url ) ),
-								children: __( 'View' ),
-							} ) }
 							<IconButton
 								variant="minimal"
 								tone="neutral"
@@ -327,7 +362,7 @@ export function MainView( {
 								className={ styles.rowActionButton }
 								loading={ isPreviewPending }
 								loadingAnnouncement={ __( 'Updating preview' ) }
-								disabled={ isSyncing || ! agenticEnabled }
+								disabled={ isSiteBusy || ! agenticEnabled }
 								focusableWhenDisabled
 								onClick={ handlePreviewClick }
 							/>
@@ -337,13 +372,13 @@ export function MainView( {
 			) : (
 				<EnvironmentActionPanel
 					title={ __( 'Preview' ) }
-					copy={ getPreviewPanelCopy( agenticEnabled, isOffline, isPreviewExpired ) }
+					copy={ getPreviewPanelCopy( agenticEnabled, isOffline, isPreviewExpired, snapshotUsage ) }
 					buttonLabel={ isPreviewExpired ? __( 'Share a new one' ) : __( 'Share' ) }
 					variant="outline"
 					tone="neutral"
 					loading={ isPreviewPending }
 					loadingAnnouncement={ __( 'Creating preview' ) }
-					disabled={ isSyncing || ! agenticEnabled }
+					disabled={ isSiteBusy || ! agenticEnabled || isPreviewLimitReached }
 					onClick={ handlePreviewClick }
 				/>
 			) }
@@ -371,7 +406,7 @@ export function MainView( {
 								className={ styles.rowActionButton }
 								loading={ isPullPending }
 								loadingAnnouncement={ __( 'Pulling from live' ) }
-								disabled={ isSyncing || ! agenticEnabled }
+								disabled={ isSiteBusy || ! agenticEnabled }
 								focusableWhenDisabled
 								onClick={ handlePullClick }
 							/>
@@ -388,21 +423,21 @@ export function MainView( {
 								className={ styles.rowActionButton }
 								loading={ isPushPending }
 								loadingAnnouncement={ __( 'Pushing to live' ) }
-								disabled={ isSyncing || ! agenticEnabled }
+								disabled={ isSiteBusy || ! agenticEnabled }
 								focusableWhenDisabled
 								onClick={ handlePushClick }
 							/>
 							<Menu.SubmenuRoot>
 								<Menu.SubmenuTrigger
 									className={ styles.moreMenuTrigger }
-									disabled={ isSyncing || ! agenticEnabled }
+									disabled={ isSiteBusy || ! agenticEnabled }
 									aria-label={ __( 'More live site actions' ) }
 								>
 									<Icon icon={ moreHorizontal } size={ 16 } aria-hidden="true" />
 								</Menu.SubmenuTrigger>
 								<Menu.Popup side="right" align="start" className={ styles.moreMenuPopup }>
 									<Menu.Item
-										disabled={ isSyncing || ! agenticEnabled }
+										disabled={ isSiteBusy || ! agenticEnabled }
 										onClick={ onDisconnectClick }
 									>
 										{ __( 'Disconnect' ) }
@@ -421,7 +456,7 @@ export function MainView( {
 					tone="brand"
 					loading={ ! agenticEnabled && login.isPending }
 					loadingAnnouncement={ __( 'Opening login page' ) }
-					disabled={ isSyncing || isOffline }
+					disabled={ isSiteBusy || isOffline }
 					onClick={ agenticEnabled ? onSetupClick : () => login.mutate() }
 				/>
 			) }
@@ -452,48 +487,76 @@ function XdebugBadge( { running }: { running: boolean } ) {
 
 function SyncActivityDetails( {
 	activity,
+	onCancel,
+	canCancel,
 }: {
 	activity: Extract< SyncActivity, { kind: 'pending' | 'error' } >;
+	onCancel?: () => void;
+	canCancel: boolean;
 } ) {
+	// Same wording as the classic renderer, and the same source the trigger's
+	// always-visible cancel uses, so the two never disagree.
+	const cancel = getSyncCancelLabels( activity );
+	const blockedLabel = cancel && ! cancel.enabled ? cancel.label : null;
+
 	return (
 		<div
 			className={ clsx(
 				styles.activityStatus,
 				activity.kind === 'error' ? styles.activityStatusError : styles.activityStatusPending
 			) }
-			role="status"
-			aria-live="polite"
 		>
-			<div className={ styles.activityStatusTitle }>{ getSyncActivityLabel( activity ) }</div>
-			<div className={ styles.activityStatusMessage }>
-				{ activity.message ?? __( 'Preparing the live site…' ) }
+			<div className={ styles.activityStatusText } role="status" aria-live="polite">
+				<div className={ styles.activityStatusTitle }>{ getSyncActivityLabel( activity ) }</div>
+				<div className={ styles.activityStatusMessage }>
+					{ activity.message ??
+						( activity.direction === 'import'
+							? __( 'Preparing the backup…' )
+							: __( 'Preparing the live site…' ) ) }
+				</div>
+				{ blockedLabel ? (
+					// Stating this inline rather than leaving it to the disabled
+					// button's tooltip: nobody hovers a control that looks inert.
+					<div className={ styles.activityStatusNote }>{ blockedLabel }</div>
+				) : null }
 			</div>
+			{ cancel ? (
+				// A plain Button, not an IconButton: IconButton always wraps itself in
+				// a Tooltip, and tooltips never render inside this menu anyway.
+				<Button
+					className={ styles.cancelSyncButton }
+					variant="minimal"
+					tone="neutral"
+					size="small"
+					aria-label={ cancel.label }
+					disabled={ ! cancel.enabled }
+					focusableWhenDisabled
+					onClick={ () => onCancel?.() }
+				>
+					<Icon icon={ close } size={ 20 } />
+				</Button>
+			) : null }
 		</div>
 	);
 }
 
-function getLocalServerStatusName( {
-	running,
-	starting,
-	stopping,
-}: {
-	running: boolean;
-	starting: boolean;
-	stopping: boolean;
-} ) {
-	if ( stopping ) {
-		return __( 'Stopping' );
-	}
+// The toggle tracks where the site is heading, not where it is, so an in-flight
+// start reads as running before the server is actually up.
+function getTargetRunning( running: boolean, starting: boolean, stopping: boolean ): boolean {
 	if ( starting ) {
-		return __( 'Starting' );
+		return true;
 	}
-	return running ? __( 'Running' ) : __( 'Stopped' );
+	if ( stopping ) {
+		return false;
+	}
+	return running;
 }
 
 function LocalServerControl( {
 	running,
 	starting,
 	stopping,
+	operation,
 	disabled,
 	onStart,
 	onStop,
@@ -501,19 +564,22 @@ function LocalServerControl( {
 	running: boolean;
 	starting: boolean;
 	stopping: boolean;
+	// A CLI operation (an agent settings change, another window's delete). Blocks
+	// the toggle and names itself in the tooltip, so a dead control explains why.
+	operation: SiteOperationKind | null;
 	disabled: boolean;
 	onStart: () => void;
 	onStop: () => void;
 } ) {
-	const pending = starting || stopping;
-	const targetRunning = starting ? true : stopping ? false : running;
+	const pending = starting || stopping || operation !== null;
+	const targetRunning = getTargetRunning( running, starting, stopping );
 	// aria-disabled rather than disabled: a natively disabled button suppresses
 	// the pointer events the tooltip listens for, hiding the status exactly
 	// while the site is transitioning.
 	const inert = disabled || pending;
 	const statusLabel = sprintf(
 		__( 'Site status: %s' ),
-		getLocalServerStatusName( { running, starting, stopping } )
+		getSiteStatusName( { running, starting, stopping, operation } )
 	);
 	const actionLabel = running ? __( 'Stop site' ) : __( 'Start site' );
 

@@ -5,6 +5,7 @@ import CliTable3 from 'cli-table3';
 import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { getLiveSiteOperation } from 'cli/lib/site-operations';
 import { isSiteRunning } from 'cli/lib/site-utils';
 import { getColumnWidths, getPrettyPath } from 'cli/lib/utils';
 import { Logger, LoggerError } from 'cli/logger';
@@ -44,6 +45,10 @@ async function getSiteListData( sites: SiteData[] ): Promise< {
 
 		jsonEntries.push( {
 			...site,
+			// Overrides the stored value from `...site`: it can still name a
+			// process that has died, and both front ends decide which site
+			// actions to disable from what this reports.
+			operation: getLiveSiteOperation( site ),
 			url,
 			running,
 		} );

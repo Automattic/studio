@@ -9,9 +9,11 @@
 	);
 
 	/* SidebarButton adds `sm` inline padding; this offset puts the avatar's
-	   left edge on the same column as the site icons. */
-	padding: var(--wpds-dimension-padding-sm) var(--user-menu-trailing-offset)
-		var(--wpds-dimension-padding-xl) var(--user-menu-leading-offset);
+	   inline edge on the same column as the site icons. Account for the button's
+	   internal border so the visible block-end gap matches the inline-start gap. */
+	padding-block: var(--wpds-dimension-padding-sm)
+		calc(var(--user-menu-leading-offset) + var(--wpds-border-width-xs));
+	padding-inline: var(--user-menu-leading-offset) var(--user-menu-trailing-offset);
 }
 
 .row {
@@ -37,13 +39,6 @@
    on the right. */
 .sidebarToggle:dir(rtl) svg {
 	transform: scaleX(-1);
-}
-
-.row:hover .userName,
-.row:hover .sidebarToggle,
-.row:focus-within .userName,
-.row:focus-within .sidebarToggle {
-	color: var(--wpds-color-fg-content-neutral);
 }
 
 .userTrigger {

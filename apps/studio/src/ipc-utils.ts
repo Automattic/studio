@@ -8,7 +8,7 @@ import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { AiSessionPlacementUpdatedEvent } from '@studio/common/ai/sessions/placement';
 import type { RemoteSessionStatus } from '@studio/common/lib/remote-session';
 import type { StoredAuthToken } from '@studio/common/lib/shared-config';
-import type { PullSiteProgress } from '@studio/common/types/sync';
+import type { PullSiteProgress, PushPhase } from '@studio/common/types/sync';
 
 type SnapshotEventData = {
 	action: PreviewCommandLoggerAction;
@@ -28,6 +28,7 @@ export interface IpcEvents {
 			blueprintPath: string;
 		},
 	];
+	'ai-credits-purchased': [ void ];
 	'auth-updated': [ { token: StoredAuthToken } | { token: null } | { error: unknown } ];
 	'on-export': [ ExportIpcEvent[ 'event' ], string ];
 	'on-import': [ ImportEventTuple, string ];
@@ -40,6 +41,9 @@ export interface IpcEvents {
 	'sync-upload-progress': [ { selectedSiteId: string; remoteSiteId: number; progress: number } ];
 	'sync-upload-manually-paused': [ { selectedSiteId: string; remoteSiteId: number } ];
 	'sync-pull-progress': [ PullSiteProgress & { siteId: string } ];
+	'sync-push-phase': [
+		{ selectedSiteId: string; remoteSiteId: number; phase: PushPhase; progress?: number },
+	];
 	'snapshot-error': [ { operationId: crypto.UUID; data: SnapshotEventData } ];
 	'snapshot-fatal-error': [ { operationId: crypto.UUID; data: { message: string } } ];
 	'snapshot-output': [ { operationId: crypto.UUID; data: SnapshotEventData } ];

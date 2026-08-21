@@ -1,7 +1,10 @@
+import { CheckboxControl } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
 import { AlertDialog } from '@wordpress/ui';
 import { useState } from 'react';
+import { AppThemeScope } from '@/components/app-theme-scope';
 import { useDeleteSite } from '@/data/queries/use-sites';
+import { useConfirmOnEnter } from '@/hooks/use-confirm-on-enter';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 
@@ -15,6 +18,8 @@ interface DeleteSiteDialogProps {
 export function DeleteSiteDialog( { site, open, onOpenChange, onDeleted }: DeleteSiteDialogProps ) {
 	const deleteSite = useDeleteSite();
 	const [ deleteFiles, setDeleteFiles ] = useState( true );
+	const confirmLabel = __( 'Delete site' );
+	const handleKeyDown = useConfirmOnEnter( confirmLabel );
 
 	const handleConfirm = async () => {
 		try {
@@ -28,24 +33,31 @@ export function DeleteSiteDialog( { site, open, onOpenChange, onDeleted }: Delet
 	};
 
 	return (
-		<AlertDialog.Root open={ open } onOpenChange={ onOpenChange } onConfirm={ handleConfirm }>
-			<AlertDialog.Popup
-				intent="irreversible"
-				title={ sprintf( __( 'Delete %s' ), site.name ) }
-				description={ __(
-					"The site's database will be lost, including all posts, pages, comments, and media."
-				) }
-				confirmButtonText={ __( 'Delete site' ) }
-			>
-				<label className={ styles.dialogCheckbox }>
-					<input
-						type="checkbox"
-						checked={ deleteFiles }
-						onChange={ ( event ) => setDeleteFiles( event.target.checked ) }
-					/>
-					<span>{ __( 'Delete site files from my computer' ) }</span>
-				</label>
-			</AlertDialog.Popup>
-		</AlertDialog.Root>
+		// The dialog is opened from the site list, which lives in the sidebar's
+		// dark chrome scope; without this it inherits that palette and renders
+		// dark on top of the light app.
+		<AppThemeScope>
+			<AlertDialog.Root open={ open } onOpenChange={ onOpenChange } onConfirm={ handleConfirm }>
+				<AlertDialog.Popup
+					className={ styles.popup }
+					onKeyDown={ handleKeyDown }
+					intent="irreversible"
+					title={ sprintf( __( 'Delete %s' ), site.name ) }
+					description={ __(
+						"The site's database will be lost, including all posts, pages, comments, and media."
+					) }
+					confirmButtonText={ confirmLabel }
+				>
+					<div className={ styles.dialogCheckbox }>
+						<CheckboxControl
+							__nextHasNoMarginBottom
+							label={ __( 'Delete site files from my computer' ) }
+							checked={ deleteFiles }
+							onChange={ setDeleteFiles }
+						/>
+					</div>
+				</AlertDialog.Popup>
+			</AlertDialog.Root>
+		</AppThemeScope>
 	);
 }

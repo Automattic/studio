@@ -12,6 +12,7 @@ import {
 	stream as streamAnthropic,
 	type AnthropicOptions,
 } from '@earendil-works/pi-ai/api/anthropic-messages';
+import { streamSimple as streamOpenAiCompletions } from '@earendil-works/pi-ai/api/openai-completions';
 import { streamSimple as streamOpenAiResponses } from '@earendil-works/pi-ai/api/openai-responses';
 import { ANTHROPIC_MODELS } from '@earendil-works/pi-ai/providers/anthropic.models';
 import {
@@ -33,6 +34,7 @@ import {
 } from '@earendil-works/pi-coding-agent';
 import { readGlobalInstructions } from '@studio/common/ai/global-instructions';
 import {
+	aiModelSupportsImages,
 	DEFAULT_MODEL,
 	getAiModelFamily,
 	type AiModelFamily,
@@ -65,15 +67,18 @@ import {
 } from './tool-safety';
 import { withUsageCapErrorRewrite } from './usage-cap';
 import type { StudioChatImage } from '@studio/common/ai/chat-images';
+import type { ConfirmSiteDeletion } from 'cli/ai/tools/delete-site';
 import type { AskUserHandler, SiteInfo } from 'cli/ai/types';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AgentToolAny = AgentTool< any >;
-type StudioModel = Model< 'openai-responses' > | Model< 'anthropic-messages' >;
+type StudioOpenAiCompatibleModel = Model< 'openai-responses' > | Model< 'openai-completions' >;
+type StudioModel = StudioOpenAiCompatibleModel | Model< 'anthropic-messages' >;
 type ProviderConfigInput = Parameters< ModelRuntime[ 'registerProvider' ] >[ 1 ];
 
 const STUDIO_WPCOM_ANTHROPIC_PROVIDER = 'studio-wpcom-anthropic';
 const STUDIO_WPCOM_OPENAI_PROVIDER = 'studio-wpcom-openai';
+const STUDIO_WPCOM_HOSTED_PROVIDER = 'studio-wpcom-hosted';
 const STUDIO_AGENT_DIR = STUDIO_SITES_ROOT;
 const STUDIO_WPCOM_BODY_FILES_ROOT = getConfigDirectory();
 const STUDIO_WPCOM_BODY_FILES_DIR = getAiPayloadsPath();
@@ -141,29 +146,47 @@ interface ResolvedCredentials {
 	useBearerAuth: boolean;
 }
 
+// Families that speak an OpenAI dialect each get their own env namespace so a
+// single resolved environment can carry all of them and the user can swap
+// models mid-session.
+const OPENAI_DIALECT_ENV_VARS = {
+	openai: {
+		label: 'OpenAI',
+		apiKey: 'OPENAI_API_KEY',
+		baseUrl: 'OPENAI_BASE_URL',
+		headers: 'STUDIO_OPENAI_DEFAULT_HEADERS',
+	},
+	hosted: {
+		label: 'Hosted',
+		apiKey: 'STUDIO_HOSTED_API_KEY',
+		baseUrl: 'STUDIO_HOSTED_BASE_URL',
+		headers: 'STUDIO_HOSTED_DEFAULT_HEADERS',
+	},
+} as const;
+
 function resolveCredentials(
 	family: AiModelFamily,
 	env: Record< string, string >
 ): { ok: true; creds: ResolvedCredentials } | { ok: false; reason: string } {
-	if ( family === 'openai' ) {
-		const apiKey = env.OPENAI_API_KEY?.trim();
+	if ( family === 'openai' || family === 'hosted' ) {
+		const vars = OPENAI_DIALECT_ENV_VARS[ family ];
+		const apiKey = env[ vars.apiKey ]?.trim();
 		if ( ! apiKey ) {
 			return {
 				ok: false,
-				reason:
-					'OpenAI provider selected but OPENAI_API_KEY is not set. On the WordPress.com provider this means the wpcom access token is missing — run /login to authenticate.',
+				reason: `${ vars.label } models are only available through the WordPress.com provider, and ${ vars.apiKey } is not set — run /login to authenticate.`,
 			};
 		}
-		const baseURL = env.OPENAI_BASE_URL?.trim();
+		const baseURL = env[ vars.baseUrl ]?.trim();
 		if ( ! baseURL ) {
-			return { ok: false, reason: 'OPENAI_BASE_URL not set — cannot route to wpcom proxy.' };
+			return { ok: false, reason: `${ vars.baseUrl } not set — cannot route to wpcom proxy.` };
 		}
 		return {
 			ok: true,
 			creds: {
 				apiKey,
 				baseURL,
-				extraHeaders: parseJsonHeaderEnv( env.STUDIO_OPENAI_DEFAULT_HEADERS ),
+				extraHeaders: parseJsonHeaderEnv( vars.headers, env[ vars.headers ] ),
 				useBearerAuth: false,
 			},
 		};
@@ -373,10 +396,36 @@ function buildModel(
 		id: modelId,
 		name: modelId,
 		baseUrl,
-		input: [ 'text' as const, 'image' as const ],
+		input: aiModelSupportsImages( modelId )
+			? [ 'text' as const, 'image' as const ]
+			: [ 'text' as const ],
 		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
 		...( creds.extraHeaders ? { headers: creds.extraHeaders } : {} ),
 	};
+
+	if ( family === 'hosted' ) {
+		// pi infers `compat` from the base URL, and the wpcom proxy URL reads as
+		// plain OpenAI — so spell out the shape or requests carry OpenAI-only
+		// fields these upstreams reject. With `supportsReasoningEffort` false and
+		// the default `thinkingFormat`, no thinking switch is sent at all and
+		// each model uses its own default — the portable choice across vendors
+		// that spell that parameter differently. Reasoning still streams back.
+		return {
+			...common,
+			api: 'openai-completions',
+			provider: STUDIO_WPCOM_HOSTED_PROVIDER,
+			reasoning: true,
+			contextWindow: 262_144,
+			maxTokens: 32_000,
+			compat: {
+				supportsStore: false,
+				supportsDeveloperRole: false,
+				supportsReasoningEffort: false,
+				supportsStrictMode: false,
+				maxTokensField: 'max_tokens',
+			},
+		};
+	}
 
 	if ( family === 'openai' ) {
 		// GPT-5.6 models reject function tools on /v1/chat/completions unless
@@ -475,10 +524,12 @@ async function createModelRuntime(
 		return modelRuntime;
 	}
 
-	if ( family === 'openai' ) {
+	if ( family === 'openai' || family === 'hosted' ) {
+		// `buildModel` already resolved the provider and wire API for this
+		// family; read them off the model rather than deriving them again.
 		modelRuntime.registerProvider(
-			STUDIO_WPCOM_OPENAI_PROVIDER,
-			createWpcomOpenAiProviderConfig( model as Model< 'openai-responses' >, creds )
+			model.provider,
+			createWpcomOpenAiCompatibleProviderConfig( model as StudioOpenAiCompatibleModel, creds )
 		);
 		return modelRuntime;
 	}
@@ -545,26 +596,29 @@ function createWpcomAnthropicProviderConfig(
 	};
 }
 
-// The wpcom OpenAI path only needs pi's stock Responses streaming; the custom
-// provider exists to wrap the stream with the usage-cap 429 rewrite.
-function createWpcomOpenAiProviderConfig(
-	model: Model< 'openai-responses' >,
+// The wpcom OpenAI-dialect paths only need pi's stock streaming for their API;
+// the custom provider exists to wrap the stream with the usage-cap 429 rewrite.
+function createWpcomOpenAiCompatibleProviderConfig(
+	model: StudioOpenAiCompatibleModel,
 	creds: ResolvedCredentials
 ): ProviderConfigInput {
+	// pi types `streamSimple` against `Model<Api>`; each API's stream function
+	// is narrower, and the model registered below is the one passed in.
+	const stream = (
+		model.api === 'openai-completions' ? streamOpenAiCompletions : streamOpenAiResponses
+	) as NonNullable< ProviderConfigInput[ 'streamSimple' ] >;
 	return {
 		baseUrl: creds.baseURL,
 		apiKey: escapePiConfigValue( creds.apiKey ),
-		api: 'openai-responses',
+		api: model.api,
 		headers: creds.extraHeaders,
 		streamSimple: ( m, ctx, options?: SimpleStreamOptions ) =>
-			withUsageCapErrorRewrite(
-				streamOpenAiResponses( m as Model< 'openai-responses' >, ctx, options )
-			),
+			withUsageCapErrorRewrite( stream( m, ctx, options ) ),
 		models: [
 			{
 				id: model.id,
 				name: model.name,
-				api: 'openai-responses',
+				api: model.api,
 				baseUrl: model.baseUrl,
 				reasoning: model.reasoning,
 				input: model.input,
@@ -645,17 +699,24 @@ function buildAgentTools(
 		renameTool( createLsTool( STUDIO_WPCOM_BODY_FILES_ROOT ), 'Ls' ),
 	];
 
+	// A text-only model drops image blocks from tool results while still
+	// receiving their text, so it would report on a screenshot it never saw.
+	const withoutUnusableTools = ( tools: AgentToolAny[] ): AgentToolAny[] =>
+		aiModelSupportsImages( config.model )
+			? tools
+			: tools.filter( ( tool ) => tool.name !== takeScreenshotTool.name );
+
 	if ( isRemoteSite ) {
 		const remoteStudioTools = [ takeScreenshotTool, createSiteTool, pullSiteTool ].map( ( tool ) =>
 			withChatArtifactEmission( tool, chatArtifactsEnabled )
 		);
-		return [
+		return withoutUnusableTools( [
 			createWpcomRequestTool( config.wpcomAccessToken!, config.activeSite!.wpcomSiteId! ),
 			...remoteStudioTools,
 			...remoteScratchTools,
 			...askUserTool,
 			...skillTool,
-		];
+		] );
 	}
 
 	const piTools: AgentToolAny[] = [
@@ -670,11 +731,87 @@ function buildAgentTools(
 	const studioTools = resolveStudioToolDefinitions( {
 		emitChatArtifacts: chatArtifactsEnabled,
 		remoteSession,
+		confirmSiteDeletion: config.onAskUser
+			? buildSiteDeletionConfirm( config.onAskUser )
+			: undefined,
 	} ) as unknown as AgentToolAny[];
-	return [ ...studioTools, ...askUserTool, ...skillTool, ...piTools ];
+	return withoutUnusableTools( [ ...studioTools, ...askUserTool, ...skillTool, ...piTools ] );
 }
 
-function parseJsonHeaderEnv( value: string | undefined ): Record< string, string > | undefined {
+// Two-step confirmation for site deletion:
+// 1. Choose what happens to the files (trash / keep / cancel)
+// 2. Final safety gate naming the site (delete / cancel)
+// Cancelling at either step leaves the site intact.
+const DELETE_AND_TRASH_LABEL = 'Delete and trash files';
+const DELETE_AND_KEEP_LABEL = 'Delete and keep files';
+const CONFIRM_DELETE_LABEL = 'Delete site';
+
+function buildSiteDeletionConfirm( onAskUser: AskUserHandler ): ConfirmSiteDeletion {
+	return async ( { name } ) => {
+		// Step 1: file handling choice
+		const fileQuestion = `What should happen to the files for "${ name }"?`;
+		const fileAnswers = await onAskUser( [
+			{
+				question: fileQuestion,
+				options: [
+					{
+						label: DELETE_AND_TRASH_LABEL,
+						description: `Remove "${ name }" from Studio and move its files to the trash.`,
+					},
+					{
+						label: DELETE_AND_KEEP_LABEL,
+						description: `Remove "${ name }" from Studio but keep its files on disk.`,
+					},
+					{
+						label: 'Cancel',
+						description: 'Keep the site. Nothing will be deleted.',
+					},
+				],
+				allowFreeForm: true,
+			},
+		] );
+		const fileChoice = fileAnswers[ fileQuestion ];
+		let deleteFiles: boolean;
+		if ( fileChoice === DELETE_AND_TRASH_LABEL ) {
+			deleteFiles = true;
+		} else if ( fileChoice === DELETE_AND_KEEP_LABEL ) {
+			deleteFiles = false;
+		} else {
+			return { confirmed: false };
+		}
+
+		// Step 2: final confirmation
+		const confirmQuestion = `Permanently delete the site "${ name }"? This cannot be undone.`;
+		const confirmAnswers = await onAskUser( [
+			{
+				question: confirmQuestion,
+				options: [
+					{
+						label: CONFIRM_DELETE_LABEL,
+						description: deleteFiles
+							? `Permanently remove "${ name }" and move its files to the trash.`
+							: `Permanently remove "${ name }" from Studio. Its files will stay on disk.`,
+					},
+					{
+						label: 'Cancel',
+						description: 'Keep the site. Nothing will be deleted.',
+					},
+				],
+				allowFreeForm: true,
+			},
+		] );
+		if ( confirmAnswers[ confirmQuestion ] !== CONFIRM_DELETE_LABEL ) {
+			return { confirmed: false };
+		}
+
+		return { confirmed: true, deleteFiles };
+	};
+}
+
+function parseJsonHeaderEnv(
+	name: string,
+	value: string | undefined
+): Record< string, string > | undefined {
 	if ( ! value ) return undefined;
 	try {
 		const parsed: unknown = JSON.parse( value );
@@ -685,12 +822,10 @@ function parseJsonHeaderEnv( value: string | undefined ): Record< string, string
 			return entries.length ? Object.fromEntries( entries ) : undefined;
 		}
 		console.warn(
-			'STUDIO_OPENAI_DEFAULT_HEADERS must be a JSON object of string→string pairs; ignoring custom headers.'
+			`${ name } must be a JSON object of string→string pairs; ignoring custom headers.`
 		);
 	} catch {
-		console.warn(
-			'STUDIO_OPENAI_DEFAULT_HEADERS contained malformed JSON; ignoring custom headers.'
-		);
+		console.warn( `${ name } contained malformed JSON; ignoring custom headers.` );
 	}
 	return undefined;
 }

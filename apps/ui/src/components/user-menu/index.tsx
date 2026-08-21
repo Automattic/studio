@@ -33,7 +33,7 @@ export function UserMenu( { onToggleSidebar }: Props ) {
 							<Icon icon={ settings } size={ 14 } />
 						</span>
 					) }
-					<span className={ styles.userName }>{ __( 'Settings' ) }</span>
+					<span className={ styles.userName }>{ __( 'App settings' ) }</span>
 				</SidebarButton>
 				<IconButton
 					variant="minimal"

@@ -18,10 +18,19 @@ import type { ComposerSendAttachments } from './use-composer-attachments';
 import type { AiSessionSummary, LoadedAiSession, SessionEntry } from '@/data/core';
 import type { ComponentProps } from 'react';
 
+// The AI credits control inside the composer reads the router; the quota it
+// also needs stays undefined here, so the control itself renders nothing.
+vi.mock( '@tanstack/react-router', () => ( {
+	useNavigate: () => vi.fn(),
+} ) );
+
 const connectorMocks = vi.hoisted( () => ( {
+	capabilities: { aiSettings: false },
 	createSession: vi.fn(),
+	getAiSettings: vi.fn(),
 	getFilePath: vi.fn( ( file: File ) => `/tmp/studio-attachments/${ file.name }` ),
 	setSessionModel: vi.fn(),
+	setSessionProvider: vi.fn(),
 } ) );
 
 vi.mock( '@/data/core', () => ( {
@@ -67,6 +76,100 @@ function firePointerEventWithClientY( element: Element, type: string, clientY: n
 describe( 'Composer menu', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
+		connectorMocks.capabilities.aiSettings = false;
+	} );
+
+	it( 'offers the providers above the models the conversation’s provider serves', async () => {
+		connectorMocks.capabilities.aiSettings = true;
+		connectorMocks.getAiSettings.mockResolvedValue( {
+			provider: 'wpcom',
+			hasAnthropicApiKey: true,
+			anthropicApiKeyPreview: 'sk-ant-api03-tes...1234',
+		} );
+		renderComposer( { entries: [ createSessionContextEntry( 'anthropic-api-key' ) ] } );
+
+		const trigger = screen.getByRole( 'button', { name: 'Select model' } );
+		await waitFor( () => expect( trigger ).toHaveTextContent( 'API · Sonnet 5' ) );
+
+		fireEvent.click( trigger );
+		await waitFor( () =>
+			expect( screen.getAllByRole( 'menuitemradio' ).map( ( item ) => item.textContent ) ).toEqual(
+				[ 'WordPress.com', 'Anthropic API', 'Sonnet 5', 'Opus 5' ]
+			)
+		);
+		expect( screen.getByRole( 'menuitemradio', { name: 'Anthropic API' } ) ).toBeChecked();
+	} );
+
+	it( 'falls back to WordPress.com when a pinned conversation has no key', async () => {
+		connectorMocks.capabilities.aiSettings = true;
+		connectorMocks.getAiSettings.mockResolvedValue( {
+			provider: 'wpcom',
+			hasAnthropicApiKey: false,
+			anthropicApiKeyPreview: null,
+		} );
+		renderComposer( { entries: [ createSessionContextEntry( 'anthropic-api-key' ) ] } );
+
+		const trigger = screen.getByRole( 'button', { name: 'Select model' } );
+		await waitFor( () => expect( trigger ).not.toHaveTextContent( 'API ·' ) );
+
+		fireEvent.click( trigger );
+		await waitFor( () =>
+			expect( screen.getAllByRole( 'menuitemradio' ).map( ( item ) => item.textContent ) ).toEqual(
+				[ 'Sonnet 5', 'Opus 5', 'GPT 5.6 Sol' ]
+			)
+		);
+	} );
+
+	it( 'omits the provider section until an Anthropic API key is saved', async () => {
+		connectorMocks.capabilities.aiSettings = true;
+		connectorMocks.getAiSettings.mockResolvedValue( {
+			provider: 'wpcom',
+			hasAnthropicApiKey: false,
+			anthropicApiKeyPreview: null,
+		} );
+		renderComposer();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Select model' } ) );
+		await waitFor( () =>
+			expect( screen.getAllByRole( 'menuitemradio' ).map( ( item ) => item.textContent ) ).toEqual(
+				[ 'Sonnet 5', 'Opus 5', 'GPT 5.6 Sol' ]
+			)
+		);
+	} );
+
+	it( 'pins the conversation to the picked provider, carrying a model it serves', async () => {
+		const queryClient = new QueryClient();
+		connectorMocks.capabilities.aiSettings = true;
+		connectorMocks.getAiSettings.mockResolvedValue( {
+			provider: 'wpcom',
+			hasAnthropicApiKey: true,
+			anthropicApiKeyPreview: 'sk-ant-api03-tes...1234',
+		} );
+		connectorMocks.setSessionProvider.mockResolvedValue( undefined );
+		queryClient.setQueryData( [ ...SESSIONS_QUERY_KEY, 'session-1' ], {
+			summary: createSummary(),
+			entries: [],
+		} );
+		renderComposer( { model: 'gpt-5.6-sol' }, queryClient );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Select model' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: 'Anthropic API' } ) );
+
+		await waitFor( () =>
+			expect( connectorMocks.setSessionProvider ).toHaveBeenCalledWith(
+				'session-1',
+				'anthropic-api-key',
+				'claude-sonnet-5'
+			)
+		);
+		expect(
+			queryClient.getQueryData< LoadedAiSession >( [ ...SESSIONS_QUERY_KEY, 'session-1' ] )?.entries
+		).toEqual( [
+			expect.objectContaining( {
+				customType: 'studio.session_context',
+				data: { provider: 'anthropic-api-key', model: 'claude-sonnet-5' },
+			} ),
+		] );
 	} );
 
 	it( 'shows tooltips for the plus button and model picker', async () => {
@@ -190,7 +293,7 @@ describe( 'Composer menu', () => {
 			value: 1000,
 		} );
 		renderComposer();
-		const textarea = screen.getByRole( 'textbox' ) as HTMLTextAreaElement;
+		const textarea = screen.getByRole( 'combobox' ) as HTMLTextAreaElement;
 		let scrollHeight = 72;
 		Object.defineProperty( textarea, 'scrollHeight', {
 			configurable: true,
@@ -231,7 +334,7 @@ describe( 'Composer menu', () => {
 
 	it( 'resizes the textarea when attachments change its padding', async () => {
 		const { container } = renderComposer();
-		const textarea = screen.getByRole( 'textbox' ) as HTMLTextAreaElement;
+		const textarea = screen.getByRole( 'combobox' ) as HTMLTextAreaElement;
 		const textFile = new File( [ 'Attachment preview text' ], 'notes.txt', {
 			type: 'text/plain',
 		} );
@@ -267,7 +370,7 @@ describe( 'Composer menu', () => {
 			value: 1000,
 		} );
 		renderComposer();
-		const textarea = screen.getByRole( 'textbox' ) as HTMLTextAreaElement;
+		const textarea = screen.getByRole( 'combobox' ) as HTMLTextAreaElement;
 		const resizeHandle = screen.getByRole( 'separator', { name: 'Resize composer' } );
 		Object.defineProperty( textarea, 'scrollHeight', {
 			configurable: true,
@@ -317,7 +420,7 @@ describe( 'Composer menu', () => {
 		expect(
 			await screen.findByRole( 'button', { name: 'Remove attachment: pasted-image.png' } )
 		).toBeInTheDocument();
-		expect( screen.getByRole( 'textbox' ) ).toHaveFocus();
+		expect( screen.getByRole( 'combobox' ) ).toHaveFocus();
 	} );
 
 	it( 'ignores pastes inside open dialogs', () => {
@@ -398,6 +501,17 @@ function createSummary( overrides: Partial< AiSessionSummary > = {} ): AiSession
 		eventCount: 0,
 		...overrides,
 	};
+}
+
+function createSessionContextEntry( provider: string ): SessionEntry {
+	return {
+		type: 'custom',
+		id: 'session-context-1',
+		parentId: null,
+		timestamp: '2026-06-26T12:00:00.000Z',
+		customType: 'studio.session_context',
+		data: { provider, model: 'claude-sonnet-5' },
+	} as SessionEntry;
 }
 
 function createUserPromptEntry(): SessionEntry {

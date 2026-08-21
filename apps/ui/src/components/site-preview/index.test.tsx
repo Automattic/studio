@@ -5,8 +5,12 @@ import { Tooltip } from '@wordpress/ui';
 import { describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
+import { themeDetailsQueryKey } from '@/hooks/use-theme-details';
+import { DATABASE_HOME_PATH } from './address-bar';
 import {
 	getBrowserShortcutCommand,
+	isOffOriginRedirect,
+	isThemeActivationUrl,
 	getPathFromPreviewUrl,
 	getSimulatedViewport,
 	SitePreview,
@@ -55,11 +59,12 @@ function renderPreview( children: ReactNode ) {
 			mutations: { retry: false },
 		},
 	} );
-	return render(
+	const renderResult = render(
 		<QueryClientProvider client={ queryClient }>
 			<Tooltip.Provider>{ children }</Tooltip.Provider>
 		</QueryClientProvider>
 	);
+	return { ...renderResult, queryClient };
 }
 
 function createSite( overrides: Partial< SiteDetails > = {} ): SiteDetails {
@@ -75,6 +80,47 @@ function createSite( overrides: Partial< SiteDetails > = {} ): SiteDetails {
 }
 
 describe( 'SitePreview', () => {
+	it( 'recognizes WordPress theme activation navigations', () => {
+		expect(
+			isThemeActivationUrl( 'http://localhost:8881/wp-admin/themes.php?activated=true' )
+		).toBe( true );
+		expect(
+			isThemeActivationUrl(
+				'http://localhost:8881/wp-admin/themes.php?action=activate&stylesheet=twentythirteen'
+			)
+		).toBe( false );
+		expect( isThemeActivationUrl( 'http://localhost:8881/wp-admin/themes.php' ) ).toBe( false );
+		expect( isThemeActivationUrl( 'not a URL' ) ).toBe( false );
+	} );
+
+	it( 'refreshes theme details after activation inside the preview', async () => {
+		const themeDetails = {
+			name: 'Twenty Thirteen',
+			path: '/wp-content/themes/twentythirteen',
+			slug: 'twentythirteen',
+			isBlockTheme: false,
+		};
+		const getThemeDetails = vi.fn().mockResolvedValue( themeDetails );
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			getThemeDetails,
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+		const { container, queryClient } = renderPreview(
+			<SitePreview
+				site={ createSite( { running: true } ) }
+				path="/wp-admin/themes.php?activated=true"
+				reloadNonce={ 0 }
+			/>
+		);
+
+		fireEvent.load( container.querySelector( 'iframe' )! );
+
+		await waitFor( () => expect( getThemeDetails ).toHaveBeenCalledWith( 'site-1' ) );
+		expect( queryClient.getQueryData( themeDetailsQueryKey( 'site-1' ) ) ).toEqual( themeDetails );
+	} );
+
 	it( 'shows the active realm name with the same tooltip as when inactive', async () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
@@ -224,10 +270,15 @@ describe( 'SitePreview', () => {
 		fireEvent.keyDown( document.body, { key: 'r', ctrlKey: true } );
 		expect( container.querySelector( 'iframe' ) ).not.toBe( initialIframe );
 
-		// Extra modifiers must not trigger the shortcut.
+		// ⌘⇧R is an alias for the same reload.
 		const reloadedIframe = container.querySelector( 'iframe' );
 		fireEvent.keyDown( document.body, { key: 'r', ctrlKey: true, shiftKey: true } );
-		expect( container.querySelector( 'iframe' ) ).toBe( reloadedIframe );
+		expect( container.querySelector( 'iframe' ) ).not.toBe( reloadedIframe );
+
+		// Extra modifiers must not trigger the shortcut.
+		const aliasReloadedIframe = container.querySelector( 'iframe' );
+		fireEvent.keyDown( document.body, { key: 'r', ctrlKey: true, altKey: true } );
+		expect( container.querySelector( 'iframe' ) ).toBe( aliasReloadedIframe );
 	} );
 
 	it( 'switches realms on primary-modifier number shortcuts', () => {
@@ -327,6 +378,81 @@ describe( 'SitePreview', () => {
 		);
 	} );
 
+	it( 'keeps the front end and WP Admin on one shared surface', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+		const queryClient = new QueryClient( {
+			defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+		} );
+		const ui = ( path: string ) => (
+			<QueryClientProvider client={ queryClient }>
+				<Tooltip.Provider>
+					<SitePreview site={ createSite( { running: true } ) } path={ path } reloadNonce={ 0 } />
+				</Tooltip.Provider>
+			</QueryClientProvider>
+		);
+
+		const { container, rerender } = render( ui( '/' ) );
+		expect( container.querySelectorAll( 'iframe' ) ).toHaveLength( 1 );
+
+		// The two realms that link to each other and share a login stay a single
+		// surface, so history and session carry across them.
+		rerender( ui( '/wp-admin/' ) );
+		expect( container.querySelectorAll( 'iframe' ) ).toHaveLength( 1 );
+	} );
+
+	it( 'gives the database its own surface and reveals it without reloading', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+		const onPathChange = vi.fn();
+		const queryClient = new QueryClient( {
+			defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+		} );
+		const ui = ( path: string ) => (
+			<QueryClientProvider client={ queryClient }>
+				<Tooltip.Provider>
+					<SitePreview
+						site={ createSite( { running: true } ) }
+						path={ path }
+						reloadNonce={ 0 }
+						onPathChange={ onPathChange }
+					/>
+				</Tooltip.Provider>
+			</QueryClientProvider>
+		);
+
+		const { container, rerender } = render( ui( '/' ) );
+		const siteSurface = container.querySelector( 'iframe' );
+
+		// The database mounts alongside the site surface rather than replacing it,
+		// and the site layer is hidden rather than torn down.
+		rerender( ui( DATABASE_HOME_PATH ) );
+		expect( container.querySelectorAll( 'iframe' ) ).toHaveLength( 2 );
+		expect( siteSurface?.closest( '[inert]' ) ).not.toBeNull();
+		const databaseSurface = container.querySelectorAll( 'iframe' )[ 1 ];
+
+		// Leaving and returning is a visibility swap: both elements survive, so
+		// neither the site nor the database reloads, and the database is
+		// reactivated at its own path instead of being renavigated.
+		rerender( ui( '/' ) );
+		expect( container.querySelector( 'iframe' ) ).toBe( siteSurface );
+		expect( siteSurface?.closest( '[inert]' ) ).toBeNull();
+
+		onPathChange.mockClear();
+		fireEvent.keyDown( document.body, { key: '3', ctrlKey: true } );
+		expect( onPathChange ).toHaveBeenCalledWith( DATABASE_HOME_PATH );
+
+		rerender( ui( DATABASE_HOME_PATH ) );
+		expect( container.querySelectorAll( 'iframe' ) ).toHaveLength( 2 );
+		expect( container.querySelectorAll( 'iframe' )[ 1 ] ).toBe( databaseSurface );
+	} );
+
 	it( 'hides the Annotate control when the host cannot annotate the preview', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
@@ -354,6 +480,25 @@ describe( 'SitePreview', () => {
 		);
 
 		expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeInTheDocument();
+	} );
+
+	it( 'shows a single annotate toggle while no notes are pending', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			capabilities: { ...CAPABILITIES, annotatePreview: true },
+		} as never );
+
+		renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+
+		// One command means no collapsed variant: a second control would be a
+		// duplicate of this one at every width, and a menu wrapping it would be
+		// a single-item dropdown.
+		expect( screen.getAllByRole( 'button', { name: 'Annotate' } ) ).toHaveLength( 1 );
+		expect(
+			screen.queryByRole( 'button', { name: 'Annotation options' } )
+		).not.toBeInTheDocument();
 	} );
 
 	it( 'hides the Annotate control when agentic features are off', () => {
@@ -415,6 +560,32 @@ describe( 'SitePreview', () => {
 		await waitFor( () =>
 			expect( screen.queryByText( 'Responsive mode' ) ).not.toBeInTheDocument()
 		);
+	} );
+
+	it( 'disables the responsive mode controls while previewing the database realm', async () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+
+		renderPreview(
+			<SitePreview
+				site={ createSite( { running: true } ) }
+				path={ DATABASE_HOME_PATH }
+				reloadNonce={ 0 }
+			/>
+		);
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'More options' } ) );
+
+		expect( await screen.findByText( 'Responsive mode' ) ).toBeVisible();
+		const fitPane = screen.getByRole( 'menuitemradio', { name: 'Fit pane' } );
+		expect( fitPane ).toHaveAttribute( 'aria-disabled', 'true' );
+
+		// Disabled radio items swallow the click — the mode doesn't change.
+		fireEvent.click( screen.getByRole( 'menuitemradio', { name: 'Mobile · 390×844' } ) );
+		expect( fitPane ).toBeChecked();
 	} );
 
 	it( 'toggles full preview from the More options menu', async () => {
@@ -642,6 +813,10 @@ describe( 'getBrowserShortcutCommand', () => {
 		expect( getBrowserShortcutCommand( makeEvent( { key: 'r', ctrlKey: true } ) ) ).toBe(
 			'reload'
 		);
+		// The ⌘⇧R alias reports an uppercase key; it must still map to reload.
+		expect(
+			getBrowserShortcutCommand( makeEvent( { key: 'R', ctrlKey: true, shiftKey: true } ) )
+		).toBe( 'reload' );
 		expect( getBrowserShortcutCommand( makeEvent( { key: '[', ctrlKey: true } ) ) ).toBe( 'back' );
 		expect( getBrowserShortcutCommand( makeEvent( { key: ']', ctrlKey: true } ) ) ).toBe(
 			'forward'
@@ -673,6 +848,32 @@ describe( 'getBrowserShortcutCommand', () => {
 				} )
 			)
 		).toBe( null );
+	} );
+} );
+
+describe( 'isOffOriginRedirect', () => {
+	it( 'flags a load that settled on another port', () => {
+		expect( isOffOriginRedirect( 'http://localhost:8931/', 'http://localhost:8932/' ) ).toBe(
+			true
+		);
+	} );
+
+	it( 'allows same-origin paths, including the auto-login hop', () => {
+		expect(
+			isOffOriginRedirect( 'http://localhost:8932/wp-admin/', 'http://localhost:8932/' )
+		).toBe( false );
+		expect(
+			isOffOriginRedirect(
+				'http://localhost:8932/studio-auto-login?redirect_to=%2Fwp-admin%2F',
+				'http://localhost:8932/'
+			)
+		).toBe( false );
+	} );
+
+	it( 'stays quiet on unparseable urls rather than triggering recovery', () => {
+		expect( isOffOriginRedirect( 'about:blank', 'http://localhost:8932/' ) ).toBe( true );
+		expect( isOffOriginRedirect( '', 'http://localhost:8932/' ) ).toBe( false );
+		expect( isOffOriginRedirect( 'http://localhost:8932/', '' ) ).toBe( false );
 	} );
 } );
 

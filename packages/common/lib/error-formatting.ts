@@ -18,3 +18,10 @@ export function getErrorMessage( error: unknown ): string | undefined {
 
 	return undefined;
 }
+
+// Electron wraps errors crossing the IPC boundary as "Error invoking remote
+// method '<name>': <Type>: <message>". Strip that envelope so the original
+// message can be shown to the user.
+export function stripIpcErrorPrefix( message: string ): string {
+	return message.replace( /^Error invoking remote method '[^']+': (?:\w+Error: |Error: )?/, '' );
+}

@@ -10,6 +10,7 @@ import {
 import {
 	isAiAccessRequiredError,
 	isAiBlockedError,
+	isOutOfCreditsError,
 	isUsageCapError,
 } from '@studio/common/ai/json-events';
 import {
@@ -79,7 +80,11 @@ import {
 	type ReactNode,
 	MouseEvent as ReactMouseEvent,
 } from 'react';
-import { AiAccessRequiredNotice, AiBlockedNotice } from '@/components/ai-access-required-notice';
+import {
+	AiAccessRequiredNotice,
+	AiBlockedNotice,
+	OutOfCreditsNotice,
+} from '@/components/ai-access-required-notice';
 import { CopyButton } from '@/components/copy-button';
 import { Markdown } from '@/components/markdown';
 import { useConnector, type LoadedAiSession } from '@/data/core';
@@ -150,6 +155,9 @@ interface PiToolResultLike {
 const HIDDEN_TOOL_ROWS = new Set( [ 'studio_present', 'AskUserQuestion' ] );
 const QUESTION_COLLAPSE_DELAY_MS = 650;
 const QUESTION_SCROLL_TOP_MARGIN_PX = 12;
+// Only a pre-layout fallback. The scroller spans the full column with the
+// composer floating over it, so the space to actually keep clear is the
+// scroller's reserved bottom padding, which tracks the live composer height.
 const QUESTION_SCROLL_BOTTOM_CLEARANCE_PX = 96;
 
 function usePrefersReducedMotion(): boolean {
@@ -957,6 +965,42 @@ function getNearestScrollContainer( element: HTMLElement ): HTMLElement | null {
 	return null;
 }
 
+function getPaddingBottom( element: HTMLElement ): number {
+	const paddingBottom = parseFloat( window.getComputedStyle( element ).paddingBottom );
+	return Number.isFinite( paddingBottom ) ? paddingBottom : 0;
+}
+
+function getReservedBottomSpace( element: HTMLElement, container: HTMLElement | null ): number {
+	if ( ! container ) {
+		return QUESTION_SCROLL_BOTTOM_CLEARANCE_PX;
+	}
+	// The scroller's padding holds content clear of the floating composer; the
+	// column's own trailing space keeps the card from settling flush against it.
+	let column = element;
+	while ( column.parentElement && column.parentElement !== container ) {
+		column = column.parentElement;
+	}
+	return getPaddingBottom( container ) + getPaddingBottom( column );
+}
+
+export function getQuestionScrollDelta( {
+	elementTop,
+	elementBottom,
+	containerTop,
+	containerBottom,
+	reservedBottomSpace,
+}: {
+	elementTop: number;
+	elementBottom: number;
+	containerTop: number;
+	containerBottom: number;
+	reservedBottomSpace: number;
+} ): number {
+	const topOverflow = elementTop - ( containerTop + QUESTION_SCROLL_TOP_MARGIN_PX );
+	const bottomOverflow = elementBottom - ( containerBottom - reservedBottomSpace );
+	return topOverflow < 0 ? topOverflow : Math.max( bottomOverflow, 0 );
+}
+
 function scrollElementIntoViewIfNeeded( element: HTMLElement, prefersReducedMotion: boolean ) {
 	const container = getNearestScrollContainer( element );
 	const elementRect = element.getBoundingClientRect();
@@ -968,10 +1012,13 @@ function scrollElementIntoViewIfNeeded( element: HTMLElement, prefersReducedMoti
 				bottom: window.innerHeight || document.documentElement.clientHeight,
 				left: 0,
 		  };
-	const topOverflow = elementRect.top - ( containerRect.top + QUESTION_SCROLL_TOP_MARGIN_PX );
-	const bottomOverflow =
-		elementRect.bottom - ( containerRect.bottom - QUESTION_SCROLL_BOTTOM_CLEARANCE_PX );
-	const scrollDelta = topOverflow < 0 ? topOverflow : Math.max( bottomOverflow, 0 );
+	const scrollDelta = getQuestionScrollDelta( {
+		elementTop: elementRect.top,
+		elementBottom: elementRect.bottom,
+		containerTop: containerRect.top,
+		containerBottom: containerRect.bottom,
+		reservedBottomSpace: getReservedBottomSpace( element, container ),
+	} );
 
 	if ( scrollDelta !== 0 ) {
 		const behavior: ScrollBehavior = prefersReducedMotion ? 'auto' : 'smooth';
@@ -1197,9 +1244,11 @@ function AgentQuestionBatch( {
 	);
 }
 
-// In-flow marker for a turn that ended in an error. The monthly usage cap
-// gets dedicated copy — with the reset date once the quota query resolves —
-// instead of the raw provider message.
+// In-flow marker for a turn that ended in an error. The proxy's quota
+// refusals get dedicated copy instead of the raw provider message: the
+// monthly usage cap shows the reset date once the quota query resolves, and
+// out-of-credits (STU-2236) points at buying credits — waiting doesn't fix
+// that one.
 function TurnErrorMarker( { message }: { message: string } ) {
 	const isUsageCap = isUsageCapError( message );
 	const isAccessRequired = isAiAccessRequiredError( message );
@@ -1209,6 +1258,8 @@ function TurnErrorMarker( { message }: { message: string } ) {
 		text = <AiBlockedNotice />;
 	} else if ( isAccessRequired ) {
 		text = <AiAccessRequiredNotice quota={ quota } />;
+	} else if ( isOutOfCreditsError( message ) ) {
+		text = <OutOfCreditsNotice />;
 	} else if ( isUsageCap ) {
 		text = formatUsageCapNotice( quota?.costResetDate );
 	} else {

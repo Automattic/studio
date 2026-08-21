@@ -136,6 +136,7 @@ export function createMarketingConnector(
 				Boolean( options.annotatePreview ) && /\bElectron\//.test( navigator.userAgent ),
 			readLocalMedia: false,
 			agentInstructions: true,
+			aiSettings: true,
 			studioLogs: false,
 			switchToClassicUi: false,
 		},

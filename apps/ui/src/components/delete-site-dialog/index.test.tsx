@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useDeleteSite } from '@/data/queries/use-sites';
@@ -7,6 +7,12 @@ import type { SiteDetails } from '@/data/core';
 
 vi.mock( '@/data/queries/use-sites', () => ( {
 	useDeleteSite: vi.fn(),
+} ) );
+
+// The dialog's theme scope reads the resolved color scheme, which needs the
+// connector + query providers this test deliberately renders without.
+vi.mock( '@/hooks/use-color-scheme', () => ( {
+	useColorScheme: () => 'light',
 } ) );
 
 const SITE = { id: 'site-1', name: 'My Site' } as SiteDetails;
@@ -37,6 +43,19 @@ describe( 'DeleteSiteDialog', () => {
 			expect( mutateAsync ).toHaveBeenCalledWith( { id: 'site-1', deleteFiles: true } )
 		);
 		expect( onDeleted ).toHaveBeenCalled();
+	} );
+
+	// Guards the wiring rather than the behavior: the hook finds the confirm
+	// button by label, so this fails if the two ever drift apart.
+	it( 'confirms when Return is pressed inside the dialog', async () => {
+		mutateAsync.mockResolvedValue( undefined );
+		renderDialog();
+
+		fireEvent.keyDown( screen.getByRole( 'checkbox' ), { key: 'Enter' } );
+
+		await waitFor( () =>
+			expect( mutateAsync ).toHaveBeenCalledWith( { id: 'site-1', deleteFiles: true } )
+		);
 	} );
 
 	it( 'keeps the files when the checkbox is unchecked', async () => {

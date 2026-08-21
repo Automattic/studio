@@ -31,7 +31,7 @@ import { DEFAULT_MODEL, getAiModelLabel, type AiModelId } from '@studio/common/a
 import { findLastAssistant } from '@studio/common/ai/session-events';
 import { randomThinkingMessage } from '@studio/common/ai/thinking-messages';
 import { getStudioToolProgress } from '@studio/common/ai/tool-progress';
-import { getToolDetail, getToolDisplayName, getToolResultPreview } from '@studio/common/ai/tools';
+import { getToolDetail, getToolDisplayName } from '@studio/common/ai/tools';
 import chalk from '@studio/common/lib/chalk';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import {
@@ -50,6 +50,13 @@ import { buildOptionPickerLines } from 'cli/ai/option-picker';
 import { type AiOutputAdapter } from 'cli/ai/output-adapter';
 import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, type AiProviderId } from 'cli/ai/providers';
 import { getActiveSlashCommands } from 'cli/ai/slash-commands';
+import {
+	ExpandableText,
+	formatToolOutputLines,
+	renderGenericToolResult,
+	setExpandedDeep,
+	toolResultRenderers,
+} from 'cli/ai/tool-result-renderers';
 import { getWpComSites } from 'cli/lib/api';
 import { openBrowser } from 'cli/lib/browser';
 import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
@@ -71,21 +78,6 @@ const sitePickerTheme: SelectListTheme = {
 	scrollInfo: ( text ) => chalk.dim( text ),
 	noMatch: ( text ) => chalk.dim( text ),
 };
-
-const DEFAULT_COLLAPSE_THRESHOLD_LINES = 5;
-
-interface ExpandablePreview {
-	textComponent: Text;
-	collapsedContent: string;
-	expandedContent: string;
-	isExpanded: boolean;
-}
-
-function formatToolOutputLines( lines: string[] ): string {
-	return lines
-		.map( ( line, index ) => `${ index === 0 ? '   ' + chalk.dim( '⎿ ' ) : '     ' }${ line }` )
-		.join( '\n' );
-}
 
 // Faint variant of the user bubble used by `addUserMessage`, for prompts that
 // were staged during an active turn and haven't been dispatched yet.
@@ -360,7 +352,8 @@ export class AiChatUI implements AiOutputAdapter {
 	private hasShownResponseMarker = false;
 	private turnStartTime = 0;
 	private _activeSite: SiteInfo | null = null;
-	private activeExpandablePreview: ExpandablePreview | null = null;
+	private toolOutputExpanded = false;
+	private hasExpandableOutput = false;
 	private _inAgentTurn = false;
 	private _activeSiteData: SiteData | null = null;
 	private siteSelectedCallback: ( ( site: SiteInfo ) => void ) | null = null;
@@ -675,8 +668,11 @@ export class AiChatUI implements AiOutputAdapter {
 				this.renderQueuedContainer();
 				return { consume: true };
 			}
-			if ( matchesKey( data, 'ctrl+o' ) && this.activeExpandablePreview ) {
-				this.toggleExpandablePreview();
+			if ( matchesKey( data, 'ctrl+o' ) && this.hasExpandableOutput ) {
+				this.toolOutputExpanded = ! this.toolOutputExpanded;
+				setExpandedDeep( this.messages, this.toolOutputExpanded );
+				this.updateHints();
+				this.tui.requestRender();
 				return { consume: true };
 			}
 			return undefined;
@@ -1399,10 +1395,8 @@ export class AiChatUI implements AiOutputAdapter {
 		if ( ! this._inAgentTurn ) {
 			hints.push( __( '↓ select site' ) );
 		}
-		if ( this.activeExpandablePreview ) {
-			hints.push(
-				this.activeExpandablePreview.isExpanded ? __( 'ctrl+o collapse' ) : __( 'ctrl+o expand' )
-			);
+		if ( this.hasExpandableOutput ) {
+			hints.push( this.toolOutputExpanded ? __( 'ctrl+o collapse' ) : __( 'ctrl+o expand' ) );
 		}
 		if ( this.queuedPrompts.length > 0 ) {
 			hints.push( __( 'backspace to unqueue' ) );
@@ -1676,129 +1670,17 @@ export class AiChatUI implements AiOutputAdapter {
 		}
 	}
 
-	private addExpandablePreview(
-		preview: { collapsed: string; expanded: string },
-		target: Container = this.messages
-	): void {
-		const textComponent = new Text( preview.collapsed, 0, 0 );
-		target.addChild( textComponent );
-
-		if ( preview.collapsed !== preview.expanded ) {
-			this.activeExpandablePreview = {
-				textComponent,
-				collapsedContent: preview.collapsed,
-				expandedContent: preview.expanded,
-				isExpanded: false,
-			};
+	// Appends a tool result rendered by `renderFn`. When the collapsed and
+	// expanded states differ, the block joins the session-wide ctrl+o toggle
+	// and inherits its current state.
+	private addToolResultText( renderFn: ( expanded: boolean ) => string, target: Container ): void {
+		if ( renderFn( false ) === renderFn( true ) ) {
+			target.addChild( new Text( renderFn( false ), 0, 0 ) );
+		} else {
+			target.addChild( new ExpandableText( renderFn, this.toolOutputExpanded ) );
+			this.hasExpandableOutput = true;
 			this.updateHints();
 		}
-
-		this.tui.requestRender();
-	}
-
-	private generateExpandablePreview( lines: string[] ): { collapsed: string; expanded: string } {
-		const expanded = formatToolOutputLines( lines );
-
-		if ( lines.length <= DEFAULT_COLLAPSE_THRESHOLD_LINES ) {
-			return { collapsed: expanded, expanded };
-		}
-
-		const collapsed =
-			formatToolOutputLines( lines.slice( 0, DEFAULT_COLLAPSE_THRESHOLD_LINES ) ) +
-			'\n     ' +
-			chalk.dim(
-				sprintf(
-					/* translators: %d: number of hidden lines */
-					__( '... %d more lines · ctrl+o to expand' ),
-					lines.length - DEFAULT_COLLAPSE_THRESHOLD_LINES
-				)
-			);
-
-		return { collapsed, expanded };
-	}
-
-	private generateHiddenDetailsPreview(
-		text: string,
-		label: string,
-		maxLength = 4000
-	): { collapsed: string; expanded: string } {
-		const expandedText =
-			text.length > maxLength
-				? text.slice( 0, maxLength ) + '\n' + __( '... output truncated' )
-				: text;
-		return {
-			collapsed: formatToolOutputLines( [ chalk.dim( label ) ] ),
-			expanded: formatToolOutputLines(
-				expandedText.split( '\n' ).map( ( line ) => chalk.dim( line ) )
-			),
-		};
-	}
-
-	private generateWritePreview( content: string ): { collapsed: string; expanded: string } {
-		const lines = content.split( '\n' );
-		const totalLines = lines.length;
-		const numWidth = String( totalLines ).length;
-
-		return this.generateExpandablePreview(
-			lines.map( ( line, i ) => {
-				const lineNum = chalk.dim( String( i + 1 ).padStart( numWidth ) );
-				return lineNum + ' ' + chalk.green( line );
-			} )
-		);
-	}
-
-	private generateDiffPreview( diff: string ): { collapsed: string; expanded: string } {
-		const rawLines = diff.replace( /\n$/, '' ).split( '\n' );
-		const coloredLines = rawLines.map( ( line ) => {
-			if ( line.startsWith( '+' ) ) {
-				return chalk.green( line );
-			}
-			if ( line.startsWith( '-' ) ) {
-				return chalk.red( line );
-			}
-			return chalk.dim( line );
-		} );
-		const expanded = formatToolOutputLines( coloredLines );
-
-		if ( rawLines.length <= DEFAULT_COLLAPSE_THRESHOLD_LINES ) {
-			return { collapsed: expanded, expanded };
-		}
-
-		// Window the collapsed view around the first change so the +/- lines
-		// are visible instead of the diff's leading context lines.
-		const firstChanged = rawLines.findIndex(
-			( line ) => line.startsWith( '+' ) || line.startsWith( '-' )
-		);
-		const start = Math.max(
-			0,
-			Math.min( firstChanged - 1, rawLines.length - DEFAULT_COLLAPSE_THRESHOLD_LINES )
-		);
-		const windowLines = coloredLines.slice( start, start + DEFAULT_COLLAPSE_THRESHOLD_LINES );
-		const collapsed =
-			formatToolOutputLines( windowLines ) +
-			'\n     ' +
-			chalk.dim(
-				sprintf(
-					/* translators: %d: number of hidden lines */
-					__( '... %d more lines · ctrl+o to expand' ),
-					rawLines.length - windowLines.length
-				)
-			);
-
-		return { collapsed, expanded };
-	}
-
-	private toggleExpandablePreview(): void {
-		const preview = this.activeExpandablePreview;
-		if ( ! preview ) {
-			return;
-		}
-
-		preview.isExpanded = ! preview.isExpanded;
-		preview.textComponent.setText(
-			preview.isExpanded ? preview.expandedContent : preview.collapsedContent
-		);
-		this.updateHints();
 		this.tui.requestRender();
 	}
 
@@ -1847,7 +1729,8 @@ export class AiChatUI implements AiOutputAdapter {
 		content: string | Array< { type: string; text?: string } >,
 		toolCall?: ToolCallComponent,
 		isError = false,
-		target: Container = this.messages
+		target: Container = this.messages,
+		details?: unknown
 	): void {
 		let text: string;
 		if ( typeof content === 'string' ) {
@@ -1858,44 +1741,19 @@ export class AiChatUI implements AiOutputAdapter {
 				.map( ( block ) => block.text )
 				.join( '\n' );
 		}
+
+		const renderer = toolCall ? toolResultRenderers[ toolCall.toolName ] : undefined;
+		if ( renderer ) {
+			const context = { input: toolCall?.input ?? {}, text, isError, details };
+			if ( renderer( context, false ) !== null ) {
+				this.addToolResultText( ( expanded ) => renderer( context, expanded ) ?? '', target );
+				return;
+			}
+		}
 		if ( ! text ) {
 			return;
 		}
-
-		const toolName = toolCall?.toolName;
-		const preview = getToolResultPreview( toolName, toolCall?.input, text, isError );
-		if ( preview ) {
-			target.addChild(
-				new Text(
-					formatToolOutputLines(
-						preview.summaryLines.map( ( line ) =>
-							isError ? chalk.red( line ) : chalk.dim( line )
-						)
-					),
-					0,
-					0
-				)
-			);
-			if ( preview.detailText ) {
-				this.addExpandablePreview(
-					this.generateHiddenDetailsPreview(
-						preview.detailText,
-						preview.detailLabel ?? __( 'Full output hidden · ctrl+o to expand' ),
-						preview.detailMaxLength
-					),
-					target
-				);
-			}
-			return;
-		}
-
-		const maxLength = toolName === 'validate_blocks' ? 2000 : 500;
-		const truncated = text.length > maxLength ? text.slice( 0, maxLength ) + '…' : text;
-		const resultLines = truncated.split( '\n' );
-		this.addExpandablePreview(
-			this.generateExpandablePreview( resultLines.map( ( line ) => chalk.dim( line ) ) ),
-			target
-		);
+		this.addToolResultText( ( expanded ) => renderGenericToolResult( text, expanded ), target );
 	}
 
 	renderToolResults( results: readonly ToolResultMessage[] ): void {
@@ -1934,27 +1792,9 @@ export class AiChatUI implements AiOutputAdapter {
 		if ( ! toolCall ) {
 			this.renderToolUseLine( isError, label, null, target );
 		}
-		if ( toolCall && ! isError ) {
-			let preview: { collapsed: string; expanded: string } | null = null;
-			if ( toolCall.toolName === 'Write' && typeof toolCall.input.content === 'string' ) {
-				preview = this.generateWritePreview( toolCall.input.content );
-			} else if ( toolCall.toolName === 'Edit' ) {
-				const details = result.details as { diff?: string } | undefined;
-				if ( typeof details?.diff === 'string' && details.diff.length > 0 ) {
-					preview = this.generateDiffPreview( details.diff );
-				}
-			}
-			if ( preview ) {
-				const summary = toolCall.toolName === 'Write' ? __( 'File written' ) : __( 'File edited' );
-				target.addChild( new Text( formatToolOutputLines( [ chalk.dim( summary ) ] ), 0, 0 ) );
-				this.addExpandablePreview( preview, target );
-				this.tui.requestRender();
-				return;
-			}
-		}
 
 		if ( toolCall?.toolName !== 'AskUserQuestion' || isError ) {
-			this.renderToolResultText( typedResult.content, toolCall, isError, target );
+			this.renderToolResultText( typedResult.content, toolCall, isError, target, result.details );
 		}
 		this.renderToolResultImages( result, target );
 		this.tui.requestRender();

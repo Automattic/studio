@@ -1,6 +1,7 @@
 import { Container, resetCapabilitiesCache, setCapabilities } from '@earendil-works/pi-tui';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ADD_AI_CREDITS_URL } from '@studio/common/lib/studio-assistant-quota';
+import { setExpandedDeep, toolResultRenderers } from 'cli/ai/tool-result-renderers';
 import { AiChatUI } from 'cli/ai/ui';
 import { openBrowser } from 'cli/lib/browser';
 import { readCliConfig } from 'cli/lib/cli-config/core';
@@ -203,7 +204,7 @@ describe( 'AiChatUI interrupt handling', () => {
 		ui.editor = editor;
 		ui.interruptCallback = null;
 		ui._inAgentTurn = false;
-		ui.activeExpandablePreview = null;
+		ui.hasExpandableOutput = false;
 		ui.queuedPrompts = [];
 
 		ui.updateHints();
@@ -348,7 +349,7 @@ describe( 'AiChatUI.handleEvent', () => {
 			loaderVisible: false,
 			autoSelectSiteFromToolResult: vi.fn(),
 			nowMs: () => nowMs,
-			activeExpandablePreview: null,
+			toolOutputExpanded: false,
 			updateHints: vi.fn(),
 			fallbackProgressText: null,
 		} );
@@ -484,8 +485,8 @@ describe( 'AiChatUI.handleEvent', () => {
 		expect( joined ).toContain( 'GET /posts: Returned 2 posts' );
 		expect( joined ).toContain( 'Full API response hidden' );
 		expect( joined ).toContain( 'Run npm test' );
-		expect( joined ).toContain( 'Command completed: 2 tests passed' );
-		expect( joined ).toContain( 'Command output hidden' );
+		expect( joined ).toContain( '2 tests passed' );
+		expect( joined ).toContain( 'Duration 1s' );
 		expect( joined ).toContain( 'Read theme/style.css' );
 		expect( joined ).toContain( 'Read 2 lines' );
 		expect( joined ).toContain( 'File contents hidden' );
@@ -641,8 +642,72 @@ describe( 'AiChatUI.handleEvent', () => {
 		} );
 
 		const renderedText = renderedContainerText( messages );
-		expect( renderedText ).toContain( 'file-a.txt' );
-		expect( renderedText.match( /Command completed: file-a\.txt/g ) ).toHaveLength( 1 );
+		expect( renderedText.match( /file-a\.txt/g ) ).toHaveLength( 1 );
+	} );
+
+	it( 'shows the tail of long Bash output and expands every block on toggle', () => {
+		const { ui, messages } = makeRenderUi();
+
+		ui.handleEvent( {
+			type: 'message_end',
+			message: {
+				role: 'assistant',
+				content: [
+					{ type: 'toolCall', id: 'toolu_bash', name: 'Bash', arguments: { command: 'npm test' } },
+					{
+						type: 'toolCall',
+						id: 'toolu_skill',
+						name: 'Skill',
+						arguments: { name: 'visual-design' },
+					},
+				],
+			},
+		} );
+		ui.handleEvent( {
+			type: 'turn_end',
+			toolResults: [
+				{
+					toolCallId: 'toolu_bash',
+					isError: false,
+					content: [
+						{ type: 'text', text: 'line 1\nline 2\nline 3\nline 4\nline 5\nline 6\nline 7' },
+					],
+				},
+				{
+					toolCallId: 'toolu_skill',
+					isError: false,
+					content: [ { type: 'text', text: '# Visual Design\n\nPick a clear direction.' } ],
+				},
+			],
+		} );
+
+		const collapsed = renderedContainerText( messages );
+		expect( collapsed ).toContain( '... (2 earlier lines · ctrl+o to expand)' );
+		expect( collapsed ).toContain( 'line 7' );
+		expect( collapsed ).not.toContain( 'line 1' );
+		expect( collapsed ).toContain( 'Full skill body hidden' );
+
+		setExpandedDeep( messages, true );
+
+		const expanded = renderedContainerText( messages );
+		expect( expanded ).toContain( 'line 1' );
+		expect( expanded ).not.toContain( 'earlier lines' );
+		expect( expanded ).toContain( 'Pick a clear direction.' );
+	} );
+
+	it( 'fully strips rendered HTML tags that recombine after a single pass', () => {
+		const rendered = toolResultRenderers.wpcom_request(
+			{
+				input: { method: 'GET', path: '/sites/1/posts/1' },
+				text: JSON.stringify( {
+					title: { rendered: '<scr<script>ipt>alert(1)</scr</script>ipt>' },
+				} ),
+				isError: false,
+			},
+			false
+		);
+
+		expect( stripAnsi( rendered ?? '' ) ).not.toContain( '<' );
 	} );
 
 	it( 'does not trigger cap detection for non-wpcom providers even with a 429 error', () => {

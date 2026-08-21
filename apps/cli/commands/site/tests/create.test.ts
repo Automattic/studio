@@ -26,6 +26,7 @@ import { type SupportedPHPVersion } from '@studio/common/types/php-versions';
 import { Blueprint, BlueprintV1Declaration } from '@wp-playground/blueprints';
 import { vi, type MockInstance } from 'vitest';
 import yargs from 'yargs';
+import { canonicalizeBlocks, cleanupValidatorPages } from 'cli/ai/block-validator';
 import {
 	lockCliConfig,
 	readCliConfig,
@@ -44,7 +45,11 @@ import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/si
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
-import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
+import {
+	runBlueprint,
+	startWordPressServer,
+	stopWordPressServer,
+} from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
 import { buildCreateFromSourceBlueprint, registerCommand, runCommand } from '../create';
 
@@ -96,6 +101,10 @@ vi.mock( '@studio/common/lib/agent-skills' );
 vi.mock( 'cli/lib/sqlite-integration' );
 vi.mock( 'cli/lib/run-wp-cli-command' );
 vi.mock( 'cli/lib/wordpress-server-manager' );
+vi.mock( 'cli/ai/block-validator', () => ( {
+	canonicalizeBlocks: vi.fn(),
+	cleanupValidatorPages: vi.fn(),
+} ) );
 vi.mock( 'cli/lib/tracks', async ( importActual ) => {
 	const actual = await importActual< typeof import('cli/lib/tracks') >();
 	return { ...actual, recordTracksEvent: vi.fn() };
@@ -187,6 +196,7 @@ describe( 'CLI: studio site create', () => {
 		vi.mocked( downloadWordPress ).mockResolvedValue( undefined );
 		vi.mocked( setupCustomDomain ).mockResolvedValue( undefined );
 		vi.mocked( startWordPressServer ).mockResolvedValue( mockProcessDescription );
+		vi.mocked( stopWordPressServer ).mockResolvedValue( undefined );
 		vi.mocked( runBlueprint ).mockResolvedValue( undefined );
 		vi.mocked( runWpCliCommandWithMessaging )
 			.mockReset()
@@ -211,6 +221,48 @@ describe( 'CLI: studio site create', () => {
 		vi.unstubAllEnvs();
 		vi.restoreAllMocks();
 	} );
+
+	const setupResumableCanonicalization = () => {
+		const blueprint = buildCreateFromSourceBlueprint(
+			'https://example.com/',
+			'Imported URL',
+			'https://example.com/static-site-importer.zip'
+		);
+		const existingSite = { ...mockExistingSite, path: mockSitePath };
+		const documents = JSON.stringify( [
+			{
+				post_id: 1,
+				content: '',
+				sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+			},
+		] );
+
+		vi.mocked( readCliConfig, { partial: true } ).mockResolvedValue( {
+			version: 1,
+			sites: [ existingSite ],
+		} );
+		createPathExistsMock( true );
+		vi.mocked( isEmptyDir ).mockResolvedValue( false );
+		vi.mocked( isWordPressDirectory ).mockReturnValue( true );
+		vi.spyOn( fs, 'existsSync' ).mockReturnValue( true );
+		vi.spyOn( fs, 'readFileSync' ).mockImplementation( ( filePath ) => {
+			const value = filePath.toString();
+			if ( value.endsWith( 'result.json' ) ) {
+				return JSON.stringify( { continuation: false, canonicalization_pending: true } );
+			}
+			if ( value.endsWith( 'client-canonical-documents.json' ) ) {
+				return documents;
+			}
+			if ( value.endsWith( 'static-site-importer.json' ) ) {
+				return JSON.stringify( blueprint.staticSiteImport.identity );
+			}
+			return blueprint.staticSiteImport.code;
+		} );
+		vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+		vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
+
+		return blueprint;
+	};
 
 	describe( 'Validation Errors', () => {
 		it( 'validates and resolves the local Static Site Importer zip option', async () => {
@@ -878,6 +930,54 @@ describe( 'CLI: studio site create', () => {
 			expect( startWordPressServer ).not.toHaveBeenCalled();
 			expect( runBlueprint ).not.toHaveBeenCalled();
 			expect( saveCliConfig ).not.toHaveBeenCalled();
+		} );
+
+		it( 'cleans up validator pages after canonicalizing a resumed import', async () => {
+			const blueprint = setupResumableCanonicalization();
+			const events: string[] = [];
+			vi.mocked( canonicalizeBlocks ).mockImplementation( async () => {
+				events.push( 'canonicalize' );
+				return '';
+			} );
+			vi.mocked( cleanupValidatorPages ).mockImplementation( async () => {
+				events.push( 'cleanup' );
+			} );
+			vi.mocked( stopWordPressServer ).mockImplementation( async () => {
+				events.push( 'stop' );
+			} );
+
+			await runCommand( mockSitePath, { ...defaultTestOptions, blueprint } );
+
+			expect( events ).toEqual( [ 'canonicalize', 'cleanup', 'stop' ] );
+		} );
+
+		it( 'cleans up validator pages when canonicalizing a resumed import fails', async () => {
+			const blueprint = setupResumableCanonicalization();
+			const events: string[] = [];
+			vi.mocked( canonicalizeBlocks ).mockImplementation( async () => {
+				events.push( 'canonicalize' );
+				throw new Error( 'canonicalization failed' );
+			} );
+			vi.mocked( cleanupValidatorPages ).mockImplementation( async () => {
+				events.push( 'cleanup' );
+			} );
+			vi.mocked( stopWordPressServer ).mockImplementation( async () => {
+				events.push( 'stop' );
+			} );
+
+			await expect(
+				runCommand( mockSitePath, { ...defaultTestOptions, blueprint } )
+			).rejects.toThrow( 'Failed to import static site' );
+
+			expect( events ).toEqual( [ 'canonicalize', 'cleanup', 'stop' ] );
+			expect( fs.rmSync ).not.toHaveBeenCalledWith(
+				path.join( mockSitePath, '.studio-import', 'client-canonical-documents.json' ),
+				{ force: true }
+			);
+			expect( fs.rmSync ).not.toHaveBeenCalledWith(
+				path.join( mockSitePath, '.studio-import', 'client-canonical-updates.json' ),
+				{ force: true }
+			);
 		} );
 
 		it( 'should continue bounded URL imports until SSI reports completion', async () => {

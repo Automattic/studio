@@ -62,7 +62,7 @@ import {
 } from '@studio/common/types/php-versions';
 import { __, sprintf } from '@wordpress/i18n';
 import { isStepDefinition, type BlueprintV1Declaration } from '@wp-playground/blueprints';
-import { canonicalizeBlocks } from 'cli/ai/block-validator';
+import { canonicalizeBlocks, cleanupValidatorPages } from 'cli/ai/block-validator';
 import { captureProgressMessage, captureUrl } from 'cli/commands/capture';
 import { bumpStat, getPlatformMetric } from 'cli/lib/bump-stat';
 import {
@@ -909,7 +909,11 @@ async function runStaticSiteImport(
 					site.running = true;
 				}
 				try {
-					await canonicalizeStaticSiteImport( site, stagingDir );
+					try {
+						await canonicalizeStaticSiteImport( site, stagingDir );
+					} finally {
+						await cleanupValidatorPages();
+					}
 				} finally {
 					if ( startForCanonicalization ) {
 						await stopWordPressServer( site.id );

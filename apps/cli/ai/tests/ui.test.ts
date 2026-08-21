@@ -316,7 +316,13 @@ describe( 'AiChatUI.handleEvent', () => {
 		expect( showError ).not.toHaveBeenCalledWith(
 			expect.stringContaining( 'monthly AI usage limit' )
 		);
-		expect( showInfo ).toHaveBeenCalledWith( expect.stringContaining( ADD_AI_CREDITS_URL ) );
+		expect( showInfo ).toHaveBeenCalledWith(
+			'Add credits at the link below, then come back to continue using Studio Code:'
+		);
+		// The terminal has nothing for checkout to return to, so the URL it
+		// prints carries no return parameters.
+		expect( showInfo ).toHaveBeenCalledWith( ADD_AI_CREDITS_URL );
+		expect( ADD_AI_CREDITS_URL ).not.toContain( 'studioReturnTo' );
 		expect( ui.showUsageCapResetDate ).not.toHaveBeenCalled();
 		expect( ui.usageCapReached ).toBe( true );
 		expect( ui.currentMarkdown ).toBeNull();

@@ -4,6 +4,7 @@ import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { AiModelId } from '@studio/common/ai/models';
 import type { AiProviderId, AiSettings } from '@studio/common/ai/providers';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
+import type { InstructionFileType } from '@studio/common/lib/agent-instructions';
 import type { SiteEvent } from '@studio/common/lib/cli-events';
 import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 import type { SupportedLocale } from '@studio/common/lib/locale';
@@ -64,6 +65,7 @@ export type { SupportedTerminal } from '@studio/common/lib/user-settings/termina
 export type { SupportedLocale } from '@studio/common/lib/locale';
 export type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 export type { SiteStorageUsage } from '@studio/common/sites/storage-usage';
+export type { InstructionFileType } from '@studio/common/lib/agent-instructions';
 
 export type InstalledApps = Record< SupportedEditor | SupportedTerminal, boolean >;
 
@@ -170,6 +172,11 @@ export interface ConnectorCapabilities {
 	// (`disableAgenticUi`). Only the desktop app ships the classic renderer;
 	// in a browser there is nothing to switch to.
 	switchToClassicUi: boolean;
+	// The host can install/remove AI skills and instruction files (AGENTS.md,
+	// CLAUDE.md, STUDIO.md) for one specific site, overriding the global
+	// selection. Gates the site overview's AI tab. False when hosted remotely,
+	// which has no local site filesystem to install into.
+	siteAgentSkills: boolean;
 }
 
 export interface Connector {
@@ -504,6 +511,18 @@ export interface Connector {
 	installWordPressSkillToAllSites( skillId: string ): Promise< void >;
 	removeWordPressSkillFromAllSites( skillId: string ): Promise< void >;
 
+	// Per-site AI skills, overriding the global selection for just this site.
+	// Gated by `capabilities.siteAgentSkills`.
+	getSiteSkillsStatus( siteId: string ): Promise< SkillStatus[] >;
+	installSiteSkill( siteId: string, skillId: string ): Promise< void >;
+	removeSiteSkill( siteId: string, skillId: string ): Promise< void >;
+
+	// Per-site agent instruction files (AGENTS.md / CLAUDE.md / STUDIO.md),
+	// installed at the site root. Gated by `capabilities.siteAgentSkills`.
+	getSiteAgentInstructionsStatus( siteId: string ): Promise< SiteAgentInstructionStatus[] >;
+	installSiteAgentInstructionFile( siteId: string, fileType: InstructionFileType ): Promise< void >;
+	removeSiteAgentInstructionFile( siteId: string, fileType: InstructionFileType ): Promise< void >;
+
 	// Whether the UI should render a button that opens the app menu via
 	// `popupAppMenu`. True only in the Windows/Linux desktop app, which has no
 	// native menu bar; macOS has the native application menu and the browser
@@ -628,6 +647,13 @@ export interface SnapshotUsage {
 
 export interface SkillStatus {
 	id: string;
+	displayName: string;
+	description: string;
+	installed: boolean;
+}
+
+export interface SiteAgentInstructionStatus {
+	id: InstructionFileType;
 	displayName: string;
 	description: string;
 	installed: boolean;

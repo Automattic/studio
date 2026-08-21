@@ -117,6 +117,7 @@ describe( 'CreateSiteForm', () => {
 				aiSettings: false,
 				studioLogs: false,
 				switchToClassicUi: false,
+				siteAgentSkills: false,
 			},
 		} );
 		useSitesMock.mockReturnValue( { data: [] } );
@@ -432,6 +433,7 @@ describe( 'CreateSiteForm', () => {
 				aiSettings: false,
 				studioLogs: false,
 				switchToClassicUi: false,
+				siteAgentSkills: false,
 			},
 		} );
 		usePathValidatorMock.mockReturnValue( {

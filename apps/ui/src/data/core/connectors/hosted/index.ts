@@ -128,6 +128,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			aiSettings: false,
 			studioLogs: false,
 			switchToClassicUi: false,
+			siteAgentSkills: false,
 		},
 
 		// Auth — runs unauthenticated, like the desktop app. WordPress.com login
@@ -482,6 +483,24 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		},
 		async removeWordPressSkillFromAllSites() {
 			// No-op: hosted mode does not install local WordPress skills.
+		},
+		async getSiteSkillsStatus() {
+			throw new UnsupportedError( 'getSiteSkillsStatus' );
+		},
+		async installSiteSkill() {
+			throw new UnsupportedError( 'installSiteSkill' );
+		},
+		async removeSiteSkill() {
+			throw new UnsupportedError( 'removeSiteSkill' );
+		},
+		async getSiteAgentInstructionsStatus() {
+			throw new UnsupportedError( 'getSiteAgentInstructionsStatus' );
+		},
+		async installSiteAgentInstructionFile() {
+			throw new UnsupportedError( 'installSiteAgentInstructionFile' );
+		},
+		async removeSiteAgentInstructionFile() {
+			throw new UnsupportedError( 'removeSiteAgentInstructionFile' );
 		},
 
 		// Window chrome — no traffic lights in a browser tab.

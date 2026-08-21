@@ -27,6 +27,7 @@ import { Blueprint, BlueprintV1Declaration } from '@wp-playground/blueprints';
 import { vi, type MockInstance } from 'vitest';
 import yargs from 'yargs';
 import { canonicalizeBlocks, cleanupValidatorPages } from 'cli/ai/block-validator';
+import { closeSharedBrowser } from 'cli/ai/browser-utils';
 import {
 	lockCliConfig,
 	readCliConfig,
@@ -104,6 +105,9 @@ vi.mock( 'cli/lib/wordpress-server-manager' );
 vi.mock( 'cli/ai/block-validator', () => ( {
 	canonicalizeBlocks: vi.fn(),
 	cleanupValidatorPages: vi.fn(),
+} ) );
+vi.mock( 'cli/ai/browser-utils', () => ( {
+	closeSharedBrowser: vi.fn(),
 } ) );
 vi.mock( 'cli/lib/tracks', async ( importActual ) => {
 	const actual = await importActual< typeof import('cli/lib/tracks') >();
@@ -942,13 +946,16 @@ describe( 'CLI: studio site create', () => {
 			vi.mocked( cleanupValidatorPages ).mockImplementation( async () => {
 				events.push( 'cleanup' );
 			} );
+			vi.mocked( closeSharedBrowser ).mockImplementation( async () => {
+				events.push( 'close-browser' );
+			} );
 			vi.mocked( stopWordPressServer ).mockImplementation( async () => {
 				events.push( 'stop' );
 			} );
 
 			await runCommand( mockSitePath, { ...defaultTestOptions, blueprint } );
 
-			expect( events ).toEqual( [ 'canonicalize', 'cleanup', 'stop' ] );
+			expect( events ).toEqual( [ 'canonicalize', 'cleanup', 'close-browser', 'stop' ] );
 		} );
 
 		it( 'cleans up validator pages when canonicalizing a resumed import fails', async () => {
@@ -961,6 +968,9 @@ describe( 'CLI: studio site create', () => {
 			vi.mocked( cleanupValidatorPages ).mockImplementation( async () => {
 				events.push( 'cleanup' );
 			} );
+			vi.mocked( closeSharedBrowser ).mockImplementation( async () => {
+				events.push( 'close-browser' );
+			} );
 			vi.mocked( stopWordPressServer ).mockImplementation( async () => {
 				events.push( 'stop' );
 			} );
@@ -969,7 +979,7 @@ describe( 'CLI: studio site create', () => {
 				runCommand( mockSitePath, { ...defaultTestOptions, blueprint } )
 			).rejects.toThrow( 'Failed to import static site' );
 
-			expect( events ).toEqual( [ 'canonicalize', 'cleanup', 'stop' ] );
+			expect( events ).toEqual( [ 'canonicalize', 'cleanup', 'close-browser', 'stop' ] );
 			expect( fs.rmSync ).not.toHaveBeenCalledWith(
 				path.join( mockSitePath, '.studio-import', 'client-canonical-documents.json' ),
 				{ force: true }

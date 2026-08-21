@@ -368,7 +368,8 @@ function resolveStaticSiteImporterSource(
 function buildStaticSiteImporterPhp(
 	sourcePath: string,
 	siteName: string,
-	storeImportResult: boolean
+	storeImportResult: boolean,
+	adminUsername: string
 ): string {
 	return `<?php
 if ( ! function_exists( 'did_action' ) || ! did_action( 'plugins_loaded' ) ) {
@@ -383,6 +384,15 @@ $source_raw = is_file( $source_path ) ? file_get_contents( $source_path ) : fals
 $source = is_string( $source_raw ) ? json_decode( $source_raw, true ) : null;
 if ( ! is_array( $source ) ) {
 	throw new RuntimeException( 'Static Site Importer source payload could not be decoded.' );
+}
+
+$admin_user = get_user_by( 'login', ${ phpString( adminUsername ) } );
+if ( ! $admin_user instanceof WP_User ) {
+	throw new RuntimeException( 'Static Site Importer requires the created local administrator.' );
+}
+wp_set_current_user( $admin_user->ID, $admin_user->user_login );
+if ( ! current_user_can( 'manage_options' ) || ! current_user_can( 'unfiltered_html' ) ) {
+	throw new RuntimeException( 'Static Site Importer requires the created local administrator.' );
 }
 
 $input = array(
@@ -491,6 +501,7 @@ if ( isset( $source['url'] ) && function_exists( 'static_site_importer_ability_i
 
 	if ( isset( $source['artifact'] ) && is_array( $source['artifact'] ) ) {
 		$artifact = $source['artifact'];
+		$input['fail_on_quality'] = true;
 		if ( in_array( $artifact['theme_materialization'] ?? '', array( 'block', 'classic' ), true ) ) {
 			$input['theme_materialization'] = (string) $artifact['theme_materialization'];
 		}
@@ -599,7 +610,8 @@ export function buildCreateFromSourceBlueprint(
 	sourcePath: string,
 	siteName: string,
 	staticSiteImporterPlugin: StaticSiteImporterPlugin = DEFAULT_STATIC_SITE_IMPORTER_PLUGIN_URL,
-	storeImportResult = false
+	storeImportResult = false,
+	adminUsername = 'admin'
 ): {
 	contents: BlueprintV1Declaration;
 	uri: string;
@@ -656,7 +668,7 @@ export function buildCreateFromSourceBlueprint(
 		contents: blueprint,
 		uri: blueprintPath,
 		staticSiteImport: {
-			code: buildStaticSiteImporterPhp( source.path, siteName, storeImportResult ),
+			code: buildStaticSiteImporterPhp( source.path, siteName, storeImportResult, adminUsername ),
 			source: JSON.stringify( source.payload ),
 			...( stagedFigmaName ? { stagedSource: { sourcePath, targetName: stagedFigmaName } } : {} ),
 			...( source.type === 'url'
@@ -1827,7 +1839,8 @@ export const registerCommand = (
 						argv.staticSiteImporterPath
 							? { path: argv.staticSiteImporterPath }
 							: argv.staticSiteImporterUrl ?? DEFAULT_STATIC_SITE_IMPORTER_PLUGIN_URL,
-						argv.storeImportResult
+						argv.storeImportResult,
+						adminUsername ?? 'admin'
 					);
 				} else if ( argv.blueprint ) {
 					if ( argv.blueprint.startsWith( 'http://' ) || argv.blueprint.startsWith( 'https://' ) ) {

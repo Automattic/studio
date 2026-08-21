@@ -25,12 +25,12 @@ describe( 'exportWebsiteCapture', () => {
 		mkdirSync( join( outputDir, 'media' ), { recursive: true } );
 		writeFileSync(
 			join( outputDir, 'html', 'homepage.html' ),
-			'<!doctype html><html><head></head><body><img src="https://cdn.example/logo.png"><img src="https://cdn.example/avatar.png&amp;quot;"><img src="/hero.png?w=128" srcset="/hero.png?w=128 128w, /hero.png?w=4096 4096w"><img src="https://static.wixstatic.com/media/hash~mv2.jpg" srcset="https://static.wixstatic.com/media/hash~mv2.jpg/v1/fill/w_567,h_740,q_90,enc_avif,quality_auto/hash~mv2.jpg 1x, https://static.wixstatic.com/media/hash~mv2.jpg/v1/fill/w_1034,h_1349,q_90,enc_avif,quality_auto/hash~mv2.jpg 2x"><h1>Home</h1><noscript><main>This site requires JavaScript</main></noscript></body></html>'
+			'<!doctype html><html><head><style>.desktop{color:blue}</style></head><body><a href="https://example.com/shop/about?from=home#team">About</a><a href="https://example.com/shop/missing">Missing</a><a href="https://external.example/about">External</a><img src="https://cdn.example/logo.png"><img src="https://cdn.example/avatar.png&amp;quot;"><img src="/hero.png?w=128" srcset="/hero.png?w=128 128w, /hero.png?w=4096 4096w"><img src="https://static.wixstatic.com/media/hash~mv2.jpg" srcset="https://static.wixstatic.com/media/hash~mv2.jpg/v1/fill/w_567,h_740,q_90,enc_avif,quality_auto/hash~mv2.jpg 1x, https://static.wixstatic.com/media/hash~mv2.jpg/v1/fill/w_1034,h_1349,q_90,enc_avif,quality_auto/hash~mv2.jpg 2x"><h1>Home</h1><p>$100.00</p><noscript><main>This site requires JavaScript</main></noscript></body></html>'
 		);
 		writeFileSync( join( outputDir, 'html', 'about.html' ), '<h1>About</h1>' );
 		writeFileSync(
 			join( outputDir, 'html-mobile', 'homepage.html' ),
-			'<!doctype html><html><head><style>.mobile{color:red}</style></head><body><main class="mobile"><h1>Mobile Home</h1><p>Mobile only</p></main></body></html>'
+			'<!doctype html><html><head><style>.mobile{color:red}body:not(.device-mobile-optimized) .desktop-only{display:flex}</style></head><body class="device-mobile-optimized"><main class="mobile"><h1>Mobile Home</h1><p>Mobile only</p><p>$100.00</p></main></body></html>'
 		);
 		writeFileSync( join( outputDir, 'media', 'logo.png' ), 'png' );
 		writeFileSync( join( outputDir, 'media', 'avatar.pngquot' ), 'avatar' );
@@ -38,6 +38,7 @@ describe( 'exportWebsiteCapture', () => {
 		writeFileSync( join( outputDir, 'media', 'hero-2.png' ), '128' );
 		writeFileSync( join( outputDir, 'media', 'hero-3.png' ), Buffer.alloc( 6 * 1024 * 1024 ) );
 		writeFileSync( join( outputDir, 'media', 'wix.jpg' ), 'wix' );
+		writeFileSync( join( outputDir, 'media', 'localized.jpg' ), 'localized' );
 		writeFileSync(
 			join( outputDir, 'screenshots', 'manifest.json' ),
 			JSON.stringify( {
@@ -72,14 +73,22 @@ describe( 'exportWebsiteCapture', () => {
 			'https://static.wixstatic.com/media/hash~mv2.jpg',
 			join( outputDir, 'media', 'wix.jpg' )
 		);
+		media.markSuccess(
+			'https://cdn.example/images/asset.jpg/v1/fit/w_3939,h_3939/source.jpg/v1/fit/w_704,h_853/rendered.jpg',
+			join( outputDir, 'media', 'localized.jpg' )
+		);
 		media.markFailure( 'https://example.com/missing.png?w=1280', 'HTTP 404' );
+		media.markFailure(
+			'https://cdn.example/images/asset.jpg/v1/fit/w_3939,h_3939/source.jpg/v1/fit/w_554,h_597/rendered.jpg',
+			'HTTP 404'
+		);
 		media.flush();
 		writeFileSync(
 			join( outputDir, 'html', 'homepage.html' ),
 			`${ readFileSync(
 				join( outputDir, 'html', 'homepage.html' ),
 				'utf8'
-			) }<img src="/only-huge.png"><div style="background-image:image-set(url('/missing.png?w=1280') 1x)"></div>`
+			) }<img src="/only-huge.png"><img src="https://cdn.example/images/asset.jpg/v1/fit/w_3939,h_3939/source.jpg/v1/fit/w_554,h_597/rendered.jpg"><div style="background-image:image-set(url('/missing.png?w=1280') 1x)"></div>`
 		);
 
 		const receiptPath = exportWebsiteCapture( {
@@ -112,6 +121,11 @@ describe( 'exportWebsiteCapture', () => {
 					sourceUrl: 'https://static.wixstatic.com/media/hash~mv2.jpg',
 					path: 'website/media/wix.jpg',
 				},
+				{
+					sourceUrl:
+						'https://cdn.example/images/asset.jpg/v1/fit/w_3939,h_3939/source.jpg/v1/fit/w_704,h_853/rendered.jpg',
+					path: 'website/media/localized.jpg',
+				},
 			],
 			excludedRoutes: [ 'https://example.com/' ],
 		} );
@@ -127,6 +141,9 @@ describe( 'exportWebsiteCapture', () => {
 		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).toContain(
 			'srcset="/media/wix.jpg 1x, /media/wix.jpg 2x"'
 		);
+		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).toContain(
+			'/media/localized.jpg'
+		);
 		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).not.toContain(
 			'This site requires JavaScript'
 		);
@@ -134,13 +151,34 @@ describe( 'exportWebsiteCapture', () => {
 			'class="data-liberation-desktop-document"'
 		);
 		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).toContain(
-			'class="data-liberation-mobile-document"'
+			'class="data-liberation-mobile-document device-mobile-optimized"'
 		);
 		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).toContain(
 			'Mobile Home'
 		);
 		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).toContain(
 			'@media(max-width:768px)'
+		);
+		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).toContain(
+			':where(.data-liberation-mobile-document) .mobile{color:red}'
+		);
+		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).toContain(
+			':where(.data-liberation-mobile-document):not(.device-mobile-optimized) .desktop-only{display:flex}'
+		);
+		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).toContain(
+			'<style media="(min-width:769px)">.desktop{color:blue}</style>'
+		);
+		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).toContain(
+			'<p>$100.00</p>'
+		);
+		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).toContain(
+			'href="/about/index.html?from=home#team"'
+		);
+		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).toContain(
+			'href="https://example.com/shop/missing"'
+		);
+		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).toContain(
+			'href="https://external.example/about"'
 		);
 		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).toContain(
 			'data:image/gif;base64,'

@@ -573,7 +573,9 @@ describe( 'CLI: studio site create', () => {
 			const blueprint = buildCreateFromSourceBlueprint(
 				artifactPath,
 				'Imported Artifact',
-				'https://example.com/static-site-importer.zip'
+				'https://example.com/static-site-importer.zip',
+				false,
+				'artifact-admin'
 			);
 
 			expect( blueprint.uri ).toContain( 'blueprint.json' );
@@ -588,6 +590,16 @@ describe( 'CLI: studio site create', () => {
 				] )
 			);
 			expect( blueprint.staticSiteImport.code ).toContain( "$input['source'] = array(" );
+			expect( blueprint.staticSiteImport.code ).toContain( "$input['fail_on_quality'] = true;" );
+			expect( blueprint.staticSiteImport.code ).toContain(
+				'$admin_user = get_user_by( \'login\', "artifact-admin" );'
+			);
+			expect( blueprint.staticSiteImport.code ).toContain(
+				"current_user_can( 'manage_options' ) || ! current_user_can( 'unfiltered_html' )"
+			);
+			expect( blueprint.staticSiteImport.code ).toContain(
+				'wp_set_current_user( $admin_user->ID, $admin_user->user_login );'
+			);
 			expect( blueprint.staticSiteImport.code ).toContain(
 				'$result = static_site_importer_ability_import( $input );'
 			);

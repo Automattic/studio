@@ -125,7 +125,7 @@ describe( 'extractHandler — compact result', () => {
 					join( outputDir, 'screenshots', 'manifest.json' ),
 					JSON.stringify( {
 						version: 1,
-						entries: { [ SITE ]: { slug: 'homepage', html: 'html/homepage.html' } },
+						entries: { [ SITE ]: { html: 'html/homepage.html' } },
 					} )
 				);
 				return {
@@ -150,8 +150,12 @@ describe( 'extractHandler — compact result', () => {
 		expect( existsSync( join( dir, 'website', 'index.html' ) ) ).toBe( true );
 		expect( existsSync( join( dir, 'artifact.json' ) ) ).toBe( true );
 		const artifact = JSON.parse( readFileSync( join( dir, 'artifact.json' ), 'utf8' ) );
-		expect( artifact.theme_materialization ).toBe( 'classic' );
-		expect( artifact.provenance.provider ).toBe( 'data-liberation/carry-reconstruction' );
+		expect( artifact.theme_materialization ).toBeUndefined();
+		expect( artifact.schema ).toBe( 'blocks-engine/php-transformer/site-artifact/v1' );
+		expect( artifact.files[ 0 ].content ).not.toContain( '<!-- wp:' );
+		expect( ( out.provenance as Record< string, unknown > ).provider ).toBe(
+			'data-liberation/browser-capture'
+		);
 		expect( JSON.parse( readFileSync( join( dir, 'capture-receipt.json' ), 'utf8' ) ).schema ).toBe(
 			'data-liberation/capture-receipt/v1'
 		);

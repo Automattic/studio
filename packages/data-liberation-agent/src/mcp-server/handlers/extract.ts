@@ -39,6 +39,7 @@ export const extractHandler: Handler = async ( args, ctx ) => {
 
 		const inventory = ( await adapter.discover( args.url as string, opts ) ) as {
 			siteMeta?: { title?: string; tagline?: string; language?: string };
+			diagnostics?: Array< { code: string; url: string; reason: string } >;
 		};
 		const wxr = new WxrBuilder(
 			{
@@ -122,6 +123,7 @@ export const extractHandler: Handler = async ( args, ctx ) => {
 				url: ( f as Record< string, unknown > ).url,
 				error: ( f as Record< string, unknown > ).error,
 			} ) ),
+			discoveryDiagnostics: inventory.diagnostics ?? [],
 			wxrValidation: validation,
 			dryRun: !! args.dryRun,
 			...( screenshotResult ? { screenshots: screenshotResult } : {} ),
@@ -136,13 +138,11 @@ export const extractHandler: Handler = async ( args, ctx ) => {
 				title: inventory.siteMeta?.title,
 				summary: result.summary as Record< string, unknown >,
 				failures: result.failures as Array< { url: unknown; error: unknown } >,
+				discoveryDiagnostics: inventory.diagnostics ?? [],
 			} );
-			const artifactPath = join( outputDir, 'artifact.json' );
-			result.artifactPath = artifactPath;
-			const { projectPortableCarryArtifact } = await import( '../../lib/portable-carry-artifact.js' );
-			projectPortableCarryArtifact( outputDir, artifactPath );
+			result.artifactPath = join( outputDir, 'artifact.json' );
 			result.provenance = {
-				provider: 'data-liberation/carry-reconstruction',
+				provider: 'data-liberation/browser-capture',
 				platform: detection.platform,
 			};
 		}

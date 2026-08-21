@@ -15,7 +15,7 @@ import type { SiteDetails } from '@/data/core';
 export function useOpenSiteUrl( site: SiteDetails ) {
 	const connector = useConnector();
 	const preview = useOptionalSessionPreviewUI();
-	const startSite = useStartSite();
+	const startSite = useStartSite( { silent: true } );
 
 	return async ( relativeUrl: string ) => {
 		if ( ! preview ) {

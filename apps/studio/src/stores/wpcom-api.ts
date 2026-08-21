@@ -102,7 +102,7 @@ function parseResponse< TSchema extends z.ZodType >(
 export const wpcomApi = createApi( {
 	reducerPath: 'wpcomApi',
 	baseQuery: wpcomBaseQuery,
-	tagTypes: [ 'SnapshotUsage' ],
+	tagTypes: [ 'SnapshotUsage', 'StudioAssistantQuota' ],
 	endpoints: ( builder ) => ( {
 		getSnapshotUsage: builder.query< z.infer< typeof snapshotUsageSchema >, void >( {
 			query: () => ( {
@@ -129,6 +129,7 @@ export const wpcomApi = createApi( {
 			transformResponse: ( response: unknown ) =>
 				parseResponse( response, studioAssistantQuotaSchema ),
 			keepUnusedDataFor: 60 * 60,
+			providesTags: [ 'StudioAssistantQuota' ],
 		} ),
 		deleteAllSnapshots: builder.mutation< void, void >( {
 			queryFn: async () => {

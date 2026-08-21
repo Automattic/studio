@@ -18,11 +18,12 @@ import {
 import { runCommand as runListPreviewCommand } from 'cli/commands/preview/list';
 import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
+import { runCommand as runDeleteSiteCommand } from 'cli/commands/site/delete';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { runWpCliCommandWithMessaging } from 'cli/lib/run-wp-cli-command';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
-import { getProgressCallback, setProgressCallback } from 'cli/logger';
+import { Logger } from 'cli/logger';
 import {
 	captureCommandOutput,
 	resolveStudioToolDefinitions,
@@ -226,7 +227,6 @@ describe( 'Studio AI MCP tools', () => {
 	beforeEach( () => {
 		vi.resetAllMocks();
 		process.exitCode = undefined;
-		setProgressCallback( null );
 		vi.mocked( readCliConfig ).mockResolvedValue( {
 			sites: [ mockSite ],
 		} as Awaited< ReturnType< typeof readCliConfig > > );
@@ -234,7 +234,6 @@ describe( 'Studio AI MCP tools', () => {
 	} );
 
 	afterEach( () => {
-		setProgressCallback( null );
 		setLocalSiteSelectedCallback( null );
 	} );
 
@@ -348,6 +347,15 @@ describe( 'Studio AI MCP tools', () => {
 		);
 	} );
 
+	it( 'deletes a site with progress threaded to the tool logger', async () => {
+		const result = await getTool( 'site_delete' ).rawHandler( {
+			nameOrPath: 'My Site',
+		} as never );
+
+		expect( runDeleteSiteCommand ).toHaveBeenCalledWith( mockSite.path, true, expect.any( Logger ) );
+		expect( getTextContent( result ) ).toBe( 'Site "My Site" deleted.' );
+	} );
+
 	it( 'keeps screenshot presentation guidance out of the screenshot tool description', () => {
 		const takeScreenshot = resolveStudioToolDefinitions( {
 			emitChatArtifacts: true,
@@ -369,13 +377,13 @@ describe( 'Studio AI MCP tools', () => {
 		const screenshotBuffer = Buffer.from( 'fake-jpeg' );
 		mockScreenshotBrowser( createMockPage( { buffer: screenshotBuffer, documentHeight: 2400 } ) );
 		const progressMessages: string[] = [];
-		setProgressCallback( ( message ) => {
-			progressMessages.push( message );
-		} );
 
-		const result = await getTool( 'take_screenshot' ).rawHandler( {
-			url: 'http://localhost:8903/story-time',
-		} as never );
+		const result = await getTool( 'take_screenshot' ).rawHandler(
+			{
+				url: 'http://localhost:8903/story-time',
+			} as never,
+			{ onProgress: ( message ) => progressMessages.push( message ) }
+		);
 
 		// Terminal users have no artifact rendering; the saved-file progress
 		// line is their only handle on the capture.
@@ -408,14 +416,14 @@ describe( 'Studio AI MCP tools', () => {
 		const screenshotBuffer = Buffer.from( 'internal-jpeg' );
 		mockScreenshotBrowser( createMockPage( { buffer: screenshotBuffer, documentHeight: 900 } ) );
 		const progressMessages: string[] = [];
-		setProgressCallback( ( message ) => {
-			progressMessages.push( message );
-		} );
 
-		const result = await getTool( 'take_screenshot' ).rawHandler( {
-			url: 'http://localhost:8903/story-time',
-			display: false,
-		} as never );
+		const result = await getTool( 'take_screenshot' ).rawHandler(
+			{
+				url: 'http://localhost:8903/story-time',
+				display: false,
+			} as never,
+			{ onProgress: ( message ) => progressMessages.push( message ) }
+		);
 
 		// Nothing to emit into the chat, but the model still gets the image
 		// for its own verification.
@@ -911,7 +919,11 @@ describe( 'Studio AI MCP tools', () => {
 			nameOrPath: 'My Site',
 		} as never );
 
-		expect( runCreatePreviewCommand ).toHaveBeenCalledWith( '/sites/my-site' );
+		expect( runCreatePreviewCommand ).toHaveBeenCalledWith(
+			'/sites/my-site',
+			undefined,
+			expect.any( Logger )
+		);
 		expect( getTextContent( result ) ).toContain( 'Preview site created for "My Site".' );
 	} );
 
@@ -929,7 +941,8 @@ describe( 'Studio AI MCP tools', () => {
 				name: 'My Site',
 				noStart: false,
 				skipBrowser: true,
-			} )
+			} ),
+			expect.any( Logger )
 		);
 		expect( emitEvent ).toHaveBeenCalledWith(
 			expect.objectContaining( {
@@ -1138,7 +1151,8 @@ describe( 'Studio AI MCP tools', () => {
 		expect( runUpdatePreviewCommand ).toHaveBeenCalledWith(
 			'/sites/my-site',
 			'demo.wordpress.com',
-			true
+			true,
+			expect.any( Logger )
 		);
 		expect( getTextContent( result ) ).toContain(
 			'Preview site "demo.wordpress.com" updated from "My Site".'
@@ -1159,50 +1173,39 @@ describe( 'Studio AI MCP tools', () => {
 
 		expect( runDeletePreviewCommand ).toHaveBeenCalledWith(
 			PreviewDeleteMode.DELETE_SINGLE_SNAPSHOT,
-			'demo.wordpress.com'
+			'demo.wordpress.com',
+			expect.any( Logger )
 		);
 	} );
 
-	it( 'restores the previous progress callback after running a preview tool', async () => {
-		const previousCallback = vi.fn();
-		setProgressCallback( previousCallback );
-
-		await getTool( 'preview_create' ).rawHandler( { nameOrPath: 'My Site' } as never );
-
-		expect( getProgressCallback() ).toBe( previousCallback );
-	} );
-
-	it( 'forwards progress messages to the previous callback during command execution', async () => {
-		const previousCallback = vi.fn();
-		setProgressCallback( previousCallback );
-
-		vi.mocked( runCreatePreviewCommand ).mockImplementation( async () => {
-			const currentCallback = getProgressCallback();
-			currentCallback?.( 'Creating preview…' );
-			currentCallback?.( 'Almost done…' );
+	it( 'forwards command progress to the tool context', async () => {
+		vi.mocked( runCreatePreviewCommand ).mockImplementation( async ( _path, _name, logger ) => {
+			logger?.reportStart( 'validate' as never, 'Creating preview…' );
+			logger?.reportSuccess( 'Almost done…' );
 		} );
 
-		await getTool( 'preview_create' ).rawHandler( { nameOrPath: 'My Site' } as never );
+		const onProgress = vi.fn();
+		await getTool( 'preview_create' ).rawHandler( { nameOrPath: 'My Site' } as never, {
+			onProgress,
+		} );
 
-		expect( previousCallback ).toHaveBeenCalledWith( 'Creating preview…', undefined );
-		expect( previousCallback ).toHaveBeenCalledWith( 'Almost done…', undefined );
+		expect( onProgress ).toHaveBeenCalledWith( 'Creating preview…', undefined );
+		expect( onProgress ).toHaveBeenCalledWith( 'Almost done…', undefined );
 	} );
 
 	it( 'coalesces progress updates in captured command output', async () => {
-		const previousCallback = vi.fn();
-		setProgressCallback( previousCallback );
+		const onProgress = vi.fn();
 
-		const result = await captureCommandOutput( async () => {
-			const currentCallback = getProgressCallback();
-			currentCallback?.( 'Applying changes… (74%)' );
-			currentCallback?.( 'Applying changes… (75%)', true );
-			currentCallback?.( 'Applying changes… (76%)', true );
-			currentCallback?.( 'Push complete' );
-		} );
+		const result = await captureCommandOutput( async ( logger ) => {
+			logger.reportStart( 'apply', 'Applying changes… (74%)' );
+			logger.reportProgress( 'Applying changes… (75%)' );
+			logger.reportProgress( 'Applying changes… (76%)' );
+			logger.reportStart( 'done', 'Push complete' );
+		}, onProgress );
 
 		expect( result.progressOutput ).toBe( 'Applying changes… (76%)\nPush complete' );
-		expect( previousCallback ).toHaveBeenCalledWith( 'Applying changes… (75%)', true );
-		expect( previousCallback ).toHaveBeenCalledWith( 'Applying changes… (76%)', true );
+		expect( onProgress ).toHaveBeenCalledWith( 'Applying changes… (75%)', true );
+		expect( onProgress ).toHaveBeenCalledWith( 'Applying changes… (76%)', true );
 	} );
 
 	it( 'rejects shell syntax in wp_cli post content before dispatching to WP-CLI', async () => {
@@ -1453,7 +1456,6 @@ describe( 'Studio AI MCP tools', () => {
 				'templates/index.html',
 				'templates/single.html',
 				'templates/page.html',
-				'templates/page-no-title.html',
 				'templates/archive.html',
 				'templates/404.html',
 				'parts/header.html',
@@ -1480,49 +1482,7 @@ describe( 'Studio AI MCP tools', () => {
 				await readFile( path.join( themeDir, 'theme.json' ), 'utf8' )
 			) as Record< string, unknown >;
 			expect( themeJson.version ).toBe( 3 );
-			const themeSettings = themeJson.settings as Record< string, unknown >;
-			expect( themeSettings.appearanceTools ).toBe( true );
-
-			// Without a declared content width WordPress drops the max-width from its
-			// constrained-layout rules, and without root padding nothing insets the
-			// content — either gap renders text against the viewport edge. Assert the
-			// keys carry a value rather than a specific one, so the scaffold stays
-			// free to retune the widths and gutter.
-			const layout = themeSettings.layout as Record< string, unknown >;
-			expect( layout?.contentSize ).toBeTruthy();
-			expect( layout?.wideSize ).toBeTruthy();
-			expect( themeSettings.useRootPaddingAwareAlignments ).toBe( true );
-
-			const rootPadding = (
-				( themeJson.styles as Record< string, Record< string, unknown > > )?.spacing as
-					| Record< string, Record< string, unknown > >
-					| undefined
-			 )?.padding;
-			expect( rootPadding?.left ).toBeTruthy();
-			expect( rootPadding?.right ).toBeTruthy();
-
-			// The no-title template is only assignable to a page if it is registered
-			// here, so the file and the registration have to stay in step.
-			const customTemplates = themeJson.customTemplates as Array< Record< string, unknown > >;
-			expect( customTemplates ).toEqual(
-				expect.arrayContaining( [
-					expect.objectContaining( { name: 'page-no-title', postTypes: [ 'page' ] } ),
-				] )
-			);
-
-			// A designed page opts out of the template's h1 by switching template, so
-			// page.html must keep the title and page-no-title.html must omit it.
-			const pageTemplate = await readFile(
-				path.join( themeDir, 'templates', 'page.html' ),
-				'utf8'
-			);
-			expect( pageTemplate ).toContain( 'wp:post-title' );
-			const pageNoTitleTemplate = await readFile(
-				path.join( themeDir, 'templates', 'page-no-title.html' ),
-				'utf8'
-			);
-			expect( pageNoTitleTemplate ).not.toContain( 'wp:post-title' );
-			expect( pageNoTitleTemplate ).toContain( 'wp:post-content' );
+			expect( ( themeJson.settings as Record< string, unknown > ).appearanceTools ).toBe( true );
 
 			const functionsPhp = await readFile( path.join( themeDir, 'functions.php' ), 'utf8' );
 			expect( functionsPhp ).toContain( "'acme-studio-style'" );

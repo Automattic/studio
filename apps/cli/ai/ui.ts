@@ -30,6 +30,7 @@ import { isOutOfCreditsError, isUsageCapError } from '@studio/common/ai/json-eve
 import { DEFAULT_MODEL, getAiModelLabel, type AiModelId } from '@studio/common/ai/models';
 import { findLastAssistant } from '@studio/common/ai/session-events';
 import { randomThinkingMessage } from '@studio/common/ai/thinking-messages';
+import { getStudioToolProgress } from '@studio/common/ai/tool-progress';
 import { getToolDetail, getToolDisplayName, getToolResultPreview } from '@studio/common/ai/tools';
 import chalk from '@studio/common/lib/chalk';
 import { readAuthToken } from '@studio/common/lib/shared-config';
@@ -285,19 +286,65 @@ interface ToolUseResultContent {
 	isError?: boolean;
 }
 
-interface ToolRenderState {
-	container: Container;
-	rowText: Text;
-	progressText: Text | null;
-	progressLines: string[];
-}
+// A single tool call's transcript block: header row plus the progress lines
+// streamed via `tool_execution_update` events addressed by toolCallId, so
+// concurrent tool calls can't collide. `showToolResult` appends the result
+// preview as extra children.
+class ToolCallComponent extends Container {
+	readonly toolName: string;
+	readonly input: Record< string, unknown >;
+	readonly label: string;
+	private startedAtMs: number;
+	private rowText: Text;
+	private progressText: Text | null = null;
+	private progressLines: string[] = [];
 
-interface PendingToolCall {
-	name: string;
-	input: Record< string, unknown >;
-	label: string;
-	startedAtMs: number;
-	render: ToolRenderState | null;
+	constructor(
+		toolName: string,
+		input: Record< string, unknown >,
+		label: string,
+		private formatHeader: ( isError: boolean, label: string, startedAtMs: number | null ) => string,
+		private now: () => number
+	) {
+		super();
+		this.toolName = toolName;
+		this.input = input;
+		this.label = label;
+		this.startedAtMs = now();
+		this.rowText = new Text( formatHeader( false, label, null ), 0, 0 );
+		this.addChild( this.rowText );
+	}
+
+	// Execution can start well after the row rendered (queued behind other
+	// tools); restart the clock so elapsed time reflects the execution.
+	markExecutionStarted(): void {
+		this.startedAtMs = this.now();
+	}
+
+	addProgress( message: string, update: boolean ): void {
+		const lastLine = this.progressLines[ this.progressLines.length - 1 ];
+		if ( update && this.progressLines.length > 0 ) {
+			this.progressLines[ this.progressLines.length - 1 ] = message;
+		} else if ( lastLine !== message ) {
+			this.progressLines.push( message );
+		} else {
+			return;
+		}
+
+		const formatted = formatToolOutputLines(
+			this.progressLines.map( ( progressLine ) => chalk.dim( progressLine ) )
+		);
+		if ( this.progressText ) {
+			this.progressText.setText( formatted );
+		} else {
+			this.progressText = new Text( formatted, 0, 0 );
+			this.addChild( this.progressText );
+		}
+	}
+
+	finalize( isError: boolean ): void {
+		this.rowText.setText( this.formatHeader( isError, this.label, this.startedAtMs ) );
+	}
 }
 
 export class AiChatUI implements AiOutputAdapter {
@@ -325,7 +372,10 @@ export class AiChatUI implements AiOutputAdapter {
 	private siteSelectedCallback: ( ( site: SiteInfo ) => void ) | null = null;
 	private replayMode = false;
 	private replayTimestampMs: number | null = null;
-	private pendingToolCalls = new Map< string, PendingToolCall >();
+	private pendingToolCalls = new Map< string, ToolCallComponent >();
+	// Results already rendered at `tool_execution_end`, so `turn_end` doesn't
+	// render them twice.
+	private renderedToolResultIds = new Set< string >();
 	currentModel: AiModelId = DEFAULT_MODEL;
 	currentProvider: AiProviderId = DEFAULT_AI_PROVIDER;
 	private numTurns = 0;
@@ -400,6 +450,7 @@ export class AiChatUI implements AiOutputAdapter {
 		this.currentMarkdown = null;
 		this.currentResponseText = '';
 		this.pendingToolCalls.clear();
+		this.renderedToolResultIds.clear();
 		this.fallbackProgressText = null;
 	}
 
@@ -410,6 +461,7 @@ export class AiChatUI implements AiOutputAdapter {
 		this.currentMarkdown = null;
 		this.currentResponseText = '';
 		this.pendingToolCalls.clear();
+		this.renderedToolResultIds.clear();
 		this.fallbackProgressText = null;
 	}
 
@@ -1289,15 +1341,10 @@ export class AiChatUI implements AiOutputAdapter {
 
 	private fallbackProgressText: Text | null = null;
 
+	// Progress with no tool attribution (slash commands, auth flows); tool
+	// progress renders inside its ToolCallComponent via tool_execution_update.
 	setLoaderMessage( message: string, update?: boolean ): void {
 		if ( ! message ) {
-			return;
-		}
-
-		const toolCall = this.getActiveProgressToolCall();
-		if ( toolCall ) {
-			this.addToolProgress( toolCall, message, update === true );
-			this.tui.requestRender();
 			return;
 		}
 
@@ -1398,6 +1445,7 @@ export class AiChatUI implements AiOutputAdapter {
 		this.turnStartTime = this.nowMs();
 		this.numTurns = 0;
 		this.pendingToolCalls.clear();
+		this.renderedToolResultIds.clear();
 		this.fallbackProgressText = null;
 	}
 
@@ -1409,6 +1457,7 @@ export class AiChatUI implements AiOutputAdapter {
 		this.interruptCallback = null;
 		this._inAgentTurn = false;
 		this.pendingToolCalls.clear();
+		this.renderedToolResultIds.clear();
 		this.fallbackProgressText = null;
 		this.updateHints();
 		this.currentMarkdown = null;
@@ -1792,67 +1841,9 @@ export class AiChatUI implements AiOutputAdapter {
 		return rowText;
 	}
 
-	private ensureToolRender( toolCall: PendingToolCall ): ToolRenderState {
-		if ( toolCall.render ) {
-			return toolCall.render;
-		}
-
-		const container = new Container();
-		const rowText = this.renderToolUseLine( false, toolCall.label, null, container );
-		toolCall.render = {
-			container,
-			rowText,
-			progressText: null,
-			progressLines: [],
-		};
-		this.messages.addChild( container );
-		return toolCall.render;
-	}
-
-	private finalizeToolRender( toolCall: PendingToolCall, isError: boolean ): ToolRenderState {
-		const render = this.ensureToolRender( toolCall );
-		render.rowText.setText(
-			this.formatToolUseLine( isError, toolCall.label, toolCall.startedAtMs )
-		);
-		return render;
-	}
-
-	private getActiveProgressToolCall(): PendingToolCall | null {
-		const toolCalls = Array.from( this.pendingToolCalls.values() );
-		for ( let i = toolCalls.length - 1; i >= 0; i-- ) {
-			const toolCall = toolCalls[ i ];
-			if ( toolCall.render ) {
-				return toolCall;
-			}
-		}
-		return null;
-	}
-
-	private addToolProgress( toolCall: PendingToolCall, message: string, update: boolean ): void {
-		const render = this.ensureToolRender( toolCall );
-		const lastLine = render.progressLines[ render.progressLines.length - 1 ];
-		if ( update && render.progressLines.length > 0 ) {
-			render.progressLines[ render.progressLines.length - 1 ] = message;
-		} else if ( lastLine !== message ) {
-			render.progressLines.push( message );
-		} else {
-			return;
-		}
-
-		const formatted = formatToolOutputLines(
-			render.progressLines.map( ( progressLine ) => chalk.dim( progressLine ) )
-		);
-		if ( render.progressText ) {
-			render.progressText.setText( formatted );
-		} else {
-			render.progressText = new Text( formatted, 0, 0 );
-			render.container.addChild( render.progressText );
-		}
-	}
-
 	private renderToolResultText(
 		content: string | Array< { type: string; text?: string } >,
-		toolCall?: PendingToolCall,
+		toolCall?: ToolCallComponent,
 		isError = false,
 		target: Container = this.messages
 	): void {
@@ -1869,7 +1860,7 @@ export class AiChatUI implements AiOutputAdapter {
 			return;
 		}
 
-		const toolName = toolCall?.name;
+		const toolName = toolCall?.toolName;
 		const preview = getToolResultPreview( toolName, toolCall?.input, text, isError );
 		if ( preview ) {
 			target.addChild(
@@ -1905,11 +1896,14 @@ export class AiChatUI implements AiOutputAdapter {
 		);
 	}
 
-	// Finalize tool rows created at message_end and append each result inside
-	// its matching tool container.
+	// Live turns render each result at `tool_execution_end`; this covers the
+	// rest (replayed sessions and results with no execution event).
 	renderToolResults( results: readonly ToolResultMessage[] ): void {
 		for ( const toolResult of results ) {
 			const toolCallId = toolResult.toolCallId;
+			if ( this.renderedToolResultIds.delete( toolCallId ) ) {
+				continue;
+			}
 			const toolCall = this.pendingToolCalls.get( toolCallId );
 			this.showToolResult( toolResult, toolCall );
 			if ( toolCall ) {
@@ -1922,17 +1916,19 @@ export class AiChatUI implements AiOutputAdapter {
 		}
 	}
 
-	private showToolResult( result: ToolResultMessage, toolCall?: PendingToolCall ): void {
+	private showToolResult( result: ToolResultMessage, toolCall?: ToolCallComponent ): void {
 		const typedResult = this.getToolResultContent( result );
 		const isError = typedResult.isError === true;
 		const label = toolCall?.label ?? chalk.bold( __( 'Tool' ) );
-		const target = toolCall
-			? this.finalizeToolRender( toolCall, isError ).container
-			: this.messages;
+		let target: Container = this.messages;
+		if ( toolCall ) {
+			toolCall.finalize( isError );
+			target = toolCall;
+		}
 
 		// Auto-select the site that was operated on
 		if ( ! isError && toolCall ) {
-			void this.autoSelectSiteFromToolResult( toolCall.name, toolCall.input );
+			void this.autoSelectSiteFromToolResult( toolCall.toolName, toolCall.input );
 		}
 
 		if ( ! toolCall ) {
@@ -1940,16 +1936,16 @@ export class AiChatUI implements AiOutputAdapter {
 		}
 		if ( toolCall && ! isError ) {
 			let preview: { collapsed: string; expanded: string } | null = null;
-			if ( toolCall.name === 'Write' && typeof toolCall.input.content === 'string' ) {
+			if ( toolCall.toolName === 'Write' && typeof toolCall.input.content === 'string' ) {
 				preview = this.generateWritePreview( toolCall.input.content );
-			} else if ( toolCall.name === 'Edit' ) {
+			} else if ( toolCall.toolName === 'Edit' ) {
 				const details = result.details as { diff?: string } | undefined;
 				if ( typeof details?.diff === 'string' && details.diff.length > 0 ) {
 					preview = this.generateDiffPreview( details.diff );
 				}
 			}
 			if ( preview ) {
-				const summary = toolCall.name === 'Write' ? __( 'File written' ) : __( 'File edited' );
+				const summary = toolCall.toolName === 'Write' ? __( 'File written' ) : __( 'File edited' );
 				target.addChild( new Text( formatToolOutputLines( [ chalk.dim( summary ) ] ), 0, 0 ) );
 				this.addExpandablePreview( preview, target );
 				this.tui.requestRender();
@@ -2157,17 +2153,16 @@ export class AiChatUI implements AiOutputAdapter {
 						);
 						this.tui.requestRender();
 					} else if ( block.type === 'toolCall' ) {
-						const startedAtMs = this.nowMs();
 						const input = ( block.arguments ?? {} ) as Record< string, unknown >;
-						const toolLabel = formatToolName( block.name, input );
-						const toolCall: PendingToolCall = {
-							name: block.name,
+						const toolCall = new ToolCallComponent(
+							block.name,
 							input,
-							label: toolLabel,
-							startedAtMs,
-							render: null,
-						};
-						this.ensureToolRender( toolCall );
+							formatToolName( block.name, input ),
+							( isError, label, startedAtMs ) =>
+								this.formatToolUseLine( isError, label, startedAtMs ),
+							() => this.nowMs()
+						);
+						this.messages.addChild( toolCall );
 						this.pendingToolCalls.set( block.id, toolCall );
 					}
 				}
@@ -2179,6 +2174,43 @@ export class AiChatUI implements AiOutputAdapter {
 			case 'turn_end': {
 				this.numTurns += 1;
 				this.renderToolResults( event.toolResults );
+				return;
+			}
+			case 'tool_execution_start': {
+				this.pendingToolCalls.get( event.toolCallId )?.markExecutionStarted();
+				return;
+			}
+			case 'tool_execution_update': {
+				const progress = getStudioToolProgress( event.partialResult );
+				if ( ! progress ) {
+					return;
+				}
+				const toolCall = this.pendingToolCalls.get( event.toolCallId );
+				if ( ! toolCall ) {
+					return;
+				}
+				toolCall.addProgress( progress.message, progress.update === true );
+				this.tui.requestRender();
+				return;
+			}
+			case 'tool_execution_end': {
+				const toolCall = this.pendingToolCalls.get( event.toolCallId );
+				if ( ! toolCall ) {
+					return;
+				}
+				this.pendingToolCalls.delete( event.toolCallId );
+				this.renderedToolResultIds.add( event.toolCallId );
+				const result = event.result as { content?: unknown; details?: unknown } | undefined;
+				this.showToolResult(
+					{
+						role: 'toolResult',
+						toolCallId: event.toolCallId,
+						content: result?.content ?? [],
+						details: result?.details,
+						isError: event.isError,
+					} as unknown as ToolResultMessage,
+					toolCall
+				);
 				return;
 			}
 			case 'auto_retry_start': {
@@ -2247,7 +2279,7 @@ export class AiChatUI implements AiOutputAdapter {
 			}
 			default:
 				// agent_start / turn_start / message_start / message_update /
-				// tool_execution_* / auto_retry_end — UI doesn't act on these
+				// tool_execution_end / auto_retry_end — UI doesn't act on these
 				// directly; pi events drive incremental state but the visible
 				// transitions happen at message_end / turn_end / agent_end.
 				return;

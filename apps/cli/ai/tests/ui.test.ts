@@ -1,6 +1,6 @@
 import { Container, resetCapabilitiesCache, setCapabilities } from '@earendil-works/pi-tui';
-import { ADD_AI_CREDITS_URL } from '@studio/common/lib/studio-assistant-quota';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ADD_AI_CREDITS_URL } from '@studio/common/lib/studio-assistant-quota';
 import { AiChatUI } from 'cli/ai/ui';
 import { openBrowser } from 'cli/lib/browser';
 import { readCliConfig } from 'cli/lib/cli-config/core';
@@ -281,6 +281,7 @@ describe( 'AiChatUI.handleEvent', () => {
 		expect( ui.currentResponseText ).toBe( '' );
 	} );
 
+
 	// STU-2236: distinct copy — no "try again later"/reset-date framing, and no
 	// reset-date fetch, because only buying credits clears this state.
 	it( 'surfaces the out-of-credits message when an assistant error carries the 402 marker', () => {
@@ -329,25 +330,33 @@ describe( 'AiChatUI.handleEvent', () => {
 		expect( ui.currentResponseText ).toBe( '' );
 	} );
 
-	it( 'renders each tool result directly under its matching tool row', () => {
+	const makeRenderUi = ( nowMs = 0 ) => {
 		const ui = Object.create( AiChatUI.prototype ) as {
 			handleEvent: ( e: unknown ) => unknown;
 			[ key: string ]: unknown;
 		};
 		const messages = new Container();
+		Object.assign( ui, {
+			messages,
+			tui: { requestRender: vi.fn() },
+			pendingToolCalls: new Map(),
+			renderedToolResultIds: new Set(),
+			currentMarkdown: null,
+			currentResponseText: '',
+			currentProvider: 'anthropic-api-key',
+			replayMode: true,
+			loaderVisible: false,
+			autoSelectSiteFromToolResult: vi.fn(),
+			nowMs: () => nowMs,
+			activeExpandablePreview: null,
+			updateHints: vi.fn(),
+			fallbackProgressText: null,
+		} );
+		return { ui, messages };
+	};
 
-		ui.messages = messages;
-		ui.tui = { requestRender: vi.fn() };
-		ui.pendingToolCalls = new Map();
-		ui.currentMarkdown = null;
-		ui.currentResponseText = '';
-		ui.currentProvider = 'anthropic-api-key';
-		ui.replayMode = true;
-		ui.loaderVisible = false;
-		ui.autoSelectSiteFromToolResult = vi.fn();
-		ui.nowMs = () => 0;
-		ui.activeExpandablePreview = null;
-		ui.updateHints = vi.fn();
+	it( 'renders each tool result directly under its matching tool row', () => {
+		const { ui, messages } = makeRenderUi();
 
 		ui.handleEvent( {
 			type: 'message_end',
@@ -414,24 +423,7 @@ describe( 'AiChatUI.handleEvent', () => {
 	} );
 
 	it( 'renders concise summaries for API, Bash, and Read tool output', () => {
-		const ui = Object.create( AiChatUI.prototype ) as {
-			handleEvent: ( e: unknown ) => unknown;
-			[ key: string ]: unknown;
-		};
-		const messages = new Container();
-
-		ui.messages = messages;
-		ui.tui = { requestRender: vi.fn() };
-		ui.pendingToolCalls = new Map();
-		ui.currentMarkdown = null;
-		ui.currentResponseText = '';
-		ui.currentProvider = 'anthropic-api-key';
-		ui.replayMode = true;
-		ui.loaderVisible = false;
-		ui.autoSelectSiteFromToolResult = vi.fn();
-		ui.nowMs = () => 0;
-		ui.activeExpandablePreview = null;
-		ui.updateHints = vi.fn();
+		const { ui, messages } = makeRenderUi();
 
 		ui.handleEvent( {
 			type: 'message_end',
@@ -501,27 +493,16 @@ describe( 'AiChatUI.handleEvent', () => {
 		expect( joined ).not.toContain( '.wp-site-blocks' );
 	} );
 
-	it( 'attaches live progress to the active tool row before the final result', () => {
-		const ui = Object.create( AiChatUI.prototype ) as {
-			handleEvent: ( e: unknown ) => unknown;
-			setLoaderMessage: ( message: string, update?: boolean ) => void;
-			[ key: string ]: unknown;
-		};
-		const messages = new Container();
+	const progressEvent = ( toolCallId: string, message: string, update?: boolean ) => ( {
+		type: 'tool_execution_update',
+		toolCallId,
+		toolName: 'site_create',
+		args: {},
+		partialResult: { content: [], details: { studioProgress: { message, update } } },
+	} );
 
-		ui.messages = messages;
-		ui.tui = { requestRender: vi.fn() };
-		ui.pendingToolCalls = new Map();
-		ui.currentMarkdown = null;
-		ui.currentResponseText = '';
-		ui.currentProvider = 'anthropic-api-key';
-		ui.replayMode = true;
-		ui.loaderVisible = false;
-		ui.autoSelectSiteFromToolResult = vi.fn();
-		ui.nowMs = () => 6500;
-		ui.activeExpandablePreview = null;
-		ui.updateHints = vi.fn();
-		ui.fallbackProgressText = null;
+	it( 'attaches live progress to the matching tool row before the final result', () => {
+		const { ui, messages } = makeRenderUi( 6500 );
 
 		ui.handleEvent( {
 			type: 'message_end',
@@ -538,11 +519,11 @@ describe( 'AiChatUI.handleEvent', () => {
 			},
 		} );
 
-		ui.setLoaderMessage( 'Validating site configuration…' );
-		ui.setLoaderMessage( 'Site configuration validated' );
-		ui.setLoaderMessage( 'Starting WordPress server…' );
-		ui.setLoaderMessage( 'Starting WordPress server…' );
-		ui.setLoaderMessage( 'WordPress server started' );
+		ui.handleEvent( progressEvent( 'toolu_create', 'Validating site configuration…' ) );
+		ui.handleEvent( progressEvent( 'toolu_create', 'Site configuration validated' ) );
+		ui.handleEvent( progressEvent( 'toolu_create', 'Starting WordPress server…' ) );
+		ui.handleEvent( progressEvent( 'toolu_create', 'Starting WordPress server…' ) );
+		ui.handleEvent( progressEvent( 'toolu_create', 'WordPress server started' ) );
 
 		ui.handleEvent( {
 			type: 'turn_end',
@@ -582,6 +563,86 @@ describe( 'AiChatUI.handleEvent', () => {
 		expect( renderedText ).toContain( 'Full site details hidden' );
 		expect( renderedText ).not.toContain( '"name": "Auran"' );
 		expect( renderedText.match( /Starting WordPress server/g ) ).toHaveLength( 1 );
+	} );
+
+	it( 'routes interleaved progress from parallel tool calls to their own rows', () => {
+		const { ui, messages } = makeRenderUi( 1000 );
+
+		ui.handleEvent( {
+			type: 'message_end',
+			message: {
+				role: 'assistant',
+				content: [
+					{
+						type: 'toolCall',
+						id: 'toolu_one',
+						name: 'site_create',
+						arguments: { name: 'Alpha' },
+					},
+					{
+						type: 'toolCall',
+						id: 'toolu_two',
+						name: 'site_create',
+						arguments: { name: 'Beta' },
+					},
+				],
+			},
+		} );
+
+		ui.handleEvent( progressEvent( 'toolu_one', 'Validating Alpha…' ) );
+		ui.handleEvent( progressEvent( 'toolu_two', 'Validating Beta…' ) );
+		ui.handleEvent( progressEvent( 'toolu_one', 'Alpha server started' ) );
+		ui.handleEvent( progressEvent( 'toolu_two', 'Beta server started' ) );
+
+		const renderedText = renderedContainerText( messages );
+		const alphaRow = renderedText.indexOf( 'Create site Alpha' );
+		const alphaProgress = renderedText.indexOf( 'Validating Alpha…' );
+		const alphaDone = renderedText.indexOf( 'Alpha server started' );
+		const betaRow = renderedText.indexOf( 'Create site Beta' );
+		const betaProgress = renderedText.indexOf( 'Validating Beta…' );
+		const betaDone = renderedText.indexOf( 'Beta server started' );
+
+		expect( alphaRow ).toBeGreaterThanOrEqual( 0 );
+		expect( alphaProgress ).toBeGreaterThan( alphaRow );
+		expect( alphaDone ).toBeGreaterThan( alphaProgress );
+		expect( betaRow ).toBeGreaterThan( alphaDone );
+		expect( betaProgress ).toBeGreaterThan( betaRow );
+		expect( betaDone ).toBeGreaterThan( betaProgress );
+	} );
+
+	it( 'renders a result at tool_execution_end without duplicating it at turn_end', () => {
+		const { ui, messages } = makeRenderUi( 1000 );
+
+		ui.handleEvent( {
+			type: 'message_end',
+			message: {
+				role: 'assistant',
+				content: [
+					{ type: 'toolCall', id: 'toolu_bash', name: 'Bash', arguments: { command: 'ls' } },
+				],
+			},
+		} );
+		ui.handleEvent( {
+			type: 'tool_execution_end',
+			toolCallId: 'toolu_bash',
+			toolName: 'Bash',
+			result: { content: [ { type: 'text', text: 'file-a.txt' } ] },
+			isError: false,
+		} );
+		ui.handleEvent( {
+			type: 'turn_end',
+			toolResults: [
+				{
+					toolCallId: 'toolu_bash',
+					isError: false,
+					content: [ { type: 'text', text: 'file-a.txt' } ],
+				},
+			],
+		} );
+
+		const renderedText = renderedContainerText( messages );
+		expect( renderedText ).toContain( 'file-a.txt' );
+		expect( renderedText.match( /Command completed: file-a\.txt/g ) ).toHaveLength( 1 );
 	} );
 
 	it( 'does not trigger cap detection for non-wpcom providers even with a 429 error', () => {

@@ -3,20 +3,7 @@ import { Spinner } from 'picospinner';
 
 const isIpcMode = Boolean( process.send );
 
-type ProgressCallback = ( message: string, update?: boolean ) => void;
-let progressCallback: ProgressCallback | null = null;
-
-export function setProgressCallback( callback: ProgressCallback | null ): void {
-	progressCallback = callback;
-}
-
-export function getProgressCallback(): ProgressCallback | null {
-	return progressCallback;
-}
-
-export function emitProgress( message: string ): void {
-	progressCallback?.( message );
-}
+export type ProgressCallback = ( message: string, update?: boolean ) => void;
 
 function canSend(): boolean {
 	return isIpcMode && !! process.send && process.connected;
@@ -51,19 +38,26 @@ export class LoggerError extends Error {
 
 export class Logger< T extends string > {
 	public spinner: Spinner;
-	private currentAction: T | 'keyValuePair' | null = null;
+	// Typed `string`, not `T`: keeping T out of property positions lets a
+	// `Logger<string>` flow into APIs expecting a specific action enum (the
+	// per-tool loggers threaded by agent tools don't care about actions).
+	private currentAction: string | null = null;
+	// Per-instance progress sink; outranks the IPC channel because an
+	// explicitly threaded callback is more specific than the process channel.
+	private onProgress: ProgressCallback | null;
 
-	constructor() {
+	constructor( options?: { onProgress?: ProgressCallback } ) {
 		this.spinner = new Spinner();
+		this.onProgress = options?.onProgress ?? null;
 	}
 
 	public reportStart( action: T, message: string ) {
 		this.currentAction = action;
 
-		if ( canSend() ) {
+		if ( this.onProgress ) {
+			this.onProgress( message );
+		} else if ( canSend() ) {
 			process.send!( { action, status: 'inprogress', message } );
-		} else if ( progressCallback ) {
-			progressCallback( message );
 		} else {
 			this.spinner.setText( message );
 			if ( ! this.spinner.running ) {
@@ -73,10 +67,10 @@ export class Logger< T extends string > {
 	}
 
 	public reportProgress( message: string ) {
-		if ( canSend() ) {
+		if ( this.onProgress ) {
+			this.onProgress( message, true );
+		} else if ( canSend() ) {
 			process.send!( { action: this.currentAction, status: 'inprogress', message } );
-		} else if ( progressCallback ) {
-			progressCallback( message, true );
 		} else {
 			if ( ! this.spinner.running ) {
 				this.spinner.start();
@@ -86,10 +80,10 @@ export class Logger< T extends string > {
 	}
 
 	public reportSuccess( message: string ) {
-		if ( canSend() ) {
+		if ( this.onProgress ) {
+			this.onProgress( message );
+		} else if ( canSend() ) {
 			process.send!( { action: this.currentAction, status: 'success', message } );
-		} else if ( progressCallback ) {
-			progressCallback( message );
 		} else {
 			if ( ! this.spinner.running ) {
 				this.spinner.start();
@@ -101,10 +95,10 @@ export class Logger< T extends string > {
 	}
 
 	public reportWarning( message: string ) {
-		if ( canSend() ) {
+		if ( this.onProgress ) {
+			this.onProgress( message );
+		} else if ( canSend() ) {
 			process.send!( { action: this.currentAction, status: 'warning', message } );
-		} else if ( progressCallback ) {
-			progressCallback( message );
 		} else {
 			if ( ! this.spinner.running ) {
 				this.spinner.start();
@@ -118,10 +112,10 @@ export class Logger< T extends string > {
 			process.exitCode = 1;
 		}
 
-		if ( canSend() ) {
+		if ( this.onProgress ) {
+			this.onProgress( error.message );
+		} else if ( canSend() ) {
 			process.send!( { action: this.currentAction, status: 'fail', message: error.message } );
-		} else if ( progressCallback ) {
-			progressCallback( error.message );
 		} else {
 			if ( ! this.spinner.running ) {
 				this.spinner.start();

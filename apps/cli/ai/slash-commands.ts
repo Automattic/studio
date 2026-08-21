@@ -470,13 +470,16 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 				);
 				ctx.ui.setBusy( true );
 
-				const result = await captureCommandOutput( async () => {
-					if ( activeSnapshot ) {
-						await runUpdatePreviewCommand( site.path, activeSnapshot.url, false );
-					} else {
-						await runCreatePreviewCommand( site.path );
-					}
-				} );
+				const result = await captureCommandOutput(
+					async ( logger ) => {
+						if ( activeSnapshot ) {
+							await runUpdatePreviewCommand( site.path, activeSnapshot.url, false, logger );
+						} else {
+							await runCreatePreviewCommand( site.path, undefined, logger );
+						}
+					},
+					( message, update ) => ctx.ui.setLoaderMessage( message, update )
+				);
 
 				ctx.ui.setBusy( false );
 
@@ -567,8 +570,9 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 				);
 				ctx.ui.setBusy( true );
 
-				const result = await captureCommandOutput( () =>
-					runPushCommand( site.path, [ 'all' ], String( remoteSite.id ) )
+				const result = await captureCommandOutput(
+					( logger ) => runPushCommand( site.path, [ 'all' ], String( remoteSite.id ), logger ),
+					( message, update ) => ctx.ui.setLoaderMessage( message, update )
 				);
 
 				ctx.ui.setBusy( false );

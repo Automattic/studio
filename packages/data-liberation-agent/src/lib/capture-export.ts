@@ -55,8 +55,9 @@ interface MediaCandidate {
 
 const MAX_PORTABLE_MEDIA_BYTES = 5 * 1024 * 1024;
 const MAX_PORTABLE_MEDIA_DIMENSION = 2048;
+const MAX_PORTABLE_MEDIA_TOTAL_BYTES = 160 * 1024 * 1024;
 const MAX_ARTIFACT_FILES = 5000;
-const MAX_ARTIFACT_TOTAL_BYTES = 320 * 1024 * 1024;
+const MAX_ARTIFACT_TOTAL_BYTES = 192 * 1024 * 1024;
 const TRANSPARENT_IMAGE_DATA_URL = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
 
 function pathWithin( root: string, candidate: string ): boolean {
@@ -264,6 +265,50 @@ function containsMediaReference( content: string, reference: string ): boolean {
 	return false;
 }
 
+function srcsetReferences( srcset: string ): string[] {
+	const references: string[] = [];
+	let offset = 0;
+	while ( offset < srcset.length ) {
+		while ( offset < srcset.length && /[\s,]/.test( srcset[ offset ] ) ) offset++;
+		if ( offset >= srcset.length ) break;
+		const start = offset;
+		while ( offset < srcset.length && ! /\s/.test( srcset[ offset ] ) ) offset++;
+		const reference = srcset.slice( start, offset ).replace( /,+$/, '' );
+		if ( reference ) references.push( reference );
+		while ( offset < srcset.length && srcset[ offset ] !== ',' ) offset++;
+		if ( offset < srcset.length ) offset++;
+	}
+	return references;
+}
+
+function capturedMediaReferences(
+	entries: Array< { url: string; html: string } >
+): Map< string, Set< string > > {
+	const families = new Map< string, Set< string > >();
+	for ( const entry of entries ) {
+		const references: string[] = [];
+		for ( const match of entry.html.matchAll(
+			/<(?:img|source|video|audio)\b[^>]*\bsrc\s*=\s*["']([^"']+)["'][^>]*>/gi
+		) ) {
+			references.push( match[ 1 ] );
+		}
+		for ( const match of entry.html.matchAll(
+			/<(?:img|source)\b[^>]*\bsrcset\s*=\s*["']([^"']+)["'][^>]*>/gi
+		) ) {
+			references.push( ...srcsetReferences( match[ 1 ] ) );
+		}
+		for ( const reference of references ) {
+			try {
+				const family = mediaFamily( new URL( reference.replace( /&amp;/g, '&' ), entry.url ).href );
+				families.set( family, new Set( [ ...( families.get( family ) ?? [] ), reference ] ) );
+			} catch {
+				// Ignore non-URL browser values such as data URIs and malformed placeholders.
+			}
+		}
+	}
+	return families;
+}
+
 function mediaFamily( sourceUrl: string ): string {
 	const url = new URL( sourceUrl );
 	const transformedPath = /^(.*?)\/v1\/(?:fill|fit|crop)\//i.exec( url.pathname )?.[ 1 ];
@@ -396,8 +441,7 @@ function dependencyReferences(
 	for ( const match of searchableHtml.matchAll(
 		/<(?:img|source)\b[^>]*\bsrcset\s*=\s*["']([^"']+)["'][^>]*>/gi
 	) ) {
-		for ( const candidate of match[ 1 ].split( ',' ) ) {
-			const reference = candidate.trim().split( /\s+/, 1 )[ 0 ];
+		for ( const reference of srcsetReferences( match[ 1 ] ) ) {
 			if ( reference ) {
 				mediaReferences.add( reference.replace( /&amp;/g, '&' ) );
 				add( reference );
@@ -541,6 +585,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 	const mediaReplacements = new Map< string, string >();
 	const unresolvedMedia: Array< { url: string; error: string } > = [];
 	const assets: Array< { sourceUrl: string; path: string } > = [];
+	const renderedMediaReferences = capturedMediaReferences( retainedEntries );
 	const mediaFamilies = new Map< string, MediaCandidate[] >();
 	for ( const [ sourceUrl, stub ] of MediaStubStore.load( outputDir ).list() ) {
 		const references = mediaReferences( sourceUrl, options.sourceUrl );
@@ -560,28 +605,73 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 			! references.some( ( reference ) => containsMediaReference( retainedHtml, reference ) )
 		)
 			continue;
+		const family = mediaFamily( sourceUrl );
 		const candidate: MediaCandidate = {
 			sourceUrl,
 			localPath: stub.localPath,
-			references,
+			references: [
+				...new Set( [ ...references, ...( renderedMediaReferences.get( family ) ?? [] ) ] ),
+			],
 			bytes: statSync( stub.localPath ).size,
 			dimension: mediaDimension( sourceUrl ),
 		};
-		const family = mediaFamily( sourceUrl );
 		mediaFamilies.set( family, [ ...( mediaFamilies.get( family ) ?? [] ), candidate ] );
 	}
+	const portableMediaCandidates = [ ...mediaFamilies.values() ]
+		.map( ( candidates ) => ( { candidates, selected: selectMediaCandidate( candidates ) } ) )
+		.sort( ( left, right ) => {
+			const leftEntrypoint = left.candidates.some( ( candidate ) =>
+				candidate.references.some( ( reference ) =>
+					containsMediaReference( entrypointCandidates[ 0 ].html, reference )
+				)
+			);
+			const rightEntrypoint = right.candidates.some( ( candidate ) =>
+				candidate.references.some( ( reference ) =>
+					containsMediaReference( entrypointCandidates[ 0 ].html, reference )
+				)
+			);
+			return (
+				Number( rightEntrypoint ) - Number( leftEntrypoint ) ||
+				( left.selected?.bytes ?? 0 ) - ( right.selected?.bytes ?? 0 ) ||
+				( left.selected?.sourceUrl ?? '' ).localeCompare( right.selected?.sourceUrl ?? '' )
+			);
+		} );
+	const selectedPortableMedia = new Set< MediaCandidate >();
+	let portableMediaBytes = 0;
+	for ( const { selected } of portableMediaCandidates ) {
+		if ( selected && portableMediaBytes + selected.bytes <= MAX_PORTABLE_MEDIA_TOTAL_BYTES ) {
+			selectedPortableMedia.add( selected );
+			portableMediaBytes += selected.bytes;
+		}
+	}
+	let retainedExternalMediaCount = 0;
 	for ( const candidates of mediaFamilies.values() ) {
 		const selected = selectMediaCandidate( candidates );
 		if ( ! selected ) {
 			for ( const candidate of candidates ) {
 				for ( const reference of candidate.references ) {
-					mediaReplacements.set( reference, TRANSPARENT_IMAGE_DATA_URL );
+					mediaReplacements.set( reference, candidate.sourceUrl );
 				}
 				unresolvedMedia.push( {
 					url: candidate.sourceUrl,
-					error: 'captured media exceeds portable size or dimension limits',
+					error:
+						'retained as an external URL because media exceeds portable size or dimension limits',
 				} );
+				retainedExternalMediaCount++;
 			}
+			continue;
+		}
+		if ( ! selectedPortableMedia.has( selected ) ) {
+			for ( const candidate of candidates ) {
+				for ( const reference of candidate.references ) {
+					mediaReplacements.set( reference, selected.sourceUrl );
+				}
+			}
+			unresolvedMedia.push( {
+				url: selected.sourceUrl,
+				error: 'retained as an external URL because the aggregate portable media limit was reached',
+			} );
+			retainedExternalMediaCount++;
 			continue;
 		}
 		const assetPath = join( 'media', portableMediaBasename( selected ) );
@@ -598,6 +688,12 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 			path: join( 'website', assetPath ).replace( /\\/g, '/' ),
 		} );
 	}
+	const portableMedia = {
+		selected_count: assets.length,
+		selected_bytes: portableMediaBytes,
+		retained_external_count: retainedExternalMediaCount,
+		max_bytes: MAX_PORTABLE_MEDIA_TOTAL_BYTES,
+	};
 
 	const resourceManifest = capturedResources( outputDir );
 	const unresolvedDependencies: Array< { url: string; sourceUrl: string; error: string } > = [];
@@ -713,6 +809,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 				...( options.title ? { title: options.title } : {} ),
 				routes,
 				assets,
+				portableMedia,
 				excludedRoutes,
 				summary: options.summary,
 			},
@@ -729,6 +826,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 				resourceFailures: resourceManifest.failures,
 				unresolvedDependencies,
 				unresolvedMedia,
+				portableMedia,
 				excludedRoutes,
 			},
 			null,
@@ -760,7 +858,19 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		);
 
 		let firstFile = true;
-		const writeArtifactFile = ( file: Record< string, string > ) => {
+		let artifactFileCount = 0;
+		let artifactContentBytes = 0;
+		const writeArtifactFile = ( file: Record< string, string >, contentBytes: number ) => {
+			artifactFileCount++;
+			artifactContentBytes += contentBytes;
+			if (
+				artifactFileCount > MAX_ARTIFACT_FILES ||
+				artifactContentBytes > MAX_ARTIFACT_TOTAL_BYTES
+			) {
+				throw new Error(
+					`Portable capture exceeds compiler limits: ${ artifactFileCount } files, ${ artifactContentBytes } bytes.`
+				);
+			}
 			writeFileSync( artifactFd!, `${ firstFile ? '' : ',' }${ JSON.stringify( file ) }` );
 			firstFile = false;
 		};
@@ -769,26 +879,38 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		);
 		for ( const route of orderedRoutes ) {
 			const relativePath = route.path.replace( /^website\//, '' );
-			writeArtifactFile( {
-				path: route.path,
-				content: readFileSync( join( websiteDir, relativePath ), 'utf8' ),
-				encoding: 'utf8',
-			} );
+			const content = readFileSync( join( websiteDir, relativePath ), 'utf8' );
+			writeArtifactFile(
+				{
+					path: route.path,
+					content,
+					encoding: 'utf8',
+				},
+				Buffer.byteLength( content )
+			);
 		}
 		for ( const asset of assets ) {
 			const relativePath = asset.path.replace( /^website\//, '' );
-			writeArtifactFile( {
-				path: asset.path,
-				content_base64: readFileSync( join( websiteDir, relativePath ) ).toString( 'base64' ),
-				encoding: 'base64',
-			} );
+			const content = readFileSync( join( websiteDir, relativePath ) );
+			writeArtifactFile(
+				{
+					path: asset.path,
+					content_base64: content.toString( 'base64' ),
+					encoding: 'base64',
+				},
+				content.length
+			);
 		}
 		for ( const report of [ 'diagnostics.json', 'capture-receipt.json' ] ) {
-			writeArtifactFile( {
-				path: report,
-				content: readFileSync( join( outputDir, report ), 'utf8' ),
-				encoding: 'utf8',
-			} );
+			const content = readFileSync( join( outputDir, report ), 'utf8' );
+			writeArtifactFile(
+				{
+					path: report,
+					content,
+					encoding: 'utf8',
+				},
+				Buffer.byteLength( content )
+			);
 		}
 		writeFileSync(
 			artifactFd,

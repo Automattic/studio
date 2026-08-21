@@ -60,4 +60,26 @@ describe( 'CLI: studio capture', () => {
 			} )
 		).rejects.toThrow( 'invalid website artifact' );
 	} );
+
+	it( 'validates a bounded capture receipt without loading the portable artifact', async () => {
+		const outputDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-capture-' ) );
+		dirs.push( outputDir );
+		const artifactPath = path.join( outputDir, 'artifact.json' );
+		const captureReceiptPath = path.join( outputDir, 'capture-receipt.json' );
+		fs.writeFileSync( artifactPath, 'portable artifact is consumed by the importer' );
+		fs.writeFileSync(
+			captureReceiptPath,
+			JSON.stringify( {
+				schema: 'data-liberation/capture-receipt/v1',
+				entrypoint: 'website/index.html',
+				routes: [ { path: 'website/index.html' } ],
+			} )
+		);
+
+		await expect(
+			captureUrl( 'https://example.com', outputDir, {
+				capture: vi.fn().mockResolvedValue( { artifactPath, captureReceiptPath } ),
+			} )
+		).resolves.toMatchObject( { artifactPath, outputDir } );
+	} );
 } );

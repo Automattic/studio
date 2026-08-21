@@ -12,8 +12,8 @@ import {
 } from 'node:fs';
 import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path';
 import * as cheerio from 'cheerio';
-import { rewriteMediaUrls } from './streaming/media-url-rewrite.js';
 import { MediaStubStore } from './resume-state/index.js';
+import { rewriteMediaUrls } from './streaming/media-url-rewrite.js';
 import type { CapturedResourceManifest } from './screenshot/resource-capture.js';
 
 export const CAPTURE_RECEIPT_SCHEMA = 'data-liberation/capture-receipt/v1';
@@ -516,9 +516,9 @@ function replaceDanglingCssUrl( html: string, reference: string ): string {
 	return replaceAll( html, new Map( [ [ reference, 'data:application/octet-stream;base64,' ] ] ) );
 }
 
-function removeDanglingPreload( html: string, reference: string ): string {
+function removeDanglingResourceReference( html: string, reference: string ): string {
 	const normalizedReference = reference.replace( /&amp;/g, '&' );
-	return html.replace( /<link\b[^>]*>/gi, ( tag ) => {
+	const withoutPreloads = html.replace( /<link\b[^>]*>/gi, ( tag ) => {
 		const rel = /\brel\s*=\s*["']([^"']+)["']/i.exec( tag )?.[ 1 ].toLowerCase() ?? '';
 		const href = /\bhref\s*=\s*["']([^"']+)["']/i.exec( tag )?.[ 1 ].replace( /&amp;/g, '&' );
 		const relations = rel.split( /\s+/ );
@@ -526,6 +526,10 @@ function removeDanglingPreload( html: string, reference: string ): string {
 			( relations.includes( 'preload' ) || relations.includes( 'modulepreload' ) )
 			? ''
 			: tag;
+	} );
+	return withoutPreloads.replace( /<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, ( tag ) => {
+		const src = /\bsrc\s*=\s*["']([^"']+)["']/i.exec( tag )?.[ 1 ].replace( /&amp;/g, '&' );
+		return src === normalizedReference ? '' : tag;
 	} );
 }
 
@@ -769,7 +773,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 						? removeDanglingMediaSource( entry.html, dependency.reference )
 						: dependency.kind === 'css'
 						? replaceDanglingCssUrl( entry.html, dependency.reference )
-						: removeDanglingPreload( entry.html, dependency.reference );
+						: removeDanglingResourceReference( entry.html, dependency.reference );
 			}
 		}
 	}

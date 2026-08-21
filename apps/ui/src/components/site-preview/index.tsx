@@ -1536,6 +1536,9 @@ function WebviewSurface( {
 	}, [ url ] );
 	// Only loads we started (the mount-time `src` counts) are judged for redirects.
 	const pendingLoadRef = useRef( true );
+	// Identifies the most recent load we started, so a rejection from a load
+	// that a newer one superseded can't roll the address bar backwards.
+	const loadGenerationRef = useRef( 0 );
 
 	const publishBrowserState = useCallback( ( patch: Partial< BrowserNavigationState > = {} ) => {
 		const webview = ref.current as WebviewTag | null;
@@ -1763,10 +1766,26 @@ function WebviewSurface( {
 		if ( url === currentUrlRef.current && reloadNonce === lastReloadNonceRef.current ) return;
 		const webview = ref.current as WebviewTag | null;
 		if ( ! webview ) return;
-		currentUrlRef.current = url;
+		const previousUrl = currentUrlRef.current;
+		const generation = ++loadGenerationRef.current;
 		lastReloadNonceRef.current = reloadNonce;
 		pendingLoadRef.current = true;
-		webview.loadURL( url ).catch( () => undefined );
+		// `currentUrlRef` is advanced by `did-navigate`, never optimistically:
+		// a load the guest refuses — an unsaved-changes guard, a dead url —
+		// must leave the host showing the page that's actually on screen.
+		webview.loadURL( url ).catch( () => {
+			// A newer load we started, or one the guest committed on its own
+			// (a link click, a back navigation), owns the address bar now —
+			// both can abort this load, and neither should be rolled back.
+			if ( loadGenerationRef.current !== generation ) {
+				return;
+			}
+			if ( currentUrlRef.current !== previousUrl ) {
+				return;
+			}
+			pendingLoadRef.current = false;
+			onNavigateRef.current?.( previousUrl );
+		} );
 	}, [ url, reloadNonce, ready ] );
 
 	useEffect( () => {

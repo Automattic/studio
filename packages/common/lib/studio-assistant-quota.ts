@@ -8,15 +8,21 @@ export const ADD_PAYMENT_METHOD_URL = 'https://my.wordpress.com/me/billing/payme
 
 export const WPCOM_SUPPORT_CONTACT_URL = 'https://wordpress.com/support/contact/';
 
-// Placeholder until the WordPress.com checkout page for Studio AI credits
-// exists (STU-2292).
-export const ADD_AI_CREDITS_URL = 'https://wordpress.com/checkout/studio-ai-credits';
+// WordPress.com checkout for a Studio Code AI credits top-up (STU-2299). The
+// `:-q-<n>` suffix is checkout's quantity syntax, in the same 1/10000 USD units
+// the quota reports — 100000 is the $10 top-up, the only one offered in v1.
+export const ADD_AI_CREDITS_URL =
+	'https://wordpress.com/checkout/wpcom/studio-code-ai-credits:-q-100000';
 
 export const studioAssistantQuotaSchema = z
 	.object( {
 		cost_usage: z.number(),
 		cost_cap: z.number(),
-		cost_reset_date: z.string(),
+		// Optional on purpose: the monthly reset is being retired server-side and
+		// the field is currently a hardcoded stand-in, so it can disappear from the
+		// response at any time. Every surface must read it as "reset date unknown"
+		// and drop the reset sentence rather than break.
+		cost_reset_date: z.string().optional(),
 		// Entitlement gates (STU-2174); older servers omit both fields. Default to
 		// true so a stale server never locks the UI — the proxy still enforces.
 		email_verified: z.boolean().optional(),

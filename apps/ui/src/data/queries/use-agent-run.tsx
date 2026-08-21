@@ -129,6 +129,13 @@ type Action =
 	| { type: 'queue_shift' }
 	| { type: 'queue_clear' };
 
+function resolveRunStartedAt( state: State, runId: string, startedAt: number ): number {
+	if ( state.phase === 'starting' || state.runId === runId ) {
+		return state.startedAt ?? startedAt;
+	}
+	return startedAt;
+}
+
 function reducer( state: State, action: Action ): State {
 	switch ( action.type ) {
 		case 'hydrate_active_run':
@@ -136,7 +143,7 @@ function reducer( state: State, action: Action ): State {
 				...state,
 				phase: 'running',
 				runId: action.runId,
-				startedAt: action.startedAt,
+				startedAt: resolveRunStartedAt( state, action.runId, action.startedAt ),
 				error: null,
 				isInterrupting: action.interrupting,
 			};
@@ -154,7 +161,7 @@ function reducer( state: State, action: Action ): State {
 				...state,
 				phase: 'running',
 				runId: action.runId,
-				startedAt: action.startedAt,
+				startedAt: resolveRunStartedAt( state, action.runId, action.startedAt ),
 				error: null,
 				isInterrupting: false,
 			};

@@ -477,6 +477,9 @@ if ( isset( $source['url'] ) && function_exists( 'static_site_importer_ability_i
 	if ( ! empty( $state['runtime_lifecycle_request_id'] ) ) {
 		$input['runtime_lifecycle_phase'] = 'resume';
 		$input['runtime_lifecycle_request_id'] = (string) $state['runtime_lifecycle_request_id'];
+		if ( ! empty( $state['runtime_lifecycle_checkpoint'] ) ) {
+			$input['runtime_lifecycle_checkpoint'] = (string) $state['runtime_lifecycle_checkpoint'];
+		}
 	} else {
 		$input['runtime_lifecycle_phase'] = 'prepare';
 	}
@@ -513,6 +516,9 @@ if ( isset( $source['url'] ) && function_exists( 'static_site_importer_ability_i
 	if ( ! empty( $state['runtime_lifecycle_request_id'] ) ) {
 		$input['runtime_lifecycle_phase'] = 'resume';
 		$input['runtime_lifecycle_request_id'] = (string) $state['runtime_lifecycle_request_id'];
+		if ( ! empty( $state['runtime_lifecycle_checkpoint'] ) ) {
+			$input['runtime_lifecycle_checkpoint'] = (string) $state['runtime_lifecycle_checkpoint'];
+		}
 	} else {
 		$input['runtime_lifecycle_phase'] = 'prepare';
 	}
@@ -528,7 +534,12 @@ if ( ! is_array( $result ) || empty( $result['success'] ) ) {
 $import_result = isset( $result['result'] ) && is_array( $result['result'] ) ? $result['result'] : $result;
 if ( 'dependencies_prepared' === ( $import_result['status'] ?? '' ) ) {
 	$request_id = (string) ( $import_result['fresh_runtime']['request_id'] ?? '' );
-	if ( '' === $request_id || false === file_put_contents( $state_path, wp_json_encode( array( 'runtime_lifecycle_request_id' => $request_id ) ) ) ) {
+	$checkpoint = (string) ( $import_result['fresh_runtime']['lifecycle_checkpoint_id'] ?? $import_result['runtime_lifecycle_checkpoint'] ?? '' );
+	$lifecycle_state = array( 'runtime_lifecycle_request_id' => $request_id );
+	if ( '' !== $checkpoint ) {
+		$lifecycle_state['runtime_lifecycle_checkpoint'] = $checkpoint;
+	}
+	if ( '' === $request_id || false === file_put_contents( $state_path, wp_json_encode( $lifecycle_state ) ) ) {
 		throw new RuntimeException( 'Static Site Importer lifecycle state could not be saved.' );
 	}
 	file_put_contents( ABSPATH . '.studio-import/${ STATIC_SITE_IMPORT_RESULT_FILE }', wp_json_encode( array( 'continuation' => true ) ) );

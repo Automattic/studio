@@ -649,6 +649,15 @@ describe( 'CLI: studio site create', () => {
 				true
 			);
 			expect( blueprint.staticSiteImport.code ).toContain( 'studio_create_from_import_result' );
+			expect( blueprint.staticSiteImport.code ).toContain(
+				'static_site_importer_studio_result_projection( $result )'
+			);
+			expect( blueprint.staticSiteImport.code ).toContain(
+				"'schema'       => 'studio/static-site-import-result/v1'"
+			);
+			expect( blueprint.staticSiteImport.code ).not.toContain(
+				"update_option( 'studio_create_from_import_result', $result"
+			);
 		} );
 
 		it( 'should build a Blueprint that imports a static site directory through Static Site Importer', () => {
@@ -754,7 +763,7 @@ describe( 'CLI: studio site create', () => {
 			expect( blueprint.staticSiteImport.code ).toContain(
 				"ABSPATH . '.studio-import/source.json'"
 			);
-			expect( blueprint.staticSiteImport.code.length ).toBeLessThan( 10000 );
+			expect( blueprint.staticSiteImport.code.length ).toBeLessThan( 12000 );
 		} );
 
 		it( 'should preserve the canonical artifact envelope from a capture directory', () => {

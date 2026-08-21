@@ -421,6 +421,38 @@ function static_site_importer_studio_failure_message( $result, string $fallback 
 	return '' !== $detail ? $fallback . ': ' . substr( $detail, 0, 1000 ) : $fallback;
 }
 
+function static_site_importer_studio_result_projection( $result ): array {
+	$projection = array( 'success' => is_array( $result ) && ! empty( $result['success'] ) );
+	if ( ! is_array( $result ) ) {
+		return $projection;
+	}
+	if ( is_array( $result['error'] ?? null ) ) {
+		$projection['error'] = array(
+			'code'    => substr( sanitize_key( (string) ( $result['error']['code'] ?? '' ) ), 0, 200 ),
+			'message' => substr( sanitize_text_field( (string) ( $result['error']['message'] ?? '' ) ), 0, 1000 ),
+		);
+	}
+	$import_result = isset( $result['result'] ) && is_array( $result['result'] ) ? $result['result'] : $result;
+	$stored_result = array(
+		'schema'       => 'studio/static-site-import-result/v1',
+		'status'       => substr( sanitize_key( (string) ( $import_result['status'] ?? ( $projection['success'] ? 'completed' : 'failed' ) ) ), 0, 100 ),
+		'continuation' => ! empty( $import_result['continuation'] ),
+		'pages'        => array_slice( array_map( 'intval', array_values( is_array( $import_result['pages'] ?? null ) ? $import_result['pages'] : array() ) ), 0, 5000 ),
+	);
+	$request_id = is_array( $import_result['fresh_runtime'] ?? null ) ? (string) ( $import_result['fresh_runtime']['request_id'] ?? '' ) : '';
+	if ( '' !== $request_id ) {
+		$stored_result['fresh_runtime'] = array( 'request_id' => substr( sanitize_text_field( $request_id ), 0, 200 ) );
+	}
+	foreach ( array( 'theme', 'theme_slug', 'front_page' ) as $field ) {
+		if ( isset( $import_result[ $field ] ) && is_scalar( $import_result[ $field ] ) ) {
+			$stored_result[ $field ] = substr( sanitize_text_field( (string) $import_result[ $field ] ), 0, 500 );
+		}
+	}
+	$projection['result'] = $stored_result;
+	$projection['diagnostic_count'] = is_array( $result['diagnostics'] ?? null ) ? count( $result['diagnostics'] ) : 0;
+	return $projection;
+}
+
 if ( isset( $source['url'] ) && function_exists( 'static_site_importer_ability_import' ) ) {
 	$slug = sanitize_title( ${ phpString( siteName ) } );
 	if ( '' === $slug ) {
@@ -537,7 +569,11 @@ if ( isset( $source['url'] ) && function_exists( 'static_site_importer_ability_i
 	$result = static_site_importer_ability_import( $input );
 }
 
-${ storeImportResult ? "update_option( 'studio_create_from_import_result', $result, false );" : '' }
+${
+	storeImportResult
+		? "update_option( 'studio_create_from_import_result', static_site_importer_studio_result_projection( $result ), false );"
+		: ''
+}
 
 if ( ! is_array( $result ) || empty( $result['success'] ) ) {
 	throw new RuntimeException( static_site_importer_studio_failure_message( $result, 'Static Site Importer import failed' ) );

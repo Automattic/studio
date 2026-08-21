@@ -32,6 +32,7 @@ import {
 	type SessionManager,
 	type ToolDefinition,
 } from '@earendil-works/pi-coding-agent';
+import { AGENT_SURFACE_ENV_VAR, isAgentSurface } from '@studio/common/ai/agent-stats';
 import { readGlobalInstructions } from '@studio/common/ai/global-instructions';
 import {
 	aiModelSupportsImages,
@@ -327,6 +328,12 @@ async function createStudioAgentSession(
 	const isRemoteSite = Boolean( config.activeSite?.remote && config.activeSite?.wpcomSiteId );
 	const remoteSession = config.env.STUDIO_REMOTE_SESSION === '1';
 	const chatArtifactsEnabled = typeof process.send === 'function';
+	const surfaceValue = config.env[ AGENT_SURFACE_ENV_VAR ];
+	const configuredSurface = isAgentSurface( surfaceValue ) ? surfaceValue : undefined;
+	const studioUiAttached =
+		chatArtifactsEnabled && configuredSurface !== undefined && ! remoteSession;
+	const surface = studioUiAttached ? configuredSurface : undefined;
+	const studioUiArtifactsEnabled = studioUiAttached;
 	const [ userInstructions, runtime ] = await Promise.all( [
 		readGlobalInstructions(),
 		isRemoteSite ? undefined : resolveActiveSiteRuntime( config.activeSite ),
@@ -340,18 +347,21 @@ async function createStudioAgentSession(
 						url: config.activeSite!.url ?? '',
 						id: config.activeSite!.wpcomSiteId!,
 					},
+					chatArtifactsEnabled: studioUiArtifactsEnabled,
 					remoteSession,
+					surface,
 					userInstructions,
 			  }
 			: {
-					chatArtifactsEnabled,
+					chatArtifactsEnabled: studioUiArtifactsEnabled,
 					remoteSession,
 					runtime,
+					surface,
 					userInstructions,
 			  }
 	);
 
-	const tools = buildAgentTools( config, chatArtifactsEnabled, remoteSession );
+	const tools = buildAgentTools( config, studioUiArtifactsEnabled, remoteSession );
 	const toolDefinitions = tools.map( ( tool ) => toToolDefinition( tool, payloadGuardState ) );
 	const modelRuntime = await createModelRuntime( model, family, creds );
 	const settingsManager = createSettingsManager( config.env );

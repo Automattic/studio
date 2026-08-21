@@ -322,6 +322,7 @@ describe( 'Studio AI MCP tools', () => {
 		} ).find( ( tool ) => tool.name === 'studio_present' );
 		expect( namesWithArtifacts ).not.toContain( 'show_artifact' );
 		expect( namesWithArtifacts ).toContain( 'studio_present' );
+		expect( studioPresent?.description ).not.toMatch( /\bdesks?\b/i );
 		expect( namesWithArtifacts ).toContain( 'site_create' );
 		expect( namesWithArtifacts ).toContain( 'wp_cli' );
 		expect( studioPresent?.description ).toContain( '- site-code-scratchpad:' );
@@ -340,13 +341,29 @@ describe( 'Studio AI MCP tools', () => {
 
 	it( 'refresh_browser emits a preview.reload event and is registered', async () => {
 		expect( studioToolDefinitions.map( ( tool ) => tool.name ) ).toContain( 'refresh_browser' );
+		expect( getTool( 'refresh_browser' ).description ).toContain(
+			'does not reload standalone browsers'
+		);
 		const emitEventMock = vi.mocked( emitEvent );
 		emitEventMock.mockClear();
 		const result = await getTool( 'refresh_browser' ).rawHandler( {} as never );
-		expect( getTextContent( result ) ).toBe( 'Reloaded the site preview.' );
+		expect( getTextContent( result ) ).toBe(
+			'Requested a reload of the attached Studio site preview.'
+		);
 		expect( emitEventMock ).toHaveBeenCalledWith(
 			expect.objectContaining( { type: 'preview.reload' } )
 		);
+	} );
+
+	it( 'does not expose Studio UI presentation tools in remote sessions', () => {
+		const names = resolveStudioToolDefinitions( {
+			emitChatArtifacts: true,
+			remoteSession: true,
+		} ).map( ( tool ) => tool.name );
+
+		expect( names ).toContain( 'share_screenshot' );
+		expect( names ).toContain( 'refresh_browser' );
+		expect( names ).not.toContain( 'studio_present' );
 	} );
 
 	describe( 'site_delete confirmation', () => {

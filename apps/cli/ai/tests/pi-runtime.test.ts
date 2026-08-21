@@ -1,5 +1,6 @@
 import { ANTHROPIC_MODELS } from '@earendil-works/pi-ai/providers/anthropic.models';
 import { ModelRegistry, SessionManager } from '@earendil-works/pi-coding-agent';
+import { AGENT_SURFACE_ENV_VAR } from '@studio/common/ai/agent-stats';
 import { AI_MODELS } from '@studio/common/ai/models';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { runStudioAgentTurn, type StudioAgentTurnConfig } from 'cli/ai/runtimes/pi';
@@ -258,6 +259,29 @@ describe( 'pi runtime', () => {
 		expect( findAssistantText( events ) ).toBe( 'mocked openai response' );
 		const final = events[ events.length - 1 ];
 		expect( final.type ).toBe( 'agent_end' );
+	} );
+
+	it( 'ignores an inherited Studio surface without an attached IPC UI', async () => {
+		const send = process.send;
+		process.send = undefined;
+		try {
+			await runRuntime( {
+				prompt: 'hello',
+				env: {
+					OPENAI_API_KEY: 'sk-test',
+					OPENAI_BASE_URL: 'https://proxy.example.com/v1',
+					[ AGENT_SURFACE_ENV_VAR ]: 'desktop',
+				},
+				model: 'gpt-5.6-sol',
+				session: newSession(),
+			} );
+
+			const prompt = mocks.createdSessions[ 0 ].options.resourceLoader?.getSystemPrompt();
+			expect( prompt ).toContain( '## Your environment: terminal' );
+			expect( prompt ).not.toContain( '## Your environment: Studio interface' );
+		} finally {
+			process.send = send;
+		}
 	} );
 
 	it( 'advertises image input support so screenshot tool results can be analyzed', async () => {

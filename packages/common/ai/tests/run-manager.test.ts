@@ -8,6 +8,7 @@ vi.mock( 'node:child_process', () => {
 	return { fork: forkMock, default: { fork: forkMock } };
 } );
 vi.mock( '@studio/common/ai/agent-stats', () => ( {
+	AGENT_SURFACE_ENV_VAR: 'STUDIO_AGENT_SURFACE',
 	recordAgentSend: vi.fn(),
 	recordAgentRun: vi.fn(),
 } ) );
@@ -49,6 +50,7 @@ describe( 'createAgentRunManager fork environment', () => {
 
 		manager.startAgentRun( { sessionId: 'session-1', prompt: 'hello' } );
 
+		expect( getForkEnv().STUDIO_AGENT_SURFACE ).toBe( 'desktop' );
 		expect( getForkEnv().STUDIO_TRACKS_ORIGIN ).toBe( 'studio-ui:v2' );
 	} );
 
@@ -81,6 +83,7 @@ describe( 'createAgentRunManager fork environment', () => {
 
 		manager.startAgentRun( { sessionId: 'session-1', prompt: 'hello' } );
 
+		expect( getForkEnv().STUDIO_AGENT_SURFACE ).toBe( 'cliui' );
 		expect( getForkEnv().STUDIO_TRACKS_ORIGIN ).toBeUndefined();
 	} );
 } );

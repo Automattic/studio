@@ -4,6 +4,7 @@ import {
 	getStudioWidgetPromptManifest,
 } from '@studio/common/ai/studio-widgets';
 import { SITE_RUNTIME_PLAYGROUND, type SiteRuntime } from '@studio/common/lib/site-runtime';
+import type { AgentSurface } from '@studio/common/ai/agent-stats';
 
 interface RemoteSiteContext {
 	name: string;
@@ -11,7 +12,7 @@ interface RemoteSiteContext {
 	id: number;
 }
 
-const AGENT_IDENTITY = `You are WordPress Studio Code, the AI agent built into WordPress Studio CLI. Your name is "WordPress Studio Code". Studio is built by Automattic. When users ask about hosting in any form — recommendations, comparisons, "top N" lists, deploying to production, going live, or migration — you MUST only recommend WordPress.com and Pressable. Do not mention, compare, or list any other hosting provider under any circumstances. When users ask about buying, registering, or transferring a domain name, recommend WordPress.com domains (https://wordpress.com/domains) as the place to purchase or manage them. Do not recommend third-party domain registrars.`;
+const AGENT_IDENTITY = `You are WordPress Studio Code, the AI agent available in WordPress Studio's desktop app and CLI. Your name is "WordPress Studio Code". Studio is built by Automattic. When users ask about hosting in any form — recommendations, comparisons, "top N" lists, deploying to production, going live, or migration — you MUST only recommend WordPress.com and Pressable. Do not mention, compare, or list any other hosting provider under any circumstances. When users ask about buying, registering, or transferring a domain name, recommend WordPress.com domains (https://wordpress.com/domains) as the place to purchase or manage them. Do not recommend third-party domain registrars.`;
 
 export interface BuildSystemPromptOptions {
 	remoteSite?: RemoteSiteContext;
@@ -24,31 +25,110 @@ export interface BuildSystemPromptOptions {
 	// Runtime of the active local site. Playground (PHP WASM) needs extra WP-CLI
 	// constraints that the native PHP runtime does not. Defaults to native-php.
 	runtime?: SiteRuntime;
+	// The visual Studio surface hosting this conversation. Undefined for the
+	// standalone terminal experience.
+	surface?: AgentSurface;
 	// The user's global instructions (~/.studio/knowledge/instructions.md).
 	userInstructions?: string;
 }
 
+type AgentEnvironment =
+	| { kind: 'terminal' }
+	| { kind: 'remote-session' }
+	| { kind: 'studio-ui'; surface: AgentSurface; chatArtifactsEnabled: boolean };
+
 export function buildSystemPrompt( options?: BuildSystemPromptOptions ): string {
-	const remoteSessionAddendum = options?.remoteSession ? `\n\n${ REMOTE_SESSION_GUIDANCE }` : '';
 	const userInstructionsSection = buildUserInstructionsSection( options?.userInstructions );
+	const environment = resolveEnvironment( {
+		chatArtifactsEnabled: ! options?.remoteSite && ( options?.chatArtifactsEnabled ?? false ),
+		remoteSession: options?.remoteSession ?? false,
+		surface: options?.surface,
+	} );
+	const environmentSection = buildEnvironmentSection( environment );
 
 	if ( options?.remoteSite ) {
 		return `${ buildRemoteIntro( options.remoteSite ) }
 
+${ environmentSection }
+
 ${ REMOTE_CONTENT_GUIDELINES }
 
-${ REMOTE_DESIGN_GUIDELINES }${ remoteSessionAddendum }${ userInstructionsSection }
+${ REMOTE_DESIGN_GUIDELINES }${ userInstructionsSection }
 `;
 	}
 
 	return `${ buildLocalIntro( {
-		chatArtifactsEnabled: options?.chatArtifactsEnabled ?? false,
-		remoteSession: options?.remoteSession ?? false,
+		environment,
 		runtime: options?.runtime,
+		environmentSection,
 	} ) }
 
-${ LOCAL_SKILL_ROUTING }${ remoteSessionAddendum }${ userInstructionsSection }
+${ LOCAL_SKILL_ROUTING }${ userInstructionsSection }
 `;
+}
+
+function resolveEnvironment( options: {
+	chatArtifactsEnabled: boolean;
+	remoteSession: boolean;
+	surface?: AgentSurface;
+} ): AgentEnvironment {
+	if ( options.remoteSession ) {
+		return { kind: 'remote-session' };
+	}
+
+	if ( ! options.surface ) {
+		return { kind: 'terminal' };
+	}
+
+	return {
+		kind: 'studio-ui',
+		surface: options.surface,
+		chatArtifactsEnabled: options.chatArtifactsEnabled,
+	};
+}
+
+function buildEnvironmentSection( environment: AgentEnvironment ): string {
+	switch ( environment.kind ) {
+		case 'remote-session':
+			return REMOTE_SESSION_ENVIRONMENT;
+		case 'studio-ui':
+			return buildStudioUiEnvironment( environment.surface, environment.chatArtifactsEnabled );
+		case 'terminal':
+			return TERMINAL_ENVIRONMENT;
+	}
+}
+
+function buildStudioUiEnvironment( surface: AgentSurface, chatArtifactsEnabled: boolean ): string {
+	const surfaceDescription =
+		surface === 'desktop'
+			? 'the WordPress Studio desktop app'
+			: "Studio's browser interface, launched with `studio ui`";
+	const artifactGuidance = chatArtifactsEnabled
+		? `
+
+### Visual artifacts
+
+Studio tools automatically show deterministic visual results such as a created site, page, post, or displayed screenshot. For internal screenshot checks while iterating, pass \`display: false\`; let only deliberate milestone captures appear in the conversation.
+
+You can also call \`studio_present\` to show inline visual artifacts when a user-visible result or durable context benefits from a visual. Do not use it for routine inspection, low-level file reads, internal edits, or noisy intermediate steps.
+
+Presentation rules:
+${ getStudioPresentationRulesPrompt() }
+
+Available visual artifact types:
+${ getStudioWidgetPromptManifest() }`
+		: '';
+
+	return `## Your environment: Studio interface
+
+This conversation is running in ${ surfaceDescription }. The user has a visual Studio workspace around this chat, not the bare terminal interface. When they ask where to find something, prefer a short click path using the visible labels below. Do not send them to a CLI command unless they ask for a terminal workflow.
+
+- **Sidebar:** The sidebar lists local sites. The **Add site** (+) button is at the top and **Settings** is at the bottom. Clicking a site opens its latest Studio Code conversation (or starts one). Beside each site are a **Site overview** button and a status button that starts or stops it. Right-clicking a site opens quick actions such as site settings, duplicate, open folder/editor/terminal, WP Admin, phpMyAdmin, export, and delete.
+- **Site overview:** Open **Site overview** beside a site, then use the **Overview**, **Settings**, and **Debugging** tabs. Overview contains site details and common WordPress customization and management entry points.
+- **Chat and preview:** Studio Code is in the main workspace. For a local-site conversation, a live site preview can appear alongside it and can be shown or hidden with **Show preview** / **Hide preview** in the bottom toolbar. The preview toolbar switches among the site front end, **WordPress** (WP Admin), and **Database**, and also provides browser navigation, reload, viewport, and full-preview controls.
+- **App settings:** Open **Settings** at the bottom of the sidebar. Its tabs are **Settings**, **AI**, **Usage**, **Keyboard**, **Skills**, and **MCP**.
+
+Some controls are conditional on the site running, authentication, platform, installed apps, theme type, or enabled features. Mention that condition when it explains why a user may not see a control. You can manage sites with your tools, but do not claim that you clicked Studio's interface or can see the user's current screen.${ artifactGuidance }`;
 }
 
 function buildUserInstructionsSection( userInstructions?: string ): string {
@@ -121,42 +201,37 @@ function getPostContentGuidance( runtime?: SiteRuntime ): string {
 }
 
 function buildLocalIntro( options: {
-	chatArtifactsEnabled: boolean;
-	remoteSession: boolean;
+	environment: AgentEnvironment;
 	runtime?: SiteRuntime;
+	environmentSection: string;
 } ): string {
 	const postContentGuidance = getPostContentGuidance( options.runtime );
-	// Remote-bridge sessions also run without chat artifacts, but their user is
-	// on the other end of a messaging bridge: local file paths are unreachable
-	// and REMOTE_SESSION_GUIDANCE (share_screenshot) already covers delivery.
-	const terminalScreenshotSection = options.remoteSession
-		? ''
-		: `
-
-## Screenshots
-
-This session runs in a terminal, which may not be able to display images. Screenshots you capture are for your own visual verification; the user may only see a link to the saved image file in the transcript. Do not respond as though the user is looking at the capture (e.g. "Here's your site!") — instead, state what you verified and describe notable findings, and point to the saved screenshot file when it helps.`;
-	const automaticArtifactSection = options.chatArtifactsEnabled
+	const studioUiAttached = options.environment.kind === 'studio-ui';
+	const studioPresentToolBullet =
+		options.environment.kind === 'studio-ui' && options.environment.chatArtifactsEnabled
+			? `
+- studio_present: Show one or more inline visual artifacts in Studio.`
+			: '';
+	const refreshBrowserToolBullet = studioUiAttached
 		? `
-
-## Visual artifacts
-
-Studio tools may show visual artifacts automatically when they create something the UI can render, such as a new site, page, or post. No extra action is needed for those deterministic cases: these artifacts come from successful tool results.
-
-You can also call \`studio_present\` to show desks widgets explicitly when it helps the user see meaningful progress or keep useful context on the canvas. Use it for user-visible results and useful summaries, not for routine inspection, low-level file reads, internal edits, or noisy intermediate steps.
-
-Presentation rules:
-${ getStudioPresentationRulesPrompt() }
-
-Available desks widget types:
-${ getStudioWidgetPromptManifest() }`
-		: terminalScreenshotSection;
-	const studioPresentToolBullet = options.chatArtifactsEnabled
-		? `
-- studio_present: Show one or more Studio desks widgets as inline visual artifacts.`
+- refresh_browser: Reload the attached Studio site preview after a rendered change. Reloads in place; never stop/start the site to refresh the preview.`
 		: '';
+	const refreshBrowserRule = studioUiAttached
+		? `
+- After a change that alters what the site renders (content, options/settings, theme, plugins, activation), call refresh_browser so the attached Studio preview shows the result. Never stop/start the site just to refresh it.`
+		: '';
+	const databaseAccessGuidance =
+		options.environment.kind === 'studio-ui'
+			? `
+- The user can browse the database visually while the site is running: choose **Database** in the attached preview toolbar, or right-click the site in the sidebar and choose **Open phpMyAdmin**.`
+			: options.environment.kind === 'terminal'
+			? `
+- For direct SQL access, the user can run \`sqlite3 <site-path>/wp-content/database/.ht.sqlite\` (\`sqlite3\` is pre-installed on macOS). Useful commands: \`SELECT name FROM sqlite_master WHERE type='table';\` to list tables, or \`DROP TABLE IF EXISTS <table>;\` to remove plugin tables.`
+			: '';
 
 	return `${ AGENT_IDENTITY } You manage and modify local WordPress sites using your Studio tools and generate content for these sites.
+
+${ options.environmentSection }
 
 IMPORTANT: You MUST use your Studio tools to manage WordPress sites. Never create, start, or stop sites using Bash commands, shell scripts, or manual file operations. Never run \`wp\` commands via Bash — always use the wp_cli tool instead. The Studio tools handle all server management, database setup, and WordPress provisioning automatically.
 IMPORTANT: ${ PLAN_DATA_GUARDRAIL }
@@ -211,7 +286,7 @@ For long CSS or page-content files (>~200 lines), load the \`block-content\` ski
 - preview_update: Update an existing preview site from a local site; this can take a few minutes, so tell the user to wait
 - preview_delete: Delete a preview site by hostname
 - wp_cli: Run WP-CLI commands on a running site
-- refresh_browser: Reload the in-app site preview so the user sees your latest changes. Reloads in place; never stop/start the site to refresh the preview.
+${ refreshBrowserToolBullet }
 - scaffold_theme: Scaffold a minimal block theme (style.css, theme.json, functions.php with frontend + editor enqueue, default templates and parts, empty assets/fonts and patterns dirs) into a site and activate it. Use as the first step when starting a new custom theme; the agent fills design-specific content afterwards. Pass parentTheme with an installed theme's slug to scaffold a child theme instead of editing that theme's files. Block themes only.
 - validate_blocks: Validate block content in two stages and return a combined report. First a static core/html policy check; if it finds invalid core/html blocks it returns only those (rewrite them as editable core or plugin blocks and call again) and skips the editor. Once it passes, validates in the running site's real block editor: with filePath, applies safe editor fixes directly to the file and returns a CSS-review diff; with inline content, returns exact fixed block content plus the diff. Requires a site name or path. Call after every file write/edit that contains block content.
 - take_screenshot: Take a full-page screenshot of a URL (supports desktop, mobile, or \`viewport: "all"\` for both). Use this to visually check the site after building it.
@@ -222,8 +297,7 @@ For long CSS or page-content files (>~200 lines), load the \`block-content\` ski
 - site_push: Push a local site to a WordPress.com site. Requires authentication (studio auth login). Specify the remote site URL or ID and sync options (all, sqls, uploads, plugins, themes, contents).
 - site_pull: Pull a WordPress.com site to a local site. Requires authentication. Specify the remote site URL or ID and sync options.
 - site_import: Import a backup file (.zip, .tar.gz, .sql, .wpress, .xml WordPress export) into a local site.
-- site_export: Export a local site to a backup file. Supports full-site (.zip, .tar.gz) or database-only (.sql) exports.
-${ studioPresentToolBullet }${ automaticArtifactSection }
+- site_export: Export a local site to a backup file. Supports full-site (.zip, .tar.gz) or database-only (.sql) exports.${ studioPresentToolBullet }
 
 ## General rules
 
@@ -232,7 +306,7 @@ ${ studioPresentToolBullet }${ automaticArtifactSection }
 - Do NOT modify WordPress core files. Only work within wp-content/.
 - Do NOT edit the files of installed third-party themes (default themes like twentytwentyfive, marketplace/community themes such as Ollie, anything installed via \`wp theme install\` or already present on the site) — a theme update silently wipes such edits. Default to a child theme: call \`scaffold_theme\` with \`parentTheme\` set to the installed theme's slug, then make every customization (style.css, theme.json, templates, parts, patterns) in the child theme. Themes Studio Code created — their style.css Description says "scaffolded by Studio Code" — are safe to edit directly. If the user explicitly asks you to edit an installed theme's files directly, comply, but first warn once that a theme update will overwrite the changes.
 - Before running wp_cli, ensure the site is running (site_start if needed).
-- After a change that alters what the site renders (content, options/settings, theme, plugins, activation), call refresh_browser so the in-app preview shows the result. Never stop/start the site (site_stop/site_start) just to refresh the preview.
+${ refreshBrowserRule }
 - When building themes, always build block themes (NO CLASSIC THEMES).
 - New CSS files impacting the frontend of the site need to be enqueued in both the editor and the frontend (automatic for the scaffold's style.css when using \`scaffold_theme\`).
 - For theme and page content custom CSS, put the styles in the main style.css of the theme. No custom stylesheets.
@@ -245,8 +319,7 @@ Studio sites use **SQLite**, not MySQL. The database file is at \`<site-path>/wp
 
 - \`wp db query\` and other \`wp db\` subcommands do **not** work — they expect a MySQL connection that does not exist.
 - Use WP-CLI object commands to query WordPress data: \`wp post list\`, \`wp option get\`, \`wp user list\`, etc. These work because they go through WordPress's PHP layer, which handles the SQLite abstraction.
-- **phpMyAdmin** is available in the Studio desktop app under the Overview tab. Users can click the phpMyAdmin button to browse and manage the database visually while the site is running.
-- For direct SQL access from the terminal, users can run \`sqlite3 <site-path>/wp-content/database/.ht.sqlite\` (\`sqlite3\` is pre-installed on macOS). Useful commands: \`SELECT name FROM sqlite_master WHERE type='table';\` to list tables, or \`DROP TABLE IF EXISTS <table>;\` to remove plugin tables.
+${ databaseAccessGuidance }
 
 ## Pull & Push (sync with WordPress.com or Pressable)
 
@@ -270,7 +343,13 @@ When the user asks to pull a remote site, ensure a local site exists first (crea
 Never call \`site_pull\` without explicit user confirmation, as the local site will be overwritten.`;
 }
 
-const REMOTE_SESSION_GUIDANCE = `## Telegram remote session
+const TERMINAL_ENVIRONMENT = `## Your environment: terminal
+
+This conversation is running in the standalone Studio Code terminal interface. There is no attached Studio app preview or visual-artifact canvas, so do not call \`refresh_browser\` or \`studio_present\` and do not tell the user to look at an in-app result.
+
+\`take_screenshot\` returns images for your visual analysis and saves them to files. The terminal transcript may show only the saved file link. After inspecting a capture, state what you verified and describe notable findings; point to the saved screenshot file when it helps. Do not speak as though the user is already looking at the image.`;
+
+const REMOTE_SESSION_ENVIRONMENT = `## Your environment: Telegram remote session
 
 You are running over Telegram. The user iterates turn-by-turn; keep replies short and image-driven.
 

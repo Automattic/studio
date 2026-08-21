@@ -9,7 +9,7 @@ import type { StudioChatArtifactWidgetDraft } from '@studio/common/ai/chat-artif
 
 const MAX_WIDGETS_PER_PRESENTATION = 8;
 
-const description = `Shows Studio desk widgets as inline visual artifacts in the chat UI.
+const description = `Shows inline visual artifacts in the Studio chat UI.
 Use this after a meaningful user-visible result, such as a created page, useful preview path, content summary, reference link, media item, or draft scratchpad.
 
 Presentation rules:

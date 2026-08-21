@@ -83,10 +83,10 @@ export interface CreateStudioToolsOptions {
 export function resolveStudioToolDefinitions(
 	options: CreateStudioToolsOptions = {}
 ): AnyStudioAgentTool[] {
-	const definitions =
-		options.emitChatArtifacts === true
-			? [ ...studioToolDefinitions, studioPresentTool ]
-			: studioToolDefinitions;
+	const emitChatArtifacts = options.emitChatArtifacts === true && options.remoteSession !== true;
+	const definitions = emitChatArtifacts
+		? [ ...studioToolDefinitions, studioPresentTool ]
+		: studioToolDefinitions;
 
 	// Gate the irreversible site deletion behind an explicit confirmation when a
 	// handler is available (interactive agent). MCP/headless callers omit it and
@@ -104,7 +104,7 @@ export function resolveStudioToolDefinitions(
 			candidate.name === deleteSiteTool.name && confirmingDeleteSiteTool
 				? confirmingDeleteSiteTool
 				: candidate;
-		return [ withChatArtifactEmission( tool, options.emitChatArtifacts === true ) ];
+		return [ withChatArtifactEmission( tool, emitChatArtifacts ) ];
 	} );
 }
 

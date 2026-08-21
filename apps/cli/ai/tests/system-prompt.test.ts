@@ -19,13 +19,25 @@ function extractReferencedSkillNames( prompt: string ): string[] {
 	].sort();
 }
 
+function extractEnvironmentHeadings( prompt: string ): string[] {
+	return Array.from( prompt.matchAll( /^## Your environment: .+$/gm ), ( match ) => match[ 0 ] );
+}
+
 describe( 'buildSystemPrompt', () => {
 	const previousScratchpadWidgetType = 'sd-' + 'artefact';
+	const studioUiOptions = { chatArtifactsEnabled: true, surface: 'desktop' } as const;
+
+	it( 'identifies Studio Code as available in the desktop app and CLI', () => {
+		expect( buildSystemPrompt() ).toContain(
+			"available in WordPress Studio's desktop app and CLI"
+		);
+	} );
 
 	it( 'includes Studio presentation rules when chat artifacts are enabled', () => {
-		const prompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
+		const prompt = buildSystemPrompt( studioUiOptions );
 
-		expect( prompt ).toContain( '## Visual artifacts' );
+		expect( prompt ).toContain( '### Visual artifacts' );
+		expect( prompt ).not.toMatch( /\bdesks?\b/i );
 		expect( prompt ).toContain( '- post-lists:' );
 		expect( prompt ).toContain( 'one post-collection widget' );
 		expect( prompt ).toContain( '- site-code-scratchpad:' );
@@ -52,6 +64,44 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).toContain( '- pdf:' );
 	} );
 
+	it.each( [
+		[ 'desktop', 'the WordPress Studio desktop app' ],
+		[ 'cliui', "Studio's browser interface, launched with `studio ui`" ],
+	] as const )( 'describes the %s interface and its navigation', ( surface, description ) => {
+		const prompt = buildSystemPrompt( { chatArtifactsEnabled: true, surface } );
+
+		expect( prompt ).toContain( '## Your environment: Studio interface' );
+		expect( prompt ).toContain( description );
+		expect( prompt ).toContain( '**Add site** (+)' );
+		expect( prompt ).toContain( '**Site overview** button' );
+		expect( prompt ).toContain( '**Overview**, **Settings**, and **Debugging** tabs' );
+		expect( prompt ).toContain( '**Show preview** / **Hide preview**' );
+		expect( prompt ).toContain( '**AI**, **Usage**, **Keyboard**, **Skills**, and **MCP**' );
+	} );
+
+	it( 'includes interface navigation without local presentation tools for remote sites', () => {
+		const prompt = buildSystemPrompt( {
+			remoteSite,
+			chatArtifactsEnabled: true,
+			surface: 'desktop',
+		} );
+
+		expect( prompt ).toContain( '## Your environment: Studio interface' );
+		expect( prompt ).toContain( 'the WordPress Studio desktop app' );
+		expect( prompt ).not.toContain( '### Visual artifacts' );
+		expect( prompt ).not.toContain( 'studio_present' );
+	} );
+
+	it( 'omits visual interface navigation in the standalone terminal', () => {
+		const prompt = buildSystemPrompt( { chatArtifactsEnabled: false } );
+
+		expect( prompt ).toContain( '## Your environment: terminal' );
+		expect( prompt ).not.toContain( '## Your environment: Studio interface' );
+		expect( prompt ).not.toContain( '**Add site** (+)' );
+		expect( prompt ).not.toContain( '- refresh_browser:' );
+		expect( prompt ).not.toContain( 'call refresh_browser so the attached Studio preview' );
+	} );
+
 	it( 'guards site deletion via the tool confirmation, not an extra AskUserQuestion', () => {
 		const prompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
 
@@ -63,7 +113,7 @@ describe( 'buildSystemPrompt', () => {
 	} );
 
 	it( 'routes plugin-specific feature work to the plugin recommendations skill', () => {
-		const prompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
+		const prompt = buildSystemPrompt( studioUiOptions );
 
 		expect( prompt ).toContain( 'plugin-recommendations' );
 		expect( prompt ).toContain( 'any feature that core WordPress blocks do not cleanly provide' );
@@ -72,7 +122,7 @@ describe( 'buildSystemPrompt', () => {
 	} );
 
 	it( 'routes block markup recipes to the block content skill', () => {
-		const prompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
+		const prompt = buildSystemPrompt( studioUiOptions );
 
 		expect( prompt ).toContain( 'block-content' );
 		expect( prompt ).toContain( 'page/post content, template or template-part content' );
@@ -90,7 +140,7 @@ describe( 'buildSystemPrompt', () => {
 	} );
 
 	it( 'guards plan/pricing/feature answers behind the hosting-plans-helper skill (local)', () => {
-		const prompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
+		const prompt = buildSystemPrompt( studioUiOptions );
 
 		expect( prompt ).toContain( '`hosting-plans-helper` skill' );
 		expect( prompt ).toContain( 'Do NOT answer from memory' );
@@ -106,10 +156,7 @@ describe( 'buildSystemPrompt', () => {
 	} );
 
 	it( 'references only bundled skills', () => {
-		const prompts = [
-			buildSystemPrompt( { chatArtifactsEnabled: true } ),
-			buildSystemPrompt( { remoteSite } ),
-		];
+		const prompts = [ buildSystemPrompt( studioUiOptions ), buildSystemPrompt( { remoteSite } ) ];
 		const availableSkillNames = new Set( loadSkills().map( ( skill ) => skill.name ) );
 		const missingSkillNames = prompts
 			.flatMap( extractReferencedSkillNames )
@@ -153,28 +200,44 @@ describe( 'buildSystemPrompt', () => {
 	it( 'omits Studio presentation rules when chat artifacts are disabled', () => {
 		const prompt = buildSystemPrompt( { chatArtifactsEnabled: false } );
 
-		expect( prompt ).not.toContain( '## Visual artifacts' );
+		expect( prompt ).not.toContain( '### Visual artifacts' );
 		expect( prompt ).not.toContain( '- site-code-scratchpad:' );
 		expect( prompt ).not.toContain( '- saved-local-media:' );
 		expect( prompt ).not.toContain( '- screenshot-auto-artifact:' );
-		expect( prompt ).not.toContain( 'studio_present' );
+		expect( prompt ).not.toContain( '- studio_present:' );
 	} );
 
-	it( 'warns that terminal users may not see screenshots when chat artifacts are disabled', () => {
-		const prompt = buildSystemPrompt( { chatArtifactsEnabled: false } );
-
-		expect( prompt ).toContain( '## Screenshots' );
-		expect( prompt ).toContain( 'Do not respond as though the user is looking at the capture' );
-	} );
-
-	it( 'omits the terminal screenshot caveat when chat artifacts are enabled', () => {
+	it( 'omits Studio presentation rules without a visual surface', () => {
 		const prompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
 
-		expect( prompt ).not.toContain( 'Do not respond as though the user is looking at the capture' );
+		expect( prompt ).toContain( '## Your environment: terminal' );
+		expect( prompt ).not.toContain( '### Visual artifacts' );
+		expect( prompt ).not.toContain( 'Available visual artifact types:' );
+		expect( prompt ).not.toContain( '- studio_present:' );
+	} );
+
+	it( 'gives terminal-specific screenshot and preview guidance', () => {
+		const prompt = buildSystemPrompt( { chatArtifactsEnabled: false } );
+
+		expect( prompt ).toContain( '## Your environment: terminal' );
+		expect( prompt ).toContain( 'terminal transcript may show only the saved file link' );
+		expect( prompt ).toContain( 'Do not speak as though the user is already looking at the image' );
+		expect( prompt ).toContain( 'do not call `refresh_browser` or `studio_present`' );
+	} );
+
+	it( 'uses Studio UI guidance instead of terminal guidance when a visual surface is attached', () => {
+		const prompt = buildSystemPrompt( studioUiOptions );
+
+		expect( prompt ).toContain( '## Your environment: Studio interface' );
+		expect( prompt ).not.toContain( '## Your environment: terminal' );
+		expect( prompt ).toContain( '- refresh_browser:' );
+		expect( prompt ).toContain( 'call refresh_browser so the attached Studio preview' );
+		expect( prompt ).toContain( 'choose **Database** in the attached preview toolbar' );
+		expect( prompt ).not.toContain( 'For direct SQL access, the user can run' );
 	} );
 
 	it( 'appends the user global instructions for local and remote sessions', () => {
-		const variants = [ { chatArtifactsEnabled: true }, { remoteSite } ];
+		const variants = [ studioUiOptions, { remoteSite } ];
 		for ( const variant of variants ) {
 			const prompt = buildSystemPrompt( {
 				...variant,
@@ -199,13 +262,36 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).not.toContain( 'a'.repeat( 17_000 ) );
 	} );
 
-	it( 'omits the terminal screenshot caveat for remote-bridge sessions', () => {
+	it( 'uses Telegram guidance instead of terminal or Studio UI guidance for remote sessions', () => {
 		// The Telegram user cannot open local file paths; delivery is covered
 		// by the remote-session share_screenshot guidance instead.
-		const prompt = buildSystemPrompt( { chatArtifactsEnabled: false, remoteSession: true } );
+		const prompt = buildSystemPrompt( {
+			chatArtifactsEnabled: true,
+			remoteSession: true,
+			surface: 'desktop',
+		} );
 
-		expect( prompt ).not.toContain( '## Screenshots' );
-		expect( prompt ).not.toContain( 'Do not respond as though the user is looking at the capture' );
-		expect( prompt ).toContain( '## Telegram remote session' );
+		expect( prompt ).toContain( '## Your environment: Telegram remote session' );
+		expect( prompt ).not.toContain( '## Your environment: terminal' );
+		expect( prompt ).not.toContain( '## Your environment: Studio interface' );
+		expect( prompt ).not.toContain( '- refresh_browser:' );
+		expect( prompt ).not.toContain( '- studio_present:' );
+		expect( prompt ).not.toContain( '### Visual artifacts' );
+		expect( prompt ).not.toContain( 'For direct SQL access, the user can run' );
+	} );
+
+	it( 'includes exactly one environment section in every execution mode', () => {
+		const prompts = [
+			buildSystemPrompt(),
+			buildSystemPrompt( studioUiOptions ),
+			buildSystemPrompt( { chatArtifactsEnabled: true, surface: 'cliui' } ),
+			buildSystemPrompt( { remoteSession: true } ),
+			buildSystemPrompt( { remoteSite } ),
+			buildSystemPrompt( { remoteSite, ...studioUiOptions } ),
+		];
+
+		for ( const prompt of prompts ) {
+			expect( extractEnvironmentHeadings( prompt ) ).toHaveLength( 1 );
+		}
 	} );
 } );

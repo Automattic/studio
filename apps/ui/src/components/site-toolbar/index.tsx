@@ -1,8 +1,8 @@
 import { isSnapshotExpired } from '@studio/common/lib/snapshots';
 import { useIsMutating } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
-import { moreVertical } from '@wordpress/icons';
-import { Button, IconButton } from '@wordpress/ui';
+import { chevronDownSmall, moreVertical } from '@wordpress/icons';
+import { Button, Icon, IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CopyButton } from '@/components/copy-button';
@@ -211,7 +211,10 @@ export function SiteToolbar( { site, className, openPullOnLoad = false }: SiteTo
 										previewUrl ? __( 'Updating preview' ) : __( 'Creating preview' )
 									}
 								>
-									{ __( 'Share' ) }
+									<span className={ styles.actionLabelWithChevron }>
+										{ __( 'Share' ) }
+										<Icon className={ styles.menuChevron } icon={ chevronDownSmall } size={ 16 } />
+									</span>
 								</Button>
 							}
 						/>
@@ -289,7 +292,14 @@ export function SiteToolbar( { site, className, openPullOnLoad = false }: SiteTo
 										disabled={ syncDisabled }
 										focusableWhenDisabled
 									>
-										{ __( 'Sync' ) }
+										<span className={ styles.actionLabelWithChevron }>
+											{ __( 'Sync' ) }
+											<Icon
+												className={ styles.menuChevron }
+												icon={ chevronDownSmall }
+												size={ 16 }
+											/>
+										</span>
 									</Button>
 								}
 							/>
@@ -347,7 +357,10 @@ export function SiteToolbar( { site, className, openPullOnLoad = false }: SiteTo
 									className={ clsx( styles.action, styles.primaryAction ) }
 									disabled={ isOffline || isBusy }
 								>
-									{ __( 'Publish' ) }
+									<span className={ styles.actionLabelWithChevron }>
+										{ __( 'Publish' ) }
+										<Icon className={ styles.menuChevron } icon={ chevronDownSmall } size={ 16 } />
+									</span>
 								</Button>
 							}
 						/>

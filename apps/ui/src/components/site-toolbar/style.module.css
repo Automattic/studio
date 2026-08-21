@@ -83,6 +83,25 @@
 	min-width: 72px;
 }
 
+/* Pairs a button's label with a menu-indicator chevron, close enough to read
+   as one unit rather than a separate icon. Flips 180° when the menu it opens
+   is open — Base UI stamps data-popup-open on the trigger itself, so this
+   needs no extra state. */
+.actionLabelWithChevron {
+	display: inline-flex;
+	align-items: center;
+	gap: 2px;
+}
+
+.menuChevron {
+	fill: currentColor;
+	transition: transform 150ms ease;
+}
+
+[data-popup-open] .menuChevron {
+	transform: rotate(180deg);
+}
+
 .publishMenu {
 	min-width: 0;
 	width: 240px;
@@ -224,7 +243,8 @@
 
 @media (prefers-reduced-motion: reduce) {
 	.action,
-	.actionProgress {
+	.actionProgress,
+	.menuChevron {
 		transition: none;
 	}
 

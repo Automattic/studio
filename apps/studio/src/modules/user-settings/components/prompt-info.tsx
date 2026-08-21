@@ -29,10 +29,31 @@ export function PromptInfo() {
 			? getStudioCodeAiAccessState( assistantQuota )
 			: 'available';
 	const isDenied = accessState !== 'available';
+	// The server includes the per-pool balances only when AI credits are
+	// enabled for the account (STU-2235); their absence — not a 0 — means the
+	// pre-credits monthly-limit design should render.
+	const creditBalances =
+		assistantQuota &&
+		! isOffline &&
+		! isError &&
+		! isDenied &&
+		( assistantQuota.allowanceRemaining !== undefined ||
+			assistantQuota.purchasedRemaining !== undefined )
+			? {
+					allowance: assistantQuota.allowanceRemaining ?? 0,
+					purchased: assistantQuota.purchasedRemaining ?? 0,
+			  }
+			: undefined;
 	const assistantQuotaWithCostCap =
-		assistantQuota && assistantQuota.costCap > 0 && ! isOffline && ! isError && ! isDenied
+		assistantQuota &&
+		assistantQuota.costCap > 0 &&
+		! isOffline &&
+		! isError &&
+		! isDenied &&
+		! creditBalances
 			? assistantQuota
 			: undefined;
+	const credits = new Intl.NumberFormat( locale );
 
 	return (
 		<div className="flex gap-3 flex-col">
@@ -48,6 +69,26 @@ export function PromptInfo() {
 									<AiAccessRequiredNotice quota={ assistantQuota } />
 								) }
 								{ ! isOffline && ! isDenied && isLoading && __( 'Loading Studio Code limits…' ) }
+								{ creditBalances && (
+									<span className="flex flex-col gap-1 tabular-nums">
+										{ creditBalances.allowance > 0 && (
+											<span>
+												{ sprintf(
+													/* translators: %s: number of free AI credits remaining (e.g. 960,000). */
+													__( 'Free credits remaining: %s' ),
+													credits.format( creditBalances.allowance )
+												) }
+											</span>
+										) }
+										<span>
+											{ sprintf(
+												/* translators: %s: number of purchased AI credits remaining (e.g. 150,000). */
+												__( 'Purchased credits remaining: %s' ),
+												credits.format( creditBalances.purchased )
+											) }
+										</span>
+									</span>
+								) }
 								{ assistantQuotaWithCostCap &&
 									sprintf(
 										/* translators: %1$s: percentage of monthly limit used (e.g. 7.5%). %2$s: date the limit resets (e.g. July 1, 2026). */
@@ -65,6 +106,7 @@ export function PromptInfo() {
 									! isOffline &&
 									! isDenied &&
 									! assistantQuotaWithCostCap &&
+									! creditBalances &&
 									__( 'Studio Code limits are temporarily unavailable.' ) }
 							</span>
 						</div>

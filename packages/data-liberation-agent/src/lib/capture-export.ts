@@ -619,19 +619,24 @@ function replaceDanglingCssUrl( html: string, reference: string ): string {
 
 function removeDanglingResourceReference( html: string, reference: string ): string {
 	const normalizedReference = reference.replace( /&amp;/g, '&' );
-	const withoutPreloads = html.replace( /<link\b[^>]*>/gi, ( tag ) => {
-		const rel = /\brel\s*=\s*["']([^"']+)["']/i.exec( tag )?.[ 1 ].toLowerCase() ?? '';
-		const href = /\bhref\s*=\s*["']([^"']+)["']/i.exec( tag )?.[ 1 ].replace( /&amp;/g, '&' );
-		const relations = rel.split( /\s+/ );
-		return href === normalizedReference &&
+	const $ = cheerio.load( html );
+	$( 'link' ).each( ( _, element ) => {
+		const link = $( element );
+		const relations = ( link.attr( 'rel' ) ?? '' ).toLowerCase().split( /\s+/ );
+		const href = ( link.attr( 'href' ) ?? '' ).replace( /&amp;/g, '&' );
+		if (
+			href === normalizedReference &&
 			( relations.includes( 'preload' ) || relations.includes( 'modulepreload' ) )
-			? ''
-			: tag;
+		) {
+			link.remove();
+		}
 	} );
-	return withoutPreloads.replace( /<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, ( tag ) => {
-		const src = /\bsrc\s*=\s*["']([^"']+)["']/i.exec( tag )?.[ 1 ].replace( /&amp;/g, '&' );
-		return src === normalizedReference ? '' : tag;
+	$( 'script' ).each( ( _, element ) => {
+		const script = $( element );
+		const src = ( script.attr( 'src' ) ?? '' ).replace( /&amp;/g, '&' );
+		if ( src === normalizedReference ) script.remove();
 	} );
+	return $.html();
 }
 
 export function exportWebsiteCapture( options: ExportCaptureOptions ): string {

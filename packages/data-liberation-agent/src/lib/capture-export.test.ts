@@ -88,7 +88,7 @@ describe( 'exportWebsiteCapture', () => {
 			`${ readFileSync(
 				join( outputDir, 'html', 'homepage.html' ),
 				'utf8'
-			) }<img src="/only-huge.png"><img src="https://cdn.example/images/asset.jpg/v1/fit/w_3939,h_3939/source.jpg/v1/fit/w_554,h_597/rendered.jpg"><div style="background-image:image-set(url('/missing.png?w=1280') 1x)"></div>`
+			) }<img src="/only-huge.png"><img src="https://cdn.example/images/asset.jpg/v1/fit/w_3939,h_3939/source.jpg/v1/fit/w_554,h_597/rendered.jpg"><script src="/uncaptured.js"></script   ><div style="background-image:image-set(url('/missing.png?w=1280') 1x)"></div>`
 		);
 
 		const receiptPath = exportWebsiteCapture( {
@@ -146,6 +146,9 @@ describe( 'exportWebsiteCapture', () => {
 		);
 		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).not.toContain(
 			'This site requires JavaScript'
+		);
+		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).not.toContain(
+			'uncaptured.js'
 		);
 		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).toContain(
 			'class="data-liberation-desktop-document"'

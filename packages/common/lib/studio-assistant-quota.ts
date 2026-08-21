@@ -1,6 +1,5 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { z } from 'zod';
-import { PROTOCOL_PREFIX } from '@studio/common/constants';
 
 export const STUDIO_ASSISTANT_QUOTA_URL =
 	'https://public-api.wordpress.com/wpcom/v2/studio-app/ai-assistant/quota';
@@ -9,20 +8,24 @@ export const ADD_PAYMENT_METHOD_URL = 'https://my.wordpress.com/me/billing/payme
 
 export const WPCOM_SUPPORT_CONTACT_URL = 'https://wordpress.com/support/contact/';
 
-// Deeplink checkout returns to once the top-up completes or is cancelled,
-// handled by the `ai-credits-purchased` host in the desktop deeplink router.
-// Unreachable from `studio ui` in a browser, which has no custom scheme.
-export const AI_CREDITS_PURCHASED_DEEPLINK = `${ PROTOCOL_PREFIX }://ai-credits-purchased`;
+// Deeplink host checkout returns to once the top-up completes or is cancelled,
+// handled by `ai-credits-purchased` in the desktop deeplink router. Checkout
+// builds the full `wp-studio://` URL itself, so only the host travels in the
+// `studioReturnTo` parameter. Unreachable from `studio ui` in a browser, which
+// has no custom scheme.
+export const AI_CREDITS_PURCHASED_RETURN_TO = 'ai-credits-purchased';
+
+// Checkout requires a site id, but a credits top-up isn't tied to a site — this
+// placeholder satisfies the parameter without pointing anywhere.
+const CHECKOUT_PLACEHOLDER_SITE_ID = 'b4b08783-91cd-4aa1-b2ee-28575c26a762';
 
 // WordPress.com checkout for a Studio Code AI credits top-up (STU-2299). The
 // `:-q-<n>` suffix is checkout's quantity syntax, in the same 1/10000 USD units
 // the quota reports — 100000 is the $10 top-up, the only one offered in v1.
-// `redirect_to`/`cancel_to` bring the user back to Studio either way; checkout
-// drops them if the scheme isn't allowlisted, which degrades to the old
-// leave-them-in-the-browser behaviour rather than breaking the purchase.
-export const ADD_AI_CREDITS_URL = `https://wordpress.com/checkout/wpcom/studio-code-ai-credits:-q-100000?redirect_to=${ encodeURIComponent(
-	AI_CREDITS_PURCHASED_DEEPLINK
-) }&cancel_to=${ encodeURIComponent( AI_CREDITS_PURCHASED_DEEPLINK ) }`;
+export const ADD_AI_CREDITS_URL =
+	'https://wordpress.com/checkout/wpcom/studio-code-ai-credits:-q-100000' +
+	`?studioSiteId=${ CHECKOUT_PLACEHOLDER_SITE_ID }` +
+	`&studioReturnTo=${ AI_CREDITS_PURCHASED_RETURN_TO }`;
 
 export const studioAssistantQuotaSchema = z
 	.object( {

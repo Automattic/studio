@@ -614,4 +614,45 @@ describe( 'exportWebsiteCapture', () => {
 			'Canonical home'
 		);
 	} );
+
+	it( 'uses rendered Open Graph metadata when the manifest metadata is absent', () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-capture-export-' ) );
+		dirs.push( outputDir );
+		mkdirSync( join( outputDir, 'html' ), { recursive: true } );
+		mkdirSync( join( outputDir, 'screenshots' ), { recursive: true } );
+		writeFileSync(
+			join( outputDir, 'html', 'home.html' ),
+			'<html><head><meta property="og:url" content="https://example.com"></head><body><h1>Canonical home</h1></body></html>'
+		);
+		writeFileSync(
+			join( outputDir, 'html', 'about.html' ),
+			'<html><head><meta property="og:url" content="https://example.com/about"></head><body><h1>About</h1></body></html>'
+		);
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				entries: {
+					'https://example.com/home': { html: 'html/home.html' },
+					'https://example.com/about': { html: 'html/about.html' },
+				},
+			} )
+		);
+
+		const receiptPath = exportWebsiteCapture( {
+			outputDir,
+			sourceUrl: 'https://example.com',
+			platform: 'fake',
+			summary: {},
+			failures: [],
+		} );
+
+		expect( JSON.parse( readFileSync( receiptPath, 'utf8' ) ).routes ).toEqual( [
+			{ url: 'https://example.com/home', path: 'website/index.html' },
+			{ url: 'https://example.com/about', path: 'website/about/index.html' },
+		] );
+		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).toContain(
+			'Canonical home'
+		);
+	} );
 } );

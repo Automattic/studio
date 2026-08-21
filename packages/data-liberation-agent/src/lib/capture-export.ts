@@ -212,6 +212,10 @@ function renderedHtml( html: string ): string {
 	return $.html();
 }
 
+function openGraphUrl( html: string ): string | undefined {
+	return cheerio.load( html )( 'meta[property="og:url"]' ).first().attr( 'content' );
+}
+
 const RESPONSIVE_DOCUMENT_CSS =
 	'.data-liberation-mobile-document{display:none!important}@media(max-width:768px){.data-liberation-desktop-document{display:none!important}.data-liberation-mobile-document{display:contents!important}}';
 
@@ -670,7 +674,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		retainedEntries.push( {
 			url,
 			html,
-			canonicalUrl: entry.metadata?.openGraph?.[ 'og:url' ],
+			canonicalUrl: entry.metadata?.openGraph?.[ 'og:url' ] ?? openGraphUrl( html ),
 		} );
 	}
 

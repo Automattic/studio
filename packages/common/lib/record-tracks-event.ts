@@ -132,6 +132,7 @@ export type TracksPanel =
 	| 'overview'
 	| 'settings'
 	| 'debugging'
+	| 'ai'
 	| 'assistant'
 	| 'sync'
 	| 'import-export'

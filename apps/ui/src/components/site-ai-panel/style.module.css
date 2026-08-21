@@ -1,0 +1,121 @@
+.root {
+	display: flex;
+	flex-direction: column;
+	gap: var( --wpds-dimension-padding-xl );
+	width: 100%;
+	max-width: 560px;
+	margin: 0 auto;
+}
+
+.section {
+	box-sizing: border-box;
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	gap: var( --wpds-dimension-padding-lg );
+	padding: var( --wpds-dimension-padding-lg ) var( --wpds-dimension-padding-xl )
+		var( --wpds-dimension-padding-xl );
+	border: 1px solid var( --wpds-color-stroke-surface-neutral );
+	border-radius: 8px;
+	background: color-mix( in srgb, var( --wpds-color-bg-surface-neutral-weak ) 56%, transparent );
+}
+
+.sectionHeader {
+	display: flex;
+	flex-direction: column;
+	gap: var( --wpds-dimension-padding-xs );
+}
+
+.sectionHeaderRow {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var( --wpds-dimension-padding-md );
+	/* Reserve the compact wpds Button height so the header doesn't jump when
+	   the Install all button appears or disappears. */
+	min-block-size: 32px;
+}
+
+.sectionHeader h2 {
+	margin: 0;
+	color: var( --wpds-color-fg-content-neutral );
+	font-size: var( --wpds-typography-font-size-lg );
+	font-weight: 600;
+	line-height: var( --wpds-typography-line-height-md );
+}
+
+.sectionHeader p {
+	margin: 0;
+	color: var( --wpds-color-fg-content-neutral-weak );
+	font-size: var( --wpds-typography-font-size-sm );
+	line-height: var( --wpds-typography-line-height-md );
+}
+
+.state {
+	padding-block: var( --wpds-dimension-padding-md );
+	color: var( --wpds-color-fg-content-neutral-weak );
+	font-size: var( --wpds-typography-font-size-sm );
+	line-height: var( --wpds-typography-line-height-md );
+}
+
+.errorMessage {
+	margin-block-end: var( --wpds-dimension-padding-md );
+	padding: var( --wpds-dimension-padding-sm ) var( --wpds-dimension-padding-md );
+	border: 1px solid color-mix( in srgb, var( --wpds-color-fg-content-error ) 35%, transparent );
+	border-radius: 6px;
+	background: color-mix(
+		in srgb,
+		var( --wpds-color-fg-content-error ) 8%,
+		var( --wpds-color-bg-surface-neutral-strong )
+	);
+	color: var( --wpds-color-fg-content-error );
+	font-size: var( --wpds-typography-font-size-sm );
+	line-height: var( --wpds-typography-line-height-sm );
+}
+
+.list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	border-top: 1px solid var( --wpds-color-stroke-surface-neutral );
+}
+
+.row {
+	display: grid;
+	grid-template-columns: minmax( 0, 1fr ) auto;
+	align-items: center;
+	gap: var( --wpds-dimension-padding-xl );
+	padding-block: var( --wpds-dimension-padding-lg );
+	border-bottom: 1px solid var( --wpds-color-stroke-surface-neutral );
+}
+
+.row:last-child {
+	border-bottom: 0;
+}
+
+.rowDetails {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.rowName {
+	color: var( --wpds-color-fg-content-neutral );
+	font-size: var( --wpds-typography-font-size-sm );
+	font-weight: 600;
+	line-height: var( --wpds-typography-line-height-sm );
+}
+
+.rowDescription {
+	color: var( --wpds-color-fg-content-neutral-weak );
+	font-size: var( --wpds-typography-font-size-sm );
+	line-height: var( --wpds-typography-line-height-sm );
+}
+
+@media ( max-width: 640px ) {
+	.row {
+		align-items: stretch;
+		grid-template-columns: 1fr;
+	}
+}

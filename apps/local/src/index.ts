@@ -35,6 +35,15 @@ import {
 import { expandSkillCommandPrompt } from '@studio/common/ai/slash-commands';
 import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import { DEFAULT_TOKEN_LIFETIME_MS } from '@studio/common/constants';
+import {
+	getAllInstructionFilesStatus,
+	installInstructionFile,
+	INSTRUCTION_FILE_TYPES,
+	removeInstructionFile,
+	type InstructionFileType,
+} from '@studio/common/lib/agent-instructions';
+import { installSkillToSite, removeSkillFromSite } from '@studio/common/lib/agent-skills';
+import { getSkillsStatus } from '@studio/common/lib/agent-skills-catalog';
 import { createCliRunner } from '@studio/common/lib/cli-process';
 import {
 	addConnectedWpcomSite,
@@ -255,6 +264,17 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 
 	function preferencesContext(): UserPreferencesContext {
 		return { sitesRoot, installedApps: detectInstalledApps() };
+	}
+
+	// Bundled AI instructions/skills ship read-only alongside the CLI code
+	// (`dist/cli/wp-files/skills`), the same layout `getAiInstructionsPath()` in
+	// apps/studio resolves relative to the Electron app's bundled CLI path.
+	function getAiInstructionsPath(): string {
+		return path.join( path.dirname( cliBinary ), 'wp-files', 'skills' );
+	}
+
+	function isInstructionFileType( value: string ): value is InstructionFileType {
+		return ( INSTRUCTION_FILE_TYPES as string[] ).includes( value );
 	}
 
 	const cliRunner = createCliRunner( { cliBinary, nodeBinary } );
@@ -710,6 +730,98 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				return;
 			}
 			res.json( await measureSiteStorage( site.path ) );
+		} )
+	);
+
+	// --- Per-site AI instructions + skills — override the global selection for
+	// just this site. Mirrors the desktop's per-site Edit Site "Skills"/
+	// "Instructions" tabs (apps/studio/src/components/site-settings-panels.tsx).
+	api.get(
+		'/sites/:id/agent-instructions',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const site = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
+			if ( ! site ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			res.json( await getAllInstructionFilesStatus( site.path ) );
+		} )
+	);
+
+	api.post(
+		'/sites/:id/agent-instructions/:fileType',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const fileType = req.params.fileType;
+			if ( ! isInstructionFileType( fileType ) ) {
+				res.status( 400 ).json( { error: `Unsupported instruction file: ${ fileType }` } );
+				return;
+			}
+			const site = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
+			if ( ! site ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			const overwrite = req.body?.overwrite === true;
+			res.json(
+				await installInstructionFile( site.path, fileType, getAiInstructionsPath(), overwrite )
+			);
+		} )
+	);
+
+	api.delete(
+		'/sites/:id/agent-instructions/:fileType',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const fileType = req.params.fileType;
+			if ( ! isInstructionFileType( fileType ) ) {
+				res.status( 400 ).json( { error: `Unsupported instruction file: ${ fileType }` } );
+				return;
+			}
+			const site = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
+			if ( ! site ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			await removeInstructionFile( site.path, fileType );
+			res.status( 204 ).end();
+		} )
+	);
+
+	api.get(
+		'/sites/:id/skills',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const site = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
+			if ( ! site ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			res.json( await getSkillsStatus( site.path ) );
+		} )
+	);
+
+	api.post(
+		'/sites/:id/skills/:skillId',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const site = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
+			if ( ! site ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			const overwrite = req.body?.overwrite === true;
+			await installSkillToSite( site, getAiInstructionsPath(), req.params.skillId, overwrite );
+			res.status( 204 ).end();
+		} )
+	);
+
+	api.delete(
+		'/sites/:id/skills/:skillId',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const site = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
+			if ( ! site ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			await removeSkillFromSite( site.path, req.params.skillId );
+			res.status( 204 ).end();
 		} )
 	);
 

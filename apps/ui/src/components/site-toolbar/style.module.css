@@ -119,7 +119,15 @@
 	min-width: 0;
 }
 
+.siteNameRow {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	min-width: 0;
+}
+
 .siteName {
+	min-width: 0;
 	font-size: var(--wpds-typography-font-size-md);
 	font-weight: 600;
 	line-height: 1.25;
@@ -200,6 +208,7 @@
 }
 
 .menuChevron {
+	flex-shrink: 0;
 	fill: currentColor;
 	transition: transform 150ms ease;
 }

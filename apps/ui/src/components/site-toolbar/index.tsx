@@ -237,7 +237,10 @@ export function SiteToolbar( { site, className, openPullOnLoad = false }: SiteTo
 								) : null }
 							</span>
 							<span className={ styles.identityText }>
-								<span className={ styles.siteName }>{ site.name }</span>
+								<span className={ styles.siteNameRow }>
+									<span className={ styles.siteName }>{ site.name }</span>
+									<Icon className={ styles.menuChevron } icon={ chevronDownSmall } size={ 16 } />
+								</span>
 								<span className={ styles.siteUrlStatic }>{ localSublabel }</span>
 							</span>
 						</button>

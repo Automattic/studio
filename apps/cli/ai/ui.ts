@@ -2120,15 +2120,12 @@ export class AiChatUI implements AiOutputAdapter {
 					this.usageCapReached = true;
 					this.showError( outOfCredits ? formatOutOfCreditsNotice() : formatUsageCapNotice() );
 					if ( outOfCredits ) {
-						// The terminal can't render a link, so print the URL as-is —
-						// it stays copyable and most terminals auto-link it.
+						// The terminal can't render a link, so the URL goes on its own
+						// line, as-is — it stays copyable and most terminals auto-link it.
 						this.showInfo(
-							sprintf(
-								/* translators: %s: URL of the page where the user can buy AI credits. */
-								__( 'Add credits at %s' ),
-								ADD_AI_CREDITS_URL
-							)
+							__( 'Add credits at the link below, then come back to continue using Studio Code:' )
 						);
+						this.showInfo( ADD_AI_CREDITS_URL );
 					} else {
 						// Async on purpose: the reset date needs a wpcom round trip
 						// and must not block rendering the cap notice.

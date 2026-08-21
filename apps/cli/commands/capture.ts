@@ -44,21 +44,40 @@ export async function captureUrl(
 	if ( typeof artifactPath !== 'string' || ! fs.existsSync( artifactPath ) ) {
 		throw new LoggerError( __( 'Capture completed without a replayable website artifact.' ) );
 	}
-	let artifact: unknown;
-	try {
-		artifact = JSON.parse( fs.readFileSync( artifactPath, 'utf8' ) );
-	} catch ( error ) {
-		throw new LoggerError( __( 'Capture produced an invalid website artifact.' ), error );
-	}
-	if (
-		! artifact ||
-		typeof artifact !== 'object' ||
-		( artifact as Record< string, unknown > ).schema !==
-			'blocks-engine/php-transformer/site-artifact/v1' ||
-		typeof ( artifact as Record< string, unknown > ).entrypoint !== 'string' ||
-		! Array.isArray( ( artifact as Record< string, unknown > ).files )
-	) {
-		throw new LoggerError( __( 'Capture produced an invalid website artifact.' ) );
+	const captureReceiptPath = result.captureReceiptPath;
+	if ( typeof captureReceiptPath === 'string' && fs.existsSync( captureReceiptPath ) ) {
+		try {
+			const receipt = JSON.parse( fs.readFileSync( captureReceiptPath, 'utf8' ) ) as Record<
+				string,
+				unknown
+			>;
+			if (
+				receipt.schema !== 'data-liberation/capture-receipt/v1' ||
+				typeof receipt.entrypoint !== 'string' ||
+				! Array.isArray( receipt.routes )
+			) {
+				throw new Error( 'Capture receipt has an invalid shape.' );
+			}
+		} catch ( error ) {
+			throw new LoggerError( __( 'Capture produced an invalid website artifact.' ), error );
+		}
+	} else {
+		let artifact: unknown;
+		try {
+			artifact = JSON.parse( fs.readFileSync( artifactPath, 'utf8' ) );
+		} catch ( error ) {
+			throw new LoggerError( __( 'Capture produced an invalid website artifact.' ), error );
+		}
+		if (
+			! artifact ||
+			typeof artifact !== 'object' ||
+			( artifact as Record< string, unknown > ).schema !==
+				'blocks-engine/php-transformer/site-artifact/v1' ||
+			typeof ( artifact as Record< string, unknown > ).entrypoint !== 'string' ||
+			! Array.isArray( ( artifact as Record< string, unknown > ).files )
+		) {
+			throw new LoggerError( __( 'Capture produced an invalid website artifact.' ) );
+		}
 	}
 
 	return {

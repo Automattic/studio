@@ -25,7 +25,7 @@ describe( 'exportWebsiteCapture', () => {
 		mkdirSync( join( outputDir, 'media' ), { recursive: true } );
 		writeFileSync(
 			join( outputDir, 'html', 'homepage.html' ),
-			'<!doctype html><html><head></head><body><img src="https://cdn.example/logo.png"><img src="https://cdn.example/avatar.png&amp;quot;"><img src="/hero.png?w=128" srcset="/hero.png?w=128 128w, /hero.png?w=4096 4096w"><h1>Home</h1><noscript><main>This site requires JavaScript</main></noscript></body></html>'
+			'<!doctype html><html><head></head><body><img src="https://cdn.example/logo.png"><img src="https://cdn.example/avatar.png&amp;quot;"><img src="/hero.png?w=128" srcset="/hero.png?w=128 128w, /hero.png?w=4096 4096w"><img src="https://static.wixstatic.com/media/hash~mv2.jpg" srcset="https://static.wixstatic.com/media/hash~mv2.jpg/v1/fill/w_567,h_740,q_90,enc_avif,quality_auto/hash~mv2.jpg 1x, https://static.wixstatic.com/media/hash~mv2.jpg/v1/fill/w_1034,h_1349,q_90,enc_avif,quality_auto/hash~mv2.jpg 2x"><h1>Home</h1><noscript><main>This site requires JavaScript</main></noscript></body></html>'
 		);
 		writeFileSync( join( outputDir, 'html', 'about.html' ), '<h1>About</h1>' );
 		writeFileSync(
@@ -37,6 +37,7 @@ describe( 'exportWebsiteCapture', () => {
 		writeFileSync( join( outputDir, 'media', 'hero.png' ), 'base' );
 		writeFileSync( join( outputDir, 'media', 'hero-2.png' ), '128' );
 		writeFileSync( join( outputDir, 'media', 'hero-3.png' ), Buffer.alloc( 6 * 1024 * 1024 ) );
+		writeFileSync( join( outputDir, 'media', 'wix.jpg' ), 'wix' );
 		writeFileSync(
 			join( outputDir, 'screenshots', 'manifest.json' ),
 			JSON.stringify( {
@@ -66,6 +67,10 @@ describe( 'exportWebsiteCapture', () => {
 		media.markSuccess(
 			'https://example.com/only-huge.png',
 			join( outputDir, 'media', 'hero-3.png' )
+		);
+		media.markSuccess(
+			'https://static.wixstatic.com/media/hash~mv2.jpg',
+			join( outputDir, 'media', 'wix.jpg' )
 		);
 		media.markFailure( 'https://example.com/missing.png?w=1280', 'HTTP 404' );
 		media.flush();
@@ -103,6 +108,10 @@ describe( 'exportWebsiteCapture', () => {
 					path: 'website/media/avatar.png',
 				},
 				{ sourceUrl: 'https://example.com/hero.png?w=128', path: 'website/media/hero-2.png' },
+				{
+					sourceUrl: 'https://static.wixstatic.com/media/hash~mv2.jpg',
+					path: 'website/media/wix.jpg',
+				},
 			],
 			excludedRoutes: [ 'https://example.com/' ],
 		} );
@@ -114,6 +123,9 @@ describe( 'exportWebsiteCapture', () => {
 		);
 		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).not.toContain(
 			'/media/hero.png?w=128'
+		);
+		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).toContain(
+			'srcset="/media/wix.jpg 1x, /media/wix.jpg 2x"'
 		);
 		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).not.toContain(
 			'This site requires JavaScript'
@@ -146,7 +158,7 @@ describe( 'exportWebsiteCapture', () => {
 			compiler_limits: {
 				max_files: 5000,
 				max_file_bytes: 10 * 1024 * 1024,
-				max_total_bytes: 320 * 1024 * 1024,
+				max_total_bytes: 192 * 1024 * 1024,
 			},
 			root: 'website',
 			entrypoint: 'website/index.html',
@@ -177,7 +189,7 @@ describe( 'exportWebsiteCapture', () => {
 			JSON.parse( readFileSync( join( outputDir, 'diagnostics.json' ), 'utf8' ) ).unresolvedMedia
 		).toContainEqual( {
 			url: 'https://example.com/only-huge.png',
-			error: 'captured media exceeds portable size or dimension limits',
+			error: 'retained as an external URL because media exceeds portable size or dimension limits',
 		} );
 	} );
 

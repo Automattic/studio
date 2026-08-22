@@ -302,6 +302,176 @@ describe( 'exportWebsiteCapture', () => {
 		} );
 	} );
 
+	it( 'exports section evidence as one rendered semantic authoring tree', () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-capture-export-' ) );
+		dirs.push( outputDir );
+		mkdirSync( join( outputDir, 'html' ), { recursive: true } );
+		mkdirSync( join( outputDir, 'html-mobile' ), { recursive: true } );
+		mkdirSync( join( outputDir, 'media' ), { recursive: true } );
+		mkdirSync( join( outputDir, 'screenshots' ), { recursive: true } );
+		mkdirSync( join( outputDir, 'sections' ), { recursive: true } );
+		writeFileSync(
+			join( outputDir, 'html', 'homepage.html' ),
+			'<!doctype html><html><head><title>Example Studio</title></head><body><header><a href="/">Desktop logo</a><a href="/work">Work</a></header><main><h1>Desktop duplicate</h1><img src="https://cdn.example/hero.jpg"></main><footer><a href="/privacy">Privacy</a></footer></body></html>'
+		);
+		writeFileSync(
+			join( outputDir, 'html-mobile', 'homepage.html' ),
+			'<!doctype html><html><body><header><a href="/">Example Studio</a><button aria-haspopup="dialog" data-modalid="contact">Contact</button><button aria-label="Menu"></button></header><main><h1>Mobile duplicate</h1></main><footer><a href="/privacy">Privacy</a></footer></body></html>'
+		);
+		writeFileSync( join( outputDir, 'media', 'hero.jpg' ), 'hero' );
+		writeFileSync(
+			join( outputDir, 'sections', 'homepage.json' ),
+			JSON.stringify( {
+				sourceUrl: 'https://example.com/',
+				sections: [
+					{
+						sectionIndex: 0,
+						interactionModel: 'columns',
+						top: 0,
+						height: 600,
+						headings: [ 'Built from evidence' ],
+						bodyText: [ 'One editable page tree.' ],
+						buttonLabels: [],
+						images: [
+							{
+								url: 'https://cdn.example/hero.jpg',
+								sourceUrl: 'https://cdn.example/hero.jpg',
+								alt: 'Project hero',
+								kind: 'img',
+								width: 1200,
+								height: 800,
+							},
+						],
+						icons: [],
+						backgroundBrightness: 255,
+						backgroundColor: 'rgb(255, 255, 255)',
+						gradient: null,
+						gradientSource: null,
+						motionProfile: { motionClass: 'none', signals: [], animatedElements: 0 },
+						dividerAbove: null,
+						dividerBelow: null,
+						layout: {
+							containerWidth: 1200,
+							padding: '0',
+							childLayout: 'flex-row',
+							columnCount: 2,
+							gap: '24px',
+						},
+						cells: [
+							{
+								heading: 'Modeling',
+								body: [ 'Precisely reconstructed.' ],
+								image: null,
+								icon: {
+									kind: 'svg',
+									markup: '<svg viewBox="0 0 24 24"><path d="M3 3h18v18H3z"/></svg>',
+									width: 48,
+									height: 48,
+								},
+								button: null,
+							},
+							{
+								heading: 'Rendering',
+								body: [ 'Ready for WordPress.' ],
+								image: null,
+								icon: null,
+								button: null,
+							},
+						],
+					},
+				],
+			} )
+		);
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				entries: {
+					'https://example.com/': {
+						html: 'html/homepage.html',
+						sections: 'sections/homepage.json',
+					},
+				},
+			} )
+		);
+		const media = MediaStubStore.load( outputDir );
+		media.markSuccess( 'https://cdn.example/hero.jpg', join( outputDir, 'media', 'hero.jpg' ) );
+		media.flush();
+
+		const receiptPath = exportWebsiteCapture( {
+			outputDir,
+			sourceUrl: 'https://example.com/',
+			platform: 'fake',
+			summary: {},
+			failures: [],
+		} );
+		const html = readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' );
+		const receipt = JSON.parse( readFileSync( receiptPath, 'utf8' ) );
+
+		expect( html ).toContain( '<title>Example Studio</title>' );
+		expect( html ).toContain( 'Built from evidence' );
+		expect( html ).toContain( 'Precisely reconstructed.' );
+		expect( html ).toContain( 'src="/media/hero.jpg"' );
+		expect( html ).toContain( 'data-modalid="contact"' );
+		expect( html ).toContain( '<footer class="data-liberation-semantic-footer">' );
+		expect( html ).not.toContain( '<!-- wp:' );
+		expect( html ).not.toContain( 'data-liberation-desktop-document' );
+		expect( html ).not.toContain( 'data-liberation-mobile-document' );
+		expect( html ).not.toContain( 'Desktop duplicate' );
+		expect( html ).not.toContain( 'Mobile duplicate' );
+		expect( html ).not.toContain( 'aria-label="Menu"' );
+		expect(
+			existsSync( join( outputDir, 'website', 'assets', 'icons', 'homepage-icon-0.svg' ) )
+		).toBe( true );
+		expect( receipt.assets ).toContainEqual( {
+			sourceUrl: 'https://example.com/#generated-icon-icon-0.svg',
+			path: 'website/assets/icons/homepage-icon-0.svg',
+		} );
+	} );
+
+	it( 'keeps captured responsive HTML when section evidence is invalid', () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-capture-export-' ) );
+		dirs.push( outputDir );
+		mkdirSync( join( outputDir, 'html' ), { recursive: true } );
+		mkdirSync( join( outputDir, 'html-mobile' ), { recursive: true } );
+		mkdirSync( join( outputDir, 'screenshots' ), { recursive: true } );
+		mkdirSync( join( outputDir, 'sections' ), { recursive: true } );
+		writeFileSync(
+			join( outputDir, 'html', 'homepage.html' ),
+			'<html><body><main><h1>Desktop capture</h1></main></body></html>'
+		);
+		writeFileSync(
+			join( outputDir, 'html-mobile', 'homepage.html' ),
+			'<html><body><main><h1>Mobile capture</h1></main></body></html>'
+		);
+		writeFileSync( join( outputDir, 'sections', 'homepage.json' ), '{invalid' );
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				entries: {
+					'https://example.com/': {
+						html: 'html/homepage.html',
+						sections: 'sections/homepage.json',
+					},
+				},
+			} )
+		);
+
+		exportWebsiteCapture( {
+			outputDir,
+			sourceUrl: 'https://example.com/',
+			platform: 'fake',
+			summary: {},
+			failures: [],
+		} );
+		const html = readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' );
+		expect( html ).toContain( 'Desktop capture' );
+		expect( html ).toContain( 'Mobile capture' );
+		expect( html ).toContain( 'data-liberation-desktop-document' );
+		expect( html ).toContain( 'data-liberation-mobile-document' );
+	} );
+
 	it( 'keeps one authoring body when responsive captures differ only in presentation', () => {
 		const outputDir = mkdtempSync( join( tmpdir(), 'dla-capture-export-' ) );
 		dirs.push( outputDir );

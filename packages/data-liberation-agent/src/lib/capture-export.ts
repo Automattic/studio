@@ -13,11 +13,15 @@ import {
 } from 'node:fs';
 import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path';
 import * as cheerio from 'cheerio';
+import { escapeHtml, escapeHtmlAttr } from './html-escape.js';
 import { scopeCss } from './replicate/css-scope.js';
+import { reconstructPagePattern } from './replicate/page-reconstruct.js';
+import { rewriteThroughMediaMap, type SectionSpec } from './replicate/section-extract.js';
 import { MediaStubStore } from './resume-state/index.js';
 import { rewriteMediaUrls } from './streaming/media-url-rewrite.js';
 import type { InteractionStatesReport } from './screenshot/interaction-capture.js';
 import type { CapturedResourceManifest } from './screenshot/resource-capture.js';
+import type { AnyNode } from 'domhandler';
 
 export const CAPTURE_RECEIPT_SCHEMA = 'data-liberation/capture-receipt/v1';
 export const WEBSITE_ARTIFACT_SCHEMA = 'blocks-engine/php-transformer/site-artifact/v1';
@@ -25,6 +29,7 @@ export const CAPTURED_INTERACTIONS_SCHEMA = 'data-liberation/captured-interactio
 
 interface CaptureManifestEntry {
 	html?: string;
+	sections?: string;
 	interactions?: InteractionStatesReport;
 	metadata?: {
 		openGraph?: Record< string, string >;
@@ -58,6 +63,15 @@ interface MediaCandidate {
 	references: string[];
 	bytes: number;
 	dimension: number;
+}
+
+interface RetainedCaptureEntry {
+	url: string;
+	html: string;
+	desktopHtml: string;
+	mobileHtml?: string;
+	sections?: string;
+	canonicalUrl?: string;
 }
 
 function fileHash( path: string ): string {
@@ -330,11 +344,7 @@ function portableInlineStyleValues(
 	hasUnsupportedAttributes: boolean,
 	css: string
 ): { key: string; media: string } | undefined {
-	if (
-		hasUnsupportedAttributes ||
-		css.trim() === '' ||
-		/(?:url\s*\(|@import)/i.test( css )
-	)
+	if ( hasUnsupportedAttributes || css.trim() === '' || /(?:url\s*\(|@import)/i.test( css ) )
 		return undefined;
 	if ( /[\u0000-\u001f\u007f<>&]/.test( media ) ) return undefined;
 	return { key: `${ media }\n${ css }`, media };
@@ -795,6 +805,158 @@ function removeDanglingResourceReference( html: string, reference: string ): str
 	return $.html();
 }
 
+function semanticPageHtml(
+	entry: RetainedCaptureEntry,
+	outputDir: string,
+	websiteDir: string,
+	mediaReplacements: Map< string, string >,
+	assets: Array< { sourceUrl: string; path: string } >
+): string | undefined {
+	if ( ! entry.sections ) return undefined;
+	const sectionsPath = resolve( outputDir, entry.sections );
+	if ( ! pathWithin( outputDir, sectionsPath ) || ! existsSync( sectionsPath ) ) return undefined;
+	let sectionFile: { sections?: SectionSpec[]; sourceUrl?: string };
+	try {
+		sectionFile = JSON.parse( readFileSync( sectionsPath, 'utf8' ) );
+	} catch {
+		return undefined;
+	}
+	if ( ! Array.isArray( sectionFile.sections ) || sectionFile.sections.length === 0 )
+		return undefined;
+
+	const portableMedia = Object.fromEntries(
+		[ ...mediaReplacements ].filter( ( [ , value ] ) => value.startsWith( '/media/' ) )
+	);
+	const mediaUrlMap = new Map< string, string >( Object.entries( portableMedia ) );
+	for ( const section of sectionFile.sections ) {
+		const images = [
+			...( section.images ?? [] ),
+			...( section.cells ?? [] ).flatMap( ( cell ) => ( cell.image ? [ cell.image ] : [] ) ),
+		];
+		for ( const image of images ) {
+			const source = image.sourceUrl || image.url;
+			const local = rewriteThroughMediaMap( source, portableMedia );
+			if ( local !== source ) mediaUrlMap.set( source, local );
+		}
+	}
+
+	const slug = basename( entry.sections, extname( entry.sections ) );
+	const reconstruction = reconstructPagePattern( sectionFile.sections, {
+		patternSlug: `capture/${ slug }`,
+		title: documentTitle( entry.desktopHtml ) || slug,
+		sourceUrl: sectionFile.sourceUrl ?? entry.url,
+		slug,
+		mediaUrlMap,
+	} );
+	let body = reconstruction.body.replace( /<!--\s*\/?wp:[\s\S]*?-->/g, '' );
+	for ( const icon of reconstruction.iconAssets ) {
+		const relativePath = `assets/icons/${ slug }-${ basename( icon.path ) }`;
+		const destination = resolve( websiteDir, relativePath );
+		if ( ! pathWithin( websiteDir, destination ) ) continue;
+		mkdirSync( dirname( destination ), { recursive: true } );
+		writeFileSync( destination, icon.svg );
+		const portablePath = `/${ relativePath }`;
+		body = body.replaceAll(
+			`<?php echo esc_url(get_theme_file_uri('${ icon.path }')); ?>`,
+			portablePath
+		);
+		assets.push( {
+			sourceUrl: `${ entry.url }#generated-icon-${ basename( icon.path ) }`,
+			path: `website/${ relativePath }`,
+		} );
+	}
+
+	const chrome = semanticChrome( entry.mobileHtml ?? entry.desktopHtml, entry.url );
+	const title = documentTitle( entry.desktopHtml ) || slug;
+	return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${ escapeHtml(
+		title
+	) }</title>${ chrome.styles }</head><body>${ chrome.header }<main>${ body }</main>${
+		chrome.footer
+	}</body></html>`;
+}
+
+function documentTitle( html: string ): string {
+	return cheerio.load( html )( 'title' ).first().text().trim();
+}
+
+function semanticChrome(
+	html: string,
+	sourceUrl: string
+): { styles: string; header: string; footer: string } {
+	const $ = cheerio.load( html );
+	$( 'script,style,noscript' ).remove();
+	const headerRoot = $( 'header,[role="banner"],.wixui-header' )
+		.filter( ( _index, element ) => $( element ).text().trim() !== '' )
+		.first();
+	const footerRoot = $( 'footer,[role="contentinfo"],.wixui-footer' )
+		.filter( ( _index, element ) => $( element ).text().trim() !== '' )
+		.first();
+	const headerControls = semanticControls( $, headerRoot, sourceUrl, 8 );
+	const footerControls = semanticControls( $, footerRoot, sourceUrl, 14 );
+	const header = headerControls.length
+		? `<header class="data-liberation-semantic-header"><nav aria-label="Primary">${ headerControls.join(
+				''
+		  ) }</nav></header>`
+		: '';
+	const footer = footerControls.length
+		? `<footer class="data-liberation-semantic-footer">${ footerControls.join( '' ) }</footer>`
+		: '';
+	const styles =
+		'<style>.data-liberation-semantic-header{padding:20px}.data-liberation-semantic-header nav{display:flex;align-items:center;gap:24px}.data-liberation-semantic-header nav>:first-child{margin-right:auto}.data-liberation-semantic-header a,.data-liberation-semantic-header button,.data-liberation-semantic-footer a,.data-liberation-semantic-footer button{color:inherit;background:none;border:0;font:inherit;text-decoration:none;padding:0}.data-liberation-semantic-footer{display:flex;justify-content:center;gap:24px;padding:20px}@media(max-width:768px){.data-liberation-semantic-header nav{align-items:flex-start;flex-direction:column;gap:8px}.data-liberation-semantic-header nav>:first-child{margin-right:0}}</style>';
+	return { styles, header, footer };
+}
+
+function semanticControls(
+	$: cheerio.CheerioAPI,
+	root: cheerio.Cheerio< AnyNode >,
+	sourceUrl: string,
+	limit: number
+): string[] {
+	if ( root.length === 0 ) return [];
+	const controls: string[] = [];
+	const seen = new Set< string >();
+	root.find( 'a,button' ).each( ( _index, element ) => {
+		if ( controls.length >= limit ) return false;
+		const node = $( element );
+		const label =
+			node.text().replace( /\s+/g, ' ' ).trim() || node.attr( 'aria-label' )?.trim() || '';
+		if ( ! label || /^(?:menu|skip to main content|top of page)$/i.test( label ) ) return;
+		let href = node.attr( 'href' ) ?? '';
+		if ( href ) {
+			try {
+				href = new URL( href, sourceUrl ).href;
+			} catch {
+				return;
+			}
+		}
+		const key = `${ label }\n${ href }`;
+		if ( seen.has( key ) ) return;
+		seen.add( key );
+		const attributes: string[] = [];
+		for ( const name of [
+			'id',
+			'class',
+			'role',
+			'aria-label',
+			'aria-haspopup',
+			'data-popupid',
+			'data-modalid',
+		] ) {
+			const value = node.attr( name );
+			if ( value ) attributes.push( `${ name }="${ escapeHtmlAttr( value ) }"` );
+		}
+		if ( href ) attributes.push( `href="${ escapeHtmlAttr( href ) }"` );
+		const tag = element.tagName.toLowerCase() === 'button' ? 'button' : 'a';
+		if ( tag === 'button' ) attributes.push( 'type="button"' );
+		controls.push(
+			`<${ tag }${ attributes.length ? ` ${ attributes.join( ' ' ) }` : '' }>${ escapeHtml(
+				label
+			) }</${ tag }>`
+		);
+	} );
+	return controls;
+}
+
 export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 	const outputDir = resolve( options.outputDir );
 	const screenshotManifestPath = join( outputDir, 'screenshots', 'manifest.json' );
@@ -813,7 +975,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 	rmSync( websiteDir, { recursive: true, force: true } );
 	mkdirSync( websiteDir, { recursive: true } );
 
-	const retainedEntries: Array< { url: string; html: string; canonicalUrl?: string } > = [];
+	const retainedEntries: RetainedCaptureEntry[] = [];
 	const interactionPages: InteractionStatesReport[] = [];
 	const excludedRoutes: string[] = [];
 	for ( const [ url, entry ] of Object.entries( capture.entries ) ) {
@@ -824,14 +986,20 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		if ( ! entry.html ) continue;
 		const htmlPath = resolve( outputDir, entry.html );
 		if ( ! pathWithin( outputDir, htmlPath ) || ! existsSync( htmlPath ) ) continue;
-		let html = renderedHtml( readFileSync( htmlPath, 'utf8' ) );
+		const desktopHtml = renderedHtml( readFileSync( htmlPath, 'utf8' ) );
+		let html = desktopHtml;
+		let mobileHtml: string | undefined;
 		const mobileHtmlPath = resolve( outputDir, entry.html.replace( /^html[\\/]/, 'html-mobile/' ) );
 		if ( pathWithin( outputDir, mobileHtmlPath ) && existsSync( mobileHtmlPath ) ) {
-			html = responsiveHtml( html, renderedHtml( readFileSync( mobileHtmlPath, 'utf8' ) ) );
+			mobileHtml = renderedHtml( readFileSync( mobileHtmlPath, 'utf8' ) );
+			html = responsiveHtml( html, mobileHtml );
 		}
 		retainedEntries.push( {
 			url,
 			html,
+			desktopHtml,
+			mobileHtml,
+			sections: entry.sections,
 			canonicalUrl: entry.metadata?.openGraph?.[ 'og:url' ] ?? openGraphUrl( html ),
 		} );
 		if ( entry.interactions?.schema === 'data-liberation/interaction-states/v1' ) {
@@ -1147,6 +1315,10 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 			}
 		}
 	}
+	for ( const entry of retainedEntries ) {
+		const semantic = semanticPageHtml( entry, outputDir, websiteDir, mediaReplacements, assets );
+		if ( semantic ) entry.html = semantic;
+	}
 
 	const inlineStyles = new Map< string, { css: string; media: string; count: number } >();
 	for ( const entry of retainedEntries ) {
@@ -1202,7 +1374,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 	const routes: Array< { url: string; path: string } > = [];
 	const portableRouteLinks = new Map< string, string >();
 	const claimedPaths = new Set< string >();
-	for ( const { url, canonicalUrl } of retainedEntries ) {
+	for ( const { url } of retainedEntries ) {
 		const routePath = routeOutputPath( url, options.sourceUrl, entrypointUrl ).replace(
 			/\\/g,
 			'/'

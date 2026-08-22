@@ -155,6 +155,31 @@ function replaceAll( content: string, replacements: Map< string, string > ): str
 
 function renderedHtml( html: string ): string {
 	const $ = cheerio.load( html.replace( /<noscript\b[^>]*>[\s\S]*?<\/noscript\s*>/gi, '' ) );
+	$( 'img[src],img[srcset]' ).each( ( _index, element ) => {
+		const node = $( element );
+		const source = `${ node.attr( 'src' ) ?? '' },${ node.attr( 'srcset' ) ?? '' }`;
+		const alignment = /(?:^|[,/])al_(tl|tc|tr|bl|bc|br|t|b|l|c|r)(?=[,/]|$)/i.exec(
+			source
+		)?.[ 1 ]?.toLowerCase();
+		if ( ! alignment ) return;
+		const positions: Record< string, string > = {
+			tl: 'left top',
+			tc: 'center top',
+			tr: 'right top',
+			bl: 'left bottom',
+			bc: 'center bottom',
+			br: 'right bottom',
+			t: 'center top',
+			b: 'center bottom',
+			l: 'left center',
+			c: 'center center',
+			r: 'right center',
+		};
+		const style = node.attr( 'style' ) ?? '';
+		if ( /(?:^|;)\s*object-position\s*:/i.test( style ) ) return;
+		const prefix = style.trim() ? style.trim().replace( /;?$/, ';' ) : '';
+		node.attr( 'style', `${ prefix }object-position:${ positions[ alignment ] }` );
+	} );
 	$( '*' ).each( ( _index, element ) => {
 		const node = $( element );
 		const style = node.attr( 'style' ) ?? '';
@@ -743,11 +768,16 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 	}
 
 	const normalizedSourceUrl = normalizedUrl( options.sourceUrl );
-	const entrypointCandidates = retainedEntries.filter(
-		( { url, canonicalUrl } ) =>
-			normalizedUrl( url ) === normalizedSourceUrl ||
-			( canonicalUrl !== undefined && normalizedUrl( canonicalUrl ) === normalizedSourceUrl )
+	const exactEntrypointCandidates = retainedEntries.filter(
+		( { url } ) => normalizedUrl( url ) === normalizedSourceUrl
 	);
+	const entrypointCandidates =
+		exactEntrypointCandidates.length > 0
+			? exactEntrypointCandidates
+			: retainedEntries.filter(
+					( { canonicalUrl } ) =>
+						canonicalUrl !== undefined && normalizedUrl( canonicalUrl ) === normalizedSourceUrl
+			  );
 	if ( entrypointCandidates.length !== 1 ) {
 		throw new Error(
 			`Capture does not identify one rendered homepage for the source URL: ${ options.sourceUrl }`
@@ -1094,8 +1124,14 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		claimedPaths.add( routePath );
 		const portablePath = `/${ routePath }`;
 		portableRouteLinks.set( normalizedUrl( url ), portablePath );
-		if ( canonicalUrl ) portableRouteLinks.set( normalizedUrl( canonicalUrl ), portablePath );
 		routes.push( { url, path: `website/${ routePath }` } );
+	}
+	for ( const { url, canonicalUrl } of retainedEntries ) {
+		if ( ! canonicalUrl ) continue;
+		const canonicalKey = normalizedUrl( canonicalUrl );
+		if ( portableRouteLinks.has( canonicalKey ) ) continue;
+		const routePath = routeOutputPath( url, options.sourceUrl, entrypointUrl ).replace( /\\/g, '/' );
+		portableRouteLinks.set( canonicalKey, `/${ routePath }` );
 	}
 
 	for ( const { url, html } of retainedEntries ) {

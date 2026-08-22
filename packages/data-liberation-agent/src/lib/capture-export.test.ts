@@ -25,7 +25,7 @@ describe( 'exportWebsiteCapture', () => {
 		mkdirSync( join( outputDir, 'media' ), { recursive: true } );
 		writeFileSync(
 			join( outputDir, 'html', 'homepage.html' ),
-			'<!doctype html><html><head><style>.desktop{color:blue}</style></head><body><a href="https://example.com/shop/about?from=home#team">About</a><a href="https://example.com/shop/missing">Missing</a><a href="https://external.example/about">External</a><img src="https://cdn.example/logo.png"><img src="https://cdn.example/avatar.png&amp;quot;"><img src="/hero.png?w=128" srcset="/hero.png?w=128 128w, /hero.png?w=4096 4096w"><img src="https://static.wixstatic.com/media/hash~mv2.jpg" srcset="https://static.wixstatic.com/media/hash~mv2.jpg/v1/fill/w_567,h_740,q_90,enc_avif,quality_auto/hash~mv2.jpg 1x, https://static.wixstatic.com/media/hash~mv2.jpg/v1/fill/w_1034,h_1349,q_90,enc_avif,quality_auto/hash~mv2.jpg 2x"><h1>Home</h1><p>$100.00</p><noscript><main>This site requires JavaScript</main></noscript></body></html>'
+			'<!doctype html><html><head><style>.desktop{color:blue}</style></head><body><a href="https://example.com/shop/about?from=home#team">About</a><a href="https://example.com/shop/missing">Missing</a><a href="https://external.example/about">External</a><img src="https://cdn.example/logo.png"><img src="https://cdn.example/logo-copy.png"><img src="https://cdn.example/avatar.png&amp;quot;"><img src="/hero.png?w=128" srcset="/hero.png?w=128 128w, /hero.png?w=4096 4096w"><img src="https://static.wixstatic.com/media/hash~mv2.jpg" srcset="https://static.wixstatic.com/media/hash~mv2.jpg/v1/fill/w_567,h_740,q_90,enc_avif,quality_auto/hash~mv2.jpg 1x, https://static.wixstatic.com/media/hash~mv2.jpg/v1/fill/w_1034,h_1349,q_90,enc_avif,quality_auto/hash~mv2.jpg 2x"><h1>Home</h1><p>$100.00</p><noscript><main>This site requires JavaScript</main></noscript></body></html>'
 		);
 		writeFileSync( join( outputDir, 'html', 'about.html' ), '<h1>About</h1>' );
 		writeFileSync(
@@ -52,6 +52,10 @@ describe( 'exportWebsiteCapture', () => {
 		);
 		const media = MediaStubStore.load( outputDir );
 		media.markSuccess( 'https://cdn.example/logo.png', join( outputDir, 'media', 'logo.png' ) );
+		media.markSuccess(
+			'https://cdn.example/logo-copy.png',
+			join( outputDir, 'media', 'logo.png' )
+		);
 		media.markSuccess(
 			'https://cdn.example/avatar.png&quot;',
 			join( outputDir, 'media', 'avatar.pngquot' )
@@ -212,6 +216,9 @@ describe( 'exportWebsiteCapture', () => {
 			},
 		} );
 		expect( artifact.files[ 0 ].path ).toBe( 'website/index.html' );
+		expect(
+			artifact.files.filter( ( file: { path: string } ) => file.path === 'website/media/logo.png' )
+		).toHaveLength( 1 );
 		expect( artifact.files ).toEqual(
 			expect.arrayContaining( [
 				expect.objectContaining( { path: 'website/index.html', encoding: 'utf8' } ),
@@ -271,6 +278,64 @@ describe( 'exportWebsiteCapture', () => {
 		expect( html ).not.toContain( 'data-liberation-mobile-document' );
 		expect( html ).toContain( 'class="desktop"' );
 		expect( html ).not.toContain( 'class="mobile"' );
+	} );
+
+	it( 'shares identical responsive styles when both authoring bodies are required', () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-capture-export-' ) );
+		dirs.push( outputDir );
+		mkdirSync( join( outputDir, 'html' ), { recursive: true } );
+		mkdirSync( join( outputDir, 'html-mobile' ), { recursive: true } );
+		mkdirSync( join( outputDir, 'screenshots' ), { recursive: true } );
+		const sharedStyle =
+			'<style>.layout{display:grid}@media(max-width:600px){.layout{display:block}}</style>';
+		writeFileSync(
+			join( outputDir, 'html', 'homepage.html' ),
+			`<!doctype html><html><head>${ sharedStyle }</head><body><main class="layout"><h1>Home</h1><a href="/about">About</a><aside>Desktop navigation</aside></main></body></html>`
+		);
+		writeFileSync(
+			join( outputDir, 'html-mobile', 'homepage.html' ),
+			`<!doctype html><html><head>${ sharedStyle }</head><body><main class="layout"><button>Menu</button><h1>Home</h1><a href="/about">About</a></main></body></html>`
+		);
+		writeFileSync(
+			join( outputDir, 'html', 'about.html' ),
+			`<!doctype html><html><head>${ sharedStyle }</head><body><main class="layout"><h1>About</h1><aside>Desktop navigation</aside></main></body></html>`
+		);
+		writeFileSync(
+			join( outputDir, 'html-mobile', 'about.html' ),
+			`<!doctype html><html><head>${ sharedStyle }</head><body><main class="layout"><button>Menu</button><h1>About</h1></main></body></html>`
+		);
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				entries: {
+					'https://example.com/': { html: 'html/homepage.html' },
+					'https://example.com/about': { html: 'html/about.html' },
+				},
+			} )
+		);
+
+		exportWebsiteCapture( {
+			outputDir,
+			sourceUrl: 'https://example.com/',
+			platform: 'fake',
+			summary: {},
+			failures: [],
+		} );
+		const html = readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' );
+		expect( html ).toContain( 'data-liberation-desktop-document' );
+		expect( html ).toContain( 'data-liberation-mobile-document' );
+		expect( html.match( /capture-[a-f0-9]{16}\.css/g ) ).toHaveLength( 2 );
+		expect( html ).not.toContain( ':where(.data-liberation-mobile-document) .layout' );
+		const artifact = JSON.parse( readFileSync( join( outputDir, 'artifact.json' ), 'utf8' ) );
+		const stylesheets = artifact.files.filter( ( file: { path: string } ) =>
+			/^website\/assets\/css\/capture-[a-f0-9]{16}\.css$/.test( file.path )
+		);
+		expect(
+			stylesheets.map( ( file: { content_base64: string } ) =>
+				Buffer.from( file.content_base64, 'base64' ).toString( 'utf8' )
+			)
+		).toContain( '.layout{display:grid}@media(max-width:600px){.layout{display:block}}' );
 	} );
 
 	it( 'does not treat JavaScript url calls as CSS dependencies', () => {
@@ -587,7 +652,10 @@ describe( 'exportWebsiteCapture', () => {
 		dirs.push( outputDir );
 		mkdirSync( join( outputDir, 'html' ), { recursive: true } );
 		mkdirSync( join( outputDir, 'screenshots' ), { recursive: true } );
-		writeFileSync( join( outputDir, 'html', 'homepage.html' ), '<h1>Home</h1>' );
+		writeFileSync(
+			join( outputDir, 'html', 'homepage.html' ),
+			'<h1>Home</h1><a href="/%2e%2e%2fescape">Escape</a>'
+		);
 		writeFileSync( join( outputDir, 'html', 'escape.html' ), '<h1>Escape</h1>' );
 		writeFileSync(
 			join( outputDir, 'screenshots', 'manifest.json' ),
@@ -616,8 +684,12 @@ describe( 'exportWebsiteCapture', () => {
 		dirs.push( outputDir );
 		mkdirSync( join( outputDir, 'html' ), { recursive: true } );
 		mkdirSync( join( outputDir, 'screenshots' ), { recursive: true } );
-		writeFileSync( join( outputDir, 'html', 'home.html' ), '<h1>Canonical home</h1>' );
+		writeFileSync(
+			join( outputDir, 'html', 'home.html' ),
+			'<h1>Canonical home</h1><a href="/about">About</a>'
+		);
 		writeFileSync( join( outputDir, 'html', 'about.html' ), '<h1>About</h1>' );
+		writeFileSync( join( outputDir, 'html', 'orphan.html' ), '<h1>Unlinked draft</h1>' );
 		writeFileSync(
 			join( outputDir, 'screenshots', 'manifest.json' ),
 			JSON.stringify( {
@@ -628,6 +700,7 @@ describe( 'exportWebsiteCapture', () => {
 						metadata: { openGraph: { 'og:url': 'https://example.com' } },
 					},
 					'https://example.com/about': { html: 'html/about.html' },
+					'https://example.com/orphan': { html: 'html/orphan.html' },
 				},
 			} )
 		);
@@ -645,6 +718,7 @@ describe( 'exportWebsiteCapture', () => {
 			{ url: 'https://example.com/home', path: 'website/index.html' },
 			{ url: 'https://example.com/about', path: 'website/about/index.html' },
 		] );
+		expect( receipt.excludedRoutes ).toContain( 'https://example.com/orphan' );
 		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).toContain(
 			'Canonical home'
 		);
@@ -657,7 +731,7 @@ describe( 'exportWebsiteCapture', () => {
 		mkdirSync( join( outputDir, 'screenshots' ), { recursive: true } );
 		writeFileSync(
 			join( outputDir, 'html', 'home.html' ),
-			'<html><head><meta property="og:url" content="https://example.com"></head><body><h1>Canonical home</h1></body></html>'
+			'<html><head><meta property="og:url" content="https://example.com"></head><body><h1>Canonical home</h1><a href="/about">About</a></body></html>'
 		);
 		writeFileSync(
 			join( outputDir, 'html', 'about.html' ),

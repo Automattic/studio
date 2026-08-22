@@ -10,6 +10,7 @@ import {
 	statSync,
 	writeFileSync,
 } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path';
 import * as cheerio from 'cheerio';
 import { scopeCss } from './replicate/css-scope.js';
@@ -54,6 +55,24 @@ interface MediaCandidate {
 	references: string[];
 	bytes: number;
 	dimension: number;
+}
+
+function fileHash( path: string ): string {
+	return createHash( 'sha256' ).update( readFileSync( path ) ).digest( 'hex' );
+}
+
+function uniqueAssetPath(
+	requestedPath: string,
+	contentHash: string,
+	hashesByPath: Map< string, string >
+): string {
+	const existingHash = hashesByPath.get( requestedPath );
+	if ( existingHash === undefined || existingHash === contentHash ) return requestedPath;
+	const extension = extname( requestedPath );
+	return `${ requestedPath.slice(
+		0,
+		requestedPath.length - extension.length
+	) }-${ contentHash.slice( 0, 12 ) }${ extension }`;
 }
 
 const MAX_PORTABLE_MEDIA_BYTES = 5 * 1024 * 1024;
@@ -234,6 +253,19 @@ function responsiveHtml( desktopHtml: string, mobileHtml: string ): string {
 		.filter( Boolean )
 		.join( ' ' );
 	const responsiveBody = `<div class="data-liberation-desktop-document">${ desktopBody }</div><div class="${ mobileWrapperClass }">${ mobileBody }</div>`;
+	const sharedStyles = styleBlocks( desktopHtml );
+	if (
+		sharedStyles.length > 0 &&
+		sharedStyles.join( '\n' ) === styleBlocks( mobileHtml ).join( '\n' )
+	) {
+		return desktopHtml
+			.replace( /<\/head\s*>/i, `<style>${ RESPONSIVE_DOCUMENT_CSS }</style></head>` )
+			.replace(
+				/(<body\b[^>]*>)[\s\S]*?(<\/body\s*>)/i,
+				( _match, openingBody: string, closingBody: string ) =>
+					`${ openingBody }${ responsiveBody }${ closingBody }`
+			);
+	}
 	const mobileStyles = responsiveMobileStyles( mobileHtml );
 	return scopedStyles( desktopHtml, '(min-width:769px)' )
 		.replace(
@@ -247,9 +279,29 @@ function responsiveHtml( desktopHtml: string, mobileHtml: string ): string {
 		);
 }
 
+function styleBlocks( html: string ): string[] {
+	return [ ...html.matchAll( /<style\b[^>]*>([\s\S]*?)<\/style\s*>/gi ) ].map( ( match ) =>
+		match[ 1 ].trim()
+	);
+}
+
+function portableInlineStyle(
+	attributes: string,
+	css: string
+): { key: string; media: string } | undefined {
+	if ( css.trim() === '' || /(?:url\s*\(|@import)/i.test( css ) ) return undefined;
+	const mediaMatch = /\bmedia\s*=\s*(["'])(.*?)\1/i.exec( attributes );
+	const unsupportedAttributes = attributes
+		.replace( /\btype\s*=\s*(["']).*?\1/gi, '' )
+		.replace( /\bmedia\s*=\s*(["']).*?\1/gi, '' )
+		.trim();
+	if ( unsupportedAttributes !== '' ) return undefined;
+	const media = mediaMatch?.[ 2 ] ?? '';
+	return { key: `${ media }\n${ css }`, media };
+}
+
 function responsiveMobileStyles( mobileHtml: string ): string {
-	return [ ...mobileHtml.matchAll( /<style\b[^>]*>([\s\S]*?)<\/style\s*>/gi ) ]
-		.map( ( match ) => match[ 1 ].trim() )
+	return styleBlocks( mobileHtml )
 		.filter( Boolean )
 		.map(
 			( style ) =>
@@ -702,6 +754,45 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		);
 	}
 	const entrypointUrl = entrypointCandidates[ 0 ].url;
+	const capturedRouteByReference = new Map< string, string >();
+	for ( const entry of retainedEntries ) {
+		const route = normalizedUrl( entry.url );
+		capturedRouteByReference.set( route, route );
+		if ( entry.canonicalUrl )
+			capturedRouteByReference.set( normalizedUrl( entry.canonicalUrl ), route );
+	}
+	const routeLinks = new Map< string, Set< string > >();
+	for ( const entry of retainedEntries ) {
+		const $ = cheerio.load( entry.html );
+		const links = new Set< string >();
+		$( 'a[href]' ).each( ( _index, element ) => {
+			try {
+				const linkedUrl = new URL( $( element ).attr( 'href' )!, entry.url );
+				const linkedRoute = capturedRouteByReference.get( normalizedUrl( linkedUrl.href ) );
+				if ( linkedRoute ) links.add( linkedRoute );
+			} catch {
+				// Invalid browser references are handled by dependency validation below.
+			}
+		} );
+		routeLinks.set( normalizedUrl( entry.url ), links );
+	}
+	const reachableRoutes = new Set< string >();
+	const routeQueue = [ normalizedUrl( entrypointUrl ) ];
+	while ( routeQueue.length > 0 ) {
+		const route = routeQueue.shift()!;
+		if ( reachableRoutes.has( route ) ) continue;
+		reachableRoutes.add( route );
+		for ( const linkedRoute of routeLinks.get( route ) ?? [] ) {
+			if ( ! reachableRoutes.has( linkedRoute ) ) routeQueue.push( linkedRoute );
+		}
+	}
+	const reachableEntries = retainedEntries.filter( ( entry ) =>
+		reachableRoutes.has( normalizedUrl( entry.url ) )
+	);
+	for ( const entry of retainedEntries ) {
+		if ( ! reachableEntries.includes( entry ) ) excludedRoutes.push( entry.url );
+	}
+	retainedEntries.splice( 0, retainedEntries.length, ...reachableEntries );
 
 	const retainedHtml = retainedEntries.map( ( entry ) => entry.html ).join( '\n' );
 	const mediaReplacements = new Map< string, string >();
@@ -759,15 +850,26 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 			);
 		} );
 	const selectedPortableMedia = new Set< MediaCandidate >();
+	const portableMediaHashes = new Set< string >();
 	let portableMediaBytes = 0;
 	for ( const { selected } of portableMediaCandidates ) {
-		if ( selected && portableMediaBytes + selected.bytes <= MAX_PORTABLE_MEDIA_TOTAL_BYTES ) {
+		if ( ! selected ) continue;
+		const contentHash = fileHash( selected.localPath );
+		if (
+			portableMediaHashes.has( contentHash ) ||
+			portableMediaBytes + selected.bytes <= MAX_PORTABLE_MEDIA_TOTAL_BYTES
+		) {
 			selectedPortableMedia.add( selected );
-			portableMediaBytes += selected.bytes;
+			if ( ! portableMediaHashes.has( contentHash ) ) {
+				portableMediaHashes.add( contentHash );
+				portableMediaBytes += selected.bytes;
+			}
 		}
 	}
 	let retainedExternalMediaCount = 0;
 	const localizedMediaFamilies = new Set< string >();
+	const assetPathsByHash = new Map< string, string >();
+	const assetHashesByPath = new Map< string, string >();
 	for ( const candidates of mediaFamilies.values() ) {
 		const family = mediaFamily( candidates[ 0 ].sourceUrl );
 		const selected = selectMediaCandidate( candidates );
@@ -800,10 +902,24 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 			retainedExternalMediaCount++;
 			continue;
 		}
-		const assetPath = join( 'media', portableMediaBasename( selected ) );
-		const destination = join( websiteDir, assetPath );
-		mkdirSync( dirname( destination ), { recursive: true } );
-		copyFileSync( selected.localPath, destination );
+		const contentHash = fileHash( selected.localPath );
+		let assetPath = assetPathsByHash.get( contentHash );
+		if ( assetPath === undefined ) {
+			assetPath = uniqueAssetPath(
+				join( 'media', portableMediaBasename( selected ) ),
+				contentHash,
+				assetHashesByPath
+			);
+			const destination = join( websiteDir, assetPath );
+			mkdirSync( dirname( destination ), { recursive: true } );
+			copyFileSync( selected.localPath, destination );
+			assetPathsByHash.set( contentHash, assetPath );
+			assetHashesByPath.set( assetPath, contentHash );
+			assets.push( {
+				sourceUrl: selected.sourceUrl,
+				path: join( 'website', assetPath ).replace( /\\/g, '/' ),
+			} );
+		}
 		localizedMediaFamilies.add( family );
 		for ( const reference of retainedMediaFamilies.get( family ) ?? [] )
 			mediaReplacements.set( reference, `/${ assetPath.replace( /\\/g, '/' ) }` );
@@ -812,10 +928,6 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 				mediaReplacements.set( reference, `/${ assetPath.replace( /\\/g, '/' ) }` );
 			}
 		}
-		assets.push( {
-			sourceUrl: selected.sourceUrl,
-			path: join( 'website', assetPath ).replace( /\\/g, '/' ),
-		} );
 	}
 	const portableMedia = {
 		selected_count: assets.length,
@@ -849,18 +961,29 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 			return false;
 		}
 		const source = resolve( outputDir, resource.path );
-		const relativePath = resource.path.replace( /^resources[\\/]/, '' );
+		if ( ! pathWithin( outputDir, source ) || ! existsSync( source ) ) {
+			unresolvedDependencies.push( {
+				url: dependency.url,
+				sourceUrl,
+				error: 'captured dependency file is unavailable',
+			} );
+			return false;
+		}
+		const requestedPath = resource.path.replace( /^resources[\\/]/, '' );
+		const isText = /^(?:application\/json|text\/)/i.test( resource.contentType );
+		const contentHash = isText ? '' : fileHash( source );
+		const relativePath = isText
+			? requestedPath
+			: assetPathsByHash.get( contentHash ) ??
+			  uniqueAssetPath( requestedPath, contentHash, assetHashesByPath );
 		const destination = resolve( websiteDir, relativePath );
 		const portablePath = `/${ relativePath.replace( /\\/g, '/' ) }`;
 		resourceReplacements.set( dependency.reference, portablePath );
 		resourceReplacements.set( dependency.url, portablePath );
+		if ( ! isText && assetPathsByHash.has( contentHash ) ) return true;
 		if ( copiedResources.has( resource.path ) ) return true;
 		if ( copyingResources.has( resource.path ) ) return true;
-		if (
-			! pathWithin( outputDir, source ) ||
-			! pathWithin( websiteDir, destination ) ||
-			! existsSync( source )
-		) {
+		if ( ! pathWithin( websiteDir, destination ) ) {
 			unresolvedDependencies.push( {
 				url: dependency.url,
 				sourceUrl,
@@ -871,7 +994,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 
 		mkdirSync( dirname( destination ), { recursive: true } );
 		copyingResources.add( resource.path );
-		if ( /^(?:application\/json|text\/)/i.test( resource.contentType ) ) {
+		if ( isText ) {
 			let content = replaceAll( readFileSync( source, 'utf8' ), mediaReplacements );
 			if ( /text\/css/i.test( resource.contentType ) ) {
 				for ( const nested of dependencyReferences(
@@ -888,6 +1011,8 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 			writeFileSync( destination, replaceAll( content, resourceReplacements ) );
 		} else {
 			copyFileSync( source, destination );
+			assetPathsByHash.set( contentHash, relativePath );
+			assetHashesByPath.set( relativePath, contentHash );
 		}
 		copyingResources.delete( resource.path );
 		copiedResources.add( resource.path );
@@ -909,6 +1034,50 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 						: removeDanglingResourceReference( entry.html, dependency.reference );
 			}
 		}
+	}
+
+	const inlineStyles = new Map< string, { css: string; media: string; count: number } >();
+	for ( const entry of retainedEntries ) {
+		for ( const match of entry.html.matchAll( /<style\b([^>]*)>([\s\S]*?)<\/style\s*>/gi ) ) {
+			const style = portableInlineStyle( match[ 1 ], match[ 2 ] );
+			if ( ! style ) continue;
+			const existing = inlineStyles.get( style.key );
+			inlineStyles.set( style.key, {
+				css: match[ 2 ],
+				media: style.media,
+				count: ( existing?.count ?? 0 ) + 1,
+			} );
+		}
+	}
+	const sharedStyles = new Map< string, { path: string; media: string } >();
+	for ( const [ key, style ] of inlineStyles ) {
+		if ( style.count < 2 ) continue;
+		const contentHash = createHash( 'sha256' ).update( key ).digest( 'hex' );
+		const relativePath = `assets/css/capture-${ contentHash.slice( 0, 16 ) }.css`;
+		const destination = join( websiteDir, relativePath );
+		mkdirSync( dirname( destination ), { recursive: true } );
+		writeFileSync( destination, style.css );
+		assets.push( {
+			sourceUrl: `${ options.sourceUrl }#inline-style-${ contentHash.slice( 0, 16 ) }`,
+			path: `website/${ relativePath }`,
+		} );
+		sharedStyles.set( key, { path: `/${ relativePath }`, media: style.media } );
+	}
+	for ( const entry of retainedEntries ) {
+		const linkedStyles = new Set< string >();
+		entry.html = entry.html.replace(
+			/<style\b([^>]*)>([\s\S]*?)<\/style\s*>/gi,
+			( tag, attributes: string, css: string ) => {
+				const style = portableInlineStyle( attributes, css );
+				const shared = style ? sharedStyles.get( style.key ) : undefined;
+				if ( ! shared ) return tag;
+				if ( linkedStyles.has( style!.key ) ) return '';
+				linkedStyles.add( style!.key );
+				return `<link rel="stylesheet" href="${ shared.path }"${
+					shared.media ? ` media="${ shared.media.replace( /"/g, '&quot;' ) }"` : ''
+				}>`;
+			}
+		);
 	}
 
 	const routes: Array< { url: string; path: string } > = [];

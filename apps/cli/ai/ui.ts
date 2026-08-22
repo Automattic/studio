@@ -48,7 +48,7 @@ import { buildOptionPickerLines } from 'cli/ai/option-picker';
 import { type AiOutputAdapter } from 'cli/ai/output-adapter';
 import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, type AiProviderId } from 'cli/ai/providers';
 import { getActiveSlashCommands } from 'cli/ai/slash-commands';
-import { initStudioTheme, theme } from 'cli/ai/theme';
+import { initStudioTheme, refineStudioTheme, theme } from 'cli/ai/theme';
 import { getToolRenderDefinition } from 'cli/ai/tool-render-definitions';
 import { formatToolOutputLines } from 'cli/ai/tool-result-renderers';
 import { getWpComSites } from 'cli/lib/api';
@@ -401,8 +401,8 @@ export class AiChatUI implements AiOutputAdapter {
 
 		this.loader = new Loader(
 			this.tui,
-			( str ) => theme.fg( 'warning', str ),
-			( str ) => theme.fg( 'warning', str ),
+			( str ) => theme.fg( 'accent', str ),
+			( str ) => theme.fg( 'accent', str ),
 			__( 'Thinking…' )
 		);
 		// @ts-expect-error -- frames is private but has no public API to customize
@@ -1091,6 +1091,11 @@ export class AiChatUI implements AiOutputAdapter {
 
 	start(): void {
 		this.tui.start();
+		void refineStudioTheme( this.tui ).then( ( changed ) => {
+			if ( changed ) {
+				this.tui.requestRender( true );
+			}
+		} );
 		// Logger progress and daemon-status updates can request renders while
 		// the TUI is stopped for an external prompt. pi-tui leaves that request
 		// pending, so force a fresh render when resuming.
@@ -1103,7 +1108,7 @@ export class AiChatUI implements AiOutputAdapter {
 		const home = process.env.HOME ?? process.env.USERPROFILE ?? '';
 		const displayCwd = home && cwd.startsWith( home ) ? '~' + cwd.slice( home.length ) : cwd;
 
-		const b = ( text: string ) => theme.fg( 'accent', text );
+		const b = ( text: string ) => `\x1b[38;2;56;88;233m${ text }\x1b[39m`;
 
 		// WordPress logo in block characters, widened to avoid vertical stretching in terminals.
 		const logoLines = [

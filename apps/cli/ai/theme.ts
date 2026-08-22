@@ -1,10 +1,33 @@
 import { initTheme, type Theme } from '@earendil-works/pi-coding-agent';
+import type { TUI } from '@earendil-works/pi-tui';
 
 const THEME_KEY = Symbol.for( '@earendil-works/pi-coding-agent:theme' );
 
-// pi resolves the light/dark theme from the terminal itself.
+let activeThemeName: 'light' | 'dark' | undefined;
+
+// Environment-based light/dark guess, synchronously, so the first render is
+// already close; `refineStudioTheme` corrects it by asking the terminal.
 export function initStudioTheme(): void {
 	initTheme();
+}
+
+// Mirrors pi's startup detection: query the terminal's reported color scheme,
+// fall back to its background color. Must run after the TUI has started.
+export async function refineStudioTheme( tui: TUI ): Promise< boolean > {
+	let detected = await tui.queryTerminalColorScheme( { timeoutMs: 100 } );
+	if ( ! detected ) {
+		const rgb = await tui.queryTerminalBackgroundColor( { timeoutMs: 100 } );
+		if ( rgb ) {
+			const luminance = ( 0.2126 * rgb.r + 0.7152 * rgb.g + 0.0722 * rgb.b ) / 255;
+			detected = luminance > 0.5 ? 'light' : 'dark';
+		}
+	}
+	if ( ! detected || detected === activeThemeName ) {
+		return false;
+	}
+	activeThemeName = detected;
+	initTheme( detected );
+	return true;
 }
 
 function active(): Theme | undefined {

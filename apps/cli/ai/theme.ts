@@ -5,10 +5,8 @@ const THEME_KEY = Symbol.for( '@earendil-works/pi-coding-agent:theme' );
 
 let activeThemeName: 'light' | 'dark' | undefined;
 
-// pi-tui can't repaint rows that scrolled out of its viewport, so a tool block
-// rendered while pending can leave stale pending-tinted rows in scrollback
-// once the result repaints it. Rendering pending with the success background
-// makes those stale rows invisible; errors keep their distinct tint.
+// Pending-tinted rows can be left stale in scrollback (pi-tui can't repaint
+// scrolled-out rows), so pending renders with the success background.
 function equalizePendingBackground(): void {
 	const current = active();
 	if ( ! current ) {
@@ -20,15 +18,14 @@ function equalizePendingBackground(): void {
 	( globalThis as Record< symbol, unknown > )[ THEME_KEY ] = studio;
 }
 
-// Environment-based light/dark guess, synchronously, so the first render is
-// already close; `refineStudioTheme` corrects it by asking the terminal.
+// Synchronous env-based light/dark guess; `refineStudioTheme` corrects it.
 export function initStudioTheme(): void {
 	initTheme();
 	equalizePendingBackground();
 }
 
-// Mirrors pi's startup detection: query the terminal's reported color scheme,
-// fall back to its background color. Must run after the TUI has started.
+// pi-style detection: ask the terminal for its color scheme, then its
+// background color. Must run after the TUI has started.
 export async function refineStudioTheme( tui: TUI ): Promise< boolean > {
 	let detected = await tui.queryTerminalColorScheme( { timeoutMs: 100 } );
 	if ( ! detected ) {
@@ -51,9 +48,8 @@ function active(): Theme | undefined {
 	return ( globalThis as Record< symbol, unknown > )[ THEME_KEY ] as Theme | undefined;
 }
 
-// Facade over pi's theme singleton, which isn't exported from the package
-// root. Resolves the instance per call and degrades to unstyled text when no
-// theme is initialized (headless runs, unit tests).
+// Facade over pi's theme singleton (not exported from the package root);
+// degrades to unstyled text when uninitialized (headless runs, tests).
 export const theme = {
 	fg: ( color: Parameters< Theme[ 'fg' ] >[ 0 ], text: string ) =>
 		active()?.fg( color, text ) ?? text,

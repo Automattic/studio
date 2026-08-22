@@ -129,9 +129,8 @@ function studioRenderDefinition( name: string ): ToolDefinition {
 	};
 }
 
-// pi's own coding tools keep pi's renderers (syntax-highlighted reads, diffs,
-// tail-biased bash previews); Studio tools render through the registry in
-// tool-result-renderers.ts. Keyed by the (renamed) tool names Studio registers.
+// pi's coding tools keep pi's renderers; Studio tools render through the
+// registry in tool-result-renderers.ts. Keyed by Studio's registered names.
 let definitions: Map< string, ToolDefinition > | null = null;
 
 export function getToolRenderDefinition( name: string ): ToolDefinition | undefined {

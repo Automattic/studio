@@ -533,8 +533,6 @@ async function createModelRuntime(
 		return modelRuntime;
 	}
 
-	// No catalog refresh: since pi 0.84 setRuntimeApiKey no longer fetches
-	// remote model catalogs (unused here anyway).
 	await modelRuntime.setRuntimeApiKey( family, creds.apiKey );
 	return modelRuntime;
 }

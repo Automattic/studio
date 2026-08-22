@@ -202,7 +202,8 @@ function omitUndefined( props: TracksProps ): TracksProps {
 }
 
 // Returns true if we attempted to record the event. Fire-and-forget, no-ops in E2E/dev like
-// `__bumpStat`.
+// `__bumpStat`. The timeout prevents an unreachable endpoint from keeping short-lived CLI processes
+// alive after their command has completed.
 export function __recordTracksEvent(
 	eventName: TracksEventName,
 	identity: TracksIdentity,
@@ -222,7 +223,7 @@ export function __recordTracksEvent(
 	}
 
 	// Fire and forget GET request (pixel).
-	fetch( url, { method: 'GET' } ).catch( () => {
+	fetch( url, { method: 'GET', signal: AbortSignal.timeout( 5_000 ) } ).catch( () => {
 		// A failed request typically indicates a network issue, which we don't need to report
 	} );
 

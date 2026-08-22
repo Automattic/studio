@@ -611,6 +611,38 @@ describe( 'AiChatUI.handleEvent', () => {
 		expect( betaDone ).toBeGreaterThan( betaProgress );
 	} );
 
+	it( 'collapses long progress to the last lines and expands on toggle', () => {
+		const { ui, messages } = makeRenderUi();
+
+		ui.handleEvent( {
+			type: 'message_end',
+			message: {
+				role: 'assistant',
+				content: [
+					{ type: 'toolCall', id: 'toolu_start', name: 'site_start', arguments: {} },
+				],
+			},
+		} );
+		for ( let i = 1; i <= 6; i++ ) {
+			ui.handleEvent( progressEvent( 'toolu_start', `step ${ i }` ) );
+		}
+
+		const collapsed = renderedContainerText( messages );
+		expect( collapsed ).toContain( 'step 6' );
+		expect( collapsed ).toContain( 'step 3' );
+		expect( collapsed ).not.toContain( 'step 2' );
+		expect( collapsed ).toContain( 'earlier lines' );
+
+		for ( const child of messages.children ) {
+			if ( child instanceof ToolExecutionComponent ) {
+				child.setExpanded( true );
+			}
+		}
+		const expanded = renderedContainerText( messages );
+		expect( expanded ).toContain( 'step 1' );
+		expect( expanded ).not.toContain( 'earlier lines' );
+	} );
+
 	it( 'renders a result at tool_execution_end without duplicating it at turn_end', () => {
 		const { ui, messages } = makeRenderUi( 1000 );
 

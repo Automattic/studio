@@ -13,6 +13,7 @@ import { Text } from '@earendil-works/pi-tui';
 import { stripMediaWidgetPayloadLines } from '@studio/common/ai/chat-artifacts';
 import { getStudioToolProgress } from '@studio/common/ai/tool-progress';
 import { getToolDetail, getToolDisplayName } from '@studio/common/ai/tools';
+import { __, sprintf } from '@wordpress/i18n';
 import { Type } from 'typebox';
 import { theme } from 'cli/ai/theme';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
@@ -24,6 +25,29 @@ import {
 
 interface StudioRenderState {
 	progressLines: string[];
+}
+
+const PROGRESS_PREVIEW_LINES = 4;
+
+function renderProgressBlock( lines: string[], expanded: boolean ): string {
+	if ( ! lines.length ) {
+		return '';
+	}
+	let shown = lines;
+	const hidden = lines.length - PROGRESS_PREVIEW_LINES;
+	const display: string[] = [];
+	if ( ! expanded && hidden > 0 ) {
+		shown = lines.slice( -PROGRESS_PREVIEW_LINES );
+		display.push(
+			sprintf(
+				/* translators: %d: number of hidden progress lines */
+				__( '... (%d earlier lines · ctrl+o to expand)' ),
+				hidden
+			)
+		);
+	}
+	display.push( ...shown );
+	return '\n' + formatToolOutputLines( display.map( ( l ) => theme.fg( 'muted', l ) ) );
 }
 
 function textContent( content: Array< { type: string; text?: string } > ): string {
@@ -71,14 +95,7 @@ function renderStudioResult( name: string ) {
 					state.progressLines.push( progress.message );
 				}
 			}
-			return new Text(
-				state.progressLines.length
-					? '\n' +
-					  formatToolOutputLines( state.progressLines.map( ( l ) => theme.fg( 'muted', l ) ) )
-					: '',
-				0,
-				0
-			);
+			return new Text( renderProgressBlock( state.progressLines, options.expanded ), 0, 0 );
 		}
 
 		const text = textContent( result.content );
@@ -90,9 +107,7 @@ function renderStudioResult( name: string ) {
 				options.expanded
 			) ?? ( text ? renderGenericToolResult( text, options.expanded ) : null );
 
-		const progress = state.progressLines.length
-			? '\n' + formatToolOutputLines( state.progressLines.map( ( l ) => theme.fg( 'muted', l ) ) )
-			: '';
+		const progress = renderProgressBlock( state.progressLines, options.expanded );
 		return new Text( progress + ( rendered ? '\n' + rendered : '' ), 0, 0 );
 	};
 }

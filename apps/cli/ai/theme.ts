@@ -5,10 +5,26 @@ const THEME_KEY = Symbol.for( '@earendil-works/pi-coding-agent:theme' );
 
 let activeThemeName: 'light' | 'dark' | undefined;
 
+// pi-tui can't repaint rows that scrolled out of its viewport, so a tool block
+// rendered while pending can leave stale pending-tinted rows in scrollback
+// once the result repaints it. Rendering pending with the success background
+// makes those stale rows invisible; errors keep their distinct tint.
+function equalizePendingBackground(): void {
+	const current = active();
+	if ( ! current ) {
+		return;
+	}
+	const studio = Object.create( current ) as Theme;
+	studio.bg = ( color, text ) =>
+		current.bg( color === 'toolPendingBg' ? 'toolSuccessBg' : color, text );
+	( globalThis as Record< symbol, unknown > )[ THEME_KEY ] = studio;
+}
+
 // Environment-based light/dark guess, synchronously, so the first render is
 // already close; `refineStudioTheme` corrects it by asking the terminal.
 export function initStudioTheme(): void {
 	initTheme();
+	equalizePendingBackground();
 }
 
 // Mirrors pi's startup detection: query the terminal's reported color scheme,
@@ -27,6 +43,7 @@ export async function refineStudioTheme( tui: TUI ): Promise< boolean > {
 	}
 	activeThemeName = detected;
 	initTheme( detected );
+	equalizePendingBackground();
 	return true;
 }
 

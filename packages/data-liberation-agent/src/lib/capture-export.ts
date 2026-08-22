@@ -575,7 +575,7 @@ function dependencyReferences(
 		/\burl\(\s*(?:["']([^"']+)["']|([^\s)'";]+))\s*\)/gi
 	) ) {
 		const reference = match[ 1 ] ?? match[ 2 ];
-		if ( reference && ! reference.startsWith( 'data:' ) ) {
+		if ( reference && ! reference.startsWith( 'data:' ) && ! reference.startsWith( '#' ) ) {
 			cssReferences.add( reference.replace( /&amp;/g, '&' ) );
 			add( reference );
 		}

@@ -846,11 +846,29 @@ async function runStaticSiteImport(
 			[ 'eval-file', `${ path.basename( stagingDir ) }/${ scriptName }` ],
 			liveOutput ? { liveOutput, onLiveOutput: () => logger.spinner.stop() } : {}
 		);
-		const [ exitCode, stdout, stderr ] = await Promise.all( [
-			command.response.exitCode,
-			command.response.stdoutText,
-			command.response.stderrText,
-		] );
+		const startedAt = Date.now();
+		const progressTimer = setInterval( () => {
+			const elapsedMinutes = Math.max( 1, Math.floor( ( Date.now() - startedAt ) / 60_000 ) );
+			logger.reportProgress(
+				sprintf(
+					__( 'Importing static site… invocation %1$d, %2$d min elapsed' ),
+					invocation,
+					elapsedMinutes
+				)
+			);
+		}, 60_000 );
+		let exitCode: number;
+		let stdout: string;
+		let stderr: string;
+		try {
+			[ exitCode, stdout, stderr ] = await Promise.all( [
+				command.response.exitCode,
+				command.response.stdoutText,
+				command.response.stderrText,
+			] );
+		} finally {
+			clearInterval( progressTimer );
+		}
 		if ( exitCode !== 0 ) {
 			throw new LoggerError(
 				__( 'Static site import failed.' ),

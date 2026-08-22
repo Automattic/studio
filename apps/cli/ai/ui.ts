@@ -1823,6 +1823,11 @@ export class AiChatUI implements AiOutputAdapter {
 
 				for ( const block of message.content ) {
 					if ( block.type === 'text' ) {
+						// Models sometimes emit an empty text block before going
+						// straight to tools; rendering it would show a bare ⏺.
+						if ( ! block.text.trim() ) {
+							continue;
+						}
 						this.hideLoader();
 						if ( ! this.currentMarkdown ) {
 							this.currentResponseText = '';

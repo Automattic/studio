@@ -1,10 +1,10 @@
 import { buildChatAttachmentSummaries } from '@studio/common/ai/chat-attachments';
-import { getStudioToolProgress } from '@studio/common/ai/tool-progress';
 import {
 	getAgentEndFailure,
 	isOutOfCreditsError,
 	isUsageCapError,
 } from '@studio/common/ai/json-events';
+import { getStudioToolProgress } from '@studio/common/ai/tool-progress';
 import {
 	formatOutOfCreditsNotice,
 	formatUsageCapNotice,

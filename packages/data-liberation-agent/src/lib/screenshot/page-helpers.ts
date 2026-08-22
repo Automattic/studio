@@ -316,7 +316,10 @@ export function selectOverlayTargets(d: OverlayDetection): OverlayTarget[] {
     // of the viewport — so a small age-gate dialog is still caught while a thin
     // sticky header (no modal role, tiny coverage) is not.
     const hasModalRole = c.ariaModal || c.role === 'dialog' || c.role === 'alertdialog';
-    if (score >= OVERLAY_THRESHOLD && (hasModalRole || c.coverageRatio >= 0.15)) {
+    const hasOverlayEvidence =
+      hasModalRole || c.hasCloseAffordance || c.vendorHint ||
+      (c.hasBackdrop && c.coverageRatio >= 0.15);
+    if (score >= OVERLAY_THRESHOLD && hasOverlayEvidence) {
       takeovers.push({
         idx: c.idx, kind: 'takeover', score, signals,
         selector: c.selector, hasCloseAffordance: c.hasCloseAffordance,

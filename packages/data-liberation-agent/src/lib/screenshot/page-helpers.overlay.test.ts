@@ -178,6 +178,14 @@ describe('selectOverlayTargets', () => {
     expect(targets).toHaveLength(1);
     expect(targets[0].kind).toBe('takeover');
   });
+
+  it('keeps a full-screen application canvas when the page intentionally disables scrolling', () => {
+    const detection: OverlayDetection = {
+      scrollLock: { active: true },
+      candidates: [benign({ idx: 0, selector: 'canvas#canvas', coverageRatio: 1 })],
+    };
+    expect(selectOverlayTargets(detection)).toEqual([]);
+  });
 });
 
 // A scroll-locking newsletter modal with a working close button, a backdrop, and
@@ -233,6 +241,20 @@ describe('dismissOverlays — Tier 1 graceful close (Playwright)', () => {
     await page.setContent('<!doctype html><body><main style="height:2000px">plain</main></body>');
     try {
       expect(await dismissOverlays(page)).toEqual([]);
+    } finally {
+      await page.close();
+    }
+  });
+
+  it('preserves a full-viewport application canvas on a scroll-locked page', async () => {
+    const page = await browser.newPage();
+    await page.setContent(`<!doctype html><html><head><style>
+      body { margin: 0; overflow: hidden; }
+      #canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; }
+    </style></head><body><canvas id="canvas"></canvas><main>Application</main></body></html>`);
+    try {
+      expect(await dismissOverlays(page)).toEqual([]);
+      expect(await page.locator('#canvas').count()).toBe(1);
     } finally {
       await page.close();
     }

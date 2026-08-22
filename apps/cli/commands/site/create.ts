@@ -400,6 +400,9 @@ $input = array(
 	'site_title'      => ${ phpString( siteName ) },
 	'activate'        => true,
 	'overwrite'       => true,
+	'client_script_policy' => 'isolated_preview',
+	'client_script_isolated' => true,
+	'client_script_provenance' => array( 'ref' => 'studio-create-from:sha256:' . hash( 'sha256', (string) wp_json_encode( $source ) ) ),
 	'source_metadata' => array(
 		'source'      => 'studio-create-from',
 		'source_path' => ${ phpString( sourcePath ) },

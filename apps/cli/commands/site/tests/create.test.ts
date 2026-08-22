@@ -583,6 +583,13 @@ describe( 'CLI: studio site create', () => {
 			expect( blueprint.staticSiteImport.code ).toContain(
 				"$input['require_proven_dynamic_client_assets'] = false;"
 			);
+			expect( blueprint.staticSiteImport.code ).toContain(
+				"'client_script_policy' => 'isolated_preview'"
+			);
+			expect( blueprint.staticSiteImport.code ).toContain( "'client_script_isolated' => true" );
+			expect( blueprint.staticSiteImport.code ).toContain(
+				"'studio-create-from:sha256:' . hash( 'sha256', (string) wp_json_encode( $source ) )"
+			);
 		} );
 
 		it( 'should build a Blueprint that imports a static site artifact through Static Site Importer', () => {

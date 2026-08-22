@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import {
 	copyFileSync,
 	closeSync,
@@ -10,14 +11,13 @@ import {
 	statSync,
 	writeFileSync,
 } from 'node:fs';
-import { createHash } from 'node:crypto';
 import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path';
 import * as cheerio from 'cheerio';
 import { scopeCss } from './replicate/css-scope.js';
 import { MediaStubStore } from './resume-state/index.js';
 import { rewriteMediaUrls } from './streaming/media-url-rewrite.js';
-import type { CapturedResourceManifest } from './screenshot/resource-capture.js';
 import type { InteractionStatesReport } from './screenshot/interaction-capture.js';
+import type { CapturedResourceManifest } from './screenshot/resource-capture.js';
 
 export const CAPTURE_RECEIPT_SCHEMA = 'data-liberation/capture-receipt/v1';
 export const WEBSITE_ARTIFACT_SCHEMA = 'blocks-engine/php-transformer/site-artifact/v1';
@@ -161,9 +161,9 @@ function renderedHtml( html: string ): string {
 	$( 'img[src],img[srcset]' ).each( ( _index, element ) => {
 		const node = $( element );
 		const source = `${ node.attr( 'src' ) ?? '' },${ node.attr( 'srcset' ) ?? '' }`;
-		const alignment = /(?:^|[,/])al_(tl|tc|tr|bl|bc|br|t|b|l|c|r)(?=[,/]|$)/i.exec(
-			source
-		)?.[ 1 ]?.toLowerCase();
+		const alignment = /(?:^|[,/])al_(tl|tc|tr|bl|bc|br|t|b|l|c|r)(?=[,/]|$)/i
+			.exec( source )?.[ 1 ]
+			?.toLowerCase();
 		if ( ! alignment ) return;
 		const positions: Record< string, string > = {
 			tl: 'left top',
@@ -355,6 +355,19 @@ function scopedStyles( html: string, media: string ): string {
 function responsiveBodySignature( body: string ): string {
 	const $ = cheerio.load( `<body>${ body }</body>` );
 	$( 'script,style,noscript' ).remove();
+	$( 'canvas' ).removeAttr( 'width' ).removeAttr( 'height' );
+	$( '[id]' ).each( ( _index, element ) => {
+		$( element )
+			.contents()
+			.each( ( _childIndex, child ) => {
+				if ( child.type === 'text' ) child.data = '';
+			} );
+	} );
+	$( '*' )
+		.contents()
+		.each( ( _index, child ) => {
+			if ( child.type === 'comment' ) $( child ).remove();
+		} );
 	$( '*' ).each( ( _index, element ) => {
 		const node = $( element );
 		for ( const attribute of Object.keys( 'attribs' in element ? element.attribs : {} ) ) {
@@ -580,6 +593,46 @@ function capturedResources( outputDir: string ): CapturedResourceManifest {
 			failures: [ { url: manifestPath, error: 'captured resource manifest is invalid' } ],
 		};
 	}
+}
+
+function portableResourcePath( path: string, contentType: string ): string | undefined {
+	const requestedPath = path.replace( /^resources[\\/]/, '' );
+	if ( extname( basename( requestedPath ) ) ) return requestedPath;
+
+	const extension =
+		{
+			'application/ecmascript': '.js',
+			'application/javascript': '.js',
+			'application/json': '.json',
+			'application/ld+json': '.json',
+			'application/pdf': '.pdf',
+			'application/xml': '.xml',
+			'application/wasm': '.wasm',
+			'audio/mpeg': '.mp3',
+			'audio/ogg': '.ogg',
+			'audio/wav': '.wav',
+			'font/otf': '.otf',
+			'font/ttf': '.ttf',
+			'font/woff': '.woff',
+			'font/woff2': '.woff2',
+			'image/avif': '.avif',
+			'image/gif': '.gif',
+			'image/jpeg': '.jpg',
+			'image/png': '.png',
+			'image/svg+xml': '.svg',
+			'image/webp': '.webp',
+			'text/css': '.css',
+			'text/ecmascript': '.js',
+			'text/html': '.html',
+			'text/javascript': '.js',
+			'text/plain': '.txt',
+			'text/xml': '.xml',
+			'video/mp4': '.mp4',
+			'video/ogg': '.ogg',
+			'video/webm': '.webm',
+		}[ contentType.toLowerCase().split( ';', 1 )[ 0 ].trim() ] ?? '';
+
+	return extension ? `${ requestedPath }${ extension }` : undefined;
 }
 
 function dependencyReferences(
@@ -1006,7 +1059,17 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 			} );
 			return false;
 		}
-		const requestedPath = resource.path.replace( /^resources[\\/]/, '' );
+		const requestedPath = portableResourcePath( resource.path, resource.contentType );
+		if ( ! requestedPath ) {
+			unresolvedDependencies.push( {
+				url: dependency.url,
+				sourceUrl,
+				error: `captured dependency has no portable extension for ${
+					resource.contentType || 'unknown content type'
+				}`,
+			} );
+			return false;
+		}
 		const isText = /^(?:application\/json|text\/)/i.test( resource.contentType );
 		const contentHash = isText ? '' : fileHash( source );
 		const relativePath = isText
@@ -1137,7 +1200,10 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		if ( ! canonicalUrl ) continue;
 		const canonicalKey = normalizedUrl( canonicalUrl );
 		if ( portableRouteLinks.has( canonicalKey ) ) continue;
-		const routePath = routeOutputPath( url, options.sourceUrl, entrypointUrl ).replace( /\\/g, '/' );
+		const routePath = routeOutputPath( url, options.sourceUrl, entrypointUrl ).replace(
+			/\\/g,
+			'/'
+		);
 		portableRouteLinks.set( canonicalKey, `/${ routePath }` );
 	}
 
@@ -1168,7 +1234,8 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		candidate_count: interactionStates.length,
 		captured_count: interactionStates.filter( ( state ) => state.status === 'captured' ).length,
 		no_dialog_count: interactionStates.filter( ( state ) => state.status === 'no-dialog' ).length,
-		click_failed_count: interactionStates.filter( ( state ) => state.status === 'click-failed' ).length,
+		click_failed_count: interactionStates.filter( ( state ) => state.status === 'click-failed' )
+			.length,
 		truncated_count: interactionStates.filter(
 			( state ) => state.status === 'captured' && state.dialog?.htmlTruncated
 		).length,

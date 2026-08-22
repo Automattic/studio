@@ -52,11 +52,27 @@ describe( 'exportWebsiteCapture', () => {
 							sourceUrl: 'https://example.com/shop/',
 							viewport: { width: 1440, height: 900 },
 							capturedAt: '2026-08-22T00:00:00.000Z',
-							states: [ {
-								status: 'captured',
-								trigger: { selector: '#contact', tag: 'button', ariaHaspopup: 'dialog', dataBindings: { 'data-modalid': 'contact' } },
-								dialog: { selector: '#contact-dialog', tag: 'div', id: 'contact-dialog', role: 'dialog', ariaModal: true, html: '<div id="contact-dialog" role="dialog"><form><input name="email"></form></div>', htmlBytes: 83, htmlTruncated: false },
-							} ],
+							states: [
+								{
+									status: 'captured',
+									trigger: {
+										selector: '#contact',
+										tag: 'button',
+										ariaHaspopup: 'dialog',
+										dataBindings: { 'data-modalid': 'contact' },
+									},
+									dialog: {
+										selector: '#contact-dialog',
+										tag: 'div',
+										id: 'contact-dialog',
+										role: 'dialog',
+										ariaModal: true,
+										html: '<div id="contact-dialog" role="dialog"><form><input name="email"></form></div>',
+										htmlBytes: 83,
+										htmlTruncated: false,
+									},
+								},
+							],
 						},
 					},
 					'https://example.com/shop/about': { html: 'html/about.html' },
@@ -226,7 +242,8 @@ describe( 'exportWebsiteCapture', () => {
 		const artifact = JSON.parse( readFileSync( join( outputDir, 'artifact.json' ), 'utf8' ) );
 		expect( artifact.reports ).toContain( 'interaction-states.json' );
 		const interactionReport = JSON.parse(
-			artifact.files.find( ( file: { path: string } ) => file.path === 'interaction-states.json' ).content
+			artifact.files.find( ( file: { path: string } ) => file.path === 'interaction-states.json' )
+				.content
 		);
 		expect( interactionReport ).toMatchObject( {
 			schema: CAPTURED_INTERACTIONS_SCHEMA,
@@ -284,11 +301,11 @@ describe( 'exportWebsiteCapture', () => {
 		mkdirSync( join( outputDir, 'screenshots' ), { recursive: true } );
 		writeFileSync(
 			join( outputDir, 'html', 'homepage.html' ),
-			'<!doctype html><html><head></head><body><main class="desktop" style="width:900px"><img src="/hero-large.jpg"><h1>Home</h1></main></body></html>'
+			'<!doctype html><html><head></head><body><!-- desktop note --><canvas id="canvas" width="1440" height="900"></canvas><main class="desktop" style="width:900px"><img src="/hero-large.jpg"><h1>Home</h1><p id="runtime-status">Ready</p></main></body></html>'
 		);
 		writeFileSync(
 			join( outputDir, 'html-mobile', 'homepage.html' ),
-			'<!doctype html><html><head></head><body><main class="mobile" style="width:390px"><img src="/hero-small.jpg"><h1>Home</h1><div class="runtime-mount"></div></main></body></html>'
+			'<!doctype html><html><head></head><body><canvas id="canvas" width="390" height="844"></canvas><main class="mobile" style="width:390px"><img src="/hero-small.jpg"><h1>Home</h1><p id="runtime-status">Synchronizing...</p><div class="runtime-mount"></div></main></body></html>'
 		);
 		writeFileSync(
 			join( outputDir, 'screenshots', 'manifest.json' ),
@@ -310,6 +327,7 @@ describe( 'exportWebsiteCapture', () => {
 		expect( html ).not.toContain( 'data-liberation-mobile-document' );
 		expect( html ).toContain( 'class="desktop"' );
 		expect( html ).not.toContain( 'class="mobile"' );
+		expect( html ).toContain( '<canvas id="canvas" width="1440" height="900"></canvas>' );
 	} );
 
 	it( 'shares identical responsive styles when both authoring bodies are required', () => {
@@ -535,11 +553,12 @@ describe( 'exportWebsiteCapture', () => {
 		mkdirSync( join( outputDir, 'resources', '_json' ), { recursive: true } );
 		mkdirSync( join( outputDir, 'resources', '_fonts' ), { recursive: true } );
 		mkdirSync( join( outputDir, 'resources', '_videos' ), { recursive: true } );
+		mkdirSync( join( outputDir, 'resources', '.netlify', 'scripts' ), { recursive: true } );
 		mkdirSync( join( outputDir, 'resources', 'assets', 'css' ), { recursive: true } );
 		mkdirSync( join( outputDir, 'resources', 'assets', 'images' ), { recursive: true } );
 		writeFileSync(
 			join( outputDir, 'html', 'homepage.html' ),
-			'<img src="https://example.com/hero.png"><img src="/assets/images/mobile-only.webp" srcset="/assets/images/mobile-only.webp 390w"><link rel="stylesheet" href="/assets/css/site.css"><link rel="preload" href="/_runtimes/site.js" as="script"><link rel="preload" href="/_json/site.json" as="fetch"><link rel="preload" href="/_json/missing.json" as="fetch"><style>@font-face{src:url("/_fonts/site.woff2")}@font-face{src:url("/_fonts/missing.woff2")}.hero{background:url(&quot;/assets/images/missing-background.webp&quot;)}</style><video><source src="/_videos/hero"></video><video><source src="/_videos/missing"></video><script src="/_runtimes/site.js" defer></script><script src="/_runtimes/missing-script.js" defer></script><script type="module">import { Site } from "/_runtimes/site.js"; import "/_runtimes/missing.js";</script>'
+			'<img src="https://example.com/hero.png"><img src="/assets/images/mobile-only.webp" srcset="/assets/images/mobile-only.webp 390w"><link rel="stylesheet" href="/assets/css/site.css"><link rel="preload" href="/_runtimes/site.js" as="script"><link rel="preload" href="/_json/site.json" as="fetch"><link rel="preload" href="/_json/missing.json" as="fetch"><style>@font-face{src:url("/_fonts/site.woff2")}@font-face{src:url("/_fonts/missing.woff2")}.hero{background:url(&quot;/assets/images/missing-background.webp&quot;)}</style><video><source src="/_videos/hero"></video><video><source src="/_videos/missing"></video><script src="/_runtimes/site.js" defer></script><script src="/.netlify/scripts/rum" async></script><script src="/_runtimes/missing-script.js" defer></script><script type="module">import { Site } from "/_runtimes/site.js"; import "/_runtimes/missing.js";</script>'
 		);
 		writeFileSync( join( outputDir, 'media', 'hero.png' ), 'png' );
 		writeFileSync( join( outputDir, 'resources', '_runtimes', 'site.js' ), 'export class Site {}' );
@@ -549,6 +568,7 @@ describe( 'exportWebsiteCapture', () => {
 		);
 		writeFileSync( join( outputDir, 'resources', '_fonts', 'site.woff2' ), 'font' );
 		writeFileSync( join( outputDir, 'resources', '_videos', 'hero.mp4' ), 'video' );
+		writeFileSync( join( outputDir, 'resources', '.netlify', 'scripts', 'rum' ), 'rum();' );
 		writeFileSync(
 			join( outputDir, 'resources', 'assets', 'css', 'site.css' ),
 			'.hero{background:url("../images/hero.webp")}.missing{background:url("../images/missing.webp")}'
@@ -578,6 +598,10 @@ describe( 'exportWebsiteCapture', () => {
 					'https://example.com/_videos/hero': {
 						path: 'resources/_videos/hero.mp4',
 						contentType: 'video/mp4',
+					},
+					'https://example.com/.netlify/scripts/rum': {
+						path: 'resources/.netlify/scripts/rum',
+						contentType: 'application/javascript; charset=UTF-8',
 					},
 					'https://example.com/assets/css/site.css': {
 						path: 'resources/assets/css/site.css',
@@ -620,6 +644,16 @@ describe( 'exportWebsiteCapture', () => {
 			sourceUrl: 'https://example.com/_runtimes/site.js',
 			path: 'website/_runtimes/site.js',
 		} );
+		expect( receipt.assets ).toContainEqual( {
+			sourceUrl: 'https://example.com/.netlify/scripts/rum',
+			path: 'website/.netlify/scripts/rum.js',
+		} );
+		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).toContain(
+			'src="/.netlify/scripts/rum.js"'
+		);
+		expect(
+			readFileSync( join( outputDir, 'website', '.netlify', 'scripts', 'rum.js' ), 'utf8' )
+		).toBe( 'rum();' );
 		expect( readFileSync( join( outputDir, 'website', '_runtimes', 'site.js' ), 'utf8' ) ).toBe(
 			'export class Site {}'
 		);

@@ -13,8 +13,8 @@ import { Text } from '@earendil-works/pi-tui';
 import { stripMediaWidgetPayloadLines } from '@studio/common/ai/chat-artifacts';
 import { getStudioToolProgress } from '@studio/common/ai/tool-progress';
 import { getToolDetail, getToolDisplayName } from '@studio/common/ai/tools';
-import chalk from '@studio/common/lib/chalk';
 import { Type } from 'typebox';
+import { theme } from 'cli/ai/theme';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import {
 	formatToolOutputLines,
@@ -73,7 +73,8 @@ function renderStudioResult( name: string ) {
 			}
 			return new Text(
 				state.progressLines.length
-					? '\n' + formatToolOutputLines( state.progressLines.map( ( l ) => chalk.dim( l ) ) )
+					? '\n' +
+					  formatToolOutputLines( state.progressLines.map( ( l ) => theme.fg( 'muted', l ) ) )
 					: '',
 				0,
 				0
@@ -90,7 +91,7 @@ function renderStudioResult( name: string ) {
 			) ?? ( text ? renderGenericToolResult( text, options.expanded ) : null );
 
 		const progress = state.progressLines.length
-			? '\n' + formatToolOutputLines( state.progressLines.map( ( l ) => chalk.dim( l ) ) )
+			? '\n' + formatToolOutputLines( state.progressLines.map( ( l ) => theme.fg( 'muted', l ) ) )
 			: '';
 		return new Text( progress + ( rendered ? '\n' + rendered : '' ), 0, 0 );
 	};

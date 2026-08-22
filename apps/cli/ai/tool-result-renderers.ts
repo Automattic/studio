@@ -1,12 +1,14 @@
-import chalk from '@studio/common/lib/chalk';
 import { __, _n, sprintf } from '@wordpress/i18n';
+import { theme } from 'cli/ai/theme';
 
 const COLLAPSE_THRESHOLD_LINES = 5;
 const DEFAULT_DETAIL_MAX_LENGTH = 4000;
 
 export function formatToolOutputLines( lines: string[] ): string {
 	return lines
-		.map( ( line, index ) => `${ index === 0 ? '   ' + chalk.dim( '⎿ ' ) : '     ' }${ line }` )
+		.map(
+			( line, index ) => `${ index === 0 ? '   ' + theme.fg( 'muted', '⎿ ' ) : '     ' }${ line }`
+		)
 		.join( '\n' );
 }
 
@@ -96,7 +98,8 @@ function headPreview( lines: string[], expanded: boolean ): string {
 	return (
 		formatToolOutputLines( lines.slice( 0, COLLAPSE_THRESHOLD_LINES ) ) +
 		'\n     ' +
-		chalk.dim(
+		theme.fg(
+			'muted',
 			sprintf(
 				/* translators: %d: number of hidden lines */
 				__( '... %d more lines · ctrl+o to expand' ),
@@ -114,10 +117,10 @@ function summaryWithDetail(
 	options: { isError?: boolean; maxLength?: number } = {}
 ): string {
 	const styledSummary = summaryLines.map( ( line ) =>
-		options.isError ? chalk.red( line ) : chalk.dim( line )
+		options.isError ? theme.fg( 'error', line ) : theme.fg( 'muted', line )
 	);
 	if ( ! expanded ) {
-		return formatToolOutputLines( [ ...styledSummary, chalk.dim( detailLabel ) ] );
+		return formatToolOutputLines( [ ...styledSummary, theme.fg( 'muted', detailLabel ) ] );
 	}
 	const maxLength = options.maxLength ?? DEFAULT_DETAIL_MAX_LENGTH;
 	const truncated =
@@ -126,7 +129,7 @@ function summaryWithDetail(
 			: detailText;
 	return formatToolOutputLines( [
 		...styledSummary,
-		...truncated.split( '\n' ).map( ( line ) => chalk.dim( line ) ),
+		...truncated.split( '\n' ).map( ( line ) => theme.fg( 'muted', line ) ),
 	] );
 }
 
@@ -137,7 +140,7 @@ export function renderGenericToolResult(
 ): string {
 	const truncated = text.length > maxLength ? text.slice( 0, maxLength ) + '…' : text;
 	return headPreview(
-		truncated.split( '\n' ).map( ( line ) => chalk.dim( line ) ),
+		truncated.split( '\n' ).map( ( line ) => theme.fg( 'muted', line ) ),
 		expanded
 	);
 }

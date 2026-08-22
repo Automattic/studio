@@ -31,7 +31,6 @@ import { isOutOfCreditsError, isUsageCapError } from '@studio/common/ai/json-eve
 import { DEFAULT_MODEL, getAiModelLabel, type AiModelId } from '@studio/common/ai/models';
 import { findLastAssistant } from '@studio/common/ai/session-events';
 import { randomThinkingMessage } from '@studio/common/ai/thinking-messages';
-import chalk from '@studio/common/lib/chalk';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import {
 	ADD_AI_CREDITS_URL,
@@ -49,7 +48,7 @@ import { buildOptionPickerLines } from 'cli/ai/option-picker';
 import { type AiOutputAdapter } from 'cli/ai/output-adapter';
 import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, type AiProviderId } from 'cli/ai/providers';
 import { getActiveSlashCommands } from 'cli/ai/slash-commands';
-import { initStudioTheme } from 'cli/ai/theme';
+import { initStudioTheme, theme } from 'cli/ai/theme';
 import { getToolRenderDefinition } from 'cli/ai/tool-render-definitions';
 import { formatToolOutputLines } from 'cli/ai/tool-result-renderers';
 import { getWpComSites } from 'cli/lib/api';
@@ -67,11 +66,11 @@ const SITE_PICKER_TAB_REMOTE = 'remote' as const;
 type SitePickerTab = typeof SITE_PICKER_TAB_LOCAL | typeof SITE_PICKER_TAB_REMOTE;
 
 const sitePickerTheme: SelectListTheme = {
-	selectedPrefix: ( text ) => chalk.blue( text ),
-	selectedText: ( text ) => chalk.bold( text ),
-	description: ( text ) => chalk.dim( text ),
-	scrollInfo: ( text ) => chalk.dim( text ),
-	noMatch: ( text ) => chalk.dim( text ),
+	selectedPrefix: ( text ) => theme.fg( 'accent', text ),
+	selectedText: ( text ) => theme.bold( text ),
+	description: ( text ) => theme.fg( 'muted', text ),
+	scrollInfo: ( text ) => theme.fg( 'muted', text ),
+	noMatch: ( text ) => theme.fg( 'muted', text ),
 };
 
 // Faint variant of the user bubble used by `addUserMessage`, for prompts that
@@ -81,7 +80,7 @@ function formatQueuedPrompt( text: string ): string {
 	return lines
 		.map( ( line, i ) => {
 			const body = i === 0 ? '↳ ' + line + ' ' : '  ' + line + ' ';
-			return ' ' + chalk.bgHex( '#e8eef5' ).hex( '#5a6b7d' )( body );
+			return ' ' + theme.bg( 'userMessageBg', theme.fg( 'muted', body ) );
 		} )
 		.join( '\n' );
 }
@@ -142,7 +141,7 @@ class PromptEditor implements Component, Focusable {
 	}
 
 	render( width: number ): string[] {
-		const promptPrefix = ' ' + chalk.bold( '〉' );
+		const promptPrefix = ' ' + theme.bold( '〉' );
 		const promptWidth = 3; // space + 〉(2 cols)
 		const innerWidth = Math.max( 1, width - promptWidth );
 		const lines = this.editor.render( innerWidth );
@@ -175,7 +174,7 @@ class PromptEditor implements Component, Focusable {
 					return (
 						' ' +
 						bc( '─'.repeat( leading ) ) +
-						chalk.hex( '#8839ef' )( label ) +
+						theme.fg( 'accent', label ) +
 						bc( '─'.repeat( trailing ) )
 					);
 				}
@@ -208,17 +207,18 @@ class PromptEditor implements Component, Focusable {
 			: this.hints.filter( ( h ) => h !== __( '↓ select site' ) );
 		const leftPart =
 			activeHints.length > 0
-				? ' ' + activeHints.map( ( h ) => chalk.dim( h ) ).join( chalk.dim( ' · ' ) )
+				? ' ' +
+				  activeHints.map( ( h ) => theme.fg( 'muted', h ) ).join( theme.fg( 'muted', ' · ' ) )
 				: '';
 		const rightSegments: string[] = [];
 		if ( this.daemonStatusMessage ) {
-			rightSegments.push( chalk.green( this.daemonStatusMessage ) );
+			rightSegments.push( theme.fg( 'success', this.daemonStatusMessage ) );
 		}
 		if ( this.statusMessage ) {
-			rightSegments.push( chalk.dim( this.statusMessage ) );
+			rightSegments.push( theme.fg( 'muted', this.statusMessage ) );
 		}
 		const rightPart =
-			rightSegments.length > 0 ? rightSegments.join( chalk.dim( ' · ' ) ) + ' ' : '';
+			rightSegments.length > 0 ? rightSegments.join( theme.fg( 'muted', ' · ' ) ) + ' ' : '';
 		if ( leftPart || rightPart ) {
 			const leftLen = visibleWidth( leftPart );
 			const rightLen = visibleWidth( rightPart );
@@ -231,13 +231,13 @@ class PromptEditor implements Component, Focusable {
 }
 
 const editorTheme: EditorTheme = {
-	borderColor: ( text ) => chalk.white( text ),
+	borderColor: ( text ) => theme.fg( 'border', text ),
 	selectList: {
-		selectedPrefix: ( text ) => chalk.cyan( text ),
-		selectedText: ( text ) => chalk.bold( text ),
+		selectedPrefix: ( text ) => theme.fg( 'accent', text ),
+		selectedText: ( text ) => theme.bold( text ),
 		description: ( text ) => dimUnhighlighted( text ),
-		scrollInfo: ( text ) => chalk.dim( text ),
-		noMatch: ( text ) => chalk.dim( text ),
+		scrollInfo: ( text ) => theme.fg( 'muted', text ),
+		noMatch: ( text ) => theme.fg( 'muted', text ),
 	},
 };
 
@@ -288,11 +288,11 @@ export class AiChatUI implements AiOutputAdapter {
 	private optionPickerQuestion = '';
 	private static readonly OTHER_VALUE = '__other__';
 	private static readonly OPTION_PICKER_THEME: SelectListTheme = {
-		selectedPrefix: ( text: string ) => chalk.blue( text ),
-		selectedText: ( text: string ) => chalk.blue( text ),
-		description: ( text: string ) => chalk.dim( text ),
-		scrollInfo: ( text: string ) => chalk.dim( text ),
-		noMatch: ( text: string ) => chalk.dim( text ),
+		selectedPrefix: ( text: string ) => theme.fg( 'accent', text ),
+		selectedText: ( text: string ) => theme.fg( 'accent', text ),
+		description: ( text: string ) => theme.fg( 'muted', text ),
+		scrollInfo: ( text: string ) => theme.fg( 'muted', text ),
+		noMatch: ( text: string ) => theme.fg( 'muted', text ),
 	};
 	private sitePickerVisible = false;
 	private sitePickerContainer: Container | null = null;
@@ -381,7 +381,7 @@ export class AiChatUI implements AiOutputAdapter {
 		this.hideLoader();
 		this.currentMarkdown = null;
 		this.currentResponseText = '';
-		this.messages.addChild( new Text( '\n' + chalk.bold( question ), 0, 0 ) );
+		this.messages.addChild( new Text( '\n' + theme.bold( question ), 0, 0 ) );
 		this.tui.requestRender();
 	}
 
@@ -401,8 +401,8 @@ export class AiChatUI implements AiOutputAdapter {
 
 		this.loader = new Loader(
 			this.tui,
-			( str ) => chalk.yellow( str ),
-			( str ) => chalk.yellow( str ),
+			( str ) => theme.fg( 'warning', str ),
+			( str ) => theme.fg( 'warning', str ),
 			__( 'Thinking…' )
 		);
 		// @ts-expect-error -- frames is private but has no public API to customize
@@ -600,7 +600,7 @@ export class AiChatUI implements AiOutputAdapter {
 		const sites: SiteData[] = config.sites ?? [];
 		if ( sites.length === 0 ) {
 			this.messages.addChild(
-				new Text( chalk.dim( '  ' + __( 'No sites found. Create one first.' ) ), 1, 0 )
+				new Text( theme.fg( 'muted', '  ' + __( 'No sites found. Create one first.' ) ), 1, 0 )
 			);
 			this.tui.requestRender();
 			return;
@@ -657,7 +657,7 @@ export class AiChatUI implements AiOutputAdapter {
 		this.sitePickerRemoteItems = [];
 		this.rebuildSitePickerList();
 		this.renderSitePicker();
-		this.messages.addChild( new Text( `\n${ chalk.dim( message ) }\n`, 1, 0 ) );
+		this.messages.addChild( new Text( `\n${ theme.fg( 'muted', message ) }\n`, 1, 0 ) );
 		this.tui.requestRender();
 	}
 
@@ -699,7 +699,7 @@ export class AiChatUI implements AiOutputAdapter {
 				description: site.url?.replace( /^https?:\/\//, '' ),
 			};
 		}
-		const status = site.running ? `${ chalk.green( '●' ) } ` : '  ';
+		const status = site.running ? `${ theme.fg( 'success', '●' ) } ` : '  ';
 		return {
 			value: site.path,
 			label: `${ status }${ site.name }`,
@@ -744,13 +744,15 @@ export class AiChatUI implements AiOutputAdapter {
 		this.sitePickerContainer.clear();
 
 		const isLocal = this.sitePickerTab === SITE_PICKER_TAB_LOCAL;
-		const localTab = isLocal ? chalk.bold( __( '[Local]' ) ) : chalk.dim( __( 'Local' ) );
-		const remoteTab = isLocal ? chalk.dim( 'WordPress.com' ) : chalk.bold( '[WordPress.com]' );
+		const localTab = isLocal ? theme.bold( __( '[Local]' ) ) : theme.fg( 'muted', __( 'Local' ) );
+		const remoteTab = isLocal
+			? theme.fg( 'muted', 'WordPress.com' )
+			: theme.bold( '[WordPress.com]' );
 		const pad = ' ';
 		const header = `${ pad }${ localTab }  ${ remoteTab }`;
 
 		const searchLine = this.sitePickerQuery
-			? `${ pad }${ chalk.dim( __( 'Search:' ) ) } ${ this.sitePickerQuery }`
+			? `${ pad }${ theme.fg( 'muted', __( 'Search:' ) ) } ${ this.sitePickerQuery }`
 			: '';
 
 		const hints = isLocal
@@ -767,7 +769,7 @@ export class AiChatUI implements AiOutputAdapter {
 		}
 
 		if ( ! isLocal && this.sitePickerRemoteLoading ) {
-			lines.push( chalk.dim( `${ pad }  ${ __( 'Loading WordPress.com sites…' ) }` ) );
+			lines.push( theme.fg( 'muted', `${ pad }  ${ __( 'Loading WordPress.com sites…' ) }` ) );
 		} else if ( this.sitePickerSelectList ) {
 			const termWidth = process.stdout.columns ?? 80;
 			lines.push(
@@ -776,7 +778,7 @@ export class AiChatUI implements AiOutputAdapter {
 		}
 
 		lines.push( '' );
-		lines.push( chalk.dim( hints ) );
+		lines.push( theme.fg( 'muted', hints ) );
 
 		const text = lines.join( '\n' );
 		this.sitePickerContainer.addChild( new Text( text, 0, 0 ) );
@@ -800,7 +802,7 @@ export class AiChatUI implements AiOutputAdapter {
 					site.name
 			  );
 		if ( announce ) {
-			this.messages.addChild( new Text( `\n${ chalk.hex( '#8839ef' )( label ) }\n`, 0, 0 ) );
+			this.messages.addChild( new Text( `\n${ theme.fg( 'accent', label ) }\n`, 0, 0 ) );
 		}
 		if ( emitEvent ) {
 			this.siteSelectedCallback?.( site );
@@ -813,7 +815,9 @@ export class AiChatUI implements AiOutputAdapter {
 		this._activeSiteData = null;
 		this.editor.activeSiteName = null;
 		this.refreshPromptChrome();
-		this.messages.addChild( new Text( chalk.dim( __( ' ✻ Site deselected' ) ) + '\n', 0, 0 ) );
+		this.messages.addChild(
+			new Text( theme.fg( 'muted', __( ' ✻ Site deselected' ) ) + '\n', 0, 0 )
+		);
 		this.tui.requestRender();
 	}
 
@@ -1016,15 +1020,15 @@ export class AiChatUI implements AiOutputAdapter {
 		// ("Other" is always the last item and has no description lines).
 		if ( this.optionPickerOtherActive && this.optionPickerInput && lines.length > 0 ) {
 			const inputText = this.optionPickerInput.getValue();
-			const cursor = chalk.inverse( ' ' );
+			const cursor = theme.inverse( ' ' );
 			const display = inputText
-				? chalk.blue( inputText ) + cursor
-				: chalk.dim( __( 'Type your answer…' ) ) + cursor;
-			lines[ lines.length - 1 ] = `${ chalk.blue( '→' ) } ${ display }`;
+				? theme.fg( 'accent', inputText ) + cursor
+				: theme.fg( 'muted', __( 'Type your answer…' ) ) + cursor;
+			lines[ lines.length - 1 ] = `${ theme.fg( 'accent', '→' ) } ${ display }`;
 		}
 
 		const question = this.optionPickerQuestion
-			? '\n' + chalk.bold( this.optionPickerQuestion ) + '\n'
+			? '\n' + theme.bold( this.optionPickerQuestion ) + '\n'
 			: '';
 		this.optionPickerContainer.addChild( new Text( question + lines.join( '\n' ), 1, 0 ) );
 		this.tui.requestRender();
@@ -1032,7 +1036,11 @@ export class AiChatUI implements AiOutputAdapter {
 
 	private echoAnsweredQuestion( question: string, answer: string ): void {
 		this.messages.addChild(
-			new Text( '\n' + chalk.bold( question ) + '\n' + chalk.blue( '→' ) + ' ' + answer, 1, 0 )
+			new Text(
+				'\n' + theme.bold( question ) + '\n' + theme.fg( 'accent', '→' ) + ' ' + answer,
+				1,
+				0
+			)
 		);
 		this.tui.requestRender();
 	}
@@ -1095,7 +1103,7 @@ export class AiChatUI implements AiOutputAdapter {
 		const home = process.env.HOME ?? process.env.USERPROFILE ?? '';
 		const displayCwd = home && cwd.startsWith( home ) ? '~' + cwd.slice( home.length ) : cwd;
 
-		const b = chalk.blue;
+		const b = ( text: string ) => theme.fg( 'accent', text );
 
 		// WordPress logo in block characters, widened to avoid vertical stretching in terminals.
 		const logoLines = [
@@ -1137,10 +1145,10 @@ export class AiChatUI implements AiOutputAdapter {
 		}
 
 		const info = [
-			chalk.bold( 'WordPress Studio' ) + ( version ? chalk.dim( ` v${ version }` ) : '' ),
-			chalk.dim( secondLine ),
+			theme.bold( 'WordPress Studio' ) + ( version ? theme.fg( 'muted', ` v${ version }` ) : '' ),
+			theme.fg( 'muted', secondLine ),
 			'',
-			chalk.dim.italic( __( 'Code is Poetry' ) ),
+			theme.fg( 'muted', theme.italic( __( 'Code is Poetry' ) ) ),
 		];
 
 		const infoStartRow = Math.max( 0, Math.floor( ( logo.length - info.length ) / 2 ) );
@@ -1157,7 +1165,7 @@ export class AiChatUI implements AiOutputAdapter {
 
 	showTosNotice(): void {
 		const lines = formatTosNoticeLines().map( ( line ) =>
-			line ? ' ' + chalk.dim( line ) : line
+			line ? ' ' + theme.fg( 'muted', line ) : line
 		);
 		this.messages.addChild( new Text( lines.join( '\n' ) + '\n', 0, 0 ) );
 		this.tui.requestRender();
@@ -1203,7 +1211,11 @@ export class AiChatUI implements AiOutputAdapter {
 
 		const thinkingSec = Math.round( ( this.nowMs() - this.turnStartTime ) / 1000 );
 		this.messages.addChild(
-			new Text( '\n ' + chalk.yellow( '⏺' ) + ' ' + chalk.yellow( __( 'Interrupted' ) ), 0, 0 )
+			new Text(
+				'\n ' + theme.fg( 'warning', '⏺' ) + ' ' + theme.fg( 'warning', __( 'Interrupted' ) ),
+				0,
+				0
+			)
 		);
 		this.showInfo(
 			sprintf(
@@ -1237,9 +1249,11 @@ export class AiChatUI implements AiOutputAdapter {
 		const formatted = lines
 			.map( ( line, i ) => {
 				if ( i === 0 ) {
-					return ' ' + chalk.bgHex( '#ddeeff' ).black( '〉' + line + ' ' );
+					return (
+						' ' + theme.bg( 'userMessageBg', theme.fg( 'userMessageText', '〉' + line + ' ' ) )
+					);
 				}
-				return ' ' + chalk.bgHex( '#ddeeff' ).black( '  ' + line + ' ' );
+				return ' ' + theme.bg( 'userMessageBg', theme.fg( 'userMessageText', '  ' + line + ' ' ) );
 			} )
 			.join( '\n' );
 		this.messages.addChild( new Text( '\n' + formatted, 0, 0 ) );
@@ -1262,7 +1276,7 @@ export class AiChatUI implements AiOutputAdapter {
 			return;
 		}
 
-		const formatted = formatToolOutputLines( [ chalk.dim( message ) ] );
+		const formatted = formatToolOutputLines( [ theme.fg( 'muted', message ) ] );
 		if ( update && this.fallbackProgressText ) {
 			this.fallbackProgressText.setText( formatted );
 		} else {
@@ -1411,12 +1425,12 @@ export class AiChatUI implements AiOutputAdapter {
 	showOnboarding(): void {
 		const text =
 			' ' +
-			chalk.blue( '⏺' ) +
+			theme.fg( 'accent', '⏺' ) +
 			' ' +
 			sprintf(
 				/* translators: %s: product name (WordPress Studio) */
 				__( "Hello, I'm %s, your local WordPress agent and builder." ),
-				chalk.bold( 'WordPress Studio' )
+				theme.bold( 'WordPress Studio' )
 			);
 
 		this.messages.addChild( new Text( '\n' + text + '\n', 0, 0 ) );
@@ -1424,17 +1438,17 @@ export class AiChatUI implements AiOutputAdapter {
 	}
 
 	showCapabilities(): void {
-		const b = chalk.bold;
-		const d = chalk.dim;
+		const b = ( text: string ) => theme.bold( text );
+		const d = ( text: string ) => theme.fg( 'muted', text );
 		const separator = d( ' ─'.padEnd( 80, '─' ) );
-		// Applies chalk.bold to any <b>…</b> tags in a translated string, then
+		// Applies bold styling to any <b>…</b> tags in a translated string, then
 		// strips the tags. Translators can place <b> anywhere in the sentence.
 		const applyBold = ( str: string ) =>
 			str.replace( /<b>(.*?)<\/b>/g, ( _, text: string ) => b( text ) );
 
 		const lines = [
 			' ' +
-				chalk.blue( '⏺' ) +
+				theme.fg( 'accent', '⏺' ) +
 				' ' +
 				__( "Great, you're connected now! Let me tell you what I can do:" ),
 			'',
@@ -1516,9 +1530,9 @@ export class AiChatUI implements AiOutputAdapter {
 			'',
 			'  ' + __( 'Just tell me what you want to build — for example:' ),
 			'',
-			'  ' + d( chalk.italic( __( '"Create a portfolio site for a photographer"' ) ) ),
-			'  ' + d( chalk.italic( __( '"Build a landing page for a SaaS product"' ) ) ),
-			'  ' + d( chalk.italic( __( '"Make a blog for a coffee shop"' ) ) ),
+			'  ' + d( theme.italic( __( '"Create a portfolio site for a photographer"' ) ) ),
+			'  ' + d( theme.italic( __( '"Build a landing page for a SaaS product"' ) ) ),
+			'  ' + d( theme.italic( __( '"Make a blog for a coffee shop"' ) ) ),
 			'',
 			'  ' +
 				__(
@@ -1530,19 +1544,25 @@ export class AiChatUI implements AiOutputAdapter {
 	}
 
 	showSuccess( message: string ): void {
-		this.messages.addChild( new Text( '\n ' + chalk.green( '⏺' ) + ' ' + message + '\n', 0, 0 ) );
+		this.messages.addChild(
+			new Text( '\n ' + theme.fg( 'success', '⏺' ) + ' ' + message + '\n', 0, 0 )
+		);
 		this.tui.requestRender();
 	}
 
 	showError( message: string ): void {
 		this.messages.addChild(
-			new Text( '\n ' + chalk.red( '⏺' ) + ' ' + chalk.red( message ) + '\n', 0, 0 )
+			new Text(
+				'\n ' + theme.fg( 'error', '⏺' ) + ' ' + theme.fg( 'error', message ) + '\n',
+				0,
+				0
+			)
 		);
 		this.tui.requestRender();
 	}
 
 	showInfo( message: string ): void {
-		this.messages.addChild( new Text( '\n' + chalk.dim( message ) + '\n', 1, 0 ) );
+		this.messages.addChild( new Text( '\n' + theme.fg( 'muted', message ) + '\n', 1, 0 ) );
 		this.tui.requestRender();
 	}
 
@@ -1722,14 +1742,14 @@ export class AiChatUI implements AiOutputAdapter {
 				answers[ q.question ] = selected;
 				this.echoAnsweredQuestion( q.question, selected );
 			} else {
-				this.messages.addChild( new Text( '\n' + chalk.bold( q.question ), 1, 0 ) );
+				this.messages.addChild( new Text( '\n' + theme.bold( q.question ), 1, 0 ) );
 				this.tui.requestRender();
 				const answer = await this.waitForInput();
 				if ( ! answer ) {
 					return answers;
 				}
 				answers[ q.question ] = answer;
-				this.messages.addChild( new Text( chalk.blue( '→' ) + ' ' + answer, 1, 0 ) );
+				this.messages.addChild( new Text( theme.fg( 'accent', '→' ) + ' ' + answer, 1, 0 ) );
 			}
 		}
 
@@ -1813,7 +1833,7 @@ export class AiChatUI implements AiOutputAdapter {
 						}
 						this.currentResponseText += block.text;
 						this.currentMarkdown!.setText(
-							'\n' + chalk.blue( '⏺' ) + ' ' + this.currentResponseText
+							'\n' + theme.fg( 'accent', '⏺' ) + ' ' + this.currentResponseText
 						);
 						this.tui.requestRender();
 					} else if ( block.type === 'toolCall' ) {
@@ -1914,7 +1934,7 @@ export class AiChatUI implements AiOutputAdapter {
 				const thinkingSec = Math.round( ( this.nowMs() - this.turnStartTime ) / 1000 );
 				if ( ! this.hasShownResponseMarker ) {
 					this.messages.addChild(
-						new Text( '\n ' + chalk.blue( '⏺' ) + ' ' + __( 'Done' ), 0, 0 )
+						new Text( '\n ' + theme.fg( 'accent', '⏺' ) + ' ' + __( 'Done' ), 0, 0 )
 					);
 				}
 				this.showInfo(

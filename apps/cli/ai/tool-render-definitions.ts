@@ -47,7 +47,7 @@ function renderProgressBlock( lines: string[], expanded: boolean ): string {
 		);
 	}
 	display.push( ...shown );
-	return '\n' + formatToolOutputLines( display.map( ( l ) => theme.fg( 'muted', l ) ) );
+	return formatToolOutputLines( display.map( ( l ) => theme.fg( 'muted', l ) ) );
 }
 
 function textContent( content: Array< { type: string; text?: string } > ): string {
@@ -108,7 +108,7 @@ function renderStudioResult( name: string ) {
 			) ?? ( text ? renderGenericToolResult( text, options.expanded ) : null );
 
 		const progress = renderProgressBlock( state.progressLines, options.expanded );
-		return new Text( progress + ( rendered ? '\n' + rendered : '' ), 0, 0 );
+		return new Text( [ progress, rendered ?? '' ].filter( Boolean ).join( '\n' ), 0, 0 );
 	};
 }
 

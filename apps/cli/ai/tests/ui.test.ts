@@ -1,7 +1,7 @@
 import { initTheme, ToolExecutionComponent } from '@earendil-works/pi-coding-agent';
 import { Container } from '@earendil-works/pi-tui';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ADD_AI_CREDITS_URL } from '@studio/common/lib/studio-assistant-quota';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { toolResultRenderers } from 'cli/ai/tool-result-renderers';
 import { AiChatUI } from 'cli/ai/ui';
 import { openBrowser } from 'cli/lib/browser';
@@ -284,7 +284,6 @@ describe( 'AiChatUI.handleEvent', () => {
 		expect( ui.currentMarkdown ).toBeNull();
 		expect( ui.currentResponseText ).toBe( '' );
 	} );
-
 
 	// STU-2236: distinct copy — no "try again later"/reset-date framing, and no
 	// reset-date fetch, because only buying credits clears this state.
@@ -618,9 +617,7 @@ describe( 'AiChatUI.handleEvent', () => {
 			type: 'message_end',
 			message: {
 				role: 'assistant',
-				content: [
-					{ type: 'toolCall', id: 'toolu_start', name: 'site_start', arguments: {} },
-				],
+				content: [ { type: 'toolCall', id: 'toolu_start', name: 'site_start', arguments: {} } ],
 			},
 		} );
 		for ( let i = 1; i <= 6; i++ ) {

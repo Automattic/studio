@@ -352,7 +352,11 @@ describe( 'Studio AI MCP tools', () => {
 			nameOrPath: 'My Site',
 		} as never );
 
-		expect( runDeleteSiteCommand ).toHaveBeenCalledWith( mockSite.path, true, expect.any( Logger ) );
+		expect( runDeleteSiteCommand ).toHaveBeenCalledWith(
+			mockSite.path,
+			true,
+			expect.any( Logger )
+		);
 		expect( getTextContent( result ) ).toBe( 'Site "My Site" deleted.' );
 	} );
 

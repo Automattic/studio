@@ -63,9 +63,25 @@ export async function runCommand(
 	try {
 		await connectToDaemon();
 
-		await using command = await runWpCliCommandWithMessaging( site, args, { phpVersion } );
-		await pipePHPResponse( command.response );
-		process.exitCode = await command.response.exitCode;
+		const command = await runWpCliCommandWithMessaging( site, args, { phpVersion } );
+		let disposed = false;
+		const disposeCommand = () => {
+			if ( ! disposed ) {
+				disposed = true;
+				command[ Symbol.dispose ]();
+			}
+		};
+		try {
+			const exitCode = await command.response.exitCode;
+
+			// PHP-WASM owns the response streams. Release it after the command exits so
+			// those streams can reach EOF before waiting for their output to drain.
+			disposeCommand();
+			await pipePHPResponse( command.response );
+			process.exitCode = exitCode;
+		} finally {
+			disposeCommand();
+		}
 	} finally {
 		await disconnectFromDaemon();
 	}

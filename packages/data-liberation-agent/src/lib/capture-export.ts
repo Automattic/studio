@@ -13,6 +13,7 @@ import {
 } from 'node:fs';
 import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path';
 import * as cheerio from 'cheerio';
+import { escapeHtmlAttr } from './html-escape.js';
 import { scopeCss } from './replicate/css-scope.js';
 import { MediaStubStore } from './resume-state/index.js';
 import { rewriteMediaUrls } from './streaming/media-url-rewrite.js';
@@ -313,7 +314,7 @@ function styleBlocks( html: string ): string[] {
 	);
 }
 
-function portableInlineStyle(
+export function portableInlineStyle(
 	attributes: string,
 	css: string
 ): { key: string; media: string } | undefined {
@@ -325,6 +326,7 @@ function portableInlineStyle(
 		.trim();
 	if ( unsupportedAttributes !== '' ) return undefined;
 	const media = mediaMatch?.[ 2 ] ?? '';
+	if ( /[\u0000-\u001f\u007f<>&]/.test( media ) ) return undefined;
 	return { key: `${ media }\n${ css }`, media };
 }
 
@@ -1174,7 +1176,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 				if ( linkedStyles.has( style!.key ) ) return '';
 				linkedStyles.add( style!.key );
 				return `<link rel="stylesheet" href="${ shared.path }"${
-					shared.media ? ` media="${ shared.media.replace( /"/g, '&quot;' ) }"` : ''
+					shared.media ? ` media="${ escapeHtmlAttr( shared.media ) }"` : ''
 				}>`;
 			}
 		);

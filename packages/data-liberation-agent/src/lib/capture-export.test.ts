@@ -6,6 +6,7 @@ import {
 	CAPTURED_INTERACTIONS_SCHEMA,
 	CAPTURE_RECEIPT_SCHEMA,
 	exportWebsiteCapture,
+	portableInlineStyle,
 	WEBSITE_ARTIFACT_SCHEMA,
 } from './capture-export.js';
 import { MediaStubStore } from './resume-state/index.js';
@@ -17,6 +18,14 @@ afterEach( () => {
 } );
 
 describe( 'exportWebsiteCapture', () => {
+	it( 'rejects unsafe shared-style media attributes', () => {
+		expect( portableInlineStyle( ' media="screen & <style"', '.unsafe{}' ) ).toBeUndefined();
+		expect( portableInlineStyle( ' media="screen and (min-width: 1px)"', '.safe{}' ) ).toEqual( {
+			key: 'screen and (min-width: 1px)\n.safe{}',
+			media: 'screen and (min-width: 1px)',
+		} );
+	} );
+
 	it( 'exports captured routes and localized media as a website directory', () => {
 		const outputDir = mkdtempSync( join( tmpdir(), 'dla-capture-export-' ) );
 		dirs.push( outputDir );
@@ -337,7 +346,7 @@ describe( 'exportWebsiteCapture', () => {
 		mkdirSync( join( outputDir, 'html-mobile' ), { recursive: true } );
 		mkdirSync( join( outputDir, 'screenshots' ), { recursive: true } );
 		const sharedStyle =
-			'<style>.layout{display:grid}@media(max-width:600px){.layout{display:block}}</style>';
+			'<style media="screen and (min-width: 1px)">.layout{display:grid}@media(max-width:600px){.layout{display:block}}</style>';
 		writeFileSync(
 			join( outputDir, 'html', 'homepage.html' ),
 			`<!doctype html><html><head>${ sharedStyle }</head><body><main class="layout"><h1>Home</h1><a href="/about">About</a><aside>Desktop navigation</aside></main></body></html>`
@@ -376,6 +385,7 @@ describe( 'exportWebsiteCapture', () => {
 		expect( html ).toContain( 'data-liberation-desktop-document' );
 		expect( html ).toContain( 'data-liberation-mobile-document' );
 		expect( html.match( /capture-[a-f0-9]{16}\.css/g ) ).toHaveLength( 2 );
+		expect( html ).toContain( 'media="screen and (min-width: 1px)"' );
 		expect( html ).not.toContain( ':where(.data-liberation-mobile-document) .layout' );
 		const artifact = JSON.parse( readFileSync( join( outputDir, 'artifact.json' ), 'utf8' ) );
 		const stylesheets = artifact.files.filter( ( file: { path: string } ) =>

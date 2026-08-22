@@ -337,6 +337,15 @@ describe( 'Studio AI MCP tools', () => {
 		expect( studioPresent?.description ).not.toContain( '- drawing:' );
 	} );
 
+	it( 'exposes refresh_browser only when a Studio UI is attached', () => {
+		const names = resolveStudioToolDefinitions().map( ( tool ) => tool.name );
+		expect( names ).not.toContain( 'refresh_browser' );
+		const namesWithArtifacts = resolveStudioToolDefinitions( {
+			emitChatArtifacts: true,
+		} ).map( ( tool ) => tool.name );
+		expect( namesWithArtifacts ).toContain( 'refresh_browser' );
+	} );
+
 	it( 'refresh_browser emits a preview.reload event and is registered', async () => {
 		expect( studioToolDefinitions.map( ( tool ) => tool.name ) ).toContain( 'refresh_browser' );
 		const emitEventMock = vi.mocked( emitEvent );

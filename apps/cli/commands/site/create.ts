@@ -63,7 +63,7 @@ import {
 import { __, sprintf } from '@wordpress/i18n';
 import { isStepDefinition, type BlueprintV1Declaration } from '@wp-playground/blueprints';
 import { canonicalizeBlocks } from 'cli/ai/block-validator';
-import { captureUrl } from 'cli/commands/capture';
+import { captureProgressMessage, captureUrl } from 'cli/commands/capture';
 import { bumpStat, getPlatformMetric } from 'cli/lib/bump-stat';
 import {
 	lockCliConfig,
@@ -1571,6 +1571,11 @@ export const registerCommand = (
 					description: __( 'Resume an interrupted URL capture' ),
 					default: false,
 				} )
+				.option( 'capture-screenshots', {
+					type: 'boolean',
+					description: __( 'Retain PNG visual evidence from URL capture' ),
+					default: false,
+				} )
 				.option( 'static-site-importer-url', {
 					type: 'string',
 					describe: __( 'Static Site Importer plugin zip URL for --from imports' ),
@@ -1863,6 +1868,8 @@ export const registerCommand = (
 					logger.reportStart( LoggerAction.IMPORT_SITE, __( 'Capturing source website…' ) );
 					const capture = await ( dependencies.capture ?? captureUrl )( sourceUrl, captureOutput, {
 						resume: argv.resumeCapture,
+						captureImages: argv.captureScreenshots,
+						onProgress: ( progress ) => logger.reportProgress( captureProgressMessage( progress ) ),
 					} );
 					logger.reportSuccess( __( 'Source website captured' ) );
 					importSource = capture.artifactPath;

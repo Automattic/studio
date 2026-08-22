@@ -14,10 +14,34 @@ export interface CaptureResult {
 
 interface CaptureCommandOptions {
 	resume?: boolean;
+	captureImages?: boolean;
+	onProgress?: ( progress: CaptureProgress ) => void;
 	capture?: typeof callDataLiberationCapture;
 }
 
+export interface CaptureProgress {
+	phase: 'discovering' | 'capturing' | 'finalizing' | 'complete';
+	current?: number;
+	total?: number;
+	url?: string;
+}
+
 const logger = new Logger();
+
+export function captureProgressMessage( progress: CaptureProgress ): string {
+	if ( progress.phase === 'discovering' ) return __( 'Discovering website routes…' );
+	if ( progress.phase === 'finalizing' ) return __( 'Finalizing website artifact…' );
+	if ( progress.phase === 'complete' ) return __( 'Website artifact complete' );
+	if ( typeof progress.current === 'number' && typeof progress.total === 'number' ) {
+		return sprintf(
+			/* translators: 1: completed route count, 2: total route count */
+			__( 'Capturing route %1$d of %2$d…' ),
+			progress.current,
+			progress.total
+		);
+	}
+	return __( 'Capturing website routes…' );
+}
 
 export async function captureUrl(
 	url: string,
@@ -39,6 +63,8 @@ export async function captureUrl(
 		url: parsed.href,
 		outputDir,
 		resume: options.resume ?? false,
+		captureImages: options.captureImages ?? false,
+		onProgress: options.onProgress,
 	} ) ) as Record< string, unknown >;
 	const artifactPath = result.artifactPath;
 	if ( typeof artifactPath !== 'string' || ! fs.existsSync( artifactPath ) ) {
@@ -98,7 +124,12 @@ export async function runCommand(
 	options: CaptureCommandOptions = {}
 ): Promise< CaptureResult > {
 	logger.reportStart( 'capture-site', __( 'Capturing website…' ) );
-	const result = await captureUrl( url, outputDir, options );
+	const result = await captureUrl( url, outputDir, {
+		...options,
+		onProgress:
+			options.onProgress ??
+			( ( progress ) => logger.reportProgress( captureProgressMessage( progress ) ) ),
+	} );
 	logger.reportSuccess( __( 'Website captured successfully' ) );
 	logger.reportKeyValuePair( 'artifact', result.artifactPath );
 	return result;
@@ -125,10 +156,18 @@ export const registerCommand = ( yargs: StudioArgv ) =>
 					type: 'boolean',
 					default: false,
 					description: __( 'Resume an interrupted capture in the output directory' ),
+				} )
+				.option( 'screenshots', {
+					type: 'boolean',
+					default: false,
+					description: __( 'Retain PNG visual evidence alongside the website artifact' ),
 				} ),
 		handler: async ( argv ) => {
 			try {
-				await runCommand( argv.url, argv.output, { resume: argv.resume } );
+				await runCommand( argv.url, argv.output, {
+					resume: argv.resume,
+					captureImages: argv.screenshots,
+				} );
 			} catch ( error ) {
 				logger.reportError(
 					error instanceof LoggerError

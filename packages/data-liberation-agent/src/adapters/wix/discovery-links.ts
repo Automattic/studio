@@ -1,5 +1,6 @@
 const SKIP_PATHS = /^\/(?:cart|account|login|signup|checkout|search|api|admin|favicon)(?:\/|$)/i;
-const ASSET_PATH = /\.(?:css|js|mjs|png|jpe?g|gif|webp|avif|svg|ico|woff2?|ttf|eot|pdf|zip|xml|json)$/i;
+const ASSET_PATH =
+	/\.(?:css|js|mjs|png|jpe?g|gif|webp|avif|svg|ico|woff2?|ttf|eot|pdf|zip|xml|json)$/i;
 
 export interface LinkedRouteDiscoveryOptions {
 	siteUrl: string;
@@ -59,8 +60,7 @@ export async function discoverLinkedRoutes(
 	retain( siteUrl, siteUrl );
 	enqueue( siteUrl, 0 );
 	for ( const value of options.initialUrls ) {
-		const url = retain( value, siteUrl );
-		if ( url ) enqueue( url, 0 );
+		retain( value, siteUrl );
 	}
 
 	const failures: Array< { url: string; reason: string } > = [];

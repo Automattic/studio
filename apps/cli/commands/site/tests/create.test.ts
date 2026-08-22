@@ -461,9 +461,15 @@ describe( 'CLI: studio site create', () => {
 				'--skip-browser',
 			] );
 
-			expect( capture ).toHaveBeenCalledWith( 'https://example.com', captureDir, {
-				resume: false,
-			} );
+			expect( capture ).toHaveBeenCalledWith(
+				'https://example.com',
+				captureDir,
+				expect.objectContaining( {
+					resume: false,
+					captureImages: false,
+					onProgress: expect.any( Function ),
+				} )
+			);
 			expect( capture ).toHaveBeenCalledTimes( 1 );
 		} );
 

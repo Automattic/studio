@@ -871,7 +871,12 @@ export async function captureScreenshots( opts: ScreenshotOpts ): Promise< Scree
 		// claim a new slug for first-time URLs.
 		const existing = manifest.getEntry( url );
 		const slug = existing ? existing.slug : await manifest.claimSlug( base );
-		const plan = planArtifacts( { slug, outputDir: opts.outputDir, force } );
+		const plan = planArtifacts( {
+			slug,
+			outputDir: opts.outputDir,
+			force,
+			captureImages: opts.captureImages,
+		} );
 		const shouldAnalyzeUrl = url === representativeAnalysisUrl && ! aggregateAlreadyFresh;
 		const desktopPlan = shouldAnalyzeUrl ? { ...plan.desktop, needsLoad: true } : plan.desktop;
 		const effectivePlan = { ...plan, desktop: desktopPlan };

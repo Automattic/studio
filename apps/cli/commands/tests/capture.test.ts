@@ -39,6 +39,8 @@ describe( 'CLI: studio capture', () => {
 			url: 'https://example.com/',
 			outputDir,
 			resume: true,
+			captureImages: false,
+			onProgress: undefined,
 		} );
 	} );
 

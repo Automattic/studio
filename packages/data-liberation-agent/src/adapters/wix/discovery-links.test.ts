@@ -15,9 +15,6 @@ describe( 'discoverLinkedRoutes', () => {
 			if ( url === 'https://example.com/projects/one' ) {
 				return [ '/projects/two', '/projects/one/' ];
 			}
-			if ( url === 'https://example.com/product/one' ) {
-				throw new Error( 'page unavailable' );
-			}
 			return [];
 		} );
 
@@ -33,12 +30,8 @@ describe( 'discoverLinkedRoutes', () => {
 			'https://example.com/projects/one',
 			'https://example.com/projects/two',
 		] );
-		expect( result.failures ).toEqual( [
-			{
-				url: 'https://example.com/product/one',
-				reason: 'page unavailable',
-			},
-		] );
+		expect( result.failures ).toEqual( [] );
+		expect( loadLinks ).not.toHaveBeenCalledWith( 'https://example.com/product/one' );
 	} );
 
 	it( 'bounds route retention and page probes independently', async () => {

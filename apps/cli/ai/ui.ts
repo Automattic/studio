@@ -1,6 +1,5 @@
 import {
 	getMarkdownTheme,
-	initTheme,
 	ToolExecutionComponent,
 	type AgentSessionEvent,
 } from '@earendil-works/pi-coding-agent';
@@ -50,6 +49,7 @@ import { buildOptionPickerLines } from 'cli/ai/option-picker';
 import { type AiOutputAdapter } from 'cli/ai/output-adapter';
 import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, type AiProviderId } from 'cli/ai/providers';
 import { getActiveSlashCommands } from 'cli/ai/slash-commands';
+import { initStudioTheme } from 'cli/ai/theme';
 import { getToolRenderDefinition } from 'cli/ai/tool-render-definitions';
 import { formatToolOutputLines } from 'cli/ai/tool-result-renderers';
 import { getWpComSites } from 'cli/lib/api';
@@ -386,7 +386,7 @@ export class AiChatUI implements AiOutputAdapter {
 	}
 
 	constructor() {
-		initTheme();
+		initStudioTheme();
 		const terminal = new ProcessTerminal();
 		this.tui = new TuiMainScreen( terminal, true );
 

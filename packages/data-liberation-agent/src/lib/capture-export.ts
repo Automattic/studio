@@ -13,7 +13,6 @@ import {
 } from 'node:fs';
 import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path';
 import * as cheerio from 'cheerio';
-import { escapeHtmlAttr } from './html-escape.js';
 import { scopeCss } from './replicate/css-scope.js';
 import { MediaStubStore } from './resume-state/index.js';
 import { rewriteMediaUrls } from './streaming/media-url-rewrite.js';
@@ -318,14 +317,25 @@ export function portableInlineStyle(
 	attributes: string,
 	css: string
 ): { key: string; media: string } | undefined {
-	if ( css.trim() === '' || /(?:url\s*\(|@import)/i.test( css ) ) return undefined;
 	const mediaMatch = /\bmedia\s*=\s*(["'])(.*?)\1/i.exec( attributes );
 	const unsupportedAttributes = attributes
 		.replace( /\btype\s*=\s*(["']).*?\1/gi, '' )
 		.replace( /\bmedia\s*=\s*(["']).*?\1/gi, '' )
 		.trim();
-	if ( unsupportedAttributes !== '' ) return undefined;
-	const media = mediaMatch?.[ 2 ] ?? '';
+	return portableInlineStyleValues( mediaMatch?.[ 2 ] ?? '', unsupportedAttributes !== '', css );
+}
+
+function portableInlineStyleValues(
+	media: string,
+	hasUnsupportedAttributes: boolean,
+	css: string
+): { key: string; media: string } | undefined {
+	if (
+		hasUnsupportedAttributes ||
+		css.trim() === '' ||
+		/(?:url\s*\(|@import)/i.test( css )
+	)
+		return undefined;
 	if ( /[\u0000-\u001f\u007f<>&]/.test( media ) ) return undefined;
 	return { key: `${ media }\n${ css }`, media };
 }
@@ -1167,19 +1177,26 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 	}
 	for ( const entry of retainedEntries ) {
 		const linkedStyles = new Set< string >();
-		entry.html = entry.html.replace(
-			/<style\b([^>]*)>([\s\S]*?)<\/style\s*>/gi,
-			( tag, attributes: string, css: string ) => {
-				const style = portableInlineStyle( attributes, css );
-				const shared = style ? sharedStyles.get( style.key ) : undefined;
-				if ( ! shared ) return tag;
-				if ( linkedStyles.has( style!.key ) ) return '';
-				linkedStyles.add( style!.key );
-				return `<link rel="stylesheet" href="${ shared.path }"${
-					shared.media ? ` media="${ escapeHtmlAttr( shared.media ) }"` : ''
-				}>`;
+		const $ = cheerio.load( entry.html );
+		$( 'style' ).each( ( _index, element ) => {
+			const attributes = 'attribs' in element ? element.attribs : {};
+			const style = portableInlineStyleValues(
+				attributes.media ?? '',
+				Object.keys( attributes ).some( ( name ) => name !== 'media' && name !== 'type' ),
+				$( element ).html() ?? ''
+			);
+			const shared = style ? sharedStyles.get( style.key ) : undefined;
+			if ( ! style || ! shared ) return;
+			if ( linkedStyles.has( style.key ) ) {
+				$( element ).remove();
+				return;
 			}
-		);
+			linkedStyles.add( style.key );
+			const link = $( '<link>' ).attr( { rel: 'stylesheet', href: shared.path } );
+			if ( shared.media ) link.attr( 'media', shared.media );
+			$( element ).replaceWith( link );
+		} );
+		entry.html = $.html();
 	}
 
 	const routes: Array< { url: string; path: string } > = [];

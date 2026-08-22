@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+	CAPTURED_INTERACTIONS_SCHEMA,
 	CAPTURE_RECEIPT_SCHEMA,
 	exportWebsiteCapture,
 	WEBSITE_ARTIFACT_SCHEMA,
@@ -44,7 +45,20 @@ describe( 'exportWebsiteCapture', () => {
 			JSON.stringify( {
 				version: 1,
 				entries: {
-					'https://example.com/shop/': { html: 'html/homepage.html' },
+					'https://example.com/shop/': {
+						html: 'html/homepage.html',
+						interactions: {
+							schema: 'data-liberation/interaction-states/v1',
+							sourceUrl: 'https://example.com/shop/',
+							viewport: { width: 1440, height: 900 },
+							capturedAt: '2026-08-22T00:00:00.000Z',
+							states: [ {
+								status: 'captured',
+								trigger: { selector: '#contact', tag: 'button', ariaHaspopup: 'dialog', dataBindings: { 'data-modalid': 'contact' } },
+								dialog: { selector: '#contact-dialog', tag: 'div', id: 'contact-dialog', role: 'dialog', ariaModal: true, html: '<div id="contact-dialog" role="dialog"><form><input name="email"></form></div>', htmlBytes: 83, htmlTruncated: false },
+							} ],
+						},
+					},
 					'https://example.com/shop/about': { html: 'html/about.html' },
 					'https://example.com/': { html: 'html/corporate.html' },
 				},
@@ -133,6 +147,13 @@ describe( 'exportWebsiteCapture', () => {
 			],
 			excludedRoutes: [ 'https://example.com/' ],
 		} );
+		expect( receipt.interactions ).toEqual( {
+			candidate_count: 1,
+			captured_count: 1,
+			no_dialog_count: 0,
+			click_failed_count: 0,
+			truncated_count: 0,
+		} );
 		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).toContain(
 			'/media/logo.png'
 		);
@@ -203,6 +224,14 @@ describe( 'exportWebsiteCapture', () => {
 			'png'
 		);
 		const artifact = JSON.parse( readFileSync( join( outputDir, 'artifact.json' ), 'utf8' ) );
+		expect( artifact.reports ).toContain( 'interaction-states.json' );
+		const interactionReport = JSON.parse(
+			artifact.files.find( ( file: { path: string } ) => file.path === 'interaction-states.json' ).content
+		);
+		expect( interactionReport ).toMatchObject( {
+			schema: CAPTURED_INTERACTIONS_SCHEMA,
+			totals: { candidate_count: 1, captured_count: 1 },
+		} );
 		expect( artifact ).toMatchObject( {
 			schema: WEBSITE_ARTIFACT_SCHEMA,
 			artifact_type: 'website',

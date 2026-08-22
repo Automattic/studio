@@ -17,6 +17,7 @@ import { collectMobileChromeLayout } from './dom-capture.js';
 import { generateChromeCss, type BakedLayoutMap } from './fixups.js';
 import { sanitizeFrozenHtml } from './freeze.js';
 import { JsAggregator } from './js-aggregator.js';
+import { captureTriggeredDialogs } from './interaction-capture.js';
 import { ManifestQueue, type ManifestEntry, type FailureEntry } from './manifest-queue.js';
 import { validateOutputDir, planArtifacts, type ArtifactPlan } from './output-layout.js';
 import { waitForStable, triggerLazyLoad, dismissOverlays } from './page-helpers.js';
@@ -621,6 +622,17 @@ async function capturePerViewport( args: CapturePerViewportArgs ): Promise< void
 					}`
 				);
 			}
+		}
+	}
+
+	// Triggered dialogs are captured only after every baseline artifact so opening
+	// one cannot alter screenshots, section geometry, design sidecars, or page HTML.
+	if ( isDesktop ) {
+		try {
+			const interactions = await captureTriggeredDialogs( page, url );
+			if ( interactions.states.length > 0 ) entry.interactions = interactions;
+		} catch {
+			/* best-effort: baseline capture remains valid when interaction probing fails */
 		}
 	}
 }

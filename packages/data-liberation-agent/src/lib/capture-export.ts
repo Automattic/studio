@@ -17,12 +17,15 @@ import { scopeCss } from './replicate/css-scope.js';
 import { MediaStubStore } from './resume-state/index.js';
 import { rewriteMediaUrls } from './streaming/media-url-rewrite.js';
 import type { CapturedResourceManifest } from './screenshot/resource-capture.js';
+import type { InteractionStatesReport } from './screenshot/interaction-capture.js';
 
 export const CAPTURE_RECEIPT_SCHEMA = 'data-liberation/capture-receipt/v1';
 export const WEBSITE_ARTIFACT_SCHEMA = 'blocks-engine/php-transformer/site-artifact/v1';
+export const CAPTURED_INTERACTIONS_SCHEMA = 'data-liberation/captured-interactions/v1';
 
 interface CaptureManifestEntry {
 	html?: string;
+	interactions?: InteractionStatesReport;
 	metadata?: {
 		openGraph?: Record< string, string >;
 	};
@@ -746,6 +749,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 	mkdirSync( websiteDir, { recursive: true } );
 
 	const retainedEntries: Array< { url: string; html: string; canonicalUrl?: string } > = [];
+	const interactionPages: InteractionStatesReport[] = [];
 	const excludedRoutes: string[] = [];
 	for ( const [ url, entry ] of Object.entries( capture.entries ) ) {
 		if ( ! routeInSourceScope( url, options.sourceUrl ) ) {
@@ -765,6 +769,9 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 			html,
 			canonicalUrl: entry.metadata?.openGraph?.[ 'og:url' ] ?? openGraphUrl( html ),
 		} );
+		if ( entry.interactions?.schema === 'data-liberation/interaction-states/v1' ) {
+			interactionPages.push( entry.interactions );
+		}
 	}
 
 	const normalizedSourceUrl = normalizedUrl( options.sourceUrl );
@@ -1156,6 +1163,33 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		);
 	}
 
+	const interactionStates = interactionPages.flatMap( ( page ) => page.states );
+	const interactionSummary = {
+		candidate_count: interactionStates.length,
+		captured_count: interactionStates.filter( ( state ) => state.status === 'captured' ).length,
+		no_dialog_count: interactionStates.filter( ( state ) => state.status === 'no-dialog' ).length,
+		click_failed_count: interactionStates.filter( ( state ) => state.status === 'click-failed' ).length,
+		truncated_count: interactionStates.filter(
+			( state ) => state.status === 'captured' && state.dialog?.htmlTruncated
+		).length,
+	};
+	const reportFiles = [ 'diagnostics.json', 'capture-receipt.json' ];
+	if ( interactionPages.length > 0 ) {
+		writeFileSync(
+			join( outputDir, 'interaction-states.json' ),
+			`${ JSON.stringify(
+				{
+					schema: CAPTURED_INTERACTIONS_SCHEMA,
+					pages: interactionPages,
+					totals: interactionSummary,
+				},
+				null,
+				2
+			) }\n`
+		);
+		reportFiles.push( 'interaction-states.json' );
+	}
+
 	const receiptPath = join( outputDir, 'capture-receipt.json' );
 	writeFileSync(
 		receiptPath,
@@ -1169,6 +1203,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 				routes,
 				assets,
 				portableMedia,
+				interactions: interactionSummary,
 				excludedRoutes,
 				summary: options.summary,
 			},
@@ -1187,6 +1222,8 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 				unresolvedDependencies,
 				unresolvedMedia,
 				portableMedia,
+				interactions: interactionSummary,
+				interactionFailures: interactionStates.filter( ( state ) => state.status !== 'captured' ),
 				excludedRoutes,
 			},
 			null,
@@ -1261,7 +1298,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 				content.length
 			);
 		}
-		for ( const report of [ 'diagnostics.json', 'capture-receipt.json' ] ) {
+		for ( const report of reportFiles ) {
 			const content = readFileSync( join( outputDir, report ), 'utf8' );
 			writeArtifactFile(
 				{
@@ -1279,7 +1316,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 				source_url: options.sourceUrl,
 				platform: options.platform,
 				...( options.title ? { title: options.title } : {} ),
-			} ) },"reports":["diagnostics.json","capture-receipt.json"]}\n`
+			} ) },"reports":${ JSON.stringify( reportFiles ) }}\n`
 		);
 		closeSync( artifactFd );
 		artifactFd = undefined;

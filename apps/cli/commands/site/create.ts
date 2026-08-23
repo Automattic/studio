@@ -150,6 +150,7 @@ export type CreateCommandOptions = {
 		staticSiteImport?: {
 			code: string;
 			source: string;
+			storeResult: boolean;
 			stagedSource?: {
 				sourcePath: string;
 				targetName: string;
@@ -608,6 +609,8 @@ if ( isset( $source['url'] ) && function_exists( 'static_site_importer_ability_i
 	if ( isset( $source['artifact'] ) && is_array( $source['artifact'] ) ) {
 		$artifact = $source['artifact'];
 		$input['fail_on_quality'] = true;
+		$input['seed_entities'] = true;
+		$input['materialize_dependencies'] = true;
 		if ( in_array( $artifact['theme_materialization'] ?? '', array( 'block', 'classic' ), true ) ) {
 			$input['theme_materialization'] = (string) $artifact['theme_materialization'];
 		}
@@ -723,10 +726,10 @@ export function buildCreateFromSourceBlueprint(
 ): {
 	contents: BlueprintV1Declaration;
 	uri: string;
-		staticSiteImport: {
-			code: string;
-			source: string;
-			storeResult: boolean;
+	staticSiteImport: {
+		code: string;
+		source: string;
+		storeResult: boolean;
 		stagedSource?: { sourcePath: string; targetName: string };
 		identity?: StaticSiteImportIdentity;
 		bundlePath?: string;

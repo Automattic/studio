@@ -687,6 +687,10 @@ describe( 'CLI: studio site create', () => {
 			);
 			expect( blueprint.staticSiteImport.code ).toContain( "$input['source'] = array(" );
 			expect( blueprint.staticSiteImport.code ).toContain( "$input['fail_on_quality'] = true;" );
+			expect( blueprint.staticSiteImport.code ).toContain( "$input['seed_entities'] = true;" );
+			expect( blueprint.staticSiteImport.code ).toContain(
+				"$input['materialize_dependencies'] = true;"
+			);
 			expect( blueprint.staticSiteImport.code ).toContain(
 				'$admin_user = get_user_by( \'login\', "artifact-admin" );'
 			);

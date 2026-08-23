@@ -72,7 +72,7 @@ function makeMockBrowser(pageFactory = () => makeGoodPage()): MockBrowser {
 }
 
 describe('captureScreenshots', () => {
-	it( 'rejects script-referenced wrappers and accepts inert provider attributes', () => {
+	it( 'rejects wrappers that the proof consumer cannot coalesce', () => {
 		expect( geometryCandidateIsSafe( {
 			tag: 'div',
 			attributes: { class: 'provider-shell', 'data-hook': 'shell', id: 'shell-1' },
@@ -80,9 +80,19 @@ describe('captureScreenshots', () => {
 		} ) ).toBe( false );
 		expect( geometryCandidateIsSafe( {
 			tag: 'div',
-			attributes: { class: 'StylableButton__root', 'data-idx': '3', id: 'generated-3' },
+			attributes: { class: 'StylableButton__root', 'data-idx': '3' },
 			runtimeSources: [],
 		} ) ).toBe( true );
+		expect( geometryCandidateIsSafe( {
+			tag: 'div',
+			attributes: { id: 'generated-3' },
+			runtimeSources: [],
+		} ) ).toBe( false );
+		expect( geometryCandidateIsSafe( {
+			tag: 'div',
+			attributes: { class: 'carousel-track' },
+			runtimeSources: [],
+		} ) ).toBe( false );
 		expect( geometryCandidateIsSafe( {
 			tag: 'nav',
 			attributes: { 'aria-label': 'Primary' },

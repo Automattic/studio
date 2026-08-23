@@ -129,6 +129,39 @@ describe( 'CapturedResourceStore', () => {
 		] );
 	} );
 
+	it( 'captures external passive render resources but excludes provider runtime scripts', async () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-resources-' ) );
+		dirs.push( outputDir );
+		const page = new EventEmitter();
+		const store = new CapturedResourceStore( outputDir, 'https://example.com/' );
+		store.observe( page as never );
+		for ( const [ url, resourceType, contentType, body ] of [
+			[ 'https://cdn.example/styles/site.css', 'stylesheet', 'text/css', 'body{color:red}' ],
+			[ 'https://cdn.example/fonts/site.woff2', 'font', 'font/woff2', 'font' ],
+			[ 'https://cdn.example/runtime.js', 'script', 'text/javascript', 'runtime' ],
+		] ) {
+			page.emit( 'response', {
+				url: () => url,
+				status: () => 200,
+				headers: () => ( { 'content-type': contentType } ),
+				body: vi.fn().mockResolvedValue( Buffer.from( body ) ),
+				request: () => ( { resourceType: () => resourceType } ),
+			} );
+		}
+		await store.settle( page as never );
+		await store.flush();
+		const manifest = JSON.parse(
+			readFileSync( join( outputDir, 'resources', 'manifest.json' ), 'utf8' )
+		);
+		expect( Object.keys( manifest.resources ) ).toEqual( [
+			'https://cdn.example/styles/site.css',
+			'https://cdn.example/fonts/site.woff2',
+		] );
+		for ( const resource of Object.values( manifest.resources ) as Array< { path: string } > ) {
+			expect( resource.path ).toMatch( /^resources\/external\/[a-f0-9]{16}\// );
+		}
+	} );
+
 	it( 'keeps query-string variants in distinct deterministic files', async () => {
 		const outputDir = mkdtempSync( join( tmpdir(), 'dla-resources-' ) );
 		dirs.push( outputDir );
@@ -159,5 +192,44 @@ describe( 'CapturedResourceStore', () => {
 		for ( const resourcePath of paths ) {
 			expect( existsSync( join( outputDir, resourcePath ) ) ).toBe( true );
 		}
+	} );
+
+	it( 'fetches lazy DOM dependencies and nested CSS imports missed by responses', async () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-resources-' ) );
+		dirs.push( outputDir );
+		const transformedImage =
+			'https://cdn.example/image.jpg/v1/fill/w_567,h_740,al_b,q_90/image.jpg';
+		const bodies: Record< string, [ string, string ] > = {
+			'https://cdn.example/site.css': [
+				'text/css',
+				'@import "nested.css";.hero{background:url("background.jpg")}',
+			],
+			'https://cdn.example/nested.css': [ 'text/css', '@font-face{src:url("font.woff2")}' ],
+			'https://cdn.example/lazy.jpg': [ 'image/jpeg', 'lazy' ],
+			'https://cdn.example/lazy-2.jpg': [ 'image/jpeg', 'lazy2' ],
+			'https://cdn.example/background.jpg': [ 'image/jpeg', 'background' ],
+			'https://cdn.example/font.woff2': [ 'font/woff2', 'font' ],
+			[ transformedImage ]: [ 'image/jpeg', 'transformed' ],
+		};
+		const store = new CapturedResourceStore( outputDir, 'https://example.com/', async ( url ) => {
+			const result = bodies[ url ];
+			return {
+				finalUrl: url,
+				status: result ? 200 : 404,
+				headers: new Headers( { 'content-type': result?.[ 0 ] ?? 'text/html' } ),
+				body: Buffer.from( result?.[ 1 ] ?? '' ),
+			};
+		} );
+		await store.captureDomDependencies(
+			`<link rel="stylesheet" href="https://cdn.example/site.css"><img loading="lazy" src="https://cdn.example/lazy.jpg" srcset="https://cdn.example/lazy-2.jpg 1x, ${ transformedImage } 2x">`,
+			'https://example.com/'
+		);
+		await store.flush();
+		const manifest = JSON.parse(
+			readFileSync( join( outputDir, 'resources', 'manifest.json' ), 'utf8' )
+		);
+		expect( Object.keys( manifest.resources ) ).toEqual(
+			expect.arrayContaining( Object.keys( bodies ) )
+		);
 	} );
 } );

@@ -16,9 +16,8 @@ import { countBodyTags, isStackingArtifact } from './document-integrity.js';
 import { collectMobileChromeLayout } from './dom-capture.js';
 import { generateChromeCss, type BakedLayoutMap } from './fixups.js';
 import { sanitizeFrozenHtml } from './freeze.js';
-import { JsAggregator } from './js-aggregator.js';
-import type { GeometryCapture } from './layout-geometry-proof.js';
 import { captureTriggeredDialogs } from './interaction-capture.js';
+import { JsAggregator } from './js-aggregator.js';
 import { ManifestQueue, type ManifestEntry, type FailureEntry } from './manifest-queue.js';
 import { validateOutputDir, planArtifacts, type ArtifactPlan } from './output-layout.js';
 import { waitForStable, triggerLazyLoad, dismissOverlays } from './page-helpers.js';
@@ -32,6 +31,7 @@ import {
 	type ScreenshotResult,
 	type Viewport,
 } from './types.js';
+import type { GeometryCapture } from './layout-geometry-proof.js';
 import type { ExtractedNav } from './nav-extract.js';
 import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import type { Browser, BrowserContext, Page } from 'playwright';
@@ -209,138 +209,205 @@ export function geometryCandidateIsSafe( candidate: {
 } ): boolean {
 	const tag = candidate.tag.toLowerCase();
 	if ( /^(?:article|aside|footer|form|header|main|nav|section)$/.test( tag ) ) return false;
+	const identity = `${ candidate.attributes.class ?? '' } ${ candidate.attributes.id ?? '' }`;
+	if (
+		/(?:^|[^a-z0-9])(?:band|carousel|loop|marquee|mask|rail|scroller|slider|ticker|track|viewport)(?:[^a-z0-9]|$)/i.test(
+			identity
+		)
+	)
+		return false;
 	for ( const [ name, value ] of Object.entries( candidate.attributes ) ) {
 		const attribute = name.toLowerCase();
 		if (
 			/^on/.test( attribute ) ||
 			/^aria-/.test( attribute ) ||
-			/^(?:role|tabindex|contenteditable|action|method|name|for|href|type|disabled)$/.test( attribute )
+			/^(?:id|role|tabindex|contenteditable|action|method|name|for|href|type|disabled)$/.test(
+				attribute
+			)
 		)
 			return false;
 		const references =
 			attribute === 'id'
-				? [ `#${ value }`, `getElementById(${ value }`, `getElementById('${ value }`, `getElementById("${ value }` ]
+				? [
+						`#${ value }`,
+						`getElementById(${ value }`,
+						`getElementById('${ value }`,
+						`getElementById("${ value }`,
+				  ]
 				: attribute === 'class'
-				? value.split( /\s+/ ).filter( Boolean ).map( ( className ) => `.${ className }` )
+				? value
+						.split( /\s+/ )
+						.filter( Boolean )
+						.map( ( className ) => `.${ className }` )
 				: [ `[${ attribute }`, `${ attribute }=` ];
-		if ( references.some( ( reference ) => candidate.runtimeSources.some( ( source ) => source.includes( reference ) ) ) )
+		if (
+			references.some( ( reference ) =>
+				candidate.runtimeSources.some( ( source ) => source.includes( reference ) )
+			)
+		)
 			return false;
 	}
 	return true;
 }
 
 async function captureLayoutGeometry( page: Page, viewport: Viewport ): Promise< GeometryCapture > {
-	return page.evaluate( ( width ) => {
-		const candidateIsSafe = ( candidate: {
-			tag: string;
-			attributes: Record< string, string >;
-			runtimeSources: string[];
-		} ) => {
-			const tag = candidate.tag.toLowerCase();
-			if ( /^(?:article|aside|footer|form|header|main|nav|section)$/.test( tag ) ) return false;
-			for ( const [ name, value ] of Object.entries( candidate.attributes ) ) {
-				const attribute = name.toLowerCase();
+	return page.evaluate(
+		async ( { width, viewportId } ) => {
+			const candidateIsSafe = ( candidate: {
+				tag: string;
+				attributes: Record< string, string >;
+				runtimeSources: string[];
+			} ) => {
+				const tag = candidate.tag.toLowerCase();
+				if ( /^(?:article|aside|footer|form|header|main|nav|section)$/.test( tag ) ) return false;
+				const identity = `${ candidate.attributes.class ?? '' } ${ candidate.attributes.id ?? '' }`;
 				if (
-					/^on/.test( attribute ) ||
-					/^aria-/.test( attribute ) ||
-					/^(?:role|tabindex|contenteditable|action|method|name|for|href|type|disabled)$/.test( attribute )
+					/(?:^|[^a-z0-9])(?:band|carousel|loop|marquee|mask|rail|scroller|slider|ticker|track|viewport)(?:[^a-z0-9]|$)/i.test(
+						identity
+					)
 				)
 					return false;
-				const references =
-					attribute === 'id'
-						? [ `#${ value }`, `getElementById(${ value }`, `getElementById('${ value }`, `getElementById("${ value }` ]
-						: attribute === 'class'
-						? value.split( /\s+/ ).filter( Boolean ).map( ( className ) => `.${ className }` )
-						: [ `[${ attribute }`, `${ attribute }=` ];
-				if ( references.some( ( reference ) => candidate.runtimeSources.some( ( source ) => source.includes( reference ) ) ) )
-					return false;
-			}
-			return true;
-		};
-		const markIdentity = ( node: Element, identity: string ) => {
-			const identities = node.getAttribute( 'data-dla-geometry-id' )?.split( /\s+/ ) ?? [];
-			if ( ! identities.includes( identity ) ) {
-				identities.push( identity );
-				node.setAttribute( 'data-dla-geometry-id', identities.join( ' ' ) );
-			}
-		};
-		const omissions: Record< string, number > = {};
-		const omit = ( code: string ) => ( omissions[ code ] = ( omissions[ code ] ?? 0 ) + 1 );
-		const box = ( node: Element ) => {
-			const rect = node.getBoundingClientRect();
-			return {
-				x: Math.round( rect.x * 1000 ) / 1000,
-				y: Math.round( rect.y * 1000 ) / 1000,
-				width: Math.round( rect.width * 1000 ) / 1000,
-				height: Math.round( rect.height * 1000 ) / 1000,
+				for ( const [ name, value ] of Object.entries( candidate.attributes ) ) {
+					const attribute = name.toLowerCase();
+					if (
+						/^on/.test( attribute ) ||
+						/^aria-/.test( attribute ) ||
+						/^(?:id|role|tabindex|contenteditable|action|method|name|for|href|type|disabled)$/.test(
+							attribute
+						)
+					)
+						return false;
+					const references =
+						attribute === 'id'
+							? [
+									`#${ value }`,
+									`getElementById(${ value }`,
+									`getElementById('${ value }`,
+									`getElementById("${ value }`,
+							  ]
+							: attribute === 'class'
+							? value
+									.split( /\s+/ )
+									.filter( Boolean )
+									.map( ( className ) => `.${ className }` )
+							: [ `[${ attribute }`, `${ attribute }=` ];
+					if (
+						references.some( ( reference ) =>
+							candidate.runtimeSources.some( ( source ) => source.includes( reference ) )
+						)
+					)
+						return false;
+				}
+				return true;
 			};
-		};
-		const equal = ( left: ReturnType< typeof box >, right: ReturnType< typeof box > ) =>
-			[ 'x', 'y', 'width', 'height' ].every( ( key ) =>
-				Math.abs( left[ key as keyof typeof left ] - right[ key as keyof typeof right ] ) <= 1
+			const markIdentity = ( node: Element, identity: string ) => {
+				const identities = node.getAttribute( 'data-dla-geometry-id' )?.split( /\s+/ ) ?? [];
+				if ( ! identities.includes( identity ) ) {
+					identities.push( identity );
+					node.setAttribute( 'data-dla-geometry-id', identities.join( ' ' ) );
+				}
+			};
+			const omissions: Record< string, number > = {};
+			const omit = ( code: string ) => ( omissions[ code ] = ( omissions[ code ] ?? 0 ) + 1 );
+			const box = ( node: Element ) => {
+				const rect = node.getBoundingClientRect();
+				return {
+					x: Math.round( rect.x * 1000 ) / 1000,
+					y: Math.round( rect.y * 1000 ) / 1000,
+					width: Math.round( rect.width * 1000 ) / 1000,
+					height: Math.round( rect.height * 1000 ) / 1000,
+				};
+			};
+			const equal = ( left: ReturnType< typeof box >, right: ReturnType< typeof box > ) =>
+				[ 'x', 'y', 'width', 'height' ].every(
+					( key ) =>
+						Math.abs( left[ key as keyof typeof left ] - right[ key as keyof typeof right ] ) <= 1
+				);
+			const runtimeSources = Array.from( document.scripts, ( script ) => script.textContent ?? '' );
+			const observations: GeometryCapture[ 'observations' ] = [];
+			for ( const wrapper of Array.from(
+				document.body.querySelectorAll( 'div,section,article,main' )
+			) ) {
+				if ( observations.length >= 64 ) {
+					omit( 'candidate_limit' );
+					break;
+				}
+				const target = wrapper.firstElementChild;
+				if (
+					! target ||
+					wrapper.children.length !== 1 ||
+					Array.from( wrapper.childNodes ).some(
+						( node ) => node.nodeType === Node.TEXT_NODE && node.textContent?.trim()
+					) ||
+					[ ...wrapper.querySelectorAll( '*' ), wrapper ].some( ( node ) =>
+						[ ...node.attributes ].some( ( attribute ) => /^on/i.test( attribute.name ) )
+					)
+				) {
+					omit( 'runtime_or_semantics_unproven' );
+					continue;
+				}
+				if (
+					! candidateIsSafe( {
+						tag: wrapper.tagName,
+						attributes: Object.fromEntries(
+							Array.from( wrapper.attributes, ( attribute ) => [ attribute.name, attribute.value ] )
+						),
+						runtimeSources,
+					} )
+				) {
+					omit( 'runtime_or_semantics_unproven' );
+					continue;
+				}
+				const wrapperStyle = getComputedStyle( wrapper );
+				const targetStyle = getComputedStyle( target );
+				if (
+					! /^(block|flex|grid)$/.test( targetStyle.display ) ||
+					wrapperStyle.display !== targetStyle.display
+				) {
+					omit( 'display_unproven' );
+					continue;
+				}
+				const sourceWrapper = box( wrapper );
+				const sourceTarget = box( target );
+				const wrapperHtml = wrapper as HTMLElement;
+				const priorDisplay = wrapperHtml.style.display;
+				wrapperHtml.style.display = 'contents';
+				const simulated = box( target );
+				wrapperHtml.style.display = priorDisplay;
+				if ( ! equal( sourceWrapper, sourceTarget ) || ! equal( sourceTarget, simulated ) ) {
+					omit( 'geometry_unproven' );
+					continue;
+				}
+				// Desktop and mobile DOMs can be composed into one portable document.
+				// Scope IDs to their captured viewport so both bindings remain unique.
+				const wrapperIdentity = `${ viewportId }-wrapper-${ observations.length }`;
+				const targetIdentity = `${ viewportId }-target-${ observations.length }`;
+				markIdentity( wrapper, wrapperIdentity );
+				markIdentity( target, targetIdentity );
+				observations.push( {
+					wrapperIdentity,
+					targetIdentity,
+					viewport: width,
+					state: 'default',
+					wrapper: sourceWrapper,
+					target: sourceTarget,
+					simulated,
+					facts: {
+						display: targetStyle.display,
+						position: targetStyle.position,
+						visibility: targetStyle.visibility,
+						childCount: wrapper.children.length,
+					},
+					invariants: { runtime: true, semantics: true },
+				} );
+			}
+			await new Promise< void >( ( resolve ) =>
+				requestAnimationFrame( () => requestAnimationFrame( () => resolve() ) )
 			);
-		const runtimeSources = Array.from( document.scripts, ( script ) => script.textContent ?? '' );
-		const observations: GeometryCapture[ 'observations' ] = [];
-		for ( const wrapper of Array.from( document.body.querySelectorAll( 'div,section,article,main' ) ) ) {
-			if ( observations.length >= 64 ) {
-				omit( 'candidate_limit' );
-				break;
-			}
-			const target = wrapper.firstElementChild;
-			if (
-				! target ||
-				wrapper.children.length !== 1 ||
-				Array.from( wrapper.childNodes ).some( ( node ) => node.nodeType === Node.TEXT_NODE && node.textContent?.trim() ) ||
-				[ ...wrapper.querySelectorAll( '*' ), wrapper ].some( ( node ) =>
-					[ ...node.attributes ].some( ( attribute ) => /^on/i.test( attribute.name ) )
-				)
-			) {
-				omit( 'runtime_or_semantics_unproven' );
-				continue;
-			}
-			if ( !candidateIsSafe( {
-				tag: wrapper.tagName,
-				attributes: Object.fromEntries( Array.from( wrapper.attributes, ( attribute ) => [ attribute.name, attribute.value ] ) ),
-				runtimeSources,
-			} ) ) {
-				omit( 'runtime_or_semantics_unproven' );
-				continue;
-			}
-			const wrapperStyle = getComputedStyle( wrapper );
-			const targetStyle = getComputedStyle( target );
-			if ( ! /^(block|flex|grid)$/.test( targetStyle.display ) || wrapperStyle.display !== targetStyle.display ) {
-				omit( 'display_unproven' );
-				continue;
-			}
-			const sourceWrapper = box( wrapper );
-			const sourceTarget = box( target );
-			const wrapperHtml = wrapper as HTMLElement;
-			const priorDisplay = wrapperHtml.style.display;
-			wrapperHtml.style.display = 'contents';
-			const simulated = box( target );
-			wrapperHtml.style.display = priorDisplay;
-			if ( ! equal( sourceWrapper, sourceTarget ) || ! equal( sourceTarget, simulated ) ) {
-				omit( 'geometry_unproven' );
-				continue;
-			}
-			const wrapperIdentity = `wrapper-${ observations.length }`;
-			const targetIdentity = `target-${ observations.length }`;
-			markIdentity( wrapper, wrapperIdentity );
-			markIdentity( target, targetIdentity );
-			observations.push( {
-				wrapperIdentity,
-				targetIdentity,
-				viewport: width,
-				state: 'default',
-				wrapper: sourceWrapper,
-				target: sourceTarget,
-				simulated,
-				facts: { display: targetStyle.display, position: targetStyle.position, visibility: targetStyle.visibility, childCount: wrapper.children.length },
-				invariants: { runtime: true, semantics: true },
-			} );
-		}
-		return { schema: 'data-liberation/layout-geometry-capture/v1', observations, omissions };
-	}, viewport.width );
+			return { schema: 'data-liberation/layout-geometry-capture/v1', observations, omissions };
+		},
+		{ width: viewport.width, viewportId: viewport.id }
+	);
 }
 
 async function capturePerViewport( args: CapturePerViewportArgs ): Promise< void > {
@@ -483,7 +550,11 @@ async function capturePerViewport( args: CapturePerViewportArgs ): Promise< void
 		try {
 			capture = await captureLayoutGeometry( page, viewport );
 		} catch {
-			capture = { schema: 'data-liberation/layout-geometry-capture/v1', observations: [], omissions: { capture_failed: 1 } };
+			capture = {
+				schema: 'data-liberation/layout-geometry-capture/v1',
+				observations: [],
+				omissions: { capture_failed: 1 },
+			};
 		}
 		mkdirSync( dirname( plan.paths.geometry ), { recursive: true } );
 		writeFileSync( plan.paths.geometry, `${ JSON.stringify( capture, null, 2 ) }\n` );
@@ -492,6 +563,7 @@ async function capturePerViewport( args: CapturePerViewportArgs ): Promise< void
 	if ( isDesktop && plan.captureHtml ) {
 		try {
 			const html = await capturePageHtml( page );
+			await resourceStore.captureDomDependencies( html, url );
 			// Refuse to persist a corrupted capture: if the live DOM serialized more
 			// than one document (e.g. an AJAX page-loader prefetched and nested whole
 			// pages into the body), every section is duplicated + truncated downstream.

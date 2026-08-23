@@ -13,19 +13,16 @@ import {
 } from 'node:fs';
 import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path';
 import * as cheerio from 'cheerio';
-import { escapeHtml, escapeHtmlAttr } from './html-escape.js';
+import { escapeHtmlAttr } from './html-escape.js';
 import { scopeCss } from './replicate/css-scope.js';
-import { reconstructPagePattern } from './replicate/page-reconstruct.js';
-import { rewriteThroughMediaMap, type SectionSpec } from './replicate/section-extract.js';
 import { MediaStubStore } from './resume-state/index.js';
-import { rewriteMediaUrls } from './streaming/media-url-rewrite.js';
-import type { InteractionStatesReport } from './screenshot/interaction-capture.js';
-import type { CapturedResourceManifest } from './screenshot/resource-capture.js';
 import {
 	buildLayoutGeometryProof,
 	type GeometryCapture,
 } from './screenshot/layout-geometry-proof.js';
-import type { AnyNode } from 'domhandler';
+import { rewriteMediaUrls } from './streaming/media-url-rewrite.js';
+import type { InteractionStatesReport } from './screenshot/interaction-capture.js';
+import type { CapturedResourceManifest } from './screenshot/resource-capture.js';
 
 export const CAPTURE_RECEIPT_SCHEMA = 'data-liberation/capture-receipt/v1';
 export const WEBSITE_ARTIFACT_SCHEMA = 'blocks-engine/php-transformer/site-artifact/v1';
@@ -288,46 +285,62 @@ function openGraphUrl( html: string ): string | undefined {
 }
 
 const RESPONSIVE_DOCUMENT_CSS =
-	'.data-liberation-mobile-document{display:none!important}@media(max-width:768px){.data-liberation-desktop-document{display:none!important}.data-liberation-mobile-document{display:contents!important}}';
+	'html,body{margin:0;padding:0}.data-liberation-mobile-document{display:none!important}@media(max-width:768px){.data-liberation-desktop-document{display:none!important}.data-liberation-mobile-document{display:contents!important}}';
 
 function responsiveHtml( desktopHtml: string, mobileHtml: string ): string {
-	const desktopBody = /<body\b[^>]*>([\s\S]*?)<\/body\s*>/i.exec( desktopHtml )?.[ 1 ];
+	const desktopBodyMatch = /<body\b([^>]*)>([\s\S]*?)<\/body\s*>/i.exec( desktopHtml );
+	const desktopBody = desktopBodyMatch?.[ 2 ];
 	const mobileBodyMatch = /<body\b([^>]*)>([\s\S]*?)<\/body\s*>/i.exec( mobileHtml );
 	const mobileBody = mobileBodyMatch?.[ 2 ];
 	if ( desktopBody === undefined || mobileBody === undefined ) return desktopHtml;
+	const mobileViewport = /<meta\b[^>]*\bname\s*=\s*(["'])viewport\1[^>]*>/i.exec(
+		mobileHtml
+	)?.[ 0 ];
+	const withMobileViewport = ( html: string ): string => {
+		if ( ! mobileViewport ) return html;
+		return /<meta\b[^>]*\bname\s*=\s*(["'])viewport\1[^>]*>/i.test( html )
+			? html.replace( /<meta\b[^>]*\bname\s*=\s*(["'])viewport\1[^>]*>/i, mobileViewport )
+			: html.replace( /<\/head\s*>/i, `${ mobileViewport }</head>` );
+	};
 	if ( responsiveBodySignature( desktopBody ) === responsiveBodySignature( mobileBody ) )
-		return desktopHtml;
+		return withMobileViewport( desktopHtml );
 
-	const mobileBodyClass = /\bclass\s*=\s*(["'])(.*?)\1/i.exec(
+	const wrapperAttributes = ( baseClass: string, bodyAttributes: string ): string => {
+		const body = cheerio.load( `<body${ bodyAttributes }></body>` )( 'body' );
+		const className = [ baseClass, body.attr( 'class' ) ].filter( Boolean ).join( ' ' );
+		const style = body.attr( 'style' );
+		return `class="${ escapeHtmlAttr( className ) }"${
+			style ? ` style="${ escapeHtmlAttr( style ) }"` : ''
+		}`;
+	};
+	const responsiveBody = `<div ${ wrapperAttributes(
+		'data-liberation-desktop-document',
+		desktopBodyMatch?.[ 1 ] ?? ''
+	) }>${ desktopBody }</div><div ${ wrapperAttributes(
+		'data-liberation-mobile-document',
 		mobileBodyMatch?.[ 1 ] ?? ''
-	)?.[ 2 ];
-	const mobileWrapperClass = [ 'data-liberation-mobile-document', mobileBodyClass ]
-		.filter( Boolean )
-		.join( ' ' );
-	const responsiveBody = `<div class="data-liberation-desktop-document">${ desktopBody }</div><div class="${ mobileWrapperClass }">${ mobileBody }</div>`;
+	) }>${ mobileBody }</div>`;
 	const sharedStyles = styleBlocks( desktopHtml );
 	if (
 		sharedStyles.length > 0 &&
 		sharedStyles.join( '\n' ) === styleBlocks( mobileHtml ).join( '\n' )
 	) {
-		return desktopHtml
+		return withMobileViewport( desktopHtml )
 			.replace( /<\/head\s*>/i, `<style>${ RESPONSIVE_DOCUMENT_CSS }</style></head>` )
 			.replace(
-				/(<body\b[^>]*>)[\s\S]*?(<\/body\s*>)/i,
-				( _match, openingBody: string, closingBody: string ) =>
-					`${ openingBody }${ responsiveBody }${ closingBody }`
+				/<body\b[^>]*>[\s\S]*?(<\/body\s*>)/i,
+				( _match, closingBody: string ) => `<body>${ responsiveBody }${ closingBody }`
 			);
 	}
 	const mobileStyles = responsiveMobileStyles( mobileHtml );
-	return scopedStyles( desktopHtml, '(min-width:769px)' )
+	return withMobileViewport( scopedStyles( desktopHtml, '(min-width:769px)' ) )
 		.replace(
 			/<\/head\s*>/i,
 			`<style>${ RESPONSIVE_DOCUMENT_CSS }</style>${ mobileStyles }</head>`
 		)
 		.replace(
-			/(<body\b[^>]*>)[\s\S]*?(<\/body\s*>)/i,
-			( _match, openingBody: string, closingBody: string ) =>
-				`${ openingBody }${ responsiveBody }${ closingBody }`
+			/<body\b[^>]*>[\s\S]*?(<\/body\s*>)/i,
+			( _match, closingBody: string ) => `<body>${ responsiveBody }${ closingBody }`
 		);
 }
 
@@ -356,6 +369,7 @@ function portableInlineStyleValues(
 ): { key: string; media: string } | undefined {
 	if ( hasUnsupportedAttributes || css.trim() === '' || /(?:url\s*\(|@import)/i.test( css ) )
 		return undefined;
+	// eslint-disable-next-line no-control-regex -- reject unprintable media attributes.
 	if ( /[\u0000-\u001f\u007f<>&]/.test( media ) ) return undefined;
 	return { key: `${ media }\n${ css }`, media };
 }
@@ -670,7 +684,6 @@ function portableResourcePath( path: string, contentType: string ): string | und
 function dependencyReferences(
 	html: string,
 	documentUrl: string,
-	siteUrl: string,
 	cssOnly = false
 ): PortableDependency[] {
 	const searchableHtml = html
@@ -696,15 +709,16 @@ function dependencyReferences(
 		if ( reference ) references.add( reference.replace( /&amp;/g, '&' ) );
 	};
 
-	for ( const match of searchableHtml.matchAll(
-		/<script\b[^>]*\bsrc\s*=\s*["']([^"']+)["'][^>]*>/gi
-	) ) {
-		add( match[ 1 ] );
-	}
 	const mediaReferences = new Set< string >();
 	const cssReferences = new Set< string >();
 	for ( const match of searchableHtml.matchAll(
 		/<(?:img|source|video|audio)\b[^>]*\bsrc\s*=\s*["']([^"']+)["'][^>]*>/gi
+	) ) {
+		mediaReferences.add( match[ 1 ].replace( /&amp;/g, '&' ) );
+		add( match[ 1 ] );
+	}
+	for ( const match of searchableHtml.matchAll(
+		/<video\b[^>]*\bposter\s*=\s*["']([^"']+)["'][^>]*>/gi
 	) ) {
 		mediaReferences.add( match[ 1 ].replace( /&amp;/g, '&' ) );
 		add( match[ 1 ] );
@@ -723,10 +737,10 @@ function dependencyReferences(
 		const tag = match[ 0 ];
 		const rel = /\brel\s*=\s*["']([^"']+)["']/i.exec( tag )?.[ 1 ].toLowerCase() ?? '';
 		const as = /\bas\s*=\s*["']([^"']+)["']/i.exec( tag )?.[ 1 ].toLowerCase() ?? '';
+		const relations = rel.split( /\s+/ );
 		if (
-			rel.split( /\s+/ ).some( ( value ) => value === 'stylesheet' || value === 'modulepreload' ) ||
-			( rel.split( /\s+/ ).includes( 'preload' ) &&
-				[ 'script', 'style', 'font', 'fetch' ].includes( as ) )
+			relations.some( ( value ) => value === 'stylesheet' || /(?:^|-)icon$/.test( value ) ) ||
+			( relations.includes( 'preload' ) && [ 'style', 'font', 'image', 'media' ].includes( as ) )
 		) {
 			add( /\bhref\s*=\s*["']([^"']+)["']/i.exec( tag )?.[ 1 ] );
 		}
@@ -745,24 +759,26 @@ function dependencyReferences(
 			add( reference );
 		}
 	}
+	for ( const match of cssContent.matchAll( /@import\s+(?:url\(\s*)?["']([^"']+)["']/gi ) ) {
+		const reference = match[ 1 ];
+		cssReferences.add( reference.replace( /&amp;/g, '&' ) );
+		add( reference );
+	}
 
-	const siteOrigin = new URL( siteUrl ).origin;
 	return [ ...references ].flatMap( ( reference ) => {
 		try {
 			const url = new URL( reference, documentUrl );
-			return url.origin === siteOrigin
-				? [
-						{
-							reference,
-							url: url.href,
-							kind: mediaReferences.has( reference )
-								? 'media'
-								: cssReferences.has( reference )
-								? 'css'
-								: 'resource',
-						},
-				  ]
-				: [];
+			return [
+				{
+					reference,
+					url: url.href,
+					kind: mediaReferences.has( reference )
+						? 'media'
+						: cssReferences.has( reference )
+						? 'css'
+						: 'resource',
+				},
+			];
 		} catch {
 			return [];
 		}
@@ -802,7 +818,9 @@ function removeDanglingResourceReference( html: string, reference: string ): str
 		const href = ( link.attr( 'href' ) ?? '' ).replace( /&amp;/g, '&' );
 		if (
 			href === normalizedReference &&
-			( relations.includes( 'preload' ) || relations.includes( 'modulepreload' ) )
+			( relations.includes( 'preload' ) ||
+				relations.includes( 'stylesheet' ) ||
+				relations.some( ( value ) => /(?:^|-)icon$/.test( value ) ) )
 		) {
 			link.remove();
 		}
@@ -815,156 +833,50 @@ function removeDanglingResourceReference( html: string, reference: string ): str
 	return $.html();
 }
 
-function semanticPageHtml(
-	entry: RetainedCaptureEntry,
-	outputDir: string,
-	websiteDir: string,
-	mediaReplacements: Map< string, string >,
-	assets: Array< { sourceUrl: string; path: string } >
-): string | undefined {
-	if ( ! entry.sections ) return undefined;
-	const sectionsPath = resolve( outputDir, entry.sections );
-	if ( ! pathWithin( outputDir, sectionsPath ) || ! existsSync( sectionsPath ) ) return undefined;
-	let sectionFile: { sections?: SectionSpec[]; sourceUrl?: string };
-	try {
-		sectionFile = JSON.parse( readFileSync( sectionsPath, 'utf8' ) );
-	} catch {
-		return undefined;
-	}
-	if ( ! Array.isArray( sectionFile.sections ) || sectionFile.sections.length === 0 )
-		return undefined;
-
-	const portableMedia = Object.fromEntries(
-		[ ...mediaReplacements ].filter( ( [ , value ] ) => value.startsWith( '/media/' ) )
-	);
-	const mediaUrlMap = new Map< string, string >( Object.entries( portableMedia ) );
-	for ( const section of sectionFile.sections ) {
-		const images = [
-			...( section.images ?? [] ),
-			...( section.cells ?? [] ).flatMap( ( cell ) => ( cell.image ? [ cell.image ] : [] ) ),
-		];
-		for ( const image of images ) {
-			const source = image.sourceUrl || image.url;
-			const local = rewriteThroughMediaMap( source, portableMedia );
-			if ( local !== source ) mediaUrlMap.set( source, local );
-		}
-	}
-
-	const slug = basename( entry.sections, extname( entry.sections ) );
-	const reconstruction = reconstructPagePattern( sectionFile.sections, {
-		patternSlug: `capture/${ slug }`,
-		title: documentTitle( entry.desktopHtml ) || slug,
-		sourceUrl: sectionFile.sourceUrl ?? entry.url,
-		slug,
-		mediaUrlMap,
-	} );
-	let body = reconstruction.body.replace( /<!--\s*\/?wp:[\s\S]*?-->/g, '' );
-	for ( const icon of reconstruction.iconAssets ) {
-		const relativePath = `assets/icons/${ slug }-${ basename( icon.path ) }`;
-		const destination = resolve( websiteDir, relativePath );
-		if ( ! pathWithin( websiteDir, destination ) ) continue;
-		mkdirSync( dirname( destination ), { recursive: true } );
-		writeFileSync( destination, icon.svg );
-		const portablePath = `/${ relativePath }`;
-		body = body.replaceAll(
-			`<?php echo esc_url(get_theme_file_uri('${ icon.path }')); ?>`,
-			portablePath
-		);
-		assets.push( {
-			sourceUrl: `${ entry.url }#generated-icon-${ basename( icon.path ) }`,
-			path: `website/${ relativePath }`,
-		} );
-	}
-
-	const chrome = semanticChrome( entry.mobileHtml ?? entry.desktopHtml, entry.url );
-	const title = documentTitle( entry.desktopHtml ) || slug;
-	return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${ escapeHtml(
-		title
-	) }</title>${ chrome.styles }</head><body>${ chrome.header }<main>${ body }</main>${
-		chrome.footer
-	}</body></html>`;
-}
-
-function documentTitle( html: string ): string {
-	return cheerio.load( html )( 'title' ).first().text().trim();
-}
-
-function semanticChrome(
-	html: string,
-	sourceUrl: string
-): { styles: string; header: string; footer: string } {
+function safeCapturedPageHtml( html: string ): string {
 	const $ = cheerio.load( html );
-	$( 'script,style,noscript' ).remove();
-	const headerRoot = $( 'header,[role="banner"],.wixui-header' )
-		.filter( ( _index, element ) => $( element ).text().trim() !== '' )
-		.first();
-	const footerRoot = $( 'footer,[role="contentinfo"],.wixui-footer' )
-		.filter( ( _index, element ) => $( element ).text().trim() !== '' )
-		.first();
-	const headerControls = semanticControls( $, headerRoot, sourceUrl, 8 );
-	const footerControls = semanticControls( $, footerRoot, sourceUrl, 14 );
-	const header = headerControls.length
-		? `<header class="data-liberation-semantic-header"><nav aria-label="Primary">${ headerControls.join(
-				''
-		  ) }</nav></header>`
-		: '';
-	const footer = footerControls.length
-		? `<footer class="data-liberation-semantic-footer">${ footerControls.join( '' ) }</footer>`
-		: '';
-	const styles =
-		'<style>.data-liberation-semantic-header{padding:20px}.data-liberation-semantic-header nav{display:flex;align-items:center;gap:24px}.data-liberation-semantic-header nav>:first-child{margin-right:auto}.data-liberation-semantic-header a,.data-liberation-semantic-header button,.data-liberation-semantic-footer a,.data-liberation-semantic-footer button{color:inherit;background:none;border:0;font:inherit;text-decoration:none;padding:0}.data-liberation-semantic-footer{display:flex;justify-content:center;gap:24px;padding:20px}@media(max-width:768px){.data-liberation-semantic-header nav{align-items:flex-start;flex-direction:column;gap:8px}.data-liberation-semantic-header nav>:first-child{margin-right:0}}</style>';
-	return { styles, header, footer };
-}
-
-function semanticControls(
-	$: cheerio.CheerioAPI,
-	root: cheerio.Cheerio< AnyNode >,
-	sourceUrl: string,
-	limit: number
-): string[] {
-	if ( root.length === 0 ) return [];
-	const controls: string[] = [];
-	const seen = new Set< string >();
-	root.find( 'a,button' ).each( ( _index, element ) => {
-		if ( controls.length >= limit ) return false;
+	// Preserve rendered structure and author CSS, but never ship executable provider runtime.
+	$( 'script,noscript,iframe,object,embed,base' ).remove();
+	$( 'meta[http-equiv]' ).each( ( _index, element ) => {
+		if ( ( $( element ).attr( 'http-equiv' ) ?? '' ).toLowerCase() === 'refresh' ) {
+			$( element ).remove();
+		}
+	} );
+	$( '*' ).each( ( _index, element ) => {
 		const node = $( element );
-		const label =
-			node.text().replace( /\s+/g, ' ' ).trim() || node.attr( 'aria-label' )?.trim() || '';
-		if ( ! label || /^(?:menu|skip to main content|top of page)$/i.test( label ) ) return;
-		let href = node.attr( 'href' ) ?? '';
-		if ( href ) {
-			try {
-				href = new URL( href, sourceUrl ).href;
-			} catch {
-				return;
+		for ( const [ attribute, rawValue ] of Object.entries(
+			'attribs' in element ? element.attribs : {}
+		) ) {
+			const value = [ ...rawValue ]
+				.filter( ( character ) => character.charCodeAt( 0 ) > 0x20 )
+				.join( '' )
+				.toLowerCase();
+			if (
+				/^on/i.test( attribute ) ||
+				attribute.toLowerCase() === 'srcdoc' ||
+				[ 'action', 'formaction' ].includes( attribute.toLowerCase() ) ||
+				( [ 'href', 'src', 'xlink:href' ].includes( attribute.toLowerCase() ) &&
+					/^(?:javascript|vbscript|data:text\/html)/.test( value ) ) ||
+				( attribute.toLowerCase() === 'style' &&
+					/(?:expression\s*\(|-moz-binding|url\s*\(\s*["']?\s*(?:javascript|vbscript|data:text\/html))/i.test(
+						rawValue
+					) )
+			) {
+				node.removeAttr( attribute );
 			}
 		}
-		const key = `${ label }\n${ href }`;
-		if ( seen.has( key ) ) return;
-		seen.add( key );
-		const attributes: string[] = [];
-		for ( const name of [
-			'id',
-			'class',
-			'role',
-			'aria-label',
-			'aria-haspopup',
-			'data-popupid',
-			'data-modalid',
-		] ) {
-			const value = node.attr( name );
-			if ( value ) attributes.push( `${ name }="${ escapeHtmlAttr( value ) }"` );
-		}
-		if ( href ) attributes.push( `href="${ escapeHtmlAttr( href ) }"` );
-		const tag = element.tagName.toLowerCase() === 'button' ? 'button' : 'a';
-		if ( tag === 'button' ) attributes.push( 'type="button"' );
-		controls.push(
-			`<${ tag }${ attributes.length ? ` ${ attributes.join( ' ' ) }` : '' }>${ escapeHtml(
-				label
-			) }</${ tag }>`
-		);
 	} );
-	return controls;
+	$( 'link' ).each( ( _index, element ) => {
+		const node = $( element );
+		const rel = ( node.attr( 'rel' ) ?? '' ).toLowerCase().split( /\s+/ );
+		const as = ( node.attr( 'as' ) ?? '' ).toLowerCase();
+		if (
+			rel.includes( 'modulepreload' ) ||
+			( rel.includes( 'preload' ) && [ 'script', 'fetch' ].includes( as ) )
+		)
+			node.remove();
+	} );
+	return $.html();
 }
 
 export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
@@ -1074,6 +986,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		if ( ! reachableEntries.includes( entry ) ) excludedRoutes.push( entry.url );
 	}
 	retainedEntries.splice( 0, retainedEntries.length, ...reachableEntries );
+	for ( const entry of retainedEntries ) entry.html = safeCapturedPageHtml( entry.html );
 
 	const retainedHtml = retainedEntries.map( ( entry ) => entry.html ).join( '\n' );
 	const mediaReplacements = new Map< string, string >();
@@ -1156,15 +1069,14 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		const selected = selectMediaCandidate( candidates );
 		if ( ! selected ) {
 			for ( const reference of retainedMediaFamilies.get( family ) ?? [] )
-				mediaReplacements.set( reference, candidates[ 0 ].sourceUrl );
+				mediaReplacements.set( reference, TRANSPARENT_IMAGE_DATA_URL );
 			for ( const candidate of candidates ) {
 				for ( const reference of candidate.references ) {
 					mediaReplacements.set( reference, candidate.sourceUrl );
 				}
 				unresolvedMedia.push( {
 					url: candidate.sourceUrl,
-					error:
-						'retained as an external URL because media exceeds portable size or dimension limits',
+					error: 'removed because media exceeds portable size or dimension limits',
 				} );
 				retainedExternalMediaCount++;
 			}
@@ -1173,12 +1085,12 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		if ( ! selectedPortableMedia.has( selected ) ) {
 			for ( const candidate of candidates ) {
 				for ( const reference of candidate.references ) {
-					mediaReplacements.set( reference, selected.sourceUrl );
+					mediaReplacements.set( reference, TRANSPARENT_IMAGE_DATA_URL );
 				}
 			}
 			unresolvedMedia.push( {
 				url: selected.sourceUrl,
-				error: 'retained as an external URL because the aggregate portable media limit was reached',
+				error: 'removed because the aggregate portable media limit was reached',
 			} );
 			retainedExternalMediaCount++;
 			continue;
@@ -1288,12 +1200,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		if ( isText ) {
 			let content = replaceAll( readFileSync( source, 'utf8' ), mediaReplacements );
 			if ( /text\/css/i.test( resource.contentType ) ) {
-				for ( const nested of dependencyReferences(
-					content,
-					dependency.url,
-					options.sourceUrl,
-					true
-				) ) {
+				for ( const nested of dependencyReferences( content, dependency.url, true ) ) {
 					if ( ! copyResource( nested, dependency.url ) ) {
 						content = replaceDanglingCssUrl( content, nested.reference );
 					}
@@ -1314,8 +1221,9 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		return true;
 	};
 	for ( const entry of retainedEntries ) {
-		for ( const dependency of dependencyReferences( entry.html, entry.url, options.sourceUrl ) ) {
-			if ( mediaReplacements.has( dependency.reference ) ) continue;
+		for ( const dependency of dependencyReferences( entry.html, entry.url ) ) {
+			const mediaReplacement = mediaReplacements.get( dependency.reference );
+			if ( mediaReplacement && ! /^(?:https?:)?\/\//i.test( mediaReplacement ) ) continue;
 			if ( ! copyResource( dependency, entry.url ) ) {
 				entry.html =
 					dependency.kind === 'media'
@@ -1326,11 +1234,6 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 			}
 		}
 	}
-	for ( const entry of retainedEntries ) {
-		const semantic = semanticPageHtml( entry, outputDir, websiteDir, mediaReplacements, assets );
-		if ( semantic ) entry.html = semantic;
-	}
-
 	const inlineStyles = new Map< string, { css: string; media: string; count: number } >();
 	for ( const entry of retainedEntries ) {
 		for ( const match of entry.html.matchAll( /<style\b([^>]*)>([\s\S]*?)<\/style\s*>/gi ) ) {
@@ -1421,12 +1324,12 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		}
 		mkdirSync( dirname( destination ), { recursive: true } );
 		const identityHtml = replaceAll(
-				rewriteMediaUrls(
-					rewriteCapturedRouteLinks( html, url, portableRouteLinks ),
-					mediaReplacements
-				),
-				resourceReplacements
-			);
+			rewriteMediaUrls(
+				rewriteCapturedRouteLinks( html, url, portableRouteLinks ),
+				mediaReplacements
+			),
+			resourceReplacements
+		);
 		const normalizedHtml = withoutGeometryIdentities( identityHtml );
 		writeFileSync( destination, normalizedHtml );
 		geometryHtmlByPath.set( `website/${ routePath }`, { html: normalizedHtml, identityHtml } );
@@ -1450,7 +1353,10 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 			}
 			try {
 				const capture = JSON.parse( readFileSync( path, 'utf8' ) ) as GeometryCapture;
-				if ( capture.schema !== 'data-liberation/layout-geometry-capture/v1' || !Array.isArray( capture.observations ) ) {
+				if (
+					capture.schema !== 'data-liberation/layout-geometry-capture/v1' ||
+					! Array.isArray( capture.observations )
+				) {
 					throw new Error( 'schema_invalid' );
 				}
 				observations.push( ...capture.observations );
@@ -1466,9 +1372,15 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 				.replace( /\\/g, '/' )
 				.replace( /^/, 'website/' ),
 			...( geometryHtmlByPath.get(
-				`website/${ routeOutputPath( entry.url, options.sourceUrl, entrypointUrl ).replace( /\\/g, '/' ) }`
+				`website/${ routeOutputPath( entry.url, options.sourceUrl, entrypointUrl ).replace(
+					/\\/g,
+					'/'
+				) }`
 			) ?? {
-				html: readFileSync( join( websiteDir, routeOutputPath( entry.url, options.sourceUrl, entrypointUrl ) ), 'utf8' ),
+				html: readFileSync(
+					join( websiteDir, routeOutputPath( entry.url, options.sourceUrl, entrypointUrl ) ),
+					'utf8'
+				),
 				identityHtml: '',
 			} ),
 			observations,

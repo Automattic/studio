@@ -40,6 +40,26 @@ interface GeometryInput {
 	observations: GeometryObservation[];
 }
 
+interface DocumentGeometry {
+	sourcePath: string;
+	nodes: Array< { node: AnyNode; depth: number } >;
+	nodeForSelector: ( selector: string ) => AnyNode | undefined;
+	selectedWrappers: Set< AnyNode >;
+}
+
+interface GeometryCandidate {
+	sourcePath: string;
+	wrapperIdentity: string;
+	targetIdentity: string;
+	selector: string;
+	targetSelector: string;
+	sourceHash: string;
+	ordered: GeometryObservation[];
+	wrapperNode: AnyNode;
+	wrapperDepth: number;
+	deepestChainImpact: number;
+}
+
 function hash( value: string ): string {
 	return createHash( 'sha256' ).update( value ).digest( 'hex' );
 }
@@ -48,9 +68,8 @@ function stableId( sourcePath: string, selector: string ): string {
 	return `node-${ hash( `${ sourcePath }\0${ selector }` ).slice( 0, 24 ) }`;
 }
 
-function selectorForIdentity( html: string, identity: string ): string | undefined {
+function selectorForIdentity( $: cheerio.CheerioAPI, identity: string ): string | undefined {
 	try {
-		const $ = cheerio.load( html );
 		const node = $( `[data-dla-geometry-id~="${ identity }"]` );
 		if ( node.length !== 1 ) return undefined;
 		const parts: string[] = [];
@@ -72,18 +91,49 @@ function selectorForIdentity( html: string, identity: string ): string | undefin
 	}
 }
 
-function selectorExistsExactlyOnce( html: string, selector: string ): boolean {
-	try {
-		return cheerio.load( html )( selector ).length === 1;
-	} catch {
-		return false;
-	}
-}
-
 function sameBox( left: GeometryBox, right: GeometryBox ): boolean {
 	return [ 'x', 'y', 'width', 'height' ].every(
 		( key ) => Math.abs( left[ key as keyof GeometryBox ] - right[ key as keyof GeometryBox ] ) <= 1
 	);
+}
+
+function elementDepth( node: AnyNode ): number {
+	let depth = 0;
+	let current: AnyNode | null = node;
+	while ( current?.type === 'tag' && current.name !== 'body' ) {
+		depth++;
+		current = current.parent?.type === 'tag' ? current.parent : null;
+	}
+	return depth;
+}
+
+function collectDocumentGeometry( sourcePath: string, html: string ): DocumentGeometry {
+	const $ = cheerio.load( html );
+	return {
+		sourcePath,
+		nodes: $( '*' )
+			.toArray()
+			.filter( ( node ): node is AnyNode => node.type === 'tag' )
+			.map( ( node ) => ( { node, depth: elementDepth( node ) } ) ),
+		nodeForSelector: ( selector ) => $( selector )[ 0 ],
+		selectedWrappers: new Set< AnyNode >(),
+	};
+}
+
+function overlapsSelectedWrapper( document: DocumentGeometry, wrapper: AnyNode ): boolean {
+	let current: AnyNode | null = wrapper;
+	while ( current?.type === 'tag' ) {
+		if ( document.selectedWrappers.has( current ) ) return true;
+		current = current.parent?.type === 'tag' ? current.parent : null;
+	}
+	for ( const selected of document.selectedWrappers ) {
+		current = selected;
+		while ( current?.type === 'tag' ) {
+			if ( current === wrapper ) return true;
+			current = current.parent?.type === 'tag' ? current.parent : null;
+		}
+	}
+	return false;
 }
 
 /**
@@ -97,10 +147,17 @@ export function buildLayoutGeometryProof( inputs: GeometryInput[] ): {
 	const nodes: Array< Record< string, unknown > > = [];
 	const nodeIds = new Set< string >();
 	const reductions: Array< Record< string, unknown > > = [];
+	const candidates: GeometryCandidate[] = [];
 	const omissions: Record< string, number > = {};
 	const omit = ( code: string ) => ( omissions[ code ] = ( omissions[ code ] ?? 0 ) + 1 );
+	const documents = new Map< string, DocumentGeometry >();
 
-	for ( const input of [ ...inputs ].sort( ( left, right ) => left.sourcePath.localeCompare( right.sourcePath ) ) ) {
+	for ( const input of [ ...inputs ].sort( ( left, right ) =>
+		left.sourcePath.localeCompare( right.sourcePath )
+	) ) {
+		const document = collectDocumentGeometry( input.sourcePath, input.html );
+		const identityDocument = cheerio.load( input.identityHtml );
+		documents.set( input.sourcePath, document );
 		const byPair = new Map< string, GeometryObservation[] >();
 		for ( const observation of input.observations ) {
 			const key = `${ observation.wrapperIdentity }\0${ observation.targetIdentity }`;
@@ -109,18 +166,14 @@ export function buildLayoutGeometryProof( inputs: GeometryInput[] ): {
 		for ( const [ key, observations ] of [ ...byPair.entries() ].sort( ( left, right ) =>
 			left[ 0 ].localeCompare( right[ 0 ] )
 		) ) {
-			if ( reductions.length >= MAX_CANDIDATES ) {
-				omit( 'candidate_limit' );
-				continue;
-			}
 			const [ wrapperIdentity, targetIdentity ] = key.split( '\0' );
-			const selector = selectorForIdentity( input.identityHtml, wrapperIdentity );
-			const targetSelector = selectorForIdentity( input.identityHtml, targetIdentity );
+			const selector = selectorForIdentity( identityDocument, wrapperIdentity );
+			const targetSelector = selectorForIdentity( identityDocument, targetIdentity );
 			if (
 				! selector ||
 				! targetSelector ||
-				! selectorExistsExactlyOnce( input.html, selector ) ||
-				! selectorExistsExactlyOnce( input.html, targetSelector )
+				! document.nodeForSelector( selector ) ||
+				! document.nodeForSelector( targetSelector )
 			) {
 				omit( 'source_node_missing' );
 				continue;
@@ -137,7 +190,9 @@ export function buildLayoutGeometryProof( inputs: GeometryInput[] ): {
 				omit( 'viewport_bounds_invalid' );
 				continue;
 			}
-			const ordered = [ ...viewports.values() ].sort( ( left, right ) => left.viewport - right.viewport );
+			const ordered = [ ...viewports.values() ].sort(
+				( left, right ) => left.viewport - right.viewport
+			);
 			if (
 				ordered.some(
 					( observation ) =>
@@ -151,34 +206,121 @@ export function buildLayoutGeometryProof( inputs: GeometryInput[] ): {
 				continue;
 			}
 			const sourceHash = hash( input.html );
-			const wrapper = stableId( input.sourcePath, selector );
-			const target = stableId( input.sourcePath, targetSelector );
-			const boxesFor = ( box: 'wrapper' | 'target' ) =>
-				ordered.map( ( observation ) => ( {
-					viewport: observation.viewport,
-					state: observation.state,
-					source: observation[ box ],
-					simulated: observation.simulated,
-				} ) );
-			for ( const node of [
-				{ id: wrapper, source_path: input.sourcePath, source_hash: sourceHash, selector, boxes: boxesFor( 'wrapper' ) },
-				{ id: target, source_path: input.sourcePath, source_hash: sourceHash, selector: targetSelector, boxes: boxesFor( 'target' ) },
-			] ) {
-				if ( nodeIds.has( node.id ) ) continue;
-				nodeIds.add( node.id );
-				nodes.push( node );
+			const wrapperNode = document.nodeForSelector( selector );
+			if ( ! wrapperNode ) {
+				omit( 'source_node_missing' );
+				continue;
 			}
-			reductions.push( {
-				wrapper,
-				target,
-				invariants: { selectors: true, runtime: true, semantics: true, viewports: true },
-				corrective_css: { declarations: [ { property: 'display', value: ordered[ 0 ].facts.display } ] },
+			const wrapperDepth = elementDepth( wrapperNode );
+			const deepestChainImpact = document.nodes.reduce( ( deepest, { node, depth } ) => {
+				let current: AnyNode | null = node;
+				while ( current?.type === 'tag' ) {
+					if ( current === wrapperNode ) return Math.max( deepest, depth - wrapperDepth + 1 );
+					current = current.parent?.type === 'tag' ? current.parent : null;
+				}
+				return deepest;
+			}, 0 );
+			candidates.push( {
+				sourcePath: input.sourcePath,
+				wrapperIdentity,
+				targetIdentity,
+				selector,
+				targetSelector,
+				sourceHash,
+				ordered,
+				wrapperNode,
+				wrapperDepth,
+				deepestChainImpact,
 			} );
 		}
 	}
 
+	const candidateOrder = ( left: GeometryCandidate, right: GeometryCandidate ) =>
+		right.deepestChainImpact - left.deepestChainImpact ||
+		right.wrapperDepth - left.wrapperDepth ||
+		`${ left.wrapperIdentity }\0${ left.targetIdentity }`.localeCompare(
+			`${ right.wrapperIdentity }\0${ right.targetIdentity }`
+		);
+	const queues = new Map< string, GeometryCandidate[] >();
+	for ( const candidate of candidates ) {
+		queues.set( candidate.sourcePath, [
+			...( queues.get( candidate.sourcePath ) ?? [] ),
+			candidate,
+		] );
+	}
+	for ( const queue of queues.values() ) queue.sort( candidateOrder );
+	const selected: GeometryCandidate[] = [];
+	const sourcePaths = [ ...queues.keys() ].sort();
+	while ( selected.length < MAX_CANDIDATES ) {
+		let progress = false;
+		for ( const sourcePath of sourcePaths ) {
+			const queue = queues.get( sourcePath )!;
+			const document = documents.get( sourcePath )!;
+			let candidate = queue.shift();
+			while ( candidate && overlapsSelectedWrapper( document, candidate.wrapperNode ) ) {
+				omit( 'overlapping_reduction_unproven' );
+				candidate = queue.shift();
+			}
+			if ( ! candidate ) continue;
+			document.selectedWrappers.add( candidate.wrapperNode );
+			selected.push( candidate );
+			progress = true;
+			if ( selected.length >= MAX_CANDIDATES ) break;
+		}
+		if ( ! progress ) break;
+	}
+	for ( const queue of queues.values() ) {
+		for ( const _candidate of queue ) omit( 'candidate_limit' );
+	}
+
+	for ( const candidate of selected.sort( ( left, right ) =>
+		`${ left.sourcePath }\0${ left.wrapperIdentity }\0${ left.targetIdentity }`.localeCompare(
+			`${ right.sourcePath }\0${ right.wrapperIdentity }\0${ right.targetIdentity }`
+		)
+	) ) {
+		const wrapper = stableId( candidate.sourcePath, candidate.selector );
+		const target = stableId( candidate.sourcePath, candidate.targetSelector );
+		const boxesFor = ( box: 'wrapper' | 'target' ) =>
+			candidate.ordered.map( ( observation ) => ( {
+				viewport: observation.viewport,
+				state: observation.state,
+				source: observation[ box ],
+				simulated: observation.simulated,
+			} ) );
+		for ( const node of [
+			{
+				id: wrapper,
+				source_path: candidate.sourcePath,
+				source_hash: candidate.sourceHash,
+				selector: candidate.selector,
+				boxes: boxesFor( 'wrapper' ),
+			},
+			{
+				id: target,
+				source_path: candidate.sourcePath,
+				source_hash: candidate.sourceHash,
+				selector: candidate.targetSelector,
+				boxes: boxesFor( 'target' ),
+			},
+		] ) {
+			if ( nodeIds.has( node.id ) ) continue;
+			nodeIds.add( node.id );
+			nodes.push( node );
+		}
+		reductions.push( {
+			wrapper,
+			target,
+			invariants: { selectors: true, runtime: true, semantics: true, viewports: true },
+			corrective_css: {
+				declarations: [ { property: 'display', value: candidate.ordered[ 0 ].facts.display } ],
+			},
+		} );
+	}
+
 	return {
-		...( reductions.length > 0 ? { proof: { schema: LAYOUT_GEOMETRY_PROOF_SCHEMA, nodes, reductions } } : {} ),
+		...( reductions.length > 0
+			? { proof: { schema: LAYOUT_GEOMETRY_PROOF_SCHEMA, nodes, reductions } }
+			: {} ),
 		report: {
 			schema: LAYOUT_GEOMETRY_PROOF_SCHEMA,
 			accepted_reductions: reductions.length,

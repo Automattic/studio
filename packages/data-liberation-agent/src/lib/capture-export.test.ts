@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -38,18 +39,34 @@ describe( 'exportWebsiteCapture', () => {
 			facts: { display: 'block', position: 'static', visibility: 'visible', childCount: 1 },
 			invariants: { runtime: true, semantics: true },
 		} );
-		for ( const [ viewport, width ] of [ [ 'desktop', 1440 ], [ 'mobile', 390 ] ] as const )
+		for ( const [ viewport, width ] of [
+			[ 'desktop', 1440 ],
+			[ 'mobile', 390 ],
+		] as const )
 			writeFileSync(
 				join( outputDir, 'layout-geometry', `homepage.${ viewport }.json` ),
-				JSON.stringify( { schema: 'data-liberation/layout-geometry-capture/v1', observations: [ observation( width ) ], omissions: {} } )
+				JSON.stringify( {
+					schema: 'data-liberation/layout-geometry-capture/v1',
+					observations: [ observation( width ) ],
+					omissions: {},
+				} )
 			);
 		mkdirSync( join( outputDir, 'screenshots' ), { recursive: true } );
-		writeFileSync( join( outputDir, 'screenshots', 'manifest.json' ), JSON.stringify( {
-			version: 1,
-			entries: { 'https://example.com/': { slug: 'homepage', html: 'html/homepage.html' } },
-		} ) );
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				entries: { 'https://example.com/': { slug: 'homepage', html: 'html/homepage.html' } },
+			} )
+		);
 
-		exportWebsiteCapture( { outputDir, sourceUrl: 'https://example.com/', platform: 'generic', summary: {}, failures: [] } );
+		exportWebsiteCapture( {
+			outputDir,
+			sourceUrl: 'https://example.com/',
+			platform: 'generic',
+			summary: {},
+			failures: [],
+		} );
 		const artifact = JSON.parse( readFileSync( join( outputDir, 'artifact.json' ), 'utf8' ) );
 		expect( artifact.layout_geometry_proof ).toMatchObject( {
 			schema: 'blocks-engine/php-transformer/layout-geometry-proof/v1',
@@ -57,9 +74,121 @@ describe( 'exportWebsiteCapture', () => {
 				{ selector: 'main:nth-of-type(1) > div:nth-of-type(1)' },
 				{ selector: 'main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(1)' },
 			],
-			reductions: [ { invariants: { selectors: true, runtime: true, semantics: true, viewports: true } } ],
+			reductions: [
+				{ invariants: { selectors: true, runtime: true, semantics: true, viewports: true } },
+			],
 		} );
-		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).not.toContain( 'data-dla-geometry-id' );
+		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).not.toContain(
+			'data-dla-geometry-id'
+		);
+	} );
+
+	it( 'binds viewport-scoped geometry identities to the exact marker-free responsive output', () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-responsive-geometry-export-' ) );
+		dirs.push( outputDir );
+		for ( const path of [
+			'html',
+			'html-mobile',
+			'layout-geometry',
+			'resources/cdn',
+			'screenshots',
+		] )
+			mkdirSync( join( outputDir, path ), { recursive: true } );
+		writeFileSync(
+			join( outputDir, 'html', 'homepage.html' ),
+			'<html><head><base href="https://evil.example/"><meta http-equiv="refresh" content="0;url=https://evil.example/"><link rel="stylesheet" href="https://cdn.example/site.css"><style>.desktop{display:block}</style></head><body class="desktop-body" style="margin:3px;padding:4px"><main><div data-dla-geometry-id="desktop-wrapper-0" onclick="discard()"><section data-dla-geometry-id="desktop-target-0">Desktop<a href="javascript:discard()">Unsafe</a><form action="https://evil.example/"><button formaction="javascript:discard()">Send</button></form><iframe src="https://evil.example/"></iframe></section></div><script>discard()</script></main></body></html>'
+		);
+		writeFileSync(
+			join( outputDir, 'html-mobile', 'homepage.html' ),
+			'<html><head><style>.mobile{display:block}</style></head><body class="mobile-body" style="margin:5px;padding:6px"><main><div data-dla-geometry-id="mobile-wrapper-0"><section data-dla-geometry-id="mobile-target-0">Mobile</section></div></main></body></html>'
+		);
+		const observation = ( viewport: number, identity: string ) => ( {
+			wrapperIdentity: `${ identity }-wrapper-0`,
+			targetIdentity: `${ identity }-target-0`,
+			viewport,
+			state: 'default' as const,
+			wrapper: { x: 0, y: 0, width: 100, height: 24 },
+			target: { x: 0, y: 0, width: 100, height: 24 },
+			simulated: { x: 0, y: 0, width: 100, height: 24 },
+			facts: { display: 'block', position: 'static', visibility: 'visible', childCount: 1 },
+			invariants: { runtime: true, semantics: true },
+		} );
+		writeFileSync(
+			join( outputDir, 'layout-geometry', 'homepage.desktop.json' ),
+			JSON.stringify( {
+				schema: 'data-liberation/layout-geometry-capture/v1',
+				observations: [ observation( 1440, 'desktop' ) ],
+				omissions: {},
+			} )
+		);
+		writeFileSync(
+			join( outputDir, 'layout-geometry', 'homepage.mobile.json' ),
+			JSON.stringify( {
+				schema: 'data-liberation/layout-geometry-capture/v1',
+				observations: [ observation( 390, 'mobile' ) ],
+				omissions: {},
+			} )
+		);
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				entries: { 'https://example.com/': { slug: 'homepage', html: 'html/homepage.html' } },
+			} )
+		);
+		writeFileSync( join( outputDir, 'resources', 'cdn', 'site.css' ), '.desktop{display:block}' );
+		writeFileSync(
+			join( outputDir, 'resources', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				resources: {
+					'https://cdn.example/site.css': {
+						path: 'resources/cdn/site.css',
+						contentType: 'text/css',
+					},
+				},
+				failures: [],
+			} )
+		);
+
+		exportWebsiteCapture( {
+			outputDir,
+			sourceUrl: 'https://example.com/',
+			platform: 'generic',
+			summary: {},
+			failures: [],
+		} );
+		const html = readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' );
+		const artifact = JSON.parse( readFileSync( join( outputDir, 'artifact.json' ), 'utf8' ) );
+		expect( html ).not.toContain( 'data-dla-geometry-id' );
+		expect( html ).not.toContain( 'onclick=' );
+		expect( html ).not.toContain( '<script' );
+		expect( html ).not.toContain( '<iframe' );
+		expect( html ).not.toContain( '<base' );
+		expect( html ).not.toContain( 'http-equiv="refresh"' );
+		expect( html ).not.toContain( 'javascript:' );
+		expect( html ).not.toContain( 'action="https://evil.example/' );
+		expect( html ).toContain(
+			'class="data-liberation-desktop-document desktop-body" style="margin:3px;padding:4px"'
+		);
+		expect( html ).toContain(
+			'class="data-liberation-mobile-document mobile-body" style="margin:5px;padding:6px"'
+		);
+		expect( html ).toContain( 'href="/cdn/site.css"' );
+		expect( artifact.layout_geometry_proof.reductions ).toHaveLength( 2 );
+		expect( artifact.layout_geometry_proof.nodes ).toEqual(
+			expect.arrayContaining( [
+				expect.objectContaining( {
+					selector: 'div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1)',
+					source_hash: createHash( 'sha256' ).update( html ).digest( 'hex' ),
+					boxes: [ expect.objectContaining( { viewport: 1440 } ) ],
+				} ),
+				expect.objectContaining( {
+					selector: 'div:nth-of-type(2) > main:nth-of-type(1) > div:nth-of-type(1)',
+					boxes: [ expect.objectContaining( { viewport: 390 } ) ],
+				} ),
+			] )
+		);
 	} );
 
 	it( 'rejects unsafe shared-style media attributes', () => {
@@ -188,9 +317,13 @@ describe( 'exportWebsiteCapture', () => {
 		} );
 
 		const receipt = JSON.parse( readFileSync( receiptPath, 'utf8' ) );
-		const geometryArtifact = JSON.parse( readFileSync( join( outputDir, 'artifact.json' ), 'utf8' ) );
+		const geometryArtifact = JSON.parse(
+			readFileSync( join( outputDir, 'artifact.json' ), 'utf8' )
+		);
 		expect( geometryArtifact.reports ).toContain( 'layout-geometry-report.json' );
-		expect( JSON.parse( readFileSync( join( outputDir, 'layout-geometry-report.json' ), 'utf8' ) ) ).toMatchObject( {
+		expect(
+			JSON.parse( readFileSync( join( outputDir, 'layout-geometry-report.json' ), 'utf8' ) )
+		).toMatchObject( {
 			schema: 'blocks-engine/php-transformer/layout-geometry-proof/v1',
 			capture_omissions: { capture_missing: 4 },
 		} );
@@ -348,11 +481,11 @@ describe( 'exportWebsiteCapture', () => {
 			JSON.parse( readFileSync( join( outputDir, 'diagnostics.json' ), 'utf8' ) ).unresolvedMedia
 		).toContainEqual( {
 			url: 'https://example.com/only-huge.png',
-			error: 'retained as an external URL because media exceeds portable size or dimension limits',
+			error: 'removed because media exceeds portable size or dimension limits',
 		} );
 	} );
 
-	it( 'exports section evidence as one rendered semantic authoring tree', () => {
+	it( 'preserves the rendered authoring tree when section reconstruction lacks visual proof', () => {
 		const outputDir = mkdtempSync( join( tmpdir(), 'dla-capture-export-' ) );
 		dirs.push( outputDir );
 		mkdirSync( join( outputDir, 'html' ), { recursive: true } );
@@ -459,24 +592,15 @@ describe( 'exportWebsiteCapture', () => {
 		const receipt = JSON.parse( readFileSync( receiptPath, 'utf8' ) );
 
 		expect( html ).toContain( '<title>Example Studio</title>' );
-		expect( html ).toContain( 'Built from evidence' );
-		expect( html ).toContain( 'Precisely reconstructed.' );
+		expect( html ).toContain( 'Desktop duplicate' );
+		expect( html ).toContain( 'Mobile duplicate' );
 		expect( html ).toContain( 'src="/media/hero.jpg"' );
-		expect( html ).toContain( 'data-modalid="contact"' );
-		expect( html ).toContain( '<footer class="data-liberation-semantic-footer">' );
 		expect( html ).not.toContain( '<!-- wp:' );
-		expect( html ).not.toContain( 'data-liberation-desktop-document' );
-		expect( html ).not.toContain( 'data-liberation-mobile-document' );
-		expect( html ).not.toContain( 'Desktop duplicate' );
-		expect( html ).not.toContain( 'Mobile duplicate' );
-		expect( html ).not.toContain( 'aria-label="Menu"' );
-		expect(
-			existsSync( join( outputDir, 'website', 'assets', 'icons', 'homepage-icon-0.svg' ) )
-		).toBe( true );
-		expect( receipt.assets ).toContainEqual( {
-			sourceUrl: 'https://example.com/#generated-icon-icon-0.svg',
-			path: 'website/assets/icons/homepage-icon-0.svg',
-		} );
+		expect( html ).toContain( 'data-liberation-desktop-document' );
+		expect( html ).toContain( 'data-liberation-mobile-document' );
+		expect( receipt.assets ).not.toContainEqual(
+			expect.objectContaining( { sourceUrl: expect.stringContaining( '#generated-icon-' ) } )
+		);
 	} );
 
 	it( 'keeps captured responsive HTML when section evidence is invalid', () => {
@@ -645,7 +769,7 @@ describe( 'exportWebsiteCapture', () => {
 
 		const html = readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' );
 		const diagnostics = JSON.parse( readFileSync( join( outputDir, 'diagnostics.json' ), 'utf8' ) );
-		expect( html ).toContain( 'function resolve(e){return url(e)}' );
+		expect( html ).not.toContain( 'function resolve(e){return url(e)}' );
 		expect( diagnostics.unresolvedDependencies ).toEqual( [] );
 	} );
 
@@ -860,7 +984,7 @@ describe( 'exportWebsiteCapture', () => {
 		media.markSuccess( 'https://example.com/hero.png', join( outputDir, 'media', 'hero.png' ) );
 		media.flush();
 
-		const receiptPath = exportWebsiteCapture( {
+		exportWebsiteCapture( {
 			outputDir,
 			sourceUrl: 'https://example.com/',
 			platform: 'fake',
@@ -868,32 +992,7 @@ describe( 'exportWebsiteCapture', () => {
 			failures: [],
 		} );
 
-		const receipt = JSON.parse( readFileSync( receiptPath, 'utf8' ) );
 		const diagnostics = JSON.parse( readFileSync( join( outputDir, 'diagnostics.json' ), 'utf8' ) );
-		expect( receipt.assets ).toContainEqual( {
-			sourceUrl: 'https://example.com/_runtimes/site.js',
-			path: 'website/_runtimes/site.js',
-		} );
-		expect( receipt.assets ).toContainEqual( {
-			sourceUrl: 'https://example.com/.netlify/scripts/rum',
-			path: 'website/.netlify/scripts/rum.js',
-		} );
-		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).toContain(
-			'src="/.netlify/scripts/rum.js"'
-		);
-		expect(
-			readFileSync( join( outputDir, 'website', '.netlify', 'scripts', 'rum.js' ), 'utf8' )
-		).toBe( 'rum();' );
-		expect( readFileSync( join( outputDir, 'website', '_runtimes', 'site.js' ), 'utf8' ) ).toBe(
-			'export class Site {}'
-		);
-		expect( receipt.assets ).toContainEqual( {
-			sourceUrl: 'https://example.com/_json/site.json',
-			path: 'website/_json/site.json',
-		} );
-		expect( readFileSync( join( outputDir, 'website', '_json', 'site.json' ), 'utf8' ) ).toBe(
-			'{"image":"/media/hero.png"}'
-		);
 		expect( readFileSync( join( outputDir, 'website', '_fonts', 'site.woff2' ), 'utf8' ) ).toBe(
 			'font'
 		);
@@ -913,10 +1012,10 @@ describe( 'exportWebsiteCapture', () => {
 		);
 		expect( diagnostics.unresolvedDependencies ).toEqual(
 			expect.arrayContaining( [
-				expect.objectContaining( { url: 'https://example.com/_json/missing.json' } ),
-				expect.objectContaining( { url: 'https://example.com/_runtimes/missing.js' } ),
+				expect.objectContaining( { url: 'https://example.com/_videos/missing' } ),
+				expect.objectContaining( { url: 'https://example.com/_fonts/missing.woff2' } ),
 				expect.objectContaining( {
-					url: 'https://example.com/_runtimes/missing-script.js',
+					url: 'https://example.com/assets/images/missing-background.webp',
 				} ),
 			] )
 		);
@@ -931,8 +1030,7 @@ describe( 'exportWebsiteCapture', () => {
 		expect( html ).not.toContain( '/_videos/missing' );
 		expect( html ).not.toContain( '/_fonts/missing.woff2' );
 		expect( html ).toContain( 'data:application/octet-stream;base64,' );
-		expect( html ).toContain( 'import "/_runtimes/missing.js"' );
-		expect( html ).toContain( '<script src="/_runtimes/site.js"' );
+		expect( html ).not.toContain( '/_runtimes/site.js' );
 		expect( html ).not.toContain( '/_runtimes/missing-script.js' );
 		const artifact = JSON.parse( readFileSync( join( outputDir, 'artifact.json' ), 'utf8' ) );
 		expect( artifact.files ).toEqual(
@@ -1100,6 +1198,77 @@ describe( 'exportWebsiteCapture', () => {
 		] );
 		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).toContain(
 			'href="/index.html"'
+		);
+	} );
+
+	it( 'localizes external lazy, responsive, preload, icon, and recursive CSS render dependencies', () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-portable-render-' ) );
+		dirs.push( outputDir );
+		for ( const path of [ 'html', 'screenshots', 'resources/cdn/css', 'resources/cdn/media' ] )
+			mkdirSync( join( outputDir, path ), { recursive: true } );
+		writeFileSync(
+			join( outputDir, 'html', 'homepage.html' ),
+			'<html><head><link rel="canonical" href="https://example.com/canonical"><meta property="og:image" content="https://cdn.example/social.jpg"><link rel="icon" href="https://cdn.example/favicon.ico"><link rel="preload" as="font" href="https://cdn.example/font.woff2"><link rel="preload" as="image" href="https://cdn.example/preload.jpg"><link rel="stylesheet" href="https://cdn.example/site.css"><style>.missing{background:url("https://cdn.example/missing.jpg")}</style></head><body><img loading="lazy" src="https://cdn.example/lazy.jpg" srcset="https://cdn.example/lazy-1.jpg 1x, https://cdn.example/lazy-2.jpg 2x"><picture><source srcset="https://cdn.example/picture.jpg 1x"><img src="https://cdn.example/fallback.jpg"></picture></body></html>'
+		);
+		const resources: Record< string, { path: string; contentType: string } > = {};
+		const add = ( url: string, path: string, contentType: string, content: string ) => {
+			writeFileSync( join( outputDir, 'resources', path ), content );
+			resources[ url ] = { path: `resources/${ path }`, contentType };
+		};
+		add(
+			'https://cdn.example/site.css',
+			'cdn/css/site.css',
+			'@text/css'.slice( 1 ),
+			'@import "nested.css";.hero{background:url("../media/background.jpg")}'
+		);
+		add(
+			'https://cdn.example/nested.css',
+			'cdn/css/nested.css',
+			'text/css',
+			'@font-face{src:url("../media/font.woff2")}'
+		);
+		for ( const [ name, type ] of [
+			[ 'lazy.jpg', 'image/jpeg' ],
+			[ 'lazy-1.jpg', 'image/jpeg' ],
+			[ 'lazy-2.jpg', 'image/jpeg' ],
+			[ 'picture.jpg', 'image/jpeg' ],
+			[ 'fallback.jpg', 'image/jpeg' ],
+			[ 'background.jpg', 'image/jpeg' ],
+			[ 'favicon.ico', 'image/x-icon' ],
+			[ 'font.woff2', 'font/woff2' ],
+			[ 'preload.jpg', 'image/jpeg' ],
+		] as const )
+			add( `https://cdn.example/${ name }`, `cdn/media/${ name }`, type, name );
+		writeFileSync(
+			join( outputDir, 'resources', 'manifest.json' ),
+			JSON.stringify( { version: 1, resources, failures: [] } )
+		);
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				entries: { 'https://example.com/': { html: 'html/homepage.html' } },
+			} )
+		);
+		exportWebsiteCapture( {
+			outputDir,
+			sourceUrl: 'https://example.com/',
+			platform: 'fake',
+			summary: {},
+			failures: [],
+		} );
+		const html = readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' );
+		const css = readFileSync( join( outputDir, 'website', 'cdn', 'css', 'site.css' ), 'utf8' );
+		const diagnostics = JSON.parse( readFileSync( join( outputDir, 'diagnostics.json' ), 'utf8' ) );
+		expect( html ).toContain( 'href="https://example.com/canonical"' );
+		expect( html ).toContain( 'content="https://cdn.example/social.jpg"' );
+		expect( html ).not.toMatch(
+			/https:\/\/cdn\.example\/(?:lazy|picture|fallback|favicon|font|preload|site|missing)/
+		);
+		expect( html ).toContain( 'data:application/octet-stream;base64,' );
+		expect( css ).not.toContain( 'https://cdn.example' );
+		expect( diagnostics.unresolvedDependencies ).toContainEqual(
+			expect.objectContaining( { url: 'https://cdn.example/missing.jpg' } )
 		);
 	} );
 } );

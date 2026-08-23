@@ -639,6 +639,15 @@ describe( 'CLI: studio site create', () => {
 			expect( blueprint.staticSiteImport.code ).toContain(
 				"$input['require_proven_dynamic_client_assets'] = false;"
 			);
+			expect(
+				blueprint.staticSiteImport.code.indexOf(
+					"$input['require_proven_dynamic_client_assets'] = false;"
+				)
+			).toBeLessThan(
+				blueprint.staticSiteImport.code.indexOf(
+					'$result = static_site_importer_ability_import( $input );'
+				)
+			);
 			expect( blueprint.staticSiteImport.code ).toContain(
 				"'client_script_policy' => 'isolated_preview'"
 			);

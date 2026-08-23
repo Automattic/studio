@@ -534,6 +534,7 @@ if ( isset( $source['url'] ) && function_exists( 'static_site_importer_ability_i
 		$slug = 'imported-site';
 	}
 	$input['operation'] = 'plan';
+	$input['require_proven_dynamic_client_assets'] = false;
 	$input['slug'] = $slug;
 	$input['source'] = array(
 		'type' => 'url',

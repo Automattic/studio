@@ -610,6 +610,7 @@ if ( isset( $source['url'] ) && function_exists( 'static_site_importer_ability_i
 	if ( isset( $source['artifact'] ) && is_array( $source['artifact'] ) ) {
 		$artifact = $source['artifact'];
 		$input['fail_on_quality'] = true;
+		$input['require_proven_dynamic_client_assets'] = false;
 		$input['seed_entities'] = true;
 		$input['materialize_dependencies'] = true;
 		if ( in_array( $artifact['theme_materialization'] ?? '', array( 'block', 'classic' ), true ) ) {

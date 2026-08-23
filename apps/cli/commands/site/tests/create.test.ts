@@ -696,6 +696,9 @@ describe( 'CLI: studio site create', () => {
 			);
 			expect( blueprint.staticSiteImport.code ).toContain( "$input['source'] = array(" );
 			expect( blueprint.staticSiteImport.code ).toContain( "$input['fail_on_quality'] = true;" );
+			expect( blueprint.staticSiteImport.code ).toContain(
+				"$input['require_proven_dynamic_client_assets'] = false;"
+			);
 			expect( blueprint.staticSiteImport.code ).toContain( "$input['seed_entities'] = true;" );
 			expect( blueprint.staticSiteImport.code ).toContain(
 				"$input['materialize_dependencies'] = true;"

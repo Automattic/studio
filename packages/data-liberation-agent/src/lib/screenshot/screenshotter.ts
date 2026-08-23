@@ -257,6 +257,13 @@ async function captureLayoutGeometry( page: Page, viewport: Viewport ): Promise<
 			}
 			return true;
 		};
+		const markIdentity = ( node: Element, identity: string ) => {
+			const identities = node.getAttribute( 'data-dla-geometry-id' )?.split( /\s+/ ) ?? [];
+			if ( ! identities.includes( identity ) ) {
+				identities.push( identity );
+				node.setAttribute( 'data-dla-geometry-id', identities.join( ' ' ) );
+			}
+		};
 		const omissions: Record< string, number > = {};
 		const omit = ( code: string ) => ( omissions[ code ] = ( omissions[ code ] ?? 0 ) + 1 );
 		const box = ( node: Element ) => {
@@ -318,8 +325,8 @@ async function captureLayoutGeometry( page: Page, viewport: Viewport ): Promise<
 			}
 			const wrapperIdentity = `wrapper-${ observations.length }`;
 			const targetIdentity = `target-${ observations.length }`;
-			wrapper.setAttribute( 'data-dla-geometry-id', wrapperIdentity );
-			target.setAttribute( 'data-dla-geometry-id', targetIdentity );
+			markIdentity( wrapper, wrapperIdentity );
+			markIdentity( target, targetIdentity );
 			observations.push( {
 				wrapperIdentity,
 				targetIdentity,

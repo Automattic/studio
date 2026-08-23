@@ -51,7 +51,7 @@ function stableId( sourcePath: string, selector: string ): string {
 function selectorForIdentity( html: string, identity: string ): string | undefined {
 	try {
 		const $ = cheerio.load( html );
-		const node = $( `[data-dla-geometry-id="${ identity }"]` );
+		const node = $( `[data-dla-geometry-id~="${ identity }"]` );
 		if ( node.length !== 1 ) return undefined;
 		const parts: string[] = [];
 		let current: AnyNode | null = node[ 0 ];
@@ -95,6 +95,7 @@ export function buildLayoutGeometryProof( inputs: GeometryInput[] ): {
 	report: Record< string, unknown >;
 } {
 	const nodes: Array< Record< string, unknown > > = [];
+	const nodeIds = new Set< string >();
 	const reductions: Array< Record< string, unknown > > = [];
 	const omissions: Record< string, number > = {};
 	const omit = ( code: string ) => ( omissions[ code ] = ( omissions[ code ] ?? 0 ) + 1 );
@@ -159,10 +160,14 @@ export function buildLayoutGeometryProof( inputs: GeometryInput[] ): {
 					source: observation[ box ],
 					simulated: observation.simulated,
 				} ) );
-			nodes.push(
+			for ( const node of [
 				{ id: wrapper, source_path: input.sourcePath, source_hash: sourceHash, selector, boxes: boxesFor( 'wrapper' ) },
-				{ id: target, source_path: input.sourcePath, source_hash: sourceHash, selector: targetSelector, boxes: boxesFor( 'target' ) }
-			);
+				{ id: target, source_path: input.sourcePath, source_hash: sourceHash, selector: targetSelector, boxes: boxesFor( 'target' ) },
+			] ) {
+				if ( nodeIds.has( node.id ) ) continue;
+				nodeIds.add( node.id );
+				nodes.push( node );
+			}
 			reductions.push( {
 				wrapper,
 				target,

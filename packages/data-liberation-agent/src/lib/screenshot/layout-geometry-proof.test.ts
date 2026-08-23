@@ -26,6 +26,25 @@ describe( 'buildLayoutGeometryProof', () => {
 		expect( ( first.proof as { nodes: Array<{ boxes: unknown[] }> } ).nodes[ 0 ].boxes ).toHaveLength( 2 );
 	} );
 
+	it( 'resolves nested wrapper and target identities without overwriting either identity', () => {
+		const nestedHtml = '<main><div><div><section>Copy</section></div></div></main>';
+		const nestedIdentityHtml = nestedHtml
+			.replace( '<div><div>', '<div data-dla-geometry-id="wrapper-0"><div data-dla-geometry-id="target-0 wrapper-1">' )
+			.replace( '<section>', '<section data-dla-geometry-id="target-1">' );
+		const proof = buildLayoutGeometryProof( [ {
+			sourcePath: 'website/index.html',
+			html: nestedHtml,
+			identityHtml: nestedIdentityHtml,
+			observations: [
+				observation( 1440 ),
+				{ ...observation( 1440 ), wrapperIdentity: 'wrapper-1', targetIdentity: 'target-1' },
+			],
+		} ] );
+		expect( ( proof.proof as { reductions: unknown[]; nodes: unknown[] } ).reductions ).toHaveLength( 2 );
+		expect( ( proof.proof as { reductions: unknown[]; nodes: unknown[] } ).nodes ).toHaveLength( 3 );
+		expect( proof.report.omissions ).toEqual( {} );
+	} );
+
 	it( 'omits missing selectors, stale resume observations, and out-of-bounds candidates', () => {
 		const missing = buildLayoutGeometryProof( [ { sourcePath: 'website/index.html', html, identityHtml: html, observations: [ observation( 1440 ) ] } ] );
 		expect( missing.proof ).toBeUndefined();

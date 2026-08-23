@@ -16,12 +16,15 @@ export interface ArtifactPlan {
 	/** Capture per-page section specs (extractFull) on the desktop pass, so the
 	 *  reconstruction phase can read them instead of re-running Playwright. */
 	captureSections: boolean;
+	/** Capture mobile computed section evidence for responsive reconstruction. */
+	captureMobileSections: boolean;
 	paths: {
 		fullpage: string;
 		scrolled: string;
 		html: string;
 		htmlMobile: string;
 		sections: string;
+		sectionsMobile: string;
 	};
 }
 
@@ -72,6 +75,7 @@ export function planArtifacts( args: {
 		const html = join( args.outputDir, 'html', `${ args.slug }.html` );
 		const htmlMobile = join( args.outputDir, 'html-mobile', `${ args.slug }.html` );
 		const sections = join( args.outputDir, 'sections', `${ args.slug }.json` );
+		const sectionsMobile = join( args.outputDir, 'sections-mobile', `${ args.slug }.json` );
 		const captureImages = args.captureImages ?? true;
 		const captureFullpage = captureImages && ( args.force || ! existsSync( fullpage ) );
 		const captureScrolled = captureImages && ( args.force || ! existsSync( scrolled ) );
@@ -82,8 +86,15 @@ export function planArtifacts( args: {
 		// different layout to mobile UAs, so it must come from the emulated mobile pass.
 		const captureMobileHtml = viewport === 'mobile' && ( args.force || ! existsSync( htmlMobile ) );
 		const captureSections = viewport === 'desktop' && ( args.force || ! existsSync( sections ) );
+		const captureMobileSections =
+			viewport === 'mobile' && ( args.force || ! existsSync( sectionsMobile ) );
 		const needsLoad =
-			captureFullpage || captureScrolled || captureHtml || captureMobileHtml || captureSections;
+			captureFullpage ||
+			captureScrolled ||
+			captureHtml ||
+			captureMobileHtml ||
+			captureSections ||
+			captureMobileSections;
 		return {
 			needsLoad,
 			captureFullpage,
@@ -91,7 +102,8 @@ export function planArtifacts( args: {
 			captureHtml,
 			captureMobileHtml,
 			captureSections,
-			paths: { fullpage, scrolled, html, htmlMobile, sections },
+			captureMobileSections,
+			paths: { fullpage, scrolled, html, htmlMobile, sections, sectionsMobile },
 		};
 	};
 	return { desktop: plan( 'desktop' ), mobile: plan( 'mobile' ) };

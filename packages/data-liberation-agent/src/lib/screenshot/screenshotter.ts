@@ -414,6 +414,17 @@ async function capturePerViewport( args: CapturePerViewportArgs ): Promise< void
 			/* best-effort — reconstruction live-extracts when the spec cache is missing */
 		}
 	}
+	if ( ! isDesktop && plan.captureMobileSections ) {
+		try {
+			const { specs, landmarks } = await extractFull( page, {}, evaluateTimeoutMs );
+			SectionSpecsStore.loadMobile( outputDir ).set( url, specs, landmarks, {
+				width: viewport.width,
+				height: viewport.height,
+			} );
+		} catch {
+			/* best-effort — desktop section evidence remains available */
+		}
+	}
 
 	// --- fullpage screenshot --------------------------------------------------
 	if ( plan.captureFullpage ) {

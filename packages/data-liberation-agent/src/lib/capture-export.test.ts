@@ -25,11 +25,11 @@ describe( 'exportWebsiteCapture', () => {
 		mkdirSync( join( outputDir, 'layout-geometry' ), { recursive: true } );
 		writeFileSync(
 			join( outputDir, 'html', 'homepage.html' ),
-			'<html><body><main><div><section>Copy</section></div></main></body></html>'
+			'<html><body><main><div data-dla-geometry-id="wrapper-0"><section data-dla-geometry-id="target-0">Copy</section></div></main></body></html>'
 		);
 		const observation = ( viewport: number ) => ( {
-			selector: 'main:nth-of-type(1) > div:nth-of-type(1)',
-			targetSelector: 'main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(1)',
+			wrapperIdentity: 'wrapper-0',
+			targetIdentity: 'target-0',
 			viewport,
 			state: 'default',
 			wrapper: { x: 0, y: 0, width: 100, height: 24 },
@@ -53,6 +53,10 @@ describe( 'exportWebsiteCapture', () => {
 		const artifact = JSON.parse( readFileSync( join( outputDir, 'artifact.json' ), 'utf8' ) );
 		expect( artifact.layout_geometry_proof ).toMatchObject( {
 			schema: 'blocks-engine/php-transformer/layout-geometry-proof/v1',
+			nodes: [
+				{ selector: 'main:nth-of-type(1) > div:nth-of-type(1)' },
+				{ selector: 'main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(1)' },
+			],
 			reductions: [ { invariants: { selectors: true, runtime: true, semantics: true, viewports: true } } ],
 		} );
 		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).not.toContain( 'data-dla-geometry-id' );
@@ -187,7 +191,7 @@ describe( 'exportWebsiteCapture', () => {
 		const geometryArtifact = JSON.parse( readFileSync( join( outputDir, 'artifact.json' ), 'utf8' ) );
 		expect( geometryArtifact.reports ).toContain( 'layout-geometry-report.json' );
 		expect( JSON.parse( readFileSync( join( outputDir, 'layout-geometry-report.json' ), 'utf8' ) ) ).toMatchObject( {
-			schema: 'data-liberation/layout-geometry-report/v1',
+			schema: 'blocks-engine/php-transformer/layout-geometry-proof/v1',
 			capture_omissions: { capture_missing: 4 },
 		} );
 		expect( receipt ).toMatchObject( {

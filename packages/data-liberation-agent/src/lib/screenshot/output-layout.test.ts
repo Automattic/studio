@@ -118,6 +118,7 @@ describe( 'planArtifacts', () => {
 			mkdirSync( join( dir, 'html-mobile' ), { recursive: true } );
 			mkdirSync( join( dir, 'sections' ), { recursive: true } );
 			mkdirSync( join( dir, 'sections-mobile' ), { recursive: true } );
+			mkdirSync( join( dir, 'layout-geometry' ), { recursive: true } );
 			writeFileSync( join( dir, 'screenshots', 'desktop', 'about.png' ), 'fake' );
 			writeFileSync( join( dir, 'screenshots', 'desktop', 'about.scrolled.png' ), 'fake' );
 			writeFileSync( join( dir, 'screenshots', 'mobile', 'about.png' ), 'fake' );
@@ -126,6 +127,8 @@ describe( 'planArtifacts', () => {
 			writeFileSync( join( dir, 'html-mobile', 'about.html' ), 'fake' );
 			writeFileSync( join( dir, 'sections', 'about.json' ), 'fake' );
 			writeFileSync( join( dir, 'sections-mobile', 'about.json' ), 'fake' );
+			writeFileSync( join( dir, 'layout-geometry', 'about.desktop.json' ), 'fake' );
+			writeFileSync( join( dir, 'layout-geometry', 'about.mobile.json' ), 'fake' );
 
 			const plan = planArtifacts( { slug: 'about', outputDir: dir, force: false } );
 			expect( plan.desktop.needsLoad ).toBe( false );
@@ -154,10 +157,13 @@ describe( 'planArtifacts', () => {
 			mkdirSync( join( dir, 'html-mobile' ), { recursive: true } );
 			mkdirSync( join( dir, 'sections' ), { recursive: true } );
 			mkdirSync( join( dir, 'sections-mobile' ), { recursive: true } );
+			mkdirSync( join( dir, 'layout-geometry' ), { recursive: true } );
 			writeFileSync( join( dir, 'html', 'about.html' ), 'fake' );
 			writeFileSync( join( dir, 'html-mobile', 'about.html' ), 'fake' );
 			writeFileSync( join( dir, 'sections', 'about.json' ), 'fake' );
 			writeFileSync( join( dir, 'sections-mobile', 'about.json' ), 'fake' );
+			writeFileSync( join( dir, 'layout-geometry', 'about.desktop.json' ), 'fake' );
+			writeFileSync( join( dir, 'layout-geometry', 'about.mobile.json' ), 'fake' );
 
 			const plan = planArtifacts( {
 				slug: 'about',

@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import * as cheerio from 'cheerio';
+import type { AnyNode } from 'domhandler';
 
 export const LAYOUT_GEOMETRY_PROOF_SCHEMA =
 	'blocks-engine/php-transformer/layout-geometry-proof/v1';
@@ -15,8 +16,8 @@ export interface GeometryBox {
 }
 
 export interface GeometryObservation {
-	selector: string;
-	targetSelector: string;
+	wrapperIdentity: string;
+	targetIdentity: string;
 	viewport: number;
 	state: 'default';
 	wrapper: GeometryBox;
@@ -35,6 +36,7 @@ export interface GeometryCapture {
 interface GeometryInput {
 	sourcePath: string;
 	html: string;
+	identityHtml: string;
 	observations: GeometryObservation[];
 }
 
@@ -44,6 +46,30 @@ function hash( value: string ): string {
 
 function stableId( sourcePath: string, selector: string ): string {
 	return `node-${ hash( `${ sourcePath }\0${ selector }` ).slice( 0, 24 ) }`;
+}
+
+function selectorForIdentity( html: string, identity: string ): string | undefined {
+	try {
+		const $ = cheerio.load( html );
+		const node = $( `[data-dla-geometry-id="${ identity }"]` );
+		if ( node.length !== 1 ) return undefined;
+		const parts: string[] = [];
+		let current: AnyNode | null = node[ 0 ];
+		while ( current?.type === 'tag' ) {
+			const name = current.name;
+			if ( name === 'body' ) break;
+			const siblings = ( current.parent?.children ?? [] ).filter(
+				( sibling ) => sibling.type === 'tag' && sibling.name === name
+			);
+			const index = siblings.indexOf( current );
+			if ( index < 0 ) return undefined;
+			parts.unshift( `${ name }:nth-of-type(${ index + 1 })` );
+			current = current.parent?.type === 'tag' ? current.parent : null;
+		}
+		return parts.length > 0 ? parts.join( ' > ' ) : undefined;
+	} catch {
+		return undefined;
+	}
 }
 
 function selectorExistsExactlyOnce( html: string, selector: string ): boolean {
@@ -76,7 +102,7 @@ export function buildLayoutGeometryProof( inputs: GeometryInput[] ): {
 	for ( const input of [ ...inputs ].sort( ( left, right ) => left.sourcePath.localeCompare( right.sourcePath ) ) ) {
 		const byPair = new Map< string, GeometryObservation[] >();
 		for ( const observation of input.observations ) {
-			const key = `${ observation.selector }\0${ observation.targetSelector }`;
+			const key = `${ observation.wrapperIdentity }\0${ observation.targetIdentity }`;
 			byPair.set( key, [ ...( byPair.get( key ) ?? [] ), observation ] );
 		}
 		for ( const [ key, observations ] of [ ...byPair.entries() ].sort( ( left, right ) =>
@@ -86,8 +112,12 @@ export function buildLayoutGeometryProof( inputs: GeometryInput[] ): {
 				omit( 'candidate_limit' );
 				continue;
 			}
-			const [ selector, targetSelector ] = key.split( '\0' );
+			const [ wrapperIdentity, targetIdentity ] = key.split( '\0' );
+			const selector = selectorForIdentity( input.identityHtml, wrapperIdentity );
+			const targetSelector = selectorForIdentity( input.identityHtml, targetIdentity );
 			if (
+				! selector ||
+				! targetSelector ||
 				! selectorExistsExactlyOnce( input.html, selector ) ||
 				! selectorExistsExactlyOnce( input.html, targetSelector )
 			) {
@@ -145,7 +175,7 @@ export function buildLayoutGeometryProof( inputs: GeometryInput[] ): {
 	return {
 		...( reductions.length > 0 ? { proof: { schema: LAYOUT_GEOMETRY_PROOF_SCHEMA, nodes, reductions } } : {} ),
 		report: {
-			schema: 'data-liberation/layout-geometry-report/v1',
+			schema: LAYOUT_GEOMETRY_PROOF_SCHEMA,
 			accepted_reductions: reductions.length,
 			omissions,
 		},

@@ -31,6 +31,10 @@ export const CAPTURE_RECEIPT_SCHEMA = 'data-liberation/capture-receipt/v1';
 export const WEBSITE_ARTIFACT_SCHEMA = 'blocks-engine/php-transformer/site-artifact/v1';
 export const CAPTURED_INTERACTIONS_SCHEMA = 'data-liberation/captured-interactions/v1';
 
+function withoutGeometryIdentities( html: string ): string {
+	return html.replace( /\sdata-dla-geometry-id=(?:"[^"]*"|'[^']*')/g, '' );
+}
+
 interface CaptureManifestEntry {
 	slug?: string;
 	html?: string;
@@ -1405,6 +1409,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		portableRouteLinks.set( canonicalKey, `/${ routePath }` );
 	}
 
+	const geometryHtmlByPath = new Map< string, { html: string; identityHtml: string } >();
 	for ( const { url, html } of retainedEntries ) {
 		const routePath = routeOutputPath( url, options.sourceUrl, entrypointUrl ).replace(
 			/\\/g,
@@ -1415,19 +1420,24 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 			throw new Error( `Captured route escapes the website directory: ${ url }` );
 		}
 		mkdirSync( dirname( destination ), { recursive: true } );
-		writeFileSync(
-			destination,
-			replaceAll(
+		const identityHtml = replaceAll(
 				rewriteMediaUrls(
 					rewriteCapturedRouteLinks( html, url, portableRouteLinks ),
 					mediaReplacements
 				),
 				resourceReplacements
-			)
-		);
+			);
+		const normalizedHtml = withoutGeometryIdentities( identityHtml );
+		writeFileSync( destination, normalizedHtml );
+		geometryHtmlByPath.set( `website/${ routePath }`, { html: normalizedHtml, identityHtml } );
 	}
 
-	const geometryInputs: Array< { sourcePath: string; html: string; observations: GeometryCapture[ 'observations' ] } > = [];
+	const geometryInputs: Array< {
+		sourcePath: string;
+		html: string;
+		identityHtml: string;
+		observations: GeometryCapture[ 'observations' ];
+	} > = [];
 	const geometryCaptureOmissions: Record< string, number > = {};
 	for ( const entry of retainedEntries ) {
 		const observations: GeometryCapture[ 'observations' ] = [];
@@ -1455,10 +1465,12 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 			sourcePath: routeOutputPath( entry.url, options.sourceUrl, entrypointUrl )
 				.replace( /\\/g, '/' )
 				.replace( /^/, 'website/' ),
-			html: readFileSync(
-				join( websiteDir, routeOutputPath( entry.url, options.sourceUrl, entrypointUrl ) ),
-				'utf8'
-			),
+			...( geometryHtmlByPath.get(
+				`website/${ routeOutputPath( entry.url, options.sourceUrl, entrypointUrl ).replace( /\\/g, '/' ) }`
+			) ?? {
+				html: readFileSync( join( websiteDir, routeOutputPath( entry.url, options.sourceUrl, entrypointUrl ) ), 'utf8' ),
+				identityHtml: '',
+			} ),
 			observations,
 		} );
 	}

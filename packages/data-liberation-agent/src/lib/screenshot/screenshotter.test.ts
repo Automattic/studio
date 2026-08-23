@@ -22,7 +22,7 @@ vi.mock('../browser-kit/index.js', () => ({
   connectBrowser: vi.fn(),
 }));
 
-import { capturePageHtml, captureScreenshots, getHomepageUrl } from './screenshotter.js';
+import { capturePageHtml, captureScreenshots, geometryCandidateIsSafe, getHomepageUrl } from './screenshotter.js';
 import { classifyUrl } from '../extraction/sitemap.js';
 import { connectBrowser } from '../browser-kit/index.js';
 
@@ -72,6 +72,24 @@ function makeMockBrowser(pageFactory = () => makeGoodPage()): MockBrowser {
 }
 
 describe('captureScreenshots', () => {
+	it( 'rejects script-referenced wrappers and accepts inert provider attributes', () => {
+		expect( geometryCandidateIsSafe( {
+			tag: 'div',
+			attributes: { class: 'provider-shell', 'data-hook': 'shell', id: 'shell-1' },
+			runtimeSources: [ "document.querySelector('.provider-shell')" ],
+		} ) ).toBe( false );
+		expect( geometryCandidateIsSafe( {
+			tag: 'div',
+			attributes: { class: 'StylableButton__root', 'data-idx': '3', id: 'generated-3' },
+			runtimeSources: [],
+		} ) ).toBe( true );
+		expect( geometryCandidateIsSafe( {
+			tag: 'nav',
+			attributes: { 'aria-label': 'Primary' },
+			runtimeSources: [],
+		} ) ).toBe( false );
+	} );
+
 	it('reflects property-only media state before serializing HTML', async () => {
 		const page = {
 			evaluate: vi.fn().mockResolvedValue(undefined),

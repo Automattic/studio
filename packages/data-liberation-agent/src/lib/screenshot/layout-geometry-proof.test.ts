@@ -2,9 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { buildLayoutGeometryProof } from './layout-geometry-proof.js';
 
 const html = '<main><div><section>Copy</section></div></main>';
+const identityHtml = html
+	.replace( '<div>', '<div data-dla-geometry-id="wrapper-0">' )
+	.replace( '<section>', '<section data-dla-geometry-id="target-0">' );
 const observation = ( viewport: number ) => ( {
-	selector: 'main:nth-of-type(1) > div:nth-of-type(1)',
-	targetSelector: 'main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(1)',
+	wrapperIdentity: 'wrapper-0',
+	targetIdentity: 'target-0',
 	viewport,
 	state: 'default' as const,
 	wrapper: { x: 0, y: 0, width: 100, height: 24 },
@@ -16,7 +19,7 @@ const observation = ( viewport: number ) => ( {
 
 describe( 'buildLayoutGeometryProof', () => {
 	it( 'is deterministic across source order and preserves desktop/mobile boxes', () => {
-		const input = { sourcePath: 'website/index.html', html, observations: [ observation( 1440 ), observation( 390 ) ] };
+		const input = { sourcePath: 'website/index.html', html, identityHtml, observations: [ observation( 1440 ), observation( 390 ) ] };
 		const first = buildLayoutGeometryProof( [ input ] );
 		const second = buildLayoutGeometryProof( [ { ...input, observations: [ observation( 390 ), observation( 1440 ) ] } ] );
 		expect( first.proof ).toEqual( second.proof );
@@ -24,15 +27,15 @@ describe( 'buildLayoutGeometryProof', () => {
 	} );
 
 	it( 'omits missing selectors, stale resume observations, and out-of-bounds candidates', () => {
-		const missing = buildLayoutGeometryProof( [ { sourcePath: 'website/index.html', html, observations: [ { ...observation( 1440 ), selector: 'aside:nth-of-type(1)' } ] } ] );
+		const missing = buildLayoutGeometryProof( [ { sourcePath: 'website/index.html', html, identityHtml: html, observations: [ observation( 1440 ) ] } ] );
 		expect( missing.proof ).toBeUndefined();
 		expect( missing.report.omissions ).toMatchObject( { source_node_missing: 1 } );
 
-		const stale = buildLayoutGeometryProof( [ { sourcePath: 'website/index.html', html, observations: [ { ...observation( 1440 ), simulated: { x: 2, y: 0, width: 100, height: 24 } } ] } ] );
+		const stale = buildLayoutGeometryProof( [ { sourcePath: 'website/index.html', html, identityHtml, observations: [ { ...observation( 1440 ), simulated: { x: 2, y: 0, width: 100, height: 24 } } ] } ] );
 		expect( stale.proof ).toBeUndefined();
 		expect( stale.report.omissions ).toMatchObject( { geometry_or_invariant_unproven: 1 } );
 
-		const bounded = buildLayoutGeometryProof( [ { sourcePath: 'website/index.html', html, observations: Array.from( { length: 9 }, ( _, index ) => observation( index + 1 ) ) } ] );
+		const bounded = buildLayoutGeometryProof( [ { sourcePath: 'website/index.html', html, identityHtml, observations: Array.from( { length: 9 }, ( _, index ) => observation( index + 1 ) ) } ] );
 		expect( bounded.proof ).toBeUndefined();
 		expect( bounded.report.omissions ).toMatchObject( { viewport_bounds_invalid: 1 } );
 	} );

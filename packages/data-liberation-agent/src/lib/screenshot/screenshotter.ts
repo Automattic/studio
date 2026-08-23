@@ -189,8 +189,6 @@ function navBackoffMs( attempt: number, retryAfter?: string ): number {
 
 export async function capturePageHtml( page: Page ): Promise< string > {
 	await page.evaluate( () => {
-		for ( const node of document.querySelectorAll( '[data-dla-geometry-id]' ) )
-			node.removeAttribute( 'data-dla-geometry-id' );
 		for ( const media of document.querySelectorAll( 'audio, video' ) ) {
 			const source = media as HTMLMediaElement;
 			for ( const property of [ 'autoplay', 'loop', 'muted' ] as const ) {
@@ -204,8 +202,61 @@ export async function capturePageHtml( page: Page ): Promise< string > {
 	return page.content();
 }
 
+export function geometryCandidateIsSafe( candidate: {
+	tag: string;
+	attributes: Record< string, string >;
+	runtimeSources: string[];
+} ): boolean {
+	const tag = candidate.tag.toLowerCase();
+	if ( /^(?:article|aside|footer|form|header|main|nav|section)$/.test( tag ) ) return false;
+	for ( const [ name, value ] of Object.entries( candidate.attributes ) ) {
+		const attribute = name.toLowerCase();
+		if (
+			/^on/.test( attribute ) ||
+			/^aria-/.test( attribute ) ||
+			/^(?:role|tabindex|contenteditable|action|method|name|for|href|type|disabled)$/.test( attribute )
+		)
+			return false;
+		const references =
+			attribute === 'id'
+				? [ `#${ value }`, `getElementById(${ value }`, `getElementById('${ value }`, `getElementById("${ value }` ]
+				: attribute === 'class'
+				? value.split( /\s+/ ).filter( Boolean ).map( ( className ) => `.${ className }` )
+				: [ `[${ attribute }`, `${ attribute }=` ];
+		if ( references.some( ( reference ) => candidate.runtimeSources.some( ( source ) => source.includes( reference ) ) ) )
+			return false;
+	}
+	return true;
+}
+
 async function captureLayoutGeometry( page: Page, viewport: Viewport ): Promise< GeometryCapture > {
 	return page.evaluate( ( width ) => {
+		const candidateIsSafe = ( candidate: {
+			tag: string;
+			attributes: Record< string, string >;
+			runtimeSources: string[];
+		} ) => {
+			const tag = candidate.tag.toLowerCase();
+			if ( /^(?:article|aside|footer|form|header|main|nav|section)$/.test( tag ) ) return false;
+			for ( const [ name, value ] of Object.entries( candidate.attributes ) ) {
+				const attribute = name.toLowerCase();
+				if (
+					/^on/.test( attribute ) ||
+					/^aria-/.test( attribute ) ||
+					/^(?:role|tabindex|contenteditable|action|method|name|for|href|type|disabled)$/.test( attribute )
+				)
+					return false;
+				const references =
+					attribute === 'id'
+						? [ `#${ value }`, `getElementById(${ value }`, `getElementById('${ value }`, `getElementById("${ value }` ]
+						: attribute === 'class'
+						? value.split( /\s+/ ).filter( Boolean ).map( ( className ) => `.${ className }` )
+						: [ `[${ attribute }`, `${ attribute }=` ];
+				if ( references.some( ( reference ) => candidate.runtimeSources.some( ( source ) => source.includes( reference ) ) ) )
+					return false;
+			}
+			return true;
+		};
 		const omissions: Record< string, number > = {};
 		const omit = ( code: string ) => ( omissions[ code ] = ( omissions[ code ] ?? 0 ) + 1 );
 		const box = ( node: Element ) => {
@@ -221,17 +272,7 @@ async function captureLayoutGeometry( page: Page, viewport: Viewport ): Promise<
 			[ 'x', 'y', 'width', 'height' ].every( ( key ) =>
 				Math.abs( left[ key as keyof typeof left ] - right[ key as keyof typeof right ] ) <= 1
 			);
-		const selector = ( node: Element ) => {
-			const parts: string[] = [];
-			for ( let current: Element | null = node; current && current.tagName !== 'BODY'; current = current.parentElement ) {
-				const tag = current.tagName.toLowerCase();
-				let index = 1;
-				for ( let sibling = current.previousElementSibling; sibling; sibling = sibling.previousElementSibling )
-					if ( sibling.tagName === current.tagName ) index++;
-				parts.unshift( `${ tag }:nth-of-type(${ index })` );
-			}
-			return parts.join( ' > ' );
-		};
+		const runtimeSources = Array.from( document.scripts, ( script ) => script.textContent ?? '' );
 		const observations: GeometryCapture[ 'observations' ] = [];
 		for ( const wrapper of Array.from( document.body.querySelectorAll( 'div,section,article,main' ) ) ) {
 			if ( observations.length >= 64 ) {
@@ -243,11 +284,18 @@ async function captureLayoutGeometry( page: Page, viewport: Viewport ): Promise<
 				! target ||
 				wrapper.children.length !== 1 ||
 				Array.from( wrapper.childNodes ).some( ( node ) => node.nodeType === Node.TEXT_NODE && node.textContent?.trim() ) ||
-				[ ...wrapper.attributes ].some( ( attribute ) => attribute.name !== 'data-dla-geometry-id' ) ||
 				[ ...wrapper.querySelectorAll( '*' ), wrapper ].some( ( node ) =>
 					[ ...node.attributes ].some( ( attribute ) => /^on/i.test( attribute.name ) )
 				)
 			) {
+				omit( 'runtime_or_semantics_unproven' );
+				continue;
+			}
+			if ( !candidateIsSafe( {
+				tag: wrapper.tagName,
+				attributes: Object.fromEntries( Array.from( wrapper.attributes, ( attribute ) => [ attribute.name, attribute.value ] ) ),
+				runtimeSources,
+			} ) ) {
 				omit( 'runtime_or_semantics_unproven' );
 				continue;
 			}
@@ -268,17 +316,13 @@ async function captureLayoutGeometry( page: Page, viewport: Viewport ): Promise<
 				omit( 'geometry_unproven' );
 				continue;
 			}
-			const wrapperSelector = selector( wrapper );
-			const targetSelector = selector( target );
-			if ( ! wrapperSelector || ! targetSelector ) {
-				omit( 'selector_missing' );
-				continue;
-			}
-			wrapper.setAttribute( 'data-dla-geometry-id', `wrapper-${ observations.length }` );
-			target.setAttribute( 'data-dla-geometry-id', `target-${ observations.length }` );
+			const wrapperIdentity = `wrapper-${ observations.length }`;
+			const targetIdentity = `target-${ observations.length }`;
+			wrapper.setAttribute( 'data-dla-geometry-id', wrapperIdentity );
+			target.setAttribute( 'data-dla-geometry-id', targetIdentity );
 			observations.push( {
-				selector: wrapperSelector,
-				targetSelector,
+				wrapperIdentity,
+				targetIdentity,
 				viewport: width,
 				state: 'default',
 				wrapper: sourceWrapper,

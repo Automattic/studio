@@ -1,7 +1,11 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { detect } from './detect-platform/index.js';
+import { downloadMedia } from './media-fetch/media.js';
 import { safeFetch } from './media-fetch/safe-fetch.js';
+import { downloadSectionMedia } from './replicate/download-section-media.js';
+import { SectionSpecsStore } from './replicate/section-specs-store.js';
+import { MediaStubStore } from './resume-state/index.js';
 import type { HandlerContext, ToolResult } from '../mcp-server/handler-types.js';
 
 export interface CaptureProgress {
@@ -15,6 +19,46 @@ interface CaptureInventory {
 	siteMeta?: { title?: string };
 	urls?: Array< { url: string; type: string } >;
 	diagnostics?: Array< { code: string; url: string; reason: string } >;
+}
+
+export async function downloadCaptureSectionMedia(
+	outputDir: string,
+	urls: string[]
+): Promise< number > {
+	const sectionUrls: string[] = [];
+	for ( const store of [
+		SectionSpecsStore.load( outputDir ),
+		SectionSpecsStore.loadMobile( outputDir ),
+	] ) {
+		for ( const url of urls ) {
+			for ( const section of store.get( url ) ?? [] ) {
+				for ( const image of [
+					...( section.images ?? [] ),
+					...( section.cells ?? [] ).flatMap( ( cell ) =>
+						cell.image ? [ cell.image ] : []
+					),
+				] ) {
+					sectionUrls.push( image.sourceUrl || image.url );
+				}
+			}
+		}
+	}
+
+	const stubs = MediaStubStore.load( outputDir );
+	const mediaDir = join( outputDir, 'media' );
+	const seenNames = new Map< string, number >();
+	const { downloaded } = await downloadSectionMedia( {
+		srcUrls: sectionUrls,
+		isAlreadyDone: ( url ) => ! stubs.shouldAttempt( url ),
+		download: async ( url ) => {
+			const result = await downloadMedia( url, mediaDir, seenNames );
+			if ( result.error ) stubs.markFailure( url, result.error );
+			return result.localPath;
+		},
+		onSuccess: ( url, localPath ) => stubs.markSuccess( url, localPath ),
+	} );
+	stubs.flush();
+	return downloaded;
 }
 
 export async function captureWebsite(
@@ -61,6 +105,7 @@ export async function captureWebsite(
 		publicUrlsOnly: true,
 		onProgress: ( current, total, url ) => progress( { phase: 'capturing', current, total, url } ),
 	} );
+	await downloadCaptureSectionMedia( outputDir, urls );
 
 	progress( { phase: 'finalizing', current: screenshotResult.captured, total: urls.length } );
 	const failuresPath = join( outputDir, 'screenshots', 'failures.json' );

@@ -903,6 +903,20 @@ describe( 'CLI: studio site create', () => {
 			expect( blueprint.staticSiteImport.code.length ).toBeLessThan( 16000 );
 		} );
 
+		it( 'preserves the completed result receipt when requested', () => {
+			const blueprint = buildCreateFromSourceBlueprint(
+				'https://example.com/',
+				'Imported URL',
+				'https://example.com/static-site-importer.zip',
+				true
+			);
+
+			expect( blueprint.staticSiteImport.storeResult ).toBe( true );
+			expect( blueprint.staticSiteImport.code ).toContain(
+				'static_site_importer_studio_write_result( $studio_result )'
+			);
+		} );
+
 		it( 'should preserve the canonical artifact envelope from a capture directory', () => {
 			const captureDir = fs.mkdtempSync( path.join( '/tmp', 'studio-artifact-capture-' ) );
 			const artifact = {

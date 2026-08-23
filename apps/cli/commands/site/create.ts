@@ -723,9 +723,10 @@ export function buildCreateFromSourceBlueprint(
 ): {
 	contents: BlueprintV1Declaration;
 	uri: string;
-	staticSiteImport: {
-		code: string;
-		source: string;
+		staticSiteImport: {
+			code: string;
+			source: string;
+			storeResult: boolean;
 		stagedSource?: { sourcePath: string; targetName: string };
 		identity?: StaticSiteImportIdentity;
 		bundlePath?: string;
@@ -778,6 +779,7 @@ export function buildCreateFromSourceBlueprint(
 		staticSiteImport: {
 			code: buildStaticSiteImporterPhp( source.path, siteName, storeImportResult, adminUsername ),
 			source: JSON.stringify( source.payload ),
+			storeResult: storeImportResult,
 			...( stagedFigmaName ? { stagedSource: { sourcePath, targetName: stagedFigmaName } } : {} ),
 			...( source.type === 'url' || sourceUrl
 				? { identity: { url: sourceUrl ?? source.path, contract: STATIC_SITE_IMPORT_CONTRACT } }
@@ -791,11 +793,13 @@ function staticSiteImportIdentityPath( sitePath: string ): string {
 	return path.join( sitePath, '.studio-import', STATIC_SITE_IMPORT_IDENTITY_FILE );
 }
 
-function cleanupSuccessfulStaticSiteImport( sitePath: string ): void {
+function cleanupSuccessfulStaticSiteImport( sitePath: string, preserveResult = false ): void {
 	fs.rmSync( path.join( sitePath, '.studio-import', 'import.php' ), { force: true } );
-	fs.rmSync( path.join( sitePath, '.studio-import', STATIC_SITE_IMPORT_RESULT_FILE ), {
-		force: true,
-	} );
+	if ( ! preserveResult ) {
+		fs.rmSync( path.join( sitePath, '.studio-import', STATIC_SITE_IMPORT_RESULT_FILE ), {
+			force: true,
+		} );
+	}
 	fs.rmSync( path.join( sitePath, '.studio-import', STATIC_SITE_IMPORT_SOURCE_FILE ), {
 		force: true,
 	} );
@@ -892,7 +896,8 @@ async function runStaticSiteImport(
 	code: string,
 	source: string,
 	stagedSource?: { sourcePath: string; targetName: string },
-	identity?: StaticSiteImportIdentity
+	identity?: StaticSiteImportIdentity,
+	preserveResult = false
 ): Promise< boolean > {
 	const stagingDir = path.join( site.path, '.studio-import' );
 	const scriptName = 'import.php';
@@ -966,7 +971,7 @@ async function runStaticSiteImport(
 		} catch ( error ) {
 			throw new LoggerError( __( 'Static site import returned an invalid result.' ), error );
 		} finally {
-			fs.rmSync( resultPath, { force: true } );
+			if ( ! preserveResult ) fs.rmSync( resultPath, { force: true } );
 		}
 		if ( ! result.continuation ) {
 			if ( result.canonicalization_pending ) {
@@ -1197,14 +1202,15 @@ export async function runCommand(
 								staticSiteImport.code,
 								staticSiteImport.source,
 								staticSiteImport.stagedSource,
-								staticSiteImport.identity
+								staticSiteImport.identity,
+								staticSiteImport.storeResult
 						  );
 				staticSiteImportResultObserved = true;
 			} catch ( error ) {
 				throw new LoggerError( __( 'Failed to import static site' ), error );
 			}
 			if ( staticSiteImportSucceeded ) {
-				cleanupSuccessfulStaticSiteImport( sitePath );
+				cleanupSuccessfulStaticSiteImport( sitePath, staticSiteImport.storeResult );
 			}
 			return;
 		}
@@ -1399,7 +1405,8 @@ export async function runCommand(
 						staticSiteImport.code,
 						staticSiteImport.source,
 						staticSiteImport.stagedSource,
-						staticSiteImport.identity
+						staticSiteImport.identity,
+						staticSiteImport.storeResult
 					);
 				}
 
@@ -1450,7 +1457,8 @@ export async function runCommand(
 							staticSiteImport.code,
 							staticSiteImport.source,
 							staticSiteImport.stagedSource,
-							staticSiteImport.identity
+							staticSiteImport.identity,
+							staticSiteImport.storeResult
 						);
 					}
 				} catch ( error ) {
@@ -1501,7 +1509,7 @@ export async function runCommand(
 		await emitCliEvent( { event: SITE_EVENTS.CREATED, data: { siteId: siteDetails.id } } );
 	} finally {
 		if ( staticSiteImport && staticSiteImportSucceeded ) {
-			cleanupSuccessfulStaticSiteImport( sitePath );
+			cleanupSuccessfulStaticSiteImport( sitePath, staticSiteImport.storeResult );
 		} else if (
 			staticSiteImport &&
 			! resumedStaticSiteImport &&

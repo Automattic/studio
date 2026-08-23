@@ -731,7 +731,7 @@ describe( 'CLI: studio site create', () => {
 			);
 			expect( blueprint.staticSiteImport.code ).not.toContain( "if ( ! defined( 'ABSPATH' ) )" );
 			expect( blueprint.staticSiteImport.code ).not.toContain( 'delete_plugins' );
-			expect( blueprint.staticSiteImport.code ).not.toContain( 'studio_create_from_import_result' );
+			expect( blueprint.staticSiteImport.code ).toContain( '$store_import_result = false;' );
 		} );
 
 		it( 'should store the import result only when requested', () => {
@@ -753,6 +753,45 @@ describe( 'CLI: studio site create', () => {
 			);
 			expect( blueprint.staticSiteImport.code ).not.toContain(
 				"update_option( 'studio_create_from_import_result', $result"
+			);
+		} );
+
+		it( 'should preserve bounded quality diagnostics and artifact references for failed imports', () => {
+			const sourceDir = fs.mkdtempSync( path.join( '/tmp', 'studio-source-test-' ) );
+			fs.writeFileSync( path.join( sourceDir, 'index.html' ), '<main></main>' );
+
+			const blueprint = buildCreateFromSourceBlueprint(
+				sourceDir,
+				'Imported Directory',
+				'https://example.com/static-site-importer.zip',
+				true
+			);
+
+			expect( blueprint.staticSiteImport.code ).toContain(
+				"$projection['error']['data'] = static_site_importer_studio_bounded_value( $result['error']['data'] );"
+			);
+			expect( blueprint.staticSiteImport.code ).toContain(
+				"$projection['diagnostics'] = static_site_importer_studio_bounded_value( $result['diagnostics'] );"
+			);
+			expect( blueprint.staticSiteImport.code ).toContain( "'failure'      => $projection" );
+		} );
+
+		it( 'should atomically write a bounded receipt for generic failed imports', () => {
+			const sourceDir = fs.mkdtempSync( path.join( '/tmp', 'studio-source-test-' ) );
+			fs.writeFileSync( path.join( sourceDir, 'index.html' ), '<main></main>' );
+
+			const blueprint = buildCreateFromSourceBlueprint(
+				sourceDir,
+				'Imported Directory',
+				'https://example.com/static-site-importer.zip'
+			);
+
+			expect( blueprint.staticSiteImport.code ).toContain(
+				"$temp_path = $result_path . '.tmp-' . wp_generate_uuid4();"
+			);
+			expect( blueprint.staticSiteImport.code ).toContain( 'rename( $temp_path, $result_path )' );
+			expect( blueprint.staticSiteImport.code ).toContain(
+				"static_site_importer_studio_record_failure( $result, 'Static Site Importer import failed', $store_import_result );"
 			);
 		} );
 
@@ -809,7 +848,9 @@ describe( 'CLI: studio site create', () => {
 			expect( blueprint.staticSiteImport.code ).toContain(
 				'static_site_importer_studio_failure_message'
 			);
-			expect( blueprint.staticSiteImport.code ).not.toContain( 'wp_json_encode( $result )' );
+			expect( blueprint.staticSiteImport.code ).not.toContain(
+				"file_put_contents( ABSPATH . '.studio-import/result.json', wp_json_encode( $result ) )"
+			);
 
 			const copySpy = vi.spyOn( fs, 'copyFileSync' ).mockImplementation( () => {} );
 			vi.spyOn( fs, 'existsSync' ).mockImplementation( ( filePath ) =>
@@ -859,7 +900,7 @@ describe( 'CLI: studio site create', () => {
 			expect( blueprint.staticSiteImport.code ).toContain(
 				"ABSPATH . '.studio-import/source.json'"
 			);
-			expect( blueprint.staticSiteImport.code.length ).toBeLessThan( 12000 );
+			expect( blueprint.staticSiteImport.code.length ).toBeLessThan( 16000 );
 		} );
 
 		it( 'should preserve the canonical artifact envelope from a capture directory', () => {

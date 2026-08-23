@@ -425,6 +425,37 @@ function static_site_importer_studio_failure_message( $result, string $fallback 
 	return '' !== $detail ? $fallback . ': ' . substr( $detail, 0, 1000 ) : $fallback;
 }
 
+function static_site_importer_studio_bounded_value( $value, int $depth = 0 ) {
+	if ( $depth >= 5 ) {
+		return null;
+	}
+	if ( is_bool( $value ) || is_int( $value ) || is_float( $value ) || null === $value ) {
+		return $value;
+	}
+	if ( is_string( $value ) ) {
+		return substr( sanitize_text_field( $value ), 0, 1000 );
+	}
+	if ( ! is_array( $value ) ) {
+		return null;
+	}
+	$projection = array();
+	foreach ( array_slice( $value, 0, 50, true ) as $key => $item ) {
+		$projected_item = static_site_importer_studio_bounded_value( $item, $depth + 1 );
+		if ( null === $projected_item && null !== $item ) {
+			continue;
+		}
+		if ( is_int( $key ) ) {
+			$projection[ $key ] = $projected_item;
+			continue;
+		}
+		$projected_key = substr( sanitize_key( (string) $key ), 0, 100 );
+		if ( '' !== $projected_key ) {
+			$projection[ $projected_key ] = $projected_item;
+		}
+	}
+	return $projection;
+}
+
 function static_site_importer_studio_result_projection( $result ): array {
 	$projection = array( 'success' => is_array( $result ) && ! empty( $result['success'] ) );
 	if ( ! is_array( $result ) ) {
@@ -435,6 +466,9 @@ function static_site_importer_studio_result_projection( $result ): array {
 			'code'    => substr( sanitize_key( (string) ( $result['error']['code'] ?? '' ) ), 0, 200 ),
 			'message' => substr( sanitize_text_field( (string) ( $result['error']['message'] ?? '' ) ), 0, 1000 ),
 		);
+		if ( array_key_exists( 'data', $result['error'] ) ) {
+			$projection['error']['data'] = static_site_importer_studio_bounded_value( $result['error']['data'] );
+		}
 	}
 	$import_result = isset( $result['result'] ) && is_array( $result['result'] ) ? $result['result'] : $result;
 	$stored_result = array(
@@ -453,9 +487,45 @@ function static_site_importer_studio_result_projection( $result ): array {
 		}
 	}
 	$projection['result'] = $stored_result;
-	$projection['diagnostic_count'] = is_array( $result['diagnostics'] ?? null ) ? count( $result['diagnostics'] ) : 0;
+	if ( is_array( $result['diagnostics'] ?? null ) ) {
+		$projection['diagnostic_count'] = count( $result['diagnostics'] );
+		$projection['diagnostics'] = static_site_importer_studio_bounded_value( $result['diagnostics'] );
+	}
 	return $projection;
 }
+
+function static_site_importer_studio_write_result( array $result ): void {
+	$encoded = wp_json_encode( $result );
+	if ( ! is_string( $encoded ) ) {
+		throw new RuntimeException( 'Static Site Importer result receipt could not be encoded.' );
+	}
+	$result_path = ABSPATH . '.studio-import/${ STATIC_SITE_IMPORT_RESULT_FILE }';
+	$temp_path = $result_path . '.tmp-' . wp_generate_uuid4();
+	if ( false === file_put_contents( $temp_path, $encoded ) ) {
+		throw new RuntimeException( 'Static Site Importer result receipt could not be saved.' );
+	}
+	if ( ! rename( $temp_path, $result_path ) ) {
+		unlink( $temp_path );
+		throw new RuntimeException( 'Static Site Importer result receipt could not be finalized.' );
+	}
+}
+
+function static_site_importer_studio_record_failure( $result, string $fallback, bool $store_import_result ): void {
+	$projection = static_site_importer_studio_result_projection( $result );
+	if ( $store_import_result ) {
+		update_option( 'studio_create_from_import_result', $projection, false );
+	}
+	static_site_importer_studio_write_result(
+		array(
+			'continuation' => false,
+			'failed'       => true,
+			'failure'      => $projection,
+		)
+	);
+	throw new RuntimeException( static_site_importer_studio_failure_message( $result, $fallback ) );
+}
+
+$store_import_result = ${ storeImportResult ? 'true' : 'false' };
 
 if ( isset( $source['url'] ) && function_exists( 'static_site_importer_ability_import' ) ) {
 	$slug = sanitize_title( ${ phpString( siteName ) } );
@@ -473,7 +543,7 @@ if ( isset( $source['url'] ) && function_exists( 'static_site_importer_ability_i
 	}
 	$result = static_site_importer_ability_import( $input );
 	if ( ! is_array( $result ) || empty( $result['success'] ) ) {
-		throw new RuntimeException( static_site_importer_studio_failure_message( $result, 'Static Site Importer planning failed' ) );
+		static_site_importer_studio_record_failure( $result, 'Static Site Importer planning failed', $store_import_result );
 	}
 	$url_batch_run = isset( $result['url_batch_run'] ) && is_array( $result['url_batch_run'] ) ? $result['url_batch_run'] : array();
 	if ( ! empty( $result['continuation'] ) ) {
@@ -573,14 +643,11 @@ if ( isset( $source['url'] ) && function_exists( 'static_site_importer_ability_i
 	$result = static_site_importer_ability_import( $input );
 }
 
-${
-	storeImportResult
-		? "update_option( 'studio_create_from_import_result', static_site_importer_studio_result_projection( $result ), false );"
-		: ''
-}
-
 if ( ! is_array( $result ) || empty( $result['success'] ) ) {
-	throw new RuntimeException( static_site_importer_studio_failure_message( $result, 'Static Site Importer import failed' ) );
+	static_site_importer_studio_record_failure( $result, 'Static Site Importer import failed', $store_import_result );
+}
+if ( $store_import_result ) {
+	update_option( 'studio_create_from_import_result', static_site_importer_studio_result_projection( $result ), false );
 }
 $import_result = isset( $result['result'] ) && is_array( $result['result'] ) ? $result['result'] : $result;
 if ( 'dependencies_prepared' === ( $import_result['status'] ?? '' ) ) {
@@ -593,7 +660,7 @@ if ( 'dependencies_prepared' === ( $import_result['status'] ?? '' ) ) {
 	if ( '' === $request_id || false === file_put_contents( $state_path, wp_json_encode( $lifecycle_state ) ) ) {
 		throw new RuntimeException( 'Static Site Importer lifecycle state could not be saved.' );
 	}
-	file_put_contents( ABSPATH . '.studio-import/${ STATIC_SITE_IMPORT_RESULT_FILE }', wp_json_encode( array( 'continuation' => true ) ) );
+	static_site_importer_studio_write_result( array( 'continuation' => true ) );
 	return;
 }
 if ( '' !== $state_path && is_file( $state_path ) ) {
@@ -621,7 +688,7 @@ $studio_result = array(
 	'completed_routes' => (int) ( $import_result['url_batch_run']['completed_routes'] ?? 0 ),
 	'total_routes'     => (int) ( $import_result['url_batch_run']['total_routes'] ?? 0 ),
 );
-file_put_contents( ABSPATH . '.studio-import/${ STATIC_SITE_IMPORT_RESULT_FILE }', wp_json_encode( $studio_result ) );
+static_site_importer_studio_write_result( $studio_result );
 ?>`;
 }
 

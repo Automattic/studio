@@ -17,6 +17,7 @@ import { collectMobileChromeLayout } from './dom-capture.js';
 import { generateChromeCss, type BakedLayoutMap } from './fixups.js';
 import { sanitizeFrozenHtml } from './freeze.js';
 import { JsAggregator } from './js-aggregator.js';
+import type { GeometryCapture } from './layout-geometry-proof.js';
 import { captureTriggeredDialogs } from './interaction-capture.js';
 import { ManifestQueue, type ManifestEntry, type FailureEntry } from './manifest-queue.js';
 import { validateOutputDir, planArtifacts, type ArtifactPlan } from './output-layout.js';
@@ -188,6 +189,8 @@ function navBackoffMs( attempt: number, retryAfter?: string ): number {
 
 export async function capturePageHtml( page: Page ): Promise< string > {
 	await page.evaluate( () => {
+		for ( const node of document.querySelectorAll( '[data-dla-geometry-id]' ) )
+			node.removeAttribute( 'data-dla-geometry-id' );
 		for ( const media of document.querySelectorAll( 'audio, video' ) ) {
 			const source = media as HTMLMediaElement;
 			for ( const property of [ 'autoplay', 'loop', 'muted' ] as const ) {
@@ -199,6 +202,94 @@ export async function capturePageHtml( page: Page ): Promise< string > {
 		}
 	} );
 	return page.content();
+}
+
+async function captureLayoutGeometry( page: Page, viewport: Viewport ): Promise< GeometryCapture > {
+	return page.evaluate( ( width ) => {
+		const omissions: Record< string, number > = {};
+		const omit = ( code: string ) => ( omissions[ code ] = ( omissions[ code ] ?? 0 ) + 1 );
+		const box = ( node: Element ) => {
+			const rect = node.getBoundingClientRect();
+			return {
+				x: Math.round( rect.x * 1000 ) / 1000,
+				y: Math.round( rect.y * 1000 ) / 1000,
+				width: Math.round( rect.width * 1000 ) / 1000,
+				height: Math.round( rect.height * 1000 ) / 1000,
+			};
+		};
+		const equal = ( left: ReturnType< typeof box >, right: ReturnType< typeof box > ) =>
+			[ 'x', 'y', 'width', 'height' ].every( ( key ) =>
+				Math.abs( left[ key as keyof typeof left ] - right[ key as keyof typeof right ] ) <= 1
+			);
+		const selector = ( node: Element ) => {
+			const parts: string[] = [];
+			for ( let current: Element | null = node; current && current.tagName !== 'BODY'; current = current.parentElement ) {
+				const tag = current.tagName.toLowerCase();
+				let index = 1;
+				for ( let sibling = current.previousElementSibling; sibling; sibling = sibling.previousElementSibling )
+					if ( sibling.tagName === current.tagName ) index++;
+				parts.unshift( `${ tag }:nth-of-type(${ index })` );
+			}
+			return parts.join( ' > ' );
+		};
+		const observations: GeometryCapture[ 'observations' ] = [];
+		for ( const wrapper of Array.from( document.body.querySelectorAll( 'div,section,article,main' ) ) ) {
+			if ( observations.length >= 64 ) {
+				omit( 'candidate_limit' );
+				break;
+			}
+			const target = wrapper.firstElementChild;
+			if (
+				! target ||
+				wrapper.children.length !== 1 ||
+				Array.from( wrapper.childNodes ).some( ( node ) => node.nodeType === Node.TEXT_NODE && node.textContent?.trim() ) ||
+				[ ...wrapper.attributes ].some( ( attribute ) => attribute.name !== 'data-dla-geometry-id' ) ||
+				[ ...wrapper.querySelectorAll( '*' ), wrapper ].some( ( node ) =>
+					[ ...node.attributes ].some( ( attribute ) => /^on/i.test( attribute.name ) )
+				)
+			) {
+				omit( 'runtime_or_semantics_unproven' );
+				continue;
+			}
+			const wrapperStyle = getComputedStyle( wrapper );
+			const targetStyle = getComputedStyle( target );
+			if ( ! /^(block|flex|grid)$/.test( targetStyle.display ) || wrapperStyle.display !== targetStyle.display ) {
+				omit( 'display_unproven' );
+				continue;
+			}
+			const sourceWrapper = box( wrapper );
+			const sourceTarget = box( target );
+			const wrapperHtml = wrapper as HTMLElement;
+			const priorDisplay = wrapperHtml.style.display;
+			wrapperHtml.style.display = 'contents';
+			const simulated = box( target );
+			wrapperHtml.style.display = priorDisplay;
+			if ( ! equal( sourceWrapper, sourceTarget ) || ! equal( sourceTarget, simulated ) ) {
+				omit( 'geometry_unproven' );
+				continue;
+			}
+			const wrapperSelector = selector( wrapper );
+			const targetSelector = selector( target );
+			if ( ! wrapperSelector || ! targetSelector ) {
+				omit( 'selector_missing' );
+				continue;
+			}
+			wrapper.setAttribute( 'data-dla-geometry-id', `wrapper-${ observations.length }` );
+			target.setAttribute( 'data-dla-geometry-id', `target-${ observations.length }` );
+			observations.push( {
+				selector: wrapperSelector,
+				targetSelector,
+				viewport: width,
+				state: 'default',
+				wrapper: sourceWrapper,
+				target: sourceTarget,
+				simulated,
+				facts: { display: targetStyle.display, position: targetStyle.position, visibility: targetStyle.visibility, childCount: wrapper.children.length },
+				invariants: { runtime: true, semantics: true },
+			} );
+		}
+		return { schema: 'data-liberation/layout-geometry-capture/v1', observations, omissions };
+	}, viewport.width );
 }
 
 async function capturePerViewport( args: CapturePerViewportArgs ): Promise< void > {
@@ -336,6 +427,17 @@ async function capturePerViewport( args: CapturePerViewportArgs ): Promise< void
 	}
 
 	// --- html (desktop only) --------------------------------------------------
+	if ( plan.captureGeometry ) {
+		let capture: GeometryCapture;
+		try {
+			capture = await captureLayoutGeometry( page, viewport );
+		} catch {
+			capture = { schema: 'data-liberation/layout-geometry-capture/v1', observations: [], omissions: { capture_failed: 1 } };
+		}
+		mkdirSync( dirname( plan.paths.geometry ), { recursive: true } );
+		writeFileSync( plan.paths.geometry, `${ JSON.stringify( capture, null, 2 ) }\n` );
+	}
+
 	if ( isDesktop && plan.captureHtml ) {
 		try {
 			const html = await capturePageHtml( page );

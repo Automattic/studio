@@ -21,6 +21,10 @@ import { MediaStubStore } from './resume-state/index.js';
 import { rewriteMediaUrls } from './streaming/media-url-rewrite.js';
 import type { InteractionStatesReport } from './screenshot/interaction-capture.js';
 import type { CapturedResourceManifest } from './screenshot/resource-capture.js';
+import {
+	buildLayoutGeometryProof,
+	type GeometryCapture,
+} from './screenshot/layout-geometry-proof.js';
 import type { AnyNode } from 'domhandler';
 
 export const CAPTURE_RECEIPT_SCHEMA = 'data-liberation/capture-receipt/v1';
@@ -28,6 +32,7 @@ export const WEBSITE_ARTIFACT_SCHEMA = 'blocks-engine/php-transformer/site-artif
 export const CAPTURED_INTERACTIONS_SCHEMA = 'data-liberation/captured-interactions/v1';
 
 interface CaptureManifestEntry {
+	slug?: string;
 	html?: string;
 	sections?: string;
 	interactions?: InteractionStatesReport;
@@ -66,6 +71,7 @@ interface MediaCandidate {
 }
 
 interface RetainedCaptureEntry {
+	slug: string;
 	url: string;
 	html: string;
 	desktopHtml: string;
@@ -995,6 +1001,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 			html = responsiveHtml( html, mobileHtml );
 		}
 		retainedEntries.push( {
+			slug: entry.slug ?? basename( entry.html, '.html' ),
 			url,
 			html,
 			desktopHtml,
@@ -1420,6 +1427,51 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		);
 	}
 
+	const geometryInputs: Array< { sourcePath: string; html: string; observations: GeometryCapture[ 'observations' ] } > = [];
+	const geometryCaptureOmissions: Record< string, number > = {};
+	for ( const entry of retainedEntries ) {
+		const observations: GeometryCapture[ 'observations' ] = [];
+		for ( const viewport of [ 'desktop', 'mobile' ] ) {
+			const path = join( outputDir, 'layout-geometry', `${ entry.slug }.${ viewport }.json` );
+			if ( ! existsSync( path ) ) {
+				geometryCaptureOmissions[ 'capture_missing' ] =
+					( geometryCaptureOmissions[ 'capture_missing' ] ?? 0 ) + 1;
+				continue;
+			}
+			try {
+				const capture = JSON.parse( readFileSync( path, 'utf8' ) ) as GeometryCapture;
+				if ( capture.schema !== 'data-liberation/layout-geometry-capture/v1' || !Array.isArray( capture.observations ) ) {
+					throw new Error( 'schema_invalid' );
+				}
+				observations.push( ...capture.observations );
+				for ( const [ code, count ] of Object.entries( capture.omissions ?? {} ) )
+					geometryCaptureOmissions[ code ] = ( geometryCaptureOmissions[ code ] ?? 0 ) + count;
+			} catch {
+				geometryCaptureOmissions[ 'capture_invalid' ] =
+					( geometryCaptureOmissions[ 'capture_invalid' ] ?? 0 ) + 1;
+			}
+		}
+		geometryInputs.push( {
+			sourcePath: routeOutputPath( entry.url, options.sourceUrl, entrypointUrl )
+				.replace( /\\/g, '/' )
+				.replace( /^/, 'website/' ),
+			html: readFileSync(
+				join( websiteDir, routeOutputPath( entry.url, options.sourceUrl, entrypointUrl ) ),
+				'utf8'
+			),
+			observations,
+		} );
+	}
+	const geometry = buildLayoutGeometryProof( geometryInputs );
+	const geometryReport = {
+		...geometry.report,
+		capture_omissions: geometryCaptureOmissions,
+	};
+	writeFileSync(
+		join( outputDir, 'layout-geometry-report.json' ),
+		`${ JSON.stringify( geometryReport, null, 2 ) }\n`
+	);
+
 	const interactionStates = interactionPages.flatMap( ( page ) => page.states );
 	const interactionSummary = {
 		candidate_count: interactionStates.length,
@@ -1431,7 +1483,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 			( state ) => state.status === 'captured' && state.dialog?.htmlTruncated
 		).length,
 	};
-	const reportFiles = [ 'diagnostics.json', 'capture-receipt.json' ];
+	const reportFiles = [ 'diagnostics.json', 'capture-receipt.json', 'layout-geometry-report.json' ];
 	if ( interactionPages.length > 0 ) {
 		writeFileSync(
 			join( outputDir, 'interaction-states.json' ),
@@ -1462,6 +1514,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 				assets,
 				portableMedia,
 				interactions: interactionSummary,
+				layoutGeometry: geometryReport,
 				excludedRoutes,
 				summary: options.summary,
 			},
@@ -1509,6 +1562,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 				generated_at: new Date().toISOString(),
 				root: 'website',
 				entrypoint: 'website/index.html',
+				...( geometry.proof ? { layout_geometry_proof: geometry.proof } : {} ),
 			} ).slice( 0, -1 ) },"files":[`
 		);
 

@@ -18,6 +18,8 @@ export interface ArtifactPlan {
 	captureSections: boolean;
 	/** Capture mobile computed section evidence for responsive reconstruction. */
 	captureMobileSections: boolean;
+	/** Capture bounded geometry proof observations for generic downstream consumers. */
+	captureGeometry: boolean;
 	paths: {
 		fullpage: string;
 		scrolled: string;
@@ -25,6 +27,7 @@ export interface ArtifactPlan {
 		htmlMobile: string;
 		sections: string;
 		sectionsMobile: string;
+		geometry: string;
 	};
 }
 
@@ -76,6 +79,7 @@ export function planArtifacts( args: {
 		const htmlMobile = join( args.outputDir, 'html-mobile', `${ args.slug }.html` );
 		const sections = join( args.outputDir, 'sections', `${ args.slug }.json` );
 		const sectionsMobile = join( args.outputDir, 'sections-mobile', `${ args.slug }.json` );
+		const geometry = join( args.outputDir, 'layout-geometry', `${ args.slug }.${ viewport }.json` );
 		const captureImages = args.captureImages ?? true;
 		const captureFullpage = captureImages && ( args.force || ! existsSync( fullpage ) );
 		const captureScrolled = captureImages && ( args.force || ! existsSync( scrolled ) );
@@ -88,13 +92,15 @@ export function planArtifacts( args: {
 		const captureSections = viewport === 'desktop' && ( args.force || ! existsSync( sections ) );
 		const captureMobileSections =
 			viewport === 'mobile' && ( args.force || ! existsSync( sectionsMobile ) );
+		const captureGeometry = args.force || ! existsSync( geometry );
 		const needsLoad =
 			captureFullpage ||
 			captureScrolled ||
 			captureHtml ||
 			captureMobileHtml ||
 			captureSections ||
-			captureMobileSections;
+			captureMobileSections ||
+			captureGeometry;
 		return {
 			needsLoad,
 			captureFullpage,
@@ -103,7 +109,8 @@ export function planArtifacts( args: {
 			captureMobileHtml,
 			captureSections,
 			captureMobileSections,
-			paths: { fullpage, scrolled, html, htmlMobile, sections, sectionsMobile },
+			captureGeometry,
+			paths: { fullpage, scrolled, html, htmlMobile, sections, sectionsMobile, geometry },
 		};
 	};
 	return { desktop: plan( 'desktop' ), mobile: plan( 'mobile' ) };

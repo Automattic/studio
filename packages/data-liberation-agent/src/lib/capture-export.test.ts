@@ -18,6 +18,46 @@ afterEach( () => {
 } );
 
 describe( 'exportWebsiteCapture', () => {
+	it( 'exports hash-bound geometry proof without runtime capture markers', () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-geometry-export-' ) );
+		dirs.push( outputDir );
+		mkdirSync( join( outputDir, 'html' ), { recursive: true } );
+		mkdirSync( join( outputDir, 'layout-geometry' ), { recursive: true } );
+		writeFileSync(
+			join( outputDir, 'html', 'homepage.html' ),
+			'<html><body><main><div><section>Copy</section></div></main></body></html>'
+		);
+		const observation = ( viewport: number ) => ( {
+			selector: 'main:nth-of-type(1) > div:nth-of-type(1)',
+			targetSelector: 'main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(1)',
+			viewport,
+			state: 'default',
+			wrapper: { x: 0, y: 0, width: 100, height: 24 },
+			target: { x: 0, y: 0, width: 100, height: 24 },
+			simulated: { x: 0, y: 0, width: 100, height: 24 },
+			facts: { display: 'block', position: 'static', visibility: 'visible', childCount: 1 },
+			invariants: { runtime: true, semantics: true },
+		} );
+		for ( const [ viewport, width ] of [ [ 'desktop', 1440 ], [ 'mobile', 390 ] ] as const )
+			writeFileSync(
+				join( outputDir, 'layout-geometry', `homepage.${ viewport }.json` ),
+				JSON.stringify( { schema: 'data-liberation/layout-geometry-capture/v1', observations: [ observation( width ) ], omissions: {} } )
+			);
+		mkdirSync( join( outputDir, 'screenshots' ), { recursive: true } );
+		writeFileSync( join( outputDir, 'screenshots', 'manifest.json' ), JSON.stringify( {
+			version: 1,
+			entries: { 'https://example.com/': { slug: 'homepage', html: 'html/homepage.html' } },
+		} ) );
+
+		exportWebsiteCapture( { outputDir, sourceUrl: 'https://example.com/', platform: 'generic', summary: {}, failures: [] } );
+		const artifact = JSON.parse( readFileSync( join( outputDir, 'artifact.json' ), 'utf8' ) );
+		expect( artifact.layout_geometry_proof ).toMatchObject( {
+			schema: 'blocks-engine/php-transformer/layout-geometry-proof/v1',
+			reductions: [ { invariants: { selectors: true, runtime: true, semantics: true, viewports: true } } ],
+		} );
+		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).not.toContain( 'data-dla-geometry-id' );
+	} );
+
 	it( 'rejects unsafe shared-style media attributes', () => {
 		expect( portableInlineStyle( ' media="screen & <style"', '.unsafe{}' ) ).toBeUndefined();
 		expect( portableInlineStyle( ' media="screen and (min-width: 1px)"', '.safe{}' ) ).toEqual( {
@@ -144,6 +184,12 @@ describe( 'exportWebsiteCapture', () => {
 		} );
 
 		const receipt = JSON.parse( readFileSync( receiptPath, 'utf8' ) );
+		const geometryArtifact = JSON.parse( readFileSync( join( outputDir, 'artifact.json' ), 'utf8' ) );
+		expect( geometryArtifact.reports ).toContain( 'layout-geometry-report.json' );
+		expect( JSON.parse( readFileSync( join( outputDir, 'layout-geometry-report.json' ), 'utf8' ) ) ).toMatchObject( {
+			schema: 'data-liberation/layout-geometry-report/v1',
+			capture_omissions: { capture_missing: 4 },
+		} );
 		expect( receipt ).toMatchObject( {
 			schema: CAPTURE_RECEIPT_SCHEMA,
 			websiteRoot: 'website',

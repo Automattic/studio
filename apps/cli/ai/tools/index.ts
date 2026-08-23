@@ -87,6 +87,12 @@ export function resolveStudioToolDefinitions(
 		if ( candidate.name === shareScreenshotTool.name && ! options.remoteSession ) {
 			return [];
 		}
+		// refresh_browser only makes sense when a Studio UI with a preview pane
+		// is attached to consume the preview.reload event; emitChatArtifacts is
+		// the existing "UI attached" signal (process.send available).
+		if ( candidate.name === refreshBrowserTool.name && options.emitChatArtifacts !== true ) {
+			return [];
+		}
 		return [ withChatArtifactEmission( candidate, options.emitChatArtifacts === true ) ];
 	} );
 }

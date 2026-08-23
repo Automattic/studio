@@ -155,6 +155,14 @@ ${ getStudioWidgetPromptManifest() }`
 		? `
 - studio_present: Show one or more Studio desks widgets as inline visual artifacts.`
 		: '';
+	const refreshBrowserToolBullet = options.chatArtifactsEnabled
+		? `
+- refresh_browser: Reload the in-app site preview so the user sees your latest changes. Reloads in place; never stop/start the site to refresh the preview.`
+		: '';
+	const refreshBrowserRule = options.chatArtifactsEnabled
+		? `
+- After a change that alters what the site renders (content, options/settings, theme, plugins, activation), call refresh_browser so the in-app preview shows the result. Never stop/start the site (site_stop/site_start) just to refresh the preview.`
+		: '';
 
 	return `${ AGENT_IDENTITY } You manage and modify local WordPress sites using your Studio tools and generate content for these sites.
 
@@ -210,8 +218,7 @@ For long CSS or page-content files (>~200 lines), load the \`block-content\` ski
 - preview_list: List preview sites (temporary, expiring hosted previews) for a local site. These are NOT connected WordPress.com remote sites.
 - preview_update: Update an existing preview site from a local site; this can take a few minutes, so tell the user to wait
 - preview_delete: Delete a preview site by hostname
-- wp_cli: Run WP-CLI commands on a running site
-- refresh_browser: Reload the in-app site preview so the user sees your latest changes. Reloads in place; never stop/start the site to refresh the preview.
+- wp_cli: Run WP-CLI commands on a running site${ refreshBrowserToolBullet }
 - scaffold_theme: Scaffold a minimal block theme (style.css, theme.json, functions.php with frontend + editor enqueue, default templates and parts, empty assets/fonts and patterns dirs) into a site and activate it. Use as the first step when starting a new custom theme; the agent fills design-specific content afterwards. Pass parentTheme with an installed theme's slug to scaffold a child theme instead of editing that theme's files. Block themes only.
 - validate_blocks: Validate block content in two stages and return a combined report. First a static core/html policy check; if it finds invalid core/html blocks it returns only those (rewrite them as editable core or plugin blocks and call again) and skips the editor. Once it passes, validates in the running site's real block editor: with filePath, applies safe editor fixes directly to the file and returns a CSS-review diff; with inline content, returns exact fixed block content plus the diff. Requires a site name or path. Call after every file write/edit that contains block content.
 - take_screenshot: Take a full-page screenshot of a URL (supports desktop, mobile, or \`viewport: "all"\` for both). Use this to visually check the site after building it.
@@ -230,8 +237,7 @@ ${ studioPresentToolBullet }${ automaticArtifactSection }
 - Design quality and visual ambition are not in conflict with using core blocks. Custom CSS targeting block classNames can achieve any visual design. The block structure is for editability; the CSS is for aesthetics.
 - Do NOT modify WordPress core files. Only work within wp-content/.
 - Do NOT edit the files of installed third-party themes (default themes like twentytwentyfive, marketplace/community themes such as Ollie, anything installed via \`wp theme install\` or already present on the site) — a theme update silently wipes such edits. Default to a child theme: call \`scaffold_theme\` with \`parentTheme\` set to the installed theme's slug, then make every customization (style.css, theme.json, templates, parts, patterns) in the child theme. Themes Studio Code created — their style.css Description says "scaffolded by Studio Code" — are safe to edit directly. If the user explicitly asks you to edit an installed theme's files directly, comply, but first warn once that a theme update will overwrite the changes.
-- Before running wp_cli, ensure the site is running (site_start if needed).
-- After a change that alters what the site renders (content, options/settings, theme, plugins, activation), call refresh_browser so the in-app preview shows the result. Never stop/start the site (site_stop/site_start) just to refresh the preview.
+- Before running wp_cli, ensure the site is running (site_start if needed).${ refreshBrowserRule }
 - When building themes, always build block themes (NO CLASSIC THEMES).
 - New CSS files impacting the frontend of the site need to be enqueued in both the editor and the frontend (automatic for the scaffold's style.css when using \`scaffold_theme\`).
 - For theme and page content custom CSS, put the styles in the main style.css of the theme. No custom stylesheets.

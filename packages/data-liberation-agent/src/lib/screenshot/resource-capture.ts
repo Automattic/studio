@@ -15,6 +15,7 @@ const CAPTURED_RESOURCE_TYPES = new Set( [
 ] );
 const MAX_CAPTURED_RESOURCE_BYTES = 10 * 1024 * 1024;
 const MAX_CAPTURED_RESOURCE_TOTAL_BYTES = 256 * 1024 * 1024;
+const CAPTURED_RESOURCE_TIMEOUT_MS = 10_000;
 const MAX_DOM_RESOURCE_DEPENDENCIES = 256;
 const MAX_DOM_RESOURCE_CAPTURE_MS = 120_000;
 const DOM_RESOURCE_CONCURRENCY = 8;
@@ -33,6 +34,26 @@ export interface CapturedResourceManifest {
 	version: 1;
 	resources: Record< string, CapturedResourceEntry >;
 	failures: CapturedResourceFailure[];
+}
+
+async function responseBodyWithTimeout( response: Response ): Promise< Buffer > {
+	let timeout: ReturnType< typeof setTimeout > | undefined;
+	try {
+		return await Promise.race( [
+			response.body(),
+			new Promise< never >( ( _, reject ) => {
+				timeout = setTimeout(
+					() =>
+						reject(
+							new Error( `resource body timed out after ${ CAPTURED_RESOURCE_TIMEOUT_MS }ms` )
+						),
+					CAPTURED_RESOURCE_TIMEOUT_MS
+				);
+			} ),
+		] );
+	} finally {
+		if ( timeout ) clearTimeout( timeout );
+	}
 }
 
 function pathWithin( root: string, candidate: string ): boolean {
@@ -335,7 +356,7 @@ export class CapturedResourceStore {
 		if ( ! pathWithin( this.resourceDir, destination ) ) {
 			throw new Error( 'resource path escapes the capture directory' );
 		}
-		const body = fetched?.body ?? ( await response.body() );
+		const body = fetched?.body ?? ( await responseBodyWithTimeout( response ) );
 		if ( body.length > MAX_CAPTURED_RESOURCE_BYTES ) {
 			throw new Error(
 				`resource body ${ body.length } bytes exceeds max ${ MAX_CAPTURED_RESOURCE_BYTES }`

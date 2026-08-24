@@ -3,116 +3,13 @@ Unreleased
 
 1.19.0
 =====
-<!-- Release notes generated using configuration in .github/release.yml at HEAD -->
-* Agentic UI: Add an Open Studio Logs action to the pull error toast #4461
-* Agentic UI: Fix crash when a toast is replaced in place with a different shape #4443
-* Agentic UI: Point Reload and Toggle DevTools at the app window instead of the focused webview #4442
-* Agentic UI: add a native text context menu #4388
-* build(deps): bump anthropics/claude-code-action from 1.0.183 to 1.0.185 #4475
-* build(deps): bump the electron group with 2 updates #4476
-* build(deps-dev): bump typescript-eslint from 8.65.0 to 8.66.0 in the eslint group #4477
-* build(deps-dev): bump @testing-library/user-event from 14.6.1 to 14.6.3 in the testing group #4478
-* Studio Code: Add refetch for blocked accounts #4463
-* Tracks: site lifecycle & open-action events (STU-2115) #4464
-* Stop the Create Site button blinking on each keystroke in the agentic UI #4421
-* Fix 400 "thinking.type.enabled is not supported" when using a direct Anthropic API key #4480
-* Use `checkout_release_branch` from `a8c-ci-toolkit` #4472
-* build(deps): bump rubocop from 1.88.2 to 1.89.0 in the ruby-minor-and-patch group #4486
-* Tracks: preview site events (STU-2119) #4482
-* Agentic UI: Add a first-run orientation guide #4331
-* Add beta menu to the agentic sidebar #4485
-* Agentic UI: Show "What's New" #4414
-* Enforce lazy translations: add no-module-level-translations ESLint rule #4336
-* Agentic UI: Add Open in actions to the site overview #4469
-* Do not build data-liberation during building CLI #4492
-* Agentic UI: Add site overview About summary #4470
-* Agentic UI: Add disk usage to site overview #4473
-* Agentic UI: Preserve unsubmitted annotations when navigating in preview  #4460
-* Agentic UI: Use danger styling for site delete actions #4498
-* Add Manage and Preview welcome tour illustrations #4501
-* Tracks: import & export events (STU-2117) #4490
-* Agentic UI: Port selective sync #4377
-* Serve a PHP error page and auto-recover when a site fails to start #4246
-* Report why a Blueprint failed instead of the PHP exit code #4487
-* Leave no ghost site behind when creation fails #4489
-* Validate Anthropic API key in api-key and provider commands in Studio Code CLI #4504
-* Agentic UI: Keep app-wide toasts above the composer when the sidebar is closed #4497
-* Open DevTools after the renderer loads to fix the blank screen on a fresh config #4512
-* Require Node 24 in devEngines so it matches the npm >=11 requirement #4481
-* Honor the dependency cooldown in the apps/cli bundle install #4507
-* Agentic UI: Recover the site preview from cached cross-site redirects #4505
-* Clarify Studio Code's AI-powered collaboration in the sign-in banner #4493
-* Block conflicting site operations #4406
-* Agentic UI: Fix outer frame scrolling #4520
-* Agentic UI: Always clear the preview cache when reloading #4519
-* Agentic UI: Add backup import to the site overview #4500
-* Agentic UI: Close the create-site flow on Escape #4453
-* Tracks: Studio Code chat & instructions events (STU-2120) #4506
-* Agentic UI: Allow cancelling an in-flight push or pull #4510
-* Agentic UI: open slash-command dropdown when typing / in chat #4509
-* Agentic UI: Honor Reduce transparency and paint fallbacks for blurred surfaces #4528
-* Agentic UI: Show the preview URL in the site dropdown #4527
-* Agentic UI: Add multi-note annotation sessions #4521
-* Drop Blueprint features the native runner cannot accept #4488
-* Agentic UI: Scroll agent questions clear of the composer #4530
-* `pull-reprint`: stop touching internal Reprint state directly #4491
-* Agentic UI: Add Anthropic API key form to AI settings #4503
-* Tracks: onboarding & authentication events (STU-2114) #4532
-* Agentic UI: Keep the native window controls inside the frame on Windows and Linux #4499
-* Agentic UI: Wait for the remote import before reporting a push complete #4522
-* build(deps): bump anthropics/claude-code-action from 1.0.185 to 1.0.191 #4546
-* build(deps): bump the electron group with 2 updates #4547
-* build(deps): bump the eslint group with 2 updates #4548
-* Agentic UI: Enable the chat composer color fade #4537
-* Tracks: log browser UI events on their own studio-web channel (STU-2247) #4535
-* Ask for confirmation before deleting a site #4090
-* Agentic UI: Pick the AI provider from the model menu #4550
-* Agentic UI: Increase composer contrast in dark mode #4538
-* build(deps): bump the ruby-minor-and-patch group with 2 updates #4566
-* Add hosted AI models (Kimi, GLM, DeepSeek) via the WordPress.com proxy #4529
-* Give scaffolded themes a content width and horizontal gutter #4571
-* Ship a registered no-title page template so designed pages don't duplicate their title #4576
-* Agentic UI: Improve site settings layout and credential copying #4561
-* Agentic UI: Fix theme-aware Customize shortcuts #4468
-* Agentic UI: Fix welcome tour skip button hover on dark artwork #4578
-* Agentic UI: Ensure that the share button preserves busy state when in progress #4572
-* Drop bundle_id from the DMG notarize call #4581
-* Agentic UI: Ensure that we disable the share button after 10 previews #4568
-* Agentic UI: Make empty sidebar space draggable #4558
-* Agentic UI: Add copy button for admin credentials #4570
-* build(deps-dev): bump the testing group across 1 directory with 3 updates #4549
-* Agentic UI: Use site icon in preview tab #4591
-* Agentic UI: pause chat autoscroll while reading earlier messages #4575
-* Agentic UI: Improve switching between chat and site overview #4560
-* studio ui: Load global settings and site order from the real Studio config #4569
-* Agentic UI: Align user Gravatar to app window and update "Settings" to "App settings" #4586
-* Agentic UI: Add a compact site switcher for the collapsed sidebar #4598
-* Steer slideshow/gallery builds to Jetpack blocks #4610
-* Fix screenshot eval broken by structural chat artifacts #4600
-* Agentic UI: Show remaining AI credit balances in Usage settings #4602
-* Agentic UI: Show remaining AI credits in the Studio Code composer #4604
-* AI Credits: Print the error to top up balance when you run out of credits #4609
-* Preserve local content of first Reprint pull #4531
-* AI Credits: Set the right link to top up credits #4619
-* AI Credits: Stop requiring cost_reset_date from the quota endpoint #4624
-* build(deps): bump anthropics/claude-code-action from 1.0.191 to 1.0.195 #4629
-* build(deps): bump the electron group with 2 updates #4631
-* build(deps-dev): bump the vite group with 3 updates #4633
-* build(deps): bump the testing group across 1 directory with 10 updates #4632
-* Agentic UI: Fix version mismatch between Beta menu and About window #4621
-* Agentic UI: Unify the agent working indicator animation #4526
-* Agentic UI: Suppress "Site started" toasts for automatic site starts #4626
-* build(deps): bump toshimaru/auto-author-assign from 3.0.3 to 3.1.0 #4630
-* Agentic UI: Disable responsive preview controls on the database tab #4607
-* Agentic UI: Fix delete site dialog styling, and confirm dialogs with Return #4608
-* AI Credits: Return to Studio and refresh the balance after a top-up #4628
-* AI Credits: Show remaining credit balances in Studio Classic settings #4636
-* Site preview: show a dialog when a page has unsaved changes #4623
-* AI Credits: Return to Studio and refresh the balance after a top-up #4639
-* Revert "Ask for confirmation before deleting a site (#4090)" #4640
-* Studio Code: only expose refresh_browser when a Studio UI is attached #4654
-* build(deps): bump aws-sdk-cloudfront from 1.151.0 to 1.152.0 in the ruby-minor-and-patch group #4661
-**Full Changelog**: https://github.com/Automattic/studio/compare/v1.18.0...v1.19.0
+* Introduced AI credits in Studio Code: you can now purchase AI credits for your sessions. Your remaining balance now shows in the composer, in Usage settings, and in Studio Classic settings. You get a clear message and a working top-up link when you run out, and the balance refreshes as soon as you return from topping up #4604, #4602, #4636, #4609, #4619, #4628, #4639, #4624
+* Added hosted AI models — Kimi, GLM and DeepSeek — available through the WordPress.com proxy #4529
+* Studio Code: Improved generated themes with a content width and horizontal gutter, a registered no-title page template so designed pages no longer repeat their title, and slideshow and gallery builds steered to Jetpack blocks #4571, #4576, #4610
+* Misc Agentic UI improvements #4468, #4526, #4537, #4538, #4558, #4560, #4561, #4568, #4569, #4570, #4572, #4575, #4578, #4586, #4591, #4598, #4607, #4608, #4621, #4623, #4626
+* Improved Studio analytics #4535
+* Updated multiple dependencies, including Electron and the ESLint, Vite, testing and Ruby groups #4547, #4631, #4548, #4633, #4549, #4632, #4566, #4661, #4546, #4629, #4630
+* Misc and maintenance improvements #4531, #4654, #4581, #4600, #4665
 
 1.18.0
 =====

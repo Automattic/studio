@@ -8,6 +8,7 @@ import { CapturedResourceStore } from './resource-capture.js';
 const dirs: string[] = [];
 
 afterEach( () => {
+	vi.useRealTimers();
 	for ( const dir of dirs.splice( 0 ) ) rmSync( dir, { recursive: true, force: true } );
 } );
 
@@ -125,6 +126,38 @@ describe( 'CapturedResourceStore', () => {
 			{
 				url: 'https://example.com/_videos/oversized',
 				error: 'response body exceeds max 10485760 bytes',
+			},
+		] );
+	} );
+
+	it( 'records browser response bodies that do not settle', async () => {
+		vi.useFakeTimers();
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-resources-' ) );
+		dirs.push( outputDir );
+		const page = new EventEmitter();
+		const store = new CapturedResourceStore( outputDir, 'https://example.com/' );
+		store.observe( page as never );
+		page.emit( 'response', {
+			url: () => 'https://example.com/styles/pending.css',
+			status: () => 200,
+			headers: () => ( { 'content-type': 'text/css' } ),
+			body: vi.fn( () => new Promise< Buffer >( () => {} ) ),
+			request: () => ( { resourceType: () => 'stylesheet' } ),
+		} );
+
+		const settled = store.settle( page as never );
+		await vi.advanceTimersByTimeAsync( 10_000 );
+		await settled;
+		await store.flush();
+
+		const manifest = JSON.parse(
+			readFileSync( join( outputDir, 'resources', 'manifest.json' ), 'utf8' )
+		);
+		expect( manifest.resources ).toEqual( {} );
+		expect( manifest.failures ).toEqual( [
+			{
+				url: 'https://example.com/styles/pending.css',
+				error: 'resource body timed out after 10000ms',
 			},
 		] );
 	} );

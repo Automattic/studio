@@ -85,7 +85,7 @@ export const generateImagesTool = defineTool(
 		),
 	},
 	async ( args ) => {
-		if ( ! isImageGenerationAvailable() ) {
+		if ( ! ( await isImageGenerationAvailable() ) ) {
 			throw new Error(
 				'Image generation is not available in this session. Build the site without generated imagery.'
 			);

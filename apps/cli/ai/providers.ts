@@ -98,7 +98,7 @@ async function resolveAnthropicApiKey( options?: {
 	return trimmedKey;
 }
 
-function getStudioUserAgent(): string {
+export function getStudioUserAgent(): string {
 	const version = typeof __STUDIO_CLI_VERSION__ === 'string' ? __STUDIO_CLI_VERSION__ : '';
 	return version ? `WordPressStudio/${ version }` : 'WordPressStudio';
 }

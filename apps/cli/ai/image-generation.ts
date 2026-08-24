@@ -1,5 +1,5 @@
 import { readAuthToken } from '@studio/common/lib/shared-config';
-import { getWpcomAiGatewayBaseUrl } from 'cli/ai/providers';
+import { getStudioUserAgent, getWpcomAiGatewayBaseUrl } from 'cli/ai/providers';
 
 /**
  * AI image generation through the WP.com AI proxy's Google Vertex Gemini route.
@@ -16,9 +16,10 @@ import { getWpcomAiGatewayBaseUrl } from 'cli/ai/providers';
  */
 
 const DEFAULT_IMAGE_MODEL = 'gemini-3.1-flash-image';
-// Slug already allowlisted on the proxy's Google publisher route (shared with
-// the site builder and telex, which generate theme images the same way).
-const IMAGE_FEATURE_SLUG = 'builder-theme-image';
+// Studio's slug on the proxy's Google publisher route; unlike the site
+// builder's `builder-theme-image` (which requires a Vertex-scoped token), this
+// one accepts regular user OAuth tokens.
+const IMAGE_FEATURE_SLUG = 'studio-image';
 const MAX_CONCURRENT_REQUESTS = 5;
 const RETRY_DELAYS_SECONDS = [ 2, 5, 12 ];
 // Prompt budget inherited from the builder: Gemini accepts longer prompts, but
@@ -66,16 +67,16 @@ const FILTERED_REASONS = new Set( [
 ] );
 
 /**
- * Whether the generate_images capability is enabled for this process.
- *
- * Gated on the explicit token until the WP.com AI proxy accepts Studio user
- * OAuth tokens on the Google publisher route (they currently get a 403 with
- * every Studio feature slug). resolveImageAuthToken already prefers the env
- * token and falls back to the WP.com login, so once the proxy-side allowlist
- * lands this check is the only thing to relax.
+ * Whether the generate_images capability is enabled for this session: an
+ * explicit token, or a valid WP.com login (the proxy's `studio-image` slug
+ * accepts user OAuth tokens). Sessions with neither — e.g. BYO Anthropic key
+ * without a WP.com login — get no tool and no imagery prompt sections.
  */
-export function isImageGenerationAvailable(): boolean {
-	return Boolean( process.env.STUDIO_IMAGE_API_TOKEN?.trim() );
+export async function isImageGenerationAvailable(): Promise< boolean > {
+	if ( process.env.STUDIO_IMAGE_API_TOKEN?.trim() ) {
+		return true;
+	}
+	return ( await readAuthToken() ) !== null;
 }
 
 async function resolveImageAuthToken(): Promise< string > {
@@ -355,6 +356,7 @@ async function generateOne(
 					authorization: `Bearer ${ authToken }`,
 					'x-wpcom-ai-feature': IMAGE_FEATURE_SLUG,
 					'content-type': 'application/json',
+					'user-agent': getStudioUserAgent(),
 				},
 				body,
 			} );

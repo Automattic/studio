@@ -1,5 +1,4 @@
 import { emitChatArtifactWidgets } from 'cli/ai/chat-artifacts';
-import { isImageGenerationAvailable } from '../image-generation';
 import { createPreviewTool } from './create-preview';
 import { createSiteTool } from './create-site';
 import { dataLiberationTool } from './data-liberation';
@@ -76,8 +75,8 @@ export interface CreateStudioToolsOptions {
 	// by `STUDIO_REMOTE_SESSION=1`. Direct `studio code` invocations leave
 	// this off because the image would have nowhere to go.
 	remoteSession?: boolean;
-	// Enable generate_images. Defaults to isImageGenerationAvailable(), so a
-	// session without image-generation auth behaves exactly as before the tool
+	// Enable generate_images. Callers resolve isImageGenerationAvailable()
+	// (async) and pass it; when off, sessions behave exactly as before the tool
 	// existed (no tool, no imagery prompt sections).
 	imageGeneration?: boolean;
 }
@@ -90,8 +89,6 @@ export function resolveStudioToolDefinitions(
 			? [ ...studioToolDefinitions, studioPresentTool ]
 			: studioToolDefinitions;
 
-	const imageGeneration = options.imageGeneration ?? isImageGenerationAvailable();
-
 	return definitions.flatMap( ( candidate ) => {
 		if ( candidate.name === shareScreenshotTool.name && ! options.remoteSession ) {
 			return [];
@@ -102,7 +99,7 @@ export function resolveStudioToolDefinitions(
 		if ( candidate.name === refreshBrowserTool.name && options.emitChatArtifacts !== true ) {
 			return [];
 		}
-		if ( candidate.name === generateImagesTool.name && ! imageGeneration ) {
+		if ( candidate.name === generateImagesTool.name && ! options.imageGeneration ) {
 			return [];
 		}
 		return [ withChatArtifactEmission( candidate, options.emitChatArtifacts === true ) ];

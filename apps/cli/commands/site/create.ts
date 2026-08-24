@@ -908,21 +908,24 @@ async function runStaticSiteImport(
 	source: string,
 	stagedSource?: { sourcePath: string; targetName: string },
 	identity?: StaticSiteImportIdentity,
-	preserveResult = false
+	preserveResult = false,
+	resume = false
 ): Promise< boolean > {
 	const stagingDir = path.join( site.path, '.studio-import' );
 	const scriptName = 'import.php';
 	const scriptPath = path.join( stagingDir, scriptName );
 	const resultPath = path.join( stagingDir, STATIC_SITE_IMPORT_RESULT_FILE );
-	fs.mkdirSync( stagingDir, { recursive: true } );
-	if ( stagedSource ) {
-		fs.copyFileSync( stagedSource.sourcePath, path.join( stagingDir, stagedSource.targetName ) );
+	if ( ! resume ) {
+		fs.mkdirSync( stagingDir, { recursive: true } );
+		if ( stagedSource ) {
+			fs.copyFileSync( stagedSource.sourcePath, path.join( stagingDir, stagedSource.targetName ) );
+		}
+		fs.writeFileSync( path.join( stagingDir, STATIC_SITE_IMPORT_SOURCE_FILE ), source );
+		if ( identity ) {
+			fs.writeFileSync( staticSiteImportIdentityPath( site.path ), JSON.stringify( identity ) );
+		}
+		fs.writeFileSync( scriptPath, code );
 	}
-	fs.writeFileSync( path.join( stagingDir, STATIC_SITE_IMPORT_SOURCE_FILE ), source );
-	if ( identity ) {
-		fs.writeFileSync( staticSiteImportIdentityPath( site.path ), JSON.stringify( identity ) );
-	}
-	fs.writeFileSync( scriptPath, code );
 
 	const liveOutput = getSiteRuntime( site ) === SITE_RUNTIME_NATIVE_PHP;
 	for ( let invocation = 1; invocation <= MAX_STATIC_SITE_IMPORT_INVOCATIONS; invocation++ ) {
@@ -1214,7 +1217,8 @@ export async function runCommand(
 								staticSiteImport.source,
 								staticSiteImport.stagedSource,
 								staticSiteImport.identity,
-								staticSiteImport.storeResult
+								staticSiteImport.storeResult,
+								true
 						  );
 				staticSiteImportResultObserved = true;
 			} catch ( error ) {

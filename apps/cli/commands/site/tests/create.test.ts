@@ -1057,7 +1057,7 @@ describe( 'CLI: studio create', () => {
 			vi.spyOn( fs, 'readFileSync' ).mockImplementation( ( filePath ) =>
 				filePath.toString().endsWith( '.json' ) ? identity : blueprint.staticSiteImport.code
 			);
-			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			const writeFileSpy = vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
 			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
 
 			await runCommand( mockSitePath, { ...defaultTestOptions, blueprint } );
@@ -1070,6 +1070,10 @@ describe( 'CLI: studio create', () => {
 			expect( startWordPressServer ).not.toHaveBeenCalled();
 			expect( runBlueprint ).not.toHaveBeenCalled();
 			expect( saveCliConfig ).not.toHaveBeenCalled();
+			expect( writeFileSpy ).not.toHaveBeenCalledWith(
+				path.join( mockSitePath, '.studio-import', 'source.json' ),
+				expect.anything()
+			);
 		} );
 
 		it( 'cleans up validator pages after canonicalizing a resumed import', async () => {

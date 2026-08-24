@@ -15,6 +15,7 @@ import { basename, dirname, extname, join, relative, resolve, sep } from 'node:p
 import * as cheerio from 'cheerio';
 import { escapeHtmlAttr } from './html-escape.js';
 import { scopeCss } from './replicate/css-scope.js';
+import { SectionSpecsStore } from './replicate/section-specs-store.js';
 import { MediaStubStore } from './resume-state/index.js';
 import {
 	buildLayoutGeometryProof,
@@ -27,6 +28,7 @@ import type { CapturedResourceManifest } from './screenshot/resource-capture.js'
 export const CAPTURE_RECEIPT_SCHEMA = 'data-liberation/capture-receipt/v1';
 export const WEBSITE_ARTIFACT_SCHEMA = 'blocks-engine/php-transformer/site-artifact/v1';
 export const CAPTURED_INTERACTIONS_SCHEMA = 'data-liberation/captured-interactions/v1';
+export const CAPTURED_SEMANTIC_EVIDENCE_SCHEMA = 'data-liberation/captured-semantic-evidence/v1';
 
 function withoutGeometryIdentities( html: string ): string {
 	return html.replace( /\sdata-dla-geometry-id=(?:"[^"]*"|'[^']*')/g, '' );
@@ -79,6 +81,20 @@ interface RetainedCaptureEntry {
 	mobileHtml?: string;
 	sections?: string;
 	canonicalUrl?: string;
+}
+
+function isUsableSectionEvidence( sections: unknown ): sections is Record< string, unknown >[] {
+	return (
+		Array.isArray( sections ) &&
+		sections.length > 0 &&
+		sections.every(
+			( section ) =>
+				section !== null &&
+				typeof section === 'object' &&
+				typeof ( section as Record< string, unknown > ).selector === 'string' &&
+				( section as Record< string, unknown > ).selector !== ''
+		)
+	);
 }
 
 function fileHash( path: string ): string {
@@ -1408,6 +1424,37 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		).length,
 	};
 	const reportFiles = [ 'diagnostics.json', 'capture-receipt.json', 'layout-geometry-report.json' ];
+	const desktopSections = SectionSpecsStore.load( outputDir );
+	const mobileSections = SectionSpecsStore.loadMobile( outputDir );
+	const semanticPages = routes.flatMap( ( route ) => {
+		const desktop = desktopSections.get( route.url );
+		if ( ! isUsableSectionEvidence( desktop ) ) return [];
+		const mobile = mobileSections.get( route.url );
+		return [
+			{
+				path: route.path,
+				url: route.url,
+				viewports: {
+					desktop,
+					...( isUsableSectionEvidence( mobile ) ? { mobile } : {} ),
+				},
+			},
+		];
+	} );
+	const semanticEvidence =
+		semanticPages.length > 0
+			? {
+					schema: CAPTURED_SEMANTIC_EVIDENCE_SCHEMA,
+					pages: semanticPages,
+			  }
+			: undefined;
+	if ( semanticEvidence ) {
+		writeFileSync(
+			join( outputDir, 'semantic-evidence.json' ),
+			`${ JSON.stringify( semanticEvidence, null, 2 ) }\n`
+		);
+		reportFiles.push( 'semantic-evidence.json' );
+	}
 	if ( interactionPages.length > 0 ) {
 		writeFileSync(
 			join( outputDir, 'interaction-states.json' ),
@@ -1487,6 +1534,15 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 				root: 'website',
 				entrypoint: 'website/index.html',
 				...( geometry.proof ? { layout_geometry_proof: geometry.proof } : {} ),
+				...( semanticEvidence
+					? {
+							semantic_evidence: {
+								schema: CAPTURED_SEMANTIC_EVIDENCE_SCHEMA,
+								path: 'semantic-evidence.json',
+								page_count: semanticPages.length,
+							},
+					  }
+					: {} ),
 			} ).slice( 0, -1 ) },"files":[`
 		);
 

@@ -10,6 +10,7 @@ import {
 	portableInlineStyle,
 	WEBSITE_ARTIFACT_SCHEMA,
 } from './capture-export.js';
+import { SectionSpecsStore } from './replicate/section-specs-store.js';
 import { MediaStubStore } from './resume-state/index.js';
 
 const dirs: string[] = [];
@@ -19,6 +20,92 @@ afterEach( () => {
 } );
 
 describe( 'exportWebsiteCapture', () => {
+	it( 'carries valid responsive section evidence in the portable artifact', () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-semantic-export-' ) );
+		dirs.push( outputDir );
+		mkdirSync( join( outputDir, 'html' ), { recursive: true } );
+		mkdirSync( join( outputDir, 'screenshots' ), { recursive: true } );
+		writeFileSync(
+			join( outputDir, 'html', 'homepage.html' ),
+			'<main><h1>Tianna Wolfson</h1><img src="portrait.jpg"></main>'
+		);
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				entries: { 'https://example.com/': { slug: 'homepage', html: 'html/homepage.html' } },
+			} )
+		);
+		const spec = {
+			selector: 'main > section',
+			headings: [ 'Tianna Wolfson' ],
+			images: [],
+			layout: {},
+		} as never;
+		SectionSpecsStore.load( outputDir ).set( 'https://example.com/', [ spec ], [] );
+		SectionSpecsStore.loadMobile( outputDir ).set( 'https://example.com/', [ spec ], [] );
+
+		exportWebsiteCapture( {
+			outputDir,
+			sourceUrl: 'https://example.com/',
+			platform: 'generic',
+			summary: {},
+			failures: [],
+		} );
+
+		const artifact = JSON.parse( readFileSync( join( outputDir, 'artifact.json' ), 'utf8' ) );
+		const evidence = JSON.parse(
+			readFileSync( join( outputDir, 'semantic-evidence.json' ), 'utf8' )
+		);
+		expect( artifact.semantic_evidence ).toMatchObject( {
+			path: 'semantic-evidence.json',
+			page_count: 1,
+		} );
+		expect( evidence.pages[ 0 ] ).toMatchObject( {
+			path: 'website/index.html',
+			viewports: {
+				desktop: [ { headings: [ 'Tianna Wolfson' ] } ],
+				mobile: [ { headings: [ 'Tianna Wolfson' ] } ],
+			},
+		} );
+		expect( artifact.files.map( ( file: { path: string } ) => file.path ) ).toContain(
+			'semantic-evidence.json'
+		);
+	} );
+
+	it( 'retains the HTML-only fallback when section evidence is invalid', () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-invalid-semantic-export-' ) );
+		dirs.push( outputDir );
+		mkdirSync( join( outputDir, 'html' ), { recursive: true } );
+		mkdirSync( join( outputDir, 'screenshots' ), { recursive: true } );
+		writeFileSync(
+			join( outputDir, 'html', 'homepage.html' ),
+			'<main><h1>Captured fallback</h1></main>'
+		);
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				entries: { 'https://example.com/': { slug: 'homepage', html: 'html/homepage.html' } },
+			} )
+		);
+		SectionSpecsStore.load( outputDir ).set( 'https://example.com/', [ {} as never ], [] );
+
+		exportWebsiteCapture( {
+			outputDir,
+			sourceUrl: 'https://example.com/',
+			platform: 'generic',
+			summary: {},
+			failures: [],
+		} );
+
+		const artifact = JSON.parse( readFileSync( join( outputDir, 'artifact.json' ), 'utf8' ) );
+		expect( artifact.semantic_evidence ).toBeUndefined();
+		expect( artifact.files.map( ( file: { path: string } ) => file.path ) ).not.toContain(
+			'semantic-evidence.json'
+		);
+	} );
+
 	it( 'exports hash-bound geometry proof without runtime capture markers', () => {
 		const outputDir = mkdtempSync( join( tmpdir(), 'dla-geometry-export-' ) );
 		dirs.push( outputDir );

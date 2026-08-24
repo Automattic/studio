@@ -750,6 +750,46 @@ describe( 'CLI: studio site create', () => {
 			expect( blueprint.staticSiteImport.code ).toContain( '$store_import_result = false;' );
 		} );
 
+		it( 'forwards semantic evidence and rejects navigation-only catastrophic loss', () => {
+			const artifactDir = fs.mkdtempSync( path.join( '/tmp', 'studio-semantic-artifact-' ) );
+			const artifactPath = path.join( artifactDir, 'artifact.json' );
+			fs.writeFileSync(
+				artifactPath,
+				JSON.stringify( {
+					schema: 'blocks-engine/php-transformer/site-artifact/v1',
+					entrypoint: 'website/index.html',
+					semantic_evidence: {
+						schema: 'data-liberation/captured-semantic-evidence/v1',
+						path: 'semantic-evidence.json',
+						page_count: 1,
+					},
+					files: [
+						{
+							path: 'website/index.html',
+							content:
+								'<main><h1>Tianna Wolfson</h1><p>' +
+								'Biography '.repeat( 30 ) +
+								'</p><img src="portrait.jpg"></main>',
+						},
+					],
+				} )
+			);
+
+			const blueprint = buildCreateFromSourceBlueprint(
+				artifactPath,
+				'Tianna',
+				'https://example.com/static-site-importer.zip'
+			);
+
+			expect( blueprint.staticSiteImport.code ).toContain(
+				"$input['source_metadata']['semantic_evidence']"
+			);
+			expect( blueprint.staticSiteImport.code ).toContain(
+				'static_site_importer_studio_reject_catastrophic_content_loss'
+			);
+			expect( blueprint.staticSiteImport.code ).toContain( 'rejected catastrophic content loss' );
+		} );
+
 		it( 'should store the import result only when requested', () => {
 			const sourceDir = fs.mkdtempSync( path.join( '/tmp', 'studio-source-test-' ) );
 			fs.writeFileSync( path.join( sourceDir, 'index.html' ), '<main></main>' );

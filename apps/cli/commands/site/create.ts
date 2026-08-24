@@ -526,6 +526,24 @@ function static_site_importer_studio_record_failure( $result, string $fallback, 
 	throw new RuntimeException( static_site_importer_studio_failure_message( $result, $fallback ) );
 }
 
+function static_site_importer_studio_reject_catastrophic_content_loss( array $source, array $documents ): void {
+	$source_text = $source_images = $imported_text = $imported_images = 0;
+	foreach ( $source['artifact']['files'] ?? array() as $file ) {
+		if ( is_array( $file ) && str_ends_with( (string) ( $file['path'] ?? '' ), '.html' ) && isset( $file['content'] ) ) {
+			$source_text += strlen( trim( wp_strip_all_tags( (string) $file['content'], true ) ) );
+			$source_images += preg_match_all( '/<img\\b/i', (string) $file['content'] );
+		}
+	}
+	foreach ( $documents as $document ) {
+		$content = (string) ( $document['content'] ?? '' );
+		$imported_text += strlen( trim( wp_strip_all_tags( $content, true ) ) );
+		$imported_images += preg_match_all( '/<!--\\s+wp:image\\b|<img\\b/i', $content );
+	}
+	if ( $source_text >= 160 && $source_images && $documents && $imported_text <= 80 && ! $imported_images ) {
+		throw new RuntimeException( 'Static Site Importer rejected catastrophic content loss: source became navigation-only with no images. Inspect diagnostics.' );
+	}
+}
+
 $store_import_result = ${ storeImportResult ? 'true' : 'false' };
 
 if ( isset( $source['url'] ) && function_exists( 'static_site_importer_ability_import' ) ) {
@@ -618,6 +636,7 @@ if ( isset( $source['url'] ) && function_exists( 'static_site_importer_ability_i
 		}
 		$metadata = $artifact;
 		unset( $metadata['schema'], $metadata['entrypoint'], $metadata['files'] );
+		$input['source_metadata']['semantic_evidence'] = is_array( $artifact['semantic_evidence'] ?? null ) ? $artifact['semantic_evidence'] : array();
 		$input['source'] = array(
 			'type'       => 'files',
 			'entrypoint' => (string) ( $artifact['entrypoint'] ?? '' ),
@@ -685,6 +704,7 @@ foreach ( array_unique( array_map( 'intval', array_values( isset( $import_result
 if ( ! empty( $canonical_documents ) && false === file_put_contents( ABSPATH . '.studio-import/${ STATIC_SITE_IMPORT_CANONICAL_DOCUMENTS_FILE }', wp_json_encode( $canonical_documents ) ) ) {
 	throw new RuntimeException( 'Static Site Importer client canonicalization handoff could not be saved.' );
 }
+static_site_importer_studio_reject_catastrophic_content_loss( $source, $canonical_documents );
 
 $studio_result = array(
 	'continuation'             => ! empty( $import_result['continuation'] ),

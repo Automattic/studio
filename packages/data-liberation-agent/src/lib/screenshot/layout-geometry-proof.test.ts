@@ -57,7 +57,7 @@ describe( 'buildLayoutGeometryProof', () => {
 		).toHaveLength( 2 );
 	} );
 
-	it( 'resolves nested wrapper and target identities without overwriting either identity', () => {
+	it( 'preserves nested DOM-subtree overlap semantics without retaining documents', () => {
 		const nestedHtml = '<main><div><div><section>Copy</section></div></div></main>';
 		const nestedIdentityHtml = nestedHtml
 			.replace(

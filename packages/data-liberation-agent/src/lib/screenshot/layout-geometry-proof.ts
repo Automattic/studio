@@ -41,10 +41,9 @@ interface GeometryInput {
 }
 
 interface DocumentGeometry {
-	sourcePath: string;
 	nodes: Array< { node: AnyNode; depth: number } >;
 	nodeForSelector: ( selector: string ) => AnyNode | undefined;
-	selectedWrappers: Set< AnyNode >;
+	intervalFor: ( node: AnyNode ) => { start: number; end: number } | undefined;
 }
 
 interface GeometryCandidate {
@@ -55,7 +54,8 @@ interface GeometryCandidate {
 	targetSelector: string;
 	sourceHash: string;
 	ordered: GeometryObservation[];
-	wrapperNode: AnyNode;
+	subtreeStart: number;
+	subtreeEnd: number;
 	wrapperDepth: number;
 	deepestChainImpact: number;
 }
@@ -107,31 +107,36 @@ function elementDepth( node: AnyNode ): number {
 	return depth;
 }
 
-function collectDocumentGeometry( sourcePath: string, html: string ): DocumentGeometry {
+function collectDocumentGeometry( html: string ): DocumentGeometry {
 	const $ = cheerio.load( html );
+	const intervals = new Map< AnyNode, { start: number; end: number } >();
+	let position = 0;
+	const visit = ( node: AnyNode ) => {
+		const start = position++;
+		for ( const child of 'children' in node ? node.children : [] ) visit( child );
+		if ( node.type === 'tag' ) intervals.set( node, { start, end: position } );
+	};
+	visit( $.root()[ 0 ] );
 	return {
-		sourcePath,
 		nodes: $( '*' )
 			.toArray()
 			.filter( ( node ): node is AnyNode => node.type === 'tag' )
 			.map( ( node ) => ( { node, depth: elementDepth( node ) } ) ),
 		nodeForSelector: ( selector ) => $( selector )[ 0 ],
-		selectedWrappers: new Set< AnyNode >(),
+		intervalFor: ( node ) => intervals.get( node ),
 	};
 }
 
-function overlapsSelectedWrapper( document: DocumentGeometry, wrapper: AnyNode ): boolean {
-	let current: AnyNode | null = wrapper;
-	while ( current?.type === 'tag' ) {
-		if ( document.selectedWrappers.has( current ) ) return true;
-		current = current.parent?.type === 'tag' ? current.parent : null;
-	}
-	for ( const selected of document.selectedWrappers ) {
-		current = selected;
-		while ( current?.type === 'tag' ) {
-			if ( current === wrapper ) return true;
-			current = current.parent?.type === 'tag' ? current.parent : null;
-		}
+function overlapsSelectedWrapper(
+	selectedWrappers: Array< { start: number; end: number } >,
+	wrapper: { start: number; end: number }
+): boolean {
+	for ( const selected of selectedWrappers ) {
+		if (
+			( selected.start <= wrapper.start && wrapper.end <= selected.end ) ||
+			( wrapper.start <= selected.start && selected.end <= wrapper.end )
+		)
+			return true;
 	}
 	return false;
 }
@@ -140,7 +145,9 @@ function overlapsSelectedWrapper( document: DocumentGeometry, wrapper: AnyNode )
  * Accept only measurements that remain valid against the final exported HTML.
  * This sidecar deliberately contains selectors, not browser-only marker attributes.
  */
-export function buildLayoutGeometryProof( inputs: GeometryInput[] ): {
+export function buildLayoutGeometryProof(
+	inputs: GeometryInput[] | ( () => Iterable< GeometryInput > )
+): {
 	proof?: Record< string, unknown >;
 	report: Record< string, unknown >;
 } {
@@ -150,14 +157,15 @@ export function buildLayoutGeometryProof( inputs: GeometryInput[] ): {
 	const candidates: GeometryCandidate[] = [];
 	const omissions: Record< string, number > = {};
 	const omit = ( code: string ) => ( omissions[ code ] = ( omissions[ code ] ?? 0 ) + 1 );
-	const documents = new Map< string, DocumentGeometry >();
+	const orderedInputs =
+		typeof inputs === 'function'
+			? inputs()
+			: [ ...inputs ].sort( ( left, right ) => left.sourcePath.localeCompare( right.sourcePath ) );
 
-	for ( const input of [ ...inputs ].sort( ( left, right ) =>
-		left.sourcePath.localeCompare( right.sourcePath )
-	) ) {
-		const document = collectDocumentGeometry( input.sourcePath, input.html );
+	for ( const input of orderedInputs ) {
+		const document = collectDocumentGeometry( input.html );
 		const identityDocument = cheerio.load( input.identityHtml );
-		documents.set( input.sourcePath, document );
+		const sourceHash = hash( input.html );
 		const byPair = new Map< string, GeometryObservation[] >();
 		for ( const observation of input.observations ) {
 			const key = `${ observation.wrapperIdentity }\0${ observation.targetIdentity }`;
@@ -205,9 +213,9 @@ export function buildLayoutGeometryProof( inputs: GeometryInput[] ): {
 				omit( 'geometry_or_invariant_unproven' );
 				continue;
 			}
-			const sourceHash = hash( input.html );
 			const wrapperNode = document.nodeForSelector( selector );
-			if ( ! wrapperNode ) {
+			const wrapperInterval = wrapperNode && document.intervalFor( wrapperNode );
+			if ( ! wrapperNode || ! wrapperInterval ) {
 				omit( 'source_node_missing' );
 				continue;
 			}
@@ -228,7 +236,8 @@ export function buildLayoutGeometryProof( inputs: GeometryInput[] ): {
 				targetSelector,
 				sourceHash,
 				ordered,
-				wrapperNode,
+				subtreeStart: wrapperInterval.start,
+				subtreeEnd: wrapperInterval.end,
 				wrapperDepth,
 				deepestChainImpact,
 			} );
@@ -250,19 +259,27 @@ export function buildLayoutGeometryProof( inputs: GeometryInput[] ): {
 	}
 	for ( const queue of queues.values() ) queue.sort( candidateOrder );
 	const selected: GeometryCandidate[] = [];
+	const selectedWrappersBySource = new Map< string, Array< { start: number; end: number } > >();
 	const sourcePaths = [ ...queues.keys() ].sort();
 	while ( selected.length < MAX_CANDIDATES ) {
 		let progress = false;
 		for ( const sourcePath of sourcePaths ) {
 			const queue = queues.get( sourcePath )!;
-			const document = documents.get( sourcePath )!;
+			const selectedWrappers = selectedWrappersBySource.get( sourcePath ) ?? [];
 			let candidate = queue.shift();
-			while ( candidate && overlapsSelectedWrapper( document, candidate.wrapperNode ) ) {
+			while (
+				candidate &&
+				overlapsSelectedWrapper( selectedWrappers, {
+					start: candidate.subtreeStart,
+					end: candidate.subtreeEnd,
+				} )
+			) {
 				omit( 'overlapping_reduction_unproven' );
 				candidate = queue.shift();
 			}
 			if ( ! candidate ) continue;
-			document.selectedWrappers.add( candidate.wrapperNode );
+			selectedWrappers.push( { start: candidate.subtreeStart, end: candidate.subtreeEnd } );
+			selectedWrappersBySource.set( sourcePath, selectedWrappers );
 			selected.push( candidate );
 			progress = true;
 			if ( selected.length >= MAX_CANDIDATES ) break;

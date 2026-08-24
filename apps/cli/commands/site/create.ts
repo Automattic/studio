@@ -526,23 +526,7 @@ function static_site_importer_studio_record_failure( $result, string $fallback, 
 	throw new RuntimeException( static_site_importer_studio_failure_message( $result, $fallback ) );
 }
 
-function static_site_importer_studio_reject_catastrophic_content_loss( array $source, array $documents ): void {
-	$source_text = $source_images = $imported_text = $imported_images = 0;
-	foreach ( $source['artifact']['files'] ?? array() as $file ) {
-		if ( is_array( $file ) && str_ends_with( (string) ( $file['path'] ?? '' ), '.html' ) && isset( $file['content'] ) ) {
-			$source_text += strlen( trim( wp_strip_all_tags( (string) $file['content'], true ) ) );
-			$source_images += preg_match_all( '/<img\\b/i', (string) $file['content'] );
-		}
-	}
-	foreach ( $documents as $document ) {
-		$content = (string) ( $document['content'] ?? '' );
-		$imported_text += strlen( trim( wp_strip_all_tags( $content, true ) ) );
-		$imported_images += preg_match_all( '/<!--\\s+wp:image\\b|<img\\b/i', $content );
-	}
-	if ( $source_text >= 160 && $source_images && $documents && $imported_text <= 80 && ! $imported_images ) {
-		throw new RuntimeException( 'Static Site Importer rejected catastrophic content loss: source became navigation-only with no images. Inspect diagnostics.' );
-	}
-}
+function static_site_importer_studio_reject_catastrophic_content_loss( array $source, array $documents ): void { $st = $si = $it = $ii = 0; foreach ( $source['artifact']['files'] ?? array() as $f ) { if ( is_array( $f ) && str_ends_with( (string) ( $f['path'] ?? '' ), '.html' ) && isset( $f['content'] ) ) { $c = (string) $f['content']; $st += strlen( trim( wp_strip_all_tags( $c, true ) ) ); $si += preg_match_all( '/<img\\b/i', $c ); } } foreach ( $documents as $d ) { $c = (string) ( $d['content'] ?? '' ); $it += strlen( trim( wp_strip_all_tags( $c, true ) ) ); $ii += preg_match_all( '/<!--\\s+wp:image\\b|<img\\b/i', $c ); } if ( $st >= 160 && $si && $documents && $it <= 80 && ! $ii ) throw new RuntimeException( 'Static Site Importer rejected catastrophic content loss: source became navigation-only with no images. Inspect diagnostics.' ); }
 
 $store_import_result = ${ storeImportResult ? 'true' : 'false' };
 

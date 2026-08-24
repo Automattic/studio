@@ -2,6 +2,7 @@ import type { WxrBuilder } from '../../lib/wxr/index.js';
 import type { ExtractionLog } from '../../lib/resume-state/index.js';
 import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import type { Browser, BrowserContext, Page } from 'playwright';
+import { withTimeout } from '../../lib/concurrency.js';
 import { runExtractionLoop } from '../shared.js';
 import { slugify } from '../../lib/url/index.js';
 import { extractMeta, extractTitle, extractHeading } from '../../lib/html-extract/index.js';
@@ -140,7 +141,8 @@ export async function extractDefault(
       const launched = await launchBrowser({ cdpPort: o.cdpPort });
       browser = launched.browser as unknown as Browser;
       closeBrowser = launched.close;
-      pwContext = browser.contexts()[0] || (await browser.newContext());
+      pwContext = browser.contexts()[0]
+        || (await withTimeout(browser.newContext(), 30_000, 'context create'));
     } catch {
       browser = null;
       pwContext = null;

@@ -3,6 +3,8 @@ import { withTimeout } from '../concurrency.js';
 type PwPage = { close(): Promise<void> };
 
 const CLOSE_TIMEOUT_MS = 3_000;
+const CREATE_TIMEOUT_MS = 30_000;
+const CONNECT_TIMEOUT_MS = 60_000;
 
 type PwBrowser = {
   contexts(): Array<{ newPage(): Promise<PwPage> }>;
@@ -47,15 +49,23 @@ export async function launchBrowser(opts: { cdpPort?: number; headed?: boolean }
   page: unknown;
   close: () => Promise<void>;
 }> {
-  const raw = await connectBrowser(opts);
+  const raw = await withTimeout(connectBrowser(opts), CONNECT_TIMEOUT_MS, 'browser connect');
   const browser = raw as unknown as PwBrowser;
 
+  const newContext = () =>
+    withTimeout(browser.newContext(), CREATE_TIMEOUT_MS, 'context create');
   let page: PwPage;
   try {
     const ctx = opts.cdpPort
-      ? browser.contexts()[0] || (await browser.newContext())
-      : await browser.newContext();
-    page = await ctx.newPage();
+      ? browser.contexts()[0] || (await newContext())
+      : await newContext();
+    // A page that materializes after the deadline must be closed before we
+    // disconnect, or under CDP it survives as an orphan tab in the user's
+    // real browser.
+    const pending = ctx.newPage();
+    page = await withTimeout(pending, CREATE_TIMEOUT_MS, 'page create', (late) => {
+      void late.close().catch(() => {});
+    });
   } catch (err) {
     await withTimeout(browser.close(), CLOSE_TIMEOUT_MS, 'browser close').catch(() => {});
     throw err;

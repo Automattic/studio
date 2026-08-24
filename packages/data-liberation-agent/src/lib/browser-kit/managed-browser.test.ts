@@ -312,6 +312,129 @@ describe('launchBrowser close()', () => {
     }
   });
 
+  it('rejects within the bound and closes the browser when newContext() hangs', async () => {
+    vi.useFakeTimers();
+    try {
+      const browserClose = vi.fn(async () => {});
+      mockPwLaunch.mockResolvedValueOnce({
+        contexts: () => [],
+        newContext: vi.fn(() => new Promise(() => {})),
+        close: browserClose,
+        isConnected: () => true,
+      });
+
+      const { launchBrowser } = await vi.importActual<typeof import('./browser-kit.js')>(
+        './browser-kit.js'
+      );
+      const pendingRejects = expect(launchBrowser({})).rejects.toThrow('timed out');
+      await vi.advanceTimersByTimeAsync(30_000);
+      await pendingRejects;
+      expect(browserClose).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('rejects within the bound and closes the browser when newPage() hangs', async () => {
+    vi.useFakeTimers();
+    try {
+      const ctx = { newPage: vi.fn(() => new Promise(() => {})) };
+      const browserClose = vi.fn(async () => {});
+      mockPwLaunch.mockResolvedValueOnce({
+        contexts: () => [],
+        newContext: vi.fn(async () => ctx),
+        close: browserClose,
+        isConnected: () => true,
+      });
+
+      const { launchBrowser } = await vi.importActual<typeof import('./browser-kit.js')>(
+        './browser-kit.js'
+      );
+      const pendingRejects = expect(launchBrowser({})).rejects.toThrow('timed out');
+      await vi.advanceTimersByTimeAsync(30_000);
+      await pendingRejects;
+      expect(browserClose).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('under cdp, a page that arrives after the deadline is closed instead of orphaned', async () => {
+    vi.useFakeTimers();
+    try {
+      let resolvePage!: (p: unknown) => void;
+      const latePage = { close: vi.fn(async () => {}) };
+      const ctx = { newPage: vi.fn(() => new Promise((r) => { resolvePage = r; })) };
+      const browserClose = vi.fn(async () => {});
+      const pw = await import('playwright');
+      vi.mocked(pw.chromium.connectOverCDP).mockResolvedValueOnce({
+        contexts: () => [ctx],
+        newContext: vi.fn(),
+        close: browserClose,
+        isConnected: () => true,
+      } as never);
+
+      const { launchBrowser } = await vi.importActual<typeof import('./browser-kit.js')>(
+        './browser-kit.js'
+      );
+      const pendingRejects = expect(launchBrowser({ cdpPort: 9222 })).rejects.toThrow('page create timed out');
+      await vi.advanceTimersByTimeAsync(30_000);
+      await pendingRejects;
+      expect(browserClose).toHaveBeenCalledTimes(1);
+
+      resolvePage(latePage);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(latePage.close).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('under cdp with no existing context, a hanging newContext() rejects and disconnects', async () => {
+    vi.useFakeTimers();
+    try {
+      const browserClose = vi.fn(async () => {});
+      const pw = await import('playwright');
+      vi.mocked(pw.chromium.connectOverCDP).mockResolvedValueOnce({
+        contexts: () => [],
+        newContext: vi.fn(() => new Promise(() => {})),
+        close: browserClose,
+        isConnected: () => true,
+      } as never);
+
+      const { launchBrowser } = await vi.importActual<typeof import('./browser-kit.js')>(
+        './browser-kit.js'
+      );
+      const pendingRejects = expect(launchBrowser({ cdpPort: 9222 })).rejects.toThrow('context create timed out');
+      await vi.advanceTimersByTimeAsync(30_000);
+      await pendingRejects;
+      expect(browserClose).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('resolves with a page when context and page creation settle promptly', async () => {
+    const page = { close: vi.fn(async () => {}) };
+    const ctx = { newPage: vi.fn(async () => page) };
+    const browserClose = vi.fn(async () => {});
+    mockPwLaunch.mockResolvedValueOnce({
+      contexts: () => [],
+      newContext: vi.fn(async () => ctx),
+      close: browserClose,
+      isConnected: () => true,
+    });
+
+    const { launchBrowser } = await vi.importActual<typeof import('./browser-kit.js')>(
+      './browser-kit.js'
+    );
+    const session = await launchBrowser({});
+    expect(session.page).toBe(page);
+    expect(browserClose).not.toHaveBeenCalled();
+    await session.close();
+    expect(browserClose).toHaveBeenCalledTimes(1);
+  });
+
   it('closes the browser when page creation fails after launch', async () => {
     const browserClose = vi.fn(async () => {});
     mockPwLaunch.mockResolvedValueOnce({

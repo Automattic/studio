@@ -21,6 +21,7 @@
 	flex-direction: column;
 	gap: var(--wpds-dimension-padding-sm);
 	user-select: none;
+	-webkit-app-region: no-drag;
 }
 
 .sites {

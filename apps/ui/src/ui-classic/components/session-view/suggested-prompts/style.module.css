@@ -105,12 +105,12 @@
 .prompt {
 	--wp-ui-button-background-color: color-mix(
 		in srgb,
-		var(--wpds-color-bg-surface-neutral) 76%,
+		var(--wpds-color-bg-surface-neutral) var(--surface-alpha, 76%),
 		transparent
 	);
 	--wp-ui-button-background-color-active: color-mix(
 		in srgb,
-		var(--wpds-color-bg-surface-neutral-strong) 84%,
+		var(--wpds-color-bg-surface-neutral-strong) var(--surface-alpha, 84%),
 		transparent
 	);
 	--wp-ui-button-border-color: var(--wpds-color-stroke-surface-neutral-weak);
@@ -138,7 +138,7 @@
 	border-radius: 6px 6px 12px 6px;
 	background: color-mix(
 		in srgb,
-		var(--wpds-color-bg-surface-neutral-strong) 88%,
+		var(--wpds-color-bg-surface-neutral-strong) var(--surface-alpha, 88%),
 		transparent
 	);
 	box-shadow: 0 0 16px
@@ -177,21 +177,14 @@
 	}
 }
 
+/* The surfaces above go opaque on their own via `--surface-alpha`; only the
+   effects that have no opaque equivalent need handling here. */
 @media (prefers-reduced-transparency: reduce) {
 	.frost {
 		display: none;
 	}
 
-	.prompt {
-		--wp-ui-button-background-color: var(--wpds-color-bg-surface-neutral);
-		--wp-ui-button-background-color-active: var(--wpds-color-bg-surface-neutral-strong);
-
-		-webkit-backdrop-filter: none;
-		backdrop-filter: none;
-	}
-
 	.transfer {
-		background: var(--wpds-color-bg-surface-neutral-strong);
 		box-shadow: none;
 	}
 }

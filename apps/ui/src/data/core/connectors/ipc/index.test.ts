@@ -1,3 +1,4 @@
+import { isSyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createIpcConnector } from './index';
 import type { SiteDetails } from '@/data/core';
@@ -107,6 +108,8 @@ describe( 'createIpcConnector Connect contracts', () => {
 	const getSiteDetails = vi.fn();
 	const getConnectedWpcomSites = vi.fn();
 	const pullSiteFromLive = vi.fn();
+	const pushSiteToLive = vi.fn();
+	const updateConnectedWpcomSites = vi.fn();
 	const subscribe = vi.fn();
 	const unsubscribe = vi.fn();
 
@@ -119,6 +122,8 @@ describe( 'createIpcConnector Connect contracts', () => {
 			getSiteDetails,
 			getConnectedWpcomSites,
 			pullSiteFromLive,
+			pushSiteToLive,
+			updateConnectedWpcomSites,
 		} );
 		vi.stubGlobal( 'ipcListener', { subscribe } );
 	} );
@@ -178,18 +183,104 @@ describe( 'createIpcConnector Connect contracts', () => {
 		} );
 		pullSiteFromLive.mockImplementation( async ( siteId ) => {
 			progressListener( {}, { siteId: 'other', message: 'Ignore me' } );
-			progressListener( {}, { siteId, message: 'Downloading backup… (50%)', progress: 50 } );
+			progressListener(
+				{},
+				{
+					siteId,
+					message: 'Downloading backup… (50%)',
+					progress: 50,
+					action: 'initiateBackup',
+				}
+			);
 		} );
 		const onProgress = vi.fn();
 
 		await createIpcConnector().pullSiteFromLive( 'site-1', 42, onProgress );
 
-		expect( pullSiteFromLive ).toHaveBeenCalledWith( 'site-1', 42 );
+		expect( pullSiteFromLive ).toHaveBeenCalledWith( 'site-1', 42, undefined );
 		expect( onProgress ).toHaveBeenCalledOnce();
 		expect( onProgress ).toHaveBeenCalledWith( {
 			message: 'Downloading backup… (50%)',
 			progress: 50,
+			action: 'initiateBackup',
 		} );
 		expect( unsubscribe ).toHaveBeenCalledOnce();
+	} );
+
+	// A cancelled sync never happened, so it must not stamp the connection's
+	// last-synced time — otherwise the site header would later read "Pushed 2
+	// minutes ago" for a push the user stopped.
+	it( 'does not record a sync time when the push is cancelled', async () => {
+		getConnectedWpcomSites.mockResolvedValue( [
+			{ id: 42, localSiteId: 'site-1', lastPushTimestamp: null },
+		] );
+		subscribe.mockImplementation( () => unsubscribe );
+		pushSiteToLive.mockResolvedValue( { cancelled: true } );
+
+		await expect( createIpcConnector().pushSiteToLive( 'site-1', 42 ) ).rejects.toSatisfy(
+			isSyncCancelledError
+		);
+
+		expect( updateConnectedWpcomSites ).not.toHaveBeenCalled();
+	} );
+
+	it( 'records the sync time once the push completes', async () => {
+		getConnectedWpcomSites.mockResolvedValue( [
+			{ id: 42, localSiteId: 'site-1', lastPushTimestamp: null },
+		] );
+		subscribe.mockImplementation( () => unsubscribe );
+		pushSiteToLive.mockResolvedValue( { cancelled: false } );
+
+		await createIpcConnector().pushSiteToLive( 'site-1', 42 );
+
+		expect( updateConnectedWpcomSites ).toHaveBeenCalledWith( [
+			expect.objectContaining( { id: 42, lastPushTimestamp: expect.any( String ) } ),
+		] );
+	} );
+
+	// The main process reports a user cancel as a result rather than rejecting, so
+	// Electron doesn't log it as a handler error in the log we point users at when
+	// a pull fails. The connector turns it back into an error for the caller.
+	it( 'raises a reported cancel as a cancelled error', async () => {
+		getConnectedWpcomSites.mockResolvedValue( [] );
+		subscribe.mockImplementation( () => unsubscribe );
+		pullSiteFromLive.mockResolvedValue( { cancelled: true } );
+
+		await expect( createIpcConnector().pullSiteFromLive( 'site-1', 42 ) ).rejects.toSatisfy(
+			isSyncCancelledError
+		);
+	} );
+
+	it( 'completes normally when nothing was cancelled', async () => {
+		getConnectedWpcomSites.mockResolvedValue( [] );
+		subscribe.mockImplementation( () => unsubscribe );
+		pullSiteFromLive.mockResolvedValue( { cancelled: false } );
+
+		await expect( createIpcConnector().pullSiteFromLive( 'site-1', 42 ) ).resolves.toBeUndefined();
+	} );
+
+	// Without the CLI action the cancel gate can't tell the remote phases from
+	// the local import, so every pull looks cancellable right through the import.
+	it( 'forwards the CLI action that drives the cancel gate', async () => {
+		getConnectedWpcomSites.mockResolvedValue( [] );
+		let progressListener: ( event: unknown, payload: unknown ) => void = () => {};
+		subscribe.mockImplementation( ( _channel, listener ) => {
+			progressListener = listener;
+			return unsubscribe;
+		} );
+		pullSiteFromLive.mockImplementation( async ( siteId ) => {
+			progressListener(
+				{},
+				{ siteId, message: 'Importing plugins… (3406/9394)', action: 'import' }
+			);
+		} );
+		const onProgress = vi.fn();
+
+		await createIpcConnector().pullSiteFromLive( 'site-1', 42, onProgress );
+
+		expect( onProgress ).toHaveBeenCalledWith( {
+			message: 'Importing plugins… (3406/9394)',
+			action: 'import',
+		} );
 	} );
 } );

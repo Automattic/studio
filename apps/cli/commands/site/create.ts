@@ -103,7 +103,7 @@ import { StudioArgv } from 'cli/types';
 
 const logger = new Logger< LoggerAction >();
 const DEFAULT_STATIC_SITE_IMPORTER_PLUGIN_URL =
-	'https://github.com/Automattic/static-site-importer/releases/download/v1.5.0/static-site-importer.zip';
+	'https://github.com/Automattic/static-site-importer/releases/download/v1.7.0/static-site-importer.zip';
 const STATIC_SITE_IMPORT_CONTRACT = 'ssi-url-import-v4-plan-first';
 const STATIC_SITE_IMPORT_IDENTITY_FILE = 'static-site-importer.json';
 const STATIC_SITE_IMPORT_RESULT_FILE = 'result.json';

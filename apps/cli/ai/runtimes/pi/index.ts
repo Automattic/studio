@@ -47,6 +47,7 @@ import {
 } from '@studio/common/lib/site-runtime';
 import { getAiPayloadsPath, getConfigDirectory } from '@studio/common/lib/well-known-paths';
 import { type TSchema } from 'typebox';
+import { isImageGenerationAvailable } from 'cli/ai/image-generation';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions, withChatArtifactEmission } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
@@ -347,6 +348,7 @@ async function createStudioAgentSession(
 					remoteSession,
 					runtime,
 					userInstructions,
+					imageGenerationEnabled: isImageGenerationAvailable(),
 			  }
 	);
 

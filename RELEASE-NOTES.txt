@@ -3,7 +3,7 @@ Unreleased
 
 1.19.0
 =====
-* Added AI credits to Studio Code: your remaining balance now shows in the composer, in Usage settings and in Studio Classic settings, you get a clear message and a working top-up link when you run out, and the balance refreshes as soon as you return from topping up #4604, #4602, #4636, #4609, #4619, #4628, #4639, #4624
+* Introduced AI credits in Studio Code: you can now purchase AI credits for your sessions. Your remaining balance now shows in the composer, in Usage settings, and in Studio Classic settings. You get a clear message and a working top-up link when you run out, and the balance refreshes as soon as you return from topping up #4604, #4602, #4636, #4609, #4619, #4628, #4639, #4624
 * Added hosted AI models — Kimi, GLM and DeepSeek — available through the WordPress.com proxy #4529
 * Studio Code: Improved generated themes with a content width and horizontal gutter, a registered no-title page template so designed pages no longer repeat their title, and slideshow and gallery builds steered to Jetpack blocks #4571, #4576, #4610
 * Site preview: Added a confirmation dialog when leaving a page with unsaved changes #4623

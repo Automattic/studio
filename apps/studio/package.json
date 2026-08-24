@@ -3,7 +3,7 @@
 	"author": "Automattic Inc.",
 	"private": true,
 	"productName": "Studio",
-	"version": "1.18.0",
+	"version": "1.19.0",
 	"description": "Local WordPress development environment using Playgrounds",
 	"homepage": "https://developer.wordpress.com/studio/",
 	"license": "GPL-2.0-or-later",

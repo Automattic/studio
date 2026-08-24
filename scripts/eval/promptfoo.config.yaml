@@ -346,6 +346,58 @@ tests:
             return { pass: true, score: 1, reason: `validation passed: ${text.split(/\r?\n/).filter(Boolean).slice(0, 2).join(' | ')}` };
           });
 
+  # One-page sites get header navigation that links to page sections. The
+  # header template part renders on EVERY template (posts, archives, search,
+  # 404), and a bare-hash URL like "#contact" resolves against the current
+  # URL — it silently does nothing everywhere except the home page. Anchor
+  # nav links must be home-relative ("/#contact"). Regression guard for the
+  # one-page navigation guidance in the block-content skill.
+  - description: one-page site header nav uses home-relative anchor links
+    vars:
+      caseId: one-page-nav-anchor-links
+      timeoutMs: 600000
+      askUserPolicy: allow_all
+      prompt: |
+        First check if a site named "Eval One Page Nav" exists using
+        site_list. If it does, delete it with site_delete so we start from a
+        clean slate. Do NOT touch any other site.
+
+        Then build a one-page site named "Eval One Page Nav": a single
+        scrollable home page with Features, About, and Contact sections, and
+        a header navigation menu whose items jump to those sections. Keep the
+        design simple — no extra pages and no blog posts.
+    assert:
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const strings = [];
+            const collect = (v) => {
+              if (typeof v === 'string') strings.push(v);
+              else if (Array.isArray(v)) v.forEach(collect);
+              else if (v && typeof v === 'object') Object.values(v).forEach(collect);
+            };
+            (d.toolCalls || []).forEach(t => collect(t.input));
+            // wp_cli payloads carry markup with shell/JSON-escaped quotes;
+            // strip backslashes so one regex covers theme files and commands.
+            const flat = strings.map(s => s.replace(/\\/g, ''));
+            const links = flat.flatMap(s => s.match(/wp:navigation-link\s*\{[^}]*\}/g) || []);
+            if (links.length === 0) {
+              return { pass: false, score: 0, reason: 'no wp:navigation-link blocks were produced — the build did not exercise header section navigation' };
+            }
+            const anchorLinks = links.filter(l => /"url":"[^"]*#/.test(l));
+            if (anchorLinks.length === 0) {
+              return { pass: false, score: 0, reason: `nav links carry no anchor URLs at all — the section-jump scenario was not exercised (links: ${links.slice(0, 3).join(' | ').slice(0, 300)})` };
+            }
+            const bare = links.filter(l => /"url":"#/.test(l));
+            if (bare.length > 0) {
+              return { pass: false, score: 0, reason: `${bare.length}/${links.length} nav link(s) use bare-hash URLs, which resolve against the current URL and break on every page except home (first: ${bare[0].slice(0, 200)}). Anchor nav links must be home-relative ("/#anchor").` };
+            }
+            return { pass: true, score: 1, reason: `${anchorLinks.length} anchor nav link(s), all home-relative` };
+          });
+
   # Regression (STU-1775): the agent used to present a temporary preview site as
   # a connected WordPress.com remote site when listing what a local site is
   # connected to. We seed one connected remote site and one preview site for a

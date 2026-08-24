@@ -64,6 +64,14 @@ A site's home page is the usual case for this: with a static front page and no `
 
 **Do not add a `front-page.html` to solve it.** That template overrides *every* other template for the front page — the hierarchy is `front-page → home → index` — and it applies whether the front page shows a static page or the latest posts. One containing `core/post-content` therefore breaks a blog-first site, whose front page belongs to `home.html`/`index.html`. Assigning `page-no-title` to the home page achieves the same result with no hierarchy side effects. Add a `front-page.html` only when the front page needs a structure that genuinely differs from a page's, and the site's front page is definitely static.
 
+## Anchor Links in Shared Parts
+
+Header and footer template parts render on **every** template — blog posts, archives, search results, the 404 page — not just the front page, even on a one-page site. A bare-hash link such as `"url":"#contact"` resolves against whatever URL the visitor is on, so it works on the front page and silently does nothing everywhere else.
+
+- In template parts and any other shared markup, write anchor links home-relative: `<!-- wp:navigation-link {"label":"Contact","url":"/#contact"} /-->`.
+- Give each target section an `anchor` attribute on its outermost block — `{"anchor":"contact","align":"full"}` renders `id="contact"` — rather than hand-writing an `id` in `core/html`.
+- A bare hash is fine only for a link living in the same page's own content, such as a hero button scrolling to a section further down that page.
+
 ## Skeleton-First Recipes
 
 For long files over about 200 lines, write a small skeleton first and fill anchors across later `Edit` calls.

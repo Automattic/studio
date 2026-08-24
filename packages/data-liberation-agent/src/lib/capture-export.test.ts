@@ -1,5 +1,5 @@
-import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -296,7 +296,7 @@ describe( 'exportWebsiteCapture', () => {
 		mkdirSync( join( outputDir, 'media' ), { recursive: true } );
 		writeFileSync(
 			join( outputDir, 'html', 'homepage.html' ),
-			'<!doctype html><html><head><style>.desktop{color:blue}</style></head><body><a href="https://example.com/shop/about?from=home#team">About</a><a href="https://example.com/shop/missing">Missing</a><a href="https://external.example/about">External</a><img src="https://cdn.example/logo.png"><img src="https://cdn.example/logo-copy.png"><img src="https://cdn.example/avatar.png&amp;quot;"><img src="/hero.png?w=128" srcset="/hero.png?w=128 128w, /hero.png?w=4096 4096w"><img src="https://static.wixstatic.com/media/hash~mv2.jpg/v1/fill/w_1034,h_1349,al_b,q_90/hash~mv2.jpg" srcset="https://static.wixstatic.com/media/hash~mv2.jpg/v1/fill/w_567,h_740,al_b,q_90,enc_avif,quality_auto/hash~mv2.jpg 1x, https://static.wixstatic.com/media/hash~mv2.jpg/v1/fill/w_1034,h_1349,al_b,q_90,enc_avif,quality_auto/hash~mv2.jpg 2x"><h1>Home</h1><p>$100.00</p><noscript><main>This site requires JavaScript</main></noscript></body></html>'
+			'<!doctype html><html><head><style>.desktop{color:blue}</style></head><body><a href="https://example.com/shop/about?from=home#team">About</a><a href="https://example.com/shop/missing">Missing</a><a href="https://external.example/about">External</a><img src="https://cdn.example/logo.png"><img src="https://cdn.example/logo-copy.png"><img src="https://cdn.example/avatar.png&amp;quot;"><img src="/hero.png?w=128" srcset="/hero.png?w=128 128w, /hero.png?w=4096 4096w"><picture><source media="(min-width: 751px)" srcset="https://cdn.example/responsive.png?w=1200"><img src="https://cdn.example/responsive.png?w=320"></picture><img src="https://static.wixstatic.com/media/hash~mv2.jpg/v1/fill/w_1034,h_1349,al_b,q_90/hash~mv2.jpg" srcset="https://static.wixstatic.com/media/hash~mv2.jpg/v1/fill/w_567,h_740,al_b,q_90,enc_avif,quality_auto/hash~mv2.jpg 1x, https://static.wixstatic.com/media/hash~mv2.jpg/v1/fill/w_1034,h_1349,al_b,q_90,enc_avif,quality_auto/hash~mv2.jpg 2x"><h1>Home</h1><p>$100.00</p><noscript><main>This site requires JavaScript</main></noscript></body></html>'
 		);
 		writeFileSync( join( outputDir, 'html', 'about.html' ), '<h1>About</h1>' );
 		writeFileSync(
@@ -308,6 +308,8 @@ describe( 'exportWebsiteCapture', () => {
 		writeFileSync( join( outputDir, 'media', 'hero.png' ), 'base' );
 		writeFileSync( join( outputDir, 'media', 'hero-2.png' ), '128' );
 		writeFileSync( join( outputDir, 'media', 'hero-3.png' ), Buffer.alloc( 6 * 1024 * 1024 ) );
+		writeFileSync( join( outputDir, 'media', 'responsive.png' ), Buffer.alloc( 6 * 1024 * 1024 ) );
+		writeFileSync( join( outputDir, 'media', 'responsive-mobile.png' ), 'responsive-mobile' );
 		writeFileSync( join( outputDir, 'media', 'wix.jpg' ), 'wix' );
 		writeFileSync( join( outputDir, 'media', 'localized.jpg' ), 'localized' );
 		writeFileSync(
@@ -374,6 +376,14 @@ describe( 'exportWebsiteCapture', () => {
 			join( outputDir, 'media', 'hero-3.png' )
 		);
 		media.markSuccess(
+			'https://cdn.example/responsive.png?w=1200',
+			join( outputDir, 'media', 'responsive.png' )
+		);
+		media.markSuccess(
+			'https://cdn.example/responsive.png?w=320',
+			join( outputDir, 'media', 'responsive-mobile.png' )
+		);
+		media.markSuccess(
 			'https://static.wixstatic.com/media/hash~mv2.jpg',
 			join( outputDir, 'media', 'wix.jpg' )
 		);
@@ -432,6 +442,14 @@ describe( 'exportWebsiteCapture', () => {
 				},
 				{ sourceUrl: 'https://example.com/hero.png?w=128', path: 'website/media/hero-2.png' },
 				{
+					sourceUrl: 'https://cdn.example/responsive.png?w=1200',
+					path: 'website/media/responsive.png',
+				},
+				{
+					sourceUrl: 'https://cdn.example/responsive.png?w=320',
+					path: 'website/media/responsive-mobile.png',
+				},
+				{
 					sourceUrl: 'https://static.wixstatic.com/media/hash~mv2.jpg',
 					path: 'website/media/wix.jpg',
 				},
@@ -455,6 +473,12 @@ describe( 'exportWebsiteCapture', () => {
 		);
 		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).toContain(
 			'/media/hero-2.png'
+		);
+		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).toContain(
+			'srcset="/media/responsive.png"'
+		);
+		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).toContain(
+			'src="/media/responsive-mobile.png"'
 		);
 		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).not.toContain(
 			'/media/hero.png?w=128'

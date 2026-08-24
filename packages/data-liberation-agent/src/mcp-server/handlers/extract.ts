@@ -88,6 +88,7 @@ export const extractHandler: Handler = async ( args, ctx ) => {
 				removeSelectors: adapter.capture?.removeSelectors,
 				prepareCapture: adapter.capture?.prepare,
 				publicUrlsOnly: args.publicUrlsOnly === true,
+				captureImages: true,
 				server: ctx.server,
 			} );
 			session.setStage( 'finalizing' );

@@ -33,6 +33,7 @@ export const screenshotHandler: Handler = async (args, ctx) => {
       cdpPort: args.cdpPort as number | undefined,
       force: args.force as boolean | undefined,
       verbose: args.verbose as boolean | undefined,
+      captureImages: true,
       removeSelectors: adapter?.capture?.removeSelectors,
       prepareCapture: adapter?.capture?.prepare,
       server: ctx.server,

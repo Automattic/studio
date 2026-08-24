@@ -144,6 +144,7 @@ describe( 'extractHandler — compact result', () => {
 				makeCtx( adapter )
 			)
 		);
+		expect( captureSpy ).toHaveBeenCalledWith( expect.objectContaining( { captureImages: true } ) );
 
 		expect( out.captureReceiptPath ).toBe( join( dir, 'capture-receipt.json' ) );
 		expect( out.artifactPath ).toBe( join( dir, 'artifact.json' ) );

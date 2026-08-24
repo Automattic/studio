@@ -41,7 +41,8 @@ export interface ScreenshotOpts {
 	types?: UrlType[];
 	limit?: number;
 	screenshotTimeoutMs?: number; // default: 30_000
-	captureImages?: boolean; // default: true; HTML/CSS capture remains enabled when false
+	/** Capture full-page and scrolled PNGs. Default: false; HTML/CSS and sidecars remain enabled. */
+	captureImages?: boolean;
 	evaluateTimeoutMs?: number; // default: 5_000
 	settleMs?: number; // default: 1_000
 	server?: Server;

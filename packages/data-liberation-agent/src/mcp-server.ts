@@ -74,13 +74,14 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: [
 	{
 	  name: 'liberate_capture',
-	  description: 'Auto-detect and capture a website as a canonical replayable website artifact.',
+	  description: 'Auto-detect and capture a website as a canonical replayable website artifact. HTML, CSS, mobile HTML, sections, geometry, and design sidecars are captured by default; PNG screenshots are opt-in.',
 	  inputSchema: {
 		type: 'object' as const,
 		properties: {
 		  url: { type: 'string', description: 'Public website URL to capture' },
 		  outputDir: { type: 'string', description: 'Directory for artifact and diagnostics' },
 		  resume: { type: 'boolean', description: 'Resume an interrupted capture' },
+		  captureImages: { type: 'boolean', description: 'Capture full-page and scrolled desktop/mobile PNG screenshots. Default: false.' },
 		},
 		required: ['url', 'outputDir'],
 	  },
@@ -140,7 +141,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           dryRun: { type: 'boolean', description: 'Extract 2-3 pages and report without writing WXR' },
           limit: { type: 'number', description: 'Cap extraction to the first N URLs and write a real WXR for them' },
           verbose: { type: 'boolean', description: 'Enable detailed per-page logging' },
-          screenshots: { type: 'boolean', description: 'After extract completes, capture screenshots (desktop + mobile) for every processed URL. Results are written to output/<site>/screenshots/ with a manifest.json keyed by URL.' },
+          screenshots: { type: 'boolean', description: 'After extract completes, capture full-page and scrolled PNG screenshots (desktop + mobile) for every processed URL. Default: false. Results are written to output/<site>/screenshots/ with a manifest.json keyed by URL.' },
           captureDesign: { type: 'boolean', description: 'Enable html-first design replication: carry source HTML+CSS as the page/post design. Note: full html-first design capture (site.css aggregation, blank theme install) runs via the CLI (`data-liberation --html-first`); this flag is reserved for future MCP support.' },
           contentStatus: { type: 'string', enum: ['draft', 'publish'], description: 'WXR post status for extracted pages/posts. Default "draft" — the documented "import as drafts; the user reviews and publishes manually" convention for a production import. The replica/preview flow (e.g. building a Studio replica) passes "publish" so imported nav targets resolve. Attachments always use "inherit".' },
         },

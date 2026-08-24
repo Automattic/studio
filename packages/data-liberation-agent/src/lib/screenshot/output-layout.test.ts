@@ -44,7 +44,7 @@ describe( 'planArtifacts', () => {
 			writeFileSync( join( dir, 'screenshots', 'desktop', 'about.png' ), 'fake' );
 			writeFileSync( join( dir, 'html', 'about.html' ), 'fake' );
 
-			const plan = planArtifacts( { slug: 'about', outputDir: dir, force: false } );
+			const plan = planArtifacts( { slug: 'about', outputDir: dir, force: false, captureImages: true } );
 			expect( plan.desktop.needsLoad ).toBe( true );
 			expect( plan.desktop.captureFullpage ).toBe( false );
 			expect( plan.desktop.captureScrolled ).toBe( true );
@@ -143,7 +143,7 @@ describe( 'planArtifacts', () => {
 		try {
 			mkdirSync( join( dir, 'screenshots', 'desktop' ), { recursive: true } );
 			writeFileSync( join( dir, 'screenshots', 'desktop', 'about.png' ), 'fake' );
-			const plan = planArtifacts( { slug: 'about', outputDir: dir, force: true } );
+			const plan = planArtifacts( { slug: 'about', outputDir: dir, force: true, captureImages: true } );
 			expect( plan.desktop.captureFullpage ).toBe( true );
 		} finally {
 			rmSync( dir, { recursive: true, force: true } );
@@ -175,6 +175,25 @@ describe( 'planArtifacts', () => {
 			expect( plan.mobile.captureScrolled ).toBe( false );
 			expect( plan.desktop.needsLoad ).toBe( false );
 			expect( plan.mobile.needsLoad ).toBe( false );
+		} finally {
+			rmSync( dir, { recursive: true, force: true } );
+		}
+	} );
+
+	it( 'omits PNGs by default while still planning HTML, sections, and geometry', () => {
+		const dir = mkdtempSync( join( tmpdir(), 'artifacts-' ) );
+		try {
+			const plan = planArtifacts( { slug: 'about', outputDir: dir, force: false } );
+			expect( plan.desktop.captureFullpage ).toBe( false );
+			expect( plan.desktop.captureScrolled ).toBe( false );
+			expect( plan.mobile.captureFullpage ).toBe( false );
+			expect( plan.mobile.captureScrolled ).toBe( false );
+			expect( plan.desktop.captureHtml ).toBe( true );
+			expect( plan.mobile.captureMobileHtml ).toBe( true );
+			expect( plan.desktop.captureSections ).toBe( true );
+			expect( plan.mobile.captureMobileSections ).toBe( true );
+			expect( plan.desktop.captureGeometry ).toBe( true );
+			expect( plan.mobile.captureGeometry ).toBe( true );
 		} finally {
 			rmSync( dir, { recursive: true, force: true } );
 		}

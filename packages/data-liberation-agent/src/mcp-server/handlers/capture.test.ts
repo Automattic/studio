@@ -77,7 +77,6 @@ describe( 'captureHandler', () => {
 			{
 				url: 'https://example.com',
 				outputDir: '/tmp/capture',
-				captureImages: false,
 				onProgress,
 			},
 			context( adapter )

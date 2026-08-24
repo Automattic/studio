@@ -80,7 +80,7 @@ export function planArtifacts( args: {
 		const sections = join( args.outputDir, 'sections', `${ args.slug }.json` );
 		const sectionsMobile = join( args.outputDir, 'sections-mobile', `${ args.slug }.json` );
 		const geometry = join( args.outputDir, 'layout-geometry', `${ args.slug }.${ viewport }.json` );
-		const captureImages = args.captureImages ?? true;
+		const captureImages = args.captureImages === true;
 		const captureFullpage = captureImages && ( args.force || ! existsSync( fullpage ) );
 		const captureScrolled = captureImages && ( args.force || ! existsSync( scrolled ) );
 		// HTML + section specs are captured on the desktop pass only (specs are

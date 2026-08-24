@@ -46,7 +46,7 @@ if (args[0] === 'mcp') {
     --admin-token <tok>  Shopify Admin API token — enables richer product extraction
                          via GraphQL (compareAtPrice, unitCost, inventoryPolicy, etc.)
     --shop-domain <host> Shopify myshopify.com hostname — usually auto-detected
-    --no-screenshots               Skip screenshots (default: screenshots are captured after extract)
+    --screenshots                  Capture full-page + scrolled PNG screenshots (default: disabled)
     --screenshots-concurrency <N>  Parallel screenshot captures (default 6, max 10)
                          (writes output/<site>/screenshots/ with a manifest.json keyed by URL)
     --no-html-first                Use the legacy AI-recompose path. DEFAULT is html-first design
@@ -289,8 +289,8 @@ if (args[0] === 'mcp') {
   const adminToken = getArg('--admin-token') || process.env.SHOPIFY_ADMIN_TOKEN || null;
   const shopDomain = getArg('--shop-domain') || null;
   const nonInteractive = args.includes('--non-interactive');
-  // Screenshots are on by default. Pass --no-screenshots to skip them.
-  const screenshots = !args.includes('--no-screenshots');
+  // PNG screenshots are opt-in; HTML/CSS and design-sidecar capture still runs.
+  const screenshots = args.includes('--screenshots');
   const rawSsConcurrency = getArg('--screenshots-concurrency') ? parseInt(getArg('--screenshots-concurrency')!, 10) : null;
   const screenshotsConcurrency = rawSsConcurrency !== null && !Number.isNaN(rawSsConcurrency) ? rawSsConcurrency : undefined;
   // html-first design capture is the DEFAULT — it replaces the AI-recompose
@@ -331,6 +331,7 @@ if (args[0] === 'mcp') {
       shopDomain,
       nonInteractive,
       captureDesign,
+      captureImages: screenshots,
       includeScripts,
     });
     process.exit(result.ok ? 0 : 1);

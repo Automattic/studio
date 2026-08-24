@@ -24,7 +24,7 @@ const ScreenshotApp: React.FC<RunOpts> = (opts) => {
 
     (async () => {
       try {
-        const r = await captureScreenshots({ ...opts, server: sink });
+        const r = await captureScreenshots({ ...opts, captureImages: true, server: sink });
         setResult(r);
         setStatus('done');
       } catch (err) {

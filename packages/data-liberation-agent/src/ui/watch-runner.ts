@@ -171,6 +171,8 @@ export interface WatchOpts {
    *     off so the blank theme and design sidecars are not overwritten.
    */
   captureDesign?: boolean;
+  /** Capture full-page and scrolled PNG screenshots. Default: false. */
+  captureImages?: boolean;
   /**
    * When true, carry the source's first-party JavaScript into the JS aggregate
    * (site.js). Only meaningful when captureDesign=true. Default: false.
@@ -2113,7 +2115,7 @@ export async function runWatch(opts: WatchOpts): Promise<{ ok: boolean; duration
     // artifacts before firing design ticks. Studio media/post installs drain
     // whenever the preview is ready, so preview boot no longer blocks fetching.
     events.onPhase?.('extracting');
-    events.onAdapterLog?.(`capturing screenshots + html for ${totalUrls} URLs`);
+    events.onAdapterLog?.(`capturing HTML/CSS${opts.captureImages ? ' + screenshots' : ''} for ${totalUrls} URLs`);
 
     const extractedEvents = new Map<string, PageExtractedEvent>();
     const screenshotDoneUrls = new Set<string>();
@@ -2426,6 +2428,7 @@ export async function runWatch(opts: WatchOpts): Promise<{ ok: boolean; duration
             concurrency: 6,
             server: fakeServer as never,
             captureDesign: opts.captureDesign ?? false,
+            captureImages: opts.captureImages === true,
             includeScripts: opts.includeScripts ?? false,
             onProgress: (current, total, url) => {
               events.onScreenshotProgress?.(current, total, url);

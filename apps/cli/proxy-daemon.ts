@@ -2,7 +2,7 @@
  * WordPress Studio Proxy Daemon
  *
  * This script is spawned by the process manager daemon when `studio site start` or
- * `studio site create` commands run for sites that use a custom domain.
+ * `studio create` commands run for sites that use a custom domain.
  *
  * It runs a proxy that listens on ports 80 (HTTP) and 443 (HTTPS) and routes requests to local
  * WordPress sites based on the Host header. It runs with elevated privileges to bind to ports

@@ -518,9 +518,10 @@ function static_site_importer_studio_record_failure( $result, string $fallback, 
 	}
 	static_site_importer_studio_write_result(
 		array(
-			'continuation' => false,
-			'failed'       => true,
-			'failure'      => $projection,
+			'continuation'  => false,
+			'failed'        => true,
+			'failure'       => $projection,
+			'import_receipt' => $result,
 		)
 	);
 	throw new RuntimeException( static_site_importer_studio_failure_message( $result, $fallback ) );
@@ -536,7 +537,7 @@ if ( isset( $source['url'] ) && function_exists( 'static_site_importer_ability_i
 		$slug = 'imported-site';
 	}
 	$input['operation'] = 'plan';
-	$input['require_proven_dynamic_client_assets'] = false;
+	$input['require_proven_dynamic_client_assets'] = true;
 	$input['slug'] = $slug;
 	$input['source'] = array(
 		'type' => 'url',
@@ -586,7 +587,7 @@ if ( isset( $source['url'] ) && function_exists( 'static_site_importer_ability_i
 		'max_invocation_seconds'      => 180,
 		'max_bytes'                  => 10485760,
 	);
-	$input['require_proven_dynamic_client_assets'] = false;
+	$input['require_proven_dynamic_client_assets'] = true;
 	$result = static_site_importer_ability_import_url( $input );
 } elseif ( isset( $source['figma_file'] ) ) {
 	if ( ! function_exists( 'static_site_importer_ability_import_figma' ) ) {
@@ -612,7 +613,7 @@ if ( isset( $source['url'] ) && function_exists( 'static_site_importer_ability_i
 	if ( isset( $source['artifact'] ) && is_array( $source['artifact'] ) ) {
 		$artifact = $source['artifact'];
 		$input['fail_on_quality'] = true;
-		$input['require_proven_dynamic_client_assets'] = false;
+		$input['require_proven_dynamic_client_assets'] = true;
 		$input['seed_entities'] = true;
 		$input['materialize_dependencies'] = true;
 		if ( in_array( $artifact['theme_materialization'] ?? '', array( 'block', 'classic' ), true ) ) {
@@ -693,9 +694,10 @@ static_site_importer_studio_reject_catastrophic_content_loss( $source, $canonica
 $studio_result = array(
 	'continuation'             => ! empty( $import_result['continuation'] ),
 	'canonicalization_pending' => ! empty( $canonical_documents ),
-	'status'           => (string) ( $import_result['url_batch_run']['status'] ?? 'completed' ),
-	'completed_routes' => (int) ( $import_result['url_batch_run']['completed_routes'] ?? 0 ),
-	'total_routes'     => (int) ( $import_result['url_batch_run']['total_routes'] ?? 0 ),
+	'status'                    => (string) ( $import_result['url_batch_run']['status'] ?? $import_result['status'] ?? 'completed' ),
+	'completed_routes'          => (int) ( $import_result['url_batch_run']['completed_routes'] ?? count( $canonical_documents ) ),
+	'total_routes'              => (int) ( $import_result['url_batch_run']['total_routes'] ?? count( $canonical_documents ) ),
+	'import_receipt'            => $result,
 );
 static_site_importer_studio_write_result( $studio_result );
 ?>`;

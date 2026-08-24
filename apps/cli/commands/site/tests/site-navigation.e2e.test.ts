@@ -36,7 +36,6 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: site navigation', () =>
 
 		const result = await runCli(
 			[
-				'site',
 				'create',
 				'--name',
 				'Navigation E2E Site',

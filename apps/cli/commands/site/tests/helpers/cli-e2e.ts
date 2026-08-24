@@ -2,7 +2,7 @@
  * Harness for real end-to-end CLI integration tests.
  *
  * Spawns the built CLI binary (`dist/cli/main.mjs`) against an isolated config
- * directory so tests exercise the real `studio site create` flow — real file
+ * directory so tests exercise the real `studio create` flow — real file
  * copying, real `cli.json` persistence — without mocking, touching the
  * developer's `~/.studio`, or needing the desktop app.
  */

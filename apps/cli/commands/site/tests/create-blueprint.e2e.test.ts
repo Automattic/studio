@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node
  *
- * Real end-to-end test for `studio site create --blueprint`. Spawns the built
+ * Real end-to-end test for `studio create --blueprint`. Spawns the built
  * CLI binary, creates a site from a custom Blueprint file, and verifies the
  * Blueprint's on-disk effects. The CLI counterpart of the desktop UI tests in
  * apps/studio/e2e/blueprints.test.ts.
@@ -47,7 +47,6 @@ function writeBlueprint( env: CliEnv, blueprint: Record< string, unknown > ): st
 function createFromBlueprint( env: CliEnv, name: string, slug: string, blueprintPath: string ) {
 	return runCli(
 		[
-			'site',
 			'create',
 			'--name',
 			name,
@@ -67,7 +66,7 @@ function createFromBlueprint( env: CliEnv, name: string, slug: string, blueprint
 	);
 }
 
-describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio site create --blueprint', () => {
+describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio create --blueprint', () => {
 	let env: CliEnv | undefined;
 
 	// Applying a Blueprint boots the isolated daemon even with `--no-start`, so

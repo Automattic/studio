@@ -40,7 +40,6 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: localization', () => {
 
 		const result = await runCli(
 			[
-				'site',
 				'create',
 				'--name',
 				'Localized E2E Site',

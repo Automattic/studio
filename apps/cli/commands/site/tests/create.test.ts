@@ -115,7 +115,7 @@ vi.mock( 'cli/lib/tracks', async ( importActual ) => {
 } );
 vi.mock( '@studio/common/lib/get-wordpress-version' );
 
-describe( 'CLI: studio site create', () => {
+describe( 'CLI: studio create', () => {
 	const mockSitePath = '/test/site/new-site';
 	const mockPort = 8881;
 
@@ -175,6 +175,7 @@ describe( 'CLI: studio site create', () => {
 
 	beforeEach( () => {
 		vi.clearAllMocks();
+		process.exitCode = undefined;
 
 		consoleLogSpy = vi.spyOn( console, 'log' ).mockImplementation( () => {} );
 		fsMkdirSyncSpy = vi.spyOn( fs, 'mkdirSync' ).mockReturnValue( undefined );
@@ -222,6 +223,7 @@ describe( 'CLI: studio site create', () => {
 	} );
 
 	afterEach( () => {
+		process.exitCode = undefined;
 		vi.unstubAllEnvs();
 		vi.restoreAllMocks();
 	} );
@@ -482,6 +484,7 @@ describe( 'CLI: studio site create', () => {
 			const bundlePath = path.dirname( copySpy.mock.calls[ 0 ][ 1 ] as string );
 			expect( rmSpy ).toHaveBeenCalledWith( bundlePath, { recursive: true, force: true } );
 			expect( rmSpy ).not.toHaveBeenCalledWith( pluginPath, expect.anything() );
+			expect( process.exitCode ).toBe( 1 );
 		} );
 
 		it( 'captures a URL before passing its canonical artifact to site creation', async () => {
@@ -637,11 +640,11 @@ describe( 'CLI: studio site create', () => {
 			expect( blueprint.staticSiteImport.code ).not.toContain( 'deactivate_plugins' );
 			expect( blueprint.staticSiteImport.code ).not.toContain( 'delete_plugins' );
 			expect( blueprint.staticSiteImport.code ).toContain(
-				"$input['require_proven_dynamic_client_assets'] = false;"
+				"$input['require_proven_dynamic_client_assets'] = true;"
 			);
 			expect(
 				blueprint.staticSiteImport.code.indexOf(
-					"$input['require_proven_dynamic_client_assets'] = false;"
+					"$input['require_proven_dynamic_client_assets'] = true;"
 				)
 			).toBeLessThan(
 				blueprint.staticSiteImport.code.indexOf(
@@ -697,7 +700,7 @@ describe( 'CLI: studio site create', () => {
 			expect( blueprint.staticSiteImport.code ).toContain( "$input['source'] = array(" );
 			expect( blueprint.staticSiteImport.code ).toContain( "$input['fail_on_quality'] = true;" );
 			expect( blueprint.staticSiteImport.code ).toContain(
-				"$input['require_proven_dynamic_client_assets'] = false;"
+				"$input['require_proven_dynamic_client_assets'] = true;"
 			);
 			expect( blueprint.staticSiteImport.code ).toContain( "$input['seed_entities'] = true;" );
 			expect( blueprint.staticSiteImport.code ).toContain(
@@ -812,7 +815,7 @@ describe( 'CLI: studio site create', () => {
 			);
 		} );
 
-		it( 'should preserve bounded quality diagnostics and artifact references for failed imports', () => {
+		it( 'should preserve bounded failure diagnostics and the canonical import receipt', () => {
 			const sourceDir = fs.mkdtempSync( path.join( '/tmp', 'studio-source-test-' ) );
 			fs.writeFileSync( path.join( sourceDir, 'index.html' ), '<main></main>' );
 
@@ -829,7 +832,8 @@ describe( 'CLI: studio site create', () => {
 			expect( blueprint.staticSiteImport.code ).toContain(
 				"$projection['diagnostics'] = static_site_importer_studio_bounded_value( $result['diagnostics'] );"
 			);
-			expect( blueprint.staticSiteImport.code ).toContain( "'failure'      => $projection" );
+			expect( blueprint.staticSiteImport.code ).toContain( "'failure'       => $projection" );
+			expect( blueprint.staticSiteImport.code ).toContain( "'import_receipt' => $result" );
 		} );
 
 		it( 'should atomically write a bounded receipt for generic failed imports', () => {
@@ -970,6 +974,27 @@ describe( 'CLI: studio site create', () => {
 			expect( blueprint.staticSiteImport.storeResult ).toBe( true );
 			expect( blueprint.staticSiteImport.code ).toContain(
 				'static_site_importer_studio_write_result( $studio_result )'
+			);
+			expect( blueprint.staticSiteImport.code ).toContain(
+				"'import_receipt'            => $result"
+			);
+			expect( blueprint.staticSiteImport.code ).toContain(
+				"'completed_routes'          => (int) ( $import_result['url_batch_run']['completed_routes'] ?? count( $canonical_documents ) )"
+			);
+		} );
+
+		it( 'requires proven dynamic client assets for canonical imports', () => {
+			const blueprint = buildCreateFromSourceBlueprint(
+				'https://example.com/',
+				'Imported URL',
+				'https://example.com/static-site-importer.zip'
+			);
+
+			expect( blueprint.staticSiteImport.code ).not.toContain(
+				"$input['require_proven_dynamic_client_assets'] = false;"
+			);
+			expect( blueprint.staticSiteImport.code ).toContain(
+				"$input['require_proven_dynamic_client_assets'] = true;"
 			);
 		} );
 

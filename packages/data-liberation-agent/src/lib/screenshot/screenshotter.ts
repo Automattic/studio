@@ -560,6 +560,34 @@ async function capturePerViewport( args: CapturePerViewportArgs ): Promise< void
 		writeFileSync( plan.paths.geometry, `${ JSON.stringify( capture, null, 2 ) }\n` );
 	}
 
+	// Capture the visual reference immediately after geometry annotation, before
+	// slower HTML dependency and section analysis gives live runtimes another
+	// opportunity to change state. The HTML snapshot below then describes the
+	// same settled visual transaction instead of an earlier page state.
+	if ( plan.captureFullpage ) {
+		try {
+			const buf = await withScreenshotTimeout(
+				page.screenshot( { fullPage: true, type: 'png' } ),
+				screenshotTimeoutMs
+			);
+			mkdirSync( dirname( plan.paths.fullpage ), { recursive: true } );
+			writeFileSync( plan.paths.fullpage, buf );
+			const rel = `screenshots/${ viewport.id }/${ slug }.png`;
+			if ( isDesktop ) entry.desktop = rel;
+			else entry.mobile = rel;
+		} catch ( err ) {
+			const msg = err instanceof Error ? err.message : String( err );
+			failures.push( {
+				url,
+				viewport: viewport.id,
+				stage: /screenshot timeout/.test( msg ) ? 'screenshot-timeout' : 'screenshot-fullpage',
+				error: msg,
+				timestamp: now(),
+				attempt: 1,
+			} );
+		}
+	}
+
 	if ( isDesktop && plan.captureHtml ) {
 		try {
 			const html = await capturePageHtml( page );
@@ -648,31 +676,6 @@ async function capturePerViewport( args: CapturePerViewportArgs ): Promise< void
 			} );
 		} catch {
 			/* best-effort — desktop section evidence remains available */
-		}
-	}
-
-	// --- fullpage screenshot --------------------------------------------------
-	if ( plan.captureFullpage ) {
-		try {
-			const buf = await withScreenshotTimeout(
-				page.screenshot( { fullPage: true, type: 'png' } ),
-				screenshotTimeoutMs
-			);
-			mkdirSync( dirname( plan.paths.fullpage ), { recursive: true } );
-			writeFileSync( plan.paths.fullpage, buf );
-			const rel = `screenshots/${ viewport.id }/${ slug }.png`;
-			if ( isDesktop ) entry.desktop = rel;
-			else entry.mobile = rel;
-		} catch ( err ) {
-			const msg = err instanceof Error ? err.message : String( err );
-			failures.push( {
-				url,
-				viewport: viewport.id,
-				stage: /screenshot timeout/.test( msg ) ? 'screenshot-timeout' : 'screenshot-fullpage',
-				error: msg,
-				timestamp: now(),
-				attempt: 1,
-			} );
 		}
 	}
 

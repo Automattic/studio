@@ -120,6 +120,7 @@ describe('captureScreenshots', () => {
         outputDir: dir,
         concurrency: 2,
         settleMs: 0,
+        captureImages: true,
       });
       expect(result.captured).toBe(2);
       expect(result.failed).toBe(0);
@@ -131,6 +132,31 @@ describe('captureScreenshots', () => {
       const manifest = JSON.parse(readFileSync(join(dir, 'screenshots', 'manifest.json'), 'utf8'));
       expect(manifest.version).toBe(1);
       expect(Object.keys(manifest.entries)).toHaveLength(2);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('captures the visual reference before serializing and analyzing settled HTML', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ss-'));
+    const pages: ReturnType<typeof makeGoodPage>[] = [];
+    try {
+      (connectBrowser as ReturnType<typeof vi.fn>).mockResolvedValue(makeMockBrowser(() => {
+        const page = makeGoodPage();
+        pages.push(page);
+        return page;
+      }));
+      await captureScreenshots({
+        urls: ['https://example.com/a'],
+        outputDir: dir,
+        concurrency: 1,
+        settleMs: 0,
+        captureImages: true,
+      });
+      expect(pages).toHaveLength(2);
+      expect(pages[0].screenshot.mock.invocationCallOrder[0]).toBeLessThan(
+        pages[0].content.mock.invocationCallOrder[0],
+      );
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -264,6 +290,7 @@ describe('captureScreenshots', () => {
         outputDir: dir,
         concurrency: 1,
         settleMs: 0,
+        captureImages: true,
       });
       // Capture should succeed overall — fullpage captured, scrolled skipped silently.
       expect(result.captured).toBe(1);

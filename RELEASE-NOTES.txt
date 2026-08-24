@@ -11,7 +11,7 @@ Unreleased
 * Misc Agentic UI improvements — #4561, #4570, #4537, #4538, #4526, #4575, #4560, #4591, #4626, #4569
 * Agentic UI: Fixed the delete site dialog styling and let Return confirm dialogs, disabled responsive preview controls on the database tab, fixed theme-aware Customize shortcuts, the welcome tour skip button on dark artwork, the share button losing its busy state and staying enabled past the ten-preview limit, and the version mismatch between the Beta menu and the About window #4608, #4607, #4468, #4578, #4572, #4568, #4621
 * Improved Studio analytics #4535
-* Updated multiple dependencies, including Electron and the ESLint, Vite, testing and Ruby groups #4476, #4547, #4631, #4477, #4548, #4633, #4478, #4549, #4632, #4486, #4566, #4661, #4475, #4546, #4629, #4630
+* Updated multiple dependencies, including Electron and the ESLint, Vite, testing and Ruby groups #4547, #4631, #4548, #4633, #4549, #4632, #4566, #4661, #4546, #4629, #4630
 * Misc and maintenance improvements #4531, #4654, #4581, #4600, #4665
 
 1.18.0

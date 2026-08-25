@@ -27,8 +27,6 @@ export function useSiteStorageUsage( siteId: string ) {
 
 	return useQuery< SiteStorageUsage | null >( {
 		queryKey: siteStorageUsageQueryKey( siteId ),
-		// The signal matters here: measuring walks the whole site directory, and
-		// without it a site the user has already left keeps being measured.
 		queryFn: ( { signal } ) => connector.getSiteStorageUsage( siteId, signal ),
 		enabled: settled,
 		staleTime: 5 * 60 * 1000,

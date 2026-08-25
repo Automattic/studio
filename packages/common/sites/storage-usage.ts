@@ -28,14 +28,6 @@ function getCategory( relativePath: string ): StorageCategory {
 	return match?.[ 1 ] ?? 'other';
 }
 
-/**
- * Walks the site directory and totals its files by category.
- *
- * A site is typically thousands of files, so this is not cheap and the caller
- * is often gone before it finishes — pass `signal` to stop the walk when the
- * result is no longer wanted. Aborting rejects with the signal's reason rather
- * than returning a partial total.
- */
 export async function measureSiteStorage(
 	sitePath: string,
 	{ signal }: { signal?: AbortSignal } = {}

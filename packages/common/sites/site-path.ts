@@ -1,15 +1,8 @@
 import { z } from 'zod';
 import { readCliConfigFileRaw } from '../lib/cli-config-file';
 
-/**
- * Resolves a site's directory straight from the CLI-owned `cli.json`.
- *
- * `listSites` answers the same question by forking the CLI, which costs about
- * a second of CPU per call — far too much for read-only lookups the UI makes on
- * every site switch. Use this when a route only needs the path; reach for
- * `listSites` when it needs live fields (`running`, `port`, `status`) or must
- * observe a write the CLI just made.
- */
+// Resolves a site's directory straight from `cli.json` — use instead of
+// `listSites` when a route only needs the path, to avoid a CLI fork.
 
 const sitePathsSchema = z.object( {
 	sites: z

@@ -74,7 +74,7 @@ import {
 } from 'cli/lib/cli-config/core';
 import { getSiteUrl, removeSiteFromConfig } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
-import { captureProgressMessage, captureWebsite } from 'cli/lib/data-liberation-client';
+import { createWebsiteArtifact, type DataLiberationProgress } from 'cli/lib/data-liberation-client';
 import {
 	getAiInstructionsPath,
 	getWordPressVersionPath,
@@ -237,7 +237,7 @@ function collectSourceFiles( sourceDir: string ): Record< string, string >[] {
 	return files;
 }
 
-function resolveCaptureWebsiteRoot( sourceDir: string ): string {
+function resolveDataLiberationWebsiteRoot( sourceDir: string ): string {
 	const receiptPath = path.join( sourceDir, 'capture-receipt.json' );
 	if ( ! fs.existsSync( receiptPath ) ) {
 		return sourceDir;
@@ -252,9 +252,9 @@ function resolveCaptureWebsiteRoot( sourceDir: string ): string {
 		throw new LoggerError( __( 'Data Liberation capture receipt must declare a website root.' ) );
 	}
 
-	const captureRoot = path.resolve( sourceDir );
+	const outputRoot = path.resolve( sourceDir );
 	const websiteRoot = path.resolve( sourceDir, receipt.websiteRoot );
-	const relativeRoot = path.relative( captureRoot, websiteRoot );
+	const relativeRoot = path.relative( outputRoot, websiteRoot );
 	if ( relativeRoot === '..' || relativeRoot.startsWith( `..${ path.sep }` ) ) {
 		throw new LoggerError(
 			__( 'Data Liberation website root must stay inside the capture directory.' )
@@ -300,7 +300,7 @@ function resolveStaticSiteImporterSource(
 			}
 		}
 
-		const files = collectSourceFiles( resolveCaptureWebsiteRoot( sourcePath ) );
+		const files = collectSourceFiles( resolveDataLiberationWebsiteRoot( sourcePath ) );
 		if ( files.length > 0 ) {
 			return {
 				type: 'source',
@@ -935,6 +935,26 @@ export function staticSiteImportProgressMessage(
 		);
 	}
 	return sprintf( __( 'Finalization… %d sec elapsed' ), elapsedSeconds );
+}
+
+export function dataLiberationProgressMessage( progress: DataLiberationProgress ): string {
+	const elapsedSeconds = Math.floor( ( progress.elapsedMs ?? 0 ) / 1000 );
+	if ( progress.phase === 'discovering' )
+		return sprintf( __( 'Discovering source routes… %d sec elapsed' ), elapsedSeconds );
+	if ( progress.phase === 'finalizing' )
+		return sprintf( __( 'Creating website artifact… %d sec elapsed' ), elapsedSeconds );
+	if ( progress.phase === 'complete' )
+		return sprintf( __( 'Website artifact created in %d sec' ), elapsedSeconds );
+	if ( typeof progress.current === 'number' && typeof progress.total === 'number' ) {
+		return sprintf(
+			/* translators: 1: completed route count, 2: total route count, 3: elapsed seconds */
+			__( 'Preparing source route %1$d of %2$d… %3$d sec elapsed' ),
+			progress.current,
+			progress.total,
+			elapsedSeconds
+		);
+	}
+	return sprintf( __( 'Preparing source routes… %d sec elapsed' ), elapsedSeconds );
 }
 
 async function runStaticSiteImport(
@@ -1683,7 +1703,7 @@ function coerceWpVersion( value: string ) {
 
 export const registerCommand = (
 	yargs: StudioArgv,
-	dependencies: { capture?: typeof captureWebsite } = {}
+	dependencies: { createArtifact?: typeof createWebsiteArtifact } = {}
 ) => {
 	return yargs.command( {
 		command: 'create',
@@ -2039,22 +2059,23 @@ export const registerCommand = (
 				let importSource = argv.from;
 				const sourceUrl = importSource && isUrl( importSource ) ? importSource : undefined;
 				if ( sourceUrl ) {
-					const captureOutput = path.join(
+					const artifactOutput = path.join(
 						path.dirname( sitePath ),
-						`${ path.basename( sitePath ) }-capture`
+						`${ path.basename( sitePath ) }-source`
 					);
-					logger.reportStart( LoggerAction.IMPORT_SITE, __( 'Capturing source website…' ) );
-					const capture = await ( dependencies.capture ?? captureWebsite )(
+					logger.reportStart(
+						LoggerAction.IMPORT_SITE,
+						__( 'Preparing source website with Data Liberation…' )
+					);
+					importSource = await ( dependencies.createArtifact ?? createWebsiteArtifact )(
 						sourceUrl,
-						captureOutput,
+						artifactOutput,
 						{
-							resume: true,
 							onProgress: ( progress ) =>
-								logger.reportProgress( captureProgressMessage( progress ) ),
+								logger.reportProgress( dataLiberationProgressMessage( progress ) ),
 						}
 					);
-					logger.reportSuccess( __( 'Source website captured' ) );
-					importSource = capture.artifactPath;
+					logger.reportSuccess( __( 'Website artifact created' ) );
 				}
 
 				if ( importSource ) {

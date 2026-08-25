@@ -55,6 +55,7 @@ import {
 import { Logger } from 'cli/logger';
 import {
 	buildCreateFromSourceBlueprint,
+	dataLiberationProgressMessage,
 	registerCommand,
 	runCommand,
 	staticSiteImportProgressMessage,
@@ -134,6 +135,20 @@ describe( 'CLI: studio create', () => {
 		);
 		expect( staticSiteImportProgressMessage( 'finalization', 9_999 ) ).toBe(
 			'Finalization… 9 sec elapsed'
+		);
+	} );
+
+	it( 'reports Data Liberation artifact progress', () => {
+		expect(
+			dataLiberationProgressMessage( {
+				phase: 'capturing',
+				current: 7,
+				total: 20,
+				elapsedMs: 65_999,
+			} )
+		).toBe( 'Preparing source route 7 of 20… 65 sec elapsed' );
+		expect( dataLiberationProgressMessage( { phase: 'finalizing', elapsedMs: 70_000 } ) ).toBe(
+			'Creating website artifact… 70 sec elapsed'
 		);
 	} );
 
@@ -506,7 +521,7 @@ describe( 'CLI: studio create', () => {
 			expect( process.exitCode ).toBe( 1 );
 		} );
 
-		it( 'captures a URL before passing its canonical artifact to site creation', async () => {
+		it( 'routes a URL through Data Liberation before SSI materialization', async () => {
 			const captureDir = fs.mkdtempSync( path.join( '/tmp', 'studio-create-capture-' ) );
 			const artifactPath = path.join( captureDir, 'artifact.json' );
 			fs.writeFileSync(
@@ -518,14 +533,10 @@ describe( 'CLI: studio create', () => {
 					files: [ { path: 'website/index.html', content: '<main>Captured</main>' } ],
 				} )
 			);
-			const capture = vi.fn().mockResolvedValue( {
-				artifactPath,
-				outputDir: captureDir,
-				provenance: { provider: 'data-liberation/browser-capture' },
-			} );
+			const createArtifact = vi.fn().mockResolvedValue( artifactPath );
 			const parser = registerCommand(
 				yargs( [] ).option( 'path', { type: 'string', default: mockSitePath } ),
-				{ capture }
+				{ createArtifact }
 			).exitProcess( false );
 
 			await parser.parseAsync( [
@@ -537,15 +548,14 @@ describe( 'CLI: studio create', () => {
 				'--skip-browser',
 			] );
 
-			expect( capture ).toHaveBeenCalledWith(
+			expect( createArtifact ).toHaveBeenCalledWith(
 				'https://example.com',
-				'/test/site/new-site-capture',
+				'/test/site/new-site-source',
 				expect.objectContaining( {
-					resume: true,
 					onProgress: expect.any( Function ),
 				} )
 			);
-			expect( capture ).toHaveBeenCalledTimes( 1 );
+			expect( createArtifact ).toHaveBeenCalledTimes( 1 );
 		} );
 
 		it( 'retains the URL resume identity after capture produces an artifact', () => {

@@ -1,5 +1,5 @@
 import {
-	ADD_AI_CREDITS_URL,
+	getAddAiCreditsUrl,
 	formatAiAccessRequiredNotice,
 	formatAiBlockedNotice,
 	formatOutOfCreditsNoticeWithLink,
@@ -38,6 +38,6 @@ export function AiBlockedNotice() {
 
 export function OutOfCreditsNotice() {
 	return createInterpolateElement( formatOutOfCreditsNoticeWithLink(), {
-		buyLink: <NoticeLink url={ ADD_AI_CREDITS_URL } />,
+		buyLink: <NoticeLink url={ getAddAiCreditsUrl( { returnsToDesktop: true } ) } />,
 	} );
 }

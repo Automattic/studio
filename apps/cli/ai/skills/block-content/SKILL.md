@@ -36,6 +36,22 @@ Use these patterns:
 
 The common failure is a hero or banner that was intended to be full-width but still renders in the narrow content column. Fix that in markup by adding `align: "full"` on the outer group or correcting the inner `layout` type, not by trying to force width in CSS.
 
+### Shrink-Wrapped Labels (Eyebrows, Badges, Pills)
+
+Constrained layouts keep children in the content column with `max-width` plus `margin-left/right: auto !important`. Auto margins only work on block-level boxes, so setting `display: inline-block` (or any `inline-*` value) on a block's wrapper class detaches it from the content column — it aligns to the edge of the full-width section instead. `width: fit-content` fails differently: the auto margins always center it, so it cannot sit left or right within the column.
+
+Never change the `display` of a block wrapper inside a constrained layout. To make a label hug its text — an eyebrow, badge, tag, or pill — wrap it in a flex row group and let flex do the shrink-wrapping:
+
+```html
+<!-- wp:group {"layout":{"type":"flex"}} -->
+<div class="wp-block-group"><!-- wp:paragraph {"className":"hero-eyebrow"} -->
+<p class="hero-eyebrow">New for 2026</p>
+<!-- /wp:paragraph --></div>
+<!-- /wp:group -->
+```
+
+The group's `justifyContent` (`left`/`center`/`right`) controls where the label sits, and stays editable in the editor. The pill class then carries only background, padding, radius, and typography — no `display` or width rules.
+
 ## Root Block Gap
 
 WordPress inserts `margin-block-start: var(--wp--style--block-gap)` between the top-level children of the rendered template — between the header template part, the main group, and the footer template part (`.wp-site-blocks > * + *`). Core supplies a default gap (24px) even when the theme's `theme.json` never declares `styles.spacing.blockGap`, so a gap appears there that no markup asked for.
@@ -63,6 +79,14 @@ Do **not** solve this by deleting `core/post-title` from `page.html` — every o
 A site's home page is the usual case for this: with a static front page and no `front-page.html`, WordPress falls through to `page.html`, so the page least likely to want a title block gets one by default.
 
 **Do not add a `front-page.html` to solve it.** That template overrides *every* other template for the front page — the hierarchy is `front-page → home → index` — and it applies whether the front page shows a static page or the latest posts. One containing `core/post-content` therefore breaks a blog-first site, whose front page belongs to `home.html`/`index.html`. Assigning `page-no-title` to the home page achieves the same result with no hierarchy side effects. Add a `front-page.html` only when the front page needs a structure that genuinely differs from a page's, and the site's front page is definitely static.
+
+## Anchor Links in Shared Parts
+
+Header and footer template parts render on **every** template — blog posts, archives, search results, the 404 page — not just the front page, even on a one-page site. A bare-hash link such as `"url":"#contact"` resolves against whatever URL the visitor is on, so it works on the front page and silently does nothing everywhere else.
+
+- In template parts and any other shared markup, write anchor links home-relative: `<!-- wp:navigation-link {"label":"Contact","url":"/#contact"} /-->`.
+- Give each target section an `anchor` attribute on its outermost block — `{"anchor":"contact","align":"full"}` renders `id="contact"` — rather than hand-writing an `id` in `core/html`.
+- A bare hash is fine only for a link living in the same page's own content, such as a hero button scrolling to a section further down that page.
 
 ## Skeleton-First Recipes
 

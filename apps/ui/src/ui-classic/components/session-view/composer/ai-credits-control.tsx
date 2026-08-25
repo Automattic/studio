@@ -2,8 +2,7 @@ import { getStudioCodeAiAccessState } from '@studio/common/lib/studio-assistant-
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
-import { chartBar } from '@wordpress/icons';
-import { Icon, Tooltip } from '@wordpress/ui';
+import { Tooltip } from '@wordpress/ui';
 import { useState } from 'react';
 import { AiCreditsDetailsDialog } from '@/components/ai-credits-details-dialog';
 import { AiCreditsPurchaseDialog } from '@/components/ai-credits-purchase-dialog';
@@ -17,6 +16,41 @@ import { useStudioAssistantTopUpPricing } from '@/data/queries/use-top-up-pricin
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useAddAiCreditsUrl } from '@/hooks/use-add-ai-credits-url';
 import styles from './style.module.css';
+
+function AiCreditsRing( { usedFraction }: { usedFraction: number } ) {
+	const usedPercentage = Math.max( 0, Math.min( 1, usedFraction ) ) * 100;
+	const isCaution = usedPercentage >= 80 && usedPercentage < 90;
+	const isWarning = usedPercentage >= 90;
+	const isExhausted = usedPercentage >= 100;
+
+	return (
+		<svg
+			className={ styles.aiCreditsRing }
+			viewBox="0 0 24 24"
+			width="20"
+			height="20"
+			fill="none"
+			aria-hidden="true"
+			data-caution={ isCaution || undefined }
+			data-warning={ isWarning || undefined }
+			data-exhausted={ isExhausted || undefined }
+		>
+			<circle className={ styles.aiCreditsRingTrack } cx="12" cy="12" r="8" strokeWidth="2" />
+			<circle
+				className={ styles.aiCreditsRingValue }
+				cx="12"
+				cy="12"
+				r="8"
+				pathLength="100"
+				strokeWidth="2"
+				strokeDasharray="100"
+				strokeDashoffset={ 100 - usedPercentage }
+				strokeLinecap="round"
+				transform="rotate(-90 12 12)"
+			/>
+		</svg>
+	);
+}
 
 export function AiCreditsControl() {
 	const connector = useConnector();
@@ -45,7 +79,28 @@ export function AiCreditsControl() {
 
 	const hasTopUpOptions = ( pricing?.options.length ?? 0 ) > 0;
 	const remaining = ( quota.allowanceRemaining ?? 0 ) + ( quota.purchasedRemaining ?? 0 );
+	const usedFraction = quota.costCap > 0 ? quota.costUsage / quota.costCap : 0;
 	const formattedRemaining = new Intl.NumberFormat( locale ).format( remaining );
+	const compactRemaining = new Intl.NumberFormat( locale, {
+		notation: 'compact',
+		maximumFractionDigits: 1,
+	} ).format( remaining );
+	const remainingLabel =
+		remaining === 0
+			? __( 'No AI credits remaining' )
+			: sprintf(
+					/* translators: %s: total number of AI credits remaining (e.g. 1,110,000). */
+					__( '%s remaining' ),
+					formattedRemaining
+			  );
+	const tooltipLabel =
+		remaining === 0
+			? __( 'AI credits · Out of credits' )
+			: sprintf(
+					/* translators: %s: compact number of AI credits remaining (e.g. 200K or 1.5M). */
+					__( 'AI credits · %s remaining' ),
+					compactRemaining
+			  );
 
 	return (
 		<>
@@ -73,28 +128,21 @@ export function AiCreditsControl() {
 									/>
 								}
 							>
-								<Icon icon={ chartBar } size={ 16 } />
+								<AiCreditsRing usedFraction={ usedFraction } />
 							</Tooltip.Trigger>
 						}
 					/>
 					<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-						{ sprintf(
-							/* translators: %s: total number of AI credits remaining (e.g. 1,110,000). */
-							__( 'AI credits · %s remaining' ),
-							formattedRemaining
-						) }
+						{ tooltipLabel }
 					</Tooltip.Popup>
 				</Tooltip.Root>
 				<Menu.Popup side="top" align="end">
-					<div className={ styles.aiCreditsSummary }>
+					<div
+						className={ styles.aiCreditsSummary }
+						data-exhausted={ remaining === 0 || undefined }
+					>
 						<span>{ __( 'AI credits' ) }</span>
-						<strong>
-							{ sprintf(
-								/* translators: %s: total number of AI credits remaining (e.g. 1,110,000). */
-								__( '%s remaining' ),
-								formattedRemaining
-							) }
-						</strong>
+						<strong>{ remainingLabel }</strong>
 					</div>
 					<Menu.Separator />
 					<Menu.Item

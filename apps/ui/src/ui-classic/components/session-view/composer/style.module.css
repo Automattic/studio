@@ -494,8 +494,39 @@
 .aiCreditsSummary strong {
 	color: var(--wpds-color-foreground-content-neutral);
 	font-size: var(--wpds-typography-font-size-md);
+	font-weight: 500;
 	font-variant-numeric: tabular-nums;
 	line-height: var(--wpds-typography-line-height-sm);
+}
+
+.aiCreditsSummary[data-exhausted] strong {
+	color: var(--wpds-color-fg-content-error);
+}
+
+.aiCreditsRingTrack {
+	stroke: var(--wpds-color-stroke-surface-neutral);
+}
+
+.aiCreditsRingValue {
+	stroke: var(--wpds-color-bg-interactive-brand-strong);
+}
+
+.aiCreditsRing[data-caution] .aiCreditsRingValue {
+	stroke: var(--wpds-color-fg-content-warning-weak);
+}
+
+.aiCreditsRing[data-warning] .aiCreditsRingValue {
+	stroke: var(--wpds-color-fg-content-error-weak);
+}
+
+.aiCreditsRing[data-exhausted] .aiCreditsRingValue {
+	stroke: var(--wpds-color-bg-interactive-error-strong);
+}
+
+@media not (prefers-reduced-motion) {
+	.aiCreditsRingValue {
+		transition: stroke-dashoffset 180ms ease;
+	}
 }
 
 .pill {

@@ -107,6 +107,25 @@ describe( 'AiCreditsControl', () => {
 		expect( screen.getByText( '1,110,000 remaining' ) ).toBeInTheDocument();
 	} );
 
+	it( 'renders the circular usage chart from the current quota', () => {
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: {
+				costUsage: 25,
+				costCap: 100,
+				allowanceRemaining: 960000,
+				purchasedRemaining: 150000,
+			},
+		} as never );
+
+		const { container } = renderControl();
+
+		expect( container.querySelector( 'svg' ) ).toBeInTheDocument();
+		expect( container.querySelector( 'circle:last-child' ) ).toHaveAttribute(
+			'stroke-dashoffset',
+			'75'
+		);
+	} );
+
 	it( 'shows the summed balance even when both pools are exhausted', async () => {
 		useStudioAssistantQuotaMock.mockReturnValue( {
 			data: { costUsage: 0, costCap: 0, allowanceRemaining: 0, purchasedRemaining: 0 },
@@ -116,7 +135,50 @@ describe( 'AiCreditsControl', () => {
 
 		await openMenu();
 
-		expect( screen.getByText( '0 remaining' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'No AI credits remaining' ) ).toBeInTheDocument();
+	} );
+
+	it( 'shows a zero-state message at 100% usage', async () => {
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: { costUsage: 100, costCap: 100, allowanceRemaining: 0, purchasedRemaining: 0 },
+		} as never );
+		const { container } = renderControl();
+
+		await openMenu();
+
+		expect( screen.getByText( 'No AI credits remaining' ) ).toBeInTheDocument();
+		expect( container.querySelector( 'svg' ) ).toHaveAttribute( 'data-exhausted', 'true' );
+		expect( container.querySelector( 'circle:last-child' ) ).toHaveAttribute(
+			'stroke-dashoffset',
+			'0'
+		);
+	} );
+
+	it( 'shows a compact balance in the tooltip', async () => {
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: {
+				costUsage: 25,
+				costCap: 100,
+				allowanceRemaining: 800000,
+				purchasedRemaining: 32500,
+			},
+		} as never );
+		renderControl();
+
+		fireEvent.mouseEnter( screen.getByRole( 'button', { name: 'AI credits' } ) );
+
+		expect( await screen.findByText( 'AI credits · 832.5K remaining' ) ).toBeInTheDocument();
+	} );
+
+	it( 'shows an out-of-credits tooltip at 100% usage', async () => {
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: { costUsage: 100, costCap: 100, allowanceRemaining: 0, purchasedRemaining: 0 },
+		} as never );
+		renderControl();
+
+		fireEvent.mouseEnter( screen.getByRole( 'button', { name: 'AI credits' } ) );
+
+		expect( await screen.findByText( 'AI credits · Out of credits' ) ).toBeInTheDocument();
 	} );
 
 	it( 'opens the WordPress.com checkout from the add-credits item', async () => {

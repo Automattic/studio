@@ -535,7 +535,10 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 				>
 					<ComposerEndOverlay>
 						<div className={ styles.changesTrackerSlot }>
-							<ChangesTracker entries={ data.entries } />
+							<ChangesTracker
+								entries={ data.entries }
+								ownerSitePath={ ownerSite?.path ?? data.summary.ownerSitePath }
+							/>
 						</div>
 						<span
 							aria-hidden

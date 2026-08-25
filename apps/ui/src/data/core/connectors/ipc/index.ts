@@ -446,8 +446,33 @@ export function createIpcConnector(): Connector {
 		async getSiteThumbnail( siteId ): Promise< string | null > {
 			return ( await ipcApi.getThumbnailData( siteId ) ) as string | null;
 		},
-		async getSiteStorageUsage( siteId ) {
-			return ipcApi.getSiteStorageUsage( siteId );
+		async getSiteStorageUsage( siteId, signal ) {
+			if ( ! signal ) {
+				return ipcApi.getSiteStorageUsage( siteId );
+			}
+			// `ipcRenderer.invoke` can't be cancelled, so aborting is a second
+			// call telling the main process to stop this measurement. The
+			// `throwIfAborted` calls turn the abort into the rejection React
+			// Query recognizes as a cancellation rather than a failed query.
+			const requestId = crypto.randomUUID();
+			const cancel = () => void ipcApi.cancelSiteStorageUsage( requestId );
+			signal.addEventListener( 'abort', cancel, { once: true } );
+			try {
+				const usage = await ipcApi.getSiteStorageUsage( siteId, requestId );
+				signal.throwIfAborted();
+				return usage;
+			} catch ( error ) {
+				signal.throwIfAborted();
+				throw error;
+			} finally {
+				signal.removeEventListener( 'abort', cancel );
+			}
+		},
+
+		async getThemeDetails( siteId ): Promise< SiteDetails[ 'themeDetails' ] > {
+			// `false` skips the loading event consumed by Classic; this UI tracks
+			// the same request through React Query.
+			return ( await ipcApi.loadThemeDetails( siteId, false ) ) as SiteDetails[ 'themeDetails' ];
 		},
 
 		async exportFullSite( siteId ): Promise< string | null > {
@@ -1043,6 +1068,10 @@ export function createIpcConnector(): Connector {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const ipcListener = ( window as any ).ipcListener;
 			return ipcListener.subscribe( 'user-settings', () => listener() );
+		},
+
+		onAiCreditsPurchased( listener ) {
+			return ipcListener.subscribe( 'ai-credits-purchased', () => listener() );
 		},
 
 		async disableAgenticUi(): Promise< void > {

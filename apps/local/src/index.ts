@@ -82,6 +82,7 @@ import { buildSiteCreateArgs, type SiteCreateOptions } from '@studio/common/site
 import { buildSiteSetArgs } from '@studio/common/sites/edit';
 import { startSite, stopSite } from '@studio/common/sites/lifecycle';
 import { listSites } from '@studio/common/sites/list';
+import { readSitePath } from '@studio/common/sites/site-path';
 import { createSnapshotManager, fetchSnapshots } from '@studio/common/sites/snapshots';
 import { measureSiteStorage } from '@studio/common/sites/storage-usage';
 import { pullSite, pushSite } from '@studio/common/sites/sync';
@@ -89,6 +90,14 @@ import express from 'express';
 import { rateLimit } from 'express-rate-limit';
 import { z } from 'zod';
 import { isEditor, isTerminal, openInEditor, openInTerminal, openPath } from './open-in-os';
+import {
+	readSiteSortOrders,
+	readUserPreferences,
+	userPreferencesPatchSchema,
+	writeSiteSortOrders,
+	writeUserPreferences,
+} from './user-preferences';
+import type { UserPreferencesContext } from './user-preferences';
 import type { AiSettings } from '@studio/common/ai/providers';
 import type { SiteListItem } from '@studio/common/lib/cli-events';
 import type { TracksEventName, TracksProps } from '@studio/common/lib/record-tracks-event';
@@ -165,8 +174,9 @@ const AUTH_CALLBACK_HTML = `<!DOCTYPE html>
 </script></body></html>`;
 
 // The agentic UI's SiteDetails shape. The CLI's `site list` already reports
-// nearly all of it; thumbnails/theme details are desktop-only enrichments.
-function toSiteDetails( site: SiteListItem ) {
+// nearly all of it; thumbnails/theme details/`sortOrder` are desktop-only
+// enrichments, merged in by callers.
+function toSiteDetails( site: SiteListItem, sortOrder?: number ) {
 	return {
 		id: site.id,
 		name: site.name,
@@ -185,6 +195,7 @@ function toSiteDetails( site: SiteListItem ) {
 		enableDebugLog: site.enableDebugLog,
 		enableDebugDisplay: site.enableDebugDisplay,
 		operation: site.operation,
+		sortOrder,
 		siteIcon: null,
 	};
 }
@@ -241,6 +252,10 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	// Analytics must never fail a user action, so every call is fire-and-forget.
 	function trackEvent( event: TracksEventName, props?: TracksProps ): void {
 		void options.recordTracksEvent?.( event, props ).catch( () => undefined );
+	}
+
+	function preferencesContext(): UserPreferencesContext {
+		return { sitesRoot, installedApps: detectInstalledApps() };
 	}
 
 	const cliRunner = createCliRunner( { cliBinary, nodeBinary } );
@@ -619,8 +634,29 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.get(
 		'/sites',
 		asyncHandler( async ( _req: Request, res: Response ) => {
-			const sites = await listSites( execute );
-			res.json( sites.map( toSiteDetails ) );
+			const [ sites, sortOrders ] = await Promise.all( [
+				listSites( execute ),
+				readSiteSortOrders(),
+			] );
+			res.json( sites.map( ( site ) => toSiteDetails( site, sortOrders.get( site.id ) ) ) );
+		} )
+	);
+
+	// Declared before `/sites/:id/*` so the literal path wins the match.
+	api.post(
+		'/sites/sort-order',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const parsed = z
+				.object( {
+					updates: z.array( z.object( { siteId: z.string(), sortOrder: z.number() } ) ),
+				} )
+				.safeParse( req.body );
+			if ( ! parsed.success ) {
+				res.status( 400 ).json( { error: 'updates required' } );
+				return;
+			}
+			await writeSiteSortOrders( parsed.data.updates );
+			res.status( 204 ).end();
 		} )
 	);
 
@@ -652,29 +688,42 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
+	// Both of these read straight from cli.json via `readSitePath` rather than
+	// forking the CLI for a site list: the UI asks for them on every site
+	// switch, and a fork costs about a second of CPU each time.
 	api.get(
 		'/sites/:id/wp-version',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const sites = await listSites( execute );
-			const site = sites.find( ( candidate ) => candidate.id === req.params.id );
-			if ( ! site ) {
+			const sitePath = await readSitePath( req.params.id );
+			if ( ! sitePath ) {
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
-			res.json( { wpVersion: getWordPressVersion( site.path ) } );
+			res.json( { wpVersion: getWordPressVersion( sitePath ) } );
 		} )
 	);
 
 	api.get(
 		'/sites/:id/storage',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const sites = await listSites( execute );
-			const site = sites.find( ( candidate ) => candidate.id === req.params.id );
-			if ( ! site ) {
+			const sitePath = await readSitePath( req.params.id );
+			if ( ! sitePath ) {
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
-			res.json( await measureSiteStorage( site.path ) );
+			// Walking a site takes long enough that the client often navigates
+			// away first. Tie the walk to the request so an abandoned one stops
+			// instead of running to completion for nobody.
+			const controller = new AbortController();
+			req.on( 'close', () => controller.abort() );
+			try {
+				res.json( await measureSiteStorage( sitePath, { signal: controller.signal } ) );
+			} catch ( error ) {
+				if ( controller.signal.aborted ) {
+					return;
+				}
+				throw error;
+			}
 		} )
 	);
 
@@ -888,8 +937,12 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 					emitter.on( 'error', ( { error } ) => reject( error ) );
 				} );
 			}
-			const refreshed = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
-			res.json( toSiteDetails( refreshed ?? current ) );
+			const [ sites, sortOrders ] = await Promise.all( [
+				listSites( execute ),
+				readSiteSortOrders(),
+			] );
+			const refreshed = sites.find( ( s ) => s.id === req.params.id );
+			res.json( toSiteDetails( refreshed ?? current, sortOrders.get( req.params.id ) ) );
 		} )
 	);
 
@@ -1114,6 +1167,27 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
+	// --- Global preferences — the same app.json/shared.json the desktop uses ---
+	api.get(
+		'/user-preferences',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			res.json( await readUserPreferences( preferencesContext() ) );
+		} )
+	);
+
+	api.patch(
+		'/user-preferences',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const parsed = userPreferencesPatchSchema.safeParse( req.body ?? {} );
+			if ( ! parsed.success ) {
+				res.status( 400 ).json( { error: 'Invalid preferences' } );
+				return;
+			}
+			await writeUserPreferences( parsed.data );
+			res.status( 204 ).end();
+		} )
+	);
+
 	api.post(
 		'/sites/:id/open-folder',
 		asyncHandler( async ( req: Request, res: Response ) => {
@@ -1130,7 +1204,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.post(
 		'/sites/:id/open-in-editor',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const editor = req.body?.editor;
+			const editor =
+				req.body?.editor ?? ( await readUserPreferences( preferencesContext() ) ).editor;
 			if ( typeof editor !== 'string' || ! isEditor( editor ) ) {
 				res.status( 400 ).json( { error: `Unsupported editor: ${ String( editor ) }` } );
 				return;
@@ -1148,7 +1223,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.post(
 		'/sites/:id/open-in-terminal',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const requested = req.body?.terminal;
+			const requested =
+				req.body?.terminal ?? ( await readUserPreferences( preferencesContext() ) ).terminal;
 			// No preference (or an unknown one) falls back to the system terminal.
 			const terminal =
 				typeof requested === 'string' && isTerminal( requested ) ? requested : 'terminal';

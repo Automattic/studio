@@ -72,4 +72,26 @@ describe( 'measureSiteStorage', () => {
 			other: 0,
 		} );
 	} );
+
+	it( 'rejects instead of returning a partial total when the signal aborts', async () => {
+		const sitePath = await createSite();
+		await Promise.all(
+			Array.from( { length: 50 }, ( _value, index ) =>
+				createFile( sitePath, `wp-content/uploads/file-${ index }.bin`, 100 )
+			)
+		);
+
+		await expect(
+			measureSiteStorage( sitePath, { signal: AbortSignal.abort() } )
+		).rejects.toThrow();
+	} );
+
+	it( 'measures normally when given a signal that never aborts', async () => {
+		const sitePath = await createSite();
+		await createFile( sitePath, 'wp-content/uploads/image.jpg', 400 );
+
+		await expect(
+			measureSiteStorage( sitePath, { signal: new AbortController().signal } )
+		).resolves.toMatchObject( { total: 400, uploads: 400 } );
+	} );
 } );

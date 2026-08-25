@@ -16,6 +16,7 @@ import type {
 import type { SiteOperation } from '@studio/common/lib/site-operation';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
+import type { ColorScheme, QuitSitesBehavior } from '@studio/common/lib/user-settings/preferences';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { SiteStorageUsage } from '@studio/common/sites/storage-usage';
@@ -58,6 +59,7 @@ export type {
 	SyncSite,
 } from '@studio/common/types/sync';
 export type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
+export type { ColorScheme, QuitSitesBehavior } from '@studio/common/lib/user-settings/preferences';
 export type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 export type { SupportedLocale } from '@studio/common/lib/locale';
 export type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
@@ -222,9 +224,15 @@ export interface Connector {
 	// Cached screenshot thumbnail captured by the desktop app while the site
 	// was running. Returns null when the site has not produced a thumbnail yet.
 	getSiteThumbnail( siteId: string ): Promise< string | null >;
+	// Resolves active theme details when the host exposes that capability.
+	// Desktop reuses the same IPC flow as the Classic UI.
+	getThemeDetails?( siteId: string ): Promise< SiteDetails[ 'themeDetails' ] >;
 	// Size of the local site's files, grouped for the overview's disk summary.
 	// Hosted sites return null because their storage is not on this machine.
-	getSiteStorageUsage( siteId: string ): Promise< SiteStorageUsage | null >;
+	// Measuring walks the whole site directory, so `signal` is honored all the
+	// way down: aborting it stops the walk rather than leaving it to finish for
+	// a site the user has already left.
+	getSiteStorageUsage( siteId: string, signal?: AbortSignal ): Promise< SiteStorageUsage | null >;
 
 	// Exports a site as a full backup archive (files + database). Prompts the
 	// user for a destination via a save-as dialog; resolves with the chosen
@@ -424,6 +432,10 @@ export interface Connector {
 	// the granular main-process handlers inside the connector so the UI has a
 	// single query + mutation to work with.
 	getUserPreferences(): Promise< UserPreferences >;
+	// A key absent from the patch is left alone; a key present with `null` or
+	// `undefined` clears the preference back to its default. Connectors differ
+	// in how they encode that (IPC tests key presence, HTTP sends null), so
+	// callers must not rely on one connector's leniency.
 	setUserPreferences(
 		partial: Partial< WritableUserPreferences >,
 		source?: PreferenceChangeSource
@@ -559,6 +571,11 @@ export interface Connector {
 	// the application menu.
 	onOpenSettings( listener: () => void ): () => void;
 
+	// Fires when WordPress.com checkout sends the user back after an AI credits
+	// top-up (wp-studio://ai-credits-purchased). Desktop only — a browser tab
+	// can't receive a custom scheme.
+	onAiCreditsPurchased( listener: () => void ): () => void;
+
 	// Switches back to the legacy (classic) Studio UI.
 	disableAgenticUi(): Promise< void >;
 
@@ -618,9 +635,6 @@ export interface SkillStatus {
 	description: string;
 	installed: boolean;
 }
-
-export type ColorScheme = 'system' | 'light' | 'dark';
-export type QuitSitesBehavior = 'stop' | 'stop-and-auto-start' | 'leave-running';
 
 export interface UserPreferences {
 	editor: SupportedEditor | null;

@@ -9,10 +9,12 @@ export function CopyButton( {
 	text,
 	label,
 	className,
+	variant = 'filled',
 }: {
 	text: string;
 	label: string;
 	className?: string;
+	variant?: 'filled' | 'plain';
 } ) {
 	const connector = useConnector();
 	const [ copied, setCopied ] = useState( false );
@@ -60,10 +62,12 @@ export function CopyButton( {
 							className={ styles.copyButton }
 							onClick={ handleCopy }
 							aria-label={ label }
+							data-copied={ copied ? 'true' : undefined }
+							data-variant={ variant }
 						>
 							<Icon
 								icon={ copied ? check : copy }
-								size={ 16 }
+								size={ copied ? 20 : 16 }
 								fill="currentColor"
 								aria-hidden="true"
 							/>

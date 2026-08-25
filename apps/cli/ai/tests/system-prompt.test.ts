@@ -132,6 +132,25 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).not.toContain( 'virtual temp file' );
 	} );
 
+	it( 'requires re-reading live content before updating an existing post on both runtimes', () => {
+		const runtimes: SiteRuntime[] = [ SITE_RUNTIME_PLAYGROUND, SITE_RUNTIME_NATIVE_PHP ];
+		for ( const runtime of runtimes ) {
+			const prompt = buildSystemPrompt( { runtime } );
+			expect( prompt ).toContain( 'MUST first re-read its current content from the live site' );
+			expect( prompt ).toContain(
+				'never reuse a scratch file or markup generated earlier in the conversation'
+			);
+			expect( prompt ).toContain( 'edited the content in the WordPress editor since then' );
+		}
+	} );
+
+	it( 'requires seeding the native PHP scratch file from current live content on updates', () => {
+		const prompt = buildSystemPrompt( { runtime: SITE_RUNTIME_NATIVE_PHP } );
+
+		expect( prompt ).toContain( "seed it from the post's current live content first" );
+		expect( prompt ).toContain( 'never reuse a file written earlier' );
+	} );
+
 	it( 'keeps the shared no-shell post_content rule for both runtimes', () => {
 		const runtimes: SiteRuntime[] = [ SITE_RUNTIME_PLAYGROUND, SITE_RUNTIME_NATIVE_PHP ];
 		for ( const runtime of runtimes ) {

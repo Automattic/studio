@@ -124,10 +124,27 @@ wp_cli post create --post_content=""
 5. Apply the validated content once:
 
 ```text
-wp_cli eval '$content = file_get_contents(ABSPATH . "tmp/page-<slug>.html"); wp_update_post(["ID" => <id>, "post_content" => $content]); echo "ok";'
+wp_cli eval '$content = file_get_contents(ABSPATH . "tmp/page-<slug>.html"); wp_update_post(wp_slash(["ID" => <id>, "post_content" => $content])); echo "ok";'
 ```
 
 Do not use `--post_content-file=<host path>`. `wp_cli` runs inside the PHP-WASM filesystem; the host site directory is mounted at `/wordpress/`, so `ABSPATH === "/wordpress/"`. Host paths are not readable there and can silently update the post to empty content.
+
+## Editing Existing Content
+
+The live `post_content` in the site database is the only source of truth for an existing page or post. The user may have edited it in the WordPress editor (for example, replaced placeholder images with real ones) since you last touched it, and applying a stale copy silently destroys those changes. Never start an edit from a `tmp/page-*.html` file left over from an earlier task or session, and never rebuild a page's content from conversation memory. (Building a file across consecutive turns within one task, as in the skeleton-first recipe, is fine.)
+
+Before ANY edit to an existing page or post:
+
+1. Hydrate a fresh working copy from the live content:
+
+```text
+wp_cli eval '@mkdir(ABSPATH . "tmp"); $c = get_post_field("post_content", <id>, "raw"); file_put_contents(ABSPATH . "tmp/page-<slug>.html", $c); echo "hydrated " . strlen($c) . " bytes";'
+```
+
+If the byte count is 0 and the page is not expected to be empty, stop and re-check the post ID.
+
+2. `Read` the hydrated file and make targeted `Edit`s against it.
+3. Validate and apply immediately, in the same work burst, using the same mandatory `validate_blocks` gate and apply step as above. If other work intervened or the user may have touched the page since hydration, hydrate a fresh copy and re-apply your edits to it before applying.
 
 ## Validation
 

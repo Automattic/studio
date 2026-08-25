@@ -416,9 +416,13 @@ function getFrameStyle( viewport: PreviewViewport | null ): CSSProperties | unde
 // The iframe fallback has no device emulation, so scaling is a CSS transform
 // instead: lay out at full size, scale down to fit; the frame clips the
 // transform's leftover layout box.
-function getIframeStyle( viewport: PreviewViewport | null ): CSSProperties | undefined {
+function getIframeStyle(
+	viewport: PreviewViewport | null,
+	colorScheme: PreviewColorScheme = 'system'
+): CSSProperties | undefined {
+	const colorSchemeStyle: CSSProperties = colorScheme === 'system' ? {} : { colorScheme };
 	if ( ! viewport || viewport.scale === 1 ) {
-		return undefined;
+		return colorScheme === 'system' ? undefined : colorSchemeStyle;
 	}
 	return {
 		flex: '0 0 auto',
@@ -426,6 +430,7 @@ function getIframeStyle( viewport: PreviewViewport | null ): CSSProperties | und
 		height: viewport.height,
 		transform: `scale(${ viewport.scale })`,
 		transformOrigin: 'top left',
+		...colorSchemeStyle,
 	};
 }
 
@@ -1141,7 +1146,7 @@ export function SitePreview( {
 	}, [ fullscreen, handleViewportModeChange, onFullscreenChange, viewportMode ] );
 
 	useEffect( () => {
-		const remembered = viewportBySiteRef.current[ site.id ];
+		const remembered = previewOptionsBySiteRef.current[ site.id ];
 		setViewportMode( remembered?.mode ?? 'fit' );
 		setMobileOrientation( remembered?.orientation ?? 'portrait' );
 		setColorScheme( remembered?.colorScheme ?? 'system' );
@@ -1380,6 +1385,7 @@ export function SitePreview( {
 												onBrowserCommand={ handleForwardedShortcut }
 												onNavigate={ ( url ) => handleSurfaceNavigation( key, url ) }
 												viewport={ viewport }
+												colorScheme={ colorScheme }
 											/>
 										) : (
 											// Non-Electron fallback: plain iframe, no inspector. Reloads
@@ -1389,7 +1395,7 @@ export function SitePreview( {
 													surface.browserCommand?.type === 'reload' ? surface.browserCommand.id : 0
 												}` }
 												className={ styles.iframe }
-												style={ getIframeStyle( viewport ) }
+												style={ getIframeStyle( viewport, colorScheme ) }
 												src={ surfaceUrl }
 												title={ site.name }
 												onLoad={ ( event ) => {
@@ -1426,6 +1432,7 @@ export function SitePreview( {
 														reloadNonce={ surface.reloadNonce }
 														inspector={ false }
 														viewport={ splitMobileViewport }
+														colorScheme={ colorScheme }
 														browserCommand={
 															surface.browserCommand?.type === 'reload'
 																? surface.browserCommand
@@ -1437,7 +1444,7 @@ export function SitePreview( {
 													<iframe
 														key={ `${ surfaceUrl }#${ surface.reloadNonce }` }
 														className={ styles.iframe }
-														style={ getIframeStyle( splitMobileViewport ) }
+														style={ getIframeStyle( splitMobileViewport, colorScheme ) }
 														src={ surfaceUrl }
 														title={ sprintf(
 															/* translators: %s: site name */
@@ -1523,6 +1530,7 @@ interface WebviewSurfaceProps {
 	onNavigate?: ( url: string ) => void;
 	// Simulated guest viewport, or null for the webview's natural size.
 	viewport?: PreviewViewport | null;
+	colorScheme?: PreviewColorScheme;
 	// Whether to inject the annotation inspector into the guest page. Off for
 	// surfaces that can't be annotated (phpMyAdmin, the split companion).
 	inspector?: boolean;
@@ -1547,6 +1555,7 @@ function WebviewSurface( {
 	onBrowserCommand,
 	onNavigate,
 	viewport = null,
+	colorScheme = 'system',
 	inspector = true,
 }: WebviewSurfaceProps ) {
 	const ref = useRef< HTMLElement | null >( null );

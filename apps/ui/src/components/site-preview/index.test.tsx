@@ -562,6 +562,51 @@ describe( 'SitePreview', () => {
 		);
 	} );
 
+	it( 'offers preview appearance modes from the More options menu', async () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+
+		renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'More options' } ) );
+
+		expect( await screen.findByText( 'Appearance' ) ).toBeVisible();
+		expect( screen.getByRole( 'menuitemradio', { name: 'System' } ) ).toBeChecked();
+
+		fireEvent.click( screen.getByRole( 'menuitemradio', { name: 'Dark' } ) );
+
+		expect( screen.getByRole( 'menuitemradio', { name: 'Dark' } ) ).toBeChecked();
+	} );
+
+	it( 'keeps the preview appearance controls usable in RTL', async () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+		document.documentElement.dir = 'rtl';
+
+		try {
+			renderPreview(
+				<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+			);
+
+			fireEvent.click( screen.getByRole( 'button', { name: 'More options' } ) );
+
+			const menu = await screen.findByRole( 'menu', { name: 'More options' } );
+			expect( menu.matches( ':dir(rtl)' ) ).toBe( true );
+			fireEvent.click( screen.getByRole( 'menuitemradio', { name: 'Dark' } ) );
+			expect( screen.getByRole( 'menuitemradio', { name: 'Dark' } ) ).toBeChecked();
+		} finally {
+			document.documentElement.dir = '';
+		}
+	} );
+
 	it( 'disables the responsive mode controls while previewing the database realm', async () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),

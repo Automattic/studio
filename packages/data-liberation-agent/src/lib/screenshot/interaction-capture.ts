@@ -102,7 +102,7 @@ export async function captureTriggeredDialogs(
 			document.querySelectorAll( 'button[aria-haspopup],a[aria-haspopup],[role="button"][aria-haspopup]' )
 		).filter( ( element ) => {
 			const popup = ( element.getAttribute( 'aria-haspopup' ) ?? '' ).toLowerCase();
-			if ( popup !== 'dialog' && popup !== 'true' ) return false;
+			if ( popup !== 'dialog' ) return false;
 			if ( element.getAttribute( 'aria-disabled' ) === 'true' ) return false;
 			const hasBinding = Boolean( element.getAttribute( 'aria-controls' ) ) || Array.from( element.attributes ).some(
 				( attribute ) => /^data-(?:popup|modal|dialog)(?:id|target)?$/i.test( attribute.name ) && Boolean( attribute.value )

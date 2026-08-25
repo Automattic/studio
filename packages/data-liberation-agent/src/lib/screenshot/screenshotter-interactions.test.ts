@@ -50,101 +50,123 @@ function makePage() {
 }
 
 describe( 'captureScreenshots interactions', () => {
-	it( 'captures a mobile-only Tianna dialog once without overwriting it on desktop', async () => {
-		const outputDir = mkdtempSync( join( LOCAL_TMP, 'ss-' ) );
-		const mobilePage = makePage();
-		const desktopPage = makePage();
-		const pages = [ mobilePage, desktopPage ];
-		const captureDialogs = vi.mocked( captureTriggeredDialogs );
-		let triggerClicks = 0;
+	it.each( [
+		{ name: 'mobile first', viewportIds: [ 'mobile', 'desktop' ] as const, expectedCalls: 1 },
+		{
+			name: 'desktop false candidate first',
+			viewportIds: [ 'desktop', 'mobile' ] as const,
+			expectedCalls: 2,
+		},
+	] )(
+		'captures a mobile-only Tianna dialog once with $name',
+		async ( { viewportIds, expectedCalls } ) => {
+			const outputDir = mkdtempSync( join( LOCAL_TMP, 'ss-' ) );
+			const mobilePage = makePage();
+			const desktopPage = makePage();
+			const pages = viewportIds.map( ( id ) => ( id === 'mobile' ? mobilePage : desktopPage ) );
+			const captureDialogs = vi.mocked( captureTriggeredDialogs );
+			captureDialogs.mockReset();
+			let triggerClicks = 0;
 
-		captureDialogs.mockImplementation( async ( page, sourceUrl ) => {
-			if ( ( page as unknown ) === mobilePage ) {
-				triggerClicks++;
+			captureDialogs.mockImplementation( async ( page, sourceUrl ) => {
+				if ( ( page as unknown ) === mobilePage ) {
+					triggerClicks++;
+					return {
+						schema: 'data-liberation/interaction-states/v1',
+						sourceUrl,
+						viewport: { width: 390, height: 844 },
+						capturedAt: '2026-08-25T00:00:00.000Z',
+						states: [
+							{
+								status: 'captured',
+								trigger: {
+									selector: '#tianna-mobile-menu',
+									tag: 'button',
+									ariaHaspopup: 'dialog',
+									dataBindings: {},
+								},
+								dialog: {
+									selector: '#site-navigation',
+									tag: 'dialog',
+									id: 'site-navigation',
+									ariaModal: true,
+									html: '<dialog id="site-navigation">Tianna Wolfson</dialog>',
+									htmlBytes: 60,
+									htmlTruncated: false,
+								},
+							},
+						],
+					};
+				}
 				return {
 					schema: 'data-liberation/interaction-states/v1',
 					sourceUrl,
-					viewport: { width: 390, height: 844 },
+					viewport: { width: 1440, height: 900 },
 					capturedAt: '2026-08-25T00:00:00.000Z',
 					states: [
 						{
-							status: 'captured',
+							status: 'no-dialog',
 							trigger: {
-								selector: '#tianna-mobile-menu',
+								selector: '#desktop-false-candidate',
 								tag: 'button',
 								ariaHaspopup: 'dialog',
 								dataBindings: {},
 							},
-							dialog: {
-								selector: '#site-navigation',
-								tag: 'dialog',
-								id: 'site-navigation',
-								ariaModal: true,
-								html: '<dialog id="site-navigation">Tianna Wolfson</dialog>',
-								htmlBytes: 60,
-								htmlTruncated: false,
-							},
 						},
 					],
 				};
+			} );
+
+			const connect = connectBrowser as ReturnType< typeof vi.fn >;
+			connect.mockReset();
+			connect.mockResolvedValue( {
+				newContext: vi.fn().mockImplementation( () =>
+					Promise.resolve( {
+						newPage: vi.fn().mockResolvedValue( pages.shift()! ),
+						addInitScript: vi.fn().mockResolvedValue( undefined ),
+						close: vi.fn().mockResolvedValue( undefined ),
+					} )
+				),
+				close: vi.fn().mockResolvedValue( undefined ),
+			} );
+
+			try {
+				await captureScreenshots( {
+					urls: [ 'https://example.com/tianna' ],
+					outputDir,
+					concurrency: 1,
+					settleMs: 0,
+					captureImages: true,
+					viewports: viewportIds.map( ( id ) =>
+						id === 'mobile' ? { id, width: 390, height: 844 } : { id, width: 1440, height: 900 }
+					),
+				} );
+
+				expect( captureDialogs ).toHaveBeenCalledTimes( expectedCalls );
+				expect( captureDialogs ).toHaveBeenCalledWith( mobilePage, 'https://example.com/tianna' );
+				expect( triggerClicks ).toBe( 1 );
+				expect( mobilePage.screenshot.mock.invocationCallOrder.at( -1 ) ).toBeLessThan(
+					captureDialogs.mock.invocationCallOrder.at( -1 )!
+				);
+				expect( mobilePage.content.mock.invocationCallOrder.at( -1 ) ).toBeLessThan(
+					captureDialogs.mock.invocationCallOrder.at( -1 )!
+				);
+
+				const manifest = JSON.parse(
+					readFileSync( join( outputDir, 'screenshots', 'manifest.json' ), 'utf8' )
+				);
+				expect( manifest.entries[ 'https://example.com/tianna' ].interactions ).toMatchObject( {
+					viewport: { width: 390, height: 844 },
+					states: [
+						{
+							status: 'captured',
+							trigger: { tag: 'button', ariaHaspopup: 'dialog' },
+						},
+					],
+				} );
+			} finally {
+				rmSync( outputDir, { recursive: true, force: true } );
 			}
-			return {
-				schema: 'data-liberation/interaction-states/v1',
-				sourceUrl,
-				viewport: { width: 1440, height: 900 },
-				capturedAt: '2026-08-25T00:00:00.000Z',
-				states: [],
-			};
-		} );
-
-		( connectBrowser as ReturnType< typeof vi.fn > ).mockResolvedValue( {
-			newContext: vi.fn().mockImplementation( () =>
-				Promise.resolve( {
-					newPage: vi.fn().mockResolvedValue( pages.shift()! ),
-					addInitScript: vi.fn().mockResolvedValue( undefined ),
-					close: vi.fn().mockResolvedValue( undefined ),
-				} )
-			),
-			close: vi.fn().mockResolvedValue( undefined ),
-		} );
-
-		try {
-			await captureScreenshots( {
-				urls: [ 'https://example.com/tianna' ],
-				outputDir,
-				concurrency: 1,
-				settleMs: 0,
-				captureImages: true,
-				viewports: [
-					{ id: 'mobile', width: 390, height: 844 },
-					{ id: 'desktop', width: 1440, height: 900 },
-				],
-			} );
-
-			expect( captureDialogs ).toHaveBeenCalledOnce();
-			expect( captureDialogs ).toHaveBeenCalledWith( mobilePage, 'https://example.com/tianna' );
-			expect( triggerClicks ).toBe( 1 );
-			expect( mobilePage.screenshot.mock.invocationCallOrder.at( -1 ) ).toBeLessThan(
-				captureDialogs.mock.invocationCallOrder[ 0 ]
-			);
-			expect( mobilePage.content.mock.invocationCallOrder.at( -1 ) ).toBeLessThan(
-				captureDialogs.mock.invocationCallOrder[ 0 ]
-			);
-
-			const manifest = JSON.parse(
-				readFileSync( join( outputDir, 'screenshots', 'manifest.json' ), 'utf8' )
-			);
-			expect( manifest.entries[ 'https://example.com/tianna' ].interactions ).toMatchObject( {
-				viewport: { width: 390, height: 844 },
-				states: [
-					{
-						status: 'captured',
-						trigger: { tag: 'button', ariaHaspopup: 'dialog' },
-					},
-				],
-			} );
-		} finally {
-			rmSync( outputDir, { recursive: true, force: true } );
 		}
-	} );
+	);
 } );

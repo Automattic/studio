@@ -22,15 +22,19 @@ export enum Mode {
 
 export async function runCommand(
 	mode: Mode.DELETE_SINGLE_SNAPSHOT,
-	host: string
+	host: string,
+	logger?: Logger< LoggerAction >
 ): Promise< void >;
 export async function runCommand(
 	mode: Mode.DELETE_ALL_SNAPSHOT,
-	host: undefined
+	host: undefined,
+	logger?: Logger< LoggerAction >
 ): Promise< void >;
-export async function runCommand( mode: Mode, host: string | undefined ): Promise< void > {
-	const logger = new Logger< LoggerAction >();
-
+export async function runCommand(
+	mode: Mode,
+	host: string | undefined,
+	logger: Logger< LoggerAction > = new Logger< LoggerAction >()
+): Promise< void > {
 	try {
 		const token = await readAuthToken();
 		if ( ! token ) {

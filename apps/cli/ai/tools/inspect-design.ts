@@ -1,6 +1,5 @@
 import { Type } from 'typebox';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
-import { emitProgress } from 'cli/logger';
 import { defineTool } from './define-tool';
 import {
 	applyScreenshotMediaEmulation,
@@ -120,9 +119,9 @@ export const inspectDesignTool = defineTool(
 			} )
 		),
 	},
-	async ( args ) => {
+	async ( args, context ) => {
 		const viewport: InspectViewport = ( args.viewport as InspectViewport ) ?? 'desktop';
-		emitProgress(
+		context.onProgress(
 			`Inspecting ${ args.selectors.length } selector(s) on ${ args.url } (${ viewport }${
 				args.colorScheme ? `, ${ args.colorScheme }` : ''
 			})…`
@@ -269,7 +268,7 @@ export const inspectDesignTool = defineTool(
 				}
 			}
 
-			emitProgress( `Inspected ${ args.selectors.length } selector(s) on ${ args.url }` );
+			context.onProgress( `Inspected ${ args.selectors.length } selector(s) on ${ args.url }` );
 			return textResult(
 				JSON.stringify(
 					{

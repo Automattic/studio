@@ -36,6 +36,22 @@ Use these patterns:
 
 The common failure is a hero or banner that was intended to be full-width but still renders in the narrow content column. Fix that in markup by adding `align: "full"` on the outer group or correcting the inner `layout` type, not by trying to force width in CSS.
 
+### Shrink-Wrapped Labels (Eyebrows, Badges, Pills)
+
+Constrained layouts keep children in the content column with `max-width` plus `margin-left/right: auto !important`. Auto margins only work on block-level boxes, so setting `display: inline-block` (or any `inline-*` value) on a block's wrapper class detaches it from the content column — it aligns to the edge of the full-width section instead. `width: fit-content` fails differently: the auto margins always center it, so it cannot sit left or right within the column.
+
+Never change the `display` of a block wrapper inside a constrained layout. To make a label hug its text — an eyebrow, badge, tag, or pill — wrap it in a flex row group and let flex do the shrink-wrapping:
+
+```html
+<!-- wp:group {"layout":{"type":"flex"}} -->
+<div class="wp-block-group"><!-- wp:paragraph {"className":"hero-eyebrow"} -->
+<p class="hero-eyebrow">New for 2026</p>
+<!-- /wp:paragraph --></div>
+<!-- /wp:group -->
+```
+
+The group's `justifyContent` (`left`/`center`/`right`) controls where the label sits, and stays editable in the editor. The pill class then carries only background, padding, radius, and typography — no `display` or width rules.
+
 ## Root Block Gap
 
 WordPress inserts `margin-block-start: var(--wp--style--block-gap)` between the top-level children of the rendered template — between the header template part, the main group, and the footer template part (`.wp-site-blocks > * + *`). Core supplies a default gap (24px) even when the theme's `theme.json` never declares `styles.spacing.blockGap`, so a gap appears there that no markup asked for.

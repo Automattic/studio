@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	formatAiAccessRequiredNotice,
+	formatUsageCapNotice,
 	getStudioCodeAiAccessState,
 	studioAssistantQuotaSchema,
 } from '@studio/common/lib/studio-assistant-quota';
@@ -86,6 +87,21 @@ describe( 'studioAssistantQuotaSchema per-pool balances', () => {
 		const quota = studioAssistantQuotaSchema.parse( baseResponse );
 		expect( quota.allowanceRemaining ).toBeUndefined();
 		expect( quota.purchasedRemaining ).toBeUndefined();
+	} );
+} );
+
+describe( 'studioAssistantQuotaSchema reset date', () => {
+	it( 'parses a response without a reset date, leaving it undefined', () => {
+		const quota = studioAssistantQuotaSchema.parse( { cost_usage: 10, cost_cap: 100 } );
+		expect( quota.costResetDate ).toBeUndefined();
+		expect( quota.costUsage ).toBe( 10 );
+		expect( quota.costCap ).toBe( 100 );
+	} );
+
+	it( 'falls back to the try-again cap notice without a reset date', () => {
+		expect( formatUsageCapNotice( undefined, 'en-US' ) ).toBe(
+			'You’ve reached your monthly AI usage limit. Try again later.'
+		);
 	} );
 } );
 

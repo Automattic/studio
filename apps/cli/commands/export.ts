@@ -16,7 +16,7 @@ import { classifyExportFailure, untildify } from 'cli/lib/utils';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
-const logger = new Logger< LoggerAction >();
+const defaultLogger = new Logger< LoggerAction >();
 
 function sendIpcEvent( eventTuple: ExportIpcEvent[ 'event' ] ) {
 	const ipcEvent: ExportIpcEvent = { event: eventTuple };
@@ -62,7 +62,10 @@ function handleExportIpc( emitter: ImportExportEventEmitter ) {
 	} );
 }
 
-export function handleExportEvents( emitter: ImportExportEventEmitter ): void {
+export function handleExportEvents(
+	emitter: ImportExportEventEmitter,
+	logger: Logger< string > = defaultLogger
+): void {
 	emitter.on( ExportEvents.EXPORT_START, () => {
 		logger.reportStart( LoggerAction.EXPORT_SITE, __( 'Starting export…' ) );
 	} );
@@ -124,7 +127,8 @@ export async function runCommand(
 	splitDbDumpByTable = false,
 	includeOnlyPaths?: string[],
 	applyDeployIgnore = false,
-	suppressTracksEvent = false
+	suppressTracksEvent = false,
+	logger: Logger< LoggerAction > = defaultLogger
 ): Promise< void > {
 	const startedAt = Date.now();
 	try {
@@ -176,7 +180,7 @@ export async function runCommand(
 		if ( process.send ) {
 			handleExportIpc( exporter );
 		} else {
-			handleExportEvents( exporter );
+			handleExportEvents( exporter, logger );
 		}
 		await exporter.export();
 
@@ -323,10 +327,10 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				);
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {
-					logger.reportError( error );
+					defaultLogger.reportError( error );
 				} else {
 					const loggerError = new LoggerError( __( 'Failed to export site' ), error );
-					logger.reportError( loggerError );
+					defaultLogger.reportError( loggerError );
 				}
 			}
 		},

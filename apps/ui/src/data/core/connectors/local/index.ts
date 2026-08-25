@@ -909,6 +909,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			// No application menu in a browser tab.
 			return () => {};
 		},
+		onAiCreditsPurchased() {
+			// A browser tab can't receive the wp-studio:// checkout return link.
+			return () => {};
+		},
 		async disableAgenticUi() {
 			// No-op in the browser.
 		},

@@ -1,5 +1,6 @@
 import { Type } from 'typebox';
 import { runCommand as runStopSiteCommand, Mode as StopMode } from 'cli/commands/site/stop';
+import { Logger } from 'cli/logger';
 import { defineTool } from './define-tool';
 import { resolveSite, textResult } from './utils';
 
@@ -9,10 +10,14 @@ export const stopSiteTool = defineTool(
 	{
 		nameOrPath: Type.String( { description: 'The site name or file system path to the site' } ),
 	},
-	async ( args ) => {
+	async ( args, context ) => {
 		try {
 			const site = await resolveSite( args.nameOrPath );
-			await runStopSiteCommand( StopMode.STOP_SINGLE_SITE, site.path );
+			await runStopSiteCommand(
+				StopMode.STOP_SINGLE_SITE,
+				site.path,
+				new Logger( { onProgress: context.onProgress } )
+			);
 			return textResult( `Site "${ site.name }" stopped.` );
 		} catch ( error ) {
 			throw new Error(

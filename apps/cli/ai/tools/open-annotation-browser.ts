@@ -1,6 +1,5 @@
 import { Type } from 'typebox';
 import { openAnnotationBrowser } from 'cli/ai/inspector/inspector-inject';
-import { emitProgress } from 'cli/logger';
 import { defineTool } from './define-tool';
 import { textResult } from './utils';
 
@@ -12,11 +11,11 @@ export const openAnnotationBrowserTool = defineTool(
 	{
 		url: Type.String( { description: 'The site URL to open (e.g., "http://localhost:8881")' } ),
 	},
-	async ( args ) => {
+	async ( args, context ) => {
 		try {
-			emitProgress( `Opening annotation browser at ${ args.url }…` );
+			context.onProgress( `Opening annotation browser at ${ args.url }…` );
 			const message = await openAnnotationBrowser( args.url );
-			emitProgress( 'Annotation browser ready' );
+			context.onProgress( 'Annotation browser ready' );
 			return textResult( message );
 		} catch ( error ) {
 			throw new Error(

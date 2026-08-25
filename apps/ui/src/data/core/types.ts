@@ -571,6 +571,11 @@ export interface Connector {
 	// the application menu.
 	onOpenSettings( listener: () => void ): () => void;
 
+	// Fires when WordPress.com checkout sends the user back after an AI credits
+	// top-up (wp-studio://ai-credits-purchased). Desktop only — a browser tab
+	// can't receive a custom scheme.
+	onAiCreditsPurchased( listener: () => void ): () => void;
+
 	// Switches back to the legacy (classic) Studio UI.
 	disableAgenticUi(): Promise< void >;
 

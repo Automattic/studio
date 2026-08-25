@@ -1,14 +1,16 @@
 import { captureCommandOutput, textResult } from './utils';
+import type { Logger, ProgressCallback } from 'cli/logger';
 
 // Shared wrapper around the four preview-command implementations: run, capture
 // output, surface non-zero exits as tool errors.
 export async function runPreviewCommand(
-	fn: () => Promise< void >,
+	fn: ( logger: Logger< string > ) => Promise< void >,
 	fallbackMessage: string,
-	errorPrefix: string
+	errorPrefix: string,
+	onProgress?: ProgressCallback
 ) {
 	try {
-		const result = await captureCommandOutput( fn );
+		const result = await captureCommandOutput( fn, onProgress );
 		const output = result.consoleOutput || result.progressOutput || fallbackMessage;
 
 		if ( result.exitCode ) {

@@ -1,5 +1,4 @@
 import { Type } from 'typebox';
-import { emitProgress } from 'cli/logger';
 import { defineTool } from './define-tool';
 import {
 	captureScreenshotBuffer,
@@ -80,7 +79,7 @@ export const takeScreenshotTool = defineTool(
 			} )
 		),
 	},
-	async ( args ) => {
+	async ( args, context ) => {
 		try {
 			const viewportTypes = resolveViewportTypes( args.viewport );
 			const colorSchemes = resolveColorSchemes( args.colorScheme );
@@ -88,7 +87,7 @@ export const takeScreenshotTool = defineTool(
 				colorSchemes.map( ( colorScheme ) => ( { viewportType, colorScheme } ) )
 			);
 			const captureLabel = getCaptureListLabel( captureTargets );
-			emitProgress( `Taking ${ captureLabel } screenshot of ${ args.url }…` );
+			context.onProgress( `Taking ${ captureLabel } screenshot of ${ args.url }…` );
 			const captures = await Promise.all(
 				captureTargets.map( async ( { viewportType, colorScheme } ) => {
 					const capture = await captureScreenshotBuffer( args.url, VIEWPORTS[ viewportType ], {
@@ -105,7 +104,7 @@ export const takeScreenshotTool = defineTool(
 					// Progress lines persist in the CLI transcript (but not in the
 					// desktop conversation history, where the inline artifact is the
 					// UI), so this is the terminal user's only handle on the file.
-					emitProgress(
+					context.onProgress(
 						`Saved ${ getCaptureLabel( { viewportType, colorScheme } ) } screenshot to ${
 							screenshotFile.fileUrl
 						}`
@@ -156,7 +155,7 @@ export const takeScreenshotTool = defineTool(
 				captures.length === 1
 					? [ `Screenshot captured — ${ captureLines[ 0 ] }` ]
 					: [ 'Screenshots captured:', ...captureLines.map( ( line ) => `- ${ line }` ) ];
-			emitProgress( `Screenshot captured (${ captureLabel })` );
+			context.onProgress( `Screenshot captured (${ captureLabel })` );
 			return {
 				content: [
 					{

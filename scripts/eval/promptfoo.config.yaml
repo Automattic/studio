@@ -346,6 +346,58 @@ tests:
             return { pass: true, score: 1, reason: `validation passed: ${text.split(/\r?\n/).filter(Boolean).slice(0, 2).join(' | ')}` };
           });
 
+  # One-page sites get header navigation that links to page sections. The
+  # header template part renders on EVERY template (posts, archives, search,
+  # 404), and a bare-hash URL like "#contact" resolves against the current
+  # URL — it silently does nothing everywhere except the home page. Anchor
+  # nav links must be home-relative ("/#contact"). Regression guard for the
+  # one-page navigation guidance in the block-content skill.
+  - description: one-page site header nav uses home-relative anchor links
+    vars:
+      caseId: one-page-nav-anchor-links
+      timeoutMs: 600000
+      askUserPolicy: allow_all
+      prompt: |
+        First check if a site named "Eval One Page Nav" exists using
+        site_list. If it does, delete it with site_delete so we start from a
+        clean slate. Do NOT touch any other site.
+
+        Then build a one-page site named "Eval One Page Nav": a single
+        scrollable home page with Features, About, and Contact sections, and
+        a header navigation menu whose items jump to those sections. Keep the
+        design simple — no extra pages and no blog posts.
+    assert:
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const strings = [];
+            const collect = (v) => {
+              if (typeof v === 'string') strings.push(v);
+              else if (Array.isArray(v)) v.forEach(collect);
+              else if (v && typeof v === 'object') Object.values(v).forEach(collect);
+            };
+            (d.toolCalls || []).forEach(t => collect(t.input));
+            // wp_cli payloads carry markup with shell/JSON-escaped quotes;
+            // strip backslashes so one regex covers theme files and commands.
+            const flat = strings.map(s => s.replace(/\\/g, ''));
+            const links = flat.flatMap(s => s.match(/wp:navigation-link\s*\{[^}]*\}/g) || []);
+            if (links.length === 0) {
+              return { pass: false, score: 0, reason: 'no wp:navigation-link blocks were produced — the build did not exercise header section navigation' };
+            }
+            const anchorLinks = links.filter(l => /"url":"[^"]*#/.test(l));
+            if (anchorLinks.length === 0) {
+              return { pass: false, score: 0, reason: `nav links carry no anchor URLs at all — the section-jump scenario was not exercised (links: ${links.slice(0, 3).join(' | ').slice(0, 300)})` };
+            }
+            const bare = links.filter(l => /"url":"#/.test(l));
+            if (bare.length > 0) {
+              return { pass: false, score: 0, reason: `${bare.length}/${links.length} nav link(s) use bare-hash URLs, which resolve against the current URL and break on every page except home (first: ${bare[0].slice(0, 200)}). Anchor nav links must be home-relative ("/#anchor").` };
+            }
+            return { pass: true, score: 1, reason: `${anchorLinks.length} anchor nav link(s), all home-relative` };
+          });
+
   # Regression (STU-1775): the agent used to present a temporary preview site as
   # a connected WordPress.com remote site when listing what a local site is
   # connected to. We seed one connected remote site and one preview site for a
@@ -622,4 +674,81 @@ tests:
               return { pass: false, score: 0, reason: `sections apply no theme-palette colors (no color-slug attributes or --wp--preset--color-- vars) — cannot confirm the section is colored from the palette` };
             }
             return { pass: true, score: 1, reason: `sections colored from the theme palette (${paletteRefs} palette color ref(s)) with no hardcoded hex` };
+          });
+
+  # Regression: shrink-wrapped labels (eyebrows, badges, pills) used to be
+  # styled with `display: inline-block` on the block wrapper class. Constrained
+  # layouts align children with `margin-left/right: auto !important`, which only
+  # works on block-level boxes, so the label escapes the content column and hugs
+  # the edge of the full-width section. The fix is a flex row group wrapper (or
+  # styling an inner element) — never a display override on the block wrapper.
+  # The prompt deliberately elicits the pattern: a pill label above a hero
+  # heading is the canonical case where the agent reaches for inline-block.
+  - description: hero eyebrow pill keeps content-column alignment (no inline-block on block wrappers)
+    vars:
+      caseId: inline-block-constrained-alignment
+      timeoutMs: 600000
+      askUserPolicy: allow_all
+      prompt: |
+        First check if a site named "Eval Eyebrow Site" exists using
+        site_list. If it does, delete it with site_delete so we start from a
+        clean slate. Do NOT touch any other site.
+
+        Then build a simple one-page site named "Eval Eyebrow Site". The
+        homepage needs a full-width hero section whose content stays in the
+        normal content column, containing: a small uppercase eyebrow label
+        styled as a pill (rounded background that hugs the text) sitting
+        above the main heading, the main heading, and a short subtitle.
+        Keep the rest of the page minimal — no extra sections needed.
+    assert:
+      # Collect everything the agent wrote (block markup + theme CSS) and fail
+      # if any CSS rule sets an inline-level `display` on a bare block-wrapper
+      # class — i.e. a selector that is exactly `.foo` where `foo` appears in a
+      # block `className` attribute. Descendant selectors (`.foo span`) and
+      # classes never used on blocks are fine.
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const blobs = [];
+            for (const c of d.toolCalls || []) {
+              const i = c.input || {};
+              if (c.name === 'Write' || c.name === 'Edit') {
+                for (const k of ['content', 'new_string', 'replacement', 'text']) {
+                  if (typeof i[k] === 'string') blobs.push(i[k]);
+                }
+                if (Array.isArray(i.edits)) {
+                  for (const e of i.edits) if (e && typeof e.newText === 'string') blobs.push(e.newText);
+                }
+              }
+              if (c.name === 'wp_cli' && typeof i.command === 'string') blobs.push(i.command);
+            }
+            const all = blobs.join('\n');
+            if (!/<!--\s*wp:/.test(all)) {
+              return { pass: false, score: 0, reason: `no block markup found in Write/Edit/wp_cli calls; tools: ${JSON.stringify((d.toolCalls || []).map(t => t.name))}` };
+            }
+            // Class names used on block wrappers via the className attribute.
+            const blockClasses = new Set();
+            for (const m of all.matchAll(/"className"\s*:\s*"([^"]+)"/g)) {
+              for (const cls of m[1].split(/\s+/)) if (cls) blockClasses.add(cls);
+            }
+            // CSS rules that set an inline-level display. Strip CSS comments
+            // first so an anchor comment before a rule can't pollute the
+            // selector text and mask a match.
+            const scrubbed = all.replace(/\/\*[\s\S]*?\*\//g, ' ');
+            const offenders = [];
+            for (const m of scrubbed.matchAll(/([^{}]+)\{([^{}]*display\s*:\s*inline(?:-block|-flex|-grid|-table)?(?![\w-])[^{}]*)\}/g)) {
+              for (const sel of m[1].split(',')) {
+                const bare = sel.trim().match(/^\.([A-Za-z0-9_-]+)$/);
+                if (bare && blockClasses.has(bare[1])) {
+                  offenders.push(`.${bare[1]} { ${m[2].trim().slice(0, 120)} }`);
+                }
+              }
+            }
+            if (offenders.length > 0) {
+              return { pass: false, score: 0, reason: `${offenders.length} block-wrapper class(es) styled with an inline-level display, which breaks constrained-layout alignment: ${offenders.slice(0, 3).join(' | ')}` };
+            }
+            return { pass: true, score: 1, reason: `no inline-level display on block-wrapper classes (${blockClasses.size} block classes checked)` };
           });

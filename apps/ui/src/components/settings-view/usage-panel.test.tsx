@@ -1,8 +1,9 @@
 import '@testing-library/jest-dom/vitest';
-import { ADD_AI_CREDITS_URL } from '@studio/common/lib/studio-assistant-quota';
+import { getAddAiCreditsUrl } from '@studio/common/lib/studio-assistant-quota';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
+import { useAppGlobals } from '@/data/queries/use-app-globals';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
 import {
@@ -102,6 +103,10 @@ vi.mock( '@/data/queries/use-user-locale', () => ( {
 	useUserLocale: vi.fn(),
 } ) );
 
+vi.mock( '@/data/queries/use-app-globals', () => ( {
+	useAppGlobals: vi.fn(),
+} ) );
+
 // Reached through `useAgenticFeatures`, which reads the agentic-features
 // preference; this panel has no QueryClientProvider.
 vi.mock( '@/data/queries/use-user-preferences', () => ( {
@@ -118,6 +123,7 @@ const useSnapshotsMock = vi.mocked( useSnapshots );
 const useOfflineMock = vi.mocked( useOffline );
 const useStudioAssistantQuotaMock = vi.mocked( useStudioAssistantQuota );
 const useUserLocaleMock = vi.mocked( useUserLocale );
+const useAppGlobalsMock = vi.mocked( useAppGlobals );
 
 describe( 'UsagePanel', () => {
 	const loginMutate = vi.fn();
@@ -143,6 +149,7 @@ describe( 'UsagePanel', () => {
 			isLoading: false,
 		} as never );
 		useUserLocaleMock.mockReturnValue( 'en' );
+		useAppGlobalsMock.mockReturnValue( { data: { platform: 'darwin' } } as never );
 		useAuthUserMock.mockReturnValue( {
 			data: { id: 1, displayName: 'Ada Lovelace', email: 'ada@example.com' },
 			isLoading: false,
@@ -310,7 +317,25 @@ describe( 'UsagePanel', () => {
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Add AI credits' } ) );
 
-		expect( openExternalUrl ).toHaveBeenCalledWith( ADD_AI_CREDITS_URL );
+		expect( openExternalUrl ).toHaveBeenCalledWith(
+			getAddAiCreditsUrl( { returnsToDesktop: true } )
+		);
+	} );
+
+	it( 'drops the return-to-Studio link when running in a browser tab', () => {
+		useAppGlobalsMock.mockReturnValue( { data: { platform: 'browser' } } as never );
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: { costUsage: 0, costCap: 0, allowanceRemaining: 960000, purchasedRemaining: 0 },
+			isLoading: false,
+		} as never );
+
+		render( <UsagePanel /> );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Add AI credits' } ) );
+
+		expect( openExternalUrl ).toHaveBeenCalledWith(
+			getAddAiCreditsUrl( { returnsToDesktop: false } )
+		);
 	} );
 
 	it( 'opens the credits explainer dialog from the help icon', () => {

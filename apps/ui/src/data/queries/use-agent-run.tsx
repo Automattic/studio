@@ -1,5 +1,6 @@
 import { buildChatAttachmentSummaries } from '@studio/common/ai/chat-attachments';
 import { getAgentEndFailure } from '@studio/common/ai/json-events';
+import { getStudioToolProgress } from '@studio/common/ai/tool-progress';
 import { useQueryClient } from '@tanstack/react-query';
 import {
 	createContext,
@@ -473,22 +474,24 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 								),
 							] );
 						}
+					} else if ( inner.type === 'tool_execution_update' ) {
+						const progress = getStudioToolProgress( inner.partialResult );
+						if ( progress?.message.trim() ) {
+							updateCache( payload.sessionId, ( entries ) => [
+								...entries,
+								{
+									type: 'custom',
+									id: shortEntryId(),
+									parentId: null,
+									timestamp: event.timestamp,
+									customType: 'studio.tool_progress',
+									data: { message: progress.message, toolCallId: inner.toolCallId },
+								} as SessionEntry,
+							] );
+						}
 					}
 					return;
 				}
-				case 'progress':
-					updateCache( payload.sessionId, ( entries ) => [
-						...entries,
-						{
-							type: 'custom',
-							id: shortEntryId(),
-							parentId: null,
-							timestamp: event.timestamp,
-							customType: 'studio.tool_progress',
-							data: { message: event.message },
-						} as SessionEntry,
-					] );
-					return;
 				case 'chat.artifact':
 					updateCache( payload.sessionId, ( entries ) => [
 						...entries,

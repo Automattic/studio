@@ -24,23 +24,30 @@ export interface CaptureProgress {
 	current?: number;
 	total?: number;
 	url?: string;
+	elapsedMs?: number;
+	phaseElapsedMs?: number;
 }
 
 const logger = new Logger();
 
 export function captureProgressMessage( progress: CaptureProgress ): string {
-	if ( progress.phase === 'discovering' ) return __( 'Discovering website routes…' );
-	if ( progress.phase === 'finalizing' ) return __( 'Finalizing website artifact…' );
-	if ( progress.phase === 'complete' ) return __( 'Website artifact complete' );
+	const elapsedSeconds = Math.floor( ( progress.elapsedMs ?? 0 ) / 1000 );
+	if ( progress.phase === 'discovering' )
+		return sprintf( __( 'Capture: discovering website routes… %d sec elapsed' ), elapsedSeconds );
+	if ( progress.phase === 'finalizing' )
+		return sprintf( __( 'Capture: finalizing website artifact… %d sec elapsed' ), elapsedSeconds );
+	if ( progress.phase === 'complete' )
+		return sprintf( __( 'Capture complete in %d sec' ), elapsedSeconds );
 	if ( typeof progress.current === 'number' && typeof progress.total === 'number' ) {
 		return sprintf(
-			/* translators: 1: completed route count, 2: total route count */
-			__( 'Capturing route %1$d of %2$d…' ),
+			/* translators: 1: completed route count, 2: total route count, 3: elapsed seconds */
+			__( 'Capture: route %1$d of %2$d… %3$d sec elapsed' ),
 			progress.current,
-			progress.total
+			progress.total,
+			elapsedSeconds
 		);
 	}
-	return __( 'Capturing website routes…' );
+	return sprintf( __( 'Capture: capturing website routes… %d sec elapsed' ), elapsedSeconds );
 }
 
 export async function captureUrl(

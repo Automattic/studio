@@ -44,13 +44,13 @@ describe( 'captureHandler', () => {
 
 	it( 'captures a portable artifact without running content extraction', async () => {
 		vi.mocked( safeFetch ).mockResolvedValueOnce( {
-			finalUrl: 'https://www.example.com/',
+			finalUrl: 'https://www.example.com/shop?variant=compact',
 			status: 200,
 			headers: new Headers(),
 			body: Buffer.from( 'ok' ),
 		} );
 		vi.mocked( detect ).mockResolvedValueOnce( {
-			url: 'https://www.example.com/',
+			url: 'https://www.example.com/shop?variant=compact',
 			platform: 'wix',
 			confidence: 'high',
 			signals: [],
@@ -58,12 +58,15 @@ describe( 'captureHandler', () => {
 		const adapter = {
 			discover: vi.fn().mockResolvedValue( {
 				siteMeta: { title: 'Example' },
-				urls: [ { url: 'https://www.example.com/', type: 'homepage' } ],
+				urls: [
+					{ url: 'https://www.example.com/shop', type: 'homepage' },
+					{ url: 'https://www.example.com/about', type: 'page' },
+				],
 			} ),
 			extract: vi.fn(),
 		} as unknown as PlatformAdapter;
 		vi.mocked( captureScreenshots ).mockResolvedValueOnce( {
-			captured: 1,
+			captured: 2,
 			skipped: 0,
 			failed: 0,
 			browserRestarts: 0,
@@ -86,19 +89,32 @@ describe( 'captureHandler', () => {
 		expect( adapter.extract ).not.toHaveBeenCalled();
 		expect( captureScreenshots ).toHaveBeenCalledWith(
 			expect.objectContaining( {
-				urls: [ 'https://www.example.com/' ],
-				primaryUrl: 'https://www.example.com/',
+				urls: [ 'https://www.example.com/shop?variant=compact', 'https://www.example.com/about' ],
+				primaryUrl: 'https://www.example.com/shop?variant=compact',
 				captureImages: false,
 				publicUrlsOnly: true,
 			} )
 		);
 		expect( exportWebsiteCapture ).toHaveBeenCalledWith(
-			expect.objectContaining( { sourceUrl: 'https://www.example.com/', platform: 'wix' } )
+			expect.objectContaining( {
+				sourceUrl: 'https://www.example.com/shop?variant=compact',
+				platform: 'wix',
+			} )
 		);
-		expect( onProgress ).toHaveBeenCalledWith( {
-			phase: 'complete',
-			current: 1,
-			total: 1,
-		} );
+		expect( onProgress ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				phase: 'complete',
+				current: 2,
+				total: 2,
+				elapsedMs: expect.any( Number ),
+				phaseElapsedMs: expect.any( Number ),
+			} )
+		);
+		expect( onProgress.mock.calls.map( ( [ progress ] ) => progress.phase ) ).toEqual( [
+			'discovering',
+			'capturing',
+			'finalizing',
+			'complete',
+		] );
 	} );
 } );

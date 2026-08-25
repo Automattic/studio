@@ -459,7 +459,7 @@ describe( 'exportWebsiteCapture', () => {
 					path: 'website/media/localized.jpg',
 				},
 			],
-			excludedRoutes: [ 'https://example.com/' ],
+			excludedRoutes: [],
 		} );
 		expect( receipt.interactions ).toEqual( {
 			candidate_count: 1,
@@ -1253,28 +1253,30 @@ if ( existsSync( ${ JSON.stringify( join( outputDir, '.capture-export-html' ) ) 
 		mkdirSync( join( outputDir, 'screenshots' ), { recursive: true } );
 		writeFileSync(
 			join( outputDir, 'html', 'home.html' ),
-			'<h1>Canonical home</h1><a href="/about">About</a>'
+			'<h1>Canonical home</h1><a href="/shop/about">About</a><a href="/downloads/guide.pdf">Guide</a>'
 		);
 		writeFileSync( join( outputDir, 'html', 'about.html' ), '<h1>About</h1>' );
 		writeFileSync( join( outputDir, 'html', 'orphan.html' ), '<h1>Unlinked draft</h1>' );
+		writeFileSync( join( outputDir, 'html', 'guide.html' ), '<h1>Download guide</h1>' );
 		writeFileSync(
 			join( outputDir, 'screenshots', 'manifest.json' ),
 			JSON.stringify( {
 				version: 1,
 				entries: {
-					'https://example.com/home': {
+					'https://example.com/shop/home': {
 						html: 'html/home.html',
-						metadata: { openGraph: { 'og:url': 'https://example.com' } },
+						metadata: { openGraph: { 'og:url': 'https://example.com/shop' } },
 					},
-					'https://example.com/about': { html: 'html/about.html' },
-					'https://example.com/orphan': { html: 'html/orphan.html' },
+					'https://example.com/shop/about': { html: 'html/about.html' },
+					'https://example.com/shop/orphan': { html: 'html/orphan.html' },
+					'https://example.com/downloads/guide.pdf': { html: 'html/guide.html' },
 				},
 			} )
 		);
 
 		const receiptPath = exportWebsiteCapture( {
 			outputDir,
-			sourceUrl: 'https://example.com',
+			sourceUrl: 'https://example.com/shop',
 			platform: 'fake',
 			summary: {},
 			failures: [],
@@ -1282,13 +1284,21 @@ if ( existsSync( ${ JSON.stringify( join( outputDir, '.capture-export-html' ) ) 
 
 		const receipt = JSON.parse( readFileSync( receiptPath, 'utf8' ) );
 		expect( receipt.routes ).toEqual( [
-			{ url: 'https://example.com/home', path: 'website/index.html' },
-			{ url: 'https://example.com/about', path: 'website/about/index.html' },
+			{ url: 'https://example.com/shop/home', path: 'website/index.html' },
+			{ url: 'https://example.com/shop/about', path: 'website/about/index.html' },
+			{ url: 'https://example.com/shop/orphan', path: 'website/orphan/index.html' },
+			{ url: 'https://example.com/downloads/guide.pdf', path: 'website/downloads/guide.pdf' },
 		] );
-		expect( receipt.excludedRoutes ).toContain( 'https://example.com/orphan' );
+		expect( receipt.excludedRoutes ).toEqual( [] );
 		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).toContain(
 			'Canonical home'
 		);
+		expect(
+			readFileSync( join( outputDir, 'website', 'orphan', 'index.html' ), 'utf8' )
+		).toContain( 'Unlinked draft' );
+		expect(
+			readFileSync( join( outputDir, 'website', 'downloads', 'guide.pdf' ), 'utf8' )
+		).toContain( 'Download guide' );
 	} );
 
 	it( 'uses rendered Open Graph metadata when the manifest metadata is absent', () => {

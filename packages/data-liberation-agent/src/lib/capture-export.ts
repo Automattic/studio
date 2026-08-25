@@ -142,6 +142,11 @@ function routeOutputPath( url: string, sourceUrl: string, entrypointUrl: string 
 	const source = new URL( sourceUrl );
 	let pathname = decodeURIComponent( route.pathname );
 	const sourcePath = source.pathname.replace( /\/$/, '' );
+	const outsideSourcePath =
+		route.origin === source.origin &&
+		sourcePath !== '' &&
+		pathname.replace( /\/$/, '' ) !== sourcePath &&
+		! pathname.startsWith( `${ sourcePath }/` );
 
 	if ( route.origin === source.origin && sourcePath && pathname.startsWith( `${ sourcePath }/` ) ) {
 		pathname = pathname.slice( sourcePath.length );
@@ -150,7 +155,7 @@ function routeOutputPath( url: string, sourceUrl: string, entrypointUrl: string 
 	}
 
 	const cleanPath = pathname.replace( /^\/+|\/+$/g, '' );
-	if ( ! cleanPath ) return 'index.html';
+	if ( ! cleanPath ) return outsideSourcePath ? 'site-root/index.html' : 'index.html';
 	if ( /\.[a-z0-9]+$/i.test( cleanPath ) ) return cleanPath;
 	return join( cleanPath, 'index.html' );
 }
@@ -648,15 +653,10 @@ function portableMediaBasename( candidate: MediaCandidate ): string {
 	) }${ sourceExtension.toLowerCase() }`;
 }
 
-function routeInSourceScope( url: string, sourceUrl: string ): boolean {
+function routeMatchesSourceOrigin( url: string, sourceUrl: string ): boolean {
 	const route = new URL( url );
 	const source = new URL( sourceUrl );
-	const sourcePath = source.pathname.replace( /\/$/, '' );
-	const routePath = route.pathname.replace( /\/$/, '' );
-	return (
-		route.origin === source.origin &&
-		( routePath === sourcePath || routePath.startsWith( `${ sourcePath }/` ) )
-	);
+	return route.origin === source.origin;
 }
 
 function capturedResources( outputDir: string ): CapturedResourceManifest {
@@ -939,7 +939,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 	const interactionPages: InteractionStatesReport[] = [];
 	const excludedRoutes: string[] = [];
 	for ( const [ url, entry ] of Object.entries( capture.entries ) ) {
-		if ( ! routeInSourceScope( url, options.sourceUrl ) ) {
+		if ( ! routeMatchesSourceOrigin( url, options.sourceUrl ) ) {
 			excludedRoutes.push( url );
 			continue;
 		}
@@ -986,46 +986,6 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		);
 	}
 	const entrypointUrl = entrypointCandidates[ 0 ].url;
-	const capturedRouteByReference = new Map< string, string >();
-	for ( const entry of retainedEntries ) {
-		const route = normalizedUrl( entry.url );
-		capturedRouteByReference.set( route, route );
-		if ( entry.canonicalUrl )
-			capturedRouteByReference.set( normalizedUrl( entry.canonicalUrl ), route );
-	}
-	const routeLinks = new Map< string, Set< string > >();
-	for ( const entry of retainedEntries ) {
-		const $ = cheerio.load( readFileSync( entry.htmlPath, 'utf8' ) );
-		const links = new Set< string >();
-		$( 'a[href]' ).each( ( _index, element ) => {
-			try {
-				const linkedUrl = new URL( $( element ).attr( 'href' )!, entry.url );
-				const linkedRoute = capturedRouteByReference.get( normalizedUrl( linkedUrl.href ) );
-				if ( linkedRoute ) links.add( linkedRoute );
-			} catch {
-				// Invalid browser references are handled by dependency validation below.
-			}
-		} );
-		routeLinks.set( normalizedUrl( entry.url ), links );
-	}
-	const reachableRoutes = new Set< string >();
-	const routeQueue = [ normalizedUrl( entrypointUrl ) ];
-	while ( routeQueue.length > 0 ) {
-		const route = routeQueue.shift()!;
-		if ( reachableRoutes.has( route ) ) continue;
-		reachableRoutes.add( route );
-		for ( const linkedRoute of routeLinks.get( route ) ?? [] ) {
-			if ( ! reachableRoutes.has( linkedRoute ) ) routeQueue.push( linkedRoute );
-		}
-	}
-	const reachableEntries = retainedEntries.filter( ( entry ) =>
-		reachableRoutes.has( normalizedUrl( entry.url ) )
-	);
-	for ( const entry of retainedEntries ) {
-		if ( ! reachableEntries.includes( entry ) ) excludedRoutes.push( entry.url );
-	}
-	retainedEntries.splice( 0, retainedEntries.length, ...reachableEntries );
-
 	const mediaReplacements = new Map< string, string >();
 	const unresolvedMedia: Array< { url: string; error: string } > = [];
 	const assets: Array< { sourceUrl: string; path: string } > = [];

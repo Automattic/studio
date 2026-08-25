@@ -112,8 +112,10 @@ const STATIC_SITE_IMPORT_STATE_FILE = 'state.json';
 const STATIC_SITE_IMPORT_CANONICAL_DOCUMENTS_FILE = 'client-canonical-documents.json';
 const STATIC_SITE_IMPORT_CANONICAL_UPDATES_FILE = 'client-canonical-updates.json';
 const MAX_STATIC_SITE_IMPORT_INVOCATIONS = 10000;
+const STATIC_SITE_IMPORT_PROGRESS_INTERVAL_MS = 30_000;
 const DATA_LIBERATION_CAPTURE_RECEIPT_SCHEMA = 'data-liberation/capture-receipt/v1';
 type StaticSiteImportIdentity = { url: string; contract: string; phase?: 'cleanup_pending' };
+type StaticSiteImportProgressPhase = 'dependency-preparation' | 'compiler-import' | 'finalization';
 
 type StaticSiteImporterSource =
 	| {
@@ -902,6 +904,26 @@ foreach ( $documents as $document ) {
 	fs.rmSync( documentsPath, { force: true } );
 }
 
+export function staticSiteImportProgressMessage(
+	phase: StaticSiteImportProgressPhase,
+	elapsedMs: number,
+	invocation = 1
+): string {
+	const elapsedSeconds = Math.floor( elapsedMs / 1000 );
+	if ( phase === 'dependency-preparation' ) {
+		return sprintf( __( 'Dependency preparation… %d sec elapsed' ), elapsedSeconds );
+	}
+	if ( phase === 'compiler-import' ) {
+		return sprintf(
+			/* translators: 1: importer invocation, 2: elapsed seconds */
+			__( 'Compiler/import… invocation %1$d, %2$d sec elapsed' ),
+			invocation,
+			elapsedSeconds
+		);
+	}
+	return sprintf( __( 'Finalization… %d sec elapsed' ), elapsedSeconds );
+}
+
 async function runStaticSiteImport(
 	site: SiteData,
 	code: string,
@@ -915,6 +937,7 @@ async function runStaticSiteImport(
 	const scriptName = 'import.php';
 	const scriptPath = path.join( stagingDir, scriptName );
 	const resultPath = path.join( stagingDir, STATIC_SITE_IMPORT_RESULT_FILE );
+	const statePath = path.join( stagingDir, STATIC_SITE_IMPORT_STATE_FILE );
 	if ( ! resume ) {
 		fs.mkdirSync( stagingDir, { recursive: true } );
 		if ( stagedSource ) {
@@ -928,29 +951,33 @@ async function runStaticSiteImport(
 	}
 
 	const liveOutput = getSiteRuntime( site ) === SITE_RUNTIME_NATIVE_PHP;
+	let finalizationStartedAt: number | undefined;
 	for ( let invocation = 1; invocation <= MAX_STATIC_SITE_IMPORT_INVOCATIONS; invocation++ ) {
 		fs.rmSync( resultPath, { force: true } );
-		logger.reportStart( LoggerAction.IMPORT_SITE, __( 'Importing static site…' ) );
-		await using command = await runWpCliCommandWithMessaging(
-			site,
-			[ 'eval-file', `${ path.basename( stagingDir ) }/${ scriptName }` ],
-			liveOutput ? { liveOutput, onLiveOutput: () => logger.spinner.stop() } : {}
-		);
+		const phase: StaticSiteImportProgressPhase =
+			invocation === 1 && ! resume && ! fs.existsSync( statePath )
+				? 'dependency-preparation'
+				: 'compiler-import';
 		const startedAt = Date.now();
+		logger.reportStart(
+			LoggerAction.IMPORT_SITE,
+			staticSiteImportProgressMessage( phase, 0, invocation )
+		);
 		const progressTimer = setInterval( () => {
-			const elapsedMinutes = Math.max( 1, Math.floor( ( Date.now() - startedAt ) / 60_000 ) );
 			logger.reportProgress(
-				sprintf(
-					__( 'Importing static site… invocation %1$d, %2$d min elapsed' ),
-					invocation,
-					elapsedMinutes
-				)
+				staticSiteImportProgressMessage( phase, Date.now() - startedAt, invocation )
 			);
-		}, 60_000 );
+		}, STATIC_SITE_IMPORT_PROGRESS_INTERVAL_MS );
+		progressTimer.unref?.();
 		let exitCode: number;
 		let stdout: string;
 		let stderr: string;
 		try {
+			await using command = await runWpCliCommandWithMessaging(
+				site,
+				[ 'eval-file', `${ path.basename( stagingDir ) }/${ scriptName }` ],
+				liveOutput ? { liveOutput, onLiveOutput: () => logger.spinner.stop() } : {}
+			);
 			[ exitCode, stdout, stderr ] = await Promise.all( [
 				command.response.exitCode,
 				command.response.stdoutText,
@@ -959,6 +986,9 @@ async function runStaticSiteImport(
 		} finally {
 			clearInterval( progressTimer );
 		}
+		logger.reportProgress(
+			staticSiteImportProgressMessage( phase, Date.now() - startedAt, invocation )
+		);
 		if ( exitCode !== 0 ) {
 			throw new LoggerError(
 				__( 'Static site import failed.' ),
@@ -988,6 +1018,8 @@ async function runStaticSiteImport(
 			if ( ! preserveResult ) fs.rmSync( resultPath, { force: true } );
 		}
 		if ( ! result.continuation ) {
+			finalizationStartedAt = Date.now();
+			logger.reportProgress( staticSiteImportProgressMessage( 'finalization', 0 ) );
 			if ( result.canonicalization_pending ) {
 				const startForCanonicalization = ! site.running;
 				if ( startForCanonicalization ) {
@@ -1025,14 +1057,21 @@ async function runStaticSiteImport(
 			throw new LoggerError( __( 'Static site import exceeded its continuation limit.' ) );
 		}
 	}
-	logger.reportSuccess( __( 'Static site imported successfully' ) );
 	if ( identity ) {
 		fs.writeFileSync(
 			staticSiteImportIdentityPath( site.path ),
 			JSON.stringify( { ...identity, phase: 'cleanup_pending' } )
 		);
 	}
-	return cleanupStaticSiteImporterPlugin( site );
+	const cleanupSucceeded = await cleanupStaticSiteImporterPlugin( site );
+	logger.reportProgress(
+		staticSiteImportProgressMessage(
+			'finalization',
+			finalizationStartedAt === undefined ? 0 : Date.now() - finalizationStartedAt
+		)
+	);
+	logger.reportSuccess( __( 'Static site imported successfully' ) );
+	return cleanupSucceeded;
 }
 
 async function cleanupStaticSiteImporterPlugin( site: SiteData ): Promise< boolean > {

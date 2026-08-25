@@ -13,12 +13,22 @@ export interface CaptureProgress {
 	current?: number;
 	total?: number;
 	url?: string;
+	elapsedMs?: number;
+	phaseElapsedMs?: number;
 }
 
 interface CaptureInventory {
 	siteMeta?: { title?: string };
 	urls?: Array< { url: string; type: string } >;
 	diagnostics?: Array< { code: string; url: string; reason: string } >;
+}
+
+function captureRouteKey( url: string ): string {
+	const route = new URL( url );
+	route.hash = '';
+	route.search = '';
+	route.pathname = route.pathname.replace( /\/$/, '' ) || '/';
+	return route.href;
 }
 
 export async function downloadCaptureSectionMedia(
@@ -34,9 +44,7 @@ export async function downloadCaptureSectionMedia(
 			for ( const section of store.get( url ) ?? [] ) {
 				for ( const image of [
 					...( section.images ?? [] ),
-					...( section.cells ?? [] ).flatMap( ( cell ) =>
-						cell.image ? [ cell.image ] : []
-					),
+					...( section.cells ?? [] ).flatMap( ( cell ) => ( cell.image ? [ cell.image ] : [] ) ),
 				] ) {
 					sectionUrls.push( image.sourceUrl || image.url );
 				}
@@ -69,11 +77,24 @@ export async function captureWebsite(
 		typeof args.onProgress === 'function'
 			? ( args.onProgress as ( progress: CaptureProgress ) => void )
 			: undefined;
+	const startedAt = Date.now();
+	let phase = '';
+	let phaseStartedAt = startedAt;
 	const progress = ( event: CaptureProgress ): void => {
-		onProgress?.( event );
+		const now = Date.now();
+		if ( event.phase !== phase ) {
+			phase = event.phase;
+			phaseStartedAt = now;
+		}
+		const timedEvent = {
+			...event,
+			elapsedMs: now - startedAt,
+			phaseElapsedMs: now - phaseStartedAt,
+		};
+		onProgress?.( timedEvent );
 		void context.server?.sendLoggingMessage?.( {
 			level: 'info',
-			data: JSON.stringify( { type: 'capture_progress', ...event } ),
+			data: JSON.stringify( { type: 'capture_progress', ...timedEvent } ),
 		} );
 	};
 
@@ -90,7 +111,13 @@ export async function captureWebsite(
 		outputDir,
 		resume: args.resume === true,
 	} ) ) as CaptureInventory;
-	const urls = ( inventory.urls ?? [] ).map( ( entry ) => entry.url );
+	const sourceRoute = captureRouteKey( sourceUrl );
+	const urls = [
+		sourceUrl,
+		...( inventory.urls ?? [] )
+			.map( ( entry ) => entry.url )
+			.filter( ( url ) => captureRouteKey( url ) !== sourceRoute ),
+	];
 	progress( { phase: 'capturing', current: 0, total: urls.length } );
 
 	const { captureScreenshots } = await import( './screenshot/screenshotter.js' );

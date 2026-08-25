@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { captureUrl } from '../capture';
+import { captureProgressMessage, captureUrl } from '../capture';
 
 const dirs: string[] = [];
 
@@ -11,6 +11,20 @@ afterEach( () => {
 } );
 
 describe( 'CLI: studio capture', () => {
+	it( 'reports bounded capture counts with elapsed timing', () => {
+		expect(
+			captureProgressMessage( {
+				phase: 'capturing',
+				current: 7,
+				total: 20,
+				elapsedMs: 65_999,
+			} )
+		).toBe( 'Capture: route 7 of 20… 65 sec elapsed' );
+		expect( captureProgressMessage( { phase: 'finalizing', elapsedMs: 70_000 } ) ).toBe(
+			'Capture: finalizing website artifact… 70 sec elapsed'
+		);
+	} );
+
 	it( 'returns the canonical artifact emitted by the acquisition engine', async () => {
 		const outputDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-capture-' ) );
 		dirs.push( outputDir );

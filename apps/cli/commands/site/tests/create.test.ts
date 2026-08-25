@@ -52,7 +52,12 @@ import {
 	stopWordPressServer,
 } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
-import { buildCreateFromSourceBlueprint, registerCommand, runCommand } from '../create';
+import {
+	buildCreateFromSourceBlueprint,
+	registerCommand,
+	runCommand,
+	staticSiteImportProgressMessage,
+} from '../create';
 
 vi.mock( '@studio/common/lib/fs-utils' );
 vi.mock( '@studio/common/lib/network-utils' );
@@ -118,6 +123,18 @@ vi.mock( '@studio/common/lib/get-wordpress-version' );
 describe( 'CLI: studio create', () => {
 	const mockSitePath = '/test/site/new-site';
 	const mockPort = 8881;
+
+	it( 'reports distinct bounded static import phases with elapsed timing', () => {
+		expect( staticSiteImportProgressMessage( 'dependency-preparation', 65_999 ) ).toBe(
+			'Dependency preparation… 65 sec elapsed'
+		);
+		expect( staticSiteImportProgressMessage( 'compiler-import', 125_000, 3 ) ).toBe(
+			'Compiler/import… invocation 3, 125 sec elapsed'
+		);
+		expect( staticSiteImportProgressMessage( 'finalization', 9_999 ) ).toBe(
+			'Finalization… 9 sec elapsed'
+		);
+	} );
 
 	const defaultTestOptions = {
 		wpVersion: 'latest',

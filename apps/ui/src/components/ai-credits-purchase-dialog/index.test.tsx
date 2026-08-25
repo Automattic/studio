@@ -51,22 +51,22 @@ describe( 'AiCreditsPurchaseDialog', () => {
 	it( 'offers a card per priced amount, showing the store’s price', () => {
 		renderDialog();
 
-		expect( screen.getByText( '100,000 AI credits' ) ).toBeInTheDocument();
-		expect( screen.getByText( '£37.50 one time' ) ).toBeInTheDocument();
+		expect( screen.getByText( '£7.50' ) ).toBeInTheDocument();
+		expect( screen.getByText( '100,000 credits' ) ).toBeInTheDocument();
 		expect( screen.getAllByRole( 'radio' ) ).toHaveLength( 4 );
 	} );
 
 	it( 'preselects the cheapest amount and names its price on the button', () => {
 		renderDialog();
 
-		expect( screen.getByRole( 'radio', { name: /100,000 AI credits/ } ) ).toBeChecked();
+		expect( screen.getByRole( 'radio', { name: /100,000 credits/ } ) ).toBeChecked();
 		expect( screen.getByRole( 'button', { name: 'Continue for £7.50' } ) ).toBeInTheDocument();
 	} );
 
 	it( 'follows the selection, and checks out the amount that is selected', () => {
 		renderDialog();
 
-		fireEvent.click( screen.getByRole( 'radio', { name: /500,000 AI credits/ } ) );
+		fireEvent.click( screen.getByRole( 'radio', { name: /500,000 credits/ } ) );
 		expect( screen.getByRole( 'button', { name: 'Continue for £37.50' } ) ).toBeInTheDocument();
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Continue for £37.50' } ) );

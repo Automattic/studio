@@ -3,7 +3,6 @@ import {
 	formatContinueForPriceLabel,
 	formatPurchaseCreditsDescription,
 	formatTopUpOptionCreditsLabel,
-	formatTopUpOptionPriceLabel,
 } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import { __ } from '@wordpress/i18n';
 import { Dialog } from '@wordpress/ui';
@@ -75,10 +74,10 @@ export function AiCreditsPurchaseDialog( {
 									onClick={ () => setSelectedCredits( option.credits ) }
 								>
 									<span className="text-frame-text text-base font-semibold">
-										{ formatTopUpOptionCreditsLabel( option, locale ) }
+										{ option.display }
 									</span>
-									<span className="text-frame-text-secondary text-xs">
-										{ formatTopUpOptionPriceLabel( option ) }
+									<span className="text-frame-text-secondary text-sm">
+										{ formatTopUpOptionCreditsLabel( option, locale ) }
 									</span>
 								</button>
 							);

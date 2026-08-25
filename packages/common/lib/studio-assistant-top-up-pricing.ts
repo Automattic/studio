@@ -86,26 +86,19 @@ export function formatPurchaseCreditsDescription(): string {
 	);
 }
 
-/** Headline on a top-up card: how many credits the amount buys. */
+/**
+ * Subline on a top-up card: how many credits the amount buys. The price leads
+ * the card and comes straight from the store, so this only formats the count
+ * for the reader's locale.
+ */
 export function formatTopUpOptionCreditsLabel(
 	option: Pick< StudioAssistantTopUpOption, 'credits' >,
 	locale?: string
 ): string {
 	return sprintf(
 		/* translators: %s: number of AI credits (e.g. 100,000). */
-		__( '%s AI credits' ),
+		__( '%s credits' ),
 		new Intl.NumberFormat( locale ).format( option.credits )
-	);
-}
-
-/** Subline on a top-up card: what the store charges, once. */
-export function formatTopUpOptionPriceLabel(
-	option: Pick< StudioAssistantTopUpOption, 'display' >
-): string {
-	return sprintf(
-		/* translators: %s: price as the store formats it (e.g. US$10, £7.50). */
-		__( '%s one time' ),
-		option.display
 	);
 }
 

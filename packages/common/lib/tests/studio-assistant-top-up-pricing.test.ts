@@ -3,7 +3,6 @@ import { getAddAiCreditsUrl } from '@studio/common/lib/studio-assistant-quota';
 import {
 	formatContinueForPriceLabel,
 	formatTopUpOptionCreditsLabel,
-	formatTopUpOptionPriceLabel,
 	parseStudioAssistantTopUpPricing,
 	studioAssistantTopUpPricingSchema,
 } from '@studio/common/lib/studio-assistant-top-up-pricing';
@@ -79,11 +78,7 @@ describe( 'purchase dialog copy', () => {
 	const option = { credits: 100000, display: '£7.50' };
 
 	it( 'says how many credits an amount buys, formatted for the reader', () => {
-		expect( formatTopUpOptionCreditsLabel( option, 'en-US' ) ).toBe( '100,000 AI credits' );
-	} );
-
-	it( 'shows the store’s price verbatim, marked as a one-off', () => {
-		expect( formatTopUpOptionPriceLabel( option ) ).toBe( '£7.50 one time' );
+		expect( formatTopUpOptionCreditsLabel( option, 'en-US' ) ).toBe( '100,000 credits' );
 	} );
 
 	it( 'names the price on the confirm button', () => {

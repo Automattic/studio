@@ -635,6 +635,7 @@ async function capturePerViewport( args: CapturePerViewportArgs ): Promise< void
 	if ( ! isDesktop && plan.captureMobileHtml ) {
 		try {
 			const mhtml = sanitizeFrozenHtml( await capturePageHtml( page ) );
+			await resourceStore.captureDomDependencies( mhtml, url );
 			if ( ! isStackingArtifact( mhtml ) ) {
 				mkdirSync( dirname( plan.paths.htmlMobile ), { recursive: true } );
 				writeFileSync( plan.paths.htmlMobile, mhtml );

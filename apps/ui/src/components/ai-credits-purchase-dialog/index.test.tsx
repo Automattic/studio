@@ -23,13 +23,11 @@ const useAppGlobalsMock = vi.mocked( useAppGlobals );
 // A currency whose price can't be reconstructed from the minor units — the
 // cards must echo `display` rather than compute anything.
 const gbpPricing: StudioAssistantTopUpPricing = {
-	currency: 'GBP',
-	step: null,
 	options: [
-		{ credits: 100000, amountMinor: 750, display: '£7.50' },
-		{ credits: 200000, amountMinor: 1500, display: '£15' },
-		{ credits: 500000, amountMinor: 3750, display: '£37.50' },
-		{ credits: 1000000, amountMinor: 7500, display: '£75' },
+		{ credits: 100000, display: '£7.50' },
+		{ credits: 200000, display: '£15' },
+		{ credits: 500000, display: '£37.50' },
+		{ credits: 1000000, display: '£75' },
 	],
 };
 
@@ -108,7 +106,7 @@ describe( 'AiCreditsPurchaseDialog', () => {
 
 	it( 'cannot check out when nothing could be priced', () => {
 		usePricingMock.mockReturnValue( {
-			data: { currency: 'GBP', step: null, options: [] },
+			data: { options: [] },
 			isLoading: false,
 		} as never );
 

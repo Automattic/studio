@@ -8,8 +8,9 @@ import {
 } from '@studio/common/lib/studio-assistant-top-up-pricing';
 
 // The shape the endpoint documents, in a currency whose price can't be
-// reconstructed from the minor units by a naive `amount_minor / 100` — the
-// point being that only `display` is ever shown.
+// reconstructed by a naive `amount / 100` — the point being that only
+// `display` is ever shown. `currency`, `step` and `amount_minor` ride along
+// unread, as they do in the real response.
 const gbpResponse = {
 	currency: 'GBP',
 	step: { credits: 10000, amount_minor: 75, display: '£0.75' },
@@ -24,14 +25,12 @@ const gbpResponse = {
 describe( 'studioAssistantTopUpPricingSchema', () => {
 	it( 'keeps the store’s formatted price verbatim', () => {
 		const pricing = studioAssistantTopUpPricingSchema.parse( gbpResponse );
-		expect( pricing.currency ).toBe( 'GBP' );
 		expect( pricing.options.map( ( option ) => option.display ) ).toEqual( [
 			'£7.50',
 			'£15',
 			'£37.50',
 			'£75',
 		] );
-		expect( pricing.step?.display ).toBe( '£0.75' );
 	} );
 
 	it( 'sorts options cheapest first whatever order the server sends', () => {
@@ -52,14 +51,13 @@ describe( 'studioAssistantTopUpPricingSchema', () => {
 		expect( pricing.options ).toHaveLength( 2 );
 	} );
 
-	it( 'accepts a priced-nothing response: no options and no step', () => {
+	it( 'accepts a priced-nothing response', () => {
 		const pricing = studioAssistantTopUpPricingSchema.parse( {
 			currency: 'GBP',
 			options: [],
 			step: null,
 		} );
 		expect( pricing.options ).toEqual( [] );
-		expect( pricing.step ).toBeNull();
 	} );
 } );
 
@@ -71,6 +69,9 @@ describe( 'parseStudioAssistantTopUpPricing', () => {
 	it( 'resolves null rather than throwing on an unusable response', () => {
 		expect( parseStudioAssistantTopUpPricing( { nope: true } ) ).toBeNull();
 		expect( parseStudioAssistantTopUpPricing( null ) ).toBeNull();
+		// An option missing its price is unusable too — the card has nothing
+		// to show and nothing to charge.
+		expect( parseStudioAssistantTopUpPricing( { options: [ { credits: 100000 } ] } ) ).toBeNull();
 	} );
 } );
 

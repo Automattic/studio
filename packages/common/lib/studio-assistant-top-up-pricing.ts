@@ -4,40 +4,31 @@ import { z } from 'zod';
 export const STUDIO_ASSISTANT_TOP_UP_PRICING_URL =
 	'https://public-api.wordpress.com/wpcom/v2/studio-app/ai-assistant/top-up-pricing';
 
-// One purchasable quantity as the store prices it. `display` is the only
-// field that may be shown: the store decides how a price reads in the
-// account's currency (symbol, separators, whether the minor units appear at
-// all), and reconstructing that from `amount_minor` gets it wrong for every
-// currency that isn't two-decimal dollars.
-const topUpPriceSchema = z
-	.object( {
-		credits: z.number(),
-		// Minor units of `currency` (cents, yen). Analytics and sorting only.
-		amount_minor: z.number(),
-		display: z.string(),
-	} )
-	.transform( ( data ) => ( {
-		credits: data.credits,
-		amountMinor: data.amount_minor,
-		display: data.display,
-	} ) );
+// One purchasable quantity as the store prices it. `display` is shown as-is:
+// the store decides how a price reads in the account's currency (symbol,
+// separators, whether the minor units appear at all), and reconstructing that
+// ourselves gets it wrong for every currency that isn't two-decimal dollars.
+//
+// The response also carries `currency`, a `step` for free-entry amounts, and
+// `amount_minor` per option. Nothing renders them, and zod drops what it
+// isn't asked for — add them back here the day a surface needs them.
+const topUpPriceSchema = z.object( {
+	credits: z.number(),
+	display: z.string(),
+} );
 
 export const studioAssistantTopUpPricingSchema = z
 	.object( {
-		// Always present, even when nothing could be priced.
-		currency: z.string(),
 		// Empty when pricing is unavailable, and not necessarily four entries
-		// long — surfaces render whatever comes back.
-		options: z.array( topUpPriceSchema ).default( [] ),
-		// Minimum purchase and increment for a free-entry amount; null when the
-		// store can't price one.
-		step: topUpPriceSchema.nullable().optional(),
+		// long — surfaces render whatever comes back. Required, not defaulted:
+		// it is the only field left to check, so without it an unusable
+		// response would parse as "nothing priced" instead of failing.
+		options: z.array( topUpPriceSchema ),
 	} )
 	.transform( ( data ) => ( {
-		currency: data.currency,
-		// Cheapest first regardless of the order the server sends.
-		options: [ ...data.options ].sort( ( a, b ) => a.amountMinor - b.amountMinor ),
-		step: data.step ?? null,
+		// Cheapest first regardless of the order the server sends. More credits
+		// cost more, so the credit count orders them without the minor units.
+		options: [ ...data.options ].sort( ( a, b ) => a.credits - b.credits ),
 	} ) );
 
 export type StudioAssistantTopUpOption = z.infer< typeof topUpPriceSchema >;

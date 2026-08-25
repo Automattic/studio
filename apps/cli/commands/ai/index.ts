@@ -63,7 +63,7 @@ import {
 	TRACKS_EVENTS,
 	type TracksEventName,
 } from 'cli/lib/tracks';
-import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
+import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 import type { SessionManager } from '@earendil-works/pi-coding-agent';
 import type {
@@ -251,12 +251,6 @@ export async function runCommand( options: {
 			} )
 		);
 	}
-
-	setProgressCallback( ( message, update ) => {
-		ui.setLoaderMessage( message, update );
-		if ( ! message.trim() ) return;
-		void append( ( sm ) => appendStudioEntry( sm, 'studio.tool_progress', { message } ) );
-	} );
 
 	setChatArtifactCallback( ( artifact ) =>
 		append( ( sm ) => appendStudioEntry( sm, 'studio.chat_artifact', artifact ) )

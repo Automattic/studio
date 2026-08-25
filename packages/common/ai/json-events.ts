@@ -23,7 +23,6 @@ export interface AgentMessageJsonEvent {
 
 export type JsonEvent =
 	| AgentMessageJsonEvent
-	| { type: 'progress'; timestamp: string; message: string }
 	| { type: 'info'; timestamp: string; message: string }
 	| { type: 'error'; timestamp: string; message: string }
 	| { type: 'chat.artifact'; timestamp: string; artifact: StudioChatArtifactData }

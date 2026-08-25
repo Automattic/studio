@@ -24,6 +24,7 @@ describe( 'formatElapsedTime', () => {
 		[ 5266, '1h 27m 46s' ],
 		[ 3601, '1h 1s' ],
 		[ -5, '0s' ],
+		[ 1.9, '1s' ],
 	] )( 'formats %i seconds as %s', ( seconds, expected ) => {
 		expect( formatElapsedTime( seconds ) ).toBe( expected );
 	} );

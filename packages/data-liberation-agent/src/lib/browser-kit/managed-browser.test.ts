@@ -284,6 +284,33 @@ describe('createManagedBrowser', () => {
 });
 
 describe('launchBrowser close()', () => {
+  it('closes a browser that connects after the deadline', async () => {
+    vi.useFakeTimers();
+    try {
+      let resolveLaunch!: (browser: unknown) => void;
+      const browserClose = vi.fn(async () => {});
+      mockPwLaunch.mockReturnValueOnce(new Promise((resolve) => { resolveLaunch = resolve; }));
+
+      const { launchBrowser } = await vi.importActual<typeof import('./browser-kit.js')>(
+        './browser-kit.js'
+      );
+      const pendingRejects = expect(launchBrowser({})).rejects.toThrow('browser connect timed out');
+      await vi.advanceTimersByTimeAsync(60_000);
+      await pendingRejects;
+
+      resolveLaunch({
+        contexts: () => [],
+        newContext: vi.fn(),
+        close: browserClose,
+        isConnected: () => true,
+      });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(browserClose).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('still closes the browser when page.close() hangs', async () => {
     vi.useFakeTimers();
     try {

@@ -49,7 +49,14 @@ export async function launchBrowser(opts: { cdpPort?: number; headed?: boolean }
   page: unknown;
   close: () => Promise<void>;
 }> {
-  const raw = await withTimeout(connectBrowser(opts), CONNECT_TIMEOUT_MS, 'browser connect');
+  const raw = await withTimeout(
+    connectBrowser(opts),
+    CONNECT_TIMEOUT_MS,
+    'browser connect',
+    (late) => {
+      void withTimeout(late.close(), CLOSE_TIMEOUT_MS, 'late browser close').catch(() => {});
+    }
+  );
   const browser = raw as unknown as PwBrowser;
 
   const newContext = () =>

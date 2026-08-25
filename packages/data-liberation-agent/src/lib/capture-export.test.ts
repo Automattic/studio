@@ -691,8 +691,8 @@ describe( 'exportWebsiteCapture', () => {
 		dirs.push( outputDir );
 		for ( const path of [ 'html', 'html-mobile', 'screenshots' ] )
 			mkdirSync( join( outputDir, path ), { recursive: true } );
-		const routeCount = 40;
-		const content = 'x'.repeat( 512 * 1024 );
+		const routeCount = 16;
+		const content = 'x'.repeat( 256 * 1024 );
 		const entries: Record< string, { html: string } > = {};
 		for ( let index = 0; index < routeCount; index++ ) {
 			const name = index === 0 ? 'homepage' : `page-${ index }`;
@@ -739,13 +739,13 @@ if ( existsSync( ${ JSON.stringify( join( outputDir, '.capture-export-html' ) ) 
 		);
 		const result = spawnSync(
 			process.execPath,
-			[ '--max-old-space-size=384', '--import', 'tsx', runnerPath ],
-			{ cwd: process.cwd(), encoding: 'utf8', timeout: 90_000 }
+			[ '--max-old-space-size=128', '--import', 'tsx', runnerPath ],
+			{ cwd: process.cwd(), encoding: 'utf8', timeout: 60_000 }
 		);
 
 		expect( result.error ).toBeUndefined();
 		expect( result.status, result.stderr ).toBe( 0 );
-	}, 100_000 );
+	}, 70_000 );
 
 	it( 'preserves the rendered authoring tree when section reconstruction lacks visual proof', () => {
 		const outputDir = mkdtempSync( join( tmpdir(), 'dla-capture-export-' ) );

@@ -91,10 +91,10 @@ describe( 'AiCreditsTopUpOptions', () => {
 		render( <AiCreditsTopUpOptions /> );
 
 		expect( screen.getAllByRole( 'button' ).map( ( button ) => button.textContent ) ).toEqual( [
-			'100,000 credits · £7.50',
-			'200,000 credits · £15',
-			'500,000 credits · £37.50',
-			'1,000,000 credits · £75',
+			'100,000 · £7.50',
+			'200,000 · £15',
+			'500,000 · £37.50',
+			'1,000,000 · £75',
 		] );
 	} );
 
@@ -102,7 +102,7 @@ describe( 'AiCreditsTopUpOptions', () => {
 		mockPricing( gbpPricing );
 		render( <AiCreditsTopUpOptions /> );
 
-		fireEvent.click( screen.getByText( '500,000 credits · £37.50' ) );
+		fireEvent.click( screen.getByText( '500,000 · £37.50' ) );
 		expect( openExternalUrl ).toHaveBeenCalledWith(
 			'https://wordpress.com/checkout/wpcom/studio-code-ai-credits:-q-500000'
 		);

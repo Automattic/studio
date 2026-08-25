@@ -119,7 +119,7 @@ function AiCreditsSummary() {
 						) }
 					</div>
 				</div>
-				<AiCreditsTopUpOptions className={ styles.usageSectionAction } />
+				<AiCreditsTopUpOptions className={ styles.usageSectionAction } withHeading />
 			</>
 		);
 	} else if ( quota && quota.costCap > 0 ) {

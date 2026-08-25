@@ -125,7 +125,7 @@ export function PromptInfo() {
 							maxValue={ assistantQuotaWithCostCap.costCap }
 						/>
 					) }
-					{ creditBalances && <AiCreditsTopUpOptions className="self-start" /> }
+					{ creditBalances && <AiCreditsTopUpOptions className="self-start" withHeading /> }
 				</div>
 				<div className="h-6 w-6"></div>
 			</div>

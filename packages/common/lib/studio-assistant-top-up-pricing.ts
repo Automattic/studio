@@ -44,44 +44,14 @@ export type StudioAssistantTopUpOption = z.infer< typeof topUpPriceSchema >;
 export type StudioAssistantTopUpPricing = z.infer< typeof studioAssistantTopUpPricingSchema >;
 
 /**
- * TODO(STU-2326): `/top-up-pricing` is not deployed yet. While this is true
- * the client answers from the stand-in below whenever the request fails, so
- * the top-up UI can be built and reviewed against a realistic response. Set
- * it to false (and delete the placeholder) once the endpoint ships — a build
- * that reaches users must never show prices the store didn't quote.
- */
-const USE_PLACEHOLDER_TOP_UP_PRICING = true;
-
-// Mirrors the quantities the current single top-up uses: credits are the same
-// 1/10000 USD units the quota reports, so 100000 credits is the $10 top-up.
-const PLACEHOLDER_TOP_UP_PRICING_RESPONSE = {
-	currency: 'USD',
-	step: { credits: 10000, amount_minor: 100, display: '$1' },
-	options: [
-		{ credits: 100000, amount_minor: 1000, display: '$10' },
-		{ credits: 200000, amount_minor: 2000, display: '$20' },
-		{ credits: 500000, amount_minor: 5000, display: '$50' },
-		{ credits: 1000000, amount_minor: 10000, display: '$100' },
-	],
-};
-
-function getPlaceholderTopUpPricing(): StudioAssistantTopUpPricing | null {
-	if ( ! USE_PLACEHOLDER_TOP_UP_PRICING ) {
-		return null;
-	}
-	return studioAssistantTopUpPricingSchema.parse( PLACEHOLDER_TOP_UP_PRICING_RESPONSE );
-}
-
-/**
- * Parse a `/top-up-pricing` response. An unexpected shape resolves `null` (or
- * the placeholder while it stands in) so callers fall back to the single fixed
- * top-up rather than break.
+ * Parse a `/top-up-pricing` response. Resolves `null` on an unexpected shape so
+ * callers fall back to the single fixed top-up rather than break.
  */
 export function parseStudioAssistantTopUpPricing(
 	data: unknown
 ): StudioAssistantTopUpPricing | null {
 	const result = studioAssistantTopUpPricingSchema.safeParse( data );
-	return result.success ? result.data : getPlaceholderTopUpPricing();
+	return result.success ? result.data : null;
 }
 
 /**
@@ -97,26 +67,46 @@ export async function fetchStudioAssistantTopUpPricing(
 			headers: { Authorization: `Bearer ${ accessToken }` },
 		} );
 		if ( ! response.ok ) {
-			return getPlaceholderTopUpPricing();
+			return null;
 		}
 		return parseStudioAssistantTopUpPricing( await response.json() );
 	} catch {
-		return getPlaceholderTopUpPricing();
+		return null;
 	}
 }
 
 /**
- * Label for a top-up button: the credits bought and what the store charges.
- * Shared by every surface so the wording stays consistent.
+ * Visible label for a top-up button. Deliberately terse — the buttons sit in a
+ * row under copy that already says these are credits, and spelling the word out
+ * four times made each button wide enough to wrap the row. Screen readers get
+ * the unabbreviated `formatTopUpOptionAccessibleLabel` instead.
  */
 export function formatTopUpOptionLabel(
 	option: Pick< StudioAssistantTopUpOption, 'credits' | 'display' >,
 	locale?: string
 ): string {
 	return sprintf(
-		/* translators: 1: number of AI credits (e.g. 100,000). 2: price as the store formats it (e.g. $10, £7.50). */
+		/* translators: 1: number of AI credits (e.g. 100,000). 2: price as the store formats it (e.g. US$10, £7.50). */
+		__( '%1$s · %2$s' ),
+		new Intl.NumberFormat( locale ).format( option.credits ),
+		option.display
+	);
+}
+
+/** Accessible name for a top-up button, which has to stand on its own. */
+export function formatTopUpOptionAccessibleLabel(
+	option: Pick< StudioAssistantTopUpOption, 'credits' | 'display' >,
+	locale?: string
+): string {
+	return sprintf(
+		/* translators: 1: number of AI credits (e.g. 100,000). 2: price as the store formats it (e.g. US$10, £7.50). */
 		__( '%1$s credits · %2$s' ),
 		new Intl.NumberFormat( locale ).format( option.credits ),
 		option.display
 	);
+}
+
+/** Heading for a row of top-up buttons. */
+export function formatBuyMoreCreditsLabel(): string {
+	return __( 'Buy more credits' );
 }

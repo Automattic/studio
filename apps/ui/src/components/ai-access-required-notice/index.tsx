@@ -51,7 +51,7 @@ export function OutOfCreditsNotice() {
 	return (
 		<div className={ styles.outOfCredits }>
 			<span>{ formatOutOfCreditsNotice() }</span>
-			<AiCreditsTopUpOptions className={ styles.topUpOptionsCentered } />
+			<AiCreditsTopUpOptions centered />
 		</div>
 	);
 }

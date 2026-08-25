@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { getAddAiCreditsUrl } from '@studio/common/lib/studio-assistant-quota';
 import {
+	formatTopUpOptionAccessibleLabel,
 	formatTopUpOptionLabel,
 	parseStudioAssistantTopUpPricing,
 	studioAssistantTopUpPricingSchema,
@@ -67,21 +68,23 @@ describe( 'parseStudioAssistantTopUpPricing', () => {
 		expect( parseStudioAssistantTopUpPricing( gbpResponse )?.options ).toHaveLength( 4 );
 	} );
 
-	// TODO(STU-2326): flips to `toBeNull()` once the endpoint ships and the
-	// placeholder in the module is deleted.
-	it( 'falls back to the placeholder rather than throwing on an unusable response', () => {
-		expect( parseStudioAssistantTopUpPricing( { nope: true } )?.options.length ).toBeGreaterThan(
-			0
-		);
-		expect( parseStudioAssistantTopUpPricing( null )?.options.length ).toBeGreaterThan( 0 );
+	it( 'resolves null rather than throwing on an unusable response', () => {
+		expect( parseStudioAssistantTopUpPricing( { nope: true } ) ).toBeNull();
+		expect( parseStudioAssistantTopUpPricing( null ) ).toBeNull();
 	} );
 } );
 
 describe( 'formatTopUpOptionLabel', () => {
 	it( 'pairs the credit count with the store’s price', () => {
 		expect( formatTopUpOptionLabel( { credits: 100000, display: '£7.50' }, 'en-US' ) ).toBe(
-			'100,000 credits · £7.50'
+			'100,000 · £7.50'
 		);
+	} );
+
+	it( 'spells out what the number counts for screen readers', () => {
+		expect(
+			formatTopUpOptionAccessibleLabel( { credits: 100000, display: '£7.50' }, 'en-US' )
+		).toBe( '100,000 credits · £7.50' );
 	} );
 } );
 

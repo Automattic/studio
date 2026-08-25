@@ -352,7 +352,7 @@ describe( 'UsagePanel', () => {
 		render( <UsagePanel /> );
 
 		expect( screen.queryByRole( 'button', { name: 'Add AI credits' } ) ).not.toBeInTheDocument();
-		fireEvent.click( screen.getByText( '500,000 credits · £37.50' ) );
+		fireEvent.click( screen.getByText( '500,000 · £37.50' ) );
 
 		expect( openExternalUrl ).toHaveBeenCalledWith(
 			getAddAiCreditsUrl( { returnsToDesktop: true, credits: 500000 } )

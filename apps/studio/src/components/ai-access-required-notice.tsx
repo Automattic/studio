@@ -40,7 +40,7 @@ export function OutOfCreditsNotice() {
 	return (
 		<div className="flex flex-col items-center gap-2">
 			<span>{ formatOutOfCreditsNotice() }</span>
-			<AiCreditsTopUpOptions className="justify-center" />
+			<AiCreditsTopUpOptions centered />
 		</div>
 	);
 }

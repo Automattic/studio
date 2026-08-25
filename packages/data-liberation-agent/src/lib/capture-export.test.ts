@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import * as cheerio from 'cheerio';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
 	CAPTURED_INTERACTIONS_SCHEMA,
@@ -285,6 +286,94 @@ describe( 'exportWebsiteCapture', () => {
 			key: 'screen and (min-width: 1px)\n.safe{}',
 			media: 'screen and (min-width: 1px)',
 		} );
+	} );
+
+	it( 'preserves validated HubSpot form descriptors across raced desktop and mobile captures', () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-form-embed-export-' ) );
+		dirs.push( outputDir );
+		for ( const path of [ 'html', 'html-mobile', 'screenshots' ] )
+			mkdirSync( join( outputDir, path ), { recursive: true } );
+		const descriptor =
+			'class="hs-form-frame contact-form" data-portal-id="145288931" data-form-id="D320B12E-97D4-4FC0-91BE-27D99192F4E9" data-region="EU1"';
+		const adversarial =
+			'<div class="hs-form-frame" data-portal-id="145288931"><iframe src="https://js-eu1.hsforms.net/forms/embed/v2/?portalId=145288931"></iframe></div><iframe src="https://evil.example/form" srcdoc="<script>steal()</script>"></iframe><object data="https://evil.example/payload"></object><embed src="data:text/html,evil"><base href="https://evil.example/"><a href="java\nscript:steal()">unsafe</a><noscript>fallback</noscript>';
+		writeFileSync(
+			join( outputDir, 'html', 'homepage.html' ),
+			`<html><body><main><div ${ descriptor }><iframe src="https://js-eu1.hsforms.net/forms/embed/v2/?portalId=145288931&amp;formId=d320b12e-97d4-4fc0-91be-27d99192f4e9&amp;region=eu1" onload="steal()" srcdoc="<script>steal()</script>"></iframe></div>${ adversarial }<script src="https://js-eu1.hsforms.net/forms/embed/v2.js"></script></main></body></html>`
+		);
+		writeFileSync(
+			join( outputDir, 'html-mobile', 'homepage.html' ),
+			`<html><body><main><div ${ descriptor }></div>${ adversarial }<script src="https://js-eu1.hsforms.net/forms/embed/v2.js"></script></main></body></html>`
+		);
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				entries: { 'https://example.com/': { slug: 'homepage', html: 'html/homepage.html' } },
+			} )
+		);
+
+		exportWebsiteCapture( {
+			outputDir,
+			sourceUrl: 'https://example.com/',
+			platform: 'generic',
+			summary: {},
+			failures: [],
+		} );
+
+		const html = readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' );
+		const $ = cheerio.load( html );
+		expect(
+			$( '.hs-form-frame[data-portal-id="145288931"][data-form-id][data-region="EU1"]' )
+		).toHaveLength( 1 );
+		expect( $( '.hs-form-frame iframe' ).attr( 'src' ) ).toBe(
+			'https://js-eu1.hsforms.net/forms/embed/v2/?portalId=145288931&formId=d320b12e-97d4-4fc0-91be-27d99192f4e9&region=eu1'
+		);
+		expect( $( 'iframe' ) ).toHaveLength( 1 );
+		expect( html ).not.toContain( 'data-liberation-desktop-document' );
+		expect( html ).not.toMatch( /<(?:script|noscript|object|embed|base)\b/i );
+		expect( html ).not.toMatch( /\s(?:onload|srcdoc)=/i );
+		expect( html ).not.toContain( 'javascript:' );
+		expect( html ).not.toContain( 'evil.example' );
+	} );
+
+	it( 'bounds declarative form synthesis deterministically on desktop and mobile', () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-bounded-form-embed-export-' ) );
+		dirs.push( outputDir );
+		for ( const path of [ 'html', 'html-mobile', 'screenshots' ] )
+			mkdirSync( join( outputDir, path ), { recursive: true } );
+		const forms = Array.from(
+			{ length: 40 },
+			( _, index ) =>
+				`<div class="hs-form-frame" data-portal-id="${
+					index + 1
+				}" data-form-id="d320b12e-97d4-4fc0-91be-27d99192f4e9" data-region="eu1"></div>`
+		).join( '' );
+		for ( const path of [ 'html/homepage.html', 'html-mobile/homepage.html' ] )
+			writeFileSync( join( outputDir, path ), `<html><body>${ forms }</body></html>` );
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				entries: { 'https://example.com/': { slug: 'homepage', html: 'html/homepage.html' } },
+			} )
+		);
+
+		exportWebsiteCapture( {
+			outputDir,
+			sourceUrl: 'https://example.com/',
+			platform: 'generic',
+			summary: {},
+			failures: [],
+		} );
+
+		const $ = cheerio.load( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) );
+		expect( $( '.hs-form-frame' ) ).toHaveLength( 40 );
+		expect( $( '.hs-form-frame iframe' ) ).toHaveLength( 32 );
+		expect( $( '.hs-form-frame' ).eq( 31 ).find( 'iframe' ).attr( 'src' ) ).toContain(
+			'portalId=32'
+		);
+		expect( $( '.hs-form-frame' ).eq( 32 ).find( 'iframe' ) ).toHaveLength( 0 );
 	} );
 
 	it( 'exports captured routes and localized media as a website directory', () => {

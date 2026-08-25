@@ -47,6 +47,7 @@ import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import {
+	isServerRunning,
 	runBlueprint,
 	startWordPressServer,
 	stopWordPressServer,
@@ -218,6 +219,7 @@ describe( 'CLI: studio create', () => {
 		vi.mocked( downloadWordPress ).mockResolvedValue( undefined );
 		vi.mocked( setupCustomDomain ).mockResolvedValue( undefined );
 		vi.mocked( startWordPressServer ).mockResolvedValue( mockProcessDescription );
+		vi.mocked( isServerRunning ).mockResolvedValue( undefined );
 		vi.mocked( stopWordPressServer ).mockResolvedValue( undefined );
 		vi.mocked( runBlueprint ).mockResolvedValue( undefined );
 		vi.mocked( runWpCliCommandWithMessaging )
@@ -532,17 +534,14 @@ describe( 'CLI: studio create', () => {
 				'https://example.com',
 				'--name',
 				'Captured Site',
-				'--capture-output',
-				captureDir,
 				'--skip-browser',
 			] );
 
 			expect( capture ).toHaveBeenCalledWith(
 				'https://example.com',
-				captureDir,
+				'/test/site/new-site-capture',
 				expect.objectContaining( {
-					resume: false,
-					captureImages: false,
+					resume: true,
 					onProgress: expect.any( Function ),
 				} )
 			);
@@ -571,8 +570,8 @@ describe( 'CLI: studio create', () => {
 			);
 
 			expect( blueprint.staticSiteImport.identity ).toEqual( {
-				url: 'https://example.com/',
-				contract: 'ssi-url-import-v4-plan-first',
+				source: 'https://example.com/',
+				contract: 'ssi-import-v5-plan-first',
 			} );
 		} );
 
@@ -715,6 +714,7 @@ describe( 'CLI: studio create', () => {
 				] )
 			);
 			expect( blueprint.staticSiteImport.code ).toContain( "$input['source'] = array(" );
+			expect( blueprint.staticSiteImport.code ).toMatch( /^<\?php if/ );
 			expect( blueprint.staticSiteImport.code ).toContain( "$input['fail_on_quality'] = true;" );
 			expect( blueprint.staticSiteImport.code ).toContain(
 				"$input['require_proven_dynamic_client_assets'] = true;"
@@ -746,6 +746,18 @@ describe( 'CLI: studio create', () => {
 			);
 			expect( blueprint.staticSiteImport.code ).toContain(
 				"$input['runtime_lifecycle_checkpoint'] = (string) $state['runtime_lifecycle_checkpoint'];"
+			);
+			expect( blueprint.staticSiteImport.code ).toContain(
+				"if ( ! empty( $state['import_id'] ) )"
+			);
+			expect( blueprint.staticSiteImport.code ).toContain(
+				"array( 'type' => 'files', 'import_id' => (string) $state['import_id'] )"
+			);
+			expect( blueprint.staticSiteImport.code ).toContain(
+				"preg_match( '/^[a-f0-9]{64}$/', (string) ( $import_result['import_id'] ?? '' ) )"
+			);
+			expect( blueprint.staticSiteImport.code ).toContain(
+				"$state = array( 'import_id' => (string) $import_result['import_id'] );"
 			);
 			expect( blueprint.staticSiteImport.code ).toContain(
 				"$import_result['fresh_runtime']['lifecycle_checkpoint_id']"
@@ -1033,6 +1045,10 @@ describe( 'CLI: studio create', () => {
 			);
 
 			expect( JSON.parse( blueprint.staticSiteImport.source ) ).toEqual( { artifact } );
+			expect( blueprint.staticSiteImport.identity ).toEqual( {
+				source: path.join( captureDir, 'artifact.json' ),
+				contract: 'ssi-import-v5-plan-first',
+			} );
 			expect( blueprint.staticSiteImport.code ).toContain( '$metadata = $artifact;' );
 			expect( blueprint.staticSiteImport.code ).toContain(
 				"unset( $metadata['schema'], $metadata['entrypoint'], $metadata['files'] );"
@@ -1113,6 +1129,23 @@ describe( 'CLI: studio create', () => {
 			await runCommand( mockSitePath, { ...defaultTestOptions, blueprint } );
 
 			expect( events ).toEqual( [ 'canonicalize', 'cleanup', 'close-browser', 'stop' ] );
+			expect(
+				vi
+					.mocked( runWpCliCommandWithMessaging )
+					.mock.calls.some( ( [ , args ] ) => args[ 0 ] === 'eval-file' )
+			).toBe( false );
+		} );
+
+		it( 'reuses a live daemon server while canonicalizing a resumed import', async () => {
+			const blueprint = setupResumableCanonicalization();
+			vi.mocked( isServerRunning ).mockResolvedValue( mockProcessDescription );
+			vi.mocked( canonicalizeBlocks ).mockResolvedValue( '' );
+
+			await runCommand( mockSitePath, { ...defaultTestOptions, blueprint } );
+
+			expect( connectToDaemon ).toHaveBeenCalled();
+			expect( startWordPressServer ).not.toHaveBeenCalled();
+			expect( stopWordPressServer ).not.toHaveBeenCalled();
 		} );
 
 		it( 'cleans up validator pages when canonicalizing a resumed import fails', async () => {
@@ -1285,7 +1318,7 @@ describe( 'CLI: studio create', () => {
 				filePath.toString().endsWith( '.json' )
 					? JSON.stringify( {
 							...blueprint.staticSiteImport.identity,
-							url: 'https://other.example/',
+							source: 'https://other.example/',
 					  } )
 					: blueprint.staticSiteImport.code
 			);

@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { captureProgressMessage, captureUrl } from '../capture';
+import { captureProgressMessage, captureWebsite } from '../data-liberation-client';
 
 const dirs: string[] = [];
 
@@ -10,7 +10,7 @@ afterEach( () => {
 	for ( const dir of dirs.splice( 0 ) ) fs.rmSync( dir, { recursive: true, force: true } );
 } );
 
-describe( 'CLI: studio capture', () => {
+describe( 'Data Liberation browser capture', () => {
 	it( 'reports bounded capture counts with elapsed timing', () => {
 		expect(
 			captureProgressMessage( {
@@ -25,7 +25,7 @@ describe( 'CLI: studio capture', () => {
 		);
 	} );
 
-	it( 'returns the canonical artifact emitted by the acquisition engine', async () => {
+	it( 'returns the canonical artifact emitted by Data Liberation', async () => {
 		const outputDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-capture-' ) );
 		dirs.push( outputDir );
 		const artifactPath = path.join( outputDir, 'artifact.json' );
@@ -43,7 +43,7 @@ describe( 'CLI: studio capture', () => {
 		} );
 
 		await expect(
-			captureUrl( 'https://example.com', outputDir, { resume: true, capture } )
+			captureWebsite( 'https://example.com', outputDir, { resume: true, capture } )
 		).resolves.toEqual( {
 			artifactPath,
 			outputDir,
@@ -59,19 +59,19 @@ describe( 'CLI: studio capture', () => {
 	} );
 
 	it( 'rejects non-HTTP sources before acquisition', async () => {
-		await expect( captureUrl( 'file:///tmp/index.html', '/tmp/capture' ) ).rejects.toThrow(
+		await expect( captureWebsite( 'file:///tmp/index.html', '/tmp/capture' ) ).rejects.toThrow(
 			'HTTP or HTTPS'
 		);
 	} );
 
-	it( 'rejects a malformed artifact returned by the acquisition engine', async () => {
+	it( 'rejects a malformed artifact returned by Data Liberation', async () => {
 		const outputDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-capture-' ) );
 		dirs.push( outputDir );
 		const artifactPath = path.join( outputDir, 'artifact.json' );
 		fs.writeFileSync( artifactPath, '{"schema":"unexpected"}' );
 
 		await expect(
-			captureUrl( 'https://example.com', outputDir, {
+			captureWebsite( 'https://example.com', outputDir, {
 				capture: vi.fn().mockResolvedValue( { artifactPath } ),
 			} )
 		).rejects.toThrow( 'invalid website artifact' );
@@ -93,7 +93,7 @@ describe( 'CLI: studio capture', () => {
 		);
 
 		await expect(
-			captureUrl( 'https://example.com', outputDir, {
+			captureWebsite( 'https://example.com', outputDir, {
 				capture: vi.fn().mockResolvedValue( { artifactPath, captureReceiptPath } ),
 			} )
 		).resolves.toMatchObject( { artifactPath, outputDir } );

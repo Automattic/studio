@@ -122,6 +122,11 @@ const MAX_PORTABLE_MEDIA_TOTAL_BYTES = 160 * 1024 * 1024;
 const MAX_ARTIFACT_FILES = 5000;
 const MAX_ARTIFACT_TOTAL_BYTES = 192 * 1024 * 1024;
 const TRANSPARENT_IMAGE_DATA_URL = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
+const MAX_DECLARATIVE_FORM_EMBEDS = 32;
+const HUBSPOT_FORM_HOSTS = new Map( [
+	[ 'na1', 'js.hsforms.net' ],
+	[ 'eu1', 'js-eu1.hsforms.net' ],
+] );
 
 function pathWithin( root: string, candidate: string ): boolean {
 	const rel = relative( resolve( root ), resolve( candidate ) );
@@ -298,6 +303,33 @@ function renderedHtml( html: string ): string {
 			links.every( ( href ) => allLinks.filter( ( candidate ) => candidate === href ).length > 1 )
 		)
 			node.remove();
+	} );
+	return $.html();
+}
+
+function normalizedDeclarativeFormEmbeds( html: string ): string {
+	const $ = cheerio.load( html );
+	let retained = 0;
+	$( 'div.hs-form-frame' ).each( ( _index, element ) => {
+		const frame = $( element );
+		frame.find( 'iframe' ).remove();
+		if ( retained >= MAX_DECLARATIVE_FORM_EMBEDS ) return;
+
+		const portalId = frame.attr( 'data-portal-id' ) ?? '';
+		const formId = ( frame.attr( 'data-form-id' ) ?? '' ).toLowerCase();
+		const region = ( frame.attr( 'data-region' ) ?? '' ).toLowerCase();
+		const host = HUBSPOT_FORM_HOSTS.get( region );
+		if (
+			! host ||
+			! /^\d{1,20}$/.test( portalId ) ||
+			! /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test( formId )
+		)
+			return;
+
+		frame.append(
+			`<iframe src="https://${ host }/forms/embed/v2/?portalId=${ portalId }&amp;formId=${ formId }&amp;region=${ region }" title="HubSpot form" loading="lazy"></iframe>`
+		);
+		retained++;
 	} );
 	return $.html();
 }
@@ -911,7 +943,7 @@ function safeCapturedPageHtml( html: string ): string {
 		)
 			node.remove();
 	} );
-	return $.html();
+	return normalizedDeclarativeFormEmbeds( $.html() );
 }
 
 export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
@@ -946,11 +978,15 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		if ( ! entry.html ) continue;
 		const capturedHtmlPath = resolve( outputDir, entry.html );
 		if ( ! pathWithin( outputDir, capturedHtmlPath ) || ! existsSync( capturedHtmlPath ) ) continue;
-		const desktopHtml = renderedHtml( readFileSync( capturedHtmlPath, 'utf8' ) );
+		const desktopHtml = normalizedDeclarativeFormEmbeds(
+			renderedHtml( readFileSync( capturedHtmlPath, 'utf8' ) )
+		);
 		let mobileHtml: string | undefined;
 		const mobileHtmlPath = resolve( outputDir, entry.html.replace( /^html[\\/]/, 'html-mobile/' ) );
 		if ( pathWithin( outputDir, mobileHtmlPath ) && existsSync( mobileHtmlPath ) ) {
-			mobileHtml = renderedHtml( readFileSync( mobileHtmlPath, 'utf8' ) );
+			mobileHtml = normalizedDeclarativeFormEmbeds(
+				renderedHtml( readFileSync( mobileHtmlPath, 'utf8' ) )
+			);
 		}
 		const html = safeCapturedPageHtml(
 			mobileHtml === undefined ? desktopHtml : responsiveHtml( desktopHtml, mobileHtml )

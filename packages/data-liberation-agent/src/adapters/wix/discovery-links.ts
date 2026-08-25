@@ -16,10 +16,22 @@ export interface LinkedRouteDiscoveryResult {
 	failures: Array< { url: string; reason: string } >;
 }
 
-function contentUrl( value: string, baseUrl: string, origin: string ): string | null {
+function contentUrl(
+	value: string,
+	baseUrl: string,
+	origin: string,
+	rootPath: string
+): string | null {
 	try {
 		const url = new URL( value, baseUrl );
 		if ( url.origin !== origin || ! [ 'http:', 'https:' ].includes( url.protocol ) ) return null;
+		if (
+			rootPath !== '/' &&
+			url.pathname !== rootPath &&
+			! url.pathname.startsWith( `${ rootPath }/` )
+		) {
+			return null;
+		}
 		if ( SKIP_PATHS.test( url.pathname ) || ASSET_PATH.test( url.pathname ) ) return null;
 		url.hash = '';
 		url.pathname = url.pathname.replace( /\/$/, '' ) || '/';
@@ -35,8 +47,10 @@ export async function discoverLinkedRoutes(
 	const maxPages = options.maxPages ?? 100;
 	const maxDepth = options.maxDepth ?? 3;
 	const maxUrls = options.maxUrls ?? 50_000;
-	const origin = new URL( options.siteUrl ).origin;
-	const siteUrl = contentUrl( options.siteUrl, options.siteUrl, origin );
+	const sourceUrl = new URL( options.siteUrl );
+	const origin = sourceUrl.origin;
+	const rootPath = sourceUrl.pathname.replace( /\/$/, '' ) || '/';
+	const siteUrl = contentUrl( options.siteUrl, options.siteUrl, origin, rootPath );
 	if ( ! siteUrl ) return { urls: [], failures: [] };
 
 	const urls: string[] = [];
@@ -50,7 +64,7 @@ export async function discoverLinkedRoutes(
 		else queue.push( { url, depth } );
 	};
 	const retain = ( value: string, baseUrl: string ): string | null => {
-		const url = contentUrl( value, baseUrl, origin );
+		const url = contentUrl( value, baseUrl, origin, rootPath );
 		if ( ! url || known.has( url ) || urls.length >= maxUrls ) return url;
 		known.add( url );
 		urls.push( url );

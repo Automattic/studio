@@ -51,4 +51,25 @@ describe( 'discoverLinkedRoutes', () => {
 		] );
 		expect( loadLinks ).toHaveBeenCalledTimes( 1 );
 	} );
+
+	it( 'keeps path-hosted sites within the supplied source root', async () => {
+		const loadLinks = vi.fn( async () => [
+			'/demone2/nimbus-commute/privacy-policy',
+			'/demone2/nimbus-commute/accessibility-statement',
+			'/website/templates',
+			'/demone2/another-site',
+		] );
+		const result = await discoverLinkedRoutes( {
+			siteUrl: 'https://www.wix.com/demone2/nimbus-commute',
+			initialUrls: [ 'https://www.wix.com/website/templates' ],
+			loadLinks,
+			maxPages: 1,
+		} );
+
+		expect( result.urls ).toEqual( [
+			'https://www.wix.com/demone2/nimbus-commute',
+			'https://www.wix.com/demone2/nimbus-commute/privacy-policy',
+			'https://www.wix.com/demone2/nimbus-commute/accessibility-statement',
+		] );
+	} );
 } );

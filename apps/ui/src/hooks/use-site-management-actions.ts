@@ -24,8 +24,8 @@ export interface SiteManagementAction {
 }
 
 /**
- * The canonical "manage this site" actions — Duplicate, Export, Export DB,
- * Delete — shared by every surface that offers them (the sidebar context
+ * The canonical "manage this site" actions — Duplicate, Export entire site,
+ * Export database, Delete — shared by every surface that offers them (the sidebar context
  * menu, the preview's Open in… menu, and the site overview). Keeping the
  * labels, icons, order, and disabled logic in one place stops the three
  * surfaces from drifting apart.
@@ -60,7 +60,7 @@ export function useSiteManagementActions(
 		{
 			id: 'export',
 			icon: download,
-			label: __( 'Export' ),
+			label: __( 'Export entire site' ),
 			loading: exportFullSite.isPending,
 			loadingAnnouncement: __( 'Exporting site' ),
 			disabled: isExporting,
@@ -70,7 +70,7 @@ export function useSiteManagementActions(
 		{
 			id: 'export-db',
 			icon: grid,
-			label: __( 'Export DB' ),
+			label: __( 'Export database' ),
 			loading: exportDatabase.isPending,
 			loadingAnnouncement: __( 'Exporting database' ),
 			disabled: isExporting,

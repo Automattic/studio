@@ -82,22 +82,54 @@
 /* Assistant response wrapper: the copy button below stays hidden until the
    turn is hovered (or a control inside it is focused), mirroring Claude/ChatGPT. */
 .assistantTurn {
+	position: relative;
 	display: flex;
 	flex-direction: column;
 	gap: var(--wpds-dimension-padding-xs);
 }
 
+/* Hangs off the turn's bottom-left without reserving layout space. The
+   hidden button keeps pointer-events so its own footprint is a hover
+   target: hovering where the icon would be reveals it (it's a descendant,
+   so the turn's :hover fires). The 28px button only grazes the next row's
+   top edge, and it fades in on hover, so clicks there are informed. */
 .messageActions {
+	position: absolute;
+	top: 100%;
+	inset-inline-start: calc((16px - 1.5rem) / 2);
 	display: flex;
 	align-items: center;
-	margin-inline-start: calc((16px - 1.75rem) / 2);
 	opacity: 0;
 	transition: opacity 0.12s ease;
 }
 
-.assistantTurn:hover .messageActions,
+/* Reveal needs a beat of hover intent so casual mouse travel across the
+   transcript doesn't flicker buttons; keyboard focus reveals immediately. */
+.assistantTurn:hover .messageActions {
+	opacity: 1;
+	transition-delay: 1s;
+}
+
 .assistantTurn:focus-within .messageActions {
 	opacity: 1;
+	transition-delay: 0s;
+}
+
+/* Transient double-click feedback, sitting beside the button's spot. */
+.copyNotice {
+	position: absolute;
+	top: 100%;
+	inset-inline-start: calc(1.5rem + var(--wpds-dimension-padding-xs));
+	display: inline-flex;
+	align-items: center;
+	height: 1.5rem;
+	padding: 0 var(--wpds-dimension-padding-sm);
+	border: 1px solid var(--color-frame-border);
+	border-radius: var(--wpds-border-radius-sm, 4px);
+	background-color: var(--color-frame-surface);
+	color: var(--color-frame-text-secondary);
+	font-size: var(--wpds-typography-font-size-sm);
+	white-space: nowrap;
 }
 
 .userActions {
@@ -464,6 +496,19 @@
 	color: var(--color-frame-error);
 	border-color: var(--color-frame-error);
 	background-color: var(--color-frame-surface-alt);
+}
+
+.errorMarker {
+	align-self: center;
+	max-width: 100%;
+	margin: var(--wpds-dimension-padding-sm) 0;
+	padding: 4px 12px;
+	border-radius: var(--wpds-dimension-radius-md, 8px);
+	background-color: color-mix(in srgb, var(--color-frame-error) 8%, transparent);
+	color: var(--color-frame-error);
+	font-size: var(--wpds-typography-font-size-xs);
+	text-align: center;
+	overflow-wrap: anywhere;
 }
 
 .mediaArtifactGrid {

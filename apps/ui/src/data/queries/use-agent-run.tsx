@@ -1,4 +1,5 @@
 import { buildChatAttachmentSummaries } from '@studio/common/ai/chat-attachments';
+import { getAgentEndFailure } from '@studio/common/ai/json-events';
 import { useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
 import {
@@ -208,11 +209,14 @@ function reducer( state: State, action: Action ): State {
 		case 'run_ended':
 			// Preserve the queue across run boundaries so staged follow-ups
 			// survive the transition, and the answered-permissions map so
-			// resolved cards stay labeled. Everything else resets.
+			// resolved cards stay labeled. Preserve any transport error too —
+			// `run.exited` lags the `error` event and must not wipe the banner
+			// before the user can read it. Everything else resets.
 			return {
 				...initialState,
 				queuedPrompts: state.queuedPrompts,
 				answeredPermissions: state.answeredPermissions,
+				error: state.error,
 			};
 		case 'interrupt_requested':
 			return {
@@ -369,6 +373,53 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 	const ignoredRunIdsRef = useRef< Set< string > >( new Set() );
 	const interruptRequestsBySessionRef = useRef< Map< string, Promise< void > > >( new Map() );
 	const interruptPendingStartSessionIdsRef = useRef< Set< string > >( new Set() );
+	// Sessions whose transcript cache may have missed a live event: the event
+	// landed while the transcript had no data yet (fresh renderer, its initial
+	// load still in flight) or while a refetch was in flight (whose snapshot was
+	// read from disk before the event and will overwrite the appended entry when
+	// it resolves). The CLI persists every entry to the JSONL *before* emitting
+	// its event, so disk is always at least as new as any event — flagged
+	// sessions just need one more refetch after the in-flight one settles.
+	const reconcileSessionIdsRef = useRef< Set< string > >( new Set() );
+	// When each session last had a live event actually processed, for the
+	// starvation watchdog below.
+	const lastEventAtBySessionRef = useRef< Map< string, number > >( new Map() );
+	// Reconcile refetches are rate-limited per session: with a large transcript
+	// and a streaming run, an unthrottled reconcile-per-settle loops (each
+	// refetch is long enough for another event to land and re-flag), and every
+	// cycle re-renders the session view and re-parses the JSONL in the main
+	// process. One trailing invalidate per interval converges just the same.
+	const lastReconcileAtBySessionRef = useRef< Map< string, number > >( new Map() );
+	const reconcileTimerBySessionRef = useRef< Map< string, number > >( new Map() );
+
+	const scheduleReconcile = useCallback(
+		( sessionId: string ) => {
+			if ( reconcileTimerBySessionRef.current.has( sessionId ) ) {
+				return;
+			}
+			const RECONCILE_MIN_INTERVAL_MS = 5_000;
+			const lastAt = lastReconcileAtBySessionRef.current.get( sessionId ) ?? 0;
+			const wait = Math.max( 0, RECONCILE_MIN_INTERVAL_MS - ( Date.now() - lastAt ) );
+			const timerId = window.setTimeout( () => {
+				reconcileTimerBySessionRef.current.delete( sessionId );
+				lastReconcileAtBySessionRef.current.set( sessionId, Date.now() );
+				void queryClient.invalidateQueries( {
+					queryKey: [ ...SESSIONS_QUERY_KEY, sessionId ],
+					exact: true,
+				} );
+			}, wait );
+			reconcileTimerBySessionRef.current.set( sessionId, timerId );
+		},
+		[ queryClient ]
+	);
+
+	useEffect( () => {
+		const timers = reconcileTimerBySessionRef.current;
+		return () => {
+			timers.forEach( ( timerId ) => window.clearTimeout( timerId ) );
+			timers.clear();
+		};
+	}, [] );
 
 	const dispatchSession = useCallback(
 		( sessionId: string, action: Action ) => {
@@ -379,23 +430,159 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 
 	const updateCache = useCallback(
 		( sessionId: string, updater: ( entries: SessionEntry[] ) => SessionEntry[] ) => {
-			queryClient.setQueryData< LoadedAiSession >(
-				[ ...SESSIONS_QUERY_KEY, sessionId ],
-				( prev ) => {
-					if ( ! prev ) {
-						return prev;
-					}
-					const current = prev.entries ?? [];
-					const entries = updater( current );
-					return entries === current ? prev : { ...prev, entries };
+			const queryKey = [ ...SESSIONS_QUERY_KEY, sessionId ];
+			const queryState = queryClient.getQueryState< LoadedAiSession >( queryKey );
+			if ( ! queryState?.data || queryState.fetchStatus === 'fetching' ) {
+				reconcileSessionIdsRef.current.add( sessionId );
+			}
+			queryClient.setQueryData< LoadedAiSession >( queryKey, ( prev ) => {
+				if ( ! prev ) {
+					return prev;
 				}
-			);
+				const current = prev.entries ?? [];
+				const entries = updater( current );
+				return entries === current ? prev : { ...prev, entries };
+			} );
 		},
 		[ queryClient ]
 	);
 
+	// Starvation watchdog: if a session claims an active run but no live event
+	// has been processed for it in STARVATION_MS, stop trusting the event
+	// stream and re-sync from the main process + disk. `getActiveAgentRuns` is
+	// a tiny IPC call, so polling while a run is active is cheap; the transcript
+	// is only refetched when something is actually missing. This heals every
+	// class of dropped-event failure: a missed question/permission becomes
+	// visible and answerable, a stale run-id subscription is corrected so the
+	// stream resumes, and a missed run.exited unsticks the composer.
+	useEffect( () => {
+		const STARVATION_MS = 10_000;
+		const intervalId = window.setInterval( () => {
+			const states = stateStore.getState();
+			const now = Date.now();
+			const starvedSessionIds = Object.keys( states ).filter( ( sessionId ) => {
+				const state = states[ sessionId ];
+				if ( state.phase === 'idle' ) {
+					return false;
+				}
+				const lastEventAt =
+					lastEventAtBySessionRef.current.get( sessionId ) ?? state.startedAt ?? now;
+				return now - lastEventAt >= STARVATION_MS;
+			} );
+			if ( starvedSessionIds.length === 0 ) {
+				return;
+			}
+			void connector
+				.getActiveAgentRuns()
+				.then( ( runs ) => {
+					const runsBySessionId = new Map( runs.map( ( run ) => [ run.sessionId, run ] ) );
+					for ( const sessionId of starvedSessionIds ) {
+						const state = stateStore.getState()[ sessionId ];
+						if ( ! state || state.phase === 'idle' ) {
+							continue;
+						}
+						const run = runsBySessionId.get( sessionId );
+						if ( ! run ) {
+							// The run is gone but run.exited never reached us — close
+							// out the session and reconcile the transcript from disk.
+							lastEventAtBySessionRef.current.set( sessionId, Date.now() );
+							subscribedRunIdsBySessionRef.current.delete( sessionId );
+							dispatchSession( sessionId, { type: 'run_ended' } );
+							void queryClient.invalidateQueries( {
+								queryKey: SESSIONS_QUERY_KEY,
+								exact: true,
+							} );
+							scheduleReconcile( sessionId );
+							continue;
+						}
+						const pendingQuestions = run.pendingQuestions ?? [];
+						const pendingPermissions = run.pendingPermissions ?? [];
+						const missedQuestions = pendingQuestions.filter(
+							( question ) =>
+								! state.pendingQuestions.some( ( p ) => p.question === question.question )
+						);
+						const missedPermissions = pendingPermissions.filter(
+							( request ) => ! state.pendingPermissions.some( ( p ) => p.id === request.id )
+						);
+						if (
+							missedQuestions.length === 0 &&
+							missedPermissions.length === 0 &&
+							state.runId === run.runId
+						) {
+							// Healthy but quiet (e.g. a long tool call) — nothing to heal.
+							continue;
+						}
+						lastEventAtBySessionRef.current.set( sessionId, Date.now() );
+						// Re-point the event subscription at the run the main process
+						// actually has, in case a stale run id was filtering the stream.
+						subscribedRunIdsBySessionRef.current.set( sessionId, run.runId );
+						dispatchSession( sessionId, {
+							type: 'hydrate_active_run',
+							runId: run.runId,
+							startedAt: run.startedAt,
+							interrupting: run.phase === 'interrupting',
+						} );
+						if ( missedQuestions.length > 0 ) {
+							dispatchSession( sessionId, {
+								type: 'questions_added',
+								questions: pendingQuestions,
+							} );
+						}
+						for ( const request of missedPermissions ) {
+							dispatchSession( sessionId, { type: 'permission_requested', request } );
+						}
+						// Whatever produced the missed interaction also wrote transcript
+						// entries we never appended — reconcile from disk.
+						scheduleReconcile( sessionId );
+					}
+				} )
+				.catch( () => {
+					// A failed poll just means the next tick tries again.
+				} );
+		}, 5_000 );
+		return () => window.clearInterval( intervalId );
+	}, [ connector, dispatchSession, queryClient, scheduleReconcile, stateStore ] );
+
+	// Second half of the reconcile contract: once a flagged session's transcript
+	// fetch settles, refetch it. That fetch started after the flagged event, so
+	// its disk snapshot is guaranteed to contain the event's entry. If more
+	// events land during the reconciling fetch they re-flag the session, and the
+	// loop converges as soon as a fetch window passes without one.
+	useEffect( () => {
+		return queryClient.getQueryCache().subscribe( ( event ) => {
+			if ( event.type !== 'updated' ) {
+				return;
+			}
+			if ( event.action.type !== 'success' && event.action.type !== 'error' ) {
+				return;
+			}
+			const queryKey = event.query.queryKey;
+			if (
+				! Array.isArray( queryKey ) ||
+				queryKey.length !== SESSIONS_QUERY_KEY.length + 1 ||
+				queryKey[ 0 ] !== SESSIONS_QUERY_KEY[ 0 ]
+			) {
+				return;
+			}
+			const sessionId = queryKey[ SESSIONS_QUERY_KEY.length ];
+			if ( typeof sessionId !== 'string' || ! reconcileSessionIdsRef.current.delete( sessionId ) ) {
+				return;
+			}
+			scheduleReconcile( sessionId );
+		} );
+	}, [ queryClient, scheduleReconcile ] );
+
 	useEffect( () => {
 		let cancelled = false;
+
+		// Reconcile persisted transcripts with disk once per renderer boot.
+		// Session queries never refetch on their own (staleTime: Infinity —
+		// live events own the cache during a run), so anything that happened
+		// while this renderer wasn't alive (a question asked mid-restart, a
+		// run that finished with the app closed) would otherwise never appear.
+		// Invalidation refetches the open transcript now and marks the rest
+		// stale so they refetch on mount.
+		void queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY } );
 
 		void connector
 			.getActiveAgentRuns()
@@ -433,7 +620,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 		return () => {
 			cancelled = true;
 		};
-	}, [ connector, dispatchSession ] );
+	}, [ connector, dispatchSession, queryClient ] );
 
 	useEffect( () => {
 		return connector.onAgentEvent( ( payload: AgentRunEvent ) => {
@@ -448,6 +635,8 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 			if ( subscribedRunId && payload.runId !== subscribedRunId ) {
 				return;
 			}
+
+			lastEventAtBySessionRef.current.set( payload.sessionId, Date.now() );
 
 			const event: AgentEvent = payload.event;
 
@@ -504,15 +693,44 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					subscribedRunIdsBySessionRef.current.delete( payload.sessionId );
 					if ( ! hasQueuedFollowUp ) {
 						// Refetch to replace optimistic entries with disk-backed ones.
+						// Scoped to this session (plus the summaries list) — a broad
+						// invalidate would force-refetch every mounted transcript, and
+						// a refetch racing another session's live run can clobber its
+						// just-appended entries (e.g. a pending agent question).
 						void queryClient.invalidateQueries( {
 							queryKey: SESSIONS_QUERY_KEY,
+							exact: true,
+						} );
+						void queryClient.invalidateQueries( {
+							queryKey: [ ...SESSIONS_QUERY_KEY, payload.sessionId ],
+							exact: true,
 						} );
 					}
 					return;
 				}
 				case 'message': {
-					// Only message-bearing pi event variants need optimistic entries.
 					const inner = event.message;
+					// A failed turn only surfaces through its final `agent_end` —
+					// the errored assistant message usually has no text content and
+					// no `error` transport event is emitted. Synthesize the
+					// `studio.turn_closed` error entry for immediate in-flow
+					// rendering; the CLI also writes a real one that replaces this
+					// on the post-run refetch.
+					const failure = getAgentEndFailure( inner );
+					if ( failure ) {
+						updateCache( payload.sessionId, ( entries ) => [
+							...entries,
+							{
+								type: 'custom',
+								id: shortEntryId(),
+								parentId: null,
+								timestamp: event.timestamp,
+								customType: 'studio.turn_closed',
+								data: { status: 'error', errorMessage: failure.message },
+							} as SessionEntry,
+						] );
+						return;
+					}
 					if ( inner.type === 'tool_execution_start' ) {
 						const name = typeof inner.toolName === 'string' ? inner.toolName : 'tool';
 						const input =
@@ -531,6 +749,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 						dispatchSession( payload.sessionId, { type: 'tool_execution_ended' } );
 						return;
 					}
+					// Only message-bearing pi event variants need optimistic entries.
 					if (
 						inner.type === 'message_end' &&
 						( inner.message as { role?: string } ).role === 'assistant'

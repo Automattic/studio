@@ -1,3 +1,5 @@
+import { aiSessionBelongsToSite } from '@studio/common/ai/sessions/owner-site';
+import { sortSites } from '@studio/common/lib/sort-sites';
 import { createRoute, redirect } from '@tanstack/react-router';
 import { resolveAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
@@ -13,6 +15,20 @@ export const indexRoute = createRoute( {
 			queryKey: SITES_QUERY_KEY,
 			queryFn: () => context.connector.getSites(),
 		} );
+
+		// Capture new-vs-returning once, at the only moment they differ: a
+		// brand-new user reaches here with no sites (then goes to /welcome), a
+		// returning user arrives with sites already. Never overwrite once set,
+		// and never let this block or break the redirect below.
+		try {
+			const hints = await context.connector.getOnboardingHints();
+			if ( hints.returningUser === undefined ) {
+				await context.connector.setOnboardingHints( { returningUser: sites.length > 0 } );
+			}
+		} catch {
+			// Non-fatal: the checklist just falls back to the new-user set.
+		}
+
 		if ( sites.length === 0 ) {
 			// Brand-new users see the first-run welcome (log in or skip) before
 			// the add-a-site flow.
@@ -25,11 +41,10 @@ export const indexRoute = createRoute( {
 		// sessions/sites fall through to the defaults.
 		const lastVisited = readLastVisited();
 
-		// Without agentic features (signed out, or disabled in settings) the
-		// site overview is the home for a site — never restore or create chat
-		// sessions.
-		const { enabled: agenticEnabled } = await resolveAgenticFeatures( context );
-		if ( ! agenticEnabled ) {
+		// Without chat (signed out, offline, or disabled in settings), the site
+		// overview is the home — never restore or create chat sessions.
+		const { chatEnabled } = await resolveAgenticFeatures( context );
+		if ( ! chatEnabled ) {
 			const targetSite =
 				( lastVisited.siteId && sites.find( ( site ) => site.id === lastVisited.siteId ) ) ||
 				sites[ 0 ];
@@ -51,12 +66,12 @@ export const indexRoute = createRoute( {
 		}
 		const targetSite =
 			( lastVisited.siteId && sites.find( ( site ) => site.id === lastVisited.siteId ) ) ||
-			sites[ 0 ];
+			sortSites( [ ...sites ] )[ 0 ];
 
 		// Sessions arrive sorted newest-first, so the first session owned by
 		// the site is its most recently updated active one.
 		const topSession = sessions.find(
-			( session ) => ! session.archived && session.ownerSitePath === targetSite.path
+			( session ) => ! session.archived && aiSessionBelongsToSite( session, targetSite )
 		);
 		if ( topSession ) {
 			throw redirect( { to: '/sessions/$sessionId', params: { sessionId: topSession.id } } );

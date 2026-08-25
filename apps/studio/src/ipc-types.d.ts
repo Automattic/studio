@@ -99,12 +99,12 @@ type IpcApi = {
 	getPathForFile: ( file: File ) => string;
 };
 
-interface FeatureFlags {
-	enableAgenticUi: boolean;
-}
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- no flags in flight; see `src/lib/feature-flags.ts`
+interface FeatureFlags {}
 
 interface BetaFeatures {
 	remoteSession: boolean;
+	enableAgenticUi: boolean;
 }
 
 interface AppGlobals extends FeatureFlags {

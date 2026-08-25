@@ -15,22 +15,22 @@
  * Site-generic: everything is derived from the run's outputDir + the running Studio
  * site. Re-runnable/idempotent (re-updates the same products).
  *
- *   npx tsx scripts/enrich-product-marketing.ts <outputDir> <studioSitePath> [themeSlug]
+ *   node scripts/run.mjs enrich-product-marketing <outputDir> <studioSitePath> [themeSlug]
  */
-import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { buildProductMarketing } from '../src/lib/replicate/product-marketing-island.js';
 import { loadCarryDesignTokens } from '../src/lib/replicate/carry-design-tokens.js';
+import { studioExecFileSync } from '../src/lib/studio-cli.js';
 
 const [outputDir, studioSitePath, themeSlugArg] = process.argv.slice(2);
 if (!outputDir || !studioSitePath) {
-  console.error('usage: tsx scripts/enrich-product-marketing.ts <outputDir> <studioSitePath> [themeSlug]');
+  console.error('usage: node scripts/run.mjs enrich-product-marketing <outputDir> <studioSitePath> [themeSlug]');
   process.exit(2);
 }
 
 const wp = (args: string[]): string =>
-  execFileSync('studio', ['wp', '--path', studioSitePath, ...args], { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
+  studioExecFileSync(['wp', '--path', studioSitePath, ...args], { maxBuffer: 256 * 1024 * 1024 });
 
 // Resolve the carry theme (for writing icon assets the reconstructed blocks reference).
 const themesDir = join(studioSitePath, 'wp-content', 'themes');

@@ -8,15 +8,33 @@ import type {
 	PermissionDecision,
 	ToolPermissionOverrides,
 } from '@studio/common/ai/tool-permissions';
+import type { ActivitySoundPreferences } from '@studio/common/lib/activity-sounds';
+import type { SiteEvent } from '@studio/common/lib/cli-events';
+import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 import type { SupportedLocale } from '@studio/common/lib/locale';
+import type {
+	TracksEventName,
+	TracksProps,
+	TracksSiteCreateFlowType,
+} from '@studio/common/lib/record-tracks-event';
 import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
 import type { SiteRuntime } from '@studio/common/lib/site-runtime';
+import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
+import type { SiteStorageUsage } from '@studio/common/sites/storage-usage';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
-import type { ImportResponse, SyncOption, SyncSite } from '@studio/common/types/sync';
+import type {
+	ImportResponse,
+	PullSiteProgress,
+	PullSyncOptions,
+	PushSyncOptions,
+	SyncOption,
+	SyncSite,
+} from '@studio/common/types/sync';
+import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { SiteRestRequest, SiteRestResponse } from '@studio/common/types/wordpress-rest';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
@@ -44,10 +62,18 @@ export type {
 } from '@studio/common/ai/tool-permissions';
 export type { AiModelId } from '@studio/common/ai/models';
 export type { Snapshot } from '@studio/common/types/snapshot';
-export type { SyncOption, SyncSite } from '@studio/common/types/sync';
+export type {
+	PullSiteProgress,
+	PullSyncOptions,
+	PushSyncOptions,
+	SyncOption,
+	SyncSite,
+} from '@studio/common/types/sync';
 export type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 export type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 export type { SupportedLocale } from '@studio/common/lib/locale';
+export type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
+export type { SiteStorageUsage } from '@studio/common/sites/storage-usage';
 
 export type InstalledApps = Record< SupportedEditor | SupportedTerminal, boolean >;
 
@@ -132,6 +158,10 @@ export interface SiteDetails {
 	enableXdebug?: boolean;
 	enableDebugLog?: boolean;
 	enableDebugDisplay?: boolean;
+	sortOrder?: number;
+	// True for sites that were running when the app quit with the
+	// "Stop, restart on next launch" behavior; the renderer starts them on boot.
+	autoStart?: boolean;
 	themeDetails?: {
 		name: string;
 		path: string;
@@ -218,6 +248,19 @@ export interface ConnectorCapabilities {
 	// render local screenshot artifacts inline). Only the desktop IPC connector
 	// supports it; the browser connectors reject local file reads.
 	readLocalMedia: boolean;
+	// The host can read/write the user's global Studio Code instructions file
+	// (~/.studio/knowledge/instructions.md). False when hosted remotely, which
+	// hides the Studio Code settings tab.
+	agentInstructions: boolean;
+	// The host keeps a Studio log file the user can open (`openStudioLogs`).
+	// Only the desktop app does — the CLI writes site server output to
+	// `~/.studio/daemon/logs` and everything else to the terminal that started
+	// it, so there is no single log to point a browser user at.
+	studioLogs: boolean;
+	// The host can switch this window back to the classic Studio UI
+	// (`disableAgenticUi`). Only the desktop app ships the classic renderer;
+	// in a browser there is nothing to switch to.
+	switchToClassicUi: boolean;
 }
 
 export interface Connector {
@@ -267,6 +310,9 @@ export interface Connector {
 	// process handler. `wpVersion` is only forwarded when the user explicitly
 	// picked a pinned version — undefined means "keep auto-updating".
 	updateSite( site: SiteDetails, wpVersion?: string ): Promise< void >;
+	// Persists the sidebar's manual site order (the same per-site `sortOrder`
+	// the legacy desktop sidebar uses).
+	updateSitesSortOrder( updates: { siteId: string; sortOrder: number }[] ): Promise< void >;
 	// Refreshes the cached WordPress Site Icon path after a site-level icon
 	// change. The renderer receives image bytes through getSites().
 	refreshSiteIcon( siteId: string ): Promise< void >;
@@ -306,6 +352,9 @@ export interface Connector {
 	getWordPressSkillsStatus( siteId: string ): Promise< SkillStatus[] >;
 	installWordPressSkillById( siteId: string, skillId: string ): Promise< void >;
 	removeWordPressSkillById( siteId: string, skillId: string ): Promise< void >;
+	// Size of the local site's files, grouped for the overview's disk summary.
+	// Hosted sites return null because their storage is not on this machine.
+	getSiteStorageUsage( siteId: string ): Promise< SiteStorageUsage | null >;
 
 	// Exports a site as a full backup archive (files + database). Prompts the
 	// user for a destination via a save-as dialog; resolves with the chosen
@@ -324,18 +373,17 @@ export interface Connector {
 	// it with its proposed directory. The collision search runs in the main
 	// process so callers pay a constant number of IPC round-trips.
 	findAvailableSitePath( baseName: string ): Promise< AvailableSitePath >;
+	generateNumberedSiteName( baseName: string, usedSites: SiteDetails[] ): Promise< string >;
 	selectSiteFolder( defaultPath: string ): Promise< SelectedSiteFolder | null >;
 	comparePaths( path1: string, path2: string ): Promise< boolean >;
-
-	// Featured blueprints gallery for the "Start from blueprint" onboarding
-	// flow. Sourced from the public wpcom/v2/studio-app/blueprints endpoint —
-	// no auth required, localized by the user's current UI locale.
-	getFeaturedBlueprints( locale?: string ): Promise< FeaturedBlueprint[] >;
 
 	// Installable WordPress versions from the wordpress.org version-check
 	// API: a "latest" auto-updating option first, then nightly/beta and
 	// stable releases down to Playground's minimum supported version.
 	getWordPressVersions(): Promise< WordPressVersion[] >;
+	// Reads the WordPress version installed at the site's path. Resolves to
+	// '-' when it can't be determined (missing files, site not found).
+	getWpVersion( siteId: string ): Promise< string >;
 
 	// Resolves the absolute filesystem path of a File handle picked or dropped
 	// in the renderer. Returns an empty string when the underlying file lacks
@@ -363,25 +411,22 @@ export interface Connector {
 		options?: { width?: number; colorScheme?: 'light' | 'dark' }
 	): Promise< LocalMediaFile >;
 
-	// Extracts a Blueprint ZIP bundle to a temp directory and returns the
+	// Uploads and extracts a Blueprint ZIP bundle to a temp directory and returns the
 	// parsed `blueprint.json`. The caller is responsible for calling
 	// `cleanupBlueprintTempDir` if the extraction succeeds but the upload
 	// flow never reaches `createSite` — otherwise `createSite` cleans the
 	// temp directory automatically when it uses the extracted blueprint.
-	extractBlueprintBundle( zipFilePath: string ): Promise< ExtractedBlueprintBundle >;
+	extractBlueprintBundle( file: File ): Promise< ExtractedBlueprintBundle >;
 	cleanupBlueprintTempDir( tempDir: string ): Promise< void >;
-	readBlueprintFile( filePath: string ): Promise< Record< string, unknown > >;
-	onAddSiteRequested( listener: () => void ): () => void;
-	onAddSiteWithBlueprint( listener: ( payload: { blueprintPath: string } ) => void ): () => void;
+	readBlueprintFile( filePath: string ): Promise< BlueprintV1Declaration >;
 
-	// Imports a backup archive into an already-created site. Extracts the
-	// archive, installs the SQLite integration if missing, then imports the
-	// archive's database + wp-content on top of the site's folder.
-	// `backup.path` comes from `getFilePath`.
+	// Imports a backup into an already-created site and starts the usable site.
+	// `backupPath` comes from `getFilePath` for the current submission.
 	importSiteFromBackup(
 		siteId: string,
-		backup: { path: string; type: string }
-	): Promise< SiteDetails >;
+		backupPath: string,
+		onProgress?: ( event: ImportEventTuple ) => void
+	): Promise< void >;
 
 	// Site checkpoints — content-addressed save points of a site's files +
 	// database, captured and restored by the CLI checkpoint engine. Restore
@@ -394,6 +439,7 @@ export interface Connector {
 	// Preview snapshots (WordPress.com hosted previews of local sites)
 	getSnapshots(): Promise< Snapshot[] >;
 	getSnapshotUsage(): Promise< SnapshotUsage | null >;
+	getStudioAssistantQuota(): Promise< StudioAssistantQuota | null >;
 	deleteAllSnapshots(): Promise< void >;
 	// Creates a new preview snapshot for the given site, or refreshes the
 	// existing one when `existingHostname` is supplied. Resolves with the
@@ -401,7 +447,7 @@ export interface Connector {
 	publishPreviewSite( siteId: string, existingHostname?: string ): Promise< { url: string } >;
 
 	// Connected WordPress.com live sites for a given local site
-	getConnectedWpcomSites( localSiteId: string ): Promise< SyncSite[] >;
+	getConnectedWpcomSites( localSiteId?: string ): Promise< SyncSite[] >;
 	// All WordPress.com sites the authenticated user can sync with, regardless
 	// of which (if any) local site they're already connected to. The publish
 	// picker filters this list to sites that aren't connected anywhere yet.
@@ -420,20 +466,26 @@ export interface Connector {
 	// unaffected — only the Studio-side mapping is dropped, so Pull/Push
 	// are no longer available until the user reconnects.
 	disconnectWpcomSite( localSiteId: string, remoteSiteId: number ): Promise< void >;
-	// Pushes selected local content to a previously connected WordPress.com site.
+	// Pushes the local site to a previously connected WordPress.com site.
+	// Replaces the remote contents with the local database and wp-content,
+	// or only the selection described by `options` when provided.
 	pushSiteToLive(
 		siteId: string,
 		remoteSiteId: number,
-		options?: LiveSyncOptions
+		options?: PushSyncOptions
 	): Promise< void >;
-	// Pulls selected content from the connected WordPress.com site back into
-	// the local Studio site. Stops the local server while the backup imports
-	// and restarts it on completion.
+	// Pulls the connected WordPress.com site's database + wp-content back
+	// into the local Studio site, or only the selection described by
+	// `options` when provided. Stops the local server while the backup
+	// imports and restarts it on completion.
 	pullSiteFromLive(
 		siteId: string,
 		remoteSiteId: number,
-		options?: LiveSyncOptions
+		onProgress?: ( progress: PullSiteProgress ) => void,
+		options?: PullSyncOptions
 	): Promise< void >;
+	// Legacy item summaries and import status remain available to preserve
+	// in-flight sync tracking and existing connector behavior.
 	// Lists syncable theme/plugin items from the direction's source side:
 	// local files for push, remote backup files for pull.
 	getLiveSyncItems(
@@ -452,6 +504,27 @@ export interface Connector {
 		remoteSiteId: number,
 		direction: LiveSyncDirection
 	): Promise< void >;
+	// Latest rewind (backup) id of the connected live site, or `null` when no
+	// backup exists yet. Selective pull browses the backup tree under this id.
+	getLatestRewindId( remoteSiteId: number ): Promise< string | null >;
+	// Raw contents of a remote backup directory (rewind backup `ls`), keyed by
+	// entry name. Entries are validated and mapped to tree nodes by the UI.
+	listRemoteFileTree(
+		remoteSiteId: number,
+		rewindId: string,
+		path: string
+	): Promise< Record< string, unknown > >;
+	// PHP version of the live site's hosting environment, used to warn about
+	// version mismatches before pushing. `undefined` when unavailable.
+	getHostingPhpVersion( remoteSiteId: number ): Promise< string | undefined >;
+	// Local-site lookups for the selective-sync dialog. The desktop answers
+	// from the main process; browser connectors degrade gracefully (empty
+	// tree / zero sizes / unknown versions) so category-level selection still
+	// works without per-file data.
+	listLocalFileTree( siteId: string, path: string, depth: number ): Promise< RawDirectoryEntry[] >;
+	getDirectorySize( siteId: string, path: string[] ): Promise< number >;
+	getFileSize( siteId: string, path: string[] ): Promise< number >;
+	getIsMultisite( siteId: string ): Promise< boolean | undefined >;
 	// URL to open in the browser when the user wants to publish a site that
 	// isn't connected to WordPress.com yet (checkout + deep-link back to the
 	// desktop app). Returns `undefined` when the connector can't provide one.
@@ -477,7 +550,7 @@ export interface Connector {
 	deleteSession( sessionId: string ): Promise< void >;
 	updateSessionMetadata(
 		sessionId: string,
-		patch: Pick< AiSessionSummary, 'starred' | 'archived' >
+		patch: Pick< AiSessionSummary, 'archived' >
 	): Promise< AiSessionSummary >;
 
 	// Create an empty session file so it appears immediately. When `siteId`
@@ -533,11 +606,23 @@ export interface Connector {
 	// the granular main-process handlers inside the connector so the UI has a
 	// single query + mutation to work with.
 	getUserPreferences(): Promise< UserPreferences >;
-	setUserPreferences( partial: Partial< WritableUserPreferences > ): Promise< void >;
+	setUserPreferences(
+		partial: Partial< WritableUserPreferences >,
+		source?: PreferenceChangeSource
+	): Promise< void >;
 	previewColorScheme( colorScheme: ColorScheme ): Promise< void >;
-	selectDefaultSiteDirectory( defaultPath: string ): Promise< string | null >;
 	getAppGlobals(): Promise< AppGlobals >;
 	onUserSettings( listener: ( tabName?: UserSettingsEventTab ) => void ): () => void;
+
+	// Opens a native folder picker for the default-site-directory preference.
+	// Resolves with the chosen path, or `null` when the user cancels (or the
+	// host has no native picker — see capabilities.nativeFolderPicker).
+	selectDefaultSiteDirectory( defaultPath: string ): Promise< string | null >;
+
+	// The user's global Studio Code instructions, a markdown file injected into
+	// every agent session. Gated by `capabilities.agentInstructions`.
+	getAgentInstructions(): Promise< string >;
+	saveAgentInstructions( content: string ): Promise< void >;
 
 	// Apps detected on disk (editors + terminals). Options in the preferences
 	// form are filtered against this so users can't pick something that isn't
@@ -556,8 +641,31 @@ export interface Connector {
 	openSiteInEditor( siteId: string ): Promise< void >;
 	openSiteInTerminal( siteId: string ): Promise< void >;
 
+	// Open Studio's own log file. Gated by `capabilities.studioLogs`.
+	openStudioLogs(): Promise< void >;
+
+	// Analytics — record a Tracks event. The desktop wrapper attaches the surface
+	// params (channel/ui_version); see `docs/design-docs/analytics-tracks.md`.
+	trackEvent( eventName: TracksEventName, props?: TracksProps ): Promise< void >;
+
 	// External links
 	openExternalUrl( url: string ): Promise< void >;
+
+	getWapuuScore(): Promise< number | undefined >;
+	saveWapuuScore( score: number ): Promise< void >;
+
+	popupAppMenu( position: { x: number; y: number } ): Promise< void >;
+
+	// WordPress agent skills applied to all existing and future sites.
+	getWordPressSkillsStatusAllSites(): Promise< SkillStatus[] >;
+	installWordPressSkillToAllSites( skillId: string ): Promise< void >;
+	removeWordPressSkillFromAllSites( skillId: string ): Promise< void >;
+
+	// Whether the UI should render a button that opens the app menu via
+	// `popupAppMenu`. True only in the Windows/Linux desktop app, which has no
+	// native menu bar; macOS has the native application menu and the browser
+	// (`studio ui` / hosted) has no app menu at all.
+	showsAppMenuButton: boolean;
 
 	// Clipboard — routed to the host so it works where the renderer's
 	// `navigator.clipboard` is unavailable (e.g. Electron permission denial).
@@ -566,6 +674,16 @@ export interface Connector {
 	// `nativeImage`, web `ClipboardItem`) reliably accept PNG, so callers
 	// re-encode other formats before calling.
 	copyImage( pngDataUrl: string ): Promise< void >;
+
+	// Pops the host's native text context menu. Absent in the browser builds,
+	// which already have a real one — there the right-click is left alone.
+	showTextContextMenu?( context: {
+		selectionText: string;
+		isEditable: boolean;
+		messageText?: string;
+		codeText?: string;
+		canQuoteSelection?: boolean;
+	} ): Promise< { action: 'quote-selection'; selectionText: string } | undefined >;
 	openSiteUrl(
 		siteId: string,
 		relativeUrl?: string,
@@ -599,7 +717,7 @@ export interface Connector {
 
 	// Fires whenever a site is created, updated, started, stopped, or deleted.
 	// Consumers typically invalidate cached site data in response.
-	onSiteEvent( listener: () => void ): () => void;
+	onSiteEvent( listener: ( event: SiteEvent ) => void ): () => void;
 
 	// Fires when the user activates "View > Toggle Site Preview" (⌘⇧B) in the
 	// application menu.
@@ -607,6 +725,18 @@ export interface Connector {
 
 	// Fires when the user activates the sidebar toggle shortcut or menu command.
 	onToggleSidebar( listener: () => void ): () => void;
+
+	// Fires when the user activates "File > Add Site…" (or its keyboard
+	// shortcut) in the application menu.
+	onAddSite( listener: () => void ): () => void;
+	onAddSiteWithBlueprint( listener: ( payload: { blueprintPath: string } ) => void ): () => void;
+
+	// Fires when the user activates "Settings…" (or its keyboard shortcut) in
+	// the application menu.
+	onOpenSettings( listener: () => void ): () => void;
+
+	// Switches back to the legacy (classic) Studio UI.
+	disableAgenticUi(): Promise< void >;
 
 	// Persistent-message dismissals (update cards, announcements). Ids are
 	// opaque; dismissing is idempotent and survives relaunches.
@@ -623,6 +753,16 @@ export interface Connector {
 	// Fires when the user picks Help ▸ Getting Started in the application menu
 	// (desktop only). No-ops where there's no OS menu.
 	onShowGettingStarted( listener: () => void ): () => void;
+
+	// Fires when the user picks Help ▸ What's New in the application menu
+	// (desktop only). No-ops where there's no OS menu.
+	onShowWhatsNew( listener: () => void ): () => void;
+
+	// App version the user last dismissed the What's New announcements on. The
+	// same value the classic renderer reads, so the two UIs never show the same
+	// announcements twice.
+	getLastSeenVersion(): Promise< string | undefined >;
+	saveLastSeenVersion( version: string ): Promise< void >;
 
 	// App updates (desktop only). Hosted returns an inert status and no-op
 	// subscribe/install so the messaging layer can call these unconditionally.
@@ -643,6 +783,7 @@ export type ChecklistItemId =
 	| 'first-agent-edit'
 	| 'visit-overview'
 	| 'publish-site'
+	| 'find-sync-controls'
 	| 'visit-app-settings'
 	| 'visit-site-settings';
 
@@ -663,6 +804,14 @@ export interface OnboardingHintsState {
 	completedItems?: Partial< Record< ChecklistItemId, string > >;
 	// True once the one-shot publish coachmark has been shown (never re-fires).
 	publishCoachmarkShown?: boolean;
+	// Captured once, the first time we can tell new from returning: true if the
+	// user already had sites when they first reached the app (so the checklist
+	// drops "create your first site" and swaps publish for finding sync controls).
+	returningUser?: boolean;
+	// True when the user reached the agentic workbench by opting in from classic
+	// Studio (vs a fresh install that starts here). Drives the guide's first-page
+	// "Welcome to WordPress Studio 2.0" migrating copy.
+	migratedFromClassic?: boolean;
 }
 
 export interface SkillStatus {
@@ -679,6 +828,7 @@ export interface SnapshotUsage {
 }
 
 export type ColorScheme = 'system' | 'light' | 'dark';
+export type QuitSitesBehavior = 'stop' | 'stop-and-auto-start' | 'leave-running';
 
 // Mirrors the desktop's QuitSitesBehavior storage union, plus 'ask' for the
 // unset state (the quit dialog prompts on every quit).
@@ -688,11 +838,17 @@ export interface UserPreferences {
 	editor: SupportedEditor | null;
 	terminal: SupportedTerminal | null;
 	colorScheme: ColorScheme;
+	// Window-chrome ("frame") color override. `null` uses the scheme-aware
+	// default; any CSS color string is applied as a single color for both schemes.
+	frameColor: string | null;
 	locale: string | undefined;
 	defaultSiteDirectory: string;
 	studioCliInstalled: boolean;
+	studioCliExternallyManaged: boolean;
 	agenticFeaturesEnabled: boolean;
+	analyticsEnabled: boolean;
 	chatNotificationsEnabled: boolean;
+	activitySoundPreferences: ActivitySoundPreferences;
 	quitSitesBehavior: QuitSitesBehaviorSetting;
 	agentResponseLength: AiResponseLength;
 	defaultAiModel: AiModelId;
@@ -712,9 +868,18 @@ export interface ChatNotification {
 // Subset of UserPreferences that callers can actually mutate. `locale` is
 // typed as `SupportedLocale` on the write side because only locales we ship
 // translations for can be persisted.
-export type WritableUserPreferences = Omit< UserPreferences, 'locale' > & {
+export type WritableUserPreferences = Omit<
+	UserPreferences,
+	'locale' | 'studioCliExternallyManaged'
+> & {
 	locale: SupportedLocale;
 };
+
+// Attributes a preference write to an in-app surface for settings-change Tracks
+// events. `channel`/`ui_version` are attached by the desktop wrapper — not callers.
+export interface PreferenceChangeSource {
+	surface: 'onboarding' | 'settings';
+}
 
 export type UserSettingsEventTab = 'general' | 'account' | 'usage' | 'skills' | 'mcp';
 
@@ -725,15 +890,6 @@ export interface AppGlobals {
 	arm64Translation: boolean;
 	isWindowsStore: boolean;
 	enableAgenticUi: boolean;
-}
-
-export interface FeaturedBlueprint {
-	slug: string;
-	title: string;
-	excerpt: string;
-	image: string;
-	playgroundUrl: string;
-	blueprint: BlueprintV1Declaration;
 }
 
 export interface CreateSiteParams {
@@ -753,15 +909,17 @@ export interface CreateSiteParams {
 	// WordPress.com site), where the sync handler restarts the server itself.
 	skipStart?: boolean;
 	// Optional blueprint payload. When present, `blueprint` is the parsed
-	// blueprint JSON; `slug` is set for featured blueprints (used for stats);
-	// `filePath` points at the extracted `blueprint.json` inside a ZIP bundle
-	// so the CLI can resolve relative asset references. Main process cleans
-	// up the temp dir automatically once `createSite` completes.
+	// blueprint JSON; `filePath` points at the extracted `blueprint.json`
+	// inside a ZIP bundle so the CLI can resolve relative asset references.
+	// Main process cleans up the temp dir automatically once `createSite`
+	// completes.
 	blueprint?: {
 		blueprint: BlueprintV1Declaration;
-		slug?: string;
 		filePath?: string;
 	};
+	// Telemetry hint for the `studio_site_created` Tracks event. `import`/`sync` are set by the
+	// onboarding flows that create a blank site before populating it.
+	flowType?: TracksSiteCreateFlowType;
 }
 
 export interface ExtractedBlueprintBundle {

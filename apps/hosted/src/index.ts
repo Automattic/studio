@@ -51,14 +51,14 @@ function getPort(): number {
 	return parseInt( process.env.STUDIO_WEB_SERVER_PORT ?? String( DEFAULT_PORT ), 10 );
 }
 
-// Star/archive live in the shared config (`~/.studio/shared.json`), not the
-// session JSONL — the same store the desktop app reads, so flags set in either
-// surface show up in both.
+// The archived flag lives in the shared config (`~/.studio/shared.json`), not
+// the session JSONL — the same store the desktop app reads, so flags set in
+// either surface show up in both.
 function hydrateAiSessionSummary(
 	summary: AiSessionSummary,
-	metadata?: Pick< AiSessionSummary, 'starred' | 'archived' >
+	metadata?: Pick< AiSessionSummary, 'archived' >
 ): AiSessionSummary {
-	return { ...summary, starred: metadata?.starred, archived: metadata?.archived };
+	return { ...summary, archived: metadata?.archived };
 }
 
 const root = getAiSessionsRootDirectory();
@@ -278,7 +278,7 @@ api.patch(
 	'/sessions/:id',
 	asyncHandler( async ( req: Request, res: Response ) => {
 		const { summary } = await loadAiSession( root, req.params.id );
-		const patch = req.body as { starred?: boolean; archived?: boolean };
+		const patch = req.body as { archived?: boolean };
 		// Same persistence the desktop app uses (updateAiSessionMetadata in
 		// ipc-handlers.ts): flags go to the shared config under its lock.
 		const metadata = await updateSharedSession( summary.id, patch );

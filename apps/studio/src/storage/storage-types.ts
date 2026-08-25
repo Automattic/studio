@@ -1,6 +1,7 @@
 import { StatsMetric } from 'src/lib/bump-stats';
 import { SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import type { AiSessionSitePlacement } from '@studio/common/ai/sessions/placement';
+import type { ActivitySoundPreferences } from '@studio/common/lib/activity-sounds';
 import type { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 
 export interface WindowBounds {
@@ -43,6 +44,8 @@ export interface UserData {
 	preferredTerminal?: SupportedTerminal;
 	preferredEditor?: SupportedEditor;
 	colorScheme?: 'system' | 'light' | 'dark';
+	/** Agentic UI window-chrome ("frame") color. Absent means the scheme-aware default. */
+	frameColor?: string;
 	betaFeatures?: BetaFeatures;
 	quitSitesBehavior?: QuitSitesBehavior;
 	defaultSiteDirectory?: string;
@@ -54,6 +57,8 @@ export interface UserData {
 	agenticFeaturesEnabled?: boolean;
 	/** OS notifications for chat activity. Absent means enabled. */
 	chatNotificationsEnabled?: boolean;
+	/** Sounds for agent and live-sync activity. */
+	activitySoundPreferences?: ActivitySoundPreferences;
 	/** Persistent-message ids (update cards, announcements) the user dismissed. */
 	dismissedMessages?: string[];
 	/** Agentic UI onboarding state (orientation tour, getting-started checklist). Opaque blob owned by the renderer. */
@@ -61,6 +66,7 @@ export interface UserData {
 	aiSessionPlacements?: Record< string, AiSessionSitePlacement >;
 	lastNightlyUpdateCheck?: number;
 	nightlyPromptResult?: NightlyPromptResult;
+	agenticUiBannerDismissed?: boolean;
 }
 
 export interface PromptWindowsSpeedUpResult {
@@ -79,6 +85,8 @@ export interface OnboardingHintsState {
 	checklistMinimized?: boolean;
 	completedItems?: Record< string, string >;
 	publishCoachmarkShown?: boolean;
+	returningUser?: boolean;
+	migratedFromClassic?: boolean;
 }
 
 export const EMPTY_USER_DATA: UserData = {

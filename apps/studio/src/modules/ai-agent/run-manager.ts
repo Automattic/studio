@@ -26,7 +26,21 @@ const runManager = createAgentRunManager( {
 	surface: 'desktop',
 	emit: ( output ) => {
 		const webContents = runWebContents.get( output.runId );
-		if ( webContents && ! webContents.isDestroyed() ) {
+		const deliverable = !! webContents && ! webContents.isDestroyed();
+		// Interaction and lifecycle events are load-bearing for the renderer —
+		// log their delivery so a silent drop (destroyed/unmapped webContents)
+		// is diagnosable from the log file instead of invisible.
+		if ( output.kind === 'agent' ) {
+			const type = output.event.event.type;
+			if ( type !== 'message' && type !== 'progress' ) {
+				console.log(
+					`[ai-agent] ${ type } run=${ output.runId } wc=${
+						webContents ? `${ webContents.id }${ deliverable ? '' : ':destroyed' }` : 'unmapped'
+					}`
+				);
+			}
+		}
+		if ( deliverable ) {
 			if ( output.kind === 'agent' ) {
 				webContents.send( 'ai-agent-event', output.event );
 			} else {

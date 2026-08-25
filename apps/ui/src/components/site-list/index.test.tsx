@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { useConnector } from '@/data/core';
 import { useSiteAgentActivity } from '@/data/queries/use-agent-run';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useSessions } from '@/data/queries/use-sessions';
@@ -9,6 +10,7 @@ import {
 	useSites,
 	useStartSite,
 	useStopSite,
+	useUpdateSitesSortOrder,
 } from '@/data/queries/use-sites';
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { removePluginSiteTag, tagSiteAsPlugin } from '@/lib/plugin-prototype';
@@ -49,12 +51,17 @@ vi.mock( '@/data/queries/use-agentic-features', () => ( {
 	useAgenticFeatures: vi.fn(),
 } ) );
 
+vi.mock( '@/data/core', () => ( {
+	useConnector: vi.fn(),
+} ) );
+
 vi.mock( '@/data/queries/use-sites', () => ( {
 	useIsSiteStarting: vi.fn(),
 	useIsSiteStopping: vi.fn(),
 	useSites: vi.fn(),
 	useStartSite: vi.fn(),
 	useStopSite: vi.fn(),
+	useUpdateSitesSortOrder: vi.fn(),
 } ) );
 
 vi.mock( '@/data/sync-activity', () => ( {
@@ -62,6 +69,7 @@ vi.mock( '@/data/sync-activity', () => ( {
 } ) );
 
 const useAgenticFeaturesMock = vi.mocked( useAgenticFeatures );
+const useConnectorMock = vi.mocked( useConnector, { partial: true } );
 const useIsSiteStartingMock = vi.mocked( useIsSiteStarting );
 const useIsSiteStoppingMock = vi.mocked( useIsSiteStopping );
 const useSiteAgentActivityMock = vi.mocked( useSiteAgentActivity );
@@ -69,20 +77,28 @@ const useSessionsMock = vi.mocked( useSessions, { partial: true } );
 const useSitesMock = vi.mocked( useSites, { partial: true } );
 const useStartSiteMock = vi.mocked( useStartSite, { partial: true } );
 const useStopSiteMock = vi.mocked( useStopSite, { partial: true } );
+const useUpdateSitesSortOrderMock = vi.mocked( useUpdateSitesSortOrder, { partial: true } );
 const useSiteSyncActivityMock = vi.mocked( useSiteSyncActivity );
-const SITE_ORDER_STORAGE_KEY = 'studio-ui-site-list-order-v1';
 
 describe( 'SiteList', () => {
 	const startSite = vi.fn();
 	const stopSite = vi.fn();
+	const trackEvent = vi.fn().mockResolvedValue( undefined );
+	const updateSitesSortOrder = vi.fn();
 
 	beforeEach( () => {
 		vi.clearAllMocks();
 		window.localStorage.clear();
 		paramsMock = {};
 		pathnameMock = '/';
+		useConnectorMock.mockReturnValue( { trackEvent } );
 
-		useAgenticFeaturesMock.mockReturnValue( { enabled: true, reason: null, isReady: true } );
+		useAgenticFeaturesMock.mockReturnValue( {
+			enabled: true,
+			chatEnabled: true,
+			reason: null,
+			isReady: true,
+		} );
 		useIsSiteStartingMock.mockReturnValue( false );
 		useIsSiteStoppingMock.mockReturnValue( false );
 		useSiteAgentActivityMock.mockReturnValue( 'idle' );
@@ -90,6 +106,10 @@ describe( 'SiteList', () => {
 		useSessionsMock.mockReturnValue( { data: [], isLoading: false } );
 		useStartSiteMock.mockReturnValue( { isPending: false, mutate: startSite } );
 		useStopSiteMock.mockReturnValue( { isPending: false, mutate: stopSite } );
+		useUpdateSitesSortOrderMock.mockReturnValue( {
+			isPending: false,
+			mutate: updateSitesSortOrder,
+		} );
 		useSitesMock.mockReturnValue( {
 			data: [
 				createSite( {
@@ -97,12 +117,14 @@ describe( 'SiteList', () => {
 					name: 'Stopped Site',
 					path: '/Users/example/Studio/stopped-site',
 					running: false,
+					sortOrder: 1000,
 				} ),
 				createSite( {
 					id: 'running-site',
 					name: 'Running Site',
 					path: '/Users/example/Studio/running-site',
 					running: true,
+					sortOrder: 2000,
 				} ),
 			],
 			isLoading: false,
@@ -150,6 +172,70 @@ describe( 'SiteList', () => {
 		expect( runningSiteClassName ).not.toContain( 'siteNameStopped' );
 	} );
 
+	it( 'replaces the status dot with the Xdebug glyph on the Xdebug-enabled site', () => {
+		useSitesMock.mockReturnValue( {
+			data: [
+				createSite( {
+					id: 'xdebug-site',
+					name: 'Xdebug Site',
+					path: '/Users/example/Studio/xdebug-site',
+					running: true,
+					enableXdebug: true,
+				} ),
+				createSite( {
+					id: 'plain-site',
+					name: 'Plain Site',
+					path: '/Users/example/Studio/plain-site',
+					running: true,
+				} ),
+			],
+			isLoading: false,
+		} );
+
+		render( <SiteList /> );
+
+		const xdebugButton = screen.getByRole( 'button', {
+			name: 'Site status: Running. Xdebug enabled. Stop site',
+		} );
+		const xdebugGlyph = xdebugButton.querySelector( 'svg:first-of-type' );
+		const plainButton = screen.getByRole( 'button', {
+			name: 'Site status: Running. Stop site',
+		} );
+
+		expect( xdebugGlyph ).toHaveAttribute( 'viewBox', '0 0 24 24' );
+		expect( xdebugGlyph?.querySelector( 'rect' ) ).not.toBeInTheDocument();
+		expect( plainButton ).not.toHaveAttribute( 'data-xdebug' );
+		expect( plainButton.querySelector( 'svg:first-of-type rect' ) ).toBeInTheDocument();
+
+		fireEvent.click( xdebugButton );
+		expect( stopSite ).toHaveBeenCalledWith( 'xdebug-site' );
+	} );
+
+	it( 'keeps the greyed Xdebug glyph visible while the site is stopped', () => {
+		useSitesMock.mockReturnValue( {
+			data: [
+				createSite( {
+					id: 'xdebug-site',
+					name: 'Xdebug Site',
+					path: '/Users/example/Studio/xdebug-site',
+					running: false,
+					enableXdebug: true,
+				} ),
+			],
+			isLoading: false,
+		} );
+
+		render( <SiteList /> );
+
+		const button = screen.getByRole( 'button', {
+			name: 'Site status: Stopped. Xdebug enabled. Start site',
+		} );
+
+		expect( button ).toHaveAttribute( 'data-state', 'stopped' );
+		expect( button ).toHaveAttribute( 'data-xdebug' );
+		expect( button.querySelector( 'svg:first-of-type' ) ).toHaveAttribute( 'viewBox', '0 0 24 24' );
+	} );
+
 	it( 'opens the site overview from the site action button', () => {
 		render( <SiteList /> );
 
@@ -161,6 +247,9 @@ describe( 'SiteList', () => {
 		expect( navigateMock ).toHaveBeenCalledWith( {
 			to: '/sites/$siteId/overview',
 			params: { siteId: 'stopped-site' },
+		} );
+		expect( trackEvent ).toHaveBeenCalledWith( 'studio_panel_opened', {
+			panel: 'overview',
 		} );
 	} );
 
@@ -189,7 +278,7 @@ describe( 'SiteList', () => {
 
 	it( 'marks the site overview action instead of the site row on site context routes', () => {
 		paramsMock = { siteId: 'stopped-site' };
-		pathnameMock = '/sites/stopped-site/settings';
+		pathnameMock = '/sites/stopped-site/overview';
 
 		render( <SiteList /> );
 
@@ -233,6 +322,9 @@ describe( 'SiteList', () => {
 			to: '/sessions/$sessionId',
 			params: { sessionId: 'latest-chat' },
 		} );
+		expect( trackEvent ).toHaveBeenCalledWith( 'studio_panel_opened', {
+			panel: 'assistant',
+		} );
 	} );
 
 	it( 'keeps the site list order instead of sorting by recent chat activity', () => {
@@ -260,6 +352,56 @@ describe( 'SiteList', () => {
 		expect(
 			stoppedSite.compareDocumentPosition( runningSite ) & Node.DOCUMENT_POSITION_FOLLOWING
 		).toBe( Node.DOCUMENT_POSITION_FOLLOWING );
+	} );
+
+	it( 'matches sessions by owner site id, falling back to path for legacy sessions', () => {
+		useSitesMock.mockReturnValue( {
+			data: [
+				createSite( { id: 'site-a', name: 'Site A', path: '/sites/site-a', sortOrder: 1000 } ),
+				createSite( { id: 'site-b', name: 'Site B', path: '/sites/site-b', sortOrder: 2000 } ),
+			],
+			isLoading: false,
+		} );
+		useSessionsMock.mockReturnValue( {
+			data: [
+				// A stale path must lose to the site id.
+				createSession( {
+					id: 'by-id',
+					ownerSiteId: 'site-b',
+					ownerSitePath: '/sites/site-a',
+					updatedAt: '2026-06-20T12:00:00.000Z',
+				} ),
+				createSession( {
+					id: 'legacy',
+					ownerSitePath: '/sites/site-a',
+					updatedAt: '2026-06-10T12:00:00.000Z',
+				} ),
+				// A deleted site's id must not fall back to a path that now
+				// belongs to another site.
+				createSession( {
+					id: 'orphan',
+					ownerSiteId: 'deleted-site',
+					ownerSitePath: '/sites/site-a',
+					updatedAt: '2026-06-25T12:00:00.000Z',
+				} ),
+			],
+			isLoading: false,
+		} );
+
+		render( <SiteList /> );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Site B' } ) );
+		expect( navigateMock ).toHaveBeenLastCalledWith( {
+			to: '/sessions/$sessionId',
+			params: { sessionId: 'by-id' },
+		} );
+
+		// The orphan is newer but must not attach to Site A via its stale path.
+		fireEvent.click( screen.getByRole( 'button', { name: 'Site A' } ) );
+		expect( navigateMock ).toHaveBeenLastCalledWith( {
+			to: '/sessions/$sessionId',
+			params: { sessionId: 'legacy' },
+		} );
 	} );
 
 	it( 'persists a manual site order after drag and drop', () => {
@@ -301,7 +443,7 @@ describe( 'SiteList', () => {
 
 		expect( placeholder ).toBeInTheDocument();
 		expect( document.querySelector( '[data-site-id="stopped-site"]' ) ).not.toBeInTheDocument();
-		expect( window.localStorage.getItem( SITE_ORDER_STORAGE_KEY ) ).toBeNull();
+		expect( updateSitesSortOrder ).not.toHaveBeenCalled();
 
 		fireEvent( window, createPointerEvent( 'pointerup', { clientX: 16, clientY: 70 } ) );
 
@@ -311,9 +453,7 @@ describe( 'SiteList', () => {
 		expect(
 			runningSite.compareDocumentPosition( stoppedSite ) & Node.DOCUMENT_POSITION_FOLLOWING
 		).toBe( Node.DOCUMENT_POSITION_FOLLOWING );
-		expect( window.localStorage.getItem( SITE_ORDER_STORAGE_KEY ) ).toBe(
-			JSON.stringify( [ 'running-site', 'stopped-site' ] )
-		);
+		expect( updateSitesSortOrder ).toHaveBeenCalledWith( [ 'running-site', 'stopped-site' ] );
 	} );
 
 	it( 'reorders plugins within their group and keeps the site order intact', () => {
@@ -324,24 +464,28 @@ describe( 'SiteList', () => {
 					name: 'Stopped Site',
 					path: '/Users/example/Studio/stopped-site',
 					running: false,
+					sortOrder: 1000,
 				} ),
 				createSite( {
 					id: 'running-site',
 					name: 'Running Site',
 					path: '/Users/example/Studio/running-site',
 					running: true,
+					sortOrder: 2000,
 				} ),
 				createSite( {
 					id: 'plugin-a',
 					name: 'Plugin A',
 					path: '/Users/example/Studio/plugin-a',
 					running: false,
+					sortOrder: 3000,
 				} ),
 				createSite( {
 					id: 'plugin-b',
 					name: 'Plugin B',
 					path: '/Users/example/Studio/plugin-b',
 					running: false,
+					sortOrder: 4000,
 				} ),
 			],
 			isLoading: false,
@@ -351,6 +495,9 @@ describe( 'SiteList', () => {
 
 		try {
 			render( <SiteList /> );
+
+			// Plugins render in their own view behind the segmented control.
+			fireEvent.click( screen.getByRole( 'button', { name: /Plugins/ } ) );
 
 			const pluginARow = document.querySelector( '[data-site-id="plugin-a"]' );
 			const pluginBRow = document.querySelector( '[data-site-id="plugin-b"]' );
@@ -395,9 +542,12 @@ describe( 'SiteList', () => {
 			expect( pluginB.compareDocumentPosition( pluginA ) & Node.DOCUMENT_POSITION_FOLLOWING ).toBe(
 				Node.DOCUMENT_POSITION_FOLLOWING
 			);
-			expect( window.localStorage.getItem( SITE_ORDER_STORAGE_KEY ) ).toBe(
-				JSON.stringify( [ 'stopped-site', 'running-site', 'plugin-b', 'plugin-a' ] )
-			);
+			expect( updateSitesSortOrder ).toHaveBeenCalledWith( [
+				'stopped-site',
+				'running-site',
+				'plugin-b',
+				'plugin-a',
+			] );
 		} finally {
 			removePluginSiteTag( 'plugin-a' );
 			removePluginSiteTag( 'plugin-b' );
@@ -574,6 +724,7 @@ describe( 'SiteList', () => {
 	it( 'opens the site overview from the site row when agentic features are gated', () => {
 		useAgenticFeaturesMock.mockReturnValue( {
 			enabled: false,
+			chatEnabled: false,
 			reason: 'signed-out',
 			isReady: true,
 		} );
@@ -595,11 +746,15 @@ describe( 'SiteList', () => {
 			to: '/sites/$siteId/overview',
 			params: { siteId: 'stopped-site' },
 		} );
+		expect( trackEvent ).toHaveBeenCalledWith( 'studio_panel_opened', {
+			panel: 'overview',
+		} );
 	} );
 
 	it( 'uses the primary selected state for the overview row when agentic features are gated', () => {
 		useAgenticFeaturesMock.mockReturnValue( {
 			enabled: false,
+			chatEnabled: false,
 			reason: 'signed-out',
 			isReady: true,
 		} );
@@ -621,8 +776,9 @@ describe( 'SiteList', () => {
 
 	it( 'hides the site overview action button when agentic features are gated', () => {
 		useAgenticFeaturesMock.mockReturnValue( {
-			enabled: false,
-			reason: 'preference',
+			enabled: true,
+			chatEnabled: false,
+			reason: null,
 			isReady: true,
 		} );
 

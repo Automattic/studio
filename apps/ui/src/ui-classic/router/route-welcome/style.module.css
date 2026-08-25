@@ -1,7 +1,7 @@
-/* Full-window welcome canvas: content centered, corner-pinned controls, and
-   a footer row (legal left, actions right). Everything must fit the viewport
-   without scrolling — the bottom padding reserves the footer row so the
-   centered content can never collide with it. */
+/* Full-window welcome canvas: centered content above a real footer row
+   (legal left, actions right). The footer is a flex sibling rather than
+   pinned, so a short window shrinks the content instead of letting it
+   collide with the legal text — the app can be resized to 600px tall. */
 .page {
 	/* No global border-box reset in this app — without it the padding adds
 	   to the 100vh and the document scrolls, pushing the footer offscreen. */
@@ -9,15 +9,37 @@
 	position: relative;
 	display: flex;
 	flex-direction: column;
-	justify-content: center;
-	align-items: center;
 	height: 100vh;
-	padding: 40px 50px 96px;
+	padding: 40px 50px 20px;
 	overflow: hidden;
-	background: var( --wpds-color-bg-surface-neutral );
+	background: var(--wpds-color-bg-surface-neutral);
 	/* New stacking context so the dot grid's negative z-index stays behind
 	   this page's content without escaping below ancestors. */
 	isolation: isolate;
+}
+
+/* Takes whatever height the footer doesn't need, and centres within it. */
+.contentArea {
+	flex: 1 1 auto;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+}
+
+.footer {
+	/* Positioned for the same reason as .analyticsPreference: the content
+	   scrim's backdrop-filter would otherwise blur the footer along with the
+	   dot grid behind it. */
+	position: relative;
+	z-index: 1;
+	flex: 0 0 auto;
+	display: flex;
+	align-items: flex-end;
+	justify-content: space-between;
+	gap: 24px;
+	padding-top: 16px;
 }
 
 /* Decorative dot-grid backdrop, same treatment as the onboarding shell. */
@@ -65,10 +87,6 @@
 	right: 16px;
 }
 
-.skipButton svg {
-	fill: currentColor;
-}
-
 .content {
 	display: flex;
 	flex-direction: column;
@@ -110,14 +128,14 @@
 
 /* The absolutely-positioned scrim would otherwise paint above its static
    siblings; positioning them keeps the text on top (later DOM order). */
-.contentBody > :not( .contentScrim ) {
+.contentBody > :not(.contentScrim) {
 	position: relative;
 }
 
 /* Progressive blur behind the overlapping text — same pattern as the
    onboarding footer scrim: the backdrop blur fades in from the top so the
-   toy's particles soften under the text without a hard edge. */
-/* Oversized on purpose: it reaches past the viewport on the sides and
+   toy's particles soften under the text without a hard edge.
+   Oversized on purpose: it reaches past the viewport on the sides and
    bottom and lets .page's overflow clipping trim it, so the blur covers
    everything below the title (text, footer, buttons) while the dot grid
    behind it stays soft. */
@@ -128,14 +146,14 @@
 	right: -100vw;
 	bottom: -100vh;
 	pointer-events: none;
-	backdrop-filter: blur( 12px );
+	backdrop-filter: blur(12px);
 	background: linear-gradient(
 		to bottom,
 		transparent,
-		color-mix( in srgb, var( --wpds-color-bg-surface-neutral ) 55%, transparent ) 96px
+		color-mix(in srgb, var(--wpds-color-bg-surface-neutral) 55%, transparent) 96px
 	);
-	-webkit-mask-image: linear-gradient( to bottom, transparent, black 96px );
-	mask-image: linear-gradient( to bottom, transparent, black 96px );
+	-webkit-mask-image: linear-gradient(to bottom, transparent, black 96px);
+	mask-image: linear-gradient(to bottom, transparent, black 96px);
 }
 
 .title {
@@ -144,72 +162,19 @@
 }
 
 .subtitle {
-	color: var( --wpds-color-fg-content-neutral-weak );
+	color: var(--wpds-color-fg-content-neutral-weak);
 	max-width: 440px;
 	margin: 0;
 }
 
-/* Three left-aligned checkmark feature columns sharing one quiet bordered
-   container. Wider than the content column to make use of the horizontal
-   space. */
-.features {
-	list-style: none;
-	margin: 16px 0 0;
-	padding: 16px 20px 20px;
-	border: 1px solid var( --wpds-color-stroke-surface-neutral );
-	border-radius: 8px;
-	display: flex;
-	gap: 24px;
-	width: min( 880px, calc( 100vw - 100px ) );
-	text-align: start;
-}
-
-.features li {
-	flex: 1 1 0;
-	min-width: 0;
-}
-
-.featureTitle {
-	display: flex;
-	align-items: center;
-	gap: 6px;
-	font-size: 13px;
-	font-weight: 500;
-	margin: 0 0 2px;
-	text-wrap: balance;
-}
-
-.featureCheck {
-	fill: var( --wpds-color-fg-interactive-brand );
-	flex-shrink: 0;
-}
-
-.featureBody {
-	color: var( --wpds-color-fg-content-neutral-weak );
-	font-size: 12px;
-	line-height: 1.4;
-	margin: 0;
-	/* Align with the title text, past the checkmark. */
-	margin-inline-start: 22px;
-	text-wrap: pretty;
-}
-
-/* Pinned bottom-left, opposite the action buttons — reads as one footer
-   row with them. */
+/* Bottom-left, opposite the action buttons — one footer row with them. */
 .legal {
-	position: absolute;
-	bottom: 20px;
-	left: 20px;
 	max-width: 340px;
 	margin: 0;
-	color: var( --wpds-color-fg-content-neutral-weak );
-	font-size: var( --wpds-typography-font-size-small, 12px );
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: 12px;
 	line-height: 20px;
 	text-wrap: pretty;
-}
-
-.noWrap {
-	white-space: nowrap;
 }
 
 /* Same treatment as the shared learn-more link (a button that opens an
@@ -219,7 +184,7 @@
 	border: none;
 	padding: 0;
 	font: inherit;
-	color: var( --wpds-color-fg-interactive-brand );
+	color: var(--wpds-color-fg-interactive-brand);
 	text-decoration: underline;
 	cursor: pointer;
 	white-space: nowrap;
@@ -231,14 +196,11 @@
 }
 
 .linkButton:disabled {
-	color: var( --wpds-color-fg-interactive-neutral-disabled );
+	color: var(--wpds-color-fg-interactive-neutral-disabled);
 	cursor: default;
 }
 
 .footerActions {
-	position: absolute;
-	bottom: 20px;
-	right: 20px;
 	display: flex;
 	align-items: center;
 	gap: 16px;
@@ -249,13 +211,25 @@
 	white-space: nowrap;
 }
 
+/* Sits just below the benefits card, centered in the content column.
+   Positioned so it paints above the content scrim (a positioned element
+   with backdrop-filter) instead of being washed out behind it. */
+.analyticsPreference {
+	position: relative;
+	z-index: 1;
+	flex: 0 0 auto;
+	margin-top: 20px;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+}
+
 /* Signed-in identity shown in place of the auth buttons. */
 .identity {
 	display: inline-flex;
 	align-items: center;
 	gap: 8px;
 	font-size: 13px;
-	font-weight: 500;
+	font-weight: var(--wpds-typography-font-weight-medium);
 }
 
 .identityAvatar {
@@ -263,11 +237,47 @@
 	height: 24px;
 }
 
-.arrow {
-	margin-inline-start: 4px;
-	display: inline-block;
+/* The toy is the only part with slack, so it absorbs the loss as the window
+   gets shorter (down to the app's 600px minimum). The canvas is sized by
+   `min(100%, …)`, so shrinking the stage scales it down; the text block's
+   overlap eases off with it. */
+/* Narrow windows leave the legal text and the account actions competing for
+   one row, with only the flex gap between them. Give the row more air and
+   let the legal wrap earlier so the two halves stay visually separate. */
+@media (max-width: 950px) {
+	.footer {
+		gap: 40px;
+		padding-top: 24px;
+	}
+
+	.legal {
+		max-width: 250px;
+	}
 }
 
-[dir='rtl'] .arrow {
-	transform: scaleX( -1 );
+@media (max-height: 800px) {
+	.logoToy {
+		width: 620px;
+		height: 320px;
+	}
+
+	.contentBody {
+		margin-top: -110px;
+	}
+}
+
+@media (max-height: 700px) {
+	.logoToy {
+		width: 480px;
+		height: 230px;
+	}
+
+	.contentBody {
+		margin-top: -80px;
+		padding-top: 28px;
+	}
+
+	.contentScrim {
+		top: -40px;
+	}
 }

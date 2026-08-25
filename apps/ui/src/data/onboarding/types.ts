@@ -11,6 +11,8 @@ export type CoachmarkAnchorId =
 	| 'composer'
 	| 'preview-pane'
 	| 'site-overview-content'
+	| 'site-settings-tab'
+	| 'site-menu-button'
 	| 'publish-button';
 
 export interface CoachmarkPlacement {

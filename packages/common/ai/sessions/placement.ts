@@ -62,9 +62,19 @@ export function hydrateAiSessionSummaryWithPlacement(
 	placement?: AiSessionSitePlacement
 ): AiSessionSummary {
 	if ( ! placement ) {
-		return { ...summary, ownerSitePath: undefined, ownerSiteName: undefined };
+		return {
+			...summary,
+			ownerSiteId: undefined,
+			ownerSitePath: undefined,
+			ownerSiteName: undefined,
+		};
 	}
-	return { ...summary, ownerSitePath: placement.sitePath, ownerSiteName: placement.siteName };
+	return {
+		...summary,
+		ownerSiteId: placement.siteId,
+		ownerSitePath: placement.sitePath,
+		ownerSiteName: placement.siteName,
+	};
 }
 
 // Extracts a created-site placement from a `chat.artifact` event, if the agent

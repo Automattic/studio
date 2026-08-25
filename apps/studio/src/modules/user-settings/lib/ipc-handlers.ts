@@ -1,4 +1,8 @@
 import { BrowserWindow, IpcMainInvokeEvent, nativeTheme } from 'electron';
+import {
+	readGlobalInstructionsFile,
+	writeGlobalInstructions,
+} from '@studio/common/ai/global-instructions';
 import { DEFAULT_MODEL, isAiModelId, type AiModelId } from '@studio/common/ai/models';
 import {
 	DEFAULT_RESPONSE_LENGTH,
@@ -11,6 +15,11 @@ import {
 	type ToolPermissionOverrides,
 } from '@studio/common/ai/tool-permissions';
 import {
+	resolveActivitySoundPreferences,
+	type ActivitySoundPreferences,
+} from '@studio/common/lib/activity-sounds';
+import {
+	isAnalyticsOptedOut,
 	lockSharedConfig,
 	readSharedConfig,
 	saveSharedConfig,
@@ -21,6 +30,7 @@ import { DEFAULT_TERMINAL } from 'src/constants';
 import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { isInstalled } from 'src/lib/is-installed';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
+import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
 import { SUPPORTED_EDITORS, SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 import { UserSettingsTabName } from 'src/modules/user-settings/user-settings-types';
@@ -30,9 +40,9 @@ import {
 	loadUserData,
 	lockAppdata,
 	saveUserData,
+	type QuitSitesBehavior,
 	unlockAppdata,
 	updateAppdata,
-	type QuitSitesBehavior,
 } from 'src/storage/user-data';
 
 export function getInstalledAppsAndTerminals(): InstalledApps {
@@ -56,8 +66,15 @@ export async function saveUserTerminal(
 	event: IpcMainInvokeEvent,
 	preferredTerminal: SupportedTerminal
 ) {
+	const previous = ( await loadUserData() ).preferredTerminal || DEFAULT_TERMINAL;
 	await sendIpcEventToRenderer( 'user-preference-changed' );
 	await updateAppdata( { preferredTerminal } );
+	if ( preferredTerminal !== previous ) {
+		await recordTracksEvent( TRACKS_EVENTS.SETTING_TERMINAL_CHANGE, {
+			terminal: preferredTerminal,
+			surface: 'settings',
+		} );
+	}
 }
 
 export async function getUserTerminal() {
@@ -66,14 +83,28 @@ export async function getUserTerminal() {
 }
 
 export async function saveUserLocale( event: IpcMainInvokeEvent, locale: string ) {
+	const previous = ( await readSharedConfig() ).locale;
 	await updateSharedConfig( { locale } );
+	if ( locale !== previous ) {
+		await recordTracksEvent( TRACKS_EVENTS.SETTING_LANGUAGE_CHANGE, {
+			locale,
+			surface: 'settings',
+		} );
+	}
 }
 
 export async function saveUserEditor( event: IpcMainInvokeEvent, editor: SupportedEditor ) {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	sendIpcEventToRendererWithWindow( parentWindow, 'user-preference-changed' );
 
+	const previous = ( await loadUserData() ).preferredEditor;
 	await updateAppdata( { preferredEditor: editor } );
+	if ( editor !== previous ) {
+		await recordTracksEvent( TRACKS_EVENTS.SETTING_CODE_EDITOR_CHANGE, {
+			editor,
+			surface: 'settings',
+		} );
+	}
 }
 
 export async function getDefaultSiteDirectory(): Promise< string > {
@@ -83,8 +114,15 @@ export async function getDefaultSiteDirectory(): Promise< string > {
 
 export async function saveDefaultSiteDirectory( event: IpcMainInvokeEvent, directory: string ) {
 	await ensureWritableDirectory( directory );
+	const previous = ( await loadUserData() ).defaultSiteDirectory || defaultSitePath;
 	await sendIpcEventToRenderer( 'user-preference-changed' );
 	await updateAppdata( { defaultSiteDirectory: directory } );
+	if ( directory !== previous ) {
+		await recordTracksEvent( TRACKS_EVENTS.SETTING_DEFAULT_DIRECTORY_CHANGE, {
+			is_default: directory === defaultSitePath,
+			surface: 'settings',
+		} );
+	}
 }
 
 export async function getUserLocale() {
@@ -116,8 +154,15 @@ export async function saveColorScheme(
 	event: IpcMainInvokeEvent,
 	colorScheme: 'system' | 'light' | 'dark'
 ) {
+	const previous = ( await loadUserData() ).colorScheme ?? 'system';
 	nativeTheme.themeSource = colorScheme;
 	await updateAppdata( { colorScheme } );
+	if ( colorScheme !== previous ) {
+		await recordTracksEvent( TRACKS_EVENTS.SETTING_APPEARANCE_CHANGE, {
+			mode: colorScheme,
+			surface: 'settings',
+		} );
+	}
 }
 
 export async function getAgenticFeaturesEnabled(): Promise< boolean > {
@@ -126,10 +171,17 @@ export async function getAgenticFeaturesEnabled(): Promise< boolean > {
 }
 
 export async function saveAgenticFeaturesEnabled(
-	event: IpcMainInvokeEvent,
+	_event: IpcMainInvokeEvent,
 	enabled: boolean
 ): Promise< void > {
+	const previous = ( await loadUserData() ).agenticFeaturesEnabled ?? true;
 	await updateAppdata( { agenticFeaturesEnabled: enabled } );
+	if ( enabled !== previous ) {
+		await recordTracksEvent( TRACKS_EVENTS.SETTING_AGENTIC_FEATURES_CHANGE, {
+			enabled,
+			surface: 'settings',
+		} );
+	}
 }
 
 // Lives in shared.json (not app.json) because the CLI reads it on every
@@ -222,31 +274,18 @@ export async function saveChatNotificationsEnabled(
 	await updateAppdata( { chatNotificationsEnabled: enabled } );
 }
 
-// 'ask' is the unset state: the quit dialog prompts on every quit. It persists
-// as an absent `quitSitesBehavior` key, matching what the dialog's own
-// "Remember my choice" flow writes when a concrete behavior is chosen.
-export type QuitSitesBehaviorSetting = QuitSitesBehavior | 'ask';
-
-const QUIT_SITES_BEHAVIOR_SETTINGS: QuitSitesBehaviorSetting[] = [
-	'ask',
-	'leave-running',
-	'stop-and-auto-start',
-	'stop',
-];
-
-export async function getQuitSitesBehavior(): Promise< QuitSitesBehaviorSetting > {
+export async function getActivitySoundPreferences(): Promise< ActivitySoundPreferences > {
 	const userData = await loadUserData();
-	return userData.quitSitesBehavior ?? 'ask';
+	return resolveActivitySoundPreferences( userData.activitySoundPreferences );
 }
 
-export async function saveQuitSitesBehavior(
-	event: IpcMainInvokeEvent,
-	behavior: QuitSitesBehaviorSetting
+export async function saveActivitySoundPreferences(
+	_event: IpcMainInvokeEvent,
+	preferences: ActivitySoundPreferences
 ): Promise< void > {
-	if ( ! QUIT_SITES_BEHAVIOR_SETTINGS.includes( behavior ) ) {
-		throw new Error( `Unknown quit sites behavior: ${ behavior }` );
-	}
-	await updateAppdata( { quitSitesBehavior: behavior === 'ask' ? undefined : behavior } );
+	await updateAppdata( {
+		activitySoundPreferences: resolveActivitySoundPreferences( preferences ),
+	} );
 }
 
 export async function getColorScheme(): Promise< 'system' | 'light' | 'dark' > {
@@ -255,6 +294,69 @@ export async function getColorScheme(): Promise< 'system' | 'light' | 'dark' > {
 	const colorScheme = userData.colorScheme ?? 'system';
 	nativeTheme.themeSource = colorScheme;
 	return colorScheme;
+}
+
+export async function getFrameColor(): Promise< string | null > {
+	const userData = await loadUserData();
+	return userData.frameColor ?? null;
+}
+
+// `null` clears the override, restoring the scheme-aware default chrome.
+export async function saveFrameColor(
+	_event: IpcMainInvokeEvent,
+	frameColor: string | null
+): Promise< void > {
+	await updateAppdata( { frameColor: frameColor ?? undefined } );
+}
+
+export async function getAnalyticsEnabled(): Promise< boolean > {
+	return ! ( await isAnalyticsOptedOut() );
+}
+
+// Where the toggle was flipped — the renderer supplies the surface; Main can't infer it.
+export interface AnalyticsToggleSource {
+	surface: 'onboarding' | 'settings';
+}
+
+export async function saveAnalyticsEnabled(
+	_event: IpcMainInvokeEvent,
+	enabled: boolean,
+	source: AnalyticsToggleSource
+): Promise< void > {
+	// `recordTracksEvent` is gated by the current opt-out state, so the event must be recorded while
+	// analytics is ON — before turning it off, after turning it on. Order the write around that.
+	const recordEvent = () =>
+		recordTracksEvent( TRACKS_EVENTS.SETTING_TELEMETRY_CHANGE, {
+			surface: source.surface,
+			status: enabled ? 'on' : 'off',
+		} );
+
+	if ( enabled ) {
+		await updateSharedConfig( { analyticsOptOut: false } );
+		await recordEvent();
+	} else {
+		await recordEvent();
+		await updateSharedConfig( { analyticsOptOut: true } );
+	}
+}
+
+export async function saveQuitSitesBehavior(
+	_event: IpcMainInvokeEvent,
+	quitSitesBehavior: QuitSitesBehavior | undefined
+) {
+	const previous = ( await loadUserData() ).quitSitesBehavior;
+	await updateAppdata( { quitSitesBehavior } );
+	if ( quitSitesBehavior && quitSitesBehavior !== previous ) {
+		await recordTracksEvent( TRACKS_EVENTS.SETTING_QUIT_ACTION_CHANGE, {
+			behavior: quitSitesBehavior,
+			surface: 'settings',
+		} );
+	}
+}
+
+export async function getQuitSitesBehavior(): Promise< QuitSitesBehavior | undefined > {
+	const userData = await loadUserData();
+	return userData.quitSitesBehavior;
 }
 
 export async function saveWapuuScore( _event: IpcMainInvokeEvent, score: number ): Promise< void > {
@@ -276,6 +378,62 @@ export async function saveWapuuScore( _event: IpcMainInvokeEvent, score: number 
 export async function getWapuuScore(): Promise< number | undefined > {
 	const userData = await loadUserData();
 	return userData.wapuuScore;
+}
+
+// Agentic UI onboarding state (orientation guide, getting-started checklist,
+// and migration marker).
+// The blob is opaque to the desktop; the renderer owns its meaning.
+export async function getOnboardingHints(): Promise< OnboardingHintsState > {
+	const userData = await loadUserData();
+	return userData.onboardingHints ?? {};
+}
+
+async function persistOnboardingHints( partial: Partial< OnboardingHintsState > ): Promise< void > {
+	if ( ! partial || typeof partial !== 'object' ) {
+		return;
+	}
+	await lockAppdata();
+	try {
+		const userData = await loadUserData();
+		const current = userData.onboardingHints ?? {};
+		const merged: OnboardingHintsState = {
+			...current,
+			...partial,
+			completedItems: {
+				...( current.completedItems ?? {} ),
+				...( partial.completedItems ?? {} ),
+			},
+		};
+		await saveUserData( { ...userData, onboardingHints: merged } );
+	} finally {
+		await unlockAppdata();
+	}
+}
+
+export async function saveOnboardingHints(
+	_event: IpcMainInvokeEvent,
+	partial: Partial< OnboardingHintsState >
+): Promise< void > {
+	await persistOnboardingHints( partial );
+}
+
+// Marks that the user reached the agentic workbench by opting in from classic
+// Studio, so the orientation guide can greet them as a migrating user. Fresh
+// installs get the agentic UI seeded on by default (migration 09) and never
+// hit this path, so they stay "new".
+export async function recordAgenticUiMigration(): Promise< void > {
+	await persistOnboardingHints( { migratedFromClassic: true } );
+}
+
+export async function getGlobalAgentInstructions( _event: IpcMainInvokeEvent ): Promise< string > {
+	return ( await readGlobalInstructionsFile() ) ?? '';
+}
+
+export async function saveGlobalAgentInstructions(
+	_event: IpcMainInvokeEvent,
+	content: string
+): Promise< void > {
+	await writeGlobalInstructions( content );
 }
 
 // Persistent-message dismissals (agentic UI update cards, announcements).
@@ -300,41 +458,6 @@ export async function dismissMessage( _event: IpcMainInvokeEvent, id: string ): 
 		await unlockAppdata();
 	}
 }
-
-// Agentic UI onboarding state (orientation tour, getting-started checklist).
-// The blob is opaque to the desktop; the renderer owns its meaning.
-export async function getOnboardingHints(): Promise< OnboardingHintsState > {
-	const userData = await loadUserData();
-	return userData.onboardingHints ?? {};
-}
-
-export async function saveOnboardingHints(
-	_event: IpcMainInvokeEvent,
-	partial: Partial< OnboardingHintsState >
-): Promise< void > {
-	if ( ! partial || typeof partial !== 'object' ) {
-		return;
-	}
-	await lockAppdata();
-	try {
-		const userData = await loadUserData();
-		const current = userData.onboardingHints ?? {};
-		// Shallow-merge, but merge completedItems by key so concurrent item
-		// completions never clobber one another.
-		const merged: OnboardingHintsState = {
-			...current,
-			...partial,
-			completedItems: {
-				...( current.completedItems ?? {} ),
-				...( partial.completedItems ?? {} ),
-			},
-		};
-		await saveUserData( { ...userData, onboardingHints: merged } );
-	} finally {
-		await unlockAppdata();
-	}
-}
-
 export function showUserSettings( event: IpcMainInvokeEvent, tabName?: UserSettingsTabName ) {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	sendIpcEventToRendererWithWindow( parentWindow, 'user-settings', { tabName } );

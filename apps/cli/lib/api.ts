@@ -185,12 +185,24 @@ export interface WpComSiteInfo {
 	url: string;
 }
 
+/**
+ * Which export surface a WordPress.com/Pressable site exposes. v2 (`jetpack/v4`
+ * + `?reprint-api-jetpack`) is available on Pressable and current Atomic; v1
+ * (wpcomsh + `?reprint-api`) is the legacy Atomic surface. The surface is
+ * decided once by {@link enableReprintExporter}'s probe and then drives both
+ * the rotate route and the importer query var.
+ */
+export type ReprintSurface = 'v1' | 'v2';
+
+const reprintSecretSchema = z.string().min( 1, __( 'Secret cannot be empty' ) );
+
+// Rotate hands back the secret in one of two shapes: v2 (`jetpack/v4`) is flat
+// `{ secret }`; v1 (wpcomsh) nests it under `{ data: { secret } }`.
 const rotateReprintSecretResponseSchema = z.object( {
 	code: z.number(),
 	body: z.object( {
-		data: z.object( {
-			secret: z.string().min( 1, __( 'Secret cannot be empty' ) ),
-		} ),
+		secret: reprintSecretSchema.optional(),
+		data: z.object( { secret: reprintSecretSchema } ).optional(),
 	} ),
 } );
 
@@ -216,7 +228,7 @@ export async function getWpComSites( token: string ): Promise< WpComSiteInfo[] >
 			},
 			{
 				fields: 'ID,name,URL,is_deleted,is_a8c',
-				filters: 'atomic,wpcom',
+				filters: 'jetpack,atomic,wpcom',
 				site_activity: 'active',
 			}
 		);
@@ -236,29 +248,139 @@ export async function getWpComSites( token: string ): Promise< WpComSiteInfo[] >
 	}
 }
 
+/**
+ * POSTs `innerPath` through the WordPress.com Jetpack-blogs REST bridge with
+ * `http_envelope=1` and returns the parsed envelope. The envelope wraps the
+ * real response — the outer HTTP is always 200 and the inner status/body live
+ * in the envelope's `code`/`body`. Throws on a transport-level failure.
+ */
+async function postJetpackBridge(
+	siteId: number,
+	token: string,
+	innerPath: string
+): Promise< unknown > {
+	const response = await fetch(
+		`https://public-api.wordpress.com/rest/v1.1/jetpack-blogs/${ siteId }/rest-api?http_envelope=1&`,
+		{
+			method: 'POST',
+			headers: {
+				Authorization: `Bearer ${ token }`,
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify( { path: innerPath } ),
+		}
+	);
+	if ( ! response.ok ) {
+		throw new Error( `HTTP ${ response.status }` );
+	}
+	return response.json();
+}
+
+/**
+ * Inner HTTP status of a Jetpack-bridge (`http_envelope=1`) response. The real
+ * status is the envelope's `code`, except that a missing route answers with an
+ * inner `rest_no_route` body, which we normalise to 404 so the v2 capability
+ * probe is reliable.
+ */
+function jetpackBridgeInnerCode( envelope: unknown ): number {
+	if ( ! envelope || typeof envelope !== 'object' ) {
+		return 0;
+	}
+	const { code, body } = envelope as { code?: unknown; body?: unknown };
+	let inner = body;
+	if ( typeof inner === 'string' ) {
+		try {
+			inner = JSON.parse( inner );
+		} catch {
+			inner = undefined;
+		}
+	}
+	if (
+		inner &&
+		typeof inner === 'object' &&
+		( inner as { code?: unknown } ).code === 'rest_no_route'
+	) {
+		return 404;
+	}
+	return typeof code === 'number' ? code : 0;
+}
+
 const settingsResponseSchema = z.object( {
 	updated: z.record( z.string(), z.unknown() ).optional(),
 } );
 
 /**
- * Enables the reprint exporter on a WordPress.com site by setting the
- * `reprint_exporter_enabled` site option to the current unix timestamp.
+ * Provisions the reprint exporter on a WordPress.com/Pressable site and reports
+ * which export surface it exposes.
  *
- * wpcomsh gates the `?reprint-api` endpoint on this option being a
- * timestamp within the last 60 minutes (a sliding window that each
- * accepted export request bumps). Studio must call this before the
- * first direct request to the site or preflight will be refused.
+ * Probes for v2 by POSTing `jetpack/v4/reprint/enable-export` through the
+ * Jetpack bridge: a 200 inner status means v2 is available; a 404
+ * (`rest_no_route` — the routes only register where the exporter exists) means
+ * the site is still on the wpcomsh v1 surface, so we fall back to the legacy
+ * settings-based enable. enable-export mints no secret, so probing is harmless.
  *
- * Uses WPCOM's generic `/sites/{site}/settings` endpoint because
- * wpcomsh does not expose a dedicated enable endpoint (the Jetpack
- * REST proxy path used for `rotate-export-secret` isn't an option).
- *
- * The settings endpoint whitelists keys and silently drops unknown
- * ones with a 200 OK, so we verify that `reprint_exporter_enabled`
- * appears in the `updated` response — catching a stale wpcomsh
- * whitelist here, long before the user hits an opaque preflight 403.
+ * Runs on every pull: the v1 enable arms a sliding 60-minute window that each
+ * accepted export request bumps, so a resume days later must re-arm it.
  */
 export async function enableReprintExporter(
+	siteId: number,
+	token: string,
+	verbose = false
+): Promise< ReprintSurface > {
+	let envelope: unknown;
+	try {
+		envelope = await postJetpackBridge( siteId, token, '/jetpack/v4/reprint/enable-export' );
+	} catch ( error ) {
+		throw new LoggerError(
+			__( 'Failed to enable the reprint exporter' ),
+			error instanceof Error ? error : new Error( String( error ) )
+		);
+	}
+
+	const status = jetpackBridgeInnerCode( envelope );
+	if ( status === 200 ) {
+		if ( verbose ) {
+			console.error(
+				`[enableReprintExporter] Site ${ siteId } supports v2 export (enable-export returned 200)`
+			);
+		}
+		return 'v2';
+	}
+	if ( status === 404 ) {
+		if ( verbose ) {
+			console.error(
+				`[enableReprintExporter] Site ${ siteId } has no v2 export route (404); falling back to v1`
+			);
+		}
+		await enableReprintExporterV1( siteId, token, verbose );
+		return 'v1';
+	}
+
+	if ( verbose ) {
+		console.error(
+			`[enableReprintExporter] enable-export probe on site ${ siteId } returned an unexpected status ${ status }. Response: ${ JSON.stringify(
+				envelope
+			) }`
+		);
+	}
+	throw new LoggerError(
+		__( 'Failed to enable the reprint exporter' ),
+		new Error( `enable-export probe returned status ${ status }` )
+	);
+}
+
+/**
+ * v1 enable: sets the `reprint_exporter_enabled` site option to the current
+ * unix timestamp. wpcomsh gates the `?reprint-api` endpoint on this being a
+ * timestamp within the last 60 minutes.
+ *
+ * Uses WPCOM's generic `/sites/{site}/settings` endpoint because wpcomsh does
+ * not expose a dedicated enable endpoint. The settings endpoint whitelists keys
+ * and silently drops unknown ones with a 200 OK, so we verify that
+ * `reprint_exporter_enabled` appears in the `updated` response — catching a
+ * stale wpcomsh whitelist here, long before the user hits an opaque preflight 403.
+ */
+async function enableReprintExporterV1(
 	siteId: number,
 	token: string,
 	verbose = false
@@ -314,41 +436,28 @@ export async function enableReprintExporter(
 }
 
 /**
- * Rotates a WordPress.com site's reprint export secret.
- *
- * Calls the Jetpack bridge endpoint to request a fresh export token.
- * The response is validated against `rotateReprintSecretResponseSchema`
- * and the wrapper `code` must be `200`; otherwise a `LoggerError` is
- * thrown.
+ * Rotates a WordPress.com/Pressable site's reprint export secret and returns
+ * it. `surface` (from {@link enableReprintExporter}) selects the rotate route
+ * and the accepted response shape: v2 returns a flat `{ secret }`, v1 nests it
+ * under `{ data: { secret } }`. Both go through the Jetpack bridge; the wrapper
+ * `code` must be `200`, otherwise a `LoggerError` is thrown.
  */
-export async function rotateReprintSecret( siteId: number, token: string ): Promise< string > {
-	const response = await fetch(
-		`https://public-api.wordpress.com/rest/v1.1/jetpack-blogs/${ siteId }/rest-api?http_envelope=1&`,
-		{
-			method: 'POST',
-			headers: {
-				Authorization: `Bearer ${ token }`,
-				'Content-Type': 'application/json',
-			},
-			body: JSON.stringify( {
-				path: '/wpcomsh/v1/reprint/rotate-export-secret',
-			} ),
-		}
-	);
-
-	if ( ! response.ok ) {
-		throw new LoggerError(
-			__( 'Failed to rotate the WordPress.com site secret' ),
-			new Error( `HTTP ${ response.status }` )
-		);
-	}
+export async function rotateReprintSecret(
+	siteId: number,
+	token: string,
+	surface: ReprintSurface
+): Promise< string > {
+	const rotatePath =
+		surface === 'v2'
+			? '/jetpack/v4/reprint/rotate-export-secret'
+			: '/wpcomsh/v1/reprint/rotate-export-secret';
 
 	let rawResponse: unknown;
 	try {
-		rawResponse = await response.json();
+		rawResponse = await postJetpackBridge( siteId, token, rotatePath );
 	} catch ( error ) {
 		throw new LoggerError(
-			__( 'Invalid API response format' ),
+			__( 'Failed to rotate the WordPress.com site secret' ),
 			error instanceof Error ? error : new Error( String( error ) )
 		);
 	}
@@ -367,7 +476,15 @@ export async function rotateReprintSecret( siteId: number, token: string ): Prom
 			);
 		}
 
-		return result.body.data.secret;
+		const secret = result.body.secret ?? result.body.data?.secret;
+		if ( ! secret ) {
+			throw new LoggerError(
+				__( 'Invalid API response format' ),
+				new Error( `No secret in rotate response: ${ JSON.stringify( rawResponse ) }` )
+			);
+		}
+
+		return secret;
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {
 			throw error;

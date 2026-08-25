@@ -2,18 +2,23 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { cloneElement, createElement, useState, type ReactElement, type ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { toast } from '@/data/app-messages';
 import { Conversation, entriesToRenderItems } from './index';
 import type { LoadedAiSession, SessionEntry } from '@/data/core';
 import type { StudioChatArtifactWidgetDraft } from '@studio/common/ai/chat-artifacts';
 
 const connectorMocks = vi.hoisted( () => ( {
 	readLocalMediaFile: vi.fn(),
-	copyText: vi.fn(),
+	copyText: vi.fn( () => Promise.resolve() ),
 	capabilities: { readLocalMedia: true },
 } ) );
 
 vi.mock( '@/components/markdown', () => ( {
 	Markdown: ( { children }: { children: string } ) => children,
+} ) );
+
+vi.mock( '@/data/app-messages', () => ( {
+	toast: { success: vi.fn(), info: vi.fn(), error: vi.fn() },
 } ) );
 
 vi.mock( '@/data/core', () => ( {
@@ -112,9 +117,38 @@ describe( 'Assistant message copy button', () => {
 
 		const buttons = screen.getAllByRole( 'button', { name: 'Copy message' } );
 		expect( buttons ).toHaveLength( 1 );
+		expect( screen.getByText( 'First part.' ).closest( '[data-message-text]' ) ).toHaveAttribute(
+			'data-message-text',
+			'First part.\n\nSecond part.'
+		);
+		expect( screen.getByText( 'Second part.' ).closest( '[data-message-text]' ) ).toHaveAttribute(
+			'data-message-text',
+			'First part.\n\nSecond part.'
+		);
 
 		fireEvent.click( buttons[ 0 ] );
 		expect( connectorMocks.copyText ).toHaveBeenCalledWith( 'First part.\n\nSecond part.' );
+	} );
+
+	it( 'copies the message on double-click and shows a notice', () => {
+		const data = loadedSession( [
+			{
+				type: 'message',
+				id: 'assistant-single',
+				parentId: null,
+				timestamp: '2026-06-05T12:00:00.000Z',
+				message: {
+					role: 'assistant',
+					content: [ { type: 'text', text: 'Plain reply.' } ],
+				},
+			} as unknown as SessionEntry,
+		] );
+		renderConversation( data );
+
+		fireEvent.doubleClick( screen.getByText( 'Plain reply.' ) );
+
+		expect( connectorMocks.copyText ).toHaveBeenCalledWith( 'Plain reply.' );
+		expect( toast.success ).toHaveBeenCalledWith( 'Copied', { id: 'copy-feedback' } );
 	} );
 
 	it( 'does not add a copy button to user messages', () => {
@@ -309,8 +343,6 @@ describe( 'Conversation chat artifacts', () => {
 
 		renderConversation( data );
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Captured 1 artifact' } ) );
-
 		const screenshot = await screen.findByRole( 'img', {
 			name: 'Screenshot of http://localhost:8888/ (desktop)',
 		} );
@@ -325,8 +357,6 @@ describe( 'Conversation chat artifacts', () => {
 		const data = loadedSession( [ chatArtifactEntry( [ localScreenshotWidget() ] ) ] );
 
 		renderConversation( data );
-
-		fireEvent.click( screen.getByRole( 'button', { name: 'Captured 1 artifact' } ) );
 
 		expect( await screen.findByRole( 'status' ) ).toHaveTextContent( 'Image unavailable' );
 	} );
@@ -670,6 +700,33 @@ describe( 'Conversation Ask User questions', () => {
 		] );
 	} );
 } );
+
+describe( 'Conversation turn-closed markers', () => {
+	it( 'renders an error marker with the persisted message for errored turns', () => {
+		const items = entriesToRenderItems( [
+			turnClosedEntry( 'error', 'Monthly usage limit reached: 429 {"type":"error"}' ),
+		] );
+
+		expect( items ).toMatchObject( [
+			{ kind: 'error-marker', message: 'Monthly usage limit reached: 429 {"type":"error"}' },
+		] );
+	} );
+
+	it( 'renders no marker for successful turns', () => {
+		expect( entriesToRenderItems( [ turnClosedEntry( 'success' ) ] ) ).toEqual( [] );
+	} );
+} );
+
+function turnClosedEntry( status: string, errorMessage?: string ): SessionEntry {
+	return {
+		type: 'custom',
+		id: `turn-closed-${ status }`,
+		parentId: null,
+		timestamp: '2026-06-05T12:00:03.000Z',
+		customType: 'studio.turn_closed',
+		data: { status, ...( errorMessage !== undefined ? { errorMessage } : {} ) },
+	} as SessionEntry;
+}
 
 interface RenderConversationOptions {
 	isRunning?: boolean;
@@ -1024,7 +1081,7 @@ describe( 'Conversation work phases', () => {
 		] );
 	} );
 
-	it( 'includes chat artifacts inside the work phase', () => {
+	it( 'hoists media artifacts out of the work phase as standalone items', () => {
 		const items = entriesToRenderItems( [
 			assistantToolCallEntry( 'take_screenshot', { url: 'http://localhost:8888/' } ),
 			{
@@ -1049,14 +1106,37 @@ describe( 'Conversation work phases', () => {
 				},
 			} as unknown as SessionEntry,
 		] );
-		expect( items ).toHaveLength( 1 );
-		expect( items[ 0 ]?.kind ).toBe( 'work-phase' );
+		expect( items.map( ( item ) => item.kind ) ).toEqual( [ 'work-phase', 'chat-artifact' ] );
 		if ( items[ 0 ]?.kind === 'work-phase' ) {
-			expect( items[ 0 ].steps.map( ( step ) => step.kind ) ).toEqual( [
-				'tool-use',
-				'chat-artifact',
-			] );
+			expect( items[ 0 ].steps.map( ( step ) => step.kind ) ).toEqual( [ 'tool-use' ] );
 		}
+	} );
+
+	it( 'shows each media file only once per turn, resetting on a new prompt', () => {
+		// generate_image emits its own card, then the agent re-presents the same
+		// file via studio_present — the duplicate must not render twice.
+		const promptEntry = ( id: string, text: string ) =>
+			( {
+				type: 'custom',
+				id,
+				parentId: null,
+				timestamp: '2026-06-05T12:00:00.000Z',
+				customType: 'studio.user_prompt',
+				data: { text, source: 'prompt' },
+			} ) as unknown as SessionEntry;
+		const items = entriesToRenderItems( [
+			promptEntry( 'prompt-1', 'make me an image' ),
+			chatArtifactEntry( [ localScreenshotWidget() ] ),
+			chatArtifactEntry( [ localScreenshotWidget() ] ),
+			promptEntry( 'prompt-2', 'show it again' ),
+			chatArtifactEntry( [ localScreenshotWidget() ] ),
+		] );
+		expect( items.map( ( item ) => item.kind ) ).toEqual( [
+			'user-text',
+			'chat-artifact',
+			'user-text',
+			'chat-artifact',
+		] );
 	} );
 
 	it( 'renders one expandable summary for the whole work phase', () => {

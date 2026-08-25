@@ -20,7 +20,7 @@ import { PROTOCOL_PREFIX } from '@studio/common/constants';
 import { runMigrations } from '@studio/common/lib/migration';
 import { getCurrentUserId } from '@studio/common/lib/shared-config';
 import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-warning';
-import { __ } from '@wordpress/i18n';
+import { __, _n } from '@wordpress/i18n';
 import {
 	installExtension,
 	REACT_DEVELOPER_TOOLS,
@@ -44,8 +44,9 @@ import { handleDeeplink } from 'src/lib/deeplink';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import { maybePromptNightlySwitch, startNightlyPromptPoller } from 'src/lib/nightly-prompt';
-import { showQuitSitesDialog } from 'src/lib/quit-sites-dialog';
 import { getSentryReleaseInfo } from 'src/lib/sentry-release';
+import { setAgenticUiEnabled } from 'src/lib/studio-ui-mode';
+import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
 import { setupLogging } from 'src/logging';
 import { createMainWindow, getCurrentRendererUrl, getMainWindow } from 'src/main-window';
 import { migrations } from 'src/migrations';
@@ -59,7 +60,6 @@ import { autoInstallWindowsCliIfNeeded } from 'src/modules/cli/lib/windows-insta
 import { startRemoteSessionStatusPolling } from 'src/modules/remote-session/daemon-status-poller';
 import {
 	getRunningSiteCount,
-	getRunningSiteNames,
 	persistAutoStartForRunningSites,
 	SiteServer,
 	stopAllServers,
@@ -395,7 +395,8 @@ async function appBoot() {
 		await runMigrations( migrations ).catch( Sentry.captureException );
 
 		await setupSentryUserId();
-		await getBetaFeatures();
+		const betaFeatures = await getBetaFeatures();
+		setAgenticUiEnabled( betaFeatures.enableAgenticUi );
 
 		// Fetch data from CLI and subscribe to CLI events before starting the user data
 		// watcher. The watcher can trigger getMainWindow() which creates the window early,
@@ -428,6 +429,15 @@ async function appBoot() {
 			getPlatformMetric(),
 			'monthly'
 		).catch( ( err ) => Sentry.captureException( err ) );
+
+		// Tracks: structured launch event, runs in parallel with the MC Stats bumps above.
+		// `is_first_launch` intentionally reuses `lastBumpStats` — it's a durable pre-existing marker,
+		// so existing users read false and fresh installs read true. If the MC Stats launch bumps are
+		// ever removed, migrate this to another durable per-install marker (e.g. `sentryUserId`) or a
+		// dedicated flag, or it will silently report true on every launch. See the analytics design doc.
+		void recordTracksEvent( TRACKS_EVENTS.APP_LAUNCH, {
+			is_first_launch: ! userData.lastBumpStats,
+		} ).catch( ( err ) => Sentry.captureException( err ) );
 
 		await autoInstallWindowsCliIfNeeded();
 		await autoInstallMacOSCliIfNeeded();
@@ -523,17 +533,40 @@ async function appBoot() {
 					return;
 				}
 
-				const choice = await showQuitSitesDialog( getRunningSiteNames() );
+				const STOP_SITES_BUTTON_INDEX = 0;
+				const KEEP_RUNNING_BUTTON_INDEX = 1;
+				const CANCEL_BUTTON_INDEX = 2;
 
-				if ( ! choice ) {
+				const { response, checkboxChecked } = await dialog.showMessageBox( {
+					type: 'question',
+					message: _n( 'Keep the site running?', 'Keep the sites running?', runningSiteCount ),
+					detail: _n(
+						'Your site can stay available in the background after Studio quits.',
+						'Your sites can stay available in the background after Studio quits.',
+						runningSiteCount
+					),
+					buttons: [
+						_n( 'Stop site', 'Stop sites', runningSiteCount ),
+						_n( 'Keep site running', 'Keep sites running', runningSiteCount ),
+						__( 'Cancel' ),
+					],
+					checkboxLabel: __( 'Remember my choice' ),
+					cancelId: CANCEL_BUTTON_INDEX,
+					defaultId: STOP_SITES_BUTTON_INDEX,
+				} );
+
+				if ( response === CANCEL_BUTTON_INDEX ) {
 					return;
 				}
 
-				if ( choice.remember ) {
-					await updateAppdata( { quitSitesBehavior: choice.behavior } );
+				const behavior: QuitSitesBehavior =
+					response === KEEP_RUNNING_BUTTON_INDEX ? 'leave-running' : 'stop';
+
+				if ( checkboxChecked ) {
+					await updateAppdata( { quitSitesBehavior: behavior } );
 				}
 
-				applyQuitSitesBehavior( choice.behavior );
+				applyQuitSitesBehavior( behavior );
 				isQuittingConfirmed = true;
 				app.quit();
 			} )();

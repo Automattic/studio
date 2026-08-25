@@ -2,7 +2,9 @@
  * @vitest-environment node
  */
 import { IpcMainInvokeEvent } from 'electron';
+import { existsSync } from 'fs';
 import { normalize } from 'path';
+import { resolveMigratedAiSessionsPath } from '@studio/common/ai/sessions/root-migration';
 import { readFile } from 'atomically';
 import { vol } from 'memfs';
 import { vi } from 'vitest';
@@ -12,23 +14,29 @@ import {
 	getXdebugEnabledSite,
 	isFullscreen,
 	loadThemeDetails,
+	readBlueprintFile,
+	readLocalMediaFile,
 } from 'src/ipc-handlers';
 import { captureSiteThumbnail } from 'src/lib/capture-site-thumbnail';
 import { getMainWindow } from 'src/main-window';
 import { SiteServer } from 'src/site-server';
 
 vi.mock( 'fs' );
+vi.mock( 'fs/promises', async () => {
+	const { fs } = await import( 'memfs' );
+	return { default: fs.promises };
+} );
 vi.mock( 'fs-extra' );
 vi.mock( '@studio/common/lib/fs-utils' );
+vi.mock( '@studio/common/ai/sessions/root-migration', () => ( {
+	resolveMigratedAiSessionsPath: vi.fn( ( path: string ) => path ),
+} ) );
 vi.mock( '@sentry/electron/main', () => ( {
 	captureException: vi.fn(),
 	captureMessage: vi.fn(),
 	setTag: vi.fn(),
 } ) );
 vi.mock( 'src/site-server' );
-vi.mock( 'src/lib/wordpress-setup', () => ( {
-	setupWordPressFilesOnly: vi.fn().mockResolvedValue( undefined ),
-} ) );
 vi.mock( 'src/main-window' );
 vi.mock( 'src/lib/sqlite-versions', () => ( {
 	keepSqliteIntegrationUpdated: vi.fn().mockResolvedValue( undefined ),
@@ -110,6 +118,7 @@ describe( 'createSite', () => {
 		const userData = await createSite( mockIpcMainInvokeEvent, '/test', {
 			siteName: 'Test',
 			wpVersion: '6.4',
+			noStart: true,
 		} );
 
 		expect( userData ).toEqual( {
@@ -130,9 +139,30 @@ describe( 'createSite', () => {
 				path: '/test',
 				name: 'Test',
 				wpVersion: '6.4',
+				noStart: true,
 			} ),
 			expect.any( Object )
 		);
+	} );
+} );
+
+describe( 'readBlueprintFile', () => {
+	it( 'deletes the temporary deep-link file after reading it', async () => {
+		const filePath = normalize( '/mock/path/wp-studio-blueprints/blueprint.json' );
+		vol.fromJSON( { [ filePath ]: JSON.stringify( { meta: { title: 'Deep link' } } ) } );
+
+		await expect( readBlueprintFile( mockIpcMainInvokeEvent, filePath ) ).resolves.toEqual( {
+			meta: { title: 'Deep link' },
+		} );
+		expect( existsSync( filePath ) ).toBe( false );
+	} );
+
+	it( 'deletes invalid temporary deep-link JSON', async () => {
+		const filePath = normalize( '/mock/path/wp-studio-blueprints/invalid.json' );
+		vol.fromJSON( { [ filePath ]: '{invalid' } );
+
+		await expect( readBlueprintFile( mockIpcMainInvokeEvent, filePath ) ).rejects.toThrow();
+		expect( existsSync( filePath ) ).toBe( false );
 	} );
 } );
 
@@ -330,5 +360,20 @@ describe( 'getFileSize', () => {
 		expect( warnSpy ).toHaveBeenCalledWith( expect.stringContaining( 'advanced-cache.php' ) );
 
 		warnSpy.mockRestore();
+	} );
+} );
+
+describe( 'readLocalMediaFile', () => {
+	it( 'reads artifacts from their migrated sessions path', async () => {
+		const legacyPath = '/legacy/sessions/session.screenshots/screenshot.jpg';
+		const migratedPath = '/.studio/sessions/session.screenshots/screenshot.jpg';
+		vol.fromJSON( { [ migratedPath ]: 'image' } );
+		vi.mocked( resolveMigratedAiSessionsPath ).mockReturnValueOnce( migratedPath );
+
+		const file = await readLocalMediaFile( mockIpcMainInvokeEvent, legacyPath );
+
+		expect( resolveMigratedAiSessionsPath ).toHaveBeenCalledWith( legacyPath );
+		expect( file.name ).toBe( 'screenshot.jpg' );
+		expect( Buffer.from( file.data ).toString() ).toBe( 'image' );
 	} );
 } );

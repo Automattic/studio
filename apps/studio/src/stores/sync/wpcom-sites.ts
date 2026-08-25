@@ -106,7 +106,7 @@ export const wpcomSitesApi = createApi( {
 
 					const queryParams: Record< string, string | number | boolean > = {
 						fields: SITE_FIELDS,
-						filters: 'atomic,wpcom',
+						filters: 'jetpack,atomic,wpcom',
 						options: 'created_at,wpcom_staging_blog_ids,software_version',
 						site_activity: 'active',
 						include_a8c_owned: false,

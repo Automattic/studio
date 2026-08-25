@@ -74,7 +74,7 @@ describe( 'Archive Module', () => {
 		it( 'should create a zip archive and stream it to the output file', async () => {
 			const result = await archiveSiteContent( mockSiteFolder, mockArchivePath );
 
-			expect( ZipArchive ).toHaveBeenCalledWith( { zlib: { level: 9 } } );
+			expect( ZipArchive ).toHaveBeenCalledWith( { zlib: { level: 6 } } );
 			expect( mockArchiver.directory ).not.toHaveBeenCalled();
 			expect( mockArchiver.finalize ).toHaveBeenCalled();
 			expect( result ).toBe( mockArchiver );
@@ -106,11 +106,30 @@ describe( 'Archive Module', () => {
 
 			expect( mockArchiver.file ).toHaveBeenCalledWith(
 				fs.realpathSync( path.join( mockWpContentPath, 'index.php' ) ),
-				{ name: 'wp-content/index.php' }
+				{ name: 'wp-content/index.php', store: false }
 			);
 			expect( mockArchiver.file ).toHaveBeenCalledWith(
 				fs.realpathSync( path.join( mockWpContentPath, 'plugins', 'my-plugin.php' ) ),
-				{ name: 'wp-content/plugins/my-plugin.php' }
+				{ name: 'wp-content/plugins/my-plugin.php', store: false }
+			);
+		} );
+
+		it( 'should store already-compressed media without recompressing', async () => {
+			vol.fromJSON( {
+				[ path.join( mockWpContentPath, 'uploads', 'video.mp4' ) ]: 'binary',
+				[ path.join( mockWpContentPath, 'uploads', 'photo.JPG' ) ]: 'binary',
+			} );
+			mockGlobResults( [ 'uploads/video.mp4', 'uploads/photo.JPG' ] );
+
+			await archiveSiteContent( mockSiteFolder, mockArchivePath );
+
+			expect( mockArchiver.file ).toHaveBeenCalledWith(
+				fs.realpathSync( path.join( mockWpContentPath, 'uploads', 'video.mp4' ) ),
+				{ name: 'wp-content/uploads/video.mp4', store: true }
+			);
+			expect( mockArchiver.file ).toHaveBeenCalledWith(
+				fs.realpathSync( path.join( mockWpContentPath, 'uploads', 'photo.JPG' ) ),
+				{ name: 'wp-content/uploads/photo.JPG', store: true }
 			);
 		} );
 

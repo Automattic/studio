@@ -449,6 +449,15 @@ describe( 'Conversation – assistant message copy button', () => {
 		expect( ipcApiMocks.copyText ).toHaveBeenCalledWith( 'First part.\n\nSecond part.' );
 	} );
 
+	it( 'copies the message on double-click and shows a notice', () => {
+		renderConversation( [ assistantTextEntry( 'Plain reply.' ) ] );
+
+		fireEvent.doubleClick( screen.getByText( 'Plain reply.' ) );
+
+		expect( ipcApiMocks.copyText ).toHaveBeenCalledWith( 'Plain reply.' );
+		expect( screen.getByText( 'Copied' ) ).toBeInTheDocument();
+	} );
+
 	it( 'does not render a copy button for user messages', () => {
 		renderConversation( [ userPromptEntry( 'Hello there' ) ] );
 

@@ -1,3 +1,4 @@
+import { DEFAULT_ACTIVITY_SOUND_PREFERENCES } from '@studio/common/lib/activity-sounds';
 import { describe, expect, it } from 'vitest';
 import { UNSET, toPreferencesFormData, toPreferencesPatch } from './preferences';
 import type { UserPreferences } from '@/data/core';
@@ -6,11 +7,15 @@ const SAVED_PREFERENCES: UserPreferences = {
 	editor: 'zed',
 	terminal: 'terminal',
 	colorScheme: 'system',
+	frameColor: null,
 	locale: 'en',
+	analyticsEnabled: true,
 	defaultSiteDirectory: '/Users/example/Studio',
 	studioCliInstalled: false,
+	studioCliExternallyManaged: false,
 	agenticFeaturesEnabled: true,
 	chatNotificationsEnabled: true,
+	activitySoundPreferences: DEFAULT_ACTIVITY_SOUND_PREFERENCES,
 	quitSitesBehavior: 'ask',
 	agentResponseLength: 'normal',
 	defaultAiModel: 'claude-sonnet-5',
@@ -30,11 +35,14 @@ describe( 'settings preference helpers', () => {
 			editor: UNSET,
 			terminal: UNSET,
 			colorScheme: 'system',
+			frameColor: null,
 			locale: 'en',
+			analyticsEnabled: true,
 			defaultSiteDirectory: '/Users/example/Studio',
 			studioCliInstalled: false,
 			agenticFeaturesEnabled: true,
 			chatNotificationsEnabled: true,
+			activitySoundPreferences: DEFAULT_ACTIVITY_SOUND_PREFERENCES,
 			quitSitesBehavior: 'ask',
 			agentResponseLength: 'normal',
 			defaultAiModel: 'claude-sonnet-5',
@@ -53,24 +61,26 @@ describe( 'settings preference helpers', () => {
 				terminal: 'iterm',
 				colorScheme: 'dark',
 				locale: 'es',
+				analyticsEnabled: false,
 				defaultSiteDirectory: '/Users/example/Sites',
 				studioCliInstalled: true,
 				agenticFeaturesEnabled: false,
 				chatNotificationsEnabled: false,
 				agentResponseLength: 'compact',
-				defaultAiModel: 'claude-opus-4-8',
+				defaultAiModel: 'claude-opus-5',
 			} )
 		).toEqual( {
 			editor: null,
 			terminal: 'iterm',
 			colorScheme: 'dark',
 			locale: 'es',
+			analyticsEnabled: false,
 			defaultSiteDirectory: '/Users/example/Sites',
 			studioCliInstalled: true,
 			agenticFeaturesEnabled: false,
 			chatNotificationsEnabled: false,
 			agentResponseLength: 'compact',
-			defaultAiModel: 'claude-opus-4-8',
+			defaultAiModel: 'claude-opus-5',
 		} );
 	} );
 

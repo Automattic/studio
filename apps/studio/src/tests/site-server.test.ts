@@ -12,11 +12,6 @@ vi.mock( 'src/modules/cli/lib/cli-site-creator', () => ( {
 	createSiteViaCli: vi.fn(),
 } ) );
 
-// Mock the WordPress setup
-vi.mock( 'src/lib/wordpress-setup', () => ( {
-	setupWordPressFilesOnly: vi.fn().mockResolvedValue( undefined ),
-} ) );
-
 // Mock the WordPress provider
 const mockStartServer = vi.fn().mockResolvedValue( {
 	url: 'http://localhost:1234',
@@ -140,6 +135,40 @@ describe( 'SiteServer', () => {
 			} );
 
 			expect( details.port ).not.toBe( 0 );
+		} );
+
+		// A leftover placeholder is a site the CLI does not know: unstartable, undeletable, and its
+		// path stays taken.
+		it( 'drops the placeholder when the CLI fails, leaving no site behind', async () => {
+			vi.mocked( createSiteViaCli ).mockRejectedValue( new Error( 'Failed to apply Blueprint' ) );
+
+			await expect(
+				SiteServer.create( {
+					siteId: 'create-failure-1',
+					path: '/tmp/create-failure-1',
+					name: 'create-failure-1',
+				} )
+			).rejects.toThrow( 'Failed to apply Blueprint' );
+
+			expect( SiteServer.get( 'create-failure-1' ) ).toBeUndefined();
+			expect( SiteServer.getAllDetails().map( ( { path } ) => path ) ).not.toContain(
+				'/tmp/create-failure-1'
+			);
+		} );
+
+		// `isDeleted` gates WP-CLI calls, so marking it would be wrong if the id were reused.
+		it( 'does not mark the failed site as deleted', async () => {
+			vi.mocked( createSiteViaCli ).mockRejectedValue( new Error( 'Failed to create site' ) );
+
+			await expect(
+				SiteServer.create( {
+					siteId: 'create-failure-2',
+					path: '/tmp/create-failure-2',
+					name: 'create-failure-2',
+				} )
+			).rejects.toThrow();
+
+			expect( SiteServer.isDeleted( 'create-failure-2' ) ).toBe( false );
 		} );
 	} );
 

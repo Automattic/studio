@@ -1,10 +1,12 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { useConnector } from '@/data/core';
 import { SidebarHeader } from './index';
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
 const navigate = vi.fn();
+const popupAppMenu = vi.fn();
 
 vi.mock( '@tanstack/react-router', () => ( {
 	useNavigate: () => navigate,
@@ -49,14 +51,21 @@ vi.mock( '@/components/menu', () => ( {
 	),
 } ) );
 
-// Reaches useConnector + react-query; the header test has no providers.
-vi.mock( '@/hooks/use-traffic-light-space', () => ( {
-	useTrafficLightSpace: () => true,
+vi.mock( '@/data/core', () => ( {
+	useConnector: vi.fn(),
 } ) );
+
+// Reaches react-query; the header test has no providers.
+vi.mock( '@/hooks/use-traffic-light-space', () => ( {
+	useTrafficLightSpace: () => ( { start: true, end: false } ),
+} ) );
+
+const useConnectorMock = vi.mocked( useConnector, { partial: true } );
 
 describe( 'SidebarHeader', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
+		useConnectorMock.mockReturnValue( { showsAppMenuButton: false, popupAppMenu } );
 	} );
 
 	it( 'opens site creation from the top-right create menu', () => {
@@ -73,5 +82,29 @@ describe( 'SidebarHeader', () => {
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Add a plugin' } ) );
 		expect( navigate ).toHaveBeenCalledWith( { to: '/onboarding/plugin' } );
+	} );
+
+	it( 'has no sidebar toggle — it lives in the sidebar footer', () => {
+		render( <SidebarHeader /> );
+
+		expect( screen.queryByRole( 'button', { name: 'Hide sidebar' } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'opens the app menu when the host has no native menu bar', () => {
+		useConnectorMock.mockReturnValue( { showsAppMenuButton: true, popupAppMenu } );
+
+		render( <SidebarHeader /> );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Menu' } ) );
+
+		expect( popupAppMenu ).toHaveBeenCalledWith( { x: 0, y: 0 } );
+	} );
+
+	it( 'hides the app menu button when the host has a native menu bar', () => {
+		useConnectorMock.mockReturnValue( { showsAppMenuButton: false } );
+
+		render( <SidebarHeader /> );
+
+		expect( screen.queryByRole( 'button', { name: 'Menu' } ) ).not.toBeInTheDocument();
 	} );
 } );

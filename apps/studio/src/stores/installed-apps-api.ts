@@ -18,6 +18,7 @@ import type {
 	ToolPermissionLevel,
 	ToolPermissionOverrides,
 } from '@studio/common/ai/tool-permissions';
+import type { QuitSitesBehavior } from 'src/storage/user-data';
 
 export const installedAppsApi = createApi( {
 	reducerPath: 'installedAppsApi',
@@ -28,10 +29,12 @@ export const installedAppsApi = createApi( {
 		'UserEditor',
 		'UserTerminal',
 		'ColorScheme',
+		'QuitSitesBehavior',
 		'DefaultSiteDirectory',
 		'AgentResponseLength',
 		'DefaultAiModel',
 		'ToolPermissions',
+		'AnalyticsEnabled',
 	],
 	endpoints: ( builder ) => ( {
 		getStudioCliIsInstalled: builder.query< boolean, void >( {
@@ -101,6 +104,23 @@ export const installedAppsApi = createApi( {
 			},
 			invalidatesTags: [ 'ColorScheme' ],
 		} ),
+		getQuitSitesBehavior: builder.query< QuitSitesBehavior | undefined, void >( {
+			queryFn: async () => {
+				const quitSitesBehavior = await getIpcApi().getQuitSitesBehavior();
+				return { data: quitSitesBehavior };
+			},
+			providesTags: [ 'QuitSitesBehavior' ],
+		} ),
+		saveQuitSitesBehavior: builder.mutation<
+			QuitSitesBehavior | undefined,
+			QuitSitesBehavior | undefined
+		>( {
+			queryFn: async ( quitSitesBehavior ) => {
+				await getIpcApi().saveQuitSitesBehavior( quitSitesBehavior );
+				return { data: quitSitesBehavior };
+			},
+			invalidatesTags: [ 'QuitSitesBehavior' ],
+		} ),
 		getAgentResponseLength: builder.query< AiResponseLength, void >( {
 			queryFn: async () => {
 				const responseLength = await getIpcApi().getAgentResponseLength();
@@ -160,6 +180,23 @@ export const installedAppsApi = createApi( {
 			},
 			invalidatesTags: [ 'DefaultSiteDirectory' ],
 		} ),
+		getAnalyticsEnabled: builder.query< boolean, void >( {
+			queryFn: async () => {
+				const enabled = await getIpcApi().getAnalyticsEnabled();
+				return { data: enabled };
+			},
+			providesTags: [ 'AnalyticsEnabled' ],
+		} ),
+		saveAnalyticsEnabled: builder.mutation<
+			boolean,
+			{ enabled: boolean; surface: 'onboarding' | 'settings' }
+		>( {
+			queryFn: async ( { enabled, surface } ) => {
+				await getIpcApi().saveAnalyticsEnabled( enabled, { surface } );
+				return { data: enabled };
+			},
+			invalidatesTags: [ 'AnalyticsEnabled' ],
+		} ),
 	} ),
 } );
 
@@ -173,6 +210,8 @@ export const {
 	useSaveStudioCliIsInstalledMutation,
 	useGetColorSchemeQuery,
 	useSaveColorSchemeMutation,
+	useGetQuitSitesBehaviorQuery,
+	useSaveQuitSitesBehaviorMutation,
 	useGetAgentResponseLengthQuery,
 	useSaveAgentResponseLengthMutation,
 	useGetToolPermissionsQuery,
@@ -181,6 +220,8 @@ export const {
 	useSaveDefaultAiModelMutation,
 	useGetDefaultSiteDirectoryQuery,
 	useSaveDefaultSiteDirectoryMutation,
+	useGetAnalyticsEnabledQuery,
+	useSaveAnalyticsEnabledMutation,
 } = installedAppsApi;
 
 export const selectInstalledEditors = createSelector(
@@ -215,7 +256,7 @@ export const selectInstalledTerminals = createSelector(
 			.filter( ( terminal ) => installedApps && installedApps[ terminal ] )
 			.map(
 				( terminal ) =>
-					[ terminal, terminalConfig[ terminal ].name ] as [ SupportedTerminal, string ]
+					[ terminal, terminalConfig[ terminal ].name() ] as [ SupportedTerminal, string ]
 			);
 	}
 );
@@ -228,7 +269,7 @@ export const selectUninstalledTerminals = createSelector(
 			.filter( ( terminal ) => ! installedApps || ! installedApps[ terminal ] )
 			.map(
 				( terminal ) =>
-					[ terminal, terminalConfig[ terminal ].name ] as [ SupportedTerminal, string ]
+					[ terminal, terminalConfig[ terminal ].name() ] as [ SupportedTerminal, string ]
 			);
 	}
 );

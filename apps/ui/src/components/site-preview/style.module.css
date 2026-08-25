@@ -9,14 +9,14 @@
 	min-width: 0;
 	min-height: 0;
 	background-color: var(--wpds-color-bg-surface-neutral);
-	border-left: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border-inline-start: 1px solid var(--wpds-color-stroke-surface-neutral);
 	overflow: hidden;
 }
 
 /* Fullscreen (full preview): the panel sits flush against the window's left
    edge, where the content/preview separator would read as a stray line. */
 .rootFullscreen {
-	border-left: none;
+	border-inline-start: none;
 }
 
 .header {
@@ -30,6 +30,7 @@
 	background-color: var(--wpds-color-bg-surface-neutral-strong, #fff);
 	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
 	-webkit-app-region: drag;
+	container: studio-preview-toolbar / inline-size;
 	/* Ease in/out of the sidebar-collapsed padding alongside the split
 	   frame's 150ms full-bleed transition. */
 	transition: padding 150ms ease;
@@ -49,7 +50,7 @@
    overlay this toolbar's left edge; clear them the same way the sidebar
    header does (94px). */
 .headerTrafficLights {
-	padding-left: 94px;
+	padding-inline-start: 94px;
 }
 
 /* The toolbar doubles as a window drag region; the controls (including the
@@ -131,6 +132,10 @@
 	transition: transform 160ms ease-out;
 }
 
+.loadingProgress span:dir(rtl) {
+	transform-origin: right center;
+}
+
 .body {
 	flex: 1;
 	min-height: 0;
@@ -155,6 +160,62 @@
    fully visible. */
 .previewViewportSimulated {
 	justify-content: safe center;
+	background-color: var(--wpds-color-bg-surface-neutral);
+}
+
+/* Fixed-height (device) presets float as a centered frame with breathing
+   room; the padding is excluded from the measured pane, so the frame's
+   fit-to-pane scale accounts for it automatically. */
+.previewViewportDevice {
+	align-items: safe center;
+	padding: 16px;
+}
+
+/* The letterbox behind simulated viewports carries the same dot grid as the
+   stopped state, so it reads as the preview panel's own surface. No radial
+   mask here — the frame covers the center, so the grid lives at the edges. */
+.viewportGrid {
+	position: absolute;
+	inset: 0;
+	color: var(--wpds-color-fg-content-neutral);
+	pointer-events: none;
+}
+
+/* Wraps each preview surface. Fills the pane by default; explicit sizes for
+   letterboxed and device modes come in via inline style. Anchors the
+   loading spinner overlay and clips the iframe fallback's scaled box. */
+.surfaceFrame {
+	position: relative;
+	display: flex;
+	flex: 1 1 auto;
+	min-width: 0;
+	min-height: 0;
+	overflow: hidden;
+}
+
+/* A device-sized frame, presented as a floating phone against the letterbox
+   background. The hairline ring is a shadow (not a border) so the frame's
+   content box stays exactly the scaled viewport size. */
+.deviceFrame {
+	border-radius: var(--wpds-border-radius-lg);
+	box-shadow:
+		0 0 0 1px var(--wpds-color-stroke-surface-neutral),
+		var(--wpds-elevation-md);
+	background-color: var(--wpds-color-bg-surface-neutral-strong, #fff);
+}
+
+/* The split view's phone pane, beside the pane-filling primary surface.
+   Shrinkable so a narrow panel never crushes the primary view entirely. */
+.splitMobilePane {
+	position: relative;
+	display: flex;
+	flex: 0 1 auto;
+	min-width: 0;
+	align-items: safe center;
+	justify-content: safe center;
+	padding: 16px;
+	overflow: hidden;
+	border-inline-start: 1px solid var(--wpds-color-stroke-surface-neutral);
 	background-color: var(--wpds-color-bg-surface-neutral);
 }
 

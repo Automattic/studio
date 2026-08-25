@@ -12,9 +12,15 @@ const loginMutate = vi.fn();
 const logoutMutate = vi.fn();
 const savePreferencesMutate = vi.fn();
 const openExternalUrl = vi.fn();
+let pathname = '/';
 
 vi.mock( '@tanstack/react-router', () => ( {
 	useNavigate: () => navigate,
+	useRouterState: ( {
+		select,
+	}: {
+		select: ( state: { location: { pathname: string } } ) => unknown;
+	} ) => select( { location: { pathname } } ),
 } ) );
 
 vi.mock( '@wordpress/ui', () => ( {
@@ -129,6 +135,7 @@ const useUserPreferencesMock = vi.mocked( useUserPreferences );
 describe( 'UserMenu', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
+		pathname = '/';
 		useConnectorMock.mockReturnValue( {
 			openExternalUrl,
 		} );
@@ -146,19 +153,20 @@ describe( 'UserMenu', () => {
 		} as ReturnType< typeof useUserPreferences > );
 	} );
 
-	it( 'shows account actions and logs out signed-in users', () => {
+	it( 'opens settings for signed-in users', () => {
 		useAuthUserMock.mockReturnValue( {
 			data: { displayName: 'Ada Lovelace', email: 'ada@example.com' },
 		} as ReturnType< typeof useAuthUser > );
 
 		render( <UserMenu /> );
 
-		expect( screen.getByText( 'ada@example.com' ) ).toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: 'Settings' } ) ).toBeInTheDocument();
+		expect( screen.getByTestId( 'gravatar' ) ).toBeInTheDocument();
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Log out' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Settings' } ) );
 
-		expect( logoutMutate ).toHaveBeenCalledTimes( 1 );
+		expect( navigate ).toHaveBeenCalledWith( {
+			to: '/settings',
+		} );
 	} );
 
 	it( 'leaves appearance controls to the settings screen', () => {
@@ -182,6 +190,33 @@ describe( 'UserMenu', () => {
 		expect( navigate ).toHaveBeenCalledWith( {
 			to: '/settings',
 		} );
+	} );
+
+	it( 'marks the settings row as current while the settings route is open', () => {
+		useAuthUserMock.mockReturnValue( {
+			data: { displayName: 'Ada Lovelace', email: 'ada@example.com' },
+		} as ReturnType< typeof useAuthUser > );
+		pathname = '/settings';
+
+		render( <UserMenu /> );
+
+		expect( screen.getByRole( 'button', { name: 'Settings' } ) ).toHaveAttribute(
+			'aria-current',
+			'page'
+		);
+	} );
+
+	it( 'leaves the settings row unmarked on other routes', () => {
+		useAuthUserMock.mockReturnValue( {
+			data: { displayName: 'Ada Lovelace', email: 'ada@example.com' },
+		} as ReturnType< typeof useAuthUser > );
+		pathname = '/sessions/abc';
+
+		render( <UserMenu /> );
+
+		expect( screen.getByRole( 'button', { name: 'Settings' } ) ).not.toHaveAttribute(
+			'aria-current'
+		);
 	} );
 
 	it( 'keeps the sidebar toggle action in the footer row', () => {

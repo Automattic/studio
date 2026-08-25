@@ -1,3 +1,7 @@
+import {
+	TRACKS_EVENTS,
+	type TracksCustomizeEntryPoint,
+} from '@studio/common/lib/record-tracks-event';
 import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import {
@@ -18,10 +22,13 @@ import { useState } from 'react';
 import { AgenticSigninBanner } from '@/components/agentic-signin-banner';
 import { useTourAnchor } from '@/components/coachmarks/anchor-registry';
 import { DeleteSiteDialog } from '@/components/delete-site-dialog';
+import { OfflineBanner } from '@/components/offline-banner';
+import { useOpenInDestinations } from '@/components/open-in-menu/use-open-in-destinations';
 import { PreviewToggleButton } from '@/components/preview-toggle-button';
 import { ProgressiveBlur } from '@/components/progressive-blur';
 import { SiteDropdown } from '@/components/site-dropdown';
 import { SiteHeaderActions } from '@/components/site-header-actions';
+import { DATABASE_HOME_PATH } from '@/components/site-preview/location-omnibox';
 import { SiteSettingsForm, type SiteSettingsTabId } from '@/components/site-settings-view';
 import * as Tabs from '@/components/tabs';
 import { useConnector } from '@/data/core';
@@ -31,15 +38,24 @@ import {
 	useSiteOverviewDetails,
 	useSites,
 } from '@/data/queries/use-sites';
+import { useUserPreferences } from '@/data/queries/use-user-preferences';
+import { useWpVersion } from '@/data/queries/use-wordpress-versions';
 import { useOpenSiteUrl } from '@/hooks/use-open-site-url';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useSiteManagementActions } from '@/hooks/use-site-management-actions';
+import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
+import { databaseLogo } from '@/lib/logos';
+import { AboutSection } from './about-section';
+import { OverviewCard } from './overview-card';
 import styles from './style.module.css';
 import type { SiteDetails, SiteOverviewDetails, SiteOverviewExtension } from '@/data/core';
 import type { ReactNode } from 'react';
 
 interface SiteOverviewViewProps {
 	siteId: string;
+	openSiteDropdown?: boolean;
+	activeTab?: SiteOverviewTabId;
+	onTabChange?: ( tab: SiteOverviewTabId ) => void;
 }
 
 interface OverviewButtonProps {
@@ -51,6 +67,7 @@ interface OverviewButtonProps {
 	loadingAnnouncement?: string;
 	tone?: 'neutral' | 'brand';
 	className?: string;
+	brandIcon?: boolean;
 }
 
 interface ButtonSectionProps {
@@ -68,9 +85,9 @@ interface DetailSectionProps {
 	children: ReactNode;
 }
 
-type SiteOverviewTabId = 'overview' | SiteSettingsTabId;
+export type SiteOverviewTabId = 'overview' | SiteSettingsTabId;
 
-function isSiteOverviewTab( value: string ): value is SiteOverviewTabId {
+export function isSiteOverviewTab( value: string ): value is SiteOverviewTabId {
 	return (
 		value === 'overview' || value === 'settings' || value === 'agent' || value === 'checkpoints'
 	);
@@ -81,16 +98,31 @@ function isSettingsTab( value: SiteOverviewTabId ): value is SiteSettingsTabId {
 	return value === 'settings' || value === 'agent' || value === 'checkpoints';
 }
 
-function OverviewHeader( { site }: { site: SiteDetails } ) {
+function OverviewHeader( {
+	site,
+	openSiteDropdown,
+}: {
+	site: SiteDetails;
+	openSiteDropdown: boolean;
+} ) {
 	const sidebarCollapsed = useSidebarCollapsed();
+	const reserveTrafficLightSpace = useTrafficLightSpace().start;
 
 	return (
 		<div
 			className={
-				sidebarCollapsed ? `${ styles.header } ${ styles.headerSidebarCollapsed }` : styles.header
+				sidebarCollapsed && reserveTrafficLightSpace
+					? `${ styles.header } ${ styles.headerSidebarCollapsed }`
+					: styles.header
 			}
 		>
-			<SiteDropdown site={ site } showSiteIcon showStatus={ sidebarCollapsed } floating={ false } />
+			<SiteDropdown
+				site={ site }
+				showSiteIcon
+				showStatus={ sidebarCollapsed }
+				floating={ false }
+				defaultOpen={ openSiteDropdown }
+			/>
 			<SiteHeaderActions site={ site } />
 		</div>
 	);
@@ -105,6 +137,7 @@ function OverviewButton( {
 	loadingAnnouncement,
 	tone = 'neutral',
 	className,
+	brandIcon,
 }: OverviewButtonProps ) {
 	return (
 		<Button
@@ -116,10 +149,19 @@ function OverviewButton( {
 			loadingAnnouncement={ loadingAnnouncement }
 			onClick={ onClick }
 		>
-			<span className={ styles.overviewButtonIcon } aria-hidden="true">
+			<span
+				className={
+					brandIcon
+						? `${ styles.overviewButtonIcon } ${ styles.brandIcon }`
+						: styles.overviewButtonIcon
+				}
+				aria-hidden="true"
+			>
 				{ icon }
 			</span>
-			<span className={ styles.overviewButtonLabel }>{ label }</span>
+			<span className={ styles.overviewButtonLabel } title={ label }>
+				{ label }
+			</span>
 		</Button>
 	);
 }
@@ -268,7 +310,58 @@ function getExtensionStatusLabel( status: SiteOverviewExtension[ 'status' ] ) {
 	return status ? status.replace( /-/g, ' ' ) : null;
 }
 
-export function SiteOverviewView( { siteId }: SiteOverviewViewProps ) {
+function OpenInSection( {
+	site,
+	busy,
+	openSiteUrl,
+}: {
+	site: SiteDetails;
+	busy: boolean;
+	openSiteUrl: ( url: string ) => Promise< void >;
+} ) {
+	const connector = useConnector();
+	const { data: preferences } = useUserPreferences();
+	const destinations = useOpenInDestinations( site, undefined, '/' );
+	const editorConfigured = Boolean( preferences?.editor );
+	const apps = destinations.filter(
+		( destination ) =>
+			destination.id !== 'browser' && ( destination.id !== 'editor' || editorConfigured )
+	);
+
+	return (
+		<ButtonSection title={ __( 'Open in…' ) }>
+			{ apps.map( ( destination ) => (
+				<OverviewButton
+					key={ destination.id }
+					brandIcon
+					icon={ <Icon icon={ destination.logo } size={ 18 } /> }
+					label={ destination.label }
+					disabled={ destination.disabled }
+					onClick={ destination.open }
+				/>
+			) ) }
+			<OverviewButton
+				brandIcon
+				icon={ <Icon icon={ databaseLogo } size={ 18 } /> }
+				label={ __( 'phpMyAdmin' ) }
+				disabled={ busy }
+				onClick={ () => {
+					void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_PHPMYADMIN, {
+						browser: 'internal',
+					} );
+					void openSiteUrl( DATABASE_HOME_PATH );
+				} }
+			/>
+		</ButtonSection>
+	);
+}
+
+export function SiteOverviewView( {
+	siteId,
+	openSiteDropdown = false,
+	activeTab,
+	onTabChange,
+}: SiteOverviewViewProps ) {
 	const { data: sites, isLoading: sitesLoading } = useSites();
 	const site = sites?.find( ( candidate ) => candidate.id === siteId );
 
@@ -285,17 +378,36 @@ export function SiteOverviewView( { siteId }: SiteOverviewViewProps ) {
 		);
 	}
 
-	return <SiteOverviewBody site={ site } />;
+	return (
+		<SiteOverviewBody
+			site={ site }
+			openSiteDropdown={ openSiteDropdown }
+			activeTab={ activeTab }
+			onTabChange={ onTabChange }
+		/>
+	);
 }
 
-function SiteOverviewBody( { site }: { site: SiteDetails } ) {
+function SiteOverviewBody( {
+	site,
+	openSiteDropdown,
+	activeTab: controlledActiveTab,
+	onTabChange,
+}: {
+	site: SiteDetails;
+	openSiteDropdown: boolean;
+	activeTab?: SiteOverviewTabId;
+	onTabChange?: ( tab: SiteOverviewTabId ) => void;
+} ) {
 	const navigate = useNavigate();
 	const overviewAnchorRef = useTourAnchor( 'site-overview-content' );
+	const settingsTabAnchorRef = useTourAnchor( 'site-settings-tab' );
 	const isStarting = useIsSiteStarting( site.id );
 	const isStopping = useIsSiteStopping( site.id );
 	const overviewDetails = useSiteOverviewDetails( site.id );
 	const [ deleteOpen, setDeleteOpen ] = useState( false );
-	const [ activeTab, setActiveTab ] = useState< SiteOverviewTabId >( 'overview' );
+	const [ localActiveTab, setLocalActiveTab ] = useState< SiteOverviewTabId >( 'overview' );
+	const activeTab = controlledActiveTab ?? localActiveTab;
 	const managementActions = useSiteManagementActions( site, {
 		onDelete: () => setDeleteOpen( true ),
 	} );
@@ -303,23 +415,42 @@ function SiteOverviewBody( { site }: { site: SiteDetails } ) {
 	const busy = isStarting || isStopping;
 	// Checkpoints run on the user's machine (the CLI checkpoint engine), so the
 	// tab only exists where the connector can reach it.
-	const supportsCheckpoints = useConnector().capabilities?.siteCheckpoints ?? false;
+	const connector = useConnector();
+	const supportsCheckpoints = connector.capabilities?.siteCheckpoints ?? false;
 	const themeDetails = site.themeDetails;
 	const isBlockTheme = themeDetails?.isBlockTheme === true;
+	const { data: wpVersion } = useWpVersion( site.id );
 
 	// Opens WordPress screens in the in-app preview panel (starting the site
 	// first when needed) rather than the external browser.
 	const openSiteUrl = useOpenSiteUrl( site );
+	const openCustomize = ( url: string, entryPoint: TracksCustomizeEntryPoint ) => {
+		void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_CUSTOMIZE, {
+			entry_point: entryPoint,
+			browser: 'internal',
+		} );
+		void openSiteUrl( url );
+	};
+	const selectTab = ( tab: SiteOverviewTabId ) => {
+		if ( tab === activeTab ) {
+			return;
+		}
+		void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: tab } );
+		if ( controlledActiveTab === undefined ) {
+			setLocalActiveTab( tab );
+		}
+		onTabChange?.( tab );
+	};
 
 	return (
 		<div className={ styles.root }>
-			<OverviewHeader site={ site } />
+			<OverviewHeader site={ site } openSiteDropdown={ openSiteDropdown } />
 			<div className={ styles.tabsFrame }>
 				<Tabs.Root
 					selectedTabId={ activeTab }
 					onSelect={ ( tabId ) => {
 						if ( tabId && isSiteOverviewTab( tabId ) ) {
-							setActiveTab( tabId );
+							selectTab( tabId );
 						}
 					} }
 				>
@@ -327,7 +458,9 @@ function SiteOverviewBody( { site }: { site: SiteDetails } ) {
 						<div className={ styles.tabsBarInner }>
 							<Tabs.List>
 								<Tabs.Tab tabId="overview">{ __( 'Overview' ) }</Tabs.Tab>
-								<Tabs.Tab tabId="settings">{ __( 'Settings' ) }</Tabs.Tab>
+								<Tabs.Tab tabId="settings" ref={ settingsTabAnchorRef }>
+									{ __( 'Settings' ) }
+								</Tabs.Tab>
 								<Tabs.Tab tabId="agent">{ __( 'Agent' ) }</Tabs.Tab>
 								{ supportsCheckpoints ? (
 									<Tabs.Tab tabId="checkpoints">{ __( 'Checkpoints' ) }</Tabs.Tab>
@@ -337,8 +470,14 @@ function SiteOverviewBody( { site }: { site: SiteDetails } ) {
 					</div>
 					<div className={ styles.scroll }>
 						<main className={ styles.content }>
-							<Tabs.Panel tabId="overview" className={ styles.panel }>
-								<AgenticSigninBanner />
+							<Tabs.Panel tabId="overview" className={ styles.overviewPanel }>
+								<OfflineBanner />
+								<div className={ styles.cardColumn }>
+									<h2 className={ styles.columnHeading }>{ __( 'About' ) }</h2>
+									<OverviewCard>
+										<AboutSection site={ site } wpVersion={ wpVersion } />
+									</OverviewCard>
+								</div>
 								<div className={ styles.actionsColumn } ref={ overviewAnchorRef }>
 									<ButtonSection title={ __( 'Customize' ) }>
 										{ isBlockTheme ? (
@@ -349,14 +488,17 @@ function SiteOverviewBody( { site }: { site: SiteDetails } ) {
 													disabled={ busy }
 													loading={ isStarting }
 													loadingAnnouncement={ __( 'Starting site' ) }
-													onClick={ () => void openSiteUrl( '/wp-admin/site-editor.php' ) }
+													onClick={ () => openCustomize( '/wp-admin/site-editor.php', 'editor' ) }
 												/>
 												<OverviewButton
 													icon={ <Icon icon={ stylesIcon } size={ 18 } /> }
 													label={ __( 'Styles' ) }
 													disabled={ busy }
 													onClick={ () =>
-														void openSiteUrl( '/wp-admin/site-editor.php?path=%2Fwp_global_styles' )
+														openCustomize(
+															'/wp-admin/site-editor.php?path=%2Fwp_global_styles',
+															'editor_styles'
+														)
 													}
 												/>
 												<OverviewButton
@@ -364,7 +506,10 @@ function SiteOverviewBody( { site }: { site: SiteDetails } ) {
 													label={ __( 'Patterns' ) }
 													disabled={ busy }
 													onClick={ () =>
-														void openSiteUrl( '/wp-admin/site-editor.php?path=%2Fpatterns' )
+														openCustomize(
+															'/wp-admin/site-editor.php?path=%2Fpatterns',
+															'editor_patterns'
+														)
 													}
 												/>
 												<OverviewButton
@@ -372,7 +517,10 @@ function SiteOverviewBody( { site }: { site: SiteDetails } ) {
 													label={ __( 'Navigation' ) }
 													disabled={ busy }
 													onClick={ () =>
-														void openSiteUrl( '/wp-admin/site-editor.php?path=%2Fnavigation' )
+														openCustomize(
+															'/wp-admin/site-editor.php?path=%2Fnavigation',
+															'editor_navigation'
+														)
 													}
 												/>
 												<OverviewButton
@@ -380,7 +528,10 @@ function SiteOverviewBody( { site }: { site: SiteDetails } ) {
 													label={ __( 'Templates' ) }
 													disabled={ busy }
 													onClick={ () =>
-														void openSiteUrl( '/wp-admin/site-editor.php?path=%2Fwp_template' )
+														openCustomize(
+															'/wp-admin/site-editor.php?path=%2Fwp_template',
+															'editor_templates'
+														)
 													}
 												/>
 												<OverviewButton
@@ -388,7 +539,10 @@ function SiteOverviewBody( { site }: { site: SiteDetails } ) {
 													label={ __( 'Pages' ) }
 													disabled={ busy }
 													onClick={ () =>
-														void openSiteUrl( '/wp-admin/site-editor.php?path=%2Fpage' )
+														openCustomize(
+															'/wp-admin/site-editor.php?path=%2Fpage',
+															'editor_pages'
+														)
 													}
 												/>
 											</>
@@ -400,14 +554,14 @@ function SiteOverviewBody( { site }: { site: SiteDetails } ) {
 													disabled={ busy }
 													loading={ isStarting }
 													loadingAnnouncement={ __( 'Starting site' ) }
-													onClick={ () => void openSiteUrl( '/wp-admin/customize.php' ) }
+													onClick={ () => openCustomize( '/wp-admin/customize.php', 'customizer' ) }
 												/>
 												{ themeDetails?.supportsMenus ? (
 													<OverviewButton
 														icon={ <Icon icon={ navigation } size={ 18 } /> }
 														label={ __( 'Menus' ) }
 														disabled={ busy }
-														onClick={ () => void openSiteUrl( '/wp-admin/nav-menus.php' ) }
+														onClick={ () => openCustomize( '/wp-admin/nav-menus.php', 'menus' ) }
 													/>
 												) : null }
 												{ themeDetails?.supportsWidgets ? (
@@ -415,7 +569,7 @@ function SiteOverviewBody( { site }: { site: SiteDetails } ) {
 														icon={ <Icon icon={ widget } size={ 18 } /> }
 														label={ __( 'Widgets' ) }
 														disabled={ busy }
-														onClick={ () => void openSiteUrl( '/wp-admin/widgets.php' ) }
+														onClick={ () => openCustomize( '/wp-admin/widgets.php', 'widgets' ) }
 													/>
 												) : null }
 											</>
@@ -424,9 +578,13 @@ function SiteOverviewBody( { site }: { site: SiteDetails } ) {
 											icon={ <Icon icon={ media } size={ 18 } /> }
 											label={ __( 'Media Library' ) }
 											disabled={ busy }
-											onClick={ () => void openSiteUrl( '/wp-admin/upload.php' ) }
+											onClick={ () => openCustomize( '/wp-admin/upload.php', 'media_library' ) }
 										/>
 									</ButtonSection>
+
+									{ connector.capabilities?.openInOS ? (
+										<OpenInSection site={ site } busy={ busy } openSiteUrl={ openSiteUrl } />
+									) : null }
 
 									<ButtonSection title={ __( 'Manage' ) } className={ styles.manageSection }>
 										{ managementActions.map( ( action ) => (
@@ -457,7 +615,7 @@ function SiteOverviewBody( { site }: { site: SiteDetails } ) {
 									<SiteSettingsForm
 										site={ site }
 										activeTab={ activeTab }
-										onTabChange={ setActiveTab }
+										onTabChange={ selectTab }
 										embedded
 										showTabs={ false }
 									/>
@@ -467,6 +625,7 @@ function SiteOverviewBody( { site }: { site: SiteDetails } ) {
 					</div>
 				</Tabs.Root>
 			</div>
+			{ activeTab === 'overview' ? <AgenticSigninBanner /> : null }
 			<ProgressiveBlur direction="up" className={ styles.footerBlur } />
 			<div className={ styles.footerBar }>
 				<PreviewToggleButton />

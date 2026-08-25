@@ -1,17 +1,15 @@
 import { createRoute, Outlet, useNavigate, useRouter } from '@tanstack/react-router';
 import { useCallback, useEffect } from 'react';
-import { createPortal } from 'react-dom';
-import { FullscreenChrome } from '@/components/fullscreen-chrome';
 import { SettingsCloseContext } from '@/hooks/use-settings-close';
 import { dashboardLayoutRoute } from '../layout-dashboard';
 import styles from './style.module.css';
 
 /**
- * Fullscreen host for the settings routes. Nested inside the dashboard layout
- * so the sidebar and warm site preview stay mounted underneath, but rendered
- * through a portal to `document.body` as an opaque overlay: settings simply
- * appears on top of the static dashboard — no layout reflow, no sidebar
- * animation — and closing navigates back to the route the user came from,
+ * Host for the settings routes. Settings renders like any other dashboard
+ * view — inside the sidebar layout's inset content frame, with the sidebar
+ * and the window chrome (and the user's Frame color) still visible around
+ * it. This layout adds only the shared close behavior: Escape and the close
+ * button in each view's toolbar go back to the route the user came from,
  * which is instant because the dashboard never unmounted.
  */
 export function SettingsLayout() {
@@ -42,16 +40,12 @@ export function SettingsLayout() {
 		return () => document.removeEventListener( 'keydown', handleKeyDown );
 	}, [ close ] );
 
-	return createPortal(
+	return (
 		<div className={ styles.root }>
-			{ /* Drag edges only — the close button lives inside each view's
-			     toolbar (provided via context) rather than floating over it. */ }
-			<FullscreenChrome />
 			<SettingsCloseContext.Provider value={ close }>
 				<Outlet />
 			</SettingsCloseContext.Provider>
-		</div>,
-		document.body
+		</div>
 	);
 }
 

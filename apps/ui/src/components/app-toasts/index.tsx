@@ -1,8 +1,11 @@
 import { __ } from '@wordpress/i18n';
 import { Button, Notice } from '@wordpress/ui';
 import { clsx } from 'clsx';
+import { useEffect } from 'react';
 import {
 	dismissToast,
+	notifyRendererMounted,
+	notifyRendererUnmounted,
 	pauseToastExpiry,
 	resumeToastExpiry,
 	useQueuedToastCount,
@@ -27,6 +30,13 @@ export function AppToasts( {
 } ) {
 	const toasts = useVisibleToasts();
 	const queuedCount = useQueuedToastCount();
+
+	// Toast expiry is gated on a mounted renderer so toasts fired while no
+	// AppToasts is on screen wait (fully visible) instead of expiring unseen.
+	useEffect( () => {
+		notifyRendererMounted();
+		return () => notifyRendererUnmounted();
+	}, [] );
 
 	if ( ! toasts.length ) {
 		return null;
@@ -53,7 +63,14 @@ export function AppToasts( {
 							onMouseEnter={ () => pauseToastExpiry( item.id ) }
 							onMouseLeave={ () => resumeToastExpiry( item.id ) }
 						>
-							<Notice.Root intent={ item.intent } className={ styles.notice }>
+							{ /* Keyed on the notice's shape, not just its id: a toast that is
+							     replaced in place can gain or lose optional Notice children,
+							     which changes the component's internal hook layout. */ }
+							<Notice.Root
+								key={ `${ item.intent }:${ !! item.description }:${ !! item.action }` }
+								intent={ item.intent }
+								className={ styles.notice }
+							>
 								<Notice.Title>{ item.title }</Notice.Title>
 								{ item.description ? (
 									<Notice.Description>{ item.description }</Notice.Description>

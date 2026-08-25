@@ -81,7 +81,13 @@ export function useDeleteSession() {
 	const queryClient = useQueryClient();
 	return useMutation( {
 		mutationFn: ( sessionId: string ) => connector.deleteSession( sessionId ),
-		onSuccess: () => queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY } ),
+		onSuccess: ( _data, sessionId ) => {
+			// Exact so deleting a chat can't force-refetch another session's
+			// transcript mid-run (see useSyncSessionsWithEvents); the deleted
+			// transcript's own cache is simply dropped.
+			queryClient.removeQueries( { queryKey: [ ...SESSIONS_QUERY_KEY, sessionId ] } );
+			return queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY, exact: true } );
+		},
 	} );
 }
 
@@ -99,11 +105,10 @@ export function useCreateSession() {
 
 function mergeSessionMetadata(
 	summary: AiSessionSummary,
-	patch: Pick< AiSessionSummary, 'starred' | 'archived' >
+	patch: Pick< AiSessionSummary, 'archived' >
 ): AiSessionSummary {
 	return {
 		...summary,
-		starred: patch.starred,
 		archived: patch.archived,
 	};
 }
@@ -116,7 +121,7 @@ export function useUpdateSessionMetadata() {
 		Error,
 		{
 			sessionId: string;
-			patch: Pick< AiSessionSummary, 'starred' | 'archived' >;
+			patch: Pick< AiSessionSummary, 'archived' >;
 		},
 		{
 			previousSessions: AiSessionSummary[] | undefined;
@@ -171,7 +176,6 @@ export function useUpdateSessionMetadata() {
 								...current,
 								summary: {
 									...current.summary,
-									starred: summary.starred,
 									archived: summary.archived,
 								},
 						  }
@@ -179,8 +183,15 @@ export function useUpdateSessionMetadata() {
 			);
 		},
 		onSettled: ( _data, _error, { sessionId } ) => {
-			void queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY } );
-			void queryClient.invalidateQueries( { queryKey: [ ...SESSIONS_QUERY_KEY, sessionId ] } );
+			// List refetches; the transcript is only marked stale — its summary
+			// flags were already applied optimistically above, and an immediate
+			// refetch would race live-run cache writes (see
+			// useSyncSessionsWithEvents).
+			void queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY, exact: true } );
+			void queryClient.invalidateQueries( {
+				queryKey: [ ...SESSIONS_QUERY_KEY, sessionId ],
+				refetchType: 'none',
+			} );
 		},
 	} );
 }
@@ -234,8 +245,10 @@ export function useSetSessionEnvironment(
 			onSettled: () => {
 				// Reconcile against the server-side event log so the cache matches the
 				// JSONL truth, and refresh the sidebar list which shows env indicators.
+				// The list invalidate is exact so it can't force-refetch other
+				// sessions' transcripts mid-run (see useSyncSessionsWithEvents).
 				void queryClient.invalidateQueries( { queryKey: sessionKey } );
-				void queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY } );
+				void queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY, exact: true } );
 			},
 		}
 	);
@@ -269,9 +282,16 @@ export function useSyncSessionsWithEvents(): void {
 	const queryClient = useQueryClient();
 	useEffect( () => {
 		return connector.onSessionPlacementUpdated( ( event ) => {
-			void queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY } );
+			// Refetch the summaries list, but never force-refetch a transcript
+			// from here: placement events fire mid-run, and a refetch started
+			// before the CLI appends an entry (e.g. an agent question) resolves
+			// after the live event lands and silently clobbers it from the
+			// cache. Mark the transcript stale instead — it refetches on next
+			// mount, and `useAgentRun` reconciles authoritatively on run exit.
+			void queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY, exact: true } );
 			void queryClient.invalidateQueries( {
 				queryKey: [ ...SESSIONS_QUERY_KEY, event.sessionId ],
+				refetchType: 'none',
 			} );
 		} );
 	}, [ connector, queryClient ] );

@@ -96,13 +96,18 @@ async function resolveAnthropicApiKey( options?: {
 	return apiKey;
 }
 
+function getStudioUserAgent(): string {
+	const version = typeof __STUDIO_CLI_VERSION__ === 'string' ? __STUDIO_CLI_VERSION__ : '';
+	return version ? `WordPressStudio/${ version }` : 'WordPressStudio';
+}
+
 function buildAnthropicCustomHeaders( headers: Record< string, string > ): string {
 	return Object.entries( headers )
 		.map( ( [ name, value ] ) => `${ name }: ${ value }` )
 		.join( '\n' );
 }
 
-function getWpcomAiGatewayBaseUrl(): string {
+export function getWpcomAiGatewayBaseUrl(): string {
 	const customBaseUrl = process.env.WPCOM_AI_PROXY_BASE_URL?.trim();
 	return customBaseUrl || DEFAULT_WPCOM_AI_GATEWAY_BASE_URL;
 }
@@ -161,6 +166,7 @@ const AI_PROVIDER_DEFINITIONS: Record< AiProviderId, AiProviderDefinition > = {
 			env.ANTHROPIC_BASE_URL = gatewayBaseUrl;
 			env.ANTHROPIC_AUTH_TOKEN = accessToken;
 			const anthropicHeaders: Record< string, string > = {
+				'User-Agent': getStudioUserAgent(),
 				'X-WPCOM-AI-Feature': WPCOM_AI_FEATURE_HEADER_ANTHROPIC,
 			};
 			if ( options?.sessionId ) {
@@ -168,14 +174,15 @@ const AI_PROVIDER_DEFINITIONS: Record< AiProviderId, AiProviderDefinition > = {
 			}
 			env.ANTHROPIC_CUSTOM_HEADERS = buildAnthropicCustomHeaders( anthropicHeaders );
 
-			// OpenAI completions path. The wpcom proxy accepts the same bearer token and
+			// OpenAI Responses path. The wpcom proxy accepts the same bearer token and
 			// dispatches to the right upstream based on the request path.
-			// @ai-sdk/openai expects baseURL to include /v1 (like the real
-			// OpenAI API), so the request path becomes /v1/chat/completions —
+			// The OpenAI SDK expects baseURL to include /v1 (like the real
+			// OpenAI API), so the request path becomes /v1/responses —
 			// mirroring the Anthropic path's /v1/messages.
 			env.OPENAI_BASE_URL = `${ gatewayBaseUrl.replace( /\/+$/, '' ) }/v1`;
 			env.OPENAI_API_KEY = accessToken;
 			const openaiHeaders: Record< string, string > = {
+				'User-Agent': getStudioUserAgent(),
 				'X-WPCOM-AI-Feature': WPCOM_AI_FEATURE_HEADER_OPENAI,
 			};
 			if ( options?.sessionId ) {

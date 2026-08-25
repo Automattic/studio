@@ -1,3 +1,4 @@
+import { aiSessionBelongsToSite } from '@studio/common/ai/sessions/owner-site';
 import { __, sprintf } from '@wordpress/i18n';
 import { backup, box } from '@wordpress/icons';
 import { ariaKeyShortcut, displayShortcut, isKeyboardEvent } from '@wordpress/keycodes';
@@ -25,60 +26,38 @@ function getSessionTitle( session: AiSessionSummary ): string {
 	return session.firstPrompt?.trim() || __( 'Untitled chat' );
 }
 
-export function getSiteSessionHistory( {
-	currentSession,
-	ownerSitePath,
-	sessions,
-}: {
+interface SiteSessionHistoryArgs {
 	currentSession: AiSessionSummary;
-	ownerSitePath: string | undefined;
+	ownerSite: { id: string; path: string } | undefined;
 	sessions: AiSessionSummary[] | undefined;
-} ): AiSessionSummary[] {
-	if ( ! ownerSitePath ) {
+}
+
+function collectSiteSessionHistory(
+	{ currentSession, ownerSite, sessions }: SiteSessionHistoryArgs,
+	archived: boolean
+): AiSessionSummary[] {
+	if ( ! ownerSite ) {
 		return [];
 	}
 
+	// The current session comes from a separate query and may be fresher than
+	// its copy in the list, so it goes last and wins the Map dedupe.
 	const sessionsById = new Map< string, AiSessionSummary >();
-	for ( const session of sessions ?? [] ) {
-		if ( session.archived || session.ownerSitePath !== ownerSitePath ) {
-			continue;
+	for ( const session of [ ...( sessions ?? [] ), currentSession ] ) {
+		if ( !! session.archived === archived && aiSessionBelongsToSite( session, ownerSite ) ) {
+			sessionsById.set( session.id, session );
 		}
-		sessionsById.set( session.id, session );
-	}
-
-	if ( ! currentSession.archived && currentSession.ownerSitePath === ownerSitePath ) {
-		sessionsById.set( currentSession.id, currentSession );
 	}
 
 	return [ ...sessionsById.values() ].sort( ( a, b ) => getTimestamp( b ) - getTimestamp( a ) );
 }
 
-export function getSiteArchivedSessionHistory( {
-	currentSession,
-	ownerSitePath,
-	sessions,
-}: {
-	currentSession: AiSessionSummary;
-	ownerSitePath: string | undefined;
-	sessions: AiSessionSummary[] | undefined;
-} ): AiSessionSummary[] {
-	if ( ! ownerSitePath ) {
-		return [];
-	}
+export function getSiteSessionHistory( args: SiteSessionHistoryArgs ): AiSessionSummary[] {
+	return collectSiteSessionHistory( args, false );
+}
 
-	const sessionsById = new Map< string, AiSessionSummary >();
-	for ( const session of sessions ?? [] ) {
-		if ( ! session.archived || session.ownerSitePath !== ownerSitePath ) {
-			continue;
-		}
-		sessionsById.set( session.id, session );
-	}
-
-	if ( currentSession.archived && currentSession.ownerSitePath === ownerSitePath ) {
-		sessionsById.set( currentSession.id, currentSession );
-	}
-
-	return [ ...sessionsById.values() ].sort( ( a, b ) => getTimestamp( b ) - getTimestamp( a ) );
+export function getSiteArchivedSessionHistory( args: SiteSessionHistoryArgs ): AiSessionSummary[] {
+	return collectSiteSessionHistory( args, true );
 }
 
 interface SessionChatActionsProps {
@@ -108,11 +87,12 @@ export function SessionChatActions( {
 	const archiveSession = ( session: AiSessionSummary ) => {
 		updateSessionMetadata.mutate( {
 			sessionId: session.id,
-			patch: {
-				starred: session.starred,
-				archived: true,
-			},
+			patch: { archived: true },
 		} );
+		// Archiving the chat you're on shouldn't leave you inside it.
+		if ( session.id === currentSessionId ) {
+			onNewChat();
+		}
 	};
 
 	useEffect( () => {

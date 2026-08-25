@@ -98,13 +98,13 @@ retain that artifact's URL and SHA-256. Replacing its bytes would cause
 checksum failures in those installations.
 
 After a successful Apps CDN upload, the workflow updates
-`packages/common/lib/php-binary-cdn-metadata.json` and opens a PR with the new CDN
+`packages/common/lib/php-binary-cdn-metadata.mjs` and opens a PR with the new CDN
 URLs and SHA-256 hashes. The metadata keeps one patch version per PHP minor
 version and may include a separate `packageVersion`. A different package
 identifier changes both the Apps CDN URL and local installation directory
 without pretending that upstream PHP published another patch.
 
-At runtime, Studio uses `packages/common/lib/php-binary-cdn-metadata.json` as the
+At runtime, Studio uses `packages/common/lib/php-binary-cdn-metadata.mjs` as the
 source of truth for the requested PHP minor version. Packaged Studio builds
 ship the recommended PHP version under the app resources
 `php-bin/<package-id>/`;

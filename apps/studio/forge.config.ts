@@ -18,6 +18,9 @@ const bundledPhpBinaryRoot = path.join( __dirname, 'php-bin' );
 const config: ForgeConfig = {
 	packagerConfig: {
 		asar: true,
+		extendInfo: {
+			MDItemKeywords: 'WordPress, WordPress Studio, WP, local WordPress development',
+		},
 		// prePackage installs the self-contained production dependency tree.
 		prune: false,
 		extraResource: [
@@ -313,8 +316,8 @@ const config: ForgeConfig = {
 
 			console.log( `Downloading Node.js binary for ${ platform }-${ arch }...` );
 			await execAsync( [
-				'npx',
-				'tsx',
+				'node',
+				'--experimental-strip-types',
 				path.join( repoRoot, 'scripts', 'download-node-binary.ts' ),
 				platform,
 				arch,
@@ -326,8 +329,8 @@ const config: ForgeConfig = {
 			fs.rmSync( bundledPhpBinaryRoot, { recursive: true, force: true } );
 			await execAsync(
 				[
-					'npx',
-					'tsx',
+					'node',
+					'--experimental-strip-types',
 					path.join( repoRoot, 'scripts', 'download-php-binary.ts' ),
 					RecommendedPHPVersion,
 					platform,

@@ -2,20 +2,15 @@ import { useEffect, useRef } from 'react';
 import { useOnboardingGuide } from '@/components/onboarding-guide/use-onboarding-guide';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
-import {
-	useOnboardingCompleted,
-	useOnboardingHints,
-	useSetOnboardingHints,
-} from '@/data/queries/use-onboarding-hints';
+import { useOnboardingHints, useSetOnboardingHints } from '@/data/queries/use-onboarding-hints';
 import { useSites } from '@/data/queries/use-sites';
-import { ORIENTATION_GUIDE_VERSION } from './orientation-guide';
+import { getOrientationGuide, ORIENTATION_GUIDE_VERSION } from './orientation-guide';
 import type { OrientationVariant } from './orientation-guide';
 import type { OnboardingHintsState } from '@/data/core';
 
 interface AutostartInputs {
-	onboardingCompleted: boolean | undefined;
 	siteCount: number;
-	agentic: { enabled: boolean; isReady: boolean };
+	agentic: { chatEnabled: boolean; isReady: boolean };
 	hints: OnboardingHintsState | undefined;
 	guideOpen: boolean;
 	alreadyStarted: boolean;
@@ -23,12 +18,11 @@ interface AutostartInputs {
 
 /**
  * Pure decision: which orientation guide variant (if any) to auto-open.
- * Returns null unless the user finished the pre-workbench welcome, has at least
- * one site, the agentic gate has resolved, hints have loaded, nothing is
- * already showing, and this app session hasn't opened the guide yet.
+ * Returns null unless the user has at least one site, the agentic gate has
+ * resolved, hints have loaded, nothing is already showing, and this app session
+ * hasn't opened the guide yet.
  */
 export function deriveOrientationAutostart( {
-	onboardingCompleted,
 	siteCount,
 	agentic,
 	hints,
@@ -38,7 +32,13 @@ export function deriveOrientationAutostart( {
 	if ( alreadyStarted || guideOpen ) {
 		return null;
 	}
-	if ( onboardingCompleted !== true || siteCount < 1 || ! agentic.isReady ) {
+	// Having a site is the real "past the NUX" signal, and the only one that works
+	// for existing users. `onboardingCompleted` is written solely by the welcome
+	// screen (route-welcome), which route-index only routes to when there are no
+	// sites — so anyone who had sites before that flag existed keeps it `false`
+	// forever and would never see the guide. The guides mount in the dashboard
+	// layout, so they can't render during the welcome flow anyway.
+	if ( siteCount < 1 || ! agentic.isReady ) {
 		return null;
 	}
 	if ( hints === undefined ) {
@@ -50,15 +50,9 @@ export function deriveOrientationAutostart( {
 	if ( seen ) {
 		return null;
 	}
-	return agentic.enabled ? 'agentic' : 'overview';
+	return { migrating: hints.migratedFromClassic ?? false, chatEnabled: agentic.chatEnabled };
 }
 
-/**
- * Pure decision: is this the user's first-ever arrival in the workbench?
- * True only when no orientation guide of any version has been completed or
- * dismissed. Guards the one-time window expansion so a guide re-armed by a
- * version bump doesn't resize an existing user's window.
- */
 export function isFirstWorkbenchArrival( hints: OnboardingHintsState | undefined ): boolean {
 	return ( hints?.tourCompletedVersion ?? 0 ) === 0 && ( hints?.tourDismissedVersion ?? 0 ) === 0;
 }
@@ -80,17 +74,14 @@ export function useOrientationAutostart(): void {
 	const setHints = useSetOnboardingHints();
 	const { isOpen, openGuide } = useOnboardingGuide();
 
-	const { data: onboardingCompleted } = useOnboardingCompleted();
-
 	const startedRef = useRef( false );
 	const startTimerRef = useRef< ReturnType< typeof setTimeout > | null >( null );
 	const mountedRef = useRef( true );
 
 	useEffect( () => {
 		const variant = deriveOrientationAutostart( {
-			onboardingCompleted,
 			siteCount: sites?.length ?? 0,
-			agentic: { enabled: agentic.enabled, isReady: agentic.isReady },
+			agentic: { chatEnabled: agentic.chatEnabled, isReady: agentic.isReady },
 			hints,
 			guideOpen: isOpen,
 			alreadyStarted: startedRef.current,
@@ -107,7 +98,7 @@ export function useOrientationAutostart(): void {
 			}
 			startTimerRef.current = setTimeout( () => {
 				startTimerRef.current = null;
-				openGuide( variant, {
+				openGuide( getOrientationGuide( variant ), {
 					onEnd: ( reason ) => {
 						if ( reason === 'completed' ) {
 							setHints.mutate( { tourCompletedVersion: ORIENTATION_GUIDE_VERSION } );
@@ -132,9 +123,8 @@ export function useOrientationAutostart(): void {
 		// returns early (startedRef guard); clearing on every re-run would
 		// cancel the pending open. The mount-scoped cleanup below handles it.
 	}, [
-		onboardingCompleted,
 		sites?.length,
-		agentic.enabled,
+		agentic.chatEnabled,
 		agentic.isReady,
 		hints,
 		isOpen,

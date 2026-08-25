@@ -1,4 +1,5 @@
 import { Autocomplete } from '@base-ui/react/autocomplete';
+import { TRACKS_EVENTS, type TracksEventName } from '@studio/common/lib/record-tracks-event';
 import { __ } from '@wordpress/i18n';
 import { globe, help, home, page as pageIcon, post as postIcon, wordpress } from '@wordpress/icons';
 import { ariaKeyShortcut, displayShortcut } from '@wordpress/keycodes';
@@ -44,6 +45,51 @@ export const DATABASE_HOME_PATH = '/phpmyadmin/index.php?route=/database/structu
 // preview the theme's 404 template.
 const FRONT_END_NOT_FOUND_PATH = '/this-page-does-not-exist';
 
+const SITE_EDITOR_ROUTE_ALIASES: Record< string, string > = {
+	'/wp_template': '/template',
+	'/wp_template_part': '/pattern',
+	'/patterns': '/pattern',
+	'/wp_global_styles': '/styles',
+	'/wp_navigation': '/navigation',
+};
+
+function canonicalSiteEditorRoute( value: string ): string {
+	return SITE_EDITOR_ROUTE_ALIASES[ value ] ?? value;
+}
+
+function destinationMatchScore( destinationPath: string, currentPath: string ): number {
+	let destination: URL;
+	let current: URL;
+	try {
+		destination = new URL( destinationPath, 'http://preview.invalid' );
+		current = new URL( currentPath, 'http://preview.invalid' );
+	} catch {
+		return -1;
+	}
+	if ( destination.pathname !== current.pathname ) {
+		return -1;
+	}
+	let score = 0;
+	for ( const [ key, value ] of destination.searchParams ) {
+		const isRouteParam = key === 'path' || key === 'p';
+		const aliases = isRouteParam ? [ 'path', 'p' ] : [ key ];
+		const matches = aliases.some( ( alias ) => {
+			const currentValue = current.searchParams.get( alias );
+			if ( currentValue === null ) {
+				return false;
+			}
+			return isRouteParam
+				? canonicalSiteEditorRoute( currentValue ) === canonicalSiteEditorRoute( value )
+				: currentValue === value;
+		} );
+		if ( ! matches ) {
+			return -1;
+		}
+		score += 1;
+	}
+	return score;
+}
+
 /**
  * Which realm a preview path shows. Auto-login hops classify as their
  * redirect target so the active segment doesn't flicker to "front end"
@@ -62,6 +108,19 @@ export function getPreviewRealm( path: string ): PreviewRealm {
 		return 'database';
 	}
 	return 'frontend';
+}
+
+// The site-open Tracks event that corresponds to a preview realm. Shared by the preview realm
+// switcher (which sends `browser: 'internal'`) and the "open in browser" button (`external`), so both
+// describe the same destination the same way.
+const REALM_OPEN_EVENTS: Record< PreviewRealm, TracksEventName > = {
+	frontend: TRACKS_EVENTS.SITE_OPEN_IN_BROWSER,
+	admin: TRACKS_EVENTS.SITE_OPEN_WP_ADMIN,
+	database: TRACKS_EVENTS.SITE_OPEN_PHPMYADMIN,
+};
+
+export function getRealmOpenEvent( realm: PreviewRealm ): TracksEventName {
+	return REALM_OPEN_EVENTS[ realm ];
 }
 
 /**
@@ -200,6 +259,10 @@ export function PreviewAddressBar( {
 }: PreviewAddressBarProps ) {
 	const [ open, setOpen ] = useState( false );
 	const [ inputValue, setInputValue ] = useState( '' );
+	// Whether the user edited the input since opening — the prefilled path
+	// alone must not count as typing, and string equality can't tell a
+	// prefill from a manually retyped current path.
+	const [ hasTyped, setHasTyped ] = useState( false );
 	const [ highlightedItem, setHighlightedItem ] = useState< AddressItem | undefined >( undefined );
 	const realm = getPreviewRealm( path );
 	const { allLinks } = useCustomizeLinks( site );
@@ -271,6 +334,7 @@ export function PreviewAddressBar( {
 
 	const intent = parseOmniboxInput( inputValue, siteUrl );
 	const searchTerm = intent?.type === 'search' ? intent.term : '';
+	const pathQuery = intent?.type === 'path' ? intent.path : '';
 	const debouncedTerm = useDebouncedValue( searchTerm, 250 );
 	const search = useSiteSearch( site.id, debouncedTerm, searchEnabled && open );
 	// Real front-end permalinks (latest post + a page) for the zero state; only
@@ -311,18 +375,38 @@ export function PreviewAddressBar( {
 		return items;
 	}, [ frontLinks.data ] );
 
-	// Untouched (prefilled) or cleared input rests on the grouped destinations
-	// (Front end / WordPress); search terms blend destination matches with
-	// content results into a single unlabeled group; typed paths suppress the
-	// list entirely so Enter always navigates the path instead of a stale
-	// highlighted result.
-	const isZeroState = ! inputValue.trim() || inputValue === path;
+	const currentDestinationId = useMemo( () => {
+		let bestId: string | null = null;
+		let bestScore = -1;
+		for ( const item of [ ...frontendItems, ...wordpressItems ] ) {
+			const score = destinationMatchScore( item.path, path );
+			if ( score > bestScore ) {
+				bestScore = score;
+				bestId = item.id;
+			}
+		}
+		return bestScore >= 0 ? bestId : null;
+	}, [ frontendItems, wordpressItems, path ] );
+
+	// Until the user types (or after clearing), the input rests on the grouped
+	// destinations (Front end / WordPress); search terms blend destination
+	// matches with content results into a single unlabeled group; typed paths
+	// suggest destinations matching by path, while Enter keeps navigating the
+	// literal input (no auto-highlight in path mode).
+	const isZeroState = ! inputValue.trim() || ! hasTyped;
 	const groups = useMemo< AddressGroup[] >( () => {
 		if ( isZeroState ) {
 			return [
 				{ value: __( 'Front end' ), items: frontendItems },
 				{ value: __( 'WordPress' ), items: wordpressItems },
 			].filter( ( group ) => group.items.length > 0 );
+		}
+		if ( pathQuery ) {
+			const query = pathQuery.toLowerCase();
+			const matches = [ ...frontendItems, ...wordpressItems ].filter( ( destination ) =>
+				destination.path.toLowerCase().includes( query )
+			);
+			return matches.length > 0 ? [ { value: '', items: matches } ] : [];
 		}
 		if ( ! searchTerm ) {
 			return [];
@@ -331,18 +415,31 @@ export function PreviewAddressBar( {
 		const destinationMatches = [ ...frontendItems, ...wordpressItems ].filter( ( destination ) =>
 			destination.title.toLowerCase().includes( term )
 		);
+		// The latest-post/page permalink rows can also come back as content
+		// results — keep the instant destination row, drop the duplicate.
+		const destinationPaths = new Set( destinationMatches.map( ( match ) => match.path ) );
 		const contentMatches = debouncedTerm
-			? ( search.data ?? [] ).map( ( result ) => ( {
-					kind: 'content' as const,
-					id: `content-${ result.id }`,
-					icon: result.subtype === 'page' ? pageIcon : postIcon,
-					title: result.title,
-					path: result.path,
-			  } ) )
+			? ( search.data ?? [] )
+					.filter( ( result ) => ! destinationPaths.has( result.path ) )
+					.map( ( result ) => ( {
+						kind: 'content' as const,
+						id: `content-${ result.id }`,
+						icon: result.subtype === 'page' ? pageIcon : postIcon,
+						title: result.title,
+						path: result.path,
+					} ) )
 			: [];
 		const matches = [ ...destinationMatches, ...contentMatches ];
 		return matches.length > 0 ? [ { value: '', items: matches } ] : [];
-	}, [ isZeroState, frontendItems, wordpressItems, searchTerm, debouncedTerm, search.data ] );
+	}, [
+		isZeroState,
+		frontendItems,
+		wordpressItems,
+		pathQuery,
+		searchTerm,
+		debouncedTerm,
+		search.data,
+	] );
 	const flatItems = useMemo( () => groups.flatMap( ( group ) => group.items ), [ groups ] );
 
 	const navigateTo = useCallback(
@@ -358,9 +455,15 @@ export function PreviewAddressBar( {
 	const handleOpenChange = ( nextOpen: boolean ) => {
 		if ( nextOpen ) {
 			setInputValue( path );
+			setHasTyped( false );
 			setHighlightedItem( undefined );
 		}
 		setOpen( nextOpen );
+	};
+
+	const handleInputValueChange = ( value: string ) => {
+		setInputValue( value );
+		setHasTyped( true );
 	};
 
 	// The popup (and input) unmount when closed, so this runs once per open.
@@ -408,11 +511,12 @@ export function PreviewAddressBar( {
 		<Autocomplete.Root
 			items={ groups }
 			mode="none"
-			// In the zero state Enter should re-navigate the prefilled path,
-			// not the first destination — highlight only follows typing.
-			autoHighlight={ ! isZeroState }
+			// In the zero state Enter should re-navigate the prefilled path, and
+			// for typed paths it must navigate the literal input — highlight only
+			// follows typed search terms.
+			autoHighlight={ ! isZeroState && ! pathQuery }
 			value={ inputValue }
-			onValueChange={ setInputValue }
+			onValueChange={ handleInputValueChange }
 			open={ open }
 			onOpenChange={ handleOpenChange }
 			onItemHighlighted={ setHighlightedItem }
@@ -528,26 +632,30 @@ export function PreviewAddressBar( {
 												</Autocomplete.GroupLabel>
 											) : null }
 											<Autocomplete.Collection>
-												{ ( item: AddressItem ) => (
-													<Autocomplete.Item
-														key={ item.id }
-														value={ item }
-														className={ styles.item }
-														onClick={ () => navigateTo( item.path ) }
-													>
-														<span
-															className={ clsx(
-																styles.itemIcon,
-																item.kind === 'destination' && styles.itemIconDestination
-															) }
-															aria-hidden="true"
+												{ ( item: AddressItem ) => {
+													const isCurrent = item.id === currentDestinationId;
+													return (
+														<Autocomplete.Item
+															key={ item.id }
+															value={ item }
+															className={ clsx( styles.item, isCurrent && styles.itemCurrent ) }
+															aria-current={ isCurrent ? 'page' : undefined }
+															onClick={ () => navigateTo( item.path ) }
 														>
-															<Icon icon={ item.icon } size={ 16 } />
-														</span>
-														<span className={ styles.itemTitle }>{ item.title }</span>
-														<span className={ styles.itemPath }>{ item.path }</span>
-													</Autocomplete.Item>
-												) }
+															<span
+																className={ clsx(
+																	styles.itemIcon,
+																	item.kind === 'destination' && styles.itemIconDestination
+																) }
+																aria-hidden="true"
+															>
+																<Icon icon={ item.icon } size={ 16 } />
+															</span>
+															<span className={ styles.itemTitle }>{ item.title }</span>
+															<span className={ styles.itemPath }>{ item.path }</span>
+														</Autocomplete.Item>
+													);
+												} }
 											</Autocomplete.Collection>
 										</Autocomplete.Group>
 									) }

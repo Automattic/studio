@@ -29,28 +29,9 @@
 }
 
 .authActions {
-	display: flex;
-	flex-direction: column;
 	align-items: flex-start;
-	gap: 12px;
-}
-
-/* Sign up + Log in side by side, mirroring the welcome screen's footer pair. */
-.authButtons {
-	display: flex;
-	align-items: center;
-	gap: 16px;
-}
-
-.authButtons > * {
-	flex-shrink: 0;
-	white-space: nowrap;
-}
-
-.offlineHint {
-	margin: 0;
-	font-size: 0.8125rem;
-	color: var(--wpds-color-fg-content-neutral-weak, #666);
+	padding-top: 16px;
+	border-top: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
 }
 
 .listHint {

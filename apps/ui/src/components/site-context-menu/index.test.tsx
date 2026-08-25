@@ -108,6 +108,7 @@ describe( 'SiteContextMenu', () => {
 	const openSiteUrl = vi.fn().mockResolvedValue( undefined );
 	const openSiteInEditor = vi.fn().mockResolvedValue( undefined );
 	const openExternalUrl = vi.fn().mockResolvedValue( undefined );
+	const trackEvent = vi.fn().mockResolvedValue( undefined );
 	const startSite = vi.fn().mockResolvedValue( undefined );
 	const stopSite = vi.fn();
 	const copySite = vi.fn();
@@ -117,7 +118,12 @@ describe( 'SiteContextMenu', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		paramsMock.mockReturnValue( {} );
-		useConnectorMock.mockReturnValue( { openSiteUrl, openSiteInEditor, openExternalUrl } );
+		useConnectorMock.mockReturnValue( {
+			openSiteUrl,
+			openSiteInEditor,
+			openExternalUrl,
+			trackEvent,
+		} );
 		useCopySiteMock.mockReturnValue( { isPending: false, mutate: copySite } );
 		useExportFullSiteMock.mockReturnValue( { isPending: false, mutate: exportFullSite } );
 		useExportDatabaseMock.mockReturnValue( { isPending: false, mutate: exportDatabase } );
@@ -172,6 +178,22 @@ describe( 'SiteContextMenu', () => {
 
 		fireEvent.click( screen.getByText( 'WP Admin' ).closest( 'button' )! );
 		await waitFor( () => expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/wp-admin/' ) );
+		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_wp_admin', {
+			browser: 'internal',
+		} );
+	} );
+
+	it( 'opens site settings and records the panel event', () => {
+		renderMenu( createSite() );
+
+		fireEvent.click( screen.getByText( 'Site settings' ) );
+
+		expect( trackEvent ).toHaveBeenCalledWith( 'studio_panel_opened', { panel: 'settings' } );
+		expect( navigateMock ).toHaveBeenCalledWith( {
+			to: '/sites/$siteId/overview',
+			params: { siteId: 'site-1' },
+			search: { tab: 'settings' },
+		} );
 	} );
 
 	it( 'shows plugin destinations for a plugin-tagged site', () => {
@@ -193,7 +215,10 @@ describe( 'SiteContextMenu', () => {
 
 		fireEvent.click( screen.getByText( 'Browser' ).closest( 'button' )! );
 
-		expect( openExternalUrl ).toHaveBeenCalledWith( 'http://localhost:8881' );
+		expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/' );
+		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_in_browser', {
+			browser: 'external',
+		} );
 	} );
 
 	it( 'sends the user to settings when no editor is configured', () => {
@@ -209,8 +234,8 @@ describe( 'SiteContextMenu', () => {
 		renderMenu( createSite( { running: true } ) );
 
 		fireEvent.click( screen.getByText( 'Duplicate' ).closest( 'button' )! );
-		fireEvent.click( screen.getByText( 'Export' ).closest( 'button' )! );
-		fireEvent.click( screen.getByText( 'Export DB' ).closest( 'button' )! );
+		fireEvent.click( screen.getByText( 'Export entire site' ).closest( 'button' )! );
+		fireEvent.click( screen.getByText( 'Export database' ).closest( 'button' )! );
 
 		expect( copySite ).toHaveBeenCalledWith( 'site-1' );
 		expect( exportFullSite ).toHaveBeenCalledWith( 'site-1' );

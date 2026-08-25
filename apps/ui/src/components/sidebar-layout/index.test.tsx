@@ -8,6 +8,15 @@ vi.mock( '@/components/sidebar-header', () => ( {
 	SidebarHeader: () => null,
 } ) );
 
+vi.mock( '@/components/app-message-cards', () => ( {
+	AppMessageCards: () => null,
+	AppMessageCardsDot: () => null,
+} ) );
+
+vi.mock( '@/components/studio-beta-menu', () => ( {
+	StudioBetaMenu: () => null,
+} ) );
+
 vi.mock( '@/components/site-list', () => ( {
 	SiteList: () => <nav aria-label="Sites" />,
 } ) );
@@ -29,8 +38,17 @@ vi.mock( '@/hooks/use-color-scheme', () => ( {
 	useColorScheme: () => 'light',
 } ) );
 
+// Same again: the frame-color override comes from useUserPreferences too.
+vi.mock( '@/hooks/use-frame-color', () => ( {
+	useFrameColor: () => null,
+} ) );
+
 vi.mock( '@/data/core', () => ( {
 	useConnector: vi.fn(),
+} ) );
+
+vi.mock( '@/hooks/use-fullscreen', () => ( {
+	useFullscreen: () => false,
 } ) );
 
 vi.mock( '@wordpress/ui', async () => {

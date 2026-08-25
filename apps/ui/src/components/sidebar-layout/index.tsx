@@ -5,14 +5,18 @@ import { clsx } from 'clsx';
 import { useCallback, useEffect, useState } from 'react';
 import { AppMessageCards, AppMessageCardsDot } from '@/components/app-message-cards';
 import { AppToasts } from '@/components/app-toasts';
+import { ProgressiveBlur } from '@/components/progressive-blur';
 import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { SidebarHeader } from '@/components/sidebar-header';
 import { SiteList } from '@/components/site-list';
+import { StudioBetaMenu } from '@/components/studio-beta-menu';
 import { UserMenu } from '@/components/user-menu';
 import { useConnector } from '@/data/core';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useFrameColor } from '@/hooks/use-frame-color';
 import { useResizablePanel } from '@/hooks/use-resizable-panel';
 import { SidebarCollapsedContext } from '@/hooks/use-sidebar-collapsed';
+import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { drawerIcon } from '@/lib/icons';
 import { SIDEBAR_PANEL_CONFIG, SIDEBAR_PANEL_STORAGE_KEY } from '@/lib/resizable-panels';
 import { unlock } from '@/lock-unlock';
@@ -24,7 +28,8 @@ const { ThemeProvider } = unlock( privateApis );
 // Dark window chrome behind the sidebar and the content frame, mimicking the
 // legacy renderer's `bg-chrome` (rgba(30,30,30,1)). Dark mode goes a step
 // deeper so the chrome still contrasts with #1e1e1e content surfaces. Keep in
-// sync with --app-chrome-bg in style.module.css.
+// sync with --app-chrome-bg in style.module.css. The user's Frame color setting
+// overrides both with a single color.
 const CHROME_BG_LIGHT = '#1e1e1e';
 const CHROME_BG_DARK = '#161616';
 
@@ -49,8 +54,10 @@ export function SidebarLayout( {
 	const [ collapsed, setCollapsed ] = useState( false );
 	const effectiveCollapsed = collapsed || forceCollapsed;
 	const connector = useConnector();
+	const reserveTrafficLightSpace = useTrafficLightSpace().start;
 	const colorScheme = useColorScheme();
-	const chromeBg = colorScheme === 'dark' ? CHROME_BG_DARK : CHROME_BG_LIGHT;
+	const frameColor = useFrameColor();
+	const chromeBg = frameColor ?? ( colorScheme === 'dark' ? CHROME_BG_DARK : CHROME_BG_LIGHT );
 	const sidebarResize = useResizablePanel( {
 		config: SIDEBAR_PANEL_CONFIG,
 		edge: 'right',
@@ -72,7 +79,10 @@ export function SidebarLayout( {
 
 	return (
 		<SidebarCollapsedContext.Provider value={ effectiveCollapsed }>
-			<div className={ styles.root }>
+			<div
+				className={ styles.root }
+				style={ frameColor ? ( { '--app-chrome-bg': frameColor } as CSSProperties ) : undefined }
+			>
 				<aside
 					className={ clsx(
 						styles.sidebar,
@@ -90,6 +100,11 @@ export function SidebarLayout( {
 							<SidebarHeader />
 							<SiteList />
 							<div className={ styles.sidebarFooter }>
+								{ /* Rides the sticky footer's top edge, blurring list rows as
+								     they scroll under; a scroll-driven animation fades it out
+								     at the end of the scroll range so the last rows are never
+								     left obscured. */ }
+								<ProgressiveBlur direction="up" fadeToSurface className={ styles.footerBlur } />
 								{ /* Persistent cards stack above the ephemeral toasts; while
 								     collapsed the floating toggle's dot stands in for them. */ }
 								{ ! effectiveCollapsed ? (
@@ -99,6 +114,9 @@ export function SidebarLayout( {
 								     floating over the main panel when collapsed. The store
 								     survives the swap. */ }
 								{ ! effectiveCollapsed ? <AppToasts className={ styles.sidebarToasts } /> : null }
+								{ ! effectiveCollapsed ? (
+									<StudioBetaMenu className={ styles.sidebarBeta } />
+								) : null }
 								<UserMenu onToggleSidebar={ toggleSidebar } />
 							</div>
 						</div>
@@ -129,7 +147,12 @@ export function SidebarLayout( {
 						<AppToasts className={ styles.floatingToasts } fit="content" />
 					) : null }
 					{ effectiveCollapsed && ! forceCollapsed ? (
-						<div className={ styles.floatingToggle }>
+						<div
+							className={ clsx(
+								styles.floatingToggle,
+								! reserveTrafficLightSpace && styles.floatingToggleFlush
+							) }
+						>
 							{ /* The wrapper pins the pending-cards dot to the button's
 							     corner; the outer container is taller than the button. */ }
 							<span className={ styles.floatingToggleButton }>

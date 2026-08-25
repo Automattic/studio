@@ -1,47 +1,55 @@
 import { createRoute, Outlet, useLocation, useMatches, useNavigate } from '@tanstack/react-router';
-import { useEffect, useRef } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { DotGrid } from '@/components/dot-grid';
 import { OnboardingLayout } from '@/components/onboarding-layout';
 import { useSites } from '@/data/queries/use-sites';
 import { rootRoute } from '../layout-root';
 import styles from './style.module.css';
+import type { Dispatch, ReactNode, SetStateAction } from 'react';
 
-export function OnboardingShell() {
-	const navigate = useNavigate();
-	const { data: sites } = useSites();
-	const hasSites = ( sites?.length ?? 0 ) > 0;
-	// Grid-heavy pages (onboarding home with its flow picker cards) need more
-	// horizontal room than the single-column form pages; thread the variant
-	// through here so each child route doesn't have to re-declare its own
-	// layout chrome.
-	const matches = useMatches();
-	const isFull = matches.some( ( match ) => match.pathname === '/onboarding/connect' );
-	const isWide = matches.some( ( match ) => {
-		if ( match.pathname === '/onboarding' ) return true;
-		if ( match.pathname === '/onboarding/tour' ) return true;
-		if ( match.pathname === '/onboarding/plugin' ) return true;
-		if ( match.pathname === '/onboarding/plugin/connect' ) return true;
-		return false;
-	} );
-	// The dot grid backs every step of the flow; it stays mounted across
-	// navigations so its intro sweep plays once per visit, not per step.
-	const dotGrid = (
-		<div aria-hidden="true" className={ styles.dotGridLayer }>
-			<DotGrid spacing={ 32 } crossSize={ 5 } opacity={ 0.2 } />
-		</div>
-	);
+interface OnboardingProgressContextValue {
+	setProgress: Dispatch< SetStateAction< string | null > >;
+}
+
+const OnboardingProgressContext = createContext< OnboardingProgressContextValue | null >( null );
+
+export function useOnboardingProgress(): OnboardingProgressContextValue {
+	const value = useContext( OnboardingProgressContext );
+	if ( ! value ) throw new Error( 'useOnboardingProgress must be used inside onboarding' );
+	return value;
+}
+
+interface OnboardingShellViewProps {
+	children: ReactNode;
+	hasSites: boolean;
+	isFull?: boolean;
+	isWide: boolean;
+	pathname: string;
+	onClose: () => void;
+}
+
+export function OnboardingShellView( {
+	children,
+	hasSites,
+	isFull,
+	isWide,
+	pathname,
+	onClose,
+}: OnboardingShellViewProps ) {
+	const [ progress, setProgress ] = useState< string | null >( null );
+	const progressContext = useMemo( () => ( { setProgress } ), [] );
+
 	// Moving between onboarding pages/steps unmounts the control that was
 	// focused (a card, a Back button), dropping keyboard focus to <body>.
 	// Hand it to the incoming page's heading instead so keyboard and
 	// screen-reader context follows the navigation.
 	const contentRef = useRef< HTMLDivElement >( null );
-	const { href } = useLocation();
-	const lastHref = useRef( href );
+	const lastPathname = useRef( pathname );
 	useEffect( () => {
-		if ( lastHref.current === href ) {
+		if ( lastPathname.current === pathname ) {
 			return;
 		}
-		lastHref.current = href;
+		lastPathname.current = pathname;
 		const focusHeading = () => {
 			const content = contentRef.current;
 			if ( ! content ) {
@@ -61,25 +69,72 @@ export function OnboardingShell() {
 			heading.focus();
 			return true;
 		};
-		// The blueprint/import configure steps render empty for one frame
-		// while adopting a pending hand-off; retry once after paint.
+		// The import configure step renders empty for one frame while
+		// adopting a pending hand-off; retry once after paint.
 		if ( ! focusHeading() ) {
 			const raf = requestAnimationFrame( () => void focusHeading() );
 			return () => cancelAnimationFrame( raf );
 		}
-	}, [ href ] );
+	}, [ pathname ] );
+
+	// The dot grid backs every step of the flow. It's already on screen from
+	// the welcome screen (rendered statically there), so skip the intro sweep
+	// to avoid replaying an entrance the user has effectively already seen.
+	const dotGrid = (
+		<div aria-hidden="true" className={ styles.dotGridLayer }>
+			<DotGrid spacing={ 32 } crossSize={ 5 } opacity={ 0.2 } intro={ false } />
+		</div>
+	);
 
 	return (
-		<OnboardingLayout
-			onClose={ hasSites ? () => void navigate( { to: '/' } ) : undefined }
-			width={ isFull ? 'full' : isWide ? 'wide' : 'default' }
-			background={ dotGrid }
+		<OnboardingProgressContext.Provider value={ progressContext }>
+			<OnboardingLayout
+				onClose={ hasSites ? onClose : undefined }
+				closeDisabled={ !! progress }
+				width={ isFull ? 'full' : isWide ? 'wide' : 'default' }
+				background={ dotGrid }
+			>
+				{ progress && (
+					<p className={ styles.progress } role="status" aria-live="polite">
+						{ progress }
+					</p>
+				) }
+				{ /* display: contents — focus-management hook point only, no layout. */ }
+				<div ref={ contentRef } className={ styles.outlet } inert={ progress ? true : undefined }>
+					{ children }
+				</div>
+			</OnboardingLayout>
+		</OnboardingProgressContext.Provider>
+	);
+}
+
+export function OnboardingShell() {
+	const navigate = useNavigate();
+	const pathname = useLocation( { select: ( location ) => location.pathname } );
+	const { data: sites } = useSites();
+	// Grid-heavy pages (onboarding home with its flow picker cards) need more
+	// horizontal room than the single-column form pages; thread the variant
+	// through here so each child route doesn't have to re-declare its own
+	// layout chrome.
+	const matches = useMatches();
+	const isFull = matches.some( ( match ) => match.pathname === '/onboarding/connect' );
+	const isWide = matches.some( ( match ) => {
+		if ( match.pathname === '/onboarding' ) return true;
+		if ( match.pathname === '/onboarding/tour' ) return true;
+		if ( match.pathname === '/onboarding/plugin' ) return true;
+		if ( match.pathname === '/onboarding/plugin/connect' ) return true;
+		return false;
+	} );
+	return (
+		<OnboardingShellView
+			hasSites={ ( sites?.length ?? 0 ) > 0 }
+			isFull={ isFull }
+			isWide={ isWide }
+			pathname={ pathname }
+			onClose={ () => void navigate( { to: '/' } ) }
 		>
-			{ /* display: contents — focus-management hook point only, no layout. */ }
-			<div ref={ contentRef } className={ styles.outlet }>
-				<Outlet />
-			</div>
-		</OnboardingLayout>
+			<Outlet />
+		</OnboardingShellView>
 	);
 }
 

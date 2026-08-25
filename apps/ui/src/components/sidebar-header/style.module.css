@@ -29,6 +29,11 @@
 	padding-left: var(--wpds-dimension-padding-2xl);
 }
 
+.menuButton {
+	margin-inline-start: calc(-1 * var(--wpds-dimension-padding-sm));
+	cursor: var(--wpds-cursor-control);
+}
+
 .actions {
 	display: flex;
 	align-items: center;

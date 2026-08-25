@@ -1,10 +1,8 @@
-import { generateDefaultBlueprintDescription } from '@studio/common/lib/blueprint-settings';
 import { useNavigate } from '@tanstack/react-router';
-import { __ } from '@wordpress/i18n';
 import { useEffect } from 'react';
 import { useConnector } from '@/data/core';
+import { createSelectedBlueprint } from '@/lib/blueprint-selection';
 import { setPendingBlueprint } from '@/lib/pending-blueprint';
-import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 /**
  * Bridges renderer-external "add a site" requests into the router. Two
@@ -25,7 +23,7 @@ export function useAddSiteListener(): void {
 	const navigate = useNavigate();
 
 	useEffect( () => {
-		return connector.onAddSiteRequested( () => {
+		return connector.onAddSite( () => {
 			void navigate( { to: '/onboarding' } );
 		} );
 	}, [ connector, navigate ] );
@@ -34,14 +32,11 @@ export function useAddSiteListener(): void {
 		return connector.onAddSiteWithBlueprint( async ( { blueprintPath } ) => {
 			try {
 				const blueprintJson = await connector.readBlueprintFile( blueprintPath );
-				const blueprint = blueprintJson as BlueprintV1Declaration;
-				const meta = ( blueprintJson as { meta?: { title?: string; description?: string } } ).meta;
-
-				setPendingBlueprint( {
-					title: meta?.title || __( 'Blueprint' ),
-					excerpt: meta?.description || generateDefaultBlueprintDescription( blueprint ),
-					blueprint,
+				const blueprint = await createSelectedBlueprint( blueprintJson, {
+					name: blueprintPath.split( /[\\/]/ ).pop() || 'blueprint.json',
+					size: 0,
 				} );
+				setPendingBlueprint( blueprint );
 				void navigate( { to: '/onboarding/create' } );
 			} catch ( error ) {
 				console.error( 'Failed to load blueprint from deep link:', error );

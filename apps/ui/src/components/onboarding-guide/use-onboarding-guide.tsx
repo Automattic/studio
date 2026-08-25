@@ -1,7 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
-import { getOrientationGuide } from '@/data/onboarding/orientation-guide';
 import { OnboardingGuide } from './index';
-import type { OrientationVariant } from '@/data/onboarding/orientation-guide';
+import type { GuideDefinition } from '@/data/onboarding/guide';
 import type { ReactNode } from 'react';
 
 export type GuideEndReason = 'completed' | 'dismissed';
@@ -12,7 +11,7 @@ interface OpenGuideOptions {
 
 interface OnboardingGuideApi {
 	isOpen: boolean;
-	openGuide( variant: OrientationVariant, options?: OpenGuideOptions ): void;
+	openGuide( guide: GuideDefinition, options?: OpenGuideOptions ): void;
 	close( reason: GuideEndReason ): void;
 }
 
@@ -21,32 +20,32 @@ export type OpenGuide = OnboardingGuideApi[ 'openGuide' ];
 const OnboardingGuideContext = createContext< OnboardingGuideApi | null >( null );
 
 export function OnboardingGuideProvider( { children }: { children: ReactNode } ) {
-	const [ variant, setVariant ] = useState< OrientationVariant | null >( null );
+	const [ guide, setGuide ] = useState< GuideDefinition | null >( null );
 	const onEndRef = useRef< ( ( reason: GuideEndReason ) => void ) | null >( null );
 
-	const openGuide = useCallback( ( next: OrientationVariant, options?: OpenGuideOptions ) => {
+	const openGuide = useCallback( ( next: GuideDefinition, options?: OpenGuideOptions ) => {
 		onEndRef.current = options?.onEnd ?? null;
-		setVariant( next );
+		setGuide( next );
 	}, [] );
 
 	const close = useCallback( ( reason: GuideEndReason ) => {
 		const callback = onEndRef.current;
 		onEndRef.current = null;
-		setVariant( null );
+		setGuide( null );
 		callback?.( reason );
 	}, [] );
 
 	const api = useMemo< OnboardingGuideApi >(
-		() => ( { isOpen: variant !== null, openGuide, close } ),
-		[ variant, openGuide, close ]
+		() => ( { isOpen: guide !== null, openGuide, close } ),
+		[ guide, openGuide, close ]
 	);
 
 	return (
 		<OnboardingGuideContext.Provider value={ api }>
 			{ children }
-			{ variant ? (
+			{ guide ? (
 				<OnboardingGuide
-					guide={ getOrientationGuide( variant ) }
+					guide={ guide }
 					onComplete={ () => close( 'completed' ) }
 					onDismiss={ () => close( 'dismissed' ) }
 				/>

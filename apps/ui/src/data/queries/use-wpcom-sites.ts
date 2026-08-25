@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { useConnector } from '@/data/core';
+import { useAuthUser } from '@/data/queries/use-auth-user';
 import type { SyncSite } from '@/data/core';
 
 const SYNCABLE_WPCOM_SITES_QUERY_KEY = [ 'syncable-wpcom-sites' ] as const;
@@ -8,10 +9,11 @@ const ALL_CONNECTED_WPCOM_SITES_QUERY_KEY = [ 'all-connected-wpcom-sites' ] as c
 
 export function useSyncableWpcomSites( options: { enabled?: boolean } = {} ) {
 	const connector = useConnector();
+	const { data: authUser } = useAuthUser();
 	return useQuery( {
 		queryKey: SYNCABLE_WPCOM_SITES_QUERY_KEY,
 		queryFn: () => connector.fetchSyncableWpcomSites(),
-		enabled: options.enabled ?? true,
+		enabled: ( options.enabled ?? true ) && !! authUser,
 		// This query hits the network and the data doesn't change often.
 		// Keep it fresh for a few minutes so opening/closing the picker
 		// repeatedly doesn't spam WordPress.com.
@@ -45,13 +47,11 @@ export function useSyncableWpcomSitesPage(
 // another Studio site when picking a publish target.
 export function useAllConnectedWpcomSites( options: { enabled?: boolean } = {} ) {
 	const connector = useConnector();
+	const { data: authUser } = useAuthUser();
 	return useQuery( {
 		queryKey: ALL_CONNECTED_WPCOM_SITES_QUERY_KEY,
-		// The IPC signature requires a localSiteId; an empty string is treated
-		// as "no filter" so we get every connection on record. See the
-		// `getConnectedWpcomSites` main-process handler.
-		queryFn: () => connector.getConnectedWpcomSites( '' ),
-		enabled: options.enabled ?? true,
+		queryFn: () => connector.getConnectedWpcomSites(),
+		enabled: ( options.enabled ?? true ) && !! authUser,
 	} );
 }
 

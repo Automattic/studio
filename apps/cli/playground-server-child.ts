@@ -429,12 +429,6 @@ const startServer = wrapWithStartingPromise(
 
 			const args = await getBaseRunCLIArgs( 'server', config );
 
-			// Playground CLI's runCLI() has a top-level .catch() that calls
-			// process.exit(1) instead of re-throwing. If a non-fatal error
-			// happens (e.g. a background worker exit race), this kills the
-			// entire child process. The daemon will restart it, but the
-			// error message is lost. Filed upstream:
-			// https://github.com/WordPress/wordpress-playground/issues/3520
 			server = await runCLI( args );
 
 			stopSignal.throwIfAborted();
@@ -698,6 +692,17 @@ async function ipcMessageHandler( packet: unknown ) {
 		delete abortControllers[ validMessage.messageId ];
 	}
 }
+
+// A PHP WASM worker hitting a fatal error can surface as a stray unhandled rejection in addition to
+// the runCLI() rejection that startServer already handles. Log instead of letting it crash the child,
+// so the clean error-reporting path runs and the PHP error reaches the main process for recovery.
+process.on( 'uncaughtException', ( error ) => {
+	errorToConsole( 'Uncaught exception in child process:', error );
+} );
+
+process.on( 'unhandledRejection', ( reason ) => {
+	errorToConsole( 'Unhandled rejection in child process:', reason );
+} );
 
 if ( process.send ) {
 	process.on( 'message', ipcMessageHandler );

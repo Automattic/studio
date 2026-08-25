@@ -7,9 +7,11 @@ import {
 } from '@wp-playground/tools';
 import fs from 'fs-extra';
 import { z } from 'zod';
-import { extractZip } from '@studio/common/lib/extract-zip';
-import { SQLITE_DATABASE_INTEGRATION_RELEASE_URL } from '../apps/studio/src/constants';
-import { fetch, sharedDispatcher, throwForHttpStatus, withRetry } from './lib/with-retry';
+import { extractZip } from '../packages/common/lib/extract-zip.ts';
+import { fetch, sharedDispatcher, throwForHttpStatus, withRetry } from './lib/with-retry.ts';
+
+const SQLITE_DATABASE_INTEGRATION_VERSION = 'v3.0.0-rc.8';
+const SQLITE_DATABASE_INTEGRATION_RELEASE_URL = `https://github.com/WordPress/sqlite-database-integration/releases/download/${ SQLITE_DATABASE_INTEGRATION_VERSION }/plugin-sqlite-database-integration.zip`;
 
 async function fetchWithRetry( name: string, url: string ): Promise< Buffer > {
 	return withRetry( name, async () => {
@@ -24,6 +26,9 @@ async function fetchWithRetry( name: string, url: string ): Promise< Buffer > {
 }
 
 const WP_SERVER_FILES_PATH = path.join( import.meta.dirname, '..', 'wp-files' );
+
+// Pinned so builds are reproducible. Bump deliberately.
+const WORDPRESS_IMPORTER_VERSION = '0.9.5';
 const PHPMYADMIN_PATCH_FILES_PATH = path.join( import.meta.dirname, '..', 'apps', 'cli', 'php' );
 const PHPMYADMIN_LOCAL_PATCH_FILES = new Map< string, string >( [
 	[ 'config.inc.php', path.join( PHPMYADMIN_PATCH_FILES_PATH, 'config.inc.php' ) ],
@@ -117,16 +122,16 @@ const FILES_TO_DOWNLOAD: FileToDownload[] = [
 		destinationPath: path.join( WP_SERVER_FILES_PATH, 'phpmyadmin' ),
 	},
 	{
+		name: 'wordpress-importer',
+		description: `wordpress-importer ${ WORDPRESS_IMPORTER_VERSION }`,
+		getUrl: () =>
+			`https://downloads.wordpress.org/plugin/wordpress-importer.${ WORDPRESS_IMPORTER_VERSION }.zip`,
+		destinationPath: WP_SERVER_FILES_PATH,
+	},
+	{
 		name: 'reprint',
 		description: `reprint.phar`,
-		getUrl: async () => {
-			const release = await fetchLatestGithubRelease( 'WordPress/reprint' );
-			const asset = release.assets.find( ( a ) => a.name === 'reprint.phar' );
-			if ( ! asset ) {
-				throw new Error( `No asset found in latest reprint release ${ release.tag_name }` );
-			}
-			return asset.browser_download_url;
-		},
+		getUrl: () => 'https://github.com/WordPress/reprint/releases/download/v0.9.2/reprint.phar',
 		destinationPath: path.join( WP_SERVER_FILES_PATH, 'reprint' ),
 	},
 ];

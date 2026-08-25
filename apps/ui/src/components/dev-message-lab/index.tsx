@@ -85,7 +85,7 @@ export function DevMessageLab() {
 
 	// Simulate checklist progress (the real events — agent runs, pushes —
 	// aren't available in a sim/new-user environment).
-	const checklistItems = deriveChecklistItems( getChecklistItems( agentic.enabled ), hints );
+	const checklistItems = deriveChecklistItems( getChecklistItems( agentic.chatEnabled ), hints );
 	const nextIncomplete = checklistItems.find( ( item ) => ! item.completed );
 	const completeNextItem = () => {
 		if ( nextIncomplete ) {

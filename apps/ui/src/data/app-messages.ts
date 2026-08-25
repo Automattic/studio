@@ -1,12 +1,5 @@
 import { useSyncExternalStore } from 'react';
 
-// Ephemeral app-wide toasts ("the app's voice"): action feedback and
-// background-work outcomes, rendered by <AppToasts /> at the bottom of the
-// sidebar (or floating over the main panel when the sidebar is collapsed).
-// Uses a module-level store (rather than React context) so toasts can be
-// dispatched from anywhere — react-query mutation callbacks, connector event
-// handlers — and survive the mount-point swap when the sidebar collapses.
-
 export type ToastIntent = 'success' | 'info' | 'error';
 
 export type ToastAction = {
@@ -47,11 +40,10 @@ const MAX_VISIBLE_TOASTS = 3;
 // finishes before the node is dropped.
 export const TOAST_EXIT_MS = 200;
 
-// Oldest first; capped at MAX_VISIBLE_TOASTS. Overflow waits in `queued` and
-// is promoted FIFO as visible toasts expire or are dismissed.
 let visible: ToastMessage[] = [];
 let queued: ToastMessage[] = [];
 let nextId = 1;
+let rendererMounted = false;
 
 const timers = new Map< string, ReturnType< typeof setTimeout > >();
 const listeners = new Set< () => void >();
@@ -59,8 +51,6 @@ const listeners = new Set< () => void >();
 let snapshot: readonly ToastMessage[] = visible;
 
 function emit() {
-	// useSyncExternalStore compares snapshot references, so rebuild the array
-	// instead of mutating the existing reference.
 	snapshot = [ ...visible ];
 	for ( const listener of listeners ) {
 		listener();
@@ -80,6 +70,9 @@ function clearExpiryTimer( id: string ) {
 // visible — queued failures keep their full linger time.
 function scheduleExpiry( toast: ToastMessage ) {
 	clearExpiryTimer( toast.id );
+	if ( ! rendererMounted ) {
+		return;
+	}
 	const timer = setTimeout( () => {
 		timers.delete( toast.id );
 		beginToastExit( toast.id );
@@ -95,8 +88,6 @@ function promoteQueued() {
 	}
 }
 
-// Phase 2 of removal: drop the toast for real and let the queue promote —
-// the entering toast animates in as the leaving one finishes collapsing.
 function finalizeToastRemoval( id: string ) {
 	clearExpiryTimer( id );
 	visible = visible.filter( ( toast ) => toast.id !== id );
@@ -104,8 +95,6 @@ function finalizeToastRemoval( id: string ) {
 	emit();
 }
 
-// Phase 1 of removal (expiry or dismissal): flag the toast as leaving so the
-// renderer plays its exit, then remove it after the transition window.
 function beginToastExit( id: string ) {
 	const target = visible.find( ( toast ) => toast.id === id );
 	if ( ! target ) {
@@ -187,6 +176,24 @@ export function resumeToastExpiry( id: string ): void {
 	}
 }
 
+export function notifyRendererMounted(): void {
+	rendererMounted = true;
+	for ( const toast of visible ) {
+		if ( ! toast.leaving && ! timers.has( toast.id ) ) {
+			scheduleExpiry( toast );
+		}
+	}
+}
+
+export function notifyRendererUnmounted(): void {
+	rendererMounted = false;
+	for ( const toast of visible ) {
+		if ( ! toast.leaving ) {
+			clearExpiryTimer( toast.id );
+		}
+	}
+}
+
 function subscribe( listener: () => void ): () => void {
 	listeners.add( listener );
 	return () => {
@@ -210,8 +217,6 @@ export function getQueuedToastCount(): number {
 	return queued.length;
 }
 
-// How many toasts are waiting behind the visible three — the renderer shows
-// a stacked-card peek so the queue is perceivable before it promotes.
 export function useQueuedToastCount(): number {
 	return useSyncExternalStore(
 		subscribe,
@@ -230,5 +235,6 @@ export function resetAppMessagesForTests(): void {
 	visible = [];
 	queued = [];
 	nextId = 1;
+	rendererMounted = false;
 	snapshot = visible;
 }

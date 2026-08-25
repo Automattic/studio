@@ -1,6 +1,7 @@
 import { RouterProvider } from '@tanstack/react-router';
 import { useEffect, useMemo } from 'react';
 import { queryClient } from '@/data/core';
+import { useTextContextMenu } from '@/hooks/use-text-context-menu';
 import { createAppRouter } from '@/ui-classic/router/router';
 import type { Connector } from '@/data/core';
 
@@ -18,6 +19,8 @@ export function ClassicUiApp( { connector }: ClassicUiAppProps ) {
 			void router.navigate( { to: '/sessions/$sessionId', params: { sessionId } } );
 		} );
 	}, [ connector, router ] );
+
+	useTextContextMenu();
 
 	return (
 		<div data-ui-mode="classic">

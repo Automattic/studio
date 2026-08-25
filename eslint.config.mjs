@@ -41,9 +41,11 @@ export default defineConfig(
 				projectService: {
 					allowDefaultProject: [
 						'apps/studio/forge.config.ts',
+						'apps/studio/vitest.setup.ts',
 						'apps/studio/windowsSign.ts',
 						'apps/studio/tailwind.config.js',
 						'apps/ui/vite.config.ts',
+						'apps/ui/vitest.setup.ts',
 						'apps/ui/scripts/*.mjs',
 						'eslint.config.mjs',
 						'vitest.config.ts',
@@ -72,6 +74,10 @@ export default defineConfig(
 			},
 		},
 		rules: {
+			// Temporarily disabled after the ESLint 10 upgrade, which promoted these to `recommended`.
+			// Enabling them and fixing the existing violations is tracked in STU-2175.
+			'no-useless-assignment': 'off',
+			'preserve-caught-error': 'off',
 			'@typescript-eslint/no-floating-promises': 'error',
 			'@typescript-eslint/no-explicit-any': [ 'error', { ignoreRestArgs: true } ],
 			'@typescript-eslint/no-unused-vars': [
@@ -109,6 +115,7 @@ export default defineConfig(
 				},
 			],
 			'react-hooks/set-state-in-effect': 'off',
+			'studio/no-module-level-translations': 'error',
 			'studio/no-redundant-cx': 'error',
 			'studio/require-lock-before-save': [
 				'error',
@@ -177,6 +184,26 @@ export default defineConfig(
 					message: 'Use import.meta.filename in ESM modules.',
 				},
 			],
+		},
+	},
+	{
+		// Module-level translations can't go stale in these apps: the CLI is a
+		// one-shot process that loads the locale before importing modules, and the
+		// agentic UI reloads the window on language change. The rule only matters
+		// for the legacy renderer, which swaps locale data live without a reload.
+		files: [ 'apps/cli/**', 'apps/ui/**' ],
+		rules: {
+			'studio/no-module-level-translations': 'off',
+		},
+	},
+	{
+		// These tests assert on the `aria-valuenow` attribute of ARIA range widgets
+		// (slider/separator/progressbar elements). eslint-plugin-jest-dom 5.10 flags
+		// those `toHaveAttribute` calls and autofixes them to `toHaveValue()`, which only
+		// reads the form `value` property and returns undefined for these non-form elements.
+		files: [ 'apps/ui/**/*.test.{ts,tsx}' ],
+		rules: {
+			'jest-dom/prefer-to-have-value': 'off',
 		},
 	}
 );

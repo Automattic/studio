@@ -1097,6 +1097,7 @@ describe( 'Studio AI MCP tools', () => {
 		await getTool( 'site_create' ).rawHandler( { name: 'My Site' } as never );
 
 		expect( onSiteSelected ).toHaveBeenCalledWith( {
+			id: 'site-123',
 			name: 'My Site',
 			path: '/sites/my-site',
 			running: true,
@@ -1522,6 +1523,8 @@ describe( 'Studio AI MCP tools', () => {
 			const styleCss = await readFile( path.join( themeDir, 'style.css' ), 'utf8' );
 			expect( styleCss ).toContain( 'Theme Name: Acme Studio' );
 			expect( styleCss ).toContain( 'Text Domain: acme-studio' );
+			expect( styleCss ).toContain( 'scaffolded by Studio Code' );
+			expect( styleCss ).not.toContain( 'Template:' );
 			expect( styleCss ).toContain( '.wp-site-blocks > * + * {' );
 			expect( styleCss ).toContain( 'margin-block-start: 0;' );
 
@@ -1696,6 +1699,133 @@ describe( 'Studio AI MCP tools', () => {
 				'Activation skipped: WP-CLI exited with code 1'
 			);
 			expect( getTextContent( result ) ).toContain( 'Error: stylesheet missing.' );
+		} );
+
+		describe( 'child themes (parentTheme)', () => {
+			async function installParentTheme( slug: string, styleCss?: string ) {
+				const parentDir = path.join( tempSiteRoot, 'wp-content', 'themes', slug );
+				await mkdir( parentDir, { recursive: true } );
+				await writeFile(
+					path.join( parentDir, 'style.css' ),
+					styleCss ?? `/*\nTheme Name: ${ slug }\n*/\n`,
+					'utf8'
+				);
+			}
+
+			it( 'scaffolds a minimal child theme when parentTheme is given', async () => {
+				await installParentTheme( 'ollie' );
+
+				const result = await getTool( 'scaffold_theme' ).rawHandler( {
+					nameOrPath: scaffoldSite.name,
+					name: 'Ollie Child',
+					parentTheme: 'ollie',
+				} as never );
+
+				const themeDir = path.join( tempSiteRoot, 'wp-content', 'themes', 'ollie-child' );
+
+				const styleCss = await readFile( path.join( themeDir, 'style.css' ), 'utf8' );
+				expect( styleCss ).toContain( 'Theme Name: Ollie Child' );
+				expect( styleCss ).toContain( 'Template: ollie' );
+				expect( styleCss ).toContain( 'scaffolded by Studio Code' );
+				expect( styleCss ).not.toContain( '.wp-site-blocks' );
+
+				const themeJson = JSON.parse(
+					await readFile( path.join( themeDir, 'theme.json' ), 'utf8' )
+				) as Record< string, unknown >;
+				expect( themeJson.version ).toBe( 3 );
+				expect( themeJson.settings ).toBeUndefined();
+
+				const functionsPhp = await readFile( path.join( themeDir, 'functions.php' ), 'utf8' );
+				expect( functionsPhp ).toContain(
+					"'ollie-parent-style',\n\t\tget_template_directory_uri() . '/style.css'"
+				);
+				expect( functionsPhp ).toContain(
+					"'ollie-child-style',\n\t\tget_stylesheet_directory_uri() . '/style.css',\n\t\tarray( 'ollie-parent-style' )"
+				);
+				expect( functionsPhp ).not.toContain( 'get_parent_theme_file_uri' );
+
+				await expect( stat( path.join( themeDir, 'templates' ) ) ).rejects.toThrow();
+				await expect( stat( path.join( themeDir, 'parts' ) ) ).rejects.toThrow();
+
+				expect( getTextContent( result ) ).toContain(
+					"Child theme 'Ollie Child' of 'ollie' scaffolded at wp-content/themes/ollie-child/."
+				);
+				expect( getTextContent( result ) ).toContain( "inherit from 'ollie'" );
+			} );
+
+			it( 'activates the child theme by default when the site is running', async () => {
+				await installParentTheme( 'ollie' );
+				vi.mocked( isServerRunning ).mockResolvedValue( {
+					name: scaffoldSite.id,
+					pmId: 1,
+					status: 'online',
+					pid: 1234,
+					runtime: SITE_RUNTIME_PLAYGROUND,
+				} );
+				vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+					mockWpCliResponse( { stdout: "Success: Switched to 'Ollie Child' theme." } ) as never
+				);
+
+				await getTool( 'scaffold_theme' ).rawHandler( {
+					nameOrPath: scaffoldSite.name,
+					name: 'Ollie Child',
+					parentTheme: 'ollie',
+				} as never );
+
+				expect( runWpCliCommandWithMessaging ).toHaveBeenCalledWith( scaffoldSite, [
+					'theme',
+					'activate',
+					'ollie-child',
+				] );
+			} );
+
+			it( 'fails when the parent theme is not installed', async () => {
+				await expect(
+					getTool( 'scaffold_theme' ).rawHandler( {
+						nameOrPath: scaffoldSite.name,
+						name: 'Ollie Child',
+						parentTheme: 'ollie',
+					} as never )
+				).rejects.toThrow( /Parent theme 'ollie' is not installed/ );
+			} );
+
+			it( 'fails when the parent is itself a child theme', async () => {
+				await installParentTheme(
+					'ollie-child',
+					'/*\nTheme Name: Ollie Child\nTemplate: ollie\n*/\n'
+				);
+
+				await expect(
+					getTool( 'scaffold_theme' ).rawHandler( {
+						nameOrPath: scaffoldSite.name,
+						name: 'Grandchild',
+						parentTheme: 'ollie-child',
+					} as never )
+				).rejects.toThrow( /grandchild themes.*parentTheme: 'ollie'/ );
+			} );
+
+			it( 'fails when parentTheme equals the child slug', async () => {
+				await installParentTheme( 'ollie' );
+
+				await expect(
+					getTool( 'scaffold_theme' ).rawHandler( {
+						nameOrPath: scaffoldSite.name,
+						name: 'Ollie',
+						slug: 'ollie',
+						parentTheme: 'ollie',
+					} as never )
+				).rejects.toThrow( /must be different from the child theme slug/ );
+			} );
+
+			it( 'rejects invalid parent theme slugs', async () => {
+				await expect(
+					getTool( 'scaffold_theme' ).rawHandler( {
+						nameOrPath: scaffoldSite.name,
+						name: 'Ollie Child',
+						parentTheme: 'Not Valid!',
+					} as never )
+				).rejects.toThrow( /Parent theme slug must contain only/ );
+			} );
 		} );
 	} );
 } );

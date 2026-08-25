@@ -1,5 +1,5 @@
 // To run tests, execute `npm run test -- src/modules/user-settings/components/tests/user-settings.test.tsx` from the root directory
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { vi } from 'vitest';
@@ -8,6 +8,7 @@ import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
 import { UserSettings } from 'src/modules/user-settings';
 import { store } from 'src/stores';
+import { installedAppsApi } from 'src/stores/installed-apps-api';
 
 vi.mock( 'src/lib/app-globals', () => ( {
 	getAppGlobals: vi.fn( () => ( {
@@ -22,19 +23,39 @@ vi.mock( 'src/hooks/use-auth' );
 vi.mock( 'src/hooks/use-ipc-listener' );
 vi.mock( 'src/hooks/use-offline' );
 
-vi.mock( 'src/lib/get-ipc-api', () => ( {
-	getIpcApi: () => ( {
-		getUserTerminal: vi.fn().mockResolvedValue( 'terminal' ),
-		getUserEditor: vi.fn().mockResolvedValue( 'vscode' ),
-		getInstalledAppsAndTerminals: vi.fn().mockResolvedValue( {
-			terminals: [ 'terminal' ],
-			editors: [ 'vscode' ],
-		} ),
-		isStudioCliInstalled: vi.fn().mockResolvedValue( true ),
-		copyText: vi.fn().mockResolvedValue( undefined ),
-		getDefaultSiteDirectory: vi.fn().mockResolvedValue( '/mock/default/site/path' ),
-		getWapuuScore: vi.fn().mockResolvedValue( undefined ),
+const mockIpcApi = {
+	getUserTerminal: vi.fn().mockResolvedValue( 'terminal' ),
+	getUserEditor: vi.fn().mockResolvedValue( 'vscode' ),
+	getInstalledAppsAndTerminals: vi.fn().mockResolvedValue( {
+		antigravity: false,
+		vscode: true,
+		phpstorm: false,
+		webstorm: false,
+		windsurf: false,
+		cursor: false,
+		sublime: false,
+		zed: false,
+		terminal: true,
+		iterm: false,
+		warp: false,
+		ghostty: false,
 	} ),
+	isStudioCliInstalled: vi.fn().mockResolvedValue( true ),
+	copyText: vi.fn().mockResolvedValue( undefined ),
+	getDefaultSiteDirectory: vi.fn().mockResolvedValue( '/mock/default/site/path' ),
+	getAnalyticsEnabled: vi.fn().mockResolvedValue( true ),
+	saveAnalyticsEnabled: vi.fn().mockResolvedValue( undefined ),
+	getWapuuScore: vi.fn().mockResolvedValue( undefined ),
+	getColorScheme: vi.fn().mockResolvedValue( 'light' ),
+	saveColorScheme: vi.fn().mockResolvedValue( undefined ),
+	getQuitSitesBehavior: vi.fn().mockResolvedValue( undefined ),
+	saveQuitSitesBehavior: vi.fn().mockResolvedValue( undefined ),
+	getGlobalAgentInstructions: vi.fn().mockResolvedValue( '' ),
+	saveGlobalAgentInstructions: vi.fn().mockResolvedValue( undefined ),
+};
+
+vi.mock( 'src/lib/get-ipc-api', () => ( {
+	getIpcApi: () => mockIpcApi,
 } ) );
 
 function renderWithProvider( component: React.ReactElement ) {
@@ -50,6 +71,8 @@ const mockIpcEvent = {
 
 describe( 'UserSettings', () => {
 	beforeEach( () => {
+		vi.clearAllMocks();
+		store.dispatch( installedAppsApi.util.resetApiState() );
 		vi.mocked( useOffline ).mockReturnValue( false );
 		// Triggers IPC listener to show modal
 		vi.mocked( useIpcListener ).mockImplementationOnce( ( listener, callback ) => {
@@ -142,13 +165,64 @@ describe( 'UserSettings', () => {
 				expect( screen.getByText( 'Account' ) ).toHaveAttribute( 'aria-selected', 'true' );
 				expect( screen.getByText( 'Log out' ) ).toBeInTheDocument();
 				expect( screen.getByText( 'Preview sites' ) ).toBeInTheDocument();
-				expect( screen.getByText( 'Studio Code' ) ).toBeInTheDocument();
+				// Scoped to the panel: "Studio Code" also names a settings tab.
+				expect(
+					within( screen.getByRole( 'tabpanel' ) ).getByText( 'Studio Code' )
+				).toBeInTheDocument();
 				expect(
 					screen.getByText( 'Studio Code limits are temporarily unavailable.' )
 				).toBeInTheDocument();
 				expect( screen.queryByText( /monthly prompts used/ ) ).not.toBeInTheDocument();
 			} );
+
+			await user.click( screen.getByRole( 'tab', { name: 'Studio Code' } ) );
+
+			await waitFor( () => {
+				expect( screen.getByRole( 'tab', { name: 'Studio Code' } ) ).toHaveAttribute(
+					'aria-selected',
+					'true'
+				);
+				expect( screen.getByLabelText( 'Instructions' ) ).toBeInTheDocument();
+			} );
 		} );
+	} );
+
+	it( 'saves the quit-sites behavior preference', async () => {
+		const user = userEvent.setup();
+		vi.mocked( useAuth ).mockReturnValue( {
+			isAuthenticated: true,
+			authenticate: vi.fn(),
+			logout: vi.fn(),
+			client: undefined,
+		} );
+
+		renderWithProvider( <UserSettings /> );
+
+		const quitBehaviorSelect = await screen.findByTestId( 'quit-sites-behavior-select' );
+		await user.selectOptions( quitBehaviorSelect, 'stop' );
+		await user.click( screen.getByRole( 'button', { name: 'Save' } ) );
+
+		expect( mockIpcApi.saveQuitSitesBehavior ).toHaveBeenCalledWith( 'stop' );
+	} );
+
+	it( 'clears the quit-sites behavior preference when asking every time', async () => {
+		const user = userEvent.setup();
+		mockIpcApi.getQuitSitesBehavior.mockResolvedValueOnce( 'stop' );
+		vi.mocked( useAuth ).mockReturnValue( {
+			isAuthenticated: true,
+			authenticate: vi.fn(),
+			logout: vi.fn(),
+			client: undefined,
+		} );
+
+		renderWithProvider( <UserSettings /> );
+
+		const quitBehaviorSelect = await screen.findByTestId( 'quit-sites-behavior-select' );
+		await waitFor( () => expect( quitBehaviorSelect ).toHaveValue( 'stop' ) );
+		await user.selectOptions( quitBehaviorSelect, '' );
+		await user.click( screen.getByRole( 'button', { name: 'Save' } ) );
+
+		expect( mockIpcApi.saveQuitSitesBehavior ).toHaveBeenCalledWith( undefined );
 	} );
 
 	describe( 'Tab Selection via IPC', () => {

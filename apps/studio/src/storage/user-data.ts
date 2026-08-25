@@ -79,15 +79,18 @@ type UserDataSafeKeys =
 	| 'preferredEditor'
 	| 'betaFeatures'
 	| 'colorScheme'
+	| 'frameColor'
 	| 'defaultSiteDirectory'
 	| 'cliAutoInstalled'
 	| 'cliUserUninstalled'
 	| 'wapuuScore'
 	| 'agenticFeaturesEnabled'
 	| 'chatNotificationsEnabled'
+	| 'activitySoundPreferences'
 	| 'onboardingHints'
 	| 'lastNightlyUpdateCheck'
-	| 'nightlyPromptResult';
+	| 'nightlyPromptResult'
+	| 'agenticUiBannerDismissed';
 
 type PartialUserDataWithSafeKeysToUpdate = Partial< Pick< UserData, UserDataSafeKeys > >;
 

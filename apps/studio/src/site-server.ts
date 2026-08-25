@@ -66,6 +66,27 @@ export function getRunningSiteNames(): string[] {
 		.map( ( server ) => server.details.name );
 }
 
+// Re-query the CLI for authoritative running state and reconcile in-memory details — recovers from
+// transitions the `_events` stream never emits (e.g. a daemon crash), which no push update can fix.
+export async function reconcileSitesRunningState(): Promise< void > {
+	let cliSites;
+	try {
+		cliSites = await listSites( executeCliCommand );
+	} catch ( error ) {
+		console.error( 'Failed to reconcile site running state:', error );
+		return;
+	}
+
+	const runningById = new Map( cliSites.map( ( site ) => [ site.id, site.running ] ) );
+	for ( const server of SiteServer.getAll() ) {
+		const actualRunning = runningById.get( server.details.id );
+		if ( actualRunning === undefined ) {
+			continue;
+		}
+		server.adoptRunningState( actualRunning );
+	}
+}
+
 // Persist autoStart for every currently-running site in a single locked write. Used on quit, where the
 // CLI events subscriber (which normally mirrors autoStart into app.json) has already been stopped.
 export async function persistAutoStartForRunningSites( autoStart: boolean ): Promise< void > {
@@ -109,6 +130,10 @@ type SiteServerMeta = {
 
 export class SiteServer {
 	server: CliServerProcess;
+
+	// True while Studio serves a PHP-error page for this site and watches for a fix. The CLI reports
+	// the site as stopped in this state, so running-state adoption treats it as running instead.
+	inErrorRecovery = false;
 
 	private constructor(
 		public details: SiteDetails,
@@ -188,7 +213,14 @@ export class SiteServer {
 
 		// Default to the native PHP runtime when the caller doesn't specify one.
 		const runtime = options.runtime ?? SITE_RUNTIME_NATIVE_PHP;
-		const result = await createSiteViaCli( { ...options, runtime, siteId } );
+		let result;
+		try {
+			result = await createSiteViaCli( { ...options, runtime, siteId } );
+		} catch ( error ) {
+			// Not `unregister`, which would mark the id deleted; this site never existed.
+			servers.delete( siteId );
+			throw error;
+		}
 		server.details.runtime = runtime;
 		server.details.fileAccess = options.fileAccess;
 
@@ -239,6 +271,33 @@ export class SiteServer {
 
 		console.log( `Starting server for '${ this.details.name }'` );
 		await this.server.start();
+	}
+
+	// Adopt an authoritative running value, touching only running/url so Studio-owned fields survive.
+	adoptRunningState( running: boolean ): boolean {
+		// A site serving a PHP-error page counts as running even though the CLI reports it stopped.
+		if ( this.inErrorRecovery ) {
+			running = true;
+		}
+
+		if ( this.details.running === running ) {
+			return false;
+		}
+
+		if ( running ) {
+			const url = getAbsoluteUrl( this.details );
+			this.details = { ...this.details, running: true, url };
+			this.server.url = url;
+		} else {
+			const { running: _wasRunning, ...rest } = this.details;
+			if ( 'url' in rest ) {
+				const { url: _url, ...stoppedRest } = rest;
+				this.details = { running: false, ...stoppedRest };
+			} else {
+				this.details = { running: false, ...rest };
+			}
+		}
+		return true;
 	}
 
 	updateSiteDetails( site: SiteDetails ) {

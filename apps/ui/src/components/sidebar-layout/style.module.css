@@ -16,6 +16,12 @@
 }
 
 .sidebar {
+	/* Single source for the rendered sidebar-header height (its content-box
+	   min-height plus vertical padding — see sidebar-header/style.module.css).
+	   Sticky elements below the header (the site list's view switcher) offset
+	   against this so they pin exactly at the header's bottom edge. */
+	--sidebar-header-block-size: calc(46px + 2 * var(--wpds-dimension-padding-sm));
+
 	/* Fallback mirrors SIDEBAR_PANEL_CONFIG.defaultWidth in resizable-panels.ts. */
 	width: var(--sidebar-width, 280px);
 	/* The 240px floor is owned by useResizablePanel, which clamps
@@ -64,6 +70,27 @@
 	background-color: var(--app-chrome-bg);
 }
 
+/* Scroll hint above the sticky footer: anchored to the footer (its nearest
+   positioned ancestor), spanning the sidebar width. The surface fade blends
+   into the chrome, and the scroll-driven animation removes the blur as the
+   sidebar approaches the end of its scroll range (with no overflow the
+   timeline is inactive and the blur sits invisibly over the flat chrome). */
+.footerBlur {
+	inset-inline: 0;
+	bottom: 100%;
+	height: 48px;
+	--progressive-blur-surface-color: var(--app-chrome-bg);
+	animation: footerBlurFadeOut linear both;
+	animation-timeline: scroll(nearest);
+	animation-range: calc(100% - 48px) 100%;
+}
+
+@keyframes footerBlurFadeOut {
+	to {
+		opacity: 0;
+	}
+}
+
 /* Toast shelf above the UserMenu in the expanded footer. The inset matches
    the site list's row outer inset, so toast edges line up with row hover
    shapes and the toast icon column lands on the site-icon column. */
@@ -103,8 +130,21 @@
 	position: relative;
 	z-index: 20;
 	flex-shrink: 0;
-	margin-right: -8px;
+	margin-inline-end: -8px;
 	justify-content: flex-start;
+}
+
+.sidebarCards {
+	padding: var(--wpds-dimension-padding-sm) calc(var(--wpds-dimension-padding-lg) - var(--wpds-dimension-padding-sm)) 0;
+}
+
+/* The beta affordance stays in normal footer flow, below transient/persistent
+   messages and above Settings, so it never overlays a toast or checklist.
+   Margin, not padding: this class lands on the bubble itself, which owns its
+   own padding. */
+.sidebarBeta {
+	margin: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-lg)
+		var(--wpds-dimension-padding-xs);
 }
 
 /* Sidebar-specific indicator treatment: match the content card's vertical
@@ -124,11 +164,12 @@
    The button carries its own `padding-sm` top/bottom for its hit area; the
    matching negative `bottom` cancels that lower padding so the glyph sits flush
    with the main area's bottom edge instead of floating a padding's-worth above
-   it. */
+   it. The min-height and bottom offset match the session view's
+   `panelFooterControls` so the controls stay vertically aligned. */
 .floatingToggle {
 	position: absolute;
 	bottom: calc(-1 * var(--wpds-dimension-padding-sm));
-	left: var(--wpds-dimension-padding-xl);
+	inset-inline-start: var(--wpds-dimension-padding-xl);
 	display: flex;
 	align-items: center;
 	padding: var(--wpds-dimension-padding-sm) 0;
@@ -142,11 +183,22 @@
 	-webkit-app-region: no-drag;
 }
 
+/* With no traffic lights to clear — non-macOS, the browser, or macOS
+   fullscreen (which hides them) — the toggle sits near the main area's left
+   edge instead of leaving an empty gap. */
+.floatingToggleFlush {
+	inset-inline-start: var(--wpds-dimension-padding-xl);
+}
+
 /* Anchor for the pending-cards dot: hugs the icon button itself rather than
    the padded toggle container. */
 .floatingToggleButton {
 	position: relative;
 	display: inline-flex;
+}
+
+.floatingToggleButton:dir(rtl) svg {
+	transform: scaleX(-1);
 }
 
 /* Collapsed-sidebar toast shelf, floating bottom-left of the main area just
@@ -158,7 +210,7 @@
 .floatingToasts {
 	position: absolute;
 	bottom: calc(52px + var(--app-main-composer-height, 0px));
-	left: var(--wpds-dimension-padding-xl);
+	inset-inline-start: var(--wpds-dimension-padding-xl);
 	z-index: 110;
 	/* Definite width on purpose: the shelf is an invisible container (the
 	   inner stack hugs the toasts via the `content` fit), and an abspos

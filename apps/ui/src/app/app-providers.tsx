@@ -3,12 +3,14 @@ import { defaultI18n } from '@wordpress/i18n';
 import { I18nProvider } from '@wordpress/react-i18n';
 import { privateApis } from '@wordpress/theme';
 import { Tooltip } from '@wordpress/ui';
+import { useEffect } from 'react';
 import { CoachmarkAnchorProvider } from '@/components/coachmarks/anchor-registry';
 import { CoachmarkProvider } from '@/components/coachmarks/coachmark-provider';
 import { DevMessageLab } from '@/components/dev-message-lab';
 import { OnboardingGuideProvider } from '@/components/onboarding-guide/use-onboarding-guide';
 import { ConnectorProvider, queryClient } from '@/data/core';
 import { useOnboardingEvents } from '@/data/onboarding/use-onboarding-events';
+import { useSyncActivitySounds } from '@/data/queries/use-activity-sounds';
 import { AgentRunProvider } from '@/data/queries/use-agent-run';
 import { useSyncAppUpdateStatus } from '@/data/queries/use-app-update';
 import { useChatNotifications } from '@/data/queries/use-chat-notifications';
@@ -34,6 +36,7 @@ function SiteEventsBridge() {
 	useLiveSyncActivityMonitor();
 	useSyncAppUpdateStatus();
 	useChatNotifications();
+	useSyncActivitySounds();
 	return null;
 }
 
@@ -51,6 +54,9 @@ function OnboardingBridge() {
 function ThemedApp( { children }: PropsWithChildren ) {
 	const colorScheme = useColorScheme();
 	const themeColor = colorScheme === 'dark' ? { bg: '#1e1e1e' } : undefined;
+	useEffect( () => {
+		document.documentElement.style.colorScheme = colorScheme;
+	}, [ colorScheme ] );
 	return (
 		<ThemeProvider isRoot color={ themeColor } density="compact">
 			<Tooltip.Provider>

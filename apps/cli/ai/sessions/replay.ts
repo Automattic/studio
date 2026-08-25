@@ -40,6 +40,7 @@ export function replaySessionHistory( ui: AiChatUI, entries: SessionEntry[] ): v
 				if ( data ) {
 					ui.setActiveSite(
 						{
+							id: data.siteId,
 							name: data.siteName,
 							path: data.sitePath,
 							// Placeholder — turn dispatch resolves the live state before each prompt.

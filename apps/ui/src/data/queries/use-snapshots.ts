@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useConnector } from '@/data/core';
+import { useAuthUser } from '@/data/queries/use-auth-user';
 import type { SnapshotUsage } from '@/data/core';
 
 export const SNAPSHOTS_QUERY_KEY = [ 'snapshots' ] as const;
@@ -19,14 +20,17 @@ function getSnapshotUsageQueryKey( userId?: number ) {
 
 export function useSnapshots( userId?: number ) {
 	const connector = useConnector();
-	return useQuery( {
+	const { data: authUser } = useAuthUser();
+	const query = useQuery( {
 		queryKey: getSnapshotsQueryKey( userId ),
 		queryFn: () => connector.getSnapshots(),
+		enabled: !! authUser,
 		select: ( snapshots ) =>
 			userId === undefined
 				? snapshots
 				: snapshots.filter( ( snapshot ) => snapshot.userId === userId ),
 	} );
+	return { ...query, data: authUser ? query.data : undefined };
 }
 
 export function useSnapshotUsage( userId?: number ) {

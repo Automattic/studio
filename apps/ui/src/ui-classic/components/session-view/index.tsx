@@ -1,4 +1,6 @@
 import { resolveSessionModel } from '@studio/common/ai/models';
+import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
+import { getStudioCodeAiAccessState } from '@studio/common/lib/studio-assistant-quota';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
@@ -8,6 +10,7 @@ import {
 	useLayoutEffect,
 	useMemo,
 	useRef,
+	useState,
 	useSyncExternalStore,
 	type ReactNode,
 	type Ref,
@@ -22,6 +25,7 @@ import {
 } from '@/components/site-preview/console-utils';
 import { toast } from '@/data/app-messages';
 import { useAgentRun } from '@/data/queries/use-agent-run';
+import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import {
 	useCreateSession,
 	useSession,
@@ -39,7 +43,10 @@ import {
 	type SessionPreviewClipActions,
 } from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
+import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
+import { formatComposerTextQuote, watchComposerTextQuote } from '@/lib/composer-text-quote';
 import { pendingSessionPromptSlot, type PendingSessionPrompt } from '@/lib/pending-session-prompt';
+import { AccessRequirements } from './access-requirements';
 import { Composer, ComposerSkeleton, type ComposerHandle } from './composer';
 import { Conversation } from './conversation';
 import { EmptyBackground } from './empty-background';
@@ -65,15 +72,21 @@ interface SessionHeaderProps {
 function SessionHeader( { summary }: SessionHeaderProps ) {
 	const siteName = summary.ownerSiteName;
 	const sidebarCollapsed = useSidebarCollapsed();
+	const reserveTrafficLightSpace = useTrafficLightSpace().start;
 	const { data: sites } = useSites();
-	const site = sites?.find( ( candidate ) => candidate.path === summary.ownerSitePath );
+	const site = findAiSessionOwnerSite( sites, summary );
 	const effectiveEnvironment = useSessionEffectiveEnvironment( summary, site?.id );
 	if ( ! siteName ) {
 		return null;
 	}
 
 	return (
-		<div className={ clsx( styles.header, sidebarCollapsed && styles.headerSidebarCollapsed ) }>
+		<div
+			className={ clsx(
+				styles.header,
+				sidebarCollapsed && reserveTrafficLightSpace && styles.headerSidebarCollapsed
+			) }
+		>
 			{ site ? (
 				<SiteDropdown
 					site={ site }
@@ -182,16 +195,20 @@ function SessionFrame( {
 				{ children }
 			</div>
 			<ProgressiveBlur direction="down" className={ styles.headerBlur } fadeToSurface />
-			<ProgressiveBlur direction="up" className={ styles.composerBlur } />
-			{ composerOverlay ? (
-				<div className={ styles.composerOverlay }>{ composerOverlay }</div>
+			{ composer ? (
+				<>
+					<ProgressiveBlur direction="up" className={ styles.composerBlur } />
+					{ composerOverlay ? (
+						<div className={ styles.composerOverlay }>{ composerOverlay }</div>
+					) : null }
+					<div
+						ref={ composerRef }
+						className={ clsx( styles.composerOuter, styles.classicComposerOuter ) }
+					>
+						{ composer }
+					</div>
+				</>
 			) : null }
-			<div
-				ref={ composerRef }
-				className={ clsx( styles.composerOuter, styles.classicComposerOuter ) }
-			>
-				{ composer }
-			</div>
 			{ footer ? <div className={ styles.panelFooterControls }>{ footer }</div> : null }
 		</div>
 	);
@@ -211,10 +228,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const { data: sites } = useSites();
 	const { data: sessions } = useSessions();
 	const { mutateAsync: createSession, isPending: isCreatingSession } = useCreateSession();
-	const ownerSitePath = data?.summary.ownerSitePath;
-	const ownerSite = ownerSitePath
-		? sites?.find( ( candidate ) => candidate.path === ownerSitePath )
-		: undefined;
+	const ownerSite = findAiSessionOwnerSite( sites, data?.summary );
 	const effectiveEnvironment = useSessionEffectiveEnvironment( data?.summary, ownerSite?.id );
 	const {
 		isRunning,
@@ -279,6 +293,14 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		[ answerPermission ]
 	);
 	const { isAtBottom, isAtBottomRef, scrollToBottom } = useStickToBottom( scrollRef, sessionId );
+
+	useEffect(
+		() =>
+			watchComposerTextQuote( ( text ) => {
+				composerRef.current?.appendDraft( formatComposerTextQuote( text ) );
+			} ),
+		[]
+	);
 	useSessionCommands( sessionId );
 	const canTogglePreview = !! ownerSite && effectiveEnvironment === 'local';
 	const previewConsoleEntries = useSessionPreviewConsoleEntries();
@@ -329,22 +351,22 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			data
 				? getSiteSessionHistory( {
 						currentSession: data.summary,
-						ownerSitePath: ownerSite?.path,
+						ownerSite,
 						sessions,
 				  } )
 				: [],
-		[ data, ownerSite?.path, sessions ]
+		[ data, ownerSite, sessions ]
 	);
 	const archivedSiteSessionHistory = useMemo(
 		() =>
 			data
 				? getSiteArchivedSessionHistory( {
 						currentSession: data.summary,
-						ownerSitePath: ownerSite?.path,
+						ownerSite,
 						sessions,
 				  } )
 				: [],
-		[ data, ownerSite?.path, sessions ]
+		[ data, ownerSite, sessions ]
 	);
 
 	// Clips from the site preview land in this session's composer as
@@ -419,7 +441,9 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		[ removeQueuedPrompt ]
 	);
 	const startNewChat = useCallback( async () => {
-		if ( ! ownerSite ) {
+		// Already on a chat with no prompts yet — creating another empty
+		// session would just flash the view for an identical result.
+		if ( ! ownerSite || isEmpty ) {
 			return;
 		}
 		try {
@@ -429,7 +453,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			// The mutation owns the error state; avoid an unhandled rejection
 			// from this command button if session creation fails.
 		}
-	}, [ createSession, ownerSite, switchSession ] );
+	}, [ createSession, isEmpty, ownerSite, switchSession ] );
 
 	const autoScrolledSessionRef = useRef< string | undefined >( undefined );
 	useLayoutEffect( () => {
@@ -451,7 +475,46 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		return () => cancelAnimationFrame( id );
 	}, [ sessionId, data, isRunning, pendingQuestions.length, queuedPrompts.length, isAtBottomRef ] );
 
-	if ( isLoading ) {
+	const {
+		data: quota,
+		isLoading: isQuotaLoading,
+		isFetching: isQuotaFetching,
+		refetch: refetchQuota,
+	} = useStudioAssistantQuota();
+
+	// Fade the composer and prompts in only right after the entitlement check
+	// resolves; ordinary session loads and switches render instantly. The
+	// render-time latch has the class on from the first post-resolve frame;
+	// the timeout retires it so later remounts don't animate.
+	const [ sawQuotaLoading, setSawQuotaLoading ] = useState( false );
+	if ( isQuotaLoading && ! sawQuotaLoading ) {
+		setSawQuotaLoading( true );
+	}
+	const fadeAfterQuotaCheck = sawQuotaLoading && ! isQuotaLoading;
+	useEffect( () => {
+		if ( ! fadeAfterQuotaCheck ) {
+			return;
+		}
+		// Outlives the 180ms fade so a mid-animation re-render can't strip it.
+		const id = setTimeout( () => setSawQuotaLoading( false ), 300 );
+		return () => clearTimeout( id );
+	}, [ fadeAfterQuotaCheck ] );
+
+	// The open session can vanish out from under this view — most commonly when
+	// its site is deleted, which removes the transcript from disk. Bounce to the
+	// root (the next available site) rather than flashing the dead-end "Session
+	// not found" screen; the skeleton below covers the brief redirect.
+	const notFound = ! isLoading && ( !! error || ! data );
+	useEffect( () => {
+		if ( notFound ) {
+			void navigate( { to: '/' } );
+		}
+	}, [ notFound, navigate ] );
+
+	// isQuotaLoading holds the composer back until the entitlement check
+	// resolves, so the view settles once — gate or chat — with no composer
+	// flash. Signed-out and failed quota queries report isLoading false.
+	if ( isLoading || notFound || ! data || isQuotaLoading ) {
 		// Use the same SessionFrame with an empty header and a structural
 		// ComposerSkeleton so the scroll area has the exact same dimensions
 		// as the loaded view — otherwise the EmptyBackground canvas jumps
@@ -471,12 +534,24 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		);
 	}
 
-	if ( error || ! data ) {
+	// Fail open when the quota is unavailable (offline, error, older server) —
+	// the WordPress.com proxy enforces the same gate server-side.
+	if (
+		quota &&
+		( getStudioCodeAiAccessState( quota ) !== 'available' || ! quota.hasPaymentMethod )
+	) {
 		return (
-			<div className={ styles.state }>
-				<h1>{ __( 'Session not found' ) }</h1>
-				<p>{ sessionId }</p>
-			</div>
+			<SessionFrame
+				header={ <SessionHeader summary={ data.summary } /> }
+				footer={ <div aria-hidden /> }
+			>
+				<EmptyBackground />
+				<AccessRequirements
+					quota={ quota }
+					isRechecking={ isQuotaFetching }
+					onRecheck={ () => void refetchQuota() }
+				/>
+			</SessionFrame>
 		);
 	}
 
@@ -485,12 +560,13 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			scrollRef={ scrollRef }
 			header={ <SessionHeader summary={ data.summary } /> }
 			composer={
-				<div className={ clsx( styles.classicColumn, styles.classicComposerColumn ) }>
-					<QueuedPrompts
-						prompts={ queuedPrompts }
-						onRemove={ removeQueuedPrompt }
-						onEdit={ reopenQueuedPrompt }
-					/>
+				<div
+					className={ clsx(
+						styles.classicColumn,
+						styles.classicComposerColumn,
+						fadeAfterQuotaCheck && styles.fadeInQuick
+					) }
+				>
 					<Composer
 						ref={ composerRef }
 						busy={ composerBusy }
@@ -526,11 +602,13 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			{ isEmpty ? <EmptyBackground /> : null }
 			{ isEmpty && ownerSite ? (
 				<SuggestedPrompts
+					fadeIn={ fadeAfterQuotaCheck }
 					siteName={ ownerSite.name }
 					onPick={ ( prompt ) => {
 						composerRef.current?.replaceDraft( prompt );
 						composerRef.current?.focus();
 					} }
+					getDraft={ () => composerRef.current?.getDraft() ?? { text: '', hasAttachments: false } }
 				/>
 			) : null }
 			<div
@@ -551,6 +629,11 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 					answeredPermissions={ answeredPermissions }
 					onAnswerQuestion={ answerQuestion }
 					onAnswerPermission={ answerPermissionAndRefocus }
+				/>
+				<QueuedPrompts
+					prompts={ queuedPrompts }
+					onRemove={ removeQueuedPrompt }
+					onEdit={ reopenQueuedPrompt }
 				/>
 			</div>
 		</SessionFrame>

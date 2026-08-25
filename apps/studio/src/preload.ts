@@ -4,6 +4,7 @@
 import '@sentry/electron/preload';
 import { IpcRendererEvent, contextBridge, ipcRenderer, webUtils } from 'electron';
 import { IpcEvents } from 'src/ipc-utils';
+import type { AgenticUiSurface } from 'src/lib/beta-features';
 
 function ipcRendererInvoke< T extends keyof IpcHandlers >(
 	channel: T,
@@ -38,8 +39,8 @@ const api: IpcApi = {
 			optionsToSync,
 			specificSelectionPaths
 		),
-	pushSiteToLive: ( selectedSiteId, remoteSiteId ) =>
-		ipcRendererInvoke( 'pushSiteToLive', selectedSiteId, remoteSiteId ),
+	pushSiteToLive: ( selectedSiteId, remoteSiteId, options ) =>
+		ipcRendererInvoke( 'pushSiteToLive', selectedSiteId, remoteSiteId, options ),
 	deleteSite: ( id, deleteFiles ) => ipcRendererInvoke( 'deleteSite', id, deleteFiles ),
 	copySite: ( sourceSiteId, newSiteId, siteName ) =>
 		ipcRendererInvoke( 'copySite', sourceSiteId, newSiteId, siteName ),
@@ -66,6 +67,7 @@ const api: IpcApi = {
 	getLastSeenVersion: () => ipcRendererInvoke( 'getLastSeenVersion' ),
 	saveLastSeenVersion: ( version ) => ipcRendererInvoke( 'saveLastSeenVersion', version ),
 	getSiteDetails: () => ipcRendererInvoke( 'getSiteDetails' ),
+	reconcileSites: () => ipcRendererInvoke( 'reconcileSites' ),
 	getXdebugEnabledSite: () => ipcRendererInvoke( 'getXdebugEnabledSite' ),
 	openSiteURL: ( id, relativeURL = '', { autoLogin = true } = {} ) =>
 		ipcRendererSend( 'openSiteURL', id, relativeURL, { autoLogin } ),
@@ -88,7 +90,14 @@ const api: IpcApi = {
 	copyText: ( text ) => ipcRendererInvoke( 'copyText', text ),
 	copyImage: ( pngDataUrl ) => ipcRendererInvoke( 'copyImage', pngDataUrl ),
 	getAppGlobals: () => ipcRendererInvoke( 'getAppGlobals' ),
+	enableAgenticUi: ( surface?: AgenticUiSurface ) =>
+		ipcRendererInvoke( 'enableAgenticUi', surface ),
+	disableAgenticUi: ( surface?: AgenticUiSurface ) =>
+		ipcRendererInvoke( 'disableAgenticUi', surface ),
+	dismissAgenticUiBanner: () => ipcRendererInvoke( 'dismissAgenticUiBanner' ),
+	isAgenticUiBannerDismissed: () => ipcRendererInvoke( 'isAgenticUiBannerDismissed' ),
 	getWpVersion: ( id ) => ipcRendererInvoke( 'getWpVersion', id ),
+	getSiteStorageUsage: ( id ) => ipcRendererInvoke( 'getSiteStorageUsage', id ),
 	getIsMultisite: ( id ) => ipcRendererInvoke( 'getIsMultisite', id ),
 	generateProposedSitePath: ( siteName ) =>
 		ipcRendererInvoke( 'generateProposedSitePath', siteName ),
@@ -97,6 +106,7 @@ const api: IpcApi = {
 	generateNumberedNameFromList: ( baseName, usedSites ) =>
 		ipcRendererInvoke( 'generateNumberedNameFromList', baseName, usedSites ),
 	openLocalPath: ( path ) => ipcRendererSend( 'openLocalPath', path ),
+	openStudioLogs: () => ipcRendererSend( 'openStudioLogs' ),
 	showItemInFolder: ( path ) => ipcRendererSend( 'showItemInFolder', path ),
 	loadThemeDetails: ( id, emitLoadingEvent = true ) =>
 		ipcRendererInvoke( 'loadThemeDetails', id, emitLoadingEvent ),
@@ -149,20 +159,19 @@ const api: IpcApi = {
 	fetchSyncableWpcomSites: () => ipcRendererInvoke( 'fetchSyncableWpcomSites' ),
 	fetchSyncableWpcomSitesPage: ( options ) =>
 		ipcRendererInvoke( 'fetchSyncableWpcomSitesPage', options ),
-	pullSiteFromLive: ( siteFolder, remoteSiteId, optionsToSync, includePathList ) =>
-		ipcRendererInvoke(
-			'pullSiteFromLive',
-			siteFolder,
-			remoteSiteId,
-			optionsToSync,
-			includePathList
-		),
+	pullSiteFromLive: ( siteId, remoteSiteId, options ) =>
+		ipcRendererInvoke( 'pullSiteFromLive', siteId, remoteSiteId, options ),
 	getLiveSyncItems: ( localSiteId, remoteSiteId, direction ) =>
 		ipcRendererInvoke( 'getLiveSyncItems', localSiteId, remoteSiteId, direction ),
 	getLiveSyncImportStatus: ( remoteSiteId ) =>
 		ipcRendererInvoke( 'getLiveSyncImportStatus', remoteSiteId ),
 	getLiveSyncLatestBackupTime: ( remoteSiteId ) =>
 		ipcRendererInvoke( 'getLiveSyncLatestBackupTime', remoteSiteId ),
+	getHostingPhpVersion: ( remoteSiteId ) =>
+		ipcRendererInvoke( 'getHostingPhpVersion', remoteSiteId ),
+	getLatestRewindId: ( remoteSiteId ) => ipcRendererInvoke( 'getLatestRewindId', remoteSiteId ),
+	listRemoteFileTree: ( remoteSiteId, rewindId, treePath ) =>
+		ipcRendererInvoke( 'listRemoteFileTree', remoteSiteId, rewindId, treePath ),
 	addSyncOperation: ( id, status ) => ipcRendererSend( 'addSyncOperation', id, status ),
 	clearSyncOperation: ( id ) => ipcRendererSend( 'clearSyncOperation', id ),
 	cancelSyncOperation: ( id ) => ipcRendererSend( 'cancelSyncOperation', id ),
@@ -190,15 +199,26 @@ const api: IpcApi = {
 	saveUserTerminal: ( preferredTerminal ) =>
 		ipcRendererInvoke( 'saveUserTerminal', preferredTerminal ),
 	getUserTerminal: () => ipcRendererInvoke( 'getUserTerminal' ),
+	getGlobalAgentInstructions: () => ipcRendererInvoke( 'getGlobalAgentInstructions' ),
+	saveGlobalAgentInstructions: ( content ) =>
+		ipcRendererInvoke( 'saveGlobalAgentInstructions', content ),
 	previewColorScheme: ( colorScheme ) => ipcRendererInvoke( 'previewColorScheme', colorScheme ),
 	saveColorScheme: ( colorScheme ) => ipcRendererInvoke( 'saveColorScheme', colorScheme ),
 	getColorScheme: () => ipcRendererInvoke( 'getColorScheme' ),
+	saveFrameColor: ( frameColor ) => ipcRendererInvoke( 'saveFrameColor', frameColor ),
+	getFrameColor: () => ipcRendererInvoke( 'getFrameColor' ),
+	getAnalyticsEnabled: () => ipcRendererInvoke( 'getAnalyticsEnabled' ),
+	saveAnalyticsEnabled: ( enabled, source ) =>
+		ipcRendererInvoke( 'saveAnalyticsEnabled', enabled, source ),
 	saveAgenticFeaturesEnabled: ( enabled ) =>
 		ipcRendererInvoke( 'saveAgenticFeaturesEnabled', enabled ),
 	getAgenticFeaturesEnabled: () => ipcRendererInvoke( 'getAgenticFeaturesEnabled' ),
 	saveAgentResponseLength: ( responseLength ) =>
 		ipcRendererInvoke( 'saveAgentResponseLength', responseLength ),
 	getAgentResponseLength: () => ipcRendererInvoke( 'getAgentResponseLength' ),
+	getActivitySoundPreferences: () => ipcRendererInvoke( 'getActivitySoundPreferences' ),
+	saveActivitySoundPreferences: ( preferences ) =>
+		ipcRendererInvoke( 'saveActivitySoundPreferences', preferences ),
 	getToolPermissions: () => ipcRendererInvoke( 'getToolPermissions' ),
 	saveToolPermission: ( toolName, level ) =>
 		ipcRendererInvoke( 'saveToolPermission', toolName, level ),
@@ -207,7 +227,8 @@ const api: IpcApi = {
 	saveChatNotificationsEnabled: ( enabled ) =>
 		ipcRendererInvoke( 'saveChatNotificationsEnabled', enabled ),
 	getChatNotificationsEnabled: () => ipcRendererInvoke( 'getChatNotificationsEnabled' ),
-	saveQuitSitesBehavior: ( behavior ) => ipcRendererInvoke( 'saveQuitSitesBehavior', behavior ),
+	saveQuitSitesBehavior: ( quitSitesBehavior ) =>
+		ipcRendererInvoke( 'saveQuitSitesBehavior', quitSitesBehavior ),
 	getQuitSitesBehavior: () => ipcRendererInvoke( 'getQuitSitesBehavior' ),
 	saveWapuuScore: ( score ) => ipcRendererInvoke( 'saveWapuuScore', score ),
 	getWapuuScore: () => ipcRendererInvoke( 'getWapuuScore' ),
@@ -228,6 +249,7 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'extractBlueprintBundle', zipFilePath ),
 	cleanupBlueprintTempDir: ( tempDir ) => ipcRendererInvoke( 'cleanupBlueprintTempDir', tempDir ),
 	showSiteContextMenu: ( context ) => ipcRendererSend( 'showSiteContextMenu', context ),
+	showTextContextMenu: ( context ) => ipcRendererInvoke( 'showTextContextMenu', context ),
 	setWindowControlVisibility: ( visible ) =>
 		ipcRendererInvoke( 'setWindowControlVisibility', visible ),
 	setTitleBarBackdropEffect: ( enabled ) =>
@@ -237,6 +259,7 @@ const api: IpcApi = {
 	startRemoteSessionDaemon: () => ipcRendererInvoke( 'startRemoteSessionDaemon' ),
 	stopRemoteSessionDaemon: () => ipcRendererInvoke( 'stopRemoteSessionDaemon' ),
 	isStudioCliInstalled: () => ipcRendererInvoke( 'isStudioCliInstalled' ),
+	isStudioCliExternallyManaged: () => ipcRendererInvoke( 'isStudioCliExternallyManaged' ),
 	installStudioCli: () => ipcRendererInvoke( 'installStudioCli' ),
 	uninstallStudioCli: () => ipcRendererInvoke( 'uninstallStudioCli' ),
 	getAgentInstructionsStatus: ( siteId ) =>
@@ -257,6 +280,8 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'installWordPressSkillsToAllSites', options ),
 	removeWordPressSkillFromAllSites: ( skillId ) =>
 		ipcRendererInvoke( 'removeWordPressSkillFromAllSites', skillId ),
+	recordAnalyticsEvent: ( eventName, props ) =>
+		ipcRendererInvoke( 'recordAnalyticsEvent', eventName, props ),
 	listAiSessions: () => ipcRendererInvoke( 'listAiSessions' ),
 	loadAiSession: ( sessionIdOrPrefix ) => ipcRendererInvoke( 'loadAiSession', sessionIdOrPrefix ),
 	deleteAiSession: ( sessionIdOrPrefix ) =>

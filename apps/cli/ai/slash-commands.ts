@@ -6,7 +6,7 @@ import {
 	isAiResponseLength,
 	type AiResponseLength,
 } from '@studio/common/ai/response-length';
-import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
+import { getAiSkillCommands } from '@studio/common/ai/slash-commands';
 import {
 	GATED_TOOL_NAMES,
 	supportsAlwaysAllow,
@@ -377,8 +377,8 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 			// Build options and a reverse lookup at the same time so we never
 			// have to recover the model id from the label. A startsWith-based
 			// match is buggy when one model's label is a prefix of another's
-			// (e.g. "GPT 5.5" prefixes "GPT 5.5 Pro" — picking Pro silently
-			// returns the non-pro id), so we keep the label → id mapping
+			// (e.g. "GPT 5.6" prefixes "GPT 5.6 Sol" — picking Sol silently
+			// returns the other id), so we keep the label → id mapping
 			// explicit here and look up by exact match below.
 			const labelToId = new Map< string, AiModelId >();
 			const modelOptions = availableModels.map( ( id ) => {
@@ -830,5 +830,5 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 		description: __( 'Exit the chat' ),
 		handler: async () => 'break',
 	},
-	...AI_SKILL_COMMANDS,
+	...getAiSkillCommands(),
 ];

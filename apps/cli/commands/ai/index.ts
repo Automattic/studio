@@ -4,11 +4,13 @@ import {
 	type StudioChatFileAttachment,
 } from '@studio/common/ai/chat-files';
 import { type StudioChatImage } from '@studio/common/ai/chat-images';
+import { getAgentEndFailure } from '@studio/common/ai/json-events';
 import { DEFAULT_MODEL, resolveSessionModel, type AiModelId } from '@studio/common/ai/models';
 import { DEFAULT_RESPONSE_LENGTH, type AiResponseLength } from '@studio/common/ai/response-length';
 import { getAgentEndTurnResult } from '@studio/common/ai/session-events';
 import { buildSkillInvocationPrompt } from '@studio/common/ai/slash-commands';
 import { readAuthToken, readSharedConfig } from '@studio/common/lib/shared-config';
+import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { __, sprintf } from '@wordpress/i18n';
 import {
 	getAvailableAiProviders,
@@ -27,7 +29,6 @@ import { AI_PROVIDERS, getAiProviderDefinition, type AiProviderId } from 'cli/ai
 import { runStudioAgentTurn } from 'cli/ai/runtimes/pi';
 import { setScreenshotDirectoryProvider } from 'cli/ai/screenshot-storage';
 import { resolveResumeSessionContext } from 'cli/ai/sessions/context';
-import { getAiSessionsRootDirectory } from 'cli/ai/sessions/paths';
 import {
 	createStudioSession,
 	listStudioSessionFiles,
@@ -39,7 +40,8 @@ import { getActiveSlashCommands, type SlashCommandContext } from 'cli/ai/slash-c
 import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { readCliConfig } from 'cli/lib/cli-config/core';
-import { findSiteByFolder } from 'cli/lib/cli-config/sites';
+import { findSiteByFolder, findSiteById } from 'cli/lib/cli-config/sites';
+import { disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { isSiteRunning } from 'cli/lib/site-utils';
 import { maybeShowTosNotice } from 'cli/lib/tos-notice';
 import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
@@ -122,6 +124,7 @@ export async function runCommand( options: {
 	resumeSessionId?: string;
 	showLegacyCommandNotice?: boolean;
 	activeSite?: {
+		id?: string;
 		name: string;
 		path: string;
 		remote?: boolean;
@@ -140,6 +143,7 @@ export async function runCommand( options: {
 	ui.currentModel = currentModel;
 	if ( options.activeSite ) {
 		ui.activeSite = {
+			id: options.activeSite.id,
 			name: options.activeSite.name,
 			path: options.activeSite.path,
 			// Placeholder — turn dispatch resolves the live state before each prompt.
@@ -166,7 +170,7 @@ export async function runCommand( options: {
 		if ( options.resumeSession ) {
 			session = await openStudioSession( options.resumeSession.summary.filePath );
 		} else if ( options.resumeSessionId ) {
-			const files = await listStudioSessionFiles( getAiSessionsRootDirectory() );
+			const files = await listStudioSessionFiles( getSessionsDirectory() );
 			let match: string | undefined;
 			for ( const file of files ) {
 				try {
@@ -243,6 +247,7 @@ export async function runCommand( options: {
 			appendStudioEntry( sm, 'studio.site_selected', {
 				siteName: site.name,
 				sitePath: site.path,
+				siteId: site.id,
 				remote: site.remote,
 				url: site.url,
 				wpcomSiteId: site.wpcomSiteId,
@@ -258,6 +263,7 @@ export async function runCommand( options: {
 						appendStudioEntry( sm, 'studio.site_selected', {
 							siteName: site.name,
 							sitePath: site.path,
+							siteId: site.id,
 						} )
 					);
 			  }
@@ -517,9 +523,25 @@ export async function runCommand( options: {
 		// The stored running flag can be absent or stale — the session event log
 		// carries no running state, replay hardcodes false, and the site can be
 		// started/stopped mid-session — so ask the daemon before every turn.
+		// Resolve by id when the session recorded one, so a folder reused by a
+		// newer site can't redirect the turn; the registry record also refreshes
+		// a moved site's current name/path. Old events only carry the path.
 		if ( site && ! site.remote ) {
-			const siteData = await findSiteByFolder( site.path );
-			site.running = siteData ? await isSiteRunning( siteData ) : false;
+			const siteData = site.id
+				? await findSiteById( site.id )
+				: await findSiteByFolder( site.path );
+			if ( siteData ) {
+				site.id = siteData.id;
+				site.name = siteData.name;
+				site.path = siteData.path;
+				site.running = await isSiteRunning( siteData );
+			} else {
+				site.running = false;
+			}
+			// isSiteRunning leaves a DaemonBus socket open, which keeps headless
+			// (--json) runs alive after turn.completed; close it so the process
+			// can exit naturally.
+			await disconnectFromDaemon();
 		}
 		if ( site?.remote && site?.url ) {
 			enrichedPrompt = `[Active site: "${ site.name }" (ID: ${ site.wpcomSiteId }) at ${ site.url } (WordPress.com)]\n\n${ prompt }`;
@@ -554,7 +576,7 @@ export async function runCommand( options: {
 			} )
 		);
 
-		const turnState: { status: TurnStatus } = { status: 'interrupted' };
+		const turnState: { status: TurnStatus; errorMessage?: string } = { status: 'interrupted' };
 
 		const agentQuery = runStudioAgentTurn( {
 			prompt: enrichedPrompt,
@@ -569,7 +591,9 @@ export async function runCommand( options: {
 			onRequestPermission: ( request ) => requestPermissionAndPersist( request ),
 			onEvent: ( event ) => {
 				ui.handleEvent( event );
-				if ( event.type !== 'agent_end' ) {
+				// An `agent_end` with `willRetry` is not final — the session
+				// restarts the turn after a backoff.
+				if ( event.type !== 'agent_end' || event.willRetry ) {
 					return;
 				}
 				const result = getAgentEndTurnResult( event );
@@ -578,6 +602,7 @@ export async function runCommand( options: {
 				} else {
 					turnState.status = result.success ? 'success' : 'error';
 				}
+				turnState.errorMessage = getAgentEndFailure( event )?.message || undefined;
 			},
 		} );
 
@@ -604,7 +629,12 @@ export async function runCommand( options: {
 			await consumeAgentTurnResult;
 		} finally {
 			await append( ( s ) =>
-				appendStudioEntry( s, 'studio.turn_closed', { status: turnState.status } )
+				appendStudioEntry( s, 'studio.turn_closed', {
+					status: turnState.status,
+					...( turnState.status === 'error' && turnState.errorMessage
+						? { errorMessage: turnState.errorMessage }
+						: {} ),
+				} )
 			);
 			ui.endAgentTurn();
 		}
@@ -636,6 +666,12 @@ export async function runCommand( options: {
 			setLocalSiteSelectedCallback( null );
 			ui.stop();
 			await closeSharedBrowser();
+			// Catch-all for daemon sockets opened implicitly during the turn
+			// (listProcesses connects on demand — e.g. checkpoints probing
+			// isServerRunning). An open DaemonBus keeps this headless process
+			// alive after turn.completed, so the desktop never sees run.exited
+			// and the session sticks in the working state.
+			await disconnectFromDaemon();
 		}
 		return;
 	}
@@ -693,6 +729,7 @@ export async function runCommand( options: {
 					appendStudioEntry( sm, 'studio.site_selected', {
 						siteName: site.name,
 						sitePath: site.path,
+						siteId: site.id,
 						remote: site.remote,
 						url: site.url,
 						wpcomSiteId: site.wpcomSiteId,
@@ -855,13 +892,13 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				}
 
 				const sitePath = typeof argv.path === 'string' ? argv.path : undefined;
-				let activeSite: { name: string; path: string } | undefined;
+				let activeSite: { id?: string; name: string; path: string } | undefined;
 				if ( sitePath && typedArgv.siteName ) {
 					activeSite = { name: typedArgv.siteName, path: sitePath };
 				} else if ( sitePath ) {
 					const matchedSite = await findSiteByFolder( sitePath );
 					if ( matchedSite ) {
-						activeSite = { name: matchedSite.name, path: matchedSite.path };
+						activeSite = { id: matchedSite.id, name: matchedSite.name, path: matchedSite.path };
 					}
 				}
 				await runCommand( {

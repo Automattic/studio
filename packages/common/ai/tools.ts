@@ -315,6 +315,7 @@ export function getToolDisplayName( name: string, input?: Record< string, unknow
 		validate_blocks: __( 'Validate blocks' ),
 		take_screenshot: __( 'Take screenshot' ),
 		share_screenshot: __( 'Share screenshot' ),
+		generate_image: __( 'Generate image' ),
 		open_annotation_browser: __( 'Open annotation browser' ),
 		wait_for_annotations: __( 'Wait for annotations' ),
 		need_for_speed: __( 'Audit performance' ),
@@ -442,6 +443,14 @@ export function getToolDetail( name: string, input?: Record< string, unknown > )
 		case 'share_screenshot':
 		case 'open_annotation_browser':
 			return typeof input.url === 'string' ? input.url : '';
+		case 'generate_image': {
+			if ( typeof input.prompt !== 'string' ) {
+				return '';
+			}
+			return input.prompt.length > BASH_DETAIL_MAX_LENGTH
+				? input.prompt.slice( 0, BASH_DETAIL_MAX_LENGTH - 3 ) + '…'
+				: input.prompt;
+		}
 		case 'Read':
 		case 'Write':
 		case 'Edit': {
@@ -555,9 +564,19 @@ function getDisplayValue( value: unknown ): string {
 	}
 	if ( value && typeof value === 'object' && 'rendered' in value ) {
 		const rendered = ( value as { rendered?: unknown } ).rendered;
-		return typeof rendered === 'string' ? rendered.replace( /<[^>]*>/g, '' ) : '';
+		return typeof rendered === 'string' ? stripHtmlTags( rendered ) : '';
 	}
 	return '';
+}
+
+function stripHtmlTags( input: string ): string {
+	let previous: string;
+	let result = input;
+	do {
+		previous = result;
+		result = result.replace( /<[^>]*>/g, '' );
+	} while ( result !== previous );
+	return result;
 }
 
 function getResourceName( value: unknown ): string {

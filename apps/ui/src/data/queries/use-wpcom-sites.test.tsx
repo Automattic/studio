@@ -6,6 +6,10 @@ import { useSyncableWpcomSites, useSyncableWpcomSitesPage } from './use-wpcom-si
 import type { Connector, SyncableWpcomSitesPage, SyncSite } from '@/data/core';
 import type { ReactNode } from 'react';
 
+vi.mock( '@/data/queries/use-auth-user', () => ( {
+	useAuthUser: () => ( { data: { id: 1 } } ),
+} ) );
+
 function makeSite( id: number ): SyncSite {
 	return {
 		id,

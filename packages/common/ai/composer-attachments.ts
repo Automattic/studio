@@ -1,12 +1,13 @@
 import { STUDIO_CHAT_MAX_FILES, type StudioChatFileAttachment } from './chat-files';
 import {
-	STUDIO_CHAT_MAX_IMAGES,
-	STUDIO_CHAT_MAX_IMAGE_BYTES,
-	STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES,
+	getStudioChatImageEncodedBytes,
+	getStudioChatImageLimits,
 	isStudioChatImageMimeType,
 	type StudioChatImage,
+	type StudioChatImageLimits,
 	type StudioChatImageMimeType,
 } from './chat-images';
+import { fitImageFileWithinLimits } from './image-fit';
 import type { ClipDocumentRect, ClipElementTarget, ClipGrain } from '../inspector/protocol';
 
 export interface ComposerImageAttachment {
@@ -120,6 +121,8 @@ type PrepareComposerAttachmentsOptions = {
 	resolveFilePath: ( file: File ) => string | Promise< string >;
 	messages: ComposerAttachmentMessages;
 	existingAttachments?: ComposerAttachment[];
+	/** Family-specific quotas; defaults to the strictest across families. */
+	limits?: StudioChatImageLimits;
 };
 
 export function toComposerSendAttachments(
@@ -195,25 +198,27 @@ export interface ComposerClipInput {
  */
 export async function prepareComposerClipAttachment(
 	input: ComposerClipInput,
-	messages: Pick< ComposerAttachmentMessages, 'imageTooLarge' | 'imageReadFailed' >
+	messages: Pick< ComposerAttachmentMessages, 'imageTooLarge' | 'imageReadFailed' >,
+	limits: StudioChatImageLimits = getStudioChatImageLimits()
 ): Promise< { attachment: ComposerClipAttachment | null; error: string | null } > {
 	let dataBase64: string | undefined;
 	let mimeType: StudioChatImageMimeType | undefined;
 	let size = input.fileSize ?? 0;
 	if ( input.image ) {
-		if ( input.image.size > STUDIO_CHAT_MAX_IMAGE_BYTES ) {
+		const fitted = await fitImageFileWithinLimits( input.image );
+		if ( getStudioChatImageEncodedBytes( fitted.size ) > limits.maxImageEncodedBytes ) {
 			return { attachment: null, error: messages.imageTooLarge };
 		}
-		if ( ! isStudioChatImageMimeType( input.image.type ) ) {
+		if ( ! isStudioChatImageMimeType( fitted.type ) ) {
 			return { attachment: null, error: messages.imageReadFailed };
 		}
 		try {
-			dataBase64 = await readFileAsBase64( input.image );
+			dataBase64 = await readFileAsBase64( fitted );
 		} catch {
 			return { attachment: null, error: messages.imageReadFailed };
 		}
-		mimeType = input.image.type;
-		size = input.image.size;
+		mimeType = fitted.type;
+		size = fitted.size;
 	}
 	return {
 		attachment: {
@@ -382,6 +387,34 @@ export function getComposerClipboardFiles( dataTransfer: DataTransfer ): File[] 
 		.map( normalizePastedFile );
 }
 
+/**
+ * Listen for file pastes anywhere in the document (e.g. with focus on the
+ * conversation), like other AI chat tools, and hand the clipboard files to
+ * `onFiles`. A composer textarea's own paste handler prevents default first,
+ * so `defaultPrevented` avoids double-adding; pastes inside open dialogs are
+ * left alone. Returns an unsubscribe function.
+ */
+export function watchComposerFilePaste( onFiles: ( files: File[] ) => void ): () => void {
+	const onPaste = ( event: ClipboardEvent ) => {
+		if ( event.defaultPrevented || ! event.clipboardData ) {
+			return;
+		}
+		if ( event.target instanceof Element && event.target.closest( '[role="dialog"]' ) ) {
+			return;
+		}
+		const files = getComposerClipboardFiles( event.clipboardData );
+		if ( files.length === 0 ) {
+			return;
+		}
+		event.preventDefault();
+		onFiles( files );
+	};
+	document.addEventListener( 'paste', onPaste );
+	return () => {
+		document.removeEventListener( 'paste', onPaste );
+	};
+}
+
 function addUniqueError( errors: string[], error: string ): void {
 	if ( ! errors.includes( error ) ) {
 		errors.push( error );
@@ -404,50 +437,64 @@ function countsAsImage( attachment: ComposerAttachment ): boolean {
 function getAttachmentStats( attachments: ComposerAttachment[] ): {
 	imageCount: number;
 	fileCount: number;
-	imageBytes: number;
+	imageEncodedBytes: number;
 } {
 	const images = attachments.filter( countsAsImage );
 	return {
 		imageCount: images.length,
 		fileCount: attachments.length - images.length,
-		imageBytes: images.reduce( ( sum, item ) => sum + item.size, 0 ),
+		imageEncodedBytes: images.reduce(
+			( sum, item ) => sum + getStudioChatImageEncodedBytes( item.size ),
+			0
+		),
 	};
 }
 
 export async function prepareComposerAttachments(
 	incoming: File[],
-	{ resolveFilePath, messages, existingAttachments = [] }: PrepareComposerAttachmentsOptions
+	{
+		resolveFilePath,
+		messages,
+		existingAttachments = [],
+		limits = getStudioChatImageLimits(),
+	}: PrepareComposerAttachmentsOptions
 ): Promise< { attachments: ComposerAttachment[]; error: string | null; errors: string[] } > {
 	const attachments: ComposerAttachment[] = [];
 	const errors: string[] = [];
-	let { imageCount, fileCount, imageBytes } = getAttachmentStats( existingAttachments );
+	let { imageCount, fileCount, imageEncodedBytes } = getAttachmentStats( existingAttachments );
 
 	for ( const file of incoming ) {
 		if ( isStudioChatImageMimeType( file.type ) ) {
-			if ( file.size > STUDIO_CHAT_MAX_IMAGE_BYTES ) {
+			// Oversized/overdimensioned images are downscaled and re-encoded to
+			// fit rather than rejected; the size check below only trips when the
+			// image couldn't be decoded or shrunk enough.
+			const fitted = await fitImageFileWithinLimits( file );
+			const mimeType = isStudioChatImageMimeType( fitted.type ) ? fitted.type : file.type;
+			const encodedBytes = getStudioChatImageEncodedBytes( fitted.size );
+			if ( encodedBytes > limits.maxImageEncodedBytes ) {
 				addUniqueError( errors, messages.imageTooLarge );
 				continue;
 			}
-			if ( imageCount >= STUDIO_CHAT_MAX_IMAGES ) {
+			if ( imageCount >= limits.maxImages ) {
 				addUniqueError( errors, messages.maxImages );
 				continue;
 			}
-			if ( imageBytes + file.size > STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES ) {
+			if ( imageEncodedBytes + encodedBytes > limits.maxTotalImageEncodedBytes ) {
 				addUniqueError( errors, messages.totalImagesTooLarge );
 				continue;
 			}
 			try {
-				const dataBase64 = await readFileAsBase64( file );
+				const dataBase64 = await readFileAsBase64( fitted );
 				attachments.push( {
 					id: newAttachmentId(),
 					kind: 'image',
-					name: file.name,
-					mimeType: file.type,
-					size: file.size,
+					name: fitted.name,
+					mimeType,
+					size: fitted.size,
 					dataBase64,
 				} );
 				imageCount++;
-				imageBytes += file.size;
+				imageEncodedBytes += encodedBytes;
 			} catch {
 				addUniqueError( errors, messages.imageReadFailed );
 			}
@@ -492,27 +539,26 @@ export async function prepareComposerAttachments(
 export function mergeComposerAttachments(
 	current: ComposerAttachment[],
 	next: ComposerAttachment[],
-	messages: Pick< ComposerAttachmentMessages, 'maxImages' | 'totalImagesTooLarge' | 'maxFiles' >
+	messages: Pick< ComposerAttachmentMessages, 'maxImages' | 'totalImagesTooLarge' | 'maxFiles' >,
+	limits: StudioChatImageLimits = getStudioChatImageLimits()
 ): { attachments: ComposerAttachment[]; error: string | null; errors: string[] } {
 	const merged = [ ...current ];
-	const images = current.filter( countsAsImage );
-	let imageCount = images.length;
-	let fileCount = current.length - imageCount;
-	let imageBytes = images.reduce( ( sum, item ) => sum + item.size, 0 );
+	let { imageCount, fileCount, imageEncodedBytes } = getAttachmentStats( current );
 	const errors: string[] = [];
 
 	for ( const attachment of next ) {
 		if ( countsAsImage( attachment ) ) {
-			if ( imageCount >= STUDIO_CHAT_MAX_IMAGES ) {
+			const encodedBytes = getStudioChatImageEncodedBytes( attachment.size );
+			if ( imageCount >= limits.maxImages ) {
 				addUniqueError( errors, messages.maxImages );
 				continue;
 			}
-			if ( imageBytes + attachment.size > STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES ) {
+			if ( imageEncodedBytes + encodedBytes > limits.maxTotalImageEncodedBytes ) {
 				addUniqueError( errors, messages.totalImagesTooLarge );
 				continue;
 			}
 			imageCount++;
-			imageBytes += attachment.size;
+			imageEncodedBytes += encodedBytes;
 		} else {
 			if ( fileCount >= STUDIO_CHAT_MAX_FILES ) {
 				addUniqueError( errors, messages.maxFiles );

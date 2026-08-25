@@ -21,8 +21,8 @@ export function useOnboardingHints() {
 	} );
 }
 
-// Whether the user has finished (or skipped) the pre-workbench welcome. Gates
-// both tour auto-start and the getting-started card so neither appears mid-NUX.
+// Whether the user has finished (or skipped) the pre-workbench welcome. Used
+// by the getting-started card so it never appears mid-NUX.
 export function useOnboardingCompleted() {
 	const connector = useConnector();
 	return useQuery( {
@@ -47,7 +47,6 @@ function mergeHints(
 		},
 	};
 }
-
 export function useSetOnboardingHints() {
 	const connector = useConnector();
 	const queryClient = useQueryClient();

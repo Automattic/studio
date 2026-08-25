@@ -3,6 +3,10 @@ import { createWriteStream, existsSync, mkdtempSync, rm } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
+import {
+	readGlobalInstructionsFile,
+	writeGlobalInstructions,
+} from '@studio/common/ai/global-instructions';
 import { isAiModelId } from '@studio/common/ai/models';
 import { createAgentRunManager } from '@studio/common/ai/run-manager';
 import {
@@ -25,18 +29,22 @@ import { DEFAULT_TOKEN_LIFETIME_MS } from '@studio/common/constants';
 import { createCliRunner } from '@studio/common/lib/cli-process';
 import {
 	addConnectedWpcomSite,
+	getAllConnectedWpcomSitesForCurrentUser,
 	getConnectedWpcomSitesForLocalSite,
 	removeConnectedWpcomSite,
 } from '@studio/common/lib/connected-sites';
 import {
 	arePathsEqual,
+	confineToRoot,
 	isEmptyDir,
 	isWordPressDirectory,
 	recursiveCopyDirectory,
 } from '@studio/common/lib/fs-utils';
 import { generateNumberedName, generateSiteName } from '@studio/common/lib/generate-site-name';
+import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
+import { importIpcEventSchema } from '@studio/common/lib/import-export-events';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
-import { getAuthenticationUrl } from '@studio/common/lib/oauth';
+import { getAuthenticationUrl, getSignUpUrl } from '@studio/common/lib/oauth';
 import { decodePassword } from '@studio/common/lib/passwords';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import {
@@ -47,28 +55,31 @@ import {
 } from '@studio/common/lib/shared-config';
 import { getSiteFileAccess } from '@studio/common/lib/site-file-access';
 import { getSiteRuntime, siteModeFromRuntime } from '@studio/common/lib/site-runtime';
-import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
+import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
+import { fetchLatestRewindId, fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import { detectInstalledApps } from '@studio/common/lib/user-settings/installed-apps';
-import { createJsonResponse, fetchSiteRest } from '@studio/common/lib/wordpress-rest';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
+import wpcomFactory from '@studio/common/lib/wpcom-factory';
+import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import {
 	cleanupBlueprintTempDir,
-	extractBlueprintBundle,
+	extractBlueprintUpload,
 } from '@studio/common/sites/blueprint-extract';
 import { buildSiteCreateArgs, type SiteCreateOptions } from '@studio/common/sites/create';
 import { buildSiteSetArgs } from '@studio/common/sites/edit';
 import { startSite, stopSite } from '@studio/common/sites/lifecycle';
 import { listSites } from '@studio/common/sites/list';
 import { createSnapshotManager, fetchSnapshots } from '@studio/common/sites/snapshots';
+import { measureSiteStorage } from '@studio/common/sites/storage-usage';
 import { pullSite, pushSite } from '@studio/common/sites/sync';
 import express from 'express';
 import { rateLimit } from 'express-rate-limit';
+import { z } from 'zod';
 import { isEditor, isTerminal, openInEditor, openInTerminal, openPath } from './open-in-os';
 import type { PermissionDecision } from '@studio/common/ai/tool-permissions';
 import type { SiteListItem } from '@studio/common/lib/cli-events';
 import type { EditSiteOptions } from '@studio/common/sites/edit';
-import type { SyncSite } from '@studio/common/types/sync';
-import type { SiteRestRequest } from '@studio/common/types/wordpress-rest';
+import type { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
 import type { Request, Response } from 'express';
 
 /**
@@ -188,10 +199,9 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 
 	const cliRunner = createCliRunner( { cliBinary, nodeBinary } );
 	const execute = cliRunner.executeCliCommand;
+	const uploads = new Map< string, { path: string; directory: string } >();
 
-	// --- Server-Sent Events: one stream carries every run's output ------------
-	// The web connector expects the same envelope on both channels: agent run
-	// events on `agent`, session-placement updates on `placement`.
+	// --- Server-Sent Events: one stream carries live UI updates ----------------
 	const sseClients = new Set< Response >();
 	function sseSend( message: { channel: string; payload: unknown } ): void {
 		if ( sseClients.size === 0 ) {
@@ -369,7 +379,12 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			res.json( { url: null } );
 			return;
 		}
-		res.json( { url: getAuthenticationUrl( 'en', redirectUri ) } );
+		res.json( {
+			url:
+				req.query.signup === '1'
+					? getSignUpUrl( 'en', redirectUri )
+					: getAuthenticationUrl( 'en', redirectUri ),
+		} );
 	} );
 
 	// Log in by storing a token from the redirect callback (or pasted from
@@ -431,6 +446,27 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
+	// --- Agent instructions — the shared ~/.studio/knowledge/instructions.md --
+	api.get(
+		'/agent-instructions',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			res.json( { content: ( await readGlobalInstructionsFile() ) ?? '' } );
+		} )
+	);
+
+	api.post(
+		'/agent-instructions',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const content = req.body?.content;
+			if ( typeof content !== 'string' ) {
+				res.status( 400 ).json( { error: 'content required' } );
+				return;
+			}
+			await writeGlobalInstructions( content );
+			res.status( 204 ).end();
+		} )
+	);
+
 	// --- Sites — the local machine's real Studio sites, via the CLI -----------
 	api.get(
 		'/sites',
@@ -468,20 +504,46 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
+	api.get(
+		'/sites/:id/wp-version',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const sites = await listSites( execute );
+			const site = sites.find( ( candidate ) => candidate.id === req.params.id );
+			if ( ! site ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			res.json( { wpVersion: getWordPressVersion( site.path ) } );
+		} )
+	);
+
+	api.get(
+		'/sites/:id/storage',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const sites = await listSites( execute );
+			const site = sites.find( ( candidate ) => candidate.id === req.params.id );
+			if ( ! site ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			res.json( await measureSiteStorage( site.path ) );
+		} )
+	);
+
 	// --- Site creation helpers + create ---------------------------------------
 	// Pure server-side filesystem logic (the server runs on the user's machine),
 	// plus the CLI `create`. The browser has no native folder picker, so the UI
 	// proposes/edits the path as text (see capabilities.nativeFolderPicker).
 	api.get(
 		'/site-defaults/name',
-		asyncHandler( async ( _req: Request, res: Response ) => {
+		asyncHandler( async ( req: Request, res: Response ) => {
 			const sites = await listSites( execute );
-			res.json( {
-				name: await generateSiteName(
-					sites.map( ( s ) => s.name ),
-					sitesRoot
-				),
-			} );
+			const baseName = typeof req.query.base === 'string' ? req.query.base : undefined;
+			const usedNames = sites.map( ( site ) => site.name );
+			const name = baseName
+				? await generateNumberedName( baseName, usedNames, sitesRoot )
+				: await generateSiteName( usedNames, sitesRoot );
+			res.json( { name } );
 		} )
 	);
 
@@ -509,7 +571,12 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 
 	api.post( '/paths/compare', ( req: Request, res: Response ) => {
 		const { path1, path2 } = req.body as { path1?: string; path2?: string };
-		res.json( { equal: !! path1 && !! path2 && arePathsEqual( path1, path2 ) } );
+		// Confine both operands to `sitesRoot` before any filesystem access; nothing
+		// outside it can be a site, so a non-match is the correct answer.
+		const confined1 = path1 ? confineToRoot( sitesRoot, path1 ) : null;
+		const confined2 = path2 ? confineToRoot( sitesRoot, path2 ) : null;
+		const equal = !! confined1 && !! confined2 && arePathsEqual( confined1, confined2 );
+		res.json( { equal } );
 	} );
 
 	api.post(
@@ -527,6 +594,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				adminUsername?: string;
 				adminPassword?: string;
 				adminEmail?: string;
+				skipStart?: boolean;
 				// Optional Blueprint to apply on creation: `blueprint` is the parsed
 				// blueprint JSON; `filePath` (set for uploaded ZIP bundles) lets the
 				// CLI resolve relative assets.
@@ -543,24 +611,26 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			const siteId = crypto.randomUUID();
 			// Build the create args with the same shared helper the desktop uses, so
 			// Blueprints (and --wp dev→nightly, etc.) are handled identically.
-			const { args, cleanup } = buildSiteCreateArgs( {
-				path: body.path,
-				name: body.name,
-				siteId,
-				wpVersion: body.wpVersion,
-				phpVersion: body.phpVersion,
-				runtime: body.runtime,
-				fileAccess: body.fileAccess,
-				customDomain: body.customDomain,
-				enableHttps: body.enableHttps,
-				adminUsername: body.adminUsername,
-				adminPassword: body.adminPassword,
-				adminEmail: body.adminEmail,
-				blueprint: body.blueprint?.blueprint,
-				originalBlueprintPath: body.blueprint?.filePath,
-			} );
-
+			let cleanupCreateArgs: () => void = () => undefined;
 			try {
+				const { args, cleanup } = buildSiteCreateArgs( {
+					path: body.path,
+					name: body.name,
+					siteId,
+					wpVersion: body.wpVersion,
+					phpVersion: body.phpVersion,
+					runtime: body.runtime,
+					fileAccess: body.fileAccess,
+					customDomain: body.customDomain,
+					enableHttps: body.enableHttps,
+					adminUsername: body.adminUsername,
+					adminPassword: body.adminPassword,
+					adminEmail: body.adminEmail,
+					noStart: body.skipStart,
+					blueprint: body.blueprint?.blueprint,
+					originalBlueprintPath: body.blueprint?.filePath,
+				} );
+				cleanupCreateArgs = cleanup;
 				await new Promise< void >( ( resolve, reject ) => {
 					const [ emitter ] = execute( args, { output: 'capture' } );
 					emitter.on( 'success', () => resolve() );
@@ -568,7 +638,12 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 					emitter.on( 'error', ( { error } ) => reject( error ) );
 				} );
 			} finally {
-				cleanup();
+				cleanupCreateArgs();
+				if ( body.blueprint?.filePath ) {
+					await cleanupBlueprintTempDir( path.dirname( body.blueprint.filePath ) ).catch(
+						() => undefined
+					);
+				}
 			}
 
 			const created = ( await listSites( execute ) ).find( ( s ) => s.id === siteId );
@@ -804,28 +879,15 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				rm( dir, { recursive: true, force: true }, () => undefined );
 				throw error;
 			}
+			uploads.set( dest, { path: dest, directory: dir } );
 			res.json( { path: dest } );
 		} )
 	);
 
-	// Extract an uploaded Blueprint ZIP (the path comes from /uploads) and return
-	// its parsed blueprint.json — the shared extractor the desktop uses.
 	api.post(
 		'/blueprints/extract',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const zipFilePath = req.body?.zipFilePath;
-			if ( typeof zipFilePath !== 'string' || ! zipFilePath ) {
-				res.status( 400 ).json( { error: 'Missing zipFilePath' } );
-				return;
-			}
-			// The zip is always an upload under the OS temp dir (via /uploads);
-			// reject anything else so this can't be used to read arbitrary files.
-			const resolvedZip = path.resolve( zipFilePath );
-			if ( ! ( resolvedZip + path.sep ).startsWith( path.resolve( os.tmpdir() ) + path.sep ) ) {
-				res.status( 400 ).json( { error: 'zipFilePath must be an uploaded file' } );
-				return;
-			}
-			res.json( await extractBlueprintBundle( resolvedZip ) );
+			res.json( await extractBlueprintUpload( req ) );
 		} )
 	);
 
@@ -840,14 +902,13 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
-	// Import a backup archive into an already-created site — the same CLI `import`
-	// the desktop forks. The archive path is normally an upload from `/uploads`,
-	// which is cleaned up afterwards.
+	// Import a backup into an already-created site. Uploaded files are cleaned up
+	// after each attempt, so a retry must upload the selected File again.
 	api.post(
 		'/sites/:id/import',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const archivePath = req.body?.path;
-			if ( typeof archivePath !== 'string' || ! archivePath ) {
+			const requestedPath = req.body?.path;
+			if ( typeof requestedPath !== 'string' ) {
 				res.status( 400 ).json( { error: 'Missing backup path' } );
 				return;
 			}
@@ -856,26 +917,44 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
+			const upload = uploads.get( requestedPath );
+			if ( ! upload ) {
+				res.status( 400 ).json( { error: 'Unknown backup path' } );
+				return;
+			}
+			uploads.delete( requestedPath );
 			try {
 				await new Promise< void >( ( resolve, reject ) => {
-					const [ emitter ] = execute( [ 'import', '--path', site.path, archivePath ], {
-						output: 'capture',
+					const [ emitter ] = execute(
+						// Onboarding imports are part of the add-site flow, which `studio_site_imported`
+						// deliberately does not count.
+						[
+							'import',
+							'--path',
+							site.path,
+							upload.path,
+							'--start-server',
+							'--suppress-tracks-event',
+						],
+						{ output: 'capture' }
+					);
+					emitter.on( 'data', ( { data } ) => {
+						const parsed = importIpcEventSchema.safeParse( data );
+						if ( parsed.success ) {
+							sseSend( {
+								channel: 'import',
+								payload: { siteId: site.id, event: parsed.data.event },
+							} );
+						}
 					} );
 					emitter.on( 'success', () => resolve() );
 					emitter.on( 'failure', ( { error } ) => reject( error ) );
 					emitter.on( 'error', ( { error } ) => reject( error ) );
 				} );
 			} finally {
-				// Drop the uploaded temp copy — but only a temp dir we created: a
-				// direct child of the OS temp dir. Resolve first so `..` in the
-				// supplied path can't escape the temp root and delete elsewhere.
-				const uploadDir = path.dirname( path.resolve( archivePath ) );
-				if ( path.dirname( uploadDir ) === path.resolve( os.tmpdir() ) ) {
-					rm( uploadDir, { recursive: true, force: true }, () => undefined );
-				}
+				rm( upload.directory, { recursive: true, force: true }, () => undefined );
 			}
-			const imported = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
-			res.json( toSiteDetails( imported ?? site ) );
+			res.status( 204 ).end();
 		} )
 	);
 
@@ -1001,28 +1080,6 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	// consumer and a path-containment policy (e.g. restricted to the sites root)
 	// exist.
 
-	// Proxy a WordPress REST request to a running local site — the shared proxy
-	// the desktop uses, with the target resolved from the site list.
-	api.post(
-		'/sites/:id/rest',
-		asyncHandler( async ( req: Request, res: Response ) => {
-			const site = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
-			if ( ! site ) {
-				res.json(
-					createJsonResponse( 404, 'studio_site_not_found', `Site ${ req.params.id } not found.` )
-				);
-				return;
-			}
-			const publicUrl = site.url.replace( /\/+$/, '' );
-			const baseUrl = site.port > 0 ? `http://127.0.0.1:${ site.port }` : publicUrl;
-			const response = await fetchSiteRest(
-				{ siteId: site.id, running: site.running, baseUrl, publicUrl },
-				( req.body ?? {} ) as SiteRestRequest
-			);
-			res.json( response );
-		} )
-	);
-
 	// --- Open in OS: folder / editor / terminal + app detection ---------------
 	// The browser can't reach the filesystem, but the server runs on the user's
 	// machine, so it opens paths in OS apps on the browser's behalf.
@@ -1097,6 +1154,18 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
+	// Studio Code AI quota for the signed-in account, proxied through the
+	// server so the browser UI can show usage-cap messaging (e.g. the reset
+	// date) without holding the wpcom token. `null` when signed out or the
+	// quota can't be fetched — callers fall back to static copy.
+	api.get(
+		'/quota',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			const token = await readAuthToken();
+			res.json( token?.accessToken ? await fetchStudioAssistantQuota( token.accessToken ) : null );
+		} )
+	);
+
 	// --- WordPress.com sync: connected + syncable sites -----------------------
 	// All backed by the same @studio/common code the desktop uses. Reads the
 	// shared auth token (the user logs in via `studio auth login`).
@@ -1109,6 +1178,13 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				return;
 			}
 			res.json( await fetchSyncableSites( token.accessToken ) );
+		} )
+	);
+
+	api.get(
+		'/wpcom/connected-sites',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			res.json( await getAllConnectedWpcomSitesForCurrentUser() );
 		} )
 	);
 
@@ -1171,7 +1247,10 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.post(
 		'/sites/:id/pull',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const { remoteSiteId } = req.body as { remoteSiteId?: number };
+			const { remoteSiteId, options } = req.body as {
+				remoteSiteId?: number;
+				options?: PullSyncOptions;
+			};
 			if ( ! remoteSiteId ) {
 				res.status( 400 ).json( { error: 'remoteSiteId is required' } );
 				return;
@@ -1181,8 +1260,92 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
-			await pullSite( execute, site.path, remoteSiteId );
+			await pullSite(
+				execute,
+				site.path,
+				remoteSiteId,
+				( progress ) => {
+					sseSend( {
+						channel: 'sync-pull',
+						payload: { ...progress, siteId: req.params.id, remoteSiteId },
+					} );
+				},
+				options
+			);
 			res.sendStatus( 204 );
+		} )
+	);
+
+	// Selective-sync lookups for the agentic UI's sync dialog: the latest
+	// backup (rewind) id, the remote backup file tree under it, and the live
+	// site's hosting PHP version.
+	api.get(
+		'/wpcom/sites/:remoteSiteId/latest-rewind-id',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const token = await readAuthToken();
+			if ( ! token?.accessToken ) {
+				res.status( 401 ).json( { error: 'Authentication required.' } );
+				return;
+			}
+			// No backup yet (or lookup failure) rejects and surfaces as a 500 via
+			// the error middleware — the dialog needs the error state to disable
+			// per-item selection and force a full sync, like the classic renderer.
+			res.json( await fetchLatestRewindId( token.accessToken, Number( req.params.remoteSiteId ) ) );
+		} )
+	);
+
+	api.get(
+		'/wpcom/sites/:remoteSiteId/remote-file-tree',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const token = await readAuthToken();
+			if ( ! token?.accessToken ) {
+				res.status( 401 ).json( { error: 'Authentication required.' } );
+				return;
+			}
+			const { rewindId, path: treePath } = req.query as { rewindId?: string; path?: string };
+			if ( ! rewindId || ! treePath ) {
+				res.status( 400 ).json( { error: 'rewindId and path are required' } );
+				return;
+			}
+			const wpcom = wpcomFactory( token.accessToken, wpcomXhrRequest );
+			const rawResponse = await wpcom.req.post( {
+				path: `/sites/${ Number( req.params.remoteSiteId ) }/rewind/backup/ls`,
+				apiNamespace: 'wpcom/v2',
+				body: { backup_id: rewindId, path: treePath },
+			} );
+			const parsed = z
+				.object( {
+					ok: z.boolean(),
+					error: z.string().optional(),
+					contents: z.record( z.string(), z.unknown() ).optional(),
+				} )
+				.parse( rawResponse );
+			if ( ! parsed.ok ) {
+				res.status( 502 ).json( { error: parsed.error || 'Failed to fetch remote file tree' } );
+				return;
+			}
+			res.json( parsed.contents ?? {} );
+		} )
+	);
+
+	api.get(
+		'/wpcom/sites/:remoteSiteId/hosting-php-version',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const token = await readAuthToken();
+			if ( ! token?.accessToken ) {
+				res.status( 401 ).json( { error: 'Authentication required.' } );
+				return;
+			}
+			try {
+				const wpcom = wpcomFactory( token.accessToken, wpcomXhrRequest );
+				const response = await wpcom.req.get( {
+					apiNamespace: 'wpcom/v2',
+					path: `/sites/${ Number( req.params.remoteSiteId ) }/hosting/php-version`,
+				} );
+				res.json( z.string().parse( response ) );
+			} catch {
+				res.json( null );
+			}
 		} )
 	);
 
@@ -1192,7 +1355,10 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.post(
 		'/sites/:id/push',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const { remoteSiteId } = req.body as { remoteSiteId?: number };
+			const { remoteSiteId, options } = req.body as {
+				remoteSiteId?: number;
+				options?: PushSyncOptions;
+			};
 			if ( ! remoteSiteId ) {
 				res.status( 400 ).json( { error: 'remoteSiteId is required' } );
 				return;
@@ -1217,7 +1383,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 							payload: { ...output, siteId: req.params.id, remoteSiteId },
 						} ),
 				},
-				{ sitePath: site.path, remoteSiteId }
+				{ sitePath: site.path, remoteSiteId, options }
 			);
 			res.sendStatus( 204 );
 		} )
@@ -1293,7 +1459,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		'/sessions/:id',
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const { summary } = await loadAiSession( sessionsRoot, req.params.id );
-			const patch = req.body as { starred?: boolean; archived?: boolean };
+			const patch = req.body as { archived?: boolean };
 			const [ metadata, placement ] = await Promise.all( [
 				updateSharedSession( summary.id, patch ),
 				readAiSessionPlacement( summary.id ),
@@ -1392,11 +1558,13 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		const listening = app.listen( port, host, () => resolve( listening ) );
 	} );
 
-	const url = `http://localhost:${ port }`;
+	const address = server.address();
+	const listeningPort = typeof address === 'object' && address ? address.port : port;
+	const url = `http://localhost:${ listeningPort }`;
 
 	return {
 		url,
-		port,
+		port: listeningPort,
 		async close() {
 			cliRunner.killAll();
 			for ( const watch of publishWatches.values() ) {

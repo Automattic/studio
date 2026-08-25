@@ -12,6 +12,7 @@ import { dataLiberationTool } from './data-liberation';
 import { deletePreviewTool } from './delete-preview';
 import { deleteSiteTool } from './delete-site';
 import { exportSiteTool } from './export-site';
+import { generateImageTool } from './generate-image';
 import { importSiteTool } from './import-site';
 import { inspectDesignTool } from './inspect-design';
 import { installTaxonomyScriptsTool } from './install-taxonomy-scripts';
@@ -55,6 +56,7 @@ export const studioToolDefinitions: AnyStudioAgentTool[] = [
 	scaffoldThemeTool,
 	validateBlocksTool,
 	takeScreenshotTool,
+	generateImageTool,
 	inspectDesignTool,
 	shareScreenshotTool,
 	installTaxonomyScriptsTool,

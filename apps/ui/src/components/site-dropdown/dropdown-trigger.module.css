@@ -9,17 +9,16 @@
 	--wp-ui-button-border-color-active: transparent;
 	--wp-ui-button-foreground-color: var(--site-menu-foreground);
 	--wp-ui-button-foreground-color-active: var(--site-menu-foreground);
-	--wp-ui-button-height: 48px;
+	--wp-ui-button-height: 44px;
 	--wp-ui-button-padding-block: 0;
 	--wp-ui-button-padding-inline: 0;
 
 	gap: 12px;
 	max-width: 100%;
-	min-height: 48px;
+	min-height: 44px;
 	min-width: 0;
 	align-items: center;
 	backdrop-filter: blur(20px) saturate(115%);
-	-webkit-backdrop-filter: blur(20px) saturate(115%);
 	border-width: 0;
 	border-radius: var(--site-dropdown-radius);
 	box-shadow: 0 8px 18px rgb(0 0 0 / 18%);
@@ -39,13 +38,17 @@
 	position: relative;
 	display: inline-flex;
 	flex: 0 0 auto;
-	width: 48px;
-	height: 48px;
+	width: 44px;
+	height: 44px;
 }
 
 .siteIcon {
-	--site-icon-size: 48px;
+	--site-icon-size: 44px;
 	--site-icon-border-radius: 0;
+
+	width: 100%;
+	height: 100%;
+	border-radius: 0;
 }
 
 .siteIcon_stopped {
@@ -131,9 +134,9 @@
 .statusBadge_overlay {
 	position: absolute;
 	right: -4px;
-	bottom: 10px;
+	bottom: 8px;
 	z-index: 1;
-	box-shadow: 0 0 0 1px var(--site-menu-resting-fill);
+	box-shadow: 0 0 0 2px var(--site-menu-resting-fill);
 }
 
 .statusBadge_live {
@@ -167,8 +170,6 @@
 	flex-shrink: 0;
 }
 
-/* Hardcoded because `--wpds-color-fg-content-success` is #002900 (reads as
-   black at 6px) and the critical/accent equivalents don't exist. */
 .dot_running {
 	background-color: #16a34a;
 }

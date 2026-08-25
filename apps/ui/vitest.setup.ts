@@ -1,5 +1,22 @@
 import '@testing-library/jest-dom/vitest';
 
+if ( typeof window !== 'undefined' && ! window.matchMedia ) {
+	const noop = () => {};
+	Object.defineProperty( window, 'matchMedia', {
+		writable: true,
+		value: ( query: string ) => ( {
+			matches: false,
+			media: query,
+			onchange: null,
+			addListener: noop,
+			removeListener: noop,
+			addEventListener: noop,
+			removeEventListener: noop,
+			dispatchEvent: () => false,
+		} ),
+	} );
+}
+
 // jsdom does not implement several browser APIs that the renderer relies on
 // unconditionally (it always runs in Electron/browsers). Provide permissive
 // defaults so components like DotGrid can mount in tests; individual tests

@@ -17,9 +17,9 @@ interface RawSearchResult {
 	subtype?: string;
 }
 
-// Search result titles arrive entity-encoded (e.g. `&amp;`); flatten to plain
-// text for display.
-function decodeTitle( value: string ): string {
+// REST titles arrive entity-encoded (e.g. `&amp;`); flatten to plain text
+// for display.
+export function decodeTitle( value: string ): string {
 	const doc = new DOMParser().parseFromString( value, 'text/html' );
 	return ( doc.body.textContent ?? '' ).trim();
 }
@@ -28,7 +28,7 @@ function decodeTitle( value: string ): string {
 // by construction — but it may be spelled differently from the preview URL
 // (REST can advertise `127.0.0.1:<port>` while the preview uses `localhost`).
 // Take the path portion without comparing origins.
-function toPreviewPath( url: string ): string | null {
+export function toPreviewPath( url: string ): string | null {
 	try {
 		const parsed = new URL( url );
 		return `${ parsed.pathname }${ parsed.search }${ parsed.hash }`;

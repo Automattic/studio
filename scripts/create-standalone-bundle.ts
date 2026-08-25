@@ -1,4 +1,4 @@
-#!/usr/bin/env tsx
+#!/usr/bin/env -S node --experimental-strip-types
 /**
  * Creates a standalone Studio CLI bundle for terminal installs.
  *
@@ -29,18 +29,18 @@
  * build each platform's bundle on its own runner.
  *
  * Usage:
- *   npx tsx scripts/create-standalone-bundle.ts
- *   npx tsx scripts/create-standalone-bundle.ts darwin arm64
- *   npx tsx scripts/create-standalone-bundle.ts win32 x64
+ *   node --experimental-strip-types scripts/create-standalone-bundle.ts
+ *   node --experimental-strip-types scripts/create-standalone-bundle.ts darwin arm64
+ *   node --experimental-strip-types scripts/create-standalone-bundle.ts win32 x64
  */
 
 import { execSync, spawn } from 'child_process';
 import { createHash } from 'crypto';
 import fs from 'fs';
 import path from 'path';
-import { downloadNodeBinary } from './download-node-binary';
+import { downloadNodeBinary } from './download-node-binary.ts';
 
-const repoRoot = path.join( __dirname, '..' );
+const repoRoot = path.join( import.meta.dirname, '..' );
 
 const platformArg = process.argv[ 2 ] || process.platform;
 const archArg = process.argv[ 3 ] || process.arch;

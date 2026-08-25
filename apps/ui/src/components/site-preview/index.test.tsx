@@ -6,7 +6,13 @@ import { Tooltip } from '@wordpress/ui';
 import { describe, expect, it, vi } from 'vitest';
 import { getVisibleToasts, resetAppMessagesForTests } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
-import { getPathFromPreviewUrl, getSimulatedViewport, SitePreview } from './index';
+import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
+import {
+	getBrowserShortcutCommand,
+	getPathFromPreviewUrl,
+	getSimulatedViewport,
+	SitePreview,
+} from './index';
 import type { SiteDetails } from '@/data/core';
 import type { ReactNode } from 'react';
 
@@ -20,6 +26,15 @@ vi.mock( '@/components/open-in-menu', () => ( {
 	OpenInMenu: () => <button type="button">Open in…</button>,
 } ) );
 
+vi.mock( '@/data/queries/use-agentic-features', () => ( {
+	useAgenticFeatures: vi.fn( () => ( {
+		enabled: true,
+		chatEnabled: true,
+		reason: null,
+		isReady: true,
+	} ) ),
+} ) );
+
 const useConnectorMock = vi.mocked( useConnector );
 
 // Connector methods every render needs (the traffic-light hook subscribes
@@ -29,6 +44,7 @@ function baseConnector() {
 		reservesTrafficLightSpace: false,
 		isFullscreen: vi.fn().mockResolvedValue( false ),
 		onFullscreenChange: vi.fn( () => () => {} ),
+		trackEvent: vi.fn().mockResolvedValue( undefined ),
 	};
 }
 
@@ -265,6 +281,17 @@ describe( 'SitePreview', () => {
 		const refreshButton = screen.getByRole( 'button', { name: 'Refresh' } );
 		expect( refreshButton ).toBeEnabled();
 		expect( refreshButton ).toHaveAttribute( 'aria-keyshortcuts', expect.stringMatching( /\+R$/ ) );
+
+		// jsdom reports a non-Apple platform: the navigation alias is Alt+arrow,
+		// with the bracket chord kept as a secondary shortcut.
+		expect( screen.getByRole( 'button', { name: 'Back' } ) ).toHaveAttribute(
+			'aria-keyshortcuts',
+			'Alt+ArrowLeft Control+['
+		);
+		expect( screen.getByRole( 'button', { name: 'Forward' } ) ).toHaveAttribute(
+			'aria-keyshortcuts',
+			'Alt+ArrowRight Control+]'
+		);
 
 		const initialIframe = container.querySelector( 'iframe' );
 		expect( initialIframe ).toBeInTheDocument();
@@ -734,15 +761,88 @@ describe( 'SitePreview', () => {
 			`/studio-auto-login?redirect_to=${ encodeURIComponent( 'http://localhost:8881/wp-admin/' ) }`
 		);
 
+		// The database tab is off by default, so Ctrl+3 is inert.
+		onPathChange.mockClear();
 		fireEvent.keyDown( document.body, { key: '3', ctrlKey: true } );
-		expect( onPathChange ).toHaveBeenCalledWith(
-			'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
-		);
+		expect( onPathChange ).not.toHaveBeenCalled();
 
 		// Re-selecting the already-active realm is a no-op.
-		onPathChange.mockClear();
 		fireEvent.keyDown( document.body, { key: '1', ctrlKey: true } );
 		expect( onPathChange ).not.toHaveBeenCalled();
+	} );
+
+	it( 'records an internal-browser event when switching realms', () => {
+		const trackEvent = vi.fn().mockResolvedValue( undefined );
+		useConnectorMock.mockReturnValue( {
+			...baseConnector(),
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent,
+			capabilities: CAPABILITIES,
+		} as never );
+
+		renderPreview(
+			<SitePreview
+				site={ createSite( { running: true } ) }
+				path="/"
+				reloadNonce={ 0 }
+				onPathChange={ vi.fn() }
+			/>
+		);
+
+		fireEvent.keyDown( document.body, { key: '2', ctrlKey: true } );
+		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_wp_admin', {
+			browser: 'internal',
+		} );
+	} );
+
+	it( 'does not record an event when re-selecting the active realm', () => {
+		const trackEvent = vi.fn().mockResolvedValue( undefined );
+		useConnectorMock.mockReturnValue( {
+			...baseConnector(),
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent,
+			capabilities: CAPABILITIES,
+		} as never );
+
+		renderPreview(
+			<SitePreview
+				site={ createSite( { running: true } ) }
+				path="/wp-admin/"
+				reloadNonce={ 0 }
+				onPathChange={ vi.fn() }
+			/>
+		);
+
+		fireEvent.keyDown( document.body, { key: '2', ctrlKey: true } );
+		expect( trackEvent ).not.toHaveBeenCalled();
+	} );
+
+	it( 'switches to the database realm on its shortcut when the tab is enabled', () => {
+		window.localStorage.setItem( 'studio:preview-show-database-tab', 'true' );
+		try {
+			useConnectorMock.mockReturnValue( {
+				...baseConnector(),
+				startSite: vi.fn().mockResolvedValue( undefined ),
+				capabilities: CAPABILITIES,
+			} as never );
+			const onPathChange = vi.fn();
+
+			renderPreview(
+				<SitePreview
+					site={ createSite( { running: true } ) }
+					path="/"
+					reloadNonce={ 0 }
+					onPathChange={ onPathChange }
+				/>
+			);
+
+			fireEvent.keyDown( document.body, { key: '3', ctrlKey: true } );
+			expect( onPathChange ).toHaveBeenCalledWith(
+				'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
+			);
+		} finally {
+			window.localStorage.removeItem( 'studio:preview-show-database-tab' );
+		}
 	} );
 
 	it( 'hides the Clip split button when the host cannot annotate the preview', () => {
@@ -799,6 +899,42 @@ describe( 'SitePreview', () => {
 		}
 	} );
 
+	it( 'hides the Clip control when agentic features are off', () => {
+		const restoreUserAgent = mockElectronUserAgent();
+		useConnectorMock.mockReturnValue( {
+			...baseConnector(),
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			capabilities: { ...CAPABILITIES, annotatePreview: true },
+		} as never );
+		vi.mocked( useAgenticFeatures ).mockReturnValue( {
+			enabled: true,
+			chatEnabled: false,
+			reason: null,
+			isReady: true,
+		} );
+
+		try {
+			renderPreview(
+				<SitePreview
+					site={ createSite( { running: true } ) }
+					path="/"
+					reloadNonce={ 0 }
+					onClip={ vi.fn() }
+				/>
+			);
+
+			expect( screen.queryByRole( 'button', { name: 'Clip an element' } ) ).not.toBeInTheDocument();
+		} finally {
+			restoreUserAgent();
+			vi.mocked( useAgenticFeatures ).mockReturnValue( {
+				enabled: true,
+				chatEnabled: true,
+				reason: null,
+				isReady: true,
+			} );
+		}
+	} );
+
 	it( 'omits the full preview toggle unless the host provides one', async () => {
 		useConnectorMock.mockReturnValue( {
 			...baseConnector(),
@@ -850,6 +986,79 @@ describe( 'SitePreview', () => {
 		expect( await screen.findByRole( 'menuitem', { name: /^Exit full preview/ } ) ).toBeVisible();
 	} );
 
+	it( 'uses full preview for the Desktop + Mobile comparison', async () => {
+		const onToggleFullscreen = vi.fn();
+		useConnectorMock.mockReturnValue( {
+			...baseConnector(),
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+
+		const site = createSite( { running: true } );
+		const { rerender } = renderPreview(
+			<SitePreview
+				site={ site }
+				path="/"
+				reloadNonce={ 0 }
+				onToggleFullscreen={ onToggleFullscreen }
+			/>
+		);
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'More options' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: 'Desktop + Mobile' } ) );
+		expect( onToggleFullscreen ).toHaveBeenCalledTimes( 1 );
+
+		rerender(
+			<SitePreview
+				site={ site }
+				path="/"
+				reloadNonce={ 0 }
+				fullscreen
+				onToggleFullscreen={ onToggleFullscreen }
+			/>
+		);
+		expect(
+			await screen.findByRole( 'menuitemradio', { name: 'Desktop + Mobile' } )
+		).toBeChecked();
+
+		rerender(
+			<SitePreview
+				site={ site }
+				path="/"
+				reloadNonce={ 0 }
+				onToggleFullscreen={ onToggleFullscreen }
+			/>
+		);
+		await waitFor( () =>
+			expect( screen.getByRole( 'menuitemradio', { name: 'Fit pane' } ) ).toBeChecked()
+		);
+	} );
+
+	it( 'remembers responsive modes per site', async () => {
+		useConnectorMock.mockReturnValue( {
+			...baseConnector(),
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+
+		const siteOne = createSite( { id: 'site-1', running: true } );
+		const siteTwo = createSite( { id: 'site-2', running: true } );
+		const { rerender } = renderPreview(
+			<SitePreview site={ siteOne } path="/" reloadNonce={ 0 } />
+		);
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'More options' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: /^Mobile/ } ) );
+
+		rerender( <SitePreview site={ siteTwo } path="/" reloadNonce={ 0 } /> );
+		expect( await screen.findByRole( 'menuitemradio', { name: 'Fit pane' } ) ).toBeChecked();
+
+		rerender( <SitePreview site={ siteOne } path="/" reloadNonce={ 0 } /> );
+		await waitFor( () =>
+			expect( screen.getByRole( 'menuitemradio', { name: /^Mobile/ } ) ).toBeChecked()
+		);
+	} );
+
 	it( 'toggles full preview on the primary-shift+F shortcut', () => {
 		const onToggleFullscreen = vi.fn();
 		useConnectorMock.mockReturnValue( {
@@ -893,23 +1102,79 @@ describe( 'SitePreview', () => {
 	} );
 } );
 
+describe( 'getBrowserShortcutCommand', () => {
+	// jsdom reports a non-Apple platform: primary modifier is Ctrl and the
+	// navigation-arrow alias uses Alt.
+	function makeEvent( overrides: Record< string, unknown > ) {
+		return {
+			defaultPrevented: false,
+			repeat: false,
+			key: '',
+			altKey: false,
+			ctrlKey: false,
+			metaKey: false,
+			shiftKey: false,
+			target: null,
+			...overrides,
+		} as unknown as KeyboardEvent;
+	}
+
+	it( 'maps the primary-modifier chords to commands', () => {
+		expect( getBrowserShortcutCommand( makeEvent( { key: 'r', ctrlKey: true } ) ) ).toBe(
+			'reload'
+		);
+		expect( getBrowserShortcutCommand( makeEvent( { key: '[', ctrlKey: true } ) ) ).toBe( 'back' );
+		expect( getBrowserShortcutCommand( makeEvent( { key: ']', ctrlKey: true } ) ) ).toBe(
+			'forward'
+		);
+	} );
+
+	it( 'maps the Alt+arrow aliases to back/forward', () => {
+		expect( getBrowserShortcutCommand( makeEvent( { key: 'ArrowLeft', altKey: true } ) ) ).toBe(
+			'back'
+		);
+		expect( getBrowserShortcutCommand( makeEvent( { key: 'ArrowRight', altKey: true } ) ) ).toBe(
+			'forward'
+		);
+	} );
+
+	it( 'ignores arrows with the wrong modifier, extra modifiers, or while editing text', () => {
+		expect( getBrowserShortcutCommand( makeEvent( { key: 'ArrowLeft', ctrlKey: true } ) ) ).toBe(
+			null
+		);
+		expect(
+			getBrowserShortcutCommand( makeEvent( { key: 'ArrowLeft', altKey: true, shiftKey: true } ) )
+		).toBe( null );
+		expect(
+			getBrowserShortcutCommand(
+				makeEvent( {
+					key: 'ArrowLeft',
+					altKey: true,
+					target: document.createElement( 'textarea' ),
+				} )
+			)
+		).toBe( null );
+	} );
+} );
+
 describe( 'getSimulatedViewport', () => {
-	it( 'returns null without a requested width or a measured pane', () => {
+	it( 'returns null without a preset or a measured pane', () => {
 		expect( getSimulatedViewport( null, { width: 520, height: 700 } ) ).toBe( null );
-		expect( getSimulatedViewport( 390, null ) ).toBe( null );
-		expect( getSimulatedViewport( 390, { width: 0, height: 700 } ) ).toBe( null );
+		expect( getSimulatedViewport( { width: 390 }, null ) ).toBe( null );
+		expect( getSimulatedViewport( { width: 390 }, { width: 0, height: 700 } ) ).toBe( null );
 	} );
 
 	it( 'renders widths narrower than the pane 1:1', () => {
-		expect( getSimulatedViewport( 390, { width: 520, height: 700 } ) ).toEqual( {
+		expect( getSimulatedViewport( { width: 390 }, { width: 520, height: 700 } ) ).toEqual( {
 			width: 390,
 			height: 700,
 			scale: 1,
+			mobile: false,
 		} );
 	} );
 
 	it( 'scales widths wider than the pane down to fit, extending the emulated height', () => {
-		const viewport = getSimulatedViewport( 1440, { width: 480, height: 600 } );
+		const viewport = getSimulatedViewport( { width: 1440 }, { width: 480, height: 600 } );
 		expect( viewport?.width ).toBe( 1440 );
 		expect( viewport?.scale ).toBeCloseTo( 480 / 1440 );
 		// The scaled page still fills the pane vertically: height × scale ≈ pane height.
@@ -917,10 +1182,36 @@ describe( 'getSimulatedViewport', () => {
 	} );
 
 	it( 'matches the pane exactly at equal widths', () => {
-		expect( getSimulatedViewport( 520, { width: 520, height: 700 } ) ).toEqual( {
+		expect( getSimulatedViewport( { width: 520 }, { width: 520, height: 700 } ) ).toEqual( {
 			width: 520,
 			height: 700,
 			scale: 1,
+			mobile: false,
+		} );
+	} );
+
+	it( 'keeps fixed-height presets at their exact dimensions, scaled to fit both axes', () => {
+		const viewport = getSimulatedViewport(
+			{ width: 390, height: 844, mobile: true },
+			{ width: 520, height: 700 }
+		);
+		// The height binds: 700 / 844 is smaller than 520 / 390.
+		expect( viewport ).toEqual( {
+			width: 390,
+			height: 844,
+			scale: 700 / 844,
+			mobile: true,
+		} );
+	} );
+
+	it( 'never scales fixed-height presets up in a larger pane', () => {
+		expect(
+			getSimulatedViewport( { width: 390, height: 844 }, { width: 600, height: 1000 } )
+		).toEqual( {
+			width: 390,
+			height: 844,
+			scale: 1,
+			mobile: false,
 		} );
 	} );
 } );

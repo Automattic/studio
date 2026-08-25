@@ -23,7 +23,7 @@ function renderListener( connectorOverrides: Partial< Connector > = {} ) {
 	const blueprintListeners: Array< ( payload: { blueprintPath: string } ) => void > = [];
 
 	const connector = {
-		onAddSiteRequested( listener: () => void ) {
+		onAddSite( listener: () => void ) {
 			addSiteListeners.push( listener );
 			return () => {};
 		},
@@ -32,7 +32,7 @@ function renderListener( connectorOverrides: Partial< Connector > = {} ) {
 			return () => {};
 		},
 		readBlueprintFile: vi.fn().mockResolvedValue( {
-			meta: { title: 'My Blueprint', description: 'A test blueprint' },
+			meta: { title: 'My Blueprint', description: 'A test blueprint', author: 'Studio' },
 			steps: [],
 		} ),
 		...connectorOverrides,
@@ -81,7 +81,7 @@ describe( 'useAddSiteListener', () => {
 		} );
 	} );
 
-	it( 'falls back to a generic title when the blueprint has no meta', async () => {
+	it( 'falls back to the file name as title when the blueprint has no meta', async () => {
 		const { emitAddSiteWithBlueprint } = renderListener( {
 			readBlueprintFile: vi.fn().mockResolvedValue( { steps: [] } ),
 		} );
@@ -89,7 +89,7 @@ describe( 'useAddSiteListener', () => {
 		emitAddSiteWithBlueprint( { blueprintPath: '/tmp/blueprint-456.json' } );
 
 		await waitFor( () => expect( routerMock.navigate ).toHaveBeenCalled() );
-		expect( peekPendingBlueprint() ).toMatchObject( { title: 'Blueprint' } );
+		expect( peekPendingBlueprint() ).toMatchObject( { title: 'blueprint-456' } );
 	} );
 
 	it( 'does not navigate when the blueprint file cannot be read', async () => {

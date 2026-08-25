@@ -15,7 +15,7 @@ on:
       xdebug_version:
         description: Xdebug version to package
         required: true
-        default: 3.5.1
+        default: 3.5.3
       spc_ref:
         # Pinned to PR #1204, which enables SQLITE_ENABLE_COLUMN_METADATA on
         # Unix builds so PDO populates getColumnMeta()['table'] (fixes
@@ -97,11 +97,11 @@ jobs:
 
     steps:
       - name: Checkout Studio
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
 
       - name: Checkout static-php-cli
         if: runner.os == 'macOS' || runner.os == 'Linux'
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
         with:
           repository: crazywhalecc/static-php-cli
           ref: ${{ env.SPC_REF }}
@@ -572,14 +572,14 @@ jobs:
           (Get-FileHash $archive -Algorithm SHA256).Hash.ToLower() | Set-Content -NoNewline "$archive.sha256"
 
       - name: Upload PHP CLI artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
         with:
           name: php-${{ env.PHP_VERSION }}-cli-${{ matrix.target }}
           path: out/php-binaries/*
 
       - name: Upload static-php-cli logs
         if: ${{ failure() && (runner.os == 'macOS' || runner.os == 'Linux') }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
         with:
           name: spc-logs-${{ matrix.target }}
           path: .cache/static-php-cli/log/*.log
@@ -601,15 +601,27 @@ jobs:
       WPCOM_API_TOKEN: ${{ secrets.WPCOM_API_TOKEN }}
     steps:
       - name: Checkout Studio
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
 
       - name: Setup Ruby
-        uses: ruby/setup-ruby@d45b1a4e94b71acab930e56e79c6aa188764e7f9 # v1.316.0
+        uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
         with:
           bundler-cache: true
 
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install dependencies
+        # The metadata script and the formatting it runs afterwards need the repo's dev dependencies.
+        # `--ignore-scripts` skips the postinstall downloads (WordPress files, PHP binaries), which
+        # this job never uses.
+        run: npm ci --ignore-scripts
+
       - name: Download PHP CLI artifacts
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8
         with:
           pattern: php-${{ env.PHP_VERSION }}-cli-*
           path: out/php-binaries
@@ -661,7 +673,7 @@ jobs:
             --package-version "${PHP_PACKAGE_VERSION}" \
             --upload-results "${PWD}/out/php-binaries/apps-cdn-upload-results.json"
 
-          if git diff --quiet -- packages/common/lib/php-binary-cdn-metadata.json; then
+          if git diff --quiet -- packages/common/lib/php-binary-cdn-metadata.mjs; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
@@ -679,7 +691,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git switch -c "$branch"
-          git add packages/common/lib/php-binary-cdn-metadata.json
+          git add packages/common/lib/php-binary-cdn-metadata.mjs
           git commit -m "Update PHP ${PHP_VERSION}-${PHP_PACKAGE_VERSION} metadata"
           git push --set-upstream origin "$branch"
           gh pr create \

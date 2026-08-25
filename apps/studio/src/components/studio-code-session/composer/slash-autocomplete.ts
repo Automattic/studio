@@ -1,4 +1,4 @@
-import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
+import { getAiSkillCommands } from '@studio/common/ai/slash-commands';
 import type { SkillSlashCommand } from '@studio/common/ai/slash-commands';
 
 export interface SlashCommandMatches {
@@ -30,7 +30,7 @@ export function getSlashCommandMatches(
 		return { open: false, matches: [] };
 	}
 	const query = match[ 1 ].toLowerCase();
-	const matches = AI_SKILL_COMMANDS.filter(
+	const matches = getAiSkillCommands().filter(
 		( command ) =>
 			command.name.toLowerCase().includes( query ) ||
 			command.description.toLowerCase().includes( query )

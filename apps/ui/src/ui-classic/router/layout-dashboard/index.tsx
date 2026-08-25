@@ -1,5 +1,6 @@
+import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
 import { createRoute, Outlet, useRouterState } from '@tanstack/react-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
 	PreviewSplitFrame,
 	type PreviewSplitFramePreviewProps,
@@ -8,9 +9,13 @@ import { SidebarLayout } from '@/components/sidebar-layout';
 import { SitePreview } from '@/components/site-preview';
 import { useOnboardingRouteEvents } from '@/data/onboarding/use-onboarding-events';
 import { useOrientationAutostart } from '@/data/onboarding/use-orientation-autostart';
+import { useOrientationReplay } from '@/data/onboarding/use-orientation-replay';
+import { useWhatsNewAutostart } from '@/data/onboarding/use-whats-new-autostart';
+import { useWhatsNewReplay } from '@/data/onboarding/use-whats-new-replay';
 import { useSession, useSessionEffectiveEnvironment } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
 import {
+	pathForSite,
 	SessionUIProvider,
 	useSessionPreviewClipActions,
 	useSessionPreviewClipMarkers,
@@ -40,14 +45,6 @@ function getNewSessionSiteId( pathname: string ): string | undefined {
 	return match ? decodeURIComponent( match[ 1 ] ) : undefined;
 }
 
-// Settings renders as a fullscreen overlay above this layout (see
-// layout-settings). While it's open the dashboard is fully hidden, so it must
-// stay frozen — in particular the preview panel must not animate open/closed
-// underneath — until the overlay closes and reveals it again.
-function isSettingsRoute( pathname: string ): boolean {
-	return /^\/settings\/?$/.test( pathname ) || /^\/sites\/[^/]+\/settings\/?$/.test( pathname );
-}
-
 function DashboardLayout() {
 	return (
 		<SessionUIProvider>
@@ -66,27 +63,28 @@ function DashboardLayoutContent() {
 			sessionId: getRouteSessionId( state.location.pathname ),
 			overviewSiteId: getRouteOverviewSiteId( state.location.pathname ),
 			newSessionSiteId: getNewSessionSiteId( state.location.pathname ),
-			settingsOverlay: isSettingsRoute( state.location.pathname ),
 		} ),
 	} );
-	const { sessionId, overviewSiteId, newSessionSiteId, settingsOverlay } = routePreviewContext;
+	const { sessionId, overviewSiteId, newSessionSiteId } = routePreviewContext;
 	const { data: sites } = useSites();
 	const { data: sessionData } = useSession( sessionId );
+	// Open the orientation guide on first workbench arrival, and let Help ▸
+	// Getting Started replay it.
+	useOrientationAutostart();
+	useOrientationReplay();
+	// Same, for the per-release announcements behind Help ▸ What's New.
+	useWhatsNewAutostart();
+	useWhatsNewReplay();
+	useOnboardingRouteEvents();
 	const preview = useSessionPreviewUI();
 	const previewConsole = useSessionPreviewConsoleUI();
 	const setPreviewOpen = preview.setOpen;
-	// Open the preview when the orientation tour starts so its final step's
-	// anchor lays out (the overview route already opens it on its own).
-	useOrientationAutostart();
-	useOnboardingRouteEvents();
 	const setPreviewFullscreen = preview.setFullscreen;
+	const setPreviewSite = preview.setSite;
 	const updatePreviewPath = preview.updatePath;
 	const clipActions = useSessionPreviewClipActions();
 	const clipMarkers = useSessionPreviewClipMarkers();
-	const sessionOwnerSitePath = sessionData?.summary.ownerSitePath;
-	const sessionSite = sessionOwnerSitePath
-		? sites?.find( ( site ) => site.path === sessionOwnerSitePath )
-		: undefined;
+	const sessionSite = findAiSessionOwnerSite( sites, sessionData?.summary );
 	const effectiveEnvironment = useSessionEffectiveEnvironment(
 		sessionData?.summary,
 		sessionSite?.id
@@ -106,10 +104,8 @@ function DashboardLayoutContent() {
 		sessionId !== undefined && effectiveEnvironment === 'local' && !! sessionSite;
 	// While session or site data is still loading, preview-capable routes stay
 	// preview-capable so navigation doesn't close and reopen the panel around
-	// the fetch. The settings overlay keeps whatever the panel was doing so the
-	// dashboard behind it stays perfectly still.
+	// the fetch.
 	const supportsPreview =
-		settingsOverlay ||
 		overviewSiteId !== undefined ||
 		newSessionSiteId !== undefined ||
 		( sessionId !== undefined && ( sessionData === undefined || !! routeSite ) );
@@ -138,29 +134,8 @@ function DashboardLayoutContent() {
 	useEffect( () => {
 		if ( overviewRouteSiteId ) {
 			setPreviewOpen( true );
-			updatePreviewPath( '/' );
 		}
-	}, [ overviewRouteSiteId, setPreviewOpen, updatePreviewPath ] );
-	// The preview path is shared dashboard state; without a reset, switching
-	// to another site would ask it for the previous site's path (a 404).
-	// Runs before the plugin-landing effect below so that still wins for
-	// plugin sites.
-	const routeSiteId = routeSite?.id;
-	const lastRouteSiteIdRef = useRef< string | undefined >( undefined );
-	useEffect( () => {
-		if ( ! routeSiteId ) {
-			// Non-preview routes keep the last site (and its path) warm.
-			return;
-		}
-		if ( lastRouteSiteIdRef.current === routeSiteId ) {
-			return;
-		}
-		const isFirstSite = lastRouteSiteIdRef.current === undefined;
-		lastRouteSiteIdRef.current = routeSiteId;
-		if ( ! isFirstSite ) {
-			updatePreviewPath( '/' );
-		}
-	}, [ routeSiteId, updatePreviewPath ] );
+	}, [ overviewRouteSiteId, setPreviewOpen ] );
 	// Prototype: a plugin site's new-session route lands the preview on the
 	// Plugins screen (via auto-login) instead of the site's front end.
 	const newSessionPluginTag = usePluginSiteTag( newSessionSite?.id );
@@ -183,15 +158,29 @@ function DashboardLayoutContent() {
 		if ( ! newSessionPluginSiteId || ! newSessionPluginPreviewPath ) {
 			return;
 		}
+		setPreviewSite( newSessionPluginSiteId );
 		setPreviewOpen( true );
 		updatePreviewPath( newSessionPluginPreviewPath );
 		// Keyed on the site id — the path only changes with the site's URL, and
 		// re-running then (fresh port) is the desired refresh.
-	}, [ newSessionPluginSiteId, newSessionPluginPreviewPath, setPreviewOpen, updatePreviewPath ] );
+	}, [
+		newSessionPluginSiteId,
+		newSessionPluginPreviewPath,
+		setPreviewOpen,
+		setPreviewSite,
+		updatePreviewPath,
+	] );
 	const lastPreviewSite = lastPreviewSiteId
 		? sites?.find( ( site ) => site.id === lastPreviewSiteId )
 		: undefined;
 	const previewSite = routeSite ?? lastPreviewSite;
+	const previewSiteId = previewSite?.id;
+	useEffect( () => {
+		if ( previewSiteId ) {
+			setPreviewSite( previewSiteId );
+		}
+	}, [ previewSiteId, setPreviewSite ] );
+	const previewPath = pathForSite( preview.pathsBySiteId, previewSiteId );
 	const showPreview = preview.open && supportsPreview && !! previewSite;
 	const previewFullscreen = preview.fullscreen && showPreview;
 	// Leave full preview when the route stops supporting a preview (settings,
@@ -210,7 +199,7 @@ function DashboardLayoutContent() {
 			previewSite ? (
 				<SitePreview
 					site={ previewSite }
-					path={ preview.path }
+					path={ previewPath }
 					reloadNonce={ preview.reloadNonce }
 					onClip={ canClipToSession ? clipActions.addClip : undefined }
 					onClipUpdate={ canClipToSession ? clipActions.updateClipComment : undefined }
@@ -228,7 +217,7 @@ function DashboardLayoutContent() {
 			clipActions,
 			clipMarkers,
 			canClipToSession,
-			preview.path,
+			previewPath,
 			preview.reloadNonce,
 			preview.updatePath,
 			preview.toggleFullscreen,

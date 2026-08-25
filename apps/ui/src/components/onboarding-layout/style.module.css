@@ -1,5 +1,5 @@
 .root {
-	min-height: 100vh;
+	height: 100vh;
 	position: relative;
 	overflow-y: auto;
 	/* New stacking context so the backdrop layer's negative z-index nests
@@ -29,4 +29,9 @@
    large windows, still capped so rows don't sprawl indefinitely. */
 .contentFull {
 	max-width: 1360px;
+}
+
+/* Clears the fixed close button pinned top-right by FullscreenChrome. */
+.contentWithClose {
+	padding-block-start: calc(var(--wpds-dimension-padding-3xl) + 32px);
 }

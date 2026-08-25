@@ -17,6 +17,7 @@ import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { getWordPressVersionFromInstallation } from 'cli/lib/dependency-management/wordpress';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { ensureSqliteIntegrationForImportedSite } from 'cli/lib/sqlite-integration';
+import { LoggerError } from 'cli/logger';
 import { ImportExportEventEmitter } from '../../events';
 import { exportDatabaseToFile, exportDatabaseToMultipleFiles } from '../export-database';
 import {
@@ -337,7 +338,11 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 		const stdout = await command.response.stdoutText;
 
 		if ( exitCode !== 0 ) {
-			throw new Error( sprintf( __( 'Failed to get site plugins: %s' ), stderr ) );
+			throw new LoggerError(
+				sprintf( __( 'Failed to get site plugins: %s' ), stderr ),
+				undefined,
+				'site_meta'
+			);
 		}
 
 		try {
@@ -351,8 +356,10 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 				);
 			}
 
-			throw new Error(
-				__( 'Could not parse information about installed plugins to create meta.json file.' )
+			throw new LoggerError(
+				__( 'Could not parse information about installed plugins to create meta.json file.' ),
+				undefined,
+				'site_meta'
 			);
 		}
 	}
@@ -376,7 +383,11 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 		const stdout = await command.response.stdoutText;
 
 		if ( exitCode !== 0 ) {
-			throw new Error( sprintf( __( 'Failed to get site themes: %s' ), stderr ) );
+			throw new LoggerError(
+				sprintf( __( 'Failed to get site themes: %s' ), stderr ),
+				undefined,
+				'site_meta'
+			);
 		}
 
 		try {
@@ -390,8 +401,10 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 				);
 			}
 
-			throw new Error(
-				__( 'Could not parse information about installed themes to create meta.json file.' )
+			throw new LoggerError(
+				__( 'Could not parse information about installed themes to create meta.json file.' ),
+				undefined,
+				'site_meta'
 			);
 		}
 	}

@@ -1,7 +1,7 @@
 import { Stack } from '@wordpress/ui';
 import { FullscreenChrome } from '@/components/fullscreen-chrome';
 import styles from './style.module.css';
-import type { ReactNode } from 'react';
+import type { ReactNode, Ref } from 'react';
 
 interface OnboardingLayoutProps {
 	children: ReactNode;
@@ -11,6 +11,8 @@ interface OnboardingLayoutProps {
 	 * the user isn't trapped in the flow.
 	 */
 	onClose?: () => void;
+	/** Disables the close button, e.g. while site creation is in flight. */
+	closeDisabled?: boolean;
 	/**
 	 * Content width variant. Defaults to a narrow column (`'default'`) sized
 	 * for forms and short cards; `'wide'` is used by pages that host grids of
@@ -18,6 +20,7 @@ interface OnboardingLayoutProps {
 	 * pages (the Connect a site picker) that scale with the window.
 	 */
 	width?: 'default' | 'wide' | 'full';
+	contentRef?: Ref< HTMLDivElement >;
 	/**
 	 * Decorative layer rendered behind the content (e.g. the dot-grid
 	 * backdrop). The caller positions it; it paints under the content and
@@ -29,17 +32,20 @@ interface OnboardingLayoutProps {
 export function OnboardingLayout( {
 	children,
 	onClose,
+	closeDisabled = false,
 	width = 'default',
+	contentRef,
 	background,
 }: OnboardingLayoutProps ) {
 	return (
 		<Stack align="flex-start" justify="center" className={ styles.root }>
 			{ background }
-			<FullscreenChrome onClose={ onClose } />
+			<FullscreenChrome onClose={ onClose } closeDisabled={ closeDisabled } />
 			<div
+				ref={ contentRef }
 				className={ `${ styles.content } ${ width === 'wide' ? styles.contentWide : '' } ${
 					width === 'full' ? styles.contentFull : ''
-				}` }
+				} ${ onClose ? styles.contentWithClose : '' }` }
 			>
 				{ children }
 			</div>

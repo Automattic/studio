@@ -15,6 +15,11 @@ declare module '*.jpeg' {
 	export default dataUri;
 }
 
+declare module '*.webp' {
+	const dataUri: string;
+	export default dataUri;
+}
+
 declare module '*.gif' {
 	const dataUri: string;
 	export default dataUri;
@@ -23,16 +28,6 @@ declare module '*.gif' {
 declare module '*.svg' {
 	const dataUri: string;
 	export default dataUri;
-}
-
-declare module '*.riv' {
-	const dataUri: string;
-	export default dataUri;
-}
-
-declare module '*.riv?url' {
-	const url: string;
-	export default url;
 }
 
 declare module '*.css';

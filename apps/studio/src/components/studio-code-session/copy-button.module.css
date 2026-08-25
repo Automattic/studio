@@ -2,15 +2,14 @@
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	width: 1.75rem;
-	height: 1.75rem;
+	width: 1.5rem;
+	height: 1.5rem;
 	margin: 0;
 	padding: 0;
 	border: 0;
 	border-radius: var(--wpds-border-radius-sm, 4px);
 	background-color: var(--color-frame-bg);
 	background-color: color-mix(in srgb, var(--color-frame-bg) 82%, transparent);
-	-webkit-backdrop-filter: blur(4px);
 	backdrop-filter: blur(4px);
 	color: var(--color-frame-text-secondary);
 	line-height: 1;

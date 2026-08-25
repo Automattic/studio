@@ -1,5 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { useSyncExternalStore } from 'react';
+import type { PullSiteProgress } from '@/data/core';
 
 // Tracks in-flight and recently completed live-site sync operations so the
 // Site Details header can surface a cross-page indicator. Uses a module-
@@ -18,6 +19,7 @@ export type SyncPendingDetails = {
 	phase?: SyncPhase;
 	progress?: number | null;
 	remoteSiteId?: number;
+	message?: string;
 };
 
 export type SyncLogEntry = {
@@ -55,6 +57,15 @@ const entries = new Map< string, SyncActivity >();
 const lastLogs = new Map< string, SyncLogSummary >();
 const timers = new Map< string, ReturnType< typeof setTimeout > >();
 const listeners = new Set< () => void >();
+const eventListeners = new Set< ( event: SyncActivityEvent ) => void >();
+
+export type SyncActivityEvent = 'sync-started' | 'sync-complete' | 'sync-failed';
+
+function emitEvent( event: SyncActivityEvent ) {
+	for ( const listener of eventListeners ) {
+		listener( event );
+	}
+}
 
 let snapshot: ReadonlyMap< string, SyncActivity > = entries;
 let lastLogSnapshot: ReadonlyMap< string, SyncLogSummary > = lastLogs;
@@ -108,12 +119,16 @@ export function reportSyncPending(
 	details: SyncPendingUpdate = {}
 ): void {
 	const current = entries.get( siteId );
+	const isStarting = current?.kind !== 'pending';
 	const { logMessage, ...pendingDetails } = details;
 	const log = logMessage ? appendLogEntry( current?.log, logMessage ) : current?.log;
 
 	clearExpiryTimer( siteId );
 	entries.set( siteId, { kind: 'pending', direction, ...pendingDetails, log } );
 	emit();
+	if ( isStarting ) {
+		emitEvent( 'sync-started' );
+	}
 }
 
 export function updateSyncPending( siteId: string, details: SyncPendingUpdate ): void {
@@ -129,8 +144,21 @@ export function updateSyncPending( siteId: string, details: SyncPendingUpdate ):
 	emit();
 }
 
+export function reportSyncProgress(
+	siteId: string,
+	direction: Extract< SyncDirection, 'pull' >,
+	progress: PullSiteProgress
+): void {
+	updateSyncPending( siteId, {
+		progress: progress.progress,
+		message: progress.message,
+		logMessage: progress.message,
+	} );
+}
+
 export function reportSyncSuccess( siteId: string, direction: SyncDirection ): void {
 	const current = entries.get( siteId );
+	const isNewResult = current?.kind !== 'success';
 	const log = appendLogEntry( current?.log, __( 'Sync completed.' ) );
 	entries.set( siteId, {
 		kind: 'success',
@@ -145,10 +173,14 @@ export function reportSyncSuccess( siteId: string, direction: SyncDirection ): v
 	} );
 	scheduleExpiry( siteId );
 	emit();
+	if ( isNewResult ) {
+		emitEvent( 'sync-complete' );
+	}
 }
 
 export function reportSyncError( siteId: string, direction: SyncDirection, message: string ): void {
 	const current = entries.get( siteId );
+	const isNewResult = current?.kind !== 'error';
 	const log = appendLogEntry( current?.log, message );
 	entries.set( siteId, {
 		kind: 'error',
@@ -165,6 +197,16 @@ export function reportSyncError( siteId: string, direction: SyncDirection, messa
 	} );
 	scheduleExpiry( siteId );
 	emit();
+	if ( isNewResult ) {
+		emitEvent( 'sync-failed' );
+	}
+}
+
+export function subscribeToSyncActivityEvents(
+	listener: ( event: SyncActivityEvent ) => void
+): () => void {
+	eventListeners.add( listener );
+	return () => eventListeners.delete( listener );
 }
 
 function subscribe( listener: () => void ): () => void {

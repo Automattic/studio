@@ -41,7 +41,7 @@ describe( 'getSiteSessionHistory', () => {
 
 		const history = getSiteSessionHistory( {
 			currentSession,
-			ownerSitePath: '/Users/example/Studio/demo-site',
+			ownerSite: { id: 'demo-site', path: '/Users/example/Studio/demo-site' },
 			sessions: [
 				createSession( {
 					id: 'other-site',
@@ -80,7 +80,7 @@ describe( 'getSiteSessionHistory', () => {
 
 		const history = getSiteArchivedSessionHistory( {
 			currentSession,
-			ownerSitePath: '/Users/example/Studio/demo-site',
+			ownerSite: { id: 'demo-site', path: '/Users/example/Studio/demo-site' },
 			sessions: [
 				createSession( {
 					id: 'active',
@@ -287,20 +287,17 @@ describe( 'SessionChatActions', () => {
 	} );
 
 	it( 'archives a chat from the history row trailing action', async () => {
+		const onNewChat = vi.fn();
 		const onSwitchSession = vi.fn();
 
 		render(
 			<SessionChatActions
 				currentSessionId="current"
-				onNewChat={ vi.fn() }
+				onNewChat={ onNewChat }
 				onSwitchSession={ onSwitchSession }
 				sessions={ [
 					createSession( { id: 'current', firstPrompt: 'Current chat' } ),
-					createSession( {
-						id: 'older',
-						firstPrompt: 'Older chat',
-						starred: true,
-					} ),
+					createSession( { id: 'older', firstPrompt: 'Older chat' } ),
 				] }
 			/>
 		);
@@ -313,11 +310,39 @@ describe( 'SessionChatActions', () => {
 
 		expect( updateSessionMetadataMutate ).toHaveBeenCalledWith( {
 			sessionId: 'older',
-			patch: {
-				starred: true,
-				archived: true,
-			},
+			patch: { archived: true },
 		} );
+		expect( onNewChat ).not.toHaveBeenCalled();
+		expect( onSwitchSession ).not.toHaveBeenCalled();
+	} );
+
+	it( 'opens a new chat when archiving the current chat', async () => {
+		const onNewChat = vi.fn();
+		const onSwitchSession = vi.fn();
+
+		render(
+			<SessionChatActions
+				currentSessionId="current"
+				onNewChat={ onNewChat }
+				onSwitchSession={ onSwitchSession }
+				sessions={ [
+					createSession( { id: 'current', firstPrompt: 'Current chat' } ),
+					createSession( { id: 'older', firstPrompt: 'Older chat' } ),
+				] }
+			/>
+		);
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Chat history' } ) );
+		const currentItem = ( await screen.findByText( 'Current chat' ) ).closest< HTMLElement >(
+			'[role="menuitem"]'
+		);
+		fireEvent.click( within( currentItem! ).getByRole( 'button', { name: 'Archive chat' } ) );
+
+		expect( updateSessionMetadataMutate ).toHaveBeenCalledWith( {
+			sessionId: 'current',
+			patch: { archived: true },
+		} );
+		expect( onNewChat ).toHaveBeenCalled();
 		expect( onSwitchSession ).not.toHaveBeenCalled();
 	} );
 

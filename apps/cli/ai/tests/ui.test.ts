@@ -256,6 +256,7 @@ describe( 'AiChatUI.handleEvent', () => {
 		ui.hideLoader = hideLoader;
 		ui.showError = showError;
 		ui.showInfo = showInfo;
+		ui.showUsageCapResetDate = vi.fn( async () => undefined );
 		ui.currentProvider = 'wpcom';
 		ui.currentMarkdown = { setText: vi.fn() };
 		ui.currentResponseText = 'previous content';
@@ -264,13 +265,16 @@ describe( 'AiChatUI.handleEvent', () => {
 		ui.handleEvent(
 			buildAssistantMessageEnd( {
 				stopReason: 'error',
-				errorMessage: 'API Error: 429 {"error":{"message":"You have exceeded your AI usage cap."}}',
+				errorMessage: 'Monthly usage limit reached: 429 {"error":{"type":"rate_limit_error"}}',
 			} )
 		);
 
 		expect( hideLoader ).toHaveBeenCalled();
-		expect( showError ).toHaveBeenCalledWith( expect.stringContaining( 'AI usage cap reached' ) );
-		expect( showInfo ).toHaveBeenCalledWith( expect.stringContaining( '/provider' ) );
+		expect( showError ).toHaveBeenCalledWith(
+			expect.stringContaining( 'You’ve reached your monthly AI usage limit' )
+		);
+		expect( showInfo ).not.toHaveBeenCalled();
+		expect( ui.showUsageCapResetDate ).toHaveBeenCalled();
 		expect( ui.usageCapReached ).toBe( true );
 		expect( ui.currentMarkdown ).toBeNull();
 		expect( ui.currentResponseText ).toBe( '' );
@@ -589,6 +593,42 @@ describe( 'AiChatUI.handleEvent', () => {
 
 		expect( addChild ).not.toHaveBeenCalled();
 		expect( showInfo ).not.toHaveBeenCalled();
+	} );
+
+	it( 'keeps the turn alive on agent_end when the session will auto-retry', () => {
+		const ui = Object.create( AiChatUI.prototype ) as {
+			handleEvent: ( e: unknown ) => unknown;
+			[ key: string ]: unknown;
+		};
+		ui.hideLoader = vi.fn();
+		ui.showError = vi.fn();
+
+		ui.handleEvent( { type: 'agent_end', willRetry: true, messages: [] } );
+
+		expect( ui.hideLoader ).not.toHaveBeenCalled();
+		expect( ui.showError ).not.toHaveBeenCalled();
+	} );
+
+	it( 'shows a retry loader message on auto_retry_start', () => {
+		const ui = Object.create( AiChatUI.prototype ) as {
+			handleEvent: ( e: unknown ) => unknown;
+			[ key: string ]: unknown;
+		};
+		ui.showLoader = vi.fn();
+		ui.showInfo = vi.fn();
+
+		ui.handleEvent( {
+			type: 'auto_retry_start',
+			attempt: 2,
+			maxAttempts: 3,
+			delayMs: 4000,
+			errorMessage: 'API Error: 529 overloaded\nsecond line',
+		} );
+
+		expect( ui.showInfo ).toHaveBeenCalledWith( 'API Error: 529 overloaded' );
+		expect( ui.showLoader ).toHaveBeenCalledWith(
+			'Temporary provider error — retrying in 4s (attempt 2 of 3)…'
+		);
 	} );
 
 	it( 'does not trip the cap branch when an assistant error has no 429 marker', () => {

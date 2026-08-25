@@ -11,6 +11,11 @@ import {
 	type StudioChatArtifactWidgetDraft,
 } from '@studio/common/ai/chat-artifacts';
 import {
+	isAiAccessRequiredError,
+	isAiBlockedError,
+	isUsageCapError,
+} from '@studio/common/ai/json-events';
+import {
 	isStudioCustomEntryOfType,
 	type StudioChatAttachmentSummary,
 	type StudioCustomEntry,
@@ -28,6 +33,7 @@ import {
 	type NormalizedToolResult,
 	type ToolGroupSummary,
 } from '@studio/common/ai/tools';
+import { formatUsageCapNotice } from '@studio/common/lib/studio-assistant-quota';
 import { __, sprintf } from '@wordpress/i18n';
 import {
 	backup,
@@ -75,21 +81,37 @@ import {
 } from '@wordpress/icons';
 import { Button, Icon, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { createContext, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
+import {
+	createContext,
+	useCallback,
+	useContext,
+	useEffect,
+	useId,
+	useMemo,
+	useRef,
+	useState,
+	type ReactNode,
+	MouseEvent as ReactMouseEvent,
+} from 'react';
+import { AiAccessRequiredNotice, AiBlockedNotice } from '@/components/ai-access-required-notice';
 import { RestoreCheckpointDialog } from '@/components/checkpoint-timeline';
 import { CopyButton } from '@/components/copy-button';
 import { ImageContextMenu } from '@/components/image-context-menu';
 import { ImageLightbox, type LightboxImage } from '@/components/image-lightbox';
 import { Markdown } from '@/components/markdown';
 import * as Menu from '@/components/menu';
+import { toast } from '@/data/app-messages';
 import {
 	useConnector,
 	type LoadedAiSession,
 	type PermissionDecision,
 	type PermissionRequestData,
 } from '@/data/core';
+import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useLocalMediaDataUrl } from '@/data/queries/use-local-media';
+import { MESSAGE_TEXT_ATTRIBUTE, QUOTABLE_TEXT_ATTRIBUTE } from '@/hooks/use-text-context-menu';
 import { formatRelativeTime } from '@/lib/format-relative-time';
+import { refreshIcon } from '@/lib/icons';
 import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
 import type { ActiveToolState } from '@/data/queries/use-agent-run';
@@ -124,7 +146,7 @@ type RenderItem =
 			text: string;
 			attachments?: StudioChatAttachmentSummary[];
 	  }
-	| { kind: 'assistant-text'; key: string; text: string; copyText?: string }
+	| { kind: 'assistant-text'; key: string; text: string; messageText: string; copyText?: string }
 	| {
 			kind: 'work-phase';
 			key: string;
@@ -149,7 +171,8 @@ type RenderItem =
 			key: string;
 			widgets: StudioChatArtifactWidgetDraft[];
 	  }
-	| { kind: 'interrupted-marker'; key: string };
+	| { kind: 'interrupted-marker'; key: string }
+	| { kind: 'error-marker'; key: string; message: string };
 
 /** Intermediate items before work-phase grouping. */
 type FlatRenderItem =
@@ -158,7 +181,8 @@ type FlatRenderItem =
 	| WorkPhaseStep
 	| Extract< RenderItem, { kind: 'agent-question-batch' } >
 	| Extract< RenderItem, { kind: 'permission-request' } >
-	| Extract< RenderItem, { kind: 'interrupted-marker' } >;
+	| Extract< RenderItem, { kind: 'interrupted-marker' } >
+	| Extract< RenderItem, { kind: 'error-marker' } >;
 
 interface PiAssistantContentBlock {
 	type: 'text' | 'toolCall' | 'thinking';
@@ -330,9 +354,15 @@ export function entriesToRenderItems(
 	};
 
 	const items: FlatRenderItem[] = [];
+	// Media files already rendered in the current turn, keyed by local path or
+	// URL. Two artifacts pointing at the same file (e.g. generate_image's own
+	// card plus a studio_present of the same path) load identical bytes, so
+	// only the first is worth showing.
+	let seenTurnMediaKeys = new Set< string >();
 	for ( let entryIndex = 0; entryIndex < entries.length; entryIndex += 1 ) {
 		const entry = entries[ entryIndex ];
 		if ( isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) ) {
+			seenTurnMediaKeys = new Set();
 			const data = ( entry as StudioCustomEntry< 'studio.user_prompt' > ).data;
 			if ( ! data || data.source !== 'prompt' ) continue;
 			items.push( {
@@ -376,6 +406,7 @@ export function entriesToRenderItems(
 							kind: 'assistant-text',
 							key: `${ entryIndex }:${ blockIndex }:text`,
 							text,
+							messageText: fullMessageText,
 							copyText: block === lastTextBlock ? fullMessageText : undefined,
 						} );
 					}
@@ -461,14 +492,27 @@ export function entriesToRenderItems(
 			if ( ! isStudioChatArtifactData( data ) ) {
 				continue;
 			}
-			const widgets = data.widgets.filter(
-				( widget ) =>
-					isCheckpointArtifactWidget( widget ) ||
-					( isRenderableMediaWidget( widget ) &&
-						// Without local media access (browser builds), only widgets
-						// with a renderable remote URL are worth showing.
-						( options.canReadLocalMedia !== false || Boolean( getSafeMediaUrl( widget ) ) ) )
-			);
+			const widgets = data.widgets.filter( ( widget ) => {
+				if ( isCheckpointArtifactWidget( widget ) ) {
+					return true;
+				}
+				if (
+					! isRenderableMediaWidget( widget ) ||
+					// Without local media access (browser builds), only widgets
+					// with a renderable remote URL are worth showing.
+					( options.canReadLocalMedia === false && ! getSafeMediaUrl( widget ) )
+				) {
+					return false;
+				}
+				const mediaKey = getLocalMediaPath( widget ) ?? getSafeMediaUrl( widget );
+				if ( mediaKey ) {
+					if ( seenTurnMediaKeys.has( mediaKey ) ) {
+						return false;
+					}
+					seenTurnMediaKeys.add( mediaKey );
+				}
+				return true;
+			} );
 			if ( widgets.length > 0 ) {
 				items.push( {
 					kind: 'chat-artifact',
@@ -486,6 +530,12 @@ export function entriesToRenderItems(
 					kind: 'interrupted-marker',
 					key: `${ entryIndex }:interrupted`,
 				} );
+			} else if ( data?.status === 'error' ) {
+				items.push( {
+					kind: 'error-marker',
+					key: `${ entryIndex }:error`,
+					message: data.errorMessage ?? '',
+				} );
 			}
 			continue;
 		}
@@ -494,8 +544,19 @@ export function entriesToRenderItems(
 	return groupIntoWorkPhases( items );
 }
 
+// Media artifacts (screenshots, generated images) are deliberate, user-facing
+// milestones — they render as standalone cards in the transcript instead of
+// collapsing into the work-phase row like checkpoints and notes do.
+function isMediaArtifact( item: FlatRenderItem ): boolean {
+	return item.kind === 'chat-artifact' && item.widgets.some( isRenderableMediaWidget );
+}
+
 function isWorkPhaseStep( item: FlatRenderItem ): item is WorkPhaseStep {
-	return item.kind === 'thinking' || item.kind === 'tool-use' || item.kind === 'chat-artifact';
+	return (
+		item.kind === 'thinking' ||
+		item.kind === 'tool-use' ||
+		( item.kind === 'chat-artifact' && ! isMediaArtifact( item ) )
+	);
 }
 
 function buildWorkPhaseItem(
@@ -624,7 +685,7 @@ function UserTurn( {
 	attachments?: StudioChatAttachmentSummary[];
 } ) {
 	return (
-		<div className={ styles.userTurn }>
+		<div className={ styles.userTurn } { ...{ [ MESSAGE_TEXT_ATTRIBUTE ]: text } }>
 			<div className={ styles.userText }>{ text }</div>
 			{ attachments && attachments.length > 0 ? (
 				<ul className={ styles.userAttachments }>
@@ -651,16 +712,68 @@ function UserTurn( {
 	);
 }
 
-function AssistantText( { text, copyText }: { text: string; copyText?: string } ) {
+function AssistantText( {
+	text,
+	messageText,
+	copyText,
+	showActions,
+	onToggleSelect,
+}: {
+	text: string;
+	messageText: string;
+	copyText?: string;
+	showActions: boolean;
+	onToggleSelect: () => void;
+} ) {
+	const connector = useConnector();
+
+	const handleClick = ( event: ReactMouseEvent< HTMLDivElement > ) => {
+		// Links and the buttons inside code blocks or the action row own their
+		// clicks; only bare message content toggles the actions.
+		if ( ( event.target as HTMLElement | null )?.closest( 'a, button' ) ) {
+			return;
+		}
+		// A click that ends a text drag is a selection, not a tap.
+		const selection = window.getSelection();
+		if ( selection && ! selection.isCollapsed && selection.toString().trim() ) {
+			return;
+		}
+		onToggleSelect();
+	};
+
+	// Double-click anywhere in the reply copies it (the whole message when
+	// this is its last text block, otherwise this fragment). Native word
+	// selection still happens — the copy is additive, and the app toast is
+	// the signal that more than a selection occurred.
+	const handleDoubleClick = useCallback( () => {
+		void connector.copyText( copyText ?? text );
+		toast.success( __( 'Copied' ), { id: 'copy-feedback' } );
+	}, [ connector, copyText, text ] );
+
 	return (
-		<div className={ styles.assistantTurn }>
+		// Clicking the message is a mouse convenience for revealing its actions;
+		// keyboard users reach the same buttons by tabbing to them, which opens
+		// the row via :focus-within. Deliberately no button role — the message
+		// holds links, and nesting them inside a control would be invalid.
+		<div
+			className={ styles.assistantTurn }
+			data-actions-open={ showActions ? 'true' : undefined }
+			{ ...{
+				[ MESSAGE_TEXT_ATTRIBUTE ]: messageText,
+				[ QUOTABLE_TEXT_ATTRIBUTE ]: true,
+			} }
+			onClick={ copyText ? handleClick : undefined }
+			onDoubleClick={ handleDoubleClick }
+		>
 			<Markdown>{ text }</Markdown>
 			{ copyText ? (
-				<CopyButton
-					text={ copyText }
-					label={ __( 'Copy message' ) }
-					className={ styles.messageActions }
-				/>
+				<div className={ styles.messageActions }>
+					<div className={ styles.messageActionsClip }>
+						<div className={ styles.messageActionsRow }>
+							<CopyButton text={ copyText } label={ __( 'Copy message' ) } />
+						</div>
+					</div>
+				</div>
 			) : null }
 		</div>
 	);
@@ -816,6 +929,8 @@ function getToolIcon( name: string, input: Record< string, unknown > | undefined
 			return capturePhoto;
 		case 'inspect_design':
 			return search;
+		case 'refresh_browser':
+			return refreshIcon;
 		case 'share_screenshot':
 			return share;
 		case 'validate_blocks':
@@ -1782,6 +1897,30 @@ function PermissionRequest( {
 	);
 }
 
+// In-flow marker for a turn that ended in an error. The monthly usage cap
+// gets dedicated copy — with the reset date once the quota query resolves —
+// instead of the raw provider message.
+function TurnErrorMarker( { message }: { message: string } ) {
+	const isUsageCap = isUsageCapError( message );
+	const isAccessRequired = isAiAccessRequiredError( message );
+	const { data: quota } = useStudioAssistantQuota( { enabled: isUsageCap || isAccessRequired } );
+	let text: ReactNode;
+	if ( isAiBlockedError( message ) ) {
+		text = <AiBlockedNotice />;
+	} else if ( isAccessRequired ) {
+		text = <AiAccessRequiredNotice quota={ quota } />;
+	} else if ( isUsageCap ) {
+		text = formatUsageCapNotice( quota?.costResetDate );
+	} else {
+		text = message || __( 'Something went wrong and this turn was stopped. Please try again.' );
+	}
+	return (
+		<div className={ styles.errorMarker } role="alert">
+			{ text }
+		</div>
+	);
+}
+
 export function Conversation( {
 	data,
 	isRunning,
@@ -1844,6 +1983,11 @@ export function Conversation( {
 		if ( lastPhaseIndex < 0 || lastPhaseIndex < lastUserIndex ) {
 			return { committedItems: items, livePhaseSteps: [] as WorkPhaseStep[] };
 		}
+		// A standalone item (e.g. a media artifact) after the phase commits it:
+		// slicing at the phase would drop the trailing item from the transcript.
+		if ( lastPhaseIndex !== items.length - 1 ) {
+			return { committedItems: items, livePhaseSteps: [] as WorkPhaseStep[] };
+		}
 		const phase = items[ lastPhaseIndex ];
 		if ( phase.kind !== 'work-phase' ) {
 			return { committedItems: items, livePhaseSteps: null as WorkPhaseStep[] | null };
@@ -1889,6 +2033,30 @@ export function Conversation( {
 		[]
 	);
 
+	// One selected message at a time, so picking a new one closes the last.
+	const [ selectedKey, setSelectedKey ] = useState< string | null >( null );
+	const sessionId = data.summary.id;
+	useEffect( () => {
+		setSelectedKey( null );
+	}, [ sessionId ] );
+
+	// The newest reply keeps its actions open, so copying the answer you just
+	// got never depends on discovering that messages can be clicked. Held back
+	// until the turn settles — mid-run the last text block keeps moving as new
+	// blocks stream in, and the row would hop down the transcript with it.
+	const latestActionableKey = useMemo( () => {
+		if ( isRunning ) {
+			return null;
+		}
+		for ( let index = items.length - 1; index >= 0; index -= 1 ) {
+			const item = items[ index ];
+			if ( item.kind === 'assistant-text' && item.copyText ) {
+				return item.key;
+			}
+		}
+		return null;
+	}, [ isRunning, items ] );
+
 	return (
 		<ConversationGalleryContext.Provider value={ gallery }>
 			{ activeGallery ? (
@@ -1907,12 +2075,23 @@ export function Conversation( {
 							);
 						case 'assistant-text':
 							return (
-								<AssistantText key={ item.key } text={ item.text } copyText={ item.copyText } />
+								<AssistantText
+									key={ item.key }
+									text={ item.text }
+									messageText={ item.messageText }
+									copyText={ item.copyText }
+									showActions={ selectedKey === item.key || item.key === latestActionableKey }
+									onToggleSelect={ () =>
+										setSelectedKey( ( current ) => ( current === item.key ? null : item.key ) )
+									}
+								/>
 							);
 						case 'work-phase':
 							return (
 								<WorkPhaseRow key={ item.key } steps={ item.steps } summary={ item.summary } />
 							);
+						case 'chat-artifact':
+							return <ChatArtifact key={ item.key } widgets={ item.widgets } />;
 						case 'agent-question-batch':
 							return (
 								<AgentQuestionBatch
@@ -1939,6 +2118,8 @@ export function Conversation( {
 									{ __( 'Interrupted by you' ) }
 								</div>
 							);
+						case 'error-marker':
+							return <TurnErrorMarker key={ item.key } message={ item.message } />;
 						default:
 							return null;
 					}

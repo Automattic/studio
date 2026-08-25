@@ -1,5 +1,9 @@
 import { DEFAULT_MODEL } from '@studio/common/ai/models';
 import { DEFAULT_RESPONSE_LENGTH } from '@studio/common/ai/response-length';
+import {
+	resolveActivitySoundPreferences,
+	type ActivitySoundPreferences,
+} from '@studio/common/lib/activity-sounds';
 import { isSupportedLocale } from '@studio/common/lib/locale';
 import type {
 	ColorScheme,
@@ -20,11 +24,14 @@ export interface PreferencesFormData {
 	editor: SupportedEditor | typeof UNSET;
 	terminal: SupportedTerminal | typeof UNSET;
 	colorScheme: ColorScheme;
+	frameColor: string | null;
 	locale: SupportedLocale;
+	analyticsEnabled: boolean;
 	defaultSiteDirectory: string;
 	studioCliInstalled: boolean;
 	agenticFeaturesEnabled: boolean;
 	chatNotificationsEnabled: boolean;
+	activitySoundPreferences: ActivitySoundPreferences;
 	quitSitesBehavior: QuitSitesBehaviorSetting;
 	agentResponseLength: AiResponseLength;
 	defaultAiModel: AiModelId;
@@ -43,13 +50,18 @@ export function toPreferencesFormData( prefs: UserPreferences ): PreferencesForm
 		editor: prefs.editor ?? UNSET,
 		terminal: prefs.terminal ?? UNSET,
 		colorScheme: prefs.colorScheme,
+		frameColor: prefs.frameColor ?? null,
 		locale: resolveFormLocale( prefs.locale ),
+		// Default to opted-in if absent (e.g. a persisted preferences cache from
+		// before this field existed) so the toggle never renders a false negative.
+		analyticsEnabled: prefs.analyticsEnabled ?? true,
 		defaultSiteDirectory: prefs.defaultSiteDirectory,
 		studioCliInstalled: prefs.studioCliInstalled,
 		agenticFeaturesEnabled: prefs.agenticFeaturesEnabled,
 		// Persisted query caches from before this field existed rehydrate it as
 		// undefined; enabled is the real default, so render the toggle on.
 		chatNotificationsEnabled: prefs.chatNotificationsEnabled ?? true,
+		activitySoundPreferences: resolveActivitySoundPreferences( prefs.activitySoundPreferences ),
 		quitSitesBehavior: prefs.quitSitesBehavior ?? 'ask',
 		agentResponseLength: prefs.agentResponseLength ?? DEFAULT_RESPONSE_LENGTH,
 		defaultAiModel: prefs.defaultAiModel ?? DEFAULT_MODEL,
@@ -73,7 +85,9 @@ export function toPreferencesPatch(
 		patch.terminal = update.terminal === UNSET ? null : update.terminal;
 	}
 	if ( update.colorScheme !== undefined ) patch.colorScheme = update.colorScheme;
+	if ( update.frameColor !== undefined ) patch.frameColor = update.frameColor;
 	if ( update.locale !== undefined ) patch.locale = update.locale;
+	if ( update.analyticsEnabled !== undefined ) patch.analyticsEnabled = update.analyticsEnabled;
 	if ( update.defaultSiteDirectory !== undefined ) {
 		patch.defaultSiteDirectory = update.defaultSiteDirectory;
 	}
@@ -85,6 +99,9 @@ export function toPreferencesPatch(
 	}
 	if ( update.chatNotificationsEnabled !== undefined ) {
 		patch.chatNotificationsEnabled = update.chatNotificationsEnabled;
+	}
+	if ( update.activitySoundPreferences !== undefined ) {
+		patch.activitySoundPreferences = update.activitySoundPreferences;
 	}
 	if ( update.quitSitesBehavior !== undefined ) {
 		patch.quitSitesBehavior = update.quitSitesBehavior;

@@ -8,8 +8,13 @@ import {
 	monitorLiveSyncImport,
 } from '@/data/queries/use-live-sync-monitor';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
-import { reportSyncError, reportSyncPending, reportSyncSuccess } from '@/data/sync-activity';
-import type { LiveSyncOptions } from '@/data/core';
+import {
+	reportSyncError,
+	reportSyncPending,
+	reportSyncProgress,
+	reportSyncSuccess,
+} from '@/data/sync-activity';
+import type { PullSiteProgress, PullSyncOptions, PushSyncOptions } from '@/data/core';
 
 // Mutation keys are exported so downstream consumers (e.g. a cross-page
 // activity indicator or future bulk-sync UI) can filter the react-query
@@ -20,7 +25,7 @@ export const PULL_FROM_LIVE_MUTATION_KEY = [ 'pullSiteFromLive' ] as const;
 type PushToLiveVariables = {
 	siteId: string;
 	remoteSiteId: number;
-	options?: LiveSyncOptions;
+	options?: PushSyncOptions;
 };
 
 export function usePushSiteToLive() {
@@ -29,9 +34,11 @@ export function usePushSiteToLive() {
 	return useMutation( {
 		mutationKey: PUSH_TO_LIVE_MUTATION_KEY,
 		mutationFn: async ( { siteId, remoteSiteId, options }: PushToLiveVariables ) => {
-			const currentStatus = await connector
-				.getLiveSyncImportStatus( remoteSiteId )
-				.catch( () => null );
+			let canMonitorImport = true;
+			const currentStatus = await connector.getLiveSyncImportStatus( remoteSiteId ).catch( () => {
+				canMonitorImport = false;
+				return null;
+			} );
 			if ( currentStatus && getImportStatusPendingDetails( currentStatus ) ) {
 				await monitorLiveSyncImport( {
 					connector,
@@ -43,13 +50,15 @@ export function usePushSiteToLive() {
 			}
 
 			await connector.pushSiteToLive( siteId, remoteSiteId, options );
-			await monitorLiveSyncImport( {
-				connector,
-				siteId,
-				remoteSiteId,
-				reportInitialFailure: true,
-			} );
-			await connector.markLiveSiteSynced( siteId, remoteSiteId, 'push' );
+			if ( canMonitorImport ) {
+				await monitorLiveSyncImport( {
+					connector,
+					siteId,
+					remoteSiteId,
+					reportInitialFailure: true,
+				} );
+				await connector.markLiveSiteSynced( siteId, remoteSiteId, 'push' );
+			}
 		},
 		onMutate: ( { siteId, remoteSiteId } ) => {
 			reportSyncPending( siteId, 'push', {
@@ -101,7 +110,8 @@ export function useDisconnectWpcomSite() {
 type PullFromLiveVariables = {
 	siteId: string;
 	remoteSiteId: number;
-	options?: LiveSyncOptions;
+	onProgress?: ( progress: PullSiteProgress ) => void;
+	options?: PullSyncOptions;
 };
 
 export function usePullSiteFromLive() {
@@ -109,8 +119,16 @@ export function usePullSiteFromLive() {
 	const queryClient = useQueryClient();
 	return useMutation( {
 		mutationKey: PULL_FROM_LIVE_MUTATION_KEY,
-		mutationFn: ( { siteId, remoteSiteId, options }: PullFromLiveVariables ) =>
-			connector.pullSiteFromLive( siteId, remoteSiteId, options ),
+		mutationFn: ( { siteId, remoteSiteId, onProgress, options }: PullFromLiveVariables ) =>
+			connector.pullSiteFromLive(
+				siteId,
+				remoteSiteId,
+				( progress ) => {
+					reportSyncProgress( siteId, 'pull', progress );
+					onProgress?.( progress );
+				},
+				options
+			),
 		onMutate: ( { siteId } ) => {
 			reportSyncPending( siteId, 'pull', {
 				logMessage: __( 'Pulling selected live-site changes into Studio.' ),
@@ -124,10 +142,28 @@ export function usePullSiteFromLive() {
 			// site list so any downstream consumers see the new state.
 			void queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
 		},
-		onError: ( error, { siteId } ) => {
-			const message = error instanceof Error ? error.message : String( error );
+		onError: ( _error, { siteId } ) => {
+			// Only point at the logs where the user can actually open them.
+			const canOpenLogs = connector.capabilities.studioLogs;
+			const message = canOpenLogs
+				? __(
+						"Studio couldn't copy the live site. Try again. If the problem continues, check Studio Logs for details."
+				  )
+				: __( "Studio couldn't copy the live site. Try again." );
 			reportSyncError( siteId, 'pull', message );
-			toast.error( __( 'Pull didn’t complete' ), { description: message } );
+			toast.error( __( "Pull didn't complete" ), {
+				description: message,
+				action: canOpenLogs
+					? {
+							label: __( 'Open Studio Logs' ),
+							onClick: () => {
+								void connector.openStudioLogs().catch( ( error ) => {
+									console.error( 'Failed to open Studio logs:', error );
+								} );
+							},
+					  }
+					: undefined,
+			} );
 		},
 	} );
 }

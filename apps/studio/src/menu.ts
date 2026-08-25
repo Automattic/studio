@@ -7,6 +7,7 @@ import {
 	dialog,
 	MenuItem,
 	shell,
+	type WebContents,
 } from 'electron';
 import {
 	getAppConfigPath,
@@ -36,15 +37,22 @@ import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { showQuitSitesDialog } from 'src/lib/quit-sites-dialog';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { isSimulatingNewUser, toggleNewUserSimulation } from 'src/lib/simulation-mode';
+import { getPreferredStudioUiMode, setAgenticUiEnabled } from 'src/lib/studio-ui-mode';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { getLogsFilePath } from 'src/logging';
 import { getMainWindow, loadMainWindowRenderer } from 'src/main-window';
+import { getAgenticFeaturesEnabled } from 'src/modules/user-settings/lib/ipc-handlers';
 import { getRunningSiteCount, getRunningSiteNames } from 'src/site-server';
+import { updateAppdata } from 'src/storage/user-data';
 import { isUpdateReadyToInstall, manualCheckForUpdates } from 'src/updates';
 
-// Feature flags that select which Studio UI is shown; toggling them requires
-// reloading the main window renderer.
-const UI_MODE_FEATURE_FLAGS: ( keyof FeatureFlags )[] = [ 'enableAgenticUi' ];
+// Runs against the app window's own contents rather than whatever has focus.
+async function withAppWebContents( run: ( contents: WebContents ) => void ) {
+	const window = await getMainWindow();
+	if ( window && ! window.isDestroyed() && ! window.webContents.isDestroyed() ) {
+		run( window.webContents );
+	}
+}
 
 export async function setupMenu( config: {
 	needsOnboarding: boolean;
@@ -95,7 +103,11 @@ async function buildBetaFeaturesMenu(): Promise< MenuItemConstructorOptions[] > 
 				// Only use sublabel on macOS where it displays nicely
 				sublabel: process.platform === 'darwin' ? definition.description : undefined,
 				click: async ( menuItem: MenuItem ) => {
-					await updateBetaFeature( key as keyof BetaFeatures, menuItem.checked );
+					await updateBetaFeature(
+						key as keyof BetaFeatures,
+						menuItem.checked,
+						key === 'enableAgenticUi' ? 'menu' : undefined
+					);
 					if ( key === 'remoteSession' ) {
 						bumpStat(
 							menuItem.checked
@@ -103,6 +115,18 @@ async function buildBetaFeaturesMenu(): Promise< MenuItemConstructorOptions[] > 
 								: StatsGroup.STUDIO_APP_DOLLY_DISABLE,
 							getPlatformMetric()
 						);
+					}
+					if ( key === 'enableAgenticUi' ) {
+						setAgenticUiEnabled( menuItem.checked );
+						const mainWindow = await getMainWindow();
+						if ( mainWindow && ! mainWindow.isDestroyed() ) {
+							// The renderer is being replaced; it fetches fresh state on boot,
+							// and messaging the dying page fails IPC sender validation.
+							setTimeout( () => {
+								void loadMainWindowRenderer( mainWindow );
+							}, 0 );
+							return;
+						}
 					}
 					void sendIpcEventToRenderer( 'beta-features-updated' );
 				},
@@ -133,7 +157,7 @@ export function buildViewMenuItems( {
 			enabled: ! needsOnboarding,
 			click: onToggleSidebar,
 		},
-		...( getFeatureFlagFromEnv( 'enableAgenticUi' )
+		...( getPreferredStudioUiMode() === 'agentic'
 			? [
 					{
 						label: __( 'Toggle Site Preview' ),
@@ -197,10 +221,29 @@ async function getAppMenu(
 		},
 	];
 
+	// Cmd/Ctrl+R belongs to the site preview: the agentic renderer binds it in
+	// the DOM to reload the guest page, so the menu must leave the key alone
+	// there — a menu accelerator would consume it first. That leaves the app
+	// itself with no way to reload, so these target the app window explicitly
+	// rather than using `role: 'reload'`, which acts on whatever webContents
+	// has focus (the preview, once clicked into).
+	const previewOwnsReloadShortcut = getPreferredStudioUiMode() === 'agentic';
 	const devTools: MenuItemConstructorOptions[] = [
-		{ label: __( 'Reload' ), role: 'reload' },
-		{ label: __( 'Force Reload' ), role: 'forceReload' },
-		{ label: __( 'Toggle DevTools' ), role: 'toggleDevTools' },
+		{
+			label: __( 'Reload App' ),
+			...( previewOwnsReloadShortcut ? {} : { accelerator: 'CommandOrControl+R' } ),
+			click: () => void withAppWebContents( ( contents ) => contents.reload() ),
+		},
+		{
+			label: __( 'Force Reload App' ),
+			accelerator: 'CommandOrControl+Shift+R',
+			click: () => void withAppWebContents( ( contents ) => contents.reloadIgnoringCache() ),
+		},
+		{
+			label: __( 'Toggle DevTools' ),
+			accelerator: process.platform === 'darwin' ? 'Alt+Command+I' : 'Control+Shift+I',
+			click: () => void withAppWebContents( ( contents ) => contents.toggleDevTools() ),
+		},
 		{ type: 'separator' },
 	];
 
@@ -212,20 +255,17 @@ async function getAppMenu(
 		checked: getFeatureFlagFromEnv( flag as keyof FeatureFlags ),
 		click: ( menuItem: MenuItem ) => {
 			setFeatureFlagInEnv( flag as keyof FeatureFlags, menuItem.checked );
-			if (
-				UI_MODE_FEATURE_FLAGS.includes( flag as keyof FeatureFlags ) &&
-				mainWindow &&
-				! mainWindow.isDestroyed()
-			) {
-				setTimeout( () => {
-					void loadMainWindowRenderer( mainWindow );
-				}, 0 );
-			}
 			void sendIpcEventToRenderer( 'refresh-app-globals' );
 		},
 	} ) );
 
 	const betaFeaturesMenu = await buildBetaFeaturesMenu();
+
+	// The agentic UI binds Cmd/Ctrl+N to "New chat" in the renderer, so the menu must leave the
+	// key alone there — a menu accelerator would consume it before it reaches the DOM. With chat
+	// switched off nothing binds it, so the shortcut falls back to "Add Site…" as in classic.
+	const rendererOwnsNewShortcut =
+		getPreferredStudioUiMode() === 'agentic' && ( await getAgenticFeaturesEnabled() );
 
 	return Menu.buildFromTemplate( [
 		{
@@ -307,6 +347,7 @@ async function getAppMenu(
 							{
 								label: __( 'Feature Flags' ),
 								submenu: featureFlagsMenu,
+								enabled: featureFlagsMenu.length > 0,
 							},
 							{
 								label: isSimulatingNewUser()
@@ -332,13 +373,31 @@ async function getAppMenu(
 									// Carry env-based feature flags (e.g. ENABLE_AGENTIC_UI) across
 									// the relaunch so the same UI mode loads on the other side.
 									const carriedEnv: Record< string, string > = {};
-									for ( const definition of Object.values( FEATURE_FLAGS ) ) {
+									for ( const definition of Object.values< FeatureFlagDefinition >(
+										FEATURE_FLAGS
+									) ) {
 										const value = process.env[ definition.env ];
 										if ( value !== undefined ) {
 											carriedEnv[ definition.env ] = value;
 										}
 									}
 									await toggleNewUserSimulation( carriedEnv );
+								},
+							},
+							{
+								label: __( 'Reset New UI Onboarding (dev only)' ),
+								click: async () => {
+									// Replay the whole new-UI intro on the real profile: bring back the
+									// old-UI announcement banner, and clear the welcome/concept-tour
+									// flag and the workbench coachmark/checklist hints so opting in
+									// shows the tour again. The new UI re-reads these on load, so the
+									// reset lands when the banner's "Try it" switches modes.
+									await updateAppdata( {
+										agenticUiBannerDismissed: false,
+										onboardingCompleted: false,
+										onboardingHints: {},
+									} );
+									void sendIpcEventToRenderer( 'show-agentic-ui-banner' );
 								},
 							},
 							{
@@ -366,7 +425,7 @@ async function getAppMenu(
 			submenu: [
 				{
 					label: __( 'Add Site…' ),
-					accelerator: 'CommandOrControl+N',
+					accelerator: rendererOwnsNewShortcut ? undefined : 'CommandOrControl+N',
 					click: async () => {
 						void sendIpcEventToRenderer( 'add-site' );
 					},

@@ -23,10 +23,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7
         with:
           node-version-file: '.nvmrc'
 
@@ -74,7 +74,7 @@ jobs:
       - name: Format Slack message
         id: format-message
         if: steps.fetch-prs.outputs.count > 0
-        run: node scripts/format-stale-pr-message.js
+        run: node scripts/format-stale-pr-message.mjs
 
       - name: Send Slack notification
         if: steps.fetch-prs.outputs.count > 0

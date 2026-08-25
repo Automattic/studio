@@ -6,6 +6,7 @@ import { useConnector } from '@/data/core';
 import {
 	getPreviewRealm,
 	getRealmNavigationPath,
+	getRealmOpenEvent,
 	parseOmniboxInput,
 	PreviewAddressBar,
 } from './location-omnibox';
@@ -49,14 +50,14 @@ function renderAddressBar( {
 	onSwitchRealm = vi.fn(),
 	path = '/',
 	searchEnabled = true,
-	showDatabaseTab = true,
+	site = SITE,
 }: {
 	fetchSiteRest?: Mock;
 	onNavigate?: Mock;
 	onSwitchRealm?: Mock;
 	path?: string;
 	searchEnabled?: boolean;
-	showDatabaseTab?: boolean;
+	site?: SiteDetails;
 } = {} ) {
 	useConnectorMock.mockReturnValue( { fetchSiteRest } as never );
 	const queryClient = new QueryClient( {
@@ -66,12 +67,12 @@ function renderAddressBar( {
 		<QueryClientProvider client={ queryClient }>
 			<Tooltip.Provider>
 				<PreviewAddressBar
-					site={ SITE }
+					site={ site }
 					siteUrl={ SITE_URL }
 					path={ path }
 					searchEnabled={ searchEnabled }
+					showDatabaseTab
 					anchorRef={ { current: document.body } }
-					showDatabaseTab={ showDatabaseTab }
 					onNavigate={ onNavigate }
 					onSwitchRealm={ onSwitchRealm }
 				/>
@@ -159,6 +160,14 @@ describe( 'getPreviewRealm', () => {
 	} );
 } );
 
+describe( 'getRealmOpenEvent', () => {
+	it( 'maps each realm to its site-open Tracks event', () => {
+		expect( getRealmOpenEvent( 'frontend' ) ).toBe( 'studio_site_open_in_browser' );
+		expect( getRealmOpenEvent( 'admin' ) ).toBe( 'studio_site_open_wp_admin' );
+		expect( getRealmOpenEvent( 'database' ) ).toBe( 'studio_site_open_phpmyadmin' );
+	} );
+} );
+
 describe( 'getRealmNavigationPath', () => {
 	it( 'passes non-admin paths through untouched', () => {
 		expect( getRealmNavigationPath( '/about/', SITE_URL ) ).toBe( '/about/' );
@@ -201,11 +210,11 @@ describe( 'PreviewAddressBar', () => {
 		).not.toBeInTheDocument();
 	} );
 
-	it( 'hides the database segment when the database tab is turned off', () => {
-		renderAddressBar( { path: '/', showDatabaseTab: false } );
+	it( 'always offers the database segment', () => {
+		renderAddressBar( { path: '/' } );
 
 		expect( screen.getByRole( 'button', { name: 'View WP Admin' } ) ).toBeInTheDocument();
-		expect( screen.queryByRole( 'button', { name: 'View database' } ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'View database' } ) ).toBeInTheDocument();
 	} );
 
 	it( 'marks the segment matching the current path as active', () => {
@@ -242,6 +251,36 @@ describe( 'PreviewAddressBar', () => {
 		expect( within( list ).getByText( '404 page' ) ).toBeInTheDocument();
 	} );
 
+	it( 'marks only the most specific destination for the current path', async () => {
+		renderAddressBar( { path: '/wp-admin/edit.php?post_type=page' } );
+
+		await openOmnibox( 'WordPress' );
+		const list = await screen.findByRole( 'listbox' );
+
+		expect( within( list ).getByRole( 'option', { name: /Pages/ } ) ).toHaveAttribute(
+			'aria-current',
+			'page'
+		);
+		expect( within( list ).getByRole( 'option', { name: /Posts/ } ) ).not.toHaveAttribute(
+			'aria-current'
+		);
+	} );
+
+	it( 'matches site-editor destinations after WordPress rewrites their routes', async () => {
+		renderAddressBar( {
+			path: '/wp-admin/site-editor.php?p=%2Fstyles&canvas=edit',
+			site: { ...SITE, themeDetails: { isBlockTheme: true } } as SiteDetails,
+		} );
+
+		await openOmnibox( 'WordPress' );
+		const list = await screen.findByRole( 'listbox' );
+
+		expect( within( list ).getByRole( 'option', { name: /Styles/ } ) ).toHaveAttribute(
+			'aria-current',
+			'page'
+		);
+	} );
+
 	it( 'offers the latest post and a page as real front-end permalinks', async () => {
 		const fetchSiteRest = vi
 			.fn()
@@ -274,6 +313,67 @@ describe( 'PreviewAddressBar', () => {
 		expect( onNavigate ).toHaveBeenCalledWith( '/hello-world/' );
 	} );
 
+	it( 'dedupes content results that already appear as permalink rows', async () => {
+		const fetchSiteRest = vi
+			.fn()
+			.mockImplementation( ( _siteId: string, request: { path: string } ) => {
+				if ( request.path.includes( '/wp/v2/posts' ) ) {
+					return Promise.resolve(
+						createSearchResponse( [
+							{
+								id: 5,
+								link: 'http://127.0.0.1:8881/hello-world/',
+								title: { rendered: 'Hello World' },
+							},
+						] )
+					);
+				}
+				if ( request.path.includes( '/wp/v2/search' ) ) {
+					return Promise.resolve(
+						createSearchResponse( [
+							{
+								id: 5,
+								title: 'Hello World',
+								url: 'http://127.0.0.1:8881/hello-world/',
+								type: 'post',
+								subtype: 'post',
+							},
+							{
+								id: 6,
+								title: 'Hello Again',
+								url: 'http://127.0.0.1:8881/hello-again/',
+								type: 'post',
+								subtype: 'post',
+							},
+						] )
+					);
+				}
+				return Promise.resolve( createSearchResponse( [] ) );
+			} );
+		renderAddressBar( { fetchSiteRest, path: '/' } );
+
+		const input = await openOmnibox();
+		fireEvent.change( input, { target: { value: 'hello' } } );
+
+		await screen.findByText( 'Hello Again' );
+		const list = await screen.findByRole( 'listbox' );
+		expect( within( list ).getAllByRole( 'option', { name: /Hello World/ } ) ).toHaveLength( 1 );
+	} );
+
+	it( 'keeps typing focus in the input through the empty-results window', async () => {
+		renderAddressBar();
+
+		const input = await openOmnibox();
+		input.focus();
+		expect( input ).toHaveFocus();
+		fireEvent.change( input, { target: { value: 'q' } } );
+		expect( input ).toHaveFocus();
+		fireEvent.change( input, { target: { value: 'qq' } } );
+		expect( input ).toHaveFocus();
+		await screen.findByText( 'No matches' );
+		expect( input ).toHaveFocus();
+	} );
+
 	it( 'navigates destination-free paths directly from the zero state', async () => {
 		const { onNavigate } = renderAddressBar( { path: '/' } );
 
@@ -297,6 +397,44 @@ describe( 'PreviewAddressBar', () => {
 		expect( onNavigate ).toHaveBeenCalledWith( '/sample-page' );
 		// Opening the omnibox fetches front-end links, but typing a path must
 		// not trigger the content search endpoint.
+		expect( fetchSiteRest ).not.toHaveBeenCalledWith(
+			'site-1',
+			expect.objectContaining( { path: expect.stringContaining( '/wp/v2/search' ) } )
+		);
+	} );
+
+	it( 'treats a retyped current path as a path, not the zero state', async () => {
+		const { onNavigate } = renderAddressBar( { path: '/sample-page/' } );
+
+		const input = await openOmnibox();
+		fireEvent.change( input, { target: { value: '/sample-page' } } );
+		fireEvent.change( input, { target: { value: '/sample-page/' } } );
+
+		expect( screen.queryByText( 'Front end' ) ).not.toBeInTheDocument();
+
+		fireEvent.keyDown( input, { key: 'Enter' } );
+		expect( onNavigate ).toHaveBeenCalledWith( '/sample-page/' );
+	} );
+
+	it( 'suggests destinations matching a typed path', async () => {
+		const { onNavigate } = renderAddressBar();
+
+		const input = await openOmnibox();
+		fireEvent.change( input, { target: { value: '/wp-admin/upl' } } );
+
+		fireEvent.click( await screen.findByRole( 'option', { name: /Media Library/ } ) );
+		expect( onNavigate ).toHaveBeenCalledWith( autoLoginPath( '/wp-admin/upload.php' ) );
+	} );
+
+	it( 'keeps Enter on the literal path while path suggestions are visible', async () => {
+		const { fetchSiteRest, onNavigate } = renderAddressBar();
+
+		const input = await openOmnibox();
+		fireEvent.change( input, { target: { value: '/wp-admin/upl' } } );
+		await screen.findByRole( 'option', { name: /Media Library/ } );
+
+		fireEvent.keyDown( input, { key: 'Enter' } );
+		expect( onNavigate ).toHaveBeenCalledWith( autoLoginPath( '/wp-admin/upl' ) );
 		expect( fetchSiteRest ).not.toHaveBeenCalledWith(
 			'site-1',
 			expect.objectContaining( { path: expect.stringContaining( '/wp/v2/search' ) } )

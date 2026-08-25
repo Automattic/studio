@@ -9,6 +9,11 @@ import {
 } from '@studio/common/ai/chat-artifacts';
 import { readBlobAsDataUrl } from '@studio/common/ai/composer-attachments';
 import {
+	isAiAccessRequiredError,
+	isAiBlockedError,
+	isUsageCapError,
+} from '@studio/common/ai/json-events';
+import {
 	isStudioCustomEntryOfType,
 	type StudioChatAttachmentSummary,
 	type StudioCustomEntry,
@@ -19,12 +24,15 @@ import {
 	getToolResultDiff,
 	type NormalizedToolResult,
 } from '@studio/common/ai/tools';
+import { formatUsageCapNotice } from '@studio/common/lib/studio-assistant-quota';
 import { __, sprintf } from '@wordpress/i18n';
 import { image, page } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
+import { AiAccessRequiredNotice, AiBlockedNotice } from 'src/components/ai-access-required-notice';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useGetStudioAssistantQuota } from 'src/stores/wpcom-api';
 import { CopyButton } from '../copy-button';
 import { Markdown } from '../markdown';
 import { ThinkingIndicator } from '../thinking-indicator';
@@ -70,7 +78,8 @@ type RenderItem =
 			key: string;
 			widgets: StudioChatArtifactWidgetDraft[];
 	  }
-	| { kind: 'interrupted-marker'; key: string };
+	| { kind: 'interrupted-marker'; key: string }
+	| { kind: 'error-marker'; key: string; message: string };
 
 interface PiAssistantContentBlock {
 	type: 'text' | 'toolCall' | 'thinking';
@@ -357,6 +366,12 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 					kind: 'interrupted-marker',
 					key: `${ entryIndex }:interrupted`,
 				} );
+			} else if ( data?.status === 'error' ) {
+				items.push( {
+					kind: 'error-marker',
+					key: `${ entryIndex }:error`,
+					message: data.errorMessage ?? '',
+				} );
 			}
 			return;
 		}
@@ -505,8 +520,31 @@ function UserTurn( {
 }
 
 function AssistantText( { text, copyText }: { text: string; copyText?: string } ) {
+	const [ showCopied, setShowCopied ] = useState( false );
+	const copiedTimer = useRef< ReturnType< typeof setTimeout > | null >( null );
+	useEffect( () => {
+		return () => {
+			if ( copiedTimer.current ) {
+				clearTimeout( copiedTimer.current );
+			}
+		};
+	}, [] );
+
+	// Double-click anywhere in the reply copies it (the whole message when
+	// this is its last text block, otherwise this fragment). Native word
+	// selection still happens — the copy is additive, and the notice is the
+	// only signal that more than a selection occurred.
+	const handleDoubleClick = useCallback( () => {
+		void getIpcApi().copyText( copyText ?? text );
+		setShowCopied( true );
+		if ( copiedTimer.current ) {
+			clearTimeout( copiedTimer.current );
+		}
+		copiedTimer.current = setTimeout( () => setShowCopied( false ), 1500 );
+	}, [ copyText, text ] );
+
 	return (
-		<div className={ styles.assistantTurn }>
+		<div className={ styles.assistantTurn } onDoubleClick={ handleDoubleClick }>
 			<Markdown>{ text }</Markdown>
 			{ copyText ? (
 				<CopyButton
@@ -514,6 +552,11 @@ function AssistantText( { text, copyText }: { text: string; copyText?: string } 
 					label={ __( 'Copy message' ) }
 					className={ styles.messageActions }
 				/>
+			) : null }
+			{ showCopied ? (
+				<span className={ styles.copyNotice } role="status">
+					{ __( 'Copied' ) }
+				</span>
 			) : null }
 		</div>
 	);
@@ -856,6 +899,32 @@ function PermissionRequest( {
 	);
 }
 
+// In-flow marker for a turn that ended in an error. The monthly usage cap
+// gets dedicated copy — with the reset date once the quota query resolves —
+// instead of the raw provider message.
+function TurnErrorMarker( { message }: { message: string } ) {
+	const isUsageCap = isUsageCapError( message );
+	const isAccessRequired = isAiAccessRequiredError( message );
+	const { data: quota } = useGetStudioAssistantQuota( undefined, {
+		skip: ! isUsageCap && ! isAccessRequired,
+	} );
+	let text: ReactNode;
+	if ( isAiBlockedError( message ) ) {
+		text = <AiBlockedNotice />;
+	} else if ( isAccessRequired ) {
+		text = <AiAccessRequiredNotice quota={ quota } />;
+	} else if ( isUsageCap ) {
+		text = formatUsageCapNotice( quota?.costResetDate );
+	} else {
+		text = message || __( 'Something went wrong and this turn was stopped. Please try again.' );
+	}
+	return (
+		<div className={ styles.errorMarker } role="alert">
+			{ text }
+		</div>
+	);
+}
+
 export function Conversation( {
 	data,
 	isRunning,
@@ -994,6 +1063,8 @@ export function Conversation( {
 								{ __( 'Interrupted by you' ) }
 							</div>
 						);
+					case 'error-marker':
+						return <TurnErrorMarker key={ item.key } message={ item.message } />;
 					default:
 						return null;
 				}

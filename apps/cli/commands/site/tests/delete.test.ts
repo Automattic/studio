@@ -1,4 +1,6 @@
 import fs from 'fs';
+import { deleteAiSessionsForSite } from '@studio/common/ai/sessions/manage';
+import { removeAllConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
@@ -18,12 +20,17 @@ import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { removeDomainFromHosts } from 'cli/lib/hosts-file';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { getSnapshotsFromConfig, deleteSnapshotFromConfig } from 'cli/lib/snapshots';
+import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { runCommand } from '../delete';
 
 vi.mock( 'fs' );
 vi.mock( 'cli/lib/api' );
+vi.mock( '@studio/common/ai/sessions/manage' );
+vi.mock( '@studio/common/lib/connected-sites', () => ( {
+	removeAllConnectedWpcomSitesForLocalSite: vi.fn(),
+} ) );
 vi.mock( import( '@studio/common/lib/shared-config' ), async ( importOriginal ) => ( {
 	...( await importOriginal() ),
 	readAuthToken: vi.fn(),
@@ -53,6 +60,10 @@ vi.mock( 'cli/lib/snapshots' );
 vi.mock( 'cli/lib/wordpress-server-manager' );
 vi.mock( '@studio/common/lib/fs-utils' );
 vi.mock( 'trash' );
+vi.mock( 'cli/lib/tracks', async ( importActual ) => {
+	const actual = await importActual< typeof import('cli/lib/tracks') >();
+	return { ...actual, recordTracksEvent: vi.fn() };
+} );
 
 describe( 'CLI: studio site delete', () => {
 	const testSiteFolder = '/test/site/path';
@@ -131,6 +142,8 @@ describe( 'CLI: studio site delete', () => {
 		vi.mocked( deleteSnapshotFromConfig ).mockResolvedValue( undefined );
 		vi.mocked( stopProxyIfNoSitesNeedIt ).mockResolvedValue( undefined );
 		vi.mocked( arePathsEqual ).mockImplementation( ( a: string, b: string ) => a === b );
+		vi.mocked( deleteAiSessionsForSite ).mockResolvedValue( [] );
+		vi.mocked( removeAllConnectedWpcomSitesForLocalSite ).mockResolvedValue( undefined );
 		vi.spyOn( fs, 'existsSync' ).mockReturnValue( true );
 	} );
 
@@ -205,6 +218,7 @@ describe( 'CLI: studio site delete', () => {
 			expect( lockCliConfig ).toHaveBeenCalled();
 			expect( readCliConfig ).toHaveBeenCalled();
 			expect( saveCliConfig ).toHaveBeenCalled();
+			expect( removeAllConnectedWpcomSitesForLocalSite ).toHaveBeenCalledWith( testSite.id );
 			const savedCliConfig = vi.mocked( saveCliConfig ).mock.calls[ 0 ][ 0 ];
 			expect( savedCliConfig.sites ).toHaveLength( 0 );
 			expect( unlockCliConfig ).toHaveBeenCalled();
@@ -345,6 +359,34 @@ describe( 'CLI: studio site delete', () => {
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
+		it( 'should delete the chat sessions associated with the site', async () => {
+			await runCommand( testSiteFolder, false );
+
+			expect( deleteAiSessionsForSite ).toHaveBeenCalledWith( expect.any( String ), {
+				id: testSite.id,
+				path: testSite.path,
+			} );
+		} );
+
+		it( 'should proceed when deleting chat sessions fails', async () => {
+			vi.mocked( deleteAiSessionsForSite ).mockRejectedValue( new Error( 'delete failed' ) );
+
+			await expect( runCommand( testSiteFolder, true ) ).resolves.not.toThrow();
+			expect( trash ).toHaveBeenCalledWith( [ testSiteFolder ] );
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
+		} );
+
+		it( 'should proceed when deleting WordPress.com connections fails', async () => {
+			vi.mocked( removeAllConnectedWpcomSitesForLocalSite ).mockRejectedValue(
+				new Error( 'shared config failed' )
+			);
+
+			await expect( runCommand( testSiteFolder, true ) ).resolves.not.toThrow();
+			expect( saveCliConfig ).toHaveBeenCalled();
+			expect( trash ).toHaveBeenCalledWith( [ testSiteFolder ] );
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
+		} );
+
 		it( 'should not remove domain or certificate if no custom domain', async () => {
 			vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [] );
 
@@ -353,6 +395,24 @@ describe( 'CLI: studio site delete', () => {
 			expect( removeDomainFromHosts ).not.toHaveBeenCalled();
 			expect( deleteSiteCertificate ).not.toHaveBeenCalled();
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
+		} );
+
+		it( 'records a site-delete Tracks event with delete_files true when trashing files', async () => {
+			await runCommand( testSiteFolder, true );
+
+			expect( recordTracksEvent ).toHaveBeenCalledWith(
+				TRACKS_EVENTS.SITE_DELETE,
+				expect.objectContaining( { delete_files: true } )
+			);
+		} );
+
+		it( 'records a site-delete Tracks event with delete_files false when keeping files', async () => {
+			await runCommand( testSiteFolder, false );
+
+			expect( recordTracksEvent ).toHaveBeenCalledWith(
+				TRACKS_EVENTS.SITE_DELETE,
+				expect.objectContaining( { delete_files: false } )
+			);
 		} );
 	} );
 } );

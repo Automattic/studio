@@ -23,17 +23,28 @@ export function getDataLiberationEngineDir(): string {
 	return path.join( import.meta.dirname, 'data-liberation-agent' );
 }
 
-async function connectClient( engineDir: string ): Promise< Client > {
-	const bundle = path.join( engineDir, 'dist', 'mcp-server.bundle.mjs' );
+function getEngineBundle( engineDir: string, filename: string, label = 'engine' ): string {
+	const bundle = path.join( engineDir, 'dist', filename );
 	if ( ! existsSync( bundle ) ) {
 		throw new Error(
-			'Data Liberation engine is not compiled. Run `npm run cli:build` and try again.'
+			`Data Liberation ${ label } is not compiled. Run \`npm run cli:build\` and try again.`
 		);
 	}
+	return bundle;
+}
 
+async function ensureDataLiberationBrowser(): Promise< void > {
+	const { chromium } = await import( 'playwright' );
+	const browserProblem = await ensurePlaywrightChromiumInstalled( chromium );
+	if ( browserProblem ) {
+		throw new Error( browserProblem );
+	}
+}
+
+async function connectClient( engineDir: string ): Promise< Client > {
 	const transport = new StdioClientTransport( {
 		command: process.execPath,
-		args: [ bundle ],
+		args: [ getEngineBundle( engineDir, 'mcp-server.bundle.mjs' ) ],
 		cwd: engineDir,
 		stderr: 'pipe',
 	} );
@@ -59,11 +70,7 @@ export async function callDataLiberationTool(
 	engineDir = getDataLiberationEngineDir()
 ): Promise< unknown > {
 	if ( tool === 'liberate_capture' ) {
-		const { chromium } = await import( 'playwright' );
-		const browserProblem = await ensurePlaywrightChromiumInstalled( chromium );
-		if ( browserProblem ) {
-			throw new Error( browserProblem );
-		}
+		await ensureDataLiberationBrowser();
 	}
 
 	const client = await connectClient( engineDir );
@@ -93,18 +100,9 @@ async function runDataLiberationCapture(
 	args: Record< string, unknown >,
 	engineDir = getDataLiberationEngineDir()
 ): Promise< unknown > {
-	const { chromium } = await import( 'playwright' );
-	const browserProblem = await ensurePlaywrightChromiumInstalled( chromium );
-	if ( browserProblem ) {
-		throw new Error( browserProblem );
-	}
+	await ensureDataLiberationBrowser();
 
-	const bundle = path.join( engineDir, 'dist', 'capture-engine.bundle.mjs' );
-	if ( ! existsSync( bundle ) ) {
-		throw new Error(
-			'Data Liberation capture engine is not compiled. Run `npm run cli:build` and try again.'
-		);
-	}
+	const bundle = getEngineBundle( engineDir, 'capture-engine.bundle.mjs', 'capture engine' );
 	const engine = ( await import( /* @vite-ignore */ pathToFileURL( bundle ).href ) ) as {
 		captureWebsite: ( captureArgs: Record< string, unknown > ) => Promise< unknown >;
 	};

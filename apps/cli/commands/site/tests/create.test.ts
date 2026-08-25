@@ -262,7 +262,7 @@ describe( 'CLI: studio create', () => {
 		vi.restoreAllMocks();
 	} );
 
-	const buildCapturedSiteBlueprint = ( storeImportResult = false ) => {
+	const createCapturedSiteArtifact = () => {
 		const artifactDir = fs.mkdtempSync( path.join( '/tmp', 'studio-captured-artifact-' ) );
 		const artifactPath = path.join( artifactDir, 'artifact.json' );
 		fs.writeFileSync(
@@ -273,8 +273,12 @@ describe( 'CLI: studio create', () => {
 				files: [ { path: 'website/index.html', content: '<main>Captured</main>' } ],
 			} )
 		);
+		return artifactPath;
+	};
+
+	const buildCapturedSiteBlueprint = ( storeImportResult = false ) => {
 		return buildCreateFromSourceBlueprint(
-			artifactPath,
+			createCapturedSiteArtifact(),
 			'Captured Site',
 			'https://example.com/static-site-importer.zip',
 			storeImportResult,
@@ -576,19 +580,8 @@ describe( 'CLI: studio create', () => {
 		} );
 
 		it( 'retains the URL resume identity after capture produces an artifact', () => {
-			const artifactDir = fs.mkdtempSync( path.join( '/tmp', 'studio-captured-artifact-' ) );
-			const artifactPath = path.join( artifactDir, 'artifact.json' );
-			fs.writeFileSync(
-				artifactPath,
-				JSON.stringify( {
-					schema: 'blocks-engine/php-transformer/site-artifact/v1',
-					entrypoint: 'website/index.html',
-					files: [ { path: 'website/index.html', content: '<main>Captured</main>' } ],
-				} )
-			);
-
 			const blueprint = buildCreateFromSourceBlueprint(
-				artifactPath,
+				createCapturedSiteArtifact(),
 				'Captured Site',
 				'https://example.com/static-site-importer.zip',
 				false,

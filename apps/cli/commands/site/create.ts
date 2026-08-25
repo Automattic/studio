@@ -106,6 +106,9 @@ const logger = new Logger< LoggerAction >();
 const DEFAULT_STATIC_SITE_IMPORTER_PLUGIN_URL =
 	'https://github.com/Automattic/static-site-importer/releases/download/v1.7.0/static-site-importer.zip';
 const STATIC_SITE_IMPORT_CONTRACT = 'ssi-import-v5-plan-first';
+const STATIC_SITE_IMPORT_DIR = '.studio-import';
+const STATIC_SITE_IMPORT_SCRIPT_FILE = 'import.php';
+const STATIC_SITE_IMPORT_FIGMA_FILE = 'source.fig';
 const STATIC_SITE_IMPORT_IDENTITY_FILE = 'static-site-importer.json';
 const STATIC_SITE_IMPORT_RESULT_FILE = 'result.json';
 const STATIC_SITE_IMPORT_SOURCE_FILE = 'source.json';
@@ -118,18 +121,10 @@ const DATA_LIBERATION_CAPTURE_RECEIPT_SCHEMA = 'data-liberation/capture-receipt/
 type StaticSiteImportProgressPhase = 'dependency-preparation' | 'compiler-import' | 'finalization';
 type StaticSiteImportIdentity = { source: string; contract: string; phase?: 'cleanup_pending' };
 
-type StaticSiteImporterSource =
-	| {
-			type: 'website-artifact';
-			path: string;
-			artifact: Record< string, unknown >;
-			payload: Record< string, unknown >;
-	  }
-	| {
-			type: 'source';
-			path: string;
-			payload: Record< string, unknown >;
-	  };
+type StaticSiteImporterSource = {
+	path: string;
+	payload: Record< string, unknown >;
+};
 
 type StaticSiteImporterPlugin = string | { path: string };
 
@@ -285,9 +280,7 @@ function resolveStaticSiteImporterSource(
 			const artifact = readSiteArtifact( artifactPath );
 			if ( artifact.schema === 'blocks-engine/php-transformer/site-artifact/v1' ) {
 				return {
-					type: 'website-artifact',
 					path: artifactPath,
-					artifact,
 					payload: { artifact },
 				};
 			}
@@ -296,7 +289,6 @@ function resolveStaticSiteImporterSource(
 		const files = collectSourceFiles( resolveDataLiberationWebsiteRoot( sourcePath ) );
 		if ( files.length > 0 ) {
 			return {
-				type: 'source',
 				path: sourcePath,
 				payload: { files },
 			};
@@ -315,16 +307,13 @@ function resolveStaticSiteImporterSource(
 	if ( extension === '.json' ) {
 		const artifact = readSiteArtifact( sourcePath );
 		return {
-			type: 'website-artifact',
 			path: sourcePath,
-			artifact,
 			payload: { artifact },
 		};
 	}
 
 	if ( extension === '.zip' ) {
 		return {
-			type: 'source',
 			path: sourcePath,
 			payload: {
 				archive: {
@@ -340,7 +329,6 @@ function resolveStaticSiteImporterSource(
 			throw new LoggerError( __( 'A staging path is required for Figma imports.' ) );
 		}
 		return {
-			type: 'source',
 			path: sourcePath,
 			payload: {
 				figma_file: {
@@ -355,7 +343,6 @@ function resolveStaticSiteImporterSource(
 	}
 
 	return {
-		type: 'source',
 		path: sourcePath,
 		payload: {
 			files: [ sourceFilePayload( sourcePath, path.basename( sourcePath ) ) ],
@@ -377,7 +364,7 @@ if ( ! function_exists( 'did_action' ) || ! did_action( 'plugins_loaded' ) ) {
 require_once ABSPATH . 'wp-admin/includes/plugin.php';
 require_once ABSPATH . 'wp-admin/includes/file.php';
 
-$source_path = ABSPATH . '.studio-import/${ STATIC_SITE_IMPORT_SOURCE_FILE }';
+$source_path = ABSPATH . '${ STATIC_SITE_IMPORT_DIR }/${ STATIC_SITE_IMPORT_SOURCE_FILE }';
 $source_raw = is_file( $source_path ) ? file_get_contents( $source_path ) : false;
 $source = is_string( $source_raw ) ? json_decode( $source_raw, true ) : null;
 if ( ! is_array( $source ) ) {
@@ -406,8 +393,7 @@ $input = array(
 		'source_path' => ${ phpString( sourcePath ) },
 	),
 );
-$url_batch_run = array();
-$state_path = ABSPATH . '.studio-import/${ STATIC_SITE_IMPORT_STATE_FILE }';
+$state_path = ABSPATH . '${ STATIC_SITE_IMPORT_DIR }/${ STATIC_SITE_IMPORT_STATE_FILE }';
 $state_raw = is_file( $state_path ) ? file_get_contents( $state_path ) : false;
 $state = is_string( $state_raw ) ? json_decode( $state_raw, true ) : array();
 $state = is_array( $state ) ? $state : array();
@@ -496,7 +482,7 @@ function static_site_importer_studio_write_result( array $result ): void {
 	if ( ! is_string( $encoded ) ) {
 		throw new RuntimeException( 'Static Site Importer result receipt could not be encoded.' );
 	}
-	$result_path = ABSPATH . '.studio-import/${ STATIC_SITE_IMPORT_RESULT_FILE }';
+	$result_path = ABSPATH . '${ STATIC_SITE_IMPORT_DIR }/${ STATIC_SITE_IMPORT_RESULT_FILE }';
 	$temp_path = $result_path . '.tmp-' . wp_generate_uuid4();
 	if ( false === file_put_contents( $temp_path, $encoded ) ) {
 		throw new RuntimeException( 'Static Site Importer result receipt could not be saved.' );
@@ -636,7 +622,7 @@ foreach ( array_unique( array_map( 'intval', array_values( isset( $import_result
 		);
 	}
 }
-if ( ! empty( $canonical_documents ) && false === file_put_contents( ABSPATH . '.studio-import/${ STATIC_SITE_IMPORT_CANONICAL_DOCUMENTS_FILE }', wp_json_encode( $canonical_documents ) ) ) {
+if ( ! empty( $canonical_documents ) && false === file_put_contents( ABSPATH . '${ STATIC_SITE_IMPORT_DIR }/${ STATIC_SITE_IMPORT_CANONICAL_DOCUMENTS_FILE }', wp_json_encode( $canonical_documents ) ) ) {
 	throw new RuntimeException( 'Static Site Importer client canonicalization handoff could not be saved.' );
 }
 static_site_importer_studio_reject_catastrophic_content_loss( $source, $canonical_documents );
@@ -696,10 +682,10 @@ export function buildCreateFromSourceBlueprint(
 	};
 } {
 	const stagedFigmaName =
-		path.extname( sourcePath ).toLowerCase() === '.fig' ? 'source.fig' : undefined;
+		path.extname( sourcePath ).toLowerCase() === '.fig' ? STATIC_SITE_IMPORT_FIGMA_FILE : undefined;
 	const source = resolveStaticSiteImporterSource(
 		sourcePath,
-		stagedFigmaName ? path.join( '.studio-import', stagedFigmaName ) : undefined
+		stagedFigmaName ? path.join( STATIC_SITE_IMPORT_DIR, stagedFigmaName ) : undefined
 	);
 	const tempDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-create-from-' ) );
 	const blueprintPath = path.join( tempDir, 'blueprint.json' );
@@ -751,30 +737,36 @@ export function buildCreateFromSourceBlueprint(
 }
 
 function staticSiteImportIdentityPath( sitePath: string ): string {
-	return path.join( sitePath, '.studio-import', STATIC_SITE_IMPORT_IDENTITY_FILE );
+	return path.join( sitePath, STATIC_SITE_IMPORT_DIR, STATIC_SITE_IMPORT_IDENTITY_FILE );
 }
 
 function cleanupSuccessfulStaticSiteImport( sitePath: string, preserveResult = false ): void {
-	fs.rmSync( path.join( sitePath, '.studio-import', 'import.php' ), { force: true } );
+	fs.rmSync( path.join( sitePath, STATIC_SITE_IMPORT_DIR, STATIC_SITE_IMPORT_SCRIPT_FILE ), {
+		force: true,
+	} );
 	if ( ! preserveResult ) {
-		fs.rmSync( path.join( sitePath, '.studio-import', STATIC_SITE_IMPORT_RESULT_FILE ), {
+		fs.rmSync( path.join( sitePath, STATIC_SITE_IMPORT_DIR, STATIC_SITE_IMPORT_RESULT_FILE ), {
 			force: true,
 		} );
 	}
-	fs.rmSync( path.join( sitePath, '.studio-import', STATIC_SITE_IMPORT_SOURCE_FILE ), {
+	fs.rmSync( path.join( sitePath, STATIC_SITE_IMPORT_DIR, STATIC_SITE_IMPORT_SOURCE_FILE ), {
 		force: true,
 	} );
-	fs.rmSync( path.join( sitePath, '.studio-import', 'source.fig' ), { force: true } );
+	fs.rmSync( path.join( sitePath, STATIC_SITE_IMPORT_DIR, STATIC_SITE_IMPORT_FIGMA_FILE ), {
+		force: true,
+	} );
 	fs.rmSync( staticSiteImportIdentityPath( sitePath ), { force: true } );
-	fs.rmSync( path.join( sitePath, '.studio-import', STATIC_SITE_IMPORT_STATE_FILE ), {
+	fs.rmSync( path.join( sitePath, STATIC_SITE_IMPORT_DIR, STATIC_SITE_IMPORT_STATE_FILE ), {
 		force: true,
 	} );
-	fs.rmSync( path.join( sitePath, '.studio-import', STATIC_SITE_IMPORT_CANONICAL_DOCUMENTS_FILE ), {
-		force: true,
-	} );
-	fs.rmSync( path.join( sitePath, '.studio-import', STATIC_SITE_IMPORT_CANONICAL_UPDATES_FILE ), {
-		force: true,
-	} );
+	fs.rmSync(
+		path.join( sitePath, STATIC_SITE_IMPORT_DIR, STATIC_SITE_IMPORT_CANONICAL_DOCUMENTS_FILE ),
+		{ force: true }
+	);
+	fs.rmSync(
+		path.join( sitePath, STATIC_SITE_IMPORT_DIR, STATIC_SITE_IMPORT_CANONICAL_UPDATES_FILE ),
+		{ force: true }
+	);
 }
 
 async function canonicalizeStaticSiteImport( site: SiteData, stagingDir: string ): Promise< void > {
@@ -819,7 +811,7 @@ async function canonicalizeStaticSiteImport( site: SiteData, stagingDir: string 
 		fs.writeFileSync( updatesPath, JSON.stringify( updates ) );
 		await using command = await runWpCliCommandWithMessaging( site, [
 			'eval',
-			`$path = ABSPATH . '.studio-import/${ STATIC_SITE_IMPORT_CANONICAL_UPDATES_FILE }';
+			`$path = ABSPATH . '${ STATIC_SITE_IMPORT_DIR }/${ STATIC_SITE_IMPORT_CANONICAL_UPDATES_FILE }';
 $documents = json_decode( (string) file_get_contents( $path ), true );
 if ( ! is_array( $documents ) ) {
 	throw new RuntimeException( 'Client canonicalization updates are invalid.' );
@@ -901,8 +893,8 @@ async function runStaticSiteImport(
 	preserveResult = false,
 	resume = false
 ): Promise< boolean > {
-	const stagingDir = path.join( site.path, '.studio-import' );
-	const scriptName = 'import.php';
+	const stagingDir = path.join( site.path, STATIC_SITE_IMPORT_DIR );
+	const scriptName = STATIC_SITE_IMPORT_SCRIPT_FILE;
 	const scriptPath = path.join( stagingDir, scriptName );
 	const resultPath = path.join( stagingDir, STATIC_SITE_IMPORT_RESULT_FILE );
 	const statePath = path.join( stagingDir, STATIC_SITE_IMPORT_STATE_FILE );
@@ -1112,7 +1104,7 @@ function resumableStaticSiteImportPhase(
 	if ( ! identity ) {
 		return null;
 	}
-	const scriptPath = path.join( sitePath, '.studio-import', 'import.php' );
+	const scriptPath = path.join( sitePath, STATIC_SITE_IMPORT_DIR, STATIC_SITE_IMPORT_SCRIPT_FILE );
 	const identityPath = staticSiteImportIdentityPath( sitePath );
 	if ( ! fs.existsSync( scriptPath ) || ! fs.existsSync( identityPath ) ) {
 		return null;
@@ -1558,7 +1550,10 @@ export async function runCommand(
 			! registeredSite &&
 			! staticSiteImportResultObserved
 		) {
-			fs.rmSync( path.join( sitePath, '.studio-import' ), { recursive: true, force: true } );
+			fs.rmSync( path.join( sitePath, STATIC_SITE_IMPORT_DIR ), {
+				recursive: true,
+				force: true,
+			} );
 		}
 		await disconnectFromDaemon();
 	}

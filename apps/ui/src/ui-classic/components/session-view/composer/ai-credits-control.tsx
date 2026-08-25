@@ -2,7 +2,7 @@ import { getStudioCodeAiAccessState } from '@studio/common/lib/studio-assistant-
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
-import { chartBar, external } from '@wordpress/icons';
+import { chartBar } from '@wordpress/icons';
 import { Icon, Tooltip } from '@wordpress/ui';
 import { useState } from 'react';
 import { AiCreditsDetailsDialog } from '@/components/ai-credits-details-dialog';
@@ -110,7 +110,6 @@ export function AiCreditsControl() {
 						} }
 					>
 						{ __( 'Add AI credits' ) }
-						{ hasTopUpOptions ? null : <Icon icon={ external } size={ 14 } aria-hidden="true" /> }
 					</Menu.Item>
 					<Menu.Item onClick={ () => setDetailsOpen( true ) }>
 						{ __( 'How AI credits work' ) }

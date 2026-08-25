@@ -1,5 +1,4 @@
 import { __ } from '@wordpress/i18n';
-import { external } from '@wordpress/icons';
 import { Button } from '@wordpress/ui';
 import { useState } from 'react';
 import { AiCreditsPurchaseDialog } from '@/components/ai-credits-purchase-dialog';
@@ -12,8 +11,7 @@ import type { ComponentProps } from 'react';
  * The one way to buy AI credits, wherever the offer appears. With priced
  * amounts to choose between it opens the purchase dialog; with none — pricing
  * unavailable, or still loading — a chooser would have nothing to show, so it
- * goes straight to checkout for the single fixed top-up and says so with the
- * external-link glyph.
+ * goes straight to checkout for the single fixed top-up.
  */
 export function AddAiCreditsButton( {
 	className,
@@ -46,7 +44,6 @@ export function AddAiCreditsButton( {
 				} }
 			>
 				{ __( 'Add AI credits' ) }
-				{ hasOptions ? null : <Button.Icon icon={ external } size={ 12 } /> }
 			</Button>
 			<AiCreditsPurchaseDialog open={ dialogOpen } onOpenChange={ setDialogOpen } />
 		</>

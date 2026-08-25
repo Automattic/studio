@@ -35,12 +35,13 @@ import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 import { handleExportEvents } from './export';
 
-const logger = new Logger< LoggerAction >();
+const defaultLogger = new Logger< LoggerAction >();
 
 export async function runCommand(
 	siteFolder: string,
 	syncOptions?: SyncOption[],
-	remoteSiteIdentifier?: string
+	remoteSiteIdentifier?: string,
+	logger: Logger< LoggerAction > = defaultLogger
 ): Promise< void > {
 	const token = await readAuthToken();
 	if ( ! token ) {
@@ -128,7 +129,7 @@ export async function runCommand(
 			throw new LoggerError( __( 'No suitable exporter found for the provided backup file' ) );
 		}
 
-		handleExportEvents( exporter );
+		handleExportEvents( exporter, logger );
 		await exporter.export();
 
 		const archiveSize = fs.statSync( archivePath ).size;
@@ -300,10 +301,10 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				await runCommand( argv.path, argv.options, argv.remoteSite );
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {
-					logger.reportError( error );
+					defaultLogger.reportError( error );
 				} else {
 					const loggerError = new LoggerError( __( 'Push failed' ), error );
-					logger.reportError( loggerError );
+					defaultLogger.reportError( loggerError );
 				}
 			}
 		},

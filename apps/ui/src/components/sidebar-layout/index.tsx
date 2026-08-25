@@ -1,13 +1,14 @@
 import { __ } from '@wordpress/i18n';
 import { privateApis } from '@wordpress/theme';
-import { IconButton } from '@wordpress/ui';
+import { Button, Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useState } from 'react';
 import { AppMessageCards, AppMessageCardsDot } from '@/components/app-message-cards';
 import { AppToasts } from '@/components/app-toasts';
+import { CollapsedSiteSwitcher } from '@/components/collapsed-site-switcher';
 import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { SidebarHeader } from '@/components/sidebar-header';
-import { SiteList } from '@/components/site-list';
+import { SeenSessionTimestampsProvider, SiteList } from '@/components/site-list';
 import { StudioBetaMenu } from '@/components/studio-beta-menu';
 import { UserMenu } from '@/components/user-menu';
 import { useConnector } from '@/data/core';
@@ -69,88 +70,111 @@ export function SidebarLayout( {
 
 	return (
 		<SidebarCollapsedContext.Provider value={ effectiveCollapsed }>
-			<div className={ styles.root } style={ { '--app-chrome-bg': chromeBg } as CSSProperties }>
-				<aside
-					className={ clsx(
-						styles.sidebar,
-						effectiveCollapsed && styles.sidebarCollapsed,
-						sidebarResize.isResizing && styles.sidebarResizing
-					) }
-					style={ sidebarStyle }
-				>
-					{ /* The sidebar sits on the dark window chrome in both color
+			{ /* The aside's list and the collapsed switcher's list must agree on
+			     which session updates the user has seen, or each mount would
+			     re-seed and hide the other's unread indicators. */ }
+			<SeenSessionTimestampsProvider>
+				<div className={ styles.root } style={ { '--app-chrome-bg': chromeBg } as CSSProperties }>
+					<aside
+						className={ clsx(
+							styles.sidebar,
+							effectiveCollapsed && styles.sidebarCollapsed,
+							sidebarResize.isResizing && styles.sidebarResizing
+						) }
+						style={ sidebarStyle }
+					>
+						{ /* The sidebar sits on the dark window chrome in both color
 					     schemes, so its wpds tokens come from a nested dark theme
 					     scope. */ }
-					<ThemeProvider color={ { bg: chromeBg } }>
-						<div className={ styles.sidebarThemeScope }>
-							<SidebarHeader />
-							<SiteList />
-							<div className={ styles.sidebarFooter }>
-								{ /* Toasts sit above the persistent cards: the footer is
+						<ThemeProvider color={ { bg: chromeBg } }>
+							<div className={ styles.sidebarThemeScope }>
+								<SidebarHeader />
+								<SiteList />
+								<div className={ styles.sidebarFooter }>
+									{ /* Toasts sit above the persistent cards: the footer is
 								     bottom-anchored, so a transient toast arriving below a card
 								     would shove it up and drop it back on expiry. */ }
-								{ ! effectiveCollapsed ? <AppToasts className={ styles.sidebarToasts } /> : null }
-								{ ! effectiveCollapsed ? (
-									<AppMessageCards className={ styles.sidebarCards } />
-								) : null }
-								{ ! effectiveCollapsed ? (
-									<StudioBetaMenu className={ styles.sidebarBeta } />
-								) : null }
-								<UserMenu onToggleSidebar={ toggleSidebar } />
+									{ ! effectiveCollapsed ? <AppToasts className={ styles.sidebarToasts } /> : null }
+									{ ! effectiveCollapsed ? (
+										<AppMessageCards className={ styles.sidebarCards } />
+									) : null }
+									{ ! effectiveCollapsed ? (
+										<StudioBetaMenu className={ styles.sidebarBeta } />
+									) : null }
+									<UserMenu onToggleSidebar={ toggleSidebar } />
+								</div>
 							</div>
-						</div>
-					</ThemeProvider>
-				</aside>
-				{ ! effectiveCollapsed ? (
-					// Same dark theme scope as the sidebar so the indicator's
-					// brand token resolves against the dark ramp.
-					<ThemeProvider color={ { bg: chromeBg } }>
-						<ResizeHandle
-							className={ styles.resizeHandle }
-							label={ __( 'Resize sidebar' ) }
-							minWidth={ sidebarResize.minWidth }
-							maxWidth={ sidebarResize.maxWidth }
-							width={ sidebarResize.width }
-							isResizing={ sidebarResize.isResizing }
-							onResizeStart={ sidebarResize.handleResizeStart }
-							onKeyDown={ sidebarResize.handleKeyDown }
-						/>
-					</ThemeProvider>
-				) : null }
-				<main className={ styles.main }>
-					{ effectiveCollapsed && ! forceCollapsed ? (
-						<div
-							className={ clsx(
-								styles.floatingToggle,
-								! reserveTrafficLightSpace && styles.floatingToggleFlush
-							) }
-						>
-							<span className={ styles.floatingToggleButton }>
-								<IconButton
-									variant="minimal"
-									tone="neutral"
-									size="small"
-									icon={ drawerIcon }
-									label={ __( 'Show sidebar' ) }
-									onClick={ toggleSidebar }
-								/>
-								<AppMessageCardsDot />
-							</span>
-						</div>
+						</ThemeProvider>
+					</aside>
+					{ ! effectiveCollapsed ? (
+						// Same dark theme scope as the sidebar so the indicator's
+						// brand token resolves against the dark ramp.
+						<ThemeProvider color={ { bg: chromeBg } }>
+							<ResizeHandle
+								className={ styles.resizeHandle }
+								label={ __( 'Resize sidebar' ) }
+								minWidth={ sidebarResize.minWidth }
+								maxWidth={ sidebarResize.maxWidth }
+								width={ sidebarResize.width }
+								isResizing={ sidebarResize.isResizing }
+								onResizeStart={ sidebarResize.handleResizeStart }
+								onKeyDown={ sidebarResize.handleKeyDown }
+							/>
+						</ThemeProvider>
 					) : null }
-					{ children }
-					{ effectiveCollapsed ? (
-						<AppToasts
-							className={ clsx(
-								styles.floatingToasts,
-								forceCollapsed && styles.floatingToastsOverPreview
-							) }
-							fit="content"
-						/>
-					) : null }
-				</main>
-				{ sidebarResize.isResizing ? <ResizeOverlay /> : null }
-			</div>
+					<main className={ styles.main }>
+						{ effectiveCollapsed && ! forceCollapsed ? (
+							<div
+								className={ clsx(
+									styles.floatingToggle,
+									! reserveTrafficLightSpace && styles.floatingToggleFlush
+								) }
+							>
+								<span className={ styles.floatingToggleButton }>
+									<CollapsedSiteSwitcher
+										backgroundColor={ chromeBg }
+										onToggleSidebar={ toggleSidebar }
+										trigger={
+											// Not IconButton: its unconditional tooltip would
+											// fight the hover-opened switcher popover. The
+											// sizing overrides in `.floatingToggleControl`
+											// replicate IconButton's box; see the note in
+											// style.module.css.
+											<Button
+												type="button"
+												variant="minimal"
+												tone="neutral"
+												size="small"
+												className={ styles.floatingToggleControl }
+												aria-label={ __( 'Show sidebar' ) }
+												onClick={ toggleSidebar }
+											>
+												<Icon
+													icon={ drawerIcon }
+													size={ 24 }
+													className={ styles.floatingToggleIcon }
+												/>
+											</Button>
+										}
+									/>
+									<AppMessageCardsDot />
+								</span>
+							</div>
+						) : null }
+						{ children }
+						{ effectiveCollapsed ? (
+							<AppToasts
+								className={ clsx(
+									styles.floatingToasts,
+									forceCollapsed && styles.floatingToastsOverPreview
+								) }
+								fit="content"
+							/>
+						) : null }
+					</main>
+					{ sidebarResize.isResizing ? <ResizeOverlay /> : null }
+				</div>
+			</SeenSessionTimestampsProvider>
 		</SidebarCollapsedContext.Provider>
 	);
 }

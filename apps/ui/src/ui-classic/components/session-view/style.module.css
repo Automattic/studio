@@ -235,6 +235,13 @@
 	line-height: var( --wpds-typography-line-height-sm );
 }
 
+.usageLimitLockActions {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: var( --wpds-dimension-gap-xs );
+}
+
 .usageLimitLockButton {
 	flex-shrink: 0;
 	white-space: nowrap;

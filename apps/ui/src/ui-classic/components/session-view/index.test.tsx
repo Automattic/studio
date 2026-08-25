@@ -77,6 +77,11 @@ vi.mock( '@/components/purchase-credits-dialog', () => ( {
 	PurchaseCreditsDialog: () => null,
 } ) );
 
+vi.mock( '@/components/ai-credits-details-dialog', () => ( {
+	AiCreditsDetailsDialog: ( { open }: { open: boolean } ) =>
+		open ? <div role="dialog" aria-label="How AI credits work" /> : null,
+} ) );
+
 const useSessionMock = vi.mocked( useSession, { partial: true } );
 const useStudioAssistantQuotaMock = vi.mocked( useStudioAssistantQuota, { partial: true } );
 
@@ -162,6 +167,11 @@ describe( 'SessionView', () => {
 			"You've used your available AI credits."
 		);
 		expect( screen.getByRole( 'button', { name: 'Add AI credits' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Learn more' } ) ).toBeInTheDocument();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Learn more' } ) );
+
+		expect( screen.getByRole( 'dialog', { name: 'How AI credits work' } ) ).toBeInTheDocument();
 	} );
 
 	it( 'uses the same lockout after welcome and purchased credits are exhausted', () => {

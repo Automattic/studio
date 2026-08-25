@@ -102,7 +102,7 @@ import {
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
-const logger = new Logger< LoggerAction >();
+const defaultLogger = new Logger< LoggerAction >();
 const DEFAULT_STATIC_SITE_IMPORTER_PLUGIN_URL =
 	'https://github.com/Automattic/static-site-importer/releases/download/v1.7.0/static-site-importer.zip';
 const STATIC_SITE_IMPORT_CONTRACT = 'ssi-import-v5-plan-first';
@@ -891,7 +891,8 @@ async function runStaticSiteImport(
 	stagedSource?: { sourcePath: string; targetName: string },
 	identity?: StaticSiteImportIdentity,
 	preserveResult = false,
-	resume = false
+	resume = false,
+	logger: Logger< LoggerAction > = defaultLogger
 ): Promise< boolean > {
 	const stagingDir = path.join( site.path, STATIC_SITE_IMPORT_DIR );
 	const scriptName = STATIC_SITE_IMPORT_SCRIPT_FILE;
@@ -1043,7 +1044,7 @@ async function runStaticSiteImport(
 			JSON.stringify( { ...identity, phase: 'cleanup_pending' } )
 		);
 	}
-	const cleanupSucceeded = await cleanupStaticSiteImporterPlugin( site );
+	const cleanupSucceeded = await cleanupStaticSiteImporterPlugin( site, logger );
 	logger.reportProgress(
 		staticSiteImportProgressMessage(
 			'finalization',
@@ -1054,7 +1055,10 @@ async function runStaticSiteImport(
 	return cleanupSucceeded;
 }
 
-async function cleanupStaticSiteImporterPlugin( site: SiteData ): Promise< boolean > {
+async function cleanupStaticSiteImporterPlugin(
+	site: SiteData,
+	logger: Logger< LoggerAction > = defaultLogger
+): Promise< boolean > {
 	try {
 		await using command = await runWpCliCommandWithMessaging( site, [
 			'eval',
@@ -1126,7 +1130,8 @@ function resumableStaticSiteImportPhase(
 
 export async function runCommand(
 	sitePath: string,
-	options: CreateCommandOptions
+	options: CreateCommandOptions,
+	logger: Logger< LoggerAction > = defaultLogger
 ): Promise< void > {
 	const siteRuntime = options.runtime;
 	if ( ! isFileAccessAllowedForRuntime( siteRuntime, options.fileAccess ) ) {
@@ -1229,7 +1234,7 @@ export async function runCommand(
 			try {
 				staticSiteImportSucceeded =
 					resumePhase === 'cleanup_pending'
-						? await cleanupStaticSiteImporterPlugin( existingSite )
+						? await cleanupStaticSiteImporterPlugin( existingSite, logger )
 						: await runStaticSiteImport(
 								existingSite,
 								staticSiteImport.code,
@@ -1237,7 +1242,8 @@ export async function runCommand(
 								staticSiteImport.stagedSource,
 								staticSiteImport.identity,
 								staticSiteImport.storeResult,
-								true
+								true,
+								logger
 						  );
 				staticSiteImportResultObserved = true;
 			} catch ( error ) {
@@ -1440,7 +1446,9 @@ export async function runCommand(
 						staticSiteImport.source,
 						staticSiteImport.stagedSource,
 						staticSiteImport.identity,
-						staticSiteImport.storeResult
+						staticSiteImport.storeResult,
+						false,
+						logger
 					);
 				}
 
@@ -1492,7 +1500,9 @@ export async function runCommand(
 							staticSiteImport.source,
 							staticSiteImport.stagedSource,
 							staticSiteImport.identity,
-							staticSiteImport.storeResult
+							staticSiteImport.storeResult,
+							false,
+							logger
 						);
 					}
 				} catch ( error ) {
@@ -1798,7 +1808,7 @@ export const registerCommand = (
 			const runtime = siteRuntimeFromMode( argv.runtime );
 			const fileAccess = argv.fileAccess;
 			if ( ! isFileAccessAllowedForRuntime( runtime, fileAccess ) ) {
-				logger.reportError(
+				defaultLogger.reportError(
 					new LoggerError(
 						__(
 							'File access "all-files" requires the native PHP runtime. The sandbox only has access to the site directory.'
@@ -1811,7 +1821,7 @@ export const registerCommand = (
 			// Validate and resolve the WordPress version against available versions before prompting
 			if ( wpVersion && wpVersion !== 'latest' && wpVersion !== 'nightly' ) {
 				try {
-					logger.reportStart( LoggerAction.VALIDATE, __( 'Checking WordPress version…' ) );
+					defaultLogger.reportStart( LoggerAction.VALIDATE, __( 'Checking WordPress version…' ) );
 					const availableVersions = await fetchWordPressVersions();
 					const matchedVersion = availableVersions.find(
 						( v ) => v.value === wpVersion || v.value.startsWith( wpVersion + '.' )
@@ -1820,7 +1830,7 @@ export const registerCommand = (
 						const versionLabels = availableVersions
 							.filter( ( v ) => v.value !== 'latest' )
 							.map( ( v ) => v.label );
-						logger.reportError(
+						defaultLogger.reportError(
 							new LoggerError(
 								sprintf(
 									/* translators: %1$s: requested version, %2$s: list of available versions */
@@ -1834,7 +1844,7 @@ export const registerCommand = (
 					}
 					// Resolve short versions to full versions (e.g. "6.7" → "6.7.2")
 					if ( matchedVersion.value !== wpVersion ) {
-						logger.reportSuccess(
+						defaultLogger.reportSuccess(
 							sprintf(
 								/* translators: %1$s: requested version, %2$s: resolved version */
 								__( 'WordPress version: %1$s → %2$s' ),
@@ -1843,7 +1853,7 @@ export const registerCommand = (
 							)
 						);
 					} else {
-						logger.reportSuccess(
+						defaultLogger.reportSuccess(
 							sprintf(
 								/* translators: %s: WordPress version */
 								__( 'WordPress version: %s' ),
@@ -2067,10 +2077,10 @@ export const registerCommand = (
 				}
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {
-					logger.reportError( error );
+					defaultLogger.reportError( error );
 				} else {
 					const loggerError = new LoggerError( __( 'Failed to create site' ), error );
-					logger.reportError( loggerError );
+					defaultLogger.reportError( loggerError );
 				}
 			}
 		},

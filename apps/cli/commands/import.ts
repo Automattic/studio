@@ -35,7 +35,7 @@ import {
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
-const logger = new Logger< LoggerAction >();
+const defaultLogger = new Logger< LoggerAction >();
 
 const WP_CONTENT_TYPE_LABELS: Record< string, string > = {
 	plugins: __( 'Importing plugins…' ),
@@ -125,7 +125,10 @@ function handleImportIpc( emitter: ImportExportEventEmitter ) {
 	} );
 }
 
-export function handleImportEvents( emitter: ImportExportEventEmitter ): void {
+export function handleImportEvents(
+	emitter: ImportExportEventEmitter,
+	logger: Logger< string > = defaultLogger
+): void {
 	emitter.on( ValidatorEvents.IMPORT_VALIDATION_START, () => {
 		logger.reportSuccess( sprintf( __( 'Started import…' ) ) );
 		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating backup…' ) );
@@ -258,7 +261,8 @@ export async function runCommand(
 	siteFolder: string,
 	importFile: string,
 	alwaysStartServer = false,
-	suppressTracksEvent = false
+	suppressTracksEvent = false,
+	logger: Logger< LoggerAction > = defaultLogger
 ): Promise< void > {
 	const startedAt = Date.now();
 	let site: SiteData | undefined;
@@ -311,7 +315,7 @@ export async function runCommand(
 		if ( process.send ) {
 			handleImportIpc( importer );
 		} else {
-			handleImportEvents( importer );
+			handleImportEvents( importer, logger );
 		}
 		const importResult = await importer.import( site );
 		const importedPhpVersion = importResult.meta?.phpVersion;
@@ -434,10 +438,10 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				await runCommand( argv.path, argv.importFile, argv.startServer, argv.suppressTracksEvent );
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {
-					logger.reportError( error );
+					defaultLogger.reportError( error );
 				} else {
 					const loggerError = new LoggerError( __( 'Failed to import site' ), error );
-					logger.reportError( loggerError );
+					defaultLogger.reportError( loggerError );
 				}
 			}
 		},

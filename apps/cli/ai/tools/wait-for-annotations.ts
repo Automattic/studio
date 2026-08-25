@@ -1,6 +1,5 @@
 import { Type } from 'typebox';
 import { waitForAnnotationsDone } from 'cli/ai/inspector/inspector-inject';
-import { emitProgress } from 'cli/logger';
 import { defineTool } from './define-tool';
 import { textResult } from './utils';
 
@@ -20,13 +19,13 @@ export const waitForAnnotationsTool = defineTool(
 			} )
 		),
 	},
-	async ( args ) => {
+	async ( args, context ) => {
 		try {
-			emitProgress( 'Waiting for the user to click "Done"…' );
+			context.onProgress( 'Waiting for the user to click "Done"…' );
 			const result = await waitForAnnotationsDone( {
 				timeoutMs: ( args.timeoutMinutes ?? 30 ) * 60 * 1000,
 			} );
-			emitProgress( `Received ${ result.annotations.length } annotation(s)` );
+			context.onProgress( `Received ${ result.annotations.length } annotation(s)` );
 			return textResult( JSON.stringify( result, null, 2 ) );
 		} catch ( error ) {
 			throw new Error(

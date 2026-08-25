@@ -192,21 +192,42 @@
 	inset-inline-end: var(--classic-panel-control-left);
 }
 
-/* Anchors the scroll-to-latest button to the composer column, floating it
-   above the composer without contributing to the measured composer height. */
-.scrollToLatestWrap {
+/* Keeps inline-end controls in one row above the composer. Its measured width
+   is published for the collapsed-sidebar toast shelf, which occupies the
+   inline-start side of the same band. */
+.composerEndOverlay {
+	--composer-action-inline-end-offset: calc(
+		var(--wpds-dimension-padding-lg) - var(--wpds-dimension-padding-xs)
+	);
+
 	position: absolute;
 	bottom: calc(100% + var(--wpds-dimension-padding-md));
-	inset-inline-start: 0;
-	/* Match the send button's inset: the composer toolbar's inline padding is
-	   the shell inline padding minus padding-xs (see composer .toolbar). */
-	inset-inline-end: calc(
-		var(--classic-composer-shell-inline-padding) - var(--wpds-dimension-padding-xs)
-	);
+	inset-inline-end: 0;
 	display: flex;
-	justify-content: flex-end;
+	align-items: center;
+	width: fit-content;
 	pointer-events: none;
 	-webkit-app-region: no-drag;
+}
+
+.changesTrackerSlot:empty {
+	display: none;
+}
+
+.scrollToLatestSlot {
+	inline-size: 0;
+	block-size: 28px;
+	margin-inline-start: 0;
+	transition: inline-size 120ms ease, margin-inline-start 120ms ease;
+}
+
+.scrollToLatestSlotVisible {
+	inline-size: calc(28px + var(--composer-action-inline-end-offset));
+	margin-inline-start: var(--wpds-dimension-gap-sm);
+}
+
+.changesTrackerSlot:empty + .scrollToLatestSlotVisible {
+	margin-inline-start: 0;
 }
 
 .scrollToLatestButton {
@@ -218,27 +239,31 @@
 	--wp-ui-button-background-color: var(--wpds-color-bg-surface-neutral-strong);
 	--wp-ui-button-border-color: var(--wpds-color-stroke-surface-neutral-weak);
 
-	pointer-events: auto;
+	position: absolute;
+	inset-inline-end: var(--composer-action-inline-end-offset);
+	opacity: 0;
+	transform: translateY(4px);
+	pointer-events: none;
 	border-radius: 50%;
-	box-shadow: var(--wpds-elevation-md);
-	animation: scroll-to-latest-appear 120ms ease-out;
+	visibility: hidden;
+	transition:
+		opacity 120ms ease-out,
+		transform 120ms ease-out,
+		visibility 0s linear 120ms;
 }
 
-@keyframes scroll-to-latest-appear {
-	from {
-		opacity: 0;
-		transform: translateY(4px);
-	}
-
-	to {
-		opacity: 1;
-		transform: translateY(0);
-	}
+.scrollToLatestButtonVisible {
+	opacity: 1;
+	transform: translateY(0);
+	pointer-events: auto;
+	visibility: visible;
+	transition-delay: 0s;
 }
 
 @media (prefers-reduced-motion: reduce) {
+	.scrollToLatestSlot,
 	.scrollToLatestButton {
-		animation: none;
+		transition: none;
 	}
 }
 

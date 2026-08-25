@@ -37,6 +37,7 @@ import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { formatComposerTextQuote, watchComposerTextQuote } from '@/lib/composer-text-quote';
 import { AccessRequirements } from './access-requirements';
 import { formatAnnotationsAsPrompt, formatAnnotationsSubmittedMessage } from './annotations';
+import { ChangesTracker } from './changes-tracker';
 import { Composer, ComposerSkeleton, type ComposerHandle } from './composer';
 import { Conversation } from './conversation';
 import { EmptyBackground } from './empty-background';
@@ -49,6 +50,7 @@ import type { AiSessionSummary } from '@/data/core';
 // Slack below the bottom edge that still counts as "at the latest message",
 // so sub-pixel rounding or a barely-started scroll doesn't flash the button.
 const SCROLL_AWAY_FROM_LATEST_THRESHOLD_PX = 48;
+const MAIN_COMPOSER_END_OVERLAY_WIDTH_PROPERTY = '--app-main-composer-end-overlay-width';
 
 export function isScrolledAwayFromLatest( node: {
 	scrollTop: number;
@@ -111,6 +113,49 @@ interface SessionFrameProps {
 	footerEnd?: ReactNode;
 	scrollRef?: Ref< HTMLDivElement >;
 	children?: ReactNode;
+}
+
+function ComposerEndOverlay( { children }: { children: ReactNode } ) {
+	const ref = useRef< HTMLDivElement >( null );
+
+	useLayoutEffect( () => {
+		const node = ref.current;
+		if ( ! node ) {
+			return;
+		}
+
+		const publishWidth = () => {
+			const width = node.offsetWidth;
+			document.documentElement.style.setProperty(
+				MAIN_COMPOSER_END_OVERLAY_WIDTH_PROPERTY,
+				width > 0 ? `${ width + 8 }px` : '0px'
+			);
+		};
+		const clearWidth = () =>
+			document.documentElement.style.removeProperty( MAIN_COMPOSER_END_OVERLAY_WIDTH_PROPERTY );
+
+		publishWidth();
+		if ( typeof ResizeObserver === 'undefined' ) {
+			window.addEventListener( 'resize', publishWidth );
+			return () => {
+				window.removeEventListener( 'resize', publishWidth );
+				clearWidth();
+			};
+		}
+
+		const resizeObserver = new ResizeObserver( publishWidth );
+		resizeObserver.observe( node );
+		return () => {
+			resizeObserver.disconnect();
+			clearWidth();
+		};
+	}, [] );
+
+	return (
+		<div ref={ ref } className={ styles.composerEndOverlay }>
+			{ children }
+		</div>
+	);
 }
 
 // Lays out the chat column as fixed chrome over a full-height conversation
@@ -488,19 +533,32 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						fadeAfterQuotaCheck && styles.fadeInQuick
 					) }
 				>
-					{ isScrolledAway ? (
-						<div className={ styles.scrollToLatestWrap }>
-							<IconButton
-								className={ styles.scrollToLatestButton }
-								icon={ arrowDown }
-								label={ __( 'Scroll to latest message' ) }
-								size="small"
-								variant="minimal"
-								tone="neutral"
-								onClick={ scrollToLatest }
-							/>
+					<ComposerEndOverlay>
+						<div className={ styles.changesTrackerSlot }>
+							<ChangesTracker entries={ data.entries } />
 						</div>
-					) : null }
+						<span
+							aria-hidden
+							className={ clsx(
+								styles.scrollToLatestSlot,
+								isScrolledAway && styles.scrollToLatestSlotVisible
+							) }
+						/>
+						<IconButton
+							aria-hidden={ ! isScrolledAway }
+							className={ clsx(
+								styles.scrollToLatestButton,
+								isScrolledAway && styles.scrollToLatestButtonVisible
+							) }
+							icon={ arrowDown }
+							label={ __( 'Scroll to latest message' ) }
+							size="small"
+							tabIndex={ isScrolledAway ? undefined : -1 }
+							variant="outline"
+							tone="neutral"
+							onClick={ scrollToLatest }
+						/>
+					</ComposerEndOverlay>
 					<Composer
 						ref={ composerRef }
 						busy={ composerBusy }

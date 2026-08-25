@@ -2003,7 +2003,7 @@ export const registerCommand = (
 						path.dirname( sitePath ),
 						`${ path.basename( sitePath ) }-source`
 					);
-					logger.reportStart(
+					defaultLogger.reportStart(
 						LoggerAction.IMPORT_SITE,
 						__( 'Preparing source website with Data Liberation…' )
 					);
@@ -2012,10 +2012,10 @@ export const registerCommand = (
 						artifactOutput,
 						{
 							onProgress: ( progress ) =>
-								logger.reportProgress( dataLiberationProgressMessage( progress ) ),
+								defaultLogger.reportProgress( dataLiberationProgressMessage( progress ) ),
 						}
 					);
-					logger.reportSuccess( __( 'Website artifact created' ) );
+					defaultLogger.reportSuccess( __( 'Website artifact created' ) );
 				}
 
 				if ( importSource ) {

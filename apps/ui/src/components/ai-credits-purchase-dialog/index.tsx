@@ -1,11 +1,11 @@
 import {
 	formatContinueForPriceLabel,
-	formatPurchaseCreditsDescription,
 	formatTopUpOptionCreditsLabel,
 } from '@studio/common/lib/studio-assistant-top-up-pricing';
+import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { Button, Dialog } from '@wordpress/ui';
-import { useState } from 'react';
+import { useRef, useState, type KeyboardEvent } from 'react';
 import { useConnector } from '@/data/core';
 import { useStudioAssistantTopUpPricing } from '@/data/queries/use-top-up-pricing';
 import { useUserLocale } from '@/data/queries/use-user-locale';
@@ -34,6 +34,7 @@ export function AiCreditsPurchaseDialog( {
 	const { data: pricing } = useStudioAssistantTopUpPricing();
 	const options = pricing?.options ?? [];
 	const [ selectedCredits, setSelectedCredits ] = useState< number | null >( null );
+	const optionRefs = useRef< Array< HTMLButtonElement | null > >( [] );
 
 	// Options arrive sorted cheapest-first, and the cheapest is the neutral
 	// default — a mid-tier preselection is an upsell, which is the store's
@@ -42,29 +43,67 @@ export function AiCreditsPurchaseDialog( {
 	// pointing at an amount that is no longer on offer.
 	const selected =
 		options.find( ( option ) => option.credits === selectedCredits ) ?? options[ 0 ] ?? null;
+	const selectOption = ( index: number ) => {
+		const option = options[ index ];
+		if ( ! option ) {
+			return;
+		}
+		setSelectedCredits( option.credits );
+		optionRefs.current[ index ]?.focus();
+	};
+	const handleOptionKeyDown = ( event: KeyboardEvent< HTMLButtonElement >, index: number ) => {
+		let nextIndex: number | undefined;
+		if ( event.key === 'ArrowRight' || event.key === 'ArrowDown' ) {
+			nextIndex = ( index + 1 ) % options.length;
+		} else if ( event.key === 'ArrowLeft' || event.key === 'ArrowUp' ) {
+			nextIndex = ( index - 1 + options.length ) % options.length;
+		} else if ( event.key === 'Home' ) {
+			nextIndex = 0;
+		} else if ( event.key === 'End' ) {
+			nextIndex = options.length - 1;
+		}
+		if ( nextIndex === undefined ) {
+			return;
+		}
+		event.preventDefault();
+		selectOption( nextIndex );
+	};
 
 	return (
 		<Dialog.Root open={ open } onOpenChange={ onOpenChange }>
-			<Dialog.Popup size="small" initialFocus={ false }>
+			<Dialog.Popup size="small">
 				<Dialog.Header>
 					<Dialog.Title>{ __( 'Add AI credits' ) }</Dialog.Title>
 				</Dialog.Header>
 				<Dialog.Content>
-					<Dialog.Description>{ formatPurchaseCreditsDescription() }</Dialog.Description>
+					<Dialog.Description>
+						{ createInterpolateElement(
+							/* translators: <strong> and </strong> emphasize that the purchase happens once. */
+							__(
+								'Choose a <strong>one-time</strong> AI credit amount to check out securely on WordPress.com. AI credits do not expire.'
+							),
+							{ strong: <strong className={ styles.descriptionEmphasis } /> }
+						) }
+					</Dialog.Description>
 					<div
 						className={ styles.amountCards }
 						role="radiogroup"
 						aria-label={ __( 'AI credit amount' ) }
 					>
-						{ options.map( ( option ) => (
+						{ options.map( ( option, index ) => (
 							<button
 								key={ option.credits }
+								ref={ ( element ) => {
+									optionRefs.current[ index ] = element;
+								} }
 								type="button"
 								role="radio"
 								aria-checked={ option.credits === selected?.credits }
+								tabIndex={ option.credits === selected?.credits ? 0 : -1 }
 								className={ styles.amountOption }
 								data-selected={ option.credits === selected?.credits ? '' : undefined }
 								onClick={ () => setSelectedCredits( option.credits ) }
+								onKeyDown={ ( event ) => handleOptionKeyDown( event, index ) }
 							>
 								<span className={ styles.optionPrice }>{ option.display }</span>
 								<span className={ styles.optionCredits }>

@@ -1,44 +1,56 @@
 .amountCards {
+	--amount-option-focus-clearance: calc(
+		var( --wpds-border-width-focus ) + var( --wpds-border-width-xs )
+	);
+
 	display: grid;
 	grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
 	gap: var( --wpds-dimension-gap-sm );
 	margin-block-start: var( --wpds-dimension-padding-lg );
+	padding: var( --amount-option-focus-clearance );
+}
+
+.descriptionEmphasis {
+	font-weight: var( --wpds-typography-font-weight-medium );
 }
 
 .amountOption {
+	--wp-ui-button-background-color: var( --wpds-color-bg-interactive-brand-weak );
+	--wp-ui-button-border-color: var( --wpds-color-stroke-surface-neutral );
+
 	display: flex;
 	flex-direction: column;
 	align-items: flex-start;
 	gap: var( --wpds-dimension-gap-xs );
 	padding: var( --wpds-dimension-padding-md );
-	border: 1px solid var( --wpds-color-stroke-surface-neutral );
-	border-radius: 8px;
-	background: var( --wpds-color-bg-surface-neutral-weak );
+	border: var( --wpds-border-width-xs ) solid var( --wp-ui-button-border-color );
+	border-radius: var( --wpds-border-radius-lg );
+	background-color: var( --wp-ui-button-background-color );
 	color: var( --wpds-color-fg-content-neutral );
 	cursor: pointer;
 	text-align: start;
 }
 
 .amountOption:hover {
-	border-color: var( --wpds-color-stroke-interactive-neutral );
+	--wp-ui-button-background-color: var( --wpds-color-bg-surface-brand );
+	--wp-ui-button-border-color: var( --wpds-color-stroke-interactive-brand );
 }
 
-/* The selected card is outlined rather than bordered so the ring sits on top
-   of the neighbouring cards' borders instead of nudging the grid. */
 .amountOption[data-selected] {
-	border-color: transparent;
-	outline: 2px solid var( --wpds-color-stroke-interactive-brand );
-	outline-offset: -1px;
+	--wp-ui-button-background-color: var( --wpds-color-bg-surface-brand );
+	--wp-ui-button-border-color: var( --wpds-color-stroke-interactive-brand );
+
+	box-shadow: inset 0 0 0 0.5px var( --wp-ui-button-border-color );
 }
 
 .amountOption:focus-visible {
-	outline: 2px solid var( --wpds-color-stroke-focus-brand );
-	outline-offset: -1px;
+	outline: var( --wpds-border-width-focus ) solid var( --wpds-color-stroke-focus-brand );
+	outline-offset: var( --wpds-border-width-xs );
 }
 
 .optionPrice {
 	font-size: var( --wpds-typography-font-size-lg );
-	font-weight: 600;
+	font-weight: var( --wpds-typography-font-weight-medium );
 }
 
 .optionCredits {

@@ -45,7 +45,7 @@ export function AiCreditsPurchaseDialog( {
 
 	return (
 		<Dialog.Root open={ open } onOpenChange={ onOpenChange }>
-			<Dialog.Popup size="small" initialFocus={ false } className={ dialogDefense.popup }>
+			<Dialog.Popup size="small" className={ dialogDefense.popup }>
 				<Dialog.Header>
 					<Dialog.Title>{ __( 'Add AI credits' ) }</Dialog.Title>
 				</Dialog.Header>

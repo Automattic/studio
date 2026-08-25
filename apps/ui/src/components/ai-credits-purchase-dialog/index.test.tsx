@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
 import { useAppGlobals } from '@/data/queries/use-app-globals';
@@ -51,6 +51,7 @@ describe( 'AiCreditsPurchaseDialog', () => {
 	it( 'offers a card per priced amount, showing the store’s price', () => {
 		renderDialog();
 
+		expect( screen.getByText( 'one-time' ).tagName ).toBe( 'STRONG' );
 		expect( screen.getByText( '£7.50' ) ).toBeInTheDocument();
 		expect( screen.getByText( '100,000 credits' ) ).toBeInTheDocument();
 		expect( screen.getAllByRole( 'radio' ) ).toHaveLength( 4 );
@@ -61,6 +62,25 @@ describe( 'AiCreditsPurchaseDialog', () => {
 
 		expect( screen.getByRole( 'radio', { name: /100,000 credits/ } ) ).toBeChecked();
 		expect( screen.getByRole( 'button', { name: 'Continue for £7.50' } ) ).toBeInTheDocument();
+	} );
+
+	it( 'moves keyboard focus into the dialog when it opens', async () => {
+		renderDialog();
+
+		await waitFor( () => {
+			expect( screen.getByRole( 'radio', { name: /100,000 credits/ } ) ).toHaveFocus();
+		} );
+	} );
+
+	it( 'uses one tab stop and arrow keys to move through the radio group', () => {
+		renderDialog();
+		const radios = screen.getAllByRole( 'radio' );
+
+		expect( radios.map( ( radio ) => radio.tabIndex ) ).toEqual( [ 0, -1, -1, -1 ] );
+		fireEvent.keyDown( radios[ 0 ], { key: 'ArrowLeft' } );
+		expect( radios[ 3 ] ).toBeChecked();
+		expect( radios[ 3 ] ).toHaveFocus();
+		expect( radios.map( ( radio ) => radio.tabIndex ) ).toEqual( [ -1, -1, -1, 0 ] );
 	} );
 
 	it( 'follows the selection, and checks out the amount that is selected', () => {

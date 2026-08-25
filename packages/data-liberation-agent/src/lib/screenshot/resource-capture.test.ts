@@ -1,8 +1,9 @@
 import { EventEmitter } from 'node:events';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { exportWebsiteCapture } from '../capture-export.js';
 import { CapturedResourceStore } from './resource-capture.js';
 
 const dirs: string[] = [];
@@ -264,5 +265,58 @@ describe( 'CapturedResourceStore', () => {
 		expect( Object.keys( manifest.resources ) ).toEqual(
 			expect.arrayContaining( Object.keys( bodies ) )
 		);
+	} );
+
+	it( 'keeps script expressions and bare woff2 responses out of capture diagnostics', async () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-resource-diagnostics-' ) );
+		dirs.push( outputDir );
+		mkdirSync( join( outputDir, 'html' ), { recursive: true } );
+		mkdirSync( join( outputDir, 'screenshots' ), { recursive: true } );
+		const html =
+			'<style>@font-face{src:url("https://cdn.example/site.woff2")}</style>' +
+			'<script>function load(route) { return url(" + route + "); }</script>' +
+			'<main>Captured page</main>';
+		writeFileSync( join( outputDir, 'html', 'homepage.html' ), html );
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				entries: { 'https://example.com/': { html: 'html/homepage.html' } },
+			} )
+		);
+		const fetchMedia = vi.fn( async ( url: string ) => ( {
+			finalUrl: url,
+			status: url === 'https://cdn.example/site.woff2' ? 200 : 404,
+			headers: new Headers( { 'content-type': 'woff2' } ),
+			body: Buffer.from( 'font' ),
+		} ) );
+		const store = new CapturedResourceStore( outputDir, 'https://example.com/', fetchMedia );
+
+		await store.captureDomDependencies( html, 'https://example.com/' );
+		await store.flush();
+		exportWebsiteCapture( {
+			outputDir,
+			sourceUrl: 'https://example.com/',
+			platform: 'generic',
+			summary: {},
+			failures: [],
+		} );
+
+		const diagnostics = JSON.parse( readFileSync( join( outputDir, 'diagnostics.json' ), 'utf8' ) );
+		const resourceManifest = JSON.parse(
+			readFileSync( join( outputDir, 'resources', 'manifest.json' ), 'utf8' )
+		);
+		const fontPath = resourceManifest.resources[ 'https://cdn.example/site.woff2' ].path.replace(
+			/^resources\//,
+			''
+		);
+		expect( fetchMedia ).toHaveBeenCalledOnce();
+		expect( fetchMedia ).toHaveBeenCalledWith( 'https://cdn.example/site.woff2' );
+		expect( diagnostics.resourceFailures ).toEqual( [] );
+		expect( diagnostics.unresolvedDependencies ).toEqual( [] );
+		expect( resourceManifest.resources[ 'https://cdn.example/site.woff2' ].contentType ).toBe(
+			'font/woff2'
+		);
+		expect( readFileSync( join( outputDir, 'website', fontPath ), 'utf8' ) ).toBe( 'font' );
 	} );
 } );

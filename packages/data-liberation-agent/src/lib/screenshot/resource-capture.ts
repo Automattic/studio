@@ -117,6 +117,10 @@ function srcsetReferences( srcset: string ): string[] {
 	return references;
 }
 
+function canonicalContentType( contentType: string ): string {
+	return contentType.trim().toLowerCase() === 'woff2' ? 'font/woff2' : contentType;
+}
+
 export class CapturedResourceStore {
 	private readonly origin: string;
 	private readonly resourceDir: string;
@@ -177,7 +181,7 @@ export class CapturedResourceStore {
 				// Invalid browser values are removed by export's render-dependency pass.
 			}
 		};
-		const collect = ( content: string, baseUrl: string ) => {
+		const collect = ( content: string, baseUrl: string, cssOnly = false ) => {
 			const $ = cheerio.load( content );
 			$(
 				'img[src],img[srcset],source[src],source[srcset],video[src],audio[src],video[poster]'
@@ -201,15 +205,16 @@ export class CapturedResourceStore {
 				)
 					add( node.attr( 'href' ) ?? '', baseUrl );
 			} );
-			const css = [
-				...$( 'style' )
-					.map( ( _, element ) => $( element ).html() ?? '' )
-					.get(),
-				...$( '[style]' )
-					.map( ( _, element ) => $( element ).attr( 'style' ) ?? '' )
-					.get(),
-				content.startsWith( '@' ) || /\{[^}]*\}/.test( content ) ? content : '',
-			].join( '\n' );
+			const css = cssOnly
+				? content
+				: [
+						...$( 'style' )
+							.map( ( _, element ) => $( element ).html() ?? '' )
+							.get(),
+						...$( '[style]' )
+							.map( ( _, element ) => $( element ).attr( 'style' ) ?? '' )
+							.get(),
+				  ].join( '\n' );
 			for ( const match of css.matchAll(
 				/(?:url\(\s*(?:["']([^"']+)["']|([^\s)'";]+))\s*\)|@import\s+(?:url\(\s*)?["']([^"']+)["'])/gi
 			) )
@@ -253,7 +258,8 @@ export class CapturedResourceStore {
 							resolve( this.resourceDir, resource.path.replace( /^resources\//, '' ) ),
 							'utf8'
 						),
-						url
+						url,
+						true
 					);
 				} catch {
 					// captureUrl records unavailable resources in the manifest.
@@ -304,7 +310,7 @@ export class CapturedResourceStore {
 			const fetched = await this.fetchMedia( url );
 			if ( fetched.status < 200 || fetched.status >= 300 )
 				throw new Error( `HTTP ${ fetched.status }` );
-			const contentType = fetched.headers.get( 'content-type' ) ?? '';
+			const contentType = canonicalContentType( fetched.headers.get( 'content-type' ) ?? '' );
 			if (
 				! /^(?:text\/css|image\/|audio\/|video\/|font\/|application\/(?:font|x-font|font-woff|octet-stream))/i.test(
 					contentType
@@ -345,13 +351,14 @@ export class CapturedResourceStore {
 		const status = fetched?.status ?? response.status();
 		if ( status < 200 || status >= 300 ) throw new Error( `HTTP ${ status }` );
 		const headers = fetched ? Object.fromEntries( fetched.headers.entries() ) : response.headers();
+		const contentType = canonicalContentType( headers[ 'content-type' ] ?? '' );
 		const declaredBytes = Number( headers[ 'content-length' ] );
 		if ( Number.isFinite( declaredBytes ) && declaredBytes > MAX_CAPTURED_RESOURCE_BYTES ) {
 			throw new Error(
 				`resource body ${ declaredBytes } bytes exceeds max ${ MAX_CAPTURED_RESOURCE_BYTES }`
 			);
 		}
-		const relativePath = resourcePath( resourceUrl, headers[ 'content-type' ], this.origin );
+		const relativePath = resourcePath( resourceUrl, contentType, this.origin );
 		const destination = resolve( this.resourceDir, relativePath );
 		if ( ! pathWithin( this.resourceDir, destination ) ) {
 			throw new Error( 'resource path escapes the capture directory' );
@@ -367,7 +374,7 @@ export class CapturedResourceStore {
 		writeFileSync( destination, body );
 		this.manifest.resources[ resourceUrl.href ] = {
 			path: `resources/${ relativePath.replace( /\\/g, '/' ) }`,
-			contentType: headers[ 'content-type' ] ?? '',
+			contentType,
 		};
 	}
 

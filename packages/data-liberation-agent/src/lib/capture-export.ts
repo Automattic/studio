@@ -57,6 +57,8 @@ interface ExportCaptureOptions {
 	summary: Record< string, unknown >;
 	failures: Array< { url: unknown; error: unknown } >;
 	discoveryDiagnostics?: Array< { code: string; url: string; reason: string } >;
+	/** Overrides for the artifact and portable media byte limits (defaults are the compiler limits). */
+	limits?: { artifactTotalBytes?: number; portableMediaTotalBytes?: number };
 }
 
 interface PortableDependency {
@@ -691,6 +693,34 @@ function routeMatchesSourceOrigin( url: string, sourceUrl: string ): boolean {
 	return route.origin === source.origin;
 }
 
+const ARTIFACT_REPORT_FILES = [
+	'diagnostics.json',
+	'capture-receipt.json',
+	'layout-geometry-report.json',
+	'semantic-evidence.json',
+	'interaction-states.json',
+];
+
+/** Bytes of report files already on disk that the artifact will carry alongside routes and assets. */
+function existingReportBytes( outputDir: string ): number {
+	return ARTIFACT_REPORT_FILES.reduce( ( total, name ) => {
+		const path = join( outputDir, name );
+		return existsSync( path ) ? total + statSync( path ).size : total;
+	}, 0 );
+}
+
+/** Bytes of captured render dependencies that the export may copy into the artifact (scripts never are). */
+function capturedResourceBytes( outputDir: string, manifest: CapturedResourceManifest ): number {
+	let bytes = 0;
+	for ( const resource of Object.values( manifest.resources ) ) {
+		if ( /javascript|ecmascript/i.test( resource.contentType ) ) continue;
+		const path = resolve( outputDir, resource.path );
+		if ( ! pathWithin( outputDir, path ) || ! existsSync( path ) ) continue;
+		bytes += statSync( path ).size;
+	}
+	return bytes;
+}
+
 function capturedResources( outputDir: string ): CapturedResourceManifest {
 	const manifestPath = join( outputDir, 'resources', 'manifest.json' );
 	if ( ! existsSync( manifestPath ) ) return { version: 1, resources: {}, failures: [] };
@@ -948,6 +978,14 @@ function safeCapturedPageHtml( html: string ): string {
 
 export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 	const outputDir = resolve( options.outputDir );
+	const artifactTotalBytesLimit = Math.max(
+		1,
+		Math.floor( options.limits?.artifactTotalBytes ?? MAX_ARTIFACT_TOTAL_BYTES )
+	);
+	const portableMediaTotalBytesLimit = Math.max(
+		0,
+		Math.floor( options.limits?.portableMediaTotalBytes ?? MAX_PORTABLE_MEDIA_TOTAL_BYTES )
+	);
 	const screenshotManifestPath = join( outputDir, 'screenshots', 'manifest.json' );
 	if ( ! existsSync( screenshotManifestPath ) ) {
 		throw new Error( `Screenshot manifest not found: ${ screenshotManifestPath }` );
@@ -1088,6 +1126,17 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 				)
 			);
 		} );
+	// Routes, captured render dependencies, and reports share the artifact with
+	// media, so media may only use the capacity they leave under the compiler limit.
+	const resourceManifest = capturedResources( outputDir );
+	const reservedArtifactBytes =
+		retainedEntries.reduce( ( total, entry ) => total + statSync( entry.htmlPath ).size, 0 ) +
+		capturedResourceBytes( outputDir, resourceManifest ) +
+		existingReportBytes( outputDir );
+	const portableMediaBudget = Math.min(
+		portableMediaTotalBytesLimit,
+		Math.max( 0, artifactTotalBytesLimit - reservedArtifactBytes )
+	);
 	const selectedPortableMedia = new Set< MediaCandidate >();
 	const portableMediaHashes = new Set< string >();
 	let portableMediaBytes = 0;
@@ -1096,7 +1145,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 			const contentHash = fileHash( selected.localPath );
 			if (
 				portableMediaHashes.has( contentHash ) ||
-				portableMediaBytes + selected.bytes <= MAX_PORTABLE_MEDIA_TOTAL_BYTES
+				portableMediaBytes + selected.bytes <= portableMediaBudget
 			) {
 				selectedPortableMedia.add( selected );
 				if ( ! portableMediaHashes.has( contentHash ) ) {
@@ -1177,7 +1226,8 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		selected_count: assets.length,
 		selected_bytes: portableMediaBytes,
 		retained_external_count: retainedExternalMediaCount,
-		max_bytes: MAX_PORTABLE_MEDIA_TOTAL_BYTES,
+		max_bytes: portableMediaBudget,
+		reserved_bytes: reservedArtifactBytes,
 	};
 	for ( const { sourceUrl, error, references } of failedMedia ) {
 		const family = mediaFamily( sourceUrl );
@@ -1189,7 +1239,6 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		unresolvedMedia.push( { url: sourceUrl, error } );
 	}
 
-	const resourceManifest = capturedResources( outputDir );
 	const unresolvedDependencies: Array< { url: string; sourceUrl: string; error: string } > = [];
 	const copiedResources = new Set< string >();
 	const copyingResources = new Set< string >();
@@ -1557,7 +1606,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 				compiler_limits: {
 					max_files: MAX_ARTIFACT_FILES,
 					max_file_bytes: 10 * 1024 * 1024,
-					max_total_bytes: MAX_ARTIFACT_TOTAL_BYTES,
+					max_total_bytes: artifactTotalBytesLimit,
 				},
 				id: `capture-${ Buffer.from( options.sourceUrl ).toString( 'base64url' ).slice( 0, 24 ) }`,
 				generated_at: new Date().toISOString(),
@@ -1584,7 +1633,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 			artifactContentBytes += contentBytes;
 			if (
 				artifactFileCount > MAX_ARTIFACT_FILES ||
-				artifactContentBytes > MAX_ARTIFACT_TOTAL_BYTES
+				artifactContentBytes > artifactTotalBytesLimit
 			) {
 				throw new Error(
 					`Portable capture exceeds compiler limits: ${ artifactFileCount } files, ${ artifactContentBytes } bytes.`

@@ -1543,4 +1543,64 @@ if ( existsSync( ${ JSON.stringify( join( outputDir, '.capture-export-html' ) ) 
 			expect.objectContaining( { url: 'https://cdn.example/missing.jpg' } )
 		);
 	} );
+
+	it( 'keeps portable media within the artifact capacity left after routes and resources', () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-capture-export-budget-' ) );
+		dirs.push( outputDir );
+		for ( const path of [ 'html', 'screenshots', 'media' ] )
+			mkdirSync( join( outputDir, path ), { recursive: true } );
+		const filler = 'x'.repeat( 300 * 1024 );
+		writeFileSync(
+			join( outputDir, 'html', 'homepage.html' ),
+			`<main><h1>Home</h1><p>${ filler }</p><img src="https://cdn.example/first.png"><img src="https://cdn.example/second.png"></main>`
+		);
+		writeFileSync( join( outputDir, 'media', 'first.png' ), Buffer.alloc( 120 * 1024, 1 ) );
+		writeFileSync( join( outputDir, 'media', 'second.png' ), Buffer.alloc( 120 * 1024, 2 ) );
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				entries: { 'https://example.com/': { html: 'html/homepage.html' } },
+			} )
+		);
+		const media = MediaStubStore.load( outputDir );
+		media.markSuccess( 'https://cdn.example/first.png', join( outputDir, 'media', 'first.png' ) );
+		media.markSuccess( 'https://cdn.example/second.png', join( outputDir, 'media', 'second.png' ) );
+		media.flush();
+
+		const artifactTotalBytes = 500 * 1024;
+		const receiptPath = exportWebsiteCapture( {
+			outputDir,
+			sourceUrl: 'https://example.com/',
+			platform: 'fake',
+			summary: {},
+			failures: [],
+			limits: { artifactTotalBytes },
+		} );
+
+		const receipt = JSON.parse( readFileSync( receiptPath, 'utf8' ) );
+		expect( receipt.portableMedia ).toMatchObject( {
+			selected_count: 1,
+			retained_external_count: 1,
+		} );
+		expect( receipt.portableMedia.max_bytes ).toBeLessThanOrEqual(
+			artifactTotalBytes - 300 * 1024
+		);
+		const artifact = JSON.parse( readFileSync( join( outputDir, 'artifact.json' ), 'utf8' ) );
+		expect( artifact.compiler_limits.max_total_bytes ).toBe( artifactTotalBytes );
+		const totalBytes = artifact.files.reduce(
+			( total: number, file: { content?: string; content_base64?: string } ) =>
+				total +
+				( file.content_base64 !== undefined
+					? Buffer.from( file.content_base64, 'base64' ).length
+					: Buffer.byteLength( file.content ?? '' ) ),
+			0
+		);
+		expect( totalBytes ).toBeLessThanOrEqual( artifactTotalBytes );
+		const diagnostics = JSON.parse( readFileSync( join( outputDir, 'diagnostics.json' ), 'utf8' ) );
+		expect( diagnostics.unresolvedMedia ).toContainEqual( {
+			url: 'https://cdn.example/second.png',
+			error: 'removed because the aggregate portable media limit was reached',
+		} );
+	} );
 } );

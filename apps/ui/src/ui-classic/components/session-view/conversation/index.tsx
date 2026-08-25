@@ -26,10 +26,7 @@ import {
 	splitCommandArgs,
 	type NormalizedToolResult,
 } from '@studio/common/ai/tools';
-import {
-	formatOutOfCreditsNotice,
-	formatUsageCapNotice,
-} from '@studio/common/lib/studio-assistant-quota';
+import { formatUsageCapNotice } from '@studio/common/lib/studio-assistant-quota';
 import { __, sprintf } from '@wordpress/i18n';
 import {
 	blockDefault,
@@ -1252,15 +1249,17 @@ function TurnErrorMarker( { message }: { message: string } ) {
 	const isUsageCap = isUsageCapError( message );
 	const isAccessRequired = isAiAccessRequiredError( message );
 	const { data: quota } = useStudioAssistantQuota( { enabled: isUsageCap || isAccessRequired } );
+
+	// Out of credits says nothing here: the purchase card has already taken
+	// the composer's place, and repeating it in the transcript is noise.
+	if ( isOutOfCreditsError( message ) ) {
+		return null;
+	}
 	let text: ReactNode;
 	if ( isAiBlockedError( message ) ) {
 		text = <AiBlockedNotice />;
 	} else if ( isAccessRequired ) {
 		text = <AiAccessRequiredNotice quota={ quota } />;
-	} else if ( isOutOfCreditsError( message ) ) {
-		// Records why this turn stopped; buying is offered where the composer
-		// used to be, so the marker deliberately carries no call to action.
-		text = formatOutOfCreditsNotice();
 	} else if ( isUsageCap ) {
 		text = formatUsageCapNotice( quota?.costResetDate );
 	} else {

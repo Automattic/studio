@@ -867,7 +867,7 @@ async function capturePerViewport( args: CapturePerViewportArgs ): Promise< void
 
 	// Triggered dialogs are captured only after every baseline artifact so opening
 	// one cannot alter screenshots, section geometry, design sidecars, or page HTML.
-	if ( isDesktop ) {
+	if ( ! entry.interactions ) {
 		try {
 			const interactions = await captureTriggeredDialogs( page, url );
 			if ( interactions.states.length > 0 ) entry.interactions = interactions;

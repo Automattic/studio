@@ -38,11 +38,13 @@ describe( 'captureTriggeredDialogs', () => {
 		30_000
 	);
 
-	it.skipIf( process.env.SKIP_BROWSER_TESTS )( 'captures a bounded inert snapshot after a dialog trigger click', async () => {
-		const browser = await chromium.launch( { headless: true } );
-		const page = await browser.newPage( { viewport: { width: 1200, height: 800 } } );
-		try {
-			await page.setContent( `<!doctype html><body>
+	it.skipIf( process.env.SKIP_BROWSER_TESTS )(
+		'captures a bounded inert snapshot after a dialog trigger click',
+		async () => {
+			const browser = await chromium.launch( { headless: true } );
+			const page = await browser.newPage( { viewport: { width: 1200, height: 800 } } );
+			try {
+				await page.setContent( `<!doctype html><body>
 				<button aria-haspopup="dialog" data-modalid="signup">Contact</button>
 				<a href="/account" aria-haspopup="dialog">Account</a>
 				<script>
@@ -59,26 +61,32 @@ describe( 'captureTriggeredDialogs', () => {
 				</script>
 			</body>` );
 
-			const report = await captureTriggeredDialogs( page, 'https://example.test/' );
-			expect( report.schema ).toBe( INTERACTION_STATES_SCHEMA );
-			expect( report.states ).toHaveLength( 1 );
-			expect( report.states[ 0 ] ).toMatchObject( {
-				status: 'captured',
-				trigger: {
-					ariaHaspopup: 'dialog',
-					dataBindings: { 'data-modalid': 'signup' },
-				},
-				dialog: { id: 'signup', role: 'dialog', ariaModal: true, ariaLabel: 'Contact' },
-			} );
-			const html = report.states[ 0 ].dialog?.html ?? '';
-			expect( html ).toContain( 'placeholder="Name"' );
-			expect( html ).not.toContain( '<iframe' );
-			expect( html ).not.toContain( 'onclick=' );
-			expect( await page.locator( '[data-lib-interaction-trigger],[data-lib-interaction-dialog]' ).count() ).toBe( 0 );
-		} finally {
-			await browser.close();
-		}
-	}, 30_000 );
+				const report = await captureTriggeredDialogs( page, 'https://example.test/' );
+				expect( report.schema ).toBe( INTERACTION_STATES_SCHEMA );
+				expect( report.states ).toHaveLength( 1 );
+				expect( report.states[ 0 ] ).toMatchObject( {
+					status: 'captured',
+					trigger: {
+						ariaHaspopup: 'dialog',
+						dataBindings: { 'data-modalid': 'signup' },
+					},
+					dialog: { id: 'signup', role: 'dialog', ariaModal: true, ariaLabel: 'Contact' },
+				} );
+				const html = report.states[ 0 ].dialog?.html ?? '';
+				expect( html ).toContain( 'placeholder="Name"' );
+				expect( html ).not.toContain( '<iframe' );
+				expect( html ).not.toContain( 'onclick=' );
+				expect(
+					await page
+						.locator( '[data-lib-interaction-trigger],[data-lib-interaction-dialog]' )
+						.count()
+				).toBe( 0 );
+			} finally {
+				await browser.close();
+			}
+		},
+		30_000
+	);
 
 	it.skipIf( process.env.SKIP_BROWSER_TESTS )(
 		'only clicks the first eight unambiguous dialog triggers',

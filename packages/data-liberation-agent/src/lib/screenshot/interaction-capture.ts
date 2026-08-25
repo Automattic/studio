@@ -67,7 +67,7 @@ export async function captureTriggeredDialogs(
 	sourceUrl: string
 ): Promise< InteractionStatesReport > {
 	const viewport = page.viewportSize() ?? { width: 0, height: 0 };
-	const triggers = await page.evaluate( ( limit: number ) => {
+	const triggers = ( await page.evaluate( ( limit: number ) => {
 		const visible = ( element: Element ): boolean => {
 			const rect = element.getBoundingClientRect();
 			const style = getComputedStyle( element );
@@ -80,16 +80,26 @@ export async function captureTriggeredDialogs(
 			);
 		};
 		const cssEscape = ( value: string ) =>
-			globalThis.CSS?.escape ? globalThis.CSS.escape( value ) : value.replace( /[^a-zA-Z0-9_-]/g, '\\$&' );
+			globalThis.CSS?.escape
+				? globalThis.CSS.escape( value )
+				: value.replace( /[^a-zA-Z0-9_-]/g, '\\$&' );
 		const sourceSelector = ( element: Element ): string => {
 			if ( element.id ) return `#${ cssEscape( element.id ) }`;
 			const parts: string[] = [];
-			for ( let node: Element | null = element; node && node !== document.body; node = node.parentElement ) {
+			for (
+				let node: Element | null = element;
+				node && node !== document.body;
+				node = node.parentElement
+			) {
 				const tag = node.tagName.toLowerCase();
 				const siblings = node.parentElement
-					? Array.from( node.parentElement.children ).filter( ( sibling ) => sibling.tagName === node!.tagName )
+					? Array.from( node.parentElement.children ).filter(
+							( sibling ) => sibling.tagName === node!.tagName
+					  )
 					: [];
-				parts.unshift( siblings.length > 1 ? `${ tag }:nth-of-type(${ siblings.indexOf( node ) + 1 })` : tag );
+				parts.unshift(
+					siblings.length > 1 ? `${ tag }:nth-of-type(${ siblings.indexOf( node ) + 1 })` : tag
+				);
 			}
 			return `body > ${ parts.join( ' > ' ) }`;
 		};
@@ -99,14 +109,20 @@ export async function captureTriggeredDialogs(
 			return `[data-lib-interaction-trigger="${ index }"]`;
 		};
 		const candidates = Array.from(
-			document.querySelectorAll( 'button[aria-haspopup],a[aria-haspopup],[role="button"][aria-haspopup]' )
+			document.querySelectorAll(
+				'button[aria-haspopup],a[aria-haspopup],[role="button"][aria-haspopup]'
+			)
 		).filter( ( element ) => {
 			const popup = ( element.getAttribute( 'aria-haspopup' ) ?? '' ).toLowerCase();
 			if ( popup !== 'dialog' ) return false;
 			if ( element.getAttribute( 'aria-disabled' ) === 'true' ) return false;
-			const hasBinding = Boolean( element.getAttribute( 'aria-controls' ) ) || Array.from( element.attributes ).some(
-				( attribute ) => /^data-(?:popup|modal|dialog)(?:id|target)?$/i.test( attribute.name ) && Boolean( attribute.value )
-			);
+			const hasBinding =
+				Boolean( element.getAttribute( 'aria-controls' ) ) ||
+				Array.from( element.attributes ).some(
+					( attribute ) =>
+						/^data-(?:popup|modal|dialog)(?:id|target)?$/i.test( attribute.name ) &&
+						Boolean( attribute.value )
+				);
 			const href = element.tagName === 'A' ? ( element.getAttribute( 'href' ) ?? '' ).trim() : '';
 			if ( href && href !== '#' && ! href.startsWith( '#' ) && ! hasBinding ) return false;
 			return visible( element );
@@ -115,7 +131,10 @@ export async function captureTriggeredDialogs(
 		return candidates.slice( 0, limit ).map( ( element, index ) => {
 			const dataBindings: Record< string, string > = {};
 			for ( const attribute of Array.from( element.attributes ) ) {
-				if ( /^data-(?:popup|modal|dialog)(?:id|target)?$/i.test( attribute.name ) && attribute.value ) {
+				if (
+					/^data-(?:popup|modal|dialog)(?:id|target)?$/i.test( attribute.name ) &&
+					attribute.value
+				) {
 					dataBindings[ attribute.name.toLowerCase() ] = attribute.value;
 				}
 			}
@@ -133,7 +152,7 @@ export async function captureTriggeredDialogs(
 				dataBindings,
 			};
 		} );
-	}, MAX_TRIGGERS ) as TriggerDescriptor[];
+	}, MAX_TRIGGERS ) ) as TriggerDescriptor[];
 
 	const states: CapturedDialogInteraction[] = [];
 	for ( const trigger of triggers ) {
@@ -203,7 +222,7 @@ export async function captureTriggeredDialogs(
 	};
 }
 
-function triggerRecord( trigger: TriggerDescriptor ): CapturedDialogInteraction['trigger'] {
+function triggerRecord( trigger: TriggerDescriptor ): CapturedDialogInteraction[ 'trigger' ] {
 	return {
 		selector: trigger.selector,
 		tag: trigger.tag,
@@ -220,11 +239,19 @@ async function visibleDialogSelectors( page: Page ): Promise< string[] > {
 		const visible = ( element: Element ): boolean => {
 			const rect = element.getBoundingClientRect();
 			const style = getComputedStyle( element );
-			return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden' && Number.parseFloat( style.opacity || '1' ) > 0.1;
+			return (
+				rect.width > 0 &&
+				rect.height > 0 &&
+				style.display !== 'none' &&
+				style.visibility !== 'hidden' &&
+				Number.parseFloat( style.opacity || '1' ) > 0.1
+			);
 		};
 		const selector = ( element: Element, index: number ): string => {
 			if ( element.id ) {
-				const id = globalThis.CSS?.escape ? globalThis.CSS.escape( element.id ) : element.id.replace( /[^a-zA-Z0-9_-]/g, '\\$&' );
+				const id = globalThis.CSS?.escape
+					? globalThis.CSS.escape( element.id )
+					: element.id.replace( /[^a-zA-Z0-9_-]/g, '\\$&' );
 				return `#${ id }`;
 			}
 			return `dialog-candidate:${ index }`;
@@ -243,11 +270,19 @@ async function firstNewVisibleDialog(
 		const visible = ( element: Element ): boolean => {
 			const rect = element.getBoundingClientRect();
 			const style = getComputedStyle( element );
-			return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden' && Number.parseFloat( style.opacity || '1' ) > 0.1;
+			return (
+				rect.width > 0 &&
+				rect.height > 0 &&
+				style.display !== 'none' &&
+				style.visibility !== 'hidden' &&
+				Number.parseFloat( style.opacity || '1' ) > 0.1
+			);
 		};
 		const selector = ( element: Element, index: number ): string => {
 			if ( element.id ) {
-				const id = globalThis.CSS?.escape ? globalThis.CSS.escape( element.id ) : element.id.replace( /[^a-zA-Z0-9_-]/g, '\\$&' );
+				const id = globalThis.CSS?.escape
+					? globalThis.CSS.escape( element.id )
+					: element.id.replace( /[^a-zA-Z0-9_-]/g, '\\$&' );
 				return `#${ id }`;
 			}
 			return `dialog-candidate:${ index }`;
@@ -255,13 +290,18 @@ async function firstNewVisibleDialog(
 		const candidates = Array.from(
 			document.querySelectorAll( 'dialog,[role="dialog"],[aria-modal="true"]' )
 		);
-		const dialog = candidates.find( ( element, index ) => visible( element ) && ! existing.includes( selector( element, index ) ) );
+		const dialog = candidates.find(
+			( element, index ) => visible( element ) && ! existing.includes( selector( element, index ) )
+		);
 		if ( ! dialog ) return undefined;
-		const dialogSelector = dialog.id ? selector( dialog, candidates.indexOf( dialog ) ) : '[data-lib-interaction-dialog="captured"]';
+		const dialogSelector = dialog.id
+			? selector( dialog, candidates.indexOf( dialog ) )
+			: '[data-lib-interaction-dialog="captured"]';
 		if ( ! dialog.id ) dialog.setAttribute( 'data-lib-interaction-dialog', 'captured' );
 		const clone = dialog.cloneNode( true ) as Element;
 		clone.removeAttribute( 'data-lib-interaction-dialog' );
-		for ( const unsafe of Array.from( clone.querySelectorAll( 'script,style,noscript,iframe' ) ) ) unsafe.remove();
+		for ( const unsafe of Array.from( clone.querySelectorAll( 'script,style,noscript,iframe' ) ) )
+			unsafe.remove();
 		for ( const element of [ clone, ...Array.from( clone.querySelectorAll( '*' ) ) ] ) {
 			for ( const attribute of Array.from( element.attributes ) ) {
 				if ( /^on/i.test( attribute.name ) ) element.removeAttribute( attribute.name );
@@ -320,28 +360,36 @@ async function waitForDialogContentStable( page: Page, selector: string ): Promi
 	}
 }
 
-async function snapshotDialog( page: Page, selector: string ): Promise< DialogDescriptor | undefined > {
-	return page.locator( selector ).first().evaluate( ( dialog, capturedSelector ) => {
-		const clone = dialog.cloneNode( true ) as Element;
-		clone.removeAttribute( 'data-lib-interaction-dialog' );
-		for ( const unsafe of Array.from( clone.querySelectorAll( 'script,style,noscript,iframe' ) ) ) unsafe.remove();
-		for ( const element of [ clone, ...Array.from( clone.querySelectorAll( '*' ) ) ] ) {
-			for ( const attribute of Array.from( element.attributes ) ) {
-				if ( /^on/i.test( attribute.name ) ) element.removeAttribute( attribute.name );
+async function snapshotDialog(
+	page: Page,
+	selector: string
+): Promise< DialogDescriptor | undefined > {
+	return page
+		.locator( selector )
+		.first()
+		.evaluate( ( dialog, capturedSelector ) => {
+			const clone = dialog.cloneNode( true ) as Element;
+			clone.removeAttribute( 'data-lib-interaction-dialog' );
+			for ( const unsafe of Array.from( clone.querySelectorAll( 'script,style,noscript,iframe' ) ) )
+				unsafe.remove();
+			for ( const element of [ clone, ...Array.from( clone.querySelectorAll( '*' ) ) ] ) {
+				for ( const attribute of Array.from( element.attributes ) ) {
+					if ( /^on/i.test( attribute.name ) ) element.removeAttribute( attribute.name );
+				}
 			}
-		}
-		return {
-			selector: capturedSelector,
-			tag: dialog.tagName.toLowerCase(),
-			...( dialog.id ? { id: dialog.id } : {} ),
-			...( dialog.getAttribute( 'role' ) ? { role: dialog.getAttribute( 'role' )! } : {} ),
-			ariaModal: dialog.getAttribute( 'aria-modal' ) === 'true',
-			...( dialog.getAttribute( 'aria-label' )
-				? { ariaLabel: dialog.getAttribute( 'aria-label' )! }
-				: {} ),
-			html: clone.outerHTML,
-		};
-	}, selector ).catch( () => undefined );
+			return {
+				selector: capturedSelector,
+				tag: dialog.tagName.toLowerCase(),
+				...( dialog.id ? { id: dialog.id } : {} ),
+				...( dialog.getAttribute( 'role' ) ? { role: dialog.getAttribute( 'role' )! } : {} ),
+				ariaModal: dialog.getAttribute( 'aria-modal' ) === 'true',
+				...( dialog.getAttribute( 'aria-label' )
+					? { ariaLabel: dialog.getAttribute( 'aria-label' )! }
+					: {} ),
+				html: clone.outerHTML,
+			};
+		}, selector )
+		.catch( () => undefined );
 }
 
 function boundHtml( html: string ): { html: string; bytes: number; truncated: boolean } {

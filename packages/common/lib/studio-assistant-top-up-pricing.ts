@@ -108,5 +108,5 @@ export function formatTopUpOptionAccessibleLabel(
 
 /** Heading for a row of top-up buttons. */
 export function formatBuyMoreCreditsLabel(): string {
-	return __( 'Buy more credits' );
+	return __( 'Buy more credits:' );
 }

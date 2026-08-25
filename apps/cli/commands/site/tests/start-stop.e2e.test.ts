@@ -48,7 +48,6 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio site start/stop'
 
 		const result = await runCli(
 			[
-				'site',
 				'create',
 				'--name',
 				'Lifecycle E2E Site',

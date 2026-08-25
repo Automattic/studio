@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node
  *
- * Real end-to-end test for `studio site create`. Unlike create.test.ts (which
+ * Real end-to-end test for `studio create`. Unlike create.test.ts (which
  * mocks the command's dependencies), this spawns the built CLI binary and
  * creates an actual site, verifying the real persisted state on disk.
  *
@@ -22,7 +22,7 @@ import {
 	type CliEnv,
 } from './helpers/cli-e2e';
 
-describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio site create', () => {
+describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio create', () => {
 	let env: CliEnv | undefined;
 
 	afterEach( async () => {
@@ -44,7 +44,6 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio site create', ()
 
 			const result = await runCli(
 				[
-					'site',
 					'create',
 					'--name',
 					siteName,
@@ -96,7 +95,6 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio site create', ()
 
 			const result = await runCli(
 				[
-					'site',
 					'create',
 					'--name',
 					siteName,

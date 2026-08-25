@@ -74,12 +74,11 @@ interface MediaCandidate {
 	dimension: number;
 }
 
-interface RetainedCaptureEntry {
+interface CaptureEntry {
 	slug: string;
 	url: string;
-	html: string;
-	desktopHtml: string;
-	mobileHtml?: string;
+	htmlPath: string;
+	identityHtmlPath?: string;
 	sections?: string;
 	canonicalUrl?: string;
 }
@@ -509,18 +508,17 @@ function srcsetReferences( srcset: string ): string[] {
 	return references;
 }
 
-function capturedMediaReferences(
-	entries: Array< { url: string; html: string } >
-): Map< string, Set< string > > {
+function capturedMediaReferences( entries: CaptureEntry[] ): Map< string, Set< string > > {
 	const families = new Map< string, Set< string > >();
 	for ( const entry of entries ) {
+		const html = readFileSync( entry.htmlPath, 'utf8' );
 		const references: string[] = [];
-		for ( const match of entry.html.matchAll(
+		for ( const match of html.matchAll(
 			/<(?:img|source|video|audio)\b[^>]*\bsrc\s*=\s*["']([^"']+)["'][^>]*>/gi
 		) ) {
 			references.push( match[ 1 ] );
 		}
-		for ( const match of entry.html.matchAll(
+		for ( const match of html.matchAll(
 			/<(?:img|source)\b[^>]*\bsrcset\s*=\s*["']([^"']+)["'][^>]*>/gi
 		) ) {
 			references.push( ...srcsetReferences( match[ 1 ] ) );
@@ -547,9 +545,7 @@ function mediaFamily( sourceUrl: string ): string {
 		: sourceUrl;
 }
 
-function retainedMediaReferencesByFamily(
-	entries: Array< { url: string; html: string } >
-): Map< string, string[] > {
+function retainedMediaReferencesByFamily( entries: CaptureEntry[] ): Map< string, string[] > {
 	const families = new Map< string, string[] >();
 	const add = ( reference: string, documentUrl: string ) => {
 		try {
@@ -562,7 +558,8 @@ function retainedMediaReferencesByFamily(
 			// Non-URL media sources, such as data URLs, need no localization.
 		}
 	};
-	for ( const { url, html } of entries ) {
+	for ( const { url, htmlPath } of entries ) {
+		const html = readFileSync( htmlPath, 'utf8' );
 		const $ = cheerio.load( html );
 		$( 'img,source,video,audio' ).each( ( _index, element ) => {
 			const node = $( element );
@@ -932,10 +929,13 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 	}
 
 	const websiteDir = join( outputDir, 'website' );
+	const stagedHtmlDir = join( outputDir, '.capture-export-html' );
 	rmSync( websiteDir, { recursive: true, force: true } );
+	rmSync( stagedHtmlDir, { recursive: true, force: true } );
 	mkdirSync( websiteDir, { recursive: true } );
+	mkdirSync( stagedHtmlDir, { recursive: true } );
 
-	const retainedEntries: RetainedCaptureEntry[] = [];
+	const retainedEntries: CaptureEntry[] = [];
 	const interactionPages: InteractionStatesReport[] = [];
 	const excludedRoutes: string[] = [];
 	for ( const [ url, entry ] of Object.entries( capture.entries ) ) {
@@ -944,22 +944,23 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 			continue;
 		}
 		if ( ! entry.html ) continue;
-		const htmlPath = resolve( outputDir, entry.html );
-		if ( ! pathWithin( outputDir, htmlPath ) || ! existsSync( htmlPath ) ) continue;
-		const desktopHtml = renderedHtml( readFileSync( htmlPath, 'utf8' ) );
-		let html = desktopHtml;
+		const capturedHtmlPath = resolve( outputDir, entry.html );
+		if ( ! pathWithin( outputDir, capturedHtmlPath ) || ! existsSync( capturedHtmlPath ) ) continue;
+		const desktopHtml = renderedHtml( readFileSync( capturedHtmlPath, 'utf8' ) );
 		let mobileHtml: string | undefined;
 		const mobileHtmlPath = resolve( outputDir, entry.html.replace( /^html[\\/]/, 'html-mobile/' ) );
 		if ( pathWithin( outputDir, mobileHtmlPath ) && existsSync( mobileHtmlPath ) ) {
 			mobileHtml = renderedHtml( readFileSync( mobileHtmlPath, 'utf8' ) );
-			html = responsiveHtml( html, mobileHtml );
 		}
+		const html = safeCapturedPageHtml(
+			mobileHtml === undefined ? desktopHtml : responsiveHtml( desktopHtml, mobileHtml )
+		);
+		const stagedHtmlPath = join( stagedHtmlDir, `${ retainedEntries.length }.html` );
+		writeFileSync( stagedHtmlPath, html );
 		retainedEntries.push( {
 			slug: entry.slug ?? basename( entry.html, '.html' ),
 			url,
-			html,
-			desktopHtml,
-			mobileHtml,
+			htmlPath: stagedHtmlPath,
 			sections: entry.sections,
 			canonicalUrl: entry.metadata?.openGraph?.[ 'og:url' ] ?? openGraphUrl( html ),
 		} );
@@ -994,7 +995,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 	}
 	const routeLinks = new Map< string, Set< string > >();
 	for ( const entry of retainedEntries ) {
-		const $ = cheerio.load( entry.html );
+		const $ = cheerio.load( readFileSync( entry.htmlPath, 'utf8' ) );
 		const links = new Set< string >();
 		$( 'a[href]' ).each( ( _index, element ) => {
 			try {
@@ -1024,9 +1025,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		if ( ! reachableEntries.includes( entry ) ) excludedRoutes.push( entry.url );
 	}
 	retainedEntries.splice( 0, retainedEntries.length, ...reachableEntries );
-	for ( const entry of retainedEntries ) entry.html = safeCapturedPageHtml( entry.html );
 
-	const retainedHtml = retainedEntries.map( ( entry ) => entry.html ).join( '\n' );
 	const mediaReplacements = new Map< string, string >();
 	const unresolvedMedia: Array< { url: string; error: string } > = [];
 	const assets: Array< { sourceUrl: string; path: string } > = [];
@@ -1038,7 +1037,9 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		const references = mediaReferences( sourceUrl, options.sourceUrl );
 		const family = mediaFamily( sourceUrl );
 		const exactReferences = references.filter( ( reference ) =>
-			containsMediaReference( retainedHtml, reference )
+			retainedEntries.some( ( entry ) =>
+				containsMediaReference( readFileSync( entry.htmlPath, 'utf8' ), reference )
+			)
 		);
 		const isReferenced = retainedMediaFamilies.has( family ) || exactReferences.length > 0;
 		if ( stub.status === 'error' && isReferenced ) {
@@ -1069,12 +1070,18 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		.sort( ( left, right ) => {
 			const leftEntrypoint = left.candidates.some( ( candidate ) =>
 				candidate.references.some( ( reference ) =>
-					containsMediaReference( entrypointCandidates[ 0 ].html, reference )
+					containsMediaReference(
+						readFileSync( entrypointCandidates[ 0 ].htmlPath, 'utf8' ),
+						reference
+					)
 				)
 			);
 			const rightEntrypoint = right.candidates.some( ( candidate ) =>
 				candidate.references.some( ( reference ) =>
-					containsMediaReference( entrypointCandidates[ 0 ].html, reference )
+					containsMediaReference(
+						readFileSync( entrypointCandidates[ 0 ].htmlPath, 'utf8' ),
+						reference
+					)
 				)
 			);
 			return (
@@ -1090,7 +1097,6 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 	let portableMediaBytes = 0;
 	for ( const family of portableMediaCandidates ) {
 		for ( const selected of family.selected ) {
-			if ( ! selected ) continue;
 			const contentHash = fileHash( selected.localPath );
 			if (
 				portableMediaHashes.has( contentHash ) ||
@@ -1270,22 +1276,25 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		return true;
 	};
 	for ( const entry of retainedEntries ) {
-		for ( const dependency of dependencyReferences( entry.html, entry.url ) ) {
+		let html = readFileSync( entry.htmlPath, 'utf8' );
+		for ( const dependency of dependencyReferences( html, entry.url ) ) {
 			const mediaReplacement = mediaReplacements.get( dependency.reference );
 			if ( mediaReplacement && ! /^(?:https?:)?\/\//i.test( mediaReplacement ) ) continue;
 			if ( ! copyResource( dependency, entry.url ) ) {
-				entry.html =
+				html =
 					dependency.kind === 'media'
-						? removeDanglingMediaSource( entry.html, dependency.reference )
+						? removeDanglingMediaSource( html, dependency.reference )
 						: dependency.kind === 'css'
-						? replaceDanglingCssUrl( entry.html, dependency.reference )
-						: removeDanglingResourceReference( entry.html, dependency.reference );
+						? replaceDanglingCssUrl( html, dependency.reference )
+						: removeDanglingResourceReference( html, dependency.reference );
 			}
 		}
+		writeFileSync( entry.htmlPath, html );
 	}
 	const inlineStyles = new Map< string, { css: string; media: string; count: number } >();
 	for ( const entry of retainedEntries ) {
-		for ( const match of entry.html.matchAll( /<style\b([^>]*)>([\s\S]*?)<\/style\s*>/gi ) ) {
+		const html = readFileSync( entry.htmlPath, 'utf8' );
+		for ( const match of html.matchAll( /<style\b([^>]*)>([\s\S]*?)<\/style\s*>/gi ) ) {
 			const style = portableInlineStyle( match[ 1 ], match[ 2 ] );
 			if ( ! style ) continue;
 			const existing = inlineStyles.get( style.key );
@@ -1312,7 +1321,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 	}
 	for ( const entry of retainedEntries ) {
 		const linkedStyles = new Set< string >();
-		const $ = cheerio.load( entry.html );
+		const $ = cheerio.load( readFileSync( entry.htmlPath, 'utf8' ) );
 		$( 'style' ).each( ( _index, element ) => {
 			const attributes = 'attribs' in element ? element.attribs : {};
 			const style = portableInlineStyleValues(
@@ -1331,7 +1340,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 			if ( shared.media ) link.attr( 'media', shared.media );
 			$( element ).replaceWith( link );
 		} );
-		entry.html = $.html();
+		writeFileSync( entry.htmlPath, $.html() );
 	}
 
 	const routes: Array< { url: string; path: string } > = [];
@@ -1361,8 +1370,8 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		portableRouteLinks.set( canonicalKey, `/${ routePath }` );
 	}
 
-	const geometryHtmlByPath = new Map< string, { html: string; identityHtml: string } >();
-	for ( const { url, html } of retainedEntries ) {
+	for ( const entry of retainedEntries ) {
+		const { url, htmlPath } = entry;
 		const routePath = routeOutputPath( url, options.sourceUrl, entrypointUrl ).replace(
 			/\\/g,
 			'/'
@@ -1374,67 +1383,59 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		mkdirSync( dirname( destination ), { recursive: true } );
 		const identityHtml = replaceAll(
 			rewriteMediaUrls(
-				rewriteCapturedRouteLinks( html, url, portableRouteLinks ),
+				rewriteCapturedRouteLinks( readFileSync( htmlPath, 'utf8' ), url, portableRouteLinks ),
 				mediaReplacements
 			),
 			resourceReplacements
 		);
 		const normalizedHtml = withoutGeometryIdentities( identityHtml );
 		writeFileSync( destination, normalizedHtml );
-		geometryHtmlByPath.set( `website/${ routePath }`, { html: normalizedHtml, identityHtml } );
+		entry.identityHtmlPath = `${ htmlPath }.identity`;
+		writeFileSync( entry.identityHtmlPath, identityHtml );
 	}
 
-	const geometryInputs: Array< {
-		sourcePath: string;
-		html: string;
-		identityHtml: string;
-		observations: GeometryCapture[ 'observations' ];
-	} > = [];
 	const geometryCaptureOmissions: Record< string, number > = {};
-	for ( const entry of retainedEntries ) {
-		const observations: GeometryCapture[ 'observations' ] = [];
-		for ( const viewport of [ 'desktop', 'mobile' ] ) {
-			const path = join( outputDir, 'layout-geometry', `${ entry.slug }.${ viewport }.json` );
-			if ( ! existsSync( path ) ) {
-				geometryCaptureOmissions[ 'capture_missing' ] =
-					( geometryCaptureOmissions[ 'capture_missing' ] ?? 0 ) + 1;
-				continue;
-			}
-			try {
-				const capture = JSON.parse( readFileSync( path, 'utf8' ) ) as GeometryCapture;
-				if (
-					capture.schema !== 'data-liberation/layout-geometry-capture/v1' ||
-					! Array.isArray( capture.observations )
-				) {
-					throw new Error( 'schema_invalid' );
+	const geometryInputs = function* () {
+		for ( const entry of [ ...retainedEntries ].sort( ( left, right ) =>
+			left.url.localeCompare( right.url )
+		) ) {
+			const observations: GeometryCapture[ 'observations' ] = [];
+			for ( const viewport of [ 'desktop', 'mobile' ] ) {
+				const path = join( outputDir, 'layout-geometry', `${ entry.slug }.${ viewport }.json` );
+				if ( ! existsSync( path ) ) {
+					geometryCaptureOmissions[ 'capture_missing' ] =
+						( geometryCaptureOmissions[ 'capture_missing' ] ?? 0 ) + 1;
+					continue;
 				}
-				observations.push( ...capture.observations );
-				for ( const [ code, count ] of Object.entries( capture.omissions ?? {} ) )
-					geometryCaptureOmissions[ code ] = ( geometryCaptureOmissions[ code ] ?? 0 ) + count;
-			} catch {
-				geometryCaptureOmissions[ 'capture_invalid' ] =
-					( geometryCaptureOmissions[ 'capture_invalid' ] ?? 0 ) + 1;
+				try {
+					const capture = JSON.parse( readFileSync( path, 'utf8' ) ) as GeometryCapture;
+					if (
+						capture.schema !== 'data-liberation/layout-geometry-capture/v1' ||
+						! Array.isArray( capture.observations )
+					) {
+						throw new Error( 'schema_invalid' );
+					}
+					observations.push( ...capture.observations );
+					for ( const [ code, count ] of Object.entries( capture.omissions ?? {} ) )
+						geometryCaptureOmissions[ code ] = ( geometryCaptureOmissions[ code ] ?? 0 ) + count;
+				} catch {
+					geometryCaptureOmissions[ 'capture_invalid' ] =
+						( geometryCaptureOmissions[ 'capture_invalid' ] ?? 0 ) + 1;
+				}
 			}
+			const routePath = routeOutputPath( entry.url, options.sourceUrl, entrypointUrl ).replace(
+				/\\/g,
+				'/'
+			);
+			const html = readFileSync( join( websiteDir, routePath ), 'utf8' );
+			yield {
+				sourcePath: `website/${ routePath }`,
+				html,
+				identityHtml: readFileSync( entry.identityHtmlPath!, 'utf8' ),
+				observations,
+			};
 		}
-		geometryInputs.push( {
-			sourcePath: routeOutputPath( entry.url, options.sourceUrl, entrypointUrl )
-				.replace( /\\/g, '/' )
-				.replace( /^/, 'website/' ),
-			...( geometryHtmlByPath.get(
-				`website/${ routeOutputPath( entry.url, options.sourceUrl, entrypointUrl ).replace(
-					/\\/g,
-					'/'
-				) }`
-			) ?? {
-				html: readFileSync(
-					join( websiteDir, routeOutputPath( entry.url, options.sourceUrl, entrypointUrl ) ),
-					'utf8'
-				),
-				identityHtml: '',
-			} ),
-			observations,
-		} );
-	}
+	};
 	const geometry = buildLayoutGeometryProof( geometryInputs );
 	const geometryReport = {
 		...geometry.report,
@@ -1652,5 +1653,6 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		throw error;
 	}
 
+	rmSync( stagedHtmlDir, { recursive: true, force: true } );
 	return receiptPath;
 }

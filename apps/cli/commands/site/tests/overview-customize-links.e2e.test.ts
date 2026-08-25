@@ -51,7 +51,6 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: overview customize link
 
 		const result = await runCli(
 			[
-				'site',
 				'create',
 				'--name',
 				'Customize Links E2E Site',

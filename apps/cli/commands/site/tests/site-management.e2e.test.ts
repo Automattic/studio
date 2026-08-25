@@ -36,7 +36,6 @@ async function createStoppedSite( env: CliEnv, name: string, dirName: string ): 
 	const sitePath = path.join( env.sitesDir, dirName );
 	const result = await runCli(
 		[
-			'site',
 			'create',
 			'--name',
 			name,

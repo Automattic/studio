@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -595,6 +596,67 @@ describe( 'exportWebsiteCapture', () => {
 			error: 'removed because media exceeds portable size or dimension limits',
 		} );
 	} );
+
+	it( 'exports many large responsive routes within a constrained heap', () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-large-capture-export-' ) );
+		dirs.push( outputDir );
+		for ( const path of [ 'html', 'html-mobile', 'screenshots' ] )
+			mkdirSync( join( outputDir, path ), { recursive: true } );
+		const routeCount = 40;
+		const content = 'x'.repeat( 512 * 1024 );
+		const entries: Record< string, { html: string } > = {};
+		for ( let index = 0; index < routeCount; index++ ) {
+			const name = index === 0 ? 'homepage' : `page-${ index }`;
+			const route = index === 0 ? 'https://example.com/' : `https://example.com/page-${ index }`;
+			const next = index + 1 < routeCount ? `<a href="/page-${ index + 1 }">Next</a>` : '';
+			writeFileSync(
+				join( outputDir, 'html', `${ name }.html` ),
+				`<main><h1>Desktop ${ index }</h1>${ next }<p>${ content }</p></main>`
+			);
+			writeFileSync(
+				join( outputDir, 'html-mobile', `${ name }.html` ),
+				`<main><h1>Mobile ${ index }</h1>${ next }<p>${ content }</p></main>`
+			);
+			entries[ route ] = { html: `html/${ name }.html` };
+		}
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( { version: 1, entries } )
+		);
+
+		const runnerPath = join( outputDir, 'export-under-limit.ts' );
+		writeFileSync(
+			runnerPath,
+			`import { existsSync, readFileSync, statSync } from 'node:fs';
+import { exportWebsiteCapture } from ${ JSON.stringify(
+				new URL( './capture-export.ts', import.meta.url ).href
+			) };
+const outputDir = ${ JSON.stringify( outputDir ) };
+const receiptPath = exportWebsiteCapture( {
+	outputDir,
+	sourceUrl: 'https://example.com/',
+	platform: 'fake',
+	summary: {},
+	failures: [],
+} );
+const receipt = JSON.parse( readFileSync( receiptPath, 'utf8' ) );
+if ( receipt.routes.length !== ${ routeCount } ) throw new Error( 'route count mismatch' );
+const artifactPath = ${ JSON.stringify( join( outputDir, 'artifact.json' ) ) };
+if ( !existsSync( artifactPath ) || statSync( artifactPath ).size === 0 )
+	throw new Error( 'artifact was not completed' );
+if ( existsSync( ${ JSON.stringify( join( outputDir, '.capture-export-html' ) ) } ) )
+	throw new Error( 'staging was not removed' );
+`
+		);
+		const result = spawnSync(
+			process.execPath,
+			[ '--max-old-space-size=384', '--import', 'tsx', runnerPath ],
+			{ cwd: process.cwd(), encoding: 'utf8', timeout: 90_000 }
+		);
+
+		expect( result.error ).toBeUndefined();
+		expect( result.status, result.stderr ).toBe( 0 );
+	}, 100_000 );
 
 	it( 'preserves the rendered authoring tree when section reconstruction lacks visual proof', () => {
 		const outputDir = mkdtempSync( join( tmpdir(), 'dla-capture-export-' ) );

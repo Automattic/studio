@@ -120,11 +120,6 @@ type StaticSiteImportIdentity = { source: string; contract: string; phase?: 'cle
 
 type StaticSiteImporterSource =
 	| {
-			type: 'url';
-			path: string;
-			payload: Record< string, unknown >;
-	  }
-	| {
 			type: 'website-artifact';
 			path: string;
 			artifact: Record< string, unknown >;
@@ -274,11 +269,9 @@ function resolveStaticSiteImporterSource(
 	stagedFigmaPath?: string
 ): StaticSiteImporterSource {
 	if ( isUrl( sourcePath ) ) {
-		return {
-			type: 'url',
-			path: sourcePath,
-			payload: { url: sourcePath },
-		};
+		throw new LoggerError(
+			__( 'Remote URLs must be rendered by Data Liberation before SSI materialization.' )
+		);
 	}
 
 	if ( ! fs.existsSync( sourcePath ) ) {
@@ -534,65 +527,7 @@ function static_site_importer_studio_reject_catastrophic_content_loss( array $so
 
 $store_import_result = ${ storeImportResult ? 'true' : 'false' };
 
-if ( isset( $source['url'] ) && function_exists( 'static_site_importer_ability_import' ) ) {
-	$slug = sanitize_title( ${ phpString( siteName ) } );
-	if ( '' === $slug ) {
-		$slug = 'imported-site';
-	}
-	$input['operation'] = 'plan';
-	$input['require_proven_dynamic_client_assets'] = true;
-	$input['slug'] = $slug;
-	$input['source'] = array(
-		'type' => 'url',
-		'url'  => $source['url'],
-	);
-	if ( ! empty( $state['import_id'] ) ) {
-		$input['source']['import_id'] = (string) $state['import_id'];
-	}
-	$result = static_site_importer_ability_import( $input );
-	if ( ! is_array( $result ) || empty( $result['success'] ) ) {
-		static_site_importer_studio_record_failure( $result, 'Static Site Importer planning failed', $store_import_result );
-	}
-	$url_batch_run = isset( $result['url_batch_run'] ) && is_array( $result['url_batch_run'] ) ? $result['url_batch_run'] : array();
-	if ( ! empty( $result['continuation'] ) ) {
-		$state = array( 'import_id' => (string) ( $result['import_id'] ?? '' ) );
-		if ( '' === $state['import_id'] || false === file_put_contents( $state_path, wp_json_encode( $state ) ) ) {
-			throw new RuntimeException( 'Static Site Importer continuation state could not be saved.' );
-		}
-		$studio_result = array(
-			'continuation'     => true,
-			'completed_routes' => (int) ( $url_batch_run['completed_routes'] ?? 0 ),
-			'total_routes'     => (int) ( $url_batch_run['total_routes'] ?? 0 ),
-		);
-		file_put_contents( ABSPATH . '.studio-import/${ STATIC_SITE_IMPORT_RESULT_FILE }', wp_json_encode( $studio_result ) );
-		return;
-	}
-	if ( ! isset( $result['plan'] ) || ! is_array( $result['plan'] ) ) {
-		throw new RuntimeException( 'Static Site Importer planning completed without a canonical plan.' );
-	}
-	$state = array( 'import_id' => (string) ( $result['import_id'] ?? '' ) );
-	if ( '' !== $state['import_id'] && false === file_put_contents( $state_path, wp_json_encode( $state ) ) ) {
-		throw new RuntimeException( 'Static Site Importer terminal state could not be saved.' );
-	}
-	$apply_input = $input;
-	$apply_input['operation'] = 'apply';
-	$apply_input['plan'] = $result['plan'];
-	unset( $apply_input['source'] );
-	$result = static_site_importer_ability_import( $apply_input );
-} elseif ( isset( $source['url'] ) && function_exists( 'static_site_importer_ability_import_url' ) ) {
-	$input['url'] = $source['url'];
-	$input['work_dir'] = ABSPATH . '.studio-import/static-site-importer';
-	$input['provider_args'] = array(
-		'collect_site'                => true,
-		'require_complete_collection' => true,
-		'batch_pages'                 => 25,
-		'max_effective_batches_per_invocation' => 1,
-		'max_invocation_seconds'      => 180,
-		'max_bytes'                  => 10485760,
-	);
-	$input['require_proven_dynamic_client_assets'] = true;
-	$result = static_site_importer_ability_import_url( $input );
-} elseif ( isset( $source['figma_file'] ) ) {
+if ( isset( $source['figma_file'] ) ) {
 	if ( ! function_exists( 'static_site_importer_ability_import_figma' ) ) {
 		throw new RuntimeException( 'Static Site Importer Figma import ability is unavailable.' );
 	}
@@ -747,7 +682,7 @@ export function buildCreateFromSourceBlueprint(
 	staticSiteImporterPlugin: StaticSiteImporterPlugin = DEFAULT_STATIC_SITE_IMPORTER_PLUGIN_URL,
 	storeImportResult = false,
 	adminUsername = 'admin',
-	sourceUrl?: string
+	originalSourceUrl?: string
 ): {
 	contents: BlueprintV1Declaration;
 	uri: string;
@@ -809,7 +744,7 @@ export function buildCreateFromSourceBlueprint(
 			source: JSON.stringify( source.payload ),
 			storeResult: storeImportResult,
 			...( stagedFigmaName ? { stagedSource: { sourcePath, targetName: stagedFigmaName } } : {} ),
-			identity: { source: sourceUrl ?? source.path, contract: STATIC_SITE_IMPORT_CONTRACT },
+			identity: { source: originalSourceUrl ?? source.path, contract: STATIC_SITE_IMPORT_CONTRACT },
 			bundlePath: tempDir,
 		},
 	};

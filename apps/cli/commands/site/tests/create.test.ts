@@ -262,12 +262,29 @@ describe( 'CLI: studio create', () => {
 		vi.restoreAllMocks();
 	} );
 
-	const setupResumableCanonicalization = () => {
-		const blueprint = buildCreateFromSourceBlueprint(
-			'https://example.com/',
-			'Imported URL',
-			'https://example.com/static-site-importer.zip'
+	const buildCapturedSiteBlueprint = ( storeImportResult = false ) => {
+		const artifactDir = fs.mkdtempSync( path.join( '/tmp', 'studio-captured-artifact-' ) );
+		const artifactPath = path.join( artifactDir, 'artifact.json' );
+		fs.writeFileSync(
+			artifactPath,
+			JSON.stringify( {
+				schema: 'blocks-engine/php-transformer/site-artifact/v1',
+				entrypoint: 'website/index.html',
+				files: [ { path: 'website/index.html', content: '<main>Captured</main>' } ],
+			} )
 		);
+		return buildCreateFromSourceBlueprint(
+			artifactPath,
+			'Captured Site',
+			'https://example.com/static-site-importer.zip',
+			storeImportResult,
+			'admin',
+			'https://example.com/'
+		);
+	};
+
+	const setupResumableCanonicalization = () => {
+		const blueprint = buildCapturedSiteBlueprint();
 		const existingSite = { ...mockExistingSite, path: mockSitePath };
 		const documents = JSON.stringify( [
 			{
@@ -609,81 +626,20 @@ describe( 'CLI: studio create', () => {
 			);
 		} );
 
-		it( 'should prefer the canonical resumable plan-first URL import contract', () => {
-			const blueprint = buildCreateFromSourceBlueprint(
-				'https://example.com/',
-				'Imported URL',
-				'https://example.com/static-site-importer.zip'
+		it( 'does not include Static Site Importer URL capture paths', () => {
+			const blueprint = buildCapturedSiteBlueprint();
+
+			expect( blueprint.staticSiteImport.code ).not.toContain(
+				'static_site_importer_ability_import_url'
 			);
-			expect( blueprint.contents.steps ).not.toEqual(
-				expect.arrayContaining( [ expect.objectContaining( { step: 'runPHP' } ) ] )
-			);
-			expect( blueprint.staticSiteImport.code ).toContain(
-				"function_exists( 'static_site_importer_ability_import' )"
-			);
-			expect( blueprint.staticSiteImport.code ).toContain( "$input['operation'] = 'plan';" );
-			expect( blueprint.staticSiteImport.code ).toContain( "'type' => 'url'" );
-			expect( blueprint.staticSiteImport.code ).toContain(
-				"$input['source']['import_id'] = (string) $state['import_id'];"
-			);
-			expect( blueprint.staticSiteImport.code ).toContain( "$apply_input['operation'] = 'apply';" );
-			expect( blueprint.staticSiteImport.code ).toContain(
-				"$apply_input['plan'] = $result['plan'];"
-			);
-			expect( blueprint.staticSiteImport.code ).toContain(
-				"ABSPATH . '.studio-import/state.json'"
-			);
-			expect(
-				blueprint.staticSiteImport.code.indexOf( 'static_site_importer_ability_import' )
-			).toBeLessThan(
-				blueprint.staticSiteImport.code.indexOf( 'static_site_importer_ability_import_url' )
-			);
-			// The released package still uses the legacy URL ability until SSI ships the unified contract.
-			expect( blueprint.staticSiteImport.code ).toContain(
-				"'collect_site'                => true"
-			);
-			expect( blueprint.staticSiteImport.code ).toContain(
-				"'require_complete_collection' => true"
-			);
-			expect( blueprint.staticSiteImport.code ).toContain( "'batch_pages'                 => 25" );
-			expect( blueprint.staticSiteImport.code ).toContain(
-				"'max_effective_batches_per_invocation' => 1"
-			);
-			expect( blueprint.staticSiteImport.code ).toContain( "'max_invocation_seconds'      => 180" );
-			expect( blueprint.staticSiteImport.code ).toContain(
-				"isset( $result['result'] ) && is_array( $result['result'] )"
-			);
-			expect( blueprint.staticSiteImport.code ).toContain(
-				"'max_bytes'                  => 10485760"
-			);
-			expect( blueprint.staticSiteImport.code ).toContain(
-				"$input['work_dir'] = ABSPATH . '.studio-import/static-site-importer';"
-			);
-			expect( blueprint.staticSiteImport.code ).not.toContain( "'work_dir'                    =>" );
-			expect( blueprint.staticSiteImport.code ).not.toContain( "'max_pages'" );
-			expect( blueprint.staticSiteImport.code ).not.toContain( "'max_assets'" );
-			expect( blueprint.staticSiteImport.code ).not.toContain( "'max_total_bytes'" );
-			expect( blueprint.staticSiteImport.code ).not.toContain( 'deactivate_plugins' );
-			expect( blueprint.staticSiteImport.code ).not.toContain( 'delete_plugins' );
-			expect( blueprint.staticSiteImport.code ).toContain(
-				"$input['require_proven_dynamic_client_assets'] = true;"
-			);
-			expect(
-				blueprint.staticSiteImport.code.indexOf(
-					"$input['require_proven_dynamic_client_assets'] = true;"
-				)
-			).toBeLessThan(
-				blueprint.staticSiteImport.code.indexOf(
-					'$result = static_site_importer_ability_import( $input );'
-				)
-			);
-			expect( blueprint.staticSiteImport.code ).toContain(
-				"'client_script_policy' => 'isolated_preview'"
-			);
-			expect( blueprint.staticSiteImport.code ).toContain( "'client_script_isolated' => true" );
-			expect( blueprint.staticSiteImport.code ).toContain(
-				"'studio-create-from:sha256:' . hash( 'sha256', (string) wp_json_encode( $source ) )"
-			);
+			expect( blueprint.staticSiteImport.code ).not.toContain( "'collect_site'" );
+			expect( blueprint.staticSiteImport.source ).not.toContain( '"url"' );
+		} );
+
+		it( 'rejects remote URLs at the SSI materialization boundary', () => {
+			expect( () =>
+				buildCreateFromSourceBlueprint( 'https://example.com/', 'Imported Site' )
+			).toThrow( 'must be rendered by Data Liberation' );
 		} );
 
 		it( 'should build a Blueprint that imports a static site artifact through Static Site Importer', () => {
@@ -1003,12 +959,7 @@ describe( 'CLI: studio create', () => {
 		} );
 
 		it( 'preserves the completed result receipt when requested', () => {
-			const blueprint = buildCreateFromSourceBlueprint(
-				'https://example.com/',
-				'Imported URL',
-				'https://example.com/static-site-importer.zip',
-				true
-			);
+			const blueprint = buildCapturedSiteBlueprint( true );
 
 			expect( blueprint.staticSiteImport.storeResult ).toBe( true );
 			expect( blueprint.staticSiteImport.code ).toContain(
@@ -1023,11 +974,7 @@ describe( 'CLI: studio create', () => {
 		} );
 
 		it( 'requires proven dynamic client assets for canonical imports', () => {
-			const blueprint = buildCreateFromSourceBlueprint(
-				'https://example.com/',
-				'Imported URL',
-				'https://example.com/static-site-importer.zip'
-			);
+			const blueprint = buildCapturedSiteBlueprint();
 
 			expect( blueprint.staticSiteImport.code ).not.toContain(
 				"$input['require_proven_dynamic_client_assets'] = false;"
@@ -1082,11 +1029,7 @@ describe( 'CLI: studio create', () => {
 		} );
 
 		it( 'should resume a legacy native import with live output without reprovisioning the site', async () => {
-			const blueprint = buildCreateFromSourceBlueprint(
-				'https://example.com/',
-				'Imported URL',
-				'https://example.com/static-site-importer.zip'
-			);
+			const blueprint = buildCapturedSiteBlueprint();
 			const existingSite = { ...mockExistingSite, path: mockSitePath };
 			const identity = JSON.stringify( blueprint.staticSiteImport.identity );
 			vi.mocked( readCliConfig, { partial: true } ).mockResolvedValue( {
@@ -1190,12 +1133,8 @@ describe( 'CLI: studio create', () => {
 			);
 		} );
 
-		it( 'should continue bounded URL imports until SSI reports completion', async () => {
-			const blueprint = buildCreateFromSourceBlueprint(
-				'https://example.com/',
-				'Imported URL',
-				'https://example.com/static-site-importer.zip'
-			);
+		it( 'should continue bounded artifact imports until SSI reports completion', async () => {
+			const blueprint = buildCapturedSiteBlueprint();
 			const results = [
 				{ continuation: true, completed_routes: 1, total_routes: 2 },
 				{ continuation: false, completed_routes: 2, total_routes: 2 },
@@ -1249,11 +1188,7 @@ describe( 'CLI: studio create', () => {
 		} );
 
 		it( 'should fail when a successful WP-CLI process emits no import result receipt', async () => {
-			const blueprint = buildCreateFromSourceBlueprint(
-				'https://example.com/',
-				'Imported URL',
-				'https://example.com/static-site-importer.zip'
-			);
+			const blueprint = buildCapturedSiteBlueprint();
 			vi.spyOn( fs, 'existsSync' ).mockReturnValue( false );
 			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
 			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
@@ -1267,11 +1202,7 @@ describe( 'CLI: studio create', () => {
 		} );
 
 		it( 'should preserve a resumable site and its import state when resuming fails', async () => {
-			const blueprint = buildCreateFromSourceBlueprint(
-				'https://example.com/',
-				'Imported URL',
-				'https://example.com/static-site-importer.zip'
-			);
+			const blueprint = buildCapturedSiteBlueprint();
 			const existingSite = { ...mockExistingSite, path: mockSitePath };
 			vi.mocked( readCliConfig, { partial: true } ).mockResolvedValue( {
 				version: 1,
@@ -1310,11 +1241,7 @@ describe( 'CLI: studio create', () => {
 		} );
 
 		it( 'should reject a registered import with a mismatched source identity without removing its state', async () => {
-			const blueprint = buildCreateFromSourceBlueprint(
-				'https://example.com/',
-				'Imported URL',
-				'https://example.com/static-site-importer.zip'
-			);
+			const blueprint = buildCapturedSiteBlueprint();
 			const existingSite = { ...mockExistingSite, path: mockSitePath };
 			vi.mocked( readCliConfig, { partial: true } ).mockResolvedValue( {
 				version: 1,
@@ -1707,11 +1634,7 @@ describe( 'CLI: studio create', () => {
 		} );
 
 		it( 'should import a static site after applying its dependency Blueprint', async () => {
-			const blueprint = buildCreateFromSourceBlueprint(
-				'https://example.com/',
-				'Imported URL',
-				'https://example.com/static-site-importer.zip'
-			);
+			const blueprint = buildCapturedSiteBlueprint();
 			vi.spyOn( fs, 'existsSync' ).mockImplementation( ( filePath ) =>
 				filePath.toString().endsWith( 'result.json' )
 			);
@@ -1756,11 +1679,7 @@ describe( 'CLI: studio create', () => {
 		} );
 
 		it( 'should enable live import output only for native PHP sites', async () => {
-			const blueprint = buildCreateFromSourceBlueprint(
-				'https://example.com/',
-				'Imported URL',
-				'https://example.com/static-site-importer.zip'
-			);
+			const blueprint = buildCapturedSiteBlueprint();
 			vi.spyOn( fs, 'existsSync' ).mockImplementation( ( filePath ) =>
 				filePath.toString().endsWith( 'result.json' )
 			);
@@ -1786,11 +1705,7 @@ describe( 'CLI: studio create', () => {
 		} );
 
 		it( 'should preserve retry state when post-import plugin cleanup fails', async () => {
-			const blueprint = buildCreateFromSourceBlueprint(
-				'https://example.com/',
-				'Imported URL',
-				'https://example.com/static-site-importer.zip'
-			);
+			const blueprint = buildCapturedSiteBlueprint();
 			const successResponse = {
 				response: {
 					exitCode: Promise.resolve( 0 ),
@@ -1996,11 +1911,7 @@ describe( 'CLI: studio create', () => {
 		} );
 
 		it( 'should retain a new site and its state when the out-of-band static import fails', async () => {
-			const blueprint = buildCreateFromSourceBlueprint(
-				'https://example.com/',
-				'Imported URL',
-				'https://example.com/static-site-importer.zip'
-			);
+			const blueprint = buildCapturedSiteBlueprint();
 			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
 			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
 			const fsRmSpy = vi.spyOn( fs.promises, 'rm' ).mockResolvedValue( undefined );

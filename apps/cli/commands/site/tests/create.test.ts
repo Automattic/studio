@@ -803,7 +803,7 @@ describe( 'CLI: studio create', () => {
 			);
 		} );
 
-		it( 'should preserve bounded failure diagnostics and the canonical import receipt', () => {
+		it( 'should preserve bounded failure diagnostics and a bounded import receipt', () => {
 			const sourceDir = fs.mkdtempSync( path.join( '/tmp', 'studio-source-test-' ) );
 			fs.writeFileSync( path.join( sourceDir, 'index.html' ), '<main></main>' );
 
@@ -821,7 +821,7 @@ describe( 'CLI: studio create', () => {
 				"$projection['diagnostics'] = static_site_importer_studio_bounded_value( $result['diagnostics'] );"
 			);
 			expect( blueprint.staticSiteImport.code ).toContain( "'failure'       => $projection" );
-			expect( blueprint.staticSiteImport.code ).toContain( "'import_receipt' => $result" );
+			expect( blueprint.staticSiteImport.code ).toContain( "'import_receipt' => $projection" );
 		} );
 
 		it( 'should atomically write a bounded receipt for generic failed imports', () => {
@@ -951,7 +951,7 @@ describe( 'CLI: studio create', () => {
 			expect( blueprint.staticSiteImport.code.length ).toBeLessThan( 16000 );
 		} );
 
-		it( 'preserves the completed result receipt when requested', () => {
+		it( 'preserves a bounded completed result receipt when requested', () => {
 			const blueprint = buildCapturedSiteBlueprint( true );
 
 			expect( blueprint.staticSiteImport.storeResult ).toBe( true );
@@ -959,7 +959,7 @@ describe( 'CLI: studio create', () => {
 				'static_site_importer_studio_write_result( $studio_result )'
 			);
 			expect( blueprint.staticSiteImport.code ).toContain(
-				"'import_receipt'            => $result"
+				"'import_receipt'            => static_site_importer_studio_result_projection( $result )"
 			);
 			expect( blueprint.staticSiteImport.code ).toContain(
 				"'completed_routes'          => (int) ( $import_result['url_batch_run']['completed_routes'] ?? count( $canonical_documents ) )"

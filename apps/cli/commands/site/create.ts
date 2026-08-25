@@ -503,7 +503,7 @@ function static_site_importer_studio_record_failure( $result, string $fallback, 
 			'continuation'  => false,
 			'failed'        => true,
 			'failure'       => $projection,
-			'import_receipt' => $result,
+			'import_receipt' => $projection,
 		)
 	);
 	throw new RuntimeException( static_site_importer_studio_failure_message( $result, $fallback ) );
@@ -633,7 +633,7 @@ $studio_result = array(
 	'status'                    => (string) ( $import_result['url_batch_run']['status'] ?? $import_result['status'] ?? 'completed' ),
 	'completed_routes'          => (int) ( $import_result['url_batch_run']['completed_routes'] ?? count( $canonical_documents ) ),
 	'total_routes'              => (int) ( $import_result['url_batch_run']['total_routes'] ?? count( $canonical_documents ) ),
-	'import_receipt'            => $result,
+	'import_receipt'            => static_site_importer_studio_result_projection( $result ),
 );
 static_site_importer_studio_write_result( $studio_result );
 ?>`

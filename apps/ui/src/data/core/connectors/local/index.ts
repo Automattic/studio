@@ -372,8 +372,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async getSiteThumbnail(): Promise< string | null > {
 			return null;
 		},
-		async getSiteStorageUsage( siteId ) {
-			return api( `/sites/${ encodeURIComponent( siteId ) }/storage` );
+		async getSiteStorageUsage( siteId, signal ) {
+			return api( `/sites/${ encodeURIComponent( siteId ) }/storage`, { signal } );
 		},
 
 		// Site creation — delegated to the CLI `create` on the local machine.

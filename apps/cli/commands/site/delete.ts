@@ -27,9 +27,13 @@ import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-m
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
-const logger = new Logger< LoggerAction >();
+const defaultLogger = new Logger< LoggerAction >();
 
-async function deletePreviewSites( authToken: StoredAuthToken, siteFolder: string ) {
+async function deletePreviewSites(
+	authToken: StoredAuthToken,
+	siteFolder: string,
+	logger: Logger< LoggerAction >
+) {
 	try {
 		const snapshots = await getSnapshotsFromConfig( authToken.id, siteFolder );
 
@@ -69,12 +73,19 @@ async function deletePreviewSites( authToken: StoredAuthToken, siteFolder: strin
 
 export async function runCommand(
 	siteFolder: string,
-	deleteFiles: boolean = true
+	deleteFiles: boolean = true,
+	logger: Logger< LoggerAction > = defaultLogger
 ): Promise< void > {
-	return withSiteOperation( siteFolder, 'delete', () => deleteSite( siteFolder, deleteFiles ) );
+	return withSiteOperation( siteFolder, 'delete', () =>
+		deleteSite( siteFolder, deleteFiles, logger )
+	);
 }
 
-async function deleteSite( siteFolder: string, deleteFiles: boolean ): Promise< void > {
+async function deleteSite(
+	siteFolder: string,
+	deleteFiles: boolean,
+	logger: Logger< LoggerAction >
+): Promise< void > {
 	try {
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
 		await connectToDaemon();
@@ -109,7 +120,7 @@ async function deleteSite( siteFolder: string, deleteFiles: boolean ): Promise< 
 
 		const authToken = await readAuthToken();
 		if ( authToken ) {
-			await deletePreviewSites( authToken, siteFolder );
+			await deletePreviewSites( authToken, siteFolder, logger );
 		}
 
 		try {
@@ -200,10 +211,10 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				await runCommand( argv.path, argv.files );
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {
-					logger.reportError( error );
+					defaultLogger.reportError( error );
 				} else {
 					const loggerError = new LoggerError( __( 'Failed to delete site' ), error );
-					logger.reportError( loggerError );
+					defaultLogger.reportError( loggerError );
 				}
 			}
 		},

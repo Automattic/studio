@@ -1,5 +1,4 @@
 import '@testing-library/jest-dom/vitest';
-import { ADD_AI_CREDITS_URL } from '@studio/common/lib/studio-assistant-quota';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
@@ -289,7 +288,7 @@ describe( 'UsagePanel', () => {
 		expect( screen.getAllByTestId( 'usage-progress-bar' ) ).toHaveLength( 2 );
 	} );
 
-	it( 'shows remaining credit balances when the quota includes the per-pool fields', () => {
+	it( 'keeps the prototype meter when the quota includes per-pool balance fields', () => {
 		useStudioAssistantQuotaMock.mockReturnValue( {
 			data: {
 				costUsage: 25,
@@ -303,59 +302,9 @@ describe( 'UsagePanel', () => {
 
 		render( <UsagePanel /> );
 
-		expect( screen.getByText( 'Free credits remaining: 960,000' ) ).toBeInTheDocument();
-		expect( screen.getByText( 'Purchased credits remaining: 150,000' ) ).toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: 'Add AI credits' } ) ).toBeInTheDocument();
-		// The credit balances replace the monthly-limit and Alpha designs.
-		expect( screen.queryByText( /of monthly limit used/ ) ).not.toBeInTheDocument();
-		expect(
-			screen.queryByText( /AI credits are currently free while Studio Code is in Alpha/ )
-		).not.toBeInTheDocument();
-	} );
-
-	it( 'hides the free-credits line once the allowance is exhausted', () => {
-		useStudioAssistantQuotaMock.mockReturnValue( {
-			data: {
-				costUsage: 25,
-				costCap: 100,
-				costResetDate: '2026-08-01T12:00:00',
-				allowanceRemaining: 0,
-				purchasedRemaining: 0,
-			},
-			isLoading: false,
-		} as never );
-
-		render( <UsagePanel /> );
-
-		expect( screen.queryByText( /Free credits remaining/ ) ).not.toBeInTheDocument();
-		expect( screen.getByText( 'Purchased credits remaining: 0' ) ).toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: 'Add AI credits' } ) ).toBeInTheDocument();
-	} );
-
-	it( 'falls back to the prototype meter when the quota has no per-pool balance fields', () => {
-		useStudioAssistantQuotaMock.mockReturnValue( {
-			data: { costUsage: 25, costCap: 100, costResetDate: '2026-08-01T12:00:00' },
-			isLoading: false,
-		} as never );
-
-		render( <UsagePanel /> );
-
 		expect( screen.queryByText( /credits remaining/ ) ).not.toBeInTheDocument();
 		expect( screen.getByText( '1,200,000 of 1,500,000 AI credits used' ) ).toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'How AI credits work' } ) ).toBeInTheDocument();
-	} );
-
-	it( 'opens the WordPress.com checkout from the add-credits button', () => {
-		useStudioAssistantQuotaMock.mockReturnValue( {
-			data: { costUsage: 0, costCap: 0, allowanceRemaining: 960000, purchasedRemaining: 0 },
-			isLoading: false,
-		} as never );
-
-		render( <UsagePanel /> );
-
-		fireEvent.click( screen.getByRole( 'button', { name: 'Add AI credits' } ) );
-
-		expect( openExternalUrl ).toHaveBeenCalledWith( ADD_AI_CREDITS_URL );
 	} );
 
 	it( 'opens the credits explainer dialog from the help icon', () => {

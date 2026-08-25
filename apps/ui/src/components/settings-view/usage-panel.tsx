@@ -124,10 +124,14 @@ function AiCreditsSummary() {
 	const [ detailsOpen, setDetailsOpen ] = useState( false );
 	const { data: quota, isLoading, isError } = useStudioAssistantQuota();
 	const accessState = quota ? getStudioCodeAiAccessState( quota ) : 'available';
+	// This branch is a review harness for the scenario-driven design. Live
+	// per-pool balances must not bypass the meter and purchase-flow controls.
+	const rendersProductionQuota = false;
 	// The server includes the per-pool balances only when AI credits are
 	// enabled for the account (STU-2235); their absence — not a 0 — means the
 	// pre-credits design should render.
 	const showsCreditBalances =
+		rendersProductionQuota &&
 		! isLoading &&
 		! isError &&
 		accessState === 'available' &&
@@ -171,14 +175,14 @@ function AiCreditsSummary() {
 	);
 
 	let content;
-	if ( isLoading ) {
+	if ( rendersProductionQuota && isLoading ) {
 		content = (
 			<>
 				<div className={ styles.previewUsageText }>{ __( 'Loading…' ) }</div>
 				<UsageProgressBar fraction={ 0 } />
 			</>
 		);
-	} else if ( isError ) {
+	} else if ( rendersProductionQuota && isError ) {
 		content = (
 			<div className={ styles.previewUsageText }>
 				{ __( 'Studio Code limits are temporarily unavailable.' ) }

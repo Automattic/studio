@@ -101,6 +101,10 @@
 	--wp-ui-button-border-color-active: transparent;
 }
 
+.actionButton svg {
+	fill: currentColor;
+}
+
 .notice > svg {
 	margin-top: 2px;
 }

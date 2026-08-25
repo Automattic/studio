@@ -165,20 +165,17 @@ export function PurchaseCreditsDialog( {
 										type="button"
 										className={ styles.amountOption }
 										data-selected={ checkoutAmount === option ? '' : undefined }
+										aria-pressed={ checkoutAmount === option }
 										onClick={ () => setAmount( String( option ) ) }
 									>
 										<span className={ styles.optionValue }>
-											{ sprintf(
-												/* translators: %s: number of AI credits. */
-												__( '%s AI credits' ),
-												creditAmountFormatter.format( option )
-											) }
+											{ priceFormatter.format( dollarsFromCredits( option ) ) }
 										</span>
-										<span className={ styles.optionFrequency }>
+										<span className={ styles.optionCreditCount }>
 											{ sprintf(
-												/* translators: %s: one-time price for AI credits. */
-												__( '%s one time' ),
-												priceFormatter.format( dollarsFromCredits( option ) )
+												/* translators: %s: number of credits. */
+												__( '%s credits' ),
+												creditAmountFormatter.format( option )
 											) }
 										</span>
 									</button>
@@ -194,6 +191,7 @@ export function PurchaseCreditsDialog( {
 											type="button"
 											className={ styles.amountOption }
 											data-selected={ checkoutAmount === option ? '' : undefined }
+											aria-pressed={ checkoutAmount === option }
 											onClick={ () => setAmount( String( option ) ) }
 										>
 											<span className={ styles.optionValue }>

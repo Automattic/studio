@@ -13,32 +13,33 @@
 }
 
 .amountOption {
+	--wp-ui-button-background-color: var( --wpds-color-bg-surface-neutral-weak );
+	--wp-ui-button-border-color: var( --wpds-color-stroke-surface-neutral );
+
 	display: flex;
 	align-items: flex-start;
 	flex-direction: column;
 	gap: var( --wpds-dimension-gap-xs );
 	padding: var( --wpds-dimension-padding-md );
-	border: 1px solid var( --wpds-color-stroke-surface-neutral );
+	border: 1px solid var( --wp-ui-button-border-color );
 	border-radius: 8px;
-	background: var( --wpds-color-bg-surface-neutral-weak );
+	background-color: var( --wp-ui-button-background-color );
 	color: var( --wpds-color-fg-content-neutral );
 	cursor: pointer;
 	text-align: start;
 }
 
-.amountOption:hover {
-	border-color: var( --wpds-color-stroke-interactive-neutral );
-}
-
 .amountOption[data-selected] {
-	border-color: transparent;
-	outline: 2px solid var( --wpds-color-stroke-interactive-brand );
-	outline-offset: -1px;
+	--wp-ui-button-background-color: var( --wpds-color-bg-interactive-brand-strong );
+	--wp-ui-button-border-color: var( --wpds-color-bg-interactive-brand-strong );
+
+	color: var( --wpds-color-fg-interactive-brand-strong );
 }
 
 .amountOption:focus-visible {
-	outline: 2px solid var( --wpds-color-stroke-focus-brand );
-	outline-offset: -1px;
+	outline: 0;
+	box-shadow: inset 0 0 0 var( --wpds-border-width-focus )
+		var( --wpds-color-stroke-focus-brand );
 }
 
 .optionValue {
@@ -54,6 +55,11 @@
 .optionFrequency {
 	color: var( --wpds-color-fg-content-neutral-weak );
 	font-size: var( --wpds-typography-font-size-xs );
+}
+
+.amountOption[data-selected] .optionCreditCount,
+.amountOption[data-selected] .optionFrequency {
+	color: var( --wpds-color-fg-interactive-brand-strong );
 }
 
 .optionFrequency {

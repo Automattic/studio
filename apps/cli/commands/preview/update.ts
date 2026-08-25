@@ -46,13 +46,13 @@ async function getSnapshotToUpdate(
 export async function runCommand(
 	siteFolder: string,
 	host: string,
-	overwrite: boolean
+	overwrite: boolean,
+	logger: Logger< LoggerAction > = new Logger< LoggerAction >()
 ): Promise< void > {
 	const archivePath = path.join(
 		os.tmpdir(),
 		`${ path.basename( siteFolder ) }-${ Date.now() }.zip`
 	);
-	const logger = new Logger< LoggerAction >();
 	const startedAt = Date.now();
 
 	try {

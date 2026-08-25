@@ -1,5 +1,5 @@
 import { wrapTextWithAnsi, type SelectItem } from '@earendil-works/pi-tui';
-import chalk from '@studio/common/lib/chalk';
+import { theme } from 'cli/ai/theme';
 
 const DESCRIPTION_INDENT = '     '; // aligns descriptions under the numbered labels ("→ 1. ")
 const MIN_DESCRIPTION_WIDTH = 10;
@@ -20,11 +20,11 @@ export function buildOptionPickerLines(
 		const isSelected = item.value === selectedValue;
 		item.label.split( '\n' ).forEach( ( labelLine, index ) => {
 			const marker = index === 0 && isSelected ? '→ ' : '  ';
-			lines.push( isSelected ? chalk.blue( marker + labelLine ) : marker + labelLine );
+			lines.push( isSelected ? theme.fg( 'accent', marker + labelLine ) : marker + labelLine );
 		} );
 		if ( item.description ) {
 			for ( const descriptionLine of wrapTextWithAnsi( item.description, descriptionWidth ) ) {
-				lines.push( chalk.dim( DESCRIPTION_INDENT + descriptionLine ) );
+				lines.push( theme.fg( 'muted', DESCRIPTION_INDENT + descriptionLine ) );
 			}
 		}
 	}

@@ -48,9 +48,10 @@ describe( 'deriveWhatsNewAutostart', () => {
 		expect( deriveWhatsNewAutostart( { ...base, siteCount: 0 } ) ).toBeNull();
 	} );
 
-	it( 'waits until hints and the stored version have loaded', () => {
+	it( 'waits until hints, the stored version, and the current version have loaded', () => {
 		expect( deriveWhatsNewAutostart( { ...base, hints: undefined } ) ).toBeNull();
 		expect( deriveWhatsNewAutostart( { ...base, lastSeenVersion: undefined } ) ).toBeNull();
+		expect( deriveWhatsNewAutostart( { ...base, currentVersion: undefined } ) ).toBeNull();
 	} );
 
 	it( 'does not re-show once the announcements have been dismissed', () => {

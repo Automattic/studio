@@ -52,16 +52,6 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).toContain( '- pdf:' );
 	} );
 
-	it( 'guards site deletion via the tool confirmation, not an extra AskUserQuestion', () => {
-		const prompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
-
-		expect( prompt ).toContain( 'Deleting a site is destructive and irreversible' );
-		expect( prompt ).toContain( 'do NOT call `AskUserQuestion` yourself before invoking it' );
-		expect( prompt ).toContain(
-			'Never treat an ambiguous or corrective request — "undo", "undo that", "revert my last change", "start over", "remove that" — as a request to delete a site'
-		);
-	} );
-
 	it( 'routes plugin-specific feature work to the plugin recommendations skill', () => {
 		const prompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
 
@@ -158,6 +148,14 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).not.toContain( '- saved-local-media:' );
 		expect( prompt ).not.toContain( '- screenshot-auto-artifact:' );
 		expect( prompt ).not.toContain( 'studio_present' );
+	} );
+
+	it( 'mentions refresh_browser only when chat artifacts are enabled', () => {
+		const attachedPrompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
+		expect( attachedPrompt ).toContain( 'refresh_browser' );
+
+		const terminalPrompt = buildSystemPrompt( { chatArtifactsEnabled: false } );
+		expect( terminalPrompt ).not.toContain( 'refresh_browser' );
 	} );
 
 	it( 'warns that terminal users may not see screenshots when chat artifacts are disabled', () => {

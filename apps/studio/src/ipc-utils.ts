@@ -28,6 +28,7 @@ export interface IpcEvents {
 			blueprintPath: string;
 		},
 	];
+	'ai-credits-purchased': [ void ];
 	'auth-updated': [ { token: StoredAuthToken } | { token: null } | { error: unknown } ];
 	'on-export': [ ExportIpcEvent[ 'event' ], string ];
 	'on-import': [ ImportEventTuple, string ];

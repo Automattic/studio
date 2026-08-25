@@ -39,7 +39,6 @@ import {
 	type ReprintProcessResult,
 	runReprintCommandUntilComplete,
 } from 'cli/lib/pull/migration-client';
-import { preserveUnselectedLocalContent } from 'cli/lib/pull/preserve-local-content';
 import {
 	getCoreRoots,
 	getReprintMetadata,
@@ -49,7 +48,6 @@ import {
 import {
 	fetchJetpackPullTree,
 	mapCliOnlyToReprint,
-	resolveOnlyPathsToAbsolute,
 	selectPullItems,
 } from 'cli/lib/pull/reprint-selector';
 import {
@@ -131,16 +129,16 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 };
 
 /**
- * Where Studio stores the raw filesystem scratch space for each pulled
+ * Where Studio stores the working directories for each pulled
  * site — reprint's `.import-state.json`, the preflight cache, and the
  * raw/runtime working dirs.  Each site's pull lives in a subdirectory
  * keyed by its `siteId` (see {@link getPullTechnicalDirectory}); there is
- * no Studio-owned progress file. `studio delete` removes this scratch.
+ * no Studio-owned progress file. `studio delete` removes all of it.
  */
 const PULLS_ROOT = path.join( os.homedir(), '.studio', 'pulls' );
 
 /**
- * The on-disk scratch layout for a site's pull, all derived from the
+ * The on-disk layout for a site's pull, all derived from the
  * site's identity (`siteId`) and layout (`SiteData`).  There is no
  * Studio-owned progress file: "where do I continue from?" is computed
  * from observable state (reprint's own `.import-state.json` cursor,
@@ -179,7 +177,7 @@ interface CliSelectionOptions {
  * from observable state: it is user input, and a resumed pull must reuse
  * the exact same choice (reprint refuses to resume a files-pull whose
  * `--only` set changed mid-flight). It lives in a small sidecar file in
- * the scratch directory — written when chosen, deleted when the pull
+ * the state directory — written when chosen, deleted when the pull
  * completes so the next pull asks again. It is NOT a progress cursor.
  */
 const SELECTION_FILE = 'selection.json';
@@ -232,7 +230,7 @@ class PullError extends LoggerError {
  * Orchestrates a single end-to-end pull with Reprint.phar. Pipeline:
  *
  *   resolveSourceSite (remote source only) →
- *   getPullSession (scratch layout from siteId) →
+ *   getPullSession (pull layout from siteId) →
  *   runPreflight →
  *   saveReprintOrigin (durable origin onto SiteData) →
  *   runFullPull (pull-files → pull-db (unless the database is
@@ -307,7 +305,7 @@ export async function runCommand(
 	}
 
 	// Create the `~/.studio/pulls/<siteId>` directory structure for the
-	// pull session scratch space.
+	// pull session.
 	fs.mkdirSync( studioMetadata.rawDirectory, { recursive: true } );
 	fs.mkdirSync( studioMetadata.stateDirectory, { recursive: true } );
 	fs.mkdirSync( studioMetadata.runtimeDirectory, { recursive: true } );
@@ -355,8 +353,8 @@ export async function runCommand(
 		} );
 		// Selective sync: apply `--only`/`--skip-*` flags, or prompt
 		// interactively with the wp-content folder tree + database toggle.
-		// A partial first-pull selection gets the core roots added and the
-		// unselected local content preserved. A resumed pull reuses the
+		// A partial first-pull selection gets the core roots added; the
+		// flatten step keeps whatever the pull left out. A resumed pull reuses the
 		// persisted choice without re-prompting. Runs before the site is
 		// marked `pulling` so a cancel is a clean no-op.
 		const selection = await applySelection( {
@@ -578,9 +576,9 @@ export async function runCommand(
  * export roots, and on a **first pull** the raw fs-root has no WordPress
  * core yet — so any partial first-pull selection gets the
  * preflight-detected core roots prepended. The unselected wp-content
- * folders (and a skipped database) keep their local contents: they are
- * carried into the scratch before flattening (see
- * preserve-local-content.ts).
+ * folders (and a skipped database) keep their local contents: the
+ * flatten step adopts whatever the pull did not bring into the fs-root
+ * before it replaces the site's wp-content with a symlink.
  */
 async function applySelection( params: {
 	session: PullSession;
@@ -616,7 +614,7 @@ async function applySelection( params: {
 	};
 
 	// Reuse the selection captured by a prior interrupted run. A folder
-	// selection can outlive the scratch that made it a delta (damage wipe):
+	// selection can outlive the fs-root that made it a delta (damage wipe):
 	// re-anchor it with the core roots so the fresh initial sync still
 	// downloads WordPress core.
 	const persisted = readPullSelection( session );
@@ -823,7 +821,7 @@ async function runPreflight(
 }
 
 /**
- * The `~/.studio/pulls/<siteId>` scratch root for a site's pull. Keyed
+ * The `~/.studio/pulls/<siteId>` root for a site's pull. Keyed
  * by `siteId` (not a URL hash) so it follows the site, not the remote.
  */
 function getPullTechnicalDirectory( siteId: string ): string {
@@ -835,7 +833,7 @@ function getPullTechnicalDirectory( siteId: string ): string {
  * non-empty after a `--only`-scoped pull.
  *
  * WordPress resolves symlinks, so a pulled site boots through the raw
- * scratch: wp-load looks for wp-config.php in the raw ABSPATH, then in
+ * fs-root: wp-load looks for wp-config.php in the raw ABSPATH, then in
  * its parent. On WP Cloud the parent copy is a symlink to
  * `<document_root>/wp-config.php`, which sits outside every `--only`
  * prefix of a scoped pull — the link is recreated but its target is
@@ -901,19 +899,19 @@ export function ensureScopedPullWpConfig(
  * Run the site-clone pipeline as separate reprint commands so the
  * selective-sync choice maps directly onto them:
  *
- *   1. `pull-files`    — preflight + file download. `--only` restricts the
- *      pull to the wp-content folders the user selected.
- *   2. `pull-db`       — SQL download + import into SQLite. **Skipped
- *      entirely** when the user excluded the database, leaving the local
- *      database untouched.
- *   3. `flat-docroot`  — reassemble the raw download into the site
- *      directory. `--force` is passed only on the first pull, where it
- *      overwrites the blank WordPress install `studio create` produced;
- *      a delta re-pull refreshes existing symlinks and must not
- *      force-overwrite the live site.
- *   4. `apply-runtime` — server config, run last so it embeds the DB
- *      credentials `pull-db` wrote to state (or keeps the previous ones
- *      when the database was skipped).
+ *   1. `pull-files`    — file download, restricted by `--only`.
+ *   2. `pull-db`       — SQL download and import. Skipped entirely when
+ *      the user excluded the database, leaving the local one untouched.
+ *   3. `merge-wp-content` — move the wp-content entries the blank install
+ *      alone has into the fs-root, before step 4 deletes them. First pull
+ *      only: afterwards the site's wp-content is a symlink into the
+ *      fs-root, so there is nothing left of its own to move.
+ *   4. `flat-docroot`  — reassemble the fs-root into the site directory.
+ *      `--force` only on a first pull, where it replaces the blank
+ *      install. A delta re-pull passes it no flag, so it can never
+ *      overwrite a live site.
+ *   5. `apply-runtime` — server config, last so it embeds the database
+ *      credentials `pull-db` wrote to state.
  *
  * The SQLite target geometry:
  *   - If preflight exposed the remote `wp-content` (contentDir set),
@@ -924,12 +922,11 @@ export function ensureScopedPullWpConfig(
  *     `rawDirectory/wp-content`; a database-excluded pull keeps the
  *     existing database at `sitePath/wp-content`.
  *
- * The flattened site and runtime output directories are mounted up
- * front so the forks can write them onto the host filesystem. Each
- * command is individually resumable (exit code 2 → retry loop in
- * {@link runReprintCommandUntilComplete}) and idempotent, so the
- * orchestrator always re-invokes the sequence with no Studio-side
- * completion guard.
+ * The site and runtime output directories are mounted up front so the
+ * forks can write them onto the host filesystem. Every command is
+ * resumable (exit code 2 → retry loop in
+ * {@link runReprintCommandUntilComplete}) and idempotent, so this always
+ * re-invokes the whole sequence with no Studio-side completion guard.
  */
 export async function runFullPull(
 	runtime: SiteRuntime,
@@ -937,7 +934,7 @@ export async function runFullPull(
 	apiUrl: string,
 	secret: string,
 	verbose: boolean,
-	force: boolean,
+	isFirstPull: boolean,
 	selection: PullSelection = {},
 	reprintMetadata: ReprintMetadata = emptyReprintMetadata
 ): Promise< void > {
@@ -1015,19 +1012,6 @@ export async function runFullPull(
 		] );
 	}
 
-	// 3. Carry the unselected local wp-content entries (and a kept
-	// database) into the scratch before flattening replaces the site's
-	// wp-content with a symlink into it. No-op once the site is flattened.
-	if ( contentDir ) {
-		preserveUnselectedLocalContent( {
-			sitePath: metadata.sitePath,
-			rawDirectory: metadata.rawDirectory,
-			contentDir,
-			selectedPrefixes: resolveOnlyPathsToAbsolute( selection.fileOnlyPaths ?? [], contentDir ),
-			skipDatabase: selection.skipDatabase,
-		} );
-	}
-
 	// A scoped pull can miss the real wp-config.php: on WP Cloud it lives
 	// at the document root — outside both the core roots and any
 	// wp-content selection — reachable only through a symlink under the
@@ -1036,13 +1020,27 @@ export async function runFullPull(
 		ensureScopedPullWpConfig( metadata, reprintMetadata );
 	}
 
+	// 3. Fold the blank install's wp-content into the pulled one. The plugins,
+	// themes and uploads it alone has move into the fs-root, so the symlink
+	// step 4 puts in their place still reaches them. Reprint refuses to run
+	// this before the file pull has finished, so it has to follow step 1.
+	if ( isFirstPull ) {
+		await runStep( __( 'Merging local content' ), [
+			'merge-wp-content',
+			apiUrl,
+			`--from=${ path.join( metadata.sitePath, 'wp-content' ) }`,
+			`--state-dir=${ metadata.stateDirectory }`,
+			`--fs-root=${ metadata.rawDirectory }`,
+		] );
+	}
+
 	// 4. Flatten the raw download into the site directory. Reprint uses the
 	// remote URL to locate the pull state, though this step makes no request.
 	await runStep( __( 'Flattening layout' ), [
 		'flat-docroot',
 		apiUrl,
 		`--flatten-to=${ metadata.sitePath }`,
-		...( force ? [ '--force' ] : [] ),
+		...( isFirstPull ? [ '--force' ] : [] ),
 		`--state-dir=${ metadata.stateDirectory }`,
 		`--fs-root=${ metadata.rawDirectory }`,
 	] );
@@ -1222,9 +1220,9 @@ export async function resolveSourceSite(
 }
 
 /**
- * Derives the on-disk scratch layout for refreshing an existing Studio
+ * Derives the on-disk layout for refreshing an existing Studio
  * `site`. Pure: identity and layout come entirely from the
- * {@link SiteData} record (the scratch directory is keyed by `site.id`)
+ * {@link SiteData} record (the pull directory is keyed by `site.id`)
  * — nothing is read from or written to disk. Resume state is computed
  * later from observable state, not from a stored cursor.
  */

@@ -1,7 +1,7 @@
 {
 	"name": "wp-studio",
 	"author": "Automattic Inc.",
-	"version": "1.18.0",
+	"version": "1.19.0",
 	"productName": "Studio CLI",
 	"description": "WordPress Studio CLI",
 	"license": "GPL-2.0-or-later",
@@ -85,7 +85,7 @@
 		"@types/node-forge": "^1.3.14",
 		"@types/yargs": "^17.0.35",
 		"@types/yauzl": "^2.10.3",
-		"vite": "^8.0.16",
-		"vite-plugin-static-copy": "^4.1.0"
+		"vite": "^8.2.1",
+		"vite-plugin-static-copy": "^4.1.1"
 	}
 }

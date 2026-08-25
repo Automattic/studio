@@ -104,9 +104,18 @@ export function useExportDatabase() {
 	} );
 }
 
+export interface StartSiteOptions {
+	// Set by callers whose start is a side effect of something else — boot
+	// auto-start, the connect-site lifecycle, opening a link on a stopped site.
+	// The site's own status already reports the start, and a batch of them
+	// would otherwise fill the shelf with notifications nobody asked for.
+	// Failures still surface: a site that never came up is worth a toast.
+	silent?: boolean;
+}
+
 // Invalidation is awaited inside `mutationFn` (not `onSettled`) so
 // `isPending` stays true until `site.running` reflects the new state.
-export function useStartSite() {
+export function useStartSite( { silent = false }: StartSiteOptions = {} ) {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	return useMutation( {
@@ -126,7 +135,7 @@ export function useStartSite() {
 			return true;
 		},
 		onSuccess: ( started ) => {
-			if ( started ) {
+			if ( started && ! silent ) {
 				toast.success( __( 'Site started' ) );
 			}
 		},
@@ -340,7 +349,7 @@ export function useSyncSitesWithEvents(): void {
 // with stale flags can't trigger starts.
 export function useAutoStartSites(): void {
 	const { data: sites, isFetchedAfterMount } = useSites();
-	const { mutate: startSite } = useStartSite();
+	const { mutate: startSite } = useStartSite( { silent: true } );
 	const startedRef = useRef( false );
 	useEffect( () => {
 		if ( ! isFetchedAfterMount || ! sites || startedRef.current ) {

@@ -18,10 +18,8 @@ providers:
   - id: exec:node ../../apps/cli/dist/cli/eval-runner.mjs
     label: studio-agent
 
-# Custom grader uses Studio's WP.com auth for llm-rubric assertions.
 defaultTest:
   options:
-    provider: file://grader-provider.mjs
     repeat: 1
 
 tests:
@@ -125,9 +123,13 @@ tests:
         for both desktop and mobile, then briefly report whether the
         screenshots were captured.
     assert:
+      # The runner records the image content blocks the tool returned to the
+      # model (`toolResults[].images`) — unlike the chat artifacts, they are
+      # emitted even when the agent passes `display: false`, so the check can't
+      # be dodged by an internal-verification capture.
       - type: javascript
         value: |
-          return import('node:fs').then(({ readFileSync, existsSync }) => {
+          return Promise.all([import('node:fs'), import('node:buffer')]).then(([{ readFileSync }, { Buffer }]) => {
             const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
             if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
             const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
@@ -150,28 +152,19 @@ tests:
 
             const result = (d.toolResults || []).find(r => r.toolUseId === call.id);
             if (!result || result.isError) {
-              return { pass: false, score: 0, reason: `take_screenshot failed: ${JSON.stringify(result)}` };
+              return { pass: false, score: 0, reason: `take_screenshot failed: ${JSON.stringify(result).slice(0, 500)}` };
             }
-            const rawPayloads = (result.text || '').split('mediaWidgetPayloads=')[1];
-            if (!rawPayloads) {
-              return { pass: false, score: 0, reason: `screenshot result did not include mediaWidgetPayloads: ${(result.text || '').slice(0, 500)}` };
-            }
-
-            let payloads;
-            try {
-              payloads = JSON.parse(rawPayloads);
-            } catch (error) {
-              return { pass: false, score: 0, reason: `could not parse mediaWidgetPayloads JSON: ${error instanceof Error ? error.message : String(error)}` };
-            }
-            if (!Array.isArray(payloads) || payloads.length !== 2) {
-              return { pass: false, score: 0, reason: `expected two screenshot media payloads, got ${JSON.stringify(payloads).slice(0, 500)}` };
+            const images = result.images || [];
+            if (images.length !== 2) {
+              return { pass: false, score: 0, reason: `expected two screenshot image payloads (desktop + mobile), got ${images.length}` };
             }
 
-            // take_screenshot emits JPEG; key the expected width by viewport so
-            // the check survives a future format change rather than the extension.
+            // Image blocks carry no viewport label, so identify each capture by
+            // its pixel width (keyed by viewport, so the check survives a future
+            // image-format change).
             const expectedWidths = new Map([
-              ['desktop', 1040],
-              ['mobile', 390],
+              [1040, 'desktop'],
+              [390, 'mobile'],
             ]);
             // Read pixel dimensions from a PNG or JPEG buffer; null if neither.
             const readImageSize = (buf) => {
@@ -198,25 +191,20 @@ tests:
               return null;
             };
             const seen = [];
-            for (const payload of payloads) {
-              const source = payload.widgetProps?.source;
-              const viewport = (source?.name || '').replace(/^screenshot-/, '').replace(/\.(png|jpe?g)$/i, '');
-              const expectedWidth = expectedWidths.get(viewport);
-              if (!expectedWidth) {
-                return { pass: false, score: 0, reason: `unexpected screenshot payload source: ${JSON.stringify(source)}` };
-              }
-              if (typeof source.path !== 'string' || !existsSync(source.path)) {
-                return { pass: false, score: 0, reason: `screenshot file is missing: ${JSON.stringify(source)}` };
-              }
-              const size = readImageSize(readFileSync(source.path));
-              if (!size || size.width !== expectedWidth || size.height < 600) {
+            for (const image of images) {
+              const size = readImageSize(Buffer.from(image.data, 'base64'));
+              const viewport = size ? expectedWidths.get(size.width) : undefined;
+              if (!viewport || size.height < 600) {
                 return {
                   pass: false,
                   score: 0,
-                  reason: `${source.name} did not look like the expected screenshot: ${JSON.stringify(size)}`,
+                  reason: `image payload did not look like a desktop/mobile screenshot: ${JSON.stringify(size)}`,
                 };
               }
-              seen.push(source.name);
+              if (seen.includes(viewport)) {
+                return { pass: false, score: 0, reason: `two ${viewport} screenshots instead of desktop + mobile` };
+              }
+              seen.push(viewport);
             }
             return { pass: true, score: 1, reason: `captured valid screenshots: ${seen.join(', ')}` };
           });
@@ -358,6 +346,58 @@ tests:
             return { pass: true, score: 1, reason: `validation passed: ${text.split(/\r?\n/).filter(Boolean).slice(0, 2).join(' | ')}` };
           });
 
+  # One-page sites get header navigation that links to page sections. The
+  # header template part renders on EVERY template (posts, archives, search,
+  # 404), and a bare-hash URL like "#contact" resolves against the current
+  # URL — it silently does nothing everywhere except the home page. Anchor
+  # nav links must be home-relative ("/#contact"). Regression guard for the
+  # one-page navigation guidance in the block-content skill.
+  - description: one-page site header nav uses home-relative anchor links
+    vars:
+      caseId: one-page-nav-anchor-links
+      timeoutMs: 600000
+      askUserPolicy: allow_all
+      prompt: |
+        First check if a site named "Eval One Page Nav" exists using
+        site_list. If it does, delete it with site_delete so we start from a
+        clean slate. Do NOT touch any other site.
+
+        Then build a one-page site named "Eval One Page Nav": a single
+        scrollable home page with Features, About, and Contact sections, and
+        a header navigation menu whose items jump to those sections. Keep the
+        design simple — no extra pages and no blog posts.
+    assert:
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const strings = [];
+            const collect = (v) => {
+              if (typeof v === 'string') strings.push(v);
+              else if (Array.isArray(v)) v.forEach(collect);
+              else if (v && typeof v === 'object') Object.values(v).forEach(collect);
+            };
+            (d.toolCalls || []).forEach(t => collect(t.input));
+            // wp_cli payloads carry markup with shell/JSON-escaped quotes;
+            // strip backslashes so one regex covers theme files and commands.
+            const flat = strings.map(s => s.replace(/\\/g, ''));
+            const links = flat.flatMap(s => s.match(/wp:navigation-link\s*\{[^}]*\}/g) || []);
+            if (links.length === 0) {
+              return { pass: false, score: 0, reason: 'no wp:navigation-link blocks were produced — the build did not exercise header section navigation' };
+            }
+            const anchorLinks = links.filter(l => /"url":"[^"]*#/.test(l));
+            if (anchorLinks.length === 0) {
+              return { pass: false, score: 0, reason: `nav links carry no anchor URLs at all — the section-jump scenario was not exercised (links: ${links.slice(0, 3).join(' | ').slice(0, 300)})` };
+            }
+            const bare = links.filter(l => /"url":"#/.test(l));
+            if (bare.length > 0) {
+              return { pass: false, score: 0, reason: `${bare.length}/${links.length} nav link(s) use bare-hash URLs, which resolve against the current URL and break on every page except home (first: ${bare[0].slice(0, 200)}). Anchor nav links must be home-relative ("/#anchor").` };
+            }
+            return { pass: true, score: 1, reason: `${anchorLinks.length} anchor nav link(s), all home-relative` };
+          });
+
   # Regression (STU-1775): the agent used to present a temporary preview site as
   # a connected WordPress.com remote site when listing what a local site is
   # connected to. We seed one connected remote site and one preview site for a
@@ -421,25 +461,14 @@ tests:
             const ok = /"type"\s*:\s*"preview"/.test(r.text || '');
             return { pass: ok, score: ok ? 1 : 0, reason: ok ? 'preview output tagged type=preview' : `missing type discriminator: ${(r.text || '').slice(0, 300)}` };
           });
-      # The behavioral guard: the agent must not merge the two categories.
-      # Grade the assistant's prose, not the EVAL_RUNNER_RESULT_FILE marker line.
-      - type: llm-rubric
-        transform: |
-          return import('node:fs').then(({ readFileSync }) => {
-            const marker = String(output).split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
-            if (!marker) return String(output);
-            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
-            return (d.textSegments || []).join('\n');
-          });
-        value: |
-          The assistant lists what the local site "Eval Site Categories" is
-          connected or related to. PASS only if it classifies
-          "abc123-studio.wp.build" as a temporary/preview site (and NOT as a
-          connected WordPress.com remote/production site), AND classifies
-          "My Production Site" / "myprod.wordpress.com" as a connected
-          WordPress.com remote site (and NOT as a preview site). FAIL if it
-          labels the preview as a "WordPress.com" remote/production site, labels
-          the remote site as a preview, or merges the two into one undifferentiated list.
+      # A behavioral llm-rubric assertion used to grade the assistant's prose
+      # here — that it keeps preview and connected-remote sites in distinct
+      # categories. It was removed because the WP.com AI proxy's Studio lane now
+      # rejects the grader's plain judge call (no agent envelope/identity), and
+      # the honest fix (a dedicated eval-grader feature slug from #ai-ops, or an
+      # ANTHROPIC_API_KEY-backed grader) is not yet in place. The two
+      # assertions above still guard the tool-output discriminators. Restore the
+      # prose guard once the grader can authenticate.
 
   - description: agent reaches for Jetpack on slideshow request (catch-all rule)
     vars:

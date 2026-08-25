@@ -225,6 +225,7 @@
 .usageLimitLockText strong {
 	color: var( --wpds-color-fg-content-neutral );
 	font-size: var( --wpds-typography-font-size-md );
+	font-weight: var( --wpds-typography-font-weight-medium );
 	line-height: 1.25;
 }
 

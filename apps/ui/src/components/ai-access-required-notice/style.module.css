@@ -1,6 +1,4 @@
 .outOfCredits {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	gap: var(--wpds-dimension-padding-sm);
+	max-width: 100%;
+	text-align: start;
 }

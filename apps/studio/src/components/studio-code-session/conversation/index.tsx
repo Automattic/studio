@@ -25,16 +25,15 @@ import {
 	getToolResultDiff,
 	type NormalizedToolResult,
 } from '@studio/common/ai/tools';
-import { formatUsageCapNotice } from '@studio/common/lib/studio-assistant-quota';
+import {
+	formatOutOfCreditsNotice,
+	formatUsageCapNotice,
+} from '@studio/common/lib/studio-assistant-quota';
 import { __ } from '@wordpress/i18n';
 import { image, page } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import {
-	AiAccessRequiredNotice,
-	AiBlockedNotice,
-	OutOfCreditsNotice,
-} from 'src/components/ai-access-required-notice';
+import { AiAccessRequiredNotice, AiBlockedNotice } from 'src/components/ai-access-required-notice';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useGetStudioAssistantQuota } from 'src/stores/wpcom-api';
@@ -673,7 +672,9 @@ function TurnErrorMarker( { message }: { message: string } ) {
 	} else if ( isAccessRequired ) {
 		text = <AiAccessRequiredNotice quota={ quota } />;
 	} else if ( isOutOfCreditsError( message ) ) {
-		text = <OutOfCreditsNotice />;
+		// Records why this turn stopped; buying is offered where the composer
+		// used to be, so the marker deliberately carries no call to action.
+		text = formatOutOfCreditsNotice();
 	} else if ( isUsageCap ) {
 		text = formatUsageCapNotice( quota?.costResetDate );
 	} else {

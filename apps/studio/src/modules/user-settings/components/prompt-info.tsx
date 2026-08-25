@@ -6,8 +6,8 @@ import {
 } from '@studio/common/lib/studio-assistant-quota';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
+import { AddAiCreditsButton } from 'src/components/add-ai-credits-button';
 import { AiAccessRequiredNotice, AiBlockedNotice } from 'src/components/ai-access-required-notice';
-import { AiCreditsTopUpOptions } from 'src/components/ai-credits-top-up-options';
 import ProgressBar from 'src/components/progress-bar';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
@@ -125,7 +125,7 @@ export function PromptInfo() {
 							maxValue={ assistantQuotaWithCostCap.costCap }
 						/>
 					) }
-					{ creditBalances && <AiCreditsTopUpOptions className="self-start" withHeading /> }
+					{ creditBalances && <AddAiCreditsButton className="self-start" /> }
 				</div>
 				<div className="h-6 w-6"></div>
 			</div>

@@ -6,12 +6,14 @@ import { chartBar, external } from '@wordpress/icons';
 import { Icon, Tooltip } from '@wordpress/ui';
 import { useState } from 'react';
 import { AiCreditsDetailsDialog } from '@/components/ai-credits-details-dialog';
+import { AiCreditsPurchaseDialog } from '@/components/ai-credits-purchase-dialog';
 import * as Menu from '@/components/menu';
 import { useConnector } from '@/data/core';
 import {
 	ASSISTANT_QUOTA_QUERY_KEY,
 	useStudioAssistantQuota,
 } from '@/data/queries/use-assistant-quota';
+import { useStudioAssistantTopUpPricing } from '@/data/queries/use-top-up-pricing';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useAddAiCreditsUrl } from '@/hooks/use-add-ai-credits-url';
 import styles from './style.module.css';
@@ -24,7 +26,11 @@ export function AiCreditsControl() {
 	const queryClient = useQueryClient();
 	const [ menuOpen, setMenuOpen ] = useState( false );
 	const [ detailsOpen, setDetailsOpen ] = useState( false );
+	const [ purchaseOpen, setPurchaseOpen ] = useState( false );
 	const { data: quota } = useStudioAssistantQuota();
+	// Mounted with the composer so the priced amounts are cached before the
+	// menu opens and "Add AI credits" knows whether it has a choice to offer.
+	const { data: pricing } = useStudioAssistantTopUpPricing();
 
 	// The server includes the per-pool balances only when AI credits are
 	// enabled for the account (STU-2235); without them the composer keeps its
@@ -37,6 +43,7 @@ export function AiCreditsControl() {
 		return null;
 	}
 
+	const hasTopUpOptions = ( pricing?.options.length ?? 0 ) > 0;
 	const remaining = ( quota.allowanceRemaining ?? 0 ) + ( quota.purchasedRemaining ?? 0 );
 	const formattedRemaining = new Intl.NumberFormat( locale ).format( remaining );
 
@@ -90,9 +97,20 @@ export function AiCreditsControl() {
 						</strong>
 					</div>
 					<Menu.Separator />
-					<Menu.Item onClick={ () => void connector.openExternalUrl( addAiCreditsUrl ) }>
+					<Menu.Item
+						onClick={ () => {
+							// With priced amounts to choose between the picker opens;
+							// with none it would be an empty dialog, so checkout for
+							// the single fixed top-up takes over.
+							if ( hasTopUpOptions ) {
+								setPurchaseOpen( true );
+								return;
+							}
+							void connector.openExternalUrl( addAiCreditsUrl );
+						} }
+					>
 						{ __( 'Add AI credits' ) }
-						<Icon icon={ external } size={ 14 } aria-hidden="true" />
+						{ hasTopUpOptions ? null : <Icon icon={ external } size={ 14 } aria-hidden="true" /> }
 					</Menu.Item>
 					<Menu.Item onClick={ () => setDetailsOpen( true ) }>
 						{ __( 'How AI credits work' ) }
@@ -105,6 +123,7 @@ export function AiCreditsControl() {
 				</Menu.Popup>
 			</Menu.Root>
 			<AiCreditsDetailsDialog open={ detailsOpen } onOpenChange={ setDetailsOpen } />
+			<AiCreditsPurchaseDialog open={ purchaseOpen } onOpenChange={ setPurchaseOpen } />
 		</>
 	);
 }

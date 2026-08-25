@@ -244,3 +244,16 @@ export function formatUsageCapNotice( resetDate?: string | null, locale?: string
 export function formatOutOfCreditsNotice(): string {
 	return __( 'You’re out of AI credits. Add more credits to continue using Studio Code.' );
 }
+
+/**
+ * Heading for the out-of-credits card on surfaces that render a title and a
+ * purchase button separately, rather than the one-sentence notice above.
+ */
+export function formatOutOfCreditsTitle(): string {
+	return __( 'No AI credits available' );
+}
+
+/** Body of that card: what happened, and what fixes it. */
+export function formatOutOfCreditsDescription(): string {
+	return __( 'You’ve used your available AI credits. Add more to keep chatting.' );
+}

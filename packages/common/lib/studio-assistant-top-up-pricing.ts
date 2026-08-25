@@ -76,37 +76,46 @@ export async function fetchStudioAssistantTopUpPricing(
 }
 
 /**
- * Visible label for a top-up button. Deliberately terse — the buttons sit in a
- * row under copy that already says these are credits, and spelling the word out
- * four times made each button wide enough to wrap the row. Screen readers get
- * the unabbreviated `formatTopUpOptionAccessibleLabel` instead.
+ * Copy for the purchase dialog. The options and their prices are the store's,
+ * so every string here takes them as-is: `display` is never reformatted, and
+ * the credit counts are formatted for the reader's locale only.
  */
-export function formatTopUpOptionLabel(
-	option: Pick< StudioAssistantTopUpOption, 'credits' | 'display' >,
+export function formatPurchaseCreditsDescription(): string {
+	return __(
+		'Choose a one-time AI credit amount to check out securely on WordPress.com. AI credits do not expire.'
+	);
+}
+
+/** Headline on a top-up card: how many credits the amount buys. */
+export function formatTopUpOptionCreditsLabel(
+	option: Pick< StudioAssistantTopUpOption, 'credits' >,
 	locale?: string
 ): string {
 	return sprintf(
-		/* translators: 1: number of AI credits (e.g. 100,000). 2: price as the store formats it (e.g. US$10, £7.50). */
-		__( '%1$s · %2$s' ),
-		new Intl.NumberFormat( locale ).format( option.credits ),
+		/* translators: %s: number of AI credits (e.g. 100,000). */
+		__( '%s AI credits' ),
+		new Intl.NumberFormat( locale ).format( option.credits )
+	);
+}
+
+/** Subline on a top-up card: what the store charges, once. */
+export function formatTopUpOptionPriceLabel(
+	option: Pick< StudioAssistantTopUpOption, 'display' >
+): string {
+	return sprintf(
+		/* translators: %s: price as the store formats it (e.g. US$10, £7.50). */
+		__( '%s one time' ),
 		option.display
 	);
 }
 
-/** Accessible name for a top-up button, which has to stand on its own. */
-export function formatTopUpOptionAccessibleLabel(
-	option: Pick< StudioAssistantTopUpOption, 'credits' | 'display' >,
-	locale?: string
+/** Confirm button, naming the price the user is about to be charged. */
+export function formatContinueForPriceLabel(
+	option: Pick< StudioAssistantTopUpOption, 'display' >
 ): string {
 	return sprintf(
-		/* translators: 1: number of AI credits (e.g. 100,000). 2: price as the store formats it (e.g. US$10, £7.50). */
-		__( '%1$s credits · %2$s' ),
-		new Intl.NumberFormat( locale ).format( option.credits ),
+		/* translators: %s: price as the store formats it (e.g. US$10, £7.50). */
+		__( 'Continue for %s' ),
 		option.display
 	);
-}
-
-/** Heading for a row of top-up buttons. */
-export function formatBuyMoreCreditsLabel(): string {
-	return __( 'Buy more credits:' );
 }

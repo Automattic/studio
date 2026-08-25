@@ -7,15 +7,20 @@ vi.mock( '@/data/core', () => ( {
 	useConnector: vi.fn(),
 } ) );
 
-vi.mock( '@/components/ai-credits-top-up-options', () => ( {
-	AiCreditsTopUpOptions: () => <div data-testid="top-up-options" />,
+vi.mock( '@/components/add-ai-credits-button', () => ( {
+	AddAiCreditsButton: () => <button type="button">Add AI credits</button>,
 } ) );
 
 describe( 'OutOfCreditsNotice', () => {
-	it( 'states what happened and offers the top-ups', () => {
+	it( 'names the state, explains it, and offers the fix', () => {
 		render( <OutOfCreditsNotice /> );
 
-		expect( screen.getByText( /You’re out of AI credits/ ) ).toBeInTheDocument();
-		expect( screen.getByTestId( 'top-up-options' ) ).toBeInTheDocument();
+		// Notice mirrors its content into an a11y live region, so each string
+		// is on screen twice.
+		expect( screen.getAllByText( 'No AI credits available' ).length ).toBeGreaterThan( 0 );
+		expect( screen.getAllByText( /You’ve used your available AI credits/ ).length ).toBeGreaterThan(
+			0
+		);
+		expect( screen.getByRole( 'button', { name: 'Add AI credits' } ) ).toBeInTheDocument();
 	} );
 } );

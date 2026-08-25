@@ -104,6 +104,16 @@ vi.mock( '@/data/queries/use-top-up-pricing', () => ( {
 	useStudioAssistantTopUpPricing: vi.fn(),
 } ) );
 
+// Owns the purchase dialog; its own tests cover the choosing. Here the panel
+// only has to put the offer on screen and hand off the click.
+vi.mock( '@/components/add-ai-credits-button', () => ( {
+	AddAiCreditsButton: ( { className }: { className?: string } ) => (
+		<button type="button" className={ className }>
+			Add AI credits
+		</button>
+	),
+} ) );
+
 vi.mock( '@/data/queries/use-user-locale', () => ( {
 	useUserLocale: vi.fn(),
 } ) );
@@ -317,7 +327,7 @@ describe( 'UsagePanel', () => {
 		).toBeInTheDocument();
 	} );
 
-	it( 'opens the WordPress.com checkout from the add-credits button', () => {
+	it( 'offers a way to buy once the account has credit balances', () => {
 		useStudioAssistantQuotaMock.mockReturnValue( {
 			data: { costUsage: 0, costCap: 0, allowanceRemaining: 960000, purchasedRemaining: 0 },
 			isLoading: false,
@@ -325,54 +335,7 @@ describe( 'UsagePanel', () => {
 
 		render( <UsagePanel /> );
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Add AI credits' } ) );
-
-		expect( openExternalUrl ).toHaveBeenCalledWith(
-			getAddAiCreditsUrl( { returnsToDesktop: true } )
-		);
-	} );
-
-	it( 'offers a button per top-up the store priced, each buying its own quantity', () => {
-		useStudioAssistantQuotaMock.mockReturnValue( {
-			data: { costUsage: 0, costCap: 0, allowanceRemaining: 960000, purchasedRemaining: 0 },
-			isLoading: false,
-		} as never );
-		useStudioAssistantTopUpPricingMock.mockReturnValue( {
-			data: {
-				currency: 'GBP',
-				step: null,
-				options: [
-					{ credits: 100000, amountMinor: 750, display: '£7.50' },
-					{ credits: 500000, amountMinor: 3750, display: '£37.50' },
-				],
-			},
-			isLoading: false,
-		} as never );
-
-		render( <UsagePanel /> );
-
-		expect( screen.queryByRole( 'button', { name: 'Add AI credits' } ) ).not.toBeInTheDocument();
-		fireEvent.click( screen.getByText( '500,000 · £37.50' ) );
-
-		expect( openExternalUrl ).toHaveBeenCalledWith(
-			getAddAiCreditsUrl( { returnsToDesktop: true, credits: 500000 } )
-		);
-	} );
-
-	it( 'drops the return-to-Studio link when running in a browser tab', () => {
-		useAppGlobalsMock.mockReturnValue( { data: { platform: 'browser' } } as never );
-		useStudioAssistantQuotaMock.mockReturnValue( {
-			data: { costUsage: 0, costCap: 0, allowanceRemaining: 960000, purchasedRemaining: 0 },
-			isLoading: false,
-		} as never );
-
-		render( <UsagePanel /> );
-
-		fireEvent.click( screen.getByRole( 'button', { name: 'Add AI credits' } ) );
-
-		expect( openExternalUrl ).toHaveBeenCalledWith(
-			getAddAiCreditsUrl( { returnsToDesktop: false } )
-		);
+		expect( screen.getByRole( 'button', { name: 'Add AI credits' } ) ).toBeInTheDocument();
 	} );
 
 	it( 'opens the credits explainer dialog from the help icon', () => {

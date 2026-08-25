@@ -95,7 +95,7 @@ describe( 'PromptInfo', () => {
 		expect( screen.queryByRole( 'progressbar' ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'offers a button per top-up the store priced, and only the fixed one without pricing', () => {
+	it( 'offers a way to buy once the account has credit balances', () => {
 		vi.mocked( useGetStudioAssistantQuota, { partial: true } ).mockReturnValue( {
 			data: {
 				costUsage: 33392,
@@ -108,22 +108,9 @@ describe( 'PromptInfo', () => {
 			refetch: vi.fn(),
 		} );
 
-		const { unmount } = render( <PromptInfo /> );
-		expect( screen.getByRole( 'button', { name: 'Add AI credits' } ) ).toBeInTheDocument();
-		unmount();
-
-		mockTopUpPricing( {
-			currency: 'GBP',
-			step: null,
-			options: [
-				{ credits: 100000, amountMinor: 750, display: '£7.50' },
-				{ credits: 500000, amountMinor: 3750, display: '£37.50' },
-			],
-		} );
 		render( <PromptInfo /> );
 
-		expect( screen.getByText( '100,000 · £7.50' ) ).toBeInTheDocument();
-		expect( screen.getByText( '500,000 · £37.50' ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: /Add AI credits/ } ) ).toBeInTheDocument();
 	} );
 
 	it( 'hides the free pool once it is spent, and keeps a zero purchased balance', () => {

@@ -9,10 +9,10 @@ import { help, moreHorizontal } from '@wordpress/icons';
 import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useState } from 'react';
+import { AddAiCreditsButton } from '@/components/add-ai-credits-button';
 import { SigninNotice } from '@/components/agentic-signin-banner';
 import { AiAccessRequiredNotice, AiBlockedNotice } from '@/components/ai-access-required-notice';
 import { AiCreditsDetailsDialog } from '@/components/ai-credits-details-dialog';
-import { AiCreditsTopUpOptions } from '@/components/ai-credits-top-up-options';
 import * as Menu from '@/components/menu';
 import { OfflineNotice } from '@/components/offline-banner';
 import { useConnector } from '@/data/core';
@@ -119,7 +119,7 @@ function AiCreditsSummary() {
 						) }
 					</div>
 				</div>
-				<AiCreditsTopUpOptions className={ styles.usageSectionAction } withHeading />
+				<AddAiCreditsButton className={ styles.usageSectionAction } />
 			</>
 		);
 	} else if ( quota && quota.costCap > 0 ) {

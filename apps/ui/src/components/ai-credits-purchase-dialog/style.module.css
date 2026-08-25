@@ -1,0 +1,47 @@
+.amountCards {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: var(--wpds-dimension-gap-sm);
+	margin-block-start: var(--wpds-dimension-padding-lg);
+}
+
+.amountOption {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: var(--wpds-dimension-gap-xs);
+	padding: var(--wpds-dimension-padding-md);
+	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: 8px;
+	background: var(--wpds-color-bg-surface-neutral-weak);
+	color: var(--wpds-color-fg-content-neutral);
+	cursor: pointer;
+	text-align: start;
+}
+
+.amountOption:hover {
+	border-color: var(--wpds-color-stroke-interactive-neutral);
+}
+
+/* The selected card is outlined rather than bordered so the ring sits on top
+   of the neighbouring cards' borders instead of nudging the grid. */
+.amountOption[data-selected] {
+	border-color: transparent;
+	outline: 2px solid var(--wpds-color-stroke-interactive-brand);
+	outline-offset: -1px;
+}
+
+.amountOption:focus-visible {
+	outline: 2px solid var(--wpds-color-stroke-focus-brand);
+	outline-offset: -1px;
+}
+
+.optionValue {
+	font-size: var(--wpds-typography-font-size-lg);
+	font-weight: 600;
+}
+
+.optionFrequency {
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+}

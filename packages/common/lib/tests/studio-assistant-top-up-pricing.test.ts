@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { getAddAiCreditsUrl } from '@studio/common/lib/studio-assistant-quota';
 import {
-	formatTopUpOptionAccessibleLabel,
-	formatTopUpOptionLabel,
+	formatContinueForPriceLabel,
+	formatTopUpOptionCreditsLabel,
+	formatTopUpOptionPriceLabel,
 	parseStudioAssistantTopUpPricing,
 	studioAssistantTopUpPricingSchema,
 } from '@studio/common/lib/studio-assistant-top-up-pricing';
@@ -74,17 +75,19 @@ describe( 'parseStudioAssistantTopUpPricing', () => {
 	} );
 } );
 
-describe( 'formatTopUpOptionLabel', () => {
-	it( 'pairs the credit count with the store’s price', () => {
-		expect( formatTopUpOptionLabel( { credits: 100000, display: '£7.50' }, 'en-US' ) ).toBe(
-			'100,000 · £7.50'
-		);
+describe( 'purchase dialog copy', () => {
+	const option = { credits: 100000, display: '£7.50' };
+
+	it( 'says how many credits an amount buys, formatted for the reader', () => {
+		expect( formatTopUpOptionCreditsLabel( option, 'en-US' ) ).toBe( '100,000 AI credits' );
 	} );
 
-	it( 'spells out what the number counts for screen readers', () => {
-		expect(
-			formatTopUpOptionAccessibleLabel( { credits: 100000, display: '£7.50' }, 'en-US' )
-		).toBe( '100,000 credits · £7.50' );
+	it( 'shows the store’s price verbatim, marked as a one-off', () => {
+		expect( formatTopUpOptionPriceLabel( option ) ).toBe( '£7.50 one time' );
+	} );
+
+	it( 'names the price on the confirm button', () => {
+		expect( formatContinueForPriceLabel( option ) ).toBe( 'Continue for £7.50' );
 	} );
 } );
 

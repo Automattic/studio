@@ -107,22 +107,91 @@ describe( 'AiCreditsControl', () => {
 		expect( screen.getByText( '1,110,000 remaining' ) ).toBeInTheDocument();
 	} );
 
-	it( 'renders the circular usage chart from the current quota', () => {
+	it( 'shows the plenty state from the combined balance, regardless of the legacy quota usage', () => {
 		useStudioAssistantQuotaMock.mockReturnValue( {
 			data: {
-				costUsage: 25,
+				costUsage: 100,
 				costCap: 100,
-				allowanceRemaining: 960000,
+				allowanceRemaining: 0,
 				purchasedRemaining: 150000,
 			},
 		} as never );
 
 		const { container } = renderControl();
+		const ring = container.querySelector( 'svg' );
 
-		expect( container.querySelector( 'svg' ) ).toBeInTheDocument();
+		expect( ring ).toBeInTheDocument();
+		expect( ring ).not.toHaveAttribute( 'data-caution' );
+		expect( ring ).not.toHaveAttribute( 'data-exhausted' );
 		expect( container.querySelector( 'circle:last-child' ) ).toHaveAttribute(
 			'stroke-dashoffset',
-			'75'
+			'40'
+		);
+	} );
+
+	it( 'shows the low state when the combined balance reaches 100,000 credits', () => {
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: {
+				costUsage: 0,
+				costCap: 0,
+				allowanceRemaining: 70000,
+				purchasedRemaining: 30000,
+			},
+		} as never );
+
+		const { container } = renderControl();
+		const ring = container.querySelector( 'svg' );
+
+		expect( ring ).toHaveAttribute( 'data-caution', 'true' );
+		expect( ring ).not.toHaveAttribute( 'data-exhausted' );
+		expect( container.querySelector( 'circle:last-child' ) ).toHaveAttribute(
+			'stroke-dashoffset',
+			'30'
+		);
+	} );
+
+	it( 'keeps the plenty state above the low-credit boundary', () => {
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: {
+				costUsage: 0,
+				costCap: 0,
+				allowanceRemaining: 100001,
+				purchasedRemaining: 0,
+			},
+		} as never );
+
+		const { container } = renderControl();
+
+		expect( container.querySelector( 'svg' ) ).not.toHaveAttribute( 'data-caution' );
+	} );
+
+	it.each( [
+		[ 1_000_001, '100' ],
+		[ 1_000_000, '90' ],
+		[ 750_000, '80' ],
+		[ 500_000, '70' ],
+		[ 375_000, '60' ],
+		[ 250_000, '50' ],
+		[ 175_000, '40' ],
+		[ 100_000, '30' ],
+		[ 75_000, '20' ],
+		[ 50_000, '10' ],
+		[ 0, '0' ],
+	] )( 'shows the expected ring step at %i remaining credits', ( remaining, dashOffset ) => {
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: {
+				costUsage: 0,
+				costCap: 0,
+				allowanceRemaining: remaining,
+				purchasedRemaining: 0,
+			},
+		} as never );
+
+		const { container } = renderControl();
+
+		expect( container.querySelector( 'circle:last-child' ) ).toHaveAttribute(
+			'stroke-dashoffset',
+			dashOffset
 		);
 	} );
 
@@ -138,7 +207,7 @@ describe( 'AiCreditsControl', () => {
 		expect( screen.getByText( 'No AI credits remaining' ) ).toBeInTheDocument();
 	} );
 
-	it( 'shows a zero-state message at 100% usage', async () => {
+	it( 'shows the out state when the combined balance is empty', async () => {
 		useStudioAssistantQuotaMock.mockReturnValue( {
 			data: { costUsage: 100, costCap: 100, allowanceRemaining: 0, purchasedRemaining: 0 },
 		} as never );
@@ -170,7 +239,7 @@ describe( 'AiCreditsControl', () => {
 		expect( await screen.findByText( 'AI credits · 832.5K remaining' ) ).toBeInTheDocument();
 	} );
 
-	it( 'shows an out-of-credits tooltip at 100% usage', async () => {
+	it( 'shows an out-of-credits tooltip when the combined balance is empty', async () => {
 		useStudioAssistantQuotaMock.mockReturnValue( {
 			data: { costUsage: 100, costCap: 100, allowanceRemaining: 0, purchasedRemaining: 0 },
 		} as never );

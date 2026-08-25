@@ -515,10 +515,6 @@
 	stroke: var(--wpds-color-fg-content-warning-weak);
 }
 
-.aiCreditsRing[data-warning] .aiCreditsRingValue {
-	stroke: var(--wpds-color-fg-content-error-weak);
-}
-
 .aiCreditsRing[data-exhausted] .aiCreditsRingValue {
 	stroke: var(--wpds-color-bg-interactive-error-strong);
 }

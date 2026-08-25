@@ -17,11 +17,41 @@ import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useAddAiCreditsUrl } from '@/hooks/use-add-ai-credits-url';
 import styles from './style.module.css';
 
-function AiCreditsRing( { usedFraction }: { usedFraction: number } ) {
-	const usedPercentage = Math.max( 0, Math.min( 1, usedFraction ) ) * 100;
-	const isCaution = usedPercentage >= 80 && usedPercentage < 90;
-	const isWarning = usedPercentage >= 90;
-	const isExhausted = usedPercentage >= 100;
+const LOW_AI_CREDITS_THRESHOLD = 100_000;
+
+type AiCreditsStatus = 'plenty' | 'low' | 'out';
+
+// The API exposes the combined remaining balance, but not the original total
+// of purchased credits. The ring therefore uses discrete low-balance states
+// rather than presenting its arc as an exact usage percentage.
+const AI_CREDITS_RING_STEPS = [
+	{ maximum: 50_000, fillPercentage: 90 },
+	{ maximum: 75_000, fillPercentage: 80 },
+	{ maximum: 100_000, fillPercentage: 70 },
+	{ maximum: 175_000, fillPercentage: 60 },
+	{ maximum: 250_000, fillPercentage: 50 },
+	{ maximum: 375_000, fillPercentage: 40 },
+	{ maximum: 500_000, fillPercentage: 30 },
+	{ maximum: 750_000, fillPercentage: 20 },
+	{ maximum: 1_000_000, fillPercentage: 10 },
+] as const;
+
+function getAiCreditsStatus( remaining: number ): AiCreditsStatus {
+	if ( remaining === 0 ) {
+		return 'out';
+	}
+	return remaining <= LOW_AI_CREDITS_THRESHOLD ? 'low' : 'plenty';
+}
+
+function getAiCreditsRingPercentage( remaining: number ): number {
+	if ( remaining === 0 ) {
+		return 100;
+	}
+	return AI_CREDITS_RING_STEPS.find( ( step ) => remaining <= step.maximum )?.fillPercentage ?? 0;
+}
+
+function AiCreditsRing( { remaining, status }: { remaining: number; status: AiCreditsStatus } ) {
+	const fillPercentage = getAiCreditsRingPercentage( remaining );
 
 	return (
 		<svg
@@ -31,9 +61,8 @@ function AiCreditsRing( { usedFraction }: { usedFraction: number } ) {
 			height="20"
 			fill="none"
 			aria-hidden="true"
-			data-caution={ isCaution || undefined }
-			data-warning={ isWarning || undefined }
-			data-exhausted={ isExhausted || undefined }
+			data-caution={ status === 'low' || undefined }
+			data-exhausted={ status === 'out' || undefined }
 		>
 			<circle className={ styles.aiCreditsRingTrack } cx="12" cy="12" r="8" strokeWidth="2" />
 			<circle
@@ -44,7 +73,7 @@ function AiCreditsRing( { usedFraction }: { usedFraction: number } ) {
 				pathLength="100"
 				strokeWidth="2"
 				strokeDasharray="100"
-				strokeDashoffset={ 100 - usedPercentage }
+				strokeDashoffset={ 100 - fillPercentage }
 				strokeLinecap="round"
 				transform="rotate(-90 12 12)"
 			/>
@@ -79,7 +108,7 @@ export function AiCreditsControl() {
 
 	const hasTopUpOptions = ( pricing?.options.length ?? 0 ) > 0;
 	const remaining = ( quota.allowanceRemaining ?? 0 ) + ( quota.purchasedRemaining ?? 0 );
-	const usedFraction = quota.costCap > 0 ? quota.costUsage / quota.costCap : 0;
+	const status = getAiCreditsStatus( remaining );
 	const formattedRemaining = new Intl.NumberFormat( locale ).format( remaining );
 	const compactRemaining = new Intl.NumberFormat( locale, {
 		notation: 'compact',
@@ -128,7 +157,7 @@ export function AiCreditsControl() {
 									/>
 								}
 							>
-								<AiCreditsRing usedFraction={ usedFraction } />
+								<AiCreditsRing remaining={ remaining } status={ status } />
 							</Tooltip.Trigger>
 						}
 					/>

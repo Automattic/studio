@@ -2,7 +2,11 @@ import { render, screen } from '@testing-library/react';
 import { vi } from 'vitest';
 import { useOffline } from 'src/hooks/use-offline';
 import { PromptInfo } from 'src/modules/user-settings/components/prompt-info';
-import { useGetStudioAssistantQuota } from 'src/stores/wpcom-api';
+import {
+	useGetStudioAssistantQuota,
+	useGetStudioAssistantTopUpPricing,
+} from 'src/stores/wpcom-api';
+import type { StudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 
 vi.mock( 'src/hooks/use-offline' );
 
@@ -12,11 +16,20 @@ vi.mock( 'src/stores', () => ( {
 
 vi.mock( 'src/stores/wpcom-api', () => ( {
 	useGetStudioAssistantQuota: vi.fn(),
+	useGetStudioAssistantTopUpPricing: vi.fn(),
 } ) );
+
+function mockTopUpPricing( pricing: StudioAssistantTopUpPricing | null, isLoading = false ) {
+	vi.mocked( useGetStudioAssistantTopUpPricing, { partial: true } ).mockReturnValue( {
+		data: pricing,
+		isLoading,
+	} );
+}
 
 describe( 'PromptInfo', () => {
 	beforeEach( () => {
 		vi.mocked( useOffline ).mockReturnValue( false );
+		mockTopUpPricing( null );
 	} );
 
 	it( 'shows Studio Code dollar usage and reset date', () => {
@@ -80,6 +93,37 @@ describe( 'PromptInfo', () => {
 		expect( screen.getByText( 'Purchased credits remaining: 150,000' ) ).toBeInTheDocument();
 		expect( screen.queryByText( /monthly limit used/ ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'progressbar' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'offers a button per top-up the store priced, and only the fixed one without pricing', () => {
+		vi.mocked( useGetStudioAssistantQuota, { partial: true } ).mockReturnValue( {
+			data: {
+				costUsage: 33392,
+				costCap: 20000000,
+				allowanceRemaining: 960000,
+				purchasedRemaining: 150000,
+			},
+			isError: false,
+			isLoading: false,
+			refetch: vi.fn(),
+		} );
+
+		const { unmount } = render( <PromptInfo /> );
+		expect( screen.getByRole( 'button', { name: 'Add AI credits' } ) ).toBeInTheDocument();
+		unmount();
+
+		mockTopUpPricing( {
+			currency: 'GBP',
+			step: null,
+			options: [
+				{ credits: 100000, amountMinor: 750, display: '£7.50' },
+				{ credits: 500000, amountMinor: 3750, display: '£37.50' },
+			],
+		} );
+		render( <PromptInfo /> );
+
+		expect( screen.getByText( '100,000 credits · £7.50' ) ).toBeInTheDocument();
+		expect( screen.getByText( '500,000 credits · £37.50' ) ).toBeInTheDocument();
 	} );
 
 	it( 'hides the free pool once it is spent, and keeps a zero purchased balance', () => {

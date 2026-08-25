@@ -5,6 +5,7 @@ import {
 	STUDIO_ASSISTANT_QUOTA_URL,
 	studioAssistantQuotaSchema,
 } from '@studio/common/lib/studio-assistant-quota';
+import { fetchStudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import { SyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
@@ -31,6 +32,7 @@ import type {
 	Snapshot,
 	SnapshotUsage,
 	StudioAssistantQuota,
+	StudioAssistantTopUpPricing,
 	SupportedEditor,
 	SupportedTerminal,
 	SyncSite,
@@ -530,6 +532,11 @@ export function createIpcConnector(): Connector {
 		async getStudioAssistantQuota(): Promise< StudioAssistantQuota | null > {
 			const data = await fetchWpcomJson( STUDIO_ASSISTANT_QUOTA_URL, 'Studio assistant quota' );
 			return data === null ? null : studioAssistantQuotaSchema.parse( data );
+		},
+
+		async getStudioAssistantTopUpPricing(): Promise< StudioAssistantTopUpPricing | null > {
+			const token = ( await ipcApi.getAuthenticationToken() ) as StoredAuthToken | null;
+			return token ? fetchStudioAssistantTopUpPricing( token.accessToken ) : null;
 		},
 
 		async deleteAllSnapshots(): Promise< void > {

@@ -1,0 +1,11 @@
+.outOfCredits {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-sm);
+}
+
+/* The marker is centred copy, so a wrapped row of options centres with it. */
+.topUpOptionsCentered {
+	justify-content: center;
+}

@@ -5,13 +5,14 @@ import {
 	getStudioCodeAiAccessState,
 } from '@studio/common/lib/studio-assistant-quota';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { external, help, moreHorizontal } from '@wordpress/icons';
-import { Button, IconButton } from '@wordpress/ui';
+import { help, moreHorizontal } from '@wordpress/icons';
+import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useState } from 'react';
 import { SigninNotice } from '@/components/agentic-signin-banner';
 import { AiAccessRequiredNotice, AiBlockedNotice } from '@/components/ai-access-required-notice';
 import { AiCreditsDetailsDialog } from '@/components/ai-credits-details-dialog';
+import { AiCreditsTopUpOptions } from '@/components/ai-credits-top-up-options';
 import * as Menu from '@/components/menu';
 import { OfflineNotice } from '@/components/offline-banner';
 import { useConnector } from '@/data/core';
@@ -24,7 +25,6 @@ import {
 	useSnapshots,
 } from '@/data/queries/use-snapshots';
 import { useUserLocale } from '@/data/queries/use-user-locale';
-import { useAddAiCreditsUrl } from '@/hooks/use-add-ai-credits-url';
 import styles from './style.module.css';
 
 const DEFAULT_PREVIEW_SITE_LIMIT = 10;
@@ -52,8 +52,6 @@ function UsageProgressBar( { fraction }: { fraction: number } ) {
 
 function AiCreditsSummary() {
 	const locale = useUserLocale();
-	const connector = useConnector();
-	const addAiCreditsUrl = useAddAiCreditsUrl();
 	const [ detailsOpen, setDetailsOpen ] = useState( false );
 	// The balance may have changed outside the app (e.g. a credits purchase on
 	// WordPress.com), so opening the panel always fetches a fresh figure.
@@ -121,16 +119,7 @@ function AiCreditsSummary() {
 						) }
 					</div>
 				</div>
-				<Button
-					className={ styles.usageSectionAction }
-					size="small"
-					variant="outline"
-					tone="neutral"
-					onClick={ () => void connector.openExternalUrl( addAiCreditsUrl ) }
-				>
-					{ __( 'Add AI credits' ) }
-					<Button.Icon icon={ external } size={ 12 } />
-				</Button>
+				<AiCreditsTopUpOptions className={ styles.usageSectionAction } />
 			</>
 		);
 	} else if ( quota && quota.costCap > 0 ) {

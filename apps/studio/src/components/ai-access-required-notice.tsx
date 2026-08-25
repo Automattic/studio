@@ -1,13 +1,13 @@
 import {
-	getAddAiCreditsUrl,
 	formatAiAccessRequiredNotice,
 	formatAiBlockedNotice,
-	formatOutOfCreditsNoticeWithLink,
+	formatOutOfCreditsNotice,
 	STUDIO_CODE_AI_BETA_APPLY_URL,
 	WPCOM_SUPPORT_CONTACT_URL,
 	type StudioAssistantQuota,
 } from '@studio/common/lib/studio-assistant-quota';
 import { createInterpolateElement } from '@wordpress/element';
+import { AiCreditsTopUpOptions } from 'src/components/ai-credits-top-up-options';
 import Button from 'src/components/button';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import type { ReactNode } from 'react';
@@ -37,7 +37,10 @@ export function AiBlockedNotice() {
 }
 
 export function OutOfCreditsNotice() {
-	return createInterpolateElement( formatOutOfCreditsNoticeWithLink(), {
-		buyLink: <NoticeLink url={ getAddAiCreditsUrl( { returnsToDesktop: true } ) } />,
-	} );
+	return (
+		<div className="flex flex-col items-center gap-2">
+			<span>{ formatOutOfCreditsNotice() }</span>
+			<AiCreditsTopUpOptions className="justify-center" />
+		</div>
+	);
 }

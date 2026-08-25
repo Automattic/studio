@@ -11,6 +11,7 @@ import {
 	useSnapshotUsage,
 	useSnapshots,
 } from '@/data/queries/use-snapshots';
+import { useStudioAssistantTopUpPricing } from '@/data/queries/use-top-up-pricing';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useOffline } from '@/hooks/use-offline';
 import { UsagePanel } from './usage-panel';
@@ -99,6 +100,10 @@ vi.mock( '@/data/queries/use-assistant-quota', () => ( {
 	useStudioAssistantQuota: vi.fn(),
 } ) );
 
+vi.mock( '@/data/queries/use-top-up-pricing', () => ( {
+	useStudioAssistantTopUpPricing: vi.fn(),
+} ) );
+
 vi.mock( '@/data/queries/use-user-locale', () => ( {
 	useUserLocale: vi.fn(),
 } ) );
@@ -122,6 +127,7 @@ const useSnapshotUsageMock = vi.mocked( useSnapshotUsage );
 const useSnapshotsMock = vi.mocked( useSnapshots );
 const useOfflineMock = vi.mocked( useOffline );
 const useStudioAssistantQuotaMock = vi.mocked( useStudioAssistantQuota );
+const useStudioAssistantTopUpPricingMock = vi.mocked( useStudioAssistantTopUpPricing );
 const useUserLocaleMock = vi.mocked( useUserLocale );
 const useAppGlobalsMock = vi.mocked( useAppGlobals );
 
@@ -146,6 +152,10 @@ describe( 'UsagePanel', () => {
 		useOfflineMock.mockReturnValue( false );
 		useStudioAssistantQuotaMock.mockReturnValue( {
 			data: undefined,
+			isLoading: false,
+		} as never );
+		useStudioAssistantTopUpPricingMock.mockReturnValue( {
+			data: null,
 			isLoading: false,
 		} as never );
 		useUserLocaleMock.mockReturnValue( 'en' );
@@ -319,6 +329,33 @@ describe( 'UsagePanel', () => {
 
 		expect( openExternalUrl ).toHaveBeenCalledWith(
 			getAddAiCreditsUrl( { returnsToDesktop: true } )
+		);
+	} );
+
+	it( 'offers a button per top-up the store priced, each buying its own quantity', () => {
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: { costUsage: 0, costCap: 0, allowanceRemaining: 960000, purchasedRemaining: 0 },
+			isLoading: false,
+		} as never );
+		useStudioAssistantTopUpPricingMock.mockReturnValue( {
+			data: {
+				currency: 'GBP',
+				step: null,
+				options: [
+					{ credits: 100000, amountMinor: 750, display: '£7.50' },
+					{ credits: 500000, amountMinor: 3750, display: '£37.50' },
+				],
+			},
+			isLoading: false,
+		} as never );
+
+		render( <UsagePanel /> );
+
+		expect( screen.queryByRole( 'button', { name: 'Add AI credits' } ) ).not.toBeInTheDocument();
+		fireEvent.click( screen.getByText( '500,000 credits · £37.50' ) );
+
+		expect( openExternalUrl ).toHaveBeenCalledWith(
+			getAddAiCreditsUrl( { returnsToDesktop: true, credits: 500000 } )
 		);
 	} );
 

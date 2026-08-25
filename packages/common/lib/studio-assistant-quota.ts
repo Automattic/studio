@@ -21,10 +21,15 @@ const CHECKOUT_PLACEHOLDER_SITE_ID = 'b4b08783-91cd-4aa1-b2ee-28575c26a762';
 
 // WordPress.com checkout for a Studio Code AI credits top-up (STU-2299). The
 // `:-q-<n>` suffix is checkout's quantity syntax, in the same 1/10000 USD units
-// the quota reports — 100000 is the $10 top-up, the only one offered in v1.
+// the quota reports — 100000 is the $10 top-up.
+const ADD_AI_CREDITS_CHECKOUT_URL = 'https://wordpress.com/checkout/wpcom/studio-code-ai-credits';
+
+// Quantity used wherever a surface offers a single top-up rather than the
+// priced options from `/top-up-pricing` (STU-2326).
+export const DEFAULT_AI_CREDITS_TOP_UP = 100000;
+
 // Bare by default: checkout stays on WordPress.com when it's done.
-export const ADD_AI_CREDITS_URL =
-	'https://wordpress.com/checkout/wpcom/studio-code-ai-credits:-q-100000';
+export const ADD_AI_CREDITS_URL = `${ ADD_AI_CREDITS_CHECKOUT_URL }:-q-${ DEFAULT_AI_CREDITS_TOP_UP }`;
 
 /**
  * Checkout URL for the surface the user is buying from. Only the desktop app
@@ -34,12 +39,19 @@ export const ADD_AI_CREDITS_URL =
  * at an unopenable scheme is worse than leaving the user on WordPress.com.
  * Everywhere else gets the bare URL, down to the return-only site id.
  */
-export function getAddAiCreditsUrl( { returnsToDesktop }: { returnsToDesktop: boolean } ): string {
+export function getAddAiCreditsUrl( {
+	returnsToDesktop,
+	credits = DEFAULT_AI_CREDITS_TOP_UP,
+}: {
+	returnsToDesktop: boolean;
+	credits?: number;
+} ): string {
+	const url = `${ ADD_AI_CREDITS_CHECKOUT_URL }:-q-${ credits }`;
 	if ( ! returnsToDesktop ) {
-		return ADD_AI_CREDITS_URL;
+		return url;
 	}
 	return (
-		`${ ADD_AI_CREDITS_URL }?studioSiteId=${ CHECKOUT_PLACEHOLDER_SITE_ID }` +
+		`${ url }?studioSiteId=${ CHECKOUT_PLACEHOLDER_SITE_ID }` +
 		`&studioReturnTo=${ AI_CREDITS_PURCHASED_RETURN_TO }`
 	);
 }
@@ -231,17 +243,4 @@ export function formatUsageCapNotice( resetDate?: string | null, locale?: string
  */
 export function formatOutOfCreditsNotice(): string {
 	return __( 'You’re out of AI credits. Add more credits to continue using Studio Code.' );
-}
-
-/**
- * Linked variant of the out-of-credits notice for surfaces that can render a
- * purchase link. Wraps the call-to-action in a `<buyLink>` token: render it
- * with `createInterpolateElement`, pointing the token at
- * `ADD_AI_CREDITS_URL`.
- */
-export function formatOutOfCreditsNoticeWithLink(): string {
-	return __(
-		/* translators: <buyLink> and </buyLink> wrap the link to buy AI credits and must be kept as-is. */
-		'You’re out of AI credits. <buyLink>Add AI credits</buyLink> to continue using Studio Code.'
-	);
 }

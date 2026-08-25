@@ -1,14 +1,15 @@
 import {
 	formatAiAccessRequiredNotice,
 	formatAiBlockedNotice,
-	formatOutOfCreditsNoticeWithLink,
+	formatOutOfCreditsNotice,
 	STUDIO_CODE_AI_BETA_APPLY_URL,
 	WPCOM_SUPPORT_CONTACT_URL,
 	type StudioAssistantQuota,
 } from '@studio/common/lib/studio-assistant-quota';
 import { createInterpolateElement } from '@wordpress/element';
+import { AiCreditsTopUpOptions } from '@/components/ai-credits-top-up-options';
 import { useConnector } from '@/data/core';
-import { useAddAiCreditsUrl } from '@/hooks/use-add-ai-credits-url';
+import styles from './style.module.css';
 import type { ReactNode } from 'react';
 
 // Electron swallows plain `target="_blank"` navigations — route clicks
@@ -47,8 +48,10 @@ export function AiBlockedNotice() {
 }
 
 export function OutOfCreditsNotice() {
-	const addAiCreditsUrl = useAddAiCreditsUrl();
-	return createInterpolateElement( formatOutOfCreditsNoticeWithLink(), {
-		buyLink: <NoticeLink url={ addAiCreditsUrl } />,
-	} );
+	return (
+		<div className={ styles.outOfCredits }>
+			<span>{ formatOutOfCreditsNotice() }</span>
+			<AiCreditsTopUpOptions className={ styles.topUpOptionsCentered } />
+		</div>
+	);
 }

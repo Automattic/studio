@@ -1,0 +1,7 @@
+/* The row wraps: how many options the store prices — and how wide each label
+   reads once localized — is the server's call, not ours. */
+.topUpOptions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--wpds-dimension-padding-xs);
+}

@@ -8,6 +8,7 @@ import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { themeDetailsQueryKey } from '@/hooks/use-theme-details';
 import { DATABASE_HOME_PATH } from './address-bar';
 import {
+	applyWebviewColorScheme,
 	getBrowserShortcutCommand,
 	isOffOriginRedirect,
 	isThemeActivationUrl,
@@ -80,6 +81,30 @@ function createSite( overrides: Partial< SiteDetails > = {} ): SiteDetails {
 }
 
 describe( 'SitePreview', () => {
+	it( 'applies a preview color scheme before reloading the webview', async () => {
+		const setWebviewColorScheme = vi.fn().mockResolvedValue( undefined );
+		const reload = vi.fn();
+		const previewWindow = window as typeof window & { ipcApi?: unknown };
+		const previousIpcApi = previewWindow.ipcApi;
+		previewWindow.ipcApi = { setWebviewColorScheme };
+
+		try {
+			await applyWebviewColorScheme(
+				{ getWebContentsId: () => 42, reload } as never,
+				'dark',
+				true
+			);
+
+			expect( setWebviewColorScheme ).toHaveBeenCalledWith( 42, 'dark' );
+			expect( reload ).toHaveBeenCalledOnce();
+			expect( setWebviewColorScheme.mock.invocationCallOrder[ 0 ] ).toBeLessThan(
+				reload.mock.invocationCallOrder[ 0 ]
+			);
+		} finally {
+			previewWindow.ipcApi = previousIpcApi;
+		}
+	} );
+
 	it( 'recognizes WordPress theme activation navigations', () => {
 		expect(
 			isThemeActivationUrl( 'http://localhost:8881/wp-admin/themes.php?activated=true' )

@@ -313,12 +313,16 @@ async function applyWebviewViewport(
 	await ipcApi?.setWebviewViewport?.( getWebviewContentsId( webview ), viewport );
 }
 
-async function applyWebviewColorScheme(
+export async function applyWebviewColorScheme(
 	webview: WebviewTag,
-	colorScheme: PreviewColorScheme
+	colorScheme: PreviewColorScheme,
+	reload = false
 ): Promise< void > {
 	const { ipcApi } = window as PreviewWindow;
 	await ipcApi?.setWebviewColorScheme?.( getWebviewContentsId( webview ), colorScheme );
+	if ( reload ) {
+		webview.reload?.();
+	}
 }
 
 const EMPTY_BROWSER_STATE: BrowserNavigationState = {
@@ -1900,11 +1904,14 @@ function WebviewSurface( {
 		void applyWebviewViewport( webview, debouncedViewport ).catch( () => undefined );
 	}, [ debouncedViewport, ready ] );
 
+	const appliedColorSchemeRef = useRef( colorScheme );
 	useEffect( () => {
 		if ( ! ready ) return;
 		const webview = ref.current as WebviewTag | null;
 		if ( ! webview ) return;
-		void applyWebviewColorScheme( webview, colorScheme ).catch( () => undefined );
+		const shouldReload = appliedColorSchemeRef.current !== colorScheme;
+		appliedColorSchemeRef.current = colorScheme;
+		void applyWebviewColorScheme( webview, colorScheme, shouldReload ).catch( () => undefined );
 	}, [ colorScheme, ready ] );
 
 	return (

@@ -464,6 +464,7 @@
 	color: var(--color-frame-error);
 	border-color: var(--color-frame-error);
 	background-color: var(--color-frame-surface-alt);
+}
 
 .mediaArtifactGrid {
 	display: grid;

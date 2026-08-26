@@ -308,6 +308,9 @@ async function applyWebviewViewport(
 	await ipcApi?.setWebviewViewport?.( getWebviewContentsId( webview ), viewport );
 }
 
+// The ordered list of preview realms the chevron buttons cycle through.
+const REALM_ORDER: PreviewRealm[] = [ 'frontend', 'admin', 'database' ];
+
 const EMPTY_BROWSER_STATE: BrowserNavigationState = {
 	canGoBack: false,
 	canGoForward: false,
@@ -810,6 +813,9 @@ export function SitePreview( {
 	// rather than stored alongside it, so the parent stays the single source of
 	// truth for where the preview is aimed.
 	const activeRealm = getPreviewRealm( safePath );
+	const realmIndex = REALM_ORDER.indexOf( activeRealm );
+	const previousRealm: PreviewRealm | undefined = REALM_ORDER[ realmIndex - 1 ];
+	const nextRealm: PreviewRealm | undefined = REALM_ORDER[ realmIndex + 1 ];
 	const activeSurfaceKey = getSurfaceKey( activeRealm );
 	const siteThumbnail = useQuery( {
 		queryKey: [ ...SITE_THUMBNAIL_QUERY_KEY, site.id ],
@@ -1203,9 +1209,10 @@ export function SitePreview( {
 						/>
 					) : null }
 				</div>
-				{ /* Back/forward flank the address segments so history controls sit
-					with the place they navigate; symmetric widths keep the segments
-					(and the omnibox popup anchored to this element) centered. */ }
+				{ /* Chevrons cycle through the three realm segments
+					(frontend → admin → database); symmetric widths keep the
+					segments (and the omnibox popup anchored to this element)
+					centered. */ }
 				<div ref={ locationRef } className={ styles.browserLocation }>
 					{ canPreview ? (
 						<>
@@ -1214,10 +1221,9 @@ export function SitePreview( {
 								tone="neutral"
 								size="small"
 								icon={ chevronLeft }
-								label={ __( 'Back' ) }
-								shortcut={ browserShortcuts.back }
-								disabled={ ! browserState.canGoBack }
-								onClick={ () => sendBrowserCommand( 'back' ) }
+								label={ __( 'Previous' ) }
+								disabled={ ! previousRealm }
+								onClick={ previousRealm ? () => handleSwitchRealm( previousRealm ) : undefined }
 							/>
 							<PreviewAddressBar
 								site={ site }
@@ -1233,10 +1239,9 @@ export function SitePreview( {
 								tone="neutral"
 								size="small"
 								icon={ chevronRight }
-								label={ __( 'Forward' ) }
-								shortcut={ browserShortcuts.forward }
-								disabled={ ! browserState.canGoForward }
-								onClick={ () => sendBrowserCommand( 'forward' ) }
+								label={ __( 'Next' ) }
+								disabled={ ! nextRealm }
+								onClick={ nextRealm ? () => handleSwitchRealm( nextRealm ) : undefined }
 							/>
 						</>
 					) : null }

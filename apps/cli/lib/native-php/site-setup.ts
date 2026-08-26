@@ -192,6 +192,53 @@ export async function installWordPress(
 		{ phpVersion, signal }
 	);
 
+	// WP-CLI's --locale flag silently falls back to English when it can't
+	// download the language pack (e.g. offline, wordpress.org unreachable).
+	// Force WPLANG so the site respects the configured language even when
+	// translation files aren't available yet. A raw SQL REPLACE is needed
+	// because the SQLite database adapter silently drops writes through
+	// update_option / add_option for this option.
+	if ( locale ) {
+		await runPhpCommand(
+			[
+				getWpCliPharPath(),
+				'eval',
+				`global $wpdb; $wpdb->query( $wpdb->prepare( "REPLACE INTO {$wpdb->options} (option_name, option_value, autoload) VALUES ('WPLANG', %s, 'yes')", '${ locale }' ) );`,
+				`--path=${ config.sitePath }`,
+			],
+			{ phpVersion, signal }
+		);
+
+		// Download translation files if they weren't pre-copied from bundled
+		// language packs (copyLanguagePackToSite runs before the server starts
+		// but only succeeds when the bundled packs exist on disk).
+		const langFile = path.join(
+			config.sitePath,
+			'wp-content',
+			'languages',
+			`${ locale }.l10n.php`
+		);
+		if ( ! fs.existsSync( langFile ) ) {
+			try {
+				await runPhpCommand(
+					[
+						getWpCliPharPath(),
+						'language',
+						'core',
+						'install',
+						locale,
+						`--path=${ config.sitePath }`,
+					],
+					{ phpVersion, signal }
+				);
+			} catch {
+				// Best-effort: the site will function in English if the download
+				// fails (e.g. offline). WPLANG is already set so WordPress will
+				// switch to the correct language once packs become available.
+			}
+		}
+	}
+
 	await runPhpCommand(
 		[
 			getWpCliPharPath(),

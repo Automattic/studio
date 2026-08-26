@@ -29,6 +29,10 @@ vi.mock( 'src/hooks/use-auth', () => ( {
 	useAuth: () => ( { isAuthenticated: true, authenticate: vi.fn() } ),
 } ) );
 
+vi.mock( 'src/stores', () => ( {
+	useI18nLocale: () => 'en',
+} ) );
+
 vi.mock( 'src/stores/wpcom-api', () => ( {
 	useGetStudioAssistantQuota: () => quotaState,
 } ) );

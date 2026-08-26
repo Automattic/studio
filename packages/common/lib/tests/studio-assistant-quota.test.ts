@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
 	formatAiAccessRequiredNotice,
+	formatAiCreditsAvailableLabel,
+	formatAiCreditsCallout,
+	formatAiCreditsUsedLabel,
+	getAiCreditsMeter,
+	getAiCreditsMeterIntent,
 	formatUsageCapNotice,
 	getStudioCodeAiAccessState,
 	studioAssistantQuotaSchema,
@@ -164,5 +169,143 @@ describe( 'formatAiAccessRequiredNotice', () => {
 		expect( formatAiAccessRequiredNotice( { costUsage: 0 } ) ).toBe( genericNotice );
 		expect( formatAiAccessRequiredNotice( undefined ) ).toBe( genericNotice );
 		expect( formatAiAccessRequiredNotice( null ) ).toBe( genericNotice );
+	} );
+} );
+
+describe( 'getAiCreditsMeter', () => {
+	// Realistic credit account: 1.5M-credit welcome allowance, part spent,
+	// plus a 500k purchased pool from the last top-up.
+	const creditQuota = {
+		costCap: 1500000,
+		allowanceRemaining: 960000,
+		purchasedRemaining: 150000,
+		purchasedAtTopUp: 500000,
+	};
+
+	it( 'combines both pools into one bar', () => {
+		const meter = getAiCreditsMeter( creditQuota );
+		expect( meter ).toEqual( {
+			totalCredits: 2000000,
+			remainingCredits: 1110000,
+			usedCredits: 890000,
+			fraction: 0.445,
+		} );
+	} );
+
+	it( 'measures a never-bought account against the free allowance alone', () => {
+		const meter = getAiCreditsMeter( {
+			costCap: 1500000,
+			allowanceRemaining: 960000,
+			purchasedRemaining: 0,
+			purchasedAtTopUp: 0,
+		} );
+		expect( meter?.totalCredits ).toBe( 1500000 );
+		expect( meter?.remainingCredits ).toBe( 960000 );
+	} );
+
+	it( 'leaves the purchased pool out when billing is unreachable (unknown, not spent)', () => {
+		const meter = getAiCreditsMeter( { ...creditQuota, purchasedRemaining: undefined } );
+		expect( meter?.totalCredits ).toBe( 1500000 );
+		expect( meter?.remainingCredits ).toBe( 960000 );
+	} );
+
+	it( 'still meters the purchased pool when the free allowance is gone', () => {
+		const meter = getAiCreditsMeter( { ...creditQuota, allowanceRemaining: 0 } );
+		expect( meter?.totalCredits ).toBe( 2000000 );
+		expect( meter?.remainingCredits ).toBe( 150000 );
+	} );
+
+	it( 'resolves null when nothing is measurable', () => {
+		// Feature off: no pool figures at all.
+		expect(
+			getAiCreditsMeter( {
+				costCap: 1500000,
+				allowanceRemaining: undefined,
+				purchasedRemaining: undefined,
+				purchasedAtTopUp: undefined,
+			} )
+		).toBeNull();
+		// No usable denominator: zero cap and a never-bought purchased pool.
+		expect(
+			getAiCreditsMeter( {
+				costCap: 0,
+				allowanceRemaining: 0,
+				purchasedRemaining: 0,
+				purchasedAtTopUp: 0,
+			} )
+		).toBeNull();
+	} );
+
+	it( 'reads exhausted pools as a full bar', () => {
+		const meter = getAiCreditsMeter( {
+			costCap: 1500000,
+			allowanceRemaining: 0,
+			purchasedRemaining: 0,
+			purchasedAtTopUp: 500000,
+		} );
+		expect( meter?.fraction ).toBe( 1 );
+	} );
+} );
+
+describe( 'getAiCreditsMeterIntent', () => {
+	it( 'escalates at 80%, 90%, and exhaustion', () => {
+		expect( getAiCreditsMeterIntent( 0 ) ).toBe( 'ok' );
+		expect( getAiCreditsMeterIntent( 0.79 ) ).toBe( 'ok' );
+		expect( getAiCreditsMeterIntent( 0.8 ) ).toBe( 'warning' );
+		expect( getAiCreditsMeterIntent( 0.9 ) ).toBe( 'critical' );
+		expect( getAiCreditsMeterIntent( 1 ) ).toBe( 'exhausted' );
+	} );
+} );
+
+describe( 'AI credits meter labels', () => {
+	it( 'formats used and available figures for the reader', () => {
+		expect(
+			formatAiCreditsUsedLabel( { usedCredits: 1200000, totalCredits: 1500000 }, 'en-US' )
+		).toBe( '1,200,000 of 1,500,000 AI credits used' );
+		expect( formatAiCreditsAvailableLabel( { remainingCredits: 300000 }, 'en-US' ) ).toBe(
+			'300,000 available'
+		);
+	} );
+} );
+
+describe( 'formatAiCreditsCallout', () => {
+	const neverBought = { costCap: 1500000, allowanceRemaining: 960000, purchasedAtTopUp: 0 };
+
+	it( 'welcomes with the allowance size from the quota, not a hardcoded figure', () => {
+		expect( formatAiCreditsCallout( neverBought, { fraction: 0.36 }, 'en-US' ) ).toBe(
+			'Your first 1,500,000 AI credits are on us.'
+		);
+	} );
+
+	it( 'drops the welcome once the free credits are spent, even with no purchase', () => {
+		expect(
+			formatAiCreditsCallout(
+				{ ...neverBought, allowanceRemaining: 0 },
+				{ fraction: 0.5 },
+				'en-US'
+			)
+		).toBe( 'Keep the ideas flowing. Stock up for whatever you build next.' );
+	} );
+
+	it( 'drops the welcome once the account has bought credits', () => {
+		expect(
+			formatAiCreditsCallout(
+				{ ...neverBought, purchasedAtTopUp: 500000 },
+				{ fraction: 0.36 },
+				'en-US'
+			)
+		).toBe( 'Keep the ideas flowing. Stock up for whatever you build next.' );
+	} );
+
+	it( 'escalates with the meter, beating the welcome', () => {
+		expect( formatAiCreditsCallout( neverBought, { fraction: 0.8 } ) ).toBe(
+			'Top up now so your next build doesn’t stop short.'
+		);
+		expect( formatAiCreditsCallout( neverBought, { fraction: 0.9 } ) ).toBe(
+			'You’re on a roll. Top up now and keep building.'
+		);
+		expect( formatAiCreditsCallout( neverBought, { fraction: 1 } ) ).toBe(
+			'Your next idea is ready when you are. Top up to bring it to life.'
+		);
 	} );
 } );

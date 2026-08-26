@@ -171,6 +171,126 @@ export function formatQuotaResetDate( date: string, locale?: string ): string {
 }
 
 /**
+ * The combined AI credits meter (STU-2326): one bar over both pools, free and
+ * purchased. Each pool contributes its own denominator — `costCap` for the
+ * free allowance, `purchasedAtTopUp` for the purchased pool — and a pool
+ * stays out of the meter entirely when it has nothing to measure:
+ *
+ * - `purchasedAtTopUp` of 0/undefined means the account has never bought
+ *   credits — there is no purchased pool, not an empty one.
+ * - `purchasedRemaining` undefined with a real pool means billing was
+ *   unreachable — the balance is unknown, and folding it in would draw the
+ *   pool as fully spent.
+ *
+ * Resolves `null` when nothing is measurable (feature off, or no usable
+ * denominator) so callers fall back to plain figures instead of a bar.
+ */
+export interface AiCreditsMeter {
+	usedCredits: number;
+	totalCredits: number;
+	remainingCredits: number;
+	fraction: number;
+}
+
+export function getAiCreditsMeter(
+	quota: Pick<
+		StudioAssistantQuota,
+		'costCap' | 'allowanceRemaining' | 'purchasedRemaining' | 'purchasedAtTopUp'
+	>
+): AiCreditsMeter | null {
+	let totalCredits = 0;
+	let remainingCredits = 0;
+	if ( quota.allowanceRemaining !== undefined && quota.costCap > 0 ) {
+		totalCredits += quota.costCap;
+		remainingCredits += quota.allowanceRemaining;
+	}
+	const purchasedAtTopUp = quota.purchasedAtTopUp ?? 0;
+	if ( purchasedAtTopUp > 0 && quota.purchasedRemaining !== undefined ) {
+		totalCredits += purchasedAtTopUp;
+		remainingCredits += quota.purchasedRemaining;
+	}
+	if ( totalCredits <= 0 ) {
+		return null;
+	}
+	const usedCredits = Math.max( 0, totalCredits - remainingCredits );
+	return {
+		usedCredits,
+		totalCredits,
+		remainingCredits,
+		fraction: clampQuotaFraction( usedCredits, totalCredits ),
+	};
+}
+
+export type AiCreditsMeterIntent = 'ok' | 'warning' | 'critical' | 'exhausted';
+
+/** Escalation steps for the meter's color and copy. */
+export function getAiCreditsMeterIntent( fraction: number ): AiCreditsMeterIntent {
+	if ( fraction >= 1 ) {
+		return 'exhausted';
+	}
+	if ( fraction >= 0.9 ) {
+		return 'critical';
+	}
+	if ( fraction >= 0.8 ) {
+		return 'warning';
+	}
+	return 'ok';
+}
+
+export function formatAiCreditsUsedLabel(
+	meter: Pick< AiCreditsMeter, 'usedCredits' | 'totalCredits' >,
+	locale?: string
+): string {
+	const credits = new Intl.NumberFormat( locale );
+	return sprintf(
+		/* translators: 1: AI credits used (e.g. 1,200,000). 2: total AI credits the meter is measured against (e.g. 1,500,000). */
+		__( '%1$s of %2$s AI credits used' ),
+		credits.format( meter.usedCredits ),
+		credits.format( meter.totalCredits )
+	);
+}
+
+export function formatAiCreditsAvailableLabel(
+	meter: Pick< AiCreditsMeter, 'remainingCredits' >,
+	locale?: string
+): string {
+	return sprintf(
+		/* translators: %s: number of AI credits still available (e.g. 300,000). */
+		__( '%s available' ),
+		new Intl.NumberFormat( locale ).format( meter.remainingCredits )
+	);
+}
+
+/**
+ * Encouragement line next to the "Add AI credits" button, escalating with the
+ * meter. The welcome line shows the size of the free allowance (`costCap`,
+ * never a hardcoded figure) and only while some of it is left — an account
+ * that has bought credits, or spent the gift, gets the regular rotation.
+ */
+export function formatAiCreditsCallout(
+	quota: Pick< StudioAssistantQuota, 'costCap' | 'allowanceRemaining' | 'purchasedAtTopUp' >,
+	meter: Pick< AiCreditsMeter, 'fraction' >,
+	locale?: string
+): string {
+	switch ( getAiCreditsMeterIntent( meter.fraction ) ) {
+		case 'exhausted':
+			return __( 'Your next idea is ready when you are. Top up to bring it to life.' );
+		case 'critical':
+			return __( 'You’re on a roll. Top up now and keep building.' );
+		case 'warning':
+			return __( 'Top up now so your next build doesn’t stop short.' );
+	}
+	if ( ( quota.purchasedAtTopUp ?? 0 ) === 0 && ( quota.allowanceRemaining ?? 0 ) > 0 ) {
+		return sprintf(
+			/* translators: %s: size of the free AI credits allowance (e.g. 1,500,000). */
+			__( 'Your first %s AI credits are on us.' ),
+			new Intl.NumberFormat( locale ).format( quota.costCap )
+		);
+	}
+	return __( 'Keep the ideas flowing. Stock up for whatever you build next.' );
+}
+
+/**
  * User-facing copy for an account whose Studio Code AI access was explicitly
  * blocked (access === "blocked", STU-2143/STU-2146). Shared by every surface
  * so the wording stays consistent. The string wraps the support

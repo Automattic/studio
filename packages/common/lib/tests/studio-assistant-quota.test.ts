@@ -88,6 +88,52 @@ describe( 'studioAssistantQuotaSchema per-pool balances', () => {
 		expect( quota.allowanceRemaining ).toBeUndefined();
 		expect( quota.purchasedRemaining ).toBeUndefined();
 	} );
+
+	it( 'reads an unreachable-billing null balance as unknown, not zero', () => {
+		const quota = studioAssistantQuotaSchema.parse( {
+			...baseResponse,
+			allowance_remaining: 960000,
+			purchased_remaining: null,
+		} );
+		expect( quota.purchasedRemaining ).toBeUndefined();
+		// The rest of the quota still parses — the access gates read from it.
+		expect( quota.allowanceRemaining ).toBe( 960000 );
+	} );
+} );
+
+describe( 'studioAssistantQuotaSchema purchased pool size', () => {
+	it( 'parses the pool size the purchased balance is measured against', () => {
+		const quota = studioAssistantQuotaSchema.parse( {
+			...baseResponse,
+			purchased_remaining: 150000,
+			purchased_at_top_up: 500000,
+		} );
+		expect( quota.purchasedAtTopUp ).toBe( 500000 );
+	} );
+
+	it( 'is undefined on servers that do not report it', () => {
+		expect( studioAssistantQuotaSchema.parse( baseResponse ).purchasedAtTopUp ).toBeUndefined();
+	} );
+
+	it( 'keeps a never-bought zero, so callers can tell it from a missing field', () => {
+		const quota = studioAssistantQuotaSchema.parse( {
+			...baseResponse,
+			purchased_remaining: 0,
+			purchased_at_top_up: 0,
+		} );
+		expect( quota.purchasedAtTopUp ).toBe( 0 );
+	} );
+
+	it( 'can be smaller than an earlier top-up: it is the last pool, not a lifetime total', () => {
+		const quota = studioAssistantQuotaSchema.parse( {
+			...baseResponse,
+			purchased_remaining: 20000,
+			purchased_at_top_up: 120000,
+		} );
+		// 20,000 left of the 120,000 the pool held at the last top-up.
+		expect( quota.purchasedRemaining ).toBe( 20000 );
+		expect( quota.purchasedAtTopUp ).toBe( 120000 );
+	} );
 } );
 
 describe( 'studioAssistantQuotaSchema reset date', () => {

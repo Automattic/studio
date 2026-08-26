@@ -80,8 +80,20 @@ export const studioAssistantQuotaSchema = z
 		// when the AI Credits feature is off for the account — the UI keys the
 		// credit-balance design off their presence, so `undefined` (not 0) must
 		// mean "feature off, keep the old design".
+		//
+		// `purchased_remaining` also arrives as null when billing is
+		// unreachable. That is "unknown", not zero, and both read as "no
+		// figure to show" — so null normalizes to undefined below rather than
+		// failing the whole parse and taking the access gates down with it.
 		allowance_remaining: z.number().optional(),
-		purchased_remaining: z.number().optional(),
+		purchased_remaining: z.number().nullish(),
+		// Size of the purchased pool as of the last top-up: what was left then,
+		// plus what was bought. The denominator for `purchased_remaining`, the
+		// way `cost_cap` is for `allowance_remaining` — not a lifetime total,
+		// so it can legitimately fall after a purchase. Omitted by older
+		// servers; 0 means the account has never bought credits, which is "no
+		// pool", not an empty one — never divide by it.
+		purchased_at_top_up: z.number().nullish(),
 	} )
 	.transform( ( data ) => ( {
 		costUsage: data.cost_usage,
@@ -92,7 +104,8 @@ export const studioAssistantQuotaSchema = z
 		studioCodeAiHasAccess: data.studio_code_ai_has_access,
 		studioCodeAiAccess: data.studio_code_ai_access,
 		allowanceRemaining: data.allowance_remaining,
-		purchasedRemaining: data.purchased_remaining,
+		purchasedRemaining: data.purchased_remaining ?? undefined,
+		purchasedAtTopUp: data.purchased_at_top_up ?? undefined,
 	} ) );
 
 export type StudioAssistantQuota = z.infer< typeof studioAssistantQuotaSchema >;

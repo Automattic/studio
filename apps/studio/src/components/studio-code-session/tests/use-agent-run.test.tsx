@@ -1,7 +1,9 @@
 // Run tests: npm test -- apps/studio/src/components/studio-code-session/tests/use-agent-run.test.tsx
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { Provider } from 'react-redux';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { store } from 'src/stores';
 import { AgentRunProvider, useAgentRun } from '../use-agent-run';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { ReactNode } from 'react';
@@ -51,9 +53,11 @@ function renderWithAgentRun() {
 			defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
 		} );
 		return (
-			<QueryClientProvider client={ queryClient }>
-				<AgentRunProvider>{ children }</AgentRunProvider>
-			</QueryClientProvider>
+			<Provider store={ store }>
+				<QueryClientProvider client={ queryClient }>
+					<AgentRunProvider>{ children }</AgentRunProvider>
+				</QueryClientProvider>
+			</Provider>
 		);
 	}
 

@@ -33,11 +33,7 @@ import { __ } from '@wordpress/i18n';
 import { image, page } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import {
-	AiAccessRequiredNotice,
-	AiBlockedNotice,
-	OutOfCreditsNotice,
-} from 'src/components/ai-access-required-notice';
+import { AiAccessRequiredNotice, AiBlockedNotice } from 'src/components/ai-access-required-notice';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useGetStudioAssistantQuota } from 'src/stores/wpcom-api';
@@ -694,13 +690,17 @@ function TurnErrorMarker( { message }: { message: string } ) {
 	const { data: quota } = useGetStudioAssistantQuota( undefined, {
 		skip: ! isUsageCap && ! isAccessRequired,
 	} );
+
+	// Out of credits says nothing here: the purchase card has already taken
+	// the composer's place, and repeating it in the transcript is noise.
+	if ( isOutOfCreditsError( message ) ) {
+		return null;
+	}
 	let text: ReactNode;
 	if ( isAiBlockedError( message ) ) {
 		text = <AiBlockedNotice />;
 	} else if ( isAccessRequired ) {
 		text = <AiAccessRequiredNotice quota={ quota } />;
-	} else if ( isOutOfCreditsError( message ) ) {
-		text = <OutOfCreditsNotice />;
 	} else if ( isUsageCap ) {
 		text = formatUsageCapNotice( quota?.costResetDate );
 	} else {

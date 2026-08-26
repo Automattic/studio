@@ -25,6 +25,7 @@ import type {
 	Snapshot,
 	SnapshotUsage,
 	StudioAssistantQuota,
+	StudioAssistantTopUpPricing,
 	SyncSite,
 	UserPreferences,
 } from '../../types';
@@ -534,6 +535,11 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			// The server proxies the WordPress.com quota endpoint and returns
 			// the already-parsed shape (or null when signed out).
 			return api< StudioAssistantQuota | null >( '/quota' );
+		},
+		async getStudioAssistantTopUpPricing() {
+			// Proxied server-side for the same reason as the quota: the browser
+			// UI never holds the wpcom token.
+			return api< StudioAssistantTopUpPricing | null >( '/top-up-pricing' );
 		},
 		async deleteAllSnapshots() {
 			// No-op: the local server has no delete-all route yet.

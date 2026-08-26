@@ -16,9 +16,11 @@ Use this skill before writing or editing page content, post content, templates, 
 - For forms or features core blocks do not cleanly provide, load the `plugin-recommendations` skill and use editable plugin blocks.
 - No decorative HTML comments such as `<!-- Hero Section -->` or `<!-- Features -->`. Only WordPress block delimiter comments are allowed.
 - No custom class names on inner DOM elements. Put custom classes only on the outermost block wrapper via the block `className` attribute.
+- A visual treatment repeated across instances of one block type (cards, outline buttons, framed images) is a registered block style variation, not a shared bare class. Register it in the theme's functions.php — `register_block_style( 'core/group', array( 'name' => 'card', 'label' => 'Card' ) )` — apply it with `"className":"is-style-card"`, and style it in `style.css` via `.is-style-card`. Registered variations appear in the editor's Styles switcher, so users can apply or remove the treatment without touching CSS. Keep bare custom classNames for one-off sections.
 - Style buttons via `.wp-element-button` — the inner element WordPress applies the button's padding, background, and border to (shared by the button block and buttons from other blocks). A custom class on a button block sits on the `.wp-block-button` wrapper, so descend to `.your-class .wp-element-button`; never style the wrapper directly, or its padding stacks on top of the default and the button doubles in size.
 - No inline `style` attributes or block `style` attributes for styling. Use `className` plus the theme's `style.css`.
 - Prefer theme palette colors over hardcoded hex. Apply block colors with palette **slug** attributes — `{"backgroundColor":"accent-1","textColor":"base"}` — and in `style.css` reference palette colors as `var(--wp--preset--color--<slug>)`. Discover the available slugs from the active theme's `theme.json` `settings.color.palette` (for a theme you are building, the palette you defined there); when you want a color the palette lacks, prefer adding it to the palette and referencing its slug. Keeping colors on the palette keeps sections in sync with Global Styles, theme switching, and light/dark variations. A raw hex value is fine for a deliberate one-off, but it should be the exception, not the default.
+- Prefer theme font-size presets over raw values, the same way as palette colors. Apply text sizes with slug attributes — `{"fontSize":"large"}` — and in `style.css` reference them as `var(--wp--preset--font-size--<slug>)`. Discover the slugs from the active theme's `theme.json` `settings.typography.fontSizes`; when a size the scale lacks recurs, add it to the scale (e.g. an `x-small` preset) and reference its slug. A raw size is fine for a deliberate one-off, but a value repeated across blocks belongs in the scale.
 - Use `core/spacer` for empty spacing elements, not empty `core/group` blocks.
 - No emojis anywhere in generated content.
 
@@ -35,6 +37,22 @@ Use these patterns:
 - **Standard constrained content**: omit `align` and write normal blocks.
 
 The common failure is a hero or banner that was intended to be full-width but still renders in the narrow content column. Fix that in markup by adding `align: "full"` on the outer group or correcting the inner `layout` type, not by trying to force width in CSS.
+
+### Shrink-Wrapped Labels (Eyebrows, Badges, Pills)
+
+Constrained layouts keep children in the content column with `max-width` plus `margin-left/right: auto !important`. Auto margins only work on block-level boxes, so setting `display: inline-block` (or any `inline-*` value) on a block's wrapper class detaches it from the content column — it aligns to the edge of the full-width section instead. `width: fit-content` fails differently: the auto margins always center it, so it cannot sit left or right within the column.
+
+Never change the `display` of a block wrapper inside a constrained layout. To make a label hug its text — an eyebrow, badge, tag, or pill — wrap it in a flex row group and let flex do the shrink-wrapping:
+
+```html
+<!-- wp:group {"layout":{"type":"flex"}} -->
+<div class="wp-block-group"><!-- wp:paragraph {"className":"hero-eyebrow"} -->
+<p class="hero-eyebrow">New for 2026</p>
+<!-- /wp:paragraph --></div>
+<!-- /wp:group -->
+```
+
+The group's `justifyContent` (`left`/`center`/`right`) controls where the label sits, and stays editable in the editor. The pill class then carries only background, padding, radius, and typography — no `display` or width rules.
 
 ## Root Block Gap
 

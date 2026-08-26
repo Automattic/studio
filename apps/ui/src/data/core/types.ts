@@ -234,7 +234,10 @@ export interface Connector {
 	getThemeDetails?( siteId: string ): Promise< SiteDetails[ 'themeDetails' ] >;
 	// Size of the local site's files, grouped for the overview's disk summary.
 	// Hosted sites return null because their storage is not on this machine.
-	getSiteStorageUsage( siteId: string ): Promise< SiteStorageUsage | null >;
+	// Measuring walks the whole site directory, so `signal` is honored all the
+	// way down: aborting it stops the walk rather than leaving it to finish for
+	// a site the user has already left.
+	getSiteStorageUsage( siteId: string, signal?: AbortSignal ): Promise< SiteStorageUsage | null >;
 
 	// Exports a site as a full backup archive (files + database). Prompts the
 	// user for a destination via a save-as dialog; resolves with the chosen

@@ -90,7 +90,7 @@ The section's blocks live in the page's `post_content` and in `outputDir/theme/t
 | columnCount | a `core/columns` with that many `core/column` (do NOT flatten) |
 | cover image focal point | inline `style="object-position:X% Y%"` DIRECTLY on the `<img>` tag — NOT `focalPoint` block JSON. Static-HTML patterns bypass server-side cover rendering, so `focalPoint` JSON does nothing; the inline `object-position` is what actually moves the crop. |
 
-**Styling decisions:** follow `skills/replicate-with-blocks/styling-priority.md` — the preset→patch→instance→variation→layout→CSS cascade, the structured-props cheat sheet, and the hard bans (no raw style="" attrs, no invented className CSS hooks). Native blocks only; core/html islands are exempt.
+**Styling decisions:** follow `skills/replicate-with-blocks/styling-priority.md` — the preset→patch→instance→variation→layout→CSS cascade, the structured-props cheat sheet, and the hard bans (no raw style="" attrs, no invented classNames in place of the cascade — scoped-parity wrapper classNames per channel 7c excepted). Native blocks only; core/html islands are exempt.
 
 **Existing block style variations — inventory first.** Before emitting ANY new style, list `<studioSitePath>/wp-content/themes/<themeSlug>/styles/blocks/*.json`. Each file is a registered variation (`slug`, `title`, `blockTypes`, `styles`). When one matches what the section needs, REUSE it: apply `is-style-<slug>` on the block. NEVER redeclare an existing slug, never invent an `is-style-*` class with no backing file. New variations follow styling-priority.md option 5 (recurring + nameable only) and are written as a new `styles/blocks/<slug>.json` file (slug `lib-` prefixed) plus the class on each claiming block.
 

@@ -95,7 +95,7 @@ The streaming loop calls a deterministic `heuristic-blocks.ts` BEFORE invoking y
 
 - **`references/blocks-reference.md`** — concrete markup examples for cover, columns, group, heading, image, buttons, gallery, details. Read when you need the exact JSON-attribute shape for a block.
 - **`references/post-content-conventions.md`** — what's legal in `post_content`, what's not. Read before composing.
-- **`skills/replicate-with-blocks/styling-priority.md`** — the preset→patch→instance→variation→layout→CSS cascade, the structured-props cheat sheet, and the hard bans (no raw style="" attrs, no invented className CSS hooks). Applies to native block output; core/html islands exempt.
+- **`skills/replicate-with-blocks/styling-priority.md`** — the preset→patch→instance→variation→layout→CSS cascade, the structured-props cheat sheet, and the hard bans (no raw style="" attrs, no invented classNames in place of the cascade — scoped-parity wrapper classNames per channel 7c excepted). Applies to native block output; core/html islands exempt.
 
 ## Evals
 

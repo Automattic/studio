@@ -101,6 +101,8 @@ Standard image block:
 - `"sizeSlug":"large"` → `size-large` class on `<figure>`
 - The `<figure>` is the root element, `<img>` is inside it
 
+**Image source scoping:** the `theme:./assets/…` src + `alt="AI_IMAGE: …"` form is for FRESH-theme generation only, where a downstream step generates the imagery. In the liberation/replication flow (`generating-patterns` for a liberated site, `replicate-with-blocks`), never emit `AI_IMAGE` placeholders — imagery is source-captured: use WP-library upload URLs or theme-shipped assets via `<?php echo esc_url( get_theme_file_uri('assets/…') ); ?>`, per `skills/generating-patterns/references/section-mapping.md`. The structural rules in this file (figure/img nesting, classes, cover internals) apply to both flows.
+
 Full-width image:
 ```html
 <!-- wp:image {"align":"full","sizeSlug":"full"} -->

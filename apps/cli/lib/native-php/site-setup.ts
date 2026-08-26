@@ -192,22 +192,24 @@ export async function installWordPress(
 		{ phpVersion, signal }
 	);
 
-	// WP-CLI's --locale flag silently falls back to English when it can't
+	// WP-CLI's --locale flag may silently fall back to English when it can't
 	// download the language pack (e.g. offline, wordpress.org unreachable).
 	// Force WPLANG so the site respects the configured language even when
-	// translation files aren't available yet. A raw SQL REPLACE is needed
-	// because the SQLite database adapter silently drops writes through
-	// update_option / add_option for this option.
+	// translation files aren't available yet.
 	if ( locale ) {
-		await runPhpCommand(
-			[
-				getWpCliPharPath(),
-				'eval',
-				`global $wpdb; $wpdb->query( $wpdb->prepare( "REPLACE INTO {$wpdb->options} (option_name, option_value, autoload) VALUES ('WPLANG', %s, 'yes')", '${ locale }' ) );`,
-				`--path=${ config.sitePath }`,
-			],
-			{ phpVersion, signal }
-		);
+		try {
+			await runPhpCommand(
+				[
+					getWpCliPharPath(),
+					'eval',
+					`global $wpdb; $wpdb->query( $wpdb->prepare( "REPLACE INTO {$wpdb->options} (option_name, option_value, autoload) VALUES ('WPLANG', %s, 'yes')", '${ locale }' ) );`,
+					`--path=${ config.sitePath }`,
+				],
+				{ phpVersion, signal }
+			);
+		} catch {
+			// Best-effort — a failed language setting should not block site creation.
+		}
 	}
 
 	await runPhpCommand(

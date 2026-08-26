@@ -347,7 +347,7 @@ function responsiveHtml( desktopHtml: string, mobileHtml: string ): string {
 	const desktopBodyMatch = /<body\b([^>]*)>([\s\S]*?)<\/body\s*>/i.exec( desktopHtml );
 	const desktopBody = desktopBodyMatch?.[ 2 ];
 	const mobileBodyMatch = /<body\b([^>]*)>([\s\S]*?)<\/body\s*>/i.exec( mobileHtml );
-	const mobileBody = mobileBodyMatch?.[ 2 ];
+	let mobileBody = mobileBodyMatch?.[ 2 ];
 	if ( desktopBody === undefined || mobileBody === undefined ) return desktopHtml;
 	const mobileViewport = /<meta\b[^>]*\bname\s*=\s*(["'])viewport\1[^>]*>/i.exec(
 		mobileHtml
@@ -360,6 +360,23 @@ function responsiveHtml( desktopHtml: string, mobileHtml: string ): string {
 	};
 	if ( responsiveBodySignature( desktopBody ) === responsiveBodySignature( mobileBody ) )
 		return withMobileViewport( desktopHtml );
+	const mobile = cheerio.load( `<body>${ mobileBody }</body>` );
+	mobile( '[data-dla-anchor-target]' ).each( ( _index, element ) => {
+		const node = mobile( element );
+		const fragment = node.attr( 'data-dla-anchor-target' );
+		if ( fragment ) node.attr( 'id', `${ fragment }--dla-mobile` );
+	} );
+	mobile( 'a[data-dla-anchor-fragment][href]' ).each( ( _index, element ) => {
+		const node = mobile( element );
+		const fragment = node.attr( 'data-dla-anchor-fragment' );
+		const href = node.attr( 'href' );
+		if ( fragment && href )
+			node.attr(
+				'href',
+				`${ href.replace( /#.*$/, '' ) }#${ encodeURIComponent( fragment ) }--dla-mobile`
+			);
+	} );
+	mobileBody = mobile( 'body' ).html() ?? mobileBody;
 
 	const wrapperAttributes = ( baseClass: string, bodyAttributes: string ): string => {
 		const body = cheerio.load( `<body${ bodyAttributes }></body>` )( 'body' );
@@ -976,6 +993,46 @@ function safeCapturedPageHtml( html: string ): string {
 	return normalizedDeclarativeFormEmbeds( $.html() );
 }
 
+function unresolvedCapturedAnchors(
+	html: string,
+	sourceUrl: string
+): Array< { sourceUrl: string; fragment: string; targetCount: number; reason: string } > {
+	const $ = cheerio.load( html );
+	const diagnostics = new Map< string, { targetCount: number; reason: string } >();
+	$( 'a[data-dla-anchor-fragment][href]' ).each( ( _index, element ) => {
+		const link = $( element );
+		const href = link.attr( 'href' );
+		if ( ! href ) return;
+		let fragment: string;
+		try {
+			fragment = decodeURIComponent( new URL( href, sourceUrl ).hash.slice( 1 ) );
+		} catch {
+			return;
+		}
+		if ( ! fragment || diagnostics.has( fragment ) ) return;
+		const targetCount = $( '[id],a[name]' ).filter(
+			( _targetIndex, target ) =>
+				$( target ).attr( 'id' ) === fragment || $( target ).attr( 'name' ) === fragment
+		).length;
+		const runtimeReason = link.attr( 'data-dla-anchor-unresolved' );
+		if ( targetCount !== 1 || runtimeReason ) {
+			diagnostics.set( fragment, {
+				targetCount,
+				reason:
+					runtimeReason ??
+					( targetCount === 0
+						? 'captured fragment target is missing'
+						: 'captured fragment target is ambiguous' ),
+			} );
+		}
+	} );
+	return [ ...diagnostics ].map( ( [ fragment, diagnostic ] ) => ( {
+		sourceUrl,
+		fragment,
+		...diagnostic,
+	} ) );
+}
+
 export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 	const outputDir = resolve( options.outputDir );
 	const artifactTotalBytesLimit = Math.max(
@@ -1320,6 +1377,12 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		} );
 		return true;
 	};
+	const unresolvedAnchors: Array< {
+		sourceUrl: string;
+		fragment: string;
+		targetCount: number;
+		reason: string;
+	} > = [];
 	for ( const entry of retainedEntries ) {
 		let html = readFileSync( entry.htmlPath, 'utf8' );
 		for ( const dependency of dependencyReferences( html, entry.url ) ) {
@@ -1434,6 +1497,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 			resourceReplacements
 		);
 		const normalizedHtml = withoutGeometryIdentities( identityHtml );
+		unresolvedAnchors.push( ...unresolvedCapturedAnchors( normalizedHtml, url ) );
 		writeFileSync( destination, normalizedHtml );
 		entry.identityHtmlPath = `${ htmlPath }.identity`;
 		writeFileSync( entry.identityHtmlPath, identityHtml );
@@ -1582,6 +1646,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 				resourceFailures: resourceManifest.failures,
 				unresolvedDependencies,
 				unresolvedMedia,
+				unresolvedAnchors,
 				portableMedia,
 				interactions: interactionSummary,
 				interactionFailures: interactionStates.filter( ( state ) => state.status !== 'captured' ),

@@ -1,7 +1,7 @@
 import { launchBrowser } from '../../lib/browser-kit/index.js';
+import { withTimeout } from '../../lib/concurrency.js';
 import { classifyUrl, parseSitemapXml } from '../../lib/extraction/sitemap.js';
 import { ensureUrlScheme } from '../../lib/url/index.js';
-import { withTimeout } from '../../lib/concurrency.js';
 import { discoverLinkedRoutes } from './discovery-links.js';
 import { RENDERER_CALL_TIMEOUT_MS } from './page.js';
 import type { WixAdapterOpts, Inventory } from './types.js';
@@ -171,21 +171,19 @@ export async function discover(
 			navigation = ( await withTimeout(
 				p.evaluate( () => {
 					const navLinks: Array< { text: string; href: string } > = [];
-					document
-						.querySelectorAll( 'nav a, header a, [role="navigation"] a' )
-						.forEach( ( el ) => {
-							const a = el as HTMLAnchorElement;
-							const text = a.textContent?.trim() || '';
-							const href = a.href;
-							if (
-								text &&
-								href &&
-								! href.includes( '#' ) &&
-								! navLinks.find( ( l ) => l.href === href )
-							) {
-								navLinks.push( { text, href } );
-							}
-						} );
+					document.querySelectorAll( 'nav a, header a, [role="navigation"] a' ).forEach( ( el ) => {
+						const a = el as HTMLAnchorElement;
+						const text = a.textContent?.trim() || '';
+						const href = a.href;
+						if (
+							text &&
+							href &&
+							! href.includes( '#' ) &&
+							! navLinks.find( ( l ) => l.href === href )
+						) {
+							navLinks.push( { text, href } );
+						}
+					} );
 					return navLinks;
 				} ),
 				RENDERER_CALL_TIMEOUT_MS,

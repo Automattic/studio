@@ -489,16 +489,27 @@ tests:
             const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
             if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
             const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
-            const writtenContents = (d.toolCalls || [])
-              .filter(c => c.name === 'Write' && c.input && typeof c.input.content === 'string')
-              .map(c => c.input.content);
-            const usedJetpackBlock = writtenContents.some(c => /<!--\s*wp:jetpack\//.test(c));
+            const blobs = [];
+            for (const c of d.toolCalls || []) {
+              const i = c.input || {};
+              if (c.name === 'Write' || c.name === 'Edit') {
+                for (const k of ['content', 'new_string', 'replacement', 'text']) {
+                  if (typeof i[k] === 'string') blobs.push(i[k]);
+                }
+                // The Edit tool applies changes as { edits: [{ oldText, newText }] }.
+                if (Array.isArray(i.edits)) {
+                  for (const e of i.edits) if (e && typeof e.newText === 'string') blobs.push(e.newText);
+                }
+              }
+              if (c.name === 'wp_cli' && typeof i.command === 'string') blobs.push(i.command);
+            }
+            const usedJetpackBlock = blobs.some(c => /<!--\s*wp:jetpack\//.test(c));
             return {
               pass: usedJetpackBlock,
               score: usedJetpackBlock ? 1 : 0,
               reason: usedJetpackBlock
                 ? 'page content uses a jetpack/* block'
-                : `no jetpack/* block in any Write tool call; sample: ${(writtenContents[0] || '').slice(0, 300)}`,
+                : `no jetpack/* block in any Write/Edit/wp_cli call; sample: ${(blobs.find(c => /<!--\s*wp:/.test(c)) || blobs[0] || '').slice(0, 300)}`,
             };
           });
 

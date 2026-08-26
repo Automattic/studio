@@ -208,7 +208,7 @@ export async function installWordPress(
 				{ phpVersion, signal }
 			);
 		} catch {
-			// Best-effort — a failed language setting should not block site creation.
+			// noop
 		}
 	}
 

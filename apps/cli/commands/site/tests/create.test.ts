@@ -1,4 +1,5 @@
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import {
@@ -263,7 +264,7 @@ describe( 'CLI: studio create', () => {
 	} );
 
 	const createCapturedSiteArtifact = () => {
-		const artifactDir = fs.mkdtempSync( path.join( '/tmp', 'studio-captured-artifact-' ) );
+		const artifactDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-captured-artifact-' ) );
 		const artifactPath = path.join( artifactDir, 'artifact.json' );
 		fs.writeFileSync(
 			artifactPath,
@@ -327,7 +328,7 @@ describe( 'CLI: studio create', () => {
 
 	describe( 'Validation Errors', () => {
 		it( 'validates and resolves the local Static Site Importer zip option', async () => {
-			const pluginDir = fs.mkdtempSync( path.join( '/tmp', 'studio-ssi-plugin-' ) );
+			const pluginDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-ssi-plugin-' ) );
 			const createParser = () =>
 				registerCommand(
 					yargs( [] ).option( 'path', { type: 'string', default: mockSitePath } )
@@ -354,7 +355,7 @@ describe( 'CLI: studio create', () => {
 		} );
 
 		it( 'rejects simultaneous local and URL Static Site Importer inputs', async () => {
-			const pluginDir = fs.mkdtempSync( path.join( '/tmp', 'studio-ssi-plugin-' ) );
+			const pluginDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-ssi-plugin-' ) );
 			const pluginPath = path.join( pluginDir, 'static-site-importer.zip' );
 			fs.writeFileSync( pluginPath, 'plugin-bytes' );
 			const parser = registerCommand(
@@ -472,8 +473,8 @@ describe( 'CLI: studio create', () => {
 
 	describe( 'Success Cases', () => {
 		it( 'bundles a local Static Site Importer zip until Blueprint execution finishes', async () => {
-			const sourceDir = fs.mkdtempSync( path.join( '/tmp', 'studio-source-test-' ) );
-			const pluginDir = fs.mkdtempSync( path.join( '/tmp', 'studio-ssi-plugin-' ) );
+			const sourceDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-source-test-' ) );
+			const pluginDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-ssi-plugin-' ) );
 			const pluginPath = path.join( pluginDir, 'static-site-importer.zip' );
 			fs.writeFileSync( path.join( sourceDir, 'index.html' ), '<main>Source</main>' );
 			fs.writeFileSync( pluginPath, 'plugin-bytes' );
@@ -514,8 +515,8 @@ describe( 'CLI: studio create', () => {
 		} );
 
 		it( 'removes the bundled Blueprint when Blueprint execution fails', async () => {
-			const sourceDir = fs.mkdtempSync( path.join( '/tmp', 'studio-source-test-' ) );
-			const pluginDir = fs.mkdtempSync( path.join( '/tmp', 'studio-ssi-plugin-' ) );
+			const sourceDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-source-test-' ) );
+			const pluginDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-ssi-plugin-' ) );
 			const pluginPath = path.join( pluginDir, 'static-site-importer.zip' );
 			fs.writeFileSync( path.join( sourceDir, 'index.html' ), '<main>Source</main>' );
 			fs.writeFileSync( pluginPath, 'plugin-bytes' );
@@ -543,7 +544,7 @@ describe( 'CLI: studio create', () => {
 		} );
 
 		it( 'routes a URL through Data Liberation before SSI materialization', async () => {
-			const captureDir = fs.mkdtempSync( path.join( '/tmp', 'studio-create-capture-' ) );
+			const captureDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-create-capture-' ) );
 			const artifactPath = path.join( captureDir, 'artifact.json' );
 			fs.writeFileSync(
 				artifactPath,
@@ -596,7 +597,7 @@ describe( 'CLI: studio create', () => {
 		} );
 
 		it( 'forwards an artifact-declared classic materialization strategy', () => {
-			const artifactDir = fs.mkdtempSync( path.join( '/tmp', 'studio-classic-artifact-' ) );
+			const artifactDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-classic-artifact-' ) );
 			const artifactPath = path.join( artifactDir, 'artifact.json' );
 			fs.writeFileSync(
 				artifactPath,
@@ -636,7 +637,7 @@ describe( 'CLI: studio create', () => {
 		} );
 
 		it( 'should build a Blueprint that imports a static site artifact through Static Site Importer', () => {
-			const artifactDir = fs.mkdtempSync( path.join( '/tmp', 'studio-artifact-test-' ) );
+			const artifactDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-artifact-test-' ) );
 			const artifactPath = path.join( artifactDir, 'artifact.json' );
 			fs.writeFileSync(
 				artifactPath,
@@ -742,7 +743,7 @@ describe( 'CLI: studio create', () => {
 		} );
 
 		it( 'forwards semantic evidence and rejects navigation-only catastrophic loss', () => {
-			const artifactDir = fs.mkdtempSync( path.join( '/tmp', 'studio-semantic-artifact-' ) );
+			const artifactDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-semantic-artifact-' ) );
 			const artifactPath = path.join( artifactDir, 'artifact.json' );
 			fs.writeFileSync(
 				artifactPath,
@@ -782,7 +783,7 @@ describe( 'CLI: studio create', () => {
 		} );
 
 		it( 'should store the import result only when requested', () => {
-			const sourceDir = fs.mkdtempSync( path.join( '/tmp', 'studio-source-test-' ) );
+			const sourceDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-source-test-' ) );
 			fs.writeFileSync( path.join( sourceDir, 'index.html' ), '<main></main>' );
 
 			const blueprint = buildCreateFromSourceBlueprint(
@@ -804,7 +805,7 @@ describe( 'CLI: studio create', () => {
 		} );
 
 		it( 'should preserve bounded failure diagnostics and a bounded import receipt', () => {
-			const sourceDir = fs.mkdtempSync( path.join( '/tmp', 'studio-source-test-' ) );
+			const sourceDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-source-test-' ) );
 			fs.writeFileSync( path.join( sourceDir, 'index.html' ), '<main></main>' );
 
 			const blueprint = buildCreateFromSourceBlueprint(
@@ -822,10 +823,29 @@ describe( 'CLI: studio create', () => {
 			);
 			expect( blueprint.staticSiteImport.code ).toContain( "'failure'       => $projection" );
 			expect( blueprint.staticSiteImport.code ).toContain( "'import_receipt' => $projection" );
+			expect( blueprint.staticSiteImport.code ).not.toContain( "'import_receipt' => $result" );
+		} );
+
+		it( 'should bound the stored import receipt so oversized importer responses cannot break the handoff', () => {
+			const sourceDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-source-test-' ) );
+			fs.writeFileSync( path.join( sourceDir, 'index.html' ), '<main></main>' );
+
+			const blueprint = buildCreateFromSourceBlueprint(
+				sourceDir,
+				'Imported Directory',
+				'https://example.com/static-site-importer.zip'
+			);
+
+			expect( blueprint.staticSiteImport.code ).toContain(
+				"'import_receipt'            => static_site_importer_studio_result_projection( $result )"
+			);
+			expect( blueprint.staticSiteImport.code ).not.toContain(
+				"'import_receipt'            => $result"
+			);
 		} );
 
 		it( 'should atomically write a bounded receipt for generic failed imports', () => {
-			const sourceDir = fs.mkdtempSync( path.join( '/tmp', 'studio-source-test-' ) );
+			const sourceDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-source-test-' ) );
 			fs.writeFileSync( path.join( sourceDir, 'index.html' ), '<main></main>' );
 
 			const blueprint = buildCreateFromSourceBlueprint(
@@ -844,7 +864,7 @@ describe( 'CLI: studio create', () => {
 		} );
 
 		it( 'should build a Blueprint that imports a static site directory through Static Site Importer', () => {
-			const sourceDir = fs.mkdtempSync( path.join( '/tmp', 'studio-source-test-' ) );
+			const sourceDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-source-test-' ) );
 			const indexPath = path.join( sourceDir, 'index.html' );
 			fs.writeFileSync( indexPath, '<main><h1>Hello</h1></main>' );
 
@@ -862,7 +882,7 @@ describe( 'CLI: studio create', () => {
 		} );
 
 		it( 'should stage Figma files for the dedicated SSI import ability', async () => {
-			const sourceDir = fs.mkdtempSync( path.join( '/tmp', 'studio-figma-source-test-' ) );
+			const sourceDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-figma-source-test-' ) );
 			const sourcePath = path.join( sourceDir, 'design.fig' );
 			fs.writeFileSync( sourcePath, 'figma-source-bytes' );
 			const blueprint = buildCreateFromSourceBlueprint(
@@ -921,7 +941,7 @@ describe( 'CLI: studio create', () => {
 		} );
 
 		it( 'should import only the website root from a Data Liberation capture directory', () => {
-			const captureDir = fs.mkdtempSync( path.join( '/tmp', 'studio-capture-test-' ) );
+			const captureDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-capture-test-' ) );
 			const websiteDir = fs.mkdtempSync( path.join( captureDir, 'website-' ) );
 			fs.writeFileSync( path.join( websiteDir, 'index.html' ), '<main>Captured site</main>' );
 			fs.writeFileSync( path.join( captureDir, 'diagnostics.json' ), '{"failures":[]}' );
@@ -978,7 +998,7 @@ describe( 'CLI: studio create', () => {
 		} );
 
 		it( 'should preserve the canonical artifact envelope from a capture directory', () => {
-			const captureDir = fs.mkdtempSync( path.join( '/tmp', 'studio-artifact-capture-' ) );
+			const captureDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-artifact-capture-' ) );
 			const artifact = {
 				schema: 'blocks-engine/php-transformer/site-artifact/v1',
 				root: 'website',

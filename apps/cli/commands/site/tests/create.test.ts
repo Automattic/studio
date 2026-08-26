@@ -572,7 +572,7 @@ describe( 'CLI: studio create', () => {
 
 			expect( createArtifact ).toHaveBeenCalledWith(
 				'https://example.com',
-				'/test/site/new-site-source',
+				path.normalize( `${ mockSitePath }-source` ),
 				expect.objectContaining( {
 					onProgress: expect.any( Function ),
 				} )
@@ -878,7 +878,9 @@ describe( 'CLI: studio create', () => {
 			expect( blueprint.staticSiteImport.code ).not.toContain(
 				'static_site_importer_rest_source_artifact'
 			);
-			expect( blueprint.staticSiteImport.code ).toContain( sourceDir );
+			expect( blueprint.staticSiteImport.code ).toContain(
+				JSON.stringify( sourceDir ).slice( 1, -1 )
+			);
 		} );
 
 		it( 'should stage Figma files for the dedicated SSI import ability', async () => {

@@ -79,6 +79,7 @@ $transformer->to_file( $wp_config_path );
 		);
 	}
 }
+
 export function getSiteUrlPrependContent(
 	siteUrl: string,
 	originalAutoPrependFile?: string

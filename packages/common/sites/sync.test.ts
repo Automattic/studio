@@ -61,15 +61,46 @@ describe( 'pullSite', () => {
 		);
 	} );
 
-	// Selective sync selects by backup node id, which reprint has no equivalent
-	// for — so the reprint engine pulls everything and drops the selection.
-	it( 'ignores selective-sync options for the reprint engine', async () => {
+	// The same selection travels in both engines' forms; reprint reads the
+	// wp-content-relative paths and ignores the backup node ids.
+	it( 'passes the selection to the reprint engine as --only and --skip-database', async () => {
 		const emitter = new EventEmitter();
 		const execute = vi.fn( () => [ emitter, {} ] ) as unknown as ExecuteCliCommand;
 
 		const pulling = pullSite( execute, '/sites/local', 42, {
 			engine: 'reprint',
-			syncOptions: { optionsToSync: [ 'paths' ], includePathList: [ 'ZjE6Lw==' ] },
+			syncOptions: {
+				optionsToSync: [ 'paths' ],
+				includePathList: [ 'ZjE6Lw==' ],
+				onlyPaths: [ 'plugins/akismet', 'themes' ],
+				skipDatabase: true,
+			},
+		} );
+		emitter.emit( 'success' );
+		await pulling;
+
+		expect( execute ).toHaveBeenCalledWith(
+			[
+				'pull-reprint',
+				'--path',
+				'/sites/local',
+				'--remote-site',
+				'42',
+				'--only=plugins/akismet',
+				'--only=themes',
+				'--skip-database',
+			],
+			{ output: 'capture' }
+		);
+	} );
+
+	it( 'keeps the database and adds no --only when everything is selected', async () => {
+		const emitter = new EventEmitter();
+		const execute = vi.fn( () => [ emitter, {} ] ) as unknown as ExecuteCliCommand;
+
+		const pulling = pullSite( execute, '/sites/local', 42, {
+			engine: 'reprint',
+			syncOptions: { onlyPaths: [], skipDatabase: false },
 		} );
 		emitter.emit( 'success' );
 		await pulling;
@@ -78,6 +109,21 @@ describe( 'pullSite', () => {
 			[ 'pull-reprint', '--path', '/sites/local', '--remote-site', '42' ],
 			{ output: 'capture' }
 		);
+	} );
+
+	it( 'leaves the reprint selection out of a jetpack pull', async () => {
+		const emitter = new EventEmitter();
+		const execute = vi.fn( ( _args: string[] ) => [ emitter, {} ] );
+
+		const pulling = pullSite( execute as unknown as ExecuteCliCommand, '/sites/local', 42, {
+			syncOptions: { onlyPaths: [ 'plugins/akismet' ], skipDatabase: true },
+		} );
+		emitter.emit( 'success' );
+		await pulling;
+
+		const args = execute.mock.calls[ 0 ][ 0 ];
+		expect( args ).not.toContain( '--only=plugins/akismet' );
+		expect( args ).not.toContain( '--skip-database' );
 	} );
 
 	it( 'forwards live CLI messages and their percentage', async () => {

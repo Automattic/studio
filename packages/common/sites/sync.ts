@@ -238,10 +238,10 @@ function getExportMode( optionsToSync: SyncOption[] | undefined ): 'full' | 'con
  * content selection. Both commands take the same `--remote-site` identifier.
  * Resolves on success, rejects on failure.
  *
- * `syncOptions` reaches the `jetpack` engine only: it selects by backup node
- * id, whereas reprint selects by wp-content path (`--only`), so there is
- * nothing to map it onto. A reprint pull ignores the selection and pulls
- * everything.
+ * Both engines honour `syncOptions`, through different flags: `jetpack`
+ * selects by backup node id (`--include-path-list`), reprint by
+ * wp-content-relative path (`--only`) plus `--skip-database`. The caller
+ * carries both forms, since the engine is resolved here rather than in the UI.
  *
  * Only the arguments differ per engine. The progress parsing below is the
  * CLI-wide `reportProgress` envelope plus the `(N%)` token that `pull`,
@@ -266,7 +266,14 @@ export function pullSite(
 	const target = [ '--path', siteFolder, '--remote-site', String( remoteSiteId ) ];
 	const args =
 		engine === 'reprint'
-			? [ 'pull-reprint', ...target ]
+			? [
+					'pull-reprint',
+					...target,
+					// Reprint's include-list. Paths are wp-content-relative; the
+					// command turns them into `:wp-content:` sources itself.
+					...( syncOptions?.onlyPaths ?? [] ).map( ( onlyPath ) => `--only=${ onlyPath }` ),
+					...( syncOptions?.skipDatabase ? [ '--skip-database' ] : [] ),
+			  ]
 			: [
 					'pull',
 					...target,

@@ -198,4 +198,12 @@ export type PushSyncOptions = {
 export type PullSyncOptions = {
 	optionsToSync?: SyncOption[];
 	includePathList?: string[];
+	/**
+	 * The same selection expressed for the `reprint` engine, which selects by
+	 * wp-content-relative path rather than by Jetpack backup node id. Both
+	 * forms are carried because the engine is resolved further down, in the
+	 * main process or the `studio ui` server.
+	 */
+	onlyPaths?: string[];
+	skipDatabase?: boolean;
 };

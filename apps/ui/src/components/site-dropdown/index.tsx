@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import * as Menu from '@/components/menu';
 import {
 	convertTreeToPullOptions,
+	convertTreeToReprintPullOptions,
 	convertTreeToPushOptions,
 } from '@/components/selective-sync/lib/convert-tree-to-sync-options';
 import { registerSelectiveSyncConnector } from '@/components/selective-sync/lib/get-ipc-api';
@@ -138,11 +139,14 @@ export function SiteDropdown( {
 	const handleDialogPull = ( tree: TreeNode[] ) => {
 		if ( ! liveSite ) return;
 		const { optionsToSync, include_path_list: includePathList } = convertTreeToPullOptions( tree );
+		// Both engines' forms of the same selection travel together — which one
+		// is used is decided where the pull runs, not here.
+		const { onlyPaths, skipDatabase } = convertTreeToReprintPullOptions( tree );
 		startSyncFromDialog( () =>
 			pullSiteFromLive.mutate( {
 				siteId: site.id,
 				remoteSiteId: liveSite.id,
-				options: { optionsToSync, includePathList },
+				options: { optionsToSync, includePathList, onlyPaths, skipDatabase },
 			} )
 		);
 	};

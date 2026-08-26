@@ -9,6 +9,22 @@ type PushOptionsWithSelections = {
 	specificSelectionPaths?: string[];
 };
 
+export type ReprintPullOptions = {
+	onlyPaths: string[];
+	skipDatabase: boolean;
+};
+
+/**
+ * `/wp-content/plugins/akismet/` → `plugins/akismet`. Remote tree paths are
+ * always slash-terminated, files included.
+ */
+const toWpContentRelativePath = ( nodePath: string | undefined ): string | undefined => {
+	if ( ! nodePath ) {
+		return undefined;
+	}
+	return nodePath.replace( /^\/?wp-content\//, '' ).replace( /\/+$/, '' ) || undefined;
+};
+
 const collectCheckedNodes = ( nodes: TreeNode[] | undefined ): TreeNode[] => {
 	if ( ! nodes?.length ) {
 		return [];
@@ -125,4 +141,42 @@ export const convertTreeToPullOptions = ( tree: TreeNode[] ): PullSiteOptions =>
 	}
 
 	return pullOptions;
+};
+
+/**
+ * The pull selection for the Reprint engine, which selects by
+ * wp-content-relative path (`--only`) rather than by Jetpack backup node id.
+ *
+ * This mirrors `mapCheckedNodesToSelection` in
+ * `apps/cli/lib/pull/reprint-selector.ts`, which reduces the CLI picker's
+ * checked nodes the same way — a fully-checked directory stands for its
+ * descendants, and a fully-checked `wp-content` needs no `--only` at all.
+ * The two reductions have to agree, so they are tested against the same cases.
+ *
+ * Paths stay wp-content-relative; the CLI's `mapCliOnlyToReprint` turns them
+ * into the `:wp-content:` sources Reprint expects.
+ */
+export const convertTreeToReprintPullOptions = ( tree: TreeNode[] ): ReprintPullOptions => {
+	const { isDatabaseSelected, filesAndFolders, wpContent } = getCommonNodes( tree );
+
+	if ( ! filesAndFolders || ! isDatabaseSelected ) {
+		throw new Error(
+			'Error when converting tree to pull options. Database or files and folders not found'
+		);
+	}
+
+	const skipDatabase = ! isDatabaseSelected.checked;
+
+	// Every file is selected, so the pull needs no `--only` to restrict it.
+	if ( filesAndFolders.checked || wpContent?.checked ) {
+		return { onlyPaths: [], skipDatabase };
+	}
+
+	// `collectCheckedNodes` descends only into partially-checked folders, so a
+	// checked folder arrives on its own and its descendants are left out.
+	const onlyPaths = collectCheckedNodes( wpContent?.children ?? [] )
+		.map( ( node ) => toWpContentRelativePath( node.path ) )
+		.filter( ( nodePath ): nodePath is string => Boolean( nodePath ) );
+
+	return { onlyPaths: [ ...new Set( onlyPaths ) ], skipDatabase };
 };

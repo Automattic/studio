@@ -34,6 +34,7 @@ vi.mock( '@/components/selective-sync/lib/get-ipc-api', () => ( {
 vi.mock( './disconnect-site-dialog', () => ( { DisconnectSiteDialog: () => null } ) );
 vi.mock( '@/components/selective-sync/lib/convert-tree-to-sync-options', () => ( {
 	convertTreeToPullOptions: () => ( { optionsToSync: [ 'all' ], include_path_list: [] } ),
+	convertTreeToReprintPullOptions: () => ( { onlyPaths: [], skipDatabase: false } ),
 	convertTreeToPushOptions: () => ( { optionsToSync: [ 'all' ] } ),
 } ) );
 vi.mock( './publish-picker-view', () => ( { PublishPickerView: () => null } ) );

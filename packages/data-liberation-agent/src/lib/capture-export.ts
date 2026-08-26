@@ -358,8 +358,14 @@ function responsiveHtml( desktopHtml: string, mobileHtml: string ): string {
 			? html.replace( /<meta\b[^>]*\bname\s*=\s*(["'])viewport\1[^>]*>/i, mobileViewport )
 			: html.replace( /<\/head\s*>/i, `${ mobileViewport }</head>` );
 	};
-	if ( responsiveBodySignature( desktopBody ) === responsiveBodySignature( mobileBody ) )
-		return withMobileViewport( desktopHtml );
+	if ( responsiveBodySignature( desktopBody ) === responsiveBodySignature( mobileBody ) ) {
+		if ( styleBlocks( desktopHtml ).join( '\n' ) === styleBlocks( mobileHtml ).join( '\n' ) )
+			return withMobileViewport( desktopHtml );
+		return withMobileViewport( scopedStyles( desktopHtml, '(min-width:769px)' ) ).replace(
+			/<\/head\s*>/i,
+			`${ responsiveMobileStyles( mobileHtml ) }</head>`
+		);
+	}
 	const mobile = cheerio.load( `<body>${ mobileBody }</body>` );
 	mobile( '[data-dla-anchor-target]' ).each( ( _index, element ) => {
 		const node = mobile( element );
@@ -405,7 +411,7 @@ function responsiveHtml( desktopHtml: string, mobileHtml: string ): string {
 				( _match, closingBody: string ) => `<body>${ responsiveBody }${ closingBody }`
 			);
 	}
-	const mobileStyles = responsiveMobileStyles( mobileHtml );
+	const mobileStyles = responsiveMobileStyles( mobileHtml, '.data-liberation-mobile-document' );
 	return withMobileViewport( scopedStyles( desktopHtml, '(min-width:769px)' ) )
 		.replace(
 			/<\/head\s*>/i,
@@ -447,14 +453,12 @@ function portableInlineStyleValues(
 	return { key: `${ media }\n${ css }`, media };
 }
 
-function responsiveMobileStyles( mobileHtml: string ): string {
+function responsiveMobileStyles( mobileHtml: string, scope?: string ): string {
 	return styleBlocks( mobileHtml )
 		.filter( Boolean )
 		.map(
 			( style ) =>
-				`<style media="(max-width:768px)">${ scopeCss( style, {
-					scope: '.data-liberation-mobile-document',
-				} ) }</style>`
+				`<style media="(max-width:768px)">${ scope ? scopeCss( style, { scope } ) : style }</style>`
 		)
 		.join( '' );
 }

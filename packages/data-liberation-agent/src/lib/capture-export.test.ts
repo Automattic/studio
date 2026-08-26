@@ -995,6 +995,79 @@ if ( existsSync( ${ JSON.stringify( join( outputDir, '.capture-export-html' ) ) 
 		expect( html ).toContain( '<canvas id="canvas" width="1440" height="900"></canvas>' );
 	} );
 
+	it( 'preserves mobile styles when matching responsive bodies style themselves differently', () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-capture-export-' ) );
+		dirs.push( outputDir );
+		mkdirSync( join( outputDir, 'html' ), { recursive: true } );
+		mkdirSync( join( outputDir, 'html-mobile' ), { recursive: true } );
+		mkdirSync( join( outputDir, 'screenshots' ), { recursive: true } );
+		writeFileSync(
+			join( outputDir, 'html', 'homepage.html' ),
+			'<!doctype html><html><head><style>main{color:blue}</style><style media="print">main{margin:0}</style></head><body><main><h1>Home</h1></main></body></html>'
+		);
+		writeFileSync(
+			join( outputDir, 'html-mobile', 'homepage.html' ),
+			'<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"><style>main{color:red}</style></head><body><main><h1>Home</h1></main></body></html>'
+		);
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				entries: { 'https://example.com/': { html: 'html/homepage.html' } },
+			} )
+		);
+
+		exportWebsiteCapture( {
+			outputDir,
+			sourceUrl: 'https://example.com/',
+			platform: 'fake',
+			summary: {},
+			failures: [],
+		} );
+		const html = readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' );
+		expect( html ).not.toContain( 'data-liberation-desktop-document' );
+		expect( html ).not.toContain( 'data-liberation-mobile-document' );
+		expect( html ).toContain( '<style media="(min-width:769px)">main{color:blue}</style>' );
+		expect( html ).toContain(
+			'<style media="(min-width:769px) and (print)">main{margin:0}</style>'
+		);
+		expect( html ).toContain( '<style media="(max-width:768px)">main{color:red}</style>' );
+		expect( html ).toContain( 'name="viewport"' );
+	} );
+
+	it( 'keeps shared styles unwrapped when matching responsive bodies style themselves identically', () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-capture-export-' ) );
+		dirs.push( outputDir );
+		mkdirSync( join( outputDir, 'html' ), { recursive: true } );
+		mkdirSync( join( outputDir, 'html-mobile' ), { recursive: true } );
+		mkdirSync( join( outputDir, 'screenshots' ), { recursive: true } );
+		const document =
+			'<!doctype html><html><head><style>main{color:blue}</style></head><body><main><h1>Home</h1></main></body></html>';
+		writeFileSync( join( outputDir, 'html', 'homepage.html' ), document );
+		writeFileSync( join( outputDir, 'html-mobile', 'homepage.html' ), document );
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				entries: { 'https://example.com/': { html: 'html/homepage.html' } },
+			} )
+		);
+
+		exportWebsiteCapture( {
+			outputDir,
+			sourceUrl: 'https://example.com/',
+			platform: 'fake',
+			summary: {},
+			failures: [],
+		} );
+		const html = readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' );
+		expect( html ).not.toContain( 'data-liberation-desktop-document' );
+		expect( html ).not.toContain( 'data-liberation-mobile-document' );
+		expect( html ).toContain( '<style>main{color:blue}</style>' );
+		expect( html ).not.toContain( '(min-width:769px)' );
+		expect( html ).not.toContain( '(max-width:768px)' );
+	} );
+
 	it( 'shares identical responsive styles when both authoring bodies are required', () => {
 		const outputDir = mkdtempSync( join( tmpdir(), 'dla-capture-export-' ) );
 		dirs.push( outputDir );

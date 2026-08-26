@@ -217,7 +217,6 @@
 	font-size: var( --wpds-typography-font-size-md );
 	font-weight: 400;
 	line-height: var( --wpds-typography-line-height-sm );
-	white-space: nowrap;
 }
 
 .preferenceText p {
@@ -781,10 +780,6 @@
 	.accountSummary {
 		align-items: flex-start;
 		flex-direction: column;
-	}
-
-	.preferenceText h2 {
-		white-space: normal;
 	}
 
 	.skillRow {

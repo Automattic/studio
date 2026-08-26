@@ -446,8 +446,27 @@ export function createIpcConnector(): Connector {
 		async getSiteThumbnail( siteId ): Promise< string | null > {
 			return ( await ipcApi.getThumbnailData( siteId ) ) as string | null;
 		},
-		async getSiteStorageUsage( siteId ) {
-			return ipcApi.getSiteStorageUsage( siteId );
+		async getSiteStorageUsage( siteId, signal ) {
+			if ( ! signal ) {
+				return ipcApi.getSiteStorageUsage( siteId );
+			}
+			// `ipcRenderer.invoke` can't be cancelled, so aborting is a second
+			// call telling the main process to stop this measurement. The
+			// `throwIfAborted` calls turn the abort into the rejection React
+			// Query recognizes as a cancellation rather than a failed query.
+			const requestId = crypto.randomUUID();
+			const cancel = () => void ipcApi.cancelSiteStorageUsage( requestId );
+			signal.addEventListener( 'abort', cancel, { once: true } );
+			try {
+				const usage = await ipcApi.getSiteStorageUsage( siteId, requestId );
+				signal.throwIfAborted();
+				return usage;
+			} catch ( error ) {
+				signal.throwIfAborted();
+				throw error;
+			} finally {
+				signal.removeEventListener( 'abort', cancel );
+			}
 		},
 
 		async getThemeDetails( siteId ): Promise< SiteDetails[ 'themeDetails' ] > {

@@ -29,6 +29,7 @@ export interface StudioSiteSelectedData {
 
 export interface StudioToolProgressData {
 	message: string;
+	toolCallId?: string;
 }
 
 export interface StudioAgentQuestionData {

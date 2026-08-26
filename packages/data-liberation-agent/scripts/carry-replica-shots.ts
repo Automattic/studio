@@ -1,7 +1,7 @@
 /**
  * Screenshot the LIVE carry site into a replica-dir matching the origin layout
  * (manifest.json + desktop/<slug>.png + mobile/<slug>.png) at the SAME device
- * scale as the source captures (desktop 1440@0.7, mobile 390@1.0), so
+ * scale as the source captures (desktop 1440@0.7, mobile source width@1.0), so
  * liberate_compare can join origin↔replica by pathname. Site-generic via argv.
  *
  * Navigation: maps each source pathname to the LOCAL permalink via redirect-map.json
@@ -85,6 +85,19 @@ const VIEWPORTS: Vp[] = [
   { vp: { width: 390, height: 844 }, scale: 1, dir: 'mobile', mobile: true },
 ];
 
+function sourceMobileWidth(slug: string): number {
+  try {
+    // Mobile captures use scale 1, so the PNG width is the effective source
+    // viewport even when a site forces one through its viewport meta tag.
+    const png = readFileSync(join(originDir, 'screenshots/mobile', `${slug}.png`));
+    const width = png.readUInt32BE(16);
+    if (width >= 240 && width <= 1024) return width;
+  } catch {
+    // Fall back to the standard capture viewport when source evidence is absent.
+  }
+  return 390;
+}
+
 async function run() {
   const base = carryBaseUrl.replace(/\/$/, '');
   const browser = await chromium.launch();
@@ -99,7 +112,10 @@ async function run() {
 
   // One work item per (url, viewport), fanned out via the shared mapPool worker pool.
   const items: Array<{ url: string; slug: string } & Vp> = [];
-  for (const [url, info] of filtered) for (const v of VIEWPORTS) items.push({ url, slug: info.slug, ...v });
+  for (const [url, info] of filtered) for (const v of VIEWPORTS) {
+    const vp = v.mobile ? { ...v.vp, width: sourceMobileWidth(info.slug) } : v.vp;
+    items.push({ url, slug: info.slug, ...v, vp });
+  }
 
   let fails = 0;
   await mapPool(items, CONCURRENCY, async (w) => {
@@ -126,11 +142,10 @@ async function run() {
       }
       await settle(page);
       const rel = `${w.dir}/${w.slug}.png`;
-      // Clip to the viewport — the top region liberate_compare actually scores — not
-      // fullPage. The compare crops the fullPage SOURCE to this same region, so scores
-      // are unchanged; this avoids rendering/encoding the whole (long) carried page.
-      // (For a full-page visual diff, use scripts/_qa-shot.ts.)
-      await page.screenshot({ path: join(replicaDir, rel), fullPage: false });
+      // liberate_compare scores the top viewport and the full page, and gates parity
+      // on the uncropped document height. Capture the complete replica so all three
+      // measurements compare equivalent surfaces.
+      await page.screenshot({ path: join(replicaDir, rel), fullPage: true });
       filesByUrl.get(w.url)![w.dir] = rel;
     } catch (e) {
       fails++;

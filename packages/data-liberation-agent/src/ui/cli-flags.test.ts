@@ -12,12 +12,14 @@ import type { ScreenshotResult } from '../lib/screenshot/types.js';
 // ---------------------------------------------------------------------------
 function parseExtractFlags(args: string[]): {
   captureDesign: boolean;
+  captureImages: boolean;
   includeScripts: boolean;
 } {
   // html-first is the DEFAULT; --no-html-first opts out to the legacy recompose path.
   const captureDesign = !args.includes('--no-html-first');
+  const captureImages = args.includes('--screenshots');
   const includeScripts = args.includes('--include-scripts');
-  return { captureDesign, includeScripts };
+  return { captureDesign, captureImages, includeScripts };
 }
 
 // ---------------------------------------------------------------------------
@@ -29,6 +31,7 @@ describe('CLI flag parsing: html-first default + --include-scripts', () => {
       'https://example.com',
     ]);
     expect(captureDesign).toBe(true);
+    expect(parseExtractFlags(['https://example.com']).captureImages).toBe(false);
     expect(includeScripts).toBe(false);
   });
 
@@ -60,6 +63,12 @@ describe('CLI flag parsing: html-first default + --include-scripts', () => {
   });
 });
 
+describe('CLI flag parsing: opt-in screenshots', () => {
+  it('--screenshots enables PNG capture', () => {
+    expect(parseExtractFlags(['https://example.com', '--screenshots']).captureImages).toBe(true);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Type-level verification: WatchOpts accepts captureDesign + includeScripts
 // (TypeScript will catch mismatches at compile time)
@@ -70,9 +79,11 @@ describe('WatchOpts type: captureDesign and includeScripts fields', () => {
     // If the fields are missing from WatchOpts the TypeScript build fails.
     const opts: Partial<WatchOpts> = {
       captureDesign: true,
+      captureImages: true,
       includeScripts: true,
     };
     expect(opts.captureDesign).toBe(true);
+    expect(opts.captureImages).toBe(true);
     expect(opts.includeScripts).toBe(true);
   });
 

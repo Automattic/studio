@@ -244,6 +244,7 @@ function Liberate(props: LiberateProps & { onComplete?: (wxrPath: string | null)
               outputDir: siteDir,
               primaryUrl: url,
               concurrency: screenshotsConcurrency,
+              captureImages: true,
             });
             setScreenshotSummary({
               captured: shotResult.captured,

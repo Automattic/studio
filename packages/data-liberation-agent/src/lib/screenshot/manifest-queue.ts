@@ -1,6 +1,7 @@
 import { writeFileSync, renameSync, existsSync, readFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import type { DismissedOverlay } from './page-helpers.js';
+import type { InteractionStatesReport } from './interaction-capture.js';
 
 export interface ManifestEntry {
   slug: string;
@@ -13,6 +14,8 @@ export interface ManifestEntry {
   sections?: string;
   /** Overlays/banners dismissed before this URL was captured (observability). */
   dismissed?: DismissedOverlay[];
+  /** User-triggered dialog states captured after baseline page artifacts. */
+  interactions?: InteractionStatesReport;
   capturedAt: string;
   /** Populated by site-analysis; may be absent */
   metadata?: {

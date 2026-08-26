@@ -34,6 +34,7 @@ const pkgRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const srcDir = resolve(pkgRoot, 'src');
 const scriptsDir = resolve(pkgRoot, 'scripts');
 const serverOutfile = resolve(pkgRoot, 'dist', 'mcp-server.bundle.mjs');
+const captureOutfile = resolve(pkgRoot, 'dist', 'capture-engine.bundle.mjs');
 const scriptsOutDir = resolve(pkgRoot, 'dist', 'scripts');
 
 // Every driver a shipped skill invokes through scripts/run.mjs. Adding a
@@ -98,6 +99,13 @@ const server = await build({
   plugins: [perModuleImportMetaUrl(dirname(serverOutfile))],
 });
 
+const capture = await build({
+  ...shared,
+  entryPoints: [resolve(srcDir, 'capture-engine.ts')],
+  outfile: captureOutfile,
+  plugins: [perModuleImportMetaUrl(dirname(captureOutfile))],
+});
+
 // Clean first so renamed entry points and stale shared chunks don't linger —
 // the committed dist/scripts/ must be exactly what this build emits.
 await rm(scriptsOutDir, { recursive: true, force: true });
@@ -121,6 +129,7 @@ const drivers = await build({
 
 for (const [result, label] of [
   [server, relative(pkgRoot, serverOutfile)],
+  [capture, relative(pkgRoot, captureOutfile)],
   [drivers, `${relative(pkgRoot, scriptsOutDir)}/ (${SKILL_DRIVERS.length} drivers)`],
 ]) {
   const bytes = Object.values(result.metafile.outputs).reduce((sum, o) => sum + o.bytes, 0);

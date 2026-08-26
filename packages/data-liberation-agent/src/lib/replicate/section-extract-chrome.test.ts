@@ -24,8 +24,11 @@ afterAll(async () => {
   if (browser) await browser.close();
 });
 
-async function walk(html: string): Promise<SectionSpec[]> {
-  const page: Page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+async function walk(
+  html: string,
+  viewport: { width: number; height: number } = { width: 1440, height: 900 },
+): Promise<SectionSpec[]> {
+  const page: Page = await browser.newPage({ viewport });
   try {
     await page.setContent(html, { waitUntil: 'load', timeout: 30_000 });
     await page.waitForTimeout(100);
@@ -77,6 +80,13 @@ const MEGA_MENU_FIXTURE = `<!doctype html><html><head><style>
 </body></html>`;
 
 describe('extractFull chrome-descendant exclusion', () => {
+  it('extracts full-width semantic sections from a mobile viewport', async () => {
+    const specs = await walk(MEGA_MENU_FIXTURE, { width: 320, height: 568 });
+    const text = allText(specs);
+    expect(text).toContain('Sleep better with widgets');
+    expect(text).toContain('Why widgets work');
+  }, 60_000);
+
   it('never emits a body section from inside header/footer/nav (hidden mega-menu leak)', async () => {
     const specs = await walk(MEGA_MENU_FIXTURE);
     const text = allText(specs);

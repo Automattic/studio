@@ -120,6 +120,7 @@ export async function processOneUrl(opts: ProcessOneUrlOpts): Promise<ProcessOne
         outputDir: opts.outputDir,
         primaryUrl: opts.url,
         server: opts.server,
+        captureImages: true,
       });
       // The screenshotter writes manifest.json on the way out — read the
       // entry for this URL to surface the captured paths in our result.

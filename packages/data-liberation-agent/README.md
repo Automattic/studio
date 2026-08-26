@@ -103,9 +103,9 @@ npm run mcp
 > npm run setup:browser
 > ```
 
-It exposes **35 tools**. The ones you'll call directly for a deterministic extract → QA → import flow:
+It exposes MCP tools for deterministic capture and extract → QA → import workflows. The ones you'll call directly:
 
-`liberate_detect`, `liberate_discover`, `liberate_inspect`, `liberate_extract`, `liberate_screenshot`, `liberate_status`, `liberate_qa`, `liberate_verify`, `liberate_setup`, and `liberate_import` — plus `liberate_paths` (resolve the output directory) and `liberate_probe` / `liberate_map_apis` (browser-based diagnostics). The remaining tools drive the design/reconstruction phase and are orchestrated by the skills rather than called by hand. Full reference with parameters: [docs/mcp.md](./docs/mcp.md).
+`liberate_capture`, `liberate_detect`, `liberate_discover`, `liberate_inspect`, `liberate_extract`, `liberate_screenshot`, `liberate_status`, `liberate_qa`, `liberate_verify`, `liberate_setup`, and `liberate_import` — plus `liberate_paths` (resolve the output directory) and `liberate_probe` / `liberate_map_apis` (browser-based diagnostics). `liberate_capture` writes a canonical `artifact.json`, replayable `website/` tree, capture receipt, and diagnostics. The remaining tools drive the design/reconstruction phase and are orchestrated by the skills rather than called by hand. Full reference with parameters: [docs/mcp.md](./docs/mcp.md).
 
 ## Output
 

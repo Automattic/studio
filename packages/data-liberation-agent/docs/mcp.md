@@ -1,6 +1,6 @@
 # MCP Tools
 
-The data-liberation-agent MCP server exposes 12 tools via stdio transport. Start it with:
+The data-liberation-agent MCP server exposes its tools via stdio transport. Start it with:
 
 ```bash
 npx tsx src/mcp-server.ts
@@ -9,6 +9,18 @@ npx tsx src/mcp-server.ts
 ## Extraction workflow
 
 These tools are typically called in order: detect -> discover -> extract -> verify -> setup -> import.
+
+### liberate_capture
+
+Capture a public website as a canonical replayable website artifact. This runs the platform-aware extraction and browser capture workflow, then writes `artifact.json`, a replayable `website/` tree, `capture-receipt.json`, and `diagnostics.json`.
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `url` | yes | Public HTTP or HTTPS website URL to capture |
+| `outputDir` | yes | Directory for the artifact, replay files, and diagnostics |
+| `resume` | no | Resume an interrupted capture in the output directory |
+
+Returns: `artifactPath`, `outputDir`, and `provenance`. Each captured artifact file is bounded to 10 MiB; omitted or unresolved resources are recorded in `diagnostics.json`.
 
 ### liberate_detect
 

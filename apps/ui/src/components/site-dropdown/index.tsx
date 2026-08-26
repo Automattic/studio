@@ -19,6 +19,7 @@ import { DisconnectSiteDialog } from './disconnect-site-dialog';
 import { DropdownTrigger } from './dropdown-trigger';
 import { MainView } from './main-view';
 import { PublishPickerView } from './publish-picker-view';
+import { PulledSiteTooLargeDialog } from './pulled-site-too-large-dialog';
 import styles from './style.module.css';
 import { getSiteDropdownSecondary } from './trigger-secondary';
 import { deriveSiteStatus, ensureProtocol, pickLatestSnapshot, pickLiveSite } from './utils';
@@ -53,6 +54,7 @@ export function SiteDropdown( {
 	const reopenAfterDialogRef = useRef( false );
 	const [ disconnectOpen, setDisconnectOpen ] = useState( false );
 	const [ syncDialogType, setSyncDialogType ] = useState< 'push' | 'pull' | null >( null );
+	const [ pulledSiteTooLarge, setPulledSiteTooLarge ] = useState( false );
 
 	const connector = useConnector();
 	const pushSiteToLive = usePushSiteToLive();
@@ -143,11 +145,24 @@ export function SiteDropdown( {
 		// is used is decided where the pull runs, not here.
 		const { onlyPaths, skipDatabase } = convertTreeToReprintPullOptions( tree );
 		startSyncFromDialog( () =>
-			pullSiteFromLive.mutate( {
-				siteId: site.id,
-				remoteSiteId: liveSite.id,
-				options: { optionsToSync, includePathList, onlyPaths, skipDatabase },
-			} )
+			pullSiteFromLive.mutate(
+				{
+					siteId: site.id,
+					remoteSiteId: liveSite.id,
+					options: { optionsToSync, includePathList, onlyPaths, skipDatabase },
+				},
+				{
+					// Only measurable once the files are on disk: a Reprint pull
+					// streams the site in pieces, so there is no archive to size up
+					// front the way the Jetpack pull does.
+					onSuccess: () => {
+						void connector
+							.isSiteOverPushSizeLimit( site.id )
+							.then( setPulledSiteTooLarge )
+							.catch( () => undefined );
+					},
+				}
+			)
 		);
 	};
 
@@ -206,6 +221,10 @@ export function SiteDropdown( {
 					onOpenChange={ setDisconnectOpen }
 				/>
 			) : null }
+			<PulledSiteTooLargeDialog
+				open={ pulledSiteTooLarge }
+				onOpenChange={ setPulledSiteTooLarge }
+			/>
 			{ liveSite && syncDialogType ? (
 				<SyncDialog
 					type={ syncDialogType }

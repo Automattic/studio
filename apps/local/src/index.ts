@@ -70,6 +70,7 @@ import {
 import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { isSyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { resolvePullEngine } from '@studio/common/lib/sync/pull-engine';
+import { isSiteOverPushSizeLimit } from '@studio/common/lib/sync/pull-size-warning';
 import { fetchLatestRewindId, fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import { detectInstalledApps } from '@studio/common/lib/user-settings/installed-apps';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
@@ -711,6 +712,19 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				return;
 			}
 			res.json( await measureSiteStorage( site.path ) );
+		} )
+	);
+
+	api.get(
+		'/sites/:id/push-size-over-limit',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const sites = await listSites( execute );
+			const site = sites.find( ( candidate ) => candidate.id === req.params.id );
+			if ( ! site ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			res.json( { overLimit: await isSiteOverPushSizeLimit( site.path ) } );
 		} )
 	);
 

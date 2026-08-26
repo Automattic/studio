@@ -91,7 +91,9 @@ describe( 'SiteDropdown sync dialog', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'Confirm pull' } ) );
 
 		expect( pullMutate ).toHaveBeenCalledWith(
-			expect.objectContaining( { siteId: site.id, remoteSiteId: liveSite.id } )
+			expect.objectContaining( { siteId: site.id, remoteSiteId: liveSite.id } ),
+			// The size check the pull hands back to, once the files are on disk.
+			expect.objectContaining( { onSuccess: expect.any( Function ) } )
 		);
 		await waitFor( () =>
 			expect( screen.getByRole( 'button', { name: 'Pull from live' } ) ).toBeInTheDocument()

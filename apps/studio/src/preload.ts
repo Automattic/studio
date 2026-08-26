@@ -166,6 +166,7 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'resumeSyncUpload', selectedSiteId, remoteSiteId ),
 	getDirectorySize: ( id, subdir ) => ipcRendererInvoke( 'getDirectorySize', id, subdir ),
 	getFileSize: ( id, filePath ) => ipcRendererInvoke( 'getFileSize', id, filePath ),
+	isSiteOverPushSizeLimit: ( id ) => ipcRendererInvoke( 'isSiteOverPushSizeLimit', id ),
 	getPathForFile: ( file ) => webUtils.getPathForFile( file ),
 	readLocalMediaFile: ( path ) => ipcRendererInvoke( 'readLocalMediaFile', path ),
 	setWebviewViewport: ( webContentsId, viewport ) =>

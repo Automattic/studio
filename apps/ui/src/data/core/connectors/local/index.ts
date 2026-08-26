@@ -666,6 +666,14 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async getFileSize() {
 			return 0;
 		},
+		// Unlike the per-file lookups above, the server can answer this one, so
+		// the browser UI warns about an oversized pull exactly as the desktop does.
+		async isSiteOverPushSizeLimit( siteId ) {
+			const { overLimit } = await api< { overLimit: boolean } >(
+				`/sites/${ siteId }/push-size-over-limit`
+			);
+			return overLimit;
+		},
 		async getIsMultisite() {
 			return undefined;
 		},

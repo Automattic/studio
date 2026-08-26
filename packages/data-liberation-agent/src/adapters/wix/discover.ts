@@ -1,7 +1,9 @@
 import { launchBrowser } from '../../lib/browser-kit/index.js';
 import { classifyUrl, parseSitemapXml } from '../../lib/extraction/sitemap.js';
 import { ensureUrlScheme } from '../../lib/url/index.js';
+import { withTimeout } from '../../lib/concurrency.js';
 import { discoverLinkedRoutes } from './discovery-links.js';
+import { RENDERER_CALL_TIMEOUT_MS } from './page.js';
 import type { WixAdapterOpts, Inventory } from './types.js';
 import type { NavLink } from '../../lib/html-extract/index.js';
 import type { InventoryUrl } from '../shared.js';
@@ -15,7 +17,7 @@ export async function discover(
 	// calls below don't throw "Invalid URL" — matches the guard that
 	// hubspot/weebly/hostinger already have at the top of their discover().
 	url = ensureUrlScheme( url );
-	const { browser, page, close } = await launchBrowser( { cdpPort: wixOpts.cdpPort } );
+	const { page, close } = await launchBrowser( { cdpPort: wixOpts.cdpPort } );
 
 	try {
 		const p = page as {
@@ -88,7 +90,11 @@ export async function discover(
 						fail( lastErr ?? 'unknown' );
 						return;
 					}
-					const text = await p.content();
+					const text = await withTimeout(
+						p.content(),
+						RENDERER_CALL_TIMEOUT_MS,
+						'wix discover sitemap content'
+					);
 					const locs = parseSitemapXml( text );
 					for ( const loc of locs ) {
 						if ( loc.endsWith( '.xml' ) ) {
@@ -140,13 +146,17 @@ export async function discover(
 			loadLinks: async ( routeUrl ) => {
 				await p.goto( routeUrl, { waitUntil: 'domcontentloaded', timeout: 15000 } );
 				await p.waitForTimeout( 750 );
-				return ( await p.evaluate( () => [
-					...new Set(
-						[ ...document.querySelectorAll( 'a[href]' ) ]
-							.map( ( anchor ) => ( anchor as HTMLAnchorElement ).href )
-							.filter( Boolean )
-					),
-				] ) ) as string[];
+				return ( await withTimeout(
+					p.evaluate( () => [
+						...new Set(
+							[ ...document.querySelectorAll( 'a[href]' ) ]
+								.map( ( anchor ) => ( anchor as HTMLAnchorElement ).href )
+								.filter( Boolean )
+						),
+					] ),
+					RENDERER_CALL_TIMEOUT_MS,
+					'wix discover linked route'
+				) ) as string[];
 			},
 		} );
 		const allUrls = linkedDiscovery.urls;
@@ -158,23 +168,29 @@ export async function discover(
 			// avoid `networkidle` on Wix sites.
 			await p.goto( url, { waitUntil: 'domcontentloaded', timeout: 30000 } ).catch( () => {} );
 			await p.waitForTimeout( 4000 );
-			navigation = ( await p.evaluate( () => {
-				const navLinks: Array< { text: string; href: string } > = [];
-				document.querySelectorAll( 'nav a, header a, [role="navigation"] a' ).forEach( ( el ) => {
-					const a = el as HTMLAnchorElement;
-					const text = a.textContent?.trim() || '';
-					const href = a.href;
-					if (
-						text &&
-						href &&
-						! href.includes( '#' ) &&
-						! navLinks.find( ( l ) => l.href === href )
-					) {
-						navLinks.push( { text, href } );
-					}
-				} );
-				return navLinks;
-			} ) ) as NavLink[];
+			navigation = ( await withTimeout(
+				p.evaluate( () => {
+					const navLinks: Array< { text: string; href: string } > = [];
+					document
+						.querySelectorAll( 'nav a, header a, [role="navigation"] a' )
+						.forEach( ( el ) => {
+							const a = el as HTMLAnchorElement;
+							const text = a.textContent?.trim() || '';
+							const href = a.href;
+							if (
+								text &&
+								href &&
+								! href.includes( '#' ) &&
+								! navLinks.find( ( l ) => l.href === href )
+							) {
+								navLinks.push( { text, href } );
+							}
+						} );
+					return navLinks;
+				} ),
+				RENDERER_CALL_TIMEOUT_MS,
+				'wix discover nav'
+			) ) as NavLink[];
 		} catch {
 			// nav extraction failed
 		}
@@ -187,12 +203,16 @@ export async function discover(
 		//    like "Home | Gilded Carat Main" instead of "Gilded Carat".
 		let siteTitle = '';
 		try {
-			siteTitle = ( await p.evaluate( () => {
-				const t = document.title;
-				const pipeIdx = t.lastIndexOf( ' | ' );
-				const sitePart = pipeIdx > 0 ? t.slice( pipeIdx + 3 ).trim() : t;
-				return sitePart.replace( / Main$/, '' ).trim();
-			} ) ) as string;
+			siteTitle = ( await withTimeout(
+				p.evaluate( () => {
+					const t = document.title;
+					const pipeIdx = t.lastIndexOf( ' | ' );
+					const sitePart = pipeIdx > 0 ? t.slice( pipeIdx + 3 ).trim() : t;
+					return sitePart.replace( / Main$/, '' ).trim();
+				} ),
+				RENDERER_CALL_TIMEOUT_MS,
+				'wix discover title'
+			) ) as string;
 		} catch {
 			// title extraction failed
 		}

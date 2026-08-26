@@ -197,15 +197,9 @@ export async function installWordPress(
 	// Force WPLANG so the site respects the configured language even when
 	// translation files aren't available yet.
 	if ( locale ) {
+		try {
 			await runPhpCommand(
-				[
-					getWpCliPharPath(),
-					'option',
-					'update',
-					'WPLANG',
-					locale,
-					`--path=${ config.sitePath }`,
-				],
+				[ getWpCliPharPath(), 'option', 'update', 'WPLANG', locale, `--path=${ config.sitePath }` ],
 				{ phpVersion, signal }
 			);
 		} catch ( error ) {

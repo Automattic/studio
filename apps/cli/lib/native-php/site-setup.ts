@@ -36,6 +36,12 @@ $constants = json_decode( $argv[3] ?? '', true );
 require_once $transformer_path;
 
 $transformer = WP_Config_Transformer::from_file( $wp_config_path );
+if (
+    $transformer->constant_exists( 'DB_NAME' )
+    && ! $transformer->constant_equals( 'DB_NAME', 'database_name_here' )
+) {
+    unset( $constants['DB_NAME'] );
+}
 $transformer->define_constants( $constants );
 $transformer->to_file( $wp_config_path );
 `;
@@ -73,7 +79,6 @@ $transformer->to_file( $wp_config_path );
 		);
 	}
 }
-
 export function getSiteUrlPrependContent(
 	siteUrl: string,
 	originalAutoPrependFile?: string

@@ -96,6 +96,32 @@ class WP_Config_Transformer {
 	}
 
 	/**
+	 * Check whether a constant is defined with the given string value.
+	 *
+	 * @param  string $name  The name of the constant.
+	 * @param  string $value The expected value of the constant.
+	 * @return bool          True if the constant is defined with the expected value.
+	 */
+	public function constant_equals( string $name, string $value ): bool {
+		foreach ( $this->tokens as $i => $token ) {
+			$is_string_token = is_array( $token ) && T_STRING === $token[0];
+			if ( $is_string_token && 'define' === strtolower( $token[1] ) ) {
+				$args       = $this->collect_function_call_argument_locations( $i );
+				$const_name = $this->evaluate_constant_name(
+					array_slice( $this->tokens, $args[0][0], $args[0][1] )
+				);
+				if ( $name === $const_name ) {
+					$const_value = $this->evaluate_constant_value(
+						array_slice( $this->tokens, $args[1][0], $args[1][1] )
+					);
+					return $value === $const_value;
+				}
+			}
+		}
+		return false;
+	}
+
+	/**
 	 * Define a constant in the wp-config.php file.
 	 *
 	 * @param string $name  The name of the constant.
@@ -308,6 +334,31 @@ class WP_Config_Transformer {
 
 		// Get the constant name value.
 		return eval( 'return ' . $name_token[1] . ';' );
+	}
+
+	/**
+	 * Evaluate a string constant value from its tokens.
+	 *
+	 * @param  array $value_tokens The tokens containing the constant value.
+	 * @return string|null         The evaluated value, or null when it is not a string literal.
+	 */
+	private function evaluate_constant_value( array $value_tokens ): ?string {
+		$value_token = null;
+		foreach ( $value_tokens as $token ) {
+			if ( $this->is_whitespace( $token ) ) {
+				continue;
+			}
+			if ( ! is_array( $token ) || T_CONSTANT_ENCAPSED_STRING !== $token[0] ) {
+				return null;
+			}
+			$value_token = $token;
+		}
+
+		if ( null === $value_token ) {
+			return null;
+		}
+
+		return eval( 'return ' . $value_token[1] . ';' );
 	}
 
 	/**

@@ -197,19 +197,24 @@ export async function installWordPress(
 	// Force WPLANG so the site respects the configured language even when
 	// translation files aren't available yet.
 	if ( locale ) {
-		try {
-			const localePhpLiteral = JSON.stringify( locale );
 			await runPhpCommand(
 				[
 					getWpCliPharPath(),
-					'eval',
-					`global $wpdb; $wpdb->query( $wpdb->prepare( "REPLACE INTO {$wpdb->options} (option_name, option_value, autoload) VALUES ('WPLANG', %s, 'yes')", ${ localePhpLiteral } ) );`,
+					'option',
+					'update',
+					'WPLANG',
+					locale,
 					`--path=${ config.sitePath }`,
 				],
 				{ phpVersion, signal }
 			);
-		} catch {
-			// noop
+		} catch ( error ) {
+			// Best-effort: site can still function in English if setting WPLANG fails.
+			logToConsole(
+				`Failed to set WPLANG to ${ locale }: ${
+					error instanceof Error ? error.message : String( error )
+				}`
+			);
 		}
 	}
 

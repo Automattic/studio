@@ -257,8 +257,11 @@ function showCreditBalance( ctx: SlashCommandContext, quota: StudioAssistantQuot
 		quota &&
 		( quota.allowanceRemaining !== undefined || quota.purchasedRemaining !== undefined )
 	) {
+		// One showInfo for all the lines: each call pads itself with blank
+		// lines, so per-line calls read as separate paragraphs.
+		const lines = [];
 		if ( ( quota.allowanceRemaining ?? 0 ) > 0 ) {
-			ctx.ui.showInfo(
+			lines.push(
 				sprintf(
 					/* translators: %s: number of free AI credits remaining (e.g. 960,000). */
 					__( 'Free credits remaining: %s' ),
@@ -266,13 +269,14 @@ function showCreditBalance( ctx: SlashCommandContext, quota: StudioAssistantQuot
 				)
 			);
 		}
-		ctx.ui.showInfo(
+		lines.push(
 			sprintf(
 				/* translators: %s: number of purchased AI credits remaining (e.g. 150,000). */
 				__( 'Purchased credits remaining: %s' ),
 				credits.format( quota.purchasedRemaining ?? 0 )
 			)
 		);
+		ctx.ui.showInfo( lines.join( '\n' ) );
 		return;
 	}
 	if ( quota && quota.costCap > 0 ) {
@@ -369,9 +373,10 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 				// The terminal can't render a link, so the URL goes on its own
 				// line, as-is — it stays copyable and most terminals auto-link it.
 				ctx.ui.showInfo(
-					__( 'Opening WordPress.com checkout. If your browser didn’t open, use the link below:' )
+					__( 'Opening WordPress.com checkout. If your browser didn’t open, use the link below:' ) +
+						'\n' +
+						url
 				);
-				ctx.ui.showInfo( url );
 			} catch ( error ) {
 				ctx.ui.setBusy( false );
 				if ( isPromptAbortError( error ) ) {

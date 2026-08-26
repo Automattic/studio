@@ -507,8 +507,11 @@ describe( '/credits slash command', () => {
 
 		await cmd.handler!( '/credits', makeCtx( ui ) );
 
-		expect( ui.showInfo ).toHaveBeenCalledWith( 'Free credits remaining: 960,000' );
-		expect( ui.showInfo ).toHaveBeenCalledWith( 'Purchased credits remaining: 150,000' );
+		// One paragraph: separate showInfo calls each pad themselves with
+		// blank lines, so the two figures must travel together.
+		expect( ui.showInfo ).toHaveBeenCalledWith(
+			'Free credits remaining: 960,000\nPurchased credits remaining: 150,000'
+		);
 		const options = ui.askUser.mock.calls[ 0 ][ 0 ][ 0 ].options;
 		expect( options ).toEqual( [
 			{ label: '100,000 credits', description: '£7.50' },

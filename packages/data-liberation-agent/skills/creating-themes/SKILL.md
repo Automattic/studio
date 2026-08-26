@@ -14,7 +14,7 @@ Do not use this skill when modifying an existing theme.
 Follow these rules carefully unless the user explicitly requests otherwise:
 
 - **Focus on the home page first**: Create a beautiful, image-rich home page as the centerpiece of the initial theme. The home page should showcase the theme's aesthetic vision with compelling visuals, strong typography, and engaging layout. Put your creative energy here.
-- **Minimal template set**: On initial theme creation, only create `index.html`. Avoid creating additional templates like `single.html`, `page.html`, `archive.html`, etc. unless the user specifically requests them. Keep the initial scope focused.
+- **Minimal template set**: On initial theme creation, only create `index.html`. Avoid creating additional templates like `single.html`, `page.html`, `archive.html`, etc. unless the user — or the calling workflow — specifically requests them. Keep the initial scope focused. (The `replicate-with-blocks` flow is such a caller: its Step 1 requires `page.html`, `single.html`, and for Woo sites `single-product.html` + `archive-product.html`; emit the set the caller lists.)
 - **Patterns for landing pages**: When creating a theme that includes a landing page or multi-section home page, generate block patterns for each major section (hero, features, testimonials, FAQ, CTA, etc.) and compose them into the `index.html` template. This produces a richer, more polished result. Load the `generating-patterns` skill for detailed guidance.
 - **Prefer templates over patterns for simple themes**: For minimal or single-purpose themes without a landing page, default to templates rather than patterns. Only create patterns when they add clear value.
 - **Pattern visibility rule**: Every pattern you create must be included in a template so the user can immediately preview it. Patterns that exist only in the `patterns/` directory without being used in any template are hard to discover.
@@ -67,8 +67,8 @@ Theme URI: https://example.com
 Author: Author Name
 Description: Theme description
 Version: 1.0.0
-Requires at least: 6.0
-Tested up to: 6.5
+Requires at least: 6.6
+Tested up to: 6.8
 Requires PHP: 8.0
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
@@ -101,9 +101,9 @@ Build the site header from the SOURCE header, not WordPress's page list:
 - **Utility icons:** re-add the source header's search / account / cart icon cluster on the right (dropped from the *primary nav* but part of the chrome). Ship each glyph as a theme SVG asset (`assets/icon-*.svg`, explicit stroke color) referenced from a `core/image` link — NOT `wp:html` (banned). cart→`/cart`, account→`/account`, search→`/?s=`. The scaffold emits this.
 - **Announcement bar:** preserve the source's top announcement/utility bar when present.
 
-## Google Fonts (fallback only — prefer self-hosting source fonts above)
+## Google Fonts CDN (last resort only — self-host first, even for substitutes)
 
-When a font is genuinely not self-hostable, use `enqueue_block_assets` hook (not `wp_enqueue_scripts`) to ensure fonts load in BOTH the front-end AND block editor:
+An uncapturable source font does NOT justify hot-linking Google Fonts: the substitution path above still SELF-HOSTS the free replacement (download its woff2 into `assets/fonts/`). The CDN blocks offline rendering, causes a flash of unstyled text on first paint, and leaks visitor IPs to a third party (see `skills/design-foundations/references/theme-tokens.md`). Only when the substitute's font files genuinely cannot be downloaded at build time, enqueue the CDN stylesheet via the `enqueue_block_assets` hook (not `wp_enqueue_scripts`) so it loads in BOTH the front-end AND block editor:
 
 ```php
 function theme_fonts() {
@@ -134,12 +134,9 @@ add_action( 'enqueue_block_assets', 'theme_fonts' );
 - **Section layout widths**: Hero sections, header groups, cover blocks, and feature grids should use `"align":"wide"` or `"align":"full"` rather than defaulting to narrow content width. Only use default (content) alignment for text-heavy reading sections.
 - Do **not** use `<inner-blocks>`; output the full expanded markup inside each block.
 - **No decorative HTML comments**: Never insert section-labeling comments like `<!-- Hero Section -->` or `<!-- Services Section -->` in templates, template parts, or patterns. Only WordPress block comments (`<!-- wp:block-name -->`) are allowed.
-- Each site payload includes `<typography>` instructions.
-  Apply those font stacks via **inline `style` attributes** (e.g.,
-  `style="font-family: 'Space Grotesk', 'Helvetica Neue', sans-serif;"`) on the root wrapper and any hero/headline elements —
-  **do NOT output `<style>` tags** (the build strips them).
-- Prefer a **sticky nav** (`sticky top-0 z-50`) when appropriate, but ensure it degrades gracefully on mobile.
-- Use **Tailwind motion utilities** (`transition`, `duration-300`, `motion-safe:animate-fade`, `scroll-mt-24`, etc.) to add gentle entry animations and interactive feedback without custom JavaScript.
+- **Typography goes through structured channels**: bind families in `theme.json` `settings.typography.fontFamilies` and apply per-block overrides via the block comment's `"style":{"typography":{...}}` JSON — never raw inline `style=` attributes or `<style>` tags in block markup (both are hard bans in `skills/replicate-with-blocks/styling-priority.md`; a bare `style="font-family:…"` with no matching block attribute fails block validation).
+- Prefer a **sticky nav** when appropriate — `"style":{"position":{"type":"sticky","top":"0px"}}` on the header group — but ensure it degrades gracefully on mobile.
+- For gentle entry animations and interactive feedback, use **scoped rules in `style.css`** (transitions, `@media (prefers-reduced-motion)` guards) hooked on the section's stable className per styling-priority channel 7c — no JavaScript, and no utility-class frameworks (Tailwind classes have no stylesheet in a block theme and resolve to nothing).
 - Be **bold with layout choices**. Use asymmetric grids, overlapping elements, creative whitespace, and distinctive visual treatments.
 
 ## Reference Files

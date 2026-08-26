@@ -148,7 +148,7 @@ CRITICAL: The `<span>` overlay MUST come before `<img>`, and `<img>` MUST have `
 Do **NOT** output `<style>` tags in templates, template parts, or patterns. The build process strips them, leaving blocks unstyled and mismatching their JSON attributes. Use:
 - `theme.json` for global styles
 - `style.css` for custom CSS
-- Inline `style` attributes for per-element styling
+- The block comment's `"style":{...}` JSON for per-block values — the inline `style` on the HTML element is then just its serialized form and must match it exactly (Rule 2). Never write an inline `style` declaration that has no corresponding block attribute (hard ban in `skills/replicate-with-blocks/styling-priority.md`).
 
 ## Rule 7: No `<inner-blocks>` in Templates
 

@@ -52,7 +52,21 @@ Never change the `display` of a block wrapper inside a constrained layout. To ma
 <!-- /wp:group -->
 ```
 
-The group's `justifyContent` (`left`/`center`/`right`) controls where the label sits, and stays editable in the editor. The pill class then carries only background, padding, radius, and typography — no `display` or width rules.
+The group's `justifyContent` (`left`/`center`/`right`) controls where the label sits, and stays editable in the editor. Inside the flex row the label already shrink-wraps — flex items size to their content — so the pill class carries only background, padding, radius, and typography:
+
+```css
+/* Right — the flex wrapper does the shrink-wrapping */
+.hero-eyebrow {
+	background-color: var(--wp--preset--color--accent);
+	padding: 0.4em 1.1em;
+	border-radius: 999px;
+}
+
+/* Wrong — never an inline-level display on a block wrapper class */
+.hero-eyebrow { display: inline-block; }
+```
+
+This holds even when it looks harmless: inside a flex row an `inline-block` or `inline-flex` declaration changes nothing (flex items blockify), but it becomes a live alignment bug the moment the user moves the block out of the wrapper in the editor. If the class already carries a `display` rule from an earlier pass, remove it when adding the wrapper.
 
 ## Root Block Gap
 
@@ -115,7 +129,7 @@ For `style.css`, start with custom properties and anchor comments only:
 /* === responsive === */
 ```
 
-Keep the skeleton under 2KB. Fill one anchor per `Edit`, using the anchor line as `old_string` and replacing it with the anchor plus the new styles.
+Keep the skeleton under 2KB. Fill one anchor per `Edit`, using the anchor line as `old_string` and replacing it with the anchor plus the new styles. When filling section styles, never set `display` or width on a class used as a block `className` — alignment and shrink-wrapping belong in block markup (see Shrink-Wrapped Labels).
 
 When `scaffold_theme` was used, do not `Write` over the scaffolded `style.css`; it already contains the required theme header. Use `Edit` to append the `:root` block and anchor comments below the existing content.
 

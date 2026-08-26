@@ -621,6 +621,12 @@
 	cursor: default;
 }
 
+/* The appended free-form escape hatch reads as secondary to the options the
+   agent actually offered, until the user arms it. */
+.questionOptionFreeForm .questionOptionLabel {
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
 /* Keep the picked option fully legible even when disabled, so the user
    can still see their choice once the batch is finalized. */
 .questionOptionPicked,

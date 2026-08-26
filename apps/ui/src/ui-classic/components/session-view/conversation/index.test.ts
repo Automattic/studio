@@ -576,6 +576,60 @@ describe( 'Conversation Ask User questions', () => {
 		expect( screen.queryByText( 'Asking question 2 of 2' ) ).not.toBeInTheDocument();
 	} );
 
+	it( 'offers the free-form option the AskUserQuestion tool promises the model', () => {
+		const onChooseFreeForm = vi.fn();
+		const data = loadedSession( [
+			agentQuestionEntry( 'Install Jetpack?', [ 'Yes', 'No' ], 'q1' ),
+		] );
+
+		renderConversation( data, {
+			pendingQuestions: new Set( [ 'Install Jetpack?' ] ),
+			onChooseFreeForm,
+		} );
+
+		const button = screen.getByRole( 'button', { name: 'Something else' } );
+		expect( button ).toHaveAttribute( 'aria-pressed', 'false' );
+
+		fireEvent.click( button );
+		expect( onChooseFreeForm ).toHaveBeenCalledWith( 'Install Jetpack?' );
+	} );
+
+	it( 'marks the free-form option as armed once chosen', () => {
+		const data = loadedSession( [
+			agentQuestionEntry( 'Install Jetpack?', [ 'Yes', 'No' ], 'q1' ),
+		] );
+
+		renderConversation( data, {
+			pendingQuestions: new Set( [ 'Install Jetpack?' ] ),
+			freeFormQuestion: 'Install Jetpack?',
+		} );
+
+		expect( screen.getByRole( 'button', { name: 'Something else' } ) ).toHaveAttribute(
+			'aria-pressed',
+			'true'
+		);
+	} );
+
+	it( 'hides the free-form option once the batch is no longer interactive', () => {
+		const data = loadedSession( [
+			agentQuestionEntry( 'Install Jetpack?', [ 'Yes', 'No' ], 'q1' ),
+		] );
+
+		renderConversation( data );
+
+		expect( screen.queryByRole( 'button', { name: 'Something else' } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'does not duplicate a free-form option an off-contract model wrote itself', () => {
+		const data = loadedSession( [
+			agentQuestionEntry( 'Install Jetpack?', [ 'Yes', 'Something else' ], 'q1' ),
+		] );
+
+		renderConversation( data, { pendingQuestions: new Set( [ 'Install Jetpack?' ] ) } );
+
+		expect( screen.getAllByRole( 'button', { name: 'Something else' } ) ).toHaveLength( 1 );
+	} );
+
 	it( 'resolves picked answers positionally for a multi-question batch', () => {
 		const items = entriesToRenderItems( [
 			agentQuestionEntry( 'Install Jetpack?', [ 'Yes', 'No' ], 'q1' ),
@@ -679,7 +733,9 @@ interface RenderConversationOptions {
 	startedAt?: number | null;
 	pendingQuestions?: Set< string >;
 	pendingAnswers?: Record< string, string >;
+	freeFormQuestion?: string | null;
 	onAnswerQuestion?: ( question: string, label: string ) => void;
+	onChooseFreeForm?: ( question: string ) => void;
 }
 
 function renderConversation( data: LoadedAiSession, options: RenderConversationOptions = {} ) {
@@ -696,7 +752,9 @@ function renderConversation( data: LoadedAiSession, options: RenderConversationO
 				startedAt: options.startedAt ?? null,
 				pendingQuestions: options.pendingQuestions ?? new Set< string >(),
 				pendingAnswers: options.pendingAnswers ?? {},
+				freeFormQuestion: options.freeFormQuestion ?? null,
 				onAnswerQuestion: options.onAnswerQuestion ?? vi.fn(),
+				onChooseFreeForm: options.onChooseFreeForm ?? vi.fn(),
 			} )
 		)
 	);
@@ -733,10 +791,12 @@ function InteractiveConversation( {
 		startedAt: null,
 		pendingQuestions: new Set( pendingQuestionTexts ),
 		pendingAnswers,
+		freeFormQuestion: null,
 		onAnswerQuestion: ( question, label ) => {
 			onAnswerQuestion( question, label );
 			setPendingAnswers( ( answers ) => ( { ...answers, [ question ]: label } ) );
 		},
+		onChooseFreeForm: () => {},
 	} );
 }
 

@@ -258,6 +258,13 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		[ pendingQuestions ]
 	);
 	const composerBusy = hasActiveRun || pendingQuestions.length > 0;
+	// Which question the user chose to answer in their own words. Derived, so a
+	// stale prompt can't outlive the batch it belongs to.
+	const [ armedFreeFormQuestion, setArmedFreeFormQuestion ] = useState< string | null >( null );
+	const freeFormQuestion =
+		armedFreeFormQuestion && pendingQuestionTexts.has( armedFreeFormQuestion )
+			? armedFreeFormQuestion
+			: null;
 	const isEmpty = useMemo(
 		() =>
 			! ( data?.entries ?? [] ).some(
@@ -274,6 +281,10 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			} ),
 		[]
 	);
+	const chooseFreeFormAnswer = useCallback( ( question: string ) => {
+		setArmedFreeFormQuestion( question );
+		composerRef.current?.focus();
+	}, [] );
 	const [ isScrolledAway, setIsScrolledAway ] = useState( false );
 	const hasSession = !! data;
 
@@ -504,6 +515,8 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 					<Composer
 						ref={ composerRef }
 						busy={ composerBusy }
+						awaitingAnswer={ pendingQuestions.length > 0 }
+						freeFormActive={ freeFormQuestion !== null }
 						isInterrupting={ isInterrupting }
 						error={ runError }
 						model={ currentModel }
@@ -546,7 +559,9 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 					startedAt={ startedAt }
 					pendingQuestions={ pendingQuestionTexts }
 					pendingAnswers={ pendingAnswers }
+					freeFormQuestion={ freeFormQuestion }
 					onAnswerQuestion={ answerQuestion }
+					onChooseFreeForm={ chooseFreeFormAnswer }
 				/>
 				<QueuedPrompts
 					prompts={ queuedPrompts }

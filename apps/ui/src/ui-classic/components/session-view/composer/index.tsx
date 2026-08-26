@@ -237,6 +237,11 @@ export function ComposerSkeleton() {
 
 interface ComposerProps {
 	busy: boolean;
+	// The agent is blocked on `ask_user`. Sending cancels the questions and
+	// delivers the message as a new turn, so this is a send, not a queue.
+	awaitingAnswer?: boolean;
+	// The user armed a question's "Something else" option.
+	freeFormActive?: boolean;
 	isInterrupting?: boolean;
 	error: string | null;
 	model: AiModelId;
@@ -268,6 +273,16 @@ export interface ComposerHandle {
 	// What replaceDraft would discard — lets callers decide whether the
 	// replacement warrants a confirmation.
 	getDraft(): { text: string; hasAttachments: boolean };
+	focus(): void;
+}
+
+function focusAtEnd( node: HTMLTextAreaElement | null ) {
+	if ( ! node ) {
+		return;
+	}
+	node.focus();
+	const length = node.value.length;
+	node.setSelectionRange( length, length );
 }
 
 function shouldShellFocusTextarea( target: EventTarget ) {
@@ -323,6 +338,8 @@ function resizeComposerTextarea(
 export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Composer(
 	{
 		busy,
+		awaitingAnswer = false,
+		freeFormActive = false,
 		isInterrupting = false,
 		error,
 		model,
@@ -453,27 +470,18 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 				);
 				// Defer focus to the next paint so the textarea reflects the
 				// new value before we move the caret to the end.
-				queueMicrotask( () => {
-					const node = textareaRef.current;
-					if ( ! node ) return;
-					node.focus();
-					const len = node.value.length;
-					node.setSelectionRange( len, len );
-				} );
+				queueMicrotask( () => focusAtEnd( textareaRef.current ) );
 			},
 			replaceDraft( text, draftAttachments ) {
 				setValue( text );
 				restoreAttachments( toComposerDraftAttachments( draftAttachments ?? {} ) );
-				queueMicrotask( () => {
-					const node = textareaRef.current;
-					if ( ! node ) return;
-					node.focus();
-					const len = node.value.length;
-					node.setSelectionRange( len, len );
-				} );
+				queueMicrotask( () => focusAtEnd( textareaRef.current ) );
 			},
 			getDraft() {
 				return { text: value, hasAttachments: attachments.length > 0 };
+			},
+			focus() {
+				focusAtEnd( textareaRef.current );
 			},
 		} ),
 		[ restoreAttachments, value, attachments ]
@@ -736,10 +744,15 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 				__( 'Drop the next idea here…' ),
 				__( 'What are we tuning now?' ),
 		  ];
-	const placeholder = placeholderOptions[ placeholderIndex % placeholderOptions.length ];
+	let placeholder: string = placeholderOptions[ placeholderIndex % placeholderOptions.length ];
+	if ( freeFormActive ) {
+		placeholder = __( 'Type your own answer…' );
+	} else if ( awaitingAnswer ) {
+		placeholder = __( 'Reply instead of choosing an option…' );
+	}
 	const showPlaceholderText = value.length === 0;
 	const composerResizeMaxHeight = getComposerTextareaMaxHeight( true );
-	const sendAriaLabel = busy ? __( 'Queue' ) : __( 'Send' );
+	const sendAriaLabel = busy && ! awaitingAnswer ? __( 'Queue' ) : __( 'Send' );
 	const sendShortcutLabel = __( 'Return to send' );
 	const composerError = attachmentError ?? error;
 	const stopTooltipLabel = isInterrupting

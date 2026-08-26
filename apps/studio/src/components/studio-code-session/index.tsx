@@ -291,6 +291,18 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 		[ pendingQuestions ]
 	);
 	const composerBusy = hasActiveRun || pendingQuestions.length > 0;
+	// Which question the user chose to answer in their own words. Derived, so a
+	// stale prompt can't outlive the batch it belongs to.
+	const [ armedFreeFormQuestion, setArmedFreeFormQuestion ] = useState< string | null >( null );
+	const freeFormQuestion =
+		armedFreeFormQuestion && pendingQuestionTexts.has( armedFreeFormQuestion )
+			? armedFreeFormQuestion
+			: null;
+	const [ composerFocusRequestId, setComposerFocusRequestId ] = useState( 0 );
+	const chooseFreeFormAnswer = useCallback( ( question: string ) => {
+		setArmedFreeFormQuestion( question );
+		setComposerFocusRequestId( ( id ) => id + 1 );
+	}, [] );
 	const canEditLastUserMessage = useMemo(
 		() => ! composerBusy && ! isRunning && wasLastTurnInterrupted( data?.entries ?? [] ),
 		[ composerBusy, isRunning, data?.entries ]
@@ -419,6 +431,9 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 						<QueuedPrompts prompts={ queuedPrompts } onRemove={ removeQueuedPrompt } />
 						<Composer
 							busy={ composerBusy }
+							awaitingAnswer={ pendingQuestions.length > 0 }
+							freeFormActive={ freeFormQuestion !== null }
+							focusRequestId={ composerFocusRequestId }
 							isInterrupting={ isInterrupting }
 							error={ usageCapReached ? null : runError }
 							usageCapMessage={ usageCapReached ? runError : null }
@@ -450,7 +465,9 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 							pendingQuestions={ pendingQuestionTexts }
 							pendingAnswers={ pendingAnswers }
 							answeredQuestions={ answeredQuestions }
+							freeFormQuestion={ freeFormQuestion }
 							onAnswerQuestion={ answerQuestion }
+							onChooseFreeForm={ chooseFreeFormAnswer }
 							canEditLastUserMessage={ canEditLastUserMessage }
 							onEditUserMessage={ editAndResendMessage }
 						/>

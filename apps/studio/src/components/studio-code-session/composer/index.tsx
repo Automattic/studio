@@ -67,6 +67,13 @@ export function ComposerSkeleton() {
 
 interface ComposerProps {
 	busy: boolean;
+	// The agent is blocked on `ask_user`. Sending cancels the questions and
+	// delivers the message as a new turn, so this is a send, not a queue.
+	awaitingAnswer?: boolean;
+	// The user armed a question's "Something else" option.
+	freeFormActive?: boolean;
+	// Bump to move focus into the textarea without touching its content.
+	focusRequestId?: number;
 	isInterrupting?: boolean;
 	error: string | null;
 	usageCapMessage?: string | null;
@@ -89,6 +96,15 @@ interface ComposerProps {
 	// it to the draft, e.g. while hovering an example prompt. Clearing it
 	// restores whatever the user had typed.
 	previewPrompt?: string | null;
+}
+
+function focusAtEnd( node: HTMLTextAreaElement | null ) {
+	if ( ! node ) {
+		return;
+	}
+	node.focus();
+	const length = node.value.length;
+	node.setSelectionRange( length, length );
 }
 
 const isMacPlatform =
@@ -227,6 +243,9 @@ function getSessionPlaceholder( sessionId: string | undefined ): string {
 
 export function Composer( {
 	busy,
+	awaitingAnswer = false,
+	freeFormActive = false,
+	focusRequestId = 0,
 	isInterrupting = false,
 	error,
 	usageCapMessage,
@@ -281,16 +300,15 @@ export function Composer( {
 		}
 		appliedDraftPromptIdRef.current = draftPrompt.id;
 		setDraftValue( draftPrompt.prompt );
-		queueMicrotask( () => {
-			const node = textareaRef.current;
-			if ( ! node ) {
-				return;
-			}
-			node.focus();
-			const length = node.value.length;
-			node.setSelectionRange( length, length );
-		} );
+		queueMicrotask( () => focusAtEnd( textareaRef.current ) );
 	}, [ draftPrompt, setDraftValue ] );
+
+	useEffect( () => {
+		if ( focusRequestId === 0 ) {
+			return;
+		}
+		focusAtEnd( textareaRef.current );
+	}, [ focusRequestId ] );
 
 	useEffect( () => {
 		setValue( loadDraft( draftStorageKey ) );
@@ -449,10 +467,15 @@ export function Composer( {
 	}, [ onSwitchSession, ownerSiteId, pendingFamilyChange, queryClient ] );
 
 	const canSend = value.trim().length > 0 || attachments.length > 0;
-	const placeholder = busy
-		? __( 'Queue a follow-up instruction…' )
-		: getSessionPlaceholder( sessionId );
-	const sendAriaLabel = busy ? __( 'Queue' ) : __( 'Send' );
+	let placeholder = getSessionPlaceholder( sessionId );
+	if ( freeFormActive ) {
+		placeholder = __( 'Type your own answer…' );
+	} else if ( awaitingAnswer ) {
+		placeholder = __( 'Reply instead of choosing an option…' );
+	} else if ( busy ) {
+		placeholder = __( 'Queue a follow-up instruction…' );
+	}
+	const sendAriaLabel = busy && ! awaitingAnswer ? __( 'Queue' ) : __( 'Send' );
 	const modKey = isMacPlatform ? '⌘' : 'Ctrl';
 	const hoveredAttachment = hoverPreview
 		? attachments.find( ( attachment ) => attachment.id === hoverPreview.id )

@@ -123,6 +123,63 @@ describe( 'entriesToRenderItems – persisted picked answers', () => {
 	} );
 } );
 
+describe( 'AgentQuestion – free-form escape hatch', () => {
+	function renderQuestion(
+		entries: SessionEntry[],
+		props: {
+			pendingQuestions?: Set< string >;
+			freeFormQuestion?: string | null;
+			onChooseFreeForm?: ( question: string ) => void;
+		} = {}
+	) {
+		render(
+			<Conversation
+				data={ { entries } as unknown as LoadedAiSession }
+				isRunning={ false }
+				startedAt={ null }
+				pendingQuestions={ props.pendingQuestions ?? new Set( [ 'Q1' ] ) }
+				pendingAnswers={ {} }
+				answeredQuestions={ {} }
+				freeFormQuestion={ props.freeFormQuestion ?? null }
+				onAnswerQuestion={ () => {} }
+				onChooseFreeForm={ props.onChooseFreeForm ?? ( () => {} ) }
+			/>
+		);
+	}
+
+	it( 'offers the free-form option the AskUserQuestion tool promises the model', () => {
+		const onChooseFreeForm = vi.fn();
+		renderQuestion( [ question( 'Q1', [ 'A', 'B' ] ) ], { onChooseFreeForm } );
+
+		const button = screen.getByRole( 'button', { name: 'Something else' } );
+		expect( button ).toHaveAttribute( 'aria-pressed', 'false' );
+
+		fireEvent.click( button );
+		expect( onChooseFreeForm ).toHaveBeenCalledWith( 'Q1' );
+	} );
+
+	it( 'marks the option as armed once chosen', () => {
+		renderQuestion( [ question( 'Q1', [ 'A', 'B' ] ) ], { freeFormQuestion: 'Q1' } );
+
+		expect( screen.getByRole( 'button', { name: 'Something else' } ) ).toHaveAttribute(
+			'aria-pressed',
+			'true'
+		);
+	} );
+
+	it( 'hides the option once the batch is no longer interactive', () => {
+		renderQuestion( [ question( 'Q1', [ 'A', 'B' ] ) ], { pendingQuestions: new Set() } );
+
+		expect( screen.queryByRole( 'button', { name: 'Something else' } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'does not duplicate an option an off-contract model wrote itself', () => {
+		renderQuestion( [ question( 'Q1', [ 'A', 'Something else' ] ) ] );
+
+		expect( screen.getAllByRole( 'button', { name: 'Something else' } ) ).toHaveLength( 1 );
+	} );
+} );
+
 describe( 'wasLastTurnInterrupted', () => {
 	it( 'is false for an in-flight or completed turn', () => {
 		expect( wasLastTurnInterrupted( [ prompt( 'Build me a blog' ) ] ) ).toBe( false );
@@ -259,7 +316,9 @@ describe( 'Conversation – inline media artifacts', () => {
 				pendingQuestions={ new Set() }
 				pendingAnswers={ {} }
 				answeredQuestions={ {} }
+				freeFormQuestion={ null }
 				onAnswerQuestion={ () => {} }
+				onChooseFreeForm={ () => {} }
 			/>
 		);
 	}
@@ -378,7 +437,9 @@ describe( 'Conversation – assistant message copy button', () => {
 				pendingQuestions={ new Set() }
 				pendingAnswers={ {} }
 				answeredQuestions={ {} }
+				freeFormQuestion={ null }
 				onAnswerQuestion={ () => {} }
+				onChooseFreeForm={ () => {} }
 			/>
 		);
 	}

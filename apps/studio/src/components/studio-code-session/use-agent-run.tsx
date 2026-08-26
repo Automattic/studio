@@ -752,11 +752,24 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 						files: options.files,
 					},
 				} );
+				// A run blocked on `ask_user` never reaches `idle` on its own, so
+				// cancel it — the queued message then dispatches as a fresh turn.
+				if ( pendingQuestions.length > 0 ) {
+					await interruptRun( sessionId );
+				}
 				return;
 			}
 			await startRun( sessionId, prompt, options );
 		},
-		[ dispatchSession, phase, pendingQuestions.length, queuedPrompts.length, sessionId, startRun ]
+		[
+			dispatchSession,
+			interruptRun,
+			phase,
+			pendingQuestions.length,
+			queuedPrompts.length,
+			sessionId,
+			startRun,
+		]
 	);
 
 	const interrupt = useCallback( async () => {

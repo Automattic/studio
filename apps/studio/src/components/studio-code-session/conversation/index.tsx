@@ -20,9 +20,12 @@ import {
 	type StudioCustomEntry,
 } from '@studio/common/ai/sessions/entry-types';
 import {
+	getFreeFormOptionDescription,
+	getFreeFormOptionLabel,
 	getToolDetail,
 	getToolDisplayName,
 	getToolResultDiff,
+	hasOwnFreeFormOption,
 	type NormalizedToolResult,
 } from '@studio/common/ai/tools';
 import { formatUsageCapNotice } from '@studio/common/lib/studio-assistant-quota';
@@ -621,14 +624,21 @@ function AgentQuestion( {
 	options,
 	isInteractive,
 	pickedLabel,
+	freeFormActive,
 	onAnswer,
+	onChooseFreeForm,
 }: {
 	question: string;
 	options: Array< { label: string; description: string } >;
 	isInteractive: boolean;
 	pickedLabel: string | undefined;
+	freeFormActive: boolean;
 	onAnswer: ( label: string ) => void;
+	onChooseFreeForm: () => void;
 } ) {
+	const freeFormLabel = getFreeFormOptionLabel();
+	const showFreeForm = isInteractive && ! hasOwnFreeFormOption( options );
+
 	return (
 		<div className={ styles.question }>
 			<p className={ styles.questionText }>{ question }</p>
@@ -650,6 +660,23 @@ function AgentQuestion( {
 							</li>
 						);
 					} ) }
+					{ showFreeForm ? (
+						<li>
+							<button
+								type="button"
+								className={ cx(
+									styles.questionOption,
+									styles.questionOptionFreeForm,
+									freeFormActive && styles.questionOptionPicked
+								) }
+								onClick={ onChooseFreeForm }
+								aria-pressed={ freeFormActive }
+								title={ getFreeFormOptionDescription() }
+							>
+								{ freeFormLabel }
+							</button>
+						</li>
+					) : null }
 				</ul>
 			) : null }
 		</div>
@@ -693,7 +720,9 @@ export function Conversation( {
 	pendingQuestions,
 	pendingAnswers,
 	answeredQuestions,
+	freeFormQuestion,
 	onAnswerQuestion,
+	onChooseFreeForm,
 	canEditLastUserMessage = false,
 	onEditUserMessage,
 }: {
@@ -703,7 +732,11 @@ export function Conversation( {
 	pendingQuestions: Set< string >;
 	pendingAnswers: Record< string, string >;
 	answeredQuestions: Record< string, string >;
+	// Question whose "Something else" option is armed; its answer arrives from
+	// the composer rather than from an option click.
+	freeFormQuestion: string | null;
 	onAnswerQuestion: ( question: string, label: string ) => void;
+	onChooseFreeForm: ( question: string ) => void;
 	canEditLastUserMessage?: boolean;
 	onEditUserMessage?: ( entryId: string, text: string ) => void;
 } ) {
@@ -795,7 +828,9 @@ export function Conversation( {
 									answeredQuestions[ item.question ] ??
 									item.answer
 								}
+								freeFormActive={ freeFormQuestion === item.question }
 								onAnswer={ ( label ) => onAnswerQuestion( item.question, label ) }
+								onChooseFreeForm={ () => onChooseFreeForm( item.question ) }
 							/>
 						);
 					case 'chat-artifact':

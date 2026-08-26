@@ -2,7 +2,6 @@ import fs from 'fs/promises';
 import path from 'path';
 import { Type } from 'typebox';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
-import { emitProgress } from 'cli/logger';
 import {
 	composeImagePrompt,
 	generateImages,
@@ -84,7 +83,7 @@ export const generateImagesTool = defineTool(
 			} )
 		),
 	},
-	async ( args ) => {
+	async ( args, context ) => {
 		if ( ! ( await isImageGenerationAvailable() ) ) {
 			throw new Error(
 				'Image generation is not available in this session. Build the site without generated imagery.'
@@ -96,7 +95,9 @@ export const generateImagesTool = defineTool(
 			resolvedPath: resolveImageFilePath( image.path ),
 		} ) );
 
-		emitProgress( `Generating ${ targets.length } image${ targets.length === 1 ? '' : 's' }…` );
+		context.onProgress(
+			`Generating ${ targets.length } image${ targets.length === 1 ? '' : 's' }…`
+		);
 
 		const requests = targets.map( ( image ) => ( {
 			prompt: composeImagePrompt( image, {
@@ -111,7 +112,7 @@ export const generateImagesTool = defineTool(
 		const results = await generateImages( requests, ( _index, result ) => {
 			if ( result.ok ) {
 				generated++;
-				emitProgress( `Generated ${ generated }/${ targets.length } images` );
+				context.onProgress( `Generated ${ generated }/${ targets.length } images` );
 			}
 		} );
 

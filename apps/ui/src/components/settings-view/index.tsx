@@ -347,8 +347,8 @@ function PreferencesPanel( {
 				>
 					<CheckboxControl
 						__nextHasNoMarginBottom
-						label={ __( 'Usage statistics' ) }
-						hideLabelFromVision
+						label=""
+						aria-label={ __( 'Usage statistics' ) }
 						checked={ data.analyticsEnabled }
 						onChange={ ( analyticsEnabled ) => onChange( { analyticsEnabled } ) }
 					/>

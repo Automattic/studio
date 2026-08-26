@@ -198,11 +198,12 @@ export async function installWordPress(
 	// translation files aren't available yet.
 	if ( locale ) {
 		try {
+			const localePhpLiteral = JSON.stringify( locale );
 			await runPhpCommand(
 				[
 					getWpCliPharPath(),
 					'eval',
-					`global $wpdb; $wpdb->query( $wpdb->prepare( "REPLACE INTO {$wpdb->options} (option_name, option_value, autoload) VALUES ('WPLANG', %s, 'yes')", '${ locale }' ) );`,
+					`global $wpdb; $wpdb->query( $wpdb->prepare( "REPLACE INTO {$wpdb->options} (option_name, option_value, autoload) VALUES ('WPLANG', %s, 'yes')", ${ localePhpLiteral } ) );`,
 					`--path=${ config.sitePath }`,
 				],
 				{ phpVersion, signal }

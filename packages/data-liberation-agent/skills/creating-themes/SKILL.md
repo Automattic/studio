@@ -101,9 +101,9 @@ Build the site header from the SOURCE header, not WordPress's page list:
 - **Utility icons:** re-add the source header's search / account / cart icon cluster on the right (dropped from the *primary nav* but part of the chrome). Ship each glyph as a theme SVG asset (`assets/icon-*.svg`, explicit stroke color) referenced from a `core/image` link — NOT `wp:html` (banned). cart→`/cart`, account→`/account`, search→`/?s=`. The scaffold emits this.
 - **Announcement bar:** preserve the source's top announcement/utility bar when present.
 
-## Google Fonts CDN (last resort only — self-host first, even for substitutes)
+## Google Fonts (fallback only — prefer self-hosting source fonts above)
 
-An uncapturable source font does NOT justify hot-linking Google Fonts: the substitution path above still SELF-HOSTS the free replacement (download its woff2 into `assets/fonts/`). The CDN blocks offline rendering, causes a flash of unstyled text on first paint, and leaks visitor IPs to a third party (see `skills/design-foundations/references/theme-tokens.md`). Only when the substitute's font files genuinely cannot be downloaded at build time, enqueue the CDN stylesheet via the `enqueue_block_assets` hook (not `wp_enqueue_scripts`) so it loads in BOTH the front-end AND block editor:
+When a font is genuinely not self-hostable, use `enqueue_block_assets` hook (not `wp_enqueue_scripts`) to ensure fonts load in BOTH the front-end AND block editor:
 
 ```php
 function theme_fonts() {

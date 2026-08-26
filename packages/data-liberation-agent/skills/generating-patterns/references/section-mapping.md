@@ -78,7 +78,14 @@ Avoid (CSS class + external rule):
 **What `theme/style.css` is still good for:**
 - `@font-face` and `@import` font rules
 - Element-level tweaks on the unlayered host (`body`, `a:hover` color, smooth scroll)
-- Utility classes that are purely visual (not structural) and that tolerate being overridden — e.g. opacity bylines.
+- Utility classes that are purely visual (not structural) and that tolerate being overridden — e.g. opacity bylines. The templates in this file rely on these; when using the corresponding template, emit its rule into `style.css`:
+  ```css
+  .byline { opacity: 0.75; }
+  .price-amount { opacity: 0.9; }
+  .clone-missing-media { background-color: #e9e9ee; }
+  .clone-missing-media p, .clone-review--missing p { opacity: 0.5; }
+  ```
+  (Raw values are fine here — the no-hex rule applies to pattern markup, not `style.css`.)
 - Theme-scoped motion classes (`.clone-reveal`, `.clone-marquee`, hover overlays), always with `prefers-reduced-motion` fallbacks.
 
 **What it is NOT good for:**
@@ -420,7 +427,7 @@ Logo strips are different from galleries — logos are small, uniform, and shoul
 ```html
 <!-- wp:group {"align":"wide","style":{"spacing":{"padding":{"top":"var:preset|spacing|60","bottom":"var:preset|spacing|60"}}},"layout":{"type":"constrained"}} -->
 <div class="wp-block-group alignwide">
-  <!-- wp:heading {"textAlign":"center","level":3,"fontSize":"medium"} --><h3 class="wp-block-heading has-text-align-center has-medium-font-size" style="letter-spacing:0.15em;text-transform:uppercase">{{LABEL}}</h3><!-- /wp:heading -->
+  <!-- wp:heading {"textAlign":"center","level":3,"fontSize":"medium","style":{"typography":{"letterSpacing":"0.15em","textTransform":"uppercase"}}} --><h3 class="wp-block-heading has-text-align-center has-medium-font-size" style="letter-spacing:0.15em;text-transform:uppercase">{{LABEL}}</h3><!-- /wp:heading -->
   <!-- wp:columns {"verticalAlignment":"center"} -->
   <div class="wp-block-columns are-vertically-aligned-center">
     <!-- FOREACH logo in {{LOGOS}}: -->
@@ -496,7 +503,7 @@ A row of N post cards, each with a featured image, a byline/date, and a linked t
 **Byline ordering:** always *below* the image and *above* the title. Even if the source captured the byline at an unusual position, normalize to this order — it's what every WP theme does for post cards and it reads correctly.
 
 ```html
-<!-- wp:group {"align":"full","style":{"spacing":{"padding":{"top":"var:preset|spacing|80","bottom":"var:preset|spacing|80","left":"var:preset|spacing|70","right":"var:preset|spacing|70"},"blockGap":"var:preset|spacing|70"}},"textColor":"contrast","layout":{"type":"constrained","wideSize":"1280px"}} -->
+<!-- wp:group {"align":"full","style":{"spacing":{"padding":{"top":"var:preset|spacing|80","bottom":"var:preset|spacing|80","left":"var:preset|spacing|70","right":"var:preset|spacing|70"},"blockGap":"var:preset|spacing|70"}},"textColor":"contrast","layout":{"type":"constrained"}} -->
 <div class="wp-block-group alignfull has-contrast-color has-text-color" style="padding-top:var(--wp--preset--spacing--80);padding-right:var(--wp--preset--spacing--70);padding-bottom:var(--wp--preset--spacing--80);padding-left:var(--wp--preset--spacing--70)">
 <!-- wp:heading {"level":2,"fontSize":"xx-large"} -->
 <h2 class="wp-block-heading has-xx-large-font-size">{{HEADING}}</h2>
@@ -510,7 +517,7 @@ A row of N post cards, each with a featured image, a byline/date, and a linked t
 <figure class="wp-block-image size-large has-custom-border"><img src="<?php echo esc_url( get_theme_file_uri('{{card.image_path}}') ); ?>" alt="{{card.image_alt}}" style="border-radius:4px" /></figure>
 <!-- /wp:image -->
 <!-- wp:paragraph {"fontSize":"small","style":{"typography":{"fontStyle":"normal","fontWeight":"400"}},"className":"byline"} -->
-<p class="byline has-small-font-size" style="opacity:0.75">{{card.byline}}</p>
+<p class="byline has-small-font-size" style="font-style:normal;font-weight:400">{{card.byline}}</p>
 <!-- /wp:paragraph -->
 <!-- wp:heading {"level":3,"fontSize":"large"} -->
 <h3 class="wp-block-heading has-large-font-size"><a href="{{card.href}}">{{card.title}}</a></h3>
@@ -539,20 +546,20 @@ A stack of N horizontal rows, each with a title (left), optional price or meta (
 **Rendering guarantees:** emit the row-level `core/group` with `"layout":{"type":"flex","flexWrap":"wrap","justifyContent":"space-between","verticalAlignment":"center"}` — this is the specificity-safe way to get a horizontal row on top of WP's block-library CSS. Use inline `style.spacing.padding` for the row's internal padding. Button colors go on the `core/button` as `backgroundColor`/`textColor` attributes, never as descendant CSS.
 
 ```html
-<!-- wp:group {"align":"full","style":{"spacing":{"padding":{"top":"var:preset|spacing|80","bottom":"var:preset|spacing|80","left":"var:preset|spacing|70","right":"var:preset|spacing|70"},"blockGap":"var:preset|spacing|50"}},"textColor":"contrast","layout":{"type":"constrained","wideSize":"1280px"}} -->
+<!-- wp:group {"align":"full","style":{"spacing":{"padding":{"top":"var:preset|spacing|80","bottom":"var:preset|spacing|80","left":"var:preset|spacing|70","right":"var:preset|spacing|70"},"blockGap":"var:preset|spacing|50"}},"textColor":"contrast","layout":{"type":"constrained"}} -->
 <div class="wp-block-group alignfull has-contrast-color has-text-color" style="padding-top:var(--wp--preset--spacing--80);padding-right:var(--wp--preset--spacing--70);padding-bottom:var(--wp--preset--spacing--80);padding-left:var(--wp--preset--spacing--70)">
 <!-- wp:heading {"level":2,"fontSize":"xx-large"} -->
 <h2 class="wp-block-heading has-xx-large-font-size">{{HEADING}}</h2>
 <!-- /wp:heading -->
 <!-- FOREACH row in {{ROWS}}: -->
 <!-- wp:group {"align":"wide","className":"price-row","backgroundColor":"{{ROW_BG_SLUG}}","style":{"spacing":{"padding":{"top":"1.5rem","right":"2rem","bottom":"1.5rem","left":"2rem"}}},"layout":{"type":"flex","flexWrap":"wrap","justifyContent":"space-between","verticalAlignment":"center"}} -->
-<div class="wp-block-group alignwide price-row has-{{ROW_BG_SLUG}}-background-color has-background" style="padding:{{ROW_PAD}}">
+<div class="wp-block-group alignwide price-row has-{{ROW_BG_SLUG}}-background-color has-background" style="padding-top:1.5rem;padding-right:2rem;padding-bottom:1.5rem;padding-left:2rem">
 <!-- wp:paragraph {"fontSize":"x-large","style":{"typography":{"fontWeight":"500"}}} -->
 <p class="has-x-large-font-size" style="font-weight:500">{{row.title}}</p>
 <!-- /wp:paragraph -->
 <!-- IF {{row.price}}: -->
-<!-- wp:paragraph {"fontSize":"medium"} -->
-<p class="has-medium-font-size" style="opacity:0.9">{{row.price}}</p>
+<!-- wp:paragraph {"fontSize":"medium","className":"price-amount"} -->
+<p class="price-amount has-medium-font-size">{{row.price}}</p>
 <!-- /wp:paragraph -->
 <!-- END IF -->
 <!-- wp:buttons -->
@@ -621,7 +628,7 @@ A row of N **storefront product cards**, each with a product image, a title, a *
 - Prefer linking the WP-library product attachment already uploaded by the pipeline; only fall back to a theme asset path when the image is theme-shipped.
 
 ```html
-<!-- wp:group {"align":"full","style":{"spacing":{"padding":{"top":"var:preset|spacing|80","bottom":"var:preset|spacing|80","left":"var:preset|spacing|70","right":"var:preset|spacing|70"},"blockGap":"var:preset|spacing|60"}},"layout":{"type":"constrained","wideSize":"1280px"}} -->
+<!-- wp:group {"align":"full","style":{"spacing":{"padding":{"top":"var:preset|spacing|80","bottom":"var:preset|spacing|80","left":"var:preset|spacing|70","right":"var:preset|spacing|70"},"blockGap":"var:preset|spacing|60"}},"layout":{"type":"constrained"}} -->
 <div class="wp-block-group alignfull" style="padding-top:var(--wp--preset--spacing--80);padding-right:var(--wp--preset--spacing--70);padding-bottom:var(--wp--preset--spacing--80);padding-left:var(--wp--preset--spacing--70)">
   <!-- IF {{HEADING}} -->
   <!-- wp:heading {"textAlign":"center","level":2,"fontSize":"xx-large"} --><h2 class="wp-block-heading has-text-align-center has-xx-large-font-size">{{HEADING}}</h2><!-- /wp:heading -->
@@ -682,7 +689,7 @@ Repeated **customer-review columns**, each with a **star rating**, a quote, and 
 - If the source is a carousel, render the captured reviews as a static grid (mobile-safe); note the carousel in the spec's Motion profile — do not ship a JS slider. Render all captured reviews (wrap into multiple `wp:columns` rows if there are more than ~4).
 
 ```html
-<!-- wp:group {"align":"full","backgroundColor":"{{BG_COLOR_SLUG}}","style":{"spacing":{"padding":{"top":"var:preset|spacing|80","bottom":"var:preset|spacing|80","left":"var:preset|spacing|70","right":"var:preset|spacing|70"},"blockGap":"var:preset|spacing|60"}},"layout":{"type":"constrained","wideSize":"1280px"}} -->
+<!-- wp:group {"align":"full","backgroundColor":"{{BG_COLOR_SLUG}}","style":{"spacing":{"padding":{"top":"var:preset|spacing|80","bottom":"var:preset|spacing|80","left":"var:preset|spacing|70","right":"var:preset|spacing|70"},"blockGap":"var:preset|spacing|60"}},"layout":{"type":"constrained"}} -->
 <div class="wp-block-group alignfull has-{{BG_COLOR_SLUG}}-background-color has-background" style="padding-top:var(--wp--preset--spacing--80);padding-right:var(--wp--preset--spacing--70);padding-bottom:var(--wp--preset--spacing--80);padding-left:var(--wp--preset--spacing--70)">
   <!-- IF {{HEADING}} -->
   <!-- wp:heading {"textAlign":"center","level":2,"fontSize":"xx-large"} --><h2 class="wp-block-heading has-text-align-center has-xx-large-font-size">{{HEADING}}</h2><!-- /wp:heading -->
@@ -692,7 +699,7 @@ Repeated **customer-review columns**, each with a **star rating**, a quote, and 
     <!-- FOREACH review in {{REVIEWS}}: -->
     <!-- wp:column {"className":"clone-review"} -->
     <div class="wp-block-column clone-review">
-      <!-- wp:paragraph {"className":"clone-review__stars","fontSize":"medium","style":{"typography":{"letterSpacing":"2px"}}} --><p class="clone-review__stars has-medium-font-size" style="letter-spacing:2px;color:#f5a623">{{review.stars_glyphs}}</p><!-- /wp:paragraph -->
+      <!-- wp:paragraph {"className":"clone-review__stars","textColor":"{{STAR_COLOR_SLUG}}","fontSize":"medium","style":{"typography":{"letterSpacing":"2px"}}} --><p class="clone-review__stars has-{{STAR_COLOR_SLUG}}-color has-text-color has-medium-font-size" style="letter-spacing:2px">{{review.stars_glyphs}}</p><!-- /wp:paragraph -->
       <!-- wp:paragraph --><p>{{review.quote}}</p><!-- /wp:paragraph -->
       <!-- wp:paragraph {"fontSize":"small","style":{"typography":{"fontWeight":"600"}}} --><p class="has-small-font-size" style="font-weight:600">{{review.attribution}}</p><!-- /wp:paragraph -->
     </div>
@@ -704,7 +711,7 @@ Repeated **customer-review columns**, each with a **star rating**, a quote, and 
 <!-- /wp:group -->
 ```
 
-`{{review.stars_glyphs}}` = `rating` filled stars + `(5 - rating)` empty (e.g. rating 5 → `★★★★★`, rating 4 → `★★★★☆`). The inline `color:#f5a623` (amber) is the conventional star color; swap to the source's star color if the screenshot shows a different hue.
+`{{review.stars_glyphs}}` = `rating` filled stars + `(5 - rating)` empty (e.g. rating 5 → `★★★★★`, rating 4 → `★★★★☆`). `{{STAR_COLOR_SLUG}}` is a palette slug, never a raw hex in the markup: reuse a matching palette entry, or add one to `theme.json` `settings.color.palette` (e.g. `star-accent`) set to the source's star color from the screenshot — conventionally amber `#f5a623` when the source shows the standard gold.
 
 ---
 
@@ -721,7 +728,7 @@ An **app-download block**: a heading + copy beside an app screenshot, with **app
 - If a badge image could not be captured, follow the **missing-media fallback** rule below (sized placeholder + flag) rather than substituting a generic button.
 
 ```html
-<!-- wp:group {"align":"full","backgroundColor":"{{BG_COLOR_SLUG}}","style":{"spacing":{"padding":{"top":"var:preset|spacing|80","bottom":"var:preset|spacing|80","left":"var:preset|spacing|70","right":"var:preset|spacing|70"}}},"layout":{"type":"constrained","wideSize":"1280px"}} -->
+<!-- wp:group {"align":"full","backgroundColor":"{{BG_COLOR_SLUG}}","style":{"spacing":{"padding":{"top":"var:preset|spacing|80","bottom":"var:preset|spacing|80","left":"var:preset|spacing|70","right":"var:preset|spacing|70"}}},"layout":{"type":"constrained"}} -->
 <div class="wp-block-group alignfull has-{{BG_COLOR_SLUG}}-background-color has-background" style="padding-top:var(--wp--preset--spacing--80);padding-right:var(--wp--preset--spacing--70);padding-bottom:var(--wp--preset--spacing--80);padding-left:var(--wp--preset--spacing--70)">
   <!-- wp:columns {"verticalAlignment":"center","align":"wide"} -->
   <div class="wp-block-columns alignwide are-vertically-aligned-center">
@@ -822,9 +829,9 @@ A section spec may reference an image (hero photo, product shot, app screenshot,
 1. **Emit a sized placeholder** that preserves the layout slot's dimensions, so the section reflows the same as the source and responsive@390 still passes. Use a neutral `core/group` (or `core/image` with the placeholder) at the captured width/height ratio:
 
 ```html
-<!-- wp:group {"className":"clone-missing-media","style":{"color":{"background":"#e9e9ee"},"dimensions":{"minHeight":"{{SLOT_HEIGHT}}px"}},"layout":{"type":"constrained"}} -->
-<div class="wp-block-group clone-missing-media has-background" style="background-color:#e9e9ee;min-height:{{SLOT_HEIGHT}}px" aria-label="Image unavailable: {{IMAGE_ALT}}">
-  <!-- wp:paragraph {"align":"center","fontSize":"small","textColor":"contrast"} --><p class="has-text-align-center has-small-font-size has-contrast-color has-text-color" style="opacity:0.5">Image unavailable</p><!-- /wp:paragraph -->
+<!-- wp:group {"className":"clone-missing-media","style":{"dimensions":{"minHeight":"{{SLOT_HEIGHT}}px"}},"layout":{"type":"constrained"}} -->
+<div class="wp-block-group clone-missing-media" style="min-height:{{SLOT_HEIGHT}}px" aria-label="Image unavailable: {{IMAGE_ALT}}">
+  <!-- wp:paragraph {"align":"center","fontSize":"small","textColor":"contrast"} --><p class="has-text-align-center has-small-font-size has-contrast-color has-text-color">Image unavailable</p><!-- /wp:paragraph -->
 </div>
 <!-- /wp:group -->
 ```
@@ -850,7 +857,7 @@ All visible copy is the highest-risk place for fabrication, because invented pro
 ```html
 <!-- wp:column {"className":"clone-review clone-review--missing"} -->
 <div class="wp-block-column clone-review clone-review--missing">
-  <!-- wp:paragraph {"align":"center","textColor":"text-muted","fontSize":"small"} --><p class="has-text-align-center has-text-muted-color has-text-color has-small-font-size" style="opacity:0.6">[review text not captured]</p><!-- /wp:paragraph -->
+  <!-- wp:paragraph {"align":"center","textColor":"text-muted","fontSize":"small"} --><p class="has-text-align-center has-text-muted-color has-text-color has-small-font-size">[review text not captured]</p><!-- /wp:paragraph -->
 </div>
 <!-- /wp:column -->
 ```

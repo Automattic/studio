@@ -52,16 +52,9 @@ Never change the `display` of a block wrapper inside a constrained layout. To ma
 <!-- /wp:group -->
 ```
 
-The group's `justifyContent` (`left`/`center`/`right`) controls where the label sits, and stays editable in the editor. Inside the flex row the label already shrink-wraps — flex items size to their content — so the pill class carries only background, padding, radius, and typography:
+The group's `justifyContent` (`left`/`center`/`right`) controls where the label sits, and stays editable in the editor. Inside the flex row the label already shrink-wraps — flex items size to their content — so the label class never needs a `display` rule:
 
 ```css
-/* Right — the flex wrapper does the shrink-wrapping */
-.hero-eyebrow {
-	background-color: var(--wp--preset--color--accent);
-	padding: 0.4em 1.1em;
-	border-radius: 999px;
-}
-
 /* Wrong — never an inline-level display on a block wrapper class */
 .hero-eyebrow { display: inline-block; }
 ```

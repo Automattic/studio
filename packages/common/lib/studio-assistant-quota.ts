@@ -200,14 +200,25 @@ export function getAiCreditsMeter(
 ): AiCreditsMeter | null {
 	let totalCredits = 0;
 	let remainingCredits = 0;
-	if ( quota.allowanceRemaining !== undefined && quota.costCap > 0 ) {
+	const purchasedAtTopUp = quota.purchasedAtTopUp ?? 0;
+	const hasPurchasedPool = purchasedAtTopUp > 0 && quota.purchasedRemaining !== undefined;
+	// A spent welcome allowance drops out of the meter once a purchased pool
+	// can be measured instead: right after a top-up the bar should read as the
+	// fresh purchase, not as mostly-consumed because the old gift still counts
+	// against the total. Without a purchased pool the spent allowance stays —
+	// it is the only thing left to draw, and it reads as the full exhausted
+	// bar rather than no bar at all.
+	if (
+		quota.allowanceRemaining !== undefined &&
+		quota.costCap > 0 &&
+		( quota.allowanceRemaining > 0 || ! hasPurchasedPool )
+	) {
 		totalCredits += quota.costCap;
 		remainingCredits += quota.allowanceRemaining;
 	}
-	const purchasedAtTopUp = quota.purchasedAtTopUp ?? 0;
-	if ( purchasedAtTopUp > 0 && quota.purchasedRemaining !== undefined ) {
+	if ( hasPurchasedPool ) {
 		totalCredits += purchasedAtTopUp;
-		remainingCredits += quota.purchasedRemaining;
+		remainingCredits += quota.purchasedRemaining ?? 0;
 	}
 	if ( totalCredits <= 0 ) {
 		return null;

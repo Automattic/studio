@@ -132,7 +132,8 @@ describe( 'PromptInfo', () => {
 
 		render( <PromptInfo /> );
 
-		expect( screen.getByText( '2,000,000 of 2,000,000 AI credits used' ) ).toBeInTheDocument();
+		// The spent allowance drops out of the total: the purchased pool is the bar.
+		expect( screen.getByText( '500,000 of 500,000 AI credits used' ) ).toBeInTheDocument();
 		expect( screen.getByText( '0 available' ) ).toBeInTheDocument();
 		expect(
 			screen.getByText( 'Your next idea is ready when you are. Top up to bring it to life.' )

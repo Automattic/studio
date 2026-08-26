@@ -209,10 +209,23 @@ describe( 'getAiCreditsMeter', () => {
 		expect( meter?.remainingCredits ).toBe( 960000 );
 	} );
 
-	it( 'still meters the purchased pool when the free allowance is gone', () => {
+	it( 'drops the spent allowance from the total once a purchased pool exists', () => {
+		// Measuring against the purchased pool alone: right after a top-up the
+		// bar reads as the fresh purchase, not as mostly consumed by the gift.
 		const meter = getAiCreditsMeter( { ...creditQuota, allowanceRemaining: 0 } );
-		expect( meter?.totalCredits ).toBe( 2000000 );
+		expect( meter?.totalCredits ).toBe( 500000 );
 		expect( meter?.remainingCredits ).toBe( 150000 );
+	} );
+
+	it( 'keeps the spent allowance as the meter when nothing was ever bought', () => {
+		const meter = getAiCreditsMeter( {
+			costCap: 1500000,
+			allowanceRemaining: 0,
+			purchasedRemaining: 0,
+			purchasedAtTopUp: 0,
+		} );
+		expect( meter?.totalCredits ).toBe( 1500000 );
+		expect( meter?.fraction ).toBe( 1 );
 	} );
 
 	it( 'resolves null when nothing is measurable', () => {
@@ -244,6 +257,8 @@ describe( 'getAiCreditsMeter', () => {
 			purchasedAtTopUp: 500000,
 		} );
 		expect( meter?.fraction ).toBe( 1 );
+		// The spent allowance is out of the total; the purchased pool is the bar.
+		expect( meter?.totalCredits ).toBe( 500000 );
 	} );
 } );
 

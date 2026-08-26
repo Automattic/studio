@@ -59,6 +59,7 @@ import {
 	dataLiberationProgressMessage,
 	registerCommand,
 	runCommand,
+	staticSiteImportContinuationMessage,
 	staticSiteImportProgressMessage,
 } from '../create';
 
@@ -136,6 +137,19 @@ describe( 'CLI: studio create', () => {
 		);
 		expect( staticSiteImportProgressMessage( 'finalization', 9_999 ) ).toBe(
 			'Finalization… 9 sec elapsed'
+		);
+	} );
+
+	it( 'reports continuation progress only from measured data', () => {
+		expect( staticSiteImportContinuationMessage( { completed_routes: 3, total_routes: 12 } ) ).toBe(
+			'Static site import progress: 3/12 routes'
+		);
+		expect( staticSiteImportContinuationMessage( { status: 'dependencies_prepared' } ) ).toBe(
+			'Static site import continuing: dependencies prepared'
+		);
+		expect( staticSiteImportContinuationMessage( {} ) ).toBe( 'Static site import continuing…' );
+		expect( staticSiteImportContinuationMessage( { completed_routes: 0, total_routes: 0 } ) ).toBe(
+			'Static site import continuing…'
 		);
 	} );
 
@@ -1199,6 +1213,44 @@ describe( 'CLI: studio create', () => {
 				expect.objectContaining( { path: mockSitePath } ),
 				[ 'eval-file', '.studio-import/import.php' ],
 				{}
+			);
+		} );
+
+		it( 'reports the continuation stage instead of unmeasured route counts', async () => {
+			const blueprint = buildCapturedSiteBlueprint();
+			const results = [
+				{ continuation: true, status: 'dependencies_prepared' },
+				{ continuation: false, completed_routes: 2, total_routes: 2 },
+			];
+			vi.spyOn( fs, 'existsSync' ).mockImplementation( ( filePath ) =>
+				filePath.toString().endsWith( 'result.json' )
+			);
+			vi.spyOn( fs, 'readFileSync' ).mockImplementation( ( filePath ) => {
+				if ( filePath.toString().endsWith( 'result.json' ) ) {
+					return JSON.stringify( results.shift() );
+				}
+				return '';
+			} );
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
+			for ( let call = 0; call < 3; call++ ) {
+				vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValueOnce( {
+					response: {
+						exitCode: Promise.resolve( 0 ),
+						stdoutText: Promise.resolve( '' ),
+						stderrText: Promise.resolve( '' ),
+					},
+					[ Symbol.dispose ]: vi.fn(),
+				} as never );
+			}
+
+			await runCommand( mockSitePath, { ...defaultTestOptions, blueprint } );
+
+			expect( Logger.prototype.reportSuccess ).toHaveBeenCalledWith(
+				'Static site import continuing: dependencies prepared'
+			);
+			expect( Logger.prototype.reportSuccess ).not.toHaveBeenCalledWith(
+				'Static site import progress: 0/0 routes'
 			);
 		} );
 

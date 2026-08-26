@@ -592,7 +592,15 @@ if ( ! empty( $import_result['continuation'] ) && preg_match( '/^[a-f0-9]{64}$/'
 	if ( false === file_put_contents( $state_path, wp_json_encode( $state ) ) ) {
 		throw new RuntimeException( 'Static Site Importer direct continuation state could not be saved.' );
 	}
-	static_site_importer_studio_write_result( array( 'continuation' => true ) );
+	$continuation_receipt = array( 'continuation' => true );
+	if ( is_scalar( $import_result['status'] ?? null ) && '' !== (string) $import_result['status'] ) {
+		$continuation_receipt['status'] = substr( sanitize_key( (string) $import_result['status'] ), 0, 100 );
+	}
+	if ( isset( $import_result['url_batch_run']['completed_routes'], $import_result['url_batch_run']['total_routes'] ) ) {
+		$continuation_receipt['completed_routes'] = (int) $import_result['url_batch_run']['completed_routes'];
+		$continuation_receipt['total_routes'] = (int) $import_result['url_batch_run']['total_routes'];
+	}
+	static_site_importer_studio_write_result( $continuation_receipt );
 	return;
 }
 if ( 'dependencies_prepared' === ( $import_result['status'] ?? '' ) ) {
@@ -605,7 +613,7 @@ if ( 'dependencies_prepared' === ( $import_result['status'] ?? '' ) ) {
 	if ( '' === $request_id || false === file_put_contents( $state_path, wp_json_encode( $lifecycle_state ) ) ) {
 		throw new RuntimeException( 'Static Site Importer lifecycle state could not be saved.' );
 	}
-	static_site_importer_studio_write_result( array( 'continuation' => true ) );
+	static_site_importer_studio_write_result( array( 'continuation' => true, 'status' => 'dependencies_prepared' ) );
 	return;
 }
 if ( '' !== $state_path && is_file( $state_path ) ) {
@@ -864,6 +872,31 @@ export function staticSiteImportProgressMessage(
 	return sprintf( __( 'Finalization… %d sec elapsed' ), elapsedSeconds );
 }
 
+export function staticSiteImportContinuationMessage( result: {
+	completed_routes?: number;
+	total_routes?: number;
+	status?: string;
+} ): string {
+	if (
+		typeof result.completed_routes === 'number' &&
+		typeof result.total_routes === 'number' &&
+		result.total_routes > 0
+	) {
+		return sprintf(
+			/* translators: 1: completed route count, 2: total route count */
+			__( 'Static site import progress: %1$d/%2$d routes' ),
+			result.completed_routes,
+			result.total_routes
+		);
+	}
+	const stage = typeof result.status === 'string' ? result.status.trim().replace( /_/g, ' ' ) : '';
+	if ( stage !== '' ) {
+		/* translators: %s: stage the importer reported for its last continuation */
+		return sprintf( __( 'Static site import continuing: %s' ), stage );
+	}
+	return __( 'Static site import continuing…' );
+}
+
 export function dataLiberationProgressMessage( progress: DataLiberationProgress ): string {
 	const elapsedSeconds = Math.floor( ( progress.elapsedMs ?? 0 ) / 1000 );
 	if ( progress.phase === 'discovering' )
@@ -917,6 +950,7 @@ async function runStaticSiteImport(
 		canonicalization_pending?: boolean;
 		completed_routes?: number;
 		total_routes?: number;
+		status?: string;
 	};
 	let finalizationStartedAt: number | undefined;
 	for ( let invocation = 1; invocation <= MAX_STATIC_SITE_IMPORT_INVOCATIONS; invocation++ ) {
@@ -1027,13 +1061,7 @@ async function runStaticSiteImport(
 			}
 			break;
 		}
-		logger.reportSuccess(
-			sprintf(
-				__( 'Static site import progress: %1$d/%2$d routes' ),
-				result.completed_routes ?? 0,
-				result.total_routes ?? 0
-			)
-		);
+		logger.reportSuccess( staticSiteImportContinuationMessage( result ) );
 		if ( invocation === MAX_STATIC_SITE_IMPORT_INVOCATIONS ) {
 			throw new LoggerError( __( 'Static site import exceeded its continuation limit.' ) );
 		}

@@ -69,6 +69,7 @@ import {
 } from '@studio/common/lib/shared-config';
 import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { isSyncCancelledError } from '@studio/common/lib/sync/cancel';
+import { resolvePullEngine } from '@studio/common/lib/sync/pull-engine';
 import { fetchLatestRewindId, fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import { detectInstalledApps } from '@studio/common/lib/user-settings/installed-apps';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
@@ -1332,19 +1333,17 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			}
 			const release = registerSyncAbort( req.params.id, remoteSiteId );
 			try {
-				await pullSite(
-					execute,
-					site.path,
-					remoteSiteId,
-					( progress ) => {
+				await pullSite( execute, site.path, remoteSiteId, {
+					engine: await resolvePullEngine(),
+					emit: ( progress ) => {
 						sseSend( {
 							channel: 'sync-pull',
 							payload: { ...progress, siteId: req.params.id, remoteSiteId },
 						} );
 					},
-					options,
-					release.signal
-				);
+					syncOptions: options,
+					signal: release.signal,
+				} );
 			} catch ( error ) {
 				// A user cancel is an intentional stop, not a server error — report it
 				// as a result so it doesn't surface as a 500.

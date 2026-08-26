@@ -122,6 +122,13 @@ export type PullSiteProgress = {
 	action?: string;
 };
 
+/**
+ * Which CLI command backs a pull: the shipped Jetpack-backup `pull`, or the
+ * streaming `pull-reprint`. The desktop app picks this per pull from the
+ * `reprintPull` beta feature; every other surface stays on `jetpack`.
+ */
+export type PullEngine = 'jetpack' | 'reprint';
+
 // Pull backup API schemas
 export const pullSiteResponseSchema = z.object( {
 	success: z.boolean(),

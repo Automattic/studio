@@ -112,6 +112,7 @@ interface FeatureFlags {}
 interface BetaFeatures {
 	remoteSession: boolean;
 	enableAgenticUi: boolean;
+	reprintPull: boolean;
 }
 
 interface AppGlobals extends FeatureFlags {

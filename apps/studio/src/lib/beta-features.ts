@@ -15,6 +15,7 @@ export interface BetaFeatureDefinition {
 const BETA_FEATURE_DEFAULTS: Record< keyof BetaFeatures, boolean > = {
 	remoteSession: false,
 	enableAgenticUi: false,
+	reprintPull: false,
 };
 
 /**
@@ -34,6 +35,14 @@ export function getBetaFeaturesDefinition(): Record< keyof BetaFeatures, BetaFea
 			key: 'enableAgenticUi',
 			default: BETA_FEATURE_DEFAULTS.enableAgenticUi,
 			description: __( 'A redesigned interface with AI-powered site building.' ),
+		},
+		reprintPull: {
+			label: __( 'Reprint pull engine' ),
+			key: 'reprintPull',
+			default: BETA_FEATURE_DEFAULTS.reprintPull,
+			description: __(
+				'Makes pull operations incremental and faster in the new Studio experience.'
+			),
 		},
 	};
 }

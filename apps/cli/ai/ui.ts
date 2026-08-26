@@ -1840,7 +1840,7 @@ export class AiChatUI implements AiOutputAdapter {
 						// The terminal can't render a link, so the URL goes on its own
 						// line, as-is — it stays copyable and most terminals auto-link it.
 						this.showInfo(
-							__( 'Add credits at the link below, then come back to continue using Studio Code:' )
+							__( 'Run /credits to see your balance and buy more, or use the link below:' )
 						);
 						this.showInfo( ADD_AI_CREDITS_URL );
 					} else {

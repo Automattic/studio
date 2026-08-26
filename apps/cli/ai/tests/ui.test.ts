@@ -342,7 +342,7 @@ describe( 'AiChatUI.handleEvent', () => {
 			expect.stringContaining( 'monthly AI usage limit' )
 		);
 		expect( showInfo ).toHaveBeenCalledWith(
-			'Add credits at the link below, then come back to continue using Studio Code:'
+			'Run /credits to see your balance and buy more, or use the link below:'
 		);
 		// The terminal has nothing for checkout to return to, so the URL it
 		// prints carries no return parameters.

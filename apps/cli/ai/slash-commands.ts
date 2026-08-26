@@ -2,6 +2,17 @@ import { getAiModelFamily, getVisibleAiModels } from '@studio/common/ai/models';
 import { getAiModelLabel, type AiModelId } from '@studio/common/ai/models';
 import { getAiSkillCommands } from '@studio/common/ai/slash-commands';
 import { isAutomatticianFromToken, readAuthToken } from '@studio/common/lib/shared-config';
+import {
+	clampQuotaFraction,
+	fetchStudioAssistantQuota,
+	formatQuotaPercentage,
+	getAddAiCreditsUrl,
+	type StudioAssistantQuota,
+} from '@studio/common/lib/studio-assistant-quota';
+import {
+	fetchStudioAssistantTopUpPricing,
+	formatTopUpOptionCreditsLabel,
+} from '@studio/common/lib/studio-assistant-top-up-pricing';
 import { __, sprintf } from '@wordpress/i18n';
 import { getAvailableAiProviders, isAiProviderReady } from 'cli/ai/auth';
 import { AI_PROVIDERS, getAiProviderDefinition, type AiProviderId } from 'cli/ai/providers';
@@ -234,6 +245,49 @@ async function runRemoteSessionSlashCommand(
 	return 'continue';
 }
 
+/**
+ * Print the account's AI credit balance. Which figure exists depends on the
+ * account: the server reports the two credit pools only where AI credits are
+ * enabled (their absence — not a zero — means the older monthly-cap design),
+ * and reports neither when it can't price the account at all.
+ */
+function showCreditBalance( ctx: SlashCommandContext, quota: StudioAssistantQuota | null ): void {
+	const credits = new Intl.NumberFormat();
+	if (
+		quota &&
+		( quota.allowanceRemaining !== undefined || quota.purchasedRemaining !== undefined )
+	) {
+		if ( ( quota.allowanceRemaining ?? 0 ) > 0 ) {
+			ctx.ui.showInfo(
+				sprintf(
+					/* translators: %s: number of free AI credits remaining (e.g. 960,000). */
+					__( 'Free credits remaining: %s' ),
+					credits.format( quota.allowanceRemaining ?? 0 )
+				)
+			);
+		}
+		ctx.ui.showInfo(
+			sprintf(
+				/* translators: %s: number of purchased AI credits remaining (e.g. 150,000). */
+				__( 'Purchased credits remaining: %s' ),
+				credits.format( quota.purchasedRemaining ?? 0 )
+			)
+		);
+		return;
+	}
+	if ( quota && quota.costCap > 0 ) {
+		ctx.ui.showInfo(
+			sprintf(
+				/* translators: %s: percentage of monthly limit used (e.g. 7.5%). */
+				__( '%s of monthly limit used' ),
+				formatQuotaPercentage( clampQuotaFraction( quota.costUsage, quota.costCap ) )
+			)
+		);
+		return;
+	}
+	ctx.ui.showInfo( __( 'Studio Code limits are temporarily unavailable.' ) );
+}
+
 export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 	{
 		name: 'browser',
@@ -251,6 +305,81 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 		description: __( 'Clear the conversation and start a fresh session' ),
 		handler: async ( _prompt, ctx ) => {
 			await ctx.clearSession();
+			return 'continue';
+		},
+	},
+	{
+		name: 'credits',
+		description: __( 'Show your AI credit balance and buy more' ),
+		handler: async ( _prompt, ctx ) => {
+			const token = await readAuthToken();
+			if ( ! token?.accessToken ) {
+				ctx.ui.showInfo( __( 'WordPress.com login required. Use /login to authenticate.' ) );
+				return 'continue';
+			}
+
+			ctx.ui.showProgress( __( 'Fetching your AI credits…' ) );
+			ctx.ui.setBusy( true );
+			// Independent endpoints, and neither is a gate on the other: the
+			// balance is worth printing when pricing is down, and the top-ups
+			// are worth offering when the balance can't be read.
+			const [ quota, pricing ] = await Promise.all( [
+				fetchStudioAssistantQuota( token.accessToken ),
+				fetchStudioAssistantTopUpPricing( token.accessToken ),
+			] );
+			ctx.ui.setBusy( false );
+
+			showCreditBalance( ctx, quota );
+
+			// Whatever the store priced for this account, in whatever number.
+			// With no pricing at all the fixed top-up still checks out, so it
+			// stands in rather than leaving the user with nothing to pick.
+			const options = pricing?.options ?? [];
+			const choices: { label: string; description: string; credits?: number }[] = options.length
+				? options.map( ( option ) => ( {
+						label: formatTopUpOptionCreditsLabel( option ),
+						description: option.display,
+						credits: option.credits,
+				  } ) )
+				: [
+						{
+							label: __( 'Add AI credits' ),
+							description: __( 'Pricing unavailable — opens WordPress.com checkout' ),
+						},
+				  ];
+
+			try {
+				const answer = await ctx.ui.askUser( [
+					{
+						question: __( 'Select a top-up to buy' ),
+						options: choices.map( ( { label, description } ) => ( { label, description } ) ),
+					},
+				] );
+				const selectedLabel = Object.values( answer )[ 0 ] as string;
+				const choice = choices.find( ( candidate ) => candidate.label === selectedLabel );
+				if ( ! choice ) {
+					ctx.ui.showInfo( __( 'No top-up selected.' ) );
+					return 'continue';
+				}
+
+				// The terminal has nothing for checkout to return to, so the URL
+				// carries no `wp-studio://` return parameters.
+				const url = getAddAiCreditsUrl( { returnsToDesktop: false, credits: choice.credits } );
+				await openBrowser( url );
+				// The terminal can't render a link, so the URL goes on its own
+				// line, as-is — it stays copyable and most terminals auto-link it.
+				ctx.ui.showInfo(
+					__( 'Opening WordPress.com checkout. If your browser didn’t open, use the link below:' )
+				);
+				ctx.ui.showInfo( url );
+			} catch ( error ) {
+				ctx.ui.setBusy( false );
+				if ( isPromptAbortError( error ) ) {
+					ctx.ui.showInfo( __( 'Canceled.' ) );
+					return 'continue';
+				}
+				ctx.ui.showError( __( 'Failed to open WordPress.com checkout.' ) );
+			}
 			return 'continue';
 		},
 	},

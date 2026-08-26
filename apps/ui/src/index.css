@@ -1,0 +1,372 @@
+/* Vazirmatn (SIL OFL, see ./fonts/OFL.txt) — the macOS system font lacks
+   Central Kurdish glyphs (e.g. ێ ۆ ڵ). Applied to the ckb locale below. */
+@font-face {
+	font-family: 'Vazirmatn';
+	src: url( './fonts/Vazirmatn-Variable.woff2' ) format( 'woff2' );
+	font-weight: 100 900;
+	font-style: normal;
+	font-display: swap;
+}
+
+:root {
+	/* Default is 2px; 4px reads a bit softer. */
+	--wpds-border-radius-sm: 4px;
+
+	/* Overlay stacking — portals mount into `document.body` and must beat
+	   app-chrome stacking contexts (sidebar header z-index: 1, floating
+	   toggle z-index: 30). Menus stay below modal surfaces; tooltips live
+	   above dialogs so help text on controls inside a modal still surfaces
+	   above the containing overlay. */
+	--wp-ui-dialog-z-index: 700;
+	--wp-ui-select-z-index: 750;
+	--wp-ui-tooltip-z-index: 800;
+
+	/* Vivid status colors the wpds palette lacks: --wpds-color-fg-content-success
+	   resolves to #002900 (reads black at dot size) and there are no
+	   caution/accent equivalents. */
+	--studio-color-status-running: #16a34a;
+	--studio-color-status-transitioning: #a16207;
+	--studio-color-status-attention: #facc15;
+	--studio-color-status-sync: #a855f7;
+}
+
+body {
+	margin: 0;
+	padding: 0;
+	font-family: var( --wpds-typography-font-family-body );
+	font-size: var( --wpds-typography-font-size-md );
+	line-height: var( --wpds-typography-line-height-md );
+	background-color: var( --wpds-color-bg-surface-neutral );
+	color: var( --wpds-color-fg-content-neutral );
+	color-scheme: light dark;
+	scrollbar-width: thin;
+	scrollbar-color: gray transparent;
+}
+
+/* Overriding the font-family tokens covers everything themed by the design
+   system; `lang` is set on bootstrap in lib/apply-locale.ts. */
+:root:lang( ckb ) {
+	--wpds-typography-font-family-body: 'Vazirmatn', -apple-system, system-ui, 'Segoe UI', 'Roboto',
+		'Oxygen-Sans', 'Ubuntu', 'Cantarell', 'Helvetica Neue', sans-serif;
+	--wpds-typography-font-family-heading: 'Vazirmatn', -apple-system, system-ui, 'Segoe UI', 'Roboto',
+		'Oxygen-Sans', 'Ubuntu', 'Cantarell', 'Helvetica Neue', sans-serif;
+}
+
+/* @wordpress/components controls hardcode their own font-family at class
+   specificity, so the token override alone doesn't reach them. */
+body:lang( ckb ) input,
+body:lang( ckb ) textarea,
+body:lang( ckb ) select,
+body:lang( ckb ) button,
+body:lang( ckb ) [class*='components-'] {
+	font-family: var( --wpds-typography-font-family-body );
+}
+
+@media ( prefers-color-scheme: dark ) {
+	:root {
+		--wp-ui-tooltip-background-color: #fff;
+		--wp-ui-tooltip-color: #000;
+	}
+}
+
+/* @wordpress/components and @wordpress/dataviews render help text and field
+   descriptions with hardcoded light-mode colors that don't adapt to the
+   ThemeProvider's dark palette. Force them to the design-system's weak
+   foreground so they match the surrounding UI in both schemes. */
+.components-base-control__help,
+[class*='dataforms-layouts'] [class*='description'] {
+	color: var( --wpds-color-fg-content-neutral-weak ) !important;
+}
+
+/* Universal heading styles derived from the design system's font-size /
+   line-height ramp. Each level steps down one token (h1 = 2xl, h6 = xs),
+   keeping the rest of the type contract — family, weight, color, zero
+   margin — identical. Components can still override via their own class
+   where a specific context demands it, but bare `<h1>`…`<h6>` elements
+   pick up a consistent look for free. */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+	font-family: var( --wpds-typography-font-family-heading );
+	font-weight: var( --wpds-typography-font-weight-regular );
+	color: var( --wpds-color-fg-content-neutral );
+	margin: 0;
+}
+
+h1 {
+	font-size: var( --wpds-typography-font-size-2xl );
+	line-height: var( --wpds-typography-line-height-2xl );
+}
+
+h2 {
+	font-size: var( --wpds-typography-font-size-xl );
+	line-height: var( --wpds-typography-line-height-xl );
+}
+
+h3 {
+	font-size: var( --wpds-typography-font-size-lg );
+	line-height: var( --wpds-typography-line-height-lg );
+}
+
+h4 {
+	font-size: var( --wpds-typography-font-size-md );
+	line-height: var( --wpds-typography-line-height-md );
+}
+
+h5 {
+	font-size: var( --wpds-typography-font-size-sm );
+	line-height: var( --wpds-typography-line-height-sm );
+}
+
+h6 {
+	font-size: var( --wpds-typography-font-size-xs );
+	line-height: var( --wpds-typography-line-height-xs );
+}
+
+/* Interactive elements inside drag-region ancestors (title bars, section
+   headers) need to opt out so clicks and focus still land. Harmless where no
+   drag region is active. `[data-base-ui-portal] *` covers the @base-ui Menu
+   portal subtree — items render as divs, so we can't rely on the
+   button/link selectors. */
+button,
+a,
+input,
+textarea,
+[role='button'],
+[data-base-ui-portal],
+[data-base-ui-portal] * {
+	-webkit-app-region: no-drag;
+}
+
+/* Show the focus ring only on keyboard focus, overriding @wordpress/ui's
+   :focus-based outline. Unlayered CSS wins over WP UI's cascade layers.
+   `a` covers Button primitives rendered as links via its `render` prop.
+   Also revert the background/border shift @wordpress/ui's Button applies on
+   `:focus` — when a Dialog auto-focuses a button on open, the "active" look
+   would otherwise show without any user intent. Leave `color` alone:
+   loading buttons rely on `color: transparent` to hide their label while
+   the spinner runs, and overriding that here would make the label visible
+   again. */
+button:focus:not( :focus-visible ),
+a:focus:not( :focus-visible ),
+[role='button']:focus:not( :focus-visible ) {
+	outline: none;
+	background-color: var( --wp-ui-button-background-color );
+	border-color: var( --wp-ui-button-border-color );
+}
+
+/* Same intent for @wordpress/components' CheckboxControl, which draws its ring
+   with a `:focus` box-shadow: an AlertDialog auto-focuses the first tabbable
+   control on open, so the checkbox would light up before the user touches
+   anything. Its companion transparent outline (a forced-colors affordance) has
+   to go too — Chrome counts it as scrollable overflow, which is enough to make
+   a dialog body scroll and grow a separator. */
+input[type='checkbox']:focus:not( :focus-visible ) {
+	box-shadow: none;
+	outline: none;
+}
+
+/* @wordpress/ui's AlertDialog footer stacks an actions row and an optional
+   error message in a column, and relies on its own `align-items: stretch`
+   beating the shared overlay `.footer` row rule — same specificity, same
+   cascade layer, so whichever stylesheet lands last wins. Vite's dev server
+   injects them in the opposite order to the production bundle, leaving the
+   action buttons shrink-wrapped and centered instead of pinned to the inline
+   end. Restore the intended layout regardless of injection order. */
+[data-wp-ui-overlay-modal] [class*='__footer-column'] {
+	align-items: stretch;
+}
+
+/* @wordpress/ui's `AlertDialog.Popup` hardcodes its Cancel button as
+   `variant="minimal"` with no way to pass `tone`, so it defaults to brand —
+   a blue-tinted "secondary" button style the app doesn't use anywhere else:
+   every other Cancel/Back/Close in the app explicitly passes
+   `tone="neutral"`. `role="alertdialog"` is set by Base UI itself (vs.
+   `role="dialog"` for the plain `Dialog`), so this only reaches the two
+   AlertDialog Cancel buttons — matching values already used by
+   `tone="neutral"` `variant="minimal"` elsewhere. */
+[role='alertdialog'] button:first-child {
+	--wp-ui-button-background-color: var( --wpds-color-bg-interactive-neutral-weak );
+	--wp-ui-button-background-color-active: var( --wpds-color-bg-interactive-neutral-weak-active );
+	--wp-ui-button-background-color-disabled: var( --wpds-color-bg-interactive-neutral-weak-disabled );
+	--wp-ui-button-foreground-color: var( --wpds-color-fg-interactive-neutral );
+	--wp-ui-button-foreground-color-active: var( --wpds-color-fg-interactive-neutral-active );
+	--wp-ui-button-foreground-color-disabled: var( --wpds-color-fg-interactive-neutral-disabled );
+}
+
+/* @wordpress/ui's Button loading spinner centers itself with
+   `inset-inline-start: 50%` (direction-aware) plus a `transform:
+   translate(-50%, -50%)` baked into its spin keyframes — the translate half
+   is a physical shift, not a direction-aware one. In LTR the two agree; in
+   RTL they fight, landing the spinner a full diameter left of center.
+   Recenter the horizontal axis with `margin-inline-start` instead, which
+   does flip with direction, and point the animation at our own keyframes
+   that only rotate and recenter the (direction-safe) vertical axis. */
+[class*='__button']::before {
+	margin-inline-start: calc( var( --wp-ui-button-font-size ) * -0.5 );
+	transform: translateY( -50% );
+}
+
+@media not ( prefers-reduced-motion ) {
+	[class*='__is-loading']::before {
+		animation-name: studio-button-spin;
+	}
+}
+
+@keyframes studio-button-spin {
+	from {
+		transform: translateY( -50% ) rotate( 0deg );
+	}
+
+	to {
+		transform: translateY( -50% ) rotate( 360deg );
+	}
+}
+
+/* Compact density: shrink icons to match the tighter spacing tokens.
+   @wordpress/icons draws SVGs at 24x24 by default; the theme's compact
+   density only shrinks padding/gap tokens, not icon sizes. Override the
+   svg width/height attributes with CSS until the design system exposes
+   a density-aware icon token. Ideally this lives in ThemeProvider. */
+[data-wpds-density='compact'] [data-ui-mode='classic'] svg {
+	width: 16px;
+	height: 16px;
+}
+
+[data-wpds-density='compact'] [data-ui-mode='classic'] svg[data-keep-size] {
+	width: auto;
+	height: auto;
+}
+
+/* @wordpress/ui SelectControl and Autocomplete popup items use the brand
+   weak-active fill for highlighted rows. In Studio's dark chrome that reads
+   too saturated; the selected item is already indicated with a checkmark, so
+   use the neutral interactive highlight instead. */
+[data-wpds-theme-provider-id] [role='listbox'] [role='option'][data-highlighted]:not(
+		[aria-disabled='true']
+	) {
+	background-color: var( --wpds-color-bg-interactive-neutral-weak-active );
+	color: var( --wpds-color-fg-interactive-neutral );
+}
+
+/* @wordpress/components' ComboboxControl (used by DataForm's adaptive
+   picker once a field has 10+ elements) leaves its wrapper without a
+   background, so the body surface bleeds through around the inner input
+   and suggestion rows. Force both to the same background the input
+   itself uses so the control reads as one solid field. */
+.components-combobox-control__suggestions-container,
+.components-form-token-field__suggestions-list {
+	background-color: var( --wp-components-color-background, #fff );
+}
+
+.components-input-control__prefix svg,
+.components-input-control__suffix svg {
+	fill: var( --wpds-color-fg-content-neutral-weak );
+}
+
+select option {
+	background-color: var( --wpds-color-bg-surface-neutral );
+	color: var( --wpds-color-fg-content-neutral );
+}
+
+/* @wordpress/components ships its RTL fixups in a separate style-rtl.css
+   that this app doesn't load, so its physical checkbox margins put the
+   label gap on the wrong side in RTL and shift the input over the label.
+   Mirror them here. */
+.components-checkbox-control__input-container:dir( rtl ) {
+	margin-right: 0;
+	margin-left: var( --checkbox-input-margin );
+}
+
+.components-checkbox-control__input[type='checkbox']:dir( rtl ) {
+	margin-right: 0;
+	margin-left: 4px;
+}
+
+/* Honor the user's reduced-motion preference across the entire app. Class-
+   scoped transitions out-specify a `*`-targeted rule, so `!important` is
+   needed to clamp them. Components that genuinely need to keep motion can
+   re-enable it with a more specific `!important` rule inside the same
+   media query. */
+@media ( prefers-reduced-motion: reduce ) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+		scroll-behavior: auto !important;
+	}
+}
+
+/* Honor the user's reduced-transparency preference (macOS: Accessibility →
+   Display → Reduce transparency), and degrade the same way where
+   `backdrop-filter` isn't supported at all.
+
+   Blur is structural in this app, not decoration: headers, footers, scrims
+   and the composer rely on it to obscure the content scrolling underneath
+   them. Dropping the blur without painting the surface would leave text
+   stacked on text, so both are handled together — `--surface-alpha` is the
+   lever. Translucent surfaces mix their fill with
+   `var( --surface-alpha, <their own resting alpha> )`, so forcing it to 100%
+   here turns every one of them opaque while leaving the resting design
+   untouched everywhere else. */
+@media ( prefers-reduced-transparency: reduce ) {
+	:root {
+		--surface-alpha: 100%;
+	}
+
+	/* Class-scoped rules out-specify a `*`-targeted rule, hence `!important`
+	   — same reasoning as the reduced-motion block above. */
+	*,
+	*::before,
+	*::after {
+		-webkit-backdrop-filter: none !important;
+		backdrop-filter: none !important;
+	}
+}
+
+@supports not ( backdrop-filter: blur( 1px ) ) {
+	:root {
+		--surface-alpha: 100%;
+	}
+}
+
+html:active-view-transition-type(theme-details)::view-transition-old(root),
+html:active-view-transition-type(theme-details)::view-transition-new(root) {
+	animation: none;
+	mix-blend-mode: normal;
+}
+
+html:active-view-transition-type(theme-details)::view-transition-group(studio-theme-shortcuts),
+html:active-view-transition-type(theme-details)::view-transition-group(studio-theme-open-in),
+html:active-view-transition-type(theme-details)::view-transition-group(studio-theme-manage),
+html:active-view-transition-type(theme-details)::view-transition-group(.studio-theme-shortcut) {
+	animation-duration: 220ms;
+	animation-timing-function: cubic-bezier( 0.2, 0, 0, 1 );
+}
+
+html:active-view-transition-type(theme-details)::view-transition-old(.studio-theme-shortcut) {
+	animation: studio-theme-shortcut-out 140ms ease-in both;
+}
+
+html:active-view-transition-type(theme-details)::view-transition-new(.studio-theme-shortcut) {
+	animation: studio-theme-shortcut-in 180ms 40ms ease-out both;
+}
+
+@keyframes studio-theme-shortcut-out {
+	to {
+		opacity: 0;
+		transform: scale( 0.96 );
+	}
+}
+
+@keyframes studio-theme-shortcut-in {
+	from {
+		opacity: 0;
+		transform: scale( 0.96 );
+	}
+}

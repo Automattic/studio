@@ -1,0 +1,20 @@
+diff --git a/node_modules/electron2appx/bin/windowsstore.js b/node_modules/electron2appx/bin/windowsstore.js
+old mode 100755
+new mode 100644
+diff --git a/node_modules/electron2appx/lib/convert.js b/node_modules/electron2appx/lib/convert.js
+index cede0e7..87f951a 100644
+--- a/node_modules/electron2appx/lib/convert.js
++++ b/node_modules/electron2appx/lib/convert.js
+@@ -137,6 +137,12 @@ async function convertWithFileCopy (program) {
+   result = result.replace(/\${packageDescription}/g, program.packageDescription || program.packageName)
+   result = result.replace(/\${packageBackgroundColor}/g, program.packageBackgroundColor || 'transparent')
+ 
++  // Replace ProcessorArchitecture based on FILE_ARCHITECTURE env var (x64, arm64, etc.)
++  const architecture = process.env.FILE_ARCHITECTURE || 'x64'
++  if (architecture !== 'x64') {
++    result = result.replace(/ProcessorArchitecture="x64"/g, `ProcessorArchitecture="${architecture}"`)
++  }
++
+   await fs.writeFile(manifest, result, 'utf8')
+ }
+ 

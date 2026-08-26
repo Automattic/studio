@@ -1,5 +1,5 @@
+import { getSyncSupport } from '@studio/common/lib/sync/sync-support';
 import { vi } from 'vitest';
-import { getSyncSupport } from 'src/modules/sync/lib/sync-support';
 
 // Mocks for site shapes
 const baseSite = {
@@ -10,7 +10,7 @@ const baseSite = {
 	jetpack: false,
 	is_deleted: false,
 	hosting_provider_guess: undefined,
-	options: { created_at: '2020-01-01', wpcom_staging_blog_ids: [] },
+	options: { created_at: '2020-01-01', wpcom_staging_blog_ids: [], software_version: '6.9.4' },
 	capabilities: { manage_options: true },
 	plan: {
 		expired: false,

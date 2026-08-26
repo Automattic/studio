@@ -1,9 +1,13 @@
 import fs from 'fs';
+import { deleteAiSessionsForSite } from '@studio/common/ai/sessions/manage';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
+import { removeAllConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
 import { readAuthToken, type StoredAuthToken } from '@studio/common/lib/shared-config';
+import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n, sprintf } from '@wordpress/i18n';
+import trash from 'trash';
 import { deleteSnapshot } from 'cli/lib/api';
 import { deleteSiteCertificate } from 'cli/lib/certificate-manager';
 import {
@@ -15,15 +19,21 @@ import {
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import { removeDomainFromHosts } from 'cli/lib/hosts-file';
+import { withSiteOperation } from 'cli/lib/site-operations';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { getSnapshotsFromConfig, deleteSnapshotFromConfig } from 'cli/lib/snapshots';
+import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
-const logger = new Logger< LoggerAction >();
+const defaultLogger = new Logger< LoggerAction >();
 
-async function deletePreviewSites( authToken: StoredAuthToken, siteFolder: string ) {
+async function deletePreviewSites(
+	authToken: StoredAuthToken,
+	siteFolder: string,
+	logger: Logger< LoggerAction >
+) {
 	try {
 		const snapshots = await getSnapshotsFromConfig( authToken.id, siteFolder );
 
@@ -63,7 +73,18 @@ async function deletePreviewSites( authToken: StoredAuthToken, siteFolder: strin
 
 export async function runCommand(
 	siteFolder: string,
-	deleteFiles: boolean = false
+	deleteFiles: boolean = true,
+	logger: Logger< LoggerAction > = defaultLogger
+): Promise< void > {
+	return withSiteOperation( siteFolder, 'delete', () =>
+		deleteSite( siteFolder, deleteFiles, logger )
+	);
+}
+
+async function deleteSite(
+	siteFolder: string,
+	deleteFiles: boolean,
+	logger: Logger< LoggerAction >
 ): Promise< void > {
 	try {
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
@@ -99,7 +120,7 @@ export async function runCommand(
 
 		const authToken = await readAuthToken();
 		if ( authToken ) {
-			await deletePreviewSites( authToken, siteFolder );
+			await deletePreviewSites( authToken, siteFolder, logger );
 		}
 
 		try {
@@ -115,14 +136,41 @@ export async function runCommand(
 			await unlockCliConfig();
 		}
 
+		try {
+			await removeAllConnectedWpcomSitesForLocalSite( site.id );
+		} catch ( error ) {
+			logger.reportError(
+				new LoggerError(
+					__( 'Failed to remove WordPress.com connections. Proceeding anyway…' ),
+					error
+				),
+				false
+			);
+		}
+
+		try {
+			await deleteAiSessionsForSite( getSessionsDirectory(), {
+				id: site.id,
+				path: site.path,
+			} );
+		} catch ( error ) {
+			logger.reportError(
+				new LoggerError( __( 'Failed to delete chat sessions. Proceeding anyway…' ), error ),
+				false
+			);
+		}
+
 		if ( deleteFiles ) {
-			if ( fs.existsSync( siteFolder ) ) {
+			// Imported sites have both a visible site directory and a
+			// hidden technical directory under ~/.studio/imports; delete
+			// both if they exist.
+			const deleteTargets = [ siteFolder, site.technicalSiteDirectory ].filter(
+				( value ): value is string => typeof value === 'string' && fs.existsSync( value )
+			);
+
+			if ( deleteTargets.length > 0 ) {
 				logger.reportStart( LoggerAction.DELETE_FILES, __( 'Moving site files to trash…' ) );
-				// We configure `trash` as an external module, since it includes a native macOS binary that Vite
-				// inlines as a base64 string, which produces a runtime error. Since `trash` is also an ESM-only
-				// module, we need to import it dynamically (since Rollup doesn't get a chance to process it)
-				const trash = ( await import( 'trash' ) ).default;
-				await trash( siteFolder );
+				await trash( deleteTargets );
 				logger.reportSuccess( __( 'Site files moved to trash' ) );
 			} else {
 				logger.reportSuccess( __( 'Site files already removed' ) );
@@ -130,6 +178,18 @@ export async function runCommand(
 		}
 
 		await emitCliEvent( { event: SITE_EVENTS.DELETED, data: { siteId: site.id } } );
+
+		// Tracks: the CLI is the sole emitter of site-delete, whether deleted standalone or by the
+		// desktop app (which delegates to `site delete` and passes its origin via STUDIO_TRACKS_ORIGIN).
+		// Best-effort — wrapped so telemetry can never fail a delete.
+		try {
+			await recordTracksEvent( TRACKS_EVENTS.SITE_DELETE, {
+				...getTracksOrigin(),
+				delete_files: deleteFiles,
+			} );
+		} catch {
+			// Best-effort telemetry — never block or fail a delete.
+		}
 	} finally {
 		await disconnectFromDaemon();
 	}
@@ -142,8 +202,8 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		builder: ( yargs ) => {
 			return yargs.option( 'files', {
 				type: 'boolean',
-				description: __( 'Also move site files to trash' ),
-				default: false,
+				description: __( 'Move site files to trash (use --no-files to keep files)' ),
+				default: true,
 			} );
 		},
 		handler: async ( argv ) => {
@@ -151,10 +211,10 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				await runCommand( argv.path, argv.files );
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {
-					logger.reportError( error );
+					defaultLogger.reportError( error );
 				} else {
 					const loggerError = new LoggerError( __( 'Failed to delete site' ), error );
-					logger.reportError( loggerError );
+					defaultLogger.reportError( loggerError );
 				}
 			}
 		},

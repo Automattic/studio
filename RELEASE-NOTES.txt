@@ -1,6 +1,265 @@
 Unreleased
 ==========
 
+1.19.0
+=====
+* Introduced AI credits in Studio Code: you can now purchase AI credits for your sessions. Your remaining balance now shows in the composer, in Usage settings, and in Studio Classic settings. You get a clear message and a working top-up link when you run out, and the balance refreshes as soon as you return from topping up #4604, #4602, #4636, #4609, #4619, #4628, #4639, #4624
+* Added hosted AI models — Kimi, GLM and DeepSeek — available through the WordPress.com proxy #4529
+* Studio Code: Improved generated themes with a content width and horizontal gutter, a registered no-title page template so designed pages no longer repeat their title, and slideshow and gallery builds steered to Jetpack blocks #4571, #4576, #4610
+* Misc Agentic UI improvements #4468, #4526, #4537, #4538, #4558, #4560, #4561, #4568, #4569, #4570, #4572, #4575, #4578, #4586, #4591, #4598, #4607, #4608, #4621, #4623, #4626
+* Improved Studio analytics #4535
+* Updated multiple dependencies, including Electron and the ESLint, Vite, testing and Ruby groups #4547, #4631, #4548, #4633, #4549, #4632, #4566, #4661, #4546, #4629, #4630
+* Misc and maintenance improvements #4531, #4654, #4581, #4600, #4665
+
+1.18.0
+=====
+* Made the Agentic UI the default experience for new users, removed its feature flag, and added a Beta menu to the sidebar #4389, #4485
+* Agentic UI: Reworked the new-user onboarding with a first-run orientation guide and a "What's New" view #4413, #4331, #4414, #4501
+* Agentic UI: Rebuilt the site preview with a new address bar and omnibox, live page and post search, responsive preview modes, and a full preview panel with Desktop + Mobile comparison #4366, #4367, #4373, #4368, #4423, #4364, #4527
+* Agentic UI: Brought over the remaining site workflows from the classic UI — the site overview, backup import, Open in actions, connecting a WordPress.com site, selective sync, and cancelling an in-flight push or pull #4470, #4473, #4500, #4469, #4365, #4307, #4305, #4377, #4510, #4522, #4461, #4350
+* Agentic UI: Added multi-note annotation sessions and support for your own Anthropic API key, selectable per conversation from the model menu #4521, #4460, #4455, #4503, #4550
+* Agentic UI: Polished chat, settings and the create-site flow, improved RTL and reduced-transparency support, and fixed a range of preview, layout and interaction issues #4328, #4509, #4459, #4530, #4408, #4291, #4339, #4497, #4354, #4433, #4391, #4528, #4341, #4499, #4388, #4442, #4370, #4505, #4519, #4329, #4337, #4335, #4359, #4520, #4334, #4338, #4380, #4498, #4362, #4443, #4421, #4453, #4332, #4361
+* Studio Code: Replaced Opus 4.8 with Opus 5, surfaced the payment-method requirement before the first prompt, and showed a clear notice when AI is disabled or the account is blocked #4342, #4422, #4386, #4463, #4493
+* Studio Code: Fixed a 400 error when using a direct Anthropic API key, validated the key in the api-key and provider CLI commands, and sent a custom user agent on AI requests #4480, #4504, #4437
+* Improved analytics across the app #4162, #4532, #4464, #4490, #4482, #4434, #4506, #4457, #4420, #4395, #4418, #4358
+* Made site startup and creation more resilient: a site with a fatal PHP error now starts and shows the error, a failed Blueprint reports the real reason instead of the PHP exit code, and a failed creation no longer leaves a ghost site behind #4246, #4487, #4489
+* Fixed sites getting into a broken state when two operations ran at once, such as starting a site while it was still stopping #4406
+* Fixed a stuck Start/Stop indicator and the inverted play/pause glyphs on the site status toggle #4253, #4374
+* Fixed site URLs not updating on native PHP imports and an ENAMETOOLONG error from open_basedir, raised max_execution_time, and dropped Blueprint features the native runner cannot accept #4454, #4432, #4274, #4488
+* Added Spotlight keywords for improved discoverability, and dropped the restart popup when an update is ready #3255, #4405
+* Updated the bundled PHP binaries and the SQLite database integration to v3.0.0-rc.8 #4438, #4440, #4439, #4436, #4417
+* Updated multiple dependencies, including WP Playground, Electron and the pi (agent) packages, resolving several security alerts #4230, #4327, #4357, #4383, #4384, #4428, #4416
+* Misc and maintenance improvements #4456, #4375, #4431, #4491, #4313, #4379, #4378, #4340, #4394, #4393, #4372, #4399, #4419, #4290, #4472, #4336, #4492, #4481, #4507, #4512, #4396, #4330, #4324, #4371
+
+1.17.0
+=====
+* Added support for importing WordPress export (WXR/.xml) files #4046
+* Agentic UI: Redesigned application settings as an auto-saving fullscreen overlay with new tabs — Account, AI, MCP, Skills, Usage, Keyboard shortcuts, Studio CLI — plus a default site directory preference #4297, #4219, #4270, #4295, #4264, #4271, #4286, #4277, #4302, #4275, #4278
+* Agentic UI: Added a site overview view, site creation from imports, suggested starter prompts, persistent update notifications, and an Xdebug indicator for Xdebug-enabled sites #4258, #4249, #4225, #4204, #4285
+* Agentic UI: Improved continuity between sessions — returning to the last visited site, remembering the preview path per site — and defined the signed-out and offline experiences #4130, #4281, #4183, #4232
+* Agentic UI: Separated the agentic features toggle from the classic UI switcher, and removed the theme toggle from the sidebar user menu #4312, #4263
+* Agentic UI: Fixed expired previews, chat input resizing, preview button sizing, the collapsed sidebar overlapping the chat history icon, and made the WordPress version field a dropdown in site settings #4298, #4301, #4303, #4280, #4284
+* Agentic UI: Brought over the Wapuu World easter egg #4299
+* Studio Code: Added a global instructions config for the agent #4255
+* Studio Code: Surfaced monthly AI usage limit errors across all surfaces #4310
+* Studio Code: Made the agent aware of theme asset bundling #4262
+* Deleted AI chat sessions when their site is deleted, continuing cleanup even if one session fails #4132, #4292
+* CLI: Added aliases for the help, version and path commands, and made `studio ui` work in release builds #4276, #4257
+* Hardened security: fixed path injection in path comparison, ReDoS in the mu-plugins loader, and HTML sanitization in AI tool result previews; restricted local imports to registered uploads and scoped CLI preview listings to the authenticated user #4267, #4254, #4260, #4308, #4252
+* Updated multiple dependencies, including Electron, Sentry, tar and shell-quote, resolving security alerts for esbuild and brace-expansion #4319, #4241, #4242, #4266, #4268, #4294
+* Misc and maintenance improvements #4272, #4293, #4279, #4289, #4300, #4234, #4282, #4229
+
+1.16.0
+=====
+* Introduced Agentic UI, a new beta interface for the app, available behind a feature flag #4163, #4200, #4191, #4134, #4092, #4133, #4203, #4166, #4148, #4156, #4155, #4157, #4145, #4174, #4159, #4172, #4207
+* Studio Code: Added a button to copy the full assistant message #4113
+* Studio Code: Added opportunity to paste an image anywhere in the view #4208
+* Studio Code: Added a recovery action to the Session not found state #4243
+* Studio Code: Refreshed the composer placeholder copy #4149
+* Studio Code: Added support for creating new blank or child themes #4209
+* Studio Code: Fixed showing an error when the max token limit is reached #4077
+* Studio Code: Fixed AskUserQuestion to support multiline input #4119
+* Studio Code: Replaced GPT 5.5 with GPT 5.6 Sol and routed OpenAI models through the Responses API #4190
+* Studio Code: Fixed headless runs not exiting after the turn completed #4175
+* Studio Code: Made data-liberation flows more reliable with consistent AI wording, bundled driver scripts so skills work as installed plugins, and fixed the data-liberation scripts #4122, #4126, #4201
+* Fixed sites showing offline after import #4106
+* Fixed plugin reinstall failure after deletion in the Sandbox runtime #4044
+* Fixed the macOS Trust Certificate button being hidden for untrusted CAs #4223
+* Fixed native PHP sites not picking up updated Studio mu-plugins #4196
+* Disabled Jetpack Stats for local sites #4035
+* Simplified the "What to do with running sites" dialog shown when quitting Studio #4140
+* Improved CLI sync error messages for sites that can't be synced #4202
+* Added Linux to the bug report Platform field and split out Architecture #4224
+* Misc and maintenance improvements #4235, #4128, #4131, #4187, #4129, #4168, #4199, #4227, #4233
+
+1.15.0
+=====
+* Fixed Xdebug not starting on a normal page load on the native PHP runtime #4086
+* Added skipping dangling symlinks when archiving site content #4038
+* Studio Code: Screenshots taken by the assistant now appear inline in the conversation, and the agent can capture pages in light or dark mode #3982, #4097
+* Studio Code: Allowed editing your last message after interrupting the assistant #4094, #4123
+* Studio Code: Improved the /liberate command for recreating sites from other platforms, including surfacing it when searching for "migrate" #4095, #4110, #4111
+* Studio Code: Fixed the agent seeing running local sites as stopped when resuming a session, avoiding redundant site starts #4096
+* Update native PHP binaries to latest versions to fix SQLite issue #4118, #4141, #4142, #4143, #4144
+* Allowed more time for AI-powered plugins to receive a response before timing out #3120
+* Improved an error message when a site is in maintenance mode #3948
+* Improved CLI slash-command autocomplete with alphabetical sorting and match highlighting #4116, #4120
+* Stopped showing the What's New modal automatically on app updates #4117
+* Misc CLI and maintenance improvements #4089, #4108, #4109, #4011, #4000, #4032
+
+1.14.0
+=====
+* Fixed a fatal Windows issue where native PHP sites failed to run when the username was longer than 8 characters #4082
+* Studio Code: Added a /liberate command to recreate sites from other platforms (e.g. Wix) as WordPress #3940
+* Studio Code: Added a /publish command to push local sites to WordPress.com #4043
+* Studio Code: Updated the assistant's available model to Sonnet 5 #4024
+* Studio Code: Agent file edits now show as proper line-by-line diffs in the CLI and desktop assistant #4076
+* Studio Code: Improved plugin recommendations for Automattic products, and tuned agent behavior for native PHP vs Playground sites #4023, #3995
+* Studio Code: Fixed an unwanted gap in block themes scaffolded by the assistant #4053
+* Fixed an issue where Pressable sites were marked unsupported on the Sync tab #4078
+* Fixed recreating missing db.php drop-ins and preserving custom SQLite drop-ins #3993
+* Fixed occasional failures when duplicating a site #4074
+* Fixed broken Central Kurdish (Sorani) text on macOS by bundling the Vazirmatn font #4062
+* Updated multiple dependencies, including WP Playground and PHP-WASM, the SQLite database integration, and the pi (agent) packages #4015, #4033, #4073
+
+1.13.0
+=====
+* Fixed PHP error (code: 3221225781) by updating native PHP packages to include necessary Windows DLLs #4042, #4045, #4050, #4055, #4049
+* Added sidebar toggle keyboard shortcut (Cmd+B on macOS and Ctrl+B on Windows/Linux) #3960
+* Differentiated preview sites from connected WordPress.com remote sites #3677
+* Improved attachment handling in the Studio Code composer #3925
+* Added copy button and selectable text to agent code blocks #3963
+* Tweaked system prompt to mention database #3957
+* Documented SQLite-to-MySQL migration path in STUDIO.md and publishing to supported hostings #3984
+* Handle 413 push failures gracefully in Studio sync #3973
+* Fixed transparent active state on attachment delete button in composer #3962
+* Skip persisted tool_progress entries during session replay #3909
+* Added hosting-plans-helper skill for plan and pricing answers #4010
+* Fixed Studio Code annotate closing message that always referenced the CLI #4020
+* Removed noop menu items from topbar context menu #4031
+
+1.12.0
+=====
+* Introduced PHP runtime and File Access options, and improved the native PHP runtime: fixed WP-CLI tool calls, asset loading for sites with a remote site URL, and blueprint creation from read-only directories, and made pull-reprint work with native PHP #3786, #3926, #3915, #3847, #3988, #3889, #3881
+* Improved Studio Code: content is checked before it is applied to your site, ecommerce sites are set up more reliably, and push/pull prompts are clearer. Tool calls are easier to follow with descriptions and a detail panel, remote sign-in shows a copyable login link, multiple-choice questions appear as clickable buttons, visual annotations install their browser automatically on first use, and available models were updated #3753, #3874, #3875, #3903, #3904, #3900, #3868, #3833, #3841, #3827, #3828
+* Added assistant usage limits in Settings with clearer limit messaging, and made it clearer which settings apply to a site vs the whole app #3843, #3831, #3886
+* Made the standalone Studio CLI easier to install and use: one-command install and updates from the web, a clean uninstall option, shorter commands for everyday site tasks, and new terminal commands to view and change site settings #3064, #3835, #3974, #3884
+* Improved pull-reprint: choose a site from a searchable list when you have several connected sites, and re-running the command now syncs remote changes to your local copy #3729, #3768
+* Added a Kurdish (Sorani) locale and improved locale handling #3873, #3214, #3776
+* Renamed "Copy site" to "Duplicate site" #3759
+* Improved performance and packaging: faster packaging builds, smaller installers, a higher PHP memory limit, and a cap on simultaneously running sites #3785, #3943, #3936, #3887
+* Fixed dark mode across Studio Code dialogs, the site preview panel, and theming, and allowed conversation text to be selected and copied #3844, #3779, #3871, #3836
+* Fixed a startup crash on Node.js 22, surfaced PHP errors when a site fails to start, resolved slow .local DNS on macOS, preserved in-progress messages in Studio Code, and restored the recorded model when resuming a session by id #3885, #3813, #3912, #3824, #3819
+* Fixed tooltip delay so tooltips do not pop up instantly when moving the cursor #3942
+* Clarified Sync and quit-sites messaging, and fixed What's New modal copy #3929, #3837, #3924, #3946
+* Misc maintenance #3849
+* Updated multiple dependencies, including WP Playground, PHP-WASM, bundled PHP binaries, the SQLite database integration, and Reprint
+
+1.11.0
+=====
+* Made Studio Code the default in the Studio app, replacing the previous Studio Assistant tab #3696, #3709, #3725, #3733, #3741
+* Improved site status check for json format #3485
+* Improved context for errors that bubble up from wordpress-server-child #3477
+* Fixed multiple issues with the Dark theme for Studio Code #3744, #3745
+* Fixed CLI symlink updates after Studio app update #3713
+* Adjusted error display when backup status response is unexpected #3702
+* Improved onboarding ToS/Privacy notices above the login CTA #3764
+* Added one-time ToS/Privacy disclaimer in Studio CLI and Studio Code #3763
+* Updated multiple dependencies, including WordPress packages and React
+
+1.10.0
+=====
+* Released remote-session as beta-feature #3406, #3513, #3450
+* Added native PHP runtime support as a beta-feature to improve performance #3403, #3405, #3439, #3471, #3491, #3530, #3529, #3533, #3426, #3551, #3456, #3554, #3652, #3602
+* Added CLI support for the Blueprints Gallery and improved the Add Site flow #3442, #3407, #3448, #3503
+* Added Linux beta builds, in-app update support, and improved certificate trust handling #3464, #3501, #3465, #3472, #3506
+* Preserved custom db.php drop-ins when updating Studio's SQLite integration #3095
+* Updated multiple dependencies, including WP Playground, PHP-Wasm, WordPress packages and React
+
+1.9.0
+=====
+* Introduced the Blueprints Gallery #3384, #3400, #3402
+* Shared connected WordPress.com sites between the Studio app and CLI #3227
+* Improved Studio Code remote sessions #3315, #3300, #3347, #3366, #3365
+* Added GPT 5.5 support and a scaffold_theme tool for the CLI agent #3328, #3348
+* Improved Studio Code agent reliability #3330, #3337, #3352, #3351
+* Fixed several Studio UI, Blueprint upload, and site creation issues #3356, #3317, #3316, #3372, #3422
+* Always ask before stopping running sites when quitting Studio #3350
+* Improved Linux packaging and installer size #3335, #3364, #3371
+* Updated multiple dependencies, including WordPress packages, WP Playground, and PHP-WASM
+
+1.8.2 (CLI only)
+=====
+* Fixed an issue where multiple CLI progress line showed up in Studio Code #3286
+* Added Wapuu platformer easter egg #3270
+* Silenced noisy ENOENT CLI log messages when daemon socket is absent #3322
+* Updated multiple dependencies, including WP Playground, PHP-WASM, and Electron
+
+1.8.1 (CLI only)
+=====
+* Added Telegram remote-session bridge for studio code (PoC) #3196
+* Added /annotate skill with Studio inspector #3243
+* Added toolbar annotations to the site preview #3247
+* Removed Studio Code turn cap handling #3276
+* Switched Agent SDK to auto permission mode #3242
+* Flag HTML block misuse during validation #3267
+* Fixed AI CLI interrupt handling and immediate turn recovery #3263
+* Linux: support installing the Studio CLI #3269
+* Improved --format=json output when no sites are found #3220
+* Fixed WP-CLI post content parsing before porcelain flags #3264
+
+1.8.0
+=====
+* Added resizable sidebar #2853
+* Added .deployignore support for Sync to exclude files from pushes #2955
+* Added zip file support for bundled Blueprints #3089
+* Added /rank-me-up on-page SEO audit skill to Studio Code #3181
+* Added auto-install of Playwright Chromium for MCP tools #2942
+* Added --all flag to preview list command #3098
+* Misc Studio Code improvements #3102, #3195, #3199, #3159
+* Updated SQLite Database Integration to v3.0.0-rc.1 #3172
+* Fixed stale phpMyAdmin assets after Studio updates #3170
+* Fixed stale protocol handler registration on app boot #3114
+* Fixed path traversal vulnerability in .wpress extractor #3142 (reported independently by [flouciel](https://hackerone.com/flouciel) and [k4sperski](https://hackerone.com/k4sperski))
+* Fixed excessive word spacing on Linux caused by emoji-font fallback #3187
+* Fixed empty window on first `npm start` in a fresh workspace #3191
+* Updated multiple dependencies, including WP Playground and PHP-Wasm
+
+1.7.11 (CLI only)
+=====
+* Added PromptFoo evaluation framework for code agent #3031
+* Added log rotation for process manager children logs #3132
+* Renamed process manager home from .studio/pm2 to .studio/daemon #3143
+* Fixed Jetpack backup import using stale .ht.sqlite instead of SQL dumps #3144
+
+1.7.10 (CLI only)
+=====
+* Added Opus 4.7 support to code agent #3124
+* Queued follow-up prompts during an active agent turn #3146
+* Prompted user to retry on transient API errors in code agent #3130
+* Scaffolded new Studio Code UI behind ENABLE_STUDIO_CODE_UI feature flag #2870
+* Supported inline wpcom auth via STUDIO_WPCOM_TOKEN in code agent #3158
+* Truncated cwd in welcome header on narrow terminals #3134
+* Replaced chalk with util.styleText wrapper #3106
+* Updated default PHP version to 8.4 #3127
+* Updated @wp-playground/* and @php-wasm/* packages to 3.1.20 #3148
+
+1.7.9 (CLI only)
+=====
+* Showed compaction status in code agent UI #3101
+* Added /clear command to code agent #3062
+* Added --json flag for headless NDJSON output #3012
+* Showed real-time progress feedback during push/pull from code agent #3071
+* Added push/pull/import/export MCP tools for AI agents #3022
+* Sorted code agent commands and subcommands alphabetically #3027
+* Added hosting guidance to agent instructions #3111
+* Added update notifier #3096
+* Throttled dependency update checks to once per 24h #3100
+* Stopped runtime update checks for WP-CLI and sqlite-command #3086
+* Showed clear error for non-existent WordPress versions #3065
+* Enforced minimum node version #3049
+* Ensured Studio root exists before starting code agent #3039
+* Fixed 'Spinner is already running' error when creating sites via CLI #3093
+* Replaced ora with picospinner #3035
+* Added Blueprint landingPage property support #3107
+* Updated @wp-playground/* and @php-wasm/* packages to 3.1.19 #3083
+
+1.7.8
+=====
+* Released studio code command #3002
+* Added push/pull and import/export commands to the CLI #3010
+* Added .deployignore support for Preview Sites to exclude files from deploys #2924
+* Redesigned titlebar: window title, button sizing, offline indicator #2675
+* Improved rendering correct error and buttons when pull failed #2964
+* Fixed SSL certificate trust nudge on non-English Windows #2932
+* Fixed blueprint local resource resolution when creating sites from the app #2935
+* Fixed account settings button opening general tab instead of account #2930
+* Fixed site sort order not preserved across app restarts #2902
+* Misc minor improvements to CLI #3023, #3020, #2962, #2937, #2997, #2850. #2855, #2809
+* Misc smaller UI improvements #2965, #2991, #2987, #3001, #2959, #2988, #2980, #2894, #2943
+* Misc dark mode improvements #3003, #2966, #2885
+* Updated multiple dependencies, including WP Playground and PHP-Wasm
+
 1.7.7
 =====
 * Added dark mode support #2652 #2865 #2857 #2866

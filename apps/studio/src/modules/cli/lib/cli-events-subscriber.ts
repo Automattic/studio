@@ -13,13 +13,48 @@ import { captureSiteThumbnail } from 'src/lib/capture-site-thumbnail';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import { SiteServer } from 'src/site-server';
 
+// Fields owned by Studio that the CLI never emits and that must survive a
+// site-event merge (TLS material, renderer-computed theme info, sort order,
+// auto-start preference, transient runtime flags).
+const STUDIO_ONLY_DETAIL_KEYS = [
+	'tlsKey',
+	'tlsCert',
+	'themeDetails',
+	'siteIconPath',
+	'sortOrder',
+	'autoStart',
+	'isAddingSite',
+	'latestCliPid',
+] as const satisfies readonly ( keyof SiteServer[ 'details' ] )[];
+
+function pickStudioOnlyDetails( details?: SiteServer[ 'details' ] ) {
+	if ( ! details ) {
+		return {} as Partial< SiteServer[ 'details' ] >;
+	}
+	const picked: Partial< SiteServer[ 'details' ] > = {};
+	for ( const key of STUDIO_ONLY_DETAIL_KEYS ) {
+		const value = details[ key ];
+		if ( value !== undefined ) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			( picked as any )[ key ] = value;
+		}
+	}
+	return picked;
+}
+
+// The CLI event is the authoritative snapshot for every field in the shared
+// `siteDetailsSchema`. JSON serialization drops `undefined` values, so a
+// field that's been cleared (e.g. `customDomain` after `site set --domain ''`)
+// arrives here as an absent key. Spreading `...existingDetails` first would
+// then preserve the stale value. Invert the merge: start from Studio-only
+// fields, then let the CLI payload set or omit everything else.
 function siteDetailsToServerDetails(
 	site: SiteDetails,
 	running: boolean,
 	existingDetails?: SiteServer[ 'details' ]
 ): SiteServer[ 'details' ] {
 	return {
-		...existingDetails,
+		...pickStudioOnlyDetails( existingDetails ),
 		...site,
 		running,
 	};
@@ -38,6 +73,18 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 		return;
 	}
 
+	// This event says nothing about whether the site is running, so it must not
+	// go through the merge below — that one adopts the event's `running` as
+	// authoritative and fires the start/stop side effects off the transition.
+	if ( eventType === SITE_EVENTS.OPERATIONS_CHANGED ) {
+		const server = SiteServer.get( siteId ) ?? SiteServer.getByPath( site.path );
+		if ( server ) {
+			server.details = { ...server.details, operation: site.operation };
+		}
+		void sendIpcEventToRenderer( 'site-event', event );
+		return;
+	}
+
 	if ( eventType === SITE_EVENTS.CREATED ) {
 		const existingServer = SiteServer.get( siteId ) ?? SiteServer.getByPath( site.path );
 		if ( ! existingServer ) {
@@ -48,6 +95,8 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 		void sendIpcEventToRenderer( 'site-event', event );
 		if ( running ) {
 			void captureSiteThumbnail( siteId );
+			// A freshly created site that's running should auto-start on the next Studio launch.
+			await SiteServer.get( siteId )?.persistAutoStart( true );
 		}
 		return;
 	}
@@ -59,15 +108,25 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 		return;
 	}
 
-	server.details = siteDetailsToServerDetails( site, running, server.details );
+	// A site serving a PHP-error page stays "running" even though the CLI reports it stopped.
+	const effectiveRunning = running || server.inErrorRecovery;
+	const wasNotRunning = ! server.details.running;
+	server.details = siteDetailsToServerDetails( site, effectiveRunning, server.details );
 
 	if ( server.server && site.url ) {
 		server.server.url = site.url;
 	}
 
-	void sendIpcEventToRenderer( 'site-event', event );
-	if ( running ) {
+	void sendIpcEventToRenderer( 'site-event', { ...event, running: effectiveRunning } );
+
+	if ( wasNotRunning && effectiveRunning ) {
 		void captureSiteThumbnail( siteId );
+		await server.getThemeDetails();
+		await server.getSiteIcon();
+		// Mirror "is running" into the Studio-owned autoStart flag so the site resumes next launch.
+		await server.persistAutoStart( true );
+	} else if ( ! wasNotRunning && ! effectiveRunning ) {
+		await server.persistAutoStart( false );
 	}
 } );
 

@@ -1,33 +1,37 @@
 import { AggregateInterval } from '@studio/common/lib/bump-stat';
 import { waitFor } from '@testing-library/react';
-import { readFile, writeFile } from 'atomically';
 import { vi } from 'vitest';
+import { EMPTY_USER_DATA } from 'src/storage/storage-types';
+import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
 import { bumpStat, bumpAggregatedUniqueStat, StatsGroup, StatsMetric } from '../bump-stats';
 
-vi.mock( 'atomically', () => ( {
-	readFile: vi.fn(),
-	writeFile: vi.fn(),
-} ) );
-
-vi.mock( 'fs', () => ( {
-	default: {
-		existsSync: vi.fn().mockReturnValue( true ),
-		mkdirSync: vi.fn(),
-	},
-	existsSync: vi.fn().mockReturnValue( true ),
-	mkdirSync: vi.fn(),
+vi.mock( 'src/storage/user-data', () => ( {
+	loadUserData: vi.fn(),
+	saveUserData: vi.fn(),
+	lockAppdata: vi.fn(),
+	unlockAppdata: vi.fn(),
 } ) );
 
 // Store original fetch to restore later
 const originalFetch = global.fetch;
 
 const originalEnv = { ...process.env };
+let mockUserData = structuredClone( EMPTY_USER_DATA );
+
+beforeEach( () => {
+	vi.clearAllMocks();
+	mockUserData = structuredClone( EMPTY_USER_DATA );
+	vi.mocked( lockAppdata ).mockResolvedValue( undefined );
+	vi.mocked( unlockAppdata ).mockResolvedValue( undefined );
+	vi.mocked( loadUserData ).mockImplementation( async () => structuredClone( mockUserData ) );
+	vi.mocked( saveUserData ).mockImplementation( async ( userData ) => {
+		mockUserData = structuredClone( userData );
+	} );
+} );
 
 afterEach( () => {
 	vi.spyOn( Date, 'now' ).mockRestore();
 	vi.spyOn( console, 'info' ).mockRestore();
-	vi.mocked( readFile ).mockRestore();
-	vi.mocked( writeFile ).mockRestore();
 	global.fetch = originalFetch;
 	process.env = { ...originalEnv };
 } );
@@ -138,18 +142,23 @@ describe( 'bumpAggregatedUniqueStat', () => {
 	test( 'bump stat when it has never been recorded before', async () => {
 		const mockRequest = mockBumpStatRequest( StatsGroup.STUDIO_APP_LAUNCH, StatsMetric.SUCCESS );
 
-		vi.mocked( readFile ).mockResolvedValue(
-			Buffer.from(
-				JSON.stringify( {
-					lastBumpStats: {},
-					sites: [],
-				} )
-			)
-		);
+		mockUserData.lastBumpStats = {};
 
 		await bumpAggregatedUniqueStat( StatsGroup.STUDIO_APP_LAUNCH, StatsMetric.SUCCESS, 'weekly' );
 
 		await waitFor( () => expect( mockRequest.isDone() ).toBe( true ) );
+	} );
+
+	test( "don't bump forever stat when it has already been recorded", async () => {
+		mockUserData.lastBumpStats = {
+			[ StatsGroup.STUDIO_APP_LAUNCH ]: {
+				[ StatsMetric.SUCCESS ]: Date.UTC( 2024, 0, 1 ),
+			},
+		};
+
+		await bumpAggregatedUniqueStat( StatsGroup.STUDIO_APP_LAUNCH, StatsMetric.SUCCESS, 'forever' );
+
+		expect( saveUserData ).not.toHaveBeenCalled();
 	} );
 
 	test.each< [ AggregateInterval, number, number ] >( [
@@ -162,18 +171,11 @@ describe( 'bumpAggregatedUniqueStat', () => {
 			mockCurrentTime( currentTime );
 
 			const mockRequest = mockBumpStatRequest( StatsGroup.STUDIO_APP_LAUNCH, StatsMetric.SUCCESS );
-			vi.mocked( readFile ).mockResolvedValue(
-				Buffer.from(
-					JSON.stringify( {
-						lastBumpStats: {
-							[ StatsGroup.STUDIO_APP_LAUNCH ]: {
-								[ StatsMetric.SUCCESS ]: lastBumpTime,
-							},
-						},
-						sites: [],
-					} )
-				)
-			);
+			mockUserData.lastBumpStats = {
+				[ StatsGroup.STUDIO_APP_LAUNCH ]: {
+					[ StatsMetric.SUCCESS ]: lastBumpTime,
+				},
+			};
 
 			await bumpAggregatedUniqueStat(
 				StatsGroup.STUDIO_APP_LAUNCH,
@@ -183,8 +185,8 @@ describe( 'bumpAggregatedUniqueStat', () => {
 
 			await waitFor( () => expect( mockRequest.isDone() ).toBe( true ) );
 
-			expect( writeFile ).toHaveBeenCalled();
-			const savedData = JSON.parse( vi.mocked( writeFile ).mock.calls[ 0 ][ 1 ] as string );
+			expect( saveUserData ).toHaveBeenCalled();
+			const savedData = vi.mocked( saveUserData ).mock.calls[ 0 ][ 0 ];
 			expect( savedData ).toMatchObject( {
 				lastBumpStats: {
 					[ StatsGroup.STUDIO_APP_LAUNCH ]: {
@@ -206,18 +208,11 @@ describe( 'bumpAggregatedUniqueStat', () => {
 
 			// Don't create a nock mock so that we get errors if a network request is made
 
-			vi.mocked( readFile ).mockResolvedValue(
-				Buffer.from(
-					JSON.stringify( {
-						lastBumpStats: {
-							[ StatsGroup.STUDIO_APP_LAUNCH ]: {
-								[ StatsMetric.SUCCESS ]: lastBumpTime,
-							},
-						},
-						sites: [],
-					} )
-				)
-			);
+			mockUserData.lastBumpStats = {
+				[ StatsGroup.STUDIO_APP_LAUNCH ]: {
+					[ StatsMetric.SUCCESS ]: lastBumpTime,
+				},
+			};
 
 			await bumpAggregatedUniqueStat(
 				StatsGroup.STUDIO_APP_LAUNCH,
@@ -225,7 +220,7 @@ describe( 'bumpAggregatedUniqueStat', () => {
 				aggregateBy
 			);
 
-			expect( writeFile ).not.toHaveBeenCalled();
+			expect( saveUserData ).not.toHaveBeenCalled();
 		}
 	);
 } );

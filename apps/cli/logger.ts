@@ -1,21 +1,9 @@
-import ora, { Ora } from 'ora';
+import 'cli/lib/picospinner-stderr-patch';
+import { Spinner } from 'picospinner';
 
 const isIpcMode = Boolean( process.send );
 
-type ProgressCallback = ( message: string ) => void;
-let progressCallback: ProgressCallback | null = null;
-
-export function setProgressCallback( callback: ProgressCallback | null ): void {
-	progressCallback = callback;
-}
-
-export function getProgressCallback(): ProgressCallback | null {
-	return progressCallback;
-}
-
-export function emitProgress( message: string ): void {
-	progressCallback?.( message );
-}
+export type ProgressCallback = ( message: string, update?: boolean ) => void;
 
 function canSend(): boolean {
 	return isIpcMode && !! process.send && process.connected;
@@ -23,12 +11,16 @@ function canSend(): boolean {
 
 export class LoggerError extends Error {
 	previousError?: Error;
+	// Machine-readable failure code for analytics classification (see `classifyImportFailure` /
+	// `classifyExportFailure`). The message is `__()`-translated display text and unsafe to match on.
+	readonly code?: string;
 	private errorMessage: string;
 
-	constructor( message: string, previousError?: unknown ) {
+	constructor( message: string, previousError?: unknown, code?: string ) {
 		super();
 		this.name = 'LoggerError';
 		this.errorMessage = message;
+		this.code = code;
 
 		if ( previousError instanceof Error ) {
 			this.previousError = previousError;
@@ -45,55 +37,52 @@ export class LoggerError extends Error {
 }
 
 export class Logger< T extends string > {
-	public spinner: Ora;
-	private currentAction: T | 'keyValuePair' | null = null;
+	public spinner: Spinner;
+	private currentAction: string | null = null;
+	private onProgress: ProgressCallback | null;
 
-	constructor() {
-		this.spinner = ora();
+	constructor( options?: { onProgress?: ProgressCallback } ) {
+		this.spinner = new Spinner();
+		this.onProgress = options?.onProgress ?? null;
 	}
 
 	public reportStart( action: T, message: string ) {
 		this.currentAction = action;
 
-		if ( canSend() ) {
+		if ( this.onProgress ) {
+			this.onProgress( message );
+		} else if ( canSend() ) {
 			process.send!( { action, status: 'inprogress', message } );
-			return;
+		} else {
+			this.spinner.setText( message );
+			if ( ! this.spinner.running ) {
+				this.spinner.start();
+			}
 		}
-		if ( progressCallback ) {
-			progressCallback!( message );
-			return;
-		}
-		this.spinner.start( message );
 	}
 
 	public reportProgress( message: string ) {
-		if ( canSend() ) {
+		if ( this.onProgress ) {
+			this.onProgress( message, true );
+		} else if ( canSend() ) {
 			process.send!( { action: this.currentAction, status: 'inprogress', message } );
-			return;
-		}
-
-		if ( progressCallback ) {
-			progressCallback!( message );
-			return;
-		}
-
-		// Update the spinner text and force render
-		this.spinner.text = message;
-		if ( ! this.spinner.isSpinning ) {
-			this.spinner.start( message );
 		} else {
-			this.spinner.render();
+			if ( ! this.spinner.running ) {
+				this.spinner.start();
+			}
+			this.spinner.setText( message );
 		}
 	}
 
-	public reportSuccess( message: string, shouldClearSpinner = false ) {
-		if ( canSend() ) {
+	public reportSuccess( message: string ) {
+		if ( this.onProgress ) {
+			this.onProgress( message );
+		} else if ( canSend() ) {
 			process.send!( { action: this.currentAction, status: 'success', message } );
-		} else if ( progressCallback ) {
-			progressCallback!( message );
-		} else if ( shouldClearSpinner ) {
-			this.spinner.clear();
 		} else {
+			if ( ! this.spinner.running ) {
+				this.spinner.start();
+			}
 			this.spinner.succeed( message );
 		}
 
@@ -101,15 +90,16 @@ export class Logger< T extends string > {
 	}
 
 	public reportWarning( message: string ) {
-		if ( canSend() ) {
+		if ( this.onProgress ) {
+			this.onProgress( message );
+		} else if ( canSend() ) {
 			process.send!( { action: this.currentAction, status: 'warning', message } );
-			return;
+		} else {
+			if ( ! this.spinner.running ) {
+				this.spinner.start();
+			}
+			this.spinner.warn( message );
 		}
-		if ( progressCallback ) {
-			progressCallback!( message );
-			return;
-		}
-		this.spinner.warn( message );
 	}
 
 	public reportError( error: LoggerError, isFatal = true ) {
@@ -117,11 +107,14 @@ export class Logger< T extends string > {
 			process.exitCode = 1;
 		}
 
-		if ( canSend() ) {
+		if ( this.onProgress ) {
+			this.onProgress( error.message );
+		} else if ( canSend() ) {
 			process.send!( { action: this.currentAction, status: 'fail', message: error.message } );
-		} else if ( progressCallback ) {
-			progressCallback!( error.message );
 		} else {
+			if ( ! this.spinner.running ) {
+				this.spinner.start();
+			}
 			this.spinner.fail( error.message );
 		}
 

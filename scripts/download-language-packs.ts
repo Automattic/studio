@@ -1,43 +1,11 @@
 import os from 'os';
 import path from 'path';
 import fs from 'fs-extra';
-import { extractZip } from '../tools/common/lib/extract-zip';
-import { WP_LOCALES } from '../tools/common/lib/wp-locales';
+import { extractZip } from '../packages/common/lib/extract-zip.ts';
+import { WP_LOCALES } from '../packages/common/lib/wp-locales.ts';
+import { fetch, sharedDispatcher, throwForHttpStatus, withRetry } from './lib/with-retry.ts';
 
-const WP_SERVER_FILES_PATH = path.join( __dirname, '..', 'wp-files' );
-
-const MAX_RETRIES = 3;
-const INITIAL_RETRY_DELAY_MS = 1000;
-
-async function fetchWithRetry( url: string, attempt = 1 ): Promise< Response > {
-	try {
-		const response = await fetch( url );
-		if ( response.ok ) {
-			return response;
-		}
-		if ( attempt >= MAX_RETRIES ) {
-			throw new Error( `HTTP ${ response.status }` );
-		}
-		const delay = INITIAL_RETRY_DELAY_MS * Math.pow( 2, attempt - 1 );
-		console.warn(
-			`[language-packs] Request failed (status ${ response.status }), retrying in ${ delay }ms (attempt ${ attempt }/${ MAX_RETRIES })...`
-		);
-		await new Promise( ( resolve ) => setTimeout( resolve, delay ) );
-		return fetchWithRetry( url, attempt + 1 );
-	} catch ( error ) {
-		if ( attempt >= MAX_RETRIES ) {
-			throw error;
-		}
-		const delay = INITIAL_RETRY_DELAY_MS * Math.pow( 2, attempt - 1 );
-		console.warn(
-			`[language-packs] Request failed (${
-				error instanceof Error ? error.message : error
-			}), retrying in ${ delay }ms (attempt ${ attempt }/${ MAX_RETRIES })...`
-		);
-		await new Promise( ( resolve ) => setTimeout( resolve, delay ) );
-		return fetchWithRetry( url, attempt + 1 );
-	}
-}
+const WP_SERVER_FILES_PATH = path.join( import.meta.dirname, '..', 'wp-files' );
 
 interface TranslationEntry {
 	language: string;
@@ -77,8 +45,15 @@ async function downloadTranslationsFromApi(
 	destPath: string,
 	label: string
 ): Promise< void > {
-	const response = await fetchWithRetry( apiUrl );
-	const data: TranslationsApiResponse = await response.json();
+	const data = await withRetry( `language-packs:${ label }`, async () => {
+		const response = await fetch( apiUrl, {
+			dispatcher: sharedDispatcher,
+		} );
+		if ( ! response.ok ) {
+			throwForHttpStatus( 'Translations API request', response.status );
+		}
+		return ( await response.json() ) as TranslationsApiResponse;
+	} );
 
 	const translationsToDownload = data.translations.filter( ( t ) =>
 		WP_LOCALES.includes( t.language )
@@ -92,11 +67,18 @@ async function downloadTranslationsFromApi(
 
 	for ( const translation of translationsToDownload ) {
 		const { language, package: packageUrl } = translation;
-		const zipResponse = await fetchWithRetry( packageUrl );
+		const buffer = await withRetry( `language-packs:${ label }:${ language }`, async () => {
+			const response = await fetch( packageUrl, {
+				dispatcher: sharedDispatcher,
+			} );
+			if ( ! response.ok ) {
+				throwForHttpStatus( 'Translation download', response.status );
+			}
+			return Buffer.from( await response.arrayBuffer() );
+		} );
 
 		const safeLabel = label.replace( /\//g, '-' );
 		const zipPath = path.join( os.tmpdir(), `wp-language-${ safeLabel }-${ language }.zip` );
-		const buffer = Buffer.from( await zipResponse.arrayBuffer() );
 		await fs.writeFile( zipPath, buffer );
 		await extractZip( zipPath, destPath );
 		await fs.remove( zipPath );

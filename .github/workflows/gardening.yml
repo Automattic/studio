@@ -17,20 +17,24 @@ jobs:
   repo-gardening:
     name: 'Assign issues, Clean up labels, and notify Design and Editorial when necessary'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
     if: github.event_name == 'pull_request_target' || github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name
     timeout-minutes: 10
 
     steps:
      - name: Checkout
-       uses: actions/checkout@v6
+       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
 
      - name: Setup Node
-       uses: actions/setup-node@v6
+       uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7
        with:
          node-version-file: '.nvmrc'
 
      - name: Wait for prior instances of the workflow to finish
-       uses: softprops/turnstyle@v3
+       uses: softprops/turnstyle@afaccda0f3c0136fb7cb4a734b9b96be03599948 # v3.3.2
        env:
          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

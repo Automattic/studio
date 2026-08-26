@@ -1,0 +1,194 @@
+.form {
+	text-align: left;
+}
+
+.panel {
+	display: flex;
+	flex-direction: column;
+	gap: 24px;
+	padding: 32px;
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: 12px;
+	background: color-mix(
+		in srgb,
+		var(--wpds-color-bg-surface-neutral-strong) var(--surface-alpha, 50%),
+		transparent
+	);
+	backdrop-filter: blur(12px);
+}
+
+/* The path trigger is a <button>, but we style it to sit within the
+   DataForm grid the same way the text/email inputs do — 40px tall, 1px
+   neutral border, 2px radius, matching the InputBase chrome so the field
+   reads as "one more input" alongside its siblings. The actual value is
+   chosen via the OS folder picker opened by clicking the button. */
+.pathTrigger {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	width: 100%;
+	height: 40px;
+	padding: 0 4px 0 var(--wpds-dimension-padding-md);
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-interactive-neutral);
+	border-radius: 2px;
+	background-color: var(--wpds-color-bg-interactive-neutral-weak);
+	color: var(--wpds-color-fg-interactive-neutral);
+	font-family: var(--wpds-typography-font-family-body);
+	font-size: var(--wpds-typography-font-size-md);
+	line-height: 1;
+	text-align: left;
+	cursor: pointer;
+	transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.pathTrigger:hover {
+	border-color: var(--wpds-color-stroke-interactive-neutral-active);
+}
+
+.pathTrigger:focus-visible {
+	border-color: var(--wpds-color-stroke-interactive-neutral-active);
+	box-shadow: 0 0 0 0.5px var(--wpds-color-stroke-interactive-neutral-active);
+	outline: none;
+}
+
+.pathTrigger.pathTriggerError,
+.pathTrigger.pathTriggerError:focus {
+	border-color: var(--wpds-color-stroke-surface-error-strong);
+	box-shadow: 0 0 0 0.5px var(--wpds-color-stroke-surface-error-strong);
+}
+
+.pathValue {
+	flex: 1 1 auto;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.pathValuePlaceholder {
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.pathTriggerAction {
+	flex: 0 0 auto;
+	padding: 6px 12px;
+	font-size: var(--wpds-typography-font-size-sm);
+	font-weight: 500;
+	color: var(--wpds-color-fg-interactive-neutral);
+}
+
+.pathControlError :global(.components-input-control__backdrop) {
+	border-color: var(--wpds-color-stroke-surface-error-strong);
+	box-shadow: 0 0 0 0.5px var(--wpds-color-stroke-surface-error-strong);
+}
+
+.form :global(.components-validated-control__indicator.is-invalid) {
+	color: var(--wpds-color-fg-content-error-weak);
+}
+
+.form
+	:global(
+		.components-validated-control:has(
+				:is(input, select):invalid[data-validity-visible]
+			)
+			.components-input-control__backdrop
+	) {
+	--wp-components-color-accent: var(--wpds-color-stroke-surface-error-strong);
+	border-color: var(--wpds-color-stroke-surface-error-strong);
+}
+
+.form
+	:global(
+		.components-validated-control
+			:is(textarea, input[type='text']):invalid[data-validity-visible]
+	) {
+	--wp-admin-theme-color: var(--wpds-color-stroke-surface-error-strong);
+	--wp-components-color-accent: var(--wpds-color-stroke-surface-error-strong);
+	border-color: var(--wpds-color-stroke-surface-error-strong);
+}
+
+.advancedToggle {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	align-self: flex-start;
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.advancedCollapse {
+	display: grid;
+	grid-template-rows: 0fr;
+	opacity: 0;
+	margin-top: -24px;
+	transition: grid-template-rows 0.25s ease, opacity 0.2s ease, margin-top 0.25s ease;
+}
+
+.advancedCollapseOpen {
+	grid-template-rows: 1fr;
+	opacity: 1;
+	margin-top: 0;
+}
+
+.advancedCollapseInner {
+	overflow: hidden;
+	min-height: 0;
+	padding: 4px;
+	margin: -4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.advancedCollapse {
+		transition: none;
+	}
+}
+
+.advancedErrorCount {
+	margin-left: 8px;
+	font-size: 12px;
+	font-weight: 500;
+	color: var(--wpds-color-fg-content-error);
+}
+
+.submitError {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	padding: 10px 12px;
+	border-radius: 4px;
+	background: var(--wpds-color-bg-surface-error-weak);
+	color: var(--wpds-color-fg-content-error);
+	font-size: 13px;
+	line-height: 1.5;
+}
+
+.submitErrorTitle {
+	font-weight: 600;
+}
+
+.submitErrorMessage {
+	margin: 0;
+}
+
+.submitErrorDetails summary {
+	width: fit-content;
+	font-weight: 500;
+	cursor: pointer;
+}
+
+.submitErrorDetails pre {
+	max-height: 160px;
+	padding-top: 6px;
+	margin: 0;
+	overflow: auto;
+	font-family: var(
+		--wpds-typography-font-family-mono,
+		ui-monospace,
+		SFMono-Regular,
+		Menlo,
+		monospace
+	);
+	font-size: var(--wpds-typography-font-size-xs);
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}

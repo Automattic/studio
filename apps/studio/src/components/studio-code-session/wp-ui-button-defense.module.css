@@ -1,0 +1,23 @@
+/*
+ * @wordpress/ui's component styles live in CSS cascade layers (e.g.
+ * `@layer wp-ui-components`), and the host app's Tailwind preflight is
+ * unlayered — and unlayered styles always beat layered ones, regardless of
+ * specificity. So preflight's bare-element resets win over @wordpress/ui:
+ *   button, input, … { padding: 0; color: inherit } -> flattens padding,
+ *                                                       overrides text color
+ *   button, [type='button'] { background-color: transparent } -> blanks solids
+ * (@wordpress/ui ships a global-css-defense for font/box-sizing, but it was
+ * written against wp-admin and doesn't cover padding or background.)
+ *
+ * Re-assert the affected properties here — unlayered, so we beat preflight,
+ * and with a doubled class (0,2,0) so we also clear the `[type='button']`
+ * attribute selector. Values read @wordpress/ui's own custom properties so the
+ * correct per-variant / per-size values flow through untouched. Apply this
+ * class to every @wordpress/ui Button (and Dialog.Action) we render.
+ */
+.button.button {
+	padding-block: var(--wp-ui-button-padding-block);
+	padding-inline: var(--wp-ui-button-padding-inline);
+	background-color: var(--wp-ui-button-background-color);
+	color: var(--wp-ui-button-foreground-color);
+}

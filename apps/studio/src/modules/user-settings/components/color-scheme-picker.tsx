@@ -36,23 +36,21 @@ export const ColorSchemePicker = ( { value, onChange }: ColorSchemePickerProps )
 							aria-checked={ isSelected }
 							aria-label={ option.label }
 							onClick={ () => onChange( option.value ) }
-							className={ cx(
-								'group flex flex-col items-center p-0 bg-transparent rounded-[4px] focus-visible:outline-none focus-visible:outline focus-visible:outline-[2px] focus-visible:outline-frame-theme focus-visible:outline-offset-[4px]'
-							) }
+							className="group flex flex-col items-center p-0 bg-transparent rounded-[4px] focus-visible:outline-none"
 						>
 							<img
 								src={ option.illustration }
 								alt=""
 								aria-hidden="true"
 								className={ cx(
-									'block h-auto w-auto rounded-[4px] dark:shadow-[0_0_0_1px_var(--color-frame-border)]',
-									isSelected && 'outline outline-[2px] outline-frame-theme outline-offset-[1.5px]'
+									'block h-auto w-auto rounded-[4px] dark:shadow-[0_0_0_1px_var(--color-frame-border)] group-focus:outline group-focus:outline-[2px] group-focus:outline-frame-theme group-focus:outline-offset-[1.5px]',
+									isSelected && 'outline outline-[2px] outline-frame-text outline-offset-[1.5px]'
 								) }
 							/>
 							<span
 								className={ cx(
-									'text-sm mt-1.5',
-									isSelected ? 'text-frame-theme' : 'text-frame-text'
+									'text-sm mt-1.5 text-frame-text group-focus:text-frame-theme',
+									isSelected && 'font-medium'
 								) }
 							>
 								{ option.label }

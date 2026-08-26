@@ -1,0 +1,15 @@
+name: Auto Author Assign
+
+on:
+  pull_request_target:
+    types: [opened, reopened]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  assign-author:
+    if: ${{ github.actor != 'wpmobilebot' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: toshimaru/auto-author-assign@a78a94b219445cece8ccf0d45fec60af449f212a # v3.1.0

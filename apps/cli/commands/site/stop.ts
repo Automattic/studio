@@ -7,22 +7,38 @@ import {
 	unlockCliConfig,
 	type SiteData,
 } from 'cli/lib/cli-config/core';
-import {
-	clearSiteLatestCliPid,
-	getSiteByFolder,
-	updateSiteAutoStart,
-} from 'cli/lib/cli-config/sites';
+import { clearSiteLatestCliPid, getSiteByFolder } from 'cli/lib/cli-config/sites';
 import {
 	connectToDaemon,
 	disconnectFromDaemon,
 	killDaemonAndChildren,
 } from 'cli/lib/daemon-client';
+import { withSiteOperation } from 'cli/lib/site-operations';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
-import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
+import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
+import {
+	getRunningSiteCount,
+	isServerRunning,
+	stopWordPressServer,
+} from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
-const logger = new Logger< LoggerAction >();
+const defaultLogger = new Logger< LoggerAction >();
+
+// Tracks: the CLI is the sole emitter of site-stop, whether stopped standalone or by the desktop app
+// (which delegates to `site stop` and passes its origin via STUDIO_TRACKS_ORIGIN). Best-effort —
+// wrapped so telemetry can never block or fail a stop.
+async function recordSiteStop( runningSiteCount: number | undefined ): Promise< void > {
+	try {
+		await recordTracksEvent( TRACKS_EVENTS.SITE_STOP, {
+			...getTracksOrigin(),
+			running_site_count: runningSiteCount,
+		} );
+	} catch {
+		// Best-effort telemetry — never block or fail a stop.
+	}
+}
 
 export enum Mode {
 	STOP_SINGLE_SITE,
@@ -32,37 +48,52 @@ export enum Mode {
 export async function runCommand(
 	target: Mode.STOP_SINGLE_SITE,
 	siteFolder: string,
-	autoStart: boolean
+	logger?: Logger< LoggerAction >
 ): Promise< void >;
 export async function runCommand(
 	target: Mode.STOP_ALL_SITES,
 	siteFolder: undefined,
-	autoStart: boolean
+	logger?: Logger< LoggerAction >
 ): Promise< void >;
 export async function runCommand(
 	target: Mode,
 	siteFolder: string | undefined,
-	autoStart: boolean
+	logger: Logger< LoggerAction > = defaultLogger
+): Promise< void > {
+	// Stopping everything is the quit path — it kills the daemon outright, so
+	// there is no per-site operation to take (and taking one for every site could
+	// block on an operation this is about to terminate anyway).
+	if ( target === Mode.STOP_SINGLE_SITE && siteFolder ) {
+		return withSiteOperation( siteFolder, 'stop', () => stopSites( target, siteFolder, logger ) );
+	}
+	return stopSites( target, siteFolder, logger );
+}
+
+async function stopSites(
+	target: Mode,
+	siteFolder: string | undefined,
+	logger: Logger< LoggerAction >
 ): Promise< void > {
 	try {
 		await connectToDaemon();
 
 		if ( target === Mode.STOP_SINGLE_SITE && siteFolder ) {
 			const site = await getSiteByFolder( siteFolder );
+
 			const runningProcess = await isServerRunning( site.id );
 			if ( ! runningProcess ) {
 				logger.reportSuccess( __( 'WordPress server is not running' ) );
 				return;
 			}
 
-			logger.reportStart( LoggerAction.STOP_SITE, __( 'Stopping WordPress servers…' ) );
+			logger.reportStart( LoggerAction.STOP_SITE, __( 'Stopping WordPress server…' ) );
 
 			try {
 				await stopWordPressServer( site.id );
 				await clearSiteLatestCliPid( site.id );
-				await updateSiteAutoStart( site.id, autoStart );
 				logger.reportSuccess( __( 'WordPress server stopped' ) );
 				await stopProxyIfNoSitesNeedIt( site.id, logger );
+				await recordSiteStop( await getRunningSiteCount() );
 			} catch ( error ) {
 				throw new LoggerError( __( 'Failed to stop WordPress server' ), error );
 			}
@@ -88,7 +119,6 @@ export async function runCommand(
 					for ( const site of cliConfig.sites ) {
 						if ( runningSites.find( ( r ) => r.id === site.id ) ) {
 							delete site.latestCliPid;
-							site.autoStart = autoStart;
 						}
 					}
 					await saveCliConfig( cliConfig );
@@ -109,6 +139,12 @@ export async function runCommand(
 						runningSites.length
 					)
 				);
+
+				// One event per stopped site, with the count of sites still running afterwards — the
+				// daemon is down here, so it decrements to 0 across the batch.
+				for ( let index = 0; index < runningSites.length; index++ ) {
+					await recordSiteStop( runningSites.length - 1 - index );
+				}
 			}
 		}
 	} finally {
@@ -121,35 +157,28 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		command: 'stop',
 		describe: __( 'Stop site(s)' ),
 		builder: ( yargs ) => {
-			return yargs
-				.option( 'all', {
-					type: 'boolean',
-					describe: __( 'Stop all sites' ),
-					default: false,
-				} )
-				.option( 'auto-start', {
-					type: 'boolean',
-					describe: __( 'Set auto-start flag for the site(s)' ),
-					default: false,
-					hidden: true,
-				} );
+			return yargs.option( 'all', {
+				type: 'boolean',
+				describe: __( 'Stop all sites' ),
+				default: false,
+			} );
 		},
 		handler: async ( argv ) => {
 			try {
 				if ( argv.all ) {
-					await runCommand( Mode.STOP_ALL_SITES, undefined, argv.autoStart );
+					await runCommand( Mode.STOP_ALL_SITES, undefined );
 				} else {
-					await runCommand( Mode.STOP_SINGLE_SITE, argv.path, argv.autoStart );
+					await runCommand( Mode.STOP_SINGLE_SITE, argv.path );
 				}
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {
-					logger.reportError( error );
+					defaultLogger.reportError( error );
 				} else {
 					const loggerError = new LoggerError(
 						argv.all ? __( 'Failed to stop sites' ) : __( 'Failed to stop site' ),
 						error
 					);
-					logger.reportError( loggerError );
+					defaultLogger.reportError( loggerError );
 				}
 			}
 		},

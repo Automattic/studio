@@ -1,0 +1,86 @@
+<svg width="360" height="195" viewBox="0 0 560 384" preserveAspectRatio="xMidYMid slice" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect width="560" height="384" fill="black"/>
+<rect opacity="0.3" width="560" height="384" fill="url(#studio_code_dot_grid)"/>
+<defs>
+<pattern id="studio_code_dot_grid" width="28" height="28" patternUnits="userSpaceOnUse">
+<rect x="26" y="25" width="3" height="3" rx="1.5" fill="white"/>
+</pattern>
+<filter id="distance-blur-strong"><feGaussianBlur stdDeviation="0.85"/></filter>
+<filter id="distance-blur-medium"><feGaussianBlur stdDeviation="0.6"/></filter>
+<filter id="distance-blur-soft"><feGaussianBlur stdDeviation="0.42"/></filter>
+<filter id="distance-blur-subtle"><feGaussianBlur stdDeviation="0.24"/></filter>
+<filter id="distance-blur-near"><feGaussianBlur stdDeviation="0.1"/></filter>
+<style>
+path:nth-of-type(-n+6), text:nth-of-type(-n+3) {
+	opacity: 0.28;
+	filter: url(#distance-blur-strong);
+}
+path:nth-of-type(n+7):nth-of-type(-n+10), text:nth-of-type(n+4):nth-of-type(-n+5) {
+	opacity: 0.42;
+	filter: url(#distance-blur-medium);
+}
+path:nth-of-type(n+11):nth-of-type(-n+14), text:nth-of-type(n+6):nth-of-type(-n+7) {
+	opacity: 0.6;
+	filter: url(#distance-blur-soft);
+}
+path:nth-of-type(n+15):nth-of-type(-n+16), text:nth-of-type(8) {
+	opacity: 0.78;
+	filter: url(#distance-blur-subtle);
+}
+path:nth-of-type(n+17):nth-of-type(-n+18), text:nth-of-type(9) {
+	opacity: 0.9;
+	filter: url(#distance-blur-near);
+}
+</style>
+</defs>
+<g transform="translate(0 -17)">
+<path d="M261.16 40.5669C261.072 39.0689 262.214 37.7827 263.712 37.6942L288.951 36.2027C290.845 36.0908 292.47 37.535 292.582 39.4285L292.66 40.7393C292.682 41.118 292.393 41.4431 292.015 41.4655L264.033 43.1191C262.535 43.2076 261.249 42.065 261.16 40.5669Z" fill="#1A1A1A"/>
+<path d="M263.717 37.78L288.956 36.2885C290.802 36.1794 292.388 37.5876 292.497 39.4337L292.574 40.7439C292.594 41.0753 292.34 41.3604 292.009 41.3799L264.028 43.0335C262.577 43.1191 261.332 42.0121 261.246 40.5615C261.161 39.1111 262.267 37.8659 263.717 37.78Z" stroke="white" stroke-opacity="0.5" stroke-width="0.171718"/>
+<text transform="translate(262.053 39.770) rotate(-3.38201)" fill="#DBDBDB" style="white-space: pre" xml:space="preserve" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="2.06061" letter-spacing="0em"><tspan x="0" y="1.74931">Add SHOP to the main menu</tspan></text>
+<path d="M255.194 45.4215C255.302 43.5318 256.921 42.087 258.81 42.1944L296.323 44.3258C298.448 44.4465 300.073 46.2671 299.952 48.3922L299.825 50.6178C299.801 51.0428 299.437 51.3678 299.012 51.3436L258.421 49.0373C256.532 48.93 255.087 47.3111 255.194 45.4215Z" fill="#1A1A1A"/>
+<path d="M258.804 42.2909L296.317 44.4223C298.389 44.54 299.973 46.3145 299.856 48.3863L299.729 50.6122C299.708 50.984 299.389 51.2687 299.017 51.2476L258.427 48.9413C256.59 48.8369 255.186 47.2631 255.291 45.4267C255.395 43.5904 256.968 42.1867 258.804 42.2909Z" stroke="white" stroke-opacity="0.5" stroke-width="0.192698"/>
+<text transform="translate(255.947 43.981) rotate(3.25192)" fill="#DBDBDB" style="white-space: pre" xml:space="preserve" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="2.31238" letter-spacing="0em"><tspan x="0" y="2.34087">Build a template for holiday products</tspan></text>
+<path d="M259.176 52.6248C259.079 50.7347 260.532 49.1235 262.422 49.0263L297.948 47.198C300.074 47.0886 301.886 48.7231 301.995 50.8488L302.11 53.075C302.132 53.5002 301.805 53.8625 301.38 53.8844L262.775 55.8712C260.885 55.9684 259.273 54.515 259.176 52.6248Z" fill="#1A1A1A"/>
+<path d="M262.427 49.1228L297.953 47.2945C300.026 47.1879 301.792 48.7809 301.899 50.8533L302.014 53.0798C302.033 53.4518 301.747 53.7692 301.375 53.7884L262.77 55.7752C260.933 55.8696 259.367 54.4566 259.273 52.6197C259.178 50.7828 260.59 49.2175 262.427 49.1228Z" stroke="white" stroke-opacity="0.5" stroke-width="0.192698"/>
+<text transform="translate(259.776 51.052) rotate(-2.94605)" fill="#DBDBDB" style="white-space: pre" xml:space="preserve" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="2.31238" letter-spacing="0em"><tspan x="0" y="2.34087">Create a new post type for projects</tspan></text>
+<path d="M251.613 55.4888C251.952 53.0097 254.236 51.2746 256.715 51.6133L291.858 56.4148C294.628 56.7931 296.566 59.3449 296.188 62.1142L295.783 65.0745C295.707 65.6284 295.197 66.016 294.643 65.9404L255.489 60.5908C253.01 60.2521 251.275 57.9678 251.613 55.4888Z" fill="#1A1A1A"/>
+<path d="M256.698 51.739L291.841 56.5405C294.541 56.9094 296.431 59.3968 296.062 62.0967L295.658 65.0575C295.592 65.5421 295.145 65.8813 294.66 65.8152L255.506 60.4656C253.096 60.1362 251.41 57.9155 251.739 55.5058C252.068 53.0961 254.288 51.4099 256.698 51.739Z" stroke="white" stroke-opacity="0.5" stroke-width="0.253046"/>
+<text transform="translate(253.033 53.785) rotate(7.77996)" fill="#DBDBDB" style="white-space: pre" xml:space="preserve" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="3.03656" letter-spacing="0em"><tspan x="0" y="3.1042">Add a new link to the footer</tspan></text>
+<path d="M247.166 67.6455C247.074 64.4669 249.577 61.8158 252.755 61.724L305.975 60.188C309.572 60.0842 312.572 62.9159 312.676 66.5129L312.783 70.2082C312.804 70.9276 312.237 71.5276 311.518 71.5484L253.088 73.2348C249.909 73.3265 247.258 70.8241 247.166 67.6455Z" fill="#1A1A1A"/>
+<path d="M252.76 61.887L305.98 60.351C309.487 60.2498 312.412 63.0106 312.513 66.5176L312.62 70.2134C312.638 70.8425 312.143 71.367 311.514 71.3854L253.083 73.0718C249.994 73.161 247.418 70.7295 247.329 67.6408C247.24 64.5522 249.671 61.9762 252.76 61.887Z" stroke="white" stroke-opacity="0.5" stroke-width="0.325777"/>
+<text transform="translate(248.370 65.201) rotate(-1.65319)" fill="#DBDBDB" style="white-space: pre" xml:space="preserve" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="3.90932" letter-spacing="0em"><tspan x="0" y="3.92157">Update the theme surface color</tspan></text>
+<path d="M243.219 74.2208C243.893 70.2329 247.671 67.5458 251.659 68.2192L291.769 74.9912C296.477 75.7861 299.649 80.2475 298.855 84.9559L298.144 89.1671C297.985 90.1088 297.092 90.7433 296.151 90.5843L249.221 82.6607C245.233 81.9874 242.546 78.2087 243.219 74.2208Z" fill="#1A1A1A"/>
+<path d="M251.624 68.432L291.733 75.204C296.323 75.979 299.416 80.3289 298.641 84.9194L297.93 89.1313C297.791 89.9551 297.011 90.51 296.187 90.371L249.257 82.4475C245.387 81.7941 242.779 78.1271 243.432 74.257C244.086 70.3867 247.753 67.7786 251.624 68.432Z" stroke="white" stroke-opacity="0.5" stroke-width="0.432299"/>
+<text transform="translate(246.390 72.272) rotate(9.58338)" fill="#DBDBDB" style="white-space: pre" xml:space="preserve" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="5.18759" letter-spacing="0em"><tspan x="0" y="4.8864">Fix this display bug</tspan></text>
+<path d="M220.573 88.6897C220.809 83.9145 224.871 80.2344 229.646 80.47L329.868 85.4141C335.557 85.6947 339.941 90.5341 339.66 96.2232L339.417 101.154C339.361 102.292 338.393 103.169 337.255 103.113L228.793 97.7625C224.018 97.5269 220.338 93.4649 220.573 88.6897Z" fill="#1A1A1A"/>
+<path d="M229.634 80.7275L329.855 85.6716C335.402 85.9452 339.677 90.6636 339.403 96.2105L339.16 101.142C339.11 102.137 338.264 102.905 337.268 102.856L228.806 97.505C224.174 97.2764 220.603 93.3356 220.831 88.7029C221.059 84.0699 225.001 80.499 229.634 80.7275Z" stroke="white" stroke-opacity="0.5" stroke-width="0.515675"/>
+<text transform="translate(222.765 85.631) rotate(2.82419)" fill="#DBDBDB" style="white-space: pre" xml:space="preserve" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="6.1881" letter-spacing="0em"><tspan x="0" y="5.75022">Add a photo gallery to my homepage</tspan></text>
+<path transform="translate(279.654 107.868) scale(1.08 1) translate(-279.654 -107.868)" d="M204.304 110.189C204.136 104.809 208.361 100.311 213.741 100.143L342.985 96.1111C349.329 95.9131 354.632 100.895 354.83 107.239L355.008 112.938C355.047 114.207 354.051 115.267 352.782 115.307L214.349 119.626C208.969 119.794 204.472 115.568 204.304 110.189Z" fill="#1A1A1A"/>
+<path transform="translate(279.654 107.868) scale(1.08 1) translate(-279.654 -107.868)" d="M213.75 100.43L342.994 96.398C349.179 96.2051 354.35 101.063 354.543 107.248L354.721 112.947C354.756 114.057 353.883 114.985 352.773 115.02L214.34 119.339C209.119 119.502 204.754 115.401 204.591 110.18C204.428 104.958 208.529 100.593 213.75 100.43Z" stroke="white" stroke-opacity="0.5" stroke-width="0.574598"/>
+<text transform="translate(205.772 106.528) rotate(-1.787)" fill="#DBDBDB" style="white-space: pre" xml:space="preserve" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="6.89518" letter-spacing="0em"><tspan x="0" y="6.50734">Create an events calendar for my jazz club</tspan></text>
+<path d="M230.395 125.767C230.729 119.268 236.268 114.271 242.767 114.605L315.888 118.364C323.37 118.749 329.124 125.126 328.739 132.608L328.365 139.886C328.288 141.382 327.013 142.533 325.516 142.456L241.557 138.139C235.058 137.805 230.061 132.266 230.395 125.767Z" fill="#1A1A1A"/>
+<path d="M242.75 114.943L315.87 118.703C323.166 119.078 328.775 125.296 328.401 132.591L328.026 139.868C327.959 141.178 326.843 142.185 325.534 142.117L241.575 137.801C235.263 137.476 230.409 132.097 230.733 125.785C231.058 119.473 236.438 114.619 242.75 114.943Z" stroke="white" stroke-opacity="0.5" stroke-width="0.67828"/>
+<text transform="translate(235.912 121.314) rotate(2.94303)" fill="#DBDBDB" style="white-space: pre" xml:space="preserve" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="8.13937" letter-spacing="0em"><tspan x="0" y="7.95977">Add a store to my site</tspan></text>
+<path d="M196.031 155.423C195.462 147.577 201.36 140.756 209.205 140.187L345.604 130.285C354.684 129.626 362.579 136.452 363.238 145.533L363.868 154.213C364 156.029 362.635 157.608 360.819 157.74L211.267 168.596C203.422 169.166 196.601 163.268 196.031 155.423Z" fill="#1A1A1A"/>
+<path d="M209.235 140.598L345.634 130.696C354.487 130.053 362.185 136.709 362.827 145.563L363.457 154.243C363.573 155.832 362.378 157.213 360.789 157.329L211.237 168.185C203.619 168.738 196.995 163.011 196.442 155.393C195.889 147.775 201.617 141.151 209.235 140.598Z" stroke="white" stroke-opacity="0.5" stroke-width="0.824213"/>
+<text transform="translate(203.067 149.406) rotate(-4.15196)" fill="#DBDBDB" style="white-space: pre" xml:space="preserve" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="9.89056" letter-spacing="0em"><tspan x="0" y="9.59657">Create a custom 404 error page</tspan></text>
+<path d="M167.496 178.493C167.774 168.832 175.832 161.226 185.493 161.504L371.915 166.88C382.956 167.198 391.649 176.407 391.33 187.448L391.013 198.444C390.95 200.652 389.108 202.39 386.9 202.327L184.484 196.49C174.823 196.211 167.217 188.154 167.496 178.493Z" fill="#1A1A1A"/>
+<path d="M185.478 162.004L371.901 167.38C382.666 167.69 391.141 176.669 390.831 187.434L390.514 198.429C390.458 200.361 388.846 201.882 386.914 201.827L184.498 195.99C175.113 195.719 167.725 187.892 167.995 178.507C168.266 169.122 176.093 161.734 185.478 162.004Z" stroke="white" stroke-opacity="0.5"/>
+<text transform="translate(178.371 171.632) rotate(1.65168)" fill="#DBDBDB" style="white-space: pre" xml:space="preserve" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="12" letter-spacing="0em"><tspan x="0" y="11.8636">Integrate a live chat support feature</tspan></text>
+<path d="M163.895 223.98C162.848 213.021 170.884 203.289 181.843 202.242L371.049 184.174C383.621 182.973 394.786 192.192 395.986 204.764L397.168 217.134C397.408 219.648 395.564 221.881 393.05 222.121L185.633 241.929C174.674 242.975 164.941 234.939 163.895 223.98Z" fill="#1A1A1A"/>
+<path d="M181.898 202.811L371.103 184.743C383.361 183.572 394.247 192.56 395.418 204.818L396.599 217.188C396.809 219.388 395.196 221.343 392.996 221.553L185.579 241.36C174.934 242.376 165.48 234.571 164.464 223.926C163.447 213.281 171.253 203.827 181.898 202.811Z" stroke="white" stroke-opacity="0.5" stroke-width="1.14336"/>
+<text transform="translate(177.731 214.330) rotate(-5.45492)" fill="#DBDBDB" style="white-space: pre" xml:space="preserve" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="13.7203" letter-spacing="0em"><tspan x="0" y="13.4892">Design a newsletter signup form</tspan></text>
+<path d="M182.6 243.44C183.123 230.916 193.701 221.186 206.225 221.71L351.401 227.775C365.966 228.384 377.28 240.685 376.672 255.25L376.099 268.959C375.977 271.872 373.517 274.135 370.604 274.013L204.33 267.066C191.806 266.543 182.077 255.965 182.6 243.44Z" fill="#1A1A1A"/>
+<path d="M206.198 222.369L351.373 228.435C365.574 229.028 376.606 241.021 376.013 255.222L375.44 268.931C375.334 271.48 373.18 273.461 370.631 273.354L204.358 266.407C192.198 265.899 182.752 255.629 183.259 243.468C183.767 231.308 194.038 221.861 206.198 222.369Z" stroke="white" stroke-opacity="0.5" stroke-width="1.31979"/>
+<text transform="translate(199.103 235.222) rotate(2.39249)" fill="#DBDBDB" style="white-space: pre" xml:space="preserve" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="15.8374" letter-spacing="0em"><tspan x="0" y="15.2591">Develop a FAQ section</tspan></text>
+<path d="M103.096 297.675C102.491 281.425 115.173 267.761 131.424 267.155L427.662 256.117C444.219 255.5 458.141 268.422 458.758 284.979L459.536 305.853C459.701 310.268 456.255 313.981 451.839 314.145L133.616 326.003C117.366 326.608 103.702 313.926 103.096 297.675Z" fill="#1A1A1A"/>
+<path d="M103.096 297.675C102.491 281.425 115.173 267.761 131.424 267.155L427.662 256.117C444.219 255.5 458.141 268.422 458.758 284.979L459.536 305.853C459.701 310.268 456.255 313.981 451.839 314.145L133.616 326.003C117.366 326.608 103.702 313.926 103.096 297.675Z" stroke="url(#paint0_linear_10938_225061)" stroke-width="1.38"/>
+<text transform="translate(133.468 284.667) rotate(-2.13393)" fill="white" style="white-space: pre" xml:space="preserve" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="20.3328" letter-spacing="0em"><tspan x="0" y="19.8937">Build a new block for testimonials</tspan></text>
+</g>
+<defs>
+<linearGradient id="paint0_linear_10938_225061" x1="121.198" y1="273.199" x2="140.995" y2="373.154" gradientUnits="userSpaceOnUse">
+<stop stop-color="#3858E9"/>
+<stop offset="1" stop-color="#069E08"/>
+</linearGradient>
+</defs>
+</svg>

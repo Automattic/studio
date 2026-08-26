@@ -4,7 +4,7 @@ export default class ImportExportTab {
 	constructor( private page: Page ) {}
 
 	get locator() {
-		return this.page.getByRole( 'tabpanel', { name: 'Import / Export' } );
+		return this.page.locator( '[role="tabpanel"][id$="-import-export-view"]' );
 	}
 
 	get importDropZone() {
@@ -17,6 +17,10 @@ export default class ImportExportTab {
 
 	get importProgressBar() {
 		return this.locator.getByRole( 'progressbar' );
+	}
+
+	get importCompleteBanner() {
+		return this.locator.getByText( 'Import complete!' );
 	}
 
 	get importStatusMessage() {

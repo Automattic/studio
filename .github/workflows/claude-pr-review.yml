@@ -14,22 +14,61 @@ jobs:
         github.event.pull_request != null ||
         github.event.issue.pull_request != null
       ) &&
-      contains(github.event.comment.body, '@claude')
+      contains(github.event.comment.body, '@claude') &&
+      (
+        github.event.comment.author_association == 'OWNER' ||
+        github.event.comment.author_association == 'MEMBER' ||
+        github.event.comment.author_association == 'COLLABORATOR'
+      )
 
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: write
-      id-token: write
-
+      id-token: write # Required by claude-code-action for GitHub App token exchange.
     steps:
+      # issue_comment payloads identify PR comments, but do not include the PR
+      # head repo. Query the PR before allowing Claude to run on fork PRs.
+      - name: Check PR origin
+        id: pr-origin
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_PULL_REQUEST_URL: ${{ github.event.issue.pull_request.url }}
+          PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "issue_comment" ] && [ -z "$ISSUE_PULL_REQUEST_URL" ]; then
+            echo "is_internal=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          pr_number="${PULL_REQUEST_NUMBER:-$ISSUE_NUMBER}"
+          if ! head_repo="$(gh api "repos/${REPOSITORY}/pulls/${pr_number}" --jq '.head.repo.full_name')"; then
+            echo "Unable to determine PR head repository for #${pr_number}; skipping Claude."
+            echo "is_internal=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "$head_repo" = "$REPOSITORY" ]; then
+            echo "is_internal=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_internal=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping Claude for external PR from ${head_repo:-unknown}."
+          fi
+
       - name: Checkout repository
-        uses: actions/checkout@v6
+        if: steps.pr-origin.outputs.is_internal == 'true'
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 1
+          persist-credentials: false
 
       - name: Comprehensive PR Review
-        uses: anthropics/claude-code-action@v1
+        if: steps.pr-origin.outputs.is_internal == 'true'
+        uses: anthropics/claude-code-action@d40ddef4c030e508327d6e35a9c45f3368482c50 # v1.0.195
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           track_progress: true
@@ -38,51 +77,100 @@ jobs:
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
 
-            Perform a comprehensive code review for WordPress Studio, focusing on:
+            Perform a code review for WordPress Studio (Electron desktop app, React + TypeScript, WordPress Playground).
+            Review priorities are ordered by real-world frequency — earlier categories catch the most issues.
 
-            1. **Cross-Platform Compatibility (macOS & Windows)**
-               - Path separators: Use `path.join()` or `path.resolve()` instead of hardcoded `/` or `\`
-               - File system differences: Case sensitivity, path length limits, reserved filenames
-               - Platform-specific APIs: Check `process.platform` usage and platform guards
-               - Environment variables: HOME vs USERPROFILE, temp directories
-               - Line endings: Ensure .gitattributes handles CRLF/LF correctly
-               - Electron platform code: Verify macOS and Windows-specific implementations work correctly
-               - Testing: Flag code that needs testing on both platforms
+            1. **Scope & Intent**
+               - Does the PR do what the title/description says, nothing more?
+               - Flag unrelated changes, accidental file inclusions (e.g., .vscode settings, unintended lockfile diffs)
+               - Suggest splitting if the PR crosses multiple architectural boundaries without justification
 
-            2. **Code Quality**
-               - Clean code principles and TypeScript best practices
-               - Proper error handling and edge cases
-               - Code readability and maintainability
-               - Following patterns in docs/ai-instructions.md
+            2. **Simplicity** (most common review feedback)
+               - Push back on unnecessary abstractions, helpers, or wrappers for one-time operations
+               - Flag over-engineering: extra configurability, barrel files, generic solutions when specific ones suffice
+               - Check if `packages/common/lib/` already has what's being written (e.g., `sequential.ts`, `fs-utils.ts`, shared Zod schemas)
+               - Flag over-defensive code: excessive try/catch blocks where error handling is disproportionate to risk
+               - Ask: "Can this be simpler while still solving the problem?"
 
-            3. **Security (OWASP Top 10)**
-               - SQL injection, XSS, authentication/authorization flaws
-               - Sensitive data exposure, hardcoded secrets
-               - Input validation and sanitization
-               - Electron-specific: Node integration disabled, context isolation, IPC validation, CSP
-               - External content handling security
+            3. **AI-Generated Code**
+               - The PR template discloses AI usage — calibrate review depth accordingly
+               - Watch for dead code/leftovers: empty catch blocks, unused imports, commented-out code, redundant type assertions
+               - Flag unnecessary defensiveness: try/catch wrapping code that can't throw, null checks on values guaranteed by types
+               - Flag unexplained changes: color changes, dependency reordering, or refactors with no clear purpose
+               - Flag redundant comments that describe what code does rather than why
 
-            4. **Performance**
-               - Identify potential bottlenecks
-               - Database query efficiency
-               - Memory leaks or resource issues
-               - Bundle size impact for Electron app
+            4. **Naming & Clarity**
+               - Names should be specific and self-documenting
+               - Prefer `removeSiteFromConfig` over `remove`, `extractFormValuesFromBlueprint` over `extractValues`
+               - Constants should include context: `DEFAULT_SKILLS_REPO_BRANCH` not `DEFAULT_BRANCH`
 
-            5. **Testing**
-               - Adequate test coverage (Jest unit tests)
-               - Test quality and edge cases
-               - Missing test scenarios
-               - E2E test considerations (Playwright)
+            5. **Type Safety & Schemas**
+               - Prefer union types over optionals when data has clear states (e.g., a running process always has a PID)
+               - Zod schemas should use `z.literal()` for version fields so parsing fails clearly on mismatches
+               - Don't duplicate schemas — check `packages/common/lib/` for existing definitions
+               - Avoid `unknown` with type assertions — use proper typing or Zod's `safeParse()`
 
-            6. **Documentation**
-               - Code properly documented
-               - docs/ai-instructions.md updates for new features or architectural changes
-               - API documentation accuracy
-               - README updates if needed
+            6. **Error Handling & Logging**
+               - Too little: empty `catch {}` blocks, `Promise.allSettled` without inspecting rejections, missing Sentry capture
+               - Too much: try/catch wrapping internal code that doesn't throw, defensive null checks on typed values
+               - Rule of thumb: log enough to debug, don't catch what you can't handle
 
-            Provide detailed feedback using inline comments for specific issues.
-            Use top-level comments for general observations or praise.
-            Be thorough but constructive in your feedback.
+            7. **Security**
+               - Electron: Node integration disabled, context isolation enabled, IPC sender validation in place
+               - CSP: no `unsafe-eval` or `unsafe-inline` additions without justification
+               - Input validation at system boundaries using Zod schemas (IPC messages, config files, API responses)
+               - No hardcoded secrets or tokens; auth through `packages/common/lib/oauth.ts`
+               - Credentials must not appear in logs or error messages
+               - URLs via `shell.openExternal()` must be validated
+               - Flag new dependencies that expand attack surface
+
+            8. **Data Safety**
+               - File locking: `saveUserData`/`saveAppdata`/`saveCliConfig`/`saveSharedConfig` MUST be wrapped in `lock*/try/finally/unlock*` (enforced by ESLint rule `studio/require-lock-before-save`)
+               - Atomic writes via the `atomically` package
+               - Studio app owns data migrations, not the standalone CLI
+
+            9. **Architecture & Separation**
+               - Code should live where it belongs: storage schemas in storage files, security logic in security files
+               - IPC handlers must be async, return Promises, and have names in `constants.ts`
+               - Renderer cannot access Node.js APIs directly — must use `window.ipcApi.*`
+               - Shared code between CLI and Studio belongs in `packages/common/`, not duplicated
+               - Follow module structure: `apps/studio/src/modules/<feature>/` with `components/`, `hooks/`, `lib/`
+
+            10. **Cross-Platform Compatibility (macOS & Windows)**
+                - Path separators: `path.join()` or `path.resolve()`, never hardcoded `/` or `\`
+                - File system: case sensitivity, path length limits, reserved filenames (CON, NUL on Windows)
+                - Platform APIs: check `process.platform` guards; sockets differ (named pipes on Windows)
+                - Environment variables: HOME vs USERPROFILE, temp directories
+                - Line endings: .gitattributes handles CRLF/LF
+                - Flag code that needs testing on both platforms; E2E runs on macOS-arm64 and Windows-x64
+
+            11. **i18n**
+                - All user-facing strings must use `__()` from `@wordpress/i18n`
+                - Dynamic values via `sprintf()`, never string concatenation — translators need the full sentence
+                - When in doubt, make it translatable — translators can decide not to translate brand names
+
+            12. **React & Performance**
+                - `useMemo`/`useCallback` for objects/arrays passed as props or deps
+                - Effects need cleanup functions for subscriptions and IPC listeners
+                - Cancel strategies for async operations in effects
+                - Bundle size: flag large new dependencies
+                - Memory leaks: verify event listeners cleaned up on unmount
+
+            13. **Visual & UX Consistency**
+                - Changes must look correct in both light and dark mode
+                - Check RTL layout if touching layout/positioning code
+                - Interactive states (loading, disabled, error) must handle rapid user interaction
+                - Accessibility: watch for low color contrast, missing aria labels, and keyboard navigation issues
+
+            14. **Testing**
+                - Tests should add real value, not just coverage — fully-mocked tests that don't exercise real logic are low value
+                - Mock at the right level — mock the hook, not the entire fetch API
+                - Test error recovery paths and schema validation on corrupt/mismatched data
+                - Vitest for unit tests, Playwright for E2E; tests co-located in `tests/` subdirectories
+
+            Only provide noteworthy feedback. Keep feedback concise.
+            Provide feedback using inline comments for specific issues.
+            Do not add positive reinforcement comments.
 
           claude_args: |
-            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr diff:*),Bash(gh pr view:*)"

@@ -75,7 +75,7 @@ export async function runCommand(): Promise< void > {
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: 'mcp',
-		describe: __( 'MCP server for AI assistants' ),
+		describe: __( 'MCP server for AI agents' ),
 		builder: ( yargs ) => {
 			return yargs.help( false ).option( 'help', { type: 'boolean' } );
 		},

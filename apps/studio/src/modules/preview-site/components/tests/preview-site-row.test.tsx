@@ -1,9 +1,22 @@
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { vi } from 'vitest';
 import { useExpirationDate } from 'src/hooks/use-expiration-date';
+import { recordRendererTracksEvent } from 'src/lib/analytics';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 import { store } from 'src/stores';
 import { PreviewSiteRow } from '../preview-site-row';
+
+vi.mock( 'src/lib/analytics', () => ( {
+	recordRendererTracksEvent: vi.fn(),
+} ) );
+
+const mockOpenURL = vi.fn();
+vi.mock( 'src/lib/get-ipc-api', () => ( {
+	getIpcApi: vi.fn(),
+} ) );
 
 vi.mock( 'src/hooks/use-expiration-date', () => ( {
 	useExpirationDate: vi.fn().mockReturnValue( {
@@ -38,13 +51,16 @@ describe( 'PreviewSiteRow', () => {
 		id: '456',
 		name: 'Test',
 		path: '/test/path',
-		phpVersion: '8.3',
+		phpVersion: '8.4',
 		port: 9999,
 		running: false,
 	};
 
 	beforeEach( () => {
 		vi.clearAllMocks();
+		vi.mocked( getIpcApi ).mockReturnValue( {
+			openURL: mockOpenURL,
+		} as unknown as ReturnType< typeof getIpcApi > );
 	} );
 
 	it( 'renders PreviewActionButtonsMenu when preview site is not expired', () => {
@@ -101,5 +117,21 @@ describe( 'PreviewSiteRow', () => {
 
 		expect( siteName ).toHaveClass( 'line-through' );
 		expect( siteUrl ).toHaveClass( 'line-through' );
+	} );
+
+	it( 'records a preview_site_open Tracks event and opens the URL when the link is clicked', async () => {
+		const user = userEvent.setup();
+		renderWithProvider(
+			<PreviewSiteRow
+				snapshot={ mockSnapshot }
+				selectedSite={ mockSelectedSite }
+				disabledUpdate={ false }
+			/>
+		);
+
+		await user.click( screen.getByText( mockSnapshot.url ) );
+
+		expect( recordRendererTracksEvent ).toHaveBeenCalledWith( TRACKS_EVENTS.PREVIEW_SITE_OPEN );
+		expect( mockOpenURL ).toHaveBeenCalledWith( `https://${ mockSnapshot.url }` );
 	} );
 } );

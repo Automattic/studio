@@ -8,7 +8,7 @@ import { useAuth } from 'src/hooks/use-auth';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { store } from 'src/stores';
-import type { SyncSite } from 'src/modules/sync/types';
+import type { SyncSite } from '@studio/common/types/sync';
 import type { WPCOM } from 'wpcom/types';
 
 vi.mock( 'src/hooks/use-site-details' );
@@ -173,7 +173,10 @@ describe( 'useAddSite', () => {
 			false,
 			undefined, // adminUsername
 			undefined, // adminPassword
-			undefined // adminEmail
+			undefined, // adminEmail
+			undefined, // runtime
+			undefined, // fileAccess
+			undefined // flowType
 		);
 	} );
 
@@ -218,7 +221,7 @@ describe( 'useAddSite', () => {
 			name: 'New Site',
 			path: '/test/path',
 			wpVersion: 'latest',
-			phpVersion: '8.3',
+			phpVersion: '8.4',
 		};
 
 		mockCreateSite.mockImplementation(
@@ -237,7 +240,7 @@ describe( 'useAddSite', () => {
 		const formValues: CreateSiteFormValues = {
 			siteName: createdSite.name,
 			sitePath: createdSite.path,
-			phpVersion: '8.3',
+			phpVersion: '8.4',
 			wpVersion: 'latest',
 			useCustomDomain: false,
 			customDomain: null,

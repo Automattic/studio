@@ -7,7 +7,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import Button from 'src/components/button';
 import { DynamicStylesheet } from 'src/components/dynamic-stylesheet';
 import { getWordpressStylesHref } from 'src/components/wordpress-styles';
-import { isMac, isWindows } from 'src/lib/app-globals';
+import { isLinux, isMac, isWindows } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
@@ -101,8 +101,8 @@ export default function DefaultErrorFallback() {
 			<VStack
 				className={ cx(
 					'h-screen bg-chrome backdrop-blur-3xl pr-chrome app-drag-region',
-					isWindows() && 'pt-0 pb-chrome',
-					! isWindows() && 'py-chrome'
+					( isWindows() || isLinux() ) && 'pt-0 pb-chrome',
+					! ( isWindows() || isLinux() ) && 'py-chrome'
 				) }
 				spacing="0"
 			>
@@ -116,11 +116,7 @@ export default function DefaultErrorFallback() {
 						) }
 					>
 						<div className="flex flex-col h-full">
-							<div
-								className={ cx(
-									'w-full overflow-y-auto overflow-x-hidden flex flex-col gap-0.5 pb-4'
-								) }
-							>
+							<div className="w-full overflow-y-auto overflow-x-hidden flex flex-col gap-0.5 pb-4">
 								<SitesSkeleton />
 							</div>
 							<div className="mt-auto min-h-[103px] pt-5">

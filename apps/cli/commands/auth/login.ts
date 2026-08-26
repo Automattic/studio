@@ -4,11 +4,12 @@ import { AUTH_EVENTS } from '@studio/common/lib/cli-events';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { readAuthToken, updateSharedConfig } from '@studio/common/lib/shared-config';
 import { AuthCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
-import { __, sprintf } from '@wordpress/i18n';
+import { __ } from '@wordpress/i18n';
 import { getUserInfo } from 'cli/lib/api';
 import { openBrowser } from 'cli/lib/browser';
 import { emitCliEvent } from 'cli/lib/daemon-client';
 import { getAppLocale } from 'cli/lib/i18n';
+import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -30,36 +31,45 @@ export async function runCommand(): Promise< void > {
 		return;
 	}
 
-	logger.reportStart( LoggerAction.LOGIN, __( 'Opening browser for authentication…' ) );
-
 	const appLocale = await getAppLocale();
 	const authUrl = getAuthenticationUrl( appLocale, CLI_REDIRECT_URI );
 
+	logger.reportStart( LoggerAction.LOGIN, __( 'Opening browser for authentication…' ) );
 	try {
 		await openBrowser( authUrl );
 		logger.reportSuccess( __( 'Browser opened successfully' ) );
 	} catch ( error ) {
-		// If the browser fails to open, allow users to manually open the URL
-		const loggerError = new LoggerError(
-			sprintf( __( 'Failed to open browser. Please open the URL manually: %s' ), authUrl ),
-			error
+		logger.reportWarning(
+			__( "Couldn't open a browser automatically. Use the URL below instead." ) +
+				( error instanceof Error ? `: ${ error.message }` : '' )
 		);
-		logger.reportError( loggerError );
 	}
 
-	console.log(
-		__( 'Please complete authentication in your browser and paste the generated token here.' )
-	);
+	// Always surface the URL explicitly so users on remote/headless machines
+	// have a usable link to open on another device.
+	console.log( '' );
+	console.log( __( 'To authenticate, open this URL in a browser on any device:' ) );
+	console.log( authUrl );
+	console.log( '' );
+	console.log( __( 'After approving access, copy the generated token and paste it here.' ) );
 	console.log( '' );
 
 	let accessToken: Awaited< ReturnType< typeof input > >;
 	let user: Awaited< ReturnType< typeof getUserInfo > >;
+
+	// `account_type` is absent throughout: the CLI has no signup path.
+	const authProps = { ...getTracksOrigin(), source: 'cli' as const };
 
 	try {
 		accessToken = await input( { message: __( 'Authentication token:' ) } );
 		user = await getUserInfo( accessToken );
 		logger.reportSuccess( __( 'Authentication completed successfully!' ) );
 	} catch ( error ) {
+		await recordTracksEvent( TRACKS_EVENTS.WPCOM_AUTH, {
+			...authProps,
+			success: false,
+			failure_reason: 'profile_fetch_failed',
+		} );
 		logger.reportError( new LoggerError( __( 'Authentication failed. Please try again.' ) ) );
 		return;
 	}
@@ -76,6 +86,11 @@ export async function runCommand(): Promise< void > {
 	try {
 		await updateSharedConfig( { authToken } );
 	} catch ( error ) {
+		await recordTracksEvent( TRACKS_EVENTS.WPCOM_AUTH, {
+			...authProps,
+			success: false,
+			failure_reason: 'unknown',
+		} );
 		if ( error instanceof LoggerError ) {
 			logger.reportError( error );
 		} else {
@@ -83,6 +98,9 @@ export async function runCommand(): Promise< void > {
 		}
 		return;
 	}
+
+	// After the token is stored — the wrapper reads it to resolve `is_a11n`.
+	await recordTracksEvent( TRACKS_EVENTS.WPCOM_AUTH, { ...authProps, success: true } );
 
 	try {
 		await emitCliEvent( { event: AUTH_EVENTS.LOGIN, data: { token: authToken } } );

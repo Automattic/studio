@@ -1,9 +1,10 @@
+import { truncateToWidth, visibleWidth } from '@earendil-works/pi-tui';
 import { select } from '@inquirer/prompts';
-import { truncateToWidth, visibleWidth } from '@mariozechner/pi-tui';
+import { listAiSessions } from '@studio/common/ai/sessions/store';
+import chalk from '@studio/common/lib/chalk';
+import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { __ } from '@wordpress/i18n';
-import chalk from 'chalk';
-import { listAiSessions } from 'cli/ai/sessions/store';
-import type { AiSessionSummary } from 'cli/ai/sessions/types';
+import type { AiSessionSummary } from '@studio/common/ai/sessions/types';
 
 function formatSessionTimestamp( timestamp: string ): string {
 	const parsed = Date.parse( timestamp );
@@ -123,7 +124,7 @@ export function displaySessionsCompact( sessions: AiSessionSummary[] ): void {
 	};
 
 	console.log(
-		chalk.bold( __( 'AI Sessions' ) ) +
+		chalk.bold( __( 'Code Sessions' ) ) +
 			chalk.dim( ` (${ sessions.length })` ) +
 			chalk.dim( ` · ${ __( 'Most recent first' ) }` )
 	);
@@ -167,7 +168,10 @@ async function pickSessionInteractively(
 				loop: false,
 				theme: {
 					style: {
-						keysHelpTip: () => chalk.dim( __( '↑↓ navigate · ⏎ select · esc cancel' ) ),
+						keysHelpTip: () =>
+							chalk.dim(
+								[ __( '↑↓ navigate' ), __( '⏎ select' ), __( 'esc cancel' ) ].join( ' · ' )
+							),
 					},
 				},
 			},
@@ -197,7 +201,7 @@ export async function chooseSessionForAction(
 	actionLabel: string,
 	noSessionsMessage: string
 ): Promise< AiSessionSummary | undefined > {
-	const sessions = await listAiSessions();
+	const sessions = await listAiSessions( getSessionsDirectory() );
 	if ( sessions.length === 0 ) {
 		console.log( noSessionsMessage );
 		return undefined;

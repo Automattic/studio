@@ -1,14 +1,15 @@
 import interpolateComponents from '@automattic/interpolate-components';
+import cliIllustration from '@studio/common/assets/whats-new/cli.svg';
+import darkModeIllustration from '@studio/common/assets/whats-new/dark-mode.svg';
+import nativePhpIllustration from '@studio/common/assets/whats-new/native-php.svg';
+import phpMyAdminIllustration from '@studio/common/assets/whats-new/phpmyadmin.svg';
+import studioCodeIllustration from '@studio/common/assets/whats-new/studio-code.svg';
 import { Guide } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
 import { ReactNode } from 'react';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
-import blueprintsIllustration from 'src/modules/whats-new/assets/blueprints-illustration.svg';
-import cliIllustration from 'src/modules/whats-new/assets/cli-illustration.svg';
-import darkModeIllustration from 'src/modules/whats-new/assets/dark-mode-illustration.svg';
-import phpMyAdminIllustration from 'src/modules/whats-new/assets/phpmyadmin-illustration.svg';
 import { useI18nLocale } from 'src/stores';
 
 interface WhatsNewPage {
@@ -29,18 +30,10 @@ const PageContent = ( {
 	description,
 	learnMoreUrl,
 	learnMoreLabel,
-	isIntroPage = false,
-}: Omit< WhatsNewPage, 'image' > & { isIntroPage?: boolean } ) => (
+}: Omit< WhatsNewPage, 'image' > ) => (
 	<div className="px-8 pt-3 pb-2 flex flex-col h-full">
 		<h2 className="text-xl mb-2 text-frame-text line-clamp-2">{ title }</h2>
-		<p
-			className={ cx(
-				'text-frame-text text-m leading-s',
-				isIntroPage ? 'line-clamp-5' : 'line-clamp-3'
-			) }
-		>
-			{ description }
-		</p>
+		<p className="text-frame-text text-m leading-s line-clamp-5">{ description }</p>
 		<div className="mt-2 mb-4">
 			{ learnMoreUrl && (
 				<button
@@ -57,6 +50,22 @@ const PageContent = ( {
 export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProps ) {
 	const locale = useI18nLocale();
 	const whatsNewPages: WhatsNewPage[] = [
+		{
+			image: studioCodeIllustration,
+			title: __( 'Studio Code helps you get it done' ),
+			description: __(
+				'From quick edits to new features, Studio Code helps you move faster by translating your ideas into working code.'
+			),
+			learnMoreUrl: getLocalizedLink( locale, 'docsStudioCode' ),
+		},
+		{
+			image: nativePhpIllustration,
+			title: __( 'Faster local sites with native PHP' ),
+			description: __(
+				'Studio now uses native PHP by default, running WordPress with fewer abstractions for better performance. You can switch between Native and Sandbox runtimes in your site settings.'
+			),
+			learnMoreUrl: getLocalizedLink( locale, 'docsPhpRuntimes' ),
+		},
 		{
 			image: darkModeIllustration,
 			title: __( 'Dark mode is here' ),
@@ -88,14 +97,6 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 			} ),
 			learnMoreUrl: getLocalizedLink( locale, 'docsCli' ),
 		},
-		{
-			image: blueprintsIllustration,
-			title: __( 'Introducing Blueprints, a new way to streamline site creation.' ),
-			description: __(
-				'Select a Blueprint that fits your needs and build your WordPress site even faster.'
-			),
-			learnMoreUrl: getLocalizedLink( locale, 'docsBlueprints' ),
-		},
 	];
 
 	if ( ! showModal ) {
@@ -111,7 +112,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 				'[&_*]:select-none',
 				'focus:outline-none'
 			) }
-			pages={ whatsNewPages.map( ( { image, title, ...pageContent }, index ) => ( {
+			pages={ whatsNewPages.map( ( { image, title, ...pageContent } ) => ( {
 				image: (
 					<div className="relative">
 						<div className="absolute top-[13px] left-[13px] rtl:left-auto rtl:right-[13px] bg-a8c-gray-90 text-a8c-gray-5 text-xs px-2 py-1 rounded-sm">
@@ -124,11 +125,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 						/>
 					</div>
 				),
-				content: (
-					<div className={ index === 0 ? 'whats-new-intro-page' : '' }>
-						<PageContent title={ title } { ...pageContent } isIntroPage={ index === 0 } />
-					</div>
-				),
+				content: <PageContent title={ title } { ...pageContent } />,
 			} ) ) }
 			finishButtonText={ __( 'Done' ) }
 			nextButtonText={ __( 'Next' ) }

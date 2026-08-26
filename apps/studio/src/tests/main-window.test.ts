@@ -2,12 +2,17 @@
  * @vitest-environment node
  */
 import { BrowserWindow } from 'electron';
-import fs from 'fs';
-import { normalize } from 'path';
 import { readFile } from 'atomically';
+import { vol } from 'memfs';
 import { vi } from 'vitest';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
-import { createMainWindow, getMainWindow, __resetMainWindow } from 'src/main-window';
+import { setAgenticUiEnabled } from 'src/lib/studio-ui-mode';
+import {
+	createMainWindow,
+	getMainWindow,
+	isToggleSidebarShortcut,
+	__resetMainWindow,
+} from 'src/main-window';
 
 vi.mock( 'fs' );
 vi.mock( 'src/ipc-utils' );
@@ -18,6 +23,7 @@ vi.mock( 'src/lib/app-globals', () => ( {
 
 // Create a simpler mock that tracks event handlers
 const mockEventHandlers = new Map< string, ( ( ...args: any[] ) => void )[] >();
+const mockWebContentsEventHandlers = new Map< string, ( ( ...args: any[] ) => void )[] >();
 
 vi.mock( 'electron', () => {
 	class MockBrowserWindow {
@@ -30,6 +36,7 @@ vi.mock( 'electron', () => {
 		loadFile = vi.fn().mockResolvedValue( undefined );
 		loadURL = vi.fn().mockResolvedValue( undefined );
 		setBackgroundColor = vi.fn();
+		setTitleBarOverlay = vi.fn();
 		getBounds = vi.fn().mockReturnValue( { x: 0, y: 0, width: 800, height: 600 } );
 
 		on = vi.fn().mockImplementation( ( event: string, handler: ( ...args: any[] ) => void ) => {
@@ -43,6 +50,11 @@ vi.mock( 'electron', () => {
 			isDestroyed: vi.fn().mockReturnValue( false ),
 			send: vi.fn(),
 			on: vi.fn().mockImplementation( ( event: string, handler: ( ...args: any[] ) => void ) => {
+				if ( ! mockWebContentsEventHandlers.has( event ) ) {
+					mockWebContentsEventHandlers.set( event, [] );
+				}
+				mockWebContentsEventHandlers.get( event )!.push( handler );
+
 				if ( event === 'did-finish-load' ) {
 					// Call handler immediately to resolve window creation
 					setImmediate( handler );
@@ -65,6 +77,9 @@ vi.mock( 'electron', () => {
 		},
 		nativeTheme: {
 			themeSource: 'light',
+			shouldUseDarkColors: false,
+			on: vi.fn(),
+			removeListener: vi.fn(),
 		},
 		screen: {
 			getAllDisplays: vi.fn().mockReturnValue( [] ),
@@ -85,20 +100,20 @@ vi.mock( 'electron', () => {
 const mockUserData = {
 	sites: [],
 };
-if ( '__setFileContents' in fs ) {
-	(
-		fs as typeof fs & { __setFileContents: ( path: string, contents: string | string[] ) => void }
-	 ).__setFileContents(
-		normalize( '/path/to/app/appData/App Name/appdata-v1.json' ),
-		JSON.stringify( mockUserData )
-	);
-}
 vi.mocked( readFile ).mockResolvedValue( Buffer.from( JSON.stringify( mockUserData ) ) );
+
+beforeEach( () => {
+	delete process.env.ENABLE_AGENTIC_UI;
+	delete process.env.ELECTRON_UI_RENDERER_URL;
+	delete process.env.ELECTRON_RENDERER_URL;
+	mockWebContentsEventHandlers.clear();
+} );
 
 describe( 'getMainWindow', () => {
 	let createdWindow: BrowserWindow;
 
 	beforeEach( async () => {
+		vol.reset();
 		createdWindow = await createMainWindow();
 	} );
 
@@ -141,6 +156,92 @@ describe( 'getMainWindow', () => {
 		// Should return a BrowserWindow instance (creates a new one internally)
 		expect( window ).toBeInstanceOf( BrowserWindow );
 		expect( window.loadFile ).toHaveBeenCalled();
+	} );
+} );
+
+describe( 'renderer selection', () => {
+	afterEach( () => {
+		setAgenticUiEnabled( false );
+		__resetMainWindow();
+	} );
+
+	it( 'loads the legacy renderer by default', async () => {
+		const createdWindow = await createMainWindow();
+		const rendererPath = vi.mocked( createdWindow.loadFile ).mock.calls[ 0 ][ 0 ];
+
+		expect( rendererPath.replace( /\\/g, '/' ) ).toContain( 'renderer/index.html' );
+		expect( createdWindow.loadURL ).not.toHaveBeenCalled();
+	} );
+
+	it( 'loads the UI dev server when the agentic UI flag is enabled', async () => {
+		setAgenticUiEnabled( true );
+		process.env.ELECTRON_UI_RENDERER_URL = 'http://localhost:5200';
+
+		const createdWindow = await createMainWindow();
+
+		expect( createdWindow.loadURL ).toHaveBeenCalledWith( 'http://localhost:5200' );
+		expect( createdWindow.loadFile ).not.toHaveBeenCalled();
+	} );
+} );
+
+describe( 'sidebar shortcut', () => {
+	afterEach( () => {
+		__resetMainWindow();
+	} );
+
+	it( 'matches command+b on macOS and control+b on other platforms', () => {
+		const input = {
+			type: 'keyDown',
+			key: 'b',
+			code: 'KeyB',
+			isAutoRepeat: false,
+			isComposing: false,
+			shift: false,
+			control: false,
+			alt: false,
+			meta: false,
+			location: 0,
+			modifiers: [],
+		} as Electron.Input;
+
+		expect( isToggleSidebarShortcut( { ...input, meta: true }, 'darwin' ) ).toBe( true );
+		expect( isToggleSidebarShortcut( { ...input, control: true }, 'win32' ) ).toBe( true );
+		expect( isToggleSidebarShortcut( { ...input, control: true }, 'linux' ) ).toBe( true );
+		expect( isToggleSidebarShortcut( { ...input, control: true }, 'darwin' ) ).toBe( false );
+		expect( isToggleSidebarShortcut( { ...input, meta: true }, 'win32' ) ).toBe( false );
+		expect( isToggleSidebarShortcut( { ...input, meta: true, shift: true }, 'darwin' ) ).toBe(
+			false
+		);
+		expect(
+			isToggleSidebarShortcut( { ...input, meta: true, isAutoRepeat: true }, 'darwin' )
+		).toBe( false );
+	} );
+
+	it( 'sends a renderer toggle event from the main window shortcut handler', async () => {
+		const createdWindow = await createMainWindow();
+		const handlers = mockWebContentsEventHandlers.get( 'before-input-event' );
+		const event = { preventDefault: vi.fn() };
+
+		expect( handlers ).toBeDefined();
+		handlers![ 0 ]( event, {
+			type: 'keyDown',
+			key: 'b',
+			code: 'KeyB',
+			isAutoRepeat: false,
+			isComposing: false,
+			shift: false,
+			control: process.platform !== 'darwin',
+			alt: false,
+			meta: process.platform === 'darwin',
+			location: 0,
+			modifiers: [],
+		} as Electron.Input );
+
+		expect( event.preventDefault ).toHaveBeenCalled();
+		expect( sendIpcEventToRendererWithWindow ).toHaveBeenCalledWith(
+			createdWindow,
+			'toggle-sidebar'
+		);
 	} );
 } );
 

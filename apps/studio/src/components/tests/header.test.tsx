@@ -25,7 +25,7 @@ const mockedSites: SiteDetails[] = [
 		running: false,
 		id: 'mock-id',
 		port: 8881,
-		phpVersion: '8.3',
+		phpVersion: '8.4',
 	},
 ];
 
@@ -37,6 +37,7 @@ function mockGetIpcApi( mocks: Record< string, Mock > ) {
 		setSnapshot: vi.fn(),
 		startServer: vi.fn( () => Promise.resolve() ),
 		showErrorMessageBox: vi.fn(),
+		recordAnalyticsEvent: vi.fn().mockResolvedValue( undefined ),
 		...mocks,
 	} as unknown as IpcApi );
 }
@@ -66,6 +67,45 @@ describe( 'Header', () => {
 		await user.click( startButton );
 
 		expect( vi.mocked( getIpcApi )().startServer ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	describe( 'site navigation links (IPC command boundary)', () => {
+		it( 'opens the local site homepage without auto-login', async () => {
+			const user = userEvent.setup();
+			mockGetIpcApi( { openSiteURL: vi.fn() } );
+			renderWithProvider( <Header /> );
+
+			await screen.findByText( 'test-1' );
+			await user.click( screen.getByRole( 'button', { name: /Open local site/ } ) );
+
+			expect( vi.mocked( getIpcApi )().startServer ).toHaveBeenCalledWith( 'mock-id' );
+			expect( vi.mocked( getIpcApi )().openSiteURL ).toHaveBeenCalledWith( 'mock-id', '', {
+				autoLogin: false,
+			} );
+			expect( vi.mocked( getIpcApi )().recordAnalyticsEvent ).toHaveBeenCalledWith(
+				'studio_site_open_in_browser',
+				expect.anything()
+			);
+		} );
+
+		it( 'opens wp-admin with auto-login', async () => {
+			const user = userEvent.setup();
+			mockGetIpcApi( { openSiteURL: vi.fn() } );
+			renderWithProvider( <Header /> );
+
+			await screen.findByText( 'test-1' );
+			await user.click( screen.getByRole( 'button', { name: /WP admin/ } ) );
+
+			expect( vi.mocked( getIpcApi )().startServer ).toHaveBeenCalledWith( 'mock-id' );
+			expect( vi.mocked( getIpcApi )().openSiteURL ).toHaveBeenCalledWith(
+				'mock-id',
+				'/wp-admin/'
+			);
+			expect( vi.mocked( getIpcApi )().recordAnalyticsEvent ).toHaveBeenCalledWith(
+				'studio_site_open_wp_admin',
+				expect.anything()
+			);
+		} );
 	} );
 
 	describe( 'when starting a server fails', () => {

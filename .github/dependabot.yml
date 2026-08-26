@@ -10,6 +10,9 @@ updates:
     schedule:
       interval: "weekly"
 
+    cooldown:
+      default-days: 2
+
     allow:
       # Automattic packages
       - dependency-name: "@automattic/*"
@@ -24,10 +27,6 @@ updates:
       - dependency-name: "@wordpress/*"
       - dependency-name: "wpcom"
       - dependency-name: "wpcom-*"
-
-      # WordPress Playground & PHP WASM
-      - dependency-name: "@wp-playground/*"
-      - dependency-name: "@php-wasm/*"
 
       # TypeScript ecosystem
       - dependency-name: "typescript"
@@ -69,26 +68,18 @@ updates:
       # React ecosystem
       - dependency-name: "react"
       - dependency-name: "react-*"
-      - dependency-name: "@rive-app/*"
 
       # Inquirer CLI prompts
       - dependency-name: "@inquirer/*"
 
       # Compression & archiving
       - dependency-name: "archiver"
-      - dependency-name: "compression"
-      - dependency-name: "compressible"
       - dependency-name: "yauzl"
       - dependency-name: "tar"
 
       # HTTP & networking
       - dependency-name: "http-proxy"
-      - dependency-name: "hpagent"
       - dependency-name: "follow-redirects"
-
-      # Process management
-      - dependency-name: "pm2"
-      - dependency-name: "pm2-*"
 
       # Security & crypto
       - dependency-name: "node-forge"
@@ -106,11 +97,8 @@ updates:
       - dependency-name: "lockfile"
       - dependency-name: "atomically"
       - dependency-name: "file-stream-rotator"
-      - dependency-name: "strip-ansi"
       - dependency-name: "trash"
       - dependency-name: "cli-table3"
-      - dependency-name: "ora"
-      - dependency-name: "cross-port-killer"
       - dependency-name: "fast-deep-equal"
       - dependency-name: "simple-git"
 
@@ -164,11 +152,6 @@ updates:
           - "electron-vite"
           - "electron-playwright-helpers"
           - "electron-devtools-installer"
-
-      wp-playground-php-wasm:
-        patterns:
-          - "@wp-playground/*"
-          - "@php-wasm/*"
 
       wordpress:
         patterns:
@@ -234,13 +217,7 @@ updates:
       http-networking:
         patterns:
           - "http-proxy"
-          - "hpagent"
           - "follow-redirects"
-
-      process-management:
-        patterns:
-          - "pm2"
-          - "pm2-*"
 
       markdown:
         patterns:
@@ -252,8 +229,6 @@ updates:
       compression:
         patterns:
           - "archiver"
-          - "compression"
-          - "compressible"
           - "yauzl"
           - "tar"
 
@@ -261,10 +236,8 @@ updates:
         patterns:
           - "yargs"
           - "yargs-*"
-          - "ora"
           - "cli-table3"
           - "shell-quote"
-          - "strip-ansi"
 
       file-utilities:
         patterns:
@@ -279,6 +252,8 @@ updates:
       - dependency-name: "eslint-plugin-studio"
       - dependency-name: "winreg" # v1.2.5 has a known issue: https://github.com/fresc81/node-winreg/issues/65
       - dependency-name: "@types/glob" # glob@7 (transitive) has no bundled types; @types/glob@9 is a stub for glob@9+ only
+      - dependency-name: "@wp-playground/*" # must be pinned exactly and bumped manually in lockstep — version mismatches cause runtime failures and ~450 MB bundle bloat
+      - dependency-name: "@php-wasm/*" # must be pinned exactly and bumped manually in lockstep — version mismatches cause runtime failures and ~450 MB bundle bloat
 
   # Enable version updates for GitHub Actions
   - package-ecosystem: "github-actions"
@@ -287,3 +262,13 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+
+  # Enable version updates for Ruby gems
+  - package-ecosystem: "bundler"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    groups:
+      ruby-minor-and-patch:
+        update-types: [minor, patch]
+    open-pull-requests-limit: 5

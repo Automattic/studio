@@ -1,39 +1,31 @@
+import { app } from 'electron';
+import fs from 'fs';
+import fsPromises from 'fs/promises';
 import path from 'path';
 import { getAppConfigPath } from '@studio/common/lib/well-known-paths';
 
-function inChildProcess() {
-	return process.env.STUDIO_IN_CHILD_PROCESS === 'true';
+// This file was renamed by apps/studio/src/migrations/02-migrate-to-split-config.ts
+// and later removed by apps/studio/src/migrations/05-remove-old-server-files-and-certificates.ts
+export function getOldAppdataFilePath(): string {
+	return path.join( getAppDataPath(), getAppName(), 'appdata-v1.json' );
 }
 
-// Import electron conditionally to avoid issues in child processes
-let app: Electron.App | undefined;
-try {
-	if ( ! inChildProcess() ) {
-		( { app } = require( 'electron' ) );
-	}
-} catch ( error ) {
-	// If electron is not available (e.g., in child process), app will remain undefined
-}
-
-export function getUserDataFilePath(): string {
-	if ( process.env.DEV_APP_DATA_PATH ) {
-		return process.env.DEV_APP_DATA_PATH;
-	}
-	return getAppConfigPath();
-}
-
+// This directory was removed by apps/studio/src/migrations/05-remove-old-server-files-and-certificates.ts
 export function getOldServerFilesPath(): string {
 	return path.join( getAppDataPath(), getAppName(), 'server-files' );
 }
 
+// This directory was removed by apps/studio/src/migrations/05-remove-old-server-files-and-certificates.ts
 export function getOldUserDataCertificatesPath(): string {
 	return path.join( getAppDataPath(), getAppName(), 'certificates' );
 }
 
-export const DEFAULT_SITE_PATH = path.join(
-	( process.env.E2E && process.env.E2E_HOME_PATH
-		? process.env.E2E_HOME_PATH
-		: app?.getPath( 'home' ) ) || '',
+export function getUserDataFilePath(): string {
+	return getAppConfigPath();
+}
+
+export const defaultSitePath = path.join(
+	process.env.E2E && process.env.E2E_HOME_PATH ? process.env.E2E_HOME_PATH : app.getPath( 'home' ),
 	'Studio'
 );
 
@@ -84,12 +76,6 @@ export function getBundledNodeBinaryPath(): string {
 }
 
 function getAppDataPath(): string {
-	if ( inChildProcess() ) {
-		if ( ! process.env.STUDIO_APP_DATA_PATH ) {
-			throw Error( 'STUDIO_APP_DATA_PATH environment variable not defined for child process' );
-		}
-		return process.env.STUDIO_APP_DATA_PATH;
-	}
 	if ( process.env.E2E && process.env.E2E_APP_DATA_PATH ) {
 		// In E2E mode, return the base appData path directly. Callers append app name and subpaths.
 		return process.env.E2E_APP_DATA_PATH;
@@ -101,14 +87,24 @@ function getAppDataPath(): string {
 }
 
 function getAppName(): string {
-	if ( inChildProcess() ) {
-		if ( ! process.env.STUDIO_APP_NAME ) {
-			throw Error( 'STUDIO_APP_NAME environment variable not defined for child process' );
-		}
-		return process.env.STUDIO_APP_NAME;
-	}
 	if ( ! app ) {
 		throw new Error( 'Electron app not available in child process' );
 	}
 	return app.getName();
+}
+
+async function ensurePathIsDirectory( directory: string ) {
+	const stats = await fsPromises.stat( directory );
+	if ( ! stats.isDirectory() ) {
+		throw new Error( 'Selected path is not a directory.' );
+	}
+}
+
+async function ensurePathIsWritable( directory: string ) {
+	await fsPromises.access( directory, fs.constants.W_OK );
+}
+
+export async function ensureWritableDirectory( directory: string ) {
+	await ensurePathIsDirectory( directory );
+	await ensurePathIsWritable( directory );
 }

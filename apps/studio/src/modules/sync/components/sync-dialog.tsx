@@ -1,6 +1,14 @@
-import { SelectControl, Notice, __experimentalHeading as Heading } from '@wordpress/components';
+import { PRESSABLE_PHP_VERSION } from '@studio/common/constants';
+import { SYNC_PUSH_SIZE_LIMIT_GB } from '@studio/common/lib/sync/constants';
+import {
+	Icon,
+	SelectControl,
+	Notice,
+	__experimentalHeading as Heading,
+} from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { sprintf, __ } from '@wordpress/i18n';
+import { cautionFilled } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { format } from 'date-fns';
 import { useState, useEffect, useCallback } from 'react';
@@ -11,12 +19,11 @@ import Modal from 'src/components/modal';
 import { TwoColorProgressBar } from 'src/components/progress-bar';
 import { Tooltip } from 'src/components/tooltip';
 import { TreeView, TreeNode, updateNodeById } from 'src/components/tree-view';
-import { SYNC_PUSH_SIZE_LIMIT_GB } from 'src/constants';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
+import { useIsMultisite } from 'src/hooks/use-is-multisite';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
-import { getLatestStableWpVersion } from 'src/lib/version-utils';
 import { hasVersionMismatch } from 'src/modules/preview-site/lib/version-comparison';
 import { SiteNameBox } from 'src/modules/sync/components/site-name-box';
 import { useSelectedItemsPushSize } from 'src/modules/sync/hooks/use-selected-items-push-size';
@@ -24,10 +31,14 @@ import { useSyncDialogTexts } from 'src/modules/sync/hooks/use-sync-dialog-texts
 import { useTopLevelSyncTree } from 'src/modules/sync/hooks/use-top-level-sync-tree';
 import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
 import { useI18nLocale } from 'src/stores';
-import { useLatestRewindId, useRemoteFileTree, useLocalFileTree } from 'src/stores/sync';
-import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
+import {
+	useHostingPhpVersion,
+	useLatestRewindId,
+	useRemoteFileTree,
+	useLocalFileTree,
+} from 'src/stores/sync';
 import { TreeViewLoadingSkeleton } from './tree-view-loading-skeleton';
-import type { SyncSite } from 'src/modules/sync/types';
+import type { SyncSite } from '@studio/common/types/sync';
 
 type SyncDialogProps = {
 	type: 'push' | 'pull';
@@ -143,7 +154,7 @@ export function SyncDialog( {
 	onRequestClose,
 }: SyncDialogProps ) {
 	const locale = useI18nLocale();
-	const { __ } = useI18n();
+	const { __, _n } = useI18n();
 	const siteEnv = getSiteEnvironment( remoteSite );
 	const syncTexts = useSyncDialogTexts( type, siteEnv );
 	const defaultTree = useTopLevelSyncTree();
@@ -171,18 +182,47 @@ export function SyncDialog( {
 		remoteFileTreeError,
 	} = useDynamicTreeState( type, localSite.id, remoteSite.id, setTreeState );
 
-	const [ wpVersion ] = useGetWpVersion( localSite );
-	const { data: wpVersions = [] } = useGetWordPressVersions( {
-		minimumVersion: '',
-	} );
-	const latestWpVersion = getLatestStableWpVersion( wpVersions );
-	const shouldShowVersionMismatch =
+	const {
+		phpVersion: remotePhpVersion,
+		isLoading: isLoadingRemotePhpVersion,
+		isError: isRemotePhpVersionError,
+	} = useHostingPhpVersion( remoteSite.id, { skip: type !== 'push' || remoteSite.isPressable } );
+
+	const shouldShowPhpVersionMismatch =
 		type === 'push' &&
-		hasVersionMismatch( {
-			wpVersion,
-			latestWpVersion,
-			phpVersion: localSite.phpVersion,
-		} );
+		! isLoadingRemotePhpVersion &&
+		! isRemotePhpVersionError &&
+		hasVersionMismatch(
+			localSite.phpVersion,
+			remoteSite.isPressable ? PRESSABLE_PHP_VERSION : remotePhpVersion
+		);
+
+	const [ wpVersion ] = useGetWpVersion( localSite );
+	const shouldShowWpVersionMismatch =
+		type === 'push' && hasVersionMismatch( wpVersion, remoteSite.wpVersion );
+
+	let versionMismatchNotice = '';
+	if ( shouldShowPhpVersionMismatch && shouldShowWpVersionMismatch ) {
+		versionMismatchNotice = __(
+			'Your Studio site is using different WordPress and PHP versions than your remote site. The remote site will keep using the newest supported versions.'
+		);
+	} else if ( shouldShowPhpVersionMismatch ) {
+		versionMismatchNotice = __(
+			'Your Studio site is using a different PHP version than your remote site. The remote site will keep using the newest supported version.'
+		);
+	} else if ( shouldShowWpVersionMismatch ) {
+		versionMismatchNotice = __(
+			'Your Studio site is using a different WordPress version than your remote site. The remote site will keep using the newest supported version.'
+		);
+	}
+
+	const isMultisite = useIsMultisite( localSite );
+	const shouldShowMultisiteWarning = type === 'push' && isMultisite && ! remoteSite.isPressable;
+
+	const warningCount = [ versionMismatchNotice, shouldShowMultisiteWarning ].filter(
+		Boolean
+	).length;
+	const [ warningsExpanded, setWarningsExpanded ] = useState( true );
 
 	const localSiteName = <SiteNameBox siteName={ localSite.name } envType="studio" />;
 	const remoteSiteName = <SiteNameBox siteName={ remoteSite.name } envType={ siteEnv } />;
@@ -257,9 +297,6 @@ export function SyncDialog( {
 
 	const handleSubmit = () => {
 		if ( type === 'pull' ) {
-			if ( ! rewindId ) {
-				return;
-			}
 			onPull( treeState );
 		} else {
 			onPush( treeState );
@@ -270,20 +307,16 @@ export function SyncDialog( {
 
 	const getBottomPadding = () => {
 		if ( type === 'pull' ) {
-			return 'pb-[70px]'; // Original padding for pull
+			return 70;
 		}
-		// Calculate dynamic padding based on number of notices shown
-		const noticeCount = [ isPushSelectionOverLimit, shouldShowVersionMismatch ].filter(
-			Boolean
-		).length;
-
-		if ( noticeCount === 0 ) {
-			return 'pb-[140px]'; // Just progress bar
+		let padding = 140; // Base: progress bar + buttons
+		if ( isPushSelectionOverLimit ) {
+			padding += 80;
 		}
-		if ( noticeCount === 1 ) {
-			return 'pb-[220px]'; // Progress bar + one notice
+		if ( warningCount > 0 ) {
+			padding += warningsExpanded ? 70 * warningCount + 30 : 20;
 		}
-		return 'pb-[300px]'; // Progress bar + two notices
+		return padding;
 	};
 
 	return (
@@ -292,12 +325,12 @@ export function SyncDialog( {
 			onRequestClose={ onRequestClose }
 			title={ syncTexts.title }
 		>
-			<div className={ getBottomPadding() }>
+			<div style={ { paddingBottom: getBottomPadding() } }>
 				<div className="px-8 pb-6 pt-1">{ syncTexts.description }</div>
 				<div className="px-8">
 					<span className="sr-only">
-						{ /* translators: first %s is the source site name, second %s is the destination site name */ }
-						{ sprintf( __( 'From %s to %s' ), syncFromText, syncToText ) }
+						{ /* translators: %1$s is the source site name, %2$s is the destination site name */ }
+						{ sprintf( __( 'From %1$s to %2$s' ), syncFromText, syncToText ) }
 					</span>
 					<div
 						aria-hidden="true"
@@ -420,7 +453,7 @@ export function SyncDialog( {
 					</div>
 				</Tooltip>
 
-				<div className="px-8 py-4 absolute left-0 right-0 bottom-0 bg-frame/[0.8] backdrop-blur-sm z-10 border-t border-frame-border">
+				<div className="px-8 py-4 absolute left-0 right-0 bottom-0 bg-frame z-10 border-t border-frame-border">
 					{ type === 'push' && (
 						<div className="mb-4">
 							<TwoColorProgressBar
@@ -447,14 +480,45 @@ export function SyncDialog( {
 							</p>
 						</Notice>
 					) }
-					{ shouldShowVersionMismatch && (
-						<Notice status="warning" isDismissible={ false } className="mb-4">
-							<p data-testid="push-version-mismatch-notice">
-								{ __(
-									'Your Studio site is using a different WordPress or PHP version than your WordPress.com site. The remote site will keep on using the newest supported versions.'
+					{ warningCount > 0 && (
+						<div className="mb-4" data-testid="push-warnings-section">
+							<div
+								className="flex items-center gap-1 text-amber-500 text-[13px] leading-[16px]"
+								data-testid="push-warnings-toggle"
+							>
+								<Icon icon={ cautionFilled } size={ 16 } className="fill-amber-500" />
+								{ sprintf(
+									/* translators: %d: number of warnings */
+									_n( '%d warning', '%d warnings', warningCount ),
+									warningCount
 								) }
-							</p>
-						</Notice>
+								<Button
+									variant="link"
+									className="!p-0 !h-auto text-[12px] leading-[16px] [&.is-link]:text-frame-text-secondary [&.is-link]:hover:text-frame-theme"
+									onClick={ () => setWarningsExpanded( ! warningsExpanded ) }
+								>
+									{ warningsExpanded ? __( 'Hide' ) : __( 'Show' ) }
+								</Button>
+							</div>
+							{ warningsExpanded && (
+								<div className="mt-2 flex flex-col gap-2">
+									{ versionMismatchNotice && (
+										<Notice status="warning" isDismissible={ false }>
+											<p data-testid="push-version-mismatch-notice">{ versionMismatchNotice }</p>
+										</Notice>
+									) }
+									{ shouldShowMultisiteWarning && (
+										<Notice status="warning" isDismissible={ false }>
+											<p data-testid="push-multisite-warning-notice">
+												{ __(
+													'Your Studio site is configured as a multisite network. WordPress.com does not support multisite, so pushing may cause unexpected issues on the remote site.'
+												) }
+											</p>
+										</Notice>
+									) }
+								</div>
+							) }
+						</div>
 					) }
 					<div className="flex justify-between items-center">
 						<div>

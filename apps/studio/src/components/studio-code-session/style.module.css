@@ -1,0 +1,170 @@
+.root {
+	display: flex;
+	flex-direction: row;
+	height: 100%;
+	min-height: 0;
+	color: var(--color-frame-text);
+}
+
+.chatColumn {
+	display: flex;
+	flex-direction: column;
+	flex: 1;
+	min-width: 0;
+	min-height: 0;
+}
+
+.loading {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	height: 100%;
+	min-height: 0;
+}
+
+.loadingSpinner {
+	width: 36px;
+	height: 36px;
+}
+
+.header {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-sm);
+	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-2xl);
+	min-height: 46px;
+	font-size: var(--wpds-typography-font-size-sm);
+	color: var(--color-frame-text);
+	-webkit-app-region: drag;
+}
+
+.headerSpacer {
+	flex: 1;
+}
+
+.headerActions {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-xs);
+	-webkit-app-region: no-drag;
+}
+
+.headerActions :global(button) {
+	color: var(--color-frame-text-secondary) !important;
+}
+
+.headerActions :global(button:hover),
+.headerActions :global(button:focus-visible) {
+	color: var(--color-frame-text) !important;
+}
+
+.scroll {
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+	position: relative;
+	/* Reserve scrollbar space symmetrically so the centered 760px column
+	   doesn't shift left when the scrollbar appears — keeping it aligned
+	   with the (non-scrolling) composer. */
+	scrollbar-gutter: stable both-edges;
+}
+
+.composerOuter {
+	flex: 0 0 auto;
+	position: relative;
+}
+
+/* Floating "scroll to bottom" affordance. Anchored to the top edge of the
+   composer area and lifted above it so it sits just over the conversation
+   without overlapping the composer. Aligned to the right edge, next to the
+   conversation scrollbar. */
+.scrollToBottom {
+	position: absolute;
+	bottom: 100%;
+	left: 0;
+	right: 0;
+	display: flex;
+	justify-content: flex-end;
+	padding-bottom: var(--wpds-dimension-padding-sm);
+	padding-inline-end: calc( var(--wpds-dimension-padding-xl) + var(--wpds-dimension-padding-sm));
+	pointer-events: none;
+	z-index: 1;
+}
+
+.scrollToBottom > * {
+	pointer-events: auto;
+	border-radius: 50%;
+	box-shadow: var(--wpds-elevation-shadow-md, 0 2px 8px rgba(0, 0, 0, 0.15));
+	/* Square dimensions + zeroed WP-UI padding vars so the chevron sits in a
+	   perfect circle instead of a pill. */
+	width: 32px;
+	height: 32px;
+	min-width: 32px;
+	--wp-ui-button-padding-inline: 0px;
+	--wp-ui-button-padding-block: 0px;
+}
+
+.classicScroll {
+	padding: 0 var(--wpds-dimension-padding-xl);
+}
+
+/* Classic session screen: keep the conversation + composer aligned to the
+   legacy 760px reading column. */
+.classicColumn {
+	max-width: 760px;
+	margin: 0 auto;
+}
+
+.classicConversationSpacing {
+	padding-top: var(--wpds-dimension-padding-xl);
+	padding-bottom: var(--wpds-dimension-padding-2xl);
+}
+
+.classicComposerOuter {
+	padding: 0 calc(var(--wpds-dimension-padding-2xl) * 2) var(--wpds-dimension-padding-xl);
+}
+
+.emptyConversation {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-lg);
+	margin-top: 40px;
+	padding: 0 var(--wpds-dimension-padding-sm);
+}
+
+.emptyConversationPrompt {
+	color: var(--color-frame-text-secondary);
+	font-size: var(--wpds-typography-font-size-sm);
+	text-align: center;
+}
+
+.emptyConversationExamples {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: var(--wpds-dimension-padding-md);
+	max-width: 420px;
+}
+
+/* Doubled class (0,2,0) so the background survives Tailwind preflight's
+   unlayered `[type='button'] { background-color: transparent }` reset — see
+   wp-ui-button-defense.module.css for the full rationale. */
+.emptyConversationExample.emptyConversationExample {
+	border: 1px solid var(--color-frame-border);
+	background: var(--color-frame-surface);
+	color: var(--color-frame-text);
+	font: inherit;
+	font-size: var(--wpds-typography-font-size-md);
+	line-height: 20px;
+	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-lg);
+	border-radius: var(--wpds-border-radius-lg);
+	cursor: pointer;
+	transition: background 140ms ease, border-color 140ms ease;
+}
+
+.emptyConversationExample:hover,
+.emptyConversationExample:focus-visible {
+	background: color-mix(in srgb, var(--color-frame-theme) 12%, transparent);
+	border-color: var(--color-frame-theme);
+}

@@ -1,4 +1,4 @@
-import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
+import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import {
 	generateCustomDomainFromSiteName,
 	getDomainNameValidationError,
@@ -9,11 +9,29 @@ import {
 	validateAdminEmail,
 	validateAdminUsername,
 } from '@studio/common/lib/passwords';
+import {
+	getSiteFileAccess,
+	SITE_FILE_ACCESS_ALL_FILES,
+	SITE_FILE_ACCESS_SITE_DIRECTORY,
+	type SiteFileAccess,
+} from '@studio/common/lib/site-file-access';
 import { siteNeedsRestart } from '@studio/common/lib/site-needs-restart';
-import { SupportedPHPVersion, SupportedPHPVersions } from '@studio/common/types/php-versions';
-import { SelectControl, TabPanel } from '@wordpress/components';
+import {
+	getSiteRuntime,
+	SITE_RUNTIME_NATIVE_PHP,
+	SITE_RUNTIME_PLAYGROUND,
+	type SiteRuntime,
+} from '@studio/common/lib/site-runtime';
+import {
+	getClosestSupportedPhpVersion,
+	RecommendedPHPVersion,
+	SupportedPHPVersion,
+	SupportedPHPVersions,
+} from '@studio/common/types/php-versions';
+import { Icon, SelectControl, TabPanel } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { sprintf } from '@wordpress/i18n';
+import { cautionFilled } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import Button from 'src/components/button';
@@ -28,12 +46,20 @@ import { WPVersionSelector } from 'src/components/wp-version-selector';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { FileAccessDescription, RuntimeDescription } from 'src/lib/site-runtime-copy';
 import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
 
 type EditSiteDetailsProps = {
 	currentWpVersion: string;
 	onSave: () => void;
 };
+
+function resolvePhpVersion( phpVersion: string | undefined ): SupportedPHPVersion {
+	if ( phpVersion && SupportedPHPVersions.includes( phpVersion as SupportedPHPVersion ) ) {
+		return phpVersion as SupportedPHPVersion;
+	}
+	return ( phpVersion && getClosestSupportedPhpVersion( phpVersion ) ) || RecommendedPHPVersion;
+}
 
 const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) => {
 	const { __ } = useI18n();
@@ -61,6 +87,28 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 	const [ adminEmail, setAdminEmail ] = useState(
 		selectedSite?.adminEmail || 'admin@localhost.com'
 	);
+	const [ selectedRuntime, setSelectedRuntime ] = useState< SiteRuntime >(
+		getSiteRuntime( selectedSite ?? {} )
+	);
+	const [ selectedFileAccess, setSelectedFileAccess ] = useState< SiteFileAccess >(
+		getSiteFileAccess( selectedSite ?? {} )
+	);
+	// The sandbox only has access to the site directory, so "all files" is
+	// forced back to "site directory" when the sandbox mode is selected.
+	const usedFileAccess =
+		selectedRuntime === SITE_RUNTIME_PLAYGROUND
+			? SITE_FILE_ACCESS_SITE_DIRECTORY
+			: selectedFileAccess;
+	const selectedSitePhpVersion = selectedSite?.phpVersion;
+	const resolvedSitePhpVersion = resolvePhpVersion( selectedSitePhpVersion );
+	const phpVersionWarning =
+		selectedSitePhpVersion !== undefined && selectedSitePhpVersion !== resolvedSitePhpVersion
+			? sprintf(
+					__( 'PHP %1$s is no longer supported. Saving will update this site to PHP %2$s.' ),
+					selectedSitePhpVersion,
+					resolvedSitePhpVersion
+			  )
+			: undefined;
 
 	useEffect( () => {
 		if ( selectedSite?.adminEmail || ! selectedSite?.id ) {
@@ -91,9 +139,8 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 		setIsEditModalOpen( false );
 	}, [ isEditingSite, setIsEditModalOpen ] );
 	const [ siteName, setSiteName ] = useState( selectedSite?.name ?? '' );
-	const [ selectedPhpVersion, setSelectedPhpVersion ] = useState< SupportedPHPVersion >(
-		( selectedSite?.phpVersion as SupportedPHPVersion ) ?? DEFAULT_PHP_VERSION
-	);
+	const [ selectedPhpVersion, setSelectedPhpVersion ] =
+		useState< SupportedPHPVersion >( resolvedSitePhpVersion );
 	const getEffectiveWpVersion = useCallback(
 		() =>
 			// undefined means that this site was created before the isWpAutoUpdating option was introduced to Studio
@@ -150,6 +197,8 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 		!! selectedSite &&
 		selectedSite.name === siteName &&
 		selectedSite.phpVersion === selectedPhpVersion &&
+		getSiteRuntime( selectedSite ) === selectedRuntime &&
+		getSiteFileAccess( selectedSite ) === usedFileAccess &&
 		getEffectiveWpVersion() === selectedWpVersion &&
 		Boolean( selectedSite.customDomain ) === useCustomDomain &&
 		usedCustomDomain === customDomain &&
@@ -173,7 +222,9 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 			return;
 		}
 		setSiteName( selectedSite.name );
-		setSelectedPhpVersion( selectedSite.phpVersion as SupportedPHPVersion );
+		setSelectedRuntime( getSiteRuntime( selectedSite ) );
+		setSelectedFileAccess( getSiteFileAccess( selectedSite ) );
+		setSelectedPhpVersion( resolvePhpVersion( selectedSite.phpVersion ) );
 		setSelectedWpVersion( getEffectiveWpVersion() );
 		setUseCustomDomain( Boolean( selectedSite.customDomain ) );
 		setCustomDomain( selectedSite.customDomain ?? null );
@@ -186,7 +237,24 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 		setAdminEmail( selectedSite.adminEmail || 'admin@localhost.com' );
 		setEnableDebugLog( selectedSite.enableDebugLog ?? false );
 		setEnableDebugDisplay( selectedSite.enableDebugDisplay ?? false );
-	}, [ selectedSite, getEffectiveWpVersion ] );
+	}, [
+		selectedSite,
+		getEffectiveWpVersion,
+		setAdminEmail,
+		setAdminPassword,
+		setAdminUsername,
+		setCustomDomain,
+		setCustomDomainError,
+		setEnableDebugDisplay,
+		setEnableDebugLog,
+		setEnableHttps,
+		setEnableXdebug,
+		setErrorUpdatingWpVersion,
+		setSelectedPhpVersion,
+		setSelectedWpVersion,
+		setSiteName,
+		setUseCustomDomain,
+	] );
 
 	const onSiteEdit = async ( event: FormEvent ) => {
 		event.preventDefault();
@@ -198,6 +266,8 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 
 		const hasWpVersionChanged = selectedWpVersion !== getEffectiveWpVersion();
 		const hasPhpVersionChanged = selectedPhpVersion !== selectedSite.phpVersion;
+		const hasRuntimeChanged = selectedRuntime !== getSiteRuntime( selectedSite );
+		const hasFileAccessChanged = usedFileAccess !== getSiteFileAccess( selectedSite );
 		const hasXdebugChanged = enableXdebug !== ( selectedSite.enableXdebug ?? false );
 		const hasDebugLogChanged = enableDebugLog !== ( selectedSite.enableDebugLog ?? false );
 		const hasDebugDisplayChanged =
@@ -219,6 +289,8 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 				httpsChanged: hasHttpsChanged,
 				phpChanged: hasPhpVersionChanged,
 				wpChanged: hasWpVersionChanged,
+				runtimeChanged: hasRuntimeChanged,
+				fileAccessChanged: hasFileAccessChanged,
 				xdebugChanged: hasXdebugChanged,
 				credentialsChanged: hasCredentialsChanged,
 				debugLogChanged: hasDebugLogChanged,
@@ -238,6 +310,8 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 					...selectedSite,
 					name: siteName,
 					phpVersion: selectedPhpVersion,
+					runtime: selectedRuntime,
+					fileAccess: usedFileAccess,
 					isWpAutoUpdating: selectedWpVersion === DEFAULT_WORDPRESS_VERSION,
 					customDomain: usedCustomDomain,
 					enableHttps: !! usedCustomDomain && enableHttps,
@@ -328,7 +402,25 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 													htmlFor="php-version-select"
 													className="flex flex-1 flex-col gap-1.5 leading-4"
 												>
-													<span className="font-semibold">{ __( 'PHP version' ) }</span>
+													<span className="inline-flex items-center gap-2 font-semibold">
+														{ __( 'PHP version' ) }
+														{ phpVersionWarning && (
+															<Tooltip text={ phpVersionWarning } placement="top-start">
+																<span
+																	role="img"
+																	aria-label={ __( 'PHP version warning' ) }
+																	tabIndex={ 0 }
+																	className="inline-flex cursor-help items-center"
+																>
+																	<Icon
+																		icon={ cautionFilled }
+																		size={ 18 }
+																		className="fill-[#f59e0b]"
+																	/>
+																</span>
+															</Tooltip>
+														) }
+													</span>
 													<SelectControl< SupportedPHPVersion >
 														id="php-version-select"
 														disabled={ isEditingSite }
@@ -367,6 +459,62 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 													{ errorUpdatingWpVersion }
 												</ErrorInformation>
 											) }
+
+											<div className="flex flex-row gap-x-6 mt-4">
+												<label
+													htmlFor="php-runtime-select"
+													className="flex flex-1 flex-col gap-1.5 leading-4"
+												>
+													<span className="font-semibold">{ __( 'PHP runtime' ) }</span>
+													<SelectControl< SiteRuntime >
+														id="php-runtime-select"
+														disabled={ isEditingSite }
+														value={ selectedRuntime }
+														options={ [
+															/* translators: PHP runtime option, paired with "Sandbox". The compiled PHP binary that Studio bundles and runs natively on the machine. */
+															{ label: __( 'Native' ), value: SITE_RUNTIME_NATIVE_PHP },
+															/* translators: PHP runtime option, paired with "Native". Runs the site in an isolated WordPress Playground sandbox. */
+															{ label: __( 'Sandbox' ), value: SITE_RUNTIME_PLAYGROUND },
+														] }
+														onChange={ ( value ) => setSelectedRuntime( value ) }
+														__next40pxDefaultSize
+														__nextHasNoMarginBottom
+													/>
+													<span className="text-frame-text-secondary text-xs">
+														<RuntimeDescription runtime={ selectedRuntime } learnMoreLink />
+													</span>
+												</label>
+
+												<label
+													htmlFor="file-access-select"
+													className="flex flex-1 flex-col gap-1.5 leading-4"
+												>
+													<span className="font-semibold">{ __( 'File access' ) }</span>
+													<SelectControl< SiteFileAccess >
+														id="file-access-select"
+														disabled={
+															isEditingSite || selectedRuntime === SITE_RUNTIME_PLAYGROUND
+														}
+														value={ usedFileAccess }
+														options={ [
+															{
+																label: __( 'Site directory' ),
+																value: SITE_FILE_ACCESS_SITE_DIRECTORY,
+															},
+															{ label: __( 'All files' ), value: SITE_FILE_ACCESS_ALL_FILES },
+														] }
+														onChange={ ( value ) => setSelectedFileAccess( value ) }
+														__next40pxDefaultSize
+														__nextHasNoMarginBottom
+													/>
+													<span className="text-frame-text-secondary text-xs">
+														<FileAccessDescription
+															runtime={ selectedRuntime }
+															fileAccess={ usedFileAccess }
+														/>
+													</span>
+												</label>
+											</div>
 
 											<div className="flex flex-col gap-2 mt-4">
 												<div className="flex items-center gap-2">

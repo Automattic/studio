@@ -10,6 +10,7 @@ import {
 	getSnapshotsFromConfig,
 	isSnapshotExpired,
 } from 'cli/lib/snapshots';
+import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { normalizeHostname } from 'cli/lib/utils';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
@@ -21,15 +22,19 @@ export enum Mode {
 
 export async function runCommand(
 	mode: Mode.DELETE_SINGLE_SNAPSHOT,
-	host: string
+	host: string,
+	logger?: Logger< LoggerAction >
 ): Promise< void >;
 export async function runCommand(
 	mode: Mode.DELETE_ALL_SNAPSHOT,
-	host: undefined
+	host: undefined,
+	logger?: Logger< LoggerAction >
 ): Promise< void >;
-export async function runCommand( mode: Mode, host: string | undefined ): Promise< void > {
-	const logger = new Logger< LoggerAction >();
-
+export async function runCommand(
+	mode: Mode,
+	host: string | undefined,
+	logger: Logger< LoggerAction > = new Logger< LoggerAction >()
+): Promise< void > {
 	try {
 		const token = await readAuthToken();
 		if ( ! token ) {
@@ -52,7 +57,6 @@ export async function runCommand( mode: Mode, host: string | undefined ): Promis
 					)
 				);
 			}
-			logger.reportSuccess( __( 'Validation successful' ), true );
 
 			logger.reportStart( LoggerAction.DELETE, __( 'Deleting…' ) );
 			if ( ! isSnapshotExpired( snapshotToDelete ) ) {
@@ -63,13 +67,16 @@ export async function runCommand( mode: Mode, host: string | undefined ): Promis
 				event: SNAPSHOT_EVENTS.DELETED,
 				data: { snapshotUrl: snapshotToDelete.url },
 			} );
+			await recordPreviewDeleteEvent( TRACKS_EVENTS.PREVIEW_SITE_DELETE );
 			logger.reportSuccess( __( 'Deletion successful' ) );
 		} else {
 			logger.reportStart( LoggerAction.DELETE_ALL, __( 'Deleting all preview sites…' ) );
 
+			const count = snapshots.length;
 			await deleteAllSnapshots( token.accessToken );
 			await deleteAllSnapshotsForUserFromConfig( token.id );
 			await emitCliEvent( { event: SNAPSHOT_EVENTS.DELETED_ALL } );
+			await recordPreviewDeleteEvent( TRACKS_EVENTS.PREVIEW_SITE_DELETE_ALL, { count } );
 
 			logger.reportSuccess( __( 'Deletion successful' ) );
 		}
@@ -80,6 +87,17 @@ export async function runCommand( mode: Mode, host: string | undefined ): Promis
 			const loggerError = new LoggerError( __( 'Failed to delete preview site' ), error );
 			logger.reportError( loggerError );
 		}
+	}
+}
+
+async function recordPreviewDeleteEvent(
+	event: typeof TRACKS_EVENTS.PREVIEW_SITE_DELETE | typeof TRACKS_EVENTS.PREVIEW_SITE_DELETE_ALL,
+	props: { count?: number } = {}
+): Promise< void > {
+	try {
+		await recordTracksEvent( event, { ...props, ...getTracksOrigin() } );
+	} catch {
+		// Best-effort telemetry — never block or fail preview deletion.
 	}
 }
 

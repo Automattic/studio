@@ -7,6 +7,7 @@ import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { saveSnapshotToConfig } from 'cli/lib/snapshots';
+import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { LoggerError } from 'cli/logger';
 import { runCommand } from '../create';
 
@@ -41,6 +42,10 @@ vi.mock( 'cli/lib/snapshots', async () => ( {
 	getSnapshotsFromConfig: vi.fn().mockResolvedValue( [] ),
 	saveSnapshotToConfig: vi.fn(),
 } ) );
+vi.mock( 'cli/lib/tracks', async ( importActual ) => {
+	const actual = await importActual< typeof import('cli/lib/tracks') >();
+	return { ...actual, recordTracksEvent: vi.fn() };
+} );
 vi.mock( 'cli/logger', () => ( {
 	Logger: class {
 		reportStart = mockReportStart;
@@ -120,11 +125,10 @@ describe( 'Preview Create Command', () => {
 
 		expect( getSiteByFolder ).toHaveBeenCalledWith( mockFolder );
 		expect( mockReportStart.mock.calls[ 0 ] ).toEqual( [ 'validate', 'Validating…' ] );
-		expect( mockReportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Validation successful', true ] );
 
 		expect( archiveSiteContent ).toHaveBeenCalledWith( mockFolder, mockArchivePath );
 		expect( mockReportStart.mock.calls[ 1 ] ).toEqual( [ 'archive', 'Creating archive…' ] );
-		expect( mockReportSuccess.mock.calls[ 1 ] ).toEqual( [ 'Archive created' ] );
+		expect( mockReportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Archive created' ] );
 
 		expect( uploadArchive ).toHaveBeenCalledWith(
 			mockArchivePath,
@@ -132,11 +136,11 @@ describe( 'Preview Create Command', () => {
 			'6.8.1'
 		);
 		expect( mockReportStart.mock.calls[ 2 ] ).toEqual( [ 'upload', 'Uploading archive…' ] );
-		expect( mockReportSuccess.mock.calls[ 2 ] ).toEqual( [ 'Archive uploaded' ] );
+		expect( mockReportSuccess.mock.calls[ 1 ] ).toEqual( [ 'Archive uploaded' ] );
 
 		expect( waitForSiteReady ).toHaveBeenCalledWith( mockAtomicSiteId, mockAuthToken.accessToken );
 		expect( mockReportStart.mock.calls[ 3 ] ).toEqual( [ 'ready', 'Creating preview site…' ] );
-		expect( mockReportSuccess.mock.calls[ 3 ] ).toEqual( [
+		expect( mockReportSuccess.mock.calls[ 2 ] ).toEqual( [
 			`Preview site available at: https://${ mockSiteUrl }`,
 		] );
 
@@ -151,9 +155,38 @@ describe( 'Preview Create Command', () => {
 			'appdata',
 			'Saving preview site to Studio…',
 		] );
-		expect( mockReportSuccess.mock.calls[ 4 ] ).toEqual( [ 'Preview site saved to Studio' ] );
+		expect( mockReportSuccess.mock.calls[ 3 ] ).toEqual( [ 'Preview site saved to Studio' ] );
 
 		expect( cleanup ).toHaveBeenCalledWith( mockArchivePath );
+	} );
+
+	it( 'records a successful preview_site_create Tracks event', async () => {
+		await runCommand( mockFolder );
+
+		expect( recordTracksEvent ).toHaveBeenCalledWith(
+			TRACKS_EVENTS.PREVIEW_SITE_CREATE,
+			expect.objectContaining( {
+				success: true,
+				time_ms: expect.any( Number ),
+				channel: 'studio-cli',
+			} )
+		);
+	} );
+
+	it( 'records a failed preview_site_create Tracks event with a failure_reason', async () => {
+		vi.mocked( uploadArchive ).mockRejectedValue( new LoggerError( 'Failed to upload archive' ) );
+
+		await runCommand( mockFolder );
+
+		expect( recordTracksEvent ).toHaveBeenCalledWith(
+			TRACKS_EVENTS.PREVIEW_SITE_CREATE,
+			expect.objectContaining( {
+				success: false,
+				failure_reason: 'upload',
+				time_ms: expect.any( Number ),
+				channel: 'studio-cli',
+			} )
+		);
 	} );
 
 	it( 'should use current directory when no folder is specified', async () => {

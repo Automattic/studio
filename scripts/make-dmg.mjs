@@ -1,10 +1,8 @@
 import child_process from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
-import { fileURLToPath } from 'url';
 import packageJson from '../apps/studio/package.json' with { type: 'json' };
 
-const __dirname = path.dirname( fileURLToPath( import.meta.url ) );
 const fileArchitecture = process.env.FILE_ARCHITECTURE;
 
 if ( ! fileArchitecture ) {
@@ -13,7 +11,7 @@ if ( ! fileArchitecture ) {
 	);
 }
 
-const outDir = path.resolve( __dirname, '../apps/studio/out' );
+const outDir = path.resolve( import.meta.dirname, '../apps/studio/out' );
 
 const appPath = path.resolve(
 	outDir,
@@ -26,8 +24,14 @@ const dmgPath = path.resolve(
 	`${ packageJson.productName }-darwin-${ fileArchitecture }.dmg`
 );
 
-const volumeIconPath = path.resolve( __dirname, '../apps/studio/assets/studio-app-icon.icns' );
-const backgroundPath = path.resolve( __dirname, '../apps/studio/assets/dmg-background.png' );
+const volumeIconPath = path.resolve(
+	import.meta.dirname,
+	'../apps/studio/assets/studio-app-icon.icns'
+);
+const backgroundPath = path.resolve(
+	import.meta.dirname,
+	'../apps/studio/assets/dmg-background.png'
+);
 
 const dmgSpecs = {
 	title: packageJson.productName,
@@ -50,9 +54,13 @@ if ( fs.existsSync( dmgPath ) ) {
 }
 fs.mkdirSync( path.dirname( dmgPath ), { recursive: true } );
 
-const specsFile = path.resolve( __dirname, '..', 'appdmg-specs.json' );
+const specsFile = path.resolve( import.meta.dirname, '..', 'appdmg-specs.json' );
 fs.writeFileSync( specsFile, JSON.stringify( dmgSpecs ) );
-child_process.execSync(
-	[ path.join( __dirname, '..', 'node_modules', '.bin', `appdmg` ), specsFile, dmgPath ].join( ' ' )
-);
-fs.unlinkSync( specsFile );
+const appdmgBin = path.join( import.meta.dirname, '..', 'node_modules', '.bin', 'appdmg' );
+try {
+	child_process.execFileSync( appdmgBin, [ specsFile, dmgPath ] );
+} finally {
+	if ( fs.existsSync( specsFile ) ) {
+		fs.unlinkSync( specsFile );
+	}
+}

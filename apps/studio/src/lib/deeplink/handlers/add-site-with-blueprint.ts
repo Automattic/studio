@@ -80,7 +80,6 @@ export async function handleAddSiteWithBlueprint( urlObject: URL ): Promise< voi
 
 		await sendIpcEventToRenderer( 'add-site-with-blueprint', {
 			blueprintPath,
-			warnings: validation.warnings,
 		} );
 	} catch ( error ) {
 		console.error( 'Failed to process Blueprint from deeplink:', error );

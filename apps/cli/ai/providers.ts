@@ -1,73 +1,106 @@
-import childProcess from 'child_process';
 import { password } from '@inquirer/prompts';
+import { validateAnthropicApiKey } from '@studio/common/ai/anthropic-key';
+import { DEFAULT_MODEL, type AiModelId } from '@studio/common/ai/models';
+import {
+	AI_PROVIDER_IDS,
+	DEFAULT_AI_PROVIDER,
+	getAiProviderModels,
+	type AiProviderId,
+} from '@studio/common/ai/providers';
+import { persistAnthropicApiKey, readAnthropicApiKey } from '@studio/common/ai/settings-store';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __ } from '@wordpress/i18n';
-import { readCliConfig, updateCliConfigWithPartial } from 'cli/lib/cli-config/core';
 import { LoggerError } from 'cli/logger';
 
-export const AI_PROVIDERS = {
+export const AI_PROVIDERS: Record< AiProviderId, string > = {
 	wpcom: 'WordPress.com',
-	'anthropic-claude': 'Anthropic · Claude auth',
 	'anthropic-api-key': 'Anthropic · API key',
-} as const;
+};
 
-export type AiProviderId = keyof typeof AI_PROVIDERS;
-
-export const DEFAULT_AI_PROVIDER: AiProviderId = 'anthropic-api-key';
-export const AI_PROVIDER_PRIORITY: AiProviderId[] = [
-	'wpcom',
-	'anthropic-claude',
-	'anthropic-api-key',
-];
+export type { AiProviderId };
+export { DEFAULT_AI_PROVIDER };
+// Fallback order when the configured provider is unavailable; declaration
+// order of the canonical id list.
+export const AI_PROVIDER_PRIORITY: readonly AiProviderId[] = AI_PROVIDER_IDS;
 
 const DEFAULT_WPCOM_AI_GATEWAY_BASE_URL = 'https://public-api.wordpress.com/wpcom/v2/ai-api-proxy';
-const WPCOM_AI_FEATURE_HEADER = 'studio-assistant-anthropic';
+// The wpcom AI proxy maps feature slugs to upstream providers. Historically
+// `studio-assistant` was wired for OpenAI (OPENAI_TOKEN); when Claude support
+// landed a parallel `studio-assistant-anthropic` slug was added. Keep using
+// the existing slugs so no server-side allowlist change is required.
+const WPCOM_AI_FEATURE_HEADER_ANTHROPIC = 'studio-assistant-anthropic';
+const WPCOM_AI_FEATURE_HEADER_OPENAI = 'studio-assistant';
+const WPCOM_AI_FEATURE_HEADER_HOSTED = 'studio-assistant-hosted';
+
+export interface ResolveAiEnvironmentOptions {
+	sessionId?: string;
+}
 
 export interface AiProviderDefinition {
 	id: AiProviderId;
 	autoFallbackWhenUnavailable: boolean;
+	// Derived from the provider's model families (see
+	// `@studio/common/ai/providers`), kept on the definition so callers don't
+	// have to filter AI_MODELS themselves.
+	readonly availableModels: readonly AiModelId[];
+	readonly defaultModel: AiModelId;
+	supportsModel( model: AiModelId ): boolean;
 	isVisible: () => Promise< boolean >;
 	isReady: () => Promise< boolean >;
 	prepare: ( options?: { force?: boolean } ) => Promise< void >;
-	resolveEnv: () => Promise< Record< string, string > >;
+	resolveEnv: ( options?: ResolveAiEnvironmentOptions ) => Promise< Record< string, string > >;
 }
 
-export function hasClaudeCodeAuth(): boolean {
-	try {
-		const output = childProcess.execFileSync( 'claude', [ 'auth', 'status' ], {
-			encoding: 'utf8',
-			timeout: 5000,
-			stdio: [ 'pipe', 'pipe', 'pipe' ],
-		} );
-		return (
-			output.toLowerCase().includes( 'authenticated' ) || ! output.toLowerCase().includes( 'not' )
-		);
-	} catch {
-		return false;
-	}
+// Fills in `availableModels`, `defaultModel`, and `supportsModel` from the
+// provider id's model families.
+function defineProvider(
+	partial: Omit< AiProviderDefinition, 'availableModels' | 'defaultModel' | 'supportsModel' >
+): AiProviderDefinition {
+	const availableModels = getAiProviderModels( partial.id ).map( ( model ) => model.id );
+	return {
+		...partial,
+		availableModels,
+		defaultModel: availableModels[ 0 ] ?? DEFAULT_MODEL,
+		supportsModel( model ) {
+			return availableModels.includes( model );
+		},
+	};
 }
 
 async function resolveAnthropicApiKey( options?: {
 	force?: boolean;
 } ): Promise< string | undefined > {
-	const { anthropicApiKey: savedKey } = await readCliConfig();
+	const savedKey = await readAnthropicApiKey();
 	if ( savedKey && ! options?.force ) {
-		return savedKey;
+		// Re-prompt only when Anthropic definitively rejects the saved key;
+		// an unreachable API must not lock the user out of their provider.
+		const validation = await validateAnthropicApiKey( savedKey );
+		if ( validation.status !== 'invalid' ) {
+			return savedKey;
+		}
 	}
 
 	const apiKey = await password( {
 		message: __( 'Enter your Anthropic API key (will be saved for future use):' ),
 		mask: '*',
-		validate: ( value ) => {
-			if ( ! value.trim() ) {
+		validate: async ( value ) => {
+			const trimmed = value.trim();
+			if ( ! trimmed ) {
 				return __( 'API key is required' );
 			}
-			return true;
+			const validation = await validateAnthropicApiKey( trimmed );
+			return validation.status === 'invalid' ? validation.message : true;
 		},
 	} );
 
-	await updateCliConfigWithPartial( { anthropicApiKey: apiKey } );
-	return apiKey;
+	const trimmedKey = apiKey.trim();
+	await persistAnthropicApiKey( trimmedKey );
+	return trimmedKey;
+}
+
+function getStudioUserAgent(): string {
+	const version = typeof __STUDIO_CLI_VERSION__ === 'string' ? __STUDIO_CLI_VERSION__ : '';
+	return version ? `WordPressStudio/${ version }` : 'WordPressStudio';
 }
 
 function buildAnthropicCustomHeaders( headers: Record< string, string > ): string {
@@ -86,6 +119,14 @@ async function hasValidWpcomAuth(): Promise< boolean > {
 	return token !== null;
 }
 
+function readInlineWpcomToken(): string | null {
+	return process.env.STUDIO_WPCOM_TOKEN?.trim() || null;
+}
+
+export function hasInlineWpcomAuth(): boolean {
+	return readInlineWpcomToken() !== null;
+}
+
 function createBaseEnvironment(): Record< string, string > {
 	const env = { ...( process.env as Record< string, string > ) };
 
@@ -93,76 +134,98 @@ function createBaseEnvironment(): Record< string, string > {
 	delete env.ANTHROPIC_AUTH_TOKEN;
 	delete env.ANTHROPIC_BASE_URL;
 	delete env.ANTHROPIC_CUSTOM_HEADERS;
-	delete env.CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS;
+	delete env.OPENAI_API_KEY;
+	delete env.OPENAI_BASE_URL;
+	delete env.STUDIO_OPENAI_DEFAULT_HEADERS;
+	delete env.STUDIO_HOSTED_API_KEY;
+	delete env.STUDIO_HOSTED_BASE_URL;
+	delete env.STUDIO_HOSTED_DEFAULT_HEADERS;
 
 	return env;
 }
 
 const AI_PROVIDER_DEFINITIONS: Record< AiProviderId, AiProviderDefinition > = {
-	wpcom: {
+	wpcom: defineProvider( {
 		id: 'wpcom',
 		autoFallbackWhenUnavailable: true,
 		isVisible: async () => true,
-		isReady: hasValidWpcomAuth,
+		isReady: async () => hasInlineWpcomAuth() || ( await hasValidWpcomAuth() ),
 		prepare: async () => {
-			if ( await hasValidWpcomAuth() ) {
+			if ( hasInlineWpcomAuth() || ( await hasValidWpcomAuth() ) ) {
 				return;
 			}
 
 			throw new LoggerError( __( 'WordPress.com login required. Use /login to authenticate.' ) );
 		},
-		resolveEnv: async () => {
-			const token = await readAuthToken();
-			if ( ! token ) {
+		resolveEnv: async ( options ) => {
+			const inlineToken = readInlineWpcomToken();
+			const accessToken = inlineToken ?? ( await readAuthToken() )?.accessToken;
+			if ( ! accessToken ) {
 				throw new LoggerError( __( 'WordPress.com login required. Use /login to authenticate.' ) );
 			}
 			const env = createBaseEnvironment();
-			env.ANTHROPIC_BASE_URL = getWpcomAiGatewayBaseUrl();
-			env.ANTHROPIC_AUTH_TOKEN = token.accessToken;
-			env.ANTHROPIC_CUSTOM_HEADERS = buildAnthropicCustomHeaders( {
-				'X-WPCOM-AI-Feature': WPCOM_AI_FEATURE_HEADER,
-			} );
-			env.CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS = '1';
+			const gatewayBaseUrl = getWpcomAiGatewayBaseUrl();
+
+			// Anthropic messages path through the WP.com AI gateway.
+			env.ANTHROPIC_BASE_URL = gatewayBaseUrl;
+			env.ANTHROPIC_AUTH_TOKEN = accessToken;
+			const anthropicHeaders: Record< string, string > = {
+				'User-Agent': getStudioUserAgent(),
+				'X-WPCOM-AI-Feature': WPCOM_AI_FEATURE_HEADER_ANTHROPIC,
+			};
+			if ( options?.sessionId ) {
+				anthropicHeaders[ 'X-WPCOM-Session-ID' ] = options.sessionId;
+			}
+			env.ANTHROPIC_CUSTOM_HEADERS = buildAnthropicCustomHeaders( anthropicHeaders );
+
+			// OpenAI Responses path. The wpcom proxy accepts the same bearer token and
+			// dispatches to the right upstream based on the request path.
+			// The OpenAI SDK expects baseURL to include /v1 (like the real
+			// OpenAI API), so the request path becomes /v1/responses —
+			// mirroring the Anthropic path's /v1/messages.
+			env.OPENAI_BASE_URL = `${ gatewayBaseUrl.replace( /\/+$/, '' ) }/v1`;
+			env.OPENAI_API_KEY = accessToken;
+			const openaiHeaders: Record< string, string > = {
+				'User-Agent': getStudioUserAgent(),
+				'X-WPCOM-AI-Feature': WPCOM_AI_FEATURE_HEADER_OPENAI,
+			};
+			if ( options?.sessionId ) {
+				openaiHeaders[ 'X-WPCOM-Session-ID' ] = options.sessionId;
+			}
+			env.STUDIO_OPENAI_DEFAULT_HEADERS = JSON.stringify( openaiHeaders );
+
+			// Hosted third-party models (Kimi, GLM, DeepSeek) speak the OpenAI
+			// Chat Completions dialect, so they share the /v1 prefix with the
+			// OpenAI path and are told apart by the feature header. The vars are
+			// Studio-namespaced because, unlike Anthropic and OpenAI, this family
+			// has no direct-API provider — nothing but this function should be
+			// able to satisfy it.
+			env.STUDIO_HOSTED_BASE_URL = env.OPENAI_BASE_URL;
+			env.STUDIO_HOSTED_API_KEY = accessToken;
+			const hostedHeaders: Record< string, string > = {
+				'User-Agent': getStudioUserAgent(),
+				'X-WPCOM-AI-Feature': WPCOM_AI_FEATURE_HEADER_HOSTED,
+			};
+			if ( options?.sessionId ) {
+				hostedHeaders[ 'X-WPCOM-Session-ID' ] = options.sessionId;
+			}
+			env.STUDIO_HOSTED_DEFAULT_HEADERS = JSON.stringify( hostedHeaders );
+
 			return env;
 		},
-	},
-	'anthropic-claude': {
-		id: 'anthropic-claude',
-		autoFallbackWhenUnavailable: true,
-		isVisible: async () => hasClaudeCodeAuth(),
-		isReady: async () => hasClaudeCodeAuth(),
-		prepare: async () => {
-			if ( hasClaudeCodeAuth() ) {
-				return;
-			}
-
-			throw new LoggerError(
-				__( 'Claude auth is not available. Choose another provider with /provider.' )
-			);
-		},
-		resolveEnv: async () => {
-			if ( ! hasClaudeCodeAuth() ) {
-				throw new LoggerError(
-					__( 'Claude auth is not available. Choose another provider with /provider.' )
-				);
-			}
-
-			return createBaseEnvironment();
-		},
-	},
-	'anthropic-api-key': {
+	} ),
+	'anthropic-api-key': defineProvider( {
 		id: 'anthropic-api-key',
 		autoFallbackWhenUnavailable: false,
 		isVisible: async () => true,
 		isReady: async () => {
-			const { anthropicApiKey } = await readCliConfig();
-			return Boolean( anthropicApiKey );
+			return Boolean( await readAnthropicApiKey() );
 		},
 		prepare: async ( options ) => {
 			await resolveAnthropicApiKey( options );
 		},
 		resolveEnv: async () => {
-			const { anthropicApiKey: apiKey } = await readCliConfig();
+			const apiKey = await readAnthropicApiKey();
 			if ( ! apiKey ) {
 				throw new LoggerError(
 					__(
@@ -175,7 +238,7 @@ const AI_PROVIDER_DEFINITIONS: Record< AiProviderId, AiProviderDefinition > = {
 			env.ANTHROPIC_API_KEY = apiKey;
 			return env;
 		},
-	},
+	} ),
 };
 
 export function getAiProviderDefinition( provider: AiProviderId ): AiProviderDefinition {

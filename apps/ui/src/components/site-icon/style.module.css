@@ -1,0 +1,42 @@
+.root {
+	display: inline-grid;
+	box-sizing: border-box;
+	place-items: center;
+	width: var(--site-icon-size, 16px);
+	height: var(--site-icon-size, 16px);
+	border-radius: 4px;
+	background: radial-gradient(
+			circle at var(--site-icon-position-a),
+			var(--site-icon-color-a) 0,
+			transparent 48%
+		),
+		radial-gradient(
+			circle at var(--site-icon-position-b),
+			var(--site-icon-color-b) 0,
+			transparent 46%
+		),
+		radial-gradient(
+			circle at var(--site-icon-position-c),
+			var(--site-icon-color-c) 0,
+			transparent 50%
+		),
+		linear-gradient(135deg, var(--site-icon-color-d), var(--site-icon-color-a));
+	border: 0;
+	flex-shrink: 0;
+	line-height: 0;
+	box-shadow: none;
+	overflow: hidden;
+}
+
+.image {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+.rootWithImage {
+	background: var(--wpds-color-bg-content-neutral, transparent);
+	border: 0;
+	box-shadow: none;
+}

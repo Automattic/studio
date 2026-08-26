@@ -1,17 +1,12 @@
 import { defineConfig, mergeConfig } from 'vite';
-import { baseConfig } from './vite.config.base';
+import { baseConfig, buildLocalUiPlugin } from './vite.config.base';
 
 export default mergeConfig(
 	baseConfig,
 	defineConfig( {
+		plugins: [ buildLocalUiPlugin() ],
 		build: {
 			sourcemap: false,
-			rollupOptions: {
-				output: {
-					// Add shebang to main.mjs so it can be executed directly as a CLI.
-					banner: ( chunk ) => ( chunk.fileName === 'main.mjs' ? '#!/usr/bin/env node' : '' ),
-				},
-			},
 		},
 		define: {
 			__ENABLE_CLI_TELEMETRY__: true,

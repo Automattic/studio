@@ -1,19 +1,12 @@
-import { generateDefaultBlueprintDescription } from '@studio/common/lib/blueprint-settings';
-import {
-	BlueprintPreferredVersions,
-	BlueprintValidationWarning,
-} from '@studio/common/lib/blueprint-validation';
+import { getBlueprintDisplayDetails } from '@studio/common/lib/blueprint-selection';
+import { BlueprintPreferredVersions } from '@studio/common/lib/blueprint-validation';
 import { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import { useCallback } from 'react';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { Blueprint } from 'src/stores/wpcom-api';
 import { applyBlueprintFormValues } from '../lib/apply-blueprint-form-values';
-
-type BlueprintMetadata = {
-	title?: string;
-	description?: string;
-};
+import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 interface UseBlueprintDeeplinkOptions {
 	isAnySiteProcessing: boolean;
@@ -21,7 +14,6 @@ interface UseBlueprintDeeplinkOptions {
 	setPhpVersion: ( version: SupportedPHPVersion ) => void;
 	setWpVersion: ( version: string ) => void;
 	setBlueprintPreferredVersions: ( versions: BlueprintPreferredVersions | undefined ) => void;
-	setBlueprintWarnings: ( warnings: BlueprintValidationWarning[] | undefined ) => void;
 	setBlueprintSuggestedDomain: ( domain: string | undefined ) => void;
 	setBlueprintSuggestedHttps: ( https: boolean | undefined ) => void;
 	setBlueprintSuggestedSiteName: ( name: string | undefined ) => void;
@@ -37,7 +29,6 @@ export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): vo
 		setPhpVersion,
 		setWpVersion,
 		setBlueprintPreferredVersions,
-		setBlueprintWarnings,
 		setBlueprintSuggestedDomain,
 		setBlueprintSuggestedHttps,
 		setBlueprintSuggestedSiteName,
@@ -53,10 +44,8 @@ export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): vo
 				_event: unknown,
 				{
 					blueprintPath,
-					warnings,
 				}: {
 					blueprintPath: string;
-					warnings?: BlueprintValidationWarning[];
 				}
 			) => {
 				if ( isAnySiteProcessing ) {
@@ -65,13 +54,12 @@ export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): vo
 				try {
 					const blueprintJson = await getIpcApi().readBlueprintFile( blueprintPath );
 					const fileName = blueprintPath.split( /[/\\]/ ).pop() || 'blueprint.json';
-					const blueprintMeta = blueprintJson.meta as BlueprintMetadata | undefined;
+					const details = getBlueprintDisplayDetails( blueprintJson as BlueprintV1Declaration, '' );
 
 					const fileBlueprint: Blueprint = {
 						slug: `file:${ fileName }`,
-						title: blueprintMeta?.title || '',
-						excerpt:
-							blueprintMeta?.description || generateDefaultBlueprintDescription( blueprintJson ),
+						title: details.title,
+						excerpt: details.excerpt,
 						image: '',
 						playground_url: '',
 						blueprint: blueprintJson,
@@ -89,7 +77,6 @@ export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): vo
 						setBlueprintRequiresCustomDomain,
 					} );
 
-					setBlueprintWarnings( warnings );
 					setIsDeeplinkFlow( true );
 					onModalOpen?.();
 				} catch ( error ) {
@@ -102,7 +89,6 @@ export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): vo
 				setPhpVersion,
 				setWpVersion,
 				setBlueprintPreferredVersions,
-				setBlueprintWarnings,
 				setBlueprintSuggestedDomain,
 				setBlueprintSuggestedHttps,
 				setBlueprintSuggestedSiteName,

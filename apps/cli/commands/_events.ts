@@ -29,9 +29,10 @@ import {
 	SITE_EVENTS_SOCKET_PATH,
 	getDaemonBus,
 } from 'cli/lib/daemon-client';
+import { getLiveSiteOperation } from 'cli/lib/site-operations';
 import { isSiteRunning } from 'cli/lib/site-utils';
 import { SocketServer } from 'cli/lib/socket';
-import { subscribeSiteEvents } from 'cli/lib/wordpress-server-manager';
+import { SITE_PROCESS_PREFIX } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 
 const logger = new Logger< LoggerAction >();
@@ -39,6 +40,8 @@ const logger = new Logger< LoggerAction >();
 function toSiteDetails( site: SiteData ) {
 	return siteDetailsSchema.parse( {
 		...site,
+		// Overrides rather than augments `...site` — see the note in `site list`.
+		operation: getLiveSiteOperation( site ),
 		url: getSiteUrl( site ),
 	} );
 }
@@ -138,6 +141,7 @@ export async function runCommand(): Promise< void > {
 				case SITE_EVENTS.CREATED:
 				case SITE_EVENTS.UPDATED:
 				case SITE_EVENTS.DELETED:
+				case SITE_EVENTS.OPERATIONS_CHANGED:
 					void emitSiteEvent( parsed.event, parsed.data.siteId );
 					break;
 			}
@@ -186,11 +190,34 @@ export async function runCommand(): Promise< void > {
 
 	await emitAllSitesStatus();
 
-	await subscribeSiteEvents( ( { siteId, event, running } ) => {
-		void emitSiteEvent( event, siteId, running );
+	const bus = await getDaemonBus();
+
+	// Subscribe to IPC events from site processes. We treat a `result` message with no return value
+	// (undefined) as a signal that a void-returning IPC command completed (e.g. `start-server`).
+	// Commands that return a value (e.g. `stop-server`, `wp-cli-command`) must not be treated as
+	// "server is running" based on their `result` messages.
+	bus.on( 'process-message', ( message ) => {
+		if ( ! message.process.name.startsWith( SITE_PROCESS_PREFIX ) ) {
+			return;
+		}
+
+		if ( message.raw.topic === 'result' && message.raw.result === undefined ) {
+			const siteId = message.process.name.replace( SITE_PROCESS_PREFIX, '' );
+			void emitSiteEvent( SITE_EVENTS.UPDATED, siteId, true );
+		}
 	} );
 
-	const bus = await getDaemonBus();
+	// Subscribe to process manager daemon events for site processes. All events are mapped to 'site-updated'.
+	bus.on( 'process-event', ( event ) => {
+		if ( ! event.process.name.startsWith( SITE_PROCESS_PREFIX ) ) {
+			return;
+		}
+
+		if ( event.event !== 'online' ) {
+			const siteId = event.process.name.replace( SITE_PROCESS_PREFIX, '' );
+			void emitSiteEvent( SITE_EVENTS.UPDATED, siteId, false );
+		}
+	} );
 
 	bus.on( 'daemon-kill', () => {
 		void emitAllSitesStopped();

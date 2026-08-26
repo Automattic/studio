@@ -46,7 +46,7 @@ import {
 	connectedSitesSelectors,
 	useGetConnectedSitesForLocalSiteQuery,
 } from 'src/stores/sync/connected-sites';
-import type { SyncSite } from 'src/modules/sync/types';
+import type { SyncSite } from '@studio/common/types/sync';
 
 const SyncConnectedSiteControls = ( {
 	connectedSite,
@@ -59,22 +59,20 @@ const SyncConnectedSiteControls = ( {
 	const isOffline = useOffline();
 	const dispatch = useAppDispatch();
 	const [ syncDialogType, setSyncDialogType ] = useState< 'pull' | 'push' | null >( null );
-	const isAnySitePulling = useRootSelector( syncOperationsSelectors.selectIsAnySitePulling );
-	const isAnySitePushing = useRootSelector( syncOperationsSelectors.selectIsAnySitePushing );
 	const getLastSyncTimeText = useLastSyncTimeText();
 	const { user, client } = useAuth();
 	const { data: connectedSites = [] } = useGetConnectedSitesForLocalSiteQuery( {
 		localSiteId: selectedSite.id,
 		userId: user?.id,
 	} );
-	const isAnyConnectedSiteSyncing = useRootSelector( ( state ) =>
-		connectedSites.some(
-			( site ) =>
-				syncOperationsSelectors.selectIsSiteIdPulling( selectedSite.id, site.id )( state ) ||
-				syncOperationsSelectors.selectIsSiteIdPushing( selectedSite.id, site.id )( state )
+	const isAnyConnectedSiteDoingLocalSyncWork = useRootSelector( ( state ) =>
+		connectedSites.some( ( site ) =>
+			syncOperationsSelectors.selectIsSiteDoingLocalSyncWork( selectedSite.id, site.id )( state )
 		)
 	);
-	const isAnySiteSyncing = isAnySitePulling || isAnySitePushing;
+	const isAnySiteDoingLocalSyncWork = useRootSelector(
+		syncOperationsSelectors.selectIsAnySiteDoingLocalSyncWork
+	);
 
 	return (
 		<Tooltip
@@ -84,10 +82,10 @@ const SyncConnectedSiteControls = ( {
 			placement="top-start"
 		>
 			<div className="flex gap-2 h-5">
-				{ isAnySiteSyncing ? (
+				{ isAnySiteDoingLocalSyncWork ? (
 					<Tooltip
 						text={
-							isAnyConnectedSiteSyncing
+							isAnyConnectedSiteDoingLocalSyncWork
 								? __(
 										'This Studio site is syncing. Please wait for the sync to finish before you pull it.'
 								  )
@@ -112,12 +110,11 @@ const SyncConnectedSiteControls = ( {
 							variant="link"
 							className={ cx(
 								! isOffline &&
-									! isAnySitePulling &&
-									! isAnySitePushing &&
+									! isAnySiteDoingLocalSyncWork &&
 									'!text-frame-text hover:!text-frame-theme'
 							) }
 							onClick={ () => setSyncDialogType( 'pull' ) }
-							disabled={ isAnySiteSyncing || isOffline }
+							disabled={ isAnySiteDoingLocalSyncWork || isOffline }
 							data-testid="sync-list-pull-button"
 						>
 							<Icon icon={ cloudDownload } />
@@ -125,10 +122,10 @@ const SyncConnectedSiteControls = ( {
 						</Button>
 					</DynamicTooltip>
 				) }
-				{ isAnySiteSyncing ? (
+				{ isAnySiteDoingLocalSyncWork ? (
 					<Tooltip
 						text={
-							isAnyConnectedSiteSyncing
+							isAnyConnectedSiteDoingLocalSyncWork
 								? __(
 										'This Studio site is syncing. Please wait for the sync to finish before you push it.'
 								  )
@@ -153,12 +150,11 @@ const SyncConnectedSiteControls = ( {
 							variant="link"
 							className={ cx(
 								! isOffline &&
-									! isAnySitePulling &&
-									! isAnySitePushing &&
+									! isAnySiteDoingLocalSyncWork &&
 									'!text-frame-text hover:!text-frame-theme'
 							) }
 							onClick={ () => setSyncDialogType( 'push' ) }
-							disabled={ isAnySiteSyncing || isOffline }
+							disabled={ isAnySiteDoingLocalSyncWork || isOffline }
 							data-testid="sync-list-push-button"
 						>
 							<Icon icon={ cloudUpload } />
@@ -295,22 +291,11 @@ const SyncConnectedSitesSectionItem = ( {
 	};
 
 	return (
-		<div className="grid grid-cols-[max-content_1fr_max-content]">
+		<div className="grid grid-cols-[1fr_max-content]">
 			<div
-				className="col-span-3 grid ps-8 pe-5 gap-2 justify-items-start items-center grid-cols-subgrid"
+				className="col-span-2 grid ps-8 pe-5 gap-2 justify-items-start items-center grid-cols-subgrid"
 				key={ connectedSite.id }
 			>
-				<div className="shrink-0">
-					{ isSiteLoading ? (
-						<div
-							className="h-5 w-20 rounded skeleton-bg"
-							aria-label={ __( 'Loading environment' ) }
-						/>
-					) : (
-						<EnvironmentBadge type={ getSiteEnvironment( connectedSite ) } />
-					) }
-				</div>
-
 				{ isSiteLoading ? (
 					<div className="h-5 w-48 rounded skeleton-bg" aria-label={ __( 'Loading site URL' ) } />
 				) : (
@@ -435,7 +420,7 @@ const SyncConnectedSitesSectionItem = ( {
 							>
 								<div className="flex flex-col gap-2 min-w-44 flex-shrink">
 									<div className="a8c-body-small flex items-center gap-0.5">
-										<Icon icon={ info } size={ 14 } />
+										<Icon icon={ info } size={ 14 } className="fill-frame-text-secondary" />
 										{ pushState.status.message }
 									</div>
 									<ProgressBar value={ pushState.status.progress } maxValue={ 100 } />
@@ -488,7 +473,7 @@ const SyncConnectedSitesSectionItem = ( {
 												className="fill-frame-text-secondary"
 											/>
 										) : (
-											<Icon icon={ info } size={ 14 } />
+											<Icon icon={ info } size={ 14 } className="fill-frame-text-secondary" />
 										) }
 										{ getPushUploadMessage( pushState.status.message, uploadPercentage ) }
 									</div>
@@ -666,11 +651,8 @@ const SyncConnectedSiteSection = ( {
 		connectedSitesSelectors.selectIsLoadingSiteId( connectedSite.id )
 	);
 	const hasConnectionErrors = connectedSite?.syncSupport !== 'already-connected';
-	const isPulling = useRootSelector(
-		syncOperationsSelectors.selectIsSiteIdPulling( selectedSite.id, connectedSite.id )
-	);
-	const isPushing = useRootSelector(
-		syncOperationsSelectors.selectIsSiteIdPushing( selectedSite.id, connectedSite.id )
+	const isDoingLocalSyncWork = useRootSelector(
+		syncOperationsSelectors.selectIsSiteDoingLocalSyncWork( selectedSite.id, connectedSite.id )
 	);
 
 	let logo = <WordPressLogoCircle />;
@@ -689,27 +671,28 @@ const SyncConnectedSiteSection = ( {
 				{ isSiteLoading ? (
 					<div className="h-5 w-40 rounded skeleton-bg" aria-label={ __( 'Loading site name' ) } />
 				) : (
-					<div className={ cx( 'a8c-label-semibold', hasConnectionErrors && 'error-message' ) }>
-						{ connectedSite.name }
-					</div>
+					<>
+						<EnvironmentBadge type={ getSiteEnvironment( connectedSite ) } />
+						<div className={ cx( 'a8c-label-semibold', hasConnectionErrors && 'error-message' ) }>
+							{ connectedSite.name }
+						</div>
+					</>
 				) }
 				<div className="ms-auto">
 					<Tooltip
 						text={ __(
 							'This site is syncing. Please wait for the sync to finish before you can disconnect it.'
 						) }
-						disabled={ ! ( isPulling || isPushing ) || isOffline }
+						disabled={ ! isDoingLocalSyncWork || isOffline }
 						placement="top-start"
 					>
 						<Button
 							variant="link"
 							className={ cx(
-								! isPulling && ! isPushing
-									? '!text-frame-text-secondary hover:!text-a8c-red-50'
-									: ''
+								! isDoingLocalSyncWork ? '!text-frame-text-secondary hover:!text-a8c-red-50' : ''
 							) }
 							onClick={ handleDisconnectSite }
-							disabled={ isPulling || isPushing }
+							disabled={ isDoingLocalSyncWork }
 						>
 							{ __( 'Disconnect' ) }
 						</Button>
@@ -722,7 +705,7 @@ const SyncConnectedSiteSection = ( {
 					<div className="text-frame-text">
 						{ createInterpolateElement(
 							__(
-								'<siteUrlButton /> appears to be deleted or is currently unreachable. <button>Get help ↗</button>'
+								'<siteUrlButton/> appears to be deleted or is currently unreachable. <button>Get help ↗</button>'
 							),
 							{
 								button: (

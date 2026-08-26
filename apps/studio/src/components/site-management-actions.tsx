@@ -9,7 +9,7 @@ import { syncOperationsSelectors } from 'src/stores/sync';
 
 export interface SiteManagementActionProps {
 	onStop: ( id: string ) => Promise< void >;
-	onStart: ( site: SiteDetails ) => Promise< void >;
+	onStart: ( site: SiteDetails ) => Promise< void | { capacityLimitReached: boolean } >;
 	selectedSite?: SiteDetails | null;
 	loading: boolean;
 }
@@ -22,8 +22,8 @@ export const SiteManagementActions = ( {
 }: SiteManagementActionProps ) => {
 	const { __ } = useI18n();
 	const { isSiteImporting } = useImportExport();
-	const isPulling = useRootSelector(
-		syncOperationsSelectors.selectIsSiteIdPulling( selectedSite?.id ?? '' )
+	const isPullingLocally = useRootSelector( ( state ) =>
+		syncOperationsSelectors.selectIsSiteIdPullingLocally( selectedSite?.id )( state )
 	);
 
 	if ( ! selectedSite ) {
@@ -31,10 +31,10 @@ export const SiteManagementActions = ( {
 	}
 
 	const isImporting = isSiteImporting( selectedSite.id );
-	const disabled = isImporting || isPulling;
+	const disabled = isImporting || isPullingLocally;
 
 	let buttonLabelOnDisabled: string = __( 'Importing…' );
-	if ( isPulling ) {
+	if ( isPullingLocally ) {
 		buttonLabelOnDisabled = __( 'Pulling…' );
 	}
 

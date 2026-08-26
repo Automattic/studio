@@ -1,0 +1,41 @@
+name: Publish npm Package
+
+on:
+  workflow_dispatch:
+    inputs:
+      npm-tag:
+        description: 'npm dist-tag (e.g., "next" for prereleases). Leave empty to publish as "latest".'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  id-token: write # Required for npm trusted publishing (OIDC)
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download language packs
+        run: npm run download-language-packs
+
+      - name: Publish to npm
+        run: |
+          PUBLISH_ARGS=(-w wp-studio --provenance --access public)
+          if [ -n "${{ inputs.npm-tag }}" ]; then
+            PUBLISH_ARGS+=(--tag "${{ inputs.npm-tag }}")
+            echo "Publishing with dist-tag: ${{ inputs.npm-tag }}"
+          else
+            echo "Publishing as latest"
+          fi
+          npm publish "${PUBLISH_ARGS[@]}"

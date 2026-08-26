@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "data-liberation": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/mcp-launcher.mjs"],
+      "cwd": "${CLAUDE_PLUGIN_ROOT}"
+    }
+  }
+}

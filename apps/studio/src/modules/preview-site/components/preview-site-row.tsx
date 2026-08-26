@@ -1,3 +1,4 @@
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { Snapshot } from '@studio/common/types/snapshot';
 import { Spinner } from '@wordpress/components';
 import { sprintf } from '@wordpress/i18n';
@@ -10,6 +11,7 @@ import { TooltipProps, Tooltip } from 'src/components/tooltip';
 import { UPDATED_MESSAGE_DURATION_MS } from 'src/constants';
 import { useExpirationDate } from 'src/hooks/use-expiration-date';
 import { useFormatLocalizedTimestamps } from 'src/hooks/use-format-localized-timestamps';
+import { recordRendererTracksEvent } from 'src/lib/analytics';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { DeleteProgressRow } from 'src/modules/preview-site/components/delete-progress-row';
@@ -97,6 +99,7 @@ export function PreviewSiteRow( {
 			return (
 				<div className="flex items-center">
 					<Icon icon={ cautionFilled } className="!mt-0 mr-1 fill-a8c-red-50" />
+					{ /* translators: status label shown in the preview sites list when the last update operation failed */ }
 					<span className="text-a8c-red-50">{ __( 'Failed' ) }</span>
 				</div>
 			);
@@ -139,7 +142,10 @@ export function PreviewSiteRow( {
 									'!text-frame-text-secondary max-w-full',
 									isSiteInactive ? 'pointer-events-none' : 'hover:!text-frame-theme'
 								) }
-								onClick={ () => getIpcApi().openURL( `https://${ url }` ) }
+								onClick={ () => {
+									recordRendererTracksEvent( TRACKS_EVENTS.PREVIEW_SITE_OPEN );
+									getIpcApi().openURL( `https://${ url }` );
+								} }
 							>
 								<span
 									className={ cx(

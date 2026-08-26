@@ -10,7 +10,7 @@ The Studio CLI (invoked with the `studio` command) is a globally available CLI u
 
 ## High level approach
 
-The CLI is independent of the main desktop app, but is written using mostly the same conventions. It's a node.js app written in Typescript, that's bundled into a single JS file using Webpack. Vitest is used to test CLI modules in the same way as for regular Studio modules.
+The CLI is independent of the main desktop app, but is written using mostly the same conventions. It's a node.js app written in Typescript, that's transpiled and bundled using Vite. Vitest is used to test CLI modules in the same way as for regular Studio modules.
 
 To run the CLI, we first add a script to a directory on `$PATH`. This script runs the CLI JS file using the node runtime bundled with Studio. Running JS files independently of the main Studio app is possible thanks to the `ELECTRON_RUN_AS_NODE=1` option.
 
@@ -32,9 +32,11 @@ The first iteration of the CLI shipped commands to create, read, update, and del
    - The renderer process uses "logger action" definitions from the `common` folder to determine command progress based on incoming IPC events.
 
 3. Studio reacts when the CLI modifies preview sites:
-   - `src/lib/user-data-watcher.ts` watches the Studio config file and emits `user-data-updated` IPC renderer events.
-   - State handlers (primarily Redux slices) listen to `user-data-updated` events and update the state accordingly.
-   - Because state changes trigger writes to the Studio config file, event handlers have to first run a deep diff on the incoming payload to ensure that the data has truly changed. Without this, there'd be infinite watch/write loops.
+
+   - Studio spawns the `_events` CLI command when the application starts.
+   - The `_events` command runs a local IPC server that other CLI processes send events to. Those events are passed back to Studio over standard `process.send` IPC.
+   - Studio parses and validates the events and emits `snapshot-event` events to the renderer process.
+   - State handlers in the renderer process (primarily Redux slices) listen to `snapshot-event` events and update the state accordingly.
 
 ## Implementation details
 
@@ -48,7 +50,33 @@ Modifying the `$PATH` environment variable programmatically on macOS is much mor
 
 ### Why bundle the CLI?
 
-Node apps don't technically need to be bundled, but we chose this approach with the CLI to minimize the amount of code we ship in the installer. If we didn't bundle the CLI files, we would need to figure out a way to ship a `node_modules` folder containing only the dependencies needed by the CLI (and ideally no superfluous files inside those dependencies, either).
+We could almost ship the CLI source code as-is. We know which Node.js version interprets and runs the code, and we always ship the CLI with an accompanying `node_modules` directory. The only bundling we really _need_ is Typescript, and `--experimental-strip-types` might even let us skip that.
+
+Long-term, we might want to move in that direction, but for now, we are still bundling. It offers us some flexibility around which exact code we ship to users (by allowing us to define globals that act as feature flags), and we've seen in testing that bundled code uses less memory, presumably because of code splitting and tree shaking. 
+
+### Pulling a remote site (`pull-reprint`)
+
+`studio pull-reprint` refreshes an **existing** local Studio site from a connected WordPress.com or Pressable source using the reprint pull tool. It is a state-transition on a site, not a site creator — the same shape as the WordPress.com sync `pull`. Third-party WordPress hosts are not supported: a source URL must resolve to a site returned by the user's authenticated WordPress.com Jetpack API site list.
+
+The flow is:
+
+1. `studio create` — create the local site (a full `SiteData` record plus a blank WordPress install). This is a prerequisite; `pull-reprint` never creates a site.
+2. `studio pull-reprint --path <site> --url <remote>` — pull the remote into the local site resolved by `--path`. `--url` identifies only the remote source; if omitted, `pull-reprint` first reuses the site's saved `reprintOrigin.remoteUrl`, and if there is no saved origin, a WordPress.com/Pressable source picker runs (Pressable support is still WIP). The matched remote must be `syncable`. Each run rotates a fresh Reprint secret through the WordPress.com API, enables the exporter, then runs preflight once. The pull is idempotent: re-running it resumes an interrupted pull or performs a delta re-pull of an already-imported site.
+3. `studio delete --path <site>` — the only teardown path. It trashes the site folder and the site's `technicalSiteDirectory`, which for a reprint-pulled site is the `siteId`-keyed scratch under `~/.studio/pulls/<siteId>` (reprint's `.import-state.json`, the preflight cache, and the raw/runtime working dirs). `pull-reprint` records `technicalSiteDirectory` on the site at pull *start*, so the scratch is cleaned up even for a pull that failed before linking. There is no `--abort` verb.
+
+#### State model
+
+All durable state lives on the `SiteData` record in `cli.json`. The pull-relevant fields are:
+
+- `status: 'ready' | 'pulling' | 'pull-failed'` — health of the local install. `site create` produces `ready`; a pull sets `pulling` up front, `ready` on success, and `pull-failed` if it errors or is killed. A missing value (legacy records) is treated as `ready`. `site start` refuses to start a non-`ready` site rather than serving a half-written install.
+- `reprintOrigin` — durable origin metadata for a pulled site (`remoteUrl`, `remoteSiteUrl`, `tablePrefix`), so a re-pull can reuse the remote source.
+- `importComplete: boolean` — true once a full pull has completed at least once; selects first-full-pull vs. delta on the next run.
+
+#### Resume by derivation
+
+Rather than a written stage cursor, "where do I continue from?" is computed from observable state: reprint resumes its own pipeline from `.import-state.json` (and the pull is idempotent), the server-start phase keys off whether the process is already running, the skipped-files phase keys off `hasSkippedFiles`, and full-vs-delta keys off `importComplete`. A `pull-failed` (or interrupted `pulling`) site is recovered by **re-running** the pull, not repaired in place — or removed with `site delete`.
+
+> The only on-disk pull state is reprint's opaque `.import-state.json` and the preflight cache, both in the `siteId`-keyed scratch dir. An interrupted reprint pull can leave the live site half-written; making that crash-atomic is upstream work in reprint. The `pull-failed` status + idempotent re-run is the consumer-side safety net until that lands, so resume is not advertised as crash-proof.
 
 ### Studio calling the CLI
 

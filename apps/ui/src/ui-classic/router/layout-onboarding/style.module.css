@@ -1,0 +1,63 @@
+.page {
+	width: 100%;
+	text-align: center;
+	padding-bottom: 72px;
+}
+
+.page form {
+	max-width: 480px;
+	margin-inline: auto;
+	text-align: left;
+}
+
+/* Typography comes from the universal `h1` rule in index.css — this class
+   only layers on the layout spacing above the subtitle. */
+.title {
+	margin-bottom: 8px;
+}
+
+.title:focus {
+	outline: none;
+}
+
+.subtitle {
+	color: var(--wpds-color-fg-content-neutral-weak);
+	margin: 0 0 32px;
+}
+
+.progress {
+	position: fixed;
+	top: 24px;
+	left: 50%;
+	z-index: 10;
+	margin: 0;
+	padding: 8px 12px;
+	transform: translateX(-50%);
+	border-radius: 4px;
+	background: var(--wpds-color-bg-surface-neutral-strong);
+	color: var(--wpds-color-fg-content-neutral);
+	box-shadow: var(--wpds-elevation-md);
+}
+
+.outlet h1:focus:not(:focus-visible) {
+	outline: none;
+}
+
+.dotGridLayer {
+	position: fixed;
+	inset: 0;
+	overflow: hidden;
+	pointer-events: none;
+	z-index: -1;
+}
+
+/* Translucent surface that lets the dot grid show through, softened.
+   Compose into a rule with `composes: glassSurface from '…'`. */
+.glassSurface {
+	background: color-mix(
+		in srgb,
+		var(--wpds-color-bg-surface-neutral-strong) var(--surface-alpha, 50%),
+		transparent
+	);
+	backdrop-filter: blur(12px);
+}

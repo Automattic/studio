@@ -1,5 +1,11 @@
 import {
-	TUI,
+	getMarkdownTheme,
+	ToolExecutionComponent,
+	type AgentSessionEvent,
+} from '@earendil-works/pi-coding-agent';
+import {
+	type TUI,
+	TuiMainScreen,
 	ProcessTerminal,
 	Editor,
 	Input,
@@ -17,58 +23,65 @@ import {
 	type Focusable,
 	type EditorTheme,
 	type EditorOptions,
-	type MarkdownTheme,
 	visibleWidth,
 	truncateToWidth,
-} from '@mariozechner/pi-tui';
+	CURSOR_MARKER,
+} from '@earendil-works/pi-tui';
+import { isOutOfCreditsError, isUsageCapError } from '@studio/common/ai/json-events';
+import { DEFAULT_MODEL, getAiModelLabel, type AiModelId } from '@studio/common/ai/models';
+import { findLastAssistant } from '@studio/common/ai/session-events';
+import { randomThinkingMessage } from '@studio/common/ai/thinking-messages';
 import { readAuthToken } from '@studio/common/lib/shared-config';
+import {
+	ADD_AI_CREDITS_URL,
+	fetchStudioAssistantQuota,
+	formatOutOfCreditsNotice,
+	formatQuotaResetDate,
+	formatUsageCapNotice,
+} from '@studio/common/lib/studio-assistant-quota';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import chalk from 'chalk';
-import { AI_MODELS, DEFAULT_MODEL, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
+import {
+	DescriptionAwareAutocompleteProvider,
+	dimUnhighlighted,
+} from 'cli/ai/description-autocomplete';
+import { buildOptionPickerLines } from 'cli/ai/option-picker';
+import { type AiOutputAdapter } from 'cli/ai/output-adapter';
 import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, type AiProviderId } from 'cli/ai/providers';
-import { AI_CHAT_SLASH_COMMANDS } from 'cli/ai/slash-commands';
-import { buildTodoUpdateLines, type TodoRenderLine } from 'cli/ai/todo-render';
-import { diffTodoSnapshot, type TodoDiff, type TodoEntry } from 'cli/ai/todo-stream';
+import { getActiveSlashCommands } from 'cli/ai/slash-commands';
+import { initStudioTheme, refineStudioTheme, theme } from 'cli/ai/theme';
+import { getToolRenderDefinition } from 'cli/ai/tool-render-definitions';
+import { formatToolOutputLines } from 'cli/ai/tool-result-renderers';
 import { getWpComSites } from 'cli/lib/api';
 import { openBrowser } from 'cli/lib/browser';
 import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
-import { isSiteRunning } from 'cli/lib/site-utils';
-import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
-import type { TodoWriteInput } from '@anthropic-ai/claude-agent-sdk/sdk-tools';
+import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
+import { getSitesRunningStatus, isSiteRunning } from 'cli/lib/site-utils';
+import { formatTosNoticeLines } from 'cli/lib/tos-notice';
+import type { ToolResultMessage } from '@earendil-works/pi-ai';
+import type { AskUserQuestion, SiteInfo } from 'cli/ai/types';
 
 const SITE_PICKER_TAB_LOCAL = 'local' as const;
 const SITE_PICKER_TAB_REMOTE = 'remote' as const;
 type SitePickerTab = typeof SITE_PICKER_TAB_LOCAL | typeof SITE_PICKER_TAB_REMOTE;
 
 const sitePickerTheme: SelectListTheme = {
-	selectedPrefix: ( text ) => chalk.blue( text ),
-	selectedText: ( text ) => chalk.bold( text ),
-	description: ( text ) => chalk.dim( text ),
-	scrollInfo: ( text ) => chalk.dim( text ),
-	noMatch: ( text ) => chalk.dim( text ),
+	selectedPrefix: ( text ) => theme.fg( 'accent', text ),
+	selectedText: ( text ) => theme.bold( text ),
+	description: ( text ) => theme.fg( 'muted', text ),
+	scrollInfo: ( text ) => theme.fg( 'muted', text ),
+	noMatch: ( text ) => theme.fg( 'muted', text ),
 };
 
-export interface SiteInfo {
-	name: string;
-	path: string;
-	running: boolean;
-	remote?: boolean;
-	url?: string;
-}
-
-const DEFAULT_COLLAPSE_THRESHOLD_LINES = 5;
-
-interface ExpandablePreview {
-	textComponent: Text;
-	collapsedContent: string;
-	expandedContent: string;
-	isExpanded: boolean;
-}
-
-function formatToolOutputLines( lines: string[] ): string {
+// Faint variant of the user bubble used by `addUserMessage`, for prompts that
+// were staged during an active turn and haven't been dispatched yet.
+function formatQueuedPrompt( text: string ): string {
+	const lines = text.split( '\n' );
 	return lines
-		.map( ( line, index ) => `${ index === 0 ? '   ' + chalk.dim( '⎿ ' ) : '     ' }${ line }` )
+		.map( ( line, i ) => {
+			const body = i === 0 ? '↳ ' + line + ' ' : '  ' + line + ' ';
+			return ' ' + theme.bg( 'userMessageBg', theme.fg( 'muted', body ) );
+		} )
 		.join( '\n' );
 }
 
@@ -78,8 +91,10 @@ class PromptEditor implements Component, Focusable {
 	private _focused = false;
 	private isEmpty = true;
 	activeSiteName: string | null = null;
+	busyMessage: string | null = null;
 	hints: string[] = [];
 	statusMessage: string | null = null;
+	daemonStatusMessage: string | null = null;
 	showBottomBar = true;
 
 	get focused(): boolean {
@@ -113,6 +128,10 @@ class PromptEditor implements Component, Focusable {
 		this.editor.setAutocompleteProvider( provider );
 	}
 
+	addToHistory( text: string ): void {
+		this.editor.addToHistory( text );
+	}
+
 	getText(): string {
 		return this.editor.getText();
 	}
@@ -122,7 +141,7 @@ class PromptEditor implements Component, Focusable {
 	}
 
 	render( width: number ): string[] {
-		const promptPrefix = ' ' + chalk.bold( '〉' );
+		const promptPrefix = ' ' + theme.bold( '〉' );
 		const promptWidth = 3; // space + 〉(2 cols)
 		const innerWidth = Math.max( 1, width - promptWidth );
 		const lines = this.editor.render( innerWidth );
@@ -145,15 +164,17 @@ class PromptEditor implements Component, Focusable {
 		const emptyPrefix = ' '.repeat( promptWidth );
 		const result = editorLines.map( ( line, i ) => {
 			if ( i === 0 ) {
-				// Top border with active site name on the right
+				// Top border with active site name and optional busy indicator
 				if ( this.activeSiteName && borderWidth > 4 ) {
-					const label = ` ${ this.activeSiteName } `;
+					const busySuffix = this.busyMessage ? ` ${ this.busyMessage }` : '';
+					const label = ` ${ this.activeSiteName }${ busySuffix } `;
 					const trailing = Math.min( 3, borderWidth );
-					const leading = Math.max( 0, borderWidth - label.length - trailing );
+					const labelWidth = visibleWidth( label );
+					const leading = Math.max( 0, borderWidth - labelWidth - trailing );
 					return (
 						' ' +
 						bc( '─'.repeat( leading ) ) +
-						chalk.hex( '#8839ef' )( label ) +
+						theme.fg( 'accent', label ) +
 						bc( '─'.repeat( trailing ) )
 					);
 				}
@@ -163,7 +184,7 @@ class PromptEditor implements Component, Focusable {
 				return ' ' + bc( '─'.repeat( borderWidth ) );
 			}
 			if ( this.isEmpty && i === 1 ) {
-				return promptPrefix + chalk.dim( __( 'Type your prompt…' ) );
+				return promptPrefix + CURSOR_MARKER;
 			}
 			if ( i === 1 ) {
 				return promptPrefix + line;
@@ -186,9 +207,18 @@ class PromptEditor implements Component, Focusable {
 			: this.hints.filter( ( h ) => h !== __( '↓ select site' ) );
 		const leftPart =
 			activeHints.length > 0
-				? ' ' + activeHints.map( ( h ) => chalk.dim( h ) ).join( chalk.dim( ' · ' ) )
+				? ' ' +
+				  activeHints.map( ( h ) => theme.fg( 'muted', h ) ).join( theme.fg( 'muted', ' · ' ) )
 				: '';
-		const rightPart = this.statusMessage ? chalk.dim( this.statusMessage ) + ' ' : '';
+		const rightSegments: string[] = [];
+		if ( this.daemonStatusMessage ) {
+			rightSegments.push( theme.fg( 'success', this.daemonStatusMessage ) );
+		}
+		if ( this.statusMessage ) {
+			rightSegments.push( theme.fg( 'muted', this.statusMessage ) );
+		}
+		const rightPart =
+			rightSegments.length > 0 ? rightSegments.join( theme.fg( 'muted', ' · ' ) ) + ' ' : '';
 		if ( leftPart || rightPart ) {
 			const leftLen = visibleWidth( leftPart );
 			const rightLen = visibleWidth( rightPart );
@@ -200,239 +230,24 @@ class PromptEditor implements Component, Focusable {
 	}
 }
 
-const markdownTheme: MarkdownTheme = {
-	heading: ( text ) => chalk.bold( text ),
-	link: ( text ) => chalk.cyan.underline( text ),
-	linkUrl: ( text ) => chalk.dim( text ),
-	code: ( text ) => chalk.yellow( text ),
-	codeBlock: ( text ) => text,
-	codeBlockBorder: ( text ) => chalk.dim( text ),
-	quote: ( text ) => chalk.italic( text ),
-	quoteBorder: ( text ) => chalk.dim( text ),
-	hr: ( text ) => chalk.dim( text ),
-	listBullet: ( text ) => chalk.cyan( text ),
-	bold: ( text ) => chalk.bold( text ),
-	italic: ( text ) => chalk.italic( text ),
-	strikethrough: ( text ) => chalk.strikethrough( text ),
-	underline: ( text ) => chalk.underline( text ),
-};
-
 const editorTheme: EditorTheme = {
-	borderColor: ( text ) => chalk.white( text ),
+	borderColor: ( text ) => theme.fg( 'border', text ),
 	selectList: {
-		selectedPrefix: ( text ) => chalk.cyan( text ),
-		selectedText: ( text ) => chalk.bold( text ),
-		description: ( text ) => chalk.dim( text ),
-		scrollInfo: ( text ) => chalk.dim( text ),
-		noMatch: ( text ) => chalk.dim( text ),
+		selectedPrefix: ( text ) => theme.fg( 'accent', text ),
+		selectedText: ( text ) => theme.bold( text ),
+		description: ( text ) => dimUnhighlighted( text ),
+		scrollInfo: ( text ) => theme.fg( 'muted', text ),
+		noMatch: ( text ) => theme.fg( 'muted', text ),
 	},
 };
 
-const toolDisplayNames: Record< string, string > = {
-	mcp__studio__site_create: __( 'Create site' ),
-	mcp__studio__site_list: __( 'List sites' ),
-	mcp__studio__site_info: __( 'Get site info' ),
-	mcp__studio__site_start: __( 'Start site' ),
-	mcp__studio__site_stop: __( 'Stop site' ),
-	mcp__studio__site_delete: __( 'Delete site' ),
-	mcp__studio__preview_create: __( 'Create preview' ),
-	mcp__studio__preview_list: __( 'List previews' ),
-	mcp__studio__preview_update: __( 'Update preview' ),
-	mcp__studio__preview_delete: __( 'Delete preview' ),
-	mcp__studio__wp_cli: __( 'Run WP-CLI' ),
-	mcp__studio__validate_blocks: __( 'Validate blocks' ),
-	mcp__studio__take_screenshot: __( 'Take screenshot' ),
-	Read: __( 'Read' ),
-	Write: __( 'Write' ),
-	Edit: __( 'Edit' ),
-	Bash: __( 'Run' ),
-	Glob: __( 'Search' ),
-	Grep: __( 'Search' ),
-	Skill: __( 'Load skill' ),
-	Task: __( 'Run task' ),
-	TodoWrite: __( 'Update todo list' ),
-};
-
-function getToolDetail( name: string, input: Record< string, unknown > ): string {
-	switch ( name ) {
-		case 'mcp__studio__site_create':
-			return typeof input.name === 'string' ? input.name : '';
-		case 'mcp__studio__site_info':
-		case 'mcp__studio__site_start':
-		case 'mcp__studio__site_stop':
-		case 'mcp__studio__site_delete':
-		case 'mcp__studio__preview_create':
-		case 'mcp__studio__preview_list':
-			return typeof input.nameOrPath === 'string' ? input.nameOrPath : '';
-		case 'mcp__studio__preview_update':
-		case 'mcp__studio__preview_delete':
-			return typeof input.host === 'string' ? input.host : '';
-		case 'mcp__studio__wp_cli':
-			return typeof input.command === 'string' ? `wp ${ input.command }` : '';
-		case 'mcp__studio__validate_blocks':
-			if ( typeof input.filePath === 'string' ) {
-				return input.filePath.split( '/' ).slice( -2 ).join( '/' );
-			}
-			return __( 'inline content' );
-		case 'mcp__studio__take_screenshot':
-			return typeof input.url === 'string' ? input.url : '';
-		case 'Read':
-		case 'Write':
-		case 'Edit': {
-			const filePath = input.file_path ?? input.path;
-			if ( typeof filePath === 'string' ) {
-				const parts = filePath.split( '/' );
-				return parts.slice( -2 ).join( '/' );
-			}
-			return '';
-		}
-		case 'Bash':
-			return typeof input.command === 'string'
-				? input.command.length > 60
-					? input.command.slice( 0, 57 ) + '…'
-					: input.command
-				: '';
-		case 'Skill':
-			return typeof input.skill === 'string' ? input.skill : '';
-		case 'Grep':
-		case 'Glob':
-			return typeof input.pattern === 'string' ? input.pattern : '';
-		default:
-			return '';
-	}
-}
-
-function formatToolName( name: string, input?: Record< string, unknown > ): string {
-	const displayName = toolDisplayNames[ name ] ?? name;
-	if ( input ) {
-		const detail = getToolDetail( name, input );
-		if ( detail ) {
-			return chalk.bold( displayName ) + ' ' + chalk.dim( '(' + detail + ')' );
-		}
-	}
-	return chalk.bold( displayName );
-}
-
-interface ToolUseResultContent {
-	content?: string | Array< { type: string; text?: string } >;
-	isError?: boolean;
-}
-
-interface MessageContentWithType {
-	type: string;
-}
-
-interface ToolResultBlock extends MessageContentWithType {
-	type: 'tool_result';
-	content?: unknown;
-	is_error?: boolean;
-}
-
-interface StdoutStderrToolResult {
-	stdout?: unknown;
-	stderr?: unknown;
-	is_error?: unknown;
-	noOutputExpected?: unknown;
-}
-
-interface PendingTodoRender {
-	diff: TodoDiff;
-	toolLabel: string;
-	shouldRender: boolean;
-}
-
-function isTodoWriteInput( input: unknown ): input is TodoWriteInput {
-	if (
-		! input ||
-		typeof input !== 'object' ||
-		! Array.isArray( ( input as TodoWriteInput ).todos )
-	) {
-		return false;
-	}
-
-	return ( input as TodoWriteInput ).todos.every(
-		( todo ) =>
-			typeof todo === 'object' &&
-			todo !== null &&
-			typeof todo.content === 'string' &&
-			typeof todo.activeForm === 'string' &&
-			( todo.status === 'pending' || todo.status === 'in_progress' || todo.status === 'completed' )
-	);
-}
-
-function isMessageContentWithType( value: unknown ): value is MessageContentWithType {
-	return typeof value === 'object' && value !== null && 'type' in value;
-}
-
-function isToolResultBlock( value: unknown ): value is ToolResultBlock {
-	return isMessageContentWithType( value ) && value.type === 'tool_result';
-}
-
-function isStdoutStderrToolResult( value: unknown ): value is StdoutStderrToolResult {
-	return (
-		typeof value === 'object' &&
-		value !== null &&
-		( 'stdout' in value || 'stderr' in value || 'noOutputExpected' in value )
-	);
-}
-
-function normalizeToolResultContent(
-	content: unknown
-): ToolUseResultContent[ 'content' ] | undefined {
-	if ( typeof content === 'string' ) {
-		return content;
-	}
-
-	if ( Array.isArray( content ) ) {
-		return content.filter( isMessageContentWithType ).map( ( block ) => {
-			if ( 'text' in block && typeof block.text === 'string' ) {
-				return { type: block.type, text: block.text };
-			}
-			return { type: block.type };
-		} );
-	}
-
-	if ( content === undefined || content === null ) {
-		return undefined;
-	}
-
-	return String( content );
-}
-
-function normalizeToolUseResult( result: unknown ): ToolUseResultContent | null {
-	if ( ! result || typeof result !== 'object' ) {
-		return null;
-	}
-
-	if ( 'content' in result || 'isError' in result || 'is_error' in result ) {
-		const typedResult = result as {
-			content?: unknown;
-			isError?: unknown;
-			is_error?: unknown;
-		};
-		return {
-			content: normalizeToolResultContent( typedResult.content ),
-			isError: typedResult.isError === true || typedResult.is_error === true,
-		};
-	}
-
-	if ( isStdoutStderrToolResult( result ) ) {
-		const stdout = typeof result.stdout === 'string' ? result.stdout : '';
-		const stderr = typeof result.stderr === 'string' ? result.stderr : '';
-		const parts = [ stdout, stderr ? `stderr: ${ stderr }` : '' ].filter( Boolean );
-		return {
-			content: parts.join( '\n' ) || undefined,
-			isError: result.is_error === true,
-		};
-	}
-
-	return null;
-}
-export class AiChatUI {
+export class AiChatUI implements AiOutputAdapter {
 	private tui: TUI;
 	private editor: PromptEditor;
 	private loader: Loader;
 	private messages: Container;
+	private queuedContainer: Container;
+	private queuedPrompts: string[] = [];
 	private currentResponseText = '';
 	private currentMarkdown: Markdown | null = null;
 	private submitResolve: ( ( text: string ) => void ) | null = null;
@@ -440,20 +255,13 @@ export class AiChatUI {
 	private editorVisible = false;
 	private interruptCallback: ( () => void ) | null = null;
 	private wasInterrupted = false;
+	private interruptionNoticeShown = false;
+	private usageCapReached = false;
 	private hasShownResponseMarker = false;
 	private turnStartTime = 0;
-	private toolStartTime: number | null = null;
-	private toolDotText: Text | null = null;
-	private toolDotTimer: ReturnType< typeof setInterval > | null = null;
-	private toolDotVisible = true;
-	private toolDotLabel = '';
-	private todoSnapshot: TodoEntry[] = [];
-	private latestTodoSnapshot: TodoEntry[] = [];
-	private lastRenderedTodoSignature: string | null = null;
-	private pendingTodoRenders = new Map< string, PendingTodoRender >();
-	private pendingTodoRenderOrder: string[] = [];
 	private _activeSite: SiteInfo | null = null;
-	private activeExpandablePreview: ExpandablePreview | null = null;
+	private toolOutputExpanded = false;
+	private hasExpandableOutput = false;
 	private _inAgentTurn = false;
 	private _activeSiteData: SiteData | null = null;
 	private siteSelectedCallback: ( ( site: SiteInfo ) => void ) | null = null;
@@ -461,66 +269,13 @@ export class AiChatUI {
 	private replayTimestampMs: number | null = null;
 	private pendingToolCalls = new Map<
 		string,
-		{ name: string; input: Record< string, unknown > }
+		{ component: ToolExecutionComponent; toolName: string; input: Record< string, unknown > }
 	>();
+	private renderedToolResultIds = new Set< string >();
 	currentModel: AiModelId = DEFAULT_MODEL;
 	currentProvider: AiProviderId = DEFAULT_AI_PROVIDER;
+	private numTurns = 0;
 
-	private readonly thinkingMessages = [
-		'Thinking…',
-		'Iterating…',
-		'Interpolating…',
-		'Philosophising…',
-		'Cogitating…',
-		'Poetizing…',
-		'Sketching…',
-		'Scribbling…',
-		'Drafting…',
-		'Harmonizing…',
-		'Rehearsing…',
-		'Combabulating…',
-		'Conjectureing…',
-		'Tinkering…',
-		'Polishing…',
-		'Concocting…',
-		'Wizarding…',
-		'Enchanting…',
-		'Transmuting…',
-		'Summoning…',
-		'Gutenberging…',
-		'Hooking…',
-		'Filtering…',
-		'Looping…',
-		'Codexing…',
-		'Annotating…',
-		'Ruminating…',
-		'Paragraphing…',
-		'Typesetting…',
-		'Soloing…',
-		'Compiling…',
-		'Abstracting…',
-		'Meandering…',
-		'Daydreaming…',
-		'Riffing…',
-		'Wandering…',
-		'Introspecting…',
-		'Experiencing…',
-		'Reflecting…',
-		'Adventuring…',
-		'Levitating…',
-		'Glueing…',
-		'Soaring…',
-		'Gliding…',
-		'Paragliding…',
-		'Excavating…',
-		'Planting…',
-		'Stargazing…',
-		'Scribing…',
-		'Levitating…',
-	];
-	private randomThinkingMessage(): string {
-		return this.thinkingMessages[ Math.floor( Math.random() * this.thinkingMessages.length ) ];
-	}
 	private optionPickerContainer: Container | null = null;
 	private optionPickerSelectList: SelectList | null = null;
 	private optionPickerVisible = false;
@@ -529,13 +284,15 @@ export class AiChatUI {
 	private optionPickerHasFreeForm = false;
 	private optionPickerItemCount = 0;
 	private optionPickerInput: Input | null = null;
+	private optionPickerItems: SelectItem[] = [];
+	private optionPickerQuestion = '';
 	private static readonly OTHER_VALUE = '__other__';
 	private static readonly OPTION_PICKER_THEME: SelectListTheme = {
-		selectedPrefix: ( text: string ) => chalk.blue( text ),
-		selectedText: ( text: string ) => chalk.blue( text ),
-		description: ( text: string ) => chalk.dim( text ),
-		scrollInfo: ( text: string ) => chalk.dim( text ),
-		noMatch: ( text: string ) => chalk.dim( text ),
+		selectedPrefix: ( text: string ) => theme.fg( 'accent', text ),
+		selectedText: ( text: string ) => theme.fg( 'accent', text ),
+		description: ( text: string ) => theme.fg( 'muted', text ),
+		scrollInfo: ( text: string ) => theme.fg( 'muted', text ),
+		noMatch: ( text: string ) => theme.fg( 'muted', text ),
 	};
 	private sitePickerVisible = false;
 	private sitePickerContainer: Container | null = null;
@@ -550,6 +307,11 @@ export class AiChatUI {
 
 	get activeSite(): SiteInfo | null {
 		return this._activeSite;
+	}
+
+	set activeSite( site: SiteInfo | null ) {
+		this._activeSite = site;
+		this.editor.activeSiteName = site?.name ?? null;
 	}
 
 	private refreshPromptChrome(): void {
@@ -584,6 +346,9 @@ export class AiChatUI {
 		this.hideLoader();
 		this.currentMarkdown = null;
 		this.currentResponseText = '';
+		this.pendingToolCalls.clear();
+		this.renderedToolResultIds.clear();
+		this.fallbackProgressText = null;
 	}
 
 	finishReplay(): void {
@@ -592,6 +357,21 @@ export class AiChatUI {
 		this.hideLoader();
 		this.currentMarkdown = null;
 		this.currentResponseText = '';
+		this.pendingToolCalls.clear();
+		this.renderedToolResultIds.clear();
+		this.fallbackProgressText = null;
+	}
+
+	clearTranscript(): void {
+		this.hideLoader();
+		this.currentMarkdown = null;
+		this.currentResponseText = '';
+		this.messages.clear();
+		if ( this.queuedPrompts.length > 0 ) {
+			this.queuedPrompts = [];
+			this.renderQueuedContainer();
+		}
+		this.tui.requestRender();
 	}
 
 	showAgentQuestion(
@@ -601,21 +381,28 @@ export class AiChatUI {
 		this.hideLoader();
 		this.currentMarkdown = null;
 		this.currentResponseText = '';
-		this.messages.addChild( new Text( '\n' + chalk.bold( question ), 0, 0 ) );
+		this.messages.addChild( new Text( '\n' + theme.bold( question ), 0, 0 ) );
 		this.tui.requestRender();
 	}
 
 	constructor() {
+		initStudioTheme();
 		const terminal = new ProcessTerminal();
-		this.tui = new TUI( terminal );
+		this.tui = new TuiMainScreen( terminal, true );
 
 		this.messages = new Container();
 		this.tui.addChild( this.messages );
 
+		// Always mounted just after `messages` and (once shown) just before the
+		// editor, so staged follow-up prompts render in that gap regardless of
+		// whether the loader is currently visible.
+		this.queuedContainer = new Container();
+		this.tui.addChild( this.queuedContainer );
+
 		this.loader = new Loader(
 			this.tui,
-			( str ) => chalk.yellow( str ),
-			( str ) => chalk.yellow( str ),
+			( str ) => theme.fg( 'accent', str ),
+			( str ) => theme.fg( 'accent', str ),
 			__( 'Thinking…' )
 		);
 		// @ts-expect-error -- frames is private but has no public API to customize
@@ -647,15 +434,27 @@ export class AiChatUI {
 		this.editor = new PromptEditor( this.tui, editorTheme );
 
 		this.editor.setAutocompleteProvider(
-			new CombinedAutocompleteProvider( AI_CHAT_SLASH_COMMANDS )
+			new DescriptionAwareAutocompleteProvider( getActiveSlashCommands(), process.cwd() )
 		);
 
 		this.editor.onSubmit = ( text ) => {
 			const trimmed = text.trim();
-			if ( trimmed && this.submitResolve ) {
+			if ( ! trimmed ) {
+				return;
+			}
+			this.editor.addToHistory( trimmed );
+			if ( this.submitResolve ) {
 				const resolve = this.submitResolve;
 				this.submitResolve = null;
 				resolve( trimmed );
+				return;
+			}
+			// No waiter → we're mid-turn. Stage the prompt so it fires after
+			// the current run ends; `waitForInput` drains the head.
+			if ( this._inAgentTurn ) {
+				this.queuedPrompts.push( trimmed );
+				this.editor.setText( '' );
+				this.renderQueuedContainer();
 			}
 		};
 		// Ctrl+C to exit, Escape to interrupt/close picker, arrow keys for picker
@@ -667,6 +466,9 @@ export class AiChatUI {
 			if ( matchesKey( data, 'ctrl+c' ) ) {
 				this.stop();
 				process.exit( 0 );
+			}
+			if ( matchesKey( data, 'escape' ) && this.requestInterrupt() ) {
+				return { consume: true };
 			}
 			// Option picker navigation (must be checked before site picker)
 			if ( this.optionPickerSelectList ) {
@@ -765,12 +567,28 @@ export class AiChatUI {
 				this.renderSitePicker();
 				return { consume: true };
 			}
-			if ( matchesKey( data, 'escape' ) && this.interruptCallback ) {
-				this.wasInterrupted = true;
-				this.interruptCallback();
+			// Backspace on an empty editor pops the most recent queued prompt.
+			// Mirrors the × discard affordance in the GUI — lightweight undo
+			// for staged follow-ups without adding a new keybinding.
+			if (
+				matchesKey( data, 'backspace' ) &&
+				this.editorVisible &&
+				this.queuedPrompts.length > 0 &&
+				this.editor.getText() === ''
+			) {
+				this.queuedPrompts.pop();
+				this.renderQueuedContainer();
+				return { consume: true };
 			}
-			if ( matchesKey( data, 'ctrl+o' ) && this.activeExpandablePreview ) {
-				this.toggleExpandablePreview();
+			if ( matchesKey( data, 'ctrl+o' ) && this.hasExpandableOutput ) {
+				this.toolOutputExpanded = ! this.toolOutputExpanded;
+				for ( const child of this.messages.children ) {
+					if ( child instanceof ToolExecutionComponent ) {
+						child.setExpanded( this.toolOutputExpanded );
+					}
+				}
+				this.updateHints();
+				this.tui.requestRender();
 				return { consume: true };
 			}
 			return undefined;
@@ -782,20 +600,20 @@ export class AiChatUI {
 		const sites: SiteData[] = config.sites ?? [];
 		if ( sites.length === 0 ) {
 			this.messages.addChild(
-				new Text( chalk.dim( '  ' + __( 'No sites found. Create one first.' ) ), 1, 0 )
+				new Text( theme.fg( 'muted', '  ' + __( 'No sites found. Create one first.' ) ), 1, 0 )
 			);
 			this.tui.requestRender();
 			return;
 		}
 
 		this.sitePickerSiteData = sites;
-		this.sitePickerItems = await Promise.all(
-			sites.map( async ( site ) => ( {
-				name: site.name,
-				path: site.path,
-				running: await isSiteRunning( site ),
-			} ) )
-		);
+		const runningStatus = await getSitesRunningStatus( sites );
+		this.sitePickerItems = sites.map( ( site ) => ( {
+			id: site.id,
+			name: site.name,
+			path: site.path,
+			running: runningStatus.get( site.id ) ?? false,
+		} ) );
 		this.sitePickerVisible = true;
 		this.editor.showBottomBar = false;
 		this.sitePickerContainer = new Container();
@@ -824,6 +642,7 @@ export class AiChatUI {
 				running: false,
 				remote: true,
 				url: site.url,
+				wpcomSiteId: site.id,
 			} ) );
 			this.sitePickerRemoteLoading = false;
 			this.rebuildSitePickerList();
@@ -838,7 +657,7 @@ export class AiChatUI {
 		this.sitePickerRemoteItems = [];
 		this.rebuildSitePickerList();
 		this.renderSitePicker();
-		this.messages.addChild( new Text( `\n${ chalk.dim( message ) }\n`, 1, 0 ) );
+		this.messages.addChild( new Text( `\n${ theme.fg( 'muted', message ) }\n`, 1, 0 ) );
 		this.tui.requestRender();
 	}
 
@@ -880,7 +699,7 @@ export class AiChatUI {
 				description: site.url?.replace( /^https?:\/\//, '' ),
 			};
 		}
-		const status = site.running ? `${ chalk.green( '●' ) } ` : '  ';
+		const status = site.running ? `${ theme.fg( 'success', '●' ) } ` : '  ';
 		return {
 			value: site.path,
 			label: `${ status }${ site.name }`,
@@ -925,13 +744,15 @@ export class AiChatUI {
 		this.sitePickerContainer.clear();
 
 		const isLocal = this.sitePickerTab === SITE_PICKER_TAB_LOCAL;
-		const localTab = isLocal ? chalk.bold( __( '[Local]' ) ) : chalk.dim( __( 'Local' ) );
-		const remoteTab = isLocal ? chalk.dim( 'WordPress.com' ) : chalk.bold( '[WordPress.com]' );
+		const localTab = isLocal ? theme.bold( __( '[Local]' ) ) : theme.fg( 'muted', __( 'Local' ) );
+		const remoteTab = isLocal
+			? theme.fg( 'muted', 'WordPress.com' )
+			: theme.bold( '[WordPress.com]' );
 		const pad = ' ';
 		const header = `${ pad }${ localTab }  ${ remoteTab }`;
 
 		const searchLine = this.sitePickerQuery
-			? `${ pad }${ chalk.dim( __( 'Search:' ) ) } ${ this.sitePickerQuery }`
+			? `${ pad }${ theme.fg( 'muted', __( 'Search:' ) ) } ${ this.sitePickerQuery }`
 			: '';
 
 		const hints = isLocal
@@ -948,7 +769,7 @@ export class AiChatUI {
 		}
 
 		if ( ! isLocal && this.sitePickerRemoteLoading ) {
-			lines.push( chalk.dim( `${ pad }  ${ __( 'Loading WordPress.com sites…' ) }` ) );
+			lines.push( theme.fg( 'muted', `${ pad }  ${ __( 'Loading WordPress.com sites…' ) }` ) );
 		} else if ( this.sitePickerSelectList ) {
 			const termWidth = process.stdout.columns ?? 80;
 			lines.push(
@@ -957,7 +778,7 @@ export class AiChatUI {
 		}
 
 		lines.push( '' );
-		lines.push( chalk.dim( hints ) );
+		lines.push( theme.fg( 'muted', hints ) );
 
 		const text = lines.join( '\n' );
 		this.sitePickerContainer.addChild( new Text( text, 0, 0 ) );
@@ -972,16 +793,16 @@ export class AiChatUI {
 		const label = site.remote
 			? sprintf(
 					/* translators: %s: site name */
-					__( ' ✻ Selected site: %s (WordPress.com)' ),
+					__( ' Selected site: %s (WordPress.com)' ),
 					site.name
 			  )
 			: sprintf(
 					/* translators: %s: site name */
-					__( ' ✻ Selected site: %s' ),
+					__( ' Selected site: %s' ),
 					site.name
 			  );
 		if ( announce ) {
-			this.messages.addChild( new Text( `${ chalk.hex( '#5b8db8' )( label ) }\n`, 0, 0 ) );
+			this.messages.addChild( new Text( `\n${ theme.fg( 'accent', label ) }\n`, 0, 0 ) );
 		}
 		if ( emitEvent ) {
 			this.siteSelectedCallback?.( site );
@@ -994,7 +815,9 @@ export class AiChatUI {
 		this._activeSiteData = null;
 		this.editor.activeSiteName = null;
 		this.refreshPromptChrome();
-		this.messages.addChild( new Text( chalk.dim( __( ' ✻ Site deselected' ) ) + '\n', 0, 0 ) );
+		this.messages.addChild(
+			new Text( theme.fg( 'muted', __( ' ✻ Site deselected' ) ) + '\n', 0, 0 )
+		);
 		this.tui.requestRender();
 	}
 
@@ -1009,6 +832,7 @@ export class AiChatUI {
 		// Keep _activeSiteData in sync for /browser command
 		this._activeSiteData = site;
 		return {
+			id: site.id,
 			name: site.name,
 			path: site.path,
 			running: await isSiteRunning( site ),
@@ -1055,42 +879,42 @@ export class AiChatUI {
 		toolInput: Record< string, unknown > | null
 	): Promise< void > {
 		switch ( toolName ) {
-			case 'mcp__studio__site_create': {
+			case 'site_create': {
 				const name = toolInput?.name;
 				if ( typeof name === 'string' ) {
 					await this.selectLocalSiteFromTool( name, { running: true } );
 				}
 				break;
 			}
-			case 'mcp__studio__site_info':
-			case 'mcp__studio__site_start': {
+			case 'site_info':
+			case 'site_start': {
 				const nameOrPath = toolInput?.nameOrPath;
 				if ( typeof nameOrPath === 'string' ) {
 					await this.selectLocalSiteFromTool( nameOrPath, {
-						running: toolName === 'mcp__studio__site_start' ? true : undefined,
+						running: toolName === 'site_start' ? true : undefined,
 					} );
 				}
 				break;
 			}
-			case 'mcp__studio__wp_cli':
-			case 'mcp__studio__preview_create':
-			case 'mcp__studio__preview_list':
-			case 'mcp__studio__preview_update':
-			case 'mcp__studio__validate_blocks': {
+			case 'wp_cli':
+			case 'preview_create':
+			case 'preview_list':
+			case 'preview_update':
+			case 'validate_blocks': {
 				const nameOrPath = toolInput?.nameOrPath;
 				if ( typeof nameOrPath === 'string' ) {
 					await this.selectLocalSiteFromTool( nameOrPath );
 				}
 				break;
 			}
-			case 'mcp__studio__site_stop': {
+			case 'site_stop': {
 				const nameOrPath = toolInput?.nameOrPath;
 				if ( typeof nameOrPath === 'string' ) {
 					await this.selectLocalSiteFromTool( nameOrPath, { running: false } );
 				}
 				break;
 			}
-			case 'mcp__studio__site_delete': {
+			case 'site_delete': {
 				const nameOrPath = toolInput?.nameOrPath;
 				if (
 					typeof nameOrPath === 'string' &&
@@ -1184,19 +1008,40 @@ export class AiChatUI {
 		this.optionPickerContainer.clear();
 
 		const width = ( process.stdout.columns ?? 80 ) - 1;
-		const lines = this.optionPickerSelectList.render( width );
+		// Custom multi-line rendering (full labels + wrapped descriptions);
+		// SelectList is kept only for keyboard navigation and selection state.
+		const lines = buildOptionPickerLines(
+			this.optionPickerItems,
+			this.optionPickerSelectList.getSelectedItem()?.value,
+			width
+		);
 
 		// When "Other" is active, replace the last line with the inline input
+		// ("Other" is always the last item and has no description lines).
 		if ( this.optionPickerOtherActive && this.optionPickerInput && lines.length > 0 ) {
 			const inputText = this.optionPickerInput.getValue();
-			const cursor = chalk.inverse( ' ' );
+			const cursor = theme.inverse( ' ' );
 			const display = inputText
-				? chalk.blue( inputText ) + cursor
-				: chalk.dim( __( 'Type your answer…' ) ) + cursor;
-			lines[ lines.length - 1 ] = `${ chalk.blue( '→' ) } ${ display }`;
+				? theme.fg( 'accent', inputText ) + cursor
+				: theme.fg( 'muted', __( 'Type your answer…' ) ) + cursor;
+			lines[ lines.length - 1 ] = `${ theme.fg( 'accent', '→' ) } ${ display }`;
 		}
 
-		this.optionPickerContainer.addChild( new Text( lines.join( '\n' ), 1, 0 ) );
+		const question = this.optionPickerQuestion
+			? '\n' + theme.bold( this.optionPickerQuestion ) + '\n'
+			: '';
+		this.optionPickerContainer.addChild( new Text( question + lines.join( '\n' ), 1, 0 ) );
+		this.tui.requestRender();
+	}
+
+	private echoAnsweredQuestion( question: string, answer: string ): void {
+		this.messages.addChild(
+			new Text(
+				'\n' + theme.bold( question ) + '\n' + theme.fg( 'accent', '→' ) + ' ' + answer,
+				1,
+				0
+			)
+		);
 		this.tui.requestRender();
 	}
 
@@ -1231,12 +1076,30 @@ export class AiChatUI {
 		this.optionPickerSelectList = null;
 		this.optionPickerHasFreeForm = false;
 		this.optionPickerItemCount = 0;
+		this.optionPickerItems = [];
+		this.optionPickerQuestion = '';
 		this.deactivateOptionPickerOther();
 		this.tui.requestRender();
 	}
 
+	private cancelOptionPicker(): void {
+		const resolve = this.optionPickerResolve;
+		this.optionPickerResolve = null;
+		this.closeOptionPicker();
+		resolve?.( '' );
+	}
+
 	start(): void {
 		this.tui.start();
+		void refineStudioTheme( this.tui ).then( ( changed ) => {
+			if ( changed ) {
+				this.tui.requestRender( true );
+			}
+		} );
+		// Logger progress and daemon-status updates can request renders while
+		// the TUI is stopped for an external prompt. pi-tui leaves that request
+		// pending, so force a fresh render when resuming.
+		this.tui.requestRender( true );
 	}
 
 	showWelcome(): void {
@@ -1245,10 +1108,10 @@ export class AiChatUI {
 		const home = process.env.HOME ?? process.env.USERPROFILE ?? '';
 		const displayCwd = home && cwd.startsWith( home ) ? '~' + cwd.slice( home.length ) : cwd;
 
-		const b = chalk.blue;
+		const b = ( text: string ) => `\x1b[38;2;56;88;233m${ text }\x1b[39m`;
 
 		// WordPress logo in block characters, widened to avoid vertical stretching in terminals.
-		const logo = [
+		const logoLines = [
 			'    ▄█▛▀▀▀▀█▙▖',
 			' ▗▟█        ▗██▄',
 			'▄███▛ ▝▜██  ▝███▙',
@@ -1257,35 +1120,115 @@ export class AiChatUI {
 			'▀▙▖ ▜█▄▟ ▝█▙▄▌ ▄▛',
 			' ▝▜▄▝██▌  ▀██▗▟▀',
 			'    ▀██▙▄▄▄█▛▘',
-		].map( ( s ) => b( s ) );
-
-		const info = [
-			chalk.bold( 'WordPress Studio' ) + ( version ? chalk.dim( ` v${ version }` ) : '' ),
-			chalk.dim(
-				`${ AI_MODELS[ this.currentModel ] } · ${
-					AI_PROVIDERS[ this.currentProvider ]
-				} · ${ displayCwd }`
-			),
-			'',
-			chalk.dim.italic( __( 'Code is Poetry' ) ),
 		];
+		const logo = logoLines.map( ( s ) => b( s ) );
+		const logoWidth = Math.max( ...logoLines.map( ( s ) => s.length ) );
 
 		// Lay out logo on the left, info on the right (vertically centered)
 		const gap = 4;
+		const leading = 1;
+		const termWidth = process.stdout.columns ?? 80;
+		const availableInfoWidth = Math.max( 0, termWidth - leading - logoWidth - gap );
+
+		// Truncate the cwd with a leading ellipsis (preserving the meaningful
+		// suffix) when the terminal is too narrow, otherwise the welcome wraps
+		// and visually breaks the logo layout.
+		const baseInfo = `${ getAiModelLabel( this.currentModel ) } · ${
+			AI_PROVIDERS[ this.currentProvider ]
+		}`;
+		const sep = ' · ';
+		let secondLine: string;
+		if ( baseInfo.length + sep.length + displayCwd.length <= availableInfoWidth ) {
+			secondLine = `${ baseInfo }${ sep }${ displayCwd }`;
+		} else {
+			const pathBudget = availableInfoWidth - baseInfo.length - sep.length;
+			if ( pathBudget >= 4 ) {
+				secondLine = `${ baseInfo }${ sep }…${ displayCwd.slice( -( pathBudget - 1 ) ) }`;
+			} else {
+				secondLine = baseInfo;
+			}
+		}
+
+		const info = [
+			theme.bold( 'WordPress Studio' ) + ( version ? theme.fg( 'muted', ` v${ version }` ) : '' ),
+			theme.fg( 'muted', secondLine ),
+			'',
+			theme.fg( 'muted', theme.italic( __( 'Code is Poetry' ) ) ),
+		];
+
 		const infoStartRow = Math.max( 0, Math.floor( ( logo.length - info.length ) / 2 ) );
 
 		const lines = logo.map( ( logoLine, i ) => {
 			const infoIndex = i - infoStartRow;
 			const infoText = infoIndex >= 0 && infoIndex < info.length ? info[ infoIndex ] : '';
-			return ' ' + logoLine + ' '.repeat( gap ) + infoText;
+			return ' '.repeat( leading ) + logoLine + ' '.repeat( gap ) + infoText;
 		} );
 
 		this.messages.addChild( new Text( '\n' + lines.join( '\n' ) + '\n', 0, 0 ) );
 		this.tui.requestRender();
 	}
 
+	showTosNotice(): void {
+		const lines = formatTosNoticeLines().map( ( line ) =>
+			line ? ' ' + theme.fg( 'muted', line ) : line
+		);
+		this.messages.addChild( new Text( lines.join( '\n' ) + '\n', 0, 0 ) );
+		this.tui.requestRender();
+	}
+
 	set onInterrupt( fn: ( () => void ) | null ) {
 		this.interruptCallback = fn;
+		this.updateHints();
+	}
+
+	private requestInterrupt(): boolean {
+		if ( ! this.interruptCallback ) {
+			return false;
+		}
+
+		if ( this.wasInterrupted ) {
+			return true;
+		}
+
+		this.wasInterrupted = true;
+		this.closeSitePicker();
+		this.cancelOptionPicker();
+		if ( this.submitResolve ) {
+			const resolve = this.submitResolve;
+			this.submitResolve = null;
+			resolve( '' );
+		}
+		this.showInterruptedNotice();
+		this.interruptCallback();
+		this.updateHints();
+		return true;
+	}
+
+	private showInterruptedNotice(): void {
+		if ( this.interruptionNoticeShown ) {
+			return;
+		}
+
+		this.interruptionNoticeShown = true;
+		this.hideLoader();
+		this.currentMarkdown = null;
+		this.currentResponseText = '';
+
+		const thinkingSec = Math.round( ( this.nowMs() - this.turnStartTime ) / 1000 );
+		this.messages.addChild(
+			new Text(
+				'\n ' + theme.fg( 'warning', '⏺' ) + ' ' + theme.fg( 'warning', __( 'Interrupted' ) ),
+				0,
+				0
+			)
+		);
+		this.showInfo(
+			sprintf(
+				/* translators: %d: number of seconds */
+				__( 'Ran for %ds before interruption' ),
+				thinkingSec
+			)
+		);
 	}
 
 	stop(): void {
@@ -1294,9 +1237,13 @@ export class AiChatUI {
 	}
 
 	waitForInput(): Promise< string > {
-		this.editor.setText( '' );
 		this.hideLoader();
 		this.showEditor();
+		if ( this.queuedPrompts.length > 0 ) {
+			const next = this.queuedPrompts.shift()!;
+			this.renderQueuedContainer();
+			return Promise.resolve( next );
+		}
 		return new Promise( ( resolve ) => {
 			this.submitResolve = resolve;
 		} );
@@ -1307,31 +1254,55 @@ export class AiChatUI {
 		const formatted = lines
 			.map( ( line, i ) => {
 				if ( i === 0 ) {
-					return ' ' + chalk.bgHex( '#ddeeff' ).black( '〉' + line + ' ' );
+					return (
+						' ' + theme.bg( 'userMessageBg', theme.fg( 'userMessageText', '〉' + line + ' ' ) )
+					);
 				}
-				return ' ' + chalk.bgHex( '#ddeeff' ).black( '  ' + line + ' ' );
+				return ' ' + theme.bg( 'userMessageBg', theme.fg( 'userMessageText', '  ' + line + ' ' ) );
 			} )
 			.join( '\n' );
 		this.messages.addChild( new Text( '\n' + formatted, 0, 0 ) );
 		this.tui.requestRender();
 	}
 
-	setLoaderMessage( message: string ): void {
+	private renderQueuedContainer(): void {
+		this.queuedContainer.clear();
+		for ( const prompt of this.queuedPrompts ) {
+			this.queuedContainer.addChild( new Text( '\n' + formatQueuedPrompt( prompt ), 0, 0 ) );
+		}
+		this.updateHints();
+		this.tui.requestRender();
+	}
+
+	private fallbackProgressText: Text | null = null;
+
+	setLoaderMessage( message: string, update?: boolean ): void {
 		if ( ! message ) {
 			return;
 		}
-		this.messages.addChild( new Text( '   ' + chalk.dim( '⎿ ' ) + chalk.dim( message ), 0, 0 ) );
+
+		const formatted = formatToolOutputLines( [ theme.fg( 'muted', message ) ] );
+		if ( update && this.fallbackProgressText ) {
+			this.fallbackProgressText.setText( formatted );
+		} else {
+			this.fallbackProgressText = new Text( formatted, 0, 0 );
+			this.messages.addChild( this.fallbackProgressText );
+		}
 		this.tui.requestRender();
 	}
 
 	private showLoader( message?: string ): void {
 		if ( ! this.loaderVisible ) {
-			// Ensure editor is removed first so loader appears above it
+			// Re-attach trailing children in order so the final stack is
+			// [..., loader, queuedContainer, editor?] — loader just above the
+			// staged follow-ups, which sit just above the editor.
 			const wasEditorVisible = this.editorVisible;
 			if ( wasEditorVisible ) {
 				this.tui.removeChild( this.editor );
 			}
+			this.tui.removeChild( this.queuedContainer );
 			this.tui.addChild( this.loader );
+			this.tui.addChild( this.queuedContainer );
 			if ( wasEditorVisible ) {
 				this.tui.addChild( this.editor );
 			}
@@ -1349,6 +1320,7 @@ export class AiChatUI {
 			this.loader.stop();
 			this.tui.removeChild( this.loader );
 			this.loaderVisible = false;
+			this.fallbackProgressText = null;
 			this.tui.requestRender();
 		}
 	}
@@ -1358,12 +1330,15 @@ export class AiChatUI {
 		if ( ! this._inAgentTurn ) {
 			hints.push( __( '↓ select site' ) );
 		}
-		if ( this.activeExpandablePreview ) {
-			hints.push(
-				this.activeExpandablePreview.isExpanded ? __( 'ctrl+o collapse' ) : __( 'ctrl+o expand' )
-			);
+		if ( this.hasExpandableOutput ) {
+			hints.push( this.toolOutputExpanded ? __( 'ctrl+o collapse' ) : __( 'ctrl+o expand' ) );
 		}
-		hints.push( __( 'esc to interrupt' ) );
+		if ( this.queuedPrompts.length > 0 ) {
+			hints.push( __( 'backspace to unqueue' ) );
+		}
+		if ( this.interruptCallback ) {
+			hints.push( __( 'esc to interrupt' ) );
+		}
 		this.editor.hints = hints;
 	}
 
@@ -1390,50 +1365,214 @@ export class AiChatUI {
 	 * Begin an agent turn: hide editor, show loader, prepare response area.
 	 */
 	beginAgentTurn(): void {
-		this.editor.setText( '' );
 		this._inAgentTurn = true;
 		this.updateHints();
-		this.showLoader( this.randomThinkingMessage() );
+		this.showLoader( randomThinkingMessage() );
 		this.currentResponseText = '';
 		this.hasShownResponseMarker = false;
 		this.wasInterrupted = false;
+		this.interruptionNoticeShown = false;
+		this.usageCapReached = false;
 		this.turnStartTime = this.nowMs();
-		this.todoSnapshot = [];
-		this.latestTodoSnapshot = [];
-		this.lastRenderedTodoSignature = null;
-		this.pendingTodoRenders.clear();
-		this.pendingTodoRenderOrder = [];
+		this.numTurns = 0;
+		this.pendingToolCalls.clear();
+		this.renderedToolResultIds.clear();
+		this.fallbackProgressText = null;
 	}
 
 	/**
 	 * End an agent turn: hide loader, clean up response state.
-	 * todoSnapshot, latestTodoSnapshot, and lastRenderedTodoSignature are deliberately
-	 * preserved across turns so the next turn's diff is computed against the latest
-	 * known state, rendering only genuinely new changes.
 	 */
 	endAgentTurn(): void {
 		this.hideLoader();
-		this.stopToolDotBlink();
-		this.toolDotText = null;
 		this.interruptCallback = null;
 		this._inAgentTurn = false;
 		this.pendingToolCalls.clear();
+		this.renderedToolResultIds.clear();
+		this.fallbackProgressText = null;
 		this.updateHints();
 		this.currentMarkdown = null;
 		this.currentResponseText = '';
-		this.pendingTodoRenders.clear();
-		this.pendingTodoRenderOrder = [];
+	}
+
+	/**
+	 * Returns true when the current/last turn surfaced a quota refusal
+	 * notice — the usage cap or out-of-credits — to the user. Lets callers
+	 * suppress redundant downstream errors (e.g. the SDK's "process exited
+	 * with code 1" that follows the upstream 429/402).
+	 */
+	hasErrorBeenSurfaced(): boolean {
+		return this.usageCapReached;
+	}
+
+	// Follows the usage-cap notice with the date the monthly limit resets,
+	// fetched from the WordPress.com quota endpoint. Silently skips when
+	// signed out, the quota can't be fetched, or the server no longer reports a
+	// reset date — the cap notice on its own is already actionable.
+	private async showUsageCapResetDate(): Promise< void > {
+		const token = await readAuthToken();
+		if ( ! token?.accessToken ) {
+			return;
+		}
+		const quota = await fetchStudioAssistantQuota( token.accessToken );
+		if ( ! quota?.costResetDate ) {
+			return;
+		}
+		this.showInfo(
+			sprintf(
+				/* translators: %s: date the monthly AI usage limit resets (e.g. August 1, 2026). */
+				__( 'It resets on %s.' ),
+				formatQuotaResetDate( quota.costResetDate )
+			)
+		);
+	}
+
+	showOnboarding(): void {
+		const text =
+			' ' +
+			theme.fg( 'accent', '⏺' ) +
+			' ' +
+			sprintf(
+				/* translators: %s: product name (WordPress Studio) */
+				__( "Hello, I'm %s, your local WordPress agent and builder." ),
+				theme.bold( 'WordPress Studio' )
+			);
+
+		this.messages.addChild( new Text( '\n' + text + '\n', 0, 0 ) );
+		this.tui.requestRender();
+	}
+
+	showCapabilities(): void {
+		const b = ( text: string ) => theme.bold( text );
+		const d = ( text: string ) => theme.fg( 'muted', text );
+		const separator = d( ' ─'.padEnd( 80, '─' ) );
+		// Applies bold styling to any <b>…</b> tags in a translated string, then
+		// strips the tags. Translators can place <b> anywhere in the sentence.
+		const applyBold = ( str: string ) =>
+			str.replace( /<b>(.*?)<\/b>/g, ( _, text: string ) => b( text ) );
+
+		const lines = [
+			' ' +
+				theme.fg( 'accent', '⏺' ) +
+				' ' +
+				__( "Great, you're connected now! Let me tell you what I can do:" ),
+			'',
+			'  ' + b( __( 'Local Sites Management' ) ),
+			'',
+			/* translators: <b> and </b> wrap the action verb, which translators can move anywhere in the sentence */
+			'  - ' +
+				applyBold(
+					__( '<b>Create</b> new local WordPress sites instantly (fully configured, ready to use)' )
+				),
+			/* translators: <b> and </b> wrap the action verb, which translators can move anywhere in the sentence */
+			'  - ' + applyBold( __( '<b>Start / stop</b> existing local sites' ) ),
+			/* translators: <b> and </b> wrap the action verb, which translators can move anywhere in the sentence */
+			'  - ' + applyBold( __( '<b>List</b> all your local sites and their status' ) ),
+			'',
+			'  ' + b( __( 'Design & Development' ) ),
+			'',
+			/* translators: <b> and </b> wrap the action verb, which translators can move anywhere in the sentence */
+			'  - ' + applyBold( __( '<b>Build</b> block themes with striking, memorable designs' ) ),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "CSS, PHP, and JavaScript" */
+					__( 'Write custom %s for themes and plugins' ),
+					b( __( 'CSS, PHP, and JavaScript' ) )
+				),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "pages and posts" */
+					__( 'Create %s with valid Gutenberg block content' ),
+					b( __( 'pages and posts' ) )
+				),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "plugins" */
+					__( 'Install and activate %s via WP-CLI' ),
+					b( __( 'plugins' ) )
+				),
+			'',
+			'  ' + b( __( 'Content' ) ),
+			'',
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "page content" */
+					__( 'Generate and import %s using core blocks' ),
+					b( __( 'page content' ) )
+				),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "navigation menus, site options, post types, taxonomies, and settings" */
+					__( 'Set up %s' ),
+					b( __( 'navigation menus, site options, post types, taxonomies, and settings' ) )
+				),
+			'  - ' + __( "Create realistic placeholder content tailored to your site's purpose" ),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "images and videos" */
+					__( 'Upload %s to your site, using local media files or remote URLs' ),
+					b( __( 'images and videos' ) )
+				),
+			'',
+			'  ' + b( __( 'Preview & Publishing' ) ),
+			'',
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "screenshots" */
+					__( 'Take %s (desktop + mobile) to verify the design is well crafted' ),
+					b( __( 'screenshots' ) )
+				),
+			/* translators: <b> and </b> wrap the action verb, which translators can move anywhere in the sentence */
+			'  - ' +
+				applyBold( __( "<b>Validate</b> all block content to ensure it's editor-compatible" ) ),
+			/* translators: <b> and </b> wrap the action verb, which translators can move anywhere in the sentence */
+			'  - ' + applyBold( __( '<b>Push</b> your local site to the cloud in WordPress.com' ) ),
+			/* translators: <b> and </b> wrap the action verb, which translators can move anywhere in the sentence */
+			'  - ' +
+				applyBold( __( '<b>Generate preview sites</b> with shareable URLs for quick feedback' ) ),
+			'',
+			separator,
+			'',
+			'  ' + __( 'Just tell me what you want to build — for example:' ),
+			'',
+			'  ' + d( theme.italic( __( '"Create a portfolio site for a photographer"' ) ) ),
+			'  ' + d( theme.italic( __( '"Build a landing page for a SaaS product"' ) ) ),
+			'  ' + d( theme.italic( __( '"Make a blog for a coffee shop"' ) ) ),
+			'',
+			'  ' +
+				__(
+					"I'll ask a few quick questions about the name and layout, then build the whole thing for you. The more precise you are about what you want, the better the result will be."
+				),
+		];
+		this.messages.addChild( new Text( '\n' + lines.join( '\n' ) + '\n', 0, 0 ) );
+		this.tui.requestRender();
+	}
+
+	showSuccess( message: string ): void {
+		this.messages.addChild(
+			new Text( '\n ' + theme.fg( 'success', '⏺' ) + ' ' + message + '\n', 0, 0 )
+		);
+		this.tui.requestRender();
 	}
 
 	showError( message: string ): void {
 		this.messages.addChild(
-			new Text( '\n ' + chalk.red( '⏺' ) + ' ' + chalk.red( message ) + '\n', 0, 0 )
+			new Text(
+				'\n ' + theme.fg( 'error', '⏺' ) + ' ' + theme.fg( 'error', message ) + '\n',
+				0,
+				0
+			)
 		);
 		this.tui.requestRender();
 	}
 
 	showInfo( message: string ): void {
-		this.messages.addChild( new Text( '\n' + chalk.dim( message ) + '\n', 1, 0 ) );
+		this.messages.addChild( new Text( '\n' + theme.fg( 'muted', message ) + '\n', 1, 0 ) );
+		this.tui.requestRender();
+	}
+
+	showProgress( message: string ): void {
+		this.messages.addChild( new Text( '\n ' + '⏺' + ' ' + message + '\n', 0, 0 ) );
 		this.tui.requestRender();
 	}
 
@@ -1442,327 +1581,97 @@ export class AiChatUI {
 		this.tui.requestRender();
 	}
 
-	private showFilePreview( toolName: string, input: Record< string, unknown > ): void {
-		let preview: { collapsed: string; expanded: string } | null = null;
-
-		if ( toolName === 'Write' && typeof input.content === 'string' ) {
-			preview = this.generateWritePreview( input.content );
-		} else if (
-			toolName === 'Edit' &&
-			typeof input.old_string === 'string' &&
-			typeof input.new_string === 'string'
-		) {
-			preview = this.generateEditPreview( input.old_string, input.new_string );
-		}
-
-		if ( ! preview ) {
-			return;
-		}
-
-		this.addExpandablePreview( preview );
-	}
-
-	private addExpandablePreview( preview: { collapsed: string; expanded: string } ): void {
-		const textComponent = new Text( preview.collapsed, 0, 0 );
-		this.messages.addChild( textComponent );
-
-		if ( preview.collapsed !== preview.expanded ) {
-			this.activeExpandablePreview = {
-				textComponent,
-				collapsedContent: preview.collapsed,
-				expandedContent: preview.expanded,
-				isExpanded: false,
-			};
-			this.updateHints();
-		}
-
+	setDaemonStatus( state: { running: boolean; pid?: number } ): void {
+		this.editor.daemonStatusMessage = state.running ? __( 'Remote session active' ) : null;
 		this.tui.requestRender();
 	}
 
-	private generateExpandablePreview( lines: string[] ): { collapsed: string; expanded: string } {
-		const expanded = formatToolOutputLines( lines );
+	private busyTimer: ReturnType< typeof setInterval > | null = null;
+	private busyFrameIndex = 0;
+	private static readonly BUSY_FRAMES = [ '⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏' ];
 
-		if ( lines.length <= DEFAULT_COLLAPSE_THRESHOLD_LINES ) {
-			return { collapsed: expanded, expanded };
+	setBusy( active: boolean ): void {
+		if ( this.busyTimer ) {
+			clearInterval( this.busyTimer );
+			this.busyTimer = null;
 		}
 
-		const collapsed =
-			formatToolOutputLines( lines.slice( 0, DEFAULT_COLLAPSE_THRESHOLD_LINES ) ) +
-			'\n     ' +
-			chalk.dim(
-				sprintf(
-					/* translators: %d: number of hidden lines */
-					__( '... %d more lines · ctrl+o to expand' ),
-					lines.length - DEFAULT_COLLAPSE_THRESHOLD_LINES
-				)
-			);
-
-		return { collapsed, expanded };
-	}
-
-	private generateWritePreview( content: string ): { collapsed: string; expanded: string } {
-		const lines = content.split( '\n' );
-		const totalLines = lines.length;
-		const numWidth = String( totalLines ).length;
-
-		return this.generateExpandablePreview(
-			lines.map( ( line, i ) => {
-				const lineNum = chalk.dim( String( i + 1 ).padStart( numWidth ) );
-				return lineNum + ' ' + chalk.green( line );
-			} )
-		);
-	}
-
-	private generateEditPreview(
-		oldStr: string,
-		newStr: string
-	): { collapsed: string; expanded: string } {
-		const oldLines = oldStr.split( '\n' );
-		const newLines = newStr.split( '\n' );
-
-		const diffLines: string[] = [];
-		for ( const line of oldLines ) {
-			diffLines.push( chalk.red( '- ' + line ) );
-		}
-		for ( const line of newLines ) {
-			diffLines.push( chalk.green( '+ ' + line ) );
-		}
-
-		return this.generateExpandablePreview( diffLines );
-	}
-
-	private toggleExpandablePreview(): void {
-		const preview = this.activeExpandablePreview;
-		if ( ! preview ) {
-			return;
-		}
-
-		preview.isExpanded = ! preview.isExpanded;
-		preview.textComponent.setText(
-			preview.isExpanded ? preview.expandedContent : preview.collapsedContent
-		);
-		this.updateHints();
-		this.tui.requestRender();
-	}
-
-	private stopToolDotBlink(): void {
-		if ( this.toolDotTimer ) {
-			clearInterval( this.toolDotTimer );
-			this.toolDotTimer = null;
-		}
-		// Ensure the dot is visible when we stop
-		if ( this.toolDotText && ! this.toolDotVisible ) {
-			this.toolDotVisible = true;
-			this.toolDotText.setText( '\n ' + '⏺' + ' ' + this.toolDotLabel );
-		}
-	}
-
-	private showToolUse( toolLabel: string ): void {
-		this.showLoader( this.randomThinkingMessage() );
-		this.stopToolDotBlink();
-		this.toolDotLabel = toolLabel;
-		this.toolDotText = new Text( '\n ' + '⏺' + ' ' + toolLabel, 0, 0 );
-		this.messages.addChild( this.toolDotText );
-		this.toolDotVisible = true;
-		if ( this.replayMode ) {
+		if ( active ) {
+			this.busyFrameIndex = 0;
+			this.editor.busyMessage = AiChatUI.BUSY_FRAMES[ 0 ];
 			this.tui.requestRender();
-			return;
-		}
-		this.toolDotTimer = setInterval( () => {
-			if ( ! this.toolDotText ) {
-				return;
-			}
-			this.toolDotVisible = ! this.toolDotVisible;
-			const dot = this.toolDotVisible ? '⏺' : ' ';
-			this.toolDotText.setText( '\n ' + dot + ' ' + toolLabel );
-			this.tui.requestRender();
-		}, 500 );
-	}
-
-	private getToolResultContent(
-		message: SDKMessage & { type: 'user' }
-	): ToolUseResultContent | null {
-		const toolUseResult = normalizeToolUseResult( message.tool_use_result );
-		if (
-			toolUseResult &&
-			( toolUseResult.content !== undefined || toolUseResult.isError === true )
-		) {
-			return toolUseResult;
-		}
-
-		const contentBlocks = Array.isArray( message.message.content ) ? message.message.content : [];
-		const toolResultBlock = contentBlocks.find( isToolResultBlock );
-		if ( ! toolResultBlock ) {
-			return null;
-		}
-
-		return {
-			content: normalizeToolResultContent( toolResultBlock.content ),
-			isError: toolResultBlock.is_error === true,
-		};
-	}
-
-	private finalizeToolUseLine( isError: boolean, label: string ): void {
-		const elapsed = this.toolStartTime ? this.nowMs() - this.toolStartTime : 0;
-		this.toolStartTime = null;
-		const elapsedSeconds = Math.max( elapsed, 0 ) / 1000;
-		const elapsedStr =
-			elapsed > 0 || this.replayMode ? chalk.dim( ` (${ elapsedSeconds.toFixed( 1 ) }s)` ) : '';
-		const statusIcon = isError ? chalk.red( '⏺' ) : '⏺';
-
-		if ( this.toolDotText ) {
-			this.toolDotText.setText( '\n ' + statusIcon + ' ' + label + elapsedStr );
-			this.toolDotText = null;
-			return;
-		}
-
-		if ( isError ) {
-			this.messages.addChild( new Text( '\n ' + statusIcon + ' ' + label + elapsedStr, 0, 0 ) );
-		}
-	}
-
-	private renderTodoUpdate( pendingTodoRender: PendingTodoRender ): void {
-		const lines: TodoRenderLine[] = buildTodoUpdateLines( pendingTodoRender.diff.snapshot );
-		if ( lines.length === 0 ) {
-			return;
-		}
-		const rendered = formatToolOutputLines(
-			lines.map( ( line ) => ( line.dim ? chalk.dim( line.text ) : line.text ) )
-		);
-		this.messages.addChild( new Text( rendered, 0, 0 ) );
-	}
-
-	private syncLatestTodoSnapshot(): void {
-		let latestPendingSnapshot: TodoEntry[] | null = null;
-		for ( const toolUseId of this.pendingTodoRenderOrder ) {
-			const pendingTodoRender = this.pendingTodoRenders.get( toolUseId );
-			if ( pendingTodoRender ) {
-				latestPendingSnapshot = pendingTodoRender.diff.snapshot;
-			}
-		}
-		this.latestTodoSnapshot = latestPendingSnapshot ?? this.todoSnapshot;
-	}
-
-	private consumePendingTodoRender( toolUseId: string ): PendingTodoRender | null {
-		const pendingTodoRender = this.pendingTodoRenders.get( toolUseId ) ?? null;
-		this.pendingTodoRenders.delete( toolUseId );
-		this.pendingTodoRenderOrder = this.pendingTodoRenderOrder.filter( ( id ) => id !== toolUseId );
-		return pendingTodoRender;
-	}
-
-	private consumeLatestPendingToolCall(): {
-		id: string;
-		name: string;
-		input: Record< string, unknown >;
-	} | null {
-		let latestPendingToolCall: {
-			id: string;
-			name: string;
-			input: Record< string, unknown >;
-		} | null = null;
-
-		for ( const [ id, toolCall ] of this.pendingToolCalls.entries() ) {
-			latestPendingToolCall = { id, ...toolCall };
-		}
-
-		if ( latestPendingToolCall ) {
-			this.pendingToolCalls.delete( latestPendingToolCall.id );
-		}
-
-		return latestPendingToolCall;
-	}
-
-	private renderToolResultText(
-		content: string | Array< { type: string; text?: string } >,
-		toolName?: string
-	): void {
-		let text: string;
-		if ( typeof content === 'string' ) {
-			text = content;
+			this.busyTimer = setInterval( () => {
+				this.busyFrameIndex = ( this.busyFrameIndex + 1 ) % AiChatUI.BUSY_FRAMES.length;
+				this.editor.busyMessage = AiChatUI.BUSY_FRAMES[ this.busyFrameIndex ];
+				this.tui.requestRender();
+			}, 80 );
 		} else {
-			text = content
-				.filter( ( block ) => block.type === 'text' && block.text )
-				.map( ( block ) => block.text )
-				.join( '\n' );
-		}
-		if ( ! text ) {
-			return;
-		}
-
-		const maxLength = toolName === 'mcp__studio__validate_blocks' ? 2000 : 500;
-		const truncated = text.length > maxLength ? text.slice( 0, maxLength ) + '…' : text;
-		const resultLines = truncated.split( '\n' );
-		this.addExpandablePreview(
-			this.generateExpandablePreview( resultLines.map( ( line ) => chalk.dim( line ) ) )
-		);
-	}
-
-	private showToolResult(
-		message: SDKMessage & { type: 'user' },
-		toolName?: string,
-		toolInput?: Record< string, unknown > | null
-	): void {
-		this.stopToolDotBlink();
-		const typedResult = this.getToolResultContent( message );
-		if ( ! typedResult ) {
-			this.toolDotText = null;
-			return;
-		}
-		const isError = typedResult.isError === true;
-
-		// Auto-select the site that was operated on
-		if ( ! isError && toolName && toolInput ) {
-			void this.autoSelectSiteFromToolResult( toolName, toolInput );
-		}
-
-		const label = this.toolDotLabel;
-
-		this.finalizeToolUseLine( isError, label );
-
-		const content = typedResult.content;
-		if ( content === undefined ) {
+			this.editor.busyMessage = null;
 			this.tui.requestRender();
-			return;
 		}
-		this.renderToolResultText( content, toolName );
-		this.tui.requestRender();
 	}
 
-	private showTodoToolResult( message: SDKMessage & { type: 'user' }, toolUseId: string ): void {
-		this.stopToolDotBlink();
-		const typedResult = this.getToolResultContent( message );
-		const pendingTodoRender = this.consumePendingTodoRender( toolUseId );
-
-		if ( ! typedResult || ! pendingTodoRender ) {
-			this.toolDotText = null;
-			return;
-		}
-
-		const isError = typedResult.isError === true;
-
-		if ( isError ) {
-			// Errors always finalize the tool-use line (showToolUse may or may not have been called)
-			this.finalizeToolUseLine( true, pendingTodoRender.toolLabel );
-			this.syncLatestTodoSnapshot();
-			if ( typedResult.content !== undefined ) {
-				this.renderToolResultText( typedResult.content, 'TodoWrite' );
+	// Live turns render results at `tool_execution_end`; this covers the rest
+	// (replayed sessions and results with no execution event).
+	renderToolResults( results: readonly ToolResultMessage[] ): void {
+		for ( const toolResult of results ) {
+			const toolCallId = toolResult.toolCallId;
+			if ( this.renderedToolResultIds.delete( toolCallId ) ) {
+				continue;
 			}
-			this.tui.requestRender();
-			return;
+			let pending = this.pendingToolCalls.get( toolCallId );
+			if ( ! pending ) {
+				const component = this.createToolComponent( 'tool', toolCallId, {} );
+				this.messages.addChild( component );
+				pending = { component, toolName: 'tool', input: {} };
+			} else {
+				this.pendingToolCalls.delete( toolCallId );
+			}
+			this.applyToolResult( pending, {
+				content: toolResult.content,
+				details: toolResult.details,
+				isError: toolResult.isError === true,
+			} );
 		}
-
-		this.todoSnapshot = pendingTodoRender.diff.snapshot;
-		this.syncLatestTodoSnapshot();
-
-		if ( ! pendingTodoRender.shouldRender ) {
-			// No showToolUse was called for suppressed renders, so don't touch toolStartTime
-			this.tui.requestRender();
-			return;
+		if ( results.length > 0 ) {
+			this.currentMarkdown = null;
+			this.currentResponseText = '';
 		}
+	}
 
-		this.finalizeToolUseLine( false, pendingTodoRender.toolLabel );
-		this.lastRenderedTodoSignature = pendingTodoRender.diff.signature;
-		this.renderTodoUpdate( pendingTodoRender );
+	private createToolComponent(
+		name: string,
+		toolCallId: string,
+		input: Record< string, unknown >
+	): ToolExecutionComponent {
+		const component = new ToolExecutionComponent(
+			name,
+			toolCallId,
+			input,
+			{ showImages: true, imageWidthCells: 60 },
+			getToolRenderDefinition( name ),
+			this.tui,
+			STUDIO_SITES_ROOT
+		);
+		component.setArgsComplete();
+		component.setExpanded( this.toolOutputExpanded );
+		this.hasExpandableOutput = true;
+		this.updateHints();
+		return component;
+	}
+
+	private applyToolResult(
+		pending: {
+			component: ToolExecutionComponent;
+			toolName: string;
+			input: Record< string, unknown >;
+		},
+		result: { content: unknown; details?: unknown; isError: boolean }
+	): void {
+		pending.component.updateResult( result as never );
+		if ( ! result.isError ) {
+			void this.autoSelectSiteFromToolResult( pending.toolName, pending.input );
+		}
 		this.tui.requestRender();
 	}
 
@@ -1780,14 +1689,11 @@ export class AiChatUI {
 		const answers: Record< string, string > = {};
 
 		for ( const q of questions ) {
-			// Display the question
-			this.messages.addChild( new Text( '\n' + chalk.bold( q.question ), 1, 0 ) );
-			this.tui.requestRender();
-
 			if ( q.options.length > 0 ) {
+				this.hideEditor();
+				this.optionPickerQuestion = q.question;
 				// Use SelectList for option-based questions.
 				// When allowFreeForm is true, append an "Other" option with inline input.
-				this.hideEditor();
 				const selectItems: SelectItem[] = q.options.map( ( opt, i ) => ( {
 					value: opt.label,
 					label: `${ i + 1 }. ${ opt.label }`,
@@ -1801,6 +1707,7 @@ export class AiChatUI {
 					} );
 				}
 
+				this.optionPickerItems = selectItems;
 				this.optionPickerItemCount = selectItems.length;
 				const selectList = new SelectList(
 					selectItems,
@@ -1812,8 +1719,7 @@ export class AiChatUI {
 				this.optionPickerVisible = true;
 				this.optionPickerContainer = new Container();
 				this.tui.addChild( this.optionPickerContainer );
-				this.optionPickerContainer.addChild( this.optionPickerSelectList );
-				this.tui.requestRender();
+				this.renderOptionPicker();
 
 				const selected = await new Promise< string >( ( resolve ) => {
 					this.optionPickerResolve = resolve;
@@ -1828,192 +1734,234 @@ export class AiChatUI {
 						this.closeOptionPicker();
 						resolve( item.value );
 					};
+					selectList.onCancel = () => {
+						this.cancelOptionPicker();
+					};
 				} );
 
+				this.showEditor();
+
+				if ( ! selected ) {
+					return answers;
+				}
 				answers[ q.question ] = selected;
+				this.echoAnsweredQuestion( q.question, selected );
 			} else {
-				// Free-form text input
+				this.messages.addChild( new Text( '\n' + theme.bold( q.question ), 1, 0 ) );
+				this.tui.requestRender();
 				const answer = await this.waitForInput();
+				if ( ! answer ) {
+					return answers;
+				}
 				answers[ q.question ] = answer;
+				this.messages.addChild( new Text( theme.fg( 'accent', '→' ) + ' ' + answer, 1, 0 ) );
 			}
 		}
 
 		// Resume the agent turn with a fresh markdown block for subsequent text
-		this.showLoader( this.randomThinkingMessage() );
+		this.showLoader( randomThinkingMessage() );
 		return answers;
 	}
 
 	/**
-	 * Process an SDK message and update the UI.
+	 * Process a runtime event and update the UI.
 	 * Returns session result when the agent turn is complete.
 	 */
-	handleMessage(
-		message: SDKMessage
-	):
-		| { sessionId: string; success: boolean; maxTurnsReached?: undefined }
-		| { sessionId: string; maxTurnsReached: true; numTurns: number }
-		| undefined {
-		switch ( message.type ) {
-			case 'assistant': {
-				for ( const block of message.message.content ) {
+	handleEvent( event: AgentSessionEvent ): void {
+		if ( this.wasInterrupted && event.type !== 'agent_end' ) {
+			return;
+		}
+
+		switch ( event.type ) {
+			case 'compaction_start':
+				this.showLoader( __( 'Compacting conversation history…' ) );
+				return;
+			case 'compaction_end':
+				this.hideLoader();
+				if ( event.errorMessage ) {
+					this.showError( event.errorMessage );
+				} else if ( event.result && ! event.aborted ) {
+					this.showInfo( __( 'Conversation history compacted' ) );
+				}
+				return;
+			case 'message_end': {
+				const message = event.message;
+				if ( message.role !== 'assistant' ) {
+					return;
+				}
+
+				// Detect the WordPress.com proxy's quota refusals — the monthly
+				// usage cap (429) and out-of-credits (402, STU-2236). pi-ai
+				// surfaces both via `stopReason: 'error'` with the upstream body
+				// in `errorMessage`. Out of credits gets its own copy: waiting
+				// for the reset doesn't clear it — buying credits does.
+				const outOfCredits = isOutOfCreditsError( message.errorMessage );
+				if (
+					message.stopReason === 'error' &&
+					this.currentProvider === 'wpcom' &&
+					( outOfCredits || isUsageCapError( message.errorMessage ) )
+				) {
+					this.hideLoader();
+					this.usageCapReached = true;
+					this.showError( outOfCredits ? formatOutOfCreditsNotice() : formatUsageCapNotice() );
+					if ( outOfCredits ) {
+						// The terminal can't render a link, so the URL goes on its own
+						// line, as-is — it stays copyable and most terminals auto-link it.
+						this.showInfo(
+							__( 'Add credits at the link below, then come back to continue using Studio Code:' )
+						);
+						this.showInfo( ADD_AI_CREDITS_URL );
+					} else {
+						// Async on purpose: the reset date needs a wpcom round trip
+						// and must not block rendering the cap notice.
+						void this.showUsageCapResetDate();
+					}
+					this.currentMarkdown = null;
+					this.currentResponseText = '';
+					return;
+				}
+
+				for ( const block of message.content ) {
 					if ( block.type === 'text' ) {
+						// An empty text block before tool calls would render a bare ⏺.
+						if ( ! block.text.trim() ) {
+							continue;
+						}
 						this.hideLoader();
-						// Lazily create a new markdown block if needed (e.g. after askUser closed the previous one)
 						if ( ! this.currentMarkdown ) {
 							this.currentResponseText = '';
 							this.hasShownResponseMarker = false;
 						}
 						if ( ! this.hasShownResponseMarker ) {
 							this.hasShownResponseMarker = true;
-							this.currentMarkdown = new Markdown( '\n', 1, 0, markdownTheme );
+							this.currentMarkdown = new Markdown( '\n', 1, 0, getMarkdownTheme() );
 							this.messages.addChild( this.currentMarkdown );
 						}
-						// Add a line break between consecutive assistant messages
 						if ( this.currentResponseText && ! this.currentResponseText.endsWith( '\n' ) ) {
 							this.currentResponseText += '\n';
 						}
 						this.currentResponseText += block.text;
 						this.currentMarkdown!.setText(
-							'\n' + chalk.blue( '⏺' ) + ' ' + this.currentResponseText
+							'\n' + theme.fg( 'accent', '⏺' ) + ' ' + this.currentResponseText
 						);
 						this.tui.requestRender();
-					} else if ( block.type === 'tool_use' ) {
-						this.toolStartTime = this.nowMs();
-						const typedBlock = block as {
-							id: string;
-							name: string;
-							input?: Record< string, unknown >;
-						};
-						const input = typedBlock.input;
-						this.pendingToolCalls.set( typedBlock.id, {
-							name: typedBlock.name,
-							input: input ?? {},
-						} );
-						const toolLabel = formatToolName( block.name, input );
-						if ( block.name === 'TodoWrite' && isTodoWriteInput( input ) ) {
-							const diff = diffTodoSnapshot( this.latestTodoSnapshot, input.todos );
-							const shouldRender =
-								diff.hasVisibleChanges && diff.signature !== this.lastRenderedTodoSignature;
-							this.pendingTodoRenders.set( typedBlock.id, {
-								diff,
-								toolLabel,
-								shouldRender,
-							} );
-							this.pendingTodoRenderOrder.push( typedBlock.id );
-							this.latestTodoSnapshot = diff.snapshot;
-							if ( shouldRender ) {
-								this.showToolUse( toolLabel );
-							}
-						} else {
-							this.showToolUse( toolLabel );
-						}
-						if ( ( block.name === 'Write' || block.name === 'Edit' ) && input ) {
-							this.showFilePreview( block.name, input );
-						}
+					} else if ( block.type === 'toolCall' ) {
+						const input = ( block.arguments ?? {} ) as Record< string, unknown >;
+						const component = this.createToolComponent( block.name, block.id, input );
+						this.messages.addChild( component );
+						this.pendingToolCalls.set( block.id, { component, toolName: block.name, input } );
 					}
 				}
-				// Always show the loader after processing — the agent turn is still active
-				// and more messages are coming (next API call, tool execution, etc.)
 				if ( ! this.replayMode && ! this.loaderVisible ) {
-					this.showLoader( this.randomThinkingMessage() );
+					this.showLoader( randomThinkingMessage() );
 				}
-				return undefined;
+				return;
 			}
-			case 'user': {
-				const toolCallId = message.parent_tool_use_id;
-				const toolCall = toolCallId ? this.pendingToolCalls.get( toolCallId ) : null;
-				if ( toolCallId ) {
-					this.pendingToolCalls.delete( toolCallId );
-				}
-				// Direct ID match, or fallback for SDK-internal tools (e.g. TodoWrite)
-				// where parent_tool_use_id may be null.
-				if ( toolCallId && this.pendingTodoRenders.has( toolCallId ) ) {
-					this.showTodoToolResult( message, toolCallId );
-				} else if ( ! toolCallId && this.pendingTodoRenderOrder.length > 0 ) {
-					this.showTodoToolResult( message, this.pendingTodoRenderOrder[ 0 ] );
-				} else {
-					const fallbackToolCall = toolCall ?? this.consumeLatestPendingToolCall();
-					this.showToolResult( message, fallbackToolCall?.name, fallbackToolCall?.input );
-				}
-				// Close the current markdown block so the next assistant text
-				// creates a fresh visual block (mirrors askUser / endAgentTurn).
-				this.currentMarkdown = null;
-				this.currentResponseText = '';
-				return undefined;
+			case 'turn_end': {
+				this.numTurns += 1;
+				this.renderToolResults( event.toolResults );
+				return;
 			}
-			case 'result': {
+			case 'tool_execution_start': {
+				this.pendingToolCalls.get( event.toolCallId )?.component.markExecutionStarted();
+				return;
+			}
+			case 'tool_execution_update': {
+				const pending = this.pendingToolCalls.get( event.toolCallId );
+				if ( ! pending ) {
+					return;
+				}
+				pending.component.updateResult(
+					{ ...( event.partialResult as object ), isError: false } as never,
+					true
+				);
+				this.tui.requestRender();
+				return;
+			}
+			case 'tool_execution_end': {
+				const pending = this.pendingToolCalls.get( event.toolCallId );
+				if ( ! pending ) {
+					return;
+				}
+				this.pendingToolCalls.delete( event.toolCallId );
+				this.renderedToolResultIds.add( event.toolCallId );
+				this.applyToolResult( pending, {
+					content: ( event.result as { content?: unknown } | undefined )?.content ?? [],
+					details: ( event.result as { details?: unknown } | undefined )?.details,
+					isError: event.isError,
+				} );
+				return;
+			}
+			case 'auto_retry_start': {
+				const reason = event.errorMessage.split( '\n' )[ 0 ].trim();
+				if ( reason ) {
+					this.showInfo( reason );
+				}
+				this.showLoader(
+					sprintf(
+						/* translators: 1: retry attempt number, 2: maximum retry attempts, 3: delay in seconds */
+						__( 'Temporary provider error — retrying in %3$ds (attempt %1$d of %2$d)…' ),
+						event.attempt,
+						event.maxAttempts,
+						Math.round( event.delayMs / 1000 )
+					)
+				);
+				return;
+			}
+			case 'agent_end': {
+				// Not final when willRetry: the session auto-retries the turn
+				// after a backoff (`auto_retry_start` follows).
+				if ( event.willRetry ) {
+					return;
+				}
 				this.hideLoader();
-				if ( message.subtype === 'success' ) {
-					const thinkingSec = Math.round( ( this.nowMs() - this.turnStartTime ) / 1000 );
-					if ( ! this.hasShownResponseMarker ) {
-						this.messages.addChild(
-							new Text( '\n ' + chalk.blue( '⏺' ) + ' ' + __( 'Done' ), 0, 0 )
-						);
-					}
-					this.showInfo(
-						sprintf(
-							/* translators: 1: seconds spent thinking, 2: number of turns */
-							_n(
-								'Thought for %1$ds · %2$d turn',
-								'Thought for %1$ds · %2$d turns',
-								message.num_turns
-							),
-							thinkingSec,
-							message.num_turns
-						)
-					);
-					return { sessionId: message.session_id, success: true };
+
+				if ( this.usageCapReached ) {
+					return;
 				}
 
-				// User-initiated interruption: show friendly message instead of error
 				if ( this.wasInterrupted ) {
-					const thinkingSec = Math.round( ( this.nowMs() - this.turnStartTime ) / 1000 );
-					this.messages.addChild(
-						new Text(
-							'\n ' + chalk.yellow( '⏺' ) + ' ' + chalk.yellow( __( 'Interrupted' ) ),
-							0,
-							0
-						)
-					);
-					this.showInfo(
-						sprintf(
-							/* translators: %d: number of seconds */
-							__( 'Ran for %ds before interruption' ),
-							thinkingSec
-						)
-					);
-					return { sessionId: message.session_id, success: false };
+					this.showInterruptedNotice();
+					return;
 				}
 
-				// Build detailed error message
-				const parts: string[] = [];
-				if ( 'errors' in message && message.errors?.length ) {
-					parts.push( ...message.errors );
+				const lastAssistant = findLastAssistant( event.messages );
+				const isError =
+					lastAssistant?.stopReason === 'error' || lastAssistant?.stopReason === 'aborted';
+
+				if ( isError ) {
+					const errorText = lastAssistant?.errorMessage?.trim();
+					const fallbackText = lastAssistant?.content
+						.filter( ( block ): block is { type: 'text'; text: string } => block.type === 'text' )
+						.map( ( block ) => block.text )
+						.join( '\n' )
+						.trim();
+					this.showError( errorText || fallbackText || __( 'Unknown error' ) );
+					return;
 				}
-				if ( message.subtype === 'error_max_turns' ) {
-					return {
-						sessionId: message.session_id,
-						maxTurnsReached: true,
-						numTurns: message.num_turns,
-					};
-				} else if ( message.subtype ) {
-					parts.push( `(${ message.subtype })` );
+
+				const thinkingSec = Math.round( ( this.nowMs() - this.turnStartTime ) / 1000 );
+				if ( ! this.hasShownResponseMarker ) {
+					this.messages.addChild(
+						new Text( '\n ' + theme.fg( 'accent', '⏺' ) + ' ' + __( 'Done' ), 0, 0 )
+					);
 				}
-				if ( 'permission_denials' in message && message.permission_denials?.length ) {
-					for ( const denial of message.permission_denials ) {
-						parts.push(
-							sprintf(
-								/* translators: %s: tool name */
-								__( 'Permission denied: %s' ),
-								denial.tool_name
-							)
-						);
-					}
-				}
-				this.showError( parts.length > 0 ? parts.join( '\n' ) : __( 'Unknown error' ) );
-				return { sessionId: message.session_id, success: false };
+				this.showInfo(
+					sprintf(
+						/* translators: 1: seconds spent thinking, 2: number of turns */
+						_n( 'Thought for %1$ds · %2$d turn', 'Thought for %1$ds · %2$d turns', this.numTurns ),
+						thinkingSec,
+						this.numTurns
+					)
+				);
+				return;
 			}
+			default:
+				// agent_start / turn_start / message_start / message_update /
+				// tool_execution_end / auto_retry_end — UI doesn't act on these
+				// directly; pi events drive incremental state but the visible
+				// transitions happen at message_end / turn_end / agent_end.
+				return;
 		}
-		return undefined;
 	}
 }

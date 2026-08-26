@@ -1,0 +1,185 @@
+.root {
+	display: flex;
+	height: 100vh;
+	overflow: hidden;
+}
+
+.sidebar {
+	width: var(--sidebar-width, 320px);
+	/* The 240px floor is owned by useResizablePanel, which clamps
+	   --sidebar-width on every path. A CSS min-width here would be redundant
+	   while open and, because it can't transition in lockstep with width, would
+	   snap the panel to 240px at the start of the open animation. */
+	min-width: 0;
+	max-width: 25vw;
+	flex-shrink: 0;
+	background-color: var(--app-chrome-bg);
+	display: flex;
+	flex-direction: column;
+	/* The sidebar itself scrolls so the scrollbar gutter affects the
+	   (sticky) header and footer identically to the middle content —
+	   avoiding the misalignment you get when the scrollbar lives on an
+	   inner wrapper. */
+	overflow-y: auto;
+	transition: width 150ms ease;
+	-webkit-app-region: drag;
+}
+
+/* Inside the sidebar's dark ThemeProvider; generates no box. */
+.sidebarThemeScope {
+	display: contents;
+}
+
+/* While dragging the handle the width updates every frame; the collapse
+   transition above would animate toward each step and lag behind the cursor.
+   Drop it for the duration of the drag (mirrors `.rootPreviewResizing` in
+   preview-split-frame). */
+.sidebarResizing {
+	transition: none;
+}
+
+/* Stay pinned at the bottom as the sidebar scrolls; `margin-top: auto`
+   pushes the footer to the bottom in the flex column when content is
+   shorter than the viewport. */
+.sidebarFooter {
+	margin-top: auto;
+	position: sticky;
+	bottom: 0;
+	z-index: 1;
+	background-color: var(--app-chrome-bg);
+	-webkit-app-region: no-drag;
+}
+
+.sidebarCollapsed {
+	width: 0;
+}
+
+.main {
+	flex: 1;
+	min-width: 0;
+	/* Route panels own their scrolling. Keep this frame fixed so positioned
+	   chrome, such as the collapsed-sidebar toggle, cannot create an outer
+	   scroll range. */
+	overflow: hidden;
+	position: relative;
+	isolation: isolate;
+	background-color: var(--app-chrome-bg);
+	-webkit-app-region: drag;
+}
+
+/* The negative margin cancels the handle's width so it adds no space to the
+   flex row — the main content butts straight against the sidebar's border and
+   the hit area overlays main's sidebar-side edge. position/z-index lift it
+   above main (a later flex sibling) so the full-height indicator sits on the
+   border. */
+.resizeHandle {
+	position: relative;
+	z-index: 20;
+	flex-shrink: 0;
+	margin-inline-end: -8px;
+	justify-content: flex-start;
+}
+
+.sidebarCards {
+	padding: var(--wpds-dimension-padding-sm) calc(var(--wpds-dimension-padding-lg) - var(--wpds-dimension-padding-sm)) 0;
+}
+
+/* The beta affordance stays in normal footer flow, below transient/persistent
+   messages and above Settings, so it never overlays a toast or checklist.
+   Margin, not padding: this class lands on the bubble itself, which owns its
+   own padding. */
+.sidebarBeta {
+	margin: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-lg)
+		var(--wpds-dimension-padding-xs);
+}
+
+/* Sidebar-specific indicator treatment: match the content card's vertical
+   extent instead of running through the frame gaps above/below it (keep the
+   12px in sync with --panel-frame-gap in preview-split-frame). The handle is
+   wrapped in the sidebar's dark ThemeProvider, so the brand token resolves
+   to the on-dark blue. Nudged left off the content card's edge onto the
+   chrome, with rounded caps to match the frame's soft corners. */
+.resizeHandle span {
+	margin-block: 12px;
+	margin-inline-start: -3px;
+	border-radius: 999px;
+	background-color: var(--wpds-color-fg-interactive-brand);
+}
+
+/* Bottom-left of the main area. The 46px min-height and the negative bottom
+   offset both match the session view's `panelFooterControls` so the toggle
+   lines up vertically with the chat-history/new-chat buttons — keep the two
+   in sync. */
+.floatingToggle {
+	position: absolute;
+	bottom: calc(-1 * var(--wpds-dimension-padding-sm));
+	inset-inline-start: var(--wpds-dimension-padding-xl);
+	display: flex;
+	align-items: center;
+	padding: var(--wpds-dimension-padding-sm) 0;
+	min-height: 46px;
+	z-index: 100;
+	pointer-events: auto;
+	-webkit-app-region: no-drag;
+}
+
+.floatingToggle button {
+	-webkit-app-region: no-drag;
+}
+
+/* With no traffic lights to clear — non-macOS, the browser, or macOS
+   fullscreen (which hides them) — the toggle sits near the main area's left
+   edge instead of leaving an empty gap. */
+.floatingToggleFlush {
+	inset-inline-start: var(--wpds-dimension-padding-xl);
+}
+
+.floatingToggleButton {
+	position: relative;
+	display: inline-flex;
+}
+
+/* Replicates @wordpress/ui IconButton's internal sizing (see
+   node_modules/@wordpress/ui/src/icon-button/style.module.css, including the
+   -1px border compensation on the icon) — IconButton itself isn't used
+   because its unconditional tooltip would fight the hover-opened site
+   switcher popover. Keep in sync with upstream. */
+.floatingToggleControl {
+	--wp-ui-button-aspect-ratio: 1;
+	--wp-ui-button-padding-inline: 0;
+	--wp-ui-button-min-width: unset;
+}
+
+.floatingToggleIcon {
+	margin: -1px;
+}
+
+/* The drawer icon depicts the sidebar edge; mirror it when the sidebar sits
+   on the right. */
+.floatingToggleButton:dir(rtl) svg {
+	transform: scaleX(-1);
+}
+
+.sidebarToasts {
+	padding: var(--wpds-dimension-padding-sm) calc(var(--wpds-dimension-padding-lg) - var(--wpds-dimension-padding-sm)) 0;
+}
+
+/* --app-main-composer-height is published on the document by the session
+   view's chrome observer, so the shelf rides above the composer as it grows.
+   Views without a composer leave it unset and the shelf sits on the panel's
+   own footer band. */
+.floatingToasts {
+	position: absolute;
+	bottom: calc(52px + var(--app-main-composer-height, 0px));
+	inset-inline-start: var(--wpds-dimension-padding-xl);
+	width: min(320px, calc(100% - 2 * var(--wpds-dimension-padding-xl)));
+	z-index: 110;
+	pointer-events: auto;
+	-webkit-app-region: no-drag;
+}
+
+/* Fullscreen preview hides the chat column but leaves its composer measured,
+   so ignore that height and sit on the footer band like any composer-less view. */
+.floatingToastsOverPreview {
+	--app-main-composer-height: 0px;
+}

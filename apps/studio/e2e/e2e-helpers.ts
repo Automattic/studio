@@ -46,8 +46,15 @@ export class E2ESession {
 			version: 1,
 			sites: [],
 			snapshots: [],
+			// The opt-in banner is a floating card over the bottom-right of the site content, so
+			// leaving it up intercepts clicks on whatever sits underneath (e.g. the overview's
+			// customize shortcuts). Start dismissed so specs see the classic UI unobstructed.
+			agenticUiBannerDismissed: true,
 			betaFeatures: {
 				studioSitesCli: true,
+				// These specs drive the classic renderer. Setting this explicitly opts the run
+				// out of the agentic default that fresh installs otherwise get seeded with.
+				enableAgenticUi: false,
 			},
 		};
 
@@ -57,6 +64,36 @@ export class E2ESession {
 		);
 
 		await this.launchFirstWindow( testEnv );
+	}
+
+	/**
+	 * Stub native message boxes to auto-answer with the given response index,
+	 * recording each dialog's text for `getRecordedDialogs`.
+	 */
+	async stubMessageBox( response = 0 ) {
+		await this.electronApp.evaluate( ( { dialog }, autoResponse ) => {
+			const dialogGlobal = globalThis as typeof globalThis & { __e2eDialogs: string[] };
+			dialogGlobal.__e2eDialogs = [];
+			dialog.showMessageBox = ( async ( ...args: unknown[] ) => {
+				// Options are the last arg: showMessageBox( [parentWindow,] options ).
+				const options = ( args.length > 1 ? args[ 1 ] : args[ 0 ] ) as {
+					title?: string;
+					message?: string;
+					detail?: string;
+				};
+				dialogGlobal.__e2eDialogs.push(
+					[ options?.title, options?.message, options?.detail ].filter( Boolean ).join( ' — ' )
+				);
+				return { response: autoResponse, checkboxChecked: false };
+			} ) as typeof dialog.showMessageBox;
+		}, response );
+	}
+
+	/** Dialog texts recorded by the `stubMessageBox` stub, oldest first. */
+	async getRecordedDialogs(): Promise< string[] > {
+		return this.electronApp.evaluate(
+			() => ( globalThis as typeof globalThis & { __e2eDialogs?: string[] } ).__e2eDialogs ?? []
+		);
 	}
 
 	async closeApp() {
@@ -93,7 +130,11 @@ export class E2ESession {
 
 	async cleanup() {
 		await this.closeApp();
-		await rimraf( this.sessionPath );
+		await rimraf( this.sessionPath, {
+			backoff: 2,
+			maxBackoff: 2500,
+			maxRetries: 50,
+		} );
 	}
 
 	private async launchFirstWindow( testEnv: NodeJS.ProcessEnv = {} ) {
@@ -108,8 +149,38 @@ export class E2ESession {
 			executablePath = executablePath.replace( 'Squirrel.exe', 'Studio.exe' );
 		}
 
+		// Linux E2E runs as a non-root user inside a Docker container with
+		// chrome-sandbox removed and no SYS_ADMIN capability, so neither the
+		// SUID sandbox nor the user-namespace sandbox can initialize. Without
+		// --no-sandbox Chromium aborts with "No usable sandbox!" before any
+		// window is created. Playwright auto-adds this flag only when the
+		// launching user is root, so we add it explicitly here.
+		//
+		// --disable-gpu + --use-gl=swiftshader force CPU-based software
+		// rendering. xvfb has no real GPU, and Chromium's default fallback
+		// path in containers can leave the compositor hung — the renderer
+		// populates the DOM but no frames are painted, so Playwright sees
+		// elements that are technically present but never become "visible".
+		// SwiftShader is the deterministic software GL driver Chromium ships
+		// for exactly this case.
+		//
+		// --disable-dev-shm-usage avoids Docker's small default /dev/shm
+		// mount. The Linux Buildkite step is already headless, so using /tmp
+		// for Chromium shared memory is a better tradeoff than intermittent
+		// renderer or helper-process instability under load.
+		const linuxFlags =
+			appInfo.platform === 'linux'
+				? [
+						'--no-sandbox',
+						'--disable-gpu',
+						'--use-gl=swiftshader',
+						'--disable-dev-shm-usage',
+						'--host-resolver-rules=MAP localhost 127.0.0.1',
+				  ]
+				: [];
+
 		this.electronApp = await electron.launch( {
-			args: [ appInfo.main ],
+			args: [ ...linuxFlags, appInfo.main ],
 			executablePath,
 			env: {
 				...process.env,

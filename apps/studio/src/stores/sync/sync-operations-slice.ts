@@ -1,18 +1,27 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import * as Sentry from '@sentry/electron/renderer';
+import {
+	SYNC_PUSH_SIZE_LIMIT_BYTES,
+	SYNC_PUSH_SIZE_LIMIT_GB,
+} from '@studio/common/lib/sync/constants';
+import {
+	pullSiteResponseSchema,
+	syncBackupResponseSchema,
+	importResponseSchema,
+} from '@studio/common/types/sync';
 import { __, sprintf } from '@wordpress/i18n';
-import { z } from 'zod';
-import { SYNC_PUSH_SIZE_LIMIT_BYTES, SYNC_PUSH_SIZE_LIMIT_GB } from 'src/constants';
 import { generateStateId } from 'src/hooks/sync-sites/use-pull-push-states';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getHostnameFromUrl } from 'src/lib/url-utils';
 import { store } from 'src/stores';
+import { userLoggedOut } from 'src/stores/auth-actions';
 import { connectedSitesApi } from 'src/stores/sync/connected-sites';
+import { getWpcomClient } from 'src/stores/wpcom-api';
+import type { ImportResponse, SyncSite } from '@studio/common/types/sync';
 import type {
 	PullStateProgressInfo,
 	PushStateProgressInfo,
 } from 'src/hooks/use-sync-states-progress-info';
-import type { SyncSite } from 'src/modules/sync/types';
 import type { AppDispatch, RootState } from 'src/stores';
 import type { SyncOption } from 'src/types';
 import type { WPCOM } from 'wpcom/types';
@@ -182,6 +191,7 @@ const syncOperationsSlice = createSlice( {
 	},
 	extraReducers: ( builder ) => {
 		builder
+			.addCase( userLoggedOut, () => initialState )
 			.addCase( pushSiteThunk.rejected, ( state, action ) => {
 				const { connectedSite, selectedSite } = action.meta.arg;
 				const stateId = generateStateId( selectedSite.id, connectedSite.id );
@@ -283,6 +293,135 @@ window.ipcListener.subscribe( 'sync-upload-resumed', ( _event, payload ) => {
 	);
 } );
 
+// Poller infrastructure — manages AbortControllers for push/pull polling loops
+const PUSH_POLLERS = new Map< string, AbortController >();
+const PULL_POLLERS = new Map< string, AbortController >();
+
+export function stopPushPoller( stateId: string ) {
+	PUSH_POLLERS.get( stateId )?.abort();
+	PUSH_POLLERS.delete( stateId );
+}
+
+export function stopPullPoller( stateId: string ) {
+	PULL_POLLERS.get( stateId )?.abort();
+	PULL_POLLERS.delete( stateId );
+}
+
+// Aborts every in-flight push/pull (pollers, push upload abort callbacks, and
+// the corresponding main-process operations) without dispatching any state
+// updates. Use from the userLoggedOut listener; rely on the slice's
+// addCase(userLoggedOut) for state cleanup.
+export function abortAllSyncOperations() {
+	const operationIds = new Set< string >( [
+		...PUSH_POLLERS.keys(),
+		...PULL_POLLERS.keys(),
+		...PUSH_SITE_ABORT_CALLBACKS.keys(),
+	] );
+
+	for ( const operationId of operationIds ) {
+		stopPushPoller( operationId );
+		stopPullPoller( operationId );
+		PUSH_SITE_ABORT_CALLBACKS.get( operationId )?.();
+		getIpcApi().cancelSyncOperation( operationId );
+	}
+	PUSH_SITE_ABORT_CALLBACKS.clear();
+}
+
+const PUSH_POLLING_KEYS = [ 'creatingRemoteBackup', 'applyingChanges', 'finishing' ];
+const SYNC_POLLING_INTERVAL = 3000;
+
+function isPushPollable( selectedSiteId: string, remoteSiteId: number ) {
+	const pushState = syncOperationsSelectors.selectPushState(
+		selectedSiteId,
+		remoteSiteId
+	)( store.getState() );
+	return pushState && PUSH_POLLING_KEYS.includes( pushState.status.key );
+}
+
+function isPullPollable( selectedSiteId: string, remoteSiteId: number ) {
+	const pullState = syncOperationsSelectors.selectPullState(
+		selectedSiteId,
+		remoteSiteId
+	)( store.getState() );
+	return pullState?.status.key === 'in-progress' && !! pullState.backupId;
+}
+
+async function startPushPoller( selectedSiteId: string, remoteSiteId: number ) {
+	const stateId = generateStateId( selectedSiteId, remoteSiteId );
+	if ( PUSH_POLLERS.has( stateId ) ) {
+		return;
+	}
+
+	const controller = new AbortController();
+	PUSH_POLLERS.set( stateId, controller );
+
+	try {
+		while ( ! controller.signal.aborted ) {
+			const client = getWpcomClient();
+			if ( ! client ) {
+				break;
+			}
+
+			await store.dispatch(
+				pollPushProgressThunk( {
+					client,
+					signal: controller.signal,
+					selectedSiteId,
+					remoteSiteId,
+				} )
+			);
+
+			if ( controller.signal.aborted || ! isPushPollable( selectedSiteId, remoteSiteId ) ) {
+				break;
+			}
+
+			await new Promise( ( resolve ) => setTimeout( resolve, SYNC_POLLING_INTERVAL ) );
+		}
+	} finally {
+		if ( PUSH_POLLERS.get( stateId ) === controller ) {
+			PUSH_POLLERS.delete( stateId );
+		}
+	}
+}
+
+async function startPullPoller( selectedSiteId: string, remoteSiteId: number ) {
+	const stateId = generateStateId( selectedSiteId, remoteSiteId );
+	if ( PULL_POLLERS.has( stateId ) ) {
+		return;
+	}
+
+	const controller = new AbortController();
+	PULL_POLLERS.set( stateId, controller );
+
+	try {
+		while ( ! controller.signal.aborted ) {
+			const client = getWpcomClient();
+			if ( ! client ) {
+				break;
+			}
+
+			await store.dispatch(
+				pollPullBackupThunk( {
+					client,
+					signal: controller.signal,
+					selectedSiteId,
+					remoteSiteId,
+				} )
+			);
+
+			if ( controller.signal.aborted || ! isPullPollable( selectedSiteId, remoteSiteId ) ) {
+				break;
+			}
+
+			await new Promise( ( resolve ) => setTimeout( resolve, SYNC_POLLING_INTERVAL ) );
+		}
+	} finally {
+		if ( PULL_POLLERS.get( stateId ) === controller ) {
+			PULL_POLLERS.delete( stateId );
+		}
+	}
+}
+
 const createTypedAsyncThunk = createAsyncThunk.withTypes< {
 	state: RootState;
 	dispatch: AppDispatch;
@@ -303,9 +442,9 @@ const cancelPushThunk = createTypedAsyncThunk(
 	'syncOperations/cancelPush',
 	async ( { selectedSiteId, remoteSiteId }: CancelOperationPayload, { dispatch } ) => {
 		const operationId = generateStateId( selectedSiteId, remoteSiteId );
-		const abortCallback = PUSH_SITE_ABORT_CALLBACKS.get( operationId );
 
-		abortCallback?.();
+		stopPushPoller( operationId );
+		PUSH_SITE_ABORT_CALLBACKS.get( operationId )?.();
 		getIpcApi().cancelSyncOperation( operationId );
 
 		dispatch(
@@ -327,6 +466,7 @@ const cancelPullThunk = createTypedAsyncThunk(
 	'syncOperations/cancelPull',
 	async ( { selectedSiteId, remoteSiteId }: CancelOperationPayload, { dispatch } ) => {
 		const operationId = generateStateId( selectedSiteId, remoteSiteId );
+		stopPullPoller( operationId );
 		getIpcApi().cancelSyncOperation( operationId );
 
 		dispatch(
@@ -407,6 +547,7 @@ const pushSiteThunk = createTypedAsyncThunk< void, PushSitePayload >(
 					specificSelectionPaths: options?.specificSelectionPaths,
 				}
 			);
+			signal.throwIfAborted();
 
 			if ( archiveSizeInBytes > SYNC_PUSH_SIZE_LIMIT_BYTES ) {
 				return rejectWithValue( {
@@ -432,6 +573,7 @@ const pushSiteThunk = createTypedAsyncThunk< void, PushSitePayload >(
 				options?.optionsToSync,
 				options?.specificSelectionPaths
 			);
+			signal.throwIfAborted();
 
 			if ( response.success ) {
 				dispatch(
@@ -445,6 +587,7 @@ const pushSiteThunk = createTypedAsyncThunk< void, PushSitePayload >(
 						},
 					} )
 				);
+				void startPushPoller( selectedSite.id, remoteSiteId );
 			} else {
 				return rejectWithValue( {
 					title: sprintf( __( 'Error pushing to %s' ), connectedSite.name ),
@@ -482,52 +625,12 @@ type PullSiteResult = {
 	remoteSiteId: number;
 };
 
-const pullSiteResponseSchema = z.object( {
-	success: z.boolean(),
-	backup_id: z.number(),
-} );
-
-const importFailedResponseSchema = z.object( {
-	status: z.literal( 'failed' ),
-	success: z.boolean(),
-	error: z.string(),
-	error_data: z
-		.object( {
-			vp_restore_status: z.string().nullable(),
-			vp_restore_message: z.string().nullable(),
-			vp_rewind_id: z.string().nullable(),
-		} )
-		.nullable(),
-} );
-
-const importWorkingResponseSchema = z.object( {
-	status: z.enum( [
-		'started',
-		'initial_backup_started',
-		'initial_backup_finished',
-		'archive_import_started',
-		'archive_import_finished',
-		'finished',
-	] ),
-	success: z.boolean(),
-	backup_progress: z.number().nullable(),
-	import_progress: z.number().nullable(),
-} );
-
-const importResponseSchema = z.discriminatedUnion( 'status', [
-	importWorkingResponseSchema,
-	importFailedResponseSchema,
-] );
-
-const syncBackupResponseSchema = z.object( {
-	status: z.enum( [ 'in-progress', 'finished', 'failed' ] ),
-	download_url: z.string().nullable().optional(),
-	percent: z.number(),
-} );
-
 export const pullSiteThunk = createTypedAsyncThunk< PullSiteResult, PullSitePayload >(
 	'syncOperations/pullSite',
-	async ( { client, connectedSite, selectedSite, options }, { dispatch, rejectWithValue } ) => {
+	async (
+		{ client, connectedSite, selectedSite, options },
+		{ dispatch, getState, rejectWithValue }
+	) => {
 		const pullStatesProgressInfo = getPullStatesProgressInfo();
 		const remoteSiteId = connectedSite.id;
 		const remoteSiteUrl = connectedSite.url;
@@ -564,15 +667,28 @@ export const pullSiteThunk = createTypedAsyncThunk< PullSiteResult, PullSitePayl
 			const response = pullSiteResponseSchema.parse( rawResponse );
 
 			if ( response.success ) {
-				dispatch(
-					syncOperationsActions.updatePullState( {
-						selectedSiteId: selectedSite.id,
-						remoteSiteId,
-						state: {
-							backupId: response.backup_id,
-						},
-					} )
-				);
+				// Creating the remote backup can take a while. If the user logged out (slice
+				// reset) or cancelled the pull while this request was in flight, don't resurrect
+				// the pull state or start a poller — that would leave an orphaned pull stuck at
+				// "Initializing remote backup…" after logout.
+				const currentState = syncOperationsSelectors.selectPullState(
+					selectedSite.id,
+					remoteSiteId
+				)( getState() );
+				const isStillActive = !! currentState && currentState.status.key !== 'cancelled';
+
+				if ( isStillActive ) {
+					dispatch(
+						syncOperationsActions.updatePullState( {
+							selectedSiteId: selectedSite.id,
+							remoteSiteId,
+							state: {
+								backupId: response.backup_id,
+							},
+						} )
+					);
+					void startPullPoller( selectedSite.id, remoteSiteId );
+				}
 
 				return {
 					backupId: response.backup_id,
@@ -598,8 +714,6 @@ type PollPushProgressPayload = {
 	signal: AbortSignal;
 	remoteSiteId: number;
 };
-
-type ImportResponse = z.infer< typeof importResponseSchema >;
 
 const pollPushProgressThunk = createTypedAsyncThunk(
 	'syncOperations/pollPushProgress',
@@ -765,13 +879,14 @@ const pollPullBackupThunk = createTypedAsyncThunk(
 				apiNamespace: 'wpcom/v2',
 				backup_id: backupId,
 			} );
-			const response = syncBackupResponseSchema.parse( rawResponse );
+			const parseResult = syncBackupResponseSchema.safeParse( rawResponse );
+			if ( ! parseResult.success ) {
+				console.error( 'Unexpected backup status response:', rawResponse );
+				throw new Error( __( 'Unexpected response from server while checking backup status' ) );
+			}
+			const response = parseResult.data;
 
 			signal.throwIfAborted();
-
-			if ( ! response.status ) {
-				throw new Error( 'Unexpected backup response: missing status' );
-			}
 
 			const hasBackupCompleted = response.status === 'finished';
 			const downloadUrl = hasBackupCompleted ? response.download_url : null;
@@ -833,6 +948,12 @@ const pollPullBackupThunk = createTypedAsyncThunk(
 					operationId
 				);
 
+				// downloadSyncBackup resolves without a path when it was cancelled (e.g. the user
+				// logged out mid-download). Stop silently instead of importing a missing backup.
+				if ( signal.aborted || ! filePath ) {
+					return;
+				}
+
 				dispatch(
 					syncOperationsActions.updatePullState( {
 						selectedSiteId,
@@ -843,17 +964,20 @@ const pollPullBackupThunk = createTypedAsyncThunk(
 					} )
 				);
 
-				await getIpcApi().stopServer( selectedSiteId );
-				await getIpcApi().importSite( {
-					id: selectedSiteId,
-					backupFile: {
-						path: filePath,
-						type: 'application/tar+gzip',
-					},
+				await getIpcApi().importSite( selectedSiteId, filePath, {
+					alwaysStartServer: true,
+					removeBackupOnComplete: true,
+					showErrorModal: false,
+					showNotification: false,
+					suppressTracksEvent: true,
 				} );
-				await getIpcApi().startServer( selectedSiteId );
 
-				await getIpcApi().removeSyncBackup( remoteSiteId );
+				// The import runs locally and is intentionally not aborted on logout, but if the
+				// user logged out / cancelled while it finished, don't surface post-logout
+				// "finished" UI (notification + re-populated sync state).
+				if ( signal.aborted ) {
+					return;
+				}
 
 				await updateSiteTimestamp( {
 					siteId: remoteSiteId,
@@ -906,6 +1030,10 @@ const pollPullBackupThunk = createTypedAsyncThunk(
 				);
 			}
 		} catch ( error ) {
+			// The poller signal is aborted on user cancel and on logout cleanup — both are
+			// intentional stops, so don't capture the error or show the "Error pulling" modal.
+			// (On logout the slice is reset, so we can't rely on the state still being
+			// 'cancelled' here — the aborted signal is the reliable signal.)
 			if ( signal.aborted ) {
 				return;
 			}
@@ -913,7 +1041,7 @@ const pollPullBackupThunk = createTypedAsyncThunk(
 			Sentry.captureException( error );
 			return rejectWithValue( {
 				title: sprintf( __( 'Error pulling from %s' ), currentPullState.selectedSite.name ),
-				message: __( 'Failed to check backup file size. Please try again.' ),
+				message: error instanceof Error ? error.message : String( error ),
 			} );
 		}
 	}
@@ -978,6 +1106,7 @@ export const initializeSyncStatesThunk = createTypedAsyncThunk(
 							},
 						} )
 					);
+					void startPushPoller( connectedSite.localSiteId, connectedSite.id );
 				}
 			} catch ( error ) {
 				// Continue checking other sites even if one fails
@@ -1003,22 +1132,38 @@ const isKeyPulling = ( key?: PullStateProgressInfo[ 'key' ] ): boolean => {
 	if ( ! key ) {
 		return false;
 	}
-	const pullingStateKeys = [ 'in-progress', 'downloading', 'importing' ];
-	return pullingStateKeys.includes( key );
+	const keys = [ 'in-progress', 'downloading', 'importing' ];
+	return keys.includes( key );
+};
+
+const isKeyPullingLocally = ( key?: PullStateProgressInfo[ 'key' ] ): boolean => {
+	if ( ! key ) {
+		return false;
+	}
+	const keys = [ 'downloading', 'importing' ];
+	return keys.includes( key );
+};
+
+const isKeyUploading = ( key: PushStateProgressInfo[ 'key' ] | undefined ): boolean => {
+	if ( ! key ) {
+		return false;
+	}
+	const keys = [ 'creatingBackup', 'uploading', 'uploadingManuallyPaused' ];
+	return keys.includes( key );
 };
 
 const isKeyPushing = ( key?: PushStateProgressInfo[ 'key' ] ): boolean => {
 	if ( ! key ) {
 		return false;
 	}
-	const pushingStateKeys = [
+	const keys = [
 		'creatingBackup',
 		'uploading',
 		'creatingRemoteBackup',
 		'applyingChanges',
 		'finishing',
 	];
-	return pushingStateKeys.includes( key );
+	return keys.includes( key );
 };
 
 export const syncOperationsSelectors = {
@@ -1047,16 +1192,26 @@ export const syncOperationsSelectors = {
 		( selectedSiteId: string, remoteSiteId?: number ) =>
 		( state: { syncOperations: SyncOperationsState } ): boolean => {
 			return Object.values( state.syncOperations.pullStates ).some( ( pullState ) => {
-				if ( ! pullState.selectedSite ) {
-					return false;
-				}
 				if ( pullState.selectedSite.id !== selectedSiteId ) {
 					return false;
 				}
-				if ( remoteSiteId !== undefined ) {
-					return isKeyPulling( pullState.status.key ) && pullState.remoteSiteId === remoteSiteId;
+				if ( remoteSiteId !== undefined && pullState.remoteSiteId !== remoteSiteId ) {
+					return false;
 				}
-				return pullState.status && isKeyPulling( pullState.status.key );
+				return isKeyPulling( pullState.status.key );
+			} );
+		},
+	selectIsSiteIdPullingLocally:
+		( selectedSiteId?: string, remoteSiteId?: number ) =>
+		( state: { syncOperations: SyncOperationsState } ): boolean => {
+			return Object.values( state.syncOperations.pullStates ).some( ( pullState ) => {
+				if ( pullState.selectedSite.id !== selectedSiteId ) {
+					return false;
+				}
+				if ( remoteSiteId !== undefined && pullState.remoteSiteId !== remoteSiteId ) {
+					return false;
+				}
+				return isKeyPullingLocally( pullState.status.key );
 			} );
 		},
 	selectIsAnySitePushing: ( state: { syncOperations: SyncOperationsState } ): boolean => {
@@ -1065,19 +1220,57 @@ export const syncOperationsSelectors = {
 		);
 	},
 	selectIsSiteIdPushing:
-		( selectedSiteId: string, remoteSiteId?: number ) =>
+		( selectedSiteId?: string, remoteSiteId?: number ) =>
 		( state: { syncOperations: SyncOperationsState } ): boolean => {
 			return Object.values( state.syncOperations.pushStates ).some( ( pushState ) => {
-				if ( ! pushState.selectedSite ) {
-					return false;
-				}
 				if ( pushState.selectedSite.id !== selectedSiteId ) {
 					return false;
 				}
-				if ( remoteSiteId !== undefined ) {
-					return isKeyPushing( pushState.status.key ) && pushState.remoteSiteId === remoteSiteId;
+				if ( remoteSiteId !== undefined && pushState.remoteSiteId !== remoteSiteId ) {
+					return false;
 				}
 				return isKeyPushing( pushState.status.key );
 			} );
 		},
+	selectIsSiteIdPushingLocally:
+		( selectedSiteId?: string, remoteSiteId?: number ) =>
+		( state: { syncOperations: SyncOperationsState } ): boolean => {
+			return Object.values( state.syncOperations.pushStates ).some( ( pushState ) => {
+				if ( pushState.selectedSite.id !== selectedSiteId ) {
+					return false;
+				}
+				if ( remoteSiteId !== undefined && pushState.remoteSiteId !== remoteSiteId ) {
+					return false;
+				}
+				return isKeyUploading( pushState.status.key );
+			} );
+		},
+	// "Local sync work" = the phases the local machine is actively involved in (pull
+	// downloading/importing, push backup uploading). We can only block on these; the
+	// server-bound phases of a sync continue regardless.
+	selectIsSiteDoingLocalSyncWork:
+		( selectedSiteId?: string, remoteSiteId?: number ) =>
+		( state: { syncOperations: SyncOperationsState } ): boolean => {
+			return (
+				syncOperationsSelectors.selectIsSiteIdPullingLocally(
+					selectedSiteId,
+					remoteSiteId
+				)( state ) ||
+				syncOperationsSelectors.selectIsSiteIdPushingLocally(
+					selectedSiteId,
+					remoteSiteId
+				)( state )
+			);
+		},
+	selectIsAnySiteDoingLocalSyncWork: ( state: {
+		syncOperations: SyncOperationsState;
+	} ): boolean => {
+		const anyPullLocal = Object.values( state.syncOperations.pullStates ).some( ( pullState ) =>
+			isKeyPullingLocally( pullState.status.key )
+		);
+		const anyPushLocal = Object.values( state.syncOperations.pushStates ).some( ( pushState ) =>
+			isKeyUploading( pushState.status.key )
+		);
+		return anyPullLocal || anyPushLocal;
+	},
 };

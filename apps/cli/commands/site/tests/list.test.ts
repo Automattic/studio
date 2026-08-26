@@ -1,6 +1,6 @@
 import { vi } from 'vitest';
 import { readCliConfig } from 'cli/lib/cli-config/core';
-import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { connectToDaemon, disconnectFromDaemon, listProcesses } from 'cli/lib/daemon-client';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { mockReportKeyValuePair } from 'cli/tests/test-utils';
 import { runCommand } from '../list';
@@ -63,6 +63,7 @@ describe( 'CLI: studio site list', () => {
 		vi.mocked( connectToDaemon ).mockResolvedValue( undefined );
 		vi.mocked( disconnectFromDaemon ).mockResolvedValue( undefined );
 		vi.mocked( isServerRunning ).mockResolvedValue( undefined );
+		vi.mocked( listProcesses ).mockResolvedValue( [] );
 	} );
 
 	afterEach( () => {
@@ -121,12 +122,40 @@ describe( 'CLI: studio site list', () => {
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
+		// Both front ends disable a site's actions on what this reports, so an
+		// entry left behind by a crashed process must not survive into the payload.
+		it( 'should omit an operation whose owning process is gone', async () => {
+			vi.mocked( readCliConfig ).mockResolvedValue( {
+				...testCliConfig,
+				sites: [
+					{
+						...testCliConfig.sites[ 0 ],
+						operation: { pid: 0x7ffffffe, kind: 'delete' as const },
+					},
+				],
+			} );
+
+			await runCommand( 'json' );
+
+			const [ , json ] = mockReportKeyValuePair.mock.calls[ 0 ];
+			expect( JSON.parse( json )[ 0 ] ).not.toHaveProperty( 'operation' );
+		} );
+
 		it( 'should handle no sites found', async () => {
 			vi.mocked( readCliConfig ).mockResolvedValue( emptyCliConfig );
 
 			await runCommand( 'table' );
 
 			expect( readCliConfig ).toHaveBeenCalled();
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
+		} );
+
+		it( 'should output empty json array when no sites found', async () => {
+			vi.mocked( readCliConfig ).mockResolvedValue( emptyCliConfig );
+
+			await runCommand( 'json' );
+
+			expect( mockReportKeyValuePair ).toHaveBeenCalledWith( 'sites', '[]' );
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 

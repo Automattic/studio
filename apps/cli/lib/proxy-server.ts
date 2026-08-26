@@ -17,10 +17,21 @@ const proxy = httpProxy.createProxyServer();
 proxy.on( 'error', ( err, req, res ) => {
 	console.error( '[Proxy Error]', err.message );
 	if ( res && res instanceof http.ServerResponse ) {
-		res.writeHead( 500, { 'Content-Type': 'text/plain' } );
+		res.writeHead( 502, { 'Content-Type': 'text/plain' } );
 		res.end( 'Proxy error: ' + err.message );
 	}
 } );
+
+function logProxyBindError( err: NodeJS.ErrnoException, port: number ): void {
+	console.error( `[Proxy] Error starting ${ port === 443 ? 'HTTPS' : 'HTTP' } server:`, err );
+
+	if ( err.code === 'EACCES' && process.platform === 'linux' ) {
+		console.error(
+			`[Proxy] EACCES on port ${ port } — binding to privileged ports requires CAP_NET_BIND_SERVICE on Linux.\n` +
+				`        Run: sudo setcap 'cap_net_bind_service=+ep' ${ process.execPath }`
+		);
+	}
+}
 
 /**
  * Gets the site details for a given domain
@@ -127,7 +138,7 @@ async function startHttpProxy(): Promise< void > {
 				resolve();
 			} )
 			.on( 'error', ( err ) => {
-				console.error( '[Proxy] Error starting HTTP server:', err );
+				logProxyBindError( err, 80 );
 				reject( err );
 			} );
 	} );
@@ -181,7 +192,7 @@ async function startHttpsProxy(): Promise< void > {
 				resolve();
 			} )
 			.on( 'error', ( err ) => {
-				console.error( '[Proxy] Error starting HTTPS server:', err );
+				logProxyBindError( err, 443 );
 				reject( err );
 			} );
 	} );

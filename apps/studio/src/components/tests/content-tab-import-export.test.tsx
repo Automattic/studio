@@ -19,7 +19,7 @@ const selectedSite: SiteDetails = {
 	name: 'Test Site',
 	running: false,
 	path: '/test-site',
-	phpVersion: '8.3',
+	phpVersion: '8.4',
 	adminPassword: btoa( 'test-password' ),
 	port: 9999,
 };
@@ -68,7 +68,7 @@ describe( 'ContentTabImportExport Import', () => {
 		expect( screen.getByText( /Drop file/i ) ).toBeInTheDocument();
 	} );
 
-	test( 'should display inital text on drop leave', async () => {
+	test( 'should display initial text on drop leave', async () => {
 		renderWithProvider( <ContentTabImportExport selectedSite={ selectedSite } /> );
 		await waitFor( () => {
 			expect( screen.getByTestId( 'import-export-supported' ) ).toBeVisible();
@@ -99,7 +99,7 @@ describe( 'ContentTabImportExport Import', () => {
 		} );
 
 		const dropZone = screen.getByText( /Drag a file here, or click to select a file/i );
-		const file = new File( [ 'file contents' ], 'backup.zip', { type: 'application/zip' } );
+		const file = new File( [ 'file contents' ], 'backup.sql', { type: 'application/sql' } );
 
 		fireEvent.dragEnter( dropZone );
 		fireEvent.dragOver( dropZone );
@@ -120,7 +120,7 @@ describe( 'ContentTabImportExport Import', () => {
 		const fileInput = screen.getByTestId( 'backup-file' );
 		expect( fileInput ).toBeInTheDocument();
 
-		const file = new File( [ 'file contents' ], 'backup.zip', { type: 'application/zip' } );
+		const file = new File( [ 'file contents' ], 'backup.sql', { type: 'application/sql' } );
 
 		await userEvent.upload( fileInput, file );
 

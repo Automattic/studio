@@ -1,4 +1,8 @@
 import * as Sentry from '@sentry/electron/renderer';
+import {
+	TRACKS_EVENTS,
+	type TracksCustomizeEntryPoint,
+} from '@studio/common/lib/record-tracks-event';
 import { __ } from '@wordpress/i18n';
 import {
 	archive,
@@ -15,13 +19,14 @@ import {
 	widget,
 } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import { ButtonsSection, ButtonsSectionProps } from 'src/components/buttons-section';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
-import { isWindows } from 'src/lib/app-globals';
+import { recordRendererTracksEvent } from 'src/lib/analytics';
 import { cx } from 'src/lib/cx';
+import { getFileManagerLabel } from 'src/lib/file-manager';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
 import { getTerminalName } from 'src/modules/user-settings/lib/terminal';
@@ -51,44 +56,61 @@ function CustomizeSection( {
 	const { startServer, loadingServer } = useSiteDetails();
 	const isLoading = selectedSite?.id ? loadingServer[ selectedSite.id ] : false;
 
-	const handleCustomizeClick = ( url: string ) => async () => {
-		if ( isLoading ) return;
-		if ( ! selectedSite.running ) {
-			await startServer( selectedSite );
-		}
-		getIpcApi().openSiteURL( selectedSite.id, url );
-	};
+	const handleCustomizeClick =
+		( url: string, entryPoint: TracksCustomizeEntryPoint ) => async () => {
+			if ( isLoading ) return;
+			recordRendererTracksEvent( TRACKS_EVENTS.SITE_OPEN_CUSTOMIZE, {
+				entry_point: entryPoint,
+				browser: 'external',
+			} );
+			if ( ! selectedSite.running ) {
+				await startServer( selectedSite );
+			}
+			getIpcApi().openSiteURL( selectedSite.id, url );
+		};
 
 	const blockThemeButtons: ButtonsSectionProps[ 'buttonsArray' ] = [
 		{
 			label: __( 'Site Editor' ),
 			icon: desktop,
-			onClick: handleCustomizeClick( '/wp-admin/site-editor.php' ),
+			onClick: handleCustomizeClick( '/wp-admin/site-editor.php', 'editor' ),
 		},
 		{
 			label: __( 'Styles' ),
 			icon: styles,
-			onClick: handleCustomizeClick( '/wp-admin/site-editor.php?path=%2Fwp_global_styles' ),
+			onClick: handleCustomizeClick(
+				'/wp-admin/site-editor.php?path=%2Fwp_global_styles',
+				'editor_styles'
+			),
 		},
 		{
 			label: __( 'Patterns' ),
 			icon: symbolFilled,
-			onClick: handleCustomizeClick( '/wp-admin/site-editor.php?path=%2Fpatterns' ),
+			onClick: handleCustomizeClick(
+				'/wp-admin/site-editor.php?path=%2Fpatterns',
+				'editor_patterns'
+			),
 		},
 		{
 			label: __( 'Navigation' ),
 			icon: navigation,
-			onClick: handleCustomizeClick( '/wp-admin/site-editor.php?path=%2Fnavigation' ),
+			onClick: handleCustomizeClick(
+				'/wp-admin/site-editor.php?path=%2Fnavigation',
+				'editor_navigation'
+			),
 		},
 		{
 			label: __( 'Templates' ),
 			icon: layout,
-			onClick: handleCustomizeClick( '/wp-admin/site-editor.php?path=%2Fwp_template' ),
+			onClick: handleCustomizeClick(
+				'/wp-admin/site-editor.php?path=%2Fwp_template',
+				'editor_templates'
+			),
 		},
 		{
 			label: __( 'Pages' ),
 			icon: page,
-			onClick: handleCustomizeClick( '/wp-admin/site-editor.php?path=%2Fpage' ),
+			onClick: handleCustomizeClick( '/wp-admin/site-editor.php?path=%2Fpage', 'editor_pages' ),
 		},
 	];
 
@@ -96,7 +118,7 @@ function CustomizeSection( {
 		{
 			label: __( 'Customizer' ),
 			icon: pencil,
-			onClick: handleCustomizeClick( '/wp-admin/customize.php' ),
+			onClick: handleCustomizeClick( '/wp-admin/customize.php', 'customizer' ),
 		},
 	];
 
@@ -104,7 +126,7 @@ function CustomizeSection( {
 		classicThemeButtons.push( {
 			label: __( 'Menus' ),
 			icon: navigation,
-			onClick: handleCustomizeClick( '/wp-admin/nav-menus.php' ),
+			onClick: handleCustomizeClick( '/wp-admin/nav-menus.php', 'menus' ),
 		} );
 	}
 
@@ -112,7 +134,7 @@ function CustomizeSection( {
 		classicThemeButtons.push( {
 			label: __( 'Widgets' ),
 			icon: widget,
-			onClick: handleCustomizeClick( '/wp-admin/widgets.php' ),
+			onClick: handleCustomizeClick( '/wp-admin/widgets.php', 'widgets' ),
 		} );
 	}
 
@@ -140,14 +162,11 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 
 	const buttonsArray: ButtonsSectionProps[ 'buttonsArray' ] = [
 		{
-			label: isWindows()
-				? // translators: name of app used to navigate files and folders on Windows
-				  __( 'File Explorer' )
-				: // translators: name of app used to navigate files and folders on macOS
-				  __( 'Finder' ),
+			label: getFileManagerLabel(),
 			className: 'text-nowrap',
 			icon: archive,
 			onClick: () => {
+				recordRendererTracksEvent( TRACKS_EVENTS.SITE_OPEN_FOLDER );
 				getIpcApi().openLocalPath( selectedSite.path );
 			},
 		},
@@ -156,10 +175,11 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 	const editorConfig = editor ? supportedEditorConfig[ editor ] : false;
 	if ( editor && editorConfig ) {
 		buttonsArray.push( {
-			label: editorConfig.label,
+			label: editorConfig.label(),
 			className: 'text-nowrap',
 			icon: code,
 			onClick: async () => {
+				recordRendererTracksEvent( TRACKS_EVENTS.SITE_OPEN_IN_EDITOR, { editor } );
 				await getIpcApi().openAppAtPath( editor, selectedSite.path );
 			},
 		} );
@@ -186,6 +206,7 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 		icon: grid,
 		disabled: isServerLoading,
 		onClick: async () => {
+			recordRendererTracksEvent( TRACKS_EVENTS.SITE_OPEN_PHPMYADMIN, { browser: 'external' } );
 			if ( ! selectedSite.running ) {
 				await startServer( selectedSite );
 			}
@@ -214,24 +235,19 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 	const loading = loadingThemeDetails || loadingThumbnails || initialLoading;
 	const isServerLoading = loadingServer[ selectedSite.id ];
 
+	useEffect( () => {
+		setIsThumbnailError( false );
+	}, [ thumbnailData ] );
+
 	const handleThumbnailClick = async () => {
 		if ( isServerLoading ) return;
 
+		recordRendererTracksEvent( TRACKS_EVENTS.SITE_OPEN_IN_BROWSER, { browser: 'external' } );
 		if ( ! selectedSite.running ) {
 			await startServer( selectedSite );
 		}
 		getIpcApi().openSiteURL( selectedSite.id, '', { autoLogin: false } );
 	};
-
-	const thumbnailImage = (
-		<img
-			onError={ () => setIsThumbnailError( true ) }
-			onLoad={ () => setIsThumbnailError( false ) }
-			className="w-full h-full"
-			src={ thumbnailData || '' }
-			alt={ themeDetails?.name }
-		/>
-	);
 
 	return (
 		<div className="p-8 flex max-w-4xl">
@@ -271,7 +287,13 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 									{ __( 'Preview unavailable' ) }
 								</div>
 							) : (
-								thumbnailImage
+								<img
+									onError={ () => setIsThumbnailError( true ) }
+									onLoad={ () => setIsThumbnailError( false ) }
+									className="w-full h-full"
+									src={ thumbnailData || '' }
+									alt={ themeDetails?.name }
+								/>
 							) }
 						</button>
 					) }

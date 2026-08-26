@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>11 · Output Artifacts</title>
+<link rel="stylesheet" href="../assets/course.css">
+<script src="../assets/quiz.js"></script>
+</head>
+<body>
+<div class="masthead">
+  <span><a href="../index.html">Data Liberation</a> · Part IV — Output &amp; Quality</span>
+  <span>Lesson 11 / 17</span>
+</div>
+
+<div class="wide">
+<div class="lesson-num">Lesson 11 · Output &amp; quality</div>
+<h1>Output Artifacts</h1>
+<p class="subtitle">Three output families, three target formats: content → WXR, products → Woo CSV, assets → self-hosted media. Knowing what each builder guarantees tells you what a downstream WordPress import can rely on.</p>
+
+<h2>Content → WXR</h2>
+<p><code>WxrBuilder</code> (<span class="path">src/lib/wxr/</span>) assembles/appends
+<code>output.wxr</code>, targeting <strong>WXR 1.2</strong> spec compliance. Extraction
+appends per-URL (Lesson 6's append-only pattern); reconstruction rewrites the post
+<code>content:encoded</code> bodies with block markup. The WP block parser is adopted as a
+<em>validate-artifacts oracle</em> — a gate that the emitted block markup actually parses.</p>
+
+<div class="callout key">
+  <span class="label">Never lose source content</span>
+  A first-principles rule in this codebase: preserve <em>all</em> source content verbatim — no
+  truncation, no dedup, no dropping. If the source shows it (even a heading plus an identical
+  paragraph), the output reproduces it. When you review a change that "cleans up" content, that
+  instinct is usually wrong here.
+</div>
+
+<h2>Products → Woo CSV</h2>
+<p>Products stream to <code>products.jsonl</code> (one product per line) and become a
+WooCommerce import CSV. <code>WooProduct</code> has first-class <code>seoTitle</code>,
+<code>seoDescription</code>, <code>costOfGoods</code> fields plus an open <code>meta</code>
+record; the CSV builder always emits the Yoast + cost-of-goods <code>meta:</code> columns,
+plus a column per custom meta key. Shopify specifics worth knowing:</p>
+<ul>
+  <li>Variant weights normalize to <strong>kilograms</strong> regardless of source unit (<code>normalizeWeightToKg</code>).</li>
+  <li>Sale price uses <code>compareAtPrice &gt; price</code> semantics — when set, <code>compareAtPrice</code> becomes <code>regularPrice</code> and <code>price</code> becomes <code>salePrice</code>.</li>
+  <li>With an <code>adminToken</code>, products come via the Admin GraphQL API (pinned <code>2025-04</code>), paginated by a resumable <code>endCursor</code>, falling back to the public JSON API on any failure.</li>
+</ul>
+
+<h2>Assets → self-hosted media</h2>
+<p><code>media-fetch</code> downloads + dedupes; <code>MediaStubStore</code> tracks status
+and the installed <code>wpPostId</code>. Filename collisions get numeric suffixes
+(<code>-2</code>, <code>-3</code>), not hashes. The advanced bit — <strong>SVG survival</strong>:</p>
+<ul>
+  <li>Every downloaded SVG is scanned for risky <code>&lt;use&gt;</code>/<code>&lt;defs&gt;</code> (<code>isRiskySvg</code>) and a PNG sibling is rasterized at 1024px via Playwright.</li>
+  <li>Any library-bound SVG triggers a one-time <code>ensurePlugin(site,'safe-svg')</code>; risky SVGs upload their PNG raster instead.</li>
+</ul>
+
+<div class="callout decision">
+  <span class="label">The join is filesystem-only — by design</span>
+  Nothing about screenshots or media is injected into the WXR. The link from a URL to its
+  screenshots/HTML is <code>screenshots/manifest.json</code>; orchestration correlates by URL
+  between the manifest and <code>output.wxr</code>/<code>products.jsonl</code>. This keeps the
+  WXR a clean, portable content artifact and pushes all the "which file goes with which page"
+  bookkeeping into a sidecar. When you design new outputs, prefer that shape: keep the
+  portable artifact pure, join by URL in a manifest.
+</div>
+
+<h2>The theme shell</h2>
+<p>Under every reconstruct path, the theme <em>shell</em> is emitted deterministically by
+<code>liberate_theme_scaffold</code> and installed by <code>liberate_install_theme</code>.
+The output base resolves (via <code>liberate_paths</code> / <code>paths.ts</code>) to
+<code>~/Studio/_liberations/&lt;host&gt;</code> by default.</p>
+
+<div class="quiz" data-answer="0">
+  <div class="q">How is a page's screenshot associated with its WXR content?</div>
+  <ul class="opts">
+    <li><button class="opt">By URL, via <code>screenshots/manifest.json</code> — nothing is injected into the WXR</button></li>
+    <li><button class="opt">By a media id embedded in the post's <code>content:encoded</code> body</button></li>
+    <li><button class="opt">By a foreign key column written into <code>products.jsonl</code></button></li>
+    <li><button class="opt">By the slug stored inside each <code>sections/&lt;slug&gt;.json</code> file</button></li>
+  </ul>
+  <div class="feedback"
+    data-correct="Right — the WXR stays pure; the URL→files join lives in manifest.json and orchestration correlates by URL."
+    data-wrong="Nothing is injected into the WXR. The join is filesystem-only: manifest.json maps URL → files.">
+  </div>
+</div>
+
+<div class="recall">
+  <span class="label">Retrieval practice</span>
+  Name the three output families and their target formats. Then state the "never lose source
+  content" rule and the "keep the portable artifact pure" principle in your own words.
+  <details><summary>Check yourself</summary>
+  Content → WXR 1.2 (<code>WxrBuilder</code>); products → Woo CSV (<code>products.jsonl</code>);
+  assets → self-hosted media (<code>media-fetch</code> + <code>MediaStubStore</code>).
+  Preserve all source content verbatim; keep WXR pure and join screenshots/media by URL via a
+  manifest sidecar.
+  </details>
+</div>
+
+<div class="source-cite">
+  <span class="label">Primary source</span><br>
+  Read <span class="path">src/lib/wxr/</span> (the builder) and
+  <span class="path">src/lib/woo-csv/woo-product-csv.ts</span> (the product columns). For SVG
+  survival, <span class="path">src/lib/media-fetch/svg-raster.ts</span>.
+</div>
+
+<p class="ask">Want the full WooProduct → CSV column mapping as a printable reference card?
+Ask and I'll add it to the shelf.</p>
+
+<div class="lesson-nav">
+  <a href="0010-blocks-engine-adoption.html">← Lesson 10</a>
+  <a href="0012-quality-gates.html">Lesson 12: Quality gates &amp; diagnostics →</a>
+</div>
+</div>
+</body>
+</html>

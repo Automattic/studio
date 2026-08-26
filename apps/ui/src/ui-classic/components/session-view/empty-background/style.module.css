@@ -1,0 +1,25 @@
+.root {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	pointer-events: none;
+	contain: layout paint;
+}
+
+/* Uncontained hosts let the canvas paint beyond the box (see the
+   `contained` prop). */
+.spill {
+	contain: layout;
+}
+
+.canvas {
+	display: block;
+	width: min(100%, var(--empty-background-canvas-size, 580px));
+	height: auto;
+	aspect-ratio: 1;
+	cursor: pointer;
+	pointer-events: auto;
+	touch-action: none;
+}

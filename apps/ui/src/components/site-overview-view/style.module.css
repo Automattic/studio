@@ -1,0 +1,306 @@
+.root {
+	--overview-content-width: 1120px;
+	--overview-card-column-width: 320px;
+
+	/* Anchor for the footer toolbar + its progressive blur. */
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	min-height: 0;
+	min-width: 0;
+	/* All scrolling lives in .scroll; prevent the outer contentColumn
+	   (preview-split-frame) from seeing overflow and drawing a second bar. */
+	overflow: hidden;
+	color: var(--wpds-color-fg-content-neutral);
+	background: var(--wpds-color-bg-surface-neutral);
+}
+
+.state {
+	padding: var(--wpds-dimension-padding-xl);
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.header {
+	position: relative;
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-sm);
+	/* Hug the panel's top-left corner with the same breathing room the
+	   preview toolbar gives its controls. */
+	padding-block: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-sm);
+	padding-inline: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-2xl);
+	min-height: 46px;
+	font-size: var(--wpds-typography-font-size-sm);
+	color: var(--wpds-color-fg-content-neutral);
+	-webkit-app-region: drag;
+}
+
+/* Keep in sync with .headerSidebarCollapsed in
+   ui-classic/components/session-view/style.module.css so the site menu sits
+   in the same spot when switching between chat and overview. */
+.headerSidebarCollapsed {
+	padding-top: calc(
+		var(--wpds-dimension-padding-xl) + var(--wpds-dimension-padding-2xl) +
+			var(--wpds-dimension-padding-lg)
+	);
+	/* With the sidebar hidden the panel goes full-bleed, putting this header
+	   at the window's left edge — give the site menu more breathing room. */
+	padding-inline-start: var(--wpds-dimension-padding-xl);
+}
+
+.tabsFrame {
+	flex: 1;
+	min-height: 0;
+	/* Keep the width constraint flowing down to the tab strip's scroll
+	   container (WP's TabList is `overflow-x: auto`). */
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+}
+
+.tabsBar {
+	flex: 0 0 auto;
+	min-width: 0;
+	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
+	padding: 0 var(--wpds-dimension-padding-xl);
+}
+
+.tabsBarInner {
+	min-width: 0;
+	max-width: var(--overview-content-width);
+}
+
+.panel {
+	outline: none;
+	display: grid;
+	grid-template-columns: minmax(0, var(--overview-card-column-width)) minmax(0, 1fr);
+	align-items: start;
+	gap: var(--wpds-dimension-padding-3xl);
+	width: 100%;
+	min-width: 0;
+}
+
+.panel > :not(.cardColumn, .actionsColumn) {
+	grid-column: 1 / -1;
+}
+
+.scroll {
+	flex: 1;
+	min-height: 0;
+	min-width: 0;
+	overflow-y: auto;
+}
+
+/* Fixed bottom toolbar mirroring the chat panel's footer (see session-view's
+   panelFooterControls): same 46px control strip with the preview toggle
+   hugging the panel's right edge. Overlaid on the scroll area so content
+   shows through the progressive blur beneath it. */
+.footerBar {
+	position: absolute;
+	inset-inline: 0;
+	bottom: 0;
+	z-index: 2;
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	min-height: 46px;
+	box-sizing: border-box;
+	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-xl);
+	pointer-events: none;
+}
+
+.footerBar > * {
+	pointer-events: auto;
+}
+
+/* Shorter sibling of the chat panel's composer blur: just the toolbar strip
+   plus a small overhang. Leaves the scrollbar gutter unblurred, like chat. */
+.footerBlur {
+	inset-inline-start: 0;
+	inset-inline-end: 14px;
+	bottom: 0;
+	z-index: 1;
+	height: calc(46px + var(--wpds-dimension-padding-lg));
+}
+
+.content {
+	container-type: inline-size;
+	container-name: overview;
+
+	box-sizing: border-box;
+	width: 100%;
+	max-width: var(--overview-content-width);
+	/* Extra bottom padding keeps the last content clear of the overlaid
+	   footer toolbar. */
+	padding: var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-xl)
+		calc(var(--wpds-dimension-padding-2xl) + 46px);
+}
+
+.columnHeading {
+	margin: 0;
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	font-weight: var(--wpds-typography-font-weight-medium);
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.cardColumn {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-md);
+	min-width: 0;
+}
+
+@container overview (max-width: 760px) {
+	.panel {
+		grid-template-columns: minmax(0, 1fr);
+		gap: var(--wpds-dimension-padding-2xl);
+	}
+
+	.panel > :not(.cardColumn, .actionsColumn) {
+		order: 0;
+	}
+
+	.cardColumn {
+		order: 2;
+	}
+
+	.actionsColumn {
+		order: 1;
+	}
+}
+
+/* Each section is a full-width row (Customize, Open in…, Manage), stacked. */
+.actionsColumn {
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+	min-width: 0;
+	gap: var(--wpds-dimension-padding-3xl);
+}
+
+.buttonSection {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-md);
+	width: 100%;
+}
+
+/* Equal-width cells reflow as the panel narrows, keeping every section aligned. */
+.buttonGrid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+	gap: var(--wpds-dimension-padding-md);
+}
+
+.overviewButton {
+	--wp-ui-button-height: 36px;
+	--wp-ui-button-border-color: var(--wpds-color-stroke-surface-neutral);
+	--wp-ui-button-border-color-active: var(--wpds-color-stroke-interactive-neutral);
+
+	display: inline-flex;
+	align-items: center;
+	justify-content: flex-start;
+	width: 100%;
+	gap: var(--wpds-dimension-padding-sm);
+	min-width: 0;
+	padding: 0 var(--wpds-dimension-padding-md);
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: var(--wpds-border-radius-sm);
+	background: transparent;
+	color: var(--wpds-color-fg-content-neutral);
+	text-align: start;
+}
+
+.overviewButton:not([data-disabled]):is(:hover, :focus-visible) {
+	border-color: var(--wpds-color-stroke-interactive-neutral);
+	background: var(--wpds-color-bg-interactive-neutral-weak-active);
+}
+
+.overviewButton[data-disabled] {
+	border-color: var(--wpds-color-stroke-surface-neutral-weak);
+}
+
+.overviewButtonIcon {
+	display: grid;
+	place-items: center;
+	flex: 0 0 18px;
+	width: 18px;
+	height: 18px;
+	color: currentColor;
+}
+
+.overviewButtonIcon:not(.brandIcon) svg {
+	color: currentColor;
+	fill: currentColor;
+}
+
+.brandIcon svg {
+	color: currentColor;
+}
+
+.overviewButtonLabel {
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.destructiveButton .overviewButtonIcon,
+.destructiveButton .overviewButtonLabel {
+	color: var(--wpds-color-fg-content-error);
+}
+
+.destructiveButton {
+	--wp-ui-button-background-color-active: var(--wpds-color-bg-surface-error-weak);
+	--wp-ui-button-border-color-active: var(--wpds-color-stroke-surface-error);
+	--wp-ui-button-foreground-color-active: var(--wpds-color-fg-content-error);
+}
+
+.destructiveButton:not([data-disabled]):is(:hover, :focus-visible, :active) {
+	border-color: var(--wpds-color-stroke-surface-error);
+	background: var(--wpds-color-bg-surface-error-weak);
+}
+
+/* The rules above pin an explicit colour on the icon and label, which would
+   otherwise keep them at full strength while the button is disabled — the
+   control looks live and swallows the click. Higher specificity than the
+   destructive rule, so Delete mutes too. */
+.overviewButton:is([data-disabled], :disabled) .overviewButtonIcon,
+.overviewButton:is([data-disabled], :disabled) .overviewButtonLabel {
+	color: var(--wpds-color-fg-interactive-neutral-disabled);
+}
+
+.buttonSkeleton {
+	width: 100%;
+	height: 36px;
+	border-radius: var(--wpds-border-radius-sm);
+	background: var(--wpds-color-bg-surface-neutral-weak);
+	animation: buttonSkeletonPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes buttonSkeletonPulse {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.55;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.buttonSkeleton {
+		animation: none;
+	}
+}
+
+@media (max-width: 760px) {
+	.content {
+		padding: var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-md)
+			calc(var(--wpds-dimension-padding-2xl) + 46px);
+	}
+}

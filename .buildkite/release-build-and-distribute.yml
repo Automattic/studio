@@ -21,7 +21,7 @@ steps:
         agents:
           queue: mac
         command: |
-          .buildkite/commands/checkout-release-branch.sh "${RELEASE_VERSION}"
+          checkout_release_branch "${RELEASE_VERSION}"
 
           .buildkite/commands/prepare-environment.sh
 
@@ -51,10 +51,15 @@ steps:
 
           echo "--- 📃 Notarizing Binary"
           bundle exec fastlane notarize_binary
+
+          echo "--- :package: Building standalone CLI bundle"
+          npm run cli:bundle -- darwin {{matrix}}
         plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
         artifact_paths:
           - apps/studio/out/**/*.app.zip
           - apps/studio/out/*.dmg
+          - standalone-bundles/studio-cli-*.tgz
+          - standalone-bundles/studio-cli-*.tgz.sha256
         matrix:
           - x64
           - arm64
@@ -68,14 +73,18 @@ steps:
       - label: 🔨 Windows Release Build - {{matrix}}
         agents:
           queue: windows
+        env:
+          SIGN_WINDOWS_BUILD: 1
         command: |
-          bash .buildkite/commands/checkout-release-branch.sh "${RELEASE_VERSION}"
+          bash checkout_release_branch "${RELEASE_VERSION}"
           powershell -File .buildkite/commands/build-for-windows.ps1 -BuildType release -Architecture {{matrix}}
         artifact_paths:
           - apps\studio\out\**\studio-setup.exe
           - apps\studio\out\**\studio-update.nupkg
           - apps\studio\out\**\RELEASES
           - apps\studio\out\**\*.appx
+          - standalone-bundles\studio-cli-*.tgz
+          - standalone-bundles\studio-cli-*.tgz.sha256
         plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
         matrix:
           - x64
@@ -84,12 +93,67 @@ steps:
           - github_commit_status:
               context: All Windows Release Builds
 
+  - group: 📦 Build for Linux
+    key: release-linux
+    steps:
+      - label: 🔨 Linux Release Build - {{matrix}}
+        agents:
+          queue: default
+        command: |
+          set -eu
+
+          # The toolkit's commands are on the host's PATH, not the container's; the plugin
+          # directory is bind-mounted at /a8c-ci-toolkit by the `volumes` entry below.
+          export PATH="$$PATH:/a8c-ci-toolkit/bin"
+
+          # The container has no SSH keys / known_hosts, use anonymous HTTPS
+          git remote set-url origin https://github.com/Automattic/studio.git
+
+          checkout_release_branch "${RELEASE_VERSION}"
+
+          apt-get -o Acquire::Retries=3 update
+          apt-get install -y --no-install-recommends fakeroot
+
+          # `--maxsockets 1` works around npm/cli#4652 (ECONNRESETs on Linux);
+          # see install-node-dependencies.sh for the original rationale.
+          npm ci --unsafe-perm --no-audit --no-progress --maxsockets 1
+
+          echo "--- :node: Building DEB"
+          npm run make:linux-{{matrix}}
+
+          echo "--- :package: Building standalone CLI bundle"
+          npm run cli:bundle -- linux {{matrix}}
+        artifact_paths:
+          - apps/studio/out/make/deb/**/*.deb
+          - standalone-bundles/studio-cli-*.tgz
+          - standalone-bundles/studio-cli-*.tgz.sha256
+        plugins:
+          # Same Docker-on-default-queue pattern as the dev Linux build group
+          # (see .buildkite/pipeline.yml): Amazon Linux on `default` lacks
+          # `dpkg`/`fakeroot`, so we build inside the Debian Node image.
+          # The toolkit is listed so its `environment` hook sets $A8C_CI_TOOLKIT_PLUGIN_DIR
+          # before the `docker` plugin resolves the volume below.
+          - $CI_TOOLKIT_PLUGIN
+          - $DOCKER_PLUGIN:
+              image: "$NODE_DOCKER_IMAGE"
+              propagate-environment: true
+              mount-buildkite-agent: true
+              expand-volume-vars: true
+              volumes:
+                - "$$A8C_CI_TOOLKIT_PLUGIN_DIR:/a8c-ci-toolkit:ro"
+        matrix:
+          - x64
+          - arm64
+        notify:
+          - github_commit_status:
+              context: All Linux Release Builds
+
   - label: ":rocket: Publish Release Builds"
     command: |
       echo "--- :robot_face: Use bot for Git operations"
       source use-bot-for-git
 
-      .buildkite/commands/checkout-release-branch.sh "${RELEASE_VERSION}"
+      checkout_release_branch "${RELEASE_VERSION}"
 
       echo "--- :node: Downloading Binaries"
       buildkite-agent artifact download "*.zip" .
@@ -97,7 +161,10 @@ steps:
       buildkite-agent artifact download "*.exe" .
       buildkite-agent artifact download "*.appx" .
       buildkite-agent artifact download "*.nupkg" .
+      buildkite-agent artifact download "*.deb" .
       buildkite-agent artifact download "*\\RELEASES" .
+      buildkite-agent artifact download "*.tgz" .
+      buildkite-agent artifact download "*.tgz.sha256" .
 
       .buildkite/commands/install-node-dependencies.sh
 
@@ -109,6 +176,7 @@ steps:
     depends_on:
       - step: release-mac
       - step: release-windows
+      - step: release-linux
     plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
     notify:
       - github_commit_status:

@@ -13,7 +13,8 @@ import { cleanup, archiveSiteContent } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { emitCliEvent } from 'cli/lib/daemon-client';
 import { getSnapshotsFromConfig, updateSnapshotInConfig } from 'cli/lib/snapshots';
-import { normalizeHostname } from 'cli/lib/utils';
+import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
+import { classifyPreviewFailure, normalizeHostname } from 'cli/lib/utils';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -45,13 +46,14 @@ async function getSnapshotToUpdate(
 export async function runCommand(
 	siteFolder: string,
 	host: string,
-	overwrite: boolean
+	overwrite: boolean,
+	logger: Logger< LoggerAction > = new Logger< LoggerAction >()
 ): Promise< void > {
 	const archivePath = path.join(
 		os.tmpdir(),
 		`${ path.basename( siteFolder ) }-${ Date.now() }.zip`
 	);
-	const logger = new Logger< LoggerAction >();
+	const startedAt = Date.now();
 
 	try {
 		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating…' ) );
@@ -69,8 +71,6 @@ export async function runCommand(
 		if ( endDate < now ) {
 			throw new LoggerError( __( 'Cannot update an expired preview site.' ) );
 		}
-
-		logger.reportSuccess( __( 'Validation successful' ), true );
 
 		logger.reportStart( LoggerAction.ARCHIVE, __( 'Creating archive…' ) );
 		await archiveSiteContent( siteFolder, archivePath );
@@ -95,11 +95,17 @@ export async function runCommand(
 		logger.reportStart( LoggerAction.APPDATA, __( 'Saving preview site to Studio…' ) );
 		const snapshot = await updateSnapshotInConfig( uploadResponse.site_id, siteFolder );
 		await emitCliEvent( { event: SNAPSHOT_EVENTS.UPDATED, data: { snapshotUrl: snapshot.url } } );
+		await recordPreviewUpdateEvent( { success: true, time_ms: Date.now() - startedAt } );
 		logger.reportSuccess( __( 'Preview site saved to Studio' ) );
 
 		logger.reportKeyValuePair( 'name', snapshot.name ?? '' );
 		logger.reportKeyValuePair( 'url', snapshot.url );
 	} catch ( error ) {
+		await recordPreviewUpdateEvent( {
+			success: false,
+			failure_reason: classifyPreviewFailure( error ),
+			time_ms: Date.now() - startedAt,
+		} );
 		if ( error instanceof LoggerError ) {
 			logger.reportError( error );
 		} else {
@@ -108,6 +114,21 @@ export async function runCommand(
 		}
 	} finally {
 		void cleanup( archivePath );
+	}
+}
+
+async function recordPreviewUpdateEvent( props: {
+	success: boolean;
+	failure_reason?: string;
+	time_ms: number;
+} ): Promise< void > {
+	try {
+		await recordTracksEvent( TRACKS_EVENTS.PREVIEW_SITE_UPDATE, {
+			...props,
+			...getTracksOrigin(),
+		} );
+	} catch {
+		// Best-effort telemetry — never block or fail preview updates.
 	}
 }
 

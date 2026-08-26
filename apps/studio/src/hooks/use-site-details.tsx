@@ -13,9 +13,13 @@ import {
 } from 'react';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
-import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
+import { simplifyErrorForDisplay, simplifyErrorToFirstSentence } from 'src/lib/error-formatting';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import type { TracksSiteCreateFlowType } from 'src/lib/tracks';
 import type { Blueprint } from 'src/stores/wpcom-api';
+
+// Safety-net poll interval; `site-event`s are the primary signal for running state.
+const RUNNING_STATE_POLL_INTERVAL_MS = 10_000;
 
 interface SiteDetailsContext {
 	selectedSite: SiteDetails | null;
@@ -35,10 +39,17 @@ interface SiteDetailsContext {
 		noStart?: boolean,
 		adminUsername?: string,
 		adminPassword?: string,
-		adminEmail?: string
+		adminEmail?: string,
+		runtime?: SiteRuntime,
+		fileAccess?: SiteFileAccess,
+		flowType?: TracksSiteCreateFlowType
 	) => Promise< SiteDetails | void >;
 	copySite: ( sourceSiteId: string ) => Promise< SiteDetails | void >;
-	startServer: ( site: SiteDetails ) => Promise< void >;
+	startServer: (
+		site: SiteDetails,
+		options?: { suppressCapacityModal?: boolean }
+	) => Promise< { capacityLimitReached: boolean } >;
+	startServers: ( sites: SiteDetails[] ) => Promise< void >;
 	stopServer: ( id: string ) => Promise< void >;
 	stopAllRunningSites: () => Promise< void >;
 	startAllStoppedSites: () => Promise< void >;
@@ -65,7 +76,8 @@ const defaultContext: SiteDetailsContext = {
 	setSelectedSiteId: () => undefined,
 	createSite: async () => undefined,
 	copySite: async () => undefined,
-	startServer: async () => undefined,
+	startServer: async () => ( { capacityLimitReached: false } ),
+	startServers: async () => undefined,
 	stopServer: async () => undefined,
 	stopAllRunningSites: async () => undefined,
 	startAllStoppedSites: async () => undefined,
@@ -160,6 +172,19 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 				return prevSites;
 			}
 
+			// This event carries no verdict on whether the site is running, so it
+			// must not go through the merge below — that adopts the event's
+			// `running` wholesale, which would overwrite the real state mid-stop.
+			if ( eventType === SITE_EVENTS.OPERATIONS_CHANGED ) {
+				const index = prevSites.findIndex( ( s ) => s.id === siteId );
+				if ( index < 0 ) {
+					return prevSites;
+				}
+				const nextSites = [ ...prevSites ];
+				nextSites[ index ] = { ...nextSites[ index ], operation: site.operation };
+				return nextSites;
+			}
+
 			const siteDetails: SiteDetails = {
 				...site,
 				running,
@@ -179,13 +204,55 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			newSites[ existingIndex ] = { ...newSites[ existingIndex ], ...siteDetails };
 			return newSites;
 		} );
+
+		// Clear loading state atomically with the running state update above so
+		// the UI never sees loading=true with a stale running value.
+		if ( eventType === SITE_EVENTS.UPDATED ) {
+			setLoadingServer( ( prev ) => {
+				if ( ! prev[ siteId ] ) {
+					return prev;
+				}
+				const { [ siteId ]: _, ...rest } = prev;
+				return rest;
+			} );
+		}
 	} );
 
-	const toggleLoadingServerForSite = useCallback( ( siteId: string ) => {
-		setLoadingServer( ( currentLoading ) => ( {
-			...currentLoading,
-			[ siteId ]: ! currentLoading[ siteId ] || false,
-		} ) );
+	const startLoadingForSite = useCallback( ( siteId: string ) => {
+		setLoadingServer( ( prev ) => ( { ...prev, [ siteId ]: true } ) );
+	}, [] );
+
+	const clearLoadingForSite = useCallback( ( siteId: string ) => {
+		setLoadingServer( ( prev ) => {
+			if ( ! prev[ siteId ] ) {
+				return prev;
+			}
+			const { [ siteId ]: _, ...rest } = prev;
+			return rest;
+		} );
+	}, [] );
+
+	// Re-query authoritative running state and adopt it for sites we already know about. Membership
+	// stays owned by `site-event`s, so this never adds/removes (e.g. drops a mid-creation site).
+	const reconcileRunningState = useCallback( async () => {
+		try {
+			const data = await getIpcApi().reconcileSites();
+			setSites( ( prev ) => {
+				const authoritativeById = new Map( data.map( ( site ) => [ site.id, site ] ) );
+				let changed = false;
+				const next = prev.map( ( site ) => {
+					const authoritative = authoritativeById.get( site.id );
+					if ( ! authoritative || authoritative.running === site.running ) {
+						return site;
+					}
+					changed = true;
+					return authoritative;
+				} );
+				return changed ? next : prev;
+			} );
+		} catch ( error ) {
+			console.error( 'Error reconciling site running state:', error );
+		}
 	}, [] );
 
 	const onDeleteSite = useCallback(
@@ -249,7 +316,10 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			noStart?: boolean,
 			adminUsername?: string,
 			adminPassword?: string,
-			adminEmail?: string
+			adminEmail?: string,
+			runtime?: SiteRuntime,
+			fileAccess?: SiteFileAccess,
+			flowType?: TracksSiteCreateFlowType
 		) => {
 			// Function to handle error messages and cleanup
 			const showError = ( error?: unknown, hasBlueprint?: boolean ) => {
@@ -271,7 +341,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					message = __(
 						'The selected Blueprint failed to execute properly. This could be due to invalid PHP code, missing plugins, or other issues in the Blueprint file. Please check your Blueprint file and try again.'
 					);
-					errorToShow = undefined;
+					errorToShow = simplifyErrorToFirstSentence( error );
 				} else {
 					title = __( 'Failed to create site' );
 					message = __(
@@ -285,7 +355,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					title,
 					message,
 					error: errorToShow,
-					showOpenLogs: ! isBlueprintError || ! hasBlueprint,
+					showOpenLogs: true,
 				} );
 
 				// Remove the temporary site immediately, but with a minor delay to ensure state updates properly
@@ -322,11 +392,14 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					enableHttps,
 					siteId: tempSiteId,
 					phpVersion,
+					runtime,
+					fileAccess,
 					blueprint,
 					adminUsername,
 					adminPassword,
 					adminEmail,
 					noStart,
+					flowType,
 				} );
 				if ( ! newSite ) {
 					showError( undefined, !! blueprint );
@@ -381,7 +454,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		setSites( sortSites( updatedSites ) );
 	}, [] );
 
-	const saveTimeoutRef = useRef< ReturnType< typeof setTimeout > >();
+	const saveTimeoutRef = useRef< ReturnType< typeof setTimeout > >( undefined );
 	const DEBOUNCE_SAVE_MS = 300;
 
 	const updateSitesSortOrder = useCallback( async ( sites: SiteDetails[] ) => {
@@ -398,69 +471,124 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	}, [] );
 
 	const startServer = useCallback(
-		async ( site: SiteDetails ) => {
+		async (
+			site: SiteDetails,
+			options?: { suppressCapacityModal?: boolean }
+		): Promise< { capacityLimitReached: boolean } > => {
 			const { id, name: siteName } = site;
-			toggleLoadingServerForSite( id );
+			startLoadingForSite( id );
+			let capacityLimitReached = false;
 
 			try {
-				await getIpcApi().startServer( id );
-			} catch ( error ) {
-				if ( error instanceof Error && error.message.includes( 'PROXY_ERROR_PORT_IN_USE' ) ) {
-					getIpcApi().showErrorMessageBox( {
-						title: sprintf( __( "Failed to initialize custom domains for '%s'" ), siteName ),
-						message: __(
-							'Studio needs to use port 80 and 443 to enable custom domains and SSL, but one of these ports are already in use by another app. Close any local development apps and restart Studio.'
-						),
-						showOpenLogs: false,
-					} );
-				} else if (
-					error instanceof Error &&
-					error.message.includes( 'PROXY_ERROR_START_FAILED' )
-				) {
-					getIpcApi().showErrorMessageBox( {
-						title: sprintf( __( "Failed to initialize custom domains for '%s'" ), siteName ),
-						message: __(
-							'Please restart Studio and try again. If this problem persists, please contact support.'
-						),
-						showOpenLogs: true,
-					} );
-				} else if (
-					error instanceof Error &&
-					error.message.includes( 'WASM_ERROR_NOT_ENOUGH_MEMORY' )
-				) {
-					getIpcApi().showErrorMessageBox( {
-						title: sprintf( __( "Not enough memory to start '%s'" ), siteName ),
-						message: __(
-							'Please stop some of your running sites first. If this problem persists, try closing other apps that might be using memory and try again.'
-						),
-						showOpenLogs: true,
-					} );
-				} else if ( error instanceof Error && error.message.includes( 'ERROR_PORT_IN_USE' ) ) {
-					const port = error.message.match( /\d+/ );
-					getIpcApi().showErrorMessageBox( {
-						title: sprintf( __( "Failed to start '%s'" ), siteName ),
-						message: __(
-							`The site server failed to start because the port is already in use. Please close any local development apps that may be using port ${ port } and try again.`
-						),
-						showOpenLogs: false,
-					} );
-				} else {
-					const errorToShow = simplifyErrorForDisplay( error );
-					getIpcApi().showErrorMessageBox( {
-						title: sprintf( __( "Failed to start '%s'" ), siteName ),
-						message: __(
-							"Please verify your site's local path directory contains the standard WordPress installation files and try again. If this problem persists, please contact support."
-						),
-						error: errorToShow,
-						showOpenLogs: true,
-					} );
+				try {
+					await getIpcApi().startServer( id );
+				} catch ( error ) {
+					if ( error instanceof Error && error.message.includes( 'PROXY_ERROR_PORT_IN_USE' ) ) {
+						getIpcApi().showErrorMessageBox( {
+							title: sprintf( __( "Failed to initialize custom domains for '%s'" ), siteName ),
+							message: __(
+								'Studio needs to use port 80 and 443 to enable custom domains and SSL, but one of these ports are already in use by another app. Close any local development apps and restart Studio.'
+							),
+							showOpenLogs: false,
+						} );
+					} else if (
+						error instanceof Error &&
+						error.message.includes( 'PROXY_ERROR_START_FAILED' )
+					) {
+						getIpcApi().showErrorMessageBox( {
+							title: sprintf( __( "Failed to initialize custom domains for '%s'" ), siteName ),
+							message: __(
+								'Please restart Studio and try again. If this problem persists, please contact support.'
+							),
+							showOpenLogs: true,
+						} );
+					} else if (
+						error instanceof Error &&
+						error.message.includes( 'WASM_ERROR_NOT_ENOUGH_MEMORY' )
+					) {
+						getIpcApi().showErrorMessageBox( {
+							title: sprintf( __( "Not enough memory to start '%s'" ), siteName ),
+							message: __(
+								'Please stop some of your running sites first. If this problem persists, try closing other apps that might be using memory and try again.'
+							),
+							showOpenLogs: true,
+						} );
+					} else if ( error instanceof Error && error.message.includes( 'ERROR_PORT_IN_USE' ) ) {
+						const port = error.message.match( /\d+/ );
+						getIpcApi().showErrorMessageBox( {
+							title: sprintf( __( "Failed to start '%s'" ), siteName ),
+							message: __(
+								`The site server failed to start because the port is already in use. Please close any local development apps that may be using port ${ port } and try again.`
+							),
+							showOpenLogs: false,
+						} );
+					} else if (
+						error instanceof Error &&
+						error.message.includes( 'CAPACITY_LIMIT_REACHED' )
+					) {
+						capacityLimitReached = true;
+						if ( ! options?.suppressCapacityModal ) {
+							getIpcApi().showErrorMessageBox( {
+								title: sprintf( __( "Failed to start '%s'" ), siteName ),
+								message: __(
+									'The maximum number of running sites has been reached. Please stop some running sites before starting new ones.'
+								),
+								showOpenLogs: false,
+							} );
+						}
+					} else if ( error instanceof Error && error.message.includes( 'MAINTENANCE_MODE' ) ) {
+						getIpcApi().showErrorMessageBox( {
+							title: sprintf( __( "'%s' is in maintenance mode" ), siteName ),
+							message: __(
+								'WordPress is currently performing an update. The maintenance lock should expire automatically within 10 minutes. Please wait for the update to finish and try starting the site again.'
+							),
+							showOpenLogs: false,
+						} );
+					} else {
+						const errorToShow = simplifyErrorForDisplay( error );
+						getIpcApi().showErrorMessageBox( {
+							title: sprintf( __( "Failed to start '%s'" ), siteName ),
+							message: __(
+								"Please verify your site's local path directory contains the standard WordPress installation files and try again. If this problem persists, please contact support."
+							),
+							error: errorToShow,
+							showOpenLogs: true,
+						} );
+					}
+					await getIpcApi().stopServer( id );
 				}
-				await getIpcApi().stopServer( id );
+				// Adopt the resulting state now rather than waiting on a `site-event` that may not arrive.
+				await reconcileRunningState();
+			} finally {
+				clearLoadingForSite( id );
 			}
-
-			toggleLoadingServerForSite( id );
+			return { capacityLimitReached };
 		},
-		[ toggleLoadingServerForSite ]
+		[ startLoadingForSite, clearLoadingForSite, reconcileRunningState ]
+	);
+
+	const startServers = useCallback(
+		async ( sitesToStart: SiteDetails[] ) => {
+			let capacityModalShown = false;
+			await Promise.all(
+				sitesToStart.map( async ( site ) => {
+					const { capacityLimitReached } = await startServer( site, {
+						suppressCapacityModal: true,
+					} );
+					if ( capacityLimitReached && ! capacityModalShown ) {
+						capacityModalShown = true;
+						getIpcApi().showErrorMessageBox( {
+							title: __( 'Some sites could not be started' ),
+							message: __(
+								'The maximum number of running sites has been reached. Please stop some running sites before starting new ones.'
+							),
+							showOpenLogs: false,
+						} );
+					}
+				} )
+			);
+		},
+		[ startServer ]
 	);
 
 	const copySite = useCallback(
@@ -535,7 +663,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 				getIpcApi().showNotification( {
 					title: newSite.name,
-					body: __( sprintf( 'Your site %s was copied successfully', sourceSite.name ) ),
+					body: sprintf( __( 'Your site %s was copied successfully' ), sourceSite.name ),
 				} );
 
 				void startServer( newSite );
@@ -559,7 +687,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					setSites( sortSites( data ) );
 					setLoadingSites( false );
 					const autoStartSites = data.filter( ( site ) => site.autoStart );
-					void Promise.all( autoStartSites.map( ( site ) => startServer( site ) ) );
+					void startServers( autoStartSites );
 				}
 			} )
 			.catch( ( error ) => {
@@ -573,13 +701,36 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [] );
 
+	// Safety net for missed/dropped `site-event`s: reconcile on an interval while visible, and
+	// immediately on regaining focus, so the UI self-corrects with no user action.
+	useEffect( () => {
+		const reconcileIfVisible = () => {
+			if ( document.visibilityState === 'visible' ) {
+				void reconcileRunningState();
+			}
+		};
+
+		const interval = setInterval( reconcileIfVisible, RUNNING_STATE_POLL_INTERVAL_MS );
+		document.addEventListener( 'visibilitychange', reconcileIfVisible );
+
+		return () => {
+			clearInterval( interval );
+			document.removeEventListener( 'visibilitychange', reconcileIfVisible );
+		};
+	}, [ reconcileRunningState ] );
+
 	const stopServer = useCallback(
 		async ( id: string ) => {
-			toggleLoadingServerForSite( id );
-			await getIpcApi().stopServer( id );
-			toggleLoadingServerForSite( id );
+			startLoadingForSite( id );
+			try {
+				await getIpcApi().stopServer( id );
+				// Flip the button immediately instead of waiting on a `site-event` that may be missed.
+				await reconcileRunningState();
+			} finally {
+				clearLoadingForSite( id );
+			}
 		},
-		[ toggleLoadingServerForSite ]
+		[ startLoadingForSite, clearLoadingForSite, reconcileRunningState ]
 	);
 
 	const stopAllRunningSites = useCallback( async () => {
@@ -588,8 +739,8 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 	const startAllStoppedSites = useCallback( async () => {
 		const stoppedSites = sites.filter( ( site ) => ! site.running && ! site.isAddingSite );
-		await Promise.allSettled( stoppedSites.map( ( site ) => startServer( site ) ) );
-	}, [ sites, startServer ] );
+		await startServers( stoppedSites );
+	}, [ sites, startServers ] );
 
 	const [ isEditModalOpen, setIsEditModalOpen ] = useState( false );
 	const [ editModalInitialTab, setEditModalInitialTab ] = useState( 'general' );
@@ -610,6 +761,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			updateSite,
 			updateSitesSortOrder,
 			startServer,
+			startServers,
 			stopServer,
 			stopAllRunningSites,
 			startAllStoppedSites,
@@ -635,6 +787,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			updateSite,
 			updateSitesSortOrder,
 			startServer,
+			startServers,
 			stopServer,
 			stopAllRunningSites,
 			startAllStoppedSites,

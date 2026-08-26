@@ -1,12 +1,15 @@
 {
 	"extends": "../../tsconfig.base.json",
 	"compilerOptions": {
-		"baseUrl": "../..",
+		"module": "es2022",
+		"moduleResolution": "bundler",
 		"paths": {
-			"src/*": [ "apps/studio/src/*" ],
-			"@studio/common/*": [ "tools/common/*" ]
+			"src/*": [ "./src/*" ],
+			"@studio/common/*": [ "../../packages/common/*" ],
+			"wpcom/types": [ "../../node_modules/wpcom/types/index.d.ts" ],
+			"@wp-playground/blueprints/blueprint-schema-validator": [ "../../node_modules/@wp-playground/blueprints/blueprint-schema-validator" ]
 		}
 	},
-	"include": [ "src/**/*", "e2e/**/*" ],
+	"include": [ "./src/**/*", "e2e/**/*" ],
 	"exclude": [ "**/__mocks__/**/*", "**/node_modules/**/*", "**/dist/**/*", "**/out/**/*" ]
 }

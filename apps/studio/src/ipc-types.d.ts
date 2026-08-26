@@ -5,6 +5,15 @@ interface ShowNotificationOptions extends Electron.NotificationConstructorOption
 	showIcon: boolean;
 }
 
+type SiteRuntime = 'playground' | 'native-php';
+type SiteFileAccess = 'site-directory' | 'all-files';
+
+// Inline import type, not a top-level `import`: this file is an ambient
+// declaration, and a real import would turn it into a module and take every
+// global declaration in here with it. Hand-mirroring the shape instead drifts
+// the moment an operation is added.
+type SiteOperation = import('@studio/common/lib/site-operation').SiteOperation;
+
 interface StoppedSiteDetails {
 	running: false;
 
@@ -29,6 +38,13 @@ interface StoppedSiteDetails {
 		supportsWidgets: boolean;
 		supportsMenus: boolean;
 	};
+	// Absolute filesystem path of the configured WordPress Site Icon.
+	// `null` means we've checked and the site has no icon configured;
+	// `undefined` means we've never fetched.
+	siteIconPath?: string | null;
+	// Data URL produced from `siteIconPath` for the renderer to display.
+	// Computed at the IPC boundary in `getSiteDetails`, never persisted.
+	siteIcon?: string | null;
 	isAddingSite?: boolean;
 	autoStart?: boolean;
 	latestCliPid?: number;
@@ -36,6 +52,10 @@ interface StoppedSiteDetails {
 	enableDebugLog?: boolean;
 	enableDebugDisplay?: boolean;
 	sortOrder?: number;
+	landingPage?: string;
+	runtime?: SiteRuntime;
+	fileAccess?: SiteFileAccess;
+	operation?: SiteOperation;
 }
 
 interface StartedSiteDetails extends StoppedSiteDetails {
@@ -86,12 +106,13 @@ type IpcApi = {
 	getPathForFile: ( file: File ) => string;
 };
 
-interface FeatureFlags {
-	enableBlueprints: boolean;
-}
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- no flags in flight; see `src/lib/feature-flags.ts`
+interface FeatureFlags {}
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-interface BetaFeatures {}
+interface BetaFeatures {
+	remoteSession: boolean;
+	enableAgenticUi: boolean;
+}
 
 interface AppGlobals extends FeatureFlags {
 	platform: NodeJS.Platform;

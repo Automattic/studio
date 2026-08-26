@@ -576,8 +576,9 @@ async function runBenchmark(
 		chalk.gray( `    Running benchmark (${ rounds } round${ rounds > 1 ? 's' : '' })...` )
 	);
 
-	const isPlaygroundWeb = benchmarkUrl.includes( 'playground.wordpress.net' );
-	const isPlaygroundCli = benchmarkUrl.includes( '127.0.0.1' );
+	const parsedBenchmarkUrl = new URL( benchmarkUrl );
+	const isPlaygroundWeb = parsedBenchmarkUrl.hostname === 'playground.wordpress.net';
+	const isPlaygroundCli = parsedBenchmarkUrl.hostname === '127.0.0.1';
 	const allMeasurements: MeasurementResult[] = [];
 
 	for ( let round = 1; round <= rounds; round++ ) {

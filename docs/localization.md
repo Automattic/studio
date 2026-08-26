@@ -6,11 +6,22 @@ into the app is fully automated as part of the release process.
 
 ## Supported Languages
 
-We currently support the magnificent 16 languages defined in `common/lib/locale.ts`,
-as well as Polish, Vietnamese, Ukrainian and Hungarian.
-If you want to add support for another language you will need to add it to the
-`supportedLocales` array and add a corresponding `studio-<locale>.jed.json` file
-in `tools/common/translations/`.
+The set of supported languages is defined by `supportedLocaleNames` in
+`packages/common/lib/locale.ts`. To add a new language:
+
+1. Add a `studio-<locale>.jed.json` file in `packages/common/translations/`.
+2. Import it and register it in `localeDataDictionary` in
+   `packages/common/translations/index.ts`.
+3. Add a `supportedLocaleNames` entry (its display name) in
+   `packages/common/lib/locale.ts`.
+
+The `supportedLocales` array is derived automatically from `supportedLocaleNames`,
+so it does not need to be edited by hand.
+
+The `<locale>` slug must match the language's slug in the
+[Studio GlotPress project](https://translate.wordpress.com/projects/studio/) — the
+automated export (see below) downloads from `…/<locale>/default/export-translations/`
+and fails if that locale does not exist there.
 
 ## Translation Process
 
@@ -30,8 +41,10 @@ from GlotPress in Jed 1.x JSON format (which `@wordpress/i18n` understands) and 
 them directly to the release branch before bumping the version. It's ok if some translations
 are missing — they will be left as English in the app.
 
-The lane discovers locales from the existing `studio-*.jed.json` files in
-`tools/common/translations/` and downloads each one from GlotPress.
+The lane discovers locales by globbing the existing `studio-*.jed.json` files in
+`packages/common/translations/` (e.g. `studio-ckb.jed.json` → `ckb`) and downloads each
+one from GlotPress. There is no separate allowlist — adding a translation file is what
+opts a locale into the automated download.
 
 No manual steps are needed for translation export. The standalone `fetch_glotpress_translations`
 lane can be used to manually download translations if needed.

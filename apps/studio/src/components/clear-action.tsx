@@ -15,17 +15,17 @@ export function ClearAction( {
 } ) {
 	const { __ } = useI18n();
 	return (
-		<div
-			className={ cx(
-				'flex gap-4 items-center',
-				isError ? 'text-a8c-red-50' : 'text-a8c-green-50'
-			) }
-		>
-			<span className="flex items-center gap-2">
+		<div className="flex gap-4 items-center">
+			<span
+				className={ cx(
+					'flex items-center gap-2',
+					isError ? 'text-a8c-red-50' : 'text-a8c-green-50'
+				) }
+			>
 				{ isError ? <ErrorIcon /> : <CheckIcon /> }
 				{ children }
 			</span>
-			<Button variant="link" className="ms-3" onClick={ onClick }>
+			<Button variant="link" className="ms-3 whitespace-nowrap" onClick={ onClick }>
 				{ __( 'Clear' ) }
 			</Button>
 		</div>

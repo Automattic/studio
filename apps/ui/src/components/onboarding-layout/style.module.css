@@ -1,0 +1,21 @@
+.root {
+	height: 100vh;
+	position: relative;
+	overflow-y: auto;
+	isolation: isolate;
+}
+
+.content {
+	max-width: 640px;
+	width: 100%;
+	margin-block: auto;
+	padding: var(--wpds-dimension-padding-3xl);
+}
+
+.contentWide {
+	max-width: 960px;
+}
+
+.contentWithClose {
+	padding-block-start: calc(var(--wpds-dimension-padding-3xl) + 32px);
+}

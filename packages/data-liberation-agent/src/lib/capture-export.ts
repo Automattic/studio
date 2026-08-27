@@ -167,6 +167,21 @@ function routeOutputPath( url: string, sourceUrl: string, entrypointUrl: string 
 	return join( cleanPath, 'index.html' );
 }
 
+/**
+ * Reports whether a captured page is an alternate address for an already claimed route.
+ *
+ * Sites commonly serve one document from several URLs, such as `/` and `/index.html`.
+ * The alternate address declares the claimed route as its canonical URL, so the capture
+ * keeps the claimed page and links the alternate address to it.
+ */
+function declaresCanonicalRoute( entry: CaptureEntry, claimed: CaptureEntry ): boolean {
+	if ( ! entry.canonicalUrl ) return false;
+	const claimedCanonical = claimed.canonicalUrl
+		? normalizedUrl( claimed.canonicalUrl )
+		: normalizedUrl( claimed.url );
+	return normalizedUrl( entry.canonicalUrl ) === claimedCanonical;
+}
+
 function rewriteCapturedRouteLinks(
 	html: string,
 	documentUrl: string,
@@ -1066,7 +1081,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 	mkdirSync( websiteDir, { recursive: true } );
 	mkdirSync( stagedHtmlDir, { recursive: true } );
 
-	const retainedEntries: CaptureEntry[] = [];
+	const capturedEntries: CaptureEntry[] = [];
 	const interactionPages: InteractionStatesReport[] = [];
 	const excludedRoutes: string[] = [];
 	for ( const [ url, entry ] of Object.entries( capture.entries ) ) {
@@ -1090,9 +1105,9 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		const html = safeCapturedPageHtml(
 			mobileHtml === undefined ? desktopHtml : responsiveHtml( desktopHtml, mobileHtml )
 		);
-		const stagedHtmlPath = join( stagedHtmlDir, `${ retainedEntries.length }.html` );
+		const stagedHtmlPath = join( stagedHtmlDir, `${ capturedEntries.length }.html` );
 		writeFileSync( stagedHtmlPath, html );
-		retainedEntries.push( {
+		capturedEntries.push( {
 			slug: entry.slug ?? basename( entry.html, '.html' ),
 			url,
 			htmlPath: stagedHtmlPath,
@@ -1105,13 +1120,13 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 	}
 
 	const normalizedSourceUrl = normalizedUrl( options.sourceUrl );
-	const exactEntrypointCandidates = retainedEntries.filter(
+	const exactEntrypointCandidates = capturedEntries.filter(
 		( { url } ) => normalizedUrl( url ) === normalizedSourceUrl
 	);
 	const entrypointCandidates =
 		exactEntrypointCandidates.length > 0
 			? exactEntrypointCandidates
-			: retainedEntries.filter(
+			: capturedEntries.filter(
 					( { canonicalUrl } ) =>
 						canonicalUrl !== undefined && normalizedUrl( canonicalUrl ) === normalizedSourceUrl
 			  );
@@ -1121,6 +1136,35 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		);
 	}
 	const entrypointUrl = entrypointCandidates[ 0 ].url;
+
+	const retainedEntries: CaptureEntry[] = [];
+	const duplicateRoutes: Array< { url: string; canonicalUrl: string; path: string } > = [];
+	const canonicalRouteAliases = new Map< string, string >();
+	const claimedRoutes = new Map< string, CaptureEntry >();
+	for ( const entry of [
+		...capturedEntries.filter( ( { url } ) => url === entrypointUrl ),
+		...capturedEntries.filter( ( { url } ) => url !== entrypointUrl ),
+	] ) {
+		const routePath = routeOutputPath( entry.url, options.sourceUrl, entrypointUrl ).replace(
+			/\\/g,
+			'/'
+		);
+		const claimed = claimedRoutes.get( routePath );
+		if ( ! claimed ) {
+			claimedRoutes.set( routePath, entry );
+			retainedEntries.push( entry );
+			continue;
+		}
+		if ( ! declaresCanonicalRoute( entry, claimed ) ) {
+			throw new Error( `Captured routes resolve to the same website path: ${ routePath }` );
+		}
+		duplicateRoutes.push( {
+			url: entry.url,
+			canonicalUrl: claimed.url,
+			path: `website/${ routePath }`,
+		} );
+		canonicalRouteAliases.set( normalizedUrl( entry.url ), routePath );
+	}
 	const mediaReplacements = new Map< string, string >();
 	const unresolvedMedia: Array< { url: string; error: string } > = [];
 	const assets: Array< { sourceUrl: string; path: string } > = [];
@@ -1457,19 +1501,18 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 
 	const routes: Array< { url: string; path: string } > = [];
 	const portableRouteLinks = new Map< string, string >();
-	const claimedPaths = new Set< string >();
 	for ( const { url } of retainedEntries ) {
 		const routePath = routeOutputPath( url, options.sourceUrl, entrypointUrl ).replace(
 			/\\/g,
 			'/'
 		);
-		if ( claimedPaths.has( routePath ) ) {
-			throw new Error( `Captured routes resolve to the same website path: ${ routePath }` );
-		}
-		claimedPaths.add( routePath );
 		const portablePath = `/${ routePath }`;
 		portableRouteLinks.set( normalizedUrl( url ), portablePath );
 		routes.push( { url, path: `website/${ routePath }` } );
+	}
+	for ( const [ aliasKey, routePath ] of canonicalRouteAliases ) {
+		if ( portableRouteLinks.has( aliasKey ) ) continue;
+		portableRouteLinks.set( aliasKey, `/${ routePath }` );
 	}
 	for ( const { url, canonicalUrl } of retainedEntries ) {
 		if ( ! canonicalUrl ) continue;
@@ -1634,6 +1677,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 				interactions: interactionSummary,
 				layoutGeometry: geometryReport,
 				excludedRoutes,
+				duplicateRoutes,
 				summary: options.summary,
 			},
 			null,
@@ -1655,6 +1699,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 				interactions: interactionSummary,
 				interactionFailures: interactionStates.filter( ( state ) => state.status !== 'captured' ),
 				excludedRoutes,
+				duplicateRoutes,
 			},
 			null,
 			2

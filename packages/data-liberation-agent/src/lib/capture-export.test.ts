@@ -1596,6 +1596,94 @@ if ( existsSync( ${ JSON.stringify( join( outputDir, '.capture-export-html' ) ) 
 		);
 	} );
 
+	it( 'keeps one route when an alternate address declares the claimed route as canonical', () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-capture-export-' ) );
+		dirs.push( outputDir );
+		mkdirSync( join( outputDir, 'html' ), { recursive: true } );
+		mkdirSync( join( outputDir, 'screenshots' ), { recursive: true } );
+		writeFileSync(
+			join( outputDir, 'html', 'homepage.html' ),
+			'<meta property="og:url" content="https://example.com/"><h1>Home</h1><a href="https://example.com/about">About</a>'
+		);
+		writeFileSync(
+			join( outputDir, 'html', 'index.html.html' ),
+			'<meta property="og:url" content="https://example.com/"><h1>Home</h1>'
+		);
+		writeFileSync(
+			join( outputDir, 'html', 'about.html' ),
+			'<h1>About</h1><a href="https://example.com/index.html">Home</a>'
+		);
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				entries: {
+					'https://example.com/': { html: 'html/homepage.html' },
+					'https://example.com/index.html': { html: 'html/index.html.html' },
+					'https://example.com/about': { html: 'html/about.html' },
+				},
+			} )
+		);
+
+		const receiptPath = exportWebsiteCapture( {
+			outputDir,
+			sourceUrl: 'https://example.com',
+			platform: 'fake',
+			summary: {},
+			failures: [],
+		} );
+
+		const receipt = JSON.parse( readFileSync( receiptPath, 'utf8' ) );
+		expect( receipt.routes ).toEqual( [
+			{ url: 'https://example.com/', path: 'website/index.html' },
+			{ url: 'https://example.com/about', path: 'website/about/index.html' },
+		] );
+		expect( receipt.duplicateRoutes ).toEqual( [
+			{
+				url: 'https://example.com/index.html',
+				canonicalUrl: 'https://example.com/',
+				path: 'website/index.html',
+			},
+		] );
+		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).toContain(
+			'<h1>Home</h1>'
+		);
+		expect( readFileSync( join( outputDir, 'website', 'about', 'index.html' ), 'utf8' ) ).toContain(
+			'href="/index.html"'
+		);
+	} );
+
+	it( 'fails when routes claim the same website path without declaring a canonical route', () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-capture-export-' ) );
+		dirs.push( outputDir );
+		mkdirSync( join( outputDir, 'html' ), { recursive: true } );
+		mkdirSync( join( outputDir, 'screenshots' ), { recursive: true } );
+		writeFileSync( join( outputDir, 'html', 'homepage.html' ), '<h1>Home</h1>' );
+		writeFileSync( join( outputDir, 'html', 'about.html' ), '<h1>About</h1>' );
+		writeFileSync( join( outputDir, 'html', 'about-slash.html' ), '<h1>About us</h1>' );
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				entries: {
+					'https://example.com/': { html: 'html/homepage.html' },
+					'https://example.com/about': { html: 'html/about.html' },
+					'https://example.com/about/': { html: 'html/about-slash.html' },
+				},
+			} )
+		);
+
+		expect( () =>
+			exportWebsiteCapture( {
+				outputDir,
+				sourceUrl: 'https://example.com',
+				platform: 'fake',
+				summary: {},
+				failures: [],
+			} )
+		).toThrow( 'Captured routes resolve to the same website path: about/index.html' );
+	} );
+
 	it( 'localizes external lazy, responsive, preload, icon, and recursive CSS render dependencies', () => {
 		const outputDir = mkdtempSync( join( tmpdir(), 'dla-portable-render-' ) );
 		dirs.push( outputDir );

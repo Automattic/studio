@@ -56,9 +56,7 @@ describe( 'OnboardingHomePage', () => {
 		expect( connect ).toHaveAttribute( 'href', '/onboarding/connect' );
 		expect( importBackup ).toBeEnabled();
 		expect( create.compareDocumentPosition( blueprint ) ).toBe( Node.DOCUMENT_POSITION_FOLLOWING );
-		expect( blueprint.compareDocumentPosition( connect ) ).toBe(
-			Node.DOCUMENT_POSITION_FOLLOWING
-		);
+		expect( blueprint.compareDocumentPosition( connect ) ).toBe( Node.DOCUMENT_POSITION_FOLLOWING );
 		expect( connect.compareDocumentPosition( importBackup ) ).toBe(
 			Node.DOCUMENT_POSITION_FOLLOWING
 		);

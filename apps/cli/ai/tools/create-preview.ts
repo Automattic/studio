@@ -12,14 +12,15 @@ export const createPreviewTool = defineTool(
 			description: 'The local site name or file system path to preview',
 		} ),
 	},
-	async ( args ) => {
+	async ( args, context ) => {
 		return runPreviewCommand(
-			async () => {
+			async ( logger ) => {
 				const site = await resolveSite( args.nameOrPath );
-				await runCreatePreviewCommand( site.path );
+				await runCreatePreviewCommand( site.path, undefined, logger );
 			},
 			`Preview site created for "${ args.nameOrPath }".`,
-			'Failed to create preview site'
+			'Failed to create preview site',
+			context.onProgress
 		);
 	}
 );

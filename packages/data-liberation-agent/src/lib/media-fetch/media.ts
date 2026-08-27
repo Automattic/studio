@@ -340,6 +340,8 @@ export async function downloadMedia(
         const ext = extname(filename);
         const pngFilename = safeFilename(`${filename.slice(0, -ext.length)}.png`, seenNames);
         const pngPath = resolveMediaPath(pngFilename, outputDir);
+        // rasterizeSvg bounds its own browser calls and never throws — a
+        // frozen raster browser degrades to rasterError, not a hung loop.
         const raster = await rasterizeSvg(destPath, pngPath);
         svgExtras = raster.ok
           ? { svgRisky, rasterPath: pngPath }

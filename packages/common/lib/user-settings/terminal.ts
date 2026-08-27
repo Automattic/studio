@@ -3,6 +3,9 @@ import { __ } from '@wordpress/i18n';
 export const SUPPORTED_TERMINALS = [ 'terminal', 'iterm', 'warp', 'ghostty' ] as const;
 export type SupportedTerminal = ( typeof SUPPORTED_TERMINALS )[ number ];
 
+// What an unset terminal preference resolves to.
+export const DEFAULT_TERMINAL: SupportedTerminal = 'terminal';
+
 export type TerminalPlatform = 'darwin' | 'win32' | 'linux';
 
 export type TerminalConfig = {

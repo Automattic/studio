@@ -91,7 +91,7 @@ import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-man
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
-const logger = new Logger< LoggerAction >();
+const defaultLogger = new Logger< LoggerAction >();
 
 export type CreateCommandOptions = {
 	name?: string;
@@ -129,7 +129,8 @@ function parseFlowType( value: string | undefined ): TracksSiteCreateFlowType | 
 
 export async function runCommand(
 	sitePath: string,
-	options: CreateCommandOptions
+	options: CreateCommandOptions,
+	logger: Logger< LoggerAction > = defaultLogger
 ): Promise< void > {
 	const siteRuntime = options.runtime;
 	if ( ! isFileAccessAllowedForRuntime( siteRuntime, options.fileAccess ) ) {
@@ -655,7 +656,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 			const runtime = siteRuntimeFromMode( argv.runtime );
 			const fileAccess = argv.fileAccess;
 			if ( ! isFileAccessAllowedForRuntime( runtime, fileAccess ) ) {
-				logger.reportError(
+				defaultLogger.reportError(
 					new LoggerError(
 						__(
 							'File access "all-files" requires the native PHP runtime. The sandbox only has access to the site directory.'
@@ -668,7 +669,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 			// Validate and resolve the WordPress version against available versions before prompting
 			if ( wpVersion && wpVersion !== 'latest' && wpVersion !== 'nightly' ) {
 				try {
-					logger.reportStart( LoggerAction.VALIDATE, __( 'Checking WordPress version…' ) );
+					defaultLogger.reportStart( LoggerAction.VALIDATE, __( 'Checking WordPress version…' ) );
 					const availableVersions = await fetchWordPressVersions();
 					const matchedVersion = availableVersions.find(
 						( v ) => v.value === wpVersion || v.value.startsWith( wpVersion + '.' )
@@ -677,7 +678,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 						const versionLabels = availableVersions
 							.filter( ( v ) => v.value !== 'latest' )
 							.map( ( v ) => v.label );
-						logger.reportError(
+						defaultLogger.reportError(
 							new LoggerError(
 								sprintf(
 									/* translators: %1$s: requested version, %2$s: list of available versions */
@@ -691,7 +692,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					}
 					// Resolve short versions to full versions (e.g. "6.7" → "6.7.2")
 					if ( matchedVersion.value !== wpVersion ) {
-						logger.reportSuccess(
+						defaultLogger.reportSuccess(
 							sprintf(
 								/* translators: %1$s: requested version, %2$s: resolved version */
 								__( 'WordPress version: %1$s → %2$s' ),
@@ -700,7 +701,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 							)
 						);
 					} else {
-						logger.reportSuccess(
+						defaultLogger.reportSuccess(
 							sprintf(
 								/* translators: %s: WordPress version */
 								__( 'WordPress version: %s' ),
@@ -882,10 +883,10 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				}
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {
-					logger.reportError( error );
+					defaultLogger.reportError( error );
 				} else {
 					const loggerError = new LoggerError( __( 'Failed to create site' ), error );
-					logger.reportError( loggerError );
+					defaultLogger.reportError( loggerError );
 				}
 			}
 		},

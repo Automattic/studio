@@ -8,11 +8,63 @@ export const ADD_PAYMENT_METHOD_URL = 'https://my.wordpress.com/me/billing/payme
 
 export const WPCOM_SUPPORT_CONTACT_URL = 'https://wordpress.com/support/contact/';
 
+// Deeplink host checkout returns to once the top-up completes or is cancelled,
+// handled by `ai-credits-purchased` in the desktop deeplink router. Checkout
+// builds the full `wp-studio://` URL itself, so only the host travels in the
+// `studioReturnTo` parameter.
+export const AI_CREDITS_PURCHASED_RETURN_TO = 'ai-credits-purchased';
+
+// Checkout wants a site id alongside the return destination, but a credits
+// top-up isn't tied to a site — this placeholder satisfies the parameter
+// without pointing anywhere.
+const CHECKOUT_PLACEHOLDER_SITE_ID = 'b4b08783-91cd-4aa1-b2ee-28575c26a762';
+
+// WordPress.com checkout for a Studio Code AI credits top-up (STU-2299). The
+// `:-q-<n>` suffix is checkout's quantity syntax, in the same 1/10000 USD units
+// the quota reports — 100000 is the $10 top-up.
+const ADD_AI_CREDITS_CHECKOUT_URL = 'https://wordpress.com/checkout/wpcom/studio-code-ai-credits';
+
+// Quantity used wherever a surface offers a single top-up rather than the
+// priced options from `/top-up-pricing` (STU-2326).
+export const DEFAULT_AI_CREDITS_TOP_UP = 100000;
+
+// Bare by default: checkout stays on WordPress.com when it's done.
+export const ADD_AI_CREDITS_URL = `${ ADD_AI_CREDITS_CHECKOUT_URL }:-q-${ DEFAULT_AI_CREDITS_TOP_UP }`;
+
+/**
+ * Checkout URL for the surface the user is buying from. Only the desktop app
+ * registers the `wp-studio://` scheme, so only it may ask checkout to send the
+ * user back — the CLI has nothing to return to (see the OAuth flow, which uses
+ * a copy/paste page there for the same reason), and pointing a plain browser
+ * at an unopenable scheme is worse than leaving the user on WordPress.com.
+ * Everywhere else gets the bare URL, down to the return-only site id.
+ */
+export function getAddAiCreditsUrl( {
+	returnsToDesktop,
+	credits = DEFAULT_AI_CREDITS_TOP_UP,
+}: {
+	returnsToDesktop: boolean;
+	credits?: number;
+} ): string {
+	const url = `${ ADD_AI_CREDITS_CHECKOUT_URL }:-q-${ credits }`;
+	if ( ! returnsToDesktop ) {
+		return url;
+	}
+	return (
+		`${ url }?studioSiteId=${ CHECKOUT_PLACEHOLDER_SITE_ID }` +
+		`&studioReturnTo=${ AI_CREDITS_PURCHASED_RETURN_TO }`
+	);
+}
+
 export const studioAssistantQuotaSchema = z
 	.object( {
 		cost_usage: z.number(),
 		cost_cap: z.number(),
-		cost_reset_date: z.string(),
+		// Optional on purpose: the monthly reset is being retired server-side and
+		// the field is currently a hardcoded stand-in, so it can disappear from the
+		// response at any time. Every surface must read it as "reset date unknown"
+		// and drop the reset sentence rather than break.
+		cost_reset_date: z.string().optional(),
 		// Entitlement gates (STU-2174); older servers omit both fields. Default to
 		// true so a stale server never locks the UI — the proxy still enforces.
 		email_verified: z.boolean().optional(),
@@ -24,6 +76,12 @@ export const studioAssistantQuotaSchema = z
 		// server-side values never fail the parse).
 		studio_code_ai_has_access: z.boolean().optional(),
 		studio_code_ai_access: z.string().optional(),
+		// Remaining AI credits per pool (STU-2235). The server omits both fields
+		// when the AI Credits feature is off for the account — the UI keys the
+		// credit-balance design off their presence, so `undefined` (not 0) must
+		// mean "feature off, keep the old design".
+		allowance_remaining: z.number().optional(),
+		purchased_remaining: z.number().optional(),
 	} )
 	.transform( ( data ) => ( {
 		costUsage: data.cost_usage,
@@ -33,6 +91,8 @@ export const studioAssistantQuotaSchema = z
 		hasPaymentMethod: data.has_payment_method ?? true,
 		studioCodeAiHasAccess: data.studio_code_ai_has_access,
 		studioCodeAiAccess: data.studio_code_ai_access,
+		allowanceRemaining: data.allowance_remaining,
+		purchasedRemaining: data.purchased_remaining,
 	} ) );
 
 export type StudioAssistantQuota = z.infer< typeof studioAssistantQuotaSchema >;
@@ -172,4 +232,28 @@ export function formatUsageCapNotice( resetDate?: string | null, locale?: string
 		);
 	}
 	return __( 'You’ve reached your monthly AI usage limit. Try again later.' );
+}
+
+/**
+ * User-facing copy for having exhausted both AI credit pools — the free
+ * monthly allowance and purchased credits (STU-2236). Shared by every surface
+ * so the wording stays consistent. Deliberately never mentions the monthly
+ * reset: unlike the usage cap, waiting doesn't fix this state — buying
+ * credits does.
+ */
+export function formatOutOfCreditsNotice(): string {
+	return __( 'You’re out of AI credits. Add more credits to continue using Studio Code.' );
+}
+
+/**
+ * Heading for the out-of-credits card on surfaces that render a title and a
+ * purchase button separately, rather than the one-sentence notice above.
+ */
+export function formatOutOfCreditsTitle(): string {
+	return __( 'No AI credits available' );
+}
+
+/** Body of that card: what happened, and what fixes it. */
+export function formatOutOfCreditsDescription(): string {
+	return __( 'You’ve used your available AI credits. Add more to keep chatting.' );
 }

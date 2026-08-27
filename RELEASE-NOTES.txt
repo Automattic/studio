@@ -1,6 +1,16 @@
 Unreleased
 ==========
 
+1.19.0
+=====
+* Introduced AI credits in Studio Code: you can now purchase AI credits for your sessions. Your remaining balance now shows in the composer, in Usage settings, and in Studio Classic settings. You get a clear message and a working top-up link when you run out, and the balance refreshes as soon as you return from topping up #4604, #4602, #4636, #4609, #4619, #4628, #4639, #4624
+* Added hosted AI models — Kimi, GLM and DeepSeek — available through the WordPress.com proxy #4529
+* Studio Code: Improved generated themes with a content width and horizontal gutter, a registered no-title page template so designed pages no longer repeat their title, and slideshow and gallery builds steered to Jetpack blocks #4571, #4576, #4610
+* Misc Agentic UI improvements #4468, #4526, #4537, #4538, #4558, #4560, #4561, #4568, #4569, #4570, #4572, #4575, #4578, #4586, #4591, #4598, #4607, #4608, #4621, #4623, #4626
+* Improved Studio analytics #4535
+* Updated multiple dependencies, including Electron and the ESLint, Vite, testing and Ruby groups #4547, #4631, #4548, #4633, #4549, #4632, #4566, #4661, #4546, #4629, #4630
+* Misc and maintenance improvements #4531, #4654, #4581, #4600, #4665
+
 1.18.0
 =====
 * Made the Agentic UI the default experience for new users, removed its feature flag, and added a Beta menu to the sidebar #4389, #4485

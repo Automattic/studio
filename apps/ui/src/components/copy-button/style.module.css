@@ -27,6 +27,19 @@
 	background-color: var(--wpds-color-bg-surface-neutral-weak);
 }
 
+.copyButton[data-copied='true'] {
+	color: var(--wpds-color-fg-content-success);
+	background-color: var(--wpds-color-bg-surface-success-weak);
+}
+
+.copyButton[data-variant='plain'],
+.copyButton[data-variant='plain']:hover,
+.copyButton[data-variant='plain']:focus-visible,
+.copyButton[data-variant='plain'][data-copied='true'] {
+	background-color: transparent;
+	backdrop-filter: none;
+}
+
 .visuallyHidden {
 	position: absolute;
 	width: 1px;

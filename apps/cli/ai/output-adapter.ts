@@ -98,8 +98,8 @@ export class JsonAdapter implements AiOutputAdapter {
 		// No-op in JSON mode
 	}
 
-	showProgress( message: string ): void {
-		emitEvent( { type: 'progress', timestamp: new Date().toISOString(), message } );
+	showProgress( _message: string ): void {
+		// No-op in JSON mode
 	}
 
 	setBusy( _active: boolean ): void {
@@ -122,8 +122,8 @@ export class JsonAdapter implements AiOutputAdapter {
 		// No-op in JSON mode
 	}
 
-	setLoaderMessage( message: string, _update?: boolean ): void {
-		this.showProgress( message );
+	setLoaderMessage( _message: string, _update?: boolean ): void {
+		// No-op in JSON mode
 	}
 
 	beginAgentTurn( sessionId?: string ): void {

@@ -28,7 +28,10 @@ function getCategory( relativePath: string ): StorageCategory {
 	return match?.[ 1 ] ?? 'other';
 }
 
-export async function measureSiteStorage( sitePath: string ): Promise< SiteStorageUsage > {
+export async function measureSiteStorage(
+	sitePath: string,
+	{ signal }: { signal?: AbortSignal } = {}
+): Promise< SiteStorageUsage > {
 	const usage: SiteStorageUsage = {
 		total: 0,
 		uploads: 0,
@@ -41,6 +44,7 @@ export async function measureSiteStorage( sitePath: string ): Promise< SiteStora
 	const files: Array< { path: string; category: StorageCategory } > = [];
 
 	for ( let index = 0; index < directories.length; index++ ) {
+		signal?.throwIfAborted();
 		const directory = directories[ index ];
 		let entries;
 		try {
@@ -65,6 +69,7 @@ export async function measureSiteStorage( sitePath: string ): Promise< SiteStora
 	let nextFile = 0;
 	async function measureNextFile(): Promise< void > {
 		while ( nextFile < files.length ) {
+			signal?.throwIfAborted();
 			const file = files[ nextFile++ ];
 			try {
 				const stats = await fs.stat( file.path );

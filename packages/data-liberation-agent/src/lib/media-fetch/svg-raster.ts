@@ -1,5 +1,7 @@
 import { readFileSync, renameSync, unlinkSync } from 'fs';
+import { basename } from 'path';
 import { getPlaywright } from '../browser-kit/index.js';
+import { withTimeout } from '../concurrency.js';
 
 /**
  * SVG → PNG raster sibling support for fetched media.
@@ -26,6 +28,10 @@ export type RasterizeResult =
   | { ok: true; width: number; height: number }
   | { ok: false; error: string };
 
+const LAUNCH_TIMEOUT_MS = 30_000;
+const RENDER_TIMEOUT_MS = 60_000;
+const CLOSE_TIMEOUT_MS = 10_000;
+
 type CachedBrowser = Awaited<ReturnType<(typeof import('playwright'))['chromium']['launch']>>;
 
 /**
@@ -39,29 +45,48 @@ type CachedBrowser = Awaited<ReturnType<(typeof import('playwright'))['chromium'
  */
 let browserPromise: Promise<CachedBrowser> | null = null;
 
-async function getRasterBrowser(): Promise<CachedBrowser> {
+function getRasterBrowser(): Promise<CachedBrowser> {
   if (!browserPromise) {
-    browserPromise = (async () => {
+    const attempt: Promise<CachedBrowser> = (async () => {
       const pw = await getPlaywright();
       return pw.chromium.launch({ headless: true });
     })().catch((err) => {
       // Failed launch must not poison the cache — let the next call retry.
-      browserPromise = null;
+      if (browserPromise === attempt) browserPromise = null;
       throw err;
     });
+    browserPromise = attempt;
   }
   return browserPromise;
 }
 
-/** Close the shared rasterizer browser (idempotent; safe when never launched). */
+const boundedBrowserClose = (browser: CachedBrowser): Promise<void> =>
+  withTimeout(browser.close(), CLOSE_TIMEOUT_MS, 'svg raster browser close').catch(() => {});
+
+/**
+ * Drop `pending` from the cache (so the next SVG relaunches fresh) and close
+ * its browser once it exists. Idempotent per attempt: only the call that still
+ * owns the cache slot closes, so a browser is never disposed twice.
+ */
+function dropRasterBrowser(pending: Promise<CachedBrowser>): void {
+  if (browserPromise !== pending) return;
+  browserPromise = null;
+  void pending.then(boundedBrowserClose).catch(() => {});
+}
+
+/** Close the shared rasterizer browser (idempotent; safe when never launched).
+ *  Bounded — a hung launch or close can never stall final cleanup. */
 export async function closeSvgRasterizer(): Promise<void> {
   const pending = browserPromise;
   browserPromise = null;
   if (!pending) return;
   try {
-    await (await pending).close();
+    const browser = await withTimeout(
+      pending, CLOSE_TIMEOUT_MS, 'svg rasterizer close settle',
+      (late) => { void boundedBrowserClose(late); });
+    await boundedBrowserClose(browser);
   } catch {
-    // already closed / launch failed — nothing to do
+    // launch failed or never settled — nothing to close
   }
 }
 
@@ -75,11 +100,43 @@ const SVG_LOAD_TIMEOUT_MS = 10000;
  * the zero-dimension guard). NEVER throws — failures return `{ok:false}` so a
  * raster problem can't fail the media fetch that triggered it. The PNG write
  * is atomic (unique tmp + rename).
+ *
+ * Launch and render are each bounded (Playwright's evaluate has no default
+ * timeout). A timeout — or a failure that left the shared browser dead —
+ * drops the cached browser so the next SVG relaunches fresh.
  */
 export async function rasterizeSvg(
   svgPath: string,
   pngPath: string,
   maxEdge = 1024,
+): Promise<RasterizeResult> {
+  const pending = getRasterBrowser();
+  let browser: CachedBrowser;
+  try {
+    browser = await withTimeout(pending, LAUNCH_TIMEOUT_MS, 'svg raster launch');
+  } catch (err) {
+    dropRasterBrowser(pending);
+    return { ok: false, error: (err as Error).message };
+  }
+  try {
+    const result = await withTimeout(
+      renderToPng(browser, svgPath, pngPath, maxEdge),
+      RENDER_TIMEOUT_MS,
+      `svg raster ${basename(svgPath)}`,
+    );
+    if (!result.ok && !browser.isConnected()) dropRasterBrowser(pending);
+    return result;
+  } catch (err) {
+    dropRasterBrowser(pending);
+    return { ok: false, error: (err as Error).message };
+  }
+}
+
+async function renderToPng(
+  browser: CachedBrowser,
+  svgPath: string,
+  pngPath: string,
+  maxEdge: number,
 ): Promise<RasterizeResult> {
   let context: Awaited<ReturnType<CachedBrowser['newContext']>> | null = null;
   const tmpPath = `${pngPath}.tmp-${process.pid}-${Date.now()}`;
@@ -89,7 +146,6 @@ export async function rasterizeSvg(
     const svgBytes = readFileSync(svgPath);
     const dataUrl = `data:image/svg+xml;base64,${svgBytes.toString('base64')}`;
 
-    const browser = await getRasterBrowser();
     context = await browser.newContext({ viewport: { width: maxEdge, height: maxEdge } });
     // Polyfill tsx/esbuild's __name helper inside the page (mirrors screenshotter) —
     // page.evaluate closures serialized under tsx carry __name() instrumentation.
@@ -147,6 +203,11 @@ export async function rasterizeSvg(
     try { unlinkSync(tmpPath); } catch { /* no partial tmp to clean */ }
     return { ok: false, error: (err as Error).message };
   } finally {
-    try { await context?.close(); } catch { /* browser already gone */ }
+    // Bounded so a hung close can't hold a finished render past the deadline.
+    if (context) {
+      await withTimeout(context.close(), CLOSE_TIMEOUT_MS, 'svg raster context close').catch(
+        () => {}
+      );
+    }
   }
 }

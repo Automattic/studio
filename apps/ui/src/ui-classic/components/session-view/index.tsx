@@ -16,6 +16,7 @@ import {
 	type ReactNode,
 	type Ref,
 } from 'react';
+import { OutOfCreditsNotice } from '@/components/ai-access-required-notice';
 import { PreviewToggleButton } from '@/components/preview-toggle-button';
 import { ProgressiveBlur } from '@/components/progressive-blur';
 import { SiteDropdown } from '@/components/site-dropdown';
@@ -30,6 +31,7 @@ import {
 	useSessions,
 } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
+import { useIsOutOfAiCredits } from '@/hooks/use-is-out-of-ai-credits';
 import { useSessionCommands } from '@/hooks/use-session-commands';
 import { SessionUIProvider, useSessionPreviewAnnotations } from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
@@ -301,6 +303,10 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		updateIsScrolledAway();
 	}, [ data, pendingQuestions.length, queuedPrompts.length, updateIsScrolledAway ] );
 
+	useLayoutEffect( () => {
+		setIsScrolledAway( false );
+	}, [ sessionId ] );
+
 	const scrollToLatest = useCallback( () => {
 		const node = scrollRef.current;
 		if ( ! node ) {
@@ -375,7 +381,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 
 	useLayoutEffect( () => {
 		const node = scrollRef.current;
-		if ( ! node || pendingQuestions.length > 0 ) {
+		if ( ! node || isScrolledAway || pendingQuestions.length > 0 ) {
 			return;
 		}
 		node.scrollTop = node.scrollHeight;
@@ -383,7 +389,14 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			node.scrollTop = node.scrollHeight;
 		} );
 		return () => cancelAnimationFrame( id );
-	}, [ sessionId, data, isRunning, pendingQuestions.length, queuedPrompts.length ] );
+	}, [
+		sessionId,
+		data,
+		isRunning,
+		isScrolledAway,
+		pendingQuestions.length,
+		queuedPrompts.length,
+	] );
 
 	const {
 		data: quota,
@@ -391,6 +404,9 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		isFetching: isQuotaFetching,
 		refetch: refetchQuota,
 	} = useStudioAssistantQuota();
+	// Out of credits replaces the composer: there is nothing to type into
+	// until the account buys more, so the offer takes the input's place.
+	const isOutOfCredits = useIsOutOfAiCredits();
 
 	// Fade the composer and prompts in only right after the entitlement check
 	// resolves; ordinary session loads and switches render instantly. The
@@ -490,19 +506,23 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 							/>
 						</div>
 					) : null }
-					<Composer
-						ref={ composerRef }
-						busy={ composerBusy }
-						isInterrupting={ isInterrupting }
-						error={ runError }
-						model={ currentModel }
-						onSend={ sendMessage }
-						onInterrupt={ interrupt }
-						sessionId={ sessionId }
-						entries={ data.entries }
-						ownerSiteId={ ownerSite?.id }
-						onSwitchSession={ switchSession }
-					/>
+					{ isOutOfCredits ? (
+						<OutOfCreditsNotice />
+					) : (
+						<Composer
+							ref={ composerRef }
+							busy={ composerBusy }
+							isInterrupting={ isInterrupting }
+							error={ runError }
+							model={ currentModel }
+							onSend={ sendMessage }
+							onInterrupt={ interrupt }
+							sessionId={ sessionId }
+							entries={ data.entries }
+							ownerSiteId={ ownerSite?.id }
+							onSwitchSession={ switchSession }
+						/>
+					) }
 				</div>
 			}
 			footer={

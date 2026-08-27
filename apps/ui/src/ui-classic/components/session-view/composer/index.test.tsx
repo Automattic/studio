@@ -11,13 +11,13 @@ import {
 	within,
 } from '@testing-library/react';
 import { Tooltip } from '@wordpress/ui';
+import { createRef, type ComponentProps } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { clearComposerDrafts } from './draft-store';
-import { Composer } from '.';
+import { Composer, type ComposerHandle } from '.';
 import type { ComposerSendAttachments } from './use-composer-attachments';
 import type { AiSessionSummary, LoadedAiSession, SessionEntry } from '@/data/core';
-import type { ComponentProps } from 'react';
 
 // The AI credits control inside the composer reads the router; the quota it
 // also needs stays undefined here, so the control itself renders nothing.
@@ -51,16 +51,18 @@ function renderComposer(
 	props: Partial< ComponentProps< typeof Composer > > = {},
 	queryClient = new QueryClient()
 ) {
+	const composerRef = createRef< ComposerHandle >();
 	const renderTree = ( nextProps: Partial< ComponentProps< typeof Composer > > = {} ) => (
 		<QueryClientProvider client={ queryClient }>
 			<Tooltip.Provider delay={ 0 }>
-				<Composer { ...defaultProps } sessionId="session-1" { ...nextProps } />
+				<Composer ref={ composerRef } { ...defaultProps } sessionId="session-1" { ...nextProps } />
 			</Tooltip.Provider>
 		</QueryClientProvider>
 	);
 	const rendered = render( renderTree( props ) );
 	return {
 		...rendered,
+		composerRef,
 		queryClient,
 		rerenderComposer: ( nextProps: Partial< ComponentProps< typeof Composer > > = {} ) =>
 			rendered.rerender( renderTree( nextProps ) ),
@@ -320,6 +322,31 @@ describe( 'Composer menu', () => {
 		expect(
 			screen.getByRole( 'button', { name: 'Remove attachment: notes.txt' } )
 		).toBeInTheDocument();
+	} );
+
+	it( 'restores the suggestion baseline with its session draft', async () => {
+		const firstSession = renderComposer();
+		act( () => {
+			firstSession.composerRef.current?.replaceDraft( 'A suggested prompt', {
+				suggestionBaseline: 'A suggested prompt',
+			} );
+		} );
+		await waitFor( () =>
+			expect( firstSession.composerRef.current?.getDraft() ).toEqual( {
+				text: 'A suggested prompt',
+				hasAttachments: false,
+				suggestionBaseline: 'A suggested prompt',
+			} )
+		);
+
+		firstSession.rerenderComposer( { sessionId: 'session-2' } );
+		firstSession.rerenderComposer();
+
+		expect( firstSession.composerRef.current?.getDraft() ).toEqual( {
+			text: 'A suggested prompt',
+			hasAttachments: false,
+			suggestionBaseline: 'A suggested prompt',
+		} );
 	} );
 
 	it( 'clears the cached draft after sending', async () => {

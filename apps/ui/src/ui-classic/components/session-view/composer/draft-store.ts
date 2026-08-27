@@ -3,6 +3,7 @@ import type { ComposerAttachment } from '@studio/common/ai/composer-attachments'
 export interface ComposerDraft {
 	text: string;
 	attachments: ComposerAttachment[];
+	suggestionBaseline: string | null;
 }
 
 const MAX_CACHED_DRAFTS = 10;
@@ -13,6 +14,7 @@ export function getComposerDraft( sessionId: string | undefined ): ComposerDraft
 		( sessionId ? draftsBySessionId.get( sessionId ) : undefined ) ?? {
 			text: '',
 			attachments: [],
+			suggestionBaseline: null,
 		}
 	);
 }

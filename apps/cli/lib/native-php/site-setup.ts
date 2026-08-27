@@ -10,6 +10,7 @@ import {
 import { type NativePhpSupportedVersion } from '@studio/common/lib/php-binary-metadata';
 import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import { getWpCliPharPath } from 'cli/lib/dependency-management/paths';
+import { isSqliteIntegrationInstalled } from 'cli/lib/sqlite-integration';
 import { ensurePhpBinaryAvailable } from '../dependency-management/php-binary';
 import { runPhpCommand } from './php-process';
 import { getFullyResolvedTmpDirPath } from './tmp-dir';
@@ -25,14 +26,18 @@ const DEFAULT_WP_CONFIG_CONSTANTS = { DB_NAME: 'wordpress' } as const;
 
 type Logger = ( ...args: Parameters< typeof console.log > ) => void;
 
+type EnsureWpConfigOptions = Pick<
+	ServerConfig,
+	'enableDebugLog' | 'enableDebugDisplay' | 'enableScriptDebug' | 'environmentType'
+> & {
+	forceDefaultDatabaseName?: boolean;
+};
+
 export async function ensureWpConfig(
 	siteFolder: string,
 	phpVersion: NativePhpSupportedVersion,
 	signal?: AbortSignal,
-	config?: Pick<
-		ServerConfig,
-		'enableDebugLog' | 'enableDebugDisplay' | 'enableScriptDebug' | 'environmentType'
-	>
+	config?: EnsureWpConfigOptions
 ): Promise< void > {
 	const wpConfigPath = path.join( siteFolder, 'wp-config.php' );
 	const wpConfigSamplePath = path.join( siteFolder, 'wp-config-sample.php' );
@@ -44,12 +49,6 @@ $constants = json_decode( $argv[3] ?? '', true );
 require_once $transformer_path;
 
 $transformer = WP_Config_Transformer::from_file( $wp_config_path );
-if (
-    $transformer->constant_exists( 'DB_NAME' )
-    && ! $transformer->constant_equals( 'DB_NAME', 'database_name_here' )
-) {
-    unset( $constants['DB_NAME'] );
-}
 $transformer->define_constants( $constants );
 $transformer->to_file( $wp_config_path );
 `;
@@ -60,7 +59,7 @@ $transformer->to_file( $wp_config_path );
 
 	const enableDebugLog = config?.enableDebugLog ?? false;
 	const enableDebugDisplay = config?.enableDebugDisplay ?? false;
-	const constants = {
+	const constants: Record< string, boolean | string > = {
 		...DEFAULT_WP_CONFIG_CONSTANTS,
 		WP_DEBUG: enableDebugLog || enableDebugDisplay,
 		WP_DEBUG_LOG: enableDebugLog,
@@ -70,6 +69,11 @@ $transformer->to_file( $wp_config_path );
 		SCRIPT_DEBUG: config?.enableScriptDebug ?? false,
 		WP_ENVIRONMENT_TYPE: getWpEnvironmentType( config ?? {} ),
 	};
+	const shouldSetDefaultDatabaseName =
+		config?.forceDefaultDatabaseName ?? ( await isSqliteIntegrationInstalled( siteFolder ) );
+	if ( ! shouldSetDefaultDatabaseName ) {
+		delete constants.DB_NAME;
+	}
 	await ensurePhpBinaryAvailable( phpVersion );
 
 	try {

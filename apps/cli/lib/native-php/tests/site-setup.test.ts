@@ -5,10 +5,13 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ensureWpConfig } from '../site-setup';
 
-const { ensurePhpBinaryAvailable, runPhpCommand } = vi.hoisted( () => ( {
-	ensurePhpBinaryAvailable: vi.fn( async () => undefined ),
-	runPhpCommand: vi.fn(),
-} ) );
+const { ensurePhpBinaryAvailable, isSqliteIntegrationInstalled, runPhpCommand } = vi.hoisted(
+	() => ( {
+		ensurePhpBinaryAvailable: vi.fn( async () => undefined ),
+		isSqliteIntegrationInstalled: vi.fn( async () => false ),
+		runPhpCommand: vi.fn(),
+	} )
+);
 
 vi.mock( '../../dependency-management/php-binary', () => ( {
 	ensurePhpBinaryAvailable,
@@ -16,6 +19,10 @@ vi.mock( '../../dependency-management/php-binary', () => ( {
 
 vi.mock( '../php-process', () => ( {
 	runPhpCommand,
+} ) );
+
+vi.mock( 'cli/lib/sqlite-integration', () => ( {
+	isSqliteIntegrationInstalled,
 } ) );
 
 const PHP_VERSION = '8.4' as Parameters< typeof ensureWpConfig >[ 1 ];
@@ -39,6 +46,8 @@ describe.skipIf( ! phpAvailable() )( 'ensureWpConfig', () => {
 	beforeEach( () => {
 		tmpDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-site-setup-' ) );
 		ensurePhpBinaryAvailable.mockClear();
+		isSqliteIntegrationInstalled.mockReset();
+		isSqliteIntegrationInstalled.mockResolvedValue( false );
 		runPhpCommand.mockImplementation( async ( args: string[] ) => {
 			const [ , script, , wpConfigPath, constants ] = args;
 			const runnerPath = path.join( tmpDir, 'run-transformer.php' );
@@ -67,18 +76,86 @@ describe.skipIf( ! phpAvailable() )( 'ensureWpConfig', () => {
 		expect( contents ).toContain( "define( 'WP_DEBUG', false );" );
 	} );
 
-	it( 'replaces the WordPress sample database placeholder for local sites', async () => {
+	it.each( [
+		{
+			name: 'replaces the sample placeholder for SQLite',
+			sqliteInstalled: true,
+			input: [ "define( 'DB_NAME', 'database_name_here' );" ],
+			expected: [ "define( 'DB_NAME', 'wordpress' );" ],
+		},
+		{
+			name: 'replaces an empty value for SQLite',
+			sqliteInstalled: true,
+			input: [ "define( 'DB_NAME', '' );" ],
+			expected: [ "define( 'DB_NAME', 'wordpress' );" ],
+		},
+		{
+			name: 'replaces a dynamic value for SQLite',
+			sqliteInstalled: true,
+			input: [ "define( 'DB_NAME', getenv( 'DB_NAME' ) );" ],
+			expected: [ "define( 'DB_NAME', 'wordpress' );" ],
+		},
+		{
+			name: 'replaces every duplicate value for SQLite',
+			sqliteInstalled: true,
+			input: [
+				"define( 'DB_NAME', 'database_name_here' );",
+				"define( 'DB_NAME', 'database_demo' );",
+			],
+			expected: [ "define( 'DB_NAME', 'wordpress' );", "define( 'DB_NAME', 'wordpress' );" ],
+		},
+		{
+			name: 'preserves an empty value for external MySQL',
+			sqliteInstalled: false,
+			input: [ "define( 'DB_NAME', '' );" ],
+			expected: [ "define( 'DB_NAME', '' );" ],
+		},
+		{
+			name: 'preserves a dynamic value for external MySQL',
+			sqliteInstalled: false,
+			input: [ "define( 'DB_NAME', getenv( 'DB_NAME' ) );" ],
+			expected: [ "define( 'DB_NAME', getenv( 'DB_NAME' ) );" ],
+		},
+		{
+			name: 'preserves duplicate external values when the sample comes first',
+			sqliteInstalled: false,
+			input: [
+				"define( 'DB_NAME', 'database_name_here' );",
+				"define( 'DB_NAME', 'database_demo' );",
+			],
+			expected: [
+				"define( 'DB_NAME', 'database_name_here' );",
+				"define( 'DB_NAME', 'database_demo' );",
+			],
+		},
+		{
+			name: 'preserves duplicate external values when the sample comes second',
+			sqliteInstalled: false,
+			input: [
+				"define( 'DB_NAME', 'database_demo' );",
+				"define( 'DB_NAME', 'database_name_here' );",
+			],
+			expected: [
+				"define( 'DB_NAME', 'database_demo' );",
+				"define( 'DB_NAME', 'database_name_here' );",
+			],
+		},
+	] )( '$name', async ( { sqliteInstalled, input, expected } ) => {
+		isSqliteIntegrationInstalled.mockResolvedValue( sqliteInstalled );
 		const wpConfigPath = path.join( tmpDir, 'wp-config.php' );
-		fs.writeFileSync( wpConfigPath, "<?php\ndefine( 'DB_NAME', 'database_name_here' );\n" );
+		fs.writeFileSync( wpConfigPath, `<?php\n${ input.join( '\n' ) }\n` );
 
 		await ensureWpConfig( tmpDir, PHP_VERSION );
 
-		expect( fs.readFileSync( wpConfigPath, 'utf8' ) ).toContain(
-			"define( 'DB_NAME', 'wordpress' );"
-		);
+		const databaseDefinitions = fs
+			.readFileSync( wpConfigPath, 'utf8' )
+			.split( '\n' )
+			.filter( ( line ) => line.startsWith( "define( 'DB_NAME'" ) );
+		expect( databaseDefinitions ).toEqual( expected );
 	} );
 
 	it( 'ignores a commented-out external database name', async () => {
+		isSqliteIntegrationInstalled.mockResolvedValue( true );
 		const wpConfigPath = path.join( tmpDir, 'wp-config.php' );
 		fs.writeFileSync( wpConfigPath, "<?php\n// define( 'DB_NAME', 'database_demo' );\n" );
 

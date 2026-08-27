@@ -564,7 +564,9 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				} )
 				.option( 'wp', {
 					type: 'string',
-					describe: __( 'WordPress version (e.g., "latest", "6.4", "6.4.1")' ),
+					describe: __(
+						'WordPress version. Use "latest" to let the site auto-update, or pin a version (e.g., "6.4", "6.4.1")'
+					),
 					defaultDescription: DEFAULT_WORDPRESS_VERSION,
 					coerce: coerceWpVersion,
 				} )

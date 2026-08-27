@@ -440,6 +440,9 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 													onChange={ setSelectedWpVersion }
 													disabled={ isEditingSite }
 													errorMessage={ errorUpdatingWpVersion }
+													installedVersion={
+														selectedSite?.isWpAutoUpdating !== false ? currentWpVersion : undefined
+													}
 													extraOptions={ [
 														{
 															label: currentWpVersion,

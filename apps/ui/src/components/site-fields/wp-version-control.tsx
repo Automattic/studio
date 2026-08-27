@@ -24,10 +24,10 @@ export type WpVersionOption = Option & {
 };
 
 /**
- * WordPress version dropdown with the legacy selector's optgroups
- * (Auto-updating / Beta & Nightly / Stable Versions). When the field is
- * disabled with a description (offline), the description shows as a hover
- * tooltip like the legacy UI instead of inline help text.
+ * WordPress version dropdown: the auto-update option first, then the pinned
+ * versions in optgroups. When the field is disabled with a description
+ * (offline), the description shows as a hover tooltip like the legacy UI
+ * instead of inline help text.
  */
 export function WpVersionControl< Item >( {
 	data,
@@ -42,11 +42,10 @@ export function WpVersionControl< Item >( {
 	const value = field.getValue( { item: data } ) ?? '';
 	const disabled = field.isDisabled( { item: data, field } );
 	const options = ( field.elements ?? [] ) as WpVersionOption[];
+	// The auto-update option carries its own explanation, so it needs no
+	// heading; HTML allows plain options before the first optgroup.
+	const autoUpdateOptions = options.filter( ( option ) => option.group === 'latest' );
 	const groups = [
-		{
-			label: __( 'Auto-updating' ),
-			options: options.filter( ( option ) => option.group === 'latest' ),
-		},
 		{
 			label: __( 'Beta & Nightly' ),
 			options: options.filter( ( option ) => option.group === 'prerelease' ),
@@ -67,6 +66,11 @@ export function WpVersionControl< Item >( {
 			disabled={ disabled }
 			onChange={ ( newValue ) => onChange( field.setValue( { item: data, value: newValue } ) ) }
 		>
+			{ autoUpdateOptions.map( ( option ) => (
+				<option key={ option.value } value={ option.value } hidden={ option.hidden }>
+					{ option.label }
+				</option>
+			) ) }
 			{ groups.map( ( group ) => (
 				<optgroup key={ group.label } label={ group.label }>
 					{ group.options.map( ( option ) => (

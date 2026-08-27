@@ -12,6 +12,7 @@ import {
 	getDomainNameValidationError,
 } from '@studio/common/lib/domains';
 import { validateAdminEmail, validateAdminUsername } from '@studio/common/lib/passwords';
+import { getAutoUpdateVersionLabel } from '@studio/common/lib/wordpress-version-labels';
 import {
 	isWordPressBetaVersion,
 	isWordPressDevVersion,
@@ -79,11 +80,14 @@ export function wpVersionField< T extends { wpVersion: string } >(
 	{
 		latestValue = DEFAULT_WORDPRESS_VERSION,
 		currentVersion,
+		installedVersion,
 		offline = false,
 		offlineMessage = __( 'Changing WordPress version requires an internet connection.' ),
 	}: {
 		latestValue?: string;
 		currentVersion?: string;
+		/** Shown in the auto-update label. Only pass it for auto-updating sites. */
+		installedVersion?: string;
 		offline?: boolean;
 		offlineMessage?: string;
 	} = {}
@@ -139,8 +143,9 @@ export function wpVersionField< T extends { wpVersion: string } >(
 				stable = addVersionOption( option, stable );
 			}
 		}
+		const autoUpdateLabel = getAutoUpdateVersionLabel( installedVersion );
 		const options: WpVersionOption[] = [
-			{ value: latestValue, label: __( 'latest' ), group: 'latest' },
+			{ value: latestValue, label: autoUpdateLabel, group: 'latest' },
 			...prerelease,
 			...stable,
 		];
@@ -151,7 +156,7 @@ export function wpVersionField< T extends { wpVersion: string } >(
 			// offering it.
 			options.push( {
 				value: DEFAULT_WORDPRESS_VERSION,
-				label: __( 'latest' ),
+				label: autoUpdateLabel,
 				group: 'latest',
 				hidden: true,
 			} );

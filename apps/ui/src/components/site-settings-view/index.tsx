@@ -159,6 +159,7 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 				latestValue: '',
 				currentVersion:
 					installedWpVersion && installedWpVersion !== '-' ? installedWpVersion : undefined,
+				installedVersion: site.isWpAutoUpdating !== false ? installedWpVersion : undefined,
 				offline: isOffline,
 			} ),
 			{ ...adminUsernameField< FormData >(), Edit: AdminUsernameControl },
@@ -177,7 +178,14 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 			enableDebugLogField< FormData >(),
 			enableDebugDisplayField< FormData >(),
 		],
-		[ existingDomainNames, installedWpVersion, isOffline, wpVersions, xdebugConflictSiteName ]
+		[
+			existingDomainNames,
+			installedWpVersion,
+			isOffline,
+			site.isWpAutoUpdating,
+			wpVersions,
+			xdebugConflictSiteName,
+		]
 	);
 
 	const generalForm = useMemo< Form >(

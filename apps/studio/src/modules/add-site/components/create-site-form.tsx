@@ -18,6 +18,7 @@ import {
 	SITE_RUNTIME_PLAYGROUND,
 	type SiteRuntime,
 } from '@studio/common/lib/site-runtime';
+import { getAutoUpdateVersionLabel } from '@studio/common/lib/wordpress-version-labels';
 import {
 	RecommendedPHPVersion,
 	SupportedPHPVersion,
@@ -518,7 +519,7 @@ export const CreateSiteForm = ( {
 										selectedValue={ wpVersion }
 										onChange={ setWpVersion }
 										fallbackOptions={ [
-											{ label: __( 'Latest' ), value: DEFAULT_WORDPRESS_VERSION },
+											{ label: getAutoUpdateVersionLabel(), value: DEFAULT_WORDPRESS_VERSION },
 										] }
 										offlineMessage={ __(
 											'You are currently offline so your site will be created with the latest version. Selecting a different WordPress version requires an internet connection.'

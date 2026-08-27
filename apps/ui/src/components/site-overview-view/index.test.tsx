@@ -480,17 +480,36 @@ describe( 'SiteOverviewView', () => {
 		).not.toHaveClass( settingsStyles.emailControl );
 	} );
 
-	it( 'renders the WordPress version dropdown with latest preselected for auto-updating sites', () => {
+	it( 'renders the WordPress version dropdown with auto-update preselected for auto-updating sites', () => {
 		useWordPressVersionsMock.mockReturnValue( { data: WP_VERSIONS } );
+		useWpVersionMock.mockReturnValue( { data: '6.7.2' } );
 
 		renderView( 'general' );
 
 		const select = screen.getByLabelText( 'WordPress version' );
 		expect( select.tagName ).toBe( 'SELECT' );
 		expect( select ).toHaveValue( '' );
-		expect( screen.getByRole( 'option', { name: '6.7.2' } ) ).toBeInTheDocument();
-		expect( screen.getByRole( 'group', { name: 'Auto-updating' } ) ).toBeInTheDocument();
+		// The auto-update option names the version the site runs now, so
+		// "latest" can't be read as "already on the newest release" (STU-2348).
+		expect( screen.getByRole( 'option', { name: 'Auto-update (6.7.2)' } ) ).toBeInTheDocument();
 		expect( screen.getByRole( 'group', { name: 'Stable Versions' } ) ).toBeInTheDocument();
+	} );
+
+	it( 'omits the installed version from the auto-update option for pinned sites', () => {
+		useWordPressVersionsMock.mockReturnValue( { data: WP_VERSIONS } );
+		useWpVersionMock.mockReturnValue( { data: '6.7.2' } );
+		useSitesMock.mockReturnValue( {
+			data: [ createSite( { running: true, isWpAutoUpdating: false } ) ],
+		} );
+
+		renderView( 'general' );
+
+		// Naming a version next to "Auto-update" on a pinned site would read as
+		// if auto-updates were already on.
+		expect( screen.getByRole( 'option', { name: 'Auto-update' } ) ).toBeInTheDocument();
+		expect(
+			screen.queryByRole( 'option', { name: 'Auto-update (6.7.2)' } )
+		).not.toBeInTheDocument();
 	} );
 
 	it( 'saves a pinned WordPress version picked from the dropdown', () => {

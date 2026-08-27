@@ -68,6 +68,7 @@ import {
 	updateSharedSession,
 } from '@studio/common/lib/shared-config';
 import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
+import { fetchStudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import { isSyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { fetchLatestRewindId, fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import { detectInstalledApps } from '@studio/common/lib/user-settings/installed-apps';
@@ -1247,6 +1248,19 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		asyncHandler( async ( _req: Request, res: Response ) => {
 			const token = await readAuthToken();
 			res.json( token?.accessToken ? await fetchStudioAssistantQuota( token.accessToken ) : null );
+		} )
+	);
+
+	// AI credit top-up options priced for the signed-in account, proxied for
+	// the same reason as the quota. `null` when signed out or pricing can't be
+	// fetched — callers fall back to the single fixed top-up.
+	api.get(
+		'/top-up-pricing',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			const token = await readAuthToken();
+			res.json(
+				token?.accessToken ? await fetchStudioAssistantTopUpPricing( token.accessToken ) : null
+			);
 		} )
 	);
 

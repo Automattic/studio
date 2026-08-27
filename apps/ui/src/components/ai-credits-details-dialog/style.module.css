@@ -1,7 +1,44 @@
 .details {
 	display: flex;
 	flex-direction: column;
-	gap: var( --wpds-dimension-padding-sm );
+	gap: var( --wpds-dimension-padding-md );
 	color: var( --wpds-color-fg-content-neutral );
 	line-height: var( --wpds-typography-line-height-sm );
+}
+
+.introduction,
+.section p,
+.section ul {
+	margin: 0;
+}
+
+.introduction {
+	color: var( --wpds-color-fg-content-neutral );
+}
+
+.section {
+	display: flex;
+	flex-direction: column;
+	gap: var( --wpds-dimension-padding-xs );
+}
+
+.section h3 {
+	margin: 0;
+	color: var( --wpds-color-fg-content-neutral );
+	font-weight: 600;
+}
+
+.section ul {
+	padding-inline-start: var( --wpds-dimension-padding-lg );
+}
+
+.section li + li {
+	margin-block-start: var( --wpds-dimension-padding-xs );
+}
+
+.learnMoreButton,
+.buyCreditsLink {
+	color: var( --wpds-color-fg-interactive-brand );
+	text-decoration: underline;
+	text-wrap: wrap;
 }

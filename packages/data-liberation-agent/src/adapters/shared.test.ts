@@ -200,6 +200,161 @@ describe('runExtractionLoop streaming callback', () => {
   });
 });
 
+describe('runExtractionLoop watchdog cleanup', () => {
+  it('lets onExtractTimeout swap shared state so a late mutation cannot touch the next URL', async () => {
+    const outputDir = mkdtempSync(join(FIXTURE_TMP, 'shared-watchdog-'));
+    try {
+      const wxr = makeWxr();
+      const log = new ExtractionLog(outputDir);
+
+      // Stands in for the Playwright page adapters reuse across URLs.
+      let resource = { writes: [] as string[] };
+      const abandonedResource = resource;
+
+      let lateMutate!: () => void;
+      const extractPage = (url: string) => {
+        const mine = resource; // captured like the wix extractPage closure captures the page
+        if (url.endsWith('/a')) {
+          // Never settles — the watchdog abandons it, then it "completes" late.
+          return new Promise<ExtractedPage>(() => {
+            lateMutate = () => { mine.writes.push('late write from a'); };
+          });
+        }
+        mine.writes.push(`extract ${url}`);
+        return Promise.resolve(makePage(url));
+      };
+
+      const onExtractTimeout = vi.fn(async () => {
+        resource = { writes: [] };
+      });
+
+      const result = await runExtractionLoop({
+        urls: [
+          { url: 'https://example.com/a', type: 'page' },
+          { url: 'https://example.com/b', type: 'page' },
+        ],
+        navigation: [],
+        wxr,
+        log,
+        outputDir,
+        // delay 500 keeps page concurrency at 1 so /a and /b are separate
+        // batches; the max cap keeps the post-error inter-batch sleep short.
+        delay: 500,
+        tunerConfig: { pageDelayMax: 500 },
+        dryRun: false,
+        resume: false,
+        extractPage,
+        extractTimeoutMs: 50,
+        onExtractTimeout,
+      });
+
+      // Simulate the abandoned extraction finishing after the loop moved on.
+      lateMutate();
+
+      expect(result.failed).toBe(1);
+      expect(result.pagesExtracted).toBe(1);
+      expect(onExtractTimeout).toHaveBeenCalledTimes(1);
+      // The late write landed only on the abandoned resource...
+      expect(abandonedResource.writes).toEqual(['late write from a']);
+      // ...and /b ran against the fresh resource, untouched by /a.
+      expect(resource.writes).toEqual(['extract https://example.com/b']);
+    } finally {
+      rmSync(outputDir, { recursive: true, force: true });
+    }
+  });
+
+  it('does not call onExtractTimeout for an ordinary extractPage failure', async () => {
+    const outputDir = mkdtempSync(join(FIXTURE_TMP, 'shared-watchdog-err-'));
+    try {
+      const wxr = makeWxr();
+      const log = new ExtractionLog(outputDir);
+      const onExtractTimeout = vi.fn(async () => {});
+
+      const result = await runExtractionLoop({
+        urls: [{ url: 'https://example.com/broken', type: 'page' }],
+        navigation: [],
+        wxr,
+        log,
+        outputDir,
+        delay: 0,
+        dryRun: false,
+        resume: false,
+        extractPage: () => Promise.reject(new Error('adapter blew up')),
+        extractTimeoutMs: 50,
+        onExtractTimeout,
+      });
+
+      expect(result.failed).toBe(1);
+      expect(onExtractTimeout).not.toHaveBeenCalled();
+    } finally {
+      rmSync(outputDir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('runExtractionLoop page concurrency cap', () => {
+  function makeTrackingExtractPage() {
+    let inFlight = 0;
+    let peak = 0;
+    const extractPage = async (url: string) => {
+      inFlight++;
+      peak = Math.max(peak, inFlight);
+      await new Promise((r) => setTimeout(r, 5));
+      inFlight--;
+      return makePage(url);
+    };
+    return { extractPage, getPeak: () => peak };
+  }
+
+  const urls = Array.from({ length: 6 }, (_, i) => ({
+    url: `https://example.com/p${i}`,
+    type: 'page',
+  }));
+
+  it('batches more than 1 when the tuner delay is low and no cap is set', async () => {
+    const outputDir = mkdtempSync(join(FIXTURE_TMP, 'shared-nocap-'));
+    try {
+      const { extractPage, getPeak } = makeTrackingExtractPage();
+      await runExtractionLoop({
+        urls,
+        navigation: [],
+        wxr: makeWxr(),
+        log: new ExtractionLog(outputDir),
+        outputDir,
+        delay: 0,
+        dryRun: false,
+        resume: false,
+        extractPage,
+      });
+      expect(getPeak()).toBeGreaterThan(1);
+    } finally {
+      rmSync(outputDir, { recursive: true, force: true });
+    }
+  });
+
+  it('keeps batches at 1 with maxPageConcurrency: 1 even when the tuner would batch more', async () => {
+    const outputDir = mkdtempSync(join(FIXTURE_TMP, 'shared-cap-'));
+    try {
+      const { extractPage, getPeak } = makeTrackingExtractPage();
+      await runExtractionLoop({
+        urls,
+        navigation: [],
+        wxr: makeWxr(),
+        log: new ExtractionLog(outputDir),
+        outputDir,
+        delay: 0,
+        dryRun: false,
+        resume: false,
+        maxPageConcurrency: 1,
+        extractPage,
+      });
+      expect(getPeak()).toBe(1);
+    } finally {
+      rmSync(outputDir, { recursive: true, force: true });
+    }
+  });
+});
+
 describe('runExtractionLoop source-faithful slugs + redirect map', () => {
   it('uses the LAST path segment for the WXR post_name and a /slug/ redirect target', async () => {
     const outputDir = mkdtempSync(join(FIXTURE_TMP, 'shared-slug-'));

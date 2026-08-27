@@ -29,6 +29,7 @@ export function useAuthUser() {
 
 	useEffect( () => {
 		return connector.onAuthStateChanged?.( () => {
+			queryClient.removeQueries( { queryKey: AUTH_USER_QUERY_KEY } );
 			removeUserScopedQueries();
 			void queryClient.invalidateQueries( { queryKey: AUTH_USER_QUERY_KEY } );
 		} );
@@ -71,6 +72,7 @@ export function useLogout() {
 	return useMutation( {
 		mutationFn: () => connector.logout(),
 		onSuccess: () => {
+			queryClient.removeQueries( { queryKey: AUTH_USER_QUERY_KEY } );
 			removeUserScopedQueries();
 			void queryClient.invalidateQueries( { queryKey: AUTH_USER_QUERY_KEY } );
 		},

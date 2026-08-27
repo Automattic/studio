@@ -72,4 +72,16 @@ describe( 'discoverLinkedRoutes', () => {
 			'https://www.wix.com/demone2/nimbus-commute/accessibility-statement',
 		] );
 	} );
+
+	it( 'rejects sibling paths that only share a string prefix with the source root', async () => {
+		const loadLinks = vi.fn( async () => [ '/a/b/child', '/a/b-other' ] );
+		const result = await discoverLinkedRoutes( {
+			siteUrl: 'https://example.com/a/b',
+			initialUrls: [ 'https://example.com/a/b-other' ],
+			loadLinks,
+			maxPages: 1,
+		} );
+
+		expect( result.urls ).toEqual( [ 'https://example.com/a/b', 'https://example.com/a/b/child' ] );
+	} );
 } );

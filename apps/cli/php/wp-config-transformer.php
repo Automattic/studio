@@ -80,17 +80,6 @@ class WP_Config_Transformer {
 	 * @return bool         True if the constant is defined, false otherwise.
 	 */
 	public function constant_exists( string $name ): bool {
-		return count( $this->collect_constant_definitions( $name ) ) > 0;
-	}
-
-	/**
-	 * Locate every `define()` call for a constant.
-	 *
-	 * @param  string $name The name of the constant.
-	 * @return array        Argument locations for each matching call, in source order.
-	 */
-	private function collect_constant_definitions( string $name ): array {
-		$definitions = array();
 		foreach ( $this->tokens as $i => $token ) {
 			$is_string_token = is_array( $token ) && T_STRING === $token[0];
 			if ( $is_string_token && 'define' === strtolower( $token[1] ) ) {
@@ -99,30 +88,11 @@ class WP_Config_Transformer {
 					array_slice( $this->tokens, $args[0][0], $args[0][1] )
 				);
 				if ( $name === $const_name ) {
-					$definitions[] = $args;
+					return true;
 				}
 			}
 		}
-		return $definitions;
-	}
-
-	/**
-	 * Check whether a constant is defined with the given string value.
-	 *
-	 * @param  string $name  The name of the constant.
-	 * @param  string $value The expected value of the constant.
-	 * @return bool          True if the constant is defined with the expected value.
-	 */
-	public function constant_equals( string $name, string $value ): bool {
-		$definitions = $this->collect_constant_definitions( $name );
-		if ( 0 === count( $definitions ) ) {
-			return false;
-		}
-
-		$const_value = $this->evaluate_constant_value(
-			array_slice( $this->tokens, $definitions[0][1][0], $definitions[0][1][1] )
-		);
-		return $value === $const_value;
+		return false;
 	}
 
 	/**
@@ -149,8 +119,18 @@ class WP_Config_Transformer {
 
 		// Collect all locations where the constant value needs to be updated.
 		$updates = array();
-		foreach ( $this->collect_constant_definitions( $name ) as $args ) {
-			$updates[] = $args[1];
+		foreach ( $this->tokens as $i => $token ) {
+			$is_string_token = is_array( $token ) && T_STRING === $token[0];
+			if ( $is_string_token && 'define' === strtolower( $token[1] ) ) {
+				$args       = $this->collect_function_call_argument_locations( $i );
+				$const_name = $this->evaluate_constant_name(
+					array_slice( $this->tokens, $args[0][0], $args[0][1] )
+				);
+
+				if ( $name === $const_name ) {
+					$updates[] = $args[1];
+				}
+			}
 		}
 
 		// Modify the token array to define the constant. Apply updates in reverse
@@ -328,31 +308,6 @@ class WP_Config_Transformer {
 
 		// Get the constant name value.
 		return eval( 'return ' . $name_token[1] . ';' );
-	}
-
-	/**
-	 * Evaluate a string constant value from its tokens.
-	 *
-	 * @param  array $value_tokens The tokens containing the constant value.
-	 * @return string|null         The evaluated value, or null when it is not a string literal.
-	 */
-	private function evaluate_constant_value( array $value_tokens ): ?string {
-		$value_token = null;
-		foreach ( $value_tokens as $token ) {
-			if ( $this->is_whitespace( $token ) ) {
-				continue;
-			}
-			if ( ! is_array( $token ) || T_CONSTANT_ENCAPSED_STRING !== $token[0] ) {
-				return null;
-			}
-			$value_token = $token;
-		}
-
-		if ( null === $value_token ) {
-			return null;
-		}
-
-		return eval( 'return ' . $value_token[1] . ';' );
 	}
 
 	/**

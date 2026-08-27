@@ -2,7 +2,8 @@
  * @vitest-environment node
  *
  * Real end-to-end tests for Studio's site-management operations: renaming a
- * site, changing its PHP version, updating the WordPress site title, and
+ * site, changing its PHP version, updating the WordPress site title, keeping
+ * the wp-admin session across a restart, changing the admin password, and
  * deleting a site (with and without removing its files). Unlike the unit
  * suites that mock the daemon and config layer, this spawns the built CLI and
  * asserts the real persisted state in cli.json and on disk.
@@ -16,11 +17,13 @@ import path from 'path';
 import { SupportedPHPVersions } from '@studio/common/types/php-versions';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import {
+	autoLoginCookie,
 	cleanupCliEnv,
 	cliE2ePrerequisitesMet,
 	readCliConfig,
 	runCli,
 	setupCliEnv,
+	waitForSiteResponse,
 	type CliEnv,
 } from './helpers/cli-e2e';
 
@@ -149,6 +152,81 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio site management'
 					.map( ( line ) => line.trim() )
 					.filter( Boolean );
 				expect( lines.at( -1 ) ).toBe( newTitle );
+			}
+		);
+
+		it(
+			'keeps the wp-admin session across a settings save that restarts the site',
+			{ tags: [ 'e2e' ], timeout: 240_000 },
+			async () => {
+				if ( ! env ) {
+					throw new Error( 'CLI e2e env was not initialised' );
+				}
+
+				const startResult = await runCli(
+					[ 'site', 'start', '--path', sitePath, '--skip-browser', '--skip-log-details' ],
+					env
+				);
+				expect( startResult.code, startResult.stderr ).toBe( 0 );
+
+				const siteUrl = `http://localhost:${ String( findSite( env, sitePath )?.port ) }`;
+				await waitForSiteResponse( siteUrl, { expectedStatus: 200 } );
+				const cookie = await autoLoginCookie( siteUrl );
+
+				// Toggling the debug log restarts the server, the same way the
+				// settings form's "Save settings" does.
+				const setResult = await runCli(
+					[ 'site', 'set', '--path', sitePath, '--debug-log', 'true' ],
+					env
+				);
+				expect( setResult.code, setResult.stderr ).toBe( 0 );
+
+				await waitForSiteResponse( siteUrl, { expectedStatus: 200 } );
+				const response = await fetch( new URL( '/wp-admin/', siteUrl ), {
+					headers: { cookie },
+					redirect: 'manual',
+				} );
+
+				expect( response.status ).toBe( 200 );
+			}
+		);
+
+		it(
+			'applies a changed admin password to WordPress',
+			{ tags: [ 'e2e' ], timeout: 240_000 },
+			async () => {
+				if ( ! env ) {
+					throw new Error( 'CLI e2e env was not initialised' );
+				}
+
+				const startResult = await runCli(
+					[ 'site', 'start', '--path', sitePath, '--skip-browser', '--skip-log-details' ],
+					env
+				);
+				expect( startResult.code, startResult.stderr ).toBe( 0 );
+
+				const newPassword = 'e2e-changed-password';
+				const setResult = await runCli(
+					[ 'site', 'set', '--path', sitePath, '--admin-password', newPassword ],
+					env
+				);
+				expect( setResult.code, setResult.stderr ).toBe( 0 );
+
+				const siteUrl = `http://localhost:${ String( findSite( env, sitePath )?.port ) }`;
+				await waitForSiteResponse( siteUrl, { expectedStatus: 200 } );
+
+				const response = await fetch( new URL( '/wp-login.php', siteUrl ), {
+					method: 'POST',
+					headers: {
+						'content-type': 'application/x-www-form-urlencoded',
+						// wp-login.php rejects the sign-in without WordPress's test cookie.
+						cookie: 'wordpress_test_cookie=WP%20Cookie%20check',
+					},
+					body: new URLSearchParams( { log: 'admin', pwd: newPassword } ),
+					redirect: 'manual',
+				} );
+
+				expect( response.headers.getSetCookie().join( '; ' ) ).toContain( 'wordpress_logged_in' );
 			}
 		);
 	} );

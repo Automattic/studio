@@ -98,6 +98,7 @@ export function OnboardingShell() {
 			isWide={ matches.some(
 				( match ) =>
 					match.pathname === '/onboarding' ||
+					match.pathname === '/onboarding/blueprint' ||
 					match.pathname === '/onboarding/connect' ||
 					match.pathname === '/onboarding/tour'
 			) }

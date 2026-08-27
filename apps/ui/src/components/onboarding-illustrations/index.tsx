@@ -122,6 +122,72 @@ export function SiteListIllustration() {
 	);
 }
 
+export function BlueprintGalleryIllustration() {
+	return (
+		<svg
+			width="198"
+			height="110"
+			viewBox="0 0 198 110"
+			fill="none"
+			xmlns="http://www.w3.org/2000/svg"
+			aria-hidden="true"
+			data-keep-size
+		>
+			{ /* 2×2 grid of rounded cards suggesting a template gallery */ }
+			<rect
+				x="57"
+				y="18"
+				width="36"
+				height="32"
+				rx="6"
+				stroke={ STROKE }
+				strokeWidth="2.5"
+				className={ styles.themeStroke }
+			/>
+			<rect
+				x="105"
+				y="18"
+				width="36"
+				height="32"
+				rx="6"
+				stroke={ STROKE }
+				strokeWidth="2.5"
+				strokeOpacity="0.5"
+			/>
+			<rect
+				x="57"
+				y="60"
+				width="36"
+				height="32"
+				rx="6"
+				stroke={ STROKE }
+				strokeWidth="2.5"
+				strokeOpacity="0.5"
+			/>
+			<rect
+				x="105"
+				y="60"
+				width="36"
+				height="32"
+				rx="6"
+				stroke={ STROKE }
+				strokeWidth="2.5"
+				strokeOpacity="0.5"
+			/>
+			{ /* Accent dots inside the first card */ }
+			<circle
+				cx="75"
+				cy="34"
+				r="5.5"
+				stroke={ STROKE }
+				strokeLinecap="round"
+				strokeDasharray="1 5"
+				className={ styles.spin }
+			/>
+		</svg>
+	);
+}
+
 export function DropBackupIllustration() {
 	return (
 		<svg

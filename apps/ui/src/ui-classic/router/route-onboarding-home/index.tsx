@@ -7,6 +7,7 @@ import { Button, Icon } from '@wordpress/ui';
 import { useCallback, useRef, useState } from 'react';
 import { OnboardingFooter } from '@/components/onboarding-footer';
 import {
+	BlueprintGalleryIllustration,
 	BuildNewSiteIllustration,
 	ConnectSiteIllustration,
 	DropBackupIllustration,
@@ -112,10 +113,23 @@ export function OnboardingHomePage() {
 					<div className={ styles.cardText }>
 						<h3 className={ styles.cardTitle }>{ __( 'Create a new site' ) }</h3>
 						<p className={ styles.cardBody }>
-							{ __(
-								'Start from scratch or use a Blueprint. Perfect for theme and plugin development.'
-							) }
+							{ __( 'Start from scratch. Perfect for theme and plugin development.' ) }
 						</p>
+					</div>
+				</Link>
+				<Link
+					to="/onboarding/blueprint"
+					className={ `${ cardClass } ${ isOffline ? styles.cardDisabled : '' }` }
+					aria-disabled={ isOffline || undefined }
+					onClick={ ( event ) => isOffline && event.preventDefault() }
+				>
+					<BlueprintGalleryIllustration />
+					<div className={ styles.cardText }>
+						<h3 className={ styles.cardTitle }>{ __( 'Start from a Blueprint' ) }</h3>
+						<p className={ styles.cardBody }>
+							{ __( 'Choose from pre-built site templates to get started quickly.' ) }
+						</p>
+						{ isOffline && <span className={ styles.cardHint }>{ __( 'Available online' ) }</span> }
 					</div>
 				</Link>
 				<Link

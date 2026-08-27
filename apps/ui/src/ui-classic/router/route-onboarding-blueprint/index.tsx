@@ -3,6 +3,7 @@ import { __ } from '@wordpress/i18n';
 import { chevronLeft } from '@wordpress/icons';
 import { Button, Icon } from '@wordpress/ui';
 import { useCallback, useMemo, useState } from 'react';
+import { BlueprintUpload } from '@/components/blueprint-upload';
 import { OnboardingFooter } from '@/components/onboarding-footer';
 import { useBlueprints } from '@/data/queries/use-blueprints';
 import { useOffline } from '@/hooks/use-offline';
@@ -87,6 +88,7 @@ function BlueprintGalleryPage() {
 	const isOffline = useOffline();
 	const { data: blueprints, isLoading, isError } = useBlueprints();
 	const [ searchQuery, setSearchQuery ] = useState( '' );
+	const [ uploadedBlueprint, setUploadedBlueprint ] = useState< SelectedBlueprint | null >( null );
 
 	const featured = useMemo(
 		() =>
@@ -126,12 +128,30 @@ function BlueprintGalleryPage() {
 		[ navigate ]
 	);
 
+	const handleUploadSelect = useCallback(
+		( blueprint: SelectedBlueprint ) => {
+			setUploadedBlueprint( blueprint );
+			pendingBlueprintSlot.set( blueprint );
+			void navigate( { to: '/onboarding/create' } );
+		},
+		[ navigate ]
+	);
+
 	return (
 		<div className={ styles.page }>
 			<h1 className={ sharedStyles.title }>{ __( 'Start from a Blueprint' ) }</h1>
 			<p className={ sharedStyles.subtitle }>
 				{ __( 'Choose a pre-built site template to get started quickly.' ) }
 			</p>
+
+			<div className={ styles.upload }>
+				<BlueprintUpload
+					selected={ uploadedBlueprint }
+					onSelect={ handleUploadSelect }
+					onRemove={ () => setUploadedBlueprint( null ) }
+					onValidityChange={ () => undefined }
+				/>
+			</div>
 
 			{ isLoading ? (
 				<div className={ styles.loading }>

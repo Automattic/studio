@@ -9,7 +9,7 @@
 .prompt,
 .error {
 	margin: 0;
-	font-size: var(--wpds-typography-font-size-sm);
+	font-size: var(--wpds-typography-font-size-md);
 }
 
 .prompt {

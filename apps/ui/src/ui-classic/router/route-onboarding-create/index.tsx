@@ -5,7 +5,6 @@ import {
 import { createRoute, useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { BlueprintUpload, type SelectedBlueprint } from '@/components/blueprint-upload';
 import { CreateSiteForm } from '@/components/create-site-form';
 import { useConnector } from '@/data/core';
 import {
@@ -16,8 +15,8 @@ import { useCreateSite, useSites } from '@/data/queries/use-sites';
 import { pendingBlueprintSlot } from '@/lib/pending-blueprint';
 import { onboardingLayoutRoute, useOnboardingProgress } from '../layout-onboarding';
 import styles from '../layout-onboarding/style.module.css';
-import localStyles from './style.module.css';
 import type { CreateSiteFormValues } from '@/components/create-site-form';
+import type { SelectedBlueprint } from '@/lib/blueprint-selection';
 
 function mapBlueprintSettingsToFormValues(
 	blueprint: SelectedBlueprint
@@ -43,7 +42,6 @@ export function CreateSitePage() {
 	const { data: proposedName } = useProposedSiteName( sites );
 	const createSite = useCreateSite();
 	const [ selectedBlueprint, setSelectedBlueprint ] = useState< SelectedBlueprint | null >( null );
-	const [ isBlueprintValid, setIsBlueprintValid ] = useState( true );
 	const [ submittedInitialValues, setSubmittedInitialValues ] =
 		useState< Partial< CreateSiteFormValues > | null >( null );
 	const selectedBlueprintRef = useRef< SelectedBlueprint | null >( null );
@@ -163,18 +161,9 @@ export function CreateSitePage() {
 				onSubmit={ handleSubmit }
 				onCancel={ () => void navigate( { to: '/onboarding' } ) }
 				isSubmitting={ submittedInitialValues !== null }
-				isSubmitDisabled={ ! isBlueprintValid }
 				submitError={ submitError }
 				submitLabel={ selectedBlueprint ? __( 'Create site from Blueprint' ) : undefined }
 			/>
-			<div className={ localStyles.blueprint }>
-				<BlueprintUpload
-					selected={ selectedBlueprint }
-					onSelect={ replaceBlueprint }
-					onRemove={ () => replaceBlueprint( null ) }
-					onValidityChange={ setIsBlueprintValid }
-				/>
-			</div>
 		</div>
 	);
 }

@@ -1,3 +1,4 @@
+import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { getSiteOperationNoun } from '@studio/common/lib/site-operation-labels';
 import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -222,8 +223,17 @@ export function useUpdateSite() {
 			// restarting the site after this resolves, and a disk read landing
 			// mid-restart still reports the pre-edit version, which would flash
 			// the old value back into the settings form.
-			if ( wpVersion ) {
+			//
+			// `latest` is the exception: it's the auto-update mode, not a version,
+			// so seeding it would store a non-version in a cache that means "the
+			// version on disk". Refetch instead — the CLI has already installed
+			// the release by the time this resolves, so the read reports it.
+			if ( wpVersion && wpVersion !== DEFAULT_WORDPRESS_VERSION ) {
 				queryClient.setQueryData( [ ...WP_VERSION_QUERY_KEY, site.id ], wpVersion );
+			} else if ( wpVersion ) {
+				void queryClient.invalidateQueries( {
+					queryKey: [ ...WP_VERSION_QUERY_KEY, site.id ],
+				} );
 			}
 			toast.success( __( 'Settings saved' ) );
 		},

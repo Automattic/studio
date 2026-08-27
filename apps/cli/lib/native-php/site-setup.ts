@@ -198,6 +198,26 @@ export async function installWordPress(
 		{ phpVersion, signal }
 	);
 
+	// WP-CLI's --locale flag may silently fall back to English when it can't
+	// download the language pack (e.g. offline, wordpress.org unreachable).
+	// Force WPLANG so the site respects the configured language even when
+	// translation files aren't available yet.
+	if ( locale ) {
+		try {
+			await runPhpCommand(
+				[ getWpCliPharPath(), 'option', 'update', 'WPLANG', locale, `--path=${ config.sitePath }` ],
+				{ phpVersion, signal }
+			);
+		} catch ( error ) {
+			// Best-effort: site can still function in English if setting WPLANG fails.
+			logToConsole(
+				`Failed to set WPLANG to ${ locale }: ${
+					error instanceof Error ? error.message : String( error )
+				}`
+			);
+		}
+	}
+
 	await runPhpCommand(
 		[
 			getWpCliPharPath(),

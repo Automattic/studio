@@ -98,7 +98,7 @@ async function resolveAnthropicApiKey( options?: {
 	return trimmedKey;
 }
 
-function getStudioUserAgent(): string {
+export function getStudioUserAgent(): string {
 	const version = typeof __STUDIO_CLI_VERSION__ === 'string' ? __STUDIO_CLI_VERSION__ : '';
 	return version ? `WordPressStudio/${ version }` : 'WordPressStudio';
 }
@@ -109,7 +109,7 @@ function buildAnthropicCustomHeaders( headers: Record< string, string > ): strin
 		.join( '\n' );
 }
 
-function getWpcomAiGatewayBaseUrl(): string {
+export function getWpcomAiGatewayBaseUrl(): string {
 	const customBaseUrl = process.env.WPCOM_AI_PROXY_BASE_URL?.trim();
 	return customBaseUrl || DEFAULT_WPCOM_AI_GATEWAY_BASE_URL;
 }

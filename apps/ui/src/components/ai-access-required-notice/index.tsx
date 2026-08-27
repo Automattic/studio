@@ -1,14 +1,17 @@
 import {
 	formatAiAccessRequiredNotice,
 	formatAiBlockedNotice,
-	formatOutOfCreditsNoticeWithLink,
+	formatOutOfCreditsDescription,
+	formatOutOfCreditsTitle,
 	STUDIO_CODE_AI_BETA_APPLY_URL,
 	WPCOM_SUPPORT_CONTACT_URL,
 	type StudioAssistantQuota,
 } from '@studio/common/lib/studio-assistant-quota';
 import { createInterpolateElement } from '@wordpress/element';
+import { Notice } from '@wordpress/ui';
+import { AddAiCreditsButton } from '@/components/add-ai-credits-button';
 import { useConnector } from '@/data/core';
-import { useAddAiCreditsUrl } from '@/hooks/use-add-ai-credits-url';
+import styles from './style.module.css';
 import type { ReactNode } from 'react';
 
 // Electron swallows plain `target="_blank"` navigations — route clicks
@@ -46,9 +49,18 @@ export function AiBlockedNotice() {
 	} );
 }
 
+/**
+ * Running out of credits isn't a failure to report, it's a purchase to make —
+ * so it reads as a card with the action in it rather than as red error text.
+ */
 export function OutOfCreditsNotice() {
-	const addAiCreditsUrl = useAddAiCreditsUrl();
-	return createInterpolateElement( formatOutOfCreditsNoticeWithLink(), {
-		buyLink: <NoticeLink url={ addAiCreditsUrl } />,
-	} );
+	return (
+		<Notice.Root intent="neutral" icon={ null } className={ styles.outOfCredits }>
+			<Notice.Title>{ formatOutOfCreditsTitle() }</Notice.Title>
+			<Notice.Description>{ formatOutOfCreditsDescription() }</Notice.Description>
+			<Notice.Actions>
+				<AddAiCreditsButton variant="solid" tone="brand" />
+			</Notice.Actions>
+		</Notice.Root>
+	);
 }

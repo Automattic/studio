@@ -26,6 +26,10 @@ export interface BuildSystemPromptOptions {
 	runtime?: SiteRuntime;
 	// The user's global instructions (~/.studio/knowledge/instructions.md).
 	userInstructions?: string;
+	// True when the generate_images tool is registered for this session. Gates
+	// every imagery-related prompt section so unavailable sessions get exactly
+	// the pre-imagery prompt.
+	imageGenerationEnabled?: boolean;
 }
 
 export function buildSystemPrompt( options?: BuildSystemPromptOptions ): string {
@@ -41,13 +45,16 @@ ${ REMOTE_DESIGN_GUIDELINES }${ remoteSessionAddendum }${ userInstructionsSectio
 `;
 	}
 
+	const imageryRouting = options?.imageGenerationEnabled ? `\n\n${ IMAGERY_SKILL_ROUTING }` : '';
+
 	return `${ buildLocalIntro( {
 		chatArtifactsEnabled: options?.chatArtifactsEnabled ?? false,
 		remoteSession: options?.remoteSession ?? false,
 		runtime: options?.runtime,
+		imageGenerationEnabled: options?.imageGenerationEnabled ?? false,
 	} ) }
 
-${ LOCAL_SKILL_ROUTING }${ remoteSessionAddendum }${ userInstructionsSection }
+${ LOCAL_SKILL_ROUTING }${ imageryRouting }${ remoteSessionAddendum }${ userInstructionsSection }
 `;
 }
 
@@ -124,8 +131,18 @@ function buildLocalIntro( options: {
 	chatArtifactsEnabled: boolean;
 	remoteSession: boolean;
 	runtime?: SiteRuntime;
+	imageGenerationEnabled: boolean;
 } ): string {
 	const postContentGuidance = getPostContentGuidance( options.runtime );
+	const imageryWorkflowSection = options.imageGenerationEnabled
+		? `
+
+Whenever the design calls for imagery (hero/cover backgrounds, feature, gallery, or card images, team photos, product shots), load the \`imagery\` skill and generate the images with \`generate_images\` BEFORE writing the markup that references them: theme imagery goes into the active theme's assets directory, site-specific content imagery is imported into the media library via wp_cli. Never source images from web URLs and never leave a broken image reference — if an image cannot be generated, adapt the layout instead.`
+		: '';
+	const generateImagesToolBullet = options.imageGenerationEnabled
+		? `
+- generate_images: Generate AI images (JPEG) from text specs and write them to files inside a site. Batch all the images a page needs into one call. Load the \`imagery\` skill first for spec-writing rules and file placement.`
+		: '';
 	// Remote-bridge sessions also run without chat artifacts, but their user is
 	// on the other end of a messaging bridge: local file paths are unreachable
 	// and REMOTE_SESSION_GUIDANCE (share_screenshot) already covers delivery.
@@ -194,7 +211,7 @@ Then continue with:
 4. **Provision the site**: Use wp_cli to activate the theme, install and activate any plugins the design needs, and set options. Do this before validating — the live editor only recognizes the active theme and registered plugin blocks. The site must be running.
 5. **Validate block content**: Any block content you generate MUST pass validate_blocks before it reaches the site — before \`wp post create/update\` and before \`wp_cli eval\` that imports a scratch file such as \`<site>/tmp/page-<slug>.html\`. Call validate_blocks with \`filePath\` for file content, or pass inline content. It runs a static core/html policy check first: if that reports invalid core/html blocks, editor validation is skipped — rewrite those as editable core or plugin blocks and call again. Once the policy passes it validates in the live editor. If an auto-fix was applied, the file already holds the fixed content; do not replace markup or re-validate unless you change the markup. Use the diff only to update CSS selectors for class/nesting changes. For inline content, use the returned fixed content exactly. Never apply unvalidated block content — a build that skips validate_blocks is incomplete.
 6. **Apply content**: Once it passes validation, create/update/import the posts and pages with the validated content. ${ postContentGuidance }
-7. **Check and polish the result**: Load the \`visual-polish\` skill and run it to polish the design. The design must match your original expectations.
+7. **Check and polish the result**: Load the \`visual-polish\` skill and run it to polish the design. The design must match your original expectations.${ imageryWorkflowSection }
 
 ## Working cadence
 
@@ -222,7 +239,7 @@ For long CSS or page-content files (>~200 lines), load the \`block-content\` ski
 - scaffold_theme: Scaffold a minimal block theme (style.css, theme.json, functions.php with frontend + editor enqueue, default templates and parts, empty assets/fonts and patterns dirs) into a site and activate it. Use as the first step when starting a new custom theme; the agent fills design-specific content afterwards. Pass parentTheme with an installed theme's slug to scaffold a child theme instead of editing that theme's files. Block themes only.
 - validate_blocks: Validate block content in two stages and return a combined report. First a static core/html policy check; if it finds invalid core/html blocks it returns only those (rewrite them as editable core or plugin blocks and call again) and skips the editor. Once it passes, validates in the running site's real block editor: with filePath, applies safe editor fixes directly to the file and returns a CSS-review diff; with inline content, returns exact fixed block content plus the diff. Requires a site name or path. Call after every file write/edit that contains block content.
 - take_screenshot: Take a full-page screenshot of a URL (supports desktop, mobile, or \`viewport: "all"\` for both). Use this to visually check the site after building it.
-- inspect_design: Inspect the rendered DOM and computed styles of a page by CSS selector to root-cause visual issues. Pair with take_screenshot when verifying or polishing a design.
+- inspect_design: Inspect the rendered DOM and computed styles of a page by CSS selector to root-cause visual issues. Pair with take_screenshot when verifying or polishing a design.${ generateImagesToolBullet }
 - need_for_speed: Measure frontend performance metrics (TTFB, FCP, LCP, CLS, page weight, DOM size, JS/CSS/image/font asset breakdown) for a running site. Use this to identify performance bottlenecks and guide optimization.
 - rank_me_up: Run an on-page SEO audit (title/meta tags, headings, image alt text, OpenGraph/Twitter cards, JSON-LD structured data, robots.txt and sitemap.xml availability) for a running site. Use this to identify on-page SEO issues and guide fixes.
 - site_connected_remote_sites: List the durable WordPress.com remote sites (production/staging) already attached to a local site for syncing. These are distinct from temporary preview sites (preview_list). Call this before site_push to decide how to ask the user which remote site to target.
@@ -308,6 +325,8 @@ const REMOTE_DESIGN_GUIDELINES = `## Design capabilities by plan
 - Check the specific plan to determine exact capabilities.`;
 
 const PLAN_DATA_GUARDRAIL = `For ANY question about WordPress.com or Pressable plans, pricing, upgrades, or what a plan tier includes (plugins, themes, custom code, SSH, hosting, storage, etc.), you MUST load the \`hosting-plans-helper\` skill and answer only from the data it fetches. Do NOT answer from memory: your training knowledge of plan names, prices, and feature-tier gating is stale and frequently wrong. In particular, do not claim a tier lacks a feature (e.g. that Personal or Premium cannot install plugins) based on memory — check the fetched per-tier feature list, which is the only source of truth. If you cannot fetch the data, say you cannot verify current plan details and point the user to https://wordpress.com/pricing; never guess.`;
+
+const IMAGERY_SKILL_ROUTING = `For any work that adds or replaces site imagery — hero/cover backgrounds, feature or gallery images, team photos, product shots — load the \`imagery\` skill before writing image specs or calling \`generate_images\`.`;
 
 const LOCAL_SKILL_ROUTING = `## Skill routing
 

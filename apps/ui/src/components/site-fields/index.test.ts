@@ -37,7 +37,8 @@ describe( 'wpVersionField', () => {
 	} );
 
 	it( 'falls back to the bare mode name when the installed version is unknown', () => {
-		for ( const installedVersion of [ undefined, '-' ] ) {
+		// `latest` is the mode, not a version — "Auto-update (latest)" says nothing.
+		for ( const installedVersion of [ undefined, '', '-', 'latest' ] ) {
 			const field = wpVersionField( DEFAULT_WORDPRESS_VERSION, VERSIONS, {
 				latestValue: '',
 				installedVersion,

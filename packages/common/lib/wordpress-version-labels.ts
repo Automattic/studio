@@ -13,9 +13,12 @@ import { __, sprintf } from '@wordpress/i18n';
  *                         Omit it on the create-site form, and for sites that
  *                         are pinned — naming a version next to "Auto-update"
  *                         would read as if auto-updates were already on.
+ *                         Anything that isn't a concrete version number (`-`,
+ *                         `latest`) falls back to the bare label, since
+ *                         "Auto-update (latest)" would say nothing.
  */
 export function getAutoUpdateVersionLabel( installedVersion?: string ): string {
-	if ( ! installedVersion || installedVersion === '-' ) {
+	if ( ! installedVersion || ! /^\d/.test( installedVersion ) ) {
 		return __( 'Auto-update' );
 	}
 	return sprintf(

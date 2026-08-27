@@ -26,6 +26,10 @@ export interface BuildSystemPromptOptions {
 	runtime?: SiteRuntime;
 	// The user's global instructions (~/.studio/knowledge/instructions.md).
 	userInstructions?: string;
+	// True when the generate_images tool is registered for this session. Gates
+	// every imagery-related prompt section so unavailable sessions get exactly
+	// the pre-imagery prompt.
+	imageGenerationEnabled?: boolean;
 }
 
 export function buildSystemPrompt( options?: BuildSystemPromptOptions ): string {
@@ -41,13 +45,16 @@ ${ REMOTE_DESIGN_GUIDELINES }${ remoteSessionAddendum }${ userInstructionsSectio
 `;
 	}
 
+	const imageryRouting = options?.imageGenerationEnabled ? `\n\n${ IMAGERY_SKILL_ROUTING }` : '';
+
 	return `${ buildLocalIntro( {
 		chatArtifactsEnabled: options?.chatArtifactsEnabled ?? false,
 		remoteSession: options?.remoteSession ?? false,
 		runtime: options?.runtime,
+		imageGenerationEnabled: options?.imageGenerationEnabled ?? false,
 	} ) }
 
-${ LOCAL_SKILL_ROUTING }${ remoteSessionAddendum }${ userInstructionsSection }
+${ LOCAL_SKILL_ROUTING }${ imageryRouting }${ remoteSessionAddendum }${ userInstructionsSection }
 `;
 }
 
@@ -124,8 +131,18 @@ function buildLocalIntro( options: {
 	chatArtifactsEnabled: boolean;
 	remoteSession: boolean;
 	runtime?: SiteRuntime;
+	imageGenerationEnabled: boolean;
 } ): string {
 	const postContentGuidance = getPostContentGuidance( options.runtime );
+	const imageryWorkflowSection = options.imageGenerationEnabled
+		? `
+
+Whenever the design calls for imagery (hero/cover backgrounds, feature, gallery, or card images, team photos, product shots), load the \`imagery\` skill and generate the images with \`generate_images\` BEFORE writing the markup that references them: theme imagery goes into the active theme's assets directory, site-specific content imagery is imported into the media library via wp_cli. Never source images from web URLs and never leave a broken image reference — if an image cannot be generated, adapt the layout instead.`
+		: '';
+	const generateImagesToolBullet = options.imageGenerationEnabled
+		? `
+- generate_images: Generate AI images (JPEG) from text specs and write them to files inside a site. Batch all the images a page needs into one call. Load the \`imagery\` skill first for spec-writing rules and file placement.`
+		: '';
 	// Remote-bridge sessions also run without chat artifacts, but their user is
 	// on the other end of a messaging bridge: local file paths are unreachable
 	// and REMOTE_SESSION_GUIDANCE (share_screenshot) already covers delivery.
@@ -154,6 +171,14 @@ ${ getStudioWidgetPromptManifest() }`
 	const studioPresentToolBullet = options.chatArtifactsEnabled
 		? `
 - studio_present: Show one or more Studio desks widgets as inline visual artifacts.`
+		: '';
+	const refreshBrowserToolBullet = options.chatArtifactsEnabled
+		? `
+- refresh_browser: Reload the in-app site preview so the user sees your latest changes. Reloads in place; never stop/start the site to refresh the preview.`
+		: '';
+	const refreshBrowserRule = options.chatArtifactsEnabled
+		? `
+- After a change that alters what the site renders (content, options/settings, theme, plugins, activation), call refresh_browser so the in-app preview shows the result. Never stop/start the site (site_stop/site_start) just to refresh the preview.`
 		: '';
 
 	return `${ AGENT_IDENTITY } You manage and modify local WordPress sites using your Studio tools and generate content for these sites.
@@ -186,7 +211,7 @@ Then continue with:
 4. **Provision the site**: Use wp_cli to activate the theme, install and activate any plugins the design needs, and set options. Do this before validating — the live editor only recognizes the active theme and registered plugin blocks. The site must be running.
 5. **Validate block content**: Any block content you generate MUST pass validate_blocks before it reaches the site — before \`wp post create/update\` and before \`wp_cli eval\` that imports a scratch file such as \`<site>/tmp/page-<slug>.html\`. Call validate_blocks with \`filePath\` for file content, or pass inline content. It runs a static core/html policy check first: if that reports invalid core/html blocks, editor validation is skipped — rewrite those as editable core or plugin blocks and call again. Once the policy passes it validates in the live editor. If an auto-fix was applied, the file already holds the fixed content; do not replace markup or re-validate unless you change the markup. Use the diff only to update CSS selectors for class/nesting changes. For inline content, use the returned fixed content exactly. Never apply unvalidated block content — a build that skips validate_blocks is incomplete.
 6. **Apply content**: Once it passes validation, create/update/import the posts and pages with the validated content. ${ postContentGuidance }
-7. **Check and polish the result**: Load the \`visual-polish\` skill and run it to polish the design. The design must match your original expectations.
+7. **Check and polish the result**: Load the \`visual-polish\` skill and run it to polish the design. The design must match your original expectations.${ imageryWorkflowSection }
 
 ## Working cadence
 
@@ -205,17 +230,16 @@ For long CSS or page-content files (>~200 lines), load the \`block-content\` ski
 - site_info: Get details about a specific site (path, URL, credentials, running status)
 - site_start: Start a stopped site
 - site_stop: Stop a running site
-- site_delete: Delete a site from Studio and optionally move its files to trash. The tool prompts the user for confirmation itself — do NOT add your own AskUserQuestion before calling it. Never infer a deletion from an ambiguous request such as "undo", "revert", "start over", or "remove that".
+- site_delete: Delete a site from Studio and optionally move its files to trash
 - preview_create: Create a preview site (a temporary, expiring hosted preview) for a local site; when a local site is selected, preview that site instead of creating a new local site; requires WordPress.com authentication and can take a few minutes, so tell the user to wait
 - preview_list: List preview sites (temporary, expiring hosted previews) for a local site. These are NOT connected WordPress.com remote sites.
 - preview_update: Update an existing preview site from a local site; this can take a few minutes, so tell the user to wait
 - preview_delete: Delete a preview site by hostname
-- wp_cli: Run WP-CLI commands on a running site
-- refresh_browser: Reload the in-app site preview so the user sees your latest changes. Reloads in place; never stop/start the site to refresh the preview.
+- wp_cli: Run WP-CLI commands on a running site${ refreshBrowserToolBullet }
 - scaffold_theme: Scaffold a minimal block theme (style.css, theme.json, functions.php with frontend + editor enqueue, default templates and parts, empty assets/fonts and patterns dirs) into a site and activate it. Use as the first step when starting a new custom theme; the agent fills design-specific content afterwards. Pass parentTheme with an installed theme's slug to scaffold a child theme instead of editing that theme's files. Block themes only.
 - validate_blocks: Validate block content in two stages and return a combined report. First a static core/html policy check; if it finds invalid core/html blocks it returns only those (rewrite them as editable core or plugin blocks and call again) and skips the editor. Once it passes, validates in the running site's real block editor: with filePath, applies safe editor fixes directly to the file and returns a CSS-review diff; with inline content, returns exact fixed block content plus the diff. Requires a site name or path. Call after every file write/edit that contains block content.
 - take_screenshot: Take a full-page screenshot of a URL (supports desktop, mobile, or \`viewport: "all"\` for both). Use this to visually check the site after building it.
-- inspect_design: Inspect the rendered DOM and computed styles of a page by CSS selector to root-cause visual issues. Pair with take_screenshot when verifying or polishing a design.
+- inspect_design: Inspect the rendered DOM and computed styles of a page by CSS selector to root-cause visual issues. Pair with take_screenshot when verifying or polishing a design.${ generateImagesToolBullet }
 - need_for_speed: Measure frontend performance metrics (TTFB, FCP, LCP, CLS, page weight, DOM size, JS/CSS/image/font asset breakdown) for a running site. Use this to identify performance bottlenecks and guide optimization.
 - rank_me_up: Run an on-page SEO audit (title/meta tags, headings, image alt text, OpenGraph/Twitter cards, JSON-LD structured data, robots.txt and sitemap.xml availability) for a running site. Use this to identify on-page SEO issues and guide fixes.
 - site_connected_remote_sites: List the durable WordPress.com remote sites (production/staging) already attached to a local site for syncing. These are distinct from temporary preview sites (preview_list). Call this before site_push to decide how to ask the user which remote site to target.
@@ -227,12 +251,10 @@ ${ studioPresentToolBullet }${ automaticArtifactSection }
 
 ## General rules
 
-- Deleting a site is destructive and irreversible. The \`site_delete\` tool handles its own two-step confirmation with the user — do NOT call \`AskUserQuestion\` yourself before invoking it. Never treat an ambiguous or corrective request — "undo", "undo that", "revert my last change", "start over", "remove that" — as a request to delete a site; those refer to the most recent edit or content, not the whole site. When unsure what the user means, ask instead of deleting.
-- Design quality and visual ambition are not in conflict with using core blocks. Custom CSS targeting block classNames can achieve any visual design. The block structure is for editability; the CSS is for aesthetics.
+- Design quality and visual ambition are not in conflict with using core blocks. Style through the most structured channel that fits: theme.json (palette, presets, element and block styles) first; a registered block style variation for a treatment repeated across instances of a block type; custom CSS targeting block classNames last, for what those cannot express (descendant selectors, keyframe animations — hover/focus/active on buttons and links belong in theme.json \`styles.elements\`, and responsive styles are supported in theme.json and block styles, so neither justifies CSS). CSS can achieve any visual design, but the block structure is for editability — styling expressed structurally stays visible and editable in the Site Editor, while custom CSS does not.
 - Do NOT modify WordPress core files. Only work within wp-content/.
 - Do NOT edit the files of installed third-party themes (default themes like twentytwentyfive, marketplace/community themes such as Ollie, anything installed via \`wp theme install\` or already present on the site) — a theme update silently wipes such edits. Default to a child theme: call \`scaffold_theme\` with \`parentTheme\` set to the installed theme's slug, then make every customization (style.css, theme.json, templates, parts, patterns) in the child theme. Themes Studio Code created — their style.css Description says "scaffolded by Studio Code" — are safe to edit directly. If the user explicitly asks you to edit an installed theme's files directly, comply, but first warn once that a theme update will overwrite the changes.
-- Before running wp_cli, ensure the site is running (site_start if needed).
-- After a change that alters what the site renders (content, options/settings, theme, plugins, activation), call refresh_browser so the in-app preview shows the result. Never stop/start the site (site_stop/site_start) just to refresh the preview.
+- Before running wp_cli, ensure the site is running (site_start if needed).${ refreshBrowserRule }
 - When building themes, always build block themes (NO CLASSIC THEMES).
 - New CSS files impacting the frontend of the site need to be enqueued in both the editor and the frontend (automatic for the scaffold's style.css when using \`scaffold_theme\`).
 - For theme and page content custom CSS, put the styles in the main style.css of the theme. No custom stylesheets.
@@ -304,6 +326,8 @@ const REMOTE_DESIGN_GUIDELINES = `## Design capabilities by plan
 
 const PLAN_DATA_GUARDRAIL = `For ANY question about WordPress.com or Pressable plans, pricing, upgrades, or what a plan tier includes (plugins, themes, custom code, SSH, hosting, storage, etc.), you MUST load the \`hosting-plans-helper\` skill and answer only from the data it fetches. Do NOT answer from memory: your training knowledge of plan names, prices, and feature-tier gating is stale and frequently wrong. In particular, do not claim a tier lacks a feature (e.g. that Personal or Premium cannot install plugins) based on memory — check the fetched per-tier feature list, which is the only source of truth. If you cannot fetch the data, say you cannot verify current plan details and point the user to https://wordpress.com/pricing; never guess.`;
 
+const IMAGERY_SKILL_ROUTING = `For any work that adds or replaces site imagery — hero/cover backgrounds, feature or gallery images, team photos, product shots — load the \`imagery\` skill before writing image specs or calling \`generate_images\`.`;
+
 const LOCAL_SKILL_ROUTING = `## Skill routing
 
 For any site creation, redesign, landing page, homepage, layout, style, CSS, typography, color, or motion work, load the \`visual-design\` skill before writing design files or block markup.
@@ -312,4 +336,4 @@ For any page/post content, template or template-part content, block markup, bloc
 
 For verifying and polishing a built or redesigned site — checking the rendered result against intent and diagnosing layout/width, spacing, button, background, or hover issues — load the \`visual-polish\` skill and use \`inspect_design\` to root-cause from the rendered DOM before fixing.
 
-For forms, newsletters/email subscriptions, shops/stores/ecommerce, online courses/LMS/quizzes, polls/surveys/ratings, events, galleries/slideshows, social auto-posting, embeds, SEO/performance plugin choices, or any feature that core WordPress blocks do not cleanly provide, load the \`plugin-recommendations\` skill before installing plugins or writing plugin-provided block markup. It maps each feature to the recommended plugin to use (WooCommerce, Jetpack, Sensei LMS, Crowdsignal, Akismet) so you reuse proven plugins instead of hand-building.`;
+When the request involves forms, newsletters/email subscriptions, shops/stores/ecommerce, online courses/LMS/quizzes, polls/surveys/ratings, events, galleries/slideshows/carousels, social auto-posting, embeds, SEO/performance plugin choices, or any feature that core WordPress blocks do not cleanly provide, load the \`plugin-recommendations\` skill FIRST — before you decide whether to hand-build the feature or reach for a plugin, and before writing any of its markup. These features have a recommended plugin (WooCommerce, Jetpack, Sensei LMS, Crowdsignal, Akismet) whose blocks you reuse instead of hand-building with core blocks, raw HTML, or custom CSS/JS; the skill maps each feature to its plugin. Do not treat "I can build this with core blocks and a script" as a reason to skip the skill — deciding how to build the feature is exactly what the skill informs.`;

@@ -10,6 +10,7 @@ import {
 import {
 	isAiAccessRequiredError,
 	isAiBlockedError,
+	isOutOfCreditsError,
 	isUsageCapError,
 } from '@studio/common/ai/json-events';
 import {
@@ -1239,13 +1240,21 @@ function AgentQuestionBatch( {
 	);
 }
 
-// In-flow marker for a turn that ended in an error. The monthly usage cap
-// gets dedicated copy — with the reset date once the quota query resolves —
-// instead of the raw provider message.
+// In-flow marker for a turn that ended in an error. The proxy's quota
+// refusals get dedicated copy instead of the raw provider message: the
+// monthly usage cap shows the reset date once the quota query resolves, and
+// out-of-credits (STU-2236) points at buying credits — waiting doesn't fix
+// that one.
 function TurnErrorMarker( { message }: { message: string } ) {
 	const isUsageCap = isUsageCapError( message );
 	const isAccessRequired = isAiAccessRequiredError( message );
 	const { data: quota } = useStudioAssistantQuota( { enabled: isUsageCap || isAccessRequired } );
+
+	// Out of credits says nothing here: the purchase card has already taken
+	// the composer's place, and repeating it in the transcript is noise.
+	if ( isOutOfCreditsError( message ) ) {
+		return null;
+	}
 	let text: ReactNode;
 	if ( isAiBlockedError( message ) ) {
 		text = <AiBlockedNotice />;

@@ -47,6 +47,7 @@ import {
 } from '@studio/common/lib/site-runtime';
 import { getAiPayloadsPath, getConfigDirectory } from '@studio/common/lib/well-known-paths';
 import { type TSchema } from 'typebox';
+import { isImageGenerationAvailable } from 'cli/ai/image-generation';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions, withChatArtifactEmission } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
@@ -67,7 +68,6 @@ import {
 } from './tool-safety';
 import { withUsageCapErrorRewrite } from './usage-cap';
 import type { StudioChatImage } from '@studio/common/ai/chat-images';
-import type { ConfirmSiteDeletion } from 'cli/ai/tools/delete-site';
 import type { AskUserHandler, SiteInfo } from 'cli/ai/types';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -327,9 +327,10 @@ async function createStudioAgentSession(
 	const isRemoteSite = Boolean( config.activeSite?.remote && config.activeSite?.wpcomSiteId );
 	const remoteSession = config.env.STUDIO_REMOTE_SESSION === '1';
 	const chatArtifactsEnabled = typeof process.send === 'function';
-	const [ userInstructions, runtime ] = await Promise.all( [
+	const [ userInstructions, runtime, imageGenerationEnabled ] = await Promise.all( [
 		readGlobalInstructions(),
 		isRemoteSite ? undefined : resolveActiveSiteRuntime( config.activeSite ),
+		isImageGenerationAvailable(),
 	] );
 
 	const systemPrompt = buildSystemPrompt(
@@ -348,10 +349,16 @@ async function createStudioAgentSession(
 					remoteSession,
 					runtime,
 					userInstructions,
+					imageGenerationEnabled,
 			  }
 	);
 
-	const tools = buildAgentTools( config, chatArtifactsEnabled, remoteSession );
+	const tools = buildAgentTools(
+		config,
+		chatArtifactsEnabled,
+		remoteSession,
+		imageGenerationEnabled
+	);
 	const toolDefinitions = tools.map( ( tool ) => toToolDefinition( tool, payloadGuardState ) );
 	const modelRuntime = await createModelRuntime( model, family, creds );
 	const settingsManager = createSettingsManager( config.env );
@@ -534,9 +541,7 @@ async function createModelRuntime(
 		return modelRuntime;
 	}
 
-	// allowNetwork: false — the default refresh fetches remote model catalogs
-	// (unused here) with no timeout guard, blocking the turn on slow networks.
-	await modelRuntime.setRuntimeApiKey( family, creds.apiKey, { allowNetwork: false } );
+	await modelRuntime.setRuntimeApiKey( family, creds.apiKey );
 	return modelRuntime;
 }
 
@@ -670,7 +675,8 @@ function toToolDefinition(
 function buildAgentTools(
 	config: ResolvedStudioAgentTurnConfig,
 	chatArtifactsEnabled: boolean,
-	remoteSession: boolean
+	remoteSession: boolean,
+	imageGenerationEnabled: boolean
 ): AgentToolAny[] {
 	const isRemoteSite = Boolean(
 		config.activeSite?.remote && config.activeSite?.wpcomSiteId && config.wpcomAccessToken
@@ -731,81 +737,9 @@ function buildAgentTools(
 	const studioTools = resolveStudioToolDefinitions( {
 		emitChatArtifacts: chatArtifactsEnabled,
 		remoteSession,
-		confirmSiteDeletion: config.onAskUser
-			? buildSiteDeletionConfirm( config.onAskUser )
-			: undefined,
+		imageGeneration: imageGenerationEnabled,
 	} ) as unknown as AgentToolAny[];
 	return withoutUnusableTools( [ ...studioTools, ...askUserTool, ...skillTool, ...piTools ] );
-}
-
-// Two-step confirmation for site deletion:
-// 1. Choose what happens to the files (trash / keep / cancel)
-// 2. Final safety gate naming the site (delete / cancel)
-// Cancelling at either step leaves the site intact.
-const DELETE_AND_TRASH_LABEL = 'Delete and trash files';
-const DELETE_AND_KEEP_LABEL = 'Delete and keep files';
-const CONFIRM_DELETE_LABEL = 'Delete site';
-
-function buildSiteDeletionConfirm( onAskUser: AskUserHandler ): ConfirmSiteDeletion {
-	return async ( { name } ) => {
-		// Step 1: file handling choice
-		const fileQuestion = `What should happen to the files for "${ name }"?`;
-		const fileAnswers = await onAskUser( [
-			{
-				question: fileQuestion,
-				options: [
-					{
-						label: DELETE_AND_TRASH_LABEL,
-						description: `Remove "${ name }" from Studio and move its files to the trash.`,
-					},
-					{
-						label: DELETE_AND_KEEP_LABEL,
-						description: `Remove "${ name }" from Studio but keep its files on disk.`,
-					},
-					{
-						label: 'Cancel',
-						description: 'Keep the site. Nothing will be deleted.',
-					},
-				],
-				allowFreeForm: true,
-			},
-		] );
-		const fileChoice = fileAnswers[ fileQuestion ];
-		let deleteFiles: boolean;
-		if ( fileChoice === DELETE_AND_TRASH_LABEL ) {
-			deleteFiles = true;
-		} else if ( fileChoice === DELETE_AND_KEEP_LABEL ) {
-			deleteFiles = false;
-		} else {
-			return { confirmed: false };
-		}
-
-		// Step 2: final confirmation
-		const confirmQuestion = `Permanently delete the site "${ name }"? This cannot be undone.`;
-		const confirmAnswers = await onAskUser( [
-			{
-				question: confirmQuestion,
-				options: [
-					{
-						label: CONFIRM_DELETE_LABEL,
-						description: deleteFiles
-							? `Permanently remove "${ name }" and move its files to the trash.`
-							: `Permanently remove "${ name }" from Studio. Its files will stay on disk.`,
-					},
-					{
-						label: 'Cancel',
-						description: 'Keep the site. Nothing will be deleted.',
-					},
-				],
-				allowFreeForm: true,
-			},
-		] );
-		if ( confirmAnswers[ confirmQuestion ] !== CONFIRM_DELETE_LABEL ) {
-			return { confirmed: false };
-		}
-
-		return { confirmed: true, deleteFiles };
-	};
 }
 
 function parseJsonHeaderEnv(

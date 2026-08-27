@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
 import { SidebarLayout } from './index';
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 vi.mock( '@/components/sidebar-header', () => ( {
 	SidebarHeader: () => null,
@@ -13,12 +13,17 @@ vi.mock( '@/components/app-message-cards', () => ( {
 	AppMessageCardsDot: () => null,
 } ) );
 
+vi.mock( '@/components/collapsed-site-switcher', () => ( {
+	CollapsedSiteSwitcher: ( { trigger }: { trigger: ReactElement } ) => trigger,
+} ) );
+
 vi.mock( '@/components/studio-beta-menu', () => ( {
 	StudioBetaMenu: () => null,
 } ) );
 
 vi.mock( '@/components/site-list', () => ( {
-	SiteList: () => <nav aria-label="Sites" />,
+	SiteList: () => <div data-testid="site-list" />,
+	SeenSessionTimestampsProvider: ( { children }: { children: ReactNode } ) => children,
 } ) );
 
 vi.mock( '@/components/user-menu', () => ( {
@@ -38,21 +43,6 @@ vi.mock( '@/hooks/use-fullscreen', () => ( {
 vi.mock( '@/hooks/use-color-scheme', () => ( {
 	useColorScheme: () => 'light',
 } ) );
-
-vi.mock( '@wordpress/ui', async () => {
-	const actual = await vi.importActual< typeof import('@wordpress/ui') >( '@wordpress/ui' );
-	return {
-		...actual,
-		IconButton: ( {
-			label,
-			onClick,
-		}: {
-			label: string;
-			onClick: () => void;
-			children?: ReactNode;
-		} ) => <button onClick={ onClick }>{ label }</button>,
-	};
-} );
 
 const useConnectorMock = vi.mocked( useConnector, { partial: true } );
 

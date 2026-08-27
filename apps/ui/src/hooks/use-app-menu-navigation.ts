@@ -1,13 +1,16 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { useEffect } from 'react';
 import { useConnector } from '@/data/core';
+import { ASSISTANT_QUOTA_QUERY_KEY } from '@/data/queries/use-assistant-quota';
 import { createSelectedBlueprint } from '@/lib/blueprint-selection';
 import { pendingBlueprintSlot } from '@/lib/pending-blueprint';
 
 export function useAppMenuNavigation() {
 	const connector = useConnector();
 	const navigate = useNavigate();
+	const queryClient = useQueryClient();
 
 	useEffect(
 		() => connector.onAddSite( () => void navigate( { to: '/onboarding' } ) ),
@@ -55,5 +58,16 @@ export function useAppMenuNavigation() {
 	useEffect(
 		() => connector.onOpenSettings( () => void navigate( { to: '/settings' } ) ),
 		[ connector, navigate ]
+	);
+	// Returning from the AI credits checkout. The quota is cached for five
+	// minutes and an Electron window behind the browser never fires the focus
+	// refetch, so show the new balance by invalidating it explicitly.
+	useEffect(
+		() =>
+			connector.onAiCreditsPurchased( () => {
+				void queryClient.invalidateQueries( { queryKey: ASSISTANT_QUOTA_QUERY_KEY } );
+				void navigate( { to: '/settings', search: { tab: 'usage' } } );
+			} ),
+		[ connector, navigate, queryClient ]
 	);
 }

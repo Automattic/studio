@@ -1,5 +1,6 @@
 import { buildChatAttachmentSummaries } from '@studio/common/ai/chat-attachments';
 import { getAgentEndFailure } from '@studio/common/ai/json-events';
+import { getStudioToolProgress } from '@studio/common/ai/tool-progress';
 import { useQueryClient } from '@tanstack/react-query';
 import {
 	createContext,
@@ -13,6 +14,7 @@ import {
 	type PropsWithChildren,
 } from 'react';
 import { useConnector } from '@/data/core';
+import { ASSISTANT_QUOTA_QUERY_KEY } from '@/data/queries/use-assistant-quota';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import type {
 	AgentEvent,
@@ -128,6 +130,13 @@ type Action =
 	| { type: 'queue_shift' }
 	| { type: 'queue_clear' };
 
+function resolveRunStartedAt( state: State, runId: string, startedAt: number ): number {
+	if ( state.phase === 'starting' || state.runId === runId ) {
+		return state.startedAt ?? startedAt;
+	}
+	return startedAt;
+}
+
 function reducer( state: State, action: Action ): State {
 	switch ( action.type ) {
 		case 'hydrate_active_run':
@@ -135,7 +144,7 @@ function reducer( state: State, action: Action ): State {
 				...state,
 				phase: 'running',
 				runId: action.runId,
-				startedAt: action.startedAt,
+				startedAt: resolveRunStartedAt( state, action.runId, action.startedAt ),
 				error: null,
 				isInterrupting: action.interrupting,
 			};
@@ -153,7 +162,7 @@ function reducer( state: State, action: Action ): State {
 				...state,
 				phase: 'running',
 				runId: action.runId,
-				startedAt: action.startedAt,
+				startedAt: resolveRunStartedAt( state, action.runId, action.startedAt ),
 				error: null,
 				isInterrupting: false,
 			};
@@ -395,6 +404,9 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					}
 					dispatchSession( payload.sessionId, { type: 'run_ended' } );
 					subscribedRunIdsBySessionRef.current.delete( payload.sessionId );
+					// The finished run consumed AI credits; refresh the balance shown
+					// in the composer and in Settings → Usage.
+					void queryClient.invalidateQueries( { queryKey: ASSISTANT_QUOTA_QUERY_KEY } );
 					if ( ! hasQueuedFollowUp ) {
 						// Refetch to replace optimistic entries with disk-backed ones.
 						// `cancelRefetch: false` so a run ending as its site is deleted
@@ -462,22 +474,24 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 								),
 							] );
 						}
+					} else if ( inner.type === 'tool_execution_update' ) {
+						const progress = getStudioToolProgress( inner.partialResult );
+						if ( progress?.message.trim() ) {
+							updateCache( payload.sessionId, ( entries ) => [
+								...entries,
+								{
+									type: 'custom',
+									id: shortEntryId(),
+									parentId: null,
+									timestamp: event.timestamp,
+									customType: 'studio.tool_progress',
+									data: { message: progress.message, toolCallId: inner.toolCallId },
+								} as SessionEntry,
+							] );
+						}
 					}
 					return;
 				}
-				case 'progress':
-					updateCache( payload.sessionId, ( entries ) => [
-						...entries,
-						{
-							type: 'custom',
-							id: shortEntryId(),
-							parentId: null,
-							timestamp: event.timestamp,
-							customType: 'studio.tool_progress',
-							data: { message: event.message },
-						} as SessionEntry,
-					] );
-					return;
 				case 'chat.artifact':
 					updateCache( payload.sessionId, ( entries ) => [
 						...entries,

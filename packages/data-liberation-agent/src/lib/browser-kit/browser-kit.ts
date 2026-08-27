@@ -1,7 +1,16 @@
+import { withTimeout } from '../concurrency.js';
+
+type PwPage = { close(): Promise<void> };
+
+const CLOSE_TIMEOUT_MS = 3_000;
+const CREATE_TIMEOUT_MS = 30_000;
+const CONNECT_TIMEOUT_MS = 60_000;
+
 type PwBrowser = {
-  contexts(): Array<{ newPage(): Promise<unknown> }>;
-  newContext(opts?: Record<string, unknown>): Promise<{ newPage(): Promise<unknown> }>;
+  contexts(): Array<{ newPage(): Promise<PwPage> }>;
+  newContext(opts?: Record<string, unknown>): Promise<{ newPage(): Promise<PwPage> }>;
   close(): Promise<void>;
+  isConnected(): boolean;
 };
 
 export async function getPlaywright(): Promise<typeof import('playwright')> {
@@ -40,28 +49,42 @@ export async function launchBrowser(opts: { cdpPort?: number; headed?: boolean }
   page: unknown;
   close: () => Promise<void>;
 }> {
-  const pw = await getPlaywright();
+  const raw = await withTimeout(
+    connectBrowser(opts),
+    CONNECT_TIMEOUT_MS,
+    'browser connect',
+    (late) => {
+      void withTimeout(late.close(), CLOSE_TIMEOUT_MS, 'late browser close').catch(() => {});
+    }
+  );
+  const browser = raw as unknown as PwBrowser;
 
-  let browser: PwBrowser;
-  let page: unknown;
-
-  if (opts.cdpPort) {
-    const raw = await pw.chromium.connectOverCDP(
-      `http://127.0.0.1:${opts.cdpPort}`
-    );
-    browser = raw as unknown as PwBrowser;
-    const ctx = browser.contexts()[0] || (await browser.newContext());
-    page = await ctx.newPage();
-  } else {
-    const raw = await pw.chromium.launch({ headless: !opts.headed });
-    browser = raw as unknown as PwBrowser;
-    const ctx = await browser.newContext();
-    page = await ctx.newPage();
+  const newContext = () =>
+    withTimeout(browser.newContext(), CREATE_TIMEOUT_MS, 'context create');
+  let page: PwPage;
+  try {
+    const ctx = opts.cdpPort
+      ? browser.contexts()[0] || (await newContext())
+      : await newContext();
+    // A page that materializes after the deadline must be closed before we
+    // disconnect, or under CDP it survives as an orphan tab in the user's
+    // real browser.
+    const pending = ctx.newPage();
+    page = await withTimeout(pending, CREATE_TIMEOUT_MS, 'page create', (late) => {
+      void late.close().catch(() => {});
+    });
+  } catch (err) {
+    await withTimeout(browser.close(), CLOSE_TIMEOUT_MS, 'browser close').catch(() => {});
+    throw err;
   }
 
   return {
     browser,
     page,
-    close: () => browser.close(),
+    close: async () => {
+      // Under CDP, browser.close() only disconnects — close our tab first.
+      await withTimeout(page.close(), CLOSE_TIMEOUT_MS, 'page close').catch(() => {});
+      await withTimeout(browser.close(), CLOSE_TIMEOUT_MS, 'browser close').catch(() => {});
+    },
   };
 }

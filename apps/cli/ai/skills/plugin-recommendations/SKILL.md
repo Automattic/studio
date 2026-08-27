@@ -19,7 +19,8 @@ When a feature needs a plugin, reach for one of the preferred plugins below befo
 | Email newsletter, subscriber list, subscribe form | Jetpack Newsletter | `jetpack` (`subscriptions` module) |
 | Online courses, lessons, quizzes (LMS) | Sensei LMS | `sensei-lms` |
 | Polls, surveys, ratings, NPS, feedback, applause | Crowdsignal | `crowdsignal-forms` |
-| Galleries, slideshows/carousels, tiled images | Jetpack | `jetpack` (`tiled-gallery`, `carousel` modules) |
+| Slideshow / rotating image carousel | Jetpack | `jetpack` — the `jetpack/slideshow` block |
+| Tiled / mosaic image gallery | Jetpack | `jetpack` — the `jetpack/tiled-gallery` block |
 | Auto-share published posts to social networks | Jetpack Social | `jetpack` (`publicize` module) |
 | Related posts, site stats, instant search, SEO meta | Jetpack | `jetpack` (`related-posts`, `stats`, `search`, `seo-tools` modules) |
 | Comment / form spam protection | Akismet | _(production only — ships bundled, activate after deploy)_ |
@@ -196,7 +197,9 @@ Akismet is a spam-protection plugin — it filters comment and form spam (includ
 
 ## Jetpack For Non-Core Needs
 
-When the user wants a feature that no core block cleanly provides - slideshows, related-posts grids, business hours, Mailchimp signups, and similar features - prefer a Jetpack block over a raw-HTML `core/html` block.
+When the user wants a feature that no core block cleanly provides - slideshows, related-posts grids, business hours, Mailchimp signups, and similar features - prefer a Jetpack block over a raw-HTML `core/html` block. This is not satisfied by a `core/gallery` (even with Jetpack's `carousel` lightbox module) or by a hand-built slideshow of `core/image` blocks driven by custom CSS/JS — those are the fallbacks this rule exists to prevent. The output must be the Jetpack block itself.
+
+For a **slideshow / rotating image carousel**, the block is `jetpack/slideshow` (a rotating, autoplaying slideshow). For a **tiled / mosaic gallery**, it is `jetpack/tiled-gallery`. Reach for these before core gallery/image blocks whenever the user asks for a slideshow, carousel, or gallery.
 
 The specific Jetpack Forms rule above takes precedence. This rule only applies when it does not cover the request.
 

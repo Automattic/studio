@@ -18,6 +18,12 @@ import type { ComposerSendAttachments } from './use-composer-attachments';
 import type { AiSessionSummary, LoadedAiSession, SessionEntry } from '@/data/core';
 import type { ComponentProps } from 'react';
 
+// The AI credits control inside the composer reads the router; the quota it
+// also needs stays undefined here, so the control itself renders nothing.
+vi.mock( '@tanstack/react-router', () => ( {
+	useNavigate: () => vi.fn(),
+} ) );
+
 const connectorMocks = vi.hoisted( () => ( {
 	capabilities: { aiSettings: false },
 	createSession: vi.fn(),

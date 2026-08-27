@@ -80,6 +80,8 @@ function makeQuota( overrides: Partial< { hasPaymentMethod: boolean; emailVerifi
 		hasPaymentMethod: true,
 		studioCodeAiHasAccess: true,
 		studioCodeAiAccess: 'granted',
+		allowanceRemaining: undefined,
+		purchasedRemaining: undefined,
 		...overrides,
 	};
 }

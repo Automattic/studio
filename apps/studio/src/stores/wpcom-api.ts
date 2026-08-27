@@ -1,6 +1,10 @@
 import { createApi, TypedUseQuery, TypedUseMutation } from '@reduxjs/toolkit/query/react';
 import * as Sentry from '@sentry/electron/renderer';
 import { studioAssistantQuotaSchema } from '@studio/common/lib/studio-assistant-quota';
+import {
+	parseStudioAssistantTopUpPricing,
+	type StudioAssistantTopUpPricing,
+} from '@studio/common/lib/studio-assistant-top-up-pricing';
 import { blueprintSchema, type Blueprint } from '@studio/common/lib/studio-blueprints-api';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
@@ -102,7 +106,7 @@ function parseResponse< TSchema extends z.ZodType >(
 export const wpcomApi = createApi( {
 	reducerPath: 'wpcomApi',
 	baseQuery: wpcomBaseQuery,
-	tagTypes: [ 'SnapshotUsage' ],
+	tagTypes: [ 'SnapshotUsage', 'StudioAssistantQuota' ],
 	endpoints: ( builder ) => ( {
 		getSnapshotUsage: builder.query< z.infer< typeof snapshotUsageSchema >, void >( {
 			query: () => ( {
@@ -128,6 +132,20 @@ export const wpcomApi = createApi( {
 			} ),
 			transformResponse: ( response: unknown ) =>
 				parseResponse( response, studioAssistantQuotaSchema ),
+			keepUnusedDataFor: 60 * 60,
+			providesTags: [ 'StudioAssistantQuota' ],
+		} ),
+		getStudioAssistantTopUpPricing: builder.query< StudioAssistantTopUpPricing | null, void >( {
+			queryFn: async ( _arg, _api, _extraOptions, baseQuery ) => {
+				const result = await baseQuery( {
+					path: '/studio-app/ai-assistant/top-up-pricing',
+					apiNamespace: 'wpcom/v2',
+				} );
+				// Pricing is a nicety, not a gate: a failed or unexpected
+				// response resolves `null` and the caller offers the single
+				// fixed top-up instead of erroring the whole notice.
+				return { data: parseStudioAssistantTopUpPricing( result.error ? null : result.data ) };
+			},
 			keepUnusedDataFor: 60 * 60,
 		} ),
 		deleteAllSnapshots: builder.mutation< void, void >( {
@@ -231,6 +249,10 @@ export const useGetSnapshotStatus = withWpcomClientCheck(
 
 export const useGetStudioAssistantQuota = withWpcomClientCheck(
 	withOfflineCheck( wpcomApi.useGetStudioAssistantQuotaQuery )
+);
+
+export const useGetStudioAssistantTopUpPricing = withWpcomClientCheck(
+	withOfflineCheck( wpcomApi.useGetStudioAssistantTopUpPricingQuery )
 );
 
 export const useDeleteAllSnapshots = withWpcomClientCheckMutation(

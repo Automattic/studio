@@ -39,7 +39,7 @@ describe( 'OnboardingHomePage', () => {
 		clearPendingBackup();
 	} );
 
-	it( 'shows Create, Connect, and Import in that order', () => {
+	it( 'shows Create, Blueprint, Connect, and Import in that order', () => {
 		render( <OnboardingHomePage /> );
 
 		expect( screen.getByRole( 'heading', { name: 'Add a site' } ) ).toBeInTheDocument();
@@ -47,19 +47,24 @@ describe( 'OnboardingHomePage', () => {
 			screen.getByText( 'Start fresh or bring an existing site into your Studio.' )
 		).toBeInTheDocument();
 		const create = screen.getByRole( 'link', { name: /Create a new site/ } );
+		const blueprint = screen.getByRole( 'link', { name: /Start from a Blueprint/ } );
 		const connect = screen.getByRole( 'link', { name: /Connect a site/ } );
 		const importBackup = screen.getByRole( 'button', { name: /Import from a backup/ } );
 
 		expect( create ).toHaveAttribute( 'href', '/onboarding/create' );
+		expect( blueprint ).toHaveAttribute( 'href', '/onboarding/blueprint' );
 		expect( connect ).toHaveAttribute( 'href', '/onboarding/connect' );
 		expect( importBackup ).toBeEnabled();
-		expect( create.compareDocumentPosition( connect ) ).toBe( Node.DOCUMENT_POSITION_FOLLOWING );
+		expect( create.compareDocumentPosition( blueprint ) ).toBe( Node.DOCUMENT_POSITION_FOLLOWING );
+		expect( blueprint.compareDocumentPosition( connect ) ).toBe(
+			Node.DOCUMENT_POSITION_FOLLOWING
+		);
 		expect( connect.compareDocumentPosition( importBackup ) ).toBe(
 			Node.DOCUMENT_POSITION_FOLLOWING
 		);
 	} );
 
-	it( 'marks Connect unavailable while offline', () => {
+	it( 'marks Connect and Blueprint unavailable while offline', () => {
 		mocks.isOffline = true;
 		render( <OnboardingHomePage /> );
 
@@ -67,7 +72,11 @@ describe( 'OnboardingHomePage', () => {
 			'aria-disabled',
 			'true'
 		);
-		expect( screen.getByText( 'Available online' ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'link', { name: /Start from a Blueprint/ } ) ).toHaveAttribute(
+			'aria-disabled',
+			'true'
+		);
+		expect( screen.getAllByText( 'Available online' ) ).toHaveLength( 2 );
 	} );
 
 	it( 'opens the file picker from the Import card', () => {

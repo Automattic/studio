@@ -34,6 +34,14 @@
 	--color-frame-diff-remove-bg: #fcf0f1;
 	--wp-admin-theme-color: var( --color-frame-theme );
 	--wp-admin-theme-color-darker-20: var( --color-frame-theme-hover );
+
+	/* @wordpress/ui dialogs portal to <body> and default this to `initial`, so
+	   they stack below @wordpress/components modals, whose overlay sits at
+	   100000 — the user-settings modal opens the AI credits dialog from inside
+	   itself, and without this the dialog renders underneath it. Set here
+	   rather than on the popup so the backdrop, a portaled sibling, rises with
+	   it. */
+	--wp-ui-dialog-z-index: 100001;
 }
 
 @media ( prefers-color-scheme: dark ) {

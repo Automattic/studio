@@ -80,11 +80,7 @@ import {
 	type ReactNode,
 	MouseEvent as ReactMouseEvent,
 } from 'react';
-import {
-	AiAccessRequiredNotice,
-	AiBlockedNotice,
-	OutOfCreditsNotice,
-} from '@/components/ai-access-required-notice';
+import { AiAccessRequiredNotice, AiBlockedNotice } from '@/components/ai-access-required-notice';
 import { CopyButton } from '@/components/copy-button';
 import { Markdown } from '@/components/markdown';
 import { useConnector, type LoadedAiSession } from '@/data/core';
@@ -1253,13 +1249,17 @@ function TurnErrorMarker( { message }: { message: string } ) {
 	const isUsageCap = isUsageCapError( message );
 	const isAccessRequired = isAiAccessRequiredError( message );
 	const { data: quota } = useStudioAssistantQuota( { enabled: isUsageCap || isAccessRequired } );
+
+	// Out of credits says nothing here: the purchase card has already taken
+	// the composer's place, and repeating it in the transcript is noise.
+	if ( isOutOfCreditsError( message ) ) {
+		return null;
+	}
 	let text: ReactNode;
 	if ( isAiBlockedError( message ) ) {
 		text = <AiBlockedNotice />;
 	} else if ( isAccessRequired ) {
 		text = <AiAccessRequiredNotice quota={ quota } />;
-	} else if ( isOutOfCreditsError( message ) ) {
-		text = <OutOfCreditsNotice />;
 	} else if ( isUsageCap ) {
 		text = formatUsageCapNotice( quota?.costResetDate );
 	} else {

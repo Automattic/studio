@@ -24,7 +24,7 @@ import {
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
-const logger = new Logger< LoggerAction >();
+const defaultLogger = new Logger< LoggerAction >();
 
 // Tracks: the CLI is the sole emitter of site-stop, whether stopped standalone or by the desktop app
 // (which delegates to `site stop` and passes its origin via STUDIO_TRACKS_ORIGIN). Best-effort —
@@ -47,23 +47,33 @@ export enum Mode {
 
 export async function runCommand(
 	target: Mode.STOP_SINGLE_SITE,
-	siteFolder: string
+	siteFolder: string,
+	logger?: Logger< LoggerAction >
 ): Promise< void >;
 export async function runCommand(
 	target: Mode.STOP_ALL_SITES,
-	siteFolder: undefined
+	siteFolder: undefined,
+	logger?: Logger< LoggerAction >
 ): Promise< void >;
-export async function runCommand( target: Mode, siteFolder: string | undefined ): Promise< void > {
+export async function runCommand(
+	target: Mode,
+	siteFolder: string | undefined,
+	logger: Logger< LoggerAction > = defaultLogger
+): Promise< void > {
 	// Stopping everything is the quit path — it kills the daemon outright, so
 	// there is no per-site operation to take (and taking one for every site could
 	// block on an operation this is about to terminate anyway).
 	if ( target === Mode.STOP_SINGLE_SITE && siteFolder ) {
-		return withSiteOperation( siteFolder, 'stop', () => stopSites( target, siteFolder ) );
+		return withSiteOperation( siteFolder, 'stop', () => stopSites( target, siteFolder, logger ) );
 	}
-	return stopSites( target, siteFolder );
+	return stopSites( target, siteFolder, logger );
 }
 
-async function stopSites( target: Mode, siteFolder: string | undefined ): Promise< void > {
+async function stopSites(
+	target: Mode,
+	siteFolder: string | undefined,
+	logger: Logger< LoggerAction >
+): Promise< void > {
 	try {
 		await connectToDaemon();
 
@@ -162,13 +172,13 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				}
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {
-					logger.reportError( error );
+					defaultLogger.reportError( error );
 				} else {
 					const loggerError = new LoggerError(
 						argv.all ? __( 'Failed to stop sites' ) : __( 'Failed to stop site' ),
 						error
 					);
-					logger.reportError( loggerError );
+					defaultLogger.reportError( loggerError );
 				}
 			}
 		},

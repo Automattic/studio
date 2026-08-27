@@ -1,15 +1,15 @@
 import {
-	ADD_AI_CREDITS_URL,
 	clampQuotaFraction,
 	formatQuotaPercentage,
 	formatQuotaResetDate,
 	getStudioCodeAiAccessState,
 } from '@studio/common/lib/studio-assistant-quota';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { external, help, moreHorizontal } from '@wordpress/icons';
-import { Button, IconButton } from '@wordpress/ui';
+import { help, moreHorizontal } from '@wordpress/icons';
+import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useState } from 'react';
+import { AddAiCreditsButton } from '@/components/add-ai-credits-button';
 import { SigninNotice } from '@/components/agentic-signin-banner';
 import { AiAccessRequiredNotice, AiBlockedNotice } from '@/components/ai-access-required-notice';
 import { AiCreditsDetailsDialog } from '@/components/ai-credits-details-dialog';
@@ -52,7 +52,6 @@ function UsageProgressBar( { fraction }: { fraction: number } ) {
 
 function AiCreditsSummary() {
 	const locale = useUserLocale();
-	const connector = useConnector();
 	const [ detailsOpen, setDetailsOpen ] = useState( false );
 	// The balance may have changed outside the app (e.g. a credits purchase on
 	// WordPress.com), so opening the panel always fetches a fresh figure.
@@ -120,16 +119,7 @@ function AiCreditsSummary() {
 						) }
 					</div>
 				</div>
-				<Button
-					className={ styles.usageSectionAction }
-					size="small"
-					variant="outline"
-					tone="neutral"
-					onClick={ () => void connector.openExternalUrl( ADD_AI_CREDITS_URL ) }
-				>
-					{ __( 'Add AI credits' ) }
-					<Button.Icon icon={ external } size={ 12 } />
-				</Button>
+				<AddAiCreditsButton className={ styles.usageSectionAction } />
 			</>
 		);
 	} else if ( quota && quota.costCap > 0 ) {
@@ -137,12 +127,18 @@ function AiCreditsSummary() {
 		content = (
 			<>
 				<div className={ styles.previewUsageText }>
-					{ sprintf(
-						/* translators: %1$s: percentage of monthly limit used (e.g. 7.5%). %2$s: date the limit resets (e.g. July 1, 2026). */
-						__( '%1$s of monthly limit used (resets on %2$s)' ),
-						formatQuotaPercentage( fraction, locale ),
-						formatQuotaResetDate( quota.costResetDate, locale )
-					) }
+					{ quota.costResetDate
+						? sprintf(
+								/* translators: %1$s: percentage of monthly limit used (e.g. 7.5%). %2$s: date the limit resets (e.g. July 1, 2026). */
+								__( '%1$s of monthly limit used (resets on %2$s)' ),
+								formatQuotaPercentage( fraction, locale ),
+								formatQuotaResetDate( quota.costResetDate, locale )
+						  )
+						: sprintf(
+								/* translators: %s: percentage of monthly limit used (e.g. 7.5%). */
+								__( '%s of monthly limit used' ),
+								formatQuotaPercentage( fraction, locale )
+						  ) }
 				</div>
 				<UsageProgressBar fraction={ fraction } />
 			</>

@@ -25,6 +25,7 @@ import type {
 	Snapshot,
 	SnapshotUsage,
 	StudioAssistantQuota,
+	StudioAssistantTopUpPricing,
 	SyncSite,
 	UserPreferences,
 } from '../../types';
@@ -372,8 +373,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async getSiteThumbnail(): Promise< string | null > {
 			return null;
 		},
-		async getSiteStorageUsage( siteId ) {
-			return api( `/sites/${ encodeURIComponent( siteId ) }/storage` );
+		async getSiteStorageUsage( siteId, signal ) {
+			return api( `/sites/${ encodeURIComponent( siteId ) }/storage`, { signal } );
 		},
 
 		// Site creation — delegated to the CLI `create` on the local machine.
@@ -534,6 +535,11 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			// The server proxies the WordPress.com quota endpoint and returns
 			// the already-parsed shape (or null when signed out).
 			return api< StudioAssistantQuota | null >( '/quota' );
+		},
+		async getStudioAssistantTopUpPricing() {
+			// Proxied server-side for the same reason as the quota: the browser
+			// UI never holds the wpcom token.
+			return api< StudioAssistantTopUpPricing | null >( '/top-up-pricing' );
 		},
 		async deleteAllSnapshots() {
 			// No-op: the local server has no delete-all route yet.
@@ -907,6 +913,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		onOpenSettings() {
 			// No application menu in a browser tab.
+			return () => {};
+		},
+		onAiCreditsPurchased() {
+			// A browser tab can't receive the wp-studio:// checkout return link.
 			return () => {};
 		},
 		async disableAgenticUi() {

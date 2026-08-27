@@ -44,7 +44,7 @@ export function deriveWhatsNewAutostart( {
 	if ( siteCount < 1 ) {
 		return null;
 	}
-	if ( hints === undefined || lastSeenVersion === undefined ) {
+	if ( hints === undefined || lastSeenVersion === undefined || currentVersion === undefined ) {
 		return null;
 	}
 	if ( ! hasUnseenWhatsNew( lastSeenVersion ?? undefined, currentVersion ) ) {
@@ -81,6 +81,9 @@ export function useWhatsNewAutostart(): void {
 	const startTimerRef = useRef< ReturnType< typeof setTimeout > | null >( null );
 
 	useEffect( () => {
+		if ( currentVersion === undefined ) {
+			return;
+		}
 		const decision = deriveWhatsNewAutostart( {
 			siteCount: sites?.length ?? 0,
 			hints,

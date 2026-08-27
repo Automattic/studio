@@ -26,7 +26,11 @@ export function useWhatsNewReplay(): void {
 	useEffect( () => {
 		return connector.onShowWhatsNew( () => {
 			openGuide( getWhatsNewGuide(), {
-				onEnd: () => saveLastSeenVersion.mutate( versionRef.current ),
+				onEnd: () => {
+					if ( versionRef.current !== undefined ) {
+						saveLastSeenVersion.mutate( versionRef.current );
+					}
+				},
 			} );
 		} );
 	}, [ connector, openGuide, saveLastSeenVersion ] );

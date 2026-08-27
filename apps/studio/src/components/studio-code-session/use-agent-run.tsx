@@ -4,6 +4,7 @@ import {
 	isOutOfCreditsError,
 	isUsageCapError,
 } from '@studio/common/ai/json-events';
+import { getStudioToolProgress } from '@studio/common/ai/tool-progress';
 import {
 	formatOutOfCreditsNotice,
 	formatUsageCapNotice,
@@ -22,6 +23,8 @@ import {
 } from 'react';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useAppDispatch } from 'src/stores';
+import { wpcomApi } from 'src/stores/wpcom-api';
 import { SESSIONS_QUERY_KEY } from './use-session';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 import type { AgentEvent, AgentRunEvent } from '@studio/common/ai/agent-events';
@@ -273,6 +276,7 @@ const AgentRunContext = createContext< AgentRunStore | null >( null );
 
 export function AgentRunProvider( { children }: PropsWithChildren ) {
 	const queryClient = useQueryClient();
+	const storeDispatch = useAppDispatch();
 	const [ states, dispatch ] = useReducer( storeReducer, {} );
 	const statesRef = useRef< StatesBySession >( states );
 	const subscribedRunIdsBySessionRef = useRef< Map< string, string > >( new Map() );
@@ -403,6 +407,13 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					}
 					dispatchSession( payload.sessionId, { type: 'run_ended' } );
 					subscribedRunIdsBySessionRef.current.delete( payload.sessionId );
+					// The finished run consumed AI credits; refresh the balance shown
+					// in the composer and in Settings → Usage. Without this the
+					// cached quota keeps reporting the pre-run figure, so a run that
+					// ended by exhausting the credits leaves the composer in place
+					// until something else invalidates the tag — in practice, a
+					// restart.
+					storeDispatch( wpcomApi.util.invalidateTags( [ 'StudioAssistantQuota' ] ) );
 					// Refetch to replace optimistic entries with disk-backed ones.
 					void queryClient.invalidateQueries( {
 						queryKey: SESSIONS_QUERY_KEY,
@@ -463,22 +474,24 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 								),
 							] );
 						}
+					} else if ( inner.type === 'tool_execution_update' ) {
+						const progress = getStudioToolProgress( inner.partialResult );
+						if ( progress?.message.trim() ) {
+							updateCache( payload.sessionId, ( entries ) => [
+								...entries,
+								{
+									type: 'custom',
+									id: shortEntryId(),
+									parentId: null,
+									timestamp: event.timestamp,
+									customType: 'studio.tool_progress',
+									data: { message: progress.message, toolCallId: inner.toolCallId },
+								} as SessionEntry,
+							] );
+						}
 					}
 					return;
 				}
-				case 'progress':
-					updateCache( payload.sessionId, ( entries ) => [
-						...entries,
-						{
-							type: 'custom',
-							id: shortEntryId(),
-							parentId: null,
-							timestamp: event.timestamp,
-							customType: 'studio.tool_progress',
-							data: { message: event.message },
-						} as SessionEntry,
-					] );
-					return;
 				case 'chat.artifact':
 					updateCache( payload.sessionId, ( entries ) => [
 						...entries,
@@ -515,7 +528,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					return;
 			}
 		},
-		[ dispatchSession, queryClient, updateCache ]
+		[ dispatchSession, queryClient, storeDispatch, updateCache ]
 	);
 
 	useIpcListener( 'ai-agent-event', handleAgentEvent );

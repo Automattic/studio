@@ -68,6 +68,7 @@ import {
 	updateSharedSession,
 } from '@studio/common/lib/shared-config';
 import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
+import { fetchStudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import { isSyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { fetchLatestRewindId, fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import { detectInstalledApps } from '@studio/common/lib/user-settings/installed-apps';
@@ -82,6 +83,7 @@ import { buildSiteCreateArgs, type SiteCreateOptions } from '@studio/common/site
 import { buildSiteSetArgs } from '@studio/common/sites/edit';
 import { startSite, stopSite } from '@studio/common/sites/lifecycle';
 import { listSites } from '@studio/common/sites/list';
+import { readSitePath } from '@studio/common/sites/site-path';
 import { createSnapshotManager, fetchSnapshots } from '@studio/common/sites/snapshots';
 import { measureSiteStorage } from '@studio/common/sites/storage-usage';
 import { pullSite, pushSite } from '@studio/common/sites/sync';
@@ -687,29 +689,42 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
+	// Both of these read straight from cli.json via `readSitePath` rather than
+	// forking the CLI for a site list: the UI asks for them on every site
+	// switch, and a fork costs about a second of CPU each time.
 	api.get(
 		'/sites/:id/wp-version',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const sites = await listSites( execute );
-			const site = sites.find( ( candidate ) => candidate.id === req.params.id );
-			if ( ! site ) {
+			const sitePath = await readSitePath( req.params.id );
+			if ( ! sitePath ) {
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
-			res.json( { wpVersion: getWordPressVersion( site.path ) } );
+			res.json( { wpVersion: getWordPressVersion( sitePath ) } );
 		} )
 	);
 
 	api.get(
 		'/sites/:id/storage',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const sites = await listSites( execute );
-			const site = sites.find( ( candidate ) => candidate.id === req.params.id );
-			if ( ! site ) {
+			const sitePath = await readSitePath( req.params.id );
+			if ( ! sitePath ) {
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
-			res.json( await measureSiteStorage( site.path ) );
+			// Walking a site takes long enough that the client often navigates
+			// away first. Tie the walk to the request so an abandoned one stops
+			// instead of running to completion for nobody.
+			const controller = new AbortController();
+			req.on( 'close', () => controller.abort() );
+			try {
+				res.json( await measureSiteStorage( sitePath, { signal: controller.signal } ) );
+			} catch ( error ) {
+				if ( controller.signal.aborted ) {
+					return;
+				}
+				throw error;
+			}
 		} )
 	);
 
@@ -1233,6 +1248,19 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		asyncHandler( async ( _req: Request, res: Response ) => {
 			const token = await readAuthToken();
 			res.json( token?.accessToken ? await fetchStudioAssistantQuota( token.accessToken ) : null );
+		} )
+	);
+
+	// AI credit top-up options priced for the signed-in account, proxied for
+	// the same reason as the quota. `null` when signed out or pricing can't be
+	// fetched — callers fall back to the single fixed top-up.
+	api.get(
+		'/top-up-pricing',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			const token = await readAuthToken();
+			res.json(
+				token?.accessToken ? await fetchStudioAssistantTopUpPricing( token.accessToken ) : null
+			);
 		} )
 	);
 

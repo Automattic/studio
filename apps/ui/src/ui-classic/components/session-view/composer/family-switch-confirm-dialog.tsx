@@ -2,6 +2,7 @@ import { getAiModelLabel } from '@studio/common/ai/models';
 import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 import { Button, Dialog } from '@wordpress/ui';
+import { useConfirmOnEnter } from '@/hooks/use-confirm-on-enter';
 import styles from './style.module.css';
 import type { AiModelId } from '@/data/core';
 
@@ -28,6 +29,9 @@ export function FamilySwitchConfirmDialog( {
 	onCancel: () => void;
 	onConfirm: () => void;
 } ) {
+	const confirmLabel = __( 'Yes, new chat' );
+	const handleKeyDown = useConfirmOnEnter( confirmLabel );
+
 	return (
 		<Dialog.Root
 			open={ pendingModel !== null }
@@ -37,7 +41,7 @@ export function FamilySwitchConfirmDialog( {
 				}
 			} }
 		>
-			<Dialog.Popup size="small">
+			<Dialog.Popup size="small" onKeyDown={ handleKeyDown }>
 				<Dialog.Header>
 					<Dialog.Title>{ __( 'Start a new chat?' ) }</Dialog.Title>
 				</Dialog.Header>
@@ -69,7 +73,7 @@ export function FamilySwitchConfirmDialog( {
 						loadingAnnouncement={ __( 'Starting new chat' ) }
 						onClick={ onConfirm }
 					>
-						{ __( 'Yes, new chat' ) }
+						{ confirmLabel }
 					</Button>
 				</Dialog.Footer>
 			</Dialog.Popup>

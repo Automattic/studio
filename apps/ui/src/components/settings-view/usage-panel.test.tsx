@@ -1,8 +1,9 @@
 import '@testing-library/jest-dom/vitest';
-import { ADD_AI_CREDITS_URL } from '@studio/common/lib/studio-assistant-quota';
+import { getAddAiCreditsUrl } from '@studio/common/lib/studio-assistant-quota';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
+import { useAppGlobals } from '@/data/queries/use-app-globals';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
 import {
@@ -10,6 +11,7 @@ import {
 	useSnapshotUsage,
 	useSnapshots,
 } from '@/data/queries/use-snapshots';
+import { useStudioAssistantTopUpPricing } from '@/data/queries/use-top-up-pricing';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useOffline } from '@/hooks/use-offline';
 import { UsagePanel } from './usage-panel';
@@ -98,8 +100,26 @@ vi.mock( '@/data/queries/use-assistant-quota', () => ( {
 	useStudioAssistantQuota: vi.fn(),
 } ) );
 
+vi.mock( '@/data/queries/use-top-up-pricing', () => ( {
+	useStudioAssistantTopUpPricing: vi.fn(),
+} ) );
+
+// Owns the purchase dialog; its own tests cover the choosing. Here the panel
+// only has to put the offer on screen and hand off the click.
+vi.mock( '@/components/add-ai-credits-button', () => ( {
+	AddAiCreditsButton: ( { className }: { className?: string } ) => (
+		<button type="button" className={ className }>
+			Add AI credits
+		</button>
+	),
+} ) );
+
 vi.mock( '@/data/queries/use-user-locale', () => ( {
 	useUserLocale: vi.fn(),
+} ) );
+
+vi.mock( '@/data/queries/use-app-globals', () => ( {
+	useAppGlobals: vi.fn(),
 } ) );
 
 // Reached through `useAgenticFeatures`, which reads the agentic-features
@@ -117,7 +137,9 @@ const useSnapshotUsageMock = vi.mocked( useSnapshotUsage );
 const useSnapshotsMock = vi.mocked( useSnapshots );
 const useOfflineMock = vi.mocked( useOffline );
 const useStudioAssistantQuotaMock = vi.mocked( useStudioAssistantQuota );
+const useStudioAssistantTopUpPricingMock = vi.mocked( useStudioAssistantTopUpPricing );
 const useUserLocaleMock = vi.mocked( useUserLocale );
+const useAppGlobalsMock = vi.mocked( useAppGlobals );
 
 describe( 'UsagePanel', () => {
 	const loginMutate = vi.fn();
@@ -142,7 +164,12 @@ describe( 'UsagePanel', () => {
 			data: undefined,
 			isLoading: false,
 		} as never );
+		useStudioAssistantTopUpPricingMock.mockReturnValue( {
+			data: null,
+			isLoading: false,
+		} as never );
 		useUserLocaleMock.mockReturnValue( 'en' );
+		useAppGlobalsMock.mockReturnValue( { data: { platform: 'darwin' } } as never );
 		useAuthUserMock.mockReturnValue( {
 			data: { id: 1, displayName: 'Ada Lovelace', email: 'ada@example.com' },
 			isLoading: false,
@@ -191,6 +218,18 @@ describe( 'UsagePanel', () => {
 				'AI credits are currently free while Studio Code is in Alpha. Build, iterate, and experiment, but know that credits will eventually have a cost.'
 			)
 		).not.toBeInTheDocument();
+	} );
+
+	it( 'drops the reset sentence when the server no longer reports a reset date', () => {
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: { costUsage: 25, costCap: 100, costResetDate: undefined },
+			isLoading: false,
+		} as never );
+
+		render( <UsagePanel /> );
+
+		expect( screen.getByText( '25% of monthly limit used' ) ).toBeInTheDocument();
+		expect( screen.queryByText( /resets on/ ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'shows an unavailable message when the quota fetch fails', () => {
@@ -288,7 +327,7 @@ describe( 'UsagePanel', () => {
 		).toBeInTheDocument();
 	} );
 
-	it( 'opens the WordPress.com checkout from the add-credits button', () => {
+	it( 'offers a way to buy once the account has credit balances', () => {
 		useStudioAssistantQuotaMock.mockReturnValue( {
 			data: { costUsage: 0, costCap: 0, allowanceRemaining: 960000, purchasedRemaining: 0 },
 			isLoading: false,
@@ -296,9 +335,7 @@ describe( 'UsagePanel', () => {
 
 		render( <UsagePanel /> );
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Add AI credits' } ) );
-
-		expect( openExternalUrl ).toHaveBeenCalledWith( ADD_AI_CREDITS_URL );
+		expect( screen.getByRole( 'button', { name: 'Add AI credits' } ) ).toBeInTheDocument();
 	} );
 
 	it( 'opens the credits explainer dialog from the help icon', () => {

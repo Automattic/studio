@@ -3,6 +3,7 @@ import path from 'path';
 import { recursiveCopyDirectory } from '@studio/common/lib/fs-utils';
 import semver from 'semver';
 import { readCliConfig, updateCliConfigWithPartial } from 'cli/lib/cli-config/core';
+import { withWordPressVersionsLock } from './lock';
 import { getWordPressVersionPath, getWpFilesPath } from './paths';
 import { getWordPressVersionFromInstallation, updateLatestWordPressVersion } from './wordpress';
 
@@ -37,7 +38,7 @@ async function copyBundledLatestWpVersion() {
 
 export async function setupServerFiles() {
 	const steps: [ string, () => Promise< void > ][] = [
-		[ 'WordPress version', copyBundledLatestWpVersion ],
+		[ 'WordPress version', () => withWordPressVersionsLock( copyBundledLatestWpVersion ) ],
 	];
 
 	for ( const [ name, step ] of steps ) {
@@ -49,7 +50,10 @@ export async function setupServerFiles() {
 	}
 }
 
-export const DEPENDENCY_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
+// Bounds how stale `wordpress-versions/latest` can be when a site is created.
+// Cheap to check this often: the request is one small JSON payload, and a
+// download only follows when the version actually differs.
+export const DEPENDENCY_CHECK_INTERVAL_MS = 60 * 60 * 1000;
 
 async function shouldCheckDependencyUpdates(): Promise< boolean > {
 	try {
@@ -78,7 +82,8 @@ async function markDependencyCheckTime(): Promise< void > {
 
 /**
  * Checks for and applies dependency updates (e.g. WordPress versions), throttled
- * to at most once per 24 hours. Returns true if the check ran, false if skipped.
+ * by `DEPENDENCY_CHECK_INTERVAL_MS`. Returns true if the check ran and succeeded,
+ * false if it was skipped or failed.
  */
 export async function updateServerFiles(): Promise< boolean > {
 	if ( ! ( await shouldCheckDependencyUpdates() ) ) {
@@ -86,9 +91,12 @@ export async function updateServerFiles(): Promise< boolean > {
 	}
 
 	try {
-		await updateLatestWordPressVersion();
+		await withWordPressVersionsLock( updateLatestWordPressVersion );
 	} catch ( error ) {
+		// Leave the timestamp alone so the next attempt retries. Recording it here
+		// would let one network blip serve a stale WordPress for a whole interval.
 		console.error( 'Failed to update dependency WordPress version:', error );
+		return false;
 	}
 
 	await markDependencyCheckTime();

@@ -6,10 +6,8 @@ import { downloadFile } from '@studio/common/lib/download-file';
 import { extractZip } from '@studio/common/lib/extract-zip';
 import { recursiveCopyDirectory } from '@studio/common/lib/fs-utils';
 import { getWordPressVersionUrl } from '@studio/common/lib/wordpress-version-utils';
-import semver from 'semver';
 import { getWordPressVersionPath } from './paths';
 
-const MINIMUM_SUPPORTED_WP_VERSION = 6;
 const DEFAULT_WORDPRESS_VERSION = 'latest';
 
 export async function downloadWordPress(
@@ -50,32 +48,23 @@ export async function downloadWordPress(
 	}
 }
 
-async function fetchWordPressVersions() {
-	try {
-		const response = await fetch( 'https://api.wordpress.org/core/stable-check/1.0/' );
-		const versionsStatus: Record< string, string > = await response.json();
-		const versions = Object.keys( versionsStatus )
-			.filter( ( item ) => {
-				const version = semver.coerce( item );
-				const minVersion = semver.coerce( MINIMUM_SUPPORTED_WP_VERSION );
-				return version && minVersion && semver.gte( version, minVersion );
-			} )
-			.sort( ( a, b ) => {
-				const versionA = semver.coerce( a );
-				const versionB = semver.coerce( b );
-				if ( ! versionA || ! versionB ) {
-					return 0;
-				}
-				return semver.compare( versionA, versionB );
-			} )
-			.reverse();
-		const latestVersion = Object.keys( versionsStatus ).find(
-			( index ) => versionsStatus[ index ] === 'latest'
-		);
-		return { versions, latest: latestVersion };
-	} catch ( exception ) {
-		return { versions: [], latest: DEFAULT_WORDPRESS_VERSION };
+/**
+ * Throws when the current release can't be determined. Callers must not treat
+ * an unreachable wordpress.org as "the cached copy is fine" — that silently
+ * hands a stale WordPress to a site the user asked to keep auto-updated.
+ */
+async function fetchLatestWordPressVersion(): Promise< string > {
+	const response = await fetch( 'https://api.wordpress.org/core/stable-check/1.0/' );
+	const versionsStatus: Record< string, string > = await response.json();
+	const latestVersion = Object.keys( versionsStatus ).find(
+		( index ) => versionsStatus[ index ] === 'latest'
+	);
+
+	if ( ! latestVersion ) {
+		throw new Error( 'wordpress.org did not report a latest WordPress version' );
 	}
+
+	return latestVersion;
 }
 
 export async function getWordPressVersionFromInstallation( installationPath: string ) {
@@ -102,10 +91,9 @@ export async function updateLatestWordPressVersion() {
 	if ( latestVersionFiles.length !== 0 ) {
 		const installedVersion = await getWordPressVersionFromInstallation( latestVersionPath );
 
-		const wordPressVersions = await fetchWordPressVersions();
-		const latestVersion = wordPressVersions.latest ?? DEFAULT_WORDPRESS_VERSION;
+		const latestVersion = await fetchLatestWordPressVersion();
 
-		if ( installedVersion && latestVersion !== 'latest' && installedVersion !== latestVersion ) {
+		if ( installedVersion && installedVersion !== latestVersion ) {
 			// We keep a copy of the latest installed version instead of removing it.
 			await recursiveCopyDirectory(
 				latestVersionPath,

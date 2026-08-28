@@ -33,6 +33,7 @@ describe( 'Data Liberation browser capture', () => {
 			outputDir,
 			resume: true,
 			captureImages: false,
+			learnFluid: true,
 			onProgress: undefined,
 		} );
 	} );

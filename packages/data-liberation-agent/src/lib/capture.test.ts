@@ -5,6 +5,33 @@ import type { SectionSpec } from './replicate/section-extract.js';
 import { SectionSpecsStore } from './replicate/section-specs-store.js';
 import { MediaStubStore } from './resume-state/index.js';
 
+const { captureScreenshotsMock } = vi.hoisted( () => ( {
+	captureScreenshotsMock: vi.fn( async () => ( {
+		captured: 1,
+		skipped: 0,
+		failed: 0,
+		durationMs: 1,
+	} ) ),
+} ) );
+
+vi.mock( './media-fetch/safe-fetch.js', () => ( {
+	safeFetch: vi.fn( async ( url: string ) => ( { finalUrl: url } ) ),
+} ) );
+
+vi.mock( './detect-platform/index.js', () => ( {
+	detect: vi.fn( async () => ( { platform: 'generic' } ) ),
+} ) );
+
+vi.mock( './screenshot/screenshotter.js', () => ( {
+	captureScreenshots: captureScreenshotsMock,
+} ) );
+
+vi.mock( './capture-export.js', () => ( {
+	exportWebsiteCapture: vi.fn( ( { outputDir }: { outputDir: string } ) =>
+		join( outputDir, 'capture-receipt.json' )
+	),
+} ) );
+
 vi.mock( './media-fetch/media.js', () => ( {
 	downloadMedia: vi.fn( async ( url: string, outputDir: string ) => {
 		if ( url.endsWith( 'failed.jpg' ) ) {
@@ -17,7 +44,7 @@ vi.mock( './media-fetch/media.js', () => ( {
 	} ),
 } ) );
 
-import { downloadCaptureSectionMedia } from './capture.js';
+import { captureWebsite, downloadCaptureSectionMedia } from './capture.js';
 
 const root = join( process.cwd(), '.tmp-test', 'capture-section-media' );
 const sourceUrl = 'https://example.com/';
@@ -62,5 +89,38 @@ describe( 'downloadCaptureSectionMedia', () => {
 			'https://cdn.example.com/mobile.jpg': { status: 'success' },
 			'https://cdn.example.com/failed.jpg': { status: 'error', error: 'download failed' },
 		} );
+	} );
+} );
+
+describe( 'captureWebsite fluid learning', () => {
+	afterEach( () => {
+		captureScreenshotsMock.mockClear();
+		rmSync( root, { recursive: true, force: true } );
+	} );
+
+	it.each( [
+		{ option: undefined, expected: true, label: 'defaults to enabled' },
+		{ option: false, expected: false, label: 'supports explicit opt-out' },
+	] )( '$label', async ( { option, expected } ) => {
+		await captureWebsite(
+			{
+				url: sourceUrl,
+				outputDir: root,
+				...( option === undefined ? {} : { learnFluid: option } ),
+			},
+			{
+				findAdapter: () => ( {
+					id: 'generic',
+					platform: 'generic',
+					detect: () => true,
+					discover: async () => ( { urls: [] } ),
+					extract: async () => ( { title: '', content: '' } ),
+				} ),
+			}
+		);
+
+		expect( captureScreenshotsMock ).toHaveBeenCalledWith(
+			expect.objectContaining( { learnFluid: expected } )
+		);
 	} );
 } );

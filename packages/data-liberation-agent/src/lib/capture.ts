@@ -156,7 +156,7 @@ export async function captureWebsite(
 		outputDir,
 		primaryUrl: sourceUrl,
 		captureImages: options.captureImages === true,
-		learnFluid: options.learnFluid === true,
+		learnFluid: options.learnFluid !== false,
 		force: options.resume !== true,
 		removeSelectors: adapter.capture?.removeSelectors,
 		prepareCapture: adapter.capture?.prepare,

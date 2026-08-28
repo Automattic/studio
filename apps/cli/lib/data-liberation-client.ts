@@ -125,6 +125,7 @@ export async function createWebsiteArtifact(
 		outputDir,
 		resume: true,
 		captureImages: false,
+		learnFluid: true,
 		onProgress: options.onProgress,
 	} ) ) as Record< string, unknown >;
 	const artifactPath = result.artifactPath;

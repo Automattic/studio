@@ -34,6 +34,7 @@ export const AI_MODELS = [
 	{ id: 'claude-sonnet-5', label: 'Sonnet 5', family: 'anthropic' },
 	{ id: 'claude-opus-5', label: 'Opus 5', family: 'anthropic' },
 	{ id: 'gpt-5.6-sol', label: 'GPT 5.6 Sol', family: 'openai' },
+	{ id: 'gpt-5.6-luna', label: 'GPT 5.6 Luna', family: 'openai', requiresAutomattician: true },
 	// Hosted models keep their vendor-prefixed ids — the proxy passes them
 	// upstream verbatim.
 	{ id: 'moonshotai/Kimi-K3', label: 'Kimi K3', family: 'hosted', requiresAutomattician: true },
@@ -41,6 +42,13 @@ export const AI_MODELS = [
 		id: 'moonshotai/Kimi-K2.6',
 		label: 'Kimi K2.6',
 		family: 'hosted',
+		requiresAutomattician: true,
+	},
+	{
+		id: 'zai-org/GLM-5.3-Flash',
+		label: 'GLM 5.3 Flash',
+		family: 'hosted',
+		supportsImages: false,
 		requiresAutomattician: true,
 	},
 	{

@@ -114,6 +114,14 @@ export async function learnAndApplyFluidGeometry(
 							values[ property ] = null;
 							continue;
 						}
+						if ( property === 'top' ) {
+							const sourceId = element.getAttribute( 'data-dla-anchor-source-id' );
+							const source = sourceId ? document.getElementById( sourceId ) : null;
+							if ( source ) {
+								values[ property ] = source.getBoundingClientRect().top + window.scrollY;
+								continue;
+							}
+						}
 						const match = new RegExp( `(?:^|;)\\s*${ property }\\s*:\\s*(\\d+(?:\\.\\d+)?)px` ).exec( style );
 						values[ property ] = match ? Number( match[ 1 ] ) : null;
 					}

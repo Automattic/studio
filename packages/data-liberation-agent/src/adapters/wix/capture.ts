@@ -174,6 +174,7 @@ export const capture: AdapterCapture = {
 				const marker = document.createElement( 'span' );
 				marker.id = fragment;
 				marker.dataset.dlaAnchorTarget = fragment;
+				if ( resolved.element.id ) marker.dataset.dlaAnchorSourceId = resolved.element.id;
 				marker.setAttribute( 'aria-hidden', 'true' );
 				marker.style.cssText = `position:absolute;top:${ Math.round(
 					resolved.top

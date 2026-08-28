@@ -16,11 +16,12 @@ describe( 'learnAndApplyFluidGeometry', () => {
 	it( 'learns a responsive top offset only for captured anchor targets', async () => {
 		const page = await browser.newPage( { viewport: { width: 1440, height: 900 } } );
 		await page.setContent( `
-			<span id="features" data-dla-anchor-target="features" style="position:absolute;top:787px;width:0;height:0"></span>
+			<span id="features" data-dla-anchor-target="features" data-dla-anchor-source-id="feature-section" style="position:absolute;top:787px;width:0;height:0"></span>
 			<div id="ordinary" style="position:absolute;top:144px;width:100px;height:100px"></div>
+			<section id="feature-section" style="position:absolute;top:787px"></section>
 			<script>
 				const update = () => {
-					document.querySelector('#features').style.top = (innerWidth * 0.5464) + 'px';
+					document.querySelector('#feature-section').style.top = (innerWidth * 0.5464) + 'px';
 				};
 				addEventListener('resize', update);
 				update();

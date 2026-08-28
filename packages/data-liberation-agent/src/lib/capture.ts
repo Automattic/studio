@@ -1,12 +1,13 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { findAdapter } from '../adapters/index.js';
+import type { PlatformAdapter } from '../types.js';
 import { detect } from './detect-platform/index.js';
 import { downloadMedia } from './media-fetch/media.js';
 import { safeFetch } from './media-fetch/safe-fetch.js';
 import { downloadSectionMedia } from './replicate/download-section-media.js';
 import { SectionSpecsStore } from './replicate/section-specs-store.js';
 import { MediaStubStore } from './resume-state/index.js';
-import type { HandlerContext, ToolResult } from '../mcp-server/handler-types.js';
 
 export interface CaptureProgress {
 	phase: 'discovering' | 'capturing' | 'finalizing' | 'complete';
@@ -16,6 +17,40 @@ export interface CaptureProgress {
 	elapsedMs?: number;
 	phaseElapsedMs?: number;
 }
+
+export interface CaptureOptions {
+	url: string;
+	outputDir: string;
+	resume?: boolean;
+	captureImages?: boolean;
+	/** Learn responsive sizing by sweeping widths instead of freezing one. */
+	learnFluid?: boolean;
+	onProgress?: ( progress: CaptureProgress ) => void;
+}
+
+export interface CaptureResult {
+	artifactPath: string;
+	captureReceiptPath: string;
+	outputDir: string;
+	summary: {
+		routesDiscovered: number;
+		routesCaptured: number;
+		routesSkipped: number;
+		routesFailed: number;
+		durationMs: number;
+	};
+	failures: Array< { url: unknown; error: unknown } >;
+	discoveryDiagnostics: Array< { code: string; url: string; reason: string } >;
+	provenance: { provider: string; platform: string };
+}
+
+export interface CaptureDependencies {
+	findAdapter( platform: string ): PlatformAdapter | null;
+}
+
+export class UnsupportedCapturePlatformError extends Error {}
+
+const defaultDependencies: CaptureDependencies = { findAdapter };
 
 interface CaptureInventory {
 	siteMeta?: { title?: string };
@@ -70,13 +105,10 @@ export async function downloadCaptureSectionMedia(
 }
 
 export async function captureWebsite(
-	args: Record< string, unknown >,
-	context: HandlerContext
-): Promise< ToolResult > {
-	const onProgress =
-		typeof args.onProgress === 'function'
-			? ( args.onProgress as ( progress: CaptureProgress ) => void )
-			: undefined;
+	options: CaptureOptions,
+	dependencies: CaptureDependencies = defaultDependencies
+): Promise< CaptureResult > {
+	const { onProgress } = options;
 	const startedAt = Date.now();
 	let phase = '';
 	let phaseStartedAt = startedAt;
@@ -92,24 +124,22 @@ export async function captureWebsite(
 			phaseElapsedMs: now - phaseStartedAt,
 		};
 		onProgress?.( timedEvent );
-		void context.server?.sendLoggingMessage?.( {
-			level: 'info',
-			data: JSON.stringify( { type: 'capture_progress', ...timedEvent } ),
-		} );
 	};
 
-	const response = await safeFetch( String( args.url ?? '' ), { timeoutMs: 10_000 } );
+	const response = await safeFetch( options.url, { timeoutMs: 10_000 } );
 	const sourceUrl = response.finalUrl;
-	const outputDir = String( args.outputDir ?? '' );
+	const outputDir = options.outputDir;
 	const detection = await detect( sourceUrl );
-	const adapter = context.findAdapter( detection.platform );
+	const adapter = dependencies.findAdapter( detection.platform );
 	if ( ! adapter )
-		return context.errorResult( `No adapter available for platform: ${ detection.platform }` );
+		throw new UnsupportedCapturePlatformError(
+			`No adapter available for platform: ${ detection.platform }`
+		);
 
 	progress( { phase: 'discovering', url: sourceUrl } );
 	const inventory = ( await adapter.discover( sourceUrl, {
 		outputDir,
-		resume: args.resume === true,
+		resume: options.resume === true,
 	} ) ) as CaptureInventory;
 	const sourceRoute = captureRouteKey( sourceUrl );
 	const urls = [
@@ -125,10 +155,14 @@ export async function captureWebsite(
 		urls,
 		outputDir,
 		primaryUrl: sourceUrl,
-		captureImages: args.captureImages === true,
-		force: args.resume !== true,
+		captureImages: options.captureImages === true,
+		learnFluid: options.learnFluid === true,
+		force: options.resume !== true,
 		removeSelectors: adapter.capture?.removeSelectors,
 		prepareCapture: adapter.capture?.prepare,
+		...( adapter.capture?.responsiveImages
+			? { collectResponsiveImages: adapter.capture.responsiveImages.bind( adapter.capture ) }
+			: {} ),
 		publicUrlsOnly: true,
 		onProgress: ( current, total, url ) => progress( { phase: 'capturing', current, total, url } ),
 	} );
@@ -169,5 +203,5 @@ export async function captureWebsite(
 		provenance: { provider: 'data-liberation/browser-capture', platform: detection.platform },
 	};
 	progress( { phase: 'complete', current: urls.length, total: urls.length } );
-	return context.textResult( result );
+	return result;
 }

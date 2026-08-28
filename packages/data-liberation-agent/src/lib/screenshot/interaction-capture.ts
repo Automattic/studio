@@ -15,6 +15,7 @@ export interface CapturedDialogInteraction {
 		role?: string;
 		ariaHaspopup: string;
 		ariaControls?: string;
+		label?: string;
 		dataBindings: Record< string, string >;
 	};
 	dialog?: {
@@ -48,6 +49,7 @@ interface TriggerDescriptor {
 	role?: string;
 	ariaHaspopup: string;
 	ariaControls?: string;
+	label?: string;
 	dataBindings: Record< string, string >;
 }
 
@@ -110,22 +112,30 @@ export async function captureTriggeredDialogs(
 		};
 		const candidates = Array.from(
 			document.querySelectorAll(
-				'button[aria-haspopup],a[aria-haspopup],[role="button"][aria-haspopup]'
+				'button[aria-haspopup],a[aria-haspopup],[role="button"][aria-haspopup],button'
 			)
 		).filter( ( element ) => {
-			const popup = ( element.getAttribute( 'aria-haspopup' ) ?? '' ).toLowerCase();
-			if ( popup !== 'dialog' ) return false;
 			if ( element.getAttribute( 'aria-disabled' ) === 'true' ) return false;
-			const hasBinding =
-				Boolean( element.getAttribute( 'aria-controls' ) ) ||
-				Array.from( element.attributes ).some(
-					( attribute ) =>
-						/^data-(?:popup|modal|dialog)(?:id|target)?$/i.test( attribute.name ) &&
-						Boolean( attribute.value )
-				);
-			const href = element.tagName === 'A' ? ( element.getAttribute( 'href' ) ?? '' ).trim() : '';
-			if ( href && href !== '#' && ! href.startsWith( '#' ) && ! hasBinding ) return false;
-			return visible( element );
+			if ( ! visible( element ) ) return false;
+			const name = (
+				element.getAttribute( 'aria-label' ) ||
+				element.textContent ||
+				''
+			).replace( /\s+/g, ' ' );
+			const popup = ( element.getAttribute( 'aria-haspopup' ) ?? '' ).toLowerCase();
+			if ( popup === 'dialog' ) {
+				const hasBinding =
+					Boolean( element.getAttribute( 'aria-controls' ) ) ||
+					Array.from( element.attributes ).some(
+						( attribute ) =>
+							/^data-(?:popup|modal|dialog)(?:id|target)?$/i.test( attribute.name ) &&
+							Boolean( attribute.value )
+					);
+				const href = element.tagName === 'A' ? ( element.getAttribute( 'href' ) ?? '' ).trim() : '';
+				if ( href && href !== '#' && ! href.startsWith( '#' ) && ! hasBinding ) return false;
+				return true;
+			}
+			return element.tagName === 'BUTTON' && /\bmenu\b/i.test( name );
 		} );
 
 		return candidates.slice( 0, limit ).map( ( element, index ) => {
@@ -146,6 +156,14 @@ export async function captureTriggeredDialogs(
 				...( element.id ? { id: element.id } : {} ),
 				...( element.getAttribute( 'role' ) ? { role: element.getAttribute( 'role' )! } : {} ),
 				ariaHaspopup: element.getAttribute( 'aria-haspopup' ) ?? '',
+				label: (
+					element.getAttribute( 'aria-label' ) ||
+					element.textContent ||
+					''
+				)
+					.replace( /\s+/g, ' ' )
+					.trim()
+					.slice( 0, 40 ),
 				...( element.getAttribute( 'aria-controls' )
 					? { ariaControls: element.getAttribute( 'aria-controls' )! }
 					: {} ),
@@ -230,6 +248,7 @@ function triggerRecord( trigger: TriggerDescriptor ): CapturedDialogInteraction[
 		...( trigger.role ? { role: trigger.role } : {} ),
 		ariaHaspopup: trigger.ariaHaspopup,
 		...( trigger.ariaControls ? { ariaControls: trigger.ariaControls } : {} ),
+		...( trigger.label ? { label: trigger.label } : {} ),
 		dataBindings: trigger.dataBindings,
 	};
 }
@@ -256,8 +275,19 @@ async function visibleDialogSelectors( page: Page ): Promise< string[] > {
 			}
 			return `dialog-candidate:${ index }`;
 		};
-		return Array.from( document.querySelectorAll( 'dialog,[role="dialog"],[aria-modal="true"]' ) )
+		return Array.from(
+			document.querySelectorAll(
+				'dialog,[role="dialog"],[aria-modal="true"],nav,[class*="header-menu"]'
+			)
+		)
 			.filter( visible )
+			.filter( ( element ) => {
+				const rect = element.getBoundingClientRect();
+				return (
+					element.matches( 'dialog,[role="dialog"],[aria-modal="true"]' ) ||
+					rect.width * rect.height > 40_000
+				);
+			} )
 			.map( selector );
 	} );
 }
@@ -288,11 +318,16 @@ async function firstNewVisibleDialog(
 			return `dialog-candidate:${ index }`;
 		};
 		const candidates = Array.from(
-			document.querySelectorAll( 'dialog,[role="dialog"],[aria-modal="true"]' )
+			document.querySelectorAll(
+				'dialog,[role="dialog"],[aria-modal="true"],nav,[class*="header-menu"]'
+			)
 		);
-		const dialog = candidates.find(
-			( element, index ) => visible( element ) && ! existing.includes( selector( element, index ) )
-		);
+		const dialog = candidates.find( ( element, index ) => {
+			if ( ! visible( element ) || existing.includes( selector( element, index ) ) ) return false;
+			if ( element.matches( 'dialog,[role="dialog"],[aria-modal="true"]' ) ) return true;
+			const rect = element.getBoundingClientRect();
+			return rect.width * rect.height > 40_000;
+		} );
 		if ( ! dialog ) return undefined;
 		const dialogSelector = dialog.id
 			? selector( dialog, candidates.indexOf( dialog ) )

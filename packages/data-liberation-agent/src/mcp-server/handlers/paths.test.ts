@@ -13,8 +13,8 @@ describe('pathsHandler', () => {
 
   it('returns the base and per-site dir for a url', async () => {
     const r = await pathsHandler({ url: 'https://example.com' }, ctx) as unknown as { base: string; siteDir: string | null };
-    expect(r.base).toBe(join(homedir(), 'Studio', '_liberations'));
-    expect(r.siteDir).toBe(join(homedir(), 'Studio', '_liberations', 'example.com'));
+    expect(r.base).toBe(join(homedir(), 'data-liberation'));
+    expect(r.siteDir).toBe(join(homedir(), 'data-liberation', 'example.com'));
   });
 
   it('returns base with null siteDir when no url given', async () => {

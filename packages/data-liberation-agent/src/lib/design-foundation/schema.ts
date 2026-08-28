@@ -13,7 +13,7 @@
 // version 1 is the current contract. Bumps are breaking; see CHANGELOG if
 // present. Consumers should pin to the version they were written against.
 //
-import { z } from 'zod';
+import { z } from 'zod/v4';
 
 export const RoleObj = z.object({
   value: z.string().min(1),

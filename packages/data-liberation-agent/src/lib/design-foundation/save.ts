@@ -5,7 +5,7 @@
 //
 import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { z } from 'zod';
+import { z } from 'zod/v4';
 import { DesignFoundationSchema, type DesignFoundation } from './schema.js';
 import { validateOutputDir } from '../screenshot/output-layout.js';
 import { renderMd } from './md-renderer.js';

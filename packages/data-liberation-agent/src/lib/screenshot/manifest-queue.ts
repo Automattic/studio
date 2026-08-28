@@ -16,6 +16,18 @@ export interface ManifestEntry {
   dismissed?: DismissedOverlay[];
   /** User-triggered dialog states captured after baseline page artifacts. */
   interactions?: InteractionStatesReport;
+  /**
+   * Outcome of learning the source's sizing across viewport widths: how much
+   * runtime-frozen geometry became fluid CSS, and what stayed frozen.
+   */
+  fluid?: {
+    applied: number;
+    unmodelled: number;
+    breakpoints: number[];
+    /** Width below which this document stops adapting; drives the switch point. */
+    canvasFloor?: number | null;
+    byKind: Record<string, number>;
+  };
   capturedAt: string;
   /** Populated by site-analysis; may be absent */
   metadata?: {

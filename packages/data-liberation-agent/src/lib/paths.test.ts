@@ -28,12 +28,12 @@ describe('resolveStudioRoot', () => {
 });
 
 describe('resolveOutputBase', () => {
-  it('defaults to <studio root>/_liberations', () => {
-    expect(resolveOutputBase()).toBe(join(homedir(), 'Studio', '_liberations'));
+  it('defaults to ~/data-liberation', () => {
+    expect(resolveOutputBase()).toBe(join(homedir(), 'data-liberation'));
   });
-  it('follows STUDIO_SITES_DIR', () => {
+  it('does not follow STUDIO_SITES_DIR — liberated sites are destination-neutral', () => {
     process.env.STUDIO_SITES_DIR = '/tmp/custom-studio';
-    expect(resolveOutputBase()).toBe(join('/tmp/custom-studio', '_liberations'));
+    expect(resolveOutputBase()).toBe(join(homedir(), 'data-liberation'));
   });
   it('DLA_OUTPUT_DIR (absolute) wins', () => {
     process.env.DLA_OUTPUT_DIR = '/var/data/dla';
@@ -45,7 +45,7 @@ describe('resolveOutputBase', () => {
   });
   it('empty DLA_OUTPUT_DIR is treated as unset', () => {
     process.env.DLA_OUTPUT_DIR = '   ';
-    expect(resolveOutputBase()).toBe(join(homedir(), 'Studio', '_liberations'));
+    expect(resolveOutputBase()).toBe(join(homedir(), 'data-liberation'));
   });
 });
 

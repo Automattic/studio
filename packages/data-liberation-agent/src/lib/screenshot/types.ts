@@ -1,6 +1,9 @@
 import type { ExtractedNav } from './nav-extract.js';
 import type { UrlType } from '../extraction/sitemap.js';
-import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
+
+export interface CaptureLogSink {
+	sendLoggingMessage( message: { level: 'info'; data: string } ): void | Promise< void >;
+}
 
 export interface Viewport {
 	id: 'desktop' | 'mobile';
@@ -45,7 +48,7 @@ export interface ScreenshotOpts {
 	captureImages?: boolean;
 	evaluateTimeoutMs?: number; // default: 5_000
 	settleMs?: number; // default: 1_000
-	server?: Server;
+	server?: CaptureLogSink;
 	verbose?: boolean;
 	/** Reject non-public requests and redirect targets during browser capture. */
 	publicUrlsOnly?: boolean;
@@ -68,6 +71,24 @@ export interface ScreenshotOpts {
 	 * "discovery → extraction" gap stops looking like a hang.
 	 */
 	onProgress?: ( current: number, total: number, url: string ) => void;
+	/**
+	 * Learn how the source sizes itself by sweeping viewport widths with its
+	 * runtime alive, then emit the learned CSS instead of the pixels that
+	 * runtime happened to compute at the capture width. Costs one sweep per
+	 * page — measured at roughly +12% capture time, since resizing an already
+	 * loaded page is far cheaper than navigating to it.
+	 */
+	learnFluid?: boolean;
+	/** Widths to observe when learning. Defaults to DEFAULT_SWEEP_WIDTHS. */
+	fluidWidths?: number[];
+	/**
+	 * Adapter hook returning the viewport-specific image variants a platform's
+	 * runtime swapped in (seam 2). The capture path stays CDN-agnostic.
+	 */
+	collectResponsiveImages?: (
+		page: import('playwright').Page,
+		ctx: import('../../adapters/page-actions.js').CaptureContext
+	) => Promise< Record< string, string > >;
 	/** Adapter-declared selectors removed from each page before capture (seam 1). */
 	removeSelectors?: string[];
 	/** Adapter imperative capture hook, run after removeSelectors. Best-effort. */

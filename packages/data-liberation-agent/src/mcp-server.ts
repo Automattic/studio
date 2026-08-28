@@ -170,7 +170,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: 'liberate_paths',
-      description: 'Resolve where liberation output lives. Returns { base, siteDir }. base = the default output base (DLA_OUTPUT_DIR or <Studio root>/_liberations). siteDir = base/<sanitized host+path> when a url is given. Skills MUST use this instead of assuming output/<site>/ relative to cwd.',
+      description: 'Resolve where liberated sites live. Returns { base, siteDir }. base = the default output base (DLA_OUTPUT_DIR or ~/data-liberation). siteDir = base/<sanitized host+path> when a url is given. Skills MUST use this instead of assuming output/<site>/ relative to cwd.',
       inputSchema: {
         type: 'object' as const,
         properties: {

@@ -75,6 +75,7 @@ describe( 'captureHandler', () => {
 		} );
 		vi.mocked( exportWebsiteCapture ).mockReturnValueOnce( '/tmp/capture/capture-receipt.json' );
 		const onProgress = vi.fn();
+		const handlerContext = context( adapter );
 
 		await captureHandler(
 			{
@@ -82,7 +83,7 @@ describe( 'captureHandler', () => {
 				outputDir: '/tmp/capture',
 				onProgress,
 			},
-			context( adapter )
+			handlerContext
 		);
 
 		expect( safeFetch ).toHaveBeenCalledWith( 'https://example.com', { timeoutMs: 10_000 } );
@@ -116,5 +117,6 @@ describe( 'captureHandler', () => {
 			'finalizing',
 			'complete',
 		] );
+		expect( handlerContext.server.sendLoggingMessage ).toHaveBeenCalledTimes( 4 );
 	} );
 } );

@@ -172,6 +172,150 @@ describe( 'exportWebsiteCapture', () => {
 		);
 	} );
 
+	it( 'keeps responsive runtime anchor targets unique and diagnoses unresolved fragments', () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-responsive-anchor-export-' ) );
+		dirs.push( outputDir );
+		for ( const path of [ 'html', 'html-mobile', 'screenshots' ] )
+			mkdirSync( join( outputDir, path ), { recursive: true } );
+		writeFileSync(
+			join( outputDir, 'html', 'homepage.html' ),
+			'<html><body><a href="https://example.com/#features" data-dla-anchor-fragment="features">Features</a><a href="https://example.com/#missing" data-dla-anchor-fragment="missing" data-dla-anchor-unresolved="runtime scroll did not resolve to a section boundary">Missing</a><span id="features" data-dla-anchor-target="features"></span><section>Desktop features</section></body></html>'
+		);
+		writeFileSync(
+			join( outputDir, 'html-mobile', 'homepage.html' ),
+			'<html><body><a href="https://example.com/#features" data-dla-anchor-fragment="features">Features</a><span id="features" data-dla-anchor-target="features"></span><section>Mobile features</section></body></html>'
+		);
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				entries: { 'https://example.com/': { slug: 'homepage', html: 'html/homepage.html' } },
+			} )
+		);
+
+		exportWebsiteCapture( {
+			outputDir,
+			sourceUrl: 'https://example.com/',
+			platform: 'wix',
+			summary: {},
+			failures: [],
+		} );
+
+		const $ = cheerio.load( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) );
+		expect( $( '#features' ) ).toHaveLength( 1 );
+		expect( $( '#features--dla-mobile' ) ).toHaveLength( 1 );
+		expect( $( '.data-liberation-desktop-document a' ).first().attr( 'href' ) ).toBe(
+			'/index.html#features'
+		);
+		expect( $( '.data-liberation-mobile-document a' ).first().attr( 'href' ) ).toBe(
+			'/index.html#features--dla-mobile'
+		);
+		expect(
+			JSON.parse( readFileSync( join( outputDir, 'diagnostics.json' ), 'utf8' ) ).unresolvedAnchors
+		).toEqual( [
+			{
+				sourceUrl: 'https://example.com/',
+				fragment: 'missing',
+				targetCount: 0,
+				reason: 'runtime scroll did not resolve to a section boundary',
+			},
+		] );
+	} );
+
+	it( 'switches documents at the width the source stops adapting at, not a hardcoded one', () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-detected-switch-' ) );
+		dirs.push( outputDir );
+		for ( const path of [ 'html', 'html-mobile', 'screenshots' ] )
+			mkdirSync( join( outputDir, path ), { recursive: true } );
+		writeFileSync(
+			join( outputDir, 'html', 'homepage.html' ),
+			'<html><head><style>.desktop{color:blue}</style></head><body><main>Desktop</main></body></html>'
+		);
+		writeFileSync(
+			join( outputDir, 'html-mobile', 'homepage.html' ),
+			'<html><head><style>.mobile{color:red}</style></head><body><main>Mobile</main></body></html>'
+		);
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				entries: {
+					'https://example.com/': {
+						html: 'html/homepage.html',
+						// Learned during capture: this document stops shrinking at 980px.
+						fluid: {
+							applied: 12,
+							unmodelled: 3,
+							breakpoints: [ 1024 ],
+							canvasFloor: 980,
+							byKind: { floored: 12, breakpoint: 3 },
+						},
+					},
+				},
+			} )
+		);
+
+		exportWebsiteCapture( {
+			outputDir,
+			sourceUrl: 'https://example.com/',
+			platform: 'fake',
+			summary: {},
+			failures: [],
+		} );
+
+		const html = readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' );
+		expect( html ).toContain( '@media(max-width:980px)' );
+		expect( html ).toContain( '<style media="(min-width:981px)">.desktop{color:blue}</style>' );
+		expect( html ).not.toContain( '768px' );
+		expect( html ).not.toContain( '769px' );
+
+		const profile = JSON.parse( readFileSync( join( outputDir, 'source-profile.json' ), 'utf8' ) );
+		expect( profile ).toMatchObject( {
+			schema: 'data-liberation/source-profile/v1',
+			variants: 'per-device',
+			geometry: 'mixed',
+			switchWidth: 980,
+			switchWidthSource: 'detected',
+			breakpoints: [ 1024 ],
+		} );
+	} );
+
+	it( 'falls back to the default switch width when nothing was detected', () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-default-switch-' ) );
+		dirs.push( outputDir );
+		for ( const path of [ 'html', 'html-mobile', 'screenshots' ] )
+			mkdirSync( join( outputDir, path ), { recursive: true } );
+		writeFileSync(
+			join( outputDir, 'html', 'homepage.html' ),
+			'<html><head><style>.desktop{color:blue}</style></head><body><main>Desktop</main></body></html>'
+		);
+		writeFileSync(
+			join( outputDir, 'html-mobile', 'homepage.html' ),
+			'<html><head><style>.mobile{color:red}</style></head><body><main>Mobile</main></body></html>'
+		);
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				entries: { 'https://example.com/': { html: 'html/homepage.html' } },
+			} )
+		);
+
+		exportWebsiteCapture( {
+			outputDir,
+			sourceUrl: 'https://example.com/',
+			platform: 'fake',
+			summary: {},
+			failures: [],
+		} );
+
+		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).toContain(
+			'@media(max-width:768px)'
+		);
+		const profile = JSON.parse( readFileSync( join( outputDir, 'source-profile.json' ), 'utf8' ) );
+		expect( profile ).toMatchObject( { switchWidth: null, switchWidthSource: 'default' } );
+	} );
+
 	it( 'binds viewport-scoped geometry identities to the exact marker-free responsive output', () => {
 		const outputDir = mkdtempSync( join( tmpdir(), 'dla-responsive-geometry-export-' ) );
 		dirs.push( outputDir );
@@ -374,56 +518,6 @@ describe( 'exportWebsiteCapture', () => {
 			'portalId=32'
 		);
 		expect( $( '.hs-form-frame' ).eq( 32 ).find( 'iframe' ) ).toHaveLength( 0 );
-	} );
-
-	it( 'keeps responsive runtime anchor targets unique and diagnoses unresolved fragments', () => {
-		const outputDir = mkdtempSync( join( tmpdir(), 'dla-responsive-anchor-export-' ) );
-		dirs.push( outputDir );
-		for ( const path of [ 'html', 'html-mobile', 'screenshots' ] )
-			mkdirSync( join( outputDir, path ), { recursive: true } );
-		writeFileSync(
-			join( outputDir, 'html', 'homepage.html' ),
-			'<html><body><a href="https://example.com/#features" data-dla-anchor-fragment="features">Features</a><a href="https://example.com/#missing" data-dla-anchor-fragment="missing" data-dla-anchor-unresolved="runtime scroll did not resolve to a section boundary">Missing</a><span id="features" data-dla-anchor-target="features"></span><section>Desktop features</section></body></html>'
-		);
-		writeFileSync(
-			join( outputDir, 'html-mobile', 'homepage.html' ),
-			'<html><body><a href="https://example.com/#features" data-dla-anchor-fragment="features">Features</a><span id="features" data-dla-anchor-target="features"></span><section>Mobile features</section></body></html>'
-		);
-		writeFileSync(
-			join( outputDir, 'screenshots', 'manifest.json' ),
-			JSON.stringify( {
-				version: 1,
-				entries: { 'https://example.com/': { slug: 'homepage', html: 'html/homepage.html' } },
-			} )
-		);
-
-		exportWebsiteCapture( {
-			outputDir,
-			sourceUrl: 'https://example.com/',
-			platform: 'wix',
-			summary: {},
-			failures: [],
-		} );
-
-		const $ = cheerio.load( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) );
-		expect( $( '#features' ) ).toHaveLength( 1 );
-		expect( $( '#features--dla-mobile' ) ).toHaveLength( 1 );
-		expect( $( '.data-liberation-desktop-document a' ).first().attr( 'href' ) ).toBe(
-			'/index.html#features'
-		);
-		expect( $( '.data-liberation-mobile-document a' ).first().attr( 'href' ) ).toBe(
-			'/index.html#features--dla-mobile'
-		);
-		expect(
-			JSON.parse( readFileSync( join( outputDir, 'diagnostics.json' ), 'utf8' ) ).unresolvedAnchors
-		).toEqual( [
-			{
-				sourceUrl: 'https://example.com/',
-				fragment: 'missing',
-				targetCount: 0,
-				reason: 'runtime scroll did not resolve to a section boundary',
-			},
-		] );
 	} );
 
 	it( 'exports captured routes and localized media as a website directory', () => {
@@ -1753,6 +1847,37 @@ if ( existsSync( ${ JSON.stringify( join( outputDir, '.capture-export-html' ) ) 
 		expect( diagnostics.unresolvedDependencies ).toContainEqual(
 			expect.objectContaining( { url: 'https://cdn.example/missing.jpg' } )
 		);
+	} );
+
+	it( 'drops leftover remote asset requests while keeping editorial links', () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-self-contain-export-' ) );
+		dirs.push( outputDir );
+		mkdirSync( join( outputDir, 'html' ), { recursive: true } );
+		mkdirSync( join( outputDir, 'screenshots' ), { recursive: true } );
+		writeFileSync(
+			join( outputDir, 'html', 'homepage.html' ),
+			'<html><head><link rel="canonical" href="https://example.com/"><link rel="preconnect" href="https://siteassets.example.com"><link rel="dns-prefetch" href="//cdn.example"><link rel="stylesheet" href="https://runtime.example/theme.css"><style>.x{background:url("https://runtime.example/bg.jpg")}</style></head><body><a href="https://external.example/about">About</a></body></html>'
+		);
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				entries: { 'https://example.com/': { html: 'html/homepage.html' } },
+			} )
+		);
+		exportWebsiteCapture( {
+			outputDir,
+			sourceUrl: 'https://example.com/',
+			platform: 'fake',
+			summary: {},
+			failures: [],
+		} );
+		const html = readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' );
+		expect( html ).not.toContain( 'siteassets.example.com' );
+		expect( html ).not.toContain( 'runtime.example' );
+		expect( html ).not.toContain( 'cdn.example' );
+		expect( html ).toContain( 'href="https://example.com/"' );
+		expect( html ).toContain( 'href="https://external.example/about"' );
 	} );
 
 	it( 'keeps portable media within the artifact capacity left after routes and resources', () => {

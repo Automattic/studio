@@ -11,7 +11,7 @@
 //
 import { existsSync, readFileSync, writeFileSync, renameSync, unlinkSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { z } from 'zod';
+import { z } from 'zod/v4';
 import { scaffoldDesignFoundation } from '../lib/design-foundation/scaffold.js';
 import { DesignFoundationSchema, type PartialDesignFoundation, type DesignFoundation } from '../lib/design-foundation/schema.js';
 import { renderMd } from '../lib/design-foundation/md-renderer.js';

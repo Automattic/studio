@@ -21,11 +21,24 @@ import {
 	buildLayoutGeometryProof,
 	type GeometryCapture,
 } from './screenshot/layout-geometry-proof.js';
+import { selfContainWebsite } from './self-contain.js';
+import { wireCapturedDialogs } from './static-dialogs.js';
 import { rewriteMediaUrls } from './streaming/media-url-rewrite.js';
 import type { InteractionStatesReport } from './screenshot/interaction-capture.js';
 import type { CapturedResourceManifest } from './screenshot/resource-capture.js';
 
 export const CAPTURE_RECEIPT_SCHEMA = 'data-liberation/capture-receipt/v1';
+export const SOURCE_PROFILE_SCHEMA = 'data-liberation/source-profile/v1';
+
+type ManifestEntryFluid =
+	| {
+			applied: number;
+			unmodelled: number;
+			breakpoints: number[];
+			canvasFloor?: number | null;
+			byKind: Record< string, number >;
+	  }
+	| undefined;
 export const WEBSITE_ARTIFACT_SCHEMA = 'blocks-engine/php-transformer/site-artifact/v1';
 export const CAPTURED_INTERACTIONS_SCHEMA = 'data-liberation/captured-interactions/v1';
 export const CAPTURED_SEMANTIC_EVIDENCE_SCHEMA = 'data-liberation/captured-semantic-evidence/v1';
@@ -39,6 +52,8 @@ interface CaptureManifestEntry {
 	html?: string;
 	sections?: string;
 	interactions?: InteractionStatesReport;
+	/** Responsive learning outcome recorded during capture. */
+	fluid?: ManifestEntryFluid;
 	metadata?: {
 		openGraph?: Record< string, string >;
 	};
@@ -80,9 +95,12 @@ interface CaptureEntry {
 	slug: string;
 	url: string;
 	htmlPath: string;
+	/** The source served a structurally distinct document under mobile emulation. */
+	hasMobileDocument?: boolean;
 	identityHtmlPath?: string;
 	sections?: string;
 	canonicalUrl?: string;
+	interactions?: InteractionStatesReport;
 }
 
 function isUsableSectionEvidence( sections: unknown ): sections is Record< string, unknown >[] {
@@ -356,9 +374,38 @@ function openGraphUrl( html: string ): string | undefined {
 }
 
 const RESPONSIVE_DOCUMENT_CSS =
-	'html,body{margin:0;padding:0}.data-liberation-mobile-document{display:none!important}@media(max-width:768px){.data-liberation-desktop-document{display:none!important}.data-liberation-mobile-document{display:contents!important}}';
+	'html,body{margin:0;padding:0}.data-liberation-mobile-document{display:none!important}';
 
-function responsiveHtml( desktopHtml: string, mobileHtml: string ): string {
+/** Switches which captured document is shown, at the detected width. */
+function documentSwitchCss( switchWidth: number ): string {
+	return `@media(max-width:${ switchWidth }px){.data-liberation-desktop-document{display:none!important}.data-liberation-mobile-document{display:contents!important}}`;
+}
+
+/**
+ * Fallback switch width, used only when the source gave us nothing to detect
+ * from. A detected canvas floor is always preferred: the width a document stops
+ * adapting at is the source's own switching point, and asserting 768px on a
+ * site whose canvas floor is 980px puts the switch in the wrong place.
+ */
+const DEFAULT_SWITCH_WIDTH = 768;
+
+/**
+ * Whether the source served a genuinely different document under mobile
+ * emulation, rather than the same one. Structural, so runtime ids and text
+ * differences do not masquerade as a second design.
+ */
+export function documentsDiffer( desktopHtml: string, mobileHtml: string ): boolean {
+	const desktopBody = /<body\b([^>]*)>([\s\S]*?)<\/body\s*>/i.exec( desktopHtml )?.[ 2 ];
+	const mobileBody = /<body\b([^>]*)>([\s\S]*?)<\/body\s*>/i.exec( mobileHtml )?.[ 2 ];
+	if ( desktopBody === undefined || mobileBody === undefined ) return false;
+	return responsiveBodySignature( desktopBody ) !== responsiveBodySignature( mobileBody );
+}
+
+function responsiveHtml(
+	desktopHtml: string,
+	mobileHtml: string,
+	switchWidth: number = DEFAULT_SWITCH_WIDTH
+): string {
 	const desktopBodyMatch = /<body\b([^>]*)>([\s\S]*?)<\/body\s*>/i.exec( desktopHtml );
 	const desktopBody = desktopBodyMatch?.[ 2 ];
 	const mobileBodyMatch = /<body\b([^>]*)>([\s\S]*?)<\/body\s*>/i.exec( mobileHtml );
@@ -376,11 +423,13 @@ function responsiveHtml( desktopHtml: string, mobileHtml: string ): string {
 	if ( responsiveBodySignature( desktopBody ) === responsiveBodySignature( mobileBody ) ) {
 		if ( styleBlocks( desktopHtml ).join( '\n' ) === styleBlocks( mobileHtml ).join( '\n' ) )
 			return withMobileViewport( desktopHtml );
-		return withMobileViewport( scopedStyles( desktopHtml, '(min-width:769px)' ) ).replace(
-			/<\/head\s*>/i,
-			`${ responsiveMobileStyles( mobileHtml ) }</head>`
-		);
+		return withMobileViewport(
+			scopedStyles( desktopHtml, `(min-width:${ switchWidth + 1 }px)` )
+		).replace( /<\/head\s*>/i, `${ responsiveMobileStyles( mobileHtml, undefined, switchWidth ) }</head>` );
 	}
+
+	// Both documents ship in one file from here on, so their anchor targets would
+	// collide on a shared id. Namespace the mobile copy and repoint its own links.
 	const mobile = cheerio.load( `<body>${ mobileBody }</body>` );
 	mobile( '[data-dla-anchor-target]' ).each( ( _index, element ) => {
 		const node = mobile( element );
@@ -420,17 +469,24 @@ function responsiveHtml( desktopHtml: string, mobileHtml: string ): string {
 		sharedStyles.join( '\n' ) === styleBlocks( mobileHtml ).join( '\n' )
 	) {
 		return withMobileViewport( desktopHtml )
-			.replace( /<\/head\s*>/i, `<style>${ RESPONSIVE_DOCUMENT_CSS }</style></head>` )
+			.replace(
+				/<\/head\s*>/i,
+				`<style>${ RESPONSIVE_DOCUMENT_CSS }${ documentSwitchCss( switchWidth ) }</style></head>`
+			)
 			.replace(
 				/<body\b[^>]*>[\s\S]*?(<\/body\s*>)/i,
 				( _match, closingBody: string ) => `<body>${ responsiveBody }${ closingBody }`
 			);
 	}
-	const mobileStyles = responsiveMobileStyles( mobileHtml, '.data-liberation-mobile-document' );
-	return withMobileViewport( scopedStyles( desktopHtml, '(min-width:769px)' ) )
+	const mobileStyles = responsiveMobileStyles(
+		mobileHtml,
+		'.data-liberation-mobile-document',
+		switchWidth
+	);
+	return withMobileViewport( scopedStyles( desktopHtml, `(min-width:${ switchWidth + 1 }px)` ) )
 		.replace(
 			/<\/head\s*>/i,
-			`<style>${ RESPONSIVE_DOCUMENT_CSS }</style>${ mobileStyles }</head>`
+			`<style>${ RESPONSIVE_DOCUMENT_CSS }${ documentSwitchCss( switchWidth ) }</style>${ mobileStyles }</head>`
 		)
 		.replace(
 			/<body\b[^>]*>[\s\S]*?(<\/body\s*>)/i,
@@ -468,12 +524,16 @@ function portableInlineStyleValues(
 	return { key: `${ media }\n${ css }`, media };
 }
 
-function responsiveMobileStyles( mobileHtml: string, scope?: string ): string {
+function responsiveMobileStyles(
+	mobileHtml: string,
+	scope?: string,
+	switchWidth: number = DEFAULT_SWITCH_WIDTH
+): string {
 	return styleBlocks( mobileHtml )
 		.filter( Boolean )
 		.map(
 			( style ) =>
-				`<style media="(max-width:768px)">${ scope ? scopeCss( style, { scope } ) : style }</style>`
+				`<style media="(max-width:${ switchWidth }px)">${ scope ? scopeCss( style, { scope } ) : style }</style>`
 		)
 		.join( '' );
 }
@@ -1012,6 +1072,13 @@ function safeCapturedPageHtml( html: string ): string {
 	return normalizedDeclarativeFormEmbeds( $.html() );
 }
 
+/**
+ * Same-page links in an exported route whose target is missing or ambiguous.
+ *
+ * The copy has no runtime left to resolve a fragment by scrolling, so a link
+ * without exactly one target is a defect. Reported per route rather than
+ * thrown, so one broken anchor does not discard an otherwise good capture.
+ */
 function unresolvedCapturedAnchors(
 	html: string,
 	sourceUrl: string
@@ -1062,6 +1129,10 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		0,
 		Math.floor( options.limits?.portableMediaTotalBytes ?? MAX_PORTABLE_MEDIA_TOTAL_BYTES )
 	);
+	/** Detected switch widths, one per route, for the source profile. */
+	const switchWidths: number[] = [];
+	/** Per-route learning outcomes, aggregated into the source profile. */
+	const fluidReports: Array< NonNullable< ManifestEntryFluid > > = [];
 	const screenshotManifestPath = join( outputDir, 'screenshots', 'manifest.json' );
 	if ( ! existsSync( screenshotManifestPath ) ) {
 		throw new Error( `Screenshot manifest not found: ${ screenshotManifestPath }` );
@@ -1102,8 +1173,18 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 				renderedHtml( readFileSync( mobileHtmlPath, 'utf8' ) )
 			);
 		}
+		// The source's own switching point: the width its desktop document stops
+		// adapting at, learned during capture. Falls back only when undetected.
+		const detectedFloor =
+			typeof entry.fluid?.canvasFloor === 'number' && entry.fluid.canvasFloor > 0
+				? Math.round( entry.fluid.canvasFloor )
+				: undefined;
+		if ( detectedFloor ) switchWidths.push( detectedFloor );
+		if ( entry.fluid ) fluidReports.push( entry.fluid );
 		const html = safeCapturedPageHtml(
-			mobileHtml === undefined ? desktopHtml : responsiveHtml( desktopHtml, mobileHtml )
+			mobileHtml === undefined
+				? desktopHtml
+				: responsiveHtml( desktopHtml, mobileHtml, detectedFloor )
 		);
 		const stagedHtmlPath = join( stagedHtmlDir, `${ capturedEntries.length }.html` );
 		writeFileSync( stagedHtmlPath, html );
@@ -1111,8 +1192,10 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 			slug: entry.slug ?? basename( entry.html, '.html' ),
 			url,
 			htmlPath: stagedHtmlPath,
+			hasMobileDocument: mobileHtml !== undefined && documentsDiffer( desktopHtml, mobileHtml ),
 			sections: entry.sections,
 			canonicalUrl: entry.metadata?.openGraph?.[ 'og:url' ] ?? openGraphUrl( html ),
+			interactions: entry.interactions,
 		} );
 		if ( entry.interactions?.schema === 'data-liberation/interaction-states/v1' ) {
 			interactionPages.push( entry.interactions );
@@ -1425,12 +1508,6 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		} );
 		return true;
 	};
-	const unresolvedAnchors: Array< {
-		sourceUrl: string;
-		fragment: string;
-		targetCount: number;
-		reason: string;
-	} > = [];
 	for ( const entry of retainedEntries ) {
 		let html = readFileSync( entry.htmlPath, 'utf8' );
 		for ( const dependency of dependencyReferences( html, entry.url ) ) {
@@ -1525,6 +1602,12 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		portableRouteLinks.set( canonicalKey, `/${ routePath }` );
 	}
 
+	const unresolvedAnchors: Array< {
+		sourceUrl: string;
+		fragment: string;
+		targetCount: number;
+		reason: string;
+	} > = [];
 	for ( const entry of retainedEntries ) {
 		const { url, htmlPath } = entry;
 		const routePath = routeOutputPath( url, options.sourceUrl, entrypointUrl ).replace(
@@ -1543,12 +1626,16 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 			),
 			resourceReplacements
 		);
-		const normalizedHtml = withoutGeometryIdentities( identityHtml );
+		const normalizedHtml = wireCapturedDialogs(
+			withoutGeometryIdentities( identityHtml ),
+			entry.interactions?.states ?? []
+		);
 		unresolvedAnchors.push( ...unresolvedCapturedAnchors( normalizedHtml, url ) );
 		writeFileSync( destination, normalizedHtml );
 		entry.identityHtmlPath = `${ htmlPath }.identity`;
 		writeFileSync( entry.identityHtmlPath, identityHtml );
 	}
+	selfContainWebsite( websiteDir );
 
 	const geometryCaptureOmissions: Record< string, number > = {};
 	const geometryInputs = function* () {
@@ -1661,6 +1748,38 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		reportFiles.push( 'interaction-states.json' );
 	}
 
+	// --- source profile -------------------------------------------------------
+	// What the source actually does, measured rather than assumed: whether it
+	// serves one document or one per device, whether its geometry is authored or
+	// written by a runtime, and where it changes behavior. Downstream stages
+	// consume this instead of hardcoding viewports and breakpoints.
+	const routesWithMobile = retainedEntries.filter( ( entry ) => entry.hasMobileDocument ).length;
+	const learnedApplied = fluidReports.reduce( ( total, report ) => total + report.applied, 0 );
+	const learnedFrozen = fluidReports.reduce( ( total, report ) => total + report.unmodelled, 0 );
+	const observedBreakpoints = [
+		...new Set( fluidReports.flatMap( ( report ) => report.breakpoints ) ),
+	].sort( ( a, b ) => a - b );
+	const sourceProfile = {
+		schema: SOURCE_PROFILE_SCHEMA,
+		variants: routesWithMobile > 0 ? 'per-device' : 'single',
+		documentsPerRoute: routesWithMobile > 0 ? 2 : 1,
+		geometry:
+			learnedApplied > 0 && learnedFrozen > 0
+				? 'mixed'
+				: learnedApplied > 0
+				? 'runtime-written'
+				: 'declarative',
+		switchWidth: switchWidths.length > 0 ? Math.max( ...switchWidths ) : null,
+		switchWidthSource: switchWidths.length > 0 ? 'detected' : 'default',
+		breakpoints: observedBreakpoints,
+		learned: { applied: learnedApplied, frozen: learnedFrozen, routes: fluidReports.length },
+	};
+	writeFileSync(
+		join( outputDir, 'source-profile.json' ),
+		`${ JSON.stringify( sourceProfile, null, 2 ) }\n`
+	);
+	reportFiles.push( 'source-profile.json' );
+
 	const receiptPath = join( outputDir, 'capture-receipt.json' );
 	writeFileSync(
 		receiptPath,
@@ -1676,6 +1795,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 				portableMedia,
 				interactions: interactionSummary,
 				layoutGeometry: geometryReport,
+				sourceProfile,
 				excludedRoutes,
 				duplicateRoutes,
 				summary: options.summary,

@@ -50,10 +50,7 @@ export async function setupServerFiles() {
 	}
 }
 
-// Bounds how stale `wordpress-versions/latest` can be when a site is created.
-// Cheap to check this often: the request is one small JSON payload, and a
-// download only follows when the version actually differs.
-export const DEPENDENCY_CHECK_INTERVAL_MS = 60 * 60 * 1000;
+export const DEPENDENCY_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 async function shouldCheckDependencyUpdates(): Promise< boolean > {
 	try {

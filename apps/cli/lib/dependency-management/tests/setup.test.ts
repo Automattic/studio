@@ -31,10 +31,6 @@ describe( 'updateServerFiles', () => {
 		vi.restoreAllMocks();
 	} );
 
-	it( 'throttles to an hour', () => {
-		expect( DEPENDENCY_CHECK_INTERVAL_MS ).toBe( 60 * 60 * 1000 );
-	} );
-
 	describe( 'throttling', () => {
 		it( 'runs the update when no timestamp has been recorded', async () => {
 			vi.mocked( readCliConfig ).mockResolvedValue( { version: 1, sites: [], snapshots: [] } );

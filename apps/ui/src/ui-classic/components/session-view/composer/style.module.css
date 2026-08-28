@@ -16,7 +16,9 @@
 		transparent
 	);
 	--composer-focus-ring: var(--wpds-color-fg-interactive-brand, #2563eb);
-	--composer-border-radius: 8px 8px 20px 8px;
+	--composer-corner-radius: 8px;
+	--composer-border-radius: var(--composer-corner-radius) var(--composer-corner-radius) 20px
+		var(--composer-corner-radius);
 	--composer-block-padding: var(--wpds-dimension-padding-md);
 	--composer-inline-padding: var(--wpds-dimension-padding-lg);
 
@@ -662,4 +664,35 @@
 
 .dialogDescription {
 	text-wrap: pretty;
+}
+
+.aiCreditsWarningStrip {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	box-sizing: border-box;
+	gap: var(--wpds-dimension-padding-md);
+	border-block-end: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border-start-start-radius: var(--composer-corner-radius);
+	border-start-end-radius: var(--composer-corner-radius);
+	background: color-mix(
+		in srgb,
+		var(--wpds-color-bg-surface-caution) 38%,
+		var(--wpds-color-bg-surface-neutral-strong)
+	);
+	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-xs)
+		var(--wpds-dimension-padding-xs) var(--composer-inline-padding);
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: 1.25;
+}
+
+.aiCreditsWarningStripButton {
+	--wp-ui-button-font-size: 11px;
+	--wp-ui-button-padding-inline: 6px;
+
+	flex-shrink: 0;
+	min-block-size: 24px;
+	padding-block: 2px;
+	white-space: nowrap;
 }

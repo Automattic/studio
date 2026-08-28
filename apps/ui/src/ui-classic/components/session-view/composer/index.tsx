@@ -66,6 +66,7 @@ import {
 	SESSIONS_QUERY_KEY,
 } from '@/data/queries/use-sessions';
 import { AiCreditsControl } from './ai-credits-control';
+import { AiCreditsWarningStrip } from './ai-credits-warning-strip';
 import { FamilySwitchConfirmDialog } from './family-switch-confirm-dialog';
 import styles from './style.module.css';
 import {
@@ -775,6 +776,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 					onDragLeave={ dragHandlers.onDragLeave }
 					onDrop={ dragHandlers.onDrop }
 				>
+					<AiCreditsWarningStrip />
 					<div
 						className={ styles.resizeHandle }
 						role="separator"

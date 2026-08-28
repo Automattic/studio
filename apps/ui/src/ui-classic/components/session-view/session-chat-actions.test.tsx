@@ -157,6 +157,40 @@ describe( 'SessionChatActions', () => {
 		expect( onNewChat ).toHaveBeenCalledTimes( 1 );
 	} );
 
+	it( 'hides the new chat button when new chats are unavailable', () => {
+		render(
+			<SessionChatActions
+				currentSessionId="current"
+				onNewChat={ vi.fn() }
+				onSwitchSession={ vi.fn() }
+				sessions={ [ createSession( { id: 'current', firstPrompt: 'Current chat' } ) ] }
+				showNewChat={ false }
+			/>
+		);
+
+		expect( screen.queryByRole( 'button', { name: 'New chat' } ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Chat history' } ) ).toBeInTheDocument();
+	} );
+
+	it( 'ignores the new chat shortcut when new chats are unavailable', () => {
+		const onNewChat = vi.fn();
+
+		render(
+			<SessionChatActions
+				currentSessionId="current"
+				onNewChat={ onNewChat }
+				onSwitchSession={ vi.fn() }
+				sessions={ [ createSession( { id: 'current', firstPrompt: 'Current chat' } ) ] }
+				showNewChat={ false }
+			/>
+		);
+
+		fireEvent.keyDown( document, { key: 'n', ctrlKey: true } );
+		fireEvent.keyDown( document, { key: 'n', metaKey: true } );
+
+		expect( onNewChat ).not.toHaveBeenCalled();
+	} );
+
 	it( 'shows tooltips for chat history and new chat', async () => {
 		render(
 			<SessionChatActions

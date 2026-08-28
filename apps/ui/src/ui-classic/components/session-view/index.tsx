@@ -404,8 +404,9 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		isFetching: isQuotaFetching,
 		refetch: refetchQuota,
 	} = useStudioAssistantQuota();
-	// Out of credits replaces the composer: there is nothing to type into
-	// until the account buys more, so the offer takes the input's place.
+	// Out of credits replaces the composer: there is nothing to type into until
+	// the account buys more, so the offer takes the input's place. A run already
+	// in flight keeps it — the Stop button lives there.
 	const isOutOfCredits = useIsOutOfAiCredits();
 
 	// Fade the composer and prompts in only right after the entitlement check
@@ -506,7 +507,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 							/>
 						</div>
 					) : null }
-					{ isOutOfCredits ? (
+					{ isOutOfCredits && ! composerBusy ? (
 						<OutOfCreditsNotice />
 					) : (
 						<Composer
@@ -534,13 +535,14 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						onNewChat={ startNewChat }
 						onSwitchSession={ switchSession }
 						sessions={ siteSessionHistory }
+						showNewChat={ ! isOutOfCredits }
 					/>
 				) : null
 			}
 			footerEnd={ canTogglePreview ? <PreviewToggleButton /> : null }
 		>
 			{ isEmpty ? <EmptyBackground /> : null }
-			{ isEmpty && ownerSite ? (
+			{ isEmpty && ownerSite && ! isOutOfCredits ? (
 				<SuggestedPrompts
 					fadeIn={ fadeAfterQuotaCheck }
 					siteName={ ownerSite.name }

@@ -59,6 +59,7 @@ function apiToSelectedBlueprint( bp: Blueprint ): SelectedBlueprint {
 		blueprint: bp.blueprint as BlueprintV1Declaration,
 		file: { name: bp.title, size: 0 },
 		filePath: bp.filePath,
+		bundleUrl: bp.bundle_url ?? undefined,
 	};
 }
 

@@ -307,7 +307,14 @@ export function createIpcConnector(): Connector {
 				adminPassword,
 				adminEmail,
 				noStart: skipStart,
-				blueprint,
+				// Map the UI's camelCase `bundleUrl` to the API-shaped `bundle_url`
+				// the desktop IPC handler expects.
+				blueprint: blueprint
+					? {
+							...blueprint,
+							bundle_url: blueprint.bundleUrl,
+					  }
+					: undefined,
 				flowType,
 			} ) ) as SiteDetails;
 		},

@@ -127,6 +127,7 @@ export function CreateSitePage() {
 							blueprint: {
 								blueprint: mergedBlueprint,
 								filePath: blueprint.filePath,
+								bundleUrl: blueprint.bundleUrl,
 							},
 					  }
 					: {} ),

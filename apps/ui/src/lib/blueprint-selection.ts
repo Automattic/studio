@@ -8,6 +8,7 @@ export interface SelectedBlueprint {
 	file: Pick< File, 'name' | 'size' >;
 	filePath?: string;
 	tempDir?: string;
+	bundleUrl?: string;
 }
 
 export async function createSelectedBlueprint(

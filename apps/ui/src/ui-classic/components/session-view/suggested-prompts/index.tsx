@@ -107,7 +107,7 @@ export function SuggestedPrompts( {
 
 	return (
 		<div className={ styles.root }>
-			<div className={ styles.group }>
+			<div className={ styles.frostField }>
 				{ /* Stacked backdrop-blur layers with shrinking radial masks — the
 				     progressive-blur technique (see components/progressive-blur) —
 				     so the frost ramps up smoothly instead of cutting a hard edge.
@@ -123,6 +123,8 @@ export function SuggestedPrompts( {
 						/>
 					)
 				) }
+			</div>
+			<div className={ styles.group }>
 				<ul className={ clsx( styles.list, fadeClass ) }>
 					{ prompts.map( ( item, index ) => (
 						<li key={ item.id }>

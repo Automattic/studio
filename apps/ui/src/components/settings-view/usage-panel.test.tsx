@@ -1,5 +1,4 @@
 import '@testing-library/jest-dom/vitest';
-import { getAddAiCreditsUrl } from '@studio/common/lib/studio-assistant-quota';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
@@ -266,14 +265,80 @@ describe( 'UsagePanel', () => {
 		).toBeInTheDocument();
 	} );
 
-	it( 'shows remaining credit balances when the quota includes the per-pool fields', () => {
+	it( 'shows one combined meter across both credit pools', () => {
 		useStudioAssistantQuotaMock.mockReturnValue( {
 			data: {
 				costUsage: 25,
-				costCap: 100,
-				costResetDate: '2026-08-01T12:00:00',
+				costCap: 1500000,
 				allowanceRemaining: 960000,
 				purchasedRemaining: 150000,
+				purchasedAtTopUp: 500000,
+			},
+			isLoading: false,
+		} as never );
+
+		render( <UsagePanel /> );
+
+		expect( screen.getByText( '890,000 of 2,000,000 AI credits used' ) ).toBeInTheDocument();
+		expect( screen.getByText( '1,110,000 available' ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Add AI credits' } ) ).toBeInTheDocument();
+		// The meter replaces the monthly-limit and Alpha designs.
+		expect( screen.queryByText( /of monthly limit used/ ) ).not.toBeInTheDocument();
+		expect(
+			screen.queryByText( /AI credits are currently free while Studio Code is in Alpha/ )
+		).not.toBeInTheDocument();
+	} );
+
+	it( 'welcomes a never-bought account with the allowance size from the quota', () => {
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: {
+				costUsage: 0,
+				costCap: 1500000,
+				allowanceRemaining: 1400000,
+				purchasedRemaining: 0,
+				purchasedAtTopUp: 0,
+			},
+			isLoading: false,
+		} as never );
+
+		render( <UsagePanel /> );
+
+		expect( screen.getByText( '100,000 of 1,500,000 AI credits used' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Your first 1,500,000 AI credits are on us.' ) ).toBeInTheDocument();
+	} );
+
+	it( 'reads exhausted pools as a full meter with the exhausted callout', () => {
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: {
+				costUsage: 25,
+				costCap: 1500000,
+				allowanceRemaining: 0,
+				purchasedRemaining: 0,
+				purchasedAtTopUp: 500000,
+			},
+			isLoading: false,
+		} as never );
+
+		render( <UsagePanel /> );
+
+		// The spent allowance drops out of the total: the purchased pool is the bar.
+		expect( screen.getByText( '500,000 of 500,000 AI credits used' ) ).toBeInTheDocument();
+		expect( screen.getByText( '0 available' ) ).toBeInTheDocument();
+		expect(
+			screen.getByText( 'Your next idea is ready when you are. Top up to bring it to life.' )
+		).toBeInTheDocument();
+	} );
+
+	it( 'falls back to plain known figures when no bar can be drawn', () => {
+		// Billing unreachable on an account with no usable free allowance:
+		// the purchased balance is unknown, so neither pool has a meter.
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: {
+				costUsage: 0,
+				costCap: 0,
+				allowanceRemaining: 960000,
+				purchasedRemaining: undefined,
+				purchasedAtTopUp: 500000,
 			},
 			isLoading: false,
 		} as never );
@@ -281,31 +346,7 @@ describe( 'UsagePanel', () => {
 		render( <UsagePanel /> );
 
 		expect( screen.getByText( 'Free credits remaining: 960,000' ) ).toBeInTheDocument();
-		expect( screen.getByText( 'Purchased credits remaining: 150,000' ) ).toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: 'Add AI credits' } ) ).toBeInTheDocument();
-		// The credit balances replace the monthly-limit and Alpha designs.
-		expect( screen.queryByText( /of monthly limit used/ ) ).not.toBeInTheDocument();
-		expect(
-			screen.queryByText( /AI credits are currently free while Studio Code is in Alpha/ )
-		).not.toBeInTheDocument();
-	} );
-
-	it( 'hides the free-credits line once the allowance is exhausted', () => {
-		useStudioAssistantQuotaMock.mockReturnValue( {
-			data: {
-				costUsage: 25,
-				costCap: 100,
-				costResetDate: '2026-08-01T12:00:00',
-				allowanceRemaining: 0,
-				purchasedRemaining: 0,
-			},
-			isLoading: false,
-		} as never );
-
-		render( <UsagePanel /> );
-
-		expect( screen.queryByText( /Free credits remaining/ ) ).not.toBeInTheDocument();
-		expect( screen.getByText( 'Purchased credits remaining: 0' ) ).toBeInTheDocument();
+		expect( screen.queryByText( /Purchased credits remaining/ ) ).not.toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Add AI credits' } ) ).toBeInTheDocument();
 	} );
 

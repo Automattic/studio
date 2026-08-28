@@ -1,7 +1,12 @@
 import {
 	clampQuotaFraction,
+	formatAiCreditsAvailableLabel,
+	formatAiCreditsCallout,
+	formatAiCreditsUsedLabel,
 	formatQuotaPercentage,
 	formatQuotaResetDate,
+	getAiCreditsMeter,
+	getAiCreditsMeterIntent,
 	getStudioCodeAiAccessState,
 } from '@studio/common/lib/studio-assistant-quota';
 import { __, _n, sprintf } from '@wordpress/i18n';
@@ -42,13 +47,31 @@ function UnavailableSection( { title }: { title: string } ) {
 	);
 }
 
-function UsageProgressBar( { fraction }: { fraction: number } ) {
+function UsageProgressBar( {
+	fraction,
+	valueClassName,
+}: {
+	fraction: number;
+	valueClassName?: string;
+} ) {
 	return (
 		<div className={ styles.progressTrack } data-testid="usage-progress-bar" aria-hidden="true">
-			<div className={ styles.progressValue } style={ { inlineSize: `${ fraction * 100 }%` } } />
+			<div
+				className={ clsx( styles.progressValue, valueClassName ) }
+				style={ { inlineSize: `${ fraction * 100 }%` } }
+			/>
 		</div>
 	);
 }
+
+// The meter's fill color escalates with the fraction spent, matching the
+// callout copy's thresholds.
+const METER_INTENT_CLASS_NAMES: Record< string, string | undefined > = {
+	ok: undefined,
+	warning: styles.progressValueWarning,
+	critical: styles.progressValueCritical,
+	exhausted: styles.progressValueExhausted,
+};
 
 function AiCreditsSummary() {
 	const locale = useUserLocale();
@@ -96,30 +119,61 @@ function AiCreditsSummary() {
 			</div>
 		);
 	} else if ( quota && showsCreditBalances ) {
+		const meter = getAiCreditsMeter( quota );
+		const intent = meter ? getAiCreditsMeterIntent( meter.fraction ) : 'ok';
 		const credits = new Intl.NumberFormat( locale );
-		const allowanceRemaining = quota.allowanceRemaining ?? 0;
-		const purchasedRemaining = quota.purchasedRemaining ?? 0;
 		content = (
 			<>
-				<div className={ styles.creditBalances }>
-					{ allowanceRemaining > 0 ? (
-						<div className={ styles.previewUsageText }>
-							{ sprintf(
-								/* translators: %s: number of free AI credits remaining (e.g. 960,000). */
-								__( 'Free credits remaining: %s' ),
-								credits.format( allowanceRemaining )
-							) }
+				{ meter ? (
+					<div className={ styles.creditMeter }>
+						<div className={ styles.creditMeterSummary }>
+							<span className={ styles.creditMeterCredits }>
+								{ formatAiCreditsUsedLabel( meter, locale ) }
+							</span>
+							<strong className={ styles.creditMeterAvailable }>
+								{ formatAiCreditsAvailableLabel( meter, locale ) }
+							</strong>
 						</div>
-					) : null }
-					<div className={ styles.previewUsageText }>
-						{ sprintf(
-							/* translators: %s: number of purchased AI credits remaining (e.g. 150,000). */
-							__( 'Purchased credits remaining: %s' ),
-							credits.format( purchasedRemaining )
-						) }
+						<UsageProgressBar
+							fraction={ meter.fraction }
+							valueClassName={ METER_INTENT_CLASS_NAMES[ intent ] }
+						/>
 					</div>
+				) : (
+					// No usable denominator (e.g. billing unreachable): plain
+					// figures instead of a bar, and only the known ones.
+					<div className={ styles.creditBalances }>
+						{ quota.allowanceRemaining !== undefined ? (
+							<div className={ styles.previewUsageText }>
+								{ sprintf(
+									/* translators: %s: number of free AI credits remaining (e.g. 960,000). */
+									__( 'Free credits remaining: %s' ),
+									credits.format( quota.allowanceRemaining )
+								) }
+							</div>
+						) : null }
+						{ quota.purchasedRemaining !== undefined ? (
+							<div className={ styles.previewUsageText }>
+								{ sprintf(
+									/* translators: %s: number of purchased AI credits remaining (e.g. 150,000). */
+									__( 'Purchased credits remaining: %s' ),
+									credits.format( quota.purchasedRemaining )
+								) }
+							</div>
+						) : null }
+					</div>
+				) }
+				<div className={ styles.creditCallout }>
+					<AddAiCreditsButton
+						variant={ intent === 'exhausted' ? 'solid' : 'outline' }
+						tone={ intent === 'exhausted' ? 'brand' : 'neutral' }
+					/>
+					{ meter ? (
+						<span className={ styles.creditCalloutText }>
+							{ formatAiCreditsCallout( quota, meter, locale ) }
+						</span>
+					) : null }
 				</div>
-				<AddAiCreditsButton className={ styles.usageSectionAction } />
 			</>
 		);
 	} else if ( quota && quota.costCap > 0 ) {

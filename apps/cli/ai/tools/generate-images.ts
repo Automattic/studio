@@ -112,7 +112,7 @@ export const generateImagesTool = defineTool(
 		const results = await generateImages( requests, ( _index, result ) => {
 			if ( result.ok ) {
 				generated++;
-				context.onProgress( `Generated ${ generated }/${ targets.length } images` );
+				context.onProgress( `Generated ${ generated }/${ targets.length } images`, true );
 			}
 		} );
 

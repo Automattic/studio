@@ -8,19 +8,17 @@ import { useState } from 'react';
 import { AiCreditsDetailsDialog } from '@/components/ai-credits-details-dialog';
 import { AiCreditsPurchaseDialog } from '@/components/ai-credits-purchase-dialog';
 import * as Menu from '@/components/menu';
-import { useConnector } from '@/data/core';
 import {
 	ASSISTANT_QUOTA_QUERY_KEY,
 	useStudioAssistantQuota,
 } from '@/data/queries/use-assistant-quota';
 import { useStudioAssistantTopUpPricing } from '@/data/queries/use-top-up-pricing';
 import { useUserLocale } from '@/data/queries/use-user-locale';
-import { useAddAiCreditsUrl } from '@/hooks/use-add-ai-credits-url';
+import { useOpenAiCreditsCheckout } from '@/hooks/use-open-ai-credits-checkout';
 import styles from './style.module.css';
 
 export function AiCreditsControl() {
-	const connector = useConnector();
-	const addAiCreditsUrl = useAddAiCreditsUrl();
+	const openCheckout = useOpenAiCreditsCheckout();
 	const locale = useUserLocale();
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
@@ -106,7 +104,7 @@ export function AiCreditsControl() {
 								setPurchaseOpen( true );
 								return;
 							}
-							void connector.openExternalUrl( addAiCreditsUrl );
+							openCheckout();
 						} }
 					>
 						{ __( 'Add AI credits' ) }

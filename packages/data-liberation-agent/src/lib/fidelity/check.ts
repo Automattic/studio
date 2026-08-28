@@ -238,6 +238,106 @@ async function observePage(
 					width: Math.round( rect.width ),
 					height: Math.round( rect.height ),
 				} ) );
+
+			const typography: Array< {
+				key: string;
+				fontFamily: string;
+				fontWeight: string;
+				fontSize: number;
+				lineHeight: number;
+				letterSpacing: number;
+				advance: number;
+				loaded: boolean;
+			} > = [];
+			const canvas = document.createElement( 'canvas' );
+			const context = canvas.getContext( '2d' );
+			const walker = document.createTreeWalker( document.body, NodeFilter.SHOW_TEXT );
+			let textNode: Node | null;
+			while ( typography.length < 120 && ( textNode = walker.nextNode() ) ) {
+				const parent = textNode.parentElement;
+				const text = ( textNode.textContent ?? '' ).replace( /\s+/g, ' ' ).trim();
+				if ( ! parent || ! text || parent.closest( 'script,style,noscript,template' ) ) continue;
+				const range = document.createRange();
+				range.selectNodeContents( textNode );
+				const rect = range.getBoundingClientRect();
+				const style = getComputedStyle( parent );
+				if (
+					rect.width <= 0 ||
+					rect.height <= 0 ||
+					style.display === 'none' ||
+					style.visibility === 'hidden'
+				) {
+					continue;
+				}
+				const fontSize = Number.parseFloat( style.fontSize ) || 0;
+				const font = `${ style.fontStyle } ${ style.fontWeight } ${ style.fontSize } ${ style.fontFamily }`;
+				if ( context ) context.font = font;
+				typography.push( {
+					key: text.slice( 0, 120 ),
+					fontFamily: style.fontFamily,
+					fontWeight: style.fontWeight,
+					fontSize,
+					lineHeight: Number.parseFloat( style.lineHeight ) || fontSize * 1.2,
+					letterSpacing: Number.parseFloat( style.letterSpacing ) || 0,
+					advance: Math.round( ( context?.measureText( text ).width ?? rect.width ) * 100 ) / 100,
+					loaded: document.fonts.check( font, text ),
+				} );
+			}
+
+			const occurrencesBefore = new Map< string, number >();
+			const animationsBefore = document
+				.getAnimations()
+				.filter( ( animation ) => animation.effect?.getComputedTiming().iterations !== Infinity )
+				.map( ( animation ) => {
+					const name = ( animation as Animation & { animationName?: string } ).animationName;
+					if ( ! name || name === 'none' ) return null;
+					const occurrence = occurrencesBefore.get( name ) ?? 0;
+					occurrencesBefore.set( name, occurrence + 1 );
+					return {
+						key: `${ name }:${ occurrence }`,
+						name,
+						time: animation.currentTime?.toString() ?? 'null',
+						state: animation.playState,
+					};
+				} )
+				.filter( ( animation ): animation is NonNullable< typeof animation > => animation !== null );
+			const animationStateBefore = new Map(
+				animationsBefore.map( ( animation ) => [ animation.key, animation ] )
+			);
+			const originalScroll = { x: scrollX, y: scrollY };
+			const root = document.documentElement;
+			const scrollBehavior = root.style.scrollBehavior;
+			root.style.scrollBehavior = 'auto';
+			window.scrollTo( 0, Math.min( document.documentElement.scrollHeight - innerHeight, innerHeight * 1.5 ) );
+			await new Promise( ( resolve ) => requestAnimationFrame( () => requestAnimationFrame( resolve ) ) );
+			await new Promise( ( resolve ) => setTimeout( resolve, 250 ) );
+			const occurrencesAfter = new Map< string, number >();
+			const animationsAfter = document
+				.getAnimations()
+				.filter( ( animation ) => animation.effect?.getComputedTiming().iterations !== Infinity )
+				.map( ( animation ) => {
+					const name = ( animation as Animation & { animationName?: string } ).animationName;
+					if ( ! name || name === 'none' ) return null;
+					const occurrence = occurrencesAfter.get( name ) ?? 0;
+					occurrencesAfter.set( name, occurrence + 1 );
+					return {
+						key: `${ name }:${ occurrence }`,
+						name,
+						time: animation.currentTime?.toString() ?? 'null',
+						state: animation.playState,
+					};
+				} )
+				.filter( ( animation ): animation is NonNullable< typeof animation > => animation !== null );
+			const responsiveAnimations = animationsAfter
+				.filter( ( animation ) => {
+					const before = animationStateBefore.get( animation.key );
+					return ! before || before.time !== animation.time || before.state !== animation.state;
+				} )
+				.map( ( animation ) => animation.name )
+				.sort();
+			window.scrollTo( originalScroll.x, originalScroll.y );
+			root.style.scrollBehavior = scrollBehavior;
+			const animations = animationsBefore.map( ( animation ) => animation.name ).sort();
 			const hashTargets: { fragment: string; resolved: boolean; targets: number }[] = [];
 			const internalPaths: string[] = [];
 			const seen = new Set< string >();
@@ -320,6 +420,9 @@ async function observePage(
 					? Math.max( ...images.map( ( image ) => image.width ) )
 					: null,
 				images,
+				typography,
+				animations,
+				responsiveAnimations,
 				docWidth: document.documentElement.scrollWidth,
 				overflow: document.documentElement.scrollWidth > window.innerWidth,
 				hashTargets,
@@ -391,6 +494,9 @@ async function observePage(
 				...image,
 				key: normalizeImageKey( image.key ),
 			} ) ),
+			typography: measured.typography,
+			animations: measured.animations,
+			responsiveAnimations: measured.responsiveAnimations,
 			docWidth: measured.docWidth,
 			overflow: measured.overflow,
 			externalHosts: [ ...external ].sort(),

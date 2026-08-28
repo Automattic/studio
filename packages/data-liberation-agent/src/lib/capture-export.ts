@@ -14,6 +14,7 @@ import {
 import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path';
 import * as cheerio from 'cheerio';
 import { escapeHtmlAttr } from './html-escape.js';
+import { appendScrollDrivenAnimations } from './scroll-driven-animations.js';
 import { scopeCss } from './replicate/css-scope.js';
 import { SectionSpecsStore } from './replicate/section-specs-store.js';
 import { MediaStubStore } from './resume-state/index.js';
@@ -401,7 +402,32 @@ export function documentsDiffer( desktopHtml: string, mobileHtml: string ): bool
 	return responsiveBodySignature( desktopBody ) !== responsiveBodySignature( mobileBody );
 }
 
+/**
+ * Entrance animations a builder starts from script cannot run in a captured
+ * document, because capture strips the script. Re-bind them to the scroll
+ * timeline so the authored motion survives.
+ */
+function withScrollDrivenAnimations( html: string ): string {
+	const sourceCss = styleBlocks( html ).join( '\n' );
+	if ( sourceCss === '' ) return html;
+	const override = appendScrollDrivenAnimations( '', sourceCss );
+	if ( override === '' ) return html;
+	return /<\/head\s*>/i.test( html )
+		? html.replace( /<\/head\s*>/i, `<style>${ override }</style></head>` )
+		: `${ html }<style>${ override }</style>`;
+}
+
 function responsiveHtml(
+	desktopHtml: string,
+	mobileHtml: string,
+	switchWidth: number = DEFAULT_SWITCH_WIDTH
+): string {
+	return withScrollDrivenAnimations(
+		assembleResponsiveHtml( desktopHtml, mobileHtml, switchWidth )
+	);
+}
+
+function assembleResponsiveHtml(
 	desktopHtml: string,
 	mobileHtml: string,
 	switchWidth: number = DEFAULT_SWITCH_WIDTH

@@ -14,6 +14,11 @@
 // measured.
 //
 import { scoreViewport, type LayoutObservation } from './score.js';
+import {
+	checkImageGeometry,
+	checkMotion,
+	checkTypography,
+} from './rendered-contract-checks.js';
 
 export interface FidelityCheckContext {
 	/** Route in the copy, e.g. `/` or `/about/`. */
@@ -134,4 +139,19 @@ registerFidelityCheck( {
 		const score = scoreViewport( source, candidate );
 		return { failures: score.failures, notes: score.notes };
 	},
+} );
+
+registerFidelityCheck( {
+	name: 'image-geometry',
+	run: ( { source, candidate } ) => checkImageGeometry( source, candidate ),
+} );
+
+registerFidelityCheck( {
+	name: 'typography',
+	run: ( { source, candidate } ) => checkTypography( source, candidate ),
+} );
+
+registerFidelityCheck( {
+	name: 'motion',
+	run: ( { source, candidate } ) => checkMotion( source, candidate ),
 } );

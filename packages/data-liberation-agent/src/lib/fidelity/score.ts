@@ -22,6 +22,21 @@ export interface RenderedImage {
 	height: number;
 }
 
+/** Computed typography for one visible text run. The text key survives DOM
+ * wrapper changes while the measured values describe what the browser drew. */
+export interface RenderedTextStyle {
+	key: string;
+	fontFamily: string;
+	fontWeight: string;
+	fontSize: number;
+	lineHeight: number;
+	letterSpacing: number;
+	/** Canvas advance in CSS pixels using the computed font. Detects fallback
+	 * rendering when CSS still names a face that did not load. */
+	advance: number;
+	loaded: boolean;
+}
+
 export interface LayoutObservation {
 	/** Viewport width the observation was taken at. */
 	viewport: number;
@@ -33,6 +48,13 @@ export interface LayoutObservation {
 	/** Images rendering with real layout space at this viewport. Tracking
 	 *  pixels and hidden decorations are excluded by the observer. */
 	images: RenderedImage[];
+	/** Representative visible text runs and their computed rendering. */
+	typography?: RenderedTextStyle[];
+	/** Finite CSS animation names currently attached to rendered elements. */
+	animations?: string[];
+	/** Finite CSS animations that appeared, advanced, or changed play state
+	 * during a controlled scroll probe. */
+	responsiveAnimations?: string[];
 	/** documentElement.scrollWidth. */
 	docWidth: number;
 	/** True when the document is wider than the viewport. */

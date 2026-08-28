@@ -37,13 +37,15 @@ const context = ( extra: Partial< FidelityCheckContext > = {} ): FidelityCheckCo
 
 afterEach( () => {
 	for ( const name of fidelityCheckNames() ) {
-		if ( name !== 'core' ) unregisterFidelityCheck( name );
+		if ( ! [ 'core', 'image-geometry', 'motion', 'typography' ].includes( name ) ) {
+			unregisterFidelityCheck( name );
+		}
 	}
 } );
 
 describe( 'the check registry', () => {
 	it( 'ships the built-in comparison registered through the public API', () => {
-		expect( fidelityCheckNames() ).toContain( 'core' );
+		expect( fidelityCheckNames() ).toEqual( [ 'core', 'image-geometry', 'motion', 'typography' ] );
 		expect( findFidelityCheck( 'core' ) ).not.toBeNull();
 	} );
 

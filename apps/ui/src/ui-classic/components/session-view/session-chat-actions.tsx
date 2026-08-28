@@ -70,7 +70,16 @@ export function SessionChatActions( {
 	const [ archiveDialogOpen, setArchiveDialogOpen ] = useState( false );
 	const [ historyMenuOpen, setHistoryMenuOpen ] = useState( false );
 
+	// Archiving the chat you're on rolls straight into a new one, so it is a
+	// second way to start a chat. It has to follow the same availability rule as
+	// the button, or an exhausted account could archive its way past the lockout.
+	const canArchive = ( session: AiSessionSummary ) =>
+		showNewChat || session.id !== currentSessionId;
+
 	const archiveSession = ( session: AiSessionSummary ) => {
+		if ( ! canArchive( session ) ) {
+			return;
+		}
 		updateSessionMetadata.mutate( {
 			sessionId: session.id,
 			patch: { archived: true },
@@ -157,6 +166,7 @@ export function SessionChatActions( {
 													size="small"
 													icon={ box }
 													label={ __( 'Archive chat' ) }
+													disabled={ ! canArchive( session ) }
 													onClick={ ( event ) => {
 														event.preventDefault();
 														event.stopPropagation();

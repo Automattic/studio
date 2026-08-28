@@ -238,6 +238,9 @@ export function ComposerSkeleton() {
 
 interface ComposerProps {
 	busy: boolean;
+	// Blocks sending and queueing while leaving the rest of the composer alone,
+	// so a run already in flight keeps its Stop control.
+	canSubmit?: boolean;
 	isInterrupting?: boolean;
 	error: string | null;
 	model: AiModelId;
@@ -324,6 +327,7 @@ function resizeComposerTextarea(
 export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Composer(
 	{
 		busy,
+		canSubmit = true,
 		isInterrupting = false,
 		error,
 		model,
@@ -481,6 +485,11 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 	);
 
 	const send = useCallback( async () => {
+		// Guarded here as well as on the button: Enter reaches this directly, and
+		// while busy a send becomes a queued prompt that would dispatch later.
+		if ( ! canSubmit ) {
+			return;
+		}
 		const trimmed = value.trim();
 		// Allow sending attachments on their own; fall back to a minimal prompt so
 		// the backend (which requires a non-empty message) still has one.
@@ -504,7 +513,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 			setValue( trimmed );
 			restoreAttachments( sentAttachments );
 		}
-	}, [ value, attachments, clearAttachments, restoreAttachments, onSend ] );
+	}, [ canSubmit, value, attachments, clearAttachments, restoreAttachments, onSend ] );
 
 	const openFilePicker = useCallback( () => {
 		fileInputRef.current?.click();
@@ -723,7 +732,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		}
 	}, [ connector, onSwitchSession, ownerSiteId, pendingFamilyChange, queryClient ] );
 
-	const canSend = value.trim().length > 0 || attachments.length > 0;
+	const canSend = canSubmit && ( value.trim().length > 0 || attachments.length > 0 );
 	const placeholderOptions = busy
 		? [
 				__( 'Queue the next message while I work…' ),

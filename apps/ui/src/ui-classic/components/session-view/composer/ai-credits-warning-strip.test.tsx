@@ -64,8 +64,7 @@ describe( 'AiCreditsWarningStrip', () => {
 	} );
 
 	it( 'still warns when the meter rounds to full but credits remain', () => {
-		// 999,999 of 1,000,000 spent: the meter reads exhausted, the server
-		// balance does not, so neither the lockout nor a silent strip is right.
+		// The meter rounds up to full while the server balance is still above zero.
 		mockQuota( { costUsage: 0, costCap: 1000000, allowanceRemaining: 1 } );
 
 		render( <AiCreditsWarningStrip /> );

@@ -57,8 +57,7 @@ vi.mock( '@/hooks/use-session-commands', () => ( { useSessionCommands: vi.fn() }
 vi.mock( '@/hooks/use-session-ui', () => ( {
 	SessionUIProvider: ( { children }: { children: React.ReactNode } ) => children,
 	useSessionPreviewAnnotations: vi.fn(),
-	// Null is the real "no preview panel hosting this session" case, which is
-	// what these tests render; the toggle button draws nothing for it.
+	// No preview panel hosts these sessions.
 	useOptionalSessionPreviewUI: () => null,
 } ) );
 

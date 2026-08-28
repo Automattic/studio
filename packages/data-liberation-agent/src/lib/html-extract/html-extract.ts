@@ -54,3 +54,53 @@ export interface NavLink {
   text: string;
   href: string;
 }
+
+export interface PageTitleContext {
+  siteTitle?: string;
+  navigation?: NavLink[];
+  url?: string;
+}
+
+function normalizeNavUrl(url: string): string {
+  return url.replace(/[#?].*$/, '').replace(/\/+$/, '').toLowerCase();
+}
+
+function humanizeSlug(slug: string): string {
+  return slug
+    .split(/[-_]+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
+/**
+ * Derive the WordPress admin title for an imported page.
+ *
+ * Strips a trailing " | Site Name" suffix. A title that is just the site-wide
+ * title carries no page identity (site builders let owners set one SEO title
+ * for every page, which would name every imported page identically), so it
+ * falls back to the page's navigation label, then to the humanized slug.
+ */
+export function resolvePageTitle(
+  rawTitle: string,
+  slug: string,
+  context: PageTitleContext = {}
+): string {
+  const pipeIdx = rawTitle.lastIndexOf(' | ');
+  const cleaned = (pipeIdx > 0 ? rawTitle.slice(0, pipeIdx) : rawTitle).trim();
+
+  const isSiteWide = context.siteTitle ? cleaned === context.siteTitle.trim() : false;
+  if (cleaned && !isSiteWide) {
+    return cleaned;
+  }
+
+  if (context.url && context.navigation) {
+    const target = normalizeNavUrl(context.url);
+    const navMatch = context.navigation.find((link) => normalizeNavUrl(link.href) === target);
+    if (navMatch?.text) {
+      return navMatch.text;
+    }
+  }
+
+  return humanizeSlug(slug) || cleaned;
+}

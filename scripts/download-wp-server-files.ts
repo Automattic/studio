@@ -37,6 +37,9 @@ const PHPMYADMIN_LOCAL_PATCH_FILES = new Map< string, string >( [
 		path.join( PHPMYADMIN_PATCH_FILES_PATH, 'DbiMysqli.php' ),
 	],
 ] );
+const PHPMYADMIN_ADDITIONAL_FILES = new Map< string, string >( [
+	[ 'config.header.inc.php', path.join( PHPMYADMIN_PATCH_FILES_PATH, 'config.header.inc.php' ) ],
+] );
 
 const partialGithubReleaseSchema = z.object( {
 	tag_name: z.string(),
@@ -209,6 +212,9 @@ async function downloadFile( file: FileToDownload ): Promise< void > {
 				const patchData = localPatchFile ? await fs.readFile( localPatchFile, 'utf8' ) : step.data;
 				await fs.writeFile( destFile, patchData );
 			}
+		}
+		for ( const [ relativePath, sourcePath ] of PHPMYADMIN_ADDITIONAL_FILES ) {
+			await fs.copy( sourcePath, path.join( extractedPath, relativePath ), { overwrite: true } );
 		}
 	} else {
 		console.log( `[${ name }] Extracting files from zip ...` );

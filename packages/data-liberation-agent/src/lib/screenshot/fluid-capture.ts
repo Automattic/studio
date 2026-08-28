@@ -7,7 +7,13 @@
 // replaces the runtime-written inline pixels, which is what lets the liberated
 // copy keep reflowing after that runtime is stripped.
 //
-import { breakpointsFrom, learnFluidModel, type FluidModel, type GeometrySample } from './fluid-model.js';
+import {
+	breakpointsFrom,
+	learnFluidModel,
+	learnWidestFluidModel,
+	type FluidModel,
+	type GeometrySample,
+} from './fluid-model.js';
 import type { Page } from 'playwright';
 
 /** Marks elements across viewport changes; removed before serialization. */
@@ -129,15 +135,16 @@ export async function learnAndApplyFluidGeometry(
 
 	for ( const [ key, samples ] of observations ) {
 		const [ id, property ] = key.split( ':' ) as [ string, LearnableProperty ];
-		const model: FluidModel = learnFluidModel( samples );
+		const wholeRangeModel = learnFluidModel( samples );
+		const model: FluidModel = learnWidestFluidModel( samples );
 		byKind[ model.kind ] = ( byKind[ model.kind ] ?? 0 ) + 1;
+		if ( wholeRangeModel.kind === 'breakpoint' ) {
+			for ( const width of breakpointsFrom( wholeRangeModel.samples ) ) breakpoints.add( width );
+		}
 		if ( model.kind === 'breakpoint' ) {
 			// Leaving the frozen value is the honest outcome: a wrong formula
 			// would be worse than an admittedly fixed one.
 			unmodelled++;
-			// Only the widths where the rule actually changed are breakpoints;
-			// every sampled width is not evidence of anything.
-			for ( const width of breakpointsFrom( model.samples ) ) breakpoints.add( width );
 			continue;
 		}
 		if ( model.kind === 'floored' && property === 'width' ) {

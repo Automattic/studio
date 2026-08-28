@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { breakpointsFrom, learnFluidModel } from './fluid-model.js';
+import { breakpointsFrom, learnFluidModel, learnWidestFluidModel } from './fluid-model.js';
 
 const at = ( pairs: Array< [ number, number ] > ) =>
 	pairs.map( ( [ viewport, value ] ) => ( { viewport, value } ) );
@@ -94,6 +94,34 @@ describe( 'learnFluidModel', () => {
 			{ viewport: 1600, value: 800 },
 		] );
 		expect( model.kind ).toBe( 'breakpoint' );
+	} );
+} );
+
+describe( 'learnWidestFluidModel', () => {
+	it( 'recovers the desktop relationship after a mobile breakpoint', () => {
+		const model = learnWidestFluidModel(
+			at( [
+				[ 768, 844 ],
+				[ 1024, 559 ],
+				[ 1280, 699 ],
+				[ 1440, 787 ],
+				[ 1920, 1049 ],
+			] )
+		);
+		expect( model ).toMatchObject( { kind: 'proportional', css: '54.64vw' } );
+	} );
+
+	it( 'keeps a breakpoint when the widest segment has too little evidence', () => {
+		expect(
+			learnWidestFluidModel(
+				at( [
+					[ 600, 300 ],
+					[ 800, 400 ],
+					[ 1200, 1200 ],
+					[ 1600, 1600 ],
+				] )
+			).kind
+		).toBe( 'breakpoint' );
 	} );
 } );
 

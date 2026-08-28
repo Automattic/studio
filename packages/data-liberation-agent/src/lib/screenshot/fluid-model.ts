@@ -94,6 +94,24 @@ export function learnFluidModel( samples: readonly GeometrySample[] ): FluidMode
 	return { kind: 'breakpoint', samples: ordered };
 }
 
+/**
+ * Recover the rule used by the widest stable viewport segment.
+ *
+ * Capture serializes desktop and mobile documents separately. A mobile rule in
+ * the width sweep must not prevent the desktop document from retaining the
+ * relationship it consistently follows above that breakpoint.
+ */
+export function learnWidestFluidModel( samples: readonly GeometrySample[] ): FluidModel {
+	const wholeRange = learnFluidModel( samples );
+	if ( wholeRange.kind !== 'breakpoint' ) return wholeRange;
+	const breakpoints = breakpointsFrom( wholeRange.samples );
+	const widestBreakpoint = breakpoints.at( -1 );
+	if ( widestBreakpoint === undefined ) return wholeRange;
+	const widestSegment = wholeRange.samples.filter( ( sample ) => sample.viewport >= widestBreakpoint );
+	const widestModel = learnFluidModel( widestSegment );
+	return widestModel.kind === 'breakpoint' ? wholeRange : widestModel;
+}
+
 /** Widths where the observed relationship changes, derived from a bad fit. */
 export function breakpointsFrom( samples: readonly GeometrySample[] ): number[] {
 	const ordered = [ ...samples ].sort( ( a, b ) => a.viewport - b.viewport );

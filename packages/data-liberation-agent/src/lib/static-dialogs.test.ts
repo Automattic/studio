@@ -45,15 +45,13 @@ describe( 'wireCapturedDialogs', () => {
 		expect( html.match( /<details class="dla-disclosure">/g ) ).toHaveLength( 2 );
 	} );
 
-	it( 'keeps global attributes without copying element-specific behavior to summary', () => {
+	it( 'does not turn an unlabeled logo control into the menu trigger', () => {
 		const html = wireCapturedDialogs(
-			'<html><head></head><body><a class="menu" aria-label="Open Menu" data-menu="primary" href="/" target="_self" rel="home">Menu</a></body></html>',
+			'<html><head></head><body><a class="logo" role="button"><img alt="Homepage"></a><button>Open Menu</button></body></html>',
 			[ captured ]
 		);
-		expect( html ).toContain(
-			'<summary class="menu" aria-label="Open Menu" data-menu="primary">Menu</summary>'
-		);
-		expect( html ).not.toMatch( /<summary[^>]+(?:href|target|rel)=/ );
+		expect( html.match( /<details class="dla-disclosure">/g ) ).toHaveLength( 1 );
+		expect( html ).toContain( '<a class="logo" role="button"><img alt="Homepage"></a>' );
 	} );
 
 	it( 'leaves the page alone when nothing was captured', () => {

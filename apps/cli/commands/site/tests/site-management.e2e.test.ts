@@ -226,7 +226,7 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio site management'
 					redirect: 'manual',
 				} );
 
-				expect( response.headers.getSetCookie().join( '; ' ) ).toContain( 'wordpress_logged_in' );
+				expect( response.headers.get( 'set-cookie' ) ).toContain( 'wordpress_logged_in' );
 			}
 		);
 	} );

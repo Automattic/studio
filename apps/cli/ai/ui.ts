@@ -38,6 +38,7 @@ import {
 	formatOutOfCreditsNotice,
 	formatQuotaResetDate,
 	formatUsageCapNotice,
+	getTotalRemainingAiCredits,
 } from '@studio/common/lib/studio-assistant-quota';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import {
@@ -1427,6 +1428,37 @@ export class AiChatUI implements AiOutputAdapter {
 		);
 	}
 
+	// Shows the end-of-turn stats line immediately, then appends the remaining
+	// AI credit balance in place once the WordPress.com quota endpoint answers.
+	private showTurnStats( stats: string ): void {
+		const line = new Text( '\n' + theme.fg( 'muted', stats ) + '\n', 1, 0 );
+		this.messages.addChild( line );
+		this.tui.requestRender();
+		void this.appendRemainingCredits( line, stats );
+	}
+
+	private async appendRemainingCredits( line: Text, stats: string ): Promise< void > {
+		if ( this.replayMode || this.currentProvider !== 'wpcom' ) {
+			return;
+		}
+		const token = await readAuthToken();
+		if ( ! token?.accessToken ) {
+			return;
+		}
+		const quota = await fetchStudioAssistantQuota( token.accessToken );
+		const remaining = quota ? getTotalRemainingAiCredits( quota ) : undefined;
+		if ( remaining === undefined ) {
+			return;
+		}
+		const credits = sprintf(
+			/* translators: %s: total number of AI credits remaining (e.g. 1,110,000). */
+			__( '%s credits left' ),
+			new Intl.NumberFormat().format( remaining )
+		);
+		line.setText( '\n' + theme.fg( 'muted', `${ stats } · ${ credits }` ) + '\n' );
+		this.tui.requestRender();
+	}
+
 	showOnboarding(): void {
 		const text =
 			' ' +
@@ -1946,7 +1978,7 @@ export class AiChatUI implements AiOutputAdapter {
 						new Text( '\n ' + theme.fg( 'accent', '⏺' ) + ' ' + __( 'Done' ), 0, 0 )
 					);
 				}
-				this.showInfo(
+				this.showTurnStats(
 					sprintf(
 						/* translators: 1: seconds spent thinking, 2: number of turns */
 						_n( 'Thought for %1$ds · %2$d turn', 'Thought for %1$ds · %2$d turns', this.numTurns ),

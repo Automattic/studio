@@ -7,4 +7,4 @@ gem 'fastlane-plugin-wpmreleasetoolkit', '~> 14.11'
 
 gem 'aws-sdk-cloudfront', '~> 1.152'
 
-gem 'rubocop', '~> 1.89', require: false
+gem 'rubocop', '~> 1.90', require: false

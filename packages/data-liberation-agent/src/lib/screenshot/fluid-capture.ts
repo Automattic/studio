@@ -19,7 +19,7 @@ import type { Page } from 'playwright';
 /** Marks elements across viewport changes; removed before serialization. */
 const ID_ATTRIBUTE = 'data-dla-fluid-id';
 /** Only geometry that a runtime plausibly derives from viewport width. */
-const LEARNABLE_PROPERTIES = [ 'width', 'height' ] as const;
+const LEARNABLE_PROPERTIES = [ 'width', 'height', 'top' ] as const;
 
 export type LearnableProperty = ( typeof LEARNABLE_PROPERTIES )[ number ];
 
@@ -70,7 +70,11 @@ export async function learnAndApplyFluidGeometry(
 			let index = 0;
 			for ( const element of document.querySelectorAll< HTMLElement >( '[style]' ) ) {
 				// Only elements a runtime sized in pixels are candidates.
-				if ( ! /\b(?:width|height)\s*:\s*\d/.test( element.getAttribute( 'style' ) ?? '' ) ) continue;
+				const style = element.getAttribute( 'style' ) ?? '';
+				const carriesPixelSize = /\b(?:width|height)\s*:\s*\d/.test( style );
+				const carriesCapturedAnchorTop =
+					element.hasAttribute( 'data-dla-anchor-target' ) && /\btop\s*:\s*\d/.test( style );
+				if ( ! carriesPixelSize && ! carriesCapturedAnchorTop ) continue;
 				element.setAttribute( attribute, String( index++ ) );
 			}
 			return index;
@@ -106,6 +110,10 @@ export async function learnAndApplyFluidGeometry(
 					const style = element.getAttribute( 'style' ) ?? '';
 					const values: Record< string, number | null > = {};
 					for ( const property of properties ) {
+						if ( property === 'top' && ! element.hasAttribute( 'data-dla-anchor-target' ) ) {
+							values[ property ] = null;
+							continue;
+						}
 						const match = new RegExp( `(?:^|;)\\s*${ property }\\s*:\\s*(\\d+(?:\\.\\d+)?)px` ).exec( style );
 						values[ property ] = match ? Number( match[ 1 ] ) : null;
 					}

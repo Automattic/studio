@@ -3,36 +3,18 @@ Unreleased
 
 1.20.0
 =====
-<!-- Release notes generated using configuration in .github/release.yml at HEAD -->
-* Update DLA deps #4664
-* Studio Code: make one-page site header anchor links home-relative #4655
-* Add compaction eval #4670
-* Improve the Studio Code terminal UI #4653
-* Studio Code: keep shrink-wrapped labels aligned in constrained layouts #4677
-* Agentic UI: Stop the About card's disk measurement from thrashing on site switches #4627
-* Studio Code: prefer block styles and structured styling over custom CSS #4680
-* Data Liberation: Add timeouts to browser calls so extraction cannot hang #4584
-* Improve AI credits dialog guidance #4679
-* Offer opptions for AI credit top-ups #4678
-* Studio Code: generate AI images during site builds (generate_images tool + imagery skill) #4668
-* Agentic UI: Fix broken settings alignment in some languages #4687
-* Remove data-liberation stub commands that shadowed their skills #4682
-* Fix trunk typecheck errors introduced by the generate_images tool #4694
-* Evals: fix the Jetpack slideshow assertion blind spot and the shrink-wrapped label CSS guidance gap #4693
-* Fix new sites are created in English instead of Studio's configured language #4667
-* Publish button shows previous user's cached remote sites after logout/login #4589
-* Agentic UI: Prevent blurred horizontal scrollbar beneath conversations #4556
-* Agentic UI: Simplify phpMyAdmin's embedded interface #4684
-* Agentic UI: Improve working timer units to use more than seconds and add new transition animation #4579
-* Agentic UI: Prevent empty-state frost from clipping at panel edge #4555
-* Agentic UI: Make the agent's preview refresh drop the cache like the toolbar's does #4625
-* build(deps): bump anthropics/claude-code-action from 1.0.195 to 1.0.206 #4707
-* build(deps-dev): bump @testing-library/user-event from 14.6.5 to 14.6.6 in the testing group #4711
-* build(deps): bump rubocop from 1.89.0 to 1.90.0 in the ruby-minor-and-patch group #4708
-* build(deps): bump the eslint group with 2 updates #4710
-* Show an AI credits usage meter in Settings → Usage #4692
-* Keep the wp-admin session alive across a site restart #4703
-**Full Changelog**: https://github.com/Automattic/studio/compare/v1.19.0...v1.20.0
+* Studio Code can now generate real AI images while it builds a site, instead of leaving placeholders behind, and a new imagery skill decides where and how those images are used #4668
+* Improved the AI credits experience: the top-up dialog now offers four credit amounts, explains what credits are and how they differ from tokens, and links to the AI credits guidelines. A new usage meter in Settings → Usage shows how much you have left #4678, #4679, #4692
+* Improved the Studio Code terminal UI: tools that run at the same time now report their own progress and results live, instead of piling up under the last tool call #4653
+* Studio Code: improved the sites the agent builds — anchor links in one-page site headers now point at the home page, pill labels stay inside the content column, and styling prefers the theme's block styles over custom CSS #4655, #4677, #4680
+* Fixed new sites being created in English instead of the language configured in Studio #4667
+* Fixed being signed out of wp-admin every time a site restarted, such as after saving settings, changing the PHP version, or toggling Xdebug #4703
+* Fixed the Publish button showing the previous user's cached remote sites after signing out and back in #4589
+* Agentic UI: fixed settings alignment in some languages, a blurred scrollbar beneath conversations, the empty-state frost clipping at the panel edge, and the About card's disk measurement thrashing when switching sites #4687, #4556, #4555, #4627
+* Agentic UI: simplified phpMyAdmin's embedded interface, improved the working timer's units and transition, and made the agent's preview refresh drop the cache like the toolbar's does #4684, #4579, #4625
+* Data Liberation: added timeouts to browser calls so extraction cannot hang, removed stub commands that shadowed their skills, and updated its dependencies #4584, #4682, #4664
+* Updated multiple dependencies, including the ESLint and testing groups, RuboCop and claude-code-action #4707, #4708, #4710, #4711
+* Misc and maintenance improvements #4670, #4693, #4694
 
 1.19.0
 =====

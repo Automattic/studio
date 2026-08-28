@@ -7,6 +7,37 @@ const DISCLOSURE_CSS =
 	'details.dla-disclosure:not([open])>.dla-dialog{display:none!important}' +
 	'details.dla-disclosure[open]>.dla-dialog{display:block;position:fixed;inset:0;z-index:2147483646;overflow:auto;background:#fff}';
 
+const GLOBAL_ATTRIBUTES = new Set( [
+	'accesskey',
+	'autocapitalize',
+	'autofocus',
+	'class',
+	'contenteditable',
+	'dir',
+	'draggable',
+	'enterkeyhint',
+	'hidden',
+	'id',
+	'inert',
+	'inputmode',
+	'itemid',
+	'itemprop',
+	'itemref',
+	'itemscope',
+	'itemtype',
+	'lang',
+	'nonce',
+	'part',
+	'popover',
+	'role',
+	'slot',
+	'spellcheck',
+	'style',
+	'tabindex',
+	'title',
+	'translate',
+] );
+
 export function wireCapturedDialogs( html: string, states: CapturedDialogInteraction[] ): string {
 	const captured = states.filter( ( state ) => state.status === 'captured' && state.dialog?.html );
 	if ( captured.length === 0 ) return html;
@@ -20,7 +51,12 @@ export function wireCapturedDialogs( html: string, states: CapturedDialogInterac
 			const summary = $( '<summary></summary>' );
 			const attrs = trigger.attr() ?? {};
 			for ( const [ name, value ] of Object.entries( attrs ) ) {
-				if ( name === 'type' ) continue;
+				if (
+					! GLOBAL_ATTRIBUTES.has( name ) &&
+					! name.startsWith( 'aria-' ) &&
+					! name.startsWith( 'data-' )
+				)
+					continue;
 				summary.attr( name, value );
 			}
 			summary.html( trigger.html() ?? '' );
@@ -39,10 +75,7 @@ export function wireCapturedDialogs( html: string, states: CapturedDialogInterac
 	return $.html();
 }
 
-function findTriggers(
-	$: cheerio.CheerioAPI,
-	trigger: CapturedDialogInteraction[ 'trigger' ]
-) {
+function findTriggers( $: cheerio.CheerioAPI, trigger: CapturedDialogInteraction[ 'trigger' ] ) {
 	if ( trigger.id ) {
 		const byId = $( `#${ cssEscape( trigger.id ) }` );
 		if ( byId.length ) return byId;

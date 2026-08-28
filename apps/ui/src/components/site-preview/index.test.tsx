@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { displayShortcut } from '@wordpress/keycodes';
 import { Tooltip } from '@wordpress/ui';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { themeDetailsQueryKey } from '@/hooks/use-theme-details';
@@ -931,5 +931,188 @@ describe( 'getPathFromPreviewUrl', () => {
 			null
 		);
 		expect( getPathFromPreviewUrl( 'not-a-url', 'http://localhost:8881' ) ).toBe( null );
+	} );
+} );
+
+// The webview surface only renders inside Electron, so these tests fake the UA
+// sniff and stub the custom element's non-standard methods. Without this the
+// suite only ever exercises the browser iframe fallback, which refreshes by
+// remounting and so can't catch a regression in the webview reload path.
+interface WebviewStub extends HTMLElement {
+	loadURL: ReturnType< typeof vi.fn >;
+	reload: ReturnType< typeof vi.fn >;
+	executeJavaScript: ReturnType< typeof vi.fn >;
+	getWebContentsId: ReturnType< typeof vi.fn >;
+}
+
+const REAL_USER_AGENT = window.navigator.userAgent;
+
+function setUserAgent( userAgent: string ) {
+	// Patched in place rather than replacing `navigator`, so the rest of it
+	// (`platform`, which @wordpress/keycodes reads) stays intact.
+	Object.defineProperty( window.navigator, 'userAgent', { value: userAgent, configurable: true } );
+}
+
+// The simulated viewport is derived from the observed pane size, and jsdom has
+// no ResizeObserver — without one the preview never leaves "fit pane" and no
+// emulation is ever requested. Reports a fixed pane synchronously on observe.
+const PANE_SIZE = { width: 900, height: 700 };
+
+class ResizeObserverStub {
+	constructor( private readonly callback: ResizeObserverCallback ) {}
+	observe( target: Element ) {
+		this.callback(
+			[ { target, contentRect: PANE_SIZE } ] as unknown as ResizeObserverEntry[],
+			this as unknown as ResizeObserver
+		);
+	}
+	unobserve() {}
+	disconnect() {}
+}
+
+function renderWebviewPreview( props: Partial< ComponentProps< typeof SitePreview > > = {} ) {
+	setUserAgent( `${ REAL_USER_AGENT } Electron/38.0.0` );
+	vi.stubGlobal( 'ResizeObserver', ResizeObserverStub );
+	const clearWebviewCache = vi.fn().mockResolvedValue( undefined );
+	const setWebviewViewport = vi.fn().mockResolvedValue( undefined );
+	vi.stubGlobal( 'ipcApi', { clearWebviewCache, setWebviewViewport } );
+	useConnectorMock.mockReturnValue( {
+		startSite: vi.fn().mockResolvedValue( undefined ),
+		trackEvent: vi.fn().mockResolvedValue( undefined ),
+		capabilities: CAPABILITIES,
+	} as never );
+
+	const { container, rerender } = renderPreview(
+		<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } { ...props } />
+	);
+	const webview = container.querySelector( 'webview' ) as WebviewStub | null;
+	if ( ! webview ) {
+		throw new Error( 'Expected a <webview> surface' );
+	}
+	webview.loadURL = vi.fn().mockResolvedValue( undefined );
+	webview.reload = vi.fn();
+	webview.executeJavaScript = vi.fn().mockResolvedValue( undefined );
+	webview.getWebContentsId = vi.fn().mockReturnValue( 7 );
+	// `ready` gates every navigation; the real element emits this after load.
+	fireEvent( webview, new Event( 'dom-ready' ) );
+
+	const update = ( next: Partial< ComponentProps< typeof SitePreview > > ) =>
+		rerender(
+			<QueryClientProvider client={ new QueryClient() }>
+				<Tooltip.Provider>
+					<SitePreview
+						site={ createSite( { running: true } ) }
+						path="/"
+						reloadNonce={ 0 }
+						{ ...props }
+						{ ...next }
+					/>
+				</Tooltip.Provider>
+			</QueryClientProvider>
+		);
+	return { webview, clearWebviewCache, setWebviewViewport, update };
+}
+
+// Leaves "fit pane" for one of the simulated presets, which is what turns the
+// CDP emulation on.
+async function selectResponsiveMode( label: string ) {
+	fireEvent.click( screen.getByRole( 'button', { name: 'More options' } ) );
+	fireEvent.click( await screen.findByRole( 'menuitemradio', { name: label } ) );
+}
+
+describe( 'SitePreview webview reload', () => {
+	afterEach( () => {
+		vi.unstubAllGlobals();
+		setUserAgent( REAL_USER_AGENT );
+	} );
+
+	it( 'drops the cache and reloads in place when the nonce bumps for the same url', async () => {
+		const { webview, clearWebviewCache, update } = renderWebviewPreview();
+
+		update( { reloadNonce: 1 } );
+
+		await waitFor( () => expect( webview.reload ).toHaveBeenCalledTimes( 1 ) );
+		expect( clearWebviewCache ).toHaveBeenCalledWith( 7 );
+		expect( webview.loadURL ).not.toHaveBeenCalled();
+	} );
+
+	it( 'navigates without dropping the cache when the path changes', async () => {
+		const { webview, clearWebviewCache, update } = renderWebviewPreview();
+
+		// `preview/navigate` bumps the nonce alongside the path, so the nonce
+		// alone can't stand in for "the user wants this page again".
+		update( { path: '/about', reloadNonce: 1 } );
+
+		await waitFor( () =>
+			expect( webview.loadURL ).toHaveBeenCalledWith( 'http://localhost:8881/about' )
+		);
+		expect( webview.reload ).not.toHaveBeenCalled();
+		expect( clearWebviewCache ).not.toHaveBeenCalled();
+	} );
+
+	it( 'still reloads in place after the preview navigated itself', async () => {
+		const { webview, clearWebviewCache, update } = renderWebviewPreview();
+
+		// The guest moves on its own; the host's `path` catches up afterwards,
+		// which must not be mistaken for a requested navigation.
+		const navigate = new Event( 'did-navigate' ) as Event & { url: string };
+		navigate.url = 'http://localhost:8881/about';
+		fireEvent( webview, navigate );
+		update( { path: '/about' } );
+		expect( webview.loadURL ).not.toHaveBeenCalled();
+
+		update( { path: '/about', reloadNonce: 1 } );
+
+		await waitFor( () => expect( webview.reload ).toHaveBeenCalledTimes( 1 ) );
+		expect( clearWebviewCache ).toHaveBeenCalledWith( 7 );
+		expect( webview.loadURL ).not.toHaveBeenCalled();
+	} );
+} );
+
+describe( 'SitePreview responsive emulation', () => {
+	afterEach( () => {
+		vi.unstubAllGlobals();
+		setUserAgent( REAL_USER_AGENT );
+	} );
+
+	it( 'applies the simulated viewport when a preset is picked', async () => {
+		const { setWebviewViewport } = renderWebviewPreview();
+
+		await selectResponsiveMode( 'Desktop · 1440×900' );
+
+		await waitFor( () =>
+			expect( setWebviewViewport ).toHaveBeenCalledWith( 7, {
+				width: 1440,
+				height: 900,
+				// Scaled to fit the padded pane; its width is the tighter of the two axes.
+				scale: ( PANE_SIZE.width - 32 ) / 1440,
+				mobile: false,
+			} )
+		);
+	} );
+
+	it( 're-applies the simulated viewport after each load', async () => {
+		const { webview, setWebviewViewport } = renderWebviewPreview();
+		await selectResponsiveMode( 'Desktop · 1440×900' );
+		await waitFor( () => expect( setWebviewViewport ).toHaveBeenCalledTimes( 1 ) );
+
+		// The override lives on the guest's debugger session, so a guest that
+		// went away takes it with it. Re-asserting per load is what heals that.
+		fireEvent( webview, new Event( 'dom-ready' ) );
+
+		await waitFor( () => expect( setWebviewViewport ).toHaveBeenCalledTimes( 2 ) );
+		expect( setWebviewViewport ).toHaveBeenLastCalledWith(
+			7,
+			expect.objectContaining( { width: 1440, height: 900 } )
+		);
+	} );
+
+	it( 'never touches the emulation for a fit-to-pane preview', async () => {
+		const { webview, setWebviewViewport } = renderWebviewPreview();
+
+		fireEvent( webview, new Event( 'dom-ready' ) );
+
+		await waitFor( () => expect( webview.executeJavaScript ).toHaveBeenCalled() );
+		expect( setWebviewViewport ).not.toHaveBeenCalled();
 	} );
 } );

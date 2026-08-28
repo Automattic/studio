@@ -287,6 +287,16 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		setArmedFreeFormQuestion( question );
 		composerRef.current?.focus();
 	}, [] );
+	// Picking a listed option supersedes an armed free-form reply for that same
+	// question. Answering a *different* one leaves the arming alone, and
+	// arming again after picking still works, so a pick stays changeable.
+	const answerQuestionFromOption = useCallback(
+		( question: string, label: string ) => {
+			setArmedFreeFormQuestion( ( armed ) => ( armed === question ? null : armed ) );
+			answerQuestion( question, label );
+		},
+		[ answerQuestion ]
+	);
 	const [ isScrolledAway, setIsScrolledAway ] = useState( false );
 	const hasSession = !! data;
 
@@ -569,7 +579,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 					pendingQuestions={ pendingQuestionTexts }
 					pendingAnswers={ pendingAnswers }
 					freeFormQuestion={ freeFormQuestion }
-					onAnswerQuestion={ answerQuestion }
+					onAnswerQuestion={ answerQuestionFromOption }
 					onChooseFreeForm={ chooseFreeFormAnswer }
 				/>
 				<QueuedPrompts

@@ -308,6 +308,16 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 		setArmedFreeFormQuestion( question );
 		setComposerFocusRequestId( ( id ) => id + 1 );
 	}, [] );
+	// Picking a listed option supersedes an armed free-form reply for that same
+	// question. Answering a *different* one leaves the arming alone, and
+	// arming again after picking still works, so a pick stays changeable.
+	const answerQuestionFromOption = useCallback(
+		( question: string, label: string ) => {
+			setArmedFreeFormQuestion( ( armed ) => ( armed === question ? null : armed ) );
+			answerQuestion( question, label );
+		},
+		[ answerQuestion ]
+	);
 	const canEditLastUserMessage = useMemo(
 		() => ! composerBusy && ! isRunning && wasLastTurnInterrupted( data?.entries ?? [] ),
 		[ composerBusy, isRunning, data?.entries ]
@@ -475,7 +485,7 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 							pendingAnswers={ pendingAnswers }
 							answeredQuestions={ answeredQuestions }
 							freeFormQuestion={ freeFormQuestion }
-							onAnswerQuestion={ answerQuestion }
+							onAnswerQuestion={ answerQuestionFromOption }
 							onChooseFreeForm={ chooseFreeFormAnswer }
 							canEditLastUserMessage={ canEditLastUserMessage }
 							onEditUserMessage={ editAndResendMessage }

@@ -110,6 +110,20 @@ export const studioAssistantQuotaSchema = z
 
 export type StudioAssistantQuota = z.infer< typeof studioAssistantQuotaSchema >;
 
+/**
+ * Total AI credits remaining across the allowance and purchased pools, or
+ * `undefined` when the server omits both fields (AI credits off for the
+ * account) — callers must hide the balance then, not show 0.
+ */
+export function getTotalRemainingAiCredits(
+	quota: Pick< StudioAssistantQuota, 'allowanceRemaining' | 'purchasedRemaining' >
+): number | undefined {
+	if ( quota.allowanceRemaining === undefined && quota.purchasedRemaining === undefined ) {
+		return undefined;
+	}
+	return ( quota.allowanceRemaining ?? 0 ) + ( quota.purchasedRemaining ?? 0 );
+}
+
 export type StudioCodeAiAccessState = 'available' | 'blocked' | 'not-enabled';
 
 /**

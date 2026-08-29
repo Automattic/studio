@@ -94,7 +94,10 @@ describe( 'Composer menu', () => {
 			hasAnthropicApiKey: true,
 			anthropicApiKeyPreview: 'sk-ant-api03-tes...1234',
 		} );
-		renderComposer( { entries: [ createSessionContextEntry( 'anthropic-api-key' ) ] } );
+		renderComposer( {
+			entries: [ createSessionContextEntry( 'anthropic-api-key' ) ],
+			model: 'claude-sonnet-5',
+		} );
 
 		const trigger = screen.getByRole( 'button', { name: 'Select model' } );
 		await waitFor( () => expect( trigger ).toHaveTextContent( 'API · Sonnet 5' ) );
@@ -123,7 +126,7 @@ describe( 'Composer menu', () => {
 		fireEvent.click( trigger );
 		await waitFor( () =>
 			expect( screen.getAllByRole( 'menuitemradio' ).map( ( item ) => item.textContent ) ).toEqual(
-				[ 'Sonnet 5', 'Opus 5', 'GPT 5.6 Sol' ]
+				[ 'Fast', 'Balanced', 'Strong' ]
 			)
 		);
 	} );
@@ -140,7 +143,7 @@ describe( 'Composer menu', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'Select model' } ) );
 		await waitFor( () =>
 			expect( screen.getAllByRole( 'menuitemradio' ).map( ( item ) => item.textContent ) ).toEqual(
-				[ 'Sonnet 5', 'Opus 5', 'GPT 5.6 Sol' ]
+				[ 'Fast', 'Balanced', 'Strong' ]
 			)
 		);
 	} );
@@ -158,7 +161,7 @@ describe( 'Composer menu', () => {
 			summary: createSummary(),
 			entries: [],
 		} );
-		renderComposer( { model: 'gpt-5.6-sol' }, queryClient );
+		renderComposer( { model: 'balanced' }, queryClient );
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Select model' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: 'Anthropic API' } ) );
@@ -646,15 +649,22 @@ describe( 'Composer menu', () => {
 		dialog.remove();
 	} );
 
-	it( 'opens a fresh session on the picked model after a family switch', async () => {
+	it( 'keeps the picked provider pin in the fresh session cache after a family switch', async () => {
 		const queryClient = new QueryClient();
 		const onSwitchSession = vi.fn();
 		const freshSummary = createSummary( { id: 'fresh-session' } );
+		connectorMocks.capabilities.aiSettings = true;
+		connectorMocks.getAiSettings.mockResolvedValue( {
+			provider: 'wpcom',
+			hasAnthropicApiKey: true,
+			anthropicApiKeyPreview: 'sk-ant-api03-tes...1234',
+		} );
 		connectorMocks.createSession.mockResolvedValue( freshSummary );
-		connectorMocks.setSessionModel.mockResolvedValue( undefined );
+		connectorMocks.setSessionProvider.mockResolvedValue( undefined );
 
 		renderComposer(
 			{
+				model: 'balanced',
 				entries: [ createUserPromptEntry() ],
 				ownerSiteId: 'site-1',
 				onSwitchSession,
@@ -663,11 +673,11 @@ describe( 'Composer menu', () => {
 		);
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Select model' } ) );
-		fireEvent.click( await screen.findByText( 'GPT 5.6 Sol' ) );
+		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: 'Anthropic API' } ) );
 		const dialog = await screen.findByRole( 'dialog' );
 		expect( dialog ).toHaveTextContent( 'Start a new chat?' );
 		expect( dialog ).toHaveTextContent(
-			'Switching from Sonnet 5 to GPT 5.6 Sol starts a fresh chat because the models don\u2019t share memory. You can find previous chats using Chat history below the chat box.'
+			'Switching from Balanced to Sonnet 5 starts a fresh chat because the models don\u2019t share memory. You can find previous chats using Chat history below the chat box.'
 		);
 		expect( within( dialog ).getByText( 'Chat history' ).tagName ).toBe( 'STRONG' );
 		expect( dialog ).not.toHaveTextContent( 'sidebar' );
@@ -676,13 +686,23 @@ describe( 'Composer menu', () => {
 		await waitFor( () => {
 			expect( onSwitchSession ).toHaveBeenCalledWith( 'fresh-session' );
 		} );
-		expect( connectorMocks.setSessionModel ).toHaveBeenCalledWith( 'fresh-session', 'gpt-5.6-sol' );
-		expect(
-			queryClient.getQueryData< LoadedAiSession >( [ ...SESSIONS_QUERY_KEY, 'fresh-session' ] )
-		).toEqual( {
-			summary: freshSummary,
-			entries: [ expect.objectContaining( { type: 'model_change', modelId: 'gpt-5.6-sol' } ) ],
-		} );
+		expect( connectorMocks.setSessionProvider ).toHaveBeenCalledWith(
+			'fresh-session',
+			'anthropic-api-key',
+			'claude-sonnet-5'
+		);
+
+		const loadedSession = queryClient.getQueryData< LoadedAiSession >( [
+			...SESSIONS_QUERY_KEY,
+			'fresh-session',
+		] );
+		expect( loadedSession?.summary ).toEqual( freshSummary );
+		expect( loadedSession?.entries ).toEqual( [
+			expect.objectContaining( {
+				customType: 'studio.session_context',
+				data: { provider: 'anthropic-api-key', model: 'claude-sonnet-5' },
+			} ),
+		] );
 	} );
 } );
 

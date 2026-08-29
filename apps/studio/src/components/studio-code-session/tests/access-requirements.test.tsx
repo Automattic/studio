@@ -12,6 +12,11 @@ const { mockIpc, quotaState } = vi.hoisted( () => ( {
 		createAiSession: vi.fn(),
 		markAiMessageEdited: vi.fn(),
 		openURL: vi.fn(),
+		getAiSettings: vi.fn().mockResolvedValue( {
+			provider: 'wpcom',
+			hasAnthropicApiKey: false,
+			anthropicApiKeyPreview: null,
+		} ),
 	},
 	quotaState: {
 		data: undefined as Partial< StudioAssistantQuota > | undefined,

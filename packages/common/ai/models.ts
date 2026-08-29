@@ -1,7 +1,8 @@
+import { __ } from '@wordpress/i18n';
 import { isStudioCustomEntryOfType } from './sessions/entry-types';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 
-export type AiModelFamily = 'anthropic' | 'openai' | 'hosted';
+export type AiModelFamily = 'anthropic' | 'studio';
 
 export interface AiModel {
 	/** Stable model id sent to the upstream provider. */
@@ -16,73 +17,26 @@ export interface AiModel {
 	 * screenshot tool results are images.
 	 */
 	supportsImages?: boolean;
-	/**
-	 * Hide the model from pickers for non-Automatticians. Visibility only —
-	 * the wpcom proxy is what actually refuses these upstreams, so this never
-	 * gates `isAiModelId`: a session that already recorded one must still
-	 * resolve rather than silently snap back to the default.
-	 */
-	requiresAutomattician?: boolean;
 }
 
-// Pro / o-series OpenAI variants (`gpt-*-pro`, `o[1-9]*`) are intentionally
-// excluded: their long reasoning turns can exceed the proxy/SDK timeout
-// window. (Routing is no longer a blocker — the OpenAI family now goes
-// through the proxy's `/v1/responses` path, which supports reasoning models
-// and function tools.)
+// The `studio` family are capability tiers, not concrete models: the wpcom
+// proxy's `studio-agent` lane resolves each alias to an upstream model
+// server-side, so the mapping can be retuned without a client release. The
+// `anthropic` family exists for the direct Anthropic · API key provider only.
 export const AI_MODELS = [
+	{ id: 'fast', label: 'Fast', family: 'studio', supportsImages: false },
+	{ id: 'balanced', label: 'Balanced', family: 'studio' },
+	{ id: 'strong', label: 'Strong', family: 'studio' },
 	{ id: 'claude-sonnet-5', label: 'Sonnet 5', family: 'anthropic' },
 	{ id: 'claude-opus-5', label: 'Opus 5', family: 'anthropic' },
-	{ id: 'gpt-5.6-sol', label: 'GPT 5.6 Sol', family: 'openai' },
-	// Hosted models keep their vendor-prefixed ids — the proxy passes them
-	// upstream verbatim.
-	{ id: 'moonshotai/Kimi-K3', label: 'Kimi K3', family: 'hosted', requiresAutomattician: true },
-	{
-		id: 'moonshotai/Kimi-K2.6',
-		label: 'Kimi K2.6',
-		family: 'hosted',
-		requiresAutomattician: true,
-	},
-	{
-		id: 'zai-org/GLM-5.3-Flash',
-		label: 'GLM 5.3 Flash',
-		family: 'hosted',
-		supportsImages: false,
-		requiresAutomattician: true,
-	},
-	{
-		id: 'zai-org/GLM-5.2',
-		label: 'GLM 5.2',
-		family: 'hosted',
-		supportsImages: false,
-		requiresAutomattician: true,
-	},
-	{
-		id: 'zai-org/GLM-5.2-Fast',
-		label: 'GLM 5.2 Fast',
-		family: 'hosted',
-		supportsImages: false,
-		requiresAutomattician: true,
-	},
-	{
-		id: 'deepseek-ai/DeepSeek-V4-Pro',
-		label: 'DeepSeek V4 Pro',
-		family: 'hosted',
-		supportsImages: false,
-		requiresAutomattician: true,
-	},
-	{
-		id: 'deepseek-ai/DeepSeek-V4-Flash-0731',
-		label: 'DeepSeek V4 Flash',
-		family: 'hosted',
-		supportsImages: false,
-		requiresAutomattician: true,
-	},
 ] as const satisfies readonly AiModel[];
 
 export type AiModelId = ( typeof AI_MODELS )[ number ][ 'id' ];
 
-export const DEFAULT_MODEL: AiModelId = 'claude-sonnet-5';
+export const DEFAULT_MODEL: AiModelId = 'fast';
+// Accounts with purchased AI credits remaining default to the balanced tier
+// instead (see `getAiProviderDefaultModel`).
+export const PAID_DEFAULT_MODEL: AiModelId = 'balanced';
 
 // Module-scoped lookup so `getAiModelFamily` / `getAiModelLabel` are O(1)
 // and don't re-scan the array per call. Keyed by id; values are the same
@@ -109,31 +63,17 @@ export function getAiModelFamily( id: AiModelId ): AiModelFamily {
 	return getAiModel( id ).family;
 }
 
+// The tier labels are plain adjectives, unlike the brand-name labels of the
+// Anthropic models, so they go through i18n. Thunks, not values — module-level
+// `__()` calls are banned (studio/no-module-level-translations).
+const TRANSLATED_MODEL_LABELS: Partial< Record< AiModelId, () => string > > = {
+	fast: () => __( 'Fast' ),
+	balanced: () => __( 'Balanced' ),
+	strong: () => __( 'Strong' ),
+};
+
 export function getAiModelLabel( id: AiModelId ): string {
-	return getAiModel( id ).label;
-}
-
-// Widened to AiModel: `as const satisfies` narrows each entry to its own
-// literal type, so the optional flags aren't on the union.
-const ALL_MODELS = AI_MODELS as readonly AiModel[];
-const UNRESTRICTED_MODELS = ALL_MODELS.filter( ( model ) => ! model.requiresAutomattician );
-
-/**
- * The models to offer in a picker. Restricted models stay in `AI_MODELS` (so
- * ids keep validating) but are withheld from anyone who isn't an Automattician.
- *
- * `keepId` is always offered even when restricted, so a picker never hides the
- * value it is currently displaying.
- */
-export function getVisibleAiModels(
-	isAutomattician: boolean,
-	keepId?: AiModelId
-): readonly AiModel[] {
-	const visible = isAutomattician ? ALL_MODELS : UNRESTRICTED_MODELS;
-	if ( ! keepId || visible.some( ( model ) => model.id === keepId ) ) {
-		return visible;
-	}
-	return [ ...visible, getAiModel( keepId ) ];
+	return TRANSLATED_MODEL_LABELS[ id ]?.() ?? getAiModel( id ).label;
 }
 
 // Tolerates ids outside AI_MODELS — callers can reach here with a cast, and
@@ -163,19 +103,38 @@ function readEntryModelId( entry: SessionEntry ): string | undefined {
 }
 
 /**
+ * The most recently recorded model id in a session's pi entries, verbatim (no
+ * validation), or `undefined` when the session never recorded one. Callers
+ * that need a usable model should go through `resolveSessionModel`; this
+ * exists so they can also tell "no model recorded" from "a model we no longer
+ * offer" and apply their own default to both.
+ */
+export function readRecordedSessionModel( entries: SessionEntry[] ): string | undefined {
+	for ( let index = entries.length - 1; index >= 0; index -= 1 ) {
+		const recordedModel = readEntryModelId( entries[ index ] );
+		if ( recordedModel !== undefined ) {
+			return recordedModel;
+		}
+	}
+	return undefined;
+}
+
+/**
  * Derive the current model for a session from its pi entries.
  *
  * The most recently recorded model wins. If it names a model we no longer
  * offer (e.g. one that was removed from `AI_MODELS`), the session
- * auto-switches to `DEFAULT_MODEL` rather than pinning a dead id. Sessions
+ * auto-switches to `defaultModel` rather than pinning a dead id. Sessions
  * that recorded no model — e.g. a brand-new session before the first turn
- * runs — also fall back to `DEFAULT_MODEL`.
+ * runs — also fall back to `defaultModel`.
  */
-export function resolveSessionModel( entries: SessionEntry[] ): AiModelId {
-	for ( let index = entries.length - 1; index >= 0; index -= 1 ) {
-		const recordedModel = readEntryModelId( entries[ index ] );
-		if ( recordedModel === undefined ) continue;
-		return isAiModelId( recordedModel ) ? recordedModel : DEFAULT_MODEL;
+export function resolveSessionModel(
+	entries: SessionEntry[],
+	defaultModel: AiModelId = DEFAULT_MODEL
+): AiModelId {
+	const recordedModel = readRecordedSessionModel( entries );
+	if ( recordedModel !== undefined && isAiModelId( recordedModel ) ) {
+		return recordedModel;
 	}
-	return DEFAULT_MODEL;
+	return defaultModel;
 }

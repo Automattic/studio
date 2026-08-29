@@ -10,10 +10,10 @@ import {
 	type ComposerAttachmentHoverPreviewState,
 } from '@studio/common/ai/composer-attachment-preview';
 import { watchComposerFilePaste } from '@studio/common/ai/composer-attachments';
-import { getAiModelFamily, getAiModelLabel, getVisibleAiModels } from '@studio/common/ai/models';
+import { getAiModelFamily, getAiModelLabel } from '@studio/common/ai/models';
+import { getAiProviderModels, getEffectiveSessionProvider } from '@studio/common/ai/providers';
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
 import { resolveSkillFromPrompt } from '@studio/common/ai/slash-commands';
-import { isAutomatticianEmail } from '@studio/common/lib/automattician';
 import { useQueryClient } from '@tanstack/react-query';
 import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
@@ -27,7 +27,7 @@ import {
 	useState,
 	type SetStateAction,
 } from 'react';
-import { useAuth } from 'src/hooks/use-auth';
+import { useAiSettings } from 'src/hooks/use-ai-settings';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import * as Menu from '../menu';
@@ -326,11 +326,15 @@ export function Composer( {
 	// the toolbar "/" toggle). Kept in its own hook so the Composer stays lean.
 	const slash = useSlashCommands( { value, setValue: setDraftValue, textareaRef, previewPrompt } );
 
+	// Only offer models the conversation's provider can serve.
+	const aiSettings = useAiSettings();
+	const visibleModels = getAiProviderModels(
+		getEffectiveSessionProvider( entries ?? [], aiSettings )
+	);
+
 	// Cross-family swap state. We hold the picked model here while the
 	// confirmation dialog is open; nothing is persisted until the user
 	// confirms.
-	const { user } = useAuth();
-	const visibleModels = getVisibleAiModels( isAutomatticianEmail( user?.email ), model );
 	const [ pendingFamilyChange, setPendingFamilyChange ] = useState< AiModelId | null >( null );
 	const [ familySwitchInFlight, setFamilySwitchInFlight ] = useState( false );
 
@@ -731,9 +735,9 @@ export function Composer( {
 										value={ model }
 										onValueChange={ ( value ) => handleModelChange( value as AiModelId ) }
 									>
-										{ visibleModels.map( ( { id, label } ) => (
+										{ visibleModels.map( ( { id } ) => (
 											<Menu.RadioItem key={ id } value={ id }>
-												{ label }
+												{ getAiModelLabel( id ) }
 											</Menu.RadioItem>
 										) ) }
 									</Menu.RadioGroup>

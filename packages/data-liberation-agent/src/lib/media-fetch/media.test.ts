@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { mkdtempSync, rmSync, existsSync, writeFileSync } from 'fs';
+import { mkdtempSync, rmSync, existsSync, writeFileSync, readdirSync } from 'fs';
 import { join, basename } from 'path';
 import { sanitizeMediaFilename, deriveFilenameFromUrl, downloadMedia, upgradeMediaUrl, isFontUrl } from './media.js';
 import { Readable } from 'stream';
@@ -142,9 +142,13 @@ describe('downloadMedia — extension-less page-builder CDN URLs', () => {
   it('rejects an extension-less URL whose content-type is NOT an image', async () => {
     tmp = mkdtempSync(join(process.cwd(), '.tmp-test-media-'));
     global.fetch = vi.fn(async () => stubResponse('text/html', '<html>nope</html>')) as unknown as typeof fetch;
-    const res = await downloadMedia('https://assets.replocdn.com/projects/p/redirect', tmp, new Map());
+    const url = 'https://assets.replocdn.com/projects/p/redirect';
+    const res = await downloadMedia(url, tmp, new Map());
     expect(res.localPath).toBeNull();
-    expect(res.error).toMatch(/non-image content-type/);
+    expect(res.error).toMatch(/non-media content-type/);
+    expect(res.error).toMatch(/text\/html/);
+    expect(res.error).toContain(url);
+    expect(readdirSync(tmp)).toEqual([]);
   });
 });
 
@@ -334,5 +338,98 @@ describe('downloadMedia — browser-style format negotiation', () => {
     expect((await downloadMedia('https://cdn.example.com/images/b.JPG', tmp, seen)).filename).toBe('b.JPG');
     global.fetch = vi.fn(async () => stubResponse('application/octet-stream')) as unknown as typeof fetch;
     expect((await downloadMedia('https://cdn.example.com/images/c.png', tmp, seen)).filename).toBe('c.png');
+  });
+});
+
+describe('downloadMedia — reject non-media payloads', () => {
+  let tmp: string;
+  const realFetch = global.fetch;
+  afterEach(() => {
+    global.fetch = realFetch;
+    if (tmp && existsSync(tmp)) rmSync(tmp, { recursive: true, force: true });
+  });
+
+  it('records a homepage HTML response as a media failure, not a successful .jpg', async () => {
+    tmp = mkdtempSync(join(process.cwd(), '.tmp-test-media-'));
+    const html = '<!DOCTYPE html><html><body>360 chiro homepage</body></html>';
+    global.fetch = vi.fn(async () => stubResponse('text/html; charset=utf-8', html)) as unknown as typeof fetch;
+    const url = 'https://www.360chiro.co.uk/';
+    const res = await downloadMedia(url, tmp, new Map());
+    expect(res.localPath).toBeNull();
+    expect(res.filename).toBeNull();
+    expect(res.error).toMatch(/non-media content-type "text\/html; charset=utf-8"/);
+    expect(res.error).toContain(url);
+    expect(readdirSync(tmp)).toEqual([]);
+  });
+
+  it('rejects HTML even when the URL already carries a .jpg extension', async () => {
+    tmp = mkdtempSync(join(process.cwd(), '.tmp-test-media-'));
+    global.fetch = vi.fn(async () => stubResponse('text/html', '<html>error page</html>')) as unknown as typeof fetch;
+    const url = 'https://cdn.example.com/images/photo.jpg';
+    const res = await downloadMedia(url, tmp, new Map());
+    expect(res.localPath).toBeNull();
+    expect(res.error).toMatch(/non-media content-type "text\/html"/);
+    expect(res.error).toContain(url);
+    expect(existsSync(join(tmp, 'photo.jpg'))).toBe(false);
+  });
+
+  it('rejects HTML bytes labeled as application/octet-stream', async () => {
+    tmp = mkdtempSync(join(process.cwd(), '.tmp-test-media-'));
+    global.fetch = vi.fn(async () => stubResponse('application/octet-stream', '<!DOCTYPE html><html></html>')) as unknown as typeof fetch;
+    const url = 'https://cdn.example.com/images/photo.jpg';
+    const res = await downloadMedia(url, tmp, new Map());
+    expect(res.localPath).toBeNull();
+    expect(res.error).toMatch(/non-media HTML payload \(content-type "application\/octet-stream"\)/);
+    expect(res.error).toContain(url);
+    expect(existsSync(join(tmp, 'photo.jpg'))).toBe(false);
+  });
+
+  it('still stores SVG served as image/svg+xml', async () => {
+    tmp = mkdtempSync(join(process.cwd(), '.tmp-test-media-'));
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg"><rect width="10" height="10"/></svg>';
+    global.fetch = vi.fn(async () => stubResponse('image/svg+xml', svg)) as unknown as typeof fetch;
+    const res = await downloadMedia('https://cdn.example.com/icon.svg', tmp, new Map());
+    expect(res.error).toBeNull();
+    expect(res.filename).toBe('icon.svg');
+    expect(res.bytes).toBeGreaterThan(0);
+    expect(existsSync(join(tmp, 'icon.svg'))).toBe(true);
+  });
+
+  it('still stores a .woff2 font served as application/octet-stream', async () => {
+    tmp = mkdtempSync(join(process.cwd(), '.tmp-test-media-'));
+    global.fetch = vi.fn(async () => stubResponse('application/octet-stream', 'wOF2font')) as unknown as typeof fetch;
+    const res = await downloadMedia('https://cdn.example.com/fonts/site.woff2', tmp, new Map());
+    expect(res.error).toBeNull();
+    expect(res.filename).toBe('site.woff2');
+    expect(existsSync(join(tmp, 'site.woff2'))).toBe(true);
+  });
+
+  it('still stores a .woff2 font served with a bare woff2 content-type', async () => {
+    tmp = mkdtempSync(join(process.cwd(), '.tmp-test-media-'));
+    global.fetch = vi.fn(async () => stubResponse('woff2', 'wOF2font')) as unknown as typeof fetch;
+    const res = await downloadMedia('https://cdn.example.com/fonts/site.woff2', tmp, new Map());
+    expect(res.error).toBeNull();
+    expect(res.filename).toBe('site.woff2');
+    expect(existsSync(join(tmp, 'site.woff2'))).toBe(true);
+  });
+
+  it('still stores a named image when the server omits Content-Type', async () => {
+    tmp = mkdtempSync(join(process.cwd(), '.tmp-test-media-'));
+    global.fetch = vi.fn(async () => stubResponse('', 'fake-image-bytes')) as unknown as typeof fetch;
+    const res = await downloadMedia('https://cdn.example.com/images/photo.png', tmp, new Map());
+    expect(res.error).toBeNull();
+    expect(res.filename).toBe('photo.png');
+    expect(existsSync(join(tmp, 'photo.png'))).toBe(true);
+  });
+
+  it('rejects omitted Content-Type when the bytes are HTML', async () => {
+    tmp = mkdtempSync(join(process.cwd(), '.tmp-test-media-'));
+    global.fetch = vi.fn(async () => stubResponse('', '<!DOCTYPE html><html></html>')) as unknown as typeof fetch;
+    const url = 'https://cdn.example.com/images/photo.jpg';
+    const res = await downloadMedia(url, tmp, new Map());
+    expect(res.localPath).toBeNull();
+    expect(res.error).toMatch(/non-media HTML payload \(content-type "unknown"\)/);
+    expect(res.error).toContain(url);
+    expect(existsSync(join(tmp, 'photo.jpg'))).toBe(false);
   });
 });

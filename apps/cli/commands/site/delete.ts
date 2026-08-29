@@ -130,8 +130,12 @@ function resolveSiteIdentity(
 		return { site: byId };
 	}
 
-	const resolvedPath = path.resolve( untildify( trimmed ) );
-	const byPath = sites.find( ( site ) => arePathsEqual( site.path, resolvedPath ) );
+	const expandedPath = untildify( trimmed );
+	const resolvedPath = path.resolve( expandedPath );
+	const byPath = sites.find(
+		( site ) =>
+			arePathsEqual( site.path, expandedPath ) || arePathsEqual( site.path, resolvedPath )
+	);
 	if ( byPath ) {
 		return { site: byPath };
 	}

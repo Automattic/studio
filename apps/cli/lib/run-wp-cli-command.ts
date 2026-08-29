@@ -41,6 +41,7 @@ import {
 } from './native-php/php-process';
 import { loadImportedRuntimeStartOptionsNative } from './pull/runtime-start-options';
 import { isServerRunning, sendWpCliCommand } from './wordpress-server-manager';
+import { getWpCliPhpIniArgs, WP_CLI_PHP_INI_ENTRIES } from './wp-cli-php-ini';
 import { stripLeadingShebang } from './wp-cli-shebang';
 import type { SiteData } from 'cli/lib/cli-config/core';
 import type { ReadableStream as WebReadableStream } from 'node:stream/web';
@@ -197,7 +198,13 @@ async function runNativeWpCliCommand(
 	const nativeArgs = applyWpCliCommandOptions( 'native', args, options );
 	const child = spawn(
 		getPhpBinaryPath( phpVersion ),
-		[ ...defaultArgs, getWpCliPharPath(), `--path=${ site.path }`, ...nativeArgs ],
+		[
+			...defaultArgs,
+			...getWpCliPhpIniArgs(),
+			getWpCliPharPath(),
+			`--path=${ site.path }`,
+			...nativeArgs,
+		],
 		{
 			cwd: site.path,
 			stdio: options.stdio === 'inherit' ? 'inherit' : [ 'ignore', 'pipe', 'pipe' ],
@@ -318,6 +325,7 @@ export async function runWpCliCommand(
 			'openssl.cafile': '/tmp/ca-bundle.crt',
 			'curl.cainfo': '/tmp/ca-bundle.crt',
 			allow_url_fopen: 1,
+			...WP_CLI_PHP_INI_ENTRIES,
 		} );
 
 		await php.setSpawnHandler( createNoopSpawnHandler() );

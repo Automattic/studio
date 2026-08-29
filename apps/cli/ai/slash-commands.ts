@@ -1,4 +1,9 @@
-import { getAiModelFamily, getAiModelLabel, type AiModelId } from '@studio/common/ai/models';
+import {
+	aiModelRequiresPaidCredits,
+	getAiModelFamily,
+	getAiModelLabel,
+	type AiModelId,
+} from '@studio/common/ai/models';
 import { getAiSkillCommands } from '@studio/common/ai/slash-commands';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import {
@@ -6,6 +11,7 @@ import {
 	fetchStudioAssistantQuota,
 	formatQuotaPercentage,
 	getAddAiCreditsUrl,
+	hasPaidAiCredits,
 	type StudioAssistantQuota,
 } from '@studio/common/lib/studio-assistant-quota';
 import {
@@ -288,7 +294,25 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 		name: 'model',
 		description: __( 'Switch the AI model' ),
 		handler: async ( _prompt, ctx ) => {
-			const { availableModels: offeredModels } = getAiProviderDefinition( ctx.currentProvider );
+			const { availableModels } = getAiProviderDefinition( ctx.currentProvider );
+			// The paid tiers are only offered while purchased credits remain.
+			// The current model always stays listed, so a session already on a
+			// paid tier keeps showing what it runs on.
+			let offeredModels = availableModels;
+			if ( availableModels.some( aiModelRequiresPaidCredits ) ) {
+				const token = await readAuthToken();
+				const quota = token ? await fetchStudioAssistantQuota( token.accessToken ) : null;
+				if ( ! hasPaidAiCredits( quota ) ) {
+					offeredModels = availableModels.filter(
+						( id ) => id === ctx.currentModel || ! aiModelRequiresPaidCredits( id )
+					);
+				}
+			}
+			if ( offeredModels.length < availableModels.length ) {
+				ctx.ui.showInfo(
+					__( 'Models that need purchased AI credits are hidden — add credits to unlock them.' )
+				);
+			}
 			// Build options and a reverse lookup at the same time so we never
 			// have to recover the model id from the label. A startsWith-based
 			// match is buggy when one model's label is a prefix of another's

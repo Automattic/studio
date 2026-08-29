@@ -29,6 +29,8 @@ const connectorMocks = vi.hoisted( () => ( {
 	capabilities: { aiSettings: false },
 	createSession: vi.fn(),
 	getAiSettings: vi.fn(),
+	getAuthUser: vi.fn(),
+	getStudioAssistantQuota: vi.fn(),
 	getFilePath: vi.fn( ( file: File ) => `/tmp/studio-attachments/${ file.name }` ),
 	setSessionModel: vi.fn(),
 	setSessionProvider: vi.fn(),
@@ -187,6 +189,7 @@ describe( 'Composer menu', () => {
 		const onModelChange = vi.fn();
 		const { composerRef, container } = renderComposer( {
 			variant: 'field',
+			model: 'balanced',
 			sessionId: undefined,
 			placeholder: 'Describe the site',
 			onModelChange,
@@ -215,9 +218,41 @@ describe( 'Composer menu', () => {
 		} );
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Select model' } ) );
-		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: 'GPT 5.6 Sol' } ) );
-		expect( onModelChange ).toHaveBeenCalledWith( 'gpt-5.6-sol' );
+		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: 'Fast' } ) );
+		expect( onModelChange ).toHaveBeenCalledWith( 'fast' );
 		expect( connectorMocks.setSessionModel ).not.toHaveBeenCalled();
+	} );
+
+	it( 'disables the paid tiers unless purchased credits remain', async () => {
+		connectorMocks.getAuthUser.mockResolvedValue( { id: 1, email: 'user@example.com' } );
+		connectorMocks.getStudioAssistantQuota.mockResolvedValue( { purchasedRemaining: 0 } );
+		const { unmount } = renderComposer();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Select model' } ) );
+		await waitFor( () => {
+			expect( screen.getByRole( 'menuitemradio', { name: 'Balanced' } ) ).toHaveAttribute(
+				'aria-disabled',
+				'true'
+			);
+		} );
+		expect( screen.getByRole( 'menuitemradio', { name: 'Strong' } ) ).toHaveAttribute(
+			'aria-disabled',
+			'true'
+		);
+		expect( screen.getByRole( 'menuitemradio', { name: 'Fast' } ) ).not.toHaveAttribute(
+			'aria-disabled'
+		);
+		unmount();
+
+		connectorMocks.getStudioAssistantQuota.mockResolvedValue( { purchasedRemaining: 50_000 } );
+		renderComposer();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Select model' } ) );
+		await waitFor( () => {
+			expect( screen.getByRole( 'menuitemradio', { name: 'Balanced' } ) ).not.toHaveAttribute(
+				'aria-disabled'
+			);
+		} );
 	} );
 
 	it( 'shows tooltips for the plus button and model picker', async () => {

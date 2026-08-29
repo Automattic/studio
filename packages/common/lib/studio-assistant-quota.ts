@@ -125,10 +125,8 @@ export function getTotalRemainingAiCredits(
 }
 
 /**
- * Whether the account still has purchased (paid) AI credits. Drives the
- * default model tier: paid accounts default to balanced, free-allowance-only
- * accounts to fast. Unknown quota (unreachable, feature off) reads as false —
- * the free default is the safe floor.
+ * Whether the account still has purchased (paid) AI credits. Unknown quota
+ * (unreachable, feature off) reads as false — the free tier is the safe floor.
  */
 export function hasPaidAiCredits(
 	quota: Pick< StudioAssistantQuota, 'purchasedRemaining' > | null | undefined
@@ -136,18 +134,30 @@ export function hasPaidAiCredits(
 	return ( quota?.purchasedRemaining ?? 0 ) > 0;
 }
 
-/**
- * Nudge for accounts still on the free allowance, shown where the paid tiers
- * sit disabled (model-picker footer, composer banner). One string everywhere
- * so the surfaces stay consistent.
- */
+/** Nudge shown where the paid tiers sit disabled, one string everywhere. */
 export function formatPaidTiersNudge(): string {
 	return __( 'Add AI credits to unlock stronger models.' );
 }
 
-// Composer-banner dismissal marker. Stored in each renderer's localStorage —
-// a nudge doesn't warrant synced, server-side state.
+// Dismissal is remembered per renderer via localStorage — a nudge doesn't
+// warrant synced, server-side state.
 export const PAID_TIERS_NUDGE_DISMISSED_STORAGE_KEY = 'studio_code_paid_tiers_nudge_dismissed';
+
+export function readPaidTiersNudgeDismissed(): boolean {
+	try {
+		return localStorage.getItem( PAID_TIERS_NUDGE_DISMISSED_STORAGE_KEY ) === '1';
+	} catch {
+		return false;
+	}
+}
+
+export function persistPaidTiersNudgeDismissed(): void {
+	try {
+		localStorage.setItem( PAID_TIERS_NUDGE_DISMISSED_STORAGE_KEY, '1' );
+	} catch {
+		// Ignore storage errors.
+	}
+}
 
 export type StudioCodeAiAccessState = 'available' | 'blocked' | 'not-enabled';
 

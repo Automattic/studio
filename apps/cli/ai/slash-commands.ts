@@ -445,10 +445,8 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 				try {
 					await ctx.prepareProviderSelection( newProvider );
 					await ctx.switchProvider( newProvider );
-					// Providers no longer share a model family, so switching
-					// usually swaps the model to the new provider's default —
-					// same runtime handoff as a cross-family /model switch,
-					// which starts a fresh conversation.
+					// Providers don't share a model family, so a switch is the
+					// same runtime handoff as a cross-family /model switch.
 					if ( getAiModelFamily( ctx.currentModel ) !== previousFamily ) {
 						await ctx.clearSession();
 						ctx.ui.showInfo(

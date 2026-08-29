@@ -18,11 +18,9 @@ export interface AiModel {
 	 */
 	supportsImages?: boolean;
 	/**
-	 * Offered only to accounts with purchased AI credits remaining — pickers
-	 * disable the model for free-allowance accounts (Automatticians exempt).
-	 * UI gating only; the wpcom proxy is what actually enforces access, and
-	 * `isAiModelId` never consults this: a session that already recorded the
-	 * model must still resolve.
+	 * Pickers disable the model unless purchased AI credits remain
+	 * (Automatticians exempt). UI gating only — the wpcom proxy enforces
+	 * access, and `isAiModelId` never consults this.
 	 */
 	requiresPaidAiCredits?: boolean;
 }
@@ -71,9 +69,8 @@ export function getAiModelFamily( id: AiModelId ): AiModelFamily {
 	return getAiModel( id ).family;
 }
 
-// The tier labels are plain adjectives, unlike the brand-name labels of the
-// Anthropic models, so they go through i18n. Thunks, not values — module-level
-// `__()` calls are banned (studio/no-module-level-translations).
+// The tier labels are plain adjectives (unlike the Anthropic brand names), so
+// they go through i18n — as thunks, since module-level `__()` is banned.
 const TRANSLATED_MODEL_LABELS: Partial< Record< AiModelId, () => string > > = {
 	fast: () => __( 'Fast' ),
 	balanced: () => __( 'Balanced' ),
@@ -115,38 +112,24 @@ function readEntryModelId( entry: SessionEntry ): string | undefined {
 }
 
 /**
- * The most recently recorded model id in a session's pi entries, verbatim (no
- * validation), or `undefined` when the session never recorded one. Callers
- * that need a usable model should go through `resolveSessionModel`; this
- * exists so they can also tell "no model recorded" from "a model we no longer
- * offer" and apply their own default to both.
+ * The most recently recorded model still in `AI_MODELS`, or `undefined` when
+ * the session never recorded one (or only models we no longer offer) — so
+ * callers can apply their own default to both cases.
  */
-export function readRecordedSessionModel( entries: SessionEntry[] ): string | undefined {
+export function readRecordedSessionModel( entries: SessionEntry[] ): AiModelId | undefined {
 	for ( let index = entries.length - 1; index >= 0; index -= 1 ) {
 		const recordedModel = readEntryModelId( entries[ index ] );
-		if ( recordedModel !== undefined ) {
+		if ( recordedModel !== undefined && isAiModelId( recordedModel ) ) {
 			return recordedModel;
 		}
 	}
 	return undefined;
 }
 
-/**
- * Derive the current model for a session from its pi entries.
- *
- * The most recently recorded model wins. If it names a model we no longer
- * offer (e.g. one that was removed from `AI_MODELS`), the session
- * auto-switches to `defaultModel` rather than pinning a dead id. Sessions
- * that recorded no model — e.g. a brand-new session before the first turn
- * runs — also fall back to `defaultModel`.
- */
+/** `readRecordedSessionModel` with a fallback for sessions without one. */
 export function resolveSessionModel(
 	entries: SessionEntry[],
 	defaultModel: AiModelId = DEFAULT_MODEL
 ): AiModelId {
-	const recordedModel = readRecordedSessionModel( entries );
-	if ( recordedModel !== undefined && isAiModelId( recordedModel ) ) {
-		return recordedModel;
-	}
-	return defaultModel;
+	return readRecordedSessionModel( entries ) ?? defaultModel;
 }

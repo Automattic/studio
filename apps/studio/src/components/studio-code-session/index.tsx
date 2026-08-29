@@ -297,9 +297,8 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 	const { isAuthenticated } = useAuth();
 	const { data: quota } = useGetStudioAssistantQuota( undefined, { skip: ! isAuthenticated } );
 	const aiSettings = useAiSettings();
-	// Resolved against the session's provider and the account's credit pools:
-	// a fresh wpcom session defaults to the balanced tier when purchased
-	// credits remain, the fast tier otherwise.
+	// A fresh wpcom session defaults to balanced when purchased credits
+	// remain, fast otherwise.
 	const currentModel = useMemo( () => {
 		const entries = data?.entries ?? [];
 		return resolveSessionModelForProvider(

@@ -22,7 +22,8 @@ import {
 	formatPaidTiersNudge,
 	getAddAiCreditsUrl,
 	hasPaidAiCredits,
-	PAID_TIERS_NUDGE_DISMISSED_STORAGE_KEY,
+	persistPaidTiersNudgeDismissed,
+	readPaidTiersNudgeDismissed,
 } from '@studio/common/lib/studio-assistant-quota';
 import { useQueryClient } from '@tanstack/react-query';
 import { createInterpolateElement } from '@wordpress/element';
@@ -341,24 +342,15 @@ export function Composer( {
 	const hasLockedModels = visibleModels.some( ( { id } ) => isModelLocked( id ) );
 
 	// Nudge free-allowance accounts toward the paid tiers: a footer in the
-	// model picker plus a dismissible line above the prompt. Shown only once
-	// the quota definitively reports the account, never while it's loading,
-	// and never on top of the usage-cap banner.
-	const [ paidTiersNudgeDismissed, setPaidTiersNudgeDismissed ] = useState( () => {
-		try {
-			return localStorage.getItem( PAID_TIERS_NUDGE_DISMISSED_STORAGE_KEY ) === '1';
-		} catch {
-			return false;
-		}
-	} );
-	const dismissPaidTiersNudge = useCallback( () => {
+	// model picker plus a dismissible line above the prompt. Never shown while
+	// the quota is still loading, nor on top of the usage-cap banner.
+	const [ paidTiersNudgeDismissed, setPaidTiersNudgeDismissed ] = useState(
+		readPaidTiersNudgeDismissed
+	);
+	const dismissPaidTiersNudge = () => {
 		setPaidTiersNudgeDismissed( true );
-		try {
-			localStorage.setItem( PAID_TIERS_NUDGE_DISMISSED_STORAGE_KEY, '1' );
-		} catch {
-			// Ignore storage errors.
-		}
-	}, [] );
+		persistPaidTiersNudgeDismissed();
+	};
 	const showPaidTiersNudge =
 		Boolean( quota ) && hasLockedModels && ! paidTiersNudgeDismissed && ! usageCapMessage;
 

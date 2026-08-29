@@ -1,4 +1,4 @@
-import { isAiModelId, readRecordedSessionModel, type AiModelId } from '@studio/common/ai/models';
+import { readRecordedSessionModel, type AiModelId } from '@studio/common/ai/models';
 import { isAiProviderId } from '@studio/common/ai/providers';
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
 import type { LoadedAiSession } from '@studio/common/ai/sessions/types';
@@ -24,13 +24,9 @@ export function resolveResumeSessionContext(
 		context.sessionId = resumeSession.summary.id;
 	}
 
-	// The most recent recorded model wins. A model we no longer offer stays
-	// unset, so the caller applies its provider-appropriate default instead of
-	// pinning a dead id.
-	const recordedModel = readRecordedSessionModel( resumeSession.entries );
-	if ( recordedModel !== undefined && isAiModelId( recordedModel ) ) {
-		context.model = recordedModel;
-	}
+	// Unset when the session recorded no (still-offered) model, so the caller
+	// applies its provider-appropriate default instead of pinning a dead id.
+	context.model = readRecordedSessionModel( resumeSession.entries );
 
 	for ( let index = resumeSession.entries.length - 1; index >= 0; index -= 1 ) {
 		const entry = resumeSession.entries[ index ];

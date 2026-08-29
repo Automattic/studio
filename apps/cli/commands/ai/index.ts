@@ -7,7 +7,6 @@ import { type StudioChatImage } from '@studio/common/ai/chat-images';
 import { getAgentEndFailure } from '@studio/common/ai/json-events';
 import {
 	getAiModelFamily,
-	isAiModelId,
 	readRecordedSessionModel,
 	type AiModelId,
 } from '@studio/common/ai/models';
@@ -122,10 +121,8 @@ function getErrorMessage( error: unknown ): string {
 	return String( error );
 }
 
-// The wpcom default model depends on the account's AI credit pools: purchased
-// credits remaining → balanced, otherwise fast. Capped so a slow or hung
-// quota endpoint can't block the first turn — the free-tier default is the
-// safe floor.
+// Caps the quota lookup behind the wpcom default model, so a hung endpoint
+// can't block the first turn — the free-tier default is the safe floor.
 const QUOTA_FETCH_TIMEOUT_MS = 3_000;
 
 async function resolveWpcomDefaultModel(): Promise< AiModelId > {
@@ -184,8 +181,7 @@ export async function runCommand( options: {
 		currentProvider = DEFAULT_AI_PROVIDER;
 	}
 	// The recorded model only sticks when the provider still serves it — old
-	// wpcom sessions recorded models from before the capability tiers and
-	// snap to the provider default instead.
+	// wpcom sessions snap to the provider default instead.
 	const initialDefinition = getAiProviderDefinition( currentProvider );
 	const recordedModel =
 		resumeContext.model && initialDefinition.supportsModel( resumeContext.model )
@@ -195,10 +191,9 @@ export async function runCommand( options: {
 	ui.currentProvider = currentProvider;
 	ui.currentModel = currentModel;
 
-	// The wpcom default is quota-dependent, so resolve it in the background —
-	// startup never waits on the network. Turns await the resolution (so the
-	// executed model matches what the account should default to) and it only
-	// applies while nothing else picked a model.
+	// The wpcom default is quota-dependent; resolved in the background so
+	// startup never waits on the network. Turns await the resolution, and it
+	// only applies while nothing else picked a model.
 	let wpcomDefaultModel: AiModelId = getAiProviderDefaultModel( DEFAULT_AI_PROVIDER );
 	let quotaDefaultApplicable = ! recordedModel && currentProvider === DEFAULT_AI_PROVIDER;
 	const wpcomDefaultModelResolution = resolveWpcomDefaultModel()
@@ -209,8 +204,7 @@ export async function runCommand( options: {
 				ui.currentModel = model;
 			}
 		} )
-		// Every turn awaits this; a failed lookup must degrade to the static
-		// default, never poison the turn.
+		// Awaited by every turn — a failed lookup must not poison them.
 		.catch( () => {} );
 	if ( options.activeSite ) {
 		ui.activeSite = {
@@ -249,13 +243,11 @@ export async function runCommand( options: {
 					if ( sm.getSessionId() === options.resumeSessionId ) {
 						session = sm;
 						match = file;
-						// Adopt the session's recorded model only when the
-						// provider still serves it; otherwise keep the default
-						// (including the pending quota-based one).
+						// Adopt the recorded model only when the provider still
+						// serves it; otherwise keep the (quota-based) default.
 						const sessionModel = readRecordedSessionModel( sm.getEntries() );
 						if (
-							sessionModel !== undefined &&
-							isAiModelId( sessionModel ) &&
+							sessionModel &&
 							getAiProviderDefinition( currentProvider ).supportsModel( sessionModel )
 						) {
 							quotaDefaultApplicable = false;
@@ -586,9 +578,7 @@ export async function runCommand( options: {
 		images: StudioChatImage[] = [],
 		files: StudioChatFileAttachment[] = []
 	): Promise< { status: TurnStatus; sessionId: string } > {
-		// The quota-based default must land before the model is captured for
-		// the turn; resolved after the first await, so this only ever blocks
-		// the very first turn, and only briefly.
+		// The quota-based default must land before the turn captures its model.
 		await wpcomDefaultModelResolution;
 		await maybeAutoSwitchProvider();
 		const sm = await ensureSession();

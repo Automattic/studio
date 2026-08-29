@@ -382,14 +382,13 @@ function buildModel(
 	};
 
 	if ( family === 'studio' ) {
-		// The capability tiers ride the wpcom proxy and are resolved to
-		// upstream models server-side. The context window is a conservative
-		// floor across the upstreams a tier may resolve to, so compaction
-		// always kicks in before any of them overflows.
+		// The capability tiers are resolved to upstream models by the wpcom
+		// proxy. The context window is a conservative floor across the
+		// upstreams a tier may resolve to, so compaction kicks in before any
+		// of them overflows.
 		//
-		// `strong` uses the Responses path (/v1/responses): its upstream is a
-		// reasoning model that rejects the Chat Completions dialect's
-		// tools-plus-reasoning combination.
+		// `strong` rides the Responses path: its upstream is a reasoning model
+		// that rejects tools-plus-reasoning on Chat Completions.
 		if ( modelId === 'strong' ) {
 			return {
 				...common,
@@ -401,12 +400,11 @@ function buildModel(
 			};
 		}
 		// The other tiers speak Chat Completions. pi infers `compat` from the
-		// base URL, and the wpcom proxy URL reads as plain OpenAI — so spell
-		// out the shape or requests carry OpenAI-only fields other upstreams
-		// reject. With `supportsReasoningEffort` false and the default
-		// `thinkingFormat`, no thinking switch is sent at all and each upstream
-		// uses its own default — the portable choice across vendors that spell
-		// that parameter differently. Reasoning still streams back.
+		// base URL, which for us reads as plain OpenAI — so spell out the shape
+		// or requests carry OpenAI-only fields other upstreams reject. With
+		// `supportsReasoningEffort` false no thinking switch is sent at all and
+		// each upstream uses its own default — the portable choice across
+		// vendors that spell that parameter differently.
 		return {
 			...common,
 			api: 'openai-completions',

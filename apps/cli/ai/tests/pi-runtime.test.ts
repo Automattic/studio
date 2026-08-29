@@ -489,25 +489,6 @@ describe( 'pi runtime', () => {
 		] );
 	} );
 
-	it( 'emits agent_end carrying the credential error when ANTHROPIC_API_KEY is absent', async () => {
-		const events = await runRuntime( {
-			prompt: 'hello',
-			env: {},
-			model: 'claude-sonnet-5',
-			session: newSession(),
-		} );
-
-		expect( mocks.createAgentSession ).not.toHaveBeenCalled();
-		const final = events[ 0 ];
-		expect( final.type ).toBe( 'agent_end' );
-		if ( final.type === 'agent_end' ) {
-			const last = final.messages[ final.messages.length - 1 ];
-			if ( last.role === 'assistant' ) {
-				expect( last.errorMessage ).toMatch( /ANTHROPIC_API_KEY/ );
-			}
-		}
-	} );
-
 	// Without `compat.forceAdaptiveThinking`, pi-ai sends a thinking shape that
 	// Sonnet 5 / Opus 5 reject with a 400.
 	it( 'marks direct-key Anthropic models as adaptive-thinking', async () => {

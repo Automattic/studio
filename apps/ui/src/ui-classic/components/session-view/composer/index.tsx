@@ -30,7 +30,8 @@ import { isAutomatticianEmail } from '@studio/common/lib/automattician';
 import {
 	formatPaidTiersNudge,
 	hasPaidAiCredits,
-	PAID_TIERS_NUDGE_DISMISSED_STORAGE_KEY,
+	persistPaidTiersNudgeDismissed,
+	readPaidTiersNudgeDismissed,
 } from '@studio/common/lib/studio-assistant-quota';
 import { useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
@@ -379,23 +380,15 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const hasLockedModels = offeredModels.some( ( { id } ) => isModelLocked( id ) );
 
 	// Nudge free-allowance accounts toward the paid tiers: a footer in the
-	// model picker plus a dismissible line above the prompt. Shown only once
-	// the quota definitively reports the account, never while it's loading.
-	const [ paidTiersNudgeDismissed, setPaidTiersNudgeDismissed ] = useState( () => {
-		try {
-			return localStorage.getItem( PAID_TIERS_NUDGE_DISMISSED_STORAGE_KEY ) === '1';
-		} catch {
-			return false;
-		}
-	} );
-	const dismissPaidTiersNudge = useCallback( () => {
+	// model picker plus a dismissible line above the prompt. Never shown while
+	// the quota is still loading.
+	const [ paidTiersNudgeDismissed, setPaidTiersNudgeDismissed ] = useState(
+		readPaidTiersNudgeDismissed
+	);
+	const dismissPaidTiersNudge = () => {
 		setPaidTiersNudgeDismissed( true );
-		try {
-			localStorage.setItem( PAID_TIERS_NUDGE_DISMISSED_STORAGE_KEY, '1' );
-		} catch {
-			// Ignore storage errors.
-		}
-	}, [] );
+		persistPaidTiersNudgeDismissed();
+	};
 	const showPaidTiersNudge = Boolean( quota ) && hasLockedModels && ! paidTiersNudgeDismissed;
 
 	// Mirrors AiCreditsControl: the chooser when priced options exist, else
@@ -678,11 +671,10 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		[ entries ]
 	);
 
-	// Pin this conversation to a provider. If it can't serve the current model,
-	// its default model rides along in the same entry, so the model section
-	// re-filters via `resolveSessionModel`. Providers no longer share a model
-	// family, so the switch usually crosses families and goes through the same
-	// confirmation into a fresh session as a cross-family model switch.
+	// Pin this conversation to a provider, carrying a model it serves in the
+	// same entry. Providers don't share a model family, so the switch goes
+	// through the same fresh-session confirmation as a cross-family model
+	// switch.
 	const handleProviderChange = useCallback(
 		( picked: AiProviderId ) => {
 			if ( picked === sessionProvider ) {

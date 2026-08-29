@@ -298,7 +298,7 @@ describe( 'pi runtime', () => {
 		await runRuntime( {
 			prompt: 'hello',
 			env: WPCOM_ENV,
-			model: 'strong',
+			model: 'fast',
 			session: newSession(),
 		} );
 
@@ -309,6 +309,23 @@ describe( 'pi runtime', () => {
 			supportsStrictMode: false,
 			maxTokensField: 'max_tokens',
 		} );
+	} );
+
+	// `strong` resolves to a reasoning model that rejects the Chat Completions
+	// dialect's tools-plus-reasoning combination, so it rides the Responses
+	// path — the plain OpenAI dialect, with no compat overrides.
+	it( 'routes the strong tier to the wpcom Responses path', async () => {
+		await runRuntime( {
+			prompt: 'hello',
+			env: WPCOM_ENV,
+			model: 'strong',
+			session: newSession(),
+		} );
+
+		const model = mocks.createdSessions[ 0 ].options.model!;
+		expect( model.api ).toBe( 'openai-responses' );
+		expect( model.provider ).toBe( 'studio-wpcom' );
+		expect( model.compat ).toBeUndefined();
 	} );
 
 	it( 'advertises image input per model rather than per family', async () => {

@@ -8,6 +8,7 @@ import {
 	type SimpleStreamOptions,
 } from '@earendil-works/pi-ai';
 import { streamSimple as streamOpenAiCompletions } from '@earendil-works/pi-ai/api/openai-completions';
+import { streamSimple as streamOpenAiResponses } from '@earendil-works/pi-ai/api/openai-responses';
 import { ANTHROPIC_MODELS } from '@earendil-works/pi-ai/providers/anthropic.models';
 import {
 	createAgentSession,
@@ -66,7 +67,8 @@ import type { AskUserHandler, SiteInfo } from 'cli/ai/types';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AgentToolAny = AgentTool< any >;
-type StudioModel = Model< 'openai-completions' > | Model< 'anthropic-messages' >;
+type StudioWpcomModel = Model< 'openai-completions' > | Model< 'openai-responses' >;
+type StudioModel = StudioWpcomModel | Model< 'anthropic-messages' >;
 type ProviderConfigInput = Parameters< ModelRuntime[ 'registerProvider' ] >[ 1 ];
 
 const STUDIO_WPCOM_PROVIDER = 'studio-wpcom';
@@ -380,17 +382,31 @@ function buildModel(
 	};
 
 	if ( family === 'studio' ) {
-		// The capability tiers ride the proxy's Chat Completions path and are
-		// resolved to upstream models server-side. pi infers `compat` from the
+		// The capability tiers ride the wpcom proxy and are resolved to
+		// upstream models server-side. The context window is a conservative
+		// floor across the upstreams a tier may resolve to, so compaction
+		// always kicks in before any of them overflows.
+		//
+		// `strong` uses the Responses path (/v1/responses): its upstream is a
+		// reasoning model that rejects the Chat Completions dialect's
+		// tools-plus-reasoning combination.
+		if ( modelId === 'strong' ) {
+			return {
+				...common,
+				api: 'openai-responses',
+				provider: STUDIO_WPCOM_PROVIDER,
+				reasoning: true,
+				contextWindow: 200_000,
+				maxTokens: 32_000,
+			};
+		}
+		// The other tiers speak Chat Completions. pi infers `compat` from the
 		// base URL, and the wpcom proxy URL reads as plain OpenAI — so spell
 		// out the shape or requests carry OpenAI-only fields other upstreams
 		// reject. With `supportsReasoningEffort` false and the default
 		// `thinkingFormat`, no thinking switch is sent at all and each upstream
 		// uses its own default — the portable choice across vendors that spell
-		// that parameter differently. Reasoning still streams back. The context
-		// window is a conservative floor across the upstreams a tier may
-		// resolve to, so compaction always kicks in before any of them
-		// overflows.
+		// that parameter differently. Reasoning still streams back.
 		return {
 			...common,
 			api: 'openai-completions',
@@ -478,7 +494,7 @@ async function createModelRuntime(
 	if ( family === 'studio' ) {
 		modelRuntime.registerProvider(
 			model.provider,
-			createWpcomProviderConfig( model as Model< 'openai-completions' >, creds )
+			createWpcomProviderConfig( model as StudioWpcomModel, creds )
 		);
 		return modelRuntime;
 	}
@@ -499,17 +515,19 @@ function escapePiConfigValue( value: string ): string {
 	return dollarEscaped.startsWith( '!' ) ? `$${ dollarEscaped }` : dollarEscaped;
 }
 
-// The wpcom lane only needs pi's stock Chat Completions streaming; the custom
-// provider exists to wrap the stream with the usage-cap 429 rewrite and to
-// strip stale screenshots, which would otherwise bloat requests past the
-// proxy's body limit.
+// The wpcom lane only needs pi's stock streaming for each tier's API; the
+// custom provider exists to wrap the stream with the usage-cap 429 rewrite
+// and to strip stale screenshots, which would otherwise bloat requests past
+// the proxy's body limit.
 function createWpcomProviderConfig(
-	model: Model< 'openai-completions' >,
+	model: StudioWpcomModel,
 	creds: ResolvedCredentials
 ): ProviderConfigInput {
-	// pi types `streamSimple` against `Model<Api>`; the stream function is
-	// narrower, and the model registered below is the one passed in.
-	const stream = streamOpenAiCompletions as NonNullable< ProviderConfigInput[ 'streamSimple' ] >;
+	// pi types `streamSimple` against `Model<Api>`; each API's stream function
+	// is narrower, and the model registered below is the one passed in.
+	const stream = (
+		model.api === 'openai-completions' ? streamOpenAiCompletions : streamOpenAiResponses
+	) as NonNullable< ProviderConfigInput[ 'streamSimple' ] >;
 	return {
 		baseUrl: creds.baseURL,
 		apiKey: escapePiConfigValue( creds.apiKey ),

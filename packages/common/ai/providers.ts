@@ -63,10 +63,9 @@ export function providerServesModel( provider: AiProviderId, model: AiModelId ):
 }
 
 /**
- * The model to fall back to when no model was chosen or a provider can't
- * serve the requested one. The wpcom default depends on the account's AI
- * credit pools: accounts with purchased credits remaining get the balanced
- * tier, everyone else (including callers without quota data) the fast tier.
+ * The fallback when no model was chosen or the provider can't serve the
+ * requested one. On wpcom, paid credits upgrade the default to the balanced
+ * tier; everyone else (including callers without quota data) gets fast.
  */
 export function getAiProviderDefaultModel(
 	provider: AiProviderId,
@@ -79,10 +78,8 @@ export function getAiProviderDefaultModel(
 }
 
 /**
- * `resolveSessionModel` constrained to what the session's provider can serve:
- * a recorded model the provider no longer offers (e.g. a wpcom session from
- * before the capability tiers) snaps to the provider's default instead of
- * pinning a model whose credentials the provider can't resolve.
+ * `resolveSessionModel` constrained to what the provider can serve: a
+ * recorded model it no longer offers snaps to the provider's default.
  */
 export function resolveSessionModelForProvider(
 	entries: SessionEntry[],
@@ -114,11 +111,9 @@ export function resolveSessionProvider( entries: SessionEntry[] ): AiProviderId 
 }
 
 /**
- * The provider a conversation effectively runs on: its own pinned choice
- * first, then the saved global selection. Without a saved Anthropic key the
- * pin is unusable, so WordPress.com wins regardless — the CLI applies the
- * same rule on resume. Callers without settings (no aiSettings capability,
- * or not yet loaded) get the default provider.
+ * The provider a conversation effectively runs on: its pinned choice first,
+ * then the saved global selection. Without a saved Anthropic key the pin is
+ * unusable (as are missing/unloaded settings), so WordPress.com wins.
  */
 export function getEffectiveSessionProvider(
 	entries: SessionEntry[],

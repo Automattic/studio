@@ -9,6 +9,12 @@ const mockGetPathForFile = vi.hoisted( () =>
 	vi.fn( ( file: File ) => `/tmp/studio-attachments/${ file.name }` )
 );
 
+vi.mock( 'src/hooks/use-auth', () => ( {
+	useAuth: () => ( { isAuthenticated: false } ),
+} ) );
+vi.mock( 'src/stores/wpcom-api', () => ( {
+	useGetStudioAssistantQuota: () => ( { data: undefined } ),
+} ) );
 vi.mock( 'src/lib/get-ipc-api', () => ( {
 	getIpcApi: () => ( {
 		getPathForFile: mockGetPathForFile,

@@ -10,9 +10,14 @@ import {
 	type ComposerAttachmentHoverPreviewState,
 } from '@studio/common/ai/composer-attachment-preview';
 import { watchComposerFilePaste } from '@studio/common/ai/composer-attachments';
-import { getAiModelFamily, getAiModelLabel } from '@studio/common/ai/models';
+import {
+	aiModelRequiresPaidCredits,
+	getAiModelFamily,
+	getAiModelLabel,
+} from '@studio/common/ai/models';
 import { getAiProviderModels, getEffectiveSessionProvider } from '@studio/common/ai/providers';
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
+import { hasPaidAiCredits } from '@studio/common/lib/studio-assistant-quota';
 import { useQueryClient } from '@tanstack/react-query';
 import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
@@ -27,8 +32,10 @@ import {
 	type SetStateAction,
 } from 'react';
 import { useAiSettings } from 'src/hooks/use-ai-settings';
+import { useAuth } from 'src/hooks/use-auth';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useGetStudioAssistantQuota } from 'src/stores/wpcom-api';
 import * as Menu from '../menu';
 import { SESSIONS_QUERY_KEY } from '../use-session';
 import { FamilySwitchConfirmDialog } from './family-switch-confirm-dialog';
@@ -307,10 +314,18 @@ export function Composer( {
 	// the toolbar "/" toggle). Kept in its own hook so the Composer stays lean.
 	const slash = useSlashCommands( { value, setValue: setDraftValue, textareaRef, previewPrompt } );
 
-	// Only offer models the conversation's provider can serve.
+	// Only offer models the conversation's provider can serve. The paid tiers
+	// are listed but disabled for accounts without purchased credits.
 	const aiSettings = useAiSettings();
 	const visibleModels = getAiProviderModels(
 		getEffectiveSessionProvider( entries ?? [], aiSettings )
+	);
+	const { isAuthenticated } = useAuth();
+	const { data: quota } = useGetStudioAssistantQuota( undefined, { skip: ! isAuthenticated } );
+	const hasPaidCredits = hasPaidAiCredits( quota );
+	const isModelLocked = useCallback(
+		( id: AiModelId ) => aiModelRequiresPaidCredits( id ) && ! hasPaidCredits,
+		[ hasPaidCredits ]
 	);
 
 	// Cross-family swap state. We hold the picked model here while the
@@ -397,7 +412,7 @@ export function Composer( {
 
 	const handleModelChange = useCallback(
 		( picked: AiModelId ) => {
-			if ( picked === model ) {
+			if ( picked === model || isModelLocked( picked ) ) {
 				return;
 			}
 			// Cross-family switch: defer until the user confirms in the dialog
@@ -419,7 +434,7 @@ export function Composer( {
 			}
 			applySameFamilyModel( picked );
 		},
-		[ applySameFamilyModel, entries, model, onSwitchSession ]
+		[ applySameFamilyModel, entries, isModelLocked, model, onSwitchSession ]
 	);
 
 	const cancelFamilyChange = useCallback( () => {
@@ -696,7 +711,7 @@ export function Composer( {
 										onValueChange={ ( value ) => handleModelChange( value as AiModelId ) }
 									>
 										{ visibleModels.map( ( { id } ) => (
-											<Menu.RadioItem key={ id } value={ id }>
+											<Menu.RadioItem key={ id } value={ id } disabled={ isModelLocked( id ) }>
 												{ getAiModelLabel( id ) }
 											</Menu.RadioItem>
 										) ) }

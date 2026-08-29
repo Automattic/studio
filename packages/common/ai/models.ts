@@ -17,6 +17,13 @@ export interface AiModel {
 	 * screenshot tool results are images.
 	 */
 	supportsImages?: boolean;
+	/**
+	 * Offered only to accounts with purchased AI credits remaining — pickers
+	 * disable the model for free-allowance accounts. UI gating only; the wpcom
+	 * proxy is what actually enforces access, and `isAiModelId` never consults
+	 * this: a session that already recorded the model must still resolve.
+	 */
+	requiresPaidAiCredits?: boolean;
 }
 
 // The `studio` family are capability tiers, not concrete models: the wpcom
@@ -25,8 +32,8 @@ export interface AiModel {
 // `anthropic` family exists for the direct Anthropic · API key provider only.
 export const AI_MODELS = [
 	{ id: 'fast', label: 'Fast', family: 'studio', supportsImages: false },
-	{ id: 'balanced', label: 'Balanced', family: 'studio' },
-	{ id: 'strong', label: 'Strong', family: 'studio' },
+	{ id: 'balanced', label: 'Balanced', family: 'studio', requiresPaidAiCredits: true },
+	{ id: 'strong', label: 'Strong', family: 'studio', requiresPaidAiCredits: true },
 	{ id: 'claude-sonnet-5', label: 'Sonnet 5', family: 'anthropic' },
 	{ id: 'claude-opus-5', label: 'Opus 5', family: 'anthropic' },
 ] as const satisfies readonly AiModel[];
@@ -74,6 +81,10 @@ const TRANSLATED_MODEL_LABELS: Partial< Record< AiModelId, () => string > > = {
 
 export function getAiModelLabel( id: AiModelId ): string {
 	return TRANSLATED_MODEL_LABELS[ id ]?.() ?? getAiModel( id ).label;
+}
+
+export function aiModelRequiresPaidCredits( id: AiModelId ): boolean {
+	return getAiModel( id ).requiresPaidAiCredits ?? false;
 }
 
 // Tolerates ids outside AI_MODELS — callers can reach here with a cast, and

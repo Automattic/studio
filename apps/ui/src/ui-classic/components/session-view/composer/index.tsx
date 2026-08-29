@@ -10,7 +10,11 @@ import {
 	type ComposerAttachmentHoverPreviewState,
 } from '@studio/common/ai/composer-attachment-preview';
 import { watchComposerFilePaste } from '@studio/common/ai/composer-attachments';
-import { getAiModelFamily, getAiModelLabel } from '@studio/common/ai/models';
+import {
+	aiModelRequiresPaidCredits,
+	getAiModelFamily,
+	getAiModelLabel,
+} from '@studio/common/ai/models';
 import {
 	AI_PROVIDER_IDS,
 	AI_PROVIDER_LABELS,
@@ -352,9 +356,15 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 	);
 	const canPickProvider = Boolean( aiSettings?.hasAnthropicApiKey && sessionId );
 
-	// Only offer models the conversation's provider can serve.
+	// Only offer models the conversation's provider can serve. The paid tiers
+	// are listed but disabled for accounts without purchased credits.
 	const offeredModels = getAiProviderModels( sessionProvider );
 	const { data: quota } = useStudioAssistantQuota();
+	const hasPaidCredits = hasPaidAiCredits( quota );
+	const isModelLocked = useCallback(
+		( id: AiModelId ) => aiModelRequiresPaidCredits( id ) && ! hasPaidCredits,
+		[ hasPaidCredits ]
+	);
 
 	const slash = useSlashCommands( {
 		value,
@@ -661,7 +671,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 
 	const handleModelChange = useCallback(
 		( picked: AiModelId ) => {
-			if ( picked === model ) {
+			if ( picked === model || isModelLocked( picked ) ) {
 				return;
 			}
 			// Cross-family switch: defer until the user confirms in the dialog
@@ -680,7 +690,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 			}
 			applySameFamilyModel( picked );
 		},
-		[ applySameFamilyModel, model, onSwitchSession, sessionHasTurns ]
+		[ applySameFamilyModel, isModelLocked, model, onSwitchSession, sessionHasTurns ]
 	);
 
 	const cancelFamilyChange = useCallback( () => {
@@ -1114,7 +1124,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 										onValueChange={ ( value ) => handleModelChange( value as AiModelId ) }
 									>
 										{ offeredModels.map( ( { id } ) => (
-											<Menu.RadioItem key={ id } value={ id }>
+											<Menu.RadioItem key={ id } value={ id } disabled={ isModelLocked( id ) }>
 												{ getAiModelLabel( id ) }
 											</Menu.RadioItem>
 										) ) }

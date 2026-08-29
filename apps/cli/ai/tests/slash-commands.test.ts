@@ -1,3 +1,5 @@
+import { readAuthToken } from '@studio/common/lib/shared-config';
+import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AI_CHAT_SLASH_COMMANDS, type SlashCommandContext } from 'cli/ai/slash-commands';
 
@@ -40,6 +42,10 @@ vi.mock( 'cli/commands/preview/update', () => ( { runCommand: vi.fn() } ) );
 vi.mock( '@studio/common/lib/shared-config', () => ( {
 	readAuthToken: vi.fn(),
 	isAutomatticianFromToken: vi.fn().mockResolvedValue( true ),
+} ) );
+vi.mock( '@studio/common/lib/studio-assistant-quota', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@studio/common/lib/studio-assistant-quota') >() ),
+	fetchStudioAssistantQuota: vi.fn(),
 } ) );
 
 vi.mock( 'cli/remote-session/daemon', () => {
@@ -372,6 +378,13 @@ function buildModelCtx(
 }
 
 describe( '/model slash command', () => {
+	const grantPaidCredits = ( hasPaid: boolean ) => {
+		vi.mocked( readAuthToken ).mockResolvedValue( { accessToken: 'wpcom-token' } as never );
+		vi.mocked( fetchStudioAssistantQuota ).mockResolvedValue( {
+			purchasedRemaining: hasPaid ? 100_000 : 0,
+		} as never );
+	};
+
 	// Locks in the labelToId-map matcher introduced in slash-commands.ts.
 	// The previous implementation used `selectedLabel.startsWith( label )`,
 	// which silently picked the wrong id whenever one model's label was a
@@ -380,6 +393,7 @@ describe( '/model slash command', () => {
 	// and we want the regression coverage to survive future additions.
 	it( 'resolves the picked model exactly by label, not by prefix', async () => {
 		expect( modelHandler ).toBeDefined();
+		grantPaidCredits( true );
 		const { ctx, persistMock } = buildModelCtx( {
 			currentModel: 'fast',
 			askUserResponse: 'Balanced',
@@ -389,6 +403,41 @@ describe( '/model slash command', () => {
 
 		expect( ctx.currentModel ).toBe( 'balanced' );
 		expect( persistMock ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	it( 'withholds the paid tiers when no purchased credits remain', async () => {
+		grantPaidCredits( false );
+		const { ctx } = buildModelCtx( {
+			currentModel: 'fast',
+			askUserResponse: 'Balanced',
+		} );
+
+		await modelHandler!( '/model', ctx );
+
+		// Balanced was never offered, so the pick resolves to nothing.
+		expect( ctx.currentModel ).toBe( 'fast' );
+		const [ questions ] = vi.mocked( ctx.ui.askUser ).mock.calls[ 0 ];
+		expect( questions[ 0 ].options.map( ( option ) => option.description ) ).toEqual( [ 'fast' ] );
+		expect( ctx.ui.showInfo ).toHaveBeenCalledWith(
+			expect.stringContaining( 'purchased AI credits' )
+		);
+	} );
+
+	it( 'keeps offering the current model even when it needs purchased credits', async () => {
+		grantPaidCredits( false );
+		const { ctx } = buildModelCtx( {
+			currentModel: 'strong',
+			askUserResponse: 'Fast',
+		} );
+
+		await modelHandler!( '/model', ctx );
+
+		const [ questions ] = vi.mocked( ctx.ui.askUser ).mock.calls[ 0 ];
+		expect( questions[ 0 ].options.map( ( option ) => option.description ) ).toEqual( [
+			'fast',
+			'strong',
+		] );
+		expect( ctx.currentModel ).toBe( 'fast' );
 	} );
 
 	it( 'still resolves the picked model when its label carries the "(current)" suffix', async () => {

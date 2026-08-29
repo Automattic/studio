@@ -26,6 +26,7 @@ import {
 } from '@studio/common/ai/providers';
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
 import { getAiSkillCommands } from '@studio/common/ai/slash-commands';
+import { isAutomatticianEmail } from '@studio/common/lib/automattician';
 import {
 	formatPaidTiersNudge,
 	hasPaidAiCredits,
@@ -63,6 +64,7 @@ import * as Menu from '@/components/menu';
 import { useConnector } from '@/data/core';
 import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
+import { useAuthUser } from '@/data/queries/use-auth-user';
 import {
 	primeSessionQueryData,
 	reconcilePrimedSessionQueryData,
@@ -364,13 +366,15 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const canPickProvider = Boolean( aiSettings?.hasAnthropicApiKey && sessionId );
 
 	// Only offer models the conversation's provider can serve. The paid tiers
-	// are listed but disabled for accounts without purchased credits.
+	// are listed but disabled for accounts without purchased credits;
+	// Automatticians are exempt.
 	const offeredModels = getAiProviderModels( sessionProvider );
 	const { data: quota } = useStudioAssistantQuota();
-	const hasPaidCredits = hasPaidAiCredits( quota );
+	const { data: authUser } = useAuthUser();
+	const canUsePaidTiers = hasPaidAiCredits( quota ) || isAutomatticianEmail( authUser?.email );
 	const isModelLocked = useCallback(
-		( id: AiModelId ) => aiModelRequiresPaidCredits( id ) && ! hasPaidCredits,
-		[ hasPaidCredits ]
+		( id: AiModelId ) => aiModelRequiresPaidCredits( id ) && ! canUsePaidTiers,
+		[ canUsePaidTiers ]
 	);
 	const hasLockedModels = offeredModels.some( ( { id } ) => isModelLocked( id ) );
 

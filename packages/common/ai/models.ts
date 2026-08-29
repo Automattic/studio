@@ -19,9 +19,10 @@ export interface AiModel {
 	supportsImages?: boolean;
 	/**
 	 * Offered only to accounts with purchased AI credits remaining — pickers
-	 * disable the model for free-allowance accounts. UI gating only; the wpcom
-	 * proxy is what actually enforces access, and `isAiModelId` never consults
-	 * this: a session that already recorded the model must still resolve.
+	 * disable the model for free-allowance accounts (Automatticians exempt).
+	 * UI gating only; the wpcom proxy is what actually enforces access, and
+	 * `isAiModelId` never consults this: a session that already recorded the
+	 * model must still resolve.
 	 */
 	requiresPaidAiCredits?: boolean;
 }

@@ -17,6 +17,7 @@ import {
 } from '@studio/common/ai/models';
 import { getAiProviderModels, getEffectiveSessionProvider } from '@studio/common/ai/providers';
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
+import { isAutomatticianEmail } from '@studio/common/lib/automattician';
 import {
 	formatPaidTiersNudge,
 	getAddAiCreditsUrl,
@@ -329,12 +330,13 @@ export function Composer( {
 	const visibleModels = getAiProviderModels(
 		getEffectiveSessionProvider( entries ?? [], aiSettings )
 	);
-	const { isAuthenticated } = useAuth();
+	const { isAuthenticated, user } = useAuth();
 	const { data: quota } = useGetStudioAssistantQuota( undefined, { skip: ! isAuthenticated } );
-	const hasPaidCredits = hasPaidAiCredits( quota );
+	// The paid tiers unlock with purchased credits; Automatticians are exempt.
+	const canUsePaidTiers = hasPaidAiCredits( quota ) || isAutomatticianEmail( user?.email );
 	const isModelLocked = useCallback(
-		( id: AiModelId ) => aiModelRequiresPaidCredits( id ) && ! hasPaidCredits,
-		[ hasPaidCredits ]
+		( id: AiModelId ) => aiModelRequiresPaidCredits( id ) && ! canUsePaidTiers,
+		[ canUsePaidTiers ]
 	);
 	const hasLockedModels = visibleModels.some( ( { id } ) => isModelLocked( id ) );
 

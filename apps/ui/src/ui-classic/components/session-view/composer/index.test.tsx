@@ -209,6 +209,25 @@ describe( 'Composer menu', () => {
 		} );
 	} );
 
+	it( 'unlocks the paid tiers for Automatticians without purchased credits', async () => {
+		connectorMocks.getAuthUser.mockResolvedValue( { id: 1, email: 'person@automattic.com' } );
+		connectorMocks.getStudioAssistantQuota.mockResolvedValue( { purchasedRemaining: 0 } );
+		renderComposer();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Select model' } ) );
+		await waitFor( () => {
+			expect( screen.getByRole( 'menuitemradio', { name: 'Balanced' } ) ).not.toHaveAttribute(
+				'aria-disabled'
+			);
+		} );
+		expect( screen.getByRole( 'menuitemradio', { name: 'Strong' } ) ).not.toHaveAttribute(
+			'aria-disabled'
+		);
+		expect(
+			screen.queryByText( 'Add AI credits to unlock stronger models.' )
+		).not.toBeInTheDocument();
+	} );
+
 	it( 'nudges free-allowance accounts toward paid tiers, dismissibly', async () => {
 		localStorage.removeItem( 'studio_code_paid_tiers_nudge_dismissed' );
 		connectorMocks.getAuthUser.mockResolvedValue( { id: 1, email: 'user@example.com' } );

@@ -1,4 +1,4 @@
-import { readAuthToken } from '@studio/common/lib/shared-config';
+import { isAutomatticianFromToken, readAuthToken } from '@studio/common/lib/shared-config';
 import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AI_CHAT_SLASH_COMMANDS, type SlashCommandContext } from 'cli/ai/slash-commands';
@@ -378,7 +378,14 @@ function buildModelCtx(
 }
 
 describe( '/model slash command', () => {
-	const grantPaidCredits = ( hasPaid: boolean ) => {
+	const setAccount = ( {
+		hasPaid,
+		automattician = false,
+	}: {
+		hasPaid: boolean;
+		automattician?: boolean;
+	} ) => {
+		vi.mocked( isAutomatticianFromToken ).mockResolvedValue( automattician );
 		vi.mocked( readAuthToken ).mockResolvedValue( { accessToken: 'wpcom-token' } as never );
 		vi.mocked( fetchStudioAssistantQuota ).mockResolvedValue( {
 			purchasedRemaining: hasPaid ? 100_000 : 0,
@@ -393,7 +400,7 @@ describe( '/model slash command', () => {
 	// and we want the regression coverage to survive future additions.
 	it( 'resolves the picked model exactly by label, not by prefix', async () => {
 		expect( modelHandler ).toBeDefined();
-		grantPaidCredits( true );
+		setAccount( { hasPaid: true } );
 		const { ctx, persistMock } = buildModelCtx( {
 			currentModel: 'fast',
 			askUserResponse: 'Balanced',
@@ -406,7 +413,7 @@ describe( '/model slash command', () => {
 	} );
 
 	it( 'withholds the paid tiers when no purchased credits remain', async () => {
-		grantPaidCredits( false );
+		setAccount( { hasPaid: false } );
 		const { ctx } = buildModelCtx( {
 			currentModel: 'fast',
 			askUserResponse: 'Balanced',
@@ -423,8 +430,26 @@ describe( '/model slash command', () => {
 		);
 	} );
 
+	it( 'offers the paid tiers to Automatticians regardless of credits', async () => {
+		setAccount( { hasPaid: false, automattician: true } );
+		const { ctx } = buildModelCtx( {
+			currentModel: 'fast',
+			askUserResponse: 'Strong',
+		} );
+
+		await modelHandler!( '/model', ctx );
+
+		const [ questions ] = vi.mocked( ctx.ui.askUser ).mock.calls[ 0 ];
+		expect( questions[ 0 ].options.map( ( option ) => option.description ) ).toEqual( [
+			'fast',
+			'balanced',
+			'strong',
+		] );
+		expect( ctx.currentModel ).toBe( 'strong' );
+	} );
+
 	it( 'keeps offering the current model even when it needs purchased credits', async () => {
-		grantPaidCredits( false );
+		setAccount( { hasPaid: false } );
 		const { ctx } = buildModelCtx( {
 			currentModel: 'strong',
 			askUserResponse: 'Fast',

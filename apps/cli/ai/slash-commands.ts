@@ -5,7 +5,7 @@ import {
 	type AiModelId,
 } from '@studio/common/ai/models';
 import { getAiSkillCommands } from '@studio/common/ai/slash-commands';
-import { readAuthToken } from '@studio/common/lib/shared-config';
+import { isAutomatticianFromToken, readAuthToken } from '@studio/common/lib/shared-config';
 import {
 	fetchStudioAssistantQuota,
 	hasPaidAiCredits,
@@ -342,11 +342,14 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 		description: __( 'Switch the AI model' ),
 		handler: async ( _prompt, ctx ) => {
 			const { availableModels } = getAiProviderDefinition( ctx.currentProvider );
-			// The paid tiers are only offered while purchased credits remain.
-			// The current model always stays listed, so a session already on a
-			// paid tier keeps showing what it runs on.
+			// The paid tiers are only offered while purchased credits remain;
+			// Automatticians are exempt. The current model always stays listed,
+			// so a session already on a paid tier keeps showing what it runs on.
 			let offeredModels = availableModels;
-			if ( availableModels.some( aiModelRequiresPaidCredits ) ) {
+			if (
+				availableModels.some( aiModelRequiresPaidCredits ) &&
+				! ( await isAutomatticianFromToken() )
+			) {
 				const token = await readAuthToken();
 				const quota = token ? await fetchStudioAssistantQuota( token.accessToken ) : null;
 				if ( ! hasPaidAiCredits( quota ) ) {

@@ -401,7 +401,7 @@ describe( 'CLI: studio create', () => {
 			fs.writeFileSync( path.join( sourceDir, 'index.html' ), '<main>Source</main>' );
 			fs.writeFileSync( pluginPath, 'plugin-bytes' );
 			const copySpy = vi.spyOn( fs, 'copyFileSync' );
-			const rmSpy = vi.spyOn( fs, 'rmSync' );
+			const rmSpy = vi.spyOn( fs.promises, 'rm' );
 			vi.mocked( runBlueprint ).mockImplementation( async ( _site, _logger, options ) => {
 				const bundlePath = path.dirname( options.blueprintUri! );
 				const blueprint = JSON.parse( fs.readFileSync( options.blueprintUri!, 'utf8' ) );
@@ -443,7 +443,7 @@ describe( 'CLI: studio create', () => {
 			fs.writeFileSync( path.join( sourceDir, 'index.html' ), '<main>Source</main>' );
 			fs.writeFileSync( pluginPath, 'plugin-bytes' );
 			const copySpy = vi.spyOn( fs, 'copyFileSync' );
-			const rmSpy = vi.spyOn( fs, 'rmSync' );
+			const rmSpy = vi.spyOn( fs.promises, 'rm' );
 			vi.mocked( runBlueprint ).mockRejectedValue( new Error( 'Blueprint failed' ) );
 			const parser = registerCommand(
 				yargs( [] ).option( 'path', { type: 'string', default: mockSitePath } )
@@ -589,14 +589,24 @@ describe( 'CLI: studio create', () => {
 				path.join( mockSitePath, '.studio-import', 'request.json' ),
 				blueprint.staticSiteImport.request
 			);
-			expect( runWpCliCommandWithMessaging ).toHaveBeenCalledTimes( 2 );
+			expect( runWpCliCommandWithMessaging ).toHaveBeenCalledTimes( 4 );
 			expect( runWpCliCommandWithMessaging ).toHaveBeenNthCalledWith(
 				2,
 				expect.objectContaining( { path: mockSitePath } ),
-				expect.arrayContaining( [
-					'eval',
-					expect.stringContaining( 'delete_plugins( array( $plugin ) )' ),
-				] )
+				[ 'plugin', 'is-installed', 'static-site-importer' ],
+				{}
+			);
+			expect( runWpCliCommandWithMessaging ).toHaveBeenNthCalledWith(
+				3,
+				expect.objectContaining( { path: mockSitePath } ),
+				[ 'plugin', 'deactivate', 'static-site-importer', '--quiet' ],
+				{}
+			);
+			expect( runWpCliCommandWithMessaging ).toHaveBeenNthCalledWith(
+				4,
+				expect.objectContaining( { path: mockSitePath } ),
+				[ 'plugin', 'delete', 'static-site-importer' ],
+				{}
 			);
 			expect( rmSpy ).toHaveBeenCalledWith( path.join( mockSitePath, '.studio-import' ), {
 				recursive: true,
@@ -711,7 +721,9 @@ describe( 'CLI: studio create', () => {
 			const reportErrorSpy = vi.spyOn( Logger.prototype, 'reportError' );
 			vi.mocked( runWpCliCommandWithMessaging )
 				.mockReset()
+				// import succeeds, the plugin is installed, then deactivation fails.
 				.mockResolvedValueOnce( mockWpCli() )
+				.mockResolvedValueOnce( mockWpCli( { stdout: '' } ) )
 				.mockResolvedValueOnce(
 					mockWpCli( { exitCode: 1, stdout: '', stderr: 'cleanup failed' } )
 				);

@@ -25,35 +25,6 @@ export interface ValidationReport extends ValidationReportBase {
 	proposedFix?: BlockFixProposal;
 }
 
-/** Serialize content exactly as the target site's registered editor would save it. */
-export async function canonicalizeBlocks( content: string, siteUrl: string ): Promise< string > {
-	const editorPage = getEditorPage( siteUrl );
-
-	try {
-		const page = await editorPage.getPage();
-		return await page.evaluate( ( html: string ) => {
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			const wpBlocks = ( window as any ).wp?.blocks;
-			if ( ! wpBlocks ) {
-				throw new Error( 'wp.blocks is not available on this page.' );
-			}
-
-			const canonical = wpBlocks.serialize( wpBlocks.parse( html ) );
-			if ( canonical !== wpBlocks.serialize( wpBlocks.parse( canonical ) ) ) {
-				throw new Error( 'The target block registry did not produce a stable serialization.' );
-			}
-
-			return canonical;
-		}, content );
-	} catch ( error ) {
-		await editorPage.close();
-		editorPages.delete( siteUrl );
-		throw new Error(
-			`Block canonicalization error: ${ error instanceof Error ? error.message : String( error ) }`
-		);
-	}
-}
-
 // Cache one EditorPage per site URL so repeated validations reuse the same
 // browser tab instead of navigating and loading the block editor each time.
 const editorPages = new Map< string, EditorPage >();

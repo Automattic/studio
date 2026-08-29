@@ -176,7 +176,6 @@ export async function runBlueprint(
 			],
 			{
 				phpVersion,
-				mode: 'capture',
 				signal,
 				// blueprints.phar runs `wp-cli` steps by shelling out to `php` on the
 				// PATH. Expose the bundled binary so blueprints work on machines

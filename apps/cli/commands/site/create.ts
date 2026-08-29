@@ -1,10 +1,14 @@
 import crypto from 'crypto';
 import fs from 'fs';
-import os from 'os';
 import path from 'path';
 import { confirm, input, password, select } from '@inquirer/prompts';
 import { DEFAULT_WORDPRESS_VERSION, MINIMUM_WORDPRESS_VERSION } from '@studio/common/constants';
 import { installAiInstructionsToSite } from '@studio/common/lib/agent-skills';
+import {
+	createBlueprintTempDirSync,
+	removeBlueprintTempDir,
+	removeBlueprintTempDirSync,
+} from '@studio/common/lib/blueprint-bundle';
 import { extractFormValuesFromBlueprint } from '@studio/common/lib/blueprint-settings';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
@@ -80,7 +84,10 @@ import { updateServerFiles } from 'cli/lib/dependency-management/setup';
 import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
 import { validateSupportedPhpVersion } from 'cli/lib/php-versions';
-import { runWpCliCommandWithMessaging } from 'cli/lib/run-wp-cli-command';
+import {
+	runWpCliCommandWithMessaging,
+	type RunWpCliCommandOptions,
+} from 'cli/lib/run-wp-cli-command';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { generateSiteName } from 'cli/lib/site-name';
 import { getDefaultSitePath } from 'cli/lib/site-paths';
@@ -101,7 +108,8 @@ const defaultLogger = new Logger< LoggerAction >();
 // `npm run build:dev-package -- --blocks-engine-path <path>` and pass it to
 // `--static-site-importer-path`.
 const DEFAULT_STATIC_SITE_IMPORTER_PLUGIN_URL =
-	'https://github.com/Automattic/static-site-importer/releases/download/v1.8.0/static-site-importer.zip';
+	'https://github.com/Automattic/static-site-importer/releases/download/v1.8.2/static-site-importer.zip';
+const SSI_PLUGIN_SLUG = 'static-site-importer';
 const STATIC_SITE_IMPORT_DIR = '.studio-import';
 const STATIC_SITE_IMPORT_REQUEST_FILE = 'request.json';
 const STATIC_SITE_IMPORT_PROGRESS_INTERVAL_MS = 30_000;
@@ -411,12 +419,12 @@ export function buildCreateFromSourceBlueprint(
 } {
 	const source = resolveStaticSiteImporterSource( sourcePath );
 	const request = buildStaticSiteImporterRequest( source, siteName, originalSourceUrl );
-	const tempDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-create-from-' ) );
+	const tempDir = createBlueprintTempDirSync();
 	const blueprintPath = path.join( tempDir, 'blueprint.json' );
 	const pluginData =
 		typeof staticSiteImporterPlugin === 'string'
 			? { resource: 'url' as const, url: staticSiteImporterPlugin }
-			: { resource: 'bundled' as const, path: 'static-site-importer.zip' };
+			: { resource: 'bundled' as const, path: `${ SSI_PLUGIN_SLUG }.zip` };
 	const blueprint: BlueprintV1Declaration = {
 		landingPage: '/',
 		features: {
@@ -428,7 +436,7 @@ export function buildCreateFromSourceBlueprint(
 				pluginData,
 				options: {
 					activate: true,
-					targetFolderName: 'static-site-importer',
+					targetFolderName: SSI_PLUGIN_SLUG,
 				},
 			},
 		],
@@ -438,12 +446,12 @@ export function buildCreateFromSourceBlueprint(
 		if ( typeof staticSiteImporterPlugin !== 'string' ) {
 			fs.copyFileSync(
 				staticSiteImporterPlugin.path,
-				path.join( tempDir, 'static-site-importer.zip' )
+				path.join( tempDir, `${ SSI_PLUGIN_SLUG }.zip` )
 			);
 		}
 		fs.writeFileSync( blueprintPath, `${ JSON.stringify( blueprint, null, 2 ) }\n` );
 	} catch ( error ) {
-		fs.rmSync( tempDir, { recursive: true, force: true } );
+		removeBlueprintTempDirSync( tempDir );
 		throw error;
 	}
 	return {
@@ -471,7 +479,27 @@ function staticSiteImportRequestPath( sitePath: string ): string {
 	return path.join( sitePath, STATIC_SITE_IMPORT_DIR, STATIC_SITE_IMPORT_REQUEST_FILE );
 }
 
-function cleanupSuccessfulStaticSiteImport( sitePath: string ): void {
+type WpCliResult = { exitCode: number; stdout: string; stderr: string };
+
+async function runWpCli(
+	site: SiteData,
+	args: string[],
+	options: RunWpCliCommandOptions = {}
+): Promise< WpCliResult > {
+	await using command = await runWpCliCommandWithMessaging( site, args, options );
+	const [ exitCode, stdout, stderr ] = await Promise.all( [
+		command.response.exitCode,
+		command.response.stdoutText,
+		command.response.stderrText,
+	] );
+	return { exitCode, stdout, stderr };
+}
+
+function wpCliFailureDetail( { exitCode, stdout, stderr }: WpCliResult ): string {
+	return stderr.trim() || stdout.trim() || sprintf( __( 'WP-CLI exited with code %d.' ), exitCode );
+}
+
+function removeStagedStaticSiteImport( sitePath: string ): void {
 	fs.rmSync( path.join( sitePath, STATIC_SITE_IMPORT_DIR ), { recursive: true, force: true } );
 }
 
@@ -527,12 +555,10 @@ async function runStaticSiteImport(
 	}, STATIC_SITE_IMPORT_PROGRESS_INTERVAL_MS );
 	progressTimer.unref?.();
 
-	let exitCode: number;
-	let stdout: string;
-	let stderr: string;
+	let result: WpCliResult;
 	try {
 		const liveOutput = getSiteRuntime( site ) === SITE_RUNTIME_NATIVE_PHP;
-		await using command = await runWpCliCommandWithMessaging(
+		result = await runWpCli(
 			site,
 			[
 				'static-site-importer',
@@ -541,27 +567,18 @@ async function runStaticSiteImport(
 			],
 			liveOutput ? { liveOutput, onLiveOutput: () => logger.spinner.stop() } : {}
 		);
-		[ exitCode, stdout, stderr ] = await Promise.all( [
-			command.response.exitCode,
-			command.response.stdoutText,
-			command.response.stderrText,
-		] );
 	} finally {
 		clearInterval( progressTimer );
 	}
 
 	logger.reportProgress( staticSiteImportProgressMessage( 'import', Date.now() - startedAt ) );
+	const { exitCode, stdout } = result;
 	const receipt = decodeStaticSiteImportReceipt( stdout );
 	const receiptError = staticSiteImportReceiptError( receipt );
 	if ( exitCode !== 0 ) {
 		throw new LoggerError(
 			__( 'Static site import failed.' ),
-			new Error(
-				receiptError ||
-					stderr.trim() ||
-					stdout.trim() ||
-					sprintf( __( 'WP-CLI exited with code %d.' ), exitCode )
-			)
+			new Error( receiptError || wpCliFailureDetail( result ) )
 		);
 	}
 	if ( receipt?.schema !== STATIC_SITE_IMPORT_RECEIPT_SCHEMA || receipt.status !== 'completed' ) {
@@ -586,30 +603,26 @@ async function cleanupStaticSiteImporterPlugin(
 	logger: Logger< LoggerAction > = defaultLogger
 ): Promise< boolean > {
 	try {
-		await using command = await runWpCliCommandWithMessaging( site, [
-			'eval',
-			`require_once ABSPATH . 'wp-admin/includes/plugin.php';
-require_once ABSPATH . 'wp-admin/includes/file.php';
-$plugin = 'static-site-importer/static-site-importer.php';
-if ( is_plugin_active( $plugin ) ) {
-	deactivate_plugins( $plugin, true );
-}
-if ( file_exists( WP_PLUGIN_DIR . '/' . $plugin ) ) {
-	$result = delete_plugins( array( $plugin ) );
-	if ( is_wp_error( $result ) ) {
-		throw new RuntimeException( $result->get_error_message() );
-	}
-}`,
+		// `is-installed` exits non-zero when the plugin is absent, which keeps cleanup
+		// idempotent across a rerun that already removed it.
+		const installed = await runWpCli( site, [ 'plugin', 'is-installed', SSI_PLUGIN_SLUG ] );
+		if ( installed.exitCode !== 0 ) {
+			return true;
+		}
+
+		const deactivated = await runWpCli( site, [
+			'plugin',
+			'deactivate',
+			SSI_PLUGIN_SLUG,
+			'--quiet',
 		] );
-		const [ exitCode, stdout, stderr ] = await Promise.all( [
-			command.response.exitCode,
-			command.response.stdoutText,
-			command.response.stderrText,
-		] );
-		if ( exitCode !== 0 ) {
-			throw new Error(
-				stderr.trim() || stdout.trim() || sprintf( __( 'WP-CLI exited with code %d.' ), exitCode )
-			);
+		if ( deactivated.exitCode !== 0 ) {
+			throw new Error( wpCliFailureDetail( deactivated ) );
+		}
+
+		const deleted = await runWpCli( site, [ 'plugin', 'delete', SSI_PLUGIN_SLUG ] );
+		if ( deleted.exitCode !== 0 ) {
+			throw new Error( wpCliFailureDetail( deleted ) );
 		}
 		return true;
 	} catch ( error ) {
@@ -642,10 +655,12 @@ export async function runCommand(
 	const phpVersion = validateSupportedPhpVersion( options.phpVersion );
 	const isOnlineStatus = await isOnline();
 	const staticSiteImport = options.blueprint?.staticSiteImport;
-	let resumedStaticSiteImport = false;
-	let staticSiteImportSucceeded = false;
-	let staticSiteImportResultObserved = false;
-	let registeredSite = false;
+	// How far the static import got. `attempted` means the site now holds real import
+	// state, so failure handling must preserve it (and the staged request) for a rerun
+	// instead of tearing the site down.
+	let importOutcome: 'not-attempted' | 'attempted' | 'succeeded' = 'not-attempted';
+	// A site already registered at this path owns its own staged request; never clean it up.
+	let siteAlreadyExisted = false;
 
 	try {
 		if ( isOnlineStatus ) {
@@ -718,7 +733,7 @@ export async function runCommand(
 
 		const cliConfig = await readCliConfig();
 		const existingSite = cliConfig.sites.find( ( site ) => arePathsEqual( site.path, sitePath ) );
-		registeredSite = Boolean( existingSite );
+		siteAlreadyExisted = Boolean( existingSite );
 		const canResumeStaticSiteImport =
 			existingSite &&
 			staticSiteImport &&
@@ -726,15 +741,15 @@ export async function runCommand(
 			fs.readFileSync( staticSiteImportRequestPath( sitePath ), 'utf-8' ) ===
 				staticSiteImport.request;
 		if ( existingSite && staticSiteImport && canResumeStaticSiteImport ) {
-			resumedStaticSiteImport = true;
 			try {
-				staticSiteImportSucceeded = await runStaticSiteImport(
+				importOutcome = 'attempted';
+				const cleanupSucceeded = await runStaticSiteImport(
 					existingSite,
 					staticSiteImport.request,
 					true,
 					logger
 				);
-				staticSiteImportResultObserved = true;
+				importOutcome = cleanupSucceeded ? 'succeeded' : 'attempted';
 			} catch ( error ) {
 				throw new LoggerError( __( 'Failed to import static site' ), error );
 			}
@@ -925,13 +940,14 @@ export async function runCommand(
 					: `http://localhost:${ siteDetails.port }`;
 
 				if ( staticSiteImport ) {
-					staticSiteImportResultObserved = true;
-					staticSiteImportSucceeded = await runStaticSiteImport(
+					importOutcome = 'attempted';
+					const cleanupSucceeded = await runStaticSiteImport(
 						siteDetails,
 						staticSiteImport.request,
 						false,
 						logger
 					);
+					importOutcome = cleanupSucceeded ? 'succeeded' : 'attempted';
 				}
 
 				if ( ! options.skipLogDetails ) {
@@ -941,7 +957,7 @@ export async function runCommand(
 					await openSiteInBrowser( siteDetails );
 				}
 			} catch ( error ) {
-				if ( ! staticSiteImportResultObserved ) {
+				if ( importOutcome === 'not-attempted' ) {
 					await removeSiteFromConfig( siteDetails.id );
 					if ( ! isWordPressDirResult ) {
 						await fs.promises.rm( sitePath, { recursive: true, force: true } );
@@ -975,16 +991,17 @@ export async function runCommand(
 
 					stripWpConfigDbConstants( sitePath );
 					if ( staticSiteImport ) {
-						staticSiteImportResultObserved = true;
-						staticSiteImportSucceeded = await runStaticSiteImport(
+						importOutcome = 'attempted';
+						const cleanupSucceeded = await runStaticSiteImport(
 							siteDetails,
 							staticSiteImport.request,
 							false,
 							logger
 						);
+						importOutcome = cleanupSucceeded ? 'succeeded' : 'attempted';
 					}
 				} catch ( error ) {
-					if ( ! staticSiteImportResultObserved ) {
+					if ( importOutcome === 'not-attempted' ) {
 						await removeSiteFromConfig( siteDetails.id );
 						if ( ! isWordPressDirResult ) {
 							await fs.promises.rm( sitePath, { recursive: true, force: true } );
@@ -1030,18 +1047,14 @@ export async function runCommand(
 
 		await emitCliEvent( { event: SITE_EVENTS.CREATED, data: { siteId: siteDetails.id } } );
 	} finally {
-		if ( staticSiteImport && staticSiteImportSucceeded ) {
-			cleanupSuccessfulStaticSiteImport( sitePath );
-		} else if (
+		// Keep the staged request only when it is resumable: the import ran but did not
+		// finish. A site that already existed always keeps its own staged request.
+		if (
 			staticSiteImport &&
-			! resumedStaticSiteImport &&
-			! registeredSite &&
-			! staticSiteImportResultObserved
+			( importOutcome === 'succeeded' ||
+				( importOutcome === 'not-attempted' && ! siteAlreadyExisted ) )
 		) {
-			fs.rmSync( path.join( sitePath, STATIC_SITE_IMPORT_DIR ), {
-				recursive: true,
-				force: true,
-			} );
+			removeStagedStaticSiteImport( sitePath );
 		}
 		await disconnectFromDaemon();
 	}
@@ -1484,7 +1497,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 						sourceUrl
 					);
 				} else if ( argv.blueprint ) {
-					if ( argv.blueprint.startsWith( 'http://' ) || argv.blueprint.startsWith( 'https://' ) ) {
+					if ( isUrl( argv.blueprint ) ) {
 						config.blueprint = {
 							uri: argv.blueprint,
 							contents: await fetchBlueprint( argv.blueprint ),
@@ -1502,10 +1515,9 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 						// For gallery blueprints the path is a URL; use it directly.
 						if ( argv.originalBlueprintPath ) {
 							const originalPath = argv.originalBlueprintPath;
-							config.blueprint.uri =
-								originalPath.startsWith( 'http://' ) || originalPath.startsWith( 'https://' )
-									? originalPath
-									: path.resolve( originalPath );
+							config.blueprint.uri = isUrl( originalPath )
+								? originalPath
+								: path.resolve( originalPath );
 						}
 					}
 				}
@@ -1513,11 +1525,9 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				try {
 					await runCommand( sitePath, config );
 				} finally {
-					if ( config.blueprint?.staticSiteImport?.bundlePath ) {
-						fs.rmSync( config.blueprint.staticSiteImport.bundlePath, {
-							recursive: true,
-							force: true,
-						} );
+					const bundlePath = config.blueprint?.staticSiteImport?.bundlePath;
+					if ( bundlePath ) {
+						await removeBlueprintTempDir( bundlePath ).catch( () => {} );
 					}
 				}
 

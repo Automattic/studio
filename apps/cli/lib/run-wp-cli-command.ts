@@ -174,7 +174,7 @@ function drainToMemory( source: Readable ): Readable {
 	return sink;
 }
 
-type RunWpCliCommandOptions = {
+export type RunWpCliCommandOptions = {
 	phpVersion?: SupportedPHPVersion;
 	requireSqliteCliCommand?: boolean;
 	siteUrl?: string;

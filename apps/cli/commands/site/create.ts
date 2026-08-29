@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { confirm, input, password, select } from '@inquirer/prompts';
 import { DEFAULT_WORDPRESS_VERSION, MINIMUM_WORDPRESS_VERSION } from '@studio/common/constants';
@@ -39,6 +40,7 @@ import {
 	type SiteFileAccess,
 } from '@studio/common/lib/site-file-access';
 import {
+	getSiteRuntime,
 	SITE_MODE_NATIVE,
 	SITE_MODE_SANDBOX,
 	SITE_RUNTIME_NATIVE_PHP,
@@ -60,6 +62,8 @@ import {
 } from '@studio/common/types/php-versions';
 import { __, sprintf } from '@wordpress/i18n';
 import { isStepDefinition, type BlueprintV1Declaration } from '@wp-playground/blueprints';
+import { canonicalizeBlocks, cleanupValidatorPages } from 'cli/ai/block-validator';
+import { closeSharedBrowser } from 'cli/ai/browser-utils';
 import { bumpStat, getPlatformMetric } from 'cli/lib/bump-stat';
 import {
 	lockCliConfig,
@@ -68,7 +72,7 @@ import {
 	SiteData,
 	unlockCliConfig,
 } from 'cli/lib/cli-config/core';
-import { removeSiteFromConfig } from 'cli/lib/cli-config/sites';
+import { getSiteUrl, removeSiteFromConfig } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import {
 	getAiInstructionsPath,
@@ -78,6 +82,7 @@ import { updateServerFiles } from 'cli/lib/dependency-management/setup';
 import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
 import { validateSupportedPhpVersion } from 'cli/lib/php-versions';
+import { runWpCliCommandWithMessaging } from 'cli/lib/run-wp-cli-command';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { generateSiteName } from 'cli/lib/site-name';
 import { getDefaultSitePath } from 'cli/lib/site-paths';
@@ -87,11 +92,40 @@ import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/track
 import { StatsGroup } from 'cli/lib/types/bump-stats';
 import { untildify } from 'cli/lib/utils';
 import { ValidationError } from 'cli/lib/validation-error';
-import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
+import {
+	isServerRunning,
+	runBlueprint,
+	startWordPressServer,
+	stopWordPressServer,
+} from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
 const defaultLogger = new Logger< LoggerAction >();
+const DEFAULT_STATIC_SITE_IMPORTER_PLUGIN_URL =
+	'https://github.com/Automattic/static-site-importer/releases/download/v1.7.0/static-site-importer.zip';
+const STATIC_SITE_IMPORT_CONTRACT = 'ssi-import-v5-plan-first';
+const STATIC_SITE_IMPORT_DIR = '.studio-import';
+const STATIC_SITE_IMPORT_SCRIPT_FILE = 'import.php';
+const STATIC_SITE_IMPORT_FIGMA_FILE = 'source.fig';
+const STATIC_SITE_IMPORT_IDENTITY_FILE = 'static-site-importer.json';
+const STATIC_SITE_IMPORT_RESULT_FILE = 'result.json';
+const STATIC_SITE_IMPORT_SOURCE_FILE = 'source.json';
+const STATIC_SITE_IMPORT_STATE_FILE = 'state.json';
+const STATIC_SITE_IMPORT_CANONICAL_DOCUMENTS_FILE = 'client-canonical-documents.json';
+const STATIC_SITE_IMPORT_CANONICAL_UPDATES_FILE = 'client-canonical-updates.json';
+const MAX_STATIC_SITE_IMPORT_INVOCATIONS = 10000;
+const STATIC_SITE_IMPORT_PROGRESS_INTERVAL_MS = 30_000;
+const DATA_LIBERATION_CAPTURE_RECEIPT_SCHEMA = 'data-liberation/capture-receipt/v1';
+type StaticSiteImportProgressPhase = 'dependency-preparation' | 'compiler-import' | 'finalization';
+type StaticSiteImportIdentity = { source: string; contract: string; phase?: 'cleanup_pending' };
+
+type StaticSiteImporterSource = {
+	path: string;
+	payload: Record< string, unknown >;
+};
+
+type StaticSiteImporterPlugin = string | { path: string };
 
 export type CreateCommandOptions = {
 	name?: string;
@@ -105,6 +139,17 @@ export type CreateCommandOptions = {
 	blueprint?: {
 		contents: unknown;
 		uri: string;
+		staticSiteImport?: {
+			code: string;
+			source: string;
+			storeResult: boolean;
+			stagedSource?: {
+				sourcePath: string;
+				targetName: string;
+			};
+			identity?: StaticSiteImportIdentity;
+			bundlePath?: string;
+		};
 	};
 	adminUsername?: string;
 	adminPassword?: string;
@@ -127,6 +172,969 @@ function parseFlowType( value: string | undefined ): TracksSiteCreateFlowType | 
 	return SITE_CREATE_FLOW_TYPES.find( ( flowType ) => flowType === value );
 }
 
+function readSiteArtifact( artifactPath: string ): Record< string, unknown > {
+	if ( ! fs.existsSync( artifactPath ) ) {
+		throw new LoggerError( sprintf( __( 'Artifact file not found: %s' ), artifactPath ) );
+	}
+
+	try {
+		const artifactContent = fs.readFileSync( artifactPath, 'utf-8' );
+		const artifact = JSON.parse( artifactContent );
+		if ( ! artifact || typeof artifact !== 'object' || Array.isArray( artifact ) ) {
+			throw new Error( __( 'Artifact JSON must be an object.' ) );
+		}
+		return artifact as Record< string, unknown >;
+	} catch ( error ) {
+		throw new LoggerError(
+			sprintf( __( 'Failed to parse artifact JSON file: %s' ), artifactPath ),
+			error
+		);
+	}
+}
+
+function isUrl( value: string ): boolean {
+	return value.startsWith( 'http://' ) || value.startsWith( 'https://' );
+}
+
+function sourceFilePayload( filePath: string, relativePath: string ): Record< string, string > {
+	return {
+		path: relativePath.replace( /\\/g, '/' ),
+		content_base64: fs.readFileSync( filePath ).toString( 'base64' ),
+	};
+}
+
+function collectSourceFiles( sourceDir: string ): Record< string, string >[] {
+	const files: Record< string, string >[] = [];
+	const walk = ( currentDir: string ) => {
+		for ( const entry of fs.readdirSync( currentDir, { withFileTypes: true } ) ) {
+			if ( entry.name === '.DS_Store' || entry.name === '__MACOSX' ) {
+				continue;
+			}
+
+			const entryPath = path.join( currentDir, entry.name );
+			if ( entry.isDirectory() ) {
+				walk( entryPath );
+				continue;
+			}
+
+			if ( entry.isFile() ) {
+				files.push( sourceFilePayload( entryPath, path.relative( sourceDir, entryPath ) ) );
+			}
+		}
+	};
+	walk( sourceDir );
+	return files;
+}
+
+function resolveDataLiberationWebsiteRoot( sourceDir: string ): string {
+	const receiptPath = path.join( sourceDir, 'capture-receipt.json' );
+	if ( ! fs.existsSync( receiptPath ) ) {
+		return sourceDir;
+	}
+
+	const receipt = readSiteArtifact( receiptPath );
+	if ( receipt.schema !== DATA_LIBERATION_CAPTURE_RECEIPT_SCHEMA ) {
+		return sourceDir;
+	}
+
+	if ( typeof receipt.websiteRoot !== 'string' || ! receipt.websiteRoot.trim() ) {
+		throw new LoggerError( __( 'Data Liberation capture receipt must declare a website root.' ) );
+	}
+
+	const outputRoot = path.resolve( sourceDir );
+	const websiteRoot = path.resolve( sourceDir, receipt.websiteRoot );
+	const relativeRoot = path.relative( outputRoot, websiteRoot );
+	if ( relativeRoot === '..' || relativeRoot.startsWith( `..${ path.sep }` ) ) {
+		throw new LoggerError(
+			__( 'Data Liberation website root must stay inside the capture directory.' )
+		);
+	}
+	if ( ! fs.existsSync( websiteRoot ) || ! fs.statSync( websiteRoot ).isDirectory() ) {
+		throw new LoggerError(
+			sprintf( __( 'Data Liberation capture root not found: %s' ), websiteRoot )
+		);
+	}
+
+	return websiteRoot;
+}
+
+function resolveStaticSiteImporterSource(
+	sourcePath: string,
+	stagedFigmaPath?: string
+): StaticSiteImporterSource {
+	if ( isUrl( sourcePath ) ) {
+		throw new LoggerError(
+			__( 'Remote URLs must be rendered by Data Liberation before SSI materialization.' )
+		);
+	}
+
+	if ( ! fs.existsSync( sourcePath ) ) {
+		throw new LoggerError( sprintf( __( 'Import source not found: %s' ), sourcePath ) );
+	}
+
+	const stat = fs.statSync( sourcePath );
+	if ( stat.isDirectory() ) {
+		const artifactPath = path.join( sourcePath, 'artifact.json' );
+		if ( fs.existsSync( artifactPath ) ) {
+			const artifact = readSiteArtifact( artifactPath );
+			if ( artifact.schema === 'blocks-engine/php-transformer/site-artifact/v1' ) {
+				return {
+					path: artifactPath,
+					payload: { artifact },
+				};
+			}
+		}
+
+		const files = collectSourceFiles( resolveDataLiberationWebsiteRoot( sourcePath ) );
+		if ( files.length > 0 ) {
+			return {
+				path: sourcePath,
+				payload: { files },
+			};
+		}
+
+		throw new LoggerError( sprintf( __( 'Import source directory is empty: %s' ), sourcePath ) );
+	}
+
+	if ( ! stat.isFile() ) {
+		throw new LoggerError(
+			sprintf( __( 'Import source must be a file or directory: %s' ), sourcePath )
+		);
+	}
+
+	const extension = path.extname( sourcePath ).toLowerCase();
+	if ( extension === '.json' ) {
+		const artifact = readSiteArtifact( sourcePath );
+		return {
+			path: sourcePath,
+			payload: { artifact },
+		};
+	}
+
+	if ( extension === '.zip' ) {
+		return {
+			path: sourcePath,
+			payload: {
+				archive: {
+					name: path.basename( sourcePath ),
+					content_base64: fs.readFileSync( sourcePath ).toString( 'base64' ),
+				},
+			},
+		};
+	}
+
+	if ( extension === '.fig' ) {
+		if ( ! stagedFigmaPath ) {
+			throw new LoggerError( __( 'A staging path is required for Figma imports.' ) );
+		}
+		return {
+			path: sourcePath,
+			payload: {
+				figma_file: {
+					name: path.basename( sourcePath ),
+					staged_path: stagedFigmaPath,
+				},
+				transform_options: {
+					multi_page: true,
+				},
+			},
+		};
+	}
+
+	return {
+		path: sourcePath,
+		payload: {
+			files: [ sourceFilePayload( sourcePath, path.basename( sourcePath ) ) ],
+		},
+	};
+}
+
+function buildStaticSiteImporterPhp(
+	sourcePath: string,
+	siteName: string,
+	storeImportResult: boolean,
+	adminUsername: string
+): string {
+	return `<?php
+if ( ! function_exists( 'did_action' ) || ! did_action( 'plugins_loaded' ) ) {
+	require_once getcwd() . '/wp-load.php';
+}
+
+require_once ABSPATH . 'wp-admin/includes/plugin.php';
+require_once ABSPATH . 'wp-admin/includes/file.php';
+
+$source_path = ABSPATH . '${ STATIC_SITE_IMPORT_DIR }/${ STATIC_SITE_IMPORT_SOURCE_FILE }';
+$source_raw = is_file( $source_path ) ? file_get_contents( $source_path ) : false;
+$source = is_string( $source_raw ) ? json_decode( $source_raw, true ) : null;
+if ( ! is_array( $source ) ) {
+	throw new RuntimeException( 'Static Site Importer source payload could not be decoded.' );
+}
+
+$admin_user = get_user_by( 'login', ${ phpString( adminUsername ) } );
+if ( ! $admin_user instanceof WP_User ) {
+	throw new RuntimeException( 'Static Site Importer requires the created local administrator.' );
+}
+wp_set_current_user( $admin_user->ID, $admin_user->user_login );
+if ( ! current_user_can( 'manage_options' ) || ! current_user_can( 'unfiltered_html' ) ) {
+	throw new RuntimeException( 'Static Site Importer requires the created local administrator.' );
+}
+
+$input = array(
+	'name'            => ${ phpString( siteName ) },
+	'site_title'      => ${ phpString( siteName ) },
+	'activate'        => true,
+	'overwrite'       => true,
+	'client_script_policy' => 'isolated_preview',
+	'client_script_isolated' => true,
+	'client_script_provenance' => array( 'ref' => 'studio-create-from:sha256:' . hash( 'sha256', (string) wp_json_encode( $source ) ) ),
+	'source_metadata' => array(
+		'source'      => 'studio-create-from',
+		'source_path' => ${ phpString( sourcePath ) },
+	),
+);
+$state_path = ABSPATH . '${ STATIC_SITE_IMPORT_DIR }/${ STATIC_SITE_IMPORT_STATE_FILE }';
+$state_raw = is_file( $state_path ) ? file_get_contents( $state_path ) : false;
+$state = is_string( $state_raw ) ? json_decode( $state_raw, true ) : array();
+$state = is_array( $state ) ? $state : array();
+
+function static_site_importer_studio_failure_message( $result, string $fallback ): string {
+	if ( ! is_array( $result ) || ! is_array( $result['error'] ?? null ) ) {
+		return $fallback;
+	}
+	$code = is_scalar( $result['error']['code'] ?? null ) ? sanitize_key( (string) $result['error']['code'] ) : '';
+	$message = is_scalar( $result['error']['message'] ?? null ) ? sanitize_text_field( (string) $result['error']['message'] ) : '';
+	$detail = implode( ': ', array_filter( array( $code, $message ) ) );
+	return '' !== $detail ? $fallback . ': ' . substr( $detail, 0, 1000 ) : $fallback;
+}
+
+function static_site_importer_studio_bounded_value( $value, int $depth = 0 ) {
+	if ( $depth >= 5 ) {
+		return null;
+	}
+	if ( is_bool( $value ) || is_int( $value ) || is_float( $value ) || null === $value ) {
+		return $value;
+	}
+	if ( is_string( $value ) ) {
+		return substr( sanitize_text_field( $value ), 0, 1000 );
+	}
+	if ( ! is_array( $value ) ) {
+		return null;
+	}
+	$projection = array();
+	foreach ( array_slice( $value, 0, 50, true ) as $key => $item ) {
+		$projected_item = static_site_importer_studio_bounded_value( $item, $depth + 1 );
+		if ( null === $projected_item && null !== $item ) {
+			continue;
+		}
+		if ( is_int( $key ) ) {
+			$projection[ $key ] = $projected_item;
+			continue;
+		}
+		$projected_key = substr( sanitize_key( (string) $key ), 0, 100 );
+		if ( '' !== $projected_key ) {
+			$projection[ $projected_key ] = $projected_item;
+		}
+	}
+	return $projection;
+}
+
+function static_site_importer_studio_result_projection( $result ): array {
+	$projection = array( 'success' => is_array( $result ) && ! empty( $result['success'] ) );
+	if ( ! is_array( $result ) ) {
+		return $projection;
+	}
+	if ( is_array( $result['error'] ?? null ) ) {
+		$projection['error'] = array(
+			'code'    => substr( sanitize_key( (string) ( $result['error']['code'] ?? '' ) ), 0, 200 ),
+			'message' => substr( sanitize_text_field( (string) ( $result['error']['message'] ?? '' ) ), 0, 1000 ),
+		);
+		if ( array_key_exists( 'data', $result['error'] ) ) {
+			$projection['error']['data'] = static_site_importer_studio_bounded_value( $result['error']['data'] );
+		}
+	}
+	$import_result = isset( $result['result'] ) && is_array( $result['result'] ) ? $result['result'] : $result;
+	$stored_result = array(
+		'schema'       => 'studio/static-site-import-result/v1',
+		'status'       => substr( sanitize_key( (string) ( $import_result['status'] ?? ( $projection['success'] ? 'completed' : 'failed' ) ) ), 0, 100 ),
+		'continuation' => ! empty( $import_result['continuation'] ),
+		'pages'        => array_slice( array_map( 'intval', array_values( is_array( $import_result['pages'] ?? null ) ? $import_result['pages'] : array() ) ), 0, 5000 ),
+	);
+	$request_id = is_array( $import_result['fresh_runtime'] ?? null ) ? (string) ( $import_result['fresh_runtime']['request_id'] ?? '' ) : '';
+	if ( '' !== $request_id ) {
+		$stored_result['fresh_runtime'] = array( 'request_id' => substr( sanitize_text_field( $request_id ), 0, 200 ) );
+	}
+	foreach ( array( 'theme', 'theme_slug', 'front_page' ) as $field ) {
+		if ( isset( $import_result[ $field ] ) && is_scalar( $import_result[ $field ] ) ) {
+			$stored_result[ $field ] = substr( sanitize_text_field( (string) $import_result[ $field ] ), 0, 500 );
+		}
+	}
+	$projection['result'] = $stored_result;
+	if ( is_array( $result['diagnostics'] ?? null ) ) {
+		$projection['diagnostic_count'] = count( $result['diagnostics'] );
+		$projection['diagnostics'] = static_site_importer_studio_bounded_value( $result['diagnostics'] );
+	}
+	return $projection;
+}
+
+function static_site_importer_studio_write_result( array $result ): void {
+	$encoded = wp_json_encode( $result );
+	if ( ! is_string( $encoded ) ) {
+		throw new RuntimeException( 'Static Site Importer result receipt could not be encoded.' );
+	}
+	$result_path = ABSPATH . '${ STATIC_SITE_IMPORT_DIR }/${ STATIC_SITE_IMPORT_RESULT_FILE }';
+	$temp_path = $result_path . '.tmp-' . wp_generate_uuid4();
+	if ( false === file_put_contents( $temp_path, $encoded ) ) {
+		throw new RuntimeException( 'Static Site Importer result receipt could not be saved.' );
+	}
+	if ( ! rename( $temp_path, $result_path ) ) {
+		unlink( $temp_path );
+		throw new RuntimeException( 'Static Site Importer result receipt could not be finalized.' );
+	}
+}
+
+function static_site_importer_studio_record_failure( $result, string $fallback, bool $store_import_result ): void {
+	$projection = static_site_importer_studio_result_projection( $result );
+	if ( $store_import_result ) {
+		update_option( 'studio_create_from_import_result', $projection, false );
+	}
+	static_site_importer_studio_write_result(
+		array(
+			'continuation'  => false,
+			'failed'        => true,
+			'failure'       => $projection,
+			'import_receipt' => $projection,
+		)
+	);
+	throw new RuntimeException( static_site_importer_studio_failure_message( $result, $fallback ) );
+}
+
+function static_site_importer_studio_reject_catastrophic_content_loss( array $source, array $documents ): void { $st = $si = $it = $ii = 0; foreach ( $source['artifact']['files'] ?? array() as $f ) { if ( is_array( $f ) && str_ends_with( (string) ( $f['path'] ?? '' ), '.html' ) && isset( $f['content'] ) ) { $c = (string) $f['content']; $st += strlen( trim( wp_strip_all_tags( $c, true ) ) ); $si += preg_match_all( '/<img\\b/i', $c ); } } foreach ( $documents as $d ) { $c = (string) ( $d['content'] ?? '' ); $it += strlen( trim( wp_strip_all_tags( $c, true ) ) ); $ii += preg_match_all( '/<!--\\s+wp:image\\b|<img\\b/i', $c ); } if ( $st >= 160 && $si && $documents && $it <= 80 && ! $ii ) throw new RuntimeException( 'Static Site Importer rejected catastrophic content loss: source became navigation-only with no images. Inspect diagnostics.' ); }
+
+$store_import_result = ${ storeImportResult ? 'true' : 'false' };
+
+if ( isset( $source['figma_file'] ) ) {
+	if ( ! function_exists( 'static_site_importer_ability_import_figma' ) ) {
+		throw new RuntimeException( 'Static Site Importer Figma import ability is unavailable.' );
+	}
+	$input['source'] = $source;
+	$input['transform_options'] = isset( $source['transform_options'] ) && is_array( $source['transform_options'] ) ? $source['transform_options'] : array();
+	if ( ! empty( $state['runtime_lifecycle_request_id'] ) ) {
+		$input['runtime_lifecycle_phase'] = 'resume';
+		$input['runtime_lifecycle_request_id'] = (string) $state['runtime_lifecycle_request_id'];
+		if ( ! empty( $state['runtime_lifecycle_checkpoint'] ) ) {
+			$input['runtime_lifecycle_checkpoint'] = (string) $state['runtime_lifecycle_checkpoint'];
+		}
+	} else {
+		$input['runtime_lifecycle_phase'] = 'prepare';
+	}
+	$result = static_site_importer_ability_import_figma( $input );
+} else {
+	if ( ! function_exists( 'static_site_importer_ability_import' ) ) {
+		throw new RuntimeException( 'Static Site Importer canonical import ability is unavailable.' );
+	}
+
+	$artifact = isset( $source['artifact'] ) && is_array( $source['artifact'] ) ? $source['artifact'] : array();
+	if ( ! empty( $artifact ) ) {
+		$input['fail_on_quality'] = true;
+		$input['require_proven_dynamic_client_assets'] = true;
+		$input['seed_entities'] = true;
+		$input['materialize_dependencies'] = true;
+		if ( in_array( $artifact['theme_materialization'] ?? '', array( 'block', 'classic' ), true ) ) {
+			$input['theme_materialization'] = (string) $artifact['theme_materialization'];
+		}
+		$input['source_metadata']['semantic_evidence'] = is_array( $artifact['semantic_evidence'] ?? null ) ? $artifact['semantic_evidence'] : array();
+	}
+	if ( ! empty( $state['import_id'] ) ) {
+		$input['source'] = array( 'type' => 'files', 'import_id' => (string) $state['import_id'] );
+	} elseif ( ! empty( $artifact ) ) {
+		$metadata = $artifact;
+		unset( $metadata['schema'], $metadata['entrypoint'], $metadata['files'] );
+		$input['source'] = array(
+			'type'       => 'files',
+			'entrypoint' => (string) ( $artifact['entrypoint'] ?? '' ),
+			'files'      => isset( $artifact['files'] ) && is_array( $artifact['files'] ) ? $artifact['files'] : array(),
+			'metadata'   => $metadata,
+		);
+	} elseif ( isset( $source['archive'] ) && is_array( $source['archive'] ) ) {
+		$input['source'] = array(
+			'type' => 'zip',
+			'zip'  => $source['archive'],
+		);
+	} else {
+		$input['source'] = array(
+			'type'  => 'files',
+			'files' => isset( $source['files'] ) && is_array( $source['files'] ) ? $source['files'] : array(),
+		);
+	}
+	if ( ! empty( $state['runtime_lifecycle_request_id'] ) ) {
+		$input['runtime_lifecycle_phase'] = 'resume';
+		$input['runtime_lifecycle_request_id'] = (string) $state['runtime_lifecycle_request_id'];
+		if ( ! empty( $state['runtime_lifecycle_checkpoint'] ) ) {
+			$input['runtime_lifecycle_checkpoint'] = (string) $state['runtime_lifecycle_checkpoint'];
+		}
+	} else {
+		$input['runtime_lifecycle_phase'] = 'prepare';
+	}
+
+	$result = static_site_importer_ability_import( $input );
+}
+
+if ( ! is_array( $result ) || empty( $result['success'] ) ) {
+	static_site_importer_studio_record_failure( $result, 'Static Site Importer import failed', $store_import_result );
+}
+if ( $store_import_result ) {
+	update_option( 'studio_create_from_import_result', static_site_importer_studio_result_projection( $result ), false );
+}
+$import_result = isset( $result['result'] ) && is_array( $result['result'] ) ? $result['result'] : $result;
+if ( ! empty( $import_result['continuation'] ) && preg_match( '/^[a-f0-9]{64}$/', (string) ( $import_result['import_id'] ?? '' ) ) ) {
+	$state = array( 'import_id' => (string) $import_result['import_id'] );
+	if ( false === file_put_contents( $state_path, wp_json_encode( $state ) ) ) {
+		throw new RuntimeException( 'Static Site Importer direct continuation state could not be saved.' );
+	}
+	$continuation_receipt = array( 'continuation' => true );
+	if ( is_scalar( $import_result['status'] ?? null ) && '' !== (string) $import_result['status'] ) {
+		$continuation_receipt['status'] = substr( sanitize_key( (string) $import_result['status'] ), 0, 100 );
+	}
+	if ( isset( $import_result['url_batch_run']['completed_routes'], $import_result['url_batch_run']['total_routes'] ) ) {
+		$continuation_receipt['completed_routes'] = (int) $import_result['url_batch_run']['completed_routes'];
+		$continuation_receipt['total_routes'] = (int) $import_result['url_batch_run']['total_routes'];
+	}
+	static_site_importer_studio_write_result( $continuation_receipt );
+	return;
+}
+if ( 'dependencies_prepared' === ( $import_result['status'] ?? '' ) ) {
+	$request_id = (string) ( $import_result['fresh_runtime']['request_id'] ?? '' );
+	$checkpoint = (string) ( $import_result['fresh_runtime']['lifecycle_checkpoint_id'] ?? $import_result['runtime_lifecycle_checkpoint'] ?? '' );
+	$lifecycle_state = array( 'runtime_lifecycle_request_id' => $request_id );
+	if ( '' !== $checkpoint ) {
+		$lifecycle_state['runtime_lifecycle_checkpoint'] = $checkpoint;
+	}
+	if ( '' === $request_id || false === file_put_contents( $state_path, wp_json_encode( $lifecycle_state ) ) ) {
+		throw new RuntimeException( 'Static Site Importer lifecycle state could not be saved.' );
+	}
+	static_site_importer_studio_write_result( array( 'continuation' => true, 'status' => 'dependencies_prepared' ) );
+	return;
+}
+if ( '' !== $state_path && is_file( $state_path ) ) {
+	unlink( $state_path );
+}
+$canonical_documents = array();
+foreach ( array_unique( array_map( 'intval', array_values( isset( $import_result['pages'] ) && is_array( $import_result['pages'] ) ? $import_result['pages'] : array() ) ) ) as $post_id ) {
+	$post = get_post( $post_id );
+	if ( $post instanceof WP_Post ) {
+		$canonical_documents[] = array(
+			'post_id' => $post_id,
+			'content' => (string) $post->post_content,
+			'sha256'  => hash( 'sha256', (string) $post->post_content ),
+		);
+	}
+}
+if ( ! empty( $canonical_documents ) && false === file_put_contents( ABSPATH . '${ STATIC_SITE_IMPORT_DIR }/${ STATIC_SITE_IMPORT_CANONICAL_DOCUMENTS_FILE }', wp_json_encode( $canonical_documents ) ) ) {
+	throw new RuntimeException( 'Static Site Importer client canonicalization handoff could not be saved.' );
+}
+static_site_importer_studio_reject_catastrophic_content_loss( $source, $canonical_documents );
+
+$studio_result = array(
+	'continuation'             => ! empty( $import_result['continuation'] ),
+	'canonicalization_pending' => ! empty( $canonical_documents ),
+	'status'                    => (string) ( $import_result['url_batch_run']['status'] ?? $import_result['status'] ?? 'completed' ),
+	'completed_routes'          => (int) ( $import_result['url_batch_run']['completed_routes'] ?? count( $canonical_documents ) ),
+	'total_routes'              => (int) ( $import_result['url_batch_run']['total_routes'] ?? count( $canonical_documents ) ),
+	'import_receipt'            => static_site_importer_studio_result_projection( $result ),
+);
+static_site_importer_studio_write_result( $studio_result );
+?>`
+		.replace( /\s*\n\s*/g, '' )
+		.replace( '<?phpif', '<?php if' );
+}
+
+function artifactTitle( artifact: Record< string, unknown > ): string | undefined {
+	const directTitle = artifact.site_title || artifact.title || artifact.name;
+	if ( typeof directTitle === 'string' && directTitle.trim() ) {
+		return directTitle.trim();
+	}
+
+	const provenance = artifact.provenance;
+	if ( provenance && typeof provenance === 'object' && ! Array.isArray( provenance ) ) {
+		const provenanceTitle = ( provenance as Record< string, unknown > ).title;
+		if ( typeof provenanceTitle === 'string' && provenanceTitle.trim() ) {
+			return provenanceTitle.trim();
+		}
+	}
+
+	return undefined;
+}
+
+function phpString( value: string ): string {
+	return JSON.stringify( value );
+}
+
+export function buildCreateFromSourceBlueprint(
+	sourcePath: string,
+	siteName: string,
+	staticSiteImporterPlugin: StaticSiteImporterPlugin = DEFAULT_STATIC_SITE_IMPORTER_PLUGIN_URL,
+	storeImportResult = false,
+	adminUsername = 'admin',
+	originalSourceUrl?: string
+): {
+	contents: BlueprintV1Declaration;
+	uri: string;
+	staticSiteImport: {
+		code: string;
+		source: string;
+		storeResult: boolean;
+		stagedSource?: { sourcePath: string; targetName: string };
+		identity?: StaticSiteImportIdentity;
+		bundlePath?: string;
+	};
+} {
+	const stagedFigmaName =
+		path.extname( sourcePath ).toLowerCase() === '.fig' ? STATIC_SITE_IMPORT_FIGMA_FILE : undefined;
+	const source = resolveStaticSiteImporterSource(
+		sourcePath,
+		stagedFigmaName ? path.join( STATIC_SITE_IMPORT_DIR, stagedFigmaName ) : undefined
+	);
+	const tempDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-create-from-' ) );
+	const blueprintPath = path.join( tempDir, 'blueprint.json' );
+	const pluginData =
+		typeof staticSiteImporterPlugin === 'string'
+			? { resource: 'url' as const, url: staticSiteImporterPlugin }
+			: { resource: 'bundled' as const, path: 'static-site-importer.zip' };
+	const blueprint: BlueprintV1Declaration = {
+		landingPage: '/',
+		features: {
+			networking: true,
+		},
+		steps: [
+			{
+				step: 'installPlugin',
+				pluginData,
+				options: {
+					activate: true,
+					targetFolderName: 'static-site-importer',
+				},
+			},
+		],
+	};
+
+	try {
+		if ( typeof staticSiteImporterPlugin !== 'string' ) {
+			fs.copyFileSync(
+				staticSiteImporterPlugin.path,
+				path.join( tempDir, 'static-site-importer.zip' )
+			);
+		}
+		fs.writeFileSync( blueprintPath, `${ JSON.stringify( blueprint, null, 2 ) }\n` );
+	} catch ( error ) {
+		fs.rmSync( tempDir, { recursive: true, force: true } );
+		throw error;
+	}
+	return {
+		contents: blueprint,
+		uri: blueprintPath,
+		staticSiteImport: {
+			code: buildStaticSiteImporterPhp( source.path, siteName, storeImportResult, adminUsername ),
+			source: JSON.stringify( source.payload ),
+			storeResult: storeImportResult,
+			...( stagedFigmaName ? { stagedSource: { sourcePath, targetName: stagedFigmaName } } : {} ),
+			identity: { source: originalSourceUrl ?? source.path, contract: STATIC_SITE_IMPORT_CONTRACT },
+			bundlePath: tempDir,
+		},
+	};
+}
+
+function staticSiteImportIdentityPath( sitePath: string ): string {
+	return path.join( sitePath, STATIC_SITE_IMPORT_DIR, STATIC_SITE_IMPORT_IDENTITY_FILE );
+}
+
+function cleanupSuccessfulStaticSiteImport( sitePath: string, preserveResult = false ): void {
+	fs.rmSync( path.join( sitePath, STATIC_SITE_IMPORT_DIR, STATIC_SITE_IMPORT_SCRIPT_FILE ), {
+		force: true,
+	} );
+	if ( ! preserveResult ) {
+		fs.rmSync( path.join( sitePath, STATIC_SITE_IMPORT_DIR, STATIC_SITE_IMPORT_RESULT_FILE ), {
+			force: true,
+		} );
+	}
+	fs.rmSync( path.join( sitePath, STATIC_SITE_IMPORT_DIR, STATIC_SITE_IMPORT_SOURCE_FILE ), {
+		force: true,
+	} );
+	fs.rmSync( path.join( sitePath, STATIC_SITE_IMPORT_DIR, STATIC_SITE_IMPORT_FIGMA_FILE ), {
+		force: true,
+	} );
+	fs.rmSync( staticSiteImportIdentityPath( sitePath ), { force: true } );
+	fs.rmSync( path.join( sitePath, STATIC_SITE_IMPORT_DIR, STATIC_SITE_IMPORT_STATE_FILE ), {
+		force: true,
+	} );
+	fs.rmSync(
+		path.join( sitePath, STATIC_SITE_IMPORT_DIR, STATIC_SITE_IMPORT_CANONICAL_DOCUMENTS_FILE ),
+		{ force: true }
+	);
+	fs.rmSync(
+		path.join( sitePath, STATIC_SITE_IMPORT_DIR, STATIC_SITE_IMPORT_CANONICAL_UPDATES_FILE ),
+		{ force: true }
+	);
+}
+
+async function canonicalizeStaticSiteImport( site: SiteData, stagingDir: string ): Promise< void > {
+	const documentsPath = path.join( stagingDir, STATIC_SITE_IMPORT_CANONICAL_DOCUMENTS_FILE );
+	if ( ! fs.existsSync( documentsPath ) ) {
+		throw new Error( 'Static site import completed without its canonicalization handoff.' );
+	}
+
+	const documents = JSON.parse( fs.readFileSync( documentsPath, 'utf-8' ) ) as Array< {
+		post_id: number;
+		content: string;
+		sha256: string;
+	} >;
+	if ( ! Array.isArray( documents ) || documents.length === 0 ) {
+		throw new Error( 'Static site import returned an invalid canonicalization handoff.' );
+	}
+
+	const updates = [];
+	const siteUrl = getSiteUrl( site );
+	for ( const document of documents ) {
+		if (
+			! Number.isInteger( document.post_id ) ||
+			document.post_id <= 0 ||
+			typeof document.content !== 'string' ||
+			document.sha256 !== crypto.createHash( 'sha256' ).update( document.content ).digest( 'hex' )
+		) {
+			throw new Error( 'Static site import returned a corrupt canonicalization document.' );
+		}
+		const content = await canonicalizeBlocks( document.content, siteUrl );
+		if ( content !== document.content ) {
+			updates.push( {
+				post_id: document.post_id,
+				before_sha256: document.sha256,
+				after_sha256: crypto.createHash( 'sha256' ).update( content ).digest( 'hex' ),
+				content,
+			} );
+		}
+	}
+
+	if ( updates.length > 0 ) {
+		const updatesPath = path.join( stagingDir, STATIC_SITE_IMPORT_CANONICAL_UPDATES_FILE );
+		fs.writeFileSync( updatesPath, JSON.stringify( updates ) );
+		await using command = await runWpCliCommandWithMessaging( site, [
+			'eval',
+			`$path = ABSPATH . '${ STATIC_SITE_IMPORT_DIR }/${ STATIC_SITE_IMPORT_CANONICAL_UPDATES_FILE }';
+$documents = json_decode( (string) file_get_contents( $path ), true );
+if ( ! is_array( $documents ) ) {
+	throw new RuntimeException( 'Client canonicalization updates are invalid.' );
+}
+foreach ( $documents as $document ) {
+	$post = get_post( (int) ( $document['post_id'] ?? 0 ) );
+	if ( ! $post instanceof WP_Post || ! hash_equals( (string) ( $document['before_sha256'] ?? '' ), hash( 'sha256', (string) $post->post_content ) ) ) {
+		throw new RuntimeException( 'Client canonicalization preimage changed before persistence.' );
+	}
+	$result = wp_update_post( array( 'ID' => $post->ID, 'post_content' => wp_slash( (string) ( $document['content'] ?? '' ) ) ), true );
+	$updated = get_post( $post->ID );
+	if ( is_wp_error( $result ) || ! $updated instanceof WP_Post || ! hash_equals( (string) ( $document['after_sha256'] ?? '' ), hash( 'sha256', (string) $updated->post_content ) ) ) {
+		throw new RuntimeException( 'Client canonicalization did not persist exact target-registry bytes.' );
+	}
+}`,
+		] );
+		const [ exitCode, stdout, stderr ] = await Promise.all( [
+			command.response.exitCode,
+			command.response.stdoutText,
+			command.response.stderrText,
+		] );
+		if ( exitCode !== 0 ) {
+			throw new Error(
+				stderr.trim() || stdout.trim() || sprintf( __( 'WP-CLI exited with code %d.' ), exitCode )
+			);
+		}
+		fs.rmSync( updatesPath, { force: true } );
+	}
+
+	fs.rmSync( documentsPath, { force: true } );
+}
+
+export function staticSiteImportProgressMessage(
+	phase: StaticSiteImportProgressPhase,
+	elapsedMs: number,
+	invocation = 1
+): string {
+	const elapsedSeconds = Math.floor( elapsedMs / 1000 );
+	if ( phase === 'dependency-preparation' ) {
+		return sprintf( __( 'Dependency preparation… %d sec elapsed' ), elapsedSeconds );
+	}
+	if ( phase === 'compiler-import' ) {
+		return sprintf(
+			/* translators: 1: importer invocation, 2: elapsed seconds */
+			__( 'Compiler/import… invocation %1$d, %2$d sec elapsed' ),
+			invocation,
+			elapsedSeconds
+		);
+	}
+	return sprintf( __( 'Finalization… %d sec elapsed' ), elapsedSeconds );
+}
+
+export function staticSiteImportContinuationMessage( result: {
+	completed_routes?: number;
+	total_routes?: number;
+	status?: string;
+} ): string {
+	if (
+		typeof result.completed_routes === 'number' &&
+		typeof result.total_routes === 'number' &&
+		result.total_routes > 0
+	) {
+		return sprintf(
+			/* translators: 1: completed route count, 2: total route count */
+			__( 'Static site import progress: %1$d/%2$d routes' ),
+			result.completed_routes,
+			result.total_routes
+		);
+	}
+	const stage = typeof result.status === 'string' ? result.status.trim().replace( /_/g, ' ' ) : '';
+	if ( stage !== '' ) {
+		/* translators: %s: stage the importer reported for its last continuation */
+		return sprintf( __( 'Static site import continuing: %s' ), stage );
+	}
+	return __( 'Static site import continuing…' );
+}
+
+async function runStaticSiteImport(
+	site: SiteData,
+	code: string,
+	source: string,
+	stagedSource?: { sourcePath: string; targetName: string },
+	identity?: StaticSiteImportIdentity,
+	preserveResult = false,
+	resume = false,
+	logger: Logger< LoggerAction > = defaultLogger
+): Promise< boolean > {
+	const stagingDir = path.join( site.path, STATIC_SITE_IMPORT_DIR );
+	const scriptName = STATIC_SITE_IMPORT_SCRIPT_FILE;
+	const scriptPath = path.join( stagingDir, scriptName );
+	const resultPath = path.join( stagingDir, STATIC_SITE_IMPORT_RESULT_FILE );
+	const statePath = path.join( stagingDir, STATIC_SITE_IMPORT_STATE_FILE );
+	if ( ! resume ) {
+		fs.mkdirSync( stagingDir, { recursive: true } );
+		if ( stagedSource ) {
+			fs.copyFileSync( stagedSource.sourcePath, path.join( stagingDir, stagedSource.targetName ) );
+		}
+		fs.writeFileSync( path.join( stagingDir, STATIC_SITE_IMPORT_SOURCE_FILE ), source );
+		if ( identity ) {
+			fs.writeFileSync( staticSiteImportIdentityPath( site.path ), JSON.stringify( identity ) );
+		}
+		fs.writeFileSync( scriptPath, code );
+	}
+
+	const liveOutput = getSiteRuntime( site ) === SITE_RUNTIME_NATIVE_PHP;
+	type ImportResult = {
+		continuation?: boolean;
+		canonicalization_pending?: boolean;
+		completed_routes?: number;
+		total_routes?: number;
+		status?: string;
+	};
+	let finalizationStartedAt: number | undefined;
+	for ( let invocation = 1; invocation <= MAX_STATIC_SITE_IMPORT_INVOCATIONS; invocation++ ) {
+		let result: ImportResult | undefined;
+		if ( resume && invocation === 1 && fs.existsSync( resultPath ) ) {
+			try {
+				const persistedResult = JSON.parse(
+					fs.readFileSync( resultPath, 'utf-8' )
+				) as ImportResult;
+				if ( ! persistedResult.continuation && persistedResult.canonicalization_pending ) {
+					result = persistedResult;
+				}
+			} catch {
+				// The normal import path below reports malformed or missing receipts.
+			}
+		}
+		if ( ! result ) {
+			fs.rmSync( resultPath, { force: true } );
+			const phase: StaticSiteImportProgressPhase =
+				invocation === 1 && ! resume && ! fs.existsSync( statePath )
+					? 'dependency-preparation'
+					: 'compiler-import';
+			const startedAt = Date.now();
+			logger.reportStart(
+				LoggerAction.IMPORT_SITE,
+				staticSiteImportProgressMessage( phase, 0, invocation )
+			);
+			const progressTimer = setInterval( () => {
+				logger.reportProgress(
+					staticSiteImportProgressMessage( phase, Date.now() - startedAt, invocation )
+				);
+			}, STATIC_SITE_IMPORT_PROGRESS_INTERVAL_MS );
+			progressTimer.unref?.();
+			let exitCode: number;
+			let stdout: string;
+			let stderr: string;
+			try {
+				await using command = await runWpCliCommandWithMessaging(
+					site,
+					[ 'eval-file', `${ path.basename( stagingDir ) }/${ scriptName }` ],
+					liveOutput ? { liveOutput, onLiveOutput: () => logger.spinner.stop() } : {}
+				);
+				[ exitCode, stdout, stderr ] = await Promise.all( [
+					command.response.exitCode,
+					command.response.stdoutText,
+					command.response.stderrText,
+				] );
+			} finally {
+				clearInterval( progressTimer );
+			}
+			logger.reportProgress(
+				staticSiteImportProgressMessage( phase, Date.now() - startedAt, invocation )
+			);
+			if ( exitCode !== 0 ) {
+				throw new LoggerError(
+					__( 'Static site import failed.' ),
+					new Error(
+						stderr.trim() ||
+							stdout.trim() ||
+							sprintf( __( 'WP-CLI exited with code %d.' ), exitCode )
+					)
+				);
+			}
+
+			if ( ! fs.existsSync( resultPath ) ) {
+				throw new LoggerError(
+					__( 'Static site import completed without a result receipt.' ),
+					new Error( __( 'The importer did not write .studio-import/result.json.' ) )
+				);
+			}
+		}
+		try {
+			result ??= JSON.parse( fs.readFileSync( resultPath, 'utf-8' ) );
+		} catch ( error ) {
+			throw new LoggerError( __( 'Static site import returned an invalid result.' ), error );
+		} finally {
+			if ( ! preserveResult ) fs.rmSync( resultPath, { force: true } );
+		}
+		if ( ! result ) {
+			throw new LoggerError( __( 'Static site import returned an invalid result.' ) );
+		}
+		if ( ! result.continuation ) {
+			finalizationStartedAt = Date.now();
+			logger.reportProgress( staticSiteImportProgressMessage( 'finalization', 0 ) );
+			if ( result.canonicalization_pending ) {
+				await connectToDaemon();
+				const startForCanonicalization = ! ( await isServerRunning( site.id ) );
+				if ( startForCanonicalization ) {
+					await startWordPressServer( site, logger );
+					site.running = true;
+				}
+				try {
+					try {
+						await canonicalizeStaticSiteImport( site, stagingDir );
+					} finally {
+						try {
+							await cleanupValidatorPages();
+						} finally {
+							await closeSharedBrowser();
+						}
+					}
+				} finally {
+					if ( startForCanonicalization ) {
+						await stopWordPressServer( site.id );
+						site.running = false;
+					}
+				}
+			}
+			break;
+		}
+		logger.reportSuccess( staticSiteImportContinuationMessage( result ) );
+		if ( invocation === MAX_STATIC_SITE_IMPORT_INVOCATIONS ) {
+			throw new LoggerError( __( 'Static site import exceeded its continuation limit.' ) );
+		}
+	}
+	if ( identity ) {
+		fs.writeFileSync(
+			staticSiteImportIdentityPath( site.path ),
+			JSON.stringify( { ...identity, phase: 'cleanup_pending' } )
+		);
+	}
+	const cleanupSucceeded = await cleanupStaticSiteImporterPlugin( site, logger );
+	logger.reportProgress(
+		staticSiteImportProgressMessage(
+			'finalization',
+			finalizationStartedAt === undefined ? 0 : Date.now() - finalizationStartedAt
+		)
+	);
+	logger.reportSuccess( __( 'Static site imported successfully' ) );
+	return cleanupSucceeded;
+}
+
+async function cleanupStaticSiteImporterPlugin(
+	site: SiteData,
+	logger: Logger< LoggerAction > = defaultLogger
+): Promise< boolean > {
+	try {
+		await using command = await runWpCliCommandWithMessaging( site, [
+			'eval',
+			`require_once ABSPATH . 'wp-admin/includes/plugin.php';
+require_once ABSPATH . 'wp-admin/includes/file.php';
+$plugin = 'static-site-importer/static-site-importer.php';
+if ( is_plugin_active( $plugin ) ) {
+	deactivate_plugins( $plugin, true );
+}
+if ( file_exists( WP_PLUGIN_DIR . '/' . $plugin ) ) {
+	$result = delete_plugins( array( $plugin ) );
+	if ( is_wp_error( $result ) ) {
+		throw new RuntimeException( $result->get_error_message() );
+	}
+}`,
+		] );
+		const [ exitCode, stdout, stderr ] = await Promise.all( [
+			command.response.exitCode,
+			command.response.stdoutText,
+			command.response.stderrText,
+		] );
+		if ( exitCode !== 0 ) {
+			throw new Error(
+				stderr.trim() || stdout.trim() || sprintf( __( 'WP-CLI exited with code %d.' ), exitCode )
+			);
+		}
+		return true;
+	} catch ( error ) {
+		logger.reportError(
+			new LoggerError(
+				__(
+					'Static Site Importer cleanup failed. The imported site and resumable import state were preserved.'
+				),
+				error
+			),
+			false
+		);
+		return false;
+	}
+}
+
+function resumableStaticSiteImportPhase(
+	sitePath: string,
+	code: string,
+	identity: StaticSiteImportIdentity | undefined
+): 'import' | 'cleanup_pending' | null {
+	if ( ! identity ) {
+		return null;
+	}
+	const scriptPath = path.join( sitePath, STATIC_SITE_IMPORT_DIR, STATIC_SITE_IMPORT_SCRIPT_FILE );
+	const identityPath = staticSiteImportIdentityPath( sitePath );
+	if ( ! fs.existsSync( scriptPath ) || ! fs.existsSync( identityPath ) ) {
+		return null;
+	}
+	try {
+		const persistedIdentity = JSON.parse( fs.readFileSync( identityPath, 'utf-8' ) );
+		if (
+			persistedIdentity?.source !== identity.source ||
+			persistedIdentity?.contract !== identity.contract ||
+			fs.readFileSync( scriptPath, 'utf-8' ) !== code
+		) {
+			return null;
+		}
+		return persistedIdentity.phase === 'cleanup_pending' ? 'cleanup_pending' : 'import';
+	} catch {
+		return null;
+	}
+}
+
 export async function runCommand(
 	sitePath: string,
 	options: CreateCommandOptions,
@@ -142,6 +1150,11 @@ export async function runCommand(
 	}
 	const phpVersion = validateSupportedPhpVersion( options.phpVersion );
 	const isOnlineStatus = await isOnline();
+	const staticSiteImport = options.blueprint?.staticSiteImport;
+	let resumedStaticSiteImport = false;
+	let staticSiteImportSucceeded = false;
+	let staticSiteImportResultObserved = false;
+	let registeredSite = false;
 
 	try {
 		if ( isOnlineStatus ) {
@@ -213,7 +1226,42 @@ export async function runCommand(
 		}
 
 		const cliConfig = await readCliConfig();
-		if ( cliConfig.sites.some( ( site ) => arePathsEqual( site.path, sitePath ) ) ) {
+		const existingSite = cliConfig.sites.find( ( site ) => arePathsEqual( site.path, sitePath ) );
+		registeredSite = Boolean( existingSite );
+		const resumePhase =
+			existingSite && staticSiteImport
+				? resumableStaticSiteImportPhase(
+						sitePath,
+						staticSiteImport.code,
+						staticSiteImport.identity
+				  )
+				: null;
+		if ( existingSite && staticSiteImport && resumePhase ) {
+			resumedStaticSiteImport = true;
+			try {
+				staticSiteImportSucceeded =
+					resumePhase === 'cleanup_pending'
+						? await cleanupStaticSiteImporterPlugin( existingSite, logger )
+						: await runStaticSiteImport(
+								existingSite,
+								staticSiteImport.code,
+								staticSiteImport.source,
+								staticSiteImport.stagedSource,
+								staticSiteImport.identity,
+								staticSiteImport.storeResult,
+								true,
+								logger
+						  );
+				staticSiteImportResultObserved = true;
+			} catch ( error ) {
+				throw new LoggerError( __( 'Failed to import static site' ), error );
+			}
+			if ( staticSiteImportSucceeded ) {
+				cleanupSuccessfulStaticSiteImport( sitePath, staticSiteImport.storeResult );
+			}
+			return;
+		}
+		if ( existingSite ) {
 			throw new LoggerError( __( 'The selected directory is already in use.' ) );
 		}
 
@@ -397,6 +1445,20 @@ export async function runCommand(
 					? `${ siteDetails.enableHttps ? 'https' : 'http' }://${ siteDetails.customDomain }`
 					: `http://localhost:${ siteDetails.port }`;
 
+				if ( staticSiteImport ) {
+					staticSiteImportResultObserved = true;
+					staticSiteImportSucceeded = await runStaticSiteImport(
+						siteDetails,
+						staticSiteImport.code,
+						staticSiteImport.source,
+						staticSiteImport.stagedSource,
+						staticSiteImport.identity,
+						staticSiteImport.storeResult,
+						false,
+						logger
+					);
+				}
+
 				if ( ! options.skipLogDetails ) {
 					logSiteDetails( siteDetails );
 				}
@@ -404,11 +1466,18 @@ export async function runCommand(
 					await openSiteInBrowser( siteDetails );
 				}
 			} catch ( error ) {
-				await removeSiteFromConfig( siteDetails.id );
-				if ( ! isWordPressDirResult ) {
-					await fs.promises.rm( sitePath, { recursive: true, force: true } );
+				if ( ! staticSiteImportResultObserved ) {
+					await removeSiteFromConfig( siteDetails.id );
+					if ( ! isWordPressDirResult ) {
+						await fs.promises.rm( sitePath, { recursive: true, force: true } );
+					}
 				}
-				throw new LoggerError( __( 'Failed to start WordPress server' ), error );
+				throw new LoggerError(
+					staticSiteImport
+						? __( 'Failed to import static site' )
+						: __( 'Failed to start WordPress server' ),
+					error
+				);
 			}
 		} else {
 			if ( blueprint ) {
@@ -430,12 +1499,32 @@ export async function runCommand(
 					logger.reportSuccess( __( 'Blueprint applied successfully' ) );
 
 					stripWpConfigDbConstants( sitePath );
-				} catch ( error ) {
-					await removeSiteFromConfig( siteDetails.id );
-					if ( ! isWordPressDirResult ) {
-						await fs.promises.rm( sitePath, { recursive: true, force: true } );
+					if ( staticSiteImport ) {
+						staticSiteImportResultObserved = true;
+						staticSiteImportSucceeded = await runStaticSiteImport(
+							siteDetails,
+							staticSiteImport.code,
+							staticSiteImport.source,
+							staticSiteImport.stagedSource,
+							staticSiteImport.identity,
+							staticSiteImport.storeResult,
+							false,
+							logger
+						);
 					}
-					throw new LoggerError( __( 'Failed to apply Blueprint' ), error );
+				} catch ( error ) {
+					if ( ! staticSiteImportResultObserved ) {
+						await removeSiteFromConfig( siteDetails.id );
+						if ( ! isWordPressDirResult ) {
+							await fs.promises.rm( sitePath, { recursive: true, force: true } );
+						}
+					}
+					throw new LoggerError(
+						staticSiteImport
+							? __( 'Failed to import static site' )
+							: __( 'Failed to apply Blueprint' ),
+						error
+					);
 				}
 			}
 			console.log( '' );
@@ -470,6 +1559,19 @@ export async function runCommand(
 
 		await emitCliEvent( { event: SITE_EVENTS.CREATED, data: { siteId: siteDetails.id } } );
 	} finally {
+		if ( staticSiteImport && staticSiteImportSucceeded ) {
+			cleanupSuccessfulStaticSiteImport( sitePath, staticSiteImport.storeResult );
+		} else if (
+			staticSiteImport &&
+			! resumedStaticSiteImport &&
+			! registeredSite &&
+			! staticSiteImportResultObserved
+		) {
+			fs.rmSync( path.join( sitePath, STATIC_SITE_IMPORT_DIR ), {
+				recursive: true,
+				force: true,
+			} );
+		}
 		await disconnectFromDaemon();
 	}
 }
@@ -603,6 +1705,56 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					type: 'string',
 					describe: __( 'Path or URL to Blueprint JSON file' ),
 				} )
+				.option( 'from', {
+					type: 'string',
+					describe: __( 'Create the site from a static import source' ),
+					conflicts: 'blueprint',
+					coerce: ( value ) => {
+						if ( isUrl( value ) ) {
+							return value;
+						}
+
+						return path.resolve( untildify( value ) );
+					},
+				} )
+				.option( 'static-site-importer-url', {
+					type: 'string',
+					describe: __( 'Static Site Importer plugin zip URL for --from imports' ),
+					defaultDescription: DEFAULT_STATIC_SITE_IMPORTER_PLUGIN_URL,
+					conflicts: 'static-site-importer-path',
+				} )
+				.option( 'static-site-importer-path', {
+					type: 'string',
+					describe: __( 'Local Static Site Importer plugin zip for --from imports' ),
+					conflicts: 'static-site-importer-url',
+					coerce: ( value ) => {
+						const pluginPath = path.resolve( untildify( value ) );
+						if ( path.extname( pluginPath ).toLowerCase() !== '.zip' ) {
+							throw new ValidationError(
+								'static-site-importer-path',
+								value,
+								__( 'Must be a .zip file' )
+							);
+						}
+						try {
+							if ( ! fs.statSync( pluginPath ).isFile() ) {
+								throw new Error();
+							}
+						} catch {
+							throw new ValidationError(
+								'static-site-importer-path',
+								value,
+								__( 'Must be an existing regular .zip file' )
+							);
+						}
+						return pluginPath;
+					},
+				} )
+				.option( 'store-import-result', {
+					type: 'boolean',
+					describe: __( 'Store the import result in the created site database' ),
+					default: false,
+				} )
 				.option( 'original-blueprint-path', {
 					type: 'string',
 					hidden: true,
@@ -644,7 +1796,11 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				} );
 		},
 		handler: async ( argv ) => {
-			let siteName = argv.name;
+			const artifact =
+				argv.from && ! isUrl( argv.from ) && path.extname( argv.from ).toLowerCase() === '.json'
+					? readSiteArtifact( argv.from )
+					: undefined;
+			let siteName = argv.name ?? ( artifact ? artifactTitle( artifact ) : undefined );
 			let sitePath = argv.path;
 			let wpVersion = argv.wp;
 			let phpVersion = argv.php;
@@ -843,35 +1999,61 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				flowType: parseFlowType( argv.flowType ),
 			};
 
-			if ( argv.blueprint ) {
-				if ( argv.blueprint.startsWith( 'http://' ) || argv.blueprint.startsWith( 'https://' ) ) {
-					config.blueprint = {
-						uri: argv.blueprint,
-						contents: await fetchBlueprint( argv.blueprint ),
-					};
-				} else {
-					const uri = path.resolve( untildify( argv.blueprint ) );
+			try {
+				const importSource = argv.from;
+				// Remote URLs are rendered into a local source by Data Liberation before they
+				// reach SSI; until that path exists here, `resolveStaticSiteImporterSource`
+				// rejects them. `sourceUrl` still carries provenance for local captures.
+				const sourceUrl = importSource && isUrl( importSource ) ? importSource : undefined;
 
-					config.blueprint = {
-						uri,
-						contents: readBlueprint( uri ),
-					};
+				if ( importSource ) {
+					config.blueprint = buildCreateFromSourceBlueprint(
+						importSource,
+						siteName || __( 'Imported Site' ),
+						argv.staticSiteImporterPath
+							? { path: argv.staticSiteImporterPath }
+							: argv.staticSiteImporterUrl ?? DEFAULT_STATIC_SITE_IMPORTER_PLUGIN_URL,
+						argv.storeImportResult,
+						adminUsername ?? 'admin',
+						sourceUrl
+					);
+				} else if ( argv.blueprint ) {
+					if ( argv.blueprint.startsWith( 'http://' ) || argv.blueprint.startsWith( 'https://' ) ) {
+						config.blueprint = {
+							uri: argv.blueprint,
+							contents: await fetchBlueprint( argv.blueprint ),
+						};
+					} else {
+						const uri = path.resolve( untildify( argv.blueprint ) );
 
-					// When invoked by the desktop app, the blueprint contents come from a temp file
-					// but resources should be resolved relative to the original file location.
-					// For gallery blueprints the path is a URL; use it directly.
-					if ( argv.originalBlueprintPath ) {
-						const originalPath = argv.originalBlueprintPath;
-						config.blueprint.uri =
-							originalPath.startsWith( 'http://' ) || originalPath.startsWith( 'https://' )
-								? originalPath
-								: path.resolve( originalPath );
+						config.blueprint = {
+							uri,
+							contents: readBlueprint( uri ),
+						};
+
+						// When invoked by the desktop app, the blueprint contents come from a temp file
+						// but resources should be resolved relative to the original file location.
+						// For gallery blueprints the path is a URL; use it directly.
+						if ( argv.originalBlueprintPath ) {
+							const originalPath = argv.originalBlueprintPath;
+							config.blueprint.uri =
+								originalPath.startsWith( 'http://' ) || originalPath.startsWith( 'https://' )
+									? originalPath
+									: path.resolve( originalPath );
+						}
 					}
 				}
-			}
 
-			try {
-				await runCommand( sitePath, config );
+				try {
+					await runCommand( sitePath, config );
+				} finally {
+					if ( config.blueprint?.staticSiteImport?.bundlePath ) {
+						fs.rmSync( config.blueprint.staticSiteImport.bundlePath, {
+							recursive: true,
+							force: true,
+						} );
+					}
+				}
 
 				if ( __ENABLE_CLI_TELEMETRY__ && ! argv.avoidTelemetry ) {
 					bumpStat(

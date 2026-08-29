@@ -391,6 +391,11 @@ function buildModel(
 		// window is a conservative floor across the upstreams a tier may
 		// resolve to, so compaction always kicks in before any of them
 		// overflows.
+		//
+		// `strong` is the exception: it pins `reasoning_effort: "none"` on every
+		// request (the map covers all thinking levels) — its upstream errors
+		// when the reasoning switch is left implicit.
+		const pinReasoningNone = modelId === 'strong';
 		return {
 			...common,
 			api: 'openai-completions',
@@ -401,10 +406,23 @@ function buildModel(
 			compat: {
 				supportsStore: false,
 				supportsDeveloperRole: false,
-				supportsReasoningEffort: false,
+				supportsReasoningEffort: pinReasoningNone,
 				supportsStrictMode: false,
 				maxTokensField: 'max_tokens',
 			},
+			...( pinReasoningNone
+				? {
+						thinkingLevelMap: {
+							off: 'none',
+							minimal: 'none',
+							low: 'none',
+							medium: 'none',
+							high: 'none',
+							xhigh: 'none',
+							max: 'none',
+						},
+				  }
+				: {} ),
 		};
 	}
 	// Without `compat.forceAdaptiveThinking` pi-ai sends the legacy

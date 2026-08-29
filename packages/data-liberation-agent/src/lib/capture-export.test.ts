@@ -1991,4 +1991,50 @@ if ( existsSync( ${ JSON.stringify( join( outputDir, '.capture-export-html' ) ) 
 			false
 		);
 	} );
+
+	it( 'preserves document syntax when a replacement map includes a bare slash', () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-degenerate-slash-export-' ) );
+		dirs.push( outputDir );
+		for ( const path of [ 'html', 'screenshots', 'media' ] )
+			mkdirSync( join( outputDir, path ), { recursive: true } );
+		writeFileSync(
+			join( outputDir, 'html', 'homepage.html' ),
+			'<html><body><div class="hero-wrap"><div class="hero-inner"><img src="/hero.png"><img src="https://cdn.example/logo.png"></div></div><style>.hero-inner{background-image:url(/)}</style></body></html>'
+		);
+		writeFileSync( join( outputDir, 'media', 'hero.png' ), 'hero' );
+		writeFileSync( join( outputDir, 'media', 'logo.png' ), 'logo' );
+		writeFileSync( join( outputDir, 'media', 'root.png' ), 'root' );
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				entries: { 'https://example.com/': { html: 'html/homepage.html' } },
+			} )
+		);
+		const media = MediaStubStore.load( outputDir );
+		media.markSuccess( 'https://example.com/', join( outputDir, 'media', 'root.png' ) );
+		media.markSuccess( 'https://example.com/hero.png', join( outputDir, 'media', 'hero.png' ) );
+		media.markSuccess( 'https://cdn.example/logo.png', join( outputDir, 'media', 'logo.png' ) );
+		media.flush();
+
+		exportWebsiteCapture( {
+			outputDir,
+			sourceUrl: 'https://example.com/',
+			platform: 'fake',
+			summary: {},
+			failures: [],
+		} );
+
+		const html = readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' );
+		const diagnostics = JSON.parse( readFileSync( join( outputDir, 'diagnostics.json' ), 'utf8' ) );
+		expect( html ).toContain( '</div>' );
+		expect( html ).not.toMatch( /<\/(?:https?:|media\/)/ );
+		expect( html ).not.toContain( '<https://' );
+		expect( html ).toContain( '/media/hero.png' );
+		expect( html ).toContain( '/media/logo.png' );
+		expect( diagnostics.unresolvedMedia ).toContainEqual( {
+			url: '/',
+			error: 'skipped degenerate replacement key',
+		} );
+	} );
 } );

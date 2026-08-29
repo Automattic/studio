@@ -225,9 +225,36 @@ function rewriteCapturedRouteLinks(
 	return $.html();
 }
 
-function replaceAll( content: string, replacements: Map< string, string > ): string {
+// Substring replacement is only safe for distinct URL-ish tokens (absolute URLs,
+// `/media/logo.png`, `images/logo.png`). A single character or punctuation-only
+// string (`/`, `//`, `./`) is ordinary HTML/CSS syntax — closing tags, protocol
+// separators, relative prefixes — not a specific reference.
+function isSubstitutableReplacementKey( source: string ): boolean {
+	return source.length > 1 && /[0-9A-Za-z]/.test( source );
+}
+
+function omitDegenerateReplacements(
+	replacements: Map< string, string >,
+	rejectedKeys?: Set< string >
+): Map< string, string > {
 	const values = new Map< string, string >();
 	for ( const [ source, local ] of replacements ) {
+		if ( ! isSubstitutableReplacementKey( source ) ) {
+			if ( source ) rejectedKeys?.add( source );
+			continue;
+		}
+		values.set( source, local );
+	}
+	return values;
+}
+
+function replaceAll(
+	content: string,
+	replacements: Map< string, string >,
+	rejectedKeys?: Set< string >
+): string {
+	const values = new Map< string, string >();
+	for ( const [ source, local ] of omitDegenerateReplacements( replacements, rejectedKeys ) ) {
 		values.set( source, local );
 		values.set( source.replace( /&/g, '&amp;' ), local.replace( /&/g, '&amp;' ) );
 	}
@@ -1030,7 +1057,11 @@ function dependencyReferences(
 	} );
 }
 
-function removeDanglingMediaSource( html: string, reference: string ): string {
+function removeDanglingMediaSource(
+	html: string,
+	reference: string,
+	rejectedKeys?: Set< string >
+): string {
 	const normalizedReference = reference.replace( /&amp;/g, '&' );
 	const withoutSources = html.replace( /<(img|source|video|audio)\b[^>]*>/gi, ( tag ) => {
 		const element = /^<(\w+)/.exec( tag )?.[ 1 ].toLowerCase();
@@ -1046,12 +1077,21 @@ function removeDanglingMediaSource( html: string, reference: string ): string {
 		new Map( [
 			[ reference, TRANSPARENT_IMAGE_DATA_URL ],
 			[ normalizedReference, TRANSPARENT_IMAGE_DATA_URL ],
-		] )
+		] ),
+		rejectedKeys
 	);
 }
 
-function replaceDanglingCssUrl( html: string, reference: string ): string {
-	return replaceAll( html, new Map( [ [ reference, 'data:application/octet-stream;base64,' ] ] ) );
+function replaceDanglingCssUrl(
+	html: string,
+	reference: string,
+	rejectedKeys?: Set< string >
+): string {
+	return replaceAll(
+		html,
+		new Map( [ [ reference, 'data:application/octet-stream;base64,' ] ] ),
+		rejectedKeys
+	);
 }
 
 function removeDanglingResourceReference( html: string, reference: string ): string {
@@ -1494,6 +1534,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 	}
 
 	const unresolvedDependencies: Array< { url: string; sourceUrl: string; error: string } > = [];
+	const rejectedReplacementKeys = new Set< string >();
 	const copiedResources = new Set< string >();
 	const copyingResources = new Set< string >();
 	const resourceReplacements = new Map< string, string >();
@@ -1552,15 +1593,22 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		mkdirSync( dirname( destination ), { recursive: true } );
 		copyingResources.add( resource.path );
 		if ( isText ) {
-			let content = replaceAll( readFileSync( source, 'utf8' ), mediaReplacements );
+			let content = replaceAll(
+				readFileSync( source, 'utf8' ),
+				mediaReplacements,
+				rejectedReplacementKeys
+			);
 			if ( /text\/css/i.test( resource.contentType ) ) {
 				for ( const nested of dependencyReferences( content, dependency.url, true ) ) {
 					if ( ! copyResource( nested, dependency.url ) ) {
-						content = replaceDanglingCssUrl( content, nested.reference );
+						content = replaceDanglingCssUrl( content, nested.reference, rejectedReplacementKeys );
 					}
 				}
 			}
-			writeFileSync( destination, replaceAll( content, resourceReplacements ) );
+			writeFileSync(
+				destination,
+				replaceAll( content, resourceReplacements, rejectedReplacementKeys )
+			);
 		} else {
 			copyFileSync( source, destination );
 			assetPathsByHash.set( contentHash, relativePath );
@@ -1582,9 +1630,9 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 			if ( ! copyResource( dependency, entry.url ) ) {
 				html =
 					dependency.kind === 'media'
-						? removeDanglingMediaSource( html, dependency.reference )
+						? removeDanglingMediaSource( html, dependency.reference, rejectedReplacementKeys )
 						: dependency.kind === 'css'
-						? replaceDanglingCssUrl( html, dependency.reference )
+						? replaceDanglingCssUrl( html, dependency.reference, rejectedReplacementKeys )
 						: removeDanglingResourceReference( html, dependency.reference );
 			}
 		}
@@ -1688,9 +1736,10 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		const identityHtml = replaceAll(
 			rewriteMediaUrls(
 				rewriteCapturedRouteLinks( readFileSync( htmlPath, 'utf8' ), url, portableRouteLinks ),
-				mediaReplacements
+				omitDegenerateReplacements( mediaReplacements, rejectedReplacementKeys )
 			),
-			resourceReplacements
+			resourceReplacements,
+			rejectedReplacementKeys
 		);
 		const normalizedHtml = wireCapturedDialogs(
 			withoutGeometryIdentities( identityHtml ),
@@ -1879,7 +1928,13 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 				discoveryDiagnostics: options.discoveryDiagnostics ?? [],
 				resourceFailures: resourceManifest.failures,
 				unresolvedDependencies,
-				unresolvedMedia,
+				unresolvedMedia: [
+					...unresolvedMedia,
+					...[ ...rejectedReplacementKeys ].map( ( source ) => ( {
+						url: source,
+						error: 'skipped degenerate replacement key',
+					} ) ),
+				],
 				unresolvedAnchors,
 				portableMedia,
 				interactions: interactionSummary,
